@@ -1,0 +1,29 @@
+{
+  "name": "warframe-companion",
+  "version": "0.1.0",
+  "description": "A Warframe companion app — inventory viewer, foundry tracker, and more.",
+  "main": "main.js",
+  "scripts": {
+    "build": "vite build",
+    "start": "npm run build && electron .",
+    "dev": "vite build && electron ."
+  },
+  "keywords": [
+    "warframe",
+    "companion",
+    "inventory"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^3.1.2",
+    "electron": "^33.0.0",
+    "svelte": "^4.2.20",
+    "vite": "^5.4.21"
+  },
+  "dependencies": {
+    "@wfcd/items": "^1.1272.0",
+    "chokidar": "^4.0.0",
+    "warframe-public-export-plus": "latest"
+  }
+}

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:;" />
+  <title>Relic Overlay</title>
+  <style>
+    :root {
+      --bg:            rgba(6, 10, 18, 0.93);
+      --surface:       rgba(17, 24, 39, 0.97);
+      --border:        rgba(212, 168, 67, 0.22);
+      --accent:        #d4a843;
+      --accent-bright: #f0c95c;
+      --text:          #e8e4dc;
+      --muted:         #8b93a5;
+      --danger:        #f87171;
+      --rare:          #d4a843;
+      --uncommon:      #94a3b8;
+      --common:        #64748b;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      background: transparent;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      height: 100%;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #panel {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      width: 310px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.75);
+      backdrop-filter: blur(8px);
+    }
+
+    /* ── Header ── */
+    #header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px 6px;
+      background: rgba(212,168,67,0.08);
+      border-bottom: 1px solid var(--border);
+      -webkit-app-region: drag;
+      flex-shrink: 0;
+    }
+    #header-title {
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--accent);
+    }
+    #header-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
+    #btn-close {
+      -webkit-app-region: no-drag;
+      background: none; border: none; color: var(--muted);
+      font-size: 18px; cursor: pointer; line-height: 1;
+      padding: 2px 4px; border-radius: 4px;
+      transition: color 0.15s, background 0.15s;
+    }
+    #btn-close:hover { color: var(--danger); background: rgba(248,113,113,0.1); }
+
+    /* ── Scanning spinner ── */
+    #scanning-state {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 9px;
+      padding: 22px 16px 20px;
+    }
+    #scanning-state.visible { display: flex; }
+    .scan-spinner {
+      width: 28px; height: 28px;
+      border: 3px solid rgba(212,168,67,0.18);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.85s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #scanning-text { font-size: 11.5px; color: var(--muted); }
+
+    /* ── Reward slots ── */
+    #slots-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      padding: 8px 10px 6px;
+    }
+
+    .reward-slot {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 7px 9px 7px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      transition: border-color 0.2s, background 0.2s;
+      min-height: 76px;
+    }
+    .reward-slot.has-item  { border-color: rgba(212,168,67,0.28); }
+    .reward-slot.best-slot {
+      border-color: var(--accent);
+      background: rgba(212,168,67,0.09);
+      box-shadow: 0 0 0 1px rgba(212,168,67,0.22);
+    }
+    .reward-slot.empty-slot { opacity: 0.38; }
+
+    .slot-player {
+      font-size: 9px; font-weight: 700;
+      letter-spacing: 1px; color: var(--muted); text-transform: uppercase;
+    }
+
+    /* Auto-detected item name */
+    .slot-name {
+      font-size: 11px; color: var(--text); line-height: 1.35;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      min-height: 28px;
+    }
+    .slot-name.empty { color: var(--muted); font-style: italic; }
+
+    /* Manual input fallback (hidden by default) */
+    .slot-input {
+      display: none;
+      width: 100%;
+      background: transparent; border: none;
+      border-bottom: 1px solid rgba(255,255,255,0.14);
+      color: var(--text); font-size: 11px;
+      padding: 2px 0 3px; outline: none; font-family: inherit;
+    }
+    .slot-input.visible { display: block; }
+    .slot-input::placeholder { color: rgba(139,147,165,0.55); font-size: 10.5px; }
+    .slot-input:focus { border-bottom-color: var(--accent); }
+
+    .slot-price-row {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      margin-top: auto; padding-top: 2px;
+    }
+    .slot-rarity {
+      width: 16px; height: 16px; border-radius: 50%;
+      font-size: 8px; font-weight: 800;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .r-rare     { background: rgba(212,168,67,0.2);  color: var(--rare);     border: 1px solid rgba(212,168,67,0.45); }
+    .r-uncommon { background: rgba(148,163,184,0.15); color: var(--uncommon); border: 1px solid rgba(148,163,184,0.3); }
+    .r-common   { background: rgba(71,85,105,0.2);   color: var(--common);   border: 1px solid rgba(71,85,105,0.35); }
+
+    .slot-price { font-size: 15px; font-weight: 700; color: var(--accent-bright); }
+    .slot-price.muted { color: var(--muted); font-size: 11px; font-weight: 400; }
+
+    /* ── Manual notice ── */
+    #manual-notice {
+      display: none;
+      padding: 5px 12px 3px;
+      font-size: 10px; color: var(--muted);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      text-align: center;
+    }
+    #manual-notice.visible { display: block; }
+
+    /* ── Best-pick footer ── */
+    #best-footer {
+      border-top: 1px solid var(--border);
+      padding: 6px 12px; flex-shrink: 0;
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px;
+    }
+    #best-label { color: var(--muted); white-space: nowrap; }
+    #best-value {
+      flex: 1; color: var(--accent-bright); font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+  </style>
+</head>
+<body>
+  <div id="panel">
+
+    <div id="header">
+      <div>
+        <div id="header-title">&#9671; Relic Reward</div>
+        <div id="header-sub">Detecting…</div>
+      </div>
+      <button id="btn-close" title="Close">&times;</button>
+    </div>
+
+    <!-- Scanning spinner -->
+    <div id="scanning-state" class="visible">
+      <div class="scan-spinner"></div>
+      <div id="scanning-text">Reading reward screen…</div>
+    </div>
+
+    <!-- Reward slots (shown once items arrive) -->
+    <div id="slots-grid" style="display:none">
+      <div class="reward-slot empty-slot" data-slot="0">
+        <div class="slot-player">Slot 1</div>
+        <div class="slot-name empty">—</div>
+        <input class="slot-input" placeholder="Item name…" autocomplete="off" spellcheck="false" />
+        <div class="slot-price-row">
+          <span class="slot-rarity"></span>
+          <span class="slot-price muted">—</span>
+        </div>
+      </div>
+      <div class="reward-slot empty-slot" data-slot="1">
+        <div class="slot-player">Slot 2</div>
+        <div class="slot-name empty">—</div>
+        <input class="slot-input" placeholder="Item name…" autocomplete="off" spellcheck="false" />
+        <div class="slot-price-row">
+          <span class="slot-rarity"></span>
+          <span class="slot-price muted">—</span>
+        </div>
+      </div>
+      <div class="reward-slot empty-slot" data-slot="2">
+        <div class="slot-player">Slot 3</div>
+        <div class="slot-name empty">—</div>
+        <input class="slot-input" placeholder="Item name…" autocomplete="off" spellcheck="false" />
+        <div class="slot-price-row">
+          <span class="slot-rarity"></span>
+          <span class="slot-price muted">—</span>
+        </div>
+      </div>
+      <div class="reward-slot empty-slot" data-slot="3">
+        <div class="slot-player">Slot 4</div>
+        <div class="slot-name empty">—</div>
+        <input class="slot-input" placeholder="Item name…" autocomplete="off" spellcheck="false" />
+        <div class="slot-price-row">
+          <span class="slot-rarity"></span>
+          <span class="slot-price muted">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="manual-notice">Auto-detect failed — type items below</div>
+
+    <div id="best-footer">
+      <span id="best-label">Best:</span>
+      <span id="best-value">Waiting…</span>
+    </div>
+  </div>
+  <script src="overlay.js"></script>
+</body>
+</html>
