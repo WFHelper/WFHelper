@@ -1,3 +1,4 @@
+const log = require('./logger').withScope('wfmWebSocket');
 "use strict";
 
 /**
@@ -235,7 +236,7 @@ function setStatusViaWebSocket(token, status) {
         try { msg = JSON.parse(text); } catch { continue; }
 
         const route = msg.route || "";
-        console.log("[WFMWebSocket] ←", route);
+        log.log("[WFMWebSocket] ←", route);
 
         if (route.endsWith(":error")) {
           done(new Error(`WFM WS error: ${route} — ${JSON.stringify(msg.payload)}`));

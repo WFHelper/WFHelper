@@ -1,3 +1,4 @@
+const log = require('../services/logger').withScope('overlayIpc');
 /**
  * Overlay IPC handlers + settings management + global hotkey.
  * Handles: overlay-close, overlay-get-relic-items, overlay:get-settings,
@@ -86,7 +87,7 @@ function loadOverlaySettings() {
       ctx.overlaySettings = { ...OVERLAY_SETTINGS_DEFAULTS };
     }
   } catch (err) {
-    console.warn('[OverlaySettings] Failed to load settings, using defaults:', err.message);
+    log.warn('[OverlaySettings] Failed to load settings, using defaults:', err.message);
     ctx.overlaySettings = { ...OVERLAY_SETTINGS_DEFAULTS };
   }
   rewardScanner.setSettings(ctx.overlaySettings);
@@ -98,7 +99,7 @@ function saveOverlaySettings() {
     fs.writeFileSync(OVERLAY_SETTINGS_FILE, JSON.stringify(ctx.overlaySettings, null, 2), 'utf8');
     return true;
   } catch (err) {
-    console.error('[OverlaySettings] Failed to save settings:', err.message);
+    log.error('[OverlaySettings] Failed to save settings:', err.message);
     return false;
   }
 }
@@ -110,7 +111,7 @@ function unregisterOverlayHotkey() {
   try {
     globalShortcut.unregister(ctx.overlayHotkeyRegistered);
   } catch (err) {
-    console.warn('[OverlayHotkey] unregister failed:', err.message);
+    log.warn('[OverlayHotkey] unregister failed:', err.message);
   }
   ctx.overlayHotkeyRegistered = null;
 }
@@ -119,7 +120,7 @@ function registerOverlayHotkey() {
   unregisterOverlayHotkey();
 
   if (!ctx.overlaySettings.hotkeyEnabled) {
-    console.log('[OverlayHotkey] disabled');
+    log.log('[OverlayHotkey] disabled');
     return false;
   }
 
@@ -129,14 +130,14 @@ function registerOverlayHotkey() {
   try {
     const ok = globalShortcut.register(accelerator, () => onRelicRewardTrigger('hotkey'));
     if (!ok) {
-      console.warn('[OverlayHotkey] register failed:', accelerator);
+      log.warn('[OverlayHotkey] register failed:', accelerator);
       return false;
     }
     ctx.overlayHotkeyRegistered = accelerator;
-    console.log('[OverlayHotkey] registered:', accelerator);
+    log.log('[OverlayHotkey] registered:', accelerator);
     return true;
   } catch (err) {
-    console.warn('[OverlayHotkey] invalid shortcut:', accelerator, err.message);
+    log.warn('[OverlayHotkey] invalid shortcut:', accelerator, err.message);
     return false;
   }
 }
@@ -180,7 +181,7 @@ function sendItemsWhenReady(scanPromise) {
       ctx.overlayWindow.webContents.send('relic-reward-items', items ?? []);
     })
     .catch(err => {
-      console.error('[Trigger] scan error:', err.message);
+      log.error('[Trigger] scan error:', err.message);
       if (ctx.overlayWindow && !ctx.overlayWindow.isDestroyed()) {
         ctx.overlayWindow.webContents.send('relic-reward-items', []);
       }

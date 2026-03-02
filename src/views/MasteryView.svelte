@@ -1,9 +1,11 @@
-<script>
-  import { masteryData } from '../stores/mastery.js';
-  import { wfmItems } from '../stores/data.js';
-  import { debugMode } from '../stores/app.js';
-  import { activeItem, activeComponent } from '../stores/modals.js';
-  import ItemImage from '../components/ItemImage.svelte';
+<script lang="ts">
+  import { masteryData } from "../stores/mastery.js";
+  import { wfmItems } from "../stores/data.js";
+  import { debugMode } from "../stores/app.js";
+  import { activeItem, activeComponent } from "../stores/modals.js";
+  import ItemImage from "../components/ItemImage.svelte";
+  import { ipc } from "../lib/ipc.js";
+  import type { MasteryCategoryStats } from "../types/inventory.js";
 
   const CAT_ORDER = ['Warframes', 'Primary', 'Secondary', 'Melee', 'Companions', 'Archwing', 'Amps', 'Necramech'];
 
@@ -11,7 +13,7 @@
   let statusFilter = 'all';
   let search       = '';
 
-  function orderedCategories(byCategory) {
+  function orderedCategories(byCategory: Record<string, MasteryCategoryStats>): string[] {
     const keys = Object.keys(byCategory);
     const ordered = CAT_ORDER.filter(c => keys.includes(c));
     const extras  = keys.filter(c => !CAT_ORDER.includes(c)).sort((a, b) => a.localeCompare(b));
@@ -34,13 +36,19 @@
         (i.keywords || []).some(kw => kw.includes(q))
       );
     }
-    const order = { mastered: 0, progress: 1, missing: 2 };
+    const order: Record<"mastered" | "progress" | "missing", number> = {
+      mastered: 0,
+      progress: 1,
+      missing: 2,
+    };
     return [...items]
-      .sort((a, b) =>
-        order[a.status] !== order[b.status]
-          ? order[a.status] - order[b.status]
-          : a.name.localeCompare(b.name)
-      )
+      .sort((a, b) => {
+        const statusA = (a.status || "missing") as keyof typeof order;
+        const statusB = (b.status || "missing") as keyof typeof order;
+        return order[statusA] !== order[statusB]
+          ? order[statusA] - order[statusB]
+          : a.name.localeCompare(b.name);
+      })
       // Pre-compute per-item derived values here so {#each} never reads
       // $wfmItems directly — a wfmItems store update won't trigger a full
       // template re-render; Svelte will patch only changed items via the key.
@@ -54,10 +62,10 @@
       });
   })();
 
-  function pct(n, total) {
-    return total > 0 ? ((n / total) * 100).toFixed(1) : 0;
+  function pct(n: number, total: number): string {
+    return total > 0 ? ((n / total) * 100).toFixed(1) : "0.0";
   }
-  function pctRaw(n, total) {
+  function pctRaw(n: number, total: number): number {
     return total > 0 ? (n / total) * 100 : 0;
   }
   const RING_R = 52;
@@ -150,7 +158,7 @@
     <!-- Item grid -->
     <div class="item-grid mastery-grid">
       {#if filtered.length === 0}
-        <div class="empty-state" style="grid-column:1/-1"><p>No items match your filters</p></div>
+        <div class="empty-state col-span-full"><p>No items match your filters</p></div>
       {:else}
         {#each filtered as item (item.uniqueName || item.name)}
           <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -183,7 +191,7 @@
               {#if (item.components || []).length > 0}
                 <div class="comp-dots">
                   {#each (item.components || []).slice(0, 8) as comp (comp.name || comp.uniqueName)}
-                    {@const isOwned = comp.owned || (comp.ownedCount >= (comp.itemCount || 1))}
+                    {@const isOwned = comp.owned || ((comp.ownedCount ?? 0) >= (comp.itemCount || 1))}
                     <!-- svelte-ignore a11y-click-events-have-key-events -->
                     <!-- svelte-ignore a11y-no-static-element-interactions -->
                     <span
@@ -200,7 +208,7 @@
                   class="wfm-link"
                   title="View on warframe.market"
                   aria-label="View {item.name} on warframe.market"
-                  on:click|stopPropagation={() => window.api.openExternal(`https://warframe.market/items/${item.wfm.url_name}`)}
+                  on:click|stopPropagation={() => ipc.openExternal(`https://warframe.market/items/${item.wfm.url_name}`)}
                 >
                   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M6 3H3v10h10v-3"/>

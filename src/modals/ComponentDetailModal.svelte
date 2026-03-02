@@ -1,10 +1,11 @@
-<script>
-  import { activeComponent } from '../stores/modals.js';
-  import { wfmItems } from '../stores/data.js';
-  import { fetchPriceByName } from '../lib/wfmPrice.js';
+<script lang="ts">
+  import { activeComponent } from "../stores/modals.js";
+  import { wfmItems } from "../stores/data.js";
+  import { fetchPriceByName } from "../lib/wfmPrice.js";
+  import { ipc } from "../lib/ipc.js";
 
-  let priceText = '';
-  let priceSlug = null;
+  let priceText = "";
+  let priceSlug: string | null = null;
 
   $: data = $activeComponent;
   $: comp = data?.comp;
@@ -14,7 +15,7 @@
     loadPrice(comp.name);
   }
 
-  async function loadPrice(name) {
+  async function loadPrice(name: string): Promise<void> {
     priceText = 'Loading price…';
     priceSlug = null;
     const isTradable = comp?.tradable || !!(($wfmItems || {})[name?.toLowerCase()]);
@@ -23,7 +24,7 @@
       return;
     }
     try {
-      const result = await fetchPriceByName(name, $wfmItems);
+      const result = await fetchPriceByName(name, $wfmItems, { priority: "high" });
       if (result?.median != null) {
         priceText = `~${result.median} platinum (48h median)`;
         priceSlug = result.slug;
@@ -42,7 +43,7 @@
   }
 
   function openOnWfm() {
-    if (priceSlug) window.api.openExternal(`https://warframe.market/items/${priceSlug}`);
+    if (priceSlug) ipc.openExternal(`https://warframe.market/items/${priceSlug}`);
   }
 
   function close() { activeComponent.set(null); }
@@ -51,7 +52,7 @@
 {#if comp}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="detail-overlay comp-overlay" style="display:flex;" on:click|self={close}>
+  <div class="detail-overlay comp-overlay" on:click|self={close}>
     <div class="detail-backdrop" on:click={close}></div>
     <div class="detail-panel comp-panel">
       <button class="detail-close" on:click={close}>&times;</button>

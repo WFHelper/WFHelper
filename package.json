@@ -6,7 +6,15 @@
   "scripts": {
     "build": "vite build",
     "start": "npm run build && electron .",
-    "dev": "vite build && electron ."
+    "dev": "vite build && electron .",
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win nsis",
+    "check": "svelte-check --tsconfig tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.svelte",
+    "format": "prettier --write \"src/**/*.{ts,svelte,css}\"",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "warframe",
@@ -16,14 +24,64 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@sentry/vite-plugin": "^5.1.1",
     "@sveltejs/vite-plugin-svelte": "^3.1.2",
+    "@tailwindcss/vite": "^4.2.1",
+    "@tsconfig/svelte": "^5.0.8",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
     "electron": "^33.0.0",
+    "electron-builder": "^26.8.1",
+    "eslint": "^10.0.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-svelte": "^3.15.0",
+    "globals": "^17.4.0",
+    "prettier": "^3.8.1",
     "svelte": "^4.2.20",
-    "vite": "^5.4.21"
+    "svelte-check": "^4.4.4",
+    "svelte-eslint-parser": "^1.5.1",
+    "tailwindcss": "^4.2.1",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
+    "@sentry/browser": "^10.40.0",
+    "@sentry/electron": "^7.9.0",
     "@wfcd/items": "^1.1272.0",
     "chokidar": "^4.0.0",
+    "electron-log": "^5.4.3",
     "warframe-public-export-plus": "latest"
+  },
+  "build": {
+    "appId": "com.warframe.companion",
+    "productName": "Warframe Companion",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "preload-overlay.js",
+      "ipc/**/*",
+      "services/**/*",
+      "renderer/**/*",
+      "assets/**/*",
+      "scripts/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "asar": true,
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

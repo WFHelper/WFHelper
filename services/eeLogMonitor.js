@@ -1,3 +1,4 @@
+const log = require('./logger').withScope('eeLogMonitor');
 "use strict";
 
 /**
@@ -30,11 +31,11 @@ let _callback = null;
  */
 function startWatching(onReward) {
   if (!EE_LOG_PATH) {
-    console.warn("[EELog] LOCALAPPDATA not set — EE.log monitoring unavailable");
+    log.warn("[EELog] LOCALAPPDATA not set — EE.log monitoring unavailable");
     return null;
   }
   if (!fs.existsSync(EE_LOG_PATH)) {
-    console.warn("[EELog] EE.log not found at:", EE_LOG_PATH);
+    log.warn("[EELog] EE.log not found at:", EE_LOG_PATH);
     return null;
   }
 
@@ -73,15 +74,15 @@ function startWatching(onReward) {
 
       const chunk = buf.toString("utf8");
       if (REWARD_RE.test(chunk)) {
-        console.log("[EELog] Relic reward trigger detected");
+        log.log("[EELog] Relic reward trigger detected");
         _callback && _callback();
       }
     } catch (err) {
-      console.error("[EELog] read error:", err.message);
+      log.error("[EELog] read error:", err.message);
     }
   });
 
-  console.log("[EELog] Watching:", EE_LOG_PATH);
+  log.log("[EELog] Watching:", EE_LOG_PATH);
   return EE_LOG_PATH;
 }
 

@@ -1,20 +1,18 @@
-<script>
-  import { onMount } from 'svelte';
-  import { onInventoryLoaded } from '../lib/actions.js';
-  import { statusText } from '../stores/app.js';
+<script lang="ts">
+  import { onMount } from "svelte";
+  import { onInventoryLoaded } from "../lib/actions.js";
+  import { statusText } from "../stores/app.js";
+  import { ipc } from "../lib/ipc.js";
 
   // 'checking' | 'found' | 'not_found' | 'error'
-  let alecaStatus = 'checking';
-  let alecaPath = null;
+  let alecaStatus: "checking" | "found" | "not_found" | "error" = "checking";
   let loadingAleca = false;
-  let loadingJson = false;
 
   onMount(async () => {
     try {
-      const result = await window.api.checkAlecaFrame();
+      const result = await ipc.checkAlecaFrame();
       if (result && result.found) {
         alecaStatus = 'found';
-        alecaPath = result.path || null;
       } else {
         alecaStatus = 'not_found';
       }
@@ -28,7 +26,7 @@
     loadingAleca = true;
     statusText.set('Loading from AlecaFrame…');
     try {
-      const result = await window.api.loadAlecaFrame();
+      const result = await ipc.loadAlecaFrame();
       if (result && result.success && result.data) {
         await onInventoryLoaded(result.data);
       } else {
@@ -36,7 +34,7 @@
         alecaStatus = 'error';
       }
     } catch (e) {
-      statusText.set('AlecaFrame error: ' + e.message);
+      statusText.set(`AlecaFrame error: ${(e as Error).message}`);
       alecaStatus = 'error';
     } finally {
       loadingAleca = false;
@@ -44,17 +42,17 @@
   }
 
   async function loadAlecaJson() {
-    const data = await window.api.openAlecaFrameJson();
+    const data = await ipc.openAlecaFrameJson();
     if (data && !data.error) await onInventoryLoaded(data);
   }
 
   async function loadApiHelper() {
-    const data = await window.api.openInventoryFile();
+    const data = await ipc.openInventoryFile();
     if (data && !data.error) await onInventoryLoaded(data);
   }
 
   async function loadManual() {
-    const data = await window.api.openInventoryFile();
+    const data = await ipc.openInventoryFile();
     if (data && !data.error) await onInventoryLoaded(data);
   }
 </script>
@@ -105,7 +103,7 @@
           <p class="source-desc">
             If auto-decrypt fails, use the
             <!-- svelte-ignore a11y-invalid-attribute -->
-            <a href="#" on:click|preventDefault={() => window.api.openExternal('https://sainan.github.io/alecaframe-inventory-parser/')}>web parser</a>
+            <a href="#" on:click|preventDefault={() => ipc.openExternal('https://sainan.github.io/alecaframe-inventory-parser/')}>web parser</a>
             to decrypt your <code>lastData.dat</code>, then:
           </p>
           <button class="btn-secondary btn-sm" on:click={loadAlecaJson}>Load Decrypted JSON</button>
@@ -120,7 +118,7 @@
         </div>
         <div class="source-steps-mini">
           <!-- svelte-ignore a11y-invalid-attribute -->
-          <span>1. <a href="#" on:click|preventDefault={() => window.api.openExternal('https://github.com/Sainan/warframe-api-helper/releases')}>Download the helper</a></span>
+          <span>1. <a href="#" on:click|preventDefault={() => ipc.openExternal('https://github.com/Sainan/warframe-api-helper/releases')}>Download the helper</a></span>
           <span>2. Run it while Warframe is open</span>
           <span>3. Load the JSON file below</span>
         </div>

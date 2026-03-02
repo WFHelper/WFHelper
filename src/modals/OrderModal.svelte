@@ -1,43 +1,53 @@
-<script>
-  import { orderModalState, marketOrders } from '../stores/market.js';
+<script lang="ts">
+  import { orderModalState, marketOrders } from "../stores/market.js";
+  import { ipc } from "../lib/ipc.js";
+  import type {
+    WfmOrder,
+    WfmSearchItem,
+    WfmUpdateOrderInput,
+  } from "../types/market.js";
 
-  let itemSearchQuery = '';
-  let itemDropdown = [];
-  let itemSelected = null;
-  let searchTimer = null;
-  let orderType = 'sell';
-  let platinum = '';
+  const ITEM_SEARCH_MIN_CHARS = 2;
+  const ITEM_SEARCH_LIMIT = 15;
+  const ITEM_SEARCH_DEBOUNCE_MS = 250;
+
+  let itemSearchQuery = "";
+  let itemDropdown: WfmSearchItem[] = [];
+  let itemSelected: WfmSearchItem | null = null;
+  let searchTimer: ReturnType<typeof setTimeout> | null = null;
+  let orderType: "sell" | "buy" = "sell";
+  let platinum = "";
   let quantity = 1;
   let visible = true;
   let modRank = 0;
   let showRankField = false;
   let submitting = false;
-  let errorMsg = '';
+  let errorMsg = "";
 
   $: state = $orderModalState;
-  $: isEdit = state?.mode === 'edit';
-  $: order = state?.order || null;
+  $: isEdit = state?.mode === "edit";
+  $: order = (state?.order || null) as WfmOrder | null;
 
   $: if (state) {
     resetForm();
   }
 
-  function resetForm() {
-    errorMsg = '';
-    itemSearchQuery = '';
+  function resetForm(): void {
+    errorMsg = "";
+    itemSearchQuery = "";
     itemDropdown = [];
     itemSelected = null;
     submitting = false;
     if (isEdit && order) {
-      orderType = order.orderType || 'sell';
-      platinum = order.platinum;
-      quantity = order.quantity;
-      visible = order.visible;
+      orderType = (order.orderType as "sell" | "buy") || "sell";
+      platinum = String(order.platinum ?? "");
+      quantity = Number(order.quantity ?? 1);
+      visible = Boolean(order.visible);
       modRank = order.modRank ?? 0;
       showRankField = order.modRank != null;
     } else {
-      orderType = 'sell';
-      platinum = '';
+      orderType = "sell";
+      platinum = "";
       quantity = 1;
       visible = true;
       modRank = 0;
@@ -45,78 +55,109 @@
     }
   }
 
-  function onSearchInput() {
-    clearTimeout(searchTimer);
+  function onSearchInput(): void {
+    if (searchTimer) clearTimeout(searchTimer);
     itemDropdown = [];
-    if (itemSearchQuery.length < 2) return;
+    if (itemSearchQuery.length < ITEM_SEARCH_MIN_CHARS) return;
     searchTimer = setTimeout(async () => {
-      const results = await window.api.wfmSearchItems(itemSearchQuery, 15);
-      if (results && !results.error) itemDropdown = results;
-    }, 250);
+      const results = await ipc.wfmSearchItems(itemSearchQuery, ITEM_SEARCH_LIMIT);
+      if (results && !("error" in results)) itemDropdown = results;
+    }, ITEM_SEARCH_DEBOUNCE_MS);
   }
 
-  function selectItem(item) {
+  function selectItem(item: WfmSearchItem): void {
     itemSelected = item;
-    itemSearchQuery = '';
+    itemSearchQuery = "";
     itemDropdown = [];
-    showRankField = false; // Could check item type for mods here
+    showRankField = false;
   }
 
-  function clearItem() {
+  function clearItem(): void {
     itemSelected = null;
     showRankField = false;
   }
 
-  async function submit(e) {
+  async function submit(e: SubmitEvent): Promise<void> {
     e.preventDefault();
-    errorMsg = '';
+    errorMsg = "";
 
-    const plat = parseInt(platinum, 10);
-    const qty  = parseInt(quantity, 10);
+    const plat = parseInt(String(platinum), 10);
+    const qty = parseInt(String(quantity), 10);
 
-    if (!Number.isFinite(plat) || plat < 1) { errorMsg = 'Price must be at least 1 platinum.'; return; }
-    if (!Number.isFinite(qty)  || qty < 1)  { errorMsg = 'Quantity must be at least 1.'; return; }
+    if (!Number.isFinite(plat) || plat < 1) {
+      errorMsg = "Price must be at least 1 platinum.";
+      return;
+    }
+    if (!Number.isFinite(qty) || qty < 1) {
+      errorMsg = "Quantity must be at least 1.";
+      return;
+    }
 
     submitting = true;
     try {
       let result;
-      if (isEdit) {
-        const updates = { platinum: plat, quantity: qty, visible };
-        if (showRankField && !isNaN(Number(modRank))) updates.modRank = Number(modRank);
-        result = await window.api.wfmUpdateOrder(order.id, updates);
+      if (isEdit && order) {
+        const updates: WfmUpdateOrderInput = { platinum: plat, quantity: qty, visible };
+        if (showRankField && !Number.isNaN(Number(modRank))) {
+          updates.modRank = Number(modRank);
+        }
+        result = await ipc.wfmUpdateOrder(order.id, updates);
       } else {
-        if (!itemSelected) { errorMsg = 'Please select an item.'; submitting = false; return; }
-        const payload = { itemId: itemSelected.id, orderType, platinum: plat, quantity: qty, visible };
-        if (showRankField && !isNaN(Number(modRank))) payload.modRank = Number(modRank);
-        result = await window.api.wfmCreateOrder(payload);
+        if (!itemSelected) {
+          errorMsg = "Please select an item.";
+          submitting = false;
+          return;
+        }
+        const payload = {
+          itemId: itemSelected.id,
+          orderType,
+          platinum: plat,
+          quantity: qty,
+          visible,
+        } as {
+          itemId: string;
+          orderType: "sell" | "buy";
+          platinum: number;
+          quantity: number;
+          visible: boolean;
+          modRank?: number;
+        };
+        if (showRankField && !Number.isNaN(Number(modRank))) {
+          payload.modRank = Number(modRank);
+        }
+        result = await ipc.wfmCreateOrder(payload);
       }
 
-      if (result.error) { errorMsg = result.error; return; }
+      if (result && "error" in result && typeof result.error === "string") {
+        errorMsg = result.error;
+        return;
+      }
 
-      // Refresh orders by re-fetching (market view will handle this when modal closes)
-      const refreshed = await window.api.wfmGetOrders();
-      if (!refreshed.error) marketOrders.set(refreshed);
+      const refreshed = await ipc.wfmGetOrders();
+      if (refreshed && !("error" in refreshed)) marketOrders.set(refreshed);
 
       orderModalState.set(null);
     } catch (err) {
-      errorMsg = err.message;
+      errorMsg = (err as Error).message;
     } finally {
       submitting = false;
     }
   }
 
-  function close() { orderModalState.set(null); }
+  function close(): void {
+    orderModalState.set(null);
+  }
 </script>
 
 {#if state}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="detail-overlay" style="display:flex;" on:click|self={close}>
+  <div class="detail-overlay" on:click|self={close}>
     <div class="detail-backdrop" on:click={close}></div>
     <div class="detail-panel order-modal-panel">
       <button class="detail-close" on:click={close}>&times;</button>
 
-      <div class="detail-header" style="padding-bottom:12px;">
+      <div class="detail-header order-modal-header">
         <div class="detail-title-area">
           <h2>{isEdit ? 'Edit Order' : 'New Order'}</h2>
         </div>
@@ -130,7 +171,7 @@
             <div class="market-field">
               <label for="order-item-search">Item</label>
               {#if itemSelected}
-                <div class="market-item-selected" style="display:flex;">
+                <div class="market-item-selected">
                   {#if itemSelected.thumb}
                     <img src={itemSelected.thumb} alt="" width="28" height="28" loading="lazy" />
                   {/if}
@@ -148,7 +189,7 @@
                     autocomplete="off"
                   />
                   {#if itemDropdown.length > 0}
-                    <div class="market-item-dropdown" style="display:block;">
+                    <div class="market-item-dropdown">
                       {#each itemDropdown as item}
                         <!-- svelte-ignore a11y-click-events-have-key-events -->
                         <!-- svelte-ignore a11y-no-static-element-interactions -->

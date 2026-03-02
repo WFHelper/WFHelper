@@ -1,3 +1,4 @@
+const log = require('./logger').withScope('wfmSession');
 "use strict";
 
 /**
@@ -45,15 +46,15 @@ function _saveSession(token, userName) {
     if (ALLOW_INSECURE_SESSION) {
       // Explicit opt-in only (for unsupported environments).
       // No real security guarantee.
-      console.warn("[WFMSession] safeStorage unavailable — insecure base64 session persistence is enabled");
+      log.warn("[WFMSession] safeStorage unavailable — insecure base64 session persistence is enabled");
       fs.writeFileSync(SESSION_FILE(), Buffer.from(payload, "utf-8").toString("base64"));
       return;
     }
 
     // Fail closed by default: keep token in memory only for this app session.
-    console.warn("[WFMSession] safeStorage unavailable — session will not be persisted to disk");
+    log.warn("[WFMSession] safeStorage unavailable — session will not be persisted to disk");
   } catch (err) {
-    console.error("[WFMSession] Failed to persist session:", err.message);
+    log.error("[WFMSession] Failed to persist session:", err.message);
   }
 }
 
@@ -66,7 +67,7 @@ function _clearSession() {
       fs.unlinkSync(SESSION_FILE());
     }
   } catch (err) {
-    console.error("[WFMSession] Failed to clear session file:", err.message);
+    log.error("[WFMSession] Failed to clear session file:", err.message);
   }
 }
 
@@ -83,13 +84,13 @@ function _loadSession() {
     } else if (ALLOW_INSECURE_SESSION) {
       payload = Buffer.from(raw.toString(), "base64").toString("utf-8");
     } else {
-      console.warn("[WFMSession] safeStorage unavailable — skipping persisted session restore");
+      log.warn("[WFMSession] safeStorage unavailable — skipping persisted session restore");
       return null;
     }
 
     return JSON.parse(payload);
   } catch (err) {
-    console.error("[WFMSession] Failed to load session:", err.message);
+    log.error("[WFMSession] Failed to load session:", err.message);
     return null;
   }
 }
@@ -108,7 +109,7 @@ async function signIn(email, password) {
 
   // Diagnostic: log email shape without revealing value
   const atIdx = (email || "").indexOf("@");
-  console.log("[WFMSession] signIn email shape — length:", email.length,
+  log.log("[WFMSession] signIn email shape — length:", email.length,
     "hasAt:", atIdx > 0,
     "localLen:", atIdx,
     "domainLen:", atIdx > 0 ? email.length - atIdx - 1 : 0,
@@ -163,7 +164,7 @@ async function signIn(email, password) {
 
   _saveSession(token, userName);
 
-  console.log(`[WFMSession] Signed in as: ${_userName}`);
+  log.log(`[WFMSession] Signed in as: ${_userName}`);
   return { loggedIn: true, userName: _userName, platform: _platform };
 }
 
@@ -171,7 +172,7 @@ async function signIn(email, password) {
  * Sign out and remove persisted session.
  */
 function signOut() {
-  console.log("[WFMSession] Signing out");
+  log.log("[WFMSession] Signing out");
   _clearSession();
   return { loggedIn: false };
 }
@@ -183,7 +184,7 @@ function signOut() {
 async function restoreSession() {
   const saved = _loadSession();
   if (!saved || !saved.token) {
-    console.log("[WFMSession] No persisted session found.");
+    log.log("[WFMSession] No persisted session found.");
     return;
   }
 
@@ -191,7 +192,7 @@ async function restoreSession() {
   _userName = saved.userName || null;
   _platform = saved.platform || "pc";
   updateCsrfFromToken(saved.token);
-  console.log(`[WFMSession] Restored session for: ${_userName}`);
+  log.log(`[WFMSession] Restored session for: ${_userName}`);
 }
 
 /**
@@ -224,7 +225,7 @@ async function getMe() {
     const data = await requestV2("GET", "/me");
     return data?.data || null;
   } catch (err) {
-    console.warn("[WFMSession] getMe failed:", err.message);
+    log.warn("[WFMSession] getMe failed:", err.message);
     return null;
   }
 }

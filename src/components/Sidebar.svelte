@@ -1,7 +1,14 @@
-<script>
-  import { currentView } from '../stores/app.js';
+<script lang="ts">
+  import { currentView } from "../stores/app.js";
+  import { ipc } from "../lib/ipc.js";
 
-  const navItems = [
+  interface NavItem {
+    view: string;
+    label: string;
+    svg: string;
+  }
+
+  const navItems: NavItem[] = [
     {
       view: 'inventory',
       label: 'Inventory',
@@ -44,17 +51,17 @@
     },
   ];
 
-  async function loadInventoryFile() {
-    const result = await window.api.openInventoryFile();
+  async function loadInventoryFile(): Promise<void> {
+    const result = await ipc.openInventoryFile();
     if (result) currentView.set('inventory');
   }
 
-  function toggleOverlay() {
-    window.api.toggleOverlay();
+  function toggleOverlay(): void {
+    ipc.toggleOverlay();
   }
 
-  function testOverlay() {
-    window.api.simulateRelicTrigger();
+  function testOverlay(): void {
+    ipc.simulateRelicTrigger();
   }
 </script>
 

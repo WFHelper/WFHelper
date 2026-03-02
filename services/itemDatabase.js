@@ -1,3 +1,4 @@
+const log = require('./logger').withScope('itemDatabase');
 // ═══════════════════════════════════════════════════════════════════════════
 // Item Database Service
 // Primary:  warframe-public-export-plus (Sainan/calamity-inc) — raw game data
@@ -24,7 +25,7 @@ function loadDict() {
   try {
     const d = require("warframe-public-export-plus/dict.en.json");
     if (d && typeof d === "object" && Object.keys(d).length > 0) {
-      console.log(`[ItemDB] dict.en.json loaded via require (${Object.keys(d).length} strings)`);
+      log.log(`[ItemDB] dict.en.json loaded via require (${Object.keys(d).length} strings)`);
       return d;
     }
   } catch (e) {
@@ -38,7 +39,7 @@ function loadDict() {
     const dictPath = path.join(modDir, "dict.en.json");
     if (fs.existsSync(dictPath)) {
       const d = JSON.parse(fs.readFileSync(dictPath, "utf-8"));
-      console.log(`[ItemDB] dict.en.json loaded from disk (${Object.keys(d).length} strings)`);
+      log.log(`[ItemDB] dict.en.json loaded from disk (${Object.keys(d).length} strings)`);
       return d;
     } else {
       attempts.push(`disk: file not found at ${dictPath}`);
@@ -51,13 +52,13 @@ function loadDict() {
   try {
     const pep = require("warframe-public-export-plus");
     if (pep.getString && typeof pep.getString === "function") {
-      console.log("[ItemDB] Using pep.getString() for name resolution");
+      log.log("[ItemDB] Using pep.getString() for name resolution");
       return { __getString: pep.getString };
     }
     // Some versions might export dict directly
     for (const key of ["dict", "dictEn", "dict_en", "strings"]) {
       if (pep[key] && typeof pep[key] === "object") {
-        console.log(`[ItemDB] dict found via pep.${key}`);
+        log.log(`[ItemDB] dict found via pep.${key}`);
         return pep[key];
       }
     }
@@ -65,8 +66,8 @@ function loadDict() {
     attempts.push(`main export: ${e.message}`);
   }
 
-  console.warn("[ItemDB] Could not load dict.en.json. Tried:", attempts.join(" | "));
-  console.warn("[ItemDB] Names from public-export-plus will fall back to @wfcd/items or path extraction");
+  log.warn("[ItemDB] Could not load dict.en.json. Tried:", attempts.join(" | "));
+  log.warn("[ItemDB] Names from public-export-plus will fall back to @wfcd/items or path extraction");
   return {};
 }
 
@@ -137,10 +138,10 @@ function loadPublicExportPlus() {
       }
     }
 
-    console.log(`[ItemDB] public-export-plus: ${pepCount} items indexed`);
+    log.log(`[ItemDB] public-export-plus: ${pepCount} items indexed`);
     return pepCount;
   } catch (err) {
-    console.warn("[ItemDB] warframe-public-export-plus not available:", err.message);
+    log.warn("[ItemDB] warframe-public-export-plus not available:", err.message);
     return 0;
   }
 }
@@ -238,10 +239,10 @@ function loadWfcdItems() {
       }
     }
 
-    console.log(`[ItemDB] @wfcd/items: ${wfcdNewCount} new + ${wfcdSupplementCount} supplemented`);
+    log.log(`[ItemDB] @wfcd/items: ${wfcdNewCount} new + ${wfcdSupplementCount} supplemented`);
     return wfcdNewCount;
   } catch (err) {
-    console.warn("[ItemDB] @wfcd/items not available:", err.message);
+    log.warn("[ItemDB] @wfcd/items not available:", err.message);
     return 0;
   }
 }
@@ -277,7 +278,7 @@ function resolveAllImages() {
     noImage++;
   }
 
-  console.log(`[ItemDB] Images: ${resolved} wfcd, ${browseWfFallback} browse.wf fallback, ${noImage} none`);
+  log.log(`[ItemDB] Images: ${resolved} wfcd, ${browseWfFallback} browse.wf fallback, ${noImage} none`);
 }
 
 // ─── Fallback name extraction ──────────────────────────────────────────────
@@ -294,17 +295,17 @@ function extractFallbackName(uniqueName) {
 // ─── Public API ────────────────────────────────────────────────────────────
 
 function buildDatabase() {
-  console.time("[ItemDB] Total build time");
+  log.time("[ItemDB] Total build time");
 
   const pepCount = loadPublicExportPlus();
   const wfcdCount = loadWfcdItems();
   resolveAllImages();
 
-  console.log(`[ItemDB] Total: ${Object.keys(itemsByUniqueName).length} items`);
-  console.timeEnd("[ItemDB] Total build time");
+  log.log(`[ItemDB] Total: ${Object.keys(itemsByUniqueName).length} items`);
+  log.timeEnd("[ItemDB] Total build time");
 
   if (pepCount === 0 && wfcdCount === 0) {
-    console.error("[ItemDB] WARNING: No item data loaded! Run 'npm install' to get packages.");
+    log.error("[ItemDB] WARNING: No item data loaded! Run 'npm install' to get packages.");
   }
 }
 

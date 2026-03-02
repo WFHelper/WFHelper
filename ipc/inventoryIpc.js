@@ -1,3 +1,4 @@
+const log = require('../services/logger').withScope('inventoryIpc');
 /**
  * Inventory & AlecaFrame IPC handlers.
  * Handles: get-inventory, open-inventory-file, get-inventory-status,
@@ -35,15 +36,15 @@ async function fetchAlecaKeys() {
     const ivText = (await ivResp.text()).trim();
     ctx.ALECA_IV = Buffer.from(JSON.parse(ivText));
 
-    console.log('AlecaFrame decryption keys loaded successfully');
+    log.log('AlecaFrame decryption keys loaded successfully');
   } catch (err) {
-    console.error('Could not fetch AlecaFrame keys:', err.message);
+    log.error('Could not fetch AlecaFrame keys:', err.message);
   }
 }
 
 function decryptAlecaFrame(filePath) {
   if (!ctx.ALECA_KEY || !ctx.ALECA_IV) {
-    console.error('AlecaFrame keys not loaded yet');
+    log.error('AlecaFrame keys not loaded yet');
     return null;
   }
   try {
@@ -52,9 +53,9 @@ function decryptAlecaFrame(filePath) {
     const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
     return JSON.parse(decrypted.toString('utf-8'));
   } catch (err) {
-    console.error('Failed to decrypt AlecaFrame data:', err.message);
-    console.error('Try the web parser instead:');
-    console.error('https://sainan.github.io/alecaframe-inventory-parser/');
+    log.error('Failed to decrypt AlecaFrame data:', err.message);
+    log.error('Try the web parser instead:');
+    log.error('https://sainan.github.io/alecaframe-inventory-parser/');
     return null;
   }
 }
@@ -75,7 +76,7 @@ function readInventory(filePath) {
     ctx.currentInventoryData = data;
     return data;
   } catch (err) {
-    console.error('Failed to read inventory:', err.message);
+    log.error('Failed to read inventory:', err.message);
     return null;
   }
 }
@@ -89,7 +90,7 @@ function watchInventoryFile(filePath) {
   });
 
   ctx.watcher.on('change', () => {
-    console.log('Inventory file changed, reloading...');
+    log.log('Inventory file changed, reloading...');
     const data = readInventory(filePath);
     if (data && ctx.mainWindow) {
       ctx.mainWindow.webContents.send('inventory-updated', data);

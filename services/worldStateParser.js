@@ -1,3 +1,4 @@
+const log = require('./logger').withScope('worldStateParser');
 "use strict";
 
 /**
@@ -175,16 +176,16 @@ async function fetchAndParse() {
     raw = await fetchJsonWithTimeout(ORACLE_WORLDSTATE_URL, FETCH_TIMEOUT_MS);
     if (!raw || typeof raw !== "object" || Object.keys(raw).length === 0)
       throw new Error("oracle returned empty object");
-    console.log("[WorldState] fetched oracle world-state OK");
+    log.log("[WorldState] fetched oracle world-state OK");
   } catch (oracleErr) {
-    console.warn("[WorldState] oracle failed:", oracleErr.message, "— trying DE direct");
+    log.warn("[WorldState] oracle failed:", oracleErr.message, "— trying DE direct");
     try {
       const resp = await fetchWithTimeout(FETCH_URL, FETCH_TIMEOUT_MS, { headers: { Accept: "application/json" } });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       raw = await resp.json();
-      console.log("[WorldState] fetched DE world-state OK");
+      log.log("[WorldState] fetched DE world-state OK");
     } catch (deErr) {
-      console.warn("[WorldState] DE world-state also failed:", deErr.message);
+      log.warn("[WorldState] DE world-state also failed:", deErr.message);
       return emptyWorldState();
     }
   }
@@ -197,7 +198,7 @@ async function fetchAndParse() {
     const cycles = await fetchAndComputeCycles();
     return { ...parsed, ...cycles };
   } catch (cycleErr) {
-    console.warn("[WorldState] planet cycle computation failed:", cycleErr.message);
+    log.warn("[WorldState] planet cycle computation failed:", cycleErr.message);
     return parsed;
   }
 }

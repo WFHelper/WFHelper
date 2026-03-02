@@ -1,3 +1,4 @@
+const log = require('../services/logger').withScope('systemIpc');
 /**
  * System IPC handlers.
  * Handles: get-item-database, get-wfm-items, get-mastery-progress,
@@ -29,7 +30,7 @@ function register() {
       data = data.InventoryJson;
       if (typeof data === 'string') {
         try { data = JSON.parse(data); }
-        catch (e) { console.error('[Mastery] Failed to parse InventoryJson:', e.message); return null; }
+        catch (e) { log.error('[Mastery] Failed to parse InventoryJson:', e.message); return null; }
       }
     }
 
@@ -68,10 +69,10 @@ function register() {
       if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
         shell.openExternal(url);
       } else {
-        console.warn('[Security] Blocked open-external with non-HTTP scheme:', parsed.protocol);
+        log.warn('[Security] Blocked open-external with non-HTTP scheme:', parsed.protocol);
       }
     } catch {
-      console.warn('[Security] Blocked open-external with invalid URL:', String(url).slice(0, 100));
+      log.warn('[Security] Blocked open-external with invalid URL:', String(url).slice(0, 100));
     }
   });
 }

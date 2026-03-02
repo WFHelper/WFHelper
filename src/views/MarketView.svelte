@@ -1,15 +1,43 @@
-<script>
-  import { onMount } from 'svelte';
-  import { marketSession, marketOrders, marketTypeTab, marketStatus, marketSelected, orderModalState, marketOrdersLastFetch } from '../stores/market.js';
+<script lang="ts">
+  import { onMount } from "svelte";
+  import {
+    marketSession,
+    marketOrders,
+    marketTypeTab,
+    marketStatus,
+    marketSelected,
+    orderModalState,
+    marketOrdersLastFetch,
+  } from "../stores/market.js";
+  import { ipc } from "../lib/ipc.js";
+  import type { WfmStatus } from "../types/market.js";
 
   const ORDERS_STALE_MS = 30_000; // don't re-fetch orders more than once per 30s
+  const STATUS_OPTIONS: Array<[WfmStatus, string]> = [
+    ["online", "Online"],
+    ["ingame", "In Game"],
+    ["invisible", "Invisible"],
+  ];
+  const ORDER_TYPE_OPTIONS: Array<[ "sell" | "buy", string ]> = [
+    ["sell", "Sell Orders"],
+    ["buy", "Buy Orders"],
+  ];
 
-  let email = '';
-  let password = '';
-  let loginError = '';
+  function hasError(value: unknown): value is { error: string } {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      "error" in value &&
+      typeof (value as { error?: unknown }).error === "string"
+    );
+  }
+
+  let email = "";
+  let password = "";
+  let loginError = "";
   let loginLoading = false;
   let ordersLoading = false;
-  let ordersError = '';
+  let ordersError = "";
 
   onMount(async () => {
     await loadView();
@@ -17,7 +45,7 @@
 
   async function loadView() {
     try {
-      const session = await window.api.wfmGetSession();
+      const session = await ipc.wfmGetSession();
       marketSession.set(session);
     } catch (e) {
       console.error('[Market] getSession failed:', e);
@@ -32,8 +60,8 @@
       // Only fetch status once per session — it rarely changes without user action
       if (!$marketStatus) {
         try {
-          const me = await window.api.wfmGetMe();
-          if (me?.status) marketStatus.set(me.status);
+          const me = await ipc.wfmGetMe();
+          if (me?.status) marketStatus.set(me.status as WfmStatus);
         } catch (e) {
           console.warn('[Market] getMe failed:', e);
         }
@@ -41,12 +69,12 @@
     }
   }
 
-  async function login(e) {
+  async function login(e: SubmitEvent): Promise<void> {
     e.preventDefault();
     loginError = '';
     loginLoading = true;
     try {
-      const result = await window.api.wfmSignIn({ email, password });
+      const result = await ipc.wfmSignIn({ email, password });
       if (!result.loggedIn) {
         loginError = result.error || 'Sign-in failed. Check your credentials.';
       } else {
@@ -55,14 +83,14 @@
         await fetchOrders();
       }
     } catch (err) {
-      loginError = err.message;
+      loginError = (err as Error).message;
     } finally {
       loginLoading = false;
     }
   }
 
   async function logout() {
-    await window.api.wfmSignOut();
+    await ipc.wfmSignOut();
     marketSession.set({ loggedIn: false, userName: null, platform: 'pc' });
     marketOrders.set({ sell: [], buy: [] });
     marketSelected.set(new Set());
@@ -72,8 +100,8 @@
     ordersLoading = true;
     ordersError = '';
     try {
-      const result = await window.api.wfmGetOrders();
-      if (result.error) {
+      const result = await ipc.wfmGetOrders();
+      if (hasError(result)) {
         if (result.error.includes('Not logged') || result.error.includes('expired')) {
           marketSession.set({ loggedIn: false, userName: null, platform: 'pc' });
           return;
@@ -85,26 +113,26 @@
       marketSelected.set(new Set());
       marketOrdersLastFetch.set(Date.now());
     } catch (e) {
-      ordersError = e.message;
+      ordersError = (e as Error).message;
     } finally {
       ordersLoading = false;
     }
   }
 
-  async function setStatus(status) {
+  async function setStatus(status: WfmStatus): Promise<void> {
     if (status === $marketStatus) return;
     try {
-      await window.api.wfmSetStatus(status);
+      await ipc.wfmSetStatus(status);
       marketStatus.set(status);
     } catch (e) {
       console.error('[Market] setStatus failed:', e);
     }
   }
 
-  async function deleteOrder(orderId) {
+  async function deleteOrder(orderId: string): Promise<void> {
     if (!confirm('Delete this order?')) return;
-    const result = await window.api.wfmDeleteOrder(orderId);
-    if (result.error) { alert(`Delete failed: ${result.error}`); return; }
+    const result = await ipc.wfmDeleteOrder(orderId);
+    if (hasError(result)) { alert(`Delete failed: ${result.error}`); return; }
     marketOrders.update(o => ({
       sell: o.sell.filter(x => x.id !== orderId),
       buy:  o.buy.filter(x => x.id !== orderId),
@@ -112,10 +140,10 @@
     marketSelected.update(s => { s.delete(orderId); return new Set(s); });
   }
 
-  async function bulkSetVisible(visible) {
+  async function bulkSetVisible(visible: boolean): Promise<void> {
     const ids = [...$marketSelected];
     if (!ids.length) return;
-    await window.api.wfmSetVisible(ids, visible);
+    await ipc.wfmSetVisible(ids, visible);
     await fetchOrders();
   }
 
@@ -123,15 +151,19 @@
     const ids = [...$marketSelected];
     if (!ids.length) return;
     if (!confirm(`Delete ${ids.length} order(s)?`)) return;
-    for (const id of ids) await window.api.wfmDeleteOrder(id);
+    for (const id of ids) await ipc.wfmDeleteOrder(id);
     await fetchOrders();
   }
 
-  function toggleSelect(id, checked) {
+  function toggleSelect(id: string, checked: boolean): void {
     marketSelected.update(s => {
       if (checked) s.add(id); else s.delete(id);
       return new Set(s);
     });
+  }
+
+  function onOrderCheckboxChange(orderId: string, event: Event): void {
+    toggleSelect(orderId, (event.currentTarget as HTMLInputElement).checked);
   }
 
   $: orders = $marketOrders[$marketTypeTab] || [];
@@ -152,7 +184,7 @@
         <p class="market-login-note">
           Sign in with your <strong>email &amp; password</strong>.<br/>
           Steam/Discord users: add a password in your
-          <button type="button" class="link-btn" on:click={() => window.api.openExternal('https://warframe.market/profile/settings#password')}>WFM account settings</button> first.
+          <button type="button" class="link-btn" on:click={() => ipc.openExternal('https://warframe.market/profile/settings#password')}>WFM account settings</button> first.
         </p>
         <form autocomplete="on" on:submit={login}>
           <div class="market-field">
@@ -185,9 +217,10 @@
 
           <!-- Status buttons -->
           <div class="market-status-group">
-            {#each [['online','● Online'],['ingame','▶ In Game'],['invisible','○ Invisible']] as [s, label]}
+            {#each STATUS_OPTIONS as [s, label]}
               <button
                 class="status-btn"
+                data-status={s}
                 class:status-active={$marketStatus === s}
                 on:click={() => setStatus(s)}
               >{label}</button>
@@ -207,7 +240,7 @@
 
       <!-- Order type tabs -->
       <div class="filter-tabs market-tabs">
-        {#each [['sell','Sell Orders'],['buy','Buy Orders']] as [type, label]}
+        {#each ORDER_TYPE_OPTIONS as [type, label]}
           <button
             class="filter-tab"
             class:active={$marketTypeTab === type}
@@ -243,7 +276,7 @@
                 class="order-checkbox"
                 checked={$marketSelected.has(o.id)}
                 title="Select for bulk action"
-                on:change={e => toggleSelect(o.id, e.target.checked)}
+                on:change={(e) => onOrderCheckboxChange(o.id, e)}
               />
               <div class="order-item-info">
                 {#if o.itemThumb}

@@ -1,3 +1,4 @@
+const log = require('./logger').withScope('warframeMarket');
 // ═══════════════════════════════════════════════════════════════════════════
 // Warframe.Market Service (v2 API)
 // Fetches public item list (no auth) for name→slug mapping
@@ -49,7 +50,7 @@ async function fetchItemList() {
           items = data;
         }
       } catch (e) {
-        console.warn(`[WFMarket] v2 ${path} failed:`, e.message);
+        log.warn(`[WFMarket] v2 ${path} failed:`, e.message);
       }
     }
 
@@ -87,10 +88,10 @@ async function fetchItemList() {
     }
 
     loaded = true;
-    console.log(`[WFMarket] v2 loaded ${wfmItems.length} items, ${Object.keys(wfmByName).length} name mappings`);
+    log.log(`[WFMarket] v2 loaded ${wfmItems.length} items, ${Object.keys(wfmByName).length} name mappings`);
     return wfmItems.length;
   } catch (err) {
-    console.error("[WFMarket] Failed to fetch item list:", err.message);
+    log.error("[WFMarket] Failed to fetch item list:", err.message);
     return 0;
   }
 }

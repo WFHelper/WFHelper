@@ -1,3 +1,4 @@
+const log = require('../services/logger').withScope('worldStateIpc');
 /**
  * World state IPC handler with TTL cache.
  * Handles: get-world-state
@@ -25,10 +26,10 @@ function register() {
     try {
       _worldStateCache     = await worldStateParser.fetchAndParse();
       _worldStateCacheTime = Date.now();
-      console.log('[WorldState] Fetched and parsed DE world state');
+      log.log('[WorldState] Fetched and parsed DE world state');
       return _worldStateCache;
     } catch (err) {
-      console.error('[WorldState] fetch failed:', err.message);
+      log.error('[WorldState] fetch failed:', err.message);
       // Fall back to stale data if available, otherwise return a safe empty shape
       if (!_worldStateCache) {
         _worldStateCache = worldStateParser.emptyWorldState();

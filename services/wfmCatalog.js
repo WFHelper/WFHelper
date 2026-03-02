@@ -1,3 +1,4 @@
+const log = require('./logger').withScope('wfmCatalog');
 "use strict";
 
 /**
@@ -66,7 +67,7 @@ async function _load() {
   if (_loading) return _loading;
 
   _loading = (async () => {
-    console.log("[WFMCatalog] Fetching item catalog (v2)…");
+    log.log("[WFMCatalog] Fetching item catalog (v2)…");
 
     let rawItems = [];
 
@@ -74,7 +75,7 @@ async function _load() {
       if (rawItems.length) break;
       try {
         const resp = await fetch(`${WFM_V2_BASE}${path}`, { headers: WFM_HEADERS });
-        if (!resp.ok) { console.warn(`[WFMCatalog] ${path} returned ${resp.status}`); continue; }
+        if (!resp.ok) { log.warn(`[WFMCatalog] ${path} returned ${resp.status}`); continue; }
         const json = await resp.json();
         const data = _unwrap(json);
         if (!data) continue;
@@ -89,7 +90,7 @@ async function _load() {
           rawItems = data;
         }
       } catch (e) {
-        console.warn(`[WFMCatalog] fetch ${path} failed:`, e.message);
+        log.warn(`[WFMCatalog] fetch ${path} failed:`, e.message);
       }
     }
 
@@ -108,7 +109,7 @@ async function _load() {
 
     _loaded  = true;
     _loading = null;
-    console.log(`[WFMCatalog] Loaded ${_items.length} items.`);
+    log.log(`[WFMCatalog] Loaded ${_items.length} items.`);
   })();
 
   return _loading;
@@ -165,7 +166,7 @@ async function lookupBySlug(slug) {
  * Trigger a background load of the catalog (call on app startup for faster first search).
  */
 function prefetch() {
-  _load().catch((err) => console.error("[WFMCatalog] prefetch failed:", err.message));
+  _load().catch((err) => log.error("[WFMCatalog] prefetch failed:", err.message));
 }
 
 module.exports = { searchItems, lookupById, lookupBySlug, prefetch };

@@ -1,3 +1,4 @@
+const log = require('./logger').withScope('relicService');
 "use strict";
 
 /**
@@ -20,7 +21,7 @@ function buildRelicDatabase() {
   try {
     Items = require("@wfcd/items");
   } catch (err) {
-    console.error("[RelicDB] @wfcd/items not available:", err.message);
+    log.error("[RelicDB] @wfcd/items not available:", err.message);
     return { groups: {}, byUniqueName: {} };
   }
 
@@ -94,11 +95,11 @@ function buildRelicDatabase() {
  */
 function getRelicDatabase() {
   if (!_db) {
-    console.time("[RelicDB] build");
+    log.time("[RelicDB] build");
     _db = buildRelicDatabase();
     const n = Object.keys(_db.groups).length;
-    console.log(`[RelicDB] ${n} relic groups indexed`);
-    console.timeEnd("[RelicDB] build");
+    log.log(`[RelicDB] ${n} relic groups indexed`);
+    log.timeEnd("[RelicDB] build");
   }
   return _db;
 }

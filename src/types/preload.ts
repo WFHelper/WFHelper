@@ -1,0 +1,59 @@
+import type { IpcInvokeMap } from "./ipc.js";
+import type { RawInventoryData } from "./inventory.js";
+import type { WfmStatus } from "./market.js";
+
+export interface PreloadAPI {
+  getInventory: () => Promise<IpcInvokeMap["getInventory"]["return"]>;
+  openInventoryFile: () => Promise<IpcInvokeMap["openInventoryFile"]["return"]>;
+  getInventoryStatus: () => Promise<IpcInvokeMap["getInventoryStatus"]["return"]>;
+  checkAlecaFrame: () => Promise<IpcInvokeMap["checkAlecaFrame"]["return"]>;
+  loadAlecaFrame: () => Promise<IpcInvokeMap["loadAlecaFrame"]["return"]>;
+  openAlecaFrameJson: () => Promise<IpcInvokeMap["openAlecaFrameJson"]["return"]>;
+  getItemDatabase: () => Promise<IpcInvokeMap["getItemDatabase"]["return"]>;
+  getWorldState: () => Promise<IpcInvokeMap["getWorldState"]["return"]>;
+  getRelicDatabase: () => Promise<IpcInvokeMap["getRelicDatabase"]["return"]>;
+  getWfmItems: () => Promise<IpcInvokeMap["getWfmItems"]["return"]>;
+  wfmSignIn: (
+    creds: IpcInvokeMap["wfmSignIn"]["args"][0],
+  ) => Promise<IpcInvokeMap["wfmSignIn"]["return"]>;
+  wfmSignOut: () => Promise<IpcInvokeMap["wfmSignOut"]["return"]>;
+  wfmGetSession: () => Promise<IpcInvokeMap["wfmGetSession"]["return"]>;
+  wfmGetOrders: () => Promise<IpcInvokeMap["wfmGetOrders"]["return"]>;
+  wfmCreateOrder: (
+    params: IpcInvokeMap["wfmCreateOrder"]["args"][0],
+  ) => Promise<IpcInvokeMap["wfmCreateOrder"]["return"]>;
+  wfmUpdateOrder: (
+    orderId: IpcInvokeMap["wfmUpdateOrder"]["args"][0],
+    updates: IpcInvokeMap["wfmUpdateOrder"]["args"][1],
+  ) => Promise<IpcInvokeMap["wfmUpdateOrder"]["return"]>;
+  wfmDeleteOrder: (
+    orderId: IpcInvokeMap["wfmDeleteOrder"]["args"][0],
+  ) => Promise<IpcInvokeMap["wfmDeleteOrder"]["return"]>;
+  wfmSetVisible: (
+    orderIds: IpcInvokeMap["wfmSetVisible"]["args"][0],
+    visible: IpcInvokeMap["wfmSetVisible"]["args"][1],
+  ) => Promise<IpcInvokeMap["wfmSetVisible"]["return"]>;
+  wfmSearchItems: (
+    query: IpcInvokeMap["wfmSearchItems"]["args"][0],
+    limit?: IpcInvokeMap["wfmSearchItems"]["args"][1],
+  ) => Promise<IpcInvokeMap["wfmSearchItems"]["return"]>;
+  wfmGetMe: () => Promise<IpcInvokeMap["wfmGetMe"]["return"]>;
+  wfmSetStatus: (
+    status: WfmStatus,
+  ) => Promise<IpcInvokeMap["wfmSetStatus"]["return"]>;
+  getMasteryProgress: () => Promise<IpcInvokeMap["getMasteryProgress"]["return"]>;
+  setDebugMode: (
+    enabled: IpcInvokeMap["setDebugMode"]["args"][0],
+  ) => Promise<IpcInvokeMap["setDebugMode"]["return"]>;
+  onInventoryUpdated: (callback: (data: RawInventoryData) => void) => void;
+  minimizeWindow: () => void;
+  maximizeWindow: () => void;
+  closeWindow: () => void;
+  toggleOverlay: () => void;
+  simulateRelicTrigger: () => void;
+  getOverlaySettings: () => Promise<IpcInvokeMap["getOverlaySettings"]["return"]>;
+  setOverlaySettings: (
+    settings: IpcInvokeMap["setOverlaySettings"]["args"][0],
+  ) => Promise<IpcInvokeMap["setOverlaySettings"]["return"]>;
+  openExternal: (url: string) => void;
+}

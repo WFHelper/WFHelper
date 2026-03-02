@@ -1,34 +1,37 @@
-<script>
-  import { onMount, onDestroy } from 'svelte';
-  import { worldData, worldLoading, worldLastFetch, worldFissureMode } from '../stores/world.js';
-  import { inventoryData, itemDb } from '../stores/data.js';
+<script lang="ts">
+  import { onMount, onDestroy } from "svelte";
+  import { worldData, worldLoading, worldLastFetch, worldFissureMode } from "../stores/world.js";
+  import { inventoryData, itemDb } from "../stores/data.js";
   import {
     parseIsoDate, timeTo, timeToStrict, cycleTimeDisplay,
     nextDailyResetUtc, nextWeeklyResetUtc,
-  } from '../lib/format.js';
-  import { PLANET_ICON_PATHS, RELIC_ICON_PATHS, fissureTierClass, buildFeaturedPrimes } from '../lib/world.js';
+  } from "../lib/format.js";
+  import { PLANET_ICON_PATHS, RELIC_ICON_PATHS, fissureTierClass, buildFeaturedPrimes } from "../lib/world.js";
+  import { ipc } from "../lib/ipc.js";
 
   const WORLD_REFRESH_MS = 120_000;
-  const TIER_ORDER = { Lith: 0, Meso: 1, Neo: 2, Axi: 3, Requiem: 4 };
+  const FISSURE_EXPIRY_GUARD_MS = 1_500;
 
   let tick = 0;
-  let interval;
+  let interval: ReturnType<typeof setInterval> | null = null;
 
   onMount(() => {
     fetchWorldData();
     interval = setInterval(() => { tick++; }, 1000);
   });
 
-  onDestroy(() => clearInterval(interval));
+  onDestroy(() => {
+    if (interval) clearInterval(interval);
+  });
 
-  async function fetchWorldData(force = false) {
+  async function fetchWorldData(force: boolean = false) {
     if ($worldLoading) return;
     const now = Date.now();
     if (!force && $worldData && (now - $worldLastFetch) < WORLD_REFRESH_MS) return;
 
     worldLoading.set(true);
     try {
-      const data = await window.api.getWorldState();
+      const data = await ipc.getWorldState();
       if (data) {
         worldData.set(data);
         worldLastFetch.set(Date.now());
@@ -84,7 +87,11 @@
   })();
 
   $: fissuresAll = (wd?.fissures || [])
-    .filter(f => !f.expired && ((parseIsoDate(f.expiry)?.getTime() || 0) > (nowMs + 1500)))
+    .filter(
+      (f) =>
+        !f.expired &&
+        ((parseIsoDate(f.expiry)?.getTime() || 0) > (nowMs + FISSURE_EXPIRY_GUARD_MS)),
+    )
     .sort((a, b) => (parseIsoDate(a.expiry)?.getTime() || 0) - (parseIsoDate(b.expiry)?.getTime() || 0));
 
   $: fissures = fissuresAll.filter(f =>
@@ -181,10 +188,10 @@
           <h3>Planet Cycles</h3>
           {#if earth.expiry || cetus.expiry || vallis.expiry || cambion.expiry}
             {#each [
-              { key: 'earth',   label: `Earth ${earthLabel}`,      src: PLANET_ICON_PATHS.earth,   t: earth   },
-              { key: 'cetus',   label: `Cetus ${cetusLabel}`,      src: PLANET_ICON_PATHS.cetus,   t: cetus   },
-              { key: 'vallis',  label: `Vallis ${vallisLabel}`,    src: PLANET_ICON_PATHS.vallis,  t: vallis  },
-              { key: 'cambion', label: `Cambion ${cambionLabel}`,  src: PLANET_ICON_PATHS.cambion, t: cambion },
+              { key: 'earth',   label: `Earth ${earthLabel}`,      src: PLANET_ICON_PATHS.earth,   t: earth,   time: times.earth   },
+              { key: 'cetus',   label: `Cetus ${cetusLabel}`,      src: PLANET_ICON_PATHS.cetus,   t: cetus,   time: times.cetus   },
+              { key: 'vallis',  label: `Vallis ${vallisLabel}`,    src: PLANET_ICON_PATHS.vallis,  t: vallis,  time: times.vallis  },
+              { key: 'cambion', label: `Cambion ${cambionLabel}`,  src: PLANET_ICON_PATHS.cambion, t: cambion, time: times.cambion },
             ] as row}
               <div class="world-line">
                 <span class="world-left">
@@ -193,11 +200,11 @@
                   </span>
                   {row.label}
                 </span>
-                <span class="world-right">{times[row.key]}</span>
+                <span class="world-right">{row.time}</span>
               </div>
             {/each}
           {:else}
-            <div class="world-left" style="color:var(--text-muted);font-size:12px;line-height:1.6">
+            <div class="world-left world-note">
               Cycle timers are not included in the official DE API. Check in-game or on the Warframe wiki.
             </div>
           {/if}
@@ -216,11 +223,11 @@
         <div class="world-card">
           <h3>The Circuit</h3>
           <div class="world-line"><span class="world-left">Duviri {duviriState}</span><span class="world-right">{times.duviri}</span></div>
-          <div class="world-left" style="margin-top:6px;">Normal Rotation</div>
+          <div class="world-left world-subhead world-subhead-normal">Normal Rotation</div>
           <div class="world-circuit-list">
             {#each duviriNormal as n}<span class="world-pill">{n}</span>{:else}<span class="world-left">No data</span>{/each}
           </div>
-          <div class="world-left" style="margin-top:8px;">Steel Path Rotation</div>
+          <div class="world-left world-subhead world-subhead-steel">Steel Path Rotation</div>
           <div class="world-circuit-list">
             {#each duviriHard as n}<span class="world-pill">{n}</span>{:else}<span class="world-left">No data</span>{/each}
           </div>

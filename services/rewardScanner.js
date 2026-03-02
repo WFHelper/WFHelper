@@ -1,3 +1,4 @@
+const log = require('./logger').withScope('rewardScanner');
 "use strict";
 
 const fs = require("fs");
@@ -40,7 +41,7 @@ let scanSettings = { ...DEFAULT_SCAN_SETTINGS };
 function setRelicItems(items) {
   relicItems = Array.isArray(items) ? items : [];
   sortedItems = [...relicItems].sort((a, b) => b.name.length - a.name.length);
-  console.log(`[RewardScanner] Item list updated: ${relicItems.length} items`);
+  log.log(`[RewardScanner] Item list updated: ${relicItems.length} items`);
 }
 
 function clampNumber(value, min, max, fallback) {
@@ -74,7 +75,7 @@ async function captureScreen() {
   try {
     ({ desktopCapturer } = require("electron"));
   } catch {
-    console.warn("[RewardScanner] electron.desktopCapturer unavailable");
+    log.warn("[RewardScanner] electron.desktopCapturer unavailable");
     return null;
   }
 
@@ -86,7 +87,7 @@ async function captureScreen() {
       fetchWindowIcons: false,
     });
   } catch (err) {
-    console.warn("[RewardScanner] getSources(window) failed:", err.message);
+    log.warn("[RewardScanner] getSources(window) failed:", err.message);
     sources = [];
   }
 
@@ -100,7 +101,7 @@ async function captureScreen() {
     });
     if (screens.length > 0) return screens[0].thumbnail;
   } catch (err) {
-    console.warn("[RewardScanner] getSources(screen) failed:", err.message);
+    log.warn("[RewardScanner] getSources(screen) failed:", err.message);
   }
 
   return null;
@@ -221,7 +222,7 @@ function getBandsForPasses(presetName, passes) {
 
 async function scanRewards() {
   if (sortedItems.length === 0) {
-    console.warn("[RewardScanner] No relic items loaded - call setRelicItems() first");
+    log.warn("[RewardScanner] No relic items loaded - call setRelicItems() first");
     return null;
   }
 
@@ -229,11 +230,11 @@ async function scanRewards() {
   try {
     screenshot = await captureScreen();
   } catch (err) {
-    console.error("[RewardScanner] captureScreen error:", err.message);
+    log.error("[RewardScanner] captureScreen error:", err.message);
     return null;
   }
   if (!screenshot) {
-    console.warn("[RewardScanner] Could not capture screen");
+    log.warn("[RewardScanner] Could not capture screen");
     return null;
   }
 
@@ -249,7 +250,7 @@ async function scanRewards() {
       cropped = cropRewardBand(screenshot, bands[i]);
       fs.writeFileSync(TEMP_IMAGE, cropped.toPNG());
     } catch (err) {
-      console.error(`[RewardScanner] crop/write failed on pass ${i + 1}:`, err.message);
+      log.error(`[RewardScanner] crop/write failed on pass ${i + 1}:`, err.message);
       continue;
     }
 
@@ -258,7 +259,7 @@ async function scanRewards() {
       ocrText = await runOCR(TEMP_IMAGE, scanSettings.ocrTimeoutMs);
       hadOcrSuccess = true;
     } catch (err) {
-      console.error(`[RewardScanner] OCR failed on pass ${i + 1}:`, err.message);
+      log.error(`[RewardScanner] OCR failed on pass ${i + 1}:`, err.message);
       continue;
     }
 
@@ -275,7 +276,7 @@ async function scanRewards() {
   if (!hadOcrSuccess) return null;
 
   if (best.items.length > 0) {
-    console.log(
+    log.log(
       `[RewardScanner] Detected (pass ${best.passIndex}, score ${best.score.toFixed(2)}):`,
       best.items.map((i) => i.name).join(" | ")
     );
@@ -283,9 +284,9 @@ async function scanRewards() {
   }
 
   if (best.text) {
-    console.log("[RewardScanner] No items matched OCR text:", best.text.slice(0, 240).replace(/\s+/g, " "));
+    log.log("[RewardScanner] No items matched OCR text:", best.text.slice(0, 240).replace(/\s+/g, " "));
   } else {
-    console.log("[RewardScanner] No items matched OCR text");
+    log.log("[RewardScanner] No items matched OCR text");
   }
   return [];
 }

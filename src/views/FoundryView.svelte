@@ -1,8 +1,8 @@
-<script>
-  import { inventoryData, itemDb } from '../stores/data.js';
-  import { parseFoundry } from '../lib/inventory.js';
-  import { formatTimeRemaining } from '../lib/format.js';
-  import ItemImage from '../components/ItemImage.svelte';
+<script lang="ts">
+  import { inventoryData, itemDb } from "../stores/data.js";
+  import { parseFoundry } from "../lib/inventory.js";
+  import { formatTimeRemaining } from "../lib/format.js";
+  import ItemImage from "../components/ItemImage.svelte";
 
   $: foundry = ($inventoryData && Object.keys($itemDb).length > 0)
     ? parseFoundry($inventoryData, $itemDb)

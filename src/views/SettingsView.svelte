@@ -1,20 +1,22 @@
-<script>
-  import { onMount } from 'svelte';
-  import { overlaySettings, overlaySettingsLoaded, OVERLAY_DEFAULTS } from '../stores/overlaySettings.js';
+<script lang="ts">
+  import { onMount } from "svelte";
+  import { overlaySettings, overlaySettingsLoaded, OVERLAY_DEFAULTS } from "../stores/overlaySettings.js";
+  import { ipc } from "../lib/ipc.js";
+  import type { OverlaySettings } from "../types/ipc.js";
 
-  let statusMsg = '';
+  let statusMsg = "";
   let statusError = false;
 
   // Local form state — kept in sync with the store
   let autoTrigger = OVERLAY_DEFAULTS.autoTriggerEnabled;
   let hotkeyEnabled = OVERLAY_DEFAULTS.hotkeyEnabled;
   let hotkey = OVERLAY_DEFAULTS.hotkey;
-  let cropPreset = OVERLAY_DEFAULTS.cropPreset;
+  let cropPreset: OverlaySettings["cropPreset"] = OVERLAY_DEFAULTS.cropPreset;
   let ocrPasses = OVERLAY_DEFAULTS.ocrPasses;
   let matchThreshold = OVERLAY_DEFAULTS.matchThreshold;
   let ocrTimeoutMs = OVERLAY_DEFAULTS.ocrTimeoutMs;
 
-  function applyToForm(s) {
+  function applyToForm(s: Partial<OverlaySettings>): void {
     autoTrigger    = !!s.autoTriggerEnabled;
     hotkeyEnabled  = !!s.hotkeyEnabled;
     hotkey         = s.hotkey || OVERLAY_DEFAULTS.hotkey;
@@ -27,7 +29,7 @@
   onMount(async () => {
     if (!$overlaySettingsLoaded) {
       try {
-        const loaded = await window.api.getOverlaySettings();
+        const loaded = await ipc.getOverlaySettings();
         if (loaded) {
           overlaySettings.set({ ...OVERLAY_DEFAULTS, ...loaded });
           overlaySettingsLoaded.set(true);
@@ -52,7 +54,7 @@
       ocrTimeoutMs: Math.floor(Number(ocrTimeoutMs)),
     };
     try {
-      const saved = await window.api.setOverlaySettings(payload);
+      const saved = await ipc.setOverlaySettings(payload);
       if (saved) {
         overlaySettings.set({ ...OVERLAY_DEFAULTS, ...saved });
         overlaySettingsLoaded.set(true);
@@ -60,30 +62,30 @@
       }
       statusMsg = 'Saved.';
       statusError = false;
-    } catch (e) {
-      statusMsg = 'Failed to save settings.';
-      statusError = true;
-    }
+      } catch {
+        statusMsg = 'Failed to save settings.';
+        statusError = true;
+      }
   }
 
   async function resetDefaults() {
     applyToForm(OVERLAY_DEFAULTS);
     try {
-      const saved = await window.api.setOverlaySettings({ ...OVERLAY_DEFAULTS });
+      const saved = await ipc.setOverlaySettings({ ...OVERLAY_DEFAULTS });
       if (saved) {
         overlaySettings.set({ ...OVERLAY_DEFAULTS, ...saved });
         overlaySettingsLoaded.set(true);
       }
       statusMsg = 'Defaults restored.';
       statusError = false;
-    } catch (e) {
+    } catch {
       statusMsg = 'Defaults restored in form (save failed).';
       statusError = true;
     }
   }
 
   function testTrigger() {
-    window.api.simulateRelicTrigger();
+    ipc.simulateRelicTrigger();
   }
 </script>
 

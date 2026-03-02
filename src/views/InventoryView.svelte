@@ -1,8 +1,8 @@
-<script>
-  import { parsedItems } from '../stores/data.js';
-  import { debugMode } from '../stores/app.js';
-  import { activeItem } from '../stores/modals.js';
-  import ItemImage from '../components/ItemImage.svelte';
+<script lang="ts">
+  import { parsedItems } from "../stores/data.js";
+  import { debugMode } from "../stores/app.js";
+  import { activeItem } from "../stores/modals.js";
+  import ItemImage from "../components/ItemImage.svelte";
 
   const FILTERS = [
     { key: 'all',        label: 'All' },
@@ -64,7 +64,7 @@
 
   <div class="item-grid">
     {#if filtered.length === 0}
-      <div class="empty-state" style="grid-column:1/-1">
+      <div class="empty-state col-span-full">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <circle cx="11" cy="11" r="7"/>
           <line x1="21" y1="21" x2="16.65" y2="16.65"/>

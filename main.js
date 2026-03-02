@@ -1,3 +1,4 @@
+const log = require('./services/logger').withScope('Main');
 const { app, BrowserWindow, globalShortcut } = require('electron');
 const path = require('path');
 
@@ -9,6 +10,7 @@ const wfmCatalog     = require('./services/wfmCatalog');
 const relicService   = require('./services/relicService');
 const eeLogMonitor   = require('./services/eeLogMonitor');
 const rewardScanner  = require('./services/rewardScanner');
+const crashReporter  = require('./services/crashReporter');
 
 // IPC modules
 const ctx            = require('./ipc/context');
@@ -21,6 +23,19 @@ const systemIpc      = require('./ipc/systemIpc');
 // Suppress noisy Chromium/DevTools internal logging in terminal.
 app.commandLine.appendSwitch('disable-logging');
 app.commandLine.appendSwitch('log-level', '3');
+
+crashReporter.initCrashReporting();
+
+process.on('uncaughtException', (err) => {
+  log.error('[Main] uncaughtException:', err);
+  crashReporter.captureMainException(err, { source: 'uncaughtException' });
+});
+
+process.on('unhandledRejection', (reason) => {
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  log.error('[Main] unhandledRejection:', error);
+  crashReporter.captureMainException(error, { source: 'unhandledRejection' });
+});
 
 // ─── Main Window ─────────────────────────────────────────────────────────────
 
@@ -100,7 +115,7 @@ app.whenReady().then(async () => {
   await inventoryIpc.fetchAlecaKeys();
 
   // Fetch warframe.market item list (used by mastery helper for trade links)
-  wfMarket.fetchItemList().catch(err => console.error('[WFMarket] startup fetch failed:', err));
+  wfMarket.fetchItemList().catch(err => log.error('[WFMarket] startup fetch failed:', err));
 
   // Restore persisted WFM session (safeStorage requires app to be ready first)
   await wfmSession.restoreSession();
@@ -116,13 +131,13 @@ app.whenReady().then(async () => {
   if (found) {
     ctx.currentInventoryPath = found;
     inventoryIpc.watchInventoryFile(found);
-    console.log('Auto-detected inventory at:', found);
+    log.log('Auto-detected inventory at:', found);
   }
 
   // Start EE.log monitor for automatic relic overlay trigger
   const eeLogPath = eeLogMonitor.startWatching(() => overlayIpc.onRelicRewardTrigger('eelog'));
-  if (eeLogPath) console.log('[EELog] Monitoring:', eeLogPath);
-  else           console.log('[EELog] EE.log not found — relic overlay trigger disabled');
+  if (eeLogPath) log.log('[EELog] Monitoring:', eeLogPath);
+  else           log.log('[EELog] EE.log not found — relic overlay trigger disabled');
 
   // Feed reward scanner the full relic item list once at startup
   try {
@@ -139,7 +154,7 @@ app.whenReady().then(async () => {
     }
     rewardScanner.setRelicItems([...seen.values()]);
   } catch (err) {
-    console.error('[RewardScanner] Failed to load relic items:', err.message);
+    log.error('[RewardScanner] Failed to load relic items:', err.message);
   }
 
   app.on('activate', () => {

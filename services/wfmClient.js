@@ -1,3 +1,4 @@
+const log = require('./logger').withScope('wfmClient');
 "use strict";
 
 /**
@@ -83,15 +84,15 @@ async function _ensureCsrfToken() {
       const payload = _decodeJwtPayload(_cookieJwt);
       if (payload?.csrf_token) {
         _csrfToken = payload.csrf_token;
-        console.log("[WFMClient] CSRF token acquired from JWT payload");
+        log.log("[WFMClient] CSRF token acquired from JWT payload");
       } else {
-        console.warn("[WFMClient] JWT payload has no csrf_token:", JSON.stringify(payload));
+        log.warn("[WFMClient] JWT payload has no csrf_token:", JSON.stringify(payload));
       }
     } else {
-      console.warn("[WFMClient] No JWT cookie in set-cookie:", sc.slice(0, 300));
+      log.warn("[WFMClient] No JWT cookie in set-cookie:", sc.slice(0, 300));
     }
   } catch (e) {
-    console.warn("[WFMClient] CSRF prefetch failed:", e.message);
+    log.warn("[WFMClient] CSRF prefetch failed:", e.message);
   }
   return _csrfToken;
 }
@@ -105,7 +106,7 @@ function updateCsrfFromToken(token) {
   if (payload?.csrf_token) {
     _csrfToken = payload.csrf_token;
     _cookieJwt  = token;
-    console.log("[WFMClient] CSRF token updated from authenticated JWT");
+    log.log("[WFMClient] CSRF token updated from authenticated JWT");
   }
 }
 
@@ -267,7 +268,7 @@ function request(method, path, { json, headers: extraHeaders } = {}) {
       const cooldownMs = Math.max(retryAfterSec * 1000, 30_000);
       // Push the rate-limit window so all queued requests back off automatically
       _lastRequestAt = Date.now() + cooldownMs - MIN_DELAY_MS;
-      console.warn(`[WFMClient] Rate limited (429). Cooling down for ${Math.ceil(cooldownMs / 1000)}s.`);
+      log.warn(`[WFMClient] Rate limited (429). Cooling down for ${Math.ceil(cooldownMs / 1000)}s.`);
       const err = new Error(`Warframe.market rate limit hit. Please wait ${Math.ceil(cooldownMs / 1_000)}s.`);
       err.code = 'WFM_RATE_LIMITED';
       err.status = 429;
@@ -279,7 +280,7 @@ function request(method, path, { json, headers: extraHeaders } = {}) {
       let rawBody = null;
       try {
         const text = await res.text();
-        console.log(`[WFMClient] ${method} ${path} → ${res.status} raw body:`, text.slice(0, 500));
+        log.log(`[WFMClient] ${method} ${path} → ${res.status} raw body:`, text.slice(0, 500));
         try { rawBody = JSON.parse(text); } catch (_) {}
         if (rawBody?.error?.message) detail = rawBody.error.message;
         else if (typeof rawBody?.error === "string") detail = rawBody.error;
@@ -355,7 +356,7 @@ function requestRaw(method, path, { json, headers: extraHeaders } = {}) {
           detail = msgs.length ? msgs.join("; ") : "Invalid credentials.";
         }
       } catch (_) { /* ignore parse error */ }
-      console.error(`[WFMClient] sign-in ${res.status} body:`, JSON.stringify(rawBody));
+      log.error(`[WFMClient] sign-in ${res.status} body:`, JSON.stringify(rawBody));
       const err = new Error(`WFM sign-in error: ${detail}`);
       err.code = res.status === 401 ? "WFM_UNAUTHORIZED" : "WFM_API_ERROR";
       err.status = res.status;
@@ -422,7 +423,7 @@ function requestV2(method, path, { json, headers: extraHeaders } = {}) {
       const retryAfterSec = parseInt(res.headers.get('retry-after') || '30', 10);
       const cooldownMs = Math.max(retryAfterSec * 1000, 30_000);
       _lastRequestAt = Date.now() + cooldownMs - MIN_DELAY_MS;
-      console.warn(`[WFMClient] v2 Rate limited (429). Cooling down for ${Math.ceil(cooldownMs / 1000)}s.`);
+      log.warn(`[WFMClient] v2 Rate limited (429). Cooling down for ${Math.ceil(cooldownMs / 1000)}s.`);
       const err = new Error(`Warframe.market rate limit hit. Please wait ${Math.ceil(cooldownMs / 1_000)}s.`);
       err.code = 'WFM_RATE_LIMITED';
       err.status = 429;
@@ -433,7 +434,7 @@ function requestV2(method, path, { json, headers: extraHeaders } = {}) {
       let detail = `HTTP ${res.status}`;
       try {
         const text = await res.text();
-        console.log(`[WFMClient] v2 ${method} ${path} → ${res.status} body:`, text.slice(0, 500));
+        log.log(`[WFMClient] v2 ${method} ${path} → ${res.status} body:`, text.slice(0, 500));
         try {
           const rb = JSON.parse(text);
           if (rb?.error?.message) detail = rb.error.message;

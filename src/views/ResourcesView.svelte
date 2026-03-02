@@ -1,8 +1,8 @@
-<script>
-  import { inventoryData, itemDb } from '../stores/data.js';
-  import { parseResources } from '../lib/inventory.js';
-  import { formatNumber } from '../lib/format.js';
-  import ItemImage from '../components/ItemImage.svelte';
+<script lang="ts">
+  import { inventoryData, itemDb } from "../stores/data.js";
+  import { parseResources } from "../lib/inventory.js";
+  import { formatNumber } from "../lib/format.js";
+  import ItemImage from "../components/ItemImage.svelte";
 
   let search = '';
 
@@ -34,7 +34,7 @@
 
   <div class="resource-grid">
     {#if filtered.length === 0}
-      <div class="empty-state" style="grid-column:1/-1">
+      <div class="empty-state col-span-full">
         <p>No resources found</p>
       </div>
     {:else}
