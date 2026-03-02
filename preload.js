@@ -41,10 +41,16 @@ contextBridge.exposeInMainWorld("api", {
   // Mastery Helper
   getMasteryProgress: () => ipcRenderer.invoke("get-mastery-progress"),
   setDebugMode: (enabled) => ipcRenderer.invoke("set-debug-mode", !!enabled),
+  checkForAppUpdates: () => ipcRenderer.invoke("app:update-check"),
+  getAppUpdateState: () => ipcRenderer.invoke("app:update-state"),
+  installDownloadedUpdate: () => ipcRenderer.invoke("app:update-install"),
 
   // Listen for live inventory updates (file watcher)
   onInventoryUpdated: (callback) => {
     ipcRenderer.on("inventory-updated", (_event, data) => callback(data));
+  },
+  onAppUpdateStatus: (callback) => {
+    ipcRenderer.on("app-update-status", (_event, state) => callback(state));
   },
 
   // Window controls (custom titlebar)

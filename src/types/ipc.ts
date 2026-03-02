@@ -30,6 +30,42 @@ export interface OverlaySettings {
   ocrTimeoutMs: number;
 }
 
+export type AppUpdateStatus =
+  | "idle"
+  | "disabled"
+  | "checking"
+  | "available"
+  | "not-available"
+  | "downloading"
+  | "downloaded"
+  | "installing"
+  | "error";
+
+export interface AppUpdateState {
+  status: AppUpdateStatus;
+  message?: string;
+  version?: string | null;
+  releaseName?: string | null;
+  releaseDate?: string | null;
+  percent?: number;
+  bytesPerSecond?: number;
+  transferred?: number;
+  total?: number;
+  timestamp: number;
+}
+
+export interface AppUpdateCheckResult {
+  ok: boolean;
+  source?: string;
+  message?: string;
+  state: AppUpdateState;
+}
+
+export interface AppUpdateInstallResult {
+  ok: boolean;
+  message?: string;
+}
+
 export interface InventoryStatus {
   path: string | null;
   found: boolean;
@@ -163,10 +199,23 @@ export interface IpcInvokeMap {
     args: [settings: Partial<OverlaySettings>];
     return: OverlaySettings;
   };
+  checkForAppUpdates: {
+    args: [];
+    return: AppUpdateCheckResult;
+  };
+  getAppUpdateState: {
+    args: [];
+    return: AppUpdateState;
+  };
+  installDownloadedUpdate: {
+    args: [];
+    return: AppUpdateInstallResult;
+  };
 }
 
 export interface IpcEventMap {
   onInventoryUpdated: (data: RawInventoryData) => void;
+  onAppUpdateStatus: (state: AppUpdateState) => void;
 }
 
 export interface IpcSendMap {

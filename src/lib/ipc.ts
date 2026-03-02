@@ -27,6 +27,9 @@ const invokeHandlers = {
   wfmSetStatus: (status) => window.api.wfmSetStatus(status),
   getMasteryProgress: () => window.api.getMasteryProgress(),
   setDebugMode: (enabled) => window.api.setDebugMode(enabled),
+  checkForAppUpdates: () => window.api.checkForAppUpdates(),
+  getAppUpdateState: () => window.api.getAppUpdateState(),
+  installDownloadedUpdate: () => window.api.installDownloadedUpdate(),
   getOverlaySettings: () => window.api.getOverlaySettings(),
   setOverlaySettings: (settings) => window.api.setOverlaySettings(settings),
 } satisfies {
@@ -70,10 +73,18 @@ export const ipc = {
   wfmSetStatus: (...args: IpcInvokeMap["wfmSetStatus"]["args"]) => invoke("wfmSetStatus", ...args),
   getMasteryProgress: () => invoke("getMasteryProgress"),
   setDebugMode: (...args: IpcInvokeMap["setDebugMode"]["args"]) => invoke("setDebugMode", ...args),
+  checkForAppUpdates: () => invoke("checkForAppUpdates"),
+  getAppUpdateState: () => invoke("getAppUpdateState"),
+  installDownloadedUpdate: () => invoke("installDownloadedUpdate"),
   getOverlaySettings: () => invoke("getOverlaySettings"),
   setOverlaySettings: (...args: IpcInvokeMap["setOverlaySettings"]["args"]) => invoke("setOverlaySettings", ...args),
   onInventoryUpdated: (callback: (data: RawInventoryData) => void) => {
     window.api.onInventoryUpdated(callback);
+  },
+  onAppUpdateStatus: (
+    callback: (state: IpcInvokeMap["getAppUpdateState"]["return"]) => void,
+  ) => {
+    window.api.onAppUpdateStatus(callback);
   },
   minimizeWindow: () => {
     window.api.minimizeWindow();

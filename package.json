@@ -14,7 +14,8 @@
     "lint": "eslint src --ext .ts,.svelte",
     "format": "prettier --write \"src/**/*.{ts,svelte,css}\"",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dist:win:publish": "npm run build && electron-builder --win nsis --publish always"
   },
   "keywords": [
     "warframe",
@@ -52,6 +53,7 @@
     "@wfcd/items": "^1.1272.0",
     "chokidar": "^4.0.0",
     "electron-log": "^5.4.3",
+    "electron-updater": "^6.8.3",
     "warframe-public-export-plus": "latest"
   },
   "build": {
@@ -82,6 +84,21 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    }
-  }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "MrZockertator",
+        "repo": "warframe_companion"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MrZockertator/warframe_companion.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MrZockertator/warframe_companion/issues"
+  },
+  "homepage": "https://github.com/MrZockertator/warframe_companion#readme"
 }

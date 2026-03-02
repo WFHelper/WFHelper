@@ -45,7 +45,13 @@ export interface PreloadAPI {
   setDebugMode: (
     enabled: IpcInvokeMap["setDebugMode"]["args"][0],
   ) => Promise<IpcInvokeMap["setDebugMode"]["return"]>;
+  checkForAppUpdates: () => Promise<IpcInvokeMap["checkForAppUpdates"]["return"]>;
+  getAppUpdateState: () => Promise<IpcInvokeMap["getAppUpdateState"]["return"]>;
+  installDownloadedUpdate: () => Promise<IpcInvokeMap["installDownloadedUpdate"]["return"]>;
   onInventoryUpdated: (callback: (data: RawInventoryData) => void) => void;
+  onAppUpdateStatus: (
+    callback: (state: IpcInvokeMap["getAppUpdateState"]["return"]) => void,
+  ) => void;
   minimizeWindow: () => void;
   maximizeWindow: () => void;
   closeWindow: () => void;

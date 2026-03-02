@@ -11,6 +11,7 @@ const relicService   = require('./services/relicService');
 const eeLogMonitor   = require('./services/eeLogMonitor');
 const rewardScanner  = require('./services/rewardScanner');
 const crashReporter  = require('./services/crashReporter');
+const autoUpdater    = require('./services/autoUpdater');
 
 // IPC modules
 const ctx            = require('./ipc/context');
@@ -124,6 +125,7 @@ app.whenReady().then(async () => {
   wfmCatalog.prefetch();
 
   createWindow();
+  autoUpdater.initialize(ctx.mainWindow);
   overlayIpc.registerOverlayHotkey();
 
   // Auto-detect inventory file and start watching it

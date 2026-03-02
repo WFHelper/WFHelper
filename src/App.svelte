@@ -26,6 +26,8 @@
   import { itemDb, wfmItems, parsedItems } from "./stores/data.js";
   import { activeItem, activeComponent, activeRelic } from "./stores/modals.js";
   import { relicDb } from "./stores/relics.js";
+  import { appUpdateState } from "./stores/updates.js";
+  import { addToast } from "./stores/toasts.js";
   import { onInventoryLoaded, setInventoryStatus } from "./lib/actions.js";
   import { flushCache } from "./lib/priceCache.js";
   import {
@@ -41,6 +43,7 @@
 
   onMount(() => {
     let startupWarmupTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastNotifiedUpdateStatus = "";
 
     void (async () => {
       try {
@@ -63,6 +66,13 @@
         console.error("[App] getWfmItems failed:", e);
       }
 
+      try {
+        const state = await ipc.getAppUpdateState();
+        applyUpdateState(state, false);
+      } catch {
+        // optional feature, non-blocking
+      }
+
       startupWarmupTimer = setTimeout(() => {
         void startPrimePriceWarmup();
       }, STARTUP_RELIC_WARMUP_DELAY_MS);
@@ -73,6 +83,46 @@
           statusText.set(`Live update - ${$parsedItems.length} items loaded`);
         }
       });
+
+      ipc.onAppUpdateStatus((state) => {
+        applyUpdateState(state, true);
+      });
+
+      function applyUpdateState(
+        state: Awaited<ReturnType<typeof ipc.getAppUpdateState>>,
+        showToast: boolean,
+      ): void {
+        appUpdateState.set(state);
+        if (!showToast || state.status === lastNotifiedUpdateStatus) return;
+        lastNotifiedUpdateStatus = state.status;
+
+        if (state.status === "available") {
+          addToast({
+            level: "info",
+            title: "Update Available",
+            message: state.message || "A new update is available and downloading in the background.",
+          });
+          return;
+        }
+
+        if (state.status === "downloaded") {
+          addToast({
+            level: "success",
+            title: "Update Ready",
+            message: state.message || "Update downloaded. Use 'Install update' in the status bar.",
+            sticky: true,
+          });
+          return;
+        }
+
+        if (state.status === "error") {
+          addToast({
+            level: "error",
+            title: "Updater Error",
+            message: state.message || "Automatic update check failed.",
+          });
+        }
+      }
     })();
 
     window.addEventListener("beforeunload", onBeforeUnload);

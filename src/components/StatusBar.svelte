@@ -2,6 +2,9 @@
   import { onDestroy, onMount } from "svelte";
 
   import { statusText, debugMode } from "../stores/app.js";
+  import { appUpdateState } from "../stores/updates.js";
+  import { addToast } from "../stores/toasts.js";
+  import { ipc } from "../lib/ipc.js";
   import {
     getPriceDebugCounters,
     getPriceQueueStats,
@@ -22,6 +25,7 @@
   let priceCacheStats: PriceCacheStats = getPriceCacheStats();
   let relicCacheStats: RelicRuntimeCacheStats = getRelicRuntimeCacheStats();
   let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let updateActionPending = false;
 
   onMount(() => {
     pollTimer = setInterval(() => {
@@ -39,6 +43,56 @@
   $: debugToggleClass = $debugMode
     ? "border border-emerald-300/50 bg-emerald-500/15 text-emerald-300"
     : "border border-white/20 bg-white/5 text-[var(--text-muted)] hover:border-white/30 hover:text-[var(--text-primary)]";
+
+  $: updateButtonDisabled = updateActionPending || $appUpdateState.status === "checking";
+  $: updateButtonText =
+    $appUpdateState.status === "checking"
+      ? "Checking..."
+      : $appUpdateState.status === "downloading"
+        ? `Downloading ${Math.round($appUpdateState.percent || 0)}%`
+        : $appUpdateState.status === "downloaded"
+          ? "Install update"
+          : "Check updates";
+
+  async function onUpdateAction(): Promise<void> {
+    updateActionPending = true;
+    try {
+      if ($appUpdateState.status === "downloaded") {
+        const result = await ipc.installDownloadedUpdate();
+        if (!result.ok) {
+          addToast({
+            level: "warning",
+            title: "Update Install",
+            message: result.message || "No downloaded update is ready.",
+          });
+        }
+        return;
+      }
+
+      const result = await ipc.checkForAppUpdates();
+      if (!result.ok && result.message) {
+        addToast({
+          level: "warning",
+          title: "Update Check",
+          message: result.message,
+        });
+      } else if (result.state.status === "not-available") {
+        addToast({
+          level: "info",
+          title: "Up To Date",
+          message: "You already have the latest version.",
+        });
+      }
+    } catch (err) {
+      addToast({
+        level: "error",
+        title: "Update Error",
+        message: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      updateActionPending = false;
+    }
+  }
 </script>
 
 <footer class="flex h-[var(--statusbar-height)] select-none items-center justify-between border-t border-[var(--border)] bg-[var(--bg-deep)] px-3.5 text-[12px] text-[var(--text-muted)]">
@@ -74,7 +128,15 @@
     {/if}
   </span>
   <button
-    class={`ml-auto mr-2.5 cursor-pointer rounded-full px-2.5 py-0.5 font-[var(--font-body)] text-xs tracking-wide transition-colors duration-150 ${debugToggleClass}`}
+    class="ml-auto mr-2 cursor-pointer rounded-full border border-white/20 bg-white/5 px-2.5 py-0.5 font-[var(--font-body)] text-xs tracking-wide text-[var(--text-muted)] transition-colors duration-150 hover:border-white/30 hover:text-[var(--text-primary)] disabled:cursor-default disabled:opacity-60"
+    title={$appUpdateState.message || "Check for app updates"}
+    on:click={onUpdateAction}
+    disabled={updateButtonDisabled}
+  >
+    {updateButtonText}
+  </button>
+  <button
+    class={`mr-2.5 cursor-pointer rounded-full px-2.5 py-0.5 font-[var(--font-body)] text-xs tracking-wide transition-colors duration-150 ${debugToggleClass}`}
     title="Toggle debug logging"
     on:click={() => debugMode.update(v => !v)}
   >

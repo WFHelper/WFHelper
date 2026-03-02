@@ -11,6 +11,7 @@ const itemDb         = require('../services/itemDatabase');
 const wfMarket       = require('../services/warframeMarket');
 const masteryHelper  = require('../services/masteryHelper');
 const relicService   = require('../services/relicService');
+const autoUpdater    = require('../services/autoUpdater');
 const ctx            = require('./context');
 
 function register() {
@@ -42,6 +43,10 @@ function register() {
     masteryHelper.setDebugMode(!!enabled);
     return { enabled: !!enabled };
   });
+
+  ipcMain.handle('app:update-check', async () => autoUpdater.checkForUpdates('manual'));
+  ipcMain.handle('app:update-state', async () => autoUpdater.getUpdateState());
+  ipcMain.handle('app:update-install', async () => autoUpdater.installDownloadedUpdate());
 
   // Full relic database for the relic planner view
   ipcMain.handle('get-relic-database', async () => relicService.getRelicDatabase());
