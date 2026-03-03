@@ -1,0 +1,19 @@
+"use strict";
+
+const WORLD_STATE_CONFIG = Object.freeze({
+  fetchUrl: "https://content.warframe.com/dynamic/worldState.php",
+  oracleWorldStateUrl: "https://oracle.browse.wf/worldState.json",
+  oracleBountyCycleUrl: "https://oracle.browse.wf/bounty-cycle",
+  earthCycleUrl: "https://api.warframestat.us/pc",
+  fetchTimeoutMs: 20_000,
+  cycleFetchTimeoutMs: 4_000,
+  earthCycleFetchTimeoutMs: 4_000,
+  vallisEpochIso: "November 10, 2018 08:13:48 UTC",
+  vallisPeriodMs: 1_600_000,
+  vallisWarmMs: 400_000,
+  poeNightMs: 3_000_000,
+  duviriMoodPeriodMs: 7_200_000,
+  duviriMoods: Object.freeze(["Sorrow", "Fear", "Joy", "Anger", "Envy"]),
+});
+
+module.exports = { WORLD_STATE_CONFIG };

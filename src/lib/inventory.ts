@@ -6,6 +6,7 @@ import type {
   RawInventoryEntry,
   Resource,
 } from "../types/inventory.js";
+import { MAX_ITEM_RANK, XP_PER_RANK } from "../config/game.js";
 
 interface CategoryDef {
   key: keyof RawInventoryData;
@@ -132,8 +133,8 @@ export function parseInventory(
         internalName: entry.ItemType,
         category: finalCat,
         categoryLabel: finalLabel,
-        rank: xp > 0 ? Math.min(30, Math.floor(xp / 6000)) : 0,
-        maxRank: 30,
+        rank: xp > 0 ? Math.min(MAX_ITEM_RANK, Math.floor(xp / XP_PER_RANK)) : 0,
+        maxRank: MAX_ITEM_RANK,
         imageUrl: resolved.imageUrl ?? null,
         isPrime: resolved.isPrime ?? false,
         masteryReq: resolved.masteryReq ?? 0,

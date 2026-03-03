@@ -1,10 +1,11 @@
-<script lang="ts">
+﻿<script lang="ts">
   import { onDestroy, onMount } from "svelte";
 
   import { statusText, debugMode } from "../stores/app.js";
   import { appUpdateState } from "../stores/updates.js";
   import { addToast } from "../stores/toasts.js";
   import { ipc } from "../lib/ipc.js";
+  import { perfSnapshot, resetPerfMetrics } from "../lib/perf.js";
   import {
     getPriceDebugCounters,
     getPriceQueueStats,
@@ -26,6 +27,10 @@
   let relicCacheStats: RelicRuntimeCacheStats = getRelicRuntimeCacheStats();
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let updateActionPending = false;
+
+  function msOrDash(value: number | null): string {
+    return value == null ? "-" : `${value}`;
+  }
 
   onMount(() => {
     pollTimer = setInterval(() => {
@@ -102,21 +107,26 @@
       <span class="rounded border border-white/20 bg-white/5 px-2 py-0.5 font-mono text-[11px] text-[var(--text-secondary)]">
         WFM r:{counters.requests}
         hit:{counters.cacheHitOk + counters.cacheHitNoData}
+        ded:{counters.inFlightDeduped}
         h:{counters.httpCalls}
         ok:{counters.resultOk}
         nd:{counters.resultNoData}
         tr:{counters.resultTransient}
         429:{counters.rateLimited}
-        q:{queueStats.high}/{queueStats.normal}/{queueStats.low}
+        q:{queueStats.high}/{queueStats.normal}/{queueStats.low}@{queueStats.delayMs}ms
         pc:{priceCacheStats.total}
         evc:{relicCacheStats.evEntries}
         rcc:{relicCacheStats.cardPriceEntries}
+        p-start:{msOrDash($perfSnapshot.startupInteractiveMs)}
+        p-open:{msOrDash($perfSnapshot.heavyViewOpenMs.world)}/{msOrDash($perfSnapshot.heavyViewOpenMs.market)}/{msOrDash($perfSnapshot.heavyViewOpenMs.relics)}
+        p-relic:{msOrDash($perfSnapshot.relicWarmupFirstUsefulMs)}/{msOrDash($perfSnapshot.relicWarmupCompleteMs)}
       </span>
       <button
         class="cursor-pointer rounded border border-white/20 bg-white/5 px-1.5 py-0.5 text-[10px] text-[var(--text-muted)] transition-colors duration-150 hover:border-white/30 hover:text-[var(--text-primary)]"
-        title="Reset WFM debug counters"
+        title="Reset debug counters"
         on:click={() => {
           resetPriceDebugCounters();
+          resetPerfMetrics();
           counters = getPriceDebugCounters();
           queueStats = getPriceQueueStats();
           priceCacheStats = getPriceCacheStats();
@@ -143,3 +153,4 @@
     Debug: {$debugMode ? 'ON' : 'OFF'}
   </button>
 </footer>
+

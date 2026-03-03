@@ -1,7 +1,8 @@
-import type { IpcInvokeMap } from "../types/ipc.js";
-import type { RawInventoryData } from "../types/inventory.js";
+import type { IpcEventMap, IpcInvokeMap, IpcSendMap } from "../types/ipc.js";
 
 type InvokeKey = keyof IpcInvokeMap;
+type EventChannel = keyof IpcEventMap;
+type SendChannel = keyof IpcSendMap;
 
 const invokeHandlers = {
   getInventory: () => window.api.getInventory(),
@@ -32,10 +33,31 @@ const invokeHandlers = {
   installDownloadedUpdate: () => window.api.installDownloadedUpdate(),
   getOverlaySettings: () => window.api.getOverlaySettings(),
   setOverlaySettings: (settings) => window.api.setOverlaySettings(settings),
+  openOcrCropDebugger: () => window.api.openOcrCropDebugger(),
 } satisfies {
   [K in InvokeKey]: (
     ...args: IpcInvokeMap[K]["args"]
   ) => Promise<IpcInvokeMap[K]["return"]>;
+};
+
+const eventHandlers = {
+  "inventory-updated": (callback: (data: IpcEventMap["inventory-updated"]) => void) =>
+    window.api.onInventoryUpdated(callback),
+  "app-update-status": (callback: (state: IpcEventMap["app-update-status"]) => void) =>
+    window.api.onAppUpdateStatus(callback),
+} satisfies {
+  [K in EventChannel]: (callback: (payload: IpcEventMap[K]) => void) => () => void;
+};
+
+const sendHandlers = {
+  "window-minimize": () => window.api.minimizeWindow(),
+  "window-maximize": () => window.api.maximizeWindow(),
+  "window-close": () => window.api.closeWindow(),
+  "toggle-overlay": () => window.api.toggleOverlay(),
+  "simulate-relic-trigger": () => window.api.simulateRelicTrigger(),
+  "open-external": (url: IpcSendMap["open-external"][0]) => window.api.openExternal(url),
+} satisfies {
+  [K in SendChannel]: (...args: IpcSendMap[K]) => void;
 };
 
 export function invoke<K extends InvokeKey>(
@@ -48,8 +70,28 @@ export function invoke<K extends InvokeKey>(
   return handler(...args);
 }
 
+export function on<K extends EventChannel>(
+  channel: K,
+  callback: (payload: IpcEventMap[K]) => void,
+): () => void {
+  const handler = eventHandlers[channel] as (
+    listener: (payload: IpcEventMap[K]) => void,
+  ) => () => void;
+  return handler(callback);
+}
+
+export function send<K extends SendChannel>(
+  channel: K,
+  ...args: IpcSendMap[K]
+): void {
+  const handler = sendHandlers[channel] as (...sendArgs: IpcSendMap[K]) => void;
+  handler(...args);
+}
+
 export const ipc = {
   invoke,
+  on,
+  send,
   getInventory: () => invoke("getInventory"),
   openInventoryFile: () => invoke("openInventoryFile"),
   getInventoryStatus: () => invoke("getInventoryStatus"),
@@ -78,30 +120,15 @@ export const ipc = {
   installDownloadedUpdate: () => invoke("installDownloadedUpdate"),
   getOverlaySettings: () => invoke("getOverlaySettings"),
   setOverlaySettings: (...args: IpcInvokeMap["setOverlaySettings"]["args"]) => invoke("setOverlaySettings", ...args),
-  onInventoryUpdated: (callback: (data: RawInventoryData) => void) => {
-    window.api.onInventoryUpdated(callback);
-  },
-  onAppUpdateStatus: (
-    callback: (state: IpcInvokeMap["getAppUpdateState"]["return"]) => void,
-  ) => {
-    window.api.onAppUpdateStatus(callback);
-  },
-  minimizeWindow: () => {
-    window.api.minimizeWindow();
-  },
-  maximizeWindow: () => {
-    window.api.maximizeWindow();
-  },
-  closeWindow: () => {
-    window.api.closeWindow();
-  },
-  toggleOverlay: () => {
-    window.api.toggleOverlay();
-  },
-  simulateRelicTrigger: () => {
-    window.api.simulateRelicTrigger();
-  },
-  openExternal: (url: string) => {
-    window.api.openExternal(url);
-  },
+  openOcrCropDebugger: () => invoke("openOcrCropDebugger"),
+  onInventoryUpdated: (callback: (data: IpcEventMap["inventory-updated"]) => void) =>
+    on("inventory-updated", callback),
+  onAppUpdateStatus: (callback: (state: IpcEventMap["app-update-status"]) => void) =>
+    on("app-update-status", callback),
+  minimizeWindow: () => send("window-minimize"),
+  maximizeWindow: () => send("window-maximize"),
+  closeWindow: () => send("window-close"),
+  toggleOverlay: () => send("toggle-overlay"),
+  simulateRelicTrigger: () => send("simulate-relic-trigger"),
+  openExternal: (...args: IpcSendMap["open-external"]) => send("open-external", ...args),
 } as const;

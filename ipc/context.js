@@ -9,6 +9,9 @@ let mainWindow = null;
 /** @type {Electron.BrowserWindow|null} */
 let overlayWindow = null;
 
+/** @type {Electron.BrowserWindow|null} */
+let cropDebugWindow = null;
+
 /** @type {string|null} Path of the currently watched inventory file. */
 let currentInventoryPath = null;
 
@@ -27,14 +30,19 @@ let ALECA_IV = null;
 /** Current overlay settings (normalised). */
 let overlaySettings = {};
 
-/** The currently registered hotkey accelerator string, or null. */
+/** The currently registered overlay trigger hotkey accelerator string, or null. */
 let overlayHotkeyRegistered = null;
+
+/** The currently registered crop-debug hotkey accelerator string, or null. */
+let overlayCropHotkeyRegistered = null;
 
 module.exports = {
   get mainWindow() { return mainWindow; },
   set mainWindow(v) { mainWindow = v; },
   get overlayWindow() { return overlayWindow; },
   set overlayWindow(v) { overlayWindow = v; },
+  get cropDebugWindow() { return cropDebugWindow; },
+  set cropDebugWindow(v) { cropDebugWindow = v; },
   get currentInventoryPath() { return currentInventoryPath; },
   set currentInventoryPath(v) { currentInventoryPath = v; },
   get currentInventoryData() { return currentInventoryData; },
@@ -49,4 +57,6 @@ module.exports = {
   set overlaySettings(v) { overlaySettings = v; },
   get overlayHotkeyRegistered() { return overlayHotkeyRegistered; },
   set overlayHotkeyRegistered(v) { overlayHotkeyRegistered = v; },
+  get overlayCropHotkeyRegistered() { return overlayCropHotkeyRegistered; },
+  set overlayCropHotkeyRegistered(v) { overlayCropHotkeyRegistered = v; },
 };

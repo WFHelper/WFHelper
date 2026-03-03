@@ -10,18 +10,28 @@
   import { ipc } from "../lib/ipc.js";
 
   const WORLD_REFRESH_MS = 120_000;
+  const WORLD_POLL_MS = 30_000;
   const FISSURE_EXPIRY_GUARD_MS = 1_500;
 
-  let tick = 0;
-  let interval: ReturnType<typeof setInterval> | null = null;
+  let nowMs = Date.now();
+  let clockInterval: ReturnType<typeof setInterval> | null = null;
+  let worldPollInterval: ReturnType<typeof setInterval> | null = null;
 
   onMount(() => {
-    fetchWorldData();
-    interval = setInterval(() => { tick++; }, 1000);
+    void fetchWorldData(true);
+
+    clockInterval = setInterval(() => {
+      nowMs = Date.now();
+    }, 1000);
+
+    worldPollInterval = setInterval(() => {
+      void fetchWorldData();
+    }, WORLD_POLL_MS);
   });
 
   onDestroy(() => {
-    if (interval) clearInterval(interval);
+    if (clockInterval) clearInterval(clockInterval);
+    if (worldPollInterval) clearInterval(worldPollInterval);
   });
 
   async function fetchWorldData(force: boolean = false) {
@@ -58,33 +68,34 @@
 
   $: varziaAct    = parseIsoDate(varzia?.activation);
   $: varziaExpiry = parseIsoDate(varzia?.expiry);
-  $: varziaActive = !!(varziaAct && varziaExpiry && Date.now() >= +varziaAct && Date.now() < +varziaExpiry);
+  $: varziaActive = !!(varziaAct && varziaExpiry && nowMs >= +varziaAct && nowMs < +varziaExpiry);
 
   $: baroAct    = parseIsoDate(baro?.activation);
   $: baroExpiry = parseIsoDate(baro?.expiry);
-  $: baroActive = !!(baroAct && baroExpiry && Date.now() >= +baroAct && Date.now() < +baroExpiry);
+  $: baroActive = !!(baroAct && baroExpiry && nowMs >= +baroAct && nowMs < +baroExpiry);
 
   $: featuredPrimes = wd ? buildFeaturedPrimes(varzia, $inventoryData, $itemDb) : [];
 
-  // nowMs and times recompute every tick — live countdowns without DOM recreation
-  // Note: (void tick, Date.now()) reads tick for dependency tracking and returns Date.now().
-  $: nowMs = (void tick, Date.now());
-  $: times = (() => {
-    void tick;
-    return {
-      baro:      baroActive   ? timeTo(baroExpiry)   : timeTo(baroAct),
-      varzia:    varziaActive ? timeTo(varziaExpiry) : timeTo(varziaAct),
-      daily:     timeTo(nextDailyResetUtc()),
-      weekly:    timeTo(nextWeeklyResetUtc()),
-      sortie:    timeTo(parseIsoDate(sortie?.expiry)    || nextDailyResetUtc()),
-      steelPath: timeTo(parseIsoDate(steelPath?.expiry) || nextWeeklyResetUtc()),
-      duviri:    timeTo(duviriExpiry),
-      earth:     cycleTimeDisplay(earth.timeLeft,   earth.expiry),
-      cetus:     cycleTimeDisplay(cetus.timeLeft,   cetus.expiry),
-      vallis:    cycleTimeDisplay(vallis.timeLeft,  vallis.expiry),
-      cambion:   cycleTimeDisplay(cambion.timeLeft, cambion.expiry),
-    };
-  })();
+  $: duviriState = (duviri.state || "unknown").toString();
+  $: duviriExpiry = parseIsoDate(duviri.expiry);
+  $: duviriNormal = (duviri.choices || []).find((c) => c.category === "normal")?.choices || [];
+  $: duviriHard = (duviri.choices || []).find((c) => c.category === "hard")?.choices || [];
+
+  // Recompute all countdowns from a single clock source.
+  // This keeps seconds moving while staying on the World tab.
+  $: times = {
+    baro: baroActive ? timeTo(baroExpiry, nowMs) : timeTo(baroAct, nowMs),
+    varzia: varziaActive ? timeTo(varziaExpiry, nowMs) : timeTo(varziaAct, nowMs),
+    daily: timeTo(nextDailyResetUtc(), nowMs),
+    weekly: timeTo(nextWeeklyResetUtc(), nowMs),
+    sortie: timeTo(parseIsoDate(sortie?.expiry) || nextDailyResetUtc(), nowMs),
+    steelPath: timeTo(parseIsoDate(steelPath?.expiry) || nextWeeklyResetUtc(), nowMs),
+    duviri: timeTo(duviriExpiry, nowMs),
+    earth: cycleTimeDisplay(earth.timeLeft, earth.expiry, nowMs),
+    cetus: cycleTimeDisplay(cetus.timeLeft, cetus.expiry, nowMs),
+    vallis: cycleTimeDisplay(vallis.timeLeft, vallis.expiry, nowMs),
+    cambion: cycleTimeDisplay(cambion.timeLeft, cambion.expiry, nowMs),
+  };
 
   $: fissuresAll = (wd?.fissures || [])
     .filter(
@@ -104,13 +115,8 @@
     missions: fissures
       .filter(f => (f.tier || '').toLowerCase() === tier.toLowerCase())
       .slice(0, 3)
-      .map(f => ({ ...f, timeStr: timeToStrict(parseIsoDate(f.expiry)) })),
+      .map(f => ({ ...f, timeStr: timeToStrict(parseIsoDate(f.expiry), nowMs) })),
   })).filter(g => g.missions.length > 0);
-
-  $: duviriState   = (duviri.state || 'unknown').toString();
-  $: duviriExpiry  = parseIsoDate(duviri.expiry);
-  $: duviriNormal  = (duviri.choices || []).find(c => c.category === 'normal')?.choices || [];
-  $: duviriHard    = (duviri.choices || []).find(c => c.category === 'hard')?.choices   || [];
 
   $: earthLabel   = earth.isDay    ? 'Day'     : 'Night';
   $: cetusLabel   = cetus.isDay    ? 'Day'     : 'Night';

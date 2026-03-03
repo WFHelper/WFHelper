@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "strict": false,
+    "skipLibCheck": true,
+    "types": [
+      "node",
+      "electron"
+    ],
+    "rootDir": ".",
+    "outDir": ".electron-build",
+    "noEmitOnError": true
+  },
+  "include": [
+    "main.ts",
+    "preload.ts",
+    "preload-overlay.ts",
+    "preload-crop.ts"
+  ]
+}

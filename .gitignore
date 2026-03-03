@@ -1,6 +1,13 @@
-node_modules/
+﻿node_modules/
 dist/
 out/
 release/
 .env
 *.log
+
+test-results/
+main.js
+preload.js
+preload-overlay.js
+.electron-build/
+preload-crop.js

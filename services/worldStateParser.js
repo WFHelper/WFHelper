@@ -1,45 +1,66 @@
 const log = require('./logger').withScope('worldStateParser');
 "use strict";
 
-/**
- * worldStateParser.js
- *
- * World-state data from two sources:
- *   1. oracle.browse.wf/worldState.json  — raw DE state, refreshed minutely
- *      (primary; falls back to content.warframe.com if unavailable)
- *   2. oracle.browse.wf/bounty-cycle     — bounty expiry timestamp
- *
- * Planet cycles are computed locally — the official DE world-state no longer
- * includes valid cycle timestamps in SyndicateMissions.
- *
- * Plains / Earth / Cambion Drift
- *   Source: browse.wf live.ts updateDayNightCycle()
- *   Night (Vome) = last 50 minutes of each bounty cycle (expiry − 3 000 000 ms)
- *   Day  (Fass)  = everything before that
- *
- * Orb Vallis
- *   Source: browse.wf live.ts updateVallis()
- *   EPOCH  = "November 10, 2018 08:13:48 UTC"
- *   Period = 1 600 s   (Warm: first 400 s, Cold: remaining 1 200 s)
- */
+const fs = require('fs');
+const path = require('path');
 
-const FETCH_URL               = "https://content.warframe.com/dynamic/worldState.php";
-const ORACLE_WORLDSTATE_URL   = "https://oracle.browse.wf/worldState.json";
-const ORACLE_BOUNTY_CYCLE_URL = "https://oracle.browse.wf/bounty-cycle";
-const FETCH_TIMEOUT_MS        = 20_000;
-const CYCLE_FETCH_TIMEOUT_MS  =  4_000;
+const { WORLD_STATE_CONFIG } = require('../config/runtime/worldState');
 
-// Orb Vallis constants — from browse.wf live.ts updateVallis()
-const VALLIS_EPOCH_MS  = new Date("November 10, 2018 08:13:48 UTC").getTime();
-const VALLIS_PERIOD_MS = 1_600_000;   // 26 m 40 s total
-const VALLIS_WARM_MS   =   400_000;   // warm phase = first 6 m 40 s
+const FETCH_URL = WORLD_STATE_CONFIG.fetchUrl;
+const ORACLE_WORLDSTATE_URL = WORLD_STATE_CONFIG.oracleWorldStateUrl;
+const ORACLE_BOUNTY_CYCLE_URL = WORLD_STATE_CONFIG.oracleBountyCycleUrl;
+const EARTH_CYCLE_URL = WORLD_STATE_CONFIG.earthCycleUrl;
+const FETCH_TIMEOUT_MS = WORLD_STATE_CONFIG.fetchTimeoutMs;
+const CYCLE_FETCH_TIMEOUT_MS = WORLD_STATE_CONFIG.cycleFetchTimeoutMs;
+const EARTH_CYCLE_FETCH_TIMEOUT_MS = WORLD_STATE_CONFIG.earthCycleFetchTimeoutMs;
 
-// Plains / Earth / Cambion night duration — browse.wf live.ts updateDayNightCycle()
-const POE_NIGHT_MS = 3_000_000;       // night = last 50 min of each bounty cycle
+// Orb Vallis constants - from browse.wf live.ts updateVallis()
+const VALLIS_EPOCH_MS = new Date(WORLD_STATE_CONFIG.vallisEpochIso).getTime();
+const VALLIS_PERIOD_MS = WORLD_STATE_CONFIG.vallisPeriodMs;
+const VALLIS_WARM_MS = WORLD_STATE_CONFIG.vallisWarmMs;
+
+// Plains / Cambion night duration - from browse.wf live.ts updateDayNightCycle()
+const POE_NIGHT_MS = WORLD_STATE_CONFIG.poeNightMs;
+
+const DUVIRI_MOOD_PERIOD_MS = WORLD_STATE_CONFIG.duviriMoodPeriodMs;
+const DUVIRI_MOODS = WORLD_STATE_CONFIG.duviriMoods;
+
+const EMPTY_LOOKUP = Object.freeze({});
+
+function loadRegionTranslationData() {
+  try {
+    const pep = require('warframe-public-export-plus');
+    if (pep?.ExportRegions && pep?.dict_en) {
+      return {
+        regions: pep.ExportRegions,
+        dict: pep.dict_en,
+      };
+    }
+  } catch (err) {
+    log.warn('[WorldState] failed to load region data from package export:', err.message);
+  }
+
+  try {
+    const pkgPath = require.resolve('warframe-public-export-plus/package.json');
+    const pkgDir = path.dirname(pkgPath);
+    const regions = JSON.parse(fs.readFileSync(path.join(pkgDir, 'ExportRegions.json'), 'utf8'));
+    const dict = JSON.parse(fs.readFileSync(path.join(pkgDir, 'dict.en.json'), 'utf8'));
+    return { regions, dict };
+  } catch (err) {
+    log.warn('[WorldState] failed to load region data from disk fallback:', err.message);
+  }
+
+  return {
+    regions: EMPTY_LOOKUP,
+    dict: EMPTY_LOOKUP,
+  };
+}
+
+const REGION_TRANSLATION = loadRegionTranslationData();
 
 async function fetchWithTimeout(url, timeoutMs, options = {}) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new Error("timeout")), timeoutMs);
+  const timer = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs);
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } finally {
@@ -62,143 +83,232 @@ function emptyWorldState() {
   };
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-/** Parse DE's EJSON timestamp object → ISO-8601 string, or null. */
 function deDate(obj) {
   if (!obj) return null;
-  const ms = obj?.["$date"]?.["$numberLong"];
+  const ms = obj?.['$date']?.['$numberLong'];
   return ms ? new Date(Number(ms)).toISOString() : null;
 }
 
-// ─── Lookup tables ────────────────────────────────────────────────────────────
-
-/** ActiveMissions.Modifier → relic tier label */
 const VOID_TIER = {
-  VoidT1: "Lith",    VoidT2: "Meso",    VoidT3: "Neo",
-  VoidT4: "Axi",     VoidT5: "Requiem", VoidT6: "Omnia",
+  VoidT1: 'Lith', VoidT2: 'Meso', VoidT3: 'Neo',
+  VoidT4: 'Axi', VoidT5: 'Requiem', VoidT6: 'Omnia',
   // Steel Path variants (modifier ends with "Hard")
-  VoidT1Hard: "Lith",    VoidT2Hard: "Meso",    VoidT3Hard: "Neo",
-  VoidT4Hard: "Axi",     VoidT5Hard: "Requiem", VoidT6Hard: "Omnia",
+  VoidT1Hard: 'Lith', VoidT2Hard: 'Meso', VoidT3Hard: 'Neo',
+  VoidT4Hard: 'Axi', VoidT5Hard: 'Requiem', VoidT6Hard: 'Omnia',
 };
 
-/** DE mission type key → human-readable name */
 const MISSION_TYPE = {
-  MT_CAPTURE:        "Capture",
-  MT_EXTERMINATION:  "Exterminate",
-  MT_MOBILE_DEFENSE: "Mobile Defense",
-  MT_INTEL:          "Spy",
-  MT_SABOTAGE:       "Sabotage",
-  MT_SURVIVAL:       "Survival",
-  MT_DEFENSE:        "Defense",
-  MT_ASSAULT:        "Assault",
-  MT_EXCAVATION:     "Excavation",
-  MT_TERRITORY:      "Interception",
-  MT_EVACUATION:     "Defection",
-  MT_ARENA:          "Arena",
-  MT_ARTIFACT:       "Void",
-  MT_PURIFY:         "Disruption",
-  MT_HIVE:           "Hive",
-  MT_RETRIEVAL:      "Rescue",
-  MT_EXTERMINATION:  "Exterminate",
+  MT_ARTIFACT: 'Disruption',
+  MT_CAPTURE: 'Capture',
+  MT_DEFENSE: 'Defense',
+  MT_EXCAVATE: 'Excavation',
+  MT_EXCAVATION: 'Excavation',
+  MT_EXTERMINATION: 'Extermination',
+  MT_HIVE: 'Hive',
+  MT_INTERCEPTION: 'Interception',
+  MT_INTEL: 'Spy',
+  MT_LANDSCAPE: 'Open World',
+  MT_MOBILE_DEFENSE: 'Mobile Defense',
+  MT_NEST: 'Defection',
+  MT_PURIFY: 'Disruption',
+  MT_PURSUIT: 'Pursuit',
+  MT_RESCUE: 'Rescue',
+  MT_RETRIEVAL: 'Hijack',
+  MT_SABOTAGE: 'Sabotage',
+  MT_SECTOR: 'Dark Sector',
+  MT_SURVIVAL: 'Survival',
+  MT_TERRITORY: 'Infested Salvage',
+  MT_VOID_CASCADE: 'Void Cascade',
+  MT_VOID_FLOOD: 'Void Flood',
 };
 
-/** Known relay hub node IDs → display names */
 const HUB_NODE = {
-  SaturnHUB:   "Saturn Relay",
-  MarsHUB:     "Mars Relay",
-  CerberusHUB: "Pluto Relay",
-  EarthHUB:    "Earth Relay",
-  VenusHUB:    "Venus Relay",
+  SaturnHUB: 'Saturn Relay',
+  MarsHUB: 'Mars Relay',
+  CerberusHUB: 'Pluto Relay',
+  EarthHUB: 'Earth Relay',
+  VenusHUB: 'Venus Relay',
 };
-
-// ─── Fetch + parse ────────────────────────────────────────────────────────────
 
 async function fetchJsonWithTimeout(url, timeoutMs = CYCLE_FETCH_TIMEOUT_MS) {
-  const resp = await fetchWithTimeout(url, timeoutMs, { headers: { Accept: "application/json" } });
+  const resp = await fetchWithTimeout(url, timeoutMs, { headers: { Accept: 'application/json' } });
   if (!resp.ok) throw new Error(`HTTP ${resp.status} for ${url}`);
   return resp.json();
 }
 
-/**
- * Compute Orb Vallis cycle from epoch math.
- * Source: browse.wf live.ts → updateVallis()
- */
-function computeVallisCycle() {
-  const nowMs      = Date.now();
-  const elapsed    = (nowMs - VALLIS_EPOCH_MS) % VALLIS_PERIOD_MS;
-  const isWarm     = elapsed < VALLIS_WARM_MS;
+function resolveDictValue(value) {
+  if (typeof value !== 'string' || value.length === 0) {
+    return null;
+  }
+  if (!value.startsWith('/')) {
+    return value;
+  }
+  return REGION_TRANSLATION.dict[value] || null;
+}
+
+function formatNodeLabel(nodeId) {
+  if (typeof nodeId !== 'string' || nodeId.length === 0) {
+    return 'Unknown';
+  }
+  const region = REGION_TRANSLATION.regions[nodeId];
+  if (!region) {
+    return nodeId;
+  }
+  const nodeName = resolveDictValue(region.name) || nodeId;
+  const systemName = resolveDictValue(region.systemName) || '';
+  return systemName ? (nodeName + ', ' + systemName) : nodeName;
+}
+
+function formatMissionTypeLabel(missionType, nodeId) {
+  if (MISSION_TYPE[missionType]) {
+    return MISSION_TYPE[missionType];
+  }
+  const region = REGION_TRANSLATION.regions[nodeId];
+  const missionName = resolveDictValue(region?.missionName);
+  if (missionName) {
+    return missionName;
+  }
+  if (typeof missionType === 'string' && missionType.startsWith('MT_')) {
+    return missionType.replace(/^MT_/, '');
+  }
+  return missionType || 'Unknown';
+}
+
+function computeVallisCycle(nowMs = Date.now()) {
+  const elapsed = (nowMs - VALLIS_EPOCH_MS) % VALLIS_PERIOD_MS;
+  const isWarm = elapsed < VALLIS_WARM_MS;
   const timeLeftMs = isWarm ? (VALLIS_WARM_MS - elapsed) : (VALLIS_PERIOD_MS - elapsed);
   return {
     isWarm,
-    timeLeft: "",                                           // renderer computes from expiry
-    expiry:   new Date(nowMs + timeLeftMs).toISOString(),
+    timeLeft: '',
+    expiry: new Date(nowMs + timeLeftMs).toISOString(),
   };
 }
 
-/**
- * Compute Plains / Earth / Cambion Drift cycles from oracle bounty expiry.
- * Source: browse.wf live.ts → updateDayNightCycle()
- * Night starts POE_NIGHT_MS (50 min) before the bounty expiry.
- */
-function computePoeCambionCycles(bountyCycleExpiryMs) {
-  const nowMs      = Date.now();
+function computeCetusCambionCycles(bountyCycleExpiryMs, nowMs = Date.now()) {
   const nightStart = bountyCycleExpiryMs - POE_NIGHT_MS;
-  const isDay      = nowMs < nightStart;
-  const expiryIso  = new Date(isDay ? nightStart : bountyCycleExpiryMs).toISOString();
+  const isDay = nowMs < nightStart;
+  const expiryIso = new Date(isDay ? nightStart : bountyCycleExpiryMs).toISOString();
   return {
-    earth:   { isDay, timeLeft: "", expiry: expiryIso },
-    cetus:   { isDay, timeLeft: "", expiry: expiryIso },
-    cambion: { active: isDay ? "fass" : "vome", timeLeft: "", expiry: expiryIso },
+    cetus: { isDay, timeLeft: '', expiry: expiryIso },
+    cambion: { active: isDay ? 'fass' : 'vome', timeLeft: '', expiry: expiryIso },
   };
 }
 
-/**
- * Fetch oracle bounty-cycle then compute all four planet cycles.
- */
-async function fetchAndComputeCycles() {
-  const data     = await fetchJsonWithTimeout(ORACLE_BOUNTY_CYCLE_URL, CYCLE_FETCH_TIMEOUT_MS);
-  const expiryMs = Number(data.expiry);
-  if (!expiryMs) throw new Error("oracle bounty-cycle: missing expiry");
-  const { earth, cetus, cambion } = computePoeCambionCycles(expiryMs);
+function computeDuviriMoodCycle(nowMs = Date.now()) {
+  const moodIndex = Math.trunc(nowMs / DUVIRI_MOOD_PERIOD_MS);
+  const moodStart = moodIndex * DUVIRI_MOOD_PERIOD_MS;
+  const moodEnd = moodStart + DUVIRI_MOOD_PERIOD_MS;
+  const state = DUVIRI_MOODS[moodIndex % DUVIRI_MOODS.length] || 'Unknown';
+
   return {
-    earthCycle:   earth,
-    cetusCycle:   cetus,
-    vallisCycle:  computeVallisCycle(),
-    cambionCycle: cambion,
+    state,
+    expiry: new Date(moodEnd).toISOString(),
   };
+}
+
+async function fetchEarthCycle() {
+  try {
+    const data = await fetchJsonWithTimeout(EARTH_CYCLE_URL, EARTH_CYCLE_FETCH_TIMEOUT_MS);
+    const earthData = (data && typeof data.earthCycle === 'object') ? data.earthCycle : data;
+
+    const expiryIsoRaw = typeof earthData?.expiry === 'string' ? earthData.expiry : null;
+    const expiryMs = expiryIsoRaw ? Date.parse(expiryIsoRaw) : Number.NaN;
+    if (!Number.isFinite(expiryMs)) {
+      throw new Error('earth cycle missing expiry');
+    }
+
+    let isDay = null;
+    if (typeof earthData?.isDay === 'boolean') {
+      isDay = earthData.isDay;
+    } else {
+      const state = String(earthData?.state || earthData?.timeOfDay || '').toLowerCase();
+      if (state === 'day') isDay = true;
+      if (state === 'night') isDay = false;
+    }
+
+    if (typeof isDay !== 'boolean') {
+      throw new Error('earth cycle missing state');
+    }
+
+    return {
+      isDay,
+      timeLeft: typeof earthData?.timeLeft === 'string' ? earthData.timeLeft : '',
+      expiry: new Date(expiryMs).toISOString(),
+    };
+  } catch (err) {
+    log.warn('[WorldState] earth cycle fetch failed:', err.message);
+    return null;
+  }
+}
+
+async function fetchAndComputeCycles() {
+  const nowMs = Date.now();
+  const data = await fetchJsonWithTimeout(ORACLE_BOUNTY_CYCLE_URL, CYCLE_FETCH_TIMEOUT_MS);
+  const expiryMs = Number(data.expiry);
+  if (!expiryMs) throw new Error('oracle bounty-cycle: missing expiry');
+
+  const { cetus, cambion } = computeCetusCambionCycles(expiryMs, nowMs);
+  const earthCycle = await fetchEarthCycle();
+
+  return {
+    earthCycle: earthCycle || { isDay: cetus.isDay, timeLeft: '', expiry: cetus.expiry },
+    cetusCycle: cetus,
+    vallisCycle: computeVallisCycle(nowMs),
+    cambionCycle: cambion,
+    duviriCycle: computeDuviriMoodCycle(nowMs),
+  };
+}
+
+async function fetchPrimaryWorldState() {
+  const raw = await fetchJsonWithTimeout(ORACLE_WORLDSTATE_URL, FETCH_TIMEOUT_MS);
+  if (!raw || typeof raw !== 'object' || Object.keys(raw).length === 0) {
+    throw new Error('oracle returned empty object');
+  }
+  log.log('[WorldState] fetched oracle world-state OK');
+  return raw;
+}
+
+async function fetchFallbackWorldState() {
+  try {
+    const resp = await fetchWithTimeout(FETCH_URL, FETCH_TIMEOUT_MS, { headers: { Accept: 'application/json' } });
+    if (!resp.ok) {
+      log.warn('[WorldState] DE world-state returned HTTP', resp.status);
+      return null;
+    }
+    const raw = await resp.json();
+    log.log('[WorldState] fetched DE world-state OK');
+    return raw;
+  } catch (deErr) {
+    log.warn('[WorldState] DE world-state also failed:', deErr.message);
+    return null;
+  }
 }
 
 async function fetchAndParse() {
-  // 1. Fetch raw world-state — oracle mirror first, then DE direct
-  let raw = null;
+  let raw;
   try {
-    raw = await fetchJsonWithTimeout(ORACLE_WORLDSTATE_URL, FETCH_TIMEOUT_MS);
-    if (!raw || typeof raw !== "object" || Object.keys(raw).length === 0)
-      throw new Error("oracle returned empty object");
-    log.log("[WorldState] fetched oracle world-state OK");
+    raw = await fetchPrimaryWorldState();
   } catch (oracleErr) {
-    log.warn("[WorldState] oracle failed:", oracleErr.message, "— trying DE direct");
-    try {
-      const resp = await fetchWithTimeout(FETCH_URL, FETCH_TIMEOUT_MS, { headers: { Accept: "application/json" } });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      raw = await resp.json();
-      log.log("[WorldState] fetched DE world-state OK");
-    } catch (deErr) {
-      log.warn("[WorldState] DE world-state also failed:", deErr.message);
-      return emptyWorldState();
-    }
+    log.warn('[WorldState] oracle failed:', oracleErr.message, '- trying DE direct');
+    raw = await fetchFallbackWorldState();
+    if (!raw) return emptyWorldState();
   }
 
-  // 2. Parse the raw DE-format world-state (fissures, traders, sortie, duviri)
   const parsed = parseRaw(raw);
 
-  // 3. Compute planet cycles from oracle bounty-cycle endpoint
   try {
     const cycles = await fetchAndComputeCycles();
-    return { ...parsed, ...cycles };
+    return {
+      ...parsed,
+      ...cycles,
+      duviriCycle: {
+        ...(parsed?.duviriCycle || {}),
+        ...(cycles?.duviriCycle || {}),
+      },
+    };
   } catch (cycleErr) {
-    log.warn("[WorldState] planet cycle computation failed:", cycleErr.message);
+    log.warn('[WorldState] planet cycle computation failed:', cycleErr.message);
     return parsed;
   }
 }
@@ -207,90 +317,81 @@ function parseRaw(raw) {
   if (!raw) return null;
   const nowMs = Date.now();
 
-  // ─ Void Fissures ─────────────────────────────────────────────────────────
   const fissures = (raw.ActiveMissions || [])
     .filter(m => {
-      const mod = m.Modifier || "";
-      return mod.startsWith("VoidT") && VOID_TIER[mod];
+      const mod = m.Modifier || '';
+      return mod.startsWith('VoidT') && VOID_TIER[mod];
     })
     .map(m => {
-      const mod   = m.Modifier || "";
-      const expMs = Number(m.Expiry?.["$date"]?.["$numberLong"] || 0);
+      const mod = m.Modifier || '';
+      const missionTypeRaw = m.MissionType || '';
+      const nodeId = m.Node || 'Unknown';
+      const isHard = m.Hard === true || mod.endsWith('Hard');
+      const expMs = Number(m.Expiry?.['$date']?.['$numberLong'] || 0);
       return {
-        expiry:      expMs ? new Date(expMs).toISOString() : null,
-        tier:        VOID_TIER[mod] || "Unknown",
-        missionType: MISSION_TYPE[m.MissionType] || (m.MissionType || "").replace(/^MT_/, ""),
-        node:        m.Node || "Unknown",
-        isHard:      mod.endsWith("Hard"),
-        expired:     expMs < nowMs,
+        expiry: expMs ? new Date(expMs).toISOString() : null,
+        tier: VOID_TIER[mod] || 'Unknown',
+        missionType: formatMissionTypeLabel(missionTypeRaw, nodeId),
+        node: formatNodeLabel(nodeId),
+        nodeId,
+        isHard,
+        expired: expMs < nowMs,
       };
     })
     .filter(f => !f.expired);
 
-  // ─ Baro Ki'Teer ──────────────────────────────────────────────────────────
-  const baroRaw    = Array.isArray(raw.VoidTraders) ? raw.VoidTraders[0] : raw.VoidTraders;
+  const baroRaw = Array.isArray(raw.VoidTraders) ? raw.VoidTraders[0] : raw.VoidTraders;
   const voidTrader = baroRaw ? {
     activation: deDate(baroRaw.Activation),
-    expiry:     deDate(baroRaw.Expiry),
-    location:   HUB_NODE[baroRaw.Node] || baroRaw.Node || "Unknown",
+    expiry: deDate(baroRaw.Expiry),
+    location: HUB_NODE[baroRaw.Node] || baroRaw.Node || 'Unknown',
   } : null;
 
-  // ─ Varzia / Prime Resurgence ─────────────────────────────────────────────
-  const varziaRaw  = Array.isArray(raw.PrimeVaultTraders) ? raw.PrimeVaultTraders[0] : raw.PrimeVaultTraders;
+  const varziaRaw = Array.isArray(raw.PrimeVaultTraders) ? raw.PrimeVaultTraders[0] : raw.PrimeVaultTraders;
   const vaultTrader = varziaRaw ? {
     activation: deDate(varziaRaw.Activation),
-    expiry:     deDate(varziaRaw.Expiry),
-    location:   HUB_NODE[varziaRaw.Node] || varziaRaw.Node || "Varzia",
-    // Map Manifest → inventory array the same shape as warframestat used
+    expiry: deDate(varziaRaw.Expiry),
+    location: HUB_NODE[varziaRaw.Node] || varziaRaw.Node || 'Varzia',
     inventory: (varziaRaw.Manifest || []).map(i => ({
-      // Strip /StoreItems prefix so itemDb lookup (which uses /Lotus/...) can find it
-      uniqueName: (i.ItemType || "").replace(/^\/Lotus\/StoreItems/, "/Lotus"),
-      item:       (i.ItemType || "").split("/").pop() || "",
+      uniqueName: (i.ItemType || '').replace(/^\/Lotus\/StoreItems/, '/Lotus'),
+      item: (i.ItemType || '').split('/').pop() || '',
     })),
   } : null;
 
-  // ─ Sortie ─────────────────────────────────────────────────────────────────
   const sortieArr = Array.isArray(raw.Sorties) ? raw.Sorties
     : raw.Sorties ? [raw.Sorties] : [];
   const sortieRaw = sortieArr.find(s =>
-    Number(s.Expiry?.["$date"]?.["$numberLong"] || 0) > nowMs
+    Number(s.Expiry?.['$date']?.['$numberLong'] || 0) > nowMs
   ) || sortieArr[0];
   const sortie = sortieRaw ? { expiry: deDate(sortieRaw.Expiry) } : null;
 
-  // ─ Circuit (Duviri / Descents) ──────────────────────────────────────────
   const descentArr = Array.isArray(raw.Descents) ? raw.Descents : [];
-  // Find the currently active descent window
   const descentRaw = descentArr.find(d => {
-    const act = Number(d.Activation?.["$date"]?.["$numberLong"] || 0);
-    const exp = Number(d.Expiry?.["$date"]?.["$numberLong"] || 0);
+    const act = Number(d.Activation?.['$date']?.['$numberLong'] || 0);
+    const exp = Number(d.Expiry?.['$date']?.['$numberLong'] || 0);
     return act <= nowMs && exp > nowMs;
   }) || descentArr[0];
 
-  const xpChoices  = raw.EndlessXpChoices || [];
-  const duviriCycle = descentRaw ? {
-    state:   "active",
-    expiry:  deDate(descentRaw.Expiry),
+  const xpChoices = raw.EndlessXpChoices || [];
+  const duviriCycle = {
+    state: null,
+    expiry: descentRaw ? deDate(descentRaw.Expiry) : null,
     choices: [
-      { category: "normal", choices: xpChoices.find(c => c.Category === "EXC_NORMAL")?.Choices || [] },
-      { category: "hard",   choices: xpChoices.find(c => c.Category === "EXC_HARD")?.Choices   || [] },
+      { category: 'normal', choices: xpChoices.find(c => c.Category === 'EXC_NORMAL')?.Choices || [] },
+      { category: 'hard', choices: xpChoices.find(c => c.Category === 'EXC_HARD')?.Choices || [] },
     ],
-  } : null;
-
-  // ─ Planet cycles ─────────────────────────────────────────────────────────
-  // The raw DE world state endpoint does not expose open-world cycle timers.
-  // They require a separate epoch-based computation or a different data source.
-  // renderWorld() gracefully shows "Cycle data unavailable" when these are null.
+  };
 
   return {
     fissures,
     voidTrader,
     vaultTrader,
     sortie,
-    steelPath:    null,   // no direct equivalent in raw DE data
+    steelPath: null,
     duviriCycle,
-    earthCycle:   null,
-    cetusCycle:   null,
-    vallisCycle:  null,
+    earthCycle: null,
+    cetusCycle: null,
+    vallisCycle: null,
     cambionCycle: null,
   };
 }

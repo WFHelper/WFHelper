@@ -1,5 +1,4 @@
-import type { IpcInvokeMap } from "./ipc.js";
-import type { RawInventoryData } from "./inventory.js";
+import type { IpcEventMap, IpcInvokeMap } from "./ipc.js";
 import type { WfmStatus } from "./market.js";
 
 export interface PreloadAPI {
@@ -48,10 +47,12 @@ export interface PreloadAPI {
   checkForAppUpdates: () => Promise<IpcInvokeMap["checkForAppUpdates"]["return"]>;
   getAppUpdateState: () => Promise<IpcInvokeMap["getAppUpdateState"]["return"]>;
   installDownloadedUpdate: () => Promise<IpcInvokeMap["installDownloadedUpdate"]["return"]>;
-  onInventoryUpdated: (callback: (data: RawInventoryData) => void) => void;
+  onInventoryUpdated: (
+    callback: (data: IpcEventMap["inventory-updated"]) => void,
+  ) => () => void;
   onAppUpdateStatus: (
-    callback: (state: IpcInvokeMap["getAppUpdateState"]["return"]) => void,
-  ) => void;
+    callback: (state: IpcEventMap["app-update-status"]) => void,
+  ) => () => void;
   minimizeWindow: () => void;
   maximizeWindow: () => void;
   closeWindow: () => void;
@@ -61,5 +62,6 @@ export interface PreloadAPI {
   setOverlaySettings: (
     settings: IpcInvokeMap["setOverlaySettings"]["args"][0],
   ) => Promise<IpcInvokeMap["setOverlaySettings"]["return"]>;
+  openOcrCropDebugger: () => Promise<IpcInvokeMap["openOcrCropDebugger"]["return"]>;
   openExternal: (url: string) => void;
 }

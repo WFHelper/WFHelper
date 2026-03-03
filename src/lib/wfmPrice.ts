@@ -1,4 +1,4 @@
-import {
+﻿import {
   getCachedPriceState,
   setCachedNoData,
   setCachedPrice,
@@ -6,7 +6,10 @@ import {
 import type { WfmItemsLookup } from "../types/ipc.js";
 import { schedulePriceCacheRevision } from "../stores/pricing.js";
 
-const MIN_DELAY_MS = 350;
+const BASE_DELAY_MS = 180;
+const MAX_DYNAMIC_DELAY_MS = 1200;
+const DELAY_DECAY_STEP_MS = 5;
+const DELAY_BACKOFF_STEP_MS = 120;
 const DEFAULT_RETRY_AFTER_SECONDS = 30;
 const MIN_429_COOLDOWN_MS = 30_000;
 
@@ -19,6 +22,7 @@ const WFM_HEADERS = {
 
 let _lastRequestAt = 0;
 let _runnerActive = false;
+let _dynamicDelayMs = BASE_DELAY_MS;
 
 type PriceStatus = "ok" | "no_data" | "no_slug" | "transient";
 type PriceCacheUpdateStatus = "ok" | "no_data";
@@ -35,6 +39,7 @@ export interface PriceDebugCounters {
   requests: number;
   cacheHitOk: number;
   cacheHitNoData: number;
+  inFlightDeduped: number;
   httpCalls: number;
   resultOk: number;
   resultNoData: number;
@@ -47,6 +52,7 @@ export interface PriceQueueStats {
   normal: number;
   low: number;
   running: boolean;
+  delayMs: number;
 }
 
 interface QueueTask<T> {
@@ -59,6 +65,7 @@ const priceDebugCounters: PriceDebugCounters = {
   requests: 0,
   cacheHitOk: 0,
   cacheHitNoData: 0,
+  inFlightDeduped: 0,
   httpCalls: 0,
   resultOk: 0,
   resultNoData: 0,
@@ -72,6 +79,7 @@ const laneQueues: Record<RequestPriority, QueueTask<unknown>[]> = {
   normal: [],
   low: [],
 };
+const inFlightBySlug = new Map<string, Promise<PriceBySlugResult>>();
 
 function bumpCounter(counter: keyof PriceDebugCounters): void {
   priceDebugCounters[counter] += 1;
@@ -136,6 +144,7 @@ export function getPriceQueueStats(): PriceQueueStats {
     normal: laneQueues.normal.length,
     low: laneQueues.low.length,
     running: _runnerActive,
+    delayMs: _dynamicDelayMs,
   };
 }
 
@@ -176,9 +185,9 @@ async function runQueueRunner(): Promise<void> {
 
       const now = Date.now();
       const elapsed = now - _lastRequestAt;
-      if (elapsed < MIN_DELAY_MS) {
+      if (elapsed < _dynamicDelayMs) {
         await new Promise((resolve) =>
-          setTimeout(resolve, MIN_DELAY_MS - elapsed),
+          setTimeout(resolve, _dynamicDelayMs - elapsed),
         );
       }
       _lastRequestAt = Date.now();
@@ -267,14 +276,22 @@ async function fetchStatsJson(
 
     if (resp.status === 429) {
       bumpCounter("rateLimited");
+      _dynamicDelayMs = Math.min(
+        MAX_DYNAMIC_DELAY_MS,
+        _dynamicDelayMs + DELAY_BACKOFF_STEP_MS,
+      );
       const retryAfter = parseInt(
         resp.headers.get("retry-after") || `${DEFAULT_RETRY_AFTER_SECONDS}`,
         10,
       );
       _lastRequestAt =
-        Date.now() + Math.max(retryAfter * 1000, MIN_429_COOLDOWN_MS) - MIN_DELAY_MS;
+        Date.now() + Math.max(retryAfter * 1000, MIN_429_COOLDOWN_MS) - _dynamicDelayMs;
       console.warn(`[WFM] Rate limited (429). Cooling down for ${retryAfter}s.`);
       return { ok: false, transient: true };
+    }
+
+    if (_dynamicDelayMs > BASE_DELAY_MS) {
+      _dynamicDelayMs = Math.max(BASE_DELAY_MS, _dynamicDelayMs - DELAY_DECAY_STEP_MS);
     }
 
     if (!resp.ok) {
@@ -290,6 +307,34 @@ async function fetchStatsJson(
       json: await resp.json(),
     };
   }, priority);
+}
+
+async function fetchPriceBySlugInternal(
+  slug: string,
+  priority: RequestPriority,
+): Promise<PriceBySlugResult> {
+  const res = await fetchStatsJson(slug, priority);
+  if (!res.ok) {
+    if (!res.transient) {
+      cacheNoData(slug);
+    }
+    bumpCounter(res.transient ? "resultTransient" : "resultNoData");
+    return {
+      status: res.transient ? "transient" : "no_data",
+      slug,
+      median: null,
+    };
+  }
+
+  const median = extractMedian(res.json);
+  if (median != null) {
+    cachePrice(slug, median);
+    bumpCounter("resultOk");
+    return { median, slug, status: "ok", timestamp: Date.now() };
+  }
+  cacheNoData(slug);
+  bumpCounter("resultNoData");
+  return { status: "no_data", slug, median: null };
 }
 
 export async function fetchPriceBySlug(
@@ -317,34 +362,26 @@ export async function fetchPriceBySlug(
     return { status: "no_data", slug, median: null };
   }
 
-  try {
-    const res = await fetchStatsJson(slug, priority);
-    if (!res.ok) {
-      if (!res.transient) {
-        cacheNoData(slug);
-      }
-      bumpCounter(res.transient ? "resultTransient" : "resultNoData");
-      return {
-        status: res.transient ? "transient" : "no_data",
-        slug,
-        median: null,
-      };
-    }
-
-    const median = extractMedian(res.json);
-    if (median != null) {
-      cachePrice(slug, median);
-      bumpCounter("resultOk");
-      return { median, slug, status: "ok", timestamp: Date.now() };
-    }
-    cacheNoData(slug);
-    bumpCounter("resultNoData");
-    return { status: "no_data", slug, median: null };
-  } catch (e) {
-    console.warn(`[WFM] fetch failed for ${slug}:`, e);
-    bumpCounter("resultTransient");
-    return { status: "transient", slug, median: null };
+  const inFlight = inFlightBySlug.get(slug);
+  if (inFlight) {
+    bumpCounter("inFlightDeduped");
+    return inFlight;
   }
+
+  const requestPromise = (async () => {
+    try {
+      return await fetchPriceBySlugInternal(slug, priority);
+    } catch (e) {
+      console.warn(`[WFM] fetch failed for ${slug}:`, e);
+      bumpCounter("resultTransient");
+      return { status: "transient" as const, slug, median: null };
+    } finally {
+      inFlightBySlug.delete(slug);
+    }
+  })();
+
+  inFlightBySlug.set(slug, requestPromise);
+  return requestPromise;
 }
 
 export async function fetchPriceByName(
@@ -369,55 +406,19 @@ export async function fetchPriceByName(
   if (!slug) return null;
 
   const slugsToTry = slug.endsWith("_set") ? [slug] : [`${slug}_set`, slug];
-  const uncachedSlugs: string[] = [];
-  let sawTransient = false;
-  let sawNoData = false;
 
   for (const trySlug of slugsToTry) {
-    const cached = getCachedPriceState(trySlug);
-    if (!cached) {
-      uncachedSlugs.push(trySlug);
-      continue;
-    }
-    if (cached.status === "ok" && cached.median != null) {
+    const result = await fetchPriceBySlug(trySlug, { priority });
+    if (result.status === "ok" && result.median != null) {
+      if (trySlug !== slug) cachePrice(slug, result.median);
       return {
-        median: cached.median,
+        median: result.median,
         slug: trySlug,
-        timestamp: cached.timestamp,
+        timestamp: result.timestamp || Date.now(),
       };
     }
-    sawNoData = true;
-  }
-
-  for (const trySlug of uncachedSlugs) {
-    try {
-      const res = await fetchStatsJson(trySlug, priority);
-      if (!res.ok) {
-        if (res.transient) {
-          sawTransient = true;
-        } else {
-          sawNoData = true;
-          cacheNoData(trySlug);
-        }
-        continue;
-      }
-      const median = extractMedian(res.json);
-      if (median != null) {
-        cachePrice(trySlug, median);
-        if (trySlug !== slug) cachePrice(slug, median);
-        return { median, slug: trySlug, timestamp: Date.now() };
-      }
-      sawNoData = true;
-      cacheNoData(trySlug);
-    } catch (e) {
-      sawTransient = true;
-      console.warn(`[WFM] stats fetch failed for ${trySlug}:`, e);
-    }
-  }
-
-  if (sawNoData && !sawTransient) {
-    cacheNoData(slug);
   }
 
   return null;
 }
+

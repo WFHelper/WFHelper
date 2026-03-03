@@ -5,13 +5,14 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const itemDb = require("./itemDatabase");
+const { MAX_ITEM_RANK, XP_PER_RANK } = require('../config/game/constants');
 let debugMode = false;
 
 function setDebugMode(enabled) {
   debugMode = !!enabled;
 }
 
-function debugLog(message, payload) {
+function debugLog(_message, _payload) {
   // Debug reasons are now surfaced in the UI; avoid terminal spam.
   if (!debugMode) return;
 }
@@ -108,22 +109,22 @@ const EXALTED_NAMES = new Set([
 
 // Inventory JSON key → maxRank
 const INV_CATEGORIES = {
-  Suits:             30,
-  LongGuns:          30,
-  Pistols:           30,
-  Melee:             30,
-  Sentinels:         30,
-  SentinelWeapons:   30,
-  SpaceSuits:        30,
-  SpaceGuns:         30,
-  SpaceMelee:        30,
-  OperatorAmps:      30,
-  MechSuits:         30,
+  Suits:             MAX_ITEM_RANK,
+  LongGuns:          MAX_ITEM_RANK,
+  Pistols:           MAX_ITEM_RANK,
+  Melee:             MAX_ITEM_RANK,
+  Sentinels:         MAX_ITEM_RANK,
+  SentinelWeapons:   MAX_ITEM_RANK,
+  SpaceSuits:             MAX_ITEM_RANK,
+  SpaceGuns:         MAX_ITEM_RANK,
+  SpaceMelee:             MAX_ITEM_RANK,
+  OperatorAmps:      MAX_ITEM_RANK,
+  MechSuits:             MAX_ITEM_RANK,
 };
 
-function xpToRank(xp, maxRank = 30) {
+function xpToRank(xp, maxRank = MAX_ITEM_RANK) {
   if (!xp || xp <= 0) return 0;
-  return Math.min(maxRank, Math.floor(xp / 6000));
+  return Math.min(maxRank, Math.floor(xp / XP_PER_RANK));
 }
 
 function readNumber(value) {
@@ -374,8 +375,8 @@ function computeMasteryProgress(inventoryData) {
     for (const entry of inventoryData.XPInfo) {
       if (!entry.ItemType) continue;
       if (ownedMap.has(entry.ItemType)) continue;
-      const rank = xpToRank(entry.XP || 0, 30);
-      ownedMap.set(entry.ItemType, { rank, maxRank: 30, owned: false, fromXPInfo: true });
+      const rank = xpToRank(entry.XP || 0, MAX_ITEM_RANK);
+      ownedMap.set(entry.ItemType, { rank, maxRank: MAX_ITEM_RANK, owned: false, fromXPInfo: true });
     }
   }
 
@@ -395,7 +396,7 @@ function computeMasteryProgress(inventoryData) {
 
     let status = "missing";
     let rank = 0;
-    let maxRank = 30;
+    let maxRank = MAX_ITEM_RANK;
     let currentlyOwned = false;
 
     if (owned) {

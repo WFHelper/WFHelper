@@ -1,12 +1,12 @@
-export function parseIsoDate(value: string | null | undefined): Date | null {
+﻿export function parseIsoDate(value: string | null | undefined): Date | null {
   if (!value) return null;
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-export function timeTo(date: Date | null): string {
+export function timeTo(date: Date | null, nowMs: number = Date.now()): string {
   if (!date) return "N/A";
-  const diff = date.getTime() - Date.now();
+  const diff = date.getTime() - nowMs;
   if (diff <= 0) return "Refreshing...";
   const h = Math.floor(diff / 3_600_000);
   const m = Math.floor((diff % 3_600_000) / 60_000);
@@ -14,9 +14,12 @@ export function timeTo(date: Date | null): string {
   return h > 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : `${h}h ${m}m ${s}s`;
 }
 
-export function timeToStrict(date: Date | null): string {
+export function timeToStrict(
+  date: Date | null,
+  nowMs: number = Date.now(),
+): string {
   if (!date) return "N/A";
-  const diff = date.getTime() - Date.now();
+  const diff = date.getTime() - nowMs;
   if (diff <= 0) return "Refreshing...";
   const h = Math.floor(diff / 3_600_000);
   const m = Math.floor((diff % 3_600_000) / 60_000);
@@ -30,8 +33,8 @@ export function formatNumber(num: number): string {
   return num.toLocaleString();
 }
 
-export function formatTimeRemaining(endDate: Date): string {
-  const diff = endDate.getTime() - Date.now();
+export function formatTimeRemaining(endDate: Date, nowMs: number = Date.now()): string {
+  const diff = endDate.getTime() - nowMs;
   if (diff <= 0) return "Ready!";
   const h = Math.floor(diff / 3_600_000);
   const m = Math.floor((diff % 3_600_000) / 60_000);
@@ -60,6 +63,7 @@ export function nextWeeklyResetUtc(now: Date = new Date()): Date {
 export function cycleTimeDisplay(
   apiTimeLeft: string | null | undefined,
   expiryIso: string | null | undefined,
+  nowMs: number = Date.now(),
 ): string {
   const api = (apiTimeLeft ?? "").trim();
   if (
@@ -69,5 +73,5 @@ export function cycleTimeDisplay(
   ) {
     return api;
   }
-  return timeTo(parseIsoDate(expiryIso ?? null));
+  return timeTo(parseIsoDate(expiryIso ?? null), nowMs);
 }

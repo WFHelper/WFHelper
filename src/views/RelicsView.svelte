@@ -1,4 +1,4 @@
-<script lang="ts">
+﻿<script lang="ts">
   import { onDestroy, onMount } from "svelte";
 
   import {
@@ -28,6 +28,11 @@
     warmupRelicEvs,
   } from "../lib/relic.js";
   import { ipc } from "../lib/ipc.js";
+  import {
+    markRelicWarmupComplete,
+    markRelicWarmupFirstUseful,
+    perfSnapshot,
+  } from "../lib/perf.js";
   import type { RelicGroup } from "../types/relics.js";
 
   const TIER_OPTIONS: Array<[string, string]> = [
@@ -66,6 +71,7 @@
   const CARD_WARMUP_UI_DEBOUNCE_MS = 450;
   const EV_WARMUP_START_DELAY_MS = 2000;
   const PRICE_UPDATE_EV_REFRESH_DEBOUNCE_MS = 400;
+  const RELIC_CARD_VISIBLE_WARMUP_LIMIT = 120;
 
   let loading = false;
   let error = "";
@@ -74,6 +80,7 @@
   let evUiDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   let cardUiDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   let priceUpdateEvRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  let relicViewMounted = true;
 
   const onEvBatchDone = () => {
     if (evUiDebounceTimer) clearTimeout(evUiDebounceTimer);
@@ -92,6 +99,7 @@
   };
 
   onMount(async () => {
+    relicViewMounted = true;
     if (!$relicDb) {
       loading = true;
       try {
@@ -115,6 +123,7 @@
 
   // Stop this view's background warmups after navigation.
   onDestroy(() => {
+    relicViewMounted = false;
     cancelWarmup();
     if (evWarmupStartTimer) clearTimeout(evWarmupStartTimer);
     if (evUiDebounceTimer) clearTimeout(evUiDebounceTimer);
@@ -170,6 +179,22 @@
     return { ownedGroups, unownedGroups };
   }
 
+  function buildCardWarmupPriority(
+    allGroups: RelicGroup[],
+    ownedGroups: RelicGroup[],
+  ): RelicGroup[] {
+    if (ownedGroups.length > 0) {
+      return ownedGroups;
+    }
+
+    const visible = groups.slice(0, RELIC_CARD_VISIBLE_WARMUP_LIMIT);
+    if (visible.length > 0) {
+      return visible;
+    }
+
+    return allGroups.slice(0, RELIC_CARD_VISIBLE_WARMUP_LIMIT);
+  }
+
   function scheduleEvRefreshFromPriceUpdate(): void {
     if (priceUpdateEvRefreshTimer) return;
 
@@ -185,19 +210,27 @@
     if (!allGroups.length) return;
 
     const { ownedGroups, unownedGroups } = splitWarmupGroups(allGroups);
+    const cardPriorityGroups = buildCardWarmupPriority(allGroups, ownedGroups);
 
-    void (async () => {
-      await warmupRelicCardPrices(ownedGroups, onCardBatchDone);
-      await warmupRelicCardPrices(unownedGroups, onCardBatchDone, "low");
-    })();
+    // Card-price warmup is intentionally constrained to owned/visible relics.
+    // The relic endpoint returns many 404s for untradable relics; EV warmup still
+    // covers full value computation via reward prices in the background.
+    void warmupRelicCardPrices(cardPriorityGroups, onCardBatchDone);
 
     if (evWarmupStartTimer) return;
 
     evWarmupStartTimer = setTimeout(() => {
       evWarmupStartTimer = null;
       void (async () => {
-        await warmupRelicEvs(ownedGroups, onEvBatchDone);
+        await warmupRelicEvs(ownedGroups, onEvBatchDone, "high");
         await warmupRelicEvs(unownedGroups, onEvBatchDone, "low");
+
+        if (
+          relicViewMounted &&
+          $perfSnapshot.relicWarmupCompleteMs == null
+        ) {
+          markRelicWarmupComplete();
+        }
       })();
     }, EV_WARMUP_START_DELAY_MS);
   }
@@ -258,6 +291,18 @@
 
     return relicGroups;
   })();
+
+  $: if ($perfSnapshot.relicWarmupFirstUsefulMs == null && groups.length > 0) {
+    const hasUsefulPrice = groups.some((group) => {
+      const ev = getCachedEv(group.key, $relicSquadSize, $relicQualityMode);
+      const relicPrice = getCachedRelicCardPrice(group.key);
+      return ev != null || relicPrice != null;
+    });
+
+    if (hasUsefulPrice) {
+      markRelicWarmupFirstUseful();
+    }
+  }
 
   function evLabel(groupKey: string): { text: string; cls: string } {
     const ev = getCachedEv(groupKey, $relicSquadSize, $relicQualityMode);
@@ -405,3 +450,11 @@
     </div>
   {/if}
 </section>
+
+
+
+
+
+
+
+

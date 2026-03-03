@@ -11,8 +11,11 @@ const fs = require('fs');
 const crypto = require('crypto');
 const chokidar = require('chokidar');
 const ctx = require('./context');
-
-// ─── Config ──────────────────────────────────────────────────────────────────
+const {
+  ALECA_FETCH_TIMEOUT_MS,
+  ALECA_KEY_SOURCE,
+  ALECA_IV_SOURCE,
+} = require('../config/integrations/alecaframe');
 
 const POSSIBLE_INVENTORY_PATHS = [
   path.join(app.getPath('userData'), 'inventory.json'),
@@ -24,19 +27,69 @@ const ALECAFRAME_DATA_PATH = process.env.LOCALAPPDATA
   ? path.join(process.env.LOCALAPPDATA, 'AlecaFrame', 'lastData.dat')
   : null;
 
-// ─── AlecaFrame Decryption ───────────────────────────────────────────────────
+const INVENTORY_WATCH_STABILITY_MS = 500;
+
+function sha256Hex(text) {
+  return crypto.createHash('sha256').update(text, 'utf8').digest('hex');
+}
+
+async function fetchTextWithTimeout(url, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function parseKeyBuffer(rawText, label) {
+  let parsed;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch (err) {
+    throw new Error(`Invalid ${label} JSON: ${err.message}`);
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error(`Invalid ${label}: expected a byte array`);
+  }
+
+  return Buffer.from(parsed);
+}
+
+async function fetchPinnedSecret(label, source) {
+  const response = await fetchTextWithTimeout(source.url, ALECA_FETCH_TIMEOUT_MS);
+  if (!response.ok) {
+    throw new Error(`${label} fetch failed with HTTP ${response.status}`);
+  }
+
+  const text = (await response.text()).trim();
+  const actualHash = sha256Hex(text);
+  if (actualHash !== source.sha256) {
+    throw new Error(`${label} integrity mismatch`);
+  }
+
+  return text;
+}
 
 async function fetchAlecaKeys() {
   try {
-    const keyResp = await fetch('https://gist.githubusercontent.com/nrbdev/cd73cc5c02ee5e23aca3251423aa85b0/raw/');
-    const keyText = (await keyResp.text()).trim();
-    ctx.ALECA_KEY = Buffer.from(JSON.parse(keyText));
+    // Optional local override for emergency key rotation.
+    if (process.env.ALECA_KEY_JSON && process.env.ALECA_IV_JSON) {
+      ctx.ALECA_KEY = parseKeyBuffer(process.env.ALECA_KEY_JSON.trim(), 'ALECA_KEY_JSON');
+      ctx.ALECA_IV = parseKeyBuffer(process.env.ALECA_IV_JSON.trim(), 'ALECA_IV_JSON');
+      log.log('AlecaFrame decryption keys loaded from environment override');
+      return;
+    }
 
-    const ivResp = await fetch('https://gist.githubusercontent.com/nrbdev/8ebb6a1849ebbf80724b26faf30451a1/raw/');
-    const ivText = (await ivResp.text()).trim();
-    ctx.ALECA_IV = Buffer.from(JSON.parse(ivText));
+    const keyText = await fetchPinnedSecret('Aleca key', ALECA_KEY_SOURCE);
+    const ivText = await fetchPinnedSecret('Aleca IV', ALECA_IV_SOURCE);
 
-    log.log('AlecaFrame decryption keys loaded successfully');
+    ctx.ALECA_KEY = parseKeyBuffer(keyText, 'Aleca key');
+    ctx.ALECA_IV = parseKeyBuffer(ivText, 'Aleca IV');
+
+    log.log('AlecaFrame decryption keys loaded successfully (integrity-checked)');
   } catch (err) {
     log.error('Could not fetch AlecaFrame keys:', err.message);
   }
@@ -47,6 +100,7 @@ function decryptAlecaFrame(filePath) {
     log.error('AlecaFrame keys not loaded yet');
     return null;
   }
+
   try {
     const encrypted = fs.readFileSync(filePath);
     const decipher = crypto.createDecipheriv('aes-128-cbc', ctx.ALECA_KEY, ctx.ALECA_IV);
@@ -59,8 +113,6 @@ function decryptAlecaFrame(filePath) {
     return null;
   }
 }
-
-// ─── File helpers ─────────────────────────────────────────────────────────────
 
 function findInventoryFile() {
   for (const p of POSSIBLE_INVENTORY_PATHS) {
@@ -86,7 +138,7 @@ function watchInventoryFile(filePath) {
 
   ctx.watcher = chokidar.watch(filePath, {
     persistent: true,
-    awaitWriteFinish: { stabilityThreshold: 500 },
+    awaitWriteFinish: { stabilityThreshold: INVENTORY_WATCH_STABILITY_MS },
   });
 
   ctx.watcher.on('change', () => {
@@ -98,10 +150,7 @@ function watchInventoryFile(filePath) {
   });
 }
 
-// ─── IPC Registration ─────────────────────────────────────────────────────────
-
 function register() {
-  // Return current inventory (re-read from disk)
   ipcMain.handle('get-inventory', async () => {
     if (ctx.currentInventoryPath) {
       return readInventory(ctx.currentInventoryPath);
@@ -109,7 +158,6 @@ function register() {
     return null;
   });
 
-  // User manually picks an inventory JSON
   ipcMain.handle('open-inventory-file', async () => {
     const result = await dialog.showOpenDialog(ctx.mainWindow, {
       title: 'Select your Warframe inventory JSON',
@@ -130,13 +178,11 @@ function register() {
     return null;
   });
 
-  // Returns whether an inventory is currently loaded
   ipcMain.handle('get-inventory-status', async () => ({
     path: ctx.currentInventoryPath,
     found: ctx.currentInventoryPath !== null,
   }));
 
-  // Check whether AlecaFrame's data file exists
   ipcMain.handle('check-alecaframe', async () => {
     if (!ALECAFRAME_DATA_PATH) return { found: false, path: null, hasCachedData: false };
 
@@ -154,7 +200,6 @@ function register() {
     };
   });
 
-  // Attempt to auto-decrypt AlecaFrame's lastData.dat
   ipcMain.handle('load-alecaframe', async () => {
     if (!ALECAFRAME_DATA_PATH || !fs.existsSync(ALECAFRAME_DATA_PATH)) {
       return { success: false, error: 'AlecaFrame data file not found.' };
@@ -175,7 +220,6 @@ function register() {
     };
   });
 
-  // User picks a pre-decrypted AlecaFrame JSON (from the web parser)
   ipcMain.handle('open-alecaframe-json', async () => {
     const result = await dialog.showOpenDialog(ctx.mainWindow, {
       title: 'Select decrypted AlecaFrame JSON',

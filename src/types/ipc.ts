@@ -24,10 +24,16 @@ export interface OverlaySettings {
   autoTriggerEnabled: boolean;
   hotkeyEnabled: boolean;
   hotkey: string;
-  cropPreset: "balanced" | "tight" | "wide";
+  cropDebugHotkeyEnabled: boolean;
+  cropDebugHotkey: string;
+  cropPreset: "balanced" | "tight" | "wide" | "custom";
+  cropTopRatio: number;
+  cropHeightRatio: number;
+  ocrEngine: "windows" | "tesseract";
   ocrPasses: number;
   matchThreshold: number;
   ocrTimeoutMs: number;
+  worldNotificationsEnabled: boolean;
 }
 
 export type AppUpdateStatus =
@@ -199,6 +205,10 @@ export interface IpcInvokeMap {
     args: [settings: Partial<OverlaySettings>];
     return: OverlaySettings;
   };
+  openOcrCropDebugger: {
+    args: [];
+    return: { ok: boolean; error?: string; settings?: OverlaySettings };
+  };
   checkForAppUpdates: {
     args: [];
     return: AppUpdateCheckResult;
@@ -214,17 +224,18 @@ export interface IpcInvokeMap {
 }
 
 export interface IpcEventMap {
-  onInventoryUpdated: (data: RawInventoryData) => void;
-  onAppUpdateStatus: (state: AppUpdateState) => void;
+  "inventory-updated": RawInventoryData;
+  "app-update-status": AppUpdateState;
 }
 
 export interface IpcSendMap {
-  minimizeWindow: { args: [] };
-  maximizeWindow: { args: [] };
-  closeWindow: { args: [] };
-  toggleOverlay: { args: [] };
-  simulateRelicTrigger: { args: [] };
-  openExternal: { args: [url: string] };
+  "window-minimize": [];
+  "window-maximize": [];
+  "window-close": [];
+  "toggle-overlay": [];
+  "simulate-relic-trigger": [];
+  "open-external": [url: string];
 }
 
 export type MarketOrderModalState = OrderModalState;
+

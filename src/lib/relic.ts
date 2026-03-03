@@ -1,4 +1,4 @@
-import {
+﻿import {
   fetchPriceBySlug,
   onPriceCacheUpdate,
   type RequestPriority,
@@ -42,14 +42,14 @@ const QUALITY_MODES: RelicQuality[] = [
 const EV_NODATA_TTL_MS = 2 * 60 * 1000;
 const EV_TRANSIENT_MS = 30_000;
 const EV_BATCH_SIZE = 30;
-const EV_WORKERS = 2;
+const EV_WORKERS = 4;
 const RELIC_CARD_NODATA_TTL_MS = 5 * 60 * 1000;
 const RELIC_CARD_WARMUP_BATCH_SIZE = 48;
-const RELIC_CARD_WARMUP_WORKERS = 2;
+const RELIC_CARD_WARMUP_WORKERS = 3;
 const PRIME_PRICE_WARMUP_BATCH_SIZE = 80;
-const PRIME_PRICE_WARMUP_WORKERS = 2;
+const PRIME_PRICE_WARMUP_WORKERS = 4;
 const WARMUP_LOOP_PAUSE_MS = 50;
-const GROUP_PRICE_FETCH_WORKERS = 2;
+const GROUP_PRICE_FETCH_WORKERS = 4;
 const RELIC_RUNTIME_CACHE_KEY = "relic_runtime_cache_v1";
 const RELIC_RUNTIME_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const RELIC_RUNTIME_CACHE_SAVE_DEBOUNCE_MS = 2000;
@@ -847,3 +847,4 @@ export async function warmupRelicEvs(
     }
   }
 }
+

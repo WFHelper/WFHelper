@@ -7,6 +7,7 @@ const log = require('../services/logger').withScope('systemIpc');
  */
 
 const { ipcMain, shell } = require('electron');
+const { isAllowedExternalHost } = require('../config/runtime/security');
 const itemDb         = require('../services/itemDatabase');
 const wfMarket       = require('../services/warframeMarket');
 const masteryHelper  = require('../services/masteryHelper');
@@ -15,7 +16,7 @@ const autoUpdater    = require('../services/autoUpdater');
 const ctx            = require('./context');
 
 function register() {
-  // Item database for renderer lookups (name → image/displayName)
+  // Item database for renderer lookups (name -> image/displayName)
   ipcMain.handle('get-item-database', async () => itemDb.getRendererLookup());
 
   // Warframe.market item list for renderer lookups
@@ -51,8 +52,7 @@ function register() {
   // Full relic database for the relic planner view
   ipcMain.handle('get-relic-database', async () => relicService.getRelicDatabase());
 
-  // ─── Window controls (custom titlebar) ───────────────────────────────────────
-
+  // Window controls (custom titlebar)
   ipcMain.on('window-minimize', () => ctx.mainWindow?.minimize());
 
   ipcMain.on('window-maximize', () => {
@@ -65,16 +65,16 @@ function register() {
 
   ipcMain.on('window-close', () => ctx.mainWindow?.close());
 
-  // ─── Safe external link opener ────────────────────────────────────────────────
-  // Validates that only http/https URLs are opened to prevent file:// / javascript:// abuse.
-
+  // Safe external link opener.
+  // Allows only HTTP(S) URLs to approved domains.
   ipcMain.on('open-external', (_event, url) => {
     try {
       const parsed = new URL(url);
-      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      const isHttp = parsed.protocol === 'https:' || parsed.protocol === 'http:';
+      if (isHttp && isAllowedExternalHost(parsed.hostname)) {
         shell.openExternal(url);
       } else {
-        log.warn('[Security] Blocked open-external with non-HTTP scheme:', parsed.protocol);
+        log.warn('[Security] Blocked open-external for protocol/host:', parsed.protocol, parsed.hostname);
       }
     } catch {
       log.warn('[Security] Blocked open-external with invalid URL:', String(url).slice(0, 100));

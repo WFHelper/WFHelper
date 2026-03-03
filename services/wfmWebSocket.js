@@ -124,7 +124,9 @@ function setStatusViaWebSocket(token, status) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      try { socket.destroy(); } catch (_) {}
+      try { socket.destroy(); } catch (destroyErr) {
+        log.warn('[WFMWebSocket] socket.destroy failed:', destroyErr.message);
+      }
       if (err) reject(err); else resolve();
     }
 

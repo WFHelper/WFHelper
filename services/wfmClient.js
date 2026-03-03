@@ -285,7 +285,9 @@ function request(method, path, { json, headers: extraHeaders } = {}) {
         if (rawBody?.error?.message) detail = rawBody.error.message;
         else if (typeof rawBody?.error === "string") detail = rawBody.error;
         else if (rawBody?.message) detail = rawBody.message;
-      } catch (_) { /* ignore parse error */ }
+      } catch (parseErr) {
+        log.warn('[WFMClient] Failed to read error response body:', parseErr.message);
+      }
       const err = new Error(`WFM API error: ${detail}`);
       err.code = "WFM_API_ERROR";
       err.status = res.status;
