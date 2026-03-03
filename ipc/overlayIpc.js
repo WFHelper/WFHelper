@@ -6,7 +6,7 @@ const log = require('../services/logger').withScope('overlayIpc');
  *          overlay:apply-crop-selection, toggle-overlay, simulate-relic-trigger
  */
 
-const { ipcMain, BrowserWindow, globalShortcut, app } = require('electron');
+const { ipcMain, BrowserWindow, globalShortcut, app, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const relicService = require('../services/relicService');
@@ -21,6 +21,36 @@ const {
 
 const OVERLAY_SETTINGS_FILE = path.join(app.getPath('userData'), 'overlay-settings.json');
 
+const OVERLAY_WINDOW_BOUNDS = Object.freeze({
+  width: 980,
+  height: 220,
+  horizontalMargin: 16,
+  bottomMargin: 18,
+  topMargin: 8,
+  defaultYRatio: 0.47,
+  anchorGapRatio: 0.018,
+  anchorMinRatio: 0.22,
+  anchorMaxRatio: 0.82,
+});
+
+const SCAN_RETRY_WINDOW_MS = 5_000;
+const SCAN_RETRY_INTERVAL_MS = 450;
+const SCAN_MAX_ATTEMPTS = 10;
+const MAX_REWARD_ITEMS = 4;
+
+const OVERLAY_AUTO_HIDE_SUCCESS_MS = 12_000;
+const OVERLAY_AUTO_HIDE_FAILURE_MS = 3_500;
+const OVERLAY_AUTO_HIDE_DETECTING_MAX_MS = 20_000;
+
+const UI_READY_GATE_TIMEOUT_MS = 2_200;
+const UI_READY_GATE_POLL_MS = 120;
+const UI_READY_GATE_REQUIRED_HITS = 2;
+const UI_READY_GATE_SCORE_THRESHOLD = 0.58;
+
+let rewardScanInFlight = false;
+let lastOverlayAnchorMeta = null;
+let overlayAutoHideTimer = null;
+
 function getElectronBuildFile(fileName) {
   return path.join(app.getAppPath(), '.electron-build', fileName);
 }
@@ -29,6 +59,10 @@ function clampNumber(value, min, max, fallback) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(min, Math.min(max, n));
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function normalizeHotkey(value) {
@@ -258,16 +292,90 @@ function registerOverlayHotkey() {
   return triggerOk || cropOk;
 }
 
+function findDisplayById(displayId) {
+  if (!displayId) return null;
+  const wanted = String(displayId);
+  return screen.getAllDisplays().find((display) => String(display.id) === wanted) || null;
+}
+
+function getDisplayForOverlay(anchorMeta) {
+  const metaDisplayId = anchorMeta && typeof anchorMeta === 'object'
+    ? anchorMeta.sourceDisplayId
+    : null;
+
+  const byMeta = findDisplayById(metaDisplayId);
+  if (byMeta) return byMeta;
+
+  try {
+    const point = screen.getCursorScreenPoint();
+    return screen.getDisplayNearestPoint(point);
+  } catch {
+    return screen.getPrimaryDisplay();
+  }
+}
+
+function getAnchorRatio(anchorMeta) {
+  if (!anchorMeta || typeof anchorMeta !== 'object') {
+    return OVERLAY_WINDOW_BOUNDS.defaultYRatio;
+  }
+
+  const bandBottom = Number(anchorMeta.bandBottomRatio);
+  if (!Number.isFinite(bandBottom)) {
+    return OVERLAY_WINDOW_BOUNDS.defaultYRatio;
+  }
+
+  const anchoredRatio = bandBottom + OVERLAY_WINDOW_BOUNDS.anchorGapRatio;
+  return clampNumber(
+    anchoredRatio,
+    OVERLAY_WINDOW_BOUNDS.anchorMinRatio,
+    OVERLAY_WINDOW_BOUNDS.anchorMaxRatio,
+    OVERLAY_WINDOW_BOUNDS.defaultYRatio,
+  );
+}
+
+function getOverlayBoundsForActiveDisplay(anchorMeta = lastOverlayAnchorMeta) {
+  const display = getDisplayForOverlay(anchorMeta);
+  const area = display?.workArea || {
+    x: 0,
+    y: 0,
+    width: OVERLAY_WINDOW_BOUNDS.width,
+    height: OVERLAY_WINDOW_BOUNDS.height,
+  };
+
+  const maxAllowedWidth = Math.max(760, area.width - (OVERLAY_WINDOW_BOUNDS.horizontalMargin * 2));
+  const width = Math.min(OVERLAY_WINDOW_BOUNDS.width, maxAllowedWidth);
+  const height = Math.min(OVERLAY_WINDOW_BOUNDS.height, Math.max(160, area.height - 20));
+
+  const x = Math.round(area.x + ((area.width - width) / 2));
+  const preferredY = Math.round(area.y + (area.height * getAnchorRatio(anchorMeta)));
+  const maxY = area.y + area.height - height - OVERLAY_WINDOW_BOUNDS.bottomMargin;
+  const minY = area.y + OVERLAY_WINDOW_BOUNDS.topMargin;
+  const y = Math.max(minY, Math.min(maxY, preferredY));
+
+  return { x, y, width, height };
+}
+
+function positionOverlayWindow(anchorMeta = lastOverlayAnchorMeta) {
+  if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) return;
+  const bounds = getOverlayBoundsForActiveDisplay(anchorMeta);
+  ctx.overlayWindow.setBounds(bounds, false);
+}
+
 function createOverlayWindow() {
   if (ctx.overlayWindow && !ctx.overlayWindow.isDestroyed()) {
+    positionOverlayWindow(lastOverlayAnchorMeta);
     ctx.overlayWindow.show();
     ctx.overlayWindow.focus();
     return;
   }
 
+  const initialBounds = getOverlayBoundsForActiveDisplay(lastOverlayAnchorMeta);
+
   ctx.overlayWindow = new BrowserWindow({
-    width: 300,
-    height: 400,
+    width: initialBounds.width,
+    height: initialBounds.height,
+    x: initialBounds.x,
+    y: initialBounds.y,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -282,7 +390,11 @@ function createOverlayWindow() {
 
   ctx.overlayWindow.loadFile(path.join(__dirname, '..', 'renderer', 'overlay.html'));
   ctx.overlayWindow.setAlwaysOnTop(true, 'screen-saver');
-  ctx.overlayWindow.on('closed', () => { ctx.overlayWindow = null; });
+  positionOverlayWindow(lastOverlayAnchorMeta);
+  ctx.overlayWindow.on('closed', () => {
+    clearOverlayAutoHideTimer();
+    ctx.overlayWindow = null;
+  });
 }
 
 function createCropDebugWindow(frame) {
@@ -329,40 +441,187 @@ function createCropDebugWindow(frame) {
   });
 }
 
-function sendItemsWhenReady(scanPromise) {
-  scanPromise
-    .then(items => {
-      if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) return;
-      ctx.overlayWindow.webContents.send('relic-reward-items', items ?? []);
-    })
-    .catch(err => {
-      log.error('[Trigger] scan error:', err.message);
-      if (ctx.overlayWindow && !ctx.overlayWindow.isDestroyed()) {
-        ctx.overlayWindow.webContents.send('relic-reward-items', []);
+function clearOverlayAutoHideTimer() {
+  if (!overlayAutoHideTimer) return;
+  clearTimeout(overlayAutoHideTimer);
+  overlayAutoHideTimer = null;
+}
+
+function scheduleOverlayAutoHide(delayMs) {
+  clearOverlayAutoHideTimer();
+
+  const delay = Math.max(250, Math.floor(Number(delayMs) || 0));
+  if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) return;
+
+  overlayAutoHideTimer = setTimeout(() => {
+    overlayAutoHideTimer = null;
+    if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) return;
+    if (ctx.overlayWindow.isVisible()) {
+      ctx.overlayWindow.hide();
+    }
+  }, delay);
+}
+
+function sendOverlayEvent(channel, payload) {
+  if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) return;
+
+  const targetWindow = ctx.overlayWindow;
+  const sendNow = () => {
+    if (!targetWindow || targetWindow.isDestroyed()) return;
+    targetWindow.webContents.send(channel, payload);
+  };
+
+  if (targetWindow.webContents.isLoadingMainFrame()) {
+    targetWindow.webContents.once('did-finish-load', sendNow);
+    return;
+  }
+
+  sendNow();
+}
+
+function chooseBetterScanResult(currentBest, candidate) {
+  if (!candidate) return currentBest;
+  if (!currentBest) return candidate;
+
+  const currentCount = Array.isArray(currentBest.items) ? currentBest.items.length : 0;
+  const candidateCount = Array.isArray(candidate.items) ? candidate.items.length : 0;
+  if (candidateCount !== currentCount) {
+    return candidateCount > currentCount ? candidate : currentBest;
+  }
+
+  const currentScore = Number(currentBest.meta?.score || 0);
+  const candidateScore = Number(candidate.meta?.score || 0);
+  return candidateScore > currentScore ? candidate : currentBest;
+}
+
+async function runRewardScanWithRetries(triggerSource) {
+  const startedAt = Date.now();
+  let attempts = 0;
+  let bestResult = null;
+
+  while (attempts < SCAN_MAX_ATTEMPTS && (Date.now() - startedAt) < SCAN_RETRY_WINDOW_MS) {
+    attempts += 1;
+
+    let result;
+    try {
+      result = await rewardScanner.scanRewardsDetailed();
+    } catch (err) {
+      log.error(`[Trigger] scan attempt ${attempts} failed:`, err.message);
+    }
+
+    bestResult = chooseBetterScanResult(bestResult, result);
+
+    const itemCount = Array.isArray(result?.items) ? result.items.length : 0;
+    if (itemCount > 0) {
+      return {
+        ...result,
+        attempts,
+        elapsedMs: Date.now() - startedAt,
+        timedOut: false,
+      };
+    }
+
+    const elapsed = Date.now() - startedAt;
+    const remaining = SCAN_RETRY_WINDOW_MS - elapsed;
+    if (remaining <= 0 || attempts >= SCAN_MAX_ATTEMPTS) {
+      break;
+    }
+
+    await sleep(Math.min(SCAN_RETRY_INTERVAL_MS, remaining));
+  }
+
+  const fallback = bestResult || { items: [], meta: null };
+  return {
+    ...fallback,
+    attempts,
+    elapsedMs: Date.now() - startedAt,
+    timedOut: true,
+    triggerSource,
+  };
+}
+
+async function dispatchRewardScan(source) {
+  if (rewardScanInFlight) {
+    log.log(`[Trigger] scan already running, ignored duplicate trigger (${source})`);
+    return;
+  }
+
+  rewardScanInFlight = true;
+
+  try {
+    if (typeof rewardScanner.waitForRewardUiReady === 'function') {
+      const gate = await rewardScanner.waitForRewardUiReady({
+        timeoutMs: UI_READY_GATE_TIMEOUT_MS,
+        pollMs: UI_READY_GATE_POLL_MS,
+        requiredHits: UI_READY_GATE_REQUIRED_HITS,
+        scoreThreshold: UI_READY_GATE_SCORE_THRESHOLD,
+      });
+
+      if (gate?.best && Number.isFinite(gate.best.bandBottomRatio)) {
+        lastOverlayAnchorMeta = {
+          sourceDisplayId: gate.best.sourceDisplayId || null,
+          bandBottomRatio: gate.best.bandBottomRatio,
+        };
+        positionOverlayWindow(lastOverlayAnchorMeta);
       }
-    });
+
+      if (gate?.ready) {
+        log.log(
+          '[Trigger] UI-ready gate passed in ' + gate.elapsedMs + 'ms (' + gate.attempts +
+          ' samples, score ' + Number(gate.best?.score || 0).toFixed(3) + ')'
+        );
+      } else {
+        log.log(
+          '[Trigger] UI-ready gate timed out after ' + (gate?.elapsedMs ?? 0) +
+          'ms; continuing scan pipeline (best score ' + Number(gate?.best?.score || 0).toFixed(3) + ')'
+        );
+      }
+    }
+
+    const result = await runRewardScanWithRetries(source);
+    const items = Array.isArray(result?.items)
+      ? result.items.slice(0, MAX_REWARD_ITEMS)
+      : [];
+
+    if (result?.meta) {
+      lastOverlayAnchorMeta = result.meta;
+      positionOverlayWindow(lastOverlayAnchorMeta);
+    }
+
+    if (items.length === 0 && result?.timedOut) {
+      log.warn(
+        `[Trigger] no reward items found after ${result.attempts} attempt(s) in ${result.elapsedMs}ms`
+      );
+    } else {
+      log.log(
+        `[Trigger] reward scan resolved in ${result.elapsedMs}ms after ${result.attempts} attempt(s); ` +
+        `${items.length} item(s)`
+      );
+    }
+
+    sendOverlayEvent('relic-reward-items', items);
+    scheduleOverlayAutoHide(items.length > 0 ? OVERLAY_AUTO_HIDE_SUCCESS_MS : OVERLAY_AUTO_HIDE_FAILURE_MS);
+  } catch (err) {
+    log.error('[Trigger] scan pipeline error:', err.message);
+    sendOverlayEvent('relic-reward-items', []);
+    scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_FAILURE_MS);
+  } finally {
+    rewardScanInFlight = false;
+  }
 }
 
 function onRelicRewardTrigger(source = 'manual') {
   if (source === 'eelog' && !ctx.overlaySettings.autoTriggerEnabled) return;
 
-  const scanPromise = rewardScanner.scanRewards();
-
-  const isNew = !ctx.overlayWindow || ctx.overlayWindow.isDestroyed();
+  clearOverlayAutoHideTimer();
   createOverlayWindow();
   if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) return;
 
-  if (isNew) {
-    ctx.overlayWindow.webContents.once('did-finish-load', () => {
-      if (ctx.overlayWindow && !ctx.overlayWindow.isDestroyed()) {
-        ctx.overlayWindow.webContents.send('relic-reward-trigger');
-        sendItemsWhenReady(scanPromise);
-      }
-    });
-  } else {
-    ctx.overlayWindow.webContents.send('relic-reward-trigger');
-    sendItemsWhenReady(scanPromise);
-  }
+  positionOverlayWindow(lastOverlayAnchorMeta);
+  sendOverlayEvent('relic-reward-trigger');
+  scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_DETECTING_MAX_MS);
+
+  void dispatchRewardScan(source);
 }
 
 function applyCropSelection(selection) {
@@ -392,6 +651,7 @@ function applyCropSelection(selection) {
 
 function register() {
   ipcMain.on('overlay-close', () => {
+    clearOverlayAutoHideTimer();
     if (ctx.overlayWindow && !ctx.overlayWindow.isDestroyed()) ctx.overlayWindow.hide();
   });
 
@@ -406,9 +666,13 @@ function register() {
     const seen = new Map();
     for (const group of Object.values(db.groups)) {
       for (const qualData of Object.values(group.qualities)) {
-        for (const r of qualData.rewards) {
-          if (r.name && !seen.has(r.name)) {
-            seen.set(r.name, { name: r.name, urlName: r.urlName || null, rarity: r.rarity || 'Common' });
+        for (const reward of qualData.rewards) {
+          if (reward.name && !seen.has(reward.name)) {
+            seen.set(reward.name, {
+              name: reward.name,
+              urlName: reward.urlName || null,
+              rarity: reward.rarity || 'Common',
+            });
           }
         }
       }
@@ -442,11 +706,13 @@ function register() {
   });
 
   ipcMain.on('toggle-overlay', () => {
+    clearOverlayAutoHideTimer();
     if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) {
       createOverlayWindow();
     } else if (ctx.overlayWindow.isVisible()) {
       ctx.overlayWindow.hide();
     } else {
+      positionOverlayWindow(lastOverlayAnchorMeta);
       ctx.overlayWindow.show();
       ctx.overlayWindow.focus();
     }
@@ -463,3 +729,4 @@ module.exports = {
   onRelicRewardTrigger,
   openOcrCropDebugger,
 };
+

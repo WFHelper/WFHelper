@@ -61,7 +61,8 @@
     "typescript": "^5.9.3",
     "vite": "^5.4.21",
     "vitest": "^4.0.18",
-    "wait-on": "^9.0.4"
+    "wait-on": "^9.0.4",
+    "yaml": "^2.8.2"
   },
   "dependencies": {
     "@sentry/browser": "^10.40.0",

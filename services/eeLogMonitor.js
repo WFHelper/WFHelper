@@ -1,100 +1,127 @@
-const log = require('./logger').withScope('eeLogMonitor');
 "use strict";
 
-/**
- * eeLogMonitor.js — Warframe EE.log tail watcher
- *
- * Watches Warframe's real-time log for "Got rewards" trigger lines that
- * indicate a relic was just opened. Only reads new bytes appended since
- * the watcher started (does NOT scan the entire existing log).
- */
-
-const fs       = require("fs");
-const path     = require("path");
-const chokidar = require("chokidar");
+const log = require('./logger').withScope('eeLogMonitor');
+const fs = require('fs');
+const path = require('path');
+const chokidar = require('chokidar');
 
 const EE_LOG_PATH = process.env.LOCALAPPDATA
-  ? path.join(process.env.LOCALAPPDATA, "Warframe", "EE.log")
+  ? path.join(process.env.LOCALAPPDATA, 'Warframe', 'EE.log')
   : null;
 
-// Trigger phrase seen in Warframe's EE.log when a relic reward screen appears
-const REWARD_RE = /Script\s+\[Info\].*Got\s+rewards/i;
+const REWARD_TRIGGER_PATTERNS = Object.freeze([
+  /\bPause countdown done\b/i,
+  /\bGot rewards\b/i,
+]);
 
-let watcher   = null;
-let lastSize  = 0;
-let _callback = null;
+const TRIGGER_DELAY_MS = 500;
+const TRIGGER_COOLDOWN_MS = 2500;
 
-/**
- * Start watching EE.log for reward triggers.
- * @param {Function} onReward - called each time a relic reward screen is detected
- * @returns {string|null} the path being watched, or null if not available
- */
+let watcher = null;
+let lastSize = 0;
+let rewardCallback = null;
+let pendingTriggerTimer = null;
+let lastTriggerAt = 0;
+
+function clearPendingTrigger() {
+  if (!pendingTriggerTimer) return;
+  clearTimeout(pendingTriggerTimer);
+  pendingTriggerTimer = null;
+}
+
+function scheduleRewardTrigger() {
+  const now = Date.now();
+  if ((now - lastTriggerAt) < TRIGGER_COOLDOWN_MS) {
+    return;
+  }
+  if (pendingTriggerTimer) {
+    return;
+  }
+
+  pendingTriggerTimer = setTimeout(() => {
+    pendingTriggerTimer = null;
+    lastTriggerAt = Date.now();
+
+    if (typeof rewardCallback === 'function') {
+      log.log('[EELog] Reward screen trigger detected -> dispatching overlay scan');
+      rewardCallback();
+    }
+  }, TRIGGER_DELAY_MS);
+}
+
+function containsRewardTrigger(chunk) {
+  return REWARD_TRIGGER_PATTERNS.some((pattern) => pattern.test(chunk));
+}
+
 function startWatching(onReward) {
   if (!EE_LOG_PATH) {
-    log.warn("[EELog] LOCALAPPDATA not set — EE.log monitoring unavailable");
+    log.warn('[EELog] LOCALAPPDATA not set; EE.log monitoring unavailable');
     return null;
   }
   if (!fs.existsSync(EE_LOG_PATH)) {
-    log.warn("[EELog] EE.log not found at:", EE_LOG_PATH);
+    log.warn('[EELog] EE.log not found at:', EE_LOG_PATH);
     return null;
   }
 
-  _callback = onReward;
+  rewardCallback = onReward;
 
-  // Record current file size; we only process new bytes from here onwards
   try {
     lastSize = fs.statSync(EE_LOG_PATH).size;
   } catch {
     lastSize = 0;
   }
 
-  if (watcher) watcher.close();
+  if (watcher) {
+    watcher.close();
+  }
 
   watcher = chokidar.watch(EE_LOG_PATH, {
-    persistent:      true,
-    usePolling:      false,
+    persistent: true,
+    usePolling: false,
     awaitWriteFinish: false,
   });
 
-  watcher.on("change", () => {
+  watcher.on('change', () => {
     try {
       const newSize = fs.statSync(EE_LOG_PATH).size;
       if (newSize <= lastSize) {
-        // File was truncated (new session) — reset position
         lastSize = newSize;
         return;
       }
 
       const chunkLen = newSize - lastSize;
-      const buf = Buffer.alloc(chunkLen);
-      const fd  = fs.openSync(EE_LOG_PATH, "r");
-      fs.readSync(fd, buf, 0, chunkLen, lastSize);
+      const buffer = Buffer.alloc(chunkLen);
+      const fd = fs.openSync(EE_LOG_PATH, 'r');
+      fs.readSync(fd, buffer, 0, chunkLen, lastSize);
       fs.closeSync(fd);
       lastSize = newSize;
 
-      const chunk = buf.toString("utf8");
-      if (REWARD_RE.test(chunk)) {
-        log.log("[EELog] Relic reward trigger detected");
-        _callback && _callback();
+      const chunk = buffer.toString('utf8');
+      if (containsRewardTrigger(chunk)) {
+        scheduleRewardTrigger();
       }
-    } catch (err) {
-      log.error("[EELog] read error:", err.message);
+    } catch (error) {
+      log.error('[EELog] read error:', error.message);
     }
   });
 
-  log.log("[EELog] Watching:", EE_LOG_PATH);
+  log.log('[EELog] Watching:', EE_LOG_PATH);
   return EE_LOG_PATH;
 }
 
-/**
- * Stop watching EE.log.
- */
 function stopWatching() {
+  clearPendingTrigger();
+
   if (watcher) {
     watcher.close();
     watcher = null;
   }
-  _callback = null;
+
+  rewardCallback = null;
 }
 
-module.exports = { startWatching, stopWatching, EE_LOG_PATH };
+module.exports = {
+  startWatching,
+  stopWatching,
+  EE_LOG_PATH,
+};

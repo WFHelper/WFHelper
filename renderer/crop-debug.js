@@ -19,6 +19,7 @@
   const topRatioEl = document.getElementById("topRatio");
   const heightRatioEl = document.getElementById("heightRatio");
   const bottomRatioEl = document.getElementById("bottomRatio");
+  const sourceInfoEl = document.getElementById("sourceInfo");
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -115,6 +116,9 @@
     state.selectionHeight = state.baseHeight;
 
     imageEl.src = state.imageDataUrl;
+    if (sourceInfoEl) {
+      sourceInfoEl.textContent = String(payload.sourceLabel || "unknown");
+    }
     renderBand();
     setStatus("Capture loaded. Drag on image to refine OCR crop.", "ok");
   }
