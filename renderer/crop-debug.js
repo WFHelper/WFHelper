@@ -41,9 +41,8 @@
   }
 
   function renderBand() {
-    const rect = viewerEl.getBoundingClientRect();
-    bandEl.style.top = `${state.selectionTop * rect.height}px`;
-    bandEl.style.height = `${state.selectionHeight * rect.height}px`;
+    bandEl.setAttribute("y", state.selectionTop.toFixed(4));
+    bandEl.setAttribute("height", state.selectionHeight.toFixed(4));
     updateStats();
   }
 
@@ -56,7 +55,7 @@
     let top = Math.min(n1, n2);
     let bottom = Math.max(n1, n2);
 
-    if ((bottom - top) < MIN_HEIGHT) {
+    if (bottom - top < MIN_HEIGHT) {
       bottom = Math.min(1, top + MIN_HEIGHT);
       top = Math.max(0, bottom - MIN_HEIGHT);
     }
@@ -104,7 +103,7 @@
     state.baseTop = clamp(Number(payload.cropTopRatio ?? 0.38), 0, 0.92);
     state.baseHeight = clamp(Number(payload.cropHeightRatio ?? 0.36), MIN_HEIGHT, 0.95);
 
-    if ((state.baseTop + state.baseHeight) > 1) {
+    if (state.baseTop + state.baseHeight > 1) {
       state.baseHeight = 1 - state.baseTop;
       if (state.baseHeight < MIN_HEIGHT) {
         state.baseHeight = MIN_HEIGHT;
@@ -164,7 +163,11 @@
     window.cropDebug.onApplied((payload) => {
       if (!payload || typeof payload !== "object") return;
       state.baseTop = clamp(Number(payload.cropTopRatio ?? state.baseTop), 0, 0.92);
-      state.baseHeight = clamp(Number(payload.cropHeightRatio ?? state.baseHeight), MIN_HEIGHT, 0.95);
+      state.baseHeight = clamp(
+        Number(payload.cropHeightRatio ?? state.baseHeight),
+        MIN_HEIGHT,
+        0.95,
+      );
       state.selectionTop = state.baseTop;
       state.selectionHeight = state.baseHeight;
       renderBand();

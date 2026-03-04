@@ -19,7 +19,7 @@ function isAllowedExternalHost(hostname) {
 const MAIN_WINDOW_CSP = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "style-src 'self' https://fonts.googleapis.com",
   "font-src https://fonts.gstatic.com",
   "img-src 'self' data: https:",
   "connect-src 'self' https:",

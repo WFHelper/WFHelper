@@ -100,7 +100,7 @@ function resetSlots() {
 
 function showScanning() {
   document.getElementById("scanning-state").classList.add("visible");
-  document.getElementById("slots-grid").style.display = "none";
+  document.getElementById("slots-grid").classList.add("is-hidden");
   document.getElementById("error-banner").classList.remove("visible");
   resetSlots();
   document.getElementById("header-sub").textContent = "Detecting...";
@@ -109,7 +109,7 @@ function showScanning() {
 
 function showDetectionError() {
   document.getElementById("scanning-state").classList.remove("visible");
-  document.getElementById("slots-grid").style.display = "";
+  document.getElementById("slots-grid").classList.remove("is-hidden");
   document.getElementById("error-banner").classList.add("visible");
   resetSlots();
   document.getElementById("header-sub").textContent = "Detection failed";
@@ -125,7 +125,7 @@ async function applyItems(items) {
   }
 
   document.getElementById("scanning-state").classList.remove("visible");
-  document.getElementById("slots-grid").style.display = "";
+  document.getElementById("slots-grid").classList.remove("is-hidden");
   document.getElementById("error-banner").classList.remove("visible");
   document.getElementById("header-sub").textContent = `${detectedItems.length} item(s) found`;
 

@@ -60,6 +60,9 @@
   function pctRaw(n: number, total: number): number {
     return total > 0 ? (n / total) * 100 : 0;
   }
+  function clampPct(n: number, total: number): number {
+    return Math.max(0, Math.min(100, pctRaw(n, total)));
+  }
   const RING_R = 52;
   const RING_C = 2 * Math.PI * RING_R;
 </script>
@@ -113,12 +116,20 @@
       <div class="mastery-cat-bars">
         {#each categories as cat}
           {@const cs = stats.byCategory[cat]}
+          {@const masteredWidth = clampPct(cs.mastered, cs.total)}
+          {@const progressWidth = clampPct(cs.inProgress, cs.total)}
           <div class="cat-bar-row">
             <span class="cat-bar-label">{cat}</span>
-            <div class="cat-bar-track">
-              <div class="cat-bar-fill mastered" style="width:{pctRaw(cs.mastered, cs.total)}%"></div>
-              <div class="cat-bar-fill progress" style="width:{pctRaw(cs.inProgress, cs.total)}%; left:{pctRaw(cs.mastered, cs.total)}%"></div>
-            </div>
+            <svg class="cat-bar-track" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
+              <rect class="cat-bar-fill mastered" x="0" y="0" width={masteredWidth} height="1"></rect>
+              <rect
+                class="cat-bar-fill progress"
+                x={masteredWidth}
+                y="0"
+                width={progressWidth}
+                height="1"
+              ></rect>
+            </svg>
             <span class="cat-bar-nums">{cs.mastered}/{cs.total} <small>({pct(cs.mastered, cs.total)}%)</small></span>
           </div>
         {/each}
@@ -163,8 +174,21 @@
               <span class="item-name">{item.name}</span>
               <span class="item-type">{item.category}{item.masteryReq ? ` · MR ${item.masteryReq}` : ''}</span>
               {#if !item.missing}
+                {@const rankWidth = item.maxRank > 0 ? Math.max(0, Math.min(100, (item.rank / item.maxRank) * 100)) : 0}
                 <div class="item-rank-bar">
-                  <div class="rank-fill" class:max={item.mastered} class:partial={!item.mastered} style="width:{item.maxRank > 0 ? (item.rank / item.maxRank) * 100 : 0}%"></div>
+                  <svg class="rank-bar-svg" viewBox="0 0 100 4" preserveAspectRatio="none" aria-hidden="true">
+                    <rect
+                      class="rank-fill-svg"
+                      class:max={item.mastered}
+                      class:partial={!item.mastered}
+                      x="0"
+                      y="0"
+                      width={rankWidth}
+                      height="4"
+                      rx="2"
+                      ry="2"
+                    ></rect>
+                  </svg>
                 </div>
                 <span class="item-rank-text">Lv {item.rank}/{item.maxRank} · {item.nextPct}%</span>
               {:else}

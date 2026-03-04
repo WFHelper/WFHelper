@@ -4,10 +4,18 @@ const log = require("../services/logger").withScope("worldStateIpc");
  * Handles: get-world-state
  */
 
-const { ipcMain, Notification } = require("electron");
 const worldStateParser = require("../services/worldStateParser");
 const ctx = require("./context");
 const { assertMainRendererSender, assertAuthorizedSender } = require("./ipcSecurity");
+
+function getElectronModule() {
+  const loaded = require("electron");
+  if (loaded && typeof loaded === "object") return loaded;
+  return {};
+}
+
+const electronModule = getElectronModule();
+let notificationCtor = electronModule.Notification;
 
 const WORLD_STATE_TTL_MS = 90_000;
 
@@ -42,16 +50,16 @@ function buildNotificationSnapshot(state) {
 
 function canSendNotifications() {
   if (!ctx.overlaySettings?.worldNotificationsEnabled) return false;
-  if (typeof Notification !== "function") return false;
-  if (typeof Notification.isSupported === "function") {
-    return Notification.isSupported();
+  if (typeof notificationCtor !== "function") return false;
+  if (typeof notificationCtor.isSupported === "function") {
+    return notificationCtor.isSupported();
   }
   return true;
 }
 
 function sendDesktopNotification(title, body) {
   try {
-    const notification = new Notification({
+    const notification = new notificationCtor({
       title,
       body,
       silent: false,
@@ -88,8 +96,17 @@ function maybeNotifyWorldEvents(state) {
   }
 }
 
-function register() {
-  ipcMain.handle("get-world-state", async (event) => {
+function register(options = {}) {
+  const ipc = options.ipcMain || electronModule.ipcMain;
+  if (!ipc || typeof ipc.handle !== "function") {
+    throw new Error("IPC main bridge is unavailable");
+  }
+
+  if (Object.prototype.hasOwnProperty.call(options, "Notification")) {
+    notificationCtor = options.Notification;
+  }
+
+  ipc.handle("get-world-state", async (event) => {
     assertAuthorizedSender(assertMainRendererSender, event, "get-world-state");
 
     const now = Date.now();

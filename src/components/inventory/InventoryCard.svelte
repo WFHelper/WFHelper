@@ -11,6 +11,10 @@
 
   $: mastered = item.rank >= item.maxRank && item.maxRank > 1;
   $: canShowRank = item.maxRank > 1 && (item.inventoryGroup === "mods" || item.inventoryGroup === "arcanes");
+  $: rankFillPct =
+    canShowRank && item.maxRank > 0
+      ? Math.max(0, Math.min(100, (item.rank / item.maxRank) * 100))
+      : 0;
 
   function selectCard(): void {
     dispatch("select", item);
@@ -49,12 +53,19 @@
 
     {#if canShowRank}
       <div class="item-rank-bar">
-        <div
-          class="rank-fill"
-          class:max={mastered}
-          class:partial={!mastered}
-          style="width:{(item.rank / item.maxRank) * 100}%"
-        ></div>
+        <svg class="rank-bar-svg" viewBox="0 0 100 4" preserveAspectRatio="none" aria-hidden="true">
+          <rect
+            class="rank-fill-svg"
+            class:max={mastered}
+            class:partial={!mastered}
+            x="0"
+            y="0"
+            width={rankFillPct}
+            height="4"
+            rx="2"
+            ry="2"
+          ></rect>
+        </svg>
       </div>
       <span class="item-rank-text">{item.rank}/{item.maxRank}</span>
     {/if}

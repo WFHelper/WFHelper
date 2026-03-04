@@ -3,8 +3,7 @@
 </script>
 
 <header
-  class="z-50 flex h-[var(--titlebar-height)] select-none items-center justify-between border-b border-[var(--border)] bg-[var(--bg-deep)]"
-  style="-webkit-app-region: drag;"
+  class="app-region-drag z-50 flex h-[var(--titlebar-height)] select-none items-center justify-between border-b border-[var(--border)] bg-[var(--bg-deep)]"
 >
   <div class="flex items-center gap-2 pl-3.5">
     <svg class="h-4 w-4 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -15,7 +14,7 @@
       WARFRAME COMPANION
     </span>
   </div>
-  <div class="flex" style="-webkit-app-region: no-drag;">
+  <div class="app-region-no-drag flex">
     <button
       class="flex h-[var(--titlebar-height)] w-[var(--size-titlebar-control)] cursor-pointer items-center justify-center border-0 bg-transparent text-[var(--text-secondary)] transition-colors duration-150 hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
       title="Minimize"
