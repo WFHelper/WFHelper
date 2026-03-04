@@ -33,6 +33,7 @@
     markRelicWarmupFirstUseful,
     perfSnapshot,
   } from "../lib/perf.js";
+  import { debugMode } from "../stores/app.js";
   import type { RelicGroup } from "../types/relics.js";
 
   const TIER_OPTIONS: Array<[string, string]> = [
@@ -438,6 +439,9 @@
           <div class="relic-card-body">
             <span class="relic-card-name">{group.name}</span>
             <span class="relic-card-tier tier-{tierClass}">{group.tier}</span>
+            {#if $debugMode}
+              <span class="debug-reason">show:relic-planner:{group.key}</span>
+            {/if}
           </div>
 
           <span class="relic-ev-badge {ev.cls}">{ev.text}</span>

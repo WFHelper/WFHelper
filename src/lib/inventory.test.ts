@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { parseFoundry, parseInventory, parseResources } from "./inventory.js";
-import type { ItemDbEntry, RawInventoryData } from "../types/inventory.js";
+import type { ItemDbEntry, RawInventoryData, RawInventoryEntry } from "../types/inventory.js";
 
 describe("inventory parsing", () => {
   it("parses inventory categories and hides exalted/special entries", () => {
@@ -33,9 +33,7 @@ describe("inventory parsing", () => {
 
     const items = parseInventory(data, db);
     expect(items.length).toBe(3);
-    expect(items.some((item) => item.internalName.includes("ExaltedWeapons"))).toBe(
-      false,
-    );
+    expect(items.some((item) => item.internalName.includes("ExaltedWeapons"))).toBe(false);
 
     const volt = items.find((item) => item.name === "Volt Prime");
     expect(volt?.category).toBe("warframes");
@@ -96,11 +94,172 @@ describe("inventory parsing", () => {
     };
 
     const resources = parseResources(data, db);
-    expect(resources.map((r) => r.name)).toEqual([
-      "Alloy Plate",
-      "Ferrite",
-      "Orokin Cell",
-    ]);
+    expect(resources.map((r) => r.name)).toEqual(["Alloy Plate", "Ferrite", "Orokin Cell"]);
+  });
+
+  it("classifies relics/mods/arcanes and derives full sets", () => {
+    const setUniqueName = "/Lotus/Types/Items/Sets/BratonPrime";
+    const barrelUniqueName = "/Lotus/Types/Items/Parts/BratonPrimeBarrel";
+    const receiverUniqueName = "/Lotus/Types/Items/Parts/BratonPrimeReceiver";
+
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Relics/LithA1Intact": {
+        name: "Lith A1 Relic",
+        category: "Relics",
+      },
+      "/Lotus/Upgrades/Mods/HornetStrike": {
+        name: "Hornet Strike",
+        category: "Mods",
+      },
+      "/Lotus/Types/Game/Arcanes/ArcaneVelocity": {
+        name: "Arcane Velocity",
+        category: "Arcanes",
+      },
+      [setUniqueName]: {
+        name: "Braton Prime",
+        tradable: true,
+        isPrime: true,
+        components: [
+          { uniqueName: barrelUniqueName, itemCount: 1, tradable: true, name: "Barrel" },
+          { uniqueName: receiverUniqueName, itemCount: 2, tradable: true, name: "Receiver" },
+        ],
+      },
+      [barrelUniqueName]: {
+        name: "Braton Prime Barrel",
+        tradable: true,
+        isPrime: true,
+      },
+      [receiverUniqueName]: {
+        name: "Braton Prime Receiver",
+        tradable: true,
+        isPrime: true,
+      },
+    };
+
+    const data: RawInventoryData = {
+      LevelKeys: [{ ItemType: "/Lotus/Relics/LithA1Intact", ItemCount: 3 }],
+      Upgrades: [{ ItemType: "/Lotus/Upgrades/Mods/HornetStrike", ItemCount: 2 }],
+      Arcanes: [{ ItemType: "/Lotus/Types/Game/Arcanes/ArcaneVelocity", ItemCount: 1 }],
+      MiscItems: [
+        { ItemType: barrelUniqueName, ItemCount: 2 },
+        { ItemType: receiverUniqueName, ItemCount: 4 },
+      ],
+    };
+
+    const items = parseInventory(data, db);
+
+    expect(items.find((item) => item.name === "Lith A1 Relic")?.inventoryGroup).toBe("relics");
+    expect(items.find((item) => item.name === "Hornet Strike")?.inventoryGroup).toBe("mods");
+    expect(items.find((item) => item.name === "Arcane Velocity")?.inventoryGroup).toBe("arcanes");
+
+    const setItem = items.find((item) => item.internalName === `${setUniqueName}#set`);
+    expect(setItem?.inventoryGroup).toBe("full_sets");
+    expect(setItem?.completeSets).toBe(2);
+    expect(setItem?.amount).toBe(2);
+  });
+
+  it("parses nested object collections and leveled rank signals", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Upgrades/Mods/HornetStrike": {
+        name: "Hornet Strike",
+        category: "Mods",
+      },
+      "/Lotus/Types/Game/Arcanes/ArcaneVelocity": {
+        name: "Arcane Velocity",
+        category: "Arcanes",
+      },
+    };
+
+    const data: RawInventoryData = {
+      Upgrades: {
+        SlotA: {
+          ItemType: "/Lotus/Upgrades/Mods/HornetStrike",
+          ItemCount: 3,
+          UpgradeData: { CurrentRank: 7, MaxRank: 10 },
+          EquippedOn: "Kuva Ogris",
+        },
+      } as unknown as RawInventoryEntry[],
+      Arcanes: {
+        GroupA: [
+          {
+            ItemType: "/Lotus/Types/Game/Arcanes/ArcaneVelocity",
+            Quantity: 2,
+            ArcaneInfo: { CurrentLevel: 4, MaxArcaneRank: 5 },
+          },
+        ],
+      } as unknown as RawInventoryEntry[],
+    };
+
+    const items = parseInventory(data, db);
+    const mod = items.find((item) => item.internalName === "/Lotus/Upgrades/Mods/HornetStrike");
+    const arcane = items.find(
+      (item) => item.internalName === "/Lotus/Types/Game/Arcanes/ArcaneVelocity",
+    );
+
+    expect(mod?.inventoryGroup).toBe("mods");
+    expect(mod?.amount).toBe(3);
+    expect(mod?.rank).toBe(7);
+    expect(mod?.leveledUp).toBe(true);
+    expect(mod?.equipped).toBe(true);
+    expect(mod?.equippedIn).toContain("Kuva Ogris");
+
+    expect(arcane?.inventoryGroup).toBe("arcanes");
+    expect(arcane?.amount).toBe(2);
+    expect(arcane?.rank).toBe(4);
+    expect(arcane?.leveledUp).toBe(true);
+  });
+
+  it("keeps focus upgrades out of mods and routes upgrade arcanes correctly", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Upgrades/Focus/Tactic/Residual/MeleeXpFocusUpgrade": {
+        name: "Affinity Spike",
+        category: "Mods",
+        type: "Focus Way",
+      },
+      "/Lotus/Upgrades/CosmeticEnhancers/Defensive/GolemArcaneShieldRegenOnDamage": {
+        name: "Arcane Aegis",
+        category: "Arcanes",
+        type: "Warframe Arcane",
+      },
+      "/Lotus/Upgrades/Mods/PointStrike": {
+        name: "Point Strike",
+        category: "Mods",
+      },
+    };
+
+    const data: RawInventoryData = {
+      Upgrades: [
+        {
+          ItemType: "/Lotus/Upgrades/Focus/Tactic/Residual/MeleeXpFocusUpgrade",
+          ItemCount: 1,
+        },
+        {
+          ItemType: "/Lotus/Upgrades/CosmeticEnhancers/Defensive/GolemArcaneShieldRegenOnDamage",
+          ItemCount: 2,
+        },
+        {
+          ItemType: "/Lotus/Upgrades/Mods/PointStrike",
+          ItemCount: 6,
+        },
+      ],
+    };
+
+    const items = parseInventory(data, db);
+    expect(
+      items.find(
+        (item) => item.internalName === "/Lotus/Upgrades/Focus/Tactic/Residual/MeleeXpFocusUpgrade",
+      )?.inventoryGroup,
+    ).toBe("misc");
+    expect(
+      items.find(
+        (item) =>
+          item.internalName ===
+          "/Lotus/Upgrades/CosmeticEnhancers/Defensive/GolemArcaneShieldRegenOnDamage",
+      )?.inventoryGroup,
+    ).toBe("arcanes");
+    expect(
+      items.find((item) => item.internalName === "/Lotus/Upgrades/Mods/PointStrike")
+        ?.inventoryGroup,
+    ).toBe("mods");
   });
 });
-

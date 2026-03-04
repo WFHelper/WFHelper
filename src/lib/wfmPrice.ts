@@ -1,8 +1,4 @@
-﻿import {
-  getCachedPriceState,
-  setCachedNoData,
-  setCachedPrice,
-} from "./priceCache.js";
+﻿import { getCachedPriceState, setCachedNoData, setCachedPrice } from "./priceCache.js";
 import type { WfmItemsLookup } from "../types/ipc.js";
 import { schedulePriceCacheRevision } from "../stores/pricing.js";
 
@@ -26,13 +22,11 @@ let _dynamicDelayMs = BASE_DELAY_MS;
 
 type PriceStatus = "ok" | "no_data" | "no_slug" | "transient";
 type PriceCacheUpdateStatus = "ok" | "no_data";
-type PriceCacheUpdateListener = (
-  slug: string,
-  status: PriceCacheUpdateStatus,
-) => void;
+type PriceCacheUpdateListener = (slug: string, status: PriceCacheUpdateStatus) => void;
 export type RequestPriority = "high" | "normal" | "low";
 export interface FetchPriceOptions {
   priority?: RequestPriority;
+  allowSetFallback?: boolean;
 }
 
 export interface PriceDebugCounters {
@@ -85,10 +79,7 @@ function bumpCounter(counter: keyof PriceDebugCounters): void {
   priceDebugCounters[counter] += 1;
 }
 
-function emitPriceCacheUpdate(
-  slug: string,
-  status: PriceCacheUpdateStatus,
-): void {
+function emitPriceCacheUpdate(slug: string, status: PriceCacheUpdateStatus): void {
   schedulePriceCacheRevision();
   for (const listener of priceCacheUpdateListeners) {
     try {
@@ -101,11 +92,7 @@ function emitPriceCacheUpdate(
 
 function cachePrice(slug: string, median: number): void {
   const existing = getCachedPriceState(slug);
-  if (
-    existing?.status === "ok" &&
-    existing.median != null &&
-    existing.median === median
-  ) {
+  if (existing?.status === "ok" && existing.median != null && existing.median === median) {
     return;
   }
   setCachedPrice(slug, median);
@@ -124,9 +111,7 @@ export function getPriceDebugCounters(): PriceDebugCounters {
 }
 
 export function resetPriceDebugCounters(): void {
-  for (const key of Object.keys(priceDebugCounters) as Array<
-    keyof PriceDebugCounters
-  >) {
+  for (const key of Object.keys(priceDebugCounters) as Array<keyof PriceDebugCounters>) {
     priceDebugCounters[key] = 0;
   }
 }
@@ -186,9 +171,7 @@ async function runQueueRunner(): Promise<void> {
       const now = Date.now();
       const elapsed = now - _lastRequestAt;
       if (elapsed < _dynamicDelayMs) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, _dynamicDelayMs - elapsed),
-        );
+        await new Promise((resolve) => setTimeout(resolve, _dynamicDelayMs - elapsed));
       }
       _lastRequestAt = Date.now();
 
@@ -201,20 +184,13 @@ async function runQueueRunner(): Promise<void> {
     }
   } finally {
     _runnerActive = false;
-    if (
-      laneQueues.high.length > 0 ||
-      laneQueues.normal.length > 0 ||
-      laneQueues.low.length > 0
-    ) {
+    if (laneQueues.high.length > 0 || laneQueues.normal.length > 0 || laneQueues.low.length > 0) {
       void runQueueRunner();
     }
   }
 }
 
-function enqueue<T>(
-  fn: () => Promise<T>,
-  priority: RequestPriority = "normal",
-): Promise<T> {
+function enqueue<T>(fn: () => Promise<T>, priority: RequestPriority = "normal"): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     laneQueues[priority].push({
       fn: fn as () => Promise<unknown>,
@@ -244,42 +220,30 @@ function extractMedian(json: unknown): number | null {
     .filter((row) => !row.order_type || row.order_type === "sell")
     .sort(
       (a, b) =>
-        new Date(String(a.datetime || 0)).getTime() -
-        new Date(String(b.datetime || 0)).getTime(),
+        new Date(String(a.datetime || 0)).getTime() - new Date(String(b.datetime || 0)).getTime(),
     );
 
   const latest = rows.length > 0 ? rows[rows.length - 1] : undefined;
   if (!latest) return null;
 
   const raw =
-    latest.median ??
-    latest.moving_avg ??
-    latest.wa_price ??
-    latest.avg_price ??
-    latest.min_price;
+    latest.median ?? latest.moving_avg ?? latest.wa_price ?? latest.avg_price ?? latest.min_price;
   if (raw == null) return null;
 
   const n = Math.round(Math.abs(Number(raw)));
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-async function fetchStatsJson(
-  slug: string,
-  priority: RequestPriority,
-): Promise<StatsResponse> {
+async function fetchStatsJson(slug: string, priority: RequestPriority): Promise<StatsResponse> {
   return enqueue(async () => {
     bumpCounter("httpCalls");
-    const resp = await fetch(
-      `https://api.warframe.market/v1/items/${slug}/statistics`,
-      { headers: WFM_HEADERS },
-    );
+    const resp = await fetch(`https://api.warframe.market/v1/items/${slug}/statistics`, {
+      headers: WFM_HEADERS,
+    });
 
     if (resp.status === 429) {
       bumpCounter("rateLimited");
-      _dynamicDelayMs = Math.min(
-        MAX_DYNAMIC_DELAY_MS,
-        _dynamicDelayMs + DELAY_BACKOFF_STEP_MS,
-      );
+      _dynamicDelayMs = Math.min(MAX_DYNAMIC_DELAY_MS, _dynamicDelayMs + DELAY_BACKOFF_STEP_MS);
       const retryAfter = parseInt(
         resp.headers.get("retry-after") || `${DEFAULT_RETRY_AFTER_SECONDS}`,
         10,
@@ -392,10 +356,16 @@ export async function fetchPriceByName(
   if (!itemName) return null;
   bumpCounter("requests");
   const priority = options?.priority || "normal";
+  const allowSetFallback = options?.allowSetFallback === true;
 
   const key = itemName.toLowerCase();
-  const mapping = wfmItems[key] || wfmItems[`${key} set`] || null;
+  const mapping = wfmItems[key] || null;
+  const setMapping = wfmItems[`${key} set`] || null;
   let slug = mapping?.url_name;
+
+  if (!slug && /\bset$/i.test(itemName) && setMapping?.url_name) {
+    slug = setMapping.url_name;
+  }
 
   if (!slug) {
     slug = key
@@ -405,7 +375,7 @@ export async function fetchPriceByName(
   }
   if (!slug) return null;
 
-  const slugsToTry = slug.endsWith("_set") ? [slug] : [`${slug}_set`, slug];
+  const slugsToTry = allowSetFallback && !slug.endsWith("_set") ? [`${slug}_set`, slug] : [slug];
 
   for (const trySlug of slugsToTry) {
     const result = await fetchPriceBySlug(trySlug, { priority });
@@ -421,4 +391,3 @@ export async function fetchPriceByName(
 
   return null;
 }
-

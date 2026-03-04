@@ -83,7 +83,17 @@ const sentryUploadEnabled =
   Boolean(process.env.SENTRY_ORG) &&
   Boolean(process.env.SENTRY_PROJECT);
 
-const plugins = [svelte({ preprocess: vitePreprocess() }), tailwindcss()];
+const plugins = [
+  svelte({
+    preprocess: vitePreprocess(),
+    compilerOptions: {
+      compatibility: {
+        componentApi: 4,
+      },
+    },
+  }),
+  tailwindcss(),
+];
 
 if (sentryUploadEnabled) {
   plugins.push(
@@ -121,5 +131,3 @@ export default defineConfig({
     },
   },
 });
-
-

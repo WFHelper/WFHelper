@@ -58,8 +58,12 @@ export interface RawInventoryData {
   Recipes?: RawInventoryEntry[];
   MiscItems?: RawInventoryEntry[];
   LevelKeys?: RawInventoryEntry[];
+  Upgrades?: RawInventoryEntry[];
+  Arcanes?: RawInventoryEntry[];
   [key: string]: unknown;
 }
+
+export type InventoryGroup = "all_parts" | "relics" | "mods" | "arcanes" | "full_sets" | "misc";
 
 export interface ParsedItem {
   name: string;
@@ -81,6 +85,18 @@ export interface ParsedItem {
   currentlyOwned?: boolean;
   uniqueName?: string;
   keywords?: string[];
+  platinum?: number | null;
+  ducats?: number | null;
+  amount?: number | null;
+  ducatonator?: number | null;
+  completeSets?: number | boolean | null;
+  orderPlaced?: boolean;
+  partType?: "normal" | "prime";
+  inventoryGroup?: InventoryGroup;
+  favorite?: boolean;
+  equipped?: boolean;
+  equippedIn?: string[];
+  leveledUp?: boolean;
   debugReason?: string;
   [key: string]: unknown;
 }

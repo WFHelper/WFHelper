@@ -1,4 +1,4 @@
-const log = require('./logger').withScope('warframeMarket');
+const log = require("./logger").withScope("warframeMarket");
 // ═══════════════════════════════════════════════════════════════════════════
 // Warframe.Market Service (v2 API)
 // Fetches public item list (no auth) for name→slug mapping
@@ -13,9 +13,10 @@ const WFM_V2_HEADERS = {
   Accept: "application/json",
   "User-Agent": "WarframeCompanion/1.0",
 };
+const WFM_ASSET_BASE = "https://warframe.market/static/assets/";
 
-let wfmItems = [];          // Raw items from v2
-let wfmByName = {};          // item_name (lowercase) → { slug, item_name }
+let wfmItems = []; // Raw items from v2
+let wfmByName = {}; // item_name (lowercase) → { slug, item_name, thumb, icon }
 let loaded = false;
 
 function unwrapData(obj) {
@@ -44,7 +45,7 @@ async function fetchItemList() {
           items = data.items;
         } else if (data.items && typeof data.items === "object") {
           items = Object.entries(data.items).map(([k, v]) =>
-            (v && typeof v === "object") ? { _slug: k, ...v } : { _slug: k }
+            v && typeof v === "object" ? { _slug: k, ...v } : { _slug: k },
           );
         } else if (Array.isArray(data)) {
           items = data;
@@ -63,17 +64,32 @@ async function fetchItemList() {
       if (!slug) continue;
 
       // v2 uses i18n.en.itemName or i18n.en.item_name
+      const i18nEn = item?.i18n?.en || {};
       const name =
-        item?.i18n?.en?.itemName ||
-        item?.i18n?.en?.item_name ||
+        i18nEn.itemName ||
+        i18nEn.item_name ||
+        i18nEn.name ||
         item?.item_name ||
         item?.itemName ||
         item?.name ||
         "";
 
+      const rawThumb = i18nEn.thumb || item?.thumb || null;
+      const rawIcon = i18nEn.icon || item?.icon || null;
+      const thumb = rawThumb
+        ? String(rawThumb).startsWith("http")
+          ? rawThumb
+          : `${WFM_ASSET_BASE}${rawThumb}`
+        : null;
+      const icon = rawIcon
+        ? String(rawIcon).startsWith("http")
+          ? rawIcon
+          : `${WFM_ASSET_BASE}${rawIcon}`
+        : null;
+
       if (name) {
         const key = name.toLowerCase();
-        wfmByName[key] = { slug, item_name: name };
+        wfmByName[key] = { slug, item_name: name, thumb, icon };
       }
 
       // Also index by slug-derived name for items without i18n
@@ -83,12 +99,14 @@ async function fetchItemList() {
         .replace(/\b[a-z]/g, (c) => c.toUpperCase());
       const slugKey = slugName.toLowerCase();
       if (!wfmByName[slugKey]) {
-        wfmByName[slugKey] = { slug, item_name: name || slugName };
+        wfmByName[slugKey] = { slug, item_name: name || slugName, thumb, icon };
       }
     }
 
     loaded = true;
-    log.log(`[WFMarket] v2 loaded ${wfmItems.length} items, ${Object.keys(wfmByName).length} name mappings`);
+    log.log(
+      `[WFMarket] v2 loaded ${wfmItems.length} items, ${Object.keys(wfmByName).length} name mappings`,
+    );
     return wfmItems.length;
   } catch (err) {
     log.error("[WFMarket] Failed to fetch item list:", err.message);
@@ -125,6 +143,8 @@ function getRendererLookup() {
     lookup[key] = {
       url_name: item.slug,
       item_name: item.item_name,
+      thumb: item.thumb || null,
+      icon: item.icon || null,
     };
   }
   return lookup;

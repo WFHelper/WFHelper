@@ -54,7 +54,7 @@
     "globals": "^17.4.0",
     "nodemon": "^3.1.14",
     "prettier": "^3.8.1",
-    "svelte": "^4.2.20",
+    "svelte": "^5.53.7",
     "svelte-check": "^4.4.4",
     "svelte-eslint-parser": "^1.5.1",
     "tailwindcss": "^4.2.1",
@@ -63,6 +63,9 @@
     "vitest": "^4.0.18",
     "wait-on": "^9.0.4",
     "yaml": "^2.8.2"
+  },
+  "overrides": {
+    "esbuild": "^0.25.11"
   },
   "dependencies": {
     "@sentry/browser": "^10.40.0",

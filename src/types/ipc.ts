@@ -1,8 +1,4 @@
-import type {
-  MasteryData,
-  RawInventoryData,
-  ItemDbEntry,
-} from "./inventory.js";
+import type { MasteryData, RawInventoryData, ItemDbEntry } from "./inventory.js";
 import type {
   OrderModalState,
   WfmCreateOrderInput,
@@ -91,7 +87,15 @@ export interface AlecaFrameLoadResult {
   fallbackUrl?: string;
 }
 
-export type WfmItemsLookup = Record<string, { url_name: string }>;
+export type WfmItemsLookup = Record<
+  string,
+  {
+    url_name: string;
+    item_name?: string;
+    thumb?: string | null;
+    icon?: string | null;
+  }
+>;
 export type ItemDbLookup = Record<string, ItemDbEntry>;
 
 export type WfmOrderResult = WfmOrder | WfmMutationError;
@@ -238,4 +242,3 @@ export interface IpcSendMap {
 }
 
 export type MarketOrderModalState = OrderModalState;
-

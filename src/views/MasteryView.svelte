@@ -3,6 +3,9 @@
   import { wfmItems } from "../stores/data.js";
   import { debugMode } from "../stores/app.js";
   import { activeItem, activeComponent } from "../stores/modals.js";
+  import SharedFilterBar from "../components/SharedFilterBar.svelte";
+  import { applySharedFiltersAndSort } from "../lib/filters.js";
+  import { sharedFilters } from "../stores/filters.js";
   import ItemImage from "../components/ItemImage.svelte";
   import { ipc } from "../lib/ipc.js";
   import type { MasteryCategoryStats } from "../types/inventory.js";
@@ -11,7 +14,7 @@
 
   let catFilter    = 'all';
   let statusFilter = 'all';
-  let search       = '';
+  const masteryFilters = sharedFilters("mastery");
 
   function orderedCategories(byCategory: Record<string, MasteryCategoryStats>): string[] {
     const keys = Object.keys(byCategory);
@@ -27,39 +30,28 @@
     let items = $masteryData.items;
     if (catFilter !== 'all')    items = items.filter(i => i.category === catFilter);
     if (statusFilter !== 'all') items = items.filter(i => i.status === statusFilter);
-    if (search) {
-      const q = search.toLowerCase();
-      items = items.filter(i =>
-        i.name.toLowerCase().includes(q) ||
-        i.category.toLowerCase().includes(q) ||
-        (i.uniqueName || '').toLowerCase().includes(q) ||
-        (i.keywords || []).some(kw => kw.includes(q))
-      );
-    }
-    const order: Record<"mastered" | "progress" | "missing", number> = {
-      mastered: 0,
-      progress: 1,
-      missing: 2,
-    };
-    return [...items]
-      .sort((a, b) => {
-        const statusA = (a.status || "missing") as keyof typeof order;
-        const statusB = (b.status || "missing") as keyof typeof order;
-        return order[statusA] !== order[statusB]
-          ? order[statusA] - order[statusB]
-          : a.name.localeCompare(b.name);
-      })
-      // Pre-compute per-item derived values here so {#each} never reads
-      // $wfmItems directly — a wfmItems store update won't trigger a full
-      // template re-render; Svelte will patch only changed items via the key.
-      .map(item => {
+    // Pre-compute per-item derived values here so {#each} never reads
+    // $wfmItems directly — a wfmItems store update won't trigger a full
+    // template re-render; Svelte will patch only changed items via the key.
+    const hydrated = items.map(item => {
         const mastered = item.status === 'mastered';
         const missing  = item.status === 'missing';
         const nextPct  = missing ? 0 : Math.max(0, Math.min(100,
           Math.floor((item.rank / Math.max(item.maxRank, 1)) * 100)));
         const wfm = $wfmItems[item.name.toLowerCase()] || null;
-        return { ...item, mastered, missing, nextPct, wfm };
+        return {
+          ...item,
+          mastered,
+          missing,
+          nextPct,
+          wfm,
+          partType: item.isPrime ? ("prime" as const) : ("normal" as const),
+          leveledUp: item.rank > 0,
+          amount: item.currentlyOwned ? 1 : 0,
+        };
       });
+
+    return applySharedFiltersAndSort(hydrated, $masteryFilters);
   })();
 
   function pct(n: number, total: number): string {
@@ -75,16 +67,9 @@
 <section class="view active">
   <div class="view-header">
     <h2>Mastery Helper</h2>
-    <div class="view-controls">
-      <div class="search-box">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="7"/>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <input type="text" bind:value={search} placeholder="Search items…" />
-      </div>
-    </div>
   </div>
+
+  <SharedFilterBar scope="mastery" />
 
   {#if $masteryData}
     {@const stats = $masteryData.stats}
@@ -160,7 +145,7 @@
       {#if filtered.length === 0}
         <div class="empty-state col-span-full"><p>No items match your filters</p></div>
       {:else}
-        {#each filtered as item (item.uniqueName || item.name)}
+        {#each filtered as item, itemIndex (`${item.uniqueName || item.internalName || item.name}-${itemIndex}`)}
           <!-- svelte-ignore a11y-click-events-have-key-events -->
           <!-- svelte-ignore a11y-no-static-element-interactions -->
           <div
@@ -190,7 +175,7 @@
               {/if}
               {#if (item.components || []).length > 0}
                 <div class="comp-dots">
-                  {#each (item.components || []).slice(0, 8) as comp (comp.name || comp.uniqueName)}
+                  {#each (item.components || []).slice(0, 8) as comp, compIndex (`${comp.uniqueName || comp.name || 'component'}-${compIndex}`)}
                     {@const isOwned = comp.owned || ((comp.ownedCount ?? 0) >= (comp.itemCount || 1))}
                     <!-- svelte-ignore a11y-click-events-have-key-events -->
                     <!-- svelte-ignore a11y-no-static-element-interactions -->
