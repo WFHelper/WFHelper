@@ -375,6 +375,59 @@ describe("inventory parsing", () => {
     expect(mod?.leveledUp).toBe(false);
   });
 
+  it("parses mod rank from UpgradeFingerprint JSON payload", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Upgrades/Mods/Rifle/WeaponToxinDamageMod": {
+        name: "Infected Clip",
+        category: "Mods",
+      },
+    };
+
+    const data: RawInventoryData = {
+      Upgrades: [
+        {
+          ItemType: "/Lotus/Upgrades/Mods/Rifle/WeaponToxinDamageMod",
+          ItemCount: 1,
+          UpgradeFingerprint: '{"lvl":5}',
+        },
+      ],
+    };
+
+    const items = parseInventory(data, db);
+    const mod = items.find(
+      (item) => item.internalName === "/Lotus/Upgrades/Mods/Rifle/WeaponToxinDamageMod",
+    );
+    expect(mod?.rank).toBe(5);
+    expect(mod?.leveledUp).toBe(true);
+  });
+
+  it("does not infer rank from riven challenge fingerprint payload", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Upgrades/Mods/Randomized/LotusPistolRandomModRare": {
+        name: "Pistol Riven Mod",
+        category: "Mods",
+      },
+    };
+
+    const data: RawInventoryData = {
+      Upgrades: [
+        {
+          ItemType: "/Lotus/Upgrades/Mods/Randomized/LotusPistolRandomModRare",
+          ItemCount: 1,
+          UpgradeFingerprint:
+            '{"challenge":{"Type":"/Lotus/Types/Challenges/RandomizedFinisherKill","Progress":0,"Required":80}}',
+        },
+      ],
+    };
+
+    const items = parseInventory(data, db);
+    const mod = items.find(
+      (item) => item.internalName === "/Lotus/Upgrades/Mods/Randomized/LotusPistolRandomModRare",
+    );
+    expect(mod?.rank).toBe(0);
+    expect(mod?.leveledUp).toBe(false);
+  });
+
   it("filters noisy equipped context identifiers", () => {
     const db: Record<string, ItemDbEntry> = {
       "/Lotus/Upgrades/Mods/Shotgun/Event/ProjectNightwatch/SobekNightwatchMod": {

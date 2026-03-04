@@ -89,6 +89,20 @@ const MAX_RANK_KEYS = new Set([
   "maxarcanerank",
 ]);
 
+const FINGERPRINT_RANK_KEYS = new Set([
+  "lvl",
+  "level",
+  "rank",
+  "modrank",
+  "upgraderank",
+  "upgradelvl",
+  "fusionlevel",
+  "currentrank",
+  "currentlevel",
+  "itemlevel",
+  "arcanerank",
+]);
+
 const EQUIP_CONTEXT_KEYS = new Set([
   "equippedon",
   "installedon",
@@ -318,6 +332,54 @@ function hasAnyRankSignal(value: unknown): boolean {
   return false;
 }
 
+function parseFingerprintPayload(raw: unknown): unknown {
+  let current = raw;
+
+  for (let i = 0; i < 3; i += 1) {
+    if (typeof current !== "string") return current;
+    const trimmed = current.trim();
+    if (!trimmed) return null;
+
+    try {
+      current = JSON.parse(trimmed) as unknown;
+    } catch {
+      return null;
+    }
+  }
+
+  return current;
+}
+
+function extractFingerprintRank(entry: RawInventoryEntry): number | null {
+  const raw =
+    (entry as Record<string, unknown>).UpgradeFingerprint ??
+    (entry as Record<string, unknown>).upgradeFingerprint;
+  if (raw == null) return null;
+
+  const payload = parseFingerprintPayload(raw);
+  if (!payload || typeof payload !== "object") return null;
+
+  const record = payload as RawInventoryEntry;
+  const rank =
+    pickNumeric(record, [
+      "lvl",
+      "level",
+      "rank",
+      "ModRank",
+      "FusionLevel",
+      "UpgradeLevel",
+      "CurrentLevel",
+      "CurrentRank",
+      "ArcaneRank",
+      "ItemLevel",
+      "ItemRank",
+      "UpgradeRank",
+    ]) ?? deepFindNumericByKeys(payload, FINGERPRINT_RANK_KEYS, 2);
+
+  if (rank == null || rank < 0) return null;
+  return Math.floor(rank);
+}
+
 function isDisplayableEquipContext(value: string): boolean {
   const trimmed = value.trim();
   if (!trimmed) return false;
@@ -488,8 +550,11 @@ function normalizeRank(
       "UpgradeRank",
     ]) ?? deepFindNumericByKeys(entry, RANK_KEYS);
 
-  if (explicitRank != null) {
-    const rank = Math.max(0, Math.floor(explicitRank));
+  const fingerprintRank = explicitRank == null ? extractFingerprintRank(entry) : null;
+  const resolvedRank = explicitRank ?? fingerprintRank;
+
+  if (resolvedRank != null) {
+    const rank = Math.max(0, Math.floor(resolvedRank));
     return { rank: Math.min(rank, maxRank), maxRank };
   }
 
