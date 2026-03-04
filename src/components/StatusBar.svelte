@@ -12,8 +12,8 @@
     resetPriceDebugCounters,
     type PriceDebugCounters,
     type PriceQueueStats,
-  } from "../lib/wfmPrice.js";
-  import { getPriceCacheStats, type PriceCacheStats } from "../lib/priceCache.js";
+  } from "../lib/wfm/wfmPrice.js";
+  import { getPriceCacheStats, type PriceCacheStats } from "../lib/wfm/priceCache.js";
   import {
     getRelicRuntimeCacheStats,
     type RelicRuntimeCacheStats,

@@ -111,6 +111,9 @@ export default defineConfig({
   // Vite project root. index.html lives here.
   root: path.resolve(__dirname, "src"),
 
+  // Load .env files from repository root (not src/).
+  envDir: path.resolve(__dirname),
+
   // Use relative asset paths so Electron can load from file://
   base: "./",
 

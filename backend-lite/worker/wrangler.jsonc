@@ -1,0 +1,37 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "worker",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-03-01",
+	"workers_dev": true,
+	"preview_urls": false,
+
+	"kv_namespaces": [
+		{
+			"binding": "PRICE_CACHE",
+			"id": "93e17278beee46b48e7666da5146f8e2",
+			"preview_id": "f50302722fd345bfb1c2109e89b6ca9d",
+		},
+		{
+			"binding": "ITEM_META",
+			"id": "e4990d24455b4b648a8c24d908b63813",
+			"preview_id": "b332ce4ec0b043d89e07b526244e31d8",
+		},
+	],
+
+	"vars": {
+		"CACHE_TTL_SEC": "43200",
+		"ALLOW_ORIGIN": "null,http://localhost:5173",
+		"ADMIN_RATE_LIMIT_WINDOW_SEC": "60",
+		"ADMIN_RATE_LIMIT_MAX": "12",
+		"PREWARM_BATCH_SIZE": "8",
+		"CATALOG_REFRESH_HOURS": "24",
+		"ADMIN_PREWARM_MAX_BATCH": "30",
+		"NO_DATA_TTL_SEC": "900",
+		"STALE_REFRESH_SEC": "1800",
+	},
+
+	"triggers": {
+		"crons": ["*/30 * * * *"],
+	},
+}

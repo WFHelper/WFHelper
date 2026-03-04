@@ -18,6 +18,9 @@ export interface PreloadAPI {
   wfmSignOut: () => Promise<IpcInvokeMap["wfmSignOut"]["return"]>;
   wfmGetSession: () => Promise<IpcInvokeMap["wfmGetSession"]["return"]>;
   wfmGetOrders: () => Promise<IpcInvokeMap["wfmGetOrders"]["return"]>;
+  wfmGetContracts: (
+    query?: IpcInvokeMap["wfmGetContracts"]["args"][0],
+  ) => Promise<IpcInvokeMap["wfmGetContracts"]["return"]>;
   wfmCreateOrder: (
     params: IpcInvokeMap["wfmCreateOrder"]["args"][0],
   ) => Promise<IpcInvokeMap["wfmCreateOrder"]["return"]>;
@@ -37,9 +40,7 @@ export interface PreloadAPI {
     limit?: IpcInvokeMap["wfmSearchItems"]["args"][1],
   ) => Promise<IpcInvokeMap["wfmSearchItems"]["return"]>;
   wfmGetMe: () => Promise<IpcInvokeMap["wfmGetMe"]["return"]>;
-  wfmSetStatus: (
-    status: WfmStatus,
-  ) => Promise<IpcInvokeMap["wfmSetStatus"]["return"]>;
+  wfmSetStatus: (status: WfmStatus) => Promise<IpcInvokeMap["wfmSetStatus"]["return"]>;
   getMasteryProgress: () => Promise<IpcInvokeMap["getMasteryProgress"]["return"]>;
   setDebugMode: (
     enabled: IpcInvokeMap["setDebugMode"]["args"][0],
@@ -47,12 +48,8 @@ export interface PreloadAPI {
   checkForAppUpdates: () => Promise<IpcInvokeMap["checkForAppUpdates"]["return"]>;
   getAppUpdateState: () => Promise<IpcInvokeMap["getAppUpdateState"]["return"]>;
   installDownloadedUpdate: () => Promise<IpcInvokeMap["installDownloadedUpdate"]["return"]>;
-  onInventoryUpdated: (
-    callback: (data: IpcEventMap["inventory-updated"]) => void,
-  ) => () => void;
-  onAppUpdateStatus: (
-    callback: (state: IpcEventMap["app-update-status"]) => void,
-  ) => () => void;
+  onInventoryUpdated: (callback: (data: IpcEventMap["inventory-updated"]) => void) => () => void;
+  onAppUpdateStatus: (callback: (state: IpcEventMap["app-update-status"]) => void) => () => void;
   minimizeWindow: () => void;
   maximizeWindow: () => void;
   closeWindow: () => void;

@@ -1,3 +1,9 @@
+import {
+  fetchBackendMetaBySlug,
+  shouldDirectFallback,
+  type BackendRequestPriority,
+} from "./backendLite.js";
+
 const WFM_HEADERS = {
   Platform: "pc",
   Language: "en",
@@ -16,6 +22,10 @@ export interface WfmItemMeta {
   thumb: string | null;
   icon: string | null;
   timestamp: number;
+}
+
+export interface FetchMetaOptions {
+  priority?: BackendRequestPriority;
 }
 
 interface PersistedMeta {
@@ -124,6 +134,7 @@ hydratePersistentCache();
 
 export async function fetchWfmItemMetaBySlug(
   slug: string | null | undefined,
+  options?: FetchMetaOptions,
 ): Promise<WfmItemMeta | null> {
   if (!slug) return null;
 
@@ -134,8 +145,36 @@ export async function fetchWfmItemMetaBySlug(
   const existing = inFlight.get(slug);
   if (existing) return existing;
 
+  const priority = options?.priority || "low";
+  const fallbackAllowed = shouldDirectFallback(priority);
+
   const task = (async () => {
     try {
+      const backendResult = await fetchBackendMetaBySlug(slug);
+      if (backendResult.status === "ok") {
+        const backendMeta: WfmItemMeta = {
+          slug: backendResult.data.slug,
+          ducats: backendResult.data.ducats,
+          setRoot: backendResult.data.setRoot,
+          thumb: withAssetBase(backendResult.data.thumb),
+          icon: withAssetBase(backendResult.data.icon),
+          timestamp: backendResult.data.timestamp || Date.now(),
+        };
+        metaCache.set(slug, backendMeta);
+        persistCache();
+        return backendMeta;
+      }
+
+      if (backendResult.status === "not_found" && !fallbackAllowed) {
+        metaCache.set(slug, null);
+        persistCache();
+        return null;
+      }
+
+      if (backendResult.status === "error" && !fallbackAllowed) {
+        return null;
+      }
+
       const response = await fetch(`https://api.warframe.market/v2/items/${slug}`, {
         headers: WFM_HEADERS,
       });

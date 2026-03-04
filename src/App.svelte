@@ -27,7 +27,7 @@
   import { appUpdateState } from "./stores/updates.js";
   import { addToast } from "./stores/toasts.js";
   import { onInventoryLoaded, setInventoryStatus } from "./lib/actions.js";
-  import { flushCache } from "./lib/priceCache.js";
+  import { flushCache } from "./lib/wfm/priceCache.js";
   import {
     configureRelicRuntimeCacheFingerprint,
     flushRelicRuntimeCache,

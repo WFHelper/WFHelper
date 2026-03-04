@@ -18,11 +18,15 @@ contextBridge.exposeInMainWorld("api", {
   wfmSignOut: () => ipcRenderer.invoke("wfm:signout"),
   wfmGetSession: () => ipcRenderer.invoke("wfm:session"),
   wfmGetOrders: () => ipcRenderer.invoke("wfm:get-orders"),
+  wfmGetContracts: (query?: unknown) => ipcRenderer.invoke("wfm:get-contracts", query),
   wfmCreateOrder: (params: unknown) => ipcRenderer.invoke("wfm:create-order", params),
-  wfmUpdateOrder: (orderId: string, updates: unknown) => ipcRenderer.invoke("wfm:update-order", { orderId, updates }),
+  wfmUpdateOrder: (orderId: string, updates: unknown) =>
+    ipcRenderer.invoke("wfm:update-order", { orderId, updates }),
   wfmDeleteOrder: (orderId: string) => ipcRenderer.invoke("wfm:delete-order", { orderId }),
-  wfmSetVisible: (orderIds: string[], visible: boolean) => ipcRenderer.invoke("wfm:set-visible", { orderIds, visible }),
-  wfmSearchItems: (query: string, limit?: number) => ipcRenderer.invoke("wfm:search-items", { query, limit }),
+  wfmSetVisible: (orderIds: string[], visible: boolean) =>
+    ipcRenderer.invoke("wfm:set-visible", { orderIds, visible }),
+  wfmSearchItems: (query: string, limit?: number) =>
+    ipcRenderer.invoke("wfm:search-items", { query, limit }),
   wfmGetMe: () => ipcRenderer.invoke("wfm:get-me"),
   wfmSetStatus: (status: string) => ipcRenderer.invoke("wfm:set-status", { status }),
 

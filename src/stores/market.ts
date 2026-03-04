@@ -1,6 +1,8 @@
 import { writable } from "svelte/store";
 import type {
+  MarketTab,
   OrderModalState,
+  WfmContractsResult,
   WfmOrdersResult,
   WfmSession,
   WfmStatus,
@@ -13,8 +15,15 @@ export const marketSession = writable<WfmSession>({
 });
 
 export const marketOrders = writable<WfmOrdersResult>({ sell: [], buy: [] });
-export const marketTypeTab = writable<"sell" | "buy">("sell");
+export const marketContracts = writable<WfmContractsResult>({
+  contracts: [],
+  page: 1,
+  totalPages: null,
+  hasMore: false,
+});
+export const marketTypeTab = writable<MarketTab>("sell");
 export const marketStatus = writable<WfmStatus | null>(null);
 export const marketSelected = writable<Set<string>>(new Set());
 export const marketOrdersLastFetch = writable<number>(0);
+export const marketContractsLastFetch = writable<number>(0);
 export const orderModalState = writable<OrderModalState | null>(null);

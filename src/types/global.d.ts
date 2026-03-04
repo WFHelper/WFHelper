@@ -11,6 +11,8 @@ declare global {
     readonly VITE_SENTRY_DSN?: string;
     readonly VITE_SENTRY_RELEASE?: string;
     readonly VITE_SENTRY_TRACES_SAMPLE_RATE?: string;
+    readonly VITE_WFM_BACKEND_URL?: string;
+    readonly VITE_WFM_BACKEND_DIRECT_FALLBACK?: "always" | "high" | "never";
   }
 
   interface ImportMeta {

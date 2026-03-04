@@ -1645,12 +1645,29 @@ a:hover {
     accent-color: var(--accent);
     flex-shrink: 0;
   }
+  .order-checkbox-placeholder {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+  }
   .order-item-info {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     flex: 1;
     min-width: 0;
+  }
+  .market-contract-text {
+    display: grid;
+    gap: 0.16rem;
+    min-width: 0;
+  }
+  .market-contract-stats {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .order-item-thumb {
     width: 36px;
@@ -1693,6 +1710,10 @@ a:hover {
     display: flex;
     gap: 0.3rem;
     flex-shrink: 0;
+  }
+  .market-load-more {
+    justify-self: center;
+    margin-top: 0.2rem;
   }
   .market-item-search-wrap {
     position: relative;
@@ -1947,14 +1968,14 @@ a:hover {
   }
   .relic-rewards-header {
     display: grid;
-    grid-template-columns: 30px minmax(0, 1fr) 80px 80px 80px;
+    grid-template-columns: 30px minmax(0, 1fr) 72px 78px 78px 120px;
     gap: 0.42rem;
     font-size: 0.72rem;
     color: var(--text-muted);
   }
   .relic-reward-row {
     display: grid;
-    grid-template-columns: 30px minmax(0, 1fr) 80px 80px 80px;
+    grid-template-columns: 30px minmax(0, 1fr) 72px 78px 78px 120px;
     gap: 0.42rem;
     align-items: center;
   }
@@ -2099,7 +2120,7 @@ a:hover {
   }
   .relic-rewards-header,
   .relic-reward-row {
-    grid-template-columns: 24px minmax(0, 1fr) 64px 64px 64px;
+    grid-template-columns: 24px minmax(0, 1fr) 56px 60px 60px 94px;
     gap: 0.32rem;
   }
 }

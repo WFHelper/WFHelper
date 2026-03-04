@@ -6,6 +6,7 @@ export interface RelicReward {
   chance: number;
   urlName: string | null;
   wfmId?: string | null;
+  ducats: number | null;
 }
 
 export interface RelicQualityData {

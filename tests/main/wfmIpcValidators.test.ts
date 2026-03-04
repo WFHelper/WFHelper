@@ -38,4 +38,14 @@ describe("wfmIpc payload validators", () => {
     expect(__test__.parseStatusPayload({ status: "online" })).toEqual({ status: "online" });
     expect(__test__.parseStatusPayload({ status: "offline" })).toBeNull();
   });
+
+  it("parses contracts query with sane defaults and bounds", () => {
+    expect(__test__.parseContractsPayload(null)).toEqual({ page: 1, limit: 40 });
+    expect(__test__.parseContractsPayload({ page: 3, limit: 60 })).toEqual({
+      page: 3,
+      limit: 60,
+    });
+    expect(__test__.parseContractsPayload({ page: 0, limit: 20 })).toBeNull();
+    expect(__test__.parseContractsPayload({ page: 2, limit: 1000 })).toBeNull();
+  });
 });

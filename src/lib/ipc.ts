@@ -19,6 +19,7 @@ const invokeHandlers = {
   wfmSignOut: () => window.api.wfmSignOut(),
   wfmGetSession: () => window.api.wfmGetSession(),
   wfmGetOrders: () => window.api.wfmGetOrders(),
+  wfmGetContracts: (query) => window.api.wfmGetContracts(query),
   wfmCreateOrder: (params) => window.api.wfmCreateOrder(params),
   wfmUpdateOrder: (orderId, updates) => window.api.wfmUpdateOrder(orderId, updates),
   wfmDeleteOrder: (orderId) => window.api.wfmDeleteOrder(orderId),
@@ -35,9 +36,7 @@ const invokeHandlers = {
   setOverlaySettings: (settings) => window.api.setOverlaySettings(settings),
   openOcrCropDebugger: () => window.api.openOcrCropDebugger(),
 } satisfies {
-  [K in InvokeKey]: (
-    ...args: IpcInvokeMap[K]["args"]
-  ) => Promise<IpcInvokeMap[K]["return"]>;
+  [K in InvokeKey]: (...args: IpcInvokeMap[K]["args"]) => Promise<IpcInvokeMap[K]["return"]>;
 };
 
 const eventHandlers = {
@@ -80,10 +79,7 @@ export function on<K extends EventChannel>(
   return handler(callback);
 }
 
-export function send<K extends SendChannel>(
-  channel: K,
-  ...args: IpcSendMap[K]
-): void {
+export function send<K extends SendChannel>(channel: K, ...args: IpcSendMap[K]): void {
   const handler = sendHandlers[channel] as (...sendArgs: IpcSendMap[K]) => void;
   handler(...args);
 }
@@ -106,11 +102,18 @@ export const ipc = {
   wfmSignOut: () => invoke("wfmSignOut"),
   wfmGetSession: () => invoke("wfmGetSession"),
   wfmGetOrders: () => invoke("wfmGetOrders"),
-  wfmCreateOrder: (...args: IpcInvokeMap["wfmCreateOrder"]["args"]) => invoke("wfmCreateOrder", ...args),
-  wfmUpdateOrder: (...args: IpcInvokeMap["wfmUpdateOrder"]["args"]) => invoke("wfmUpdateOrder", ...args),
-  wfmDeleteOrder: (...args: IpcInvokeMap["wfmDeleteOrder"]["args"]) => invoke("wfmDeleteOrder", ...args),
-  wfmSetVisible: (...args: IpcInvokeMap["wfmSetVisible"]["args"]) => invoke("wfmSetVisible", ...args),
-  wfmSearchItems: (...args: IpcInvokeMap["wfmSearchItems"]["args"]) => invoke("wfmSearchItems", ...args),
+  wfmGetContracts: (...args: IpcInvokeMap["wfmGetContracts"]["args"]) =>
+    invoke("wfmGetContracts", ...args),
+  wfmCreateOrder: (...args: IpcInvokeMap["wfmCreateOrder"]["args"]) =>
+    invoke("wfmCreateOrder", ...args),
+  wfmUpdateOrder: (...args: IpcInvokeMap["wfmUpdateOrder"]["args"]) =>
+    invoke("wfmUpdateOrder", ...args),
+  wfmDeleteOrder: (...args: IpcInvokeMap["wfmDeleteOrder"]["args"]) =>
+    invoke("wfmDeleteOrder", ...args),
+  wfmSetVisible: (...args: IpcInvokeMap["wfmSetVisible"]["args"]) =>
+    invoke("wfmSetVisible", ...args),
+  wfmSearchItems: (...args: IpcInvokeMap["wfmSearchItems"]["args"]) =>
+    invoke("wfmSearchItems", ...args),
   wfmGetMe: () => invoke("wfmGetMe"),
   wfmSetStatus: (...args: IpcInvokeMap["wfmSetStatus"]["args"]) => invoke("wfmSetStatus", ...args),
   getMasteryProgress: () => invoke("getMasteryProgress"),
@@ -119,7 +122,8 @@ export const ipc = {
   getAppUpdateState: () => invoke("getAppUpdateState"),
   installDownloadedUpdate: () => invoke("installDownloadedUpdate"),
   getOverlaySettings: () => invoke("getOverlaySettings"),
-  setOverlaySettings: (...args: IpcInvokeMap["setOverlaySettings"]["args"]) => invoke("setOverlaySettings", ...args),
+  setOverlaySettings: (...args: IpcInvokeMap["setOverlaySettings"]["args"]) =>
+    invoke("setOverlaySettings", ...args),
   openOcrCropDebugger: () => invoke("openOcrCropDebugger"),
   onInventoryUpdated: (callback: (data: IpcEventMap["inventory-updated"]) => void) =>
     on("inventory-updated", callback),

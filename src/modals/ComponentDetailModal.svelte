@@ -1,7 +1,7 @@
 <script lang="ts">
   import { activeComponent } from "../stores/modals.js";
   import { wfmItems } from "../stores/data.js";
-  import { fetchPriceByName } from "../lib/wfmPrice.js";
+  import { fetchPriceByName } from "../lib/wfm/wfmPrice.js";
   import { ipc } from "../lib/ipc.js";
 
   let priceText = "";

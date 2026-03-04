@@ -4,7 +4,15 @@ import type { OwnedCounts, RelicDatabase } from "../types/relics.js";
 export const relicDb = writable<RelicDatabase | null>(null);
 export const relicTierFilter = writable<string>("all");
 export const relicSearch = writable<string>("");
-export const relicSortMode = writable<"tier" | "ev_desc" | "ev_asc">("tier");
+export const relicSortMode = writable<
+  | "tier"
+  | "ev_desc"
+  | "ev_asc"
+  | "ducat_desc"
+  | "ducat_asc"
+  | "ducatonator_desc"
+  | "ducatonator_asc"
+>("tier");
 export const relicQualityMode = writable<
   "best" | "intact" | "exceptional" | "flawless" | "radiant"
 >("best");

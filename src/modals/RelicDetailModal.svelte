@@ -1,8 +1,14 @@
 <script lang="ts">
   import { activeRelic } from "../stores/modals.js";
   import { relicOwnedCounts, relicSquadSize } from "../stores/relics.js";
-  import { fetchPriceBySlug } from "../lib/wfmPrice.js";
-  import { computeSquadEV, fissureTierClass, RELIC_ICON_PATHS } from "../lib/relic.js";
+  import { fetchPriceBySlug } from "../lib/wfm/wfmPrice.js";
+  import { fetchWfmItemMetaBySlug } from "../lib/wfm/wfmItemMeta.js";
+  import {
+    computeSquadDucatEV,
+    computeSquadEV,
+    fissureTierClass,
+    RELIC_ICON_PATHS,
+  } from "../lib/relic.js";
   import type {
     OwnedQualityCounts,
     RelicGroup,
@@ -38,6 +44,7 @@
   let activeQuality: RelicQuality = "intact";
   let rewards: RelicReward[] = [];
   let prices: Array<number | null> | null = null;
+  let ducats: Array<number | null> | null = null;
   let loadingPrices = false;
   let currentGroup: RelicGroup | null = null;
   let currentQuality: RelicQuality | null = null;
@@ -63,23 +70,39 @@
     currentQuality = quality;
     rewards = qData.rewards || [];
     prices = null;
+    ducats = null;
     loadingPrices = true;
 
     try {
       const tokenGroup = g;
       const tokenQuality = quality;
       const fetched = await Promise.all(
-        rewards.map((reward) =>
-          reward?.urlName
-            ? fetchPriceBySlug(reward.urlName, { priority: "high" }).then(
-                (price) => price?.median ?? null,
+        rewards.map(async (reward) => {
+          const price = reward?.urlName
+            ? await fetchPriceBySlug(reward.urlName, { priority: "high" }).then(
+                (entry) => entry?.median ?? null,
               )
-            : Promise.resolve(null),
-        ),
+            : null;
+
+          const ducatValue =
+            typeof reward?.ducats === "number"
+              ? reward.ducats
+              : reward?.urlName
+                ? await fetchWfmItemMetaBySlug(reward.urlName, {
+                    priority: "high",
+                  }).then((meta) => meta?.ducats ?? null)
+                : null;
+
+          return {
+            price,
+            ducats: ducatValue,
+          };
+        }),
       );
 
       if ($activeRelic === tokenGroup && activeQuality === tokenQuality) {
-        prices = fetched;
+        prices = fetched.map((entry) => entry.price);
+        ducats = fetched.map((entry) => entry.ducats);
       }
     } catch (error) {
       console.warn("[RelicDetail] price fetch failed:", error);
@@ -96,7 +119,14 @@
   }
 
   $: squadEV = prices && rewards.length ? computeSquadEV(rewards, prices, $relicSquadSize) : null;
+  $: squadDucatEV =
+    ducats && rewards.length ? computeSquadDucatEV(rewards, ducats, $relicSquadSize) : null;
   $: hasAnyPrice = prices?.some((price) => price != null);
+  $: hasAnyDucats = ducats?.some((value) => value != null);
+  $: ducatonator =
+    squadEV != null && squadDucatEV != null && squadEV > 0
+      ? squadDucatEV / squadEV
+      : null;
   $: squadLabel = $relicSquadSize === 1 ? "Solo" : `best of ${$relicSquadSize}`;
   $: qualLabel = QUAL_LABELS[activeQuality] || activeQuality;
 
@@ -166,11 +196,13 @@
       <div class="relic-rewards-list">
         <div class="relic-rewards-header">
           <span></span><span>Item</span><span class="text-right">Chance</span>
-          <span class="text-right">Price</span><span class="text-right">E.V.</span>
+          <span class="text-right">Price</span><span class="text-right">Ducats</span><span class="text-right">E.V.</span>
         </div>
         {#each rewards as reward, i}
           {@const price = prices ? prices[i] : null}
-          {@const ev = price != null ? (reward.chance / 100) * price : null}
+          {@const ducatValue = ducats ? ducats[i] : null}
+          {@const platEv = price != null ? (reward.chance / 100) * price : null}
+          {@const ducatEv = ducatValue != null ? (reward.chance / 100) * ducatValue : null}
           <div class="relic-reward-row">
             <span class="relic-reward-rarity {rarityClass(reward.rarity)}" title={reward.rarity}
               >{reward.rarity?.charAt(0) || "?"}</span
@@ -184,18 +216,44 @@
                 <span class="detail-muted">-</span>
               {/if}
             </span>
-            <span class="relic-reward-ev">{ev != null ? `~${ev.toFixed(1)}p` : ""}</span>
+            <span class="relic-reward-price">
+              {#if ducatValue != null}
+                <span>{ducatValue}d</span>
+              {:else}
+                <span class="detail-muted">-</span>
+              {/if}
+            </span>
+            <span class="relic-reward-ev">
+              {#if platEv != null && ducatEv != null}
+                {`~${platEv.toFixed(1)}p | ${ducatEv.toFixed(1)}d`}
+              {:else if platEv != null}
+                {`~${platEv.toFixed(1)}p`}
+              {:else if ducatEv != null}
+                {`${ducatEv.toFixed(1)}d`}
+              {/if}
+            </span>
           </div>
         {/each}
       </div>
 
       <div class="relic-ev-total">
         {#if loadingPrices}
-          Loading prices...
-        {:else if !hasAnyPrice}
-          Expected value ({qualLabel}): <strong>N/A</strong> (no price data)
-        {:else if squadEV != null}
-          Expected value ({qualLabel}, {squadLabel}): <strong>~{squadEV.toFixed(1)} platinum</strong>
+          Loading prices and ducats...
+        {:else if !hasAnyPrice && !hasAnyDucats}
+          Expected value ({qualLabel}): <strong>N/A</strong> (no value data)
+        {:else}
+          <span>Expected value ({qualLabel}, {squadLabel}): </span>
+          {#if squadEV != null}
+            <strong>~{squadEV.toFixed(1)} platinum</strong>
+          {:else}
+            <strong>N/A platinum</strong>
+          {/if}
+          {#if squadDucatEV != null}
+            <span> | <strong>{squadDucatEV.toFixed(1)} ducats</strong></span>
+          {/if}
+          {#if ducatonator != null}
+            <span> ({ducatonator.toFixed(1)} d/p)</span>
+          {/if}
         {/if}
       </div>
     </div>

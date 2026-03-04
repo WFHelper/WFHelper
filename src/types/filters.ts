@@ -1,4 +1,4 @@
-export type FilterScope = "inventory" | "mastery";
+export type FilterScope = "inventory" | "mastery" | "market";
 
 export type PrimeFilterMode = "all" | "prime" | "non_prime";
 export type MasteredFilterMode = "all" | "mastered" | "not_mastered";

@@ -1,5 +1,7 @@
 import type { MasteryData, RawInventoryData, ItemDbEntry } from "./inventory.js";
 import type {
+  WfmContractsQuery,
+  WfmContractsResult,
   OrderModalState,
   WfmCreateOrderInput,
   WfmDeleteResult,
@@ -102,6 +104,7 @@ export type WfmOrderResult = WfmOrder | WfmMutationError;
 export type WfmDeleteOrderResult = WfmDeleteResult | WfmMutationError;
 export type WfmSetVisibleResult = Array<WfmOrder | WfmMutationError>;
 export type WfmOrdersResponse = WfmOrdersResult | WfmMutationError;
+export type WfmContractsResponse = WfmContractsResult | WfmMutationError;
 export type WfmSearchResponse = WfmSearchItem[] | WfmMutationError;
 export type WfmStatusResponse = WfmStatusResult | WfmMutationError;
 export type WfmSessionResponse = WfmSession;
@@ -164,6 +167,10 @@ export interface IpcInvokeMap {
   wfmGetOrders: {
     args: [];
     return: WfmOrdersResponse;
+  };
+  wfmGetContracts: {
+    args: [query?: WfmContractsQuery];
+    return: WfmContractsResponse;
   };
   wfmCreateOrder: {
     args: [WfmCreateOrderInput];

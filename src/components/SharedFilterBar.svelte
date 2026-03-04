@@ -85,7 +85,13 @@
     key: "orderPlaced" | "favorite" | "setComplete" | "equipped" | "leveledUp",
     value: Exclude<YesNoFilterMode, "all">,
   ): void {
-    updateSharedFilters(scope, { [key]: value });
+    const next = state[key] === value ? "all" : value;
+    updateSharedFilters(scope, { [key]: next });
+  }
+
+  function setPartTypeFilter(value: "normal" | "prime"): void {
+    const next = state.partType === value ? "all" : value;
+    updateSharedFilters(scope, { partType: next });
   }
 </script>
 
@@ -182,12 +188,12 @@
           <button
             class="filter-tab"
             class:active={state.partType === "normal"}
-            on:click={() => updateSharedFilters(scope, { partType: "normal" })}
+            on:click={() => setPartTypeFilter("normal")}
           >Normal</button>
           <button
             class="filter-tab"
             class:active={state.partType === "prime"}
-            on:click={() => updateSharedFilters(scope, { partType: "prime" })}
+            on:click={() => setPartTypeFilter("prime")}
           >Prime</button>
         </div>
       </div>

@@ -53,9 +53,7 @@ try {
   if (raw) {
     const parsed = JSON.parse(raw) as {
       v?: number;
-      entries?: Array<
-        [slug: string, status: CachedPriceStatus, median: number | null, ts: number]
-      >;
+      entries?: Array<[slug: string, status: CachedPriceStatus, median: number | null, ts: number]>;
     };
     if (parsed.v === 2 && Array.isArray(parsed.entries)) {
       for (const [slug, status, median, ts] of parsed.entries) {
@@ -110,9 +108,7 @@ export function getCachedPriceState(slug: string): CachedPriceEntry | null {
   return entry;
 }
 
-export function getCachedPrice(
-  slug: string,
-): { median: number; timestamp: number } | null {
+export function getCachedPrice(slug: string): { median: number; timestamp: number } | null {
   const entry = getCachedPriceState(slug);
   if (!entry || entry.status !== "ok" || entry.median == null) return null;
   return { median: entry.median, timestamp: entry.timestamp };

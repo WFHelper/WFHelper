@@ -15,6 +15,8 @@
   import { activeRelic } from "../stores/modals.js";
   import { priceCacheRevision } from "../stores/pricing.js";
   import {
+    computeGroupDucatonator,
+    computeGroupDucatEv,
     configureRelicRuntimeCacheFingerprint,
     RELIC_ICON_PATHS,
     RELIC_TIER_ORDER,
@@ -25,6 +27,7 @@
     getCachedRelicCardPrice,
     parseOwnedRelics,
     warmupRelicCardPrices,
+    warmupRewardDucats,
     warmupRelicEvs,
   } from "../lib/relic.js";
   import { ipc } from "../lib/ipc.js";
@@ -45,10 +48,17 @@
     ["Requiem", "Requiem"],
   ];
 
-  const SORT_OPTIONS: Array<["tier" | "ev_desc" | "ev_asc", string]> = [
+  const SORT_OPTIONS: Array<[
+    "tier" | "ev_desc" | "ev_asc" | "ducat_desc" | "ducat_asc" | "ducatonator_desc" | "ducatonator_asc",
+    string,
+  ]> = [
     ["tier", "Default"],
     ["ev_desc", "Plat desc"],
     ["ev_asc", "Plat asc"],
+    ["ducat_desc", "Ducat desc"],
+    ["ducat_asc", "Ducat asc"],
+    ["ducatonator_desc", "d/p desc"],
+    ["ducatonator_asc", "d/p asc"],
   ];
 
   const QUALITY_OPTIONS: Array<
@@ -80,6 +90,7 @@
   let evWarmupStartTimer: ReturnType<typeof setTimeout> | null = null;
   let evUiDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   let cardUiDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let ducatUiDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   let priceUpdateEvRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   let relicViewMounted = true;
 
@@ -94,6 +105,14 @@
   const onCardBatchDone = () => {
     if (cardUiDebounceTimer) clearTimeout(cardUiDebounceTimer);
     cardUiDebounceTimer = setTimeout(
+      () => relicEvRevision.update((value) => value + 1),
+      CARD_WARMUP_UI_DEBOUNCE_MS,
+    );
+  };
+
+  const onDucatBatchDone = () => {
+    if (ducatUiDebounceTimer) clearTimeout(ducatUiDebounceTimer);
+    ducatUiDebounceTimer = setTimeout(
       () => relicEvRevision.update((value) => value + 1),
       CARD_WARMUP_UI_DEBOUNCE_MS,
     );
@@ -129,6 +148,7 @@
     if (evWarmupStartTimer) clearTimeout(evWarmupStartTimer);
     if (evUiDebounceTimer) clearTimeout(evUiDebounceTimer);
     if (cardUiDebounceTimer) clearTimeout(cardUiDebounceTimer);
+    if (ducatUiDebounceTimer) clearTimeout(ducatUiDebounceTimer);
     if (priceUpdateEvRefreshTimer) clearTimeout(priceUpdateEvRefreshTimer);
   });
 
@@ -216,7 +236,14 @@
     // Card-price warmup is intentionally constrained to owned/visible relics.
     // The relic endpoint returns many 404s for untradable relics; EV warmup still
     // covers full value computation via reward prices in the background.
-    void warmupRelicCardPrices(cardPriorityGroups, onCardBatchDone);
+      void warmupRelicCardPrices(cardPriorityGroups, onCardBatchDone);
+
+      const ducatPriorityGroups = [...ownedGroups, ...unownedGroups];
+      void warmupRewardDucats(
+        ducatPriorityGroups,
+        onDucatBatchDone,
+        ownedGroups.length > 0 ? "high" : "low",
+      );
 
     if (evWarmupStartTimer) return;
 
@@ -282,6 +309,39 @@
         const tierB = RELIC_TIER_ORDER[b.tier] ?? 99;
         return tierA !== tierB ? tierA - tierB : a.name.localeCompare(b.name);
       });
+    } else if ($relicSortMode === "ducat_desc" || $relicSortMode === "ducat_asc") {
+      const direction = $relicSortMode === "ducat_desc" ? -1 : 1;
+      relicGroups = [...relicGroups].sort((a, b) => {
+        const aEv = computeGroupDucatEv(a, $relicSquadSize, $relicQualityMode);
+        const bEv = computeGroupDucatEv(b, $relicSquadSize, $relicQualityMode);
+
+        if ((aEv == null) !== (bEv == null)) return aEv == null ? 1 : -1;
+        if (aEv != null && bEv != null && aEv !== bEv) {
+          return direction * (aEv - bEv);
+        }
+
+        const tierA = RELIC_TIER_ORDER[a.tier] ?? 99;
+        const tierB = RELIC_TIER_ORDER[b.tier] ?? 99;
+        return tierA !== tierB ? tierA - tierB : a.name.localeCompare(b.name);
+      });
+    } else if (
+      $relicSortMode === "ducatonator_desc" ||
+      $relicSortMode === "ducatonator_asc"
+    ) {
+      const direction = $relicSortMode === "ducatonator_desc" ? -1 : 1;
+      relicGroups = [...relicGroups].sort((a, b) => {
+        const aRatio = computeGroupDucatonator(a, $relicSquadSize, $relicQualityMode);
+        const bRatio = computeGroupDucatonator(b, $relicSquadSize, $relicQualityMode);
+
+        if ((aRatio == null) !== (bRatio == null)) return aRatio == null ? 1 : -1;
+        if (aRatio != null && bRatio != null && aRatio !== bRatio) {
+          return direction * (aRatio - bRatio);
+        }
+
+        const tierA = RELIC_TIER_ORDER[a.tier] ?? 99;
+        const tierB = RELIC_TIER_ORDER[b.tier] ?? 99;
+        return tierA !== tierB ? tierA - tierB : a.name.localeCompare(b.name);
+      });
     } else {
       relicGroups = [...relicGroups].sort((a, b) => {
         const tierA = RELIC_TIER_ORDER[a.tier] ?? 99;
@@ -305,10 +365,12 @@
     }
   }
 
-  function evLabel(groupKey: string): { text: string; cls: string } {
-    const ev = getCachedEv(groupKey, $relicSquadSize, $relicQualityMode);
-    const noData = evHasFreshNoData(groupKey, $relicSquadSize, $relicQualityMode);
-    const relicPrice = getCachedRelicCardPrice(groupKey);
+  function evLabel(group: RelicGroup): { text: string; cls: string } {
+    const platEv = getCachedEv(group.key, $relicSquadSize, $relicQualityMode);
+    const ducatEv = computeGroupDucatEv(group, $relicSquadSize, $relicQualityMode);
+    const ratio = computeGroupDucatonator(group, $relicSquadSize, $relicQualityMode);
+    const noData = evHasFreshNoData(group.key, $relicSquadSize, $relicQualityMode);
+    const relicPrice = getCachedRelicCardPrice(group.key);
     const qualityLabel =
       $relicQualityMode === "best"
         ? "Best"
@@ -316,8 +378,20 @@
           ? "Ex"
           : $relicQualityMode.charAt(0).toUpperCase() + $relicQualityMode.slice(1, 3);
 
-    if (ev != null) {
-      return { text: `${qualityLabel} ~${ev.toFixed(1)}p`, cls: "has-value" };
+    if (platEv != null && ducatEv != null) {
+      const ratioText = ratio != null ? ` (${ratio.toFixed(1)} d/p)` : "";
+      return {
+        text: `${qualityLabel} ~${platEv.toFixed(1)}p | ${ducatEv.toFixed(1)}d${ratioText}`,
+        cls: "has-value",
+      };
+    }
+
+    if (platEv != null) {
+      return { text: `${qualityLabel} ~${platEv.toFixed(1)}p`, cls: "has-value" };
+    }
+
+    if (ducatEv != null) {
+      return { text: `${qualityLabel} ${ducatEv.toFixed(1)}d`, cls: "has-value" };
     }
 
     if (relicPrice != null) {
@@ -420,7 +494,7 @@
           group.imageUrl || RELIC_ICON_PATHS[tierClass] || RELIC_ICON_PATHS.default}
         {@const owned = $relicOwnedCounts[group.key]}
         {@const totalOwned = owned ? Object.values(owned).reduce((sum, count) => sum + count, 0) : 0}
-        {@const ev = evLabel(group.key)}
+        {@const ev = evLabel(group)}
         <!-- svelte-ignore a11y-click-events-have-key-events -->
         <!-- svelte-ignore a11y-no-static-element-interactions -->
         <div class="relic-card" on:click={() => activeRelic.set(group)}>

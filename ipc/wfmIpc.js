@@ -2,6 +2,7 @@
 /**
  * Warframe.market IPC handlers.
  * Handles: wfm:signin, wfm:signout, wfm:session, wfm:get-orders,
+ *          wfm:get-contracts,
  *          wfm:create-order, wfm:update-order, wfm:delete-order,
  *          wfm:set-visible, wfm:search-items, wfm:get-me, wfm:set-status
  */
@@ -9,6 +10,7 @@
 const { ipcMain } = require("electron");
 const wfmSession = require("../services/wfmSession");
 const wfmOrders = require("../services/wfmOrders");
+const wfmContracts = require("../services/wfmContracts");
 const wfmCatalog = require("../services/wfmCatalog");
 
 const WFM_ID_RE = /^[a-f0-9]{24}$/i;
@@ -21,6 +23,12 @@ const SEARCH_QUERY_MAX_LENGTH = 120;
 const SEARCH_LIMIT_DEFAULT = 20;
 const SEARCH_LIMIT_MIN = 1;
 const SEARCH_LIMIT_MAX = 100;
+const CONTRACTS_PAGE_DEFAULT = 1;
+const CONTRACTS_PAGE_MIN = 1;
+const CONTRACTS_PAGE_MAX = 500;
+const CONTRACTS_LIMIT_DEFAULT = 40;
+const CONTRACTS_LIMIT_MIN = 1;
+const CONTRACTS_LIMIT_MAX = 100;
 const MAX_BULK_ORDER_IDS = 200;
 const MAX_PLATINUM = 10_000_000;
 const MAX_QUANTITY = 99_999;
@@ -71,7 +79,6 @@ function errorStatus(err) {
   if (!err || typeof err !== "object") return undefined;
   return err.status;
 }
-
 
 function parseCredentials(payload) {
   if (!isObject(payload)) return null;
@@ -176,9 +183,10 @@ function parseSearchPayload(payload) {
   const query = toTrimmedString(payload.query, SEARCH_QUERY_MAX_LENGTH);
   if (!query) return null;
 
-  const rawLimit = payload.limit === undefined
-    ? SEARCH_LIMIT_DEFAULT
-    : toClampedInteger(payload.limit, SEARCH_LIMIT_MIN, SEARCH_LIMIT_MAX);
+  const rawLimit =
+    payload.limit === undefined
+      ? SEARCH_LIMIT_DEFAULT
+      : toClampedInteger(payload.limit, SEARCH_LIMIT_MIN, SEARCH_LIMIT_MAX);
 
   if (rawLimit == null) return null;
 
@@ -195,6 +203,31 @@ function parseStatusPayload(payload) {
   if (!VALID_STATUSES.has(status)) return null;
 
   return { status };
+}
+
+function parseContractsPayload(payload) {
+  if (payload == null) {
+    return {
+      page: CONTRACTS_PAGE_DEFAULT,
+      limit: CONTRACTS_LIMIT_DEFAULT,
+    };
+  }
+
+  if (!isObject(payload)) return null;
+
+  const page =
+    payload.page === undefined
+      ? CONTRACTS_PAGE_DEFAULT
+      : toClampedInteger(payload.page, CONTRACTS_PAGE_MIN, CONTRACTS_PAGE_MAX);
+
+  const limit =
+    payload.limit === undefined
+      ? CONTRACTS_LIMIT_DEFAULT
+      : toClampedInteger(payload.limit, CONTRACTS_LIMIT_MIN, CONTRACTS_LIMIT_MAX);
+
+  if (page == null || limit == null) return null;
+
+  return { page, limit };
 }
 
 function register() {
@@ -226,7 +259,39 @@ function register() {
     } catch (err) {
       const message = normalizeErrorMessage(err, "Failed to fetch orders.");
       const code = errorCode(err);
-      log.error("[WFM IPC] get-orders error:", message, "status:", errorStatus(err) || "?", "code:", code || "?");
+      log.error(
+        "[WFM IPC] get-orders error:",
+        message,
+        "status:",
+        errorStatus(err) || "?",
+        "code:",
+        code || "?",
+      );
+      if (code === "WFM_UNAUTHORIZED") wfmSession.signOut();
+      return { error: message };
+    }
+  });
+
+  ipcMain.handle("wfm:get-contracts", async (_event, payload) => {
+    const parsed = parseContractsPayload(payload);
+    if (!parsed) {
+      log.warn("[Security] wfm:get-contracts blocked due to invalid payload");
+      return { error: "Invalid contracts payload." };
+    }
+
+    try {
+      return await wfmContracts.getMyContracts(parsed);
+    } catch (err) {
+      const message = normalizeErrorMessage(err, "Failed to fetch contracts.");
+      const code = errorCode(err);
+      log.error(
+        "[WFM IPC] get-contracts error:",
+        message,
+        "status:",
+        errorStatus(err) || "?",
+        "code:",
+        code || "?",
+      );
       if (code === "WFM_UNAUTHORIZED") wfmSession.signOut();
       return { error: message };
     }
@@ -340,8 +405,7 @@ module.exports = {
     parseSetVisiblePayload,
     parseSearchPayload,
     parseStatusPayload,
+    parseContractsPayload,
     normalizeErrorMessage,
   },
 };
-
-

@@ -1,9 +1,6 @@
-﻿import {
-  fetchPriceBySlug,
-  onPriceCacheUpdate,
-  type RequestPriority,
-} from "./wfmPrice.js";
-import { getCachedPriceState } from "./priceCache.js";
+import { fetchPriceBySlug, onPriceCacheUpdate, type RequestPriority } from "./wfm/wfmPrice.js";
+import { getCachedPriceState } from "./wfm/priceCache.js";
+import { fetchWfmItemMetaBySlug } from "./wfm/wfmItemMeta.js";
 import type { RawInventoryData } from "../types/inventory.js";
 import type {
   OwnedCounts,
@@ -32,12 +29,7 @@ export const RELIC_TIER_ORDER: Record<string, number> = {
   Requiem: 4,
 };
 
-const QUALITY_MODES: RelicQuality[] = [
-  "intact",
-  "exceptional",
-  "flawless",
-  "radiant",
-];
+const QUALITY_MODES: RelicQuality[] = ["intact", "exceptional", "flawless", "radiant"];
 
 const EV_NODATA_TTL_MS = 2 * 60 * 1000;
 const EV_TRANSIENT_MS = 30_000;
@@ -48,6 +40,8 @@ const RELIC_CARD_WARMUP_BATCH_SIZE = 48;
 const RELIC_CARD_WARMUP_WORKERS = 3;
 const PRIME_PRICE_WARMUP_BATCH_SIZE = 80;
 const PRIME_PRICE_WARMUP_WORKERS = 4;
+const DUCAT_WARMUP_BATCH_SIZE = 90;
+const DUCAT_WARMUP_WORKERS = 4;
 const WARMUP_LOOP_PAUSE_MS = 50;
 const GROUP_PRICE_FETCH_WORKERS = 4;
 const RELIC_RUNTIME_CACHE_KEY = "relic_runtime_cache_v1";
@@ -147,6 +141,76 @@ export function computeSquadEV(
   return ev;
 }
 
+export function computeSquadDucatEV(
+  rewards: Array<{ chance: number }>,
+  ducats: Array<number | null>,
+  squadSize: number,
+): number {
+  return computeSquadEV(rewards, ducats, squadSize);
+}
+
+type RelicQualityMode = "best" | RelicQuality;
+
+function cachedRewardDucats(reward: RelicReward): number | null {
+  if (typeof reward.ducats === "number" && Number.isFinite(reward.ducats)) {
+    return Math.max(0, Math.round(reward.ducats));
+  }
+
+  if (!reward.urlName) return null;
+  if (!rewardDucatCache.has(reward.urlName)) return null;
+  const cached = rewardDucatCache.get(reward.urlName);
+  return typeof cached === "number" && Number.isFinite(cached) ? cached : null;
+}
+
+function qualityModesFor(mode: RelicQualityMode): RelicQuality[] {
+  if (mode === "best") return QUALITY_MODES;
+  return [mode];
+}
+
+function qualityDucatEV(
+  qualityData: RelicQualityData | undefined,
+  squadSize: number,
+): number | null {
+  if (!qualityData) return null;
+
+  const rewards = qualityData.rewards || [];
+  if (rewards.length === 0) return null;
+
+  const ducats = rewards.map((reward) => cachedRewardDucats(reward));
+  const hasAny = ducats.some((value) => value != null);
+  if (!hasAny) return null;
+
+  return computeSquadDucatEV(rewards, ducats, squadSize);
+}
+
+export function computeGroupDucatEv(
+  group: RelicGroup,
+  squadSize: number,
+  qualityMode: RelicQualityMode,
+): number | null {
+  let best: number | null = null;
+
+  for (const quality of qualityModesFor(qualityMode)) {
+    const qualityData = group.qualities?.[quality];
+    const ev = qualityDucatEV(qualityData, squadSize);
+    if (ev == null) continue;
+    if (best == null || ev > best) best = ev;
+  }
+
+  return best;
+}
+
+export function computeGroupDucatonator(
+  group: RelicGroup,
+  squadSize: number,
+  qualityMode: RelicQualityMode,
+): number | null {
+  const ducatEv = computeGroupDucatEv(group, squadSize, qualityMode);
+  const platEv = getCachedEv(group.key, squadSize, qualityMode);
+  if (ducatEv == null || platEv == null || platEv <= 0) return null;
+  return ducatEv / platEv;
+}
+
 const evCache = new Map<string, number>();
 const evNoDataCache = new Map<string, number>();
 const evPending = new Set<string>();
@@ -155,6 +219,8 @@ const groupPricePending = new Set<string>();
 const relicCardPriceCache = new Map<string, number>();
 const relicCardPricePending = new Set<string>();
 const relicCardNoDataCache = new Map<string, number>();
+const rewardDucatCache = new Map<string, number | null>();
+const rewardDucatPending = new Set<string>();
 const primeRewardWarmupComplete = new Set<string>();
 const rewardSlugToGroups = new Map<string, Set<string>>();
 
@@ -170,6 +236,8 @@ let cardWarmupRunning = false;
 let cardWarmupToken = 0;
 let primeWarmupRunning = false;
 let primeWarmupToken = 0;
+let ducatWarmupRunning = false;
+let ducatWarmupToken = 0;
 
 interface QualityPriceData {
   rewards: RelicReward[];
@@ -207,21 +275,14 @@ function fnv1aStep(hash: number, text: string): number {
   let h = hash >>> 0;
   for (let i = 0; i < text.length; i += 1) {
     h ^= text.charCodeAt(i);
-    h +=
-      (h << 1) +
-      (h << 4) +
-      (h << 7) +
-      (h << 8) +
-      (h << 24);
+    h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
   }
   return h >>> 0;
 }
 
 function computeRelicDbFingerprint(db: RelicDatabase): string {
   let hash = 0x811c9dc5;
-  const groups = Object.values(db.groups || {}).sort((a, b) =>
-    a.key.localeCompare(b.key),
-  );
+  const groups = Object.values(db.groups || {}).sort((a, b) => a.key.localeCompare(b.key));
 
   hash = fnv1aStep(hash, `groups:${groups.length}`);
 
@@ -233,9 +294,7 @@ function computeRelicDbFingerprint(db: RelicDatabase): string {
 
     for (const [quality, qData] of qualityEntries) {
       hash = fnv1aStep(hash, `q:${quality}|${qData.uniqueName || ""}`);
-      const rewardSlugs = (qData.rewards || [])
-        .map((reward) => reward?.urlName || "")
-        .sort();
+      const rewardSlugs = (qData.rewards || []).map((reward) => reward?.urlName || "").sort();
       hash = fnv1aStep(hash, `r:${rewardSlugs.join(",")}`);
     }
   }
@@ -299,7 +358,6 @@ function hydrateRuntimeCache(): void {
         relicCardPriceCache.set(groupKey, value);
       }
     }
-
   } catch (e) {
     console.warn("[Relic] Failed to hydrate runtime cache:", e);
   }
@@ -314,9 +372,7 @@ export function flushRelicRuntimeCache(): void {
   persistRuntimeCache();
 }
 
-export function configureRelicRuntimeCacheFingerprint(
-  db: RelicDatabase | null | undefined,
-): void {
+export function configureRelicRuntimeCacheFingerprint(db: RelicDatabase | null | undefined): void {
   if (!db) return;
 
   const nextFingerprint = computeRelicDbFingerprint(db);
@@ -403,11 +459,7 @@ onPriceCacheUpdate((slug, status) => {
   }
 });
 
-export function evCacheKey(
-  groupKey: string,
-  squadSize: number,
-  qualityMode: string,
-): string {
+export function evCacheKey(groupKey: string, squadSize: number, qualityMode: string): string {
   return `${groupKey}|${squadSize}|${qualityMode}`;
 }
 
@@ -437,6 +489,8 @@ export function resetEvCaches(): void {
   relicCardPriceCache.clear();
   relicCardPricePending.clear();
   relicCardNoDataCache.clear();
+  rewardDucatCache.clear();
+  rewardDucatPending.clear();
   primeRewardWarmupComplete.clear();
   rewardSlugToGroups.clear();
   markRuntimeCacheDirty();
@@ -446,6 +500,8 @@ export function resetEvCaches(): void {
   cardWarmupRunning = false;
   primeWarmupToken += 1;
   primeWarmupRunning = false;
+  ducatWarmupToken += 1;
+  ducatWarmupRunning = false;
 }
 
 export function cancelWarmup(): void {
@@ -453,6 +509,8 @@ export function cancelWarmup(): void {
   warmupRunning = false;
   cardWarmupToken += 1;
   cardWarmupRunning = false;
+  ducatWarmupToken += 1;
+  ducatWarmupRunning = false;
 }
 
 function relicGroupSlug(groupKey: string): string {
@@ -472,18 +530,11 @@ export async function prefetchRelicCardPrice(
   priority: RequestPriority = "normal",
 ): Promise<boolean> {
   const noDataTs = relicCardNoDataCache.get(groupKey);
-  if (
-    noDataTs &&
-    Date.now() - noDataTs < RELIC_CARD_NODATA_TTL_MS
-  ) {
+  if (noDataTs && Date.now() - noDataTs < RELIC_CARD_NODATA_TTL_MS) {
     return false;
   }
 
-  if (
-    !groupKey ||
-    relicCardPriceCache.has(groupKey) ||
-    relicCardPricePending.has(groupKey)
-  ) {
+  if (!groupKey || relicCardPriceCache.has(groupKey) || relicCardPricePending.has(groupKey)) {
     return false;
   }
 
@@ -638,6 +689,91 @@ export async function warmupPrimeRewardPriceCache(
   }
 }
 
+export async function prefetchRewardDucats(
+  slug: string | null | undefined,
+  priority: RequestPriority = "low",
+): Promise<boolean> {
+  if (!slug) return false;
+  if (rewardDucatCache.has(slug) || rewardDucatPending.has(slug)) {
+    return false;
+  }
+
+  rewardDucatPending.add(slug);
+  try {
+    const meta = await fetchWfmItemMetaBySlug(slug, { priority });
+    const ducats =
+      typeof meta?.ducats === "number" && Number.isFinite(meta.ducats)
+        ? Math.max(0, Math.round(meta.ducats))
+        : null;
+
+    rewardDucatCache.set(slug, ducats);
+    return ducats != null;
+  } finally {
+    rewardDucatPending.delete(slug);
+  }
+}
+
+function collectRewardSlugsForDucatWarmup(groups: RelicGroup[]): string[] {
+  const unique = new Set<string>();
+
+  for (const group of groups) {
+    const qualities = Object.values(group.qualities || {}) as RelicQualityData[];
+    for (const quality of qualities) {
+      for (const reward of quality?.rewards || []) {
+        const slug = reward?.urlName;
+        if (!slug) continue;
+        if (typeof reward.ducats === "number" && Number.isFinite(reward.ducats)) {
+          rewardDucatCache.set(slug, Math.max(0, Math.round(reward.ducats)));
+          continue;
+        }
+        if (rewardDucatCache.has(slug) || rewardDucatPending.has(slug)) continue;
+        unique.add(slug);
+      }
+    }
+  }
+
+  return [...unique];
+}
+
+export async function warmupRewardDucats(
+  groups: RelicGroup[],
+  onBatchDone: () => void,
+  priority: RequestPriority = "low",
+): Promise<void> {
+  if (ducatWarmupRunning) return;
+  ducatWarmupRunning = true;
+
+  const token = ++ducatWarmupToken;
+
+  try {
+    for (;;) {
+      if (token !== ducatWarmupToken) return;
+
+      const queue = collectRewardSlugsForDucatWarmup(groups).slice(0, DUCAT_WARMUP_BATCH_SIZE);
+      if (queue.length === 0) break;
+
+      await Promise.all(
+        Array.from({ length: DUCAT_WARMUP_WORKERS }, async () => {
+          for (;;) {
+            if (token !== ducatWarmupToken) return;
+            const slug = queue.shift();
+            if (!slug) return;
+            await prefetchRewardDucats(slug, priority);
+          }
+        }),
+      );
+
+      if (token === ducatWarmupToken) onBatchDone();
+      await new Promise((resolve) => setTimeout(resolve, WARMUP_LOOP_PAUSE_MS));
+    }
+  } finally {
+    if (token === ducatWarmupToken) {
+      ducatWarmupRunning = false;
+      onBatchDone();
+    }
+  }
+}
+
 async function buildPriceSnapshot(
   group: RelicGroup,
   priority: RequestPriority,
@@ -685,9 +821,7 @@ async function buildPriceSnapshot(
       snapshot.transient = true;
     }
 
-    const prices = results.map((result) =>
-      result.status === "ok" ? result.median : null,
-    );
+    const prices = results.map((result) => (result.status === "ok" ? result.median : null));
     snapshot.qualities[qualityName] = {
       rewards,
       prices,
@@ -742,11 +876,7 @@ export async function computeGroupEv(
           continue;
         }
 
-        const qualityEv = computeSquadEV(
-          qualityData.rewards,
-          qualityData.prices,
-          squad,
-        );
+        const qualityEv = computeSquadEV(qualityData.rewards, qualityData.prices, squad);
         const prevQualityEv = evCache.get(qualityKey);
         if (prevQualityEv !== qualityEv) {
           evCache.set(qualityKey, qualityEv);
@@ -775,10 +905,7 @@ export async function computeGroupEv(
     }
 
     if (snapshot.transient && !evCache.has(sentinelKey)) {
-      evNoDataCache.set(
-        sentinelKey,
-        Date.now() - (EV_NODATA_TTL_MS - EV_TRANSIENT_MS),
-      );
+      evNoDataCache.set(sentinelKey, Date.now() - (EV_NODATA_TTL_MS - EV_TRANSIENT_MS));
       changed = true;
     }
 
@@ -813,11 +940,7 @@ export async function warmupRelicEvs(
         const key = evCacheKey(group.key, 1, "best");
         const noDataTs = evNoDataCache.get(key);
         if (evCache.has(key) || evPending.has(key)) continue;
-        if (
-          noDataTs &&
-          now - noDataTs < EV_NODATA_TTL_MS &&
-          !groupHasAnyCachedRewardPrice(group)
-        ) {
+        if (noDataTs && now - noDataTs < EV_NODATA_TTL_MS && !groupHasAnyCachedRewardPrice(group)) {
           continue;
         }
         queue.push(group);
@@ -847,4 +970,3 @@ export async function warmupRelicEvs(
     }
   }
 }
-

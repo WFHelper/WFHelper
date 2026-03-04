@@ -1,7 +1,7 @@
 <script lang="ts">
   import { activeItem, activeComponent } from "../stores/modals.js";
   import { wfmItems } from "../stores/data.js";
-  import { fetchPriceByName } from "../lib/wfmPrice.js";
+  import { fetchPriceByName } from "../lib/wfm/wfmPrice.js";
   import ItemImage from "../components/ItemImage.svelte";
   import { ipc } from "../lib/ipc.js";
 

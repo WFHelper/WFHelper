@@ -3,7 +3,10 @@ dist/
 out/
 release/
 .env
+.env.local
+.env.*.local
 *.log
+.tmp/
 
 test-results/
 main.js

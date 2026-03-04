@@ -130,6 +130,25 @@ function isFocusUpgrade(
   return false;
 }
 
+function isLikelyModUpgrade(
+  internalName: string,
+  dbEntry: ItemDbEntry = {},
+  resolved: ResolvedItem,
+): boolean {
+  if (/\/Upgrades\/Mods\//i.test(internalName)) return true;
+  if (/\/Mods\//i.test(internalName)) return true;
+
+  const category = String(dbEntry.category || "").toLowerCase();
+  const type = String(dbEntry.type || "").toLowerCase();
+  const name = String(resolved.name || "").toLowerCase();
+
+  if (category.includes("mod")) return true;
+  if (type.includes(" mod") || type.endsWith("mod") || type.includes("augment")) return true;
+  if (/\bmod\b/.test(name)) return true;
+
+  return false;
+}
+
 interface ResolvedItem extends ItemDbEntry {
   name: string;
   imageUrl: string | null;
@@ -192,6 +211,18 @@ function toFiniteNumber(value: unknown): number | null {
     const parsed = Number(value);
     if (Number.isFinite(parsed)) return parsed;
   }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const boxed =
+      record.$numberInt ??
+      record.$numberLong ??
+      record.$numberDouble ??
+      record.$numberDecimal ??
+      record.$numberFloat;
+    if (boxed !== undefined) {
+      return toFiniteNumber(boxed);
+    }
+  }
   return null;
 }
 
@@ -253,28 +284,29 @@ function deepFindNumericByKeys(
 
 function hasAnyRankSignal(value: unknown): boolean {
   if (value == null) return false;
-  if (typeof value === "number") return value > 0;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed > 0;
-  }
+
   if (Array.isArray(value)) {
     return value.some((entry) => hasAnyRankSignal(entry));
   }
+
   if (typeof value !== "object") return false;
 
   for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
     const normalized = key.toLowerCase().replace(/[^a-z]/g, "");
+    if (normalized.includes("fingerprint")) {
+      continue;
+    }
+
     if (
       normalized.includes("rank") ||
       normalized.includes("level") ||
-      normalized.includes("upgrade") ||
       normalized.includes("fusion")
     ) {
       const asNumber = toFiniteNumber(nested);
       if (asNumber != null && asNumber > 0) return true;
     }
-    if (hasAnyRankSignal(nested)) return true;
+
+    if (nested && typeof nested === "object" && hasAnyRankSignal(nested)) return true;
   }
 
   return false;
@@ -390,7 +422,8 @@ function deriveGroup(
   if (sourceKey === "LevelKeys") return "relics";
   if (sourceKey === "Arcanes") return "arcanes";
   if (sourceKey === "Upgrades") {
-    return isArcaneUpgrade(internalName, dbEntry, resolved) ? "arcanes" : "mods";
+    if (isArcaneUpgrade(internalName, dbEntry, resolved)) return "arcanes";
+    return isLikelyModUpgrade(internalName, dbEntry, resolved) ? "mods" : "misc";
   }
 
   if (/\/Relics?\//i.test(internalName)) return "relics";
@@ -414,8 +447,15 @@ function normalizeRank(
   group: InventoryGroup,
 ): { rank: number; maxRank: number } {
   const explicitMaxRank =
-    pickNumeric(entry, ["MaxRank", "ItemMaxRank", "UpgradeMax", "MaxLevel"]) ??
-    deepFindNumericByKeys(entry, MAX_RANK_KEYS);
+    pickNumeric(entry, [
+      "MaxRank",
+      "ItemMaxRank",
+      "UpgradeMax",
+      "UpgradeMaxRank",
+      "MaxUpgradeLevel",
+      "MaxLevel",
+      "MaxArcaneLevel",
+    ]) ?? deepFindNumericByKeys(entry, MAX_RANK_KEYS);
   const fallbackMaxRank = group === "mods" ? 10 : group === "arcanes" ? 5 : MAX_ITEM_RANK;
   const maxRank =
     explicitMaxRank != null && explicitMaxRank > 0 ? Math.floor(explicitMaxRank) : fallbackMaxRank;
@@ -431,6 +471,8 @@ function normalizeRank(
       "CurrentLevel",
       "CurrentRank",
       "ArcaneRank",
+      "ItemRank",
+      "UpgradeRank",
     ]) ?? deepFindNumericByKeys(entry, RANK_KEYS);
 
   if (explicitRank != null) {

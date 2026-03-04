@@ -1,6 +1,11 @@
-﻿import { getCachedPriceState, setCachedNoData, setCachedPrice } from "./priceCache.js";
-import type { WfmItemsLookup } from "../types/ipc.js";
-import { schedulePriceCacheRevision } from "../stores/pricing.js";
+import { getCachedPriceState, setCachedNoData, setCachedPrice } from "./priceCache.js";
+import type { WfmItemsLookup } from "../../types/ipc.js";
+import { schedulePriceCacheRevision } from "../../stores/pricing.js";
+import {
+  fetchBackendPriceBySlug,
+  shouldDirectFallback,
+  type BackendRequestPriority,
+} from "./backendLite.js";
 
 const BASE_DELAY_MS = 180;
 const MAX_DYNAMIC_DELAY_MS = 1200;
@@ -39,6 +44,9 @@ export interface PriceDebugCounters {
   resultNoData: number;
   resultTransient: number;
   rateLimited: number;
+  backendHitOk: number;
+  backendHitNoData: number;
+  backendError: number;
 }
 
 export interface PriceQueueStats {
@@ -65,6 +73,9 @@ const priceDebugCounters: PriceDebugCounters = {
   resultNoData: 0,
   resultTransient: 0,
   rateLimited: 0,
+  backendHitOk: 0,
+  backendHitNoData: 0,
+  backendError: 0,
 };
 
 const priceCacheUpdateListeners = new Set<PriceCacheUpdateListener>();
@@ -277,6 +288,37 @@ async function fetchPriceBySlugInternal(
   slug: string,
   priority: RequestPriority,
 ): Promise<PriceBySlugResult> {
+  const backendResult = await fetchBackendPriceBySlug(slug);
+  if (backendResult.status === "ok") {
+    cachePrice(slug, backendResult.data.median);
+    bumpCounter("backendHitOk");
+    bumpCounter("resultOk");
+    return {
+      status: "ok",
+      slug: backendResult.data.slug,
+      median: backendResult.data.median,
+      timestamp: backendResult.data.timestamp || Date.now(),
+    };
+  }
+
+  const fallbackPriority = priority as BackendRequestPriority;
+  const fallbackAllowed = shouldDirectFallback(fallbackPriority);
+
+  if (backendResult.status === "not_found") {
+    bumpCounter("backendHitNoData");
+    if (!fallbackAllowed) {
+      cacheNoData(slug);
+      bumpCounter("resultNoData");
+      return { status: "no_data", slug, median: null };
+    }
+  } else if (backendResult.status === "error") {
+    bumpCounter("backendError");
+    if (!fallbackAllowed) {
+      bumpCounter("resultTransient");
+      return { status: "transient", slug, median: null };
+    }
+  }
+
   const res = await fetchStatsJson(slug, priority);
   if (!res.ok) {
     if (!res.transient) {

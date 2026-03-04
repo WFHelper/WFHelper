@@ -22,6 +22,7 @@ function createDefaultFiltersByScope(): Record<FilterScope, SharedFiltersState> 
   return {
     inventory: createDefaultSharedFiltersState(),
     mastery: createDefaultSharedFiltersState(),
+    market: createDefaultSharedFiltersState(),
   };
 }
 

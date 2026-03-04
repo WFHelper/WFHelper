@@ -262,4 +262,116 @@ describe("inventory parsing", () => {
         ?.inventoryGroup,
     ).toBe("mods");
   });
+
+  it("keeps non-mod upgrade entries out of mods tab", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Upgrades/Abilities/PassiveHealthBoost": {
+        name: "Passive Health Boost",
+        category: "Misc",
+        type: "Ability Upgrade",
+      },
+      "/Lotus/Upgrades/Mods/PressurePoint": {
+        name: "Pressure Point",
+        category: "Mods",
+      },
+    };
+
+    const data: RawInventoryData = {
+      Upgrades: [
+        {
+          ItemType: "/Lotus/Upgrades/Abilities/PassiveHealthBoost",
+          ItemCount: 1,
+        },
+        {
+          ItemType: "/Lotus/Upgrades/Mods/PressurePoint",
+          ItemCount: 3,
+        },
+      ],
+    };
+
+    const items = parseInventory(data, db);
+
+    expect(
+      items.find((item) => item.internalName === "/Lotus/Upgrades/Abilities/PassiveHealthBoost")
+        ?.inventoryGroup,
+    ).toBe("misc");
+    expect(
+      items.find((item) => item.internalName === "/Lotus/Upgrades/Mods/PressurePoint")
+        ?.inventoryGroup,
+    ).toBe("mods");
+  });
+
+  it("parses rank values from boxed numeric fields", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Upgrades/Mods/HornetStrike": {
+        name: "Hornet Strike",
+        category: "Mods",
+      },
+      "/Lotus/Types/Game/Arcanes/ArcaneVelocity": {
+        name: "Arcane Velocity",
+        category: "Arcanes",
+      },
+    };
+
+    const data: RawInventoryData = {
+      Upgrades: [
+        {
+          ItemType: "/Lotus/Upgrades/Mods/HornetStrike",
+          ItemCount: 1,
+          UpgradeData: {
+            CurrentRank: { $numberInt: "7" },
+            MaxRank: { $numberLong: "10" },
+          },
+        },
+      ],
+      Arcanes: [
+        {
+          ItemType: "/Lotus/Types/Game/Arcanes/ArcaneVelocity",
+          ItemCount: 1,
+          ArcaneInfo: {
+            CurrentLevel: { $numberInt: "4" },
+            MaxArcaneRank: { $numberInt: "5" },
+          },
+        },
+      ],
+    };
+
+    const items = parseInventory(data, db);
+    const mod = items.find((item) => item.internalName === "/Lotus/Upgrades/Mods/HornetStrike");
+    const arcane = items.find(
+      (item) => item.internalName === "/Lotus/Types/Game/Arcanes/ArcaneVelocity",
+    );
+
+    expect(mod?.rank).toBe(7);
+    expect(mod?.maxRank).toBe(10);
+    expect(mod?.leveledUp).toBe(true);
+
+    expect(arcane?.rank).toBe(4);
+    expect(arcane?.maxRank).toBe(5);
+    expect(arcane?.leveledUp).toBe(true);
+  });
+
+  it("does not treat upgrade fingerprint as leveled rank signal", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Upgrades/Mods/PointStrike": {
+        name: "Point Strike",
+        category: "Mods",
+      },
+    };
+
+    const data: RawInventoryData = {
+      Upgrades: [
+        {
+          ItemType: "/Lotus/Upgrades/Mods/PointStrike",
+          ItemCount: 1,
+          UpgradeFingerprint: 123456789,
+        },
+      ],
+    };
+
+    const items = parseInventory(data, db);
+    const mod = items.find((item) => item.internalName === "/Lotus/Upgrades/Mods/PointStrike");
+    expect(mod?.rank).toBe(0);
+    expect(mod?.leveledUp).toBe(false);
+  });
 });
