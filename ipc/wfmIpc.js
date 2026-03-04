@@ -12,6 +12,7 @@ const wfmSession = require("../services/wfmSession");
 const wfmOrders = require("../services/wfmOrders");
 const wfmContracts = require("../services/wfmContracts");
 const wfmCatalog = require("../services/wfmCatalog");
+const { assertMainRendererSender, assertAuthorizedSender } = require("./ipcSecurity");
 
 const WFM_ID_RE = /^[a-f0-9]{24}$/i;
 const VALID_ORDER_TYPES = new Set(["sell", "buy"]);
@@ -231,7 +232,14 @@ function parseContractsPayload(payload) {
 }
 
 function register() {
-  ipcMain.handle("wfm:signin", async (_event, payload) => {
+  const handleMainRenderer = (channel, handler) => {
+    ipcMain.handle(channel, async (event, ...args) => {
+      assertAuthorizedSender(assertMainRendererSender, event, channel);
+      return handler(event, ...args);
+    });
+  };
+
+  handleMainRenderer("wfm:signin", async (_event, payload) => {
     const creds = parseCredentials(payload);
     if (!creds) {
       log.warn("[Security] wfm:signin blocked due to invalid payload shape");
@@ -245,15 +253,15 @@ function register() {
     }
   });
 
-  ipcMain.handle("wfm:signout", async () => {
+  handleMainRenderer("wfm:signout", async () => {
     return wfmSession.signOut();
   });
 
-  ipcMain.handle("wfm:session", async () => {
+  handleMainRenderer("wfm:session", async () => {
     return wfmSession.getSession();
   });
 
-  ipcMain.handle("wfm:get-orders", async () => {
+  handleMainRenderer("wfm:get-orders", async () => {
     try {
       return await wfmOrders.getMyOrders();
     } catch (err) {
@@ -272,7 +280,7 @@ function register() {
     }
   });
 
-  ipcMain.handle("wfm:get-contracts", async (_event, payload) => {
+  handleMainRenderer("wfm:get-contracts", async (_event, payload) => {
     const parsed = parseContractsPayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:get-contracts blocked due to invalid payload");
@@ -297,7 +305,7 @@ function register() {
     }
   });
 
-  ipcMain.handle("wfm:create-order", async (_event, payload) => {
+  handleMainRenderer("wfm:create-order", async (_event, payload) => {
     const params = parseCreateOrderParams(payload);
     if (!params) {
       log.warn("[Security] wfm:create-order blocked due to invalid payload");
@@ -312,7 +320,7 @@ function register() {
     }
   });
 
-  ipcMain.handle("wfm:update-order", async (_event, payload) => {
+  handleMainRenderer("wfm:update-order", async (_event, payload) => {
     const parsed = parseUpdateOrderPayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:update-order blocked due to invalid payload");
@@ -327,7 +335,7 @@ function register() {
     }
   });
 
-  ipcMain.handle("wfm:delete-order", async (_event, payload) => {
+  handleMainRenderer("wfm:delete-order", async (_event, payload) => {
     const parsed = parseDeleteOrderPayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:delete-order blocked due to invalid payload");
@@ -342,7 +350,7 @@ function register() {
     }
   });
 
-  ipcMain.handle("wfm:set-visible", async (_event, payload) => {
+  handleMainRenderer("wfm:set-visible", async (_event, payload) => {
     const parsed = parseSetVisiblePayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:set-visible blocked due to invalid payload");
@@ -357,7 +365,7 @@ function register() {
     }
   });
 
-  ipcMain.handle("wfm:search-items", async (_event, payload) => {
+  handleMainRenderer("wfm:search-items", async (_event, payload) => {
     const parsed = parseSearchPayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:search-items blocked due to invalid payload");
@@ -371,7 +379,7 @@ function register() {
     }
   });
 
-  ipcMain.handle("wfm:get-me", async () => {
+  handleMainRenderer("wfm:get-me", async () => {
     try {
       return await wfmSession.getMe();
     } catch (err) {
@@ -379,7 +387,7 @@ function register() {
     }
   });
 
-  ipcMain.handle("wfm:set-status", async (_event, payload) => {
+  handleMainRenderer("wfm:set-status", async (_event, payload) => {
     const parsed = parseStatusPayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:set-status blocked due to invalid payload");

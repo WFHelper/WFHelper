@@ -11,6 +11,7 @@ const fs = require("fs");
 const crypto = require("crypto");
 const chokidar = require("chokidar");
 const ctx = require("./context");
+const { assertMainRendererSender, assertAuthorizedSender } = require("./ipcSecurity");
 const {
   ALECA_FETCH_TIMEOUT_MS,
   ALECA_KEY_SOURCE,
@@ -201,7 +202,9 @@ function watchInventoryFile(filePath) {
 }
 
 function register() {
-  ipcMain.handle("get-inventory", async () => {
+  ipcMain.handle("get-inventory", async (event) => {
+    assertAuthorizedSender(assertMainRendererSender, event, "get-inventory");
+
     if (!ctx.currentInventoryPath) {
       const discovered = findInventoryFile();
       if (discovered) {
@@ -217,7 +220,9 @@ function register() {
     return null;
   });
 
-  ipcMain.handle("open-inventory-file", async () => {
+  ipcMain.handle("open-inventory-file", async (event) => {
+    assertAuthorizedSender(assertMainRendererSender, event, "open-inventory-file");
+
     const result = await dialog.showOpenDialog(ctx.mainWindow, {
       title: "Select warframe-api-helper inventory JSON",
       defaultPath: path.join(process.cwd(), "api-inventory-data", "inventory.json"),
@@ -238,12 +243,17 @@ function register() {
     return null;
   });
 
-  ipcMain.handle("get-inventory-status", async () => ({
-    path: ctx.currentInventoryPath,
-    found: ctx.currentInventoryPath !== null,
-  }));
+  ipcMain.handle("get-inventory-status", async (event) => {
+    assertAuthorizedSender(assertMainRendererSender, event, "get-inventory-status");
+    return {
+      path: ctx.currentInventoryPath,
+      found: ctx.currentInventoryPath !== null,
+    };
+  });
 
-  ipcMain.handle("check-alecaframe", async () => {
+  ipcMain.handle("check-alecaframe", async (event) => {
+    assertAuthorizedSender(assertMainRendererSender, event, "check-alecaframe");
+
     if (!ALECAFRAME_DATA_PATH) return { found: false, path: null, hasCachedData: false };
 
     const exists = fs.existsSync(ALECAFRAME_DATA_PATH);
@@ -260,7 +270,9 @@ function register() {
     };
   });
 
-  ipcMain.handle("load-alecaframe", async () => {
+  ipcMain.handle("load-alecaframe", async (event) => {
+    assertAuthorizedSender(assertMainRendererSender, event, "load-alecaframe");
+
     if (!ALECAFRAME_DATA_PATH || !fs.existsSync(ALECAFRAME_DATA_PATH)) {
       return { success: false, error: "AlecaFrame data file not found." };
     }
@@ -285,7 +297,9 @@ function register() {
     };
   });
 
-  ipcMain.handle("open-alecaframe-json", async () => {
+  ipcMain.handle("open-alecaframe-json", async (event) => {
+    assertAuthorizedSender(assertMainRendererSender, event, "open-alecaframe-json");
+
     const result = await dialog.showOpenDialog(ctx.mainWindow, {
       title: "Select decrypted AlecaFrame JSON",
       defaultPath: ALECAFRAME_DATA_PATH ? path.dirname(ALECAFRAME_DATA_PATH) : undefined,

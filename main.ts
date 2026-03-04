@@ -11,6 +11,9 @@ function fromAppRoot(relPath: string): any {
 
 const log = fromAppRoot("services/logger").withScope("Main");
 const { MAIN_WINDOW_CSP } = fromAppRoot("config/runtime/security");
+const windowSecurity = fromAppRoot("services/windowSecurity");
+
+const MAIN_WINDOW_ENTRY_FILE = path.join(APP_ROOT, "renderer", "dist", "index.html");
 
 // Services
 const itemDb = fromAppRoot("services/itemDatabase");
@@ -64,7 +67,13 @@ function createWindow(): void {
     },
   });
 
-  ctx.mainWindow.loadFile(path.join(APP_ROOT, "renderer", "dist", "index.html"));
+  windowSecurity.hardenBrowserWindowNavigation(ctx.mainWindow, {
+    label: "main renderer",
+    allowedFilePaths: [MAIN_WINDOW_ENTRY_FILE],
+    log,
+  });
+
+  ctx.mainWindow.loadFile(MAIN_WINDOW_ENTRY_FILE);
 
   ctx.mainWindow.webContents.on(
     "before-input-event",

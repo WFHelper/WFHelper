@@ -1,4 +1,4 @@
-const log = require('../services/logger').withScope('overlayIpc');
+const log = require("../services/logger").withScope("overlayIpc");
 /**
  * Overlay IPC handlers + settings management + global hotkeys.
  * Handles: overlay-close, overlay-get-relic-items, overlay:get-settings,
@@ -6,20 +6,30 @@ const log = require('../services/logger').withScope('overlayIpc');
  *          overlay:apply-crop-selection, toggle-overlay, simulate-relic-trigger
  */
 
-const { ipcMain, BrowserWindow, globalShortcut, app, screen } = require('electron');
-const path = require('path');
-const fs = require('fs');
-const relicService = require('../services/relicService');
-const rewardScanner = require('../services/rewardScanner');
-const ctx = require('./context');
+const { ipcMain, BrowserWindow, globalShortcut, app, screen } = require("electron");
+const path = require("path");
+const fs = require("fs");
+const relicService = require("../services/relicService");
+const rewardScanner = require("../services/rewardScanner");
+const { hardenBrowserWindowNavigation } = require("../services/windowSecurity");
+const ctx = require("./context");
+const {
+  assertMainRendererSender,
+  assertOverlayRendererSender,
+  assertCropDebugRendererSender,
+  assertAuthorizedSender,
+  isAuthorizedSender,
+} = require("./ipcSecurity");
 const {
   OVERLAY_CROP_PRESETS,
   OVERLAY_OCR_ENGINES,
   OVERLAY_SETTINGS_DEFAULTS,
   OVERLAY_SETTINGS_LIMITS,
-} = require('../config/runtime/overlaySettings');
+} = require("../config/runtime/overlaySettings");
 
-const OVERLAY_SETTINGS_FILE = path.join(app.getPath('userData'), 'overlay-settings.json');
+const OVERLAY_SETTINGS_FILE = path.join(app.getPath("userData"), "overlay-settings.json");
+const OVERLAY_WINDOW_FILE = path.join(__dirname, "..", "renderer", "overlay.html");
+const CROP_DEBUG_WINDOW_FILE = path.join(__dirname, "..", "renderer", "crop-debug.html");
 
 const OVERLAY_WINDOW_BOUNDS = Object.freeze({
   width: 980,
@@ -52,7 +62,7 @@ let lastOverlayAnchorMeta = null;
 let overlayAutoHideTimer = null;
 
 function getElectronBuildFile(fileName) {
-  return path.join(app.getAppPath(), '.electron-build', fileName);
+  return path.join(app.getAppPath(), ".electron-build", fileName);
 }
 
 function clampNumber(value, min, max, fallback) {
@@ -66,32 +76,30 @@ function sleep(ms) {
 }
 
 function normalizeHotkey(value) {
-  const raw = typeof value === 'string' ? value.trim() : '';
+  const raw = typeof value === "string" ? value.trim() : "";
   if (!raw) return OVERLAY_SETTINGS_DEFAULTS.hotkey;
-  if (!raw.includes('+')) return raw.toUpperCase();
+  if (!raw.includes("+")) return raw.toUpperCase();
   return raw
-    .split('+')
-    .map(part => part.trim())
+    .split("+")
+    .map((part) => part.trim())
     .filter(Boolean)
-    .map(part => {
+    .map((part) => {
       const low = part.toLowerCase();
-      if (low === 'commandorcontrol') return 'CommandOrControl';
-      if (low === 'command') return 'Command';
-      if (low === 'control' || low === 'ctrl') return 'Control';
-      if (low === 'alt') return 'Alt';
-      if (low === 'option') return 'Option';
-      if (low === 'shift') return 'Shift';
-      if (low === 'super') return 'Super';
+      if (low === "commandorcontrol") return "CommandOrControl";
+      if (low === "command") return "Command";
+      if (low === "control" || low === "ctrl") return "Control";
+      if (low === "alt") return "Alt";
+      if (low === "option") return "Option";
+      if (low === "shift") return "Shift";
+      if (low === "super") return "Super";
       return part.length === 1 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1);
     })
-    .join('+');
+    .join("+");
 }
 
 function normalizeOcrEngine(value) {
-  const engine = typeof value === 'string' ? value.trim().toLowerCase() : '';
-  return OVERLAY_OCR_ENGINES.includes(engine)
-    ? engine
-    : OVERLAY_SETTINGS_DEFAULTS.ocrEngine;
+  const engine = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return OVERLAY_OCR_ENGINES.includes(engine) ? engine : OVERLAY_SETTINGS_DEFAULTS.ocrEngine;
 }
 
 function normalizeCropRatios(topInput, heightInput) {
@@ -101,12 +109,17 @@ function normalizeCropRatios(topInput, heightInput) {
   const maxHeight = OVERLAY_SETTINGS_LIMITS.cropHeightRatioMax;
 
   let top = clampNumber(topInput, minTop, maxTop, OVERLAY_SETTINGS_DEFAULTS.cropTopRatio);
-  let height = clampNumber(heightInput, minHeight, maxHeight, OVERLAY_SETTINGS_DEFAULTS.cropHeightRatio);
+  let height = clampNumber(
+    heightInput,
+    minHeight,
+    maxHeight,
+    OVERLAY_SETTINGS_DEFAULTS.cropHeightRatio,
+  );
 
-  if ((top + height) > 1.0) {
+  if (top + height > 1.0) {
     height = Math.max(minHeight, 1.0 - top);
   }
-  if ((top + height) > 1.0) {
+  if (top + height > 1.0) {
     top = Math.max(minTop, 1.0 - height);
   }
 
@@ -117,8 +130,9 @@ function normalizeCropRatios(topInput, heightInput) {
 }
 
 function normalizeOverlaySettings(raw) {
-  const candidate = raw && typeof raw === 'object' ? raw : {};
-  const cropPreset = typeof candidate.cropPreset === 'string' ? candidate.cropPreset.trim().toLowerCase() : '';
+  const candidate = raw && typeof raw === "object" ? raw : {};
+  const cropPreset =
+    typeof candidate.cropPreset === "string" ? candidate.cropPreset.trim().toLowerCase() : "";
   const validCropPreset = OVERLAY_CROP_PRESETS.includes(cropPreset)
     ? cropPreset
     : OVERLAY_SETTINGS_DEFAULTS.cropPreset;
@@ -126,56 +140,66 @@ function normalizeOverlaySettings(raw) {
   const cropRatios = normalizeCropRatios(candidate.cropTopRatio, candidate.cropHeightRatio);
 
   return {
-    autoTriggerEnabled: candidate.autoTriggerEnabled !== undefined
-      ? !!candidate.autoTriggerEnabled
-      : OVERLAY_SETTINGS_DEFAULTS.autoTriggerEnabled,
-    hotkeyEnabled: candidate.hotkeyEnabled !== undefined
-      ? !!candidate.hotkeyEnabled
-      : OVERLAY_SETTINGS_DEFAULTS.hotkeyEnabled,
+    autoTriggerEnabled:
+      candidate.autoTriggerEnabled !== undefined
+        ? !!candidate.autoTriggerEnabled
+        : OVERLAY_SETTINGS_DEFAULTS.autoTriggerEnabled,
+    hotkeyEnabled:
+      candidate.hotkeyEnabled !== undefined
+        ? !!candidate.hotkeyEnabled
+        : OVERLAY_SETTINGS_DEFAULTS.hotkeyEnabled,
     hotkey: normalizeHotkey(candidate.hotkey ?? OVERLAY_SETTINGS_DEFAULTS.hotkey),
-    cropDebugHotkeyEnabled: candidate.cropDebugHotkeyEnabled !== undefined
-      ? !!candidate.cropDebugHotkeyEnabled
-      : OVERLAY_SETTINGS_DEFAULTS.cropDebugHotkeyEnabled,
-    cropDebugHotkey: normalizeHotkey(candidate.cropDebugHotkey ?? OVERLAY_SETTINGS_DEFAULTS.cropDebugHotkey),
+    cropDebugHotkeyEnabled:
+      candidate.cropDebugHotkeyEnabled !== undefined
+        ? !!candidate.cropDebugHotkeyEnabled
+        : OVERLAY_SETTINGS_DEFAULTS.cropDebugHotkeyEnabled,
+    cropDebugHotkey: normalizeHotkey(
+      candidate.cropDebugHotkey ?? OVERLAY_SETTINGS_DEFAULTS.cropDebugHotkey,
+    ),
     cropPreset: validCropPreset,
     cropTopRatio: cropRatios.top,
     cropHeightRatio: cropRatios.height,
     ocrEngine: normalizeOcrEngine(candidate.ocrEngine),
-    ocrPasses: Math.floor(clampNumber(
-      candidate.ocrPasses,
-      OVERLAY_SETTINGS_LIMITS.ocrPassesMin,
-      OVERLAY_SETTINGS_LIMITS.ocrPassesMax,
-      OVERLAY_SETTINGS_DEFAULTS.ocrPasses,
-    )),
+    ocrPasses: Math.floor(
+      clampNumber(
+        candidate.ocrPasses,
+        OVERLAY_SETTINGS_LIMITS.ocrPassesMin,
+        OVERLAY_SETTINGS_LIMITS.ocrPassesMax,
+        OVERLAY_SETTINGS_DEFAULTS.ocrPasses,
+      ),
+    ),
     matchThreshold: clampNumber(
       candidate.matchThreshold,
       OVERLAY_SETTINGS_LIMITS.matchThresholdMin,
       OVERLAY_SETTINGS_LIMITS.matchThresholdMax,
       OVERLAY_SETTINGS_DEFAULTS.matchThreshold,
     ),
-    ocrTimeoutMs: Math.floor(clampNumber(
-      candidate.ocrTimeoutMs,
-      OVERLAY_SETTINGS_LIMITS.ocrTimeoutMsMin,
-      OVERLAY_SETTINGS_LIMITS.ocrTimeoutMsMax,
-      OVERLAY_SETTINGS_DEFAULTS.ocrTimeoutMs,
-    )),
-    worldNotificationsEnabled: candidate.worldNotificationsEnabled !== undefined
-      ? !!candidate.worldNotificationsEnabled
-      : OVERLAY_SETTINGS_DEFAULTS.worldNotificationsEnabled,
+    ocrTimeoutMs: Math.floor(
+      clampNumber(
+        candidate.ocrTimeoutMs,
+        OVERLAY_SETTINGS_LIMITS.ocrTimeoutMsMin,
+        OVERLAY_SETTINGS_LIMITS.ocrTimeoutMsMax,
+        OVERLAY_SETTINGS_DEFAULTS.ocrTimeoutMs,
+      ),
+    ),
+    worldNotificationsEnabled:
+      candidate.worldNotificationsEnabled !== undefined
+        ? !!candidate.worldNotificationsEnabled
+        : OVERLAY_SETTINGS_DEFAULTS.worldNotificationsEnabled,
   };
 }
 
 function loadOverlaySettings() {
   try {
     if (fs.existsSync(OVERLAY_SETTINGS_FILE)) {
-      const raw = fs.readFileSync(OVERLAY_SETTINGS_FILE, 'utf8');
+      const raw = fs.readFileSync(OVERLAY_SETTINGS_FILE, "utf8");
       const parsed = JSON.parse(raw);
       ctx.overlaySettings = normalizeOverlaySettings({ ...OVERLAY_SETTINGS_DEFAULTS, ...parsed });
     } else {
       ctx.overlaySettings = { ...OVERLAY_SETTINGS_DEFAULTS };
     }
   } catch (err) {
-    log.warn('[OverlaySettings] Failed to load settings, using defaults:', err.message);
+    log.warn("[OverlaySettings] Failed to load settings, using defaults:", err.message);
     ctx.overlaySettings = { ...OVERLAY_SETTINGS_DEFAULTS };
   }
   rewardScanner.setSettings(ctx.overlaySettings);
@@ -184,10 +208,10 @@ function loadOverlaySettings() {
 
 function saveOverlaySettings() {
   try {
-    fs.writeFileSync(OVERLAY_SETTINGS_FILE, JSON.stringify(ctx.overlaySettings, null, 2), 'utf8');
+    fs.writeFileSync(OVERLAY_SETTINGS_FILE, JSON.stringify(ctx.overlaySettings, null, 2), "utf8");
     return true;
   } catch (err) {
-    log.error('[OverlaySettings] Failed to save settings:', err.message);
+    log.error("[OverlaySettings] Failed to save settings:", err.message);
     return false;
   }
 }
@@ -197,7 +221,7 @@ function unregisterOverlayTriggerHotkey() {
   try {
     globalShortcut.unregister(ctx.overlayHotkeyRegistered);
   } catch (err) {
-    log.warn('[OverlayHotkey] unregister failed:', err.message);
+    log.warn("[OverlayHotkey] unregister failed:", err.message);
   }
   ctx.overlayHotkeyRegistered = null;
 }
@@ -207,7 +231,7 @@ function unregisterCropDebugHotkey() {
   try {
     globalShortcut.unregister(ctx.overlayCropHotkeyRegistered);
   } catch (err) {
-    log.warn('[CropHotkey] unregister failed:', err.message);
+    log.warn("[CropHotkey] unregister failed:", err.message);
   }
   ctx.overlayCropHotkeyRegistered = null;
 }
@@ -221,7 +245,7 @@ function registerOverlayTriggerHotkey() {
   unregisterOverlayTriggerHotkey();
 
   if (!ctx.overlaySettings.hotkeyEnabled) {
-    log.log('[OverlayHotkey] disabled');
+    log.log("[OverlayHotkey] disabled");
     return false;
   }
 
@@ -229,25 +253,25 @@ function registerOverlayTriggerHotkey() {
   if (!accelerator) return false;
 
   try {
-    const ok = globalShortcut.register(accelerator, () => onRelicRewardTrigger('hotkey'));
+    const ok = globalShortcut.register(accelerator, () => onRelicRewardTrigger("hotkey"));
     if (!ok) {
-      log.warn('[OverlayHotkey] register failed:', accelerator);
+      log.warn("[OverlayHotkey] register failed:", accelerator);
       return false;
     }
     ctx.overlayHotkeyRegistered = accelerator;
-    log.log('[OverlayHotkey] registered:', accelerator);
+    log.log("[OverlayHotkey] registered:", accelerator);
     return true;
   } catch (err) {
-    log.warn('[OverlayHotkey] invalid shortcut:', accelerator, err.message);
+    log.warn("[OverlayHotkey] invalid shortcut:", accelerator, err.message);
     return false;
   }
 }
 
-async function openOcrCropDebugger(source = 'manual') {
+async function openOcrCropDebugger(source = "manual") {
   const frame = await rewardScanner.captureDebugFrame();
   if (!frame) {
-    const msg = 'Could not capture Warframe screen for crop debug.';
-    log.warn('[CropDebug] open failed:', msg);
+    const msg = "Could not capture Warframe screen for crop debug.";
+    log.warn("[CropDebug] open failed:", msg);
     return { ok: false, error: msg };
   }
 
@@ -260,7 +284,7 @@ function registerCropDebugHotkey() {
   unregisterCropDebugHotkey();
 
   if (!ctx.overlaySettings.cropDebugHotkeyEnabled) {
-    log.log('[CropHotkey] disabled');
+    log.log("[CropHotkey] disabled");
     return false;
   }
 
@@ -269,19 +293,19 @@ function registerCropDebugHotkey() {
 
   try {
     const ok = globalShortcut.register(accelerator, () => {
-      void openOcrCropDebugger('hotkey').catch((err) => {
-        log.error('[CropHotkey] open debug failed:', err.message);
+      void openOcrCropDebugger("hotkey").catch((err) => {
+        log.error("[CropHotkey] open debug failed:", err.message);
       });
     });
     if (!ok) {
-      log.warn('[CropHotkey] register failed:', accelerator);
+      log.warn("[CropHotkey] register failed:", accelerator);
       return false;
     }
     ctx.overlayCropHotkeyRegistered = accelerator;
-    log.log('[CropHotkey] registered:', accelerator);
+    log.log("[CropHotkey] registered:", accelerator);
     return true;
   } catch (err) {
-    log.warn('[CropHotkey] invalid shortcut:', accelerator, err.message);
+    log.warn("[CropHotkey] invalid shortcut:", accelerator, err.message);
     return false;
   }
 }
@@ -299,9 +323,8 @@ function findDisplayById(displayId) {
 }
 
 function getDisplayForOverlay(anchorMeta) {
-  const metaDisplayId = anchorMeta && typeof anchorMeta === 'object'
-    ? anchorMeta.sourceDisplayId
-    : null;
+  const metaDisplayId =
+    anchorMeta && typeof anchorMeta === "object" ? anchorMeta.sourceDisplayId : null;
 
   const byMeta = findDisplayById(metaDisplayId);
   if (byMeta) return byMeta;
@@ -315,7 +338,7 @@ function getDisplayForOverlay(anchorMeta) {
 }
 
 function getAnchorRatio(anchorMeta) {
-  if (!anchorMeta || typeof anchorMeta !== 'object') {
+  if (!anchorMeta || typeof anchorMeta !== "object") {
     return OVERLAY_WINDOW_BOUNDS.defaultYRatio;
   }
 
@@ -342,12 +365,12 @@ function getOverlayBoundsForActiveDisplay(anchorMeta = lastOverlayAnchorMeta) {
     height: OVERLAY_WINDOW_BOUNDS.height,
   };
 
-  const maxAllowedWidth = Math.max(760, area.width - (OVERLAY_WINDOW_BOUNDS.horizontalMargin * 2));
+  const maxAllowedWidth = Math.max(760, area.width - OVERLAY_WINDOW_BOUNDS.horizontalMargin * 2);
   const width = Math.min(OVERLAY_WINDOW_BOUNDS.width, maxAllowedWidth);
   const height = Math.min(OVERLAY_WINDOW_BOUNDS.height, Math.max(160, area.height - 20));
 
-  const x = Math.round(area.x + ((area.width - width) / 2));
-  const preferredY = Math.round(area.y + (area.height * getAnchorRatio(anchorMeta)));
+  const x = Math.round(area.x + (area.width - width) / 2);
+  const preferredY = Math.round(area.y + area.height * getAnchorRatio(anchorMeta));
   const maxY = area.y + area.height - height - OVERLAY_WINDOW_BOUNDS.bottomMargin;
   const minY = area.y + OVERLAY_WINDOW_BOUNDS.topMargin;
   const y = Math.max(minY, Math.min(maxY, preferredY));
@@ -382,16 +405,22 @@ function createOverlayWindow() {
     skipTaskbar: true,
     resizable: false,
     webPreferences: {
-      preload: getElectronBuildFile('preload-overlay.js'),
+      preload: getElectronBuildFile("preload-overlay.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
 
-  ctx.overlayWindow.loadFile(path.join(__dirname, '..', 'renderer', 'overlay.html'));
-  ctx.overlayWindow.setAlwaysOnTop(true, 'screen-saver');
+  hardenBrowserWindowNavigation(ctx.overlayWindow, {
+    label: "overlay window",
+    allowedFilePaths: [OVERLAY_WINDOW_FILE],
+    log,
+  });
+
+  ctx.overlayWindow.loadFile(OVERLAY_WINDOW_FILE);
+  ctx.overlayWindow.setAlwaysOnTop(true, "screen-saver");
   positionOverlayWindow(lastOverlayAnchorMeta);
-  ctx.overlayWindow.on('closed', () => {
+  ctx.overlayWindow.on("closed", () => {
     clearOverlayAutoHideTimer();
     ctx.overlayWindow = null;
   });
@@ -401,7 +430,7 @@ function createCropDebugWindow(frame) {
   if (ctx.cropDebugWindow && !ctx.cropDebugWindow.isDestroyed()) {
     ctx.cropDebugWindow.show();
     ctx.cropDebugWindow.focus();
-    ctx.cropDebugWindow.webContents.send('crop-debug:init', {
+    ctx.cropDebugWindow.webContents.send("crop-debug:init", {
       ...frame,
       cropTopRatio: ctx.overlaySettings.cropTopRatio,
       cropHeightRatio: ctx.overlaySettings.cropHeightRatio,
@@ -415,20 +444,26 @@ function createCropDebugWindow(frame) {
     minWidth: 900,
     minHeight: 600,
     autoHideMenuBar: true,
-    title: 'OCR Crop Debugger',
-    backgroundColor: '#0b1320',
+    title: "OCR Crop Debugger",
+    backgroundColor: "#0b1320",
     webPreferences: {
-      preload: getElectronBuildFile('preload-crop.js'),
+      preload: getElectronBuildFile("preload-crop.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
 
-  ctx.cropDebugWindow.loadFile(path.join(__dirname, '..', 'renderer', 'crop-debug.html'));
+  hardenBrowserWindowNavigation(ctx.cropDebugWindow, {
+    label: "crop debug window",
+    allowedFilePaths: [CROP_DEBUG_WINDOW_FILE],
+    log,
+  });
 
-  ctx.cropDebugWindow.webContents.once('did-finish-load', () => {
+  ctx.cropDebugWindow.loadFile(CROP_DEBUG_WINDOW_FILE);
+
+  ctx.cropDebugWindow.webContents.once("did-finish-load", () => {
     if (ctx.cropDebugWindow && !ctx.cropDebugWindow.isDestroyed()) {
-      ctx.cropDebugWindow.webContents.send('crop-debug:init', {
+      ctx.cropDebugWindow.webContents.send("crop-debug:init", {
         ...frame,
         cropTopRatio: ctx.overlaySettings.cropTopRatio,
         cropHeightRatio: ctx.overlaySettings.cropHeightRatio,
@@ -436,7 +471,7 @@ function createCropDebugWindow(frame) {
     }
   });
 
-  ctx.cropDebugWindow.on('closed', () => {
+  ctx.cropDebugWindow.on("closed", () => {
     ctx.cropDebugWindow = null;
   });
 }
@@ -472,7 +507,7 @@ function sendOverlayEvent(channel, payload) {
   };
 
   if (targetWindow.webContents.isLoadingMainFrame()) {
-    targetWindow.webContents.once('did-finish-load', sendNow);
+    targetWindow.webContents.once("did-finish-load", sendNow);
     return;
   }
 
@@ -499,7 +534,7 @@ async function runRewardScanWithRetries(triggerSource) {
   let attempts = 0;
   let bestResult = null;
 
-  while (attempts < SCAN_MAX_ATTEMPTS && (Date.now() - startedAt) < SCAN_RETRY_WINDOW_MS) {
+  while (attempts < SCAN_MAX_ATTEMPTS && Date.now() - startedAt < SCAN_RETRY_WINDOW_MS) {
     attempts += 1;
 
     let result;
@@ -549,7 +584,7 @@ async function dispatchRewardScan(source) {
   rewardScanInFlight = true;
 
   try {
-    if (typeof rewardScanner.waitForRewardUiReady === 'function') {
+    if (typeof rewardScanner.waitForRewardUiReady === "function") {
       const gate = await rewardScanner.waitForRewardUiReady({
         timeoutMs: UI_READY_GATE_TIMEOUT_MS,
         pollMs: UI_READY_GATE_POLL_MS,
@@ -567,21 +602,27 @@ async function dispatchRewardScan(source) {
 
       if (gate?.ready) {
         log.log(
-          '[Trigger] UI-ready gate passed in ' + gate.elapsedMs + 'ms (' + gate.attempts +
-          ' samples, score ' + Number(gate.best?.score || 0).toFixed(3) + ')'
+          "[Trigger] UI-ready gate passed in " +
+            gate.elapsedMs +
+            "ms (" +
+            gate.attempts +
+            " samples, score " +
+            Number(gate.best?.score || 0).toFixed(3) +
+            ")",
         );
       } else {
         log.log(
-          '[Trigger] UI-ready gate timed out after ' + (gate?.elapsedMs ?? 0) +
-          'ms; continuing scan pipeline (best score ' + Number(gate?.best?.score || 0).toFixed(3) + ')'
+          "[Trigger] UI-ready gate timed out after " +
+            (gate?.elapsedMs ?? 0) +
+            "ms; continuing scan pipeline (best score " +
+            Number(gate?.best?.score || 0).toFixed(3) +
+            ")",
         );
       }
     }
 
     const result = await runRewardScanWithRetries(source);
-    const items = Array.isArray(result?.items)
-      ? result.items.slice(0, MAX_REWARD_ITEMS)
-      : [];
+    const items = Array.isArray(result?.items) ? result.items.slice(0, MAX_REWARD_ITEMS) : [];
 
     if (result?.meta) {
       lastOverlayAnchorMeta = result.meta;
@@ -590,48 +631,52 @@ async function dispatchRewardScan(source) {
 
     if (items.length === 0 && result?.timedOut) {
       log.warn(
-        `[Trigger] no reward items found after ${result.attempts} attempt(s) in ${result.elapsedMs}ms`
+        `[Trigger] no reward items found after ${result.attempts} attempt(s) in ${result.elapsedMs}ms`,
       );
     } else {
       log.log(
         `[Trigger] reward scan resolved in ${result.elapsedMs}ms after ${result.attempts} attempt(s); ` +
-        `${items.length} item(s)`
+          `${items.length} item(s)`,
       );
     }
 
-    sendOverlayEvent('relic-reward-items', items);
-    scheduleOverlayAutoHide(items.length > 0 ? OVERLAY_AUTO_HIDE_SUCCESS_MS : OVERLAY_AUTO_HIDE_FAILURE_MS);
+    sendOverlayEvent("relic-reward-items", items);
+    scheduleOverlayAutoHide(
+      items.length > 0 ? OVERLAY_AUTO_HIDE_SUCCESS_MS : OVERLAY_AUTO_HIDE_FAILURE_MS,
+    );
   } catch (err) {
-    log.error('[Trigger] scan pipeline error:', err.message);
-    sendOverlayEvent('relic-reward-items', []);
+    log.error("[Trigger] scan pipeline error:", err.message);
+    sendOverlayEvent("relic-reward-items", []);
     scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_FAILURE_MS);
   } finally {
     rewardScanInFlight = false;
   }
 }
 
-function onRelicRewardTrigger(source = 'manual') {
-  if (source === 'eelog' && !ctx.overlaySettings.autoTriggerEnabled) return;
+function onRelicRewardTrigger(source = "manual") {
+  if (source === "eelog" && !ctx.overlaySettings.autoTriggerEnabled) return;
 
   clearOverlayAutoHideTimer();
   createOverlayWindow();
   if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) return;
 
   positionOverlayWindow(lastOverlayAnchorMeta);
-  sendOverlayEvent('relic-reward-trigger');
+  sendOverlayEvent("relic-reward-trigger");
   scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_DETECTING_MAX_MS);
 
   void dispatchRewardScan(source);
 }
 
 function applyCropSelection(selection) {
-  const cropTopRatio = selection && typeof selection === 'object' ? selection.cropTopRatio : undefined;
-  const cropHeightRatio = selection && typeof selection === 'object' ? selection.cropHeightRatio : undefined;
+  const cropTopRatio =
+    selection && typeof selection === "object" ? selection.cropTopRatio : undefined;
+  const cropHeightRatio =
+    selection && typeof selection === "object" ? selection.cropHeightRatio : undefined;
   const crop = normalizeCropRatios(cropTopRatio, cropHeightRatio);
 
   ctx.overlaySettings = normalizeOverlaySettings({
     ...ctx.overlaySettings,
-    cropPreset: 'custom',
+    cropPreset: "custom",
     cropTopRatio: crop.top,
     cropHeightRatio: crop.height,
   });
@@ -640,7 +685,7 @@ function applyCropSelection(selection) {
   saveOverlaySettings();
 
   if (ctx.cropDebugWindow && !ctx.cropDebugWindow.isDestroyed()) {
-    ctx.cropDebugWindow.webContents.send('crop-debug:applied', {
+    ctx.cropDebugWindow.webContents.send("crop-debug:applied", {
       cropTopRatio: ctx.overlaySettings.cropTopRatio,
       cropHeightRatio: ctx.overlaySettings.cropHeightRatio,
     });
@@ -650,18 +695,22 @@ function applyCropSelection(selection) {
 }
 
 function register() {
-  ipcMain.on('overlay-close', () => {
+  ipcMain.on("overlay-close", (event) => {
+    if (!isAuthorizedSender(assertOverlayRendererSender, event, "overlay-close")) return;
     clearOverlayAutoHideTimer();
     if (ctx.overlayWindow && !ctx.overlayWindow.isDestroyed()) ctx.overlayWindow.hide();
   });
 
-  ipcMain.on('crop-debug-close', () => {
+  ipcMain.on("crop-debug-close", (event) => {
+    if (!isAuthorizedSender(assertCropDebugRendererSender, event, "crop-debug-close")) return;
     if (ctx.cropDebugWindow && !ctx.cropDebugWindow.isDestroyed()) {
       ctx.cropDebugWindow.close();
     }
   });
 
-  ipcMain.handle('overlay-get-relic-items', async () => {
+  ipcMain.handle("overlay-get-relic-items", async (event) => {
+    assertAuthorizedSender(assertOverlayRendererSender, event, "overlay-get-relic-items");
+
     const db = relicService.getRelicDatabase();
     const seen = new Map();
     for (const group of Object.values(db.groups)) {
@@ -671,7 +720,7 @@ function register() {
             seen.set(reward.name, {
               name: reward.name,
               urlName: reward.urlName || null,
-              rarity: reward.rarity || 'Common',
+              rarity: reward.rarity || "Common",
             });
           }
         }
@@ -680,12 +729,17 @@ function register() {
     return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
   });
 
-  ipcMain.handle('overlay:get-settings', async () => ({ ...ctx.overlaySettings }));
+  ipcMain.handle("overlay:get-settings", async (event) => {
+    assertAuthorizedSender(assertMainRendererSender, event, "overlay:get-settings");
+    return { ...ctx.overlaySettings };
+  });
 
-  ipcMain.handle('overlay:set-settings', async (_event, nextSettings) => {
+  ipcMain.handle("overlay:set-settings", async (event, nextSettings) => {
+    assertAuthorizedSender(assertMainRendererSender, event, "overlay:set-settings");
+
     ctx.overlaySettings = normalizeOverlaySettings({
       ...ctx.overlaySettings,
-      ...(nextSettings && typeof nextSettings === 'object' ? nextSettings : {}),
+      ...(nextSettings && typeof nextSettings === "object" ? nextSettings : {}),
     });
     rewardScanner.setSettings(ctx.overlaySettings);
     saveOverlaySettings();
@@ -693,19 +747,26 @@ function register() {
     return { ...ctx.overlaySettings };
   });
 
-  ipcMain.handle('overlay:open-crop-debugger', async () => openOcrCropDebugger('ipc'));
+  ipcMain.handle("overlay:open-crop-debugger", async (event) => {
+    assertAuthorizedSender(assertMainRendererSender, event, "overlay:open-crop-debugger");
+    return openOcrCropDebugger("ipc");
+  });
 
-  ipcMain.handle('overlay:apply-crop-selection', async (_event, selection) => {
+  ipcMain.handle("overlay:apply-crop-selection", async (event, selection) => {
+    assertAuthorizedSender(assertCropDebugRendererSender, event, "overlay:apply-crop-selection");
+
     try {
       const settings = applyCropSelection(selection);
       return { ok: true, settings };
     } catch (err) {
-      log.error('[CropDebug] apply selection failed:', err.message);
+      log.error("[CropDebug] apply selection failed:", err.message);
       return { ok: false, error: err.message };
     }
   });
 
-  ipcMain.on('toggle-overlay', () => {
+  ipcMain.on("toggle-overlay", (event) => {
+    if (!isAuthorizedSender(assertMainRendererSender, event, "toggle-overlay")) return;
+
     clearOverlayAutoHideTimer();
     if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) {
       createOverlayWindow();
@@ -718,7 +779,10 @@ function register() {
     }
   });
 
-  ipcMain.on('simulate-relic-trigger', () => onRelicRewardTrigger('simulate'));
+  ipcMain.on("simulate-relic-trigger", (event) => {
+    if (!isAuthorizedSender(assertMainRendererSender, event, "simulate-relic-trigger")) return;
+    onRelicRewardTrigger("simulate");
+  });
 }
 
 module.exports = {
@@ -729,4 +793,3 @@ module.exports = {
   onRelicRewardTrigger,
   openOcrCropDebugger,
 };
-
