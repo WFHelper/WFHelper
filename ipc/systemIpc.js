@@ -13,58 +13,13 @@ const {
   assertAuthorizedSender,
   isAuthorizedSender,
 } = require("./ipcSecurity");
+const { unwrapInventoryPayload } = require("./inventoryPayload");
 const itemDb = require("../services/itemDatabase");
 const wfMarket = require("../services/warframeMarket");
 const masteryHelper = require("../services/masteryHelper");
 const relicService = require("../services/relicService");
 const autoUpdater = require("../services/autoUpdater");
 const ctx = require("./context");
-
-function hasInventoryShape(value) {
-  if (!value || typeof value !== "object") return false;
-  return Boolean(
-    Array.isArray(value.Suits) ||
-    Array.isArray(value.Upgrades) ||
-    Array.isArray(value.Arcanes) ||
-    Array.isArray(value.LevelKeys) ||
-    Array.isArray(value.MiscItems),
-  );
-}
-
-function unwrapInventoryPayload(value) {
-  let current = value;
-
-  for (let i = 0; i < 4; i += 1) {
-    if (hasInventoryShape(current)) return current;
-    if (!current || typeof current !== "object") return current;
-
-    const next =
-      current.InventoryJson ??
-      current.inventoryJson ??
-      current.inventory_json ??
-      current.payload ??
-      current.data;
-
-    if (typeof next === "string") {
-      try {
-        current = JSON.parse(next);
-        continue;
-      } catch (error) {
-        log.error("[Mastery] Failed to parse nested inventory payload:", error.message);
-        return value;
-      }
-    }
-
-    if (next && typeof next === "object") {
-      current = next;
-      continue;
-    }
-
-    return current;
-  }
-
-  return current;
-}
 
 function register() {
   // Item database for renderer lookups (name -> image/displayName)
@@ -96,7 +51,13 @@ function register() {
 
     if (!ctx.currentInventoryData) return null;
 
-    const data = unwrapInventoryPayload(ctx.currentInventoryData);
+    const data = unwrapInventoryPayload(ctx.currentInventoryData, {
+      onParseError: (error) =>
+        log.error(
+          "[Mastery] Failed to parse nested inventory payload:",
+          error?.message || String(error),
+        ),
+    });
     return masteryHelper.computeMasteryProgress(data);
   });
 

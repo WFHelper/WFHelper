@@ -12,6 +12,7 @@ const crypto = require("crypto");
 const chokidar = require("chokidar");
 const ctx = require("./context");
 const { assertMainRendererSender, assertAuthorizedSender } = require("./ipcSecurity");
+const { unwrapInventoryPayload } = require("./inventoryPayload");
 const {
   ALECA_FETCH_TIMEOUT_MS,
   ALECA_KEY_SOURCE,
@@ -119,52 +120,6 @@ function decryptAlecaFrame(filePath) {
   }
 }
 
-function hasInventoryShape(value) {
-  if (!value || typeof value !== "object") return false;
-  return Boolean(
-    Array.isArray(value.Suits) ||
-    Array.isArray(value.Upgrades) ||
-    Array.isArray(value.Arcanes) ||
-    Array.isArray(value.LevelKeys) ||
-    Array.isArray(value.MiscItems),
-  );
-}
-
-function unwrapInventoryPayload(value) {
-  let current = value;
-
-  for (let i = 0; i < 4; i += 1) {
-    if (hasInventoryShape(current)) return current;
-    if (!current || typeof current !== "object") return current;
-
-    const next =
-      current.InventoryJson ??
-      current.inventoryJson ??
-      current.inventory_json ??
-      current.payload ??
-      current.data;
-
-    if (typeof next === "string") {
-      try {
-        current = JSON.parse(next);
-        continue;
-      } catch (err) {
-        log.warn("Failed to parse nested inventory payload string:", err.message);
-        return current;
-      }
-    }
-
-    if (next && typeof next === "object") {
-      current = next;
-      continue;
-    }
-
-    return current;
-  }
-
-  return current;
-}
-
 function findInventoryFile() {
   for (const p of POSSIBLE_INVENTORY_PATHS) {
     if (fs.existsSync(p)) return p;
@@ -175,7 +130,10 @@ function findInventoryFile() {
 function readInventory(filePath) {
   try {
     const raw = fs.readFileSync(filePath, "utf-8");
-    const data = unwrapInventoryPayload(JSON.parse(raw));
+    const data = unwrapInventoryPayload(JSON.parse(raw), {
+      onParseError: (err) =>
+        log.warn("Failed to parse nested inventory payload string:", err?.message || String(err)),
+    });
     ctx.currentInventoryData = data;
     return data;
   } catch (err) {
@@ -284,7 +242,10 @@ function register() {
     const data = decryptAlecaFrame(ALECAFRAME_DATA_PATH);
     if (data) {
       ctx.currentInventoryPath = ALECAFRAME_DATA_PATH;
-      ctx.currentInventoryData = unwrapInventoryPayload(data);
+      ctx.currentInventoryData = unwrapInventoryPayload(data, {
+        onParseError: (err) =>
+          log.warn("Failed to parse nested inventory payload string:", err?.message || String(err)),
+      });
       watchInventoryFile(ALECAFRAME_DATA_PATH);
       return { success: true, data: ctx.currentInventoryData };
     }
