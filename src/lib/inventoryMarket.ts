@@ -205,7 +205,7 @@ export function buildInventoryViewItems(
     const iconFromMeta = metric?.thumb || metric?.icon || null;
     const displayImageUrl =
       item.inventoryGroup === "mods" || item.inventoryGroup === "arcanes"
-        ? item.imageUrl || item.marketThumb || iconFromMeta || null
+        ? item.marketThumb || iconFromMeta || item.imageUrl || null
         : item.imageUrl || item.marketThumb || iconFromMeta || null;
 
     const equippedInList = Array.isArray(item.equippedIn) ? item.equippedIn : [];

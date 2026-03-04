@@ -374,4 +374,35 @@ describe("inventory parsing", () => {
     expect(mod?.rank).toBe(0);
     expect(mod?.leveledUp).toBe(false);
   });
+
+  it("filters noisy equipped context identifiers", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Upgrades/Mods/Shotgun/Event/ProjectNightwatch/SobekNightwatchMod": {
+        name: "Acid Shells",
+        category: "Mods",
+      },
+    };
+
+    const data: RawInventoryData = {
+      Upgrades: [
+        {
+          ItemType: "/Lotus/Upgrades/Mods/Shotgun/Event/ProjectNightwatch/SobekNightwatchMod",
+          ItemCount: 1,
+          InstalledOn: {
+            Slot: '["v"-5]',
+            OwnerName: "6971475838acd0f6b05e406",
+          },
+        },
+      ],
+    };
+
+    const items = parseInventory(data, db);
+    const mod = items.find(
+      (item) =>
+        item.internalName ===
+        "/Lotus/Upgrades/Mods/Shotgun/Event/ProjectNightwatch/SobekNightwatchMod",
+    );
+
+    expect(mod?.equippedIn).toBeUndefined();
+  });
 });

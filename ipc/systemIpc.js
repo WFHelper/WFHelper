@@ -20,7 +20,19 @@ function register() {
   ipcMain.handle("get-item-database", async () => itemDb.getRendererLookup());
 
   // Warframe.market item list for renderer lookups
-  ipcMain.handle("get-wfm-items", async () => wfMarket.getRendererLookup());
+  ipcMain.handle("get-wfm-items", async () => {
+    if (!wfMarket.isLoaded()) {
+      try {
+        await wfMarket.fetchItemList();
+      } catch (error) {
+        log.warn(
+          "[WFMarket] get-wfm-items fetch failed:",
+          error && typeof error === "object" && error.message ? error.message : String(error),
+        );
+      }
+    }
+    return wfMarket.getRendererLookup();
+  });
 
   // Compute mastery progress from last loaded inventory
   ipcMain.handle("get-mastery-progress", async () => {

@@ -57,21 +57,32 @@ const GROUP_PRIORITY: Record<InventoryGroup, number> = {
 
 const RANK_KEYS = new Set([
   "rank",
+  "rnk",
   "level",
+  "lvl",
+  "lv",
   "modrank",
   "upgraderank",
+  "upgradelvl",
   "fusionlevel",
   "currentrank",
   "currentlevel",
+  "currentlvl",
   "itemlevel",
+  "itemlvl",
   "arcanerank",
+  "arcanelvl",
 ]);
 
 const MAX_RANK_KEYS = new Set([
   "maxrank",
   "maxlevel",
+  "maxlvl",
+  "maxlv",
   "itemmaxrank",
   "maxupgraderank",
+  "maxupgradelvl",
+  "maxupgradelevel",
   "maxmodrank",
   "maxarcanelvl",
   "maxarcanelv",
@@ -81,13 +92,8 @@ const MAX_RANK_KEYS = new Set([
 const EQUIP_CONTEXT_KEYS = new Set([
   "equippedon",
   "installedon",
-  "slot",
-  "slotname",
-  "loadout",
-  "loadoutname",
   "ownername",
   "hostitemname",
-  "parentname",
   "weaponname",
   "warframename",
   "companionname",
@@ -315,11 +321,27 @@ function hasAnyRankSignal(value: unknown): boolean {
 function isDisplayableEquipContext(value: string): boolean {
   const trimmed = value.trim();
   if (!trimmed) return false;
+  if (trimmed.length < 3) return false;
   if (trimmed.length > 60) return false;
   if (trimmed.startsWith("/Lotus/")) return false;
   if (/^[A-Za-z]:\\/.test(trimmed)) return false;
   if (/^https?:\/\//i.test(trimmed)) return false;
-  return /[A-Za-z]/.test(trimmed);
+  if (
+    trimmed.includes("[") ||
+    trimmed.includes("]") ||
+    trimmed.includes("{") ||
+    trimmed.includes("}") ||
+    trimmed.includes('"') ||
+    trimmed.includes("`")
+  ) {
+    return false;
+  }
+  if (/^[a-f0-9]{16,}$/i.test(trimmed)) return false;
+  if (/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(trimmed)) {
+    return false;
+  }
+  if (!/[A-Za-z]{3,}/.test(trimmed)) return false;
+  return true;
 }
 
 function collectEquipContexts(
@@ -327,11 +349,12 @@ function collectEquipContexts(
   contexts: Set<string>,
   maxDepth = 3,
   depth = 0,
+  captureStrings = false,
 ): void {
   if (depth > maxDepth || value == null) return;
 
   if (typeof value === "string") {
-    if (isDisplayableEquipContext(value)) {
+    if (captureStrings && isDisplayableEquipContext(value)) {
       contexts.add(value.trim());
     }
     return;
@@ -339,7 +362,7 @@ function collectEquipContexts(
 
   if (Array.isArray(value)) {
     for (const entry of value) {
-      collectEquipContexts(entry, contexts, maxDepth, depth + 1);
+      collectEquipContexts(entry, contexts, maxDepth, depth + 1, captureStrings);
     }
     return;
   }
@@ -348,18 +371,8 @@ function collectEquipContexts(
 
   for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
     const normalized = key.toLowerCase().replace(/[^a-z]/g, "");
-    if (EQUIP_CONTEXT_KEYS.has(normalized)) {
-      if (typeof nested === "string" && isDisplayableEquipContext(nested)) {
-        contexts.add(nested.trim());
-      } else if (Array.isArray(nested)) {
-        for (const part of nested) {
-          if (typeof part === "string" && isDisplayableEquipContext(part)) {
-            contexts.add(part.trim());
-          }
-        }
-      }
-    }
-    collectEquipContexts(nested, contexts, maxDepth, depth + 1);
+    const nextCapture = captureStrings || EQUIP_CONTEXT_KEYS.has(normalized);
+    collectEquipContexts(nested, contexts, maxDepth, depth + 1, nextCapture);
   }
 }
 

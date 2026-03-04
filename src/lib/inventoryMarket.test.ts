@@ -37,7 +37,7 @@ function makeBaseItem(overrides: Partial<InventoryBaseItem> = {}): InventoryBase
 }
 
 describe("inventoryMarket view mapping", () => {
-  it("prefers local item icon for mods and arcanes", () => {
+  it("prefers market/thumb metadata for mods and arcanes", () => {
     const item = makeBaseItem();
     const metrics: Record<string, ItemMetrics> = {
       [item.internalName]: {
@@ -53,7 +53,9 @@ describe("inventoryMarket view mapping", () => {
     };
 
     const [mapped] = buildInventoryViewItems([item], metrics, "mods");
-    expect(mapped.displayImageUrl).toBe("https://cdn.warframestat.us/img/sample_local.jpg");
+    expect(mapped.displayImageUrl).toBe(
+      "https://warframe.market/static/assets/sample_market_thumb.png",
+    );
   });
 
   it("falls back to market thumb/meta icon when local icon is missing", () => {
@@ -75,5 +77,24 @@ describe("inventoryMarket view mapping", () => {
     expect(mapped.displayImageUrl).toBe(
       "https://warframe.market/static/assets/sample_meta_icon.png",
     );
+  });
+
+  it("falls back to local item icon when market sources are unavailable", () => {
+    const item = makeBaseItem({ marketThumb: null });
+    const metrics: Record<string, ItemMetrics> = {
+      [item.internalName]: {
+        platinum: null,
+        ducats: null,
+        slug: "sample_item",
+        thumb: null,
+        icon: null,
+        hasPrice: true,
+        hasDucats: true,
+        hasMeta: true,
+      },
+    };
+
+    const [mapped] = buildInventoryViewItems([item], metrics, "mods");
+    expect(mapped.displayImageUrl).toBe("https://cdn.warframestat.us/img/sample_local.jpg");
   });
 });
