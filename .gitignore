@@ -14,3 +14,4 @@ preload.js
 preload-overlay.js
 .electron-build/
 preload-crop.js
+api-inventory-data/

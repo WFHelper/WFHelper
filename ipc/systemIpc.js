@@ -15,6 +15,52 @@ const relicService = require("../services/relicService");
 const autoUpdater = require("../services/autoUpdater");
 const ctx = require("./context");
 
+function hasInventoryShape(value) {
+  if (!value || typeof value !== "object") return false;
+  return Boolean(
+    Array.isArray(value.Suits) ||
+    Array.isArray(value.Upgrades) ||
+    Array.isArray(value.Arcanes) ||
+    Array.isArray(value.LevelKeys) ||
+    Array.isArray(value.MiscItems),
+  );
+}
+
+function unwrapInventoryPayload(value) {
+  let current = value;
+
+  for (let i = 0; i < 4; i += 1) {
+    if (hasInventoryShape(current)) return current;
+    if (!current || typeof current !== "object") return current;
+
+    const next =
+      current.InventoryJson ??
+      current.inventoryJson ??
+      current.inventory_json ??
+      current.payload ??
+      current.data;
+
+    if (typeof next === "string") {
+      try {
+        current = JSON.parse(next);
+        continue;
+      } catch (error) {
+        log.error("[Mastery] Failed to parse nested inventory payload:", error.message);
+        return value;
+      }
+    }
+
+    if (next && typeof next === "object") {
+      current = next;
+      continue;
+    }
+
+    return current;
+  }
+
+  return current;
+}
+
 function register() {
   // Item database for renderer lookups (name -> image/displayName)
   ipcMain.handle("get-item-database", async () => itemDb.getRendererLookup());
@@ -38,20 +84,7 @@ function register() {
   ipcMain.handle("get-mastery-progress", async () => {
     if (!ctx.currentInventoryData) return null;
 
-    // Unwrap AlecaFrame's InventoryJson envelope if present
-    let data = ctx.currentInventoryData;
-    if (data?.InventoryJson && !data?.Suits) {
-      data = data.InventoryJson;
-      if (typeof data === "string") {
-        try {
-          data = JSON.parse(data);
-        } catch (e) {
-          log.error("[Mastery] Failed to parse InventoryJson:", e.message);
-          return null;
-        }
-      }
-    }
-
+    const data = unwrapInventoryPayload(ctx.currentInventoryData);
     return masteryHelper.computeMasteryProgress(data);
   });
 

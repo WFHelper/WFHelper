@@ -1,41 +1,45 @@
-const log = require('../services/logger').withScope('inventoryIpc');
+const log = require("../services/logger").withScope("inventoryIpc");
 /**
  * Inventory & AlecaFrame IPC handlers.
  * Handles: get-inventory, open-inventory-file, get-inventory-status,
  *          check-alecaframe, load-alecaframe, open-alecaframe-json
  */
 
-const { ipcMain, dialog, app } = require('electron');
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
-const chokidar = require('chokidar');
-const ctx = require('./context');
+const { ipcMain, dialog, app } = require("electron");
+const path = require("path");
+const fs = require("fs");
+const crypto = require("crypto");
+const chokidar = require("chokidar");
+const ctx = require("./context");
 const {
   ALECA_FETCH_TIMEOUT_MS,
   ALECA_KEY_SOURCE,
   ALECA_IV_SOURCE,
-} = require('../config/integrations/alecaframe');
+} = require("../config/integrations/alecaframe");
 
 const POSSIBLE_INVENTORY_PATHS = [
-  path.join(app.getPath('userData'), 'inventory.json'),
-  path.join(app.getPath('home'), 'inventory.json'),
-  path.join(app.getPath('desktop'), 'inventory.json'),
+  path.join(process.cwd(), "api-inventory-data", "inventory.json"),
+  path.join(app.getPath("downloads"), "inventory.json"),
+  path.join(app.getPath("desktop"), "inventory.json"),
+  path.join(app.getPath("documents"), "inventory.json"),
+  path.join(app.getPath("home"), "inventory.json"),
+  path.join(process.cwd(), "inventory.json"),
+  path.join(app.getPath("userData"), "inventory.json"),
 ];
 
 const ALECAFRAME_DATA_PATH = process.env.LOCALAPPDATA
-  ? path.join(process.env.LOCALAPPDATA, 'AlecaFrame', 'lastData.dat')
+  ? path.join(process.env.LOCALAPPDATA, "AlecaFrame", "lastData.dat")
   : null;
 
 const INVENTORY_WATCH_STABILITY_MS = 500;
 
 function sha256Hex(text) {
-  return crypto.createHash('sha256').update(text, 'utf8').digest('hex');
+  return crypto.createHash("sha256").update(text, "utf8").digest("hex");
 }
 
 async function fetchTextWithTimeout(url, timeoutMs) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs);
+  const timer = setTimeout(() => controller.abort(new Error("timeout")), timeoutMs);
   try {
     return await fetch(url, { signal: controller.signal });
   } finally {
@@ -77,41 +81,87 @@ async function fetchAlecaKeys() {
   try {
     // Optional local override for emergency key rotation.
     if (process.env.ALECA_KEY_JSON && process.env.ALECA_IV_JSON) {
-      ctx.ALECA_KEY = parseKeyBuffer(process.env.ALECA_KEY_JSON.trim(), 'ALECA_KEY_JSON');
-      ctx.ALECA_IV = parseKeyBuffer(process.env.ALECA_IV_JSON.trim(), 'ALECA_IV_JSON');
-      log.log('AlecaFrame decryption keys loaded from environment override');
+      ctx.ALECA_KEY = parseKeyBuffer(process.env.ALECA_KEY_JSON.trim(), "ALECA_KEY_JSON");
+      ctx.ALECA_IV = parseKeyBuffer(process.env.ALECA_IV_JSON.trim(), "ALECA_IV_JSON");
+      log.log("AlecaFrame decryption keys loaded from environment override");
       return;
     }
 
-    const keyText = await fetchPinnedSecret('Aleca key', ALECA_KEY_SOURCE);
-    const ivText = await fetchPinnedSecret('Aleca IV', ALECA_IV_SOURCE);
+    const keyText = await fetchPinnedSecret("Aleca key", ALECA_KEY_SOURCE);
+    const ivText = await fetchPinnedSecret("Aleca IV", ALECA_IV_SOURCE);
 
-    ctx.ALECA_KEY = parseKeyBuffer(keyText, 'Aleca key');
-    ctx.ALECA_IV = parseKeyBuffer(ivText, 'Aleca IV');
+    ctx.ALECA_KEY = parseKeyBuffer(keyText, "Aleca key");
+    ctx.ALECA_IV = parseKeyBuffer(ivText, "Aleca IV");
 
-    log.log('AlecaFrame decryption keys loaded successfully (integrity-checked)');
+    log.log("AlecaFrame decryption keys loaded successfully (integrity-checked)");
   } catch (err) {
-    log.error('Could not fetch AlecaFrame keys:', err.message);
+    log.error("Could not fetch AlecaFrame keys:", err.message);
   }
 }
 
 function decryptAlecaFrame(filePath) {
   if (!ctx.ALECA_KEY || !ctx.ALECA_IV) {
-    log.error('AlecaFrame keys not loaded yet');
+    log.error("AlecaFrame keys not loaded yet");
     return null;
   }
 
   try {
     const encrypted = fs.readFileSync(filePath);
-    const decipher = crypto.createDecipheriv('aes-128-cbc', ctx.ALECA_KEY, ctx.ALECA_IV);
+    const decipher = crypto.createDecipheriv("aes-128-cbc", ctx.ALECA_KEY, ctx.ALECA_IV);
     const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
-    return JSON.parse(decrypted.toString('utf-8'));
+    return JSON.parse(decrypted.toString("utf-8"));
   } catch (err) {
-    log.error('Failed to decrypt AlecaFrame data:', err.message);
-    log.error('Try the web parser instead:');
-    log.error('https://sainan.github.io/alecaframe-inventory-parser/');
+    log.error("Failed to decrypt AlecaFrame data:", err.message);
+    log.error("Try the web parser instead:");
+    log.error("https://sainan.github.io/alecaframe-inventory-parser/");
     return null;
   }
+}
+
+function hasInventoryShape(value) {
+  if (!value || typeof value !== "object") return false;
+  return Boolean(
+    Array.isArray(value.Suits) ||
+    Array.isArray(value.Upgrades) ||
+    Array.isArray(value.Arcanes) ||
+    Array.isArray(value.LevelKeys) ||
+    Array.isArray(value.MiscItems),
+  );
+}
+
+function unwrapInventoryPayload(value) {
+  let current = value;
+
+  for (let i = 0; i < 4; i += 1) {
+    if (hasInventoryShape(current)) return current;
+    if (!current || typeof current !== "object") return current;
+
+    const next =
+      current.InventoryJson ??
+      current.inventoryJson ??
+      current.inventory_json ??
+      current.payload ??
+      current.data;
+
+    if (typeof next === "string") {
+      try {
+        current = JSON.parse(next);
+        continue;
+      } catch (err) {
+        log.warn("Failed to parse nested inventory payload string:", err.message);
+        return current;
+      }
+    }
+
+    if (next && typeof next === "object") {
+      current = next;
+      continue;
+    }
+
+    return current;
+  }
+
+  return current;
 }
 
 function findInventoryFile() {
@@ -123,12 +173,12 @@ function findInventoryFile() {
 
 function readInventory(filePath) {
   try {
-    const raw = fs.readFileSync(filePath, 'utf-8');
-    const data = JSON.parse(raw);
+    const raw = fs.readFileSync(filePath, "utf-8");
+    const data = unwrapInventoryPayload(JSON.parse(raw));
     ctx.currentInventoryData = data;
     return data;
   } catch (err) {
-    log.error('Failed to read inventory:', err.message);
+    log.error("Failed to read inventory:", err.message);
     return null;
   }
 }
@@ -141,28 +191,38 @@ function watchInventoryFile(filePath) {
     awaitWriteFinish: { stabilityThreshold: INVENTORY_WATCH_STABILITY_MS },
   });
 
-  ctx.watcher.on('change', () => {
-    log.log('Inventory file changed, reloading...');
+  ctx.watcher.on("change", () => {
+    log.log("Inventory file changed, reloading...");
     const data = readInventory(filePath);
     if (data && ctx.mainWindow) {
-      ctx.mainWindow.webContents.send('inventory-updated', data);
+      ctx.mainWindow.webContents.send("inventory-updated", data);
     }
   });
 }
 
 function register() {
-  ipcMain.handle('get-inventory', async () => {
+  ipcMain.handle("get-inventory", async () => {
+    if (!ctx.currentInventoryPath) {
+      const discovered = findInventoryFile();
+      if (discovered) {
+        ctx.currentInventoryPath = discovered;
+        watchInventoryFile(discovered);
+      }
+    }
+
     if (ctx.currentInventoryPath) {
       return readInventory(ctx.currentInventoryPath);
     }
+
     return null;
   });
 
-  ipcMain.handle('open-inventory-file', async () => {
+  ipcMain.handle("open-inventory-file", async () => {
     const result = await dialog.showOpenDialog(ctx.mainWindow, {
-      title: 'Select your Warframe inventory JSON',
-      filters: [{ name: 'JSON Files', extensions: ['json'] }],
-      properties: ['openFile'],
+      title: "Select warframe-api-helper inventory JSON",
+      defaultPath: path.join(process.cwd(), "api-inventory-data", "inventory.json"),
+      filters: [{ name: "JSON Files", extensions: ["json"] }],
+      properties: ["openFile"],
     });
 
     if (result.canceled || result.filePaths.length === 0) return null;
@@ -178,17 +238,17 @@ function register() {
     return null;
   });
 
-  ipcMain.handle('get-inventory-status', async () => ({
+  ipcMain.handle("get-inventory-status", async () => ({
     path: ctx.currentInventoryPath,
     found: ctx.currentInventoryPath !== null,
   }));
 
-  ipcMain.handle('check-alecaframe', async () => {
+  ipcMain.handle("check-alecaframe", async () => {
     if (!ALECAFRAME_DATA_PATH) return { found: false, path: null, hasCachedData: false };
 
     const exists = fs.existsSync(ALECAFRAME_DATA_PATH);
     const cachedDataDir = process.env.LOCALAPPDATA
-      ? path.join(process.env.LOCALAPPDATA, 'AlecaFrame', 'cachedData', 'json')
+      ? path.join(process.env.LOCALAPPDATA, "AlecaFrame", "cachedData", "json")
       : null;
     const hasCachedData = cachedDataDir ? fs.existsSync(cachedDataDir) : false;
 
@@ -200,32 +260,37 @@ function register() {
     };
   });
 
-  ipcMain.handle('load-alecaframe', async () => {
+  ipcMain.handle("load-alecaframe", async () => {
     if (!ALECAFRAME_DATA_PATH || !fs.existsSync(ALECAFRAME_DATA_PATH)) {
-      return { success: false, error: 'AlecaFrame data file not found.' };
+      return { success: false, error: "AlecaFrame data file not found." };
+    }
+
+    if (!ctx.ALECA_KEY || !ctx.ALECA_IV) {
+      await fetchAlecaKeys();
     }
 
     const data = decryptAlecaFrame(ALECAFRAME_DATA_PATH);
     if (data) {
       ctx.currentInventoryPath = ALECAFRAME_DATA_PATH;
-      ctx.currentInventoryData = data;
+      ctx.currentInventoryData = unwrapInventoryPayload(data);
       watchInventoryFile(ALECAFRAME_DATA_PATH);
-      return { success: true, data };
+      return { success: true, data: ctx.currentInventoryData };
     }
 
     return {
       success: false,
-      error: 'Could not decrypt. The encryption key may have changed.\nUse the web parser as a fallback.',
-      fallbackUrl: 'https://sainan.github.io/alecaframe-inventory-parser/',
+      error:
+        "Could not decrypt. The encryption key may have changed.\nUse the web parser as a fallback.",
+      fallbackUrl: "https://sainan.github.io/alecaframe-inventory-parser/",
     };
   });
 
-  ipcMain.handle('open-alecaframe-json', async () => {
+  ipcMain.handle("open-alecaframe-json", async () => {
     const result = await dialog.showOpenDialog(ctx.mainWindow, {
-      title: 'Select decrypted AlecaFrame JSON',
+      title: "Select decrypted AlecaFrame JSON",
       defaultPath: ALECAFRAME_DATA_PATH ? path.dirname(ALECAFRAME_DATA_PATH) : undefined,
-      filters: [{ name: 'JSON Files', extensions: ['json'] }],
-      properties: ['openFile'],
+      filters: [{ name: "JSON Files", extensions: ["json"] }],
+      properties: ["openFile"],
     });
 
     if (result.canceled || result.filePaths.length === 0) return null;

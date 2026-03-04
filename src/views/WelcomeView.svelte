@@ -4,56 +4,65 @@
   import { statusText } from "../stores/app.js";
   import { ipc } from "../lib/ipc.js";
 
-  // 'checking' | 'found' | 'not_found' | 'error'
-  let alecaStatus: "checking" | "found" | "not_found" | "error" = "checking";
-  let loadingAleca = false;
+  let helperStatus: "checking" | "found" | "not_found" | "error" = "checking";
+  let helperPath: string | null = null;
+  let loadingApi = false;
 
   onMount(async () => {
-    try {
-      const result = await ipc.checkAlecaFrame();
-      if (result && result.found) {
-        alecaStatus = 'found';
-      } else {
-        alecaStatus = 'not_found';
-      }
-    } catch (e) {
-      alecaStatus = 'error';
-      console.error('[Welcome] checkAlecaFrame failed:', e);
-    }
+    await refreshHelperStatus();
   });
 
-  async function loadAlecaFrame() {
-    loadingAleca = true;
-    statusText.set('Loading from AlecaFrame…');
+  async function refreshHelperStatus() {
     try {
-      const result = await ipc.loadAlecaFrame();
-      if (result && result.success && result.data) {
-        await onInventoryLoaded(result.data);
+      const status = await ipc.getInventoryStatus();
+      if (status?.found) {
+        helperStatus = "found";
+        helperPath = status.path || null;
       } else {
-        statusText.set(result?.error || 'AlecaFrame load failed');
-        alecaStatus = 'error';
+        helperStatus = "not_found";
+        helperPath = null;
       }
-    } catch (e) {
-      statusText.set(`AlecaFrame error: ${(e as Error).message}`);
-      alecaStatus = 'error';
-    } finally {
-      loadingAleca = false;
+    } catch (error) {
+      helperStatus = "error";
+      helperPath = null;
+      console.error("[Welcome] getInventoryStatus failed:", error);
     }
   }
 
-  async function loadAlecaJson() {
-    const data = await ipc.openAlecaFrameJson();
-    if (data && !data.error) await onInventoryLoaded(data);
+  function getLoadErrorMessage(data: unknown): string | null {
+    if (!data || typeof data !== "object" || !("error" in data)) return null;
+    const error = (data as { error?: unknown }).error;
+    return typeof error === "string" ? error : null;
   }
 
-  async function loadApiHelper() {
-    const data = await ipc.openInventoryFile();
-    if (data && !data.error) await onInventoryLoaded(data);
-  }
+  async function loadApiHelper(preferPicker = false) {
+    loadingApi = true;
+    statusText.set("Loading inventory.json from warframe-api-helper...");
+    try {
+      let data = null;
+      let errorMessage: string | null = null;
 
-  async function loadManual() {
-    const data = await ipc.openInventoryFile();
-    if (data && !data.error) await onInventoryLoaded(data);
+      if (!preferPicker) {
+        data = await ipc.getInventory();
+        errorMessage = getLoadErrorMessage(data);
+      }
+
+      if (!data || errorMessage) {
+        data = await ipc.openInventoryFile();
+        errorMessage = getLoadErrorMessage(data);
+      }
+
+      if (data && !errorMessage) {
+        await onInventoryLoaded(data);
+        await refreshHelperStatus();
+      } else {
+        statusText.set(errorMessage || "Failed to load inventory JSON");
+      }
+    } catch (error) {
+      statusText.set(`Inventory load error: ${(error as Error).message}`);
+    } finally {
+      loadingApi = false;
+    }
   }
 </script>
 
@@ -71,67 +80,54 @@
 
     <div class="source-cards">
 
-      <!-- AlecaFrame Source -->
       <div class="source-card">
         <div class="source-header">
           <span class="source-badge">RECOMMENDED</span>
-          <h3>AlecaFrame</h3>
-          <p class="source-desc">Auto-detect from your existing AlecaFrame installation.</p>
+          <h3>warframe-api-helper</h3>
+          <p class="source-desc">Use the official API snapshot (`inventory.json`) as the primary source.</p>
         </div>
 
         <div class="source-status">
-          {#if alecaStatus === 'checking'}
+          {#if helperStatus === "checking"}
             <span class="status-checking">Checking…</span>
-          {:else if alecaStatus === 'found'}
-            <span class="status-ok">Found AlecaFrame data</span>
-          {:else if alecaStatus === 'not_found'}
-            <span class="status-warn">AlecaFrame not detected</span>
+          {:else if helperStatus === "found"}
+            <span class="status-ok">Found inventory.json</span>
+          {:else if helperStatus === "not_found"}
+            <span class="status-warn">No auto-detected inventory.json</span>
           {:else}
-            <span class="status-error">Detection failed</span>
+            <span class="status-error">Inventory detection failed</span>
           {/if}
         </div>
 
-        {#if alecaStatus === 'found'}
-          <div class="source-actions">
-            <button class="btn-primary btn-sm" disabled={loadingAleca} on:click={loadAlecaFrame}>
-              {loadingAleca ? 'Loading…' : 'Load from AlecaFrame'}
-            </button>
+        {#if helperPath}
+          <div class="source-fallback">
+            <p class="source-desc">Detected path: <code>{helperPath}</code></p>
           </div>
         {/if}
 
-        <div class="source-fallback">
-          <p class="source-desc">
-            If auto-decrypt fails, use the
-            <!-- svelte-ignore a11y-invalid-attribute -->
-            <a href="#" on:click|preventDefault={() => ipc.openExternal('https://sainan.github.io/alecaframe-inventory-parser/')}>web parser</a>
-            to decrypt your <code>lastData.dat</code>, then:
-          </p>
-          <button class="btn-secondary btn-sm" on:click={loadAlecaJson}>Load Decrypted JSON</button>
-        </div>
-      </div>
-
-      <!-- warframe-api-helper Source -->
-      <div class="source-card">
-        <div class="source-header">
-          <h3>warframe-api-helper</h3>
-          <p class="source-desc">Download your inventory directly from Warframe's API.</p>
-        </div>
         <div class="source-steps-mini">
           <!-- svelte-ignore a11y-invalid-attribute -->
-          <span>1. <a href="#" on:click|preventDefault={() => ipc.openExternal('https://github.com/Sainan/warframe-api-helper/releases')}>Download the helper</a></span>
+          <span>1. <a href="#" on:click|preventDefault={() => ipc.openExternal('https://github.com/Sainan/warframe-api-helper/releases')}>Download warframe-api-helper</a></span>
           <span>2. Run it while Warframe is open</span>
-          <span>3. Load the JSON file below</span>
+          <span>3. Load the generated <code>inventory.json</code></span>
         </div>
-        <button class="btn-secondary btn-sm" on:click={loadApiHelper}>Load inventory.json</button>
+        <div class="source-actions">
+          <button class="btn-primary btn-sm" disabled={loadingApi} on:click={() => loadApiHelper(false)}>
+            {loadingApi ? "Loading..." : helperPath ? "Load detected inventory.json" : "Select inventory.json"}
+          </button>
+          <button class="btn-secondary btn-sm" disabled={loadingApi} on:click={() => loadApiHelper(true)}>
+            Browse for JSON
+          </button>
+        </div>
       </div>
 
       <!-- Manual JSON Source -->
       <div class="source-card source-card-compact">
         <div class="source-header">
-          <h3>Load Any JSON</h3>
-          <p class="source-desc">Have an inventory JSON from another source? Load it directly.</p>
+          <h3>Legacy Sources</h3>
+          <p class="source-desc">Only use this if your API-helper file is unavailable.</p>
         </div>
-        <button class="btn-secondary btn-sm" on:click={loadManual}>Browse for File</button>
+        <button class="btn-secondary btn-sm" disabled={loadingApi} on:click={() => loadApiHelper(true)}>Browse for File</button>
       </div>
 
     </div>

@@ -66,24 +66,32 @@ function createWindow(): void {
 
   ctx.mainWindow.loadFile(path.join(APP_ROOT, "renderer", "dist", "index.html"));
 
-  ctx.mainWindow.webContents.on("before-input-event", (_event: unknown, input: { type?: string; key?: string }) => {
-    if (input.type === "keyDown" && input.key === "F12") {
-      if (ctx.mainWindow.webContents.isDevToolsOpened()) {
-        ctx.mainWindow.webContents.closeDevTools();
-      } else {
-        ctx.mainWindow.webContents.openDevTools({ mode: "detach" });
+  ctx.mainWindow.webContents.on(
+    "before-input-event",
+    (_event: unknown, input: { type?: string; key?: string }) => {
+      if (input.type === "keyDown" && input.key === "F12") {
+        if (ctx.mainWindow.webContents.isDevToolsOpened()) {
+          ctx.mainWindow.webContents.closeDevTools();
+        } else {
+          ctx.mainWindow.webContents.openDevTools({ mode: "detach" });
+        }
       }
-    }
-  });
+    },
+  );
 
-  ctx.mainWindow.webContents.session.webRequest.onHeadersReceived((details: { responseHeaders?: Record<string, string[]> }, callback: (arg0: { responseHeaders: Record<string, string[]> }) => void) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        "Content-Security-Policy": [MAIN_WINDOW_CSP],
-      },
-    });
-  });
+  ctx.mainWindow.webContents.session.webRequest.onHeadersReceived(
+    (
+      details: { responseHeaders?: Record<string, string[]> },
+      callback: (arg0: { responseHeaders: Record<string, string[]> }) => void,
+    ) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          "Content-Security-Policy": [MAIN_WINDOW_CSP],
+        },
+      });
+    },
+  );
 
   if (process.env.NODE_ENV === "development") {
     ctx.mainWindow.webContents.openDevTools();
@@ -107,9 +115,9 @@ app.whenReady().then(async () => {
 
   itemDb.buildDatabase();
 
-  await inventoryIpc.fetchAlecaKeys();
-
-  wfMarket.fetchItemList().catch((err: Error) => log.error("[WFMarket] startup fetch failed:", err));
+  wfMarket
+    .fetchItemList()
+    .catch((err: Error) => log.error("[WFMarket] startup fetch failed:", err));
 
   await wfmSession.restoreSession();
 
@@ -177,4 +185,3 @@ app.on("will-quit", () => {
     // ignore missing temp file
   }
 });
-
