@@ -1,5 +1,6 @@
+"use strict";
+
 const log = require("./logger").withScope("wfmContracts");
-("use strict");
 
 const { request, requestV2 } = require("./wfmClient");
 const { getInGameName } = require("./wfmSession");

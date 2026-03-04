@@ -1,5 +1,6 @@
-const log = require('./logger').withScope('wfmCatalog');
 "use strict";
+
+const log = require("./logger").withScope("wfmCatalog");
 
 /**
  * wfmCatalog.js — Warframe.market item catalog (main-process only)
@@ -11,12 +12,12 @@ const log = require('./logger').withScope('wfmCatalog');
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const WFM_V2_BASE  = "https://api.warframe.market/v2";
-const WFM_HEADERS  = {
-  Platform:  "pc",
-  Language:  "en",
+const WFM_V2_BASE = "https://api.warframe.market/v2";
+const WFM_HEADERS = {
+  Platform: "pc",
+  Language: "en",
   Crossplay: "true",
-  Accept:    "application/json",
+  Accept: "application/json",
   "User-Agent": "WarframeCompanion/1.0",
 };
 const WFM_THUMB_BASE = "https://warframe.market/static/assets/";
@@ -24,19 +25,19 @@ const WFM_THUMB_BASE = "https://warframe.market/static/assets/";
 // ── State ─────────────────────────────────────────────────────────────────────
 
 /** @type {Array<{ id: string, url_name: string, item_name: string, thumb: string|null }>} */
-let _items    = [];
-let _byId     = new Map();
-let _bySlug   = new Map();
+let _items = [];
+let _byId = new Map();
+let _bySlug = new Map();
 let _byNameLc = new Map();
-let _loaded   = false;
-let _loading  = null; // in-flight promise
+let _loaded = false;
+let _loading = null; // in-flight promise
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Unwrap v2 envelope: { data: [...] } or { payload: {...} } or raw array */
 function _unwrap(obj) {
   if (!obj) return null;
-  if (obj.data  !== undefined) return obj.data;
+  if (obj.data !== undefined) return obj.data;
   if (obj.payload !== undefined) return obj.payload;
   return obj;
 }
@@ -50,13 +51,13 @@ function _normalise(raw) {
     raw?.item_name ||
     raw?.itemName ||
     raw?.name ||
-    slug.replace(/_/g, " ").replace(/\b[a-z]/g, c => c.toUpperCase());
+    slug.replace(/_/g, " ").replace(/\b[a-z]/g, (c) => c.toUpperCase());
   const thumb = raw.thumb || raw.icon || null;
   return {
-    id:        raw.id   || null,
-    url_name:  slug,
+    id: raw.id || null,
+    url_name: slug,
     item_name: name,
-    thumb:     thumb ? (thumb.startsWith("http") ? thumb : WFM_THUMB_BASE + thumb) : null,
+    thumb: thumb ? (thumb.startsWith("http") ? thumb : WFM_THUMB_BASE + thumb) : null,
   };
 }
 
@@ -75,7 +76,10 @@ async function _load() {
       if (rawItems.length) break;
       try {
         const resp = await fetch(`${WFM_V2_BASE}${path}`, { headers: WFM_HEADERS });
-        if (!resp.ok) { log.warn(`[WFMCatalog] ${path} returned ${resp.status}`); continue; }
+        if (!resp.ok) {
+          log.warn(`[WFMCatalog] ${path} returned ${resp.status}`);
+          continue;
+        }
         const json = await resp.json();
         const data = _unwrap(json);
         if (!data) continue;
@@ -84,7 +88,7 @@ async function _load() {
           rawItems = data.items;
         } else if (data.items && typeof data.items === "object") {
           rawItems = Object.entries(data.items).map(([k, v]) =>
-            (v && typeof v === "object") ? { _slug: k, ...v } : { _slug: k }
+            v && typeof v === "object" ? { _slug: k, ...v } : { _slug: k },
           );
         } else if (Array.isArray(data)) {
           rawItems = data;
@@ -101,13 +105,13 @@ async function _load() {
     _byNameLc.clear();
 
     for (const item of _items) {
-      if (item.id)       _byId.set(item.id, item);
+      if (item.id) _byId.set(item.id, item);
       if (item.url_name) _bySlug.set(item.url_name, item);
       const nameLc = (item.item_name || "").toLowerCase();
-      if (nameLc)        _byNameLc.set(nameLc, item);
+      if (nameLc) _byNameLc.set(nameLc, item);
     }
 
-    _loaded  = true;
+    _loaded = true;
     _loading = null;
     log.log(`[WFMCatalog] Loaded ${_items.length} items.`);
   })();
@@ -131,7 +135,7 @@ async function searchItems(query, limit = 20) {
   const q = query.toLowerCase().trim();
 
   const startsWith = [];
-  const contains   = [];
+  const contains = [];
 
   for (const item of _items) {
     const name = (item.item_name || "").toLowerCase();

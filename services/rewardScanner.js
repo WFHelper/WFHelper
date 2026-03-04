@@ -1,32 +1,34 @@
 "use strict";
 
-const log = require('./logger').withScope('rewardScanner');
+const log = require("./logger").withScope("rewardScanner");
 
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { execFile } = require('child_process');
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { createRewardOcrRunner } = require("./rewardScannerOcr");
 const {
   OVERLAY_SETTINGS_DEFAULTS,
   OVERLAY_SETTINGS_LIMITS,
-} = require('../config/runtime/overlaySettings');
+} = require("../config/runtime/overlaySettings");
 
-const OCR_SCRIPT = path.join(__dirname, '..', 'scripts', 'ocr.ps1');
-const TEMP_IMAGE = path.join(os.tmpdir(), 'wf-companion-reward-ocr.png');
+const OCR_SCRIPT = path.join(__dirname, "..", "scripts", "ocr.ps1");
+const TEMP_IMAGE = path.join(os.tmpdir(), "wf-companion-reward-ocr.png");
 
-const OCR_ENGINE_AUTO = 'auto';
-const OCR_ENGINE_WINDOWS = 'windows';
-const OCR_ENGINE_POWERSHELL = 'powershell';
-const OCR_ENGINE_TESSERACT = 'tesseract';
-const OCR_ENGINE_ENV = String(process.env.WF_OCR_ENGINE || OCR_ENGINE_AUTO).trim().toLowerCase();
-const TESSERACT_LANGUAGE = 'eng';
+const OCR_ENGINE_AUTO = "auto";
+const OCR_ENGINE_WINDOWS = "windows";
+const OCR_ENGINE_POWERSHELL = "powershell";
+const OCR_ENGINE_TESSERACT = "tesseract";
+const OCR_ENGINE_ENV = String(process.env.WF_OCR_ENGINE || OCR_ENGINE_AUTO)
+  .trim()
+  .toLowerCase();
+const TESSERACT_LANGUAGE = "eng";
 
 const CAPTURE_THUMBNAIL = Object.freeze({ width: 1920, height: 1080 });
 const COMPANION_WINDOW_TOKENS = Object.freeze([
-  'warframe companion',
-  'ocr crop debugger',
-  'relic reward',
-  'overlay',
+  "warframe companion",
+  "ocr crop debugger",
+  "relic reward",
+  "overlay",
 ]);
 
 const MAX_REWARD_SLOTS = 4;
@@ -44,12 +46,12 @@ const UI_READY_MIN_TEXTURE_SCORE = 0.18;
 const CROP_PRESETS = {
   balanced: [
     { top: 0.38, height: 0.36 },
-    { top: 0.36, height: 0.40 },
-    { top: 0.40, height: 0.34 },
+    { top: 0.36, height: 0.4 },
+    { top: 0.4, height: 0.34 },
   ],
   tight: [
-    { top: 0.42, height: 0.30 },
-    { top: 0.40, height: 0.32 },
+    { top: 0.42, height: 0.3 },
+    { top: 0.4, height: 0.32 },
     { top: 0.44, height: 0.28 },
   ],
   wide: [
@@ -78,7 +80,9 @@ function clampNumber(value, min, max, fallback) {
 }
 
 function normalizeOcrEngine(value, fallback = OCR_ENGINE_WINDOWS) {
-  const v = String(value || '').trim().toLowerCase();
+  const v = String(value || "")
+    .trim()
+    .toLowerCase();
   if (v === OCR_ENGINE_WINDOWS || v === OCR_ENGINE_POWERSHELL) return OCR_ENGINE_WINDOWS;
   if (v === OCR_ENGINE_TESSERACT) return OCR_ENGINE_TESSERACT;
   if (v === OCR_ENGINE_AUTO) return OCR_ENGINE_AUTO;
@@ -86,8 +90,9 @@ function normalizeOcrEngine(value, fallback = OCR_ENGINE_WINDOWS) {
 }
 
 function sanitizeSettings(raw) {
-  const candidate = raw && typeof raw === 'object' ? raw : {};
-  const preset = typeof candidate.cropPreset === 'string' ? candidate.cropPreset.trim().toLowerCase() : '';
+  const candidate = raw && typeof raw === "object" ? raw : {};
+  const preset =
+    typeof candidate.cropPreset === "string" ? candidate.cropPreset.trim().toLowerCase() : "";
 
   let cropTopRatio = clampNumber(
     candidate.cropTopRatio,
@@ -103,38 +108,41 @@ function sanitizeSettings(raw) {
   );
 
   const minHeight = OVERLAY_SETTINGS_LIMITS.cropHeightRatioMin;
-  if ((cropTopRatio + cropHeightRatio) > 1.0) {
+  if (cropTopRatio + cropHeightRatio > 1.0) {
     cropHeightRatio = Math.max(minHeight, 1.0 - cropTopRatio);
   }
-  if ((cropTopRatio + cropHeightRatio) > 1.0) {
+  if (cropTopRatio + cropHeightRatio > 1.0) {
     cropTopRatio = Math.max(0, 1.0 - cropHeightRatio);
   }
 
   return {
-    cropPreset: preset === 'custom' || CROP_PRESETS[preset]
-      ? preset
-      : DEFAULT_SCAN_SETTINGS.cropPreset,
+    cropPreset:
+      preset === "custom" || CROP_PRESETS[preset] ? preset : DEFAULT_SCAN_SETTINGS.cropPreset,
     cropTopRatio,
     cropHeightRatio,
     ocrEngine: normalizeOcrEngine(candidate.ocrEngine, DEFAULT_SCAN_SETTINGS.ocrEngine),
-    ocrPasses: Math.floor(clampNumber(
-      candidate.ocrPasses,
-      OVERLAY_SETTINGS_LIMITS.ocrPassesMin,
-      OVERLAY_SETTINGS_LIMITS.ocrPassesMax,
-      DEFAULT_SCAN_SETTINGS.ocrPasses,
-    )),
+    ocrPasses: Math.floor(
+      clampNumber(
+        candidate.ocrPasses,
+        OVERLAY_SETTINGS_LIMITS.ocrPassesMin,
+        OVERLAY_SETTINGS_LIMITS.ocrPassesMax,
+        DEFAULT_SCAN_SETTINGS.ocrPasses,
+      ),
+    ),
     matchThreshold: clampNumber(
       candidate.matchThreshold,
       OVERLAY_SETTINGS_LIMITS.matchThresholdMin,
       OVERLAY_SETTINGS_LIMITS.matchThresholdMax,
       DEFAULT_SCAN_SETTINGS.matchThreshold,
     ),
-    ocrTimeoutMs: Math.floor(clampNumber(
-      candidate.ocrTimeoutMs,
-      OVERLAY_SETTINGS_LIMITS.ocrTimeoutMsMin,
-      OVERLAY_SETTINGS_LIMITS.ocrTimeoutMsMax,
-      DEFAULT_SCAN_SETTINGS.ocrTimeoutMs,
-    )),
+    ocrTimeoutMs: Math.floor(
+      clampNumber(
+        candidate.ocrTimeoutMs,
+        OVERLAY_SETTINGS_LIMITS.ocrTimeoutMsMin,
+        OVERLAY_SETTINGS_LIMITS.ocrTimeoutMsMax,
+        DEFAULT_SCAN_SETTINGS.ocrTimeoutMs,
+      ),
+    ),
   };
 }
 
@@ -148,17 +156,17 @@ function getSettings() {
 }
 
 function sourceName(source) {
-  return String(source?.name || '').trim();
+  return String(source?.name || "").trim();
 }
 
 function isCompanionWindowSource(source) {
   const name = sourceName(source).toLowerCase();
-  return COMPANION_WINDOW_TOKENS.some(token => name.includes(token));
+  return COMPANION_WINDOW_TOKENS.some((token) => name.includes(token));
 }
 
 function isWarframeWindowSource(source) {
   const name = sourceName(source).toLowerCase();
-  return name.includes('warframe') && !isCompanionWindowSource(source);
+  return name.includes("warframe") && !isCompanionWindowSource(source);
 }
 
 function pickWindowSource(sources) {
@@ -171,7 +179,7 @@ function pickScreenSource(sources) {
 
   let screenApi;
   try {
-    ({ screen: screenApi } = require('electron'));
+    ({ screen: screenApi } = require("electron"));
   } catch {
     return sources[0] || null;
   }
@@ -179,24 +187,28 @@ function pickScreenSource(sources) {
   try {
     const cursor = screenApi.getCursorScreenPoint();
     const display = screenApi.getDisplayNearestPoint(cursor);
-    const displayId = String(display?.id ?? '');
+    const displayId = String(display?.id ?? "");
     if (displayId) {
-      const byCursorDisplay = sources.find(source => String(source?.display_id ?? '') === displayId);
+      const byCursorDisplay = sources.find(
+        (source) => String(source?.display_id ?? "") === displayId,
+      );
       if (byCursorDisplay) return byCursorDisplay;
     }
   } catch (err) {
-    log.warn('[RewardScanner] pickScreenSource cursor lookup failed:', err.message);
+    log.warn("[RewardScanner] pickScreenSource cursor lookup failed:", err.message);
   }
 
   try {
     const primaryDisplay = screenApi.getPrimaryDisplay();
-    const primaryId = String(primaryDisplay?.id ?? '');
+    const primaryId = String(primaryDisplay?.id ?? "");
     if (primaryId) {
-      const byPrimaryDisplay = sources.find(source => String(source?.display_id ?? '') === primaryId);
+      const byPrimaryDisplay = sources.find(
+        (source) => String(source?.display_id ?? "") === primaryId,
+      );
       if (byPrimaryDisplay) return byPrimaryDisplay;
     }
   } catch (err) {
-    log.warn('[RewardScanner] pickScreenSource primary lookup failed:', err.message);
+    log.warn("[RewardScanner] pickScreenSource primary lookup failed:", err.message);
   }
 
   return sources[0] || null;
@@ -205,21 +217,21 @@ function pickScreenSource(sources) {
 async function captureScreen() {
   let desktopCapturer;
   try {
-    ({ desktopCapturer } = require('electron'));
+    ({ desktopCapturer } = require("electron"));
   } catch {
-    log.warn('[RewardScanner] electron.desktopCapturer unavailable');
+    log.warn("[RewardScanner] electron.desktopCapturer unavailable");
     return null;
   }
 
   let sources;
   try {
     sources = await desktopCapturer.getSources({
-      types: ['window'],
+      types: ["window"],
       thumbnailSize: CAPTURE_THUMBNAIL,
       fetchWindowIcons: false,
     });
   } catch (err) {
-    log.warn('[RewardScanner] getSources(window) failed:', err.message);
+    log.warn("[RewardScanner] getSources(window) failed:", err.message);
     sources = [];
   }
 
@@ -227,16 +239,16 @@ async function captureScreen() {
   if (wfWindow && wfWindow.thumbnail && !wfWindow.thumbnail.isEmpty()) {
     return {
       image: wfWindow.thumbnail,
-      sourceType: 'window',
+      sourceType: "window",
       sourceName: sourceName(wfWindow),
-      sourceId: String(wfWindow.id || ''),
-      sourceDisplayId: String(wfWindow.display_id || ''),
+      sourceId: String(wfWindow.id || ""),
+      sourceDisplayId: String(wfWindow.display_id || ""),
     };
   }
 
   try {
     const screens = await desktopCapturer.getSources({
-      types: ['screen'],
+      types: ["screen"],
       thumbnailSize: CAPTURE_THUMBNAIL,
     });
 
@@ -244,14 +256,14 @@ async function captureScreen() {
     if (pickedScreen && pickedScreen.thumbnail && !pickedScreen.thumbnail.isEmpty()) {
       return {
         image: pickedScreen.thumbnail,
-        sourceType: 'screen',
+        sourceType: "screen",
         sourceName: sourceName(pickedScreen),
-        sourceId: String(pickedScreen.id || ''),
-        sourceDisplayId: String(pickedScreen.display_id || ''),
+        sourceId: String(pickedScreen.id || ""),
+        sourceDisplayId: String(pickedScreen.display_id || ""),
       };
     }
   } catch (err) {
-    log.warn('[RewardScanner] getSources(screen) failed:', err.message);
+    log.warn("[RewardScanner] getSources(screen) failed:", err.message);
   }
 
   return null;
@@ -262,9 +274,10 @@ async function captureDebugFrame() {
   if (!screenshot) return null;
   const size = screenshot.image.getSize();
 
-  const sourceLabel = screenshot.sourceType === 'window'
-    ? `window: ${screenshot.sourceName || screenshot.sourceId || 'unknown'}`
-    : `screen: ${screenshot.sourceName || screenshot.sourceDisplayId || screenshot.sourceId || 'unknown'}`;
+  const sourceLabel =
+    screenshot.sourceType === "window"
+      ? `window: ${screenshot.sourceName || screenshot.sourceId || "unknown"}`
+      : `screen: ${screenshot.sourceName || screenshot.sourceDisplayId || screenshot.sourceId || "unknown"}`;
 
   log.log(`[RewardScanner] Debug capture source -> ${sourceLabel}`);
 
@@ -292,102 +305,28 @@ function getRequestedOcrEngine() {
   return normalizeOcrEngine(scanSettings.ocrEngine, OCR_ENGINE_WINDOWS);
 }
 
-function timeoutWrap(promise, timeoutMs, label) {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error(`${label} timeout after ${timeoutMs}ms`));
-    }, timeoutMs);
-
-    promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-  });
-}
-
-function runPowerShellOCR(imagePath, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    execFile(
-      'powershell',
-      ['-ExecutionPolicy', 'Bypass', '-NonInteractive', '-File', OCR_SCRIPT, imagePath],
-      { timeout: timeoutMs, encoding: 'utf8' },
-      (err, stdout, stderr) => {
-        if (err) {
-          reject(new Error(`PowerShell OCR failed: ${err.message}${stderr ? ` | ${stderr.trim()}` : ''}`));
-          return;
-        }
-        resolve(stdout || '');
-      }
-    );
-  });
-}
-
-async function runTesseractOCR(imagePath, timeoutMs) {
-  let tesseract;
-  try {
-    tesseract = require('tesseract.js');
-  } catch (error) {
-    throw new Error(`Tesseract OCR unavailable: ${error.message}`);
-  }
-
-  const recognizePromise = tesseract.recognize(imagePath, TESSERACT_LANGUAGE, {
-    logger: () => {},
-  });
-
-  const result = await timeoutWrap(recognizePromise, timeoutMs, 'Tesseract OCR');
-  return result?.data?.text || '';
-}
-
-async function runOCR(imagePath, timeoutMs) {
-  const engine = getRequestedOcrEngine();
-
-  if (engine === OCR_ENGINE_WINDOWS) {
-    if (process.platform !== 'win32') {
-      log.warn('[RewardScanner] Windows OCR selected on non-Windows platform. Falling back to Tesseract.');
-      return runTesseractOCR(imagePath, timeoutMs);
-    }
-    return runPowerShellOCR(imagePath, timeoutMs);
-  }
-
-  if (engine === OCR_ENGINE_TESSERACT) {
-    return runTesseractOCR(imagePath, timeoutMs);
-  }
-
-  let powerShellError = null;
-  if (process.platform === 'win32') {
-    try {
-      return await runPowerShellOCR(imagePath, timeoutMs);
-    } catch (error) {
-      powerShellError = error;
-      log.warn('[RewardScanner] PowerShell OCR failed in auto mode, falling back:', error.message);
-    }
-  }
-
-  try {
-    return await runTesseractOCR(imagePath, timeoutMs);
-  } catch (error) {
-    if (powerShellError) {
-      throw new Error(`OCR failed (Windows + Tesseract): ${powerShellError.message} | ${error.message}`);
-    }
-    throw error;
-  }
-}
+const { runOCR } = createRewardOcrRunner({
+  log,
+  getRequestedEngine: getRequestedOcrEngine,
+  ocrScriptPath: OCR_SCRIPT,
+  tesseractLanguage: TESSERACT_LANGUAGE,
+  engineWindows: OCR_ENGINE_WINDOWS,
+  engineTesseract: OCR_ENGINE_TESSERACT,
+});
 
 function norm(text) {
-  return String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  return String(text || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function buildWordSet(text) {
   return new Set(
     text
-      .split(' ')
+      .split(" ")
       .map((w) => w.trim())
-      .filter((w) => w.length > 2)
+      .filter((w) => w.length > 2),
   );
 }
 
@@ -409,13 +348,14 @@ function matchItemsDetailed(ocrText, threshold) {
 
     const idx = text.indexOf(normalizedName);
     if (idx >= 0) {
-      found.push({ item, pos: idx, confidence: 1, mode: 'exact' });
+      found.push({ item, pos: idx, confidence: 1, mode: "exact" });
       usedNames.add(normalizedName);
     }
   }
 
   const exactCount = found.length;
-  const shouldRunOverlapPass = exactCount < EXACT_MATCH_SKIP_OVERLAP_COUNT && found.length < MAX_REWARD_SLOTS;
+  const shouldRunOverlapPass =
+    exactCount < EXACT_MATCH_SKIP_OVERLAP_COUNT && found.length < MAX_REWARD_SLOTS;
 
   if (shouldRunOverlapPass) {
     for (const item of sortedItems) {
@@ -423,7 +363,7 @@ function matchItemsDetailed(ocrText, threshold) {
       const normalizedName = norm(item.name);
       if (!normalizedName || usedNames.has(normalizedName)) continue;
 
-      const itemWords = normalizedName.split(' ').filter((w) => w.length > 2);
+      const itemWords = normalizedName.split(" ").filter((w) => w.length > 2);
       if (itemWords.length === 0) continue;
 
       const matchedWords = itemWords.filter((w) => words.has(w)).length;
@@ -432,17 +372,17 @@ function matchItemsDetailed(ocrText, threshold) {
       const ratio = matchedWords / itemWords.length;
       if (ratio < overlapThreshold) continue;
 
-      const firstWord = itemWords.find((w) => words.has(w)) || '';
+      const firstWord = itemWords.find((w) => words.has(w)) || "";
       const pos = firstWord ? text.indexOf(firstWord) : text.length;
 
-      found.push({ item, pos, confidence: ratio, mode: 'overlap' });
+      found.push({ item, pos, confidence: ratio, mode: "overlap" });
       usedNames.add(normalizedName);
     }
   }
 
   found.sort((a, b) => a.pos - b.pos);
 
-  const exactMatches = found.filter((m) => m.mode === 'exact').length;
+  const exactMatches = found.filter((m) => m.mode === "exact").length;
   const confidenceSum = found.reduce((sum, m) => sum + m.confidence, 0);
   const coverageBoost = Math.min(MAX_REWARD_SLOTS, found.length) * 0.6;
   const exactBoost = exactMatches * 0.35;
@@ -456,7 +396,7 @@ function matchItemsDetailed(ocrText, threshold) {
 }
 
 function getBandsForPasses(presetName, passes) {
-  if (presetName === 'custom') {
+  if (presetName === "custom") {
     const customTop = clampNumber(
       scanSettings.cropTopRatio,
       OVERLAY_SETTINGS_LIMITS.cropTopRatioMin,
@@ -509,7 +449,7 @@ function getPrimaryBand() {
 }
 
 function luminanceFromBgr(blue, green, red) {
-  return ((77 * red) + (150 * green) + (29 * blue)) >> 8;
+  return (77 * red + 150 * green + 29 * blue) >> 8;
 }
 
 function computeMeanAndStd(values) {
@@ -537,7 +477,7 @@ function computeMeanAndStd(values) {
 }
 
 function analyzeRewardBandReadiness(nativeImage, band = getPrimaryBand()) {
-  if (!nativeImage || typeof nativeImage.getSize !== 'function') {
+  if (!nativeImage || typeof nativeImage.getSize !== "function") {
     return {
       ready: false,
       score: 0,
@@ -594,7 +534,7 @@ function analyzeRewardBandReadiness(nativeImage, band = getPrimaryBand()) {
     let count = 0;
 
     for (let y = 0; y < height; y += stepY) {
-      const idx = ((y * width) + x) * 4;
+      const idx = (y * width + x) * 4;
       const blue = bitmap[idx];
       const green = bitmap[idx + 1];
       const red = bitmap[idx + 2];
@@ -606,18 +546,18 @@ function analyzeRewardBandReadiness(nativeImage, band = getPrimaryBand()) {
     }
 
     const mean = sum / Math.max(1, count);
-    const variance = Math.max(0, (sumSq / Math.max(1, count)) - (mean * mean));
+    const variance = Math.max(0, sumSq / Math.max(1, count) - mean * mean);
     energies[column] = variance;
   }
 
   const smoothed = energies.map((value, index) => {
     const prev = index > 0 ? energies[index - 1] : value;
-    const next = index < (energies.length - 1) ? energies[index + 1] : value;
+    const next = index < energies.length - 1 ? energies[index + 1] : value;
     return (prev + value + next) / 3;
   });
 
   const stats = computeMeanAndStd(smoothed);
-  const threshold = stats.mean + (stats.std * 0.35);
+  const threshold = stats.mean + stats.std * 0.35;
   const minSegmentWidth = Math.max(3, Math.floor(sampleCols * 0.06));
 
   let peakCount = 0;
@@ -644,12 +584,13 @@ function analyzeRewardBandReadiness(nativeImage, band = getPrimaryBand()) {
 
   const peakScore = clamp01((peakCount - 2) / 2);
   const textureScore = clamp01((stats.std - 90) / 230);
-  const coverageScore = clamp01((coverageCols / Math.max(1, sampleCols)) / 0.7);
-  const score = (peakScore * 0.55) + (textureScore * 0.30) + (coverageScore * 0.15);
+  const coverageScore = clamp01(coverageCols / Math.max(1, sampleCols) / 0.7);
+  const score = peakScore * 0.55 + textureScore * 0.3 + coverageScore * 0.15;
 
-  const ready = peakCount >= UI_READY_MIN_PEAK_COUNT
-    && textureScore >= UI_READY_MIN_TEXTURE_SCORE
-    && score >= UI_READY_DEFAULT_SCORE_THRESHOLD;
+  const ready =
+    peakCount >= UI_READY_MIN_PEAK_COUNT &&
+    textureScore >= UI_READY_MIN_TEXTURE_SCORE &&
+    score >= UI_READY_DEFAULT_SCORE_THRESHOLD;
 
   return {
     ready,
@@ -668,21 +609,31 @@ function sleep(ms) {
 }
 
 async function waitForRewardUiReady(options = {}) {
-  const timeoutMs = Math.floor(clampNumber(options.timeoutMs, 200, 8_000, UI_READY_DEFAULT_TIMEOUT_MS));
+  const timeoutMs = Math.floor(
+    clampNumber(options.timeoutMs, 200, 8_000, UI_READY_DEFAULT_TIMEOUT_MS),
+  );
   const pollMs = Math.floor(clampNumber(options.pollMs, 60, 500, UI_READY_DEFAULT_POLL_MS));
-  const requiredHits = Math.floor(clampNumber(options.requiredHits, 1, 4, UI_READY_DEFAULT_REQUIRED_HITS));
-  const scoreThreshold = clampNumber(options.scoreThreshold, 0.35, 0.95, UI_READY_DEFAULT_SCORE_THRESHOLD);
+  const requiredHits = Math.floor(
+    clampNumber(options.requiredHits, 1, 4, UI_READY_DEFAULT_REQUIRED_HITS),
+  );
+  const scoreThreshold = clampNumber(
+    options.scoreThreshold,
+    0.35,
+    0.95,
+    UI_READY_DEFAULT_SCORE_THRESHOLD,
+  );
 
-  const band = options.band && Number.isFinite(options.band.top) && Number.isFinite(options.band.height)
-    ? options.band
-    : getPrimaryBand();
+  const band =
+    options.band && Number.isFinite(options.band.top) && Number.isFinite(options.band.height)
+      ? options.band
+      : getPrimaryBand();
 
   const startedAt = Date.now();
   let attempts = 0;
   let consecutiveHits = 0;
   let best = null;
 
-  while ((Date.now() - startedAt) < timeoutMs) {
+  while (Date.now() - startedAt < timeoutMs) {
     attempts += 1;
 
     const screenshot = await captureScreen();
@@ -705,11 +656,12 @@ async function waitForRewardUiReady(options = {}) {
       best = sample;
     }
 
-    const hit = sample.peakCount >= UI_READY_MIN_PEAK_COUNT
-      && sample.textureScore >= UI_READY_MIN_TEXTURE_SCORE
-      && sample.score >= scoreThreshold;
+    const hit =
+      sample.peakCount >= UI_READY_MIN_PEAK_COUNT &&
+      sample.textureScore >= UI_READY_MIN_TEXTURE_SCORE &&
+      sample.score >= scoreThreshold;
 
-    consecutiveHits = hit ? (consecutiveHits + 1) : 0;
+    consecutiveHits = hit ? consecutiveHits + 1 : 0;
 
     if (consecutiveHits >= requiredHits) {
       return {
@@ -756,7 +708,7 @@ function buildConsensusSelection(passResults) {
     return {
       items: successful[0].items.slice(0, MAX_REWARD_SLOTS),
       selectedPass: successful[0],
-      strategy: 'single-pass',
+      strategy: "single-pass",
       targetCount: successful[0].items.length,
     };
   }
@@ -765,7 +717,12 @@ function buildConsensusSelection(passResults) {
     1,
     Math.min(
       MAX_REWARD_SLOTS,
-      Math.round(medianNumber(successful.map((result) => result.items.length), successful[0].items.length)),
+      Math.round(
+        medianNumber(
+          successful.map((result) => result.items.length),
+          successful[0].items.length,
+        ),
+      ),
     ),
   );
 
@@ -807,9 +764,10 @@ function buildConsensusSelection(passResults) {
   const selectedWithPos = ranked
     .slice(0, estimatedCount)
     .map((entry) => {
-      const avgPos = entry.avgPosCount > 0
-        ? entry.avgPosAccumulator / entry.avgPosCount
-        : Number.MAX_SAFE_INTEGER;
+      const avgPos =
+        entry.avgPosCount > 0
+          ? entry.avgPosAccumulator / entry.avgPosCount
+          : Number.MAX_SAFE_INTEGER;
       return {
         avgPos,
         item: {
@@ -832,17 +790,24 @@ function buildConsensusSelection(passResults) {
   return {
     items: chosenItems,
     selectedPass,
-    strategy: 'consensus',
+    strategy: "consensus",
     targetCount: estimatedCount,
   };
 }
 
-function buildScanMeta({ screenshot, selectedPass, passCount, strategy, elapsedMs, hadOcrSuccess }) {
+function buildScanMeta({
+  screenshot,
+  selectedPass,
+  passCount,
+  strategy,
+  elapsedMs,
+  hadOcrSuccess,
+}) {
   const captureSize = screenshot?.image?.getSize?.() || { width: 0, height: 0 };
   const band = selectedPass?.band || null;
   const top = band ? round4(band.top, 0) : null;
   const height = band ? round4(band.height, 0) : null;
-  const bottom = (top != null && height != null) ? round4(top + height, null) : null;
+  const bottom = top != null && height != null ? round4(top + height, null) : null;
 
   return {
     sourceType: screenshot?.sourceType || null,
@@ -854,7 +819,7 @@ function buildScanMeta({ screenshot, selectedPass, passCount, strategy, elapsedM
     passIndex: selectedPass?.passIndex ?? null,
     passCount,
     score: Number.isFinite(selectedPass?.score) ? Number(selectedPass.score.toFixed(3)) : null,
-    strategy: strategy || 'none',
+    strategy: strategy || "none",
     hadOcrSuccess: !!hadOcrSuccess,
     bandTopRatio: top,
     bandHeightRatio: height,
@@ -865,7 +830,7 @@ function buildScanMeta({ screenshot, selectedPass, passCount, strategy, elapsedM
 
 async function scanRewardsDetailed() {
   if (sortedItems.length === 0) {
-    log.warn('[RewardScanner] No relic items loaded - call setRelicItems() first');
+    log.warn("[RewardScanner] No relic items loaded - call setRelicItems() first");
     return null;
   }
 
@@ -875,18 +840,18 @@ async function scanRewardsDetailed() {
   try {
     screenshot = await captureScreen();
   } catch (err) {
-    log.error('[RewardScanner] captureScreen error:', err.message);
+    log.error("[RewardScanner] captureScreen error:", err.message);
     return null;
   }
   if (!screenshot) {
-    log.warn('[RewardScanner] Could not capture screen');
+    log.warn("[RewardScanner] Could not capture screen");
     return null;
   }
 
   log.log(
-    '[RewardScanner] Scan capture source -> ' +
-    `${screenshot.sourceType}: ${screenshot.sourceName || screenshot.sourceId || 'unknown'} ` +
-    `(display:${screenshot.sourceDisplayId || 'n/a'})`
+    "[RewardScanner] Scan capture source -> " +
+      `${screenshot.sourceType}: ${screenshot.sourceName || screenshot.sourceId || "unknown"} ` +
+      `(display:${screenshot.sourceDisplayId || "n/a"})`,
   );
 
   const threshold = scanSettings.matchThreshold;
@@ -929,7 +894,10 @@ async function scanRewardsDetailed() {
       bestPass = passResult;
     }
 
-    if (passResult.items.length === MAX_REWARD_SLOTS && passResult.exactCount === MAX_REWARD_SLOTS) {
+    if (
+      passResult.items.length === MAX_REWARD_SLOTS &&
+      passResult.exactCount === MAX_REWARD_SLOTS
+    ) {
       break;
     }
   }
@@ -944,18 +912,18 @@ async function scanRewardsDetailed() {
 
   if (items.length > 0) {
     log.log(
-      `[RewardScanner] Detected (${consensus?.strategy || 'best-pass'} pass ${selectedPass?.passIndex ?? '?'}, ` +
-      `score ${Number(selectedPass?.score || 0).toFixed(2)}):`,
-      items.map((item) => item.name).join(' | ')
+      `[RewardScanner] Detected (${consensus?.strategy || "best-pass"} pass ${selectedPass?.passIndex ?? "?"}, ` +
+        `score ${Number(selectedPass?.score || 0).toFixed(2)}):`,
+      items.map((item) => item.name).join(" | "),
     );
   } else {
     const textPreview = selectedPass?.text
-      ? selectedPass.text.slice(0, 240).replace(/\s+/g, ' ')
-      : '';
+      ? selectedPass.text.slice(0, 240).replace(/\s+/g, " ")
+      : "";
     if (textPreview) {
-      log.log('[RewardScanner] No items matched OCR text:', textPreview);
+      log.log("[RewardScanner] No items matched OCR text:", textPreview);
     } else {
-      log.log('[RewardScanner] No items matched OCR text');
+      log.log("[RewardScanner] No items matched OCR text");
     }
   }
 
@@ -963,7 +931,7 @@ async function scanRewardsDetailed() {
     screenshot,
     selectedPass,
     passCount: bands.length,
-    strategy: consensus?.strategy || 'best-pass',
+    strategy: consensus?.strategy || "best-pass",
     elapsedMs: Date.now() - scanStartedAt,
     hadOcrSuccess,
   });

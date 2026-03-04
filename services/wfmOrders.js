@@ -1,5 +1,6 @@
-const log = require('./logger').withScope('wfmOrders');
 "use strict";
+
+const log = require("./logger").withScope("wfmOrders");
 
 /**
  * wfmOrders.js — Warframe.market order management (main-process only)
@@ -20,23 +21,22 @@ function normalise(raw, forcedType) {
   // v2: item details come from catalog enrichment (raw._catalogItem), not embedded object
   const item = raw._catalogItem || raw.item || {};
   const thumb = item.thumb || item.icon || "";
-  const imageUrl = thumb
-    ? (thumb.startsWith("http") ? thumb : WFM_THUMB_BASE + thumb)
-    : null;
+  const imageUrl = thumb ? (thumb.startsWith("http") ? thumb : WFM_THUMB_BASE + thumb) : null;
 
   return {
-    id:          raw.id,
+    id: raw.id,
     // v2 uses 'type', v1 used 'order_type'
-    orderType:   raw.type || raw.order_type || forcedType || "sell",
-    platinum:    raw.platinum ?? 0,
-    quantity:    raw.quantity ?? 1,
-    visible:     raw.visible  ?? true,
+    orderType: raw.type || raw.order_type || forcedType || "sell",
+    platinum: raw.platinum ?? 0,
+    quantity: raw.quantity ?? 1,
+    visible: raw.visible ?? true,
     // v2 uses 'rank', v1 used 'mod_rank'
-    modRank:     raw.rank ?? raw.mod_rank ?? null,
-    itemId:      item.id || raw.itemId || null,
-    itemName:    item.en?.item_name || item.i18n?.en?.item_name || item.item_name || item.name || "(unknown)",
+    modRank: raw.rank ?? raw.mod_rank ?? null,
+    itemId: item.id || raw.itemId || null,
+    itemName:
+      item.en?.item_name || item.i18n?.en?.item_name || item.item_name || item.name || "(unknown)",
     itemUrlName: item.url_name || null,
-    itemThumb:   imageUrl,
+    itemThumb: imageUrl,
   };
 }
 
@@ -51,24 +51,24 @@ function _extractOrders(data) {
   if (payload?.sell_orders || payload?.buy_orders) {
     // v1 shape: { sell_orders: [], buy_orders: [] }
     sell = (payload.sell_orders || []).map((o) => normalise(o, "sell"));
-    buy  = (payload.buy_orders  || []).map((o) => normalise(o, "buy"));
+    buy = (payload.buy_orders || []).map((o) => normalise(o, "buy"));
   } else if (payload?.sell && payload?.buy) {
     // possible grouped shape: { sell: [], buy: [] }
     sell = (payload.sell || []).map((o) => normalise(o, "sell"));
-    buy  = (payload.buy  || []).map((o) => normalise(o, "buy"));
+    buy = (payload.buy || []).map((o) => normalise(o, "buy"));
   } else if (Array.isArray(payload?.orders)) {
-    sell = payload.orders.filter(o => getType(o) === "sell").map((o) => normalise(o));
-    buy  = payload.orders.filter(o => getType(o) === "buy" ).map((o) => normalise(o));
+    sell = payload.orders.filter((o) => getType(o) === "sell").map((o) => normalise(o));
+    buy = payload.orders.filter((o) => getType(o) === "buy").map((o) => normalise(o));
   } else if (Array.isArray(payload)) {
-    sell = payload.filter(o => getType(o) === "sell").map((o) => normalise(o));
-    buy  = payload.filter(o => getType(o) === "buy" ).map((o) => normalise(o));
+    sell = payload.filter((o) => getType(o) === "sell").map((o) => normalise(o));
+    buy = payload.filter((o) => getType(o) === "buy").map((o) => normalise(o));
   } else {
     log.log("[WFMOrders] Unknown response shape. Top-level keys:", Object.keys(data || {}));
     if (payload && typeof payload === "object") {
       log.log("[WFMOrders] Payload keys:", Object.keys(payload));
     }
     sell = [];
-    buy  = [];
+    buy = [];
   }
   return { sell, buy };
 }
@@ -97,7 +97,7 @@ async function getMyOrders() {
         if (catalogItem) return { ...order, _catalogItem: catalogItem };
       }
       return order;
-    })
+    }),
   );
 
   const { sell, buy } = _extractOrders({ data: enriched });
@@ -113,7 +113,9 @@ async function createOrder({ itemId, orderType, platinum, quantity, visible = tr
     // v2 field names (camelCase, not snake_case like v1)
     itemId,
     type: orderType,
-    platinum: Number(platinum), quantity: Number(quantity), visible: !!visible,
+    platinum: Number(platinum),
+    quantity: Number(quantity),
+    visible: !!visible,
   };
   if (modRank != null) body.rank = Number(modRank); // v2: 'rank' not 'mod_rank'
 
@@ -126,10 +128,10 @@ async function createOrder({ itemId, orderType, platinum, quantity, visible = tr
 async function updateOrder(orderId, { platinum, quantity, visible, modRank } = {}) {
   if (!orderId) throw new Error("updateOrder: orderId is required.");
   const body = {};
-  if (platinum  != null) body.platinum  = Number(platinum);
-  if (quantity  != null) body.quantity  = Number(quantity);
-  if (visible   != null) body.visible   = !!visible;
-  if (modRank   != null) body.rank      = Number(modRank); // v2: 'rank' not 'mod_rank'
+  if (platinum != null) body.platinum = Number(platinum);
+  if (quantity != null) body.quantity = Number(quantity);
+  if (visible != null) body.visible = !!visible;
+  if (modRank != null) body.rank = Number(modRank); // v2: 'rank' not 'mod_rank'
   if (Object.keys(body).length === 0) throw new Error("updateOrder: no fields to update.");
 
   // v2: PATCH /order/{id}  (WFM changed PUT → PATCH)

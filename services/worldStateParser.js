@@ -1,10 +1,11 @@
-const log = require('./logger').withScope('worldStateParser');
 "use strict";
 
-const fs = require('fs');
-const path = require('path');
+const log = require("./logger").withScope("worldStateParser");
 
-const { WORLD_STATE_CONFIG } = require('../config/runtime/worldState');
+const fs = require("fs");
+const path = require("path");
+
+const { WORLD_STATE_CONFIG } = require("../config/runtime/worldState");
 
 const FETCH_URL = WORLD_STATE_CONFIG.fetchUrl;
 const ORACLE_WORLDSTATE_URL = WORLD_STATE_CONFIG.oracleWorldStateUrl;
@@ -29,7 +30,7 @@ const EMPTY_LOOKUP = Object.freeze({});
 
 function loadRegionTranslationData() {
   try {
-    const pep = require('warframe-public-export-plus');
+    const pep = require("warframe-public-export-plus");
     if (pep?.ExportRegions && pep?.dict_en) {
       return {
         regions: pep.ExportRegions,
@@ -37,17 +38,17 @@ function loadRegionTranslationData() {
       };
     }
   } catch (err) {
-    log.warn('[WorldState] failed to load region data from package export:', err.message);
+    log.warn("[WorldState] failed to load region data from package export:", err.message);
   }
 
   try {
-    const pkgPath = require.resolve('warframe-public-export-plus/package.json');
+    const pkgPath = require.resolve("warframe-public-export-plus/package.json");
     const pkgDir = path.dirname(pkgPath);
-    const regions = JSON.parse(fs.readFileSync(path.join(pkgDir, 'ExportRegions.json'), 'utf8'));
-    const dict = JSON.parse(fs.readFileSync(path.join(pkgDir, 'dict.en.json'), 'utf8'));
+    const regions = JSON.parse(fs.readFileSync(path.join(pkgDir, "ExportRegions.json"), "utf8"));
+    const dict = JSON.parse(fs.readFileSync(path.join(pkgDir, "dict.en.json"), "utf8"));
     return { regions, dict };
   } catch (err) {
-    log.warn('[WorldState] failed to load region data from disk fallback:', err.message);
+    log.warn("[WorldState] failed to load region data from disk fallback:", err.message);
   }
 
   return {
@@ -60,7 +61,7 @@ const REGION_TRANSLATION = loadRegionTranslationData();
 
 async function fetchWithTimeout(url, timeoutMs, options = {}) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs);
+  const timer = setTimeout(() => controller.abort(new Error("timeout")), timeoutMs);
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } finally {
@@ -85,78 +86,86 @@ function emptyWorldState() {
 
 function deDate(obj) {
   if (!obj) return null;
-  const ms = obj?.['$date']?.['$numberLong'];
+  const ms = obj?.["$date"]?.["$numberLong"];
   return ms ? new Date(Number(ms)).toISOString() : null;
 }
 
 const VOID_TIER = {
-  VoidT1: 'Lith', VoidT2: 'Meso', VoidT3: 'Neo',
-  VoidT4: 'Axi', VoidT5: 'Requiem', VoidT6: 'Omnia',
+  VoidT1: "Lith",
+  VoidT2: "Meso",
+  VoidT3: "Neo",
+  VoidT4: "Axi",
+  VoidT5: "Requiem",
+  VoidT6: "Omnia",
   // Steel Path variants (modifier ends with "Hard")
-  VoidT1Hard: 'Lith', VoidT2Hard: 'Meso', VoidT3Hard: 'Neo',
-  VoidT4Hard: 'Axi', VoidT5Hard: 'Requiem', VoidT6Hard: 'Omnia',
+  VoidT1Hard: "Lith",
+  VoidT2Hard: "Meso",
+  VoidT3Hard: "Neo",
+  VoidT4Hard: "Axi",
+  VoidT5Hard: "Requiem",
+  VoidT6Hard: "Omnia",
 };
 
 const MISSION_TYPE = {
-  MT_ARTIFACT: 'Disruption',
-  MT_CAPTURE: 'Capture',
-  MT_DEFENSE: 'Defense',
-  MT_EXCAVATE: 'Excavation',
-  MT_EXCAVATION: 'Excavation',
-  MT_EXTERMINATION: 'Extermination',
-  MT_HIVE: 'Hive',
-  MT_INTERCEPTION: 'Interception',
-  MT_INTEL: 'Spy',
-  MT_LANDSCAPE: 'Open World',
-  MT_MOBILE_DEFENSE: 'Mobile Defense',
-  MT_NEST: 'Defection',
-  MT_PURIFY: 'Disruption',
-  MT_PURSUIT: 'Pursuit',
-  MT_RESCUE: 'Rescue',
-  MT_RETRIEVAL: 'Hijack',
-  MT_SABOTAGE: 'Sabotage',
-  MT_SECTOR: 'Dark Sector',
-  MT_SURVIVAL: 'Survival',
-  MT_TERRITORY: 'Infested Salvage',
-  MT_VOID_CASCADE: 'Void Cascade',
-  MT_VOID_FLOOD: 'Void Flood',
+  MT_ARTIFACT: "Disruption",
+  MT_CAPTURE: "Capture",
+  MT_DEFENSE: "Defense",
+  MT_EXCAVATE: "Excavation",
+  MT_EXCAVATION: "Excavation",
+  MT_EXTERMINATION: "Extermination",
+  MT_HIVE: "Hive",
+  MT_INTERCEPTION: "Interception",
+  MT_INTEL: "Spy",
+  MT_LANDSCAPE: "Open World",
+  MT_MOBILE_DEFENSE: "Mobile Defense",
+  MT_NEST: "Defection",
+  MT_PURIFY: "Disruption",
+  MT_PURSUIT: "Pursuit",
+  MT_RESCUE: "Rescue",
+  MT_RETRIEVAL: "Hijack",
+  MT_SABOTAGE: "Sabotage",
+  MT_SECTOR: "Dark Sector",
+  MT_SURVIVAL: "Survival",
+  MT_TERRITORY: "Infested Salvage",
+  MT_VOID_CASCADE: "Void Cascade",
+  MT_VOID_FLOOD: "Void Flood",
 };
 
 const HUB_NODE = {
-  SaturnHUB: 'Saturn Relay',
-  MarsHUB: 'Mars Relay',
-  CerberusHUB: 'Pluto Relay',
-  EarthHUB: 'Earth Relay',
-  VenusHUB: 'Venus Relay',
+  SaturnHUB: "Saturn Relay",
+  MarsHUB: "Mars Relay",
+  CerberusHUB: "Pluto Relay",
+  EarthHUB: "Earth Relay",
+  VenusHUB: "Venus Relay",
 };
 
 async function fetchJsonWithTimeout(url, timeoutMs = CYCLE_FETCH_TIMEOUT_MS) {
-  const resp = await fetchWithTimeout(url, timeoutMs, { headers: { Accept: 'application/json' } });
+  const resp = await fetchWithTimeout(url, timeoutMs, { headers: { Accept: "application/json" } });
   if (!resp.ok) throw new Error(`HTTP ${resp.status} for ${url}`);
   return resp.json();
 }
 
 function resolveDictValue(value) {
-  if (typeof value !== 'string' || value.length === 0) {
+  if (typeof value !== "string" || value.length === 0) {
     return null;
   }
-  if (!value.startsWith('/')) {
+  if (!value.startsWith("/")) {
     return value;
   }
   return REGION_TRANSLATION.dict[value] || null;
 }
 
 function formatNodeLabel(nodeId) {
-  if (typeof nodeId !== 'string' || nodeId.length === 0) {
-    return 'Unknown';
+  if (typeof nodeId !== "string" || nodeId.length === 0) {
+    return "Unknown";
   }
   const region = REGION_TRANSLATION.regions[nodeId];
   if (!region) {
     return nodeId;
   }
   const nodeName = resolveDictValue(region.name) || nodeId;
-  const systemName = resolveDictValue(region.systemName) || '';
-  return systemName ? (nodeName + ', ' + systemName) : nodeName;
+  const systemName = resolveDictValue(region.systemName) || "";
+  return systemName ? nodeName + ", " + systemName : nodeName;
 }
 
 function formatMissionTypeLabel(missionType, nodeId) {
@@ -168,19 +177,19 @@ function formatMissionTypeLabel(missionType, nodeId) {
   if (missionName) {
     return missionName;
   }
-  if (typeof missionType === 'string' && missionType.startsWith('MT_')) {
-    return missionType.replace(/^MT_/, '');
+  if (typeof missionType === "string" && missionType.startsWith("MT_")) {
+    return missionType.replace(/^MT_/, "");
   }
-  return missionType || 'Unknown';
+  return missionType || "Unknown";
 }
 
 function computeVallisCycle(nowMs = Date.now()) {
   const elapsed = (nowMs - VALLIS_EPOCH_MS) % VALLIS_PERIOD_MS;
   const isWarm = elapsed < VALLIS_WARM_MS;
-  const timeLeftMs = isWarm ? (VALLIS_WARM_MS - elapsed) : (VALLIS_PERIOD_MS - elapsed);
+  const timeLeftMs = isWarm ? VALLIS_WARM_MS - elapsed : VALLIS_PERIOD_MS - elapsed;
   return {
     isWarm,
-    timeLeft: '',
+    timeLeft: "",
     expiry: new Date(nowMs + timeLeftMs).toISOString(),
   };
 }
@@ -190,8 +199,8 @@ function computeCetusCambionCycles(bountyCycleExpiryMs, nowMs = Date.now()) {
   const isDay = nowMs < nightStart;
   const expiryIso = new Date(isDay ? nightStart : bountyCycleExpiryMs).toISOString();
   return {
-    cetus: { isDay, timeLeft: '', expiry: expiryIso },
-    cambion: { active: isDay ? 'fass' : 'vome', timeLeft: '', expiry: expiryIso },
+    cetus: { isDay, timeLeft: "", expiry: expiryIso },
+    cambion: { active: isDay ? "fass" : "vome", timeLeft: "", expiry: expiryIso },
   };
 }
 
@@ -199,7 +208,7 @@ function computeDuviriMoodCycle(nowMs = Date.now()) {
   const moodIndex = Math.trunc(nowMs / DUVIRI_MOOD_PERIOD_MS);
   const moodStart = moodIndex * DUVIRI_MOOD_PERIOD_MS;
   const moodEnd = moodStart + DUVIRI_MOOD_PERIOD_MS;
-  const state = DUVIRI_MOODS[moodIndex % DUVIRI_MOODS.length] || 'Unknown';
+  const state = DUVIRI_MOODS[moodIndex % DUVIRI_MOODS.length] || "Unknown";
 
   return {
     state,
@@ -210,34 +219,34 @@ function computeDuviriMoodCycle(nowMs = Date.now()) {
 async function fetchEarthCycle() {
   try {
     const data = await fetchJsonWithTimeout(EARTH_CYCLE_URL, EARTH_CYCLE_FETCH_TIMEOUT_MS);
-    const earthData = (data && typeof data.earthCycle === 'object') ? data.earthCycle : data;
+    const earthData = data && typeof data.earthCycle === "object" ? data.earthCycle : data;
 
-    const expiryIsoRaw = typeof earthData?.expiry === 'string' ? earthData.expiry : null;
+    const expiryIsoRaw = typeof earthData?.expiry === "string" ? earthData.expiry : null;
     const expiryMs = expiryIsoRaw ? Date.parse(expiryIsoRaw) : Number.NaN;
     if (!Number.isFinite(expiryMs)) {
-      throw new Error('earth cycle missing expiry');
+      throw new Error("earth cycle missing expiry");
     }
 
     let isDay = null;
-    if (typeof earthData?.isDay === 'boolean') {
+    if (typeof earthData?.isDay === "boolean") {
       isDay = earthData.isDay;
     } else {
-      const state = String(earthData?.state || earthData?.timeOfDay || '').toLowerCase();
-      if (state === 'day') isDay = true;
-      if (state === 'night') isDay = false;
+      const state = String(earthData?.state || earthData?.timeOfDay || "").toLowerCase();
+      if (state === "day") isDay = true;
+      if (state === "night") isDay = false;
     }
 
-    if (typeof isDay !== 'boolean') {
-      throw new Error('earth cycle missing state');
+    if (typeof isDay !== "boolean") {
+      throw new Error("earth cycle missing state");
     }
 
     return {
       isDay,
-      timeLeft: typeof earthData?.timeLeft === 'string' ? earthData.timeLeft : '',
+      timeLeft: typeof earthData?.timeLeft === "string" ? earthData.timeLeft : "",
       expiry: new Date(expiryMs).toISOString(),
     };
   } catch (err) {
-    log.warn('[WorldState] earth cycle fetch failed:', err.message);
+    log.warn("[WorldState] earth cycle fetch failed:", err.message);
     return null;
   }
 }
@@ -246,13 +255,13 @@ async function fetchAndComputeCycles() {
   const nowMs = Date.now();
   const data = await fetchJsonWithTimeout(ORACLE_BOUNTY_CYCLE_URL, CYCLE_FETCH_TIMEOUT_MS);
   const expiryMs = Number(data.expiry);
-  if (!expiryMs) throw new Error('oracle bounty-cycle: missing expiry');
+  if (!expiryMs) throw new Error("oracle bounty-cycle: missing expiry");
 
   const { cetus, cambion } = computeCetusCambionCycles(expiryMs, nowMs);
   const earthCycle = await fetchEarthCycle();
 
   return {
-    earthCycle: earthCycle || { isDay: cetus.isDay, timeLeft: '', expiry: cetus.expiry },
+    earthCycle: earthCycle || { isDay: cetus.isDay, timeLeft: "", expiry: cetus.expiry },
     cetusCycle: cetus,
     vallisCycle: computeVallisCycle(nowMs),
     cambionCycle: cambion,
@@ -262,25 +271,27 @@ async function fetchAndComputeCycles() {
 
 async function fetchPrimaryWorldState() {
   const raw = await fetchJsonWithTimeout(ORACLE_WORLDSTATE_URL, FETCH_TIMEOUT_MS);
-  if (!raw || typeof raw !== 'object' || Object.keys(raw).length === 0) {
-    throw new Error('oracle returned empty object');
+  if (!raw || typeof raw !== "object" || Object.keys(raw).length === 0) {
+    throw new Error("oracle returned empty object");
   }
-  log.log('[WorldState] fetched oracle world-state OK');
+  log.log("[WorldState] fetched oracle world-state OK");
   return raw;
 }
 
 async function fetchFallbackWorldState() {
   try {
-    const resp = await fetchWithTimeout(FETCH_URL, FETCH_TIMEOUT_MS, { headers: { Accept: 'application/json' } });
+    const resp = await fetchWithTimeout(FETCH_URL, FETCH_TIMEOUT_MS, {
+      headers: { Accept: "application/json" },
+    });
     if (!resp.ok) {
-      log.warn('[WorldState] DE world-state returned HTTP', resp.status);
+      log.warn("[WorldState] DE world-state returned HTTP", resp.status);
       return null;
     }
     const raw = await resp.json();
-    log.log('[WorldState] fetched DE world-state OK');
+    log.log("[WorldState] fetched DE world-state OK");
     return raw;
   } catch (deErr) {
-    log.warn('[WorldState] DE world-state also failed:', deErr.message);
+    log.warn("[WorldState] DE world-state also failed:", deErr.message);
     return null;
   }
 }
@@ -290,7 +301,7 @@ async function fetchAndParse() {
   try {
     raw = await fetchPrimaryWorldState();
   } catch (oracleErr) {
-    log.warn('[WorldState] oracle failed:', oracleErr.message, '- trying DE direct');
+    log.warn("[WorldState] oracle failed:", oracleErr.message, "- trying DE direct");
     raw = await fetchFallbackWorldState();
     if (!raw) return emptyWorldState();
   }
@@ -308,7 +319,7 @@ async function fetchAndParse() {
       },
     };
   } catch (cycleErr) {
-    log.warn('[WorldState] planet cycle computation failed:', cycleErr.message);
+    log.warn("[WorldState] planet cycle computation failed:", cycleErr.message);
     return parsed;
   }
 }
@@ -318,19 +329,19 @@ function parseRaw(raw) {
   const nowMs = Date.now();
 
   const fissures = (raw.ActiveMissions || [])
-    .filter(m => {
-      const mod = m.Modifier || '';
-      return mod.startsWith('VoidT') && VOID_TIER[mod];
+    .filter((m) => {
+      const mod = m.Modifier || "";
+      return mod.startsWith("VoidT") && VOID_TIER[mod];
     })
-    .map(m => {
-      const mod = m.Modifier || '';
-      const missionTypeRaw = m.MissionType || '';
-      const nodeId = m.Node || 'Unknown';
-      const isHard = m.Hard === true || mod.endsWith('Hard');
-      const expMs = Number(m.Expiry?.['$date']?.['$numberLong'] || 0);
+    .map((m) => {
+      const mod = m.Modifier || "";
+      const missionTypeRaw = m.MissionType || "";
+      const nodeId = m.Node || "Unknown";
+      const isHard = m.Hard === true || mod.endsWith("Hard");
+      const expMs = Number(m.Expiry?.["$date"]?.["$numberLong"] || 0);
       return {
         expiry: expMs ? new Date(expMs).toISOString() : null,
-        tier: VOID_TIER[mod] || 'Unknown',
+        tier: VOID_TIER[mod] || "Unknown",
         missionType: formatMissionTypeLabel(missionTypeRaw, nodeId),
         node: formatNodeLabel(nodeId),
         nodeId,
@@ -338,47 +349,59 @@ function parseRaw(raw) {
         expired: expMs < nowMs,
       };
     })
-    .filter(f => !f.expired);
+    .filter((f) => !f.expired);
 
   const baroRaw = Array.isArray(raw.VoidTraders) ? raw.VoidTraders[0] : raw.VoidTraders;
-  const voidTrader = baroRaw ? {
-    activation: deDate(baroRaw.Activation),
-    expiry: deDate(baroRaw.Expiry),
-    location: HUB_NODE[baroRaw.Node] || baroRaw.Node || 'Unknown',
-  } : null;
+  const voidTrader = baroRaw
+    ? {
+        activation: deDate(baroRaw.Activation),
+        expiry: deDate(baroRaw.Expiry),
+        location: HUB_NODE[baroRaw.Node] || baroRaw.Node || "Unknown",
+      }
+    : null;
 
-  const varziaRaw = Array.isArray(raw.PrimeVaultTraders) ? raw.PrimeVaultTraders[0] : raw.PrimeVaultTraders;
-  const vaultTrader = varziaRaw ? {
-    activation: deDate(varziaRaw.Activation),
-    expiry: deDate(varziaRaw.Expiry),
-    location: HUB_NODE[varziaRaw.Node] || varziaRaw.Node || 'Varzia',
-    inventory: (varziaRaw.Manifest || []).map(i => ({
-      uniqueName: (i.ItemType || '').replace(/^\/Lotus\/StoreItems/, '/Lotus'),
-      item: (i.ItemType || '').split('/').pop() || '',
-    })),
-  } : null;
+  const varziaRaw = Array.isArray(raw.PrimeVaultTraders)
+    ? raw.PrimeVaultTraders[0]
+    : raw.PrimeVaultTraders;
+  const vaultTrader = varziaRaw
+    ? {
+        activation: deDate(varziaRaw.Activation),
+        expiry: deDate(varziaRaw.Expiry),
+        location: HUB_NODE[varziaRaw.Node] || varziaRaw.Node || "Varzia",
+        inventory: (varziaRaw.Manifest || []).map((i) => ({
+          uniqueName: (i.ItemType || "").replace(/^\/Lotus\/StoreItems/, "/Lotus"),
+          item: (i.ItemType || "").split("/").pop() || "",
+        })),
+      }
+    : null;
 
-  const sortieArr = Array.isArray(raw.Sorties) ? raw.Sorties
-    : raw.Sorties ? [raw.Sorties] : [];
-  const sortieRaw = sortieArr.find(s =>
-    Number(s.Expiry?.['$date']?.['$numberLong'] || 0) > nowMs
-  ) || sortieArr[0];
+  const sortieArr = Array.isArray(raw.Sorties) ? raw.Sorties : raw.Sorties ? [raw.Sorties] : [];
+  const sortieRaw =
+    sortieArr.find((s) => Number(s.Expiry?.["$date"]?.["$numberLong"] || 0) > nowMs) ||
+    sortieArr[0];
   const sortie = sortieRaw ? { expiry: deDate(sortieRaw.Expiry) } : null;
 
   const descentArr = Array.isArray(raw.Descents) ? raw.Descents : [];
-  const descentRaw = descentArr.find(d => {
-    const act = Number(d.Activation?.['$date']?.['$numberLong'] || 0);
-    const exp = Number(d.Expiry?.['$date']?.['$numberLong'] || 0);
-    return act <= nowMs && exp > nowMs;
-  }) || descentArr[0];
+  const descentRaw =
+    descentArr.find((d) => {
+      const act = Number(d.Activation?.["$date"]?.["$numberLong"] || 0);
+      const exp = Number(d.Expiry?.["$date"]?.["$numberLong"] || 0);
+      return act <= nowMs && exp > nowMs;
+    }) || descentArr[0];
 
   const xpChoices = raw.EndlessXpChoices || [];
   const duviriCycle = {
     state: null,
     expiry: descentRaw ? deDate(descentRaw.Expiry) : null,
     choices: [
-      { category: 'normal', choices: xpChoices.find(c => c.Category === 'EXC_NORMAL')?.Choices || [] },
-      { category: 'hard', choices: xpChoices.find(c => c.Category === 'EXC_HARD')?.Choices || [] },
+      {
+        category: "normal",
+        choices: xpChoices.find((c) => c.Category === "EXC_NORMAL")?.Choices || [],
+      },
+      {
+        category: "hard",
+        choices: xpChoices.find((c) => c.Category === "EXC_HARD")?.Choices || [],
+      },
     ],
   };
 

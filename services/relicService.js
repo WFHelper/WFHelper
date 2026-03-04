@@ -1,5 +1,6 @@
+"use strict";
+
 const log = require("./logger").withScope("relicService");
-("use strict");
 
 /**
  * relicService.js — Relic database built from @wfcd/items

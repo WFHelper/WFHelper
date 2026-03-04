@@ -1,5 +1,6 @@
-const log = require('./logger').withScope('wfmSession');
 "use strict";
+
+const log = require("./logger").withScope("wfmSession");
 
 /**
  * wfmSession.js — Warframe.market session management (main-process only)
@@ -9,7 +10,7 @@ const log = require('./logger').withScope('wfmSession');
  */
 
 const path = require("path");
-const fs   = require("fs");
+const fs = require("fs");
 const { app, safeStorage } = require("electron");
 const {
   requestRaw,
@@ -25,8 +26,8 @@ const ALLOW_INSECURE_SESSION = process.env.WFM_ALLOW_INSECURE_SESSION === "1";
 
 // ── In-memory state ───────────────────────────────────────────────────────────
 
-let _token    = null;   // JWT string, never exposed to renderer
-let _userName = null;   // WFM in-game / profile name
+let _token = null; // JWT string, never exposed to renderer
+let _userName = null; // WFM in-game / profile name
 let _platform = "pc";
 
 // Register the token provider so wfmClient can inject the JWT into requests
@@ -46,7 +47,9 @@ function _saveSession(token, userName) {
     if (ALLOW_INSECURE_SESSION) {
       // Explicit opt-in only (for unsupported environments).
       // No real security guarantee.
-      log.warn("[WFMSession] safeStorage unavailable — insecure base64 session persistence is enabled");
+      log.warn(
+        "[WFMSession] safeStorage unavailable — insecure base64 session persistence is enabled",
+      );
       fs.writeFileSync(SESSION_FILE(), Buffer.from(payload, "utf-8").toString("base64"));
       return;
     }
@@ -59,7 +62,7 @@ function _saveSession(token, userName) {
 }
 
 function _clearSession() {
-  _token    = null;
+  _token = null;
   _userName = null;
   clearCsrfToken();
   try {
@@ -109,11 +112,17 @@ async function signIn(email, password) {
 
   // Diagnostic: log email shape without revealing value
   const atIdx = (email || "").indexOf("@");
-  log.log("[WFMSession] signIn email shape — length:", email.length,
-    "hasAt:", atIdx > 0,
-    "localLen:", atIdx,
-    "domainLen:", atIdx > 0 ? email.length - atIdx - 1 : 0,
-    "isString:", typeof email === "string"
+  log.log(
+    "[WFMSession] signIn email shape — length:",
+    email.length,
+    "hasAt:",
+    atIdx > 0,
+    "localLen:",
+    atIdx,
+    "domainLen:",
+    atIdx > 0 ? email.length - atIdx - 1 : 0,
+    "isString:",
+    typeof email === "string",
   );
 
   // WFM sign-in: POST /v1/auth/signin
@@ -142,9 +151,7 @@ async function signIn(email, password) {
 
   // 3. Response body fallback
   if (!token) {
-    token = body?.payload?.token
-         || body?.token
-         || null;
+    token = body?.payload?.token || body?.token || null;
   }
 
   if (!token) {
@@ -156,7 +163,7 @@ async function signIn(email, password) {
   const userName = userInfo.ingame_name || userInfo.name || email.split("@")[0];
   _platform = userInfo.platform || "pc";
 
-  _token    = token;
+  _token = token;
   _userName = userName;
 
   // Update the CSRF token from the authenticated JWT payload
@@ -188,7 +195,7 @@ async function restoreSession() {
     return;
   }
 
-  _token    = saved.token;
+  _token = saved.token;
   _userName = saved.userName || null;
   _platform = saved.platform || "pc";
   updateCsrfFromToken(saved.token);
@@ -201,9 +208,9 @@ async function restoreSession() {
  */
 function getSession() {
   return {
-    loggedIn:  !!_token,
-    userName:  _userName || null,
-    platform:  _platform,
+    loggedIn: !!_token,
+    userName: _userName || null,
+    platform: _platform,
   };
 }
 

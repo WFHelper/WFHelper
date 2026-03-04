@@ -1,5 +1,6 @@
-const log = require('./logger').withScope('wfmWebSocket');
 "use strict";
+
+const log = require("./logger").withScope("wfmWebSocket");
 
 /**
  * wfmWebSocket.js — Minimal WebSocket client for WFM status updates.
@@ -18,14 +19,14 @@ const log = require('./logger').withScope('wfmWebSocket');
  * No external npm packages required — only Node.js built-ins.
  */
 
-const tls    = require("tls");
+const tls = require("tls");
 const crypto = require("crypto");
 
-const WS_HOST     = "ws.warframe.market";
-const WS_PORT     = 443;
-const WS_PATH     = "/socket";
+const WS_HOST = "ws.warframe.market";
+const WS_PORT = 443;
+const WS_PATH = "/socket";
 const WS_PROTOCOL = "wfm";
-const WS_TIMEOUT  = 15000;
+const WS_TIMEOUT = 15000;
 const WS_ACCEPT_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -33,7 +34,7 @@ const WS_ACCEPT_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 /** Generate an 11-character alphanumeric message ID. */
 function _genId() {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  return Array.from(crypto.randomBytes(11), b => chars[b % chars.length]).join("");
+  return Array.from(crypto.randomBytes(11), (b) => chars[b % chars.length]).join("");
 }
 
 /**
@@ -42,8 +43,8 @@ function _genId() {
  */
 function _encodeFrame(text) {
   const payload = Buffer.from(text, "utf-8");
-  const len     = payload.length;
-  const mask    = crypto.randomBytes(4);
+  const len = payload.length;
+  const mask = crypto.randomBytes(4);
 
   let header;
   if (len < 126) {
@@ -51,7 +52,7 @@ function _encodeFrame(text) {
   } else if (len < 65536) {
     header = Buffer.allocUnsafe(4);
     header[0] = 0x81;
-    header[1] = 0xFE;
+    header[1] = 0xfe;
     header.writeUInt16BE(len, 2);
   } else {
     throw new Error("WS frame payload too large");
@@ -71,10 +72,10 @@ function _encodeFrame(text) {
 function _parseFrame(buf) {
   if (buf.length < 2) return null;
 
-  const opcode = buf[0] & 0x0F;
-  const masked  = (buf[1] & 0x80) !== 0;
-  let   payLen  = buf[1] & 0x7F;
-  let   offset  = 2;
+  const opcode = buf[0] & 0x0f;
+  const masked = (buf[1] & 0x80) !== 0;
+  let payLen = buf[1] & 0x7f;
+  let offset = 2;
 
   if (payLen === 126) {
     if (buf.length < 4) return null;
@@ -87,13 +88,13 @@ function _parseFrame(buf) {
   }
 
   const maskBytes = masked ? 4 : 0;
-  const total     = offset + maskBytes + payLen;
+  const total = offset + maskBytes + payLen;
   if (buf.length < total) return null;
 
   let payload;
   if (masked) {
     const mk = buf.slice(offset, offset + 4);
-    payload  = Buffer.allocUnsafe(payLen);
+    payload = Buffer.allocUnsafe(payLen);
     for (let i = 0; i < payLen; i++) payload[i] = buf[offset + 4 + i] ^ mk[i % 4];
   } else {
     payload = buf.slice(offset, offset + payLen);
@@ -113,21 +114,24 @@ function _parseFrame(buf) {
  */
 function setStatusViaWebSocket(token, status) {
   return new Promise((resolve, reject) => {
-    let settled  = false;
+    let settled = false;
     let upgraded = false;
-    let wsBuf    = Buffer.alloc(0);
+    let wsBuf = Buffer.alloc(0);
     let httpAccum = "";
-    let statusOk  = false; // server confirmed @wfm|cmd/status/set:ok
+    let statusOk = false; // server confirmed @wfm|cmd/status/set:ok
     let expectedWsAccept = "";
 
     function done(err) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      try { socket.destroy(); } catch (destroyErr) {
-        log.warn('[WFMWebSocket] socket.destroy failed:', destroyErr.message);
+      try {
+        socket.destroy();
+      } catch (destroyErr) {
+        log.warn("[WFMWebSocket] socket.destroy failed:", destroyErr.message);
       }
-      if (err) reject(err); else resolve();
+      if (err) reject(err);
+      else resolve();
     }
 
     // If status was already confirmed but close handshake stalls, still resolve
@@ -144,14 +148,14 @@ function setStatusViaWebSocket(token, status) {
         .digest("base64");
       socket.write(
         `GET ${WS_PATH} HTTP/1.1\r\n` +
-        `Host: ${WS_HOST}\r\n` +
-        `Upgrade: websocket\r\n` +
-        `Connection: Upgrade\r\n` +
-        `Sec-WebSocket-Key: ${wsKey}\r\n` +
-        `Sec-WebSocket-Version: 13\r\n` +
-        `Sec-WebSocket-Protocol: ${WS_PROTOCOL}\r\n` +
-        `Origin: https://warframe.market\r\n` +
-        `\r\n`,
+          `Host: ${WS_HOST}\r\n` +
+          `Upgrade: websocket\r\n` +
+          `Connection: Upgrade\r\n` +
+          `Sec-WebSocket-Key: ${wsKey}\r\n` +
+          `Sec-WebSocket-Version: 13\r\n` +
+          `Sec-WebSocket-Protocol: ${WS_PROTOCOL}\r\n` +
+          `Origin: https://warframe.market\r\n` +
+          `\r\n`,
       );
     });
 
@@ -207,7 +211,7 @@ function setStatusViaWebSocket(token, status) {
 
         upgraded = true;
         // Bytes after the HTTP headers are the start of the WebSocket stream
-        wsBuf   = Buffer.from(httpAccum.slice(hdrEnd + 4), "binary");
+        wsBuf = Buffer.from(httpAccum.slice(hdrEnd + 4), "binary");
         httpAccum = "";
 
         // Step 3 — authenticate
@@ -224,18 +228,24 @@ function setStatusViaWebSocket(token, status) {
 
         const { opcode, text } = frame;
 
-        if (opcode === 8) { // Close frame from server
+        if (opcode === 8) {
+          // Close frame from server
           done(statusOk ? null : new Error("Server closed WS before status was set"));
           return;
         }
-        if (opcode === 9) { // Ping → reply with Pong (masked, no payload)
-          socket.write(Buffer.from([0x8A, 0x80, 0x00, 0x00, 0x00, 0x00]));
+        if (opcode === 9) {
+          // Ping → reply with Pong (masked, no payload)
+          socket.write(Buffer.from([0x8a, 0x80, 0x00, 0x00, 0x00, 0x00]));
           continue;
         }
         if (opcode !== 1) continue; // Not a text frame — skip
 
         let msg;
-        try { msg = JSON.parse(text); } catch { continue; }
+        try {
+          msg = JSON.parse(text);
+        } catch {
+          continue;
+        }
 
         const route = msg.route || "";
         log.log("[WFMWebSocket] ←", route);
