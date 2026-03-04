@@ -1,208 +1,241 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
-  <title>OCR Crop Debugger</title>
-  <style>
-    :root {
-      --bg: #08101b;
-      --panel: #0e1a2a;
-      --panel-2: #13233a;
-      --text: #e8eef7;
-      --muted: #9fb0c9;
-      --accent: #2bc6ff;
-      --accent-2: #0f7ea3;
-      --success: #20c07a;
-      --warning: #f0b429;
-      --danger: #f06a6a;
-      --band: rgba(43, 198, 255, 0.25);
-      --band-border: rgba(43, 198, 255, 0.95);
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none';"
+    />
+    <title>OCR Crop Debugger</title>
+    <style>
+      :root {
+        --bg: #08101b;
+        --panel: #0e1a2a;
+        --panel-2: #13233a;
+        --text: #e8eef7;
+        --muted: #9fb0c9;
+        --accent: #2bc6ff;
+        --accent-2: #0f7ea3;
+        --success: #20c07a;
+        --warning: #f0b429;
+        --danger: #f06a6a;
+        --band: rgba(43, 198, 255, 0.25);
+        --band-border: rgba(43, 198, 255, 0.95);
+      }
 
-    * { box-sizing: border-box; }
+      * {
+        box-sizing: border-box;
+      }
 
-    html, body {
-      margin: 0;
-      width: 100%;
-      height: 100%;
-      background: radial-gradient(1200px 700px at 20% -10%, #1d3354 0%, var(--bg) 48%);
-      color: var(--text);
-      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-      overflow: hidden;
-    }
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(1200px 700px at 20% -10%, #1d3354 0%, var(--bg) 48%);
+        color: var(--text);
+        font-family:
+          "Segoe UI",
+          system-ui,
+          -apple-system,
+          sans-serif;
+        overflow: hidden;
+      }
 
-    .app {
-      display: grid;
-      grid-template-rows: auto auto 1fr auto;
-      width: 100%;
-      height: 100%;
-      gap: 10px;
-      padding: 14px;
-    }
+      .app {
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+        width: 100%;
+        height: 100%;
+        gap: 10px;
+        padding: 14px;
+      }
 
-    .card {
-      background: linear-gradient(180deg, rgba(19, 35, 58, 0.88), rgba(14, 26, 42, 0.95));
-      border: 1px solid rgba(120, 165, 220, 0.25);
-      border-radius: 10px;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
-    }
+      .card {
+        background: linear-gradient(180deg, rgba(19, 35, 58, 0.88), rgba(14, 26, 42, 0.95));
+        border: 1px solid rgba(120, 165, 220, 0.25);
+        border-radius: 10px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+      }
 
-    .header {
-      padding: 10px 14px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-    }
+      .header {
+        padding: 10px 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
 
-    .title {
-      font-size: 15px;
-      font-weight: 700;
-      letter-spacing: 0.4px;
-    }
+      .title {
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+      }
 
-    .subtitle {
-      margin-top: 2px;
-      font-size: 12px;
-      color: var(--muted);
-    }
+      .subtitle {
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--muted);
+      }
 
-    .toolbar {
-      padding: 10px 14px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-    }
+      .toolbar {
+        padding: 10px 14px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
 
-    .btn {
-      border: 1px solid rgba(120, 165, 220, 0.4);
-      background: #132840;
-      color: var(--text);
-      padding: 6px 10px;
-      border-radius: 7px;
-      font-size: 12px;
-      cursor: pointer;
-      transition: transform 0.12s ease, filter 0.12s ease, border-color 0.12s ease;
-    }
+      .btn {
+        border: 1px solid rgba(120, 165, 220, 0.4);
+        background: #132840;
+        color: var(--text);
+        padding: 6px 10px;
+        border-radius: 7px;
+        font-size: 12px;
+        cursor: pointer;
+        transition:
+          transform 0.12s ease,
+          filter 0.12s ease,
+          border-color 0.12s ease;
+      }
 
-    .btn:hover { filter: brightness(1.08); border-color: rgba(120, 165, 220, 0.75); }
-    .btn:active { transform: translateY(1px); }
-    .btn.primary { background: linear-gradient(180deg, var(--accent), var(--accent-2)); color: #08121f; font-weight: 700; }
-    .btn.success { background: linear-gradient(180deg, #33d693, #1f9f6f); color: #05140d; font-weight: 700; }
+      .btn:hover {
+        filter: brightness(1.08);
+        border-color: rgba(120, 165, 220, 0.75);
+      }
+      .btn:active {
+        transform: translateY(1px);
+      }
+      .btn.primary {
+        background: linear-gradient(180deg, var(--accent), var(--accent-2));
+        color: #08121f;
+        font-weight: 700;
+      }
+      .btn.success {
+        background: linear-gradient(180deg, #33d693, #1f9f6f);
+        color: #05140d;
+        font-weight: 700;
+      }
 
-    .spacer { flex: 1; }
+      .spacer {
+        flex: 1;
+      }
 
-    .stats {
-      font-size: 12px;
-      color: var(--muted);
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
+      .stats {
+        font-size: 12px;
+        color: var(--muted);
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
 
-    .viewer-wrap {
-      min-height: 0;
-      padding: 10px;
-      display: flex;
-    }
+      .viewer-wrap {
+        min-height: 0;
+        padding: 10px;
+        display: flex;
+      }
 
-    .viewer {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      border-radius: 8px;
-      overflow: hidden;
-      border: 1px solid rgba(120, 165, 220, 0.22);
-      background: #000;
-      user-select: none;
-      cursor: crosshair;
-    }
+      .viewer {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid rgba(120, 165, 220, 0.22);
+        background: #000;
+        user-select: none;
+        cursor: crosshair;
+      }
 
-    .viewer img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      display: block;
-      pointer-events: none;
-      opacity: 0.96;
-    }
+      .viewer img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+        pointer-events: none;
+        opacity: 0.96;
+      }
 
-    .band {
-      position: absolute;
-      left: 0;
-      width: 100%;
-      background: var(--band);
-      border-top: 2px solid var(--band-border);
-      border-bottom: 2px solid var(--band-border);
-      box-shadow: 0 0 0 1px rgba(8, 16, 27, 0.65) inset;
-      pointer-events: none;
-    }
+      .band {
+        position: absolute;
+        left: 0;
+        width: 100%;
+        background: var(--band);
+        border-top: 2px solid var(--band-border);
+        border-bottom: 2px solid var(--band-border);
+        box-shadow: 0 0 0 1px rgba(8, 16, 27, 0.65) inset;
+        pointer-events: none;
+      }
 
-    .footer {
-      padding: 10px 14px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      font-size: 12px;
-      color: var(--muted);
-    }
+      .footer {
+        padding: 10px 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
+        color: var(--muted);
+      }
 
-    .status.ok { color: var(--success); }
-    .status.warn { color: var(--warning); }
-    .status.err { color: var(--danger); }
+      .status.ok {
+        color: var(--success);
+      }
+      .status.warn {
+        color: var(--warning);
+      }
+      .status.err {
+        color: var(--danger);
+      }
 
-    .kbd {
-      border: 1px solid rgba(120, 165, 220, 0.4);
-      border-bottom-width: 2px;
-      border-radius: 5px;
-      padding: 1px 5px;
-      font-size: 11px;
-      color: #d7e5fa;
-      background: rgba(18, 34, 54, 0.8);
-    }
-  </style>
-</head>
-<body>
-  <div class="app">
-    <section class="card header">
-      <div>
-        <div class="title">OCR Crop Debugger</div>
-        <div class="subtitle">Drag vertically on the screenshot to select the reward band used by OCR.</div>
-      </div>
-      <button id="closeBtn" class="btn" type="button">Close</button>
-    </section>
+      .kbd {
+        border: 1px solid rgba(120, 165, 220, 0.4);
+        border-bottom-width: 2px;
+        border-radius: 5px;
+        padding: 1px 5px;
+        font-size: 11px;
+        color: #d7e5fa;
+        background: rgba(18, 34, 54, 0.8);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <section class="card header">
+        <div>
+          <div class="title">OCR Crop Debugger</div>
+          <div class="subtitle">
+            Drag vertically on the screenshot to select the reward band used by OCR.
+          </div>
+        </div>
+        <button id="closeBtn" class="btn" type="button">Close</button>
+      </section>
 
-    <section class="card toolbar">
-      <button id="resetBtn" class="btn" type="button">Reset To Current</button>
-      <button id="applyBtn" class="btn success" type="button">Apply + Set Custom Preset</button>
-      <div class="spacer"></div>
-      <div class="stats">
-        <span>Top: <strong id="topRatio">-</strong></span>
-        <span>Height: <strong id="heightRatio">-</strong></span>
-        <span>Bottom: <strong id="bottomRatio">-</strong></span>
-        <span>Source: <strong id="sourceInfo">-</strong></span>
-      </div>
-    </section>
+      <section class="card toolbar">
+        <button id="resetBtn" class="btn" type="button">Reset To Current</button>
+        <button id="applyBtn" class="btn success" type="button">Apply + Set Custom Preset</button>
+        <div class="spacer"></div>
+        <div class="stats">
+          <span>Top: <strong id="topRatio">-</strong></span>
+          <span>Height: <strong id="heightRatio">-</strong></span>
+          <span>Bottom: <strong id="bottomRatio">-</strong></span>
+          <span>Source: <strong id="sourceInfo">-</strong></span>
+        </div>
+      </section>
 
-    <section class="card viewer-wrap">
-      <div id="viewer" class="viewer" title="Click and drag vertically to select OCR band">
-        <img id="frameImage" alt="Warframe capture" />
-        <div id="band" class="band"></div>
-      </div>
-    </section>
+      <section class="card viewer-wrap">
+        <div id="viewer" class="viewer" title="Click and drag vertically to select OCR band">
+          <img id="frameImage" alt="Warframe capture" />
+          <div id="band" class="band"></div>
+        </div>
+      </section>
 
-    <section class="card footer">
-      <div id="status" class="status">Waiting for capture...</div>
-      <div>
-        <span class="kbd">Enter</span> apply,
-        <span class="kbd">Esc</span> close
-      </div>
-    </section>
-  </div>
+      <section class="card footer">
+        <div id="status" class="status">Waiting for capture...</div>
+        <div><span class="kbd">Enter</span> apply, <span class="kbd">Esc</span> close</div>
+      </section>
+    </div>
 
-  <script src="crop-debug.js"></script>
-</body>
+    <script src="crop-debug.js"></script>
+  </body>
 </html>

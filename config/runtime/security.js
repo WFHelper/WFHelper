@@ -9,7 +9,9 @@ const OPEN_EXTERNAL_ALLOWED_HOSTS = Object.freeze([
 ]);
 
 function isAllowedExternalHost(hostname) {
-  const host = String(hostname || "").trim().toLowerCase();
+  const host = String(hostname || "")
+    .trim()
+    .toLowerCase();
   if (!host) return false;
   return OPEN_EXTERNAL_ALLOWED_HOSTS.includes(host);
 }
@@ -21,6 +23,10 @@ const MAIN_WINDOW_CSP = [
   "font-src https://fonts.gstatic.com",
   "img-src 'self' data: https:",
   "connect-src 'self' https:",
+  "base-uri 'none'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'none'",
 ].join("; ");
 
 module.exports = {
