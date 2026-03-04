@@ -87,7 +87,7 @@
   $: tabItems = buildInventoryViewItems(tabBaseItems, $hydrationMetrics, filter);
   $: filtered = applySharedFiltersAndSort(tabItems, $inventoryFilters);
   $: filteredTotalCount = computeFilteredTotalCount(filtered);
-  $: metricNeeds = metricNeedsFromFilters($inventoryFilters);
+  $: metricNeeds = metricNeedsFromFilters($inventoryFilters, filter);
   $: prefetchVisibleMetrics(filtered, metricNeeds);
   $: backendDebugCounters = $hydrationDebug.priceDebugCounters as unknown as Record<string, number>;
   $: if ($debugMode) {

@@ -22,6 +22,8 @@ export interface ItemDbEntry {
   productCategory?: string;
   type?: string;
   isPrime?: boolean;
+  isBuildComponent?: boolean;
+  componentOf?: string;
   masteryReq?: number;
   vaulted?: boolean;
   tradable?: boolean;

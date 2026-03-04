@@ -37,7 +37,7 @@
     perfSnapshot,
   } from "../lib/perf.js";
   import { debugMode } from "../stores/app.js";
-  import type { RelicGroup } from "../types/relics.js";
+  import type { RelicGroup, RelicQuality } from "../types/relics.js";
 
   const TIER_OPTIONS: Array<[string, string]> = [
     ["all", "All"],
@@ -77,6 +77,14 @@
     [3, "3P"],
     [4, "4P"],
   ];
+
+  const RELIC_QUALITY_COLUMNS: RelicQuality[] = ["intact", "exceptional", "flawless", "radiant"];
+  const RELIC_QUALITY_SHORT: Record<RelicQuality, string> = {
+    intact: "Int",
+    exceptional: "Ex",
+    flawless: "Fl",
+    radiant: "Rad",
+  };
 
   const EV_WARMUP_UI_DEBOUNCE_MS = 800;
   const CARD_WARMUP_UI_DEBOUNCE_MS = 450;
@@ -365,43 +373,76 @@
     }
   }
 
-  function evLabel(group: RelicGroup): { text: string; cls: string } {
+  interface RowEvData {
+    plat: number | null;
+    ducat: number | null;
+    ratio: number | null;
+    cls: "has-value" | "loading" | "no-data";
+  }
+
+  function selectedEvData(group: RelicGroup): RowEvData {
     const platEv = getCachedEv(group.key, $relicSquadSize, $relicQualityMode);
     const ducatEv = computeGroupDucatEv(group, $relicSquadSize, $relicQualityMode);
     const ratio = computeGroupDucatonator(group, $relicSquadSize, $relicQualityMode);
     const noData = evHasFreshNoData(group.key, $relicSquadSize, $relicQualityMode);
-    const relicPrice = getCachedRelicCardPrice(group.key);
-    const qualityLabel =
-      $relicQualityMode === "best"
-        ? "Best"
-        : $relicQualityMode === "exceptional"
-          ? "Ex"
-          : $relicQualityMode.charAt(0).toUpperCase() + $relicQualityMode.slice(1, 3);
 
-    if (platEv != null && ducatEv != null) {
-      const ratioText = ratio != null ? ` (${ratio.toFixed(1)} d/p)` : "";
+    return {
+      plat: platEv,
+      ducat: ducatEv,
+      ratio,
+      cls: platEv != null || ducatEv != null ? "has-value" : noData ? "no-data" : "loading",
+    };
+  }
+
+  function bestQualityBadge(group: RelicGroup): { text: string; cls: "has-value" | "loading" | "no-data" } {
+    let bestPlat: { quality: RelicQuality; value: number } | null = null;
+    let bestDucat: { quality: RelicQuality; value: number } | null = null;
+
+    for (const quality of RELIC_QUALITY_COLUMNS) {
+      const plat = getCachedEv(group.key, $relicSquadSize, quality);
+      if (plat != null && (!bestPlat || plat > bestPlat.value)) {
+        bestPlat = { quality, value: plat };
+      }
+
+      const ducat = computeGroupDucatEv(group, $relicSquadSize, quality);
+      if (ducat != null && (!bestDucat || ducat > bestDucat.value)) {
+        bestDucat = { quality, value: ducat };
+      }
+    }
+
+    if (bestPlat) {
       return {
-        text: `${qualityLabel} ~${platEv.toFixed(1)}p | ${ducatEv.toFixed(1)}d${ratioText}`,
+        text: `${RELIC_QUALITY_SHORT[bestPlat.quality]} ${bestPlat.value.toFixed(1)}p`,
         cls: "has-value",
       };
     }
 
-    if (platEv != null) {
-      return { text: `${qualityLabel} ~${platEv.toFixed(1)}p`, cls: "has-value" };
+    if (bestDucat) {
+      return {
+        text: `${RELIC_QUALITY_SHORT[bestDucat.quality]} ${bestDucat.value.toFixed(1)}d`,
+        cls: "has-value",
+      };
     }
 
-    if (ducatEv != null) {
-      return { text: `${qualityLabel} ${ducatEv.toFixed(1)}d`, cls: "has-value" };
-    }
-
-    if (relicPrice != null) {
-      return { text: `Relic ${relicPrice}p`, cls: "has-value" };
-    }
+    const anyNoData = RELIC_QUALITY_COLUMNS.some((quality) =>
+      evHasFreshNoData(group.key, $relicSquadSize, quality),
+    );
 
     return {
-      text: `${qualityLabel} ${noData ? "N/A" : "..."}`,
-      cls: noData ? "no-data" : "loading",
+      text: anyNoData ? "N/A" : "...",
+      cls: anyNoData ? "no-data" : "loading",
     };
+  }
+
+  function ownedCount(group: RelicGroup, quality: RelicQuality): number {
+    const owned = $relicOwnedCounts[group.key];
+    return owned?.[quality] ?? 0;
+  }
+
+  function selectedQualityHeader(mode: "best" | RelicQuality): string {
+    if (mode === "best") return "Selected EV (Best)";
+    const label = mode.charAt(0).toUpperCase() + mode.slice(1);
+    return `Selected EV (${label})`;
   }
 
   function fallbackIconForTier(tierClass: string): string {
@@ -487,43 +528,77 @@
   {:else if groups.length === 0}
     <div class="empty-state"><p>No relics found</p></div>
   {:else}
-    <div id="relic-grid">
+    <div class="relic-cards relic-cards-3">
       {#each groups as group (group.key)}
         {@const tierClass = fissureTierClass(group.tier)}
         {@const iconSrc =
           group.imageUrl || RELIC_ICON_PATHS[tierClass] || RELIC_ICON_PATHS.default}
-        {@const owned = $relicOwnedCounts[group.key]}
-        {@const totalOwned = owned ? Object.values(owned).reduce((sum, count) => sum + count, 0) : 0}
-        {@const ev = evLabel(group)}
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <div class="relic-card" on:click={() => activeRelic.set(group)}>
-          <div class="relic-card-icon">
-            <span class="relic-icon {tierClass}">
-              <img
-                class="relic-icon-img"
-                src={iconSrc}
-                alt={group.name}
-                loading="lazy"
-                on:error={(event) => onRelicIconError(event, tierClass)}
-              />
+        {@const selected = selectedEvData(group)}
+        {@const best = bestQualityBadge(group)}
+        {@const totalOwned = RELIC_QUALITY_COLUMNS.reduce(
+          (sum, quality) => sum + ownedCount(group, quality),
+          0,
+        )}
+
+        <button type="button" class="relic-compact-card" on:click={() => activeRelic.set(group)}>
+          <span class="relic-compact-head">
+            <span class="relic-row-icon-shell">
+              <span class="relic-icon {tierClass}">
+                <img
+                  class="relic-icon-img"
+                  src={iconSrc}
+                  alt={group.name}
+                  loading="lazy"
+                  on:error={(event) => onRelicIconError(event, tierClass)}
+                />
+              </span>
             </span>
-          </div>
 
-          <div class="relic-card-body">
-            <span class="relic-card-name">{group.name}</span>
-            <span class="relic-card-tier tier-{tierClass}">{group.tier}</span>
-            {#if $debugMode}
-              <span class="debug-reason">show:relic-planner:{group.key}</span>
-            {/if}
-          </div>
+            <span class="relic-row-main">
+              <span class="relic-row-name">{group.name}</span>
+              <span class="relic-row-meta">
+                <span class="relic-card-tier tier-{tierClass}">{group.tier}</span>
+                {#if totalOwned > 0}
+                  <span class="relic-owned-inline">x{totalOwned}</span>
+                {/if}
+              </span>
+            </span>
+          </span>
 
-          <span class="relic-ev-badge {ev.cls}">{ev.text}</span>
+          <span class="relic-compact-owned">
+            {#each RELIC_QUALITY_COLUMNS as quality}
+              {@const count = ownedCount(group, quality)}
+              <span class="relic-owned-col">
+                <span class="relic-owned-label">{RELIC_QUALITY_SHORT[quality]}</span>
+                <span class="relic-col-owned" class:zero={count === 0}>{count}</span>
+              </span>
+            {/each}
+          </span>
 
-          {#if totalOwned > 0}
-            <span class="relic-owned-badge">x{totalOwned}</span>
+          <span class="relic-compact-ev-block">
+            <span class="relic-compact-block-label">{selectedQualityHeader($relicQualityMode)}</span>
+            <span class="relic-compact-ev-row">
+              <span class={`relic-row-pill relic-row-pill-plat ${selected.cls}`}>
+                {selected.plat != null ? `${selected.plat.toFixed(1)}p` : "p -"}
+              </span>
+              <span class={`relic-row-pill relic-row-pill-ducat ${selected.cls}`}>
+                {selected.ducat != null ? `${selected.ducat.toFixed(1)}d` : "d -"}
+              </span>
+              <span class={`relic-row-pill relic-row-pill-ratio ${selected.cls}`}>
+                {selected.ratio != null ? `${selected.ratio.toFixed(1)} d/p` : "d/p -"}
+              </span>
+            </span>
+          </span>
+
+          <span class="relic-compact-best-block">
+            <span class="relic-compact-block-label">Best EV</span>
+            <span class={`relic-best-chip ${best.cls}`}>{best.text}</span>
+          </span>
+
+          {#if $debugMode}
+            <span class="debug-reason">show:relic-planner:{group.key}</span>
           {/if}
-        </div>
+        </button>
       {/each}
     </div>
   {/if}

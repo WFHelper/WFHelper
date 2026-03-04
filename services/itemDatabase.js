@@ -1,4 +1,4 @@
-const log = require('./logger').withScope('itemDatabase');
+const log = require("./logger").withScope("itemDatabase");
 // ═══════════════════════════════════════════════════════════════════════════
 // Item Database Service
 // Primary:  warframe-public-export-plus (Sainan/calamity-inc) — raw game data
@@ -11,6 +11,24 @@ const fs = require("fs");
 // Image CDNs — wfcd CDN is more reliable for direct <img> usage
 const WFCD_CDN = "https://cdn.warframestat.us/img/";
 const BROWSE_WF = "https://browse.wf";
+
+function isLikelyBuildComponent(uniqueName, componentName = "") {
+  if (!uniqueName) return false;
+
+  if (
+    /\/Types\/Recipes\//i.test(uniqueName) ||
+    /\/WeaponParts?\//i.test(uniqueName) ||
+    /\/WarframeParts?\//i.test(uniqueName) ||
+    /\/LandingCraftRecipes\//i.test(uniqueName)
+  ) {
+    return true;
+  }
+
+  const lowerName = String(componentName || "").toLowerCase();
+  return /\b(blueprint|barrel|receiver|stock|blade|handle|hilt|chassis|systems|neuroptics|fuselage|engines|avionics|carapace|cerebrum|pod|wings|harness|link|disc|gauntlet|grip|ornament)\b/.test(
+    lowerName,
+  );
+}
 
 let itemsByUniqueName = {};
 let wfcdItemsByUniqueName = {};
@@ -67,7 +85,9 @@ function loadDict() {
   }
 
   log.warn("[ItemDB] Could not load dict.en.json. Tried:", attempts.join(" | "));
-  log.warn("[ItemDB] Names from public-export-plus will fall back to @wfcd/items or path extraction");
+  log.warn(
+    "[ItemDB] Names from public-export-plus will fall back to @wfcd/items or path extraction",
+  );
   return {};
 }
 
@@ -93,22 +113,22 @@ function loadPublicExportPlus() {
     }
 
     const exportMappings = [
-      { exportKey: "ExportWarframes",       category: "Warframe" },
-      { exportKey: "ExportWeapons",         category: "Weapon" },
-      { exportKey: "ExportSentinels",       category: "Companion" },
-      { exportKey: "ExportResources",       category: "Resource" },
-      { exportKey: "ExportRecipes",         category: "Recipe" },
-      { exportKey: "ExportGear",            category: "Gear" },
-      { exportKey: "ExportArcanes",         category: "Arcane" },
-      { exportKey: "ExportUpgrades",        category: "Mod" },
-      { exportKey: "ExportKeys",            category: "Key" },
-      { exportKey: "ExportMisc",            category: "Misc" },
-      { exportKey: "ExportRelics",          category: "Relic" },
+      { exportKey: "ExportWarframes", category: "Warframe" },
+      { exportKey: "ExportWeapons", category: "Weapon" },
+      { exportKey: "ExportSentinels", category: "Companion" },
+      { exportKey: "ExportResources", category: "Resource" },
+      { exportKey: "ExportRecipes", category: "Recipe" },
+      { exportKey: "ExportGear", category: "Gear" },
+      { exportKey: "ExportArcanes", category: "Arcane" },
+      { exportKey: "ExportUpgrades", category: "Mod" },
+      { exportKey: "ExportKeys", category: "Key" },
+      { exportKey: "ExportMisc", category: "Misc" },
+      { exportKey: "ExportRelics", category: "Relic" },
       { exportKey: "ExportRailjackWeapons", category: "Railjack" },
-      { exportKey: "ExportFusionBundles",   category: "Fusion" },
-      { exportKey: "ExportCustoms",         category: "Cosmetic" },
-      { exportKey: "ExportFlavour",         category: "Cosmetic" },
-      { exportKey: "ExportDrones",          category: "Gear" },
+      { exportKey: "ExportFusionBundles", category: "Fusion" },
+      { exportKey: "ExportCustoms", category: "Cosmetic" },
+      { exportKey: "ExportFlavour", category: "Cosmetic" },
+      { exportKey: "ExportDrones", category: "Gear" },
     ];
 
     let pepCount = 0;
@@ -125,8 +145,8 @@ function loadPublicExportPlus() {
         itemsByUniqueName[uniqueName] = {
           name: resolvedName,
           category,
-          imageUrl: null,             // Will be set by wfcd if available
-          browseWfUrl: resolveIcon(item.icon),  // Keep as fallback
+          imageUrl: null, // Will be set by wfcd if available
+          browseWfUrl: resolveIcon(item.icon), // Keep as fallback
           isPrime: resolvedName.includes("Prime"),
           masteryReq: item.masteryReq || 0,
           vaulted: item.vaulted || false,
@@ -152,14 +172,29 @@ function loadWfcdItems() {
   try {
     const Items = require("@wfcd/items");
     const CATEGORIES = [
-      "Warframes", "Primary", "Secondary", "Melee", "Sentinels", "Pets",
-      "Archwing", "Arch-Gun", "Arch-Melee", "Mods", "Resources", "Misc",
-      "Relics", "Fish", "Gear", "Arcanes",
+      "Warframes",
+      "Primary",
+      "Secondary",
+      "Melee",
+      "Sentinels",
+      "Pets",
+      "Archwing",
+      "Arch-Gun",
+      "Arch-Melee",
+      "Mods",
+      "Resources",
+      "Misc",
+      "Relics",
+      "Fish",
+      "Gear",
+      "Arcanes",
     ];
 
     const items = new Items({ category: CATEGORIES });
     let wfcdNewCount = 0;
     let wfcdSupplementCount = 0;
+    let wfcdComponentNewCount = 0;
+    let wfcdComponentSupplementCount = 0;
 
     for (const item of items) {
       if (!item.uniqueName) continue;
@@ -191,11 +226,67 @@ function loadWfcdItems() {
       if (item.components) {
         for (const comp of item.components) {
           if (comp.uniqueName) {
-            wfcdItemsByUniqueName[comp.uniqueName] = {
+            const componentLooksLikePart = isLikelyBuildComponent(comp.uniqueName, comp.name);
+            const componentEntry = {
               ...wfcdEntry,
-              name: `${item.name} ${comp.name}`,
+              name:
+                item.name && comp.name
+                  ? `${item.name} ${comp.name}`
+                  : comp.name || item.name || "Unknown",
               imageUrl: comp.imageName ? WFCD_CDN + comp.imageName : wfcdImageUrl,
+              tradable: typeof comp.tradable === "boolean" ? comp.tradable : wfcdEntry.tradable,
+              type: comp.name ? `${comp.name} Part` : wfcdEntry.type || "Part",
+              components: [],
+              drops: comp.drops || [],
+              description: "",
+              isBuildComponent: componentLooksLikePart,
+              componentOf: item.uniqueName,
             };
+
+            wfcdItemsByUniqueName[comp.uniqueName] = componentEntry;
+
+            if (!itemsByUniqueName[comp.uniqueName]) {
+              itemsByUniqueName[comp.uniqueName] = componentEntry;
+              wfcdComponentNewCount++;
+            } else {
+              const existingComponent = itemsByUniqueName[comp.uniqueName];
+
+              if (
+                (!existingComponent.name || String(existingComponent.name).startsWith("/Lotus/")) &&
+                componentEntry.name
+              ) {
+                existingComponent.name = componentEntry.name;
+              }
+
+              if (!existingComponent.imageUrl && componentEntry.imageUrl) {
+                existingComponent.imageUrl = componentEntry.imageUrl;
+              }
+
+              if (typeof componentEntry.tradable === "boolean") {
+                existingComponent.tradable = componentEntry.tradable;
+              }
+
+              if (!existingComponent.type && componentEntry.type) {
+                existingComponent.type = componentEntry.type;
+              }
+
+              if (!existingComponent.productCategory && componentEntry.productCategory) {
+                existingComponent.productCategory = componentEntry.productCategory;
+              }
+
+              if (componentLooksLikePart) {
+                existingComponent.isBuildComponent = true;
+                if (!existingComponent.componentOf) {
+                  existingComponent.componentOf = item.uniqueName;
+                }
+              }
+
+              if (!Array.isArray(existingComponent.components)) {
+                existingComponent.components = [];
+              }
+
+              wfcdComponentSupplementCount++;
+            }
           }
         }
       }
@@ -239,7 +330,9 @@ function loadWfcdItems() {
       }
     }
 
-    log.log(`[ItemDB] @wfcd/items: ${wfcdNewCount} new + ${wfcdSupplementCount} supplemented`);
+    log.log(
+      `[ItemDB] @wfcd/items: ${wfcdNewCount} new + ${wfcdSupplementCount} supplemented + ${wfcdComponentNewCount} component entries + ${wfcdComponentSupplementCount} component supplements`,
+    );
     return wfcdNewCount;
   } catch (err) {
     log.warn("[ItemDB] @wfcd/items not available:", err.message);
@@ -278,7 +371,9 @@ function resolveAllImages() {
     noImage++;
   }
 
-  log.log(`[ItemDB] Images: ${resolved} wfcd, ${browseWfFallback} browse.wf fallback, ${noImage} none`);
+  log.log(
+    `[ItemDB] Images: ${resolved} wfcd, ${browseWfFallback} browse.wf fallback, ${noImage} none`,
+  );
 }
 
 // ─── Fallback name extraction ──────────────────────────────────────────────
@@ -339,21 +434,22 @@ function getRendererLookup() {
       exalted: item.exalted || false,
       masterable: typeof item.masterable === "boolean" ? item.masterable : undefined,
       type: item.type || "",
+      isBuildComponent: item.isBuildComponent === true,
       description: item.description || "",
       productCategory: item.productCategory || null,
-      components: (item.components || []).map(c => ({
+      components: (item.components || []).map((c) => ({
         name: c.name || "",
         uniqueName: c.uniqueName || "",
         tradable: c.tradable || false,
         itemCount: c.itemCount || 1,
-        drops: (c.drops || []).map(d => ({
+        drops: (c.drops || []).map((d) => ({
           location: d.location || "",
           type: d.type || "",
           chance: d.chance || 0,
           rarity: d.rarity || "",
         })),
       })),
-      drops: (item.drops || []).slice(0, 20).map(d => ({
+      drops: (item.drops || []).slice(0, 20).map((d) => ({
         location: d.location || "",
         type: d.type || "",
         chance: d.chance || 0,

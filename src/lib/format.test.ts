@@ -22,9 +22,7 @@ describe("format helpers", () => {
   });
 
   it("parses ISO dates safely", () => {
-    expect(parseIsoDate("2026-03-02T10:30:00Z")?.toISOString()).toBe(
-      "2026-03-02T10:30:00.000Z",
-    );
+    expect(parseIsoDate("2026-03-02T10:30:00Z")?.toISOString()).toBe("2026-03-02T10:30:00.000Z");
     expect(parseIsoDate("not-a-date")).toBeNull();
     expect(parseIsoDate(null)).toBeNull();
   });
@@ -55,11 +53,10 @@ describe("format helpers", () => {
     expect(nextWeeklyResetUtc(now).toISOString()).toBe("2026-03-09T00:00:00.000Z");
   });
 
-  it("prefers API cycle time when non-zero and falls back otherwise", () => {
-    expect(cycleTimeDisplay("1h 22m", "2026-03-03T00:00:00Z")).toBe("1h 22m");
-
-    const fallback = cycleTimeDisplay("0m 0s", "2026-03-02T01:00:00Z");
-    expect(fallback).toBe("1h 0m 0s");
+  it("prefers expiry-driven cycle countdown and falls back to API time only without expiry", () => {
+    expect(cycleTimeDisplay("1h 22m", "2026-03-02T01:00:00Z")).toBe("1h 0m 0s");
+    expect(cycleTimeDisplay("1h 22m", null)).toBe("1h 22m");
+    expect(cycleTimeDisplay("47m", "not-a-date")).toBe("47m");
+    expect(cycleTimeDisplay("0m 0s", null)).toBe("N/A");
   });
 });
-

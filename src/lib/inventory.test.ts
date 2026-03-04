@@ -209,7 +209,7 @@ describe("inventory parsing", () => {
     expect(arcane?.leveledUp).toBe(true);
   });
 
-  it("keeps focus upgrades out of mods and routes upgrade arcanes correctly", () => {
+  it("hides focus upgrades and routes upgrade arcanes correctly", () => {
     const db: Record<string, ItemDbEntry> = {
       "/Lotus/Upgrades/Focus/Tactic/Residual/MeleeXpFocusUpgrade": {
         name: "Affinity Spike",
@@ -248,8 +248,8 @@ describe("inventory parsing", () => {
     expect(
       items.find(
         (item) => item.internalName === "/Lotus/Upgrades/Focus/Tactic/Residual/MeleeXpFocusUpgrade",
-      )?.inventoryGroup,
-    ).toBe("misc");
+      ),
+    ).toBeUndefined();
     expect(
       items.find(
         (item) =>
@@ -457,5 +457,181 @@ describe("inventory parsing", () => {
     );
 
     expect(mod?.equippedIn).toBeUndefined();
+  });
+
+  it("keeps all-parts focused on tradable build components", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Powersuits/Volt/VoltPrime": {
+        name: "Volt Prime",
+        category: "Warframes",
+        type: "Warframe",
+        isPrime: true,
+        tradable: true,
+      },
+      "/Lotus/Types/Recipes/Weapons/LatronPrimeBlueprint": {
+        name: "Latron Prime Blueprint",
+        category: "Primary",
+        type: "Blueprint",
+        isPrime: true,
+        tradable: true,
+        isBuildComponent: true,
+      },
+      "/Lotus/Types/Recipes/Weapons/BurstonPrimeBlueprint": {
+        name: "Burston Prime Blueprint",
+        category: "Recipe",
+        type: "Blueprint",
+        isPrime: true,
+      },
+      "/Lotus/Types/Recipes/WarframeRecipes/XakuPrimeHelmetBlueprint": {
+        name: "Xaku Prime Helmet Blueprint",
+        category: "Recipe",
+        type: "Blueprint",
+        isPrime: true,
+      },
+      "/Lotus/Types/Recipes/Weapons/BratonBlueprint": {
+        name: "Braton Blueprint",
+        category: "Recipe",
+        type: "Blueprint",
+        isPrime: false,
+      },
+      "/Lotus/Types/Items/MiscItems/PhotoboothTileCetusTown": {
+        name: "Cetus Scene",
+        category: "Misc",
+        type: "Captura",
+        tradable: true,
+      },
+      "/Lotus/Types/Items/FusionTreasures/OroFusexOrnamentB": {
+        name: "Ayatan Amber Star",
+        category: "Misc",
+        type: "Ayatan Star",
+        tradable: true,
+      },
+    };
+
+    const data: RawInventoryData = {
+      Suits: [{ ItemType: "/Lotus/Powersuits/Volt/VoltPrime", ItemCount: 1 }],
+      MiscItems: [
+        { ItemType: "/Lotus/Types/Recipes/Weapons/LatronPrimeBlueprint", ItemCount: 2 },
+        { ItemType: "/Lotus/Types/Items/MiscItems/PhotoboothTileCetusTown", ItemCount: 1 },
+      ],
+      Recipes: [
+        { ItemType: "/Lotus/Types/Recipes/Weapons/BurstonPrimeBlueprint", ItemCount: 1 },
+        { ItemType: "/Lotus/Types/Recipes/WarframeRecipes/XakuPrimeHelmetBlueprint", ItemCount: 1 },
+        { ItemType: "/Lotus/Types/Recipes/Weapons/BratonBlueprint", ItemCount: 1 },
+      ],
+      FusionTreasures: [
+        { ItemType: "/Lotus/Types/Items/FusionTreasures/OroFusexOrnamentB", ItemCount: 4 },
+      ],
+    };
+
+    const items = parseInventory(data, db);
+    expect(
+      items.find((item) => item.internalName === "/Lotus/Powersuits/Volt/VoltPrime")
+        ?.inventoryGroup,
+    ).toBe("misc");
+    expect(
+      items.find(
+        (item) => item.internalName === "/Lotus/Types/Recipes/Weapons/LatronPrimeBlueprint",
+      )?.inventoryGroup,
+    ).toBe("all_parts");
+    expect(
+      items.find(
+        (item) => item.internalName === "/Lotus/Types/Recipes/Weapons/BurstonPrimeBlueprint",
+      )?.inventoryGroup,
+    ).toBe("all_parts");
+    expect(
+      items.find(
+        (item) =>
+          item.internalName === "/Lotus/Types/Recipes/WarframeRecipes/XakuPrimeHelmetBlueprint",
+      )?.inventoryGroup,
+    ).toBe("all_parts");
+    expect(
+      items.find(
+        (item) =>
+          item.internalName === "/Lotus/Types/Recipes/WarframeRecipes/XakuPrimeHelmetBlueprint",
+      )?.name,
+    ).toBe("Xaku Prime Neuroptics Blueprint");
+    expect(
+      items.find((item) => item.internalName === "/Lotus/Types/Recipes/Weapons/BratonBlueprint")
+        ?.inventoryGroup,
+    ).toBe("misc");
+    expect(
+      items.find(
+        (item) => item.internalName === "/Lotus/Types/Items/MiscItems/PhotoboothTileCetusTown",
+      )?.inventoryGroup,
+    ).toBe("misc");
+    expect(
+      items.find(
+        (item) => item.internalName === "/Lotus/Types/Items/FusionTreasures/OroFusexOrnamentB",
+      )?.inventoryGroup,
+    ).toBe("misc");
+  });
+
+  it("keeps non-relic keys out of relic grouping", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Types/Keys/DojoKey": { name: "Dojo Key", category: "Key" },
+      "/Lotus/Types/Keys/TestKeyErisBoss": {
+        name: "Jordas Golem Assassination",
+        category: "Key",
+      },
+      "/Lotus/Types/Game/Projections/T2VoidProjectionXakuPrimeDBronze": {
+        name: "T2Void Projection Xaku Prime D Bronze",
+        category: "Relics",
+        type: "Relic",
+        tradable: true,
+      },
+    };
+
+    const data: RawInventoryData = {
+      LevelKeys: [
+        { ItemType: "/Lotus/Types/Keys/DojoKey", ItemCount: 1 },
+        { ItemType: "/Lotus/Types/Keys/TestKeyErisBoss", ItemCount: 1 },
+      ],
+      MiscItems: [
+        {
+          ItemType: "/Lotus/Types/Game/Projections/T2VoidProjectionXakuPrimeDBronze",
+          ItemCount: 3,
+        },
+      ],
+    };
+
+    const items = parseInventory(data, db);
+    expect(items.find((item) => item.internalName === "/Lotus/Types/Keys/DojoKey")).toBeUndefined();
+    expect(
+      items.find((item) => item.internalName === "/Lotus/Types/Keys/TestKeyErisBoss"),
+    ).toBeUndefined();
+    expect(
+      items.find(
+        (item) =>
+          item.internalName === "/Lotus/Types/Game/Projections/T2VoidProjectionXakuPrimeDBronze",
+      )?.inventoryGroup,
+    ).toBe("relics");
+  });
+
+  it("ignores noisy auxiliary inventory collections", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Types/Items/MiscItems/Forma": { name: "Forma", category: "Misc" },
+      "/Lotus/Types/Boosters/AffinityBooster": {
+        name: "Affinity Booster",
+        category: "Misc",
+        type: "Booster",
+      },
+    };
+
+    const data: RawInventoryData = {
+      MiscItems: [{ ItemType: "/Lotus/Types/Items/MiscItems/Forma", ItemCount: 2 }],
+      Boosters: [{ ItemType: "/Lotus/Types/Boosters/AffinityBooster", ItemCount: 1 }],
+      FocusUpgrades: [
+        { ItemType: "/Lotus/Upgrades/Focus/Tactic/Residual/MeleeXpFocusUpgrade", Level: 3 },
+      ],
+      QuestKeys: [{ ItemType: "/Lotus/Types/Keys/VorsPrize/VorsPrizeQuestKeyChain", ItemCount: 1 }],
+      KubrowPets: [
+        { ItemType: "/Lotus/Types/Friendly/Pets/CreaturePets/ArmoredInfestedCatbrowPetPowerSuit" },
+      ],
+    };
+
+    const items = parseInventory(data, db);
+    expect(items).toHaveLength(1);
+    expect(items[0].internalName).toBe("/Lotus/Types/Items/MiscItems/Forma");
   });
 });

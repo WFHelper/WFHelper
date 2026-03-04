@@ -52,6 +52,8 @@
   --resource-image-max: 34px;
   --detail-image-wrap: 108px;
   --detail-image-max: 94px;
+  --relic-grid-columns: 3;
+  --relic-grid-gap: 0.68rem;
   --relic-card-icon-size: 2.9rem;
   --relic-card-min-height: 5.2rem;
   --relic-card-pad-x: 0.78rem;
@@ -1853,6 +1855,168 @@ a:hover {
     gap: 0.42rem;
   }
 
+  .relic-cards {
+    display: grid;
+    gap: var(--relic-grid-gap);
+  }
+  .relic-cards-3 {
+    grid-template-columns: repeat(var(--relic-grid-columns), minmax(0, 1fr));
+  }
+  .relic-compact-card {
+    width: 100%;
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.5rem;
+    border: 1px solid rgba(96, 165, 250, 0.24);
+    border-radius: 0.74rem;
+    background:
+      radial-gradient(circle at 14% 30%, rgba(96, 165, 250, 0.14) 0%, rgba(96, 165, 250, 0) 48%),
+      linear-gradient(180deg, #12203a 0%, #0f1a30 100%);
+    padding: 0.6rem;
+    cursor: pointer;
+    text-align: left;
+    color: var(--text-primary);
+    font: inherit;
+    transition:
+      border-color 0.14s ease,
+      background 0.14s ease,
+      transform 0.14s ease;
+  }
+  .relic-compact-card:hover {
+    border-color: rgba(125, 185, 255, 0.45);
+    background:
+      radial-gradient(circle at 14% 30%, rgba(96, 165, 250, 0.22) 0%, rgba(96, 165, 250, 0) 56%),
+      linear-gradient(180deg, #162847 0%, #11203a 100%);
+    transform: translateY(-1px);
+  }
+  .relic-compact-head {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.56rem;
+  }
+  .relic-row-icon-shell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.8rem;
+    flex-shrink: 0;
+  }
+  .relic-row-main {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.24rem;
+  }
+  .relic-row-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .relic-row-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.36rem;
+  }
+  .relic-owned-inline {
+    border: 1px solid rgba(74, 222, 128, 0.45);
+    border-radius: 999px;
+    background: rgba(8, 98, 60, 0.78);
+    padding: 0.1rem 0.42rem;
+    color: #a8ffd0;
+    font-family: var(--font-display);
+    font-size: 0.67rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+  .relic-compact-owned {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.32rem;
+  }
+  .relic-owned-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.06rem;
+    border: 1px solid rgba(96, 165, 250, 0.16);
+    border-radius: 0.44rem;
+    background: rgba(12, 24, 44, 0.52);
+    padding: 0.22rem 0.2rem;
+  }
+  .relic-owned-label {
+    font-family: var(--font-display);
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+  }
+  .relic-col-owned {
+    text-align: center;
+  }
+  .relic-col-owned {
+    font-family: var(--font-display);
+    font-size: 0.88rem;
+    color: #d7e4ff;
+  }
+  .relic-col-owned.zero {
+    color: #7384a4;
+  }
+  .relic-compact-ev-block,
+  .relic-compact-best-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.24rem;
+  }
+  .relic-compact-block-label {
+    font-family: var(--font-display);
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+  .relic-compact-ev-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.24rem;
+  }
+  .relic-row-pill,
+  .relic-best-chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    border: 1px solid rgba(96, 165, 250, 0.32);
+    background: rgba(33, 57, 96, 0.78);
+    padding: 0.14rem 0.45rem;
+    font-family: var(--font-display);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: #bbd7ff;
+    white-space: nowrap;
+  }
+  .relic-row-pill.has-value,
+  .relic-best-chip.has-value {
+    border-color: rgba(250, 204, 21, 0.5);
+    background: rgba(92, 66, 14, 0.78);
+    color: #ffd565;
+  }
+  .relic-row-pill.no-data,
+  .relic-best-chip.no-data {
+    border-color: rgba(148, 163, 184, 0.3);
+    background: rgba(31, 41, 55, 0.72);
+    color: #94a3b8;
+  }
+  .relic-row-pill.relic-row-pill-ratio {
+    border-color: rgba(74, 222, 128, 0.35);
+    background: rgba(9, 78, 58, 0.72);
+    color: #95fbd2;
+  }
+
   .relic-card {
     position: relative;
     display: grid;
@@ -2085,6 +2249,9 @@ a:hover {
 }
 
 @media (max-width: 1100px) {
+  :root {
+    --relic-grid-columns: 2;
+  }
   .world-layout {
     grid-template-columns: 1fr;
   }
@@ -2093,6 +2260,8 @@ a:hover {
 @media (max-width: 800px) {
   :root {
     --sidebar-width: 3.75rem;
+    --relic-grid-columns: 1;
+    --relic-grid-gap: 0.52rem;
     --relic-card-icon-size: 2.35rem;
     --relic-card-min-height: 4.35rem;
   }
@@ -2117,6 +2286,9 @@ a:hover {
   .resource-grid,
   #relic-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+  .relic-row-name {
+    font-size: 0.94rem;
   }
   .relic-rewards-header,
   .relic-reward-row {

@@ -14,10 +14,7 @@ export function timeTo(date: Date | null, nowMs: number = Date.now()): string {
   return h > 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : `${h}h ${m}m ${s}s`;
 }
 
-export function timeToStrict(
-  date: Date | null,
-  nowMs: number = Date.now(),
-): string {
+export function timeToStrict(date: Date | null, nowMs: number = Date.now()): string {
   if (!date) return "N/A";
   const diff = date.getTime() - nowMs;
   if (diff <= 0) return "Refreshing...";
@@ -42,9 +39,7 @@ export function formatTimeRemaining(endDate: Date, nowMs: number = Date.now()): 
 }
 
 export function nextDailyResetUtc(now: Date = new Date()): Date {
-  return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
-  );
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
 }
 
 export function nextWeeklyResetUtc(now: Date = new Date()): Date {
@@ -52,11 +47,7 @@ export function nextWeeklyResetUtc(now: Date = new Date()): Date {
   let daysUntilMonday = (8 - day) % 7;
   if (daysUntilMonday === 0) daysUntilMonday = 7;
   return new Date(
-    Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate() + daysUntilMonday,
-    ),
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysUntilMonday),
   );
 }
 
@@ -65,13 +56,15 @@ export function cycleTimeDisplay(
   expiryIso: string | null | undefined,
   nowMs: number = Date.now(),
 ): string {
+  const expiry = parseIsoDate(expiryIso ?? null);
+  if (expiry) {
+    return timeToStrict(expiry, nowMs);
+  }
+
   const api = (apiTimeLeft ?? "").trim();
-  if (
-    api &&
-    !/^0h?\s*0m?\s*(0s)?$/i.test(api) &&
-    !/^0m?\s*0s?$/i.test(api)
-  ) {
+  if (api && !/^0h?\s*0m?\s*(0s)?$/i.test(api) && !/^0m?\s*0s?$/i.test(api)) {
     return api;
   }
-  return timeTo(parseIsoDate(expiryIso ?? null), nowMs);
+
+  return timeTo(expiry, nowMs);
 }

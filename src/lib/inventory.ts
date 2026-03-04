@@ -43,8 +43,22 @@ const PRODUCT_TO_FILTER: Record<string, string> = {
   MechSuits: "necramech",
 };
 
-const BASE_COLLECTION_KEYS = new Set(CATEGORIES.map((entry) => String(entry.key)));
-const EXCLUDED_COLLECTION_KEYS = new Set(["InventoryJson", "PendingRecipes", "Recipes"]);
+const EQUIPMENT_COLLECTION_KEYS = new Set(CATEGORIES.map((entry) => String(entry.key)));
+
+interface SupplementalCollectionDef {
+  key: string;
+  cat: string;
+  label: string;
+}
+
+const SUPPLEMENTAL_COLLECTIONS: SupplementalCollectionDef[] = [
+  { key: "MiscItems", cat: "misc", label: "Misc" },
+  { key: "FusionTreasures", cat: "misc", label: "Misc" },
+  { key: "Recipes", cat: "misc", label: "Recipe" },
+  { key: "LevelKeys", cat: "relics", label: "Relic" },
+  { key: "Upgrades", cat: "mods", label: "Mod" },
+  { key: "Arcanes", cat: "arcanes", label: "Arcane" },
+];
 
 const GROUP_PRIORITY: Record<InventoryGroup, number> = {
   misc: 1,
@@ -203,11 +217,133 @@ function inferCategory(
   return defaultCat;
 }
 
+function isRelicLikeItem(
+  internalName: string,
+  dbEntry: ItemDbEntry = {},
+  resolved?: ResolvedItem,
+): boolean {
+  if (/\/Relics?\//i.test(internalName)) return true;
+  if (/VoidProjection/i.test(internalName)) return true;
+
+  const category = String(dbEntry.category || "").toLowerCase();
+  const type = String(dbEntry.type || "").toLowerCase();
+  const name = String(resolved?.name || dbEntry.name || "").toLowerCase();
+
+  if (category.includes("relic")) return true;
+  if (type.includes("relic")) return true;
+  if (/\brelic\b/.test(name)) return true;
+
+  return false;
+}
+
+function isSceneLikeItem(
+  internalName: string,
+  dbEntry: ItemDbEntry = {},
+  resolved?: ResolvedItem,
+): boolean {
+  if (/\/PhotoBooth\//i.test(internalName)) return true;
+
+  const type = String(dbEntry.type || "").toLowerCase();
+  const name = String(resolved?.name || dbEntry.name || "").toLowerCase();
+
+  if (type.includes("captura") || type.includes("scene")) return true;
+  if (name.endsWith(" scene")) return true;
+
+  return false;
+}
+
+function isAyatanLikeItem(
+  internalName: string,
+  dbEntry: ItemDbEntry = {},
+  resolved?: ResolvedItem,
+): boolean {
+  if (/\/FusionTreasures\//i.test(internalName)) return true;
+
+  const type = String(dbEntry.type || "").toLowerCase();
+  const name = String(resolved?.name || dbEntry.name || "").toLowerCase();
+
+  if (type.includes("ayatan") || type.includes("star") || type.includes("sculpture")) return true;
+  if (name.includes("ayatan") || name.includes("amber star") || name.includes("cyan star")) {
+    return true;
+  }
+
+  return false;
+}
+
+function isBuildPartItem(
+  internalName: string,
+  dbEntry: ItemDbEntry = {},
+  resolved: ResolvedItem,
+): boolean {
+  if (isSceneLikeItem(internalName, dbEntry, resolved)) return false;
+  if (isAyatanLikeItem(internalName, dbEntry, resolved)) return false;
+  if (isRelicLikeItem(internalName, dbEntry, resolved)) return false;
+
+  if (/\/Types\/Keys\//i.test(internalName)) return false;
+
+  const type = String(dbEntry.type || "").toLowerCase();
+  const category = String(dbEntry.category || "").toLowerCase();
+  const name = String(resolved.name || "").toLowerCase();
+
+  if (
+    type.includes("resource") ||
+    type.includes("booster") ||
+    type.includes("key") ||
+    type.includes("fish") ||
+    type.includes("captura") ||
+    type.includes("ayatan")
+  ) {
+    return false;
+  }
+
+  if (category.includes("fish") || category.includes("captura")) {
+    return false;
+  }
+
+  const pathLooksLikePart =
+    /\/Types\/Recipes\//i.test(internalName) ||
+    /\/WeaponParts?\//i.test(internalName) ||
+    /\/WarframeParts?\//i.test(internalName) ||
+    /\/LandingCraftRecipes\//i.test(internalName);
+
+  const nameLooksLikePart =
+    /\b(blueprint|barrel|receiver|stock|blade|handle|hilt|chassis|systems|neuroptics|fuselage|engines|avionics|carapace|cerebrum|pod|wings|harness|link|disc|gauntlet|grip|ornament)\b/i.test(
+      name,
+    );
+
+  const flaggedBuildComponent = dbEntry.isBuildComponent === true;
+  if (!pathLooksLikePart && !nameLooksLikePart && !flaggedBuildComponent) return false;
+
+  const primeLike =
+    resolved.isPrime === true || /\bprime\b/i.test(name) || /prime/i.test(internalName);
+  const tradableLikely =
+    dbEntry.tradable === true || (primeLike && pathLooksLikePart && nameLooksLikePart);
+
+  return tradableLikely;
+}
+
+function canonicalBuildPartName(internalName: string, name: string): string {
+  if (
+    /\/Types\/Recipes\/WarframeRecipes\//i.test(internalName) &&
+    /\bHelmet Blueprint$/i.test(name)
+  ) {
+    return name.replace(/\bHelmet Blueprint$/i, "Neuroptics Blueprint");
+  }
+
+  return name;
+}
+
 function shouldHide(
   internalName: string,
   dbEntry: ItemDbEntry = {},
   resolved: ResolvedItem,
 ): boolean {
+  if (/\/Upgrades\/Focus\//i.test(internalName)) return true;
+  if (/\/Types\/Boosters?\//i.test(internalName)) return true;
+  if (/\/Types\/Keys\//i.test(internalName) && !isRelicLikeItem(internalName, dbEntry, resolved)) {
+    return true;
+  }
+
   if (dbEntry.exalted === true) return true;
   if (dbEntry.productCategory === "SpecialItems") return true;
   if (typeof dbEntry.type === "string" && /exalted/i.test(dbEntry.type)) {
@@ -469,23 +605,6 @@ function normalizeCollectionEntries(value: unknown, maxDepth = 4, depth = 0): Ra
   return flattened;
 }
 
-function inferCollectionDefaults(key: string): { cat: string; label: string } {
-  if (key === "LevelKeys") return { cat: "relics", label: "Relic" };
-  if (key === "Upgrades") return { cat: "mods", label: "Mod" };
-  if (key === "Arcanes") return { cat: "arcanes", label: "Arcane" };
-  if (key === "MiscItems") return { cat: "misc", label: "Misc" };
-
-  const label = key
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/_/g, " ")
-    .trim();
-
-  return {
-    cat: "misc",
-    label: label || "Misc",
-  };
-}
-
 function deriveGroup(
   sourceKey: string,
   internalName: string,
@@ -494,18 +613,22 @@ function deriveGroup(
 ): InventoryGroup {
   if (isFocusUpgrade(internalName, dbEntry, resolved)) return "misc";
 
-  if (sourceKey === "LevelKeys") return "relics";
+  if (EQUIPMENT_COLLECTION_KEYS.has(sourceKey)) return "misc";
+
+  if (sourceKey === "LevelKeys") {
+    return isRelicLikeItem(internalName, dbEntry, resolved) ? "relics" : "misc";
+  }
+
   if (sourceKey === "Arcanes") return "arcanes";
   if (sourceKey === "Upgrades") {
     if (isArcaneUpgrade(internalName, dbEntry, resolved)) return "arcanes";
     return isLikelyModUpgrade(internalName, dbEntry, resolved) ? "mods" : "misc";
   }
 
-  if (/\/Relics?\//i.test(internalName)) return "relics";
+  if (isRelicLikeItem(internalName, dbEntry, resolved)) return "relics";
   if (isArcaneUpgrade(internalName, dbEntry, resolved)) return "arcanes";
 
   const category = String(dbEntry.category || "").toLowerCase();
-  if (category.includes("relic")) return "relics";
   if (category.includes("arcane")) return "arcanes";
   if (category.includes("mod")) return "mods";
 
@@ -513,7 +636,8 @@ function deriveGroup(
   if (type.includes("arcane")) return "arcanes";
   if (type.includes("mod")) return "mods";
 
-  if (dbEntry.tradable === true || resolved.isPrime === true) return "all_parts";
+  if (isBuildPartItem(internalName, dbEntry, resolved)) return "all_parts";
+
   return "misc";
 }
 
@@ -600,6 +724,54 @@ function mergeEquipContexts(
   return result.length > 0 ? result : undefined;
 }
 
+function isEligibleFullSetRoot(
+  uniqueName: string,
+  dbEntry: ItemDbEntry,
+  resolved: ResolvedItem,
+  tradableComponentCount: number,
+): boolean {
+  if (tradableComponentCount < 2) return false;
+  if (isAyatanLikeItem(uniqueName, dbEntry, resolved)) return false;
+  if (isSceneLikeItem(uniqueName, dbEntry, resolved)) return false;
+  if (isRelicLikeItem(uniqueName, dbEntry, resolved)) return false;
+
+  const category = String(dbEntry.category || "").toLowerCase();
+  const type = String(dbEntry.type || "").toLowerCase();
+  const name = String(resolved.name || "").toLowerCase();
+
+  if (
+    type.includes("captura") ||
+    type.includes("ayatan") ||
+    type.includes("resource") ||
+    type.includes("booster")
+  ) {
+    return false;
+  }
+
+  if (
+    name.includes("ayatan") ||
+    name.endsWith(" scene") ||
+    name.includes("booster") ||
+    name.includes("quest")
+  ) {
+    return false;
+  }
+
+  if (resolved.isPrime === true || /\bprime\b/i.test(resolved.name)) return true;
+
+  if (
+    /(warframe|rifle|shotgun|sniper|bow|pistol|melee|companion|sentinel|archwing|necramech|orbiter|landing craft)/.test(
+      type,
+    )
+  ) {
+    return true;
+  }
+
+  return /(warframe|weapon|primary|secondary|melee|sentinel|pet|companion|archwing|necramech)/.test(
+    category,
+  );
+}
+
 function buildFullSetItems(
   itemDb: Record<string, ItemDbEntry>,
   ownedCounts: Map<string, number>,
@@ -610,10 +782,16 @@ function buildFullSetItems(
     const components = Array.isArray(dbEntry.components) ? dbEntry.components : [];
     if (dbEntry.tradable !== true || components.length === 0) continue;
 
+    const resolved = resolveItem(uniqueName, itemDb);
+
     const tradableComponents = components.filter(
       (component) => component.uniqueName && component.tradable !== false,
     );
     if (tradableComponents.length === 0) continue;
+
+    if (!isEligibleFullSetRoot(uniqueName, dbEntry, resolved, tradableComponents.length)) {
+      continue;
+    }
 
     let hasAnyOwned = false;
     let completeSets = Number.POSITIVE_INFINITY;
@@ -640,7 +818,6 @@ function buildFullSetItems(
 
     if (!Number.isFinite(completeSets)) completeSets = 0;
 
-    const resolved = resolveItem(uniqueName, itemDb);
     const setName = resolved.name.endsWith(" Set") ? resolved.name : `${resolved.name} Set`;
     const isPrime = resolved.isPrime === true || /\bPrime\b/.test(resolved.name);
 
@@ -725,8 +902,10 @@ export function parseInventory(
     const inferredEquipped =
       equipped !== undefined ? equipped : equippedIn.length > 0 ? true : undefined;
 
+    const displayName = canonicalBuildPartName(internalName, resolved.name);
+
     const nextItem: ParsedItem = {
-      name: resolved.name,
+      name: displayName,
       internalName,
       category: finalCat,
       categoryLabel: finalLabel,
@@ -802,15 +981,13 @@ export function parseInventory(
     }
   }
 
-  for (const [key, value] of Object.entries(data)) {
-    if (BASE_COLLECTION_KEYS.has(key) || EXCLUDED_COLLECTION_KEYS.has(key)) continue;
-
-    const entries = normalizeCollectionEntries(value);
+  const record = data as Record<string, unknown>;
+  for (const { key, cat, label } of SUPPLEMENTAL_COLLECTIONS) {
+    const entries = normalizeCollectionEntries(record[key]);
     if (entries.length === 0) continue;
 
-    const defaults = inferCollectionDefaults(key);
     for (const entry of entries) {
-      addEntry(entry, key, defaults.cat, defaults.label);
+      addEntry(entry, key, cat, label);
     }
   }
 

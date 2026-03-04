@@ -59,6 +59,20 @@ function normalizeLooseName(value: string): string {
   return normalizeName(value).replace(/[^a-z0-9]+/g, "");
 }
 
+function lookupNameCandidates(itemName: string): string[] {
+  const base = itemName.trim();
+  const candidates = new Set<string>([base]);
+
+  if (/\bhelmet blueprint$/i.test(base)) {
+    candidates.add(base.replace(/\bhelmet blueprint$/i, "Neuroptics Blueprint"));
+  }
+  if (/\bneuroptics blueprint$/i.test(base)) {
+    candidates.add(base.replace(/\bneuroptics blueprint$/i, "Helmet Blueprint"));
+  }
+
+  return [...candidates];
+}
+
 function toMarketSlug(name: string): string {
   return normalizeName(name)
     .replace(/['']/g, "")
@@ -66,12 +80,15 @@ function toMarketSlug(name: string): string {
     .replace(/^_+|_+$/g, "");
 }
 
+function isSetSlug(slug: string | null | undefined): boolean {
+  return typeof slug === "string" && slug.endsWith("_set");
+}
+
 export function itemGroupFallback(item: ParsedItem): InventoryFilterTab {
   const label = item.categoryLabel.toLowerCase();
   if (label.includes("relic")) return "relics";
   if (label.includes("mod")) return "mods";
   if (label.includes("arcane")) return "arcanes";
-  if (item.tradable) return "all_parts";
   return "misc";
 }
 
@@ -84,16 +101,20 @@ export function getLookupByName(
   itemName: string,
   lookup: WfmItemsLookup,
 ): WfmItemsLookup[string] | null {
-  const key = normalizeName(itemName);
-  const direct = lookup[key] || null;
-  if (!direct) return null;
+  for (const candidate of lookupNameCandidates(itemName)) {
+    const key = normalizeName(candidate);
+    const direct = lookup[key] || null;
+    if (!direct) continue;
 
-  const mappedName = typeof direct.item_name === "string" ? direct.item_name : null;
-  if (mappedName && normalizeLooseName(mappedName) !== normalizeLooseName(itemName)) {
-    return null;
+    const mappedName = typeof direct.item_name === "string" ? direct.item_name : null;
+    if (mappedName && normalizeLooseName(mappedName) !== normalizeLooseName(candidate)) {
+      continue;
+    }
+
+    return direct;
   }
 
-  return direct;
+  return null;
 }
 
 export function resolveSlug(item: ParsedItem, lookup: WfmItemsLookup): string | null {
@@ -122,10 +143,14 @@ export function shouldHydrateMetrics(item: ParsedItem): boolean {
   );
 }
 
-export function metricNeedsFromFilters(filters: SharedFiltersState): MetricNeeds {
+export function metricNeedsFromFilters(
+  filters: SharedFiltersState,
+  activeTab: InventoryFilterTab,
+): MetricNeeds {
+  const needsDucatsForTab = activeTab === "all_parts" || activeTab === "full_sets";
   return {
     price: true,
-    ducats: filters.sortBy === "ducats" || filters.sortBy === "ducatonator",
+    ducats: needsDucatsForTab || filters.sortBy === "ducats" || filters.sortBy === "ducatonator",
   };
 }
 
@@ -160,9 +185,14 @@ export function buildBaseInventoryItems(
 ): InventoryBaseItem[] {
   return parsedItems
     .filter((item) => matchesFilterTab(item, activeTab))
-    .map<InventoryBaseItem>((item) => {
+    .map<InventoryBaseItem | null>((item) => {
       const group = (item.inventoryGroup || itemGroupFallback(item)) as InventoryFilterTab;
       const lookupByName = getLookupByName(item.name, wfmLookup);
+
+      if (group === "full_sets" && !isSetSlug(lookupByName?.url_name || null)) {
+        return null;
+      }
+
       const marketSlug = lookupByName?.url_name || resolveSlug(item, wfmLookup);
       const marketThumb = lookupByName?.thumb || lookupByName?.icon || null;
 
@@ -185,7 +215,8 @@ export function buildBaseInventoryItems(
         marketSlug,
         marketThumb,
       };
-    });
+    })
+    .filter((item): item is InventoryBaseItem => item != null);
 }
 
 export function buildInventoryViewItems(
@@ -227,5 +258,5 @@ export function buildInventoryViewItems(
 }
 
 export function computeFilteredTotalCount(items: InventoryViewItem[]): number {
-  return items.reduce((sum, item) => sum + Math.max(1, item.amount || 1), 0);
+  return items.length;
 }

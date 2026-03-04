@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildBaseInventoryItems,
   buildInventoryViewItems,
+  getLookupByName,
+  metricNeedsFromFilters,
   type InventoryBaseItem,
   type ItemMetrics,
 } from "./inventoryMarket.js";
@@ -96,5 +99,71 @@ describe("inventoryMarket view mapping", () => {
 
     const [mapped] = buildInventoryViewItems([item], metrics, "mods");
     expect(mapped.displayImageUrl).toBe("https://cdn.warframestat.us/img/sample_local.jpg");
+  });
+
+  it("hydrates ducats by default on all-parts tab", () => {
+    const needs = metricNeedsFromFilters(
+      {
+        search: "",
+        primeMode: "all",
+        masteredMode: "all",
+        sortBy: "name",
+        sortDirection: "asc",
+        orderPlaced: "all",
+        partType: "all",
+        favorite: "all",
+        minimumPlatinum: 0,
+        setComplete: "all",
+        equipped: "all",
+        leveledUp: "all",
+      },
+      "all_parts",
+    );
+
+    expect(needs.price).toBe(true);
+    expect(needs.ducats).toBe(true);
+  });
+
+  it("drops generated full-sets without a real market _set slug", () => {
+    const setItem = makeBaseItem({
+      name: "Ayatan Amber Star Set",
+      internalName: "/Lotus/Types/Items/FusionTreasures/OroFusexOrnamentB#set",
+      inventoryGroup: "full_sets",
+      category: "full_sets",
+      categoryLabel: "Full Set",
+    });
+
+    const dropped = buildBaseInventoryItems([setItem], "full_sets", {}, {}, {});
+    expect(dropped).toHaveLength(0);
+
+    const kept = buildBaseInventoryItems(
+      [setItem],
+      "full_sets",
+      {
+        "ayatan amber star set": {
+          url_name: "ayatan_amber_star_set",
+          item_name: "Ayatan Amber Star Set",
+          thumb: null,
+          icon: null,
+        },
+      },
+      {},
+      {},
+    );
+    expect(kept).toHaveLength(1);
+    expect(kept[0].marketSlug).toBe("ayatan_amber_star_set");
+  });
+
+  it("matches helmet blueprint names against neuroptics lookup aliases", () => {
+    const match = getLookupByName("Xaku Prime Helmet Blueprint", {
+      "xaku prime neuroptics blueprint": {
+        item_name: "Xaku Prime Neuroptics Blueprint",
+        url_name: "xaku_prime_neuroptics_blueprint",
+        thumb: null,
+        icon: null,
+      },
+    });
+
+    expect(match?.url_name).toBe("xaku_prime_neuroptics_blueprint");
   });
 });
