@@ -11,6 +11,7 @@ const path = require("path");
 const fs = require("fs");
 const relicService = require("../services/relicService");
 const rewardScanner = require("../services/rewardScanner");
+const wfmStatsPrice = require("../services/wfmStatsPrice");
 const { hardenBrowserWindowNavigation } = require("../services/windowSecurity");
 const ctx = require("./context");
 const {
@@ -732,6 +733,11 @@ function register() {
   ipcMain.handle("overlay:get-settings", async (event) => {
     assertAuthorizedSender(assertMainRendererSender, event, "overlay:get-settings");
     return { ...ctx.overlaySettings };
+  });
+
+  ipcMain.handle("overlay:get-price", async (event, slug) => {
+    assertAuthorizedSender(assertOverlayRendererSender, event, "overlay:get-price");
+    return wfmStatsPrice.fetchPriceBySlug(slug);
   });
 
   ipcMain.handle("overlay:set-settings", async (event, nextSettings) => {
