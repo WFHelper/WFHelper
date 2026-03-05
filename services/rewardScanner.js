@@ -43,6 +43,53 @@ const UI_READY_DEFAULT_SCORE_THRESHOLD = 0.58;
 const UI_READY_MIN_PEAK_COUNT = 3;
 const UI_READY_MIN_TEXTURE_SCORE = 0.18;
 
+const LUMINANCE_WEIGHTS = Object.freeze({
+  red: 77,
+  green: 150,
+  blue: 29,
+  shift: 8,
+});
+
+const READINESS_ANALYSIS = Object.freeze({
+  minCropWidth: 40,
+  minCropHeight: 24,
+  targetSampleCols: 420,
+  targetSampleRows: 120,
+  smoothingDivisor: 3,
+  thresholdStdMultiplier: 0.35,
+  minSegmentWidthFloor: 3,
+  minSegmentWidthRatio: 0.06,
+  peakBaseline: 2,
+  peakRange: 2,
+  textureBaseline: 90,
+  textureRange: 230,
+  coverageNormalizer: 0.7,
+  scoreWeights: Object.freeze({
+    peak: 0.55,
+    texture: 0.3,
+    coverage: 0.15,
+  }),
+});
+
+const UI_READY_OPTION_LIMITS = Object.freeze({
+  timeoutMinMs: 200,
+  timeoutMaxMs: 8_000,
+  pollMinMs: 60,
+  pollMaxMs: 500,
+  requiredHitsMin: 1,
+  requiredHitsMax: 4,
+  scoreThresholdMin: 0.35,
+  scoreThresholdMax: 0.95,
+});
+
+const CONSENSUS_TUNING = Object.freeze({
+  minScoreWeight: 0.1,
+  minConfidenceWeight: 0.1,
+  confidenceDecimals: 3,
+});
+
+const OCR_TEXT_PREVIEW_MAX_CHARS = 240;
+
 const CROP_PRESETS = {
   balanced: [
     { top: 0.38, height: 0.36 },
@@ -449,7 +496,12 @@ function getPrimaryBand() {
 }
 
 function luminanceFromBgr(blue, green, red) {
-  return (77 * red + 150 * green + 29 * blue) >> 8;
+  return (
+    (LUMINANCE_WEIGHTS.red * red +
+      LUMINANCE_WEIGHTS.green * green +
+      LUMINANCE_WEIGHTS.blue * blue) >>
+    LUMINANCE_WEIGHTS.shift
+  );
 }
 
 function computeMeanAndStd(values) {
@@ -507,7 +559,7 @@ function analyzeRewardBandReadiness(nativeImage, band = getPrimaryBand()) {
   }
 
   const { width, height } = cropped.getSize();
-  if (width < 40 || height < 24) {
+  if (width < READINESS_ANALYSIS.minCropWidth || height < READINESS_ANALYSIS.minCropHeight) {
     return {
       ready: false,
       score: 0,
@@ -521,8 +573,8 @@ function analyzeRewardBandReadiness(nativeImage, band = getPrimaryBand()) {
   }
 
   const bitmap = cropped.toBitmap();
-  const stepX = Math.max(1, Math.floor(width / 420));
-  const stepY = Math.max(1, Math.floor(height / 120));
+  const stepX = Math.max(1, Math.floor(width / READINESS_ANALYSIS.targetSampleCols));
+  const stepY = Math.max(1, Math.floor(height / READINESS_ANALYSIS.targetSampleRows));
   const sampleCols = Math.max(1, Math.floor(width / stepX));
 
   const energies = new Array(sampleCols).fill(0);
@@ -553,12 +605,15 @@ function analyzeRewardBandReadiness(nativeImage, band = getPrimaryBand()) {
   const smoothed = energies.map((value, index) => {
     const prev = index > 0 ? energies[index - 1] : value;
     const next = index < energies.length - 1 ? energies[index + 1] : value;
-    return (prev + value + next) / 3;
+    return (prev + value + next) / READINESS_ANALYSIS.smoothingDivisor;
   });
 
   const stats = computeMeanAndStd(smoothed);
-  const threshold = stats.mean + stats.std * 0.35;
-  const minSegmentWidth = Math.max(3, Math.floor(sampleCols * 0.06));
+  const threshold = stats.mean + stats.std * READINESS_ANALYSIS.thresholdStdMultiplier;
+  const minSegmentWidth = Math.max(
+    READINESS_ANALYSIS.minSegmentWidthFloor,
+    Math.floor(sampleCols * READINESS_ANALYSIS.minSegmentWidthRatio),
+  );
 
   let peakCount = 0;
   let coverageCols = 0;
@@ -582,10 +637,19 @@ function analyzeRewardBandReadiness(nativeImage, band = getPrimaryBand()) {
     coverageCols += runLength;
   }
 
-  const peakScore = clamp01((peakCount - 2) / 2);
-  const textureScore = clamp01((stats.std - 90) / 230);
-  const coverageScore = clamp01(coverageCols / Math.max(1, sampleCols) / 0.7);
-  const score = peakScore * 0.55 + textureScore * 0.3 + coverageScore * 0.15;
+  const peakScore = clamp01(
+    (peakCount - READINESS_ANALYSIS.peakBaseline) / READINESS_ANALYSIS.peakRange,
+  );
+  const textureScore = clamp01(
+    (stats.std - READINESS_ANALYSIS.textureBaseline) / READINESS_ANALYSIS.textureRange,
+  );
+  const coverageScore = clamp01(
+    coverageCols / Math.max(1, sampleCols) / READINESS_ANALYSIS.coverageNormalizer,
+  );
+  const score =
+    peakScore * READINESS_ANALYSIS.scoreWeights.peak +
+    textureScore * READINESS_ANALYSIS.scoreWeights.texture +
+    coverageScore * READINESS_ANALYSIS.scoreWeights.coverage;
 
   const ready =
     peakCount >= UI_READY_MIN_PEAK_COUNT &&
@@ -610,16 +674,33 @@ function sleep(ms) {
 
 async function waitForRewardUiReady(options = {}) {
   const timeoutMs = Math.floor(
-    clampNumber(options.timeoutMs, 200, 8_000, UI_READY_DEFAULT_TIMEOUT_MS),
+    clampNumber(
+      options.timeoutMs,
+      UI_READY_OPTION_LIMITS.timeoutMinMs,
+      UI_READY_OPTION_LIMITS.timeoutMaxMs,
+      UI_READY_DEFAULT_TIMEOUT_MS,
+    ),
   );
-  const pollMs = Math.floor(clampNumber(options.pollMs, 60, 500, UI_READY_DEFAULT_POLL_MS));
+  const pollMs = Math.floor(
+    clampNumber(
+      options.pollMs,
+      UI_READY_OPTION_LIMITS.pollMinMs,
+      UI_READY_OPTION_LIMITS.pollMaxMs,
+      UI_READY_DEFAULT_POLL_MS,
+    ),
+  );
   const requiredHits = Math.floor(
-    clampNumber(options.requiredHits, 1, 4, UI_READY_DEFAULT_REQUIRED_HITS),
+    clampNumber(
+      options.requiredHits,
+      UI_READY_OPTION_LIMITS.requiredHitsMin,
+      UI_READY_OPTION_LIMITS.requiredHitsMax,
+      UI_READY_DEFAULT_REQUIRED_HITS,
+    ),
   );
   const scoreThreshold = clampNumber(
     options.scoreThreshold,
-    0.35,
-    0.95,
+    UI_READY_OPTION_LIMITS.scoreThresholdMin,
+    UI_READY_OPTION_LIMITS.scoreThresholdMax,
     UI_READY_DEFAULT_SCORE_THRESHOLD,
   );
 
@@ -729,7 +810,7 @@ function buildConsensusSelection(passResults) {
   const votes = new Map();
 
   for (const result of successful) {
-    const scoreWeight = Math.max(0.1, result.score);
+    const scoreWeight = Math.max(CONSENSUS_TUNING.minScoreWeight, result.score);
     for (const match of result.matches) {
       const key = match.item.name;
       const existing = votes.get(key) || {
@@ -742,7 +823,8 @@ function buildConsensusSelection(passResults) {
       };
 
       existing.hits += 1;
-      existing.weightedScore += scoreWeight * Math.max(0.1, Number(match.confidence) || 0);
+      existing.weightedScore +=
+        scoreWeight * Math.max(CONSENSUS_TUNING.minConfidenceWeight, Number(match.confidence) || 0);
       existing.bestConfidence = Math.max(existing.bestConfidence, Number(match.confidence) || 0);
 
       if (Number.isFinite(match.pos) && match.pos >= 0) {
@@ -772,7 +854,7 @@ function buildConsensusSelection(passResults) {
         avgPos,
         item: {
           ...entry.item,
-          confidence: Number(entry.bestConfidence.toFixed(3)),
+          confidence: Number(entry.bestConfidence.toFixed(CONSENSUS_TUNING.confidenceDecimals)),
         },
       };
     })
@@ -918,7 +1000,7 @@ async function scanRewardsDetailed() {
     );
   } else {
     const textPreview = selectedPass?.text
-      ? selectedPass.text.slice(0, 240).replace(/\s+/g, " ")
+      ? selectedPass.text.slice(0, OCR_TEXT_PREVIEW_MAX_CHARS).replace(/\s+/g, " ")
       : "";
     if (textPreview) {
       log.log("[RewardScanner] No items matched OCR text:", textPreview);

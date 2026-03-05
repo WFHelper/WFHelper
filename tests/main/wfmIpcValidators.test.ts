@@ -1,6 +1,6 @@
-﻿import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
-const { __test__ } = require("../../ipc/wfmIpc.js");
+import { __test__ } from "../../ipc/wfmIpc";
 
 describe("wfmIpc payload validators", () => {
   it("accepts valid sign-in payload", () => {

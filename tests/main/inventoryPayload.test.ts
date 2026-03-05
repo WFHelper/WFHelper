@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-const { hasInventoryShape, unwrapInventoryPayload } = require("../../ipc/inventoryPayload.js");
+import { hasInventoryShape, unwrapInventoryPayload } from "../../ipc/inventoryPayload";
 
 describe("main inventory payload helper", () => {
   it("detects inventory-like payloads", () => {
@@ -19,7 +19,7 @@ describe("main inventory payload helper", () => {
       },
     };
 
-    const unwrapped = unwrapInventoryPayload(raw);
+    const unwrapped = unwrapInventoryPayload(raw) as any;
     expect(Array.isArray(unwrapped.Suits)).toBe(true);
     expect(unwrapped.Suits[0].ItemType).toBe("A");
   });
@@ -31,7 +31,7 @@ describe("main inventory payload helper", () => {
       }),
     };
 
-    const unwrapped = unwrapInventoryPayload(raw);
+    const unwrapped = unwrapInventoryPayload(raw) as any;
     expect(Array.isArray(unwrapped.LevelKeys)).toBe(true);
     expect(unwrapped.LevelKeys[0].ItemType).toBe("RelicX");
   });

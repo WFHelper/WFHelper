@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-const { createOverlaySettingsController } = require("../../ipc/overlay/settings.js");
+import { createOverlaySettingsController } from "../../ipc/overlay/settings";
 
 function buildController() {
   const ctx = {

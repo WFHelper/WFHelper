@@ -1,34 +1,18 @@
 import { CATALOG_CACHE_KEY, PREWARM_CURSOR_KEY, PREWARM_LAST_RUN_KEY, SKIP_UNTRADABLE_PREFIX, SLUG_RE, WFM_HEADERS } from '../constants';
 import type { Env, MetaPayload, PrewarmResult } from '../types';
 import { clamp, getJsonFromKv, parsePositiveInt } from '../utils';
+import wfmStatsShared from '../../../../config/shared/wfmStats.cjs';
 
 const UNTRADABLE_SKIP_TTL_SEC = 30 * 24 * 60 * 60;
 
+type SharedWfmStatsModule = {
+	extractMedianFromStatsPayload: (jsonPayload: unknown) => number | null;
+};
+
+const { extractMedianFromStatsPayload } = wfmStatsShared as SharedWfmStatsModule;
+
 export function cacheTtlSec(env: Env): number {
 	return clamp(parsePositiveInt(env.CACHE_TTL_SEC, 43200), 60, 604800);
-}
-
-function extractMedian(jsonPayload: unknown): number | null {
-	const payload = (jsonPayload as { payload?: Record<string, unknown> })?.payload;
-	if (!payload) return null;
-
-	const closed = (payload.statistics_closed || {}) as Record<string, unknown>;
-	const live = (payload.statistics_live || {}) as Record<string, unknown>;
-	const closedRows = (closed['48hours'] as Record<string, unknown>[]) || (closed['48_hours'] as Record<string, unknown>[]) || [];
-	const liveRows = (live['48hours'] as Record<string, unknown>[]) || (live['48_hours'] as Record<string, unknown>[]) || [];
-
-	const rows = [...closedRows, ...liveRows]
-		.filter((row) => !row.order_type || row.order_type === 'sell')
-		.sort((a, b) => new Date(String(a.datetime || 0)).getTime() - new Date(String(b.datetime || 0)).getTime());
-
-	const latest = rows.length > 0 ? rows[rows.length - 1] : undefined;
-	if (!latest) return null;
-
-	const raw = latest.median ?? latest.moving_avg ?? latest.wa_price ?? latest.avg_price ?? latest.min_price;
-	if (raw == null) return null;
-
-	const value = Math.round(Math.abs(Number(raw)));
-	return Number.isFinite(value) && value > 0 ? value : null;
 }
 
 function sanitizeSlugList(value: unknown): string[] {
@@ -94,7 +78,7 @@ export async function fetchPricePayload(slug: string): Promise<{ median: number;
 	if (!response.ok) return null;
 
 	const payload = await response.json();
-	const median = extractMedian(payload);
+	const median = extractMedianFromStatsPayload(payload);
 	if (median == null) return null;
 
 	return {
@@ -258,3 +242,7 @@ export async function prewarmBatch(
 
 	return result;
 }
+
+export const __test__ = {
+	extractMedianFromStatsPayload,
+} as const;

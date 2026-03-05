@@ -6,6 +6,7 @@ import {
   shouldDirectFallback,
   type BackendRequestPriority,
 } from "./backendLite.js";
+import wfmStatsShared from "../../../config/shared/wfmStats.cjs";
 
 const BASE_DELAY_MS = 180;
 const MAX_DYNAMIC_DELAY_MS = 1200;
@@ -13,6 +14,12 @@ const DELAY_DECAY_STEP_MS = 5;
 const DELAY_BACKOFF_STEP_MS = 120;
 const DEFAULT_RETRY_AFTER_SECONDS = 30;
 const MIN_429_COOLDOWN_MS = 30_000;
+
+type SharedWfmStatsModule = {
+  extractMedianFromStatsPayload: (jsonPayload: unknown) => number | null;
+};
+
+const { extractMedianFromStatsPayload } = wfmStatsShared as SharedWfmStatsModule;
 
 const WFM_HEADERS = {
   Platform: "pc",
@@ -212,39 +219,6 @@ function enqueue<T>(fn: () => Promise<T>, priority: RequestPriority = "normal"):
   });
 }
 
-function extractMedian(json: unknown): number | null {
-  const payload = (json as { payload?: Record<string, unknown> })?.payload;
-  if (!payload) return null;
-
-  const closed = (payload.statistics_closed || {}) as Record<string, unknown>;
-  const live = (payload.statistics_live || {}) as Record<string, unknown>;
-  const closedRows =
-    (closed["48hours"] as Record<string, unknown>[]) ||
-    (closed["48_hours"] as Record<string, unknown>[]) ||
-    [];
-  const liveRows =
-    (live["48hours"] as Record<string, unknown>[]) ||
-    (live["48_hours"] as Record<string, unknown>[]) ||
-    [];
-
-  const rows = [...closedRows, ...liveRows]
-    .filter((row) => !row.order_type || row.order_type === "sell")
-    .sort(
-      (a, b) =>
-        new Date(String(a.datetime || 0)).getTime() - new Date(String(b.datetime || 0)).getTime(),
-    );
-
-  const latest = rows.length > 0 ? rows[rows.length - 1] : undefined;
-  if (!latest) return null;
-
-  const raw =
-    latest.median ?? latest.moving_avg ?? latest.wa_price ?? latest.avg_price ?? latest.min_price;
-  if (raw == null) return null;
-
-  const n = Math.round(Math.abs(Number(raw)));
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
 async function fetchStatsJson(slug: string, priority: RequestPriority): Promise<StatsResponse> {
   return enqueue(async () => {
     bumpCounter("httpCalls");
@@ -332,7 +306,7 @@ async function fetchPriceBySlugInternal(
     };
   }
 
-  const median = extractMedian(res.json);
+  const median = extractMedianFromStatsPayload(res.json);
   if (median != null) {
     cachePrice(slug, median);
     bumpCounter("resultOk");
@@ -433,3 +407,7 @@ export async function fetchPriceByName(
 
   return null;
 }
+
+export const __test__ = {
+  extractMedianFromStatsPayload,
+} as const;

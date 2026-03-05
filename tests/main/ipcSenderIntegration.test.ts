@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-const ctx = require("../../ipc/context.js");
+import ctx from "../../ipc/context";
 
 function makeEvent(webContentsId: number, url: string) {
   return {
@@ -18,7 +18,7 @@ describe("IPC sender guard integration", () => {
   it("blocks unauthorized sender through registered world-state handler", async () => {
     const handlers = new Map<string, (event: any) => Promise<unknown>>();
 
-    const worldStateIpc = require("../../ipc/worldStateIpc.js");
+    const worldStateIpc = await import("../../ipc/worldStateIpc");
     worldStateIpc.register({
       ipcMain: {
         handle: (channel: string, handler: (event: any) => Promise<unknown>) => {
@@ -37,7 +37,7 @@ describe("IPC sender guard integration", () => {
     ctx.mainWindow = {
       isDestroyed: () => false,
       webContents: { id: 44 },
-    };
+    } as any;
 
     const handler = handlers.get("get-world-state");
     expect(handler).toBeTypeOf("function");

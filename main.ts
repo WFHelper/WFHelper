@@ -6,7 +6,21 @@ import path from "node:path";
 const APP_ROOT = path.resolve(__dirname, "..");
 
 function fromAppRoot(relPath: string): any {
-  return require(path.join(APP_ROOT, relPath));
+  const unwrapDefault = (loaded: any): any => {
+    if (!loaded || typeof loaded !== "object") return loaded;
+    if (!Object.prototype.hasOwnProperty.call(loaded, "default")) return loaded;
+    const keys = Object.keys(loaded);
+    const defaultOnly = keys.every((key) => key === "default" || key === "__esModule");
+    return defaultOnly ? loaded.default : loaded;
+  };
+
+  const buildPath = path.join(__dirname, relPath);
+  try {
+    const resolved = require.resolve(buildPath);
+    return unwrapDefault(require(resolved));
+  } catch {
+    return unwrapDefault(require(path.join(APP_ROOT, relPath)));
+  }
 }
 
 const log = fromAppRoot("services/logger").withScope("Main");
@@ -17,9 +31,8 @@ const MAIN_WINDOW_ENTRY_FILE = path.join(APP_ROOT, "renderer", "dist", "index.ht
 
 // Services
 const itemDb = fromAppRoot("services/itemDatabase");
-const wfMarket = fromAppRoot("services/warframeMarket");
-const wfmSession = fromAppRoot("services/wfmSession");
 const wfmCatalog = fromAppRoot("services/wfmCatalog");
+const wfmSession = fromAppRoot("services/wfmSession");
 const relicService = fromAppRoot("services/relicService");
 const eeLogMonitor = fromAppRoot("services/eeLogMonitor");
 const rewardScanner = fromAppRoot("services/rewardScanner");
@@ -124,13 +137,11 @@ app.whenReady().then(async () => {
 
   itemDb.buildDatabase();
 
-  wfMarket
-    .fetchItemList()
+  wfmCatalog
+    .ensureLoaded()
     .catch((err: Error) => log.error("[WFMarket] startup fetch failed:", err));
 
   await wfmSession.restoreSession();
-
-  wfmCatalog.prefetch();
 
   createWindow();
   autoUpdater.initialize(ctx.mainWindow);

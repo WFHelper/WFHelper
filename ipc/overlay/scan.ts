@@ -1,5 +1,7 @@
 "use strict";
 
+export {};
+
 const SCAN_RETRY_WINDOW_MS = 5_000;
 const SCAN_RETRY_INTERVAL_MS = 450;
 const SCAN_MAX_ATTEMPTS = 10;
@@ -14,11 +16,65 @@ const UI_READY_GATE_POLL_MS = 120;
 const UI_READY_GATE_REQUIRED_HITS = 2;
 const UI_READY_GATE_SCORE_THRESHOLD = 0.58;
 
-function sleep(ms) {
+type RewardScanResult = {
+  items?: unknown[];
+  meta?: Record<string, unknown> | null;
+  attempts?: number;
+  elapsedMs?: number;
+  timedOut?: boolean;
+  triggerSource?: string;
+};
+
+type OverlayScanControllerOptions = {
+  log: {
+    log: (...args: unknown[]) => void;
+    warn: (...args: unknown[]) => void;
+    error: (...args: unknown[]) => void;
+  };
+  rewardScanner: {
+    scanRewardsDetailed: () => Promise<RewardScanResult>;
+    waitForRewardUiReady?: (options: {
+      timeoutMs: number;
+      pollMs: number;
+      requiredHits: number;
+      scoreThreshold: number;
+    }) => Promise<
+      | {
+          ready?: boolean;
+          elapsedMs?: number;
+          attempts?: number;
+          best?: {
+            sourceDisplayId?: string | null;
+            bandBottomRatio?: number;
+            score?: number;
+          };
+        }
+      | undefined
+    >;
+  };
+  ctx: {
+    overlaySettings: Record<string, unknown>;
+    overlayWindow: import("electron").BrowserWindow | null;
+  };
+  windows: {
+    setAnchorMeta: (meta: Record<string, unknown> | null) => void;
+    getAnchorMeta: () => Record<string, unknown> | null;
+    positionOverlayWindow: (meta: Record<string, unknown> | null) => void;
+    sendOverlayEvent: (channel: string, payload?: unknown) => void;
+    scheduleOverlayAutoHide: (delayMs: number) => void;
+    clearOverlayAutoHideTimer: () => void;
+    createOverlayWindow: () => void;
+  };
+};
+
+function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function chooseBetterScanResult(currentBest, candidate) {
+function chooseBetterScanResult(
+  currentBest: RewardScanResult | null,
+  candidate: RewardScanResult | null | undefined,
+): RewardScanResult | null {
   if (!candidate) return currentBest;
   if (!currentBest) return candidate;
 
@@ -33,24 +89,27 @@ function chooseBetterScanResult(currentBest, candidate) {
   return candidateScore > currentScore ? candidate : currentBest;
 }
 
-function createOverlayScanController(options) {
+export function createOverlayScanController(options: OverlayScanControllerOptions) {
   const { log, rewardScanner, ctx, windows } = options;
 
   let rewardScanInFlight = false;
 
-  async function runRewardScanWithRetries(triggerSource) {
+  async function runRewardScanWithRetries(triggerSource: string): Promise<RewardScanResult> {
     const startedAt = Date.now();
     let attempts = 0;
-    let bestResult = null;
+    let bestResult: RewardScanResult | null = null;
 
     while (attempts < SCAN_MAX_ATTEMPTS && Date.now() - startedAt < SCAN_RETRY_WINDOW_MS) {
       attempts += 1;
 
-      let result;
+      let result: RewardScanResult | undefined;
       try {
         result = await rewardScanner.scanRewardsDetailed();
       } catch (err) {
-        log.error(`[Trigger] scan attempt ${attempts} failed:`, err.message);
+        log.error(
+          `[Trigger] scan attempt ${attempts} failed:`,
+          err instanceof Error ? err.message : String(err),
+        );
       }
 
       bestResult = chooseBetterScanResult(bestResult, result);
@@ -84,7 +143,7 @@ function createOverlayScanController(options) {
     };
   }
 
-  async function dispatchRewardScan(source) {
+  async function dispatchRewardScan(source: string): Promise<void> {
     if (rewardScanInFlight) {
       log.log(`[Trigger] scan already running, ignored duplicate trigger (${source})`);
       return;
@@ -154,7 +213,7 @@ function createOverlayScanController(options) {
         items.length > 0 ? OVERLAY_AUTO_HIDE_SUCCESS_MS : OVERLAY_AUTO_HIDE_FAILURE_MS,
       );
     } catch (err) {
-      log.error("[Trigger] scan pipeline error:", err.message);
+      log.error("[Trigger] scan pipeline error:", err instanceof Error ? err.message : String(err));
       windows.sendOverlayEvent("relic-reward-items", []);
       windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_FAILURE_MS);
     } finally {
@@ -162,7 +221,7 @@ function createOverlayScanController(options) {
     }
   }
 
-  function onRelicRewardTrigger(source = "manual") {
+  function onRelicRewardTrigger(source = "manual"): void {
     if (source === "eelog" && !ctx.overlaySettings.autoTriggerEnabled) return;
 
     windows.clearOverlayAutoHideTimer();

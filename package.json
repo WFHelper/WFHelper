@@ -24,7 +24,7 @@
     "dev:main": "tsc -p tsconfig.main.json --watch --preserveWatchOutput",
     "dev:renderer": "vite build --watch",
     "typecheck:renderer": "tsc --noEmit",
-    "dev:electron": "wait-on .electron-build/main.js renderer/dist/index.html && nodemon --watch .electron-build/main.js --watch .electron-build/preload.js --watch .electron-build/preload-overlay.js --watch .electron-build/preload-crop.js --watch ipc --watch services --watch config --watch renderer/dist --watch renderer/overlay.js --watch renderer/overlay.html --ext js,json,html,css --exec electron .",
+    "dev:electron": "wait-on .electron-build/main.js renderer/dist/index.html && nodemon --watch .electron-build/main.js --watch .electron-build/preload.js --watch .electron-build/preload-overlay.js --watch .electron-build/preload-crop.js --watch .electron-build/ipc --watch ipc --watch services --watch config --watch renderer/dist --watch renderer/overlay.js --watch renderer/overlay.html --ext js,json,html,css,ts --exec electron .",
     "typecheck:main": "tsc -p tsconfig.main.json --noEmit",
     "test:main": "vitest run tests/main",
     "test:e2e": "npm run build && playwright test --config playwright.config.ts",

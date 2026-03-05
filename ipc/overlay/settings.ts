@@ -1,12 +1,48 @@
 "use strict";
 
-function clampNumber(value, min, max, fallback) {
+export {};
+
+type Logger = {
+  log: (...args: unknown[]) => void;
+  warn: (...args: unknown[]) => void;
+  error: (...args: unknown[]) => void;
+};
+
+type OverlayCtx = {
+  overlaySettings: Record<string, any>;
+  overlayHotkeyRegistered: string | null;
+  overlayCropHotkeyRegistered: string | null;
+  cropDebugWindow: import("electron").BrowserWindow | null;
+};
+
+type OverlayFs = {
+  existsSync: (path: string) => boolean;
+  readFileSync: (...args: any[]) => string;
+  writeFileSync: (...args: any[]) => void;
+};
+
+type OverlaySettingsControllerOptions = {
+  log: Logger;
+  fs: OverlayFs;
+  globalShortcut: typeof import("electron").globalShortcut;
+  ctx: OverlayCtx;
+  settingsFile: string;
+  defaults: Record<string, any>;
+  limits: Record<string, number>;
+  cropPresets: string[];
+  ocrEngines: string[];
+  rewardScanner: { setSettings: (settings: Record<string, any>) => unknown };
+  onRelicRewardTrigger: (source?: string) => void;
+  onOpenCropDebugger: (source?: string) => Promise<unknown>;
+};
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(min, Math.min(max, n));
 }
 
-function normalizeHotkey(value, fallbackHotkey) {
+function normalizeHotkey(value: unknown, fallbackHotkey: string): string {
   const raw = typeof value === "string" ? value.trim() : "";
   if (!raw) return fallbackHotkey;
   if (!raw.includes("+")) return raw.toUpperCase();
@@ -28,7 +64,7 @@ function normalizeHotkey(value, fallbackHotkey) {
     .join("+");
 }
 
-function createOverlaySettingsController(options) {
+export function createOverlaySettingsController(options: OverlaySettingsControllerOptions) {
   const {
     log,
     fs,
@@ -44,12 +80,12 @@ function createOverlaySettingsController(options) {
     onOpenCropDebugger,
   } = options;
 
-  function normalizeOcrEngine(value) {
+  function normalizeOcrEngine(value: unknown): string {
     const engine = typeof value === "string" ? value.trim().toLowerCase() : "";
     return ocrEngines.includes(engine) ? engine : defaults.ocrEngine;
   }
 
-  function normalizeCropRatios(topInput, heightInput) {
+  function normalizeCropRatios(topInput: unknown, heightInput: unknown) {
     const minTop = limits.cropTopRatioMin;
     const maxTop = limits.cropTopRatioMax;
     const minHeight = limits.cropHeightRatioMin;
@@ -71,8 +107,8 @@ function createOverlaySettingsController(options) {
     };
   }
 
-  function normalizeOverlaySettings(raw) {
-    const candidate = raw && typeof raw === "object" ? raw : {};
+  function normalizeOverlaySettings(raw: unknown): Record<string, any> {
+    const candidate = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
     const cropPreset =
       typeof candidate.cropPreset === "string" ? candidate.cropPreset.trim().toLowerCase() : "";
     const validCropPreset = cropPresets.includes(cropPreset) ? cropPreset : defaults.cropPreset;
@@ -128,7 +164,7 @@ function createOverlaySettingsController(options) {
     };
   }
 
-  function loadOverlaySettings() {
+  function loadOverlaySettings(): Record<string, any> {
     try {
       if (fs.existsSync(settingsFile)) {
         const raw = fs.readFileSync(settingsFile, "utf8");
@@ -138,49 +174,58 @@ function createOverlaySettingsController(options) {
         ctx.overlaySettings = { ...defaults };
       }
     } catch (err) {
-      log.warn("[OverlaySettings] Failed to load settings, using defaults:", err.message);
+      log.warn(
+        "[OverlaySettings] Failed to load settings, using defaults:",
+        err instanceof Error ? err.message : String(err),
+      );
       ctx.overlaySettings = { ...defaults };
     }
     rewardScanner.setSettings(ctx.overlaySettings);
     return ctx.overlaySettings;
   }
 
-  function saveOverlaySettings() {
+  function saveOverlaySettings(): boolean {
     try {
       fs.writeFileSync(settingsFile, JSON.stringify(ctx.overlaySettings, null, 2), "utf8");
       return true;
     } catch (err) {
-      log.error("[OverlaySettings] Failed to save settings:", err.message);
+      log.error(
+        "[OverlaySettings] Failed to save settings:",
+        err instanceof Error ? err.message : String(err),
+      );
       return false;
     }
   }
 
-  function unregisterOverlayTriggerHotkey() {
+  function unregisterOverlayTriggerHotkey(): void {
     if (!ctx.overlayHotkeyRegistered) return;
     try {
       globalShortcut.unregister(ctx.overlayHotkeyRegistered);
     } catch (err) {
-      log.warn("[OverlayHotkey] unregister failed:", err.message);
+      log.warn(
+        "[OverlayHotkey] unregister failed:",
+        err instanceof Error ? err.message : String(err),
+      );
     }
     ctx.overlayHotkeyRegistered = null;
   }
 
-  function unregisterCropDebugHotkey() {
+  function unregisterCropDebugHotkey(): void {
     if (!ctx.overlayCropHotkeyRegistered) return;
     try {
       globalShortcut.unregister(ctx.overlayCropHotkeyRegistered);
     } catch (err) {
-      log.warn("[CropHotkey] unregister failed:", err.message);
+      log.warn("[CropHotkey] unregister failed:", err instanceof Error ? err.message : String(err));
     }
     ctx.overlayCropHotkeyRegistered = null;
   }
 
-  function unregisterOverlayHotkey() {
+  function unregisterOverlayHotkey(): void {
     unregisterOverlayTriggerHotkey();
     unregisterCropDebugHotkey();
   }
 
-  function registerOverlayTriggerHotkey() {
+  function registerOverlayTriggerHotkey(): boolean {
     unregisterOverlayTriggerHotkey();
 
     if (!ctx.overlaySettings.hotkeyEnabled) {
@@ -188,7 +233,7 @@ function createOverlaySettingsController(options) {
       return false;
     }
 
-    const accelerator = ctx.overlaySettings.hotkey;
+    const accelerator = String(ctx.overlaySettings.hotkey || "");
     if (!accelerator) return false;
 
     try {
@@ -201,12 +246,16 @@ function createOverlaySettingsController(options) {
       log.log("[OverlayHotkey] registered:", accelerator);
       return true;
     } catch (err) {
-      log.warn("[OverlayHotkey] invalid shortcut:", accelerator, err.message);
+      log.warn(
+        "[OverlayHotkey] invalid shortcut:",
+        accelerator,
+        err instanceof Error ? err.message : String(err),
+      );
       return false;
     }
   }
 
-  function registerCropDebugHotkey() {
+  function registerCropDebugHotkey(): boolean {
     unregisterCropDebugHotkey();
 
     if (!ctx.overlaySettings.cropDebugHotkeyEnabled) {
@@ -214,13 +263,16 @@ function createOverlaySettingsController(options) {
       return false;
     }
 
-    const accelerator = ctx.overlaySettings.cropDebugHotkey;
+    const accelerator = String(ctx.overlaySettings.cropDebugHotkey || "");
     if (!accelerator) return false;
 
     try {
       const ok = globalShortcut.register(accelerator, () => {
         void onOpenCropDebugger("hotkey").catch((err) => {
-          log.error("[CropHotkey] open debug failed:", err.message);
+          log.error(
+            "[CropHotkey] open debug failed:",
+            err instanceof Error ? err.message : String(err),
+          );
         });
       });
 
@@ -233,21 +285,27 @@ function createOverlaySettingsController(options) {
       log.log("[CropHotkey] registered:", accelerator);
       return true;
     } catch (err) {
-      log.warn("[CropHotkey] invalid shortcut:", accelerator, err.message);
+      log.warn(
+        "[CropHotkey] invalid shortcut:",
+        accelerator,
+        err instanceof Error ? err.message : String(err),
+      );
       return false;
     }
   }
 
-  function registerOverlayHotkey() {
+  function registerOverlayHotkey(): boolean {
     const triggerOk = registerOverlayTriggerHotkey();
     const cropOk = registerCropDebugHotkey();
     return triggerOk || cropOk;
   }
 
-  function setOverlaySettings(nextSettings) {
+  function setOverlaySettings(nextSettings: unknown): Record<string, any> {
     ctx.overlaySettings = normalizeOverlaySettings({
       ...ctx.overlaySettings,
-      ...(nextSettings && typeof nextSettings === "object" ? nextSettings : {}),
+      ...(nextSettings && typeof nextSettings === "object"
+        ? (nextSettings as Record<string, unknown>)
+        : {}),
     });
 
     rewardScanner.setSettings(ctx.overlaySettings);
@@ -255,11 +313,15 @@ function createOverlaySettingsController(options) {
     return { ...ctx.overlaySettings };
   }
 
-  function applyCropSelection(selection) {
+  function applyCropSelection(selection: unknown): Record<string, any> {
     const cropTopRatio =
-      selection && typeof selection === "object" ? selection.cropTopRatio : undefined;
+      selection && typeof selection === "object"
+        ? (selection as Record<string, unknown>).cropTopRatio
+        : undefined;
     const cropHeightRatio =
-      selection && typeof selection === "object" ? selection.cropHeightRatio : undefined;
+      selection && typeof selection === "object"
+        ? (selection as Record<string, unknown>).cropHeightRatio
+        : undefined;
     const crop = normalizeCropRatios(cropTopRatio, cropHeightRatio);
 
     ctx.overlaySettings = normalizeOverlaySettings({

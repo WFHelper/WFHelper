@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-const ctx = require("../../ipc/context.js");
-const ipcSecurity = require("../../ipc/ipcSecurity.js");
+import ctx from "../../ipc/context";
+import * as ipcSecurity from "../../ipc/ipcSecurity";
 
 function makeEvent(webContentsId: number, url: string) {
   return {
@@ -30,7 +30,7 @@ describe("ipc sender guards", () => {
     ctx.mainWindow = {
       isDestroyed: () => false,
       webContents: { id: 11 },
-    };
+    } as any;
 
     const event = makeEvent(11, "file:///D:/Github/warframe-companion/renderer/dist/index.html");
 
@@ -41,7 +41,7 @@ describe("ipc sender guards", () => {
     ctx.mainWindow = {
       isDestroyed: () => false,
       webContents: { id: 22 },
-    };
+    } as any;
 
     const event = makeEvent(19, "file:///D:/Github/warframe-companion/renderer/dist/index.html");
 
@@ -55,7 +55,7 @@ describe("ipc sender guards", () => {
     ctx.overlayWindow = {
       isDestroyed: () => false,
       webContents: { id: 33 },
-    };
+    } as any;
 
     const event = makeEvent(33, "file:///D:/Github/warframe-companion/renderer/dist/index.html");
 
@@ -68,7 +68,7 @@ describe("ipc sender guards", () => {
     ctx.cropDebugWindow = {
       isDestroyed: () => false,
       webContents: { id: 44 },
-    };
+    } as any;
 
     const event = makeEvent(44, "file:///D:/Github/warframe-companion/renderer/crop-debug.html");
 

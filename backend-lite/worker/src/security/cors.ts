@@ -16,7 +16,11 @@ export function originIsAllowed(req: Request, env: Env): boolean {
 	if (!origin) return true;
 
 	const allowList = allowedOrigins(env);
-	if (allowList.includes('*')) return true;
+	if (allowList.includes('*')) {
+		const hasAuthHeader = Boolean(req.headers.get('authorization'));
+		if (hasAuthHeader) return false;
+		return true;
+	}
 	return allowList.includes(origin);
 }
 

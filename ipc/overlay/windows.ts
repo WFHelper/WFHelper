@@ -1,6 +1,8 @@
 "use strict";
 
-const path = require("node:path");
+import path from "node:path";
+
+export {};
 
 const OVERLAY_WINDOW_BOUNDS = Object.freeze({
   width: 980,
@@ -14,13 +16,42 @@ const OVERLAY_WINDOW_BOUNDS = Object.freeze({
   anchorMaxRatio: 0.82,
 });
 
-function clampNumber(value, min, max, fallback) {
+type OverlayAnchorMeta = {
+  sourceDisplayId?: string | null;
+  bandBottomRatio?: number;
+};
+
+type OverlayContext = {
+  overlayWindow: import("electron").BrowserWindow | null;
+  cropDebugWindow: import("electron").BrowserWindow | null;
+  overlaySettings: Record<string, unknown>;
+};
+
+type OverlayWindowsControllerOptions = {
+  app: typeof import("electron").app;
+  BrowserWindow: typeof import("electron").BrowserWindow;
+  screen: typeof import("electron").screen;
+  ctx: OverlayContext;
+  log: { warn: (...args: unknown[]) => void };
+  hardenBrowserWindowNavigation: (
+    browserWindow: import("electron").BrowserWindow,
+    options: {
+      label: string;
+      allowedFilePaths: string[];
+      log: { warn: (...args: unknown[]) => void };
+    },
+  ) => void;
+  overlayWindowFile: string;
+  cropDebugWindowFile: string;
+};
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(min, Math.min(max, n));
 }
 
-function createOverlayWindowsController(options) {
+export function createOverlayWindowsController(options: OverlayWindowsControllerOptions) {
   const {
     app,
     BrowserWindow,
@@ -32,20 +63,20 @@ function createOverlayWindowsController(options) {
     cropDebugWindowFile,
   } = options;
 
-  let lastOverlayAnchorMeta = null;
-  let overlayAutoHideTimer = null;
+  let lastOverlayAnchorMeta: OverlayAnchorMeta | null = null;
+  let overlayAutoHideTimer: ReturnType<typeof setTimeout> | null = null;
 
-  function getElectronBuildFile(fileName) {
+  function getElectronBuildFile(fileName: string): string {
     return path.join(app.getAppPath(), ".electron-build", fileName);
   }
 
-  function findDisplayById(displayId) {
+  function findDisplayById(displayId: unknown): import("electron").Display | null {
     if (!displayId) return null;
     const wanted = String(displayId);
     return screen.getAllDisplays().find((display) => String(display.id) === wanted) || null;
   }
 
-  function getDisplayForOverlay(anchorMeta) {
+  function getDisplayForOverlay(anchorMeta: OverlayAnchorMeta | null): import("electron").Display {
     const metaDisplayId =
       anchorMeta && typeof anchorMeta === "object" ? anchorMeta.sourceDisplayId : null;
 
@@ -60,7 +91,7 @@ function createOverlayWindowsController(options) {
     }
   }
 
-  function getAnchorRatio(anchorMeta) {
+  function getAnchorRatio(anchorMeta: OverlayAnchorMeta | null): number {
     if (!anchorMeta || typeof anchorMeta !== "object") {
       return OVERLAY_WINDOW_BOUNDS.defaultYRatio;
     }
@@ -79,7 +110,9 @@ function createOverlayWindowsController(options) {
     );
   }
 
-  function getOverlayBoundsForActiveDisplay(anchorMeta = lastOverlayAnchorMeta) {
+  function getOverlayBoundsForActiveDisplay(
+    anchorMeta: OverlayAnchorMeta | null = lastOverlayAnchorMeta,
+  ) {
     const display = getDisplayForOverlay(anchorMeta);
     const area = display?.workArea || {
       x: 0,
@@ -101,13 +134,15 @@ function createOverlayWindowsController(options) {
     return { x, y, width, height };
   }
 
-  function positionOverlayWindow(anchorMeta = lastOverlayAnchorMeta) {
+  function positionOverlayWindow(
+    anchorMeta: OverlayAnchorMeta | null = lastOverlayAnchorMeta,
+  ): void {
     if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) return;
     const bounds = getOverlayBoundsForActiveDisplay(anchorMeta);
     ctx.overlayWindow.setBounds(bounds, false);
   }
 
-  function createOverlayWindow() {
+  function createOverlayWindow(): void {
     if (ctx.overlayWindow && !ctx.overlayWindow.isDestroyed()) {
       positionOverlayWindow(lastOverlayAnchorMeta);
       ctx.overlayWindow.show();
@@ -140,7 +175,7 @@ function createOverlayWindowsController(options) {
       log,
     });
 
-    ctx.overlayWindow.loadFile(overlayWindowFile);
+    void ctx.overlayWindow.loadFile(overlayWindowFile);
     ctx.overlayWindow.setAlwaysOnTop(true, "screen-saver");
     positionOverlayWindow(lastOverlayAnchorMeta);
     ctx.overlayWindow.on("closed", () => {
@@ -149,7 +184,7 @@ function createOverlayWindowsController(options) {
     });
   }
 
-  function createCropDebugWindow(frame) {
+  function createCropDebugWindow(frame: Record<string, unknown>): void {
     if (ctx.cropDebugWindow && !ctx.cropDebugWindow.isDestroyed()) {
       ctx.cropDebugWindow.show();
       ctx.cropDebugWindow.focus();
@@ -182,7 +217,7 @@ function createOverlayWindowsController(options) {
       log,
     });
 
-    ctx.cropDebugWindow.loadFile(cropDebugWindowFile);
+    void ctx.cropDebugWindow.loadFile(cropDebugWindowFile);
 
     ctx.cropDebugWindow.webContents.once("did-finish-load", () => {
       if (ctx.cropDebugWindow && !ctx.cropDebugWindow.isDestroyed()) {
@@ -199,13 +234,13 @@ function createOverlayWindowsController(options) {
     });
   }
 
-  function clearOverlayAutoHideTimer() {
+  function clearOverlayAutoHideTimer(): void {
     if (!overlayAutoHideTimer) return;
     clearTimeout(overlayAutoHideTimer);
     overlayAutoHideTimer = null;
   }
 
-  function scheduleOverlayAutoHide(delayMs) {
+  function scheduleOverlayAutoHide(delayMs: number): void {
     clearOverlayAutoHideTimer();
 
     const delay = Math.max(250, Math.floor(Number(delayMs) || 0));
@@ -220,7 +255,7 @@ function createOverlayWindowsController(options) {
     }, delay);
   }
 
-  function sendOverlayEvent(channel, payload) {
+  function sendOverlayEvent(channel: string, payload?: unknown): void {
     if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) return;
 
     const targetWindow = ctx.overlayWindow;
@@ -237,11 +272,11 @@ function createOverlayWindowsController(options) {
     sendNow();
   }
 
-  function setAnchorMeta(anchorMeta) {
+  function setAnchorMeta(anchorMeta: OverlayAnchorMeta | null): void {
     lastOverlayAnchorMeta = anchorMeta || null;
   }
 
-  function getAnchorMeta() {
+  function getAnchorMeta(): OverlayAnchorMeta | null {
     return lastOverlayAnchorMeta;
   }
 

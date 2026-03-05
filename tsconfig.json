@@ -6,6 +6,7 @@
     "strict": true,
     "noImplicitAny": true,
     "exactOptionalPropertyTypes": true,
+    "noEmit": true,
     "checkJs": true,
     "allowJs": true,
     "types": ["svelte"]
