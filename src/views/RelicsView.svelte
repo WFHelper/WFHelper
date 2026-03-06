@@ -11,7 +11,7 @@
     relicSquadSize,
     relicTierFilter,
   } from "../stores/relics.js";
-  import { inventoryData } from "../stores/data.js";
+  import { inventoryData, parsedItems, wfmItems } from "../stores/data.js";
   import { activeRelic } from "../stores/modals.js";
   import { priceCacheRevision } from "../stores/pricing.js";
   import {
@@ -29,6 +29,7 @@
     warmupRelicCardPrices,
     warmupRewardDucats,
     warmupRelicEvs,
+    relicGroupMatchesSearch,
   } from "../lib/relic.js";
   import { ipc } from "../lib/ipc.js";
   import {
@@ -37,7 +38,9 @@
     perfSnapshot,
   } from "../lib/perf.js";
   import { debugMode } from "../stores/app.js";
-  import type { RelicGroup, RelicQuality } from "../types/relics.js";
+  import ItemImage from "../components/ItemImage.svelte";
+  import type { ParsedItem } from "../types/inventory.js";
+  import type { RelicGroup, RelicQuality, RelicReward } from "../types/relics.js";
 
   const TIER_OPTIONS: Array<[string, string]> = [
     ["all", "All"],
@@ -85,6 +88,16 @@
     flawless: "Fl",
     radiant: "Rad",
   };
+  const RELIC_PREVIEW_REWARD_LIMIT = 6;
+
+  function normalizeOwnedRewardName(value: string): string {
+    return value
+      .toLowerCase()
+      .replace(/[’']/g, "")
+      .replace(/ blueprint$/i, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  }
 
   const EV_WARMUP_UI_DEBOUNCE_MS = 800;
   const CARD_WARMUP_UI_DEBOUNCE_MS = 450;
@@ -101,6 +114,10 @@
   let ducatUiDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   let priceUpdateEvRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   let relicViewMounted = true;
+  let ownedRewardInternalNames: Record<string, true> = {};
+  let ownedRewardNames: Record<string, true> = {};
+  let rewardIconBySlug: Record<string, string> = {};
+  let rewardIconByName: Record<string, string> = {};
 
   const onEvBatchDone = () => {
     if (evUiDebounceTimer) clearTimeout(evUiDebounceTimer);
@@ -296,10 +313,7 @@
     }
 
     if ($relicSearch) {
-      const query = $relicSearch.toLowerCase();
-      relicGroups = relicGroups.filter((group) =>
-        group.name.toLowerCase().includes(query),
-      );
+      relicGroups = relicGroups.filter((group) => relicGroupMatchesSearch(group, $relicSearch));
     }
 
     if ($relicSortMode === "ev_desc" || $relicSortMode === "ev_asc") {
@@ -373,6 +387,12 @@
     }
   }
 
+  $: visibleRelicEntryCount = groups.reduce(
+    (sum, group) =>
+      sum + RELIC_QUALITY_COLUMNS.reduce((inner, quality) => inner + (ownedCount(group, quality) > 0 ? 1 : 0), 0),
+    0,
+  );
+
   interface RowEvData {
     plat: number | null;
     ducat: number | null;
@@ -439,6 +459,51 @@
     return owned?.[quality] ?? 0;
   }
 
+  function previewRewards(group: RelicGroup): RelicReward[] {
+    const intactRewards = group.qualities.intact?.rewards || [];
+    if (intactRewards.length > 0) {
+      return intactRewards.slice(0, RELIC_PREVIEW_REWARD_LIMIT);
+    }
+
+    for (const quality of RELIC_QUALITY_COLUMNS) {
+      const rewards = group.qualities[quality]?.rewards || [];
+      if (rewards.length > 0) {
+        return rewards.slice(0, RELIC_PREVIEW_REWARD_LIMIT);
+      }
+    }
+
+    return [];
+  }
+
+  function isOwnedReward(reward: RelicReward): boolean {
+    if (reward.uniqueName && ownedRewardInternalNames[reward.uniqueName]) {
+      return true;
+    }
+    return Boolean(ownedRewardNames[normalizeOwnedRewardName(reward.name)]);
+  }
+
+  function rewardIconSrc(reward: RelicReward): string | null {
+    if (reward.urlName && rewardIconBySlug[reward.urlName]) {
+      return rewardIconBySlug[reward.urlName];
+    }
+
+    const rewardNameKey = reward.name
+      .toLowerCase()
+      .replace(/[’']/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+    if (rewardNameKey && rewardIconByName[rewardNameKey]) {
+      return rewardIconByName[rewardNameKey];
+    }
+
+    return reward.imageUrl || null;
+  }
+
+  function rewardTooltip(reward: RelicReward): string {
+    const rarity = reward.rarity || "Unknown";
+    return `${reward.name} (${rarity}, ${reward.chance}%)`;
+  }
+
   function selectedQualityHeader(mode: "best" | RelicQuality): string {
     if (mode === "best") return "Selected EV (Best)";
     const label = mode.charAt(0).toUpperCase() + mode.slice(1);
@@ -457,11 +522,58 @@
       img.src = fallback;
     }
   }
+
+  $: {
+    const nextInternalNames: Record<string, true> = {};
+    const nextNames: Record<string, true> = {};
+    for (const item of ($parsedItems || []) as ParsedItem[]) {
+      if ((item.amount ?? 1) <= 0) continue;
+
+      if (typeof item.internalName === "string" && item.internalName.trim().length > 0) {
+        nextInternalNames[item.internalName] = true;
+      }
+
+      if (typeof item.name === "string" && item.name.trim().length > 0) {
+        nextNames[normalizeOwnedRewardName(item.name)] = true;
+      }
+    }
+    ownedRewardInternalNames = nextInternalNames;
+    ownedRewardNames = nextNames;
+  }
+
+  $: {
+    const nextBySlug: Record<string, string> = {};
+    const nextByName: Record<string, string> = {};
+    for (const entry of Object.values($wfmItems || {})) {
+      if (!entry || typeof entry !== "object") continue;
+      const slug = typeof entry.url_name === "string" ? entry.url_name.trim().toLowerCase() : "";
+      const icon = typeof entry.icon === "string" && entry.icon.trim().length > 0 ? entry.icon : null;
+      const thumb =
+        typeof entry.thumb === "string" && entry.thumb.trim().length > 0 ? entry.thumb : null;
+      const src = icon || thumb;
+
+      if (src && slug && !nextBySlug[slug]) {
+        nextBySlug[slug] = src;
+      }
+
+      const rawName = typeof entry.item_name === "string" ? entry.item_name : "";
+      const nameKey = rawName
+        .toLowerCase()
+        .replace(/[’']/g, "")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+      if (src && nameKey && !nextByName[nameKey]) {
+        nextByName[nameKey] = src;
+      }
+    }
+    rewardIconBySlug = nextBySlug;
+    rewardIconByName = nextByName;
+  }
 </script>
 
 <section class="view active">
   <div class="view-header">
-    <h2>Relic Planner ({groups.length})</h2>
+    <h2>Relic Planner ({groups.length} groups / {visibleRelicEntryCount} entries)</h2>
     <div class="view-controls">
       <div class="search-box">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -535,6 +647,7 @@
           group.imageUrl || RELIC_ICON_PATHS[tierClass] || RELIC_ICON_PATHS.default}
         {@const selected = selectedEvData(group)}
         {@const best = bestQualityBadge(group)}
+        {@const rewardIcons = previewRewards(group)}
         {@const totalOwned = RELIC_QUALITY_COLUMNS.reduce(
           (sum, quality) => sum + ownedCount(group, quality),
           0,
@@ -565,12 +678,14 @@
             </span>
           </span>
 
-          <span class="relic-compact-owned">
-            {#each RELIC_QUALITY_COLUMNS as quality}
-              {@const count = ownedCount(group, quality)}
-              <span class="relic-owned-col">
-                <span class="relic-owned-label">{RELIC_QUALITY_SHORT[quality]}</span>
-                <span class="relic-col-owned" class:zero={count === 0}>{count}</span>
+          <span class="relic-reward-preview-row">
+            {#each rewardIcons as reward}
+              <span
+                class="relic-reward-preview-icon"
+                class:owned={isOwnedReward(reward)}
+                title={rewardTooltip(reward)}
+              >
+                <ItemImage src={rewardIconSrc(reward)} alt={reward.name} cls="relic-reward-preview-img" />
               </span>
             {/each}
           </span>
@@ -586,6 +701,16 @@
               </span>
               <span class={`relic-row-pill relic-row-pill-ratio ${selected.cls}`}>
                 {selected.ratio != null ? `${selected.ratio.toFixed(1)} d/p` : "d/p -"}
+              </span>
+
+              <span class="relic-quality-inline-counts">
+                {#each RELIC_QUALITY_COLUMNS as quality}
+                  {@const count = ownedCount(group, quality)}
+                  <span class="relic-quality-inline-pill" class:zero={count === 0}>
+                    <span class="relic-quality-inline-label">{RELIC_QUALITY_SHORT[quality]}</span>
+                    <span class="relic-quality-inline-value">{count}</span>
+                  </span>
+                {/each}
               </span>
             </span>
           </span>

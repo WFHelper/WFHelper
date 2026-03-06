@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke("wfm:set-visible", { orderIds, visible }),
   wfmSearchItems: (query: string, limit?: number) =>
     ipcRenderer.invoke("wfm:search-items", { query, limit }),
+  wfmLookupItemBySlug: (slug: string) => ipcRenderer.invoke("wfm:lookup-item-by-slug", { slug }),
   wfmGetMe: () => ipcRenderer.invoke("wfm:get-me"),
   wfmSetStatus: (status: string) => ipcRenderer.invoke("wfm:set-status", { status }),
 
@@ -63,4 +64,7 @@ contextBridge.exposeInMainWorld("api", {
   openOcrCropDebugger: () => ipcRenderer.invoke("overlay:open-crop-debugger"),
 
   openExternal: (url: string) => ipcRenderer.send("open-external", url),
+
+  loadPriceCache: () => ipcRenderer.invoke("price-cache:load"),
+  savePriceCache: (data: unknown) => ipcRenderer.invoke("price-cache:save", data),
 });

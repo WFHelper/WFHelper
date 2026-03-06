@@ -75,8 +75,18 @@ export interface WfmContractsQuery {
 export interface WfmSearchItem {
   id: string;
   item_name: string;
+  url_name?: string | null;
   thumb?: string | null;
+  icon?: string | null;
   [key: string]: unknown;
+}
+
+export interface WfmLookupItem {
+  id: string;
+  item_name: string;
+  url_name: string;
+  thumb: string | null;
+  icon: string | null;
 }
 
 export interface WfmMutationError {
@@ -117,4 +127,9 @@ export interface WfmUpdateOrderInput {
 export interface OrderModalState {
   mode: "create" | "edit";
   order: WfmOrder | null;
+  draft?: {
+    item?: WfmLookupItem | null;
+    orderType?: "sell" | "buy";
+    modRank?: number | null;
+  };
 }

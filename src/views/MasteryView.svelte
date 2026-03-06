@@ -10,7 +10,7 @@
   import { ipc } from "../lib/ipc.js";
   import type { MasteryCategoryStats } from "../types/inventory.js";
 
-  const CAT_ORDER = ['Warframes', 'Primary', 'Secondary', 'Melee', 'Companions', 'Archwing', 'Amps', 'Necramech'];
+  const CAT_ORDER = ['Warframes', 'Primary', 'Secondary', 'Melee', 'Companions', 'Archwing', 'Amps', 'Necramech', 'Misc'];
 
   let catFilter    = 'all';
   let statusFilter = 'all';

@@ -2,6 +2,7 @@
   import { orderModalState, marketOrders } from "../stores/market.js";
   import { ipc } from "../lib/ipc.js";
   import type {
+    WfmLookupItem,
     WfmOrder,
     WfmSearchItem,
     WfmUpdateOrderInput,
@@ -27,6 +28,7 @@
   $: state = $orderModalState;
   $: isEdit = state?.mode === "edit";
   $: order = (state?.order || null) as WfmOrder | null;
+  $: draft = state?.draft || null;
 
   $: if (state) {
     resetForm();
@@ -46,12 +48,26 @@
       modRank = order.modRank ?? 0;
       showRankField = order.modRank != null;
     } else {
-      orderType = "sell";
+      const draftItem = (draft?.item || null) as WfmLookupItem | null;
+      orderType = draft?.orderType === "buy" ? "buy" : "sell";
       platinum = "";
       quantity = 1;
       visible = true;
-      modRank = 0;
-      showRankField = false;
+      modRank =
+        typeof draft?.modRank === "number" && Number.isFinite(draft.modRank)
+          ? Math.max(0, Math.floor(draft.modRank))
+          : 0;
+      showRankField = typeof draft?.modRank === "number" && Number.isFinite(draft.modRank);
+
+      if (draftItem && typeof draftItem.id === "string" && draftItem.id.trim()) {
+        itemSelected = {
+          id: draftItem.id,
+          item_name: draftItem.item_name,
+          url_name: draftItem.url_name,
+          thumb: draftItem.thumb || draftItem.icon || null,
+          icon: draftItem.icon || null,
+        };
+      }
     }
   }
 

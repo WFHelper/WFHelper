@@ -6,6 +6,7 @@
 
   export let item: InventoryViewItem;
   export let showDebug = false;
+  export let showDucats = true;
 
   const dispatch = createEventDispatcher<{ select: InventoryViewItem }>();
 
@@ -15,6 +16,18 @@
     canShowRank && item.maxRank > 0
       ? Math.max(0, Math.min(100, (item.rank / item.maxRank) * 100))
       : 0;
+
+  $: platinumLabel = item.platinum != null ? `~${item.platinum}p` : "-p";
+  $: ducatLabel = item.ducats != null ? `${item.ducats}d` : "-d";
+  $: ratioLabel = item.ducatonator != null ? `${item.ducatonator} d/p` : "- d/p";
+  $: showRankOrderSummary =
+    (item.inventoryGroup === "mods" || item.inventoryGroup === "arcanes") && item.maxRank > 1;
+  $: rankCapLabel = Number.isFinite(item.maxRank) ? Math.max(0, Math.floor(item.maxRank)) : 0;
+
+  $: wtsRank0Label = item.wtsR0 != null ? `${item.wtsR0}p` : "-";
+  $: wtbRank0Label = item.wtbR0 != null ? `${item.wtbR0}p` : "-";
+  $: wtsRankMaxLabel = item.wtsRmax != null ? `${item.wtsRmax}p` : "-";
+  $: wtbRankMaxLabel = item.wtbRmax != null ? `${item.wtbRmax}p` : "-";
 
   function selectCard(): void {
     dispatch("select", item);
@@ -40,16 +53,41 @@
     </span>
 
     <div class="inventory-value-row">
-      {#if item.platinum != null}
-        <span class="inventory-value-pill inventory-value-pill-plat">~{item.platinum}p</span>
-      {/if}
-      {#if item.ducats != null}
-        <span class="inventory-value-pill">{item.ducats}d</span>
-      {/if}
-      {#if item.ducatonator != null}
-        <span class="inventory-value-pill">{item.ducatonator} d/p</span>
+      <span
+        class="inventory-value-pill inventory-value-pill-plat"
+        class:inventory-value-pill-missing={item.platinum == null}
+      >{platinumLabel}</span>
+      {#if showDucats}
+        <span class="inventory-value-pill" class:inventory-value-pill-missing={item.ducats == null}
+          >{ducatLabel}</span
+        >
+        <span
+          class="inventory-value-pill"
+          class:inventory-value-pill-missing={item.ducatonator == null}
+        >{ratioLabel}</span>
       {/if}
     </div>
+
+    {#if showRankOrderSummary}
+      <div class="inventory-rank-order-grid">
+        <span class="inventory-rank-order-box">
+          <span class="inventory-rank-order-label">WTS R{rankCapLabel}</span>
+          <strong>{wtsRankMaxLabel}</strong>
+        </span>
+        <span class="inventory-rank-order-box">
+          <span class="inventory-rank-order-label">WTB R{rankCapLabel}</span>
+          <strong>{wtbRankMaxLabel}</strong>
+        </span>
+        <span class="inventory-rank-order-box">
+          <span class="inventory-rank-order-label">WTS R0</span>
+          <strong>{wtsRank0Label}</strong>
+        </span>
+        <span class="inventory-rank-order-box">
+          <span class="inventory-rank-order-label">WTB R0</span>
+          <strong>{wtbRank0Label}</strong>
+        </span>
+      </div>
+    {/if}
 
     {#if canShowRank}
       <div class="item-rank-bar">

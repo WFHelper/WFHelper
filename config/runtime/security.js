@@ -14,8 +14,6 @@ const BASE_CONNECT_SRC_ALLOWLIST = Object.freeze([
   "https://warframe.market",
   "https://content.warframe.com",
   "https://api.warframestat.us",
-  "http://localhost:*",
-  "https://localhost:*",
 ]);
 
 function toAllowedConnectOrigin(value) {
@@ -32,7 +30,30 @@ function toAllowedConnectOrigin(value) {
 function buildConnectSrcAllowlist() {
   const entries = new Set(BASE_CONNECT_SRC_ALLOWLIST);
 
-  const backendOrigin = toAllowedConnectOrigin(process.env.VITE_WFM_BACKEND_URL || "");
+  // Allow localhost connections only during development
+  try {
+    const { app } = require("electron");
+    if (!app.isPackaged) {
+      entries.add("http://localhost:*");
+      entries.add("https://localhost:*");
+    }
+  } catch {
+    // If electron isn't available (e.g. tests), skip localhost entries
+  }
+
+  // Backend-lite Worker URL: use env override or shared config.
+  // The renderer gets this via Vite's import.meta.env, but the main process
+  // doesn't use Vite, so we read the shared config directly.
+  let backendUrl = process.env.VITE_WFM_BACKEND_URL || "";
+  if (!backendUrl) {
+    try {
+      const { BACKEND_URL } = require("../shared/backendConfig.cjs");
+      backendUrl = BACKEND_URL || "";
+    } catch {
+      // shared config missing — skip
+    }
+  }
+  const backendOrigin = toAllowedConnectOrigin(backendUrl);
   if (backendOrigin) {
     entries.add(backendOrigin);
   }
@@ -69,6 +90,8 @@ const MAIN_WINDOW_CSP = [
   "form-action 'none'",
 ].join("; ");
 
+const PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(), usb=()";
+
 module.exports = {
   OPEN_EXTERNAL_ALLOWED_HOSTS,
   BASE_CONNECT_SRC_ALLOWLIST,
@@ -76,4 +99,5 @@ module.exports = {
   toAllowedConnectOrigin,
   buildConnectSrcAllowlist,
   MAIN_WINDOW_CSP,
+  PERMISSIONS_POLICY,
 };

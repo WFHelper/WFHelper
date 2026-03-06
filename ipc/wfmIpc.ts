@@ -26,6 +26,7 @@ const log = requireRuntime<{
 }>("services/logger").withScope("wfmIpc");
 
 const { ipcMain } = require("electron") as typeof import("electron");
+const WFM_SLUG_RE = /^[a-z0-9_]+$/;
 const wfmSession = requireRuntime<{
   signIn: (email: string, password: string) => Promise<unknown>;
   signOut: () => Promise<unknown>;
@@ -45,6 +46,7 @@ const wfmContracts = requireRuntime<{
 }>("services/wfmContracts");
 const wfmCatalog = requireRuntime<{
   searchItems: (query: string, limit: number) => Promise<unknown>;
+  lookupBySlug: (slug: string) => Promise<unknown>;
 }>("services/wfmCatalog");
 
 function register(): void {
@@ -207,6 +209,43 @@ function register(): void {
       return await wfmCatalog.searchItems(parsed.query, parsed.limit);
     } catch (err) {
       return { error: normalizeErrorMessage(err, "Failed to search items.") };
+    }
+  });
+
+  handleMainRenderer("wfm:lookup-item-by-slug", async (_event, payload) => {
+    const slugRaw =
+      payload && typeof payload === "object" && "slug" in payload
+        ? (payload as { slug?: unknown }).slug
+        : null;
+    const slug = typeof slugRaw === "string" ? slugRaw.trim().toLowerCase() : "";
+
+    if (!slug || !WFM_SLUG_RE.test(slug)) {
+      log.warn("[Security] wfm:lookup-item-by-slug blocked due to invalid payload");
+      return { error: "Invalid item slug." };
+    }
+
+    try {
+      const item = (await wfmCatalog.lookupBySlug(slug)) as {
+        id?: unknown;
+        item_name?: unknown;
+        url_name?: unknown;
+        thumb?: unknown;
+        icon?: unknown;
+      } | null;
+
+      if (!item || typeof item.id !== "string" || typeof item.url_name !== "string") {
+        return { error: "Item not found." };
+      }
+
+      return {
+        id: item.id,
+        item_name: typeof item.item_name === "string" ? item.item_name : item.url_name,
+        url_name: item.url_name,
+        thumb: typeof item.thumb === "string" ? item.thumb : null,
+        icon: typeof item.icon === "string" ? item.icon : null,
+      };
+    } catch (err) {
+      return { error: normalizeErrorMessage(err, "Failed to look up item slug.") };
     }
   });
 

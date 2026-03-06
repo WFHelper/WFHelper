@@ -117,6 +117,12 @@ export default defineConfig({
   // Use relative asset paths so Electron can load from file://
   base: "./",
 
+  define: {
+    "import.meta.env.VITE_APP_VERSION": JSON.stringify(
+      process.env.npm_package_version || "0.0.0",
+    ),
+  },
+
   plugins,
 
   // Copy the assets/ folder into the build output so icon paths work.

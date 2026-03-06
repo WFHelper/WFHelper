@@ -3,11 +3,14 @@ import { describe, expect, it } from "vitest";
 import {
   buildBaseInventoryItems,
   buildInventoryViewItems,
+  computeFilteredTotalCount,
   getLookupByName,
   metricNeedsFromFilters,
+  shouldHydrateMetrics,
   type InventoryBaseItem,
   type ItemMetrics,
 } from "./inventoryMarket.js";
+import { setCachedPrice } from "./wfm/priceCache.js";
 
 function makeBaseItem(overrides: Partial<InventoryBaseItem> = {}): InventoryBaseItem {
   return {
@@ -154,6 +157,35 @@ describe("inventoryMarket view mapping", () => {
     expect(kept[0].marketSlug).toBe("ayatan_amber_star_set");
   });
 
+  it("drops all-parts entries without market mapping when tradability is unknown", () => {
+    const unknownPart = makeBaseItem({
+      name: "Broken War War Blade",
+      internalName: "/Lotus/Types/Recipes/Weapons/WeaponParts/WarBlade",
+      inventoryGroup: "all_parts",
+      category: "all_parts",
+      categoryLabel: "All Parts",
+      tradable: false,
+    });
+
+    const mapped = buildBaseInventoryItems([unknownPart], "all_parts", {}, {}, {});
+    expect(mapped).toHaveLength(0);
+  });
+
+  it("keeps explicit tradable all-parts entries even without direct lookup mapping", () => {
+    const explicitTradablePart = makeBaseItem({
+      name: "Some Tradable Part",
+      internalName: "/Lotus/Types/Recipes/Weapons/WeaponParts/TestPart",
+      inventoryGroup: "all_parts",
+      category: "all_parts",
+      categoryLabel: "All Parts",
+      tradable: true,
+    });
+
+    const mapped = buildBaseInventoryItems([explicitTradablePart], "all_parts", {}, {}, {});
+    expect(mapped).toHaveLength(1);
+    expect(mapped[0].marketSlug).toBe("some_tradable_part");
+  });
+
   it("matches helmet blueprint names against neuroptics lookup aliases", () => {
     const match = getLookupByName("Xaku Prime Helmet Blueprint", {
       "xaku prime neuroptics blueprint": {
@@ -165,5 +197,220 @@ describe("inventoryMarket view mapping", () => {
     });
 
     expect(match?.url_name).toBe("xaku_prime_neuroptics_blueprint");
+  });
+
+  it("matches component blueprint names against non-blueprint lookup aliases", () => {
+    const match = getLookupByName("Nova Prime Chassis Blueprint", {
+      "nova prime chassis": {
+        item_name: "Nova Prime Chassis",
+        url_name: "nova_prime_chassis",
+        thumb: null,
+        icon: null,
+      },
+    });
+
+    expect(match?.url_name).toBe("nova_prime_chassis");
+  });
+
+  it("matches non-blueprint component names against blueprint lookup aliases", () => {
+    const match = getLookupByName("Parallax Engines", {
+      "parallax engines blueprint": {
+        item_name: "Parallax Engines Blueprint",
+        url_name: "parallax_engines_blueprint",
+        thumb: null,
+        icon: null,
+      },
+    });
+
+    expect(match?.url_name).toBe("parallax_engines_blueprint");
+  });
+
+  it("matches hyphenated item names against space-normalized lookup aliases", () => {
+    const match = getLookupByName("Riot-848 Stock Blueprint", {
+      "riot 848 stock": {
+        item_name: "Riot 848 Stock",
+        url_name: "riot_848_stock",
+        thumb: null,
+        icon: null,
+      },
+    });
+
+    expect(match?.url_name).toBe("riot_848_stock");
+  });
+
+  it("sanitizes non-finite metric numbers to avoid NaN display values", () => {
+    const item = makeBaseItem({
+      inventoryGroup: "all_parts",
+      category: "parts",
+      categoryLabel: "Part",
+      ducats: Number.NaN,
+    });
+
+    const metrics: Record<string, ItemMetrics> = {
+      [item.internalName]: {
+        platinum: Number.NaN,
+        ducats: Number.NaN,
+        slug: "sample_item",
+        thumb: null,
+        icon: null,
+        hasPrice: true,
+        hasDucats: true,
+        hasMeta: true,
+      },
+    };
+
+    const [mapped] = buildInventoryViewItems([item], metrics, "all_parts");
+    expect(mapped.platinum).toBeNull();
+    expect(mapped.ducats).toBeNull();
+    expect(mapped.ducatonator).toBeNull();
+  });
+
+  it("uses WFM max rank metadata for mods/arcanes", () => {
+    const item = makeBaseItem({ rank: 3, maxRank: 10, name: "Accelerated Blast" });
+    const [mapped] = buildBaseInventoryItems(
+      [item],
+      "mods",
+      {
+        "accelerated blast": {
+          url_name: "accelerated_blast",
+          item_name: "Accelerated Blast",
+          thumb: null,
+          icon: null,
+          maxRank: 3,
+        },
+      },
+      {},
+      {},
+    );
+
+    expect(mapped.maxRank).toBe(3);
+    expect(mapped.rank).toBe(3);
+  });
+
+  it("reads cached ranked prices immediately when hydration metrics are empty", () => {
+    const item = makeBaseItem({
+      name: "Accelerated Blast",
+      marketSlug: "accelerated_blast",
+      rank: 3,
+      maxRank: 3,
+    });
+    setCachedPrice("accelerated_blast:rank-v3:r3", 6);
+
+    const [mapped] = buildInventoryViewItems([item], {}, "mods");
+    expect(mapped.platinum).toBe(6);
+  });
+
+  it("reads cached R0 and Rmax prices for ranked cards", () => {
+    const item = makeBaseItem({
+      name: "Serration",
+      marketSlug: "serration",
+      rank: 0,
+      maxRank: 10,
+    });
+    setCachedPrice("serration:rank-v3:r0", 8);
+    setCachedPrice("serration:rank-v3:r10", 82);
+
+    const [mapped] = buildInventoryViewItems([item], {}, "mods");
+    expect(mapped.platinumR0).toBe(8);
+    expect(mapped.platinumRmax).toBe(82);
+    expect(mapped.platinum).toBe(8);
+  });
+
+  it("maps both R0 and Rmax prices for ranked cards", () => {
+    const item = makeBaseItem({
+      name: "Critical Delay",
+      marketSlug: "critical_delay",
+      rank: 0,
+      maxRank: 10,
+    });
+
+    const metrics: Record<string, ItemMetrics> = {
+      [item.internalName]: {
+        platinum: null,
+        platinumR0: 7,
+        platinumRmax: 76,
+        hasPriceR0: true,
+        hasPriceRmax: true,
+        ducats: null,
+        slug: "critical_delay",
+        thumb: null,
+        icon: null,
+        hasPrice: true,
+        hasDucats: true,
+        hasMeta: true,
+      },
+    };
+
+    const [mapped] = buildInventoryViewItems([item], metrics, "mods");
+    expect(mapped.platinumR0).toBe(7);
+    expect(mapped.platinumRmax).toBe(76);
+    expect(mapped.platinum).toBe(7);
+  });
+
+  it("keeps header total as card count, not stack amount sum", () => {
+    const viewItems = buildInventoryViewItems(
+      [
+        makeBaseItem({ internalName: "/Lotus/Upgrades/Mods/Test/A", amount: 250 }),
+        makeBaseItem({ internalName: "/Lotus/Upgrades/Mods/Test/B", amount: 1 }),
+      ],
+      {},
+      "mods",
+    );
+    const count = computeFilteredTotalCount(viewItems);
+
+    expect(count).toBe(2);
+  });
+
+  it("resolves mod slug by gameRef mapping when name differs", () => {
+    const item = makeBaseItem({
+      name: "Primed Bane of Orokin",
+      internalName: "/Lotus/Upgrades/Mods/Shotgun/Expert/WeaponShotgunFactionDamageCorruptedExpert",
+      marketSlug: null,
+    });
+
+    const [mapped] = buildBaseInventoryItems(
+      [item],
+      "mods",
+      {
+        "/lotus/upgrades/mods/shotgun/expert/weaponshotgunfactiondamagecorruptedexpert": {
+          url_name: "primed_cleanse_corrupted",
+          item_name: "Primed Cleanse Orokin",
+          gameRef: "/Lotus/Upgrades/Mods/Shotgun/Expert/WeaponShotgunFactionDamageCorruptedExpert",
+          thumb: null,
+          icon: null,
+        },
+      },
+      {},
+      {},
+    );
+
+    expect(mapped.marketSlug).toBe("primed_cleanse_corrupted");
+  });
+
+  it("keeps untradable mods visible but without market indexing", () => {
+    const item = makeBaseItem({
+      name: "Amalgam Furax Body Count",
+      tradable: false,
+      internalName: "/Lotus/Upgrades/Mods/Custom/AmalgamFuraxBodyCount",
+      marketSlug: null,
+    });
+
+    const [mapped] = buildBaseInventoryItems(
+      [item],
+      "mods",
+      {
+        "amalgam furax body count": {
+          url_name: "amalgam_furax_body_count",
+          item_name: "Amalgam Furax Body Count",
+          thumb: null,
+          icon: null,
+        },
+      },
+      {},
+      {},
+    );
+
+    expect(mapped.marketSlug).toBeNull();
+    expect(shouldHydrateMetrics(mapped)).toBe(false);
   });
 });

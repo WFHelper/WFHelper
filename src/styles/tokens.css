@@ -1,0 +1,61 @@
+@theme {
+  --color-void-deep: #060a12;
+  --color-void-base: #0a0e17;
+  --color-void-surface: #111827;
+  --color-void-raised: #1a2234;
+  --color-void-hover: #1f2b3f;
+  --color-orokin: #d4a843;
+  --color-orokin-dim: #a07830;
+  --color-orokin-bright: #f0c95c;
+  --color-text-primary: #e8e4dc;
+  --color-text-secondary: #8b93a5;
+  --color-text-muted: #8d9ab3;
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --color-info: #60a5fa;
+  --font-display: "Rajdhani", sans-serif;
+  --font-body: "Barlow", sans-serif;
+  --size-titlebar-control: 2.875rem;
+  --size-relic-detail-icon: 3.25rem;
+}
+
+:root {
+  --bg-deep: #060a12;
+  --bg-base: #0a0e17;
+  --bg-surface: #111827;
+  --bg-raised: #1a2234;
+  --bg-hover: #1f2b3f;
+  --accent: #d4a843;
+  --accent-dim: #a07830;
+  --accent-glow: rgba(212, 168, 67, 0.15);
+  --accent-bright: #f0c95c;
+  --text-primary: #e8e4dc;
+  --text-secondary: #8b93a5;
+  --text-muted: #8d9ab3;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --info: #60a5fa;
+  --accent-blue: #60a5fa;
+  --border: rgba(212, 168, 67, 0.1);
+  --border-strong: rgba(212, 168, 67, 0.25);
+  --sidebar-width: 200px;
+  --titlebar-height: 38px;
+  --statusbar-height: 28px;
+  --item-image-max: 96px;
+  --foundry-image-wrap: 48px;
+  --foundry-image-max: 40px;
+  --resource-image-wrap: 44px;
+  --resource-image-max: 34px;
+  --detail-image-wrap: 108px;
+  --detail-image-max: 94px;
+  --relic-grid-columns: 5;
+  --relic-grid-gap: 0.68rem;
+  --relic-card-icon-size: 2.9rem;
+  --relic-card-min-height: 5.2rem;
+  --relic-card-pad-x: 0.78rem;
+  --font-display: "Rajdhani", sans-serif;
+  --font-body: "Barlow", sans-serif;
+}
+

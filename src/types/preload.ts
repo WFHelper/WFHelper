@@ -39,6 +39,9 @@ export interface PreloadAPI {
     query: IpcInvokeMap["wfmSearchItems"]["args"][0],
     limit?: IpcInvokeMap["wfmSearchItems"]["args"][1],
   ) => Promise<IpcInvokeMap["wfmSearchItems"]["return"]>;
+  wfmLookupItemBySlug: (
+    slug: IpcInvokeMap["wfmLookupItemBySlug"]["args"][0],
+  ) => Promise<IpcInvokeMap["wfmLookupItemBySlug"]["return"]>;
   wfmGetMe: () => Promise<IpcInvokeMap["wfmGetMe"]["return"]>;
   wfmSetStatus: (status: WfmStatus) => Promise<IpcInvokeMap["wfmSetStatus"]["return"]>;
   getMasteryProgress: () => Promise<IpcInvokeMap["getMasteryProgress"]["return"]>;
@@ -61,4 +64,8 @@ export interface PreloadAPI {
   ) => Promise<IpcInvokeMap["setOverlaySettings"]["return"]>;
   openOcrCropDebugger: () => Promise<IpcInvokeMap["openOcrCropDebugger"]["return"]>;
   openExternal: (url: string) => void;
+  loadPriceCache: () => Promise<IpcInvokeMap["loadPriceCache"]["return"]>;
+  savePriceCache: (
+    data: IpcInvokeMap["savePriceCache"]["args"][0],
+  ) => Promise<IpcInvokeMap["savePriceCache"]["return"]>;
 }

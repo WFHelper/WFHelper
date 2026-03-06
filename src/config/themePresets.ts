@@ -1,0 +1,114 @@
+import type { ThemeColors, ThemeFontSizes } from "../types/theme.js";
+import { DEFAULT_COLORS, DEFAULT_FONT_SIZES } from "./themeDefaults.js";
+
+export interface ThemePreset {
+  label: string;
+  colors: ThemeColors;
+  fontSizes: ThemeFontSizes;
+}
+
+export const THEME_PRESETS: Record<string, ThemePreset> = {
+  default: {
+    label: "Orokin Dark",
+    colors: { ...DEFAULT_COLORS },
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+  },
+
+  midnight: {
+    label: "Midnight",
+    colors: {
+      bgDeep: "#020816",
+      bgBase: "#050d1a",
+      bgSurface: "#0b1628",
+      bgRaised: "#101f38",
+      bgHover: "#162a48",
+      accent: "#5b9bd5",
+      accentDim: "#3d7ab8",
+      accentBright: "#8ec0ee",
+      textPrimary: "#dce4f0",
+      textSecondary: "#7b8ca8",
+      textMuted: "#5e6f8c",
+      success: "#4ade80",
+      warning: "#fbbf24",
+      danger: "#f87171",
+      info: "#60a5fa",
+      border: "rgba(91, 155, 213, 0.12)",
+      borderStrong: "rgba(91, 155, 213, 0.28)",
+    },
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+  },
+
+  highContrast: {
+    label: "High Contrast",
+    colors: {
+      bgDeep: "#000000",
+      bgBase: "#0a0a0a",
+      bgSurface: "#1a1a1a",
+      bgRaised: "#262626",
+      bgHover: "#333333",
+      accent: "#ffd700",
+      accentDim: "#ccac00",
+      accentBright: "#ffeb3b",
+      textPrimary: "#ffffff",
+      textSecondary: "#d0d0d0",
+      textMuted: "#a0a0a0",
+      success: "#00ff7f",
+      warning: "#ffcc00",
+      danger: "#ff4444",
+      info: "#44aaff",
+      border: "rgba(255, 215, 0, 0.2)",
+      borderStrong: "rgba(255, 215, 0, 0.45)",
+    },
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+  },
+
+  lotus: {
+    label: "Warframe Lotus",
+    colors: {
+      bgDeep: "#080614",
+      bgBase: "#0e0a1e",
+      bgSurface: "#17122e",
+      bgRaised: "#211a40",
+      bgHover: "#2c2352",
+      accent: "#b07fd4",
+      accentDim: "#8a5cb5",
+      accentBright: "#d4a8f0",
+      textPrimary: "#e8e0f0",
+      textSecondary: "#9888b5",
+      textMuted: "#7b6a9e",
+      success: "#4ade80",
+      warning: "#fbbf24",
+      danger: "#f87171",
+      info: "#a78bfa",
+      border: "rgba(176, 127, 212, 0.12)",
+      borderStrong: "rgba(176, 127, 212, 0.28)",
+    },
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+  },
+
+  light: {
+    label: "Light",
+    colors: {
+      bgDeep: "#f0f0f0",
+      bgBase: "#f8f8f8",
+      bgSurface: "#ffffff",
+      bgRaised: "#eaeaea",
+      bgHover: "#e0e0e0",
+      accent: "#b8860b",
+      accentDim: "#9a7209",
+      accentBright: "#d4a843",
+      textPrimary: "#1a1a1a",
+      textSecondary: "#555555",
+      textMuted: "#777777",
+      success: "#16a34a",
+      warning: "#ca8a04",
+      danger: "#dc2626",
+      info: "#2563eb",
+      border: "rgba(0, 0, 0, 0.1)",
+      borderStrong: "rgba(0, 0, 0, 0.2)",
+    },
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+  },
+};
+
+export const PRESET_KEYS = Object.keys(THEME_PRESETS) as ReadonlyArray<string>;

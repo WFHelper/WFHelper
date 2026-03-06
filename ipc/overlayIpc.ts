@@ -79,8 +79,9 @@ const {
 }>("config/runtime/overlaySettings");
 
 const OVERLAY_SETTINGS_FILE = path.join(app.getPath("userData"), "overlay-settings.json");
-const OVERLAY_WINDOW_FILE = path.join(__dirname, "..", "renderer", "overlay.html");
-const CROP_DEBUG_WINDOW_FILE = path.join(__dirname, "..", "renderer", "crop-debug.html");
+const APP_ROOT = app.getAppPath();
+const OVERLAY_WINDOW_FILE = path.join(APP_ROOT, "renderer", "overlay.html");
+const CROP_DEBUG_WINDOW_FILE = path.join(APP_ROOT, "renderer", "crop-debug.html");
 
 const windowsController = createOverlayWindowsController({
   app,

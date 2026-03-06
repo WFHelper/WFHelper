@@ -1,8 +1,18 @@
 import { PREWARM_LAST_RUN_KEY } from '../constants';
 import { jsonResponse } from '../security/cors';
-import { getAutoCacheConfig, getAutoCacheStats, getOrHydrateMeta, getOrHydratePrice } from '../services/readThrough';
+import { getAutoCacheConfig, getAutoCacheStats, getOrHydrateMeta, getOrHydrateOrders, getOrHydratePrice } from '../services/readThrough';
 import type { Env } from '../types';
 import { getJsonFromKv, getSlug } from '../utils';
+
+const MAX_SUPPORTED_RANK = 20;
+
+function parseRankFilter(url: URL): number | null {
+	const rawRank = url.searchParams.get('rank');
+	if (!rawRank) return null;
+	const parsed = Number(rawRank);
+	if (!Number.isFinite(parsed) || parsed < 0 || parsed > MAX_SUPPORTED_RANK) return null;
+	return Math.floor(parsed);
+}
 
 export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response | null> {
 	if (url.pathname === '/healthz' && req.method === 'GET') {
@@ -27,9 +37,11 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 
 	const priceSlug = getSlug(url.pathname, '/v1/prices/');
 	if (req.method === 'GET' && priceSlug) {
-		const data = await getOrHydratePrice(env, priceSlug, ctx);
-		if (!data) return jsonResponse({ ok: false, error: 'not_found' }, req, env, 404);
-		return jsonResponse({ ok: true, data }, req, env, 200);
+		const rank = parseRankFilter(url);
+		const result = await getOrHydratePrice(env, priceSlug, ctx, rank);
+		if (result.status === 'ok') return jsonResponse({ ok: true, data: result.data }, req, env, 200);
+		if (result.status === 'unavailable') return jsonResponse({ ok: false, error: 'unavailable' }, req, env, 503);
+		return jsonResponse({ ok: false, error: 'not_found' }, req, env, 404);
 	}
 
 	const metaSlug = getSlug(url.pathname, '/v1/meta/');
@@ -37,6 +49,15 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		const data = await getOrHydrateMeta(env, metaSlug, ctx);
 		if (!data) return jsonResponse({ ok: false, error: 'not_found' }, req, env, 404);
 		return jsonResponse({ ok: true, data }, req, env, 200);
+	}
+
+	const ordersSlug = getSlug(url.pathname, '/v1/orders/');
+	if (req.method === 'GET' && ordersSlug) {
+		const rank = parseRankFilter(url);
+		const result = await getOrHydrateOrders(env, ordersSlug, ctx, rank);
+		if (result.status === 'ok') return jsonResponse({ ok: true, data: result.data }, req, env, 200);
+		if (result.status === 'unavailable') return jsonResponse({ ok: false, error: 'unavailable' }, req, env, 503);
+		return jsonResponse({ ok: false, error: 'not_found' }, req, env, 404);
 	}
 
 	return null;

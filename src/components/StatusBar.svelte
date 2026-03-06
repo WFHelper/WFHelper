@@ -145,6 +145,7 @@
   >
     {updateButtonText}
   </button>
+  <span class="text-[10px] opacity-50" title="App version">v{import.meta.env.VITE_APP_VERSION || '?'}</span>
   <button
     class={`mr-2.5 cursor-pointer rounded-full px-2.5 py-0.5 font-[var(--font-body)] text-xs tracking-wide transition-colors duration-150 ${debugToggleClass}`}
     title="Toggle debug logging"

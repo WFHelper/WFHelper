@@ -32,6 +32,7 @@ export interface ItemDbEntry {
   drops?: DropInfo[];
   wikiaUrl?: string | null;
   exalted?: boolean;
+  ducats?: number | null;
   [key: string]: unknown;
 }
 
@@ -60,6 +61,7 @@ export interface RawInventoryData {
   Recipes?: RawInventoryEntry[];
   MiscItems?: RawInventoryEntry[];
   LevelKeys?: RawInventoryEntry[];
+  RawUpgrades?: RawInventoryEntry[];
   Upgrades?: RawInventoryEntry[];
   Arcanes?: RawInventoryEntry[];
   [key: string]: unknown;
@@ -86,6 +88,7 @@ export interface ParsedItem {
   status?: "mastered" | "progress" | "missing";
   currentlyOwned?: boolean;
   uniqueName?: string;
+  inventoryKey?: string;
   keywords?: string[];
   platinum?: number | null;
   ducats?: number | null;

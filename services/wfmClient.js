@@ -212,41 +212,40 @@ function setTokenProvider(fn) {
 // ── Core request ──────────────────────────────────────────────────────────────
 
 /**
- * Make an authenticated (or anonymous) request to the WFM API.
+ * Shared request logic for both v1 and v2 WFM API endpoints.
+ * Handles auth, CSRF, rate limiting, and error normalisation.
  *
+ * @param {string} baseUrl      API base (v1 or v2)
  * @param {"GET"|"POST"|"PUT"|"DELETE"} method
- * @param {string} path   e.g. "/profile/orders"
+ * @param {string} path         e.g. "/profile/orders"
  * @param {object} [opts]
- * @param {object} [opts.json]     Request body (will be JSON-stringified)
- * @param {object} [opts.headers]  Extra headers
- * @returns {Promise<object>}      Parsed JSON response body
+ * @param {object} [opts.json]         Request body
+ * @param {object} [opts.headers]      Extra headers merged in
+ * @param {object} [opts.baseHeaders]  Base headers (differs between v1/v2)
+ * @param {string} [opts.label]        Label for log messages
+ * @returns {Promise<object>}          Parsed JSON response body
  */
-function request(method, path, { json, headers: extraHeaders } = {}) {
+function _coreRequest(baseUrl, method, path, { json, headers: extraHeaders, baseHeaders = {}, label = "WFMClient" } = {}) {
   return enqueue(async () => {
     const token = _getToken();
-    const url = BASE_URL + path;
+    const url = baseUrl + path;
 
     const headers = {
       Accept: "application/json",
       "Content-Type": "application/json",
       Platform: "pc",
       Language: "en",
+      ...baseHeaders,
       ...extraHeaders,
     };
 
     if (token) {
       headers["Authorization"] = `JWT ${token}`;
-    }
-
-    // Send Cookie on ALL requests (not just mutations).
-    // Working WFM tools (e.g. Warframe-Algo-Trader) always include the JWT cookie.
-    if (token) {
       headers["Cookie"] = `JWT=${token}`;
     }
 
-    // For mutations, also ensure CSRF and Origin headers
     if (method !== "GET") {
-      await _ensureCsrfToken(); // ensures _cookieJwt is populated if needed
+      await _ensureCsrfToken();
       const jwtForCookie = token || _cookieJwt;
       if (jwtForCookie && !headers["Cookie"]) headers["Cookie"] = `JWT=${jwtForCookie}`;
       headers["Origin"] = "https://warframe.market";
@@ -259,7 +258,7 @@ function request(method, path, { json, headers: extraHeaders } = {}) {
     try {
       res = await _nodeRequest(method, url, headers, body);
     } catch (networkErr) {
-      const err = new Error(`WFM network error: ${networkErr.message}`);
+      const err = new Error(`${label} network error: ${networkErr.message}`);
       err.code = "WFM_NETWORK_ERROR";
       throw err;
     }
@@ -274,10 +273,9 @@ function request(method, path, { json, headers: extraHeaders } = {}) {
     if (res.status === 429) {
       const retryAfterSec = parseInt(res.headers.get("retry-after") || "30", 10);
       const cooldownMs = Math.max(retryAfterSec * 1000, 30_000);
-      // Push the rate-limit window so all queued requests back off automatically
       _lastRequestAt = Date.now() + cooldownMs - MIN_DELAY_MS;
       log.warn(
-        `[WFMClient] Rate limited (429). Cooling down for ${Math.ceil(cooldownMs / 1000)}s.`,
+        `[${label}] Rate limited (429). Cooling down for ${Math.ceil(cooldownMs / 1000)}s.`,
       );
       const err = new Error(
         `Warframe.market rate limit hit. Please wait ${Math.ceil(cooldownMs / 1_000)}s.`,
@@ -289,29 +287,38 @@ function request(method, path, { json, headers: extraHeaders } = {}) {
 
     if (!res.ok) {
       let detail = `HTTP ${res.status}`;
-      let rawBody = null;
       try {
         const text = await res.text();
-        log.log(`[WFMClient] ${method} ${path} → ${res.status} raw body:`, text.slice(0, 500));
+        log.log(`[${label}] ${method} ${path} → ${res.status} body:`, text.slice(0, 500));
         try {
-          rawBody = JSON.parse(text);
+          const rb = JSON.parse(text);
+          if (rb?.error?.message) detail = rb.error.message;
+          else if (typeof rb?.error === "string") detail = rb.error;
+          else if (rb?.message) detail = rb.message;
         } catch (_) {}
-        if (rawBody?.error?.message) detail = rawBody.error.message;
-        else if (typeof rawBody?.error === "string") detail = rawBody.error;
-        else if (rawBody?.message) detail = rawBody.message;
       } catch (parseErr) {
-        log.warn("[WFMClient] Failed to read error response body:", parseErr.message);
+        log.warn(`[${label}] Failed to read error response body:`, parseErr.message);
       }
-      const err = new Error(`WFM API error: ${detail}`);
+      const err = new Error(`${label} API error: ${detail}`);
       err.code = "WFM_API_ERROR";
       err.status = res.status;
       throw err;
     }
 
-    // 204 No Content
     if (res.status === 204) return null;
-
     return res.json();
+  });
+}
+
+function request(method, path, opts = {}) {
+  return _coreRequest(BASE_URL, method, path, { ...opts, label: "WFMClient" });
+}
+
+function requestV2(method, path, opts = {}) {
+  return _coreRequest(BASE_URL_V2, method, path, {
+    ...opts,
+    baseHeaders: { Crossplay: "true" },
+    label: "WFMClient v2",
   });
 }
 
@@ -367,7 +374,6 @@ function requestRaw(method, path, { json, headers: extraHeaders } = {}) {
         } else if (rawBody?.message) {
           detail = rawBody.message;
         } else if (rawBody?.error && typeof rawBody.error === "object") {
-          // WFM validation errors: { password: ["app.account.password_invalid"] }
           const msgs = Object.values(rawBody.error).flat().slice(0, 2);
           detail = msgs.length ? msgs.join("; ") : "Invalid credentials.";
         }
@@ -394,90 +400,3 @@ module.exports = {
   clearCsrfToken,
   updateCsrfFromToken,
 };
-
-/**
- * Make an authenticated request to the WFM **v2** API.
- * Same rate-limiting, auth, and error handling as request().
- */
-function requestV2(method, path, { json, headers: extraHeaders } = {}) {
-  return enqueue(async () => {
-    const token = _getToken();
-    const url = BASE_URL_V2 + path;
-
-    const headers = {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Platform: "pc",
-      Language: "en",
-      Crossplay: "true",
-      ...extraHeaders,
-    };
-
-    if (token) {
-      headers["Authorization"] = `JWT ${token}`;
-      headers["Cookie"] = `JWT=${token}`;
-    }
-
-    if (method !== "GET") {
-      await _ensureCsrfToken();
-      const jwtForCookie = token || _cookieJwt;
-      if (jwtForCookie && !headers["Cookie"]) headers["Cookie"] = `JWT=${jwtForCookie}`;
-      headers["Origin"] = "https://warframe.market";
-      headers["Referer"] = "https://warframe.market/";
-    }
-
-    const body = json !== undefined ? JSON.stringify(json) : null;
-
-    let res;
-    try {
-      res = await _nodeRequest(method, url, headers, body);
-    } catch (networkErr) {
-      const err = new Error(`WFM v2 network error: ${networkErr.message}`);
-      err.code = "WFM_NETWORK_ERROR";
-      throw err;
-    }
-
-    if (res.status === 401) {
-      const err = new Error("Warframe.market session expired or invalid.");
-      err.code = "WFM_UNAUTHORIZED";
-      err.status = 401;
-      throw err;
-    }
-
-    if (res.status === 429) {
-      const retryAfterSec = parseInt(res.headers.get("retry-after") || "30", 10);
-      const cooldownMs = Math.max(retryAfterSec * 1000, 30_000);
-      _lastRequestAt = Date.now() + cooldownMs - MIN_DELAY_MS;
-      log.warn(
-        `[WFMClient] v2 Rate limited (429). Cooling down for ${Math.ceil(cooldownMs / 1000)}s.`,
-      );
-      const err = new Error(
-        `Warframe.market rate limit hit. Please wait ${Math.ceil(cooldownMs / 1_000)}s.`,
-      );
-      err.code = "WFM_RATE_LIMITED";
-      err.status = 429;
-      throw err;
-    }
-
-    if (!res.ok) {
-      let detail = `HTTP ${res.status}`;
-      try {
-        const text = await res.text();
-        log.log(`[WFMClient] v2 ${method} ${path} → ${res.status} body:`, text.slice(0, 500));
-        try {
-          const rb = JSON.parse(text);
-          if (rb?.error?.message) detail = rb.error.message;
-          else if (typeof rb?.error === "string") detail = rb.error;
-          else if (rb?.message) detail = rb.message;
-        } catch (_) {}
-      } catch (_) {}
-      const err = new Error(`WFM v2 API error: ${detail}`);
-      err.code = "WFM_API_ERROR";
-      err.status = res.status;
-      throw err;
-    }
-
-    if (res.status === 204) return null;
-    return res.json();
-  });
-}

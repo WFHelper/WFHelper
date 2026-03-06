@@ -1,17 +1,26 @@
 <script lang="ts">
   import { ipc } from "../lib/ipc.js";
+  import { themeSettings } from "../stores/theme.js";
+  import { DEFAULT_APP_NAME } from "../config/themeDefaults.js";
+
+  $: logoUrl = $themeSettings.branding.logoDataUrl;
+  $: appName = $themeSettings.branding.appName || DEFAULT_APP_NAME;
 </script>
 
 <header
   class="app-region-drag z-50 flex h-[var(--titlebar-height)] select-none items-center justify-between border-b border-[var(--border)] bg-[var(--bg-deep)]"
 >
   <div class="flex items-center gap-2 pl-3.5">
-    <svg class="h-4 w-4 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-      <polygon points="12,2 22,20 2,20" />
-      <circle cx="12" cy="14" r="3" />
-    </svg>
+    {#if logoUrl}
+      <img src={logoUrl} alt="Logo" class="h-4 w-4 object-contain" />
+    {:else}
+      <svg class="h-4 w-4 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <polygon points="12,2 22,20 2,20" />
+        <circle cx="12" cy="14" r="3" />
+      </svg>
+    {/if}
     <span class="font-[var(--font-display)] text-xs font-semibold tracking-wider text-[var(--text-secondary)]">
-      WARFRAME COMPANION
+      {appName}
     </span>
   </div>
   <div class="app-region-no-drag flex">

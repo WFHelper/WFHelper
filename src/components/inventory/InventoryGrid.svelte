@@ -6,6 +6,7 @@
 
   export let items: InventoryViewItem[] = [];
   export let showDebug = false;
+  export let showDucats = true;
 
   const dispatch = createEventDispatcher<{ select: InventoryViewItem }>();
 
@@ -25,7 +26,7 @@
     </div>
   {:else}
     {#each items as item}
-      <InventoryCard {item} {showDebug} on:select={handleSelect} />
+      <InventoryCard {item} {showDebug} {showDucats} on:select={handleSelect} />
     {/each}
   {/if}
 </div>

@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const itemDb = require("./itemDatabase");
-const { MAX_ITEM_RANK, XP_PER_RANK } = require('../config/game/constants');
+const { MAX_ITEM_RANK, XP_PER_RANK } = require("../config/game/constants");
 let debugMode = false;
 
 function setDebugMode(enabled) {
@@ -19,69 +19,73 @@ function debugLog(_message, _payload) {
 
 // ─── Category classification ─────────────────────────────────────────────
 
-const MASTERABLE_DB_CATEGORIES = new Set([
-  "Warframe", "Weapon", "Companion", "Railjack",
-]);
+const MASTERABLE_DB_CATEGORIES = new Set(["Warframe", "Weapon", "Companion", "Railjack"]);
 
 // productCategory → display label
 const PRODUCT_DISPLAY = {
-  Suits:             "Warframes",
-  LongGuns:          "Primary",
-  Pistols:           "Secondary",
-  Melee:             "Melee",
-  Sentinels:         "Companions",
-  SentinelWeapons:   "Companions",
-  SpaceSuits:        "Archwing",
-  SpaceGuns:         "Archwing",
-  SpaceMelee:        "Archwing",
-  OperatorAmps:      "Amps",
-  MechSuits:         "Necramech",
-  CrewShipWeapons:   "Railjack",
+  Suits: "Warframes",
+  LongGuns: "Primary",
+  Pistols: "Secondary",
+  Melee: "Melee",
+  Sentinels: "Companions",
+  SentinelWeapons: "Companions",
+  SpaceSuits: "Archwing",
+  SpaceGuns: "Archwing",
+  SpaceMelee: "Archwing",
+  OperatorAmps: "Amps",
+  MechSuits: "Necramech",
+  CrewShipWeapons: "Railjack",
 };
 
 // Path patterns → display category (fallback when productCategory is missing)
 const PATH_CATEGORY_RULES = [
-  { pattern: /\/OperatorAmps?\//i,                        category: "Amps" },
-  { pattern: /\/OperatorAmplifiers?\//i,                  category: "Amps" },
-  { pattern: /\/Sentinels\/.*Weapons?\//i,                category: "Companions" },
-  { pattern: /\/Sentinels?\//i,                           category: "Companions" },
-  { pattern: /\/Pets?\//i,                                category: "Companions" },
-  { pattern: /\/SpaceSuits?\//i,                          category: "Archwing" },
-  { pattern: /\/SpaceGuns?\//i,                           category: "Archwing" },
-  { pattern: /\/SpaceMelee\//i,                           category: "Archwing" },
-  { pattern: /\/MechSuits?\//i,                           category: "Necramech" },
-  { pattern: /\/CrewShip.*Weapons?\//i,                   category: "Railjack" },
-  { pattern: /\/Suits\//i,                                category: "Warframes" },
-  { pattern: /\/ModularMelee\b|\/Ostron.*Melee|\/Zaw/i,  category: "Melee" },
-  { pattern: /\/ModularPistol|\/SolarisUnited.*Secondary|\/Kitgun.*Pistol/i, category: "Secondary" },
-  { pattern: /\/ModularPrimary|\/SolarisUnited.*Primary|\/Kitgun.*Rifle/i,   category: "Primary" },
-  { pattern: /\/LongGuns\//i,                             category: "Primary" },
-  { pattern: /\/Pistols\//i,                              category: "Secondary" },
-  { pattern: /\/Melee\//i,                                category: "Melee" },
+  { pattern: /\/OperatorAmps?\//i, category: "Amps" },
+  { pattern: /\/OperatorAmplifiers?\//i, category: "Amps" },
+  { pattern: /\/Sentinels\/.*Weapons?\//i, category: "Companions" },
+  { pattern: /\/Sentinels?\//i, category: "Companions" },
+  { pattern: /\/Pets?\//i, category: "Companions" },
+  { pattern: /\/SpaceSuits?\//i, category: "Archwing" },
+  { pattern: /\/SpaceGuns?\//i, category: "Archwing" },
+  { pattern: /\/SpaceMelee\//i, category: "Archwing" },
+  { pattern: /\/MechSuits?\//i, category: "Necramech" },
+  { pattern: /\/CrewShip.*Weapons?\//i, category: "Railjack" },
+  { pattern: /\/Suits\//i, category: "Warframes" },
+  { pattern: /\/ModularMelee\b|\/Ostron.*Melee|\/Zaw/i, category: "Melee" },
+  {
+    pattern: /\/ModularPistol|\/SolarisUnited.*Secondary|\/Kitgun.*Pistol/i,
+    category: "Secondary",
+  },
+  { pattern: /\/ModularPrimary|\/SolarisUnited.*Primary|\/Kitgun.*Rifle/i, category: "Primary" },
+  { pattern: /\/LongGuns\//i, category: "Primary" },
+  { pattern: /\/Pistols\//i, category: "Secondary" },
+  { pattern: /\/Melee\//i, category: "Melee" },
 ];
 
 // ─── Keyword tagging for search ──────────────────────────────────────────
 
 const KEYWORD_RULES = [
-  { pattern: /\/ModularMelee\b|\/Ostron.*Melee|\/InfZaw|\/Zaw/i,           keywords: ["zaw", "modular"] },
-  { pattern: /\/ModularPistol|\/ModularPrimary|\/SolarisUnited.*(?:Secondary|Primary)|\/Kitgun/i,
-                                                                            keywords: ["kitgun", "modular"] },
-  { pattern: /\/OperatorAmps?\//i,                                          keywords: ["amp", "operator"] },
-  { pattern: /\/OperatorAmplifiers?\//i,                                    keywords: ["amp", "operator"] },
-  { pattern: /\/MechSuits?\//i,                                             keywords: ["necramech", "mech"] },
-  { pattern: /\/Archwing|\/SpaceSuits?\//i,                                 keywords: ["archwing"] },
-  { pattern: /\/SpaceGuns?\//i,                                             keywords: ["archgun", "arch-gun"] },
-  { pattern: /\/SpaceMelee\//i,                                             keywords: ["archmelee", "arch-melee"] },
-  { pattern: /\/CrewShip/i,                                                 keywords: ["railjack"] },
-  { pattern: /\/Sentinels?\//i,                                             keywords: ["sentinel", "companion"] },
-  { pattern: /\/Pets?\//i,                                                  keywords: ["companion", "pet"] },
-  { pattern: /Prime/i,                                                      keywords: ["prime"] },
-  { pattern: /Wraith/i,                                                     keywords: ["wraith"] },
-  { pattern: /Vandal/i,                                                     keywords: ["vandal"] },
-  { pattern: /Prisma/i,                                                     keywords: ["prisma"] },
-  { pattern: /Kuva/i,                                                       keywords: ["kuva", "lich"] },
-  { pattern: /Tenet/i,                                                      keywords: ["tenet", "sister"] },
-  { pattern: /Incarnon/i,                                                   keywords: ["incarnon"] },
+  { pattern: /\/ModularMelee\b|\/Ostron.*Melee|\/InfZaw|\/Zaw/i, keywords: ["zaw", "modular"] },
+  {
+    pattern: /\/ModularPistol|\/ModularPrimary|\/SolarisUnited.*(?:Secondary|Primary)|\/Kitgun/i,
+    keywords: ["kitgun", "modular"],
+  },
+  { pattern: /\/OperatorAmps?\//i, keywords: ["amp", "operator"] },
+  { pattern: /\/OperatorAmplifiers?\//i, keywords: ["amp", "operator"] },
+  { pattern: /\/Hoverboard\//i, keywords: ["k-drive", "kdrive", "hoverboard"] },
+  { pattern: /\/MechSuits?\//i, keywords: ["necramech", "mech"] },
+  { pattern: /\/Archwing|\/SpaceSuits?\//i, keywords: ["archwing"] },
+  { pattern: /\/SpaceGuns?\//i, keywords: ["archgun", "arch-gun"] },
+  { pattern: /\/SpaceMelee\//i, keywords: ["archmelee", "arch-melee"] },
+  { pattern: /\/CrewShip/i, keywords: ["railjack"] },
+  { pattern: /\/Sentinels?\//i, keywords: ["sentinel", "companion"] },
+  { pattern: /\/Pets?\//i, keywords: ["companion", "pet"] },
+  { pattern: /Prime/i, keywords: ["prime"] },
+  { pattern: /Wraith/i, keywords: ["wraith"] },
+  { pattern: /Vandal/i, keywords: ["vandal"] },
+  { pattern: /Prisma/i, keywords: ["prisma"] },
+  { pattern: /Kuva/i, keywords: ["kuva", "lich"] },
+  { pattern: /Tenet/i, keywords: ["tenet", "sister"] },
+  { pattern: /Incarnon/i, keywords: ["incarnon"] },
 ];
 
 function getKeywords(uniqueName, itemName) {
@@ -96,30 +100,38 @@ function getKeywords(uniqueName, itemName) {
 
 // Hard-coded exalted weapon names to exclude even if not flagged
 const EXALTED_NAMES = new Set([
-  "regulators", "regulators prime",
-  "iron staff", "iron staff prime",
-  "exalted blade", "exalted blade prime",
-  "dex pixia", "dex pixia prime",
-  "diwata", "diwata prime",
-  "artemis bow", "artemis bow prime",
-  "valkyr talons", "valkyr talons prime",
-  "desert wind", "desert wind prime",
+  "regulators",
+  "regulators prime",
+  "iron staff",
+  "iron staff prime",
+  "exalted blade",
+  "exalted blade prime",
+  "dex pixia",
+  "dex pixia prime",
+  "diwata",
+  "diwata prime",
+  "artemis bow",
+  "artemis bow prime",
+  "valkyr talons",
+  "valkyr talons prime",
+  "desert wind",
+  "desert wind prime",
   "shattered lash",
 ]);
 
 // Inventory JSON key → maxRank
 const INV_CATEGORIES = {
-  Suits:             MAX_ITEM_RANK,
-  LongGuns:          MAX_ITEM_RANK,
-  Pistols:           MAX_ITEM_RANK,
-  Melee:             MAX_ITEM_RANK,
-  Sentinels:         MAX_ITEM_RANK,
-  SentinelWeapons:   MAX_ITEM_RANK,
-  SpaceSuits:             MAX_ITEM_RANK,
-  SpaceGuns:         MAX_ITEM_RANK,
-  SpaceMelee:             MAX_ITEM_RANK,
-  OperatorAmps:      MAX_ITEM_RANK,
-  MechSuits:             MAX_ITEM_RANK,
+  Suits: MAX_ITEM_RANK,
+  LongGuns: MAX_ITEM_RANK,
+  Pistols: MAX_ITEM_RANK,
+  Melee: MAX_ITEM_RANK,
+  Sentinels: MAX_ITEM_RANK,
+  SentinelWeapons: MAX_ITEM_RANK,
+  SpaceSuits: MAX_ITEM_RANK,
+  SpaceGuns: MAX_ITEM_RANK,
+  SpaceMelee: MAX_ITEM_RANK,
+  OperatorAmps: MAX_ITEM_RANK,
+  MechSuits: MAX_ITEM_RANK,
 };
 
 function xpToRank(xp, maxRank = MAX_ITEM_RANK) {
@@ -160,23 +172,37 @@ function pickNumber(obj, paths) {
 
 function extractProfileMastery(inventoryData) {
   const rank = pickNumber(inventoryData, [
-    ["MasteryRank"], ["MasteryLevel"], ["PlayerLevel"], ["PlayerRank"],
-    ["LevelInfo", "MasteryRank"], ["LevelInfo", "PlayerLevel"],
+    ["MasteryRank"],
+    ["MasteryLevel"],
+    ["PlayerLevel"],
+    ["PlayerRank"],
+    ["LevelInfo", "MasteryRank"],
+    ["LevelInfo", "PlayerLevel"],
   ]);
 
   let percentToNext = pickNumber(inventoryData, [
-    ["MasteryPercent"], ["MasteryProgressPercent"], ["PlayerLevelProgressPercent"],
-    ["LevelInfo", "MasteryPercent"], ["LevelInfo", "ProgressPercent"],
+    ["MasteryPercent"],
+    ["MasteryProgressPercent"],
+    ["PlayerLevelProgressPercent"],
+    ["LevelInfo", "MasteryPercent"],
+    ["LevelInfo", "ProgressPercent"],
   ]);
 
   if (percentToNext == null) {
     const currentXp = pickNumber(inventoryData, [
-      ["MasteryXP"], ["MasteryXp"], ["PlayerXP"], ["PlayerXp"],
-      ["LevelInfo", "MasteryXP"], ["LevelInfo", "CurrentXP"],
+      ["MasteryXP"],
+      ["MasteryXp"],
+      ["PlayerXP"],
+      ["PlayerXp"],
+      ["LevelInfo", "MasteryXP"],
+      ["LevelInfo", "CurrentXP"],
     ]);
     const nextXp = pickNumber(inventoryData, [
-      ["NextMasteryXP"], ["NextLevelXP"], ["MasteryXPForNextRank"],
-      ["LevelInfo", "NextXP"], ["LevelInfo", "NextLevelXP"],
+      ["NextMasteryXP"],
+      ["NextLevelXP"],
+      ["MasteryXPForNextRank"],
+      ["LevelInfo", "NextXP"],
+      ["LevelInfo", "NextLevelXP"],
     ]);
     if (currentXp != null && nextXp != null && nextXp > 0) {
       percentToNext = (currentXp / nextXp) * 100;
@@ -235,18 +261,34 @@ function getExcludeReason(uniqueName, name, item) {
 // ─── Category resolver ───────────────────────────────────────────────────
 
 function resolveDisplayCategoryInfo(item, uniqueName) {
+  // K-Drive boards are currently exported with Weapon/Pistols metadata.
+  // Keep them in a dedicated misc bucket instead of Secondary.
+  if (/\/Hoverboard\//i.test(uniqueName) || /k-drive/i.test(String(item.type || ""))) {
+    return { category: "Misc", source: "override:k-drive" };
+  }
+
+  // Pet companion entries (hounds/moas/etc.) can also arrive as Weapon/Pistols.
+  if (/\/Pets?\//i.test(uniqueName) || /\bpets?\b/i.test(String(item.type || ""))) {
+    return { category: "Companions", source: "override:pets" };
+  }
+
   // Operator amplifier parts should always be listed under Amps, even when productCategory is Pistols.
   if (/\/OperatorAmplifiers?\//i.test(uniqueName)) {
     return { category: "Amps", source: "path:OperatorAmplifiers" };
   }
   if (item.productCategory && PRODUCT_DISPLAY[item.productCategory]) {
-    return { category: PRODUCT_DISPLAY[item.productCategory], source: `productCategory:${item.productCategory}` };
+    return {
+      category: PRODUCT_DISPLAY[item.productCategory],
+      source: `productCategory:${item.productCategory}`,
+    };
   }
   for (const { pattern, category } of PATH_CATEGORY_RULES) {
     if (pattern.test(uniqueName)) return { category, source: `path:${pattern}` };
   }
-  if (item.category === "Warframe") return { category: "Warframes", source: "db-category:Warframe" };
-  if (item.category === "Companion") return { category: "Companions", source: "db-category:Companion" };
+  if (item.category === "Warframe")
+    return { category: "Warframes", source: "db-category:Warframe" };
+  if (item.category === "Companion")
+    return { category: "Companions", source: "db-category:Companion" };
   if (item.category === "Railjack") return { category: "Railjack", source: "db-category:Railjack" };
   return { category: "Other", source: "fallback:Other" };
 }
@@ -269,7 +311,9 @@ function getAllMasterableItems() {
 
   for (const [uniqueName, item] of Object.entries(allItems)) {
     if (!MASTERABLE_DB_CATEGORIES.has(item.category)) {
-      debugLog(`[MasteryDebug][Exclude] ${item.name} | ${uniqueName} | reason=db-category:${item.category}`);
+      debugLog(
+        `[MasteryDebug][Exclude] ${item.name} | ${uniqueName} | reason=db-category:${item.category}`,
+      );
       continue;
     }
     const ampPrismOverride = isAmpPrismMasterableOverride(item, uniqueName);
@@ -294,11 +338,19 @@ function getAllMasterableItems() {
     const display = resolveDisplayCategoryInfo(item, uniqueName);
     const keywords = getKeywords(uniqueName, item.name);
     if (display.category === "Railjack") {
-      debugLog(`[MasteryDebug][Exclude] ${item.name} | ${uniqueName} | reason=category-railjack-hidden`);
+      debugLog(
+        `[MasteryDebug][Exclude] ${item.name} | ${uniqueName} | reason=category-railjack-hidden`,
+      );
       continue;
     }
-    const masterableSource = ampPrismOverride ? "amp-prism-override" : (item.masterable === true ? "wfcd-masterable:true" : "default");
-    debugLog(`[MasteryDebug][Include] ${item.name} | ${uniqueName} | category=${display.category} | masterableSource=${masterableSource} | categorySource=${display.source}`);
+    const masterableSource = ampPrismOverride
+      ? "amp-prism-override"
+      : item.masterable === true
+        ? "wfcd-masterable:true"
+        : "default";
+    debugLog(
+      `[MasteryDebug][Include] ${item.name} | ${uniqueName} | category=${display.category} | masterableSource=${masterableSource} | categorySource=${display.source}`,
+    );
 
     items.push({
       name: item.name,
@@ -376,7 +428,12 @@ function computeMasteryProgress(inventoryData) {
       if (!entry.ItemType) continue;
       if (ownedMap.has(entry.ItemType)) continue;
       const rank = xpToRank(entry.XP || 0, MAX_ITEM_RANK);
-      ownedMap.set(entry.ItemType, { rank, maxRank: MAX_ITEM_RANK, owned: false, fromXPInfo: true });
+      ownedMap.set(entry.ItemType, {
+        rank,
+        maxRank: MAX_ITEM_RANK,
+        owned: false,
+        fromXPInfo: true,
+      });
     }
   }
 
@@ -390,7 +447,7 @@ function computeMasteryProgress(inventoryData) {
   }
 
   // Annotate each masterable item with ownership + component status
-  const items = allMasterable.map(item => {
+  const items = allMasterable.map((item) => {
     let owned = ownedMap.get(item.uniqueName);
     if (!owned) owned = ownedByName.get(item.name.toLowerCase());
 
@@ -407,8 +464,8 @@ function computeMasteryProgress(inventoryData) {
     }
 
     // Annotate components with ownership
-    const components = (item.components || []).map(comp => {
-      const ownedCount = comp.uniqueName ? (componentOwnership.get(comp.uniqueName) || 0) : 0;
+    const components = (item.components || []).map((comp) => {
+      const ownedCount = comp.uniqueName ? componentOwnership.get(comp.uniqueName) || 0 : 0;
       return {
         name: comp.name || "",
         uniqueName: comp.uniqueName || "",
@@ -425,9 +482,9 @@ function computeMasteryProgress(inventoryData) {
 
   // Stats
   const total = items.length;
-  const mastered = items.filter(i => i.status === "mastered").length;
-  const inProgress = items.filter(i => i.status === "progress").length;
-  const missing = items.filter(i => i.status === "missing").length;
+  const mastered = items.filter((i) => i.status === "mastered").length;
+  const inProgress = items.filter((i) => i.status === "progress").length;
+  const missing = items.filter((i) => i.status === "missing").length;
 
   const byCategory = {};
   for (const item of items) {
@@ -440,7 +497,14 @@ function computeMasteryProgress(inventoryData) {
 
   return {
     items,
-    stats: { total, mastered, inProgress, missing, byCategory, profileMastery: extractProfileMastery(inventoryData) },
+    stats: {
+      total,
+      mastered,
+      inProgress,
+      missing,
+      byCategory,
+      profileMastery: extractProfileMastery(inventoryData),
+    },
   };
 }
 

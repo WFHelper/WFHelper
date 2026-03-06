@@ -2,6 +2,7 @@ import type { SharedFiltersState } from "../types/filters.js";
 import type { ParsedItem } from "../types/inventory.js";
 import type { WfmItemsLookup } from "../types/ipc.js";
 import type { WfmOrdersResult } from "../types/market.js";
+import { getCachedPriceState } from "./wfm/priceCache.js";
 
 export type InventoryFilterTab = "all_parts" | "relics" | "mods" | "arcanes" | "full_sets" | "misc";
 
@@ -19,6 +20,12 @@ export interface InventoryBaseItem extends ParsedItem {
 
 export interface InventoryViewItem extends InventoryBaseItem {
   platinum: number | null;
+  platinumR0: number | null;
+  platinumRmax: number | null;
+  wtsR0: number | null;
+  wtbR0: number | null;
+  wtsRmax: number | null;
+  wtbRmax: number | null;
   ducats: number | null;
   ducatonator: number | null;
   displayImageUrl: string | null;
@@ -28,6 +35,17 @@ export interface InventoryViewItem extends InventoryBaseItem {
 
 export interface ItemMetrics {
   platinum: number | null;
+  platinumR0?: number | null;
+  platinumRmax?: number | null;
+  hasPriceR0?: boolean;
+  hasPriceRmax?: boolean;
+  wtsR0?: number | null;
+  wtbR0?: number | null;
+  wtsRmax?: number | null;
+  wtbRmax?: number | null;
+  hasOrdersR0?: boolean;
+  hasOrdersRmax?: boolean;
+  priceRank?: number | null;
   ducats: number | null;
   slug: string | null;
   thumb: string | null;
@@ -40,6 +58,7 @@ export interface ItemMetrics {
 export interface MetricNeeds {
   price: boolean;
   ducats: boolean;
+  orders: boolean;
 }
 
 export const INVENTORY_FILTERS: Array<{ key: InventoryFilterTab; label: string }> = [
@@ -62,12 +81,55 @@ function normalizeLooseName(value: string): string {
 function lookupNameCandidates(itemName: string): string[] {
   const base = itemName.trim();
   const candidates = new Set<string>([base]);
+  const componentBlueprintRe =
+    /\b(chassis|systems|neuroptics|helmet|barrel|receiver|stock|blade|handle|hilt|string|disc|grip|link|gauntlet|ornament|harness|carapace|cerebrum|pod|wings|fuselage|engines|avionics) blueprint$/i;
+  const componentBaseRe =
+    /\b(chassis|systems|neuroptics|helmet|barrel|receiver|stock|blade|handle|hilt|string|disc|grip|link|gauntlet|ornament|harness|carapace|cerebrum|pod|wings|fuselage|engines|avionics)$/i;
+
+  if (componentBlueprintRe.test(base)) {
+    candidates.add(base.replace(/\s+blueprint$/i, ""));
+  } else if (componentBaseRe.test(base)) {
+    candidates.add(`${base} Blueprint`);
+  }
+
+  if (/^zariman ship /i.test(base)) {
+    candidates.add(base.replace(/^zariman ship /i, "Parallax "));
+  }
+
+  if (/^prime archwing /i.test(base)) {
+    candidates.add(base.replace(/^prime archwing /i, "Odonata Prime "));
+  }
+
+  if (/\bbane of\b/i.test(base)) {
+    candidates.add(base.replace(/\bbane of\b/i, "Cleanse "));
+  }
+  if (/\bcleanse\b/i.test(base)) {
+    candidates.add(base.replace(/\bcleanse\b/i, "Bane of "));
+  }
+  if (/\borokin\b/i.test(base)) {
+    candidates.add(base.replace(/\borokin\b/i, "Corrupted"));
+  }
+  if (/\bcorrupted\b/i.test(base)) {
+    candidates.add(base.replace(/\bcorrupted\b/i, "Orokin"));
+  }
 
   if (/\bhelmet blueprint$/i.test(base)) {
     candidates.add(base.replace(/\bhelmet blueprint$/i, "Neuroptics Blueprint"));
+    candidates.add(base.replace(/\bhelmet blueprint$/i, "Neuroptics"));
   }
   if (/\bneuroptics blueprint$/i.test(base)) {
     candidates.add(base.replace(/\bneuroptics blueprint$/i, "Helmet Blueprint"));
+    candidates.add(base.replace(/\bneuroptics blueprint$/i, "Neuroptics"));
+  }
+
+  for (const candidate of [...candidates]) {
+    const punctuationAlias = candidate
+      .replace(/[-–_]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (punctuationAlias && punctuationAlias !== candidate) {
+      candidates.add(punctuationAlias);
+    }
   }
 
   return [...candidates];
@@ -75,13 +137,51 @@ function lookupNameCandidates(itemName: string): string[] {
 
 function toMarketSlug(name: string): string {
   return normalizeName(name)
-    .replace(/['']/g, "")
+    .replace(/[’']/g, "")
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
 }
 
 function isSetSlug(slug: string | null | undefined): boolean {
   return typeof slug === "string" && slug.endsWith("_set");
+}
+
+function toFinitePositiveInt(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.floor(value);
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.floor(parsed);
+    }
+  }
+  return null;
+}
+
+function resolvePriceRankForView(item: InventoryBaseItem): number | null {
+  if (item.inventoryGroup !== "mods" && item.inventoryGroup !== "arcanes") return null;
+
+  const maxRank = toFinitePositiveInt(item.maxRank) ?? (item.inventoryGroup === "mods" ? 10 : 5);
+  const currentRank = toFinitePositiveInt(item.rank) ?? 0;
+  return currentRank >= maxRank ? maxRank : 0;
+}
+
+function resolveCachedPlatinum(item: InventoryBaseItem): number | null {
+  if (!item.marketSlug) return null;
+
+  const rank = resolvePriceRankForView(item);
+  const cacheKey = rank == null ? item.marketSlug : `${item.marketSlug}:rank-v3:r${rank}`;
+  const entry = getCachedPriceState(cacheKey);
+  if (!entry || entry.status !== "ok") return null;
+  return typeof entry.median === "number" && Number.isFinite(entry.median) ? entry.median : null;
+}
+
+function resolveCachedRankPlatinum(slug: string | null | undefined, rank: number): number | null {
+  if (!slug) return null;
+  const entry = getCachedPriceState(`${slug}:rank-v3:r${rank}`);
+  if (!entry || entry.status !== "ok") return null;
+  return typeof entry.median === "number" && Number.isFinite(entry.median) ? entry.median : null;
 }
 
 export function itemGroupFallback(item: ParsedItem): InventoryFilterTab {
@@ -117,9 +217,33 @@ export function getLookupByName(
   return null;
 }
 
+function getLookupByGameRef(
+  gameRef: string,
+  lookup: WfmItemsLookup,
+): WfmItemsLookup[string] | null {
+  if (!gameRef) return null;
+  const key = normalizeName(gameRef);
+  const direct = lookup[key] || null;
+  if (!direct) return null;
+
+  const mappedRef =
+    typeof direct.gameRef === "string" && direct.gameRef.trim().length > 0
+      ? normalizeName(direct.gameRef)
+      : null;
+  if (mappedRef && mappedRef !== key) return null;
+  return direct;
+}
+
 export function resolveSlug(item: ParsedItem, lookup: WfmItemsLookup): string | null {
+  const lookupByGameRef = getLookupByGameRef(item.internalName, lookup);
+  if (lookupByGameRef?.url_name) return toMarketSlug(lookupByGameRef.url_name);
+
   const lookupByName = getLookupByName(item.name, lookup);
-  if (lookupByName?.url_name) return lookupByName.url_name;
+  if (lookupByName?.url_name) return toMarketSlug(lookupByName.url_name);
+
+  if (item.inventoryGroup === "mods" || item.inventoryGroup === "arcanes") {
+    return null;
+  }
 
   const generated = toMarketSlug(item.name);
   if (!generated) return null;
@@ -133,14 +257,11 @@ export function resolveSlug(item: ParsedItem, lookup: WfmItemsLookup): string | 
 
 export function shouldHydrateMetrics(item: ParsedItem): boolean {
   const group = item.inventoryGroup || itemGroupFallback(item);
-  return (
-    item.tradable ||
-    group === "full_sets" ||
-    group === "all_parts" ||
-    group === "relics" ||
-    group === "mods" ||
-    group === "arcanes"
-  );
+  if (group === "mods" || group === "arcanes") {
+    return item.tradable === true;
+  }
+
+  return item.tradable === true || group === "full_sets" || group === "all_parts";
 }
 
 export function metricNeedsFromFilters(
@@ -148,9 +269,11 @@ export function metricNeedsFromFilters(
   activeTab: InventoryFilterTab,
 ): MetricNeeds {
   const needsDucatsForTab = activeTab === "all_parts" || activeTab === "full_sets";
+  const needsOrdersForTab = activeTab === "mods" || activeTab === "arcanes";
   return {
     price: true,
     ducats: needsDucatsForTab || filters.sortBy === "ducats" || filters.sortBy === "ducatonator",
+    orders: needsOrdersForTab,
   };
 }
 
@@ -188,13 +311,40 @@ export function buildBaseInventoryItems(
     .map<InventoryBaseItem | null>((item) => {
       const group = (item.inventoryGroup || itemGroupFallback(item)) as InventoryFilterTab;
       const lookupByName = getLookupByName(item.name, wfmLookup);
+      const lookupByGameRef = getLookupByGameRef(item.internalName, wfmLookup);
+      const mappedSlug = lookupByName?.url_name ? toMarketSlug(lookupByName.url_name) : null;
+      const mappedGameRefSlug = lookupByGameRef?.url_name
+        ? toMarketSlug(lookupByGameRef.url_name)
+        : null;
 
-      if (group === "full_sets" && !isSetSlug(lookupByName?.url_name || null)) {
+      if (group === "full_sets" && !isSetSlug(mappedSlug)) {
         return null;
       }
 
-      const marketSlug = lookupByName?.url_name || resolveSlug(item, wfmLookup);
+      if (group === "all_parts" && !mappedSlug && item.tradable !== true) {
+        return null;
+      }
+
+      const isRankedListingItem = group === "mods" || group === "arcanes";
+      const canIndexMarket = !isRankedListingItem || item.tradable === true;
+      const marketSlug = canIndexMarket
+        ? mappedGameRefSlug ||
+          mappedSlug ||
+          (group === "all_parts" && item.tradable !== true ? null : resolveSlug(item, wfmLookup))
+        : null;
       const marketThumb = lookupByName?.thumb || lookupByName?.icon || null;
+      const lookupMaxRank = toFinitePositiveInt(lookupByName?.maxRank);
+      const resolvedMaxRank =
+        (group === "mods" || group === "arcanes") && lookupMaxRank != null
+          ? lookupMaxRank
+          : item.maxRank;
+      const rankCap =
+        toFinitePositiveInt(resolvedMaxRank) ??
+        (group === "mods" ? 10 : group === "arcanes" ? 5 : 30);
+      const resolvedRank =
+        typeof item.rank === "number" && Number.isFinite(item.rank)
+          ? Math.max(0, Math.min(Math.floor(item.rank), rankCap))
+          : 0;
 
       const orderPlaced =
         Boolean(orderedNames[normalizeName(item.name)]) ||
@@ -202,6 +352,12 @@ export function buildBaseInventoryItems(
 
       return {
         ...item,
+        internalName:
+          typeof item.inventoryKey === "string" && item.inventoryKey.trim().length > 0
+            ? item.inventoryKey
+            : item.internalName,
+        rank: resolvedRank,
+        maxRank: resolvedMaxRank,
         inventoryGroup: group,
         partType: (item.partType || (item.isPrime ? "prime" : "normal")) as "normal" | "prime",
         amount: typeof item.amount === "number" ? item.amount : 1,
@@ -226,8 +382,58 @@ export function buildInventoryViewItems(
 ): InventoryViewItem[] {
   return baseItems.map<InventoryViewItem>((item) => {
     const metric = metricsByKey[item.internalName] || null;
-    const platinum = metric?.platinum ?? null;
-    const ducats = metric?.ducats ?? null;
+    const isRankedListingItem = item.inventoryGroup === "mods" || item.inventoryGroup === "arcanes";
+    const itemMaxRank =
+      toFinitePositiveInt(item.maxRank) ?? (item.inventoryGroup === "mods" ? 10 : 5);
+    const itemCurrentRank = toFinitePositiveInt(item.rank) ?? 0;
+
+    const metricPlatinumR0Raw = metric?.platinumR0 ?? null;
+    const metricPlatinumR0Value =
+      typeof metricPlatinumR0Raw === "number" && Number.isFinite(metricPlatinumR0Raw)
+        ? metricPlatinumR0Raw
+        : null;
+    const metricPlatinumRmaxRaw = metric?.platinumRmax ?? null;
+    const metricPlatinumRmaxValue =
+      typeof metricPlatinumRmaxRaw === "number" && Number.isFinite(metricPlatinumRmaxRaw)
+        ? metricPlatinumRmaxRaw
+        : null;
+
+    const cachedPlatinumR0 = isRankedListingItem
+      ? resolveCachedRankPlatinum(item.marketSlug, 0)
+      : null;
+    const cachedPlatinumRmax = isRankedListingItem
+      ? resolveCachedRankPlatinum(item.marketSlug, itemMaxRank)
+      : null;
+    const metricPlatinumR0 = metricPlatinumR0Value ?? cachedPlatinumR0;
+    const metricPlatinumRmax = metricPlatinumRmaxValue ?? cachedPlatinumRmax;
+
+    const metricWtsR0Raw = metric?.wtsR0 ?? null;
+    const metricWtbR0Raw = metric?.wtbR0 ?? null;
+    const metricWtsRmaxRaw = metric?.wtsRmax ?? null;
+    const metricWtbRmaxRaw = metric?.wtbRmax ?? null;
+
+    const metricWtsR0 =
+      typeof metricWtsR0Raw === "number" && Number.isFinite(metricWtsR0Raw) ? metricWtsR0Raw : null;
+    const metricWtbR0 =
+      typeof metricWtbR0Raw === "number" && Number.isFinite(metricWtbR0Raw) ? metricWtbR0Raw : null;
+    const metricWtsRmax =
+      typeof metricWtsRmaxRaw === "number" && Number.isFinite(metricWtsRmaxRaw)
+        ? metricWtsRmaxRaw
+        : null;
+    const metricWtbRmax =
+      typeof metricWtbRmaxRaw === "number" && Number.isFinite(metricWtbRmaxRaw)
+        ? metricWtbRmaxRaw
+        : null;
+
+    const selectedRankPlatinum =
+      isRankedListingItem && itemCurrentRank >= itemMaxRank ? metricPlatinumRmax : metricPlatinumR0;
+
+    const platinumRaw = metric?.platinum ?? null;
+    const platinumFromMetrics =
+      typeof platinumRaw === "number" && Number.isFinite(platinumRaw) ? platinumRaw : null;
+    const platinum = platinumFromMetrics ?? selectedRankPlatinum ?? resolveCachedPlatinum(item);
+    const ducatsRaw = item.ducats ?? metric?.ducats ?? null;
+    const ducats = typeof ducatsRaw === "number" && Number.isFinite(ducatsRaw) ? ducatsRaw : null;
     const ducatonator =
       ducats != null && platinum != null && platinum > 0
         ? Number((ducats / platinum).toFixed(2))
@@ -248,6 +454,12 @@ export function buildInventoryViewItems(
     return {
       ...item,
       platinum,
+      platinumR0: isRankedListingItem ? metricPlatinumR0 : null,
+      platinumRmax: isRankedListingItem ? metricPlatinumRmax : null,
+      wtsR0: isRankedListingItem ? metricWtsR0 : null,
+      wtbR0: isRankedListingItem ? metricWtbR0 : null,
+      wtsRmax: isRankedListingItem ? metricWtsRmax : null,
+      wtbRmax: isRankedListingItem ? metricWtbRmax : null,
       ducats,
       ducatonator,
       displayImageUrl,

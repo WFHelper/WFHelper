@@ -13,9 +13,20 @@ const log = require("./logger").withScope("relicService");
 
 const WFCD_CDN = "https://cdn.warframestat.us/img/";
 const QUALITIES = new Set(["Intact", "Exceptional", "Flawless", "Radiant"]);
-const TIERS = new Set(["Lith", "Meso", "Neo", "Axi", "Requiem"]);
+const TIERS = new Set(["Lith", "Meso", "Neo", "Axi", "Requiem", "Vanguard"]);
 
 let _db = null;
+
+function normalizeWfmSlug(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[’']/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return normalized || null;
+}
 
 function buildRelicDatabase() {
   let Items;
@@ -67,16 +78,21 @@ function buildRelicDatabase() {
 
     group.qualities[quality.toLowerCase()] = {
       uniqueName: relic.uniqueName || null,
-      rewards: (relic.rewards || []).map((r) => ({
-        name: r.item?.name || "Unknown",
-        rarity: r.rarity || "Common",
-        chance: r.chance || 0,
-        urlName: r.item?.warframeMarket?.urlName || null,
-        wfmId: r.item?.warframeMarket?.id || null,
-        ducats: Number.isFinite(Number(r.item?.ducats))
-          ? Math.max(0, Math.round(Number(r.item?.ducats)))
-          : null,
-      })),
+      rewards: (relic.rewards || []).map((r) => {
+        const rawSlug = r.item?.warframeMarket?.urlName || r.item?.warframeMarket?.url_name || null;
+        return {
+          name: r.item?.name || "Unknown",
+          uniqueName: r.item?.uniqueName || null,
+          imageUrl: r.item?.imageName ? WFCD_CDN + r.item.imageName : null,
+          rarity: r.rarity || "Common",
+          chance: r.chance || 0,
+          urlName: normalizeWfmSlug(rawSlug),
+          wfmId: r.item?.warframeMarket?.id || null,
+          ducats: Number.isFinite(Number(r.item?.ducats))
+            ? Math.max(0, Math.round(Number(r.item?.ducats)))
+            : null,
+        };
+      }),
     };
 
     if (relic.uniqueName) {

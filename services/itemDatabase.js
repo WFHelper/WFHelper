@@ -30,6 +30,67 @@ function isLikelyBuildComponent(uniqueName, componentName = "") {
   );
 }
 
+function normalizeOptionalBoolean(value) {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function pickTradable(currentValue, incomingValue) {
+  const current = normalizeOptionalBoolean(currentValue);
+  const incoming = normalizeOptionalBoolean(incomingValue);
+
+  return current !== undefined ? current : incoming;
+}
+
+function isWeaponPartRecipePath(uniqueName = "") {
+  return /\/Types\/Recipes\/Weapons\/WeaponParts?\//i.test(String(uniqueName || ""));
+}
+
+function resolveComponentTradable(componentTradable, parentTradable, uniqueName = "") {
+  const component = normalizeOptionalBoolean(componentTradable);
+  if (component === true) return true;
+  if (component === false) {
+    return isWeaponPartRecipePath(uniqueName) ? undefined : false;
+  }
+
+  const parent = normalizeOptionalBoolean(parentTradable);
+  if (parent === true) return true;
+  if (parent === false) {
+    return isWeaponPartRecipePath(uniqueName) ? undefined : false;
+  }
+
+  return undefined;
+}
+
+function buildComponentDisplayName(parentName, componentName, forceBlueprintSuffix = false) {
+  const parent = String(parentName || "").trim();
+  const component = String(componentName || "").trim();
+
+  if (!parent && !component) return "Unknown";
+  if (!component) return parent || "Unknown";
+
+  let finalComponent = component;
+  if (forceBlueprintSuffix && !/\bblueprint$/i.test(finalComponent)) {
+    finalComponent = `${finalComponent} Blueprint`;
+  }
+
+  return parent ? `${parent} ${finalComponent}` : finalComponent;
+}
+
+function buildComponentAliasUniqueNames(uniqueName = "") {
+  const normalized = String(uniqueName || "");
+  if (!normalized) return [];
+
+  if (/Component$/i.test(normalized)) {
+    return [normalized.replace(/Component$/i, "Blueprint")];
+  }
+
+  if (!/Blueprint$/i.test(normalized) && /\/Types\/Recipes\//i.test(normalized)) {
+    return [`${normalized}Blueprint`];
+  }
+
+  return [];
+}
+
 let itemsByUniqueName = {};
 let wfcdItemsByUniqueName = {};
 
@@ -142,6 +203,11 @@ function loadPublicExportPlus() {
 
         const resolvedName = resolveName(item.name) || extractFallbackName(uniqueName);
 
+        const pepDucats =
+          typeof item.primeSellingPrice === "number" && Number.isFinite(item.primeSellingPrice)
+            ? Math.max(0, Math.round(item.primeSellingPrice))
+            : null;
+
         itemsByUniqueName[uniqueName] = {
           name: resolvedName,
           category,
@@ -149,9 +215,11 @@ function loadPublicExportPlus() {
           browseWfUrl: resolveIcon(item.icon), // Keep as fallback
           isPrime: resolvedName.includes("Prime"),
           masteryReq: item.masteryReq || 0,
+          tradable: normalizeOptionalBoolean(item.tradable),
           vaulted: item.vaulted || false,
           description: resolveName(item.description) || "",
           productCategory: item.productCategory || null,
+          ducats: pepDucats,
           _source: "pep",
         };
         pepCount++;
@@ -201,6 +269,11 @@ function loadWfcdItems() {
 
       const wfcdImageUrl = item.imageName ? WFCD_CDN + item.imageName : null;
 
+      const wfcdRootDucats =
+        typeof item.ducats === "number" && Number.isFinite(item.ducats)
+          ? Math.max(0, Math.round(item.ducats))
+          : null;
+
       const wfcdEntry = {
         name: item.name || "Unknown",
         category: item.category || "Misc",
@@ -208,7 +281,7 @@ function loadWfcdItems() {
         isPrime: (item.name || "").includes("Prime"),
         masteryReq: item.masteryReq || 0,
         masterable: typeof item.masterable === "boolean" ? item.masterable : undefined,
-        tradable: item.tradable || false,
+        tradable: normalizeOptionalBoolean(item.tradable),
         vaulted: item.vaulted || false,
         exalted: item.exalted || false,
         components: item.components || [],
@@ -217,6 +290,7 @@ function loadWfcdItems() {
         productCategory: item.productCategory || null,
         type: item.type || "",
         wikiaUrl: item.wikiaUrl || null,
+        ducats: wfcdRootDucats,
         _source: "wfcd",
       };
 
@@ -227,20 +301,31 @@ function loadWfcdItems() {
         for (const comp of item.components) {
           if (comp.uniqueName) {
             const componentLooksLikePart = isLikelyBuildComponent(comp.uniqueName, comp.name);
+            const componentAliasUniqueNames = buildComponentAliasUniqueNames(comp.uniqueName);
+            const componentUsesBlueprintAlias = componentAliasUniqueNames.length > 0;
+            const forceComponentBlueprintName = /Component$/i.test(comp.uniqueName);
+            const compDucats =
+              typeof comp.ducats === "number" && Number.isFinite(comp.ducats)
+                ? Math.max(0, Math.round(comp.ducats))
+                : null;
+            const componentName = buildComponentDisplayName(
+              item.name,
+              comp.name,
+              forceComponentBlueprintName,
+            );
+
             const componentEntry = {
               ...wfcdEntry,
-              name:
-                item.name && comp.name
-                  ? `${item.name} ${comp.name}`
-                  : comp.name || item.name || "Unknown",
+              name: componentName,
               imageUrl: comp.imageName ? WFCD_CDN + comp.imageName : wfcdImageUrl,
-              tradable: typeof comp.tradable === "boolean" ? comp.tradable : wfcdEntry.tradable,
+              tradable: resolveComponentTradable(comp.tradable, item.tradable, comp.uniqueName),
               type: comp.name ? `${comp.name} Part` : wfcdEntry.type || "Part",
               components: [],
               drops: comp.drops || [],
               description: "",
               isBuildComponent: componentLooksLikePart,
               componentOf: item.uniqueName,
+              ducats: compDucats,
             };
 
             wfcdItemsByUniqueName[comp.uniqueName] = componentEntry;
@@ -251,9 +336,14 @@ function loadWfcdItems() {
             } else {
               const existingComponent = itemsByUniqueName[comp.uniqueName];
 
+              // For build components, always prefer WFCD's composite name (e.g.
+              // "Odonata Prime Blueprint") over PEP's generic dict name (e.g.
+              // "Prime Archwing Blueprint") which can resolve to the wrong display name.
               if (
-                (!existingComponent.name || String(existingComponent.name).startsWith("/Lotus/")) &&
-                componentEntry.name
+                componentEntry.name &&
+                (!existingComponent.name ||
+                  String(existingComponent.name).startsWith("/Lotus/") ||
+                  componentLooksLikePart)
               ) {
                 existingComponent.name = componentEntry.name;
               }
@@ -262,8 +352,12 @@ function loadWfcdItems() {
                 existingComponent.imageUrl = componentEntry.imageUrl;
               }
 
-              if (typeof componentEntry.tradable === "boolean") {
-                existingComponent.tradable = componentEntry.tradable;
+              const mergedComponentTradable = pickTradable(
+                existingComponent.tradable,
+                componentEntry.tradable,
+              );
+              if (mergedComponentTradable !== undefined) {
+                existingComponent.tradable = mergedComponentTradable;
               }
 
               if (!existingComponent.type && componentEntry.type) {
@@ -287,6 +381,39 @@ function loadWfcdItems() {
 
               wfcdComponentSupplementCount++;
             }
+
+            if (componentUsesBlueprintAlias) {
+              for (const blueprintUniqueName of componentAliasUniqueNames) {
+                const existingBlueprint = itemsByUniqueName[blueprintUniqueName];
+                if (!existingBlueprint) continue;
+
+                const aliasName = buildComponentDisplayName(item.name, comp.name, true);
+                if (aliasName) {
+                  existingBlueprint.name = aliasName;
+                }
+
+                const aliasImage = comp.imageName ? WFCD_CDN + comp.imageName : wfcdImageUrl;
+                if (!existingBlueprint.imageUrl && aliasImage) {
+                  existingBlueprint.imageUrl = aliasImage;
+                }
+
+                const aliasTradable =
+                  pickTradable(existingBlueprint.tradable, componentEntry.tradable) ??
+                  pickTradable(existingBlueprint.tradable, item.tradable);
+                if (aliasTradable !== undefined) {
+                  existingBlueprint.tradable = aliasTradable;
+                }
+
+                existingBlueprint.isBuildComponent = true;
+                if (!existingBlueprint.componentOf) {
+                  existingBlueprint.componentOf = item.uniqueName;
+                }
+
+                if (!existingBlueprint.type && comp.name) {
+                  existingBlueprint.type = `${comp.name} Part`;
+                }
+              }
+            }
           }
         }
       }
@@ -309,7 +436,10 @@ function loadWfcdItems() {
         }
 
         // Add wfcd extras
-        existing.tradable = item.tradable || false;
+        const mergedItemTradable = pickTradable(existing.tradable, item.tradable);
+        if (mergedItemTradable !== undefined) {
+          existing.tradable = mergedItemTradable;
+        }
         existing.drops = item.drops || [];
         existing.wikiaUrl = item.wikiaUrl || null;
         existing.exalted = item.exalted || false;
@@ -325,6 +455,10 @@ function loadWfcdItems() {
         }
         if (!existing.description && item.description) {
           existing.description = item.description;
+        }
+        // Prefer WFCD ducats over PEP when available
+        if (wfcdRootDucats != null) {
+          existing.ducats = wfcdRootDucats;
         }
         wfcdSupplementCount++;
       }
@@ -428,7 +562,7 @@ function getRendererLookup() {
       category: item.category,
       imageUrl: item.imageUrl,
       isPrime: item.isPrime,
-      tradable: item.tradable || false,
+      tradable: typeof item.tradable === "boolean" ? item.tradable : undefined,
       masteryReq: item.masteryReq || 0,
       vaulted: item.vaulted || false,
       exalted: item.exalted || false,
@@ -437,10 +571,11 @@ function getRendererLookup() {
       isBuildComponent: item.isBuildComponent === true,
       description: item.description || "",
       productCategory: item.productCategory || null,
+      ducats: typeof item.ducats === "number" ? item.ducats : null,
       components: (item.components || []).map((c) => ({
         name: c.name || "",
         uniqueName: c.uniqueName || "",
-        tradable: c.tradable || false,
+        tradable: typeof c.tradable === "boolean" ? c.tradable : undefined,
         itemCount: c.itemCount || 1,
         drops: (c.drops || []).map((d) => ({
           location: d.location || "",

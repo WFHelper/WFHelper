@@ -27,7 +27,16 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext): Promi
 
 export default {
 	async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-		return handleFetch(req, env, ctx);
+		try {
+			return await handleFetch(req, env, ctx);
+		} catch (err) {
+			return jsonResponse(
+				{ ok: false, error: 'internal_error', detail: String(err) },
+				req,
+				env,
+				500,
+			);
+		}
 	},
 
 	async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext): Promise<void> {

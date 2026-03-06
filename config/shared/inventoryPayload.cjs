@@ -5,6 +5,7 @@ const MAX_SAFE_UNWRAP_DEPTH = 12;
 
 const INVENTORY_ARRAY_KEYS = Object.freeze([
   "Suits",
+  "RawUpgrades",
   "Upgrades",
   "Arcanes",
   "LevelKeys",

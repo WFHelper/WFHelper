@@ -6,6 +6,17 @@ const RAW_BACKEND_URL = (import.meta.env.VITE_WFM_BACKEND_URL || "").trim();
 const BACKEND_BASE_URL = RAW_BACKEND_URL.replace(/\/+$/, "");
 const REQUEST_TIMEOUT_MS = 3500;
 
+export function normalizeWfmSlug(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[’']/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return normalized || null;
+}
+
 function resolveFallbackMode(): FallbackMode {
   const raw = (import.meta.env.VITE_WFM_BACKEND_DIRECT_FALLBACK || "").trim().toLowerCase();
   if (raw === "always" || raw === "high" || raw === "never") {
@@ -30,6 +41,7 @@ export function shouldDirectFallback(priority: BackendRequestPriority): boolean 
 export interface BackendPricePayload {
   slug: string;
   median: number;
+  rank: number | null;
   timestamp: number | null;
 }
 
@@ -42,11 +54,57 @@ export interface BackendMetaPayload {
   timestamp: number | null;
 }
 
+export interface BackendOrderBookEntry {
+  userName: string;
+  status: string | null;
+  platinum: number;
+  quantity: number;
+  rank: number | null;
+}
+
+export interface BackendOrdersPayload {
+  slug: string;
+  sell: BackendOrderBookEntry[];
+  buy: BackendOrderBookEntry[];
+  timestamp: number | null;
+}
+
 export type BackendFetchResult<T> =
   | { status: "ok"; data: T }
   | { status: "not_found" }
   | { status: "unavailable" }
   | { status: "error" };
+
+function parseOrderBookSide(value: unknown): BackendOrderBookEntry[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const row = entry as Record<string, unknown>;
+
+      const userName = typeof row.userName === "string" ? row.userName.trim() : "";
+      if (!userName) return null;
+
+      const platinumRaw = toFiniteNumber(row.platinum);
+      if (platinumRaw == null || platinumRaw <= 0) return null;
+
+      const quantityRaw = toFiniteNumber(row.quantity);
+      const quantity = quantityRaw != null && quantityRaw > 0 ? Math.floor(quantityRaw) : 1;
+
+      const rankRaw = toFiniteNumber(row.rank);
+      const rank = rankRaw != null && rankRaw >= 0 ? Math.floor(rankRaw) : null;
+
+      return {
+        userName,
+        status: typeof row.status === "string" ? row.status : null,
+        platinum: Math.round(platinumRaw),
+        quantity,
+        rank,
+      };
+    })
+    .filter((entry): entry is BackendOrderBookEntry => entry != null);
+}
 
 function toFiniteNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -93,22 +151,35 @@ async function fetchBackendJson(
 
 export async function fetchBackendPriceBySlug(
   slug: string,
+  options?: { rank?: number | null },
 ): Promise<BackendFetchResult<BackendPricePayload>> {
-  if (!slug) return { status: "not_found" };
+  const normalizedSlug = normalizeWfmSlug(slug);
+  if (!normalizedSlug) return { status: "not_found" };
 
-  const result = await fetchBackendJson(`/v1/prices/${encodeURIComponent(slug)}`);
+  const rankRaw = toFiniteNumber(options?.rank ?? null);
+  const rank = rankRaw != null && rankRaw >= 0 ? Math.floor(rankRaw) : null;
+  const path =
+    rank != null
+      ? `/v1/prices/${encodeURIComponent(normalizedSlug)}?rank=${encodeURIComponent(String(rank))}`
+      : `/v1/prices/${encodeURIComponent(normalizedSlug)}`;
+
+  const result = await fetchBackendJson(path);
   if (result.status !== "ok") return result;
 
   const median = toFiniteNumber(result.data.median);
   if (median == null || median <= 0) return { status: "not_found" };
 
   const timestamp = toFiniteNumber(result.data.timestamp);
+  const responseRank = toFiniteNumber(result.data.rank);
+  const responseSlug =
+    typeof result.data.slug === "string" ? normalizeWfmSlug(result.data.slug) : normalizedSlug;
 
   return {
     status: "ok",
     data: {
-      slug: typeof result.data.slug === "string" ? result.data.slug : slug,
+      slug: responseSlug || normalizedSlug,
       median: Math.round(Math.abs(median)),
+      rank: responseRank != null && responseRank >= 0 ? Math.floor(responseRank) : rank,
       timestamp: timestamp != null ? Math.floor(timestamp) : null,
     },
   };
@@ -117,22 +188,57 @@ export async function fetchBackendPriceBySlug(
 export async function fetchBackendMetaBySlug(
   slug: string,
 ): Promise<BackendFetchResult<BackendMetaPayload>> {
-  if (!slug) return { status: "not_found" };
+  const normalizedSlug = normalizeWfmSlug(slug);
+  if (!normalizedSlug) return { status: "not_found" };
 
-  const result = await fetchBackendJson(`/v1/meta/${encodeURIComponent(slug)}`);
+  const result = await fetchBackendJson(`/v1/meta/${encodeURIComponent(normalizedSlug)}`);
   if (result.status !== "ok") return result;
 
   const ducatsRaw = toFiniteNumber(result.data.ducats);
   const timestamp = toFiniteNumber(result.data.timestamp);
+  const responseSlug =
+    typeof result.data.slug === "string" ? normalizeWfmSlug(result.data.slug) : normalizedSlug;
 
   return {
     status: "ok",
     data: {
-      slug: typeof result.data.slug === "string" ? result.data.slug : slug,
+      slug: responseSlug || normalizedSlug,
       ducats: ducatsRaw != null ? Math.max(0, Math.round(ducatsRaw)) : null,
       setRoot: Boolean(result.data.setRoot),
       thumb: typeof result.data.thumb === "string" ? result.data.thumb : null,
       icon: typeof result.data.icon === "string" ? result.data.icon : null,
+      timestamp: timestamp != null ? Math.floor(timestamp) : null,
+    },
+  };
+}
+
+export async function fetchBackendOrdersBySlug(
+  slug: string,
+  options?: { rank?: number | null },
+): Promise<BackendFetchResult<BackendOrdersPayload>> {
+  const normalizedSlug = normalizeWfmSlug(slug);
+  if (!normalizedSlug) return { status: "not_found" };
+
+  const rankRaw = toFiniteNumber(options?.rank ?? null);
+  const rank = rankRaw != null && rankRaw >= 0 ? Math.floor(rankRaw) : null;
+  const path =
+    rank != null
+      ? `/v1/orders/${encodeURIComponent(normalizedSlug)}?rank=${encodeURIComponent(String(rank))}`
+      : `/v1/orders/${encodeURIComponent(normalizedSlug)}`;
+
+  const result = await fetchBackendJson(path);
+  if (result.status !== "ok") return result;
+
+  const timestamp = toFiniteNumber(result.data.timestamp);
+  const responseSlug =
+    typeof result.data.slug === "string" ? normalizeWfmSlug(result.data.slug) : normalizedSlug;
+
+  return {
+    status: "ok",
+    data: {
+      slug: responseSlug || normalizedSlug,
+      sell: parseOrderBookSide(result.data.sell),
+      buy: parseOrderBookSide(result.data.buy),
       timestamp: timestamp != null ? Math.floor(timestamp) : null,
     },
   };

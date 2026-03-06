@@ -166,6 +166,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
         preload: getElectronBuildFile("preload-overlay.js"),
         contextIsolation: true,
         nodeIntegration: false,
+        sandbox: true,
       },
     });
 
@@ -208,6 +209,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
         preload: getElectronBuildFile("preload-crop.js"),
         contextIsolation: true,
         nodeIntegration: false,
+        sandbox: true,
       },
     });
 

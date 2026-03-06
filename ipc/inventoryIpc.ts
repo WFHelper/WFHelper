@@ -26,15 +26,20 @@ const { ALECA_FETCH_TIMEOUT_MS, ALECA_KEY_SOURCE, ALECA_IV_SOURCE } = requireRun
   ALECA_IV_SOURCE: { url: string; sha256: string };
 }>("config/integrations/alecaframe");
 
-const POSSIBLE_INVENTORY_PATHS = [
-  path.join(process.cwd(), "api-inventory-data", "inventory.json"),
-  path.join(app.getPath("downloads"), "inventory.json"),
-  path.join(app.getPath("desktop"), "inventory.json"),
-  path.join(app.getPath("documents"), "inventory.json"),
-  path.join(app.getPath("home"), "inventory.json"),
-  path.join(process.cwd(), "inventory.json"),
-  path.join(app.getPath("userData"), "inventory.json"),
+const USER_INVENTORY_DIRECTORIES = [
+  app.getPath("downloads"),
+  app.getPath("desktop"),
+  app.getPath("documents"),
+  app.getPath("home"),
+  app.getPath("userData"),
 ];
+
+const DEV_FALLBACK_INVENTORY_DIRECTORIES = [
+  process.cwd(),
+  path.join(process.cwd(), "api-inventory-data"),
+];
+
+const INVENTORY_FILENAME_RE = /^inventory(?:_[^\\/:*?"<>|]+)?\.json$/i;
 
 const ALECAFRAME_DATA_PATH = process.env.LOCALAPPDATA
   ? path.join(process.env.LOCALAPPDATA, "AlecaFrame", "lastData.dat")
@@ -138,11 +143,66 @@ function decryptAlecaFrame(filePath: string): unknown {
   }
 }
 
-function findInventoryFile(): string | null {
-  for (const filePath of POSSIBLE_INVENTORY_PATHS) {
-    if (fs.existsSync(filePath)) return filePath;
+function newestExistingInventoryPath(paths: string[]): string | null {
+  let bestPath: string | null = null;
+  let bestMtimeMs = -1;
+
+  for (const filePath of paths) {
+    try {
+      const stats = fs.statSync(filePath);
+      if (!stats.isFile()) continue;
+      if (stats.mtimeMs > bestMtimeMs) {
+        bestMtimeMs = stats.mtimeMs;
+        bestPath = filePath;
+      }
+    } catch {
+      // ignore missing/unreadable candidates
+    }
   }
-  return null;
+
+  return bestPath;
+}
+
+function listInventoryJsonFiles(directoryPath: string): string[] {
+  try {
+    const entries = fs.readdirSync(directoryPath, { withFileTypes: true });
+    return entries
+      .filter((entry) => entry.isFile() && INVENTORY_FILENAME_RE.test(entry.name))
+      .map((entry) => path.join(directoryPath, entry.name));
+  } catch {
+    return [];
+  }
+}
+
+function collectInventoryCandidates(directories: string[]): string[] {
+  const seen = new Set<string>();
+  const candidates: string[] = [];
+  for (const directoryPath of directories) {
+    for (const candidatePath of listInventoryJsonFiles(directoryPath)) {
+      if (seen.has(candidatePath)) continue;
+      seen.add(candidatePath);
+      candidates.push(candidatePath);
+    }
+  }
+  return candidates;
+}
+
+function findInventoryFile(): string | null {
+  const userCandidate = newestExistingInventoryPath(
+    collectInventoryCandidates(USER_INVENTORY_DIRECTORIES),
+  );
+  if (userCandidate) return userCandidate;
+
+  const allowDevFallback = process.env.NODE_ENV !== "production";
+  if (!allowDevFallback) return null;
+
+  const devCandidate = newestExistingInventoryPath(
+    collectInventoryCandidates(DEV_FALLBACK_INVENTORY_DIRECTORIES),
+  );
+  if (devCandidate) {
+    log.warn("Using development fallback inventory file:", devCandidate);
+  }
+  return devCandidate;
 }
 
 function readInventory(filePath: string): unknown {

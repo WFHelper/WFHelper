@@ -3,12 +3,14 @@ import type { WfmItemsLookup } from "../../types/ipc.js";
 import { schedulePriceCacheRevision } from "../../stores/pricing.js";
 import {
   fetchBackendPriceBySlug,
+  normalizeWfmSlug,
   shouldDirectFallback,
   type BackendRequestPriority,
 } from "./backendLite.js";
 import wfmStatsShared from "../../../config/shared/wfmStats.cjs";
+import { log } from "../log.js";
 
-const BASE_DELAY_MS = 180;
+const BASE_DELAY_MS = 350;
 const MAX_DYNAMIC_DELAY_MS = 1200;
 const DELAY_DECAY_STEP_MS = 5;
 const DELAY_BACKOFF_STEP_MS = 120;
@@ -16,7 +18,10 @@ const DEFAULT_RETRY_AFTER_SECONDS = 30;
 const MIN_429_COOLDOWN_MS = 30_000;
 
 type SharedWfmStatsModule = {
-  extractMedianFromStatsPayload: (jsonPayload: unknown) => number | null;
+  extractMedianFromStatsPayload: (
+    jsonPayload: unknown,
+    options?: { rank?: number | null },
+  ) => number | null;
 };
 
 const { extractMedianFromStatsPayload } = wfmStatsShared as SharedWfmStatsModule;
@@ -39,6 +44,23 @@ export type RequestPriority = "high" | "normal" | "low";
 export interface FetchPriceOptions {
   priority?: RequestPriority;
   allowSetFallback?: boolean;
+  rank?: number | null;
+  ignoreNoDataCache?: boolean;
+}
+
+const MAX_SUPPORTED_RANK = 20;
+
+function normalizePriceRank(value: unknown): number | null {
+  if (value == null) return null;
+  if (typeof value === "string" && value.trim().length === 0) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  if (parsed < 0 || parsed > MAX_SUPPORTED_RANK) return null;
+  return Math.floor(parsed);
+}
+
+function priceCacheKey(slug: string, rank: number | null): string {
+  return rank == null ? slug : `${slug}:rank-v3:r${rank}`;
 }
 
 export interface PriceDebugCounters {
@@ -103,25 +125,25 @@ function emitPriceCacheUpdate(slug: string, status: PriceCacheUpdateStatus): voi
     try {
       listener(slug, status);
     } catch (e) {
-      console.warn("[WFM] price cache listener failed:", e);
+      log.warn("[WFM] price cache listener failed:", e);
     }
   }
 }
 
-function cachePrice(slug: string, median: number): void {
-  const existing = getCachedPriceState(slug);
+function cachePrice(cacheKey: string, sourceSlug: string, median: number): void {
+  const existing = getCachedPriceState(cacheKey);
   if (existing?.status === "ok" && existing.median != null && existing.median === median) {
     return;
   }
-  setCachedPrice(slug, median);
-  emitPriceCacheUpdate(slug, "ok");
+  setCachedPrice(cacheKey, median);
+  emitPriceCacheUpdate(sourceSlug, "ok");
 }
 
-function cacheNoData(slug: string): void {
-  const existing = getCachedPriceState(slug);
+function cacheNoData(cacheKey: string, sourceSlug: string): void {
+  const existing = getCachedPriceState(cacheKey);
   if (existing?.status === "no_data") return;
-  setCachedNoData(slug);
-  emitPriceCacheUpdate(slug, "no_data");
+  setCachedNoData(cacheKey);
+  emitPriceCacheUpdate(sourceSlug, "no_data");
 }
 
 export function getPriceDebugCounters(): PriceDebugCounters {
@@ -235,7 +257,7 @@ async function fetchStatsJson(slug: string, priority: RequestPriority): Promise<
       );
       _lastRequestAt =
         Date.now() + Math.max(retryAfter * 1000, MIN_429_COOLDOWN_MS) - _dynamicDelayMs;
-      console.warn(`[WFM] Rate limited (429). Cooling down for ${retryAfter}s.`);
+      log.warn(`[WFM] Rate limited (429). Cooling down for ${retryAfter}s.`);
       return { ok: false, transient: true };
     }
 
@@ -261,10 +283,12 @@ async function fetchStatsJson(slug: string, priority: RequestPriority): Promise<
 async function fetchPriceBySlugInternal(
   slug: string,
   priority: RequestPriority,
+  rank: number | null,
 ): Promise<PriceBySlugResult> {
-  const backendResult = await fetchBackendPriceBySlug(slug);
+  const cacheKey = priceCacheKey(slug, rank);
+  const backendResult = await fetchBackendPriceBySlug(slug, { rank });
   if (backendResult.status === "ok") {
-    cachePrice(slug, backendResult.data.median);
+    cachePrice(cacheKey, slug, backendResult.data.median);
     bumpCounter("backendHitOk");
     bumpCounter("resultOk");
     return {
@@ -280,23 +304,24 @@ async function fetchPriceBySlugInternal(
 
   if (backendResult.status === "not_found") {
     bumpCounter("backendHitNoData");
-    if (!fallbackAllowed) {
-      cacheNoData(slug);
-      bumpCounter("resultNoData");
-      return { status: "no_data", slug, median: null };
-    }
-  } else if (backendResult.status === "error") {
+    cacheNoData(cacheKey, slug);
+    bumpCounter("resultNoData");
+    return { status: "no_data", slug, median: null };
+  }
+
+  if (backendResult.status === "error") {
     bumpCounter("backendError");
-    if (!fallbackAllowed) {
-      bumpCounter("resultTransient");
-      return { status: "transient", slug, median: null };
-    }
+  }
+
+  if (!fallbackAllowed) {
+    bumpCounter("resultTransient");
+    return { status: "transient", slug, median: null };
   }
 
   const res = await fetchStatsJson(slug, priority);
   if (!res.ok) {
     if (!res.transient) {
-      cacheNoData(slug);
+      cacheNoData(cacheKey, slug);
     }
     bumpCounter(res.transient ? "resultTransient" : "resultNoData");
     return {
@@ -306,13 +331,13 @@ async function fetchPriceBySlugInternal(
     };
   }
 
-  const median = extractMedianFromStatsPayload(res.json);
+  const median = extractMedianFromStatsPayload(res.json, rank != null ? { rank } : undefined);
   if (median != null) {
-    cachePrice(slug, median);
+    cachePrice(cacheKey, slug, median);
     bumpCounter("resultOk");
     return { median, slug, status: "ok", timestamp: Date.now() };
   }
-  cacheNoData(slug);
+  cacheNoData(cacheKey, slug);
   bumpCounter("resultNoData");
   return { status: "no_data", slug, median: null };
 }
@@ -321,28 +346,35 @@ export async function fetchPriceBySlug(
   slug: string | null | undefined,
   options?: FetchPriceOptions,
 ): Promise<PriceBySlugResult> {
-  if (!slug) return { status: "no_slug", slug: null, median: null };
+  const normalizedSlug = normalizeWfmSlug(slug);
+  if (!normalizedSlug) return { status: "no_slug", slug: null, median: null };
   bumpCounter("requests");
   const priority = options?.priority || "normal";
+  const rank = normalizePriceRank(options?.rank ?? null);
+  const ignoreNoDataCache = options?.ignoreNoDataCache === true;
+  const cacheKey = priceCacheKey(normalizedSlug, rank);
 
-  const cached = getCachedPriceState(slug);
+  const cached = getCachedPriceState(cacheKey);
   if (cached) {
     if (cached.status === "ok" && cached.median != null) {
       bumpCounter("cacheHitOk");
       bumpCounter("resultOk");
       return {
         median: cached.median,
-        slug,
+        slug: normalizedSlug,
         status: "ok",
         timestamp: cached.timestamp,
       };
     }
-    bumpCounter("cacheHitNoData");
-    bumpCounter("resultNoData");
-    return { status: "no_data", slug, median: null };
+
+    if (!ignoreNoDataCache) {
+      bumpCounter("cacheHitNoData");
+      bumpCounter("resultNoData");
+      return { status: "no_data", slug: normalizedSlug, median: null };
+    }
   }
 
-  const inFlight = inFlightBySlug.get(slug);
+  const inFlight = inFlightBySlug.get(cacheKey);
   if (inFlight) {
     bumpCounter("inFlightDeduped");
     return inFlight;
@@ -350,17 +382,17 @@ export async function fetchPriceBySlug(
 
   const requestPromise = (async () => {
     try {
-      return await fetchPriceBySlugInternal(slug, priority);
+      return await fetchPriceBySlugInternal(normalizedSlug, priority, rank);
     } catch (e) {
-      console.warn(`[WFM] fetch failed for ${slug}:`, e);
+      log.warn(`[WFM] fetch failed for ${normalizedSlug}:`, e);
       bumpCounter("resultTransient");
-      return { status: "transient" as const, slug, median: null };
+      return { status: "transient" as const, slug: normalizedSlug, median: null };
     } finally {
-      inFlightBySlug.delete(slug);
+      inFlightBySlug.delete(cacheKey);
     }
   })();
 
-  inFlightBySlug.set(slug, requestPromise);
+  inFlightBySlug.set(cacheKey, requestPromise);
   return requestPromise;
 }
 
@@ -373,30 +405,35 @@ export async function fetchPriceByName(
   bumpCounter("requests");
   const priority = options?.priority || "normal";
   const allowSetFallback = options?.allowSetFallback === true;
+  const rank = normalizePriceRank(options?.rank ?? null);
+  const ignoreNoDataCache = options?.ignoreNoDataCache === true;
 
   const key = itemName.toLowerCase();
   const mapping = wfmItems[key] || null;
   const setMapping = wfmItems[`${key} set`] || null;
-  let slug = mapping?.url_name;
+  let slug = normalizeWfmSlug(mapping?.url_name);
 
   if (!slug && /\bset$/i.test(itemName) && setMapping?.url_name) {
-    slug = setMapping.url_name;
+    slug = normalizeWfmSlug(setMapping.url_name);
   }
 
   if (!slug) {
-    slug = key
-      .replace(/['']/g, "")
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "");
+    slug = normalizeWfmSlug(key);
   }
   if (!slug) return null;
 
   const slugsToTry = allowSetFallback && !slug.endsWith("_set") ? [`${slug}_set`, slug] : [slug];
 
   for (const trySlug of slugsToTry) {
-    const result = await fetchPriceBySlug(trySlug, { priority });
+    const result = await fetchPriceBySlug(trySlug, {
+      priority,
+      rank,
+      ignoreNoDataCache,
+    });
     if (result.status === "ok" && result.median != null) {
-      if (trySlug !== slug) cachePrice(slug, result.median);
+      if (trySlug !== slug) {
+        cachePrice(priceCacheKey(slug, rank), slug, result.median);
+      }
       return {
         median: result.median,
         slug: trySlug,

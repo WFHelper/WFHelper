@@ -375,6 +375,35 @@ describe("inventory parsing", () => {
     expect(mod?.leveledUp).toBe(false);
   });
 
+  it("does not infer mod rank from XP when explicit rank is absent", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Upgrades/Mods/Shotgun/DualStat/AcceleratedBlastMod": {
+        name: "Accelerated Blast",
+        category: "Mods",
+        fusionLimit: 3,
+      },
+    };
+
+    const data: RawInventoryData = {
+      Upgrades: [
+        {
+          ItemType: "/Lotus/Upgrades/Mods/Shotgun/DualStat/AcceleratedBlastMod",
+          ItemCount: 1,
+          XP: 900,
+        },
+      ],
+    };
+
+    const items = parseInventory(data, db);
+    const mod = items.find(
+      (item) => item.internalName === "/Lotus/Upgrades/Mods/Shotgun/DualStat/AcceleratedBlastMod",
+    );
+
+    expect(mod?.rank).toBe(0);
+    expect(mod?.maxRank).toBe(3);
+    expect(mod?.leveledUp).toBe(false);
+  });
+
   it("parses mod rank from UpgradeFingerprint JSON payload", () => {
     const db: Record<string, ItemDbEntry> = {
       "/Lotus/Upgrades/Mods/Rifle/WeaponToxinDamageMod": {
@@ -399,6 +428,134 @@ describe("inventory parsing", () => {
     );
     expect(mod?.rank).toBe(5);
     expect(mod?.leveledUp).toBe(true);
+  });
+
+  it("keeps separate mod instances for different ranks including rank 0", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Upgrades/Mods/Shotgun/DualStat/AcceleratedBlastMod": {
+        name: "Accelerated Blast",
+        category: "Mods",
+      },
+    };
+
+    const data: RawInventoryData = {
+      Upgrades: [
+        {
+          ItemType: "/Lotus/Upgrades/Mods/Shotgun/DualStat/AcceleratedBlastMod",
+          ItemCount: 1,
+          UpgradeData: { CurrentRank: 0, MaxRank: 3 },
+        },
+        {
+          ItemType: "/Lotus/Upgrades/Mods/Shotgun/DualStat/AcceleratedBlastMod",
+          ItemCount: 2,
+          UpgradeData: { CurrentRank: 3, MaxRank: 3 },
+        },
+      ],
+    };
+
+    const items = parseInventory(data, db).filter(
+      (item) => item.internalName === "/Lotus/Upgrades/Mods/Shotgun/DualStat/AcceleratedBlastMod",
+    );
+
+    expect(items).toHaveLength(2);
+    expect(items.some((item) => item.rank === 0 && item.maxRank === 3 && item.amount === 1)).toBe(
+      true,
+    );
+    expect(items.some((item) => item.rank === 3 && item.maxRank === 3 && item.amount === 2)).toBe(
+      true,
+    );
+    expect(
+      items.every((item) => typeof item.inventoryKey === "string" && item.inventoryKey.length > 0),
+    ).toBe(true);
+  });
+
+  it("includes RawUpgrades rank-0 rows alongside ranked Upgrades rows", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Powersuits/Infestation/InfestPassiveAugmentCard": {
+        name: "Abundant Mutation",
+        category: "Mods",
+        fusionLimit: 3,
+      },
+      "/Lotus/Upgrades/Mods/Shotgun/DualStat/AcceleratedBlastMod": {
+        name: "Accelerated Blast",
+        category: "Mods",
+        fusionLimit: 3,
+      },
+    };
+
+    const data: RawInventoryData = {
+      RawUpgrades: [
+        {
+          ItemType: "/Lotus/Powersuits/Infestation/InfestPassiveAugmentCard",
+          ItemCount: 1,
+        },
+        {
+          ItemType: "/Lotus/Upgrades/Mods/Shotgun/DualStat/AcceleratedBlastMod",
+          ItemCount: 1,
+        },
+      ],
+      Upgrades: [
+        {
+          ItemType: "/Lotus/Upgrades/Mods/Shotgun/DualStat/AcceleratedBlastMod",
+          UpgradeFingerprint: '{"lvl":3}',
+        },
+      ],
+    };
+
+    const items = parseInventory(data, db).filter((item) => item.category === "mods");
+
+    const abundant = items.find(
+      (item) => item.internalName === "/Lotus/Powersuits/Infestation/InfestPassiveAugmentCard",
+    );
+    expect(abundant?.inventoryGroup).toBe("mods");
+    expect(abundant?.rank).toBe(0);
+    expect(abundant?.maxRank).toBe(3);
+    expect(abundant?.amount).toBe(1);
+
+    const accelerated = items.filter(
+      (item) => item.internalName === "/Lotus/Upgrades/Mods/Shotgun/DualStat/AcceleratedBlastMod",
+    );
+    expect(accelerated).toHaveLength(2);
+    expect(accelerated.some((item) => item.rank === 0 && item.amount === 1)).toBe(true);
+    expect(accelerated.some((item) => item.rank === 3 && item.amount === 1)).toBe(true);
+  });
+
+  it("keeps RawUpgrades resources out of mods tab", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Types/Items/MiscItems/ControlModule": {
+        name: "Control Module",
+        category: "Resource",
+        type: "Control Module Part",
+        tradable: false,
+      },
+      "/Lotus/Powersuits/Infestation/InfestPassiveAugmentCard": {
+        name: "Abundant Mutation",
+        category: "Mod",
+        type: "Warframe Mod",
+        tradable: true,
+        fusionLimit: 3,
+      },
+    };
+
+    const data: RawInventoryData = {
+      RawUpgrades: [
+        { ItemType: "/Lotus/Types/Items/MiscItems/ControlModule", ItemCount: 4617 },
+        { ItemType: "/Lotus/Powersuits/Infestation/InfestPassiveAugmentCard", ItemCount: 1 },
+      ],
+    };
+
+    const items = parseInventory(data, db);
+    const controlModule = items.find(
+      (item) => item.internalName === "/Lotus/Types/Items/MiscItems/ControlModule",
+    );
+    const abundant = items.find(
+      (item) => item.internalName === "/Lotus/Powersuits/Infestation/InfestPassiveAugmentCard",
+    );
+
+    expect(controlModule?.inventoryGroup).toBe("misc");
+    expect(controlModule?.category).toBe("misc");
+    expect(controlModule?.categoryLabel).toBe("Misc");
+    expect(abundant?.inventoryGroup).toBe("mods");
   });
 
   it("does not infer rank from riven challenge fingerprint payload", () => {
@@ -563,6 +720,44 @@ describe("inventory parsing", () => {
     expect(
       items.find(
         (item) => item.internalName === "/Lotus/Types/Items/FusionTreasures/OroFusexOrnamentB",
+      )?.inventoryGroup,
+    ).toBe("misc");
+  });
+
+  it("treats weapon-part recipe entries as all-parts even without explicit tradable flags", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Types/Recipes/Weapons/WeaponParts/GunScytheHandle": {
+        name: "Corufell Handle",
+        category: "Recipe",
+        isBuildComponent: true,
+      },
+      "/Lotus/Types/Recipes/WarframeRecipes/BrokenFrameChassisBlueprint": {
+        name: "Qorvex Chassis Blueprint",
+        category: "Recipe",
+        isBuildComponent: true,
+      },
+    };
+
+    const data: RawInventoryData = {
+      Recipes: [
+        { ItemType: "/Lotus/Types/Recipes/Weapons/WeaponParts/GunScytheHandle", ItemCount: 1 },
+        {
+          ItemType: "/Lotus/Types/Recipes/WarframeRecipes/BrokenFrameChassisBlueprint",
+          ItemCount: 1,
+        },
+      ],
+    };
+
+    const items = parseInventory(data, db);
+    expect(
+      items.find(
+        (item) => item.internalName === "/Lotus/Types/Recipes/Weapons/WeaponParts/GunScytheHandle",
+      )?.inventoryGroup,
+    ).toBe("all_parts");
+    expect(
+      items.find(
+        (item) =>
+          item.internalName === "/Lotus/Types/Recipes/WarframeRecipes/BrokenFrameChassisBlueprint",
       )?.inventoryGroup,
     ).toBe("misc");
   });

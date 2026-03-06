@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildRelicSearchKeywordIndex,
   computeGroupDucatEv,
   computeSquadDucatEV,
   computeSquadEV,
   parseOwnedRelics,
+  relicGroupMatchesSearch,
 } from "./relic.js";
 import type { RawInventoryData } from "../types/inventory.js";
 import type { RelicDatabase } from "../types/relics.js";
@@ -89,7 +91,93 @@ describe("relic helpers", () => {
     expect(computeGroupDucatEv(relicGroup, 4, "best")).toBeNull();
   });
 
-  it("uses LevelKeys as primary source for owned relic counts", () => {
+  it("matches relic search query against reward names and part aliases", () => {
+    const relicGroup = {
+      key: "Axi N1",
+      name: "Axi N1",
+      tier: "Axi",
+      code: "N1",
+      imageUrl: null,
+      qualities: {
+        intact: {
+          uniqueName: "/Lotus/Relics/AxiN1Intact",
+          rewards: [
+            {
+              name: "Nova Prime Chassis Blueprint",
+              rarity: "Rare",
+              chance: 2,
+              urlName: "nova_prime_chassis",
+              ducats: 100,
+            },
+            {
+              name: "Lex Prime Receiver",
+              rarity: "Uncommon",
+              chance: 25,
+              urlName: "lex_prime_receiver",
+              ducats: 45,
+            },
+          ],
+        },
+      },
+    } satisfies RelicDatabase["groups"][string];
+
+    expect(relicGroupMatchesSearch(relicGroup, "nova")).toBe(true);
+    expect(relicGroupMatchesSearch(relicGroup, "nova chassis")).toBe(true);
+    expect(relicGroupMatchesSearch(relicGroup, "nova_prime_chassis")).toBe(true);
+    expect(relicGroupMatchesSearch(relicGroup, "volt chassis")).toBe(false);
+  });
+
+  it("indexes relic rewards as searchable keywords by uniqueName", () => {
+    const db: RelicDatabase = {
+      groups: {
+        "Axi N1": {
+          key: "Axi N1",
+          name: "Axi N1",
+          tier: "Axi",
+          code: "N1",
+          imageUrl: null,
+          qualities: {
+            intact: {
+              uniqueName: "/Lotus/Relics/AxiN1Intact",
+              rewards: [
+                {
+                  name: "Nova Prime Chassis Blueprint",
+                  rarity: "Rare",
+                  chance: 2,
+                  urlName: "nova_prime_chassis",
+                  ducats: 100,
+                },
+              ],
+            },
+            radiant: {
+              uniqueName: "/Lotus/Relics/AxiN1Radiant",
+              rewards: [
+                {
+                  name: "Nova Prime Chassis Blueprint",
+                  rarity: "Rare",
+                  chance: 10,
+                  urlName: "nova_prime_chassis",
+                  ducats: 100,
+                },
+              ],
+            },
+          },
+        },
+      },
+      byUniqueName: {
+        "/Lotus/Relics/AxiN1Intact": { groupKey: "Axi N1", quality: "intact" },
+        "/Lotus/Relics/AxiN1Radiant": { groupKey: "Axi N1", quality: "radiant" },
+      },
+    };
+
+    const index = buildRelicSearchKeywordIndex(db);
+
+    expect(index["/Lotus/Relics/AxiN1Intact"]).toContain("nova prime chassis blueprint");
+    expect(index["/Lotus/Relics/AxiN1Intact"]).toContain("nova chassis");
+    expect(index["/Lotus/Relics/AxiN1Radiant"]).toContain("nova chassis");
+  });
+
+  it("merges LevelKeys and supplemental sources without double counting", () => {
     const db: RelicDatabase = {
       groups: {
         "Lith A1": {
@@ -113,7 +201,7 @@ describe("relic helpers", () => {
 
     const owned = parseOwnedRelics(data, db);
     expect(owned["Lith A1"].intact).toBe(2);
-    expect(owned["Lith A1"].radiant).toBe(0);
+    expect(owned["Lith A1"].radiant).toBe(9);
   });
 
   it("falls back to other arrays when LevelKeys are unavailable", () => {
@@ -143,5 +231,70 @@ describe("relic helpers", () => {
     const owned = parseOwnedRelics(data, db);
     expect(owned["Axi Y2"].radiant).toBe(3);
     expect(owned["Axi Y2"].intact).toBe(1);
+  });
+
+  it("avoids duplicate counting when relic appears in LevelKeys and MiscItems", () => {
+    const db: RelicDatabase = {
+      groups: {
+        "Neo B7": {
+          key: "Neo B7",
+          name: "Neo B7",
+          tier: "Neo",
+          code: "B7",
+          imageUrl: null,
+          qualities: {},
+        },
+      },
+      byUniqueName: {
+        "/Lotus/Relics/NeoB7Intact": { groupKey: "Neo B7", quality: "intact" },
+      },
+    };
+
+    const data: RawInventoryData = {
+      LevelKeys: [{ ItemType: "/Lotus/Relics/NeoB7Intact", ItemCount: 5 }],
+      MiscItems: [{ ItemType: "/Lotus/Relics/NeoB7Intact", ItemCount: 5 }],
+    };
+
+    const owned = parseOwnedRelics(data, db);
+    expect(owned["Neo B7"].intact).toBe(5);
+  });
+
+  it("computeSquadEV returns 0 when all prices are null", () => {
+    const rewards = [{ chance: 50 }, { chance: 50 }];
+    const prices = [null, null];
+    expect(computeSquadEV(rewards, prices, 4)).toBe(0);
+  });
+
+  it("computeSquadEV handles N=4 squad with mixed null prices", () => {
+    const rewards = [{ chance: 25 }, { chance: 25 }, { chance: 25 }, { chance: 25 }];
+    const prices = [null, 10, null, 50];
+    const ev = computeSquadEV(rewards, prices, 4);
+    expect(ev).toBeGreaterThan(0);
+    expect(ev).toBeLessThanOrEqual(50);
+  });
+
+  it("parseOwnedRelics returns empty for null inputs", () => {
+    expect(parseOwnedRelics(null, null)).toEqual({});
+    expect(parseOwnedRelics(null, { groups: {}, byUniqueName: {} })).toEqual({});
+  });
+
+  it("parseOwnedRelics handles empty inventory", () => {
+    const db: RelicDatabase = {
+      groups: {
+        "Lith X1": {
+          key: "Lith X1",
+          name: "Lith X1",
+          tier: "Lith",
+          code: "X1",
+          imageUrl: null,
+          qualities: {},
+        },
+      },
+      byUniqueName: {
+        "/Lotus/Relics/LithX1Intact": { groupKey: "Lith X1", quality: "intact" },
+      },
+    };
+    const data: RawInventoryData = {};
+    expect(parseOwnedRelics(data, db)).toEqual({});
   });
 });

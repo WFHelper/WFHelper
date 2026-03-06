@@ -44,9 +44,6 @@ const DUCAT_WARMUP_BATCH_SIZE = 90;
 const DUCAT_WARMUP_WORKERS = 4;
 const WARMUP_LOOP_PAUSE_MS = 50;
 const GROUP_PRICE_FETCH_WORKERS = 4;
-const RELIC_RUNTIME_CACHE_KEY = "relic_runtime_cache_v1";
-const RELIC_RUNTIME_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
-const RELIC_RUNTIME_CACHE_SAVE_DEBOUNCE_MS = 2000;
 
 export function fissureTierClass(tier: string = ""): string {
   const t = tier.toLowerCase();
@@ -59,12 +56,117 @@ export function fissureTierClass(tier: string = ""): string {
   return "default";
 }
 
+function normalizeRelicSearchText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[’']/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function compactRelicSearchText(value: string): string {
+  return normalizeRelicSearchText(value).replace(/\s+/g, "");
+}
+
+function tokenizeRelicSearchText(value: string): string[] {
+  const normalized = normalizeRelicSearchText(value);
+  if (!normalized) return [];
+  return normalized.split(/\s+/).filter(Boolean);
+}
+
+function stripPrimeBlueprintWords(value: string): string {
+  const normalized = normalizeRelicSearchText(value);
+  if (!normalized) return "";
+  return normalized
+    .replace(/\b(prime|blueprint)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function collectRelicSearchTerms(group: RelicGroup): string[] {
+  const terms = new Set<string>();
+
+  const addTerm = (value: string | null | undefined): void => {
+    if (!value || typeof value !== "string") return;
+
+    const normalized = normalizeRelicSearchText(value);
+    if (!normalized) return;
+    terms.add(normalized);
+
+    const stripped = stripPrimeBlueprintWords(value);
+    if (stripped) terms.add(stripped);
+  };
+
+  addTerm(group.name);
+  addTerm(`${group.tier} ${group.code}`);
+
+  for (const qualityData of Object.values(group.qualities || {})) {
+    if (!qualityData) continue;
+    for (const reward of qualityData.rewards || []) {
+      addTerm(reward.name);
+      if (reward.urlName) {
+        addTerm(reward.urlName.replace(/_/g, " "));
+      }
+    }
+  }
+
+  return [...terms];
+}
+
+export function relicGroupMatchesSearch(group: RelicGroup, query: string): boolean {
+  const normalizedQuery = normalizeRelicSearchText(query);
+  if (!normalizedQuery) return true;
+
+  const compactQuery = compactRelicSearchText(query);
+  const queryTokens = tokenizeRelicSearchText(query);
+  const terms = collectRelicSearchTerms(group);
+
+  for (const term of terms) {
+    if (term.includes(normalizedQuery)) return true;
+    if (compactQuery && compactRelicSearchText(term).includes(compactQuery)) return true;
+
+    if (queryTokens.length > 1) {
+      const termTokenSet = new Set(tokenizeRelicSearchText(term));
+      if (queryTokens.every((token) => termTokenSet.has(token))) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+export function buildRelicSearchKeywordIndex(
+  relicDb: RelicDatabase | null | undefined,
+): Record<string, string[]> {
+  const index: Record<string, string[]> = {};
+  if (!relicDb) return index;
+
+  for (const group of Object.values(relicDb.groups || {})) {
+    const terms = collectRelicSearchTerms(group);
+    if (terms.length === 0) continue;
+
+    for (const qualityData of Object.values(group.qualities || {})) {
+      const uniqueName = qualityData?.uniqueName;
+      if (!uniqueName) continue;
+
+      const merged = new Set<string>(index[uniqueName] || []);
+      for (const term of terms) merged.add(term);
+      index[uniqueName] = [...merged];
+    }
+  }
+
+  return index;
+}
+
 export function parseOwnedRelics(
   inventoryData: RawInventoryData | null,
   relicDb: RelicDatabase | null,
 ): OwnedCounts {
   const owned: OwnedCounts = {};
   if (!inventoryData || !relicDb) return owned;
+
+  const countedByItemType = new Map<string, number>();
 
   const ensureOwnedSlot = (groupKey: string): void => {
     if (!owned[groupKey]) {
@@ -77,9 +179,10 @@ export function parseOwnedRelics(
     }
   };
 
-  const addEntries = (entries: unknown): number => {
+  const addEntries = (entries: unknown, allowOverwriteExisting = false): number => {
     if (!Array.isArray(entries)) return 0;
     let hits = 0;
+
     for (const entry of entries) {
       if (!entry || typeof entry !== "object") continue;
       const raw = entry as { ItemType?: string; ItemCount?: number };
@@ -88,22 +191,42 @@ export function parseOwnedRelics(
       const info = relicDb.byUniqueName[raw.ItemType];
       if (!info) continue;
 
-      ensureOwnedSlot(info.groupKey);
       const count = typeof raw.ItemCount === "number" ? raw.ItemCount : 1;
-      owned[info.groupKey][info.quality] += count;
+
+      if (countedByItemType.has(raw.ItemType)) {
+        if (allowOverwriteExisting) {
+          const existing = countedByItemType.get(raw.ItemType) || 0;
+          countedByItemType.set(raw.ItemType, Math.max(existing, count));
+        }
+        continue;
+      }
+
+      countedByItemType.set(raw.ItemType, count);
       hits += count;
     }
+
     return hits;
   };
 
   // Primary source from API-helper and many inventory exports.
-  let totalHits = addEntries(inventoryData.LevelKeys);
-  if (totalHits > 0) return owned;
+  addEntries(inventoryData.LevelKeys, true);
 
-  // Fallback for AlecaFrame/other exporters where relics can live in
-  // different arrays (e.g. MiscItems). Only used when LevelKeys is empty.
-  for (const value of Object.values(inventoryData)) {
-    totalHits += addEntries(value);
+  // Additional commonly used collections can carry relic projections as well.
+  addEntries(inventoryData.MiscItems);
+  addEntries((inventoryData as Record<string, unknown>).Recipes);
+
+  // Legacy fallback for exporters with different schemas.
+  if (countedByItemType.size === 0) {
+    for (const value of Object.values(inventoryData)) {
+      addEntries(value);
+    }
+  }
+
+  for (const [itemType, count] of countedByItemType) {
+    const info = relicDb.byUniqueName[itemType];
+    if (!info) continue;
+    ensureOwnedSlot(info.groupKey);
+    owned[info.groupKey][info.quality] += count;
   }
 
   return owned;
@@ -224,11 +347,7 @@ const rewardDucatPending = new Set<string>();
 const primeRewardWarmupComplete = new Set<string>();
 const rewardSlugToGroups = new Map<string, Set<string>>();
 
-let runtimeCacheDirty = false;
-let runtimeCacheTimer: ReturnType<typeof setTimeout> | null = null;
-let runtimeCacheHydrated = false;
 let activeRuntimeFingerprint: string | null = null;
-let hydratedRuntimeFingerprint: string | null = null;
 
 let warmupRunning = false;
 let warmupToken = 0;
@@ -250,25 +369,12 @@ interface GroupPriceSnapshot {
   qualities: Partial<Record<RelicQuality, QualityPriceData>>;
 }
 
-interface PersistedRelicRuntimeCache {
-  v: 1;
-  savedAt: number;
-  fingerprint: string | null;
-  evEntries: Array<[key: string, value: number]>;
-  cardPriceEntries: Array<[groupKey: string, value: number]>;
-}
-
 export interface RelicRuntimeCacheStats {
   evEntries: number;
   cardPriceEntries: number;
   evNoDataEntries: number;
   cardNoDataEntries: number;
   fingerprint: string | null;
-}
-
-function storageOrNull(): Storage | null {
-  if (typeof localStorage === "undefined") return null;
-  return localStorage;
 }
 
 function fnv1aStep(hash: number, text: string): number {
@@ -302,100 +408,23 @@ function computeRelicDbFingerprint(db: RelicDatabase): string {
   return `f${hash.toString(16).padStart(8, "0")}`;
 }
 
-function markRuntimeCacheDirty(): void {
-  runtimeCacheDirty = true;
-  if (runtimeCacheTimer) return;
-
-  runtimeCacheTimer = setTimeout(() => {
-    runtimeCacheTimer = null;
-    if (!runtimeCacheDirty) return;
-    persistRuntimeCache();
-  }, RELIC_RUNTIME_CACHE_SAVE_DEBOUNCE_MS);
-}
-
-function persistRuntimeCache(): void {
-  runtimeCacheDirty = false;
-  const storage = storageOrNull();
-  if (!storage) return;
-
-  try {
-    const payload: PersistedRelicRuntimeCache = {
-      v: 1,
-      savedAt: Date.now(),
-      fingerprint: activeRuntimeFingerprint,
-      evEntries: [...evCache.entries()],
-      cardPriceEntries: [...relicCardPriceCache.entries()],
-    };
-    storage.setItem(RELIC_RUNTIME_CACHE_KEY, JSON.stringify(payload));
-  } catch (e) {
-    console.warn("[Relic] Failed to persist runtime cache:", e);
-  }
-}
-
-function hydrateRuntimeCache(): void {
-  runtimeCacheHydrated = true;
-  const storage = storageOrNull();
-  if (!storage) return;
-  try {
-    const raw = storage.getItem(RELIC_RUNTIME_CACHE_KEY);
-    if (!raw) return;
-
-    const parsed = JSON.parse(raw) as PersistedRelicRuntimeCache;
-    if (parsed.v !== 1 || !Number.isFinite(parsed.savedAt)) return;
-    hydratedRuntimeFingerprint = parsed.fingerprint ?? null;
-
-    const ageMs = Date.now() - parsed.savedAt;
-    if (ageMs > RELIC_RUNTIME_CACHE_TTL_MS) return;
-
-    for (const [key, value] of parsed.evEntries || []) {
-      if (typeof key === "string" && Number.isFinite(value)) {
-        evCache.set(key, value);
-      }
-    }
-
-    for (const [groupKey, value] of parsed.cardPriceEntries || []) {
-      if (typeof groupKey === "string" && Number.isFinite(value)) {
-        relicCardPriceCache.set(groupKey, value);
-      }
-    }
-  } catch (e) {
-    console.warn("[Relic] Failed to hydrate runtime cache:", e);
-  }
-}
-
-export function flushRelicRuntimeCache(): void {
-  if (runtimeCacheTimer) {
-    clearTimeout(runtimeCacheTimer);
-    runtimeCacheTimer = null;
-  }
-  if (!runtimeCacheDirty) return;
-  persistRuntimeCache();
-}
-
 export function configureRelicRuntimeCacheFingerprint(db: RelicDatabase | null | undefined): void {
   if (!db) return;
 
   const nextFingerprint = computeRelicDbFingerprint(db);
   if (activeRuntimeFingerprint === nextFingerprint) return;
+
+  const previousFingerprint = activeRuntimeFingerprint;
   activeRuntimeFingerprint = nextFingerprint;
 
-  if (!runtimeCacheHydrated) return;
-  if (hydratedRuntimeFingerprint === nextFingerprint) return;
-
-  evCache.clear();
-  evNoDataCache.clear();
-  groupPriceCache.clear();
-  relicCardPriceCache.clear();
-  relicCardNoDataCache.clear();
-  primeRewardWarmupComplete.clear();
-  rewardSlugToGroups.clear();
-  hydratedRuntimeFingerprint = nextFingerprint;
-
-  try {
-    const storage = storageOrNull();
-    storage?.removeItem(RELIC_RUNTIME_CACHE_KEY);
-  } catch {
-    // ignore storage failures here
+  if (previousFingerprint != null) {
+    evCache.clear();
+    evNoDataCache.clear();
+    groupPriceCache.clear();
+    relicCardPriceCache.clear();
+    relicCardNoDataCache.clear();
+    primeRewardWarmupComplete.clear();
+    rewardSlugToGroups.clear();
   }
 }
 
@@ -410,20 +439,17 @@ export function getRelicRuntimeCacheStats(): RelicRuntimeCacheStats {
 }
 
 function clearGroupEvCaches(groupKey: string): void {
-  let changed = false;
-  if (groupPriceCache.delete(groupKey)) changed = true;
+  groupPriceCache.delete(groupKey);
 
   for (let squad = 1; squad <= 4; squad += 1) {
-    if (evCache.delete(evCacheKey(groupKey, squad, "best"))) changed = true;
-    if (evNoDataCache.delete(evCacheKey(groupKey, squad, "best"))) changed = true;
+    evCache.delete(evCacheKey(groupKey, squad, "best"));
+    evNoDataCache.delete(evCacheKey(groupKey, squad, "best"));
 
     for (const quality of QUALITY_MODES) {
-      if (evCache.delete(evCacheKey(groupKey, squad, quality))) changed = true;
-      if (evNoDataCache.delete(evCacheKey(groupKey, squad, quality))) changed = true;
+      evCache.delete(evCacheKey(groupKey, squad, quality));
+      evNoDataCache.delete(evCacheKey(groupKey, squad, quality));
     }
   }
-
-  if (changed) markRuntimeCacheDirty();
 }
 
 function indexGroupRewardSlugs(group: RelicGroup): void {
@@ -447,8 +473,6 @@ function indexGroupsForPriceInvalidation(groups: RelicGroup[]): void {
     indexGroupRewardSlugs(group);
   }
 }
-
-hydrateRuntimeCache();
 
 onPriceCacheUpdate((slug, status) => {
   if (status !== "ok") return;
@@ -493,7 +517,6 @@ export function resetEvCaches(): void {
   rewardDucatPending.clear();
   primeRewardWarmupComplete.clear();
   rewardSlugToGroups.clear();
-  markRuntimeCacheDirty();
   warmupToken += 1;
   warmupRunning = false;
   cardWarmupToken += 1;
@@ -540,23 +563,14 @@ export async function prefetchRelicCardPrice(
 
   relicCardPricePending.add(groupKey);
   try {
-    let changed = false;
     const result = await fetchPriceBySlug(relicGroupSlug(groupKey), { priority });
     if (result.status === "ok" && result.median != null) {
-      const existing = relicCardPriceCache.get(groupKey);
-      if (existing !== result.median) {
-        relicCardPriceCache.set(groupKey, result.median);
-        changed = true;
-      }
-      if (relicCardNoDataCache.delete(groupKey)) {
-        changed = true;
-      }
-      if (changed) markRuntimeCacheDirty();
+      relicCardPriceCache.set(groupKey, result.median);
+      relicCardNoDataCache.delete(groupKey);
       return true;
     }
     if (result.status === "no_data") {
       relicCardNoDataCache.set(groupKey, Date.now());
-      markRuntimeCacheDirty();
     }
     return false;
   } finally {
@@ -852,7 +866,6 @@ export async function computeGroupEv(
   groupPricePending.add(group.key);
 
   try {
-    let changed = false;
     let snapshot = groupPriceCache.get(group.key);
     if (!snapshot) {
       snapshot = await buildPriceSnapshot(group, priority);
@@ -871,46 +884,27 @@ export async function computeGroupEv(
         if (!qualityData?.hasAnyPrice) {
           if (!snapshot.transient) {
             evNoDataCache.set(qualityKey, Date.now());
-            changed = true;
           }
           continue;
         }
 
         const qualityEv = computeSquadEV(qualityData.rewards, qualityData.prices, squad);
-        const prevQualityEv = evCache.get(qualityKey);
-        if (prevQualityEv !== qualityEv) {
-          evCache.set(qualityKey, qualityEv);
-          changed = true;
-        }
-        if (evNoDataCache.delete(qualityKey)) {
-          changed = true;
-        }
+        evCache.set(qualityKey, qualityEv);
+        evNoDataCache.delete(qualityKey);
         if (bestEv == null || qualityEv > bestEv) bestEv = qualityEv;
       }
 
       const bestKey = evCacheKey(group.key, squad, "best");
       if (bestEv != null) {
-        const prevBestEv = evCache.get(bestKey);
-        if (prevBestEv !== bestEv) {
-          evCache.set(bestKey, bestEv);
-          changed = true;
-        }
-        if (evNoDataCache.delete(bestKey)) {
-          changed = true;
-        }
+        evCache.set(bestKey, bestEv);
+        evNoDataCache.delete(bestKey);
       } else if (!snapshot.transient) {
         evNoDataCache.set(bestKey, Date.now());
-        changed = true;
       }
     }
 
     if (snapshot.transient && !evCache.has(sentinelKey)) {
       evNoDataCache.set(sentinelKey, Date.now() - (EV_NODATA_TTL_MS - EV_TRANSIENT_MS));
-      changed = true;
-    }
-
-    if (changed) {
-      markRuntimeCacheDirty();
     }
   } finally {
     groupPricePending.delete(group.key);

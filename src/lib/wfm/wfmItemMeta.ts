@@ -1,8 +1,10 @@
 import {
   fetchBackendMetaBySlug,
+  normalizeWfmSlug,
   shouldDirectFallback,
   type BackendRequestPriority,
 } from "./backendLite.js";
+import { log } from "../log.js";
 
 const WFM_HEADERS = {
   Platform: "pc",
@@ -12,8 +14,8 @@ const WFM_HEADERS = {
 };
 
 const WFM_ASSET_BASE = "https://warframe.market/static/assets/";
-const META_CACHE_KEY = "wfm_item_meta_cache_v1";
 const META_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const META_NO_DATA_TTL_MS = 6 * 60 * 60 * 1000;
 
 export interface WfmItemMeta {
   slug: string;
@@ -28,21 +30,30 @@ export interface FetchMetaOptions {
   priority?: BackendRequestPriority;
 }
 
-interface PersistedMeta {
-  slug: string;
-  ducats: number | null;
-  setRoot: boolean;
-  thumb: string | null;
-  icon: string | null;
-  timestamp: number;
-}
-
-const metaCache = new Map<string, WfmItemMeta | null>();
+const metaCache = new Map<string, WfmItemMeta>();
+const metaNoDataCache = new Map<string, number>();
 const inFlight = new Map<string, Promise<WfmItemMeta | null>>();
 
-function storageOrNull(): Storage | null {
-  if (typeof localStorage === "undefined") return null;
-  return localStorage;
+function toFiniteOrNull(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function isNoDataCacheFresh(cachedAt: number | null | undefined): boolean {
+  if (typeof cachedAt !== "number" || !Number.isFinite(cachedAt)) return false;
+  return Date.now() - cachedAt < META_NO_DATA_TTL_MS;
+}
+
+function rememberNoData(slug: string): void {
+  metaNoDataCache.set(slug, Date.now());
 }
 
 function withAssetBase(path: unknown): string | null {
@@ -58,11 +69,8 @@ function toMeta(slug: string, json: unknown): WfmItemMeta | null {
   const data = (json as { data?: Record<string, unknown> })?.data;
   if (!data || typeof data !== "object") return null;
 
-  const ducatsRaw = data.ducats;
-  const ducats =
-    typeof ducatsRaw === "number" && Number.isFinite(ducatsRaw)
-      ? Math.max(0, Math.round(ducatsRaw))
-      : null;
+  const ducatsRaw = toFiniteOrNull(data.ducats);
+  const ducats = ducatsRaw != null ? Math.max(0, Math.round(ducatsRaw)) : null;
 
   const i18nEn = (data.i18n as { en?: Record<string, unknown> } | undefined)?.en || {};
   const thumb = withAssetBase(i18nEn.thumb || data.thumb || null);
@@ -78,127 +86,118 @@ function toMeta(slug: string, json: unknown): WfmItemMeta | null {
   };
 }
 
-function hydratePersistentCache(): void {
-  const storage = storageOrNull();
-  if (!storage) return;
+type DirectMetaResult =
+  | { status: "ok"; data: WfmItemMeta }
+  | { status: "not_found" }
+  | { status: "transient" };
 
-  try {
-    const raw = storage.getItem(META_CACHE_KEY);
-    if (!raw) return;
-
-    const parsed = JSON.parse(raw) as { v?: number; entries?: PersistedMeta[] };
-    if (parsed.v !== 1 || !Array.isArray(parsed.entries)) return;
-
-    for (const entry of parsed.entries) {
-      if (!entry?.slug || typeof entry.slug !== "string") continue;
-      const hydrated: WfmItemMeta = {
-        slug: entry.slug,
-        ducats: typeof entry.ducats === "number" ? entry.ducats : null,
-        setRoot: Boolean(entry.setRoot),
-        thumb: withAssetBase(entry.thumb),
-        icon: withAssetBase(entry.icon),
-        timestamp: typeof entry.timestamp === "number" ? entry.timestamp : 0,
-      };
-      if (!isFresh(hydrated)) continue;
-      metaCache.set(entry.slug, hydrated);
-    }
-  } catch (error) {
-    console.warn("[WFM] Failed to hydrate item meta cache:", error);
+async function fetchDirectMetaBySlug(slug: string): Promise<DirectMetaResult> {
+  const response = await fetch(`https://api.warframe.market/v2/items/${slug}`, {
+    headers: WFM_HEADERS,
+  });
+  if (response.status === 429 || response.status >= 500) {
+    return { status: "transient" };
   }
-}
-
-function persistCache(): void {
-  const storage = storageOrNull();
-  if (!storage) return;
-
-  try {
-    const entries: PersistedMeta[] = [];
-    for (const [slug, meta] of metaCache.entries()) {
-      if (!meta || !isFresh(meta)) continue;
-      entries.push({
-        slug,
-        ducats: meta.ducats,
-        setRoot: meta.setRoot,
-        thumb: meta.thumb,
-        icon: meta.icon,
-        timestamp: meta.timestamp,
-      });
-    }
-    storage.setItem(META_CACHE_KEY, JSON.stringify({ v: 1, entries }));
-  } catch (error) {
-    console.warn("[WFM] Failed to persist item meta cache:", error);
+  if (!response.ok) {
+    return { status: "not_found" };
   }
-}
 
-hydratePersistentCache();
+  const json = (await response.json()) as unknown;
+  const parsed = toMeta(slug, json);
+  if (!parsed) return { status: "not_found" };
+  return { status: "ok", data: parsed };
+}
 
 export async function fetchWfmItemMetaBySlug(
   slug: string | null | undefined,
   options?: FetchMetaOptions,
 ): Promise<WfmItemMeta | null> {
-  if (!slug) return null;
-
-  const cached = metaCache.get(slug);
-  if (cached && isFresh(cached)) return cached;
-  if (cached === null) return null;
-
-  const existing = inFlight.get(slug);
-  if (existing) return existing;
+  const normalizedSlug = normalizeWfmSlug(slug);
+  if (!normalizedSlug) return null;
 
   const priority = options?.priority || "low";
+
+  const noDataCachedAt = metaNoDataCache.get(normalizedSlug);
+  if (isNoDataCacheFresh(noDataCachedAt)) {
+    return null;
+  }
+  if (noDataCachedAt != null) {
+    metaNoDataCache.delete(normalizedSlug);
+  }
+
+  const cached = metaCache.get(normalizedSlug);
+  if (cached && isFresh(cached)) {
+    return cached;
+  }
+
+  const existing = inFlight.get(normalizedSlug);
+  if (existing) return existing;
+
   const fallbackAllowed = shouldDirectFallback(priority);
 
   const task = (async () => {
     try {
-      const backendResult = await fetchBackendMetaBySlug(slug);
+      const backendResult = await fetchBackendMetaBySlug(normalizedSlug);
       if (backendResult.status === "ok") {
+        const backendDucats = toFiniteOrNull(backendResult.data.ducats);
+        const backendTimestamp = toFiniteOrNull(backendResult.data.timestamp);
         const backendMeta: WfmItemMeta = {
-          slug: backendResult.data.slug,
-          ducats: backendResult.data.ducats,
+          slug: normalizeWfmSlug(backendResult.data.slug) || normalizedSlug,
+          ducats: backendDucats != null ? Math.max(0, Math.round(backendDucats)) : null,
           setRoot: backendResult.data.setRoot,
           thumb: withAssetBase(backendResult.data.thumb),
           icon: withAssetBase(backendResult.data.icon),
-          timestamp: backendResult.data.timestamp || Date.now(),
+          timestamp: backendTimestamp != null ? Math.floor(backendTimestamp) : Date.now(),
         };
-        metaCache.set(slug, backendMeta);
-        persistCache();
+
+        const shouldEnrichFromDirect =
+          priority === "high" &&
+          (backendMeta.ducats == null || (!backendMeta.thumb && !backendMeta.icon));
+
+        if (shouldEnrichFromDirect && fallbackAllowed) {
+          const directMeta = await fetchDirectMetaBySlug(normalizedSlug);
+          if (directMeta.status === "ok") {
+            metaCache.set(normalizedSlug, directMeta.data);
+            metaNoDataCache.delete(normalizedSlug);
+            return directMeta.data;
+          }
+        }
+
+        metaCache.set(normalizedSlug, backendMeta);
+        metaNoDataCache.delete(normalizedSlug);
         return backendMeta;
       }
 
-      if (backendResult.status === "not_found" && !fallbackAllowed) {
-        metaCache.set(slug, null);
-        persistCache();
+      if (backendResult.status === "not_found") {
+        rememberNoData(normalizedSlug);
         return null;
       }
 
-      if (backendResult.status === "error" && !fallbackAllowed) {
+      if (!fallbackAllowed) {
         return null;
       }
 
-      const response = await fetch(`https://api.warframe.market/v2/items/${slug}`, {
-        headers: WFM_HEADERS,
-      });
-      if (!response.ok) {
-        metaCache.set(slug, null);
-        persistCache();
+      const directMeta = await fetchDirectMetaBySlug(normalizedSlug);
+      if (directMeta.status === "ok") {
+        metaCache.set(normalizedSlug, directMeta.data);
+        metaNoDataCache.delete(normalizedSlug);
+        return directMeta.data;
+      }
+
+      if (directMeta.status === "not_found") {
+        rememberNoData(normalizedSlug);
         return null;
       }
 
-      const json = (await response.json()) as unknown;
-      const parsed = toMeta(slug, json);
-      metaCache.set(slug, parsed);
-      persistCache();
-      return parsed;
+      return null;
     } catch (error) {
-      console.warn(`[WFM] item meta fetch failed for ${slug}:`, error);
-      metaCache.set(slug, null);
-      persistCache();
+      log.warn(`[WFM] item meta fetch failed for ${normalizedSlug}:`, error);
       return null;
     } finally {
-      inFlight.delete(slug);
+      inFlight.delete(normalizedSlug);
     }
   })();
 
-  inFlight.set(slug, task);
+  inFlight.set(normalizedSlug, task);
   return task;
 }

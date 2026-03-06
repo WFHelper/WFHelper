@@ -56,6 +56,7 @@ const SUPPLEMENTAL_COLLECTIONS: SupplementalCollectionDef[] = [
   { key: "FusionTreasures", cat: "misc", label: "Misc" },
   { key: "Recipes", cat: "misc", label: "Recipe" },
   { key: "LevelKeys", cat: "relics", label: "Relic" },
+  { key: "RawUpgrades", cat: "misc", label: "Misc" },
   { key: "Upgrades", cat: "mods", label: "Mod" },
   { key: "Arcanes", cat: "arcanes", label: "Arcane" },
 ];
@@ -169,12 +170,17 @@ function isLikelyModUpgrade(
   dbEntry: ItemDbEntry = {},
   resolved: ResolvedItem,
 ): boolean {
+  if (/\/FusionBundles\//i.test(internalName)) return false;
+
   if (/\/Upgrades\/Mods\//i.test(internalName)) return true;
   if (/\/Mods\//i.test(internalName)) return true;
 
   const category = String(dbEntry.category || "").toLowerCase();
   const type = String(dbEntry.type || "").toLowerCase();
   const name = String(resolved.name || "").toLowerCase();
+
+  if (category.includes("resource") || category.includes("fusion")) return false;
+  if (type.includes("resource") || type.includes("fusion")) return false;
 
   if (category.includes("mod")) return true;
   if (type.includes(" mod") || type.endsWith("mod") || type.includes("augment")) return true;
@@ -300,11 +306,17 @@ function isBuildPartItem(
     return false;
   }
 
+  // If a data source explicitly marks this as non-tradable, never include it
+  // as a build part regardless of name heuristics.
+  if (dbEntry.tradable === false) return false;
+
   const pathLooksLikePart =
     /\/Types\/Recipes\//i.test(internalName) ||
     /\/WeaponParts?\//i.test(internalName) ||
     /\/WarframeParts?\//i.test(internalName) ||
     /\/LandingCraftRecipes\//i.test(internalName);
+
+  const weaponPartRecipePath = /\/Types\/Recipes\/Weapons\/WeaponParts?\//i.test(internalName);
 
   const nameLooksLikePart =
     /\b(blueprint|barrel|receiver|stock|blade|handle|hilt|chassis|systems|neuroptics|fuselage|engines|avionics|carapace|cerebrum|pod|wings|harness|link|disc|gauntlet|grip|ornament)\b/i.test(
@@ -317,7 +329,9 @@ function isBuildPartItem(
   const primeLike =
     resolved.isPrime === true || /\bprime\b/i.test(name) || /prime/i.test(internalName);
   const tradableLikely =
-    dbEntry.tradable === true || (primeLike && pathLooksLikePart && nameLooksLikePart);
+    dbEntry.tradable === true ||
+    (primeLike && pathLooksLikePart && nameLooksLikePart) ||
+    (weaponPartRecipePath && nameLooksLikePart);
 
   return tradableLikely;
 }
@@ -611,6 +625,11 @@ function deriveGroup(
   dbEntry: ItemDbEntry,
   resolved: ResolvedItem,
 ): InventoryGroup {
+  const category = String(dbEntry.category || "").toLowerCase();
+  const type = String(dbEntry.type || "").toLowerCase();
+  const hasArcaneWord = (value: string): boolean => /\barcane\b/.test(value);
+  const hasModWord = (value: string): boolean => /\bmods?\b/.test(value);
+
   if (isFocusUpgrade(internalName, dbEntry, resolved)) return "misc";
 
   if (EQUIPMENT_COLLECTION_KEYS.has(sourceKey)) return "misc";
@@ -620,7 +639,7 @@ function deriveGroup(
   }
 
   if (sourceKey === "Arcanes") return "arcanes";
-  if (sourceKey === "Upgrades") {
+  if (sourceKey === "Upgrades" || sourceKey === "RawUpgrades") {
     if (isArcaneUpgrade(internalName, dbEntry, resolved)) return "arcanes";
     return isLikelyModUpgrade(internalName, dbEntry, resolved) ? "mods" : "misc";
   }
@@ -628,13 +647,11 @@ function deriveGroup(
   if (isRelicLikeItem(internalName, dbEntry, resolved)) return "relics";
   if (isArcaneUpgrade(internalName, dbEntry, resolved)) return "arcanes";
 
-  const category = String(dbEntry.category || "").toLowerCase();
-  if (category.includes("arcane")) return "arcanes";
-  if (category.includes("mod")) return "mods";
+  if (hasArcaneWord(category)) return "arcanes";
+  if (hasModWord(category)) return "mods";
 
-  const type = String(dbEntry.type || "").toLowerCase();
-  if (type.includes("arcane")) return "arcanes";
-  if (type.includes("mod")) return "mods";
+  if (hasArcaneWord(type)) return "arcanes";
+  if (hasModWord(type)) return "mods";
 
   if (isBuildPartItem(internalName, dbEntry, resolved)) return "all_parts";
 
@@ -644,7 +661,20 @@ function deriveGroup(
 function normalizeRank(
   entry: RawInventoryEntry,
   group: InventoryGroup,
+  dbEntry: ItemDbEntry,
 ): { rank: number; maxRank: number } {
+  const dbMaxRank =
+    pickNumeric(dbEntry as RawInventoryEntry, [
+      "maxRank",
+      "max_level",
+      "maxLevel",
+      "maxrank",
+      "fusionLimit",
+      "fusion_limit",
+      "maxArcaneRank",
+      "max_arcane_rank",
+    ]) ?? deepFindNumericByKeys(dbEntry as Record<string, unknown>, MAX_RANK_KEYS);
+
   const explicitMaxRank =
     pickNumeric(entry, [
       "MaxRank",
@@ -657,7 +687,11 @@ function normalizeRank(
     ]) ?? deepFindNumericByKeys(entry, MAX_RANK_KEYS);
   const fallbackMaxRank = group === "mods" ? 10 : group === "arcanes" ? 5 : MAX_ITEM_RANK;
   const maxRank =
-    explicitMaxRank != null && explicitMaxRank > 0 ? Math.floor(explicitMaxRank) : fallbackMaxRank;
+    explicitMaxRank != null && explicitMaxRank > 0
+      ? Math.floor(explicitMaxRank)
+      : dbMaxRank != null && dbMaxRank > 0
+        ? Math.floor(dbMaxRank)
+        : fallbackMaxRank;
 
   const explicitRank =
     pickNumeric(entry, [
@@ -680,6 +714,10 @@ function normalizeRank(
   if (resolvedRank != null) {
     const rank = Math.max(0, Math.floor(resolvedRank));
     return { rank: Math.min(rank, maxRank), maxRank };
+  }
+
+  if (group === "mods" || group === "arcanes") {
+    return { rank: 0, maxRank };
   }
 
   const xp = toFiniteNumber(entry.XP) || 0;
@@ -855,6 +893,19 @@ export function parseInventory(
 ): ParsedItem[] {
   const itemMap = new Map<string, ParsedItem>();
 
+  const toRankedInstanceKey = (
+    baseInternalName: string,
+    group: InventoryGroup,
+    rank: number,
+    maxRank: number,
+  ): string => {
+    if (group !== "mods" && group !== "arcanes") {
+      return baseInternalName;
+    }
+
+    return `${baseInternalName}#r${rank}m${maxRank}`;
+  };
+
   const addEntry = (
     entry: RawInventoryEntry,
     sourceKey: string,
@@ -882,12 +933,15 @@ export function parseInventory(
     } else if (group === "relics") {
       finalCat = "relics";
       finalLabel = "Relic";
+    } else if (group === "misc" && (sourceKey === "Upgrades" || sourceKey === "RawUpgrades")) {
+      finalCat = "misc";
+      finalLabel = "Misc";
     } else if (isFocusUpgrade(internalName, dbEntry, resolved)) {
       finalCat = "misc";
       finalLabel = "Focus";
     }
 
-    const { rank, maxRank } = normalizeRank(entry, group);
+    const { rank, maxRank } = normalizeRank(entry, group, dbEntry);
     const amount = parseAmount(entry);
     const leveledSignal = hasAnyRankSignal(entry);
     const equippedIn = extractEquipContexts(entry);
@@ -903,6 +957,11 @@ export function parseInventory(
       equipped !== undefined ? equipped : equippedIn.length > 0 ? true : undefined;
 
     const displayName = canonicalBuildPartName(internalName, resolved.name);
+
+    const dbDucats =
+      typeof dbEntry.ducats === "number" && Number.isFinite(dbEntry.ducats) ? dbEntry.ducats : null;
+
+    const instanceKey = toRankedInstanceKey(internalName, group, rank, maxRank);
 
     const nextItem: ParsedItem = {
       name: displayName,
@@ -924,16 +983,18 @@ export function parseInventory(
       components: Array.isArray(dbEntry.components) ? dbEntry.components : [],
       drops: Array.isArray(dbEntry.drops) ? dbEntry.drops : [],
       wikiaUrl: typeof dbEntry.wikiaUrl === "string" ? dbEntry.wikiaUrl : null,
+      ducats: dbDucats,
       keywords: [sourceKey.toLowerCase()],
+      inventoryKey: instanceKey,
     };
 
     if (favorite !== undefined) nextItem.favorite = favorite;
     if (inferredEquipped !== undefined) nextItem.equipped = inferredEquipped;
     if (equippedIn.length > 0) nextItem.equippedIn = equippedIn;
 
-    const existing = itemMap.get(internalName);
+    const existing = itemMap.get(instanceKey);
     if (!existing) {
-      itemMap.set(internalName, nextItem);
+      itemMap.set(instanceKey, nextItem);
       return;
     }
 

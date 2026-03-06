@@ -21,17 +21,19 @@
 
 	"vars": {
 		"CACHE_TTL_SEC": "43200",
-		"ALLOW_ORIGIN": "null,http://localhost:5173",
+		"ORDERS_CACHE_TTL_SEC": "60",
+		"ORDERS_STALE_REFRESH_SEC": "45",
+		"ALLOW_ORIGIN": "*",
 		"ADMIN_RATE_LIMIT_WINDOW_SEC": "60",
-		"ADMIN_RATE_LIMIT_MAX": "12",
-		"PREWARM_BATCH_SIZE": "8",
+		"ADMIN_RATE_LIMIT_MAX": "60",
+		"PREWARM_BATCH_SIZE": "50",
 		"CATALOG_REFRESH_HOURS": "24",
-		"ADMIN_PREWARM_MAX_BATCH": "30",
+		"ADMIN_PREWARM_MAX_BATCH": "100",
 		"NO_DATA_TTL_SEC": "900",
 		"STALE_REFRESH_SEC": "1800",
 	},
 
 	"triggers": {
-		"crons": ["*/30 * * * *"],
+		"crons": ["*/5 * * * *"],
 	},
 }

@@ -37,6 +37,8 @@ const SEARCH_SCAN_MULTIPLIER = 2;
  * @property {string} item_name
  * @property {string|null} thumb
  * @property {string|null} icon
+ * @property {number|null} maxRank
+ * @property {string|null} gameRef
  */
 
 /** @type {CatalogItem[]} */
@@ -44,6 +46,7 @@ let _items = [];
 let _byId = new Map();
 let _bySlug = new Map();
 let _byNameLc = new Map();
+let _byGameRefLc = new Map();
 let _loaded = false;
 let _loading = null; // in-flight promise
 
@@ -62,6 +65,7 @@ function _normalise(raw) {
   const source = raw && typeof raw === "object" ? raw : {};
   const slug = source.slug || source.url_name || source._slug || "";
   const name =
+    source?.i18n?.en?.name ||
     source?.i18n?.en?.itemName ||
     source?.i18n?.en?.item_name ||
     source?.item_name ||
@@ -70,12 +74,22 @@ function _normalise(raw) {
     slug.replace(/_/g, " ").replace(/\b[a-z]/g, (c) => c.toUpperCase());
   const thumb = source?.i18n?.en?.thumb || source.thumb || null;
   const icon = source?.i18n?.en?.icon || source.icon || null;
+  const rawMaxRank = Number(source.maxRank ?? source.max_rank ?? null);
+  const maxRank = Number.isFinite(rawMaxRank) && rawMaxRank > 0 ? Math.floor(rawMaxRank) : null;
+  const gameRef =
+    typeof source.gameRef === "string" && source.gameRef.trim().length > 0
+      ? source.gameRef
+      : typeof source.game_ref === "string" && source.game_ref.trim().length > 0
+        ? source.game_ref
+        : null;
   return {
     id: source.id || null,
     url_name: slug,
     item_name: name,
     thumb: thumb ? (thumb.startsWith("http") ? thumb : WFM_THUMB_BASE + thumb) : null,
     icon: icon ? (icon.startsWith("http") ? icon : WFM_THUMB_BASE + icon) : null,
+    maxRank,
+    gameRef,
   };
 }
 
@@ -122,12 +136,15 @@ async function _load() {
       _byId.clear();
       _bySlug.clear();
       _byNameLc.clear();
+      _byGameRefLc.clear();
 
       for (const item of _items) {
         if (item.id) _byId.set(item.id, item);
         if (item.url_name) _bySlug.set(item.url_name, item);
         const nameLc = (item.item_name || "").toLowerCase();
         if (nameLc) _byNameLc.set(nameLc, item);
+        const gameRefLc = (item.gameRef || "").toLowerCase();
+        if (gameRefLc) _byGameRefLc.set(gameRefLc, item);
 
         const slugName = item.url_name
           .replace(SLUG_SET_SUFFIX_RE, "")
@@ -219,6 +236,19 @@ function getRendererLookup() {
       item_name: item.item_name,
       thumb: item.thumb,
       icon: item.icon,
+      maxRank: item.maxRank,
+      gameRef: item.gameRef,
+    };
+  }
+  for (const [gameRefLc, item] of _byGameRefLc.entries()) {
+    if (lookup[gameRefLc]) continue;
+    lookup[gameRefLc] = {
+      url_name: item.url_name,
+      item_name: item.item_name,
+      thumb: item.thumb,
+      icon: item.icon,
+      maxRank: item.maxRank,
+      gameRef: item.gameRef,
     };
   }
   return lookup;

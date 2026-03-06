@@ -2,6 +2,8 @@ export type RelicQuality = "intact" | "exceptional" | "flawless" | "radiant";
 
 export interface RelicReward {
   name: string;
+  uniqueName?: string | null;
+  imageUrl?: string | null;
   rarity: string;
   chance: number;
   urlName: string | null;

@@ -1,7 +1,9 @@
-﻿import { app, BrowserWindow, globalShortcut } from "electron";
+import { app, BrowserWindow, globalShortcut } from "electron";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
+import type * as WfmSessionTypes from "./services/wfmSession";
 
 const APP_ROOT = path.resolve(__dirname, "..");
 
@@ -24,7 +26,7 @@ function fromAppRoot(relPath: string): any {
 }
 
 const log = fromAppRoot("services/logger").withScope("Main");
-const { MAIN_WINDOW_CSP } = fromAppRoot("config/runtime/security");
+const { MAIN_WINDOW_CSP, PERMISSIONS_POLICY } = fromAppRoot("config/runtime/security");
 const windowSecurity = fromAppRoot("services/windowSecurity");
 
 const MAIN_WINDOW_ENTRY_FILE = path.join(APP_ROOT, "renderer", "dist", "index.html");
@@ -32,7 +34,7 @@ const MAIN_WINDOW_ENTRY_FILE = path.join(APP_ROOT, "renderer", "dist", "index.ht
 // Services
 const itemDb = fromAppRoot("services/itemDatabase");
 const wfmCatalog = fromAppRoot("services/wfmCatalog");
-const wfmSession = fromAppRoot("services/wfmSession");
+const wfmSession: typeof WfmSessionTypes = fromAppRoot("services/wfmSession");
 const relicService = fromAppRoot("services/relicService");
 const eeLogMonitor = fromAppRoot("services/eeLogMonitor");
 const rewardScanner = fromAppRoot("services/rewardScanner");
@@ -46,6 +48,7 @@ const wfmIpc = fromAppRoot("ipc/wfmIpc");
 const overlayIpc = fromAppRoot("ipc/overlayIpc");
 const worldStateIpc = fromAppRoot("ipc/worldStateIpc");
 const systemIpc = fromAppRoot("ipc/systemIpc");
+const priceCacheIpc = fromAppRoot("ipc/priceCacheIpc");
 
 // Suppress noisy Chromium/DevTools internal logging in terminal.
 app.commandLine.appendSwitch("disable-logging");
@@ -77,6 +80,7 @@ function createWindow(): void {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
 
@@ -88,28 +92,31 @@ function createWindow(): void {
 
   ctx.mainWindow.loadFile(MAIN_WINDOW_ENTRY_FILE);
 
-  ctx.mainWindow.webContents.on(
-    "before-input-event",
-    (_event: unknown, input: { type?: string; key?: string }) => {
-      if (input.type === "keyDown" && input.key === "F12") {
-        if (ctx.mainWindow.webContents.isDevToolsOpened()) {
-          ctx.mainWindow.webContents.closeDevTools();
-        } else {
-          ctx.mainWindow.webContents.openDevTools({ mode: "detach" });
+  if (!app.isPackaged) {
+    ctx.mainWindow.webContents.on(
+      "before-input-event",
+      (_event: unknown, input: { type?: string; key?: string }) => {
+        if (input.type === "keyDown" && input.key === "F12") {
+          if (ctx.mainWindow.webContents.isDevToolsOpened()) {
+            ctx.mainWindow.webContents.closeDevTools();
+          } else {
+            ctx.mainWindow.webContents.openDevTools({ mode: "detach" });
+          }
         }
-      }
-    },
-  );
+      },
+    );
+  }
 
   ctx.mainWindow.webContents.session.webRequest.onHeadersReceived(
     (
       details: { responseHeaders?: Record<string, string[]> },
       callback: (arg0: { responseHeaders: Record<string, string[]> }) => void,
     ) => {
-      callback({
+    callback({
         responseHeaders: {
           ...details.responseHeaders,
           "Content-Security-Policy": [MAIN_WINDOW_CSP],
+          "Permissions-Policy": [PERMISSIONS_POLICY],
         },
       });
     },
@@ -134,6 +141,7 @@ app.whenReady().then(async () => {
   overlayIpc.register();
   worldStateIpc.register();
   systemIpc.register();
+  priceCacheIpc.register();
 
   itemDb.buildDatabase();
 

@@ -5,6 +5,7 @@ import type {
   OrderModalState,
   WfmCreateOrderInput,
   WfmDeleteResult,
+  WfmLookupItem,
   WfmMutationError,
   WfmOrder,
   WfmOrdersResult,
@@ -96,6 +97,8 @@ export type WfmItemsLookup = Record<
     item_name?: string;
     thumb?: string | null;
     icon?: string | null;
+    maxRank?: number | null;
+    gameRef?: string | null;
   }
 >;
 export type ItemDbLookup = Record<string, ItemDbEntry>;
@@ -106,6 +109,7 @@ export type WfmSetVisibleResult = Array<WfmOrder | WfmMutationError>;
 export type WfmOrdersResponse = WfmOrdersResult | WfmMutationError;
 export type WfmContractsResponse = WfmContractsResult | WfmMutationError;
 export type WfmSearchResponse = WfmSearchItem[] | WfmMutationError;
+export type WfmLookupItemResponse = WfmLookupItem | WfmMutationError;
 export type WfmStatusResponse = WfmStatusResult | WfmMutationError;
 export type WfmSessionResponse = WfmSession;
 export type WfmSignInResponse = WfmSession;
@@ -192,6 +196,10 @@ export interface IpcInvokeMap {
     args: [query: string, limit?: number];
     return: WfmSearchResponse;
   };
+  wfmLookupItemBySlug: {
+    args: [slug: string];
+    return: WfmLookupItemResponse;
+  };
   wfmGetMe: {
     args: [];
     return: WfmMeResponse;
@@ -231,6 +239,14 @@ export interface IpcInvokeMap {
   installDownloadedUpdate: {
     args: [];
     return: AppUpdateInstallResult;
+  };
+  loadPriceCache: {
+    args: [];
+    return: Record<string, unknown> | null;
+  };
+  savePriceCache: {
+    args: [data: Record<string, unknown>];
+    return: { ok: boolean };
   };
 }
 
