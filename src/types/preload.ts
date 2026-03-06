@@ -5,9 +5,6 @@ export interface PreloadAPI {
   getInventory: () => Promise<IpcInvokeMap["getInventory"]["return"]>;
   openInventoryFile: () => Promise<IpcInvokeMap["openInventoryFile"]["return"]>;
   getInventoryStatus: () => Promise<IpcInvokeMap["getInventoryStatus"]["return"]>;
-  checkAlecaFrame: () => Promise<IpcInvokeMap["checkAlecaFrame"]["return"]>;
-  loadAlecaFrame: () => Promise<IpcInvokeMap["loadAlecaFrame"]["return"]>;
-  openAlecaFrameJson: () => Promise<IpcInvokeMap["openAlecaFrameJson"]["return"]>;
   getItemDatabase: () => Promise<IpcInvokeMap["getItemDatabase"]["return"]>;
   getWorldState: () => Promise<IpcInvokeMap["getWorldState"]["return"]>;
   getRelicDatabase: () => Promise<IpcInvokeMap["getRelicDatabase"]["return"]>;

@@ -15,8 +15,6 @@ let cropDebugWindow: BrowserWindow | null = null;
 let currentInventoryPath: string | null = null;
 let currentInventoryData: InventoryData = null;
 let watcher: FSWatcher | null = null;
-let ALECA_KEY: Buffer | null = null;
-let ALECA_IV: Buffer | null = null;
 let overlaySettings: OverlaySettings = {};
 let overlayHotkeyRegistered: string | null = null;
 let overlayCropHotkeyRegistered: string | null = null;
@@ -62,20 +60,6 @@ const ctx = {
   },
   set watcher(v: FSWatcher | null) {
     watcher = v;
-  },
-
-  get ALECA_KEY() {
-    return ALECA_KEY;
-  },
-  set ALECA_KEY(v: Buffer | null) {
-    ALECA_KEY = v;
-  },
-
-  get ALECA_IV() {
-    return ALECA_IV;
-  },
-  set ALECA_IV(v: Buffer | null) {
-    ALECA_IV = v;
   },
 
   get overlaySettings() {

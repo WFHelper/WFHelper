@@ -76,20 +76,6 @@ export interface InventoryStatus {
   found: boolean;
 }
 
-export interface AlecaFrameStatus {
-  found: boolean;
-  path: string | null;
-  lastModified?: string | null;
-  hasCachedData?: boolean;
-}
-
-export interface AlecaFrameLoadResult {
-  success: boolean;
-  data?: RawInventoryData;
-  error?: string;
-  fallbackUrl?: string;
-}
-
 export type WfmItemsLookup = Record<
   string,
   {
@@ -127,18 +113,6 @@ export interface IpcInvokeMap {
   getInventoryStatus: {
     args: [];
     return: InventoryStatus;
-  };
-  checkAlecaFrame: {
-    args: [];
-    return: AlecaFrameStatus;
-  };
-  loadAlecaFrame: {
-    args: [];
-    return: AlecaFrameLoadResult;
-  };
-  openAlecaFrameJson: {
-    args: [];
-    return: RawInventoryData | null;
   };
   getItemDatabase: {
     args: [];

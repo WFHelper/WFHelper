@@ -5,10 +5,6 @@ contextBridge.exposeInMainWorld("api", {
   openInventoryFile: () => ipcRenderer.invoke("open-inventory-file"),
   getInventoryStatus: () => ipcRenderer.invoke("get-inventory-status"),
 
-  checkAlecaFrame: () => ipcRenderer.invoke("check-alecaframe"),
-  loadAlecaFrame: () => ipcRenderer.invoke("load-alecaframe"),
-  openAlecaFrameJson: () => ipcRenderer.invoke("open-alecaframe-json"),
-
   getItemDatabase: () => ipcRenderer.invoke("get-item-database"),
   getWorldState: () => ipcRenderer.invoke("get-world-state"),
   getRelicDatabase: () => ipcRenderer.invoke("get-relic-database"),
