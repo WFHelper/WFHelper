@@ -11,7 +11,7 @@
     relicSquadSize,
     relicTierFilter,
   } from "../stores/relics.js";
-  import { inventoryData, parsedItems, wfmItems } from "../stores/data.js";
+  import { inventoryData, itemDb, parsedItems, wfmItems } from "../stores/data.js";
   import { activeRelic } from "../stores/modals.js";
   import { priceCacheRevision } from "../stores/pricing.js";
   import {
@@ -116,6 +116,7 @@
   let relicViewMounted = true;
   let ownedRewardInternalNames: Record<string, true> = {};
   let ownedRewardNames: Record<string, true> = {};
+  let rewardGameRefBySlug: Record<string, string> = {};
   let rewardIconBySlug: Record<string, string> = {};
   let rewardIconByName: Record<string, string> = {};
 
@@ -476,15 +477,35 @@
   }
 
   function isOwnedReward(reward: RelicReward): boolean {
-    if (reward.uniqueName && ownedRewardInternalNames[reward.uniqueName]) {
+    const slug =
+      typeof reward.urlName === "string" && reward.urlName.trim().length > 0
+        ? reward.urlName.trim().toLowerCase()
+        : "";
+    const gameRef = slug ? rewardGameRefBySlug[slug] : "";
+    if (gameRef && ownedRewardInternalNames[gameRef]) {
       return true;
     }
     return Boolean(ownedRewardNames[normalizeOwnedRewardName(reward.name)]);
   }
 
   function rewardIconSrc(reward: RelicReward): string | null {
-    if (reward.urlName && rewardIconBySlug[reward.urlName]) {
-      return rewardIconBySlug[reward.urlName];
+    const slug =
+      typeof reward.urlName === "string" && reward.urlName.trim().length > 0
+        ? reward.urlName.trim().toLowerCase()
+        : "";
+
+    if (slug) {
+      const gameRef = rewardGameRefBySlug[slug];
+      const dbImage = gameRef
+        ? (($itemDb?.[gameRef] as { imageUrl?: unknown } | undefined)?.imageUrl ?? null)
+        : null;
+      if (typeof dbImage === "string" && dbImage.trim().length > 0) {
+        return dbImage;
+      }
+
+      if (rewardIconBySlug[slug]) {
+        return rewardIconBySlug[slug];
+      }
     }
 
     const rewardNameKey = reward.name
@@ -542,15 +563,24 @@
   }
 
   $: {
+    const nextGameRefBySlug: Record<string, string> = {};
     const nextBySlug: Record<string, string> = {};
     const nextByName: Record<string, string> = {};
     for (const entry of Object.values($wfmItems || {})) {
       if (!entry || typeof entry !== "object") continue;
       const slug = typeof entry.url_name === "string" ? entry.url_name.trim().toLowerCase() : "";
+      const gameRef =
+        typeof entry.gameRef === "string" && entry.gameRef.trim().length > 0
+          ? entry.gameRef.trim()
+          : "";
       const icon = typeof entry.icon === "string" && entry.icon.trim().length > 0 ? entry.icon : null;
       const thumb =
         typeof entry.thumb === "string" && entry.thumb.trim().length > 0 ? entry.thumb : null;
       const src = icon || thumb;
+
+      if (slug && gameRef && !nextGameRefBySlug[slug]) {
+        nextGameRefBySlug[slug] = gameRef;
+      }
 
       if (src && slug && !nextBySlug[slug]) {
         nextBySlug[slug] = src;
@@ -566,6 +596,7 @@
         nextByName[nameKey] = src;
       }
     }
+    rewardGameRefBySlug = nextGameRefBySlug;
     rewardIconBySlug = nextBySlug;
     rewardIconByName = nextByName;
   }
