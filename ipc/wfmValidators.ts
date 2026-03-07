@@ -1,3 +1,10 @@
+import { createRuntimeRequire } from "./runtimeRequire";
+
+const requireRuntime = createRuntimeRequire(__dirname, 1);
+const { normalizeErrorMessage } = requireRuntime<{
+  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
+}>("config/shared/errors.cjs");
+
 const WFM_ID_RE = /^[a-f0-9]{24}$/i;
 const VALID_ORDER_TYPES = new Set(["sell", "buy"]);
 const VALID_STATUSES = new Set(["online", "ingame", "invisible"]);
@@ -67,21 +74,6 @@ function toClampedInteger(value: unknown, min: number, max: number): number | nu
   const rounded = Math.round(n);
   if (rounded < min || rounded > max) return null;
   return rounded;
-}
-
-function normalizeErrorMessage(err: unknown, fallback = "Unknown error"): string {
-  if (
-    err &&
-    typeof err === "object" &&
-    typeof (err as { message?: unknown }).message === "string"
-  ) {
-    const message = (err as { message: string }).message.trim();
-    if (message) return message;
-  }
-  if (typeof err === "string" && err.trim()) {
-    return err.trim();
-  }
-  return fallback;
 }
 
 function errorCode(err: unknown): string | undefined {

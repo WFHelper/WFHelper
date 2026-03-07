@@ -1,11 +1,11 @@
 :root {
-  --bg: rgba(6, 10, 18, 0.92);
-  --surface: rgba(17, 24, 39, 0.96);
-  --border: rgba(212, 168, 67, 0.24);
-  --accent: #d4a843;
-  --accent-bright: #f0c95c;
-  --text: #e8e4dc;
-  --muted: #8b93a5;
+  --bg: color-mix(in oklab, var(--bg-deep, #060a12) 92%, transparent);
+  --surface: color-mix(in oklab, var(--bg-surface, #111827) 94%, transparent);
+  --border: color-mix(in oklab, var(--border-strong, rgba(212, 168, 67, 0.25)) 80%, transparent);
+  --accent: var(--accent, #d4a843);
+  --accent-bright: var(--accent-bright, #f0c95c);
+  --text: var(--text-primary, #e8e4dc);
+  --muted: var(--text-secondary, #8b93a5);
   --danger: #f87171;
   --rare: #d4a843;
   --uncommon: #94a3b8;
@@ -21,7 +21,7 @@
 html,
 body {
   background: transparent;
-  font-family: "Segoe UI", system-ui, sans-serif;
+  font-family: "Barlow", "Segoe UI", system-ui, sans-serif;
   font-size: 13px;
   color: var(--text);
   height: 100%;
@@ -125,6 +125,76 @@ body {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   padding: 10px 12px 8px;
+}
+
+#planner-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px 12px 8px;
+}
+
+#planner-grid.is-hidden {
+  display: none;
+}
+
+.plan-card {
+  background: color-mix(in oklab, var(--surface) 94%, transparent);
+  border: 1px solid color-mix(in oklab, var(--border) 88%, transparent);
+  border-radius: 8px;
+  padding: 8px 10px;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+}
+
+.plan-card.best {
+  border-color: color-mix(in oklab, var(--accent) 84%, white 16%);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 30%, transparent);
+  background: color-mix(in oklab, var(--accent) 10%, var(--surface));
+}
+
+.plan-card.empty {
+  opacity: 0.36;
+}
+
+.plan-title {
+  font-family: "Rajdhani", "Segoe UI", system-ui, sans-serif;
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-profit {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.1;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plan-profit-label {
+  color: var(--muted);
+  margin-right: 6px;
+}
+
+.plan-profit-plat {
+  color: var(--accent-bright);
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.plan-profit-ducat {
+  color: color-mix(in oklab, var(--accent) 70%, #f7d47a 30%);
+  font-weight: 600;
 }
 
 #slots-grid.is-hidden {
@@ -270,4 +340,8 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+#best-footer.is-hidden {
+  display: none;
 }

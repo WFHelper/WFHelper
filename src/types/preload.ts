@@ -55,6 +55,7 @@ export interface PreloadAPI {
   closeWindow: () => void;
   toggleOverlay: () => void;
   simulateRelicTrigger: () => void;
+  updateOverlayTheme: (themeVars: Record<string, string>) => void;
   getOverlaySettings: () => Promise<IpcInvokeMap["getOverlaySettings"]["return"]>;
   setOverlaySettings: (
     settings: IpcInvokeMap["setOverlaySettings"]["args"][0],
@@ -65,4 +66,8 @@ export interface PreloadAPI {
   savePriceCache: (
     data: IpcInvokeMap["savePriceCache"]["args"][0],
   ) => Promise<IpcInvokeMap["savePriceCache"]["return"]>;
+  loadOrderCache: () => Promise<IpcInvokeMap["loadOrderCache"]["return"]>;
+  saveOrderCache: (
+    data: IpcInvokeMap["saveOrderCache"]["args"][0],
+  ) => Promise<IpcInvokeMap["saveOrderCache"]["return"]>;
 }

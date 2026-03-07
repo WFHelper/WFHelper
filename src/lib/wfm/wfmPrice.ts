@@ -8,7 +8,12 @@ import {
   type BackendRequestPriority,
 } from "./backendLite.js";
 import wfmStatsShared from "../../../config/shared/wfmStats.cjs";
+import numericShared from "../../../config/shared/numeric.cjs";
 import { log } from "../log.js";
+
+const { normalizeRankFilter: normalizePriceRank } = numericShared as {
+  normalizeRankFilter: (value: unknown) => number | null;
+};
 
 const BASE_DELAY_MS = 350;
 const MAX_DYNAMIC_DELAY_MS = 1200;
@@ -26,11 +31,10 @@ type SharedWfmStatsModule = {
 
 const { extractMedianFromStatsPayload } = wfmStatsShared as SharedWfmStatsModule;
 
-const WFM_HEADERS = {
-  Platform: "pc",
-  Language: "en",
-  Crossplay: "true",
-  Accept: "application/json",
+import wfmShared from "../../../config/shared/wfm.cjs";
+
+const { WFM_HEADERS } = wfmShared as {
+  WFM_HEADERS: Readonly<Record<string, string>>;
 };
 
 let _lastRequestAt = 0;
@@ -46,17 +50,6 @@ export interface FetchPriceOptions {
   allowSetFallback?: boolean;
   rank?: number | null;
   ignoreNoDataCache?: boolean;
-}
-
-const MAX_SUPPORTED_RANK = 20;
-
-function normalizePriceRank(value: unknown): number | null {
-  if (value == null) return null;
-  if (typeof value === "string" && value.trim().length === 0) return null;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return null;
-  if (parsed < 0 || parsed > MAX_SUPPORTED_RANK) return null;
-  return Math.floor(parsed);
 }
 
 function priceCacheKey(slug: string, rank: number | null): string {

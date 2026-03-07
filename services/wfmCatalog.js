@@ -1,6 +1,7 @@
 "use strict";
 
 const log = require("./logger").withScope("wfmCatalog");
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
 
 /**
  * wfmCatalog.js — Warframe.market item catalog (main-process only)
@@ -12,15 +13,14 @@ const log = require("./logger").withScope("wfmCatalog");
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
+const { WFM_HEADERS: _BASE_HEADERS, WFM_ASSET_BASE } = require("../config/shared/wfm.cjs");
+
 const WFM_V2_BASE = "https://api.warframe.market/v2";
-const WFM_HEADERS = {
-  Platform: "pc",
-  Language: "en",
-  Crossplay: "true",
-  Accept: "application/json",
+const WFM_HEADERS = Object.freeze({
+  ..._BASE_HEADERS,
   "User-Agent": "WarframeCompanion/1.0",
-};
-const WFM_THUMB_BASE = "https://warframe.market/static/assets/";
+});
+const WFM_THUMB_BASE = WFM_ASSET_BASE;
 const WFM_ITEM_URL_BASE = "https://warframe.market/items/";
 const ITEM_PATH_CANDIDATES = Object.freeze(["/items", "/collections/items"]);
 const NAME_SET_SUFFIX = " set";
@@ -127,7 +127,7 @@ async function _load() {
             rawItems = data;
           }
         } catch (e) {
-          log.warn(`[WFMCatalog] fetch ${path} failed:`, e.message);
+          log.warn(`[WFMCatalog] fetch ${path} failed:`, normalizeErrorMessage(e));
         }
       }
 
@@ -274,7 +274,7 @@ async function lookupBySlug(slug) {
  * Trigger a background load of the catalog (call on app startup for faster first search).
  */
 function prefetch() {
-  _load().catch((err) => log.error("[WFMCatalog] prefetch failed:", err.message));
+  _load().catch((err) => log.error("[WFMCatalog] prefetch failed:", normalizeErrorMessage(err)));
 }
 
 module.exports = {

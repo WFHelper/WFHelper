@@ -1,5 +1,7 @@
 "use strict";
 
+const { normalizeRank } = require("./numeric.cjs");
+
 const SELL_ORDER_TYPE = "sell";
 const STATS_WINDOW_KEYS = Object.freeze(["48hours", "48_hours"]);
 const MEDIAN_CANDIDATE_FIELDS = Object.freeze([
@@ -49,23 +51,13 @@ function extractSellRows(jsonPayload) {
 }
 
 /**
- * @param {unknown} value
- * @returns {number|null}
- */
-function normalizeRankValue(value) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) return null;
-  return Math.floor(parsed);
-}
-
-/**
  * @param {unknown} options
  * @returns {number|null}
  */
 function resolveTargetRank(options) {
   if (!options || typeof options !== "object") return null;
   const record = /** @type {{ rank?: unknown }} */ (options);
-  const rank = normalizeRankValue(record.rank);
+  const rank = normalizeRank(record.rank);
   return rank;
 }
 
@@ -77,7 +69,7 @@ function extractMedianFromStatsPayload(jsonPayload, options) {
   const targetRank = resolveTargetRank(options);
   const rows = extractSellRows(jsonPayload).filter((entry) => {
     if (targetRank == null) return true;
-    const rowRank = normalizeRankValue(entry.mod_rank ?? entry.rank);
+    const rowRank = normalizeRank(entry.mod_rank ?? entry.rank);
     return rowRank === targetRank;
   });
   const latest = rows.length > 0 ? rows[rows.length - 1] : null;
@@ -104,7 +96,7 @@ module.exports = {
     STATS_WINDOW_KEYS,
     MEDIAN_CANDIDATE_FIELDS,
     pickStatsWindowRows,
-    normalizeRankValue,
+    normalizeRankValue: normalizeRank,
     resolveTargetRank,
   },
 };

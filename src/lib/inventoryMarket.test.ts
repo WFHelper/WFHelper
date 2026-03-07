@@ -11,6 +11,7 @@ import {
   type ItemMetrics,
 } from "./inventoryMarket.js";
 import { setCachedPrice } from "./wfm/priceCache.js";
+import { clearOrderSummaryCache, setCachedOrderSummary } from "./wfm/orderSummaryCache.js";
 
 function makeBaseItem(overrides: Partial<InventoryBaseItem> = {}): InventoryBaseItem {
   return {
@@ -102,6 +103,22 @@ describe("inventoryMarket view mapping", () => {
 
     const [mapped] = buildInventoryViewItems([item], metrics, "mods");
     expect(mapped.displayImageUrl).toBe("https://cdn.warframestat.us/img/sample_local.jpg");
+  });
+
+  it("uses cached ranked order summaries when metrics are not yet hydrated", () => {
+    clearOrderSummaryCache();
+    const item = makeBaseItem({ marketSlug: "sample_item", maxRank: 10 });
+
+    setCachedOrderSummary("sample_item", 0, { wts: 9, wtb: 4 });
+    setCachedOrderSummary("sample_item", 10, { wts: 33, wtb: 21 });
+
+    const [mapped] = buildInventoryViewItems([item], {}, "mods");
+    expect(mapped.wtsR0).toBe(9);
+    expect(mapped.wtbR0).toBe(4);
+    expect(mapped.wtsRmax).toBe(33);
+    expect(mapped.wtbRmax).toBe(21);
+
+    clearOrderSummaryCache();
   });
 
   it("hydrates ducats by default on all-parts tab", () => {

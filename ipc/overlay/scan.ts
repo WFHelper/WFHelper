@@ -2,6 +2,13 @@
 
 export {};
 
+import { createRuntimeRequire } from "../runtimeRequire";
+
+const requireRuntime = createRuntimeRequire(__dirname, 2);
+const { normalizeErrorMessage } = requireRuntime<{
+  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
+}>("config/shared/errors.cjs");
+
 const SCAN_RETRY_WINDOW_MS = 5_000;
 const SCAN_RETRY_INTERVAL_MS = 450;
 const SCAN_MAX_ATTEMPTS = 10;
@@ -65,6 +72,13 @@ type OverlayScanControllerOptions = {
     clearOverlayAutoHideTimer: () => void;
     createOverlayWindow: () => void;
   };
+  warframeStatus?: {
+    getStatus: (options?: { force?: boolean }) => Promise<{
+      isOpen: boolean;
+      isFocused: boolean;
+      focusedProcessName?: string | null;
+    }>;
+  };
 };
 
 function sleep(ms: number): Promise<void> {
@@ -90,7 +104,7 @@ function chooseBetterScanResult(
 }
 
 export function createOverlayScanController(options: OverlayScanControllerOptions) {
-  const { log, rewardScanner, ctx, windows } = options;
+  const { log, rewardScanner, ctx, windows, warframeStatus } = options;
 
   let rewardScanInFlight = false;
 
@@ -106,10 +120,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
       try {
         result = await rewardScanner.scanRewardsDetailed();
       } catch (err) {
-        log.error(
-          `[Trigger] scan attempt ${attempts} failed:`,
-          err instanceof Error ? err.message : String(err),
-        );
+        log.error(`[Trigger] scan attempt ${attempts} failed:`, normalizeErrorMessage(err));
       }
 
       bestResult = chooseBetterScanResult(bestResult, result);
@@ -152,6 +163,24 @@ export function createOverlayScanController(options: OverlayScanControllerOption
     rewardScanInFlight = true;
 
     try {
+      if (source === "eelog" && warframeStatus?.getStatus) {
+        const status = await warframeStatus.getStatus();
+        if (!status.isOpen) {
+          log.log("[Trigger] skipped reward scan: Warframe is not open");
+          windows.sendOverlayEvent("relic-reward-items", []);
+          windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_FAILURE_MS);
+          return;
+        }
+        if (!status.isFocused) {
+          log.log(
+            `[Trigger] skipped reward scan: Warframe is not focused (${status.focusedProcessName || "unknown"})`,
+          );
+          windows.sendOverlayEvent("relic-reward-items", []);
+          windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_FAILURE_MS);
+          return;
+        }
+      }
+
       if (typeof rewardScanner.waitForRewardUiReady === "function") {
         const gate = await rewardScanner.waitForRewardUiReady({
           timeoutMs: UI_READY_GATE_TIMEOUT_MS,
@@ -213,7 +242,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
         items.length > 0 ? OVERLAY_AUTO_HIDE_SUCCESS_MS : OVERLAY_AUTO_HIDE_FAILURE_MS,
       );
     } catch (err) {
-      log.error("[Trigger] scan pipeline error:", err instanceof Error ? err.message : String(err));
+      log.error("[Trigger] scan pipeline error:", normalizeErrorMessage(err));
       windows.sendOverlayEvent("relic-reward-items", []);
       windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_FAILURE_MS);
     } finally {

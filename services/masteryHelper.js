@@ -6,6 +6,7 @@
 
 const itemDb = require("./itemDatabase");
 const { MAX_ITEM_RANK, XP_PER_RANK } = require("../config/game/constants");
+const { toFiniteNumber } = require("../config/shared/numeric.cjs");
 let debugMode = false;
 
 function setDebugMode(enabled) {
@@ -139,19 +140,6 @@ function xpToRank(xp, maxRank = MAX_ITEM_RANK) {
   return Math.min(maxRank, Math.floor(xp / XP_PER_RANK));
 }
 
-function readNumber(value) {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : null;
-  }
-  if (value && typeof value === "object") {
-    if (typeof value.$numberLong === "string") return readNumber(value.$numberLong);
-    if (typeof value.$numberInt === "string") return readNumber(value.$numberInt);
-  }
-  return null;
-}
-
 function getValueAtPath(obj, path) {
   let cur = obj;
   for (const key of path) {
@@ -164,7 +152,7 @@ function getValueAtPath(obj, path) {
 function pickNumber(obj, paths) {
   for (const p of paths) {
     const v = getValueAtPath(obj, p);
-    const n = readNumber(v);
+    const n = toFiniteNumber(v);
     if (n != null) return n;
   }
   return null;

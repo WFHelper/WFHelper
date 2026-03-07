@@ -3,6 +3,14 @@ import type { ParsedItem } from "../types/inventory.js";
 import type { WfmItemsLookup } from "../types/ipc.js";
 import type { WfmOrdersResult } from "../types/market.js";
 import { getCachedPriceState } from "./wfm/priceCache.js";
+import { getCachedOrderSummaryState } from "./wfm/orderSummaryCache.js";
+import numericShared from "../../config/shared/numeric.cjs";
+
+const { toFinitePositiveInt, toFiniteNumber, isRankedGroup } = numericShared as {
+  toFinitePositiveInt: (value: unknown) => number | null;
+  toFiniteNumber: (value: unknown) => number | null;
+  isRankedGroup: (group: string | null | undefined) => boolean;
+};
 
 export type InventoryFilterTab = "all_parts" | "relics" | "mods" | "arcanes" | "full_sets" | "misc";
 
@@ -146,21 +154,8 @@ function isSetSlug(slug: string | null | undefined): boolean {
   return typeof slug === "string" && slug.endsWith("_set");
 }
 
-function toFinitePositiveInt(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
-    return Math.floor(value);
-  }
-  if (typeof value === "string" && value.trim().length > 0) {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed) && parsed > 0) {
-      return Math.floor(parsed);
-    }
-  }
-  return null;
-}
-
 function resolvePriceRankForView(item: InventoryBaseItem): number | null {
-  if (item.inventoryGroup !== "mods" && item.inventoryGroup !== "arcanes") return null;
+  if (!isRankedGroup(item.inventoryGroup)) return null;
 
   const maxRank = toFinitePositiveInt(item.maxRank) ?? (item.inventoryGroup === "mods" ? 10 : 5);
   const currentRank = toFinitePositiveInt(item.rank) ?? 0;
@@ -174,14 +169,29 @@ function resolveCachedPlatinum(item: InventoryBaseItem): number | null {
   const cacheKey = rank == null ? item.marketSlug : `${item.marketSlug}:rank-v3:r${rank}`;
   const entry = getCachedPriceState(cacheKey);
   if (!entry || entry.status !== "ok") return null;
-  return typeof entry.median === "number" && Number.isFinite(entry.median) ? entry.median : null;
+  return toFiniteNumber(entry.median);
 }
 
 function resolveCachedRankPlatinum(slug: string | null | undefined, rank: number): number | null {
   if (!slug) return null;
   const entry = getCachedPriceState(`${slug}:rank-v3:r${rank}`);
   if (!entry || entry.status !== "ok") return null;
-  return typeof entry.median === "number" && Number.isFinite(entry.median) ? entry.median : null;
+  return toFiniteNumber(entry.median);
+}
+
+function resolveCachedRankOrderSummary(
+  slug: string | null | undefined,
+  rank: number,
+): { wts: number | null; wtb: number | null } | null {
+  if (!slug) return null;
+  const entry = getCachedOrderSummaryState(slug, rank, { allowStale: true });
+  if (!entry) return null;
+
+  const wts =
+    typeof entry.wts === "number" && Number.isFinite(entry.wts) ? Math.round(entry.wts) : null;
+  const wtb =
+    typeof entry.wtb === "number" && Number.isFinite(entry.wtb) ? Math.round(entry.wtb) : null;
+  return { wts, wtb };
 }
 
 export function itemGroupFallback(item: ParsedItem): InventoryFilterTab {
@@ -241,7 +251,7 @@ export function resolveSlug(item: ParsedItem, lookup: WfmItemsLookup): string | 
   const lookupByName = getLookupByName(item.name, lookup);
   if (lookupByName?.url_name) return toMarketSlug(lookupByName.url_name);
 
-  if (item.inventoryGroup === "mods" || item.inventoryGroup === "arcanes") {
+  if (isRankedGroup(item.inventoryGroup)) {
     return null;
   }
 
@@ -257,7 +267,7 @@ export function resolveSlug(item: ParsedItem, lookup: WfmItemsLookup): string | 
 
 export function shouldHydrateMetrics(item: ParsedItem): boolean {
   const group = item.inventoryGroup || itemGroupFallback(item);
-  if (group === "mods" || group === "arcanes") {
+  if (isRankedGroup(group)) {
     return item.tradable === true;
   }
 
@@ -269,7 +279,7 @@ export function metricNeedsFromFilters(
   activeTab: InventoryFilterTab,
 ): MetricNeeds {
   const needsDucatsForTab = activeTab === "all_parts" || activeTab === "full_sets";
-  const needsOrdersForTab = activeTab === "mods" || activeTab === "arcanes";
+  const needsOrdersForTab = isRankedGroup(activeTab);
   return {
     price: true,
     ducats: needsDucatsForTab || filters.sortBy === "ducats" || filters.sortBy === "ducatonator",
@@ -325,7 +335,7 @@ export function buildBaseInventoryItems(
         return null;
       }
 
-      const isRankedListingItem = group === "mods" || group === "arcanes";
+      const isRankedListingItem = isRankedGroup(group);
       const canIndexMarket = !isRankedListingItem || item.tradable === true;
       const marketSlug = canIndexMarket
         ? mappedGameRefSlug ||
@@ -335,9 +345,7 @@ export function buildBaseInventoryItems(
       const marketThumb = lookupByName?.thumb || lookupByName?.icon || null;
       const lookupMaxRank = toFinitePositiveInt(lookupByName?.maxRank);
       const resolvedMaxRank =
-        (group === "mods" || group === "arcanes") && lookupMaxRank != null
-          ? lookupMaxRank
-          : item.maxRank;
+        isRankedListingItem && lookupMaxRank != null ? lookupMaxRank : item.maxRank;
       const rankCap =
         toFinitePositiveInt(resolvedMaxRank) ??
         (group === "mods" ? 10 : group === "arcanes" ? 5 : 30);
@@ -382,21 +390,15 @@ export function buildInventoryViewItems(
 ): InventoryViewItem[] {
   return baseItems.map<InventoryViewItem>((item) => {
     const metric = metricsByKey[item.internalName] || null;
-    const isRankedListingItem = item.inventoryGroup === "mods" || item.inventoryGroup === "arcanes";
+    const isRankedListingItem = isRankedGroup(item.inventoryGroup);
     const itemMaxRank =
       toFinitePositiveInt(item.maxRank) ?? (item.inventoryGroup === "mods" ? 10 : 5);
     const itemCurrentRank = toFinitePositiveInt(item.rank) ?? 0;
 
     const metricPlatinumR0Raw = metric?.platinumR0 ?? null;
-    const metricPlatinumR0Value =
-      typeof metricPlatinumR0Raw === "number" && Number.isFinite(metricPlatinumR0Raw)
-        ? metricPlatinumR0Raw
-        : null;
+    const metricPlatinumR0Value = toFiniteNumber(metricPlatinumR0Raw);
     const metricPlatinumRmaxRaw = metric?.platinumRmax ?? null;
-    const metricPlatinumRmaxValue =
-      typeof metricPlatinumRmaxRaw === "number" && Number.isFinite(metricPlatinumRmaxRaw)
-        ? metricPlatinumRmaxRaw
-        : null;
+    const metricPlatinumRmaxValue = toFiniteNumber(metricPlatinumRmaxRaw);
 
     const cachedPlatinumR0 = isRankedListingItem
       ? resolveCachedRankPlatinum(item.marketSlug, 0)
@@ -412,38 +414,35 @@ export function buildInventoryViewItems(
     const metricWtsRmaxRaw = metric?.wtsRmax ?? null;
     const metricWtbRmaxRaw = metric?.wtbRmax ?? null;
 
-    const metricWtsR0 =
-      typeof metricWtsR0Raw === "number" && Number.isFinite(metricWtsR0Raw) ? metricWtsR0Raw : null;
-    const metricWtbR0 =
-      typeof metricWtbR0Raw === "number" && Number.isFinite(metricWtbR0Raw) ? metricWtbR0Raw : null;
-    const metricWtsRmax =
-      typeof metricWtsRmaxRaw === "number" && Number.isFinite(metricWtsRmaxRaw)
-        ? metricWtsRmaxRaw
-        : null;
-    const metricWtbRmax =
-      typeof metricWtbRmaxRaw === "number" && Number.isFinite(metricWtbRmaxRaw)
-        ? metricWtbRmaxRaw
-        : null;
+    const metricWtsR0 = toFiniteNumber(metricWtsR0Raw);
+    const metricWtbR0 = toFiniteNumber(metricWtbR0Raw);
+    const metricWtsRmax = toFiniteNumber(metricWtsRmaxRaw);
+    const metricWtbRmax = toFiniteNumber(metricWtbRmaxRaw);
+
+    const cachedOrdersR0 = isRankedListingItem
+      ? resolveCachedRankOrderSummary(item.marketSlug, 0)
+      : null;
+    const cachedOrdersRmax = isRankedListingItem
+      ? resolveCachedRankOrderSummary(item.marketSlug, itemMaxRank)
+      : null;
 
     const selectedRankPlatinum =
       isRankedListingItem && itemCurrentRank >= itemMaxRank ? metricPlatinumRmax : metricPlatinumR0;
 
     const platinumRaw = metric?.platinum ?? null;
-    const platinumFromMetrics =
-      typeof platinumRaw === "number" && Number.isFinite(platinumRaw) ? platinumRaw : null;
+    const platinumFromMetrics = toFiniteNumber(platinumRaw);
     const platinum = platinumFromMetrics ?? selectedRankPlatinum ?? resolveCachedPlatinum(item);
     const ducatsRaw = item.ducats ?? metric?.ducats ?? null;
-    const ducats = typeof ducatsRaw === "number" && Number.isFinite(ducatsRaw) ? ducatsRaw : null;
+    const ducats = toFiniteNumber(ducatsRaw);
     const ducatonator =
       ducats != null && platinum != null && platinum > 0
         ? Number((ducats / platinum).toFixed(2))
         : null;
 
     const iconFromMeta = metric?.thumb || metric?.icon || null;
-    const displayImageUrl =
-      item.inventoryGroup === "mods" || item.inventoryGroup === "arcanes"
-        ? item.marketThumb || iconFromMeta || item.imageUrl || null
-        : item.imageUrl || item.marketThumb || iconFromMeta || null;
+    const displayImageUrl = isRankedGroup(item.inventoryGroup)
+      ? item.marketThumb || iconFromMeta || item.imageUrl || null
+      : item.imageUrl || item.marketThumb || iconFromMeta || null;
 
     const equippedInList = Array.isArray(item.equippedIn) ? item.equippedIn : [];
     const equippedSummary =
@@ -456,10 +455,10 @@ export function buildInventoryViewItems(
       platinum,
       platinumR0: isRankedListingItem ? metricPlatinumR0 : null,
       platinumRmax: isRankedListingItem ? metricPlatinumRmax : null,
-      wtsR0: isRankedListingItem ? metricWtsR0 : null,
-      wtbR0: isRankedListingItem ? metricWtbR0 : null,
-      wtsRmax: isRankedListingItem ? metricWtsRmax : null,
-      wtbRmax: isRankedListingItem ? metricWtbRmax : null,
+      wtsR0: isRankedListingItem ? (metricWtsR0 ?? cachedOrdersR0?.wts ?? null) : null,
+      wtbR0: isRankedListingItem ? (metricWtbR0 ?? cachedOrdersR0?.wtb ?? null) : null,
+      wtsRmax: isRankedListingItem ? (metricWtsRmax ?? cachedOrdersRmax?.wts ?? null) : null,
+      wtbRmax: isRankedListingItem ? (metricWtbRmax ?? cachedOrdersRmax?.wtb ?? null) : null,
       ducats,
       ducatonator,
       displayImageUrl,

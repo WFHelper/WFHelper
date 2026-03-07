@@ -1,4 +1,5 @@
 const log = require("./logger").withScope("itemDatabase");
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
 // ═══════════════════════════════════════════════════════════════════════════
 // Item Database Service
 // Primary:  warframe-public-export-plus (Sainan/calamity-inc) — raw game data
@@ -108,7 +109,7 @@ function loadDict() {
       return d;
     }
   } catch (e) {
-    attempts.push(`require: ${e.message}`);
+    attempts.push(`require: ${normalizeErrorMessage(e)}`);
   }
 
   // Attempt 2: Find it in node_modules manually
@@ -124,7 +125,7 @@ function loadDict() {
       attempts.push(`disk: file not found at ${dictPath}`);
     }
   } catch (e) {
-    attempts.push(`disk: ${e.message}`);
+    attempts.push(`disk: ${normalizeErrorMessage(e)}`);
   }
 
   // Attempt 3: Check if the main export has a getString or dict property
@@ -142,7 +143,7 @@ function loadDict() {
       }
     }
   } catch (e) {
-    attempts.push(`main export: ${e.message}`);
+    attempts.push(`main export: ${normalizeErrorMessage(e)}`);
   }
 
   log.warn("[ItemDB] Could not load dict.en.json. Tried:", attempts.join(" | "));
@@ -229,7 +230,7 @@ function loadPublicExportPlus() {
     log.log(`[ItemDB] public-export-plus: ${pepCount} items indexed`);
     return pepCount;
   } catch (err) {
-    log.warn("[ItemDB] warframe-public-export-plus not available:", err.message);
+    log.warn("[ItemDB] warframe-public-export-plus not available:", normalizeErrorMessage(err));
     return 0;
   }
 }
@@ -469,7 +470,7 @@ function loadWfcdItems() {
     );
     return wfcdNewCount;
   } catch (err) {
-    log.warn("[ItemDB] @wfcd/items not available:", err.message);
+    log.warn("[ItemDB] @wfcd/items not available:", normalizeErrorMessage(err));
     return 0;
   }
 }

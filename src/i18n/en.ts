@@ -24,6 +24,8 @@ export const en = {
   "settings.title": "Settings",
   "settings.overlayTitle": "Relic Overlay",
   "settings.overlayDescription": "Configure OCR trigger, world notifications, and scan behavior.",
+  "settings.overlayRequirements":
+    "For best OCR reliability, use Warframe Borderless Windowed mode and set in-game UI scale to 99%.",
   "settings.autoTrigger": "Auto trigger from EE.log",
   "settings.worldNotifications": "World notifications",
   "settings.hotkeyFallback": "Enable relic trigger hotkey",
@@ -73,6 +75,7 @@ export const en = {
   "appearance.chooseLogo": "Choose Image",
   "appearance.removeLogo": "Remove",
   "appearance.logoTooLarge": "Image must be under 256 KB.",
+  "appearance.invalidLogoFormat": "File is not a valid image format.",
   "appearance.appName": "App Name",
   "appearance.contrastSafeMode": "Contrast-Safe Mode",
   "appearance.contrastSafeModeHint": "Auto-adjusts text colours for readability.",

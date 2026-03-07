@@ -1,4 +1,5 @@
 const SLOTS = 4;
+const RECOMMENDATION_ROWS = 6;
 
 const slotState = Array.from({ length: SLOTS }, () => ({ item: null, price: null }));
 
@@ -27,6 +28,39 @@ async function fetchPrice(urlName) {
 
 function slotElement(index) {
   return document.querySelector(`.reward-slot[data-slot="${index}"]`);
+}
+
+function plannerGridElement() {
+  return document.getElementById("planner-grid");
+}
+
+function setHeader(title, sub) {
+  const titleEl = document.getElementById("header-title");
+  const subEl = document.getElementById("header-sub");
+  if (titleEl) titleEl.textContent = title;
+  if (subEl) subEl.textContent = sub;
+}
+
+function setScanningText(text) {
+  const el = document.getElementById("scanning-text");
+  if (el) el.textContent = text;
+}
+
+function showBestFooter(show) {
+  const footer = document.getElementById("best-footer");
+  if (!footer) return;
+  footer.classList.toggle("is-hidden", !show);
+}
+
+function showScanning() {
+  document.getElementById("scanning-state").classList.add("visible");
+  document.getElementById("slots-grid").classList.add("is-hidden");
+  plannerGridElement().classList.add("is-hidden");
+  document.getElementById("error-banner").classList.remove("visible");
+}
+
+function hideScanning() {
+  document.getElementById("scanning-state").classList.remove("visible");
 }
 
 function renderSlot(index) {
@@ -98,25 +132,134 @@ function resetSlots() {
   updateBestPick();
 }
 
-function showScanning() {
-  document.getElementById("scanning-state").classList.add("visible");
-  document.getElementById("slots-grid").classList.add("is-hidden");
-  document.getElementById("error-banner").classList.remove("visible");
+function resetPlannerRows() {
+  const container = plannerGridElement();
+  container.innerHTML = "";
+  for (let i = 0; i < RECOMMENDATION_ROWS; i += 1) {
+    const card = document.createElement("div");
+    card.className = "plan-card empty";
+
+    const title = document.createElement("div");
+    title.className = "plan-title";
+    title.textContent = "-";
+
+    const profit = document.createElement("div");
+    profit.className = "plan-profit";
+    profit.textContent = "E. profits: -";
+
+    card.appendChild(title);
+    card.appendChild(profit);
+    container.appendChild(card);
+  }
+}
+
+function showRewardModeScanning() {
+  setHeader("◆ Relic Reward", "Detecting...");
+  setScanningText("Reading reward screen...");
+  showScanning();
+  showBestFooter(true);
   resetSlots();
-  document.getElementById("header-sub").textContent = "Detecting...";
   document.getElementById("best-value").textContent = "Detecting...";
 }
 
-function showDetectionError() {
-  document.getElementById("scanning-state").classList.remove("visible");
-  document.getElementById("slots-grid").classList.remove("is-hidden");
-  document.getElementById("error-banner").classList.add("visible");
-  resetSlots();
-  document.getElementById("header-sub").textContent = "Detection failed";
-  document.getElementById("best-value").textContent = "OCR failed";
+function showPlannerModeScanning() {
+  setHeader("◆ Relic Planner", "Reading relic selection...");
+  setScanningText("Detecting relic era and ranking owned relics...");
+  showScanning();
+  showBestFooter(false);
+  resetPlannerRows();
 }
 
-async function applyItems(items) {
+function showDetectionError(message) {
+  hideScanning();
+  document.getElementById("slots-grid").classList.remove("is-hidden");
+  plannerGridElement().classList.add("is-hidden");
+  document.getElementById("error-banner").classList.add("visible");
+  document.getElementById("error-banner").textContent =
+    message ||
+    "OCR failed to detect reward items from the current screen. Use Warframe Borderless Windowed mode and set in-game UI scale to 99%.";
+  resetSlots();
+  setHeader("◆ Relic Reward", "Detection failed");
+  document.getElementById("best-value").textContent = "OCR failed";
+  showBestFooter(true);
+}
+
+function formatProfit(value, suffix) {
+  if (!Number.isFinite(Number(value))) return `-${suffix}`;
+  return `${Number(value).toFixed(1)}${suffix}`;
+}
+
+function renderPlannerRows(payload) {
+  const era = String(payload?.era || "").trim();
+  const rows = Array.isArray(payload?.rows) ? payload.rows.slice(0, RECOMMENDATION_ROWS) : [];
+
+  hideScanning();
+  document.getElementById("slots-grid").classList.add("is-hidden");
+  plannerGridElement().classList.remove("is-hidden");
+  const emptyMessage = era
+    ? "No owned relic recommendations found for the detected era."
+    : "Could not detect relic era from relic tile text. Use Warframe Borderless Windowed mode and set in-game UI scale to 99%.";
+  document.getElementById("error-banner").classList.toggle("visible", rows.length === 0);
+  document.getElementById("error-banner").textContent =
+    rows.length === 0 ? emptyMessage : "OCR failed to detect reward items from the current screen.";
+
+  const eraLabel = era ? `${era.charAt(0).toUpperCase()}${era.slice(1)} era` : "Owned relics";
+  setHeader("◆ Relic Planner", `${eraLabel} recommendations`);
+  showBestFooter(false);
+
+  const container = plannerGridElement();
+  container.innerHTML = "";
+
+  const bestPlat = Math.max(...rows.map((row) => Number(row?.platEv || -1)), -1);
+
+  for (let i = 0; i < RECOMMENDATION_ROWS; i += 1) {
+    const row = rows[i] || null;
+    const card = document.createElement("div");
+    card.className = "plan-card";
+
+    const title = document.createElement("div");
+    title.className = "plan-title";
+
+    const profit = document.createElement("div");
+    profit.className = "plan-profit";
+
+    if (!row) {
+      card.classList.add("empty");
+      title.textContent = "-";
+      profit.textContent = "E. profits: -";
+    } else {
+      const platEv = Number(row.platEv);
+      const ducatEv = Number(row.ducatEv);
+      if (Number.isFinite(platEv) && platEv === bestPlat && bestPlat >= 0) {
+        card.classList.add("best");
+      }
+
+      title.textContent = String(row.label || row.relicName || "-");
+
+      const label = document.createElement("span");
+      label.className = "plan-profit-label";
+      label.textContent = "E. profits:";
+
+      const plat = document.createElement("span");
+      plat.className = "plan-profit-plat";
+      plat.textContent = `${formatProfit(platEv, "p")} ◉`;
+
+      const ducat = document.createElement("span");
+      ducat.className = "plan-profit-ducat";
+      ducat.textContent = `${formatProfit(ducatEv, "d")} ❦`;
+
+      profit.appendChild(label);
+      profit.appendChild(plat);
+      profit.appendChild(ducat);
+    }
+
+    card.appendChild(title);
+    card.appendChild(profit);
+    container.appendChild(card);
+  }
+}
+
+async function applyRewardItems(items) {
   const detectedItems = Array.isArray(items) ? items.filter(Boolean).slice(0, SLOTS) : [];
 
   if (detectedItems.length === 0) {
@@ -124,10 +267,12 @@ async function applyItems(items) {
     return;
   }
 
-  document.getElementById("scanning-state").classList.remove("visible");
+  hideScanning();
   document.getElementById("slots-grid").classList.remove("is-hidden");
+  plannerGridElement().classList.add("is-hidden");
   document.getElementById("error-banner").classList.remove("visible");
-  document.getElementById("header-sub").textContent = `${detectedItems.length} item(s) found`;
+  setHeader("◆ Relic Reward", `${detectedItems.length} item(s) found`);
+  showBestFooter(true);
 
   for (let i = 0; i < SLOTS; i += 1) {
     const item = detectedItems[i] || null;
@@ -155,7 +300,49 @@ async function applyItems(items) {
   );
 }
 
+function applyThemeVars(rawVars) {
+  if (!rawVars || typeof rawVars !== "object") return;
+  const vars = rawVars;
+  const root = document.documentElement;
+  for (const [key, value] of Object.entries(vars)) {
+    if (!key.startsWith("--")) continue;
+    if (typeof value !== "string" || !value.trim()) continue;
+    root.style.setProperty(key, value.trim());
+  }
+}
+
+function loadThemeFromStorageFallback() {
+  try {
+    const raw = localStorage.getItem("wf_theme_settings");
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    const colors = parsed?.colors;
+    if (!colors || typeof colors !== "object") return;
+
+    const map = {
+      "--bg-deep": colors.bgDeep,
+      "--bg-base": colors.bgBase,
+      "--bg-surface": colors.bgSurface,
+      "--bg-raised": colors.bgRaised,
+      "--accent": colors.accent,
+      "--accent-dim": colors.accentDim,
+      "--accent-bright": colors.accentBright,
+      "--text-primary": colors.textPrimary,
+      "--text-secondary": colors.textSecondary,
+      "--text-muted": colors.textMuted,
+      "--border": colors.border,
+      "--border-strong": colors.borderStrong,
+    };
+
+    applyThemeVars(map);
+  } catch {
+    // ignore malformed local storage
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  loadThemeFromStorageFallback();
+
   document.getElementById("btn-close").addEventListener("click", () => window.overlay.close());
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
@@ -163,8 +350,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  window.overlay.onTrigger(showScanning);
+  resetSlots();
+  resetPlannerRows();
+  showRewardModeScanning();
+
+  window.overlay.onTrigger(showRewardModeScanning);
+  window.overlay.onPlannerTrigger(showPlannerModeScanning);
   window.overlay.onItems((items) => {
-    void applyItems(items);
+    void applyRewardItems(items);
+  });
+  window.overlay.onRecommendations((payload) => {
+    renderPlannerRows(payload);
+  });
+  window.overlay.onThemeVars((vars) => {
+    applyThemeVars(vars);
   });
 });

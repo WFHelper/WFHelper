@@ -3,15 +3,16 @@ import { jsonResponse } from '../security/cors';
 import { getAutoCacheConfig, getAutoCacheStats, getOrHydrateMeta, getOrHydrateOrders, getOrHydratePrice } from '../services/readThrough';
 import type { Env } from '../types';
 import { getJsonFromKv, getSlug } from '../utils';
+import sharedNumeric from '../../../../config/shared/numeric.cjs';
 
-const MAX_SUPPORTED_RANK = 20;
+const { normalizeRankFilter } = sharedNumeric as {
+	normalizeRankFilter: (value: unknown) => number | null;
+};
 
 function parseRankFilter(url: URL): number | null {
 	const rawRank = url.searchParams.get('rank');
 	if (!rawRank) return null;
-	const parsed = Number(rawRank);
-	if (!Number.isFinite(parsed) || parsed < 0 || parsed > MAX_SUPPORTED_RANK) return null;
-	return Math.floor(parsed);
+	return normalizeRankFilter(rawRank);
 }
 
 export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response | null> {

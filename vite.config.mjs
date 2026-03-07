@@ -13,6 +13,7 @@ const CHUNK_VENDOR_MARKET = "vendor-market";
 const CHUNK_VENDOR_RELIC = "vendor-relic";
 const CHUNK_VENDOR_WORLD = "vendor-world";
 const CHUNK_VENDOR_PRICING = "vendor-pricing";
+const CHUNK_VENDOR_SHARED = "vendor-shared";
 
 const MARKET_CHUNK_PATHS = [
   "/src/views/MarketView.svelte",
@@ -25,6 +26,7 @@ const RELIC_CHUNK_PATHS = [
   "/src/modals/RelicDetailModal.svelte",
   "/src/stores/relics.ts",
   "/src/lib/relic.ts",
+  "/src/lib/relic/",
 ];
 
 const PRICING_CHUNK_PATHS = [
@@ -57,6 +59,12 @@ function resolveManualChunk(id) {
     ) {
       return CHUNK_VENDOR_SVELTE;
     }
+  }
+
+  // Keep shared config modules in their own chunk so they don't get pulled
+  // into vendor-world or vendor-relic and create a circular chunk dependency.
+  if (normalizedId.includes("/config/shared/")) {
+    return CHUNK_VENDOR_SHARED;
   }
 
   if (hasPathMatch(normalizedId, PRICING_CHUNK_PATHS)) {
@@ -118,9 +126,7 @@ export default defineConfig({
   base: "./",
 
   define: {
-    "import.meta.env.VITE_APP_VERSION": JSON.stringify(
-      process.env.npm_package_version || "0.0.0",
-    ),
+    "import.meta.env.VITE_APP_VERSION": JSON.stringify(process.env.npm_package_version || "0.0.0"),
   },
 
   plugins,

@@ -1,3 +1,17 @@
+import numericShared from "../../../config/shared/numeric.cjs";
+import wfmShared from "../../../config/shared/wfm.cjs";
+
+const { toFiniteNumber } = numericShared as {
+  toFiniteNumber: (value: unknown) => number | null;
+};
+
+const { normalizeWfmSlug: _normalizeWfmSlug } = wfmShared as {
+  normalizeWfmSlug: (value: string | null | undefined) => string | null;
+};
+
+/** Re-export from shared module for existing renderer consumers. */
+export const normalizeWfmSlug = _normalizeWfmSlug;
+
 export type BackendRequestPriority = "high" | "normal" | "low";
 
 type FallbackMode = "always" | "high" | "never";
@@ -5,17 +19,6 @@ type FallbackMode = "always" | "high" | "never";
 const RAW_BACKEND_URL = (import.meta.env.VITE_WFM_BACKEND_URL || "").trim();
 const BACKEND_BASE_URL = RAW_BACKEND_URL.replace(/\/+$/, "");
 const REQUEST_TIMEOUT_MS = 3500;
-
-export function normalizeWfmSlug(value: string | null | undefined): string | null {
-  if (typeof value !== "string") return null;
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/[’']/g, "")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return normalized || null;
-}
 
 function resolveFallbackMode(): FallbackMode {
   const raw = (import.meta.env.VITE_WFM_BACKEND_DIRECT_FALLBACK || "").trim().toLowerCase();
@@ -104,15 +107,6 @@ function parseOrderBookSide(value: unknown): BackendOrderBookEntry[] {
       };
     })
     .filter((entry): entry is BackendOrderBookEntry => entry != null);
-}
-
-function toFiniteNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim()) {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return null;
 }
 
 async function fetchBackendJson(

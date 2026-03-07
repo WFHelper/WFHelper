@@ -1,6 +1,7 @@
 "use strict";
 
 const log = require("./logger").withScope("wfmSession");
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
 
 /**
  * wfmSession.js — Warframe.market session management (main-process only)
@@ -57,7 +58,7 @@ function _saveSession(token, userName) {
     // Fail closed by default: keep token in memory only for this app session.
     log.warn("[WFMSession] safeStorage unavailable — session will not be persisted to disk");
   } catch (err) {
-    log.error("[WFMSession] Failed to persist session:", err.message);
+    log.error("[WFMSession] Failed to persist session:", normalizeErrorMessage(err));
   }
 }
 
@@ -70,7 +71,7 @@ function _clearSession() {
       fs.unlinkSync(SESSION_FILE());
     }
   } catch (err) {
-    log.error("[WFMSession] Failed to clear session file:", err.message);
+    log.error("[WFMSession] Failed to clear session file:", normalizeErrorMessage(err));
   }
 }
 
@@ -93,7 +94,7 @@ function _loadSession() {
 
     return JSON.parse(payload);
   } catch (err) {
-    log.error("[WFMSession] Failed to load session:", err.message);
+    log.error("[WFMSession] Failed to load session:", normalizeErrorMessage(err));
     return null;
   }
 }
@@ -232,7 +233,7 @@ async function getMe() {
     const data = await requestV2("GET", "/me");
     return data?.data || null;
   } catch (err) {
-    log.warn("[WFMSession] getMe failed:", err.message);
+    log.warn("[WFMSession] getMe failed:", normalizeErrorMessage(err));
     return null;
   }
 }

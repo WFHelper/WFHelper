@@ -9,6 +9,10 @@ const log = runtimeRequire<{
   withScope: (scope: string) => { warn: (...args: unknown[]) => void };
 }>("services/logger").withScope("ipcSecurity");
 
+const { normalizeErrorMessage } = runtimeRequire<{
+  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
+}>("config/shared/errors.cjs");
+
 const MAIN_RENDERER_SUFFIX = path.normalize(path.join("renderer", "dist", "index.html"));
 const OVERLAY_RENDERER_SUFFIX = path.normalize(path.join("renderer", "overlay.html"));
 const CROP_DEBUG_RENDERER_SUFFIX = path.normalize(path.join("renderer", "crop-debug.html"));
@@ -123,8 +127,7 @@ function assertAuthorizedSender(
   try {
     assertFn(event, channel);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    log.warn(`[Security] Blocked IPC "${channel}": ${message}`);
+    log.warn(`[Security] Blocked IPC "${channel}": ${normalizeErrorMessage(err)}`);
     const wrapped = new Error("Unauthorized IPC sender");
     (wrapped as Error & { cause?: unknown }).cause = err;
     throw wrapped;
@@ -140,8 +143,7 @@ function isAuthorizedSender(
     assertFn(event, channel);
     return true;
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    log.warn(`[Security] Blocked IPC "${channel}": ${message}`);
+    log.warn(`[Security] Blocked IPC "${channel}": ${normalizeErrorMessage(err)}`);
     return false;
   }
 }

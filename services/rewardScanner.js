@@ -1,6 +1,19 @@
 "use strict";
 
+/**
+ * Reward scanner orchestrator.
+ *
+ * State management, settings, OCR runner setup, and high-level scan orchestration.
+ * Implementation details are split across:
+ *   - rewardScannerUtils.js      (pure math/string utilities)
+ *   - rewardScannerCapture.js    (Electron screen capture)
+ *   - rewardScannerImage.js      (image cropping / enhancement)
+ *   - rewardScannerMatch.js      (OCR text → item matching)
+ *   - rewardScannerReadiness.js  (UI readiness detection)
+ */
+
 const log = require("./logger").withScope("rewardScanner");
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
 
 const fs = require("fs");
 const os = require("os");
@@ -11,8 +24,26 @@ const {
   OVERLAY_SETTINGS_LIMITS,
 } = require("../config/runtime/overlaySettings");
 
+const { clampNumber, round4 } = require("./rewardScannerUtils");
+const { captureScreen, captureDebugFrame, captureSourceMeta } = require("./rewardScannerCapture");
+const { cropRewardBand, cropBand, cropRect, buildOcrVariants } = require("./rewardScannerImage");
+const {
+  matchItemsDetailed,
+  chooseBetterOcrPass,
+  detectRelicEraFromText,
+  detectRelicEraFromTileLabelText,
+  buildConsensusSelection,
+  MAX_REWARD_SLOTS,
+} = require("./rewardScannerMatch");
+const { waitForRewardUiReady } = require("./rewardScannerReadiness");
+
+// --- Paths ------------------------------------------------------------------
+
 const OCR_SCRIPT = path.join(__dirname, "..", "scripts", "ocr.ps1");
 const TEMP_IMAGE = path.join(os.tmpdir(), "wf-companion-reward-ocr.png");
+const TEMP_ERA_IMAGE = path.join(os.tmpdir(), "wf-companion-era-ocr.png");
+
+// --- OCR engine constants ---------------------------------------------------
 
 const OCR_ENGINE_AUTO = "auto";
 const OCR_ENGINE_WINDOWS = "windows";
@@ -23,72 +54,25 @@ const OCR_ENGINE_ENV = String(process.env.WF_OCR_ENGINE || OCR_ENGINE_AUTO)
   .toLowerCase();
 const TESSERACT_LANGUAGE = "eng";
 
-const CAPTURE_THUMBNAIL = Object.freeze({ width: 1920, height: 1080 });
-const COMPANION_WINDOW_TOKENS = Object.freeze([
-  "warframe companion",
-  "ocr crop debugger",
-  "relic reward",
-  "overlay",
+// --- Relic era scan config --------------------------------------------------
+
+const RELIC_ERA_BANDS = Object.freeze([
+  { top: 0.12, height: 0.12 },
+  { top: 0.16, height: 0.13 },
+  { top: 0.2, height: 0.14 },
 ]);
 
-const MAX_REWARD_SLOTS = 4;
-const EXACT_MATCH_SKIP_OVERLAP_COUNT = 3;
-const MIN_MATCHED_WORDS_FOR_OVERLAP = 2;
-const OVERLAP_CONFIDENCE_FLOOR = 0.86;
-
-const UI_READY_DEFAULT_TIMEOUT_MS = 2_200;
-const UI_READY_DEFAULT_POLL_MS = 120;
-const UI_READY_DEFAULT_REQUIRED_HITS = 2;
-const UI_READY_DEFAULT_SCORE_THRESHOLD = 0.58;
-const UI_READY_MIN_PEAK_COUNT = 3;
-const UI_READY_MIN_TEXTURE_SCORE = 0.18;
-
-const LUMINANCE_WEIGHTS = Object.freeze({
-  red: 77,
-  green: 150,
-  blue: 29,
-  shift: 8,
-});
-
-const READINESS_ANALYSIS = Object.freeze({
-  minCropWidth: 40,
-  minCropHeight: 24,
-  targetSampleCols: 420,
-  targetSampleRows: 120,
-  smoothingDivisor: 3,
-  thresholdStdMultiplier: 0.35,
-  minSegmentWidthFloor: 3,
-  minSegmentWidthRatio: 0.06,
-  peakBaseline: 2,
-  peakRange: 2,
-  textureBaseline: 90,
-  textureRange: 230,
-  coverageNormalizer: 0.7,
-  scoreWeights: Object.freeze({
-    peak: 0.55,
-    texture: 0.3,
-    coverage: 0.15,
-  }),
-});
-
-const UI_READY_OPTION_LIMITS = Object.freeze({
-  timeoutMinMs: 200,
-  timeoutMaxMs: 8_000,
-  pollMinMs: 60,
-  pollMaxMs: 500,
-  requiredHitsMin: 1,
-  requiredHitsMax: 4,
-  scoreThresholdMin: 0.35,
-  scoreThresholdMax: 0.95,
-});
-
-const CONSENSUS_TUNING = Object.freeze({
-  minScoreWeight: 0.1,
-  minConfidenceWeight: 0.1,
-  confidenceDecimals: 3,
-});
+const RELIC_ROW_TILE_LABEL_RECTS = Object.freeze([
+  { id: "slot-1", x: 0.02, y: 0.5, width: 0.18, height: 0.42 },
+  { id: "slot-2", x: 0.2, y: 0.5, width: 0.18, height: 0.42 },
+  { id: "slot-3", x: 0.38, y: 0.5, width: 0.18, height: 0.42 },
+  { id: "slot-4", x: 0.56, y: 0.5, width: 0.18, height: 0.42 },
+  { id: "slot-5", x: 0.74, y: 0.5, width: 0.18, height: 0.42 },
+]);
 
 const OCR_TEXT_PREVIEW_MAX_CHARS = 240;
+
+// --- Crop presets -----------------------------------------------------------
 
 const CROP_PRESETS = {
   balanced: [
@@ -108,23 +92,15 @@ const CROP_PRESETS = {
   ],
 };
 
+// --- State ------------------------------------------------------------------
+
 const DEFAULT_SCAN_SETTINGS = OVERLAY_SETTINGS_DEFAULTS;
 
 let relicItems = [];
 let sortedItems = [];
 let scanSettings = sanitizeSettings(DEFAULT_SCAN_SETTINGS);
 
-function setRelicItems(items) {
-  relicItems = Array.isArray(items) ? items : [];
-  sortedItems = [...relicItems].sort((a, b) => b.name.length - a.name.length);
-  log.log(`[RewardScanner] Item list updated: ${relicItems.length} items`);
-}
-
-function clampNumber(value, min, max, fallback) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(min, Math.min(max, n));
-}
+// --- Settings helpers -------------------------------------------------------
 
 function normalizeOcrEngine(value, fallback = OCR_ENGINE_WINDOWS) {
   const v = String(value || "")
@@ -193,6 +169,12 @@ function sanitizeSettings(raw) {
   };
 }
 
+function setRelicItems(items) {
+  relicItems = Array.isArray(items) ? items : [];
+  sortedItems = [...relicItems].sort((a, b) => b.name.length - a.name.length);
+  log.log(`[RewardScanner] Item list updated: ${relicItems.length} items`);
+}
+
 function setSettings(nextSettings) {
   scanSettings = sanitizeSettings({ ...scanSettings, ...(nextSettings || {}) });
   return getSettings();
@@ -202,149 +184,7 @@ function getSettings() {
   return { ...scanSettings };
 }
 
-function sourceName(source) {
-  return String(source?.name || "").trim();
-}
-
-function isCompanionWindowSource(source) {
-  const name = sourceName(source).toLowerCase();
-  return COMPANION_WINDOW_TOKENS.some((token) => name.includes(token));
-}
-
-function isWarframeWindowSource(source) {
-  const name = sourceName(source).toLowerCase();
-  return name.includes("warframe") && !isCompanionWindowSource(source);
-}
-
-function pickWindowSource(sources) {
-  if (!Array.isArray(sources) || sources.length === 0) return null;
-  return sources.find(isWarframeWindowSource) || null;
-}
-
-function pickScreenSource(sources) {
-  if (!Array.isArray(sources) || sources.length === 0) return null;
-
-  let screenApi;
-  try {
-    ({ screen: screenApi } = require("electron"));
-  } catch {
-    return sources[0] || null;
-  }
-
-  try {
-    const cursor = screenApi.getCursorScreenPoint();
-    const display = screenApi.getDisplayNearestPoint(cursor);
-    const displayId = String(display?.id ?? "");
-    if (displayId) {
-      const byCursorDisplay = sources.find(
-        (source) => String(source?.display_id ?? "") === displayId,
-      );
-      if (byCursorDisplay) return byCursorDisplay;
-    }
-  } catch (err) {
-    log.warn("[RewardScanner] pickScreenSource cursor lookup failed:", err.message);
-  }
-
-  try {
-    const primaryDisplay = screenApi.getPrimaryDisplay();
-    const primaryId = String(primaryDisplay?.id ?? "");
-    if (primaryId) {
-      const byPrimaryDisplay = sources.find(
-        (source) => String(source?.display_id ?? "") === primaryId,
-      );
-      if (byPrimaryDisplay) return byPrimaryDisplay;
-    }
-  } catch (err) {
-    log.warn("[RewardScanner] pickScreenSource primary lookup failed:", err.message);
-  }
-
-  return sources[0] || null;
-}
-
-async function captureScreen() {
-  let desktopCapturer;
-  try {
-    ({ desktopCapturer } = require("electron"));
-  } catch {
-    log.warn("[RewardScanner] electron.desktopCapturer unavailable");
-    return null;
-  }
-
-  let sources;
-  try {
-    sources = await desktopCapturer.getSources({
-      types: ["window"],
-      thumbnailSize: CAPTURE_THUMBNAIL,
-      fetchWindowIcons: false,
-    });
-  } catch (err) {
-    log.warn("[RewardScanner] getSources(window) failed:", err.message);
-    sources = [];
-  }
-
-  const wfWindow = pickWindowSource(sources);
-  if (wfWindow && wfWindow.thumbnail && !wfWindow.thumbnail.isEmpty()) {
-    return {
-      image: wfWindow.thumbnail,
-      sourceType: "window",
-      sourceName: sourceName(wfWindow),
-      sourceId: String(wfWindow.id || ""),
-      sourceDisplayId: String(wfWindow.display_id || ""),
-    };
-  }
-
-  try {
-    const screens = await desktopCapturer.getSources({
-      types: ["screen"],
-      thumbnailSize: CAPTURE_THUMBNAIL,
-    });
-
-    const pickedScreen = pickScreenSource(screens);
-    if (pickedScreen && pickedScreen.thumbnail && !pickedScreen.thumbnail.isEmpty()) {
-      return {
-        image: pickedScreen.thumbnail,
-        sourceType: "screen",
-        sourceName: sourceName(pickedScreen),
-        sourceId: String(pickedScreen.id || ""),
-        sourceDisplayId: String(pickedScreen.display_id || ""),
-      };
-    }
-  } catch (err) {
-    log.warn("[RewardScanner] getSources(screen) failed:", err.message);
-  }
-
-  return null;
-}
-
-async function captureDebugFrame() {
-  const screenshot = await captureScreen();
-  if (!screenshot) return null;
-  const size = screenshot.image.getSize();
-
-  const sourceLabel =
-    screenshot.sourceType === "window"
-      ? `window: ${screenshot.sourceName || screenshot.sourceId || "unknown"}`
-      : `screen: ${screenshot.sourceName || screenshot.sourceDisplayId || screenshot.sourceId || "unknown"}`;
-
-  log.log(`[RewardScanner] Debug capture source -> ${sourceLabel}`);
-
-  return {
-    imageDataUrl: screenshot.image.toDataURL(),
-    width: size.width,
-    height: size.height,
-    sourceLabel,
-  };
-}
-
-function cropRewardBand(nativeImage, band) {
-  const { width, height } = nativeImage.getSize();
-  const topRatio = clampNumber(band?.top, 0.0, 0.95, 0.38);
-  const maxHeightRatio = Math.max(0.05, 1.0 - topRatio);
-  const heightRatio = clampNumber(band?.height, 0.05, maxHeightRatio, 0.36);
-  const top = Math.floor(height * topRatio);
-  const cropHeight = Math.max(24, Math.floor(height * heightRatio));
-  return nativeImage.crop({ x: 0, y: top, width, height: cropHeight });
-}
+// --- OCR runner setup -------------------------------------------------------
 
 function getRequestedOcrEngine() {
   const envEngine = normalizeOcrEngine(OCR_ENGINE_ENV, OCR_ENGINE_AUTO);
@@ -361,86 +201,7 @@ const { runOCR } = createRewardOcrRunner({
   engineTesseract: OCR_ENGINE_TESSERACT,
 });
 
-function norm(text) {
-  return String(text || "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function buildWordSet(text) {
-  return new Set(
-    text
-      .split(" ")
-      .map((w) => w.trim())
-      .filter((w) => w.length > 2),
-  );
-}
-
-function matchItemsDetailed(ocrText, threshold) {
-  const text = norm(ocrText);
-  if (!text) {
-    return { items: [], score: 0, matches: [], exactCount: 0 };
-  }
-
-  const words = buildWordSet(text);
-  const found = [];
-  const usedNames = new Set();
-  const overlapThreshold = Math.max(Number(threshold) || 0, OVERLAP_CONFIDENCE_FLOOR);
-
-  for (const item of sortedItems) {
-    if (found.length >= MAX_REWARD_SLOTS) break;
-    const normalizedName = norm(item.name);
-    if (!normalizedName || usedNames.has(normalizedName)) continue;
-
-    const idx = text.indexOf(normalizedName);
-    if (idx >= 0) {
-      found.push({ item, pos: idx, confidence: 1, mode: "exact" });
-      usedNames.add(normalizedName);
-    }
-  }
-
-  const exactCount = found.length;
-  const shouldRunOverlapPass =
-    exactCount < EXACT_MATCH_SKIP_OVERLAP_COUNT && found.length < MAX_REWARD_SLOTS;
-
-  if (shouldRunOverlapPass) {
-    for (const item of sortedItems) {
-      if (found.length >= MAX_REWARD_SLOTS) break;
-      const normalizedName = norm(item.name);
-      if (!normalizedName || usedNames.has(normalizedName)) continue;
-
-      const itemWords = normalizedName.split(" ").filter((w) => w.length > 2);
-      if (itemWords.length === 0) continue;
-
-      const matchedWords = itemWords.filter((w) => words.has(w)).length;
-      if (matchedWords < MIN_MATCHED_WORDS_FOR_OVERLAP) continue;
-
-      const ratio = matchedWords / itemWords.length;
-      if (ratio < overlapThreshold) continue;
-
-      const firstWord = itemWords.find((w) => words.has(w)) || "";
-      const pos = firstWord ? text.indexOf(firstWord) : text.length;
-
-      found.push({ item, pos, confidence: ratio, mode: "overlap" });
-      usedNames.add(normalizedName);
-    }
-  }
-
-  found.sort((a, b) => a.pos - b.pos);
-
-  const exactMatches = found.filter((m) => m.mode === "exact").length;
-  const confidenceSum = found.reduce((sum, m) => sum + m.confidence, 0);
-  const coverageBoost = Math.min(MAX_REWARD_SLOTS, found.length) * 0.6;
-  const exactBoost = exactMatches * 0.35;
-
-  return {
-    items: found.map((m) => ({ ...m.item, confidence: Number(m.confidence.toFixed(3)) })),
-    score: confidenceSum + coverageBoost + exactBoost,
-    matches: found,
-    exactCount,
-  };
-}
+// --- Band helpers -----------------------------------------------------------
 
 function getBandsForPasses(presetName, passes) {
   if (presetName === "custom") {
@@ -480,10 +241,6 @@ function getBandsForPasses(presetName, passes) {
   return bands;
 }
 
-function clamp01(value) {
-  return clampNumber(value, 0, 1, 0);
-}
-
 function getPrimaryBand() {
   const [band] = getBandsForPasses(scanSettings.cropPreset, 1);
   if (band && Number.isFinite(band.top) && Number.isFinite(band.height)) {
@@ -495,387 +252,7 @@ function getPrimaryBand() {
   };
 }
 
-function luminanceFromBgr(blue, green, red) {
-  return (
-    (LUMINANCE_WEIGHTS.red * red +
-      LUMINANCE_WEIGHTS.green * green +
-      LUMINANCE_WEIGHTS.blue * blue) >>
-    LUMINANCE_WEIGHTS.shift
-  );
-}
-
-function computeMeanAndStd(values) {
-  if (!Array.isArray(values) || values.length === 0) {
-    return { mean: 0, std: 0 };
-  }
-
-  let sum = 0;
-  for (const value of values) {
-    sum += value;
-  }
-
-  const mean = sum / values.length;
-  let varianceSum = 0;
-  for (const value of values) {
-    const diff = value - mean;
-    varianceSum += diff * diff;
-  }
-
-  const variance = varianceSum / values.length;
-  return {
-    mean,
-    std: Math.sqrt(Math.max(0, variance)),
-  };
-}
-
-function analyzeRewardBandReadiness(nativeImage, band = getPrimaryBand()) {
-  if (!nativeImage || typeof nativeImage.getSize !== "function") {
-    return {
-      ready: false,
-      score: 0,
-      peakCount: 0,
-      textureScore: 0,
-      coverageScore: 0,
-      bandTopRatio: round4(band?.top, 0),
-      bandHeightRatio: round4(band?.height, 0),
-      bandBottomRatio: round4((Number(band?.top) || 0) + (Number(band?.height) || 0), 0),
-    };
-  }
-
-  let cropped;
-  try {
-    cropped = cropRewardBand(nativeImage, band);
-  } catch {
-    return {
-      ready: false,
-      score: 0,
-      peakCount: 0,
-      textureScore: 0,
-      coverageScore: 0,
-      bandTopRatio: round4(band?.top, 0),
-      bandHeightRatio: round4(band?.height, 0),
-      bandBottomRatio: round4((Number(band?.top) || 0) + (Number(band?.height) || 0), 0),
-    };
-  }
-
-  const { width, height } = cropped.getSize();
-  if (width < READINESS_ANALYSIS.minCropWidth || height < READINESS_ANALYSIS.minCropHeight) {
-    return {
-      ready: false,
-      score: 0,
-      peakCount: 0,
-      textureScore: 0,
-      coverageScore: 0,
-      bandTopRatio: round4(band?.top, 0),
-      bandHeightRatio: round4(band?.height, 0),
-      bandBottomRatio: round4((Number(band?.top) || 0) + (Number(band?.height) || 0), 0),
-    };
-  }
-
-  const bitmap = cropped.toBitmap();
-  const stepX = Math.max(1, Math.floor(width / READINESS_ANALYSIS.targetSampleCols));
-  const stepY = Math.max(1, Math.floor(height / READINESS_ANALYSIS.targetSampleRows));
-  const sampleCols = Math.max(1, Math.floor(width / stepX));
-
-  const energies = new Array(sampleCols).fill(0);
-
-  for (let column = 0; column < sampleCols; column += 1) {
-    const x = Math.min(width - 1, column * stepX);
-    let sum = 0;
-    let sumSq = 0;
-    let count = 0;
-
-    for (let y = 0; y < height; y += stepY) {
-      const idx = (y * width + x) * 4;
-      const blue = bitmap[idx];
-      const green = bitmap[idx + 1];
-      const red = bitmap[idx + 2];
-      const lum = luminanceFromBgr(blue, green, red);
-
-      sum += lum;
-      sumSq += lum * lum;
-      count += 1;
-    }
-
-    const mean = sum / Math.max(1, count);
-    const variance = Math.max(0, sumSq / Math.max(1, count) - mean * mean);
-    energies[column] = variance;
-  }
-
-  const smoothed = energies.map((value, index) => {
-    const prev = index > 0 ? energies[index - 1] : value;
-    const next = index < energies.length - 1 ? energies[index + 1] : value;
-    return (prev + value + next) / READINESS_ANALYSIS.smoothingDivisor;
-  });
-
-  const stats = computeMeanAndStd(smoothed);
-  const threshold = stats.mean + stats.std * READINESS_ANALYSIS.thresholdStdMultiplier;
-  const minSegmentWidth = Math.max(
-    READINESS_ANALYSIS.minSegmentWidthFloor,
-    Math.floor(sampleCols * READINESS_ANALYSIS.minSegmentWidthRatio),
-  );
-
-  let peakCount = 0;
-  let coverageCols = 0;
-  let runLength = 0;
-
-  for (let i = 0; i < smoothed.length; i += 1) {
-    if (smoothed[i] > threshold) {
-      runLength += 1;
-      continue;
-    }
-
-    if (runLength >= minSegmentWidth) {
-      peakCount += 1;
-      coverageCols += runLength;
-    }
-    runLength = 0;
-  }
-
-  if (runLength >= minSegmentWidth) {
-    peakCount += 1;
-    coverageCols += runLength;
-  }
-
-  const peakScore = clamp01(
-    (peakCount - READINESS_ANALYSIS.peakBaseline) / READINESS_ANALYSIS.peakRange,
-  );
-  const textureScore = clamp01(
-    (stats.std - READINESS_ANALYSIS.textureBaseline) / READINESS_ANALYSIS.textureRange,
-  );
-  const coverageScore = clamp01(
-    coverageCols / Math.max(1, sampleCols) / READINESS_ANALYSIS.coverageNormalizer,
-  );
-  const score =
-    peakScore * READINESS_ANALYSIS.scoreWeights.peak +
-    textureScore * READINESS_ANALYSIS.scoreWeights.texture +
-    coverageScore * READINESS_ANALYSIS.scoreWeights.coverage;
-
-  const ready =
-    peakCount >= UI_READY_MIN_PEAK_COUNT &&
-    textureScore >= UI_READY_MIN_TEXTURE_SCORE &&
-    score >= UI_READY_DEFAULT_SCORE_THRESHOLD;
-
-  return {
-    ready,
-    score: Number(score.toFixed(3)),
-    peakCount,
-    textureScore: Number(textureScore.toFixed(3)),
-    coverageScore: Number(coverageScore.toFixed(3)),
-    bandTopRatio: round4(band?.top, 0),
-    bandHeightRatio: round4(band?.height, 0),
-    bandBottomRatio: round4((Number(band?.top) || 0) + (Number(band?.height) || 0), 0),
-  };
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitForRewardUiReady(options = {}) {
-  const timeoutMs = Math.floor(
-    clampNumber(
-      options.timeoutMs,
-      UI_READY_OPTION_LIMITS.timeoutMinMs,
-      UI_READY_OPTION_LIMITS.timeoutMaxMs,
-      UI_READY_DEFAULT_TIMEOUT_MS,
-    ),
-  );
-  const pollMs = Math.floor(
-    clampNumber(
-      options.pollMs,
-      UI_READY_OPTION_LIMITS.pollMinMs,
-      UI_READY_OPTION_LIMITS.pollMaxMs,
-      UI_READY_DEFAULT_POLL_MS,
-    ),
-  );
-  const requiredHits = Math.floor(
-    clampNumber(
-      options.requiredHits,
-      UI_READY_OPTION_LIMITS.requiredHitsMin,
-      UI_READY_OPTION_LIMITS.requiredHitsMax,
-      UI_READY_DEFAULT_REQUIRED_HITS,
-    ),
-  );
-  const scoreThreshold = clampNumber(
-    options.scoreThreshold,
-    UI_READY_OPTION_LIMITS.scoreThresholdMin,
-    UI_READY_OPTION_LIMITS.scoreThresholdMax,
-    UI_READY_DEFAULT_SCORE_THRESHOLD,
-  );
-
-  const band =
-    options.band && Number.isFinite(options.band.top) && Number.isFinite(options.band.height)
-      ? options.band
-      : getPrimaryBand();
-
-  const startedAt = Date.now();
-  let attempts = 0;
-  let consecutiveHits = 0;
-  let best = null;
-
-  while (Date.now() - startedAt < timeoutMs) {
-    attempts += 1;
-
-    const screenshot = await captureScreen();
-    if (!screenshot || !screenshot.image) {
-      consecutiveHits = 0;
-      await sleep(pollMs);
-      continue;
-    }
-
-    const readiness = analyzeRewardBandReadiness(screenshot.image, band);
-    const sample = {
-      ...readiness,
-      sourceType: screenshot.sourceType || null,
-      sourceDisplayId: screenshot.sourceDisplayId || null,
-      sourceName: screenshot.sourceName || null,
-      attempt: attempts,
-    };
-
-    if (!best || sample.score > best.score) {
-      best = sample;
-    }
-
-    const hit =
-      sample.peakCount >= UI_READY_MIN_PEAK_COUNT &&
-      sample.textureScore >= UI_READY_MIN_TEXTURE_SCORE &&
-      sample.score >= scoreThreshold;
-
-    consecutiveHits = hit ? consecutiveHits + 1 : 0;
-
-    if (consecutiveHits >= requiredHits) {
-      return {
-        ready: true,
-        attempts,
-        elapsedMs: Date.now() - startedAt,
-        threshold: scoreThreshold,
-        best: sample,
-      };
-    }
-
-    await sleep(pollMs);
-  }
-
-  return {
-    ready: false,
-    attempts,
-    elapsedMs: Date.now() - startedAt,
-    threshold: scoreThreshold,
-    best,
-  };
-}
-
-function round4(value, fallback = null) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  return Number(n.toFixed(4));
-}
-
-function medianNumber(values, fallback) {
-  if (!Array.isArray(values) || values.length === 0) return fallback;
-  const nums = values.filter(Number.isFinite).sort((a, b) => a - b);
-  if (nums.length === 0) return fallback;
-  const mid = Math.floor(nums.length / 2);
-  if (nums.length % 2 === 1) return nums[mid];
-  return (nums[mid - 1] + nums[mid]) / 2;
-}
-
-function buildConsensusSelection(passResults) {
-  const successful = passResults.filter((result) => result.items.length > 0);
-  if (successful.length === 0) return null;
-
-  if (successful.length === 1) {
-    return {
-      items: successful[0].items.slice(0, MAX_REWARD_SLOTS),
-      selectedPass: successful[0],
-      strategy: "single-pass",
-      targetCount: successful[0].items.length,
-    };
-  }
-
-  const estimatedCount = Math.max(
-    1,
-    Math.min(
-      MAX_REWARD_SLOTS,
-      Math.round(
-        medianNumber(
-          successful.map((result) => result.items.length),
-          successful[0].items.length,
-        ),
-      ),
-    ),
-  );
-
-  const votes = new Map();
-
-  for (const result of successful) {
-    const scoreWeight = Math.max(CONSENSUS_TUNING.minScoreWeight, result.score);
-    for (const match of result.matches) {
-      const key = match.item.name;
-      const existing = votes.get(key) || {
-        item: match.item,
-        hits: 0,
-        weightedScore: 0,
-        bestConfidence: 0,
-        avgPosAccumulator: 0,
-        avgPosCount: 0,
-      };
-
-      existing.hits += 1;
-      existing.weightedScore +=
-        scoreWeight * Math.max(CONSENSUS_TUNING.minConfidenceWeight, Number(match.confidence) || 0);
-      existing.bestConfidence = Math.max(existing.bestConfidence, Number(match.confidence) || 0);
-
-      if (Number.isFinite(match.pos) && match.pos >= 0) {
-        existing.avgPosAccumulator += match.pos;
-        existing.avgPosCount += 1;
-      }
-
-      votes.set(key, existing);
-    }
-  }
-
-  const ranked = [...votes.values()].sort((a, b) => {
-    if (b.hits !== a.hits) return b.hits - a.hits;
-    if (b.weightedScore !== a.weightedScore) return b.weightedScore - a.weightedScore;
-    if (b.bestConfidence !== a.bestConfidence) return b.bestConfidence - a.bestConfidence;
-    return a.item.name.localeCompare(b.item.name);
-  });
-
-  const selectedWithPos = ranked
-    .slice(0, estimatedCount)
-    .map((entry) => {
-      const avgPos =
-        entry.avgPosCount > 0
-          ? entry.avgPosAccumulator / entry.avgPosCount
-          : Number.MAX_SAFE_INTEGER;
-      return {
-        avgPos,
-        item: {
-          ...entry.item,
-          confidence: Number(entry.bestConfidence.toFixed(CONSENSUS_TUNING.confidenceDecimals)),
-        },
-      };
-    })
-    .sort((a, b) => a.avgPos - b.avgPos);
-
-  const chosenItems = selectedWithPos.map((entry) => entry.item);
-
-  const selectedPass = [...successful].sort((a, b) => {
-    const aDelta = Math.abs(a.items.length - estimatedCount);
-    const bDelta = Math.abs(b.items.length - estimatedCount);
-    if (aDelta !== bDelta) return aDelta - bDelta;
-    return b.score - a.score;
-  })[0];
-
-  return {
-    items: chosenItems,
-    selectedPass,
-    strategy: "consensus",
-    targetCount: estimatedCount,
-  };
-}
+// --- Scan meta builder ------------------------------------------------------
 
 function buildScanMeta({
   screenshot,
@@ -910,6 +287,159 @@ function buildScanMeta({
   };
 }
 
+// --- Relic era detection ----------------------------------------------------
+
+async function detectRelicSelectionEra(options = {}) {
+  const timeoutMs = Math.floor(clampNumber(options.timeoutMs, 600, 12000, 4500));
+  const startedAt = Date.now();
+
+  let screenshot;
+  try {
+    screenshot = await captureScreen();
+  } catch (err) {
+    log.warn("[RewardScanner] Relic era capture failed:", normalizeErrorMessage(err));
+    return {
+      era: null,
+      confidence: 0,
+      elapsedMs: Date.now() - startedAt,
+      textPreview: "",
+    };
+  }
+
+  if (!screenshot?.image) {
+    return {
+      era: null,
+      confidence: 0,
+      elapsedMs: Date.now() - startedAt,
+      textPreview: "",
+    };
+  }
+
+  const perAttemptTimeoutMs = Math.max(900, Math.min(scanSettings.ocrTimeoutMs, timeoutMs));
+  let best = {
+    era: null,
+    confidence: 0,
+    textPreview: "",
+    candidateId: null,
+    bandTopRatio: null,
+    bandHeightRatio: null,
+    ocrVariant: null,
+  };
+
+  for (const rect of RELIC_ROW_TILE_LABEL_RECTS) {
+    let cropped;
+    try {
+      cropped = cropRect(screenshot.image, rect);
+    } catch {
+      continue;
+    }
+
+    const variants = buildOcrVariants(cropped);
+    for (const variant of variants) {
+      if (Date.now() - startedAt >= timeoutMs) break;
+
+      try {
+        fs.writeFileSync(TEMP_ERA_IMAGE, variant.image.toPNG());
+      } catch {
+        continue;
+      }
+
+      let ocrText;
+      try {
+        ocrText = await runOCR(TEMP_ERA_IMAGE, perAttemptTimeoutMs);
+      } catch {
+        continue;
+      }
+
+      const hit = detectRelicEraFromTileLabelText(ocrText);
+      if (hit.confidence > best.confidence) {
+        best = {
+          era: hit.era,
+          confidence: hit.confidence,
+          textPreview: String(ocrText || "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, OCR_TEXT_PREVIEW_MAX_CHARS),
+          candidateId: `tile-${rect.id}`,
+          bandTopRatio: round4(rect.y, null),
+          bandHeightRatio: round4(rect.height, null),
+          ocrVariant: variant.id,
+        };
+      }
+
+      if (best.confidence >= 0.99) {
+        break;
+      }
+    }
+
+    if (best.confidence >= 0.99) {
+      break;
+    }
+  }
+
+  if (best.confidence < 0.9) {
+    for (const band of RELIC_ERA_BANDS) {
+      let cropped;
+      try {
+        cropped = cropBand(screenshot.image, band);
+      } catch {
+        continue;
+      }
+
+      const variants = buildOcrVariants(cropped);
+      for (const variant of variants) {
+        if (Date.now() - startedAt >= timeoutMs) break;
+
+        try {
+          fs.writeFileSync(TEMP_ERA_IMAGE, variant.image.toPNG());
+        } catch {
+          continue;
+        }
+
+        let ocrText;
+        try {
+          ocrText = await runOCR(TEMP_ERA_IMAGE, perAttemptTimeoutMs);
+        } catch {
+          continue;
+        }
+
+        const hit = detectRelicEraFromText(ocrText);
+        if (hit.confidence > best.confidence) {
+          best = {
+            era: hit.era,
+            confidence: hit.confidence,
+            textPreview: String(ocrText || "")
+              .replace(/\s+/g, " ")
+              .trim()
+              .slice(0, OCR_TEXT_PREVIEW_MAX_CHARS),
+            candidateId: "header-band",
+            bandTopRatio: round4(band.top, null),
+            bandHeightRatio: round4(band.height, null),
+            ocrVariant: variant.id,
+          };
+        }
+
+        if (best.confidence >= 0.99) {
+          break;
+        }
+      }
+
+      if (best.confidence >= 0.99) {
+        break;
+      }
+    }
+  }
+
+  return {
+    ...best,
+    sourceType: screenshot.sourceType || null,
+    sourceDisplayId: screenshot.sourceDisplayId || null,
+    elapsedMs: Date.now() - startedAt,
+  };
+}
+
+// --- Main scan orchestrator -------------------------------------------------
+
 async function scanRewardsDetailed() {
   if (sortedItems.length === 0) {
     log.warn("[RewardScanner] No relic items loaded - call setRelicItems() first");
@@ -922,7 +452,7 @@ async function scanRewardsDetailed() {
   try {
     screenshot = await captureScreen();
   } catch (err) {
-    log.error("[RewardScanner] captureScreen error:", err.message);
+    log.error("[RewardScanner] captureScreen error:", normalizeErrorMessage(err));
     return null;
   }
   if (!screenshot) {
@@ -947,28 +477,47 @@ async function scanRewardsDetailed() {
     let cropped;
     try {
       cropped = cropRewardBand(screenshot.image, bands[i]);
-      fs.writeFileSync(TEMP_IMAGE, cropped.toPNG());
     } catch (err) {
-      log.error(`[RewardScanner] crop/write failed on pass ${i + 1}:`, err.message);
+      log.error(`[RewardScanner] crop/write failed on pass ${i + 1}:`, normalizeErrorMessage(err));
       continue;
     }
 
-    let ocrText;
-    try {
-      ocrText = await runOCR(TEMP_IMAGE, scanSettings.ocrTimeoutMs);
-      hadOcrSuccess = true;
-    } catch (err) {
-      log.error(`[RewardScanner] OCR failed on pass ${i + 1}:`, err.message);
-      continue;
+    let passResult = null;
+    const variants = buildOcrVariants(cropped);
+
+    for (const variant of variants) {
+      let ocrText;
+      try {
+        fs.writeFileSync(TEMP_IMAGE, variant.image.toPNG());
+        ocrText = await runOCR(TEMP_IMAGE, scanSettings.ocrTimeoutMs);
+        hadOcrSuccess = true;
+      } catch (err) {
+        log.error(
+          `[RewardScanner] OCR failed on pass ${i + 1} (${variant.id}):`,
+          normalizeErrorMessage(err),
+        );
+        continue;
+      }
+
+      const matched = matchItemsDetailed(ocrText, threshold, sortedItems);
+      const candidate = {
+        ...matched,
+        passIndex: i + 1,
+        band: bands[i],
+        text: ocrText,
+        ocrVariant: variant.id,
+      };
+
+      passResult = chooseBetterOcrPass(passResult, candidate);
+
+      if (matched.items.length === MAX_REWARD_SLOTS && matched.exactCount === MAX_REWARD_SLOTS) {
+        break;
+      }
     }
 
-    const matched = matchItemsDetailed(ocrText, threshold);
-    const passResult = {
-      ...matched,
-      passIndex: i + 1,
-      band: bands[i],
-      text: ocrText,
-    };
+    if (!passResult) {
+      continue;
+    }
 
     passResults.push(passResult);
 
@@ -995,7 +544,7 @@ async function scanRewardsDetailed() {
   if (items.length > 0) {
     log.log(
       `[RewardScanner] Detected (${consensus?.strategy || "best-pass"} pass ${selectedPass?.passIndex ?? "?"}, ` +
-        `score ${Number(selectedPass?.score || 0).toFixed(2)}):`,
+        `score ${Number(selectedPass?.score || 0).toFixed(2)}, variant ${selectedPass?.ocrVariant || "raw"}):`,
       items.map((item) => item.name).join(" | "),
     );
   } else {
@@ -1036,7 +585,9 @@ module.exports = {
   setSettings,
   getSettings,
   captureDebugFrame,
+  captureSourceMeta,
+  detectRelicSelectionEra,
   scanRewards,
   scanRewardsDetailed,
-  waitForRewardUiReady,
+  waitForRewardUiReady: (options) => waitForRewardUiReady(options, getPrimaryBand),
 };

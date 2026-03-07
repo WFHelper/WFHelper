@@ -1,4 +1,9 @@
 import { fetchBackendOrdersBySlug, normalizeWfmSlug } from "./backendLite.js";
+import numericShared from "../../../config/shared/numeric.cjs";
+
+const { normalizeRank } = numericShared as {
+  normalizeRank: (value: unknown, maxRank?: number) => number | null;
+};
 
 export interface OrderBookEntry {
   userName: string;
@@ -29,14 +34,6 @@ type CacheEntry =
 
 const cacheBySlug = new Map<string, CacheEntry>();
 const inFlightBySlug = new Map<string, Promise<ItemOrderBookResult>>();
-
-function normalizeRank(value: unknown): number | null {
-  if (value == null) return null;
-  if (typeof value === "string" && value.trim().length === 0) return null;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) return null;
-  return Math.floor(parsed);
-}
 
 function orderBookCacheKey(slug: string, rank: number | null): string {
   return rank == null ? slug : `${slug}:r${rank}`;

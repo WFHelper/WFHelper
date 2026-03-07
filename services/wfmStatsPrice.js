@@ -2,16 +2,12 @@
 
 const log = require("./logger").withScope("wfmStatsPrice");
 const { extractMedianFromStatsPayload } = require("./wfmStats");
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
 
 const STATS_TTL_MS = 5 * 60 * 1000;
 const STATS_TIMEOUT_MS = 7_000;
 
-const WFM_HEADERS = Object.freeze({
-  Platform: "pc",
-  Language: "en",
-  Crossplay: "true",
-  Accept: "application/json",
-});
+const { WFM_HEADERS } = require("../config/shared/wfm.cjs");
 
 const cache = new Map();
 const inFlight = new Map();
@@ -38,7 +34,13 @@ function setCachedPrice(slug, median) {
   });
 }
 
-async function fetchPriceBySlug(slugInput) {
+function getCachedPriceBySlug(slugInput) {
+  const slug = normalizeSlug(slugInput);
+  if (!slug) return null;
+  return getCachedPrice(slug);
+}
+
+async function fetchPriceBySlug(slugInput, options = {}) {
   const slug = normalizeSlug(slugInput);
   if (!slug) return null;
 
@@ -50,7 +52,10 @@ async function fetchPriceBySlug(slugInput) {
 
   const task = (async () => {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(new Error("timeout")), STATS_TIMEOUT_MS);
+    const timeoutMs = Number.isFinite(Number(options.timeoutMs))
+      ? Math.max(500, Number(options.timeoutMs))
+      : STATS_TIMEOUT_MS;
+    const timer = setTimeout(() => controller.abort(new Error("timeout")), timeoutMs);
 
     try {
       const response = await fetch(`https://api.warframe.market/v1/items/${slug}/statistics`, {
@@ -67,7 +72,7 @@ async function fetchPriceBySlug(slugInput) {
       setCachedPrice(slug, median);
       return median;
     } catch (err) {
-      log.warn(`[WFM] stats fetch failed for ${slug}:`, err?.message || String(err));
+      log.warn(`[WFM] stats fetch failed for ${slug}:`, normalizeErrorMessage(err));
       return null;
     } finally {
       clearTimeout(timer);
@@ -86,6 +91,7 @@ function clearCache() {
 
 module.exports = {
   fetchPriceBySlug,
+  getCachedPriceBySlug,
   __test__: {
     normalizeSlug,
     clearCache,

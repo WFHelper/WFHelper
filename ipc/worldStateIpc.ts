@@ -14,6 +14,10 @@ const log = requireRuntime<{
   };
 }>("services/logger").withScope("worldStateIpc");
 
+const { normalizeErrorMessage } = requireRuntime<{
+  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
+}>("config/shared/errors.cjs");
+
 const worldStateParser = requireRuntime<{
   fetchAndParse: () => Promise<unknown>;
   emptyWorldState: () => unknown;
@@ -97,7 +101,7 @@ function sendDesktopNotification(title: string, body: string): void {
     });
     notification.show();
   } catch (err) {
-    log.warn("[WorldState] notification failed:", err instanceof Error ? err.message : String(err));
+    log.warn("[WorldState] notification failed:", normalizeErrorMessage(err));
   }
 }
 
@@ -166,7 +170,7 @@ function register(
       log.log("[WorldState] Fetched and parsed DE world state");
       return _worldStateCache;
     } catch (err) {
-      log.error("[WorldState] fetch failed:", err instanceof Error ? err.message : String(err));
+      log.error("[WorldState] fetch failed:", normalizeErrorMessage(err));
       if (!_worldStateCache) {
         _worldStateCache = worldStateParser.emptyWorldState();
       }

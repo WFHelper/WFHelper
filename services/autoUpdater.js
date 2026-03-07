@@ -1,6 +1,7 @@
 const { app } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const log = require("./logger").withScope("autoUpdater");
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
 
 const UPDATE_STATUS_CHANNEL = "app-update-status";
 const STARTUP_CHECK_DELAY_MS = 12_000;
@@ -29,15 +30,6 @@ function setUpdateState(status, patch = {}) {
     timestamp: Date.now(),
   };
   emitUpdateState();
-}
-
-function toMessage(errorLike) {
-  if (errorLike && typeof errorLike === "object" && "message" in errorLike) {
-    const msg = errorLike.message;
-    if (typeof msg === "string" && msg.trim()) return msg.trim();
-  }
-  if (typeof errorLike === "string" && errorLike.trim()) return errorLike.trim();
-  return "Unknown updater error";
 }
 
 function toInfoPatch(info) {
@@ -122,7 +114,7 @@ function initialize(windowRef) {
   });
 
   autoUpdater.on("error", (err) => {
-    const message = toMessage(err);
+    const message = normalizeErrorMessage(err, "Unknown updater error");
     log.error("Updater error:", message);
     setUpdateState("error", { message });
   });
@@ -149,7 +141,7 @@ async function checkForUpdates(source = "manual") {
       await autoUpdater.checkForUpdates();
       return { ok: true, source, state: updateState };
     } catch (err) {
-      const message = toMessage(err);
+      const message = normalizeErrorMessage(err, "Unknown updater error");
       setUpdateState("error", { message });
       return { ok: false, source, message, state: updateState };
     } finally {

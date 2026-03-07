@@ -55,6 +55,7 @@ contextBridge.exposeInMainWorld("api", {
 
   toggleOverlay: () => ipcRenderer.send("toggle-overlay"),
   simulateRelicTrigger: () => ipcRenderer.send("simulate-relic-trigger"),
+  updateOverlayTheme: (themeVars: unknown) => ipcRenderer.send("overlay-theme-updated", themeVars),
   getOverlaySettings: () => ipcRenderer.invoke("overlay:get-settings"),
   setOverlaySettings: (settings: unknown) => ipcRenderer.invoke("overlay:set-settings", settings),
   openOcrCropDebugger: () => ipcRenderer.invoke("overlay:open-crop-debugger"),
@@ -63,4 +64,6 @@ contextBridge.exposeInMainWorld("api", {
 
   loadPriceCache: () => ipcRenderer.invoke("price-cache:load"),
   savePriceCache: (data: unknown) => ipcRenderer.invoke("price-cache:save", data),
+  loadOrderCache: () => ipcRenderer.invoke("order-cache:load"),
+  saveOrderCache: (data: unknown) => ipcRenderer.invoke("order-cache:save", data),
 });

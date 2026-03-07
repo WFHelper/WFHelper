@@ -13,7 +13,7 @@
     <div id="panel">
       <div id="header">
         <div>
-          <div id="header-title">&#9671; Relic Reward</div>
+          <div id="header-title">&#9671; Relic Overlay</div>
           <div id="header-sub">Detecting...</div>
         </div>
         <button id="btn-close" title="Close">&times;</button>
@@ -23,6 +23,8 @@
         <div class="scan-spinner"></div>
         <div id="scanning-text">Reading reward screen...</div>
       </div>
+
+      <div id="planner-grid" class="is-hidden"></div>
 
       <div id="slots-grid" class="is-hidden">
         <div class="reward-slot empty-slot" data-slot="0">
@@ -61,7 +63,7 @@
 
       <div id="error-banner">OCR failed to detect reward items from the current screen.</div>
 
-      <div id="best-footer">
+      <div id="best-footer" class="is-hidden">
         <span id="best-label">Best:</span>
         <span id="best-value">Detecting...</span>
       </div>

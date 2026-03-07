@@ -49,6 +49,7 @@ const overlayIpc = fromAppRoot("ipc/overlayIpc");
 const worldStateIpc = fromAppRoot("ipc/worldStateIpc");
 const systemIpc = fromAppRoot("ipc/systemIpc");
 const priceCacheIpc = fromAppRoot("ipc/priceCacheIpc");
+const orderCacheIpc = fromAppRoot("ipc/orderCacheIpc");
 
 // Suppress noisy Chromium/DevTools internal logging in terminal.
 app.commandLine.appendSwitch("disable-logging");
@@ -112,7 +113,7 @@ function createWindow(): void {
       details: { responseHeaders?: Record<string, string[]> },
       callback: (arg0: { responseHeaders: Record<string, string[]> }) => void,
     ) => {
-    callback({
+      callback({
         responseHeaders: {
           ...details.responseHeaders,
           "Content-Security-Policy": [MAIN_WINDOW_CSP],
@@ -134,38 +135,72 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
-  overlayIpc.loadOverlaySettings();
+  const startupStartedAt = Date.now();
+  const profileStage = (label: string, startedAt: number): void => {
+    log.log(`[StartupProfile][main] ${label}: ${Date.now() - startedAt}ms`);
+  };
 
+  const settingsStart = Date.now();
+  overlayIpc.loadOverlaySettings();
+  profileStage("overlay-settings:load", settingsStart);
+
+  const ipcRegisterStart = Date.now();
   inventoryIpc.register();
   wfmIpc.register();
   overlayIpc.register();
   worldStateIpc.register();
   systemIpc.register();
   priceCacheIpc.register();
+  orderCacheIpc.register();
+  profileStage("ipc:register", ipcRegisterStart);
 
+  const itemDbStart = Date.now();
   itemDb.buildDatabase();
+  profileStage("item-db:build", itemDbStart);
 
+  const catalogStart = Date.now();
   wfmCatalog
     .ensureLoaded()
     .catch((err: Error) => log.error("[WFMarket] startup fetch failed:", err));
+  profileStage("wfm-catalog:ensureLoaded-dispatch", catalogStart);
 
-  await wfmSession.restoreSession();
-
+  const windowStart = Date.now();
   createWindow();
-  autoUpdater.initialize(ctx.mainWindow);
-  overlayIpc.registerOverlayHotkey();
+  profileStage("window:create", windowStart);
 
+  const sessionRestoreStart = Date.now();
+  void wfmSession.restoreSession().catch((err: Error) => {
+    log.warn("[WFMSession] restore failed:", err?.message || String(err));
+  });
+  profileStage("wfm-session:restore-dispatch", sessionRestoreStart);
+
+  const updaterStart = Date.now();
+  autoUpdater.initialize(ctx.mainWindow);
+  profileStage("auto-updater:init", updaterStart);
+
+  const hotkeyStart = Date.now();
+  overlayIpc.registerOverlayHotkey();
+  profileStage("overlay-hotkey:register", hotkeyStart);
+
+  const inventoryDetectStart = Date.now();
   const found = inventoryIpc.findInventoryFile();
   if (found) {
     ctx.currentInventoryPath = found;
     inventoryIpc.watchInventoryFile(found);
     log.log("Auto-detected inventory at:", found);
   }
+  profileStage("inventory:auto-detect", inventoryDetectStart);
 
-  const eeLogPath = eeLogMonitor.startWatching(() => overlayIpc.onRelicRewardTrigger("eelog"));
+  const eeLogStart = Date.now();
+  const eeLogPath = eeLogMonitor.startWatching({
+    onRewardTrigger: () => overlayIpc.onRelicRewardTrigger("eelog"),
+    onRelicSelectionOpen: () => overlayIpc.onRelicSelectionTrigger("eelog"),
+  });
   if (eeLogPath) log.log("[EELog] Monitoring:", eeLogPath);
   else log.log("[EELog] EE.log not found - relic overlay trigger disabled");
+  profileStage("ee-log:watch-start", eeLogStart);
 
+  const rewardItemsStart = Date.now();
   try {
     const db = relicService.getRelicDatabase();
     const seen = new Map();
@@ -186,6 +221,9 @@ app.whenReady().then(async () => {
   } catch (err) {
     log.error("[RewardScanner] Failed to load relic items:", (err as Error).message);
   }
+  profileStage("relic-reward-items:prepare", rewardItemsStart);
+
+  profileStage("total-main-startup-sequence", startupStartedAt);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

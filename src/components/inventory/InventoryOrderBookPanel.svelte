@@ -12,6 +12,13 @@
   } from "../../lib/wfm/orderBook.js";
   import type { InventoryViewItem } from "../../lib/inventoryMarket.js";
   import type { WfmLookupItem } from "../../types/market.js";
+  import sharedNumeric from "../../../config/shared/numeric.cjs";
+
+  const { normalizeRank, isRankedGroup, MAX_SUPPORTED_RANK } = sharedNumeric as {
+    normalizeRank: (value: unknown, maxRank?: number) => number | null;
+    isRankedGroup: (group: string | null | undefined) => boolean;
+    MAX_SUPPORTED_RANK: number;
+  };
 
   export let item: InventoryViewItem | null = null;
 
@@ -34,7 +41,6 @@
 
   const AUTO_REFRESH_MS = 45_000;
   const FEEDBACK_TTL_MS = 2_500;
-  const MAX_SUPPORTED_RANK = 20;
   const DISPLAY_ROWS_PER_SIDE = 20;
 
   let currentSlug: string | null = null;
@@ -55,12 +61,7 @@
   let selectedRank = 0;
 
   function normalizeRankValue(value: unknown): number | null {
-    if (value == null) return null;
-    if (typeof value === "string" && value.trim().length === 0) return null;
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed)) return null;
-    if (parsed < 0 || parsed > MAX_SUPPORTED_RANK) return null;
-    return Math.floor(parsed);
+    return normalizeRank(value, MAX_SUPPORTED_RANK);
   }
 
   function defaultMaxRankForGroup(group: InventoryViewItem["inventoryGroup"] | null | undefined): number {
@@ -87,8 +88,7 @@
     };
   })();
 
-  $: isRankedListingItem =
-    item?.inventoryGroup === "mods" || item?.inventoryGroup === "arcanes";
+  $: isRankedListingItem = isRankedGroup(item?.inventoryGroup);
   $: itemRankValue = normalizeRankValue(item?.rank);
   $: itemMaxRankValue = normalizeRankValue(item?.maxRank);
   $: maxSelectableRank = isRankedListingItem

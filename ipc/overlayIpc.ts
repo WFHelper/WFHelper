@@ -7,6 +7,7 @@ import {
   isAuthorizedSender,
 } from "./ipcSecurity";
 import { createOverlayScanController } from "./overlay/scan";
+import { createRelicSelectionController } from "./overlay/relicSelection";
 import { createOverlaySettingsController } from "./overlay/settings";
 import { createOverlayWindowsController } from "./overlay/windows";
 import { createRuntimeRequire } from "./runtimeRequire";
@@ -23,17 +24,53 @@ const log = requireRuntime<{
   };
 }>("services/logger").withScope("overlayIpc");
 
+const { normalizeErrorMessage } = requireRuntime<{
+  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
+}>("config/shared/errors.cjs");
+
 const { ipcMain, BrowserWindow, globalShortcut, app, screen } =
   require("electron") as typeof import("electron");
 const path = require("node:path") as typeof import("node:path");
 const fs = require("node:fs") as typeof import("node:fs");
-const relicService = requireRuntime<{ getRelicDatabase: () => { groups: Record<string, any> } }>(
-  "services/relicService",
-);
+const relicService = requireRuntime<{
+  getRelicDatabase: () => {
+    groups: Record<
+      string,
+      {
+        key: string;
+        name: string;
+        tier?: string;
+        qualities?: Record<
+          string,
+          { rewards?: Array<{ name?: string; urlName?: string; rarity?: string }> } | undefined
+        >;
+      }
+    >;
+    byUniqueName: Record<
+      string,
+      { groupKey: string; quality: "intact" | "exceptional" | "flawless" | "radiant" }
+    >;
+  };
+}>("services/relicService");
 const rewardScanner = requireRuntime<{
   captureDebugFrame: () => Promise<Record<string, unknown> | null>;
+  captureSourceMeta?: () => Promise<{
+    sourceType?: string | null;
+    sourceName?: string | null;
+    sourceId?: string | null;
+    sourceDisplayId?: string | null;
+  } | null>;
   setSettings: (settings: Record<string, unknown>) => void;
   scanRewardsDetailed: () => Promise<{ items?: unknown[]; meta?: Record<string, unknown> | null }>;
+  detectRelicSelectionEra?: (options?: { timeoutMs?: number }) => Promise<{
+    era?: string | null;
+    confidence?: number;
+    textPreview?: string;
+    elapsedMs?: number;
+    sourceType?: string | null;
+    sourceDisplayId?: string | null;
+    candidateId?: string | null;
+  }>;
   waitForRewardUiReady?: (options: {
     timeoutMs: number;
     pollMs: number;
@@ -54,8 +91,16 @@ const rewardScanner = requireRuntime<{
   >;
 }>("services/rewardScanner");
 const wfmStatsPrice = requireRuntime<{
-  fetchPriceBySlug: (slug: string) => Promise<number | null>;
+  fetchPriceBySlug: (slug: string, options?: { timeoutMs?: number }) => Promise<number | null>;
+  getCachedPriceBySlug?: (slug: string) => number | null;
 }>("services/wfmStatsPrice");
+const warframeStatus = requireRuntime<{
+  getStatus: (options?: { force?: boolean }) => Promise<{
+    isOpen: boolean;
+    isFocused: boolean;
+    focusedProcessName?: string | null;
+  }>;
+}>("services/warframeStatus");
 const { hardenBrowserWindowNavigation } = requireRuntime<{
   hardenBrowserWindowNavigation: (
     browserWindow: import("electron").BrowserWindow,
@@ -79,6 +124,7 @@ const {
 }>("config/runtime/overlaySettings");
 
 const OVERLAY_SETTINGS_FILE = path.join(app.getPath("userData"), "overlay-settings.json");
+const PRICE_CACHE_FILE = path.join(app.getPath("userData"), "price-cache.json");
 const APP_ROOT = app.getAppPath();
 const OVERLAY_WINDOW_FILE = path.join(APP_ROOT, "renderer", "overlay.html");
 const CROP_DEBUG_WINDOW_FILE = path.join(APP_ROOT, "renderer", "crop-debug.html");
@@ -99,6 +145,7 @@ let scanController = createOverlayScanController({
   rewardScanner,
   ctx,
   windows: windowsController,
+  warframeStatus,
 });
 
 async function openOcrCropDebugger(source = "manual") {
@@ -114,8 +161,50 @@ async function openOcrCropDebugger(source = "manual") {
   return { ok: true, settings: { ...ctx.overlaySettings } };
 }
 
+const OVERLAY_THEME_VAR_ALLOWLIST = new Set([
+  "--bg-deep",
+  "--bg-base",
+  "--bg-surface",
+  "--bg-raised",
+  "--accent",
+  "--accent-dim",
+  "--accent-bright",
+  "--accent-glow",
+  "--text-primary",
+  "--text-secondary",
+  "--text-muted",
+  "--border",
+  "--border-strong",
+]);
+
+function sanitizeOverlayThemeVars(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== "object") return {};
+
+  const input = raw as Record<string, unknown>;
+  const sanitized: Record<string, string> = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (!OVERLAY_THEME_VAR_ALLOWLIST.has(key)) continue;
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    sanitized[key] = trimmed;
+  }
+  return sanitized;
+}
+
+function pushOverlayThemeVars() {
+  if (!ctx.overlayThemeVars || Object.keys(ctx.overlayThemeVars).length === 0) return;
+  windowsController.sendOverlayEvent("overlay-theme-vars", { ...ctx.overlayThemeVars });
+}
+
 function onRelicRewardTrigger(source = "manual") {
+  pushOverlayThemeVars();
   scanController.onRelicRewardTrigger(source);
+}
+
+function onRelicSelectionTrigger(source = "manual") {
+  pushOverlayThemeVars();
+  void relicSelectionController.onRelicSelectionTrigger(source);
 }
 
 const settingsController = createOverlaySettingsController({
@@ -138,6 +227,19 @@ scanController = createOverlayScanController({
   rewardScanner,
   ctx,
   windows: windowsController,
+  warframeStatus,
+});
+
+const relicSelectionController = createRelicSelectionController({
+  log,
+  ctx,
+  windows: windowsController,
+  relicService,
+  rewardScanner,
+  wfmStatsPrice,
+  warframeStatus,
+  fs,
+  cacheFilePath: PRICE_CACHE_FILE,
 });
 
 function register(): void {
@@ -160,12 +262,12 @@ function register(): void {
     assertAuthorizedSender(assertOverlayRendererSender, event as never, "overlay-get-relic-items");
 
     const db = relicService.getRelicDatabase();
-    const seen = new Map();
+    const seen = new Map<string, { name: string; urlName: string | null; rarity: string }>();
     for (const group of Object.values(db.groups)) {
-      for (const qualData of Object.values(
-        (group as { qualities: Record<string, any> }).qualities,
-      )) {
-        for (const reward of (qualData as { rewards: any[] }).rewards) {
+      if (!group.qualities) continue;
+      for (const qualData of Object.values(group.qualities)) {
+        if (!qualData?.rewards) continue;
+        for (const reward of qualData.rewards) {
           if (reward.name && !seen.has(reward.name)) {
             seen.set(reward.name, {
               name: reward.name,
@@ -213,13 +315,10 @@ function register(): void {
       const settings = settingsController.applyCropSelection(selection);
       return { ok: true, settings };
     } catch (err) {
-      log.error(
-        "[CropDebug] apply selection failed:",
-        err instanceof Error ? err.message : String(err),
-      );
+      log.error("[CropDebug] apply selection failed:", normalizeErrorMessage(err));
       return {
         ok: false,
-        error: err instanceof Error ? err.message : String(err),
+        error: normalizeErrorMessage(err),
       };
     }
   });
@@ -230,12 +329,25 @@ function register(): void {
     windowsController.clearOverlayAutoHideTimer();
     if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) {
       windowsController.createOverlayWindow();
+      pushOverlayThemeVars();
     } else if (ctx.overlayWindow.isVisible()) {
       ctx.overlayWindow.hide();
     } else {
       windowsController.positionOverlayWindow(windowsController.getAnchorMeta());
-      ctx.overlayWindow.show();
-      ctx.overlayWindow.focus();
+      pushOverlayThemeVars();
+      ctx.overlayWindow.showInactive();
+    }
+  });
+
+  ipcMain.on("overlay-theme-updated", (event: unknown, rawVars: unknown) => {
+    if (!isAuthorizedSender(assertMainRendererSender, event as never, "overlay-theme-updated")) {
+      return;
+    }
+
+    const sanitized = sanitizeOverlayThemeVars(rawVars);
+    ctx.overlayThemeVars = sanitized;
+    if (Object.keys(sanitized).length > 0) {
+      pushOverlayThemeVars();
     }
   });
 
@@ -247,7 +359,13 @@ function register(): void {
   });
 }
 
-export { register, settingsController, onRelicRewardTrigger, openOcrCropDebugger };
+export {
+  register,
+  settingsController,
+  onRelicRewardTrigger,
+  onRelicSelectionTrigger,
+  openOcrCropDebugger,
+};
 
 module.exports = {
   register,
@@ -255,5 +373,6 @@ module.exports = {
   registerOverlayHotkey: settingsController.registerOverlayHotkey,
   unregisterOverlayHotkey: settingsController.unregisterOverlayHotkey,
   onRelicRewardTrigger,
+  onRelicSelectionTrigger,
   openOcrCropDebugger,
 };

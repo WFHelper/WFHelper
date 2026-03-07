@@ -1,17 +1,25 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
+  import { createEventDispatcher, onDestroy, onMount } from "svelte";
 
   import ItemImage from "../ItemImage.svelte";
   import type { InventoryViewItem } from "../../lib/inventoryMarket.js";
+  import sharedNumeric from "../../../config/shared/numeric.cjs";
+
+  const { isRankedGroup } = sharedNumeric as {
+    isRankedGroup: (group: string | null | undefined) => boolean;
+  };
 
   export let item: InventoryViewItem;
   export let showDebug = false;
   export let showDucats = true;
 
-  const dispatch = createEventDispatcher<{ select: InventoryViewItem }>();
+  const dispatch = createEventDispatcher<{ select: InventoryViewItem; visible: InventoryViewItem }>();
+  let cardEl: HTMLDivElement | null = null;
+  let visibilityObserver: IntersectionObserver | null = null;
+  let visibilityReported = false;
 
   $: mastered = item.rank >= item.maxRank && item.maxRank > 1;
-  $: canShowRank = item.maxRank > 1 && (item.inventoryGroup === "mods" || item.inventoryGroup === "arcanes");
+  $: canShowRank = item.maxRank > 1 && isRankedGroup(item.inventoryGroup);
   $: rankFillPct =
     canShowRank && item.maxRank > 0
       ? Math.max(0, Math.min(100, (item.rank / item.maxRank) * 100))
@@ -21,7 +29,7 @@
   $: ducatLabel = item.ducats != null ? `${item.ducats}d` : "-d";
   $: ratioLabel = item.ducatonator != null ? `${item.ducatonator} d/p` : "- d/p";
   $: showRankOrderSummary =
-    (item.inventoryGroup === "mods" || item.inventoryGroup === "arcanes") && item.maxRank > 1;
+    isRankedGroup(item.inventoryGroup) && item.maxRank > 1;
   $: rankCapLabel = Number.isFinite(item.maxRank) ? Math.max(0, Math.floor(item.maxRank)) : 0;
 
   $: wtsRank0Label = item.wtsR0 != null ? `${item.wtsR0}p` : "-";
@@ -32,11 +40,43 @@
   function selectCard(): void {
     dispatch("select", item);
   }
+
+  onMount(() => {
+    if (typeof IntersectionObserver !== "function") return;
+    if (!cardEl) return;
+
+    visibilityObserver = new IntersectionObserver(
+      (entries) => {
+        if (visibilityReported) return;
+        const entry = entries[0];
+        if (!entry?.isIntersecting) return;
+
+        visibilityReported = true;
+        dispatch("visible", item);
+        visibilityObserver?.disconnect();
+        visibilityObserver = null;
+      },
+      {
+        root: null,
+        rootMargin: "160px 0px 240px 0px",
+        threshold: 0.01,
+      },
+    );
+
+    visibilityObserver.observe(cardEl);
+  });
+
+  onDestroy(() => {
+    if (visibilityObserver) {
+      visibilityObserver.disconnect();
+      visibilityObserver = null;
+    }
+  });
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <!-- svelte-ignore a11y-no-static-element-interactions -->
-<div class="item-card" class:mastered class:prime={item.isPrime} on:click={selectCard}>
+<div class="item-card" class:mastered class:prime={item.isPrime} on:click={selectCard} bind:this={cardEl}>
   <div class="item-img-wrap">
     <ItemImage src={item.displayImageUrl} alt={item.name} />
     {#if item.isPrime}<span class="prime-badge">PRIME</span>{/if}

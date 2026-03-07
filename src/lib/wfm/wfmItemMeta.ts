@@ -5,15 +5,17 @@ import {
   type BackendRequestPriority,
 } from "./backendLite.js";
 import { log } from "../log.js";
+import numericShared from "../../../config/shared/numeric.cjs";
+import wfmShared from "../../../config/shared/wfm.cjs";
 
-const WFM_HEADERS = {
-  Platform: "pc",
-  Language: "en",
-  Crossplay: "true",
-  Accept: "application/json",
+const { toFiniteNumber } = numericShared as {
+  toFiniteNumber: (value: unknown) => number | null;
 };
 
-const WFM_ASSET_BASE = "https://warframe.market/static/assets/";
+const { WFM_HEADERS, WFM_ASSET_BASE } = wfmShared as {
+  WFM_HEADERS: Readonly<Record<string, string>>;
+  WFM_ASSET_BASE: string;
+};
 const META_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const META_NO_DATA_TTL_MS = 6 * 60 * 60 * 1000;
 
@@ -33,19 +35,6 @@ export interface FetchMetaOptions {
 const metaCache = new Map<string, WfmItemMeta>();
 const metaNoDataCache = new Map<string, number>();
 const inFlight = new Map<string, Promise<WfmItemMeta | null>>();
-
-function toFiniteOrNull(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string" && value.trim()) {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return null;
-}
 
 function isNoDataCacheFresh(cachedAt: number | null | undefined): boolean {
   if (typeof cachedAt !== "number" || !Number.isFinite(cachedAt)) return false;
@@ -69,7 +58,7 @@ function toMeta(slug: string, json: unknown): WfmItemMeta | null {
   const data = (json as { data?: Record<string, unknown> })?.data;
   if (!data || typeof data !== "object") return null;
 
-  const ducatsRaw = toFiniteOrNull(data.ducats);
+  const ducatsRaw = toFiniteNumber(data.ducats);
   const ducats = ducatsRaw != null ? Math.max(0, Math.round(ducatsRaw)) : null;
 
   const i18nEn = (data.i18n as { en?: Record<string, unknown> } | undefined)?.en || {};
@@ -139,8 +128,8 @@ export async function fetchWfmItemMetaBySlug(
     try {
       const backendResult = await fetchBackendMetaBySlug(normalizedSlug);
       if (backendResult.status === "ok") {
-        const backendDucats = toFiniteOrNull(backendResult.data.ducats);
-        const backendTimestamp = toFiniteOrNull(backendResult.data.timestamp);
+        const backendDucats = toFiniteNumber(backendResult.data.ducats);
+        const backendTimestamp = toFiniteNumber(backendResult.data.timestamp);
         const backendMeta: WfmItemMeta = {
           slug: normalizeWfmSlug(backendResult.data.slug) || normalizedSlug,
           ducats: backendDucats != null ? Math.max(0, Math.round(backendDucats)) : null,

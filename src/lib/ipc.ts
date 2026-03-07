@@ -28,7 +28,9 @@ export function on<K extends EventChannel>(
   channel: K,
   callback: (payload: IpcEventMap[K]) => void,
 ): () => void {
-  return (eventApiMap[channel] as (cb: (payload: any) => void) => () => void)(callback);
+  return (eventApiMap[channel] as (cb: (payload: IpcEventMap[EventChannel]) => void) => () => void)(
+    callback as (payload: IpcEventMap[EventChannel]) => void,
+  );
 }
 
 const sendApiMap: Record<SendChannel, (...args: never[]) => void> = {
@@ -37,6 +39,8 @@ const sendApiMap: Record<SendChannel, (...args: never[]) => void> = {
   "window-close": () => window.api.closeWindow(),
   "toggle-overlay": () => window.api.toggleOverlay(),
   "simulate-relic-trigger": () => window.api.simulateRelicTrigger(),
+  "overlay-theme-updated": (themeVars: Record<string, string>) =>
+    window.api.updateOverlayTheme(themeVars),
   "open-external": (url: string) => window.api.openExternal(url),
 };
 
@@ -93,8 +97,13 @@ export const ipc = {
   closeWindow: () => window.api.closeWindow(),
   toggleOverlay: () => window.api.toggleOverlay(),
   simulateRelicTrigger: () => window.api.simulateRelicTrigger(),
+  updateOverlayTheme: (...args: IpcSendMap["overlay-theme-updated"]) =>
+    window.api.updateOverlayTheme(...args),
   openExternal: (...args: IpcSendMap["open-external"]) => window.api.openExternal(...args),
   loadPriceCache: () => window.api.loadPriceCache(),
   savePriceCache: (...args: IpcInvokeMap["savePriceCache"]["args"]) =>
     window.api.savePriceCache(...args),
+  loadOrderCache: () => window.api.loadOrderCache(),
+  saveOrderCache: (...args: IpcInvokeMap["saveOrderCache"]["args"]) =>
+    window.api.saveOrderCache(...args),
 } as const;

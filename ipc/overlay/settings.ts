@@ -2,24 +2,33 @@
 
 export {};
 
+import { createRuntimeRequire } from "../runtimeRequire";
+
+const requireRuntime = createRuntimeRequire(__dirname, 2);
+const { normalizeErrorMessage } = requireRuntime<{
+  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
+}>("config/shared/errors.cjs");
+const { clampNumber } = requireRuntime<{
+  clampNumber: (value: unknown, min: number, max: number, fallback: number) => number;
+}>("config/shared/numeric.cjs");
+
 type Logger = {
   log: (...args: unknown[]) => void;
   warn: (...args: unknown[]) => void;
   error: (...args: unknown[]) => void;
 };
 
+/** Overlay settings dictionary — values are primitive but stored as unknown for compatibility. */
+type OverlaySettingsDict = Record<string, unknown>;
+
 type OverlayCtx = {
-  overlaySettings: Record<string, any>;
+  overlaySettings: Record<string, unknown>;
   overlayHotkeyRegistered: string | null;
   overlayCropHotkeyRegistered: string | null;
   cropDebugWindow: import("electron").BrowserWindow | null;
 };
 
-type OverlayFs = {
-  existsSync: (path: string) => boolean;
-  readFileSync: (...args: any[]) => string;
-  writeFileSync: (...args: any[]) => void;
-};
+type OverlayFs = Pick<typeof import("node:fs"), "existsSync" | "readFileSync" | "writeFileSync">;
 
 type OverlaySettingsControllerOptions = {
   log: Logger;
@@ -27,20 +36,14 @@ type OverlaySettingsControllerOptions = {
   globalShortcut: typeof import("electron").globalShortcut;
   ctx: OverlayCtx;
   settingsFile: string;
-  defaults: Record<string, any>;
+  defaults: OverlaySettingsDict;
   limits: Record<string, number>;
   cropPresets: string[];
   ocrEngines: string[];
-  rewardScanner: { setSettings: (settings: Record<string, any>) => unknown };
+  rewardScanner: { setSettings: (settings: OverlaySettingsDict) => unknown };
   onRelicRewardTrigger: (source?: string) => void;
   onOpenCropDebugger: (source?: string) => Promise<unknown>;
 };
-
-function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(min, Math.min(max, n));
-}
 
 function normalizeHotkey(value: unknown, fallbackHotkey: string): string {
   const raw = typeof value === "string" ? value.trim() : "";
@@ -82,7 +85,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
 
   function normalizeOcrEngine(value: unknown): string {
     const engine = typeof value === "string" ? value.trim().toLowerCase() : "";
-    return ocrEngines.includes(engine) ? engine : defaults.ocrEngine;
+    return ocrEngines.includes(engine) ? engine : String(defaults.ocrEngine);
   }
 
   function normalizeCropRatios(topInput: unknown, heightInput: unknown) {
@@ -91,8 +94,8 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     const minHeight = limits.cropHeightRatioMin;
     const maxHeight = limits.cropHeightRatioMax;
 
-    let top = clampNumber(topInput, minTop, maxTop, defaults.cropTopRatio);
-    let height = clampNumber(heightInput, minHeight, maxHeight, defaults.cropHeightRatio);
+    let top = clampNumber(topInput, minTop, maxTop, Number(defaults.cropTopRatio));
+    let height = clampNumber(heightInput, minHeight, maxHeight, Number(defaults.cropHeightRatio));
 
     if (top + height > 1.0) {
       height = Math.max(minHeight, 1.0 - top);
@@ -107,11 +110,13 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     };
   }
 
-  function normalizeOverlaySettings(raw: unknown): Record<string, any> {
+  function normalizeOverlaySettings(raw: unknown): OverlaySettingsDict {
     const candidate = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
     const cropPreset =
       typeof candidate.cropPreset === "string" ? candidate.cropPreset.trim().toLowerCase() : "";
-    const validCropPreset = cropPresets.includes(cropPreset) ? cropPreset : defaults.cropPreset;
+    const validCropPreset = cropPresets.includes(cropPreset)
+      ? cropPreset
+      : String(defaults.cropPreset);
 
     const cropRatios = normalizeCropRatios(candidate.cropTopRatio, candidate.cropHeightRatio);
 
@@ -119,17 +124,19 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       autoTriggerEnabled:
         candidate.autoTriggerEnabled !== undefined
           ? !!candidate.autoTriggerEnabled
-          : defaults.autoTriggerEnabled,
+          : !!defaults.autoTriggerEnabled,
       hotkeyEnabled:
-        candidate.hotkeyEnabled !== undefined ? !!candidate.hotkeyEnabled : defaults.hotkeyEnabled,
-      hotkey: normalizeHotkey(candidate.hotkey ?? defaults.hotkey, defaults.hotkey),
+        candidate.hotkeyEnabled !== undefined
+          ? !!candidate.hotkeyEnabled
+          : !!defaults.hotkeyEnabled,
+      hotkey: normalizeHotkey(candidate.hotkey ?? defaults.hotkey, String(defaults.hotkey)),
       cropDebugHotkeyEnabled:
         candidate.cropDebugHotkeyEnabled !== undefined
           ? !!candidate.cropDebugHotkeyEnabled
-          : defaults.cropDebugHotkeyEnabled,
+          : !!defaults.cropDebugHotkeyEnabled,
       cropDebugHotkey: normalizeHotkey(
         candidate.cropDebugHotkey ?? defaults.cropDebugHotkey,
-        defaults.cropDebugHotkey,
+        String(defaults.cropDebugHotkey),
       ),
       cropPreset: validCropPreset,
       cropTopRatio: cropRatios.top,
@@ -140,31 +147,31 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
           candidate.ocrPasses,
           limits.ocrPassesMin,
           limits.ocrPassesMax,
-          defaults.ocrPasses,
+          Number(defaults.ocrPasses),
         ),
       ),
       matchThreshold: clampNumber(
         candidate.matchThreshold,
         limits.matchThresholdMin,
         limits.matchThresholdMax,
-        defaults.matchThreshold,
+        Number(defaults.matchThreshold),
       ),
       ocrTimeoutMs: Math.floor(
         clampNumber(
           candidate.ocrTimeoutMs,
           limits.ocrTimeoutMsMin,
           limits.ocrTimeoutMsMax,
-          defaults.ocrTimeoutMs,
+          Number(defaults.ocrTimeoutMs),
         ),
       ),
       worldNotificationsEnabled:
         candidate.worldNotificationsEnabled !== undefined
           ? !!candidate.worldNotificationsEnabled
-          : defaults.worldNotificationsEnabled,
+          : !!defaults.worldNotificationsEnabled,
     };
   }
 
-  function loadOverlaySettings(): Record<string, any> {
+  function loadOverlaySettings(): OverlaySettingsDict {
     try {
       if (fs.existsSync(settingsFile)) {
         const raw = fs.readFileSync(settingsFile, "utf8");
@@ -176,7 +183,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     } catch (err) {
       log.warn(
         "[OverlaySettings] Failed to load settings, using defaults:",
-        err instanceof Error ? err.message : String(err),
+        normalizeErrorMessage(err),
       );
       ctx.overlaySettings = { ...defaults };
     }
@@ -189,10 +196,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       fs.writeFileSync(settingsFile, JSON.stringify(ctx.overlaySettings, null, 2), "utf8");
       return true;
     } catch (err) {
-      log.error(
-        "[OverlaySettings] Failed to save settings:",
-        err instanceof Error ? err.message : String(err),
-      );
+      log.error("[OverlaySettings] Failed to save settings:", normalizeErrorMessage(err));
       return false;
     }
   }
@@ -202,10 +206,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     try {
       globalShortcut.unregister(ctx.overlayHotkeyRegistered);
     } catch (err) {
-      log.warn(
-        "[OverlayHotkey] unregister failed:",
-        err instanceof Error ? err.message : String(err),
-      );
+      log.warn("[OverlayHotkey] unregister failed:", normalizeErrorMessage(err));
     }
     ctx.overlayHotkeyRegistered = null;
   }
@@ -215,7 +216,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     try {
       globalShortcut.unregister(ctx.overlayCropHotkeyRegistered);
     } catch (err) {
-      log.warn("[CropHotkey] unregister failed:", err instanceof Error ? err.message : String(err));
+      log.warn("[CropHotkey] unregister failed:", normalizeErrorMessage(err));
     }
     ctx.overlayCropHotkeyRegistered = null;
   }
@@ -246,11 +247,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       log.log("[OverlayHotkey] registered:", accelerator);
       return true;
     } catch (err) {
-      log.warn(
-        "[OverlayHotkey] invalid shortcut:",
-        accelerator,
-        err instanceof Error ? err.message : String(err),
-      );
+      log.warn("[OverlayHotkey] invalid shortcut:", accelerator, normalizeErrorMessage(err));
       return false;
     }
   }
@@ -269,10 +266,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     try {
       const ok = globalShortcut.register(accelerator, () => {
         void onOpenCropDebugger("hotkey").catch((err) => {
-          log.error(
-            "[CropHotkey] open debug failed:",
-            err instanceof Error ? err.message : String(err),
-          );
+          log.error("[CropHotkey] open debug failed:", normalizeErrorMessage(err));
         });
       });
 
@@ -285,11 +279,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       log.log("[CropHotkey] registered:", accelerator);
       return true;
     } catch (err) {
-      log.warn(
-        "[CropHotkey] invalid shortcut:",
-        accelerator,
-        err instanceof Error ? err.message : String(err),
-      );
+      log.warn("[CropHotkey] invalid shortcut:", accelerator, normalizeErrorMessage(err));
       return false;
     }
   }
@@ -300,7 +290,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     return triggerOk || cropOk;
   }
 
-  function setOverlaySettings(nextSettings: unknown): Record<string, any> {
+  function setOverlaySettings(nextSettings: unknown): OverlaySettingsDict {
     ctx.overlaySettings = normalizeOverlaySettings({
       ...ctx.overlaySettings,
       ...(nextSettings && typeof nextSettings === "object"
@@ -313,7 +303,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     return { ...ctx.overlaySettings };
   }
 
-  function applyCropSelection(selection: unknown): Record<string, any> {
+  function applyCropSelection(selection: unknown): OverlaySettingsDict {
     const cropTopRatio =
       selection && typeof selection === "object"
         ? (selection as Record<string, unknown>).cropTopRatio

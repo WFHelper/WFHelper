@@ -8,6 +8,12 @@
   import ErrorBoundary from "./components/ErrorBoundary.svelte";
   import ToastHost from "./components/ToastHost.svelte";
 
+  import sharedErrors from "../config/shared/errors.cjs";
+
+  const { normalizeErrorMessage } = sharedErrors as {
+    normalizeErrorMessage: (err: unknown, fallback?: string) => string;
+  };
+
   import WelcomeView from "./views/WelcomeView.svelte";
   import InventoryView from "./views/InventoryView.svelte";
   import FoundryView from "./views/FoundryView.svelte";
@@ -51,9 +57,9 @@
   type LazyViewModule = { default: ComponentType };
 
   const lazyViewLoaders: Record<LazyViewName, () => Promise<LazyViewModule>> = {
-    world: () => import("./views/WorldView.svelte"),
-    market: () => import("./views/MarketView.svelte"),
-    relics: () => import("./views/RelicsView.svelte"),
+    world: () => import("./views/WorldView.svelte") as unknown as Promise<LazyViewModule>,
+    market: () => import("./views/MarketView.svelte") as unknown as Promise<LazyViewModule>,
+    relics: () => import("./views/RelicsView.svelte") as unknown as Promise<LazyViewModule>,
   };
 
   const lazyViewCache: Partial<Record<LazyViewName, ComponentType>> = {};
@@ -171,7 +177,7 @@
 
       lazyViewComponent = null;
       lazyViewLoading = false;
-      lazyViewError = err instanceof Error ? err.message : String(err);
+      lazyViewError = normalizeErrorMessage(err);
       completeHeavyViewOpen(view);
     }
   }

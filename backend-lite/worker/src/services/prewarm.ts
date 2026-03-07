@@ -2,6 +2,7 @@ import { CATALOG_CACHE_KEY, PREWARM_CURSOR_KEY, PREWARM_LAST_RUN_KEY, SKIP_UNTRA
 import type { Env, MetaPayload, OrdersPayload, PrewarmResult } from '../types';
 import { clamp, getJsonFromKv, parsePositiveInt } from '../utils';
 import wfmStatsShared from '../../../../config/shared/wfmStats.cjs';
+import sharedNumeric from '../../../../config/shared/numeric.cjs';
 
 const UNTRADABLE_SKIP_TTL_SEC = 30 * 24 * 60 * 60;
 
@@ -10,6 +11,9 @@ type SharedWfmStatsModule = {
 };
 
 const { extractMedianFromStatsPayload } = wfmStatsShared as SharedWfmStatsModule;
+const { normalizeRankFilter } = sharedNumeric as {
+	normalizeRankFilter: (value: unknown) => number | null;
+};
 
 export function cacheTtlSec(env: Env): number {
 	return clamp(parsePositiveInt(env.CACHE_TTL_SEC, 43200), 60, 604800);
@@ -75,17 +79,6 @@ export interface FetchResult<T> {
 	data: T | null;
 	/** true when the failure is transient (429/5xx) — do NOT negatively cache. */
 	transient: boolean;
-}
-
-const MAX_SUPPORTED_RANK = 20;
-
-function normalizeRankFilter(value: unknown): number | null {
-	if (value == null) return null;
-	if (typeof value === 'string' && value.trim().length === 0) return null;
-	const rank = Number(value);
-	if (!Number.isFinite(rank)) return null;
-	if (rank < 0 || rank > MAX_SUPPORTED_RANK) return null;
-	return Math.floor(rank);
 }
 
 export async function fetchPricePayload(

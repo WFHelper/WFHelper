@@ -6,6 +6,8 @@ import { applyUpdateState } from "../stores/updates.js";
 import { configureRelicRuntimeCacheFingerprint, warmupPrimeRewardPriceCache } from "./relic.js";
 import { importCache, exportCache } from "./wfm/priceCache.js";
 import type { CachedPriceEntry } from "./wfm/priceCache.js";
+import { importOrderSummaryCache, exportOrderSummaryCache } from "./wfm/orderSummaryCache.js";
+import type { CachedOrderSummaryEntry } from "./wfm/orderSummaryCache.js";
 import { log } from "./log.js";
 import { get } from "svelte/store";
 import { writable } from "svelte/store";
@@ -31,6 +33,11 @@ export interface StartupHandle {
 export function initStartup(): StartupHandle {
   let warmupTimer: ReturnType<typeof setTimeout> | null = null;
   let flushInterval: ReturnType<typeof setInterval> | null = null;
+  const startupStartedAt = Date.now();
+
+  const profileStage = (label: string, startedAt: number): void => {
+    log.info(`[StartupProfile] ${label}: ${Date.now() - startedAt}ms`);
+  };
 
   startupPriceCacheReady.set(false);
 
@@ -43,34 +50,57 @@ export function initStartup(): StartupHandle {
 
     // Restore persisted price cache before any price fetches happen
     try {
+      const stageStart = Date.now();
       const diskCache = await ipc.loadPriceCache();
       if (diskCache) {
         const count = importCache(diskCache as Record<string, CachedPriceEntry>);
         log.info(`[Startup] Restored ${count} prices from disk cache`);
       }
+      profileStage("price-cache:load", stageStart);
     } catch (e) {
       log.warn("[Startup] loadPriceCache failed:", e);
+    }
+
+    // Restore persisted ranked order summary cache (WTS/WTB card data)
+    try {
+      const stageStart = Date.now();
+      const orderDiskCache = await ipc.loadOrderCache();
+      if (orderDiskCache) {
+        const count = importOrderSummaryCache(
+          orderDiskCache as Record<string, CachedOrderSummaryEntry>,
+        );
+        log.info(`[Startup] Restored ${count} order summaries from disk cache`);
+      }
+      profileStage("order-cache:load", stageStart);
+    } catch (e) {
+      log.warn("[Startup] loadOrderCache failed:", e);
     } finally {
       startupPriceCacheReady.set(true);
     }
 
     try {
+      const stageStart = Date.now();
       const db = await ipc.getItemDatabase();
       itemDb.set(db || {});
+      profileStage("item-db:load", stageStart);
     } catch (e) {
       log.error("[Startup] getItemDatabase failed:", e);
     }
 
     try {
+      const stageStart = Date.now();
       const items = await ipc.getWfmItems();
       wfmItems.set(items || {});
+      profileStage("wfm-items:load", stageStart);
     } catch (e) {
       log.error("[Startup] getWfmItems failed:", e);
     }
 
     try {
+      const stageStart = Date.now();
       const state = await ipc.getAppUpdateState();
       applyUpdateState(state, false);
+      profileStage("app-update-state:load", stageStart);
     } catch {
       // optional feature, non-blocking
     }
@@ -83,6 +113,8 @@ export function initStartup(): StartupHandle {
     flushInterval = setInterval(() => {
       void flushPriceCacheToDisk();
     }, PRICE_CACHE_FLUSH_INTERVAL_MS);
+
+    profileStage("total-renderer-startup-sequence", startupStartedAt);
   })();
 
   // Also flush on page unload (app close / refresh)
@@ -109,9 +141,15 @@ export function initStartup(): StartupHandle {
 
 async function flushPriceCacheToDisk(): Promise<void> {
   try {
-    const data = exportCache();
-    if (Object.keys(data).length === 0) return;
-    await ipc.savePriceCache(data as Record<string, unknown>);
+    const priceData = exportCache();
+    if (Object.keys(priceData).length > 0) {
+      await ipc.savePriceCache(priceData as Record<string, unknown>);
+    }
+
+    const orderData = exportOrderSummaryCache();
+    if (Object.keys(orderData).length > 0) {
+      await ipc.saveOrderCache(orderData as Record<string, unknown>);
+    }
   } catch {
     // best-effort, don't log every periodic failure
   }

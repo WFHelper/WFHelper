@@ -1,11 +1,12 @@
 "use strict";
 
 const log = require("./logger").withScope("wfmContracts");
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
 
 const { request, requestV2 } = require("./wfmClient");
 const { getInGameName } = require("./wfmSession");
-
-const WFM_THUMB_BASE = "https://warframe.market/static/assets/";
+const { toFiniteNumber } = require("../config/shared/numeric.cjs");
+const { WFM_ASSET_BASE: WFM_THUMB_BASE } = require("../config/shared/wfm.cjs");
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 40;
 const MIN_LIMIT = 1;
@@ -14,11 +15,6 @@ const MAX_LIMIT = 100;
 const SKIPPABLE_HTTP_STATUSES = new Set([400, 404, 405]);
 
 let _resolvedEndpointName = null;
-
-function toFiniteNumber(value) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
 
 function toNonEmptyString(value) {
   if (typeof value !== "string") return null;
@@ -353,7 +349,7 @@ async function getMyContracts({ page = DEFAULT_PAGE, limit = DEFAULT_LIMIT } = {
       lastError = err;
       log.warn(
         `[WFMContracts] ${candidate.api.toUpperCase()} ${candidate.path} failed:`,
-        err && typeof err === "object" && err.message ? err.message : String(err),
+        normalizeErrorMessage(err),
       );
     }
   }

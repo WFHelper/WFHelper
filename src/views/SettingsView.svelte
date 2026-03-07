@@ -142,6 +142,7 @@
       <div class="settings-card-head">
         <h3>{$tr("settings.overlayTitle")}</h3>
         <p>{$tr("settings.overlayDescription")}</p>
+        <p class="settings-note">{$tr("settings.overlayRequirements")}</p>
       </div>
 
       <div class="settings-form">

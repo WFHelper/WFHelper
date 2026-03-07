@@ -8,6 +8,7 @@ import type { FSWatcher } from "chokidar";
 
 type InventoryData = Record<string, unknown> | null;
 type OverlaySettings = Record<string, unknown>;
+type OverlayThemeVars = Record<string, string>;
 
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
@@ -16,6 +17,7 @@ let currentInventoryPath: string | null = null;
 let currentInventoryData: InventoryData = null;
 let watcher: FSWatcher | null = null;
 let overlaySettings: OverlaySettings = {};
+let overlayThemeVars: OverlayThemeVars = {};
 let overlayHotkeyRegistered: string | null = null;
 let overlayCropHotkeyRegistered: string | null = null;
 
@@ -67,6 +69,13 @@ const ctx = {
   },
   set overlaySettings(v: OverlaySettings) {
     overlaySettings = v;
+  },
+
+  get overlayThemeVars() {
+    return overlayThemeVars;
+  },
+  set overlayThemeVars(v: OverlayThemeVars) {
+    overlayThemeVars = v;
   },
 
   get overlayHotkeyRegistered() {

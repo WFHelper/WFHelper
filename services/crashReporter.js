@@ -1,4 +1,5 @@
 const log = require("./logger").withScope("crashReporter");
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
 
 const DEFAULT_TRACES_SAMPLE_RATE = 0;
 
@@ -40,7 +41,7 @@ function initCrashReporting() {
     log.info("Sentry initialized for main process");
     return true;
   } catch (err) {
-    log.error("Failed to initialize Sentry:", err instanceof Error ? err.message : err);
+    log.error("Failed to initialize Sentry:", normalizeErrorMessage(err));
     sentryMain = null;
     return false;
   }

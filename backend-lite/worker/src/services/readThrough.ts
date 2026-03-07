@@ -2,8 +2,11 @@ import { MISS_META_PREFIX, MISS_ORDERS_PREFIX, MISS_PRICE_PREFIX, SKIP_UNTRADABL
 import type { Env } from '../types';
 import { clamp, getJsonFromKv, parsePositiveInt } from '../utils';
 import { fetchMetaPayload, fetchOrdersPayload, fetchPricePayload, markUntradable, putMetaPayload, putPricePayload } from './prewarm';
+import sharedNumeric from '../../../../config/shared/numeric.cjs';
 
-const MAX_SUPPORTED_RANK = 20;
+const { normalizeRankFilter } = sharedNumeric as {
+	normalizeRankFilter: (value: unknown) => number | null;
+};
 
 type AutoReadResult =
 	| { status: 'ok'; data: Record<string, unknown> }
@@ -13,15 +16,6 @@ type AutoReadResult =
 interface HydrateResult {
 	data: Record<string, unknown> | null;
 	transient: boolean;
-}
-
-function normalizeRankFilter(value: unknown): number | null {
-	if (value == null) return null;
-	if (typeof value === 'string' && value.trim().length === 0) return null;
-	const rank = Number(value);
-	if (!Number.isFinite(rank)) return null;
-	if (rank < 0 || rank > MAX_SUPPORTED_RANK) return null;
-	return Math.floor(rank);
 }
 
 function priceCacheKey(slug: string, rank: number | null): string {

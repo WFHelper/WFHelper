@@ -1,75 +1,144 @@
 "use strict";
 
-const log = require('./logger').withScope('eeLogMonitor');
-const fs = require('fs');
-const path = require('path');
-const chokidar = require('chokidar');
+const log = require("./logger").withScope("eeLogMonitor");
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
+const fs = require("node:fs");
+const path = require("node:path");
+const chokidar = require("chokidar");
 
 const EE_LOG_PATH = process.env.LOCALAPPDATA
-  ? path.join(process.env.LOCALAPPDATA, 'Warframe', 'EE.log')
+  ? path.join(process.env.LOCALAPPDATA, "Warframe", "EE.log")
   : null;
 
-const REWARD_TRIGGER_PATTERNS = Object.freeze([
-  /\bPause countdown done\b/i,
-  /\bGot rewards\b/i,
+const REWARD_TRIGGER_PATTERNS = Object.freeze([/\bPause countdown done\b/i, /\bGot rewards\b/i]);
+const RELIC_PICKER_PATTERNS = Object.freeze([
+  /\bThemedProjectionManager\.lua:\s*PopulateInventoryGrid\b/i,
 ]);
 
-const TRIGGER_DELAY_MS = 500;
-const TRIGGER_COOLDOWN_MS = 2500;
+const TRIGGER_DELAY_MS = 450;
+const REWARD_TRIGGER_COOLDOWN_MS = 2500;
+const RELIC_PICKER_COOLDOWN_MS = 2000;
 
 let watcher = null;
 let lastSize = 0;
-let rewardCallback = null;
-let pendingTriggerTimer = null;
-let lastTriggerAt = 0;
+let lineRemainder = "";
 
-function clearPendingTrigger() {
-  if (!pendingTriggerTimer) return;
-  clearTimeout(pendingTriggerTimer);
-  pendingTriggerTimer = null;
+let rewardCallback = null;
+let relicPickerCallback = null;
+
+let pendingRewardTimer = null;
+let pendingRelicPickerTimer = null;
+let lastRewardAt = 0;
+let lastRelicPickerAt = 0;
+
+function clearPendingTimers() {
+  if (pendingRewardTimer) {
+    clearTimeout(pendingRewardTimer);
+    pendingRewardTimer = null;
+  }
+  if (pendingRelicPickerTimer) {
+    clearTimeout(pendingRelicPickerTimer);
+    pendingRelicPickerTimer = null;
+  }
 }
 
-function scheduleRewardTrigger() {
+function scheduleTrigger(type) {
+  const isReward = type === "reward";
   const now = Date.now();
-  if ((now - lastTriggerAt) < TRIGGER_COOLDOWN_MS) {
-    return;
-  }
-  if (pendingTriggerTimer) {
+  const lastAt = isReward ? lastRewardAt : lastRelicPickerAt;
+  const cooldown = isReward ? REWARD_TRIGGER_COOLDOWN_MS : RELIC_PICKER_COOLDOWN_MS;
+
+  if (now - lastAt < cooldown) return;
+
+  if (isReward) {
+    if (pendingRewardTimer) return;
+    pendingRewardTimer = setTimeout(() => {
+      pendingRewardTimer = null;
+      lastRewardAt = Date.now();
+      if (typeof rewardCallback === "function") {
+        log.log("[EELog] Reward trigger detected -> dispatching reward scan");
+        rewardCallback();
+      }
+    }, TRIGGER_DELAY_MS);
     return;
   }
 
-  pendingTriggerTimer = setTimeout(() => {
-    pendingTriggerTimer = null;
-    lastTriggerAt = Date.now();
-
-    if (typeof rewardCallback === 'function') {
-      log.log('[EELog] Reward screen trigger detected -> dispatching overlay scan');
-      rewardCallback();
+  if (pendingRelicPickerTimer) return;
+  pendingRelicPickerTimer = setTimeout(() => {
+    pendingRelicPickerTimer = null;
+    lastRelicPickerAt = Date.now();
+    if (typeof relicPickerCallback === "function") {
+      log.log("[EELog] Relic picker trigger detected -> dispatching recommendation overlay");
+      relicPickerCallback();
     }
   }, TRIGGER_DELAY_MS);
 }
 
-function containsRewardTrigger(chunk) {
-  return REWARD_TRIGGER_PATTERNS.some((pattern) => pattern.test(chunk));
+function handleLine(line) {
+  if (!line) return;
+
+  if (REWARD_TRIGGER_PATTERNS.some((pattern) => pattern.test(line))) {
+    scheduleTrigger("reward");
+  }
+
+  if (RELIC_PICKER_PATTERNS.some((pattern) => pattern.test(line))) {
+    scheduleTrigger("relic_picker");
+  }
 }
 
-function startWatching(onReward) {
+function consumeChunk(chunk) {
+  const merged = lineRemainder + String(chunk || "");
+  const lines = merged.split(/\r?\n/);
+  lineRemainder = lines.pop() || "";
+
+  for (const line of lines) {
+    handleLine(line);
+  }
+}
+
+function normalizeHandlers(handlers) {
+  if (typeof handlers === "function") {
+    return {
+      onRewardTrigger: handlers,
+      onRelicSelectionOpen: null,
+    };
+  }
+
+  if (!handlers || typeof handlers !== "object") {
+    return {
+      onRewardTrigger: null,
+      onRelicSelectionOpen: null,
+    };
+  }
+
+  return {
+    onRewardTrigger:
+      typeof handlers.onRewardTrigger === "function" ? handlers.onRewardTrigger : null,
+    onRelicSelectionOpen:
+      typeof handlers.onRelicSelectionOpen === "function" ? handlers.onRelicSelectionOpen : null,
+  };
+}
+
+function startWatching(handlers) {
   if (!EE_LOG_PATH) {
-    log.warn('[EELog] LOCALAPPDATA not set; EE.log monitoring unavailable');
+    log.warn("[EELog] LOCALAPPDATA not set; EE.log monitoring unavailable");
     return null;
   }
   if (!fs.existsSync(EE_LOG_PATH)) {
-    log.warn('[EELog] EE.log not found at:', EE_LOG_PATH);
+    log.warn("[EELog] EE.log not found at:", EE_LOG_PATH);
     return null;
   }
 
-  rewardCallback = onReward;
+  const normalized = normalizeHandlers(handlers);
+  rewardCallback = normalized.onRewardTrigger;
+  relicPickerCallback = normalized.onRelicSelectionOpen;
 
   try {
     lastSize = fs.statSync(EE_LOG_PATH).size;
   } catch {
     lastSize = 0;
   }
+  lineRemainder = "";
 
   if (watcher) {
     watcher.close();
@@ -81,36 +150,34 @@ function startWatching(onReward) {
     awaitWriteFinish: false,
   });
 
-  watcher.on('change', () => {
+  watcher.on("change", () => {
     try {
       const newSize = fs.statSync(EE_LOG_PATH).size;
       if (newSize <= lastSize) {
         lastSize = newSize;
+        lineRemainder = "";
         return;
       }
 
       const chunkLen = newSize - lastSize;
       const buffer = Buffer.alloc(chunkLen);
-      const fd = fs.openSync(EE_LOG_PATH, 'r');
+      const fd = fs.openSync(EE_LOG_PATH, "r");
       fs.readSync(fd, buffer, 0, chunkLen, lastSize);
       fs.closeSync(fd);
       lastSize = newSize;
 
-      const chunk = buffer.toString('utf8');
-      if (containsRewardTrigger(chunk)) {
-        scheduleRewardTrigger();
-      }
+      consumeChunk(buffer.toString("utf8"));
     } catch (error) {
-      log.error('[EELog] read error:', error.message);
+      log.error("[EELog] read error:", normalizeErrorMessage(error));
     }
   });
 
-  log.log('[EELog] Watching:', EE_LOG_PATH);
+  log.log("[EELog] Watching:", EE_LOG_PATH);
   return EE_LOG_PATH;
 }
 
 function stopWatching() {
-  clearPendingTrigger();
+  clearPendingTimers();
 
   if (watcher) {
     watcher.close();
@@ -118,6 +185,8 @@ function stopWatching() {
   }
 
   rewardCallback = null;
+  relicPickerCallback = null;
+  lineRemainder = "";
 }
 
 module.exports = {

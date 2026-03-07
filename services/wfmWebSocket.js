@@ -1,6 +1,7 @@
 "use strict";
 
 const log = require("./logger").withScope("wfmWebSocket");
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
 
 /**
  * wfmWebSocket.js — Minimal WebSocket client for WFM status updates.
@@ -128,7 +129,7 @@ function setStatusViaWebSocket(token, status) {
       try {
         socket.destroy();
       } catch (destroyErr) {
-        log.warn("[WFMWebSocket] socket.destroy failed:", destroyErr.message);
+        log.warn("[WFMWebSocket] socket.destroy failed:", normalizeErrorMessage(destroyErr));
       }
       if (err) reject(err);
       else resolve();

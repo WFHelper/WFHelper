@@ -1,8 +1,5 @@
 import type { ItemDbEntry, RawInventoryData } from "../types/inventory.js";
-import type {
-  VaultTrader,
-  VaultTraderInventoryItem,
-} from "../types/world.js";
+import type { VaultTrader, VaultTraderInventoryItem } from "../types/world.js";
 
 export const PLANET_ICON_PATHS = {
   earth: "world-icons/earth.webp",
@@ -11,6 +8,11 @@ export const PLANET_ICON_PATHS = {
   cambion: "world-icons/cambion.webp",
 } as const;
 
+/**
+ * Local copy kept in the world module to avoid a cross-chunk circular dependency
+ * between vendor-world and vendor-relic at bundle time. The canonical definition
+ * lives in `src/lib/relic/relicConstants.ts`.
+ */
 export const RELIC_ICON_PATHS: Record<string, string> = {
   lith: "world-icons/relic-lith.png",
   meso: "world-icons/relic-meso.png",
@@ -21,6 +23,7 @@ export const RELIC_ICON_PATHS: Record<string, string> = {
   default: "world-icons/relic-lith.png",
 };
 
+/** @see {@link RELIC_ICON_PATHS} — same bundling rationale. */
 export function fissureTierClass(tier: string = ""): string {
   const t = tier.toLowerCase();
   if (t.includes("lith")) return "lith";
@@ -112,9 +115,7 @@ interface DbByNameEntry extends ItemDbEntry {
   imageUrl: string;
 }
 
-function getInventoryRows(
-  inventoryData: RawInventoryData,
-): Array<{ ItemType?: string }> {
+function getInventoryRows(inventoryData: RawInventoryData): Array<{ ItemType?: string }> {
   const keys: Array<keyof RawInventoryData> = [
     "Suits",
     "LongGuns",
@@ -199,8 +200,7 @@ export function buildFeaturedPrimes(
           .replace(/\s{2,}/g, " ")
           .trim();
         const entry =
-          dbByName.get(cleaned.toLowerCase()) ||
-          dbByCanonical.get(canonicalName(cleaned));
+          dbByName.get(cleaned.toLowerCase()) || dbByCanonical.get(canonicalName(cleaned));
         if (!entry?.imageUrl || !isResurgenceCandidate(entry)) continue;
         const key = entry.name.toLowerCase();
         if (seen.has(key)) continue;
@@ -208,9 +208,7 @@ export function buildFeaturedPrimes(
         featured.push({
           name: entry.name,
           imageUrl: entry.imageUrl,
-          owned:
-            (entry.uniqueName && ownedUnique.has(entry.uniqueName)) ||
-            ownedNames.has(key),
+          owned: (entry.uniqueName && ownedUnique.has(entry.uniqueName)) || ownedNames.has(key),
         });
         if (featured.length >= 9) break;
       }

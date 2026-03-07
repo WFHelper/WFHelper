@@ -25,6 +25,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Svelte check
+        run: npm run check
+
       - name: Lint
         run: npm run lint
 
@@ -33,4 +36,3 @@ jobs:
 
       - name: Build
         run: npm run build
-

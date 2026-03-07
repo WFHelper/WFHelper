@@ -1,6 +1,7 @@
 "use strict";
 
 const log = require("./logger").withScope("worldStateParser");
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
 
 const fs = require("fs");
 const path = require("path");
@@ -38,7 +39,10 @@ function loadRegionTranslationData() {
       };
     }
   } catch (err) {
-    log.warn("[WorldState] failed to load region data from package export:", err.message);
+    log.warn(
+      "[WorldState] failed to load region data from package export:",
+      normalizeErrorMessage(err),
+    );
   }
 
   try {
@@ -48,7 +52,10 @@ function loadRegionTranslationData() {
     const dict = JSON.parse(fs.readFileSync(path.join(pkgDir, "dict.en.json"), "utf8"));
     return { regions, dict };
   } catch (err) {
-    log.warn("[WorldState] failed to load region data from disk fallback:", err.message);
+    log.warn(
+      "[WorldState] failed to load region data from disk fallback:",
+      normalizeErrorMessage(err),
+    );
   }
 
   return {
@@ -246,7 +253,7 @@ async function fetchEarthCycle() {
       expiry: new Date(expiryMs).toISOString(),
     };
   } catch (err) {
-    log.warn("[WorldState] earth cycle fetch failed:", err.message);
+    log.warn("[WorldState] earth cycle fetch failed:", normalizeErrorMessage(err));
     return null;
   }
 }
@@ -291,7 +298,7 @@ async function fetchFallbackWorldState() {
     log.log("[WorldState] fetched DE world-state OK");
     return raw;
   } catch (deErr) {
-    log.warn("[WorldState] DE world-state also failed:", deErr.message);
+    log.warn("[WorldState] DE world-state also failed:", normalizeErrorMessage(deErr));
     return null;
   }
 }
@@ -301,7 +308,7 @@ async function fetchAndParse() {
   try {
     raw = await fetchPrimaryWorldState();
   } catch (oracleErr) {
-    log.warn("[WorldState] oracle failed:", oracleErr.message, "- trying DE direct");
+    log.warn("[WorldState] oracle failed:", normalizeErrorMessage(oracleErr), "- trying DE direct");
     raw = await fetchFallbackWorldState();
     if (!raw) return emptyWorldState();
   }
@@ -319,7 +326,7 @@ async function fetchAndParse() {
       },
     };
   } catch (cycleErr) {
-    log.warn("[WorldState] planet cycle computation failed:", cycleErr.message);
+    log.warn("[WorldState] planet cycle computation failed:", normalizeErrorMessage(cycleErr));
     return parsed;
   }
 }

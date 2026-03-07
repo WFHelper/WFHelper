@@ -222,6 +222,14 @@ export interface IpcInvokeMap {
     args: [data: Record<string, unknown>];
     return: { ok: boolean };
   };
+  loadOrderCache: {
+    args: [];
+    return: Record<string, unknown> | null;
+  };
+  saveOrderCache: {
+    args: [data: Record<string, unknown>];
+    return: { ok: boolean };
+  };
 }
 
 export interface IpcEventMap {
@@ -235,6 +243,7 @@ export interface IpcSendMap {
   "window-close": [];
   "toggle-overlay": [];
   "simulate-relic-trigger": [];
+  "overlay-theme-updated": [themeVars: Record<string, string>];
   "open-external": [url: string];
 }
 

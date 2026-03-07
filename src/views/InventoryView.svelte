@@ -25,18 +25,22 @@
     type MetricNeeds,
   } from "../lib/inventoryMarket.js";
   import { buildRelicSearchKeywordIndex } from "../lib/relic.js";
-  import { getCachedPriceState } from "../lib/wfm/priceCache.js";
   import { startupPriceCacheReady } from "../lib/startupLoader.js";
+  import { log } from "../lib/log.js";
   import { getInventoryHydrationController } from "../stores/inventoryHydration.js";
   import { sharedFilters } from "../stores/filters.js";
+  import sharedNumeric from "../../config/shared/numeric.cjs";
+
+  const { isRankedGroup } = sharedNumeric as {
+    isRankedGroup: (group: string | null | undefined) => boolean;
+  };
 
   const METRIC_VISIBLE_PREFETCH_LIMIT = 42;
   const METRIC_BACKGROUND_PREFETCH_LIMIT = 210;
   const DEBUG_REFRESH_MS = 900;
-  const MISSING_PRICE_SWEEP_STORAGE_KEY = "inventory:missing-price-sweep:v1";
-  const MISSING_PRICE_SWEEP_BATCH_SIZE = 36;
-  const MISSING_PRICE_SWEEP_INTERVAL_MS = 1_500;
-  const MISSING_PRICE_SWEEP_MAX_RUNTIME_MS = 120_000;
+  const RANKED_CARD_SWEEP_BATCH_SIZE = 16;
+  const RANKED_CARD_SWEEP_INTERVAL_MS = 900;
+  const RANKED_CARD_SWEEP_MAX_RUNTIME_MS = 5 * 60 * 1000;
 
   let filter: InventoryFilterTab = "all_parts";
   let showFilterPanel = false;
@@ -48,16 +52,17 @@
   const hydrationMetrics = hydration.metricsByKey;
   const hydrationDebug = hydration.debugState;
   let debugStatsTimer: ReturnType<typeof setInterval> | null = null;
-  let missingPriceSweepTimer: ReturnType<typeof setTimeout> | null = null;
-  let missingPriceSweepQueue: InventoryBaseItem[] = [];
-  let missingPriceSweepCursor = 0;
-  let missingPriceSweepActive = false;
-  let missingPriceSweepDone = false;
-  let missingPriceSweepDeadline = 0;
+  let rankedCardSweepTimer: ReturnType<typeof setTimeout> | null = null;
+  let rankedCardSweepQueue: InventoryBaseItem[] = [];
+  let rankedCardSweepCursor = 0;
+  let rankedCardSweepActive = false;
+  let rankedCardSweepDeadline = 0;
+  let rankedCardSweepSignature = "";
+  let rankedCardSweepCompletedSignature = "";
 
   function prefetchVisibleMetrics(items: InventoryBaseItem[], needs: MetricNeeds): void {
     const hydrationCandidates = items.filter((item) => shouldHydrateMetrics(item));
-    const rankedTab = filter === "mods" || filter === "arcanes";
+    const rankedTab = isRankedGroup(filter);
     const visibleLimit = rankedTab ? 12 : METRIC_VISIBLE_PREFETCH_LIMIT;
     const backgroundLimit = rankedTab ? 0 : METRIC_BACKGROUND_PREFETCH_LIMIT;
 
@@ -88,147 +93,140 @@
     }
   }
 
-  function hasResolvedPlatinum(item: InventoryBaseItem): boolean {
-    const metric = $hydrationMetrics[item.internalName];
-    const hasMetricPlatinum = Boolean(
-      (typeof metric?.platinum === "number" && Number.isFinite(metric.platinum)) ||
-        (typeof metric?.platinumR0 === "number" && Number.isFinite(metric.platinumR0)) ||
-        (typeof metric?.platinumRmax === "number" && Number.isFinite(metric.platinumRmax)),
-    );
-    if (hasMetricPlatinum) return true;
+  function handleItemVisible(event: CustomEvent<InventoryViewItem>): void {
+    const visibleBaseItem = tabBaseItems.find((entry) => entry.internalName === event.detail.internalName);
+    if (!visibleBaseItem || !shouldHydrateMetrics(visibleBaseItem)) return;
 
-    if (!item.marketSlug) return false;
-
-    if (item.inventoryGroup === "mods" || item.inventoryGroup === "arcanes") {
-      const fallbackMaxRank = item.inventoryGroup === "mods" ? 10 : 5;
-      const parsedMaxRank = Number(item.maxRank);
-      const maxRank =
-        Number.isFinite(parsedMaxRank) && parsedMaxRank > 0 ? Math.floor(parsedMaxRank) : fallbackMaxRank;
-      const cachedR0 = getCachedPriceState(`${item.marketSlug}:rank-v3:r0`);
-      const cachedRmax = getCachedPriceState(`${item.marketSlug}:rank-v3:r${maxRank}`);
-      return cachedR0?.status === "ok" && cachedRmax?.status === "ok";
-    }
-
-    const cached = getCachedPriceState(item.marketSlug);
-    return cached?.status === "ok";
+    const isRankedTab = isRankedGroup(filter);
+    hydration.enqueue([visibleBaseItem], $wfmItems, {
+      price: true,
+      ducats: false,
+      orders: isRankedTab,
+    });
   }
 
-  function shouldSweepMissingPrice(item: InventoryBaseItem): boolean {
-    if (item.tradable !== true) return false;
-    if (item.inventoryGroup !== "mods" && item.inventoryGroup !== "arcanes") return false;
-    return !hasResolvedPlatinum(item);
+  function clearRankedCardSweepTimer(): void {
+    if (!rankedCardSweepTimer) return;
+    clearTimeout(rankedCardSweepTimer);
+    rankedCardSweepTimer = null;
   }
 
-  function readMissingPriceSweepFlag(): boolean {
-    if (typeof window === "undefined") return false;
-    try {
-      return window.localStorage.getItem(MISSING_PRICE_SWEEP_STORAGE_KEY) === "1";
-    } catch {
-      return false;
+  function stopRankedCardSweep(markCompleted: boolean): void {
+    clearRankedCardSweepTimer();
+    rankedCardSweepActive = false;
+    rankedCardSweepQueue = [];
+    rankedCardSweepCursor = 0;
+    rankedCardSweepDeadline = 0;
+
+    if (markCompleted && rankedCardSweepSignature) {
+      rankedCardSweepCompletedSignature = rankedCardSweepSignature;
     }
   }
 
-  function writeMissingPriceSweepFlag(): void {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(MISSING_PRICE_SWEEP_STORAGE_KEY, "1");
-    } catch {
-      return;
+  function buildRankedCardSweepSignature(items: InventoryViewItem[]): string {
+    const keys = items.map((item) => item.internalName).sort();
+    return `${filter}:${keys.join("|")}`;
+  }
+
+  function buildRankedCardSweepQueue(items: InventoryViewItem[]): InventoryBaseItem[] {
+    const baseByKey = Object.create(null) as Record<string, InventoryBaseItem>;
+    for (const item of tabBaseItems) {
+      baseByKey[item.internalName] = item;
     }
-  }
-
-  function clearMissingPriceSweepTimer(): void {
-    if (!missingPriceSweepTimer) return;
-    clearTimeout(missingPriceSweepTimer);
-    missingPriceSweepTimer = null;
-  }
-
-  function stopMissingPriceSweep(markDone: boolean): void {
-    clearMissingPriceSweepTimer();
-    missingPriceSweepActive = false;
-    missingPriceSweepQueue = [];
-    missingPriceSweepCursor = 0;
-    missingPriceSweepDeadline = 0;
-
-    if (!markDone) return;
-    missingPriceSweepDone = true;
-    writeMissingPriceSweepFlag();
-  }
-
-  function buildMissingPriceSweepQueue(): InventoryBaseItem[] {
-    const modItems = buildBaseInventoryItems($parsedItems, "mods", $wfmItems, orderedNames, orderedSlugs);
-    const arcaneItems = buildBaseInventoryItems(
-      $parsedItems,
-      "arcanes",
-      $wfmItems,
-      orderedNames,
-      orderedSlugs,
-    );
 
     const uniqueByInternalName = Object.create(null) as Record<string, InventoryBaseItem>;
-    for (const item of [...modItems, ...arcaneItems]) {
-      if (!Object.prototype.hasOwnProperty.call(uniqueByInternalName, item.internalName)) {
-        uniqueByInternalName[item.internalName] = item;
-      }
+    for (const viewItem of items) {
+      const base = baseByKey[viewItem.internalName];
+      if (!base) continue;
+      if (!shouldHydrateMetrics(base)) continue;
+      if (!isRankedGroup(base.inventoryGroup)) continue;
+      if (base.tradable !== true) continue;
+      uniqueByInternalName[base.internalName] = base;
     }
 
-    return Object.values(uniqueByInternalName).filter((item) => shouldSweepMissingPrice(item));
+    return Object.values(uniqueByInternalName);
   }
 
-  function scheduleMissingPriceSweepTick(): void {
-    clearMissingPriceSweepTimer();
-    missingPriceSweepTimer = setTimeout(() => {
-      runMissingPriceSweepTick();
-    }, MISSING_PRICE_SWEEP_INTERVAL_MS);
+  function scheduleRankedCardSweepTick(): void {
+    clearRankedCardSweepTimer();
+    rankedCardSweepTimer = setTimeout(() => {
+      runRankedCardSweepTick();
+    }, RANKED_CARD_SWEEP_INTERVAL_MS);
   }
 
-  function runMissingPriceSweepTick(): void {
-    if (!missingPriceSweepActive) return;
-    if (Date.now() >= missingPriceSweepDeadline) {
-      stopMissingPriceSweep(false);
+  function runRankedCardSweepTick(): void {
+    if (!rankedCardSweepActive) return;
+    if (Date.now() >= rankedCardSweepDeadline) {
+      log.warn("[Inventory] ranked card sweep timed out before completion");
+      stopRankedCardSweep(false);
       return;
     }
 
     const batch: InventoryBaseItem[] = [];
     while (
-      missingPriceSweepCursor < missingPriceSweepQueue.length &&
-      batch.length < MISSING_PRICE_SWEEP_BATCH_SIZE
+      rankedCardSweepCursor < rankedCardSweepQueue.length &&
+      batch.length < RANKED_CARD_SWEEP_BATCH_SIZE
     ) {
-      const candidate = missingPriceSweepQueue[missingPriceSweepCursor];
-      missingPriceSweepCursor += 1;
-      if (!shouldSweepMissingPrice(candidate)) continue;
+      const candidate = rankedCardSweepQueue[rankedCardSweepCursor];
+      rankedCardSweepCursor += 1;
       batch.push(candidate);
     }
 
     if (batch.length > 0) {
-      hydration.enqueue(batch, $wfmItems, { price: true, ducats: false, orders: false });
+      hydration.enqueue(batch, $wfmItems, { price: true, ducats: false, orders: true });
     }
 
-    if (missingPriceSweepCursor >= missingPriceSweepQueue.length) {
-      stopMissingPriceSweep(true);
+    if (rankedCardSweepCursor >= rankedCardSweepQueue.length) {
+      log.info(`[Inventory] ranked card sweep completed (${rankedCardSweepQueue.length} items)`);
+      stopRankedCardSweep(true);
       return;
     }
 
-    scheduleMissingPriceSweepTick();
+    scheduleRankedCardSweepTick();
   }
 
-  function maybeStartMissingPriceSweep(): void {
+  function maybeStartRankedCardSweep(items: InventoryViewItem[]): void {
     if (!$startupPriceCacheReady) return;
-    if (missingPriceSweepDone || missingPriceSweepActive) return;
+    if (!isRankedGroup(filter)) {
+      stopRankedCardSweep(false);
+      rankedCardSweepSignature = "";
+      rankedCardSweepCompletedSignature = "";
+      return;
+    }
     if (!Array.isArray($parsedItems) || $parsedItems.length === 0) return;
     if (!$wfmItems || Object.keys($wfmItems).length === 0) return;
 
-    const queue = buildMissingPriceSweepQueue();
-    if (queue.length === 0) {
-      stopMissingPriceSweep(true);
+    const signature = buildRankedCardSweepSignature(items);
+    if (rankedCardSweepActive && signature === rankedCardSweepSignature) {
+      return;
+    }
+    if (!rankedCardSweepActive && signature === rankedCardSweepCompletedSignature) {
       return;
     }
 
-    missingPriceSweepQueue = queue;
-    missingPriceSweepCursor = 0;
-    missingPriceSweepDeadline = Date.now() + MISSING_PRICE_SWEEP_MAX_RUNTIME_MS;
-    missingPriceSweepActive = true;
-    runMissingPriceSweepTick();
+    const queue = buildRankedCardSweepQueue(items);
+    if (queue.length === 0) {
+      stopRankedCardSweep(true);
+      rankedCardSweepSignature = signature;
+      rankedCardSweepCompletedSignature = signature;
+      return;
+    }
+
+    if (rankedCardSweepActive) {
+      clearRankedCardSweepTimer();
+    }
+
+    rankedCardSweepSignature = signature;
+    rankedCardSweepQueue = queue;
+    rankedCardSweepCursor = 0;
+    rankedCardSweepDeadline = Date.now() + RANKED_CARD_SWEEP_MAX_RUNTIME_MS;
+    rankedCardSweepActive = true;
+
+    log.info(
+      `[Inventory] starting ranked card sweep (${queue.length} items, batch=${RANKED_CARD_SWEEP_BATCH_SIZE}, interval=${RANKED_CARD_SWEEP_INTERVAL_MS}ms)`,
+    );
+
+    runRankedCardSweepTick();
   }
 
   function mergeKeywords(base: string[] | undefined, extra: string[]): string[] {
@@ -242,7 +240,6 @@
   }
 
   onMount(() => {
-    missingPriceSweepDone = readMissingPriceSweepFlag();
     hydration.resume();
     hydration.refreshDebugStats();
 
@@ -254,8 +251,8 @@
   });
 
   onDestroy(() => {
-    clearMissingPriceSweepTimer();
-    missingPriceSweepActive = false;
+    clearRankedCardSweepTimer();
+    rankedCardSweepActive = false;
 
     hydration.pause();
     if (debugStatsTimer) {
@@ -289,7 +286,7 @@
   $: metricNeeds = metricNeedsFromFilters($inventoryFilters, filter);
   $: if ($startupPriceCacheReady && Object.keys($wfmItems).length > 0) {
     prefetchVisibleMetrics(filtered, metricNeeds);
-    maybeStartMissingPriceSweep();
+    maybeStartRankedCardSweep(filtered);
   }
   $: backendDebugCounters = $hydrationDebug.priceDebugCounters as unknown as Record<string, number>;
   $: if ($debugMode) {
@@ -325,7 +322,13 @@
 
   <div class="inventory-split-layout">
     <div class="inventory-split-main">
-      <InventoryGrid items={filtered} showDebug={$debugMode} {showDucats} on:select={handleItemSelect} />
+      <InventoryGrid
+        items={filtered}
+        showDebug={$debugMode}
+        {showDucats}
+        on:select={handleItemSelect}
+        on:visible={handleItemVisible}
+      />
     </div>
 
     <InventoryOrderBookPanel item={selectedItem} />

@@ -1,6 +1,7 @@
 "use strict";
 
 const log = require("./logger").withScope("relicService");
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
 
 /**
  * relicService.js — Relic database built from @wfcd/items
@@ -17,23 +18,14 @@ const TIERS = new Set(["Lith", "Meso", "Neo", "Axi", "Requiem", "Vanguard"]);
 
 let _db = null;
 
-function normalizeWfmSlug(value) {
-  if (typeof value !== "string") return null;
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/[’']/g, "")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return normalized || null;
-}
+const { normalizeWfmSlug } = require("../config/shared/wfm.cjs");
 
 function buildRelicDatabase() {
   let Items;
   try {
     Items = require("@wfcd/items");
   } catch (err) {
-    log.error("[RelicDB] @wfcd/items not available:", err.message);
+    log.error("[RelicDB] @wfcd/items not available:", normalizeErrorMessage(err));
     return { groups: {}, byUniqueName: {} };
   }
 

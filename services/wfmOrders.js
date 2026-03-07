@@ -1,6 +1,7 @@
 "use strict";
 
 const log = require("./logger").withScope("wfmOrders");
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
 
 /**
  * wfmOrders.js — Warframe.market order management (main-process only)
@@ -15,7 +16,7 @@ const wfmCatalog = require("./wfmCatalog");
 
 // ── Normaliser ────────────────────────────────────────────────────────────────
 
-const WFM_THUMB_BASE = "https://warframe.market/static/assets/";
+const { WFM_ASSET_BASE: WFM_THUMB_BASE } = require("../config/shared/wfm.cjs");
 
 function normalise(raw, forcedType) {
   // v2: item details come from catalog enrichment (raw._catalogItem), not embedded object
@@ -155,8 +156,8 @@ async function setOrdersVisible(orderIds, visible) {
       const updated = await updateOrder(id, { visible: !!visible });
       results.push(updated);
     } catch (err) {
-      log.error(`[WFMOrders] setVisible failed for ${id}:`, err.message);
-      results.push({ id, error: err.message });
+      log.error(`[WFMOrders] setVisible failed for ${id}:`, normalizeErrorMessage(err));
+      results.push({ id, error: normalizeErrorMessage(err) });
     }
   }
   return results;

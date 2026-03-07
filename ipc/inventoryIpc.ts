@@ -15,6 +15,10 @@ const log = requireRuntime<{
   };
 }>("services/logger").withScope("inventoryIpc");
 
+const { normalizeErrorMessage } = requireRuntime<{
+  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
+}>("config/shared/errors.cjs");
+
 const { ipcMain, dialog, app } = require("electron") as typeof import("electron");
 const path = require("node:path") as typeof import("node:path");
 const fs = require("node:fs") as typeof import("node:fs");
@@ -105,15 +109,12 @@ function readInventory(filePath: string): unknown {
     const raw = fs.readFileSync(filePath, JSON_ENCODING);
     const data = unwrapInventoryPayload(JSON.parse(raw), {
       onParseError: (err: unknown) =>
-        log.warn(
-          "Failed to parse nested inventory payload string:",
-          err instanceof Error ? err.message : String(err),
-        ),
+        log.warn("Failed to parse nested inventory payload string:", normalizeErrorMessage(err)),
     });
     ctx.currentInventoryData = data as Record<string, unknown> | null;
     return data;
   } catch (err) {
-    log.error("Failed to read inventory:", err instanceof Error ? err.message : String(err));
+    log.error("Failed to read inventory:", normalizeErrorMessage(err));
     return null;
   }
 }

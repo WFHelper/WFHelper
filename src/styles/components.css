@@ -1812,6 +1812,12 @@
     color: var(--text-secondary);
     font-size: 0.84rem;
   }
+  .settings-note {
+    margin: 0.35rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
   .market-field,
   .settings-row {
     display: grid;

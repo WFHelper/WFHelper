@@ -8,10 +8,14 @@
   export let showDebug = false;
   export let showDucats = true;
 
-  const dispatch = createEventDispatcher<{ select: InventoryViewItem }>();
+  const dispatch = createEventDispatcher<{ select: InventoryViewItem; visible: InventoryViewItem }>();
 
   function handleSelect(event: CustomEvent<InventoryViewItem>): void {
     dispatch("select", event.detail);
+  }
+
+  function handleVisible(event: CustomEvent<InventoryViewItem>): void {
+    dispatch("visible", event.detail);
   }
 </script>
 
@@ -25,8 +29,14 @@
       <p>No items found</p>
     </div>
   {:else}
-    {#each items as item}
-      <InventoryCard {item} {showDebug} {showDucats} on:select={handleSelect} />
+    {#each items as item (item.internalName)}
+      <InventoryCard
+        {item}
+        {showDebug}
+        {showDucats}
+        on:select={handleSelect}
+        on:visible={handleVisible}
+      />
     {/each}
   {/if}
 </div>

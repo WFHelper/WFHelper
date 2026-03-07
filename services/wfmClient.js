@@ -1,6 +1,7 @@
 "use strict";
 
 const log = require("./logger").withScope("wfmClient");
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
 
 /**
  * wfmClient.js — Warframe.market HTTP client (main-process only)
@@ -100,7 +101,7 @@ async function _ensureCsrfToken() {
       log.warn("[WFMClient] No JWT cookie in set-cookie:", sc.slice(0, 300));
     }
   } catch (e) {
-    log.warn("[WFMClient] CSRF prefetch failed:", e.message);
+    log.warn("[WFMClient] CSRF prefetch failed:", normalizeErrorMessage(e));
   }
   return _csrfToken;
 }
@@ -225,7 +226,12 @@ function setTokenProvider(fn) {
  * @param {string} [opts.label]        Label for log messages
  * @returns {Promise<object>}          Parsed JSON response body
  */
-function _coreRequest(baseUrl, method, path, { json, headers: extraHeaders, baseHeaders = {}, label = "WFMClient" } = {}) {
+function _coreRequest(
+  baseUrl,
+  method,
+  path,
+  { json, headers: extraHeaders, baseHeaders = {}, label = "WFMClient" } = {},
+) {
   return enqueue(async () => {
     const token = _getToken();
     const url = baseUrl + path;
@@ -258,7 +264,7 @@ function _coreRequest(baseUrl, method, path, { json, headers: extraHeaders, base
     try {
       res = await _nodeRequest(method, url, headers, body);
     } catch (networkErr) {
-      const err = new Error(`${label} network error: ${networkErr.message}`);
+      const err = new Error(`${label} network error: ${normalizeErrorMessage(networkErr)}`);
       err.code = "WFM_NETWORK_ERROR";
       throw err;
     }
@@ -274,9 +280,7 @@ function _coreRequest(baseUrl, method, path, { json, headers: extraHeaders, base
       const retryAfterSec = parseInt(res.headers.get("retry-after") || "30", 10);
       const cooldownMs = Math.max(retryAfterSec * 1000, 30_000);
       _lastRequestAt = Date.now() + cooldownMs - MIN_DELAY_MS;
-      log.warn(
-        `[${label}] Rate limited (429). Cooling down for ${Math.ceil(cooldownMs / 1000)}s.`,
-      );
+      log.warn(`[${label}] Rate limited (429). Cooling down for ${Math.ceil(cooldownMs / 1000)}s.`);
       const err = new Error(
         `Warframe.market rate limit hit. Please wait ${Math.ceil(cooldownMs / 1_000)}s.`,
       );
@@ -297,7 +301,7 @@ function _coreRequest(baseUrl, method, path, { json, headers: extraHeaders, base
           else if (rb?.message) detail = rb.message;
         } catch (_) {}
       } catch (parseErr) {
-        log.warn(`[${label}] Failed to read error response body:`, parseErr.message);
+        log.warn(`[${label}] Failed to read error response body:`, normalizeErrorMessage(parseErr));
       }
       const err = new Error(`${label} API error: ${detail}`);
       err.code = "WFM_API_ERROR";
@@ -357,7 +361,7 @@ function requestRaw(method, path, { json, headers: extraHeaders } = {}) {
     try {
       res = await _nodeRequest(method, url, headers, body);
     } catch (networkErr) {
-      const err = new Error(`WFM network error: ${networkErr.message}`);
+      const err = new Error(`WFM network error: ${normalizeErrorMessage(networkErr)}`);
       err.code = "WFM_NETWORK_ERROR";
       throw err;
     }

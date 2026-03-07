@@ -1,8 +1,14 @@
 "use strict";
 
 import path from "node:path";
+import { createRuntimeRequire } from "../runtimeRequire";
 
 export {};
+
+const requireRuntime = createRuntimeRequire(__dirname, 2);
+const { clampNumber } = requireRuntime<{
+  clampNumber: (value: unknown, min: number, max: number, fallback: number) => number;
+}>("config/shared/numeric.cjs");
 
 const OVERLAY_WINDOW_BOUNDS = Object.freeze({
   width: 980,
@@ -44,12 +50,6 @@ type OverlayWindowsControllerOptions = {
   overlayWindowFile: string;
   cropDebugWindowFile: string;
 };
-
-function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(min, Math.min(max, n));
-}
 
 export function createOverlayWindowsController(options: OverlayWindowsControllerOptions) {
   const {
@@ -145,8 +145,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
   function createOverlayWindow(): void {
     if (ctx.overlayWindow && !ctx.overlayWindow.isDestroyed()) {
       positionOverlayWindow(lastOverlayAnchorMeta);
-      ctx.overlayWindow.show();
-      ctx.overlayWindow.focus();
+      ctx.overlayWindow.showInactive();
       return;
     }
 
@@ -162,6 +161,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       alwaysOnTop: true,
       skipTaskbar: true,
       resizable: false,
+      focusable: false,
       webPreferences: {
         preload: getElectronBuildFile("preload-overlay.js"),
         contextIsolation: true,
@@ -178,6 +178,8 @@ export function createOverlayWindowsController(options: OverlayWindowsController
 
     void ctx.overlayWindow.loadFile(overlayWindowFile);
     ctx.overlayWindow.setAlwaysOnTop(true, "screen-saver");
+    ctx.overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    ctx.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
     positionOverlayWindow(lastOverlayAnchorMeta);
     ctx.overlayWindow.on("closed", () => {
       clearOverlayAutoHideTimer();

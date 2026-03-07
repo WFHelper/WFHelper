@@ -19,6 +19,12 @@
     type RelicRuntimeCacheStats,
   } from "../lib/relic.js";
 
+  import sharedErrors from "../../config/shared/errors.cjs";
+
+  const { normalizeErrorMessage } = sharedErrors as {
+    normalizeErrorMessage: (err: unknown, fallback?: string) => string;
+  };
+
   const COUNTER_POLL_MS = 1000;
 
   let counters: PriceDebugCounters = getPriceDebugCounters();
@@ -92,7 +98,7 @@
       addToast({
         level: "error",
         title: "Update Error",
-        message: err instanceof Error ? err.message : String(err),
+        message: normalizeErrorMessage(err),
       });
     } finally {
       updateActionPending = false;

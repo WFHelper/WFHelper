@@ -18,6 +18,10 @@ const log = requireRuntime<{
   };
 }>("services/logger").withScope("systemIpc");
 
+const { normalizeErrorMessage } = requireRuntime<{
+  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
+}>("config/shared/errors.cjs");
+
 const { ipcMain, shell } = require("electron") as typeof import("electron");
 const { isAllowedExternalHost } = requireRuntime<{
   isAllowedExternalHost: (hostname: string) => boolean;
@@ -52,12 +56,7 @@ function register(): void {
       try {
         await wfmCatalog.ensureLoaded();
       } catch (error) {
-        log.warn(
-          "[WFMarket] get-wfm-items fetch failed:",
-          error && typeof error === "object" && "message" in error
-            ? String((error as { message?: unknown }).message)
-            : String(error),
-        );
+        log.warn("[WFMarket] get-wfm-items fetch failed:", normalizeErrorMessage(error));
       }
     }
     return wfmCatalog.getRendererLookup();
@@ -72,9 +71,7 @@ function register(): void {
       onParseError: (error: unknown) =>
         log.error(
           "[Mastery] Failed to parse nested inventory payload:",
-          error && typeof error === "object" && "message" in error
-            ? String((error as { message?: unknown }).message)
-            : String(error),
+          normalizeErrorMessage(error),
         ),
     });
     return masteryHelper.computeMasteryProgress(data);
