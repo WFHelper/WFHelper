@@ -1,6 +1,3 @@
-"use strict";
-
-export {};
 
 import { createRuntimeRequire } from "../runtimeRequire";
 
@@ -280,7 +277,3 @@ export function createOverlayScanController(options: OverlayScanControllerOption
     onRelicRewardTrigger,
   };
 }
-
-module.exports = {
-  createOverlayScanController,
-};

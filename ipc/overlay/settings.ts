@@ -1,6 +1,3 @@
-"use strict";
-
-export {};
 
 import { createRuntimeRequire } from "../runtimeRequire";
 
@@ -419,7 +416,3 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     applyCropSelection,
   };
 }
-
-module.exports = {
-  createOverlaySettingsController,
-};

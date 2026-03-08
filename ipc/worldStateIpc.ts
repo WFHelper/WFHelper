@@ -2,7 +2,6 @@ import ctx from "./context";
 import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
 import { createRuntimeRequire } from "./runtimeRequire";
 
-export {};
 
 const requireRuntime = createRuntimeRequire(__dirname, 1);
 
@@ -180,5 +179,3 @@ function register(
 }
 
 export { register };
-
-module.exports = { register };

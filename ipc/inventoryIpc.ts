@@ -3,7 +3,6 @@ import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity"
 import { unwrapInventoryPayload } from "./inventoryPayload";
 import { createRuntimeRequire } from "./runtimeRequire";
 
-export {};
 
 const requireRuntime = createRuntimeRequire(__dirname, 1);
 
@@ -193,5 +192,3 @@ function register(): void {
 }
 
 export { register, findInventoryFile, watchInventoryFile };
-
-module.exports = { register, findInventoryFile, watchInventoryFile };

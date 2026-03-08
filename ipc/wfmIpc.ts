@@ -14,7 +14,6 @@ import {
   parseUpdateOrderPayload,
 } from "./wfmValidators";
 
-export {};
 
 const requireRuntime = createRuntimeRequire(__dirname, 1);
 
@@ -289,8 +288,3 @@ const testExports = {
 
 export { register };
 export const __test__ = testExports;
-
-module.exports = {
-  register,
-  __test__: testExports,
-};

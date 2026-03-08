@@ -7,7 +7,6 @@ import {
 import { unwrapInventoryPayload } from "./inventoryPayload";
 import { createRuntimeRequire } from "./runtimeRequire";
 
-export {};
 
 const requireRuntime = createRuntimeRequire(__dirname, 1);
 
@@ -144,5 +143,3 @@ function register(): void {
 }
 
 export { register };
-
-module.exports = { register };

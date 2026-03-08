@@ -43,7 +43,7 @@ module.exports = [
     },
   },
   {
-    files: ["main.ts", "preload.ts", "preload-overlay.ts", "preload-crop.ts", "ipc/**/*.ts"],
+    files: ["main.ts", "preload.ts", "preload-overlay.ts", "preload-crop.ts", "ipc/**/*.ts", "services/**/*.ts"],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
@@ -136,6 +136,7 @@ module.exports = [
       "config/**/*.js",
       "ipc/**/*.js",
       "services/**/*.js",
+      "services/**/*.ts",
       "scripts/**/*.js",
     ],
     rules: {

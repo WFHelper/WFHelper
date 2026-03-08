@@ -1,6 +1,3 @@
-"use strict";
-
-export {};
 
 import { createRuntimeRequire } from "../runtimeRequire";
 
@@ -701,7 +698,3 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     suppressReopenForClose,
   };
 }
-
-module.exports = {
-  createRelicSelectionController,
-};

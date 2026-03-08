@@ -3,7 +3,6 @@
 import path from "node:path";
 import { createRuntimeRequire } from "../runtimeRequire";
 
-export {};
 
 const requireRuntime = createRuntimeRequire(__dirname, 2);
 const { clampNumber } = requireRuntime<{
@@ -396,7 +395,3 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     setOverlayInteractiveMode,
   };
 }
-
-module.exports = {
-  createOverlayWindowsController,
-};

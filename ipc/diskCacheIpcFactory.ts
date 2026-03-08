@@ -11,7 +11,6 @@
 import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
 import { createRuntimeRequire } from "./runtimeRequire";
 
-export {};
 
 const requireRuntime = createRuntimeRequire(__dirname, 1);
 
@@ -98,5 +97,3 @@ function createDiskCacheIpc(config: DiskCacheIpcConfig): { register: () => void 
 }
 
 export { createDiskCacheIpc };
-
-module.exports = { createDiskCacheIpc };

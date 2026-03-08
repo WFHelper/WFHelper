@@ -1,6 +1,5 @@
 import { createDiskCacheIpc } from "./diskCacheIpcFactory";
 
-export {};
 
 const { register } = createDiskCacheIpc({
   scope: "priceCacheIpc",
@@ -10,5 +9,3 @@ const { register } = createDiskCacheIpc({
 });
 
 export { register };
-
-module.exports = { register };

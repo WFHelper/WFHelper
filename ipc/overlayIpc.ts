@@ -12,7 +12,6 @@ import { createOverlaySettingsController } from "./overlay/settings";
 import { createOverlayWindowsController } from "./overlay/windows";
 import { createRuntimeRequire } from "./runtimeRequire";
 
-export {};
 
 const requireRuntime = createRuntimeRequire(__dirname, 1);
 
@@ -525,19 +524,13 @@ function register(): void {
   });
 }
 
+export const loadOverlaySettings = settingsController.loadOverlaySettings;
+export const registerOverlayHotkey = settingsController.registerOverlayHotkey;
+export const unregisterOverlayHotkey = settingsController.unregisterOverlayHotkey;
+
 export {
   register,
   settingsController,
-  onRelicRewardTrigger,
-  onRelicSelectionTrigger,
-  openOcrCropDebugger,
-};
-
-module.exports = {
-  register,
-  loadOverlaySettings: settingsController.loadOverlaySettings,
-  registerOverlayHotkey: settingsController.registerOverlayHotkey,
-  unregisterOverlayHotkey: settingsController.unregisterOverlayHotkey,
   onRelicRewardTrigger,
   onRelicSelectionTrigger,
   openOcrCropDebugger,

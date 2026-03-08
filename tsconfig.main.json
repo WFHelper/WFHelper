@@ -11,5 +11,5 @@
     "outDir": ".electron-build",
     "noEmitOnError": true
   },
-  "include": ["main.ts", "preload.ts", "preload-overlay.ts", "preload-crop.ts", "ipc/**/*.ts"]
+  "include": ["main.ts", "preload.ts", "preload-overlay.ts", "preload-crop.ts", "ipc/**/*.ts", "services/**/*.ts"]
 }
