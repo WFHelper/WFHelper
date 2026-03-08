@@ -5,11 +5,21 @@
  * Crop, enhance, and build OCR variants from Electron NativeImage objects.
  */
 
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
-const log = require("./logger").withScope("rewardScanner");
-const { clampNumber, luminanceFromBgr } = require("./rewardScannerUtils");
+import { withScope } from "./logger";
+import { clampNumber, luminanceFromBgr } from "./rewardScannerUtils";
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
+  normalizeErrorMessage: (err: any) => string;
+};
 
-const OCR_ENHANCE = Object.freeze({
+const log = withScope("rewardScanner");
+
+export const OCR_ENHANCE: Readonly<{
+  upscaleFactor: number;
+  maxWidth: number;
+  maxHeight: number;
+  blackPoint: number;
+  whitePoint: number;
+}> = Object.freeze({
   upscaleFactor: 2,
   maxWidth: 4096,
   maxHeight: 4096,
@@ -17,7 +27,19 @@ const OCR_ENHANCE = Object.freeze({
   whitePoint: 214,
 });
 
-function cropRewardBand(nativeImage, band) {
+interface Band {
+  top?: number;
+  height?: number;
+}
+
+interface Rect {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+}
+
+export function cropRewardBand(nativeImage: any, band: Band | null | undefined): any {
   const { width, height } = nativeImage.getSize();
   const topRatio = clampNumber(band?.top, 0.0, 0.95, 0.38);
   const maxHeightRatio = Math.max(0.05, 1.0 - topRatio);
@@ -27,7 +49,7 @@ function cropRewardBand(nativeImage, band) {
   return nativeImage.crop({ x: 0, y: top, width, height: cropHeight });
 }
 
-function cropBand(nativeImage, band) {
+export function cropBand(nativeImage: any, band: Band | null | undefined): any {
   const { width, height } = nativeImage.getSize();
   const topRatio = clampNumber(band?.top, 0.0, 0.95, 0.16);
   const maxHeightRatio = Math.max(0.04, 1.0 - topRatio);
@@ -37,7 +59,7 @@ function cropBand(nativeImage, band) {
   return nativeImage.crop({ x: 0, y: top, width, height: cropHeight });
 }
 
-function cropRect(nativeImage, rect) {
+export function cropRect(nativeImage: any, rect: Rect | null | undefined): any {
   const { width, height } = nativeImage.getSize();
   const xRatio = clampNumber(rect?.x, 0.0, 0.98, 0);
   const yRatio = clampNumber(rect?.y, 0.0, 0.98, 0);
@@ -54,7 +76,7 @@ function cropRect(nativeImage, rect) {
   return nativeImage.crop({ x, y, width: cropWidth, height: cropHeight });
 }
 
-function enhanceForOcr(nativeImage) {
+export function enhanceForOcr(nativeImage: any): any {
   const { width, height } = nativeImage.getSize();
   const scaledWidth = Math.min(
     OCR_ENHANCE.maxWidth,
@@ -74,7 +96,7 @@ function enhanceForOcr(nativeImage) {
     });
   }
 
-  const bitmap = resized.toBitmap();
+  const bitmap: Buffer = resized.toBitmap();
   for (let i = 0; i < bitmap.length; i += 4) {
     const blue = bitmap[i];
     const green = bitmap[i + 1];
@@ -93,15 +115,20 @@ function enhanceForOcr(nativeImage) {
     bitmap[i + 3] = 255;
   }
 
-  const { nativeImage: electronNativeImage } = require("electron");
+  const { nativeImage: electronNativeImage } = require("electron") as typeof import("electron");
   return electronNativeImage.createFromBitmap(bitmap, {
     width: scaledWidth,
     height: scaledHeight,
   });
 }
 
-function buildOcrVariants(nativeImage) {
-  const variants = [{ id: "raw", image: nativeImage }];
+interface OcrVariant {
+  id: string;
+  image: any;
+}
+
+export function buildOcrVariants(nativeImage: any): OcrVariant[] {
+  const variants: OcrVariant[] = [{ id: "raw", image: nativeImage }];
 
   try {
     const enhanced = enhanceForOcr(nativeImage);
@@ -114,12 +141,3 @@ function buildOcrVariants(nativeImage) {
 
   return variants;
 }
-
-module.exports = {
-  cropRewardBand,
-  cropBand,
-  cropRect,
-  enhanceForOcr,
-  buildOcrVariants,
-  OCR_ENHANCE,
-};

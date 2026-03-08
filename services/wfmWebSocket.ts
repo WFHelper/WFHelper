@@ -1,10 +1,16 @@
 "use strict";
 
-const log = require("./logger").withScope("wfmWebSocket");
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
+import tls from "node:tls";
+import crypto from "node:crypto";
+import { withScope } from "./logger";
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
+  normalizeErrorMessage: (err: any) => string;
+};
+
+const log = withScope("wfmWebSocket");
 
 /**
- * wfmWebSocket.js — Minimal WebSocket client for WFM status updates.
+ * wfmWebSocket.ts — Minimal WebSocket client for WFM status updates.
  *
  * WFM status can ONLY be set via WebSocket (wss://ws.warframe.market/socket),
  * not via the REST API. This module implements a single-use, connection-per-call
@@ -20,9 +26,6 @@ const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
  * No external npm packages required — only Node.js built-ins.
  */
 
-const tls = require("tls");
-const crypto = require("crypto");
-
 const WS_HOST = "ws.warframe.market";
 const WS_PORT = 443;
 const WS_PATH = "/socket";
@@ -33,7 +36,7 @@ const WS_ACCEPT_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Generate an 11-character alphanumeric message ID. */
-function _genId() {
+function _genId(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   return Array.from(crypto.randomBytes(11), (b) => chars[b % chars.length]).join("");
 }
@@ -42,12 +45,12 @@ function _genId() {
  * Encode a UTF-8 string as a masked WebSocket text frame (client → server).
  * Client frames MUST be masked per RFC 6455.
  */
-function _encodeFrame(text) {
+function _encodeFrame(text: string): Buffer {
   const payload = Buffer.from(text, "utf-8");
   const len = payload.length;
   const mask = crypto.randomBytes(4);
 
-  let header;
+  let header: Buffer;
   if (len < 126) {
     header = Buffer.from([0x81, 0x80 | len]);
   } else if (len < 65536) {
@@ -65,12 +68,18 @@ function _encodeFrame(text) {
   return Buffer.concat([header, mask, masked]);
 }
 
+interface ParsedFrame {
+  opcode: number;
+  text: string;
+  rest: Buffer<ArrayBufferLike>;
+}
+
 /**
  * Attempt to parse the next WebSocket frame from buf.
  * Server → client frames are NEVER masked.
  * Returns { opcode, text, rest } or null if buf is incomplete.
  */
-function _parseFrame(buf) {
+function _parseFrame(buf: Buffer): ParsedFrame | null {
   if (buf.length < 2) return null;
 
   const opcode = buf[0] & 0x0f;
@@ -92,7 +101,7 @@ function _parseFrame(buf) {
   const total = offset + maskBytes + payLen;
   if (buf.length < total) return null;
 
-  let payload;
+  let payload: Buffer;
   if (masked) {
     const mk = buf.slice(offset, offset + 4);
     payload = Buffer.allocUnsafe(payLen);
@@ -109,20 +118,23 @@ function _parseFrame(buf) {
 /**
  * Connect to WFM WebSocket, authenticate, and set user status.
  *
- * @param {string} token  Authenticated JWT (never leaves main process)
- * @param {"online"|"ingame"|"invisible"} status
- * @returns {Promise<void>} Resolves when status is confirmed set by server
+ * @param token  Authenticated JWT (never leaves main process)
+ * @param status
+ * @returns Resolves when status is confirmed set by server
  */
-function setStatusViaWebSocket(token, status) {
+export function setStatusViaWebSocket(
+  token: string,
+  status: "online" | "ingame" | "invisible",
+): Promise<void> {
   return new Promise((resolve, reject) => {
     let settled = false;
     let upgraded = false;
-    let wsBuf = Buffer.alloc(0);
+    let wsBuf: Buffer<ArrayBufferLike> = Buffer.alloc(0);
     let httpAccum = "";
-    let statusOk = false; // server confirmed @wfm|cmd/status/set:ok
+    let statusOk = false;
     let expectedWsAccept = "";
 
-    function done(err) {
+    function done(err?: Error | null): void {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
@@ -135,7 +147,6 @@ function setStatusViaWebSocket(token, status) {
       else resolve();
     }
 
-    // If status was already confirmed but close handshake stalls, still resolve
     const timer = setTimeout(
       () => done(statusOk ? null : new Error("WFM WebSocket timeout")),
       WS_TIMEOUT,
@@ -160,16 +171,15 @@ function setStatusViaWebSocket(token, status) {
       );
     });
 
-    function sendWs(obj) {
+    function sendWs(obj: object): void {
       socket.write(_encodeFrame(JSON.stringify(obj)));
     }
 
-    socket.on("data", (chunk) => {
+    socket.on("data", (chunk: Buffer) => {
       if (!upgraded) {
-        // Accumulate the HTTP response as a binary string until end-of-headers
         httpAccum += chunk.toString("binary");
         const hdrEnd = httpAccum.indexOf("\r\n\r\n");
-        if (hdrEnd < 0) return; // headers not yet complete
+        if (hdrEnd < 0) return;
 
         const headerBlock = httpAccum.slice(0, hdrEnd);
         const headerLines = headerBlock.split("\r\n");
@@ -179,7 +189,7 @@ function setStatusViaWebSocket(token, status) {
           return;
         }
 
-        const headers = new Map();
+        const headers = new Map<string, string>();
         for (const line of headerLines.slice(1)) {
           const idx = line.indexOf(":");
           if (idx <= 0) continue;
@@ -211,17 +221,14 @@ function setStatusViaWebSocket(token, status) {
         }
 
         upgraded = true;
-        // Bytes after the HTTP headers are the start of the WebSocket stream
         wsBuf = Buffer.from(httpAccum.slice(hdrEnd + 4), "binary");
         httpAccum = "";
 
-        // Step 3 — authenticate
         sendWs({ route: "@wfm|cmd/auth/signIn", payload: { token }, id: _genId() });
       } else {
         wsBuf = Buffer.concat([wsBuf, chunk]);
       }
 
-      // Process all complete WebSocket frames
       for (;;) {
         const frame = _parseFrame(wsBuf);
         if (!frame) break;
@@ -230,25 +237,23 @@ function setStatusViaWebSocket(token, status) {
         const { opcode, text } = frame;
 
         if (opcode === 8) {
-          // Close frame from server
           done(statusOk ? null : new Error("Server closed WS before status was set"));
           return;
         }
         if (opcode === 9) {
-          // Ping → reply with Pong (masked, no payload)
           socket.write(Buffer.from([0x8a, 0x80, 0x00, 0x00, 0x00, 0x00]));
           continue;
         }
-        if (opcode !== 1) continue; // Not a text frame — skip
+        if (opcode !== 1) continue;
 
-        let msg;
+        let msg: any;
         try {
           msg = JSON.parse(text);
         } catch {
           continue;
         }
 
-        const route = msg.route || "";
+        const route: string = msg.route || "";
         log.log("[WFMWebSocket] ←", route);
 
         if (route.endsWith(":error")) {
@@ -257,19 +262,15 @@ function setStatusViaWebSocket(token, status) {
         }
 
         if (route.includes("auth/signIn:ok")) {
-          // Step 5 — set status
           sendWs({ route: "@wfm|cmd/status/set", payload: { status }, id: _genId() });
         } else if (route.includes("status/set:ok")) {
-          // Step 7 — graceful close
           statusOk = true;
           socket.write(Buffer.from([0x88, 0x80, 0x00, 0x00, 0x00, 0x00]));
         }
       }
     });
 
-    socket.on("error", (err) => done(err));
+    socket.on("error", (err: Error) => done(err));
     socket.on("close", () => done(statusOk ? null : new Error("WS closed unexpectedly")));
   });
 }
-
-module.exports = { setStatusViaWebSocket };

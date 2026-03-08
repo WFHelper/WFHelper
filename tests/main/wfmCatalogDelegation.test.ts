@@ -32,7 +32,7 @@ describe("wfmCatalog item lookups", () => {
       }),
     );
 
-    const wfmCatalog = require("../../services/wfmCatalog.js");
+    const wfmCatalog = await import("../../services/wfmCatalog");
 
     await expect(wfmCatalog.ensureLoaded()).resolves.toBe(1);
     expect(wfmCatalog.isLoaded()).toBe(true);

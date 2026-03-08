@@ -1,10 +1,14 @@
 "use strict";
 
-const log = require("./logger").withScope("wfmCatalog");
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
+import { withScope } from "./logger";
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
+  normalizeErrorMessage: (err: any) => string;
+};
+
+const log = withScope("wfmCatalog");
 
 /**
- * wfmCatalog.js — Warframe.market item catalog (main-process only)
+ * wfmCatalog.ts — Warframe.market item catalog (main-process only)
  *
  * Loads the full WFM item list on first demand and keeps it cached in memory.
  * Uses the v2 API directly (v1 /items returns 404).
@@ -13,16 +17,22 @@ const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const { WFM_HEADERS: _BASE_HEADERS, WFM_ASSET_BASE } = require("../config/shared/wfm.cjs");
+const { WFM_HEADERS: _BASE_HEADERS, WFM_ASSET_BASE } = require("../config/shared/wfm.cjs") as {
+  WFM_HEADERS: Record<string, string>;
+  WFM_ASSET_BASE: string;
+};
 
 const WFM_V2_BASE = "https://api.warframe.market/v2";
-const WFM_HEADERS = Object.freeze({
+const WFM_HEADERS: Record<string, string> = Object.freeze({
   ..._BASE_HEADERS,
   "User-Agent": "WarframeCompanion/1.0",
 });
 const WFM_THUMB_BASE = WFM_ASSET_BASE;
 const WFM_ITEM_URL_BASE = "https://warframe.market/items/";
-const ITEM_PATH_CANDIDATES = Object.freeze(["/items", "/collections/items"]);
+const ITEM_PATH_CANDIDATES: ReadonlyArray<string> = Object.freeze([
+  "/items",
+  "/collections/items",
+]);
 const NAME_SET_SUFFIX = " set";
 const SLUG_SET_SUFFIX_RE = /_set$/;
 const SEARCH_MIN_QUERY_LENGTH = 2;
@@ -30,53 +40,49 @@ const SEARCH_SCAN_MULTIPLIER = 2;
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
-/**
- * @typedef {Object} CatalogItem
- * @property {string|null} id
- * @property {string} url_name
- * @property {string} item_name
- * @property {string|null} thumb
- * @property {string|null} icon
- * @property {number|null} maxRank
- * @property {string|null} gameRef
- */
+interface CatalogItem {
+  id: string | null;
+  url_name: string;
+  item_name: string;
+  thumb: string | null;
+  icon: string | null;
+  maxRank: number | null;
+  gameRef: string | null;
+}
 
-/** @type {CatalogItem[]} */
-let _items = [];
-let _byId = new Map();
-let _bySlug = new Map();
-let _byNameLc = new Map();
-let _byGameRefLc = new Map();
+let _items: CatalogItem[] = [];
+let _byId = new Map<string, CatalogItem>();
+let _bySlug = new Map<string, CatalogItem>();
+let _byNameLc = new Map<string, CatalogItem>();
+let _byGameRefLc = new Map<string, CatalogItem>();
 let _loaded = false;
-let _loading = null; // in-flight promise
+let _loading: Promise<void> | null = null;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Unwrap v2 envelope: { data: [...] } or { payload: {...} } or raw array */
-function _unwrap(obj) {
+function _unwrap(obj: any): any {
   if (!obj) return null;
   if (obj.data !== undefined) return obj.data;
   if (obj.payload !== undefined) return obj.payload;
   return obj;
 }
 
-/** Normalise a single v2 item to the internal catalog shape */
-function _normalise(raw) {
+function _normalise(raw: any): CatalogItem {
   const source = raw && typeof raw === "object" ? raw : {};
-  const slug = source.slug || source.url_name || source._slug || "";
-  const name =
+  const slug: string = source.slug || source.url_name || source._slug || "";
+  const name: string =
     source?.i18n?.en?.name ||
     source?.i18n?.en?.itemName ||
     source?.i18n?.en?.item_name ||
     source?.item_name ||
     source?.itemName ||
     source?.name ||
-    slug.replace(/_/g, " ").replace(/\b[a-z]/g, (c) => c.toUpperCase());
-  const thumb = source?.i18n?.en?.thumb || source.thumb || null;
-  const icon = source?.i18n?.en?.icon || source.icon || null;
+    slug.replace(/_/g, " ").replace(/\b[a-z]/g, (c: string) => c.toUpperCase());
+  const thumb: string | null = source?.i18n?.en?.thumb || source.thumb || null;
+  const icon: string | null = source?.i18n?.en?.icon || source.icon || null;
   const rawMaxRank = Number(source.maxRank ?? source.max_rank ?? null);
   const maxRank = Number.isFinite(rawMaxRank) && rawMaxRank > 0 ? Math.floor(rawMaxRank) : null;
-  const gameRef =
+  const gameRef: string | null =
     typeof source.gameRef === "string" && source.gameRef.trim().length > 0
       ? source.gameRef
       : typeof source.game_ref === "string" && source.game_ref.trim().length > 0
@@ -95,7 +101,7 @@ function _normalise(raw) {
 
 // ── Loader ────────────────────────────────────────────────────────────────────
 
-async function _load() {
+async function _load(): Promise<void> {
   if (_loaded) return;
   if (_loading) return _loading;
 
@@ -103,7 +109,7 @@ async function _load() {
     try {
       log.log("[WFMCatalog] Fetching item catalog (v2)…");
 
-      let rawItems = [];
+      let rawItems: any[] = [];
 
       for (const path of ITEM_PATH_CANDIDATES) {
         if (rawItems.length) break;
@@ -121,7 +127,7 @@ async function _load() {
             rawItems = data.items;
           } else if (data.items && typeof data.items === "object") {
             rawItems = Object.entries(data.items).map(([k, v]) =>
-              v && typeof v === "object" ? { _slug: k, ...v } : { _slug: k },
+              v && typeof v === "object" ? { _slug: k, ...(v as object) } : { _slug: k },
             );
           } else if (Array.isArray(data)) {
             rawItems = data;
@@ -149,7 +155,7 @@ async function _load() {
         const slugName = item.url_name
           .replace(SLUG_SET_SUFFIX_RE, "")
           .replace(/_/g, " ")
-          .replace(/\b[a-z]/g, (c) => c.toUpperCase());
+          .replace(/\b[a-z]/g, (c: string) => c.toUpperCase());
         const slugNameLc = slugName.toLowerCase();
         if (slugNameLc && !_byNameLc.has(slugNameLc)) {
           _byNameLc.set(slugNameLc, item);
@@ -168,21 +174,17 @@ async function _load() {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-/**
- * Search items by name fragment (case-insensitive, starts-with first then contains).
- *
- * @param {string} query
- * @param {number} [limit=20]
- * @returns {Promise<Array<{ id, url_name, item_name, thumb, icon }>>}
- */
-async function searchItems(query, limit = 20) {
+export async function searchItems(
+  query: string,
+  limit: number = 20,
+): Promise<CatalogItem[]> {
   await _load();
   if (!query || query.length < SEARCH_MIN_QUERY_LENGTH) return [];
 
   const q = query.toLowerCase().trim();
 
-  const startsWith = [];
-  const contains = [];
+  const startsWith: CatalogItem[] = [];
+  const contains: CatalogItem[] = [];
 
   for (const item of _items) {
     const name = (item.item_name || "").toLowerCase();
@@ -197,16 +199,16 @@ async function searchItems(query, limit = 20) {
   return [...startsWith, ...contains].slice(0, limit);
 }
 
-function isLoaded() {
+export function isLoaded(): boolean {
   return _loaded;
 }
 
-async function ensureLoaded() {
+export async function ensureLoaded(): Promise<number> {
   await _load();
   return _items.length;
 }
 
-function lookupByName(itemName) {
+export function lookupByName(itemName: string): CatalogItem | null {
   if (!itemName) return null;
   const key = String(itemName).toLowerCase();
   let item = _byNameLc.get(key);
@@ -222,14 +224,14 @@ function lookupByName(itemName) {
   return null;
 }
 
-function getMarketUrl(itemName) {
+export function getMarketUrl(itemName: string): string | null {
   const item = lookupByName(itemName);
   if (!item?.url_name) return null;
   return `${WFM_ITEM_URL_BASE}${item.url_name}`;
 }
 
-function getRendererLookup() {
-  const lookup = {};
+export function getRendererLookup(): Record<string, any> {
+  const lookup: Record<string, any> = {};
   for (const [name, item] of _byNameLc.entries()) {
     lookup[name] = {
       url_name: item.url_name,
@@ -254,37 +256,16 @@ function getRendererLookup() {
   return lookup;
 }
 
-/**
- * Look up an item by its WFM UUID.
- */
-async function lookupById(id) {
+export async function lookupById(id: string): Promise<CatalogItem | null> {
   await _load();
   return _byId.get(id) || null;
 }
 
-/**
- * Look up an item by its url_name slug.
- */
-async function lookupBySlug(slug) {
+export async function lookupBySlug(slug: string): Promise<CatalogItem | null> {
   await _load();
   return _bySlug.get(slug) || null;
 }
 
-/**
- * Trigger a background load of the catalog (call on app startup for faster first search).
- */
-function prefetch() {
+export function prefetch(): void {
   _load().catch((err) => log.error("[WFMCatalog] prefetch failed:", normalizeErrorMessage(err)));
 }
-
-module.exports = {
-  searchItems,
-  lookupById,
-  lookupBySlug,
-  lookupByName,
-  getMarketUrl,
-  getRendererLookup,
-  isLoaded,
-  ensureLoaded,
-  prefetch,
-};

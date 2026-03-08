@@ -5,18 +5,27 @@
  * Isolates all `require("electron")` calls for desktopCapturer and screen.
  */
 
-const log = require("./logger").withScope("rewardScanner");
-const { clampNumber } = require("./rewardScannerUtils");
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
+import { withScope } from "./logger";
+import { clampNumber } from "./rewardScannerUtils";
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
+  normalizeErrorMessage: (err: any) => string;
+};
 
-const CAPTURE_THUMBNAIL_LIMITS = Object.freeze({
+const log = withScope("rewardScanner");
+
+export const CAPTURE_THUMBNAIL_LIMITS: Readonly<{
+  minWidth: number;
+  minHeight: number;
+  maxWidth: number;
+  maxHeight: number;
+}> = Object.freeze({
   minWidth: 1920,
   minHeight: 1080,
   maxWidth: 3200,
   maxHeight: 1800,
 });
 
-const COMPANION_WINDOW_TOKENS = Object.freeze([
+const COMPANION_WINDOW_TOKENS: ReadonlyArray<string> = Object.freeze([
   "warframe companion",
   "warframe-companion",
   "warframe_companion",
@@ -31,25 +40,25 @@ const COMPANION_WINDOW_TOKENS = Object.freeze([
   "file explorer",
 ]);
 
-const WARFRAME_WINDOW_NAME_PATTERNS = Object.freeze([/^warframe\b/i]);
+const WARFRAME_WINDOW_NAME_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([/^warframe\b/i]);
 
-function sourceName(source) {
+export function sourceName(source: any): string {
   return String(source?.name || "").trim();
 }
 
-function isCompanionWindowSource(source) {
+export function isCompanionWindowSource(source: any): boolean {
   const name = sourceName(source).toLowerCase();
   return COMPANION_WINDOW_TOKENS.some((token) => name.includes(token));
 }
 
-function isWarframeWindowSource(source) {
+export function isWarframeWindowSource(source: any): boolean {
   const name = sourceName(source).toLowerCase();
   if (!name.includes("warframe")) return false;
   if (isCompanionWindowSource(source)) return false;
   return WARFRAME_WINDOW_NAME_PATTERNS.some((pattern) => pattern.test(name));
 }
 
-function pickWindowSource(sources) {
+export function pickWindowSource(sources: any[]): any | null {
   if (!Array.isArray(sources) || sources.length === 0) return null;
 
   const candidates = sources.filter(isWarframeWindowSource);
@@ -62,7 +71,7 @@ function pickWindowSource(sources) {
   );
 }
 
-function isLikelyWrongWindowName(name) {
+export function isLikelyWrongWindowName(name: any): boolean {
   const low = String(name || "").toLowerCase();
   if (!low.includes("warframe")) return true;
   if (isCompanionWindowSource({ name: low })) return true;
@@ -72,7 +81,14 @@ function isLikelyWrongWindowName(name) {
   return false;
 }
 
-function pickScreenSource(sources, options = {}) {
+interface PickScreenOptions {
+  preferredDisplayId?: string;
+}
+
+export function pickScreenSource(
+  sources: any[],
+  options: PickScreenOptions = {},
+): any | null {
   if (!Array.isArray(sources) || sources.length === 0) return null;
 
   const preferredDisplayId =
@@ -87,9 +103,9 @@ function pickScreenSource(sources, options = {}) {
     if (byPreferredDisplay) return byPreferredDisplay;
   }
 
-  let screenApi;
+  let screenApi: any;
   try {
-    ({ screen: screenApi } = require("electron"));
+    ({ screen: screenApi } = require("electron") as typeof import("electron"));
   } catch {
     return sources[0] || null;
   }
@@ -118,16 +134,19 @@ function pickScreenSource(sources, options = {}) {
       if (byPrimaryDisplay) return byPrimaryDisplay;
     }
   } catch (err) {
-    log.warn("[RewardScanner] pickScreenSource primary lookup failed:", normalizeErrorMessage(err));
+    log.warn(
+      "[RewardScanner] pickScreenSource primary lookup failed:",
+      normalizeErrorMessage(err),
+    );
   }
 
   return sources[0] || null;
 }
 
-function getCaptureThumbnailSize() {
-  let screenApi;
+export function getCaptureThumbnailSize(): { width: number; height: number } {
+  let screenApi: any;
   try {
-    ({ screen: screenApi } = require("electron"));
+    ({ screen: screenApi } = require("electron") as typeof import("electron"));
   } catch {
     return {
       width: CAPTURE_THUMBNAIL_LIMITS.minWidth,
@@ -162,16 +181,29 @@ function getCaptureThumbnailSize() {
   }
 }
 
-async function captureScreen(options = {}) {
-  let desktopCapturer;
+interface CaptureOptions {
+  preferredDisplayId?: string | null;
+  preferScreenCapture?: boolean;
+}
+
+interface CaptureResult {
+  image: any;
+  sourceType: "window" | "screen";
+  sourceName: string;
+  sourceId: string;
+  sourceDisplayId: string;
+}
+
+export async function captureScreen(options: CaptureOptions = {}): Promise<CaptureResult | null> {
+  let desktopCapturer: any;
   try {
-    ({ desktopCapturer } = require("electron"));
+    ({ desktopCapturer } = require("electron") as typeof import("electron"));
   } catch {
     log.warn("[RewardScanner] electron.desktopCapturer unavailable");
     return null;
   }
 
-  let sources;
+  let sources: any[];
   const thumbnailSize = getCaptureThumbnailSize();
   try {
     sources = await desktopCapturer.getSources({
@@ -222,7 +254,14 @@ async function captureScreen(options = {}) {
   return null;
 }
 
-async function captureDebugFrame(options = {}) {
+export async function captureDebugFrame(
+  options: CaptureOptions = {},
+): Promise<{
+  imageDataUrl: string;
+  width: number;
+  height: number;
+  sourceLabel: string;
+} | null> {
   const screenshot = await captureScreen(options);
   if (!screenshot) return null;
   const size = screenshot.image.getSize();
@@ -242,7 +281,12 @@ async function captureDebugFrame(options = {}) {
   };
 }
 
-async function captureSourceMeta(options = {}) {
+export async function captureSourceMeta(options: CaptureOptions = {}): Promise<{
+  sourceType: string | null;
+  sourceName: string | null;
+  sourceId: string | null;
+  sourceDisplayId: string | null;
+} | null> {
   const screenshot = await captureScreen(options);
   if (!screenshot) return null;
 
@@ -253,16 +297,3 @@ async function captureSourceMeta(options = {}) {
     sourceDisplayId: screenshot.sourceDisplayId || null,
   };
 }
-
-module.exports = {
-  sourceName,
-  isCompanionWindowSource,
-  isWarframeWindowSource,
-  pickWindowSource,
-  pickScreenSource,
-  getCaptureThumbnailSize,
-  captureScreen,
-  captureDebugFrame,
-  captureSourceMeta,
-  CAPTURE_THUMBNAIL_LIMITS,
-};

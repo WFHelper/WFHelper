@@ -1,34 +1,68 @@
 "use strict";
 
-const log = require("./logger").withScope("wfmSession");
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
+import path from "path";
+import fs from "fs";
+import { withScope } from "./logger";
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
+  normalizeErrorMessage: (err: any) => string;
+};
 
 /**
- * wfmSession.js — Warframe.market session management (main-process only)
+ * wfmSession.ts — Warframe.market session management (main-process only)
  *
  * Handles sign-in, sign-out, and JWT persistence using Electron safeStorage.
  * The raw token NEVER leaves the main process.
  */
 
-const path = require("path");
-const fs = require("fs");
-const { app, safeStorage } = require("electron");
-const {
+import {
   requestRaw,
   requestV2,
   setTokenProvider,
   updateCsrfFromToken,
   clearCsrfToken,
-} = require("./wfmClient");
-const { setStatusViaWebSocket } = require("./wfmWebSocket");
+} from "./wfmClient";
+import { setStatusViaWebSocket } from "./wfmWebSocket";
 
-const SESSION_FILE = () => path.join(app.getPath("userData"), "wfm.session");
+const { app, safeStorage } = require("electron") as typeof import("electron");
+
+const log = withScope("wfmSession");
+
+// ── Interfaces ────────────────────────────────────────────────────────────────
+
+export interface SessionSummary {
+  loggedIn: boolean;
+  userName: string | null;
+  platform: string;
+}
+
+export interface SignInResult extends SessionSummary {
+  loggedIn: true;
+}
+
+export interface SignOutResult {
+  loggedIn: false;
+}
+
+export interface SetStatusResult {
+  status: "online" | "ingame" | "invisible";
+}
+
+export interface WfmUserProfile {
+  id: string;
+  ingame_name: string;
+  status: string;
+  [key: string]: unknown;
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const SESSION_FILE = (): string => path.join(app.getPath("userData"), "wfm.session");
 const ALLOW_INSECURE_SESSION = process.env.WFM_ALLOW_INSECURE_SESSION === "1";
 
 // ── In-memory state ───────────────────────────────────────────────────────────
 
-let _token = null; // JWT string, never exposed to renderer
-let _userName = null; // WFM in-game / profile name
+let _token: string | null = null;
+let _userName: string | null = null;
 let _platform = "pc";
 
 // Register the token provider so wfmClient can inject the JWT into requests
@@ -36,7 +70,7 @@ setTokenProvider(() => _token);
 
 // ── Persistence helpers ───────────────────────────────────────────────────────
 
-function _saveSession(token, userName) {
+function _saveSession(token: string, userName: string): void {
   try {
     const payload = JSON.stringify({ token, userName, platform: _platform });
     if (safeStorage.isEncryptionAvailable()) {
@@ -46,8 +80,6 @@ function _saveSession(token, userName) {
     }
 
     if (ALLOW_INSECURE_SESSION) {
-      // Explicit opt-in only (for unsupported environments).
-      // No real security guarantee.
       log.warn(
         "[WFMSession] safeStorage unavailable — insecure base64 session persistence is enabled",
       );
@@ -55,14 +87,13 @@ function _saveSession(token, userName) {
       return;
     }
 
-    // Fail closed by default: keep token in memory only for this app session.
     log.warn("[WFMSession] safeStorage unavailable — session will not be persisted to disk");
   } catch (err) {
     log.error("[WFMSession] Failed to persist session:", normalizeErrorMessage(err));
   }
 }
 
-function _clearSession() {
+function _clearSession(): void {
   _token = null;
   _userName = null;
   clearCsrfToken();
@@ -75,13 +106,13 @@ function _clearSession() {
   }
 }
 
-function _loadSession() {
+function _loadSession(): { token: string; userName: string; platform: string } | null {
   try {
     const file = SESSION_FILE();
     if (!fs.existsSync(file)) return null;
 
     const raw = fs.readFileSync(file);
-    let payload;
+    let payload: string;
 
     if (safeStorage.isEncryptionAvailable()) {
       payload = safeStorage.decryptString(raw);
@@ -106,12 +137,11 @@ function _loadSession() {
  * Returns a safe summary (no token) on success.
  * Throws on failure.
  */
-async function signIn(email, password) {
+export async function signIn(email: string, password: string): Promise<SignInResult> {
   if (!email || !password) {
     throw new Error("Email and password are required.");
   }
 
-  // Diagnostic: log email shape without revealing value
   const atIdx = (email || "").indexOf("@");
   log.log(
     "[WFMSession] signIn email shape — length:",
@@ -126,16 +156,12 @@ async function signIn(email, password) {
     typeof email === "string",
   );
 
-  // WFM sign-in: POST /v1/auth/signin
-  // The JWT is returned either in the Authorization response header,
-  // a Set-Cookie "JWT=<token>" header, or the response body.
   const { res, body } = await requestRaw("POST", "/auth/signin", {
     json: { email, password },
   });
 
-  let token = null;
+  let token: string | null = null;
 
-  // 1. Authorization response header ("JWT <token>")
   const authHeader = res.headers.get("authorization");
   if (authHeader) {
     token = authHeader.toLowerCase().startsWith("jwt ")
@@ -143,31 +169,27 @@ async function signIn(email, password) {
       : authHeader.trim();
   }
 
-  // 2. Set-Cookie header — WFM sets "JWT=<token>; Path=/..."
   if (!token) {
     const setCookie = res.headers.get("set-cookie") || "";
     const match = setCookie.match(/(?:^|,)\s*JWT=([^;,]+)/i);
     if (match) token = match[1].trim();
   }
 
-  // 3. Response body fallback
   if (!token) {
-    token = body?.payload?.token || body?.token || null;
+    token = (body as any)?.payload?.token || (body as any)?.token || null;
   }
 
   if (!token) {
     throw new Error("Sign-in succeeded but no session token was returned. Please try again.");
   }
 
-  // Extract user info
-  const userInfo = body?.payload?.user || body?.user || {};
+  const userInfo = (body as any)?.payload?.user || (body as any)?.user || {};
   const userName = userInfo.ingame_name || userInfo.name || email.split("@")[0];
   _platform = userInfo.platform || "pc";
 
   _token = token;
   _userName = userName;
 
-  // Update the CSRF token from the authenticated JWT payload
   updateCsrfFromToken(token);
 
   _saveSession(token, userName);
@@ -179,7 +201,7 @@ async function signIn(email, password) {
 /**
  * Sign out and remove persisted session.
  */
-function signOut() {
+export function signOut(): SignOutResult {
   log.log("[WFMSession] Signing out");
   _clearSession();
   return { loggedIn: false };
@@ -189,7 +211,7 @@ function signOut() {
  * Restore session from disk (called on app startup).
  * Silently ignores missing/corrupt files.
  */
-async function restoreSession() {
+export async function restoreSession(): Promise<void> {
   const saved = _loadSession();
   if (!saved || !saved.token) {
     log.log("[WFMSession] No persisted session found.");
@@ -207,7 +229,7 @@ async function restoreSession() {
  * Return a safe session summary for the renderer.
  * Never includes the token.
  */
-function getSession() {
+export function getSession(): SessionSummary {
   return {
     loggedIn: !!_token,
     userName: _userName || null,
@@ -219,7 +241,7 @@ function getSession() {
  * Return the in-game name (used by wfmOrders to build the profile URL).
  * Internal use only.
  */
-function getInGameName() {
+export function getInGameName(): string | null {
   return _userName;
 }
 
@@ -227,10 +249,10 @@ function getInGameName() {
  * Fetch current user profile from the v2 API.
  * Returns { id, ingame_name, status, ... } or null.
  */
-async function getMe() {
+export async function getMe(): Promise<WfmUserProfile | null> {
   if (!_token) return null;
   try {
-    const data = await requestV2("GET", "/me");
+    const data = await requestV2("GET", "/me") as any;
     return data?.data || null;
   } catch (err) {
     log.warn("[WFMSession] getMe failed:", normalizeErrorMessage(err));
@@ -240,14 +262,12 @@ async function getMe() {
 
 /**
  * Set the authenticated user's online status via WebSocket.
- * (The v2 REST API does not expose a status endpoint — status is
- * managed exclusively through the WFM WebSocket protocol.)
- * @param {"online"|"ingame"|"invisible"} status
+ * @param status
  */
-async function setStatus(status) {
+export async function setStatus(
+  status: "online" | "ingame" | "invisible",
+): Promise<SetStatusResult> {
   if (!_token) throw new Error("Not logged in to Warframe.market.");
   await setStatusViaWebSocket(_token, status);
   return { status };
 }
-
-module.exports = { signIn, signOut, restoreSession, getSession, getInGameName, getMe, setStatus };
