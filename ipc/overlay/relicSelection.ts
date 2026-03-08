@@ -18,10 +18,10 @@ const { toFiniteOr, clampNumber } = sharedNumeric;
 
 const RECOMMENDATION_ROW_LIMIT = 6;
 const RECOMMENDATION_SQUAD_SIZE = 4;
-const NETWORK_FETCH_SLUG_LIMIT = 36;
-const NETWORK_FETCH_CONCURRENCY = 6;
-const NETWORK_FETCH_TIMEOUT_MS = 1800;
 const RECOMMENDATION_CACHE_TTL_MS = 10_000;
+const MIN_EELOG_TRIGGER_GAP_MS = 900;
+const ERA_DETECTION_TIMEOUT_MS = 1500;
+const REOPEN_SUPPRESS_AFTER_CLOSE_MS = 3_000;
 
 const OVERLAY_AUTO_HIDE_SUCCESS_MS = 18_000;
 const OVERLAY_AUTO_HIDE_FAILURE_MS = 4_500;
@@ -81,6 +81,7 @@ type OverlayRecommendationControllerOptions = {
   ctx: {
     overlaySettings: Record<string, unknown>;
     currentInventoryData: Record<string, unknown> | null;
+    overlayDismissedUntilMs?: number;
   };
   windows: {
     createOverlayWindow: () => void;
@@ -98,24 +99,28 @@ type OverlayRecommendationControllerOptions = {
     };
   };
   rewardScanner: {
-    captureSourceMeta?: () => Promise<{
+    captureSourceMeta?: (options?: { preferredDisplayId?: string | null }) => Promise<{
       sourceType?: string | null;
       sourceDisplayId?: string | null;
       sourceName?: string | null;
       sourceId?: string | null;
     } | null>;
-    detectRelicSelectionEra?: (options?: { timeoutMs?: number }) => Promise<{
+    detectRelicSelectionEra?: (options?: {
+      timeoutMs?: number;
+      preferredDisplayId?: string | null;
+    }) => Promise<{
       era?: string | null;
       confidence?: number;
       textPreview?: string;
       elapsedMs?: number;
       sourceType?: string | null;
+      sourceName?: string | null;
       sourceDisplayId?: string | null;
+      sourceId?: string | null;
       candidateId?: string | null;
     }>;
   };
   wfmStatsPrice: {
-    fetchPriceBySlug: (slug: string, options?: { timeoutMs?: number }) => Promise<number | null>;
     getCachedPriceBySlug?: (slug: string) => number | null;
   };
   warframeStatus?: {
@@ -123,6 +128,7 @@ type OverlayRecommendationControllerOptions = {
       isOpen: boolean;
       isFocused: boolean;
       focusedProcessName?: string | null;
+      focusedDisplayId?: string | null;
     }>;
   };
   fs: typeof import("node:fs");
@@ -282,72 +288,15 @@ function loadPersistedPriceMedianMap(
   return prices;
 }
 
-function scoreRewardForNetworkFetch(reward: Reward): number {
-  const rarity = String(reward?.rarity || "").toLowerCase();
-  const rarityWeight = rarity === "rare" ? 100 : rarity === "uncommon" ? 55 : 20;
-  const chance = clampNumber(toFiniteOr(reward?.chance, 0), 0, 100);
-  return rarityWeight + (100 - chance) * 0.2;
-}
-
-function buildNetworkFetchSlugList(
-  groups: RelicGroup[],
-  owned: Record<string, OwnedCountRow>,
-  era: string | null,
-): string[] {
-  const ranked = new Map<string, number>();
-
-  for (const group of groups) {
-    const groupEra = normalizeEra(group.tier);
-    if (era && groupEra !== era) continue;
-
-    const ownedRow = owned[group.key];
-    if (!ownedRow) continue;
-
-    for (const quality of QUALITY_ORDER) {
-      if ((ownedRow[quality] || 0) <= 0) continue;
-      const rewards = group.qualities?.[quality]?.rewards || [];
-      for (const reward of rewards) {
-        const slug = normalizeSlug(reward?.urlName);
-        if (!slug) continue;
-        const score = scoreRewardForNetworkFetch(reward);
-        const prev = ranked.get(slug) || 0;
-        if (score > prev) ranked.set(slug, score);
-      }
-    }
+function getCacheFileMtimeMs(fs: typeof import("node:fs"), cacheFilePath: string): number {
+  try {
+    if (!fs.existsSync(cacheFilePath)) return 0;
+    const stat = fs.statSync(cacheFilePath);
+    const mtimeMs = toFiniteOr((stat as { mtimeMs?: number }).mtimeMs, 0);
+    return Number.isFinite(mtimeMs) && mtimeMs > 0 ? mtimeMs : 0;
+  } catch {
+    return 0;
   }
-
-  return [...ranked.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, NETWORK_FETCH_SLUG_LIMIT)
-    .map(([slug]) => slug);
-}
-
-async function prefetchNetworkPrices(
-  slugs: string[],
-  fetchPriceBySlug: (slug: string, options?: { timeoutMs?: number }) => Promise<number | null>,
-): Promise<Map<string, number | null>> {
-  const results = new Map<string, number | null>();
-  const queue = [...slugs];
-
-  const worker = async () => {
-    while (queue.length > 0) {
-      const slug = queue.shift();
-      if (!slug) continue;
-      try {
-        const price = await fetchPriceBySlug(slug, { timeoutMs: NETWORK_FETCH_TIMEOUT_MS });
-        results.set(
-          slug,
-          typeof price === "number" && Number.isFinite(price) && price > 0 ? price : null,
-        );
-      } catch {
-        results.set(slug, null);
-      }
-    }
-  };
-
-  await Promise.all(Array.from({ length: NETWORK_FETCH_CONCURRENCY }, () => worker()));
-
-  return results;
 }
 
 function pickBestOwnedQuality(
@@ -438,35 +387,53 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     relicService,
     rewardScanner,
     wfmStatsPrice,
-    warframeStatus,
     fs,
     cacheFilePath,
   } = options;
 
   let inFlight = false;
+  let activeScanToken = 0;
+  let lastEelogTriggerAt = 0;
+  let lastKnownGameDisplayId: string | null = null;
   let cache: {
     key: string;
     rows: RecommendationRow[];
     era: string | null;
+    totalOwnedCount: number;
     ts: number;
   } | null = null;
+  let persistedPriceMedianCache: {
+    mtimeMs: number;
+    prices: Map<string, number>;
+  } | null = null;
 
-  async function buildRecommendations(era: string | null): Promise<RecommendationRow[]> {
+  function getPersistedPriceMedianMapCached(): Map<string, number> {
+    const mtimeMs = getCacheFileMtimeMs(fs, cacheFilePath);
+    if (persistedPriceMedianCache && persistedPriceMedianCache.mtimeMs === mtimeMs) {
+      return persistedPriceMedianCache.prices;
+    }
+
+    const prices = loadPersistedPriceMedianMap(fs, cacheFilePath);
+    persistedPriceMedianCache = {
+      mtimeMs,
+      prices,
+    };
+    return prices;
+  }
+
+  function buildRecommendations(
+    era: string | null,
+  ): { rows: RecommendationRow[]; totalOwnedCount: number } {
     const db = relicService.getRelicDatabase();
     const groups = Object.values(db.groups || {}) as RelicGroup[];
     const owned = parseOwnedRelicCounts(ctx.currentInventoryData, db.byUniqueName || {});
 
     const cacheKey = `${era || "all"}|${toStableOwnedFingerprint(owned)}`;
     if (cache && cache.key === cacheKey && Date.now() - cache.ts < RECOMMENDATION_CACHE_TTL_MS) {
-      return cache.rows;
+      return { rows: cache.rows, totalOwnedCount: cache.totalOwnedCount };
     }
 
-    const persistedPrices = loadPersistedPriceMedianMap(fs, cacheFilePath);
-    const networkCandidates = buildNetworkFetchSlugList(groups, owned, era);
-    const networkPrices = await prefetchNetworkPrices(
-      networkCandidates,
-      wfmStatsPrice.fetchPriceBySlug,
-    );
+    const persistedPrices = getPersistedPriceMedianMapCached();
 
     const getPrice = (slug: string): number | null => {
       const normalized = normalizeSlug(slug);
@@ -483,13 +450,10 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         }
       }
 
-      if (networkPrices.has(normalized)) {
-        return networkPrices.get(normalized) || null;
-      }
-
       return null;
     };
 
+    let totalOwnedCount = 0;
     const rows: RecommendationRow[] = [];
     for (const group of groups) {
       const groupEra = normalizeEra(group.tier);
@@ -497,6 +461,13 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
 
       const ownedRow = owned[group.key];
       if (!ownedRow) continue;
+
+      const groupTotal =
+        (ownedRow.intact || 0) +
+        (ownedRow.exceptional || 0) +
+        (ownedRow.flawless || 0) +
+        (ownedRow.radiant || 0);
+      totalOwnedCount += groupTotal;
 
       const best = pickBestOwnedQuality(group, ownedRow, getPrice);
       if (best) rows.push(best);
@@ -519,79 +490,116 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       key: cacheKey,
       rows: sliced,
       era,
+      totalOwnedCount,
       ts: Date.now(),
     };
 
-    return sliced;
+    return { rows: sliced, totalOwnedCount };
   }
 
-  async function onRelicSelectionTrigger(source = "manual") {
-    if (inFlight) {
-      log.log(`[RelicSelection] recommendation scan already running, skip duplicate (${source})`);
-      return;
-    }
-
-    inFlight = true;
-
+  function sendFallbackRows(scanToken: number, source: string): void {
+    const startedAt = Date.now();
     try {
-      if (source === "eelog" && !ctx.overlaySettings.autoTriggerEnabled) return;
+      const { rows, totalOwnedCount } = buildRecommendations(null);
+      if (scanToken !== activeScanToken) return;
 
-      if (source === "eelog" && warframeStatus?.getStatus) {
-        const status = await warframeStatus.getStatus();
-        if (!status.isOpen) {
-          log.log("[RelicSelection] skipped trigger: Warframe not open");
-          return;
-        }
-        if (!status.isFocused) {
-          log.log(
-            `[RelicSelection] skipped trigger: Warframe not focused (${status.focusedProcessName || "unknown"})`,
-          );
-          return;
-        }
+      windows.sendOverlayEvent("relic-recommendations", {
+        source,
+        era: null,
+        rows,
+        totalOwnedCount,
+        detection: {
+          confidence: 0,
+          textPreview: "",
+          elapsedMs: 0,
+        },
+      });
+
+      if (rows.length > 0) {
+        windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_SUCCESS_MS);
       }
 
+      log.log(
+        `[RelicSelection] fallback rows sent count=${rows.length} elapsed=${Date.now() - startedAt}ms token=${scanToken}`,
+      );
+    } catch (err) {
+      if (scanToken !== activeScanToken) return;
+      log.warn("[RelicSelection] fallback rows failed:", normalizeErrorMessage(err));
+    }
+  }
+
+  async function runRefinement(
+    scanToken: number,
+    source: string,
+    preferredDisplayIdInitial: string | null,
+  ): Promise<void> {
+    const refineStartedAt = Date.now();
+    let preferredDisplayId = preferredDisplayIdInitial;
+
+    try {
       if (typeof rewardScanner.captureSourceMeta === "function") {
+        const captureMetaStartedAt = Date.now();
         try {
-          const sourceMeta = await rewardScanner.captureSourceMeta();
+          const sourceMeta = await rewardScanner.captureSourceMeta({ preferredDisplayId });
+          if (scanToken !== activeScanToken) return;
+          log.log(
+            `[RelicSelection] source meta elapsed=${Date.now() - captureMetaStartedAt}ms source=${String(
+              sourceMeta?.sourceType || "unknown",
+            )}:${String(sourceMeta?.sourceName || sourceMeta?.sourceId || "unknown")} display=${String(
+              sourceMeta?.sourceDisplayId || "unknown",
+            )}`,
+          );
           if (sourceMeta?.sourceDisplayId) {
             windows.setAnchorMeta({ sourceDisplayId: sourceMeta.sourceDisplayId });
+            preferredDisplayId = String(sourceMeta.sourceDisplayId);
+            lastKnownGameDisplayId = preferredDisplayId;
+            windows.positionOverlayWindow(windows.getAnchorMeta());
           }
         } catch {
           // non-critical, detection flow will still run
         }
       }
 
-      windows.clearOverlayAutoHideTimer();
-      windows.createOverlayWindow();
-      windows.positionOverlayWindow(windows.getAnchorMeta());
-      windows.sendOverlayEvent("relic-planner-trigger", { source });
-      windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_DETECTING_MAX_MS);
-
+      const eraDetectStartedAt = Date.now();
       const eraDetection =
         typeof rewardScanner.detectRelicSelectionEra === "function"
-          ? await rewardScanner.detectRelicSelectionEra({ timeoutMs: 4500 })
+          ? await rewardScanner.detectRelicSelectionEra({
+              timeoutMs: ERA_DETECTION_TIMEOUT_MS,
+              preferredDisplayId,
+            })
           : null;
+
+      if (scanToken !== activeScanToken) return;
+
+      log.log(`[RelicSelection] era detection elapsed=${Date.now() - eraDetectStartedAt}ms`);
 
       if (eraDetection?.sourceDisplayId) {
         windows.setAnchorMeta({ sourceDisplayId: eraDetection.sourceDisplayId });
+        lastKnownGameDisplayId = String(eraDetection.sourceDisplayId);
         windows.positionOverlayWindow(windows.getAnchorMeta());
       }
 
       const era = normalizeEra(eraDetection?.era || null);
+      const eraConfidence = toFiniteOr(eraDetection?.confidence, 0);
+      const shouldApplyEra = Boolean(era && eraConfidence >= 0.9);
 
       log.log(
         `[RelicSelection] era detection: era=${era || "none"} conf=${toFiniteOr(eraDetection?.confidence, 0).toFixed(3)} ` +
-          `source=${String(eraDetection?.sourceType || "unknown")}/${String(eraDetection?.sourceDisplayId || "unknown")} ` +
+          `source=${String(eraDetection?.sourceType || "unknown")}:${String(eraDetection?.sourceName || eraDetection?.sourceId || "unknown")} ` +
+          `display=${String(eraDetection?.sourceDisplayId || "unknown")} ` +
           `candidate=${String(eraDetection?.candidateId || "-")} preview="${String(eraDetection?.textPreview || "")}"`,
       );
 
-      const rows = era ? await buildRecommendations(era) : [];
+      const { rows, totalOwnedCount } = buildRecommendations(shouldApplyEra ? era : null);
+      if (scanToken !== activeScanToken) return;
+
       windows.sendOverlayEvent("relic-recommendations", {
         source,
-        era,
+        era: shouldApplyEra ? era : null,
         rows,
+        totalOwnedCount,
         detection: {
-          confidence: toFiniteOr(eraDetection?.confidence, 0),
+          confidence: eraConfidence,
           textPreview: String(eraDetection?.textPreview || ""),
           elapsedMs: toFiniteOr(eraDetection?.elapsedMs, 0),
         },
@@ -600,8 +608,15 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       windows.scheduleOverlayAutoHide(
         rows.length > 0 ? OVERLAY_AUTO_HIDE_SUCCESS_MS : OVERLAY_AUTO_HIDE_FAILURE_MS,
       );
+
+      log.log(
+        `[RelicSelection] refinement rows sent count=${rows.length} era=${
+          shouldApplyEra ? era : "none"
+        } conf=${eraConfidence.toFixed(3)} elapsed=${Date.now() - refineStartedAt}ms token=${scanToken}`,
+      );
     } catch (err) {
-      log.error("[RelicSelection] recommendation pipeline failed:", normalizeErrorMessage(err));
+      if (scanToken !== activeScanToken) return;
+      log.error("[RelicSelection] recommendation refinement failed:", normalizeErrorMessage(err));
       windows.sendOverlayEvent("relic-recommendations", {
         source,
         era: null,
@@ -609,12 +624,81 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       });
       windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_FAILURE_MS);
     } finally {
-      inFlight = false;
+      if (scanToken === activeScanToken) {
+        inFlight = false;
+      }
     }
+  }
+
+  async function onRelicSelectionTrigger(source = "manual") {
+    if (source === "eelog") {
+      const now = Date.now();
+      if (toFiniteOr(ctx.overlayDismissedUntilMs, 0) > now) {
+        return;
+      }
+      if (now - lastEelogTriggerAt < MIN_EELOG_TRIGGER_GAP_MS) {
+        return;
+      }
+      lastEelogTriggerAt = now;
+    }
+
+    const scanToken = activeScanToken + 1;
+    activeScanToken = scanToken;
+
+    if (inFlight) {
+      log.log(`[RelicSelection] replacing in-flight planner scan (${source})`);
+    }
+
+    inFlight = true;
+
+    try {
+      if (source === "eelog" && !ctx.overlaySettings.autoTriggerEnabled) {
+        inFlight = false;
+        return;
+      }
+
+      let preferredDisplayId: string | null = lastKnownGameDisplayId;
+
+      if (preferredDisplayId) {
+        windows.setAnchorMeta({ sourceDisplayId: preferredDisplayId });
+      }
+
+      windows.clearOverlayAutoHideTimer();
+      windows.createOverlayWindow();
+      windows.positionOverlayWindow(windows.getAnchorMeta());
+      log.log(
+        `[RelicSelection] overlay show request source=${source} anchorDisplay=${String(
+          windows.getAnchorMeta()?.sourceDisplayId || "unknown",
+        )} token=${scanToken}`,
+      );
+      windows.sendOverlayEvent("relic-planner-trigger", { source });
+      windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_DETECTING_MAX_MS);
+
+      sendFallbackRows(scanToken, source);
+
+      setTimeout(() => {
+        void runRefinement(scanToken, source, preferredDisplayId);
+      }, 0);
+    } catch (err) {
+      if (scanToken !== activeScanToken) return;
+      inFlight = false;
+      log.error("[RelicSelection] recommendation pipeline failed:", normalizeErrorMessage(err));
+      windows.sendOverlayEvent("relic-recommendations", {
+        source,
+        era: null,
+        rows: [],
+      });
+      windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_FAILURE_MS);
+    }
+  }
+
+  function suppressReopenForClose(): void {
+    ctx.overlayDismissedUntilMs = Date.now() + REOPEN_SUPPRESS_AFTER_CLOSE_MS;
   }
 
   return {
     onRelicSelectionTrigger,
+    suppressReopenForClose,
   };
 }
 

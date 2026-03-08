@@ -31,6 +31,7 @@ type OverlayContext = {
   overlayWindow: import("electron").BrowserWindow | null;
   cropDebugWindow: import("electron").BrowserWindow | null;
   overlaySettings: Record<string, unknown>;
+  overlayInteractiveMode: boolean;
 };
 
 type OverlayWindowsControllerOptions = {
@@ -38,6 +39,10 @@ type OverlayWindowsControllerOptions = {
   BrowserWindow: typeof import("electron").BrowserWindow;
   screen: typeof import("electron").screen;
   ctx: OverlayContext;
+  getOverlayWindow?: () => import("electron").BrowserWindow | null;
+  setOverlayWindow?: (window: import("electron").BrowserWindow | null) => void;
+  getOverlayInteractiveMode?: () => boolean;
+  setOverlayInteractiveModeState?: (enabled: boolean) => void;
   log: { warn: (...args: unknown[]) => void };
   hardenBrowserWindowNavigation: (
     browserWindow: import("electron").BrowserWindow,
@@ -49,6 +54,11 @@ type OverlayWindowsControllerOptions = {
   ) => void;
   overlayWindowFile: string;
   cropDebugWindowFile: string;
+  placement?: "center" | "top-left" | "top-right";
+  windowWidth?: number;
+  windowHeight?: number;
+  minWindowWidth?: number;
+  minWindowHeight?: number;
 };
 
 export function createOverlayWindowsController(options: OverlayWindowsControllerOptions) {
@@ -57,14 +67,47 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     BrowserWindow,
     screen,
     ctx,
+    getOverlayWindow,
+    setOverlayWindow,
+    getOverlayInteractiveMode,
+    setOverlayInteractiveModeState,
     log,
     hardenBrowserWindowNavigation,
     overlayWindowFile,
     cropDebugWindowFile,
+    placement = "center",
+    windowWidth = OVERLAY_WINDOW_BOUNDS.width,
+    windowHeight = OVERLAY_WINDOW_BOUNDS.height,
+    minWindowWidth = 760,
+    minWindowHeight = 160,
   } = options;
 
   let lastOverlayAnchorMeta: OverlayAnchorMeta | null = null;
   let overlayAutoHideTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const readOverlayWindow =
+    getOverlayWindow ||
+    (() => {
+      return ctx.overlayWindow;
+    });
+
+  const writeOverlayWindow =
+    setOverlayWindow ||
+    ((window: import("electron").BrowserWindow | null) => {
+      ctx.overlayWindow = window;
+    });
+
+  const readInteractiveMode =
+    getOverlayInteractiveMode ||
+    (() => {
+      return ctx.overlayInteractiveMode;
+    });
+
+  const writeInteractiveMode =
+    setOverlayInteractiveModeState ||
+    ((enabled: boolean) => {
+      ctx.overlayInteractiveMode = !!enabled;
+    });
 
   function getElectronBuildFile(fileName: string): string {
     return path.join(app.getAppPath(), ".electron-build", fileName);
@@ -117,19 +160,35 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     const area = display?.workArea || {
       x: 0,
       y: 0,
-      width: OVERLAY_WINDOW_BOUNDS.width,
-      height: OVERLAY_WINDOW_BOUNDS.height,
+      width: windowWidth,
+      height: windowHeight,
     };
 
-    const maxAllowedWidth = Math.max(760, area.width - OVERLAY_WINDOW_BOUNDS.horizontalMargin * 2);
-    const width = Math.min(OVERLAY_WINDOW_BOUNDS.width, maxAllowedWidth);
-    const height = Math.min(OVERLAY_WINDOW_BOUNDS.height, Math.max(160, area.height - 20));
+    const maxAllowedWidth = Math.max(
+      minWindowWidth,
+      area.width - OVERLAY_WINDOW_BOUNDS.horizontalMargin * 2,
+    );
+    const width = Math.min(windowWidth, maxAllowedWidth);
+    const height = Math.min(windowHeight, Math.max(minWindowHeight, area.height - 20));
 
-    const x = Math.round(area.x + (area.width - width) / 2);
-    const preferredY = Math.round(area.y + area.height * getAnchorRatio(anchorMeta));
-    const maxY = area.y + area.height - height - OVERLAY_WINDOW_BOUNDS.bottomMargin;
+    const minX = area.x + OVERLAY_WINDOW_BOUNDS.horizontalMargin;
+    const maxX = area.x + area.width - width - OVERLAY_WINDOW_BOUNDS.horizontalMargin;
     const minY = area.y + OVERLAY_WINDOW_BOUNDS.topMargin;
-    const y = Math.max(minY, Math.min(maxY, preferredY));
+    const maxY = area.y + area.height - height - OVERLAY_WINDOW_BOUNDS.bottomMargin;
+
+    let x = Math.round(area.x + (area.width - width) / 2);
+    let y = Math.round(area.y + area.height * getAnchorRatio(anchorMeta));
+
+    if (placement === "top-left") {
+      x = minX;
+      y = minY;
+    } else if (placement === "top-right") {
+      x = maxX;
+      y = minY;
+    }
+
+    x = Math.max(minX, Math.min(maxX, x));
+    y = Math.max(minY, Math.min(maxY, y));
 
     return { x, y, width, height };
   }
@@ -137,31 +196,40 @@ export function createOverlayWindowsController(options: OverlayWindowsController
   function positionOverlayWindow(
     anchorMeta: OverlayAnchorMeta | null = lastOverlayAnchorMeta,
   ): void {
-    if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) return;
+    const overlayWindow = readOverlayWindow();
+    if (!overlayWindow || overlayWindow.isDestroyed()) return;
     const bounds = getOverlayBoundsForActiveDisplay(anchorMeta);
-    ctx.overlayWindow.setBounds(bounds, false);
+    overlayWindow.setBounds(bounds, false);
   }
 
-  function createOverlayWindow(): void {
-    if (ctx.overlayWindow && !ctx.overlayWindow.isDestroyed()) {
+  function createOverlayWindow(options: { show?: boolean } = {}): void {
+    const shouldShow = options.show !== false;
+    const existingWindow = readOverlayWindow();
+    if (existingWindow && !existingWindow.isDestroyed()) {
       positionOverlayWindow(lastOverlayAnchorMeta);
-      ctx.overlayWindow.showInactive();
+      existingWindow.setAlwaysOnTop(true, "screen-saver");
+      existingWindow.moveTop();
+      if (shouldShow) {
+        existingWindow.showInactive();
+      }
+      setOverlayInteractiveMode(readInteractiveMode());
       return;
     }
 
     const initialBounds = getOverlayBoundsForActiveDisplay(lastOverlayAnchorMeta);
 
-    ctx.overlayWindow = new BrowserWindow({
+    const createdWindow = new BrowserWindow({
       width: initialBounds.width,
       height: initialBounds.height,
       x: initialBounds.x,
       y: initialBounds.y,
+      show: false,
       transparent: true,
       frame: false,
       alwaysOnTop: true,
       skipTaskbar: true,
       resizable: false,
-      focusable: false,
+      focusable: true,
       webPreferences: {
         preload: getElectronBuildFile("preload-overlay.js"),
         contextIsolation: true,
@@ -170,20 +238,26 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       },
     });
 
-    hardenBrowserWindowNavigation(ctx.overlayWindow, {
+    writeOverlayWindow(createdWindow);
+
+    hardenBrowserWindowNavigation(createdWindow, {
       label: "overlay window",
       allowedFilePaths: [overlayWindowFile],
       log,
     });
 
-    void ctx.overlayWindow.loadFile(overlayWindowFile);
-    ctx.overlayWindow.setAlwaysOnTop(true, "screen-saver");
-    ctx.overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    ctx.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
+    void createdWindow.loadFile(overlayWindowFile);
+    createdWindow.setAlwaysOnTop(true, "screen-saver");
+    createdWindow.moveTop();
+    createdWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    setOverlayInteractiveMode(readInteractiveMode());
     positionOverlayWindow(lastOverlayAnchorMeta);
-    ctx.overlayWindow.on("closed", () => {
+    if (shouldShow) {
+      createdWindow.showInactive();
+    }
+    createdWindow.on("closed", () => {
       clearOverlayAutoHideTimer();
-      ctx.overlayWindow = null;
+      writeOverlayWindow(null);
     });
   }
 
@@ -248,21 +322,22 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     clearOverlayAutoHideTimer();
 
     const delay = Math.max(250, Math.floor(Number(delayMs) || 0));
-    if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) return;
+    const overlayWindow = readOverlayWindow();
+    if (!overlayWindow || overlayWindow.isDestroyed()) return;
 
     overlayAutoHideTimer = setTimeout(() => {
       overlayAutoHideTimer = null;
-      if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) return;
-      if (ctx.overlayWindow.isVisible()) {
-        ctx.overlayWindow.hide();
+      const activeWindow = readOverlayWindow();
+      if (!activeWindow || activeWindow.isDestroyed()) return;
+      if (activeWindow.isVisible()) {
+        activeWindow.hide();
       }
     }, delay);
   }
 
   function sendOverlayEvent(channel: string, payload?: unknown): void {
-    if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) return;
-
-    const targetWindow = ctx.overlayWindow;
+    const targetWindow = readOverlayWindow();
+    if (!targetWindow || targetWindow.isDestroyed()) return;
     const sendNow = () => {
       if (!targetWindow || targetWindow.isDestroyed()) return;
       targetWindow.webContents.send(channel, payload);
@@ -284,6 +359,30 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     return lastOverlayAnchorMeta;
   }
 
+  function setOverlayInteractiveMode(enabled: boolean): void {
+    writeInteractiveMode(!!enabled);
+    const overlayWindow = readOverlayWindow();
+    if (!overlayWindow || overlayWindow.isDestroyed()) return;
+    const isVisible = overlayWindow.isVisible();
+
+    if (!isVisible) return;
+
+    if (readInteractiveMode()) {
+      overlayWindow.setIgnoreMouseEvents(false);
+      overlayWindow.setFocusable(true);
+      overlayWindow.setAlwaysOnTop(true, "screen-saver");
+      overlayWindow.moveTop();
+      overlayWindow.focus();
+    } else {
+      overlayWindow.setIgnoreMouseEvents(true, { forward: true });
+      overlayWindow.setFocusable(true);
+      overlayWindow.blur();
+      overlayWindow.setAlwaysOnTop(true, "screen-saver");
+      overlayWindow.moveTop();
+      overlayWindow.showInactive();
+    }
+  }
+
   return {
     getOverlayBoundsForActiveDisplay,
     positionOverlayWindow,
@@ -294,6 +393,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     sendOverlayEvent,
     setAnchorMeta,
     getAnchorMeta,
+    setOverlayInteractiveMode,
   };
 }
 

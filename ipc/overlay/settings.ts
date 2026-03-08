@@ -24,6 +24,10 @@ type OverlaySettingsDict = Record<string, unknown>;
 type OverlayCtx = {
   overlaySettings: Record<string, unknown>;
   overlayHotkeyRegistered: string | null;
+  overlayWindow: import("electron").BrowserWindow | null;
+  plannerOverlayWindow?: import("electron").BrowserWindow | null;
+  overlayInteractionHotkeyRegistered: string | null;
+  overlayInteractiveMode: boolean;
   overlayCropHotkeyRegistered: string | null;
   cropDebugWindow: import("electron").BrowserWindow | null;
 };
@@ -42,6 +46,7 @@ type OverlaySettingsControllerOptions = {
   ocrEngines: string[];
   rewardScanner: { setSettings: (settings: OverlaySettingsDict) => unknown };
   onRelicRewardTrigger: (source?: string) => void;
+  onToggleOverlayInteractionMode: (source?: string) => void;
   onOpenCropDebugger: (source?: string) => Promise<unknown>;
 };
 
@@ -49,7 +54,7 @@ function normalizeHotkey(value: unknown, fallbackHotkey: string): string {
   const raw = typeof value === "string" ? value.trim() : "";
   if (!raw) return fallbackHotkey;
   if (!raw.includes("+")) return raw.toUpperCase();
-  return raw
+  const normalized = raw
     .split("+")
     .map((part) => part.trim())
     .filter(Boolean)
@@ -65,6 +70,22 @@ function normalizeHotkey(value: unknown, fallbackHotkey: string): string {
       return part.length === 1 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1);
     })
     .join("+");
+
+  const parts = normalized
+    .split("+")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const modifiers = new Set([
+    "CommandOrControl",
+    "Command",
+    "Control",
+    "Alt",
+    "Option",
+    "Shift",
+    "Super",
+  ]);
+  const hasNonModifierKey = parts.some((part) => !modifiers.has(part));
+  return hasNonModifierKey ? normalized : fallbackHotkey;
 }
 
 export function createOverlaySettingsController(options: OverlaySettingsControllerOptions) {
@@ -81,6 +102,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     rewardScanner,
     onRelicRewardTrigger,
     onOpenCropDebugger,
+    onToggleOverlayInteractionMode,
   } = options;
 
   function normalizeOcrEngine(value: unknown): string {
@@ -130,6 +152,14 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
           ? !!candidate.hotkeyEnabled
           : !!defaults.hotkeyEnabled,
       hotkey: normalizeHotkey(candidate.hotkey ?? defaults.hotkey, String(defaults.hotkey)),
+      interactionHotkeyEnabled:
+        candidate.interactionHotkeyEnabled !== undefined
+          ? !!candidate.interactionHotkeyEnabled
+          : !!defaults.interactionHotkeyEnabled,
+      interactionHotkey: normalizeHotkey(
+        candidate.interactionHotkey ?? defaults.interactionHotkey,
+        String(defaults.interactionHotkey),
+      ),
       cropDebugHotkeyEnabled:
         candidate.cropDebugHotkeyEnabled !== undefined
           ? !!candidate.cropDebugHotkeyEnabled
@@ -221,8 +251,19 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     ctx.overlayCropHotkeyRegistered = null;
   }
 
+  function unregisterOverlayInteractionHotkey(): void {
+    if (!ctx.overlayInteractionHotkeyRegistered) return;
+    try {
+      globalShortcut.unregister(ctx.overlayInteractionHotkeyRegistered);
+    } catch (err) {
+      log.warn("[OverlayInteractionHotkey] unregister failed:", normalizeErrorMessage(err));
+    }
+    ctx.overlayInteractionHotkeyRegistered = null;
+  }
+
   function unregisterOverlayHotkey(): void {
     unregisterOverlayTriggerHotkey();
+    unregisterOverlayInteractionHotkey();
     unregisterCropDebugHotkey();
   }
 
@@ -284,10 +325,43 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     }
   }
 
+  function registerOverlayInteractionHotkey(): boolean {
+    unregisterOverlayInteractionHotkey();
+
+    if (!ctx.overlaySettings.interactionHotkeyEnabled) {
+      log.log("[OverlayInteractionHotkey] disabled");
+      return false;
+    }
+
+    const accelerator = String(ctx.overlaySettings.interactionHotkey || "");
+    if (!accelerator) return false;
+
+    try {
+      const ok = globalShortcut.register(accelerator, () => {
+        onToggleOverlayInteractionMode("hotkey");
+      });
+      if (!ok) {
+        log.warn("[OverlayInteractionHotkey] register failed:", accelerator);
+        return false;
+      }
+      ctx.overlayInteractionHotkeyRegistered = accelerator;
+      log.log("[OverlayInteractionHotkey] registered:", accelerator);
+      return true;
+    } catch (err) {
+      log.warn(
+        "[OverlayInteractionHotkey] invalid shortcut:",
+        accelerator,
+        normalizeErrorMessage(err),
+      );
+      return false;
+    }
+  }
+
   function registerOverlayHotkey(): boolean {
     const triggerOk = registerOverlayTriggerHotkey();
+    const interactionOk = registerOverlayInteractionHotkey();
     const cropOk = registerCropDebugHotkey();
-    return triggerOk || cropOk;
+    return triggerOk || interactionOk || cropOk;
   }
 
   function setOverlaySettings(nextSettings: unknown): OverlaySettingsDict {

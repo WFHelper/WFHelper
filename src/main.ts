@@ -16,12 +16,17 @@ const OVERLAY_THEME_KEYS = Object.freeze([
   "bgBase",
   "bgSurface",
   "bgRaised",
+  "bgHover",
   "accent",
   "accentDim",
   "accentBright",
   "textPrimary",
   "textSecondary",
   "textMuted",
+  "success",
+  "warning",
+  "danger",
+  "info",
   "border",
   "borderStrong",
 ] as const);
@@ -31,12 +36,17 @@ const OVERLAY_THEME_VAR_MAP: Record<(typeof OVERLAY_THEME_KEYS)[number], string>
   bgBase: "--bg-base",
   bgSurface: "--bg-surface",
   bgRaised: "--bg-raised",
+  bgHover: "--bg-hover",
   accent: "--accent",
   accentDim: "--accent-dim",
   accentBright: "--accent-bright",
   textPrimary: "--text-primary",
   textSecondary: "--text-secondary",
   textMuted: "--text-muted",
+  success: "--success",
+  warning: "--warning",
+  danger: "--danger",
+  info: "--info",
   border: "--border",
   borderStrong: "--border-strong",
 };
@@ -69,6 +79,24 @@ themeSettings.subscribe((settings) => {
         })()
       : "rgba(212, 168, 67, 0.15)";
   }
+
+  const rootStyle =
+    typeof window !== "undefined" && window.document?.documentElement
+      ? window.document.documentElement.style
+      : null;
+
+  const copyRootVar = (name: string): void => {
+    if (!rootStyle) return;
+    const value = rootStyle.getPropertyValue(name);
+    if (!value || value.trim().length === 0) return;
+    vars[name] = value.trim();
+  };
+
+  copyRootVar("--font-display");
+  copyRootVar("--font-body");
+  copyRootVar("--font-heading-size");
+  copyRootVar("--font-body-size");
+  copyRootVar("--font-small-size");
 
   ipc.send("overlay-theme-updated", vars);
 });

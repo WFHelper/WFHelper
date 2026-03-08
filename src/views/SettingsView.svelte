@@ -14,6 +14,8 @@
   let worldNotificationsEnabled = OVERLAY_DEFAULTS.worldNotificationsEnabled;
   let hotkeyEnabled = OVERLAY_DEFAULTS.hotkeyEnabled;
   let hotkey = OVERLAY_DEFAULTS.hotkey;
+  let interactionHotkeyEnabled = OVERLAY_DEFAULTS.interactionHotkeyEnabled;
+  let interactionHotkey = OVERLAY_DEFAULTS.interactionHotkey;
   let cropDebugHotkeyEnabled = OVERLAY_DEFAULTS.cropDebugHotkeyEnabled;
   let cropDebugHotkey = OVERLAY_DEFAULTS.cropDebugHotkey;
   let cropPreset: OverlaySettings["cropPreset"] = OVERLAY_DEFAULTS.cropPreset;
@@ -29,6 +31,8 @@
     worldNotificationsEnabled = !!s.worldNotificationsEnabled;
     hotkeyEnabled = !!s.hotkeyEnabled;
     hotkey = s.hotkey || OVERLAY_DEFAULTS.hotkey;
+    interactionHotkeyEnabled = !!s.interactionHotkeyEnabled;
+    interactionHotkey = s.interactionHotkey || OVERLAY_DEFAULTS.interactionHotkey;
     cropDebugHotkeyEnabled = !!s.cropDebugHotkeyEnabled;
     cropDebugHotkey = s.cropDebugHotkey || OVERLAY_DEFAULTS.cropDebugHotkey;
     cropPreset = s.cropPreset || OVERLAY_DEFAULTS.cropPreset;
@@ -62,6 +66,8 @@
       worldNotificationsEnabled,
       hotkeyEnabled,
       hotkey,
+      interactionHotkeyEnabled,
+      interactionHotkey,
       cropDebugHotkeyEnabled,
       cropDebugHotkey,
       cropPreset,
@@ -168,6 +174,21 @@
             bind:value={hotkey}
             disabled={!hotkeyEnabled}
             placeholder={$tr("settings.hotkeyPlaceholder")}
+          />
+        </label>
+
+        <label class="settings-row settings-row-toggle">
+          <span class="settings-label">{$tr("settings.interactionHotkeyEnabled")}</span>
+          <input type="checkbox" bind:checked={interactionHotkeyEnabled} />
+        </label>
+
+        <label class="settings-row">
+          <span class="settings-label">{$tr("settings.interactionHotkey")}</span>
+          <input
+            type="text"
+            bind:value={interactionHotkey}
+            disabled={!interactionHotkeyEnabled}
+            placeholder={$tr("settings.interactionHotkeyPlaceholder")}
           />
         </label>
 

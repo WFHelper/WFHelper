@@ -23,6 +23,8 @@ export interface OverlaySettings {
   autoTriggerEnabled: boolean;
   hotkeyEnabled: boolean;
   hotkey: string;
+  interactionHotkeyEnabled: boolean;
+  interactionHotkey: string;
   cropDebugHotkeyEnabled: boolean;
   cropDebugHotkey: string;
   cropPreset: "balanced" | "tight" | "wide" | "custom";

@@ -295,7 +295,10 @@ async function detectRelicSelectionEra(options = {}) {
 
   let screenshot;
   try {
-    screenshot = await captureScreen();
+    screenshot = await captureScreen({
+      preferredDisplayId: options.preferredDisplayId || null,
+      preferScreenCapture: true,
+    });
   } catch (err) {
     log.warn("[RewardScanner] Relic era capture failed:", normalizeErrorMessage(err));
     return {
@@ -433,6 +436,8 @@ async function detectRelicSelectionEra(options = {}) {
   return {
     ...best,
     sourceType: screenshot.sourceType || null,
+    sourceName: screenshot.sourceName || null,
+    sourceId: screenshot.sourceId || null,
     sourceDisplayId: screenshot.sourceDisplayId || null,
     elapsedMs: Date.now() - startedAt,
   };

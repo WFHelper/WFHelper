@@ -4,9 +4,13 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none';"
+      content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none';"
     />
     <title>Relic Overlay</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="overlay.css" />
   </head>
   <body>
@@ -25,6 +29,7 @@
       </div>
 
       <div id="planner-grid" class="is-hidden"></div>
+      <div id="planner-hint" class="is-hidden">Press Ctrl + Tab to interact with the overlay</div>
 
       <div id="slots-grid" class="is-hidden">
         <div class="reward-slot empty-slot" data-slot="0">

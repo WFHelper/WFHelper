@@ -12,6 +12,7 @@ type OverlayThemeVars = Record<string, string>;
 
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
+let plannerOverlayWindow: BrowserWindow | null = null;
 let cropDebugWindow: BrowserWindow | null = null;
 let currentInventoryPath: string | null = null;
 let currentInventoryData: InventoryData = null;
@@ -20,6 +21,9 @@ let overlaySettings: OverlaySettings = {};
 let overlayThemeVars: OverlayThemeVars = {};
 let overlayHotkeyRegistered: string | null = null;
 let overlayCropHotkeyRegistered: string | null = null;
+let overlayInteractionHotkeyRegistered: string | null = null;
+let overlayInteractiveMode = false;
+let overlayDismissedUntilMs = 0;
 
 const ctx = {
   get mainWindow() {
@@ -34,6 +38,13 @@ const ctx = {
   },
   set overlayWindow(v: BrowserWindow | null) {
     overlayWindow = v;
+  },
+
+  get plannerOverlayWindow() {
+    return plannerOverlayWindow;
+  },
+  set plannerOverlayWindow(v: BrowserWindow | null) {
+    plannerOverlayWindow = v;
   },
 
   get cropDebugWindow() {
@@ -90,6 +101,27 @@ const ctx = {
   },
   set overlayCropHotkeyRegistered(v: string | null) {
     overlayCropHotkeyRegistered = v;
+  },
+
+  get overlayInteractionHotkeyRegistered() {
+    return overlayInteractionHotkeyRegistered;
+  },
+  set overlayInteractionHotkeyRegistered(v: string | null) {
+    overlayInteractionHotkeyRegistered = v;
+  },
+
+  get overlayInteractiveMode() {
+    return overlayInteractiveMode;
+  },
+  set overlayInteractiveMode(v: boolean) {
+    overlayInteractiveMode = !!v;
+  },
+
+  get overlayDismissedUntilMs() {
+    return overlayDismissedUntilMs;
+  },
+  set overlayDismissedUntilMs(v: number) {
+    overlayDismissedUntilMs = Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 0;
   },
 };
 

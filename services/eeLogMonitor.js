@@ -13,15 +13,28 @@ const EE_LOG_PATH = process.env.LOCALAPPDATA
 const REWARD_TRIGGER_PATTERNS = Object.freeze([/\bPause countdown done\b/i, /\bGot rewards\b/i]);
 const RELIC_PICKER_PATTERNS = Object.freeze([
   /\bThemedProjectionManager\.lua:\s*PopulateInventoryGrid\b/i,
+  /\bProjectionManager\.lua:\s*PopulateInventoryGrid\b/i,
+  /\bProjection[A-Za-z_]*\.lua:\s*PopulateInventoryGrid\b/i,
+  /\bPopulateInventoryGrid\b/i,
 ]);
 
 const TRIGGER_DELAY_MS = 450;
+const RELIC_TRIGGER_DELAY_MS = 120;
 const REWARD_TRIGGER_COOLDOWN_MS = 2500;
 const RELIC_PICKER_COOLDOWN_MS = 2000;
+const POLL_INTERVAL_MS = 100;
+const MAX_READ_BYTES = 256 * 1024;
+const MAX_READ_LOOPS_PER_TICK = 8;
+const TRUNCATION_CHECK_INTERVAL_MS = 2000;
 
 let watcher = null;
 let lastSize = 0;
 let lineRemainder = "";
+let pollTimer = null;
+let pollFd = null;
+let pollReading = false;
+let lastTruncationCheckAt = 0;
+const pollBuffer = Buffer.alloc(MAX_READ_BYTES);
 
 let rewardCallback = null;
 let relicPickerCallback = null;
@@ -39,6 +52,68 @@ function clearPendingTimers() {
   if (pendingRelicPickerTimer) {
     clearTimeout(pendingRelicPickerTimer);
     pendingRelicPickerTimer = null;
+  }
+}
+
+function clearPollTimer() {
+  if (!pollTimer) return;
+  clearInterval(pollTimer);
+  pollTimer = null;
+}
+
+function closePollFd() {
+  if (pollFd == null) return;
+  try {
+    fs.closeSync(pollFd);
+  } catch {
+    // ignore close errors
+  }
+  pollFd = null;
+}
+
+function pollReadNewBytes() {
+  if (pollReading) return;
+  if (!EE_LOG_PATH) return;
+
+  pollReading = true;
+  try {
+    if (!fs.existsSync(EE_LOG_PATH)) return;
+
+    const now = Date.now();
+    if (now - lastTruncationCheckAt >= TRUNCATION_CHECK_INTERVAL_MS) {
+      lastTruncationCheckAt = now;
+      try {
+        const size = fs.statSync(EE_LOG_PATH).size;
+        if (size < lastSize) {
+          closePollFd();
+          lastSize = 0;
+          lineRemainder = "";
+        }
+      } catch {
+        // ignore stat errors; retry next tick
+      }
+    }
+
+    if (pollFd == null) {
+      pollFd = fs.openSync(EE_LOG_PATH, "r");
+    }
+
+    let loops = 0;
+    while (loops < MAX_READ_LOOPS_PER_TICK) {
+      const bytesRead = fs.readSync(pollFd, pollBuffer, 0, pollBuffer.length, lastSize);
+      if (!bytesRead) break;
+
+      lastSize += bytesRead;
+      consumeChunk(pollBuffer.subarray(0, bytesRead).toString("utf8"));
+
+      if (bytesRead < pollBuffer.length) break;
+      loops += 1;
+    }
+  } catch (error) {
+    closePollFd();
+    log.error("[EELog] poll read error:", normalizeErrorMessage(error));
+  } finally {
+    pollReading = false;
   }
 }
 
@@ -71,7 +146,7 @@ function scheduleTrigger(type) {
       log.log("[EELog] Relic picker trigger detected -> dispatching recommendation overlay");
       relicPickerCallback();
     }
-  }, TRIGGER_DELAY_MS);
+  }, RELIC_TRIGGER_DELAY_MS);
 }
 
 function handleLine(line) {
@@ -82,6 +157,7 @@ function handleLine(line) {
   }
 
   if (RELIC_PICKER_PATTERNS.some((pattern) => pattern.test(line))) {
+    log.log("[EELog] Relic picker match line:", String(line).slice(0, 220));
     scheduleTrigger("relic_picker");
   }
 }
@@ -133,6 +209,9 @@ function startWatching(handlers) {
   rewardCallback = normalized.onRewardTrigger;
   relicPickerCallback = normalized.onRelicSelectionOpen;
 
+  clearPollTimer();
+  closePollFd();
+
   try {
     lastSize = fs.statSync(EE_LOG_PATH).size;
   } catch {
@@ -150,27 +229,19 @@ function startWatching(handlers) {
     awaitWriteFinish: false,
   });
 
-  watcher.on("change", () => {
-    try {
-      const newSize = fs.statSync(EE_LOG_PATH).size;
-      if (newSize <= lastSize) {
-        lastSize = newSize;
-        lineRemainder = "";
-        return;
-      }
-
-      const chunkLen = newSize - lastSize;
-      const buffer = Buffer.alloc(chunkLen);
-      const fd = fs.openSync(EE_LOG_PATH, "r");
-      fs.readSync(fd, buffer, 0, chunkLen, lastSize);
-      fs.closeSync(fd);
-      lastSize = newSize;
-
-      consumeChunk(buffer.toString("utf8"));
-    } catch (error) {
-      log.error("[EELog] read error:", normalizeErrorMessage(error));
-    }
+  watcher.on("change", pollReadNewBytes);
+  watcher.on("add", pollReadNewBytes);
+  watcher.on("unlink", () => {
+    closePollFd();
+    lastSize = 0;
+    lineRemainder = "";
   });
+
+  pollTimer = setInterval(pollReadNewBytes, POLL_INTERVAL_MS);
+  if (typeof pollTimer?.unref === "function") {
+    pollTimer.unref();
+  }
+  pollReadNewBytes();
 
   log.log("[EELog] Watching:", EE_LOG_PATH);
   return EE_LOG_PATH;
@@ -178,6 +249,8 @@ function startWatching(handlers) {
 
 function stopWatching() {
   clearPendingTimers();
+  clearPollTimer();
+  closePollFd();
 
   if (watcher) {
     watcher.close();

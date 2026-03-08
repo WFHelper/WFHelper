@@ -7,6 +7,8 @@ const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   autoTriggerEnabled: true,
   hotkeyEnabled: true,
   hotkey: "F8",
+  interactionHotkeyEnabled: true,
+  interactionHotkey: "Control+Tab",
   cropDebugHotkeyEnabled: true,
   cropDebugHotkey: "F9",
   cropPreset: "balanced",

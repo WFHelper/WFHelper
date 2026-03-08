@@ -10,6 +10,15 @@ const TASKLIST_TIMEOUT_MS = 1200;
 const FOCUS_TIMEOUT_MS = 1200;
 const WINDOW_CAPTURE_SIZE = Object.freeze({ width: 640, height: 360 });
 
+function getElectronScreen() {
+  try {
+    const { screen } = require("electron");
+    return screen || null;
+  } catch {
+    return null;
+  }
+}
+
 let lastStatus = null;
 let lastStatusAt = 0;
 let inFlight = null;
@@ -77,26 +86,36 @@ async function isWarframeWindowDetected() {
   }
 }
 
-async function getFocusedProcessName() {
+async function getForegroundWindowInfo() {
   if (process.platform !== "win32") return null;
 
   const script = [
     "$ErrorActionPreference='Stop'",
-    'Add-Type @"',
+    'Add-Type -TypeDefinition @"',
     "using System;",
     "using System.Runtime.InteropServices;",
     "public static class WFNative {",
+    "  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }",
     '  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();',
     '  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);',
+    '  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);',
     "}",
     '"@',
     "$h=[WFNative]::GetForegroundWindow()",
-    "if ($h -eq [IntPtr]::Zero) { '' ; exit 0 }",
-    "$pid=0",
-    "[WFNative]::GetWindowThreadProcessId($h, [ref]$pid) | Out-Null",
-    "if ($pid -le 0) { '' ; exit 0 }",
-    "try { (Get-Process -Id $pid).ProcessName } catch { '' }",
-  ].join("; ");
+    "if ($h -eq [IntPtr]::Zero) { exit 0 }",
+    "$procId=0",
+    "[WFNative]::GetWindowThreadProcessId($h, [ref]$procId) | Out-Null",
+    "if ($procId -le 0) { exit 0 }",
+    "$name=''",
+    "try { $name=(Get-Process -Id $procId).ProcessName } catch { $name='' }",
+    "$rect=New-Object WFNative+RECT",
+    "$bounds=$null",
+    "if ([WFNative]::GetWindowRect($h, [ref]$rect)) {",
+    "  $bounds=@{ x=[int]$rect.Left; y=[int]$rect.Top; width=[int]($rect.Right-$rect.Left); height=[int]($rect.Bottom-$rect.Top) }",
+    "}",
+    "$result=@{ processName=$name; bounds=$bounds }",
+    "$result | ConvertTo-Json -Compress",
+  ].join("\n");
 
   try {
     const out = await execFileText(
@@ -104,24 +123,63 @@ async function getFocusedProcessName() {
       ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
       FOCUS_TIMEOUT_MS,
     );
-    const name = out.trim();
-    return name || null;
+    const trimmed = out.trim();
+    if (!trimmed) return null;
+
+    const parsed = JSON.parse(trimmed);
+    const processName = typeof parsed?.processName === "string" ? parsed.processName.trim() : "";
+    const bounds = parsed?.bounds;
+
+    return {
+      processName: processName || null,
+      bounds:
+        bounds &&
+        Number.isFinite(bounds.x) &&
+        Number.isFinite(bounds.y) &&
+        Number.isFinite(bounds.width) &&
+        Number.isFinite(bounds.height)
+          ? {
+              x: Math.round(bounds.x),
+              y: Math.round(bounds.y),
+              width: Math.max(0, Math.round(bounds.width)),
+              height: Math.max(0, Math.round(bounds.height)),
+            }
+          : null,
+    };
   } catch (err) {
     log.warn("[WarframeStatus] focused process check failed:", normalizeErrorMessage(err));
     return null;
   }
 }
 
+function getDisplayIdForBounds(bounds) {
+  if (!bounds || bounds.width <= 0 || bounds.height <= 0) return null;
+
+  const screenApi = getElectronScreen();
+  if (!screenApi) return null;
+
+  try {
+    const display = screenApi.getDisplayMatching(bounds);
+    return display ? String(display.id) : null;
+  } catch (err) {
+    log.warn("[WarframeStatus] display lookup failed:", normalizeErrorMessage(err));
+    return null;
+  }
+}
+
 async function collectStatus() {
-  const [windowDetected, processRunning, focusedProcessName] = await Promise.all([
+  const [windowDetected, processRunning, foregroundWindow] = await Promise.all([
     isWarframeWindowDetected(),
     isWarframeProcessRunning(),
-    getFocusedProcessName(),
+    getForegroundWindowInfo(),
   ]);
 
+  const focusedProcessName = foregroundWindow?.processName || null;
   const focusedLow = String(focusedProcessName || "").toLowerCase();
   const isFocused = !focusedProcessName || focusedLow.includes("warframe");
   const isOpen = windowDetected || processRunning;
+  const focusedWindowBounds = foregroundWindow?.bounds || null;
+  const focusedDisplayId = getDisplayIdForBounds(focusedWindowBounds);
 
   return {
     isOpen,
@@ -129,6 +187,8 @@ async function collectStatus() {
     windowDetected,
     processRunning,
     focusedProcessName,
+    focusedWindowBounds,
+    focusedDisplayId,
     checkedAt: Date.now(),
   };
 }
@@ -153,6 +213,8 @@ async function getStatus(options = {}) {
         windowDetected: false,
         processRunning: false,
         focusedProcessName: null,
+        focusedWindowBounds: null,
+        focusedDisplayId: null,
         checkedAt: Date.now(),
       };
     })

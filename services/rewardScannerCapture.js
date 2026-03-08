@@ -18,10 +18,20 @@ const CAPTURE_THUMBNAIL_LIMITS = Object.freeze({
 
 const COMPANION_WINDOW_TOKENS = Object.freeze([
   "warframe companion",
+  "warframe-companion",
+  "warframe_companion",
   "ocr crop debugger",
   "relic reward",
   "overlay",
+  "visual studio code",
+  "vscode",
+  "github",
+  "repository",
+  "explorer",
+  "file explorer",
 ]);
+
+const WARFRAME_WINDOW_NAME_PATTERNS = Object.freeze([/^warframe\b/i]);
 
 function sourceName(source) {
   return String(source?.name || "").trim();
@@ -34,16 +44,48 @@ function isCompanionWindowSource(source) {
 
 function isWarframeWindowSource(source) {
   const name = sourceName(source).toLowerCase();
-  return name.includes("warframe") && !isCompanionWindowSource(source);
+  if (!name.includes("warframe")) return false;
+  if (isCompanionWindowSource(source)) return false;
+  return WARFRAME_WINDOW_NAME_PATTERNS.some((pattern) => pattern.test(name));
 }
 
 function pickWindowSource(sources) {
   if (!Array.isArray(sources) || sources.length === 0) return null;
-  return sources.find(isWarframeWindowSource) || null;
+
+  const candidates = sources.filter(isWarframeWindowSource);
+  if (candidates.length === 0) return null;
+
+  return (
+    candidates.find((source) => /^warframe$/i.test(sourceName(source))) ||
+    candidates.find((source) => /^warframe\s*[-:|].*$/i.test(sourceName(source))) ||
+    candidates[0]
+  );
 }
 
-function pickScreenSource(sources) {
+function isLikelyWrongWindowName(name) {
+  const low = String(name || "").toLowerCase();
+  if (!low.includes("warframe")) return true;
+  if (isCompanionWindowSource({ name: low })) return true;
+  if (low.includes("github") || low.includes("readme") || low.includes("comparison.md"))
+    return true;
+  if (low.includes("visual studio") || low.includes("code")) return true;
+  return false;
+}
+
+function pickScreenSource(sources, options = {}) {
   if (!Array.isArray(sources) || sources.length === 0) return null;
+
+  const preferredDisplayId =
+    options && typeof options.preferredDisplayId === "string" && options.preferredDisplayId.trim()
+      ? options.preferredDisplayId.trim()
+      : null;
+
+  if (preferredDisplayId) {
+    const byPreferredDisplay = sources.find(
+      (source) => String(source?.display_id ?? "") === preferredDisplayId,
+    );
+    if (byPreferredDisplay) return byPreferredDisplay;
+  }
 
   let screenApi;
   try {
@@ -120,7 +162,7 @@ function getCaptureThumbnailSize() {
   }
 }
 
-async function captureScreen() {
+async function captureScreen(options = {}) {
   let desktopCapturer;
   try {
     ({ desktopCapturer } = require("electron"));
@@ -143,7 +185,11 @@ async function captureScreen() {
   }
 
   const wfWindow = pickWindowSource(sources);
-  if (wfWindow && wfWindow.thumbnail && !wfWindow.thumbnail.isEmpty()) {
+  const skipWindowCapture =
+    options && options.preferScreenCapture === true
+      ? true
+      : isLikelyWrongWindowName(sourceName(wfWindow || null));
+  if (!skipWindowCapture && wfWindow && wfWindow.thumbnail && !wfWindow.thumbnail.isEmpty()) {
     return {
       image: wfWindow.thumbnail,
       sourceType: "window",
@@ -159,7 +205,7 @@ async function captureScreen() {
       thumbnailSize,
     });
 
-    const pickedScreen = pickScreenSource(screens);
+    const pickedScreen = pickScreenSource(screens, options);
     if (pickedScreen && pickedScreen.thumbnail && !pickedScreen.thumbnail.isEmpty()) {
       return {
         image: pickedScreen.thumbnail,
@@ -176,8 +222,8 @@ async function captureScreen() {
   return null;
 }
 
-async function captureDebugFrame() {
-  const screenshot = await captureScreen();
+async function captureDebugFrame(options = {}) {
+  const screenshot = await captureScreen(options);
   if (!screenshot) return null;
   const size = screenshot.image.getSize();
 
@@ -196,8 +242,8 @@ async function captureDebugFrame() {
   };
 }
 
-async function captureSourceMeta() {
-  const screenshot = await captureScreen();
+async function captureSourceMeta(options = {}) {
+  const screenshot = await captureScreen(options);
   if (!screenshot) return null;
 
   return {

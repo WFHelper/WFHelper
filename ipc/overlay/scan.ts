@@ -70,13 +70,14 @@ type OverlayScanControllerOptions = {
     sendOverlayEvent: (channel: string, payload?: unknown) => void;
     scheduleOverlayAutoHide: (delayMs: number) => void;
     clearOverlayAutoHideTimer: () => void;
-    createOverlayWindow: () => void;
+    createOverlayWindow: (options?: { show?: boolean }) => void;
   };
   warframeStatus?: {
     getStatus: (options?: { force?: boolean }) => Promise<{
       isOpen: boolean;
       isFocused: boolean;
       focusedProcessName?: string | null;
+      focusedDisplayId?: string | null;
     }>;
   };
 };
@@ -175,9 +176,12 @@ export function createOverlayScanController(options: OverlayScanControllerOption
           log.log(
             `[Trigger] skipped reward scan: Warframe is not focused (${status.focusedProcessName || "unknown"})`,
           );
-          windows.sendOverlayEvent("relic-reward-items", []);
-          windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_FAILURE_MS);
-          return;
+          if (!status.focusedDisplayId) {
+            windows.sendOverlayEvent("relic-reward-items", []);
+            windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_FAILURE_MS);
+            return;
+          }
+          windows.setAnchorMeta({ sourceDisplayId: status.focusedDisplayId });
         }
       }
 
@@ -221,6 +225,10 @@ export function createOverlayScanController(options: OverlayScanControllerOption
       const result = await runRewardScanWithRetries(source);
       const items = Array.isArray(result?.items) ? result.items.slice(0, MAX_REWARD_ITEMS) : [];
 
+      if (source === "eelog" && items.length > 0) {
+        windows.createOverlayWindow({ show: true });
+      }
+
       if (result?.meta) {
         windows.setAnchorMeta(result.meta);
         windows.positionOverlayWindow(windows.getAnchorMeta());
@@ -254,12 +262,15 @@ export function createOverlayScanController(options: OverlayScanControllerOption
     if (source === "eelog" && !ctx.overlaySettings.autoTriggerEnabled) return;
 
     windows.clearOverlayAutoHideTimer();
-    windows.createOverlayWindow();
+    const showImmediately = source !== "eelog";
+    windows.createOverlayWindow({ show: showImmediately });
     if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) return;
 
     windows.positionOverlayWindow(windows.getAnchorMeta());
-    windows.sendOverlayEvent("relic-reward-trigger");
-    windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_DETECTING_MAX_MS);
+    if (showImmediately) {
+      windows.sendOverlayEvent("relic-reward-trigger");
+      windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_DETECTING_MAX_MS);
+    }
 
     void dispatchRewardScan(source);
   }

@@ -20,6 +20,8 @@ export const OVERLAY_DEFAULTS: OverlaySettings = Object.freeze({
   autoTriggerEnabled: true,
   hotkeyEnabled: true,
   hotkey: "F8",
+  interactionHotkeyEnabled: true,
+  interactionHotkey: "Control+Tab",
   cropDebugHotkeyEnabled: true,
   cropDebugHotkey: "F9",
   cropPreset: "balanced",

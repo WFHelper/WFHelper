@@ -92,16 +92,38 @@ function assertMainRendererSender(event: IpcEventLike, _channel: string): void {
 }
 
 function assertOverlayRendererSender(event: IpcEventLike, _channel: string): void {
-  assertWindowSender(
-    event,
-    ctx.overlayWindow
-      ? {
-          isDestroyed: () => ctx.overlayWindow?.isDestroyed() ?? true,
-          webContents: { id: ctx.overlayWindow.webContents.id },
-        }
-      : null,
-    OVERLAY_RENDERER_SUFFIX,
-  );
+  const rewardWindow = ctx.overlayWindow
+    ? {
+        isDestroyed: () => ctx.overlayWindow?.isDestroyed() ?? true,
+        webContents: { id: ctx.overlayWindow.webContents.id },
+      }
+    : null;
+
+  const plannerWindow = (
+    ctx as typeof ctx & { plannerOverlayWindow?: import("electron").BrowserWindow | null }
+  ).plannerOverlayWindow
+    ? {
+        isDestroyed: () =>
+          (
+            ctx as typeof ctx & { plannerOverlayWindow?: import("electron").BrowserWindow | null }
+          ).plannerOverlayWindow?.isDestroyed() ?? true,
+        webContents: {
+          id: (
+            (ctx as typeof ctx & { plannerOverlayWindow?: import("electron").BrowserWindow | null })
+              .plannerOverlayWindow as import("electron").BrowserWindow
+          ).webContents.id,
+        },
+      }
+    : null;
+
+  try {
+    assertWindowSender(event, rewardWindow, OVERLAY_RENDERER_SUFFIX);
+    return;
+  } catch {
+    // fallback to planner window check
+  }
+
+  assertWindowSender(event, plannerWindow, OVERLAY_RENDERER_SUFFIX);
 }
 
 function assertCropDebugRendererSender(event: IpcEventLike, _channel: string): void {

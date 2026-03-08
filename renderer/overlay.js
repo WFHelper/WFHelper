@@ -2,6 +2,14 @@ const SLOTS = 4;
 const RECOMMENDATION_ROWS = 6;
 
 const slotState = Array.from({ length: SLOTS }, () => ({ item: null, price: null }));
+let overlayInteractiveMode = false;
+
+function setOverlayInteractiveMode(interactive) {
+  overlayInteractiveMode = !!interactive;
+  const closeButton = document.getElementById("btn-close");
+  if (!closeButton) return;
+  closeButton.classList.toggle("is-hidden", !overlayInteractiveMode);
+}
 
 function rarityClass(rarity) {
   const low = String(rarity || "").toLowerCase();
@@ -162,11 +170,22 @@ function showRewardModeScanning() {
   document.getElementById("best-value").textContent = "Detecting...";
 }
 
+function plannerHintElement() {
+  return document.getElementById("planner-hint");
+}
+
+function showPlannerHint(show) {
+  const hint = plannerHintElement();
+  if (!hint) return;
+  hint.classList.toggle("is-hidden", !show);
+}
+
 function showPlannerModeScanning() {
   setHeader("◆ Relic Planner", "Reading relic selection...");
   setScanningText("Detecting relic era and ranking owned relics...");
   showScanning();
   showBestFooter(false);
+  showPlannerHint(false);
   resetPlannerRows();
 }
 
@@ -191,67 +210,70 @@ function formatProfit(value, suffix) {
 
 function renderPlannerRows(payload) {
   const era = String(payload?.era || "").trim();
+  const confidence = Number(payload?.detection?.confidence || 0);
+  const detectionElapsedMs = Number(payload?.detection?.elapsedMs || 0);
+  const totalOwnedCount = Number(payload?.totalOwnedCount || 0);
   const rows = Array.isArray(payload?.rows) ? payload.rows.slice(0, RECOMMENDATION_ROWS) : [];
 
   hideScanning();
   document.getElementById("slots-grid").classList.add("is-hidden");
   plannerGridElement().classList.remove("is-hidden");
+  const errorBanner = document.getElementById("error-banner");
   const emptyMessage = era
     ? "No owned relic recommendations found for the detected era."
-    : "Could not detect relic era from relic tile text. Use Warframe Borderless Windowed mode and set in-game UI scale to 99%.";
-  document.getElementById("error-banner").classList.toggle("visible", rows.length === 0);
-  document.getElementById("error-banner").textContent =
-    rows.length === 0 ? emptyMessage : "OCR failed to detect reward items from the current screen.";
+    : `Could not detect relic era yet (OCR ${Math.round(Math.max(0, detectionElapsedMs))}ms, confidence ${confidence.toFixed(2)}).`;
+  errorBanner.classList.toggle("visible", rows.length === 0);
+  errorBanner.classList.toggle("info", rows.length === 0 && !era);
+  errorBanner.textContent = rows.length === 0 ? emptyMessage : "";
 
-  const eraLabel = era ? `${era.charAt(0).toUpperCase()}${era.slice(1)} era` : "Owned relics";
-  setHeader("◆ Relic Planner", `${eraLabel} recommendations`);
+  const countLabel = totalOwnedCount > 0 ? `${totalOwnedCount}` : "";
+  const eraLabel = era ? `${era.charAt(0).toUpperCase()}${era.slice(1)} era` : "";
+  const headerTitle = countLabel
+    ? `\u{1F48E} ${countLabel}`
+    : "◆ Relic Planner";
+  const subTitle = eraLabel ? `${eraLabel} recommendations` : "Recommended relics";
+  setHeader(headerTitle, subTitle);
   showBestFooter(false);
+  showPlannerHint(!overlayInteractiveMode);
 
   const container = plannerGridElement();
   container.innerHTML = "";
 
   const bestPlat = Math.max(...rows.map((row) => Number(row?.platEv || -1)), -1);
 
-  for (let i = 0; i < RECOMMENDATION_ROWS; i += 1) {
-    const row = rows[i] || null;
+  for (const row of rows) {
+    if (!row) continue;
     const card = document.createElement("div");
     card.className = "plan-card";
 
+    const platEv = Number(row.platEv);
+    const ducatEv = Number(row.ducatEv);
+    if (Number.isFinite(platEv) && platEv === bestPlat && bestPlat >= 0) {
+      card.classList.add("best");
+    }
+
     const title = document.createElement("div");
     title.className = "plan-title";
+    title.textContent = String(row.label || row.relicName || "-");
 
     const profit = document.createElement("div");
     profit.className = "plan-profit";
 
-    if (!row) {
-      card.classList.add("empty");
-      title.textContent = "-";
-      profit.textContent = "E. profits: -";
-    } else {
-      const platEv = Number(row.platEv);
-      const ducatEv = Number(row.ducatEv);
-      if (Number.isFinite(platEv) && platEv === bestPlat && bestPlat >= 0) {
-        card.classList.add("best");
-      }
+    const label = document.createElement("span");
+    label.className = "plan-profit-label";
+    label.textContent = "E. profits:";
 
-      title.textContent = String(row.label || row.relicName || "-");
+    const plat = document.createElement("span");
+    plat.className = "plan-profit-plat";
+    plat.textContent = `${formatProfit(platEv, "p")} ◉`;
 
-      const label = document.createElement("span");
-      label.className = "plan-profit-label";
-      label.textContent = "E. profits:";
+    const ducat = document.createElement("span");
+    ducat.className = "plan-profit-ducat";
+    ducat.textContent = `${formatProfit(ducatEv, "d")} ❦`;
 
-      const plat = document.createElement("span");
-      plat.className = "plan-profit-plat";
-      plat.textContent = `${formatProfit(platEv, "p")} ◉`;
-
-      const ducat = document.createElement("span");
-      ducat.className = "plan-profit-ducat";
-      ducat.textContent = `${formatProfit(ducatEv, "d")} ❦`;
-
-      profit.appendChild(label);
-      profit.appendChild(plat);
-      profit.appendChild(ducat);
-    }
+    profit.appendChild(label);
+    profit.appendChild(plat);
+    profit.appendChild(ducat);
 
     card.appendChild(title);
     card.appendChild(profit);
@@ -311,12 +333,23 @@ function applyThemeVars(rawVars) {
   }
 }
 
+function hexToAccentGlow(hex) {
+  const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || "").trim());
+  if (!match) return null;
+  const r = parseInt(match[1], 16);
+  const g = parseInt(match[2], 16);
+  const b = parseInt(match[3], 16);
+  if (![r, g, b].every(Number.isFinite)) return null;
+  return `rgba(${r}, ${g}, ${b}, 0.15)`;
+}
+
 function loadThemeFromStorageFallback() {
   try {
     const raw = localStorage.getItem("wf_theme_settings");
     if (!raw) return;
     const parsed = JSON.parse(raw);
     const colors = parsed?.colors;
+    const fontSizes = parsed?.fontSizes;
     if (!colors || typeof colors !== "object") return;
 
     const map = {
@@ -324,15 +357,39 @@ function loadThemeFromStorageFallback() {
       "--bg-base": colors.bgBase,
       "--bg-surface": colors.bgSurface,
       "--bg-raised": colors.bgRaised,
+      "--bg-hover": colors.bgHover,
       "--accent": colors.accent,
       "--accent-dim": colors.accentDim,
       "--accent-bright": colors.accentBright,
       "--text-primary": colors.textPrimary,
       "--text-secondary": colors.textSecondary,
       "--text-muted": colors.textMuted,
+      "--success": colors.success,
+      "--warning": colors.warning,
+      "--danger": colors.danger,
+      "--info": colors.info,
       "--border": colors.border,
       "--border-strong": colors.borderStrong,
+      "--font-display": '"Rajdhani", sans-serif',
+      "--font-body": '"Barlow", sans-serif',
     };
+
+    const glow = hexToAccentGlow(colors.accent);
+    if (glow) {
+      map["--accent-glow"] = glow;
+    }
+
+    if (fontSizes && typeof fontSizes === "object") {
+      if (typeof fontSizes.headingSize === "number" && Number.isFinite(fontSizes.headingSize)) {
+        map["--font-heading-size"] = `${fontSizes.headingSize}rem`;
+      }
+      if (typeof fontSizes.bodySize === "number" && Number.isFinite(fontSizes.bodySize)) {
+        map["--font-body-size"] = `${fontSizes.bodySize}rem`;
+      }
+      if (typeof fontSizes.smallSize === "number" && Number.isFinite(fontSizes.smallSize)) {
+        map["--font-small-size"] = `${fontSizes.smallSize}rem`;
+      }
+    }
 
     applyThemeVars(map);
   } catch {
@@ -342,6 +399,14 @@ function loadThemeFromStorageFallback() {
 
 document.addEventListener("DOMContentLoaded", () => {
   loadThemeFromStorageFallback();
+  void window.overlay
+    .getThemeVars()
+    .then((vars) => {
+      applyThemeVars(vars);
+    })
+    .catch(() => {
+      // best effort, storage fallback already applied
+    });
 
   document.getElementById("btn-close").addEventListener("click", () => window.overlay.close());
   document.addEventListener("keydown", (event) => {
@@ -353,6 +418,7 @@ document.addEventListener("DOMContentLoaded", () => {
   resetSlots();
   resetPlannerRows();
   showRewardModeScanning();
+  setOverlayInteractiveMode(false);
 
   window.overlay.onTrigger(showRewardModeScanning);
   window.overlay.onPlannerTrigger(showPlannerModeScanning);
@@ -364,5 +430,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   window.overlay.onThemeVars((vars) => {
     applyThemeVars(vars);
+  });
+  window.overlay.onInteractionMode((payload) => {
+    setOverlayInteractiveMode(Boolean(payload?.interactive));
+    showPlannerHint(!overlayInteractiveMode && !plannerGridElement().classList.contains("is-hidden"));
   });
 });
