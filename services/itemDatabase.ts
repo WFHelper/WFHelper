@@ -1,19 +1,23 @@
-const log = require("./logger").withScope("itemDatabase");
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
+import { withScope } from "./logger";
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
+  normalizeErrorMessage: (err: any) => string;
+};
 // ═══════════════════════════════════════════════════════════════════════════
 // Item Database Service
 // Primary:  warframe-public-export-plus (Sainan/calamity-inc) — raw game data
 // Fallback: @wfcd/items (WFCD) — curated community data with proven image CDN
 // ═══════════════════════════════════════════════════════════════════════════
 
-const path = require("path");
-const fs = require("fs");
+import path from "path";
+import fs from "fs";
+
+const log = withScope("itemDatabase");
 
 // Image CDNs — wfcd CDN is more reliable for direct <img> usage
 const WFCD_CDN = "https://cdn.warframestat.us/img/";
 const BROWSE_WF = "https://browse.wf";
 
-function isLikelyBuildComponent(uniqueName, componentName = "") {
+function isLikelyBuildComponent(uniqueName: string, componentName: string = ""): boolean {
   if (!uniqueName) return false;
 
   if (
@@ -31,22 +35,26 @@ function isLikelyBuildComponent(uniqueName, componentName = "") {
   );
 }
 
-function normalizeOptionalBoolean(value) {
+function normalizeOptionalBoolean(value: any): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
 }
 
-function pickTradable(currentValue, incomingValue) {
+function pickTradable(currentValue: any, incomingValue: any): boolean | undefined {
   const current = normalizeOptionalBoolean(currentValue);
   const incoming = normalizeOptionalBoolean(incomingValue);
 
   return current !== undefined ? current : incoming;
 }
 
-function isWeaponPartRecipePath(uniqueName = "") {
+function isWeaponPartRecipePath(uniqueName: string = ""): boolean {
   return /\/Types\/Recipes\/Weapons\/WeaponParts?\//i.test(String(uniqueName || ""));
 }
 
-function resolveComponentTradable(componentTradable, parentTradable, uniqueName = "") {
+function resolveComponentTradable(
+  componentTradable: any,
+  parentTradable: any,
+  uniqueName: string = "",
+): boolean | undefined {
   const component = normalizeOptionalBoolean(componentTradable);
   if (component === true) return true;
   if (component === false) {
@@ -62,7 +70,11 @@ function resolveComponentTradable(componentTradable, parentTradable, uniqueName 
   return undefined;
 }
 
-function buildComponentDisplayName(parentName, componentName, forceBlueprintSuffix = false) {
+function buildComponentDisplayName(
+  parentName: string,
+  componentName: string,
+  forceBlueprintSuffix: boolean = false,
+): string {
   const parent = String(parentName || "").trim();
   const component = String(componentName || "").trim();
 
@@ -77,7 +89,7 @@ function buildComponentDisplayName(parentName, componentName, forceBlueprintSuff
   return parent ? `${parent} ${finalComponent}` : finalComponent;
 }
 
-function buildComponentAliasUniqueNames(uniqueName = "") {
+function buildComponentAliasUniqueNames(uniqueName: string = ""): string[] {
   const normalized = String(uniqueName || "");
   if (!normalized) return [];
 
@@ -92,16 +104,37 @@ function buildComponentAliasUniqueNames(uniqueName = "") {
   return [];
 }
 
-let itemsByUniqueName = {};
-let wfcdItemsByUniqueName = {};
+interface ItemEntry {
+  name: string;
+  category: string;
+  imageUrl: string | null;
+  browseWfUrl?: string | null;
+  isPrime: boolean;
+  masteryReq: number;
+  masterable?: boolean;
+  tradable?: boolean;
+  vaulted: boolean;
+  exalted?: boolean;
+  description: string;
+  productCategory: string | null;
+  ducats: number | null;
+  _source: string;
+  type?: string;
+  wikiaUrl?: string | null;
+  components?: any[];
+  drops?: any[];
+  isBuildComponent?: boolean;
+  componentOf?: string;
+}
+
+let itemsByUniqueName: Record<string, ItemEntry> = {};
+let wfcdItemsByUniqueName: Record<string, ItemEntry> = {};
 
 // ─── Load English dictionary from public-export-plus ───────────────────────
 
-function loadDict() {
-  // Try multiple approaches to find dict.en.json
-  const attempts = [];
+function loadDict(): Record<string, any> {
+  const attempts: string[] = [];
 
-  // Attempt 1: Direct require from package
   try {
     const d = require("warframe-public-export-plus/dict.en.json");
     if (d && typeof d === "object" && Object.keys(d).length > 0) {
@@ -112,7 +145,6 @@ function loadDict() {
     attempts.push(`require: ${normalizeErrorMessage(e)}`);
   }
 
-  // Attempt 2: Find it in node_modules manually
   try {
     const modPath = require.resolve("warframe-public-export-plus/package.json");
     const modDir = path.dirname(modPath);
@@ -128,14 +160,12 @@ function loadDict() {
     attempts.push(`disk: ${normalizeErrorMessage(e)}`);
   }
 
-  // Attempt 3: Check if the main export has a getString or dict property
   try {
     const pep = require("warframe-public-export-plus");
     if (pep.getString && typeof pep.getString === "function") {
       log.log("[ItemDB] Using pep.getString() for name resolution");
       return { __getString: pep.getString };
     }
-    // Some versions might export dict directly
     for (const key of ["dict", "dictEn", "dict_en", "strings"]) {
       if (pep[key] && typeof pep[key] === "object") {
         log.log(`[ItemDB] dict found via pep.${key}`);
@@ -155,21 +185,19 @@ function loadDict() {
 
 // ─── Load warframe-public-export-plus ──────────────────────────────────────
 
-function loadPublicExportPlus() {
+function loadPublicExportPlus(): number {
   try {
     const pep = require("warframe-public-export-plus");
     const dict = loadDict();
 
-    // Name resolver: handles language keys (/Lotus/Language/...) and plain strings
-    function resolveName(nameKey) {
+    function resolveName(nameKey: any): string | null {
       if (!nameKey) return null;
-      if (!nameKey.startsWith("/")) return nameKey; // Already a plain name
+      if (!nameKey.startsWith("/")) return nameKey;
       if (dict.__getString) return dict.__getString(nameKey) || null;
       return dict[nameKey] || null;
     }
 
-    // Image: build browse.wf URL from icon path (used as fallback only)
-    function resolveIcon(iconPath) {
+    function resolveIcon(iconPath: any): string | null {
       if (!iconPath) return null;
       return BROWSE_WF + iconPath;
     }
@@ -199,7 +227,7 @@ function loadPublicExportPlus() {
       const exportData = pep[exportKey];
       if (!exportData || typeof exportData !== "object") continue;
 
-      for (const [uniqueName, item] of Object.entries(exportData)) {
+      for (const [uniqueName, item] of Object.entries(exportData) as [string, any][]) {
         if (!uniqueName || uniqueName === "default") continue;
 
         const resolvedName = resolveName(item.name) || extractFallbackName(uniqueName);
@@ -212,8 +240,8 @@ function loadPublicExportPlus() {
         itemsByUniqueName[uniqueName] = {
           name: resolvedName,
           category,
-          imageUrl: null, // Will be set by wfcd if available
-          browseWfUrl: resolveIcon(item.icon), // Keep as fallback
+          imageUrl: null,
+          browseWfUrl: resolveIcon(item.icon),
           isPrime: resolvedName.includes("Prime"),
           masteryReq: item.masteryReq || 0,
           tradable: normalizeOptionalBoolean(item.tradable),
@@ -237,7 +265,7 @@ function loadPublicExportPlus() {
 
 // ─── Load @wfcd/items ──────────────────────────────────────────────────────
 
-function loadWfcdItems() {
+function loadWfcdItems(): number {
   try {
     const Items = require("@wfcd/items");
     const CATEGORIES = [
@@ -275,7 +303,7 @@ function loadWfcdItems() {
           ? Math.max(0, Math.round(item.ducats))
           : null;
 
-      const wfcdEntry = {
+      const wfcdEntry: ItemEntry = {
         name: item.name || "Unknown",
         category: item.category || "Misc",
         imageUrl: wfcdImageUrl,
@@ -297,7 +325,6 @@ function loadWfcdItems() {
 
       wfcdItemsByUniqueName[item.uniqueName] = wfcdEntry;
 
-      // Index components too (blueprints, chassis, etc.)
       if (item.components) {
         for (const comp of item.components) {
           if (comp.uniqueName) {
@@ -315,7 +342,7 @@ function loadWfcdItems() {
               forceComponentBlueprintName,
             );
 
-            const componentEntry = {
+            const componentEntry: ItemEntry = {
               ...wfcdEntry,
               name: componentName,
               imageUrl: comp.imageName ? WFCD_CDN + comp.imageName : wfcdImageUrl,
@@ -337,9 +364,6 @@ function loadWfcdItems() {
             } else {
               const existingComponent = itemsByUniqueName[comp.uniqueName];
 
-              // For build components, always prefer WFCD's composite name (e.g.
-              // "Odonata Prime Blueprint") over PEP's generic dict name (e.g.
-              // "Prime Archwing Blueprint") which can resolve to the wrong display name.
               if (
                 componentEntry.name &&
                 (!existingComponent.name ||
@@ -420,23 +444,18 @@ function loadWfcdItems() {
       }
 
       if (!itemsByUniqueName[item.uniqueName]) {
-        // Brand new item not in PEP
         itemsByUniqueName[item.uniqueName] = wfcdEntry;
         wfcdNewCount++;
       } else {
-        // Supplement PEP entry with wfcd data
         const existing = itemsByUniqueName[item.uniqueName];
 
-        // ALWAYS prefer wfcd image (proven CDN), fall back to browse.wf
         existing.imageUrl = wfcdImageUrl || existing.browseWfUrl || null;
 
-        // If PEP name was a language key that didn't resolve, use wfcd name
         if (existing.name.startsWith("/Lotus/") && item.name) {
           existing.name = item.name;
           existing.isPrime = item.name.includes("Prime");
         }
 
-        // Add wfcd extras
         const mergedItemTradable = pickTradable(existing.tradable, item.tradable);
         if (mergedItemTradable !== undefined) {
           existing.tradable = mergedItemTradable;
@@ -457,7 +476,6 @@ function loadWfcdItems() {
         if (!existing.description && item.description) {
           existing.description = item.description;
         }
-        // Prefer WFCD ducats over PEP when available
         if (wfcdRootDucats != null) {
           existing.ducats = wfcdRootDucats;
         }
@@ -477,7 +495,7 @@ function loadWfcdItems() {
 
 // ─── Post-process: ensure all items have best possible image ───────────────
 
-function resolveAllImages() {
+function resolveAllImages(): void {
   let resolved = 0;
   let browseWfFallback = 0;
   let noImage = 0;
@@ -488,14 +506,12 @@ function resolveAllImages() {
       continue;
     }
 
-    // Try browse.wf URL as fallback
     if (item.browseWfUrl) {
       item.imageUrl = item.browseWfUrl;
       browseWfFallback++;
       continue;
     }
 
-    // Try looking up wfcd by uniqueName
     const wfcd = wfcdItemsByUniqueName[uniqueName];
     if (wfcd?.imageUrl) {
       item.imageUrl = wfcd.imageUrl;
@@ -513,7 +529,7 @@ function resolveAllImages() {
 
 // ─── Fallback name extraction ──────────────────────────────────────────────
 
-function extractFallbackName(uniqueName) {
+function extractFallbackName(uniqueName: string): string {
   if (!uniqueName) return "Unknown";
   const segments = uniqueName.split("/");
   let name = segments[segments.length - 1] || "Unknown";
@@ -524,7 +540,7 @@ function extractFallbackName(uniqueName) {
 
 // ─── Public API ────────────────────────────────────────────────────────────
 
-function buildDatabase() {
+export function buildDatabase(): void {
   log.time("[ItemDB] Total build time");
 
   const pepCount = loadPublicExportPlus();
@@ -539,24 +555,23 @@ function buildDatabase() {
   }
 }
 
-function lookupItem(uniqueName) {
+export function lookupItem(uniqueName: string): ItemEntry | null {
   return itemsByUniqueName[uniqueName] || null;
 }
 
-function lookupName(uniqueName) {
+export function lookupName(uniqueName: string): string {
   const item = itemsByUniqueName[uniqueName];
   if (item) return item.name;
   return extractFallbackName(uniqueName);
 }
 
-function lookupImage(uniqueName) {
+export function lookupImage(uniqueName: string): string | null {
   const item = itemsByUniqueName[uniqueName];
   return item?.imageUrl || null;
 }
 
-// Serializable lookup for renderer via IPC
-function getRendererLookup() {
-  const lookup = {};
+export function getRendererLookup(): Record<string, any> {
+  const lookup: Record<string, any> = {};
   for (const [key, item] of Object.entries(itemsByUniqueName)) {
     lookup[key] = {
       name: item.name,
@@ -573,19 +588,19 @@ function getRendererLookup() {
       description: item.description || "",
       productCategory: item.productCategory || null,
       ducats: typeof item.ducats === "number" ? item.ducats : null,
-      components: (item.components || []).map((c) => ({
+      components: (item.components || []).map((c: any) => ({
         name: c.name || "",
         uniqueName: c.uniqueName || "",
         tradable: typeof c.tradable === "boolean" ? c.tradable : undefined,
         itemCount: c.itemCount || 1,
-        drops: (c.drops || []).map((d) => ({
+        drops: (c.drops || []).map((d: any) => ({
           location: d.location || "",
           type: d.type || "",
           chance: d.chance || 0,
           rarity: d.rarity || "",
         })),
       })),
-      drops: (item.drops || []).slice(0, 20).map((d) => ({
+      drops: (item.drops || []).slice(0, 20).map((d: any) => ({
         location: d.location || "",
         type: d.type || "",
         chance: d.chance || 0,
@@ -597,16 +612,6 @@ function getRendererLookup() {
   return lookup;
 }
 
-// Direct access to internal store (for main-process services like masteryHelper)
-function getAllItems() {
+export function getAllItems(): Record<string, ItemEntry> {
   return itemsByUniqueName;
 }
-
-module.exports = {
-  buildDatabase,
-  lookupItem,
-  lookupName,
-  lookupImage,
-  getRendererLookup,
-  getAllItems,
-};

@@ -5,14 +5,14 @@
  * All functions are pure (except `matchItemsDetailed` which reads a `sortedItems` array parameter).
  */
 
-const { levenshteinDistance } = require("./rewardScannerUtils");
+import { levenshteinDistance } from "./rewardScannerUtils";
 
-const MAX_REWARD_SLOTS = 4;
+export const MAX_REWARD_SLOTS = 4;
 const EXACT_MATCH_SKIP_OVERLAP_COUNT = 3;
 const MIN_MATCHED_WORDS_FOR_OVERLAP = 2;
 const OVERLAP_CONFIDENCE_FLOOR = 0.86;
 
-const RELIC_ERA_TOKENS = Object.freeze([
+export const RELIC_ERA_TOKENS: ReadonlyArray<{ token: string; text: string }> = Object.freeze([
   { token: "lith", text: "LITH" },
   { token: "meso", text: "MESO" },
   { token: "neo", text: "NEO" },
@@ -20,13 +20,17 @@ const RELIC_ERA_TOKENS = Object.freeze([
   { token: "requiem", text: "REQUIEM" },
 ]);
 
-const CONSENSUS_TUNING = Object.freeze({
+export const CONSENSUS_TUNING: Readonly<{
+  minScoreWeight: number;
+  minConfidenceWeight: number;
+  confidenceDecimals: number;
+}> = Object.freeze({
   minScoreWeight: 0.1,
   minConfidenceWeight: 0.1,
   confidenceDecimals: 3,
 });
 
-function normalizeOcrToken(token) {
+export function normalizeOcrToken(token: any): string {
   return String(token || "")
     .toUpperCase()
     .replace(/[1|!]/g, "I")
@@ -36,14 +40,14 @@ function normalizeOcrToken(token) {
     .trim();
 }
 
-function norm(text) {
+export function norm(text: any): string {
   return String(text || "")
     .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function buildWordSet(text) {
+export function buildWordSet(text: string): Set<string> {
   return new Set(
     text
       .split(" ")
@@ -52,15 +56,38 @@ function buildWordSet(text) {
   );
 }
 
-function matchItemsDetailed(ocrText, threshold, sortedItems) {
+interface SortedItem {
+  name: string;
+  [key: string]: any;
+}
+
+interface MatchEntry {
+  item: SortedItem;
+  pos: number;
+  confidence: number;
+  mode: "exact" | "overlap";
+}
+
+interface MatchResult {
+  items: Array<SortedItem & { confidence: number }>;
+  score: number;
+  matches: MatchEntry[];
+  exactCount: number;
+}
+
+export function matchItemsDetailed(
+  ocrText: string,
+  threshold: number,
+  sortedItems: SortedItem[],
+): MatchResult {
   const text = norm(ocrText);
   if (!text) {
     return { items: [], score: 0, matches: [], exactCount: 0 };
   }
 
   const words = buildWordSet(text);
-  const found = [];
-  const usedNames = new Set();
+  const found: MatchEntry[] = [];
+  const usedNames = new Set<string>();
   const overlapThreshold = Math.max(Number(threshold) || 0, OVERLAP_CONFIDENCE_FLOOR);
 
   for (const item of sortedItems) {
@@ -117,7 +144,10 @@ function matchItemsDetailed(ocrText, threshold, sortedItems) {
   };
 }
 
-function chooseBetterOcrPass(currentBest, candidate) {
+export function chooseBetterOcrPass(
+  currentBest: MatchResult | null,
+  candidate: MatchResult | null,
+): MatchResult | null {
   if (!candidate) return currentBest;
   if (!currentBest) return candidate;
 
@@ -136,7 +166,7 @@ function chooseBetterOcrPass(currentBest, candidate) {
   return Number(candidate.score || 0) > Number(currentBest.score || 0) ? candidate : currentBest;
 }
 
-function detectRelicEraFromText(text) {
+export function detectRelicEraFromText(text: string): { era: string | null; confidence: number } {
   const normalized = String(text || "")
     .toUpperCase()
     .replace(/[^A-Z0-9\s]+/g, " ")
@@ -152,7 +182,7 @@ function detectRelicEraFromText(text) {
     .map((word) => normalizeOcrToken(word))
     .filter((word) => word.length >= 2);
 
-  let best = { era: null, confidence: 0 };
+  let best: { era: string | null; confidence: number } = { era: null, confidence: 0 };
 
   for (const word of words) {
     for (const era of RELIC_ERA_TOKENS) {
@@ -177,7 +207,10 @@ function detectRelicEraFromText(text) {
   return best;
 }
 
-function detectRelicEraFromTileLabelText(text) {
+export function detectRelicEraFromTileLabelText(text: string): {
+  era: string | null;
+  confidence: number;
+} {
   const normalized = String(text || "")
     .toUpperCase()
     .replace(/[^A-Z0-9\s]+/g, " ")
@@ -214,8 +247,25 @@ function detectRelicEraFromTileLabelText(text) {
   };
 }
 
-function buildConsensusSelection(passResults) {
-  const { medianNumber } = require("./rewardScannerUtils");
+interface PassResult {
+  items: Array<SortedItem & { confidence: number }>;
+  score: number;
+  matches: MatchEntry[];
+  exactCount: number;
+  [key: string]: any;
+}
+
+interface ConsensusResult {
+  items: Array<SortedItem & { confidence: number }>;
+  selectedPass: PassResult;
+  strategy: string;
+  targetCount: number;
+}
+
+export function buildConsensusSelection(passResults: PassResult[]): ConsensusResult | null {
+  const { medianNumber } = require("./rewardScannerUtils") as {
+    medianNumber: (arr: number[], fallback: number) => number;
+  };
 
   const successful = passResults.filter((result) => result.items.length > 0);
   if (successful.length === 0) return null;
@@ -242,14 +292,23 @@ function buildConsensusSelection(passResults) {
     ),
   );
 
-  const votes = new Map();
+  interface VoteEntry {
+    item: SortedItem & { confidence: number };
+    hits: number;
+    weightedScore: number;
+    bestConfidence: number;
+    avgPosAccumulator: number;
+    avgPosCount: number;
+  }
+
+  const votes = new Map<string, VoteEntry>();
 
   for (const result of successful) {
     const scoreWeight = Math.max(CONSENSUS_TUNING.minScoreWeight, result.score);
     for (const match of result.matches) {
       const key = match.item.name;
       const existing = votes.get(key) || {
-        item: match.item,
+        item: match.item as SortedItem & { confidence: number },
         hits: 0,
         weightedScore: 0,
         bestConfidence: 0,
@@ -311,17 +370,3 @@ function buildConsensusSelection(passResults) {
     targetCount: estimatedCount,
   };
 }
-
-module.exports = {
-  normalizeOcrToken,
-  norm,
-  buildWordSet,
-  matchItemsDetailed,
-  chooseBetterOcrPass,
-  detectRelicEraFromText,
-  detectRelicEraFromTileLabelText,
-  buildConsensusSelection,
-  MAX_REWARD_SLOTS,
-  RELIC_ERA_TOKENS,
-  CONSENSUS_TUNING,
-};

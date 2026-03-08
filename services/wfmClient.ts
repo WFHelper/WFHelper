@@ -1,10 +1,15 @@
 "use strict";
 
-const log = require("./logger").withScope("wfmClient");
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
+import https from "node:https";
+import { withScope } from "./logger";
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
+  normalizeErrorMessage: (err: any) => string;
+};
+
+const log = withScope("wfmClient");
 
 /**
- * wfmClient.js — Warframe.market HTTP client (main-process only)
+ * wfmClient.ts — Warframe.market HTTP client (main-process only)
  *
  * - Serial request queue with 350 ms minimum spacing (≤ 3 req/s)
  * - Standard headers required by WFM API
@@ -18,7 +23,32 @@ const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
  *     alone satisfies the CSRF check (no X-CSRFToken header needed).
  */
 
-const https = require("https");
+// ── Interfaces ────────────────────────────────────────────────────────────────
+
+export interface WfmRequestOptions {
+  json?: unknown;
+  headers?: Record<string, string>;
+}
+
+export interface WfmApiError extends Error {
+  code?: string;
+  status?: number;
+}
+
+export interface WfmResponseLike {
+  ok: boolean;
+  status: number;
+  headers: { get(name: string): string | null };
+  json(): Promise<unknown>;
+  text(): Promise<string>;
+}
+
+export interface WfmRawResponse {
+  res: WfmResponseLike;
+  body: unknown;
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const BASE_URL = "https://api.warframe.market/v1";
 const BASE_URL_V2 = "https://api.warframe.market/v2";
@@ -27,17 +57,14 @@ const REQUEST_TIMEOUT_MS = 20000;
 
 // ── Rate-limit queue ──────────────────────────────────────────────────────────
 
-let _queue = Promise.resolve();
+let _queue: Promise<void> = Promise.resolve();
 let _lastRequestAt = 0;
 
 /**
  * Enqueue a function that returns a promise, ensuring at least MIN_DELAY_MS
  * between consecutive requests.
  */
-function enqueue(fn) {
-  // Separate the result (can reject) from _queue (must always resolve).
-  // Without this, a single failed request breaks all subsequent requests
-  // because _queue becomes a permanently rejected promise.
+function enqueue<T>(fn: () => Promise<T>): Promise<T> {
   const result = _queue.then(async () => {
     const now = Date.now();
     const elapsed = now - _lastRequestAt;
@@ -47,20 +74,16 @@ function enqueue(fn) {
     _lastRequestAt = Date.now();
     return fn();
   });
-  _queue = result.catch(() => {}); // keep queue alive after errors
+  _queue = result.catch(() => {}) as Promise<void>;
   return result;
 }
 
 // ── CSRF token ────────────────────────────────────────────────────────────────
 
-let _csrfToken = null;
-let _cookieJwt = null; // raw JWT value to send as Cookie header
+let _csrfToken: string | null = null;
+let _cookieJwt: string | null = null;
 
-/**
- * WFM embeds the CSRF token inside the JWT cookie payload as `csrf_token`.
- * Decode a JWT string and return its payload, or null on failure.
- */
-function _decodeJwtPayload(jwt) {
+function _decodeJwtPayload(jwt: string): any {
   try {
     const b64 = jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
     return JSON.parse(Buffer.from(b64, "base64").toString("utf-8"));
@@ -69,14 +92,9 @@ function _decodeJwtPayload(jwt) {
   }
 }
 
-/**
- * Fetch the anonymous JWT from warframe.market, decode its payload, and
- * extract the embedded `csrf_token`.  Caches the result.
- */
-async function _ensureCsrfToken() {
+async function _ensureCsrfToken(): Promise<string | null> {
   if (_csrfToken) return _csrfToken;
   try {
-    // Use _nodeRequest so set-cookie headers aren't filtered
     const resp = await _nodeRequest(
       "GET",
       "https://warframe.market/",
@@ -106,11 +124,7 @@ async function _ensureCsrfToken() {
   return _csrfToken;
 }
 
-/**
- * After a successful sign-in, call this with the authenticated JWT so that
- * subsequent mutation requests use the correct (authenticated) CSRF token.
- */
-function updateCsrfFromToken(token) {
+export function updateCsrfFromToken(token: string): void {
   const payload = _decodeJwtPayload(token);
   if (payload?.csrf_token) {
     _csrfToken = payload.csrf_token;
@@ -119,18 +133,19 @@ function updateCsrfFromToken(token) {
   }
 }
 
-function clearCsrfToken() {
+export function clearCsrfToken(): void {
   _csrfToken = null;
   _cookieJwt = null;
 }
 
-// ── Low-level HTTPS helper (no forbidden-header filtering) ────────────────────
+// ── Low-level HTTPS helper ────────────────────────────────────────────────────
 
-/**
- * Make a raw HTTPS request using Node.js https.request.
- * Returns a Response-like object: { ok, status, headers, json(), text() }
- */
-function _nodeRequest(method, url, headers, body) {
+function _nodeRequest(
+  method: string,
+  url: string,
+  headers: Record<string, string>,
+  body: string | null,
+): Promise<WfmResponseLike> {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
     const options = {
@@ -142,16 +157,16 @@ function _nodeRequest(method, url, headers, body) {
     };
 
     let settled = false;
-    let timeoutId = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    function settleOk(value) {
+    function settleOk(value: WfmResponseLike) {
       if (settled) return;
       settled = true;
       if (timeoutId) clearTimeout(timeoutId);
       resolve(value);
     }
 
-    function settleErr(err) {
+    function settleErr(err: Error) {
       if (settled) return;
       settled = true;
       if (timeoutId) clearTimeout(timeoutId);
@@ -159,17 +174,17 @@ function _nodeRequest(method, url, headers, body) {
     }
 
     const req = https.request(options, (res) => {
-      const chunks = [];
-      res.on("data", (c) => chunks.push(c));
+      const chunks: Buffer[] = [];
+      res.on("data", (c: Buffer) => chunks.push(c));
       res.on("error", settleErr);
       res.on("aborted", () => settleErr(new Error("WFM response aborted")));
       res.on("end", () => {
         const text = Buffer.concat(chunks).toString("utf-8");
         settleOk({
-          ok: res.statusCode >= 200 && res.statusCode < 300,
-          status: res.statusCode,
+          ok: (res.statusCode ?? 0) >= 200 && (res.statusCode ?? 0) < 300,
+          status: res.statusCode ?? 0,
           headers: {
-            get: (name) => {
+            get: (name: string) => {
               const v = res.headers[name.toLowerCase()];
               return Array.isArray(v) ? v.join(", ") : (v ?? null);
             },
@@ -181,15 +196,13 @@ function _nodeRequest(method, url, headers, body) {
     });
 
     timeoutId = setTimeout(() => {
-      const err = new Error(`WFM request timeout after ${REQUEST_TIMEOUT_MS}ms`);
+      const err = new Error(`WFM request timeout after ${REQUEST_TIMEOUT_MS}ms`) as any;
       err.code = "WFM_TIMEOUT";
       req.destroy(err);
     }, REQUEST_TIMEOUT_MS);
 
     req.on("error", settleErr);
     if (body) {
-      // Set Content-Length so the request uses fixed-length framing
-      // instead of Transfer-Encoding: chunked (some servers reject chunked)
       const buf = Buffer.from(body, "utf-8");
       req.setHeader("Content-Length", buf.length);
       req.write(buf);
@@ -200,43 +213,32 @@ function _nodeRequest(method, url, headers, body) {
 
 // ── Token accessor (injected by wfmSession) ───────────────────────────────────
 
-let _getToken = () => null;
+let _getToken: () => string | null = () => null;
 
-/**
- * Called once by wfmSession to register a token provider function.
- * This avoids circular requires.
- */
-function setTokenProvider(fn) {
+export function setTokenProvider(fn: () => string | null): void {
   _getToken = fn;
 }
 
 // ── Core request ──────────────────────────────────────────────────────────────
 
-/**
- * Shared request logic for both v1 and v2 WFM API endpoints.
- * Handles auth, CSRF, rate limiting, and error normalisation.
- *
- * @param {string} baseUrl      API base (v1 or v2)
- * @param {"GET"|"POST"|"PUT"|"DELETE"} method
- * @param {string} path         e.g. "/profile/orders"
- * @param {object} [opts]
- * @param {object} [opts.json]         Request body
- * @param {object} [opts.headers]      Extra headers merged in
- * @param {object} [opts.baseHeaders]  Base headers (differs between v1/v2)
- * @param {string} [opts.label]        Label for log messages
- * @returns {Promise<object>}          Parsed JSON response body
- */
+interface CoreRequestOptions {
+  json?: unknown;
+  headers?: Record<string, string>;
+  baseHeaders?: Record<string, string>;
+  label?: string;
+}
+
 function _coreRequest(
-  baseUrl,
-  method,
-  path,
-  { json, headers: extraHeaders, baseHeaders = {}, label = "WFMClient" } = {},
-) {
+  baseUrl: string,
+  method: string,
+  path: string,
+  { json, headers: extraHeaders, baseHeaders = {}, label = "WFMClient" }: CoreRequestOptions = {},
+): Promise<unknown> {
   return enqueue(async () => {
     const token = _getToken();
     const url = baseUrl + path;
 
-    const headers = {
+    const headers: Record<string, string> = {
       Accept: "application/json",
       "Content-Type": "application/json",
       Platform: "pc",
@@ -260,17 +262,19 @@ function _coreRequest(
 
     const body = json !== undefined ? JSON.stringify(json) : null;
 
-    let res;
+    let res: WfmResponseLike;
     try {
       res = await _nodeRequest(method, url, headers, body);
     } catch (networkErr) {
-      const err = new Error(`${label} network error: ${normalizeErrorMessage(networkErr)}`);
+      const err = new Error(
+        `${label} network error: ${normalizeErrorMessage(networkErr)}`,
+      ) as any;
       err.code = "WFM_NETWORK_ERROR";
       throw err;
     }
 
     if (res.status === 401) {
-      const err = new Error("Warframe.market session expired or invalid.");
+      const err = new Error("Warframe.market session expired or invalid.") as any;
       err.code = "WFM_UNAUTHORIZED";
       err.status = 401;
       throw err;
@@ -283,7 +287,7 @@ function _coreRequest(
       log.warn(`[${label}] Rate limited (429). Cooling down for ${Math.ceil(cooldownMs / 1000)}s.`);
       const err = new Error(
         `Warframe.market rate limit hit. Please wait ${Math.ceil(cooldownMs / 1_000)}s.`,
-      );
+      ) as any;
       err.code = "WFM_RATE_LIMITED";
       err.status = 429;
       throw err;
@@ -295,15 +299,17 @@ function _coreRequest(
         const text = await res.text();
         log.log(`[${label}] ${method} ${path} → ${res.status} body:`, text.slice(0, 500));
         try {
-          const rb = JSON.parse(text);
+          const rb = JSON.parse(text) as any;
           if (rb?.error?.message) detail = rb.error.message;
           else if (typeof rb?.error === "string") detail = rb.error;
           else if (rb?.message) detail = rb.message;
-        } catch (_) {}
+        } catch (_) {
+          // ignore – detail already has a fallback value
+        }
       } catch (parseErr) {
         log.warn(`[${label}] Failed to read error response body:`, normalizeErrorMessage(parseErr));
       }
-      const err = new Error(`${label} API error: ${detail}`);
+      const err = new Error(`${label} API error: ${detail}`) as any;
       err.code = "WFM_API_ERROR";
       err.status = res.status;
       throw err;
@@ -314,11 +320,19 @@ function _coreRequest(
   });
 }
 
-function request(method, path, opts = {}) {
+export function request(
+  method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
+  path: string,
+  opts: WfmRequestOptions = {},
+): Promise<unknown> {
   return _coreRequest(BASE_URL, method, path, { ...opts, label: "WFMClient" });
 }
 
-function requestV2(method, path, opts = {}) {
+export function requestV2(
+  method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
+  path: string,
+  opts: WfmRequestOptions = {},
+): Promise<unknown> {
   return _coreRequest(BASE_URL_V2, method, path, {
     ...opts,
     baseHeaders: { Crossplay: "true" },
@@ -326,15 +340,15 @@ function requestV2(method, path, opts = {}) {
   });
 }
 
-/**
- * Same as request() but also returns the raw Response (for header extraction).
- * Used by wfmSession.signIn() to extract the JWT from the Authorization header.
- */
-function requestRaw(method, path, { json, headers: extraHeaders } = {}) {
+export function requestRaw(
+  method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
+  path: string,
+  { json, headers: extraHeaders }: WfmRequestOptions = {},
+): Promise<WfmRawResponse> {
   return enqueue(async () => {
     const url = BASE_URL + path;
 
-    const headers = {
+    const headers: Record<string, string> = {
       Accept: "application/json",
       "Content-Type": "application/json",
       Platform: "pc",
@@ -342,11 +356,8 @@ function requestRaw(method, path, { json, headers: extraHeaders } = {}) {
       ...extraHeaders,
     };
 
-    // Attach CSRF headers for sign-in POST.
-    // WFM uses double-submit: same anonymous JWT must appear in both
-    // Cookie: and Authorization: headers to pass CSRF validation.
     if (method !== "GET") {
-      await _ensureCsrfToken(); // ensures _cookieJwt is populated
+      await _ensureCsrfToken();
       if (_cookieJwt) {
         headers["Cookie"] = `JWT=${_cookieJwt}`;
         headers["Authorization"] = `JWT ${_cookieJwt}`;
@@ -357,18 +368,18 @@ function requestRaw(method, path, { json, headers: extraHeaders } = {}) {
 
     const body = json !== undefined ? JSON.stringify(json) : null;
 
-    let res;
+    let res: WfmResponseLike;
     try {
       res = await _nodeRequest(method, url, headers, body);
     } catch (networkErr) {
-      const err = new Error(`WFM network error: ${normalizeErrorMessage(networkErr)}`);
+      const err = new Error(`WFM network error: ${normalizeErrorMessage(networkErr)}`) as any;
       err.code = "WFM_NETWORK_ERROR";
       throw err;
     }
 
     if (!res.ok) {
       let detail = `HTTP ${res.status}`;
-      let rawBody = null;
+      let rawBody: any = null;
       try {
         rawBody = await res.json();
         if (typeof rawBody?.error === "string") {
@@ -378,14 +389,14 @@ function requestRaw(method, path, { json, headers: extraHeaders } = {}) {
         } else if (rawBody?.message) {
           detail = rawBody.message;
         } else if (rawBody?.error && typeof rawBody.error === "object") {
-          const msgs = Object.values(rawBody.error).flat().slice(0, 2);
+          const msgs = (Object.values(rawBody.error) as any[]).flat().slice(0, 2) as string[];
           detail = msgs.length ? msgs.join("; ") : "Invalid credentials.";
         }
       } catch (_) {
         /* ignore parse error */
       }
       log.error(`[WFMClient] sign-in ${res.status} body:`, JSON.stringify(rawBody));
-      const err = new Error(`WFM sign-in error: ${detail}`);
+      const err = new Error(`WFM sign-in error: ${detail}`) as any;
       err.code = res.status === 401 ? "WFM_UNAUTHORIZED" : "WFM_API_ERROR";
       err.status = res.status;
       throw err;
@@ -395,12 +406,3 @@ function requestRaw(method, path, { json, headers: extraHeaders } = {}) {
     return { res, body: resBody };
   });
 }
-
-module.exports = {
-  request,
-  requestV2,
-  requestRaw,
-  setTokenProvider,
-  clearCsrfToken,
-  updateCsrfFromToken,
-};

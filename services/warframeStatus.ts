@@ -1,33 +1,54 @@
 "use strict";
 
-const { execFile } = require("node:child_process");
+import { execFile } from "node:child_process";
+import { withScope } from "./logger";
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
+  normalizeErrorMessage: (err: any) => string;
+};
 
-const log = require("./logger").withScope("warframeStatus");
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
+const log = withScope("warframeStatus");
 
 const STATUS_CACHE_TTL_MS = 900;
 const TASKLIST_TIMEOUT_MS = 1200;
 const FOCUS_TIMEOUT_MS = 1200;
 const WINDOW_CAPTURE_SIZE = Object.freeze({ width: 640, height: 360 });
 
-function getElectronScreen() {
+function getElectronScreen(): any {
   try {
-    const { screen } = require("electron");
+    const { screen } = require("electron") as typeof import("electron");
     return screen || null;
   } catch {
     return null;
   }
 }
 
-let lastStatus = null;
-let lastStatusAt = 0;
-let inFlight = null;
+interface WindowBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
-function execFileText(command, args, timeoutMs) {
+interface WarframeStatus {
+  isOpen: boolean;
+  isFocused: boolean;
+  windowDetected: boolean;
+  processRunning: boolean;
+  focusedProcessName: string | null;
+  focusedWindowBounds: WindowBounds | null;
+  focusedDisplayId: string | null;
+  checkedAt: number;
+}
+
+let lastStatus: WarframeStatus | null = null;
+let lastStatusAt = 0;
+let inFlight: Promise<WarframeStatus> | null = null;
+
+function execFileText(command: string, args: string[], timeoutMs: number): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(command, args, { encoding: "utf8", timeout: timeoutMs }, (err, stdout, stderr) => {
       if (err) {
-        reject(new Error(`${err.message}${stderr ? ` | ${stderr.trim()}` : ""}`));
+        reject(new Error(`${err.message}${stderr ? ` | ${String(stderr).trim()}` : ""}`));
         return;
       }
       resolve(String(stdout || ""));
@@ -35,7 +56,7 @@ function execFileText(command, args, timeoutMs) {
   });
 }
 
-async function isWarframeProcessRunning() {
+async function isWarframeProcessRunning(): Promise<boolean> {
   if (process.platform !== "win32") return false;
 
   try {
@@ -56,10 +77,10 @@ async function isWarframeProcessRunning() {
   }
 }
 
-async function isWarframeWindowDetected() {
-  let desktopCapturer;
+async function isWarframeWindowDetected(): Promise<boolean> {
+  let desktopCapturer: any;
   try {
-    ({ desktopCapturer } = require("electron"));
+    ({ desktopCapturer } = require("electron") as typeof import("electron"));
   } catch {
     return false;
   }
@@ -86,7 +107,10 @@ async function isWarframeWindowDetected() {
   }
 }
 
-async function getForegroundWindowInfo() {
+async function getForegroundWindowInfo(): Promise<{
+  processName: string | null;
+  bounds: WindowBounds | null;
+} | null> {
   if (process.platform !== "win32") return null;
 
   const script = [
@@ -126,7 +150,7 @@ async function getForegroundWindowInfo() {
     const trimmed = out.trim();
     if (!trimmed) return null;
 
-    const parsed = JSON.parse(trimmed);
+    const parsed = JSON.parse(trimmed) as any;
     const processName = typeof parsed?.processName === "string" ? parsed.processName.trim() : "";
     const bounds = parsed?.bounds;
 
@@ -152,7 +176,7 @@ async function getForegroundWindowInfo() {
   }
 }
 
-function getDisplayIdForBounds(bounds) {
+function getDisplayIdForBounds(bounds: WindowBounds | null): string | null {
   if (!bounds || bounds.width <= 0 || bounds.height <= 0) return null;
 
   const screenApi = getElectronScreen();
@@ -167,7 +191,7 @@ function getDisplayIdForBounds(bounds) {
   }
 }
 
-async function collectStatus() {
+async function collectStatus(): Promise<WarframeStatus> {
   const [windowDetected, processRunning, foregroundWindow] = await Promise.all([
     isWarframeWindowDetected(),
     isWarframeProcessRunning(),
@@ -193,7 +217,7 @@ async function collectStatus() {
   };
 }
 
-async function getStatus(options = {}) {
+export async function getStatus(options: { force?: boolean } = {}): Promise<WarframeStatus> {
   const force = !!options.force;
   const now = Date.now();
   if (!force && lastStatus && now - lastStatusAt < STATUS_CACHE_TTL_MS) {
@@ -226,7 +250,3 @@ async function getStatus(options = {}) {
   lastStatusAt = Date.now();
   return lastStatus;
 }
-
-module.exports = {
-  getStatus,
-};

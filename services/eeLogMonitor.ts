@@ -1,17 +1,24 @@
 "use strict";
 
-const log = require("./logger").withScope("eeLogMonitor");
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
-const fs = require("node:fs");
-const path = require("node:path");
-const chokidar = require("chokidar");
+import fs from "node:fs";
+import path from "node:path";
+import chokidar from "chokidar";
+import { withScope } from "./logger";
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
+  normalizeErrorMessage: (err: any) => string;
+};
 
-const EE_LOG_PATH = process.env.LOCALAPPDATA
+const log = withScope("eeLogMonitor");
+
+export const EE_LOG_PATH: string | null = process.env.LOCALAPPDATA
   ? path.join(process.env.LOCALAPPDATA, "Warframe", "EE.log")
   : null;
 
-const REWARD_TRIGGER_PATTERNS = Object.freeze([/\bPause countdown done\b/i, /\bGot rewards\b/i]);
-const RELIC_PICKER_PATTERNS = Object.freeze([
+const REWARD_TRIGGER_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
+  /\bPause countdown done\b/i,
+  /\bGot rewards\b/i,
+]);
+const RELIC_PICKER_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
   /\bThemedProjectionManager\.lua:\s*PopulateInventoryGrid\b/i,
   /\bProjectionManager\.lua:\s*PopulateInventoryGrid\b/i,
   /\bProjection[A-Za-z_]*\.lua:\s*PopulateInventoryGrid\b/i,
@@ -27,24 +34,24 @@ const MAX_READ_BYTES = 256 * 1024;
 const MAX_READ_LOOPS_PER_TICK = 8;
 const TRUNCATION_CHECK_INTERVAL_MS = 2000;
 
-let watcher = null;
+let watcher: ReturnType<typeof chokidar.watch> | null = null;
 let lastSize = 0;
 let lineRemainder = "";
-let pollTimer = null;
-let pollFd = null;
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let pollFd: number | null = null;
 let pollReading = false;
 let lastTruncationCheckAt = 0;
 const pollBuffer = Buffer.alloc(MAX_READ_BYTES);
 
-let rewardCallback = null;
-let relicPickerCallback = null;
+let rewardCallback: (() => void) | null = null;
+let relicPickerCallback: (() => void) | null = null;
 
-let pendingRewardTimer = null;
-let pendingRelicPickerTimer = null;
+let pendingRewardTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingRelicPickerTimer: ReturnType<typeof setTimeout> | null = null;
 let lastRewardAt = 0;
 let lastRelicPickerAt = 0;
 
-function clearPendingTimers() {
+function clearPendingTimers(): void {
   if (pendingRewardTimer) {
     clearTimeout(pendingRewardTimer);
     pendingRewardTimer = null;
@@ -55,13 +62,13 @@ function clearPendingTimers() {
   }
 }
 
-function clearPollTimer() {
+function clearPollTimer(): void {
   if (!pollTimer) return;
   clearInterval(pollTimer);
   pollTimer = null;
 }
 
-function closePollFd() {
+function closePollFd(): void {
   if (pollFd == null) return;
   try {
     fs.closeSync(pollFd);
@@ -71,7 +78,7 @@ function closePollFd() {
   pollFd = null;
 }
 
-function pollReadNewBytes() {
+function pollReadNewBytes(): void {
   if (pollReading) return;
   if (!EE_LOG_PATH) return;
 
@@ -117,7 +124,7 @@ function pollReadNewBytes() {
   }
 }
 
-function scheduleTrigger(type) {
+function scheduleTrigger(type: "reward" | "relic_picker"): void {
   const isReward = type === "reward";
   const now = Date.now();
   const lastAt = isReward ? lastRewardAt : lastRelicPickerAt;
@@ -149,7 +156,7 @@ function scheduleTrigger(type) {
   }, RELIC_TRIGGER_DELAY_MS);
 }
 
-function handleLine(line) {
+function handleLine(line: string): void {
   if (!line) return;
 
   if (REWARD_TRIGGER_PATTERNS.some((pattern) => pattern.test(line))) {
@@ -162,7 +169,7 @@ function handleLine(line) {
   }
 }
 
-function consumeChunk(chunk) {
+function consumeChunk(chunk: string): void {
   const merged = lineRemainder + String(chunk || "");
   const lines = merged.split(/\r?\n/);
   lineRemainder = lines.pop() || "";
@@ -172,7 +179,14 @@ function consumeChunk(chunk) {
   }
 }
 
-function normalizeHandlers(handlers) {
+interface EeLogHandlers {
+  onRewardTrigger?: (() => void) | null;
+  onRelicSelectionOpen?: (() => void) | null;
+}
+
+function normalizeHandlers(
+  handlers: (() => void) | EeLogHandlers | null | undefined,
+): { onRewardTrigger: (() => void) | null; onRelicSelectionOpen: (() => void) | null } {
   if (typeof handlers === "function") {
     return {
       onRewardTrigger: handlers,
@@ -195,7 +209,9 @@ function normalizeHandlers(handlers) {
   };
 }
 
-function startWatching(handlers) {
+export function startWatching(
+  handlers: (() => void) | EeLogHandlers | null | undefined,
+): string | null {
   if (!EE_LOG_PATH) {
     log.warn("[EELog] LOCALAPPDATA not set; EE.log monitoring unavailable");
     return null;
@@ -238,8 +254,8 @@ function startWatching(handlers) {
   });
 
   pollTimer = setInterval(pollReadNewBytes, POLL_INTERVAL_MS);
-  if (typeof pollTimer?.unref === "function") {
-    pollTimer.unref();
+  if (typeof (pollTimer as any)?.unref === "function") {
+    (pollTimer as any).unref();
   }
   pollReadNewBytes();
 
@@ -247,7 +263,7 @@ function startWatching(handlers) {
   return EE_LOG_PATH;
 }
 
-function stopWatching() {
+export function stopWatching(): void {
   clearPendingTimers();
   clearPollTimer();
   closePollFd();
@@ -261,9 +277,3 @@ function stopWatching() {
   relicPickerCallback = null;
   lineRemainder = "";
 }
-
-module.exports = {
-  startWatching,
-  stopWatching,
-  EE_LOG_PATH,
-};

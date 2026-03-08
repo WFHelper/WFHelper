@@ -1,9 +1,11 @@
 "use strict";
 
-const { execFile } = require("child_process");
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
+import { execFile } from "child_process";
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
+  normalizeErrorMessage: (err: any) => string;
+};
 
-function timeoutWrap(promise, timeoutMs, label) {
+function timeoutWrap<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error(`${label} timeout after ${timeoutMs}ms`));
@@ -21,7 +23,22 @@ function timeoutWrap(promise, timeoutMs, label) {
   });
 }
 
-function createRewardOcrRunner(options) {
+interface OcrRunnerOptions {
+  log?: { warn?: (...args: any[]) => void };
+  getRequestedEngine?: () => string;
+  ocrScriptPath?: string;
+  tesseractLanguage?: string;
+  engineWindows?: string;
+  engineTesseract?: string;
+}
+
+interface OcrRunner {
+  runOCR(imagePath: string, timeoutMs: number): Promise<string>;
+  runPowerShellOCR(imagePath: string, timeoutMs: number): Promise<string>;
+  runTesseractOCR(imagePath: string, timeoutMs: number): Promise<string>;
+}
+
+export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
   const log = options?.log;
   const getRequestedEngine = options?.getRequestedEngine;
   const ocrScriptPath = String(options?.ocrScriptPath || "");
@@ -29,7 +46,7 @@ function createRewardOcrRunner(options) {
   const engineWindows = String(options?.engineWindows || "windows");
   const engineTesseract = String(options?.engineTesseract || "tesseract");
 
-  function runPowerShellOCR(imagePath, timeoutMs) {
+  function runPowerShellOCR(imagePath: string, timeoutMs: number): Promise<string> {
     return new Promise((resolve, reject) => {
       execFile(
         "powershell",
@@ -39,7 +56,7 @@ function createRewardOcrRunner(options) {
           if (err) {
             reject(
               new Error(
-                `PowerShell OCR failed: ${normalizeErrorMessage(err)}${stderr ? ` | ${stderr.trim()}` : ""}`,
+                `PowerShell OCR failed: ${normalizeErrorMessage(err)}${stderr ? ` | ${String(stderr).trim()}` : ""}`,
               ),
             );
             return;
@@ -50,12 +67,12 @@ function createRewardOcrRunner(options) {
     });
   }
 
-  async function runTesseractOCR(imagePath, timeoutMs) {
-    let tesseract;
+  async function runTesseractOCR(imagePath: string, timeoutMs: number): Promise<string> {
+    let tesseract: any;
     try {
       tesseract = require("tesseract.js");
     } catch (error) {
-      throw new Error(`Tesseract OCR unavailable: ${normalizeErrorMessage(error)}`);
+      throw new Error(`Tesseract OCR unavailable: ${normalizeErrorMessage(error)}`, { cause: error });
     }
 
     const recognizePromise = tesseract.recognize(imagePath, tesseractLanguage, {
@@ -63,10 +80,10 @@ function createRewardOcrRunner(options) {
     });
 
     const result = await timeoutWrap(recognizePromise, timeoutMs, "Tesseract OCR");
-    return result?.data?.text || "";
+    return (result as any)?.data?.text || "";
   }
 
-  async function runOCR(imagePath, timeoutMs) {
+  async function runOCR(imagePath: string, timeoutMs: number): Promise<string> {
     const engine = typeof getRequestedEngine === "function" ? getRequestedEngine() : engineWindows;
 
     if (engine === engineWindows) {
@@ -83,12 +100,12 @@ function createRewardOcrRunner(options) {
       return runTesseractOCR(imagePath, timeoutMs);
     }
 
-    let powerShellError = null;
+    let powerShellError: Error | null = null;
     if (process.platform === "win32") {
       try {
         return await runPowerShellOCR(imagePath, timeoutMs);
       } catch (error) {
-        powerShellError = error;
+        powerShellError = error as Error;
         log?.warn?.(
           "[RewardScanner] PowerShell OCR failed in auto mode, falling back:",
           normalizeErrorMessage(error),
@@ -102,6 +119,7 @@ function createRewardOcrRunner(options) {
       if (powerShellError) {
         throw new Error(
           `OCR failed (Windows + Tesseract): ${normalizeErrorMessage(powerShellError)} | ${normalizeErrorMessage(error)}`,
+          { cause: error },
         );
       }
       throw error;
@@ -115,9 +133,6 @@ function createRewardOcrRunner(options) {
   };
 }
 
-module.exports = {
-  createRewardOcrRunner,
-  __test__: {
-    timeoutWrap,
-  },
+export const __test__ = {
+  timeoutWrap,
 };

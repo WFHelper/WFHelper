@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const wfmStats = require("../../services/wfmStats.js");
-const wfmStatsPrice = require("../../services/wfmStatsPrice.js");
+import * as wfmStats from "../../services/wfmStats";
+import * as wfmStatsPrice from "../../services/wfmStatsPrice";
 
 describe("wfm stats helpers", () => {
   afterEach(() => {

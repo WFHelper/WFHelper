@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-const { __test__ } = require("../../services/rewardScannerOcr.js");
+import { __test__ } from "../../services/rewardScannerOcr";
 
 describe("rewardScanner OCR helpers", () => {
   it("timeoutWrap resolves before timeout", async () => {

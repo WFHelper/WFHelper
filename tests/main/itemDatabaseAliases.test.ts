@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
-const itemDb = require("../../services/itemDatabase.js");
+import * as itemDb from "../../services/itemDatabase";
 
 describe("itemDatabase WFCD alias enrichment", () => {
   beforeAll(() => {

@@ -1,10 +1,17 @@
 "use strict";
 
-const log = require("./logger").withScope("relicService");
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
+import { withScope } from "./logger";
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
+  normalizeErrorMessage: (err: any) => string;
+};
+const { normalizeWfmSlug } = require("../config/shared/wfm.cjs") as {
+  normalizeWfmSlug: (slug: any) => string | null;
+};
+
+const log = withScope("relicService");
 
 /**
- * relicService.js — Relic database built from @wfcd/items
+ * relicService.ts — Relic database built from @wfcd/items
  *
  * Groups all Warframe relics by "Tier Code" (e.g. "Axi A1"), exposing all four
  * quality variants (Intact/Exceptional/Flawless/Radiant) with their per-item
@@ -14,14 +21,44 @@ const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
 
 const WFCD_CDN = "https://cdn.warframestat.us/img/";
 const QUALITIES = new Set(["Intact", "Exceptional", "Flawless", "Radiant"]);
+
+type RelicQualityKey = "intact" | "exceptional" | "flawless" | "radiant";
 const TIERS = new Set(["Lith", "Meso", "Neo", "Axi", "Requiem", "Vanguard"]);
 
-let _db = null;
+interface RelicReward {
+  name: string;
+  uniqueName: string | null;
+  imageUrl: string | null;
+  rarity: string;
+  chance: number;
+  urlName: string | null;
+  wfmId: string | null;
+  ducats: number | null;
+}
 
-const { normalizeWfmSlug } = require("../config/shared/wfm.cjs");
+interface RelicQuality {
+  uniqueName: string | null;
+  rewards: RelicReward[];
+}
 
-function buildRelicDatabase() {
-  let Items;
+interface RelicGroup {
+  key: string;
+  name: string;
+  tier: string;
+  code: string;
+  imageUrl: string | null;
+  qualities: Record<string, RelicQuality>;
+}
+
+interface RelicDatabase {
+  groups: Record<string, RelicGroup>;
+  byUniqueName: Record<string, { groupKey: string; quality: RelicQualityKey }>;
+}
+
+let _db: RelicDatabase | null = null;
+
+function buildRelicDatabase(): RelicDatabase {
+  let Items: any;
   try {
     Items = require("@wfcd/items");
   } catch (err) {
@@ -30,14 +67,14 @@ function buildRelicDatabase() {
   }
 
   const all = new Items();
-  const groupsMap = new Map(); // baseName → group
-  const byUniqueNameMap = new Map(); // uniqueName → { groupKey, quality }
+  const groupsMap = new Map<string, RelicGroup>();
+  const byUniqueNameMap = new Map<string, { groupKey: string; quality: RelicQualityKey }>();
 
   for (const relic of all) {
     if (relic.category !== "Relics") continue;
 
     const parts = (relic.name || "").split(" ");
-    if (parts.length < 3) continue; // need at least "Tier Code Quality"
+    if (parts.length < 3) continue;
 
     const quality = parts[parts.length - 1];
     if (!QUALITIES.has(quality)) continue;
@@ -45,8 +82,8 @@ function buildRelicDatabase() {
     const tier = parts[0];
     if (!TIERS.has(tier)) continue;
 
-    const baseName = parts.slice(0, -1).join(" "); // "Axi A1"
-    const code = parts.slice(1, -1).join(" "); // "A1"
+    const baseName = parts.slice(0, -1).join(" ");
+    const code = parts.slice(1, -1).join(" ");
 
     if (!groupsMap.has(baseName)) {
       groupsMap.set(baseName, {
@@ -59,9 +96,8 @@ function buildRelicDatabase() {
       });
     }
 
-    const group = groupsMap.get(baseName);
+    const group = groupsMap.get(baseName)!;
 
-    // Prefer Intact imageName for the group thumbnail; fall back to any quality
     if (relic.imageName) {
       if (quality === "Intact" || !group.imageUrl) {
         group.imageUrl = WFCD_CDN + relic.imageName;
@@ -70,7 +106,7 @@ function buildRelicDatabase() {
 
     group.qualities[quality.toLowerCase()] = {
       uniqueName: relic.uniqueName || null,
-      rewards: (relic.rewards || []).map((r) => {
+      rewards: (relic.rewards || []).map((r: any) => {
         const rawSlug = r.item?.warframeMarket?.urlName || r.item?.warframeMarket?.url_name || null;
         return {
           name: r.item?.name || "Unknown",
@@ -90,7 +126,7 @@ function buildRelicDatabase() {
     if (relic.uniqueName) {
       byUniqueNameMap.set(relic.uniqueName, {
         groupKey: baseName,
-        quality: quality.toLowerCase(),
+        quality: quality.toLowerCase() as RelicQualityKey,
       });
     }
   }
@@ -103,9 +139,8 @@ function buildRelicDatabase() {
 
 /**
  * Returns the relic database (cached after first call).
- * @returns {{ groups: Object, byUniqueName: Object }}
  */
-function getRelicDatabase() {
+export function getRelicDatabase(): RelicDatabase {
   if (!_db) {
     log.time("[RelicDB] build");
     _db = buildRelicDatabase();
@@ -115,5 +150,3 @@ function getRelicDatabase() {
   }
   return _db;
 }
-
-module.exports = { getRelicDatabase };

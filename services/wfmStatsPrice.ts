@@ -1,23 +1,34 @@
 "use strict";
 
-const log = require("./logger").withScope("wfmStatsPrice");
-const { extractMedianFromStatsPayload } = require("./wfmStats");
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
+import { withScope } from "./logger";
+import { extractMedianFromStatsPayload } from "./wfmStats";
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
+  normalizeErrorMessage: (err: any) => string;
+};
+
+const log = withScope("wfmStatsPrice");
 
 const STATS_TTL_MS = 5 * 60 * 1000;
 const STATS_TIMEOUT_MS = 7_000;
 
-const { WFM_HEADERS } = require("../config/shared/wfm.cjs");
+const { WFM_HEADERS } = require("../config/shared/wfm.cjs") as {
+  WFM_HEADERS: Record<string, string>;
+};
 
-const cache = new Map();
-const inFlight = new Map();
+interface CacheEntry {
+  median: number;
+  ts: number;
+}
 
-function normalizeSlug(slug) {
+const cache = new Map<string, CacheEntry>();
+const inFlight = new Map<string, Promise<number | null>>();
+
+function normalizeSlug(slug: any): string {
   if (typeof slug !== "string") return "";
   return slug.trim().toLowerCase();
 }
 
-function getCachedPrice(slug) {
+function getCachedPrice(slug: string): number | null {
   const hit = cache.get(slug);
   if (!hit) return null;
   if (Date.now() - hit.ts > STATS_TTL_MS) {
@@ -27,20 +38,23 @@ function getCachedPrice(slug) {
   return hit.median;
 }
 
-function setCachedPrice(slug, median) {
+function setCachedPrice(slug: string, median: number): void {
   cache.set(slug, {
     median,
     ts: Date.now(),
   });
 }
 
-function getCachedPriceBySlug(slugInput) {
+export function getCachedPriceBySlug(slugInput: any): number | null {
   const slug = normalizeSlug(slugInput);
   if (!slug) return null;
   return getCachedPrice(slug);
 }
 
-async function fetchPriceBySlug(slugInput, options = {}) {
+export async function fetchPriceBySlug(
+  slugInput: any,
+  options: { timeoutMs?: number } = {},
+): Promise<number | null> {
   const slug = normalizeSlug(slugInput);
   if (!slug) return null;
 
@@ -50,7 +64,7 @@ async function fetchPriceBySlug(slugInput, options = {}) {
   const pending = inFlight.get(slug);
   if (pending) return pending;
 
-  const task = (async () => {
+  const task = (async (): Promise<number | null> => {
     const controller = new AbortController();
     const timeoutMs = Number.isFinite(Number(options.timeoutMs))
       ? Math.max(500, Number(options.timeoutMs))
@@ -84,18 +98,14 @@ async function fetchPriceBySlug(slugInput, options = {}) {
   return task;
 }
 
-function clearCache() {
+function clearCache(): void {
   cache.clear();
   inFlight.clear();
 }
 
-module.exports = {
-  fetchPriceBySlug,
-  getCachedPriceBySlug,
-  __test__: {
-    normalizeSlug,
-    clearCache,
-    getCachedPrice,
-    setCachedPrice,
-  },
+export const __test__ = {
+  normalizeSlug,
+  clearCache,
+  getCachedPrice,
+  setCachedPrice,
 };
