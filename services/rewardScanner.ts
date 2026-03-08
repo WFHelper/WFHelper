@@ -5,37 +5,46 @@
  *
  * State management, settings, OCR runner setup, and high-level scan orchestration.
  * Implementation details are split across:
- *   - rewardScannerUtils.js      (pure math/string utilities)
- *   - rewardScannerCapture.js    (Electron screen capture)
- *   - rewardScannerImage.js      (image cropping / enhancement)
- *   - rewardScannerMatch.js      (OCR text → item matching)
- *   - rewardScannerReadiness.js  (UI readiness detection)
+ *   - rewardScannerUtils.ts      (pure math/string utilities)
+ *   - rewardScannerCapture.ts    (Electron screen capture)
+ *   - rewardScannerImage.ts      (image cropping / enhancement)
+ *   - rewardScannerMatch.ts      (OCR text → item matching)
+ *   - rewardScannerReadiness.ts  (UI readiness detection)
  */
 
-const log = require("./logger").withScope("rewardScanner");
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
+import { withScope } from "./logger";
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
+  normalizeErrorMessage: (err: any) => string;
+};
 
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
-const { createRewardOcrRunner } = require("./rewardScannerOcr");
+import fs from "fs";
+import os from "os";
+import path from "path";
+import { createRewardOcrRunner } from "./rewardScannerOcr";
 const {
   OVERLAY_SETTINGS_DEFAULTS,
   OVERLAY_SETTINGS_LIMITS,
-} = require("../config/runtime/overlaySettings");
+} = require("../config/runtime/overlaySettings") as {
+  OVERLAY_SETTINGS_DEFAULTS: Record<string, any>;
+  OVERLAY_SETTINGS_LIMITS: Record<string, any>;
+};
 
-const { clampNumber, round4 } = require("./rewardScannerUtils");
-const { captureScreen, captureDebugFrame, captureSourceMeta } = require("./rewardScannerCapture");
-const { cropRewardBand, cropBand, cropRect, buildOcrVariants } = require("./rewardScannerImage");
-const {
+import { clampNumber, round4 } from "./rewardScannerUtils";
+import { captureScreen, captureDebugFrame, captureSourceMeta } from "./rewardScannerCapture";
+import { cropRewardBand, cropBand, cropRect, buildOcrVariants } from "./rewardScannerImage";
+import {
   matchItemsDetailed,
   chooseBetterOcrPass,
   detectRelicEraFromText,
   detectRelicEraFromTileLabelText,
   buildConsensusSelection,
   MAX_REWARD_SLOTS,
-} = require("./rewardScannerMatch");
-const { waitForRewardUiReady } = require("./rewardScannerReadiness");
+} from "./rewardScannerMatch";
+import { waitForRewardUiReady as _waitForRewardUiReady } from "./rewardScannerReadiness";
+
+export { captureDebugFrame, captureSourceMeta };
+
+const log = withScope("rewardScanner");
 
 // --- Paths ------------------------------------------------------------------
 
@@ -56,13 +65,19 @@ const TESSERACT_LANGUAGE = "eng";
 
 // --- Relic era scan config --------------------------------------------------
 
-const RELIC_ERA_BANDS = Object.freeze([
+const RELIC_ERA_BANDS: ReadonlyArray<{ top: number; height: number }> = Object.freeze([
   { top: 0.12, height: 0.12 },
   { top: 0.16, height: 0.13 },
   { top: 0.2, height: 0.14 },
 ]);
 
-const RELIC_ROW_TILE_LABEL_RECTS = Object.freeze([
+const RELIC_ROW_TILE_LABEL_RECTS: ReadonlyArray<{
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}> = Object.freeze([
   { id: "slot-1", x: 0.02, y: 0.5, width: 0.18, height: 0.42 },
   { id: "slot-2", x: 0.2, y: 0.5, width: 0.18, height: 0.42 },
   { id: "slot-3", x: 0.38, y: 0.5, width: 0.18, height: 0.42 },
@@ -74,7 +89,7 @@ const OCR_TEXT_PREVIEW_MAX_CHARS = 240;
 
 // --- Crop presets -----------------------------------------------------------
 
-const CROP_PRESETS = {
+const CROP_PRESETS: Record<string, Array<{ top: number; height: number }>> = {
   balanced: [
     { top: 0.38, height: 0.36 },
     { top: 0.36, height: 0.4 },
@@ -94,15 +109,15 @@ const CROP_PRESETS = {
 
 // --- State ------------------------------------------------------------------
 
-const DEFAULT_SCAN_SETTINGS = OVERLAY_SETTINGS_DEFAULTS;
+export const DEFAULT_SCAN_SETTINGS: Record<string, any> = OVERLAY_SETTINGS_DEFAULTS;
 
-let relicItems = [];
-let sortedItems = [];
-let scanSettings = sanitizeSettings(DEFAULT_SCAN_SETTINGS);
+let relicItems: any[] = [];
+let sortedItems: any[] = [];
+let scanSettings: Record<string, any> = sanitizeSettings(DEFAULT_SCAN_SETTINGS);
 
 // --- Settings helpers -------------------------------------------------------
 
-function normalizeOcrEngine(value, fallback = OCR_ENGINE_WINDOWS) {
+function normalizeOcrEngine(value: any, fallback: string = OCR_ENGINE_WINDOWS): string {
   const v = String(value || "")
     .trim()
     .toLowerCase();
@@ -112,7 +127,7 @@ function normalizeOcrEngine(value, fallback = OCR_ENGINE_WINDOWS) {
   return fallback;
 }
 
-function sanitizeSettings(raw) {
+function sanitizeSettings(raw: any): Record<string, any> {
   const candidate = raw && typeof raw === "object" ? raw : {};
   const preset =
     typeof candidate.cropPreset === "string" ? candidate.cropPreset.trim().toLowerCase() : "";
@@ -169,24 +184,24 @@ function sanitizeSettings(raw) {
   };
 }
 
-function setRelicItems(items) {
+export function setRelicItems(items: any[]): void {
   relicItems = Array.isArray(items) ? items : [];
   sortedItems = [...relicItems].sort((a, b) => b.name.length - a.name.length);
   log.log(`[RewardScanner] Item list updated: ${relicItems.length} items`);
 }
 
-function setSettings(nextSettings) {
+export function setSettings(nextSettings: any): Record<string, any> {
   scanSettings = sanitizeSettings({ ...scanSettings, ...(nextSettings || {}) });
   return getSettings();
 }
 
-function getSettings() {
+export function getSettings(): Record<string, any> {
   return { ...scanSettings };
 }
 
 // --- OCR runner setup -------------------------------------------------------
 
-function getRequestedOcrEngine() {
+function getRequestedOcrEngine(): string {
   const envEngine = normalizeOcrEngine(OCR_ENGINE_ENV, OCR_ENGINE_AUTO);
   if (envEngine !== OCR_ENGINE_AUTO) return envEngine;
   return normalizeOcrEngine(scanSettings.ocrEngine, OCR_ENGINE_WINDOWS);
@@ -203,7 +218,10 @@ const { runOCR } = createRewardOcrRunner({
 
 // --- Band helpers -----------------------------------------------------------
 
-function getBandsForPasses(presetName, passes) {
+function getBandsForPasses(
+  presetName: string,
+  passes: number,
+): Array<{ top: number; height: number }> {
   if (presetName === "custom") {
     const customTop = clampNumber(
       scanSettings.cropTopRatio,
@@ -218,7 +236,7 @@ function getBandsForPasses(presetName, passes) {
       DEFAULT_SCAN_SETTINGS.cropHeightRatio,
     );
 
-    const bands = [];
+    const bands: Array<{ top: number; height: number }> = [];
     const center = Math.floor(passes / 2);
     for (let i = 0; i < passes; i += 1) {
       const shift = (i - center) * 0.01;
@@ -234,14 +252,14 @@ function getBandsForPasses(presetName, passes) {
   }
 
   const preset = CROP_PRESETS[presetName] || CROP_PRESETS.balanced;
-  const bands = [];
+  const bands: Array<{ top: number; height: number }> = [];
   for (let i = 0; i < passes; i += 1) {
     bands.push(preset[i % preset.length]);
   }
   return bands;
 }
 
-function getPrimaryBand() {
+function getPrimaryBand(): { top: number; height: number } {
   const [band] = getBandsForPasses(scanSettings.cropPreset, 1);
   if (band && Number.isFinite(band.top) && Number.isFinite(band.height)) {
     return band;
@@ -261,7 +279,14 @@ function buildScanMeta({
   strategy,
   elapsedMs,
   hadOcrSuccess,
-}) {
+}: {
+  screenshot: any;
+  selectedPass: any;
+  passCount: number;
+  strategy: string;
+  elapsedMs: number;
+  hadOcrSuccess: boolean;
+}): any {
   const captureSize = screenshot?.image?.getSize?.() || { width: 0, height: 0 };
   const band = selectedPass?.band || null;
   const top = band ? round4(band.top, 0) : null;
@@ -289,11 +314,24 @@ function buildScanMeta({
 
 // --- Relic era detection ----------------------------------------------------
 
-async function detectRelicSelectionEra(options = {}) {
+export async function detectRelicSelectionEra(options: any = {}): Promise<{
+  era: string | null;
+  confidence: number;
+  elapsedMs: number;
+  textPreview: string;
+  candidateId?: string | null;
+  bandTopRatio?: number | null;
+  bandHeightRatio?: number | null;
+  ocrVariant?: string | null;
+  sourceType?: string | null;
+  sourceName?: string | null;
+  sourceId?: string | null;
+  sourceDisplayId?: string | null;
+}> {
   const timeoutMs = Math.floor(clampNumber(options.timeoutMs, 600, 12000, 4500));
   const startedAt = Date.now();
 
-  let screenshot;
+  let screenshot: any;
   try {
     screenshot = await captureScreen({
       preferredDisplayId: options.preferredDisplayId || null,
@@ -319,7 +357,15 @@ async function detectRelicSelectionEra(options = {}) {
   }
 
   const perAttemptTimeoutMs = Math.max(900, Math.min(scanSettings.ocrTimeoutMs, timeoutMs));
-  let best = {
+  let best: {
+    era: string | null;
+    confidence: number;
+    textPreview: string;
+    candidateId: string | null;
+    bandTopRatio: number | null;
+    bandHeightRatio: number | null;
+    ocrVariant: string | null;
+  } = {
     era: null,
     confidence: 0,
     textPreview: "",
@@ -330,7 +376,7 @@ async function detectRelicSelectionEra(options = {}) {
   };
 
   for (const rect of RELIC_ROW_TILE_LABEL_RECTS) {
-    let cropped;
+    let cropped: any;
     try {
       cropped = cropRect(screenshot.image, rect);
     } catch {
@@ -347,7 +393,7 @@ async function detectRelicSelectionEra(options = {}) {
         continue;
       }
 
-      let ocrText;
+      let ocrText: string;
       try {
         ocrText = await runOCR(TEMP_ERA_IMAGE, perAttemptTimeoutMs);
       } catch {
@@ -382,7 +428,7 @@ async function detectRelicSelectionEra(options = {}) {
 
   if (best.confidence < 0.9) {
     for (const band of RELIC_ERA_BANDS) {
-      let cropped;
+      let cropped: any;
       try {
         cropped = cropBand(screenshot.image, band);
       } catch {
@@ -399,7 +445,7 @@ async function detectRelicSelectionEra(options = {}) {
           continue;
         }
 
-        let ocrText;
+        let ocrText: string;
         try {
           ocrText = await runOCR(TEMP_ERA_IMAGE, perAttemptTimeoutMs);
         } catch {
@@ -445,7 +491,10 @@ async function detectRelicSelectionEra(options = {}) {
 
 // --- Main scan orchestrator -------------------------------------------------
 
-async function scanRewardsDetailed() {
+export async function scanRewardsDetailed(): Promise<{
+  items: any[];
+  meta: any;
+} | null> {
   if (sortedItems.length === 0) {
     log.warn("[RewardScanner] No relic items loaded - call setRelicItems() first");
     return null;
@@ -453,7 +502,7 @@ async function scanRewardsDetailed() {
 
   const scanStartedAt = Date.now();
 
-  let screenshot;
+  let screenshot: any;
   try {
     screenshot = await captureScreen();
   } catch (err) {
@@ -475,11 +524,11 @@ async function scanRewardsDetailed() {
   const bands = getBandsForPasses(scanSettings.cropPreset, scanSettings.ocrPasses);
 
   let hadOcrSuccess = false;
-  const passResults = [];
-  let bestPass = null;
+  const passResults: any[] = [];
+  let bestPass: any = null;
 
   for (let i = 0; i < bands.length; i += 1) {
-    let cropped;
+    let cropped: any;
     try {
       cropped = cropRewardBand(screenshot.image, bands[i]);
     } catch (err) {
@@ -487,11 +536,11 @@ async function scanRewardsDetailed() {
       continue;
     }
 
-    let passResult = null;
+    let passResult: any = null;
     const variants = buildOcrVariants(cropped);
 
     for (const variant of variants) {
-      let ocrText;
+      let ocrText: string;
       try {
         fs.writeFileSync(TEMP_IMAGE, variant.image.toPNG());
         ocrText = await runOCR(TEMP_IMAGE, scanSettings.ocrTimeoutMs);
@@ -550,7 +599,7 @@ async function scanRewardsDetailed() {
     log.log(
       `[RewardScanner] Detected (${consensus?.strategy || "best-pass"} pass ${selectedPass?.passIndex ?? "?"}, ` +
         `score ${Number(selectedPass?.score || 0).toFixed(2)}, variant ${selectedPass?.ocrVariant || "raw"}):`,
-      items.map((item) => item.name).join(" | "),
+      items.map((item: any) => item.name).join(" | "),
     );
   } else {
     const textPreview = selectedPass?.text
@@ -578,21 +627,12 @@ async function scanRewardsDetailed() {
   };
 }
 
-async function scanRewards() {
+export async function scanRewards(): Promise<any[] | null> {
   const detailed = await scanRewardsDetailed();
   if (!detailed) return null;
   return detailed.items;
 }
 
-module.exports = {
-  DEFAULT_SCAN_SETTINGS,
-  setRelicItems,
-  setSettings,
-  getSettings,
-  captureDebugFrame,
-  captureSourceMeta,
-  detectRelicSelectionEra,
-  scanRewards,
-  scanRewardsDetailed,
-  waitForRewardUiReady: (options) => waitForRewardUiReady(options, getPrimaryBand),
-};
+export function waitForRewardUiReady(options?: any): Promise<any> {
+  return _waitForRewardUiReady(options, getPrimaryBand);
+}

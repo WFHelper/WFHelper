@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
-const itemDb = require("../../services/itemDatabase.js");
-const masteryHelper = require("../../services/masteryHelper.js");
+import * as itemDb from "../../services/itemDatabase";
+import * as masteryHelper from "../../services/masteryHelper";
 
 describe("mastery category overrides", () => {
   let allMasterable: Array<{

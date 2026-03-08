@@ -1,6 +1,6 @@
 ﻿import { describe, expect, it } from "vitest";
 
-const parser = require("../../services/worldStateParser.js");
+import * as parser from "../../services/worldStateParser";
 
 function dateLong(ms: number) {
   return { $date: { $numberLong: `${ms}` } };

@@ -5,19 +5,33 @@
  * Analyzes screen captures to determine if the reward selection UI is visible.
  */
 
-const { clampNumber, clamp01, round4, computeMeanAndStd, sleep } = require("./rewardScannerUtils");
-const { cropRewardBand } = require("./rewardScannerImage");
-const { captureScreen } = require("./rewardScannerCapture");
-const { luminanceFromBgr } = require("./rewardScannerUtils");
+import { clampNumber, clamp01, round4, computeMeanAndStd, sleep, luminanceFromBgr } from "./rewardScannerUtils";
+import { cropRewardBand } from "./rewardScannerImage";
+import { captureScreen } from "./rewardScannerCapture";
 
-const UI_READY_DEFAULT_TIMEOUT_MS = 2_200;
-const UI_READY_DEFAULT_POLL_MS = 120;
-const UI_READY_DEFAULT_REQUIRED_HITS = 2;
-const UI_READY_DEFAULT_SCORE_THRESHOLD = 0.58;
-const UI_READY_MIN_PEAK_COUNT = 3;
-const UI_READY_MIN_TEXTURE_SCORE = 0.18;
+export const UI_READY_DEFAULT_TIMEOUT_MS = 2_200;
+export const UI_READY_DEFAULT_POLL_MS = 120;
+export const UI_READY_DEFAULT_REQUIRED_HITS = 2;
+export const UI_READY_DEFAULT_SCORE_THRESHOLD = 0.58;
+export const UI_READY_MIN_PEAK_COUNT = 3;
+export const UI_READY_MIN_TEXTURE_SCORE = 0.18;
 
-const READINESS_ANALYSIS = Object.freeze({
+export const READINESS_ANALYSIS: Readonly<{
+  minCropWidth: number;
+  minCropHeight: number;
+  targetSampleCols: number;
+  targetSampleRows: number;
+  smoothingDivisor: number;
+  thresholdStdMultiplier: number;
+  minSegmentWidthFloor: number;
+  minSegmentWidthRatio: number;
+  peakBaseline: number;
+  peakRange: number;
+  textureBaseline: number;
+  textureRange: number;
+  coverageNormalizer: number;
+  scoreWeights: Readonly<{ peak: number; texture: number; coverage: number }>;
+}> = Object.freeze({
   minCropWidth: 40,
   minCropHeight: 24,
   targetSampleCols: 420,
@@ -38,7 +52,16 @@ const READINESS_ANALYSIS = Object.freeze({
   }),
 });
 
-const UI_READY_OPTION_LIMITS = Object.freeze({
+export const UI_READY_OPTION_LIMITS: Readonly<{
+  timeoutMinMs: number;
+  timeoutMaxMs: number;
+  pollMinMs: number;
+  pollMaxMs: number;
+  requiredHitsMin: number;
+  requiredHitsMax: number;
+  scoreThresholdMin: number;
+  scoreThresholdMax: number;
+}> = Object.freeze({
   timeoutMinMs: 200,
   timeoutMaxMs: 8_000,
   pollMinMs: 60,
@@ -49,7 +72,23 @@ const UI_READY_OPTION_LIMITS = Object.freeze({
   scoreThresholdMax: 0.95,
 });
 
-function analyzeRewardBandReadiness(nativeImage, band) {
+interface Band {
+  top?: number;
+  height?: number;
+}
+
+interface ReadinessResult {
+  ready: boolean;
+  score: number;
+  peakCount: number;
+  textureScore: number;
+  coverageScore: number;
+  bandTopRatio: number;
+  bandHeightRatio: number;
+  bandBottomRatio: number;
+}
+
+export function analyzeRewardBandReadiness(nativeImage: any, band: Band | null | undefined): ReadinessResult {
   if (!nativeImage || typeof nativeImage.getSize !== "function") {
     return {
       ready: false,
@@ -63,7 +102,7 @@ function analyzeRewardBandReadiness(nativeImage, band) {
     };
   }
 
-  let cropped;
+  let cropped: any;
   try {
     cropped = cropRewardBand(nativeImage, band);
   } catch {
@@ -93,12 +132,12 @@ function analyzeRewardBandReadiness(nativeImage, band) {
     };
   }
 
-  const bitmap = cropped.toBitmap();
+  const bitmap: Buffer = cropped.toBitmap();
   const stepX = Math.max(1, Math.floor(width / READINESS_ANALYSIS.targetSampleCols));
   const stepY = Math.max(1, Math.floor(height / READINESS_ANALYSIS.targetSampleRows));
   const sampleCols = Math.max(1, Math.floor(width / stepX));
 
-  const energies = new Array(sampleCols).fill(0);
+  const energies = new Array<number>(sampleCols).fill(0);
 
   for (let column = 0; column < sampleCols; column += 1) {
     const x = Math.min(width - 1, column * stepX);
@@ -189,7 +228,31 @@ function analyzeRewardBandReadiness(nativeImage, band) {
   };
 }
 
-async function waitForRewardUiReady(options = {}, getPrimaryBand) {
+interface WaitOptions {
+  timeoutMs?: number;
+  pollMs?: number;
+  requiredHits?: number;
+  scoreThreshold?: number;
+  band?: Band;
+}
+
+interface WaitResult {
+  ready: boolean;
+  attempts: number;
+  elapsedMs: number;
+  threshold: number;
+  best: (ReadinessResult & {
+    sourceType: string | null;
+    sourceDisplayId: string | null;
+    sourceName: string | null;
+    attempt: number;
+  }) | null;
+}
+
+export async function waitForRewardUiReady(
+  options: WaitOptions = {},
+  getPrimaryBand: () => Band,
+): Promise<WaitResult> {
   const timeoutMs = Math.floor(
     clampNumber(
       options.timeoutMs,
@@ -221,7 +284,7 @@ async function waitForRewardUiReady(options = {}, getPrimaryBand) {
     UI_READY_DEFAULT_SCORE_THRESHOLD,
   );
 
-  const band =
+  const band: Band =
     options.band && Number.isFinite(options.band.top) && Number.isFinite(options.band.height)
       ? options.band
       : getPrimaryBand();
@@ -229,7 +292,7 @@ async function waitForRewardUiReady(options = {}, getPrimaryBand) {
   const startedAt = Date.now();
   let attempts = 0;
   let consecutiveHits = 0;
-  let best = null;
+  let best: WaitResult["best"] = null;
 
   while (Date.now() - startedAt < timeoutMs) {
     attempts += 1;
@@ -282,13 +345,3 @@ async function waitForRewardUiReady(options = {}, getPrimaryBand) {
     best,
   };
 }
-
-module.exports = {
-  analyzeRewardBandReadiness,
-  waitForRewardUiReady,
-  UI_READY_DEFAULT_SCORE_THRESHOLD,
-  UI_READY_MIN_PEAK_COUNT,
-  UI_READY_MIN_TEXTURE_SCORE,
-  READINESS_ANALYSIS,
-  UI_READY_OPTION_LIMITS,
-};

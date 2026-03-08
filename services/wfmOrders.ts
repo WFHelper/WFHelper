@@ -1,24 +1,43 @@
 "use strict";
 
-const log = require("./logger").withScope("wfmOrders");
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
+import { withScope } from "./logger";
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
+  normalizeErrorMessage: (err: any) => string;
+};
 
 /**
- * wfmOrders.js — Warframe.market order management (main-process only)
+ * wfmOrders.ts — Warframe.market order management (main-process only)
  *
  * Provides read and CRUD operations for the authenticated user's orders.
  * All data is normalised into a renderer-friendly shape before being returned.
  */
 
-const { requestV2 } = require("./wfmClient");
-const { getInGameName } = require("./wfmSession");
-const wfmCatalog = require("./wfmCatalog");
+import { requestV2 } from "./wfmClient";
+import { getInGameName } from "./wfmSession";
+import * as wfmCatalog from "./wfmCatalog";
+
+const { WFM_ASSET_BASE: WFM_THUMB_BASE } = require("../config/shared/wfm.cjs") as {
+  WFM_ASSET_BASE: string;
+};
+
+// ── Interfaces ────────────────────────────────────────────────────────────────
+
+interface NormalisedOrder {
+  id: string;
+  orderType: string;
+  platinum: number;
+  quantity: number;
+  visible: boolean;
+  modRank: number | null;
+  itemId: string | null;
+  itemName: string;
+  itemUrlName: string | null;
+  itemThumb: string | null;
+}
 
 // ── Normaliser ────────────────────────────────────────────────────────────────
 
-const { WFM_ASSET_BASE: WFM_THUMB_BASE } = require("../config/shared/wfm.cjs");
-
-function normalise(raw, forcedType) {
+function normalise(raw: any, forcedType?: string): NormalisedOrder {
   // v2: item details come from catalog enrichment (raw._catalogItem), not embedded object
   const item = raw._catalogItem || raw.item || {};
   const thumb = item.thumb || item.icon || "";
@@ -41,28 +60,31 @@ function normalise(raw, forcedType) {
   };
 }
 
-function _extractOrders(data) {
+const log = withScope("wfmOrders");
+
+function _extractOrders(data: any): { sell: NormalisedOrder[]; buy: NormalisedOrder[] } {
   // v2 wraps in { data: ... }, v1 wraps in { payload: ... }
   const payload = data?.data || data?.payload || data;
-  let sell, buy;
+  let sell: NormalisedOrder[];
+  let buy: NormalisedOrder[];
 
   // Helper: works for both v2 ('type') and v1 ('order_type')
-  const getType = (o) => o.type || o.order_type || "";
+  const getType = (o: any) => o.type || o.order_type || "";
 
   if (payload?.sell_orders || payload?.buy_orders) {
     // v1 shape: { sell_orders: [], buy_orders: [] }
-    sell = (payload.sell_orders || []).map((o) => normalise(o, "sell"));
-    buy = (payload.buy_orders || []).map((o) => normalise(o, "buy"));
+    sell = (payload.sell_orders || []).map((o: any) => normalise(o, "sell"));
+    buy = (payload.buy_orders || []).map((o: any) => normalise(o, "buy"));
   } else if (payload?.sell && payload?.buy) {
     // possible grouped shape: { sell: [], buy: [] }
-    sell = (payload.sell || []).map((o) => normalise(o, "sell"));
-    buy = (payload.buy || []).map((o) => normalise(o, "buy"));
+    sell = (payload.sell || []).map((o: any) => normalise(o, "sell"));
+    buy = (payload.buy || []).map((o: any) => normalise(o, "buy"));
   } else if (Array.isArray(payload?.orders)) {
-    sell = payload.orders.filter((o) => getType(o) === "sell").map((o) => normalise(o));
-    buy = payload.orders.filter((o) => getType(o) === "buy").map((o) => normalise(o));
+    sell = payload.orders.filter((o: any) => getType(o) === "sell").map((o: any) => normalise(o));
+    buy = payload.orders.filter((o: any) => getType(o) === "buy").map((o: any) => normalise(o));
   } else if (Array.isArray(payload)) {
-    sell = payload.filter((o) => getType(o) === "sell").map((o) => normalise(o));
-    buy = payload.filter((o) => getType(o) === "buy").map((o) => normalise(o));
+    sell = payload.filter((o: any) => getType(o) === "sell").map((o: any) => normalise(o));
+    buy = payload.filter((o: any) => getType(o) === "buy").map((o: any) => normalise(o));
   } else {
     log.log("[WFMOrders] Unknown response shape. Top-level keys:", Object.keys(data || {}));
     if (payload && typeof payload === "object") {
@@ -80,19 +102,19 @@ function _extractOrders(data) {
  * Fetch the current user's orders.
  * Returns { sell: Order[], buy: Order[] }
  */
-async function getMyOrders() {
+export async function getMyOrders(): Promise<{ sell: NormalisedOrder[]; buy: NormalisedOrder[] }> {
   if (!getInGameName()) throw new Error("Not logged in to Warframe.market.");
 
   // GET /v2/orders/my — documented WFM v2 endpoint for the authenticated user's own orders.
   log.log("[WFMOrders] \u2192 GET /v2/orders/my (auth)");
   const data = await requestV2("GET", "/orders/my");
-  const rawOrders = Array.isArray(data?.data) ? data.data : [];
+  const rawOrders = Array.isArray((data as any)?.data) ? (data as any).data : [];
   log.log(`[WFMOrders] raw order count: ${rawOrders.length}`);
 
   // v2 orders have only itemId (string). Enrich each order with catalog item details
   // so normalise() has access to item name, url_name, and thumb.
   const enriched = await Promise.all(
-    rawOrders.map(async (order) => {
+    rawOrders.map(async (order: any) => {
       if (!order.item && order.itemId) {
         const catalogItem = await wfmCatalog.lookupById(order.itemId);
         if (catalogItem) return { ...order, _catalogItem: catalogItem };
@@ -106,11 +128,25 @@ async function getMyOrders() {
   return { sell, buy };
 }
 
-async function createOrder({ itemId, orderType, platinum, quantity, visible = true, modRank }) {
+export async function createOrder({
+  itemId,
+  orderType,
+  platinum,
+  quantity,
+  visible = true,
+  modRank,
+}: {
+  itemId: string;
+  orderType: string;
+  platinum: number;
+  quantity: number;
+  visible?: boolean;
+  modRank?: number | null;
+}): Promise<NormalisedOrder> {
   if (!itemId || !orderType || platinum == null || quantity == null) {
     throw new Error("createOrder: itemId, orderType, platinum, and quantity are required.");
   }
-  const body = {
+  const body: any = {
     // v2 field names (camelCase, not snake_case like v1)
     itemId,
     type: orderType,
@@ -122,13 +158,26 @@ async function createOrder({ itemId, orderType, platinum, quantity, visible = tr
 
   // v2: POST /order
   const data = await requestV2("POST", "/order", { json: body });
-  const raw = data?.data?.order || data?.data || data?.payload?.order || data?.order || data;
+  const raw =
+    (data as any)?.data?.order ||
+    (data as any)?.data ||
+    (data as any)?.payload?.order ||
+    (data as any)?.order ||
+    data;
   return normalise(raw);
 }
 
-async function updateOrder(orderId, { platinum, quantity, visible, modRank } = {}) {
+export async function updateOrder(
+  orderId: string,
+  {
+    platinum,
+    quantity,
+    visible,
+    modRank,
+  }: { platinum?: number; quantity?: number; visible?: boolean; modRank?: number | null } = {},
+): Promise<NormalisedOrder> {
   if (!orderId) throw new Error("updateOrder: orderId is required.");
-  const body = {};
+  const body: any = {};
   if (platinum != null) body.platinum = Number(platinum);
   if (quantity != null) body.quantity = Number(quantity);
   if (visible != null) body.visible = !!visible;
@@ -137,20 +186,28 @@ async function updateOrder(orderId, { platinum, quantity, visible, modRank } = {
 
   // v2: PATCH /order/{id}  (WFM changed PUT → PATCH)
   const data = await requestV2("PATCH", `/order/${encodeURIComponent(orderId)}`, { json: body });
-  const raw = data?.data?.order || data?.data || data?.payload?.order || data?.order || data;
+  const raw =
+    (data as any)?.data?.order ||
+    (data as any)?.data ||
+    (data as any)?.payload?.order ||
+    (data as any)?.order ||
+    data;
   return normalise(raw);
 }
 
-async function deleteOrder(orderId) {
+export async function deleteOrder(orderId: string): Promise<{ deleted: boolean; id: string }> {
   if (!orderId) throw new Error("deleteOrder: orderId is required.");
   // v2: DELETE /order/{id}
   await requestV2("DELETE", `/order/${encodeURIComponent(orderId)}`);
   return { deleted: true, id: orderId };
 }
 
-async function setOrdersVisible(orderIds, visible) {
+export async function setOrdersVisible(
+  orderIds: string[],
+  visible: boolean,
+): Promise<Array<NormalisedOrder | { id: string; error: string }>> {
   if (!Array.isArray(orderIds) || orderIds.length === 0) return [];
-  const results = [];
+  const results: Array<NormalisedOrder | { id: string; error: string }> = [];
   for (const id of orderIds) {
     try {
       const updated = await updateOrder(id, { visible: !!visible });
@@ -162,5 +219,3 @@ async function setOrdersVisible(orderIds, visible) {
   }
   return results;
 }
-
-module.exports = { getMyOrders, createOrder, updateOrder, deleteOrder, setOrdersVisible };

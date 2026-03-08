@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import * as mainInventory from "../../ipc/inventoryPayload";
-const mainStats = require("../../services/wfmStats.js");
+import * as mainStats from "../../services/wfmStats";
 const sharedInventory = require("../../config/shared/inventoryPayload.cjs");
 const sharedStats = require("../../config/shared/wfmStats.cjs");
 

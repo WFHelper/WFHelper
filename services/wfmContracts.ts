@@ -1,12 +1,21 @@
 "use strict";
 
-const log = require("./logger").withScope("wfmContracts");
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
+import { withScope } from "./logger";
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
+  normalizeErrorMessage: (err: any) => string;
+};
 
-const { request, requestV2 } = require("./wfmClient");
-const { getInGameName } = require("./wfmSession");
-const { toFiniteNumber } = require("../config/shared/numeric.cjs");
-const { WFM_ASSET_BASE: WFM_THUMB_BASE } = require("../config/shared/wfm.cjs");
+import { request, requestV2 } from "./wfmClient";
+import { getInGameName } from "./wfmSession";
+const { toFiniteNumber } = require("../config/shared/numeric.cjs") as {
+  toFiniteNumber: (v: any) => number | null;
+};
+const { WFM_ASSET_BASE: WFM_THUMB_BASE } = require("../config/shared/wfm.cjs") as {
+  WFM_ASSET_BASE: string;
+};
+
+const log = withScope("wfmContracts");
+
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 40;
 const MIN_LIMIT = 1;
@@ -14,27 +23,79 @@ const MAX_LIMIT = 100;
 
 const SKIPPABLE_HTTP_STATUSES = new Set([400, 404, 405]);
 
-let _resolvedEndpointName = null;
+let _resolvedEndpointName: string | null = null;
 
-function toNonEmptyString(value) {
+// ── Interfaces ────────────────────────────────────────────────────────────────
+
+interface NormalisedAttribute {
+  urlName: string;
+  label: string;
+  value: number | string | null;
+  positive: boolean | null;
+}
+
+interface NormalisedContract {
+  id: string;
+  itemName: string;
+  itemId: string | null;
+  itemUrlName: string | null;
+  weaponUrlName: string | null;
+  itemThumb: string | null;
+  platinum: number;
+  buyoutPlatinum: number | null;
+  startingPlatinum: number | null;
+  quantity: number;
+  visible: boolean;
+  modRank: number | null;
+  rerolls: number | null;
+  masteryLevel: number | null;
+  polarity: string | null;
+  isDirectSell: boolean;
+  listedAt: string | null;
+  updatedAt: string | null;
+  note: string | null;
+  stats: NormalisedAttribute[];
+  listingUrl: string;
+  sourceType: string | null;
+}
+
+interface PageInfo {
+  page: number;
+  totalPages: number | null;
+  hasMore: boolean;
+}
+
+interface ExtractedContracts extends PageInfo {
+  rows: any[];
+}
+
+interface EndpointCandidate {
+  name: string;
+  api: "v1" | "v2";
+  path: string;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function toNonEmptyString(value: any): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function normalizeAssetUrl(value) {
-  const path = toNonEmptyString(value);
-  if (!path) return null;
-  return path.startsWith("http") ? path : `${WFM_THUMB_BASE}${path}`;
+function normalizeAssetUrl(value: any): string | null {
+  const p = toNonEmptyString(value);
+  if (!p) return null;
+  return p.startsWith("http") ? p : `${WFM_THUMB_BASE}${p}`;
 }
 
-function titleFromSlug(slug) {
+function titleFromSlug(slug: string): string {
   return String(slug)
     .replace(/_/g, " ")
     .replace(/\b[a-z]/g, (m) => m.toUpperCase());
 }
 
-function normalizeAttribute(rawAttribute) {
+function normalizeAttribute(rawAttribute: any): NormalisedAttribute | null {
   if (!rawAttribute || typeof rawAttribute !== "object") return null;
 
   const urlName =
@@ -49,9 +110,10 @@ function normalizeAttribute(rawAttribute) {
     titleFromSlug(urlName);
 
   const numericValue = toFiniteNumber(rawAttribute.value);
-  const value = numericValue != null ? numericValue : toNonEmptyString(rawAttribute.value);
+  const value: number | string | null =
+    numericValue != null ? numericValue : toNonEmptyString(rawAttribute.value);
 
-  const positive =
+  const positive: boolean | null =
     typeof rawAttribute.positive === "boolean"
       ? rawAttribute.positive
       : typeof rawAttribute.is_positive === "boolean"
@@ -66,14 +128,14 @@ function normalizeAttribute(rawAttribute) {
   };
 }
 
-function toIsoTimestamp(value) {
+function toIsoTimestamp(value: any): string | null {
   const s = toNonEmptyString(value);
   if (!s) return null;
   const parsed = Date.parse(s);
   return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
 }
 
-function normalizeContract(raw) {
+function normalizeContract(raw: any): NormalisedContract | null {
   if (!raw || typeof raw !== "object") return null;
 
   const item = raw.item && typeof raw.item === "object" ? raw.item : {};
@@ -131,7 +193,7 @@ function normalizeContract(raw) {
 
   return {
     id,
-    itemName,
+    itemName: itemName || "Riven Contract",
     itemId: toNonEmptyString(item.id) || toNonEmptyString(raw.itemId) || null,
     itemUrlName: itemSlug || weaponSlug || null,
     weaponUrlName: weaponSlug || null,
@@ -157,7 +219,7 @@ function normalizeContract(raw) {
     listedAt: toIsoTimestamp(raw.created_at ?? raw.createdAt),
     updatedAt: toIsoTimestamp(raw.updated_at ?? raw.updatedAt),
     note: toNonEmptyString(raw.note) || null,
-    stats: attributesRaw.map(normalizeAttribute).filter(Boolean),
+    stats: (attributesRaw.map(normalizeAttribute).filter(Boolean) as NormalisedAttribute[]),
     listingUrl: `https://warframe.market/auctions/${encodeURIComponent(id)}`,
     sourceType:
       toNonEmptyString(raw.type) ||
@@ -167,7 +229,7 @@ function normalizeContract(raw) {
   };
 }
 
-function parsePageInfo(container) {
+function parsePageInfo(container: any): PageInfo {
   if (!container || typeof container !== "object") {
     return { page: DEFAULT_PAGE, totalPages: null, hasMore: false };
   }
@@ -191,13 +253,13 @@ function parsePageInfo(container) {
       : typeof container.hasMore === "boolean"
         ? container.hasMore
         : totalPages != null
-          ? page < totalPages
+          ? (page ?? DEFAULT_PAGE) < (totalPages ?? 0)
           : false;
 
-  return { page, totalPages, hasMore };
+  return { page: page ?? DEFAULT_PAGE, totalPages, hasMore };
 }
 
-function extractContracts(data) {
+function extractContracts(data: any): ExtractedContracts {
   const root = data?.data ?? data?.payload ?? data;
   const candidates = [root, root?.data, root?.payload].filter(Boolean);
 
@@ -230,7 +292,7 @@ function extractContracts(data) {
   };
 }
 
-function buildQuery(page, limit) {
+function buildQuery(page: number, limit: number): string {
   const params = new URLSearchParams();
   if (page > 1) params.set("page", String(page));
   if (limit > 0) params.set("limit", String(limit));
@@ -238,11 +300,15 @@ function buildQuery(page, limit) {
   return query ? `?${query}` : "";
 }
 
-function endpointCandidates(userName, page, limit) {
+function endpointCandidates(
+  userName: string | null,
+  page: number,
+  limit: number,
+): EndpointCandidate[] {
   const query = buildQuery(page, limit);
   const encodedUser = encodeURIComponent(userName || "");
 
-  const candidates = [
+  const candidates: EndpointCandidate[] = [
     {
       name: "v2_contracts_my",
       api: "v2",
@@ -283,20 +349,30 @@ function endpointCandidates(userName, page, limit) {
   return candidates;
 }
 
-async function invokeCandidate(candidate) {
+async function invokeCandidate(candidate: EndpointCandidate): Promise<any> {
   if (candidate.api === "v2") {
     return requestV2("GET", candidate.path);
   }
   return request("GET", candidate.path);
 }
 
-function isSkippableError(err) {
+function isSkippableError(err: any): boolean {
   if (!err || typeof err !== "object") return false;
   const status = Number(err.status);
   return SKIPPABLE_HTTP_STATUSES.has(status);
 }
 
-async function getMyContracts({ page = DEFAULT_PAGE, limit = DEFAULT_LIMIT } = {}) {
+// ── Public API ────────────────────────────────────────────────────────────────
+
+export async function getMyContracts({
+  page = DEFAULT_PAGE,
+  limit = DEFAULT_LIMIT,
+}: { page?: number; limit?: number } = {}): Promise<{
+  contracts: NormalisedContract[];
+  page: number;
+  totalPages: number | null;
+  hasMore: boolean;
+}> {
   if (!getInGameName()) {
     throw new Error("Not logged in to Warframe.market.");
   }
@@ -316,13 +392,13 @@ async function getMyContracts({ page = DEFAULT_PAGE, limit = DEFAULT_LIMIT } = {
     });
   }
 
-  let lastError = null;
+  let lastError: any = null;
 
   for (const candidate of candidates) {
     try {
       const data = await invokeCandidate(candidate);
       const extracted = extractContracts(data);
-      const contracts = extracted.rows.map(normalizeContract).filter((row) => Boolean(row));
+      const contracts = extracted.rows.map(normalizeContract).filter((row): row is NormalisedContract => Boolean(row));
 
       _resolvedEndpointName = candidate.name;
       return {
@@ -331,7 +407,7 @@ async function getMyContracts({ page = DEFAULT_PAGE, limit = DEFAULT_LIMIT } = {
         totalPages: extracted.totalPages,
         hasMore: extracted.hasMore,
       };
-    } catch (err) {
+    } catch (err: any) {
       if (err && typeof err === "object" && err.code === "WFM_UNAUTHORIZED") {
         throw err;
       }
@@ -361,14 +437,11 @@ async function getMyContracts({ page = DEFAULT_PAGE, limit = DEFAULT_LIMIT } = {
   );
 }
 
-module.exports = {
-  getMyContracts,
-  __test__: {
-    normalizeAttribute,
-    normalizeContract,
-    parsePageInfo,
-    extractContracts,
-    buildQuery,
-    endpointCandidates,
-  },
+export const __test__ = {
+  normalizeAttribute,
+  normalizeContract,
+  parsePageInfo,
+  extractContracts,
+  buildQuery,
+  endpointCandidates,
 };

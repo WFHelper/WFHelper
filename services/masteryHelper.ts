@@ -4,16 +4,22 @@
 // then compares against user inventory to show owned / missing / mastered.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const itemDb = require("./itemDatabase");
-const { MAX_ITEM_RANK, XP_PER_RANK } = require("../config/game/constants");
-const { toFiniteNumber } = require("../config/shared/numeric.cjs");
+import * as itemDb from "./itemDatabase";
+const { MAX_ITEM_RANK, XP_PER_RANK } = require("../config/game/constants") as {
+  MAX_ITEM_RANK: number;
+  XP_PER_RANK: number;
+};
+const { toFiniteNumber } = require("../config/shared/numeric.cjs") as {
+  toFiniteNumber: (v: any) => number | null;
+};
+
 let debugMode = false;
 
-function setDebugMode(enabled) {
+export function setDebugMode(enabled: boolean): void {
   debugMode = !!enabled;
 }
 
-function debugLog(_message, _payload) {
+function debugLog(_message: string, _payload?: any): void {
   // Debug reasons are now surfaced in the UI; avoid terminal spam.
   if (!debugMode) return;
 }
@@ -23,7 +29,7 @@ function debugLog(_message, _payload) {
 const MASTERABLE_DB_CATEGORIES = new Set(["Warframe", "Weapon", "Companion", "Railjack"]);
 
 // productCategory → display label
-const PRODUCT_DISPLAY = {
+const PRODUCT_DISPLAY: Record<string, string> = {
   Suits: "Warframes",
   LongGuns: "Primary",
   Pistols: "Secondary",
@@ -39,7 +45,7 @@ const PRODUCT_DISPLAY = {
 };
 
 // Path patterns → display category (fallback when productCategory is missing)
-const PATH_CATEGORY_RULES = [
+const PATH_CATEGORY_RULES: Array<{ pattern: RegExp; category: string }> = [
   { pattern: /\/OperatorAmps?\//i, category: "Amps" },
   { pattern: /\/OperatorAmplifiers?\//i, category: "Amps" },
   { pattern: /\/Sentinels\/.*Weapons?\//i, category: "Companions" },
@@ -64,7 +70,7 @@ const PATH_CATEGORY_RULES = [
 
 // ─── Keyword tagging for search ──────────────────────────────────────────
 
-const KEYWORD_RULES = [
+const KEYWORD_RULES: Array<{ pattern: RegExp; keywords: string[] }> = [
   { pattern: /\/ModularMelee\b|\/Ostron.*Melee|\/InfZaw|\/Zaw/i, keywords: ["zaw", "modular"] },
   {
     pattern: /\/ModularPistol|\/ModularPrimary|\/SolarisUnited.*(?:Secondary|Primary)|\/Kitgun/i,
@@ -89,8 +95,8 @@ const KEYWORD_RULES = [
   { pattern: /Incarnon/i, keywords: ["incarnon"] },
 ];
 
-function getKeywords(uniqueName, itemName) {
-  const tags = new Set();
+function getKeywords(uniqueName: string, itemName: string): string[] {
+  const tags = new Set<string>();
   for (const { pattern, keywords } of KEYWORD_RULES) {
     if (pattern.test(uniqueName) || pattern.test(itemName)) {
       for (const kw of keywords) tags.add(kw);
@@ -121,7 +127,7 @@ const EXALTED_NAMES = new Set([
 ]);
 
 // Inventory JSON key → maxRank
-const INV_CATEGORIES = {
+const INV_CATEGORIES: Record<string, number> = {
   Suits: MAX_ITEM_RANK,
   LongGuns: MAX_ITEM_RANK,
   Pistols: MAX_ITEM_RANK,
@@ -135,12 +141,12 @@ const INV_CATEGORIES = {
   MechSuits: MAX_ITEM_RANK,
 };
 
-function xpToRank(xp, maxRank = MAX_ITEM_RANK) {
+function xpToRank(xp: number, maxRank: number = MAX_ITEM_RANK): number {
   if (!xp || xp <= 0) return 0;
   return Math.min(maxRank, Math.floor(xp / XP_PER_RANK));
 }
 
-function getValueAtPath(obj, path) {
+function getValueAtPath(obj: any, path: string[]): any {
   let cur = obj;
   for (const key of path) {
     if (!cur || typeof cur !== "object" || !(key in cur)) return undefined;
@@ -149,7 +155,7 @@ function getValueAtPath(obj, path) {
   return cur;
 }
 
-function pickNumber(obj, paths) {
+function pickNumber(obj: any, paths: string[][]): number | null {
   for (const p of paths) {
     const v = getValueAtPath(obj, p);
     const n = toFiniteNumber(v);
@@ -158,7 +164,9 @@ function pickNumber(obj, paths) {
   return null;
 }
 
-function extractProfileMastery(inventoryData) {
+function extractProfileMastery(
+  inventoryData: any,
+): { rank: number | null; percentToNext: number | null } | null {
   const rank = pickNumber(inventoryData, [
     ["MasteryRank"],
     ["MasteryLevel"],
@@ -206,7 +214,7 @@ function extractProfileMastery(inventoryData) {
 
 // ─── Exclusion filter ────────────────────────────────────────────────────
 
-function getExcludeReason(uniqueName, name, item) {
+function getExcludeReason(uniqueName: string, name: string | null, item: any): string | null {
   if (uniqueName.includes("/Recipes/")) return "recipe";
   if (uniqueName.includes("/StoreItems/")) return "store-item";
   if (uniqueName.includes("/OperatorLoadOuts/")) return "operator-loadout";
@@ -248,7 +256,10 @@ function getExcludeReason(uniqueName, name, item) {
 
 // ─── Category resolver ───────────────────────────────────────────────────
 
-function resolveDisplayCategoryInfo(item, uniqueName) {
+function resolveDisplayCategoryInfo(
+  item: any,
+  uniqueName: string,
+): { category: string; source: string } {
   // K-Drive boards are currently exported with Weapon/Pistols metadata.
   // Keep them in a dedicated misc bucket instead of Secondary.
   if (/\/Hoverboard\//i.test(uniqueName) || /k-drive/i.test(String(item.type || ""))) {
@@ -281,7 +292,7 @@ function resolveDisplayCategoryInfo(item, uniqueName) {
   return { category: "Other", source: "fallback:Other" };
 }
 
-function isAmpPrismMasterableOverride(item, uniqueName) {
+function isAmpPrismMasterableOverride(item: any, uniqueName: string): boolean {
   if (!/\/OperatorAmplifiers?\//i.test(uniqueName)) return false;
   if (/\/SentTrainingAmplifier/i.test(uniqueName)) return false;
   if (!/\/Barrel\//i.test(uniqueName)) return false;
@@ -290,14 +301,37 @@ function isAmpPrismMasterableOverride(item, uniqueName) {
   return n.includes(" prism");
 }
 
+// ─── Interfaces ───────────────────────────────────────────────────────────
+
+interface MasterableItem {
+  name: string;
+  uniqueName: string;
+  category: string;
+  imageUrl: string | null;
+  isPrime: boolean;
+  masteryReq: number;
+  vaulted: boolean;
+  tradable: boolean;
+  keywords: string[];
+  debugReason: string;
+  components: any[];
+}
+
+interface MasteryProgressItem extends MasterableItem {
+  status: "mastered" | "progress" | "missing";
+  rank: number;
+  maxRank: number;
+  currentlyOwned: boolean;
+}
+
 // ─── Build masterable items list ─────────────────────────────────────────
 
-function getAllMasterableItems() {
+export function getAllMasterableItems(): MasterableItem[] {
   const allItems = itemDb.getAllItems();
-  const items = [];
-  const seenNames = new Set();
+  const items: MasterableItem[] = [];
+  const seenNames = new Set<string>();
 
-  for (const [uniqueName, item] of Object.entries(allItems)) {
+  for (const [uniqueName, item] of Object.entries(allItems as Record<string, any>)) {
     if (!MASTERABLE_DB_CATEGORIES.has(item.category)) {
       debugLog(
         `[MasteryDebug][Exclude] ${item.name} | ${uniqueName} | reason=db-category:${item.category}`,
@@ -362,8 +396,8 @@ function getAllMasterableItems() {
 
 // ─── Build component ownership map from inventory ────────────────────────
 
-function buildComponentOwnership(inventoryData) {
-  const owned = new Map(); // uniqueName → count
+function buildComponentOwnership(inventoryData: any): Map<string, number> {
+  const owned = new Map<string, number>(); // uniqueName → count
 
   // MiscItems (resources/components)
   if (Array.isArray(inventoryData.MiscItems)) {
@@ -391,22 +425,32 @@ function buildComponentOwnership(inventoryData) {
 
 // ─── Compare vs inventory ────────────────────────────────────────────────
 
-function computeMasteryProgress(inventoryData) {
-  if (!inventoryData) return { items: [], stats: {} };
+export function computeMasteryProgress(inventoryData: any): {
+  items: MasteryProgressItem[];
+  stats: {
+    total: number;
+    mastered: number;
+    inProgress: number;
+    missing: number;
+    byCategory: Record<string, { total: number; mastered: number; inProgress: number; missing: number }>;
+    profileMastery: { rank: number | null; percentToNext: number | null } | null;
+  };
+} {
+  if (!inventoryData) return { items: [], stats: {} as any };
 
   const allMasterable = getAllMasterableItems();
   const componentOwnership = buildComponentOwnership(inventoryData);
 
   // Build owned map: uniqueName → { rank, maxRank, owned }
-  const ownedMap = new Map();
+  const ownedMap = new Map<string, { rank: number; maxRank: number; owned: boolean; fromXPInfo?: boolean }>();
 
   for (const [invKey, maxRank] of Object.entries(INV_CATEGORIES)) {
     const arr = inventoryData[invKey];
     if (!Array.isArray(arr)) continue;
     for (const entry of arr) {
       if (!entry.ItemType) continue;
-      const rank = xpToRank(entry.XP || 0, maxRank);
-      ownedMap.set(entry.ItemType, { rank, maxRank, owned: true });
+      const rank = xpToRank(entry.XP || 0, maxRank as number);
+      ownedMap.set(entry.ItemType, { rank, maxRank: maxRank as number, owned: true });
     }
   }
 
@@ -426,20 +470,20 @@ function computeMasteryProgress(inventoryData) {
   }
 
   // Name-based fallback matching
-  const ownedByName = new Map();
+  const ownedByName = new Map<string, { rank: number; maxRank: number; owned: boolean; uniqueName: string }>();
   for (const [uname, data] of ownedMap) {
     const dbItem = itemDb.lookupItem(uname);
     if (dbItem) {
-      ownedByName.set(dbItem.name.toLowerCase(), { ...data, uniqueName: uname });
+      ownedByName.set((dbItem as any).name.toLowerCase(), { ...data, uniqueName: uname });
     }
   }
 
   // Annotate each masterable item with ownership + component status
-  const items = allMasterable.map((item) => {
+  const items: MasteryProgressItem[] = allMasterable.map((item) => {
     let owned = ownedMap.get(item.uniqueName);
-    if (!owned) owned = ownedByName.get(item.name.toLowerCase());
+    if (!owned) owned = ownedByName.get(item.name.toLowerCase()) as any;
 
-    let status = "missing";
+    let status: "mastered" | "progress" | "missing" = "missing";
     let rank = 0;
     let maxRank = MAX_ITEM_RANK;
     let currentlyOwned = false;
@@ -452,7 +496,7 @@ function computeMasteryProgress(inventoryData) {
     }
 
     // Annotate components with ownership
-    const components = (item.components || []).map((comp) => {
+    const components = (item.components || []).map((comp: any) => {
       const ownedCount = comp.uniqueName ? componentOwnership.get(comp.uniqueName) || 0 : 0;
       return {
         name: comp.name || "",
@@ -474,7 +518,7 @@ function computeMasteryProgress(inventoryData) {
   const inProgress = items.filter((i) => i.status === "progress").length;
   const missing = items.filter((i) => i.status === "missing").length;
 
-  const byCategory = {};
+  const byCategory: Record<string, { total: number; mastered: number; inProgress: number; missing: number }> = {};
   for (const item of items) {
     if (!byCategory[item.category]) {
       byCategory[item.category] = { total: 0, mastered: 0, inProgress: 0, missing: 0 };
@@ -495,6 +539,3 @@ function computeMasteryProgress(inventoryData) {
     },
   };
 }
-
-module.exports = { getAllMasterableItems, computeMasteryProgress };
-module.exports.setDebugMode = setDebugMode;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-const { __test__ } = require("../../services/wfmContracts.js");
+import { __test__ } from "../../services/wfmContracts";
 
 describe("wfmContracts normalization", () => {
   it("normalizes v2 contracts payload rows and pagination", () => {
