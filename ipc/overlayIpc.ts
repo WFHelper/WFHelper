@@ -11,17 +11,17 @@ import { createRelicSelectionController } from "./overlay/relicSelection";
 import { createOverlaySettingsController } from "./overlay/settings";
 import { createOverlayWindowsController } from "./overlay/windows";
 import { createRuntimeRequire } from "./runtimeRequire";
+import { withScope } from "../services/logger";
+import * as relicService from "../services/relicService";
+import * as rewardScanner from "../services/rewardScanner";
+import * as wfmStatsPrice from "../services/wfmStatsPrice";
+import * as warframeStatus from "../services/warframeStatus";
+import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 
 
 const requireRuntime = createRuntimeRequire(__dirname, 1);
 
-const log = requireRuntime<{
-  withScope: (scope: string) => {
-    log: (...args: unknown[]) => void;
-    warn: (...args: unknown[]) => void;
-    error: (...args: unknown[]) => void;
-  };
-}>("services/logger").withScope("overlayIpc");
+const log = withScope("overlayIpc");
 
 const { normalizeErrorMessage } = requireRuntime<{
   normalizeErrorMessage: (err: unknown, fallback?: string) => string;
@@ -31,91 +31,6 @@ const { ipcMain, BrowserWindow, globalShortcut, app, screen } =
   require("electron") as typeof import("electron");
 const path = require("node:path") as typeof import("node:path");
 const fs = require("node:fs") as typeof import("node:fs");
-const relicService = requireRuntime<{
-  getRelicDatabase: () => {
-    groups: Record<
-      string,
-      {
-        key: string;
-        name: string;
-        tier?: string;
-        qualities?: Record<
-          string,
-          { rewards?: Array<{ name?: string; urlName?: string; rarity?: string }> } | undefined
-        >;
-      }
-    >;
-    byUniqueName: Record<
-      string,
-      { groupKey: string; quality: "intact" | "exceptional" | "flawless" | "radiant" }
-    >;
-  };
-}>("services/relicService");
-const rewardScanner = requireRuntime<{
-  captureDebugFrame: () => Promise<Record<string, unknown> | null>;
-  captureSourceMeta?: (options?: { preferredDisplayId?: string | null }) => Promise<{
-    sourceType?: string | null;
-    sourceName?: string | null;
-    sourceId?: string | null;
-    sourceDisplayId?: string | null;
-  } | null>;
-  setSettings: (settings: Record<string, unknown>) => void;
-  scanRewardsDetailed: () => Promise<{ items?: unknown[]; meta?: Record<string, unknown> | null }>;
-  detectRelicSelectionEra?: (options?: {
-    timeoutMs?: number;
-    preferredDisplayId?: string | null;
-  }) => Promise<{
-    era?: string | null;
-    confidence?: number;
-    textPreview?: string;
-    elapsedMs?: number;
-    sourceType?: string | null;
-    sourceName?: string | null;
-    sourceDisplayId?: string | null;
-    sourceId?: string | null;
-    candidateId?: string | null;
-  }>;
-  waitForRewardUiReady?: (options: {
-    timeoutMs: number;
-    pollMs: number;
-    requiredHits: number;
-    scoreThreshold: number;
-  }) => Promise<
-    | {
-        ready?: boolean;
-        elapsedMs?: number;
-        attempts?: number;
-        best?: {
-          sourceDisplayId?: string | null;
-          bandBottomRatio?: number;
-          score?: number;
-        };
-      }
-    | undefined
-  >;
-}>("services/rewardScanner");
-const wfmStatsPrice = requireRuntime<{
-  fetchPriceBySlug: (slug: string, options?: { timeoutMs?: number }) => Promise<number | null>;
-  getCachedPriceBySlug?: (slug: string) => number | null;
-}>("services/wfmStatsPrice");
-const warframeStatus = requireRuntime<{
-  getStatus: (options?: { force?: boolean }) => Promise<{
-    isOpen: boolean;
-    isFocused: boolean;
-    focusedProcessName?: string | null;
-    focusedDisplayId?: string | null;
-  }>;
-}>("services/warframeStatus");
-const { hardenBrowserWindowNavigation } = requireRuntime<{
-  hardenBrowserWindowNavigation: (
-    browserWindow: import("electron").BrowserWindow,
-    options: {
-      label: string;
-      allowedFilePaths: string[];
-      log: { warn: (...args: unknown[]) => void };
-    },
-  ) => void;
-}>("services/windowSecurity");
 const {
   OVERLAY_CROP_PRESETS,
   OVERLAY_OCR_ENGINES,

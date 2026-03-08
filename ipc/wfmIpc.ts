@@ -1,5 +1,4 @@
 import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
-import { createRuntimeRequire } from "./runtimeRequire";
 import {
   errorCode,
   errorStatus,
@@ -13,40 +12,16 @@ import {
   parseStatusPayload,
   parseUpdateOrderPayload,
 } from "./wfmValidators";
+import { withScope } from "../services/logger";
+import * as wfmSession from "../services/wfmSession";
+import * as wfmOrders from "../services/wfmOrders";
+import * as wfmContracts from "../services/wfmContracts";
+import * as wfmCatalog from "../services/wfmCatalog";
 
-
-const requireRuntime = createRuntimeRequire(__dirname, 1);
-
-const log = requireRuntime<{
-  withScope: (scope: string) => {
-    warn: (...args: unknown[]) => void;
-    error: (...args: unknown[]) => void;
-  };
-}>("services/logger").withScope("wfmIpc");
+const log = withScope("wfmIpc");
 
 const { ipcMain } = require("electron") as typeof import("electron");
 const WFM_SLUG_RE = /^[a-z0-9_]+$/;
-const wfmSession = requireRuntime<{
-  signIn: (email: string, password: string) => Promise<unknown>;
-  signOut: () => Promise<unknown>;
-  getSession: () => Promise<unknown>;
-  getMe: () => Promise<unknown>;
-  setStatus: (status: string) => Promise<unknown>;
-}>("services/wfmSession");
-const wfmOrders = requireRuntime<{
-  getMyOrders: () => Promise<unknown>;
-  createOrder: (params: unknown) => Promise<unknown>;
-  updateOrder: (orderId: string, updates: unknown) => Promise<unknown>;
-  deleteOrder: (orderId: string) => Promise<unknown>;
-  setOrdersVisible: (orderIds: string[], visible: boolean) => Promise<unknown>;
-}>("services/wfmOrders");
-const wfmContracts = requireRuntime<{
-  getMyContracts: (query: { page: number; limit: number }) => Promise<unknown>;
-}>("services/wfmContracts");
-const wfmCatalog = requireRuntime<{
-  searchItems: (query: string, limit: number) => Promise<unknown>;
-  lookupBySlug: (slug: string) => Promise<unknown>;
-}>("services/wfmCatalog");
 
 function register(): void {
   const handleMainRenderer = (
@@ -264,7 +239,7 @@ function register(): void {
     }
 
     try {
-      return await wfmSession.setStatus(parsed.status);
+      return await wfmSession.setStatus(parsed.status as "online" | "ingame" | "invisible");
     } catch (err) {
       if (errorCode(err) === "WFM_UNAUTHORIZED") {
         void wfmSession.signOut();

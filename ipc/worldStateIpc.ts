@@ -1,26 +1,17 @@
 import ctx from "./context";
 import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
 import { createRuntimeRequire } from "./runtimeRequire";
+import { withScope } from "../services/logger";
+import * as worldStateParser from "../services/worldStateParser";
 
 
 const requireRuntime = createRuntimeRequire(__dirname, 1);
 
-const log = requireRuntime<{
-  withScope: (scope: string) => {
-    log: (...args: unknown[]) => void;
-    warn: (...args: unknown[]) => void;
-    error: (...args: unknown[]) => void;
-  };
-}>("services/logger").withScope("worldStateIpc");
+const log = withScope("worldStateIpc");
 
 const { normalizeErrorMessage } = requireRuntime<{
   normalizeErrorMessage: (err: unknown, fallback?: string) => string;
 }>("config/shared/errors.cjs");
-
-const worldStateParser = requireRuntime<{
-  fetchAndParse: () => Promise<unknown>;
-  emptyWorldState: () => unknown;
-}>("services/worldStateParser");
 function getElectronModule(): Partial<typeof import("electron")> {
   const loaded = require("electron") as unknown;
   if (loaded && typeof loaded === "object") {

@@ -3,11 +3,10 @@ import { fileURLToPath } from "node:url";
 
 import ctx from "./context";
 import { createRuntimeRequire } from "./runtimeRequire";
+import { withScope } from "../services/logger";
 
 const runtimeRequire = createRuntimeRequire(__dirname, 1);
-const log = runtimeRequire<{
-  withScope: (scope: string) => { warn: (...args: unknown[]) => void };
-}>("services/logger").withScope("ipcSecurity");
+const log = withScope("ipcSecurity");
 
 const { normalizeErrorMessage } = runtimeRequire<{
   normalizeErrorMessage: (err: unknown, fallback?: string) => string;

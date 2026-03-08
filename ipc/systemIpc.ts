@@ -6,16 +6,17 @@ import {
 } from "./ipcSecurity";
 import { unwrapInventoryPayload } from "./inventoryPayload";
 import { createRuntimeRequire } from "./runtimeRequire";
+import { withScope } from "../services/logger";
+import * as itemDb from "../services/itemDatabase";
+import * as wfmCatalog from "../services/wfmCatalog";
+import * as masteryHelper from "../services/masteryHelper";
+import * as relicService from "../services/relicService";
+import * as autoUpdater from "../services/autoUpdater";
 
 
 const requireRuntime = createRuntimeRequire(__dirname, 1);
 
-const log = requireRuntime<{
-  withScope: (scope: string) => {
-    warn: (...args: unknown[]) => void;
-    error: (...args: unknown[]) => void;
-  };
-}>("services/logger").withScope("systemIpc");
+const log = withScope("systemIpc");
 
 const { normalizeErrorMessage } = requireRuntime<{
   normalizeErrorMessage: (err: unknown, fallback?: string) => string;
@@ -25,22 +26,6 @@ const { ipcMain, shell } = require("electron") as typeof import("electron");
 const { isAllowedExternalHost } = requireRuntime<{
   isAllowedExternalHost: (hostname: string) => boolean;
 }>("config/runtime/security");
-const itemDb = requireRuntime<{ getRendererLookup: () => unknown }>("services/itemDatabase");
-const wfmCatalog = requireRuntime<{
-  isLoaded: () => boolean;
-  ensureLoaded: () => Promise<unknown>;
-  getRendererLookup: () => unknown;
-}>("services/wfmCatalog");
-const masteryHelper = requireRuntime<{
-  computeMasteryProgress: (data: unknown) => unknown;
-  setDebugMode: (enabled: boolean) => void;
-}>("services/masteryHelper");
-const relicService = requireRuntime<{ getRelicDatabase: () => unknown }>("services/relicService");
-const autoUpdater = requireRuntime<{
-  checkForUpdates: (reason: string) => Promise<unknown>;
-  getUpdateState: () => unknown;
-  installDownloadedUpdate: () => Promise<unknown>;
-}>("services/autoUpdater");
 
 function register(): void {
   ipcMain.handle("get-item-database", async (event: unknown) => {

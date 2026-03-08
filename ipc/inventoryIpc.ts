@@ -2,17 +2,12 @@ import ctx from "./context";
 import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
 import { unwrapInventoryPayload } from "./inventoryPayload";
 import { createRuntimeRequire } from "./runtimeRequire";
+import { withScope } from "../services/logger";
 
 
 const requireRuntime = createRuntimeRequire(__dirname, 1);
 
-const log = requireRuntime<{
-  withScope: (scope: string) => {
-    log: (...args: unknown[]) => void;
-    warn: (...args: unknown[]) => void;
-    error: (...args: unknown[]) => void;
-  };
-}>("services/logger").withScope("inventoryIpc");
+const log = withScope("inventoryIpc");
 
 const { normalizeErrorMessage } = requireRuntime<{
   normalizeErrorMessage: (err: unknown, fallback?: string) => string;

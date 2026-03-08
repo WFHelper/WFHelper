@@ -10,19 +10,10 @@
 
 import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
 import { createRuntimeRequire } from "./runtimeRequire";
+import { withScope, type ScopedLogger } from "../services/logger";
 
 
 const requireRuntime = createRuntimeRequire(__dirname, 1);
-
-type ScopedLogger = {
-  log: (...args: unknown[]) => void;
-  warn: (...args: unknown[]) => void;
-  error: (...args: unknown[]) => void;
-};
-
-const loggerModule = requireRuntime<{
-  withScope: (scope: string) => ScopedLogger;
-}>("services/logger");
 
 const { normalizeErrorMessage } = requireRuntime<{
   normalizeErrorMessage: (err: unknown, fallback?: string) => string;
@@ -49,7 +40,7 @@ export interface DiskCacheIpcConfig {
  */
 function createDiskCacheIpc(config: DiskCacheIpcConfig): { register: () => void } {
   const { scope, filename, channelPrefix, noun } = config;
-  const log: ScopedLogger = loggerModule.withScope(scope);
+  const log: ScopedLogger = withScope(scope);
 
   function getCachePath(): string {
     return path.join(app.getPath("userData"), filename);
