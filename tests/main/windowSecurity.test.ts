@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-
-const { __test__ } = require("../../services/windowSecurity.js");
+import { __test__ } from "../../services/windowSecurity";
 
 describe("window security URL guards", () => {
   it("allows only exact file URL targets from allowlist", () => {

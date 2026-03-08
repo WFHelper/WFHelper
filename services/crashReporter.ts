@@ -1,22 +1,28 @@
-const log = require("./logger").withScope("crashReporter");
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs");
+import { withScope } from "./logger";
+import type { ScopedLogger } from "./logger";
 
-const DEFAULT_TRACES_SAMPLE_RATE = 0;
+const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
+  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
+};
 
-let sentryMain = null;
-let initialized = false;
+const log: ScopedLogger = withScope("crashReporter");
 
-function resolveDsn() {
+const DEFAULT_TRACES_SAMPLE_RATE: number = 0;
+
+let sentryMain: typeof import("@sentry/electron/main") | null = null;
+let initialized: boolean = false;
+
+function resolveDsn(): string {
   return process.env.SENTRY_DSN || process.env.WF_COMPANION_SENTRY_DSN || "";
 }
 
-function parseSampleRate(rawValue, fallback) {
+function parseSampleRate(rawValue: unknown, fallback: number): number {
   const value = Number(rawValue);
   if (!Number.isFinite(value) || value < 0 || value > 1) return fallback;
   return value;
 }
 
-function initCrashReporting() {
+export function initCrashReporting(): boolean {
   if (initialized) return Boolean(sentryMain);
   initialized = true;
 
@@ -28,7 +34,7 @@ function initCrashReporting() {
 
   try {
     sentryMain = require("@sentry/electron/main");
-    sentryMain.init({
+    sentryMain!.init({
       dsn,
       environment: process.env.NODE_ENV || "production",
       release: process.env.SENTRY_RELEASE || process.env.npm_package_version || undefined,
@@ -40,19 +46,14 @@ function initCrashReporting() {
     });
     log.info("Sentry initialized for main process");
     return true;
-  } catch (err) {
+  } catch (err: unknown) {
     log.error("Failed to initialize Sentry:", normalizeErrorMessage(err));
     sentryMain = null;
     return false;
   }
 }
 
-function captureMainException(error, context = {}) {
+export function captureMainException(error: unknown, context: Record<string, unknown> = {}): void {
   if (!sentryMain) return;
   sentryMain.captureException(error, { extra: context });
 }
-
-module.exports = {
-  initCrashReporting,
-  captureMainException,
-};

@@ -1,24 +1,29 @@
-"use strict";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import type { BrowserWindow } from "electron";
 
-const path = require("node:path");
-const { fileURLToPath } = require("node:url");
+export interface HardenOptions {
+  label?: string;
+  allowedFilePaths?: string[];
+  log?: { warn: (...args: unknown[]) => void };
+}
 
-function normalizePathForCompare(filePath) {
+function normalizePathForCompare(filePath: string | unknown): string {
   return path
     .normalize(String(filePath || ""))
     .replace(/\\+/g, "/")
     .toLowerCase();
 }
 
-function normalizeAllowedFiles(files) {
+function normalizeAllowedFiles(files: unknown): Set<string> {
   return new Set((Array.isArray(files) ? files : []).map(normalizePathForCompare));
 }
 
-function isAllowedFileNavigation(url, allowedFiles) {
+function isAllowedFileNavigation(url: string | unknown, allowedFiles: Set<string>): boolean {
   if (!url) return false;
 
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(url as string);
     if (parsed.protocol !== "file:") return false;
 
     const filePath = normalizePathForCompare(fileURLToPath(parsed));
@@ -28,21 +33,24 @@ function isAllowedFileNavigation(url, allowedFiles) {
   }
 }
 
-function hardenBrowserWindowNavigation(browserWindow, options = {}) {
+export function hardenBrowserWindowNavigation(
+  browserWindow: BrowserWindow,
+  options: HardenOptions = {},
+): void {
   if (!browserWindow || browserWindow.isDestroyed()) return;
 
   const label = String(options.label || "window");
   const allowedFiles = normalizeAllowedFiles(options.allowedFilePaths || []);
   const logger = options.log;
 
-  browserWindow.webContents.setWindowOpenHandler(({ url }) => {
+  browserWindow.webContents.setWindowOpenHandler(({ url }: { url: string }) => {
     if (logger && typeof logger.warn === "function") {
       logger.warn(`[Security] Blocked ${label} window.open to: ${url}`);
     }
-    return { action: "deny" };
+    return { action: "deny" as const };
   });
 
-  const blockUnexpectedNavigation = (event, url) => {
+  const blockUnexpectedNavigation = (event: { preventDefault: () => void }, url: unknown): void => {
     if (!isAllowedFileNavigation(url, allowedFiles)) {
       event.preventDefault();
       if (logger && typeof logger.warn === "function") {
@@ -51,27 +59,24 @@ function hardenBrowserWindowNavigation(browserWindow, options = {}) {
     }
   };
 
-  browserWindow.webContents.on("will-navigate", blockUnexpectedNavigation);
+  browserWindow.webContents.on("will-navigate", blockUnexpectedNavigation as any);
 
-  browserWindow.webContents.on("will-frame-navigate", (event, details) => {
+  browserWindow.webContents.on("will-frame-navigate", ((event: any, details: any) => {
     const targetUrl =
       details && typeof details === "object" && typeof details.url === "string" ? details.url : "";
     blockUnexpectedNavigation(event, targetUrl);
-  });
+  }) as any);
 
-  browserWindow.webContents.on("will-attach-webview", (event) => {
+  browserWindow.webContents.on("will-attach-webview", ((event: any) => {
     event.preventDefault();
     if (logger && typeof logger.warn === "function") {
       logger.warn(`[Security] Blocked ${label} webview attach attempt`);
     }
-  });
+  }) as any);
 }
 
-module.exports = {
-  hardenBrowserWindowNavigation,
-  __test__: {
-    normalizePathForCompare,
-    normalizeAllowedFiles,
-    isAllowedFileNavigation,
-  },
+export const __test__ = {
+  normalizePathForCompare,
+  normalizeAllowedFiles,
+  isAllowedFileNavigation,
 };
