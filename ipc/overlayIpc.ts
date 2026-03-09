@@ -17,6 +17,7 @@ import * as rewardScanner from "../services/rewardScanner";
 import * as wfmStatsPrice from "../services/wfmStatsPrice";
 import * as warframeStatus from "../services/warframeStatus";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
+import { startEscMonitor, stopEscMonitor } from "../services/keyboardMonitor";
 
 
 const requireRuntime = createRuntimeRequire(__dirname, 1);
@@ -245,6 +246,7 @@ function onRelicSelectionTrigger(source: string) {
   pushOverlayInteractionMode();
   pushOverlayThemeVars();
   void relicSelectionController.onRelicSelectionTrigger(source);
+  startEscMonitor(onRelicSelectionClose);
 }
 
 const settingsController = createOverlaySettingsController({
@@ -284,6 +286,7 @@ const relicSelectionController = createRelicSelectionController({
 });
 
 function onRelicSelectionClose(): void {
+  stopEscMonitor();
   const win = ctx.plannerOverlayWindow;
   if (!win || win.isDestroyed() || !win.isVisible()) return;
   // Do NOT call suppressReopenForClose here — the EE.log-based close fires for
@@ -294,7 +297,7 @@ function onRelicSelectionClose(): void {
   ctx.overlayInteractiveMode = false;
   pushOverlayInteractionMode();
   win.hide();
-  log.log("[OverlayClose] planner closed via Dialog::SendResult");
+  log.log("[OverlayClose] planner closed via ESC / Dialog::SendResult");
 }
 
 function register(): void {
@@ -310,6 +313,7 @@ function register(): void {
 
   ipcMain.on("overlay-close", (event: unknown) => {
     if (!isAuthorizedSender(assertOverlayRendererSender, event as never, "overlay-close")) return;
+    stopEscMonitor();
     rewardWindowsController.clearOverlayAutoHideTimer();
     plannerWindowsController.clearOverlayAutoHideTimer();
     relicSelectionController.suppressReopenForClose?.();

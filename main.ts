@@ -37,6 +37,7 @@ const wfmCatalog = fromAppRoot("services/wfmCatalog");
 const wfmSession: typeof WfmSessionTypes = fromAppRoot("services/wfmSession");
 const relicService = fromAppRoot("services/relicService");
 const eeLogMonitor = fromAppRoot("services/eeLogMonitor");
+const keyboardMonitor = fromAppRoot("services/keyboardMonitor");
 const rewardScanner = fromAppRoot("services/rewardScanner");
 const crashReporter = fromAppRoot("services/crashReporter");
 const autoUpdater = fromAppRoot("services/autoUpdater");
@@ -234,6 +235,7 @@ app.whenReady().then(async () => {
 app.on("window-all-closed", () => {
   if (ctx.watcher) ctx.watcher.close();
   eeLogMonitor.stopWatching();
+  keyboardMonitor.stopEscMonitor();
   overlayIpc.unregisterOverlayHotkey();
   if (process.platform !== "darwin") app.quit();
 });
