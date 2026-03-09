@@ -286,12 +286,15 @@ const relicSelectionController = createRelicSelectionController({
 function onRelicSelectionClose(): void {
   const win = ctx.plannerOverlayWindow;
   if (!win || win.isDestroyed() || !win.isVisible()) return;
-  relicSelectionController.suppressReopenForClose?.();
+  // Do NOT call suppressReopenForClose here — the EE.log-based close fires for
+  // dialog navigation (including entering the relic selection area), so suppressing
+  // reopen would block the overlay on the very next PopulateInventoryGrid event.
+  // suppressReopenForClose is reserved for explicit user close (the X button / overlay-close IPC).
   plannerWindowsController.clearOverlayAutoHideTimer();
   ctx.overlayInteractiveMode = false;
   pushOverlayInteractionMode();
   win.hide();
-  log.log("[OverlayClose] planner closed via Dialog::SendResult(4)");
+  log.log("[OverlayClose] planner closed via Dialog::SendResult");
 }
 
 function register(): void {

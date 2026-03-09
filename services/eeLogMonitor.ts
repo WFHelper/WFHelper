@@ -24,9 +24,10 @@ const RELIC_PICKER_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
   /\bProjection[A-Za-z_]*\.lua:\s*PopulateInventoryGrid\b/i,
   /\bPopulateInventoryGrid\b/i,
 ]);
-// Result code 4 fires when the player confirms a relic and enters a mission.
+// Any Dialog::SendResult fires when the relic-selection dialog closes — code 4 is
+// mission entry, other codes cover ESC / cancel. Exact code varies by dialog path.
 const RELIC_PICKER_CLOSE_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
-  /\bDialog\.lua:\s*Dialog::SendResult\(4\)/i,
+  /\bDialog\.lua:\s*Dialog::SendResult\(\d+\)/i,
 ]);
 
 const TRIGGER_DELAY_MS = 450;
