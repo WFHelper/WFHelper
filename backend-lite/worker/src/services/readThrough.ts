@@ -63,7 +63,9 @@ function staleRefreshSec(env: Env): number {
 }
 
 function ordersCacheTtlSec(env: Env): number {
-	return clamp(parsePositiveInt(env.ORDERS_CACHE_TTL_SEC, 60), 30, 600);
+	// KV hard-eviction TTL — must be well above ORDERS_STALE_REFRESH_SEC so that
+	// stale-if-error works: stale data stays available in KV when upstream is degraded.
+	return clamp(parsePositiveInt(env.ORDERS_CACHE_TTL_SEC, 3600), 120, 86400);
 }
 
 function ordersStaleRefreshSec(env: Env): number {
