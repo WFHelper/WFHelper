@@ -195,6 +195,7 @@ app.whenReady().then(async () => {
   const eeLogPath = eeLogMonitor.startWatching({
     onRewardTrigger: () => overlayIpc.onRelicRewardTrigger("eelog"),
     onRelicSelectionOpen: () => overlayIpc.onRelicSelectionTrigger("eelog"),
+    onRelicSelectionClose: () => overlayIpc.onRelicSelectionClose(),
   });
   if (eeLogPath) log.log("[EELog] Monitoring:", eeLogPath);
   else log.log("[EELog] EE.log not found - relic overlay trigger disabled");

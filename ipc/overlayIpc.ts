@@ -237,7 +237,7 @@ function onRelicRewardTrigger(source = "manual") {
   scanController.onRelicRewardTrigger(source);
 }
 
-function onRelicSelectionTrigger(source = "manual") {
+function onRelicSelectionTrigger(source: string) {
   log.log(`[OverlayRoute] trigger=planner source=${source}`);
   void bringOverlayToWarframeDisplayIfAvailable();
   plannerWindowsController.createOverlayWindow();
@@ -245,7 +245,6 @@ function onRelicSelectionTrigger(source = "manual") {
   pushOverlayInteractionMode();
   pushOverlayThemeVars();
   void relicSelectionController.onRelicSelectionTrigger(source);
-  registerPlannerEscHotkey();
 }
 
 const settingsController = createOverlaySettingsController({
@@ -284,57 +283,15 @@ const relicSelectionController = createRelicSelectionController({
   cacheFilePath: PRICE_CACHE_FILE,
 });
 
-// ---------------------------------------------------------------------------
-// Planner overlay ESC-to-close global hotkey
-// ---------------------------------------------------------------------------
-
-let plannerEscHotkeyRegistered = false;
-
-/**
- * Register the Escape global shortcut while the planner overlay is visible.
- * The shortcut is unregistered automatically when the window hides or closes
- * (via auto-hide timer, overlay-close IPC, or destruction).
- */
-function registerPlannerEscHotkey(): void {
-  if (plannerEscHotkeyRegistered) return;
-  try {
-    const ok = globalShortcut.register("Escape", () => {
-      unregisterPlannerEscHotkey();
-      relicSelectionController.suppressReopenForClose?.();
-      plannerWindowsController.clearOverlayAutoHideTimer();
-      ctx.overlayInteractiveMode = false;
-      pushOverlayInteractionMode();
-      if (ctx.plannerOverlayWindow && !ctx.plannerOverlayWindow.isDestroyed()) {
-        ctx.plannerOverlayWindow.hide();
-      }
-      log.log("[PlannerEsc] overlay closed via ESC");
-    });
-    if (ok) {
-      plannerEscHotkeyRegistered = true;
-      // Auto-unregister when the planner window hides or is destroyed for any
-      // reason (auto-hide timer, overlay-close IPC, or window destruction) so
-      // Escape is never stuck registered while the overlay is not visible.
-      const win = ctx.plannerOverlayWindow;
-      if (win && !win.isDestroyed()) {
-        win.once("hide", unregisterPlannerEscHotkey);
-        win.once("closed", unregisterPlannerEscHotkey);
-      }
-    } else {
-      log.warn("[PlannerEsc] globalShortcut.register('Escape') failed — hotkey may be taken");
-    }
-  } catch (err) {
-    log.warn("[PlannerEsc] register error:", normalizeErrorMessage(err));
-  }
-}
-
-function unregisterPlannerEscHotkey(): void {
-  if (!plannerEscHotkeyRegistered) return;
-  try {
-    globalShortcut.unregister("Escape");
-  } catch (err) {
-    log.warn("[PlannerEsc] unregister error:", normalizeErrorMessage(err));
-  }
-  plannerEscHotkeyRegistered = false;
+function onRelicSelectionClose(): void {
+  const win = ctx.plannerOverlayWindow;
+  if (!win || win.isDestroyed() || !win.isVisible()) return;
+  relicSelectionController.suppressReopenForClose?.();
+  plannerWindowsController.clearOverlayAutoHideTimer();
+  ctx.overlayInteractiveMode = false;
+  pushOverlayInteractionMode();
+  win.hide();
+  log.log("[OverlayClose] planner closed via Dialog::SendResult(4)");
 }
 
 function register(): void {
@@ -502,5 +459,6 @@ export {
   settingsController,
   onRelicRewardTrigger,
   onRelicSelectionTrigger,
+  onRelicSelectionClose,
   openOcrCropDebugger,
 };

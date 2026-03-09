@@ -24,11 +24,16 @@ const RELIC_PICKER_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
   /\bProjection[A-Za-z_]*\.lua:\s*PopulateInventoryGrid\b/i,
   /\bPopulateInventoryGrid\b/i,
 ]);
+// Result code 4 fires when the player confirms a relic and enters a mission.
+const RELIC_PICKER_CLOSE_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
+  /\bDialog\.lua:\s*Dialog::SendResult\(4\)/i,
+]);
 
 const TRIGGER_DELAY_MS = 450;
 const RELIC_TRIGGER_DELAY_MS = 120;
 const REWARD_TRIGGER_COOLDOWN_MS = 2500;
 const RELIC_PICKER_COOLDOWN_MS = 2000;
+const RELIC_PICKER_CLOSE_COOLDOWN_MS = 500;
 const POLL_INTERVAL_MS = 100;
 const MAX_READ_BYTES = 256 * 1024;
 const MAX_READ_LOOPS_PER_TICK = 8;
@@ -45,11 +50,13 @@ const pollBuffer = Buffer.alloc(MAX_READ_BYTES);
 
 let rewardCallback: (() => void) | null = null;
 let relicPickerCallback: (() => void) | null = null;
+let relicPickerCloseCallback: (() => void) | null = null;
 
 let pendingRewardTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingRelicPickerTimer: ReturnType<typeof setTimeout> | null = null;
 let lastRewardAt = 0;
 let lastRelicPickerAt = 0;
+let lastRelicPickerCloseAt = 0;
 
 function clearPendingTimers(): void {
   if (pendingRewardTimer) {
@@ -167,6 +174,17 @@ function handleLine(line: string): void {
     log.log("[EELog] Relic picker match line:", String(line).slice(0, 220));
     scheduleTrigger("relic_picker");
   }
+
+  if (RELIC_PICKER_CLOSE_PATTERNS.some((pattern) => pattern.test(line))) {
+    const now = Date.now();
+    if (now - lastRelicPickerCloseAt >= RELIC_PICKER_CLOSE_COOLDOWN_MS) {
+      lastRelicPickerCloseAt = now;
+      if (typeof relicPickerCloseCallback === "function") {
+        log.log("[EELog] Relic picker close detected -> dispatching overlay close");
+        relicPickerCloseCallback();
+      }
+    }
+  }
 }
 
 function consumeChunk(chunk: string): void {
@@ -182,15 +200,21 @@ function consumeChunk(chunk: string): void {
 interface EeLogHandlers {
   onRewardTrigger?: (() => void) | null;
   onRelicSelectionOpen?: (() => void) | null;
+  onRelicSelectionClose?: (() => void) | null;
 }
 
 function normalizeHandlers(
   handlers: (() => void) | EeLogHandlers | null | undefined,
-): { onRewardTrigger: (() => void) | null; onRelicSelectionOpen: (() => void) | null } {
+): {
+  onRewardTrigger: (() => void) | null;
+  onRelicSelectionOpen: (() => void) | null;
+  onRelicSelectionClose: (() => void) | null;
+} {
   if (typeof handlers === "function") {
     return {
       onRewardTrigger: handlers,
       onRelicSelectionOpen: null,
+      onRelicSelectionClose: null,
     };
   }
 
@@ -198,6 +222,7 @@ function normalizeHandlers(
     return {
       onRewardTrigger: null,
       onRelicSelectionOpen: null,
+      onRelicSelectionClose: null,
     };
   }
 
@@ -206,6 +231,8 @@ function normalizeHandlers(
       typeof handlers.onRewardTrigger === "function" ? handlers.onRewardTrigger : null,
     onRelicSelectionOpen:
       typeof handlers.onRelicSelectionOpen === "function" ? handlers.onRelicSelectionOpen : null,
+    onRelicSelectionClose:
+      typeof handlers.onRelicSelectionClose === "function" ? handlers.onRelicSelectionClose : null,
   };
 }
 
@@ -224,6 +251,7 @@ export function startWatching(
   const normalized = normalizeHandlers(handlers);
   rewardCallback = normalized.onRewardTrigger;
   relicPickerCallback = normalized.onRelicSelectionOpen;
+  relicPickerCloseCallback = normalized.onRelicSelectionClose;
 
   clearPollTimer();
   closePollFd();
@@ -275,5 +303,6 @@ export function stopWatching(): void {
 
   rewardCallback = null;
   relicPickerCallback = null;
+  relicPickerCloseCallback = null;
   lineRemainder = "";
 }
