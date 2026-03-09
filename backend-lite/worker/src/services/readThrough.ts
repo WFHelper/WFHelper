@@ -69,7 +69,7 @@ function ordersCacheTtlSec(env: Env): number {
 }
 
 function ordersStaleRefreshSec(env: Env): number {
-	return clamp(parsePositiveInt(env.ORDERS_STALE_REFRESH_SEC, 45), 15, 300);
+	return clamp(parsePositiveInt(env.ORDERS_STALE_REFRESH_SEC, 21600), 15, 86400);
 }
 
 function timestampFromRecord(data: Record<string, unknown> | null): number {
