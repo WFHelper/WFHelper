@@ -2,6 +2,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { Worker } from "worker_threads";
 import chokidar from "chokidar";
 import { withScope } from "./logger";
 const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
@@ -42,7 +43,12 @@ const RELIC_PICKER_CLOSE_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
 const TRIGGER_DELAY_MS = 450;
 const RELIC_TRIGGER_DELAY_MS = 120;
 const REWARD_TRIGGER_COOLDOWN_MS = 2500;
-const RELIC_PICKER_COOLDOWN_MS = 2000;
+// DBWIN fires at T=0 (instant); EE.log file flush can lag 0–5 s behind.
+// With both sources active the file-based read would re-trigger the overlay
+// seconds later unless the cooldown covers the full flush window.
+// 8 s is safely larger than any observed EE.log flush delay, yet far smaller
+// than the minimum realistic time between two consecutive fissure mission entries.
+const RELIC_PICKER_COOLDOWN_MS = 8000;
 const RELIC_PICKER_CLOSE_COOLDOWN_MS = 500;
 // Minimum gap between the last open trigger and a close trigger being honoured.
 // Prevents Dialog::SendResult from closing the overlay when it fires as part of
@@ -71,6 +77,10 @@ let pendingRelicPickerTimer: ReturnType<typeof setTimeout> | null = null;
 let lastRewardAt = 0;
 let lastRelicPickerAt = 0;
 let lastRelicPickerCloseAt = 0;
+
+let dbwinWorker: Worker | null = null;
+let dbwinStopBuffer: SharedArrayBuffer | null = null;
+let dbwinStopTimer: ReturnType<typeof setTimeout> | null = null;
 
 function clearPendingTimers(): void {
   if (pendingRewardTimer) {
@@ -175,6 +185,93 @@ function scheduleTrigger(type: "reward" | "relic_picker"): void {
       relicPickerCallback();
     }
   }, RELIC_TRIGGER_DELAY_MS);
+}
+
+// ---------------------------------------------------------------------------
+// OutputDebugString / DBWIN worker — parallel zero-latency log source
+// ---------------------------------------------------------------------------
+// Warframe (like all Win32 apps) calls OutputDebugString() for each log line.
+// OutputDebugString writes the message into a shared-memory ring ("DBWIN_BUFFER")
+// and signals "DBWIN_DATA_READY" — with NO file-system flush involved.
+// Reading from that buffer gives us the line the instant Warframe emits it,
+// bypassing whatever buffering delay exists between OutputDebugString and the
+// EE.log flush to disk (which can be 0–5 s depending on Warframe's I/O scheduler).
+//
+// The Worker thread (dbwinWorker.ts) owns the Win32 handle lifetime and runs
+// WaitForSingleObject in a tight loop without touching the main event loop.
+// Lines it receives are fed into the same handleLine() path used by file polling,
+// so the existing cooldown/dedup logic naturally absorbs duplicates from both sources.
+
+interface DbwinWorkerMessage {
+  type: "ready" | "line" | "error" | "stopped";
+  pid?: number;
+  msg?: string;
+  alreadyExists?: boolean;
+  message?: string;
+}
+
+function startDbwinWorker(): void {
+  if (dbwinWorker) return;
+
+  dbwinStopBuffer = new SharedArrayBuffer(4);
+  Atomics.store(new Int32Array(dbwinStopBuffer), 0, 0);
+
+  // dbwinWorker.ts compiles to the same output directory as this module
+  dbwinWorker = new Worker(path.join(__dirname, "dbwinWorker.js"), {
+    workerData: { stopBuffer: dbwinStopBuffer },
+  });
+
+  dbwinWorker.on("message", (m: DbwinWorkerMessage) => {
+    switch (m.type) {
+      case "ready":
+        log.log("[EELog/DBWIN] OutputDebugString listener ready (alreadyExists:", m.alreadyExists, ")");
+        break;
+      case "line":
+        if (m.msg) handleLine(m.msg);
+        break;
+      case "error":
+        log.warn("[EELog/DBWIN] Worker error:", m.message);
+        break;
+      case "stopped":
+        log.log("[EELog/DBWIN] Worker stopped cleanly");
+        break;
+    }
+  });
+
+  dbwinWorker.on("error", (err: Error) => {
+    log.warn("[EELog/DBWIN] Worker threw:", String(err));
+    dbwinWorker = null;
+  });
+
+  dbwinWorker.on("exit", () => {
+    dbwinWorker = null;
+  });
+}
+
+function stopDbwinWorker(): void {
+  if (!dbwinWorker) return;
+
+  // Signal the Worker to exit its WaitForSingleObject loop
+  if (dbwinStopBuffer) {
+    Atomics.store(new Int32Array(dbwinStopBuffer), 0, 1);
+    dbwinStopBuffer = null;
+  }
+
+  // Force-terminate after 1.5 s in case the Worker is somehow stuck
+  const w = dbwinWorker;
+  dbwinWorker = null;
+
+  dbwinStopTimer = setTimeout(() => {
+    dbwinStopTimer = null;
+    w.terminate().catch(() => {});
+  }, 1500);
+
+  w.once("exit", () => {
+    if (dbwinStopTimer) {
+      clearTimeout(dbwinStopTimer);
+      dbwinStopTimer = null;
+    }
+  });
 }
 
 function handleLine(line: string): void {
@@ -306,11 +403,14 @@ export function startWatching(
   }
   pollReadNewBytes();
 
+  startDbwinWorker();
+
   log.log("[EELog] Watching:", EE_LOG_PATH);
   return EE_LOG_PATH;
 }
 
 export function stopWatching(): void {
+  stopDbwinWorker();
   clearPendingTimers();
   clearPollTimer();
   closePollFd();
