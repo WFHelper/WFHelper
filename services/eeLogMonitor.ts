@@ -18,14 +18,23 @@ const REWARD_TRIGGER_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
   /\bPause countdown done\b/i,
   /\bGot rewards\b/i,
 ]);
+// Primary: LoadingCompleteEnd fires when the relic-selection screen is fully rendered
+// and interactive — confirmed by AlecaFrame as the correct trigger point.
+// Fallback: PopulateInventoryGrid fires earlier in the load sequence; kept so that
+// if DE renames the lua file the trigger still works (it re-fires after cooldown if
+// LoadingCompleteEnd never arrives).
 const RELIC_PICKER_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
+  /\bThemedProjectionManager\.lua:\s*LoadingCompleteEnd\b/i,
+  /\bProjection[A-Za-z_]*\.lua:\s*LoadingCompleteEnd\b/i,
   /\bThemedProjectionManager\.lua:\s*PopulateInventoryGrid\b/i,
   /\bProjectionManager\.lua:\s*PopulateInventoryGrid\b/i,
   /\bProjection[A-Za-z_]*\.lua:\s*PopulateInventoryGrid\b/i,
-  /\bPopulateInventoryGrid\b/i,
 ]);
-// Any Dialog::SendResult fires when the relic-selection dialog closes — code 4 is
-// mission entry, other codes cover ESC / cancel. Exact code varies by dialog path.
+// Dialog::SendResult fires when the relic-selection dialog closes (ESC, confirm, cancel).
+// RELIC_PICKER_CLOSE_MIN_GAP_MS: if SendResult fires within this window of the last open
+// trigger it is from navigating TO the relic screen, not FROM it — ignore it.
+// (AlecaFrame has the same guard: "Skipped relic close because it was too close to
+// the recommendation start!")
 const RELIC_PICKER_CLOSE_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
   /\bDialog\.lua:\s*Dialog::SendResult\(\d+\)/i,
 ]);
@@ -35,6 +44,10 @@ const RELIC_TRIGGER_DELAY_MS = 120;
 const REWARD_TRIGGER_COOLDOWN_MS = 2500;
 const RELIC_PICKER_COOLDOWN_MS = 2000;
 const RELIC_PICKER_CLOSE_COOLDOWN_MS = 500;
+// Minimum gap between the last open trigger and a close trigger being honoured.
+// Prevents Dialog::SendResult from closing the overlay when it fires as part of
+// the navigation flow that leads TO the relic selection screen.
+const RELIC_PICKER_CLOSE_MIN_GAP_MS = 2000;
 const POLL_INTERVAL_MS = 100;
 const MAX_READ_BYTES = 256 * 1024;
 const MAX_READ_LOOPS_PER_TICK = 8;
@@ -180,7 +193,12 @@ function handleLine(line: string): void {
     const now = Date.now();
     if (now - lastRelicPickerCloseAt >= RELIC_PICKER_CLOSE_COOLDOWN_MS) {
       lastRelicPickerCloseAt = now;
-      if (typeof relicPickerCloseCallback === "function") {
+      if (now - lastRelicPickerAt < RELIC_PICKER_CLOSE_MIN_GAP_MS) {
+        // Too close to the last open trigger — this SendResult is from navigating
+        // TO the relic screen, not FROM it. Skip to avoid closing the overlay
+        // immediately after it opens.
+        log.log("[EELog] Relic picker close skipped — too close to last open trigger");
+      } else if (typeof relicPickerCloseCallback === "function") {
         log.log("[EELog] Relic picker close detected -> dispatching overlay close");
         relicPickerCloseCallback();
       }
