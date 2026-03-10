@@ -27,6 +27,12 @@
   import { buildRelicSearchKeywordIndex } from "../lib/relic.js";
   import { startupPriceCacheReady } from "../lib/startupLoader.js";
   import { log } from "../lib/log.js";
+  import { getOrderSummaryCircuitState } from "../lib/wfm/orderSummaryRemote.js";
+  import {
+    getRankedHotsetEntries,
+    getRankedHotsetSeenAt,
+    recordRankedHotsetEntry,
+  } from "../lib/wfm/rankedHotset.js";
   import { getInventoryHydrationController } from "../stores/inventoryHydration.js";
   import { sharedFilters } from "../stores/filters.js";
   import sharedNumeric from "../../config/shared/numeric.cjs";
@@ -38,9 +44,12 @@
   const METRIC_VISIBLE_PREFETCH_LIMIT = 42;
   const METRIC_BACKGROUND_PREFETCH_LIMIT = 210;
   const DEBUG_REFRESH_MS = 900;
-  const RANKED_CARD_SWEEP_BATCH_SIZE = 16;
-  const RANKED_CARD_SWEEP_INTERVAL_MS = 900;
-  const RANKED_CARD_SWEEP_MAX_RUNTIME_MS = 5 * 60 * 1000;
+  const HOTSET_REFRESH_DELAY_MS = 4_000;
+  const HOTSET_REFRESH_LIMIT = 12;
+  const RANKED_CARD_SWEEP_BATCH_SIZE = 4;
+  const RANKED_CARD_SWEEP_INTERVAL_MS = 2_500;
+  const RANKED_CARD_SWEEP_START_DELAY_MS = 12_000;
+  const RANKED_CARD_SWEEP_MAX_RUNTIME_MS = 2 * 60 * 1000;
 
   let filter: InventoryFilterTab = "all_parts";
   let showFilterPanel = false;
@@ -53,12 +62,21 @@
   const hydrationDebug = hydration.debugState;
   let debugStatsTimer: ReturnType<typeof setInterval> | null = null;
   let rankedCardSweepTimer: ReturnType<typeof setTimeout> | null = null;
+  let rankedCardSweepStartTimer: ReturnType<typeof setTimeout> | null = null;
+  let hotsetRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   let rankedCardSweepQueue: InventoryBaseItem[] = [];
   let rankedCardSweepCursor = 0;
   let rankedCardSweepActive = false;
   let rankedCardSweepDeadline = 0;
   let rankedCardSweepSignature = "";
   let rankedCardSweepCompletedSignature = "";
+  let hotsetRefreshSignature = "";
+  let hotsetRefreshCompletedSignature = "";
+
+  function trackRankedHotset(item: InventoryBaseItem | null | undefined): void {
+    if (!item || !isRankedGroup(item.inventoryGroup) || !item.marketSlug) return;
+    recordRankedHotsetEntry(item.marketSlug, item.maxRank);
+  }
 
   function prefetchVisibleMetrics(items: InventoryBaseItem[], needs: MetricNeeds): void {
     const hydrationCandidates = items.filter((item) => shouldHydrateMetrics(item));
@@ -89,6 +107,7 @@
 
     const selectedBaseItem = tabBaseItems.find((entry) => entry.internalName === event.detail.internalName);
     if (selectedBaseItem && shouldHydrateMetrics(selectedBaseItem)) {
+      trackRankedHotset(selectedBaseItem);
       hydration.enqueue([selectedBaseItem], $wfmItems, { price: true, ducats: false, orders: true });
     }
   }
@@ -96,6 +115,7 @@
   function handleItemVisible(event: CustomEvent<InventoryViewItem>): void {
     const visibleBaseItem = tabBaseItems.find((entry) => entry.internalName === event.detail.internalName);
     if (!visibleBaseItem || !shouldHydrateMetrics(visibleBaseItem)) return;
+    trackRankedHotset(visibleBaseItem);
 
     const isRankedTab = isRankedGroup(filter);
     hydration.enqueue([visibleBaseItem], $wfmItems, {
@@ -111,8 +131,21 @@
     rankedCardSweepTimer = null;
   }
 
+  function clearRankedCardSweepStartTimer(): void {
+    if (!rankedCardSweepStartTimer) return;
+    clearTimeout(rankedCardSweepStartTimer);
+    rankedCardSweepStartTimer = null;
+  }
+
+  function clearHotsetRefreshTimer(): void {
+    if (!hotsetRefreshTimer) return;
+    clearTimeout(hotsetRefreshTimer);
+    hotsetRefreshTimer = null;
+  }
+
   function stopRankedCardSweep(markCompleted: boolean): void {
     clearRankedCardSweepTimer();
+    clearRankedCardSweepStartTimer();
     rankedCardSweepActive = false;
     rankedCardSweepQueue = [];
     rankedCardSweepCursor = 0;
@@ -144,18 +177,35 @@
       uniqueByInternalName[base.internalName] = base;
     }
 
-    return Object.values(uniqueByInternalName);
+    return Object.values(uniqueByInternalName).sort((a, b) => {
+      const seenDiff = getRankedHotsetSeenAt(b.marketSlug) - getRankedHotsetSeenAt(a.marketSlug);
+      if (seenDiff !== 0) return seenDiff;
+      return a.name.localeCompare(b.name);
+    });
   }
 
-  function scheduleRankedCardSweepTick(): void {
+  function scheduleRankedCardSweepTick(delayMs = RANKED_CARD_SWEEP_INTERVAL_MS): void {
     clearRankedCardSweepTimer();
     rankedCardSweepTimer = setTimeout(() => {
       runRankedCardSweepTick();
-    }, RANKED_CARD_SWEEP_INTERVAL_MS);
+    }, delayMs);
+  }
+
+  function scheduleRankedCardSweepStart(): void {
+    clearRankedCardSweepStartTimer();
+    rankedCardSweepStartTimer = setTimeout(() => {
+      rankedCardSweepStartTimer = null;
+      runRankedCardSweepTick();
+    }, RANKED_CARD_SWEEP_START_DELAY_MS);
   }
 
   function runRankedCardSweepTick(): void {
     if (!rankedCardSweepActive) return;
+    const circuit = getOrderSummaryCircuitState();
+    if (circuit.open) {
+      scheduleRankedCardSweepTick(Math.max(circuit.retryAfterMs, RANKED_CARD_SWEEP_INTERVAL_MS));
+      return;
+    }
     if (Date.now() >= rankedCardSweepDeadline) {
       log.warn("[Inventory] ranked card sweep timed out before completion");
       stopRankedCardSweep(false);
@@ -226,7 +276,49 @@
       `[Inventory] starting ranked card sweep (${queue.length} items, batch=${RANKED_CARD_SWEEP_BATCH_SIZE}, interval=${RANKED_CARD_SWEEP_INTERVAL_MS}ms)`,
     );
 
-    runRankedCardSweepTick();
+    scheduleRankedCardSweepStart();
+  }
+
+  function buildHotsetRefreshSignature(items: InventoryBaseItem[]): string {
+    const topHotset = getRankedHotsetEntries()
+      .slice(0, HOTSET_REFRESH_LIMIT)
+      .map((entry) => `${entry.slug}:r${entry.maxRank}`)
+      .join("|");
+    return `${items.length}:${topHotset}`;
+  }
+
+  function maybeScheduleRankedHotsetRefresh(items: InventoryBaseItem[]): void {
+    if (!$startupPriceCacheReady) return;
+    if (!$wfmItems || Object.keys($wfmItems).length === 0) return;
+
+    const signature = buildHotsetRefreshSignature(items);
+    if (signature === hotsetRefreshSignature || signature === hotsetRefreshCompletedSignature) {
+      return;
+    }
+
+    hotsetRefreshSignature = signature;
+    clearHotsetRefreshTimer();
+    hotsetRefreshTimer = setTimeout(() => {
+      hotsetRefreshTimer = null;
+      const topHotset = getRankedHotsetEntries().slice(0, HOTSET_REFRESH_LIMIT);
+      if (topHotset.length === 0) {
+        hotsetRefreshCompletedSignature = signature;
+        return;
+      }
+
+      const bySlug = new Map(topHotset.map((entry) => [entry.slug, entry]));
+      const queue = items
+        .filter((item) => item.marketSlug && bySlug.has(item.marketSlug))
+        .sort((a, b) => getRankedHotsetSeenAt(b.marketSlug) - getRankedHotsetSeenAt(a.marketSlug))
+        .slice(0, HOTSET_REFRESH_LIMIT);
+
+      if (queue.length > 0) {
+        hydration.enqueue(queue, $wfmItems, { price: true, ducats: false, orders: true });
+        log.info(`[Inventory] queued ranked hotset refresh (${queue.length} items)`);
+      }
+
+      hotsetRefreshCompletedSignature = signature;
+    }, HOTSET_REFRESH_DELAY_MS);
   }
 
   function mergeKeywords(base: string[] | undefined, extra: string[]): string[] {
@@ -252,6 +344,8 @@
 
   onDestroy(() => {
     clearRankedCardSweepTimer();
+    clearRankedCardSweepStartTimer();
+    clearHotsetRefreshTimer();
     rankedCardSweepActive = false;
 
     hydration.pause();
@@ -263,6 +357,10 @@
 
   $: ({ orderedNames, orderedSlugs } = buildOrderLookups($marketOrders));
   $: tabBaseItems = buildBaseInventoryItems($parsedItems, filter, $wfmItems, orderedNames, orderedSlugs);
+  $: allRankedBaseItems = [
+    ...buildBaseInventoryItems($parsedItems, "mods", $wfmItems, orderedNames, orderedSlugs),
+    ...buildBaseInventoryItems($parsedItems, "arcanes", $wfmItems, orderedNames, orderedSlugs),
+  ];
   $: tabItems = buildInventoryViewItems(tabBaseItems, $hydrationMetrics, filter);
   $: relicSearchKeywordIndex = buildRelicSearchKeywordIndex($relicDb);
   $: searchableTabItems =
@@ -286,9 +384,9 @@
   $: metricNeeds = metricNeedsFromFilters($inventoryFilters, filter);
   $: if ($startupPriceCacheReady && Object.keys($wfmItems).length > 0) {
     prefetchVisibleMetrics(filtered, metricNeeds);
+    maybeScheduleRankedHotsetRefresh(allRankedBaseItems);
     maybeStartRankedCardSweep(filtered);
   }
-  $: backendDebugCounters = $hydrationDebug.priceDebugCounters as unknown as Record<string, number>;
   $: if ($debugMode) {
     hydration.refreshDebugStats();
   }
@@ -308,9 +406,9 @@
     <InventoryDebugPanel
       activeTab={filter}
       debug={$hydrationDebug}
-      backendHitOk={backendDebugCounters.backendHitOk ?? 0}
-      backendHitNoData={backendDebugCounters.backendHitNoData ?? 0}
-      backendError={backendDebugCounters.backendError ?? 0}
+      backendHitOk={$hydrationDebug.priceDebugCounters.backendHitOk}
+      backendHitNoData={$hydrationDebug.priceDebugCounters.backendHitNoData}
+      backendError={$hydrationDebug.priceDebugCounters.backendError}
     />
   {/if}
 

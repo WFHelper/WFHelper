@@ -275,26 +275,18 @@ describe("WFM backend fallback integration", () => {
       "https://api.warframe.market/v1/items/primed_flow/statistics",
     );
   });
-
-  it("does not truncate backend order rows to ten entries", async () => {
-    const sellRows = Array.from({ length: 25 }, (_, index) => ({
-      userName: `seller_${index}`,
-      status: "offline",
-      platinum: 100 + index,
-      quantity: 1,
-      rank: 0,
-    }));
-
+  it("uses backend order summary route for ranked card summaries", async () => {
     const fetchMock = vi.fn(async (input: Request | URL | string) => {
       const url = toUrl(input);
-      if (url === `${BACKEND_URL}/v1/orders/primed_animal_instinct?rank=0`) {
+      if (url === `${BACKEND_URL}/v1/order-summary/primed_flow?rank=10`) {
         return jsonResponse(200, {
           ok: true,
           data: {
-            slug: "primed_animal_instinct",
-            sell: sellRows,
-            buy: [],
-            timestamp: 778899,
+            slug: "primed_flow",
+            rank: 10,
+            wts: 150,
+            wtb: 120,
+            timestamp: 112233,
           },
         });
       }
@@ -303,20 +295,24 @@ describe("WFM backend fallback integration", () => {
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const { fetchItemOrderBookBySlug, clearOrderBookCache } = await import("./orderBook.js");
-    clearOrderBookCache();
+    const { fetchOrderSummaryBySlug, resetOrderSummaryDebugState } =
+      await import("./orderSummaryRemote.js");
+    resetOrderSummaryDebugState();
 
-    const result = await fetchItemOrderBookBySlug("primed_animal_instinct", { rank: 0 });
+    const result = await fetchOrderSummaryBySlug("primed_flow", { rank: 10 });
 
-    expect(result.status).toBe("ok");
-    if (result.status === "ok") {
-      expect(result.data.sell).toHaveLength(25);
-      expect(result.data.sell[0]).toMatchObject({ userName: "seller_0", rank: 0 });
-      expect(result.data.sell[24]).toMatchObject({ userName: "seller_24", rank: 0 });
-    }
+    expect(result).toMatchObject({
+      status: "ok",
+      data: {
+        slug: "primed_flow",
+        rank: 10,
+        wts: 150,
+        wtb: 120,
+      },
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(toUrl(fetchMock.mock.calls[0][0])).toBe(
-      `${BACKEND_URL}/v1/orders/primed_animal_instinct?rank=0`,
+      `${BACKEND_URL}/v1/order-summary/primed_flow?rank=10`,
     );
   });
 

@@ -8,6 +8,7 @@ import { importCache, exportCache } from "./wfm/priceCache.js";
 import type { CachedPriceEntry } from "./wfm/priceCache.js";
 import { importOrderSummaryCache, exportOrderSummaryCache } from "./wfm/orderSummaryCache.js";
 import type { CachedOrderSummaryEntry } from "./wfm/orderSummaryCache.js";
+import { exportRankedHotset, importRankedHotset } from "./wfm/rankedHotset.js";
 import { log } from "./log.js";
 import { get } from "svelte/store";
 import { writable } from "svelte/store";
@@ -74,6 +75,18 @@ export function initStartup(): StartupHandle {
       profileStage("order-cache:load", stageStart);
     } catch (e) {
       log.warn("[Startup] loadOrderCache failed:", e);
+    }
+
+    try {
+      const stageStart = Date.now();
+      const rankedHotset = await ipc.loadRankedHotset();
+      if (rankedHotset) {
+        const count = importRankedHotset(rankedHotset as Record<string, unknown>);
+        log.info(`[Startup] Restored ${count} ranked hotset entries from disk cache`);
+      }
+      profileStage("ranked-hotset:load", stageStart);
+    } catch (e) {
+      log.warn("[Startup] loadRankedHotset failed:", e);
     } finally {
       startupPriceCacheReady.set(true);
     }
@@ -149,6 +162,11 @@ async function flushPriceCacheToDisk(): Promise<void> {
     const orderData = exportOrderSummaryCache();
     if (Object.keys(orderData).length > 0) {
       await ipc.saveOrderCache(orderData as Record<string, unknown>);
+    }
+
+    const hotsetData = exportRankedHotset();
+    if (Array.isArray(hotsetData.entries) && hotsetData.entries.length > 0) {
+      await ipc.saveRankedHotset(hotsetData as unknown as Record<string, unknown>);
     }
   } catch {
     // best-effort, don't log every periodic failure

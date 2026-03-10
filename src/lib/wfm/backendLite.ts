@@ -72,6 +72,14 @@ export interface BackendOrdersPayload {
   timestamp: number | null;
 }
 
+export interface BackendOrderSummaryPayload {
+  slug: string;
+  rank: number | null;
+  wts: number | null;
+  wtb: number | null;
+  timestamp: number | null;
+}
+
 export type BackendFetchResult<T> =
   | { status: "ok"; data: T }
   | { status: "not_found" }
@@ -233,6 +241,46 @@ export async function fetchBackendOrdersBySlug(
       slug: responseSlug || normalizedSlug,
       sell: parseOrderBookSide(result.data.sell),
       buy: parseOrderBookSide(result.data.buy),
+      timestamp: timestamp != null ? Math.floor(timestamp) : null,
+    },
+  };
+}
+
+export async function fetchBackendOrderSummaryBySlug(
+  slug: string,
+  options?: { rank?: number | null },
+): Promise<BackendFetchResult<BackendOrderSummaryPayload>> {
+  const normalizedSlug = normalizeWfmSlug(slug);
+  if (!normalizedSlug) return { status: "not_found" };
+
+  const rankRaw = toFiniteNumber(options?.rank ?? null);
+  const rank = rankRaw != null && rankRaw >= 0 ? Math.floor(rankRaw) : null;
+  const path =
+    rank != null
+      ? `/v1/order-summary/${encodeURIComponent(normalizedSlug)}?rank=${encodeURIComponent(String(rank))}`
+      : `/v1/order-summary/${encodeURIComponent(normalizedSlug)}`;
+
+  const result = await fetchBackendJson(path);
+  if (result.status !== "ok") return result;
+
+  const timestamp = toFiniteNumber(result.data.timestamp);
+  const responseRank = toFiniteNumber(result.data.rank);
+  const responseSlug =
+    typeof result.data.slug === "string" ? normalizeWfmSlug(result.data.slug) : normalizedSlug;
+
+  return {
+    status: "ok",
+    data: {
+      slug: responseSlug || normalizedSlug,
+      rank: responseRank != null && responseRank >= 0 ? Math.floor(responseRank) : rank,
+      wts: (() => {
+        const value = toFiniteNumber(result.data.wts);
+        return value != null && value >= 0 ? Math.round(value) : null;
+      })(),
+      wtb: (() => {
+        const value = toFiniteNumber(result.data.wtb);
+        return value != null && value >= 0 ? Math.round(value) : null;
+      })(),
       timestamp: timestamp != null ? Math.floor(timestamp) : null,
     },
   };

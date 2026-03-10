@@ -1,7 +1,16 @@
-import { MISS_META_PREFIX, MISS_ORDERS_PREFIX, MISS_PRICE_PREFIX, SKIP_UNTRADABLE_PREFIX } from '../constants';
+import { MISS_META_PREFIX, MISS_ORDERS_PREFIX, MISS_ORDER_SUMMARY_PREFIX, MISS_PRICE_PREFIX, SKIP_UNTRADABLE_PREFIX } from '../constants';
 import type { Env } from '../types';
 import { clamp, getJsonFromKv, parsePositiveInt } from '../utils';
-import { fetchMetaPayload, fetchOrdersPayload, fetchPricePayload, markUntradable, putMetaPayload, putPricePayload } from './prewarm';
+import {
+	buildOrderSummaryPayload,
+	fetchMetaPayload,
+	fetchOrdersPayload,
+	fetchPricePayload,
+	markUntradable,
+	putMetaPayload,
+	putOrderSummaryPayload,
+	putPricePayload,
+} from './prewarm';
 import sharedNumeric from '../../../../config/shared/numeric.cjs';
 
 const { normalizeRankFilter } = sharedNumeric as {
@@ -34,9 +43,24 @@ function ordersMissKey(slug: string, rank: number | null): string {
 	return rank == null ? `${MISS_ORDERS_PREFIX}${slug}` : `${MISS_ORDERS_PREFIX}${slug}:r${rank}`;
 }
 
+function orderSummaryCacheKey(slug: string, rank: number | null): string {
+	return rank == null ? `orders-summary:${slug}` : `orders-summary:${slug}:r${rank}`;
+}
+
+function orderSummaryMissKey(slug: string, rank: number | null): string {
+	return rank == null ? `${MISS_ORDER_SUMMARY_PREFIX}${slug}` : `${MISS_ORDER_SUMMARY_PREFIX}${slug}:r${rank}`;
+}
+
 const priceInFlight = new Map<string, Promise<HydrateResult>>();
 const metaInFlight = new Map<string, Promise<Record<string, unknown> | null>>();
 const ordersInFlight = new Map<string, Promise<HydrateResult>>();
+const orderSummaryInFlight = new Map<string, Promise<HydrateResult>>();
+
+const ORDER_SUMMARY_BREAKER_THRESHOLD = 6;
+const ORDER_SUMMARY_BREAKER_COOLDOWN_MS = 90_000;
+
+let orderSummaryTransientStreak = 0;
+let orderSummaryCircuitOpenUntil = 0;
 
 const autoStats = {
 	priceCacheHits: 0,
@@ -52,6 +76,12 @@ const autoStats = {
 	ordersHydrated: 0,
 	ordersNegativeHits: 0,
 	ordersStaleRefreshQueued: 0,
+	orderSummaryCacheHits: 0,
+	orderSummaryHydrated: 0,
+	orderSummaryNegativeHits: 0,
+	orderSummaryStaleRefreshQueued: 0,
+	orderSummaryUnavailable: 0,
+	orderSummaryCircuitOpen: 0,
 };
 
 function noDataTtlSec(env: Env): number {
@@ -65,11 +95,19 @@ function staleRefreshSec(env: Env): number {
 function ordersCacheTtlSec(env: Env): number {
 	// KV hard-eviction TTL — must be well above ORDERS_STALE_REFRESH_SEC so that
 	// stale-if-error works: stale data stays available in KV when upstream is degraded.
-	return clamp(parsePositiveInt(env.ORDERS_CACHE_TTL_SEC, 3600), 120, 86400);
+	return clamp(parsePositiveInt(env.ORDERS_CACHE_TTL_SEC, 86400), 120, 86400);
 }
 
 function ordersStaleRefreshSec(env: Env): number {
 	return clamp(parsePositiveInt(env.ORDERS_STALE_REFRESH_SEC, 21600), 15, 86400);
+}
+
+function orderSummaryCacheTtlSec(env: Env): number {
+	return clamp(parsePositiveInt(env.ORDERS_SUMMARY_CACHE_TTL_SEC, 172800), 300, 604800);
+}
+
+function orderSummaryStaleRefreshSec(env: Env): number {
+	return clamp(parsePositiveInt(env.ORDERS_SUMMARY_STALE_REFRESH_SEC, 21600), 60, 604800);
 }
 
 function timestampFromRecord(data: Record<string, unknown> | null): number {
@@ -88,6 +126,29 @@ function isOrdersStale(data: Record<string, unknown> | null, env: Env): boolean 
 	const ts = timestampFromRecord(data);
 	if (ts <= 0) return true;
 	return Date.now() - ts > ordersStaleRefreshSec(env) * 1000;
+}
+
+function isOrderSummaryStale(data: Record<string, unknown> | null, env: Env): boolean {
+	const ts = timestampFromRecord(data);
+	if (ts <= 0) return true;
+	return Date.now() - ts > orderSummaryStaleRefreshSec(env) * 1000;
+}
+
+function noteOrderSummaryTransient(): void {
+	orderSummaryTransientStreak += 1;
+	if (orderSummaryTransientStreak >= ORDER_SUMMARY_BREAKER_THRESHOLD) {
+		orderSummaryCircuitOpenUntil = Date.now() + ORDER_SUMMARY_BREAKER_COOLDOWN_MS;
+		autoStats.orderSummaryCircuitOpen += 1;
+	}
+}
+
+function noteOrderSummaryRecovery(): void {
+	orderSummaryTransientStreak = 0;
+	orderSummaryCircuitOpenUntil = 0;
+}
+
+function orderSummaryCircuitOpen(): boolean {
+	return orderSummaryCircuitOpenUntil > Date.now();
 }
 
 async function setNegativeMarker(namespace: KVNamespace, key: string, env: Env): Promise<void> {
@@ -202,6 +263,55 @@ async function hydrateOrders(env: Env, slug: string, markNoData: boolean, rank: 
 	return task;
 }
 
+async function hydrateOrderSummary(env: Env, slug: string, markNoData: boolean, rank: number | null): Promise<HydrateResult> {
+	const requestKey = orderSummaryCacheKey(slug, rank);
+	const missKey = orderSummaryMissKey(slug, rank);
+
+	if (orderSummaryCircuitOpen()) {
+		autoStats.orderSummaryUnavailable += 1;
+		return { data: null, transient: true };
+	}
+
+	const inFlight = orderSummaryInFlight.get(requestKey);
+	if (inFlight) return inFlight;
+
+	const task = (async () => {
+		const result = await fetchOrdersPayload(slug, rank != null ? { rank } : undefined);
+		if (!result.data) {
+			if (result.transient) {
+				noteOrderSummaryTransient();
+				autoStats.orderSummaryUnavailable += 1;
+			} else {
+				noteOrderSummaryRecovery();
+			}
+
+			if (markNoData && !result.transient) {
+				await setNegativeMarker(env.PRICE_CACHE, missKey, env);
+			}
+			return { data: null, transient: result.transient };
+		}
+
+		noteOrderSummaryRecovery();
+		const data = buildOrderSummaryPayload(result.data.slug, rank, result.data);
+		await env.PRICE_CACHE.delete(missKey);
+		await putOrderSummaryPayload(env, result.data.slug, data, rank);
+
+		autoStats.orderSummaryHydrated += 1;
+		return { data, transient: false };
+	})()
+		.catch(() => {
+			noteOrderSummaryTransient();
+			autoStats.orderSummaryUnavailable += 1;
+			return { data: null, transient: true };
+		})
+		.finally(() => {
+			orderSummaryInFlight.delete(requestKey);
+		});
+
+	orderSummaryInFlight.set(requestKey, task);
+	return task;
+}
+
 export async function getOrHydratePrice(
 	env: Env,
 	slug: string,
@@ -304,8 +414,50 @@ export async function getOrHydrateOrders(
 	return hydrated.transient ? { status: 'unavailable', data: null } : { status: 'not_found', data: null };
 }
 
+export async function getOrHydrateOrderSummary(
+	env: Env,
+	slug: string,
+	ctx?: ExecutionContext,
+	rankInput?: number | null,
+): Promise<AutoReadResult> {
+	const rank = normalizeRankFilter(rankInput);
+	const cacheKey = orderSummaryCacheKey(slug, rank);
+	const missKey = orderSummaryMissKey(slug, rank);
+
+	const cached = await getJsonFromKv(env.PRICE_CACHE, cacheKey);
+	if (cached) {
+		autoStats.orderSummaryCacheHits += 1;
+		if (ctx && isOrderSummaryStale(cached, env) && !orderSummaryCircuitOpen()) {
+			autoStats.orderSummaryStaleRefreshQueued += 1;
+			ctx.waitUntil(
+				hydrateOrderSummary(env, slug, false, rank).then(() => {
+					return;
+				}),
+			);
+		}
+		return { status: 'ok', data: cached };
+	}
+
+	const missMarker = await env.PRICE_CACHE.get(missKey);
+	if (missMarker) {
+		autoStats.orderSummaryNegativeHits += 1;
+		return { status: 'not_found', data: null };
+	}
+
+	const hydrated = await hydrateOrderSummary(env, slug, true, rank);
+	if (hydrated.data) {
+		return { status: 'ok', data: hydrated.data };
+	}
+
+	return hydrated.transient ? { status: 'unavailable', data: null } : { status: 'not_found', data: null };
+}
+
 export function getAutoCacheStats(): Record<string, number> {
-	return { ...autoStats };
+	return {
+		...autoStats,
+		orderSummaryCircuitActive: orderSummaryCircuitOpen() ? 1 : 0,
+		orderSummaryCircuitRetryAfterMs: Math.max(0, orderSummaryCircuitOpenUntil - Date.now()),
+	};
 }
 
 export function getAutoCacheConfig(env: Env): Record<string, number> {
@@ -315,5 +467,7 @@ export function getAutoCacheConfig(env: Env): Record<string, number> {
 		staleRefreshSec: staleRefreshSec(env),
 		ordersCacheTtlSec: ordersCacheTtlSec(env),
 		ordersStaleRefreshSec: ordersStaleRefreshSec(env),
+		orderSummaryCacheTtlSec: orderSummaryCacheTtlSec(env),
+		orderSummaryStaleRefreshSec: orderSummaryStaleRefreshSec(env),
 	};
 }

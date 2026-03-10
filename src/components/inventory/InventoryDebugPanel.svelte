@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { InventoryFilterTab } from "../../lib/inventoryMarket.js";
-  import type { InventoryHydrationDebugState } from "../../stores/inventoryHydration.js";
+  import type { InventoryHydrationDebugState } from "../../stores/hydration/hydrationTypes.js";
 
   export let activeTab: InventoryFilterTab = "all_parts";
   export let debug: InventoryHydrationDebugState;
@@ -19,5 +19,13 @@
   <span>beOk={backendHitOk}</span>
   <span>beMiss={backendHitNoData}</span>
   <span>beErr={backendError}</span>
+  <span>sumOk={debug.orderSummaryDebugCounters.backendHitOk}</span>
+  <span>sumMiss={debug.orderSummaryDebugCounters.backendHitNoData}</span>
+  <span>sumErr={debug.orderSummaryDebugCounters.backendError}</span>
+  <span>sumBreaker={debug.orderSummaryDebugCounters.breakerOpen}</span>
+  <span>bookHttp={debug.orderBookDebugCounters.httpCalls}</span>
+  <span>bookOk={debug.orderBookDebugCounters.resultOk}</span>
+  <span>bookMiss={debug.orderBookDebugCounters.resultNoData}</span>
+  <span>bookErr={debug.orderBookDebugCounters.resultError}</span>
   <span>429={debug.priceDebugCounters.rateLimited}</span>
 </div>

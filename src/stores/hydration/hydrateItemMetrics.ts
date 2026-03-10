@@ -3,7 +3,7 @@ import {
   fetchPriceBySlug,
   type RequestPriority,
 } from "../../lib/wfm/wfmPrice.js";
-import { fetchItemOrderBookBySlug } from "../../lib/wfm/orderBook.js";
+import { fetchOrderSummaryBySlug } from "../../lib/wfm/orderSummaryRemote.js";
 import {
   setCachedOrderSummary,
   setCachedOrderSummaryNoData,
@@ -26,13 +26,11 @@ import {
   orderRetryKey,
   hasResolvedPrice,
   hasRankPairCoverage,
-  cheapestOrderPrice,
 } from "./hydrationHelpers.js";
 import { getCachedMedian, getCachedRankOrderSummary } from "./hydrationCacheHelpers.js";
 import sharedNumeric from "../../../config/shared/numeric.cjs";
 
-const { normalizeRank, isRankedGroup } = sharedNumeric as {
-  normalizeRank: (value: unknown, maxRank?: number) => number | null;
+const { isRankedGroup } = sharedNumeric as {
   isRankedGroup: (group: string | null | undefined) => boolean;
 };
 
@@ -395,78 +393,90 @@ export async function hydrateItemMetrics(
       const shouldFetchRankMax =
         shouldRefreshRankMax && !ctx.hasOrderRetryCooldown(rankMaxRetryKey);
 
-      if ((shouldFetchRank0 || shouldFetchRankMax) && ordersSlug) {
-        const result = await fetchItemOrderBookBySlug(ordersSlug);
-
-        if (result.status === "ok") {
-          const pickRankPrice = (
-            entries: Array<{ platinum: number; status: string | null; rank: number | null }>,
-            rank: number,
-          ): number | null => {
-            const ranked = entries.filter((entry) => normalizeRank(entry.rank) === rank);
-            const active = cheapestOrderPrice(ranked, true);
-            if (active != null) return active;
-            return cheapestOrderPrice(ranked, false);
+      const refreshSummaryForRank = async (
+        targetRank: number,
+        retryKey: string,
+        shouldFetch: boolean,
+        existingWts: number | null,
+        existingWtb: number | null,
+        existingHasOrders: boolean,
+      ): Promise<{ wts: number | null; wtb: number | null; hasOrders: boolean }> => {
+        if (!shouldFetch || !ordersSlug) {
+          return {
+            wts: existingWts,
+            wtb: existingWtb,
+            hasOrders: existingHasOrders,
           };
+        }
 
-          if (shouldFetchRank0) {
-            wtsR0 = pickRankPrice(result.data.sell, 0);
-            wtbR0 = pickRankPrice(result.data.buy, 0);
-            hasOrdersR0 = true;
-            if (wtsR0 == null && wtbR0 == null) {
-              setCachedOrderSummaryNoData(ordersSlug, 0, {
-                sourceTimestamp: result.data.timestamp,
-              });
-            } else {
-              setCachedOrderSummary(ordersSlug, 0, {
-                wts: wtsR0,
-                wtb: wtbR0,
-                sourceTimestamp: result.data.timestamp,
-              });
-            }
-            ctx.clearOrderRetryCooldown(rank0RetryKey);
+        const result = await fetchOrderSummaryBySlug(ordersSlug, { rank: targetRank });
+        if (result.status === "ok") {
+          const nextWts = result.data.wts;
+          const nextWtb = result.data.wtb;
+          if (nextWts == null && nextWtb == null) {
+            setCachedOrderSummaryNoData(ordersSlug, targetRank, {
+              sourceTimestamp: result.data.timestamp,
+            });
+          } else {
+            setCachedOrderSummary(ordersSlug, targetRank, {
+              wts: nextWts,
+              wtb: nextWtb,
+              sourceTimestamp: result.data.timestamp,
+            });
           }
+          ctx.clearOrderRetryCooldown(retryKey);
+          return {
+            wts: nextWts,
+            wtb: nextWtb,
+            hasOrders: true,
+          };
+        }
 
-          if (shouldFetchRankMax) {
-            wtsRmax = pickRankPrice(result.data.sell, rankedMaxRank);
-            wtbRmax = pickRankPrice(result.data.buy, rankedMaxRank);
-            hasOrdersRmax = true;
-            if (wtsRmax == null && wtbRmax == null) {
-              setCachedOrderSummaryNoData(ordersSlug, rankedMaxRank, {
-                sourceTimestamp: result.data.timestamp,
-              });
-            } else {
-              setCachedOrderSummary(ordersSlug, rankedMaxRank, {
-                wts: wtsRmax,
-                wtb: wtbRmax,
-                sourceTimestamp: result.data.timestamp,
-              });
-            }
-            ctx.clearOrderRetryCooldown(rankMaxRetryKey);
-          }
-        } else if (result.status === "not_found") {
-          if (shouldFetchRank0) {
-            wtsR0 = null;
-            wtbR0 = null;
-            hasOrdersR0 = true;
-            setCachedOrderSummaryNoData(ordersSlug, 0);
-            ctx.clearOrderRetryCooldown(rank0RetryKey);
-          }
+        if (result.status === "not_found") {
+          setCachedOrderSummaryNoData(ordersSlug, targetRank);
+          ctx.clearOrderRetryCooldown(retryKey);
+          return {
+            wts: null,
+            wtb: null,
+            hasOrders: true,
+          };
+        }
 
-          if (shouldFetchRankMax) {
-            wtsRmax = null;
-            wtbRmax = null;
-            hasOrdersRmax = true;
-            setCachedOrderSummaryNoData(ordersSlug, rankedMaxRank);
-            ctx.clearOrderRetryCooldown(rankMaxRetryKey);
-          }
-        } else {
-          if (shouldFetchRank0) {
-            ctx.setOrderRetryCooldown(rank0RetryKey, ORDER_TRANSIENT_RETRY_MS);
-          }
-          if (shouldFetchRankMax) {
-            ctx.setOrderRetryCooldown(rankMaxRetryKey, ORDER_TRANSIENT_RETRY_MS);
-          }
+        ctx.setOrderRetryCooldown(retryKey, ORDER_TRANSIENT_RETRY_MS);
+        return {
+          wts: existingWts,
+          wtb: existingWtb,
+          hasOrders: existingHasOrders,
+        };
+      };
+
+      if ((shouldFetchRank0 || shouldFetchRankMax) && ordersSlug) {
+        if (shouldFetchRank0) {
+          const refreshed = await refreshSummaryForRank(
+            0,
+            rank0RetryKey,
+            shouldFetchRank0,
+            wtsR0,
+            wtbR0,
+            hasOrdersR0,
+          );
+          wtsR0 = refreshed.wts;
+          wtbR0 = refreshed.wtb;
+          hasOrdersR0 = refreshed.hasOrders;
+        }
+
+        if (shouldFetchRankMax) {
+          const refreshed = await refreshSummaryForRank(
+            rankedMaxRank,
+            rankMaxRetryKey,
+            shouldFetchRankMax,
+            wtsRmax,
+            wtbRmax,
+            hasOrdersRmax,
+          );
+          wtsRmax = refreshed.wts;
+          wtbRmax = refreshed.wtb;
+          hasOrdersRmax = refreshed.hasOrders;
         }
       }
     }

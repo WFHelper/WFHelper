@@ -1,10 +1,20 @@
-import { CATALOG_CACHE_KEY, PREWARM_CURSOR_KEY, PREWARM_LAST_RUN_KEY, SKIP_UNTRADABLE_PREFIX, SLUG_RE, WFM_HEADERS } from '../constants';
-import type { Env, MetaPayload, OrdersPayload, PrewarmResult } from '../types';
+import {
+	CATALOG_CACHE_KEY,
+	ORDER_SUMMARY_HOTSET_KEY,
+	ORDER_SUMMARY_PREWARM_LAST_RUN_KEY,
+	PREWARM_CURSOR_KEY,
+	PREWARM_LAST_RUN_KEY,
+	SKIP_UNTRADABLE_PREFIX,
+	SLUG_RE,
+	WFM_HEADERS,
+} from '../constants';
+import type { Env, MetaPayload, OrdersPayload, OrderSummaryHotsetEntry, OrderSummaryPrewarmResult, PrewarmResult } from '../types';
 import { clamp, getJsonFromKv, parsePositiveInt } from '../utils';
 import wfmStatsShared from '../../../../config/shared/wfmStats.cjs';
 import sharedNumeric from '../../../../config/shared/numeric.cjs';
 
 const UNTRADABLE_SKIP_TTL_SEC = 30 * 24 * 60 * 60;
+const ORDER_SUMMARY_HOTSET_MAX_ENTRIES = 96;
 
 type SharedWfmStatsModule = {
 	extractMedianFromStatsPayload: (jsonPayload: unknown, options?: { rank?: number | null }) => number | null;
@@ -19,9 +29,68 @@ export function cacheTtlSec(env: Env): number {
 	return clamp(parsePositiveInt(env.CACHE_TTL_SEC, 43200), 60, 604800);
 }
 
+export function orderSummaryCacheTtlSec(env: Env): number {
+	return clamp(parsePositiveInt(env.ORDERS_SUMMARY_CACHE_TTL_SEC, 172800), 300, 604800);
+}
+
 function sanitizeSlugList(value: unknown): string[] {
 	if (!Array.isArray(value)) return [];
 	return value.filter((entry): entry is string => typeof entry === 'string' && SLUG_RE.test(entry));
+}
+
+function sanitizeOrderSummaryHotsetEntries(value: unknown): OrderSummaryHotsetEntry[] {
+	if (!Array.isArray(value)) return [];
+
+	const entries = value
+		.map((entry) => {
+			if (!entry || typeof entry !== 'object') return null;
+			const row = entry as Record<string, unknown>;
+			const slug = typeof row.slug === 'string' ? row.slug.trim().toLowerCase() : '';
+			const maxRank = normalizeRankFilter(row.maxRank);
+			const lastSeenAt = Number(row.lastSeenAt || 0);
+			if (!SLUG_RE.test(slug)) return null;
+			if (maxRank == null || maxRank <= 0) return null;
+			if (!Number.isFinite(lastSeenAt) || lastSeenAt <= 0) return null;
+			return {
+				slug,
+				maxRank,
+				lastSeenAt: Math.round(lastSeenAt),
+			};
+		})
+		.filter((entry): entry is OrderSummaryHotsetEntry => entry != null)
+		.sort((a, b) => b.lastSeenAt - a.lastSeenAt || a.slug.localeCompare(b.slug));
+
+	const deduped: OrderSummaryHotsetEntry[] = [];
+	const seen = new Set<string>();
+	for (const entry of entries) {
+		if (seen.has(entry.slug)) continue;
+		seen.add(entry.slug);
+		deduped.push(entry);
+		if (deduped.length >= ORDER_SUMMARY_HOTSET_MAX_ENTRIES) break;
+	}
+
+	return deduped;
+}
+
+function cheapestOrderPrice(entries: Array<{ platinum: number; status: string | null }>, activeOnly: boolean): number | null {
+	const filtered = activeOnly ? entries.filter((entry) => entry.status === 'ingame' || entry.status === 'online') : entries;
+	if (filtered.length === 0) return null;
+	return Math.min(...filtered.map((entry) => entry.platinum));
+}
+
+export function buildOrderSummaryPayload(slug: string, rank: number | null, payload: OrdersPayload): Record<string, unknown> {
+	const sellActive = cheapestOrderPrice(payload.sell, true);
+	const buyActive = cheapestOrderPrice(payload.buy, true);
+	const sellAny = cheapestOrderPrice(payload.sell, false);
+	const buyAny = cheapestOrderPrice(payload.buy, false);
+
+	return {
+		slug,
+		rank,
+		wts: sellActive ?? sellAny ?? null,
+		wtb: buyActive ?? buyAny ?? null,
+		timestamp: payload.timestamp,
+	};
 }
 
 export async function fetchCatalogSlugs(env: Env, forceRefresh: boolean): Promise<string[]> {
@@ -344,10 +413,106 @@ export async function putMetaPayload(env: Env, payload: MetaPayload): Promise<Re
 	return payload as unknown as Record<string, unknown>;
 }
 
+export async function putOrderSummaryPayload(
+	env: Env,
+	slug: string,
+	payload: Record<string, unknown>,
+	rank?: number | null,
+): Promise<Record<string, unknown>> {
+	const normalizedRank = normalizeRankFilter(rank);
+	const cacheKey = normalizedRank == null ? `orders-summary:${slug}` : `orders-summary:${slug}:r${normalizedRank}`;
+
+	await env.PRICE_CACHE.put(cacheKey, JSON.stringify(payload), {
+		expirationTtl: orderSummaryCacheTtlSec(env),
+	});
+
+	return payload;
+}
+
 export async function markUntradable(env: Env, slug: string): Promise<void> {
 	await env.ITEM_META.put(`${SKIP_UNTRADABLE_PREFIX}${slug}`, '1', {
 		expirationTtl: UNTRADABLE_SKIP_TTL_SEC,
 	});
+}
+
+export async function getOrderSummaryHotset(env: Env): Promise<OrderSummaryHotsetEntry[]> {
+	const hotset = await getJsonFromKv(env.PRICE_CACHE, ORDER_SUMMARY_HOTSET_KEY);
+	return sanitizeOrderSummaryHotsetEntries(hotset?.entries);
+}
+
+export async function saveOrderSummaryHotset(env: Env, entries: OrderSummaryHotsetEntry[]): Promise<OrderSummaryHotsetEntry[]> {
+	const sanitized = sanitizeOrderSummaryHotsetEntries(entries);
+	await env.PRICE_CACHE.put(
+		ORDER_SUMMARY_HOTSET_KEY,
+		JSON.stringify({
+			updatedAt: Date.now(),
+			entries: sanitized,
+		}),
+	);
+	return sanitized;
+}
+
+export async function prewarmOrderSummaryHotset(
+	env: Env,
+	options: {
+		reason: 'manual' | 'cron';
+		batchSize?: number;
+		entries?: OrderSummaryHotsetEntry[];
+	},
+): Promise<OrderSummaryPrewarmResult> {
+	const adminMaxBatch = clamp(parsePositiveInt(env.ADMIN_PREWARM_MAX_BATCH, 30), 1, 100);
+	const defaultBatch = parsePositiveInt(env.ORDER_SUMMARY_PREWARM_BATCH_SIZE, 12);
+	const batchSize = clamp(options.batchSize ?? defaultBatch, 1, adminMaxBatch);
+	const providedEntries = sanitizeOrderSummaryHotsetEntries(options.entries);
+	const hotset = providedEntries.length > 0 ? providedEntries : await getOrderSummaryHotset(env);
+	const queue = hotset.slice(0, batchSize);
+
+	const result: OrderSummaryPrewarmResult = {
+		ok: true,
+		reason: options.reason,
+		timestamp: Date.now(),
+		batchSize,
+		hotsetSize: hotset.length,
+		processed: 0,
+		updated: 0,
+		failures: 0,
+	};
+
+	for (const entry of queue) {
+		for (const rank of [0, entry.maxRank]) {
+			try {
+				const ordersResult = await fetchOrdersPayload(entry.slug, { rank });
+				if (!ordersResult.data) {
+					if (!ordersResult.transient) {
+						const payload = {
+							slug: entry.slug,
+							rank,
+							wts: null,
+							wtb: null,
+							timestamp: Date.now(),
+						};
+						await putOrderSummaryPayload(env, entry.slug, payload, rank);
+						result.updated += 1;
+					} else {
+						result.failures += 1;
+					}
+					result.processed += 1;
+					continue;
+				}
+
+				const payload = buildOrderSummaryPayload(entry.slug, rank, ordersResult.data);
+				await putOrderSummaryPayload(env, entry.slug, payload, rank);
+				result.updated += 1;
+				result.processed += 1;
+			} catch {
+				result.failures += 1;
+				result.processed += 1;
+			}
+		}
+	}
+
+	await env.PRICE_CACHE.put(ORDER_SUMMARY_PREWARM_LAST_RUN_KEY, JSON.stringify(result));
+	return result;
 }
 
 export async function prewarmBatch(

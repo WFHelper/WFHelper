@@ -110,6 +110,9 @@ export const ipc = {
   loadOrderCache: () => window.api.loadOrderCache(),
   saveOrderCache: (...args: IpcInvokeMap["saveOrderCache"]["args"]) =>
     window.api.saveOrderCache(...args),
+  loadRankedHotset: () => window.api.loadRankedHotset(),
+  saveRankedHotset: (...args: IpcInvokeMap["saveRankedHotset"]["args"]) =>
+    window.api.saveRankedHotset(...args),
   getStatsHistory: () => window.api.getStatsHistory(),
   getStatsCurrentSession: () => window.api.getStatsCurrentSession(),
   importStatsHistory: (raw: unknown[]) => window.api.importStatsHistory(raw),

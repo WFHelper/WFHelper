@@ -73,6 +73,10 @@ export interface PreloadAPI {
   saveOrderCache: (
     data: IpcInvokeMap["saveOrderCache"]["args"][0],
   ) => Promise<IpcInvokeMap["saveOrderCache"]["return"]>;
+  loadRankedHotset: () => Promise<IpcInvokeMap["loadRankedHotset"]["return"]>;
+  saveRankedHotset: (
+    data: IpcInvokeMap["saveRankedHotset"]["args"][0],
+  ) => Promise<IpcInvokeMap["saveRankedHotset"]["return"]>;
   getStatsHistory: () => Promise<IpcInvokeMap["getStatsHistory"]["return"]>;
   getStatsCurrentSession: () => Promise<IpcInvokeMap["getStatsCurrentSession"]["return"]>;
   importStatsHistory: (raw: unknown[]) => Promise<IpcInvokeMap["importStatsHistory"]["return"]>;

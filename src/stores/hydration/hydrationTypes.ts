@@ -1,4 +1,6 @@
 import type { PriceDebugCounters, PriceQueueStats } from "../../lib/wfm/wfmPrice.js";
+import type { OrderBookDebugCounters } from "../../lib/wfm/orderBook.js";
+import type { OrderSummaryDebugCounters } from "../../lib/wfm/orderSummaryRemote.js";
 import type { InventoryBaseItem, ItemMetrics, MetricNeeds } from "../../lib/inventoryMarket.js";
 import type { WfmItemsLookup } from "../../types/ipc.js";
 import type { Readable } from "svelte/store";
@@ -35,6 +37,8 @@ export interface InventoryPriceDebugCounters extends PriceDebugCounters {
 export interface InventoryHydrationDebugState {
   priceQueueStats: PriceQueueStats;
   priceDebugCounters: InventoryPriceDebugCounters;
+  orderSummaryDebugCounters: OrderSummaryDebugCounters;
+  orderBookDebugCounters: OrderBookDebugCounters;
   queued: number;
   pending: number;
 }

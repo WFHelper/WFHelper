@@ -1,6 +1,6 @@
 import { handleAdminRoutes } from './routes/admin';
 import { handlePublicRoutes } from './routes/public';
-import { prewarmBatch } from './services/prewarm';
+import { prewarmBatch, prewarmOrderSummaryHotset } from './services/prewarm';
 import { jsonResponse, originIsAllowed } from './security/cors';
 import type { Env } from './types';
 import { parsePositiveInt } from './utils';
@@ -30,12 +30,7 @@ export default {
 		try {
 			return await handleFetch(req, env, ctx);
 		} catch (err) {
-			return jsonResponse(
-				{ ok: false, error: 'internal_error', detail: String(err) },
-				req,
-				env,
-				500,
-			);
+			return jsonResponse({ ok: false, error: 'internal_error', detail: String(err) }, req, env, 500);
 		}
 	},
 
@@ -45,6 +40,10 @@ export default {
 			batchSize: parsePositiveInt(env.PREWARM_BATCH_SIZE, 8),
 			refreshCatalog: false,
 			resetCursor: false,
+		});
+		await prewarmOrderSummaryHotset(env, {
+			reason: 'cron',
+			batchSize: parsePositiveInt(env.ORDER_SUMMARY_PREWARM_BATCH_SIZE, 12),
 		});
 	},
 } satisfies ExportedHandler<Env>;

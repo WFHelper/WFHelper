@@ -28,7 +28,7 @@ export interface CycleAlerts {
 
 export interface FissureAlert {
   id: string;
-  tier: string;        // tier name or "any"
+  tier: string; // tier name or "any"
   missionType: string; // mission type or "any"
   steelPath: "any" | "normal" | "steel";
 }
@@ -249,6 +249,14 @@ export interface IpcInvokeMap {
     args: [data: Record<string, unknown>];
     return: { ok: boolean };
   };
+  loadRankedHotset: {
+    args: [];
+    return: Record<string, unknown> | null;
+  };
+  saveRankedHotset: {
+    args: [data: Record<string, unknown>];
+    return: { ok: boolean };
+  };
   getStatsHistory: {
     args: [];
     return: DailyStatEntry[];
@@ -270,7 +278,7 @@ export interface WfmNotification {
 }
 
 export interface DailyStatEntry {
-  date: string;        // "YYYY-MM-DD"
+  date: string; // "YYYY-MM-DD"
   platDelta: number;
   creditsDelta: number;
   endoDelta: number;

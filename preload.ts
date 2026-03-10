@@ -74,6 +74,8 @@ contextBridge.exposeInMainWorld("api", {
   savePriceCache: (data: unknown) => ipcRenderer.invoke("price-cache:save", data),
   loadOrderCache: () => ipcRenderer.invoke("order-cache:load"),
   saveOrderCache: (data: unknown) => ipcRenderer.invoke("order-cache:save", data),
+  loadRankedHotset: () => ipcRenderer.invoke("ranked-hotset:load"),
+  saveRankedHotset: (data: unknown) => ipcRenderer.invoke("ranked-hotset:save", data),
 
   getStatsHistory: () => ipcRenderer.invoke("stats:get-history"),
   getStatsCurrentSession: () => ipcRenderer.invoke("stats:get-current"),

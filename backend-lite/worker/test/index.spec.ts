@@ -62,6 +62,41 @@ describe('backend-lite worker', () => {
 		expect(await response.json()).toEqual({ ok: false, error: 'unauthorized' });
 	});
 
+	it('stores order summary hotset entries through admin route', async () => {
+		const testEnv = {
+			...env,
+			ADMIN_API_KEY: 'test-key',
+		};
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(
+			new IncomingRequest('https://example.com/admin/order-summary-hotset', {
+				method: 'POST',
+				headers: {
+					authorization: 'Bearer test-key',
+					'content-type': 'application/json',
+				},
+				body: JSON.stringify({
+					replace: true,
+					entries: [{ slug: 'primed_flow', maxRank: 10, lastSeenAt: 123456 }],
+				}),
+			}),
+			testEnv as unknown as Env,
+			ctx,
+		);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchObject({
+			ok: true,
+			result: {
+				total: 1,
+			},
+		});
+
+		const stored = await testEnv.PRICE_CACHE.get('order-summary:hotset:v1');
+		expect(stored).toContain('primed_flow');
+	});
+
 	it('rate limits repeated admin requests from same IP', async () => {
 		const testEnv = {
 			...env,
@@ -310,6 +345,169 @@ describe('backend-lite worker', () => {
 		expect(cached).toBeTruthy();
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		expect(fetchMock.mock.calls[0]?.[0]).toBe(`https://api.warframe.market/v2/orders/item/${slug}`);
+	});
+
+	it('auto-hydrates order summary endpoint on cache miss', async () => {
+		const slug = 'wf_test_order_summary_slug';
+		await env.PRICE_CACHE.delete(`orders-summary:${slug}:r10`);
+		await env.PRICE_CACHE.delete(`miss:orders-summary:v1:${slug}:r10`);
+
+		const ordersPayload = {
+			data: [
+				{
+					type: 'sell',
+					platinum: 15,
+					quantity: 1,
+					rank: 10,
+					visible: true,
+					user: { ingameName: 'SellerA', status: 'ingame' },
+				},
+				{
+					type: 'buy',
+					platinum: 11,
+					quantity: 1,
+					rank: 10,
+					visible: true,
+					user: { ingameName: 'BuyerA', status: 'online' },
+				},
+			],
+		};
+
+		globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input instanceof URL ? input : typeof input === 'string' ? input : input.url);
+			if (url === `https://api.warframe.market/v2/orders/item/${slug}`) {
+				return new Response(JSON.stringify(ordersPayload), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				});
+			}
+			throw new Error(`Unexpected url: ${url}`);
+		}) as unknown as typeof fetch;
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(new IncomingRequest(`https://example.com/v1/order-summary/${slug}?rank=10`), env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchObject({
+			ok: true,
+			data: {
+				slug,
+				rank: 10,
+				wts: 15,
+				wtb: 11,
+			},
+		});
+
+		const cached = await env.PRICE_CACHE.get(`orders-summary:${slug}:r10`);
+		expect(cached).toBeTruthy();
+	});
+
+	it('manual order summary prewarm warms hotset entries', async () => {
+		await env.PRICE_CACHE.put(
+			'order-summary:hotset:v1',
+			JSON.stringify({
+				updatedAt: Date.now(),
+				entries: [{ slug: 'wf_test_hotset_slug', maxRank: 10, lastSeenAt: Date.now() }],
+			}),
+		);
+
+		globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input instanceof URL ? input : typeof input === 'string' ? input : input.url);
+			if (url === 'https://api.warframe.market/v2/orders/item/wf_test_hotset_slug') {
+				return new Response(
+					JSON.stringify({
+						data: [
+							{
+								type: 'sell',
+								platinum: 17,
+								quantity: 1,
+								rank: 0,
+								visible: true,
+								user: { ingameName: 'Seller0', status: 'ingame' },
+							},
+							{
+								type: 'buy',
+								platinum: 11,
+								quantity: 1,
+								rank: 10,
+								visible: true,
+								user: { ingameName: 'Buyer10', status: 'online' },
+							},
+						],
+					}),
+					{ status: 200, headers: { 'content-type': 'application/json' } },
+				);
+			}
+			throw new Error(`Unexpected url: ${url}`);
+		}) as unknown as typeof fetch;
+
+		const testEnv = {
+			...env,
+			ADMIN_API_KEY: 'test-key',
+		};
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(
+			new IncomingRequest('https://example.com/admin/prewarm/order-summaries', {
+				method: 'POST',
+				headers: {
+					authorization: 'Bearer test-key',
+					'content-type': 'application/json',
+				},
+				body: JSON.stringify({ batchSize: 1 }),
+			}),
+			testEnv as unknown as Env,
+			ctx,
+		);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(202);
+		expect(await response.json()).toMatchObject({
+			ok: true,
+			result: {
+				updated: 2,
+			},
+		});
+
+		expect(await testEnv.PRICE_CACHE.get('orders-summary:wf_test_hotset_slug:r0')).toBeTruthy();
+		expect(await testEnv.PRICE_CACHE.get('orders-summary:wf_test_hotset_slug:r10')).toBeTruthy();
+	});
+
+	it('serves stale cached order summary during transient upstream failure', async () => {
+		const slug = 'wf_test_stale_order_summary_slug';
+		await env.PRICE_CACHE.put(
+			`orders-summary:${slug}:r0`,
+			JSON.stringify({
+				slug,
+				rank: 0,
+				wts: 20,
+				wtb: 14,
+				timestamp: Date.now() - 8 * 60 * 60 * 1000,
+			}),
+		);
+
+		globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input instanceof URL ? input : typeof input === 'string' ? input : input.url);
+			if (url === `https://api.warframe.market/v2/orders/item/${slug}`) {
+				return new Response('', { status: 503 });
+			}
+			throw new Error(`Unexpected url: ${url}`);
+		}) as unknown as typeof fetch;
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(new IncomingRequest(`https://example.com/v1/order-summary/${slug}?rank=0`), env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchObject({
+			ok: true,
+			data: {
+				slug,
+				rank: 0,
+				wts: 20,
+				wtb: 14,
+			},
+		});
 	});
 
 	it('filters orders by rank and preserves offline statuses', async () => {

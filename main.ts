@@ -51,6 +51,7 @@ const worldStateIpc = fromAppRoot("ipc/worldStateIpc");
 const systemIpc = fromAppRoot("ipc/systemIpc");
 const priceCacheIpc = fromAppRoot("ipc/priceCacheIpc");
 const orderCacheIpc = fromAppRoot("ipc/orderCacheIpc");
+const rankedHotsetIpc = fromAppRoot("ipc/rankedHotsetIpc");
 const statsIpc = fromAppRoot("ipc/statsIpc");
 const statsTracker = fromAppRoot("services/statsTracker");
 
@@ -162,6 +163,7 @@ app.whenReady().then(async () => {
   systemIpc.register();
   priceCacheIpc.register();
   orderCacheIpc.register();
+  rankedHotsetIpc.register();
   statsIpc.register();
   profileStage("ipc:register", ipcRegisterStart);
 
@@ -180,7 +182,8 @@ app.whenReady().then(async () => {
   profileStage("window:create", windowStart);
 
   const sessionRestoreStart = Date.now();
-  void wfmSession.restoreSession()
+  void wfmSession
+    .restoreSession()
     .then(() => {
       wfmIpc.startListenerIfLoggedIn();
     })

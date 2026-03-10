@@ -13,6 +13,11 @@ import {
   getPriceQueueStats,
   type PriceDebugCounters,
 } from "../lib/wfm/wfmPrice.js";
+import { getOrderBookDebugCounters, type OrderBookDebugCounters } from "../lib/wfm/orderBook.js";
+import {
+  getOrderSummaryDebugCounters,
+  type OrderSummaryDebugCounters,
+} from "../lib/wfm/orderSummaryRemote.js";
 import { normalizeWfmSlug } from "../lib/wfm/backendLite.js";
 import type { InventoryBaseItem, ItemMetrics, MetricNeeds } from "../lib/inventoryMarket.js";
 import type { WfmItemsLookup } from "../types/ipc.js";
@@ -71,11 +76,23 @@ export function createInventoryHydrationController(): InventoryHydrationControll
     };
   };
 
+  const cloneOrderSummaryCounters = (
+    value: OrderSummaryDebugCounters,
+  ): OrderSummaryDebugCounters => {
+    return { ...value };
+  };
+
+  const cloneOrderBookCounters = (value: OrderBookDebugCounters): OrderBookDebugCounters => {
+    return { ...value };
+  };
+
   // ---- Svelte stores ----
   const metricsByKeyStore = writable<Record<string, ItemMetrics>>({});
   const debugStateStore = writable<InventoryHydrationDebugState>({
     priceQueueStats: getPriceQueueStats(),
     priceDebugCounters: normalizeCounters(getPriceDebugCounters()),
+    orderSummaryDebugCounters: cloneOrderSummaryCounters(getOrderSummaryDebugCounters()),
+    orderBookDebugCounters: cloneOrderBookCounters(getOrderBookDebugCounters()),
     queued: 0,
     pending: 0,
   });
@@ -172,6 +189,8 @@ export function createInventoryHydrationController(): InventoryHydrationControll
     debugStateStore.set({
       priceQueueStats: getPriceQueueStats(),
       priceDebugCounters: normalizeCounters(getPriceDebugCounters()),
+      orderSummaryDebugCounters: cloneOrderSummaryCounters(getOrderSummaryDebugCounters()),
+      orderBookDebugCounters: cloneOrderBookCounters(getOrderBookDebugCounters()),
       queued: Object.keys(queuedMetricKeys).length,
       pending: Object.keys(pendingMetricKeys).length,
     });

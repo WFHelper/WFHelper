@@ -5,10 +5,13 @@ export interface Env {
 	CACHE_TTL_SEC: string;
 	ORDERS_CACHE_TTL_SEC?: string;
 	ORDERS_STALE_REFRESH_SEC?: string;
+	ORDERS_SUMMARY_CACHE_TTL_SEC?: string;
+	ORDERS_SUMMARY_STALE_REFRESH_SEC?: string;
 	ALLOW_ORIGIN: string;
 	ADMIN_RATE_LIMIT_WINDOW_SEC: string;
 	ADMIN_RATE_LIMIT_MAX: string;
 	PREWARM_BATCH_SIZE?: string;
+	ORDER_SUMMARY_PREWARM_BATCH_SIZE?: string;
 	ADMIN_PREWARM_MAX_BATCH?: string;
 	CATALOG_REFRESH_HOURS?: string;
 	NO_DATA_TTL_SEC?: string;
@@ -27,6 +30,23 @@ export interface PrewarmResult {
 	metaUpdated: number;
 	processed: number;
 	skippedUntradable: number;
+	failures: number;
+}
+
+export interface OrderSummaryHotsetEntry {
+	slug: string;
+	maxRank: number;
+	lastSeenAt: number;
+}
+
+export interface OrderSummaryPrewarmResult {
+	ok: boolean;
+	reason: 'manual' | 'cron';
+	timestamp: number;
+	batchSize: number;
+	hotsetSize: number;
+	processed: number;
+	updated: number;
 	failures: number;
 }
 
