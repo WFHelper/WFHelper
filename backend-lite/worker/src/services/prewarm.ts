@@ -1,6 +1,10 @@
 import {
 	CATALOG_CACHE_KEY,
+	ORDER_SUMMARY_CATALOG_KEY,
+	ORDER_SUMMARY_CATALOG_PREWARM_CURSOR_KEY,
+	ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY,
 	ORDER_SUMMARY_HOTSET_KEY,
+	ORDER_SUMMARY_PREWARM_CURSOR_KEY,
 	ORDER_SUMMARY_PREWARM_LAST_RUN_KEY,
 	PREWARM_CURSOR_KEY,
 	PREWARM_LAST_RUN_KEY,
@@ -8,10 +12,19 @@ import {
 	SLUG_RE,
 	WFM_HEADERS,
 } from '../constants';
-import type { Env, MetaPayload, OrdersPayload, OrderSummaryHotsetEntry, OrderSummaryPrewarmResult, PrewarmResult } from '../types';
+import type {
+	Env,
+	MetaPayload,
+	OrdersPayload,
+	OrderSummaryCatalogEntry,
+	OrderSummaryHotsetEntry,
+	OrderSummaryPrewarmResult,
+	PrewarmResult,
+} from '../types';
 import { clamp, getJsonFromKv, parsePositiveInt } from '../utils';
 import wfmStatsShared from '../../../../config/shared/wfmStats.cjs';
 import sharedNumeric from '../../../../config/shared/numeric.cjs';
+import wfmExclusionsShared from '../../../../config/shared/wfmExclusions.cjs';
 
 const UNTRADABLE_SKIP_TTL_SEC = 30 * 24 * 60 * 60;
 const ORDER_SUMMARY_HOTSET_MAX_ENTRIES = 96;
@@ -23,6 +36,9 @@ type SharedWfmStatsModule = {
 const { extractMedianFromStatsPayload } = wfmStatsShared as SharedWfmStatsModule;
 const { normalizeRankFilter } = sharedNumeric as {
 	normalizeRankFilter: (value: unknown) => number | null;
+};
+const { isExcludedRankedMarketItem } = wfmExclusionsShared as {
+	isExcludedRankedMarketItem: (name: string | null | undefined, slug: string | null | undefined) => boolean;
 };
 
 export function cacheTtlSec(env: Env): number {
@@ -38,6 +54,72 @@ function sanitizeSlugList(value: unknown): string[] {
 	return value.filter((entry): entry is string => typeof entry === 'string' && SLUG_RE.test(entry));
 }
 
+function normalizeCatalogList(value: unknown): Array<Record<string, unknown>> {
+	if (!value) return [];
+	if (Array.isArray(value)) {
+		return value.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object');
+	}
+	if (typeof value !== 'object') return [];
+	const obj = value as {
+		data?: { items?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>;
+		payload?: { items?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>;
+	};
+	if (Array.isArray(obj.data)) return normalizeCatalogList(obj.data);
+	if (Array.isArray(obj.payload)) return normalizeCatalogList(obj.payload);
+	if (obj.data && typeof obj.data === 'object' && Array.isArray((obj.data as { items?: unknown }).items)) {
+		return normalizeCatalogList((obj.data as { items?: unknown }).items);
+	}
+	if (obj.payload && typeof obj.payload === 'object' && Array.isArray((obj.payload as { items?: unknown }).items)) {
+		return normalizeCatalogList((obj.payload as { items?: unknown }).items);
+	}
+	return [];
+}
+
+function normalizeCatalogSlug(item: Record<string, unknown>): string {
+	const slug = typeof item.slug === 'string' ? item.slug : typeof item.url_name === 'string' ? item.url_name : '';
+	return slug.trim().toLowerCase();
+}
+
+function normalizeCatalogMaxRank(item: Record<string, unknown>): number | null {
+	const rawMaxRank = Number(item.maxRank ?? item.max_rank ?? null);
+	return Number.isFinite(rawMaxRank) && rawMaxRank > 0 ? Math.floor(rawMaxRank) : null;
+}
+
+function sanitizeOrderSummaryCatalogEntries(value: unknown): OrderSummaryCatalogEntry[] {
+	if (!Array.isArray(value)) return [];
+	const entries = value
+		.map((entry) => {
+			if (!entry || typeof entry !== 'object') return null;
+			const row = entry as Record<string, unknown>;
+			const slug = typeof row.slug === 'string' ? row.slug.trim().toLowerCase() : '';
+			const maxRank = normalizeRankFilter(row.maxRank);
+			if (!SLUG_RE.test(slug)) return null;
+			if (maxRank == null || maxRank <= 0) return null;
+			if (isExcludedRankedMarketItem(null, slug)) return null;
+			return { slug, maxRank };
+		})
+		.filter((entry): entry is OrderSummaryCatalogEntry => entry != null)
+		.sort((a, b) => a.slug.localeCompare(b.slug));
+
+	const deduped: OrderSummaryCatalogEntry[] = [];
+	const seen = new Set<string>();
+	for (const entry of entries) {
+		if (seen.has(entry.slug)) continue;
+		seen.add(entry.slug);
+		deduped.push(entry);
+	}
+	return deduped;
+}
+
+function buildRankedSummaryCatalog(items: Array<Record<string, unknown>>): OrderSummaryCatalogEntry[] {
+	return sanitizeOrderSummaryCatalogEntries(
+		items.map((item) => ({
+			slug: normalizeCatalogSlug(item),
+			maxRank: normalizeCatalogMaxRank(item),
+		})),
+	);
+}
+
 function sanitizeOrderSummaryHotsetEntries(value: unknown): OrderSummaryHotsetEntry[] {
 	if (!Array.isArray(value)) return [];
 
@@ -50,6 +132,7 @@ function sanitizeOrderSummaryHotsetEntries(value: unknown): OrderSummaryHotsetEn
 			const lastSeenAt = Number(row.lastSeenAt || 0);
 			if (!SLUG_RE.test(slug)) return null;
 			if (maxRank == null || maxRank <= 0) return null;
+			if (isExcludedRankedMarketItem(null, slug)) return null;
 			if (!Number.isFinite(lastSeenAt) || lastSeenAt <= 0) return null;
 			return {
 				slug,
@@ -101,7 +184,20 @@ export async function fetchCatalogSlugs(env: Env, forceRefresh: boolean): Promis
 		const cached = await getJsonFromKv(env.ITEM_META, CATALOG_CACHE_KEY);
 		const updatedAt = Number(cached?.updatedAt || 0);
 		const slugs = sanitizeSlugList(cached?.slugs);
+		const rankedCatalog = sanitizeOrderSummaryCatalogEntries(cached?.rankedSummaryCatalog);
 		if (Date.now() - updatedAt < refreshMs && slugs.length > 0) {
+			if (rankedCatalog.length > 0) {
+				await env.ITEM_META.put(
+					ORDER_SUMMARY_CATALOG_KEY,
+					JSON.stringify({
+						updatedAt,
+						entries: rankedCatalog,
+					}),
+					{
+						expirationTtl: refreshHours * 60 * 60,
+					},
+				);
+			}
 			return slugs;
 		}
 	}
@@ -114,10 +210,8 @@ export async function fetchCatalogSlugs(env: Env, forceRefresh: boolean): Promis
 		return sanitizeSlugList(fallback?.slugs);
 	}
 
-	const jsonPayload = (await response.json()) as {
-		data?: { items?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>;
-	};
-	const list = Array.isArray(jsonPayload?.data) ? jsonPayload.data : Array.isArray(jsonPayload?.data?.items) ? jsonPayload.data.items : [];
+	const jsonPayload = await response.json();
+	const list = normalizeCatalogList(jsonPayload);
 
 	const slugs = Array.from(
 		new Set(
@@ -129,12 +223,25 @@ export async function fetchCatalogSlugs(env: Env, forceRefresh: boolean): Promis
 				.filter((slug) => SLUG_RE.test(slug)),
 		),
 	);
+	const rankedSummaryCatalog = buildRankedSummaryCatalog(list);
 
 	await env.ITEM_META.put(
 		CATALOG_CACHE_KEY,
 		JSON.stringify({
 			updatedAt: Date.now(),
 			slugs,
+			rankedSummaryCatalog,
+		}),
+		{
+			expirationTtl: refreshHours * 60 * 60,
+		},
+	);
+
+	await env.ITEM_META.put(
+		ORDER_SUMMARY_CATALOG_KEY,
+		JSON.stringify({
+			updatedAt: Date.now(),
+			entries: rankedSummaryCatalog,
 		}),
 		{
 			expirationTtl: refreshHours * 60 * 60,
@@ -142,6 +249,24 @@ export async function fetchCatalogSlugs(env: Env, forceRefresh: boolean): Promis
 	);
 
 	return slugs;
+}
+
+export async function fetchRankedSummaryCatalog(env: Env, forceRefresh: boolean): Promise<OrderSummaryCatalogEntry[]> {
+	const refreshHours = clamp(parsePositiveInt(env.CATALOG_REFRESH_HOURS, 24), 1, 168);
+	const refreshMs = refreshHours * 60 * 60 * 1000;
+
+	if (!forceRefresh) {
+		const cached = await getJsonFromKv(env.ITEM_META, ORDER_SUMMARY_CATALOG_KEY);
+		const updatedAt = Number(cached?.updatedAt || 0);
+		const entries = sanitizeOrderSummaryCatalogEntries(cached?.entries);
+		if (Date.now() - updatedAt < refreshMs && entries.length > 0) {
+			return entries;
+		}
+	}
+
+	await fetchCatalogSlugs(env, true);
+	const refreshed = await getJsonFromKv(env.ITEM_META, ORDER_SUMMARY_CATALOG_KEY);
+	return sanitizeOrderSummaryCatalogEntries(refreshed?.entries);
 }
 
 export interface FetchResult<T> {
@@ -452,12 +577,34 @@ export async function saveOrderSummaryHotset(env: Env, entries: OrderSummaryHots
 	return sanitized;
 }
 
+function createOrderSummaryPrewarmResult(options: {
+	reason: 'manual' | 'cron';
+	source: 'hotset' | 'catalog';
+	batchSize: number;
+	totalEntries: number;
+}): OrderSummaryPrewarmResult {
+	return {
+		ok: true,
+		reason: options.reason,
+		source: options.source,
+		timestamp: Date.now(),
+		batchSize: options.batchSize,
+		totalEntries: options.totalEntries,
+		cursorBefore: 0,
+		cursorAfter: 0,
+		processed: 0,
+		updated: 0,
+		failures: 0,
+	};
+}
+
 export async function prewarmOrderSummaryHotset(
 	env: Env,
 	options: {
 		reason: 'manual' | 'cron';
 		batchSize?: number;
 		entries?: OrderSummaryHotsetEntry[];
+		resetCursor?: boolean;
 	},
 ): Promise<OrderSummaryPrewarmResult> {
 	const adminMaxBatch = clamp(parsePositiveInt(env.ADMIN_PREWARM_MAX_BATCH, 30), 1, 100);
@@ -465,20 +612,29 @@ export async function prewarmOrderSummaryHotset(
 	const batchSize = clamp(options.batchSize ?? defaultBatch, 1, adminMaxBatch);
 	const providedEntries = sanitizeOrderSummaryHotsetEntries(options.entries);
 	const hotset = providedEntries.length > 0 ? providedEntries : await getOrderSummaryHotset(env);
-	const queue = hotset.slice(0, batchSize);
 
-	const result: OrderSummaryPrewarmResult = {
-		ok: true,
+	const result = createOrderSummaryPrewarmResult({
 		reason: options.reason,
-		timestamp: Date.now(),
+		source: 'hotset',
 		batchSize,
-		hotsetSize: hotset.length,
-		processed: 0,
-		updated: 0,
-		failures: 0,
-	};
+		totalEntries: hotset.length,
+	});
 
-	for (const entry of queue) {
+	if (hotset.length === 0) {
+		await env.PRICE_CACHE.put(ORDER_SUMMARY_PREWARM_LAST_RUN_KEY, JSON.stringify(result));
+		return result;
+	}
+
+	let cursor = 0;
+	if (!options.resetCursor) {
+		const cursorRaw = await env.PRICE_CACHE.get(ORDER_SUMMARY_PREWARM_CURSOR_KEY);
+		cursor = Number.isFinite(Number(cursorRaw)) ? Number(cursorRaw) : 0;
+	}
+	cursor = ((cursor % hotset.length) + hotset.length) % hotset.length;
+	result.cursorBefore = cursor;
+
+	for (let i = 0; i < Math.min(batchSize, hotset.length); i += 1) {
+		const entry = hotset[(cursor + i) % hotset.length];
 		for (const rank of [0, entry.maxRank]) {
 			try {
 				const ordersResult = await fetchOrdersPayload(entry.slug, { rank });
@@ -511,7 +667,87 @@ export async function prewarmOrderSummaryHotset(
 		}
 	}
 
+	result.cursorAfter = (cursor + Math.min(batchSize, hotset.length)) % hotset.length;
+	await env.PRICE_CACHE.put(ORDER_SUMMARY_PREWARM_CURSOR_KEY, String(result.cursorAfter));
 	await env.PRICE_CACHE.put(ORDER_SUMMARY_PREWARM_LAST_RUN_KEY, JSON.stringify(result));
+	return result;
+}
+
+export async function prewarmOrderSummaryCatalog(
+	env: Env,
+	options: {
+		reason: 'manual' | 'cron';
+		batchSize?: number;
+		refreshCatalog?: boolean;
+		resetCursor?: boolean;
+	},
+): Promise<OrderSummaryPrewarmResult> {
+	const adminMaxBatch = clamp(parsePositiveInt(env.ADMIN_PREWARM_MAX_BATCH, 30), 1, 100);
+	const defaultBatch = parsePositiveInt(env.ORDER_SUMMARY_PREWARM_BATCH_SIZE, 12);
+	const batchSize = clamp(options.batchSize ?? defaultBatch, 1, adminMaxBatch);
+	const entries = await fetchRankedSummaryCatalog(env, Boolean(options.refreshCatalog));
+
+	const result = createOrderSummaryPrewarmResult({
+		reason: options.reason,
+		source: 'catalog',
+		batchSize,
+		totalEntries: entries.length,
+	});
+
+	if (entries.length === 0) {
+		await env.ITEM_META.put(ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY, JSON.stringify(result));
+		return result;
+	}
+
+	let cursor = 0;
+	if (!options.resetCursor) {
+		const cursorRaw = await env.ITEM_META.get(ORDER_SUMMARY_CATALOG_PREWARM_CURSOR_KEY);
+		cursor = Number.isFinite(Number(cursorRaw)) ? Number(cursorRaw) : 0;
+	}
+	cursor = ((cursor % entries.length) + entries.length) % entries.length;
+	result.cursorBefore = cursor;
+
+	for (let i = 0; i < Math.min(batchSize, entries.length); i += 1) {
+		const entry = entries[(cursor + i) % entries.length];
+		for (const rank of [0, entry.maxRank]) {
+			try {
+				const ordersResult = await fetchOrdersPayload(entry.slug, { rank });
+				if (!ordersResult.data) {
+					if (!ordersResult.transient) {
+						await putOrderSummaryPayload(
+							env,
+							entry.slug,
+							{
+								slug: entry.slug,
+								rank,
+								wts: null,
+								wtb: null,
+								timestamp: Date.now(),
+							},
+							rank,
+						);
+						result.updated += 1;
+					} else {
+						result.failures += 1;
+					}
+					result.processed += 1;
+					continue;
+				}
+
+				const payload = buildOrderSummaryPayload(entry.slug, rank, ordersResult.data);
+				await putOrderSummaryPayload(env, entry.slug, payload, rank);
+				result.updated += 1;
+				result.processed += 1;
+			} catch {
+				result.failures += 1;
+				result.processed += 1;
+			}
+		}
+	}
+
+	result.cursorAfter = (cursor + Math.min(batchSize, entries.length)) % entries.length;
+	await env.ITEM_META.put(ORDER_SUMMARY_CATALOG_PREWARM_CURSOR_KEY, String(result.cursorAfter));
+	await env.ITEM_META.put(ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY, JSON.stringify(result));
 	return result;
 }
 

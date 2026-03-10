@@ -454,7 +454,7 @@ describe('backend-lite worker', () => {
 					authorization: 'Bearer test-key',
 					'content-type': 'application/json',
 				},
-				body: JSON.stringify({ batchSize: 1 }),
+				body: JSON.stringify({ source: 'hotset', batchSize: 1 }),
 			}),
 			testEnv as unknown as Env,
 			ctx,
@@ -471,6 +471,111 @@ describe('backend-lite worker', () => {
 
 		expect(await testEnv.PRICE_CACHE.get('orders-summary:wf_test_hotset_slug:r0')).toBeTruthy();
 		expect(await testEnv.PRICE_CACHE.get('orders-summary:wf_test_hotset_slug:r10')).toBeTruthy();
+	});
+
+	it('manual order summary prewarm warms ranked catalog entries', async () => {
+		globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input instanceof URL ? input : typeof input === 'string' ? input : input.url);
+			if (url === 'https://api.warframe.market/v2/items') {
+				return new Response(
+					JSON.stringify({
+						data: [
+							{ slug: 'primed_flow', max_rank: 10 },
+							{ slug: 'arcane_energize', max_rank: 5 },
+							{ slug: 'blood_for_energy', max_rank: 10 },
+							{ slug: 'pistol_riven_mod_(veiled)', max_rank: 10 },
+							{ slug: 'ash_prime_set' },
+						],
+					}),
+					{ status: 200, headers: { 'content-type': 'application/json' } },
+				);
+			}
+			if (url === 'https://api.warframe.market/v2/orders/item/primed_flow') {
+				return new Response(
+					JSON.stringify({
+						data: [
+							{
+								type: 'sell',
+								platinum: 17,
+								quantity: 1,
+								rank: 0,
+								visible: true,
+								user: { ingameName: 'Seller0', status: 'ingame' },
+							},
+							{
+								type: 'buy',
+								platinum: 11,
+								quantity: 1,
+								rank: 10,
+								visible: true,
+								user: { ingameName: 'Buyer10', status: 'online' },
+							},
+						],
+					}),
+					{ status: 200, headers: { 'content-type': 'application/json' } },
+				);
+			}
+			if (url === 'https://api.warframe.market/v2/orders/item/arcane_energize') {
+				return new Response(
+					JSON.stringify({
+						data: [
+							{
+								type: 'sell',
+								platinum: 80,
+								quantity: 1,
+								rank: 0,
+								visible: true,
+								user: { ingameName: 'SellerA', status: 'online' },
+							},
+							{
+								type: 'buy',
+								platinum: 72,
+								quantity: 1,
+								rank: 5,
+								visible: true,
+								user: { ingameName: 'BuyerA', status: 'ingame' },
+							},
+						],
+					}),
+					{ status: 200, headers: { 'content-type': 'application/json' } },
+				);
+			}
+			throw new Error(`Unexpected url: ${url}`);
+		}) as unknown as typeof fetch;
+
+		const testEnv = {
+			...env,
+			ADMIN_API_KEY: 'test-key',
+		};
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(
+			new IncomingRequest('https://example.com/admin/prewarm/order-summaries', {
+				method: 'POST',
+				headers: {
+					authorization: 'Bearer test-key',
+					'content-type': 'application/json',
+				},
+				body: JSON.stringify({ source: 'catalog', batchSize: 2, resetCursor: true, refreshCatalog: true }),
+			}),
+			testEnv as unknown as Env,
+			ctx,
+		);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(202);
+		expect(await response.json()).toMatchObject({
+			ok: true,
+			result: {
+				source: 'catalog',
+				totalEntries: 2,
+				updated: 4,
+			},
+		});
+
+		expect(await testEnv.PRICE_CACHE.get('orders-summary:primed_flow:r0')).toBeTruthy();
+		expect(await testEnv.PRICE_CACHE.get('orders-summary:primed_flow:r10')).toBeTruthy();
+		expect(await testEnv.PRICE_CACHE.get('orders-summary:arcane_energize:r0')).toBeTruthy();
+		expect(await testEnv.PRICE_CACHE.get('orders-summary:arcane_energize:r5')).toBeTruthy();
 	});
 
 	it('serves stale cached order summary during transient upstream failure', async () => {

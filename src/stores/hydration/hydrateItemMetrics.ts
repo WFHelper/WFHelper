@@ -29,9 +29,17 @@ import {
 } from "./hydrationHelpers.js";
 import { getCachedMedian, getCachedRankOrderSummary } from "./hydrationCacheHelpers.js";
 import sharedNumeric from "../../../config/shared/numeric.cjs";
+import wfmExclusionsShared from "../../../config/shared/wfmExclusions.cjs";
 
 const { isRankedGroup } = sharedNumeric as {
   isRankedGroup: (group: string | null | undefined) => boolean;
+};
+
+const { isExcludedRankedMarketItem } = wfmExclusionsShared as {
+  isExcludedRankedMarketItem: (
+    name: string | null | undefined,
+    slug: string | null | undefined,
+  ) => boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -167,11 +175,13 @@ export async function hydrateItemMetrics(
           : "normal";
     const isRankedListingItem = isRankedGroup(item.inventoryGroup);
     const rankedMaxRank = resolveRankedMaxRank(item);
+    const excludedRankedItem =
+      isRankedListingItem && isExcludedRankedMarketItem(item.name, item.marketSlug);
     const allowNameLookup =
       !isRankedListingItem || Boolean(item.marketSlug) || Boolean(existing?.slug);
     const bypassNoDataCache = isRankedGroup(item.inventoryGroup);
 
-    if (isRankedListingItem && rankedMaxRank != null && item.marketSlug) {
+    if (isRankedListingItem && !excludedRankedItem && rankedMaxRank != null && item.marketSlug) {
       const cachedR0 = getCachedMedian(`${item.marketSlug}:rank-v3:r0`);
       const cachedRmax = getCachedMedian(`${item.marketSlug}:rank-v3:r${rankedMaxRank}`);
 
@@ -450,7 +460,7 @@ export async function hydrateItemMetrics(
         };
       };
 
-      if ((shouldFetchRank0 || shouldFetchRankMax) && ordersSlug) {
+      if (!excludedRankedItem && (shouldFetchRank0 || shouldFetchRankMax) && ordersSlug) {
         if (shouldFetchRank0) {
           const refreshed = await refreshSummaryForRank(
             0,

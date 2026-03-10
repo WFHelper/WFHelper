@@ -1,6 +1,6 @@
 import { handleAdminRoutes } from './routes/admin';
 import { handlePublicRoutes } from './routes/public';
-import { prewarmBatch, prewarmOrderSummaryHotset } from './services/prewarm';
+import { prewarmBatch, prewarmOrderSummaryCatalog } from './services/prewarm';
 import { jsonResponse, originIsAllowed } from './security/cors';
 import type { Env } from './types';
 import { parsePositiveInt } from './utils';
@@ -41,9 +41,10 @@ export default {
 			refreshCatalog: false,
 			resetCursor: false,
 		});
-		await prewarmOrderSummaryHotset(env, {
+		await prewarmOrderSummaryCatalog(env, {
 			reason: 'cron',
 			batchSize: parsePositiveInt(env.ORDER_SUMMARY_PREWARM_BATCH_SIZE, 12),
+			refreshCatalog: false,
 		});
 	},
 } satisfies ExportedHandler<Env>;

@@ -5,11 +5,19 @@ import type { WfmOrdersResult } from "../types/market.js";
 import { getCachedPriceState } from "./wfm/priceCache.js";
 import { getCachedOrderSummaryState } from "./wfm/orderSummaryCache.js";
 import numericShared from "../../config/shared/numeric.cjs";
+import wfmExclusionsShared from "../../config/shared/wfmExclusions.cjs";
 
 const { toFinitePositiveInt, toFiniteNumber, isRankedGroup } = numericShared as {
   toFinitePositiveInt: (value: unknown) => number | null;
   toFiniteNumber: (value: unknown) => number | null;
   isRankedGroup: (group: string | null | undefined) => boolean;
+};
+
+const { isExcludedRankedMarketItem } = wfmExclusionsShared as {
+  isExcludedRankedMarketItem: (
+    name: string | null | undefined,
+    slug: string | null | undefined,
+  ) => boolean;
 };
 
 export type InventoryFilterTab = "all_parts" | "relics" | "mods" | "arcanes" | "full_sets" | "misc";
@@ -268,7 +276,9 @@ export function resolveSlug(item: ParsedItem, lookup: WfmItemsLookup): string | 
 export function shouldHydrateMetrics(item: ParsedItem): boolean {
   const group = item.inventoryGroup || itemGroupFallback(item);
   if (isRankedGroup(group)) {
-    return item.tradable === true;
+    const marketSlug =
+      "marketSlug" in item && typeof item.marketSlug === "string" ? item.marketSlug : null;
+    return item.tradable === true && !isExcludedRankedMarketItem(item.name, marketSlug);
   }
 
   return item.tradable === true || group === "full_sets" || group === "all_parts";
@@ -326,6 +336,14 @@ export function buildBaseInventoryItems(
       const mappedGameRefSlug = lookupByGameRef?.url_name
         ? toMarketSlug(lookupByGameRef.url_name)
         : null;
+      const excludedRankedItem =
+        isRankedGroup(group) &&
+        isExcludedRankedMarketItem(
+          item.name,
+          mappedGameRefSlug ||
+            mappedSlug ||
+            (typeof item.marketSlug === "string" ? item.marketSlug : null),
+        );
 
       if (group === "full_sets" && !isSetSlug(mappedSlug)) {
         return null;
@@ -336,7 +354,8 @@ export function buildBaseInventoryItems(
       }
 
       const isRankedListingItem = isRankedGroup(group);
-      const canIndexMarket = !isRankedListingItem || item.tradable === true;
+      const canIndexMarket =
+        !isRankedListingItem || (item.tradable === true && !excludedRankedItem);
       const marketSlug = canIndexMarket
         ? mappedGameRefSlug ||
           mappedSlug ||

@@ -430,4 +430,56 @@ describe("inventoryMarket view mapping", () => {
     expect(mapped.marketSlug).toBeNull();
     expect(shouldHydrateMetrics(mapped)).toBe(false);
   });
+
+  it("hard-excludes veiled riven mods from ranked market indexing", () => {
+    const item = makeBaseItem({
+      name: "Pistol Riven Mod (Veiled)",
+      internalName: "/Lotus/Upgrades/Mods/Randomized/Secondary/PistolRivenVeiled",
+      marketSlug: null,
+    });
+
+    const [mapped] = buildBaseInventoryItems(
+      [item],
+      "mods",
+      {
+        "pistol riven mod (veiled)": {
+          url_name: "pistol_riven_mod_(veiled)",
+          item_name: "Pistol Riven Mod (Veiled)",
+          thumb: null,
+          icon: null,
+        },
+      },
+      {},
+      {},
+    );
+
+    expect(mapped.marketSlug).toBeNull();
+    expect(shouldHydrateMetrics(mapped)).toBe(false);
+  });
+
+  it("hard-excludes blood for mods from ranked market indexing", () => {
+    const item = makeBaseItem({
+      name: "Blood For Energy",
+      internalName: "/Lotus/Upgrades/Mods/DataSpike/Assassin/OnExecutionEnergyDropMod",
+      marketSlug: null,
+    });
+
+    const [mapped] = buildBaseInventoryItems(
+      [item],
+      "mods",
+      {
+        "blood for energy": {
+          url_name: "blood_for_energy",
+          item_name: "Blood For Energy",
+          thumb: null,
+          icon: null,
+        },
+      },
+      {},
+      {},
+    );
+
+    expect(mapped.marketSlug).toBeNull();
+    expect(shouldHydrateMetrics(mapped)).toBe(false);
+  });
 });

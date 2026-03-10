@@ -1,5 +1,18 @@
-import { ORDER_SUMMARY_HOTSET_KEY, ORDER_SUMMARY_PREWARM_LAST_RUN_KEY, PREWARM_LAST_RUN_KEY } from '../constants';
-import { getOrderSummaryHotset, prewarmBatch, prewarmOrderSummaryHotset, saveOrderSummaryHotset } from '../services/prewarm';
+import {
+	ORDER_SUMMARY_CATALOG_KEY,
+	ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY,
+	ORDER_SUMMARY_HOTSET_KEY,
+	ORDER_SUMMARY_PREWARM_LAST_RUN_KEY,
+	PREWARM_LAST_RUN_KEY,
+} from '../constants';
+import {
+	fetchRankedSummaryCatalog,
+	getOrderSummaryHotset,
+	prewarmBatch,
+	prewarmOrderSummaryCatalog,
+	prewarmOrderSummaryHotset,
+	saveOrderSummaryHotset,
+} from '../services/prewarm';
 import { jsonResponse } from '../security/cors';
 import { checkAdminRateLimit } from '../security/rateLimit';
 import type { Env } from '../types';
@@ -89,6 +102,22 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 		return jsonResponse({ ok: true, result: hotset }, req, env, 200);
 	}
 
+	if (req.method === 'GET' && url.pathname === '/admin/order-summary-catalog') {
+		if (!isAdminAuthorized(req, env)) {
+			return jsonResponse({ ok: false, error: 'unauthorized' }, req, env, 401);
+		}
+
+		const refreshCatalog = url.searchParams.get('refresh') === '1';
+		const entries = await fetchRankedSummaryCatalog(env, refreshCatalog);
+		const cached = await getJsonFromKv(env.ITEM_META, ORDER_SUMMARY_CATALOG_KEY);
+		return jsonResponse(
+			{ ok: true, result: { updatedAt: cached?.updatedAt ?? Date.now(), total: entries.length, entries } },
+			req,
+			env,
+			200,
+		);
+	}
+
 	if (req.method === 'POST' && url.pathname === '/admin/prewarm/order-summaries') {
 		const rateLimited = await checkAdminRateLimit(req, env);
 		if (rateLimited) return rateLimited;
@@ -98,11 +127,22 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 		}
 
 		const body = parseJsonBody(await req.text());
-		const result = await prewarmOrderSummaryHotset(env, {
-			reason: 'manual',
-			batchSize: parsePositiveInt(String(body.batchSize || ''), parsePositiveInt(env.ORDER_SUMMARY_PREWARM_BATCH_SIZE, 12)),
-			entries: parseHotsetEntries(body.entries),
-		});
+		const source = body.source === 'hotset' ? 'hotset' : 'catalog';
+		const batchSize = parsePositiveInt(String(body.batchSize || ''), parsePositiveInt(env.ORDER_SUMMARY_PREWARM_BATCH_SIZE, 12));
+		const result =
+			source === 'hotset'
+				? await prewarmOrderSummaryHotset(env, {
+						reason: 'manual',
+						batchSize,
+						entries: parseHotsetEntries(body.entries),
+						resetCursor: body.resetCursor === true,
+					})
+				: await prewarmOrderSummaryCatalog(env, {
+						reason: 'manual',
+						batchSize,
+						refreshCatalog: body.refreshCatalog === true,
+						resetCursor: body.resetCursor === true,
+					});
 
 		return jsonResponse({ ok: true, result }, req, env, 202);
 	}
@@ -112,7 +152,11 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 			return jsonResponse({ ok: false, error: 'unauthorized' }, req, env, 401);
 		}
 
-		const result = await getJsonFromKv(env.PRICE_CACHE, ORDER_SUMMARY_PREWARM_LAST_RUN_KEY);
+		const source = url.searchParams.get('source') === 'hotset' ? 'hotset' : 'catalog';
+		const result =
+			source === 'hotset'
+				? await getJsonFromKv(env.PRICE_CACHE, ORDER_SUMMARY_PREWARM_LAST_RUN_KEY)
+				: await getJsonFromKv(env.ITEM_META, ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY);
 		return jsonResponse({ ok: true, result }, req, env, 200);
 	}
 

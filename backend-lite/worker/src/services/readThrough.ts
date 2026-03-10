@@ -12,9 +12,13 @@ import {
 	putPricePayload,
 } from './prewarm';
 import sharedNumeric from '../../../../config/shared/numeric.cjs';
+import wfmExclusionsShared from '../../../../config/shared/wfmExclusions.cjs';
 
 const { normalizeRankFilter } = sharedNumeric as {
 	normalizeRankFilter: (value: unknown) => number | null;
+};
+const { isExcludedRankedMarketItem } = wfmExclusionsShared as {
+	isExcludedRankedMarketItem: (name: string | null | undefined, slug: string | null | undefined) => boolean;
 };
 
 type AutoReadResult =
@@ -420,6 +424,10 @@ export async function getOrHydrateOrderSummary(
 	ctx?: ExecutionContext,
 	rankInput?: number | null,
 ): Promise<AutoReadResult> {
+	if (isExcludedRankedMarketItem(null, slug)) {
+		return { status: 'not_found', data: null };
+	}
+
 	const rank = normalizeRankFilter(rankInput);
 	const cacheKey = orderSummaryCacheKey(slug, rank);
 	const missKey = orderSummaryMissKey(slug, rank);

@@ -15,3 +15,12 @@ preload-overlay.js
 .electron-build/
 preload-crop.js
 api-inventory-data/
+
+# Cloudflare worker local secrets / state
+.dev.vars*
+!.dev.vars.example
+.wrangler/
+
+# Local cache / prewarm helper artifacts
+ranked-hotset.json
+order-summary-hotset*.json

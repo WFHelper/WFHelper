@@ -1,4 +1,4 @@
-import { PREWARM_LAST_RUN_KEY } from '../constants';
+import { ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY, PREWARM_LAST_RUN_KEY } from '../constants';
 import { jsonResponse } from '../security/cors';
 import {
 	getAutoCacheConfig,
@@ -34,6 +34,7 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 	if (url.pathname === '/healthz' && req.method === 'GET') {
 		routeStats.healthzRequests += 1;
 		const prewarmState = await getJsonFromKv(env.PRICE_CACHE, PREWARM_LAST_RUN_KEY);
+		const orderSummaryCatalogPrewarmState = await getJsonFromKv(env.ITEM_META, ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY);
 		return jsonResponse(
 			{
 				ok: true,
@@ -46,6 +47,7 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 					routes: routeStats,
 				},
 				prewarm: prewarmState,
+				orderSummaryCatalogPrewarm: orderSummaryCatalogPrewarmState,
 			},
 			req,
 			env,

@@ -39,12 +39,20 @@ export interface OrderSummaryHotsetEntry {
 	lastSeenAt: number;
 }
 
+export interface OrderSummaryCatalogEntry {
+	slug: string;
+	maxRank: number;
+}
+
 export interface OrderSummaryPrewarmResult {
 	ok: boolean;
 	reason: 'manual' | 'cron';
+	source: 'hotset' | 'catalog';
 	timestamp: number;
 	batchSize: number;
-	hotsetSize: number;
+	totalEntries: number;
+	cursorBefore: number;
+	cursorAfter: number;
 	processed: number;
 	updated: number;
 	failures: number;
