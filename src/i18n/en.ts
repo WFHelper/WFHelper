@@ -23,9 +23,12 @@ export const en = {
   "stats.historyTitle": "Daily History",
   "stats.noData": "Load an inventory file to start tracking stats.",
   "stats.platinum": "Platinum",
+  "stats.ducats": "Ducats",
   "stats.credits": "Credits",
   "stats.endo": "Endo",
+  "stats.relicsOpened": "Relics Opened",
   "stats.noDays": "No history yet.",
+  "stats.timeframe": "Timeframe",
 
   "app.loadingView": "Loading {view} view...",
   "app.failedLoadView": "Failed to load {view} view.",

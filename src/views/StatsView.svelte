@@ -60,10 +60,14 @@
         return;
       }
 
-      // Pre-process: AlecaFrame stores absolute plat/credits/endo values per day.
-      // Convert to deltas: use platGain for platinum (already a delta), and diff
-      // consecutive absolute values for credits and endo.
-      const normalized: { date: string; platDelta: number; creditsDelta: number; endoDelta: number }[] = [];
+      // Pre-process: AlecaFrame stores absolute plat/credits/endo/ducats values per day.
+      // Convert to deltas by diffing consecutive absolute values. platGain / relicOpened
+      // are already per-day counts and used directly.
+      type NormalizedEntry = {
+        date: string; platDelta: number; creditsDelta: number; endoDelta: number;
+        ducatsDelta: number; relicsOpened: number;
+      };
+      const normalized: NormalizedEntry[] = [];
       for (let i = 0; i < rawRows.length; i++) {
         const item = rawRows[i];
         if (!item || typeof item !== "object") continue;
@@ -91,7 +95,17 @@
         if (typeof r.endoDelta === "number") endoDelta = r.endoDelta;
         else if (typeof r.endo === "number" && prev && typeof prev.endo === "number") endoDelta = r.endo - prev.endo;
 
-        normalized.push({ date, platDelta, creditsDelta, endoDelta });
+        // ducatsDelta: diff absolute ducats between consecutive days
+        let ducatsDelta = 0;
+        if (typeof r.ducatsDelta === "number") ducatsDelta = r.ducatsDelta;
+        else if (typeof r.ducats === "number" && prev && typeof prev.ducats === "number") ducatsDelta = r.ducats - prev.ducats;
+
+        // relicsOpened: already a per-day count in AlecaFrame (relicOpened)
+        let relicsOpened = 0;
+        if (typeof r.relicsOpened === "number") relicsOpened = r.relicsOpened;
+        else if (typeof r.relicOpened === "number") relicsOpened = r.relicOpened;
+
+        normalized.push({ date, platDelta, creditsDelta, endoDelta, ducatsDelta, relicsOpened });
       }
 
       if (normalized.length === 0) {
@@ -123,15 +137,35 @@
 
   // ── Chart config ─────────────────────────────────────────────────────────────
 
-  type ChartKey = "platDelta" | "creditsDelta" | "endoDelta";
+  // SessionStatKey: fields that have a live "current" value shown in session card
+  type SessionStatKey = "platDelta" | "creditsDelta" | "endoDelta" | "ducatsDelta";
+  // ChartKey: all daily history chart fields
+  type ChartKey = SessionStatKey | "relicsOpened";
+
+  interface SessionSection {
+    key: SessionStatKey;
+    labelKey: MessageKey;
+    currentKey: "currentPlat" | "currentCredits" | "currentEndo" | "currentDucats";
+  }
+
+  const SESSION_SECTIONS: SessionSection[] = [
+    { key: "platDelta",    labelKey: "stats.platinum", currentKey: "currentPlat" },
+    { key: "ducatsDelta",  labelKey: "stats.ducats",   currentKey: "currentDucats" },
+    { key: "creditsDelta", labelKey: "stats.credits",  currentKey: "currentCredits" },
+    { key: "endoDelta",    labelKey: "stats.endo",     currentKey: "currentEndo" },
+  ];
 
   const CHART_SECTIONS: Array<{ key: ChartKey; labelKey: MessageKey }> = [
     { key: "platDelta",    labelKey: "stats.platinum" },
+    { key: "ducatsDelta",  labelKey: "stats.ducats" },
     { key: "creditsDelta", labelKey: "stats.credits" },
     { key: "endoDelta",    labelKey: "stats.endo" },
+    { key: "relicsOpened", labelKey: "stats.relicsOpened" },
   ];
 
-  const CHART_DAYS = 30;
+  const TIMEFRAME_OPTIONS = [7, 14, 30, 90] as const;
+  let chartDays = 30;
+
   const BAR_H = 64;
   const BAR_GAP = 2;
   const SVG_W = 420;
@@ -156,10 +190,14 @@
     return abs.toLocaleString();
   }
 
+  function fmtCount(abs: number): string { return abs.toLocaleString(); }
+
   const formatters: Record<ChartKey, (abs: number) => string> = {
     platDelta:    fmtPlat,
+    ducatsDelta:  fmtPlat,
     creditsDelta: fmtCredits,
     endoDelta:    fmtEndo,
+    relicsOpened: fmtCount,
   };
 
   function formatAbsolute(n: number | null): string {
@@ -199,7 +237,7 @@
   }
 
   function barsForKey(key: ChartKey): ChartResult {
-    const slice = history.slice(-CHART_DAYS);
+    const slice = history.slice(-chartDays);
     if (slice.length === 0) return { bars: [], hasBaseline: false, bw: 4 };
 
     const values = slice.map((e) => e[key]);
@@ -245,9 +283,8 @@
           <p class="stats-empty">{$tr("stats.noData")}</p>
         {:else}
           <div class="stats-session-grid">
-            {#each CHART_SECTIONS as { key, labelKey }}
+            {#each SESSION_SECTIONS as { key, labelKey, currentKey }}
               {@const delta = session[key]}
-              {@const currentKey = key === "platDelta" ? "currentPlat" : key === "creditsDelta" ? "currentCredits" : "currentEndo"}
               {@const current = session[currentKey]}
               <div class="stats-stat-cell">
                 <span class="stats-stat-label">{$tr(labelKey)}</span>
@@ -264,11 +301,21 @@
       <!-- ── History card ───────────────────────────────────────────────────── -->
       <article class="stats-card">
         <div class="stats-history-header">
-          <h3 class="stats-section-title">{$tr("stats.historyTitle")} ({CHART_DAYS} days)</h3>
-          <label class="stats-import-btn" title="Import AlecaFrame stats JSON export">
-            Import AlecaFrame JSON
-            <input type="file" accept=".json" style="display:none" on:change={handleImportFile} />
-          </label>
+          <h3 class="stats-section-title">{$tr("stats.historyTitle")}</h3>
+          <div class="stats-history-controls">
+            <label class="stats-timeframe-label">
+              {$tr("stats.timeframe")}:
+              <select class="stats-timeframe-select" bind:value={chartDays}>
+                {#each TIMEFRAME_OPTIONS as days}
+                  <option value={days}>{days}d</option>
+                {/each}
+              </select>
+            </label>
+            <label class="stats-import-btn" title="Import AlecaFrame stats JSON export">
+              Import AlecaFrame JSON
+              <input type="file" accept=".json" style="display:none" on:change={handleImportFile} />
+            </label>
+          </div>
         </div>
         {#if importStatus}
           <p class="stats-import-status" class:error={importError}>{importStatus}</p>
@@ -357,8 +404,12 @@
   /* Session grid */
   .stats-session-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: var(--space-3, 0.75rem);
+  }
+
+  @media (max-width: 600px) {
+    .stats-session-grid { grid-template-columns: repeat(2, 1fr); }
   }
 
   .stats-stat-cell {
@@ -399,11 +450,37 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: var(--space-3, 0.75rem);
     margin-bottom: var(--space-3, 0.75rem);
   }
 
   .stats-history-header .stats-section-title {
     margin-bottom: 0;
+  }
+
+  .stats-history-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2, 0.5rem);
+  }
+
+  .stats-timeframe-label {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: var(--font-xs, 0.7rem);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .stats-timeframe-select {
+    font-size: var(--font-xs, 0.7rem);
+    padding: 0.2rem 0.4rem;
+    border-radius: var(--radius-sm, 4px);
+    border: 1px solid var(--border);
+    background: var(--bg-raised);
+    color: var(--text-secondary);
+    cursor: pointer;
   }
 
   .stats-import-btn {

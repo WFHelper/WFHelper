@@ -278,19 +278,24 @@ export interface WfmNotification {
 }
 
 export interface DailyStatEntry {
-  date: string; // "YYYY-MM-DD"
+  date: string;           // "YYYY-MM-DD"
   platDelta: number;
   creditsDelta: number;
   endoDelta: number;
+  ducatsDelta: number;    // net change in Void Ducats (DUCTCREDITS)
+  relicsOpened: number;   // relics consumed today (LevelKeys decrease tracking)
+  daysPlayed: number;     // 1 = inventory data received; 0 = gap/imported entry
 }
 
 export interface SessionStats {
   platDelta: number;
   creditsDelta: number;
   endoDelta: number;
+  ducatsDelta: number;
   currentPlat: number | null;
   currentCredits: number | null;
   currentEndo: number | null;
+  currentDucats: number | null;
   hasData: boolean;
 }
 
