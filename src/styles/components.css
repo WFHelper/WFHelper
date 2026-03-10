@@ -1390,6 +1390,38 @@
     font-family: var(--font-display);
     letter-spacing: 0.02em;
   }
+  .world-cycle-right {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+  }
+  .cycle-alert-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.4rem;
+    height: 1.4rem;
+    border-radius: 0.3rem;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted, var(--text-secondary));
+    cursor: pointer;
+    padding: 0;
+    opacity: 0.45;
+    transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+  }
+  .cycle-alert-btn:hover {
+    opacity: 0.85;
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .cycle-alert-btn.active {
+    opacity: 1;
+    color: var(--warning, #fbbf24);
+    border-color: rgba(251, 191, 36, 0.4);
+    background: rgba(251, 191, 36, 0.1);
+  }
   .world-pill,
   .relic-card-tier,
   .relic-owned-pill,

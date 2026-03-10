@@ -17,10 +17,40 @@ import * as wfmSession from "../services/wfmSession";
 import * as wfmOrders from "../services/wfmOrders";
 import * as wfmContracts from "../services/wfmContracts";
 import * as wfmCatalog from "../services/wfmCatalog";
+import { startListening, stopListening } from "../services/wfmWebSocketListener";
+import ctx from "./context";
 
 const log = withScope("wfmIpc");
 
 const { ipcMain } = require("electron") as typeof import("electron");
+
+// ── WFM DM notification helper ────────────────────────────────────────────────
+
+function _handleWfmEvent(route: string, payload: unknown): void {
+  if (!ctx.overlaySettings?.wfmNotificationsEnabled) return;
+  const win = ctx.mainWindow;
+  if (!win || win.isDestroyed()) return;
+
+  // Whisper / direct message
+  if (route.includes("message/new") || route.includes("message/create")) {
+    const p = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+    const from =
+      typeof p.from === "string"
+        ? p.from
+        : typeof (p.user as Record<string, unknown> | undefined)?.ingame_name === "string"
+          ? ((p.user as Record<string, unknown>).ingame_name as string)
+          : "Unknown";
+    const content =
+      typeof p.message === "string"
+        ? p.message
+        : typeof p.raw_message === "string"
+          ? p.raw_message
+          : route;
+
+    log.log("[WFMListener] Dispatching whisper notification from:", from);
+    win.webContents.send("wfm:notification", { type: "whisper", from, content });
+  }
+}
 const WFM_SLUG_RE = /^[a-z0-9_]+$/;
 
 function register(): void {
@@ -42,13 +72,20 @@ function register(): void {
     }
 
     try {
-      return await wfmSession.signIn(creds.email, creds.password);
+      const result = await wfmSession.signIn(creds.email, creds.password);
+      // Start persistent WS listener after successful sign-in
+      const token = wfmSession.getToken();
+      if (token) {
+        startListening(token, _handleWfmEvent);
+      }
+      return result;
     } catch (err) {
       return { loggedIn: false, error: normalizeErrorMessage(err, "Sign-in failed.") };
     }
   });
 
   handleMainRenderer("wfm:signout", async () => {
+    stopListening();
     return wfmSession.signOut();
   });
 
@@ -261,5 +298,17 @@ const testExports = {
   normalizeErrorMessage,
 };
 
-export { register };
+/**
+ * Called after session restore on startup — starts the WS listener if a
+ * token is already present (i.e., the user was logged in before).
+ */
+function startListenerIfLoggedIn(): void {
+  const token = wfmSession.getToken();
+  if (token) {
+    log.log("[WFMIpc] Resuming WS listener after session restore");
+    startListening(token, _handleWfmEvent);
+  }
+}
+
+export { register, startListenerIfLoggedIn };
 export const __test__ = testExports;

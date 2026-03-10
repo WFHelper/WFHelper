@@ -22,6 +22,8 @@ const eventApiMap: Record<
     window.api.onInventoryUpdated(cb as (data: IpcEventMap["inventory-updated"]) => void),
   "app-update-status": (cb) =>
     window.api.onAppUpdateStatus(cb as (state: IpcEventMap["app-update-status"]) => void),
+  "wfm:notification": (cb) =>
+    window.api.onWfmNotification(cb as (n: IpcEventMap["wfm:notification"]) => void),
 };
 
 export function on<K extends EventChannel>(
@@ -92,6 +94,8 @@ export const ipc = {
     window.api.onInventoryUpdated(callback),
   onAppUpdateStatus: (callback: (state: IpcEventMap["app-update-status"]) => void) =>
     window.api.onAppUpdateStatus(callback),
+  onWfmNotification: (callback: (n: IpcEventMap["wfm:notification"]) => void) =>
+    window.api.onWfmNotification(callback),
   minimizeWindow: () => window.api.minimizeWindow(),
   maximizeWindow: () => window.api.maximizeWindow(),
   closeWindow: () => window.api.closeWindow(),
@@ -106,4 +110,7 @@ export const ipc = {
   loadOrderCache: () => window.api.loadOrderCache(),
   saveOrderCache: (...args: IpcInvokeMap["saveOrderCache"]["args"]) =>
     window.api.saveOrderCache(...args),
+  getStatsHistory: () => window.api.getStatsHistory(),
+  getStatsCurrentSession: () => window.api.getStatsCurrentSession(),
+  importStatsHistory: (raw: unknown[]) => window.api.importStatsHistory(raw),
 } as const;

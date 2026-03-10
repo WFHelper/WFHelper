@@ -238,6 +238,14 @@ export function getSession(): SessionSummary {
 }
 
 /**
+ * Returns the current JWT for main-process use only (e.g. WS listener).
+ * Never expose this token to the renderer.
+ */
+export function getToken(): string | null {
+  return _token;
+}
+
+/**
  * Return the in-game name (used by wfmOrders to build the profile URL).
  * Internal use only.
  */

@@ -32,6 +32,11 @@
       svg: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
     },
     {
+      view: "stats",
+      labelKey: "nav.stats",
+      svg: '<rect x="2" y="13" width="4" height="8" rx="0.5"/><rect x="8" y="9" width="4" height="12" rx="0.5"/><rect x="14" y="5" width="4" height="16" rx="0.5"/><rect x="20" y="1" width="2" height="20" rx="0.5"/>',
+    },
+    {
       view: "world",
       labelKey: "nav.world",
       svg: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18"/><path d="M12 3c-3 3-3 15 0 18"/>',

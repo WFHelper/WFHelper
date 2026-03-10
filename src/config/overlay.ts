@@ -32,4 +32,7 @@ export const OVERLAY_DEFAULTS: OverlaySettings = Object.freeze({
   matchThreshold: 0.74,
   ocrTimeoutMs: 15_000,
   worldNotificationsEnabled: true,
+  cycleAlerts: { earth: false, cetus: false, vallis: false, cambion: false },
+  fissureAlerts: [],
+  wfmNotificationsEnabled: false,
 });

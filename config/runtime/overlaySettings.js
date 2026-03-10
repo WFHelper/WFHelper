@@ -19,6 +19,9 @@ const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   matchThreshold: 0.74,
   ocrTimeoutMs: 15_000,
   worldNotificationsEnabled: true,
+  cycleAlerts: Object.freeze({ earth: false, cetus: false, vallis: false, cambion: false }),
+  fissureAlerts: Object.freeze([]),
+  wfmNotificationsEnabled: false,
 });
 
 const OVERLAY_SETTINGS_LIMITS = Object.freeze({

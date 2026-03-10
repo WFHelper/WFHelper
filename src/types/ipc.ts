@@ -19,6 +19,20 @@ import type {
 import type { RelicDatabase } from "./relics.js";
 import type { WorldState } from "./world.js";
 
+export interface CycleAlerts {
+  earth: boolean;
+  cetus: boolean;
+  vallis: boolean;
+  cambion: boolean;
+}
+
+export interface FissureAlert {
+  id: string;
+  tier: string;        // tier name or "any"
+  missionType: string; // mission type or "any"
+  steelPath: "any" | "normal" | "steel";
+}
+
 export interface OverlaySettings {
   autoTriggerEnabled: boolean;
   hotkeyEnabled: boolean;
@@ -35,6 +49,9 @@ export interface OverlaySettings {
   matchThreshold: number;
   ocrTimeoutMs: number;
   worldNotificationsEnabled: boolean;
+  cycleAlerts: CycleAlerts;
+  fissureAlerts: FissureAlert[];
+  wfmNotificationsEnabled: boolean;
 }
 
 export type AppUpdateStatus =
@@ -232,11 +249,47 @@ export interface IpcInvokeMap {
     args: [data: Record<string, unknown>];
     return: { ok: boolean };
   };
+  getStatsHistory: {
+    args: [];
+    return: DailyStatEntry[];
+  };
+  getStatsCurrentSession: {
+    args: [];
+    return: SessionStats;
+  };
+  importStatsHistory: {
+    args: [raw: unknown[]];
+    return: { ok: boolean; count: number };
+  };
+}
+
+export interface WfmNotification {
+  type: "whisper" | "trade";
+  from: string;
+  content: string;
+}
+
+export interface DailyStatEntry {
+  date: string;        // "YYYY-MM-DD"
+  platDelta: number;
+  creditsDelta: number;
+  endoDelta: number;
+}
+
+export interface SessionStats {
+  platDelta: number;
+  creditsDelta: number;
+  endoDelta: number;
+  currentPlat: number | null;
+  currentCredits: number | null;
+  currentEndo: number | null;
+  hasData: boolean;
 }
 
 export interface IpcEventMap {
   "inventory-updated": RawInventoryData;
   "app-update-status": AppUpdateState;
+  "wfm:notification": WfmNotification;
 }
 
 export interface IpcSendMap {

@@ -11,7 +11,7 @@
   let statusError = false;
 
   let autoTrigger = OVERLAY_DEFAULTS.autoTriggerEnabled;
-  let worldNotificationsEnabled = OVERLAY_DEFAULTS.worldNotificationsEnabled;
+  let wfmNotificationsEnabled = OVERLAY_DEFAULTS.wfmNotificationsEnabled;
   let hotkeyEnabled = OVERLAY_DEFAULTS.hotkeyEnabled;
   let hotkey = OVERLAY_DEFAULTS.hotkey;
   let interactionHotkeyEnabled = OVERLAY_DEFAULTS.interactionHotkeyEnabled;
@@ -28,7 +28,7 @@
 
   function applyToForm(s: Partial<OverlaySettings>): void {
     autoTrigger = !!s.autoTriggerEnabled;
-    worldNotificationsEnabled = !!s.worldNotificationsEnabled;
+    wfmNotificationsEnabled = !!s.wfmNotificationsEnabled;
     hotkeyEnabled = !!s.hotkeyEnabled;
     hotkey = s.hotkey || OVERLAY_DEFAULTS.hotkey;
     interactionHotkeyEnabled = !!s.interactionHotkeyEnabled;
@@ -63,7 +63,7 @@
   async function save() {
     const payload = {
       autoTriggerEnabled: autoTrigger,
-      worldNotificationsEnabled,
+      wfmNotificationsEnabled,
       hotkeyEnabled,
       hotkey,
       interactionHotkeyEnabled,
@@ -158,8 +158,8 @@
         </label>
 
         <label class="settings-row settings-row-toggle">
-          <span class="settings-label">{$tr("settings.worldNotifications")}</span>
-          <input type="checkbox" bind:checked={worldNotificationsEnabled} />
+          <span class="settings-label">WFM DM notifications</span>
+          <input type="checkbox" bind:checked={wfmNotificationsEnabled} />
         </label>
 
         <label class="settings-row settings-row-toggle">

@@ -50,6 +50,9 @@ export interface PreloadAPI {
   installDownloadedUpdate: () => Promise<IpcInvokeMap["installDownloadedUpdate"]["return"]>;
   onInventoryUpdated: (callback: (data: IpcEventMap["inventory-updated"]) => void) => () => void;
   onAppUpdateStatus: (callback: (state: IpcEventMap["app-update-status"]) => void) => () => void;
+  onWfmNotification: (
+    callback: (notification: IpcEventMap["wfm:notification"]) => void,
+  ) => () => void;
   minimizeWindow: () => void;
   maximizeWindow: () => void;
   closeWindow: () => void;
@@ -70,4 +73,7 @@ export interface PreloadAPI {
   saveOrderCache: (
     data: IpcInvokeMap["saveOrderCache"]["args"][0],
   ) => Promise<IpcInvokeMap["saveOrderCache"]["return"]>;
+  getStatsHistory: () => Promise<IpcInvokeMap["getStatsHistory"]["return"]>;
+  getStatsCurrentSession: () => Promise<IpcInvokeMap["getStatsCurrentSession"]["return"]>;
+  importStatsHistory: (raw: unknown[]) => Promise<IpcInvokeMap["importStatsHistory"]["return"]>;
 }

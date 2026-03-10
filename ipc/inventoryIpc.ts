@@ -36,6 +36,33 @@ const INVENTORY_FILENAME_RE = /^inventory(?:_[^\\/:*?"<>|]+)?\.json$/i;
 const INVENTORY_WATCH_STABILITY_MS = 500;
 const JSON_ENCODING = "utf-8";
 
+// ── Inventory data listeners ───────────────────────────────────────────────────
+
+type InventoryDataListener = (data: Record<string, unknown>) => void;
+const _inventoryListeners: InventoryDataListener[] = [];
+
+/**
+ * Register a main-process callback to be called whenever inventory data is read.
+ * Returns an unsubscribe function.
+ */
+export function addInventoryListener(fn: InventoryDataListener): () => void {
+  _inventoryListeners.push(fn);
+  return () => {
+    const idx = _inventoryListeners.indexOf(fn);
+    if (idx >= 0) _inventoryListeners.splice(idx, 1);
+  };
+}
+
+function _notifyListeners(data: Record<string, unknown>): void {
+  for (const fn of _inventoryListeners) {
+    try {
+      fn(data);
+    } catch {
+      // ignore
+    }
+  }
+}
+
 function newestExistingInventoryPath(paths: string[]): string | null {
   let bestPath: string | null = null;
   let bestMtimeMs = -1;
@@ -106,6 +133,9 @@ function readInventory(filePath: string): unknown {
         log.warn("Failed to parse nested inventory payload string:", normalizeErrorMessage(err)),
     });
     ctx.currentInventoryData = data as Record<string, unknown> | null;
+    if (data && typeof data === "object") {
+      _notifyListeners(data as Record<string, unknown>);
+    }
     return data;
   } catch (err) {
     log.error("Failed to read inventory:", normalizeErrorMessage(err));

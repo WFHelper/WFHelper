@@ -49,6 +49,14 @@ contextBridge.exposeInMainWorld("api", {
     };
   },
 
+  onWfmNotification: (callback: (notification: unknown) => void) => {
+    const listener = (_event: unknown, notification: unknown) => callback(notification);
+    ipcRenderer.on("wfm:notification", listener);
+    return () => {
+      ipcRenderer.removeListener("wfm:notification", listener);
+    };
+  },
+
   minimizeWindow: () => ipcRenderer.send("window-minimize"),
   maximizeWindow: () => ipcRenderer.send("window-maximize"),
   closeWindow: () => ipcRenderer.send("window-close"),
@@ -66,4 +74,8 @@ contextBridge.exposeInMainWorld("api", {
   savePriceCache: (data: unknown) => ipcRenderer.invoke("price-cache:save", data),
   loadOrderCache: () => ipcRenderer.invoke("order-cache:load"),
   saveOrderCache: (data: unknown) => ipcRenderer.invoke("order-cache:save", data),
+
+  getStatsHistory: () => ipcRenderer.invoke("stats:get-history"),
+  getStatsCurrentSession: () => ipcRenderer.invoke("stats:get-current"),
+  importStatsHistory: (raw: unknown[]) => ipcRenderer.invoke("stats:import", raw),
 });

@@ -19,6 +19,7 @@
   import FoundryView from "./views/FoundryView.svelte";
   import ResourcesView from "./views/ResourcesView.svelte";
   import MasteryView from "./views/MasteryView.svelte";
+  import StatsView from "./views/StatsView.svelte";
   import SettingsView from "./views/SettingsView.svelte";
 
   import ItemDetailModal from "./modals/ItemDetailModal.svelte";
@@ -30,6 +31,7 @@
   import { parsedItems } from "./stores/data.js";
   import { activeItem, activeComponent, activeRelic } from "./stores/modals.js";
   import { applyUpdateState } from "./stores/updates.js";
+  import { addToast } from "./stores/toasts.js";
   import { onInventoryLoaded, setInventoryStatus } from "./lib/actions.js";
   import { initStartup } from "./lib/startupLoader.js";
   import {
@@ -48,6 +50,7 @@
     | "foundry"
     | "resources"
     | "mastery"
+    | "stats"
     | "world"
     | "market"
     | "relics"
@@ -98,6 +101,15 @@
       applyUpdateState(state, true);
     });
 
+    const unsubscribeWfmNotification = ipc.onWfmNotification((notification) => {
+      addToast({
+        level: "info",
+        title: `WFM DM from ${notification.from}`,
+        message: notification.content,
+        durationMs: 8000,
+      });
+    });
+
     const startup = initStartup();
 
     window.addEventListener("beforeunload", onBeforeUnload);
@@ -115,6 +127,7 @@
       unsubscribeViewChange();
       unsubscribeInventoryUpdated();
       unsubscribeUpdateStatus();
+      unsubscribeWfmNotification();
 
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("keydown", onKeyDown);
@@ -225,6 +238,8 @@
         <ResourcesView />
       {:else if $currentView === "mastery"}
         <MasteryView />
+      {:else if $currentView === "stats"}
+        <StatsView />
       {:else if $currentView === "settings"}
         <SettingsView />
       {:else if activeLazyView}

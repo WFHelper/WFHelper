@@ -102,6 +102,45 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     onToggleOverlayInteractionMode,
   } = options;
 
+  function normalizeFissureAlerts(
+    value: unknown,
+    fallback: unknown,
+  ): Array<{ id: string; tier: string; missionType: string; steelPath: string }> {
+    const arr = Array.isArray(value) ? value : Array.isArray(fallback) ? fallback : [];
+    return arr
+      .filter((item) => item && typeof item === "object")
+      .map((item) => {
+        const r = item as Record<string, unknown>;
+        return {
+          id:
+            typeof r.id === "string" && r.id
+              ? r.id
+              : Math.random().toString(36).slice(2, 10),
+          tier: typeof r.tier === "string" ? r.tier : "any",
+          missionType: typeof r.missionType === "string" ? r.missionType : "any",
+          steelPath:
+            r.steelPath === "normal" || r.steelPath === "steel"
+              ? (r.steelPath as string)
+              : "any",
+        };
+      });
+  }
+
+  function normalizeCycleAlerts(
+    value: unknown,
+    fallback: unknown,
+  ): { earth: boolean; cetus: boolean; vallis: boolean; cambion: boolean } {
+    const def =
+      fallback && typeof fallback === "object" ? (fallback as Record<string, unknown>) : {};
+    const v = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+    return {
+      earth: v.earth !== undefined ? !!v.earth : !!def.earth,
+      cetus: v.cetus !== undefined ? !!v.cetus : !!def.cetus,
+      vallis: v.vallis !== undefined ? !!v.vallis : !!def.vallis,
+      cambion: v.cambion !== undefined ? !!v.cambion : !!def.cambion,
+    };
+  }
+
   function normalizeOcrEngine(value: unknown): string {
     const engine = typeof value === "string" ? value.trim().toLowerCase() : "";
     return ocrEngines.includes(engine) ? engine : String(defaults.ocrEngine);
@@ -195,6 +234,12 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
         candidate.worldNotificationsEnabled !== undefined
           ? !!candidate.worldNotificationsEnabled
           : !!defaults.worldNotificationsEnabled,
+      cycleAlerts: normalizeCycleAlerts(candidate.cycleAlerts, defaults.cycleAlerts),
+      fissureAlerts: normalizeFissureAlerts(candidate.fissureAlerts, defaults.fissureAlerts),
+      wfmNotificationsEnabled:
+        candidate.wfmNotificationsEnabled !== undefined
+          ? !!candidate.wfmNotificationsEnabled
+          : !!defaults.wfmNotificationsEnabled,
     };
   }
 

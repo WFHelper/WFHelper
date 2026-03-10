@@ -3,6 +3,7 @@ export const en = {
   "nav.foundry": "Foundry",
   "nav.resources": "Resources",
   "nav.mastery": "Mastery",
+  "nav.stats": "Stats",
   "nav.world": "World",
   "nav.market": "Market",
   "nav.relics": "Relics",
@@ -16,6 +17,15 @@ export const en = {
   "view.world": "World",
   "view.market": "Market",
   "view.relics": "Relics",
+
+  "stats.title": "Stats",
+  "stats.sessionTitle": "This Session",
+  "stats.historyTitle": "Daily History",
+  "stats.noData": "Load an inventory file to start tracking stats.",
+  "stats.platinum": "Platinum",
+  "stats.credits": "Credits",
+  "stats.endo": "Endo",
+  "stats.noDays": "No history yet.",
 
   "app.loadingView": "Loading {view} view...",
   "app.failedLoadView": "Failed to load {view} view.",

@@ -8,6 +8,8 @@
   } from "../lib/format.js";
   import { PLANET_ICON_PATHS, RELIC_ICON_PATHS, fissureTierClass, buildFeaturedPrimes } from "../lib/world.js";
   import { ipc } from "../lib/ipc.js";
+  import { overlaySettings, overlaySettingsLoaded, OVERLAY_DEFAULTS } from "../stores/overlaySettings.js";
+  import FissureAlerts from "../components/settings/FissureAlerts.svelte";
 
   const WORLD_REFRESH_MS = 120_000;
   const WORLD_POLL_MS = 30_000;
@@ -19,6 +21,16 @@
 
   onMount(() => {
     void fetchWorldData(true);
+
+    // Ensure overlay settings are loaded so cycle-alert toggles reflect persisted state
+    if (!$overlaySettingsLoaded) {
+      void ipc.getOverlaySettings().then((loaded) => {
+        if (loaded) {
+          overlaySettings.set({ ...OVERLAY_DEFAULTS, ...loaded });
+          overlaySettingsLoaded.set(true);
+        }
+      }).catch((e: unknown) => console.error("[World] getOverlaySettings failed:", e));
+    }
 
     clockInterval = setInterval(() => {
       nowMs = Date.now();
@@ -33,6 +45,20 @@
     if (clockInterval) clearInterval(clockInterval);
     if (worldPollInterval) clearInterval(worldPollInterval);
   });
+
+  async function toggleCycleAlert(key: "earth" | "cetus" | "vallis" | "cambion") {
+    const current = $overlaySettings.cycleAlerts?.[key] ?? false;
+    const newAlerts = { ...$overlaySettings.cycleAlerts, [key]: !current };
+    try {
+      const saved = await ipc.setOverlaySettings({ cycleAlerts: newAlerts });
+      if (saved) {
+        overlaySettings.set({ ...OVERLAY_DEFAULTS, ...saved });
+        overlaySettingsLoaded.set(true);
+      }
+    } catch (e: unknown) {
+      console.error("[World] toggleCycleAlert failed:", e);
+    }
+  }
 
   async function fetchWorldData(force: boolean = false) {
     if ($worldLoading) return;
@@ -199,6 +225,8 @@
               { key: 'vallis',  label: `Vallis ${vallisLabel}`,    src: PLANET_ICON_PATHS.vallis,  t: vallis,  time: times.vallis  },
               { key: 'cambion', label: `Cambion ${cambionLabel}`,  src: PLANET_ICON_PATHS.cambion, t: cambion, time: times.cambion },
             ] as row}
+              {@const alertKey = row.key as 'earth' | 'cetus' | 'vallis' | 'cambion'}
+              {@const alertOn = !!$overlaySettings.cycleAlerts?.[alertKey]}
               <div class="world-line">
                 <span class="world-left">
                   <span class="world-icon world-icon-{row.key}">
@@ -206,7 +234,20 @@
                   </span>
                   {row.label}
                 </span>
-                <span class="world-right">{row.time}</span>
+                <span class="world-cycle-right">
+                  <span class="world-right">{row.time}</span>
+                  <button
+                    class="cycle-alert-btn"
+                    class:active={alertOn}
+                    title={alertOn ? `Disable ${row.key} cycle notification` : `Enable ${row.key} cycle notification`}
+                    on:click={() => toggleCycleAlert(alertKey)}
+                    aria-pressed={alertOn}
+                  >
+                    <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true">
+                      <path d="M8 1a5 5 0 0 0-5 5v2.586l-.707.707A1 1 0 0 0 3 11h10a1 1 0 0 0 .707-1.707L13 8.586V6a5 5 0 0 0-5-5zM6.5 14a1.5 1.5 0 0 0 3 0H6.5z"/>
+                    </svg>
+                  </button>
+                </span>
               </div>
             {/each}
           {:else}
@@ -285,6 +326,11 @@
               {/each}
             {/if}
           </div>
+        </div>
+
+        <!-- Fissure Alerts (alert rules for new fissures) -->
+        <div class="world-card">
+          <FissureAlerts />
         </div>
       </div>
     </div>

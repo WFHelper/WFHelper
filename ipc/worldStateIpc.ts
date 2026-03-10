@@ -32,6 +32,11 @@ let _worldNotificationSnapshot: {
   baroExpiry: string | null;
   varziaExpiry: string | null;
   varziaLocation: string | null;
+  earthIsDay: boolean | null;
+  cetusIsDay: boolean | null;
+  vallisIsWarm: boolean | null;
+  cambionActive: string | null;
+  fissureIds: Set<string>;
 } | null = null;
 
 function parseIsoMs(value: unknown): number | null {
@@ -62,16 +67,73 @@ function buildNotificationSnapshot(state: unknown) {
       ? (stateRecord.vaultTrader as Record<string, unknown>)
       : {};
 
+  const earthCycle =
+    stateRecord.earthCycle && typeof stateRecord.earthCycle === "object"
+      ? (stateRecord.earthCycle as Record<string, unknown>)
+      : null;
+  const cetusCycle =
+    stateRecord.cetusCycle && typeof stateRecord.cetusCycle === "object"
+      ? (stateRecord.cetusCycle as Record<string, unknown>)
+      : null;
+  const vallisCycle =
+    stateRecord.vallisCycle && typeof stateRecord.vallisCycle === "object"
+      ? (stateRecord.vallisCycle as Record<string, unknown>)
+      : null;
+  const cambionCycle =
+    stateRecord.cambionCycle && typeof stateRecord.cambionCycle === "object"
+      ? (stateRecord.cambionCycle as Record<string, unknown>)
+      : null;
+
+  const rawFissures = Array.isArray(stateRecord.fissures)
+    ? (stateRecord.fissures as unknown[])
+    : [];
+  const fissureIds = new Set(
+    rawFissures
+      .filter((f) => {
+        if (!f || typeof f !== "object") return false;
+        const fr = f as Record<string, unknown>;
+        return fr.expired !== true;
+      })
+      .map((f) => {
+        const fr = f as Record<string, unknown>;
+        const tier = typeof fr.tier === "string" ? fr.tier : "";
+        const node = typeof fr.node === "string" ? fr.node : "";
+        const expiry = typeof fr.expiry === "string" ? fr.expiry : "";
+        const isHard = fr.isHard === true ? "1" : "0";
+        return `${tier}|${node}|${expiry}|${isHard}`;
+      }),
+  );
+
   return {
     baroActive: isTraderActive(voidTrader, nowMs),
     baroExpiry: typeof voidTrader.expiry === "string" ? voidTrader.expiry : null,
     varziaExpiry: typeof vaultTrader.expiry === "string" ? vaultTrader.expiry : null,
     varziaLocation: typeof vaultTrader.location === "string" ? vaultTrader.location : "Varzia",
+    earthIsDay: earthCycle
+      ? typeof earthCycle.isDay === "boolean"
+        ? earthCycle.isDay
+        : null
+      : null,
+    cetusIsDay: cetusCycle
+      ? typeof cetusCycle.isDay === "boolean"
+        ? cetusCycle.isDay
+        : null
+      : null,
+    vallisIsWarm: vallisCycle
+      ? typeof vallisCycle.isWarm === "boolean"
+        ? vallisCycle.isWarm
+        : null
+      : null,
+    cambionActive: cambionCycle
+      ? typeof cambionCycle.active === "string"
+        ? cambionCycle.active.toLowerCase()
+        : null
+      : null,
+    fissureIds,
   };
 }
 
 function canSendNotifications(): boolean {
-  if (!ctx.overlaySettings?.worldNotificationsEnabled) return false;
   if (typeof notificationCtor !== "function") return false;
   if (typeof (notificationCtor as { isSupported?: () => boolean }).isSupported === "function") {
     return (notificationCtor as { isSupported: () => boolean }).isSupported();
@@ -127,6 +189,107 @@ function maybeNotifyWorldEvents(state: unknown): void {
       "Prime Resurgence Rotation Updated",
       `New rotation at ${next.varziaLocation || "Varzia"}.`,
     );
+  }
+
+  // Per-cycle transition notifications (opt-in via cycleAlerts settings)
+  const rawCycleAlerts = ctx.overlaySettings?.cycleAlerts;
+  const cycleAlerts =
+    rawCycleAlerts && typeof rawCycleAlerts === "object"
+      ? (rawCycleAlerts as Record<string, boolean>)
+      : {};
+
+  if (
+    cycleAlerts.earth &&
+    prev.earthIsDay !== null &&
+    next.earthIsDay !== null &&
+    prev.earthIsDay !== next.earthIsDay
+  ) {
+    sendDesktopNotification("Earth Cycle", next.earthIsDay ? "Day has begun." : "Night has begun.");
+  }
+
+  if (
+    cycleAlerts.cetus &&
+    prev.cetusIsDay !== null &&
+    next.cetusIsDay !== null &&
+    prev.cetusIsDay !== next.cetusIsDay
+  ) {
+    sendDesktopNotification("Cetus Cycle", next.cetusIsDay ? "Day has begun." : "Night has begun.");
+  }
+
+  if (
+    cycleAlerts.vallis &&
+    prev.vallisIsWarm !== null &&
+    next.vallisIsWarm !== null &&
+    prev.vallisIsWarm !== next.vallisIsWarm
+  ) {
+    sendDesktopNotification(
+      "Orb Vallis Cycle",
+      next.vallisIsWarm ? "Warm cycle has begun." : "Cold cycle has begun.",
+    );
+  }
+
+  if (
+    cycleAlerts.cambion &&
+    prev.cambionActive !== null &&
+    next.cambionActive !== null &&
+    prev.cambionActive !== next.cambionActive
+  ) {
+    const label = next.cambionActive ? next.cambionActive.toUpperCase() : "Unknown";
+    sendDesktopNotification("Cambion Drift Cycle", `${label} cycle has begun.`);
+  }
+
+  // Fissure appearance alerts (opt-in per configured alert rules)
+  const rawFissureAlerts = ctx.overlaySettings?.fissureAlerts;
+  if (Array.isArray(rawFissureAlerts) && rawFissureAlerts.length > 0) {
+    const fissureAlertRules = rawFissureAlerts as Array<{
+      tier: string;
+      missionType: string;
+      steelPath: string;
+    }>;
+
+    const rawFissures = Array.isArray(stateRecord.fissures)
+      ? (stateRecord.fissures as unknown[])
+      : [];
+
+    for (const f of rawFissures) {
+      if (!f || typeof f !== "object") continue;
+      const fr = f as Record<string, unknown>;
+      if (fr.expired === true) continue;
+
+      const tier = typeof fr.tier === "string" ? fr.tier : "";
+      const node = typeof fr.node === "string" ? fr.node : "";
+      const expiry = typeof fr.expiry === "string" ? fr.expiry : "";
+      const isHard = fr.isHard === true;
+      const isHardStr = isHard ? "1" : "0";
+      const fissureId = `${tier}|${node}|${expiry}|${isHardStr}`;
+
+      // Only notify for newly appeared fissures
+      if (prev.fissureIds.has(fissureId)) continue;
+
+      const missionType = typeof fr.missionType === "string" ? fr.missionType : "";
+
+      const matches = fissureAlertRules.some((rule) => {
+        const tierOk =
+          rule.tier === "any" || rule.tier.toLowerCase() === tier.toLowerCase();
+        const missionOk =
+          rule.missionType === "any" ||
+          rule.missionType.toLowerCase() === missionType.toLowerCase();
+        const spOk =
+          rule.steelPath === "any" ||
+          (rule.steelPath === "steel" && isHard) ||
+          (rule.steelPath === "normal" && !isHard);
+        return tierOk && missionOk && spOk;
+      });
+
+      if (matches) {
+        const spLabel = isHard ? " (Steel Path)" : "";
+        const nodeLabel = node || "Unknown Node";
+        sendDesktopNotification(
+          "Fissure Alert",
+          `${tier} ${missionType}${spLabel} — ${nodeLabel}`,
+        );
+      }
+    }
   }
 }
 
