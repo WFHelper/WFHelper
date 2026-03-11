@@ -40,6 +40,8 @@ export interface FetchMetaOptions {
 const metaCache = new Map<string, WfmItemMeta>();
 const metaNoDataCache = new Map<string, number>();
 const inFlight = new Map<string, Promise<WfmItemMeta | null>>();
+// One-time-per-session warning set — avoids log spam on repeated hydration.
+const _warnedNoMetaSlugs = new Set<string>();
 
 function isNoDataCacheFresh(cachedAt: number | null | undefined): boolean {
   if (typeof cachedAt !== "number" || !Number.isFinite(cachedAt)) return false;
@@ -165,6 +167,10 @@ export async function fetchWfmItemMetaBySlug(
 
       if (backendResult.status === "not_found") {
         rememberNoData(normalizedSlug);
+        if (!_warnedNoMetaSlugs.has(normalizedSlug)) {
+          _warnedNoMetaSlugs.add(normalizedSlug);
+          log.warn(`[WFM meta] No listing for "${normalizedSlug}" — item may not exist on warframe.market. If non-tradable, add to WFM_EXCLUDED_SLUGS in config/shared/wfmExclusions.cjs`);
+        }
         return null;
       }
 
@@ -181,6 +187,10 @@ export async function fetchWfmItemMetaBySlug(
 
       if (directMeta.status === "not_found") {
         rememberNoData(normalizedSlug);
+        if (!_warnedNoMetaSlugs.has(normalizedSlug)) {
+          _warnedNoMetaSlugs.add(normalizedSlug);
+          log.warn(`[WFM meta] No listing for "${normalizedSlug}" — item may not exist on warframe.market. If non-tradable, add to WFM_EXCLUDED_SLUGS in config/shared/wfmExclusions.cjs`);
+        }
         return null;
       }
 

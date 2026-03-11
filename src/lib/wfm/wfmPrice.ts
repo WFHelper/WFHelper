@@ -112,6 +112,9 @@ const priceDebugCounters: PriceDebugCounters = {
 // allowed so retries are suppressed for BACKEND_ERROR_COOLDOWN_MS instead of
 // hammering the worker on every render cycle.
 const backendErrorCooldown = new Map<string, number>(); // cacheKey → expiry timestamp
+// Tracks slugs that returned no price data this session so the warning is
+// only logged once rather than on every hydration cycle.
+const _warnedNoDataSlugs = new Set<string>();
 
 function pruneBackendErrorCooldown(): void {
   const now = Date.now();
@@ -322,6 +325,10 @@ async function fetchPriceBySlugInternal(
   if (backendResult.status === "not_found") {
     bumpCounter("backendHitNoData");
     cacheNoData(cacheKey, slug);
+    if (!_warnedNoDataSlugs.has(slug)) {
+      _warnedNoDataSlugs.add(slug);
+      log.warn(`[WFM price] No data for "${slug}" — if non-tradable, add to WFM_EXCLUDED_SLUGS in config/shared/wfmExclusions.cjs`);
+    }
     bumpCounter("resultNoData");
     return { status: "no_data", slug, median: null };
   }
