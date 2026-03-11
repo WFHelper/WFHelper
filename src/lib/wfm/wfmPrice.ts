@@ -21,6 +21,9 @@ const DELAY_DECAY_STEP_MS = 5;
 const DELAY_BACKOFF_STEP_MS = 120;
 const DEFAULT_RETRY_AFTER_SECONDS = 30;
 const MIN_429_COOLDOWN_MS = 30_000;
+// When the backend returns an error and direct fallback is not allowed, suppress
+// retries for this duration so a cold/erroring worker doesn't get hammered.
+const BACKEND_ERROR_COOLDOWN_MS = 60_000;
 
 type SharedWfmStatsModule = {
   extractMedianFromStatsPayload: (
@@ -100,6 +103,18 @@ const priceDebugCounters: PriceDebugCounters = {
   backendError: 0,
 };
 
+// Per-slug transient error cooldown. Populated when backend errors with no fallback
+// allowed so retries are suppressed for BACKEND_ERROR_COOLDOWN_MS instead of
+// hammering the worker on every render cycle.
+const backendErrorCooldown = new Map<string, number>(); // cacheKey → expiry timestamp
+
+function pruneBackendErrorCooldown(): void {
+  const now = Date.now();
+  for (const [key, expiry] of backendErrorCooldown) {
+    if (expiry <= now) backendErrorCooldown.delete(key);
+  }
+}
+
 const priceCacheUpdateListeners = new Set<PriceCacheUpdateListener>();
 const laneQueues: Record<RequestPriority, QueueTask<unknown>[]> = {
   high: [],
@@ -147,6 +162,10 @@ export function resetPriceDebugCounters(): void {
   for (const key of Object.keys(priceDebugCounters) as Array<keyof PriceDebugCounters>) {
     priceDebugCounters[key] = 0;
   }
+}
+
+export function clearBackendErrorCooldowns(): void {
+  backendErrorCooldown.clear();
 }
 
 export function onPriceCacheUpdate(listener: PriceCacheUpdateListener): () => void {
@@ -308,6 +327,8 @@ async function fetchPriceBySlugInternal(
 
   if (!fallbackAllowed) {
     bumpCounter("resultTransient");
+    backendErrorCooldown.set(cacheKey, Date.now() + BACKEND_ERROR_COOLDOWN_MS);
+    if (backendErrorCooldown.size > 1000) pruneBackendErrorCooldown();
     return { status: "transient", slug, median: null };
   }
 
@@ -365,6 +386,12 @@ export async function fetchPriceBySlug(
       bumpCounter("resultNoData");
       return { status: "no_data", slug: normalizedSlug, median: null };
     }
+  }
+
+  const cooldownExpiry = backendErrorCooldown.get(cacheKey);
+  if (cooldownExpiry !== undefined && Date.now() < cooldownExpiry) {
+    bumpCounter("resultTransient");
+    return { status: "transient", slug: normalizedSlug, median: null };
   }
 
   const inFlight = inFlightBySlug.get(cacheKey);
