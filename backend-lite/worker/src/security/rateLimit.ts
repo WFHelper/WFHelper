@@ -4,12 +4,17 @@ import { clamp, clientIp, parsePositiveInt } from '../utils';
 
 type PublicRateLimitRoute = 'healthz' | 'bootstrap' | 'prices' | 'meta' | 'order-summary' | 'orders';
 
+// These limits are a secondary defence behind Cloudflare edge rate limiting.
+// They are intentionally generous so a legitimate desktop user with a large
+// inventory doing a cold-cache load (potentially 1000+ requests per 10 min)
+// is never blocked. Real bot traffic is caught at the edge before it reaches
+// these counters.
 const PUBLIC_ROUTE_LIMITS: Record<PublicRateLimitRoute, { maxRequests: number; windowSec: number }> = {
 	healthz: { maxRequests: 5, windowSec: 60 },
 	bootstrap: { maxRequests: 60, windowSec: 600 },
-	prices: { maxRequests: 900, windowSec: 600 },
-	meta: { maxRequests: 900, windowSec: 600 },
-	'order-summary': { maxRequests: 500, windowSec: 600 },
+	prices: { maxRequests: 4000, windowSec: 600 },
+	meta: { maxRequests: 4000, windowSec: 600 },
+	'order-summary': { maxRequests: 4000, windowSec: 600 },
 	orders: { maxRequests: 60, windowSec: 600 },
 };
 

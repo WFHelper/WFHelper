@@ -78,6 +78,11 @@ async function validateRankedSlugAndRank(
 
 async function requireBootstrapIfNeeded(req: Request, env: Env): Promise<boolean> {
 	if (!bootstrapRequired(env)) return true;
+	// If the secret hasn't been configured yet, the token can't be verified.
+	// Pass through rather than blocking all traffic — this covers the deployment
+	// window between setting PUBLIC_BOOTSTRAP_REQUIRED=1 and running
+	// `wrangler secret put BOOTSTRAP_TOKEN_SECRET`.
+	if (!bootstrapEnabled(env)) return true;
 	return verifyBootstrapToken(req, env);
 }
 

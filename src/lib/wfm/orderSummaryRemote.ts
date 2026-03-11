@@ -12,8 +12,32 @@ const { normalizeRankFilter } = numericShared as {
 
 const CIRCUIT_BREAKER_THRESHOLD = 6;
 const CIRCUIT_BREAKER_COOLDOWN_MS = 90_000;
+// Cap concurrent backend order-summary fetches so a cold page load with
+// thousands of mods doesn't slam the worker with hundreds of parallel requests.
+const MAX_CONCURRENT_FETCHES = 30;
 
 const inFlightByKey = new Map<string, Promise<BackendFetchResult<BackendOrderSummaryPayload>>>();
+let _activeFetches = 0;
+const _fetchQueue: Array<() => void> = [];
+
+function acquireFetchSlot(): Promise<void> {
+  if (_activeFetches < MAX_CONCURRENT_FETCHES) {
+    _activeFetches++;
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve) => {
+    _fetchQueue.push(resolve);
+  });
+}
+
+function releaseFetchSlot(): void {
+  const next = _fetchQueue.shift();
+  if (next) {
+    next(); // transfer slot directly — _activeFetches stays the same
+  } else {
+    _activeFetches--;
+  }
+}
 
 export interface OrderSummaryDebugCounters {
   requests: number;
@@ -92,25 +116,29 @@ export async function fetchOrderSummaryBySlug(
   }
 
   const request = (async () => {
-    const result = await fetchBackendOrderSummaryBySlug(slug, { rank });
-    if (result.status === "ok") {
-      noteRecovery();
-      bumpCounter("backendHitOk");
-      return result;
-    }
+    await acquireFetchSlot();
+    try {
+      const result = await fetchBackendOrderSummaryBySlug(slug, { rank });
+      if (result.status === "ok") {
+        noteRecovery();
+        bumpCounter("backendHitOk");
+        return result;
+      }
 
-    if (result.status === "not_found") {
-      noteRecovery();
-      bumpCounter("backendHitNoData");
-      return result;
-    }
+      if (result.status === "not_found") {
+        noteRecovery();
+        bumpCounter("backendHitNoData");
+        return result;
+      }
 
-    noteTransientFailure();
-    bumpCounter("backendError");
-    return result.status === "error" ? ({ status: "unavailable" } as const) : result;
-  })().finally(() => {
-    inFlightByKey.delete(requestKey);
-  });
+      noteTransientFailure();
+      bumpCounter("backendError");
+      return result.status === "error" ? ({ status: "unavailable" } as const) : result;
+    } finally {
+      releaseFetchSlot();
+      inFlightByKey.delete(requestKey);
+    }
+  })();
 
   inFlightByKey.set(requestKey, request);
   return request;
