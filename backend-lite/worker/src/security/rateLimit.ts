@@ -12,9 +12,9 @@ type PublicRateLimitRoute = 'healthz' | 'bootstrap' | 'prices' | 'meta' | 'order
 const PUBLIC_ROUTE_LIMITS: Record<PublicRateLimitRoute, { maxRequests: number; windowSec: number }> = {
 	healthz: { maxRequests: 5, windowSec: 60 },
 	bootstrap: { maxRequests: 60, windowSec: 600 },
-	prices: { maxRequests: 4000, windowSec: 600 },
-	meta: { maxRequests: 4000, windowSec: 600 },
-	'order-summary': { maxRequests: 4000, windowSec: 600 },
+	prices: { maxRequests: 20000, windowSec: 600 },
+	meta: { maxRequests: 20000, windowSec: 600 },
+	'order-summary': { maxRequests: 20000, windowSec: 600 },
 	orders: { maxRequests: 60, windowSec: 600 },
 };
 
