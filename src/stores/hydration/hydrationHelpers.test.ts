@@ -81,6 +81,15 @@ describe("resolvePriceRank", () => {
     expect(resolvePriceRank(item)).toBe(0);
   });
 
+  it("returns 0 for arcanes below max rank", () => {
+    const item = makeItem({
+      inventoryGroup: "arcanes",
+      rank: 3,
+      maxRank: 5,
+    } as Partial<InventoryBaseItem>);
+    expect(resolvePriceRank(item)).toBe(0);
+  });
+
   it("defaults mod maxRank to 10", () => {
     const item = makeItem({ inventoryGroup: "mods", rank: 10 } as Partial<InventoryBaseItem>);
     expect(resolvePriceRank(item)).toBe(10);

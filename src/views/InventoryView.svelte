@@ -46,6 +46,8 @@
   const DEBUG_REFRESH_MS = 900;
   const HOTSET_REFRESH_DELAY_MS = 4_000;
   const HOTSET_REFRESH_LIMIT = 12;
+  const RANKED_CARD_SWEEP_ENABLED = false;
+  const RANKED_CARD_SWEEP_MAX_ITEMS = 24;
   const RANKED_CARD_SWEEP_BATCH_SIZE = 4;
   const RANKED_CARD_SWEEP_INTERVAL_MS = 2_500;
   const RANKED_CARD_SWEEP_START_DELAY_MS = 12_000;
@@ -181,7 +183,7 @@
       const seenDiff = getRankedHotsetSeenAt(b.marketSlug) - getRankedHotsetSeenAt(a.marketSlug);
       if (seenDiff !== 0) return seenDiff;
       return a.name.localeCompare(b.name);
-    });
+    }).slice(0, RANKED_CARD_SWEEP_MAX_ITEMS);
   }
 
   function scheduleRankedCardSweepTick(delayMs = RANKED_CARD_SWEEP_INTERVAL_MS): void {
@@ -236,6 +238,13 @@
   }
 
   function maybeStartRankedCardSweep(items: InventoryViewItem[]): void {
+    if (!RANKED_CARD_SWEEP_ENABLED) {
+      stopRankedCardSweep(false);
+      rankedCardSweepSignature = "";
+      rankedCardSweepCompletedSignature = "";
+      return;
+    }
+
     if (!$startupPriceCacheReady) return;
     if (!isRankedGroup(filter)) {
       stopRankedCardSweep(false);
@@ -273,7 +282,7 @@
     rankedCardSweepActive = true;
 
     log.info(
-      `[Inventory] starting ranked card sweep (${queue.length} items, batch=${RANKED_CARD_SWEEP_BATCH_SIZE}, interval=${RANKED_CARD_SWEEP_INTERVAL_MS}ms)`,
+      `[Inventory] starting ranked card sweep (${queue.length} items max, batch=${RANKED_CARD_SWEEP_BATCH_SIZE}, interval=${RANKED_CARD_SWEEP_INTERVAL_MS}ms)`,
     );
 
     scheduleRankedCardSweepStart();

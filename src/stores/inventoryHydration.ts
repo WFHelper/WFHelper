@@ -282,7 +282,7 @@ export function createInventoryHydrationController(): InventoryHydrationControll
         !existing &&
         needs.price &&
         cachedRankPairCovered &&
-        !needs.orders &&
+        (!needs.orders || hasFreshOrderSummaryPair(item.marketSlug, rankedMaxRank ?? 0)) &&
         (!needs.ducats || isRankedGroup(item.inventoryGroup)) &&
         (!needsIcon || iconReady)
       ) {
