@@ -2,10 +2,15 @@
  * Structured renderer logger.
  *
  * In development: passes through to console.*.
- * In production: suppresses console noise; routes to Sentry breadcrumbs when enabled.
+ * In production:
+ *   - warn/error are forwarded to the main-process file transport via
+ *     electron-log/renderer (requires the preload bridge set up in preload.ts).
+ *   - error also captures to Sentry.
+ *   - info/debug are suppressed to avoid log noise.
  */
 
 import { captureRendererException } from "./crashReporting.js";
+import electronLog from "electron-log/renderer";
 
 const isDev = import.meta.env.MODE === "development";
 
@@ -23,12 +28,16 @@ export const log = {
   warn(message: string, ...args: unknown[]): void {
     if (isDev) {
       console.warn(`[${timestamp()}] ${message}`, ...args);
+    } else {
+      electronLog.warn(message, ...args);
     }
   },
 
   error(message: string, ...args: unknown[]): void {
     if (isDev) {
       console.error(`[${timestamp()}] ${message}`, ...args);
+    } else {
+      electronLog.error(message, ...args);
     }
     // Always report errors to Sentry in production
     const errorArg = args.find((a) => a instanceof Error);
