@@ -18,9 +18,35 @@ describe('backend-lite worker', () => {
 		await waitOnExecutionContext(ctx);
 
 		expect(response.status).toBe(200);
+		const json = (await response.json()) as Record<string, unknown>;
+		expect(json).toMatchObject({
+			ok: true,
+			service: 'wf-backend-lite',
+		});
+		expect(json.automation).toBeUndefined();
+	});
+
+	it('returns detailed health status for authorized admin requests', async () => {
+		const testEnv = {
+			...env,
+			ADMIN_API_KEY: 'test-key',
+		};
+		const request = new IncomingRequest('http://example.com/healthz', {
+			headers: {
+				authorization: 'Bearer test-key',
+			},
+		});
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(request, testEnv as unknown as Env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(200);
 		expect(await response.json()).toMatchObject({
 			ok: true,
 			service: 'wf-backend-lite',
+			automation: {
+				enabled: true,
+			},
 		});
 	});
 
@@ -129,6 +155,86 @@ describe('backend-lite worker', () => {
 		expect(second.status).toBe(401);
 		expect(third.status).toBe(429);
 		expect(await third.json()).toEqual({ ok: false, error: 'rate_limited' });
+	});
+
+	it('rate limits repeated public health requests from same IP', async () => {
+		const makeRequest = () =>
+			new IncomingRequest('http://example.com/healthz', {
+				headers: {
+					'cf-connecting-ip': '10.0.0.55',
+				},
+			});
+
+		const responses: Response[] = [];
+		for (let i = 0; i < 6; i += 1) {
+			const ctx = createExecutionContext();
+			responses.push(await worker.fetch(makeRequest(), env, ctx));
+			await waitOnExecutionContext(ctx);
+		}
+
+		expect(responses[4].status).toBe(200);
+		expect(responses[5].status).toBe(429);
+		expect(await responses[5].json()).toEqual({ ok: false, error: 'rate_limited' });
+	});
+
+	it('issues bootstrap tokens and accepts them when bootstrap is required', async () => {
+		const testEnv = {
+			...env,
+			BOOTSTRAP_TOKEN_SECRET: 'bootstrap-secret',
+			PUBLIC_BOOTSTRAP_REQUIRED: '1',
+		};
+
+		const bootstrapCtx = createExecutionContext();
+		const bootstrapResponse = await worker.fetch(
+			new IncomingRequest('https://example.com/v1/bootstrap', {
+				headers: {
+					'cf-connecting-ip': '10.0.0.77',
+					'user-agent': 'wfhelper-test',
+				},
+			}),
+			testEnv as unknown as Env,
+			bootstrapCtx,
+		);
+		await waitOnExecutionContext(bootstrapCtx);
+
+		expect(bootstrapResponse.status).toBe(200);
+		const bootstrapJson = (await bootstrapResponse.json()) as {
+			data?: { token?: string };
+		};
+		const token = bootstrapJson.data?.token;
+		expect(typeof token).toBe('string');
+
+		globalThis.fetch = vi.fn(async () => new Response('', { status: 404 })) as unknown as typeof fetch;
+
+		const missingTokenCtx = createExecutionContext();
+		const missingTokenResponse = await worker.fetch(
+			new IncomingRequest('https://example.com/v1/meta/not_a_real_slug', {
+				headers: {
+					'cf-connecting-ip': '10.0.0.77',
+					'user-agent': 'wfhelper-test',
+				},
+			}),
+			testEnv as unknown as Env,
+			missingTokenCtx,
+		);
+		await waitOnExecutionContext(missingTokenCtx);
+		expect(missingTokenResponse.status).toBe(401);
+
+		const tokenCtx = createExecutionContext();
+		const tokenResponse = await worker.fetch(
+			new IncomingRequest('https://example.com/v1/meta/not_a_real_slug', {
+				headers: {
+					'cf-connecting-ip': '10.0.0.77',
+					'user-agent': 'wfhelper-test',
+					'x-wfhelper-bootstrap': token || '',
+				},
+			}),
+			testEnv as unknown as Env,
+			tokenCtx,
+		);
+		await waitOnExecutionContext(tokenCtx);
+
+		expect(tokenResponse.status).toBe(404);
 	});
 
 	it('auto-hydrates price endpoint on cache miss', async () => {
@@ -328,8 +434,16 @@ describe('backend-lite worker', () => {
 		});
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
 
+		const enabledOrdersEnv = {
+			...env,
+			ENABLE_PUBLIC_ORDERS_ROUTE: '1',
+		};
 		const ctx = createExecutionContext();
-		const response = await worker.fetch(new IncomingRequest(`https://example.com/v1/orders/${slug}`), env, ctx);
+		const response = await worker.fetch(
+			new IncomingRequest(`https://example.com/v1/orders/${slug}`),
+			enabledOrdersEnv as unknown as Env,
+			ctx,
+		);
 		await waitOnExecutionContext(ctx);
 		expect(response.status).toBe(200);
 		expect(await response.json()).toMatchObject({
@@ -345,6 +459,51 @@ describe('backend-lite worker', () => {
 		expect(cached).toBeTruthy();
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		expect(fetchMock.mock.calls[0]?.[0]).toBe(`https://api.warframe.market/v2/orders/item/${slug}`);
+	});
+
+	it('deprecates public full orderbook route by default', async () => {
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(new IncomingRequest('https://example.com/v1/orders/wf_test_orders_disabled_slug'), env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(410);
+		expect(await response.json()).toEqual({ ok: false, error: 'deprecated' });
+	});
+
+	it('rejects invalid ranked slug and rank combinations before upstream fetch', async () => {
+		await env.ITEM_META.put(
+			'order-summary:catalog:v1',
+			JSON.stringify({
+				updatedAt: Date.now(),
+				entries: [{ slug: 'primed_flow', maxRank: 10 }],
+			}),
+		);
+
+		try {
+			const fetchMock = vi.fn(async () => {
+				throw new Error('should not fetch upstream for invalid rank combinations');
+			});
+			globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+			const ctxA = createExecutionContext();
+			const missingRankResponse = await worker.fetch(new IncomingRequest('https://example.com/v1/order-summary/primed_flow'), env, ctxA);
+			await waitOnExecutionContext(ctxA);
+
+			const ctxB = createExecutionContext();
+			const invalidRankResponse = await worker.fetch(new IncomingRequest('https://example.com/v1/prices/primed_flow?rank=4'), env, ctxB);
+			await waitOnExecutionContext(ctxB);
+
+			const ctxC = createExecutionContext();
+			const nonRankedResponse = await worker.fetch(new IncomingRequest('https://example.com/v1/prices/ash_prime_set?rank=10'), env, ctxC);
+			await waitOnExecutionContext(ctxC);
+
+			expect(missingRankResponse.status).toBe(404);
+			expect(invalidRankResponse.status).toBe(404);
+			expect(nonRankedResponse.status).toBe(404);
+			expect(fetchMock).not.toHaveBeenCalled();
+		} finally {
+			await env.ITEM_META.delete('order-summary:catalog:v1');
+		}
 	});
 
 	it('auto-hydrates order summary endpoint on cache miss', async () => {
@@ -660,8 +819,16 @@ describe('backend-lite worker', () => {
 			throw new Error(`Unexpected url: ${url}`);
 		}) as unknown as typeof fetch;
 
+		const enabledOrdersEnv = {
+			...env,
+			ENABLE_PUBLIC_ORDERS_ROUTE: '1',
+		};
 		const ctx = createExecutionContext();
-		const response = await worker.fetch(new IncomingRequest(`https://example.com/v1/orders/${slug}?rank=10`), env, ctx);
+		const response = await worker.fetch(
+			new IncomingRequest(`https://example.com/v1/orders/${slug}?rank=10`),
+			enabledOrdersEnv as unknown as Env,
+			ctx,
+		);
 		await waitOnExecutionContext(ctx);
 
 		expect(response.status).toBe(200);
@@ -717,8 +884,16 @@ describe('backend-lite worker', () => {
 			throw new Error(`Unexpected url: ${url}`);
 		}) as unknown as typeof fetch;
 
+		const enabledOrdersEnv = {
+			...env,
+			ENABLE_PUBLIC_ORDERS_ROUTE: '1',
+		};
 		const ctx = createExecutionContext();
-		const response = await worker.fetch(new IncomingRequest(`https://example.com/v1/orders/${slug}?rank=0`), env, ctx);
+		const response = await worker.fetch(
+			new IncomingRequest(`https://example.com/v1/orders/${slug}?rank=0`),
+			enabledOrdersEnv as unknown as Env,
+			ctx,
+		);
 		await waitOnExecutionContext(ctx);
 
 		expect(response.status).toBe(200);
@@ -770,8 +945,16 @@ describe('backend-lite worker', () => {
 		});
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
 
+		const enabledOrdersEnv = {
+			...env,
+			ENABLE_PUBLIC_ORDERS_ROUTE: '1',
+		};
 		const ctx = createExecutionContext();
-		const response = await worker.fetch(new IncomingRequest(`https://example.com/v1/orders/${slug}`), env, ctx);
+		const response = await worker.fetch(
+			new IncomingRequest(`https://example.com/v1/orders/${slug}`),
+			enabledOrdersEnv as unknown as Env,
+			ctx,
+		);
 		await waitOnExecutionContext(ctx);
 
 		expect(response.status).toBe(200);

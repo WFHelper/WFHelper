@@ -14,6 +14,7 @@ import {
 	saveOrderSummaryHotset,
 } from '../services/prewarm';
 import { jsonResponse } from '../security/cors';
+import { isAdminAuthorized } from '../security/adminAuth';
 import { checkAdminRateLimit } from '../security/rateLimit';
 import type { Env } from '../types';
 import { getJsonFromKv, parseJsonBody, parsePositiveInt } from '../utils';
@@ -40,11 +41,6 @@ function parseHotsetEntries(value: unknown): Array<{ slug: string; maxRank: numb
 			};
 		})
 		.filter((entry): entry is { slug: string; maxRank: number; lastSeenAt: number } => entry != null);
-}
-
-function isAdminAuthorized(req: Request, env: Env): boolean {
-	const auth = req.headers.get('authorization') || '';
-	return Boolean(env.ADMIN_API_KEY) && auth === `Bearer ${env.ADMIN_API_KEY}`;
 }
 
 export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promise<Response | null> {

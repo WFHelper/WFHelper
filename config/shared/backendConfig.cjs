@@ -13,5 +13,5 @@
  * Set VITE_WFM_BACKEND_URL in the environment to override at runtime.
  */
 module.exports = {
-  BACKEND_URL: "https://worker.wfcompanion-cache.workers.dev",
+  BACKEND_URL: "https://api.wfhelper.com",
 };

@@ -24,14 +24,15 @@ export function originIsAllowed(req: Request, env: Env): boolean {
 	return allowList.includes(origin);
 }
 
-export function jsonResponse(data: unknown, req: Request, env: Env, status = 200): Response {
+export function jsonResponse(data: unknown, req: Request, env: Env, status = 200, extraHeaders?: Record<string, string>): Response {
 	const headers: Record<string, string> = {
 		'content-type': 'application/json; charset=utf-8',
 		'cache-control': 'public, max-age=60',
 		'x-content-type-options': 'nosniff',
 		'access-control-allow-methods': 'GET,POST,OPTIONS',
-		'access-control-allow-headers': 'content-type,authorization',
+		'access-control-allow-headers': 'content-type,authorization,x-wfhelper-bootstrap',
 		vary: 'Origin',
+		...(extraHeaders || {}),
 	};
 
 	const origin = requestOrigin(req);
