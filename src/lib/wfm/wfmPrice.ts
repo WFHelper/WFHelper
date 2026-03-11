@@ -9,7 +9,12 @@ import {
 } from "./backendLite.js";
 import wfmStatsShared from "../../../config/shared/wfmStats.cjs";
 import numericShared from "../../../config/shared/numeric.cjs";
+import wfmExclusionsShared from "../../../config/shared/wfmExclusions.cjs";
 import { log } from "../log.js";
+
+const { isWfmExcludedSlug } = wfmExclusionsShared as {
+  isWfmExcludedSlug: (slug: unknown) => boolean;
+};
 
 const { normalizeRankFilter: normalizePriceRank } = numericShared as {
   normalizeRankFilter: (value: unknown) => number | null;
@@ -362,6 +367,7 @@ export async function fetchPriceBySlug(
 ): Promise<PriceBySlugResult> {
   const normalizedSlug = normalizeWfmSlug(slug);
   if (!normalizedSlug) return { status: "no_slug", slug: null, median: null };
+  if (isWfmExcludedSlug(normalizedSlug)) return { status: "no_slug", slug: null, median: null };
   bumpCounter("requests");
   const priority = options?.priority || "normal";
   const rank = normalizePriceRank(options?.rank ?? null);

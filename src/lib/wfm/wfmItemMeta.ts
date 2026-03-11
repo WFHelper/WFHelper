@@ -7,6 +7,11 @@ import {
 import { log } from "../log.js";
 import numericShared from "../../../config/shared/numeric.cjs";
 import wfmShared from "../../../config/shared/wfm.cjs";
+import wfmExclusionsShared from "../../../config/shared/wfmExclusions.cjs";
+
+const { isWfmExcludedSlug } = wfmExclusionsShared as {
+  isWfmExcludedSlug: (slug: unknown) => boolean;
+};
 
 const { toFiniteNumber } = numericShared as {
   toFiniteNumber: (value: unknown) => number | null;
@@ -103,6 +108,7 @@ export async function fetchWfmItemMetaBySlug(
 ): Promise<WfmItemMeta | null> {
   const normalizedSlug = normalizeWfmSlug(slug);
   if (!normalizedSlug) return null;
+  if (isWfmExcludedSlug(normalizedSlug)) return null;
 
   const priority = options?.priority || "low";
 

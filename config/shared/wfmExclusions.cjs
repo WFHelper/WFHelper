@@ -2,6 +2,11 @@
 
 const BLOOD_FOR_SLUGS = new Set(["blood_for_ammo", "blood_for_energy", "blood_for_life"]);
 
+// Slugs that exist in the Warframe inventory but have no WFM listing at all.
+// Excluded from every price AND meta lookup. Add entries here when an item
+// produces repeated 404s (e.g. vendor packs, internal placeholder items).
+const WFM_EXCLUDED_SLUGS = new Set(["vendor-relic"]);
+
 /**
  * @param {unknown} value
  * @returns {string}
@@ -62,7 +67,22 @@ function isExcludedRankedMarketItem(name, slug) {
   return false;
 }
 
+/**
+ * Returns true for slugs that should never be looked up on warframe.market
+ * (price OR meta). These are items that exist in the Warframe inventory but
+ * are not tradable and have no WFM listing.
+ *
+ * @param {unknown} slug  Already-normalized WFM slug (lowercase, underscores)
+ * @returns {boolean}
+ */
+function isWfmExcludedSlug(slug) {
+  if (typeof slug !== "string" || !slug) return false;
+  return WFM_EXCLUDED_SLUGS.has(slug);
+}
+
 module.exports = {
   BLOOD_FOR_SLUGS,
+  WFM_EXCLUDED_SLUGS,
   isExcludedRankedMarketItem,
+  isWfmExcludedSlug,
 };

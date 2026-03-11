@@ -38,6 +38,11 @@ const BOOTSTRAP_REFRESH_MARGIN_MS = 60_000; // re-fetch 1 min before expiry
 
 let _bootstrapToken: string | null = null;
 let _bootstrapTokenExpiry = 0;
+// After a failed bootstrap fetch, suppress retries for this long so a
+// CSP block / network error doesn't cause every parallel request to pile
+// up on the bootstrap endpoint.
+let _bootstrapRetryAfter = 0;
+const BOOTSTRAP_FAILURE_COOLDOWN_MS = 30_000;
 
 async function ensureBootstrapToken(): Promise<string | null> {
   if (!BOOTSTRAP_ENABLED || !isBackendLiteConfigured()) return null;
@@ -47,6 +52,9 @@ async function ensureBootstrapToken(): Promise<string | null> {
     return _bootstrapToken;
   }
 
+  // Back off after recent failures so parallel requests don't all retry at once
+  if (Date.now() < _bootstrapRetryAfter) return null;
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -54,7 +62,10 @@ async function ensureBootstrapToken(): Promise<string | null> {
       signal: controller.signal,
       headers: { Accept: "application/json" },
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      _bootstrapRetryAfter = Date.now() + BOOTSTRAP_FAILURE_COOLDOWN_MS;
+      return null;
+    }
     const json = (await response.json()) as {
       ok?: boolean;
       data?: { token?: string; expiresAt?: number };
@@ -64,12 +75,15 @@ async function ensureBootstrapToken(): Promise<string | null> {
       typeof json.data?.token !== "string" ||
       typeof json.data?.expiresAt !== "number"
     ) {
+      _bootstrapRetryAfter = Date.now() + BOOTSTRAP_FAILURE_COOLDOWN_MS;
       return null;
     }
+    _bootstrapRetryAfter = 0;
     _bootstrapToken = json.data.token;
     _bootstrapTokenExpiry = json.data.expiresAt;
     return _bootstrapToken;
   } catch {
+    _bootstrapRetryAfter = Date.now() + BOOTSTRAP_FAILURE_COOLDOWN_MS;
     return null;
   } finally {
     clearTimeout(timeout);
