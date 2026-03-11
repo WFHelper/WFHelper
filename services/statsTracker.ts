@@ -27,6 +27,7 @@ export interface DailyStatEntry {
   creditsDelta: number;
   endoDelta: number;
   ducatsDelta: number;   // net Void Ducat change
+  ayaDelta: number;      // net Aya (PrimeTokens) change
   relicsOpened: number;  // relics consumed (LevelKeys net decrease, ≥0)
   daysPlayed: number;    // 1 = played; 0 = no inventory data (imported gap)
 }
@@ -36,10 +37,12 @@ export interface SessionStats {
   creditsDelta: number;
   endoDelta: number;
   ducatsDelta: number;
+  ayaDelta: number;
   currentPlat: number | null;
   currentCredits: number | null;
   currentEndo: number | null;
   currentDucats: number | null;
+  currentAya: number | null;
   hasData: boolean;
 }
 
@@ -50,12 +53,14 @@ let _baselinePlat: number | null = null;
 let _baselineCredits: number | null = null;
 let _baselineEndo: number | null = null;
 let _baselineDucats: number | null = null;
+let _baselineAya: number | null = null;
 
 // Latest absolute values
 let _currentPlat: number | null = null;
 let _currentCredits: number | null = null;
 let _currentEndo: number | null = null;
 let _currentDucats: number | null = null;
+let _currentAya: number | null = null;
 
 // Relic tracking: accumulate decreases in total LevelKeys count throughout the day
 let _lastRelicTotal: number | null = null;
@@ -98,6 +103,8 @@ function _upsertToday(): void {
     _currentDucats !== null && _baselineDucats !== null
       ? _currentDucats - _baselineDucats
       : 0;
+  const ayaDelta =
+    _currentAya !== null && _baselineAya !== null ? _currentAya - _baselineAya : 0;
 
   const entry: DailyStatEntry = {
     date: today,
@@ -105,6 +112,7 @@ function _upsertToday(): void {
     creditsDelta,
     endoDelta,
     ducatsDelta,
+    ayaDelta,
     relicsOpened: _todayRelicsOpened,
     daysPlayed: 1,
   };
@@ -135,10 +143,18 @@ export function loadHistory(): void {
       // Back-fill any fields missing from older schema so the shape is always complete
       _history = (parsed as DailyStatEntry[]).map((e) => ({
         ducatsDelta: 0,
+        ayaDelta: 0,
         relicsOpened: 0,
         daysPlayed: 1,
         ...e,
       }));
+      // Restore today's relic accumulator so app restarts don't reset the daily count to 0
+      const today = _todayStr();
+      const todayEntry = _history.find((e) => e.date === today);
+      if (todayEntry && todayEntry.relicsOpened > 0) {
+        _todayRelicsOpened = todayEntry.relicsOpened;
+        _todayDateForRelics = today;
+      }
       log.log(`[StatsTracker] Loaded ${_history.length} history entries`);
     }
   } catch {
@@ -156,6 +172,8 @@ export function onInventoryData(data: Record<string, unknown>): void {
   const endo    = typeof data.FusionPoints   === "number" ? data.FusionPoints   : null;
   // DUCTCREDITS is the raw field name for Void Ducats in the Warframe inventory JSON
   const ducats  = typeof data.DUCTCREDITS    === "number" ? data.DUCTCREDITS    : null;
+  // PrimeTokens is the raw field name for Aya in the Warframe inventory JSON
+  const aya     = typeof data.PrimeTokens    === "number" ? data.PrimeTokens    : null;
 
   // ── Relics opened tracking ───────────────────────────────────────────────
   // LevelKeys holds relic items; summing their ItemCount gives total relic inventory.
@@ -186,11 +204,13 @@ export function onInventoryData(data: Record<string, unknown>): void {
   if (_baselineCredits === null && credits !== null) _baselineCredits = credits;
   if (_baselineEndo    === null && endo    !== null) _baselineEndo    = endo;
   if (_baselineDucats  === null && ducats  !== null) _baselineDucats  = ducats;
+  if (_baselineAya     === null && aya     !== null) _baselineAya     = aya;
 
   _currentPlat    = plat;
   _currentCredits = credits;
   _currentEndo    = endo;
   _currentDucats  = ducats;
+  _currentAya     = aya;
 
   _upsertToday();
 }
@@ -244,6 +264,10 @@ export function importHistory(raw: unknown[]): number {
     let ducatsDelta = 0;
     if (typeof r.ducatsDelta === "number") ducatsDelta = r.ducatsDelta;
 
+    // Aya delta (pre-processed from absolute by the renderer)
+    let ayaDelta = 0;
+    if (typeof r.ayaDelta === "number") ayaDelta = r.ayaDelta;
+
     // Relics opened (already a count per day in AlecaFrame; also stored as relicsOpened)
     let relicsOpened = 0;
     if (typeof r.relicsOpened === "number") relicsOpened = r.relicsOpened;
@@ -251,7 +275,7 @@ export function importHistory(raw: unknown[]): number {
 
     const daysPlayed = typeof r.daysPlayed === "number" ? r.daysPlayed : 1;
 
-    _history.push({ date, platDelta, creditsDelta, endoDelta, ducatsDelta, relicsOpened, daysPlayed });
+    _history.push({ date, platDelta, creditsDelta, endoDelta, ducatsDelta, ayaDelta, relicsOpened, daysPlayed });
     existingDates.add(date);
     imported++;
   }
@@ -274,7 +298,8 @@ export function getCurrentSession(): SessionStats {
     _currentPlat !== null ||
     _currentCredits !== null ||
     _currentEndo !== null ||
-    _currentDucats !== null;
+    _currentDucats !== null ||
+    _currentAya !== null;
   return {
     platDelta:
       _currentPlat !== null && _baselinePlat !== null ? _currentPlat - _baselinePlat : 0,
@@ -288,10 +313,13 @@ export function getCurrentSession(): SessionStats {
       _currentDucats !== null && _baselineDucats !== null
         ? _currentDucats - _baselineDucats
         : 0,
-    currentPlat:   _currentPlat,
+    ayaDelta:
+      _currentAya !== null && _baselineAya !== null ? _currentAya - _baselineAya : 0,
+    currentPlat:    _currentPlat,
     currentCredits: _currentCredits,
-    currentEndo:   _currentEndo,
-    currentDucats: _currentDucats,
+    currentEndo:    _currentEndo,
+    currentDucats:  _currentDucats,
+    currentAya:     _currentAya,
     hasData,
   };
 }

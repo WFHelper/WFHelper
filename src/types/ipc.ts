@@ -302,6 +302,7 @@ export interface DailyStatEntry {
   creditsDelta: number;
   endoDelta: number;
   ducatsDelta: number;    // net change in Void Ducats (DUCTCREDITS)
+  ayaDelta: number;       // net change in Aya (PrimeTokens)
   relicsOpened: number;   // relics consumed today (LevelKeys decrease tracking)
   daysPlayed: number;     // 1 = inventory data received; 0 = gap/imported entry
 }
@@ -311,10 +312,12 @@ export interface SessionStats {
   creditsDelta: number;
   endoDelta: number;
   ducatsDelta: number;
+  ayaDelta: number;
   currentPlat: number | null;
   currentCredits: number | null;
   currentEndo: number | null;
   currentDucats: number | null;
+  currentAya: number | null;
   hasData: boolean;
 }
 
