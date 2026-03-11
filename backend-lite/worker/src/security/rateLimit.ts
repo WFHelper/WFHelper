@@ -1,15 +1,6 @@
 import { jsonResponse } from './cors';
 import type { Env } from '../types';
-import { clamp, parsePositiveInt } from '../utils';
-
-function clientIp(req: Request): string {
-	const cfIp = req.headers.get('cf-connecting-ip');
-	if (cfIp) return cfIp;
-
-	const xff = req.headers.get('x-forwarded-for');
-	if (!xff) return 'unknown';
-	return xff.split(',')[0].trim() || 'unknown';
-}
+import { clamp, clientIp, parsePositiveInt } from '../utils';
 
 type PublicRateLimitRoute = 'healthz' | 'bootstrap' | 'prices' | 'meta' | 'order-summary' | 'orders';
 

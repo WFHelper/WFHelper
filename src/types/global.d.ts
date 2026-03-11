@@ -13,6 +13,7 @@ declare global {
     readonly VITE_SENTRY_TRACES_SAMPLE_RATE?: string;
     readonly VITE_WFM_BACKEND_URL?: string;
     readonly VITE_WFM_BACKEND_DIRECT_FALLBACK?: "always" | "high" | "never";
+    readonly VITE_WFM_BACKEND_BOOTSTRAP_ENABLED?: string;
   }
 
   interface ImportMeta {

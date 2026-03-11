@@ -1,5 +1,5 @@
 import type { Env } from '../types';
-import { clamp, parsePositiveInt } from '../utils';
+import { clamp, clientIp, parsePositiveInt } from '../utils';
 
 const BOOTSTRAP_HEADER = 'x-wfhelper-bootstrap';
 
@@ -44,15 +44,6 @@ async function signPayload(payloadBase64: string, secret: string): Promise<strin
 	const key = await hmacKey(secret);
 	const signature = await crypto.subtle.sign('HMAC', key, textEncoder().encode(payloadBase64));
 	return toBase64Url(new Uint8Array(signature));
-}
-
-function clientIp(req: Request): string {
-	const cfIp = req.headers.get('cf-connecting-ip');
-	if (cfIp) return cfIp;
-
-	const xff = req.headers.get('x-forwarded-for');
-	if (!xff) return 'unknown';
-	return xff.split(',')[0].trim() || 'unknown';
 }
 
 function userAgent(req: Request): string {

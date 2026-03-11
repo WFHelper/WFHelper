@@ -1,5 +1,17 @@
 import { SLUG_RE } from './constants';
 
+/**
+ * Returns the real client IP address.
+ *
+ * With `workers_dev = false` every request goes through Cloudflare's edge,
+ * which always injects `cf-connecting-ip`.  We intentionally do NOT fall back
+ * to `x-forwarded-for`: that header can be forged by callers, and with a
+ * custom domain it is never needed for legitimate traffic.
+ */
+export function clientIp(req: Request): string {
+	return req.headers.get('cf-connecting-ip') || 'unknown';
+}
+
 export function parsePositiveInt(input: string | undefined, fallbackValue: number): number {
 	const value = Number(input || '');
 	if (!Number.isFinite(value) || value <= 0) return fallbackValue;

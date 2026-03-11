@@ -20,6 +20,67 @@ const RAW_BACKEND_URL = (import.meta.env.VITE_WFM_BACKEND_URL || "").trim();
 const BACKEND_BASE_URL = RAW_BACKEND_URL.replace(/\/+$/, "");
 const REQUEST_TIMEOUT_MS = 3500;
 
+// ── Bootstrap token ─────────────────────────────────────────────────────────
+// When VITE_WFM_BACKEND_BOOTSTRAP_ENABLED=1 the client fetches a short-lived
+// HMAC-signed token from /v1/bootstrap and attaches it to every subsequent
+// backend request via x-wfhelper-bootstrap.  The server binds the token to the
+// caller's IP + User-Agent hash, so it cannot be replayed from other machines.
+//
+// Deployment sequence (see worker ARCHITECTURE.md):
+//   1. wrangler secret put BOOTSTRAP_TOKEN_SECRET
+//   2. Deploy app with VITE_WFM_BACKEND_BOOTSTRAP_ENABLED=1
+//   3. Set PUBLIC_BOOTSTRAP_REQUIRED=1 in wrangler.jsonc and redeploy worker
+
+const BOOTSTRAP_ENABLED =
+  (import.meta.env.VITE_WFM_BACKEND_BOOTSTRAP_ENABLED || "").trim() === "1";
+const BOOTSTRAP_HEADER = "x-wfhelper-bootstrap";
+const BOOTSTRAP_REFRESH_MARGIN_MS = 60_000; // re-fetch 1 min before expiry
+
+let _bootstrapToken: string | null = null;
+let _bootstrapTokenExpiry = 0;
+
+async function ensureBootstrapToken(): Promise<string | null> {
+  if (!BOOTSTRAP_ENABLED || !isBackendLiteConfigured()) return null;
+
+  // Return cached token if still fresh (with margin)
+  if (_bootstrapToken && Date.now() < _bootstrapTokenExpiry - BOOTSTRAP_REFRESH_MARGIN_MS) {
+    return _bootstrapToken;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${BACKEND_BASE_URL}/v1/bootstrap`, {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return null;
+    const json = (await response.json()) as {
+      ok?: boolean;
+      data?: { token?: string; expiresAt?: number };
+    };
+    if (
+      !json?.ok ||
+      typeof json.data?.token !== "string" ||
+      typeof json.data?.expiresAt !== "number"
+    ) {
+      return null;
+    }
+    _bootstrapToken = json.data.token;
+    _bootstrapTokenExpiry = json.data.expiresAt;
+    return _bootstrapToken;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function invalidateBootstrapToken(): void {
+  _bootstrapToken = null;
+  _bootstrapTokenExpiry = 0;
+}
+
 function resolveFallbackMode(): FallbackMode {
   const raw = (import.meta.env.VITE_WFM_BACKEND_DIRECT_FALLBACK || "").trim().toLowerCase();
   if (raw === "always" || raw === "high" || raw === "never") {
@@ -124,17 +185,27 @@ async function fetchBackendJson(
     return { status: "unavailable" };
   }
 
+  const bootstrapToken = await ensureBootstrapToken();
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (bootstrapToken) headers[BOOTSTRAP_HEADER] = bootstrapToken;
+
     const response = await fetch(`${BACKEND_BASE_URL}${pathname}`, {
       signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-      },
+      headers,
     });
 
+    if (response.status === 401) {
+      // Token was rejected (expired or server secret rotated) — invalidate so
+      // the next call fetches a fresh one.  Treat this call as an error so the
+      // caller falls through to the direct-WFM fallback.
+      invalidateBootstrapToken();
+      return { status: "error" };
+    }
     if (response.status === 404) return { status: "not_found" };
     if (!response.ok) return { status: "error" };
 

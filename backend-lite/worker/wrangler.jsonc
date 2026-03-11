@@ -26,11 +26,19 @@
 		"ORDERS_SUMMARY_CACHE_TTL_SEC": "172800",
 		"ORDERS_SUMMARY_STALE_REFRESH_SEC": "21600",
 		"ORDER_SUMMARY_PREWARM_BATCH_SIZE": "24",
-		"ALLOW_ORIGIN": "*",
+		// Restrict browser-context CORS to the production domain only.
+		// Requests without an Origin header (Electron app, curl) are always
+		// allowed regardless of this value — it only blocks cross-site browser
+		// fetches.  Keep the current domain here; do NOT use "*" in production.
+		"ALLOW_ORIGIN": "https://wfhelper.com",
 		"ADMIN_RATE_LIMIT_WINDOW_SEC": "60",
 		"ADMIN_RATE_LIMIT_MAX": "60",
 		"PUBLIC_RATE_LIMIT_ENABLED": "1",
 		"ENABLE_PUBLIC_ORDERS_ROUTE": "0",
+		// DEPLOYMENT ORDER: set to "1" only AFTER:
+		//   1. Running: wrangler secret put BOOTSTRAP_TOKEN_SECRET
+		//   2. Deploying the app update that sends the x-wfhelper-bootstrap header.
+		// Setting this to "1" without BOOTSTRAP_TOKEN_SECRET will block ALL public routes.
 		"PUBLIC_BOOTSTRAP_REQUIRED": "0",
 		"PREWARM_BATCH_SIZE": "60",
 		"CATALOG_REFRESH_HOURS": "24",

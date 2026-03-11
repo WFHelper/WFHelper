@@ -50,9 +50,10 @@ describe('backend-lite worker', () => {
 		});
 	});
 
-	it('blocks credentialed wildcard-origin requests', async () => {
-		// With ALLOW_ORIGIN=*, credentialed requests (Authorization header)
-		// from browser origins must be blocked per CORS spec.
+	it('blocks requests from origins not in the allowlist', async () => {
+		// Only origins listed in ALLOW_ORIGIN (wrangler.jsonc default: https://wfhelper.com)
+		// are permitted from browser contexts. Requests from other origins are rejected
+		// with 403 regardless of whether they carry auth credentials.
 		const request = new IncomingRequest('http://example.com/admin/prewarm', {
 			method: 'POST',
 			headers: {
@@ -67,6 +68,30 @@ describe('backend-lite worker', () => {
 		await waitOnExecutionContext(ctx);
 		expect(response.status).toBe(403);
 		expect(await response.json()).toEqual({ ok: false, error: 'forbidden_origin' });
+	});
+
+	it('allows requests from the configured ALLOW_ORIGIN domain', async () => {
+		// The desktop app itself runs as a file:// or app:// origin and doesn't send
+		// an Origin header, but browser-based integrations using https://wfhelper.com
+		// should be served normally.
+		const request = new IncomingRequest('http://example.com/healthz', {
+			headers: { Origin: 'https://wfhelper.com' },
+		});
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(request, env, ctx);
+		await waitOnExecutionContext(ctx);
+		expect(response.status).toBe(200);
+		expect((await response.json() as Record<string, unknown>).ok).toBe(true);
+	});
+
+	it('allows requests with no Origin header (Electron / curl)', async () => {
+		// Electron renderer and direct curl calls never include an Origin header.
+		// These should always be allowed through the origin check.
+		const request = new IncomingRequest('http://example.com/healthz');
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(request, env, ctx);
+		await waitOnExecutionContext(ctx);
+		expect(response.status).toBe(200);
 	});
 
 	it('returns not_found for unknown route (integration style)', async () => {
