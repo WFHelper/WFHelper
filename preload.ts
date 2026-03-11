@@ -1,14 +1,5 @@
 ﻿import { contextBridge, ipcRenderer } from "electron";
 
-// Set up electron-log renderer bridge — exposes window.__electronLog so the
-// renderer can forward warn/error messages to the main-process file transport.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const initElectronLog = require("electron-log/preload") as (opts: {
-  contextBridge: typeof contextBridge;
-  ipcRenderer: typeof ipcRenderer;
-}) => void;
-initElectronLog({ contextBridge, ipcRenderer });
-
 contextBridge.exposeInMainWorld("api", {
   getInventory: () => ipcRenderer.invoke("get-inventory"),
   openInventoryFile: () => ipcRenderer.invoke("open-inventory-file"),
@@ -78,6 +69,7 @@ contextBridge.exposeInMainWorld("api", {
   openOcrCropDebugger: () => ipcRenderer.invoke("overlay:open-crop-debugger"),
 
   openExternal: (url: string) => ipcRenderer.send("open-external", url),
+  logWarn: (message: string, ...args: unknown[]) => ipcRenderer.send("log:warn", message, ...args),
 
   loadPriceCache: () => ipcRenderer.invoke("price-cache:load"),
   savePriceCache: (data: unknown) => ipcRenderer.invoke("price-cache:save", data),

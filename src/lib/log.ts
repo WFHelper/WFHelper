@@ -4,18 +4,28 @@
  * In development: passes through to console.*.
  * In production:
  *   - warn/error are forwarded to the main-process file transport via
- *     electron-log/renderer (requires the preload bridge set up in preload.ts).
+ *     window.api.logWarn (IPC send → main process electron-log).
  *   - error also captures to Sentry.
  *   - info/debug are suppressed to avoid log noise.
  */
 
 import { captureRendererException } from "./crashReporting.js";
-import electronLog from "electron-log/renderer";
 
 const isDev = import.meta.env.MODE === "development";
 
 function timestamp(): string {
   return new Date().toISOString().slice(11, 23);
+}
+
+function sendToMain(message: string, ...args: unknown[]): void {
+  try {
+    (window as { api?: { logWarn?: (m: string, ...a: unknown[]) => void } }).api?.logWarn?.(
+      message,
+      ...args,
+    );
+  } catch {
+    // non-fatal — if IPC isn't ready, skip silently
+  }
 }
 
 export const log = {
@@ -29,7 +39,7 @@ export const log = {
     if (isDev) {
       console.warn(`[${timestamp()}] ${message}`, ...args);
     } else {
-      electronLog.warn(message, ...args);
+      sendToMain(message, ...args);
     }
   },
 
@@ -37,7 +47,7 @@ export const log = {
     if (isDev) {
       console.error(`[${timestamp()}] ${message}`, ...args);
     } else {
-      electronLog.error(message, ...args);
+      sendToMain(message, ...args);
     }
     // Always report errors to Sentry in production
     const errorArg = args.find((a) => a instanceof Error);

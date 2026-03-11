@@ -65,6 +65,7 @@ export interface PreloadAPI {
   ) => Promise<IpcInvokeMap["setOverlaySettings"]["return"]>;
   openOcrCropDebugger: () => Promise<IpcInvokeMap["openOcrCropDebugger"]["return"]>;
   openExternal: (url: string) => void;
+  logWarn: (message: string, ...args: unknown[]) => void;
   loadPriceCache: () => Promise<IpcInvokeMap["loadPriceCache"]["return"]>;
   savePriceCache: (
     data: IpcInvokeMap["savePriceCache"]["args"][0],

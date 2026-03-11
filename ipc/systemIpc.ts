@@ -106,6 +106,11 @@ function register(): void {
     ctx.mainWindow?.close();
   });
 
+  ipcMain.on("log:warn", (event: unknown, message: unknown, ...args: unknown[]) => {
+    if (!isAuthorizedSender(assertMainRendererSender, event as never, "log:warn")) return;
+    log.warn("[renderer]", String(message), ...args);
+  });
+
   ipcMain.on("open-external", (event: unknown, url: unknown) => {
     if (!isAuthorizedSender(assertMainRendererSender, event as never, "open-external")) return;
 
