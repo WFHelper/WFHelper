@@ -10,6 +10,8 @@ import {
 	PREWARM_LAST_RUN_KEY,
 	SKIP_UNTRADABLE_PREFIX,
 	SLUG_RE,
+	SNAPSHOT_KEY,
+	SNAPSHOT_LAST_GEN_KEY,
 	WFM_HEADERS,
 } from '../constants';
 import type {
@@ -843,6 +845,127 @@ export async function prewarmBatch(
 	await env.PRICE_CACHE.put(PREWARM_LAST_RUN_KEY, JSON.stringify(result));
 
 	return result;
+}
+
+/**
+ * Read `keys` from `kvNamespace` in batches of `batchSize` concurrent requests.
+ * Returns results in the same order as the input keys.
+ */
+async function batchedKvGet<T>(
+	kvNamespace: KVNamespace,
+	keys: string[],
+	batchSize = 50,
+): Promise<Array<[string, T | null]>> {
+	const results: Array<[string, T | null]> = [];
+	for (let i = 0; i < keys.length; i += batchSize) {
+		const chunk = keys.slice(i, i + batchSize);
+		const chunkResults = await Promise.all(
+			chunk.map(async (k): Promise<[string, T | null]> => {
+				const v = (await kvNamespace.get(k, 'json')) as T | null;
+				return [k, v];
+			}),
+		);
+		results.push(...chunkResults);
+	}
+	return results;
+}
+
+/**
+ * Compile a full snapshot blob from existing KV data and write it to `SNAPSHOT_KEY`.
+ * Called from the cron handler at most once per SNAPSHOT_REFRESH_INTERVAL_SEC.
+ *
+ * The snapshot uses client-native key formats so the renderer can call
+ * `importCache(snapshot.prices)` and `importOrderSummaryCache(snapshot.orderSummaries)`
+ * directly without any key translation.
+ */
+export async function buildFullSnapshot(env: Env): Promise<void> {
+	const ttlSec = orderSummaryCacheTtlSec(env);
+
+	// 1. Load catalog lists (use cached values — don't force a refresh here)
+	const slugs = await fetchCatalogSlugs(env, false);
+	const rankedCatalog = await fetchRankedSummaryCatalog(env, false);
+
+	// 2. Expand ranked catalog into (slug, rank) pairs — only rank 0 and maxRank
+	type RankPair = { slug: string; rank: number };
+	const rankPairs: RankPair[] = [];
+	for (const entry of rankedCatalog) {
+		rankPairs.push({ slug: entry.slug, rank: 0 });
+		if (entry.maxRank > 0) {
+			rankPairs.push({ slug: entry.slug, rank: entry.maxRank });
+		}
+	}
+
+	// 3. Batch-read unranked price and meta entries concurrently
+	const [priceResults, metaResults] = await Promise.all([
+		batchedKvGet<Record<string, unknown>>(env.PRICE_CACHE, slugs.map((s) => `price:${s}`)),
+		batchedKvGet<Record<string, unknown>>(env.ITEM_META, slugs.map((s) => `meta:${s}`)),
+	]);
+
+	// 4. Batch-read ranked prices and order summaries concurrently
+	const [rankedPriceResults, orderSummaryResults] = await Promise.all([
+		batchedKvGet<Record<string, unknown>>(env.PRICE_CACHE, rankPairs.map(({ slug, rank }) => `price:${slug}:r${rank}`)),
+		batchedKvGet<Record<string, unknown>>(env.PRICE_CACHE, rankPairs.map(({ slug, rank }) => `orders-summary:${slug}:r${rank}`)),
+	]);
+
+	// 5. Compile snapshot
+	const prices: Record<string, unknown> = {};
+	const meta: Record<string, unknown> = {};
+	const orderSummaries: Record<string, unknown> = {};
+
+	// Unranked prices — client key format: {slug}
+	for (const [, data] of priceResults) {
+		if (!data || typeof data !== 'object') continue;
+		const slug = typeof data.slug === 'string' ? data.slug : null;
+		const median = typeof data.median === 'number' && Number.isFinite(data.median) ? data.median : null;
+		const timestamp = typeof data.timestamp === 'number' ? data.timestamp : null;
+		if (!slug || median == null || timestamp == null) continue;
+		prices[slug] = { status: 'ok', median, timestamp };
+	}
+
+	// Meta — client key format: {slug}
+	for (const [, data] of metaResults) {
+		if (!data || typeof data !== 'object') continue;
+		const slug = typeof data.slug === 'string' ? data.slug : null;
+		if (!slug) continue;
+		// Pass through full MetaPayload — client ignores the 'tradable' field
+		meta[slug] = data;
+	}
+
+	// Ranked prices — client key format: {slug}:rank-v3:r{rank}
+	for (let i = 0; i < rankPairs.length; i++) {
+		const { slug, rank } = rankPairs[i];
+		const [, data] = rankedPriceResults[i];
+		if (!data || typeof data !== 'object') continue;
+		const median = typeof data.median === 'number' && Number.isFinite(data.median) ? data.median : null;
+		const timestamp = typeof data.timestamp === 'number' ? data.timestamp : null;
+		if (median == null || timestamp == null) continue;
+		prices[`${slug}:rank-v3:r${rank}`] = { status: 'ok', median, timestamp };
+	}
+
+	// Order summaries — client key format: {slug}:r{rank}
+	for (let i = 0; i < rankPairs.length; i++) {
+		const { slug, rank } = rankPairs[i];
+		const [, data] = orderSummaryResults[i];
+		if (!data || typeof data !== 'object') continue;
+		const timestamp = typeof data.timestamp === 'number' ? data.timestamp : null;
+		if (timestamp == null) continue;
+		const wts = typeof data.wts === 'number' && Number.isFinite(data.wts) ? Math.round(data.wts) : null;
+		const wtb = typeof data.wtb === 'number' && Number.isFinite(data.wtb) ? Math.round(data.wtb) : null;
+		const status = wts != null || wtb != null ? 'ok' : 'no_data';
+		orderSummaries[`${slug}:r${rank}`] = { status, wts, wtb, timestamp };
+	}
+
+	// 6. Write snapshot to KV
+	const snapshot = {
+		version: 1,
+		generatedAt: Date.now(),
+		prices,
+		meta,
+		orderSummaries,
+	};
+
+	await env.PRICE_CACHE.put(SNAPSHOT_KEY, JSON.stringify(snapshot), { expirationTtl: ttlSec });
+	await env.PRICE_CACHE.put(SNAPSHOT_LAST_GEN_KEY, String(snapshot.generatedAt));
 }
 
 export const __test__ = {

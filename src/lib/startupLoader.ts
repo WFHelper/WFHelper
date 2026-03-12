@@ -9,6 +9,7 @@ import type { CachedPriceEntry } from "./wfm/priceCache.js";
 import { importOrderSummaryCache, exportOrderSummaryCache } from "./wfm/orderSummaryCache.js";
 import type { CachedOrderSummaryEntry } from "./wfm/orderSummaryCache.js";
 import { exportRankedHotset, importRankedHotset } from "./wfm/rankedHotset.js";
+import { tryLoadSnapshot } from "./wfm/snapshotLoader.js";
 import { log } from "./log.js";
 import { get } from "svelte/store";
 import { writable } from "svelte/store";
@@ -89,6 +90,15 @@ export function initStartup(): StartupHandle {
       log.warn("[Startup] loadRankedHotset failed:", e);
     } finally {
       startupPriceCacheReady.set(true);
+    }
+
+    // Bulk snapshot — populates all three caches in one network request (best-effort)
+    try {
+      const stageStart = Date.now();
+      await tryLoadSnapshot();
+      log.info(`[StartupProfile] snapshot:load: ${Date.now() - stageStart}ms`);
+    } catch {
+      // tryLoadSnapshot never throws, this is just a safety net
     }
 
     try {

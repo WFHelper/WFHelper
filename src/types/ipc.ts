@@ -257,6 +257,14 @@ export interface IpcInvokeMap {
     args: [data: Record<string, unknown>];
     return: { ok: boolean };
   };
+  loadSnapshotCache: {
+    args: [];
+    return: Record<string, unknown> | null;
+  };
+  saveSnapshotCache: {
+    args: [data: Record<string, unknown>];
+    return: { ok: boolean };
+  };
   getStatsHistory: {
     args: [];
     return: DailyStatEntry[];

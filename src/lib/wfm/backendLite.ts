@@ -109,6 +109,10 @@ export function isBackendLiteConfigured(): boolean {
   return BACKEND_BASE_URL.length > 0;
 }
 
+export function getBackendBaseUrl(): string {
+  return BACKEND_BASE_URL;
+}
+
 export function shouldDirectFallback(priority: BackendRequestPriority): boolean {
   if (!isBackendLiteConfigured()) return true;
   if (FALLBACK_MODE === "always") return true;
@@ -190,6 +194,44 @@ function parseOrderBookSide(value: unknown): BackendOrderBookEntry[] {
       };
     })
     .filter((entry): entry is BackendOrderBookEntry => entry != null);
+}
+
+/**
+ * Make a raw authenticated GET request to the backend.
+ * Handles bootstrap token and timeout. Returns the raw Response on 2xx,
+ * or null on any network/auth error. Callers are responsible for parsing the body.
+ */
+export async function fetchBackendRaw(
+  pathname: string,
+  options?: { timeoutMs?: number },
+): Promise<Response | null> {
+  if (!isBackendLiteConfigured()) return null;
+
+  const bootstrapToken = await ensureBootstrapToken();
+  const controller = new AbortController();
+  const timeoutMs = options?.timeoutMs ?? REQUEST_TIMEOUT_MS;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (bootstrapToken) headers[BOOTSTRAP_HEADER] = bootstrapToken;
+
+    const response = await fetch(`${BACKEND_BASE_URL}${pathname}`, {
+      signal: controller.signal,
+      headers,
+    });
+
+    if (response.status === 401) {
+      invalidateBootstrapToken();
+      return null;
+    }
+    if (!response.ok) return null;
+    return response;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function fetchBackendJson(

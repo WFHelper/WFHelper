@@ -2,7 +2,7 @@ import { jsonResponse } from './cors';
 import type { Env } from '../types';
 import { clamp, clientIp, parsePositiveInt } from '../utils';
 
-type PublicRateLimitRoute = 'healthz' | 'bootstrap' | 'prices' | 'meta' | 'order-summary' | 'orders';
+type PublicRateLimitRoute = 'healthz' | 'bootstrap' | 'prices' | 'meta' | 'order-summary' | 'orders' | 'snapshot';
 
 // These limits are a secondary defence behind Cloudflare edge rate limiting.
 // They are intentionally generous so a legitimate desktop user with a large
@@ -16,6 +16,10 @@ const PUBLIC_ROUTE_LIMITS: Record<PublicRateLimitRoute, { maxRequests: number; w
 	meta: { maxRequests: 20000, windowSec: 600 },
 	'order-summary': { maxRequests: 20000, windowSec: 600 },
 	orders: { maxRequests: 60, windowSec: 600 },
+	// Snapshot is a large payload (~850 KB). Edge cache absorbs nearly all real
+	// traffic (cache-control: public, max-age=7200); this limit only fires on
+	// cache misses or scrapers. One per ~10 min per IP is ample for legitimate use.
+	snapshot: { maxRequests: 10, windowSec: 600 },
 };
 
 export async function checkPublicRateLimit(req: Request, env: Env, route: PublicRateLimitRoute): Promise<Response | null> {

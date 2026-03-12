@@ -104,6 +104,34 @@ async function fetchDirectMetaBySlug(slug: string): Promise<DirectMetaResult> {
   return { status: "ok", data: parsed };
 }
 
+/**
+ * Bulk-import meta entries from the snapshot blob.
+ * Only imports entries that are fresher than what's already in memory (or absent).
+ * Never throws.
+ */
+export function importMetaFromSnapshot(
+  data: Record<string, WfmItemMeta>,
+): number {
+  let count = 0;
+  for (const [slug, entry] of Object.entries(data)) {
+    if (!entry || typeof entry !== "object") continue;
+    if (typeof entry.slug !== "string" || typeof entry.timestamp !== "number") continue;
+    if (!isFresh(entry)) continue;
+    const existing = metaCache.get(slug);
+    if (existing && existing.timestamp >= entry.timestamp) continue;
+    metaCache.set(slug, {
+      slug: entry.slug,
+      ducats: entry.ducats != null ? Math.max(0, Math.round(entry.ducats)) : null,
+      setRoot: Boolean(entry.setRoot),
+      thumb: typeof entry.thumb === "string" ? entry.thumb : null,
+      icon: typeof entry.icon === "string" ? entry.icon : null,
+      timestamp: Math.round(entry.timestamp),
+    });
+    count++;
+  }
+  return count;
+}
+
 export async function fetchWfmItemMetaBySlug(
   slug: string | null | undefined,
   options?: FetchMetaOptions,

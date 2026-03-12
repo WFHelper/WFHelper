@@ -1,4 +1,4 @@
-import { ORDER_SUMMARY_CATALOG_KEY, ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY, PREWARM_LAST_RUN_KEY } from '../constants';
+import { ORDER_SUMMARY_CATALOG_KEY, ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY, PREWARM_LAST_RUN_KEY, SNAPSHOT_KEY } from '../constants';
 import { jsonResponse } from '../security/cors';
 import { isAdminAuthorized } from '../security/adminAuth';
 import { bootstrapEnabled, bootstrapHeaderName, bootstrapRequired, issueBootstrapToken, verifyBootstrapToken } from '../security/bootstrap';
@@ -27,6 +27,7 @@ const routeStats = {
 	bootstrapRejectedRequests: 0,
 	invalidRankRequests: 0,
 	deprecatedOrdersRequests: 0,
+	snapshotRequests: 0,
 	priceRequests: 0,
 	metaRequests: 0,
 	orderSummaryRequests: 0,
@@ -165,6 +166,32 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 			env,
 			200,
 		);
+	}
+
+	if (req.method === 'GET' && url.pathname === '/v1/snapshot') {
+		// No bootstrap requirement: snapshot is a CDN-cached bulk read of data that
+		// is already publicly accessible via per-slug routes. It is fetched once at
+		// client startup — before the bootstrap token flow has completed — so adding
+		// bootstrap would create a chicken-and-egg failure. The 10/600s rate limit
+		// on this route is the primary abuse control.
+		const rateLimited = await checkPublicRateLimit(req, env, 'snapshot');
+		if (rateLimited) {
+			routeStats.publicRateLimitedRequests += 1;
+			return rateLimited;
+		}
+
+		routeStats.snapshotRequests += 1;
+		const raw = await env.PRICE_CACHE.get(SNAPSHOT_KEY);
+		if (!raw) {
+			return jsonResponse({ ok: false, error: 'snapshot_not_ready' }, req, env, 503);
+		}
+
+		return new Response(raw, {
+			headers: {
+				'content-type': 'application/json',
+				'cache-control': 'public, max-age=7200',
+			},
+		});
 	}
 
 	const priceSlug = getSlug(url.pathname, '/v1/prices/');

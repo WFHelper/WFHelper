@@ -21,6 +21,7 @@ export interface Env {
 	BOOTSTRAP_TOKEN_SECRET?: string;
 	BOOTSTRAP_TOKEN_TTL_SEC?: string;
 	PUBLIC_BOOTSTRAP_REQUIRED?: string;
+	SNAPSHOT_REFRESH_INTERVAL_SEC?: string;
 }
 
 export interface PrewarmResult {

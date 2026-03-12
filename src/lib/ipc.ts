@@ -113,6 +113,9 @@ export const ipc = {
   loadRankedHotset: () => window.api.loadRankedHotset(),
   saveRankedHotset: (...args: IpcInvokeMap["saveRankedHotset"]["args"]) =>
     window.api.saveRankedHotset(...args),
+  loadSnapshotCache: () => window.api.loadSnapshotCache(),
+  saveSnapshotCache: (...args: IpcInvokeMap["saveSnapshotCache"]["args"]) =>
+    window.api.saveSnapshotCache(...args),
   getStatsHistory: () => window.api.getStatsHistory(),
   getStatsCurrentSession: () => window.api.getStatsCurrentSession(),
   importStatsHistory: (raw: unknown[]) => window.api.importStatsHistory(raw),

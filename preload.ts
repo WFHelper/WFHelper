@@ -77,6 +77,8 @@ contextBridge.exposeInMainWorld("api", {
   saveOrderCache: (data: unknown) => ipcRenderer.invoke("order-cache:save", data),
   loadRankedHotset: () => ipcRenderer.invoke("ranked-hotset:load"),
   saveRankedHotset: (data: unknown) => ipcRenderer.invoke("ranked-hotset:save", data),
+  loadSnapshotCache: () => ipcRenderer.invoke("snapshot-cache:load"),
+  saveSnapshotCache: (data: unknown) => ipcRenderer.invoke("snapshot-cache:save", data),
 
   getStatsHistory: () => ipcRenderer.invoke("stats:get-history"),
   getStatsCurrentSession: () => ipcRenderer.invoke("stats:get-current"),
