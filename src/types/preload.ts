@@ -66,14 +66,6 @@ export interface PreloadAPI {
   openOcrCropDebugger: () => Promise<IpcInvokeMap["openOcrCropDebugger"]["return"]>;
   openExternal: (url: string) => void;
   logWarn: (message: string, ...args: unknown[]) => void;
-  loadPriceCache: () => Promise<IpcInvokeMap["loadPriceCache"]["return"]>;
-  savePriceCache: (
-    data: IpcInvokeMap["savePriceCache"]["args"][0],
-  ) => Promise<IpcInvokeMap["savePriceCache"]["return"]>;
-  loadOrderCache: () => Promise<IpcInvokeMap["loadOrderCache"]["return"]>;
-  saveOrderCache: (
-    data: IpcInvokeMap["saveOrderCache"]["args"][0],
-  ) => Promise<IpcInvokeMap["saveOrderCache"]["return"]>;
   loadRankedHotset: () => Promise<IpcInvokeMap["loadRankedHotset"]["return"]>;
   saveRankedHotset: (
     data: IpcInvokeMap["saveRankedHotset"]["args"][0],

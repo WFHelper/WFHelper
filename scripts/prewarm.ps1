@@ -9,7 +9,7 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$ApiKey,
 
-    [string]$WorkerUrl = "https://worker.wfcompanion-cache.workers.dev",
+    [string]$WorkerUrl = "https://api.wfhelper.com",
     [int]$BatchSize = 100,
     [int]$PauseSec = 8
 )

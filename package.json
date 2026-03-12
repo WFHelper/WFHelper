@@ -35,6 +35,7 @@
     "backend:typegen": "npm --prefix backend-lite/worker run cf-typegen",
     "backend:prewarm:order-summaries": "powershell -ExecutionPolicy Bypass -File ./scripts/prewarm-order-summaries.ps1",
     "backend:prewarm:order-summaries:hotset": "powershell -ExecutionPolicy Bypass -File ./scripts/prewarm-order-summaries.ps1 -Source hotset",
+    "backend:build-snapshot": "powershell -ExecutionPolicy Bypass -File ./scripts/build-snapshot.ps1",
     "rebuild": "electron-rebuild -f -w uiohook-napi"
   },
   "keywords": [

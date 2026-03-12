@@ -4,6 +4,7 @@ import {
 	ORDER_SUMMARY_HOTSET_KEY,
 	ORDER_SUMMARY_PREWARM_LAST_RUN_KEY,
 	PREWARM_LAST_RUN_KEY,
+	SNAPSHOT_LAST_GEN_KEY,
 } from '../constants';
 import {
 	fetchRankedSummaryCatalog,
@@ -154,6 +155,16 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 				? await getJsonFromKv(env.PRICE_CACHE, ORDER_SUMMARY_PREWARM_LAST_RUN_KEY)
 				: await getJsonFromKv(env.ITEM_META, ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY);
 		return jsonResponse({ ok: true, result }, req, env, 200);
+	}
+
+	if (req.method === 'GET' && url.pathname === '/admin/snapshot/status') {
+		if (!isAdminAuthorized(req, env)) {
+			return jsonResponse({ ok: false, error: 'unauthorized' }, req, env, 401);
+		}
+
+		const lastGenRaw = await env.PRICE_CACHE.get(SNAPSHOT_LAST_GEN_KEY);
+		const generatedAt = lastGenRaw ? parseInt(lastGenRaw, 10) : null;
+		return jsonResponse({ ok: true, result: { generatedAt } }, req, env, 200);
 	}
 
 	return null;

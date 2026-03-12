@@ -1,7 +1,6 @@
 import { SELF, createExecutionContext, env, waitOnExecutionContext } from 'cloudflare:test';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import worker from '../src/index';
-import { buildFullSnapshot } from '../src/services/prewarm';
 import type { Env } from '../src/types';
 
 const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
@@ -1040,6 +1039,10 @@ describe('backend-lite worker', () => {
 		const snapshot = { version: 1, generatedAt: Date.now(), prices: {}, meta: {}, orderSummaries: {} };
 		await env.PRICE_CACHE.put('snapshot:full:v1', JSON.stringify(snapshot));
 
+		// Clear any edge-cached snapshot from prior tests so every request goes
+		// through the Worker and hits the rate limiter.
+		await caches.default.delete(new Request('https://example.com/v1/snapshot'));
+
 		const testEnv = { ...env, PUBLIC_RATE_LIMIT_ENABLED: '1' };
 		const makeRequest = () =>
 			new IncomingRequest('https://example.com/v1/snapshot', {
@@ -1049,6 +1052,8 @@ describe('backend-lite worker', () => {
 		const responses: Response[] = [];
 		try {
 			for (let i = 0; i < 11; i++) {
+				// Clear edge cache before each request so every iteration hits the Worker.
+				await caches.default.delete(new Request('https://example.com/v1/snapshot'));
 				const ctx = createExecutionContext();
 				responses.push(await worker.fetch(makeRequest(), testEnv as unknown as Env, ctx));
 				await waitOnExecutionContext(ctx);
@@ -1058,72 +1063,8 @@ describe('backend-lite worker', () => {
 			expect(await responses[10].json()).toEqual({ ok: false, error: 'rate_limited' });
 		} finally {
 			await env.PRICE_CACHE.delete('snapshot:full:v1');
+			await caches.default.delete(new Request('https://example.com/v1/snapshot'));
 		}
-	});
-
-	it('buildFullSnapshot compiles prices, meta, and order summaries with correct client-native key format', async () => {
-		const now = Date.now();
-
-		// Seed catalog
-		await env.ITEM_META.put(
-			'catalog:slugs:v1',
-			JSON.stringify({ updatedAt: now, slugs: ['ash_prime'], rankedSummaryCatalog: [{ slug: 'primed_flow', maxRank: 10 }] }),
-		);
-		await env.ITEM_META.put(
-			'order-summary:catalog:v1',
-			JSON.stringify({ updatedAt: now, entries: [{ slug: 'primed_flow', maxRank: 10 }] }),
-		);
-
-		// Seed KV entries
-		await env.PRICE_CACHE.put('price:ash_prime', JSON.stringify({ slug: 'ash_prime', median: 42, timestamp: now, rank: null }));
-		await env.ITEM_META.put('meta:ash_prime', JSON.stringify({ slug: 'ash_prime', ducats: 65, setRoot: true, thumb: null, icon: null, tradable: true, timestamp: now }));
-		await env.PRICE_CACHE.put('price:primed_flow:r0', JSON.stringify({ slug: 'primed_flow', median: 15, timestamp: now, rank: 0 }));
-		await env.PRICE_CACHE.put('price:primed_flow:r10', JSON.stringify({ slug: 'primed_flow', median: 120, timestamp: now, rank: 10 }));
-		await env.PRICE_CACHE.put('orders-summary:primed_flow:r0', JSON.stringify({ slug: 'primed_flow', rank: 0, wts: 17, wtb: 12, timestamp: now }));
-		await env.PRICE_CACHE.put('orders-summary:primed_flow:r10', JSON.stringify({ slug: 'primed_flow', rank: 10, wts: 125, wtb: 110, timestamp: now }));
-
-		await buildFullSnapshot(env as unknown as Env);
-
-		const raw = await env.PRICE_CACHE.get('snapshot:full:v1');
-		expect(raw).toBeTruthy();
-
-		const snap = JSON.parse(raw!) as {
-			version: number;
-			generatedAt: number;
-			prices: Record<string, unknown>;
-			meta: Record<string, unknown>;
-			orderSummaries: Record<string, unknown>;
-		};
-
-		// Shape checks
-		expect(snap.version).toBe(1);
-		expect(typeof snap.generatedAt).toBe('number');
-
-		// Unranked price — client key is just the slug
-		expect(snap.prices['ash_prime']).toMatchObject({ status: 'ok', median: 42 });
-
-		// Ranked price — client key uses :rank-v3:r{n} segment
-		expect(snap.prices['primed_flow:rank-v3:r0']).toMatchObject({ status: 'ok', median: 15 });
-		expect(snap.prices['primed_flow:rank-v3:r10']).toMatchObject({ status: 'ok', median: 120 });
-
-		// Meta — client key is just the slug
-		expect(snap.meta['ash_prime']).toMatchObject({ slug: 'ash_prime', ducats: 65 });
-
-		// Order summary — client key is {slug}:r{rank}
-		expect(snap.orderSummaries['primed_flow:r0']).toMatchObject({ status: 'ok', wts: 17, wtb: 12 });
-		expect(snap.orderSummaries['primed_flow:r10']).toMatchObject({ status: 'ok', wts: 125, wtb: 110 });
-
-		// Cleanup
-		await env.PRICE_CACHE.delete('snapshot:full:v1');
-		await env.PRICE_CACHE.delete('snapshot:last-gen:v1');
-		await env.PRICE_CACHE.delete('price:ash_prime');
-		await env.PRICE_CACHE.delete('price:primed_flow:r0');
-		await env.PRICE_CACHE.delete('price:primed_flow:r10');
-		await env.PRICE_CACHE.delete('orders-summary:primed_flow:r0');
-		await env.PRICE_CACHE.delete('orders-summary:primed_flow:r10');
-		await env.ITEM_META.delete('catalog:slugs:v1');
-		await env.ITEM_META.delete('order-summary:catalog:v1');
-		await env.ITEM_META.delete('meta:ash_prime');
 	});
 
 	it('caches negative miss for absent price data', async () => {

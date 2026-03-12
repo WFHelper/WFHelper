@@ -13,7 +13,7 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$ApiKey,
 
-    [string]$WorkerUrl = "https://worker.wfcompanion-cache.workers.dev",
+    [string]$WorkerUrl = "https://api.wfhelper.com",
     [ValidateSet("catalog", "hotset")]
     [string]$Source = "catalog",
     [string]$HotsetFile = "",

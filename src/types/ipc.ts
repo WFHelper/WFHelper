@@ -233,22 +233,6 @@ export interface IpcInvokeMap {
     args: [];
     return: AppUpdateInstallResult;
   };
-  loadPriceCache: {
-    args: [];
-    return: Record<string, unknown> | null;
-  };
-  savePriceCache: {
-    args: [data: Record<string, unknown>];
-    return: { ok: boolean };
-  };
-  loadOrderCache: {
-    args: [];
-    return: Record<string, unknown> | null;
-  };
-  saveOrderCache: {
-    args: [data: Record<string, unknown>];
-    return: { ok: boolean };
-  };
   loadRankedHotset: {
     args: [];
     return: Record<string, unknown> | null;

@@ -82,14 +82,10 @@
 
   function prefetchVisibleMetrics(items: InventoryBaseItem[], needs: MetricNeeds): void {
     const hydrationCandidates = items.filter((item) => shouldHydrateMetrics(item));
-    const rankedTab = isRankedGroup(filter);
-    const visibleLimit = rankedTab ? 12 : METRIC_VISIBLE_PREFETCH_LIMIT;
-    const backgroundLimit = rankedTab ? 0 : METRIC_BACKGROUND_PREFETCH_LIMIT;
-
-    const visible = hydrationCandidates.slice(0, visibleLimit);
+    const visible = hydrationCandidates.slice(0, METRIC_VISIBLE_PREFETCH_LIMIT);
     const background = hydrationCandidates.slice(
-      visibleLimit,
-      visibleLimit + backgroundLimit,
+      METRIC_VISIBLE_PREFETCH_LIMIT,
+      METRIC_VISIBLE_PREFETCH_LIMIT + METRIC_BACKGROUND_PREFETCH_LIMIT,
     );
 
     hydration.enqueue(visible, $wfmItems, needs);

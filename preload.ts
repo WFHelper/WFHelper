@@ -71,10 +71,6 @@ contextBridge.exposeInMainWorld("api", {
   openExternal: (url: string) => ipcRenderer.send("open-external", url),
   logWarn: (message: string, ...args: unknown[]) => ipcRenderer.send("log:warn", message, ...args),
 
-  loadPriceCache: () => ipcRenderer.invoke("price-cache:load"),
-  savePriceCache: (data: unknown) => ipcRenderer.invoke("price-cache:save", data),
-  loadOrderCache: () => ipcRenderer.invoke("order-cache:load"),
-  saveOrderCache: (data: unknown) => ipcRenderer.invoke("order-cache:save", data),
   loadRankedHotset: () => ipcRenderer.invoke("ranked-hotset:load"),
   saveRankedHotset: (data: unknown) => ipcRenderer.invoke("ranked-hotset:save", data),
   loadSnapshotCache: () => ipcRenderer.invoke("snapshot-cache:load"),

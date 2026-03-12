@@ -104,12 +104,6 @@ export const ipc = {
   updateOverlayTheme: (...args: IpcSendMap["overlay-theme-updated"]) =>
     window.api.updateOverlayTheme(...args),
   openExternal: (...args: IpcSendMap["open-external"]) => window.api.openExternal(...args),
-  loadPriceCache: () => window.api.loadPriceCache(),
-  savePriceCache: (...args: IpcInvokeMap["savePriceCache"]["args"]) =>
-    window.api.savePriceCache(...args),
-  loadOrderCache: () => window.api.loadOrderCache(),
-  saveOrderCache: (...args: IpcInvokeMap["saveOrderCache"]["args"]) =>
-    window.api.saveOrderCache(...args),
   loadRankedHotset: () => window.api.loadRankedHotset(),
   saveRankedHotset: (...args: IpcInvokeMap["saveRankedHotset"]["args"]) =>
     window.api.saveRankedHotset(...args),

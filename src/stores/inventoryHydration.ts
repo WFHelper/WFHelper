@@ -42,7 +42,12 @@ import {
   hasResolvedPrice,
   hasRankPairCoverage,
 } from "./hydration/hydrationHelpers.js";
-import { hasCachedRankPair, hasFreshOrderSummaryPair } from "./hydration/hydrationCacheHelpers.js";
+import {
+  hasCachedRankPair,
+  hasFreshOrderSummaryPair,
+  getCachedMedian,
+  getCachedRankOrderSummary,
+} from "./hydration/hydrationCacheHelpers.js";
 import { hydrateItemMetrics, type HydrationContext } from "./hydration/hydrateItemMetrics.js";
 import sharedNumeric from "../../config/shared/numeric.cjs";
 
@@ -286,6 +291,37 @@ export function createInventoryHydrationController(): InventoryHydrationControll
         (!needs.ducats || isRankedGroup(item.inventoryGroup)) &&
         (!needsIcon || iconReady)
       ) {
+        // Promote cached data directly into metricsByKey so the UI reflects
+        // snapshot data immediately without a full hydrateItemMetrics pass.
+        if (isRankedGroup(item.inventoryGroup) && item.marketSlug && rankedMaxRank != null) {
+          const slug = item.marketSlug;
+          const r0 = getCachedMedian(`${slug}:rank-v3:r0`);
+          const rmax = getCachedMedian(`${slug}:rank-v3:r${rankedMaxRank}`);
+          const ordersR0 = needs.orders ? getCachedRankOrderSummary(slug, 0) : null;
+          const ordersRmax = needs.orders ? getCachedRankOrderSummary(slug, rankedMaxRank) : null;
+          const platinum = requestedRank === rankedMaxRank ? rmax : r0;
+          ctx.queueMetricPatch(key, {
+            platinum,
+            platinumR0: r0,
+            platinumRmax: rmax,
+            hasPriceR0: r0 != null,
+            hasPriceRmax: rmax != null,
+            wtsR0: ordersR0?.wts ?? null,
+            wtbR0: ordersR0?.wtb ?? null,
+            wtsRmax: ordersRmax?.wts ?? null,
+            wtbRmax: ordersRmax?.wtb ?? null,
+            hasOrdersR0: ordersR0 != null,
+            hasOrdersRmax: ordersRmax != null,
+            priceRank: requestedRank,
+            ducats: null,
+            slug,
+            thumb: item.marketThumb ?? null,
+            icon: null,
+            hasPrice: r0 != null || rmax != null,
+            hasDucats: !needs.ducats,
+            hasMeta: Boolean(item.marketThumb),
+          });
+        }
         continue;
       }
 

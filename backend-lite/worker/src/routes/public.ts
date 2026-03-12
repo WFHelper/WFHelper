@@ -1,4 +1,4 @@
-import { ORDER_SUMMARY_CATALOG_KEY, ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY, PREWARM_LAST_RUN_KEY, SNAPSHOT_KEY } from '../constants';
+import { ORDER_SUMMARY_CATALOG_KEY, ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY, PREWARM_LAST_RUN_KEY, SNAPSHOT_ETAG_KEY, SNAPSHOT_KEY } from '../constants';
 import { jsonResponse } from '../security/cors';
 import { isAdminAuthorized } from '../security/adminAuth';
 import { bootstrapEnabled, bootstrapHeaderName, bootstrapRequired, issueBootstrapToken, verifyBootstrapToken } from '../security/bootstrap';
@@ -172,8 +172,19 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		// No bootstrap requirement: snapshot is a CDN-cached bulk read of data that
 		// is already publicly accessible via per-slug routes. It is fetched once at
 		// client startup — before the bootstrap token flow has completed — so adding
-		// bootstrap would create a chicken-and-egg failure. The 10/600s rate limit
-		// on this route is the primary abuse control.
+		// bootstrap would create a chicken-and-egg failure.
+		//
+		// Edge caching: we use the Cloudflare Cache API so the response is stored at
+		// each PoP after the first request. Subsequent users in the same region are
+		// served directly from the edge — zero Worker execution, zero KV reads.
+		// The rate limiter only runs on genuine cache misses (first request per PoP).
+		const cacheKey = new Request(`${url.origin}/v1/snapshot`, { method: 'GET' });
+		const edgeCache = caches.default;
+		const cachedResponse = await edgeCache.match(cacheKey);
+		if (cachedResponse) {
+			return cachedResponse;
+		}
+
 		const rateLimited = await checkPublicRateLimit(req, env, 'snapshot');
 		if (rateLimited) {
 			routeStats.publicRateLimitedRequests += 1;
@@ -181,17 +192,33 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		}
 
 		routeStats.snapshotRequests += 1;
-		const raw = await env.PRICE_CACHE.get(SNAPSHOT_KEY);
+		const [raw, etag] = await Promise.all([
+			env.PRICE_CACHE.get(SNAPSHOT_KEY),
+			env.PRICE_CACHE.get(SNAPSHOT_ETAG_KEY),
+		]);
 		if (!raw) {
 			return jsonResponse({ ok: false, error: 'snapshot_not_ready' }, req, env, 503);
 		}
 
-		return new Response(raw, {
-			headers: {
-				'content-type': 'application/json',
-				'cache-control': 'public, max-age=7200',
-			},
-		});
+		// Return 304 if the client already has this snapshot version.
+		const clientEtag = req.headers.get('if-none-match');
+		if (etag && clientEtag === etag) {
+			return new Response(null, { status: 304, headers: { 'etag': etag, 'cache-control': 'public, max-age=7200' } });
+		}
+
+		const responseHeaders: Record<string, string> = {
+			'content-type': 'application/json',
+			'cache-control': 'public, max-age=7200',
+		};
+		if (etag) responseHeaders['etag'] = etag;
+
+		const response = new Response(raw, { headers: responseHeaders });
+
+		if (ctx) {
+			ctx.waitUntil(edgeCache.put(cacheKey, response.clone()));
+		}
+
+		return response;
 	}
 
 	const priceSlug = getSlug(url.pathname, '/v1/prices/');

@@ -10,6 +10,7 @@ import {
 	PREWARM_LAST_RUN_KEY,
 	SKIP_UNTRADABLE_PREFIX,
 	SLUG_RE,
+	SNAPSHOT_ETAG_KEY,
 	SNAPSHOT_KEY,
 	SNAPSHOT_LAST_GEN_KEY,
 	WFM_HEADERS,
@@ -709,6 +710,10 @@ export async function prewarmOrderSummaryCatalog(
 	cursor = ((cursor % entries.length) + entries.length) % entries.length;
 	result.cursorBefore = cursor;
 
+	// Collect order summaries and ranked prices to patch into the snapshot after the batch completes.
+	const snapshotOrderSummaries: Record<string, unknown> = {};
+	const snapshotPrices: Record<string, unknown> = {};
+
 	for (let i = 0; i < Math.min(batchSize, entries.length); i += 1) {
 		const entry = entries[(cursor + i) % entries.length];
 		for (const rank of [0, entry.maxRank]) {
@@ -716,18 +721,15 @@ export async function prewarmOrderSummaryCatalog(
 				const ordersResult = await fetchOrdersPayload(entry.slug, { rank });
 				if (!ordersResult.data) {
 					if (!ordersResult.transient) {
-						await putOrderSummaryPayload(
-							env,
-							entry.slug,
-							{
-								slug: entry.slug,
-								rank,
-								wts: null,
-								wtb: null,
-								timestamp: Date.now(),
-							},
+						const emptyPayload = {
+							slug: entry.slug,
 							rank,
-						);
+							wts: null,
+							wtb: null,
+							timestamp: Date.now(),
+						};
+						await putOrderSummaryPayload(env, entry.slug, emptyPayload, rank);
+						snapshotOrderSummaries[`${entry.slug}:r${rank}`] = { status: 'no_data', wts: null, wtb: null, timestamp: emptyPayload.timestamp };
 						result.updated += 1;
 					} else {
 						result.failures += 1;
@@ -738,11 +740,33 @@ export async function prewarmOrderSummaryCatalog(
 
 				const payload = buildOrderSummaryPayload(entry.slug, rank, ordersResult.data);
 				await putOrderSummaryPayload(env, entry.slug, payload, rank);
+				snapshotOrderSummaries[`${entry.slug}:r${rank}`] = {
+					status: payload.wts != null || payload.wtb != null ? 'ok' : 'no_data',
+					wts: payload.wts ?? null,
+					wtb: payload.wtb ?? null,
+					timestamp: payload.timestamp,
+				};
 				result.updated += 1;
 				result.processed += 1;
 			} catch {
 				result.failures += 1;
 				result.processed += 1;
+			}
+
+			// Also fetch and snapshot the ranked price (median) for this slug + rank.
+			// The client needs these as `{slug}:rank-v3:r{rank}` keys in snapshot.prices.
+			try {
+				const priceResult = await fetchPricePayload(entry.slug, { rank });
+				if (priceResult.data) {
+					await putPricePayload(env, entry.slug, priceResult.data, rank);
+					snapshotPrices[`${entry.slug}:rank-v3:r${rank}`] = {
+						status: 'ok',
+						median: priceResult.data.median,
+						timestamp: priceResult.data.timestamp,
+					};
+				}
+			} catch {
+				// Price fetch failure is non-fatal; order summary was already processed above.
 			}
 		}
 	}
@@ -750,6 +774,15 @@ export async function prewarmOrderSummaryCatalog(
 	result.cursorAfter = (cursor + Math.min(batchSize, entries.length)) % entries.length;
 	await env.ITEM_META.put(ORDER_SUMMARY_CATALOG_PREWARM_CURSOR_KEY, String(result.cursorAfter));
 	await env.ITEM_META.put(ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY, JSON.stringify(result));
+
+	// Incrementally patch the snapshot with order summaries and ranked prices written this batch.
+	const snapshotPatch: Parameters<typeof patchSnapshot>[1] = {};
+	if (Object.keys(snapshotOrderSummaries).length > 0) snapshotPatch.orderSummaries = snapshotOrderSummaries;
+	if (Object.keys(snapshotPrices).length > 0) snapshotPatch.prices = snapshotPrices;
+	if (Object.keys(snapshotPatch).length > 0) {
+		await patchSnapshot(env, snapshotPatch);
+	}
+
 	return result;
 }
 
@@ -799,6 +832,10 @@ export async function prewarmBatch(
 		cursorBefore: cursor,
 	};
 
+	// Collect entries to patch into the snapshot after the batch completes.
+	const snapshotPrices: Record<string, unknown> = {};
+	const snapshotMeta: Record<string, unknown> = {};
+
 	for (let i = 0; i < batchSize; i += 1) {
 		const index = (cursor + i) % slugs.length;
 		const slug = slugs[index];
@@ -826,11 +863,14 @@ export async function prewarmBatch(
 
 			await putMetaPayload(env, metaResult.data);
 			result.metaUpdated += 1;
+			snapshotMeta[slug] = metaResult.data;
 
 			const priceResult = await fetchPricePayload(slug);
 			if (priceResult.data) {
-				await putPricePayload(env, slug, priceResult.data);
+				const written = await putPricePayload(env, slug, priceResult.data);
 				result.priceUpdated += 1;
+				snapshotPrices[slug] = { status: 'ok', median: priceResult.data.median, timestamp: priceResult.data.timestamp };
+				void written;
 			}
 
 			result.processed += 1;
@@ -844,128 +884,55 @@ export async function prewarmBatch(
 	await env.PRICE_CACHE.put(PREWARM_CURSOR_KEY, String(result.cursorAfter));
 	await env.PRICE_CACHE.put(PREWARM_LAST_RUN_KEY, JSON.stringify(result));
 
+	// Incrementally patch the snapshot with items written this batch.
+	// This means after a full catalog walk the snapshot contains all items — no
+	// per-invocation subrequest cap applies here since we only do 1 read + 1 write.
+	if (Object.keys(snapshotPrices).length > 0 || Object.keys(snapshotMeta).length > 0) {
+		await patchSnapshot(env, { prices: snapshotPrices, meta: snapshotMeta });
+	}
+
 	return result;
 }
 
 /**
- * Read `keys` from `kvNamespace` in batches of `batchSize` concurrent requests.
- * Returns results in the same order as the input keys.
+ * Merge new prices, meta, and/or orderSummaries entries into the persisted snapshot blob.
+ * Costs 1 KV read + 1 KV write regardless of how many entries are merged, so it is safe
+ * to call at the end of every prewarm batch without approaching the subrequest limit.
  */
-async function batchedKvGet<T>(
-	kvNamespace: KVNamespace,
-	keys: string[],
-	batchSize = 50,
-): Promise<Array<[string, T | null]>> {
-	const results: Array<[string, T | null]> = [];
-	for (let i = 0; i < keys.length; i += batchSize) {
-		const chunk = keys.slice(i, i + batchSize);
-		const chunkResults = await Promise.all(
-			chunk.map(async (k): Promise<[string, T | null]> => {
-				const v = (await kvNamespace.get(k, 'json')) as T | null;
-				return [k, v];
-			}),
-		);
-		results.push(...chunkResults);
-	}
-	return results;
-}
-
-/**
- * Compile a full snapshot blob from existing KV data and write it to `SNAPSHOT_KEY`.
- * Called from the cron handler at most once per SNAPSHOT_REFRESH_INTERVAL_SEC.
- *
- * The snapshot uses client-native key formats so the renderer can call
- * `importCache(snapshot.prices)` and `importOrderSummaryCache(snapshot.orderSummaries)`
- * directly without any key translation.
- */
-export async function buildFullSnapshot(env: Env): Promise<void> {
+async function patchSnapshot(
+	env: Env,
+	patches: {
+		prices?: Record<string, unknown>;
+		meta?: Record<string, unknown>;
+		orderSummaries?: Record<string, unknown>;
+	},
+): Promise<void> {
 	const ttlSec = orderSummaryCacheTtlSec(env);
-
-	// 1. Load catalog lists (use cached values — don't force a refresh here)
-	const slugs = await fetchCatalogSlugs(env, false);
-	const rankedCatalog = await fetchRankedSummaryCatalog(env, false);
-
-	// 2. Expand ranked catalog into (slug, rank) pairs — only rank 0 and maxRank
-	type RankPair = { slug: string; rank: number };
-	const rankPairs: RankPair[] = [];
-	for (const entry of rankedCatalog) {
-		rankPairs.push({ slug: entry.slug, rank: 0 });
-		if (entry.maxRank > 0) {
-			rankPairs.push({ slug: entry.slug, rank: entry.maxRank });
-		}
-	}
-
-	// 3. Batch-read unranked price and meta entries concurrently
-	const [priceResults, metaResults] = await Promise.all([
-		batchedKvGet<Record<string, unknown>>(env.PRICE_CACHE, slugs.map((s) => `price:${s}`)),
-		batchedKvGet<Record<string, unknown>>(env.ITEM_META, slugs.map((s) => `meta:${s}`)),
-	]);
-
-	// 4. Batch-read ranked prices and order summaries concurrently
-	const [rankedPriceResults, orderSummaryResults] = await Promise.all([
-		batchedKvGet<Record<string, unknown>>(env.PRICE_CACHE, rankPairs.map(({ slug, rank }) => `price:${slug}:r${rank}`)),
-		batchedKvGet<Record<string, unknown>>(env.PRICE_CACHE, rankPairs.map(({ slug, rank }) => `orders-summary:${slug}:r${rank}`)),
-	]);
-
-	// 5. Compile snapshot
-	const prices: Record<string, unknown> = {};
-	const meta: Record<string, unknown> = {};
-	const orderSummaries: Record<string, unknown> = {};
-
-	// Unranked prices — client key format: {slug}
-	for (const [, data] of priceResults) {
-		if (!data || typeof data !== 'object') continue;
-		const slug = typeof data.slug === 'string' ? data.slug : null;
-		const median = typeof data.median === 'number' && Number.isFinite(data.median) ? data.median : null;
-		const timestamp = typeof data.timestamp === 'number' ? data.timestamp : null;
-		if (!slug || median == null || timestamp == null) continue;
-		prices[slug] = { status: 'ok', median, timestamp };
-	}
-
-	// Meta — client key format: {slug}
-	for (const [, data] of metaResults) {
-		if (!data || typeof data !== 'object') continue;
-		const slug = typeof data.slug === 'string' ? data.slug : null;
-		if (!slug) continue;
-		// Pass through full MetaPayload — client ignores the 'tradable' field
-		meta[slug] = data;
-	}
-
-	// Ranked prices — client key format: {slug}:rank-v3:r{rank}
-	for (let i = 0; i < rankPairs.length; i++) {
-		const { slug, rank } = rankPairs[i];
-		const [, data] = rankedPriceResults[i];
-		if (!data || typeof data !== 'object') continue;
-		const median = typeof data.median === 'number' && Number.isFinite(data.median) ? data.median : null;
-		const timestamp = typeof data.timestamp === 'number' ? data.timestamp : null;
-		if (median == null || timestamp == null) continue;
-		prices[`${slug}:rank-v3:r${rank}`] = { status: 'ok', median, timestamp };
-	}
-
-	// Order summaries — client key format: {slug}:r{rank}
-	for (let i = 0; i < rankPairs.length; i++) {
-		const { slug, rank } = rankPairs[i];
-		const [, data] = orderSummaryResults[i];
-		if (!data || typeof data !== 'object') continue;
-		const timestamp = typeof data.timestamp === 'number' ? data.timestamp : null;
-		if (timestamp == null) continue;
-		const wts = typeof data.wts === 'number' && Number.isFinite(data.wts) ? Math.round(data.wts) : null;
-		const wtb = typeof data.wtb === 'number' && Number.isFinite(data.wtb) ? Math.round(data.wtb) : null;
-		const status = wts != null || wtb != null ? 'ok' : 'no_data';
-		orderSummaries[`${slug}:r${rank}`] = { status, wts, wtb, timestamp };
-	}
-
-	// 6. Write snapshot to KV
-	const snapshot = {
-		version: 1,
-		generatedAt: Date.now(),
-		prices,
-		meta,
-		orderSummaries,
+	const raw = await env.PRICE_CACHE.get(SNAPSHOT_KEY);
+	let snapshot: {
+		version: number;
+		generatedAt: number;
+		prices: Record<string, unknown>;
+		meta: Record<string, unknown>;
+		orderSummaries: Record<string, unknown>;
 	};
+	try {
+		snapshot = raw
+			? JSON.parse(raw)
+			: { version: 1, generatedAt: 0, prices: {}, meta: {}, orderSummaries: {} };
+	} catch {
+		snapshot = { version: 1, generatedAt: 0, prices: {}, meta: {}, orderSummaries: {} };
+	}
+
+	if (patches.prices) Object.assign(snapshot.prices, patches.prices);
+	if (patches.meta) Object.assign(snapshot.meta, patches.meta);
+	if (patches.orderSummaries) Object.assign(snapshot.orderSummaries, patches.orderSummaries);
+	snapshot.generatedAt = Date.now();
+	const etag = `"${snapshot.generatedAt}"`;
 
 	await env.PRICE_CACHE.put(SNAPSHOT_KEY, JSON.stringify(snapshot), { expirationTtl: ttlSec });
 	await env.PRICE_CACHE.put(SNAPSHOT_LAST_GEN_KEY, String(snapshot.generatedAt));
+	await env.PRICE_CACHE.put(SNAPSHOT_ETAG_KEY, etag);
 }
 
 export const __test__ = {

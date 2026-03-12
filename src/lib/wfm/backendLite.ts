@@ -203,7 +203,7 @@ function parseOrderBookSide(value: unknown): BackendOrderBookEntry[] {
  */
 export async function fetchBackendRaw(
   pathname: string,
-  options?: { timeoutMs?: number },
+  options?: { timeoutMs?: number; headers?: Record<string, string> },
 ): Promise<Response | null> {
   if (!isBackendLiteConfigured()) return null;
 
@@ -215,6 +215,7 @@ export async function fetchBackendRaw(
   try {
     const headers: Record<string, string> = { Accept: "application/json" };
     if (bootstrapToken) headers[BOOTSTRAP_HEADER] = bootstrapToken;
+    if (options?.headers) Object.assign(headers, options.headers);
 
     const response = await fetch(`${BACKEND_BASE_URL}${pathname}`, {
       signal: controller.signal,
@@ -225,7 +226,8 @@ export async function fetchBackendRaw(
       invalidateBootstrapToken();
       return null;
     }
-    if (!response.ok) return null;
+    // 304 is a valid success response — return it so callers can handle it.
+    if (!response.ok && response.status !== 304) return null;
     return response;
   } catch {
     return null;

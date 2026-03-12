@@ -5,12 +5,19 @@ import type { CachedOrderSummaryEntry } from "./orderSummaryCache.js";
 import { importMetaFromSnapshot } from "./wfmItemMeta.js";
 import type { WfmItemMeta } from "./wfmItemMeta.js";
 import { fetchBackendRaw, isBackendLiteConfigured } from "./backendLite.js";
+import { schedulePriceCacheRevision } from "../../stores/pricing.js";
 import { log } from "../log.js";
 import { ipc } from "../ipc.js";
 
 const SNAPSHOT_FRESH_MS = 2 * 60 * 60 * 1000; // 2 hours
 const SNAPSHOT_VERSION = 1;
 const SNAPSHOT_FETCH_TIMEOUT_MS = 20_000;
+
+// In-memory ETag for the snapshot. Persisted across re-fetches within the same
+// session. On startup the disk cache path skips the network entirely if fresh,
+// so the ETag is only relevant for mid-session re-fetches (not yet implemented)
+// but wiring it now keeps the door open at zero extra cost.
+let _cachedEtag: string | null = null;
 
 interface SnapshotBlob {
   version: number;
@@ -61,11 +68,21 @@ export async function tryLoadSnapshot(): Promise<void> {
 
     // 2. Fetch from backend if disk miss or stale
     if (!snapshot) {
+      const fetchHeaders: Record<string, string> = {};
+      if (_cachedEtag) fetchHeaders["If-None-Match"] = _cachedEtag;
+
       const response = await fetchBackendRaw("/v1/snapshot", {
         timeoutMs: SNAPSHOT_FETCH_TIMEOUT_MS,
+        headers: fetchHeaders,
       });
       if (!response) {
         log.warn("[Snapshot] Fetch failed — skipping snapshot");
+        return;
+      }
+
+      // 304 Not Modified: snapshot hasn't changed since the last fetch this session.
+      if (response.status === 304) {
+        log.info("[Snapshot] 304 Not Modified — snapshot unchanged, skipping re-import");
         return;
       }
 
@@ -83,6 +100,10 @@ export async function tryLoadSnapshot(): Promise<void> {
       }
 
       snapshot = parsed;
+
+      // Store ETag for future conditional requests.
+      const etag = response.headers.get("etag");
+      if (etag) _cachedEtag = etag;
 
       // Persist to disk for next startup
       try {
@@ -102,6 +123,12 @@ export async function tryLoadSnapshot(): Promise<void> {
       `[Snapshot] Imported — prices: ${pCount}, meta: ${mCount}, ` +
         `orderSummaries: ${oCount} (age: ${ageMins} min)`,
     );
+
+    // Signal reactive subscribers (e.g. RelicsView) that the price cache has
+    // been bulk-updated so they re-evaluate cached lookups.
+    if (pCount > 0 || oCount > 0) {
+      schedulePriceCacheRevision();
+    }
   } catch (err) {
     log.warn(
       "[Snapshot] Load failed — continuing without snapshot",

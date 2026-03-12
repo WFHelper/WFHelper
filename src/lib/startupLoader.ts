@@ -4,10 +4,6 @@ import { relicDb } from "../stores/relics.js";
 import { debugMode } from "../stores/app.js";
 import { applyUpdateState } from "../stores/updates.js";
 import { configureRelicRuntimeCacheFingerprint, warmupPrimeRewardPriceCache } from "./relic.js";
-import { importCache, exportCache } from "./wfm/priceCache.js";
-import type { CachedPriceEntry } from "./wfm/priceCache.js";
-import { importOrderSummaryCache, exportOrderSummaryCache } from "./wfm/orderSummaryCache.js";
-import type { CachedOrderSummaryEntry } from "./wfm/orderSummaryCache.js";
 import { exportRankedHotset, importRankedHotset } from "./wfm/rankedHotset.js";
 import { tryLoadSnapshot } from "./wfm/snapshotLoader.js";
 import { log } from "./log.js";
@@ -48,34 +44,6 @@ export function initStartup(): StartupHandle {
       await ipc.setDebugMode(get(debugMode));
     } catch {
       // not critical
-    }
-
-    // Restore persisted price cache before any price fetches happen
-    try {
-      const stageStart = Date.now();
-      const diskCache = await ipc.loadPriceCache();
-      if (diskCache) {
-        const count = importCache(diskCache as Record<string, CachedPriceEntry>);
-        log.info(`[Startup] Restored ${count} prices from disk cache`);
-      }
-      profileStage("price-cache:load", stageStart);
-    } catch (e) {
-      log.warn("[Startup] loadPriceCache failed:", e);
-    }
-
-    // Restore persisted ranked order summary cache (WTS/WTB card data)
-    try {
-      const stageStart = Date.now();
-      const orderDiskCache = await ipc.loadOrderCache();
-      if (orderDiskCache) {
-        const count = importOrderSummaryCache(
-          orderDiskCache as Record<string, CachedOrderSummaryEntry>,
-        );
-        log.info(`[Startup] Restored ${count} order summaries from disk cache`);
-      }
-      profileStage("order-cache:load", stageStart);
-    } catch (e) {
-      log.warn("[Startup] loadOrderCache failed:", e);
     }
 
     try {
@@ -164,16 +132,6 @@ export function initStartup(): StartupHandle {
 
 async function flushPriceCacheToDisk(): Promise<void> {
   try {
-    const priceData = exportCache();
-    if (Object.keys(priceData).length > 0) {
-      await ipc.savePriceCache(priceData as Record<string, unknown>);
-    }
-
-    const orderData = exportOrderSummaryCache();
-    if (Object.keys(orderData).length > 0) {
-      await ipc.saveOrderCache(orderData as Record<string, unknown>);
-    }
-
     const hotsetData = exportRankedHotset();
     if (Array.isArray(hotsetData.entries) && hotsetData.entries.length > 0) {
       await ipc.saveRankedHotset(hotsetData as unknown as Record<string, unknown>);
