@@ -75,6 +75,16 @@ let _todayDateForRelics = ""; // tracks which day the relics counter belongs to
 let _todayDailyTrades = 0;
 let _todayDateForTrades = "";
 
+// Resumed deltas from previous app sessions today.
+// When the app restarts mid-day, loadHistory() captures the saved daily deltas
+// so they can be added on top of the new session's baseline-relative deltas.
+// This prevents _upsertToday() from overwriting accumulated daily totals with 0.
+let _resumedPlatDelta = 0;
+let _resumedCreditsDelta = 0;
+let _resumedEndoDelta = 0;
+let _resumedDucatsDelta = 0;
+let _resumedAyaDelta = 0;
+
 let _history: DailyStatEntry[] = [];
 const HISTORY_MAX_DAYS = 90;
 
@@ -99,20 +109,20 @@ function _saveHistory(): void {
 function _upsertToday(): void {
   const today = _todayStr();
 
-  const platDelta =
-    _currentPlat !== null && _baselinePlat !== null ? _currentPlat - _baselinePlat : 0;
-  const creditsDelta =
-    _currentCredits !== null && _baselineCredits !== null
+  const platDelta = _resumedPlatDelta +
+    (_currentPlat !== null && _baselinePlat !== null ? _currentPlat - _baselinePlat : 0);
+  const creditsDelta = _resumedCreditsDelta +
+    (_currentCredits !== null && _baselineCredits !== null
       ? _currentCredits - _baselineCredits
-      : 0;
-  const endoDelta =
-    _currentEndo !== null && _baselineEndo !== null ? _currentEndo - _baselineEndo : 0;
-  const ducatsDelta =
-    _currentDucats !== null && _baselineDucats !== null
+      : 0);
+  const endoDelta = _resumedEndoDelta +
+    (_currentEndo !== null && _baselineEndo !== null ? _currentEndo - _baselineEndo : 0);
+  const ducatsDelta = _resumedDucatsDelta +
+    (_currentDucats !== null && _baselineDucats !== null
       ? _currentDucats - _baselineDucats
-      : 0;
-  const ayaDelta =
-    _currentAya !== null && _baselineAya !== null ? _currentAya - _baselineAya : 0;
+      : 0);
+  const ayaDelta = _resumedAyaDelta +
+    (_currentAya !== null && _baselineAya !== null ? _currentAya - _baselineAya : 0);
 
   const entry: DailyStatEntry = {
     date: today,
@@ -174,6 +184,15 @@ export function loadHistory(): void {
         _todayDailyTrades = todayEntry.dailyTrades;
         _todayDateForTrades = today;
       }
+      // Resume accumulated deltas from today's saved entry so app restarts
+      // don't overwrite the daily total with a fresh session baseline of 0.
+      if (todayEntry) {
+        _resumedPlatDelta = todayEntry.platDelta;
+        _resumedCreditsDelta = todayEntry.creditsDelta;
+        _resumedEndoDelta = todayEntry.endoDelta;
+        _resumedDucatsDelta = todayEntry.ducatsDelta;
+        _resumedAyaDelta = todayEntry.ayaDelta;
+      }
       log.log(`[StatsTracker] Loaded ${_history.length} history entries`);
     }
   } catch {
@@ -207,6 +226,17 @@ export function onInventoryData(data: Record<string, unknown>): void {
     _todayRelicsOpened = 0;
     _todayDateForRelics = today;
     _lastRelicTotal = null; // avoid a spurious spike across midnight
+    // Reset resumed deltas and baselines for the new day
+    _resumedPlatDelta = 0;
+    _resumedCreditsDelta = 0;
+    _resumedEndoDelta = 0;
+    _resumedDucatsDelta = 0;
+    _resumedAyaDelta = 0;
+    _baselinePlat = null;
+    _baselineCredits = null;
+    _baselineEndo = null;
+    _baselineDucats = null;
+    _baselineAya = null;
   }
   if (_todayDateForTrades !== today) {
     _todayDailyTrades = 0;
@@ -365,20 +395,20 @@ export function getCurrentSession(): SessionStats {
     _currentDucats !== null ||
     _currentAya !== null;
   return {
-    platDelta:
-      _currentPlat !== null && _baselinePlat !== null ? _currentPlat - _baselinePlat : 0,
-    creditsDelta:
-      _currentCredits !== null && _baselineCredits !== null
+    platDelta: _resumedPlatDelta +
+      (_currentPlat !== null && _baselinePlat !== null ? _currentPlat - _baselinePlat : 0),
+    creditsDelta: _resumedCreditsDelta +
+      (_currentCredits !== null && _baselineCredits !== null
         ? _currentCredits - _baselineCredits
-        : 0,
-    endoDelta:
-      _currentEndo !== null && _baselineEndo !== null ? _currentEndo - _baselineEndo : 0,
-    ducatsDelta:
-      _currentDucats !== null && _baselineDucats !== null
+        : 0),
+    endoDelta: _resumedEndoDelta +
+      (_currentEndo !== null && _baselineEndo !== null ? _currentEndo - _baselineEndo : 0),
+    ducatsDelta: _resumedDucatsDelta +
+      (_currentDucats !== null && _baselineDucats !== null
         ? _currentDucats - _baselineDucats
-        : 0,
-    ayaDelta:
-      _currentAya !== null && _baselineAya !== null ? _currentAya - _baselineAya : 0,
+        : 0),
+    ayaDelta: _resumedAyaDelta +
+      (_currentAya !== null && _baselineAya !== null ? _currentAya - _baselineAya : 0),
     currentPlat:    _currentPlat,
     currentCredits: _currentCredits,
     currentEndo:    _currentEndo,

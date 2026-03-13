@@ -46,6 +46,39 @@ export interface TradeEvent {
 const MAX_EVENTS = 2000;
 const MIN_COOLDOWN_MS = 10_000; // 10 s — suppresses duplicate file-watch events
 
+// Warframe player-to-player trades are limited to 5 items per side (10 total max).
+// Any diff with more changed items is almost certainly mission rewards coinciding
+// with a plat change (store purchase, Baro, etc.).
+const MAX_TRADE_ITEM_COUNT = 10;
+
+/**
+ * Returns true if the item's internal path looks like something that can be
+ * exchanged in a player-to-player trade.  Common resources, fish, gems,
+ * arena tokens, fragments, etc. are never tradeable and must be excluded to
+ * avoid false-positive trade events from mission rewards.
+ */
+function _isLikelyTradeable(itemType: string): boolean {
+  const lower = itemType.toLowerCase();
+  // Prime parts / blueprints
+  if (lower.includes("prime") && !lower.includes("primetokens")) return true;
+  // Blueprints / Recipes (forma BP, weapon BPs, etc.)
+  if (lower.includes("/recipes/")) return true;
+  // Mods, arcanes, focus lenses
+  if (lower.includes("/upgrades/")) return true;
+  // Void relics / projection keys
+  if (lower.includes("voidprojection") || lower.includes("/relics/")) return true;
+  // Ayatan sculptures and stars
+  if (lower.includes("ayatan")) return true;
+  // Orbiter decorations that are tradeable (Noggles, etc.)
+  if (lower.includes("fusionbundle")) return true;
+  // Forma (the crafted item, not fragments)
+  if (lower.includes("/miscitems/orokinforma")) return true;
+  // Special bundles / tradeable misc (Kuva Lich related, etc.)
+  if (lower.includes("lich") || lower.includes("sister")) return true;
+  // Everything else in MiscItems (resources, fish, gems, tokens, fragments) is not tradeable
+  return false;
+}
+
 // ── State ─────────────────────────────────────────────────────────────────────
 
 type RawEntry = { ItemType?: string; ItemCount?: number; [k: string]: unknown };
@@ -187,8 +220,20 @@ export function onInventoryData(data: Record<string, unknown>): void {
     ..._diffItems(relicPrev, relicCurr, platWasGained),
   ];
 
-  // Only emit if items also moved (filters out store purchases, plat gifting, etc.)
-  if (items.length === 0) {
+  // Filter to items that could plausibly be in a player-to-player trade.
+  // This excludes common resources, fish, gems, arena tokens, etc. that change
+  // constantly from mission rewards but are never tradeable between players.
+  const tradeableItems = items.filter((i) => _isLikelyTradeable(i.internalName));
+
+  // No tradeable items changed → not an actual trade (probably mission rewards
+  // coinciding with a market/store purchase or Baro visit).
+  if (tradeableItems.length === 0) {
+    _prevSnapshot = data;
+    return;
+  }
+
+  // Sanity check: real trades can't exceed 5 items per side (10 total).
+  if (tradeableItems.length > MAX_TRADE_ITEM_COUNT) {
     _prevSnapshot = data;
     return;
   }
@@ -207,7 +252,7 @@ export function onInventoryData(data: Record<string, unknown>): void {
     date: new Date().toISOString(),
     type: platWasGained ? "sale" : "purchase",
     platChange: Math.abs(platDiff),
-    items,
+    items: tradeableItems,
     ...(partner ? { partner } : {}),
   };
 
@@ -218,7 +263,7 @@ export function onInventoryData(data: Record<string, unknown>): void {
   statsTracker.incrementTodayTrades();
 
   log.log(
-    `[TradeTracker] Trade detected: ${event.type} +${event.platChange}p, ${items.length} item(s) changed`,
+    `[TradeTracker] Trade detected: ${event.type} +${event.platChange}p, ${tradeableItems.length} item(s) changed`,
   );
 
   _prevSnapshot = data;
