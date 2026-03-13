@@ -4893,7 +4893,7 @@ interface Ai_Cf_Meta_Llama_3_3_70B_Instruct_Fp8_Fast_Prompt {
     lora?: string;
     response_format?: Ai_Cf_Meta_Llama_3_3_70B_Instruct_Fp8_Fast_JSON_Mode;
     /**
-     * If true, a chat template is not applied and you must adhere to the specific model's expected formatting.
+     * If true, a  template is not applied and you must adhere to the specific model's expected formatting.
      */
     raw?: boolean;
     /**

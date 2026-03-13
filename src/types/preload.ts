@@ -78,4 +78,11 @@ export interface PreloadAPI {
   getStatsCurrentSession: () => Promise<IpcInvokeMap["getStatsCurrentSession"]["return"]>;
   importStatsHistory: (raw: unknown[]) => Promise<IpcInvokeMap["importStatsHistory"]["return"]>;
   getTradeLog: () => Promise<IpcInvokeMap["getTradeLog"]["return"]>;
+  importTradeLog: (
+    events: IpcInvokeMap["importTradeLog"]["args"][0],
+  ) => Promise<IpcInvokeMap["importTradeLog"]["return"]>;
+  getHelperStatus: () => Promise<IpcInvokeMap["getHelperStatus"]["return"]>;
+  runHelperNow: () => Promise<IpcInvokeMap["runHelperNow"]["return"]>;
+  downloadHelper: () => Promise<IpcInvokeMap["downloadHelper"]["return"]>;
+  onHelperDownloadProgress: (callback: (progress: IpcEventMap["helper-download-progress"]) => void) => () => void;
 }

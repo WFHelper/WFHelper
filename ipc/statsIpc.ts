@@ -33,6 +33,13 @@ function register(): void {
     assertAuthorizedSender(assertMainRendererSender, event as never, "stats:get-trades");
     return tradeTracker.getTradeLog();
   });
+
+  ipcMain.handle("stats:import-trades", (event: unknown, raw: unknown) => {
+    assertAuthorizedSender(assertMainRendererSender, event as never, "stats:import-trades");
+    if (!Array.isArray(raw)) return { ok: false, count: 0 };
+    const count = tradeTracker.importTradeLog(raw as import("../services/tradeTracker").TradeEvent[]);
+    return { ok: true, count };
+  });
 }
 
 export { register };

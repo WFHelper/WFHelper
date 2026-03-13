@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut } from "electron";
+import { app, BrowserWindow, globalShortcut, ipcMain } from "electron";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -54,6 +54,7 @@ const rankedHotsetIpc = fromAppRoot("ipc/rankedHotsetIpc");
 const statsIpc = fromAppRoot("ipc/statsIpc");
 const statsTracker = fromAppRoot("services/statsTracker");
 const tradeTracker = fromAppRoot("services/tradeTracker");
+const apiHelperRunner = fromAppRoot("services/apiHelperRunner");
 
 // Suppress noisy Chromium/DevTools internal logging in terminal.
 app.commandLine.appendSwitch("disable-logging");
@@ -166,6 +167,40 @@ app.whenReady().then(async () => {
   snapshotCacheIpc.register();
   rankedHotsetIpc.register();
   statsIpc.register();
+
+  // Helper runner IPC
+  const ipcSecurityMod = fromAppRoot("ipc/ipcSecurity");
+  ipcMain.handle("helper:get-status", (event: unknown) => {
+    ipcSecurityMod.assertAuthorizedSender(
+      ipcSecurityMod.assertMainRendererSender,
+      event,
+      "helper:get-status",
+    );
+    return apiHelperRunner.getStatus();
+  });
+  ipcMain.handle("helper:run-now", async (event: unknown) => {
+    ipcSecurityMod.assertAuthorizedSender(
+      ipcSecurityMod.assertMainRendererSender,
+      event,
+      "helper:run-now",
+    );
+    const ok = await apiHelperRunner.runOnce();
+    return { ok };
+  });
+  ipcMain.handle("helper:download", async (event: unknown) => {
+    ipcSecurityMod.assertAuthorizedSender(
+      ipcSecurityMod.assertMainRendererSender,
+      event,
+      "helper:download",
+    );
+    const ok = await apiHelperRunner.downloadHelper((progress) => {
+      if (ctx.mainWindow) {
+        ctx.mainWindow.webContents.send("helper-download-progress", progress);
+      }
+    });
+    return { ok };
+  });
+
   profileStage("ipc:register", ipcRegisterStart);
 
   const itemDbStart = Date.now();
@@ -202,12 +237,27 @@ app.whenReady().then(async () => {
   profileStage("overlay-hotkey:register", hotkeyStart);
 
   const inventoryDetectStart = Date.now();
+  apiHelperRunner.init();
   const found = inventoryIpc.findInventoryFile();
   if (found) {
     ctx.currentInventoryPath = found;
     inventoryIpc.watchInventoryFile(found);
     log.log("Auto-detected inventory at:", found);
+
+    // Auto-load inventory and send to renderer once the page is ready
+    const data = inventoryIpc.readInventory(found);
+    if (data && ctx.mainWindow) {
+      ctx.mainWindow.webContents.once("did-finish-load", () => {
+        if (ctx.mainWindow) {
+          ctx.mainWindow.webContents.send("inventory-updated", data);
+        }
+      });
+    }
   }
+
+  // Start helper polling (runs exe every 10 min; chokidar picks up changes)
+  apiHelperRunner.startPolling();
+
   profileStage("inventory:auto-detect", inventoryDetectStart);
 
   const eeLogStart = Date.now();
@@ -215,6 +265,8 @@ app.whenReady().then(async () => {
     onRewardTrigger: () => overlayIpc.onRelicRewardTrigger("eelog"),
     onRelicSelectionOpen: () => overlayIpc.onRelicSelectionTrigger("eelog"),
     onRelicSelectionClose: () => overlayIpc.onRelicSelectionClose(),
+    onTradingPartner: (username: string) => tradeTracker.setTradingPartner(username),
+    onTradeConfirmed: (trade) => tradeTracker.recordTradeFromLog(trade),
   });
   if (eeLogPath) log.log("[EELog] Monitoring:", eeLogPath);
   else log.log("[EELog] EE.log not found - relic overlay trigger disabled");
@@ -252,6 +304,7 @@ app.whenReady().then(async () => {
 
 app.on("window-all-closed", () => {
   if (ctx.watcher) ctx.watcher.close();
+  apiHelperRunner.stopPolling();
   eeLogMonitor.stopWatching();
   keyboardMonitor.stopEscMonitor();
   overlayIpc.unregisterOverlayHotkey();

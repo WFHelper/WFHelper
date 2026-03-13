@@ -19,6 +19,7 @@ const path = require("node:path") as typeof import("node:path");
 const fs = require("node:fs") as typeof import("node:fs");
 const { app } = require("electron") as typeof import("electron");
 const { withScope } = require("./logger") as typeof import("./logger");
+const statsTracker = require("./statsTracker") as typeof import("./statsTracker");
 
 const log = withScope("tradeTracker");
 
@@ -37,11 +38,12 @@ export interface TradeEvent {
   type: "sale" | "purchase"; // sale = plat gained, purchase = plat spent
   platChange: number;      // always positive (absolute delta)
   items: TradeItem[];      // items that changed alongside the plat
+  partner?: string;        // trading partner username (from EE.log, best-effort)
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const MAX_EVENTS = 500;
+const MAX_EVENTS = 2000;
 const MIN_COOLDOWN_MS = 10_000; // 10 s — suppresses duplicate file-watch events
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -51,6 +53,10 @@ type RawEntry = { ItemType?: string; ItemCount?: number; [k: string]: unknown };
 let _prevSnapshot: Record<string, unknown> | null = null;
 let _lastEventTime = 0;
 let _tradeLog: TradeEvent[] = [];
+// Last username seen in EE.log trade initiation line; consumed on next trade event.
+let _pendingPartner: string | null = null;
+let _pendingPartnerAt = 0;
+const PARTNER_TTL_MS = 120_000; // discard if no trade event within 2 min
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -73,7 +79,7 @@ function _saveLog(): void {
 function _diffItems(
   prev: RawEntry[],
   curr: RawEntry[],
-  platWasGained: boolean,
+  _platWasGained: boolean,
 ): TradeItem[] {
   const prevMap = new Map<string, number>();
   const currMap = new Map<string, number>();
@@ -114,6 +120,15 @@ function _toArray(val: unknown): RawEntry[] {
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
+
+/**
+ * Notify the tracker of a trading partner username detected in EE.log.
+ * The next recorded trade event will carry this name.
+ */
+export function setTradingPartner(username: string): void {
+  _pendingPartner = username;
+  _pendingPartnerAt = Date.now();
+}
 
 /**
  * Load persisted trade log from disk. Call once on startup.
@@ -179,24 +194,101 @@ export function onInventoryData(data: Record<string, unknown>): void {
   }
 
   const id = `${new Date().toISOString()}-${Math.random().toString(36).slice(2, 6)}`;
+
+  // Consume the buffered EE.log partner name (if recent enough)
+  let partner: string | undefined;
+  if (_pendingPartner && Date.now() - _pendingPartnerAt < PARTNER_TTL_MS) {
+    partner = _pendingPartner;
+  }
+  _pendingPartner = null;
+
   const event: TradeEvent = {
     id,
     date: new Date().toISOString(),
     type: platWasGained ? "sale" : "purchase",
     platChange: Math.abs(platDiff),
     items,
+    ...(partner ? { partner } : {}),
   };
 
   _tradeLog.unshift(event); // newest first
   if (_tradeLog.length > MAX_EVENTS) _tradeLog = _tradeLog.slice(0, MAX_EVENTS);
   _lastEventTime = now;
   _saveLog();
+  statsTracker.incrementTodayTrades();
 
   log.log(
     `[TradeTracker] Trade detected: ${event.type} +${event.platChange}p, ${items.length} item(s) changed`,
   );
 
   _prevSnapshot = data;
+}
+
+/**
+ * Record a trade detected from the EE.log trade confirmation dialog.
+ * Returns the created TradeEvent (or null if suppressed by cooldown).
+ */
+export function recordTradeFromLog(parsed: {
+  partner: string;
+  platChange: number;
+  type: "sale" | "purchase";
+  items: Array<{ displayName: string; count: number; direction: "given" | "received" }>;
+}): TradeEvent | null {
+  const now = Date.now();
+  if (now - _lastEventTime < MIN_COOLDOWN_MS) return null;
+
+  const id = `${new Date().toISOString()}-${Math.random().toString(36).slice(2, 6)}`;
+
+  const items: TradeItem[] = parsed.items.map((i) => ({
+    internalName: "",
+    displayName: i.displayName,
+    count: i.count,
+    direction: i.direction,
+  }));
+
+  const event: TradeEvent = {
+    id,
+    date: new Date().toISOString(),
+    type: parsed.type,
+    platChange: parsed.platChange,
+    items,
+    ...(parsed.partner ? { partner: parsed.partner } : {}),
+  };
+
+  _tradeLog.unshift(event);
+  if (_tradeLog.length > MAX_EVENTS) _tradeLog = _tradeLog.slice(0, MAX_EVENTS);
+  _lastEventTime = now;
+  _saveLog();
+  statsTracker.incrementTodayTrades();
+
+  log.log(
+    `[TradeTracker] EE.log trade: ${event.type} ${event.platChange}p with ${parsed.partner}, ${items.length} item(s)`,
+  );
+
+  return event;
+}
+
+/**
+ * Import trade events from an external source (e.g. AlecaFrame export).
+ * Deduplicates by id. Returns the number of newly added events.
+ */
+export function importTradeLog(events: TradeEvent[]): number {
+  const existingIds = new Set(_tradeLog.map((t) => t.id));
+  let added = 0;
+  for (const e of events) {
+    if (!e.id || existingIds.has(e.id)) continue;
+    _tradeLog.push(e);
+    existingIds.add(e.id);
+    added++;
+  }
+  if (added > 0) {
+    // Sort newest first by date
+    _tradeLog.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
+    if (_tradeLog.length > MAX_EVENTS) _tradeLog = _tradeLog.slice(0, MAX_EVENTS);
+    _saveLog();
+    log.log(`[TradeTracker] Imported ${added} trade events`);
+  }
+  return added;
 }
 
 /**

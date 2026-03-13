@@ -30,6 +30,12 @@ export interface DailyStatEntry {
   ayaDelta: number;      // net Aya (PrimeTokens) change
   relicsOpened: number;  // relics consumed (LevelKeys net decrease, ≥0)
   daysPlayed: number;    // 1 = played; 0 = no inventory data (imported gap)
+  dailyTrades: number;   // number of trades detected or imported for this day
+  absPlat?: number;      // absolute platinum balance at end of day
+  absCredits?: number;   // absolute credits balance at end of day
+  absEndo?: number;      // absolute endo balance at end of day
+  absDucats?: number;    // absolute ducats balance at end of day
+  absAya?: number;       // absolute aya balance at end of day
 }
 
 export interface SessionStats {
@@ -66,6 +72,8 @@ let _currentAya: number | null = null;
 let _lastRelicTotal: number | null = null;
 let _todayRelicsOpened = 0;
 let _todayDateForRelics = ""; // tracks which day the relics counter belongs to
+let _todayDailyTrades = 0;
+let _todayDateForTrades = "";
 
 let _history: DailyStatEntry[] = [];
 const HISTORY_MAX_DAYS = 90;
@@ -115,6 +123,12 @@ function _upsertToday(): void {
     ayaDelta,
     relicsOpened: _todayRelicsOpened,
     daysPlayed: 1,
+    dailyTrades: _todayDailyTrades,
+    ...((_currentPlat    !== null) ? { absPlat: _currentPlat } : {}),
+    ...((_currentCredits !== null) ? { absCredits: _currentCredits } : {}),
+    ...((_currentEndo    !== null) ? { absEndo: _currentEndo } : {}),
+    ...((_currentDucats  !== null) ? { absDucats: _currentDucats } : {}),
+    ...((_currentAya     !== null) ? { absAya: _currentAya } : {}),
   };
 
   const idx = _history.findIndex((e) => e.date === today);
@@ -146,6 +160,7 @@ export function loadHistory(): void {
         ayaDelta: 0,
         relicsOpened: 0,
         daysPlayed: 1,
+        dailyTrades: 0,
         ...e,
       }));
       // Restore today's relic accumulator so app restarts don't reset the daily count to 0
@@ -154,6 +169,10 @@ export function loadHistory(): void {
       if (todayEntry && todayEntry.relicsOpened > 0) {
         _todayRelicsOpened = todayEntry.relicsOpened;
         _todayDateForRelics = today;
+      }
+      if (todayEntry && todayEntry.dailyTrades > 0) {
+        _todayDailyTrades = todayEntry.dailyTrades;
+        _todayDateForTrades = today;
       }
       log.log(`[StatsTracker] Loaded ${_history.length} history entries`);
     }
@@ -176,8 +195,11 @@ export function onInventoryData(data: Record<string, unknown>): void {
   const aya     = typeof data.PrimeTokens    === "number" ? data.PrimeTokens    : null;
 
   // ── Relics opened tracking ───────────────────────────────────────────────
-  // LevelKeys holds relic items; summing their ItemCount gives total relic inventory.
-  // Each time the total decreases we know relics were opened (consumed).
+  // Relics (VoidProjection items) appear in LevelKeys for some inventory
+  // export formats, but in modern Warframe exports they live in MiscItems.
+  // We scan both arrays, counting only items whose ItemType path contains
+  // "VoidProjection" or "/Lotus/Relics/" so we don't conflate mission keys
+  // (e.g. DojoKey, TestKeyErisBoss) with actual void relics.
   const today = _todayStr();
 
   // Reset accumulator when the day rolls over
@@ -186,12 +208,23 @@ export function onInventoryData(data: Record<string, unknown>): void {
     _todayDateForRelics = today;
     _lastRelicTotal = null; // avoid a spurious spike across midnight
   }
+  if (_todayDateForTrades !== today) {
+    _todayDailyTrades = 0;
+    _todayDateForTrades = today;
+  }
 
-  const levelKeys = Array.isArray(data.LevelKeys)
-    ? (data.LevelKeys as Array<Record<string, unknown>>)
-    : [];
-  const relicTotal = levelKeys.reduce(
-    (sum, e) => sum + (typeof e.ItemCount === "number" ? e.ItemCount : 0),
+  const relicArrays: Array<Record<string, unknown>>[] = [
+    Array.isArray(data.LevelKeys) ? (data.LevelKeys as Array<Record<string, unknown>>) : [],
+    Array.isArray(data.MiscItems) ? (data.MiscItems as Array<Record<string, unknown>>) : [],
+  ];
+
+  function _isRelicEntry(e: Record<string, unknown>): boolean {
+    const t = typeof e.ItemType === "string" ? e.ItemType : "";
+    return /VoidProjection/i.test(t) || /\/Lotus\/Relics\//i.test(t);
+  }
+
+  const relicTotal = relicArrays.flat().reduce(
+    (sum, e) => (_isRelicEntry(e) && typeof e.ItemCount === "number" ? sum + e.ItemCount : sum),
     0,
   );
   if (_lastRelicTotal !== null && relicTotal < _lastRelicTotal) {
@@ -216,6 +249,19 @@ export function onInventoryData(data: Record<string, unknown>): void {
 }
 
 /**
+ * Increment today's trade counter by 1. Called by tradeTracker when a trade is detected.
+ */
+export function incrementTodayTrades(): void {
+  const today = _todayStr();
+  if (_todayDateForTrades !== today) {
+    _todayDailyTrades = 0;
+    _todayDateForTrades = today;
+  }
+  _todayDailyTrades++;
+  _upsertToday();
+}
+
+/**
  * Returns the full daily history array (last HISTORY_MAX_DAYS entries).
  */
 export function getHistory(): DailyStatEntry[] {
@@ -232,7 +278,7 @@ export function getHistory(): DailyStatEntry[] {
  */
 export function importHistory(raw: unknown[]): number {
   let imported = 0;
-  const existingDates = new Set(_history.map((e) => e.date));
+  const today = _todayStr();
 
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
@@ -244,7 +290,8 @@ export function importHistory(raw: unknown[]): number {
       typeof r.day  === "string" ? r.day  : null;
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
 
-    if (existingDates.has(date)) continue;
+    // Never overwrite today's live-tracked entry
+    if (date === today) continue;
 
     // Platinum delta (pre-processed; fall back to common field names)
     let platDelta = 0;
@@ -273,10 +320,27 @@ export function importHistory(raw: unknown[]): number {
     if (typeof r.relicsOpened === "number") relicsOpened = r.relicsOpened;
     else if (typeof r.relicOpened === "number") relicsOpened = r.relicOpened;
 
+    // Daily trade count
+    let dailyTrades = 0;
+    if (typeof r.dailyTrades === "number") dailyTrades = r.dailyTrades;
+
     const daysPlayed = typeof r.daysPlayed === "number" ? r.daysPlayed : 1;
 
-    _history.push({ date, platDelta, creditsDelta, endoDelta, ducatsDelta, ayaDelta, relicsOpened, daysPlayed });
-    existingDates.add(date);
+    const entry: DailyStatEntry = { date, platDelta, creditsDelta, endoDelta, ducatsDelta, ayaDelta, relicsOpened, daysPlayed, dailyTrades };
+
+    // Store absolute values if provided (from AlecaFrame import)
+    if (typeof r.absPlat    === "number") entry.absPlat    = r.absPlat;
+    if (typeof r.absCredits === "number") entry.absCredits = r.absCredits;
+    if (typeof r.absEndo    === "number") entry.absEndo    = r.absEndo;
+    if (typeof r.absDucats  === "number") entry.absDucats  = r.absDucats;
+    if (typeof r.absAya     === "number") entry.absAya     = r.absAya;
+
+    const idx = _history.findIndex((e) => e.date === date);
+    if (idx >= 0) {
+      _history[idx] = entry;
+    } else {
+      _history.push(entry);
+    }
     imported++;
   }
 

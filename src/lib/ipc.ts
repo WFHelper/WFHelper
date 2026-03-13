@@ -24,6 +24,8 @@ const eventApiMap: Record<
     window.api.onAppUpdateStatus(cb as (state: IpcEventMap["app-update-status"]) => void),
   "wfm:notification": (cb) =>
     window.api.onWfmNotification(cb as (n: IpcEventMap["wfm:notification"]) => void),
+  "helper-download-progress": (cb) =>
+    window.api.onHelperDownloadProgress(cb as (p: IpcEventMap["helper-download-progress"]) => void),
 };
 
 export function on<K extends EventChannel>(
@@ -114,4 +116,11 @@ export const ipc = {
   getStatsCurrentSession: () => window.api.getStatsCurrentSession(),
   importStatsHistory: (raw: unknown[]) => window.api.importStatsHistory(raw),
   getTradeLog: () => window.api.getTradeLog(),
+  importTradeLog: (...args: IpcInvokeMap["importTradeLog"]["args"]) =>
+    window.api.importTradeLog(...args),
+  getHelperStatus: () => window.api.getHelperStatus(),
+  runHelperNow: () => window.api.runHelperNow(),
+  downloadHelper: () => window.api.downloadHelper(),
+  onHelperDownloadProgress: (callback: (progress: IpcEventMap["helper-download-progress"]) => void) =>
+    window.api.onHelperDownloadProgress(callback),
 } as const;

@@ -216,4 +216,4 @@ function register(): void {
   });
 }
 
-export { register, findInventoryFile, watchInventoryFile };
+export { register, findInventoryFile, watchInventoryFile, readInventory };

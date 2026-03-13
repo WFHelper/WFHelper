@@ -39,6 +39,10 @@ const RELIC_PICKER_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
 const RELIC_PICKER_CLOSE_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
   /\bDialog\.lua:\s*Dialog::SendResult\(\d+\)/i,
 ]);
+// TradingPost.lua emits a line like:
+//   Script [Info]: TradingPost.lua: Initiating Trade With: <username>.
+// We capture the username at the end, stripping a trailing period if present.
+const TRADE_PARTNER_PATTERN = /TradingPost\.lua.*?[Tt]rade.*?[Ww]ith[: ]+([A-Za-z0-9_\-.]+)\.?\s*$/i;
 
 const TRIGGER_DELAY_MS = 450;
 const RELIC_TRIGGER_DELAY_MS = 120;
@@ -71,6 +75,29 @@ const pollBuffer = Buffer.alloc(MAX_READ_BYTES);
 let rewardCallback: (() => void) | null = null;
 let relicPickerCallback: (() => void) | null = null;
 let relicPickerCloseCallback: (() => void) | null = null;
+let tradePartnerCallback: ((username: string) => void) | null = null;
+let tradeConfirmedCallback: ((trade: ParsedLogTrade) => void) | null = null;
+
+// ── Trade dialog multi-line buffer ────────────────────────────────────────────
+
+export interface ParsedLogTradeItem {
+  displayName: string;
+  count: number;
+  direction: "given" | "received";
+}
+
+export interface ParsedLogTrade {
+  partner: string;
+  platChange: number;
+  type: "sale" | "purchase";
+  items: ParsedLogTradeItem[];
+}
+
+let _tradeDialogBuffer: string[] | null = null;
+const TRADE_DIALOG_START = "Are you sure you want to accept this trade?";
+const TRADE_SUCCESS = "The trade was successful!";
+const TRADE_DIALOG_TIMEOUT_MS = 60_000;
+let _tradeDialogStartAt = 0;
 
 let pendingRewardTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingRelicPickerTimer: ReturnType<typeof setTimeout> | null = null;
@@ -301,6 +328,106 @@ function handleLine(line: string): void {
       }
     }
   }
+
+  const tradeMatch = TRADE_PARTNER_PATTERN.exec(line);
+  if (tradeMatch && tradeMatch[1]) {
+    const username = tradeMatch[1].replace(/\.$/, "").trim();
+    if (username && typeof tradePartnerCallback === "function") {
+      log.log("[EELog] Trade partner detected:", username);
+      tradePartnerCallback(username);
+    }
+  }
+
+  // ── Trade dialog buffering ─────────────────────────────────────────────────
+  if (line.includes(TRADE_DIALOG_START)) {
+    _tradeDialogBuffer = [line];
+    _tradeDialogStartAt = Date.now();
+  } else if (_tradeDialogBuffer !== null) {
+    // Timeout guard — abandon if dialog stays open too long
+    if (Date.now() - _tradeDialogStartAt > TRADE_DIALOG_TIMEOUT_MS) {
+      _tradeDialogBuffer = null;
+    } else {
+      _tradeDialogBuffer.push(line);
+    }
+  }
+
+  if (line.includes(TRADE_SUCCESS) && _tradeDialogBuffer !== null) {
+    const parsed = _parseTradeDialog(_tradeDialogBuffer);
+    _tradeDialogBuffer = null;
+    if (parsed && typeof tradeConfirmedCallback === "function") {
+      log.log(`[EELog] Trade confirmed: ${parsed.type} ${parsed.platChange}p with ${parsed.partner}, ${parsed.items.length} item(s)`);
+      tradeConfirmedCallback(parsed);
+    }
+  }
+}
+
+/**
+ * Parse the buffered trade confirmation dialog lines into a structured trade.
+ * Format:
+ *   "You are offering:\n\n<items>\n\nand will receive from <partner> the following:\n\n<items>"
+ */
+function _parseTradeDialog(lines: string[]): ParsedLogTrade | null {
+  const text = lines.join("\n");
+
+  // Extract the description between the trigger text and the leftItem suffix
+  const descStart = text.indexOf("You are offering:");
+  if (descStart < 0) return null;
+  const desc = text.slice(descStart);
+
+  // Split on the "and will receive from <partner> the following:" divider
+  const receiveMatch = desc.match(/and will receive from\s+(.+?)\s+the following:/i);
+  if (!receiveMatch) return null;
+  const partner = receiveMatch[1].trim();
+
+  const dividerIdx = desc.indexOf(receiveMatch[0]);
+  const offeringBlock = desc.slice("You are offering:".length, dividerIdx);
+  const receivingBlock = desc.slice(dividerIdx + receiveMatch[0].length);
+
+  function parseItemBlock(block: string): { items: ParsedLogTradeItem[]; plat: number } {
+    let plat = 0;
+    const counts = new Map<string, number>();
+    for (const raw of block.split("\n")) {
+      const line = raw.trim();
+      if (!line) continue;
+      // Stop if we hit the closing part of Dialog args
+      if (line.startsWith("leftItem=") || line.startsWith("rightItem=")) break;
+      // Remove trailing comma from last item "..., leftItem=..."
+      const cleaned = line.replace(/,\s*leftItem=.*$/i, "").trim();
+      if (!cleaned) continue;
+
+      const platMatch = cleaned.match(/^Platinum\s+x\s+(\d+)$/i);
+      if (platMatch) {
+        plat += parseInt(platMatch[1], 10);
+        continue;
+      }
+      counts.set(cleaned, (counts.get(cleaned) || 0) + 1);
+    }
+    const items: ParsedLogTradeItem[] = [];
+    for (const [name, cnt] of counts) {
+      items.push({ displayName: name, count: cnt, direction: "given" });
+    }
+    return { items, plat };
+  }
+
+  const offered = parseItemBlock(offeringBlock);
+  const received = parseItemBlock(receivingBlock);
+
+  // Determine trade type and plat
+  const platGained = received.plat;
+  const platSpent = offered.plat;
+  const isSale = platGained > 0;
+  const platChange = isSale ? platGained : platSpent;
+
+  // Set directions
+  for (const item of offered.items) item.direction = "given";
+  for (const item of received.items) item.direction = "received";
+
+  return {
+    partner,
+    platChange,
+    type: isSale ? "sale" : "purchase",
+    items: [...offered.items, ...received.items],
+  };
 }
 
 function consumeChunk(chunk: string): void {
@@ -317,6 +444,8 @@ interface EeLogHandlers {
   onRewardTrigger?: (() => void) | null;
   onRelicSelectionOpen?: (() => void) | null;
   onRelicSelectionClose?: (() => void) | null;
+  onTradingPartner?: ((username: string) => void) | null;
+  onTradeConfirmed?: ((trade: ParsedLogTrade) => void) | null;
 }
 
 function normalizeHandlers(
@@ -325,12 +454,16 @@ function normalizeHandlers(
   onRewardTrigger: (() => void) | null;
   onRelicSelectionOpen: (() => void) | null;
   onRelicSelectionClose: (() => void) | null;
+  onTradingPartner: ((username: string) => void) | null;
+  onTradeConfirmed: ((trade: ParsedLogTrade) => void) | null;
 } {
   if (typeof handlers === "function") {
     return {
       onRewardTrigger: handlers,
       onRelicSelectionOpen: null,
       onRelicSelectionClose: null,
+      onTradingPartner: null,
+      onTradeConfirmed: null,
     };
   }
 
@@ -339,6 +472,8 @@ function normalizeHandlers(
       onRewardTrigger: null,
       onRelicSelectionOpen: null,
       onRelicSelectionClose: null,
+      onTradingPartner: null,
+      onTradeConfirmed: null,
     };
   }
 
@@ -349,6 +484,10 @@ function normalizeHandlers(
       typeof handlers.onRelicSelectionOpen === "function" ? handlers.onRelicSelectionOpen : null,
     onRelicSelectionClose:
       typeof handlers.onRelicSelectionClose === "function" ? handlers.onRelicSelectionClose : null,
+    onTradingPartner:
+      typeof handlers.onTradingPartner === "function" ? handlers.onTradingPartner : null,
+    onTradeConfirmed:
+      typeof handlers.onTradeConfirmed === "function" ? handlers.onTradeConfirmed : null,
   };
 }
 
@@ -368,6 +507,8 @@ export function startWatching(
   rewardCallback = normalized.onRewardTrigger;
   relicPickerCallback = normalized.onRelicSelectionOpen;
   relicPickerCloseCallback = normalized.onRelicSelectionClose;
+  tradePartnerCallback = normalized.onTradingPartner;
+  tradeConfirmedCallback = normalized.onTradeConfirmed;
 
   clearPollTimer();
   closePollFd();

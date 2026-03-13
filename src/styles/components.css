@@ -14,6 +14,21 @@
     animation: fadeIn 0.18s ease;
   }
 
+  /* Stats view needs to fill the full height of #content so the
+     split-pane layout can stretch to the bottom of the window. */
+  #content.stats-active {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #content.stats-active > .view {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
   .view-header {
     margin-bottom: 1rem;
     display: flex;

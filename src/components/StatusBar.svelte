@@ -18,6 +18,7 @@
     getRelicRuntimeCacheStats,
     type RelicRuntimeCacheStats,
   } from "../lib/relic.js";
+  import type { HelperStatus } from "../types/ipc.js";
 
   import sharedErrors from "../../config/shared/errors.cjs";
 
@@ -34,16 +35,46 @@
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let updateActionPending = false;
 
+  let helperStatus: HelperStatus | null = null;
+
+  function formatHelperTime(ms: number | null): string {
+    if (!ms) return "";
+    const d = new Date(ms);
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
+
+  $: helperStatusText = (() => {
+    if (!helperStatus) return "";
+    if (helperStatus.running) return "Refreshing...";
+    if (helperStatus.inventoryLastModified) {
+      return `WF data OK! Last update: ${formatHelperTime(helperStatus.inventoryLastModified)}`;
+    }
+    if (!helperStatus.exeFound) return "Helper not found";
+    return "No inventory data";
+  })();
+
+  $: helperDotClass = (() => {
+    if (!helperStatus) return "bg-gray-500";
+    if (helperStatus.running) return "bg-yellow-400 animate-pulse";
+    if (helperStatus.inventoryLastModified) return "bg-emerald-400";
+    return "bg-red-400";
+  })();
+
   function msOrDash(value: number | null): string {
     return value == null ? "-" : `${value}`;
   }
 
   onMount(() => {
+    // Fetch initial helper status
+    ipc.getHelperStatus().then((s) => { helperStatus = s; }).catch(() => {});
+
     pollTimer = setInterval(() => {
       counters = getPriceDebugCounters();
       queueStats = getPriceQueueStats();
       priceCacheStats = getPriceCacheStats();
       relicCacheStats = getRelicRuntimeCacheStats();
+      // Refresh helper status periodically
+      ipc.getHelperStatus().then((s) => { helperStatus = s; }).catch(() => {});
     }, COUNTER_POLL_MS);
   });
 
@@ -109,6 +140,12 @@
 <footer class="flex h-[var(--statusbar-height)] select-none items-center justify-between border-t border-[var(--border)] bg-[var(--bg-deep)] px-3.5 text-[12px] text-[var(--text-muted)]">
   <span class="flex items-center gap-2">
     <span>{$statusText}</span>
+    {#if helperStatus}
+      <span class="flex items-center gap-1 rounded border border-white/15 bg-white/5 px-2 py-0.5 text-[11px]" title={helperStatus.exeFound ? "warframe-api-helper active" : "warframe-api-helper not found"}>
+        <span class="inline-block h-[6px] w-[6px] rounded-full {helperDotClass}"></span>
+        <span>{helperStatusText}</span>
+      </span>
+    {/if}
     {#if $debugMode}
       <span class="rounded border border-white/20 bg-white/5 px-2 py-0.5 font-mono text-[11px] text-[var(--text-secondary)]">
         WFM r:{counters.requests}

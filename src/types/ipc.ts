@@ -2,7 +2,6 @@ import type { MasteryData, RawInventoryData, ItemDbEntry } from "./inventory.js"
 import type {
   WfmContractsQuery,
   WfmContractsResult,
-  OrderModalState,
   WfmCreateOrderInput,
   WfmDeleteResult,
   WfmLookupItem,
@@ -93,6 +92,22 @@ export interface AppUpdateInstallResult {
 export interface InventoryStatus {
   path: string | null;
   found: boolean;
+}
+
+export interface HelperStatus {
+  exeFound: boolean;
+  running: boolean;
+  lastRunAt: number | null;
+  lastRunOk: boolean | null;
+  inventoryLastModified: number | null;
+}
+
+export interface HelperDownloadProgress {
+  stage: "resolving" | "downloading" | "done" | "error";
+  percent: number;
+  bytesReceived: number;
+  bytesTotal: number;
+  error?: string;
 }
 
 export type WfmItemsLookup = Record<
@@ -265,6 +280,22 @@ export interface IpcInvokeMap {
     args: [];
     return: TradeEvent[];
   };
+  importTradeLog: {
+    args: [events: TradeEvent[]];
+    return: { ok: boolean; count: number };
+  };
+  getHelperStatus: {
+    args: [];
+    return: HelperStatus;
+  };
+  runHelperNow: {
+    args: [];
+    return: { ok: boolean };
+  };
+  downloadHelper: {
+    args: [];
+    return: { ok: boolean; error?: string };
+  };
 }
 
 export interface TradeItem {
@@ -280,6 +311,7 @@ export interface TradeEvent {
   type: "sale" | "purchase";
   platChange: number;              // always positive
   items: TradeItem[];
+  partner?: string;                // trading partner username (best-effort from EE.log)
 }
 
 export interface WfmNotification {
@@ -297,6 +329,12 @@ export interface DailyStatEntry {
   ayaDelta: number;       // net change in Aya (PrimeTokens)
   relicsOpened: number;   // relics consumed today (LevelKeys decrease tracking)
   daysPlayed: number;     // 1 = inventory data received; 0 = gap/imported entry
+  dailyTrades: number;    // trades detected or imported for this day
+  absPlat?: number;       // absolute platinum balance at end of day
+  absCredits?: number;    // absolute credits balance at end of day
+  absEndo?: number;       // absolute endo balance at end of day
+  absDucats?: number;     // absolute ducats balance at end of day
+  absAya?: number;        // absolute aya balance at end of day
 }
 
 export interface SessionStats {
@@ -317,6 +355,7 @@ export interface IpcEventMap {
   "inventory-updated": RawInventoryData;
   "app-update-status": AppUpdateState;
   "wfm:notification": WfmNotification;
+  "helper-download-progress": HelperDownloadProgress;
 }
 
 export interface IpcSendMap {
@@ -329,4 +368,3 @@ export interface IpcSendMap {
   "open-external": [url: string];
 }
 
-export type MarketOrderModalState = OrderModalState;

@@ -80,4 +80,16 @@ contextBridge.exposeInMainWorld("api", {
   getStatsCurrentSession: () => ipcRenderer.invoke("stats:get-current"),
   importStatsHistory: (raw: unknown[]) => ipcRenderer.invoke("stats:import", raw),
   getTradeLog: () => ipcRenderer.invoke("stats:get-trades"),
+  importTradeLog: (events: unknown[]) => ipcRenderer.invoke("stats:import-trades", events),
+
+  getHelperStatus: () => ipcRenderer.invoke("helper:get-status"),
+  runHelperNow: () => ipcRenderer.invoke("helper:run-now"),
+  downloadHelper: () => ipcRenderer.invoke("helper:download"),
+  onHelperDownloadProgress: (callback: (progress: unknown) => void) => {
+    const listener = (_event: unknown, progress: unknown) => callback(progress);
+    ipcRenderer.on("helper-download-progress", listener);
+    return () => {
+      ipcRenderer.removeListener("helper-download-progress", listener);
+    };
+  },
 });

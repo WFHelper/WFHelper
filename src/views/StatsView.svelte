@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { ipc } from "../lib/ipc.js";
   import { tr } from "../lib/i18n.js";
-  import type { DailyStatEntry, SessionStats, TradeEvent } from "../types/ipc.js";
+  import type { DailyStatEntry, SessionStats, TradeEvent, TradeItem } from "../types/ipc.js";
   import type { MessageKey } from "../lib/i18n.js";
 
   // ── Data state ───────────────────────────────────────────────────────────────
@@ -13,11 +13,6 @@
   let loading = true;
   let importStatus = "";
   let importError = false;
-
-  // ── Tab state ─────────────────────────────────────────────────────────────────
-
-  type ActiveTab = "overview" | "trades";
-  let activeTab: ActiveTab = "overview";
 
   onMount(async () => {
     try {
@@ -70,7 +65,9 @@
 
       type NormalizedEntry = {
         date: string; platDelta: number; creditsDelta: number; endoDelta: number;
-        ducatsDelta: number; ayaDelta: number; relicsOpened: number;
+        ducatsDelta: number; ayaDelta: number; relicsOpened: number; dailyTrades: number;
+        absPlat?: number | undefined; absCredits?: number | undefined;
+        absEndo?: number | undefined; absDucats?: number | undefined; absAya?: number | undefined;
       };
       const normalized: NormalizedEntry[] = [];
       for (let i = 0; i < rawRows.length; i++) {
@@ -108,7 +105,18 @@
         if (typeof r.relicsOpened === "number") relicsOpened = r.relicsOpened;
         else if (typeof r.relicOpened === "number") relicsOpened = r.relicOpened;
 
-        normalized.push({ date, platDelta, creditsDelta, endoDelta, ducatsDelta, ayaDelta, relicsOpened });
+        // AlecaFrame stores daily trade count in generalDataPoints[].trades
+        const dailyTrades = typeof r.trades === "number" ? r.trades :
+          typeof r.dailyTrades === "number" ? r.dailyTrades : 0;
+
+        // Preserve absolute values for the value-line overlay
+        const absPlat    = typeof r.plat    === "number" ? r.plat    : undefined;
+        const absCredits = typeof r.credits === "number" ? r.credits : undefined;
+        const absEndo    = typeof r.endo    === "number" ? r.endo    : undefined;
+        const absDucats  = typeof r.ducats  === "number" ? r.ducats  : undefined;
+        const absAya     = typeof r.aya     === "number" ? r.aya     : undefined;
+
+        normalized.push({ date, platDelta, creditsDelta, endoDelta, ducatsDelta, ayaDelta, relicsOpened, dailyTrades, absPlat, absCredits, absEndo, absDucats, absAya });
       }
 
       if (normalized.length === 0) {
@@ -118,19 +126,88 @@
       }
 
       const result = await ipc.importStatsHistory(normalized);
+      let statMsg = "";
       if (result.ok) {
         if (result.count === 0) {
-          importStatus = "Nothing new to import (all dates already exist locally).";
-          importError = false;
+          statMsg = "No new stat entries.";
         } else {
-          importStatus = `Imported ${result.count} new day${result.count === 1 ? "" : "s"}.`;
-          importError = false;
+          statMsg = `Imported/updated ${result.count} day${result.count === 1 ? "" : "s"}.`;
           history = await ipc.getStatsHistory();
         }
       } else {
-        importStatus = "Import failed.";
+        importStatus = "Stats import failed.";
         importError = true;
+        return;
       }
+
+      // ── Parse AlecaFrame trade array ───────────────────────────────────────
+      const rawTrades: unknown[] = Array.isArray(p?.trades) ? p.trades as unknown[] : [];
+      let tradeMsg = "";
+      if (rawTrades.length > 0) {
+        const importedTrades: TradeEvent[] = [];
+        for (const entry of rawTrades) {
+          if (!entry || typeof entry !== "object") continue;
+          const t = entry as Record<string, unknown>;
+
+          const ts = typeof t.ts === "string" ? t.ts : null;
+          if (!ts) continue;
+
+          const afType = typeof t.type === "number" ? t.type : -1;
+          // 0 = sale (sent items, received plat), 1 = purchase (sent plat, received items), 2 = gift
+          const tradeType: "sale" | "purchase" = afType === 1 ? "purchase" : "sale";
+          const totalPlat = typeof t.totalPlat === "number" ? t.totalPlat : 0;
+
+          // Strip trailing non-printable / PUA unicode chars from partner name
+          const rawUser = typeof t.user === "string" ? t.user : "";
+          const partner = rawUser.replace(/[\u{E000}-\u{F8FF}\u{F0000}-\u{FFFFD}]+$/u, "").trim();
+
+          const txArr = Array.isArray(t.tx) ? (t.tx as Record<string, unknown>[]) : [];
+          const rxArr = Array.isArray(t.rx) ? (t.rx as Record<string, unknown>[]) : [];
+
+          const items: TradeItem[] = [];
+          for (const item of txArr) {
+            const name = typeof item.name === "string" ? item.name : "";
+            if (name === "/AF_Special/Platinum") continue; // plat tracked separately
+            items.push({
+              internalName: name,
+              displayName: typeof item.displayName === "string" ? item.displayName : name.split("/").pop() ?? name,
+              count: typeof item.cnt === "number" ? item.cnt : 1,
+              direction: "given",
+            });
+          }
+          for (const item of rxArr) {
+            const name = typeof item.name === "string" ? item.name : "";
+            if (name === "/AF_Special/Platinum") continue;
+            items.push({
+              internalName: name,
+              displayName: typeof item.displayName === "string" ? item.displayName : name.split("/").pop() ?? name,
+              count: typeof item.cnt === "number" ? item.cnt : 1,
+              direction: "received",
+            });
+          }
+
+          const id = `af-${ts}-${totalPlat}-${partner}`;
+          importedTrades.push({
+            id,
+            date: ts,
+            type: tradeType,
+            platChange: totalPlat,
+            items,
+            ...(partner ? { partner } : {}),
+          });
+        }
+
+        if (importedTrades.length > 0) {
+          const tradeResult = await ipc.importTradeLog(importedTrades);
+          if (tradeResult.ok && tradeResult.count > 0) {
+            tradeMsg = ` ${tradeResult.count} trade${tradeResult.count === 1 ? "" : "s"} imported.`;
+            trades = await ipc.getTradeLog();
+          }
+        }
+      }
+
+      importStatus = statMsg + tradeMsg;
+      importError = false;
     } catch (err: unknown) {
       importStatus = err instanceof Error ? err.message : "Import failed.";
       importError = true;
@@ -140,7 +217,7 @@
   // ── Chart config ─────────────────────────────────────────────────────────────
 
   type SessionStatKey = "platDelta" | "creditsDelta" | "endoDelta" | "ducatsDelta" | "ayaDelta";
-  type ChartKey = SessionStatKey | "relicsOpened";
+  type ChartKey = SessionStatKey | "relicsOpened" | "daysPlayed" | "dailyTrades";
 
   interface SessionSection {
     key: SessionStatKey;
@@ -163,6 +240,8 @@
     { key: "creditsDelta", labelKey: "stats.credits" },
     { key: "endoDelta",    labelKey: "stats.endo" },
     { key: "relicsOpened", labelKey: "stats.relicsOpened" },
+    { key: "dailyTrades",  labelKey: "stats.dailyTrades" },
+    { key: "daysPlayed",   labelKey: "stats.daysPlayed" },
   ];
 
   const TIMEFRAME_OPTIONS = [7, 14, 30, 90] as const;
@@ -170,9 +249,9 @@
 
   // SVG coordinate space — bars are always computed against this fixed width
   const BAR_H = 64;
-  const BAR_H_EXPAND = 160;
+  const BAR_H_EXPAND = 300;
   const BAR_GAP = 2;
-  const SVG_W = 420;
+  const SVG_W = 800;
   const MAX_BAR_W = 22; // cap bar width so sparse charts don't look stretched
 
   // ── Formatters ───────────────────────────────────────────────────────────────
@@ -204,6 +283,8 @@
     creditsDelta: fmtCredits,
     endoDelta:    fmtEndo,
     relicsOpened: fmtCount,
+    dailyTrades:  fmtCount,
+    daysPlayed:   fmtCount,
   };
 
   function formatAbsolute(n: number | null): string {
@@ -240,13 +321,25 @@
     bars: BarData[];
     hasBaseline: boolean;
     bw: number;
+    absLine: Array<{ x: number; y: number }> | null;
+    absValues: number[];
+    hasAbsData: boolean;
   }
+
+  // Map chart keys to the stored absolute value field on DailyStatEntry
+  const ABS_FIELD_MAP: Partial<Record<ChartKey, keyof DailyStatEntry>> = {
+    platDelta: "absPlat",
+    creditsDelta: "absCredits",
+    endoDelta: "absEndo",
+    ducatsDelta: "absDucats",
+    ayaDelta: "absAya",
+  };
 
   function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, barH: number = BAR_H): ChartResult {
     const slice = hist.slice(-days);
-    if (slice.length === 0) return { bars: [], hasBaseline: false, bw: 4 };
+    if (slice.length === 0) return { bars: [], hasBaseline: false, bw: 4, absLine: null, absValues: [], hasAbsData: false };
 
-    const values = slice.map((e) => e[key]);
+    const values: number[] = slice.map((e) => ((e as unknown) as Record<string, number>)[key] ?? 0);
     const maxAbs = Math.max(1, ...values.map(Math.abs));
     const bw = Math.min(MAX_BAR_W, Math.max(2, (SVG_W - BAR_GAP * (slice.length - 1)) / slice.length));
     const hasNeg = values.some((v) => v < 0);
@@ -256,7 +349,7 @@
     const availH = hasBaseline ? barH / 2 : barH;
 
     const bars: BarData[] = slice.map((entry, i) => {
-      const val = entry[key];
+      const val = values[i];
       const ratio = Math.abs(val) / maxAbs;
       const h = val === 0 ? 0 : Math.max(1, ratio * availH);
       const x = i * (bw + BAR_GAP);
@@ -264,14 +357,41 @@
       return { x, y, h, value: val, date: entry.date, positive: val >= 0 };
     });
 
-    return { bars, hasBaseline, bw };
+    // Build absolute-value line from stored per-day absolute values
+    let absLine: Array<{ x: number; y: number }> | null = null;
+    let absValues: number[] = [];
+    let hasAbsData = false;
+    const absField = ABS_FIELD_MAP[key];
+    if (absField) {
+      const rawAbs = slice.map((e) => (e[absField] as number | undefined) ?? undefined);
+      const validAbs = rawAbs.filter((v): v is number => v !== undefined);
+      hasAbsData = validAbs.length > 0;
+      absValues = rawAbs.map((v) => v ?? 0);
+      if (validAbs.length >= 2) {
+        const minV = Math.min(...validAbs);
+        const maxV = Math.max(...validAbs);
+        const span = (maxV - minV) || 1;
+        const PAD = 0.08;
+        absLine = [];
+        for (let i = 0; i < slice.length; i++) {
+          const v = rawAbs[i];
+          if (v === undefined) continue;
+          absLine.push({
+            x: i * (bw + BAR_GAP) + bw / 2,
+            y: barH * (1 - PAD) - ((v - minV) / span) * barH * (1 - 2 * PAD),
+          });
+        }
+      }
+    }
+
+    return { bars, hasBaseline, bw, absLine, absValues, hasAbsData };
   }
 
   // Reactive derived chart data — recomputes when history or chartDays changes
   $: chartDataMap = (() => {
     const m: Partial<Record<ChartKey, ChartResult>> = {};
     for (const { key } of CHART_SECTIONS) {
-      m[key] = barsForKey(key, history, chartDays);
+      m[key] = barsForKey(key, history, chartDays, BAR_H);
     }
     return m as Record<ChartKey, ChartResult>;
   })();
@@ -290,6 +410,7 @@
     key: ChartKey,
     bars: BarData[],
     bw: number,
+    absVals?: number[],
   ): void {
     const svg = e.currentTarget as SVGSVGElement;
     const rect = svg.getBoundingClientRect();
@@ -300,11 +421,11 @@
     if (barIdx >= 0 && barIdx < bars.length) {
       const bar = bars[barIdx];
       const sign = bar.value >= 0 ? "+" : "−";
-      tooltip = {
-        text: `${shortDate(bar.date)}  ${sign}${formatters[key](Math.abs(bar.value))}`,
-        x: e.clientX,
-        y: e.clientY,
-      };
+      let text = `${shortDate(bar.date)}  ${sign}${formatters[key](Math.abs(bar.value))}`;
+      if (showValue && absVals && absVals[barIdx]) {
+        text += `  (${formatters[key](absVals[barIdx])})`;
+      }
+      tooltip = { text, x: e.clientX, y: e.clientY };
     } else {
       tooltip = null;
     }
@@ -312,18 +433,35 @@
 
   // ── Expand modal ──────────────────────────────────────────────────────────────
 
+  let showChange = true;
+  let showValue = false;
+
   let expandedKey: ChartKey | null = null;
 
   /** How many bar labels to skip so they don't overlap in the expanded view. */
-  function labelStep(n: number): number {
-    if (n <= 15) return 1;
-    if (n <= 30) return 2;
-    if (n <= 60) return 5;
-    return 7;
+  function labelStep(days: number): number {
+    if (days <= 30) return 1;
+    return 3;
   }
 
   function expandedChartTitle(key: ChartKey): MessageKey {
     return (CHART_SECTIONS.find((s) => s.key === key)?.labelKey ?? "stats.title") as MessageKey;
+  }
+
+  /** Compute Y-axis tick labels for the expanded value line view. */
+  function absYAxisTicks(absVals: number[], key: ChartKey, count: number = 5): Array<{ label: string; frac: number }> {
+    const valid = absVals.filter((v) => v !== 0 && v !== undefined);
+    if (valid.length < 2) return [];
+    const minV = Math.min(...valid);
+    const maxV = Math.max(...valid);
+    if (minV === maxV) return [{ label: formatters[key](minV), frac: 0.5 }];
+    const ticks: Array<{ label: string; frac: number }> = [];
+    for (let i = 0; i < count; i++) {
+      const frac = i / (count - 1); // 0 = top, 1 = bottom
+      const val = maxV - frac * (maxV - minV);
+      ticks.push({ label: formatters[key](val), frac });
+    }
+    return ticks;
   }
 
   // ── Trade history ─────────────────────────────────────────────────────────────
@@ -336,7 +474,10 @@
     if (tradeFilter !== "all" && t.type !== tradeFilter) return false;
     if (tradeSearch) {
       const q = tradeSearch.toLowerCase();
-      if (!t.items.some((item) => item.displayName.toLowerCase().includes(q))) return false;
+      if (
+        !t.items.some((item) => item.displayName.toLowerCase().includes(q)) &&
+        !(t.partner?.toLowerCase().includes(q))
+      ) return false;
     }
     return true;
   });
@@ -366,42 +507,87 @@
   {@const exBars = expandedChartData.bars}
   {@const exBaseline = expandedChartData.hasBaseline}
   {@const exBw = expandedChartData.bw}
-  {@const step = labelStep(exBars.length)}
+  {@const step = labelStep(chartDays)}
+  {@const yTicks = showValue ? absYAxisTicks(expandedChartData.absValues, expandedKey) : []}
   <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
   <div class="chart-modal-backdrop" on:click={() => { expandedKey = null; tooltip = null; }}>
     <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
     <div class="chart-modal" on:click|stopPropagation>
       <div class="chart-modal-header">
         <span class="chart-modal-title">{$tr(expandedChartTitle(expandedKey))}</span>
-        <button class="chart-modal-close" on:click={() => { expandedKey = null; tooltip = null; }}>✕</button>
+        <div class="chart-modal-header-right">
+          <button
+            class="stats-overlay-btn"
+            class:active={showValue}
+            on:click={() => { showValue = !showValue; }}
+          >Value</button>
+          <button
+            class="stats-overlay-btn"
+            class:active={showChange}
+            on:click={() => { showChange = !showChange; }}
+          >Change</button>
+          <button class="chart-modal-close" on:click={() => { expandedKey = null; tooltip = null; }}>✕</button>
+        </div>
       </div>
       <div class="chart-modal-body">
-        <svg
-          class="stats-chart-svg"
-          viewBox="0 0 {SVG_W} {BAR_H_EXPAND}"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-          style="height:{BAR_H_EXPAND + 8}px"
-          on:mousemove={(e) => onSvgMouseMove(e, expandedKey!, exBars, exBw)}
-          on:mouseleave={() => { tooltip = null; }}
-        >
-          <line
-            x1="0" y1={exBaseline ? BAR_H_EXPAND / 2 : BAR_H_EXPAND}
-            x2={SVG_W} y2={exBaseline ? BAR_H_EXPAND / 2 : BAR_H_EXPAND}
-            stroke="var(--border)" stroke-width="0.5"
-          />
-          {#each exBars as bar}
-            <rect
-              x={bar.x} y={bar.y}
-              width={exBw} height={bar.h}
-              class={bar.positive ? "bar-pos" : "bar-neg"}
-              rx="1"
-            />
-          {/each}
-        </svg>
+        <div class="chart-modal-chart-area">
+          {#if showValue && yTicks.length > 0}
+            <div class="chart-y-axis">
+              {#each yTicks as tick}
+                <span class="chart-y-label" style="top:{tick.frac * 100}%">{tick.label}</span>
+              {/each}
+            </div>
+          {/if}
+          <div class="chart-modal-svg-wrap">
+            <svg
+              class="stats-chart-svg"
+              viewBox="0 0 {SVG_W} {BAR_H_EXPAND}"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+              on:mousemove={(e) => onSvgMouseMove(e, expandedKey!, exBars, exBw, expandedChartData?.absValues)}
+              on:mouseleave={() => { tooltip = null; }}
+            >
+              <line
+                x1="0" y1={exBaseline ? BAR_H_EXPAND / 2 : BAR_H_EXPAND}
+                x2={SVG_W} y2={exBaseline ? BAR_H_EXPAND / 2 : BAR_H_EXPAND}
+                stroke="var(--border)" stroke-width="0.5"
+              />
+              {#if showChange}
+                {#each exBars as bar}
+                  <rect
+                    x={bar.x} y={bar.y}
+                    width={exBw} height={bar.h}
+                    class={bar.positive ? "bar-pos" : "bar-neg"}
+                    rx="1"
+                  />
+                {/each}
+              {/if}
+              {#if showValue && expandedChartData?.absLine}
+                <polyline
+                  points={expandedChartData.absLine.map((p) => `${p.x},${p.y}`).join(' ')}
+                  fill="none"
+                  stroke="rgba(255,255,255,0.85)"
+                  stroke-width="2.5"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                  vector-effect="non-scaling-stroke"
+                />
+                {#each expandedChartData.absLine as pt}
+                  <circle
+                    cx={pt.x} cy={pt.y} r="3.5"
+                    fill="var(--bg-surface, #1a1d2e)"
+                    stroke="rgba(255,255,255,0.85)"
+                    stroke-width="2"
+                    vector-effect="non-scaling-stroke"
+                  />
+                {/each}
+              {/if}
+            </svg>
+          </div>
+        </div>
         <!-- Per-day date labels below the expanded chart -->
         {#if exBars.length > 0}
-          <div class="chart-expand-dates">
+          <div class="chart-expand-dates" style={showValue && yTicks.length > 0 ? 'margin-left:60px' : ''}>
             {#each exBars as bar, i}
               <span class="chart-expand-date" style="width:{100 / exBars.length}%">
                 {i % step === 0 ? shortDate(bar.date) : ""}
@@ -414,81 +600,78 @@
   </div>
 {/if}
 
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <section class="view active" on:mouseleave={() => { tooltip = null; }}>
   <div class="view-header">
     <h2>{$tr("stats.title")}</h2>
-    <!-- Tab switcher -->
-    <div class="stats-tab-bar">
+    <div class="stats-header-controls">
       <button
-        class="stats-tab"
-        class:active={activeTab === "overview"}
-        on:click={() => activeTab = "overview"}
-      >{$tr("stats.overview")}</button>
+        class="stats-overlay-btn"
+        class:active={showValue}
+        on:click={() => { showValue = !showValue; }}
+        title="Toggle absolute value line on charts"
+      >Value</button>
       <button
-        class="stats-tab"
-        class:active={activeTab === "trades"}
-        on:click={() => activeTab = "trades"}
-      >{$tr("stats.trades")}</button>
+        class="stats-overlay-btn"
+        class:active={showChange}
+        on:click={() => { showChange = !showChange; }}
+        title="Toggle daily change bars on charts"
+      >Change</button>
+      <label class="stats-timeframe-label">
+        {$tr("stats.timeframe")}:
+        <select class="stats-timeframe-select" bind:value={chartDays}>
+          {#each TIMEFRAME_OPTIONS as days}
+            <option value={days}>{days}d</option>
+          {/each}
+        </select>
+      </label>
+      <label class="stats-import-btn" title="Import AlecaFrame stats JSON export">
+        Import AlecaFrame JSON
+        <input type="file" accept=".json" style="display:none" on:change={handleImportFile} />
+      </label>
     </div>
   </div>
 
   {#if loading}
     <div class="empty-state"><p>Loading…</p></div>
 
-  {:else if activeTab === "overview"}
-    <!-- ── OVERVIEW TAB ──────────────────────────────────────────────────── -->
-    <div class="stats-scroll">
+  {:else}
+    <div class="stats-layout">
 
-      <!-- Session card -->
-      <article class="stats-card">
-        <h3 class="stats-section-title">{$tr("stats.sessionTitle")}</h3>
+      <!-- ── LEFT: session stats + charts ────────────────────────────────── -->
+      <div class="stats-left">
 
-        {#if !session?.hasData}
-          <p class="stats-empty">{$tr("stats.noData")}</p>
-        {:else}
-          <div class="stats-session-grid">
-            {#each SESSION_SECTIONS as { key, labelKey, currentKey }}
-              {@const delta = session[key]}
-              {@const current = session[currentKey]}
-              <div class="stats-stat-cell">
-                <span class="stats-stat-label">{$tr(labelKey)}</span>
-                <span class="stats-stat-value {deltaClass(delta)}">
-                  {formatDelta(delta, formatters[key])}
-                </span>
-                <span class="stats-stat-current">{formatAbsolute(current)} total</span>
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </article>
-
-      <!-- History card -->
-      <article class="stats-card">
-        <div class="stats-history-header">
-          <h3 class="stats-section-title">{$tr("stats.historyTitle")}</h3>
-          <div class="stats-history-controls">
-            <label class="stats-timeframe-label">
-              {$tr("stats.timeframe")}:
-              <select class="stats-timeframe-select" bind:value={chartDays}>
-                {#each TIMEFRAME_OPTIONS as days}
-                  <option value={days}>{days}d</option>
-                {/each}
-              </select>
-            </label>
-            <label class="stats-import-btn" title="Import AlecaFrame stats JSON export">
-              Import AlecaFrame JSON
-              <input type="file" accept=".json" style="display:none" on:change={handleImportFile} />
-            </label>
-          </div>
-        </div>
         {#if importStatus}
           <p class="stats-import-status" class:error={importError}>{importStatus}</p>
         {/if}
 
+        <!-- Session card -->
+        <article class="stats-card">
+          <h3 class="stats-section-title">{$tr("stats.sessionTitle")}</h3>
+
+          {#if !session?.hasData}
+            <p class="stats-empty">{$tr("stats.noData")}</p>
+          {:else}
+            <div class="stats-session-grid">
+              {#each SESSION_SECTIONS as { key, labelKey, currentKey }}
+                {@const delta = session[key]}
+                {@const current = session[currentKey]}
+                <div class="stats-stat-cell">
+                  <span class="stats-stat-label">{$tr(labelKey)}</span>
+                  <span class="stats-stat-value {deltaClass(delta)}">
+                    {formatDelta(delta, formatters[key])}
+                  </span>
+                  <span class="stats-stat-current">{formatAbsolute(current)} total</span>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </article>
+
+        <!-- Chart grid -->
         {#if history.length === 0}
           <p class="stats-empty">{$tr("stats.noDays")}</p>
         {:else}
-          <!-- 2-column compact chart grid -->
           <div class="stats-chart-grid">
             {#each CHART_SECTIONS as { key, labelKey }}
               {@const cd = chartDataMap[key]}
@@ -507,7 +690,7 @@
                   viewBox="0 0 {SVG_W} {BAR_H}"
                   preserveAspectRatio="none"
                   aria-hidden="true"
-                  on:mousemove={(e) => onSvgMouseMove(e, key, cd.bars, cd.bw)}
+                  on:mousemove={(e) => onSvgMouseMove(e, key, cd.bars, cd.bw, cd.absValues)}
                   on:mouseleave={() => { tooltip = null; }}
                 >
                   <line
@@ -515,14 +698,27 @@
                     x2={SVG_W} y2={cd.hasBaseline ? BAR_H / 2 : BAR_H}
                     stroke="var(--border)" stroke-width="0.5"
                   />
-                  {#each cd.bars as bar}
-                    <rect
-                      x={bar.x} y={bar.y}
-                      width={cd.bw} height={bar.h}
-                      class={bar.positive ? "bar-pos" : "bar-neg"}
-                      rx="1"
+                  {#if showChange}
+                    {#each cd.bars as bar}
+                      <rect
+                        x={bar.x} y={bar.y}
+                        width={cd.bw} height={bar.h}
+                        class={bar.positive ? "bar-pos" : "bar-neg"}
+                        rx="1"
+                      />
+                    {/each}
+                  {/if}
+                  {#if showValue && cd.absLine}
+                    <polyline
+                      points={cd.absLine.map((p) => `${p.x},${p.y}`).join(' ')}
+                      fill="none"
+                      stroke="rgba(255,255,255,0.7)"
+                      stroke-width="1.5"
+                      stroke-linejoin="round"
+                      stroke-linecap="round"
+                      vector-effect="non-scaling-stroke"
                     />
-                  {/each}
+                  {/if}
                 </svg>
                 {#if cd.bars.length > 0}
                   <div class="chart-dates-row">
@@ -534,138 +730,143 @@
             {/each}
           </div>
         {/if}
-      </article>
 
-    </div><!-- /stats-scroll -->
+      </div><!-- /stats-left -->
 
-  {:else}
-    <!-- ── TRADES TAB ─────────────────────────────────────────────────────── -->
-    <div class="trade-full">
+      <!-- ── RIGHT: trade history ──────────────────────────────────────────── -->
+      <div class="stats-right">
 
-      <!-- Controls row -->
-      <div class="trade-controls">
-        <div class="trade-filter-tabs">
-          {#each (["all", "sale", "purchase"] as const) as f}
-            <button
-              class="trade-filter-tab"
-              class:active={tradeFilter === f}
-              on:click={() => tradeFilter = f}
-            >
-              {f === "all" ? "All" : f === "sale" ? "Sales" : "Purchases"}
-              {#if f === "all"}
-                <span class="trade-tab-count">{trades.length}</span>
-              {:else if f === "sale"}
-                <span class="trade-tab-count">{trades.filter(t => t.type === "sale").length}</span>
-              {:else}
-                <span class="trade-tab-count">{trades.filter(t => t.type === "purchase").length}</span>
-              {/if}
-            </button>
-          {/each}
+        <div class="stats-right-header">
+          <span class="stats-right-title">{$tr("stats.trades")}</span>
+          <div class="trade-controls">
+            <div class="trade-filter-tabs">
+              {#each (["all", "sale", "purchase"] as const) as f}
+                <button
+                  class="trade-filter-tab"
+                  class:active={tradeFilter === f}
+                  on:click={() => tradeFilter = f}
+                >
+                  {f === "all" ? "∞" : f === "sale" ? "Sale" : "Purchase"}
+                  <span class="trade-tab-count">
+                    {f === "all" ? trades.length : trades.filter(t => t.type === f).length}
+                  </span>
+                </button>
+              {/each}
+            </div>
+            <input
+              class="trade-search"
+              type="text"
+              placeholder="Search items…"
+              bind:value={tradeSearch}
+            />
+          </div>
         </div>
-        <input
-          class="trade-search"
-          type="text"
-          placeholder="Search items…"
-          bind:value={tradeSearch}
-        />
-      </div>
 
-      <!-- Trade list -->
-      <div class="trade-list">
-        {#if filteredTrades.length === 0}
-          <div class="trade-empty">
-            {#if trades.length === 0}
-              <p class="trade-empty-title">No trades recorded yet</p>
-              <p class="trade-empty-sub">
-                Trades are detected automatically when your platinum and items change
-                together in-game. Start playing with the app running to begin tracking.
-              </p>
-              <p class="trade-empty-sub">
-                You can also import historical stats from AlecaFrame using the
-                <strong>Import AlecaFrame JSON</strong> button in the Overview tab.
-              </p>
-            {:else}
-              <p class="trade-empty-title">No matching trades</p>
-            {/if}
-          </div>
-        {:else}
-          <div class="trade-grid">
-            {#each filteredTrades as trade (trade.id)}
-              <div class="trade-card">
-                <div class="trade-card-top">
-                  <span class="trade-badge trade-badge--{trade.type}">
-                    {trade.type === "sale" ? "Sale" : "Purchase"}
-                  </span>
-                  <span class="trade-plat {trade.type === 'sale' ? 'delta-positive' : 'delta-negative'}">
-                    {trade.type === "sale" ? "+" : "−"}{trade.platChange}
-                    <span class="plat-icon">p</span>
-                  </span>
-                  <span class="trade-date">{formatTradeDate(trade.date)}</span>
-                </div>
-                {#if trade.items.length > 0}
-                  <div class="trade-items">
-                    {#each trade.items as item}
-                      <span class="trade-item" class:item-received={item.direction === "received"} class:item-given={item.direction === "given"}>
-                        <span class="trade-item-dir">{item.direction === "received" ? "↓" : "↑"}</span>
-                        {item.count > 1 ? `${item.count}×` : ""}{item.displayName}
-                      </span>
-                    {/each}
+        <!-- Trade list -->
+        <div class="trade-list">
+          {#if filteredTrades.length === 0}
+            <div class="trade-empty">
+              {#if trades.length === 0}
+                <p class="trade-empty-title">No trades recorded yet</p>
+                <p class="trade-empty-sub">
+                  Trades are detected automatically when your platinum and items change
+                  together in-game. Start playing with the app running to begin tracking.
+                </p>
+              {:else}
+                <p class="trade-empty-title">No matching trades</p>
+              {/if}
+            </div>
+          {:else}
+            <div class="trade-grid">
+              {#each filteredTrades as trade (trade.id)}
+                <div class="trade-card">
+                  <div class="trade-card-top">
+                    <span class="trade-badge trade-badge--{trade.type}">
+                      {trade.type === "sale" ? "Sale" : "Purchase"}
+                    </span>
+                    <span class="trade-plat {trade.type === 'sale' ? 'delta-positive' : 'delta-negative'}">
+                      {trade.type === "sale" ? "+" : "−"}{trade.platChange}
+                      <span class="plat-icon">p</span>
+                    </span>
+                    {#if trade.partner}
+                      <span class="trade-partner">{trade.partner}</span>
+                    {/if}
+                    <span class="trade-date">{formatTradeDate(trade.date)}</span>
                   </div>
-                {/if}
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </div>
+                  {#if trade.items.length > 0}
+                    <div class="trade-items">
+                      {#each trade.items as item}
+                        <span class="trade-item" class:item-received={item.direction === "received"} class:item-given={item.direction === "given"}>
+                          <span class="trade-item-dir">{item.direction === "received" ? "↓" : "↑"}</span>
+                          {item.count > 1 ? `${item.count}×` : ""}{item.displayName}
+                        </span>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div><!-- /trade-list -->
 
-    </div><!-- /trade-full -->
+      </div><!-- /stats-right -->
+
+    </div><!-- /stats-layout -->
   {/if}
 </section>
 
 <style>
-  /* ── Tabs ────────────────────────────────────────────────────────────────── */
+  /* ── View header controls ─────────────────────────────────────────────────── */
 
-  .stats-tab-bar {
+  .stats-header-controls {
     display: flex;
-    gap: 2px;
-    background: var(--bg-raised);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm, 4px);
-    padding: 2px;
+    align-items: center;
+    gap: var(--space-2, 0.5rem);
+    margin-left: auto;
   }
 
-  .stats-tab {
-    padding: 0.25rem 0.9rem;
-    font-size: var(--font-xs, 0.7rem);
-    font-weight: 500;
-    border: none;
-    border-radius: 3px;
-    background: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-    letter-spacing: 0.03em;
-    white-space: nowrap;
-  }
+  /* ── Two-pane layout ─────────────────────────────────────────────────────── */
 
-  .stats-tab:hover { color: var(--text-primary); }
-
-  .stats-tab.active {
-    background: var(--accent, #d4a843);
-    color: #000;
-    font-weight: 600;
-  }
-
-  /* ── Layout ──────────────────────────────────────────────────────────────── */
-
-  .stats-scroll {
+  .stats-layout {
     flex: 1;
+    display: flex;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .stats-left {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    padding: var(--space-4, 1rem);
     display: flex;
     flex-direction: column;
     gap: var(--space-4, 1rem);
-    overflow-y: auto;
-    padding: var(--space-4, 1rem);
+  }
+
+  .stats-right {
+    width: 300px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
     min-height: 0;
+    overflow: hidden;
+  }
+
+  .stats-right-header {
+    padding: 0.5rem 0.75rem 0;
+    flex-shrink: 0;
+  }
+
+  .stats-right-title {
+    display: block;
+    font-size: var(--font-xs, 0.7rem);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
   }
 
   /* ── Cards ───────────────────────────────────────────────────────────────── */
@@ -736,22 +937,6 @@
 
   /* ── History header / controls ───────────────────────────────────────────── */
 
-  .stats-history-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3, 0.75rem);
-    margin-bottom: var(--space-3, 0.75rem);
-  }
-
-  .stats-history-header .stats-section-title { margin-bottom: 0; }
-
-  .stats-history-controls {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2, 0.5rem);
-  }
-
   .stats-timeframe-label {
     display: flex;
     align-items: center;
@@ -796,15 +981,45 @@
 
   .stats-import-status.error { color: var(--danger, #f87171); }
 
+  .stats-overlay-btn {
+    font-size: var(--font-xs, 0.7rem);
+    padding: 0.25rem 0.6rem;
+    border-radius: var(--radius-sm, 4px);
+    border: 1px solid var(--border);
+    background: var(--bg-raised);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    white-space: nowrap;
+  }
+  .stats-overlay-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--border-strong, #3a4055);
+  }
+  .stats-overlay-btn.active {
+    background: color-mix(in srgb, var(--accent, #d4a843) 18%, transparent);
+    border-color: var(--accent, #d4a843);
+    color: var(--accent, #d4a843);
+    font-weight: 600;
+  }
+
   /* ── Chart grid ──────────────────────────────────────────────────────────── */
 
   .stats-chart-grid {
+    flex: 1;
+    min-height: 0;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: 1fr 1fr;
     gap: var(--space-3, 0.75rem);
   }
 
-  .stats-chart-block { position: relative; }
+  .stats-chart-block {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
 
   .stats-chart-header {
     display: flex;
@@ -838,8 +1053,9 @@
   }
 
   .stats-chart-svg {
+    flex: 1;
     width: 100%;
-    height: 52px;
+    min-height: 40px;
     display: block;
     cursor: crosshair;
   }
@@ -894,10 +1110,12 @@
     background: var(--bg-surface);
     border: 1px solid var(--border-strong, #3a4055);
     border-radius: var(--radius-md, 6px);
-    padding: var(--space-4, 1rem);
-    width: min(860px, 90vw);
-    max-height: 85vh;
-    overflow: auto;
+    padding: var(--space-4, 1rem) var(--space-4, 1rem) var(--space-3, 0.75rem);
+    width: 86vw;
+    height: 72vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   }
 
@@ -906,6 +1124,13 @@
     align-items: center;
     justify-content: space-between;
     margin-bottom: var(--space-3, 0.75rem);
+    flex-shrink: 0;
+  }
+
+  .chart-modal-header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
   .chart-modal-title {
@@ -933,15 +1158,53 @@
     background: var(--bg-raised);
   }
 
-  .chart-modal-body { width: 100%; }
+  .chart-modal-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .chart-modal-chart-area {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    position: relative;
+  }
+
+  .chart-y-axis {
+    width: 60px;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .chart-y-label {
+    position: absolute;
+    right: 6px;
+    transform: translateY(-50%);
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .chart-modal-svg-wrap {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .chart-modal-svg-wrap .stats-chart-svg {
+    width: 100%;
+    height: 100%;
+  }
 
   .chart-expand-dates {
     display: flex;
     margin-top: 4px;
+    flex-shrink: 0;
   }
 
   .chart-expand-date {
-    font-size: 0.58rem;
+    font-size: 0.65rem;
     color: var(--text-muted);
     text-align: center;
     overflow: hidden;
@@ -949,21 +1212,13 @@
     flex-shrink: 0;
   }
 
-  /* ── Trade tab: full layout ──────────────────────────────────────────────── */
-
-  .trade-full {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    overflow: hidden;
-  }
+  /* ── Trade panel: sidebar layout ────────────────────────────────────────── */
 
   .trade-controls {
     display: flex;
-    align-items: center;
-    gap: var(--space-3, 0.75rem);
-    padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+    flex-direction: column;
+    gap: 6px;
+    padding: 0.4rem 0.75rem 0.5rem;
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
   }
@@ -1011,8 +1266,7 @@
   }
 
   .trade-search {
-    flex: 1;
-    max-width: 300px;
+    width: 100%;
     background: var(--bg-raised);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm, 4px);
@@ -1123,6 +1377,16 @@
     color: var(--text-muted);
     margin-left: auto;
     white-space: nowrap;
+  }
+
+  .trade-partner {
+    font-size: 0.7rem;
+    color: var(--accent, #d4a843);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
   }
 
   .trade-items {

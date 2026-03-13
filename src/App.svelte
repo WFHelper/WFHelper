@@ -15,6 +15,7 @@
   };
 
   import WelcomeView from "./views/WelcomeView.svelte";
+  import SetupView from "./views/SetupView.svelte";
   import InventoryView from "./views/InventoryView.svelte";
   import FoundryView from "./views/FoundryView.svelte";
   import ResourcesView from "./views/ResourcesView.svelte";
@@ -45,6 +46,7 @@
   import type { MessageKey } from "./lib/i18n.js";
 
   type ViewName =
+    | "setup"
     | "welcome"
     | "inventory"
     | "foundry"
@@ -112,7 +114,18 @@
 
     const startup = initStartup();
 
-    window.addEventListener("beforeunload", onBeforeUnload);
+    // Show setup wizard on first launch if helper exe isn't installed
+    if (!localStorage.getItem("setup-completed")) {
+      ipc.getHelperStatus().then((status) => {
+        if (!status.exeFound && $currentView === "welcome") {
+          currentView.set("setup");
+        } else {
+          // Helper already exists (e.g. dev env), mark setup done
+          localStorage.setItem("setup-completed", "1");
+        }
+      }).catch(() => {});
+    }
+
     window.addEventListener("keydown", onKeyDown);
 
     return () => {
@@ -129,7 +142,6 @@
       unsubscribeUpdateStatus();
       unsubscribeWfmNotification();
 
-      window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("keydown", onKeyDown);
     };
   });
@@ -201,10 +213,6 @@
     void loadLazyView(activeLazyView);
   }
 
-  function onBeforeUnload(): void {
-    // Reserved for future cleanup
-  }
-
   function onKeyDown(e: KeyboardEvent): void {
     if (e.key !== "Escape") return;
     if ($activeItem) {
@@ -227,8 +235,10 @@
   <div id="app">
     <Sidebar />
 
-    <main id="content">
-      {#if $currentView === "welcome"}
+    <main id="content" class:stats-active={$currentView === "stats"}>
+      {#if $currentView === "setup"}
+        <SetupView />
+      {:else if $currentView === "welcome"}
         <WelcomeView />
       {:else if $currentView === "inventory"}
         <InventoryView />
