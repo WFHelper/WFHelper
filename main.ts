@@ -154,7 +154,6 @@ app.whenReady().then(async () => {
   tradeTracker.loadTradeLog();
   inventoryIpc.addInventoryListener((data: Record<string, unknown>) => {
     statsTracker.onInventoryData(data);
-    tradeTracker.onInventoryData(data);
   });
   profileStage("stats:load-history", statsLoadStart);
 
@@ -265,7 +264,6 @@ app.whenReady().then(async () => {
     onRewardTrigger: () => overlayIpc.onRelicRewardTrigger("eelog"),
     onRelicSelectionOpen: () => overlayIpc.onRelicSelectionTrigger("eelog"),
     onRelicSelectionClose: () => overlayIpc.onRelicSelectionClose(),
-    onTradingPartner: (username: string) => tradeTracker.setTradingPartner(username),
     onTradeConfirmed: (trade) => tradeTracker.recordTradeFromLog(trade),
   });
   if (eeLogPath) log.log("[EELog] Monitoring:", eeLogPath);
