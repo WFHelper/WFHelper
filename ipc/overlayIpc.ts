@@ -455,6 +455,25 @@ function register(): void {
     }
     onRelicRewardTrigger("simulate");
   });
+
+  ipcMain.on("overlay:push-relic-filters", (event: unknown, rawFilters: unknown) => {
+    if (
+      !isAuthorizedSender(
+        assertMainRendererSender,
+        event as never,
+        "overlay:push-relic-filters",
+      )
+    ) {
+      return;
+    }
+
+    if (!rawFilters || typeof rawFilters !== "object") return;
+    const filters = rawFilters as Record<string, unknown>;
+    relicSelectionController.setDesktopFilters({
+      squadSize: typeof filters.squadSize === "number" ? filters.squadSize : undefined,
+      tierFilter: typeof filters.tierFilter === "string" ? filters.tierFilter : null,
+    });
+  });
 }
 
 export const loadOverlaySettings = settingsController.loadOverlaySettings;

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { onInventoryLoaded } from "../lib/actions.js";
-  import { statusText } from "../stores/app.js";
+  import { currentView, statusText } from "../stores/app.js";
   import { ipc } from "../lib/ipc.js";
   import type { HelperStatus } from "../types/ipc.js";
 
@@ -10,6 +10,7 @@
   let loadingApi = false;
   let runnerStatus: HelperStatus | null = null;
   let pollingTimer: ReturnType<typeof setInterval> | null = null;
+  let destroyed = false;
 
   onMount(async () => {
     await refreshHelperStatus();
@@ -17,6 +18,8 @@
     try {
       runnerStatus = await ipc.getHelperStatus();
     } catch { /* ignore */ }
+
+    if (destroyed) return;
 
     // Poll for inventory appearing (helper runs in background)
     pollingTimer = setInterval(async () => {
@@ -29,6 +32,7 @@
   });
 
   onDestroy(() => {
+    destroyed = true;
     if (pollingTimer) clearInterval(pollingTimer);
   });
 
@@ -74,6 +78,9 @@
 
       if (data && !errorMessage) {
         await onInventoryLoaded(data);
+        if (!destroyed) {
+          currentView.set("inventory");
+        }
         await refreshHelperStatus();
       } else {
         statusText.set(errorMessage || "Failed to load inventory JSON");

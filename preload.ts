@@ -64,6 +64,7 @@ contextBridge.exposeInMainWorld("api", {
   toggleOverlay: () => ipcRenderer.send("toggle-overlay"),
   simulateRelicTrigger: () => ipcRenderer.send("simulate-relic-trigger"),
   updateOverlayTheme: (themeVars: unknown) => ipcRenderer.send("overlay-theme-updated", themeVars),
+  pushRelicFilters: (filters: unknown) => ipcRenderer.send("overlay:push-relic-filters", filters),
   getOverlaySettings: () => ipcRenderer.invoke("overlay:get-settings"),
   setOverlaySettings: (settings: unknown) => ipcRenderer.invoke("overlay:set-settings", settings),
   openOcrCropDebugger: () => ipcRenderer.invoke("overlay:open-crop-debugger"),

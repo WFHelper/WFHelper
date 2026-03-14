@@ -300,6 +300,7 @@ function pickBestOwnedQuality(
   group: RelicGroup,
   ownedRow: OwnedCountRow,
   priceLookup: (slug: string) => number | null,
+  squadSize: number,
 ): RecommendationRow | null {
   let best: RecommendationRow | null = null;
 
@@ -331,10 +332,10 @@ function pickBestOwnedQuality(
     if (!hasAnyPlat && !hasAnyDucat) continue;
 
     const platEv = hasAnyPlat
-      ? computeSquadExpected(normalizedRewards, platValues, RECOMMENDATION_SQUAD_SIZE)
+      ? computeSquadExpected(normalizedRewards, platValues, squadSize)
       : null;
     const ducatEv = hasAnyDucat
-      ? computeSquadExpected(normalizedRewards, ducatValues, RECOMMENDATION_SQUAD_SIZE)
+      ? computeSquadExpected(normalizedRewards, ducatValues, squadSize)
       : null;
 
     const row: RecommendationRow = {
@@ -392,6 +393,8 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
   let activeScanToken = 0;
   let lastEelogTriggerAt = 0;
   let lastKnownGameDisplayId: string | null = null;
+  let desktopSquadSize: number = RECOMMENDATION_SQUAD_SIZE;
+  let desktopTierHint: string | null = null;
   let cache: {
     key: string;
     rows: RecommendationRow[];
@@ -466,7 +469,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         (ownedRow.radiant || 0);
       totalOwnedCount += groupTotal;
 
-      const best = pickBestOwnedQuality(group, ownedRow, getPrice);
+      const best = pickBestOwnedQuality(group, ownedRow, getPrice, desktopSquadSize);
       if (best) rows.push(best);
     }
 
@@ -579,6 +582,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       const era = normalizeEra(eraDetection?.era || null);
       const eraConfidence = toFiniteOr(eraDetection?.confidence, 0);
       const shouldApplyEra = Boolean(era && eraConfidence >= 0.9);
+      const effectiveEra = shouldApplyEra ? era : desktopTierHint;
 
       log.log(
         `[RelicSelection] era detection: era=${era || "none"} conf=${toFiniteOr(eraDetection?.confidence, 0).toFixed(3)} ` +
@@ -587,12 +591,12 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
           `candidate=${String(eraDetection?.candidateId || "-")} preview="${String(eraDetection?.textPreview || "")}"`,
       );
 
-      const { rows, totalOwnedCount } = buildRecommendations(shouldApplyEra ? era : null);
+      const { rows, totalOwnedCount } = buildRecommendations(effectiveEra);
       if (scanToken !== activeScanToken) return;
 
       windows.sendOverlayEvent("relic-recommendations", {
         source,
-        era: shouldApplyEra ? era : null,
+        era: effectiveEra,
         rows,
         totalOwnedCount,
         detection: {
@@ -608,7 +612,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
 
       log.log(
         `[RelicSelection] refinement rows sent count=${rows.length} era=${
-          shouldApplyEra ? era : "none"
+          effectiveEra || "none"
         } conf=${eraConfidence.toFixed(3)} elapsed=${Date.now() - refineStartedAt}ms token=${scanToken}`,
       );
     } catch (err) {
@@ -693,8 +697,22 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     ctx.overlayDismissedUntilMs = Date.now() + REOPEN_SUPPRESS_AFTER_CLOSE_MS;
   }
 
+  function setDesktopFilters(filters: { squadSize?: number; tierFilter?: string | null }): void {
+    if (typeof filters.squadSize === "number" && filters.squadSize >= 1 && filters.squadSize <= 4) {
+      desktopSquadSize = filters.squadSize;
+    }
+    if (filters.tierFilter !== undefined) {
+      desktopTierHint = normalizeEra(filters.tierFilter);
+    }
+    cache = null;
+    log.log(
+      `[RelicSelection] desktop filters updated: squadSize=${desktopSquadSize} tierHint=${desktopTierHint || "all"}`,
+    );
+  }
+
   return {
     onRelicSelectionTrigger,
     suppressReopenForClose,
+    setDesktopFilters,
   };
 }

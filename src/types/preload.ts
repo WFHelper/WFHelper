@@ -59,6 +59,7 @@ export interface PreloadAPI {
   toggleOverlay: () => void;
   simulateRelicTrigger: () => void;
   updateOverlayTheme: (themeVars: Record<string, string>) => void;
+  pushRelicFilters: (filters: { squadSize: number; tierFilter: string | null }) => void;
   getOverlaySettings: () => Promise<IpcInvokeMap["getOverlaySettings"]["return"]>;
   setOverlaySettings: (
     settings: IpcInvokeMap["setOverlaySettings"]["args"][0],

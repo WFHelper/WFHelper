@@ -1,7 +1,7 @@
 import { get } from "svelte/store";
 import { inventoryData } from "../stores/data.js";
 import { masteryData } from "../stores/mastery.js";
-import { currentView, statusText } from "../stores/app.js";
+import { statusText } from "../stores/app.js";
 import { relicDb, relicOwnedCounts } from "../stores/relics.js";
 import { parseOwnedRelics } from "./relic.js";
 import { unwrapInventoryPayload } from "./inventoryPayload.js";
@@ -12,7 +12,6 @@ export async function onInventoryLoaded(data: RawInventoryData): Promise<void> {
   const parsedData = unwrapInventoryPayload(data);
 
   inventoryData.set(parsedData);
-  currentView.set("inventory");
 
   const db = get(relicDb);
   if (db) {

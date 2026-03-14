@@ -99,6 +99,13 @@
       .trim();
   }
 
+  function pushFiltersToOverlay(): void {
+    ipc.pushRelicFilters({
+      squadSize: $relicSquadSize,
+      tierFilter: $relicTierFilter === "all" ? null : $relicTierFilter,
+    });
+  }
+
   const EV_WARMUP_UI_DEBOUNCE_MS = 800;
   const CARD_WARMUP_UI_DEBOUNCE_MS = 450;
   const EV_WARMUP_START_DELAY_MS = 2000;
@@ -661,6 +668,18 @@
           </button>
         {/each}
       </div>
+
+      <button
+        class="push-overlay-btn"
+        title="Push current tier & squad filters to the in-game relic overlay"
+        on:click={pushFiltersToOverlay}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+          <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+        </svg>
+        Push to Overlay
+      </button>
     </div>
   </div>
 

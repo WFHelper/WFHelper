@@ -95,6 +95,10 @@
     const unsubscribeInventoryUpdated = ipc.onInventoryUpdated(async (data) => {
       if (data && !(data as { error?: unknown }).error) {
         await onInventoryLoaded(data);
+        // Auto-navigate to inventory only on initial load (from welcome/setup screens)
+        if ($currentView === "welcome" || $currentView === "setup") {
+          currentView.set("inventory");
+        }
         statusText.set(`Live update - ${$parsedItems.length} items loaded`);
       }
     });

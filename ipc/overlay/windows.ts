@@ -152,23 +152,35 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     );
   }
 
+  function computeOverlayZoomFactor(display: import("electron").Display): number {
+    const h = display.workArea.height;
+    if (h <= 720) return 0.8;
+    if (h <= 900) return 0.9;
+    if (h <= 1200) return 1.0;
+    if (h <= 1600) return 1.15;
+    return 1.3;
+  }
+
   function getOverlayBoundsForActiveDisplay(
     anchorMeta: OverlayAnchorMeta | null = lastOverlayAnchorMeta,
   ) {
     const display = getDisplayForOverlay(anchorMeta);
+    const zoomFactor = computeOverlayZoomFactor(display);
+    const scaledWidth = Math.round(windowWidth * zoomFactor);
+    const scaledHeight = Math.round(windowHeight * zoomFactor);
     const area = display?.workArea || {
       x: 0,
       y: 0,
-      width: windowWidth,
-      height: windowHeight,
+      width: scaledWidth,
+      height: scaledHeight,
     };
 
     const maxAllowedWidth = Math.max(
       minWindowWidth,
       area.width - OVERLAY_WINDOW_BOUNDS.horizontalMargin * 2,
     );
-    const width = Math.min(windowWidth, maxAllowedWidth);
-    const height = Math.min(windowHeight, Math.max(minWindowHeight, area.height - 20));
+    const width = Math.min(scaledWidth, maxAllowedWidth);
+    const height = Math.min(scaledHeight, Math.max(minWindowHeight, area.height - 20));
 
     const minX = area.x + OVERLAY_WINDOW_BOUNDS.horizontalMargin;
     const maxX = area.x + area.width - width - OVERLAY_WINDOW_BOUNDS.horizontalMargin;
@@ -189,7 +201,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     x = Math.max(minX, Math.min(maxX, x));
     y = Math.max(minY, Math.min(maxY, y));
 
-    return { x, y, width, height };
+    return { x, y, width, height, zoomFactor };
   }
 
   function positionOverlayWindow(
@@ -197,8 +209,9 @@ export function createOverlayWindowsController(options: OverlayWindowsController
   ): void {
     const overlayWindow = readOverlayWindow();
     if (!overlayWindow || overlayWindow.isDestroyed()) return;
-    const bounds = getOverlayBoundsForActiveDisplay(anchorMeta);
-    overlayWindow.setBounds(bounds, false);
+    const { zoomFactor, ...rect } = getOverlayBoundsForActiveDisplay(anchorMeta);
+    overlayWindow.setBounds(rect, false);
+    overlayWindow.webContents.setZoomFactor(zoomFactor);
   }
 
   function createOverlayWindow(options: { show?: boolean } = {}): void {

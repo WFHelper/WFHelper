@@ -45,6 +45,8 @@ const sendApiMap: Record<SendChannel, (...args: never[]) => void> = {
   "simulate-relic-trigger": () => window.api.simulateRelicTrigger(),
   "overlay-theme-updated": (themeVars: Record<string, string>) =>
     window.api.updateOverlayTheme(themeVars),
+  "overlay:push-relic-filters": (filters: { squadSize: number; tierFilter: string | null }) =>
+    window.api.pushRelicFilters(filters),
   "open-external": (url: string) => window.api.openExternal(url),
 };
 
@@ -105,6 +107,8 @@ export const ipc = {
   simulateRelicTrigger: () => window.api.simulateRelicTrigger(),
   updateOverlayTheme: (...args: IpcSendMap["overlay-theme-updated"]) =>
     window.api.updateOverlayTheme(...args),
+  pushRelicFilters: (...args: IpcSendMap["overlay:push-relic-filters"]) =>
+    window.api.pushRelicFilters(...args),
   openExternal: (...args: IpcSendMap["open-external"]) => window.api.openExternal(...args),
   loadRankedHotset: () => window.api.loadRankedHotset(),
   saveRankedHotset: (...args: IpcInvokeMap["saveRankedHotset"]["args"]) =>

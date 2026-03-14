@@ -19,7 +19,7 @@ export const en = {
   "view.relics": "Relics",
 
   "stats.title": "Stats",
-  "stats.sessionTitle": "This Session",
+  "stats.sessionTitle": "Today",
   "stats.historyTitle": "Daily History",
   "stats.noData": "Load an inventory file to start tracking stats.",
   "stats.platinum": "Platinum",

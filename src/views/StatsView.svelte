@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { ipc } from "../lib/ipc.js";
   import { tr } from "../lib/i18n.js";
   import type { DailyStatEntry, SessionStats, TradeEvent, TradeItem } from "../types/ipc.js";
@@ -14,6 +14,8 @@
   let importStatus = "";
   let importError = false;
 
+  let unsubInventory: (() => void) | null = null;
+
   onMount(async () => {
     try {
       [session, history, trades] = await Promise.all([
@@ -26,6 +28,17 @@
     } finally {
       loading = false;
     }
+
+    // Refresh session card whenever new inventory data arrives
+    unsubInventory = ipc.onInventoryUpdated(async () => {
+      try {
+        session = await ipc.getStatsCurrentSession();
+      } catch { /* ignore */ }
+    });
+  });
+
+  onDestroy(() => {
+    unsubInventory?.();
   });
 
   // ── AlecaFrame import ────────────────────────────────────────────────────────
@@ -718,12 +731,25 @@
                       stroke-linecap="round"
                       vector-effect="non-scaling-stroke"
                     />
+                    {#each cd.absLine as pt}
+                      <circle cx={pt.x} cy={pt.y} r="2.5"
+                        fill="var(--bg-surface, #1a1d2e)"
+                        stroke="rgba(255,255,255,0.7)"
+                        stroke-width="1.5"
+                        vector-effect="non-scaling-stroke"
+                      />
+                    {/each}
                   {/if}
                 </svg>
                 {#if cd.bars.length > 0}
                   <div class="chart-dates-row">
-                    <span>{shortDate(cd.bars[0].date)}</span>
-                    <span>{shortDate(cd.bars[cd.bars.length - 1].date)}</span>
+                    {#each cd.bars as bar, i}
+                      {#if i % 2 === 0}
+                        <span style="width:{cd.bw + BAR_GAP}px;text-align:center">{shortDate(bar.date)}</span>
+                      {:else}
+                        <span style="width:{cd.bw + BAR_GAP}px"></span>
+                      {/if}
+                    {/each}
                   </div>
                 {/if}
               </div>
@@ -1009,8 +1035,8 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: 1fr 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(4, 1fr);
     gap: var(--space-3, 0.75rem);
   }
 
@@ -1072,10 +1098,10 @@
 
   .chart-dates-row {
     display: flex;
-    justify-content: space-between;
     font-size: 0.6rem;
     color: var(--text-muted);
     margin-top: 3px;
+    overflow: hidden;
   }
 
   /* ── Global hover tooltip ────────────────────────────────────────────────── */
