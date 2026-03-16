@@ -294,10 +294,11 @@ function extractSignAndValue(
   }
 
   // Try x-multiplier format: "x1,59" or "x1.59" (Warframe uses this for some stats)
+  // Multipliers < 1 are curses (negative), ≥ 1 are buffs (positive).
   const xMultiplier = [...fragment.matchAll(/x\s*(\d+\.?\d*)/gi)];
   if (xMultiplier.length > 0) {
     const parsed = parseFloat(xMultiplier[xMultiplier.length - 1][1]);
-    if (Number.isFinite(parsed)) return { positive: true, value: parsed, multiplier: true };
+    if (Number.isFinite(parsed)) return { positive: parsed >= 1, value: parsed, multiplier: true };
   }
 
   // Fallback: number directly after a sign

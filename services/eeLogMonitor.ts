@@ -491,14 +491,17 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   // Show only the left overlay panel (no rolling, no right panel).
   // Only fire when NOT already in a rolling session — the rolling screen
   // also triggers HudVis internally, and we don't want to override it.
-  if (!skipRivenFromFilePoll && !_rivenSessionActive && RIVEN_PATTERNS.chatRivenView.test(line)) {
+  // NOTE: NOT gated by skipRivenFromFilePoll — ThemedDetailedPurchaseDialog
+  // lines may only appear in EE.log file (not via DBWIN OutputDebugString),
+  // and there is no state-machine race condition for these simple open/close events.
+  if (!_rivenSessionActive && RIVEN_PATTERNS.chatRivenView.test(line)) {
     _rivenChatViewActive = true;
     log.log("[EELog] Riven chat-link view detected -> dispatching chat view");
     if (typeof rivenChatViewCallback === "function") rivenChatViewCallback();
   }
 
   // Close the chat riven preview — HudVis 0 fires when the dialog is dismissed.
-  if (!skipRivenFromFilePoll && _rivenChatViewActive && RIVEN_PATTERNS.chatRivenClose.test(line)) {
+  if (_rivenChatViewActive && RIVEN_PATTERNS.chatRivenClose.test(line)) {
     _rivenChatViewActive = false;
     log.log("[EELog] Riven chat-link view closed -> dispatching session close");
     if (typeof rivenSessionCloseCallback === "function") rivenSessionCloseCallback();
