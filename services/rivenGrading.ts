@@ -3,16 +3,19 @@
 /**
  * rivenGrading.ts — Riven stat grading service (main-process only)
  *
- * Ports the grading algorithm from AlecaFrame's RivenParser.js:
+ * Ports the grading algorithm from browse.wf/calamity's RivenParser.js:
  *  - Reverse-calculates the 0–1 roll float from the displayed stat value
  *  - Maps roll float to a letter grade (S, A+, A, ..., F)
  *
- * The core formula:
- *   displayedValue = baseValue * 10 * lerp(0.9, 1.1, rollFloat)
- *                    * disposition * numBuffsAtten[buffs] * numCursesAtten[curses]
+ * The core forward formula (from RivenParser.js parseRiven):
+ *   For buffs:
+ *     value = baseValue * (1.5 * disposition * 10) * pow(1.25, numCurses)
+ *           * lerp(0.9, 1.1, rollFloat) * numBuffsAtten[numBuffs] * (lvl + 1)
+ *   For curses:
+ *     value = baseValue * -1 * (1.5 * disposition * 10) * lerp(0.9, 1.1, rollFloat)
+ *           * numBuffsCurseAtten[numBuffs] * numBuffsAtten[numCurses] * (lvl + 1)
  *
- * To reverse (unparse):
- *   rollFloat = inverseLerp(0.9, 1.1, displayedValue / (baseValue * 10 * disposition * ...))
+ * To reverse (unparse), we divide out all known factors to recover rollFloat.
  */
 
 import { withScope } from "./logger";
@@ -38,22 +41,43 @@ export interface RivenGradeResult {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-/**
- * Buff attenuation by number of buffs on the riven.
- * Index = number of buffs (0-5). Index 0 is unused.
- */
-const NUM_BUFFS_ATTEN = [0, 1, 0.66, 0.5, 0.4, 0.35];
+/** Buff attenuation indexed by number of buffs. From RivenParser.js (raw C float values). */
+const NUM_BUFFS_ATTEN = [0, 1, .66000003, .5, .40000001, .34999999];
+
+/** Curse-specific attenuation indexed by number of buffs (NOT curses). */
+const NUM_BUFFS_CURSE_ATTEN = [0, 1, .33000001, .5, 1.25, 1.5];
+
+/** SPECIFIC_FIT_ATTENUATION constant from game code. */
+const SPECIFIC_FIT_ATTEN = 1.5;
+
+/** getBaseDrain(RIVEN_BASE_DRAIN) */
+const BASE_DRAIN = 10;
+
+/** Default riven max rank. Most rivens are rank 8 (lvl 0..8). */
+const DEFAULT_LVL = 8;
 
 /**
- * Curse attenuation by number of curses on the riven.
- * Index = number of curses (0-5). Index 0 is unused (no curse = 1.0 multiplier is applied).
- * These values multiply into the buff calculation when a curse is present.
+ * Stats where the displayed value is NOT percentage-based.
+ * Faction damage tags display as a direct multiplier, and
+ * combo/range stats display with different precision.
+ * For these, displayValueToValue returns the displayValue as-is.
  */
-const NUM_CURSES_ATTEN = [0, 1, 0.33, 0.5, 1.25, 1.5];
+const NON_PERCENTAGE_TAGS = new Set([
+  "WeaponFactionDamageGrineer",
+  "WeaponFactionDamageCorpus",
+  "WeaponFactionDamageInfested",
+  "WeaponMeleeFactionDamageGrineer",
+  "WeaponMeleeFactionDamageCorpus",
+  "WeaponMeleeFactionDamageInfested",
+  "WeaponMeleeComboInitialBonusMod",
+  "ComboDurationMod",
+  "WeaponMeleeRangeIncMod",
+]);
 
 /**
  * Grade thresholds mapped from lerp(-10, 10, rollFloat).
- * Score ≥ threshold → grade.
+ * Score ≥ threshold → grade. Evenly spaced at 2-point intervals.
+ * Matches RivenParser.js floatToGrade exactly.
  */
 const GRADE_THRESHOLDS: { min: number; grade: string }[] = [
   { min: 9.5, grade: "S" },
@@ -61,11 +85,11 @@ const GRADE_THRESHOLDS: { min: number; grade: string }[] = [
   { min: 5.5, grade: "A" },
   { min: 3.5, grade: "A-" },
   { min: 1.5, grade: "B+" },
-  { min: -0.5, grade: "B" },
-  { min: -2.5, grade: "B-" },
-  { min: -4.5, grade: "C+" },
-  { min: -6.5, grade: "C" },
-  { min: -8.5, grade: "C-" },
+  { min: -1.5, grade: "B" },
+  { min: -3.5, grade: "B-" },
+  { min: -5.5, grade: "C+" },
+  { min: -7.5, grade: "C" },
+  { min: -9.5, grade: "C-" },
 ];
 
 // ── Math helpers ─────────────────────────────────────────────────────────────
@@ -101,11 +125,16 @@ export function floatToGrade(rollFloat: number, isCurse: boolean): string {
 /**
  * Reverse-calculate the roll float from a displayed buff value.
  *
- * Formula (from RivenParser.js):
- *   displayed = round(baseValue * 10 * lerp(0.9, 1.1, roll) * disposition * buffsAtten * cursesAtten)
+ * Mirrors RivenParser.js unparseBuff():
+ *   value /= (lvl + 1)
+ *   value /= numBuffsAtten[numBuffs]
+ *   value /= pow(1.25, numCurses)
+ *   value /= (1.5 * omegaAttenuation * 10)
+ *   value /= baseValue
+ *   rollFloat = (value - 0.9) / 0.2
  *
- * Note: the game rounds the displayed value to 1 decimal. We reverse from the
- * displayed value, so there's inherent ±0.05% imprecision.
+ * `displayedValue` is the percentage shown in-game (e.g. +190.9%).
+ * For non-percentage stats (faction damage, combo, range), pass the raw displayed number.
  */
 export function unparseBuff(
   displayedValue: number,
@@ -113,29 +142,50 @@ export function unparseBuff(
   disposition: number,
   numBuffs: number,
   numCurses: number,
+  tag?: string,
+  lvl: number = DEFAULT_LVL,
 ): number {
-  const buffsAtten = NUM_BUFFS_ATTEN[numBuffs] ?? NUM_BUFFS_ATTEN[NUM_BUFFS_ATTEN.length - 1];
-  const cursesAtten = numCurses > 0
-    ? (NUM_CURSES_ATTEN[numCurses] ?? NUM_CURSES_ATTEN[NUM_CURSES_ATTEN.length - 1])
-    : 1;
+  const buffsAtten = NUM_BUFFS_ATTEN[Math.min(numBuffs, NUM_BUFFS_ATTEN.length - 1)];
+  const curseAtten = Math.pow(1.25, numCurses);
+  const attenuation = SPECIFIC_FIT_ATTEN * disposition * BASE_DRAIN;
 
-  const scale = baseValue * 10 * disposition * buffsAtten * cursesAtten;
-  if (scale === 0) return 0.5; // fallback: mid-roll
+  // Convert displayed value to raw multiplier
+  let value: number;
+  if (tag && NON_PERCENTAGE_TAGS.has(tag)) {
+    value = displayedValue;
+  } else {
+    value = displayedValue / 100;
+  }
 
-  // displayedValue is percentage (e.g. 190.9 for +190.9%)
-  // The formula: displayed = round(scale * lerp(0.9, 1.1, roll) * 100, 1)
-  // → displayed / 100 = scale * lerp(0.9, 1.1, roll)
-  // → roll = inverseLerp(0.9, 1.1, displayed / 100 / scale)
-  const ratio = displayedValue / 100 / scale;
-  return clamp01(inverseLerp(0.9, 1.1, ratio));
+  if (baseValue === 0 || attenuation === 0 || buffsAtten === 0 || curseAtten === 0) return 0.5;
+
+  value /= lvl + 1;
+  value /= buffsAtten;
+  value /= curseAtten;
+  value /= attenuation;
+  // Use abs(baseValue) because our OCR input is always the absolute displayed
+  // value. Some stats like recoil have negative baseValues even when appearing
+  // as buffs — the sign is already handled by the buff/curse classification.
+  value /= Math.abs(baseValue);
+
+  // value is now lerp(0.9, 1.1, rollFloat) → invert
+  const rollFloat = (value - 0.9) / 0.2;
+  return clamp01(rollFloat);
 }
 
 /**
  * Reverse-calculate the roll float from a displayed curse value.
  *
- * Curses use the same formula but with negative output.
- * The displayed value is always shown as negative (e.g. −52.3%).
- * We take the absolute value for calculation.
+ * Mirrors RivenParser.js unparseCurse() but adapted for OCR input where the
+ * displayed value is always positive (the sign is tracked separately).
+ *
+ * RivenParser.js forward curse formula:
+ *   rawValue = baseValue * -1 * attenuation * lerp(0.9,1.1,roll)
+ *            * numBuffsCurseAtten[numBuffs] * numBuffsAtten[numCurses] * (lvl+1)
+ *
+ * In RivenParser.js unparseCurse, `value` is negative (raw internal), and divides by -1
+ * to make it positive before extracting rollFloat. Since our OCR gives us the absolute
+ * displayed value already, we skip the /-1 step.
  */
 export function unparseCurse(
   displayedValue: number,
@@ -143,21 +193,37 @@ export function unparseCurse(
   disposition: number,
   numBuffs: number,
   numCurses: number,
+  tag?: string,
+  lvl: number = DEFAULT_LVL,
 ): number {
-  // Curse uses absolute value of baseValue and displayed
-  const absDisplayed = Math.abs(displayedValue);
-  const absBase = Math.abs(baseValue);
+  const attenuation = SPECIFIC_FIT_ATTEN * disposition * BASE_DRAIN;
+  // Note the swapped indexing: buffs table by curse count, curse table by buff count
+  const cursesInBuffTable = NUM_BUFFS_ATTEN[Math.min(numCurses, NUM_BUFFS_ATTEN.length - 1)];
+  const buffsInCurseTable = NUM_BUFFS_CURSE_ATTEN[Math.min(numBuffs, NUM_BUFFS_CURSE_ATTEN.length - 1)];
 
-  const buffsAtten = NUM_BUFFS_ATTEN[numBuffs] ?? NUM_BUFFS_ATTEN[NUM_BUFFS_ATTEN.length - 1];
-  const cursesAtten = numCurses > 0
-    ? (NUM_CURSES_ATTEN[numCurses] ?? NUM_CURSES_ATTEN[NUM_CURSES_ATTEN.length - 1])
-    : 1;
+  // Convert displayed value to raw multiplier (absolute value)
+  let value: number;
+  if (tag && NON_PERCENTAGE_TAGS.has(tag)) {
+    value = Math.abs(displayedValue);
+  } else {
+    value = Math.abs(displayedValue) / 100;
+  }
 
-  const scale = absBase * 10 * disposition * buffsAtten * cursesAtten;
-  if (scale === 0) return 0.5;
+  if (baseValue === 0 || attenuation === 0 || cursesInBuffTable === 0 || buffsInCurseTable === 0)
+    return 0.5;
 
-  const ratio = absDisplayed / 100 / scale;
-  return clamp01(inverseLerp(0.9, 1.1, ratio));
+  value /= lvl + 1;
+  value /= cursesInBuffTable;
+  value /= buffsInCurseTable;
+  value /= attenuation;
+  value /= Math.abs(baseValue);
+  // RivenParser.js does: value /= baseValue; value /= -1.0;
+  // Since baseValue can be negative (e.g. recoil = -0.01), dividing by baseValue
+  // and then by -1 is equivalent to dividing by |baseValue|. Our OCR input is
+  // already the absolute displayed value, so we just use |baseValue| directly.
+
+  const rollFloat = (value - 0.9) / 0.2;
+  return clamp01(rollFloat);
 }
 
 /**
@@ -235,9 +301,9 @@ export function gradeRiven(
       }
 
       if (stat.positive) {
-        rollFloat = unparseBuff(displayedValue, entry.baseValue, disposition, numBuffs, numCurses);
+        rollFloat = unparseBuff(displayedValue, entry.baseValue, disposition, numBuffs, numCurses, tag);
       } else {
-        rollFloat = unparseCurse(displayedValue, entry.baseValue, disposition, numBuffs, numCurses);
+        rollFloat = unparseCurse(displayedValue, entry.baseValue, disposition, numBuffs, numCurses, tag);
       }
 
       const grade = floatToGrade(rollFloat, !stat.positive);

@@ -31,9 +31,9 @@ describe("floatToGrade", () => {
     expect(floatToGrade(0.5, false)).toBe("B");
   });
 
-  it("respects grade boundaries", () => {
+  it("respects grade boundaries (matches RivenParser.js exactly)", () => {
     // lerp(-10, 10, rollFloat) = -10 + 20*rollFloat
-    // score >= 9.5 → S: rollFloat >= (9.5 + 10) / 20 = 0.975
+    // score >= 9.5 → S: rollFloat >= 19.5/20 = 0.975
     expect(floatToGrade(0.975, false)).toBe("S");
     expect(floatToGrade(0.974, false)).toBe("A+");
 
@@ -45,9 +45,25 @@ describe("floatToGrade", () => {
     expect(floatToGrade(0.775, false)).toBe("A");
     expect(floatToGrade(0.774, false)).toBe("A-");
 
-    // score >= -8.5 → C-: rollFloat >= 1.5/20 = 0.075
-    expect(floatToGrade(0.075, false)).toBe("C-");
-    expect(floatToGrade(0.074, false)).toBe("F");
+    // score >= 3.5 → A-: rollFloat >= 13.5/20 = 0.675
+    expect(floatToGrade(0.675, false)).toBe("A-");
+    expect(floatToGrade(0.674, false)).toBe("B+");
+
+    // score >= 1.5 → B+: rollFloat >= 11.5/20 = 0.575
+    expect(floatToGrade(0.575, false)).toBe("B+");
+    expect(floatToGrade(0.574, false)).toBe("B");
+
+    // score >= -1.5 → B: rollFloat >= 8.5/20 = 0.425
+    expect(floatToGrade(0.425, false)).toBe("B");
+    expect(floatToGrade(0.424, false)).toBe("B-");
+
+    // score >= -3.5 → B-: rollFloat >= 6.5/20 = 0.325
+    expect(floatToGrade(0.325, false)).toBe("B-");
+    expect(floatToGrade(0.324, false)).toBe("C+");
+
+    // score >= -9.5 → C-: rollFloat >= 0.5/20 = 0.025
+    expect(floatToGrade(0.025, false)).toBe("C-");
+    expect(floatToGrade(0.024, false)).toBe("F");
   });
 
   it("inverts for curses (low value = good curse)", () => {
@@ -63,33 +79,43 @@ describe("floatToGrade", () => {
 // ── unparseBuff ───────────────────────────────────────────────────────────────
 
 describe("unparseBuff", () => {
+  // Forward formula reference: displayed% = baseValue * 15 * disp * pow(1.25,numCurses)
+  //   * lerp(0.9,1.1,roll) * buffsAtten[numBuffs] * (lvl+1) * 100
+  // For baseValue=0.016666, disp=0.7, 1 buff, 0 curses, lvl=8:
+  //   scale = 0.016666 * 15 * 0.7 * 1 * 1 * 9 = 1.574937
+  //   min (roll=0.0): 1.574937 * 0.9 * 100 = 141.7
+  //   mid (roll=0.5): 1.574937 * 1.0 * 100 = 157.5
+  //   max (roll=1.0): 1.574937 * 1.1 * 100 = 173.2
+
   it("returns ~0.5 for a mid-range value", () => {
-    // For a mid-roll: displayed = baseValue * 10 * lerp(0.9, 1.1, 0.5) * disp * buffsAtten * cursesAtten
-    // = 0.15 * 10 * 1.0 * 0.6 * 1.0 * 1.0 = 0.9 → 90% displayed
-    const result = unparseBuff(90, 0.15, 0.6, 1, 0);
+    const result = unparseBuff(157.5, 0.016666, 0.7, 1, 0, "WeaponCritChanceMod");
     expect(result).toBeCloseTo(0.5, 1);
   });
 
   it("returns ~1.0 for a max-roll value", () => {
-    // Max roll: displayed = 0.15 * 10 * 1.1 * 0.6 * 1.0 * 1.0 = 0.99 → 99%
-    const result = unparseBuff(99, 0.15, 0.6, 1, 0);
+    const result = unparseBuff(173.2, 0.016666, 0.7, 1, 0, "WeaponCritChanceMod");
     expect(result).toBeCloseTo(1.0, 1);
   });
 
   it("returns ~0.0 for a min-roll value", () => {
-    // Min roll: displayed = 0.15 * 10 * 0.9 * 0.6 * 1.0 * 1.0 = 0.81 → 81%
-    const result = unparseBuff(81, 0.15, 0.6, 1, 0);
+    const result = unparseBuff(141.7, 0.016666, 0.7, 1, 0, "WeaponCritChanceMod");
     expect(result).toBeCloseTo(0.0, 1);
   });
 
-  it("accounts for curse attenuation (buffed by having a curse)", () => {
-    // 2 buffs + 1 curse: buffsAtten=0.66, cursesAtten=1.0 (index 1 for 1 curse)
-    const noCurse = unparseBuff(100, 0.15, 0.6, 2, 0);
-    const withCurse = unparseBuff(100, 0.15, 0.6, 2, 1);
-    // Having a curse applies cursesAtten[1]=1.0 which doesn't change buff values
-    // but the buff attenuation for 2 buffs = 0.66 vs no buffs = 1.0
-    expect(noCurse).toBeGreaterThanOrEqual(0);
-    expect(withCurse).toBeGreaterThanOrEqual(0);
+  it("accounts for curse attenuation boost (pow(1.25, numCurses))", () => {
+    // With 1 curse: pow(1.25, 1) = 1.25 → buff values are ~25% higher at same roll
+    // 3 buffs, 0 curses, mid-roll: 0.016666 * 15 * 0.7 * 1 * 1.0 * 0.5 * 9 * 100 = 78.7
+    const noCurse = unparseBuff(78.7, 0.016666, 0.7, 3, 0, "WeaponCritChanceMod");
+    // 3 buffs, 1 curse, mid-roll: 0.016666 * 15 * 0.7 * 1.25 * 1.0 * 0.5 * 9 * 100 = 98.4
+    const withCurse = unparseBuff(98.4, 0.016666, 0.7, 3, 1, "WeaponCritChanceMod");
+    expect(noCurse).toBeCloseTo(0.5, 1);
+    expect(withCurse).toBeCloseTo(0.5, 1);
+  });
+
+  it("matches RivenParser.js reference (Rubico Prime crit, roll=0.95)", () => {
+    // Reference computed from RivenParser.js: displayed=107.3, rollFloat≈0.950
+    const result = unparseBuff(107.3, 0.016666, 0.7, 3, 1, "WeaponCritChanceMod");
+    expect(result).toBeCloseTo(0.950, 1);
   });
 
   it("handles zero base value with fallback 0.5", () => {
@@ -97,10 +123,8 @@ describe("unparseBuff", () => {
   });
 
   it("clamps result to 0–1 range", () => {
-    // Extremely high displayed value → should clamp to 1.0
-    expect(unparseBuff(9999, 0.15, 0.6, 1, 0)).toBe(1.0);
-    // Extremely low displayed value → should clamp to 0.0
-    expect(unparseBuff(0, 0.15, 0.6, 1, 0)).toBe(0.0);
+    expect(unparseBuff(9999, 0.016666, 0.7, 1, 0, "WeaponCritChanceMod")).toBe(1.0);
+    expect(unparseBuff(0, 0.016666, 0.7, 1, 0, "WeaponCritChanceMod")).toBe(0.0);
   });
 });
 
@@ -108,16 +132,31 @@ describe("unparseBuff", () => {
 
 describe("unparseCurse", () => {
   it("returns a value between 0 and 1 for typical curse values", () => {
-    // Curse with negative display: e.g. -52.3% Zoom
-    const result = unparseCurse(-52.3, 0.06, 0.6, 2, 1);
+    // Recoil curse (negative baseValue), 3 buffs + 1 curse
+    const result = unparseCurse(49.1, -0.01, 0.7, 3, 1, "WeaponRecoilReductionMod");
     expect(result).toBeGreaterThanOrEqual(0);
     expect(result).toBeLessThanOrEqual(1);
   });
 
-  it("handles positive input for curse by using absolute values", () => {
-    const a = unparseCurse(-50, 0.06, 1.0, 1, 1);
-    const b = unparseCurse(50, 0.06, 1.0, 1, 1);
+  it("matches RivenParser.js reference (Rubico Prime recoil, roll=0.7)", () => {
+    // Reference computed from RivenParser.js: displayed=49.1, rollFloat≈0.696
+    const result = unparseCurse(49.1, -0.01, 0.7, 3, 1, "WeaponRecoilReductionMod");
+    expect(result).toBeCloseTo(0.696, 1);
+  });
+
+  it("handles positive and negative input identically (OCR absolute value)", () => {
+    const a = unparseCurse(-49.1, -0.01, 0.7, 3, 1, "WeaponRecoilReductionMod");
+    const b = unparseCurse(49.1, -0.01, 0.7, 3, 1, "WeaponRecoilReductionMod");
     expect(a).toBeCloseTo(b, 5);
+  });
+
+  it("uses swapped attenuation indexing (buffsTable[numCurses] × curseTable[numBuffs])", () => {
+    // For 3 buffs 1 curse: cursesInBuffTable = buffsAtten[1]=1, buffsInCurseTable = curseAtten[3]=0.5
+    // For 2 buffs 2 curses: cursesInBuffTable = buffsAtten[2]=0.66, buffsInCurseTable = curseAtten[2]=0.33
+    // Same displayed value should give different rollFloats
+    const a = unparseCurse(30, 0.01, 1.0, 3, 1);
+    const b = unparseCurse(30, 0.01, 1.0, 2, 2);
+    expect(a).not.toBeCloseTo(b, 2);
   });
 
   it("handles zero base value with fallback 0.5", () => {
