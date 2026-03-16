@@ -584,23 +584,29 @@ async function ocrCropMultiStrategy(
  * Capture and OCR the single-card view when the riven cycling screen first opens.
  * Returns the current riven stats (shown in the centre card before any roll).
  */
-export async function scanInitialCard(): Promise<RivenStat[]> {
+export interface InitialScanResult {
+  stats: RivenStat[];
+  /** Raw OCR text — used by the caller to attempt weapon-name extraction. */
+  rawText: string;
+}
+
+export async function scanInitialCard(): Promise<InitialScanResult> {
   const capture = await captureScreen();
   if (!capture) {
     log.warn("[RivenScan] scanInitialCard: captureScreen returned null");
-    return [];
+    return { stats: [], rawText: "" };
   }
 
   const imgSize = capture.image.getSize?.() ?? { width: "?", height: "?" };
   log.log(`[RivenScan] initial capture: source=${capture.sourceType} name="${capture.sourceName}" size=${imgSize.width}x${imgSize.height}`);
 
   try {
-    const { stats } = await ocrCropMultiStrategy(capture.image, FULL_LOWER, TEMP_SINGLE, "initial-card");
+    const { stats, text } = await ocrCropMultiStrategy(capture.image, FULL_LOWER, TEMP_SINGLE, "initial-card");
     log.log(`[RivenScan] initial card scan: ${stats.length} stats found`, stats.map((s) => `${s.positive ? "+" : "-"}${s.value ?? "?"}% ${s.name}`).join(", "));
-    return stats;
+    return { stats, rawText: text };
   } catch (err) {
     log.warn("[RivenScan] initial card OCR failed:", String(err));
-    return [];
+    return { stats: [], rawText: "" };
   }
 }
 

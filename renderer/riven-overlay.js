@@ -182,18 +182,37 @@ function renderStats(stats) {
 /** State: current stat names (lowercase) for best-attribute matching. */
 let _currentStatNamesLc = [];
 
-function renderOverallGrade(gradeStr) {
+function renderOverallGrade(attributeGrade, rollGrade) {
   const wrapper = el("overall-grade");
   const badge = el("overall-grade-badge");
   if (!wrapper || !badge) return;
 
-  if (!gradeStr || gradeStr === "?") {
+  if (!attributeGrade && !rollGrade) {
     wrapper.classList.add("is-hidden");
     return;
   }
 
-  badge.className = "grade-badge grade-large " + gradeClass(gradeStr);
-  badge.textContent = gradeStr;
+  // Primary badge: attribute grade (Great/Good/OK/Bad)
+  if (attributeGrade) {
+    badge.className = "attr-grade-badge attr-grade-" + attributeGrade.toLowerCase();
+    badge.textContent = attributeGrade;
+  } else {
+    badge.className = "grade-badge grade-large " + gradeClass(rollGrade);
+    badge.textContent = rollGrade || "?";
+  }
+
+  // Secondary: roll quality badge
+  var rollEl = el("roll-grade-badge");
+  if (rollEl) {
+    if (rollGrade && rollGrade !== "?") {
+      rollEl.className = "grade-badge " + gradeClass(rollGrade);
+      rollEl.textContent = rollGrade;
+      rollEl.classList.remove("is-hidden");
+    } else {
+      rollEl.classList.add("is-hidden");
+    }
+  }
+
   wrapper.classList.remove("is-hidden");
 }
 
@@ -204,9 +223,9 @@ function renderOverallGrade(gradeStr) {
  */
 function applyGradingToStats(gradingResult) {
   if (!gradingResult) return;
-  const { stats, overallGrade } = gradingResult;
+  const { stats, overallGrade, attributeGrade } = gradingResult;
 
-  renderOverallGrade(overallGrade);
+  renderOverallGrade(attributeGrade, overallGrade);
 
   if (!Array.isArray(stats)) return;
 

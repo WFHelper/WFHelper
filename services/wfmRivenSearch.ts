@@ -68,7 +68,7 @@ export async function searchSimilarRivens(
   }
 
   try {
-    const path = `/auctions/search?type=riven&weapon_url_name=${encodeURIComponent(weaponSlug)}&sort_by=price_asc&buy_now_only=1`;
+    const path = `/auctions/search?type=riven&weapon_url_name=${encodeURIComponent(weaponSlug)}&sort_by=price_asc&buyout_policy=with`;
     const data = await wfmClient.request("GET", path) as any;
 
     const auctions: any[] = data?.payload?.auctions || [];

@@ -25,7 +25,7 @@ html,
 body {
   background: transparent;
   font-family: var(--font-body, "Barlow", "Segoe UI", system-ui, sans-serif);
-  font-size: var(--font-body-size, 0.82rem);
+  font-size: var(--font-body-size, 0.92rem);
   color: var(--text);
   height: 100%;
   overflow: hidden;
@@ -91,7 +91,7 @@ body {
 
 #weapon-name {
   font-family: var(--font-display, "Rajdhani", "Segoe UI", system-ui, sans-serif);
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--text);
   overflow: hidden;
@@ -158,9 +158,9 @@ body {
 }
 
 #overall-grade-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.8px;
 }
@@ -204,6 +204,28 @@ body {
 .grade-F  { background: #e74c3c; }
 .grade-unknown { background: var(--text-dim); }
 
+/* Attribute grade badges (Great/Good/OK/Bad) */
+.attr-grade-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 5px;
+  font-family: var(--font-display, "Rajdhani", "Segoe UI", system-ui, sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.attr-grade-great { background: #2ecc40; color: #0a1a0d; }
+.attr-grade-good  { background: #3498db; }
+.attr-grade-ok    { background: #e67e22; }
+.attr-grade-bad   { background: #e74c3c; }
+
 /* ── Scanning spinner ─────────────────────────────────────────────────────── */
 
 #scanning-state {
@@ -234,7 +256,7 @@ body {
 }
 
 #scanning-text {
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--muted);
 }
 
@@ -269,7 +291,7 @@ body {
 
 .stat-value {
   font-family: var(--font-display, "Rajdhani", "Segoe UI", system-ui, sans-serif);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   min-width: 72px;
   text-align: right;
@@ -281,7 +303,7 @@ body {
 .stat-value.neg { color: var(--bad); }
 
 .stat-name {
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -401,7 +423,7 @@ body {
 .listing-price {
   font-family: var(--font-display, "Rajdhani", "Segoe UI", system-ui, sans-serif);
   font-weight: 700;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--warn);
   min-width: 38px;
   text-align: right;
@@ -412,7 +434,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 9.5px;
+  font-size: 10.5px;
 }
 
 .listing-rerolls {

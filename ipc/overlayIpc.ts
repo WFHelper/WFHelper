@@ -96,8 +96,8 @@ const plannerWindowsController = createOverlayWindowsController({
 
 let _rivenInteractive = false;
 
-const RIVEN_WIN_W = 360;
-const RIVEN_WIN_H = 420;
+const RIVEN_WIN_W = 420;
+const RIVEN_WIN_H = 520;
 
 /** Returns both riven windows as an array for broadcasting IPC events. */
 function getRivenWindows(): (InstanceType<typeof BrowserWindow> | null)[] {
@@ -199,15 +199,15 @@ function createRivenOverlayWindows(options: { show?: boolean } = {}): void {
 
   _rivenInteractive = false;
 
-  // Left panel at top-left edge
-  const leftWin = createSingleRivenWindow("left", dx + PAD, dy + 8, options);
+  // Left panel at top-left edge, pushed down to avoid game HUD
+  const leftWin = createSingleRivenWindow("left", dx + PAD, dy + 48, options);
   ctx.rivenOverlayLeftWindow = leftWin;
   leftWin.on("closed", () => {
     ctx.rivenOverlayLeftWindow = null;
   });
 
-  // Right panel at top-right edge
-  const rightWin = createSingleRivenWindow("right", dx + dw - RIVEN_WIN_W - PAD, dy + 8, options);
+  // Right panel at top-right edge, pushed down to avoid game HUD
+  const rightWin = createSingleRivenWindow("right", dx + dw - RIVEN_WIN_W - PAD, dy + 48, options);
   ctx.rivenOverlayRightWindow = rightWin;
   rightWin.on("closed", () => {
     ctx.rivenOverlayRightWindow = null;
@@ -278,7 +278,7 @@ function sendWeaponEnrichment(): void {
   }
 
   // Trigger WFM search in background (fire-and-forget)
-  const slug = rivenDataSvc.getWeaponWfmSlug(_rivenWeaponName);
+  const slug = rivenDataSvc.getRivenFamilySlug(_rivenWeaponName);
   wfmRivenSearch
     .searchSimilarRivens(slug, { limit: 5 })
     .then((listings) => {
@@ -303,8 +303,22 @@ function triggerInitialScan(): void {
   _rivenInitialScanTimer = setTimeout(async () => {
     _rivenInitialScanTimer = null;
     try {
-      const stats = await rivenScan.scanInitialCard();
+      const { stats, rawText } = await rivenScan.scanInitialCard();
       _rivenInitialStats = stats;
+
+      // Try to extract weapon name from OCR text if not already known
+      if (rawText && (!_rivenWeaponName || _rivenWeaponName === "Riven")) {
+        const detected = rivenDataSvc.findWeaponInText(rawText);
+        if (detected) {
+          log.log(`[RivenScan] weapon detected from OCR: "${detected}"`);
+          _rivenWeaponName = detected;
+          forEachRivenWindow((win) => {
+            if (!win.isDestroyed()) win.webContents.send("riven-weapon-update", detected);
+          });
+          sendWeaponEnrichment();
+        }
+      }
+
       if (stats.length > 0) {
         rivenSession.onInitialStats(getRivenWindows(), stats);
         // If weapon name is already known, send grading immediately
@@ -390,7 +404,7 @@ export function onRivenChatView(): void {
   const existLeft = ctx.rivenOverlayLeftWindow;
   if (!existLeft || existLeft.isDestroyed()) {
     _rivenInteractive = false;
-    const leftWin = createSingleRivenWindow("left", dx + PAD, dy + 8, { show: true });
+    const leftWin = createSingleRivenWindow("left", dx + PAD, dy + 48, { show: true });
     ctx.rivenOverlayLeftWindow = leftWin;
     leftWin.on("closed", () => { ctx.rivenOverlayLeftWindow = null; });
   } else {

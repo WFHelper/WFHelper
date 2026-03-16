@@ -20,6 +20,7 @@
 
 import { withScope } from "./logger";
 import * as rivenData from "./rivenData";
+import { getBestAttributes } from "./rivenBestAttributes";
 
 const log = withScope("rivenGrading");
 
@@ -37,6 +38,8 @@ export interface GradedStat {
 export interface RivenGradeResult {
   stats: GradedStat[];
   overallGrade: string;
+  /** Attribute-based riven quality: "Great" | "Good" | "OK" | "Bad" */
+  attributeGrade: string;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -226,6 +229,52 @@ export function unparseCurse(
   return clamp01(rollFloat);
 }
 
+// ── Attribute-based grading ─────────────────────────────────────────────────
+
+/**
+ * Compute an attribute-quality grade for a riven based on whether the stat
+ * types (not magnitudes) are desirable for the weapon.
+ *
+ * Uses the same tier definitions as AlecaFrame:
+ *   Great — all positives are top-tier AND negative (if present) is harmless
+ *   Good  — majority of positives are desirable
+ *   OK    — some desirable stats, some not (or harmful negative)
+ *   Bad   — no desirable positives, or a crippling negative
+ */
+function computeAttributeGrade(
+  stats: { name: string; positive: boolean }[],
+  weaponCategory: string,
+  isShotgun: boolean,
+): string {
+  const best = getBestAttributes(weaponCategory, isShotgun);
+  const bestPosLc = new Set(best.positives.map((s) => s.toLowerCase()));
+  const bestNegLc = new Set(best.negatives.map((s) => s.toLowerCase()));
+
+  const positives = stats.filter((s) => s.positive);
+  const negatives = stats.filter((s) => !s.positive);
+
+  if (positives.length === 0) return "Bad";
+
+  let goodPosCount = 0;
+  for (const s of positives) {
+    if (bestPosLc.has(s.name.toLowerCase())) goodPosCount++;
+  }
+
+  const hasNeg = negatives.length > 0;
+  const negIsHarmless = hasNeg && bestNegLc.has(negatives[0].name.toLowerCase());
+  const negIsHarmful = hasNeg && !negIsHarmless;
+
+  const allPosGood = goodPosCount === positives.length;
+  const mostPosGood = goodPosCount >= Math.ceil(positives.length / 2);
+
+  if (allPosGood && (!hasNeg || negIsHarmless)) return "Great";
+  if (allPosGood && negIsHarmful) return "Good";
+  if (mostPosGood && !negIsHarmful) return "Good";
+  if (mostPosGood && negIsHarmful) return "OK";
+  if (goodPosCount > 0) return "OK";
+  return "Bad";
+}
+
 /**
  * Grade a complete riven given weapon name and OCR'd stats.
  *
@@ -334,5 +383,10 @@ export function gradeRiven(
     overallGrade = floatToGrade(avgFloat, false);
   }
 
-  return { stats: gradedStats, overallGrade };
+  // Attribute-based grade (Great/Good/OK/Bad)
+  const weaponCategory = rivenData.getWeaponCategory(weaponName) || "";
+  const isShotgun = rivenData.isWeaponShotgun(weaponName);
+  const attributeGrade = computeAttributeGrade(stats, weaponCategory, isShotgun);
+
+  return { stats: gradedStats, overallGrade, attributeGrade };
 }

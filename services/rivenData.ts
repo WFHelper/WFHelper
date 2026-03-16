@@ -47,6 +47,9 @@ let _built = false;
 /** Lowercase weapon display name → weapon info */
 const _weaponByNameLc = new Map<string, WeaponInfo>();
 
+/** Lowercase weapon name → display-cased name (for findWeaponInText) */
+const _weaponDisplayNames = new Map<string, string>();
+
 /** Riven mod compat path → riven mod info */
 const _rivenModByCompat = new Map<string, RivenModInfo>();
 
@@ -178,6 +181,7 @@ function ensureBuilt(): void {
         productCategory: w.productCategory || "",
         compatibilityTags: Array.isArray(w.compatibilityTags) ? w.compatibilityTags : [],
       });
+      _weaponDisplayNames.set(name.toLowerCase(), name);
       weaponCount++;
     }
 
@@ -244,6 +248,16 @@ export function getWeaponCategory(weaponName: string): string | null {
   ensureBuilt();
   const info = _weaponByNameLc.get(weaponName.toLowerCase());
   return info ? info.productCategory : null;
+}
+
+/**
+ * Check if a weapon is a shotgun (LongGuns with SHOTGUN compat tag).
+ */
+export function isWeaponShotgun(weaponName: string): boolean {
+  ensureBuilt();
+  const info = _weaponByNameLc.get(weaponName.toLowerCase());
+  if (!info) return false;
+  return info.productCategory === "LongGuns" && info.compatibilityTags.includes("SHOTGUN");
 }
 
 /**
@@ -325,11 +339,68 @@ export function findUpgradeEntry(rivenTypeKey: string, tag: string): UpgradeEntr
 }
 
 /**
+ * Try to find a known weapon name inside OCR text (case-insensitive).
+ * Used to extract the weapon from riven card text before the cycle dialog
+ * reveals it.  Prefers the longest match to avoid e.g. "Bo" matching inside
+ * "Boar".  Returns the canonical (properly cased) weapon name or null.
+ */
+export function findWeaponInText(text: string): string | null {
+  ensureBuilt();
+  const lc = text.toLowerCase();
+  let best: string | null = null;
+  let bestLen = 0;
+  for (const [nameLc, info] of _weaponByNameLc) {
+    if (nameLc.length <= bestLen) continue;
+    if (nameLc.length < 3) continue; // skip very short names to avoid false positives
+    if (lc.includes(nameLc)) {
+      // Return the display-cased version from the unique name
+      // Since we only stored lowercase, reconstruct from the raw data.
+      // Actually the map value has uniqueName — but we need display name.
+      // We'll keep a second map, or just re-case.  For now return the
+      // known key with proper casing via _weaponDisplayNames.
+      best = _weaponDisplayNames.get(nameLc) || nameLc;
+      bestLen = nameLc.length;
+    }
+  }
+  return best;
+}
+
+/**
  * Get weapon URL slug for warframe.market API.
  * E.g. "Rubico Prime" → "rubico_prime"
  */
 export function getWeaponWfmSlug(weaponName: string): string {
   return weaponName
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+
+/** Variant suffixes to strip when deriving the riven weapon family name. */
+const VARIANT_SUFFIXES = [" Prime", " Wraith", " Vandal", " Prisma", " Dex"];
+const VARIANT_PREFIXES = ["MK1-", "Mk1-", "Kuva ", "Tenet "];
+
+/**
+ * Derive the base weapon family slug for WFM riven auction search.
+ * Rivens apply to the weapon family, not a specific variant.
+ * E.g. "Boar Prime" → "boar", "Kuva Bramma" → "bramma"
+ */
+export function getRivenFamilySlug(weaponName: string): string {
+  let name = weaponName.trim();
+  for (const suffix of VARIANT_SUFFIXES) {
+    if (name.endsWith(suffix)) {
+      name = name.slice(0, -suffix.length);
+      break;
+    }
+  }
+  for (const prefix of VARIANT_PREFIXES) {
+    if (name.startsWith(prefix)) {
+      name = name.slice(prefix.length);
+      break;
+    }
+  }
+  return name
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, "_")
