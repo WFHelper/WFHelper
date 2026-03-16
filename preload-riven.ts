@@ -22,5 +22,14 @@ contextBridge.exposeInMainWorld("rivenOverlay", {
     ipcRenderer.on("overlay-theme-vars", (_event: unknown, vars: unknown) => cb(vars)),
   onInteractionMode: (cb: (payload: unknown) => void) =>
     ipcRenderer.on("overlay-interaction-mode", (_event: unknown, payload: unknown) => cb(payload)),
+  // ── Grading + enrichment ─────────────────────────────────────────────────
+  onGradingInitial: (cb: (grading: unknown) => void) =>
+    ipcRenderer.on("riven-grading-initial", (_event: unknown, grading: unknown) => cb(grading)),
+  onGradingRoll: (cb: (grading: unknown) => void) =>
+    ipcRenderer.on("riven-grading-roll", (_event: unknown, grading: unknown) => cb(grading)),
+  onBestAttributes: (cb: (attrs: unknown) => void) =>
+    ipcRenderer.on("riven-best-attributes", (_event: unknown, attrs: unknown) => cb(attrs)),
+  onSimilarListings: (cb: (listings: unknown) => void) =>
+    ipcRenderer.on("riven-similar-listings", (_event: unknown, listings: unknown) => cb(listings)),
   getThemeVars: () => ipcRenderer.invoke("overlay:get-theme-vars"),
 });

@@ -13,6 +13,10 @@ import { createOverlaySettingsController } from "./overlay/settings";
 import { createOverlayWindowsController } from "./overlay/windows";
 import * as rivenSession from "./overlay/rivenSession";
 import * as rivenScan from "./overlay/rivenScan";
+import * as rivenGrading from "../services/rivenGrading";
+import * as rivenDataSvc from "../services/rivenData";
+import * as rivenBestAttributes from "../services/rivenBestAttributes";
+import * as wfmRivenSearch from "../services/wfmRivenSearch";
 import { createRuntimeRequire } from "./runtimeRequire";
 import { withScope } from "../services/logger";
 import * as relicService from "../services/relicService";
@@ -231,6 +235,64 @@ const CHOICE_RESCAN_DELAY_MS = 1200;
 let _rivenInitialStats: rivenScan.RivenStat[] = [];
 let _rivenNewRollStats: rivenScan.RivenStat[] = [];
 
+// Weapon name — starts as "Riven" placeholder, updated when cycle dialog reveals it
+let _rivenWeaponName = "";
+
+// ── Riven grading + enrichment ──────────────────────────────────────────────
+
+/**
+ * Try to grade stats using the current weapon name.
+ * Returns the grading result or null if weapon is unknown/unresolvable.
+ */
+function tryGradeStats(stats: rivenScan.RivenStat[]): rivenGrading.RivenGradeResult | null {
+  if (!_rivenWeaponName || _rivenWeaponName === "Riven" || stats.length === 0) return null;
+  return rivenGrading.gradeRiven(_rivenWeaponName, stats);
+}
+
+/**
+ * Send grading data for initial stats to the overlay.
+ * Called when we have both weapon name AND initial stats.
+ */
+function sendGradedInitialStats(): void {
+  const graded = tryGradeStats(_rivenInitialStats);
+  if (graded) {
+    forEachRivenWindow((win) => {
+      if (!win.isDestroyed()) win.webContents.send("riven-grading-initial", graded);
+    });
+  }
+}
+
+/**
+ * Send best attributes and trigger WFM search when weapon name becomes available.
+ */
+function sendWeaponEnrichment(): void {
+  if (!_rivenWeaponName || _rivenWeaponName === "Riven") return;
+
+  // Send best attributes
+  const category = rivenDataSvc.getWeaponCategory(_rivenWeaponName);
+  const weaponInfo = category ? rivenBestAttributes.getBestAttributes(category) : null;
+  if (weaponInfo) {
+    forEachRivenWindow((win) => {
+      if (!win.isDestroyed()) win.webContents.send("riven-best-attributes", weaponInfo);
+    });
+  }
+
+  // Trigger WFM search in background (fire-and-forget)
+  const slug = rivenDataSvc.getWeaponWfmSlug(_rivenWeaponName);
+  wfmRivenSearch
+    .searchSimilarRivens(slug, { limit: 5 })
+    .then((listings) => {
+      if (listings.length > 0) {
+        forEachRivenWindow((win) => {
+          if (!win.isDestroyed()) win.webContents.send("riven-similar-listings", listings);
+        });
+      }
+    })
+    .catch((err) => {
+      log.warn("[WfmRivenSearch] search failed:", String(err));
+    });
+}
+
 function clearRivenScanTimers(): void {
   if (_rivenInitialScanTimer) { clearTimeout(_rivenInitialScanTimer); _rivenInitialScanTimer = null; }
   if (_rivenRollScanTimer) { clearTimeout(_rivenRollScanTimer); _rivenRollScanTimer = null; }
@@ -245,6 +307,8 @@ function triggerInitialScan(): void {
       _rivenInitialStats = stats;
       if (stats.length > 0) {
         rivenSession.onInitialStats(getRivenWindows(), stats);
+        // If weapon name is already known, send grading immediately
+        sendGradedInitialStats();
       }
     } catch (err) {
       log.warn("[RivenScan] initial scan failed:", String(err));
@@ -267,6 +331,19 @@ function triggerRollScan(): void {
           left: _rivenInitialStats,
           right: stats,
         });
+        // Send grading for both panels
+        const leftGraded = tryGradeStats(_rivenInitialStats);
+        const rightGraded = tryGradeStats(stats);
+        if (leftGraded || rightGraded) {
+          forEachRivenWindow((win) => {
+            if (!win.isDestroyed()) {
+              win.webContents.send("riven-grading-roll", {
+                left: leftGraded,
+                right: rightGraded,
+              });
+            }
+          });
+        }
       }
     } catch (err) {
       log.warn("[RivenScan] roll scan failed:", String(err));
@@ -289,6 +366,7 @@ export function onRivenSessionClose(): void {
   _rivenHasRollResult = false;
   _rivenInitialStats = [];
   _rivenNewRollStats = [];
+  _rivenWeaponName = "";
   _rivenInteractive = false;
   rivenSession.endSession(getRivenWindows());
   forEachRivenWindow((win) => win.hide());
@@ -302,6 +380,7 @@ export function onRivenChatView(): void {
   _rivenHasRollResult = false;
   _rivenInitialStats = [];
   _rivenNewRollStats = [];
+  _rivenWeaponName = "";
 
   // Create only the left window (or reuse if already exists)
   const display = screen.getPrimaryDisplay();
@@ -341,6 +420,7 @@ export function onRivenSessionOpen(): void {
   _rivenHasRollResult = false;
   _rivenInitialStats = [];
   _rivenNewRollStats = [];
+  _rivenWeaponName = "";
   createRivenOverlayWindows({ show: true });
   // Start (or restart) the session — resets roll count, clears panels.
   // Weapon name is "Riven" placeholder until the first cycle dialog reveals it.
@@ -360,10 +440,18 @@ export function onRivenRollPending(weapon: string, kuvaPerRoll: number): void {
   // Update weapon name from the cycle dialog text (first time we learn it).
   // Don't call startSession — that would reset the roll count and wipe
   // the stats that the initial scan already populated.
+  const isFirstReveal = _rivenWeaponName === "" || _rivenWeaponName === "Riven";
   if (weapon) {
+    _rivenWeaponName = weapon;
     forEachRivenWindow((win) => {
       if (!win.isDestroyed()) win.webContents.send("riven-weapon-update", weapon);
     });
+
+    // First time weapon name is revealed → grade existing stats + send enrichment
+    if (isFirstReveal) {
+      sendGradedInitialStats();
+      sendWeaponEnrichment();
+    }
   }
 }
 
@@ -393,6 +481,7 @@ export function onRivenChoiceConfirmed(): void {
       _rivenInitialStats = stats;
       if (stats.length > 0) {
         rivenSession.onInitialStats(getRivenWindows(), stats);
+        sendGradedInitialStats();
       }
     } catch (err) {
       log.warn("[RivenScan] choice rescan failed:", String(err));

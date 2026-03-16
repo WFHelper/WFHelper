@@ -199,6 +199,7 @@ function preprocessOcrText(raw: string): string {
   // Warframe prefixes element stats with icons that OCR reads as junk like
   // brackets, arrows, circled chars, symbols. These can appear between the
   // numeric value and the stat name, breaking value association.
+  // eslint-disable-next-line no-useless-escape
   text = text.replace(/[*()\[\]{}|\\<>^~°©®™•→←↑↓↗↘►◄▸▾▲▼■□●○]+\s*/g, " ");
 
   // Second pass: strip "x2 for Heavy Attacks" without parentheses (OCR may not

@@ -94,6 +94,24 @@ function loadThemeFromStorageFallback() {
   }
 }
 
+// ── Grading helpers ──────────────────────────────────────────────────────────
+
+/** Map a letter grade string to its CSS class suffix. */
+function gradeClass(grade) {
+  if (!grade || grade === "?") return "grade-unknown";
+  // "A+" → "grade-Ap", "A-" → "grade-Am", "B+" → "grade-Bp", etc.
+  const sanitised = String(grade).replace("+", "p").replace("-", "m").replace(/[^A-Za-z]/g, "");
+  return "grade-" + (sanitised || "unknown");
+}
+
+/** Create a grade badge span. */
+function buildGradeBadge(grade, large) {
+  const badge = document.createElement("span");
+  badge.className = "grade-badge " + gradeClass(grade) + (large ? " grade-large" : "");
+  badge.textContent = grade || "?";
+  return badge;
+}
+
 // ── Stat rendering ──────────────────────────────────────────────────────────
 
 function buildStatRow(stat) {
@@ -121,6 +139,14 @@ function buildStatRow(stat) {
 
   row.appendChild(valueEl);
   row.appendChild(nameEl);
+
+  // Grade badge (if grading data is present on the stat)
+  if (stat.grade) {
+    const badge = buildGradeBadge(stat.grade);
+    badge.classList.add("stat-grade");
+    row.appendChild(badge);
+  }
+
   return row;
 }
 
@@ -151,6 +177,218 @@ function renderStats(stats) {
 
 // ── IPC event handlers ───────────────────────────────────────────────────────
 
+// ── Grading display ──────────────────────────────────────────────────────────
+
+/** State: current stat names (lowercase) for best-attribute matching. */
+let _currentStatNamesLc = [];
+
+function renderOverallGrade(gradeStr) {
+  const wrapper = el("overall-grade");
+  const badge = el("overall-grade-badge");
+  if (!wrapper || !badge) return;
+
+  if (!gradeStr || gradeStr === "?") {
+    wrapper.classList.add("is-hidden");
+    return;
+  }
+
+  badge.className = "grade-badge grade-large " + gradeClass(gradeStr);
+  badge.textContent = gradeStr;
+  wrapper.classList.remove("is-hidden");
+}
+
+/**
+ * Apply grading data to already-rendered stat rows.
+ * Grading data arrives AFTER stats are rendered (separate IPC event),
+ * so we overlay grade badges onto existing rows.
+ */
+function applyGradingToStats(gradingResult) {
+  if (!gradingResult) return;
+  const { stats, overallGrade } = gradingResult;
+
+  renderOverallGrade(overallGrade);
+
+  if (!Array.isArray(stats)) return;
+
+  // Re-render stats with grading info baked in
+  const list = el("stats-list");
+  const container = el("stats-container");
+  if (!list || !container) return;
+
+  list.innerHTML = "";
+  for (const stat of stats) {
+    list.appendChild(buildStatRow(stat));
+  }
+  container.classList.remove("is-hidden");
+
+  // Update tracked stat names for best-attribute matching
+  _currentStatNamesLc = stats.map(function (s) { return (s.name || "").toLowerCase(); });
+  refreshBestAttributeHighlights();
+}
+
+/**
+ * Handle initial grading (single panel — current stats).
+ */
+function onGradingInitial(grading) {
+  if (_isLeft) {
+    applyGradingToStats(grading);
+  }
+}
+
+/**
+ * Handle roll grading (both panels — left=current, right=new roll).
+ */
+function onGradingRoll(payload) {
+  if (!payload) return;
+  const side = _isLeft ? payload.left : payload.right;
+  applyGradingToStats(side);
+}
+
+// ── Best attributes display ──────────────────────────────────────────────────
+
+let _bestAttributesData = null;
+
+function renderBestAttributes(attrs) {
+  _bestAttributesData = attrs;
+  const wrapper = el("best-attributes");
+  if (!wrapper || !attrs) return;
+
+  const posRow = el("best-pos");
+  const negRow = el("best-neg");
+  if (!posRow || !negRow) return;
+
+  posRow.innerHTML = "";
+  negRow.innerHTML = "";
+
+  // Positive row
+  if (Array.isArray(attrs.positives) && attrs.positives.length > 0) {
+    var label = document.createElement("span");
+    label.className = "best-row-label pos";
+    label.textContent = "BEST";
+    posRow.appendChild(label);
+
+    for (var i = 0; i < attrs.positives.length; i++) {
+      var chip = document.createElement("span");
+      chip.className = "best-chip";
+      chip.setAttribute("data-stat", attrs.positives[i].toLowerCase());
+      chip.textContent = abbreviateStat(attrs.positives[i]);
+      posRow.appendChild(chip);
+    }
+  }
+
+  // Negative row
+  if (Array.isArray(attrs.negatives) && attrs.negatives.length > 0) {
+    var negLabel = document.createElement("span");
+    negLabel.className = "best-row-label neg";
+    negLabel.textContent = "NEG";
+    negRow.appendChild(negLabel);
+
+    for (var j = 0; j < attrs.negatives.length; j++) {
+      var negChip = document.createElement("span");
+      negChip.className = "best-chip";
+      negChip.setAttribute("data-stat", attrs.negatives[j].toLowerCase());
+      negChip.textContent = abbreviateStat(attrs.negatives[j]);
+      negRow.appendChild(negChip);
+    }
+  }
+
+  wrapper.classList.remove("is-hidden");
+  refreshBestAttributeHighlights();
+}
+
+/** Abbreviate long stat names for compact chip display. */
+function abbreviateStat(name) {
+  var abbrevs = {
+    "critical chance": "CritCh",
+    "critical damage": "CritDmg",
+    "multishot": "Multi",
+    "damage": "Dmg",
+    "melee damage": "Dmg",
+    "status chance": "Status",
+    "attack speed": "AtkSpd",
+    "electricity": "Elec",
+    "toxin": "Toxin",
+    "heat": "Heat",
+    "cold": "Cold",
+    "range": "Range",
+    "zoom": "Zoom",
+    "ammo maximum": "Ammo",
+    "weapon recoil": "Recoil",
+    "projectile speed": "ProjSpd",
+    "finisher damage": "Finisher",
+    "heavy attack efficiency": "HvyAtk",
+    "combo duration": "Combo",
+    "slide attack": "Slide",
+    "reload speed": "Reload",
+    "fire rate": "FireRate",
+  };
+  return abbrevs[name.toLowerCase()] || name;
+}
+
+/** Highlight best-attribute chips that match currently displayed stats. */
+function refreshBestAttributeHighlights() {
+  var chips = document.querySelectorAll(".best-chip");
+  for (var i = 0; i < chips.length; i++) {
+    var chipStat = (chips[i].getAttribute("data-stat") || "").toLowerCase();
+    var matched = _currentStatNamesLc.some(function (n) {
+      return n === chipStat || n.indexOf(chipStat) !== -1 || chipStat.indexOf(n) !== -1;
+    });
+    chips[i].classList.toggle("matched", matched);
+  }
+}
+
+// ── Similar listings display ─────────────────────────────────────────────────
+
+function renderSimilarListings(listings) {
+  var wrapper = el("similar-listings");
+  var list = el("similar-list");
+  if (!wrapper || !list) return;
+
+  list.innerHTML = "";
+
+  if (!Array.isArray(listings) || listings.length === 0) {
+    wrapper.classList.add("is-hidden");
+    return;
+  }
+
+  for (var i = 0; i < listings.length; i++) {
+    var item = listings[i];
+    var row = document.createElement("div");
+    row.className = "listing-row";
+
+    // Price
+    var priceEl = document.createElement("span");
+    priceEl.className = "listing-price";
+    var price = item.buyoutPrice || item.startingPrice || item.platinum || 0;
+    priceEl.textContent = price + "p";
+    row.appendChild(priceEl);
+
+    // Stats summary (abbreviated)
+    var statsEl = document.createElement("span");
+    statsEl.className = "listing-stats";
+    if (Array.isArray(item.stats)) {
+      var parts = [];
+      for (var j = 0; j < item.stats.length; j++) {
+        var s = item.stats[j];
+        var sign = s.positive ? "+" : "\u2212";
+        parts.push(sign + Math.round(s.value) + "% " + abbreviateStat(s.name));
+      }
+      statsEl.textContent = parts.join("  ");
+    }
+    row.appendChild(statsEl);
+
+    // Rerolls
+    var rerollsEl = document.createElement("span");
+    rerollsEl.className = "listing-rerolls";
+    rerollsEl.textContent = (item.rerolls || 0) + "r";
+    row.appendChild(rerollsEl);
+
+    list.appendChild(row);
+  }
+
+  wrapper.classList.remove("is-hidden");
+}
+
 function showScanning() {
   el("scanning-state").classList.add("visible");
   el("stats-container").classList.add("is-hidden");
@@ -163,6 +401,8 @@ function hideScanning() {
 
 function onSessionStart(weapon) {
   _rollCount = 0;
+  _currentStatNamesLc = [];
+  _bestAttributesData = null;
 
   el("weapon-name").textContent = weapon || "\u2014";
 
@@ -172,6 +412,11 @@ function onSessionStart(weapon) {
   // Reset stats
   el("stats-container").classList.add("is-hidden");
   el("error-banner").classList.remove("visible");
+
+  // Reset grading + enrichment sections
+  el("overall-grade").classList.add("is-hidden");
+  el("best-attributes").classList.add("is-hidden");
+  el("similar-listings").classList.add("is-hidden");
 
   // Left panel: show scanning spinner for initial card scan
   // Right panel: show "waiting for roll" placeholder
@@ -255,6 +500,11 @@ function onChoiceMade(side) {
 
 function onSessionEnd() {
   hideScanning();
+  _currentStatNamesLc = [];
+  _bestAttributesData = null;
+  el("overall-grade").classList.add("is-hidden");
+  el("best-attributes").classList.add("is-hidden");
+  el("similar-listings").classList.add("is-hidden");
 }
 
 // ── Bootstrap ────────────────────────────────────────────────────────────────
@@ -308,4 +558,10 @@ document.addEventListener("DOMContentLoaded", () => {
   window.rivenOverlay.onInteractionMode((payload) => {
     setOverlayInteractiveMode(Boolean(payload?.interactive));
   });
+
+  // Grading + enrichment listeners
+  window.rivenOverlay.onGradingInitial((grading) => onGradingInitial(grading));
+  window.rivenOverlay.onGradingRoll((payload) => onGradingRoll(payload));
+  window.rivenOverlay.onBestAttributes((attrs) => renderBestAttributes(attrs));
+  window.rivenOverlay.onSimilarListings((listings) => renderSimilarListings(listings));
 });

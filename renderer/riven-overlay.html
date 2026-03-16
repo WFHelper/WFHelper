@@ -28,6 +28,12 @@
         </div>
       </div>
 
+      <!-- Overall grade (shown when grading data arrives) -->
+      <div id="overall-grade" class="is-hidden">
+        <span id="overall-grade-label">Overall:</span>
+        <span id="overall-grade-badge" class="grade-badge">?</span>
+      </div>
+
       <div id="scanning-state">
         <div class="scan-spinner"></div>
         <div id="scanning-text">Scanning...</div>
@@ -38,6 +44,18 @@
       </div>
 
       <div id="error-banner">Stats not detected</div>
+
+      <!-- Best attributes (shown when weapon is identified) -->
+      <div id="best-attributes" class="is-hidden">
+        <div id="best-pos" class="best-row"></div>
+        <div id="best-neg" class="best-row"></div>
+      </div>
+
+      <!-- Similar rivens from WFM (shown when search completes) -->
+      <div id="similar-listings" class="is-hidden">
+        <div id="similar-header">Similar on WFM</div>
+        <div id="similar-list"></div>
+      </div>
 
       <div id="interaction-hint" class="is-hidden">Press Ctrl + Tab to interact</div>
     </div>
