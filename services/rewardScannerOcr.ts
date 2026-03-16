@@ -84,7 +84,9 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
   }
 
   async function runOCR(imagePath: string, timeoutMs: number): Promise<string> {
-    const engine = typeof getRequestedEngine === "function" ? getRequestedEngine() : engineWindows;
+    // When no engine callback is provided (e.g. riven scan), use "auto" to
+    // enable the PowerShell → Tesseract fallback chain.
+    const engine = typeof getRequestedEngine === "function" ? getRequestedEngine() : "auto";
 
     if (engine === engineWindows) {
       if (process.platform !== "win32") {
@@ -93,13 +95,23 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
         );
         return runTesseractOCR(imagePath, timeoutMs);
       }
-      return runPowerShellOCR(imagePath, timeoutMs);
+      // Explicit Windows engine: try PowerShell, fall back to Tesseract on failure
+      try {
+        return await runPowerShellOCR(imagePath, timeoutMs);
+      } catch (error) {
+        log?.warn?.(
+          "[RewardScanner] Windows OCR failed, falling back to Tesseract:",
+          normalizeErrorMessage(error),
+        );
+        return runTesseractOCR(imagePath, timeoutMs);
+      }
     }
 
     if (engine === engineTesseract) {
       return runTesseractOCR(imagePath, timeoutMs);
     }
 
+    // Auto mode: try Windows first, fall back to Tesseract
     let powerShellError: Error | null = null;
     if (process.platform === "win32") {
       try {

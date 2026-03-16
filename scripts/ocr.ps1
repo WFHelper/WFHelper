@@ -10,42 +10,75 @@ $null = [Windows.Media.Ocr.OcrEngine,        Windows.Media.Ocr,        ContentTy
 $null = [Windows.Graphics.Imaging.BitmapDecoder, Windows.Graphics.Imaging, ContentType=WindowsRuntime]
 $null = [Windows.Storage.StorageFile,         Windows.Storage,          ContentType=WindowsRuntime]
 $null = [Windows.Storage.Streams.IRandomAccessStream, Windows.Storage.Streams, ContentType=WindowsRuntime]
+$null = [Windows.Globalization.Language,      Windows.Globalization,    ContentType=WindowsRuntime]
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
 
-# Helper: synchronously await a WinRT IAsyncOperation
+# Helper: synchronously await a WinRT IAsyncOperation<T>.
+# Iterates all AsTask overloads with 1 parameter and tries MakeGenericMethod
+# on each — the first that succeeds is the correct generic overload.
+# This is robust across all .NET / PowerShell versions where
+# IsGenericMethodDefinition or GetGenericArguments() may behave unexpectedly.
 function Await {
     param([object]$WinRtTask, [type]$ResultType)
+
+    # Determine the generic type argument: prefer explicit $ResultType,
+    # fall back to inspecting the task's generic arguments
+    $typeArg = $ResultType
+    if ($null -eq $typeArg) {
+        $genericArgs = $WinRtTask.GetType().GetGenericArguments()
+        if ($genericArgs.Count -gt 0) {
+            $typeArg = $genericArgs[0]
+        }
+    }
+    if ($null -eq $typeArg) {
+        throw "Cannot determine result type for WinRT async operation"
+    }
+
     $methods = [System.WindowsRuntimeSystemExtensions].GetMethods() |
                Where-Object { $_.Name -eq "AsTask" -and $_.GetParameters().Count -eq 1 }
-    $asTask = $methods | Select-Object -First 1
-    $generic = $asTask.MakeGenericMethod($WinRtTask.GetType().GetGenericArguments()[0])
-    $task = $generic.Invoke($null, @($WinRtTask))
-    $task.Wait()
-    return $task.Result
+
+    foreach ($method in $methods) {
+        try {
+            $generic = $method.MakeGenericMethod($typeArg)
+            $task = $generic.Invoke($null, @($WinRtTask))
+            $task.Wait()
+            return $task.Result
+        } catch [System.InvalidOperationException] {
+            # Not a generic method or wrong generic arity — try next overload
+            continue
+        } catch [System.ArgumentException] {
+            # Type argument doesn't satisfy constraints — try next overload
+            continue
+        }
+    }
+
+    throw "No compatible AsTask overload found for $($WinRtTask.GetType().FullName)"
 }
 
 try {
     # Resolve absolute path (GetFileFromPathAsync requires absolute Windows path)
     $absPath = [System.IO.Path]::GetFullPath($ImagePath)
 
-    $storageFile = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($absPath))
-    $stream      = Await ($storageFile.OpenAsync([Windows.Storage.FileAccessMode]::Read))
-    $decoder     = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream))
-    $bitmap      = Await ($decoder.GetSoftwareBitmapAsync())
+    $storageFile = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($absPath)) ([Windows.Storage.StorageFile])
+    $stream      = Await ($storageFile.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream])
+    $decoder     = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])
+    $bitmap      = Await ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
 
-    # Use the system's default user language for OCR
-    $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
+    # Try English first — Warframe's riven stats are always in English
+    # regardless of the user's game language setting.  Using the English OCR
+    # model gives the best recognition accuracy for stat names.
+    $lang   = [Windows.Globalization.Language]::new("en")
+    $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($lang)
     if ($null -eq $engine) {
-        # Fallback: try English explicitly
-        $lang   = [Windows.Globalization.Language]::new("en")
-        $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($lang)
+        # Fallback: use system language if English pack is unavailable
+        $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
     }
     if ($null -eq $engine) {
         Write-Error "OCR engine unavailable"
         exit 1
     }
 
-    $result = Await ($engine.RecognizeAsync($bitmap))
+    $result = Await ($engine.RecognizeAsync($bitmap)) ([Windows.Media.Ocr.OcrResult])
     Write-Output $result.Text
 } catch {
     Write-Error $_.Exception.Message

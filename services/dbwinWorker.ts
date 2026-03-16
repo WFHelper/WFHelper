@@ -153,11 +153,16 @@ const uint8ArrayType = koffi.array("uint8", DBWIN_BUFFER_SIZE);
 // Everything else is discarded here in the Worker — no IPC overhead.
 // Lowercase to allow a single case-insensitive check without regex cost.
 const FILTER_SUBSTRINGS_LOWER = [
-  "loadingcompleteend",    // relic selection screen ready (primary trigger)
-  "populateinventorygrid", // relic selection screen ready (fallback trigger)
-  "dialog::sendresult",    // relic selection dialog closing
-  "pause countdown done",  // mission reward trigger
-  "got rewards",           // mission reward trigger
+  "loadingcompleteend",        // relic selection screen ready (primary trigger)
+  "populateinventorygrid",     // relic selection screen ready (fallback trigger)
+  "dialog::sendresult",        // relic/riven dialog closing
+  "pause countdown done",      // mission reward trigger
+  "got rewards",               // mission reward trigger
+  "omegarerollselection.swf",  // riven rolling screen opened
+  "dialog::createokcancel",    // riven cycle confirm / choice confirm
+  "tradingpost.lua",           // trade partner detection
+  "you are offering",          // trade dialog buffering start
+  "the trade was successful",  // trade dialog success
 ] as const;
 
 // ---------------------------------------------------------------------------

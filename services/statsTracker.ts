@@ -303,8 +303,9 @@ export function getHistory(): DailyStatEntry[] {
  *
  * Expects entries that are already normalised to deltas (the StatsView renderer
  * pre-processes AlecaFrame's absolute values into deltas before calling this).
- * Existing local entries for the same date are preserved.
- * Returns the count of newly merged entries.
+ * Existing local entries for the same date are **overwritten** by the imported data,
+ * except for today's live-tracked entry which is always preserved.
+ * Returns the count of newly added or updated entries.
  */
 export function importHistory(raw: unknown[]): number {
   let imported = 0;

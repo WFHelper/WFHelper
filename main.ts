@@ -135,6 +135,10 @@ function createWindow(): void {
   ctx.mainWindow.on("closed", () => {
     ctx.mainWindow = null;
     if (ctx.overlayWindow && !ctx.overlayWindow.isDestroyed()) ctx.overlayWindow.destroy();
+    if (ctx.rivenOverlayLeftWindow && !ctx.rivenOverlayLeftWindow.isDestroyed())
+      ctx.rivenOverlayLeftWindow.destroy();
+    if (ctx.rivenOverlayRightWindow && !ctx.rivenOverlayRightWindow.isDestroyed())
+      ctx.rivenOverlayRightWindow.destroy();
     app.quit();
   });
 }
@@ -265,6 +269,12 @@ app.whenReady().then(async () => {
     onRelicSelectionOpen: () => overlayIpc.onRelicSelectionTrigger("eelog"),
     onRelicSelectionClose: () => overlayIpc.onRelicSelectionClose(),
     onTradeConfirmed: (trade) => tradeTracker.recordTradeFromLog(trade),
+    onRivenSessionOpen: () => overlayIpc.onRivenSessionOpen(),
+    onRivenSessionClose: () => overlayIpc.onRivenSessionClose(),
+    onRivenRollPending: (weapon: string, cost: number) =>
+      overlayIpc.onRivenRollPending(weapon, cost),
+    onRivenRollConfirmed: () => overlayIpc.onRivenRollConfirmed(),
+    onRivenChoiceConfirmed: () => overlayIpc.onRivenChoiceConfirmed(),
   });
   if (eeLogPath) log.log("[EELog] Monitoring:", eeLogPath);
   else log.log("[EELog] EE.log not found - relic overlay trigger disabled");

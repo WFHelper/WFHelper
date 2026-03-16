@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none';"
+    />
+    <title>Riven Overlay</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="riven-overlay.css" />
+  </head>
+  <body>
+    <!-- Each window is one panel (left=current or right=new roll).
+         The ?side= query parameter determines which data this window displays. -->
+    <div id="panel">
+      <div id="header">
+        <div id="header-left">
+          <div id="panel-label">CURRENT</div>
+          <div id="weapon-name">&mdash;</div>
+        </div>
+        <div id="header-right">
+          <div id="roll-badge">Roll 0</div>
+          <button id="btn-close" title="Close">&times;</button>
+        </div>
+      </div>
+
+      <div id="scanning-state">
+        <div class="scan-spinner"></div>
+        <div id="scanning-text">Scanning...</div>
+      </div>
+
+      <div id="stats-container" class="is-hidden">
+        <div id="stats-list"></div>
+      </div>
+
+      <div id="error-banner">Stats not detected</div>
+
+      <div id="interaction-hint" class="is-hidden">Press Ctrl + Tab to interact</div>
+    </div>
+    <script src="riven-overlay.js"></script>
+  </body>
+</html>

@@ -14,6 +14,7 @@ const { normalizeErrorMessage } = runtimeRequire<{
 
 const MAIN_RENDERER_SUFFIX = path.normalize(path.join("renderer", "dist", "index.html"));
 const OVERLAY_RENDERER_SUFFIX = path.normalize(path.join("renderer", "overlay.html"));
+const RIVEN_OVERLAY_RENDERER_SUFFIX = path.normalize(path.join("renderer", "riven-overlay.html"));
 const CROP_DEBUG_RENDERER_SUFFIX = path.normalize(path.join("renderer", "crop-debug.html"));
 
 type IpcEventLike = {
@@ -115,6 +116,20 @@ function assertOverlayRendererSender(event: IpcEventLike, _channel: string): voi
       }
     : null;
 
+  const rivenLeftWindow = ctx.rivenOverlayLeftWindow
+    ? {
+        isDestroyed: () => ctx.rivenOverlayLeftWindow?.isDestroyed() ?? true,
+        webContents: { id: ctx.rivenOverlayLeftWindow.webContents.id },
+      }
+    : null;
+
+  const rivenRightWindow = ctx.rivenOverlayRightWindow
+    ? {
+        isDestroyed: () => ctx.rivenOverlayRightWindow?.isDestroyed() ?? true,
+        webContents: { id: ctx.rivenOverlayRightWindow.webContents.id },
+      }
+    : null;
+
   try {
     assertWindowSender(event, rewardWindow, OVERLAY_RENDERER_SUFFIX);
     return;
@@ -122,7 +137,46 @@ function assertOverlayRendererSender(event: IpcEventLike, _channel: string): voi
     // fallback to planner window check
   }
 
-  assertWindowSender(event, plannerWindow, OVERLAY_RENDERER_SUFFIX);
+  try {
+    assertWindowSender(event, plannerWindow, OVERLAY_RENDERER_SUFFIX);
+    return;
+  } catch {
+    // fallback to riven window check
+  }
+
+  try {
+    assertWindowSender(event, rivenLeftWindow, RIVEN_OVERLAY_RENDERER_SUFFIX);
+    return;
+  } catch {
+    // try right riven window
+  }
+
+  assertWindowSender(event, rivenRightWindow, RIVEN_OVERLAY_RENDERER_SUFFIX);
+}
+
+function assertRivenOverlayRendererSender(event: IpcEventLike, _channel: string): void {
+  const leftWin = ctx.rivenOverlayLeftWindow
+    ? {
+        isDestroyed: () => ctx.rivenOverlayLeftWindow?.isDestroyed() ?? true,
+        webContents: { id: ctx.rivenOverlayLeftWindow.webContents.id },
+      }
+    : null;
+
+  const rightWin = ctx.rivenOverlayRightWindow
+    ? {
+        isDestroyed: () => ctx.rivenOverlayRightWindow?.isDestroyed() ?? true,
+        webContents: { id: ctx.rivenOverlayRightWindow.webContents.id },
+      }
+    : null;
+
+  // Accept either riven window as a valid sender
+  try {
+    assertWindowSender(event, leftWin, RIVEN_OVERLAY_RENDERER_SUFFIX);
+    return;
+  } catch {
+    // try right window
+  }
+  assertWindowSender(event, rightWin, RIVEN_OVERLAY_RENDERER_SUFFIX);
 }
 
 function assertCropDebugRendererSender(event: IpcEventLike, _channel: string): void {
@@ -172,6 +226,7 @@ function isAuthorizedSender(
 export {
   assertMainRendererSender,
   assertOverlayRendererSender,
+  assertRivenOverlayRendererSender,
   assertCropDebugRendererSender,
   assertAuthorizedSender,
   isAuthorizedSender,
@@ -180,6 +235,7 @@ export {
 export const __test__ = {
   MAIN_RENDERER_SUFFIX,
   OVERLAY_RENDERER_SUFFIX,
+  RIVEN_OVERLAY_RENDERER_SUFFIX,
   CROP_DEBUG_RENDERER_SUFFIX,
   getSenderUrl,
   senderHasAllowedFileSuffix,

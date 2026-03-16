@@ -158,6 +158,7 @@
       let tradeMsg = "";
       if (rawTrades.length > 0) {
         const importedTrades: TradeEvent[] = [];
+        let tradeIdx = 0;
         for (const entry of rawTrades) {
           if (!entry || typeof entry !== "object") continue;
           const t = entry as Record<string, unknown>;
@@ -167,6 +168,8 @@
 
           const afType = typeof t.type === "number" ? t.type : -1;
           // 0 = sale (sent items, received plat), 1 = purchase (sent plat, received items), 2 = gift
+          // Skip gifts — they don't involve platinum exchange and don't fit sale/purchase model
+          if (afType === 2) continue;
           const tradeType: "sale" | "purchase" = afType === 1 ? "purchase" : "sale";
           const totalPlat = typeof t.totalPlat === "number" ? t.totalPlat : 0;
 
@@ -199,7 +202,7 @@
             });
           }
 
-          const id = `af-${ts}-${totalPlat}-${partner}`;
+          const id = `af-${ts}-${totalPlat}-${partner}-${tradeIdx++}`;
           importedTrades.push({
             id,
             date: ts,
@@ -379,7 +382,7 @@
       const rawAbs = slice.map((e) => (e[absField] as number | undefined) ?? undefined);
       const validAbs = rawAbs.filter((v): v is number => v !== undefined);
       hasAbsData = validAbs.length > 0;
-      absValues = rawAbs.map((v) => v ?? 0);
+      absValues = rawAbs.map((v) => v ?? NaN);
       if (validAbs.length >= 2) {
         const minV = Math.min(...validAbs);
         const maxV = Math.max(...validAbs);
@@ -435,7 +438,7 @@
       const bar = bars[barIdx];
       const sign = bar.value >= 0 ? "+" : "−";
       let text = `${shortDate(bar.date)}  ${sign}${formatters[key](Math.abs(bar.value))}`;
-      if (showValue && absVals && absVals[barIdx]) {
+      if (showValue && absVals && barIdx < absVals.length && !Number.isNaN(absVals[barIdx])) {
         text += `  (${formatters[key](absVals[barIdx])})`;
       }
       tooltip = { text, x: e.clientX, y: e.clientY };
@@ -463,7 +466,7 @@
 
   /** Compute Y-axis tick labels for the expanded value line view. */
   function absYAxisTicks(absVals: number[], key: ChartKey, count: number = 5): Array<{ label: string; frac: number }> {
-    const valid = absVals.filter((v) => v !== 0 && v !== undefined);
+    const valid = absVals.filter((v) => !Number.isNaN(v));
     if (valid.length < 2) return [];
     const minV = Math.min(...valid);
     const maxV = Math.max(...valid);
@@ -698,6 +701,7 @@
                     aria-label="Expand {$tr(labelKey)} chart"
                   >⛶</button>
                 </div>
+                <div class="chart-svg-wrap">
                 <svg
                   class="stats-chart-svg"
                   viewBox="0 0 {SVG_W} {BAR_H}"
@@ -731,16 +735,17 @@
                       stroke-linecap="round"
                       vector-effect="non-scaling-stroke"
                     />
-                    {#each cd.absLine as pt}
-                      <circle cx={pt.x} cy={pt.y} r="2.5"
-                        fill="var(--bg-surface, #1a1d2e)"
-                        stroke="rgba(255,255,255,0.7)"
-                        stroke-width="1.5"
-                        vector-effect="non-scaling-stroke"
-                      />
-                    {/each}
                   {/if}
                 </svg>
+                <!-- HTML dot overlay: positioned with percentages to avoid SVG distortion -->
+                {#if showValue && cd.absLine}
+                  <div class="chart-dot-overlay">
+                    {#each cd.absLine as pt}
+                      <span class="chart-dot" style="left:{pt.x / SVG_W * 100}%; top:{pt.y / BAR_H * 100}%"></span>
+                    {/each}
+                  </div>
+                {/if}
+                </div><!-- /chart-svg-wrap -->
                 {#if cd.bars.length > 0}
                   <div class="chart-dates-row">
                     {#each cd.bars as bar, i}
@@ -795,8 +800,9 @@
               {#if trades.length === 0}
                 <p class="trade-empty-title">No trades recorded yet</p>
                 <p class="trade-empty-sub">
-                  Trades are detected automatically when your platinum and items change
-                  together in-game. Start playing with the app running to begin tracking.
+                  Trades are detected automatically from your game log when you accept a trade
+                  in-game. Keep the app running while playing to begin tracking, or import
+                  AlecaFrame data using the button above.
                 </p>
               {:else}
                 <p class="trade-empty-title">No matching trades</p>
@@ -863,7 +869,8 @@
   .stats-left {
     flex: 1;
     min-width: 0;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     padding: var(--space-4, 1rem);
     display: flex;
     flex-direction: column;
@@ -1078,12 +1085,34 @@
     color: var(--accent, #d4a843);
   }
 
-  .stats-chart-svg {
+  .chart-svg-wrap {
     flex: 1;
+    min-height: 0;
+    position: relative;
+  }
+
+  .stats-chart-svg {
     width: 100%;
+    height: 100%;
     min-height: 40px;
     display: block;
     cursor: crosshair;
+  }
+
+  .chart-dot-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .chart-dot {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--bg-surface, #1a1d2e);
+    border: 1.5px solid rgba(255, 255, 255, 0.7);
+    transform: translate(-50%, -50%);
   }
 
   :global(.stats-chart-svg .bar-pos) {

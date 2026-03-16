@@ -1,0 +1,272 @@
+:root {
+  --bg: color-mix(in oklab, var(--bg-deep, #060a12) 97%, transparent);
+  --surface: color-mix(in oklab, var(--bg-surface, #111827) 94%, transparent);
+  --raised: color-mix(in oklab, var(--bg-raised, #162340) 94%, transparent);
+  --border: color-mix(in oklab, var(--border-strong, rgba(79, 158, 255, 0.25)) 80%, transparent);
+  --accent: var(--accent, #4f9eff);
+  --accent-bright: var(--accent-bright, #7db8ff);
+  --accent-dim: var(--accent-dim, #2d6abf);
+  --accent-glow: var(--accent-glow, rgba(79, 158, 255, 0.15));
+  --text: var(--text-primary, #e8edf5);
+  --muted: var(--text-secondary, #a0aec0);
+  --text-dim: var(--text-muted, #5a6a82);
+  --ok: var(--success, #48c774);
+  --warn: var(--warning, #f5a623);
+  --bad: var(--danger, #ff5a5a);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background: transparent;
+  font-family: var(--font-body, "Barlow", "Segoe UI", system-ui, sans-serif);
+  font-size: var(--font-body-size, 0.82rem);
+  color: var(--text);
+  height: 100%;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Panel container ──────────────────────────────────────────────────────── */
+
+#panel {
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.72);
+}
+
+/* "New Roll" panel variant */
+#panel.is-new {
+  border-color: color-mix(in oklab, var(--accent) 55%, transparent);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.72),
+    0 0 0 1px color-mix(in oklab, var(--accent) 18%, transparent);
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+#header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+#panel-label {
+  font-family: var(--font-display, "Rajdhani", "Segoe UI", system-ui, sans-serif);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+#panel.is-new #panel-label {
+  color: var(--accent);
+}
+
+#weapon-name {
+  font-family: var(--font-display, "Rajdhani", "Segoe UI", system-ui, sans-serif);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+#header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+#roll-badge {
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-bright);
+  white-space: nowrap;
+}
+
+#btn-close {
+  -webkit-app-region: no-drag;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+#btn-close.is-hidden {
+  display: none;
+}
+
+#btn-close:hover {
+  color: var(--bad);
+  background: rgba(255, 90, 90, 0.1);
+}
+
+/* ── Scanning spinner ─────────────────────────────────────────────────────── */
+
+#scanning-state {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 18px 14px;
+  min-height: 52px;
+}
+
+#scanning-state.visible {
+  display: flex;
+}
+
+.scan-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid color-mix(in oklab, var(--accent) 22%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.85s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+#scanning-text {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+/* ── Stats list ───────────────────────────────────────────────────────────── */
+
+#stats-container {
+  flex: 1 1 auto;
+  padding: 8px 0;
+}
+
+#stats-container.is-hidden {
+  display: none;
+}
+
+#stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  padding: 5px 14px;
+  gap: 10px;
+}
+
+.stat-row:hover {
+  background: color-mix(in oklab, var(--accent) 4%, transparent);
+}
+
+.stat-value {
+  font-family: var(--font-display, "Rajdhani", "Segoe UI", system-ui, sans-serif);
+  font-size: 16px;
+  font-weight: 700;
+  min-width: 82px;
+  text-align: right;
+  letter-spacing: -0.3px;
+  flex-shrink: 0;
+}
+
+.stat-value.pos { color: var(--ok); }
+.stat-value.neg { color: var(--bad); }
+
+.stat-name {
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat-empty {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  font-style: italic;
+  padding: 12px 14px;
+  text-align: center;
+}
+
+/* ── Error banner ─────────────────────────────────────────────────────────── */
+
+#error-banner {
+  display: none;
+  margin: 8px 14px;
+  border: 1px solid color-mix(in oklab, var(--warn) 42%, transparent);
+  background: color-mix(in oklab, var(--warn) 10%, transparent);
+  color: var(--warn);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 10.5px;
+  text-align: center;
+}
+
+#error-banner.visible {
+  display: block;
+}
+
+/* ── Interaction hint ─────────────────────────────────────────────────────── */
+
+#interaction-hint {
+  text-align: center;
+  font-size: 9.5px;
+  color: var(--text-dim);
+  padding: 5px 10px 7px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+#interaction-hint.is-hidden {
+  display: none;
+}
+
+/* ── Utility ──────────────────────────────────────────────────────────────── */
+
+.is-hidden {
+  display: none !important;
+}

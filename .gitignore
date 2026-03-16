@@ -24,3 +24,6 @@ api-inventory-data/
 # Local cache / prewarm helper artifacts
 ranked-hotset.json
 order-summary-hotset*.json
+
+# Riven OCR debug output (test images + enhanced crops)
+riven-ocr-debug/

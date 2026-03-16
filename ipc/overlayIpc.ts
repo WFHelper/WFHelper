@@ -4,12 +4,15 @@ import {
   assertCropDebugRendererSender,
   assertMainRendererSender,
   assertOverlayRendererSender,
+  assertRivenOverlayRendererSender,
   isAuthorizedSender,
 } from "./ipcSecurity";
 import { createOverlayScanController } from "./overlay/scan";
 import { createRelicSelectionController } from "./overlay/relicSelection";
 import { createOverlaySettingsController } from "./overlay/settings";
 import { createOverlayWindowsController } from "./overlay/windows";
+import * as rivenSession from "./overlay/rivenSession";
+import * as rivenScan from "./overlay/rivenScan";
 import { createRuntimeRequire } from "./runtimeRequire";
 import { withScope } from "../services/logger";
 import * as relicService from "../services/relicService";
@@ -49,6 +52,7 @@ const PRICE_CACHE_FILE = path.join(app.getPath("userData"), "price-cache.json");
 const APP_ROOT = app.getAppPath();
 const OVERLAY_WINDOW_FILE = path.join(APP_ROOT, "renderer", "overlay.html");
 const PLANNER_WINDOW_FILE = path.join(APP_ROOT, "renderer", "overlay.html");
+const RIVEN_WINDOW_FILE = path.join(APP_ROOT, "renderer", "riven-overlay.html");
 const CROP_DEBUG_WINDOW_FILE = path.join(APP_ROOT, "renderer", "crop-debug.html");
 
 const rewardWindowsController = createOverlayWindowsController({
@@ -83,6 +87,276 @@ const plannerWindowsController = createOverlayWindowsController({
   windowWidth: 460,
   windowHeight: 320,
 });
+
+// ── Riven overlay windows (left = current, right = new roll) ─────────────────
+
+let _rivenInteractive = false;
+
+const RIVEN_WIN_W = 360;
+const RIVEN_WIN_H = 420;
+
+/** Returns both riven windows as an array for broadcasting IPC events. */
+function getRivenWindows(): (InstanceType<typeof BrowserWindow> | null)[] {
+  return [ctx.rivenOverlayLeftWindow, ctx.rivenOverlayRightWindow];
+}
+
+/** Run a callback on each live riven window. */
+function forEachRivenWindow(fn: (win: InstanceType<typeof BrowserWindow>) => void): void {
+  for (const win of getRivenWindows()) {
+    if (win && !win.isDestroyed()) fn(win);
+  }
+}
+
+function toggleRivenInteractiveMode(): void {
+  _rivenInteractive = !_rivenInteractive;
+  forEachRivenWindow((win) => {
+    if (_rivenInteractive) {
+      win.setIgnoreMouseEvents(false);
+      win.setFocusable(true);
+      win.moveTop();
+      win.focus();
+    } else {
+      win.setIgnoreMouseEvents(true);
+      win.moveTop();
+      win.showInactive();
+    }
+    win.webContents.send("overlay-interaction-mode", { interactive: _rivenInteractive });
+  });
+}
+
+function createSingleRivenWindow(
+  side: "left" | "right",
+  x: number,
+  y: number,
+  options: { show?: boolean },
+): InstanceType<typeof BrowserWindow> {
+  const preloadPath = path.join(app.getAppPath(), ".electron-build", "preload-riven.js");
+  const win = new BrowserWindow({
+    width: RIVEN_WIN_W,
+    height: RIVEN_WIN_H,
+    x,
+    y,
+    show: false,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    focusable: true,
+    hasShadow: false,
+    webPreferences: {
+      preload: preloadPath,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+
+  hardenBrowserWindowNavigation(win, {
+    label: `riven overlay ${side} window`,
+    allowedFilePaths: [RIVEN_WINDOW_FILE],
+    log,
+  });
+
+  void win.loadFile(RIVEN_WINDOW_FILE, { search: `side=${side}` });
+  win.setAlwaysOnTop(true, "screen-saver");
+  win.moveTop();
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  // No { forward: true } — forwarding mouse events through a message hook
+  // can cause DWM/GPU stalls when combined with fullscreen DirectX games.
+  // The riven panels are positioned at screen edges, away from game UI.
+  win.setIgnoreMouseEvents(true);
+
+  if (options.show !== false) win.showInactive();
+
+  return win;
+}
+
+function createRivenOverlayWindows(options: { show?: boolean } = {}): void {
+  // If both already exist, just bring them to front
+  const existLeft = ctx.rivenOverlayLeftWindow;
+  const existRight = ctx.rivenOverlayRightWindow;
+  if (existLeft && !existLeft.isDestroyed() && existRight && !existRight.isDestroyed()) {
+    forEachRivenWindow((win) => {
+      win.setAlwaysOnTop(true, "screen-saver");
+      win.moveTop();
+      if (options.show !== false) win.showInactive();
+    });
+    return;
+  }
+
+  const display = screen.getPrimaryDisplay();
+  const { x: dx, y: dy, width: dw } = display.workArea;
+  const PAD = 16;
+
+  // Destroy stale windows
+  if (existLeft && !existLeft.isDestroyed()) existLeft.destroy();
+  if (existRight && !existRight.isDestroyed()) existRight.destroy();
+
+  _rivenInteractive = false;
+
+  // Left panel at top-left edge
+  const leftWin = createSingleRivenWindow("left", dx + PAD, dy + 8, options);
+  ctx.rivenOverlayLeftWindow = leftWin;
+  leftWin.on("closed", () => {
+    ctx.rivenOverlayLeftWindow = null;
+  });
+
+  // Right panel at top-right edge
+  const rightWin = createSingleRivenWindow("right", dx + dw - RIVEN_WIN_W - PAD, dy + 8, options);
+  ctx.rivenOverlayRightWindow = rightWin;
+  rightWin.on("closed", () => {
+    ctx.rivenOverlayRightWindow = null;
+  });
+}
+
+// Tracks whether the current session has produced at least one roll result.
+let _rivenHasRollResult = false;
+
+// OCR scan timers — scans run after a short delay to let the UI animate.
+let _rivenInitialScanTimer: ReturnType<typeof setTimeout> | null = null;
+let _rivenRollScanTimer: ReturnType<typeof setTimeout> | null = null;
+
+// Delay before OCR scan (ms) — gives the riven card animation time to settle.
+// INITIAL: The riven card is already visible when OmegaRerollSelection.swf loads;
+// a short delay is enough for the UI to finish rendering.
+// ROLL: The roll animation is slow (card flip, particle effects) — needs a generous delay.
+// CHOICE_RESCAN: After the "Cycle Riven into current selection?" confirm, the game
+// quickly transitions back to the single-card view — shorter delay than a full roll.
+const INITIAL_SCAN_DELAY_MS = 800;
+const ROLL_SCAN_DELAY_MS = 3000;
+const CHOICE_RESCAN_DELAY_MS = 1200;
+
+// Last known stats for choice detection (old vs new)
+let _rivenInitialStats: rivenScan.RivenStat[] = [];
+let _rivenNewRollStats: rivenScan.RivenStat[] = [];
+
+function clearRivenScanTimers(): void {
+  if (_rivenInitialScanTimer) { clearTimeout(_rivenInitialScanTimer); _rivenInitialScanTimer = null; }
+  if (_rivenRollScanTimer) { clearTimeout(_rivenRollScanTimer); _rivenRollScanTimer = null; }
+}
+
+function triggerInitialScan(): void {
+  if (_rivenInitialScanTimer) clearTimeout(_rivenInitialScanTimer);
+  _rivenInitialScanTimer = setTimeout(async () => {
+    _rivenInitialScanTimer = null;
+    try {
+      const stats = await rivenScan.scanInitialCard();
+      _rivenInitialStats = stats;
+      if (stats.length > 0) {
+        rivenSession.onInitialStats(getRivenWindows(), stats);
+      }
+    } catch (err) {
+      log.warn("[RivenScan] initial scan failed:", String(err));
+    }
+  }, INITIAL_SCAN_DELAY_MS);
+}
+
+function triggerRollScan(): void {
+  if (_rivenRollScanTimer) clearTimeout(_rivenRollScanTimer);
+  _rivenRollScanTimer = setTimeout(async () => {
+    _rivenRollScanTimer = null;
+    try {
+      const stats = await rivenScan.scanNewRoll();
+      _rivenNewRollStats = stats;
+      if (stats.length > 0) {
+        _rivenHasRollResult = true;
+        // Send as a roll result — left side is the initial stats we already have,
+        // right side is the newly scanned roll
+        rivenSession.onRollResult(getRivenWindows(), {
+          left: _rivenInitialStats,
+          right: stats,
+        });
+      }
+    } catch (err) {
+      log.warn("[RivenScan] roll scan failed:", String(err));
+    }
+  }, ROLL_SCAN_DELAY_MS);
+}
+
+// triggerChoiceScan was removed — determining which side was chosen via OCR required
+// a second full OCR pass (4-6s) on top of the roll scan, causing severe lag after
+// pressing CONFIRM.  We don't actually need to know which side was kept: we always
+// re-scan the single card that the game shows after the choice, which gives us the
+// accurate current stats regardless of which side was selected.
+
+// ── Exported riven callbacks (wired from main.ts via eeLogMonitor) ─────────────
+
+export function onRivenSessionClose(): void {
+  log.log("[OverlayRoute] trigger=riven-session-close");
+  stopEscMonitor();
+  clearRivenScanTimers();
+  _rivenHasRollResult = false;
+  _rivenInitialStats = [];
+  _rivenNewRollStats = [];
+  _rivenInteractive = false;
+  rivenSession.endSession(getRivenWindows());
+  forEachRivenWindow((win) => win.hide());
+}
+
+export function onRivenSessionOpen(): void {
+  log.log("[OverlayRoute] trigger=riven-session");
+  _rivenHasRollResult = false;
+  _rivenInitialStats = [];
+  _rivenNewRollStats = [];
+  createRivenOverlayWindows({ show: true });
+  // Start (or restart) the session — resets roll count, clears panels.
+  // Weapon name is "Riven" placeholder until the first cycle dialog reveals it.
+  rivenSession.startSession(getRivenWindows(), "Riven", 0);
+  if (ctx.overlayThemeVars && Object.keys(ctx.overlayThemeVars).length > 0) {
+    const vars = { ...ctx.overlayThemeVars };
+    forEachRivenWindow((win) => win.webContents.send("overlay-theme-vars", vars));
+  }
+  // ESC key closes the riven overlay — uses the same low-level keyboard hook
+  // as the relic recommendation overlay (uiohook-napi).
+  startEscMonitor(() => onRivenSessionClose());
+  triggerInitialScan();
+}
+
+export function onRivenRollPending(weapon: string, kuvaPerRoll: number): void {
+  _rivenHasRollResult = false;
+  // Update weapon name from the cycle dialog text (first time we learn it).
+  // Don't call startSession — that would reset the roll count and wipe
+  // the stats that the initial scan already populated.
+  if (weapon) {
+    forEachRivenWindow((win) => {
+      if (!win.isDestroyed()) win.webContents.send("riven-weapon-update", weapon);
+    });
+  }
+}
+
+export function onRivenRollConfirmed(): void {
+  rivenSession.onRollConfirmed(getRivenWindows());
+  triggerRollScan();
+}
+
+export function onRivenChoiceConfirmed(): void {
+  // Cancel any in-flight scan timers (e.g. a roll scan that started just before
+  // the user pressed CONFIRM very quickly).  Without this, a stale timer could
+  // fire after the choice and overwrite the right panel with old roll data.
+  clearRivenScanTimers();
+  _rivenHasRollResult = false;
+  _rivenNewRollStats = [];
+
+  // Tell the renderer immediately: choice was made, reset the right panel.
+  rivenSession.onChoiceMade(getRivenWindows(), "unknown");
+
+  // Re-scan the single card the game now shows — uses a center-only crop
+  // to avoid capturing stale two-card transition text at screen edges.
+  if (_rivenInitialScanTimer) clearTimeout(_rivenInitialScanTimer);
+  _rivenInitialScanTimer = setTimeout(async () => {
+    _rivenInitialScanTimer = null;
+    try {
+      const stats = await rivenScan.scanChoiceRescan();
+      _rivenInitialStats = stats;
+      if (stats.length > 0) {
+        rivenSession.onInitialStats(getRivenWindows(), stats);
+      }
+    } catch (err) {
+      log.warn("[RivenScan] choice rescan failed:", String(err));
+    }
+  }, CHOICE_RESCAN_DELAY_MS);
+}
 
 function pushOverlayInteractionMode(): void {
   const payload = {
@@ -133,18 +407,34 @@ function toggleOverlayInteractionMode(source = "unknown"): void {
   const rewardWindow =
     ctx.overlayWindow && !ctx.overlayWindow.isDestroyed() ? ctx.overlayWindow : null;
 
+  // Check if any riven window is visible
+  const rivenLeftWindow =
+    ctx.rivenOverlayLeftWindow && !ctx.rivenOverlayLeftWindow.isDestroyed()
+      ? ctx.rivenOverlayLeftWindow
+      : null;
+  const anyRivenVisible =
+    (rivenLeftWindow && rivenLeftWindow.isVisible()) ||
+    (ctx.rivenOverlayRightWindow && !ctx.rivenOverlayRightWindow.isDestroyed() && ctx.rivenOverlayRightWindow.isVisible());
+
   // Only consider a window "active" if it is currently visible.
   const activeWindow =
     plannerWindow && plannerWindow.isVisible()
       ? plannerWindow
       : rewardWindow && rewardWindow.isVisible()
         ? rewardWindow
-        : null;
+        : anyRivenVisible
+          ? rivenLeftWindow
+          : null;
 
   if (!activeWindow) {
     // Nothing is visible — do nothing. This prevents the reward overlay from
     // appearing unexpectedly when Ctrl+Tab is pressed after closing the planner.
     return;
+  }
+
+  // If any riven overlay is visible, toggle interactive mode on both riven windows.
+  if (anyRivenVisible) {
+    toggleRivenInteractiveMode();
   }
 
   setOverlayInteractionMode(!ctx.overlayInteractiveMode, source);
@@ -226,6 +516,7 @@ function pushOverlayThemeVars() {
   const vars = { ...ctx.overlayThemeVars };
   rewardWindowsController.sendOverlayEvent("overlay-theme-vars", vars);
   plannerWindowsController.sendOverlayEvent("overlay-theme-vars", vars);
+  forEachRivenWindow((win) => win.webContents.send("overlay-theme-vars", vars));
 }
 
 function onRelicRewardTrigger(source = "manual") {
@@ -335,6 +626,26 @@ function register(): void {
     if (ctx.overlayWindow && !ctx.overlayWindow.isDestroyed()) {
       ctx.overlayWindow.hide();
     }
+  });
+
+  ipcMain.on("riven-overlay-close", (event: unknown) => {
+    if (
+      !isAuthorizedSender(
+        assertRivenOverlayRendererSender,
+        event as never,
+        "riven-overlay-close",
+      )
+    ) {
+      return;
+    }
+    stopEscMonitor();
+    clearRivenScanTimers();
+    _rivenInteractive = false;
+    _rivenHasRollResult = false;
+    _rivenInitialStats = [];
+    _rivenNewRollStats = [];
+    rivenSession.endSession(getRivenWindows());
+    forEachRivenWindow((win) => win.hide());
   });
 
   ipcMain.on("crop-debug-close", (event: unknown) => {

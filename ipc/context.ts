@@ -13,6 +13,8 @@ type OverlayThemeVars = Record<string, string>;
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
 let plannerOverlayWindow: BrowserWindow | null = null;
+let rivenOverlayLeftWindow: BrowserWindow | null = null;
+let rivenOverlayRightWindow: BrowserWindow | null = null;
 let cropDebugWindow: BrowserWindow | null = null;
 let currentInventoryPath: string | null = null;
 let currentInventoryData: InventoryData = null;
@@ -45,6 +47,20 @@ const ctx = {
   },
   set plannerOverlayWindow(v: BrowserWindow | null) {
     plannerOverlayWindow = v;
+  },
+
+  get rivenOverlayLeftWindow() {
+    return rivenOverlayLeftWindow;
+  },
+  set rivenOverlayLeftWindow(v: BrowserWindow | null) {
+    rivenOverlayLeftWindow = v;
+  },
+
+  get rivenOverlayRightWindow() {
+    return rivenOverlayRightWindow;
+  },
+  set rivenOverlayRightWindow(v: BrowserWindow | null) {
+    rivenOverlayRightWindow = v;
   },
 
   get cropDebugWindow() {
