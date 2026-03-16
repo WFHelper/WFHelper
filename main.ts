@@ -275,6 +275,7 @@ app.whenReady().then(async () => {
       overlayIpc.onRivenRollPending(weapon, cost),
     onRivenRollConfirmed: () => overlayIpc.onRivenRollConfirmed(),
     onRivenChoiceConfirmed: () => overlayIpc.onRivenChoiceConfirmed(),
+    onRivenChatView: () => overlayIpc.onRivenChatView(),
   });
   if (eeLogPath) log.log("[EELog] Monitoring:", eeLogPath);
   else log.log("[EELog] EE.log not found - relic overlay trigger disabled");

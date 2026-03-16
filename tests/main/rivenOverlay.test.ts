@@ -127,6 +127,45 @@ describe("RIVEN_PATTERNS", () => {
       expect(RIVEN_PATTERNS.sendResult.test("Some other log line")).toBe(false);
     });
   });
+
+  describe("sessionClose", () => {
+    it("matches NpcManager::ClearAgents line", () => {
+      const line = "NpcManager::ClearAgents() ReadyToCreateAgents = false";
+      expect(RIVEN_PATTERNS.sessionClose.test(line)).toBe(true);
+    });
+
+    it("does not match ReadyToCreateAgents = true", () => {
+      expect(
+        RIVEN_PATTERNS.sessionClose.test("NpcManager::ClearAgents() ReadyToCreateAgents = true"),
+      ).toBe(false);
+    });
+  });
+
+  describe("chatRivenView", () => {
+    it("matches HudVis 1 (chat riven opened)", () => {
+      const line = "ThemedDetailedPurchaseDialog.lua: DBG: HudVis 1";
+      expect(RIVEN_PATTERNS.chatRivenView.test(line)).toBe(true);
+    });
+
+    it("does not match HudVis 0 (chat riven closed)", () => {
+      expect(
+        RIVEN_PATTERNS.chatRivenView.test("ThemedDetailedPurchaseDialog.lua: DBG: HudVis 0"),
+      ).toBe(false);
+    });
+  });
+
+  describe("chatRivenClose", () => {
+    it("matches HudVis 0 (chat riven closed)", () => {
+      const line = "ThemedDetailedPurchaseDialog.lua: DBG: HudVis 0";
+      expect(RIVEN_PATTERNS.chatRivenClose.test(line)).toBe(true);
+    });
+
+    it("does not match HudVis 1 (chat riven opened)", () => {
+      expect(
+        RIVEN_PATTERNS.chatRivenClose.test("ThemedDetailedPurchaseDialog.lua: DBG: HudVis 1"),
+      ).toBe(false);
+    });
+  });
 });
 
 // ── parseRivenStats tests ─────────────────────────────────────────────────────

@@ -85,6 +85,10 @@ export const RIVEN_PATTERNS = {
   // NpcManager::ClearAgents fires when the player closes / leaves the riven
   // cycling screen.  Used to close the overlay.
   sessionClose: /NpcManager::ClearAgents\(\) ReadyToCreateAgents = false/,
+  // Fires when a player clicks a riven mod link in chat — opens a read-only preview.
+  chatRivenView: /ThemedDetailedPurchaseDialog\.lua: DBG: HudVis 1/,
+  // Fires when the chat riven preview dialog closes.
+  chatRivenClose: /ThemedDetailedPurchaseDialog\.lua: DBG: HudVis 0/,
   // English-only patterns — used to extract weapon name and kuva cost when available.
   // Non-English games fall back to the generic dialog detection below.
   cycleConfirmEn:
@@ -100,6 +104,8 @@ export const RIVEN_PATTERNS = {
 
 let rivenSessionOpenCallback: (() => void) | null = null;
 let rivenSessionCloseCallback: (() => void) | null = null;
+let rivenChatViewCallback: (() => void) | null = null;
+let _rivenChatViewActive = false;
 let rivenRollPendingCallback: ((weapon: string, kuvaPerRoll: number) => void) | null = null;
 let rivenRollConfirmedCallback: (() => void) | null = null;
 let rivenChoiceConfirmedCallback: (() => void) | null = null;
@@ -454,6 +460,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
     if (now - _lastRivenSessionOpenAt >= RIVEN_SESSION_OPEN_COOLDOWN_MS) {
       _lastRivenSessionOpenAt = now;
       _rivenSessionActive = true;
+      _rivenChatViewActive = false; // rolling supersedes chat view
       _rivenNextDialog = "cycle";
       _rivenPendingDialog = null;
       resetRivenIdleTimer();
@@ -476,6 +483,24 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
       clearTimeout(_rivenSessionIdleTimer);
       _rivenSessionIdleTimer = null;
     }
+    if (typeof rivenSessionCloseCallback === "function") rivenSessionCloseCallback();
+  }
+
+  // ── Riven chat-link view ──────────────────────────────────────────────────
+  // Clicking a riven mod link in chat opens a read-only preview dialog.
+  // Show only the left overlay panel (no rolling, no right panel).
+  // Only fire when NOT already in a rolling session — the rolling screen
+  // also triggers HudVis internally, and we don't want to override it.
+  if (!skipRivenFromFilePoll && !_rivenSessionActive && RIVEN_PATTERNS.chatRivenView.test(line)) {
+    _rivenChatViewActive = true;
+    log.log("[EELog] Riven chat-link view detected -> dispatching chat view");
+    if (typeof rivenChatViewCallback === "function") rivenChatViewCallback();
+  }
+
+  // Close the chat riven preview — HudVis 0 fires when the dialog is dismissed.
+  if (!skipRivenFromFilePoll && _rivenChatViewActive && RIVEN_PATTERNS.chatRivenClose.test(line)) {
+    _rivenChatViewActive = false;
+    log.log("[EELog] Riven chat-link view closed -> dispatching session close");
     if (typeof rivenSessionCloseCallback === "function") rivenSessionCloseCallback();
   }
 
@@ -698,6 +723,7 @@ interface EeLogHandlers {
   onRivenRollPending?: ((weapon: string, kuvaPerRoll: number) => void) | null;
   onRivenRollConfirmed?: (() => void) | null;
   onRivenChoiceConfirmed?: (() => void) | null;
+  onRivenChatView?: (() => void) | null;
 }
 
 function normalizeHandlers(
@@ -713,6 +739,7 @@ function normalizeHandlers(
   onRivenRollPending: ((weapon: string, kuvaPerRoll: number) => void) | null;
   onRivenRollConfirmed: (() => void) | null;
   onRivenChoiceConfirmed: (() => void) | null;
+  onRivenChatView: (() => void) | null;
 } {
   if (typeof handlers === "function") {
     return {
@@ -726,6 +753,7 @@ function normalizeHandlers(
       onRivenRollPending: null,
       onRivenRollConfirmed: null,
       onRivenChoiceConfirmed: null,
+      onRivenChatView: null,
     };
   }
 
@@ -741,6 +769,7 @@ function normalizeHandlers(
       onRivenRollPending: null,
       onRivenRollConfirmed: null,
       onRivenChoiceConfirmed: null,
+      onRivenChatView: null,
     };
   }
 
@@ -767,6 +796,8 @@ function normalizeHandlers(
       typeof handlers.onRivenChoiceConfirmed === "function"
         ? handlers.onRivenChoiceConfirmed
         : null,
+    onRivenChatView:
+      typeof handlers.onRivenChatView === "function" ? handlers.onRivenChatView : null,
   };
 }
 
@@ -793,6 +824,7 @@ export function startWatching(
   rivenRollPendingCallback = normalized.onRivenRollPending;
   rivenRollConfirmedCallback = normalized.onRivenRollConfirmed;
   rivenChoiceConfirmedCallback = normalized.onRivenChoiceConfirmed;
+  rivenChatViewCallback = normalized.onRivenChatView;
 
   clearPollTimer();
   closePollFd();
@@ -853,9 +885,11 @@ export function stopWatching(): void {
   rivenRollPendingCallback = null;
   rivenRollConfirmedCallback = null;
   rivenChoiceConfirmedCallback = null;
+  rivenChatViewCallback = null;
   _rivenPendingDialog = null;
   _rivenNextDialog = "cycle";
   _rivenSessionActive = false;
+  _rivenChatViewActive = false;
   _lastRivenSendResultAt = 0;
   _lastRivenGenericDialogAt = 0;
   _lastRivenChoiceDialogAt = 0;

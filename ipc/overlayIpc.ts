@@ -294,6 +294,48 @@ export function onRivenSessionClose(): void {
   forEachRivenWindow((win) => win.hide());
 }
 
+export function onRivenChatView(): void {
+  log.log("[OverlayRoute] trigger=riven-chat-view (left panel only)");
+  // Don't interrupt an active rolling session
+  if (_rivenHasRollResult) return;
+
+  _rivenHasRollResult = false;
+  _rivenInitialStats = [];
+  _rivenNewRollStats = [];
+
+  // Create only the left window (or reuse if already exists)
+  const display = screen.getPrimaryDisplay();
+  const { x: dx, y: dy } = display.workArea;
+  const PAD = 16;
+
+  const existLeft = ctx.rivenOverlayLeftWindow;
+  if (!existLeft || existLeft.isDestroyed()) {
+    _rivenInteractive = false;
+    const leftWin = createSingleRivenWindow("left", dx + PAD, dy + 8, { show: true });
+    ctx.rivenOverlayLeftWindow = leftWin;
+    leftWin.on("closed", () => { ctx.rivenOverlayLeftWindow = null; });
+  } else {
+    existLeft.setAlwaysOnTop(true, "screen-saver");
+    existLeft.moveTop();
+    existLeft.showInactive();
+  }
+
+  // Hide right window if it exists (chat view = left only)
+  const existRight = ctx.rivenOverlayRightWindow;
+  if (existRight && !existRight.isDestroyed()) existRight.hide();
+
+  // Start session with "Riven" placeholder, no kuva cost
+  const wins = [ctx.rivenOverlayLeftWindow];
+  rivenSession.startSession(wins, "Riven", 0);
+  if (ctx.overlayThemeVars && Object.keys(ctx.overlayThemeVars).length > 0) {
+    const vars = { ...ctx.overlayThemeVars };
+    const lw = ctx.rivenOverlayLeftWindow;
+    if (lw && !lw.isDestroyed()) lw.webContents.send("overlay-theme-vars", vars);
+  }
+  startEscMonitor(() => onRivenSessionClose());
+  triggerInitialScan();
+}
+
 export function onRivenSessionOpen(): void {
   log.log("[OverlayRoute] trigger=riven-session");
   _rivenHasRollResult = false;
