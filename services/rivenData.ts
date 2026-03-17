@@ -25,6 +25,10 @@ export interface UpgradeEntry {
   baseValue: number;
   /** Resolved English display name (e.g. "Critical Chance") */
   displayName: string;
+  /** Omega prefix syllable (e.g. "crita") — empty if stat has no name contribution */
+  prefix: string;
+  /** Omega suffix syllable (e.g. "cron") — empty if stat has no name contribution */
+  suffix: string;
 }
 
 interface WeaponInfo {
@@ -49,6 +53,9 @@ const _weaponByNameLc = new Map<string, WeaponInfo>();
 
 /** Lowercase weapon name → display-cased name (for findWeaponInText) */
 const _weaponDisplayNames = new Map<string, string>();
+
+/** Weapon uniqueName → display name (reverse lookup for fingerprint compat) */
+const _weaponByUniqueName = new Map<string, string>();
 
 /** Riven mod compat path → riven mod info */
 const _rivenModByCompat = new Map<string, RivenModInfo>();
@@ -121,6 +128,50 @@ for (const [name, tag] of Object.entries(STAT_NAME_TO_TAG)) {
   }
 }
 
+// ── Game tag → WFM riven auction attribute url_name ──────────────────────────
+// WFM uses its own attribute identifiers for the /auctions/search endpoint.
+// These do NOT match a simple lowercase+underscore of the display name.
+// Source: https://api.warframe.market/v1/riven/attributes
+
+const TAG_TO_WFM_URL_NAME: Record<string, string> = {
+  WeaponCritChanceMod: "critical_chance",
+  WeaponCritDamageMod: "critical_damage",
+  WeaponFireIterationsMod: "multishot",
+  WeaponFireRateMod: "fire_rate_/_attack_speed",
+  WeaponDamageAmountMod: "base_damage_/_melee_damage",
+  WeaponReloadSpeedMod: "reload_speed",
+  WeaponStunChanceMod: "status_chance",
+  WeaponProcTimeMod: "status_duration",
+  WeaponPunctureDepthMod: "punch_through",
+  WeaponClipMaxMod: "magazine_capacity",
+  WeaponAmmoMaxMod: "ammo_maximum",
+  WeaponRecoilReductionMod: "recoil",
+  WeaponZoomFovMod: "zoom",
+  WeaponProjectileSpeedMod: "projectile_speed",
+  WeaponImpactDamageMod: "impact_damage",
+  WeaponArmorPiercingDamageMod: "puncture_damage",
+  WeaponSlashDamageMod: "slash_damage",
+  WeaponFreezeDamageMod: "cold_damage",
+  WeaponFireDamageMod: "heat_damage",
+  WeaponElectricityDamageMod: "electric_damage",
+  WeaponToxinDamageMod: "toxin_damage",
+  WeaponFactionDamageGrineer: "damage_vs_grineer",
+  WeaponFactionDamageCorpus: "damage_vs_corpus",
+  WeaponFactionDamageInfested: "damage_vs_infested",
+  WeaponMeleeDamageMod: "base_damage_/_melee_damage",
+  WeaponMeleeRangeIncMod: "range",
+  ComboDurationMod: "combo_duration",
+  SlideAttackCritChanceMod: "critical_chance_on_slide_attack",
+  WeaponMeleeFinisherDamageMod: "finisher_damage",
+  WeaponMeleeComboEfficiencyMod: "channeling_efficiency",
+  WeaponMeleeComboInitialBonusMod: "channeling_damage",
+  WeaponMeleeComboPointsOnHitMod: "chance_to_gain_combo_count",
+  WeaponMeleeComboBonusOnHitMod: "chance_to_gain_extra_combo_count",
+  WeaponMeleeFactionDamageGrineer: "damage_vs_grineer",
+  WeaponMeleeFactionDamageCorpus: "damage_vs_corpus",
+  WeaponMeleeFactionDamageInfested: "damage_vs_infested",
+};
+
 // ── Weapon category → riven mod uniqueName mapping ───────────────────────────
 
 const RIVEN_MODS_BY_CATEGORY: Record<string, string> = {
@@ -182,6 +233,7 @@ function ensureBuilt(): void {
         compatibilityTags: Array.isArray(w.compatibilityTags) ? w.compatibilityTags : [],
       });
       _weaponDisplayNames.set(name.toLowerCase(), name);
+      _weaponByUniqueName.set(uniqueName, name);
       weaponCount++;
     }
 
@@ -204,6 +256,8 @@ function ensureBuilt(): void {
           canBeCurse: !!ue.canBeCurse,
           baseValue,
           displayName,
+          prefix: (ue.prefixTag && dict[ue.prefixTag]) || "",
+          suffix: (ue.suffixTag && dict[ue.suffixTag]) || "",
         });
 
         // Populate tag → display name from resolved locTags
@@ -230,6 +284,15 @@ function ensureBuilt(): void {
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
+
+/**
+ * Reverse-lookup weapon display name from uniqueName (e.g. /Lotus/Weapons/...).
+ * Used to resolve riven fingerprint compat field.
+ */
+export function getWeaponNameByUniqueName(uniqueName: string): string | null {
+  ensureBuilt();
+  return _weaponByUniqueName.get(uniqueName) || null;
+}
 
 /**
  * Look up weapon disposition (omegaAttenuation) by display name.
@@ -312,6 +375,11 @@ export function getStatDisplayName(tag: string): string {
   return _tagToDisplayName.get(tag) || TAG_TO_DISPLAY[tag] || tag;
 }
 
+/** Convert a game upgrade tag to the WFM riven auction attribute url_name. */
+export function tagToWfmUrlName(tag: string): string | null {
+  return TAG_TO_WFM_URL_NAME[tag] || null;
+}
+
 /**
  * Find the UpgradeEntry for a stat within a specific riven type.
  * Matches by tag.
@@ -336,6 +404,80 @@ export function findUpgradeEntry(rivenTypeKey: string, tag: string): UpgradeEntr
     }
   }
   return found || null;
+}
+
+/**
+ * Generate the riven suffix name from buff stat tags.
+ *
+ * Warframe riven name algorithm (from wiki / game data):
+ *  - Curses do NOT affect the name.
+ *  - All buffs except the last contribute their **prefix** syllable.
+ *  - The last buff contributes its **suffix** syllable.
+ *  - For a single buff, both its prefix and suffix are used.
+ *  - Format: TitleCase(first) + "-" + remaining syllables concatenated.
+ *  - Stats with empty prefix/suffix (e.g. WeaponMeleeComboPointsOnHitMod) are skipped.
+ *
+ * Examples: "Vexi-decican" (electricity + status duration + multishot),
+ *           "Crita-tis" (crit chance + crit damage),
+ *           "Sati-can" (multishot only → prefix + suffix)
+ */
+export function generateRivenSuffix(
+  rivenTypeKey: string,
+  buffTags: string[],
+  _curseTags: string[],
+): string {
+  const entries = getRivenTypeEntries(rivenTypeKey);
+  if (entries.length === 0 || buffTags.length === 0) return "";
+
+  const findEntry = (tag: string) => {
+    let e = entries.find((x) => x.tag === tag);
+    if (!e) {
+      const meleeFallback = tag.replace("WeaponFaction", "WeaponMeleeFaction");
+      e = entries.find((x) => x.tag === meleeFallback);
+    }
+    if (!e && tag === "WeaponDamageAmountMod") {
+      e = entries.find((x) => x.tag === "WeaponMeleeDamageMod");
+    }
+    return e;
+  };
+
+  // Sort buff tags by their canonical position in the upgradeEntries array
+  // (the game uses this order, not the fingerprint's arbitrary order).
+  const tagIndex = new Map(entries.map((e, i) => [e.tag, i]));
+  const sorted = [...buffTags].sort((a, b) => {
+    const ia = tagIndex.get(a) ?? tagIndex.get(a.replace("WeaponFaction", "WeaponMeleeFaction")) ?? (a === "WeaponDamageAmountMod" ? (tagIndex.get("WeaponMeleeDamageMod") ?? 999) : 999);
+    const ib = tagIndex.get(b) ?? tagIndex.get(b.replace("WeaponFaction", "WeaponMeleeFaction")) ?? (b === "WeaponDamageAmountMod" ? (tagIndex.get("WeaponMeleeDamageMod") ?? 999) : 999);
+    return ia - ib;
+  });
+
+  // Collect syllables: all-except-last → prefix, last → suffix
+  // Special: single buff uses both prefix + suffix
+  const syllables: string[] = [];
+
+  for (let i = 0; i < sorted.length; i++) {
+    const entry = findEntry(sorted[i]);
+    if (!entry) continue;
+
+    if (sorted.length === 1) {
+      // Single buff: prefix + suffix
+      if (entry.prefix) syllables.push(entry.prefix);
+      if (entry.suffix) syllables.push(entry.suffix);
+    } else if (i < sorted.length - 1) {
+      // All except last: contribute prefix
+      if (entry.prefix) syllables.push(entry.prefix);
+    } else {
+      // Last buff: contribute suffix
+      if (entry.suffix) syllables.push(entry.suffix);
+    }
+  }
+
+  if (syllables.length === 0) return "";
+
+  // Format: TitleCase(first) + "-" + rest concatenated lowercase
+  const first = syllables[0].charAt(0).toUpperCase() + syllables[0].slice(1).toLowerCase();
+  if (syllables.length === 1) return first;
+  const rest = syllables.slice(1).map((s) => s.toLowerCase()).join("");
+  return `${first}-${rest}`;
 }
 
 /**

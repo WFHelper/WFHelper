@@ -1,8 +1,8 @@
 :root {
-  --bg: color-mix(in oklab, var(--bg-deep, #060a12) 97%, transparent);
-  --surface: color-mix(in oklab, var(--bg-surface, #111827) 94%, transparent);
-  --raised: color-mix(in oklab, var(--bg-raised, #162340) 94%, transparent);
-  --border: color-mix(in oklab, var(--border-strong, rgba(79, 158, 255, 0.25)) 80%, transparent);
+  --bg: var(--bg-deep, #060a12);
+  --surface: var(--bg-surface, #111827);
+  --raised: var(--bg-raised, #162340);
+  --border: var(--border-strong, rgba(79, 158, 255, 0.25));
   --accent: var(--accent, #4f9eff);
   --accent-bright: var(--accent-bright, #7db8ff);
   --accent-dim: var(--accent-dim, #2d6abf);
@@ -23,7 +23,7 @@
 
 html,
 body {
-  background: transparent;
+  background: var(--bg);
   font-family: var(--font-body, "Barlow", "Segoe UI", system-ui, sans-serif);
   font-size: var(--font-body-size, 0.92rem);
   color: var(--text);
@@ -267,18 +267,28 @@ body {
 #stats-list {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
 }
 
 .stat-row {
   display: flex;
   align-items: center;
-  padding: 4px 12px;
+  padding: 6px 12px;
   gap: 6px;
+  border-radius: 4px;
+  margin: 1px 6px;
+}
+
+.stat-row.stat-positive {
+  background: rgba(39, 174, 96, 0.35);
+}
+
+.stat-row.stat-negative {
+  background: rgba(231, 76, 60, 0.35);
 }
 
 .stat-row:hover {
-  background: color-mix(in oklab, var(--accent) 4%, transparent);
+  filter: brightness(1.15);
 }
 
 /* Colored dot indicating stat quality (grade-based) */
@@ -312,12 +322,12 @@ body {
   flex-shrink: 0;
 }
 
-.stat-value.pos { color: var(--ok); }
-.stat-value.neg { color: var(--bad); }
+.stat-value.pos { color: #ffffff; }
+.stat-value.neg { color: #ffffff; }
 
 .stat-name {
   font-size: 12.5px;
-  color: var(--muted);
+  color: #ffffff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -373,7 +383,7 @@ body {
 /* ── Best attributes ──────────────────────────────────────────────────────── */
 
 #best-attributes {
-  padding: 6px 12px;
+  padding: 8px 12px;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -386,18 +396,18 @@ body {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 3px 5px;
-  padding: 2px 0;
-  font-size: 10px;
+  gap: 5px 6px;
+  padding: 4px 0;
+  font-size: 12px;
   color: var(--text-dim);
 }
 
 .best-row-label {
   font-weight: 700;
-  font-size: 9px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-right: 2px;
+  margin-right: 4px;
 }
 
 .best-row-label.pos { color: var(--ok); }
@@ -406,9 +416,9 @@ body {
 .best-chip {
   background: var(--raised);
   border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 1px 5px;
-  font-size: 9.5px;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
 }
@@ -416,7 +426,7 @@ body {
 .best-chip.matched {
   border-color: var(--ok);
   color: var(--ok);
-  background: color-mix(in oklab, var(--ok) 8%, transparent);
+  background: rgba(39, 174, 96, 0.15);
 }
 
 /* ── Similar listings (card layout) ────────────────────────────────────────── */
@@ -441,6 +451,19 @@ body {
   color: var(--text-dim);
   margin-bottom: 4px;
 }
+
+.listing-similarity {
+  font-size: 9px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 2px;
+  padding: 1px 0;
+  border-radius: 3px;
+}
+
+.listing-similarity.sim-high   { color: var(--ok); }
+.listing-similarity.sim-medium { color: var(--warn); }
+.listing-similarity.sim-low    { color: var(--bad); }
 
 #similar-list {
   display: grid;
@@ -494,6 +517,11 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.3;
+}
+
+.listing-stat-line.crossed {
+  text-decoration: line-through;
+  opacity: 0.5;
 }
 
 .listing-stat-line.pos {

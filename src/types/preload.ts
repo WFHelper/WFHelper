@@ -85,5 +85,11 @@ export interface PreloadAPI {
   getHelperStatus: () => Promise<IpcInvokeMap["getHelperStatus"]["return"]>;
   runHelperNow: () => Promise<IpcInvokeMap["runHelperNow"]["return"]>;
   downloadHelper: () => Promise<IpcInvokeMap["downloadHelper"]["return"]>;
+  getRivens: () => Promise<IpcInvokeMap["getRivens"]["return"]>;
+  searchSimilarRivens: (
+    weaponName: string,
+    positiveStats: string[],
+    negativeStats: string[],
+  ) => Promise<IpcInvokeMap["searchSimilarRivens"]["return"]>;
   onHelperDownloadProgress: (callback: (progress: IpcEventMap["helper-download-progress"]) => void) => () => void;
 }

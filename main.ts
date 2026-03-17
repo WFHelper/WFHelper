@@ -52,6 +52,7 @@ const systemIpc = fromAppRoot("ipc/systemIpc");
 const snapshotCacheIpc = fromAppRoot("ipc/snapshotCacheIpc");
 const rankedHotsetIpc = fromAppRoot("ipc/rankedHotsetIpc");
 const statsIpc = fromAppRoot("ipc/statsIpc");
+const rivensIpc = fromAppRoot("ipc/rivensIpc");
 const statsTracker = fromAppRoot("services/statsTracker");
 const tradeTracker = fromAppRoot("services/tradeTracker");
 const apiHelperRunner = fromAppRoot("services/apiHelperRunner");
@@ -59,6 +60,12 @@ const apiHelperRunner = fromAppRoot("services/apiHelperRunner");
 // Suppress noisy Chromium/DevTools internal logging in terminal.
 app.commandLine.appendSwitch("disable-logging");
 app.commandLine.appendSwitch("log-level", "3");
+
+// Disable GPU hardware acceleration to prevent Chromium's compositor from keeping
+// the discrete GPU active at idle, which causes a significant temperature increase
+// (~15-20°C) even with zero CPU usage.  The app's UI is simple enough that software
+// rendering is indistinguishable and far more power-efficient.
+app.disableHardwareAcceleration();
 
 crashReporter.initCrashReporting();
 
@@ -170,6 +177,7 @@ app.whenReady().then(async () => {
   snapshotCacheIpc.register();
   rankedHotsetIpc.register();
   statsIpc.register();
+  rivensIpc.register();
 
   // Helper runner IPC
   const ipcSecurityMod = fromAppRoot("ipc/ipcSecurity");

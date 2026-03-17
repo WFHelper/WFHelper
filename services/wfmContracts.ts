@@ -21,7 +21,7 @@ const DEFAULT_LIMIT = 40;
 const MIN_LIMIT = 1;
 const MAX_LIMIT = 100;
 
-const SKIPPABLE_HTTP_STATUSES = new Set([400, 404, 405]);
+const SKIPPABLE_HTTP_STATUSES = new Set([301, 302, 303, 400, 404, 405]);
 
 let _resolvedEndpointName: string | null = null;
 
@@ -306,7 +306,7 @@ function endpointCandidates(
   limit: number,
 ): EndpointCandidate[] {
   const query = buildQuery(page, limit);
-  const encodedUser = encodeURIComponent(userName || "");
+  const encodedUser = encodeURIComponent((userName || "").toLowerCase());
 
   const candidates: EndpointCandidate[] = [
     {

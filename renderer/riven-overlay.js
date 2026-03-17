@@ -131,7 +131,7 @@ function rollBarColor(rollFloat, isCurse) {
 
 function buildStatRow(stat) {
   const row = document.createElement("div");
-  row.className = "stat-row";
+  row.className = "stat-row" + (stat.positive ? " stat-positive" : " stat-negative");
 
   // Colored quality dot
   var dot = document.createElement("span");
@@ -388,6 +388,32 @@ function refreshBestAttributeHighlights() {
 
 // ── Similar listings display ─────────────────────────────────────────────────
 
+/** Compute a similarity score between this riven's stats and a listing's stats. */
+function computeSimilarity(myStatNames, listingStats) {
+  if (!myStatNames.length || !Array.isArray(listingStats) || !listingStats.length) {
+    return { pct: 0, matchedNames: new Set() };
+  }
+  var matchedNames = new Set();
+  // Normalise listing stat names for matching
+  var listingNamesLc = [];
+  for (var i = 0; i < listingStats.length; i++) {
+    listingNamesLc.push((listingStats[i].name || "").toLowerCase());
+  }
+  // Count how many of MY riven's stats appear in the listing
+  for (var j = 0; j < myStatNames.length; j++) {
+    for (var k = 0; k < listingNamesLc.length; k++) {
+      if (listingNamesLc[k] === myStatNames[j] || listingNamesLc[k].indexOf(myStatNames[j]) !== -1 || myStatNames[j].indexOf(listingNamesLc[k]) !== -1) {
+        matchedNames.add(listingNamesLc[k]);
+        break;
+      }
+    }
+  }
+  // Percentage = matching stats / my total stats (including negatives)
+  var myTotal = myStatNames.length;
+  var pct = myTotal > 0 ? Math.round((matchedNames.size / myTotal) * 100) : 0;
+  return { pct: pct, matchedNames: matchedNames };
+}
+
 function renderSimilarListings(listings) {
   _pendingListings = listings;
 
@@ -405,8 +431,20 @@ function renderSimilarListings(listings) {
     return;
   }
 
+  // Compute similarity for each listing and sort by it (highest first)
+  var myStats = _currentStatNamesLc.slice();
+  var enriched = [];
   for (var i = 0; i < listings.length; i++) {
-    var item = listings[i];
+    var sim = computeSimilarity(myStats, listings[i].stats);
+    enriched.push({ item: listings[i], pct: sim.pct, matchedNames: sim.matchedNames });
+  }
+  enriched.sort(function(a, b) { return b.pct - a.pct; });
+
+  for (var k = 0; k < enriched.length; k++) {
+    var item = enriched[k].item;
+    var pct = enriched[k].pct;
+    var matchedNames = enriched[k].matchedNames;
+
     var card = document.createElement("div");
     card.className = "listing-card";
     if (item.id) {
@@ -416,6 +454,15 @@ function renderSimilarListings(listings) {
         return function() { window.rivenOverlay.openAuction(aid); };
       })(item.id));
     }
+
+    // Similarity percentage badge
+    var simEl = document.createElement("div");
+    simEl.className = "listing-similarity";
+    if (pct >= 75) simEl.classList.add("sim-high");
+    else if (pct >= 40) simEl.classList.add("sim-medium");
+    else simEl.classList.add("sim-low");
+    simEl.textContent = pct + "% match";
+    card.appendChild(simEl);
 
     // Top row: price + rerolls
     var topRow = document.createElement("div");
@@ -434,14 +481,17 @@ function renderSimilarListings(listings) {
 
     card.appendChild(topRow);
 
-    // Stat lines (vertical, one per line)
+    // Stat lines (vertical, one per line) — cross out non-matching stats
     if (Array.isArray(item.stats)) {
       var statsCol = document.createElement("div");
       statsCol.className = "listing-stats-col";
       for (var j = 0; j < item.stats.length; j++) {
         var s = item.stats[j];
+        var sname = (s.name || "").toLowerCase();
+        var isMatch = matchedNames.has(sname);
         var line = document.createElement("div");
         line.className = "listing-stat-line " + (s.positive ? "pos" : "neg");
+        if (!isMatch) line.classList.add("crossed");
         var sign = s.positive ? "+" : "\u2212";
         line.textContent = sign + Math.round(s.value) + "% " + abbreviateStat(s.name);
         statsCol.appendChild(line);

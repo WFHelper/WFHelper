@@ -141,8 +141,9 @@ function createSingleRivenWindow(
     x,
     y,
     show: false,
-    transparent: true,
+    transparent: false,
     frame: false,
+    backgroundColor: "#060a12",
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
@@ -277,10 +278,26 @@ function sendWeaponEnrichment(): void {
     });
   }
 
+  // Extract stat names from current riven for stat-filtered WFM search
+  const currentStats = _rivenInitialStats || [];
+  const positiveStatSlugs: string[] = [];
+  const negativeStatSlugs: string[] = [];
+  for (const s of currentStats) {
+    const tag = rivenDataSvc.statNameToTag((s.name || "").toLowerCase());
+    const wfmSlug = tag ? rivenDataSvc.tagToWfmUrlName(tag) : null;
+    if (!wfmSlug) continue;
+    if (s.positive) positiveStatSlugs.push(wfmSlug);
+    else negativeStatSlugs.push(wfmSlug);
+  }
+
   // Trigger WFM search in background (both panels)
   const slug = rivenDataSvc.getRivenFamilySlug(_rivenWeaponName);
   wfmRivenSearch
-    .searchSimilarRivens(slug, { limit: 6 })
+    .searchSimilarRivens(slug, {
+      limit: 9,
+      positiveStats: positiveStatSlugs.length > 0 ? positiveStatSlugs : undefined,
+      negativeStats: negativeStatSlugs.length > 0 ? negativeStatSlugs : undefined,
+    })
     .then((listings) => {
       if (listings.length > 0) {
         forEachRivenWindow((win) => {

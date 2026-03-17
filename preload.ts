@@ -86,6 +86,9 @@ contextBridge.exposeInMainWorld("api", {
   getHelperStatus: () => ipcRenderer.invoke("helper:get-status"),
   runHelperNow: () => ipcRenderer.invoke("helper:run-now"),
   downloadHelper: () => ipcRenderer.invoke("helper:download"),
+  getRivens: () => ipcRenderer.invoke("get-rivens"),
+  searchSimilarRivens: (weaponName: string, positiveStats: string[], negativeStats: string[]) =>
+    ipcRenderer.invoke("search-similar-rivens", weaponName, positiveStats, negativeStats),
   onHelperDownloadProgress: (callback: (progress: unknown) => void) => {
     const listener = (_event: unknown, progress: unknown) => callback(progress);
     ipcRenderer.on("helper-download-progress", listener);

@@ -125,6 +125,9 @@ export const ipc = {
   getHelperStatus: () => window.api.getHelperStatus(),
   runHelperNow: () => window.api.runHelperNow(),
   downloadHelper: () => window.api.downloadHelper(),
+  getRivens: () => window.api.getRivens(),
+  searchSimilarRivens: (...args: IpcInvokeMap["searchSimilarRivens"]["args"]) =>
+    window.api.searchSimilarRivens(...args),
   onHelperDownloadProgress: (callback: (progress: IpcEventMap["helper-download-progress"]) => void) =>
     window.api.onHelperDownloadProgress(callback),
 } as const;

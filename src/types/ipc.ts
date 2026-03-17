@@ -296,6 +296,64 @@ export interface IpcInvokeMap {
     args: [];
     return: { ok: boolean; error?: string };
   };
+  getRivens: {
+    args: [];
+    return: RivenResult;
+  };
+  searchSimilarRivens: {
+    args: [weaponName: string, positiveStats: string[], negativeStats: string[]];
+    return: WfmRivenListing[];
+  };
+}
+
+export interface DecodedRivenStat {
+  tag: string;
+  name: string;
+  displayValue: number;
+  rollFloat: number;
+  grade: string;
+  positive: boolean;
+  multiplier: boolean;
+}
+
+export interface DecodedRiven {
+  itemId: string;
+  weaponName: string;
+  weaponUniqueName: string;
+  rivenName: string;
+  masteryReq: number;
+  currentRank: number;
+  maxRank: number;
+  rerolls: number;
+  polarity: string;
+  disposition: number;
+  stats: DecodedRivenStat[];
+  overallGrade: string;
+  attributeGrade: string;
+  statPerfectness: number;
+  rivenType: string;
+}
+
+export interface VeiledRivenGroup {
+  itemType: string;
+  label: string;
+  count: number;
+}
+
+export interface RivenResult {
+  unveiled: DecodedRiven[];
+  veiled: VeiledRivenGroup[];
+}
+
+export interface WfmRivenListing {
+  id: string;
+  seller: string;
+  platinum: number;
+  stats: { name: string; value: number; positive: boolean }[];
+  rerolls: number;
+  startingPrice: number | null;
+  buyoutPrice: number | null;
+  isDirectSell: boolean;
 }
 
 export interface TradeItem {

@@ -22,6 +22,7 @@
   import MasteryView from "./views/MasteryView.svelte";
   import StatsView from "./views/StatsView.svelte";
   import SettingsView from "./views/SettingsView.svelte";
+  import RivensView from "./views/RivensView.svelte";
 
   import ItemDetailModal from "./modals/ItemDetailModal.svelte";
   import ComponentDetailModal from "./modals/ComponentDetailModal.svelte";
@@ -56,6 +57,7 @@
     | "world"
     | "market"
     | "relics"
+    | "rivens"
     | "settings";
 
   type LazyViewName = Extract<ViewName, HeavyViewName>;
@@ -254,6 +256,8 @@
         <MasteryView />
       {:else if $currentView === "stats"}
         <StatsView />
+      {:else if $currentView === "rivens"}
+        <RivensView />
       {:else if $currentView === "settings"}
         <SettingsView />
       {:else if activeLazyView}

@@ -53,22 +53,38 @@ function pruneCache(): void {
  * Search warframe.market for riven auctions matching the given weapon.
  *
  * @param weaponSlug — WFM URL slug (e.g. "rubico_prime")
- * @param opts.limit — max results to return (default 5)
+ * @param opts.limit — max results to return (default 6)
+ * @param opts.positiveStats — positive stat url_names to filter by (e.g. ["multishot", "critical_chance"])
+ * @param opts.negativeStats — negative stat url_names to filter by
  */
 export async function searchSimilarRivens(
   weaponSlug: string,
-  opts?: { limit?: number },
+  opts?: { limit?: number; positiveStats?: string[]; negativeStats?: string[] },
 ): Promise<WfmRivenListing[]> {
-  const limit = opts?.limit ?? 5;
+  const limit = opts?.limit ?? 6;
+  const posStats = opts?.positiveStats ?? [];
+  const negStats = opts?.negativeStats ?? [];
+
+  // Build a cache key that includes stat filters
+  const cacheKey = [weaponSlug, ...posStats.sort(), "|", ...negStats.sort()].join(",");
 
   // Check cache
-  const cached = _cache.get(weaponSlug);
+  const cached = _cache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.listings.slice(0, limit);
   }
 
   try {
-    const path = `/auctions/search?type=riven&weapon_url_name=${encodeURIComponent(weaponSlug)}&sort_by=price_asc&buyout_policy=with`;
+    let path = `/auctions/search?type=riven&weapon_url_name=${encodeURIComponent(weaponSlug)}&sort_by=price_asc&buyout_policy=with`;
+
+    // Add stat filters if provided — WFM API supports positive_stats/negative_stats
+    for (const s of posStats) {
+      path += `&positive_stats=${encodeURIComponent(s)}`;
+    }
+    for (const s of negStats) {
+      path += `&negative_stats=${encodeURIComponent(s)}`;
+    }
+
     const data = await wfmClient.request("GET", path) as any;
 
     const auctions: any[] = data?.payload?.auctions || [];
@@ -98,7 +114,7 @@ export async function searchSimilarRivens(
     }
 
     // Cache the full result
-    _cache.set(weaponSlug, { listings, timestamp: Date.now() });
+    _cache.set(cacheKey, { listings, timestamp: Date.now() });
     pruneCache();
 
     log.log(`[WfmRivenSearch] Found ${listings.length} auctions for "${weaponSlug}"`);

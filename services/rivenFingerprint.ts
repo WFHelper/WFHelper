@@ -1,0 +1,398 @@
+"use strict";
+
+/**
+ * rivenFingerprint.ts — Decode riven stats from inventory UpgradeFingerprint
+ *
+ * Converts the raw encoded fingerprint data (buffs/curses with IEEE 754 float32
+ * encoded Values) into displayable stat values, grades, and attribute quality.
+ * No OCR needed — this reads directly from inventory JSON.
+ */
+
+import { withScope } from "./logger";
+import * as rivenData from "./rivenData";
+import * as rivenGrading from "./rivenGrading";
+import { getBestAttributes } from "./rivenBestAttributes";
+
+const log = withScope("rivenFingerprint");
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+export interface DecodedRivenStat {
+  tag: string;
+  name: string;
+  displayValue: number;
+  rollFloat: number;
+  grade: string;
+  positive: boolean;
+  /** True for faction-damage / multiplier-style stats (displayed as xN.NN) */
+  multiplier: boolean;
+}
+
+export interface DecodedRiven {
+  itemId: string;
+  weaponName: string;
+  weaponUniqueName: string;
+  rivenName: string;
+  masteryReq: number;
+  currentRank: number;
+  maxRank: number;
+  rerolls: number;
+  polarity: string;
+  disposition: number;
+  stats: DecodedRivenStat[];
+  overallGrade: string;
+  attributeGrade: string;
+  /** Average rollFloat across all stats — higher = closer to perfect */
+  statPerfectness: number;
+  /** Riven mod type (Rifle / Shotgun / Pistol / Melee / etc.) */
+  rivenType: string;
+}
+
+export interface VeiledRivenGroup {
+  itemType: string;
+  label: string;
+  count: number;
+}
+
+interface RawFingerprint {
+  compat?: string;
+  lim?: number;
+  lvlReq?: number;
+  lvl?: number;
+  rerolls?: number;
+  pol?: string;
+  buffs?: { Tag: string; Value: number }[];
+  curses?: { Tag: string; Value: number }[];
+  challenge?: unknown;
+}
+
+// ── Constants (duplicated from rivenGrading to keep CJS-compatible) ──────────
+
+const NUM_BUFFS_ATTEN = [0, 1, 0.66000003, 0.5, 0.40000001, 0.34999999];
+const NUM_BUFFS_CURSE_ATTEN = [0, 1, 0.33000001, 0.5, 1.25, 1.5];
+const SPECIFIC_FIT_ATTEN = 1.5;
+const BASE_DRAIN = 10;
+
+const NON_PERCENTAGE_TAGS = new Set([
+  "WeaponFactionDamageGrineer",
+  "WeaponFactionDamageCorpus",
+  "WeaponFactionDamageInfested",
+  "WeaponMeleeFactionDamageGrineer",
+  "WeaponMeleeFactionDamageCorpus",
+  "WeaponMeleeFactionDamageInfested",
+  "WeaponMeleeComboInitialBonusMod",
+  "ComboDurationMod",
+  "WeaponMeleeRangeIncMod",
+]);
+
+// ── Riven mod type labels ────────────────────────────────────────────────────
+
+const RIVEN_TYPE_LABELS: Record<string, string> = {
+  LotusRifleRandomModRare: "Rifle",
+  LotusShotgunRandomModRare: "Shotgun",
+  LotusPistolRandomModRare: "Pistol",
+  PlayerMeleeWeaponRandomModRare: "Melee",
+  LotusArchgunRandomModRare: "Archgun",
+  LotusModularPistolRandomModRare: "Kitgun",
+  LotusModularMeleeRandomModRare: "Zaw",
+};
+
+function getRivenTypeLabel(itemType: string): string {
+  for (const [key, label] of Object.entries(RIVEN_TYPE_LABELS)) {
+    if (itemType.includes(key)) return label;
+  }
+  return "Riven";
+}
+
+// ── Riven int → 0–1 float conversion ─────────────────────────────────────────
+// Riven fingerprint Values are NOT IEEE 754 floats. They are integers that
+// encode a 0–1 roll float as `Math.round(f * 0x3FFFFFFF)`. To decode:
+//   rollFloat = intValue / 0x3FFFFFFF
+// Source: browse.wf/rivencalc → RivenParser.js `rivenIntToFloat`.
+
+function rivenIntToFloat(i: number): number {
+  const f = i / 0x3FFFFFFF; // 1073741823
+  return (f >= 0.0 && f <= 1.0) ? f : 0.0;
+}
+
+// ── Forward formula: rollFloat → displayed stat value ────────────────────────
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function computeBuffValue(
+  baseValue: number,
+  disposition: number,
+  rollFloat: number,
+  numBuffs: number,
+  numCurses: number,
+  lvl: number,
+): number {
+  const attenuation = SPECIFIC_FIT_ATTEN * disposition * BASE_DRAIN;
+  const buffsAtten = NUM_BUFFS_ATTEN[Math.min(numBuffs, NUM_BUFFS_ATTEN.length - 1)];
+  const curseBonus = Math.pow(1.25, numCurses);
+  const rollMul = lerp(0.9, 1.1, rollFloat);
+  return baseValue * attenuation * curseBonus * rollMul * buffsAtten * (lvl + 1);
+}
+
+function computeCurseValue(
+  baseValue: number,
+  disposition: number,
+  rollFloat: number,
+  numBuffs: number,
+  numCurses: number,
+  lvl: number,
+): number {
+  const attenuation = SPECIFIC_FIT_ATTEN * disposition * BASE_DRAIN;
+  const cursesInBuffTable = NUM_BUFFS_ATTEN[Math.min(numCurses, NUM_BUFFS_ATTEN.length - 1)];
+  const buffsInCurseTable = NUM_BUFFS_CURSE_ATTEN[Math.min(numBuffs, NUM_BUFFS_CURSE_ATTEN.length - 1)];
+  const rollMul = lerp(0.9, 1.1, rollFloat);
+  return Math.abs(baseValue) * attenuation * rollMul * buffsInCurseTable * cursesInBuffTable * (lvl + 1);
+}
+
+// ── Fingerprint parsing ──────────────────────────────────────────────────────
+
+function parseFingerprint(raw: string): RawFingerprint | null {
+  try {
+    let parsed = JSON.parse(raw);
+    // Some fingerprints are double-stringified
+    if (typeof parsed === "string") parsed = JSON.parse(parsed);
+    return parsed as RawFingerprint;
+  } catch {
+    return null;
+  }
+}
+
+function isRivenItemType(itemType: string): boolean {
+  return itemType.includes("Randomized") || itemType.includes("RandomMod");
+}
+
+function isVeiledFingerprint(fp: RawFingerprint): boolean {
+  return !!fp.challenge || !fp.compat;
+}
+
+// ── Main decode function ─────────────────────────────────────────────────────
+
+function decodeSingleRiven(
+  entry: { UpgradeFingerprint?: string; ItemType: string; ItemId?: { $oid: string } },
+): DecodedRiven | null {
+  if (!entry.UpgradeFingerprint) return null;
+
+  const fp = parseFingerprint(entry.UpgradeFingerprint);
+  if (!fp || isVeiledFingerprint(fp)) return null;
+  if (!fp.compat) return null;
+
+  // Resolve weapon name from compat uniqueName
+  const weaponName = rivenData.getWeaponNameByUniqueName(fp.compat);
+  if (!weaponName) {
+    log.debug(`[Fingerprint] Unknown weapon compat: ${fp.compat}`);
+    return null;
+  }
+
+  const disposition = rivenData.getWeaponDisposition(weaponName);
+  if (disposition == null) return null;
+
+  const rivenTypeKey = rivenData.resolveRivenType(weaponName);
+  if (!rivenTypeKey) return null;
+
+  const lvl = typeof fp.lvl === "number" ? fp.lvl : 8;
+  const buffs = Array.isArray(fp.buffs) ? fp.buffs : [];
+  const curses = Array.isArray(fp.curses) ? fp.curses : [];
+  const numBuffs = buffs.length;
+  const numCurses = curses.length;
+
+  const decodedStats: DecodedRivenStat[] = [];
+  let rollFloatSum = 0;
+  let scoredCount = 0;
+
+  // Decode buffs
+  for (const b of buffs) {
+    const rollFloat = rivenIntToFloat(b.Value);
+    const entry2 = rivenData.findUpgradeEntry(rivenTypeKey, b.Tag);
+    const baseValue = entry2?.baseValue ?? 0;
+    const displayName = rivenData.getStatDisplayName(b.Tag);
+    const isNonPct = NON_PERCENTAGE_TAGS.has(b.Tag);
+
+    let displayValue: number;
+    if (baseValue !== 0) {
+      const raw = computeBuffValue(baseValue, disposition, rollFloat, numBuffs, numCurses, lvl);
+      displayValue = isNonPct ? Math.round(raw * 100) / 100 : Math.round(raw * 1000) / 10;
+    } else {
+      displayValue = 0;
+    }
+
+    const grade = rivenGrading.floatToGrade(rollFloat, false);
+    const isMultiplier = isNonPct && (
+      b.Tag.includes("FactionDamage") || b.Tag === "WeaponMeleeComboInitialBonusMod"
+    );
+
+    decodedStats.push({
+      tag: b.Tag,
+      name: displayName,
+      displayValue: isMultiplier ? Math.round((1 + displayValue) * 100) / 100 : displayValue,
+      rollFloat,
+      grade,
+      positive: true,
+      multiplier: isMultiplier,
+    });
+
+    rollFloatSum += rollFloat;
+    scoredCount++;
+  }
+
+  // Decode curses
+  for (const c of curses) {
+    const rollFloat = rivenIntToFloat(c.Value);
+    const entry2 = rivenData.findUpgradeEntry(rivenTypeKey, c.Tag);
+    const baseValue = entry2?.baseValue ?? 0;
+    const displayName = rivenData.getStatDisplayName(c.Tag);
+    const isNonPct = NON_PERCENTAGE_TAGS.has(c.Tag);
+
+    let displayValue: number;
+    if (baseValue !== 0) {
+      const raw = computeCurseValue(Math.abs(baseValue), disposition, rollFloat, numBuffs, numCurses, lvl);
+      displayValue = isNonPct ? Math.round(raw * 100) / 100 : Math.round(raw * 1000) / 10;
+    } else {
+      displayValue = 0;
+    }
+
+    const grade = rivenGrading.floatToGrade(rollFloat, true);
+    const isMultiplier = isNonPct && (
+      c.Tag.includes("FactionDamage") || c.Tag === "WeaponMeleeComboInitialBonusMod"
+    );
+
+    decodedStats.push({
+      tag: c.Tag,
+      name: displayName,
+      displayValue: isMultiplier ? Math.round((1 - displayValue) * 100) / 100 : displayValue,
+      rollFloat,
+      grade,
+      positive: false,
+      multiplier: isMultiplier,
+    });
+
+    rollFloatSum += (1 - rollFloat); // For curses, lower = better
+    scoredCount++;
+  }
+
+  // Overall grade = average roll quality
+  const avgRollFloat = scoredCount > 0 ? rollFloatSum / scoredCount : 0.5;
+  const overallGrade = rivenGrading.floatToGrade(avgRollFloat, false);
+
+  // Attribute grade (Great/Good/OK/Bad)
+  const weaponCategory = rivenData.getWeaponCategory(weaponName) || "";
+  const isShotgun = rivenData.isWeaponShotgun(weaponName);
+  const best = getBestAttributes(weaponCategory, isShotgun);
+  const bestPosLc = new Set(best.positives.map((s) => s.toLowerCase()));
+  const bestNegLc = new Set(best.negatives.map((s) => s.toLowerCase()));
+
+  const positives = decodedStats.filter((s) => s.positive);
+  const negatives = decodedStats.filter((s) => !s.positive);
+  let attributeGrade = "Bad";
+
+  if (positives.length > 0) {
+    let goodPosCount = 0;
+    for (const s of positives) {
+      if (bestPosLc.has(s.name.toLowerCase())) goodPosCount++;
+    }
+    const hasNeg = negatives.length > 0;
+    const negIsHarmless = hasNeg && bestNegLc.has(negatives[0].name.toLowerCase());
+    const negIsHarmful = hasNeg && !negIsHarmless;
+    const allPosGood = goodPosCount === positives.length;
+    const mostPosGood = goodPosCount >= Math.ceil(positives.length / 2);
+
+    if (allPosGood && (!hasNeg || negIsHarmless)) attributeGrade = "Great";
+    else if (allPosGood && negIsHarmful) attributeGrade = "Good";
+    else if (mostPosGood && !negIsHarmful) attributeGrade = "Good";
+    else if (mostPosGood && negIsHarmful) attributeGrade = "OK";
+    else if (goodPosCount > 0) attributeGrade = "OK";
+  }
+
+  // Generate riven suffix name from buff/curse stat tags
+  const buffTags = buffs.map((b) => b.Tag);
+  const curseTags = curses.map((c) => c.Tag);
+  const rivenSuffix = rivenData.generateRivenSuffix(rivenTypeKey, buffTags, curseTags);
+  const rivenName = rivenSuffix ? `${weaponName} ${rivenSuffix}` : weaponName;
+
+  const statPerfectness = scoredCount > 0 ? rollFloatSum / scoredCount : 0;
+
+  return {
+    itemId: entry.ItemId?.$oid || "",
+    weaponName,
+    weaponUniqueName: fp.compat,
+    rivenName,
+    masteryReq: typeof fp.lvlReq === "number" ? fp.lvlReq : 0,
+    currentRank: lvl,
+    maxRank: 8,
+    rerolls: typeof fp.rerolls === "number" ? fp.rerolls : 0,
+    polarity: fp.pol || "",
+    disposition,
+    stats: decodedStats,
+    overallGrade,
+    attributeGrade,
+    statPerfectness,
+    rivenType: getRivenTypeLabel(entry.ItemType),
+  };
+}
+
+// ── Batch decode ─────────────────────────────────────────────────────────────
+
+export function decodeAllRivens(
+  inventory: Record<string, unknown>,
+): { unveiled: DecodedRiven[]; veiled: VeiledRivenGroup[] } {
+  const unveiled: DecodedRiven[] = [];
+  const veiledCounts = new Map<string, number>();
+
+  // Process Upgrades array (unveiled rivens with unique fingerprints)
+  const upgrades = inventory.Upgrades;
+  if (Array.isArray(upgrades)) {
+    for (const raw of upgrades) {
+      if (!raw || typeof raw !== "object") continue;
+      const u = raw as { ItemType?: string; UpgradeFingerprint?: string; ItemId?: { $oid: string } };
+      if (!u.ItemType || !isRivenItemType(u.ItemType)) continue;
+
+      // Check if veiled (has challenge fingerprint or no compat)
+      if (u.UpgradeFingerprint) {
+        const fp = parseFingerprint(u.UpgradeFingerprint);
+        if (fp && isVeiledFingerprint(fp)) {
+          const label = getRivenTypeLabel(u.ItemType);
+          veiledCounts.set(label, (veiledCounts.get(label) || 0) + 1);
+          continue;
+        }
+      }
+
+      const decoded = decodeSingleRiven({
+        UpgradeFingerprint: u.UpgradeFingerprint,
+        ItemType: u.ItemType,
+        ItemId: u.ItemId,
+      });
+      if (decoded) unveiled.push(decoded);
+    }
+  }
+
+  // Process RawUpgrades array (stackable veiled rivens)
+  const rawUpgrades = inventory.RawUpgrades;
+  if (Array.isArray(rawUpgrades)) {
+    for (const raw of rawUpgrades) {
+      if (!raw || typeof raw !== "object") continue;
+      const u = raw as { ItemType?: string; ItemCount?: number };
+      if (!u.ItemType || !isRivenItemType(u.ItemType)) continue;
+      const count = typeof u.ItemCount === "number" ? u.ItemCount : 1;
+      const label = getRivenTypeLabel(u.ItemType);
+      veiledCounts.set(label, (veiledCounts.get(label) || 0) + count);
+    }
+  }
+
+  const veiled: VeiledRivenGroup[] = [];
+  for (const [label, count] of veiledCounts) {
+    veiled.push({
+      itemType: label,
+      label: `${label} Riven Mod`,
+      count,
+    });
+  }
+
+  log.log(`[Fingerprint] Decoded ${unveiled.length} unveiled rivens, ${veiled.length} veiled groups`);
+  return { unveiled, veiled };
+}

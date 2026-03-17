@@ -8,6 +8,7 @@ export const en = {
   "nav.market": "Market",
   "nav.relics": "Relics",
   "nav.settings": "Settings",
+  "nav.rivens": "Rivens",
   "nav.test": "Test",
   "nav.overlay": "Overlay",
   "nav.loadJson": "Load JSON",
@@ -38,6 +39,10 @@ export const en = {
   "app.loadingView": "Loading {view} view...",
   "app.failedLoadView": "Failed to load {view} view.",
   "common.retry": "Retry",
+
+  "rivens.title": "Rivens",
+  "rivens.noData": "Load an inventory file to see your rivens.",
+  "rivens.noResults": "No rivens match your filters.",
 
   "settings.title": "Settings",
   "settings.overlayTitle": "Relic Overlay",
