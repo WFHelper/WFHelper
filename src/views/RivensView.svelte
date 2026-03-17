@@ -232,16 +232,15 @@
               {/each}
             </div>
 
+            <div class="riven-rank-pips">
+              {#each Array(riven.maxRank) as _, i}
+                <span class="rank-pip" class:rank-pip-active={i < riven.currentRank}></span>
+              {/each}
+            </div>
+
             <div class="riven-card-bottom">
-              <div class="riven-rank-pips">
-                {#each Array(riven.maxRank) as _, i}
-                  <span class="rank-pip" class:rank-pip-active={i < riven.currentRank}></span>
-                {/each}
-              </div>
-              <div class="riven-bottom-bar">
-                <span class="riven-mr">MR {riven.masteryReq}</span>
-                <span class="riven-rerolls">⟳ {riven.rerolls}</span>
-              </div>
+              <span class="riven-mr">MR {riven.masteryReq}</span>
+              <span class="riven-rerolls">⟳ {riven.rerolls}</span>
             </div>
           </div>
         </button>
@@ -471,9 +470,9 @@
     right: 11%;
   }
 
-  /* ── Weapon + riven name: centered at start of dark zone (measured: 49.8%) ── */
+  /* ── Weapon + riven name: centered in dark zone ── */
   .riven-card-top {
-    top: 50%;
+    top: 51%;
     text-align: center;
   }
 
@@ -503,7 +502,7 @@
 
   /* ── Stat rows: centered with element icons (dark zone: 50%–82%) ── */
   .riven-card-stats {
-    top: 60%;
+    top: 59%;
     display: flex;
     flex-direction: column;
     gap: 0;
@@ -513,29 +512,39 @@
 
   .riven-stat-row {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     justify-content: center;
-    gap: 0.2rem;
+    gap: 0.25em;
     width: 100%;
-    font-size: 0.82rem;
+    font-size: 1.05rem;
     text-shadow:
       0 0 3px rgba(0, 0, 0, 1),
       0 0 6px rgba(0, 0, 0, 1),
       0 2px 8px rgba(0, 0, 0, 0.95);
     font-family: var(--font-display);
-    line-height: 1.25;
+    line-height: 1.05;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .stat-value {
     font-weight: 700;
+    flex-shrink: 0;
   }
 
   .stat-element-icon {
-    width: 0.78rem;
-    height: 0.78rem;
+    width: 1rem;
+    height: 1rem;
     vertical-align: middle;
     filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.8));
     flex-shrink: 0;
+    align-self: center;
+  }
+
+  .stat-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .stat-positive .stat-value {
@@ -549,38 +558,44 @@
   .stat-name {
     color: rgba(255, 255, 255, 0.88);
     font-weight: 500;
+    min-width: 0;
   }
 
-  /* ── Bottom area: rank pips + MR / rerolls (measured zone: 82.5%–87.8%) ── */
-  .riven-card-bottom {
-    left: 22%;
-    right: 22%;
-    top: 83%;
-    bottom: auto;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.15rem;
-  }
-
+  /* ── Rank pips: own positioned box (template separator at ~82%) ── */
   .riven-rank-pips {
+    position: absolute;
+    z-index: 1;
+    left: 18%;
+    right: 18%;
+    top: 94%;
     display: flex;
     justify-content: center;
-    gap: 0.25rem;
+    gap: 4px;
   }
 
   .rank-pip {
-    width: 0.45rem;
-    height: 0.15rem;
+    width: 8px;
+    height: 8px;
     border-radius: 1px;
-    background: rgba(120, 100, 160, 0.35);
+    background: rgba(40, 35, 65, 0.6);
+    border: 1px solid rgba(80, 70, 120, 0.5);
   }
 
   .rank-pip-active {
-    background: #5cb8ff;
-    box-shadow: 0 0 4px rgba(92, 184, 255, 0.5);
+    background: #5ec8ff;
+    border-color: #7dd8ff;
+    box-shadow:
+      0 0 4px rgba(94, 200, 255, 0.9),
+      0 0 8px rgba(94, 200, 255, 0.5),
+      0 0 12px rgba(94, 200, 255, 0.25);
   }
 
-  .riven-bottom-bar {
+  /* ── Bottom bar: MR / rerolls (template zone: 84%–88%) ── */
+  .riven-card-bottom {
+    left: 22%;
+    right: 22%;
+    top: 83.5%;
+    bottom: auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -590,7 +605,6 @@
       0 0 3px rgba(0, 0, 0, 1),
       0 0 6px rgba(0, 0, 0, 1);
     line-height: 1;
-    padding: 0;
   }
 
   .riven-mr {
@@ -613,7 +627,7 @@
     }
 
     .riven-stat-row {
-      font-size: 0.72rem;
+      font-size: 0.9rem;
     }
   }
 </style>
