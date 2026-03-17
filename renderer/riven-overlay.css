@@ -157,14 +157,6 @@ body {
   display: none;
 }
 
-#overall-grade-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-}
-
 /* ── Grade badges ─────────────────────────────────────────────────────────── */
 
 .grade-badge {
@@ -282,12 +274,33 @@ body {
   display: flex;
   align-items: center;
   padding: 4px 12px;
-  gap: 8px;
+  gap: 6px;
 }
 
 .stat-row:hover {
   background: color-mix(in oklab, var(--accent) 4%, transparent);
 }
+
+/* Colored dot indicating stat quality (grade-based) */
+.stat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--text-dim);
+}
+
+.stat-dot.grade-S  { background: #d4a017; }
+.stat-dot.grade-Ap { background: #2ecc40; }
+.stat-dot.grade-A  { background: #27ae60; }
+.stat-dot.grade-Am { background: #1e8449; }
+.stat-dot.grade-Bp { background: #3498db; }
+.stat-dot.grade-B  { background: #2980b9; }
+.stat-dot.grade-Bm { background: #2471a3; }
+.stat-dot.grade-Cp { background: #e67e22; }
+.stat-dot.grade-C  { background: #d35400; }
+.stat-dot.grade-Cm { background: #a04000; }
+.stat-dot.grade-F  { background: #e74c3c; }
 
 .stat-value {
   font-family: var(--font-display, "Rajdhani", "Segoe UI", system-ui, sans-serif);
@@ -313,6 +326,22 @@ body {
 
 .stat-grade {
   flex-shrink: 0;
+}
+
+/* Roll quality progress bar */
+.roll-bar-wrap {
+  width: 48px;
+  height: 6px;
+  background: color-mix(in oklab, var(--text-dim) 30%, transparent);
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.roll-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
 }
 
 .stat-empty {
@@ -390,12 +419,14 @@ body {
   background: color-mix(in oklab, var(--ok) 8%, transparent);
 }
 
-/* ── Similar listings ─────────────────────────────────────────────────────── */
+/* ── Similar listings (card layout) ────────────────────────────────────────── */
 
 #similar-listings {
-  padding: 6px 12px 8px;
+  padding: 6px 10px 8px;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
+  overflow-y: auto;
+  max-height: 200px;
 }
 
 #similar-listings.is-hidden {
@@ -411,13 +442,31 @@ body {
   margin-bottom: 4px;
 }
 
-.listing-row {
+#similar-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.listing-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 7px;
+  transition: border-color 0.15s, background 0.15s;
+  min-width: 0;
+}
+
+.listing-card:hover {
+  border-color: var(--accent-dim);
+  background: color-mix(in oklab, var(--accent) 6%, var(--surface));
+}
+
+.listing-card-top {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 0;
-  font-size: 10px;
-  color: var(--muted);
+  justify-content: space-between;
+  margin-bottom: 3px;
 }
 
 .listing-price {
@@ -425,22 +474,34 @@ body {
   font-weight: 700;
   font-size: 13px;
   color: var(--warn);
-  min-width: 38px;
-  text-align: right;
-}
-
-.listing-stats {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 10.5px;
 }
 
 .listing-rerolls {
-  font-size: 9px;
+  font-size: 8px;
   color: var(--text-dim);
   white-space: nowrap;
+}
+
+.listing-stats-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.listing-stat-line {
+  font-size: 8.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.listing-stat-line.pos {
+  color: var(--ok);
+}
+
+.listing-stat-line.neg {
+  color: var(--bad);
 }
 
 /* ── Interaction hint ─────────────────────────────────────────────────────── */

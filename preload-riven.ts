@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("rivenOverlay", {
   close: () => ipcRenderer.send("riven-overlay-close"),
+  openAuction: (auctionId: string) => ipcRenderer.send("riven-open-auction", auctionId),
   onSessionStart: (cb: (weapon: string, kuvaPerRoll: number) => void) =>
     ipcRenderer.on("riven-session-start", (_event: unknown, weapon: unknown, kuvaPerRoll: unknown) =>
       cb(weapon as string, kuvaPerRoll as number),

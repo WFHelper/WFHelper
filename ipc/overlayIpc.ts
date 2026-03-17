@@ -35,7 +35,7 @@ const { normalizeErrorMessage } = requireRuntime<{
   normalizeErrorMessage: (err: unknown, fallback?: string) => string;
 }>("config/shared/errors.cjs");
 
-const { ipcMain, BrowserWindow, globalShortcut, app, screen } =
+const { ipcMain, BrowserWindow, globalShortcut, app, screen, shell } =
   require("electron") as typeof import("electron");
 const path = require("node:path") as typeof import("node:path");
 const fs = require("node:fs") as typeof import("node:fs");
@@ -97,7 +97,7 @@ const plannerWindowsController = createOverlayWindowsController({
 let _rivenInteractive = false;
 
 const RIVEN_WIN_W = 420;
-const RIVEN_WIN_H = 520;
+const RIVEN_WIN_H = 640;
 
 /** Returns both riven windows as an array for broadcasting IPC events. */
 function getRivenWindows(): (InstanceType<typeof BrowserWindow> | null)[] {
@@ -200,14 +200,14 @@ function createRivenOverlayWindows(options: { show?: boolean } = {}): void {
   _rivenInteractive = false;
 
   // Left panel at top-left edge, pushed down to avoid game HUD
-  const leftWin = createSingleRivenWindow("left", dx + PAD, dy + 48, options);
+  const leftWin = createSingleRivenWindow("left", dx + PAD, dy + 80, options);
   ctx.rivenOverlayLeftWindow = leftWin;
   leftWin.on("closed", () => {
     ctx.rivenOverlayLeftWindow = null;
   });
 
   // Right panel at top-right edge, pushed down to avoid game HUD
-  const rightWin = createSingleRivenWindow("right", dx + dw - RIVEN_WIN_W - PAD, dy + 48, options);
+  const rightWin = createSingleRivenWindow("right", dx + dw - RIVEN_WIN_W - PAD, dy + 80, options);
   ctx.rivenOverlayRightWindow = rightWin;
   rightWin.on("closed", () => {
     ctx.rivenOverlayRightWindow = null;
@@ -268,7 +268,7 @@ function sendGradedInitialStats(): void {
 function sendWeaponEnrichment(): void {
   if (!_rivenWeaponName || _rivenWeaponName === "Riven") return;
 
-  // Send best attributes
+  // Send best attributes to both panels
   const category = rivenDataSvc.getWeaponCategory(_rivenWeaponName);
   const weaponInfo = category ? rivenBestAttributes.getBestAttributes(category) : null;
   if (weaponInfo) {
@@ -277,10 +277,10 @@ function sendWeaponEnrichment(): void {
     });
   }
 
-  // Trigger WFM search in background (fire-and-forget)
+  // Trigger WFM search in background (both panels)
   const slug = rivenDataSvc.getRivenFamilySlug(_rivenWeaponName);
   wfmRivenSearch
-    .searchSimilarRivens(slug, { limit: 5 })
+    .searchSimilarRivens(slug, { limit: 6 })
     .then((listings) => {
       if (listings.length > 0) {
         forEachRivenWindow((win) => {
@@ -404,7 +404,7 @@ export function onRivenChatView(): void {
   const existLeft = ctx.rivenOverlayLeftWindow;
   if (!existLeft || existLeft.isDestroyed()) {
     _rivenInteractive = false;
-    const leftWin = createSingleRivenWindow("left", dx + PAD, dy + 48, { show: true });
+    const leftWin = createSingleRivenWindow("left", dx + PAD, dy + 80, { show: true });
     ctx.rivenOverlayLeftWindow = leftWin;
     leftWin.on("closed", () => { ctx.rivenOverlayLeftWindow = null; });
   } else {
@@ -791,6 +791,22 @@ function register(): void {
     _rivenNewRollStats = [];
     rivenSession.endSession(getRivenWindows());
     forEachRivenWindow((win) => win.hide());
+  });
+
+  ipcMain.on("riven-open-auction", (event: unknown, auctionId: unknown) => {
+    if (
+      !isAuthorizedSender(
+        assertRivenOverlayRendererSender,
+        event as never,
+        "riven-open-auction",
+      )
+    ) {
+      return;
+    }
+    const id = String(auctionId || "").replace(/[^a-zA-Z0-9]/g, "");
+    if (id) {
+      void shell.openExternal(`https://warframe.market/auction/${id}`);
+    }
   });
 
   ipcMain.on("crop-debug-close", (event: unknown) => {

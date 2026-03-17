@@ -8,6 +8,11 @@ const _isLeft = _side === "left";
 
 let _rollCount = 0;
 let _overlayInteractiveMode = false;
+/** Whether this panel currently has real stats displayed (not "Waiting for roll…"). */
+let _hasDisplayedStats = false;
+/** Buffered enrichment data — rendered when panel gets stats. */
+let _pendingBestAttrs = null;
+let _pendingListings = null;
 
 // ── DOM helpers ──────────────────────────────────────────────────────────────
 
@@ -114,13 +119,30 @@ function buildGradeBadge(grade, large) {
 
 // ── Stat rendering ──────────────────────────────────────────────────────────
 
+/** Map roll float (0–1) to a colour for the progress bar. */
+function rollBarColor(rollFloat, isCurse) {
+  // For curses, lower float = better (stat is less penalising)
+  var pct = isCurse ? 1 - rollFloat : rollFloat;
+  if (pct >= 0.85) return "var(--ok)";
+  if (pct >= 0.6)  return "var(--accent)";
+  if (pct >= 0.35) return "var(--warn)";
+  return "var(--bad)";
+}
+
 function buildStatRow(stat) {
   const row = document.createElement("div");
   row.className = "stat-row";
 
+  // Colored quality dot
+  var dot = document.createElement("span");
+  dot.className = "stat-dot";
+  if (stat.grade && stat.grade !== "?") {
+    dot.classList.add(gradeClass(stat.grade));
+  }
+  row.appendChild(dot);
+
   const valueEl = document.createElement("span");
   if (stat.multiplier && stat.value != null) {
-    // x-multiplier format: "x0.62" instead of "+0.62%"
     valueEl.textContent = "x" + stat.value;
     valueEl.className = "stat-value pos";
   } else {
@@ -140,11 +162,24 @@ function buildStatRow(stat) {
   row.appendChild(valueEl);
   row.appendChild(nameEl);
 
-  // Grade badge (if grading data is present on the stat)
-  if (stat.grade) {
+  // Grade letter badge
+  if (stat.grade && stat.grade !== "?") {
     const badge = buildGradeBadge(stat.grade);
     badge.classList.add("stat-grade");
     row.appendChild(badge);
+  }
+
+  // Roll quality progress bar
+  if (stat.rollFloat != null && stat.grade && stat.grade !== "?") {
+    var barWrap = document.createElement("div");
+    barWrap.className = "roll-bar-wrap";
+    var barFill = document.createElement("div");
+    barFill.className = "roll-bar-fill";
+    var pct = Math.round(Math.max(0, Math.min(1, stat.rollFloat)) * 100);
+    barFill.style.width = pct + "%";
+    barFill.style.background = rollBarColor(stat.rollFloat, !stat.positive);
+    barWrap.appendChild(barFill);
+    row.appendChild(barWrap);
   }
 
   return row;
@@ -159,20 +194,29 @@ function renderStats(stats) {
   list.innerHTML = "";
 
   if (!Array.isArray(stats) || stats.length === 0) {
+    _hasDisplayedStats = false;
     const empty = document.createElement("div");
     empty.className = "stat-empty";
     empty.textContent = _isLeft ? "Waiting for scan\u2026" : "Waiting for roll\u2026";
     list.appendChild(empty);
     container.classList.remove("is-hidden");
     if (errorEl) errorEl.classList.remove("visible");
+    // Hide enrichment sections when no stats
+    el("best-attributes").classList.add("is-hidden");
+    el("similar-listings").classList.add("is-hidden");
     return;
   }
 
+  _hasDisplayedStats = true;
   if (errorEl) errorEl.classList.remove("visible");
   for (const stat of stats) {
     list.appendChild(buildStatRow(stat));
   }
   container.classList.remove("is-hidden");
+
+  // Flush any buffered enrichment now that we have stats
+  if (_pendingBestAttrs) renderBestAttributes(_pendingBestAttrs);
+  if (_pendingListings) renderSimilarListings(_pendingListings);
 }
 
 // ── IPC event handlers ───────────────────────────────────────────────────────
@@ -182,37 +226,18 @@ function renderStats(stats) {
 /** State: current stat names (lowercase) for best-attribute matching. */
 let _currentStatNamesLc = [];
 
-function renderOverallGrade(attributeGrade, rollGrade) {
+function renderOverallGrade(attributeGrade) {
   const wrapper = el("overall-grade");
   const badge = el("overall-grade-badge");
   if (!wrapper || !badge) return;
 
-  if (!attributeGrade && !rollGrade) {
+  if (!attributeGrade) {
     wrapper.classList.add("is-hidden");
     return;
   }
 
-  // Primary badge: attribute grade (Great/Good/OK/Bad)
-  if (attributeGrade) {
-    badge.className = "attr-grade-badge attr-grade-" + attributeGrade.toLowerCase();
-    badge.textContent = attributeGrade;
-  } else {
-    badge.className = "grade-badge grade-large " + gradeClass(rollGrade);
-    badge.textContent = rollGrade || "?";
-  }
-
-  // Secondary: roll quality badge
-  var rollEl = el("roll-grade-badge");
-  if (rollEl) {
-    if (rollGrade && rollGrade !== "?") {
-      rollEl.className = "grade-badge " + gradeClass(rollGrade);
-      rollEl.textContent = rollGrade;
-      rollEl.classList.remove("is-hidden");
-    } else {
-      rollEl.classList.add("is-hidden");
-    }
-  }
-
+  badge.className = "attr-grade-badge attr-grade-" + attributeGrade.toLowerCase();
+  badge.textContent = attributeGrade;
   wrapper.classList.remove("is-hidden");
 }
 
@@ -223,9 +248,9 @@ function renderOverallGrade(attributeGrade, rollGrade) {
  */
 function applyGradingToStats(gradingResult) {
   if (!gradingResult) return;
-  const { stats, overallGrade, attributeGrade } = gradingResult;
+  const { stats, attributeGrade } = gradingResult;
 
-  renderOverallGrade(attributeGrade, overallGrade);
+  renderOverallGrade(attributeGrade);
 
   if (!Array.isArray(stats)) return;
 
@@ -269,6 +294,11 @@ let _bestAttributesData = null;
 
 function renderBestAttributes(attrs) {
   _bestAttributesData = attrs;
+  _pendingBestAttrs = attrs;
+
+  // Don't render if panel has no stats yet (right panel before first roll)
+  if (!_hasDisplayedStats) return;
+
   const wrapper = el("best-attributes");
   if (!wrapper || !attrs) return;
 
@@ -359,6 +389,11 @@ function refreshBestAttributeHighlights() {
 // ── Similar listings display ─────────────────────────────────────────────────
 
 function renderSimilarListings(listings) {
+  _pendingListings = listings;
+
+  // Don't render if panel has no stats yet (right panel before first roll)
+  if (!_hasDisplayedStats) return;
+
   var wrapper = el("similar-listings");
   var list = el("similar-list");
   if (!wrapper || !list) return;
@@ -372,37 +407,49 @@ function renderSimilarListings(listings) {
 
   for (var i = 0; i < listings.length; i++) {
     var item = listings[i];
-    var row = document.createElement("div");
-    row.className = "listing-row";
+    var card = document.createElement("div");
+    card.className = "listing-card";
+    if (item.id) {
+      card.setAttribute("data-auction-id", item.id);
+      card.style.cursor = "pointer";
+      card.addEventListener("click", (function(aid) {
+        return function() { window.rivenOverlay.openAuction(aid); };
+      })(item.id));
+    }
 
-    // Price
+    // Top row: price + rerolls
+    var topRow = document.createElement("div");
+    topRow.className = "listing-card-top";
+
     var priceEl = document.createElement("span");
     priceEl.className = "listing-price";
     var price = item.buyoutPrice || item.startingPrice || item.platinum || 0;
     priceEl.textContent = price + "p";
-    row.appendChild(priceEl);
+    topRow.appendChild(priceEl);
 
-    // Stats summary (abbreviated)
-    var statsEl = document.createElement("span");
-    statsEl.className = "listing-stats";
-    if (Array.isArray(item.stats)) {
-      var parts = [];
-      for (var j = 0; j < item.stats.length; j++) {
-        var s = item.stats[j];
-        var sign = s.positive ? "+" : "\u2212";
-        parts.push(sign + Math.round(s.value) + "% " + abbreviateStat(s.name));
-      }
-      statsEl.textContent = parts.join("  ");
-    }
-    row.appendChild(statsEl);
-
-    // Rerolls
     var rerollsEl = document.createElement("span");
     rerollsEl.className = "listing-rerolls";
-    rerollsEl.textContent = (item.rerolls || 0) + "r";
-    row.appendChild(rerollsEl);
+    rerollsEl.textContent = (item.rerolls || 0) + " rolls";
+    topRow.appendChild(rerollsEl);
 
-    list.appendChild(row);
+    card.appendChild(topRow);
+
+    // Stat lines (vertical, one per line)
+    if (Array.isArray(item.stats)) {
+      var statsCol = document.createElement("div");
+      statsCol.className = "listing-stats-col";
+      for (var j = 0; j < item.stats.length; j++) {
+        var s = item.stats[j];
+        var line = document.createElement("div");
+        line.className = "listing-stat-line " + (s.positive ? "pos" : "neg");
+        var sign = s.positive ? "+" : "\u2212";
+        line.textContent = sign + Math.round(s.value) + "% " + abbreviateStat(s.name);
+        statsCol.appendChild(line);
+      }
+      card.appendChild(statsCol);
+    }
+
+    list.appendChild(card);
   }
 
   wrapper.classList.remove("is-hidden");
@@ -422,6 +469,9 @@ function onSessionStart(weapon) {
   _rollCount = 0;
   _currentStatNamesLc = [];
   _bestAttributesData = null;
+  _hasDisplayedStats = false;
+  _pendingBestAttrs = null;
+  _pendingListings = null;
 
   el("weapon-name").textContent = weapon || "\u2014";
 
@@ -521,6 +571,9 @@ function onSessionEnd() {
   hideScanning();
   _currentStatNamesLc = [];
   _bestAttributesData = null;
+  _hasDisplayedStats = false;
+  _pendingBestAttrs = null;
+  _pendingListings = null;
   el("overall-grade").classList.add("is-hidden");
   el("best-attributes").classList.add("is-hidden");
   el("similar-listings").classList.add("is-hidden");
