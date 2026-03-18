@@ -34,7 +34,39 @@ const DEV_FALLBACK_INVENTORY_DIRECTORIES = [
 const INVENTORY_FILENAME_RE = /^inventory(?:_[^\\/:*?"<>|]+)?\.json$/i;
 
 const INVENTORY_WATCH_STABILITY_MS = 500;
+const MIN_RELOAD_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 const JSON_ENCODING = "utf-8";
+
+const crypto = require("node:crypto") as typeof import("node:crypto");
+let _lastInventoryHash: string | null = null;
+let _lastReloadAt = 0;
+
+const _inventoryStatePath = path.join(app.getPath("userData"), "inventory-reload-state.json");
+
+function _loadPersistedState(): void {
+  try {
+    const raw = fs.readFileSync(_inventoryStatePath, JSON_ENCODING);
+    const data = JSON.parse(raw) as { hash?: string; reloadAt?: number };
+    if (typeof data.hash === "string") _lastInventoryHash = data.hash;
+    if (typeof data.reloadAt === "number") _lastReloadAt = data.reloadAt;
+  } catch {
+    // missing or corrupt — start fresh
+  }
+}
+
+function _persistState(): void {
+  try {
+    fs.writeFileSync(
+      _inventoryStatePath,
+      JSON.stringify({ hash: _lastInventoryHash, reloadAt: _lastReloadAt }),
+      JSON_ENCODING,
+    );
+  } catch {
+    // best-effort
+  }
+}
+
+_loadPersistedState();
 
 // ── Inventory data listeners ───────────────────────────────────────────────────
 
@@ -128,11 +160,26 @@ function findInventoryFile(): string | null {
 function readInventory(filePath: string): unknown {
   try {
     const raw = fs.readFileSync(filePath, JSON_ENCODING);
+    const hash = crypto.createHash("sha256").update(raw).digest("hex");
+    const now = Date.now();
+    const withinCooldown = now - _lastReloadAt < MIN_RELOAD_INTERVAL_MS;
+    const contentUnchanged = hash === _lastInventoryHash;
+
+    // Always parse so ctx.currentInventoryData is populated for the UI
     const data = unwrapInventoryPayload(JSON.parse(raw), {
       onParseError: (err: unknown) =>
         log.warn("Failed to parse nested inventory payload string:", normalizeErrorMessage(err)),
     });
     ctx.currentInventoryData = data as Record<string, unknown> | null;
+
+    if (withinCooldown && contentUnchanged) {
+      log.log("Inventory read skipped broadcast (unchanged within 10 min cooldown).");
+      return data;
+    }
+
+    _lastInventoryHash = hash;
+    _lastReloadAt = now;
+    _persistState();
     if (data && typeof data === "object") {
       _notifyListeners(data as Record<string, unknown>);
     }
@@ -154,10 +201,45 @@ function watchInventoryFile(filePath: string): void {
   });
 
   ctx.watcher.on("change", () => {
+    const now = Date.now();
+    if (now - _lastReloadAt < MIN_RELOAD_INTERVAL_MS) {
+      log.log("Inventory file changed, skipping (too soon after last reload).");
+      return;
+    }
+
+    let raw: string;
+    try {
+      raw = fs.readFileSync(filePath, JSON_ENCODING);
+    } catch (err) {
+      log.error("Failed to read inventory file:", normalizeErrorMessage(err));
+      return;
+    }
+
+    const hash = crypto.createHash("sha256").update(raw).digest("hex");
+    if (hash === _lastInventoryHash) {
+      log.log("Inventory file touched but content unchanged, skipping reload.");
+      return;
+    }
+
+    _lastReloadAt = now;
+    _lastInventoryHash = hash;
+    _persistState();
     log.log("Inventory file changed, reloading...");
-    const data = readInventory(filePath);
-    if (data && ctx.mainWindow) {
-      ctx.mainWindow.webContents.send("inventory-updated", data);
+
+    try {
+      const data = unwrapInventoryPayload(JSON.parse(raw), {
+        onParseError: (err: unknown) =>
+          log.warn("Failed to parse nested inventory payload string:", normalizeErrorMessage(err)),
+      });
+      ctx.currentInventoryData = data as Record<string, unknown> | null;
+      if (data && typeof data === "object") {
+        _notifyListeners(data as Record<string, unknown>);
+      }
+      if (data && ctx.mainWindow) {
+        ctx.mainWindow.webContents.send("inventory-updated", data);
+      }
+    } catch (err) {
+      log.error("Failed to parse inventory:", normalizeErrorMessage(err));
     }
   });
 }

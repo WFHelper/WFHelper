@@ -278,26 +278,12 @@ function sendWeaponEnrichment(): void {
     });
   }
 
-  // Extract stat names from current riven for stat-filtered WFM search
-  const currentStats = _rivenInitialStats || [];
-  const positiveStatSlugs: string[] = [];
-  const negativeStatSlugs: string[] = [];
-  for (const s of currentStats) {
-    const tag = rivenDataSvc.statNameToTag((s.name || "").toLowerCase());
-    const wfmSlug = tag ? rivenDataSvc.tagToWfmUrlName(tag) : null;
-    if (!wfmSlug) continue;
-    if (s.positive) positiveStatSlugs.push(wfmSlug);
-    else negativeStatSlugs.push(wfmSlug);
-  }
-
-  // Trigger WFM search in background (both panels)
+  // Fetch ALL auctions for this weapon (no stat filtering) so the overlay
+  // renderer's computeSimilarity() can rank them client-side — same approach
+  // as RivenDetailModal.
   const slug = rivenDataSvc.getRivenFamilySlug(_rivenWeaponName);
   wfmRivenSearch
-    .searchSimilarRivens(slug, {
-      limit: 9,
-      positiveStats: positiveStatSlugs.length > 0 ? positiveStatSlugs : undefined,
-      negativeStats: negativeStatSlugs.length > 0 ? negativeStatSlugs : undefined,
-    })
+    .searchSimilarRivens(slug, { limit: 30 })
     .then((listings) => {
       if (listings.length > 0) {
         forEachRivenWindow((win) => {
