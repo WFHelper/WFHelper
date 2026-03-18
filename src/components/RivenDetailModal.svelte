@@ -48,19 +48,23 @@
   }
 
   onMount(() => {
-    const posStats = riven.stats.filter((s) => s.positive).map((s) => s.tag);
-    const negStats = riven.stats.filter((s) => !s.positive).map((s) => s.tag);
-
+    // Fetch ALL auctions for this weapon — no stat filtering, similarity is client-side
     ipc
-      .searchSimilarRivens(riven.weaponName, posStats, negStats)
+      .searchRivenAuctions(riven.weaponName, [], [])
       .then((listings) => {
         const myStatNames = riven.stats.map((s) => s.name.toLowerCase());
         const enriched = listings.map((listing) => {
           const { pct, matchedNames } = computeSimilarity(myStatNames, listing.stats);
           return { listing, pct, matchedNames };
         });
-        enriched.sort((a, b) => b.pct - a.pct);
-        similarListings = enriched;
+        enriched.sort((a, b) => {
+          if (b.pct !== a.pct) return b.pct - a.pct;
+          const pa = a.listing.buyoutPrice ?? a.listing.startingPrice ?? a.listing.platinum;
+          const pb = b.listing.buyoutPrice ?? b.listing.startingPrice ?? b.listing.platinum;
+          return pa - pb;
+        });
+        // Show top 30 results with at least 25% similarity
+        similarListings = enriched.filter((e) => e.pct >= 25).slice(0, 30);
       })
       .finally(() => {
         loadingListings = false;

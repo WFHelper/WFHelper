@@ -25,6 +25,7 @@
   let priceMax = $state("");
   let rerollsMin = $state("");
   let rerollsMax = $state("");
+  let minSimilarity = $state("");
 
   let attrSlots: AttrSlot[] = $state([
     { positive: true, selectedStat: "", required: false },
@@ -105,8 +106,9 @@
       if (failsRequired) continue;
 
       // Calculate similarity: % of ALL selected stats (required + optional) present
+      const simMin = minSimilarity ? parseInt(minSimilarity, 10) : 0;
       if (totalSelected === 0) {
-        scored.push({ listing: r, similarity: 100 });
+        if (100 >= simMin) scored.push({ listing: r, similarity: 100 });
       } else {
         let matches = 0;
         for (const sel of selectedPositive) {
@@ -116,8 +118,7 @@
           if (listingNegNames.some((n) => n.includes(sel.name) || sel.name.includes(n))) matches++;
         }
         const sim = Math.round((matches / totalSelected) * 100);
-        // Show any riven that matches at least one selected stat
-        if (sim > 0) scored.push({ listing: r, similarity: sim });
+        if (sim > 0 && sim >= simMin) scored.push({ listing: r, similarity: sim });
       }
     }
 
@@ -258,6 +259,11 @@
           <input type="number" class="filter-input" placeholder="Min" bind:value={rerollsMin} min="0" />
           <span class="filter-dash">–</span>
           <input type="number" class="filter-input" placeholder="Max" bind:value={rerollsMax} min="0" />
+        </div>
+        <div class="filter-row">
+          <span class="filter-label">Similarity</span>
+          <input type="number" class="filter-input" placeholder="Min %" bind:value={minSimilarity} min="0" max="100" />
+          <span class="filter-dash">%</span>
         </div>
         <label class="filter-toggle">
           <input type="checkbox" bind:checked={requireNegative} />
