@@ -1,0 +1,486 @@
+@layer components {
+  /* ── item card specifics ─────────────────────────────────────── */
+  .item-card {
+    cursor: pointer;
+    overflow: hidden;
+  }
+  .item-card.mastered {
+    border-color: rgba(74, 222, 128, 0.25);
+  }
+  .item-card.prime {
+    border-color: rgba(212, 168, 67, 0.28);
+  }
+  .item-img-wrap {
+    position: relative;
+    display: flex;
+    height: 120px;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in oklab, var(--bg-surface) 65%, black);
+    padding: 0.6rem;
+  }
+  .item-img {
+    max-width: var(--item-image-max);
+    max-height: var(--item-image-max);
+    object-fit: contain;
+  }
+  .item-rank-bar {
+    margin-top: 0.2rem;
+    height: 0.28rem;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .rank-bar-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .rank-fill-svg {
+    fill: var(--warning);
+  }
+  .rank-fill-svg.max {
+    fill: var(--success);
+  }
+  .item-rank-text,
+  .debug-reason {
+    font-size: var(--font-small-size, 0.72rem);
+    color: var(--text-muted);
+  }
+  .debug-reason {
+    font-family: monospace;
+  }
+
+  /* ── inventory value pills ───────────────────────────────────── */
+  .inventory-count-badge {
+    position: absolute;
+    right: 0.4rem;
+    bottom: 0.35rem;
+    border-radius: 999px;
+    padding: 0.1rem 0.4rem;
+    border: 1px solid rgba(74, 222, 128, 0.4);
+    background: rgba(6, 97, 58, 0.72);
+    color: #a9ffcb;
+    font-family: var(--font-display);
+    font-size: 0.67rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+  .inventory-value-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    min-height: 1.45rem;
+    margin-top: 0.2rem;
+  }
+  .inventory-rank-order-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.24rem;
+  }
+  .inventory-rank-order-box {
+    border: 1px solid rgba(240, 201, 92, 0.48);
+    background: rgba(212, 168, 67, 0.2);
+    border-radius: 0.42rem;
+    padding: 0.22rem 0.34rem;
+    display: grid;
+    gap: 0.08rem;
+    min-height: 2.05rem;
+    align-content: center;
+  }
+  .inventory-rank-order-label {
+    font-size: 0.57rem;
+    color: color-mix(in oklab, var(--accent-bright) 80%, white);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-family: var(--font-display);
+  }
+  .inventory-rank-order-box strong {
+    font-family: var(--font-display);
+    color: var(--accent-bright);
+    font-size: 0.86rem;
+    line-height: 1.05;
+    letter-spacing: 0.01em;
+  }
+  .inventory-value-pill {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(212, 168, 67, 0.28);
+    background: rgba(212, 168, 67, 0.1);
+    color: var(--accent);
+    border-radius: 999px;
+    padding: 0.08rem 0.42rem;
+    font-size: 0.69rem;
+    font-family: var(--font-display);
+    letter-spacing: 0.02em;
+    font-weight: 700;
+  }
+  .inventory-value-pill-plat {
+    font-size: 0.85rem;
+    padding: 0.1rem 0.5rem;
+    border-color: rgba(240, 201, 92, 0.5);
+    background: rgba(212, 168, 67, 0.2);
+    color: var(--accent-bright);
+  }
+  .inventory-value-pill-missing {
+    border-color: rgba(148, 163, 184, 0.26);
+    background: rgba(31, 41, 55, 0.58);
+    color: #94a3b8;
+  }
+  .inventory-debug-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-bottom: 0.65rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px dashed rgba(96, 165, 250, 0.4);
+    border-radius: 0.42rem;
+    background: rgba(96, 165, 250, 0.08);
+    color: #a8c9ff;
+    font-family: monospace;
+    font-size: 0.72rem;
+    line-height: 1.1;
+  }
+
+  /* ── split layout ────────────────────────────────────────────── */
+  .inventory-split-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 0.75rem;
+    align-items: start;
+  }
+  .inventory-split-main {
+    min-width: 0;
+  }
+
+  /* ── orderbook panel ─────────────────────────────────────────── */
+  .inventory-orderbook-panel {
+    position: sticky;
+    top: 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 0.625rem;
+    background: var(--bg-surface);
+    padding: 0.62rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.58rem;
+  }
+  .inventory-orderbook-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .inventory-orderbook-head h3 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 0.94rem;
+    color: var(--text-primary);
+  }
+  .inventory-orderbook-actions {
+    display: flex;
+    gap: 0.32rem;
+  }
+  .inventory-orderbook-item {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 0.55rem;
+    align-items: center;
+  }
+  .inventory-orderbook-item-image {
+    height: 52px;
+    width: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.45rem;
+    border: 1px solid var(--border);
+    background: var(--bg-raised);
+    overflow: hidden;
+  }
+  .inventory-orderbook-item-name {
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .inventory-orderbook-item-sub {
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+  }
+  .inventory-orderbook-loading,
+  .inventory-orderbook-empty,
+  .inventory-orderbook-error,
+  .inventory-orderbook-side-empty {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    border: 1px dashed var(--border);
+    border-radius: 0.45rem;
+    background: var(--bg-soft);
+    padding: 0.5rem 0.55rem;
+  }
+  .inventory-orderbook-feedback {
+    font-size: 0.76rem;
+    color: var(--accent-bright);
+    border: 1px solid color-mix(in oklab, var(--accent) 42%, transparent);
+    border-radius: 0.45rem;
+    background: color-mix(in oklab, var(--accent) 14%, var(--bg-soft));
+    padding: 0.44rem 0.55rem;
+  }
+  .inventory-orderbook-error {
+    color: var(--danger);
+    border-color: rgba(248, 113, 113, 0.4);
+  }
+  .inventory-orderbook-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.36rem;
+  }
+  .inventory-orderbook-ranked-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.42rem;
+  }
+  .inventory-orderbook-ranked-box {
+    border: 1px solid color-mix(in oklab, var(--accent) 52%, transparent);
+    border-radius: 0.5rem;
+    background: color-mix(in oklab, var(--accent) 16%, var(--bg-surface));
+    padding: 0.44rem 0.5rem;
+    display: grid;
+    gap: 0.18rem;
+    min-height: 3.05rem;
+    align-content: center;
+  }
+  .inventory-orderbook-ranked-box span {
+    font-size: 0.68rem;
+    color: color-mix(in oklab, var(--accent-bright) 76%, white);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-family: var(--font-display);
+  }
+  .inventory-orderbook-ranked-box strong {
+    font-family: var(--font-display);
+    font-size: 1.06rem;
+    line-height: 1.05;
+    color: var(--accent-bright);
+    letter-spacing: 0.02em;
+  }
+  .inventory-orderbook-stat {
+    border: 1px solid var(--border);
+    border-radius: 0.45rem;
+    background: var(--bg-soft);
+    padding: 0.35rem 0.45rem;
+    display: grid;
+    gap: 0.16rem;
+  }
+  .inventory-orderbook-stat span {
+    font-size: 0.66rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .inventory-orderbook-stat strong {
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    color: var(--text-primary);
+  }
+  .inventory-orderbook-updated {
+    grid-column: 1 / -1;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-align: right;
+  }
+  .inventory-orderbook-controls {
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: color-mix(in oklab, var(--bg-surface) 84%, var(--bg-raised));
+    padding: 0.45rem;
+    display: grid;
+    gap: 0.42rem;
+  }
+  .inventory-orderbook-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+    user-select: none;
+  }
+  .inventory-orderbook-toggle input {
+    accent-color: var(--accent);
+  }
+  .inventory-orderbook-sorters {
+    display: grid;
+    gap: 0.4rem;
+  }
+  .inventory-orderbook-side-sorters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+  .inventory-orderbook-sort {
+    display: grid;
+    gap: 0.2rem;
+  }
+  .inventory-orderbook-sort span {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .inventory-orderbook-sort select {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 0.38rem;
+    background: var(--bg-raised);
+    color: var(--text-primary);
+    padding: 0.26rem 0.34rem;
+    font-size: 0.72rem;
+  }
+  .inventory-orderbook-sort select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 30%, transparent);
+  }
+  .inventory-orderbook-post-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.38rem;
+  }
+  .inventory-orderbook-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+  .inventory-orderbook-side {
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: color-mix(in oklab, var(--bg-surface) 82%, var(--bg-raised));
+  }
+  .inventory-orderbook-side header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.32rem 0.4rem;
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+  .inventory-orderbook-side-sell header {
+    background: rgba(185, 28, 28, 0.2);
+    color: #fda4af;
+    border-bottom: 1px solid rgba(251, 113, 133, 0.25);
+  }
+  .inventory-orderbook-side-buy header {
+    background: rgba(6, 95, 70, 0.2);
+    color: #86efac;
+    border-bottom: 1px solid rgba(52, 211, 153, 0.24);
+  }
+  .inventory-orderbook-rows {
+    display: grid;
+  }
+  .inventory-orderbook-row {
+    display: grid;
+    gap: 0.32rem;
+    padding: 0.35rem 0.45rem;
+    border-top: 1px solid color-mix(in oklab, var(--border) 72%, transparent);
+  }
+  .inventory-orderbook-row:first-child {
+    border-top: 0;
+  }
+  .inventory-orderbook-row-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    gap: 0.3rem;
+    align-items: center;
+  }
+  .inventory-orderbook-user-block {
+    display: grid;
+    gap: 0.08rem;
+    min-width: 0;
+  }
+  .inventory-orderbook-row-actions {
+    display: flex;
+    gap: 0.32rem;
+  }
+  .inventory-orderbook-row-btn {
+    flex: 1;
+    min-height: 1.7rem;
+    padding: 0.24rem 0.46rem;
+    font-size: 0.66rem;
+  }
+  .inventory-orderbook-status {
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    padding: 0.1rem 0.38rem;
+    font-size: 0.62rem;
+    font-family: var(--font-display);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .inventory-orderbook-status-ingame {
+    border-color: rgba(74, 222, 128, 0.45);
+    background: rgba(34, 197, 94, 0.16);
+    color: #86efac;
+  }
+  .inventory-orderbook-status-online {
+    border-color: rgba(147, 197, 253, 0.45);
+    background: rgba(59, 130, 246, 0.16);
+    color: #bfdbfe;
+  }
+  .inventory-orderbook-status-offline {
+    border-color: rgba(148, 163, 184, 0.4);
+    background: rgba(51, 65, 85, 0.26);
+    color: #cbd5e1;
+  }
+  .inventory-orderbook-status-invisible {
+    border-color: rgba(251, 191, 36, 0.42);
+    background: rgba(161, 98, 7, 0.24);
+    color: #fde68a;
+  }
+  .inventory-orderbook-status-unknown {
+    border-color: rgba(148, 163, 184, 0.45);
+    background: rgba(71, 85, 105, 0.24);
+    color: #cbd5e1;
+  }
+  .inventory-orderbook-rank-sub {
+    font-size: 0.62rem;
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .inventory-orderbook-qty,
+  .inventory-orderbook-plat {
+    font-family: var(--font-display);
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+  }
+  .inventory-orderbook-plat {
+    text-align: right;
+    color: var(--accent-bright);
+    font-weight: 700;
+  }
+  .inventory-orderbook-user {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.76rem;
+    color: var(--text-primary);
+  }
+  .inventory-equipped-note {
+    font-size: 0.74rem;
+    color: var(--success);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

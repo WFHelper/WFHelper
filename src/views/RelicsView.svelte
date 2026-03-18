@@ -610,76 +610,66 @@
 </script>
 
 <section class="view active">
-  <div class="view-header">
-    <h2>Relic Planner ({groups.length} groups / {visibleRelicEntryCount} entries)</h2>
-    <div class="view-controls">
-      <div class="search-box">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="7" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        <input type="text" bind:value={$relicSearch} placeholder="Search relics..." />
-      </div>
-
-      <div class="filter-tabs">
+  <div class="relics-header-wrap">
+    <h2 class="relics-title">Relic Planner ({groups.length} groups / {visibleRelicEntryCount} entries)</h2>
+    <div class="relics-tab-row">
+      <div class="relics-tier-tab-bar">
         {#each TIER_OPTIONS as [key, label]}
           <button
-            class="filter-tab"
+            class="relics-tier-tab-item"
             class:active={$relicTierFilter === key}
             on:click={() => relicTierFilter.set(key)}
-          >
-            {label}
-          </button>
+          >{label}</button>
         {/each}
       </div>
+      <div class="relics-right-controls">
+        <div class="search-box relics-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="7" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input type="text" bind:value={$relicSearch} placeholder="Search relics..." />
+        </div>
 
-      <div class="filter-tabs" title="Sort relics">
-        {#each SORT_OPTIONS as [key, label]}
-          <button
-            class="filter-tab"
-            class:active={$relicSortMode === key}
-            on:click={() => relicSortMode.set(key)}
-          >
-            {label}
-          </button>
-        {/each}
+        <label class="shared-filter-sort" title="Sort relics">
+          <span>Sort</span>
+          <select class="shared-filter-select" bind:value={$relicSortMode}>
+            {#each SORT_OPTIONS as [key, label]}
+              <option value={key}>{label}</option>
+            {/each}
+          </select>
+        </label>
+
+        <label class="shared-filter-sort" title="Relic quality for EV">
+          <span>Quality</span>
+          <select class="shared-filter-select" bind:value={$relicQualityMode}>
+            {#each QUALITY_OPTIONS as [key, label]}
+              <option value={key}>{label}</option>
+            {/each}
+          </select>
+        </label>
+
+        <label class="shared-filter-sort" title="Squad size for EV">
+          <span>Squad</span>
+          <select class="shared-filter-select relics-squad-select" bind:value={$relicSquadSize}>
+            {#each SQUAD_OPTIONS as [size, label]}
+              <option value={size}>{label}</option>
+            {/each}
+          </select>
+        </label>
+
+        <button
+          class="push-overlay-btn"
+          title="Push current tier & squad filters to the in-game relic overlay"
+          on:click={pushFiltersToOverlay}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+            <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+          </svg>
+          Push to Overlay
+        </button>
       </div>
-
-      <div class="filter-tabs" title="Relic quality for EV">
-        {#each QUALITY_OPTIONS as [key, label]}
-          <button
-            class="filter-tab"
-            class:active={$relicQualityMode === key}
-            on:click={() => relicQualityMode.set(key)}
-          >
-            {label}
-          </button>
-        {/each}
-      </div>
-
-      <div class="filter-tabs" title="Squad size for EV">
-        {#each SQUAD_OPTIONS as [size, label]}
-          <button
-            class="filter-tab"
-            class:active={$relicSquadSize === size}
-            on:click={() => relicSquadSize.set(size)}
-          >
-            {label}
-          </button>
-        {/each}
-      </div>
-
-      <button
-        class="push-overlay-btn"
-        title="Push current tier & squad filters to the in-game relic overlay"
-        on:click={pushFiltersToOverlay}
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-          <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
-          <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
-        </svg>
-        Push to Overlay
-      </button>
     </div>
   </div>
 
@@ -696,7 +686,6 @@
         {@const iconSrc =
           group.imageUrl || RELIC_ICON_PATHS[tierClass] || RELIC_ICON_PATHS.default}
         {@const selected = selectedEvData(group)}
-        {@const best = bestQualityBadge(group)}
         {@const rewardIcons = previewRewards(group)}
         {@const totalOwned = RELIC_QUALITY_COLUMNS.reduce(
           (sum, quality) => sum + ownedCount(group, quality),
@@ -765,11 +754,6 @@
             </span>
           </span>
 
-          <span class="relic-compact-best-block">
-            <span class="relic-compact-block-label">Best EV</span>
-            <span class={`relic-best-chip ${best.cls}`}>{best.text}</span>
-          </span>
-
           {#if $debugMode}
             <span class="debug-reason">show:relic-planner:{group.key}</span>
           {/if}
@@ -779,9 +763,73 @@
   {/if}
 </section>
 
+<style>
+  .relics-header-wrap {
+    margin-bottom: 1rem;
+  }
 
+  .relics-title {
+    margin: 0 0 0.5rem;
+    font-family: var(--font-display);
+    font-size: var(--font-heading-size, 1.875rem);
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: var(--text-primary);
+  }
 
+  .relics-tab-row {
+    display: flex;
+    align-items: flex-end;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  }
 
+  .relics-tier-tab-bar {
+    display: flex;
+  }
+
+  .relics-tier-tab-item {
+    display: flex;
+    align-items: center;
+    padding: 0.45rem 0.95rem;
+    border: none;
+    border-bottom: 3px solid transparent;
+    background: none;
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    color: #8a8c95;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+    margin-bottom: -1px;
+  }
+
+  .relics-tier-tab-item:hover {
+    color: #b0b2ba;
+  }
+
+  .relics-tier-tab-item.active {
+    color: #ffffff;
+    border-bottom-color: #ffffff;
+  }
+
+  .relics-right-controls {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-bottom: 0.45rem;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+  }
+
+  .relics-search {
+    min-width: 11rem;
+  }
+
+  .relics-squad-select {
+    min-width: 4rem;
+  }
+</style>
 
 
 

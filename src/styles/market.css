@@ -1,0 +1,366 @@
+@layer components {
+  /* ── login panel ─────────────────────────────────────────────── */
+  .market-login-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.8rem 0;
+  }
+  .market-login-card {
+    width: min(560px, 100%);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: var(--bg-surface);
+    padding: 1rem;
+  }
+  .market-login-icon {
+    margin-bottom: 0.6rem;
+    color: var(--accent);
+  }
+  .market-login-icon svg {
+    width: 2.4rem;
+    height: 2.4rem;
+  }
+  .market-login-card h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: var(--font-heading-size, 1.5rem);
+    font-weight: 700;
+  }
+  .market-login-note {
+    margin: 0.4rem 0 0.85rem;
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+  }
+  .market-login-error {
+    color: var(--danger);
+  }
+  .market-login-btn {
+    width: 100%;
+    margin-top: 0.2rem;
+  }
+
+  /* ── header controls ─────────────────────────────────────────── */
+  .market-header-controls {
+    gap: 0.45rem;
+  }
+  .market-user-badge {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.2rem 0.56rem;
+    font-family: var(--font-display);
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .market-tabs {
+    margin-bottom: 0.62rem;
+  }
+  .market-bulk-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.38rem;
+    margin-bottom: 0.62rem;
+    border: 1px solid var(--border);
+    border-radius: 0.56rem;
+    background: var(--bg-surface);
+    padding: 0.46rem 0.58rem;
+  }
+  .market-bulk-bar span {
+    margin-right: 0.35rem;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+  }
+
+  /* ── orders list ─────────────────────────────────────────────── */
+  .market-orders-list {
+    display: grid;
+    gap: 0.44rem;
+  }
+  .market-loading,
+  .market-empty,
+  .market-error {
+    border: 1px solid var(--border);
+    border-radius: 0.56rem;
+    background: var(--bg-surface);
+    padding: 0.66rem;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+  }
+  .market-error {
+    color: var(--danger);
+  }
+  .order-row {
+    display: flex;
+    align-items: center;
+    gap: 0.48rem;
+    border-radius: 0.56rem;
+    padding: 0.5rem 0.6rem;
+    border-bottom: 0;
+  }
+  .order-checkbox {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+  }
+  .order-checkbox-placeholder {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+  }
+  .order-item-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
+  }
+  .market-contract-text {
+    display: grid;
+    gap: 0.16rem;
+    min-width: 0;
+  }
+  .market-contract-stats {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .order-item-thumb {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+    border-radius: 0.32rem;
+  }
+  .order-item-thumb-placeholder,
+  .order-search-no-thumb {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .order-rank-badge {
+    margin-left: 0.3rem;
+    border-radius: 0.24rem;
+    background: rgba(212, 168, 67, 0.2);
+    padding: 0.08rem 0.3rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .order-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.52rem;
+    flex-shrink: 0;
+  }
+  .order-plat,
+  .relic-plat {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .order-actions {
+    display: flex;
+    gap: 0.3rem;
+    flex-shrink: 0;
+  }
+  .order-vis.order-vis-on {
+    border-color: rgba(74, 222, 128, 0.35);
+    background: rgba(74, 222, 128, 0.13);
+    color: var(--success);
+  }
+  .order-vis.order-vis-off {
+    border-color: rgba(251, 191, 36, 0.35);
+    background: rgba(251, 191, 36, 0.13);
+    color: var(--warning);
+  }
+  .market-load-more {
+    justify-self: center;
+    margin-top: 0.2rem;
+  }
+
+  /* ── item search dropdown ────────────────────────────────────── */
+  .market-item-search-wrap {
+    position: relative;
+  }
+  .market-item-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 20;
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid var(--border-strong);
+    border-radius: 0.5rem;
+    background: var(--bg-surface);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+  .market-item-result {
+    display: flex;
+    align-items: center;
+    gap: 0.44rem;
+    cursor: pointer;
+    padding: 0.42rem 0.58rem;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+  }
+  .market-item-result:hover {
+    background: var(--bg-hover);
+  }
+  .market-item-result img,
+  .order-search-no-thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 0.24rem;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+  .market-item-selected {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.2rem;
+    border: 1px solid var(--accent-dim);
+    border-radius: 0.4rem;
+    background: var(--accent-glow);
+    padding: 0.35rem 0.52rem;
+    font-size: 0.82rem;
+  }
+  .market-item-selected img {
+    width: 28px;
+    height: 28px;
+    border-radius: 0.32rem;
+    object-fit: contain;
+  }
+  .order-clear-item {
+    margin-left: auto;
+    border: 0;
+    background: none;
+    color: var(--text-muted);
+    font-size: 1rem;
+    line-height: 1;
+  }
+  .order-clear-item:hover {
+    color: var(--text-primary);
+  }
+
+  /* ── order form / modal ──────────────────────────────────────── */
+  .market-fieldset {
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 0.56rem 0.66rem;
+    margin: 0 0 0.56rem;
+  }
+  .market-field-legend {
+    padding: 0 0.3rem;
+    font-family: var(--font-display);
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+  .market-radio {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    font-size: 0.86rem;
+  }
+  .market-radio input[type="radio"] {
+    accent-color: var(--accent);
+  }
+  .market-field-inline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+  .market-toggle {
+    position: relative;
+    width: 42px;
+    height: 22px;
+    display: inline-block;
+  }
+  .market-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .market-toggle-slider {
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    transition: all 0.15s;
+  }
+  .market-toggle-slider::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: #fff;
+    transition: transform 0.15s;
+  }
+  .market-toggle input:checked + .market-toggle-slider {
+    border-color: rgba(74, 222, 128, 0.4);
+    background: rgba(74, 222, 128, 0.2);
+  }
+  .market-toggle input:checked + .market-toggle-slider::before {
+    transform: translateX(18px);
+  }
+  .market-modal-actions {
+    margin-top: 0.7rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.42rem;
+  }
+  .market-field {
+    display: grid;
+    gap: 0.32rem;
+    margin-bottom: 0.56rem;
+  }
+  .market-field label {
+    color: var(--text-secondary);
+    font-size: var(--font-small-size, 0.8rem);
+    font-weight: 500;
+  }
+  .market-field input,
+  .market-field select {
+    border: 1px solid var(--border);
+    border-radius: 0.42rem;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font-size: var(--font-body-size, 0.84rem);
+    padding: 0.45rem 0.62rem;
+    outline: none;
+  }
+  .market-field input:focus,
+  .market-field select:focus {
+    border-color: var(--accent-dim);
+    box-shadow: 0 0 0 2px rgba(212, 168, 67, 0.12);
+  }
+  .market-link-btn {
+    margin-top: 0.4rem;
+    border: 1px solid var(--accent-dim);
+    border-radius: 0.34rem;
+    background: var(--accent-glow);
+    color: var(--accent);
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.28rem 0.52rem;
+  }
+  .market-link-btn:hover {
+    background: rgba(212, 168, 67, 0.22);
+  }
+}

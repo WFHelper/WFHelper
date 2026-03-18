@@ -1,4 +1,14 @@
+/*
+ * Shared infrastructure styles.
+ *
+ * View-specific styles live in their own files next to this one:
+ *   sidebar.css  · welcome.css  · inventory.css  · mastery.css
+ *   foundry.css  · world.css    · market.css      · settings.css
+ *   relics.css
+ */
+
 @layer components {
+  /* ── app layout ──────────────────────────────────────────────── */
   #app {
     display: flex;
     height: calc(100vh - var(--titlebar-height) - var(--statusbar-height));
@@ -14,8 +24,8 @@
     animation: fadeIn 0.18s ease;
   }
 
-  /* Stats view needs to fill the full height of #content so the
-     split-pane layout can stretch to the bottom of the window. */
+  /* Stats view needs to fill #content so the split-pane layout
+     can stretch to the bottom of the window. */
   #content.stats-active {
     display: flex;
     flex-direction: column;
@@ -29,6 +39,7 @@
     overflow: hidden;
   }
 
+  /* ── view header ─────────────────────────────────────────────── */
   .view-header {
     margin-bottom: 1rem;
     display: flex;
@@ -51,6 +62,8 @@
     align-items: center;
     gap: 0.625rem;
   }
+
+  /* ── shared filter bar ───────────────────────────────────────── */
   .shared-filter-bar {
     margin-bottom: 0.9rem;
     display: flex;
@@ -119,6 +132,9 @@
   .shared-filter-controls {
     min-width: 0;
   }
+  .shared-filter-controls > * {
+    flex-shrink: 0;
+  }
   .shared-chip-group {
     display: inline-flex;
     align-items: center;
@@ -142,6 +158,27 @@
   .shared-chip-group .filter-tab {
     padding: 0.34rem 0.62rem;
   }
+  .shared-filter-bar-inline {
+    margin-bottom: 0;
+    flex: 1;
+    min-width: 0;
+  }
+  .shared-filter-bar-inline .shared-filter-controls {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    min-width: 0;
+  }
+  .shared-filter-bar-inline .shared-filter-search {
+    min-width: 11rem;
+  }
+  .shared-filter-bar-inline .filter-tabs {
+    flex-wrap: nowrap;
+  }
+  .shared-filter-bar-inline .shared-filter-select {
+    min-width: 9.5rem;
+  }
+
+  /* Inventory-specific filter bar variants */
   .inventory-controls {
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -190,29 +227,8 @@
     justify-content: flex-start;
     flex-wrap: wrap;
   }
-  .shared-filter-controls > * {
-    flex-shrink: 0;
-  }
-  .shared-filter-bar-inline {
-    margin-bottom: 0;
-    flex: 1;
-    min-width: 0;
-  }
-  .shared-filter-bar-inline .shared-filter-controls {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    min-width: 0;
-  }
-  .shared-filter-bar-inline .shared-filter-search {
-    min-width: 11rem;
-  }
-  .shared-filter-bar-inline .filter-tabs {
-    flex-wrap: nowrap;
-  }
-  .shared-filter-bar-inline .shared-filter-select {
-    min-width: 9.5rem;
-  }
 
+  /* ── search box ──────────────────────────────────────────────── */
   .search-box {
     position: relative;
     min-width: 12rem;
@@ -250,6 +266,7 @@
     box-shadow: 0 0 0 3px rgba(212, 168, 67, 0.12);
   }
 
+  /* ── filter tabs (pill style, used by shared filter bars) ────── */
   .filter-tabs {
     display: flex;
     flex-wrap: wrap;
@@ -282,6 +299,7 @@
     color: var(--accent);
   }
 
+  /* ── push-to-overlay button ──────────────────────────────────── */
   .push-overlay-btn {
     display: inline-flex;
     align-items: center;
@@ -310,6 +328,7 @@
     flex-shrink: 0;
   }
 
+  /* ── buttons ─────────────────────────────────────────────────── */
   .btn-primary,
   .btn-secondary,
   .btn-danger {
@@ -360,6 +379,7 @@
     font-size: 0.75rem;
   }
 
+  /* ── empty state ─────────────────────────────────────────────── */
   .empty-state {
     min-height: 15rem;
     display: flex;
@@ -390,172 +410,7 @@
     color: var(--accent-bright);
   }
 
-  #sidebar {
-    width: var(--sidebar-width);
-    flex-shrink: 0;
-    border-right: 1px solid var(--border);
-    background: var(--bg-base);
-    padding: 0.75rem 0.5rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-  }
-  .nav-section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
-  }
-  .nav-btn {
-    position: relative;
-    display: flex;
-    width: 100%;
-    cursor: pointer;
-    align-items: center;
-    gap: 0.625rem;
-    border-radius: 0.375rem;
-    border: 0;
-    background: transparent;
-    padding: 0.625rem 0.75rem;
-    font-family: var(--font-display);
-    font-size: var(--font-body-size, 0.875rem);
-    font-weight: 500;
-    letter-spacing: 0.03em;
-    color: var(--text-secondary);
-    transition:
-      background-color 0.15s,
-      color 0.15s;
-  }
-  .nav-btn svg {
-    width: 1rem;
-    height: 1rem;
-    flex-shrink: 0;
-  }
-  .nav-btn:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-  }
-  .nav-btn.active {
-    background: var(--accent-glow);
-    color: var(--accent);
-  }
-  .nav-btn.active::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 0.375rem;
-    bottom: 0.375rem;
-    width: 0.25rem;
-    border-radius: 0 0.25rem 0.25rem 0;
-    background: var(--accent);
-  }
-  .nav-bottom {
-    margin-top: 0.5rem;
-  }
-  .nav-btn-dim {
-    color: var(--text-muted);
-  }
-  .nav-btn-dim:hover {
-    color: var(--text-secondary);
-  }
-
-  .welcome-card {
-    margin-inline: auto;
-    max-width: 740px;
-    text-align: center;
-  }
-  .welcome-icon {
-    margin-bottom: 1rem;
-  }
-  .welcome-icon svg {
-    width: 4rem;
-    height: 4rem;
-    color: var(--accent);
-    opacity: 0.6;
-  }
-  .welcome-card h1 {
-    margin: 0 0 0.5rem;
-    font-family: var(--font-display);
-    font-size: var(--font-heading-size, 2rem);
-    font-weight: 700;
-    letter-spacing: 0.03em;
-  }
-  .welcome-card > p {
-    margin: 0 0 1.5rem;
-    color: var(--text-secondary);
-  }
-  .source-cards {
-    display: grid;
-    gap: 0.75rem;
-    text-align: left;
-  }
-  .source-card {
-    border: 1px solid var(--border);
-    border-radius: 0.625rem;
-    background: var(--bg-surface);
-    padding: 1rem 1.125rem;
-  }
-  .source-card:hover {
-    border-color: var(--border-strong);
-  }
-  .source-card-compact {
-    padding-block: 0.875rem;
-  }
-  .source-header h3 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: var(--font-heading-size, 1.05rem);
-    font-weight: 600;
-  }
-  .source-desc {
-    margin-top: 0.2rem;
-    font-size: var(--font-body-size, 0.84rem);
-    color: var(--text-secondary);
-    line-height: 1.45;
-  }
-  .source-desc code {
-    border-radius: 0.25rem;
-    background: var(--bg-raised);
-    padding: 0.06rem 0.34rem;
-    color: var(--accent);
-    font-size: 0.78rem;
-  }
-  .source-badge {
-    display: inline-block;
-    margin-bottom: 0.25rem;
-    border-radius: 0.25rem;
-    background: rgba(74, 222, 128, 0.15);
-    padding: 0.12rem 0.5rem;
-    font-family: var(--font-display);
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: var(--success);
-  }
-  .source-status,
-  .source-actions,
-  .source-fallback {
-    margin-top: 0.55rem;
-  }
-  .source-steps-mini {
-    display: grid;
-    gap: 0.2rem;
-    margin: 0.55rem 0;
-    font-size: 0.84rem;
-    color: var(--text-secondary);
-  }
-  .status-checking,
-  .status-warn,
-  .status-not-found {
-    color: var(--text-muted);
-  }
-  .status-ok,
-  .status-found {
-    color: var(--success);
-  }
-  .status-error {
-    color: var(--danger);
-  }
-
+  /* ── cross-component card grids ──────────────────────────────── */
   .item-grid,
   .resource-grid,
   #relic-grid {
@@ -563,6 +418,8 @@
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 0.75rem;
   }
+
+  /* ── cross-component card surface ────────────────────────────── */
   .item-card,
   .resource-card,
   .foundry-item,
@@ -584,57 +441,8 @@
     border-color: var(--border-strong);
     background: var(--bg-raised);
   }
-  .item-card {
-    cursor: pointer;
-    overflow: hidden;
-  }
-  .item-card.mastered {
-    border-color: rgba(74, 222, 128, 0.25);
-  }
-  .item-card.prime {
-    border-color: rgba(212, 168, 67, 0.28);
-  }
-  .item-img-wrap {
-    position: relative;
-    display: flex;
-    height: 120px;
-    align-items: center;
-    justify-content: center;
-    border-bottom: 1px solid var(--border);
-    background: color-mix(in oklab, var(--bg-surface) 65%, black);
-    padding: 0.6rem;
-  }
-  .item-img {
-    max-width: var(--item-image-max);
-    max-height: var(--item-image-max);
-    object-fit: contain;
-  }
-  .prime-badge,
-  .vault-badge,
-  .count-badge,
-  .relic-owned-badge {
-    position: absolute;
-    border-radius: 999px;
-    padding: 0.12rem 0.42rem;
-    font-family: var(--font-display);
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-  }
-  .prime-badge {
-    top: 0.4rem;
-    left: 0.4rem;
-    background: rgba(212, 168, 67, 0.18);
-    color: var(--accent);
-    border: 1px solid rgba(212, 168, 67, 0.35);
-  }
-  .vault-badge {
-    top: 0.4rem;
-    right: 0.4rem;
-    background: rgba(248, 113, 113, 0.18);
-    color: var(--danger);
-    border: 1px solid rgba(248, 113, 113, 0.35);
-  }
+
+  /* ── cross-component card body / name / type ─────────────────── */
   .item-body,
   .resource-info,
   .relic-card-body {
@@ -662,486 +470,8 @@
     font-size: var(--font-small-size, 0.78rem);
     color: var(--text-secondary);
   }
-  .item-rank-bar {
-    margin-top: 0.2rem;
-    height: 0.28rem;
-    width: 100%;
-    overflow: hidden;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
-  }
-  .rank-bar-svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-  .rank-fill-svg {
-    fill: var(--warning);
-  }
-  .rank-fill-svg.max {
-    fill: var(--success);
-  }
-  .item-rank-text,
-  .debug-reason,
-  .mastery-missing-label {
-    font-size: var(--font-small-size, 0.72rem);
-    color: var(--text-muted);
-  }
-  .inventory-count-badge {
-    position: absolute;
-    right: 0.4rem;
-    bottom: 0.35rem;
-    border-radius: 999px;
-    padding: 0.1rem 0.4rem;
-    border: 1px solid rgba(74, 222, 128, 0.4);
-    background: rgba(6, 97, 58, 0.72);
-    color: #a9ffcb;
-    font-family: var(--font-display);
-    font-size: 0.67rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-  }
-  .inventory-value-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-    min-height: 1.45rem;
-    margin-top: 0.2rem;
-  }
-  .inventory-rank-order-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.24rem;
-  }
-  .inventory-rank-order-box {
-    border: 1px solid rgba(240, 201, 92, 0.48);
-    background: rgba(212, 168, 67, 0.2);
-    border-radius: 0.42rem;
-    padding: 0.22rem 0.34rem;
-    display: grid;
-    gap: 0.08rem;
-    min-height: 2.05rem;
-    align-content: center;
-  }
-  .inventory-rank-order-label {
-    font-size: 0.57rem;
-    color: color-mix(in oklab, var(--accent-bright) 80%, white);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-family: var(--font-display);
-  }
-  .inventory-rank-order-box strong {
-    font-family: var(--font-display);
-    color: var(--accent-bright);
-    font-size: 0.86rem;
-    line-height: 1.05;
-    letter-spacing: 0.01em;
-  }
-  .inventory-value-pill {
-    display: inline-flex;
-    align-items: center;
-    border: 1px solid rgba(212, 168, 67, 0.28);
-    background: rgba(212, 168, 67, 0.1);
-    color: var(--accent);
-    border-radius: 999px;
-    padding: 0.08rem 0.42rem;
-    font-size: 0.69rem;
-    font-family: var(--font-display);
-    letter-spacing: 0.02em;
-    font-weight: 700;
-  }
-  .inventory-value-pill-plat {
-    font-size: 0.85rem;
-    padding: 0.1rem 0.5rem;
-    border-color: rgba(240, 201, 92, 0.5);
-    background: rgba(212, 168, 67, 0.2);
-    color: var(--accent-bright);
-  }
-  .inventory-value-pill-missing {
-    border-color: rgba(148, 163, 184, 0.26);
-    background: rgba(31, 41, 55, 0.58);
-    color: #94a3b8;
-  }
-  .inventory-debug-panel {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-    margin-bottom: 0.65rem;
-    padding: 0.4rem 0.55rem;
-    border: 1px dashed rgba(96, 165, 250, 0.4);
-    border-radius: 0.42rem;
-    background: rgba(96, 165, 250, 0.08);
-    color: #a8c9ff;
-    font-family: monospace;
-    font-size: 0.72rem;
-    line-height: 1.1;
-  }
-  .inventory-split-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 360px;
-    gap: 0.75rem;
-    align-items: start;
-  }
-  .inventory-split-main {
-    min-width: 0;
-  }
-  .inventory-orderbook-panel {
-    position: sticky;
-    top: 0.65rem;
-    border: 1px solid var(--border);
-    border-radius: 0.625rem;
-    background: var(--bg-surface);
-    padding: 0.62rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.58rem;
-  }
-  .inventory-orderbook-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.4rem;
-  }
-  .inventory-orderbook-head h3 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 0.94rem;
-    color: var(--text-primary);
-  }
-  .inventory-orderbook-actions {
-    display: flex;
-    gap: 0.32rem;
-  }
-  .inventory-orderbook-item {
-    display: grid;
-    grid-template-columns: 52px minmax(0, 1fr);
-    gap: 0.55rem;
-    align-items: center;
-  }
-  .inventory-orderbook-item-image {
-    height: 52px;
-    width: 52px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.45rem;
-    border: 1px solid var(--border);
-    background: var(--bg-raised);
-    overflow: hidden;
-  }
-  .inventory-orderbook-item-name {
-    font-family: var(--font-display);
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .inventory-orderbook-item-sub {
-    font-size: 0.76rem;
-    color: var(--text-secondary);
-  }
-  .inventory-orderbook-loading,
-  .inventory-orderbook-empty,
-  .inventory-orderbook-error,
-  .inventory-orderbook-side-empty {
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-    border: 1px dashed var(--border);
-    border-radius: 0.45rem;
-    background: var(--bg-soft);
-    padding: 0.5rem 0.55rem;
-  }
-  .inventory-orderbook-feedback {
-    font-size: 0.76rem;
-    color: var(--accent-bright);
-    border: 1px solid color-mix(in oklab, var(--accent) 42%, transparent);
-    border-radius: 0.45rem;
-    background: color-mix(in oklab, var(--accent) 14%, var(--bg-soft));
-    padding: 0.44rem 0.55rem;
-  }
-  .inventory-orderbook-error {
-    color: var(--danger);
-    border-color: rgba(248, 113, 113, 0.4);
-  }
-  .inventory-orderbook-summary {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.36rem;
-  }
-  .inventory-orderbook-ranked-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.42rem;
-  }
-  .inventory-orderbook-ranked-box {
-    border: 1px solid color-mix(in oklab, var(--accent) 52%, transparent);
-    border-radius: 0.5rem;
-    background: color-mix(in oklab, var(--accent) 16%, var(--bg-surface));
-    padding: 0.44rem 0.5rem;
-    display: grid;
-    gap: 0.18rem;
-    min-height: 3.05rem;
-    align-content: center;
-  }
-  .inventory-orderbook-ranked-box span {
-    font-size: 0.68rem;
-    color: color-mix(in oklab, var(--accent-bright) 76%, white);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-family: var(--font-display);
-  }
-  .inventory-orderbook-ranked-box strong {
-    font-family: var(--font-display);
-    font-size: 1.06rem;
-    line-height: 1.05;
-    color: var(--accent-bright);
-    letter-spacing: 0.02em;
-  }
-  .inventory-orderbook-stat {
-    border: 1px solid var(--border);
-    border-radius: 0.45rem;
-    background: var(--bg-soft);
-    padding: 0.35rem 0.45rem;
-    display: grid;
-    gap: 0.16rem;
-  }
-  .inventory-orderbook-stat span {
-    font-size: 0.66rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .inventory-orderbook-stat strong {
-    font-family: var(--font-display);
-    font-size: 0.8rem;
-    color: var(--text-primary);
-  }
-  .inventory-orderbook-updated {
-    grid-column: 1 / -1;
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    text-align: right;
-  }
-  .inventory-orderbook-controls {
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    background: color-mix(in oklab, var(--bg-surface) 84%, var(--bg-raised));
-    padding: 0.45rem;
-    display: grid;
-    gap: 0.42rem;
-  }
-  .inventory-orderbook-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.74rem;
-    color: var(--text-secondary);
-    user-select: none;
-  }
-  .inventory-orderbook-toggle input {
-    accent-color: var(--accent);
-  }
-  .inventory-orderbook-sorters {
-    display: grid;
-    gap: 0.4rem;
-  }
-  .inventory-orderbook-side-sorters {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.4rem;
-  }
-  .inventory-orderbook-sort {
-    display: grid;
-    gap: 0.2rem;
-  }
-  .inventory-orderbook-sort span {
-    font-size: 0.65rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .inventory-orderbook-sort select {
-    width: 100%;
-    border: 1px solid var(--border);
-    border-radius: 0.38rem;
-    background: var(--bg-raised);
-    color: var(--text-primary);
-    padding: 0.26rem 0.34rem;
-    font-size: 0.72rem;
-  }
-  .inventory-orderbook-sort select:focus {
-    outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 30%, transparent);
-  }
-  .inventory-orderbook-post-actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.38rem;
-  }
-  .inventory-orderbook-columns {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
-  }
-  .inventory-orderbook-side {
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    overflow: hidden;
-    background: color-mix(in oklab, var(--bg-surface) 82%, var(--bg-raised));
-  }
-  .inventory-orderbook-side header {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 0.32rem 0.4rem;
-    font-family: var(--font-display);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-  }
-  .inventory-orderbook-side-sell header {
-    background: rgba(185, 28, 28, 0.2);
-    color: #fda4af;
-    border-bottom: 1px solid rgba(251, 113, 133, 0.25);
-  }
-  .inventory-orderbook-side-buy header {
-    background: rgba(6, 95, 70, 0.2);
-    color: #86efac;
-    border-bottom: 1px solid rgba(52, 211, 153, 0.24);
-  }
-  .inventory-orderbook-rows {
-    display: grid;
-  }
-  .inventory-orderbook-row {
-    display: grid;
-    gap: 0.32rem;
-    padding: 0.35rem 0.45rem;
-    border-top: 1px solid color-mix(in oklab, var(--border) 72%, transparent);
-  }
-  .inventory-orderbook-row:first-child {
-    border-top: 0;
-  }
-  .inventory-orderbook-row-head {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto auto;
-    gap: 0.3rem;
-    align-items: center;
-  }
-  .inventory-orderbook-user-block {
-    display: grid;
-    gap: 0.08rem;
-    min-width: 0;
-  }
-  .inventory-orderbook-row-actions {
-    display: flex;
-    gap: 0.32rem;
-  }
-  .inventory-orderbook-row-btn {
-    flex: 1;
-    min-height: 1.7rem;
-    padding: 0.24rem 0.46rem;
-    font-size: 0.66rem;
-  }
-  .inventory-orderbook-status {
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    padding: 0.1rem 0.38rem;
-    font-size: 0.62rem;
-    font-family: var(--font-display);
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-  .inventory-orderbook-status-ingame {
-    border-color: rgba(74, 222, 128, 0.45);
-    background: rgba(34, 197, 94, 0.16);
-    color: #86efac;
-  }
-  .inventory-orderbook-status-online {
-    border-color: rgba(147, 197, 253, 0.45);
-    background: rgba(59, 130, 246, 0.16);
-    color: #bfdbfe;
-  }
-  .inventory-orderbook-status-offline {
-    border-color: rgba(148, 163, 184, 0.4);
-    background: rgba(51, 65, 85, 0.26);
-    color: #cbd5e1;
-  }
-  .inventory-orderbook-status-invisible {
-    border-color: rgba(251, 191, 36, 0.42);
-    background: rgba(161, 98, 7, 0.24);
-    color: #fde68a;
-  }
-  .inventory-orderbook-status-unknown {
-    border-color: rgba(148, 163, 184, 0.45);
-    background: rgba(71, 85, 105, 0.24);
-    color: #cbd5e1;
-  }
-  .inventory-orderbook-rank-sub {
-    font-size: 0.62rem;
-    color: var(--text-muted);
-    font-family: var(--font-display);
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-  }
-  .inventory-orderbook-qty,
-  .inventory-orderbook-plat {
-    font-family: var(--font-display);
-    font-size: 0.74rem;
-    color: var(--text-secondary);
-  }
-  .inventory-orderbook-plat {
-    text-align: right;
-    color: var(--accent-bright);
-    font-weight: 700;
-  }
-  .inventory-orderbook-user {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.76rem;
-    color: var(--text-primary);
-  }
-  .inventory-equipped-note {
-    font-size: 0.74rem;
-    color: var(--success);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .debug-reason {
-    font-family: monospace;
-  }
 
-  .section-label,
-  .world-card h3 {
-    margin: 0.25rem 0 0.55rem;
-    font-family: var(--font-display);
-    font-size: var(--font-heading-size, 1rem);
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    color: var(--text-primary);
-  }
-  .foundry-list {
-    display: grid;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-  }
-  .foundry-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.56rem 0.68rem;
-  }
-  .foundry-item-left {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    gap: 0.62rem;
-  }
+  /* ── cross-component image wrapper base ──────────────────────── */
   .foundry-img-wrap,
   .resource-img-wrap,
   .order-item-thumb,
@@ -1154,317 +484,47 @@
     background: var(--bg-raised);
     border: 1px solid var(--border);
   }
-  .foundry-img-wrap {
-    width: var(--foundry-image-wrap);
-    height: var(--foundry-image-wrap);
-    flex-shrink: 0;
-  }
-  .foundry-img {
-    max-width: var(--foundry-image-max);
-    max-height: var(--foundry-image-max);
-    object-fit: contain;
-  }
-  .foundry-timer,
-  .count-badge {
-    color: var(--text-muted);
-    font-size: 0.78rem;
+
+  /* ── cross-component badges ──────────────────────────────────── */
+  .prime-badge,
+  .vault-badge,
+  .count-badge,
+  .relic-owned-badge {
+    position: absolute;
+    border-radius: 999px;
+    padding: 0.12rem 0.42rem;
     font-family: var(--font-display);
+    font-size: 0.62rem;
     font-weight: 700;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.04em;
   }
-  .foundry-timer.ready,
-  .count-badge {
-    color: var(--success);
+  .prime-badge {
+    top: 0.4rem;
+    left: 0.4rem;
+    background: rgba(212, 168, 67, 0.18);
+    color: var(--accent);
+    border: 1px solid rgba(212, 168, 67, 0.35);
+  }
+  .vault-badge {
+    top: 0.4rem;
+    right: 0.4rem;
+    background: rgba(248, 113, 113, 0.18);
+    color: var(--danger);
+    border: 1px solid rgba(248, 113, 113, 0.35);
   }
   .count-badge {
     position: static;
     padding: 0.16rem 0.5rem;
     border: 1px solid rgba(74, 222, 128, 0.35);
     background: rgba(74, 222, 128, 0.14);
-  }
-  .resource-grid {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  }
-  .resource-card {
-    display: flex;
-    align-items: center;
-    gap: 0.62rem;
-    padding: 0.56rem 0.62rem;
-  }
-  .resource-img-wrap {
-    width: var(--resource-image-wrap);
-    height: var(--resource-image-wrap);
-    flex-shrink: 0;
-  }
-  .resource-img {
-    max-width: var(--resource-image-max);
-    max-height: var(--resource-image-max);
-    object-fit: contain;
-  }
-  .mastery-stats {
-    display: grid;
-    gap: 0.75rem;
-    margin-bottom: 0.85rem;
-  }
-  .mastery-overview {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.8rem;
-    align-items: center;
-  }
-  .mastery-ring-wrap {
-    flex-shrink: 0;
-  }
-  .mastery-ring {
-    width: 120px;
-    height: 120px;
-  }
-  .mastery-stat-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    flex: 1;
-    gap: 0.5rem;
-  }
-  .mstat-card {
-    border: 1px solid var(--border);
-    border-radius: 0.56rem;
-    background: var(--bg-surface);
-    padding: 0.5rem 0.62rem;
-  }
-  .mstat-num {
-    font-family: var(--font-display);
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-  .mstat-label {
-    font-size: 0.74rem;
-    color: var(--text-muted);
-  }
-  .mstat-card.mastered .mstat-num {
     color: var(--success);
-  }
-  .mstat-card.progress .mstat-num {
-    color: var(--warning);
-  }
-  .mstat-card.missing .mstat-num {
-    color: var(--danger);
-  }
-  .mastery-cat-bars {
-    border: 1px solid var(--border);
-    border-radius: 0.6rem;
-    background: var(--bg-surface);
-    padding: 0.62rem;
-    display: grid;
-    gap: 0.46rem;
-  }
-  .cat-bar-row {
-    display: grid;
-    grid-template-columns: minmax(72px, 110px) 1fr auto;
-    align-items: center;
-    gap: 0.56rem;
-  }
-  .cat-bar-label {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-  }
-  .cat-bar-track {
-    display: block;
-    width: 100%;
-    height: 0.36rem;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.07);
-    overflow: hidden;
-  }
-  .cat-bar-fill {
-    height: 1px;
-  }
-  .cat-bar-fill.mastered {
-    fill: var(--success);
-  }
-  .cat-bar-fill.progress {
-    fill: var(--warning);
-    opacity: 0.6;
-  }
-  .cat-bar-nums {
-    white-space: nowrap;
-    font-size: 0.77rem;
-    color: var(--text-secondary);
-  }
-  .cat-bar-nums small {
-    color: var(--text-muted);
-  }
-  .mastery-controls {
-    display: grid;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-  }
-  .mastery-status-filters {
-    gap: 0.35rem;
-  }
-  .mastery-card.missing {
-    opacity: 0.62;
-  }
-  .mastery-card.mastered {
-    border-color: rgba(74, 222, 128, 0.24);
-  }
-  .mastery-card.progress {
-    border-color: rgba(251, 191, 36, 0.24);
-  }
-  .status-indicator {
-    position: absolute;
-    right: 0.4rem;
-    bottom: 0.4rem;
-    width: 0.42rem;
-    height: 0.42rem;
-    border-radius: 999px;
-    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.38);
-  }
-  .status-indicator.mastered {
-    background: var(--success);
-  }
-  .status-indicator.progress {
-    background: var(--warning);
-  }
-  .status-indicator.missing {
-    background: var(--danger);
-    opacity: 0.7;
-  }
-  .comp-dots {
-    margin-top: 0.38rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.2rem;
-  }
-  .comp-dot {
-    width: 0.42rem;
-    height: 0.42rem;
-    border-radius: 999px;
-    border: 1px solid transparent;
-  }
-  .comp-dot.owned {
-    background: color-mix(in oklab, var(--success) 65%, transparent);
-    border-color: color-mix(in oklab, var(--success) 60%, transparent);
-  }
-  .comp-dot.missing {
-    background: color-mix(in oklab, var(--danger) 65%, transparent);
-    border-color: color-mix(in oklab, var(--danger) 60%, transparent);
-  }
-  .wfm-link {
-    position: absolute;
-    top: 0.38rem;
-    right: 0.38rem;
-    display: inline-flex;
-    width: 1.45rem;
-    height: 1.45rem;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--border);
-    border-radius: 0.3rem;
-    background: rgba(0, 0, 0, 0.25);
-    color: var(--text-muted);
-    opacity: 0;
-    transition:
-      opacity 0.12s,
-      color 0.12s,
-      border-color 0.12s;
-  }
-  .wfm-link svg {
-    width: 0.86rem;
-    height: 0.86rem;
-  }
-  .item-card:hover .wfm-link {
-    opacity: 1;
-  }
-  .wfm-link:hover {
-    color: var(--accent);
-    border-color: var(--accent-dim);
-  }
-  .mastery-grid .item-body {
-    position: relative;
-  }
-
-  .world-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-    gap: 0.75rem;
-  }
-  .world-left-col,
-  .world-right-col {
-    display: grid;
-    gap: 0.75rem;
-    align-content: start;
-  }
-  .world-card {
-    border: 1px solid var(--border);
-    border-radius: 0.64rem;
-    background: var(--bg-surface);
-    padding: 0.74rem;
-  }
-  .world-top-row,
-  .world-line,
-  .world-fissure-header,
-  .world-fissure-group-head,
-  .world-fissure-line,
-  .world-fissure-mission {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.45rem;
-  }
-  .world-line,
-  .world-fissure-line {
-    padding: 0.36rem 0;
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.07);
-  }
-  .world-line:last-child,
-  .world-fissure-line:last-child {
-    border-bottom: 0;
-  }
-  .world-left,
-  .world-right,
-  .world-fissure-node {
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-  }
-  .world-right {
-    color: var(--text-primary);
-    white-space: nowrap;
+    font-size: 0.78rem;
     font-family: var(--font-display);
+    font-weight: 700;
     letter-spacing: 0.02em;
   }
-  .world-cycle-right {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    flex-shrink: 0;
-  }
-  .cycle-alert-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.4rem;
-    height: 1.4rem;
-    border-radius: 0.3rem;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text-muted, var(--text-secondary));
-    cursor: pointer;
-    padding: 0;
-    opacity: 0.45;
-    transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
-    flex-shrink: 0;
-  }
-  .cycle-alert-btn:hover {
-    opacity: 0.85;
-    background: rgba(255, 255, 255, 0.06);
-  }
-  .cycle-alert-btn.active {
-    opacity: 1;
-    color: var(--warning, #fbbf24);
-    border-color: rgba(251, 191, 36, 0.4);
-    background: rgba(251, 191, 36, 0.1);
-  }
+
+  /* ── cross-component pills / icons / tier colours ────────────── */
   .world-pill,
   .relic-card-tier,
   .relic-owned-pill,
@@ -1481,18 +541,6 @@
     font-weight: 700;
     letter-spacing: 0.03em;
     color: var(--text-secondary);
-  }
-  .world-pill.good,
-  .order-vis.order-vis-on {
-    border-color: rgba(74, 222, 128, 0.35);
-    background: rgba(74, 222, 128, 0.13);
-    color: var(--success);
-  }
-  .world-pill.warn,
-  .order-vis.order-vis-off {
-    border-color: rgba(251, 191, 36, 0.35);
-    background: rgba(251, 191, 36, 0.13);
-    color: var(--warning);
   }
   .world-icon,
   .relic-icon {
@@ -1538,6 +586,8 @@
   .fissure-dot.requiem {
     color: #a855f7;
   }
+
+  /* ── cross-component toggle button groups ────────────────────── */
   .fissure-mode-toggle,
   .market-status-group,
   .market-radio-group,
@@ -1566,8 +616,12 @@
     color: var(--text-primary);
   }
   .fissure-mode-btn.active,
-  .status-btn.status-active,
   .relic-squad-btn.active {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+    color: var(--accent);
+  }
+  .status-btn.status-active {
     border-color: var(--accent);
     background: var(--accent-glow);
     color: var(--accent);
@@ -1584,65 +638,8 @@
     border-color: rgba(139, 147, 165, 0.4);
     color: var(--text-secondary);
   }
-  .world-fissure-list,
-  .world-fissure-group,
-  .resurgence-grid,
-  .world-circuit-list {
-    display: grid;
-    gap: 0.44rem;
-  }
-  .world-fissure-tier {
-    font-family: var(--font-display);
-    font-size: 0.82rem;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-  .world-fissure-node {
-    opacity: 0.75;
-  }
-  .world-fissure-chevron {
-    color: var(--accent);
-    font-size: 0.8rem;
-  }
-  .resurgence-grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    margin-top: 0.5rem;
-  }
-  .resurgence-item {
-    display: grid;
-    justify-items: center;
-    gap: 0.32rem;
-    border: 1px solid var(--border);
-    border-radius: 0.45rem;
-    padding: 0.38rem;
-  }
-  .resurgence-item.owned {
-    border-color: rgba(74, 222, 128, 0.35);
-  }
-  .resurgence-img-wrap {
-    width: 58px;
-    height: 58px;
-  }
-  .resurgence-img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-  .resurgence-name,
-  .resurgence-next,
-  .world-note,
-  .world-subhead,
-  .order-qty {
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-  }
-  .world-subhead-normal {
-    margin-top: 0.35rem;
-  }
-  .world-subhead-steel {
-    margin-top: 0.5rem;
-  }
 
+  /* ── detail / modal framework ────────────────────────────────── */
   .detail-overlay {
     position: fixed;
     inset: 0;
@@ -1831,816 +828,5 @@
   }
   .drop-entry-more {
     opacity: 0.5;
-  }
-  .market-link-btn {
-    margin-top: 0.4rem;
-    border: 1px solid var(--accent-dim);
-    border-radius: 0.34rem;
-    background: var(--accent-glow);
-    color: var(--accent);
-    font-family: var(--font-display);
-    font-size: 0.78rem;
-    font-weight: 600;
-    padding: 0.28rem 0.52rem;
-  }
-  .market-link-btn:hover {
-    background: rgba(212, 168, 67, 0.22);
-  }
-  .market-login-panel {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.8rem 0;
-  }
-  .settings-grid {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.75rem;
-    padding: 0.8rem 0;
-  }
-  .market-login-card,
-  .settings-card {
-    width: min(560px, 100%);
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    background: var(--bg-surface);
-    padding: 1rem;
-  }
-  .market-login-icon {
-    margin-bottom: 0.6rem;
-    color: var(--accent);
-  }
-  .market-login-icon svg {
-    width: 2.4rem;
-    height: 2.4rem;
-  }
-  .market-login-card h2 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: var(--font-heading-size, 1.5rem);
-    font-weight: 700;
-  }
-  .market-login-note {
-    margin: 0.4rem 0 0.85rem;
-    color: var(--text-secondary);
-    font-size: 0.84rem;
-  }
-  .settings-note {
-    margin: 0.35rem 0 0;
-    color: var(--text-muted);
-    font-size: 0.78rem;
-    line-height: 1.35;
-  }
-  .market-field,
-  .settings-row {
-    display: grid;
-    gap: 0.32rem;
-    margin-bottom: 0.56rem;
-  }
-  .market-field label,
-  .settings-label {
-    color: var(--text-secondary);
-    font-size: var(--font-small-size, 0.8rem);
-    font-weight: 500;
-  }
-  .market-field input,
-  .market-field select,
-  .settings-row input,
-  .settings-row select {
-    border: 1px solid var(--border);
-    border-radius: 0.42rem;
-    background: var(--bg-base);
-    color: var(--text-primary);
-    font-size: var(--font-body-size, 0.84rem);
-    padding: 0.45rem 0.62rem;
-    outline: none;
-  }
-  .market-field input:focus,
-  .market-field select:focus,
-  .settings-row input:focus,
-  .settings-row select:focus {
-    border-color: var(--accent-dim);
-    box-shadow: 0 0 0 2px rgba(212, 168, 67, 0.12);
-  }
-  .market-login-error,
-  .market-error,
-  .settings-status.error {
-    color: var(--danger);
-  }
-  .market-login-btn {
-    width: 100%;
-    margin-top: 0.2rem;
-  }
-  .market-header-controls {
-    gap: 0.45rem;
-  }
-  .market-user-badge {
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 0.2rem 0.56rem;
-    font-family: var(--font-display);
-    font-size: 0.76rem;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-  .market-tabs {
-    margin-bottom: 0.62rem;
-  }
-  .market-bulk-bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.38rem;
-    margin-bottom: 0.62rem;
-    border: 1px solid var(--border);
-    border-radius: 0.56rem;
-    background: var(--bg-surface);
-    padding: 0.46rem 0.58rem;
-  }
-  .market-bulk-bar span {
-    margin-right: 0.35rem;
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-  }
-  .market-orders-list {
-    display: grid;
-    gap: 0.44rem;
-  }
-  .market-loading,
-  .market-empty,
-  .market-error {
-    border: 1px solid var(--border);
-    border-radius: 0.56rem;
-    background: var(--bg-surface);
-    padding: 0.66rem;
-    color: var(--text-muted);
-    font-size: 0.82rem;
-  }
-  .order-row {
-    display: flex;
-    align-items: center;
-    gap: 0.48rem;
-    border-radius: 0.56rem;
-    padding: 0.5rem 0.6rem;
-    border-bottom: 0;
-  }
-  .order-checkbox {
-    width: 15px;
-    height: 15px;
-    accent-color: var(--accent);
-    flex-shrink: 0;
-  }
-  .order-checkbox-placeholder {
-    width: 15px;
-    height: 15px;
-    flex-shrink: 0;
-  }
-  .order-item-info {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex: 1;
-    min-width: 0;
-  }
-  .market-contract-text {
-    display: grid;
-    gap: 0.16rem;
-    min-width: 0;
-  }
-  .market-contract-stats {
-    color: var(--text-muted);
-    font-size: 0.72rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .order-item-thumb {
-    width: 36px;
-    height: 36px;
-    object-fit: contain;
-    border-radius: 0.32rem;
-    background: var(--bg-raised);
-    border: 1px solid var(--border);
-  }
-  .order-item-thumb-placeholder,
-  .order-search-no-thumb {
-    background: rgba(255, 255, 255, 0.05);
-  }
-  .order-rank-badge {
-    margin-left: 0.3rem;
-    border-radius: 0.24rem;
-    background: rgba(212, 168, 67, 0.2);
-    padding: 0.08rem 0.3rem;
-    font-size: 0.62rem;
-    font-weight: 700;
-    color: var(--accent);
-  }
-  .order-meta {
-    display: flex;
-    align-items: center;
-    gap: 0.52rem;
-    flex-shrink: 0;
-  }
-  .order-plat,
-  .relic-plat {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.2rem;
-    font-family: var(--font-display);
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: var(--accent);
-  }
-  .order-actions {
-    display: flex;
-    gap: 0.3rem;
-    flex-shrink: 0;
-  }
-  .market-load-more {
-    justify-self: center;
-    margin-top: 0.2rem;
-  }
-  .market-item-search-wrap {
-    position: relative;
-  }
-  .market-item-dropdown {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    z-index: 20;
-    max-height: 220px;
-    overflow-y: auto;
-    border: 1px solid var(--border-strong);
-    border-radius: 0.5rem;
-    background: var(--bg-surface);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  }
-  .market-item-result {
-    display: flex;
-    align-items: center;
-    gap: 0.44rem;
-    cursor: pointer;
-    padding: 0.42rem 0.58rem;
-    font-size: 0.82rem;
-    color: var(--text-primary);
-  }
-  .market-item-result:hover {
-    background: var(--bg-hover);
-  }
-  .market-item-result img,
-  .order-search-no-thumb {
-    width: 24px;
-    height: 24px;
-    border-radius: 0.24rem;
-    object-fit: contain;
-    flex-shrink: 0;
-  }
-  .market-item-selected {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    margin-top: 0.2rem;
-    border: 1px solid var(--accent-dim);
-    border-radius: 0.4rem;
-    background: var(--accent-glow);
-    padding: 0.35rem 0.52rem;
-    font-size: 0.82rem;
-  }
-  .market-item-selected img {
-    width: 28px;
-    height: 28px;
-    border-radius: 0.32rem;
-    object-fit: contain;
-  }
-  .order-clear-item {
-    margin-left: auto;
-    border: 0;
-    background: none;
-    color: var(--text-muted);
-    font-size: 1rem;
-    line-height: 1;
-  }
-  .order-clear-item:hover {
-    color: var(--text-primary);
-  }
-  .market-fieldset {
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    padding: 0.56rem 0.66rem;
-    margin: 0 0 0.56rem;
-  }
-  .market-field-legend {
-    padding: 0 0.3rem;
-    font-family: var(--font-display);
-    font-size: 0.76rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-  }
-  .market-radio {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.28rem;
-    font-size: 0.86rem;
-  }
-  .market-radio input[type="radio"],
-  .settings-row input[type="checkbox"] {
-    accent-color: var(--accent);
-  }
-  .market-field-inline,
-  .settings-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.6rem;
-  }
-  .market-toggle {
-    position: relative;
-    width: 42px;
-    height: 22px;
-    display: inline-block;
-  }
-  .market-toggle input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-  .market-toggle-slider {
-    position: absolute;
-    inset: 0;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
-    transition: all 0.15s;
-  }
-  .market-toggle-slider::before {
-    content: "";
-    position: absolute;
-    left: 2px;
-    top: 2px;
-    width: 16px;
-    height: 16px;
-    border-radius: 999px;
-    background: #fff;
-    transition: transform 0.15s;
-  }
-  .market-toggle input:checked + .market-toggle-slider {
-    border-color: rgba(74, 222, 128, 0.4);
-    background: rgba(74, 222, 128, 0.2);
-  }
-  .market-toggle input:checked + .market-toggle-slider::before {
-    transform: translateX(18px);
-  }
-  .market-modal-actions {
-    margin-top: 0.7rem;
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.42rem;
-  }
-
-  .relic-cards {
-    display: grid;
-    gap: var(--relic-grid-gap);
-  }
-  .relic-cards-3 {
-    grid-template-columns: repeat(var(--relic-grid-columns), minmax(0, 1fr));
-  }
-  .relic-compact-card {
-    width: 100%;
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 0.5rem;
-    border: 1px solid var(--border);
-    border-radius: 0.74rem;
-    background:
-      radial-gradient(
-        circle at 14% 30%,
-        color-mix(in oklab, var(--accent) 20%, transparent) 0%,
-        transparent 52%
-      ),
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, var(--bg-surface) 88%, black) 0%,
-        color-mix(in oklab, var(--bg-base) 94%, black) 100%
-      );
-    padding: 0.6rem;
-    cursor: pointer;
-    text-align: left;
-    color: var(--text-primary);
-    font: inherit;
-    transition:
-      border-color 0.14s ease,
-      background 0.14s ease,
-      transform 0.14s ease;
-  }
-  .relic-compact-card:hover {
-    border-color: var(--border-strong);
-    background:
-      radial-gradient(
-        circle at 14% 30%,
-        color-mix(in oklab, var(--accent) 30%, transparent) 0%,
-        transparent 56%
-      ),
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, var(--bg-raised) 86%, black) 0%,
-        color-mix(in oklab, var(--bg-base) 92%, black) 100%
-      );
-    transform: translateY(-1px);
-  }
-  .relic-compact-head {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    gap: 0.56rem;
-  }
-  .relic-row-icon-shell {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.8rem;
-    flex-shrink: 0;
-  }
-  .relic-row-main {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 0.24rem;
-  }
-  .relic-row-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-family: var(--font-display);
-    font-size: 1.05rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-  }
-  .relic-row-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.36rem;
-  }
-  .relic-owned-inline {
-    border: 1px solid color-mix(in oklab, var(--success) 48%, transparent);
-    border-radius: 999px;
-    background: color-mix(in oklab, var(--success) 20%, transparent);
-    padding: 0.1rem 0.42rem;
-    color: color-mix(in oklab, var(--success) 80%, white);
-    font-family: var(--font-display);
-    font-size: 0.67rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-  }
-  .relic-reward-preview-row {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 0.3rem;
-  }
-  .relic-reward-preview-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.5rem;
-    border: 1px solid var(--border);
-    background: color-mix(in oklab, var(--bg-raised) 86%, var(--bg-base));
-    padding: 0.18rem;
-    min-height: 1.75rem;
-  }
-  .relic-reward-preview-icon.owned {
-    border-color: color-mix(in oklab, var(--success) 56%, transparent);
-    background: color-mix(in oklab, var(--success) 18%, var(--bg-raised));
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--success) 24%, transparent);
-  }
-  .relic-reward-preview-img {
-    width: 1.25rem;
-    height: 1.25rem;
-    max-width: 1.25rem;
-    max-height: 1.25rem;
-  }
-  .relic-compact-ev-block,
-  .relic-compact-best-block {
-    display: flex;
-    flex-direction: column;
-    gap: 0.24rem;
-  }
-  .relic-compact-block-label {
-    font-family: var(--font-display);
-    font-size: 0.62rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-secondary);
-  }
-  .relic-compact-ev-row {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 0.24rem;
-    min-width: 0;
-  }
-  .relic-quality-inline-counts {
-    margin-left: auto;
-    display: inline-grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    min-width: 0;
-    justify-content: flex-end;
-    gap: 0.14rem;
-  }
-  .relic-quality-inline-pill {
-    min-width: 2.7rem;
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.34rem;
-    border: 1px solid color-mix(in oklab, var(--info) 36%, transparent);
-    background: color-mix(in oklab, var(--info) 14%, var(--bg-base));
-    padding: 0.12rem 0.2rem;
-    font-family: var(--font-display);
-    font-size: 0.53rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    color: color-mix(in oklab, var(--text-secondary) 88%, white);
-    white-space: nowrap;
-  }
-  .relic-quality-inline-label {
-    line-height: 1;
-    text-transform: none;
-    opacity: 0.95;
-  }
-  .relic-quality-inline-value {
-    margin-top: 0.1rem;
-    line-height: 1;
-    font-size: 0.75rem;
-    letter-spacing: 0.02em;
-    color: color-mix(in oklab, var(--info) 76%, white);
-  }
-  .relic-quality-inline-pill.zero {
-    color: var(--text-muted);
-    opacity: 0.9;
-  }
-  .relic-quality-inline-pill.zero .relic-quality-inline-value {
-    color: var(--text-muted);
-  }
-  .relic-row-pill,
-  .relic-best-chip {
-    display: inline-flex;
-    align-items: center;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: color-mix(in oklab, var(--bg-raised) 88%, var(--bg-base));
-    padding: 0.14rem 0.45rem;
-    font-family: var(--font-display);
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    color: var(--text-secondary);
-    white-space: nowrap;
-  }
-  .relic-row-pill.has-value,
-  .relic-best-chip.has-value {
-    border-color: color-mix(in oklab, var(--accent) 52%, transparent);
-    background: color-mix(in oklab, var(--accent) 20%, var(--bg-raised));
-    color: var(--accent-bright);
-  }
-  .relic-row-pill.no-data,
-  .relic-best-chip.no-data {
-    border-color: color-mix(in oklab, var(--text-muted) 35%, transparent);
-    background: color-mix(in oklab, var(--bg-raised) 84%, var(--bg-base));
-    color: var(--text-muted);
-  }
-  .relic-row-pill.relic-row-pill-ratio {
-    border-color: color-mix(in oklab, var(--success) 48%, transparent);
-    background: color-mix(in oklab, var(--success) 16%, var(--bg-raised));
-    color: color-mix(in oklab, var(--success) 82%, white);
-  }
-
-  .relic-card {
-    position: relative;
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 0.7rem;
-    cursor: pointer;
-    min-height: var(--relic-card-min-height);
-    padding: 0.72rem var(--relic-card-pad-x);
-    border-radius: 0.7rem;
-    border-color: var(--border);
-    background:
-      radial-gradient(
-        circle at 14% 50%,
-        color-mix(in oklab, var(--accent) 22%, transparent) 0%,
-        transparent 52%
-      ),
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, var(--bg-surface) 88%, black) 0%,
-        color-mix(in oklab, var(--bg-base) 94%, black) 100%
-      );
-  }
-  .relic-card:hover {
-    border-color: var(--border-strong);
-    background:
-      radial-gradient(
-        circle at 14% 50%,
-        color-mix(in oklab, var(--accent) 30%, transparent) 0%,
-        transparent 56%
-      ),
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, var(--bg-raised) 86%, black) 0%,
-        color-mix(in oklab, var(--bg-base) 92%, black) 100%
-      );
-    transform: translateY(-1px);
-  }
-  .relic-card-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--relic-card-icon-size);
-    flex-shrink: 0;
-  }
-  .relic-card .relic-icon {
-    width: var(--relic-card-icon-size);
-    height: var(--relic-card-icon-size);
-    border-radius: 999px;
-    border: 1px solid rgba(147, 197, 253, 0.28);
-    background:
-      radial-gradient(circle at 50% 34%, rgba(250, 250, 250, 0.18) 0%, rgba(250, 250, 250, 0) 46%),
-      rgba(10, 16, 30, 0.9);
-    box-shadow:
-      0 0 0 1px rgba(10, 16, 30, 0.65),
-      inset 0 0 20px rgba(0, 0, 0, 0.45);
-  }
-  .relic-card .relic-icon-img {
-    transform: scale(1.34);
-    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.45));
-  }
-  .relic-card .relic-card-body {
-    padding: 0;
-    gap: 0.3rem;
-  }
-  .relic-card .relic-card-name {
-    font-size: 1.23rem;
-    letter-spacing: 0.01em;
-  }
-  .relic-card-tier {
-    width: max-content;
-    margin-top: 0;
-    border-color: rgba(96, 165, 250, 0.28);
-    background: rgba(24, 43, 77, 0.85);
-    color: #c7d9fb;
-  }
-  .relic-owned-badge {
-    right: 0.48rem;
-    top: 0.46rem;
-    border: 1px solid rgba(74, 222, 128, 0.45);
-    background: rgba(6, 97, 58, 0.82);
-    padding: 0.12rem 0.4rem;
-    color: #9dffc5;
-  }
-  .relic-ev-badge {
-    border-radius: 999px;
-    border: 1px solid rgba(96, 165, 250, 0.28);
-    background: rgba(27, 45, 78, 0.82);
-    padding: 0.2rem 0.6rem;
-    font-family: var(--font-display);
-    font-size: 0.74rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    color: #c6d5ee;
-    white-space: nowrap;
-  }
-  .relic-ev-badge.has-value {
-    border-color: rgba(250, 204, 21, 0.5);
-    background: rgba(92, 66, 14, 0.78);
-    color: #ffd565;
-  }
-  .relic-ev-badge.loading {
-    border-color: rgba(96, 165, 250, 0.32);
-    background: rgba(33, 57, 96, 0.78);
-    color: #bbd7ff;
-  }
-  .relic-ev-badge.no-data {
-    border-color: rgba(148, 163, 184, 0.3);
-    background: rgba(31, 41, 55, 0.72);
-    color: #94a3b8;
-  }
-  .relic-quality-tabs,
-  .relic-squad-selector {
-    margin-top: 0.56rem;
-  }
-  .relic-squad-selector {
-    display: flex;
-    align-items: center;
-    gap: 0.38rem;
-  }
-  .relic-squad-label {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-  }
-  .relic-rewards-list {
-    margin-top: 0.65rem;
-    display: grid;
-    gap: 0.22rem;
-  }
-  .relic-rewards-header {
-    display: grid;
-    grid-template-columns: 30px minmax(0, 1fr) 72px 78px 78px 120px;
-    gap: 0.42rem;
-    font-size: 0.72rem;
-    color: var(--text-muted);
-  }
-  .relic-reward-row {
-    display: grid;
-    grid-template-columns: 30px minmax(0, 1fr) 72px 78px 78px 120px;
-    gap: 0.42rem;
-    align-items: center;
-  }
-  .relic-reward-rarity {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    border-radius: 999px;
-    font-size: 0.67rem;
-    font-weight: 700;
-  }
-  .rarity-rare {
-    background: rgba(212, 168, 67, 0.2);
-    color: #d4a843;
-    border: 1px solid rgba(212, 168, 67, 0.4);
-  }
-  .rarity-uncommon {
-    background: rgba(148, 163, 184, 0.15);
-    color: #94a3b8;
-    border: 1px solid rgba(148, 163, 184, 0.3);
-  }
-  .rarity-common {
-    background: rgba(71, 85, 105, 0.25);
-    color: #64748b;
-    border: 1px solid rgba(71, 85, 105, 0.4);
-  }
-  .relic-reward-name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--text-primary);
-    font-size: var(--font-body-size, 0.82rem);
-  }
-  .relic-reward-chance,
-  .relic-reward-price,
-  .relic-reward-ev {
-    text-align: right;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-  }
-  .relic-ev-total {
-    margin-top: 0.66rem;
-    border-top: 1px solid var(--border);
-    padding-top: 0.52rem;
-    font-size: 0.84rem;
-    color: var(--text-secondary);
-  }
-  .relic-ev-total strong {
-    color: var(--accent);
-  }
-  .relic-detail-header {
-    align-items: center;
-  }
-  .relic-detail-icon-shell,
-  .relic-detail-icon-image {
-    width: var(--size-relic-detail-icon);
-    height: var(--size-relic-detail-icon);
-  }
-  .relic-detail-owned {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.26rem;
-  }
-  .relic-owned-pill {
-    font-size: 0.66rem;
-  }
-
-  .settings-form {
-    margin-top: 0.66rem;
-  }
-  .settings-row {
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    background: var(--bg-raised);
-    padding: 0.52rem 0.6rem;
-  }
-  .settings-row-toggle {
-    cursor: pointer;
-  }
-  .settings-status {
-    min-height: 1rem;
   }
 }

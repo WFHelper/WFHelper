@@ -2,6 +2,20 @@
 
 @import "./styles/tokens.css";
 @import "./styles/base.css";
+
+/* Shared infrastructure (layout, buttons, filters, modals) */
 @import "./styles/components.css";
+
+/* View-specific styles — one file per feature */
+@import "./styles/sidebar.css";
+@import "./styles/welcome.css";
+@import "./styles/inventory.css";
+@import "./styles/mastery.css";
+@import "./styles/foundry.css";
+@import "./styles/world.css";
+@import "./styles/market.css";
+@import "./styles/settings.css";
+@import "./styles/relics.css";
+
 @import "./styles/animations.css";
 @import "./styles/responsive.css";

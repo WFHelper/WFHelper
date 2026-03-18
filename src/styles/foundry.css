@@ -1,0 +1,71 @@
+@layer components {
+  /* ── section heading shared by resource/foundry lists ────────── */
+  .section-label {
+    margin: 0.25rem 0 0.55rem;
+    font-family: var(--font-display);
+    font-size: var(--font-heading-size, 1rem);
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: var(--text-primary);
+  }
+
+  /* ── foundry build queue ─────────────────────────────────────── */
+  .foundry-list {
+    display: grid;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .foundry-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.56rem 0.68rem;
+  }
+  .foundry-item-left {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.62rem;
+  }
+  .foundry-img-wrap {
+    width: var(--foundry-image-wrap);
+    height: var(--foundry-image-wrap);
+    flex-shrink: 0;
+  }
+  .foundry-img {
+    max-width: var(--foundry-image-max);
+    max-height: var(--foundry-image-max);
+    object-fit: contain;
+  }
+  .foundry-timer {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .foundry-timer.ready {
+    color: var(--success);
+  }
+
+  /* ── resource grid ───────────────────────────────────────────── */
+  .resource-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+  .resource-card {
+    display: flex;
+    align-items: center;
+    gap: 0.62rem;
+    padding: 0.56rem 0.62rem;
+  }
+  .resource-img-wrap {
+    width: var(--resource-image-wrap);
+    height: var(--resource-image-wrap);
+    flex-shrink: 0;
+  }
+  .resource-img {
+    max-width: var(--resource-image-max);
+    max-height: var(--resource-image-max);
+    object-fit: contain;
+  }
+}
