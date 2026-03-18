@@ -1,12 +1,14 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { ipc } from "../lib/ipc.js";
-  import type { DecodedRiven, RivenResult } from "../types/ipc.js";
+  import type { DecodedRiven, RivenResult, VeiledRivenEntry, VeiledRivenGroup } from "../types/ipc.js";
   import RivenDetailModal from "../components/RivenDetailModal.svelte";
+  import RivenFinder from "../components/RivenFinder.svelte";
   import { tr } from "../lib/i18n.js";
 
   let rivens: DecodedRiven[] = $state([]);
-  let veiledGroups: RivenResult["veiled"] = $state([]);
+  let veiledRivens: VeiledRivenEntry[] = $state([]);
+  let veiledUnseen: VeiledRivenGroup[] = $state([]);
   let loading = $state(true);
   let searchQuery = $state("");
   let typeFilter = $state("all");
@@ -14,6 +16,7 @@
   let sortBy = $state<"name" | "disposition" | "rerolls" | "grade">("name");
   let sortDir = $state<"asc" | "desc">("asc");
   let selectedRiven = $state<DecodedRiven | null>(null);
+  let viewTab = $state<"unveiled" | "veiled" | "finder">("unveiled");
 
   const TYPES = ["all", "Rifle", "Shotgun", "Pistol", "Melee", "Archgun", "Kitgun", "Zaw"];
   const GRADES = ["all", "S", "A", "B", "C", "D", "F"];
@@ -55,17 +58,21 @@
     return list;
   });
 
-  const totalVeiled = $derived(veiledGroups.reduce((sum, g) => sum + g.count, 0));
+  const totalVeiled = $derived(
+    veiledRivens.length + veiledUnseen.reduce((sum, g) => sum + g.count, 0),
+  );
 
   async function loadRivens() {
     loading = true;
     try {
       const result = await ipc.getRivens();
       rivens = result.unveiled;
-      veiledGroups = result.veiled;
+      veiledRivens = result.veiled ?? [];
+      veiledUnseen = result.veiledUnseen ?? [];
     } catch {
       rivens = [];
-      veiledGroups = [];
+      veiledRivens = [];
+      veiledUnseen = [];
     } finally {
       loading = false;
     }
@@ -75,17 +82,17 @@
     const base = grade.charAt(0);
     switch (base) {
       case "S":
-        return "#f0c95c";
-      case "A":
         return "#4ade80";
+      case "A":
+        return "#6aab7a";
       case "B":
-        return "#60a5fa";
+        return "#facc15";
       case "C":
-        return "#e8e4dc";
+        return "#f97316";
       case "D":
-        return "#fbbf24";
+        return "#f97316";
       case "F":
-        return "#f87171";
+        return "#ef4444";
       default:
         return "#8b93a5";
     }
@@ -148,104 +155,186 @@
 <section class="view active">
   <div class="view-header">
     <h2>{$tr("rivens.title")}</h2>
-    <div class="rivens-summary">
-      <span class="unveiled-count">{rivens.length} unveiled</span>
-      {#if totalVeiled > 0}
-        <span class="veiled-count">{totalVeiled} veiled</span>
-      {/if}
-    </div>
   </div>
 
-  <div class="rivens-toolbar">
-    <div class="search-box">
-      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <div class="tab-bar">
+    <button class="tab-item" class:active={viewTab === "unveiled"} onclick={() => (viewTab = "unveiled")}>
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+      <span>Unveiled ({rivens.length})</span>
+    </button>
+    <button class="tab-item" class:active={viewTab === "veiled"} onclick={() => (viewTab = "veiled")}>
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+        <line x1="1" y1="1" x2="23" y2="23" />
+      </svg>
+      <span>Veiled ({totalVeiled})</span>
+    </button>
+    <button class="tab-item" class:active={viewTab === "finder"} onclick={() => (viewTab = "finder")}>
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
       </svg>
-      <input
-        type="text"
-        placeholder="Search weapons or stats…"
-        bind:value={searchQuery}
-      />
-    </div>
-
-    <div class="filter-tabs">
-      {#each TYPES as typ}
-        <button
-          class="filter-tab"
-          class:active={typeFilter === typ}
-          onclick={() => (typeFilter = typ)}
-        >
-          {typ === "all" ? "All" : typ}
-        </button>
-      {/each}
-    </div>
-
-    <div class="toolbar-right">
-      <select class="sort-select" bind:value={sortBy}>
-        <option value="name">Name</option>
-        <option value="disposition">Disposition</option>
-        <option value="rerolls">Rerolls</option>
-        <option value="grade">Grade</option>
-      </select>
-      <button class="sort-dir-btn" onclick={toggleSortDir} title="Toggle sort direction">
-        {sortDir === "asc" ? "↑" : "↓"}
-      </button>
-    </div>
+      <span>Riven Finder</span>
+    </button>
   </div>
 
-  {#if loading}
-    <div class="empty-state">
-      <p>Loading rivens…</p>
-    </div>
-  {:else if filteredRivens.length === 0}
-    <div class="empty-state">
-      <p>{rivens.length === 0 ? $tr("rivens.noData") : $tr("rivens.noResults")}</p>
-    </div>
-  {:else}
-    <div class="rivens-grid">
-      {#each filteredRivens as riven (riven.itemId)}
-        <button
-          class="riven-card"
-          onclick={() => (selectedRiven = riven)}
-        >
-          <div class="riven-card-inner">
-            <span class="riven-grade-corner" style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span>
+  {#if viewTab === "unveiled"}
+    <div class="rivens-toolbar">
+      <div class="search-box">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+        </svg>
+        <input
+          type="text"
+          placeholder="Search weapons or stats…"
+          bind:value={searchQuery}
+        />
+      </div>
 
-            <div class="riven-card-top">
-              <span class="riven-weapon">{riven.weaponName}</span>
-              {#if rivenSuffix(riven)}
-                <span class="riven-suffix"> {rivenSuffix(riven)}</span>
-              {/if}
-            </div>
+      <div class="filter-tabs">
+        {#each TYPES as typ}
+          <button
+            class="filter-tab"
+            class:active={typeFilter === typ}
+            onclick={() => (typeFilter = typ)}
+          >
+            {typ === "all" ? "All" : typ}
+          </button>
+        {/each}
+      </div>
 
-            <div class="riven-card-stats">
-              {#each riven.stats as stat}
-                <div class="riven-stat-row" class:stat-positive={stat.positive} class:stat-negative={!stat.positive}>
-                  <span class="stat-value">
-                    {stat.positive ? "+" : "-"}{stat.multiplier ? `x${stat.displayValue}` : `${stat.displayValue}%`}
-                  </span>
-                  {#if elementIcon(stat.name)}
-                    <img class="stat-element-icon" src={elementIcon(stat.name)} alt="" />
-                  {/if}
-                  <span class="stat-name">{stat.name}</span>
-                </div>
-              {/each}
-            </div>
-
-            <div class="riven-rank-pips">
-              {#each Array(riven.maxRank) as _, i}
-                <span class="rank-pip" class:rank-pip-active={i < riven.currentRank}></span>
-              {/each}
-            </div>
-
-            <div class="riven-card-bottom">
-              <span class="riven-mr">MR {riven.masteryReq}</span>
-              <span class="riven-rerolls">⟳ {riven.rerolls}</span>
-            </div>
-          </div>
+      <div class="toolbar-right">
+        <select class="sort-select" bind:value={sortBy}>
+          <option value="name">Name</option>
+          <option value="disposition">Disposition</option>
+          <option value="rerolls">Rerolls</option>
+          <option value="grade">Grade</option>
+        </select>
+        <button class="sort-dir-btn" onclick={toggleSortDir} title="Toggle sort direction">
+          {sortDir === "asc" ? "↑" : "↓"}
         </button>
-      {/each}
+      </div>
     </div>
+
+    {#if loading}
+      <div class="empty-state">
+        <p>Loading rivens…</p>
+      </div>
+    {:else if filteredRivens.length === 0}
+      <div class="empty-state">
+        <p>{rivens.length === 0 ? $tr("rivens.noData") : $tr("rivens.noResults")}</p>
+      </div>
+    {:else}
+      <div class="rivens-grid">
+        {#each filteredRivens as riven (riven.itemId)}
+          <button
+            class="riven-card"
+            onclick={() => (selectedRiven = riven)}
+          >
+            <div class="riven-card-inner">
+              <span class="riven-grade-corner" style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span>
+
+              <div class="riven-card-top">
+                <span class="riven-weapon">{riven.weaponName}</span>
+                {#if rivenSuffix(riven)}
+                  <span class="riven-suffix"> {rivenSuffix(riven)}</span>
+                {/if}
+              </div>
+
+              <div class="riven-card-stats">
+                {#each riven.stats as stat}
+                  <div class="riven-stat-row" class:stat-positive={stat.positive} class:stat-negative={!stat.positive}>
+                    <span class="stat-value">
+                      {stat.positive ? "+" : "-"}{stat.multiplier ? `x${stat.displayValue}` : `${stat.displayValue}%`}
+                    </span>
+                    {#if elementIcon(stat.name)}
+                      <img class="stat-element-icon" src={elementIcon(stat.name)} alt="" />
+                    {/if}
+                    <span class="stat-name">{stat.name}</span>
+                  </div>
+                {/each}
+              </div>
+
+              <div class="riven-rank-pips">
+                {#each Array(riven.maxRank) as _, i}
+                  <span class="rank-pip" class:rank-pip-active={i < riven.currentRank}></span>
+                {/each}
+              </div>
+
+              <div class="riven-card-bottom">
+                <span class="riven-mr">MR {riven.masteryReq}</span>
+                <span class="riven-rerolls">⟳ {riven.rerolls}</span>
+              </div>
+            </div>
+          </button>
+        {/each}
+      </div>
+    {/if}
+
+  {:else if viewTab === "veiled"}
+    {#if loading}
+      <div class="empty-state">
+        <p>Loading rivens…</p>
+      </div>
+    {:else if veiledRivens.length === 0 && veiledUnseen.length === 0}
+      <div class="empty-state">
+        <p>No veiled rivens found</p>
+      </div>
+    {:else}
+      {#if veiledRivens.length > 0}
+        <div class="veiled-section">
+          <div class="veiled-list">
+            {#each veiledRivens as entry}
+              <div class="veiled-entry">
+                <div class="veiled-entry-type">{entry.label} Riven Mod</div>
+                {#if entry.challengeDesc}
+                  <div class="veiled-challenge">
+                    <span class="veiled-challenge-text">{entry.challengeDesc}</span>
+                    {#if entry.challengeProgress != null && entry.challengeRequired != null}
+                      <div class="veiled-progress-bar">
+                        <div
+                          class="veiled-progress-fill"
+                          style="width: {Math.min(100, (entry.challengeProgress / Math.max(entry.challengeRequired, 1)) * 100)}%"
+                        ></div>
+                      </div>
+                      <span class="veiled-progress-text">
+                        {entry.challengeProgress} / {entry.challengeRequired}
+                      </span>
+                    {/if}
+                  </div>
+                {:else}
+                  <div class="veiled-challenge">
+                    <span class="veiled-unseen-label">Challenge not yet assigned</span>
+                  </div>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      {#if veiledUnseen.length > 0}
+        <div class="veiled-section">
+          <h3 class="veiled-section-title">Unseen (???) rivens</h3>
+          <div class="unseen-grid">
+            {#each veiledUnseen as group}
+              <div class="unseen-card">
+                <div class="unseen-card-title">{group.label}</div>
+                <div class="unseen-card-desc">Equip these rivens to reveal their challenge</div>
+                <div class="unseen-card-footer">
+                  <span class="unseen-count">x{group.count}</span>
+                </div>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+    {/if}
+
+  {:else if viewTab === "finder"}
+    <RivenFinder />
   {/if}
 </section>
 
@@ -258,7 +347,7 @@
     display: flex;
     align-items: center;
     gap: 1rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
   }
 
   .view-header h2 {
@@ -268,16 +357,43 @@
     margin: 0;
   }
 
-  .rivens-summary {
+  /* ── Tab bar (AlecaFrame style) ── */
+  .tab-bar {
     display: flex;
-    gap: 0.75rem;
-    font-family: var(--font-display);
-    font-size: 0.85rem;
-    color: var(--text-secondary);
+    gap: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+    margin-bottom: 1rem;
   }
 
-  .unveiled-count {
-    color: var(--accent);
+  .tab-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-bottom: 3px solid transparent;
+    background: none;
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    color: #8a8c95;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+  }
+
+  .tab-item:hover {
+    color: #b0b2ba;
+  }
+
+  .tab-item.active {
+    color: #ffffff;
+    border-bottom-color: #ffffff;
+  }
+
+  .tab-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
   }
 
   .rivens-toolbar {
@@ -440,7 +556,7 @@
     position: relative;
     width: 100%;
     height: 100%;
-    background: url("/RivenTemplate.webp") center / 100% 100% no-repeat;
+    background: url("/RivenTemplate.png") center / 100% 100% no-repeat;
   }
 
   /* No ::before scrim — text-shadow provides readability without creating
@@ -629,5 +745,144 @@
     .riven-stat-row {
       font-size: 0.9rem;
     }
+  }
+
+  /* ── Veiled rivens tab ── */
+  .veiled-section {
+    margin-bottom: 1.25rem;
+  }
+
+  .veiled-section-title {
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0 0 0.5rem 0;
+  }
+
+  .veiled-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .veiled-entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.65rem 1rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    transition: border-color 0.15s;
+  }
+
+  .veiled-entry:hover {
+    border-color: var(--border-strong);
+  }
+
+  .veiled-entry-type {
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 10rem;
+    flex-shrink: 0;
+  }
+
+  .veiled-challenge {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .veiled-challenge-text {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+
+  .veiled-unseen-label {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .veiled-progress-bar {
+    width: 80px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .veiled-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+  }
+
+  .veiled-progress-text {
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  /* ── Unseen riven cards ── */
+  .unseen-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .unseen-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 1rem 0.75rem;
+    background: linear-gradient(135deg, rgba(60, 45, 90, 0.45), rgba(40, 30, 70, 0.5));
+    border: 1px solid rgba(100, 70, 160, 0.3);
+    border-radius: 0.5rem;
+    gap: 0.5rem;
+    transition: border-color 0.15s;
+  }
+
+  .unseen-card:hover {
+    border-color: rgba(100, 70, 160, 0.55);
+  }
+
+  .unseen-card-title {
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .unseen-card-desc {
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.3;
+  }
+
+  .unseen-card-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: auto;
+  }
+
+  .unseen-count {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-secondary);
   }
 </style>

@@ -304,6 +304,43 @@ export interface IpcInvokeMap {
     args: [weaponName: string, positiveStats: string[], negativeStats: string[]];
     return: WfmRivenListing[];
   };
+  getRivenWeaponNames: {
+    args: [];
+    return: string[];
+  };
+  getRivenStatOptions: {
+    args: [];
+    return: RivenStatOption[];
+  };
+  searchRivenAuctions: {
+    args: [weaponName: string, positiveWfmNames: string[], negativeWfmNames: string[]];
+    return: WfmRivenListing[];
+  };
+  getWeaponRivenType: {
+    args: [weaponName: string];
+    return: string | null;
+  };
+  createRivenAuction: {
+    args: [
+      weaponName: string,
+      stats: { tag: string; value: number; positive: boolean }[],
+      rerolls: number,
+      masteryReq: number,
+      polarity: string,
+      modRank: number,
+      buyoutPrice: number | null,
+      startingPrice: number,
+      isPrivate: boolean,
+      description: string,
+    ];
+    return: { ok: boolean; auctionId?: string; error?: string };
+  };
+}
+
+export interface RivenStatOption {
+  tag: string;
+  wfmUrlName: string;
+  displayName: string;
 }
 
 export interface DecodedRivenStat {
@@ -334,6 +371,15 @@ export interface DecodedRiven {
   rivenType: string;
 }
 
+export interface VeiledRivenEntry {
+  itemType: string;
+  label: string;
+  challengeType?: string;
+  challengeDesc?: string;
+  challengeProgress?: number;
+  challengeRequired?: number;
+}
+
 export interface VeiledRivenGroup {
   itemType: string;
   label: string;
@@ -342,7 +388,8 @@ export interface VeiledRivenGroup {
 
 export interface RivenResult {
   unveiled: DecodedRiven[];
-  veiled: VeiledRivenGroup[];
+  veiled: VeiledRivenEntry[];
+  veiledUnseen: VeiledRivenGroup[];
 }
 
 export interface WfmRivenListing {

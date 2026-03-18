@@ -48,6 +48,15 @@ export interface DecodedRiven {
   rivenType: string;
 }
 
+export interface VeiledRivenEntry {
+  itemType: string;
+  label: string;
+  challengeType?: string;
+  challengeDesc?: string;
+  challengeProgress?: number;
+  challengeRequired?: number;
+}
+
 export interface VeiledRivenGroup {
   itemType: string;
   label: string;
@@ -88,6 +97,7 @@ const NON_PERCENTAGE_TAGS = new Set([
 // ── Riven mod type labels ────────────────────────────────────────────────────
 
 const RIVEN_TYPE_LABELS: Record<string, string> = {
+  // Lotus (unveiled / individual-veiled in Upgrades)
   LotusRifleRandomModRare: "Rifle",
   LotusShotgunRandomModRare: "Shotgun",
   LotusPistolRandomModRare: "Pistol",
@@ -95,7 +105,125 @@ const RIVEN_TYPE_LABELS: Record<string, string> = {
   LotusArchgunRandomModRare: "Archgun",
   LotusModularPistolRandomModRare: "Kitgun",
   LotusModularMeleeRandomModRare: "Zaw",
+  // Raw (stackable veiled in RawUpgrades)
+  RawRifleRandomMod: "Rifle",
+  RawShotgunRandomMod: "Shotgun",
+  RawPistolRandomMod: "Pistol",
+  RawMeleeRandomMod: "Melee",
+  RawArchgunRandomMod: "Archgun",
+  RawModularPistolRandomMod: "Kitgun",
+  RawModularMeleeRandomMod: "Zaw",
 };
+
+// ── Riven challenge name → human-readable description ────────────────────────
+// Uses exact inventory path segment names from warframe-items / AlecaFrame data.
+// Keys match the last path component of "/Lotus/Types/Challenges/<Name>".
+// Use {n} as placeholder for the Required count.
+
+const CHALLENGE_DESCS: Record<string, string> = {
+  // Exact inventory names (with prefixes)
+  RandomizedKill: "Kill {n} Enemies",
+  RandomizedKillPassengers: "Kill {n} Enemies that are on a Dropship",
+  RandomizedKillFallingPilots: "Kill {n} Enemies with Headshots",
+  RandomizedFinisherKill: "Kill {n} Enemies with Finishers",
+  RandomizedHeadshot: "Kill {n} Enemies with Headshots",
+  RandomizedHeadshotGlide: "Get {n} Headshot kills in a single Aim Glide",
+  RandomizedStyleKill: "Kill {n} Enemies while Sliding",
+  RandomizedWallClingKillstreak:
+    "Get {n} kills in a row while Wall Dashing or Wall Latching without touching the floor",
+  RandomizedHeadshotUnawareBallistas: "Kill {n} unalerted Tusk Ballistas with a Headshot",
+  RandomizedKillSentients: "Get the killing blow on {n} Sentients",
+  RandomizedLongRangeSniper: "Kill {n} Enemies with Headshots from at least 75m away",
+  RandomizedSkiffArcher: "Destroy {n} Dargyns in flight using a bow",
+  RandomizedAntiAntiAir:
+    "Destroy {n} Vruush Turrets while in Archwing without dying or becoming downed",
+  RandomizedFlyingHeadshotSeries:
+    "Land {n} consecutive headshots while in Archwing in the Plains of Eidolon",
+  RandomizedFindCaches: "Find {n} Caches",
+  RandomizedFindRareMedallions: "Pick up {n} Syndicate Medallions",
+  RandomizedFisherman: "Catch {n} fish without missing a throw",
+  SustainMeleeComboThree: "Sustain a 6x Melee Combo Multiplier for 30s",
+  HighSurvivalPacifist:
+    "Complete a Survival mission with level 30 or higher enemies without killing anyone",
+  HighExterminationUndetected:
+    "Complete an Extermination mission with level 30 or higher enemies without being detected",
+  HighPerfectDefense:
+    "Complete a Defense mission with level 30 or higher enemies with the defense objective taking no damage",
+  HighSoloInterceptionHobbled:
+    "Complete a Solo Interception mission with level 30 or higher enemies and a Hobbled Dragon Key equipped",
+  LimitedSynthesis:
+    "Synthesize a Simaris target without using Traps or Abilities while having a Hobbled Dragon Key equipped",
+  PlainsTimedVariety: "Catch one fish, mine one gem or metal, and kill one enemy in 30 seconds",
+  KahlMissions: "Complete {n} Kahl missions",
+  // DJ / DJRandomized prefix variants (same challenges, different pool)
+  DJRandomizedKill: "Kill {n} Enemies",
+  DJRandomizedFinisherKill: "Kill {n} Enemies with Finishers",
+  DJRandomizedHeadshot: "Kill {n} Enemies with Headshots",
+  DJRandomizedStyleKill: "Kill {n} Enemies while Sliding",
+  DJRandomizedWallClingKillstreak:
+    "Get {n} kills in a row while Wall Dashing or Wall Latching without touching the floor",
+  DJRandomizedKillPassengers: "Kill {n} Enemies that are on a Dropship",
+  DJRandomizedHeadshotUnawareBallistas: "Kill {n} unalerted Tusk Ballistas with a Headshot",
+  DJRandomizedFindCaches: "Find {n} Caches",
+};
+
+// Challenge complication path → appended text
+const COMPLICATION_DESCS: Record<string, string> = {
+  ResetOnDamageTaken: "without taking damage",
+  ResetOnDowned: "without dying or becoming downed",
+  ResetOnMissionFailure: "without failing a mission",
+  ResetOnAlarmRaised: "without raising any alarms",
+  ResetOnAllyDowned: "without an ally becoming downed",
+  ResetOnDisrupt: "without being disrupted by a Magnetic Status Effect",
+  ResetOnGearAirSupport: "without using air support",
+  ResetOnGearAmmoRestores: "without using ammo consumables",
+  ResetOnGearCipher: "without using ciphers",
+  ResetOnGearEnergyRestores: "without using energy consumables",
+  ResetOnGearHealthRestores: "without using health consumables",
+  ResetOnGearShieldRestores: "without using shield-restoring consumables",
+  ResetOnProc: "without getting afflicted by a Status Effect",
+  ResetOnNewDay: "in one day",
+  EquippedDamageDebuffKey: "with an Extinguished Dragon Key equipped",
+  EquippedHealthDebuffKey: "with a Bleeding Dragon Key equipped",
+  EquippedShieldDebuffKey: "with a Decaying Dragon Key equipped",
+  EquippedSpeedDebuffKey: "with a Hobbled Dragon Key equipped",
+  SoloPlayer: ", while alone or in Solo Mode",
+  PetPresent: "with an active pet present",
+  SentinelPresent: "with an active sentinel present",
+  Invisible: "while invisible",
+  AimGliding: "during Aim Glide",
+  Sliding: "while sliding",
+  Undetected: "while undetected",
+};
+
+/**
+ * Extract a readable challenge description from a veiled riven fingerprint.
+ * Looks up the exact path segment name in CHALLENGE_DESCS, substitutes {n}
+ * with the Required count, and appends any complication text.
+ */
+function describeChallengeType(
+  challengeType: string,
+  required?: number,
+  complication?: string,
+): string {
+  const name = challengeType.split("/").pop() || challengeType;
+  const template = CHALLENGE_DESCS[name];
+  const n = required != null ? String(required) : "?";
+  let desc: string;
+  if (template) {
+    desc = template.replace(/\{n\}/g, n);
+  } else {
+    // Fallback: split PascalCase into words
+    desc = name.replace(/([A-Z])/g, " $1").trim();
+  }
+  // Append complication if present
+  if (complication) {
+    const compName = complication.split("/").pop() || "";
+    const compText = COMPLICATION_DESCS[compName];
+    if (compText) desc += " " + compText;
+  }
+  return desc;
+}
 
 function getRivenTypeLabel(itemType: string): string {
   for (const [key, label] of Object.entries(RIVEN_TYPE_LABELS)) {
@@ -340,9 +468,10 @@ function decodeSingleRiven(
 
 export function decodeAllRivens(
   inventory: Record<string, unknown>,
-): { unveiled: DecodedRiven[]; veiled: VeiledRivenGroup[] } {
+): { unveiled: DecodedRiven[]; veiled: VeiledRivenEntry[]; veiledUnseen: VeiledRivenGroup[] } {
   const unveiled: DecodedRiven[] = [];
-  const veiledCounts = new Map<string, number>();
+  const veiled: VeiledRivenEntry[] = [];
+  const unseenCounts = new Map<string, number>();
 
   // Process Upgrades array (unveiled rivens with unique fingerprints)
   const upgrades = inventory.Upgrades;
@@ -357,7 +486,27 @@ export function decodeAllRivens(
         const fp = parseFingerprint(u.UpgradeFingerprint);
         if (fp && isVeiledFingerprint(fp)) {
           const label = getRivenTypeLabel(u.ItemType);
-          veiledCounts.set(label, (veiledCounts.get(label) || 0) + 1);
+          const entry: VeiledRivenEntry = { itemType: u.ItemType, label };
+          // Extract challenge info if present
+          if (fp.challenge && typeof fp.challenge === "object") {
+            const ch = fp.challenge as {
+              Type?: string;
+              Progress?: number;
+              Required?: number;
+              Complication?: string;
+            };
+            if (typeof ch.Progress === "number") entry.challengeProgress = ch.Progress;
+            if (typeof ch.Required === "number") entry.challengeRequired = ch.Required;
+            if (typeof ch.Type === "string") {
+              entry.challengeType = ch.Type;
+              entry.challengeDesc = describeChallengeType(
+                ch.Type,
+                entry.challengeRequired,
+                typeof ch.Complication === "string" ? ch.Complication : undefined,
+              );
+            }
+          }
+          veiled.push(entry);
           continue;
         }
       }
@@ -371,7 +520,7 @@ export function decodeAllRivens(
     }
   }
 
-  // Process RawUpgrades array (stackable veiled rivens)
+  // Process RawUpgrades array (stackable veiled rivens — no fingerprint, "unseen")
   const rawUpgrades = inventory.RawUpgrades;
   if (Array.isArray(rawUpgrades)) {
     for (const raw of rawUpgrades) {
@@ -380,19 +529,19 @@ export function decodeAllRivens(
       if (!u.ItemType || !isRivenItemType(u.ItemType)) continue;
       const count = typeof u.ItemCount === "number" ? u.ItemCount : 1;
       const label = getRivenTypeLabel(u.ItemType);
-      veiledCounts.set(label, (veiledCounts.get(label) || 0) + count);
+      unseenCounts.set(label, (unseenCounts.get(label) || 0) + count);
     }
   }
 
-  const veiled: VeiledRivenGroup[] = [];
-  for (const [label, count] of veiledCounts) {
-    veiled.push({
+  const veiledUnseen: VeiledRivenGroup[] = [];
+  for (const [label, count] of unseenCounts) {
+    veiledUnseen.push({
       itemType: label,
       label: `${label} Riven Mod`,
       count,
     });
   }
 
-  log.log(`[Fingerprint] Decoded ${unveiled.length} unveiled rivens, ${veiled.length} veiled groups`);
-  return { unveiled, veiled };
+  log.log(`[Fingerprint] Decoded ${unveiled.length} unveiled, ${veiled.length} veiled with challenge, ${veiledUnseen.length} unseen groups`);
+  return { unveiled, veiled, veiledUnseen };
 }

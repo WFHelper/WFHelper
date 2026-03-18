@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import type { DecodedRiven, WfmRivenListing } from "../types/ipc.js";
   import { ipc } from "../lib/ipc.js";
+  import { getBestAttributes } from "../lib/rivenBestAttributes.js";
 
   interface Props {
     riven: DecodedRiven;
@@ -14,6 +15,16 @@
     { listing: WfmRivenListing; pct: number; matchedNames: Set<string> }[]
   >([]);
   let loadingListings = $state(true);
+
+  // ── WFM listing state ──────────────────────────────────────────────────────
+  let listingType = $state<"direct" | "auction">("direct");
+  let listingVisibility = $state<"public" | "private">("public");
+  let listingDescription = $state("");
+  let listingPrice = $state(0);
+  let listingBusy = $state(false);
+  let listingError = $state("");
+  let listingSuccess = $state("");
+  let isLoggedIn = $state(false);
 
   function computeSimilarity(
     myStatNames: string[],
@@ -54,40 +65,83 @@
       .finally(() => {
         loadingListings = false;
       });
+
+    ipc.wfmGetSession().then((s) => {
+      isLoggedIn = s.loggedIn;
+    }).catch(() => {});
   });
+
+  async function handleListOnWfm() {
+    if (listingPrice < 1) {
+      listingError = "Price must be at least 1p";
+      return;
+    }
+    listingBusy = true;
+    listingError = "";
+    listingSuccess = "";
+
+    const stats = riven.stats.map((s) => ({
+      tag: s.tag,
+      value: s.displayValue,
+      positive: s.positive,
+    }));
+
+    const buyoutPrice = listingType === "direct" ? listingPrice : null;
+    const startingPrice = listingPrice;
+
+    const result = await ipc.createRivenAuction(
+      riven.weaponName,
+      stats,
+      riven.rerolls,
+      riven.masteryReq,
+      riven.polarity,
+      riven.currentRank,
+      buyoutPrice,
+      startingPrice,
+      listingVisibility === "private",
+      listingDescription,
+    );
+
+    listingBusy = false;
+    if (result.ok) {
+      listingSuccess = "Listed on WFMarket!";
+    } else {
+      listingError = result.error || "Failed to create auction";
+    }
+  }
 
   function gradeColor(grade: string): string {
     const base = grade.charAt(0);
     switch (base) {
       case "S":
-        return "var(--accent-bright)";
+        return "#4ade80";
       case "A":
-        return "var(--success)";
+        return "#6aab7a";
       case "B":
-        return "var(--info)";
+        return "#facc15";
       case "C":
-        return "var(--text-primary)";
+        return "#f97316";
       case "D":
-        return "var(--warning)";
+        return "#f97316";
       case "F":
-        return "var(--danger)";
+        return "#ef4444";
       default:
-        return "var(--text-secondary)";
+        return "#8b93a5";
     }
   }
 
   function attrGradeColor(grade: string): string {
     switch (grade) {
       case "Great":
-        return "var(--accent-bright)";
+        return "#4ade80";
       case "Good":
-        return "var(--success)";
+        return "#6aab7a";
       case "OK":
-        return "var(--warning)";
+        return "#facc15";
       case "Bad":
-        return "var(--danger)";
+        return "#ef4444";
       default:
-        return "var(--text-secondary)";
+        return "#8b93a5";
     }
   }
 
@@ -106,6 +160,9 @@
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") onclose();
   }
+
+  const bestAttrs = $derived(getBestAttributes(riven.rivenType));
+  const myStatNamesLc = $derived(new Set(riven.stats.map(s => s.name.toLowerCase())));
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -133,6 +190,22 @@
     </div>
 
     <div class="modal-body">
+      <div class="quality-section">
+        <div class="quality-card">
+          <span class="quality-label">Roll Quality</span>
+          <span class="quality-value" style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span>
+          <span class="quality-sub">{Math.round(riven.statPerfectness * 100)}% perfect</span>
+        </div>
+        <div class="quality-card">
+          <span class="quality-label">Attributes</span>
+          <span class="quality-value" style="color: {attrGradeColor(riven.attributeGrade)}">{riven.attributeGrade}</span>
+          <span class="quality-sub">
+            {riven.stats.filter((s) => s.positive).length} buff{riven.stats.filter((s) => s.positive).length !== 1 ? "s" : ""}
+            {#if riven.stats.some((s) => !s.positive)}, 1 curse{/if}
+          </span>
+        </div>
+      </div>
+
       <div class="stats-section">
         <h3 class="section-label">Attributes</h3>
         <div class="stat-list">
@@ -158,26 +231,24 @@
         </div>
       </div>
 
-      <div class="quality-section">
-        <div class="quality-card">
-          <span class="quality-label">Roll Quality</span>
-          <span class="quality-value" style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span>
-          <span class="quality-sub">{Math.round(riven.statPerfectness * 100)}% perfect</span>
+      <div class="best-attrs-section">
+        <h3 class="section-label">Best Attributes for {riven.rivenType}</h3>
+        <div class="best-attrs-row">
+          <div class="best-attrs-col">
+            <span class="best-attrs-heading positive">Desired Positives</span>
+            {#each bestAttrs.positives as attr}
+              {@const matched = myStatNamesLc.has(attr.toLowerCase())}
+              <span class="best-attr" class:best-matched={matched}>{attr}{#if matched} ✓{/if}</span>
+            {/each}
+          </div>
+          <div class="best-attrs-col">
+            <span class="best-attrs-heading negative">Desired Negatives</span>
+            {#each bestAttrs.negatives as attr}
+              {@const matched = riven.stats.some(s => !s.positive && s.name.toLowerCase() === attr.toLowerCase())}
+              <span class="best-attr" class:best-matched={matched}>{attr}{#if matched} ✓{/if}</span>
+            {/each}
+          </div>
         </div>
-        <div class="quality-card">
-          <span class="quality-label">Attributes</span>
-          <span class="quality-value" style="color: {attrGradeColor(riven.attributeGrade)}">{riven.attributeGrade}</span>
-          <span class="quality-sub">
-            {riven.stats.filter((s) => s.positive).length} buff{riven.stats.filter((s) => s.positive).length !== 1 ? "s" : ""}
-            {#if riven.stats.some((s) => !s.positive)}, 1 curse{/if}
-          </span>
-        </div>
-      </div>
-
-      <div class="polarity-section">
-        {#if riven.polarity}
-          <span class="polarity-label">Polarity: {riven.polarity}</span>
-        {/if}
       </div>
 
       <div class="similar-section">
@@ -215,9 +286,60 @@
                     </div>
                   {/each}
                 </div>
-                <div class="sim-seller">{listing.seller}</div>
+                <div class="sim-bottom">
+                  <span class="sim-seller">{listing.seller}</span>
+                  <button class="sim-open-btn" title="Open on warframe.market" onclick={() => window.api.openExternal(`https://warframe.market/auction/${listing.id}`)}>WFM ↗</button>
+                </div>
               </div>
             {/each}
+          </div>
+        {/if}
+      </div>
+
+      <div class="listing-section">
+        <h3 class="section-label">List on WFMarket:</h3>
+        {#if !isLoggedIn}
+          <div class="listing-login-hint">Log in to WFMarket to list this riven.</div>
+        {:else}
+          <div class="listing-controls">
+            <div class="listing-row">
+              <div class="listing-field">
+                <span class="listing-field-label">Type:</span>
+                <div class="listing-btn-group">
+                  <button class="listing-toggle" class:active={listingType === "direct"} onclick={() => listingType = "direct"}>Direct sale</button>
+                  <button class="listing-toggle" class:active={listingType === "auction"} onclick={() => listingType = "auction"}>Auction</button>
+                </div>
+              </div>
+              <div class="listing-field">
+                <span class="listing-field-label">Visibility:</span>
+                <div class="listing-btn-group">
+                  <button class="listing-toggle" class:active={listingVisibility === "public"} onclick={() => listingVisibility = "public"}>Public</button>
+                  <button class="listing-toggle" class:active={listingVisibility === "private"} onclick={() => listingVisibility = "private"}>Private</button>
+                </div>
+              </div>
+              <div class="listing-field listing-desc-field">
+                <span class="listing-field-label">Description (Optional):</span>
+                <input type="text" class="listing-input listing-desc-input" bind:value={listingDescription} placeholder="" />
+              </div>
+            </div>
+            <div class="listing-row listing-bottom-row">
+              <div class="listing-field">
+                <span class="listing-field-label">Selling price:</span>
+                <div class="listing-price-wrap">
+                  <span class="listing-plat-icon">💠</span>
+                  <input type="number" class="listing-input listing-price-input" bind:value={listingPrice} min="1" />
+                </div>
+              </div>
+              <button class="listing-submit-btn" onclick={handleListOnWfm} disabled={listingBusy}>
+                {listingBusy ? "Listing…" : "List on WFMarket"}
+              </button>
+            </div>
+            {#if listingError}
+              <div class="listing-msg listing-error">{listingError}</div>
+            {/if}
+            {#if listingSuccess}
+              <div class="listing-msg listing-success">{listingSuccess}</div>
+            {/if}
           </div>
         {/if}
       </div>
@@ -301,9 +423,9 @@
 
   .weapon-name {
     font-family: var(--font-display);
-    font-size: 1.85rem;
+    font-size: 2.1rem;
     font-weight: 700;
-    color: var(--text-primary);
+    color: #fff;
     margin: 0;
   }
 
@@ -376,7 +498,7 @@
   .stat-val {
     font-family: var(--font-display);
     font-weight: 600;
-    font-size: 1rem;
+    font-size: 1.15rem;
     min-width: 5.5rem;
     text-align: right;
     flex-shrink: 0;
@@ -391,8 +513,8 @@
   }
 
   .stat-nm {
-    font-size: 0.95rem;
-    color: var(--text-secondary);
+    font-size: 1.05rem;
+    color: var(--text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -424,7 +546,7 @@
   .stat-grd {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 0.95rem;
+    font-size: 1.05rem;
     min-width: 1.5rem;
     text-align: center;
     flex-shrink: 0;
@@ -434,7 +556,7 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1rem;
-    margin-top: 1.5rem;
+    margin-bottom: 1.25rem;
   }
 
   .quality-card {
@@ -468,15 +590,53 @@
     color: var(--text-secondary);
   }
 
-  .polarity-section {
-    margin-top: 0.75rem;
-    text-align: center;
+  /* ── Best attributes ──────────────────────────────────────────────────── */
+
+  .best-attrs-section {
+    margin-top: 1.25rem;
   }
 
-  .polarity-label {
+  .best-attrs-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .best-attrs-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .best-attrs-heading {
     font-family: var(--font-display);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+
+  .best-attrs-heading.positive {
+    color: #4ade80;
+  }
+
+  .best-attrs-heading.negative {
+    color: #ef4444;
+  }
+
+  .best-attr {
+    font-family: var(--font-display);
+    font-size: 0.8rem;
     color: var(--text-muted);
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.25rem;
+  }
+
+  .best-attr.best-matched {
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.1);
+    font-weight: 600;
   }
 
   /* ── Similar rivens ─────────────────────────────────────────────────────── */
@@ -577,10 +737,190 @@
     text-decoration: line-through;
   }
 
+  .sim-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.15rem;
+  }
+
   .sim-seller {
     font-family: var(--font-body);
     font-size: 0.7rem;
     color: var(--text-muted);
-    margin-top: 0.15rem;
+  }
+
+  .sim-open-btn {
+    font-family: var(--font-display);
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.25rem;
+    border: 1px solid var(--border);
+    background: var(--bg-raised);
+    color: var(--accent-bright);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .sim-open-btn:hover {
+    background: var(--accent-bright);
+    color: var(--bg-base);
+    border-color: var(--accent-bright);
+  }
+
+  /* ── Listing section ──────────────────────────────────────────────────── */
+
+  .listing-section {
+    margin-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+  }
+
+  .listing-login-hint {
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 0.75rem 0;
+  }
+
+  .listing-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .listing-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+  }
+
+  .listing-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .listing-desc-field {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  .listing-field-label {
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+
+  .listing-btn-group {
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  .listing-toggle {
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.3rem 0.65rem;
+    border-radius: 0.35rem;
+    border: 1px solid var(--border);
+    background: var(--bg-raised);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .listing-toggle.active {
+    background: var(--accent-bright);
+    color: var(--bg-base);
+    border-color: var(--accent-bright);
+  }
+
+  .listing-toggle:hover:not(.active) {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .listing-input {
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    padding: 0.3rem 0.5rem;
+    border-radius: 0.35rem;
+    border: 1px solid var(--border);
+    background: var(--bg-raised);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .listing-input:focus {
+    border-color: var(--accent-bright);
+  }
+
+  .listing-desc-input {
+    width: 100%;
+  }
+
+  .listing-price-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .listing-plat-icon {
+    font-size: 0.85rem;
+  }
+
+  .listing-price-input {
+    width: 5rem;
+  }
+
+  .listing-bottom-row {
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .listing-submit-btn {
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.45rem 1.25rem;
+    border-radius: 0.4rem;
+    border: none;
+    background: var(--accent-bright);
+    color: var(--bg-base);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .listing-submit-btn:hover:not(:disabled) {
+    filter: brightness(1.15);
+  }
+
+  .listing-submit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .listing-msg {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    padding: 0.3rem 0;
+  }
+
+  .listing-error {
+    color: var(--danger);
+  }
+
+  .listing-success {
+    color: var(--success);
   }
 </style>

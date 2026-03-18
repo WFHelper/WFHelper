@@ -89,6 +89,29 @@ contextBridge.exposeInMainWorld("api", {
   getRivens: () => ipcRenderer.invoke("get-rivens"),
   searchSimilarRivens: (weaponName: string, positiveStats: string[], negativeStats: string[]) =>
     ipcRenderer.invoke("search-similar-rivens", weaponName, positiveStats, negativeStats),
+  getRivenWeaponNames: () => ipcRenderer.invoke("get-riven-weapon-names"),
+  getRivenStatOptions: () => ipcRenderer.invoke("get-riven-stat-options"),
+  searchRivenAuctions: (weaponName: string, positiveWfmNames: string[], negativeWfmNames: string[]) =>
+    ipcRenderer.invoke("search-riven-auctions", weaponName, positiveWfmNames, negativeWfmNames),
+  getWeaponRivenType: (weaponName: string) =>
+    ipcRenderer.invoke("get-weapon-riven-type", weaponName),
+  createRivenAuction: (
+    weaponName: string,
+    stats: { tag: string; value: number; positive: boolean }[],
+    rerolls: number,
+    masteryReq: number,
+    polarity: string,
+    modRank: number,
+    buyoutPrice: number | null,
+    startingPrice: number,
+    isPrivate: boolean,
+    description: string,
+  ) =>
+    ipcRenderer.invoke(
+      "create-riven-auction",
+      weaponName, stats, rerolls, masteryReq, polarity, modRank,
+      buyoutPrice, startingPrice, isPrivate, description,
+    ),
   onHelperDownloadProgress: (callback: (progress: unknown) => void) => {
     const listener = (_event: unknown, progress: unknown) => callback(progress);
     ipcRenderer.on("helper-download-progress", listener);

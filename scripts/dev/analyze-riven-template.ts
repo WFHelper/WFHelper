@@ -1,7 +1,7 @@
 import sharp from "sharp";
 
 async function main() {
-  const img = sharp("assets/RivenTemplate.webp");
+  const img = sharp("assets/RivenTemplate.png");
   const meta = await img.metadata();
   console.log("Image size:", meta.width, "x", meta.height);
 

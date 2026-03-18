@@ -91,5 +91,25 @@ export interface PreloadAPI {
     positiveStats: string[],
     negativeStats: string[],
   ) => Promise<IpcInvokeMap["searchSimilarRivens"]["return"]>;
+  getRivenWeaponNames: () => Promise<IpcInvokeMap["getRivenWeaponNames"]["return"]>;
+  getRivenStatOptions: () => Promise<IpcInvokeMap["getRivenStatOptions"]["return"]>;
+  searchRivenAuctions: (
+    weaponName: string,
+    positiveWfmNames: string[],
+    negativeWfmNames: string[],
+  ) => Promise<IpcInvokeMap["searchRivenAuctions"]["return"]>;
+  getWeaponRivenType: (weaponName: string) => Promise<IpcInvokeMap["getWeaponRivenType"]["return"]>;
+  createRivenAuction: (
+    weaponName: string,
+    stats: { tag: string; value: number; positive: boolean }[],
+    rerolls: number,
+    masteryReq: number,
+    polarity: string,
+    modRank: number,
+    buyoutPrice: number | null,
+    startingPrice: number,
+    isPrivate: boolean,
+    description: string,
+  ) => Promise<IpcInvokeMap["createRivenAuction"]["return"]>;
   onHelperDownloadProgress: (callback: (progress: IpcEventMap["helper-download-progress"]) => void) => () => void;
 }

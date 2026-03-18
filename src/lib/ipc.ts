@@ -128,6 +128,14 @@ export const ipc = {
   getRivens: () => window.api.getRivens(),
   searchSimilarRivens: (...args: IpcInvokeMap["searchSimilarRivens"]["args"]) =>
     window.api.searchSimilarRivens(...args),
+  getRivenWeaponNames: () => window.api.getRivenWeaponNames(),
+  getRivenStatOptions: () => window.api.getRivenStatOptions(),
+  searchRivenAuctions: (...args: IpcInvokeMap["searchRivenAuctions"]["args"]) =>
+    window.api.searchRivenAuctions(...args),
+  getWeaponRivenType: (...args: IpcInvokeMap["getWeaponRivenType"]["args"]) =>
+    window.api.getWeaponRivenType(...args),
+  createRivenAuction: (...args: IpcInvokeMap["createRivenAuction"]["args"]) =>
+    window.api.createRivenAuction(...args),
   onHelperDownloadProgress: (callback: (progress: IpcEventMap["helper-download-progress"]) => void) =>
     window.api.onHelperDownloadProgress(callback),
 } as const;

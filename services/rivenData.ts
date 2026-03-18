@@ -548,3 +548,50 @@ export function getRivenFamilySlug(weaponName: string): string {
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_|_$/g, "");
 }
+
+/**
+ * Get all weapon display names that have riven disposition.
+ * Returns an alphabetically sorted array.
+ */
+export function getAllRivenWeaponNames(): string[] {
+  ensureBuilt();
+  const names = [..._weaponDisplayNames.values()];
+  names.sort((a, b) => a.localeCompare(b));
+  return names;
+}
+
+/**
+ * Get the common riven stat tags used for WFM auction attribute filters.
+ * Returns array of { tag, wfmUrlName, displayName }.
+ */
+export function getRivenStatOptions(): { tag: string; wfmUrlName: string; displayName: string }[] {
+  ensureBuilt();
+  const result: { tag: string; wfmUrlName: string; displayName: string }[] = [];
+  const seen = new Set<string>();
+  for (const [tag, wfmName] of Object.entries(TAG_TO_WFM_URL_NAME)) {
+    if (seen.has(wfmName)) continue;
+    seen.add(wfmName);
+    const displayName = _tagToDisplayName.get(tag) || TAG_TO_DISPLAY[tag] || tag;
+    result.push({ tag, wfmUrlName: wfmName, displayName });
+  }
+  result.sort((a, b) => a.displayName.localeCompare(b.displayName));
+  return result;
+}
+
+const RIVEN_KEY_TO_LABEL: Record<string, string> = {
+  ["/Lotus/Upgrades/Mods/Randomized/LotusRifleRandomModRare"]: "Rifle",
+  [SHOTGUN_RIVEN_KEY]: "Shotgun",
+  ["/Lotus/Upgrades/Mods/Randomized/LotusPistolRandomModRare"]: "Pistol",
+  ["/Lotus/Upgrades/Mods/Randomized/PlayerMeleeWeaponRandomModRare"]: "Melee",
+  ["/Lotus/Upgrades/Mods/Randomized/LotusArchgunRandomModRare"]: "Archgun",
+  [KITGUN_RIVEN_KEY]: "Kitgun",
+  [ZAW_RIVEN_KEY]: "Zaw",
+};
+
+/**
+ * Get the riven type label (Rifle / Shotgun / Pistol / Melee / etc.) for a weapon name.
+ */
+export function getWeaponRivenTypeLabel(weaponName: string): string | null {
+  const key = resolveRivenType(weaponName);
+  return key ? (RIVEN_KEY_TO_LABEL[key] ?? null) : null;
+}

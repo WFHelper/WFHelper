@@ -182,18 +182,18 @@ body {
   padding: 0 7px;
 }
 
-/* Grade colors */
-.grade-S  { background: #d4a017; color: #1a1a0a; }
-.grade-Ap { background: #2ecc40; color: #0a1a0d; }
-.grade-A  { background: #27ae60; }
-.grade-Am { background: #1e8449; }
-.grade-Bp { background: #3498db; }
-.grade-B  { background: #2980b9; }
-.grade-Bm { background: #2471a3; }
-.grade-Cp { background: #e67e22; }
-.grade-C  { background: #d35400; }
-.grade-Cm { background: #a04000; }
-.grade-F  { background: #e74c3c; }
+/* Grade colors: S=bright green, A=dull green, B=yellow, C=orange, F=red */
+.grade-S  { background: #4ade80; color: #0a1a0a; }
+.grade-Ap { background: #6aab7a; color: #0a1a0d; }
+.grade-A  { background: #6aab7a; color: #0a1a0d; }
+.grade-Am { background: #6aab7a; color: #0a1a0d; }
+.grade-Bp { background: #facc15; color: #1a1a0a; }
+.grade-B  { background: #facc15; color: #1a1a0a; }
+.grade-Bm { background: #facc15; color: #1a1a0a; }
+.grade-Cp { background: #f97316; color: #fff; }
+.grade-C  { background: #f97316; color: #fff; }
+.grade-Cm { background: #f97316; color: #fff; }
+.grade-F  { background: #ef4444; }
 .grade-unknown { background: var(--text-dim); }
 
 /* Attribute grade badges (Great/Good/OK/Bad) */
@@ -213,10 +213,10 @@ body {
   color: #fff;
 }
 
-.attr-grade-great { background: #2ecc40; color: #0a1a0d; }
-.attr-grade-good  { background: #3498db; }
-.attr-grade-ok    { background: #e67e22; }
-.attr-grade-bad   { background: #e74c3c; }
+.attr-grade-great { background: #4ade80; color: #0a1a0d; }
+.attr-grade-good  { background: #6aab7a; color: #0a1a0d; }
+.attr-grade-ok    { background: #facc15; color: #1a1a0a; }
+.attr-grade-bad   { background: #ef4444; }
 
 /* ── Scanning spinner ─────────────────────────────────────────────────────── */
 
