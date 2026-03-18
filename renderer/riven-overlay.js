@@ -408,9 +408,9 @@ function computeSimilarity(myStatNames, listingStats) {
       }
     }
   }
-  // Percentage = matching stats / my total stats (including negatives)
-  var myTotal = myStatNames.length;
-  var pct = myTotal > 0 ? Math.round((matchedNames.size / myTotal) * 100) : 0;
+  // Jaccard similarity: intersection / union — penalises extra stats on either side
+  var union = myStatNames.length + listingNamesLc.length - matchedNames.size;
+  var pct = union > 0 ? Math.round((matchedNames.size / union) * 100) : 0;
   return { pct: pct, matchedNames: matchedNames };
 }
 

@@ -87,8 +87,6 @@ contextBridge.exposeInMainWorld("api", {
   runHelperNow: () => ipcRenderer.invoke("helper:run-now"),
   downloadHelper: () => ipcRenderer.invoke("helper:download"),
   getRivens: () => ipcRenderer.invoke("get-rivens"),
-  searchSimilarRivens: (weaponName: string, positiveStats: string[], negativeStats: string[]) =>
-    ipcRenderer.invoke("search-similar-rivens", weaponName, positiveStats, negativeStats),
   getRivenWeaponNames: () => ipcRenderer.invoke("get-riven-weapon-names"),
   getRivenStatOptions: () => ipcRenderer.invoke("get-riven-stat-options"),
   searchRivenAuctions: (weaponName: string, positiveWfmNames: string[], negativeWfmNames: string[]) =>
@@ -97,6 +95,7 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke("get-weapon-riven-type", weaponName),
   createRivenAuction: (
     weaponName: string,
+    rivenName: string,
     stats: { tag: string; value: number; positive: boolean }[],
     rerolls: number,
     masteryReq: number,
@@ -109,7 +108,7 @@ contextBridge.exposeInMainWorld("api", {
   ) =>
     ipcRenderer.invoke(
       "create-riven-auction",
-      weaponName, stats, rerolls, masteryReq, polarity, modRank,
+      weaponName, rivenName, stats, rerolls, masteryReq, polarity, modRank,
       buyoutPrice, startingPrice, isPrivate, description,
     ),
   onHelperDownloadProgress: (callback: (progress: unknown) => void) => {

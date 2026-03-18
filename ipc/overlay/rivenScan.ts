@@ -6,8 +6,6 @@
  * Scanning strategy:
  *  1. Session opens → scanInitialCard() — OCR the centered single card
  *  2. Roll confirmed → scanNewRoll() — OCR only the RIGHT panel (new roll)
- *  3. Choice confirmed → scanChoiceResult() — OCR single card, compare to
- *     previous stats to determine which side was kept
  *
  * The left panel (current/old stats) is never scanned — we already know those
  * stats from step 1 or from the previous roll cycle.
@@ -667,50 +665,5 @@ export async function scanChoiceRescan(): Promise<RivenStat[]> {
   } catch (err) {
     log.warn("[RivenScan] choice rescan OCR failed:", String(err));
     return [];
-  }
-}
-
-/**
- * Capture the single-card post-choice screen and determine which side was kept.
- * Called after the choice SendResult fires.
- *
- * Optimised for speed: uses only a single enhancement strategy (bright-150)
- * since we only need stat NAMES for comparison, not values.
- */
-export async function scanChoiceResult(
-  previousInitial: RivenStat[],
-  previousNewRoll: RivenStat[],
-): Promise<"left" | "right" | "unknown"> {
-  const capture = await captureScreen();
-  if (!capture) return "unknown";
-
-  try {
-    // Single-strategy OCR for speed — only need stat names, not values
-    const cropped = cropRect(capture.image, FULL_LOWER);
-    const mode: EnhanceMode = { kind: "bright", threshold: 150 };
-    const enhancedPng = await enhanceForRivenOcr(cropped, mode);
-    fs.writeFileSync(TEMP_SINGLE, enhancedPng);
-    const text = await ocrRunner.runOCR(TEMP_SINGLE, OCR_TIMEOUT_MS);
-    const current = parseRivenStats(text);
-
-    if (current.length === 0) {
-      log.log("[RivenScan] choice scan: 0 stats found");
-      return "unknown";
-    }
-
-    const currentNames = new Set(current.map((s) => s.name.toLowerCase()));
-
-    const initialMatches = previousInitial.filter((s) => currentNames.has(s.name.toLowerCase())).length;
-    const newRollMatches = previousNewRoll.filter((s) => currentNames.has(s.name.toLowerCase())).length;
-
-    log.log(`[RivenScan] choice detection: initialMatches=${initialMatches} newRollMatches=${newRollMatches} (scanned: ${current.map(s => s.name).join(", ")})`);
-
-    // "left" = kept the old/initial stats, "right" = chose the new roll
-    if (initialMatches >= 2 && initialMatches > newRollMatches) return "left";
-    if (newRollMatches >= 2 && newRollMatches > initialMatches) return "right";
-    return "unknown";
-  } catch (err) {
-    log.warn("[RivenScan] choice scan OCR failed:", String(err));
-    return "unknown";
   }
 }

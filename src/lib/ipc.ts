@@ -126,8 +126,6 @@ export const ipc = {
   runHelperNow: () => window.api.runHelperNow(),
   downloadHelper: () => window.api.downloadHelper(),
   getRivens: () => window.api.getRivens(),
-  searchSimilarRivens: (...args: IpcInvokeMap["searchSimilarRivens"]["args"]) =>
-    window.api.searchSimilarRivens(...args),
   getRivenWeaponNames: () => window.api.getRivenWeaponNames(),
   getRivenStatOptions: () => window.api.getRivenStatOptions(),
   searchRivenAuctions: (...args: IpcInvokeMap["searchRivenAuctions"]["args"]) =>

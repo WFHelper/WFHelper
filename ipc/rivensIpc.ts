@@ -15,6 +15,13 @@ const rivenData = requireRuntime<typeof import("../services/rivenData")>(
 
 const { ipcMain } = require("electron") as typeof import("electron");
 
+/** Map game polarity internal names to WFM API names. */
+const POLARITY_TO_WFM: Record<string, string> = {
+  AP_ATTACK: "madurai",
+  AP_TACTIC: "naramon",
+  AP_DEFENSE: "vazarin",
+};
+
 function register(): void {
   ipcMain.handle("get-rivens", (event: unknown) => {
     assertAuthorizedSender(assertMainRendererSender, event as never, "get-rivens");
@@ -25,30 +32,6 @@ function register(): void {
 
     return rivenFingerprint.decodeAllRivens(ctx.currentInventoryData);
   });
-
-  ipcMain.handle(
-    "search-similar-rivens",
-    async (event: unknown, weaponName: unknown, positiveStats: unknown, negativeStats: unknown) => {
-      assertAuthorizedSender(assertMainRendererSender, event as never, "search-similar-rivens");
-
-      if (typeof weaponName !== "string" || !weaponName) return [];
-      const slug = rivenData.getRivenFamilySlug(weaponName);
-      if (!slug) return [];
-
-      const posArr = Array.isArray(positiveStats)
-        ? (positiveStats as string[]).map((s) => rivenData.tagToWfmUrlName(String(s))).filter(Boolean) as string[]
-        : [];
-      const negArr = Array.isArray(negativeStats)
-        ? (negativeStats as string[]).map((s) => rivenData.tagToWfmUrlName(String(s))).filter(Boolean) as string[]
-        : [];
-
-      return wfmRivenSearch.searchSimilarRivens(slug, {
-        limit: 6,
-        positiveStats: posArr.length > 0 ? posArr : undefined,
-        negativeStats: negArr.length > 0 ? negArr : undefined,
-      });
-    },
-  );
 
   ipcMain.handle("get-riven-weapon-names", (event: unknown) => {
     assertAuthorizedSender(assertMainRendererSender, event as never, "get-riven-weapon-names");
@@ -94,6 +77,7 @@ function register(): void {
     async (
       event: unknown,
       weaponName: unknown,
+      rivenName: unknown,
       stats: unknown,
       rerolls: unknown,
       masteryReq: unknown,
@@ -116,17 +100,22 @@ function register(): void {
         const urlName = rivenData.tagToWfmUrlName(String(s.tag));
         return {
           url_name: urlName || String(s.tag),
-          value: typeof s.value === "number" ? s.value : 0,
+          value: typeof s.value === "number" ? Math.abs(s.value) : 0,
           positive: s.positive !== false,
         };
       });
 
+      const wfmPolarity = typeof polarity === "string"
+        ? POLARITY_TO_WFM[polarity] || polarity.toLowerCase()
+        : "madurai";
+
       return wfmRivenSearch.createRivenAuction({
         weaponSlug: slug,
+        rivenName: typeof rivenName === "string" && rivenName ? rivenName : weaponName,
         attributes,
         rerolls: typeof rerolls === "number" ? rerolls : 0,
         masteryLevel: typeof masteryReq === "number" ? masteryReq : 0,
-        polarity: typeof polarity === "string" ? polarity : "madurai",
+        polarity: wfmPolarity,
         modRank: typeof modRank === "number" ? modRank : 0,
         buyoutPrice: typeof buyoutPrice === "number" ? buyoutPrice : null,
         startingPrice: startingPrice as number,

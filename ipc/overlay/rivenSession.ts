@@ -17,10 +17,6 @@ let _kuvaPerRoll = 0;
 let _rollCount = 0;
 let _totalKuvaSpent = 0;
 
-// Last scanned panels — used by scanChoiceResult to compare against
-let _lastLeft: RivenStat[] = [];
-let _lastRight: RivenStat[] = [];
-
 let _active = false;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -40,10 +36,6 @@ export function isActive(): boolean {
   return _active;
 }
 
-export function getLastPanels(): { left: RivenStat[]; right: RivenStat[] } {
-  return { left: _lastLeft, right: _lastRight };
-}
-
 /**
  * Called when the OmegaRerollSelection screen is detected and weapon/cost
  * info is available from the cycle dialog.
@@ -57,8 +49,6 @@ export function startSession(
   _kuvaPerRoll = kuvaPerRoll;
   _rollCount = 0;
   _totalKuvaSpent = 0;
-  _lastLeft = [];
-  _lastRight = [];
   _active = true;
 
   sendToWindows(wins, "riven-session-start", weapon, kuvaPerRoll);
@@ -69,7 +59,6 @@ export function startSession(
  * Populates the left (current) panel with the riven's existing stats.
  */
 export function onInitialStats(wins: WindowRef[], stats: RivenStat[]): void {
-  _lastLeft = stats;
   sendToWindows(wins, "riven-initial-stats", stats);
 }
 
@@ -87,8 +76,6 @@ export function onRollConfirmed(wins: WindowRef[]): void {
 export function onRollResult(wins: WindowRef[], panels: RollPanelResult): void {
   _rollCount += 1;
   _totalKuvaSpent += _kuvaPerRoll;
-  _lastLeft = panels.left;
-  _lastRight = panels.right;
 
   sendToWindows(wins, "riven-roll-result", {
     rollCount: _rollCount,
@@ -115,7 +102,5 @@ export function endSession(wins: WindowRef[]): void {
   _kuvaPerRoll = 0;
   _rollCount = 0;
   _totalKuvaSpent = 0;
-  _lastLeft = [];
-  _lastRight = [];
   sendToWindows(wins, "riven-session-end");
 }

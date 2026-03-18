@@ -12,6 +12,13 @@ import { withScope } from "./logger";
 import * as rivenData from "./rivenData";
 import * as rivenGrading from "./rivenGrading";
 import { getBestAttributes } from "./rivenBestAttributes";
+import {
+  NUM_BUFFS_ATTEN,
+  NUM_BUFFS_CURSE_ATTEN,
+  SPECIFIC_FIT_ATTEN,
+  BASE_DRAIN,
+  NON_PERCENTAGE_TAGS,
+} from "./rivenConstants";
 
 const log = withScope("rivenFingerprint");
 
@@ -74,25 +81,6 @@ interface RawFingerprint {
   curses?: { Tag: string; Value: number }[];
   challenge?: unknown;
 }
-
-// ── Constants (duplicated from rivenGrading to keep CJS-compatible) ──────────
-
-const NUM_BUFFS_ATTEN = [0, 1, 0.66000003, 0.5, 0.40000001, 0.34999999];
-const NUM_BUFFS_CURSE_ATTEN = [0, 1, 0.33000001, 0.5, 1.25, 1.5];
-const SPECIFIC_FIT_ATTEN = 1.5;
-const BASE_DRAIN = 10;
-
-const NON_PERCENTAGE_TAGS = new Set([
-  "WeaponFactionDamageGrineer",
-  "WeaponFactionDamageCorpus",
-  "WeaponFactionDamageInfested",
-  "WeaponMeleeFactionDamageGrineer",
-  "WeaponMeleeFactionDamageCorpus",
-  "WeaponMeleeFactionDamageInfested",
-  "WeaponMeleeComboInitialBonusMod",
-  "ComboDurationMod",
-  "WeaponMeleeRangeIncMod",
-]);
 
 // ── Riven mod type labels ────────────────────────────────────────────────────
 

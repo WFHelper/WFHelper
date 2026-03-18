@@ -21,6 +21,13 @@
 import { withScope } from "./logger";
 import * as rivenData from "./rivenData";
 import { getBestAttributes } from "./rivenBestAttributes";
+import {
+  NUM_BUFFS_ATTEN,
+  NUM_BUFFS_CURSE_ATTEN,
+  SPECIFIC_FIT_ATTEN,
+  BASE_DRAIN,
+  NON_PERCENTAGE_TAGS,
+} from "./rivenConstants";
 
 const log = withScope("rivenGrading");
 
@@ -44,38 +51,8 @@ export interface RivenGradeResult {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-/** Buff attenuation indexed by number of buffs. From RivenParser.js (raw C float values). */
-const NUM_BUFFS_ATTEN = [0, 1, .66000003, .5, .40000001, .34999999];
-
-/** Curse-specific attenuation indexed by number of buffs (NOT curses). */
-const NUM_BUFFS_CURSE_ATTEN = [0, 1, .33000001, .5, 1.25, 1.5];
-
-/** SPECIFIC_FIT_ATTENUATION constant from game code. */
-const SPECIFIC_FIT_ATTEN = 1.5;
-
-/** getBaseDrain(RIVEN_BASE_DRAIN) */
-const BASE_DRAIN = 10;
-
 /** Default riven max rank. Most rivens are rank 8 (lvl 0..8). */
 const DEFAULT_LVL = 8;
-
-/**
- * Stats where the displayed value is NOT percentage-based.
- * Faction damage tags display as a direct multiplier, and
- * combo/range stats display with different precision.
- * For these, displayValueToValue returns the displayValue as-is.
- */
-const NON_PERCENTAGE_TAGS = new Set([
-  "WeaponFactionDamageGrineer",
-  "WeaponFactionDamageCorpus",
-  "WeaponFactionDamageInfested",
-  "WeaponMeleeFactionDamageGrineer",
-  "WeaponMeleeFactionDamageCorpus",
-  "WeaponMeleeFactionDamageInfested",
-  "WeaponMeleeComboInitialBonusMod",
-  "ComboDurationMod",
-  "WeaponMeleeRangeIncMod",
-]);
 
 /**
  * Grade thresholds mapped from lerp(-10, 10, rollFloat).

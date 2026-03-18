@@ -43,7 +43,9 @@
         }
       }
     }
-    const pct = Math.round((matchedNames.size / myStatNames.length) * 100);
+    // Jaccard similarity: intersection / union — penalises extra stats on either side
+    const union = myStatNames.length + listingNamesLc.length - matchedNames.size;
+    const pct = union > 0 ? Math.round((matchedNames.size / union) * 100) : 0;
     return { pct, matchedNames };
   }
 
@@ -95,6 +97,7 @@
 
     const result = await ipc.createRivenAuction(
       riven.weaponName,
+      riven.rivenName,
       stats,
       riven.rerolls,
       riven.masteryReq,
@@ -330,7 +333,7 @@
               <div class="listing-field">
                 <span class="listing-field-label">Selling price:</span>
                 <div class="listing-price-wrap">
-                  <span class="listing-plat-icon">💠</span>
+                  <img class="listing-plat-icon" src="Platinum.png" alt="Platinum" width="16" height="16" />
                   <input type="number" class="listing-input listing-price-input" bind:value={listingPrice} min="1" />
                 </div>
               </div>
@@ -879,7 +882,8 @@
   }
 
   .listing-plat-icon {
-    font-size: 0.85rem;
+    vertical-align: middle;
+    flex-shrink: 0;
   }
 
   .listing-price-input {

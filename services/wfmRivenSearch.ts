@@ -174,6 +174,7 @@ export async function searchSimilarRivens(
 
 interface CreateAuctionOpts {
   weaponSlug: string;
+  rivenName: string;
   attributes: { url_name: string; value: number; positive: boolean }[];
   rerolls: number;
   masteryLevel: number;
@@ -195,6 +196,7 @@ export async function createRivenAuction(
   const body: Record<string, unknown> = {
     item: {
       type: "riven",
+      name: opts.rivenName,
       weapon_url_name: opts.weaponSlug,
       attributes: opts.attributes,
       re_rolls: opts.rerolls,
@@ -215,6 +217,7 @@ export async function createRivenAuction(
   }
 
   try {
+    log.log(`[WfmRivenSearch] Creating auction for "${opts.weaponSlug}" polarity=${opts.polarity} rank=${opts.modRank} attrs=${opts.attributes.length}`);
     const data = (await wfmClient.request("POST", "/auctions/create", { json: body })) as any;
     const auctionId = data?.payload?.auction?.id;
     log.log(`[WfmRivenSearch] Created auction ${auctionId || "(no id)"} for "${opts.weaponSlug}"`);
@@ -222,6 +225,7 @@ export async function createRivenAuction(
   } catch (err: any) {
     const msg = err?.message || String(err);
     log.warn(`[WfmRivenSearch] Create auction failed for "${opts.weaponSlug}":`, msg);
+    log.warn(`[WfmRivenSearch] Request body:`, JSON.stringify(body));
     return { ok: false, error: msg };
   }
 }

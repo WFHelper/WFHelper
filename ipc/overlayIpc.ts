@@ -368,12 +368,6 @@ function triggerRollScan(): void {
   }, ROLL_SCAN_DELAY_MS);
 }
 
-// triggerChoiceScan was removed — determining which side was chosen via OCR required
-// a second full OCR pass (4-6s) on top of the roll scan, causing severe lag after
-// pressing CONFIRM.  We don't actually need to know which side was kept: we always
-// re-scan the single card that the game shows after the choice, which gives us the
-// accurate current stats regardless of which side was selected.
-
 // ── Exported riven callbacks (wired from main.ts via eeLogMonitor) ─────────────
 
 export function onRivenSessionClose(): void {

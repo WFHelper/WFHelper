@@ -300,10 +300,6 @@ export interface IpcInvokeMap {
     args: [];
     return: RivenResult;
   };
-  searchSimilarRivens: {
-    args: [weaponName: string, positiveStats: string[], negativeStats: string[]];
-    return: WfmRivenListing[];
-  };
   getRivenWeaponNames: {
     args: [];
     return: string[];
@@ -323,6 +319,7 @@ export interface IpcInvokeMap {
   createRivenAuction: {
     args: [
       weaponName: string,
+      rivenName: string,
       stats: { tag: string; value: number; positive: boolean }[],
       rerolls: number,
       masteryReq: number,
