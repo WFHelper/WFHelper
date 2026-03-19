@@ -260,29 +260,49 @@ function isPriceEntryFresh(entry: unknown): boolean {
   return Date.now() - timestamp < ttl;
 }
 
-function loadPersistedPriceMedianMap(
+function loadPersistedCacheMaps(
   fs: typeof import("node:fs"),
   cacheFilePath: string,
-): Map<string, number> {
+): { prices: Map<string, number>; ducats: Map<string, number> } {
   const prices = new Map<string, number>();
+  const ducats = new Map<string, number>();
 
   try {
-    if (!fs.existsSync(cacheFilePath)) return prices;
+    if (!fs.existsSync(cacheFilePath)) return { prices, ducats };
     const raw = fs.readFileSync(cacheFilePath, "utf-8");
     const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return prices;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return { prices, ducats };
 
-    for (const [slug, entry] of Object.entries(parsed as Record<string, unknown>)) {
+    // Snapshot format has a nested { prices: {...}, meta: {...} } structure.
+    // Legacy flat format had slug entries at the root level.
+    const priceRoot = (parsed as Record<string, unknown>).prices;
+    const priceEntries: Record<string, unknown> =
+      priceRoot !== null && typeof priceRoot === "object" && !Array.isArray(priceRoot)
+        ? (priceRoot as Record<string, unknown>)
+        : (parsed as Record<string, unknown>);
+
+    for (const [slug, entry] of Object.entries(priceEntries)) {
       if (!isPriceEntryFresh(entry)) continue;
       const median = toFiniteOr((entry as { median?: unknown }).median, NaN);
       if (!Number.isFinite(median) || median <= 0) continue;
       prices.set(normalizeSlug(slug), median);
     }
+
+    // Extract ducat values from snapshot meta (only available in snapshot format).
+    const meta = (parsed as Record<string, unknown>).meta;
+    if (meta !== null && typeof meta === "object" && !Array.isArray(meta)) {
+      for (const [slug, entry] of Object.entries(meta as Record<string, unknown>)) {
+        if (!entry || typeof entry !== "object") continue;
+        const d = toFiniteOr((entry as { ducats?: unknown }).ducats, NaN);
+        if (!Number.isFinite(d) || d <= 0) continue;
+        ducats.set(normalizeSlug(slug), Math.max(0, Math.round(d)));
+      }
+    }
   } catch {
-    return prices;
+    return { prices, ducats };
   }
 
-  return prices;
+  return { prices, ducats };
 }
 
 function getCacheFileMtimeMs(fs: typeof import("node:fs"), cacheFilePath: string): number {
@@ -301,6 +321,7 @@ function pickBestOwnedQuality(
   ownedRow: OwnedCountRow,
   priceLookup: (slug: string) => number | null,
   squadSize: number,
+  getDucats: (slug: string) => number | null,
 ): RecommendationRow | null {
   let best: RecommendationRow | null = null;
 
@@ -323,13 +344,18 @@ function pickBestOwnedQuality(
       return slug ? priceLookup(slug) : null;
     });
     const ducatValues = normalizedRewards.map((reward) => {
+      // @wfcd/items rarely ships ducat values; fall back to snapshot meta ducats.
       const n = toFiniteOr(reward?.ducats, NaN);
-      return Number.isFinite(n) ? Math.max(0, Math.round(n)) : null;
+      if (Number.isFinite(n) && n > 0) return Math.max(0, Math.round(n));
+      const slug = normalizeSlug(reward?.urlName);
+      return slug ? getDucats(slug) : null;
     });
 
     const hasAnyPlat = platValues.some((value) => value != null);
     const hasAnyDucat = ducatValues.some((value) => value != null);
-    if (!hasAnyPlat && !hasAnyDucat) continue;
+    // Show relics even when neither price nor ducat data is available yet
+    // (@wfcd/items ships no ducat values; prices only populate after fetches).
+    // Null EVs display as "-p / -d" in the overlay until data arrives.
 
     const platEv = hasAnyPlat
       ? computeSquadExpected(normalizedRewards, platValues, squadSize)
@@ -413,20 +439,18 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
   let persistedPriceMedianCache: {
     mtimeMs: number;
     prices: Map<string, number>;
+    ducats: Map<string, number>;
   } | null = null;
 
-  function getPersistedPriceMedianMapCached(): Map<string, number> {
+  function getPersistedCacheMaps(): { prices: Map<string, number>; ducats: Map<string, number> } {
     const mtimeMs = getCacheFileMtimeMs(fs, cacheFilePath);
     if (persistedPriceMedianCache && persistedPriceMedianCache.mtimeMs === mtimeMs) {
-      return persistedPriceMedianCache.prices;
+      return { prices: persistedPriceMedianCache.prices, ducats: persistedPriceMedianCache.ducats };
     }
 
-    const prices = loadPersistedPriceMedianMap(fs, cacheFilePath);
-    persistedPriceMedianCache = {
-      mtimeMs,
-      prices,
-    };
-    return prices;
+    const { prices, ducats } = loadPersistedCacheMaps(fs, cacheFilePath);
+    persistedPriceMedianCache = { mtimeMs, prices, ducats };
+    return { prices, ducats };
   }
 
   function buildRecommendations(
@@ -441,7 +465,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       return { rows: cache.rows, totalOwnedCount: cache.totalOwnedCount };
     }
 
-    const persistedPrices = getPersistedPriceMedianMapCached();
+    const { prices: persistedPrices, ducats: persistedDucats } = getPersistedCacheMaps();
 
     const getPrice = (slug: string): number | null => {
       const normalized = normalizeSlug(slug);
@@ -461,6 +485,12 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       return null;
     };
 
+    const getDucats = (slug: string): number | null => {
+      const normalized = normalizeSlug(slug);
+      if (!normalized) return null;
+      return persistedDucats.get(normalized) ?? null;
+    };
+
     let totalOwnedCount = 0;
     const rows: RecommendationRow[] = [];
     for (const group of groups) {
@@ -477,7 +507,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         (ownedRow.radiant || 0);
       totalOwnedCount += groupTotal;
 
-      const best = pickBestOwnedQuality(group, ownedRow, getPrice, desktopSquadSize);
+      const best = pickBestOwnedQuality(group, ownedRow, getPrice, desktopSquadSize, getDucats);
       if (best) rows.push(best);
     }
 
@@ -741,9 +771,18 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     );
   }
 
+  function resetMissionTier(): void {
+    if (activeMissionTier) {
+      log.log(`[RelicSelection] activeMissionTier cleared (menu closed)`);
+    }
+    activeMissionTier = null;
+    activeMissionTierSetAt = 0;
+  }
+
   return {
     onRelicSelectionTrigger,
     suppressReopenForClose,
     setDesktopFilters,
+    resetMissionTier,
   };
 }

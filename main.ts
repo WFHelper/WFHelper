@@ -56,6 +56,7 @@ const rivensIpc = fromAppRoot("ipc/rivensIpc");
 const statsTracker = fromAppRoot("services/statsTracker");
 const tradeTracker = fromAppRoot("services/tradeTracker");
 const apiHelperRunner = fromAppRoot("services/apiHelperRunner");
+const ocrServer = fromAppRoot("services/ocrServer").ocrServer;
 
 // Suppress noisy Chromium/DevTools internal logging in terminal.
 app.commandLine.appendSwitch("disable-logging");
@@ -313,6 +314,13 @@ app.whenReady().then(async () => {
   profileStage("relic-reward-items:prepare", rewardItemsStart);
 
   profileStage("total-main-startup-sequence", startupStartedAt);
+
+  // Pre-warm the persistent Windows OCR server in the background so the first
+  // real OCR call (relic era detection or riven scan) doesn't pay the
+  // ~250-450 ms PowerShell/WinRT startup cost.
+  if (process.platform === "win32") {
+    ocrServer.warmup().catch(() => { /* best-effort */ });
+  }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

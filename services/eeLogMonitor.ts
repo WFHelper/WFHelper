@@ -408,7 +408,6 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   }
 
   if (RELIC_PICKER_PATTERNS.some((pattern) => pattern.test(line))) {
-    log.log("[EELog] Relic picker match line:", String(line).slice(0, 220));
     scheduleTrigger("relic_picker");
   }
 

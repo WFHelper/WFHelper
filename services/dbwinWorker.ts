@@ -145,6 +145,11 @@ const MAX_PATH = 260;
 const WARFRAME_POLL_MS = 2000;
 // Phase 1: re-confirm Warframe is still running this often (milliseconds)
 const WARFRAME_RECHECK_MS = 5000;
+// Relic picker lines (LoadingCompleteEnd / PopulateInventoryGrid) fire at UI frame
+// rate while the fissure screen is open.  Match the eeLogMonitor cooldown window so
+// only one delivery per trigger cycle reaches the main thread.
+const RELIC_PICKER_DBWIN_SUPPRESS_MS = 7500;
+let _relicPickerSuppressUntil = 0;
 
 // Pre-allocated koffi array type — avoid recreating it every tick
 const uint8ArrayType = koffi.array("uint8", DBWIN_BUFFER_SIZE);
@@ -339,6 +344,16 @@ function runDbwinLoop(): void {
         if (msg) {
           const msgLower = msg.toLowerCase();
           if (FILTER_SUBSTRINGS_LOWER.some((s) => msgLower.includes(s))) {
+            // Relic picker lines fire at screen-refresh rate while the fissure screen
+            // is open.  Suppress within the cooldown window to stop flooding the main
+            // thread event loop (which would starve async OCR and cause UI lag).
+            const isRelicLine =
+              msgLower.includes("loadingcompleteend") ||
+              msgLower.includes("populateinventorygrid");
+            if (isRelicLine) {
+              if (now < _relicPickerSuppressUntil) continue;
+              _relicPickerSuppressUntil = now + RELIC_PICKER_DBWIN_SUPPRESS_MS;
+            }
             parentPort?.postMessage({ type: "line", pid, msg });
           }
         }

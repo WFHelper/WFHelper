@@ -49,10 +49,16 @@ function pruneCache(): void {
 
 // ── Search ───────────────────────────────────────────────────────────────────
 
+let _loggedWfmName = false;
+
 function parseAuctions(auctions: any[]): WfmRivenListing[] {
   const listings: WfmRivenListing[] = [];
   for (const a of auctions) {
     if (!a.item?.attributes) continue;
+    if (!_loggedWfmName && a.item?.name) {
+      log.log(`[WfmRivenSearch] WFM auction item.name format example: "${a.item.name}"`);
+      _loggedWfmName = true;
+    }
 
     const stats = (a.item.attributes as any[]).map((attr: any) => ({
       name: String(attr.url_name || "")
@@ -196,7 +202,7 @@ export async function createRivenAuction(
   const body: Record<string, unknown> = {
     item: {
       type: "riven",
-      name: opts.rivenName,
+      name: opts.rivenName.toLowerCase(),
       weapon_url_name: opts.weaponSlug,
       attributes: opts.attributes,
       re_rolls: opts.rerolls,

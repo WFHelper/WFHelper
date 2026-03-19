@@ -52,7 +52,8 @@ const {
 }>("config/runtime/overlaySettings");
 
 const OVERLAY_SETTINGS_FILE = path.join(app.getPath("userData"), "overlay-settings.json");
-const PRICE_CACHE_FILE = path.join(app.getPath("userData"), "price-cache.json");
+// Prices (and ducat meta) now live in the snapshot cache — price-cache.json is no longer written.
+const PRICE_CACHE_FILE = path.join(app.getPath("userData"), "snapshot-cache.json");
 const APP_ROOT = app.getAppPath();
 const OVERLAY_WINDOW_FILE = path.join(APP_ROOT, "renderer", "overlay.html");
 const PLANNER_WINDOW_FILE = path.join(APP_ROOT, "renderer", "overlay.html");
@@ -69,6 +70,23 @@ const rewardWindowsController = createOverlayWindowsController({
   overlayWindowFile: OVERLAY_WINDOW_FILE,
   cropDebugWindowFile: CROP_DEBUG_WINDOW_FILE,
 });
+
+// Adjust planner overlay z-order so it hides behind other apps when Warframe loses focus.
+// Polls every 1 s; warframeStatus caches its result for 900 ms so this is cheap.
+setInterval(async () => {
+  const win = ctx.plannerOverlayWindow;
+  if (!win || win.isDestroyed() || !win.isVisible()) return;
+  try {
+    const status = await warframeStatus.getStatus();
+    if (status.isFocused) {
+      win.setAlwaysOnTop(true, "screen-saver");
+    } else {
+      win.setAlwaysOnTop(false);
+    }
+  } catch {
+    // ignore
+  }
+}, 1000);
 
 const plannerWindowsController = createOverlayWindowsController({
   app,
@@ -90,6 +108,8 @@ const plannerWindowsController = createOverlayWindowsController({
   placement: "top-right",
   windowWidth: 460,
   windowHeight: 320,
+  transparent: false,
+  backgroundColor: "#060a12",
 });
 
 // ── Riven overlay windows (left = current, right = new roll) ─────────────────
@@ -681,7 +701,7 @@ function onRelicSelectionTrigger(source: string) {
   pushOverlayInteractionMode();
   pushOverlayThemeVars();
   void relicSelectionController.onRelicSelectionTrigger(source);
-  startEscMonitor(onRelicSelectionClose);
+  startEscMonitor(onRelicSelectionCloseByEsc);
 }
 
 const settingsController = createOverlaySettingsController({
@@ -733,6 +753,15 @@ function onRelicSelectionClose(): void {
   pushOverlayInteractionMode();
   win.hide();
   log.log("[OverlayClose] planner closed via ESC / Dialog::SendResult");
+}
+
+// ESC-key close: the user has explicitly navigated away from the fissure screen,
+// so we also reset the cached mission era so a different era fissure opened
+// later gets a fresh OCR pass.  Dialog::SendResult (cracking a relic) does NOT
+// call this wrapper — that keeps the era cached for the next endless rotation.
+function onRelicSelectionCloseByEsc(): void {
+  relicSelectionController.resetMissionTier?.();
+  onRelicSelectionClose();
 }
 
 function register(): void {

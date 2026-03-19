@@ -97,7 +97,7 @@ export interface PreloadAPI {
   createRivenAuction: (
     weaponName: string,
     rivenName: string,
-    stats: { tag: string; value: number; positive: boolean }[],
+    stats: { tag: string; value: number; positive: boolean; multiplier?: boolean }[],
     rerolls: number,
     masteryReq: number,
     polarity: string,

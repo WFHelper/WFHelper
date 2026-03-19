@@ -96,11 +96,16 @@ function register(): void {
       const slug = rivenData.getRivenFamilySlug(weaponName);
       if (!slug) return { ok: false, error: "Unknown weapon" };
 
-      const attributes = (stats as { tag: string; value: number; positive: boolean }[]).map((s) => {
+      const attributes = (stats as { tag: string; value: number; positive: boolean; multiplier?: boolean }[]).map((s) => {
         const urlName = rivenData.tagToWfmUrlName(String(s.tag));
+        const rawVal = typeof s.value === "number" ? s.value : 0;
+        // WFM expects negative values for non-multiplier curse stats.
+        // Multiplier curses (e.g. damage_vs_faction) use values < 1 (e.g. 0.97) and stay as-is.
+        // Our displayValue for non-multiplier curses is always positive (absolute), so negate it.
+        const value = !s.positive && !s.multiplier ? -Math.abs(rawVal) : Math.abs(rawVal);
         return {
           url_name: urlName || String(s.tag),
-          value: typeof s.value === "number" ? Math.abs(s.value) : 0,
+          value,
           positive: s.positive !== false,
         };
       });
@@ -109,9 +114,18 @@ function register(): void {
         ? POLARITY_TO_WFM[polarity] || polarity.toLowerCase()
         : "madurai";
 
+      // WFM expects only the generated suffix portion of the riven name in lowercase
+      // (e.g. "croni-visican"), NOT the full "Angstrum Croni-visican".
+      const rivenSuffix = (() => {
+        const rn = typeof rivenName === "string" && rivenName ? rivenName : weaponName;
+        const prefix = (weaponName as string) + " ";
+        const suffix = rn.startsWith(prefix) ? rn.slice(prefix.length) : rn;
+        return suffix.toLowerCase();
+      })();
+
       return wfmRivenSearch.createRivenAuction({
         weaponSlug: slug,
-        rivenName: typeof rivenName === "string" && rivenName ? rivenName : weaponName,
+        rivenName: rivenSuffix,
         attributes,
         rerolls: typeof rerolls === "number" ? rerolls : 0,
         masteryLevel: typeof masteryReq === "number" ? masteryReq : 0,

@@ -20,7 +20,7 @@
 
 html,
 body {
-  background: transparent;
+  background: var(--bg-deep, #060a12);
   font-family: var(--font-body, "Barlow", "Segoe UI", system-ui, sans-serif);
   font-size: var(--font-body-size, 0.82rem);
   color: var(--text);
@@ -32,7 +32,7 @@ body {
 #panel {
   width: 100%;
   height: 100%;
-  background: var(--bg);
+  background: var(--bg-surface, #111827);
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;

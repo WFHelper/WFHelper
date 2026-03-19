@@ -90,6 +90,7 @@
       tag: s.tag,
       value: s.displayValue,
       positive: s.positive,
+      multiplier: s.multiplier,
     }));
 
     const buyoutPrice = listingType === "direct" ? listingPrice : null;

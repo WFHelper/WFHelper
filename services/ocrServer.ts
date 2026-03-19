@@ -65,6 +65,15 @@ class OcrServerProcess {
   private _disposed = false;
 
   /**
+   * Pre-warm the server so the first real OCR call doesn't pay the
+   * PowerShell / WinRT assembly startup cost (~250-450 ms).
+   * Best-effort — errors are silently swallowed.
+   */
+  async warmup(): Promise<void> {
+    try { await this._ensureReady(); } catch { /* ignore */ }
+  }
+
+  /**
    * Run Windows OCR on `imagePath`.  Starts the server lazily on first call.
    * Throws if the server fails to start or times out.
    */

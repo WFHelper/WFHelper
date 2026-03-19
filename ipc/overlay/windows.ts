@@ -58,6 +58,10 @@ type OverlayWindowsControllerOptions = {
   windowHeight?: number;
   minWindowWidth?: number;
   minWindowHeight?: number;
+  /** When false the window gets a solid background (default: true = transparent). */
+  transparent?: boolean;
+  /** Background colour used when transparent=false (default: '#060a12'). */
+  backgroundColor?: string;
 };
 
 export function createOverlayWindowsController(options: OverlayWindowsControllerOptions) {
@@ -79,6 +83,8 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     windowHeight = OVERLAY_WINDOW_BOUNDS.height,
     minWindowWidth = 760,
     minWindowHeight = 160,
+    transparent = true,
+    backgroundColor = "#060a12",
   } = options;
 
   let lastOverlayAnchorMeta: OverlayAnchorMeta | null = null;
@@ -220,9 +226,17 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     if (existingWindow && !existingWindow.isDestroyed()) {
       positionOverlayWindow(lastOverlayAnchorMeta);
       existingWindow.setAlwaysOnTop(true, "screen-saver");
-      existingWindow.moveTop();
       if (shouldShow) {
         existingWindow.showInactive();
+        // moveTop + alwaysOnTop confirmed AFTER showInactive so the window
+        // is definitely in the visible stack before we raise it.
+        existingWindow.moveTop();
+        existingWindow.setAlwaysOnTop(true, "screen-saver");
+        const bounds = existingWindow.getBounds();
+        const visible = existingWindow.isVisible();
+        log.warn(
+          `[OverlayWindow] shown existing window visible=${visible} bounds=${JSON.stringify(bounds)}`,
+        );
       }
       setOverlayInteractiveMode(readInteractiveMode());
       return;
@@ -236,7 +250,8 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       x: initialBounds.x,
       y: initialBounds.y,
       show: false,
-      transparent: true,
+      transparent,
+      backgroundColor: transparent ? undefined : backgroundColor,
       frame: false,
       alwaysOnTop: true,
       skipTaskbar: true,
