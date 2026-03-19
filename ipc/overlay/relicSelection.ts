@@ -395,6 +395,14 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
   let lastKnownGameDisplayId: string | null = null;
   let desktopSquadSize: number = RECOMMENDATION_SQUAD_SIZE;
   let desktopTierHint: string | null = null;
+  // Cached era for the current mission session.  Set after the first confident era detection;
+  // reused for all subsequent relic picks within the same mission (e.g. endless fissure
+  // rotations) so OCR is skipped entirely.  TTL is refreshed on each cache hit so a long
+  // endless run never expires mid-session.  Once the player leaves for longer than the TTL
+  // the next open runs OCR afresh.
+  const MISSION_TIER_TTL_MS = 25 * 60 * 1000; // 25 minutes
+  let activeMissionTier: string | null = null;
+  let activeMissionTierSetAt = 0;
   let cache: {
     key: string;
     rows: RecommendationRow[];
@@ -561,35 +569,58 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       }
 
       const eraDetectStartedAt = Date.now();
-      const eraDetection =
-        typeof rewardScanner.detectRelicSelectionEra === "function"
-          ? await rewardScanner.detectRelicSelectionEra({
-              timeoutMs: ERA_DETECTION_TIMEOUT_MS,
-              preferredDisplayId,
-            })
-          : null;
 
-      if (scanToken !== activeScanToken) return;
+      // Reuse cached era from this mission session if the TTL hasn't expired.
+      // TTL is refreshed on every hit so endless-mission runs never expire mid-session.
+      const cacheAge = Date.now() - activeMissionTierSetAt;
+      let era: string | null =
+        activeMissionTier && cacheAge < MISSION_TIER_TTL_MS ? activeMissionTier : null;
+      let eraConfidence = era ? 1.0 : 0;
+
+      if (era) {
+        activeMissionTierSetAt = Date.now(); // refresh TTL
+        log.log(
+          `[RelicSelection] activeMissionTier cache hit: ${era} (age ${Math.round(cacheAge / 1000)}s)`,
+        );
+      } else {
+        const eraDetection =
+          typeof rewardScanner.detectRelicSelectionEra === "function"
+            ? await rewardScanner.detectRelicSelectionEra({
+                timeoutMs: ERA_DETECTION_TIMEOUT_MS,
+                preferredDisplayId,
+              })
+            : null;
+
+        if (scanToken !== activeScanToken) return;
+
+        if (eraDetection?.sourceDisplayId) {
+          windows.setAnchorMeta({ sourceDisplayId: eraDetection.sourceDisplayId });
+          lastKnownGameDisplayId = String(eraDetection.sourceDisplayId);
+          windows.positionOverlayWindow(windows.getAnchorMeta());
+        }
+
+        era = normalizeEra(eraDetection?.era || null);
+        eraConfidence = toFiniteOr(eraDetection?.confidence, 0);
+
+        log.log(
+          `[RelicSelection] era detection: era=${era || "none"} conf=${eraConfidence.toFixed(3)} ` +
+            `source=${String(eraDetection?.sourceType || "unknown")}:${String(eraDetection?.sourceName || eraDetection?.sourceId || "unknown")} ` +
+            `display=${String(eraDetection?.sourceDisplayId || "unknown")} ` +
+            `candidate=${String(eraDetection?.candidateId || "-")} preview="${String(eraDetection?.textPreview || "")}"`,
+        );
+
+        // Cache a confident detection for the rest of this mission session.
+        if (era && eraConfidence >= 0.9) {
+          activeMissionTier = era;
+          activeMissionTierSetAt = Date.now();
+          log.log(`[RelicSelection] activeMissionTier set: ${era}`);
+        }
+      }
 
       log.log(`[RelicSelection] era detection elapsed=${Date.now() - eraDetectStartedAt}ms`);
 
-      if (eraDetection?.sourceDisplayId) {
-        windows.setAnchorMeta({ sourceDisplayId: eraDetection.sourceDisplayId });
-        lastKnownGameDisplayId = String(eraDetection.sourceDisplayId);
-        windows.positionOverlayWindow(windows.getAnchorMeta());
-      }
-
-      const era = normalizeEra(eraDetection?.era || null);
-      const eraConfidence = toFiniteOr(eraDetection?.confidence, 0);
       const shouldApplyEra = Boolean(era && eraConfidence >= 0.9);
       const effectiveEra = shouldApplyEra ? era : desktopTierHint;
-
-      log.log(
-        `[RelicSelection] era detection: era=${era || "none"} conf=${toFiniteOr(eraDetection?.confidence, 0).toFixed(3)} ` +
-          `source=${String(eraDetection?.sourceType || "unknown")}:${String(eraDetection?.sourceName || eraDetection?.sourceId || "unknown")} ` +
-          `display=${String(eraDetection?.sourceDisplayId || "unknown")} ` +
-          `candidate=${String(eraDetection?.candidateId || "-")} preview="${String(eraDetection?.textPreview || "")}"`,
-      );
 
       const { rows, totalOwnedCount } = buildRecommendations(effectiveEra);
       if (scanToken !== activeScanToken) return;
@@ -601,8 +632,8 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         totalOwnedCount,
         detection: {
           confidence: eraConfidence,
-          textPreview: String(eraDetection?.textPreview || ""),
-          elapsedMs: toFiniteOr(eraDetection?.elapsedMs, 0),
+          textPreview: "",
+          elapsedMs: toFiniteOr(Date.now() - eraDetectStartedAt, 0),
         },
       });
 

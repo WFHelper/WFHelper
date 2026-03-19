@@ -338,19 +338,21 @@ function triggerRollScan(): void {
   _rivenRollScanTimer = setTimeout(async () => {
     _rivenRollScanTimer = null;
     try {
-      const stats = await rivenScan.scanNewRoll();
-      _rivenNewRollStats = stats;
-      if (stats.length > 0) {
+      const panels = await rivenScan.scanNewRoll();
+      // If the OCR produced per-panel results, use them directly.  Otherwise
+      // fall back to the initial stats we already have for the left panel.
+      const leftStats  = panels.left.length  > 0 ? panels.left  : _rivenInitialStats;
+      const rightStats = panels.right;
+      _rivenNewRollStats = rightStats;
+      if (rightStats.length > 0) {
         _rivenHasRollResult = true;
-        // Send as a roll result — left side is the initial stats we already have,
-        // right side is the newly scanned roll
         rivenSession.onRollResult(getRivenWindows(), {
-          left: _rivenInitialStats,
-          right: stats,
+          left: leftStats,
+          right: rightStats,
         });
         // Send grading for both panels
-        const leftGraded = tryGradeStats(_rivenInitialStats);
-        const rightGraded = tryGradeStats(stats);
+        const leftGraded  = tryGradeStats(leftStats);
+        const rightGraded = tryGradeStats(rightStats);
         if (leftGraded || rightGraded) {
           forEachRivenWindow((win) => {
             if (!win.isDestroyed()) {

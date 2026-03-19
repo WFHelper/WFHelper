@@ -1,6 +1,7 @@
 "use strict";
 
 import { execFile } from "child_process";
+import { ocrServer } from "./ocrServer";
 const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
   normalizeErrorMessage: (err: any) => string;
 };
@@ -46,7 +47,8 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
   const engineWindows = String(options?.engineWindows || "windows");
   const engineTesseract = String(options?.engineTesseract || "tesseract");
 
-  function runPowerShellOCR(imagePath: string, timeoutMs: number): Promise<string> {
+  /** One-shot PowerShell OCR — used as fallback when the persistent server is unavailable. */
+  function runPowerShellOcrOneShot(imagePath: string, timeoutMs: number): Promise<string> {
     return new Promise((resolve, reject) => {
       execFile(
         "powershell",
@@ -67,6 +69,19 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
     });
   }
 
+  /** Windows OCR via persistent server (fast) with one-shot execFile as fallback. */
+  async function runPowerShellOCR(imagePath: string, timeoutMs: number): Promise<string> {
+    try {
+      return await ocrServer.runOCR(imagePath, timeoutMs);
+    } catch (serverErr) {
+      log?.warn?.(
+        "[RewardScanner] OCR server unavailable, falling back to one-shot PowerShell:",
+        normalizeErrorMessage(serverErr),
+      );
+      return runPowerShellOcrOneShot(imagePath, timeoutMs);
+    }
+  }
+
   async function runTesseractOCR(imagePath: string, timeoutMs: number): Promise<string> {
     let tesseract: any;
     try {
@@ -77,6 +92,13 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
 
     const recognizePromise = tesseract.recognize(imagePath, tesseractLanguage, {
       logger: () => {},
+      // Restrict to the character set that can appear in Warframe riven text —
+      // same restriction AlecaFrame uses.  Dramatically reduces misreads by
+      // preventing Tesseract from matching Unicode characters that never appear.
+      tessedit_char_whitelist: " 1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,()+-%x",
+      // PSM 6: uniform block of text — correct for the ~4-line columnar layout
+      // of a riven card.  Default PSM 3 (full auto) wastes time on layout analysis.
+      tessedit_pageseg_mode: "6",
     });
 
     const result = await timeoutWrap(recognizePromise, timeoutMs, "Tesseract OCR");

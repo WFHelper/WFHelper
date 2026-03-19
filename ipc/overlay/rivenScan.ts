@@ -27,6 +27,7 @@ const log = withScope("rivenScan");
 
 // __dirname at runtime is .electron-build/ipc/overlay/ — three levels up to reach project root
 const OCR_SCRIPT = path.join(__dirname, "..", "..", "..", "scripts", "ocr.ps1");
+const TEMP_LEFT = path.join(os.tmpdir(), "wf-companion-riven-left-ocr.png");
 const TEMP_RIGHT = path.join(os.tmpdir(), "wf-companion-riven-right-ocr.png");
 const TEMP_SINGLE = path.join(os.tmpdir(), "wf-companion-riven-single-ocr.png");
 const OCR_TIMEOUT_MS = 8000;
@@ -415,18 +416,32 @@ export interface RollPanelResult {
 const MIN_OCR_WIDTH = 1800;
 
 interface EnhanceMode {
-  kind: "bright";
+  kind: "bright" | "lowsat";
   threshold: number;
+  /** Low-saturation upper bound (lowsat mode only). */
+  maxSat?: number;
   /** Apply 1px morphological dilation after thresholding to connect broken
    *  character strokes.  Slightly increases noise but recovers fragmented
    *  letters (especially at bright-120 where strokes are thinner). */
   dilate?: boolean;
 }
 
-// Enhancement strategies — bright-150 (clean, fast), then bright-120 + dilation
-// (catches dimmer text with stroke repair).
+// Enhancement strategies, ordered fastest-and-most-likely-to-win first.
+// Deliberately kept to TWO so worst-case cost is 2 OCR calls per panel (4 total):
+//
+// 1. lowsat-bright (PRIMARY): keep pixels where max(R,G,B) >= threshold AND
+//    saturation <= maxSat.  Riven stat text is near-white (low saturation),
+//    while the gold/orange decorative card background is highly saturated.
+//    This filter correctly rejects the background without needing a high
+//    brightness threshold, making it the most reliable single strategy.
+//    If it finds ≥4 stats with values, we skip strategy 2 entirely.
+//
+// 2. bright-120+dilate (FALLBACK): pure brightness threshold with 1px dilation.
+//    Used when the screen is dimmer than usual (e.g. HDR monitors, or the left
+//    panel in the two-card roll screen which renders slightly darker).
+//    Dilation reconnects broken character strokes at the lower threshold.
 const ENHANCE_STRATEGIES: EnhanceMode[] = [
-  { kind: "bright", threshold: 150 },
+  { kind: "lowsat", threshold: 155, maxSat: 0.35 },
   { kind: "bright", threshold: 120, dilate: true },
 ];
 
@@ -455,14 +470,24 @@ async function enhanceForRivenOcr(croppedImage: any, mode: EnhanceMode): Promise
     .raw()
     .toBuffer();
 
-  // Brightness threshold: build a binary mask (1 = text, 0 = background)
+  // Build binary mask: 1 = text pixel, 0 = background
   const pixelCount = scaledW * scaledH;
   const mask = Buffer.alloc(pixelCount);
   for (let i = 0, j = 0; i < rawBuffer.length; i += 4, j++) {
     const r = rawBuffer[i];
     const g = rawBuffer[i + 1];
     const b = rawBuffer[i + 2];
-    mask[j] = Math.max(r, g, b) >= mode.threshold ? 1 : 0;
+    const maxC = Math.max(r, g, b);
+    if (mode.kind === "lowsat") {
+      // Low-saturation + brightness filter: keep near-white pixels only.
+      // Warframe riven stat text is near-white; the golden/orange card
+      // background has high saturation and is rejected by the sat filter.
+      const minC = Math.min(r, g, b);
+      const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
+      mask[j] = (maxC >= mode.threshold && sat <= (mode.maxSat ?? 0.35)) ? 1 : 0;
+    } else {
+      mask[j] = maxC >= mode.threshold ? 1 : 0;
+    }
   }
 
   // Output buffer: grayscale, inverted (text = black 0, bg = white 255)
@@ -499,15 +524,25 @@ async function enhanceForRivenOcr(croppedImage: any, mode: EnhanceMode): Promise
   }).png().toBuffer();
 }
 
-// ── Crop region (normalised ratios for 1920×1080) ───────────────────────────
-// Full lower band — captures stat text from both/all cards in one pass.
-// Testing showed this consistently outperforms narrow per-panel crops because
-// Windows OCR benefits from more surrounding context.
-const FULL_LOWER = { x: 0.02, y: 0.45, width: 0.96, height: 0.42 };
-// Center-only crop for choice rescan — after the choice dialog the game shows
-// a single centered card.  Using a narrower crop avoids capturing stale text
-// from the two-card transition animation that lingers at the screen edges.
-const CENTER_LOWER = { x: 0.20, y: 0.45, width: 0.60, height: 0.42 };
+// ── Crop regions (normalised ratios) ─────────────────────────────────────────
+//
+// Two-card view (roll screen): scan each panel independently rather than the
+// full-width strip.  Separate crops prevent left/right stats from interleaving
+// in the OCR output, which eliminates the need for a left→right split heuristic.
+// Narrower images also complete OCR faster.
+//
+// Screen layout at 1920×1080 (Warframe default UI scale):
+//   Left card:  centred around ~28% of screen width
+//   Right card: centred around ~72% of screen width
+//   Stats area: starts at ~43% screen height
+//
+// Give generous margins so the crops still work at slightly different UI scales
+// and when the cards are not exactly centred (e.g. 21:9 monitors).
+const LEFT_PANEL_CROP  = { x: 0.08, y: 0.43, width: 0.34, height: 0.45 };
+const RIGHT_PANEL_CROP = { x: 0.50, y: 0.43, width: 0.34, height: 0.45 };
+// Single-card crop — used for the initial scan (card centred on screen) and
+// the choice rescan (one card shown after selection).
+const SINGLE_CARD_CROP = { x: 0.22, y: 0.43, width: 0.56, height: 0.45 };
 
 /**
  * Score a set of parsed stats: higher = better OCR result.
@@ -566,9 +601,10 @@ async function ocrCropMultiStrategy(
       bestStats = stats;
     }
 
-    // Early exit: if this strategy found ≥3 stats and ALL have numeric values,
-    // skip remaining strategies — the result is already high-confidence.
-    if (stats.length >= 3 && stats.every((s) => s.value !== null)) {
+    // Early exit: if this strategy found ≥4 stats and ALL have numeric values
+    // (a full riven card has 3–4 stats + optional curse), skip the remaining
+    // strategies — the result is already high-confidence.
+    if (stats.length >= 4 && stats.every((s) => s.value !== null)) {
       break;
     }
   }
@@ -599,7 +635,7 @@ export async function scanInitialCard(): Promise<InitialScanResult> {
   log.log(`[RivenScan] initial capture: source=${capture.sourceType} name="${capture.sourceName}" size=${imgSize.width}x${imgSize.height}`);
 
   try {
-    const { stats, text } = await ocrCropMultiStrategy(capture.image, FULL_LOWER, TEMP_SINGLE, "initial-card");
+    const { stats, text } = await ocrCropMultiStrategy(capture.image, SINGLE_CARD_CROP, TEMP_SINGLE, "initial-card");
     log.log(`[RivenScan] initial card scan: ${stats.length} stats found`, stats.map((s) => `${s.positive ? "+" : "-"}${s.value ?? "?"}% ${s.name}`).join(", "));
     return { stats, rawText: text };
   } catch (err) {
@@ -609,16 +645,17 @@ export async function scanInitialCard(): Promise<InitialScanResult> {
 }
 
 /**
- * Capture and OCR only the RIGHT panel (new roll) after the roll animation.
- * The left panel is skipped — we already have those stats from the initial scan.
+ * Capture and OCR both panels after the roll animation.
+ * Scans left (current/old) and right (new roll) independently using
+ * per-panel crops so the two sets of stats never interleave in OCR output.
  */
-export async function scanNewRoll(): Promise<RivenStat[]> {
+export async function scanNewRoll(): Promise<RollPanelResult> {
   const startAt = Date.now();
 
   const capture = await captureScreen();
   if (!capture) {
     log.warn("[RivenScan] scanNewRoll: captureScreen returned null");
-    return [];
+    return { left: [], right: [] };
   }
 
   const image = capture.image;
@@ -626,24 +663,36 @@ export async function scanNewRoll(): Promise<RivenStat[]> {
   log.log(`[RivenScan] roll capture: source=${capture.sourceType} name="${capture.sourceName}" size=${imgSize.width}x${imgSize.height}`);
 
   try {
-    const { stats } = await ocrCropMultiStrategy(image, FULL_LOWER, TEMP_RIGHT, "roll");
-    log.log(`[RivenScan] roll scan: ${stats.length} stats, elapsed=${Date.now() - startAt}ms`);
+    // Scan both panels.  The OCR server serialises requests through its queue,
+    // so Promise.all here overlaps Sharp preprocessing for one panel while the
+    // other is being OCR’d — still faster than two sequential full-strip scans.
+    const [leftResult, rightResult] = await Promise.all([
+      ocrCropMultiStrategy(image, LEFT_PANEL_CROP,  TEMP_LEFT,  "roll-left"),
+      ocrCropMultiStrategy(image, RIGHT_PANEL_CROP, TEMP_RIGHT, "roll-right"),
+    ]);
 
-    // If nothing found, retry after a short delay (animation may not have finished)
-    if (stats.length === 0) {
+    const elapsed = Date.now() - startAt;
+    log.log(`[RivenScan] roll scan: left=${leftResult.stats.length} right=${rightResult.stats.length} stats, elapsed=${elapsed}ms`);
+
+    // If both sides came back empty the animation may not have finished yet —
+    // retry once after a short delay.
+    if (leftResult.stats.length === 0 && rightResult.stats.length === 0) {
       await new Promise((resolve) => setTimeout(resolve, 800));
       const capture2 = await captureScreen();
       if (capture2) {
-        const { stats: retryStats } = await ocrCropMultiStrategy(capture2.image, FULL_LOWER, TEMP_RIGHT, "roll-retry");
-        log.log(`[RivenScan] roll-retry scan: ${retryStats.length} stats, elapsed=${Date.now() - startAt}ms`);
-        return retryStats;
+        const [l2, r2] = await Promise.all([
+          ocrCropMultiStrategy(capture2.image, LEFT_PANEL_CROP,  TEMP_LEFT,  "roll-left-retry"),
+          ocrCropMultiStrategy(capture2.image, RIGHT_PANEL_CROP, TEMP_RIGHT, "roll-right-retry"),
+        ]);
+        log.log(`[RivenScan] roll-retry: left=${l2.stats.length} right=${r2.stats.length} stats, elapsed=${Date.now() - startAt}ms`);
+        return { left: l2.stats, right: r2.stats };
       }
     }
 
-    return stats;
+    return { left: leftResult.stats, right: rightResult.stats };
   } catch (err) {
     log.warn("[RivenScan] roll scan OCR failed:", String(err));
-    return [];
+    return { left: [], right: [] };
   }
 }
 
@@ -659,7 +708,7 @@ export async function scanChoiceRescan(): Promise<RivenStat[]> {
   }
 
   try {
-    const { stats } = await ocrCropMultiStrategy(capture.image, CENTER_LOWER, TEMP_SINGLE, "choice-rescan");
+    const { stats } = await ocrCropMultiStrategy(capture.image, SINGLE_CARD_CROP, TEMP_SINGLE, "choice-rescan");
     log.log(`[RivenScan] choice rescan: ${stats.length} stats found`, stats.map((s) => `${s.positive ? "+" : "-"}${s.value ?? "?"}% ${s.name}`).join(", "));
     return stats;
   } catch (err) {
