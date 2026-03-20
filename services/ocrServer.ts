@@ -1,20 +1,5 @@
 "use strict";
 
-/**
- * ocrServer.ts — Persistent Windows OCR server
- *
- * Keeps one PowerShell process alive to eliminate per-call spawn overhead.
- * Cost breakdown (typical):
- *   - First call:       250-450 ms  (startup + WinRT assembly load, one-time)
- *   - Subsequent calls: 30-60 ms   (bitmap decode + RecognizeAsync only)
- *
- * Protocol (stdin/stdout, line-oriented):
- *   requests:  <absolute-path>\n
- *   success:   <ocr text lines>\n===OCR_END===\n
- *   error:     ===OCR_ERROR: <message>===\n
- *   shutdown:  "EXIT\n" on stdin
- */
-
 import path from "node:path";
 import { spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
@@ -22,38 +7,94 @@ import { withScope } from "./logger";
 
 const log = withScope("ocrServer");
 
-// ── Protocol ─────────────────────────────────────────────────────────────────
-
 const READY_MARKER = "===OCR_SERVER_READY===";
-const END_MARKER = "===OCR_END===";
-const ERROR_PREFIX = "===OCR_ERROR:";
-const ERROR_SUFFIX_END = "===";
-
-// ── Paths ─────────────────────────────────────────────────────────────────────
-
-// __dirname at runtime is .electron-build/services/ — two levels up to reach project root
-const OCR_SERVER_SCRIPT = path.join(__dirname, "..", "..", "scripts", "ocr-server.ps1");
-
-// ── Timeouts ──────────────────────────────────────────────────────────────────
-
 const STARTUP_TIMEOUT_MS = 20_000;
 const REQUEST_TIMEOUT_MS = 8_000;
 const MAX_RESTARTS = 3;
 const RESTART_BASE_DELAY_MS = 1_500;
 const SHUTDOWN_GRACE_MS = 1_000;
+const OCR_SERVER_POOL_SIZE = Math.max(
+  1,
+  Math.min(4, Number.parseInt(String(process.env.WF_OCR_SERVER_POOL || "2"), 10) || 2),
+);
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+function resolveOcrServerScriptPath(): string {
+  const candidates = [
+    path.join(__dirname, "..", "scripts", "ocr-server.ps1"),
+    path.join(__dirname, "..", "..", "scripts", "ocr-server.ps1"),
+    path.join(process.cwd(), "scripts", "ocr-server.ps1"),
+  ];
+  for (const candidate of candidates) {
+    try {
+      const fs = require("node:fs") as typeof import("node:fs");
+      if (fs.existsSync(candidate)) return candidate;
+    } catch {
+      // ignore and try next
+    }
+  }
+  return candidates[0];
+}
+
+const OCR_SERVER_SCRIPT = resolveOcrServerScriptPath();
+
+export interface StructuredOcrBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+export interface StructuredOcrWord {
+  text: string;
+  box: StructuredOcrBox;
+}
+
+export interface StructuredOcrLine {
+  text: string;
+  box: StructuredOcrBox;
+  words: StructuredOcrWord[];
+}
+
+export interface StructuredOcrResult {
+  text: string;
+  lines: StructuredOcrLine[];
+}
+
+interface OcrHelperRequest {
+  id: string;
+  imagePath?: string;
+  imageBase64?: string;
+}
+
+interface OcrHelperResponse {
+  id?: string;
+  ok?: boolean;
+  error?: string;
+  result?: StructuredOcrResult;
+}
 
 interface QueuedRequest {
-  imagePath: string;
-  resolve: (text: string) => void;
+  payload: OcrHelperRequest;
+  resolve: (result: StructuredOcrResult) => void;
   reject: (err: Error) => void;
   timeoutHandle: ReturnType<typeof setTimeout>;
 }
 
-// ── OcrServerProcess ──────────────────────────────────────────────────────────
+function resolveHelperCommand(): { command: string; args: string[] } | null {
+  return {
+    command: "powershell",
+    args: [
+      "-ExecutionPolicy",
+      "Bypass",
+      "-NonInteractive",
+      "-NoProfile",
+      "-File",
+      OCR_SERVER_SCRIPT,
+    ],
+  };
+}
 
-class OcrServerProcess {
+class OcrServerWorker {
   private _proc: ChildProcessWithoutNullStreams | null = null;
   private _ready = false;
   private _starting = false;
@@ -63,35 +104,54 @@ class OcrServerProcess {
   private _inflight: QueuedRequest | null = null;
   private _restartCount = 0;
   private _disposed = false;
+  private _requestSeq = 0;
 
-  /**
-   * Pre-warm the server so the first real OCR call doesn't pay the
-   * PowerShell / WinRT assembly startup cost (~250-450 ms).
-   * Best-effort — errors are silently swallowed.
-   */
   async warmup(): Promise<void> {
-    try { await this._ensureReady(); } catch { /* ignore */ }
+    try {
+      await this._ensureReady();
+    } catch {
+      // best effort only
+    }
   }
 
-  /**
-   * Run Windows OCR on `imagePath`.  Starts the server lazily on first call.
-   * Throws if the server fails to start or times out.
-   */
+  getPendingCount(): number {
+    return this._queue.length + (this._inflight ? 1 : 0) + (this._starting ? 1 : 0);
+  }
+
   async runOCR(imagePath: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<string> {
+    const result = await this.runOCRStructured({ imagePath }, timeoutMs);
+    return result.text || "";
+  }
+
+  async runOCRBuffer(imageBuffer: Buffer, timeoutMs = REQUEST_TIMEOUT_MS): Promise<string> {
+    const result = await this.runOCRStructured(
+      { imageBase64: imageBuffer.toString("base64") },
+      timeoutMs,
+    );
+    return result.text || "";
+  }
+
+  async runOCRStructured(
+    request: { imagePath?: string; imageBase64?: string },
+    timeoutMs = REQUEST_TIMEOUT_MS,
+  ): Promise<StructuredOcrResult> {
     if (this._disposed) throw new Error("OCR server has been disposed");
     await this._ensureReady();
-    return this._enqueue(imagePath, timeoutMs);
+    return this._enqueue(request, timeoutMs);
   }
-
-  // ── Lifecycle ───────────────────────────────────────────────────────────────
 
   private async _ensureReady(): Promise<void> {
     if (this._ready && this._proc && !this._proc.killed) return;
     if (this._starting && this._startPromise) return this._startPromise;
-    // Clear any stale promise before starting fresh
     this._startPromise = this._spawn().then(
-      () => { this._startPromise = null; },
-      (err) => { this._starting = false; this._startPromise = null; throw err; },
+      () => {
+        this._startPromise = null;
+      },
+      (err) => {
+        this._starting = false;
+        this._startPromise = null;
+        throw err;
+      },
     );
     return this._startPromise;
   }
@@ -101,13 +161,14 @@ class OcrServerProcess {
     this._ready = false;
     this._stdoutBuf = "";
 
+    const helper = resolveHelperCommand();
+    if (!helper) {
+      this._starting = false;
+      return Promise.reject(new Error("OCR server command unavailable"));
+    }
+
     return new Promise<void>((resolve, reject) => {
-      const proc = spawn("powershell", [
-        "-ExecutionPolicy", "Bypass",
-        "-NonInteractive",
-        "-NoProfile",
-        "-File", OCR_SERVER_SCRIPT,
-      ], { stdio: ["pipe", "pipe", "pipe"] });
+      const proc = spawn(helper.command, helper.args, { stdio: ["pipe", "pipe", "pipe"] });
 
       let startupTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
         startupTimer = null;
@@ -116,7 +177,10 @@ class OcrServerProcess {
       }, STARTUP_TIMEOUT_MS);
 
       const clearStartup = (): void => {
-        if (startupTimer) { clearTimeout(startupTimer); startupTimer = null; }
+        if (startupTimer) {
+          clearTimeout(startupTimer);
+          startupTimer = null;
+        }
       };
 
       proc.stdout.setEncoding("utf8");
@@ -127,13 +191,14 @@ class OcrServerProcess {
           const idx = this._stdoutBuf.indexOf(READY_MARKER);
           if (idx !== -1) {
             clearStartup();
-            // Discard everything up to and including the ready marker + newline
-            this._stdoutBuf = this._stdoutBuf.slice(idx + READY_MARKER.length).replace(/^\r?\n/, "");
+            this._stdoutBuf = this._stdoutBuf
+              .slice(idx + READY_MARKER.length)
+              .replace(/^\r?\n/, "");
             this._ready = true;
             this._starting = false;
             this._proc = proc;
             this._restartCount = 0;
-            log.log("[OcrServer] Ready");
+            log.log("[OcrServer] Server ready");
             resolve();
           }
           return;
@@ -167,9 +232,7 @@ class OcrServerProcess {
           this._inflight = null;
         }
 
-        if (!this._disposed) {
-          this._scheduleRestart();
-        }
+        if (!this._disposed) this._scheduleRestart();
       });
     });
   }
@@ -184,7 +247,8 @@ class OcrServerProcess {
       this._queue = [];
       return;
     }
-    this._restartCount++;
+
+    this._restartCount += 1;
     const delay = RESTART_BASE_DELAY_MS * this._restartCount;
     log.log(`[OcrServer] Restarting in ${delay}ms (attempt ${this._restartCount}/${MAX_RESTARTS})`);
     setTimeout(() => {
@@ -196,21 +260,31 @@ class OcrServerProcess {
     }, delay);
   }
 
-  // ── Request queue ───────────────────────────────────────────────────────────
+  private _enqueue(
+    request: { imagePath?: string; imageBase64?: string },
+    timeoutMs: number,
+  ): Promise<StructuredOcrResult> {
+    return new Promise<StructuredOcrResult>((resolve, reject) => {
+      const payload: OcrHelperRequest = {
+        id: `ocr-${++this._requestSeq}`,
+        ...(request.imagePath ? { imagePath: request.imagePath } : {}),
+        ...(request.imageBase64 ? { imageBase64: request.imageBase64 } : {}),
+      };
 
-  private _enqueue(imagePath: string, timeoutMs: number): Promise<string> {
-    return new Promise<string>((resolve, reject) => {
-      const timeoutHandle = setTimeout(() => {
-        this._queue = this._queue.filter((r) => r !== req);
-        if (this._inflight === req) {
-          this._inflight = null;
-          // Kill the server — it's hung on this request
-          this._proc?.kill();
-        }
-        reject(new Error(`OCR timed out for ${path.basename(imagePath)}`));
-      }, timeoutMs);
+      const req: QueuedRequest = {
+        payload,
+        resolve,
+        reject,
+        timeoutHandle: setTimeout(() => {
+          this._queue = this._queue.filter((queued) => queued !== req);
+          if (this._inflight === req) {
+            this._inflight = null;
+            this._proc?.kill();
+          }
+          reject(new Error(`OCR timed out for request ${payload.id}`));
+        }, timeoutMs),
+      };
 
-      const req: QueuedRequest = { imagePath, resolve, reject, timeoutHandle };
       this._queue.push(req);
       this._pump();
     });
@@ -223,53 +297,55 @@ class OcrServerProcess {
 
     const req = this._queue.shift()!;
     this._inflight = req;
-    this._proc.stdin.write(req.imagePath + "\n");
+    this._proc.stdin.write(JSON.stringify(req.payload) + "\n");
   }
 
   private _drainBuffer(): void {
-    // Error response: ===OCR_ERROR: message===\n
-    const errStart = this._stdoutBuf.indexOf(ERROR_PREFIX);
-    if (errStart !== -1) {
-      const searchFrom = errStart + ERROR_PREFIX.length;
-      const errTailIdx = this._stdoutBuf.indexOf(ERROR_SUFFIX_END + "\n", searchFrom);
-      if (errTailIdx !== -1) {
-        const errMsg = this._stdoutBuf.slice(searchFrom, errTailIdx).trim();
-        this._stdoutBuf = this._stdoutBuf.slice(errTailIdx + ERROR_SUFFIX_END.length + 1);
-        const req = this._inflight;
-        this._inflight = null;
-        if (req) {
-          clearTimeout(req.timeoutHandle);
-          req.reject(new Error(`Windows OCR error: ${errMsg}`));
-        }
-        this._pump();
-        return;
-      }
-    }
+    while (true) {
+      const newlineIndex = this._stdoutBuf.indexOf("\n");
+      if (newlineIndex === -1) return;
 
-    // Success response: <text>\n===OCR_END===\n
-    const endIdx = this._stdoutBuf.indexOf(END_MARKER + "\n");
-    if (endIdx !== -1) {
-      const text = this._stdoutBuf.slice(0, endIdx);
-      this._stdoutBuf = this._stdoutBuf.slice(endIdx + END_MARKER.length + 1);
-      const req = this._inflight;
-      this._inflight = null;
-      if (req) {
-        clearTimeout(req.timeoutHandle);
-        req.resolve(text);
+      const rawLine = this._stdoutBuf.slice(0, newlineIndex).trim();
+      this._stdoutBuf = this._stdoutBuf.slice(newlineIndex + 1);
+      if (!rawLine) continue;
+
+      let response: OcrHelperResponse;
+      try {
+        response = JSON.parse(rawLine) as OcrHelperResponse;
+      } catch {
+        continue;
       }
+
+      const req = this._inflight;
+      if (!req) continue;
+      if (response.id && response.id !== req.payload.id) continue;
+
+      this._inflight = null;
+      clearTimeout(req.timeoutHandle);
+
+      if (!response.ok || !response.result) {
+        req.reject(new Error(`Windows OCR error: ${response.error || "unknown error"}`));
+      } else {
+        req.resolve(response.result);
+      }
+
       this._pump();
     }
   }
-
-  // ── Shutdown ────────────────────────────────────────────────────────────────
 
   dispose(): void {
     if (this._disposed) return;
     this._disposed = true;
 
     if (this._proc) {
-      try { this._proc.stdin.write("EXIT\n"); } catch { /* ignore */ }
-      setTimeout(() => { if (this._proc && !this._proc.killed) this._proc.kill(); }, SHUTDOWN_GRACE_MS);
+      try {
+        this._proc.stdin.write("EXIT\n");
+      } catch {
+        // ignore
+      }
+      setTimeout(() => {
+        if (this._proc && !this._proc.killed) this._proc.kill();
+      }, SHUTDOWN_GRACE_MS);
     }
 
     for (const req of this._queue) {
@@ -286,7 +362,41 @@ class OcrServerProcess {
   }
 }
 
-// ── Singleton ─────────────────────────────────────────────────────────────────
+class OcrServerPool {
+  private _workers: OcrServerWorker[];
 
-/** Singleton persistent PowerShell OCR server. Starts lazily on first `runOCR()` call. */
-export const ocrServer = new OcrServerProcess();
+  constructor(size: number) {
+    this._workers = Array.from({ length: size }, () => new OcrServerWorker());
+  }
+
+  private _pickWorker(): OcrServerWorker {
+    return this._workers.reduce((best, current) =>
+      current.getPendingCount() < best.getPendingCount() ? current : best,
+    );
+  }
+
+  async warmup(): Promise<void> {
+    await Promise.all(this._workers.map((worker) => worker.warmup()));
+  }
+
+  async runOCR(imagePath: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<string> {
+    return this._pickWorker().runOCR(imagePath, timeoutMs);
+  }
+
+  async runOCRBuffer(imageBuffer: Buffer, timeoutMs = REQUEST_TIMEOUT_MS): Promise<string> {
+    return this._pickWorker().runOCRBuffer(imageBuffer, timeoutMs);
+  }
+
+  async runOCRStructured(
+    request: { imagePath?: string; imageBase64?: string },
+    timeoutMs = REQUEST_TIMEOUT_MS,
+  ): Promise<StructuredOcrResult> {
+    return this._pickWorker().runOCRStructured(request, timeoutMs);
+  }
+
+  dispose(): void {
+    for (const worker of this._workers) worker.dispose();
+  }
+}
+
+export const ocrServer = new OcrServerPool(OCR_SERVER_POOL_SIZE);

@@ -105,7 +105,10 @@ function loadThemeFromStorageFallback() {
 function gradeClass(grade) {
   if (!grade || grade === "?") return "grade-unknown";
   // "A+" → "grade-Ap", "A-" → "grade-Am", "B+" → "grade-Bp", etc.
-  const sanitised = String(grade).replace("+", "p").replace("-", "m").replace(/[^A-Za-z]/g, "");
+  const sanitised = String(grade)
+    .replace("+", "p")
+    .replace("-", "m")
+    .replace(/[^A-Za-z]/g, "");
   return "grade-" + (sanitised || "unknown");
 }
 
@@ -124,7 +127,7 @@ function rollBarColor(rollFloat, isCurse) {
   // For curses, lower float = better (stat is less penalising)
   var pct = isCurse ? 1 - rollFloat : rollFloat;
   if (pct >= 0.85) return "var(--ok)";
-  if (pct >= 0.6)  return "var(--accent)";
+  if (pct >= 0.6) return "var(--accent)";
   if (pct >= 0.35) return "var(--warn)";
   return "var(--bad)";
 }
@@ -226,7 +229,7 @@ function renderStats(stats) {
 /** State: current stat names (lowercase) for best-attribute matching. */
 let _currentStatNamesLc = [];
 
-function renderOverallGrade(attributeGrade) {
+function renderOverallGrade(attributeGrade, assumedLevel) {
   const wrapper = el("overall-grade");
   const badge = el("overall-grade-badge");
   if (!wrapper || !badge) return;
@@ -237,7 +240,8 @@ function renderOverallGrade(attributeGrade) {
   }
 
   badge.className = "attr-grade-badge attr-grade-" + attributeGrade.toLowerCase();
-  badge.textContent = attributeGrade;
+  badge.textContent =
+    assumedLevel == null ? attributeGrade : attributeGrade + " · r" + assumedLevel;
   wrapper.classList.remove("is-hidden");
 }
 
@@ -248,9 +252,9 @@ function renderOverallGrade(attributeGrade) {
  */
 function applyGradingToStats(gradingResult) {
   if (!gradingResult) return;
-  const { stats, attributeGrade } = gradingResult;
+  const { stats, attributeGrade, assumedLevel } = gradingResult;
 
-  renderOverallGrade(attributeGrade);
+  renderOverallGrade(attributeGrade, assumedLevel);
 
   if (!Array.isArray(stats)) return;
 
@@ -266,7 +270,9 @@ function applyGradingToStats(gradingResult) {
   container.classList.remove("is-hidden");
 
   // Update tracked stat names for best-attribute matching
-  _currentStatNamesLc = stats.map(function (s) { return (s.name || "").toLowerCase(); });
+  _currentStatNamesLc = stats.map(function (s) {
+    return (s.name || "").toLowerCase();
+  });
   refreshBestAttributeHighlights();
 }
 
@@ -350,17 +356,17 @@ function abbreviateStat(name) {
   var abbrevs = {
     "critical chance": "CritCh",
     "critical damage": "CritDmg",
-    "multishot": "Multi",
-    "damage": "Dmg",
+    multishot: "Multi",
+    damage: "Dmg",
     "melee damage": "Dmg",
     "status chance": "Status",
     "attack speed": "AtkSpd",
-    "electricity": "Elec",
-    "toxin": "Toxin",
-    "heat": "Heat",
-    "cold": "Cold",
-    "range": "Range",
-    "zoom": "Zoom",
+    electricity: "Elec",
+    toxin: "Toxin",
+    heat: "Heat",
+    cold: "Cold",
+    range: "Range",
+    zoom: "Zoom",
     "ammo maximum": "Ammo",
     "weapon recoil": "Recoil",
     "projectile speed": "ProjSpd",
@@ -402,7 +408,11 @@ function computeSimilarity(myStatNames, listingStats) {
   // Count how many of MY riven's stats appear in the listing
   for (var j = 0; j < myStatNames.length; j++) {
     for (var k = 0; k < listingNamesLc.length; k++) {
-      if (listingNamesLc[k] === myStatNames[j] || listingNamesLc[k].indexOf(myStatNames[j]) !== -1 || myStatNames[j].indexOf(listingNamesLc[k]) !== -1) {
+      if (
+        listingNamesLc[k] === myStatNames[j] ||
+        listingNamesLc[k].indexOf(myStatNames[j]) !== -1 ||
+        myStatNames[j].indexOf(listingNamesLc[k]) !== -1
+      ) {
         matchedNames.add(listingNamesLc[k]);
         break;
       }
@@ -438,7 +448,9 @@ function renderSimilarListings(listings) {
     var sim = computeSimilarity(myStats, listings[i].stats);
     enriched.push({ item: listings[i], pct: sim.pct, matchedNames: sim.matchedNames });
   }
-  enriched.sort(function(a, b) { return b.pct - a.pct; });
+  enriched.sort(function (a, b) {
+    return b.pct - a.pct;
+  });
 
   for (var k = 0; k < enriched.length; k++) {
     var item = enriched[k].item;
@@ -450,9 +462,14 @@ function renderSimilarListings(listings) {
     if (item.id) {
       card.setAttribute("data-auction-id", item.id);
       card.style.cursor = "pointer";
-      card.addEventListener("click", (function(aid) {
-        return function() { window.rivenOverlay.openAuction(aid); };
-      })(item.id));
+      card.addEventListener(
+        "click",
+        (function (aid) {
+          return function () {
+            window.rivenOverlay.openAuction(aid);
+          };
+        })(item.id),
+      );
     }
 
     // Similarity percentage badge
@@ -591,11 +608,15 @@ function onChoiceMade(side) {
   if (side === "left" && _isLeft) {
     // User kept old (this panel) — highlight briefly
     panel.style.borderColor = "var(--ok)";
-    setTimeout(() => { panel.style.borderColor = ""; }, 2000);
+    setTimeout(() => {
+      panel.style.borderColor = "";
+    }, 2000);
   } else if (side === "right" && !_isLeft) {
     // User took new roll (this panel) — highlight briefly
     panel.style.borderColor = "var(--ok)";
-    setTimeout(() => { panel.style.borderColor = ""; }, 2000);
+    setTimeout(() => {
+      panel.style.borderColor = "";
+    }, 2000);
   }
 
   // After a choice the game returns to single-card view.
@@ -603,7 +624,7 @@ function onChoiceMade(side) {
   // Use a short delay only when the right panel has a highlight to let it show
   // briefly; otherwise reset immediately so stale roll data doesn't linger.
   if (!_isLeft) {
-    const delay = (side === "right") ? 2000 : 0;
+    const delay = side === "right" ? 2000 : 0;
     setTimeout(() => {
       renderStats([]); // shows "Waiting for roll…"
     }, delay);

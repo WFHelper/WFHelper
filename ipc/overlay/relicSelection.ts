@@ -1,4 +1,3 @@
-
 import { createRuntimeRequire } from "../runtimeRequire";
 
 const requireRuntime = createRuntimeRequire(__dirname, 2);
@@ -404,16 +403,8 @@ function toStableOwnedFingerprint(owned: Record<string, OwnedCountRow>): string 
 }
 
 export function createRelicSelectionController(options: OverlayRecommendationControllerOptions) {
-  const {
-    log,
-    ctx,
-    windows,
-    relicService,
-    rewardScanner,
-    wfmStatsPrice,
-    fs,
-    cacheFilePath,
-  } = options;
+  const { log, ctx, windows, relicService, rewardScanner, wfmStatsPrice, fs, cacheFilePath } =
+    options;
 
   let inFlight = false;
   let activeScanToken = 0;
@@ -453,9 +444,10 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     return { prices, ducats };
   }
 
-  function buildRecommendations(
-    era: string | null,
-  ): { rows: RecommendationRow[]; totalOwnedCount: number } {
+  function buildRecommendations(era: string | null): {
+    rows: RecommendationRow[];
+    totalOwnedCount: number;
+  } {
     const db = relicService.getRelicDatabase();
     const groups = Object.values(db.groups || {}) as RelicGroup[];
     const owned = parseOwnedRelicCounts(ctx.currentInventoryData, db.byUniqueName || {});
@@ -612,6 +604,10 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         log.log(
           `[RelicSelection] activeMissionTier cache hit: ${era} (age ${Math.round(cacheAge / 1000)}s)`,
         );
+      } else if (desktopTierHint) {
+        era = desktopTierHint;
+        eraConfidence = 0.75;
+        log.log(`[RelicSelection] using desktop tier hint without OCR: ${desktopTierHint}`);
       } else {
         const eraDetection =
           typeof rewardScanner.detectRelicSelectionEra === "function"

@@ -142,7 +142,39 @@ export interface RewardSlotLayout {
   slots: RewardSlotRect[];
 }
 
-const SLOT_LAYOUT_REGION = Object.freeze({ x: 0.22, y: 0.18, width: 0.56, height: 0.29 });
+const SLOT_LAYOUT_REGION = Object.freeze({ x: 0.03, y: 0.37, width: 0.94, height: 0.34 });
+
+const FIXED_REWARD_LAYOUTS: Readonly<
+  Record<number, Array<{ x: number; y: number; width: number; height: number }>>
+> = Object.freeze({
+  2: [
+    { x: 0.37, y: 0.225, width: 0.17, height: 0.225 },
+    { x: 0.54, y: 0.225, width: 0.17, height: 0.225 },
+  ],
+  3: [
+    { x: 0.29, y: 0.225, width: 0.15, height: 0.225 },
+    { x: 0.44, y: 0.225, width: 0.15, height: 0.225 },
+    { x: 0.59, y: 0.225, width: 0.15, height: 0.225 },
+  ],
+  4: [
+    { x: 0.245, y: 0.225, width: 0.122, height: 0.225 },
+    { x: 0.372, y: 0.225, width: 0.122, height: 0.225 },
+    { x: 0.499, y: 0.225, width: 0.122, height: 0.225 },
+    { x: 0.626, y: 0.225, width: 0.122, height: 0.225 },
+  ],
+});
+
+const HEADER_SQUAD_ICON_RECTS: ReadonlyArray<{
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}> = Object.freeze([
+  { x: 0.049, y: 0.037, width: 0.023, height: 0.043 },
+  { x: 0.074, y: 0.037, width: 0.023, height: 0.043 },
+  { x: 0.099, y: 0.037, width: 0.023, height: 0.043 },
+  { x: 0.124, y: 0.037, width: 0.023, height: 0.043 },
+]);
 
 function smoothColumns(values: number[]): number[] {
   if (values.length <= 2) return values.slice();
@@ -179,10 +211,152 @@ function collectRuns(
   return runs;
 }
 
+function computeSlotActivity(
+  nativeImage: any,
+  rect: { x: number; y: number; width: number; height: number },
+): number {
+  let region: any;
+  try {
+    region = cropRect(nativeImage, rect);
+  } catch {
+    return 0;
+  }
+
+  const { width, height } = region.getSize();
+  if (width < 30 || height < 30) return 0;
+  const bitmap: Buffer = region.toBitmap();
+  const stepX = Math.max(1, Math.floor(width / 80));
+  const stepY = Math.max(1, Math.floor(height / 80));
+  let brightCount = 0;
+  let texture = 0;
+  let total = 0;
+
+  for (let y = stepY; y < height; y += stepY) {
+    for (let x = stepX; x < width; x += stepX) {
+      const idx = (y * width + x) * 4;
+      const prevIdx = (y * width + (x - stepX)) * 4;
+      const blue = bitmap[idx];
+      const green = bitmap[idx + 1];
+      const red = bitmap[idx + 2];
+      const prevBlue = bitmap[prevIdx];
+      const prevGreen = bitmap[prevIdx + 1];
+      const prevRed = bitmap[prevIdx + 2];
+      const lum = luminanceFromBgr(blue, green, red);
+      const prevLum = luminanceFromBgr(prevBlue, prevGreen, prevRed);
+      if (lum >= 86) brightCount += 1;
+      texture += Math.abs(lum - prevLum);
+      total += 1;
+    }
+  }
+
+  if (total === 0) return 0;
+  const brightScore = clamp01(brightCount / total / 0.24);
+  const textureScore = clamp01(texture / total / 42);
+  return Number((brightScore * 0.45 + textureScore * 0.55).toFixed(3));
+}
+
+function detectRewardSquadCount(nativeImage: any): number {
+  let count = 0;
+  for (const rect of HEADER_SQUAD_ICON_RECTS) {
+    let region: any;
+    try {
+      region = cropRect(nativeImage, rect);
+    } catch {
+      break;
+    }
+
+    const { width, height } = region.getSize();
+    const bitmap: Buffer = region.toBitmap();
+    let bright = 0;
+    let texture = 0;
+    let total = 0;
+    for (let y = 1; y < height; y += 2) {
+      for (let x = 1; x < width; x += 2) {
+        const idx = (y * width + x) * 4;
+        const prevIdx = (y * width + (x - 1)) * 4;
+        const lum = luminanceFromBgr(bitmap[idx], bitmap[idx + 1], bitmap[idx + 2]);
+        const prevLum = luminanceFromBgr(bitmap[prevIdx], bitmap[prevIdx + 1], bitmap[prevIdx + 2]);
+        if (lum >= 48) bright += 1;
+        texture += Math.abs(lum - prevLum);
+        total += 1;
+      }
+    }
+    const brightRatio = bright / Math.max(1, total);
+    const textureAvg = texture / Math.max(1, total);
+    if (brightRatio >= 0.25 || textureAvg >= 22) {
+      count += 1;
+      continue;
+    }
+    break;
+  }
+  return count;
+}
+
+function detectFixedRewardSlotLayout(nativeImage: any): RewardSlotLayout | null {
+  let best: RewardSlotLayout | null = null;
+  const squadCount = detectRewardSquadCount(nativeImage);
+
+  function buildFixedSlots(
+    layout: Array<{ x: number; y: number; width: number; height: number }>,
+  ): RewardSlotRect[] {
+    return layout.map((slot, index) => ({
+      index,
+      x: slot.x,
+      y: slot.y,
+      width: slot.width,
+      height: slot.height,
+      titleRect: {
+        x: slot.x,
+        y: slot.y + slot.height * 0.7,
+        width: slot.width,
+        height: slot.height * 0.18,
+      },
+    }));
+  }
+
+  if (squadCount >= 2 && squadCount <= 4) {
+    const forcedLayout = FIXED_REWARD_LAYOUTS[squadCount];
+    if (forcedLayout) {
+      return {
+        count: squadCount,
+        confidence: 0.92,
+        slots: buildFixedSlots(forcedLayout),
+      };
+    }
+  }
+
+  for (const [countKey, layout] of Object.entries(FIXED_REWARD_LAYOUTS)) {
+    const count = Number(countKey);
+    const activities = layout.map((slot) => computeSlotActivity(nativeImage, slot));
+    const activeCount = activities.filter((score) => score >= 0.22).length;
+    const avgScore =
+      activities.reduce((sum, score) => sum + score, 0) / Math.max(1, activities.length);
+    const confidence = Number(
+      (
+        clamp01(activeCount / count) * 0.45 +
+        clamp01(avgScore / 0.7) * 0.35 +
+        clamp01(count / 4) * 0.2
+      ).toFixed(3),
+    );
+    if (activeCount < count) continue;
+
+    const slots: RewardSlotRect[] = buildFixedSlots(layout);
+
+    if (!best || confidence > best.confidence) {
+      best = { count, confidence, slots };
+    }
+  }
+
+  return best && best.confidence >= 0.5 ? best : null;
+}
+
 export function detectRewardSlotLayout(nativeImage: any): RewardSlotLayout {
   if (!nativeImage || typeof nativeImage.getSize !== "function") {
     return { count: 0, confidence: 0, slots: [] };
   }
+
+  const fixedLayout = detectFixedRewardSlotLayout(nativeImage);
+  if (fixedLayout) return fixedLayout;
 
   let region: any;
   try {
@@ -220,7 +394,7 @@ export function detectRewardSlotLayout(nativeImage: any): RewardSlotLayout {
   const smoothed = smoothColumns(colScores);
   const stats = computeMeanAndStd(smoothed);
   const threshold = Math.max(3, stats.mean + stats.std * 0.38);
-  const minRun = Math.max(24, Math.floor(width * 0.08));
+  const minRun = Math.max(18, Math.floor(width * 0.05));
   const runs = collectRuns(smoothed, threshold, minRun)
     .map((run) => {
       const pad = Math.max(8, Math.floor(width * 0.01));
@@ -250,9 +424,9 @@ export function detectRewardSlotLayout(nativeImage: any): RewardSlotLayout {
       height: heightRatio,
       titleRect: {
         x: xRatio,
-        y: yRatio + heightRatio * 0.6,
+        y: yRatio + heightRatio * 0.56,
         width: widthRatio,
-        height: heightRatio * 0.2,
+        height: heightRatio * 0.16,
       },
     };
   });

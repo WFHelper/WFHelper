@@ -75,6 +75,28 @@ interface MatchResult {
   exactCount: number;
 }
 
+interface SingleItemMatchResult {
+  item: (SortedItem & { confidence: number }) | null;
+  confidence: number;
+  score: number;
+  mode: "exact" | "substring" | "fuzzy" | "none";
+}
+
+const REWARD_TOKEN_ALIASES: Readonly<Record<string, string>> = Object.freeze({
+  bluedrint: "blueprint",
+  blueorint: "blueprint",
+  blueprlnt: "blueprint",
+  blueprini: "blueprint",
+  svst: "systems",
+  svstems: "systems",
+  neurootics: "neuroptics",
+  neurotics: "neuroptics",
+  neuroptlcs: "neuroptics",
+  chassls: "chassis",
+  recelver: "receiver",
+  wukon: "wukong",
+});
+
 export function matchItemsDetailed(
   ocrText: string,
   threshold: number,
@@ -142,6 +164,127 @@ export function matchItemsDetailed(
     matches: found,
     exactCount,
   };
+}
+
+function similarityScore(a: string, b: string): number {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  const distance = levenshteinDistance(a, b);
+  return Math.max(0, 1 - distance / Math.max(a.length, b.length, 1));
+}
+
+function normalizeRewardWord(word: string): string {
+  const normalized = norm(word).replace(/[^a-z0-9]/g, "");
+  if (!normalized) return "";
+  return REWARD_TOKEN_ALIASES[normalized] || normalized;
+}
+
+function normalizeRewardText(text: string): string {
+  return String(text || "")
+    .split(/\s+/)
+    .map((word) => normalizeRewardWord(word))
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+}
+
+export function rankRewardCandidatesDetailed(
+  ocrText: string,
+  sortedItems: SortedItem[],
+  limit = 5,
+): SingleItemMatchResult[] {
+  const text = normalizeRewardText(ocrText);
+  if (!text) {
+    return [{ item: null, confidence: 0, score: 0, mode: "none" }];
+  }
+
+  const textWords = text.split(" ").filter((word) => word.length > 1);
+  const ranked: SingleItemMatchResult[] = [];
+
+  for (const item of sortedItems) {
+    const normalizedName = normalizeRewardText(item.name);
+    if (!normalizedName) continue;
+
+    if (text === normalizedName) {
+      ranked.push({
+        item: { ...item, confidence: 1 },
+        confidence: 1,
+        score: 100,
+        mode: "exact",
+      });
+      continue;
+    }
+
+    if (text.includes(normalizedName) || normalizedName.includes(text)) {
+      const confidence = Math.max(0.88, similarityScore(text, normalizedName));
+      ranked.push({
+        item: { ...item, confidence: Number(confidence.toFixed(3)) },
+        confidence,
+        score: confidence * 92 + Math.min(8, normalizedName.length / 4),
+        mode: "substring",
+      });
+      continue;
+    }
+
+    const itemWords = normalizedName.split(" ").filter((word) => word.length > 1);
+    if (itemWords.length === 0) continue;
+
+    let matchedWords = 0;
+    for (const itemWord of itemWords) {
+      let wordMatched = false;
+      for (const textWord of textWords) {
+        if (
+          textWord === itemWord ||
+          similarityScore(textWord, itemWord) >= (itemWord.length >= 7 ? 0.7 : 0.78)
+        ) {
+          wordMatched = true;
+          break;
+        }
+      }
+      if (wordMatched) matchedWords += 1;
+    }
+
+    const wordRatio = matchedWords / itemWords.length;
+    if (wordRatio < 0.45) continue;
+
+    let bestSpanScore = similarityScore(text, normalizedName);
+    if (textWords.length >= itemWords.length) {
+      for (let start = 0; start <= textWords.length - itemWords.length; start += 1) {
+        const span = textWords.slice(start, start + itemWords.length).join(" ");
+        bestSpanScore = Math.max(bestSpanScore, similarityScore(span, normalizedName));
+      }
+    }
+
+    const confidence = Math.min(0.97, wordRatio * 0.6 + bestSpanScore * 0.4);
+    ranked.push({
+      item: { ...item, confidence: Number(confidence.toFixed(3)) },
+      confidence,
+      score: confidence * 100 + matchedWords * 2,
+      mode: "fuzzy",
+    });
+  }
+
+  ranked.sort(
+    (a, b) =>
+      b.score - a.score ||
+      b.confidence - a.confidence ||
+      (b.item?.name.length || 0) - (a.item?.name.length || 0),
+  );
+  return ranked.slice(0, Math.max(1, limit));
+}
+
+export function matchSingleRewardTextDetailed(
+  ocrText: string,
+  sortedItems: SortedItem[],
+): SingleItemMatchResult {
+  return (
+    rankRewardCandidatesDetailed(ocrText, sortedItems, 1)[0] || {
+      item: null,
+      confidence: 0,
+      score: 0,
+      mode: "none",
+    }
+  );
 }
 
 export function chooseBetterOcrPass(

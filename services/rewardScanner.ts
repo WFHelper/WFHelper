@@ -38,6 +38,7 @@ import {
 } from "./rewardScannerImage";
 import {
   matchItemsDetailed,
+  rankRewardCandidatesDetailed,
   chooseBetterOcrPass,
   detectRelicEraFromText,
   detectRelicEraFromTileLabelText,
@@ -214,7 +215,7 @@ function getRequestedOcrEngine(): string {
   return normalizeOcrEngine(scanSettings.ocrEngine, OCR_ENGINE_WINDOWS);
 }
 
-const { runOCR } = createRewardOcrRunner({
+const { runOCR, runOCRBuffer, runOCRStructuredBuffer } = createRewardOcrRunner({
   log,
   getRequestedEngine: getRequestedOcrEngine,
   ocrScriptPath: OCR_SCRIPT,
@@ -335,6 +336,93 @@ function computeRewardScanBudgetMs(): number {
   );
 }
 
+async function runVariantOcr(variantImage: any, timeoutMs: number, label: string): Promise<string> {
+  const pngBuffer: Buffer = variantImage.toPNG();
+  try {
+    return await runOCRBuffer(pngBuffer, timeoutMs);
+  } catch {
+    const tempPath = buildTempImagePath(TEMP_IMAGE, label);
+    fs.writeFileSync(tempPath, pngBuffer);
+    try {
+      return await runOCR(tempPath, timeoutMs);
+    } finally {
+      try {
+        fs.unlinkSync(tempPath);
+      } catch {
+        // best effort temp cleanup
+      }
+    }
+  }
+}
+
+function extractRewardTitleTexts(structured: any): string[] {
+  const lines = Array.isArray(structured?.lines) ? structured.lines : [];
+  const text = String(structured?.text || "").trim();
+  if (lines.length === 0) return text ? [text] : [];
+
+  const bottoms = lines.map(
+    (line: any) => Number(line?.box?.top || 0) + Number(line?.box?.height || 0),
+  );
+  const maxBottom = Math.max(...bottoms, 1);
+  const bottomLines = lines
+    .filter((line: any) => Number(line?.box?.top || 0) >= maxBottom * 0.45)
+    .map((line: any) => String(line?.text || "").trim())
+    .filter(Boolean);
+  const lastTwo = lines
+    .slice(-2)
+    .map((line: any) => String(line?.text || "").trim())
+    .filter(Boolean);
+  const candidates = new Set<string>();
+  if (bottomLines.length) candidates.add(bottomLines.join(" "));
+  if (lastTwo.length) candidates.add(lastTwo.join(" "));
+  if (text) candidates.add(text);
+  return [...candidates].filter((candidate) => candidate.length > 0);
+}
+
+function chooseUniqueRewardAssignments(
+  slotCandidates: Array<Array<{ item: any; confidence: number; score: number; mode: string }>>,
+): Array<{ item: any; confidence: number; score: number; mode: string } | null> {
+  let bestScore = -Infinity;
+  let best: Array<{ item: any; confidence: number; score: number; mode: string } | null> =
+    new Array(slotCandidates.length).fill(null);
+
+  function visit(
+    index: number,
+    usedNames: Set<string>,
+    current: Array<{ item: any; confidence: number; score: number; mode: string } | null>,
+    score: number,
+  ): void {
+    if (index >= slotCandidates.length) {
+      if (score > bestScore) {
+        bestScore = score;
+        best = current.slice();
+      }
+      return;
+    }
+
+    const candidates = slotCandidates[index] || [];
+    let visited = false;
+    for (const candidate of candidates.slice(0, 5)) {
+      const name = candidate.item?.name;
+      if (!name || usedNames.has(name)) continue;
+      visited = true;
+      usedNames.add(name);
+      current[index] = candidate;
+      visit(index + 1, usedNames, current, score + Number(candidate.score || 0));
+      usedNames.delete(name);
+      current[index] = null;
+    }
+
+    if (!visited) {
+      current[index] = null;
+      visit(index + 1, usedNames, current, score - 25);
+    }
+  }
+
+  visit(0, new Set<string>(), new Array(slotCandidates.length).fill(null), 0);
+  return best;
+}
+
 async function scanRewardSlotsFallback(
   screenshot: any,
   expectedCount: number,
@@ -352,70 +440,97 @@ async function scanRewardSlotsFallback(
   if (!layout.count || layout.confidence < 0.38) return null;
 
   const slotLimit = Math.min(expectedCount || layout.count, layout.count, MAX_REWARD_SLOTS);
-  const collected: any[] = [];
-  let score = 0;
-  let exactCount = 0;
+  const slotResults = await Promise.all(
+    layout.slots.slice(0, slotLimit).map(async (slot, i) => {
+      const elapsed = Date.now() - startedAt;
+      const remainingBudgetMs = totalBudgetMs - elapsed;
+      if (remainingBudgetMs <= 0) return null;
 
-  for (let i = 0; i < slotLimit; i += 1) {
-    const slot = layout.slots[i];
-    if (!slot) continue;
-
-    const elapsed = Date.now() - startedAt;
-    const remainingBudgetMs = totalBudgetMs - elapsed;
-    if (remainingBudgetMs <= 0) break;
-
-    let crop: any;
-    try {
-      crop = cropRect(screenshot.image, slot.titleRect);
-    } catch {
-      continue;
-    }
-
-    let best: any = null;
-    const variants = buildOcrVariants(crop);
-    for (const variant of variants) {
-      let ocrText = "";
+      let crop: any;
       try {
-        const tempPath = buildTempImagePath(TEMP_IMAGE, `reward-slot-${i + 1}-${variant.id}`);
-        fs.writeFileSync(tempPath, variant.image.toPNG());
-        try {
-          ocrText = await runOCR(
-            tempPath,
-            Math.max(500, Math.min(scanSettings.ocrTimeoutMs, remainingBudgetMs)),
-          );
-        } finally {
-          try {
-            fs.unlinkSync(tempPath);
-          } catch {
-            // best effort temp cleanup
-          }
-        }
+        crop = cropRect(screenshot.image, slot.titleRect);
       } catch {
-        continue;
+        return null;
       }
 
-      const matched = matchItemsDetailed(ocrText, scanSettings.matchThreshold, sortedItems);
-      const candidate = {
-        ...matched,
-        text: ocrText,
-        ocrVariant: variant.id,
-      };
-      best = chooseBetterOcrPass(best, candidate);
-      if (matched.exactCount >= 1) break;
-    }
+      const rankedCandidates: Array<{
+        item: any;
+        confidence: number;
+        score: number;
+        mode: string;
+      }> = [];
+      const variants = buildOcrVariants(crop);
+      for (const variant of variants) {
+        try {
+          const pngBuffer: Buffer = variant.image.toPNG();
+          const structured = await runOCRStructuredBuffer(
+            pngBuffer,
+            Math.max(500, Math.min(scanSettings.ocrTimeoutMs, remainingBudgetMs)),
+          );
+          const candidateTexts = extractRewardTitleTexts(structured);
+          for (const candidateText of candidateTexts) {
+            const ranked = rankRewardCandidatesDetailed(candidateText, sortedItems, 4)
+              .filter((candidate) => !!candidate.item)
+              .map((candidate) => ({
+                item: candidate.item,
+                confidence: candidate.confidence,
+                score: candidate.score + (variant.id === "raw" ? 2 : 0),
+                mode: candidate.mode,
+              }));
+            rankedCandidates.push(...ranked);
+          }
+        } catch {
+          continue;
+        }
+      }
 
-    if (!best?.items?.length) continue;
-    const item = best.items[0];
-    if (!item) continue;
-    collected.push(item);
-    score += Number(best.score || 0);
-    exactCount += Number(best.exactCount || 0) > 0 ? 1 : 0;
-  }
+      if (rankedCandidates.length === 0) return null;
+      rankedCandidates.sort((a, b) => b.score - a.score || b.confidence - a.confidence);
+      return {
+        index: i,
+        candidates: rankedCandidates,
+      };
+    }),
+  );
+
+  const orderedCandidates = slotResults
+    .filter(
+      (
+        entry,
+      ): entry is {
+        index: number;
+        candidates: Array<{ item: any; confidence: number; score: number; mode: string }>;
+      } => !!entry,
+    )
+    .sort((a, b) => a.index - b.index);
+
+  const assigned = chooseUniqueRewardAssignments(
+    orderedCandidates.map((entry) => entry.candidates),
+  );
+  const collected = orderedCandidates
+    .map((entry, idx) => ({
+      index: entry.index,
+      candidate: assigned[idx] || entry.candidates[0] || null,
+    }))
+    .filter(
+      (
+        entry,
+      ): entry is {
+        index: number;
+        candidate: { item: any; confidence: number; score: number; mode: string };
+      } => !!entry.candidate,
+    );
+
+  const score = collected.reduce((sum, entry) => sum + Number(entry.candidate.score || 0), 0);
+  const exactCount = collected.reduce(
+    (sum, entry) => sum + (entry.candidate.mode === "exact" ? 1 : 0),
+    0,
+  );
 
   if (!collected.length) return null;
 
   return {
-    items: collected.slice(0, slotLimit),
+    items: collected.map((entry) => entry.candidate.item).slice(0, slotLimit),
     score,
     exactCount,
     slotCount: slotLimit,
@@ -501,17 +616,11 @@ export async function detectRelicSelectionEra(options: any = {}): Promise<{
 
       let ocrText = "";
       try {
-        const tempPath = buildTempImagePath(TEMP_ERA_IMAGE, `era-${rect.id}-${variant.id}`);
-        fs.writeFileSync(tempPath, variant.image.toPNG());
-        try {
-          ocrText = await runOCR(tempPath, perAttemptTimeoutMs);
-        } finally {
-          try {
-            fs.unlinkSync(tempPath);
-          } catch {
-            // best effort temp cleanup
-          }
-        }
+        ocrText = await runVariantOcr(
+          variant.image,
+          perAttemptTimeoutMs,
+          `era-${rect.id}-${variant.id}`,
+        );
       } catch {
         continue;
       }
@@ -557,17 +666,11 @@ export async function detectRelicSelectionEra(options: any = {}): Promise<{
 
         let ocrText = "";
         try {
-          const tempPath = buildTempImagePath(TEMP_ERA_IMAGE, `era-band-${variant.id}`);
-          fs.writeFileSync(tempPath, variant.image.toPNG());
-          try {
-            ocrText = await runOCR(tempPath, perAttemptTimeoutMs);
-          } finally {
-            try {
-              fs.unlinkSync(tempPath);
-            } catch {
-              // best effort temp cleanup
-            }
-          }
+          ocrText = await runVariantOcr(
+            variant.image,
+            perAttemptTimeoutMs,
+            `era-band-${variant.id}`,
+          );
         } catch {
           continue;
         }
@@ -656,6 +759,44 @@ export async function scanRewardsDetailed(): Promise<{
   let hadOcrSuccess = false;
   const passResults: any[] = [];
   let bestPass: any = null;
+  let slotFirstResult: Awaited<ReturnType<typeof scanRewardSlotsFallback>> | null = null;
+
+  if (detectedLayout.count >= 2 && detectedLayout.confidence >= 0.45) {
+    slotFirstResult = await scanRewardSlotsFallback(
+      screenshot,
+      expectedItemCount,
+      totalBudgetMs,
+      scanStartedAt,
+    );
+    const slotFirst = slotFirstResult;
+    if (
+      slotFirst &&
+      slotFirst.items.length >= expectedItemCount &&
+      slotFirst.exactCount >= expectedItemCount
+    ) {
+      log.log(
+        `[RewardScanner] Early slot-primary hit: ${slotFirst.items.length}/${expectedItemCount} items ` +
+          `(exact=${slotFirst.exactCount}, confidence=${slotFirst.slotConfidence.toFixed(3)})`,
+      );
+      const meta = buildScanMeta({
+        screenshot,
+        selectedPass: {
+          passIndex: 0,
+          score: slotFirst.score,
+          ocrVariant: "slot-primary",
+          band: null,
+        },
+        passCount: bands.length,
+        strategy: slotFirst.strategy,
+        elapsedMs: Date.now() - scanStartedAt,
+        hadOcrSuccess: true,
+      });
+      return {
+        items: slotFirst.items,
+        meta,
+      };
+    }
+  }
 
   for (let i = 0; i < bands.length; i += 1) {
     if (Date.now() - scanStartedAt >= totalBudgetMs) {
@@ -684,20 +825,11 @@ export async function scanRewardsDetailed(): Promise<{
 
       let ocrText: string;
       try {
-        const tempPath = buildTempImagePath(TEMP_IMAGE, `reward-p${i + 1}-${variant.id}`);
-        fs.writeFileSync(tempPath, variant.image.toPNG());
-        try {
-          ocrText = await runOCR(
-            tempPath,
-            Math.max(700, Math.min(scanSettings.ocrTimeoutMs, remainingBudgetMs)),
-          );
-        } finally {
-          try {
-            fs.unlinkSync(tempPath);
-          } catch {
-            // best effort temp cleanup
-          }
-        }
+        ocrText = await runVariantOcr(
+          variant.image,
+          Math.max(700, Math.min(scanSettings.ocrTimeoutMs, remainingBudgetMs)),
+          `reward-p${i + 1}-${variant.id}`,
+        );
         hadOcrSuccess = true;
       } catch (err) {
         log.error(
@@ -749,6 +881,15 @@ export async function scanRewardsDetailed(): Promise<{
   const selectedPass = consensus?.selectedPass || bestPass || passResults[0] || null;
   let items = (consensus?.items || selectedPass?.items || []).slice(0, expectedItemCount);
   let finalStrategy = consensus?.strategy || "best-pass";
+
+  if (
+    slotFirstResult &&
+    (slotFirstResult.items.length > items.length ||
+      (slotFirstResult.items.length === items.length && slotFirstResult.exactCount > 0))
+  ) {
+    items = slotFirstResult.items.slice(0, expectedItemCount);
+    finalStrategy = slotFirstResult.strategy;
+  }
 
   if (items.length < expectedItemCount) {
     const slotFallback = await scanRewardSlotsFallback(

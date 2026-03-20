@@ -5,8 +5,15 @@
  * Analyzes screen captures to determine if the reward selection UI is visible.
  */
 
-import { clampNumber, clamp01, round4, computeMeanAndStd, sleep, luminanceFromBgr } from "./rewardScannerUtils";
-import { cropRewardBand } from "./rewardScannerImage";
+import {
+  clampNumber,
+  clamp01,
+  round4,
+  computeMeanAndStd,
+  sleep,
+  luminanceFromBgr,
+} from "./rewardScannerUtils";
+import { cropRewardBand, detectRewardSlotLayout } from "./rewardScannerImage";
 import { captureScreen } from "./rewardScannerCapture";
 
 export const UI_READY_DEFAULT_TIMEOUT_MS = 2_200;
@@ -83,12 +90,17 @@ interface ReadinessResult {
   peakCount: number;
   textureScore: number;
   coverageScore: number;
-  bandTopRatio: number;
-  bandHeightRatio: number;
-  bandBottomRatio: number;
+  slotCount: number;
+  slotConfidence: number;
+  bandTopRatio: number | null;
+  bandHeightRatio: number | null;
+  bandBottomRatio: number | null;
 }
 
-export function analyzeRewardBandReadiness(nativeImage: any, band: Band | null | undefined): ReadinessResult {
+export function analyzeRewardBandReadiness(
+  nativeImage: any,
+  band: Band | null | undefined,
+): ReadinessResult {
   if (!nativeImage || typeof nativeImage.getSize !== "function") {
     return {
       ready: false,
@@ -96,6 +108,8 @@ export function analyzeRewardBandReadiness(nativeImage: any, band: Band | null |
       peakCount: 0,
       textureScore: 0,
       coverageScore: 0,
+      slotCount: 0,
+      slotConfidence: 0,
       bandTopRatio: round4(band?.top, 0),
       bandHeightRatio: round4(band?.height, 0),
       bandBottomRatio: round4((Number(band?.top) || 0) + (Number(band?.height) || 0), 0),
@@ -112,6 +126,8 @@ export function analyzeRewardBandReadiness(nativeImage: any, band: Band | null |
       peakCount: 0,
       textureScore: 0,
       coverageScore: 0,
+      slotCount: 0,
+      slotConfidence: 0,
       bandTopRatio: round4(band?.top, 0),
       bandHeightRatio: round4(band?.height, 0),
       bandBottomRatio: round4((Number(band?.top) || 0) + (Number(band?.height) || 0), 0),
@@ -126,6 +142,8 @@ export function analyzeRewardBandReadiness(nativeImage: any, band: Band | null |
       peakCount: 0,
       textureScore: 0,
       coverageScore: 0,
+      slotCount: 0,
+      slotConfidence: 0,
       bandTopRatio: round4(band?.top, 0),
       bandHeightRatio: round4(band?.height, 0),
       bandBottomRatio: round4((Number(band?.top) || 0) + (Number(band?.height) || 0), 0),
@@ -211,17 +229,24 @@ export function analyzeRewardBandReadiness(nativeImage: any, band: Band | null |
     textureScore * READINESS_ANALYSIS.scoreWeights.texture +
     coverageScore * READINESS_ANALYSIS.scoreWeights.coverage;
 
+  const slotLayout = detectRewardSlotLayout(nativeImage);
+  const slotConfidence = slotLayout.count >= 2 ? slotLayout.confidence : 0;
+  const finalScore = clamp01(score * 0.8 + slotConfidence * 0.2);
+
   const ready =
-    peakCount >= UI_READY_MIN_PEAK_COUNT &&
-    textureScore >= UI_READY_MIN_TEXTURE_SCORE &&
-    score >= UI_READY_DEFAULT_SCORE_THRESHOLD;
+    (peakCount >= UI_READY_MIN_PEAK_COUNT &&
+      textureScore >= UI_READY_MIN_TEXTURE_SCORE &&
+      finalScore >= UI_READY_DEFAULT_SCORE_THRESHOLD) ||
+    (slotLayout.count >= 2 && slotConfidence >= 0.55);
 
   return {
     ready,
-    score: Number(score.toFixed(3)),
+    score: Number(finalScore.toFixed(3)),
     peakCount,
     textureScore: Number(textureScore.toFixed(3)),
     coverageScore: Number(coverageScore.toFixed(3)),
+    slotCount: slotLayout.count,
+    slotConfidence: Number(slotConfidence.toFixed(3)),
     bandTopRatio: round4(band?.top, 0),
     bandHeightRatio: round4(band?.height, 0),
     bandBottomRatio: round4((Number(band?.top) || 0) + (Number(band?.height) || 0), 0),
@@ -241,12 +266,14 @@ interface WaitResult {
   attempts: number;
   elapsedMs: number;
   threshold: number;
-  best: (ReadinessResult & {
-    sourceType: string | null;
-    sourceDisplayId: string | null;
-    sourceName: string | null;
-    attempt: number;
-  }) | null;
+  best:
+    | (ReadinessResult & {
+        sourceType: string | null;
+        sourceDisplayId: string | null;
+        sourceName: string | null;
+        attempt: number;
+      })
+    | null;
 }
 
 export async function waitForRewardUiReady(

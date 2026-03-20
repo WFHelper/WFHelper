@@ -47,6 +47,7 @@ export interface RivenGradeResult {
   overallGrade: string;
   /** Attribute-based riven quality: "Great" | "Good" | "OK" | "Bad" */
   attributeGrade: string;
+  assumedLevel: number | null;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -179,7 +180,8 @@ export function unparseCurse(
   const attenuation = SPECIFIC_FIT_ATTEN * disposition * BASE_DRAIN;
   // Note the swapped indexing: buffs table by curse count, curse table by buff count
   const cursesInBuffTable = NUM_BUFFS_ATTEN[Math.min(numCurses, NUM_BUFFS_ATTEN.length - 1)];
-  const buffsInCurseTable = NUM_BUFFS_CURSE_ATTEN[Math.min(numBuffs, NUM_BUFFS_CURSE_ATTEN.length - 1)];
+  const buffsInCurseTable =
+    NUM_BUFFS_CURSE_ATTEN[Math.min(numBuffs, NUM_BUFFS_CURSE_ATTEN.length - 1)];
 
   // Convert displayed value to raw multiplier (absolute value)
   let value: number;
@@ -260,6 +262,7 @@ function computeAttributeGrade(
 export function gradeRiven(
   weaponName: string,
   stats: { name: string; positive: boolean; value: number | null; multiplier?: boolean }[],
+  options: { level?: number | null } = {},
 ): RivenGradeResult | null {
   if (!stats || stats.length === 0) return null;
 
@@ -278,6 +281,7 @@ export function gradeRiven(
   // Count buffs and curses
   const numBuffs = stats.filter((s) => s.positive).length;
   const numCurses = stats.filter((s) => !s.positive).length;
+  const assumedLevel = Number.isFinite(options.level) ? Number(options.level) : DEFAULT_LVL;
 
   const gradedStats: GradedStat[] = [];
   let scoreSum = 0;
@@ -321,15 +325,29 @@ export function gradeRiven(
       // x-multiplier means the actual stat is (value - 1) * 100 for positive,
       // or (1 - value) * 100 for negative
       if (stat.multiplier) {
-        displayedValue = stat.positive
-          ? (stat.value - 1) * 100
-          : (1 - stat.value) * 100;
+        displayedValue = stat.positive ? (stat.value - 1) * 100 : (1 - stat.value) * 100;
       }
 
       if (stat.positive) {
-        rollFloat = unparseBuff(displayedValue, entry.baseValue, disposition, numBuffs, numCurses, tag);
+        rollFloat = unparseBuff(
+          displayedValue,
+          entry.baseValue,
+          disposition,
+          numBuffs,
+          numCurses,
+          tag,
+          assumedLevel,
+        );
       } else {
-        rollFloat = unparseCurse(displayedValue, entry.baseValue, disposition, numBuffs, numCurses, tag);
+        rollFloat = unparseCurse(
+          displayedValue,
+          entry.baseValue,
+          disposition,
+          numBuffs,
+          numCurses,
+          tag,
+          assumedLevel,
+        );
       }
 
       const grade = floatToGrade(rollFloat, !stat.positive);
@@ -365,5 +383,5 @@ export function gradeRiven(
   const isShotgun = rivenData.isWeaponShotgun(weaponName);
   const attributeGrade = computeAttributeGrade(stats, weaponCategory, isShotgun);
 
-  return { stats: gradedStats, overallGrade, attributeGrade };
+  return { stats: gradedStats, overallGrade, attributeGrade, assumedLevel };
 }

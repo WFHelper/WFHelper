@@ -266,7 +266,22 @@ let _rivenWeaponName = "";
  */
 function tryGradeStats(stats: rivenScan.RivenStat[]): rivenGrading.RivenGradeResult | null {
   if (!_rivenWeaponName || _rivenWeaponName === "Riven" || stats.length === 0) return null;
-  return rivenGrading.gradeRiven(_rivenWeaponName, stats);
+  return (
+    [
+      rivenGrading.gradeRiven(_rivenWeaponName, stats, { level: 0 }),
+      rivenGrading.gradeRiven(_rivenWeaponName, stats, { level: 8 }),
+    ]
+      .filter((candidate): candidate is rivenGrading.RivenGradeResult => !!candidate)
+      .sort((a, b) => {
+        const aClamped = a.stats.filter(
+          (stat) => stat.value != null && (stat.rollFloat <= 0 || stat.rollFloat >= 1),
+        ).length;
+        const bClamped = b.stats.filter(
+          (stat) => stat.value != null && (stat.rollFloat <= 0 || stat.rollFloat >= 1),
+        ).length;
+        return aClamped - bClamped;
+      })[0] || null
+  );
 }
 
 function scoreRivenStatSimilarity(
@@ -379,12 +394,13 @@ function triggerInitialScan(): void {
   _rivenInitialScanTimer = setTimeout(async () => {
     _rivenInitialScanTimer = null;
     try {
-      const { stats, rawText } = await rivenScan.scanInitialCard(_rivenWeaponName);
+      const { stats, rawText, titleText } = await rivenScan.scanInitialCard(_rivenWeaponName);
       _rivenInitialStats = stats;
 
       // Try to extract weapon name from OCR text if not already known
-      if (rawText && (!_rivenWeaponName || _rivenWeaponName === "Riven")) {
-        const detected = rivenDataSvc.findWeaponInText(rawText);
+      const weaponSourceText = titleText || rawText;
+      if (weaponSourceText && (!_rivenWeaponName || _rivenWeaponName === "Riven")) {
+        const detected = rivenDataSvc.findWeaponInText(weaponSourceText);
         if (detected) {
           log.log(`[RivenScan] weapon detected from OCR: "${detected}"`);
           _rivenWeaponName = detected;
