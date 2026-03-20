@@ -24,6 +24,7 @@ import * as wfmStatsPrice from "../services/wfmStatsPrice";
 import * as warframeStatus from "../services/warframeStatus";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 import { startEscMonitor, stopEscMonitor } from "../services/keyboardMonitor";
+import { forceEndRivenSession } from "../services/eeLogMonitor";
 
 const requireRuntime = createRuntimeRequire(__dirname, 1);
 
@@ -238,11 +239,12 @@ let _rivenRollScanTimer: ReturnType<typeof setTimeout> | null = null;
 // Delay before OCR scan (ms) — gives the riven card animation time to settle.
 // INITIAL: The riven card is already visible when OmegaRerollSelection.swf loads;
 // a short delay is enough for the UI to finish rendering.
-// ROLL: The roll animation is slow (card flip, particle effects) — needs a generous delay.
+// ROLL: Reduced from 2600ms — the readiness gate now handles stability; we no longer
+// need to wait out the full roll animation before starting to poll.
 // CHOICE_RESCAN: After the "Cycle Riven into current selection?" confirm, the game
 // quickly transitions back to the single-card view — shorter delay than a full roll.
 const INITIAL_SCAN_DELAY_MS = 700;
-const ROLL_SCAN_DELAY_MS = 2600;
+const ROLL_SCAN_DELAY_MS = 800;
 const CHOICE_RESCAN_DELAY_MS = 900;
 
 // Last known stats for choice detection (old vs new)
@@ -458,6 +460,11 @@ function triggerRollScan(): void {
 export function onRivenSessionClose(): void {
   log.log("[OverlayRoute] trigger=riven-session-close");
   stopEscMonitor();
+  rivenScan.abortRivenScans();
+  // Reset the eeLogMonitor session state so subsequent EE.log events (e.g. a
+  // "Cycle Riven into current selection?" dialog arriving after the user pressed
+  // ESC) don't re-trigger choice scans against the now-closed overlay windows.
+  forceEndRivenSession();
   clearRivenScanTimers();
   _rivenHasRollResult = false;
   _rivenInitialStats = [];
@@ -477,6 +484,7 @@ export function onRivenChatView(): void {
   _rivenInitialStats = [];
   _rivenNewRollStats = [];
   _rivenWeaponName = "";
+  rivenScan.resetRivenScanAbort();
 
   // Create only the left window (or reuse if already exists)
   const display = screen.getPrimaryDisplay();
@@ -519,6 +527,7 @@ export function onRivenSessionOpen(): void {
   _rivenInitialStats = [];
   _rivenNewRollStats = [];
   _rivenWeaponName = "";
+  rivenScan.resetRivenScanAbort();
   createRivenOverlayWindows({ show: true });
   // Start (or restart) the session — resets roll count, clears panels.
   // Weapon name is "Riven" placeholder until the first cycle dialog reveals it.

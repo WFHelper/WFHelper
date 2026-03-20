@@ -207,30 +207,32 @@ export async function captureScreen(options: CaptureOptions = {}): Promise<Captu
 
   let sources: any[];
   const thumbnailSize = getCaptureThumbnailSize(options.preferredDisplayId || null);
-  try {
-    sources = await desktopCapturer.getSources({
-      types: ["window"],
-      thumbnailSize,
-      fetchWindowIcons: false,
-    });
-  } catch (err) {
-    log.warn("[RewardScanner] getSources(window) failed:", normalizeErrorMessage(err));
-    sources = [];
-  }
 
-  const wfWindow = pickWindowSource(sources);
-  const skipWindowCapture =
-    options && options.preferScreenCapture === true
-      ? true
-      : isLikelyWrongWindowName(sourceName(wfWindow || null));
-  if (!skipWindowCapture && wfWindow && wfWindow.thumbnail && !wfWindow.thumbnail.isEmpty()) {
-    return {
-      image: wfWindow.thumbnail,
-      sourceType: "window",
-      sourceName: sourceName(wfWindow),
-      sourceId: String(wfWindow.id || ""),
-      sourceDisplayId: String(wfWindow.display_id || ""),
-    };
+  // When the caller wants a screen source, skip the window getSources call entirely.
+  // It would be discarded anyway and costs ~300-600 ms per call.
+  if (options?.preferScreenCapture !== true) {
+    try {
+      sources = await desktopCapturer.getSources({
+        types: ["window"],
+        thumbnailSize,
+        fetchWindowIcons: false,
+      });
+    } catch (err) {
+      log.warn("[RewardScanner] getSources(window) failed:", normalizeErrorMessage(err));
+      sources = [];
+    }
+
+    const wfWindow = pickWindowSource(sources);
+    const skipWindowCapture = isLikelyWrongWindowName(sourceName(wfWindow || null));
+    if (!skipWindowCapture && wfWindow && wfWindow.thumbnail && !wfWindow.thumbnail.isEmpty()) {
+      return {
+        image: wfWindow.thumbnail,
+        sourceType: "window",
+        sourceName: sourceName(wfWindow),
+        sourceId: String(wfWindow.id || ""),
+        sourceDisplayId: String(wfWindow.display_id || ""),
+      };
+    }
   }
 
   try {

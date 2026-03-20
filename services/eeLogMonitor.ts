@@ -407,7 +407,12 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
     scheduleTrigger("reward");
   }
 
-  if (RELIC_PICKER_PATTERNS.some((pattern) => pattern.test(line))) {
+  // When DBWIN is active, skip relic picker pattern processing from file-poll lines.
+  // DBWIN delivers lines instantly; the file poll re-delivers the same lines 0–15 s later,
+  // after the 8 s cooldown has expired, causing a phantom re-open just like riven events.
+  const skipRelicFromFilePoll = _dbwinActive && source === "file";
+
+  if (!skipRelicFromFilePoll && RELIC_PICKER_PATTERNS.some((pattern) => pattern.test(line))) {
     scheduleTrigger("relic_picker");
   }
 
@@ -618,7 +623,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   // Only fire the relic close callback if SendResult was NOT consumed by riven
   // AND no riven session is active (any SendResult during a riven session belongs
   // to the riven flow, even when _rivenPendingDialog is null between steps).
-  if (!sendResultConsumedByRiven && !_rivenSessionActive && RELIC_PICKER_CLOSE_PATTERNS.some((pattern) => pattern.test(line))) {
+  if (!sendResultConsumedByRiven && !_rivenSessionActive && !skipRelicFromFilePoll && RELIC_PICKER_CLOSE_PATTERNS.some((pattern) => pattern.test(line))) {
     const now = Date.now();
     if (now - lastRelicPickerCloseAt >= RELIC_PICKER_CLOSE_COOLDOWN_MS) {
       lastRelicPickerCloseAt = now;
@@ -866,6 +871,27 @@ export function startWatching(
 
   log.log("[EELog] Watching:", EE_LOG_PATH);
   return EE_LOG_PATH;
+}
+
+/**
+ * Force-ends the riven rolling session.  Call when the overlay is dismissed by
+ * ESC or any external trigger that does NOT produce a NpcManager::ClearAgents()
+ * EE.log pattern.  Without this, `_rivenSessionActive` stays true and subsequent
+ * EE.log events (e.g. a choice dialog line arriving after the user dismissed the
+ * overlay) re-trigger scans against already-closed windows.
+ *
+ * Safe to call when no session is active — returns early in that case.
+ */
+export function forceEndRivenSession(): void {
+  if (!_rivenSessionActive && !_rivenPendingDialog) return;
+  _rivenSessionActive = false;
+  _rivenPendingDialog = null;
+  _rivenNextDialog = "cycle";
+  if (_rivenSessionIdleTimer) {
+    clearTimeout(_rivenSessionIdleTimer);
+    _rivenSessionIdleTimer = null;
+  }
+  log.log("[EELog] Riven session force-ended (overlay dismissed externally)");
 }
 
 export function stopWatching(): void {

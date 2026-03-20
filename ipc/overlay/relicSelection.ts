@@ -567,33 +567,13 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     let preferredDisplayId = preferredDisplayIdInitial;
 
     try {
-      if (typeof rewardScanner.captureSourceMeta === "function") {
-        const captureMetaStartedAt = Date.now();
-        try {
-          const sourceMeta = await rewardScanner.captureSourceMeta({ preferredDisplayId });
-          if (scanToken !== activeScanToken) return;
-          log.log(
-            `[RelicSelection] source meta elapsed=${Date.now() - captureMetaStartedAt}ms source=${String(
-              sourceMeta?.sourceType || "unknown",
-            )}:${String(sourceMeta?.sourceName || sourceMeta?.sourceId || "unknown")} display=${String(
-              sourceMeta?.sourceDisplayId || "unknown",
-            )}`,
-          );
-          if (sourceMeta?.sourceDisplayId) {
-            windows.setAnchorMeta({ sourceDisplayId: sourceMeta.sourceDisplayId });
-            preferredDisplayId = String(sourceMeta.sourceDisplayId);
-            lastKnownGameDisplayId = preferredDisplayId;
-            windows.positionOverlayWindow(windows.getAnchorMeta());
-          }
-        } catch {
-          // non-critical, detection flow will still run
-        }
-      }
-
       const eraDetectStartedAt = Date.now();
 
-      // Reuse cached era from this mission session if the TTL hasn't expired.
-      // TTL is refreshed on every hit so endless-mission runs never expire mid-session.
+      // Check era cache before deciding whether to capture the screen.
+      // When era is cached, run captureSourceMeta to refresh the display anchor.
+      // When OCR is needed, skip captureSourceMeta entirely — detectRelicSelectionEra
+      // already performs its own screen capture and returns the same display metadata,
+      // so running captureSourceMeta first would be a redundant ~600 ms capture.
       const cacheAge = Date.now() - activeMissionTierSetAt;
       let era: string | null =
         activeMissionTier && cacheAge < MISSION_TIER_TTL_MS ? activeMissionTier : null;
@@ -604,6 +584,28 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         log.log(
           `[RelicSelection] activeMissionTier cache hit: ${era} (age ${Math.round(cacheAge / 1000)}s)`,
         );
+        if (typeof rewardScanner.captureSourceMeta === "function") {
+          const captureMetaStartedAt = Date.now();
+          try {
+            const sourceMeta = await rewardScanner.captureSourceMeta({ preferredDisplayId });
+            if (scanToken !== activeScanToken) return;
+            log.log(
+              `[RelicSelection] source meta elapsed=${Date.now() - captureMetaStartedAt}ms source=${String(
+                sourceMeta?.sourceType || "unknown",
+              )}:${String(sourceMeta?.sourceName || sourceMeta?.sourceId || "unknown")} display=${String(
+                sourceMeta?.sourceDisplayId || "unknown",
+              )}`,
+            );
+            if (sourceMeta?.sourceDisplayId) {
+              windows.setAnchorMeta({ sourceDisplayId: sourceMeta.sourceDisplayId });
+              preferredDisplayId = String(sourceMeta.sourceDisplayId);
+              lastKnownGameDisplayId = preferredDisplayId;
+              windows.positionOverlayWindow(windows.getAnchorMeta());
+            }
+          } catch {
+            // non-critical, detection flow will still run
+          }
+        }
       } else if (desktopTierHint) {
         era = desktopTierHint;
         eraConfidence = 0.75;

@@ -16,7 +16,7 @@ const CROPS = {
   right: { x: 0.5, y: 0.38, width: 0.28, height: 0.38 },
 };
 
-type EngineName = "windows" | "tesseract";
+type EngineName = "windows" | "tesseract" | "native";
 
 interface ImageInfo {
   width: number;
@@ -130,7 +130,7 @@ async function main() {
       tesseractLanguage: "eng",
     });
 
-  for (const engine of ["windows", "tesseract"] as const) {
+  for (const engine of ["windows", "tesseract", "native"] as const) {
     const runner = runnerFor(engine);
     console.log(`\n=== ${engine.toUpperCase()} ===`);
     let totalStats = 0;

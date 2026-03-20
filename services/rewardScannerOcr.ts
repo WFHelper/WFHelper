@@ -74,6 +74,7 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
   const tesseractLanguage = String(options?.tesseractLanguage || "eng");
   const engineWindows = String(options?.engineWindows || "windows");
   const engineTesseract = String(options?.engineTesseract || "tesseract");
+  const engineNative = "native";
   const tesseractContext = options?.tesseractContext || "riven";
 
   /** One-shot PowerShell OCR — used as fallback when the persistent server is unavailable. */
@@ -202,6 +203,16 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
     // enable the PowerShell → Tesseract fallback chain.
     const engine = typeof getRequestedEngine === "function" ? getRequestedEngine() : "auto";
 
+    if (engine === engineNative) {
+      if (!nativeOcrAvailable) return runTesseractOCR(imagePath, timeoutMs);
+      try {
+        return await nativeOcrFile(imagePath, timeoutMs);
+      } catch (error) {
+        log?.warn?.("[RewardScanner] Native OCR file failed, falling back to Tesseract:", normalizeErrorMessage(error));
+        return runTesseractOCR(imagePath, timeoutMs);
+      }
+    }
+
     if (engine === engineWindows) {
       if (process.platform !== "win32") {
         log?.warn?.(
@@ -254,6 +265,11 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
   async function runOCRBuffer(imageBuffer: Buffer, timeoutMs: number): Promise<string> {
     const engine = typeof getRequestedEngine === "function" ? getRequestedEngine() : "auto";
 
+    if (engine === engineNative) {
+      if (!nativeOcrAvailable) throw new Error("Native OCR not available");
+      return nativeOcrBuffer(imageBuffer, timeoutMs);
+    }
+
     if (engine === engineWindows || (engine === "auto" && process.platform === "win32")) {
       try {
         return await runPowerShellOCRBuffer(imageBuffer, timeoutMs);
@@ -275,6 +291,17 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
   ): Promise<StructuredOcrResult> {
     const engine = typeof getRequestedEngine === "function" ? getRequestedEngine() : "auto";
 
+    // Native: call binding directly, no PS server round-trip
+    if (engine === engineNative) {
+      if (!nativeOcrAvailable) return textToStructuredResult(await runTesseractOCR(imagePath, timeoutMs));
+      try {
+        return textToStructuredResult(await nativeOcrFile(imagePath, timeoutMs));
+      } catch (error) {
+        log?.warn?.("[RewardScanner] Native OCR structured failed, falling back to Tesseract:", normalizeErrorMessage(error));
+        return textToStructuredResult(await runTesseractOCR(imagePath, timeoutMs));
+      }
+    }
+
     // Only try the Windows structured server when the engine is windows or auto-on-Windows
     if (engine !== engineTesseract) {
       try {
@@ -293,6 +320,38 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
     timeoutMs: number,
   ): Promise<StructuredOcrResult> {
     const engine = typeof getRequestedEngine === "function" ? getRequestedEngine() : "auto";
+
+    // Native: call binding directly — no PS server, no temp file, no disk I/O
+    if (engine === engineNative) {
+      if (!nativeOcrAvailable) {
+        // Fallback: write temp file → Tesseract
+        const tmpPath = require("node:path").join(
+          require("node:os").tmpdir(),
+          `wf-ocr-native-fallback-${Date.now()}.png`,
+        );
+        try {
+          require("node:fs").writeFileSync(tmpPath, imageBuffer);
+          return textToStructuredResult(await runTesseractOCR(tmpPath, timeoutMs));
+        } finally {
+          try { require("node:fs").unlinkSync(tmpPath); } catch { /* best-effort */ }
+        }
+      }
+      try {
+        return textToStructuredResult(await nativeOcrBuffer(imageBuffer, timeoutMs));
+      } catch (error) {
+        log?.warn?.("[RewardScanner] Native OCR buffer failed, falling back to Tesseract:", normalizeErrorMessage(error));
+        const tmpPath = require("node:path").join(
+          require("node:os").tmpdir(),
+          `wf-ocr-native-fallback-${Date.now()}.png`,
+        );
+        try {
+          require("node:fs").writeFileSync(tmpPath, imageBuffer);
+          return textToStructuredResult(await runTesseractOCR(tmpPath, timeoutMs));
+        } finally {
+          try { require("node:fs").unlinkSync(tmpPath); } catch { /* best-effort */ }
+        }
+      }
+    }
 
     // Only try the Windows structured server when the engine is windows or auto-on-Windows
     if (engine !== engineTesseract) {

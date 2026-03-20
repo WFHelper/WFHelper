@@ -364,6 +364,20 @@ describe("parseRivenStats", () => {
     expect(result[0].value).toBe(165.4);
   });
 
+  it("fixes WinRT ( misread of x prefix for fractional multipliers (0.xx)", () => {
+    const result = parseRivenStats("(0,59 Damage to Corpus +42.2% Attack Speed");
+    const corpus = result.find((s) => s.name === "Damage to Corpus");
+    expect(corpus).toBeDefined();
+    expect(corpus?.value).toBeCloseTo(0.59, 2);
+  });
+
+  it("fixes WinRT ( misread of x prefix for multipliers > 1 (1.xx)", () => {
+    const result = parseRivenStats("(1,38 Damage to Corpus +42.2% Attack Speed");
+    const corpus = result.find((s) => s.name === "Damage to Corpus");
+    expect(corpus).toBeDefined();
+    expect(corpus?.value).toBeCloseTo(1.38, 2);
+  });
+
   it("recognises Melee Damage stat", () => {
     const result = parseRivenStats("+177.1% Melee Damage");
     expect(result).toHaveLength(1);

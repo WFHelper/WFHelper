@@ -56,7 +56,6 @@ const rivensIpc = fromAppRoot("ipc/rivensIpc");
 const statsTracker = fromAppRoot("services/statsTracker");
 const tradeTracker = fromAppRoot("services/tradeTracker");
 const apiHelperRunner = fromAppRoot("services/apiHelperRunner");
-const ocrServer = fromAppRoot("services/ocrServer").ocrServer;
 
 // Suppress noisy Chromium/DevTools internal logging in terminal.
 app.commandLine.appendSwitch("disable-logging");
@@ -315,12 +314,12 @@ app.whenReady().then(async () => {
 
   profileStage("total-main-startup-sequence", startupStartedAt);
 
-  // Pre-warm the persistent Windows OCR server in the background so the first
-  // real OCR call (relic era detection or riven scan) doesn't pay the
-  // ~250-450 ms PowerShell/WinRT startup cost.
-  if (process.platform === "win32") {
-    ocrServer.warmup().catch(() => { /* best-effort */ });
-  }
+  // NOTE: ocrServer.warmup() was intentionally removed.
+  // Spawning PowerShell WinRT OCR processes at startup causes a ~15°C CPU
+  // temperature spike when Warframe is running (DWM/compositor interaction).
+  // The pool starts on first actual use (first riven/relic scan), adding one
+  // ~450 ms warmup delay only if the native @napi-rs/system-ocr engine is
+  // unavailable. That one-time cost is acceptable.
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

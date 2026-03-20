@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { overlaySettings, overlaySettingsLoaded, OVERLAY_DEFAULTS } from "../stores/overlaySettings.js";
   import AppearanceCard from "../components/settings/AppearanceCard.svelte";
-  import { OVERLAY_OCR_ENGINES, OVERLAY_SETTINGS_LIMITS } from "../config/overlay.js";
+  import { OVERLAY_SETTINGS_LIMITS } from "../config/overlay.js";
   import { ipc } from "../lib/ipc.js";
   import { tr } from "../lib/i18n.js";
   import type { OverlaySettings } from "../types/ipc.js";
@@ -154,15 +154,6 @@
             disabled={!interactionHotkeyEnabled}
             placeholder={$tr("settings.interactionHotkeyPlaceholder")}
           />
-        </label>
-
-        <label class="settings-row">
-          <span class="settings-label">{$tr("settings.ocrEngine")}</span>
-          <select bind:value={ocrEngine}>
-            {#each OVERLAY_OCR_ENGINES as engine}
-              <option value={engine}>{engine === "windows" ? $tr("settings.ocrEngineWindows") : $tr("settings.ocrEngineTesseract")}</option>
-            {/each}
-          </select>
         </label>
 
         <label class="settings-row">

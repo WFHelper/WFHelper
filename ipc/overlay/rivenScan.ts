@@ -29,6 +29,7 @@ import {
   sleep,
 } from "../../services/rewardScannerUtils";
 import type { StructuredOcrLine, StructuredOcrResult } from "../../services/ocrServer";
+import { nativeOcrAvailable } from "../../services/ocrServer";
 import * as rivenData from "../../services/rivenData";
 import * as rivenGrading from "../../services/rivenGrading";
 
@@ -59,6 +60,7 @@ const RIVEN_STAT_ALIAS_REPLACEMENTS: ReadonlyArray<[RegExp, string]> = Object.fr
   [/\bA\s*Slash\b/gi, "Slash"],
   [/\bO\s*Cold\b/gi, "Cold"],
   [/\bO\s*Heat\b/gi, "Heat"],
+  [/\bl\s*eat\b/gi, "Heat"],   // "H" misread as "l" by fallback OCR strategy
   [/\bQ\s*Toxin\b/gi, "Toxin"],
   [/\bQ\s*Electricity\b/gi, "Electricity"],
 ]);
@@ -71,6 +73,14 @@ const TEMP_RIGHT = path.join(os.tmpdir(), "wf-companion-riven-right-ocr");
 const TEMP_SINGLE = path.join(os.tmpdir(), "wf-companion-riven-single-ocr");
 const OCR_TIMEOUT_MS = 8000;
 
+// Display ID pinning: set from the initial card scan so all subsequent
+// captures (roll, choice) use the same monitor as the initial capture.
+// Prevents the cursor-based screen picker from grabbing a second monitor
+// (e.g. VS Code) when the user moves the mouse away from Warframe.
+let _rivenDisplayId: string | null = null;
+/** Set to true by the session-close path so waitForRivenUiReady exits immediately. */
+let _rivenScanAborted = false;
+
 const RIVEN_READY_TIMEOUTS_MS = Object.freeze({
   initial: 1800,
   roll: 3200,
@@ -80,18 +90,13 @@ const RIVEN_READY_POLL_MS = 140;
 const RIVEN_READY_REQUIRED_HITS = 2;
 const RIVEN_READY_SCORE_THRESHOLD = 0.2;
 
-// Use the same OCR engine the user selected in overlay settings (e.g. "tesseract").
-// Without this, the riven scanner would default to "auto" (PowerShell first) even when
-// the user explicitly picked Tesseract.
+// Riven OCR uses native @napi-rs/system-ocr when available (~550 ms/call
+// with no disk I/O). Falls back to Tesseract (~1.5 s/call via temp file)
+// if the native binding is not loaded. Windows OCR via the PowerShell
+// server is NOT used for rivens — the server returns empty text without
+// throwing, making the result indistinguishable from a successful empty scan.
 function getRequestedOcrEngine(): string {
-  try {
-    const settings = getRewardScannerSettings();
-    const engine =
-      typeof settings?.ocrEngine === "string" ? settings.ocrEngine.trim().toLowerCase() : "";
-    return engine || "auto";
-  } catch {
-    return "auto";
-  }
+  return nativeOcrAvailable ? "native" : "tesseract";
 }
 
 const ocrRunner = createRewardOcrRunner({
@@ -228,6 +233,13 @@ function preprocessOcrText(raw: string): string {
   // Must run BEFORE the symbol strip below, which removes parentheses.
   // Allow OCR typos on "Attacks" — common misreads: Attacke, Attackc, Attacks, Attack
   text = text.replace(/\(x\d+\s*(?:for\s*)?Heavy\s*Attack[a-z]*\)/gi, "");
+
+  // Fix OCR misread of the multiplier prefix "x" as "(" — WinRT reads e.g.
+  // "x1,38 Damage to Corpus" as "(1,38 Damage to Corpus" and "x0,59 ..." as
+  // "(0,59 ...".  Match any decimal fraction (digit.digit) immediately after a
+  // "(" — real parenthesised text in riven stat lines always starts with a
+  // sign (+/-) or a letter, never a bare number, so this is safe.
+  text = text.replace(/\(\s*(\d+[.,]\d+)/g, "x$1");
 
   // Strip element icon artifacts before stat names.
   // Warframe prefixes element stats with icons that OCR reads as junk like
@@ -813,13 +825,24 @@ function detectRivenCardFrame(nativeImage: any): TextBounds | null {
     }
   }
 
+  // Sobel edge detection: 3×3 kernels give better peak localization than
+  // first-order differences — the 2× center-row weighting suppresses noise
+  // and sharpens true card-frame edges (sustained intensity transitions).
+  // Gx detects vertical lines (left/right card borders) → feeds colEdges.
+  // Gy detects horizontal lines (top/bottom borders) → feeds rowEdges.
   const colEdges = new Array<number>(sampleCols).fill(0);
   const rowEdges = new Array<number>(sampleRows).fill(0);
-  for (let sy = 1; sy < sampleRows; sy += 1) {
-    for (let sx = 1; sx < sampleCols; sx += 1) {
-      const lum = lumaGrid[sy][sx];
-      colEdges[sx] += Math.abs(lum - lumaGrid[sy][sx - 1]);
-      rowEdges[sy] += Math.abs(lum - lumaGrid[sy - 1][sx]);
+  for (let sy = 1; sy < sampleRows - 1; sy += 1) {
+    for (let sx = 1; sx < sampleCols - 1; sx += 1) {
+      const gx =
+        -lumaGrid[sy - 1][sx - 1] + lumaGrid[sy - 1][sx + 1] +
+        -2 * lumaGrid[sy][sx - 1] + 2 * lumaGrid[sy][sx + 1] +
+        -lumaGrid[sy + 1][sx - 1] + lumaGrid[sy + 1][sx + 1];
+      const gy =
+        -lumaGrid[sy - 1][sx - 1] - 2 * lumaGrid[sy - 1][sx] - lumaGrid[sy - 1][sx + 1] +
+        lumaGrid[sy + 1][sx - 1] + 2 * lumaGrid[sy + 1][sx] + lumaGrid[sy + 1][sx + 1];
+      colEdges[sx] += Math.abs(gx);
+      rowEdges[sy] += Math.abs(gy);
     }
   }
 
@@ -1118,6 +1141,7 @@ async function retrySparseRivenScan<T>(
 async function waitForRivenUiReady(
   rect: { x: number; y: number; width: number; height: number },
   mode: keyof typeof RIVEN_READY_TIMEOUTS_MS,
+  preferredDisplayId: string | null = null,
 ): Promise<RivenUiReadyResult> {
   const timeoutMs = RIVEN_READY_TIMEOUTS_MS[mode];
   const startedAt = Date.now();
@@ -1128,15 +1152,30 @@ async function waitForRivenUiReady(
   let bestFrameHash = "";
   let lastMetrics: RivenTextMetrics | null = null;
   let lastFrameHash = "";
+  // Most recently captured screenshot (not best-score).  Used as the timeout
+  // fallback so that when the gate times out we use the LATEST frame (taken just
+  // before the timeout at delay+timeout ms) rather than the best-score frame
+  // (which is often the very first frame, captured mid-animation well before
+  // the new card is fully rendered).
+  let lastScreenshot: any | null = null;
 
   while (Date.now() - startedAt < timeoutMs) {
+    if (_rivenScanAborted) break;
     attempts += 1;
-    const screenshot = await captureScreen();
+    // preferScreenCapture skips the slow getSources(["window"]) call (~600 ms)
+    // and goes directly to the screen source (~100 ms).  For fullscreen Warframe
+    // both sources give the same pixels.  This allows ~10 samples per 1800 ms
+    // instead of just 3, drastically improving gate reliability.
+    // preferredDisplayId pins to the Warframe monitor so a cursor on a second
+    // monitor (e.g. VS Code) doesn't cause the readiness gate to poll the
+    // wrong screen.
+    const screenshot = await captureScreen({ preferScreenCapture: true, preferredDisplayId });
     if (!screenshot?.image) {
       consecutiveHits = 0;
       await sleep(RIVEN_READY_POLL_MS);
       continue;
     }
+    lastScreenshot = screenshot;
 
     let roughCrop: any;
     try {
@@ -1170,13 +1209,21 @@ async function waitForRivenUiReady(
       const heightDelta =
         Math.abs(metrics.bounds.height - lastMetrics.bounds.height) /
         Math.max(1, roughCrop.getSize().height);
+      // frameHash equality was intentionally removed: the riven selection
+      // screen has animated particle backgrounds that change the hash every
+      // frame even when text content is fully settled, causing the gate to
+      // always time out.  Coverage and position deltas are sufficient to
+      // confirm the UI has stopped animating.
+      //
+      // When coverage is already high (> 0.25) the Kuva portal animation makes
+      // raw pixel coverage fluctuate constantly: skip that check and rely only
+      // on the bounding-box deltas, which track the card frame (not the glow).
       stable =
-        coverageDelta <= 0.025 &&
+        (coverageDelta <= 0.025 || metrics.coverage > 0.25) &&
         leftDelta <= 0.05 &&
         topDelta <= 0.05 &&
         widthDelta <= 0.08 &&
-        heightDelta <= 0.08 &&
-        frameHash === lastFrameHash;
+        heightDelta <= 0.08;
     }
 
     consecutiveHits = stable ? consecutiveHits + 1 : 0;
@@ -1197,13 +1244,18 @@ async function waitForRivenUiReady(
     await sleep(RIVEN_READY_POLL_MS);
   }
 
+  // On timeout: return the LAST screenshot, not the best-score one.
+  // The best-score screenshot is often the very first frame (all frames score
+  // equally when the card is present), which is captured mid-animation and may
+  // show the old card.  The last screenshot was captured at ~(delay+timeout) ms
+  // which is always well past the animation's completion.
   return {
     ready: false,
     attempts,
     elapsedMs: Date.now() - startedAt,
     bestScore,
-    screenshot: bestScreenshot,
-    frameHash: bestFrameHash,
+    screenshot: lastScreenshot ?? bestScreenshot,
+    frameHash: lastFrameHash || bestFrameHash,
   };
 }
 
@@ -1220,7 +1272,12 @@ export interface RollPanelResult {
 
 const MIN_OCR_WIDTH = 1800;
 
-interface EnhanceMode {
+/** Pass the natural colour image to WinRT — no threshold or mask applied. */
+interface OriginalMode {
+  kind: "original";
+}
+/** Threshold-based enhancement (brightness/saturation filter + dilation) for Tesseract. */
+interface FilteredMode {
   kind: "bright" | "lowsat";
   threshold: number;
   /** Low-saturation upper bound (lowsat mode only). */
@@ -1230,25 +1287,28 @@ interface EnhanceMode {
    *  letters (especially at bright-120 where strokes are thinner). */
   dilate?: boolean;
 }
+type EnhanceMode = OriginalMode | FilteredMode;
 
 // Enhancement strategies, ordered fastest-and-most-likely-to-win first.
-// Deliberately kept to TWO so worst-case cost is 2 OCR calls per panel (4 total):
+// Deliberately kept to TWO so worst-case cost is 2 OCR calls per panel (4 total).
 //
-// 1. lowsat-bright (PRIMARY): keep pixels where max(R,G,B) >= threshold AND
-//    saturation <= maxSat.  Riven stat text is near-white (low saturation),
-//    while the gold/orange decorative card background is highly saturated.
-//    This filter correctly rejects the background without needing a high
-//    brightness threshold, making it the most reliable single strategy.
-//    If it finds ≥4 stats with values, we skip strategy 2 entirely.
+// Native (@napi-rs/system-ocr / WinRT):
+//   1. original (PRIMARY): pass the natural colour image — WinRT runs its own
+//      layout analysis and binarisation.  Pre-thresholded images with animated
+//      background noise (e.g. Kuva portal glow at high coverage) confuse
+//      WinRT's text-block detector; the original colour image avoids that.
+//   2. bright-150+dilate (FALLBACK): clean brightness threshold that still
+//      passes both white stat names and green stat values.
 //
-// 2. bright-120+dilate (FALLBACK): pure brightness threshold with 1px dilation.
-//    Used when the screen is dimmer than usual (e.g. HDR monitors, or the left
-//    panel in the two-card roll screen which renders slightly darker).
-//    Dilation reconnects broken character strokes at the lower threshold.
-const ENHANCE_STRATEGIES: EnhanceMode[] = [
-  { kind: "lowsat", threshold: 155, maxSat: 0.35 },
-  { kind: "bright", threshold: 120, dilate: true },
-];
+// Tesseract:
+//   1. bright-120+dilate (PRIMARY): permissive threshold; PSM 6 tolerates noise.
+//   2. lowsat+dilate (FALLBACK): rejects saturated background; last resort.
+const ENHANCE_STRATEGIES: EnhanceMode[] = nativeOcrAvailable
+  ? [{ kind: "original" }, { kind: "bright", threshold: 150, dilate: true }]
+  : [
+      { kind: "bright", threshold: 120, dilate: true },
+      { kind: "lowsat", threshold: 155, maxSat: 0.35, dilate: true },
+    ];
 
 /**
  * Enhance a cropped nativeImage for OCR.  Returns a PNG Buffer ready to write
@@ -1261,6 +1321,19 @@ const ENHANCE_STRATEGIES: EnhanceMode[] = [
 async function enhanceForRivenOcr(croppedImage: any, mode: EnhanceMode): Promise<Buffer> {
   const sharp = require("sharp") as typeof import("sharp");
   const { width, height } = croppedImage.getSize();
+
+  if (mode.kind === "original") {
+    // Pass the natural colour image to WinRT — it performs its own layout
+    // analysis and binarisation.  Pre-thresholded images with animated
+    // background noise (e.g. Kuva portal glow at high coverage) confuse
+    // WinRT's text-block detector.  Giving it the real colours avoids that.
+    const scale = width >= MIN_OCR_WIDTH ? 1 : Math.min(3, Math.ceil(MIN_OCR_WIDTH / width));
+    const pngBuffer: Buffer = croppedImage.toPNG();
+    if (scale <= 1) return pngBuffer;
+    const sw = Math.min(6000, width * scale);
+    const sh = Math.min(6000, height * scale);
+    return sharp(pngBuffer).resize(sw, sh, { kernel: "lanczos3" }).png().toBuffer();
+  }
 
   // Auto-scale to ensure at least MIN_OCR_WIDTH pixels
   const scale = width >= MIN_OCR_WIDTH ? 1 : Math.ceil(MIN_OCR_WIDTH / width);
@@ -1364,10 +1437,13 @@ async function ocrCropMultiStrategy(
 ): Promise<{ text: string; titleText: string; footerText: string; stats: RivenStat[] }> {
   const roughCrop = cropRect(image, rect);
   const refined = refineRivenTextCrop(roughCrop);
-  const cropVariants = [
-    { id: "rough", image: roughCrop, refined: false, metrics: analyzeRivenTextMetrics(roughCrop) },
-  ];
-  if (refined.refined) {
+  const roughMetrics = analyzeRivenTextMetrics(roughCrop);
+  const cropVariants = [{ id: "rough", image: roughCrop, refined: false, metrics: roughMetrics }];
+  // Skip refined when rough coverage is high — animated backgrounds (e.g. Kuva
+  // portal glow) flood the crop with bright pixels, causing detectRivenCardFrame
+  // to latch onto the crop boundary rather than the real card frame.  The
+  // resulting refined crop then clips off the top stat lines.
+  if (refined.refined && roughMetrics.coverage < 0.25) {
     cropVariants.push({
       id: "refined",
       image: refined.image,
@@ -1399,15 +1475,21 @@ async function ocrCropMultiStrategy(
     modeLabel: string;
   }
 
+  // Try rough crop first: detectRivenCardFrame often latches onto a sub-region
+  // of the card (e.g. the title panel border), producing a refined crop that
+  // is too narrow to contain all 4 stat lines.  The rough crop is large enough
+  // to reliably capture all stats and early-accepts on the first strategy.
+  // The refined crop is kept as a second attempt in case the rough crop is
+  // ambiguous (low stat count or score).
   const orderedCandidates = [
+    { cropId: "rough", mode: ENHANCE_STRATEGIES[0] },
     ...(cropVariants.find((variant) => variant.id === "refined")
       ? [{ cropId: "refined", mode: ENHANCE_STRATEGIES[0] }]
       : []),
-    { cropId: "rough", mode: ENHANCE_STRATEGIES[0] },
+    { cropId: "rough", mode: ENHANCE_STRATEGIES[1] },
     ...(cropVariants.find((variant) => variant.id === "refined")
       ? [{ cropId: "refined", mode: ENHANCE_STRATEGIES[1] }]
       : []),
-    { cropId: "rough", mode: ENHANCE_STRATEGIES[1] },
   ];
 
   function isConfidentEnough(result: CandidateResult): boolean {
@@ -1446,7 +1528,10 @@ async function ocrCropMultiStrategy(
     if (!cropVariant) continue;
 
     const mode = plan.mode;
-    const modeLabel = `${cropVariant.id}:${mode.kind}-${mode.threshold}${mode.dilate ? "+dilate" : ""}${mode.maxSat != null ? `-sat${mode.maxSat}` : ""}`;
+    const modeLabel =
+      mode.kind === "original"
+        ? `${cropVariant.id}:original`
+        : `${cropVariant.id}:${mode.kind}-${mode.threshold}${mode.dilate ? "+dilate" : ""}${mode.maxSat != null ? `-sat${mode.maxSat}` : ""}`;
     const enhancedPng = await enhanceForRivenOcr(cropVariant.image, mode);
 
     let result: CandidateResult;
@@ -1623,6 +1708,20 @@ async function ocrCropMultiStrategy(
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /**
+ * Abort any in-flight waitForRivenUiReady loop immediately.  Call from the
+ * session-close path so ESC / EE.log close doesn't have to wait out the full
+ * readiness-gate timeout before the async scan function yields.
+ */
+export function abortRivenScans(): void {
+  _rivenScanAborted = true;
+}
+
+/** Reset the abort flag when a new session opens. */
+export function resetRivenScanAbort(): void {
+  _rivenScanAborted = false;
+}
+
+/**
  * Capture and OCR the single-card view when the riven cycling screen first opens.
  * Returns the current riven stats (shown in the centre card before any roll).
  */
@@ -1646,6 +1745,13 @@ export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialS
   if (!capture) {
     log.warn("[RivenScan] scanInitialCard: captureScreen returned null");
     return { stats: [], rawText: "", titleText: "", footerText: "" };
+  }
+
+  // Pin all subsequent riven captures to this display so a cursor on a second
+  // monitor doesn't cause roll/choice scans to capture the wrong screen.
+  if (capture.sourceDisplayId && capture.sourceDisplayId !== _rivenDisplayId) {
+    _rivenDisplayId = capture.sourceDisplayId;
+    log.log(`[RivenScan] pinned to display id=${_rivenDisplayId}`);
   }
 
   const imgSize = capture.image.getSize?.() ?? { width: "?", height: "?" };
@@ -1674,7 +1780,7 @@ export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialS
       result.stats,
       650,
       async () => {
-        const retryCapture = await captureScreen();
+        const retryCapture = await captureScreen({ preferredDisplayId: _rivenDisplayId });
         if (!retryCapture) return result;
         try {
           const retryHash = computeRivenFrameHash(cropRect(retryCapture.image, SINGLE_CARD_CROP));
@@ -1719,14 +1825,14 @@ export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialS
 export async function scanNewRoll(expectedWeaponName = ""): Promise<RollPanelResult> {
   const startAt = Date.now();
 
-  const ready = await waitForRivenUiReady(RIGHT_PANEL_CROP, "roll");
+  const ready = await waitForRivenUiReady(RIGHT_PANEL_CROP, "roll", _rivenDisplayId);
   if (!ready.ready) {
     log.log(
       `[RivenScan] roll UI gate timed out after ${ready.elapsedMs}ms (${ready.attempts} samples, best=${ready.bestScore.toFixed(3)})`,
     );
   }
 
-  const capture = ready.screenshot || (await captureScreen());
+  const capture = ready.screenshot || (await captureScreen({ preferredDisplayId: _rivenDisplayId }));
   if (!capture) {
     log.warn("[RivenScan] scanNewRoll: captureScreen returned null");
     return { left: [], right: [] };
@@ -1764,7 +1870,7 @@ export async function scanNewRoll(expectedWeaponName = ""): Promise<RollPanelRes
     // retry once after a short delay.
     if (rightResult.stats.length < MIN_ACCEPTABLE_RIVEN_STATS) {
       await new Promise((resolve) => setTimeout(resolve, 800));
-      const capture2 = await captureScreen();
+      const capture2 = await captureScreen({ preferredDisplayId: _rivenDisplayId });
       if (capture2) {
         try {
           const retryHash = computeRivenFrameHash(cropRect(capture2.image, RIGHT_PANEL_CROP));
@@ -1803,14 +1909,14 @@ export async function scanNewRoll(expectedWeaponName = ""): Promise<RollPanelRes
  * Uses a narrower center crop to avoid capturing stale two-card transition text.
  */
 export async function scanChoiceRescan(expectedWeaponName = ""): Promise<RivenStat[]> {
-  const ready = await waitForRivenUiReady(SINGLE_CARD_CROP, "choice");
+  const ready = await waitForRivenUiReady(SINGLE_CARD_CROP, "choice", _rivenDisplayId);
   if (!ready.ready) {
     log.log(
       `[RivenScan] choice UI gate timed out after ${ready.elapsedMs}ms (${ready.attempts} samples, best=${ready.bestScore.toFixed(3)})`,
     );
   }
 
-  const capture = ready.screenshot || (await captureScreen());
+  const capture = ready.screenshot || (await captureScreen({ preferredDisplayId: _rivenDisplayId }));
   if (!capture) {
     log.warn("[RivenScan] scanChoiceRescan: captureScreen returned null");
     return [];
@@ -1838,7 +1944,7 @@ export async function scanChoiceRescan(expectedWeaponName = ""): Promise<RivenSt
       result.stats,
       500,
       async () => {
-        const retryCapture = await captureScreen();
+        const retryCapture = await captureScreen({ preferredDisplayId: _rivenDisplayId });
         if (!retryCapture) return result;
         try {
           const retryHash = computeRivenFrameHash(cropRect(retryCapture.image, SINGLE_CARD_CROP));
