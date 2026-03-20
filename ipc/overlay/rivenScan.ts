@@ -22,14 +22,26 @@ import { captureScreen } from "../../services/rewardScannerCapture";
 import { cropRect } from "../../services/rewardScannerImage";
 import { createRewardOcrRunner } from "../../services/rewardScannerOcr";
 import { getSettings as getRewardScannerSettings } from "../../services/rewardScanner";
+import { clamp01, computeMeanAndStd, sleep } from "../../services/rewardScannerUtils";
+import * as rivenData from "../../services/rivenData";
+import * as rivenGrading from "../../services/rivenGrading";
 
 const log = withScope("rivenScan");
 
 // __dirname at runtime is .electron-build/ipc/overlay/ — three levels up to reach project root
 const OCR_SCRIPT = path.join(__dirname, "..", "..", "..", "scripts", "ocr.ps1");
-const TEMP_RIGHT = path.join(os.tmpdir(), "wf-companion-riven-right-ocr.png");
-const TEMP_SINGLE = path.join(os.tmpdir(), "wf-companion-riven-single-ocr.png");
+const TEMP_RIGHT = path.join(os.tmpdir(), "wf-companion-riven-right-ocr");
+const TEMP_SINGLE = path.join(os.tmpdir(), "wf-companion-riven-single-ocr");
 const OCR_TIMEOUT_MS = 8000;
+
+const RIVEN_READY_TIMEOUTS_MS = Object.freeze({
+  initial: 1800,
+  roll: 3200,
+  choice: 1800,
+});
+const RIVEN_READY_POLL_MS = 140;
+const RIVEN_READY_REQUIRED_HITS = 2;
+const RIVEN_READY_SCORE_THRESHOLD = 0.2;
 
 // Use the same OCR engine the user selected in overlay settings (e.g. "tesseract").
 // Without this, the riven scanner would default to "auto" (PowerShell first) even when
@@ -37,7 +49,8 @@ const OCR_TIMEOUT_MS = 8000;
 function getRequestedOcrEngine(): string {
   try {
     const settings = getRewardScannerSettings();
-    const engine = typeof settings?.ocrEngine === "string" ? settings.ocrEngine.trim().toLowerCase() : "";
+    const engine =
+      typeof settings?.ocrEngine === "string" ? settings.ocrEngine.trim().toLowerCase() : "";
     return engine || "auto";
   } catch {
     return "auto";
@@ -234,12 +247,22 @@ function preprocessOcrText(raw: string): string {
     "",
   );
 
+  // Strip short non-alphanumeric junk tokens before known elemental/damage stats
+  // (e.g. encoding/OCR artifacts like "┬Ñ Electricity").
+  text = text.replace(
+    /[^\w\s+.%\-x]{1,3}\s+(?=(?:Slash|Cold|Heat|Electricity|Toxin|Impact|Puncture|Radiation|Viral|Corrosive|Blast|Magnetic|Gas)\b)/gi,
+    "",
+  );
+
   // Rejoin "Critical Chance" + "for Slide Attack" when OCR splits across lines.
   // The game card wraps long stat names.  OCR often inserts junk between the
   // two fragments — e.g. "Critical Chance -\n- 4 for Slide Attack".
   // Allow up to 20 non-letter characters (digits, signs, newlines, spaces)
   // between "Chance" and "for" to absorb OCR noise.
-  text = text.replace(/Critical\s+Chance[^a-zA-Z]{0,20}for\s+Slide\s+Attack/gi, "Critical Chance for Slide Attack");
+  text = text.replace(
+    /Critical\s+Chance[^a-zA-Z]{0,20}for\s+Slide\s+Attack/gi,
+    "Critical Chance for Slide Attack",
+  );
 
   // Strip "s" (seconds) suffix from numeric values — game shows "+8,5s Combo Duration"
   // and OCR sometimes reads the "s" as "5", producing "8.55" instead of "8.5".
@@ -336,9 +359,47 @@ export function parseRivenStats(text: string): RivenStat[] {
   return blobScore > lineScore ? blobResults : lineResults;
 }
 
+function lineContainsKnownStat(line: string): boolean {
+  const lineLower = line.toLowerCase();
+  return KNOWN_RIVEN_STATS.some((stat) => lineLower.includes(stat.toLowerCase()));
+}
+
+function collapseOrphanValueLines(lines: string[]): string[] {
+  const collapsed: string[] = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const current = lines[i].trim();
+    if (!current) continue;
+
+    const extracted = extractSignAndValue(current);
+    const looksLikeValueOnly =
+      !!extracted &&
+      extracted.value !== null &&
+      !lineContainsKnownStat(current) &&
+      /^[+\-\u2013x\d\s.%]+$/i.test(current);
+
+    if (!looksLikeValueOnly) {
+      collapsed.push(current);
+      continue;
+    }
+
+    let nextIndex = i + 1;
+    while (nextIndex < lines.length && !lines[nextIndex].trim()) nextIndex += 1;
+    if (nextIndex >= lines.length) {
+      collapsed.push(current);
+      continue;
+    }
+
+    const next = lines[nextIndex].trim();
+    collapsed.push(`${current} ${next}`.trim());
+    i = nextIndex;
+  }
+
+  return collapsed;
+}
+
 function parseStatsFromLines(text: string): RivenStat[] {
-  const lines = text
-    .split(/\r?\n/);
+  const lines = collapseOrphanValueLines(text.split(/\r?\n/));
 
   const results: RivenStat[] = [];
   const seen = new Set<string>();
@@ -401,12 +462,417 @@ function parseStatsFromLines(text: string): RivenStat[] {
   return results;
 }
 
+interface TextBounds {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+interface RivenTextMetrics {
+  score: number;
+  coverage: number;
+  activeRows: number;
+  activeCols: number;
+  rowGroups: number;
+  bounds: TextBounds | null;
+}
+
+function smoothSeries(values: number[]): number[] {
+  if (values.length <= 2) return values.slice();
+  return values.map((value, index) => {
+    const prev = index > 0 ? values[index - 1] : value;
+    const next = index < values.length - 1 ? values[index + 1] : value;
+    return (prev + value + next) / 3;
+  });
+}
+
+function countGroups(values: number[], threshold: number, minRun: number): number {
+  let groups = 0;
+  let run = 0;
+  for (const value of values) {
+    if (value >= threshold) {
+      run += 1;
+      continue;
+    }
+    if (run >= minRun) groups += 1;
+    run = 0;
+  }
+  if (run >= minRun) groups += 1;
+  return groups;
+}
+
+function findBounds(values: number[], threshold: number): { start: number; end: number } | null {
+  let start = -1;
+  let end = -1;
+  for (let i = 0; i < values.length; i += 1) {
+    if (values[i] >= threshold) {
+      start = i;
+      break;
+    }
+  }
+  if (start < 0) return null;
+  for (let i = values.length - 1; i >= start; i -= 1) {
+    if (values[i] >= threshold) {
+      end = i;
+      break;
+    }
+  }
+  if (end < start) return null;
+  return { start, end };
+}
+
+function analyzeRivenTextMetrics(nativeImage: any): RivenTextMetrics {
+  if (!nativeImage || typeof nativeImage.getSize !== "function") {
+    return {
+      score: 0,
+      coverage: 0,
+      activeRows: 0,
+      activeCols: 0,
+      rowGroups: 0,
+      bounds: null,
+    };
+  }
+
+  const { width, height } = nativeImage.getSize();
+  if (width < 24 || height < 24) {
+    return {
+      score: 0,
+      coverage: 0,
+      activeRows: 0,
+      activeCols: 0,
+      rowGroups: 0,
+      bounds: null,
+    };
+  }
+
+  const bitmap: Buffer = nativeImage.toBitmap();
+  const rowScores = new Array<number>(height).fill(0);
+  const colScores = new Array<number>(width).fill(0);
+  let activePixels = 0;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const idx = (y * width + x) * 4;
+      const blue = bitmap[idx];
+      const green = bitmap[idx + 1];
+      const red = bitmap[idx + 2];
+      const maxC = Math.max(red, green, blue);
+      const minC = Math.min(red, green, blue);
+      const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
+      const isTextLike = maxC >= 146 && sat <= 0.42;
+      if (!isTextLike) continue;
+      activePixels += 1;
+      rowScores[y] += 1;
+      colScores[x] += 1;
+    }
+  }
+
+  const smoothedRows = smoothSeries(rowScores);
+  const smoothedCols = smoothSeries(colScores);
+  const rowStats = computeMeanAndStd(smoothedRows);
+  const colStats = computeMeanAndStd(smoothedCols);
+  const rowThreshold = Math.max(2, rowStats.mean + rowStats.std * 0.45);
+  const colThreshold = Math.max(2, colStats.mean + colStats.std * 0.45);
+
+  const rowBounds = findBounds(smoothedRows, rowThreshold);
+  const colBounds = findBounds(smoothedCols, colThreshold);
+  const activeRows = smoothedRows.filter((value) => value >= rowThreshold).length;
+  const activeCols = smoothedCols.filter((value) => value >= colThreshold).length;
+  const rowGroups = countGroups(
+    smoothedRows,
+    rowThreshold,
+    Math.max(2, Math.floor(height * 0.015)),
+  );
+  const coverage = activePixels / Math.max(1, width * height);
+
+  let bounds: TextBounds | null = null;
+  if (rowBounds && colBounds) {
+    const padX = Math.max(4, Math.floor(width * 0.04));
+    const padY = Math.max(3, Math.floor(height * 0.03));
+    const left = Math.max(0, colBounds.start - padX);
+    const top = Math.max(0, rowBounds.start - padY);
+    const right = Math.min(width - 1, colBounds.end + padX);
+    const bottom = Math.min(height - 1, rowBounds.end + padY);
+    const boundWidth = right - left + 1;
+    const boundHeight = bottom - top + 1;
+    if (
+      boundWidth >= Math.max(24, Math.floor(width * 0.2)) &&
+      boundHeight >= Math.max(24, Math.floor(height * 0.12))
+    ) {
+      bounds = {
+        left,
+        top,
+        width: boundWidth,
+        height: boundHeight,
+      };
+    }
+  }
+
+  const coverageScore = clamp01(coverage / 0.08);
+  const rowScore = clamp01(activeRows / Math.max(8, height * 0.16));
+  const colScore = clamp01(activeCols / Math.max(24, width * 0.2));
+  const groupScore = clamp01(rowGroups / 3);
+  const score = Number(
+    (coverageScore * 0.28 + rowScore * 0.24 + colScore * 0.24 + groupScore * 0.24).toFixed(3),
+  );
+
+  return {
+    score,
+    coverage: Number(coverage.toFixed(4)),
+    activeRows,
+    activeCols,
+    rowGroups,
+    bounds,
+  };
+}
+
+function cropAbsolute(nativeImage: any, bounds: TextBounds): any {
+  return nativeImage.crop({
+    x: Math.max(0, Math.floor(bounds.left)),
+    y: Math.max(0, Math.floor(bounds.top)),
+    width: Math.max(1, Math.floor(bounds.width)),
+    height: Math.max(1, Math.floor(bounds.height)),
+  });
+}
+
+function refineRivenTextCrop(nativeImage: any): {
+  image: any;
+  metrics: RivenTextMetrics;
+  refined: boolean;
+} {
+  const metrics = analyzeRivenTextMetrics(nativeImage);
+  if (!metrics.bounds || metrics.score < 0.12) {
+    return { image: nativeImage, metrics, refined: false };
+  }
+  try {
+    return {
+      image: cropAbsolute(nativeImage, metrics.bounds),
+      metrics,
+      refined: true,
+    };
+  } catch {
+    return { image: nativeImage, metrics, refined: false };
+  }
+}
+
+function buildTempPngPath(basePath: string, label: string, index: number): string {
+  const ext = path.extname(basePath) || ".png";
+  const stem = ext ? basePath.slice(0, -ext.length) : basePath;
+  const safeLabel = String(label || "scan").replace(/[^a-z0-9_-]+/gi, "-");
+  return `${stem}-${safeLabel}-${index}-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+}
+
+function countMappedStats(stats: RivenStat[], weaponName: string): number {
+  const rivenType = rivenData.resolveRivenType(weaponName);
+  if (!rivenType) return 0;
+  let mapped = 0;
+  for (const stat of stats) {
+    const tag = rivenData.statNameToTag(stat.name);
+    if (!tag) continue;
+    if (rivenData.findUpgradeEntry(rivenType, tag)) mapped += 1;
+  }
+  return mapped;
+}
+
+function scoreStatsCandidate(stats: RivenStat[], rawText: string, expectedWeaponName = ""): number {
+  if (!Array.isArray(stats) || stats.length === 0) return -1;
+
+  const uniqueKeys = new Set(
+    stats.map((stat) => `${stat.name.toLowerCase()}|${stat.positive ? 1 : 0}`),
+  );
+  const duplicates = Math.max(0, stats.length - uniqueKeys.size);
+  const valueCount = stats.filter((stat) => stat.value !== null).length;
+  const negativeCount = stats.filter((stat) => !stat.positive).length;
+  const unknownCount = stats.filter((stat) => !rivenData.statNameToTag(stat.name)).length;
+  const absurdCount = stats.filter(
+    (stat) => stat.value != null && !stat.multiplier && Math.abs(stat.value) > 420,
+  ).length;
+
+  let score = 0;
+  if (stats.length >= 2 && stats.length <= 4) {
+    score += 28 - Math.abs(3 - stats.length) * 5;
+  } else {
+    score -= 18 + Math.abs(3 - stats.length) * 6;
+  }
+
+  score += valueCount * 7;
+  score -= (stats.length - valueCount) * 2;
+  score += uniqueKeys.size * 3;
+  score -= duplicates * 8;
+  score += negativeCount <= 1 ? 6 : -12 * (negativeCount - 1);
+  score -= unknownCount * 4;
+  score -= absurdCount * 14;
+
+  const effectiveWeapon =
+    expectedWeaponName && expectedWeaponName !== "Riven"
+      ? expectedWeaponName
+      : rivenData.findWeaponInText(rawText) || "";
+
+  if (effectiveWeapon) {
+    const mappedCount = countMappedStats(stats, effectiveWeapon);
+    score += mappedCount * 4;
+
+    const graded = rivenGrading.gradeRiven(effectiveWeapon, stats);
+    if (graded) {
+      score += 12;
+      const clampedRolls = graded.stats.filter(
+        (stat) => stat.value != null && (stat.rollFloat <= 0 || stat.rollFloat >= 1),
+      ).length;
+      if (clampedRolls >= Math.max(2, Math.ceil(graded.stats.length * 0.75))) {
+        score -= 6;
+      }
+
+      const rivenType = rivenData.resolveRivenType(effectiveWeapon);
+      if (rivenType) {
+        const buffTags = stats
+          .filter((stat) => stat.positive)
+          .map((stat) => rivenData.statNameToTag(stat.name))
+          .filter((tag): tag is string => !!tag);
+        const curseTags = stats
+          .filter((stat) => !stat.positive)
+          .map((stat) => rivenData.statNameToTag(stat.name))
+          .filter((tag): tag is string => !!tag);
+        const suffix = rivenData.generateRivenSuffix(rivenType, buffTags, curseTags);
+        if (suffix) {
+          const normalizedRaw = String(rawText || "")
+            .toLowerCase()
+            .replace(/[^a-z]/g, "");
+          const normalizedSuffix = suffix.toLowerCase().replace(/[^a-z]/g, "");
+          if (normalizedRaw.includes(normalizedSuffix)) {
+            score += 8;
+          }
+        }
+      }
+    } else {
+      score -= 10;
+    }
+  }
+
+  return score;
+}
+
+interface RivenUiReadyResult {
+  ready: boolean;
+  attempts: number;
+  elapsedMs: number;
+  bestScore: number;
+  screenshot: any | null;
+}
+
+const MIN_ACCEPTABLE_RIVEN_STATS = 2;
+
+async function retrySparseRivenScan<T>(
+  attemptLabel: string,
+  currentStats: RivenStat[],
+  retryDelayMs: number,
+  runRetry: () => Promise<T>,
+  getStats: (value: T) => RivenStat[],
+): Promise<T | null> {
+  if (currentStats.length >= MIN_ACCEPTABLE_RIVEN_STATS) return null;
+  log.log(
+    `[RivenScan] ${attemptLabel}: sparse result (${currentStats.length} stats), retrying in ${retryDelayMs}ms`,
+  );
+  await sleep(retryDelayMs);
+  const retried = await runRetry();
+  const retriedStats = getStats(retried);
+  if (retriedStats.length > currentStats.length) {
+    log.log(`[RivenScan] ${attemptLabel}: retry improved to ${retriedStats.length} stats`);
+    return retried;
+  }
+  return null;
+}
+
+async function waitForRivenUiReady(
+  rect: { x: number; y: number; width: number; height: number },
+  mode: keyof typeof RIVEN_READY_TIMEOUTS_MS,
+): Promise<RivenUiReadyResult> {
+  const timeoutMs = RIVEN_READY_TIMEOUTS_MS[mode];
+  const startedAt = Date.now();
+  let attempts = 0;
+  let consecutiveHits = 0;
+  let bestScore = 0;
+  let bestScreenshot: any | null = null;
+  let lastMetrics: RivenTextMetrics | null = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    attempts += 1;
+    const screenshot = await captureScreen();
+    if (!screenshot?.image) {
+      consecutiveHits = 0;
+      await sleep(RIVEN_READY_POLL_MS);
+      continue;
+    }
+
+    let roughCrop: any;
+    try {
+      roughCrop = cropRect(screenshot.image, rect);
+    } catch {
+      consecutiveHits = 0;
+      await sleep(RIVEN_READY_POLL_MS);
+      continue;
+    }
+
+    const metrics = analyzeRivenTextMetrics(roughCrop);
+    if (metrics.score > bestScore) {
+      bestScore = metrics.score;
+      bestScreenshot = screenshot;
+    }
+
+    let stable = metrics.score >= RIVEN_READY_SCORE_THRESHOLD;
+    if (stable && lastMetrics?.bounds && metrics.bounds) {
+      const coverageDelta = Math.abs(metrics.coverage - lastMetrics.coverage);
+      const leftDelta =
+        Math.abs(metrics.bounds.left - lastMetrics.bounds.left) /
+        Math.max(1, roughCrop.getSize().width);
+      const topDelta =
+        Math.abs(metrics.bounds.top - lastMetrics.bounds.top) /
+        Math.max(1, roughCrop.getSize().height);
+      const widthDelta =
+        Math.abs(metrics.bounds.width - lastMetrics.bounds.width) /
+        Math.max(1, roughCrop.getSize().width);
+      const heightDelta =
+        Math.abs(metrics.bounds.height - lastMetrics.bounds.height) /
+        Math.max(1, roughCrop.getSize().height);
+      stable =
+        coverageDelta <= 0.025 &&
+        leftDelta <= 0.05 &&
+        topDelta <= 0.05 &&
+        widthDelta <= 0.08 &&
+        heightDelta <= 0.08;
+    }
+
+    consecutiveHits = stable ? consecutiveHits + 1 : 0;
+    lastMetrics = metrics;
+
+    if (consecutiveHits >= RIVEN_READY_REQUIRED_HITS) {
+      return {
+        ready: true,
+        attempts,
+        elapsedMs: Date.now() - startedAt,
+        bestScore,
+        screenshot,
+      };
+    }
+
+    await sleep(RIVEN_READY_POLL_MS);
+  }
+
+  return {
+    ready: false,
+    attempts,
+    elapsedMs: Date.now() - startedAt,
+    bestScore,
+    screenshot: bestScreenshot,
+  };
+}
+
 export interface RollPanelResult {
   left: RivenStat[];
   right: RivenStat[];
 }
 
-  // ── Image enhancement (Sharp-based) ──────────────────────────────────────────
+// ── Image enhancement (Sharp-based) ──────────────────────────────────────────
 // Uses Sharp (bilinear) for fast upscaling + brightness thresholding
 // + 1px morphological dilation to connect broken character strokes.  This
 // produces significantly cleaner text for Windows OCR than Electron's built-in
@@ -483,7 +949,7 @@ async function enhanceForRivenOcr(croppedImage: any, mode: EnhanceMode): Promise
       // background has high saturation and is rejected by the sat filter.
       const minC = Math.min(r, g, b);
       const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
-      mask[j] = (maxC >= mode.threshold && sat <= (mode.maxSat ?? 0.35)) ? 1 : 0;
+      mask[j] = maxC >= mode.threshold && sat <= (mode.maxSat ?? 0.35) ? 1 : 0;
     } else {
       mask[j] = maxC >= mode.threshold ? 1 : 0;
     }
@@ -501,7 +967,8 @@ async function enhanceForRivenOcr(croppedImage: any, mode: EnhanceMode): Promise
         let found = false;
         for (let dy = -1; dy <= 1 && !found; dy++) {
           for (let dx = -1; dx <= 1 && !found; dx++) {
-            const nx = x + dx, ny = y + dy;
+            const nx = x + dx,
+              ny = y + dy;
             if (nx >= 0 && nx < scaledW && ny >= 0 && ny < scaledH && mask[ny * scaledW + nx]) {
               found = true;
             }
@@ -520,7 +987,9 @@ async function enhanceForRivenOcr(croppedImage: any, mode: EnhanceMode): Promise
   // Convert grayscale buffer to PNG via Sharp
   return sharp(output, {
     raw: { width: scaledW, height: scaledH, channels: 1 },
-  }).png().toBuffer();
+  })
+    .png()
+    .toBuffer();
 }
 
 // ── Crop regions (normalised ratios) ─────────────────────────────────────────
@@ -534,25 +1003,10 @@ async function enhanceForRivenOcr(croppedImage: any, mode: EnhanceMode): Promise
 //
 // Give generous margins so the crop still works at slightly different UI scales
 // and when the card is not exactly centred (e.g. 21:9 monitors).
-const RIGHT_PANEL_CROP = { x: 0.44, y: 0.43, width: 0.40, height: 0.45 };
+const RIGHT_PANEL_CROP = { x: 0.44, y: 0.43, width: 0.4, height: 0.45 };
 // Single-card crop — used for the initial scan (card centred on screen) and
 // the choice rescan (one card shown after selection).
 const SINGLE_CARD_CROP = { x: 0.22, y: 0.43, width: 0.56, height: 0.45 };
-
-/**
- * Score a set of parsed stats: higher = better OCR result.
- * Stats with values are worth more than stats with just names.
- * Bonus for higher numeric values — OCR dropping digits always produces
- * *smaller* numbers, so higher values indicate more confident reads.
- */
-function scoreStats(stats: RivenStat[]): number {
-  return stats.reduce((sum, s) => {
-    if (s.value === null) return sum + 3;
-    // Base 10 for having a value, plus up to 10 bonus based on magnitude.
-    // Caps at 200 to avoid outliers dominating.
-    return sum + 10 + Math.min(Math.abs(s.value), 200) / 20;
-  }, 0);
-}
 
 /**
  * OCR a cropped region, trying multiple enhancement strategies and picking the
@@ -564,38 +1018,163 @@ async function ocrCropMultiStrategy(
   rect: { x: number; y: number; width: number; height: number },
   tempPath: string,
   label = "",
+  expectedWeaponName = "",
 ): Promise<{ text: string; stats: RivenStat[] }> {
-  const cropped = cropRect(image, rect);
+  const roughCrop = cropRect(image, rect);
+  const refined = refineRivenTextCrop(roughCrop);
+  const cropVariants = [
+    { id: "rough", image: roughCrop, refined: false, metrics: analyzeRivenTextMetrics(roughCrop) },
+  ];
+  if (refined.refined) {
+    cropVariants.push({
+      id: "refined",
+      image: refined.image,
+      refined: true,
+      metrics: refined.metrics,
+    });
+  }
 
-  // Run both enhancement strategies in parallel — each writes its own temp file
-  // so there is no race on disk.  Both OCR calls run concurrently; we pick the
-  // result with the highest stat score.
-  const stratTempPaths = ENHANCE_STRATEGIES.map((_, i) => tempPath.replace(/(\.png)?$/, `-s${i}.png`));
+  if (label) {
+    for (const variant of cropVariants) {
+      const size = variant.image.getSize?.() ?? { width: 0, height: 0 };
+      log.log(
+        `[RivenScan] ${label} crop ${variant.id}: score=${variant.metrics.score.toFixed(3)} ` +
+          `coverage=${variant.metrics.coverage.toFixed(4)} rows=${variant.metrics.activeRows} cols=${variant.metrics.activeCols} ` +
+          `size=${size.width}x${size.height}`,
+      );
+    }
+  }
 
-  const results = await Promise.all(
-    ENHANCE_STRATEGIES.map(async (mode, i) => {
-      const modeLabel = `${mode.kind}-${mode.threshold}${mode.dilate ? "+dilate" : ""}${mode.maxSat != null ? `-sat${mode.maxSat}` : ""}`;
-      const enhancedPng = await enhanceForRivenOcr(cropped, mode);
-      const p = stratTempPaths[i];
-      fs.writeFileSync(p, enhancedPng);
+  interface CandidateResult {
+    text: string;
+    stats: RivenStat[];
+    score: number;
+    cropId: string;
+    refined: boolean;
+    valueCount: number;
+    modeLabel: string;
+  }
+
+  const orderedCandidates = [
+    ...(cropVariants.find((variant) => variant.id === "refined")
+      ? [{ cropId: "refined", mode: ENHANCE_STRATEGIES[1] }]
+      : []),
+    { cropId: "rough", mode: ENHANCE_STRATEGIES[1] },
+    ...(cropVariants.find((variant) => variant.id === "refined")
+      ? [{ cropId: "refined", mode: ENHANCE_STRATEGIES[0] }]
+      : []),
+    { cropId: "rough", mode: ENHANCE_STRATEGIES[0] },
+  ];
+
+  function isConfidentEnough(result: CandidateResult): boolean {
+    if (result.score < 0) return false;
+    if (result.stats.length >= 4 && result.valueCount >= 3 && result.score >= 75) return true;
+    if (result.stats.length >= 3 && result.valueCount >= 3 && result.score >= 85) return true;
+    if (result.stats.length === 2 && result.valueCount === 2 && result.score >= 55) return true;
+    return false;
+  }
+
+  const results: CandidateResult[] = [];
+  for (let i = 0; i < orderedCandidates.length; i += 1) {
+    const plan = orderedCandidates[i];
+    const cropVariant = cropVariants.find((variant) => variant.id === plan.cropId);
+    if (!cropVariant) continue;
+
+    const mode = plan.mode;
+    const modeLabel = `${cropVariant.id}:${mode.kind}-${mode.threshold}${mode.dilate ? "+dilate" : ""}${mode.maxSat != null ? `-sat${mode.maxSat}` : ""}`;
+    const enhancedPng = await enhanceForRivenOcr(cropVariant.image, mode);
+    const p = buildTempPngPath(tempPath, `${label}-${cropVariant.id}`, i);
+
+    let result: CandidateResult;
+    fs.writeFileSync(p, enhancedPng);
+    try {
+      const text = await ocrRunner.runOCR(p, OCR_TIMEOUT_MS);
+      const stats = parseRivenStats(text);
+      result = {
+        text,
+        stats,
+        score: scoreStatsCandidate(stats, text, expectedWeaponName),
+        cropId: cropVariant.id,
+        refined: cropVariant.refined,
+        valueCount: stats.filter((stat) => stat.value !== null).length,
+        modeLabel,
+      };
+    } catch {
+      result = {
+        text: "",
+        stats: [] as RivenStat[],
+        score: -1,
+        cropId: cropVariant.id,
+        refined: cropVariant.refined,
+        valueCount: 0,
+        modeLabel,
+      };
+    } finally {
       try {
-        const text = await ocrRunner.runOCR(p, OCR_TIMEOUT_MS);
-        const stats = parseRivenStats(text);
-        const score = scoreStats(stats);
-        if (label) {
-          const preview = text.replace(/\r?\n/g, " | ").slice(0, 150);
-          log.log(`[RivenScan] OCR ${label} ${modeLabel}: ${stats.length} stats (score=${score}) "${preview}"`);
-        }
-        return { text, stats, score };
+        fs.unlinkSync(p);
       } catch {
-        return { text: "", stats: [] as RivenStat[], score: -1 };
+        // best effort temp cleanup
       }
-    }),
-  );
+    }
 
-  let best = { text: "", stats: [] as RivenStat[], score: -1 };
+    if (label) {
+      const preview = result.text.replace(/\r?\n/g, " | ").slice(0, 150);
+      log.log(
+        `[RivenScan] OCR ${label} ${modeLabel}: ${result.stats.length} stats (score=${result.score}) "${preview}"`,
+      );
+    }
+
+    results.push(result);
+    if (isConfidentEnough(result)) {
+      if (label) {
+        log.log(
+          `[RivenScan] early-accept ${label} candidate crop=${result.cropId} refined=${result.refined} ` +
+            `score=${result.score} stats=${result.stats.length} values=${result.valueCount}`,
+        );
+      }
+      return { text: result.text, stats: result.stats };
+    }
+  }
+
+  let best = {
+    text: "",
+    stats: [] as RivenStat[],
+    score: -1,
+    cropId: "",
+    refined: false,
+    valueCount: 0,
+  };
   for (const r of results) {
-    if (r.score > best.score) best = r;
+    if (r.score > best.score) {
+      best = r;
+      continue;
+    }
+    if (r.score < best.score) continue;
+    if (r.stats.length > best.stats.length) {
+      best = r;
+      continue;
+    }
+    if (r.stats.length < best.stats.length) continue;
+    if (r.valueCount > best.valueCount) {
+      best = r;
+      continue;
+    }
+    if (r.valueCount < best.valueCount) continue;
+    if (r.refined && !best.refined) {
+      best = r;
+      continue;
+    }
+    if (!r.refined && best.refined) continue;
+    if (r.text.length > best.text.length) {
+      best = r;
+    }
+  }
+
+  if (label) {
+    log.log(
+      `[RivenScan] chose ${label} candidate crop=${best.cropId || "unknown"} refined=${best.refined} ` +
+        `score=${best.score} stats=${best.stats.length} values=${best.valueCount}`,
+    );
   }
 
   return { text: best.text, stats: best.stats };
@@ -613,19 +1192,57 @@ export interface InitialScanResult {
   rawText: string;
 }
 
-export async function scanInitialCard(): Promise<InitialScanResult> {
-  const capture = await captureScreen();
+export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialScanResult> {
+  const ready = await waitForRivenUiReady(SINGLE_CARD_CROP, "initial");
+  if (!ready.ready) {
+    log.log(
+      `[RivenScan] initial UI gate timed out after ${ready.elapsedMs}ms (${ready.attempts} samples, best=${ready.bestScore.toFixed(3)})`,
+    );
+  }
+
+  const capture = ready.screenshot || (await captureScreen());
   if (!capture) {
     log.warn("[RivenScan] scanInitialCard: captureScreen returned null");
     return { stats: [], rawText: "" };
   }
 
   const imgSize = capture.image.getSize?.() ?? { width: "?", height: "?" };
-  log.log(`[RivenScan] initial capture: source=${capture.sourceType} name="${capture.sourceName}" size=${imgSize.width}x${imgSize.height}`);
+  log.log(
+    `[RivenScan] initial capture: source=${capture.sourceType} name="${capture.sourceName}" size=${imgSize.width}x${imgSize.height}`,
+  );
 
   try {
-    const { stats, text } = await ocrCropMultiStrategy(capture.image, SINGLE_CARD_CROP, TEMP_SINGLE, "initial-card");
-    log.log(`[RivenScan] initial card scan: ${stats.length} stats found`, stats.map((s) => `${s.positive ? "+" : "-"}${s.value ?? "?"}% ${s.name}`).join(", "));
+    let result = await ocrCropMultiStrategy(
+      capture.image,
+      SINGLE_CARD_CROP,
+      TEMP_SINGLE,
+      "initial-card",
+      expectedWeaponName,
+    );
+    const retry = await retrySparseRivenScan(
+      "initial-card",
+      result.stats,
+      650,
+      async () => {
+        const retryCapture = await captureScreen();
+        if (!retryCapture) return result;
+        return ocrCropMultiStrategy(
+          retryCapture.image,
+          SINGLE_CARD_CROP,
+          TEMP_SINGLE,
+          "initial-card-retry",
+          expectedWeaponName,
+        );
+      },
+      (value) => value.stats,
+    );
+    if (retry) result = retry;
+
+    const { stats, text } = result;
+    log.log(
+      `[RivenScan] initial card scan: ${stats.length} stats found`,
+      stats.map((s) => `${s.positive ? "+" : "-"}${s.value ?? "?"}% ${s.name}`).join(", "),
+    );
     return { stats, rawText: text };
   } catch (err) {
     log.warn("[RivenScan] initial card OCR failed:", String(err));
@@ -640,10 +1257,17 @@ export async function scanInitialCard(): Promise<InitialScanResult> {
  * scanning it again would only waste time.  Returns `left: []` by design;
  * the caller falls back to `_rivenInitialStats` when left is empty.
  */
-export async function scanNewRoll(): Promise<RollPanelResult> {
+export async function scanNewRoll(expectedWeaponName = ""): Promise<RollPanelResult> {
   const startAt = Date.now();
 
-  const capture = await captureScreen();
+  const ready = await waitForRivenUiReady(RIGHT_PANEL_CROP, "roll");
+  if (!ready.ready) {
+    log.log(
+      `[RivenScan] roll UI gate timed out after ${ready.elapsedMs}ms (${ready.attempts} samples, best=${ready.bestScore.toFixed(3)})`,
+    );
+  }
+
+  const capture = ready.screenshot || (await captureScreen());
   if (!capture) {
     log.warn("[RivenScan] scanNewRoll: captureScreen returned null");
     return { left: [], right: [] };
@@ -651,25 +1275,43 @@ export async function scanNewRoll(): Promise<RollPanelResult> {
 
   const image = capture.image;
   const imgSize = image.getSize?.() ?? { width: "?", height: "?" };
-  log.log(`[RivenScan] roll capture: source=${capture.sourceType} name="${capture.sourceName}" size=${imgSize.width}x${imgSize.height}`);
+  log.log(
+    `[RivenScan] roll capture: source=${capture.sourceType} name="${capture.sourceName}" size=${imgSize.width}x${imgSize.height}`,
+  );
 
   try {
     // Only scan the right (new roll) panel.  The left panel shows the current
     // riven whose stats we already know from the initial scan or previous choice.
-    const rightResult = await ocrCropMultiStrategy(image, RIGHT_PANEL_CROP, TEMP_RIGHT, "roll-right");
+    let rightResult = await ocrCropMultiStrategy(
+      image,
+      RIGHT_PANEL_CROP,
+      TEMP_RIGHT,
+      "roll-right",
+      expectedWeaponName,
+    );
 
     const elapsed = Date.now() - startAt;
     log.log(`[RivenScan] roll scan: right=${rightResult.stats.length} stats, elapsed=${elapsed}ms`);
 
     // If right side came back empty the animation may not have finished yet ---
     // retry once after a short delay.
-    if (rightResult.stats.length === 0) {
+    if (rightResult.stats.length < MIN_ACCEPTABLE_RIVEN_STATS) {
       await new Promise((resolve) => setTimeout(resolve, 800));
       const capture2 = await captureScreen();
       if (capture2) {
-        const r2 = await ocrCropMultiStrategy(capture2.image, RIGHT_PANEL_CROP, TEMP_RIGHT, "roll-right-retry");
-        log.log(`[RivenScan] roll-retry: right=${r2.stats.length} stats, elapsed=${Date.now() - startAt}ms`);
-        return { left: [], right: r2.stats };
+        const r2 = await ocrCropMultiStrategy(
+          capture2.image,
+          RIGHT_PANEL_CROP,
+          TEMP_RIGHT,
+          "roll-right-retry",
+          expectedWeaponName,
+        );
+        log.log(
+          `[RivenScan] roll-retry: right=${r2.stats.length} stats, elapsed=${Date.now() - startAt}ms`,
+        );
+        if (r2.stats.length >= rightResult.stats.length) {
+          rightResult = r2;
+        }
       }
     }
 
@@ -684,19 +1326,62 @@ export async function scanNewRoll(): Promise<RollPanelResult> {
  * Capture and OCR the single card shown after a choice (kept or rerolled).
  * Uses a narrower center crop to avoid capturing stale two-card transition text.
  */
-export async function scanChoiceRescan(): Promise<RivenStat[]> {
-  const capture = await captureScreen();
+export async function scanChoiceRescan(expectedWeaponName = ""): Promise<RivenStat[]> {
+  const ready = await waitForRivenUiReady(SINGLE_CARD_CROP, "choice");
+  if (!ready.ready) {
+    log.log(
+      `[RivenScan] choice UI gate timed out after ${ready.elapsedMs}ms (${ready.attempts} samples, best=${ready.bestScore.toFixed(3)})`,
+    );
+  }
+
+  const capture = ready.screenshot || (await captureScreen());
   if (!capture) {
     log.warn("[RivenScan] scanChoiceRescan: captureScreen returned null");
     return [];
   }
 
   try {
-    const { stats } = await ocrCropMultiStrategy(capture.image, SINGLE_CARD_CROP, TEMP_SINGLE, "choice-rescan");
-    log.log(`[RivenScan] choice rescan: ${stats.length} stats found`, stats.map((s) => `${s.positive ? "+" : "-"}${s.value ?? "?"}% ${s.name}`).join(", "));
+    let result = await ocrCropMultiStrategy(
+      capture.image,
+      SINGLE_CARD_CROP,
+      TEMP_SINGLE,
+      "choice-rescan",
+      expectedWeaponName,
+    );
+    const retry = await retrySparseRivenScan(
+      "choice-rescan",
+      result.stats,
+      500,
+      async () => {
+        const retryCapture = await captureScreen();
+        if (!retryCapture) return result;
+        return ocrCropMultiStrategy(
+          retryCapture.image,
+          SINGLE_CARD_CROP,
+          TEMP_SINGLE,
+          "choice-rescan-retry",
+          expectedWeaponName,
+        );
+      },
+      (value) => value.stats,
+    );
+    if (retry) result = retry;
+
+    const { stats } = result;
+    log.log(
+      `[RivenScan] choice rescan: ${stats.length} stats found`,
+      stats.map((s) => `${s.positive ? "+" : "-"}${s.value ?? "?"}% ${s.name}`).join(", "),
+    );
     return stats;
   } catch (err) {
     log.warn("[RivenScan] choice rescan OCR failed:", String(err));
     return [];
   }
 }
+
+export const __test__ = Object.freeze({
+  preprocessOcrText,
+  sanitiseValue,
+  extractSignAndValue,
+  scoreStatsCandidate,
+});

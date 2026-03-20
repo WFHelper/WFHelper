@@ -13,6 +13,7 @@
  */
 
 import { withScope } from "./logger";
+import { levenshteinDistance } from "./rewardScannerUtils";
 
 const log = withScope("rivenData");
 
@@ -54,6 +55,9 @@ const _weaponByNameLc = new Map<string, WeaponInfo>();
 /** Lowercase weapon name → display-cased name (for findWeaponInText) */
 const _weaponDisplayNames = new Map<string, string>();
 
+/** Normalized weapon name -> display-cased name */
+const _weaponDisplayNamesNormalized = new Map<string, string>();
+
 /** Weapon uniqueName → display name (reverse lookup for fingerprint compat) */
 const _weaponByUniqueName = new Map<string, string>();
 
@@ -75,9 +79,9 @@ const STAT_NAME_TO_TAG: Record<string, string> = {
   // Shared ranged stats
   "critical chance": "WeaponCritChanceMod",
   "critical damage": "WeaponCritDamageMod",
-  "multishot": "WeaponFireIterationsMod",
+  multishot: "WeaponFireIterationsMod",
   "fire rate": "WeaponFireRateMod",
-  "damage": "WeaponDamageAmountMod",
+  damage: "WeaponDamageAmountMod",
   "reload speed": "WeaponReloadSpeedMod",
   "status chance": "WeaponStunChanceMod",
   "status duration": "WeaponProcTimeMod",
@@ -85,18 +89,18 @@ const STAT_NAME_TO_TAG: Record<string, string> = {
   "magazine capacity": "WeaponClipMaxMod",
   "ammo maximum": "WeaponAmmoMaxMod",
   "weapon recoil": "WeaponRecoilReductionMod",
-  "recoil": "WeaponRecoilReductionMod",
-  "zoom": "WeaponZoomFovMod",
+  recoil: "WeaponRecoilReductionMod",
+  zoom: "WeaponZoomFovMod",
   "projectile speed": "WeaponProjectileSpeedMod",
   // Physical damage
-  "impact": "WeaponImpactDamageMod",
-  "puncture": "WeaponArmorPiercingDamageMod",
-  "slash": "WeaponSlashDamageMod",
+  impact: "WeaponImpactDamageMod",
+  puncture: "WeaponArmorPiercingDamageMod",
+  slash: "WeaponSlashDamageMod",
   // Elemental damage
-  "cold": "WeaponFreezeDamageMod",
-  "heat": "WeaponFireDamageMod",
-  "electricity": "WeaponElectricityDamageMod",
-  "toxin": "WeaponToxinDamageMod",
+  cold: "WeaponFreezeDamageMod",
+  heat: "WeaponFireDamageMod",
+  electricity: "WeaponElectricityDamageMod",
+  toxin: "WeaponToxinDamageMod",
   // Faction damage (ranged)
   "damage to grineer": "WeaponFactionDamageGrineer",
   "damage to corpus": "WeaponFactionDamageCorpus",
@@ -104,7 +108,7 @@ const STAT_NAME_TO_TAG: Record<string, string> = {
   // Melee-specific
   "melee damage": "WeaponMeleeDamageMod",
   "attack speed": "WeaponFireRateMod",
-  "range": "WeaponMeleeRangeIncMod",
+  range: "WeaponMeleeRangeIncMod",
   "combo duration": "ComboDurationMod",
   "critical chance for slide attack": "SlideAttackCritChanceMod",
   "slide attack": "SlideAttackCritChanceMod",
@@ -195,6 +199,20 @@ function stripColorTags(text: string): string {
   return text.replace(/<[^>]+>/g, "").trim();
 }
 
+function normalizeWeaponOcrText(text: string): string {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const WEAPON_OCR_ALIASES: Readonly<Record<string, string>> = Object.freeze({
+  euphona: "Euphona Prime",
+  gotva: "Gotva Prime",
+  reaper: "Reaper Prime",
+});
+
 function cleanLocTag(raw: string): string {
   // locTags look like: "|val|% <DT_FIRE_COLOR>Heat" or "|val|% Critical Chance"
   // Strip the |val|%, |STAT1|%, |val|s prefixes and color tags
@@ -233,20 +251,26 @@ function ensureBuilt(): void {
         compatibilityTags: Array.isArray(w.compatibilityTags) ? w.compatibilityTags : [],
       });
       _weaponDisplayNames.set(name.toLowerCase(), name);
+      _weaponDisplayNamesNormalized.set(normalizeWeaponOcrText(name), name);
       _weaponByUniqueName.set(uniqueName, name);
       weaponCount++;
     }
 
     // ── Index riven mods ───────────────────────────────────────────────────
     for (const [key, mod] of Object.entries(upgrades)) {
-      if (!mod.upgradeEntries || !Array.isArray(mod.upgradeEntries) || mod.upgradeEntries.length === 0) continue;
+      if (
+        !mod.upgradeEntries ||
+        !Array.isArray(mod.upgradeEntries) ||
+        mod.upgradeEntries.length === 0
+      )
+        continue;
       if (!key.includes("Randomized")) continue; // skip non-riven mods with upgradeEntries
 
       const entries: UpgradeEntry[] = [];
       for (const ue of mod.upgradeEntries) {
         const baseValue = ue.upgradeValues?.[0]?.value ?? 0;
         const locTag = ue.upgradeValues?.[0]?.locTag;
-        let displayName = locTag ? (dict[locTag] || "") : "";
+        let displayName = locTag ? dict[locTag] || "" : "";
         displayName = cleanLocTag(displayName);
         if (!displayName) displayName = TAG_TO_DISPLAY[ue.tag] || ue.tag;
 
@@ -445,8 +469,14 @@ export function generateRivenSuffix(
   // (the game uses this order, not the fingerprint's arbitrary order).
   const tagIndex = new Map(entries.map((e, i) => [e.tag, i]));
   const sorted = [...buffTags].sort((a, b) => {
-    const ia = tagIndex.get(a) ?? tagIndex.get(a.replace("WeaponFaction", "WeaponMeleeFaction")) ?? (a === "WeaponDamageAmountMod" ? (tagIndex.get("WeaponMeleeDamageMod") ?? 999) : 999);
-    const ib = tagIndex.get(b) ?? tagIndex.get(b.replace("WeaponFaction", "WeaponMeleeFaction")) ?? (b === "WeaponDamageAmountMod" ? (tagIndex.get("WeaponMeleeDamageMod") ?? 999) : 999);
+    const ia =
+      tagIndex.get(a) ??
+      tagIndex.get(a.replace("WeaponFaction", "WeaponMeleeFaction")) ??
+      (a === "WeaponDamageAmountMod" ? (tagIndex.get("WeaponMeleeDamageMod") ?? 999) : 999);
+    const ib =
+      tagIndex.get(b) ??
+      tagIndex.get(b.replace("WeaponFaction", "WeaponMeleeFaction")) ??
+      (b === "WeaponDamageAmountMod" ? (tagIndex.get("WeaponMeleeDamageMod") ?? 999) : 999);
     return ia - ib;
   });
 
@@ -476,7 +506,10 @@ export function generateRivenSuffix(
   // Format: TitleCase(first) + "-" + rest concatenated lowercase
   const first = syllables[0].charAt(0).toUpperCase() + syllables[0].slice(1).toLowerCase();
   if (syllables.length === 1) return first;
-  const rest = syllables.slice(1).map((s) => s.toLowerCase()).join("");
+  const rest = syllables
+    .slice(1)
+    .map((s) => s.toLowerCase())
+    .join("");
   return `${first}-${rest}`;
 }
 
@@ -489,10 +522,10 @@ export function generateRivenSuffix(
 export function findWeaponInText(text: string): string | null {
   ensureBuilt();
   const lc = text.toLowerCase();
-  let best: string | null = null;
-  let bestLen = 0;
+  let bestExact: string | null = null;
+  let bestExactLen = 0;
   for (const [nameLc, info] of _weaponByNameLc) {
-    if (nameLc.length <= bestLen) continue;
+    if (nameLc.length <= bestExactLen) continue;
     if (nameLc.length < 3) continue; // skip very short names to avoid false positives
     if (lc.includes(nameLc)) {
       // Return the display-cased version from the unique name
@@ -500,11 +533,78 @@ export function findWeaponInText(text: string): string | null {
       // Actually the map value has uniqueName — but we need display name.
       // We'll keep a second map, or just re-case.  For now return the
       // known key with proper casing via _weaponDisplayNames.
-      best = _weaponDisplayNames.get(nameLc) || nameLc;
-      bestLen = nameLc.length;
+      bestExact = _weaponDisplayNames.get(nameLc) || nameLc;
+      bestExactLen = nameLc.length;
     }
   }
-  return best;
+
+  const lines = String(text || "")
+    .split(/\r?\n/)
+    .map((line) => normalizeWeaponOcrText(line))
+    .filter((line) => line.length >= 4)
+    .slice(0, 4);
+
+  for (const line of lines) {
+    const alias = WEAPON_OCR_ALIASES[line];
+    if (alias) return alias;
+  }
+
+  let bestCandidate: { name: string; distance: number; tokenCount: number } | null = null;
+
+  for (const line of lines) {
+    const words = line.split(" ").filter((word) => word.length >= 2);
+    if (words.length === 0) continue;
+
+    for (let start = 0; start < words.length; start += 1) {
+      for (let len = 1; len <= 4 && start + len <= words.length; len += 1) {
+        const phrase = words
+          .slice(start, start + len)
+          .join(" ")
+          .trim();
+        if (phrase.length < 4) continue;
+
+        const directAlias = WEAPON_OCR_ALIASES[phrase];
+        if (directAlias) return directAlias;
+
+        for (const [normalizedWeapon, displayName] of _weaponDisplayNamesNormalized) {
+          if (!normalizedWeapon) continue;
+
+          const phraseWords = phrase.split(" ");
+          const weaponWords = normalizedWeapon.split(" ");
+          if (Math.abs(phraseWords.length - weaponWords.length) > 1) continue;
+
+          const maxDistance =
+            normalizedWeapon.length >= 14 ? 3 : normalizedWeapon.length >= 8 ? 2 : 1;
+          const distance = levenshteinDistance(phrase, normalizedWeapon);
+          if (distance > maxDistance) continue;
+
+          if (
+            !bestCandidate ||
+            distance < bestCandidate.distance ||
+            (distance === bestCandidate.distance &&
+              weaponWords.length > bestCandidate.tokenCount) ||
+            (distance <= bestCandidate.distance + 1 &&
+              weaponWords.length > bestCandidate.tokenCount)
+          ) {
+            bestCandidate = {
+              name: displayName,
+              distance,
+              tokenCount: weaponWords.length,
+            };
+          }
+        }
+      }
+    }
+  }
+
+  if (bestCandidate?.name) {
+    if (!bestExact) return bestCandidate.name;
+    const bestCandidateWords = normalizeWeaponOcrText(bestCandidate.name).split(" ").length;
+    const bestExactWords = normalizeWeaponOcrText(bestExact).split(" ").length;
+    if (bestCandidateWords > bestExactWords) return bestCandidate.name;
+  }
+
+  return bestExact ?? bestCandidate?.name ?? null;
 }
 
 /**

@@ -21,17 +21,21 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { createRewardOcrRunner } from "./rewardScannerOcr";
-const {
-  OVERLAY_SETTINGS_DEFAULTS,
-  OVERLAY_SETTINGS_LIMITS,
-} = require("../config/runtime/overlaySettings") as {
-  OVERLAY_SETTINGS_DEFAULTS: Record<string, any>;
-  OVERLAY_SETTINGS_LIMITS: Record<string, any>;
-};
+const { OVERLAY_SETTINGS_DEFAULTS, OVERLAY_SETTINGS_LIMITS } =
+  require("../config/runtime/overlaySettings") as {
+    OVERLAY_SETTINGS_DEFAULTS: Record<string, any>;
+    OVERLAY_SETTINGS_LIMITS: Record<string, any>;
+  };
 
 import { clampNumber, round4 } from "./rewardScannerUtils";
 import { captureScreen, captureDebugFrame, captureSourceMeta } from "./rewardScannerCapture";
-import { cropRewardBand, cropBand, cropRect, buildOcrVariants } from "./rewardScannerImage";
+import {
+  cropRewardBand,
+  cropBand,
+  cropRect,
+  buildOcrVariants,
+  detectRewardSlotLayout,
+} from "./rewardScannerImage";
 import {
   matchItemsDetailed,
   chooseBetterOcrPass,
@@ -51,6 +55,9 @@ const log = withScope("rewardScanner");
 const OCR_SCRIPT = path.join(__dirname, "..", "scripts", "ocr.ps1");
 const TEMP_IMAGE = path.join(os.tmpdir(), "wf-companion-reward-ocr.png");
 const TEMP_ERA_IMAGE = path.join(os.tmpdir(), "wf-companion-era-ocr.png");
+
+const REWARD_SCAN_BUDGET_MIN_MS = 2500;
+const REWARD_SCAN_BUDGET_MAX_MS = 9000;
 
 // --- OCR engine constants ---------------------------------------------------
 
@@ -312,6 +319,111 @@ function buildScanMeta({
   };
 }
 
+function buildTempImagePath(basePath: string, label: string): string {
+  const ext = path.extname(basePath) || ".png";
+  const stem = ext ? basePath.slice(0, -ext.length) : basePath;
+  const safeLabel = String(label || "scan").replace(/[^a-z0-9_-]+/gi, "-");
+  return `${stem}-${safeLabel}-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+}
+
+function computeRewardScanBudgetMs(): number {
+  const passes = Math.max(1, Math.floor(scanSettings.ocrPasses || 1));
+  const perAttempt = Math.max(700, Math.min(Number(scanSettings.ocrTimeoutMs) || 0, 2500));
+  return Math.max(
+    REWARD_SCAN_BUDGET_MIN_MS,
+    Math.min(REWARD_SCAN_BUDGET_MAX_MS, 1200 + passes * 700 + perAttempt),
+  );
+}
+
+async function scanRewardSlotsFallback(
+  screenshot: any,
+  expectedCount: number,
+  totalBudgetMs: number,
+  startedAt: number,
+): Promise<{
+  items: any[];
+  score: number;
+  exactCount: number;
+  slotCount: number;
+  strategy: string;
+  slotConfidence: number;
+} | null> {
+  const layout = detectRewardSlotLayout(screenshot?.image);
+  if (!layout.count || layout.confidence < 0.38) return null;
+
+  const slotLimit = Math.min(expectedCount || layout.count, layout.count, MAX_REWARD_SLOTS);
+  const collected: any[] = [];
+  let score = 0;
+  let exactCount = 0;
+
+  for (let i = 0; i < slotLimit; i += 1) {
+    const slot = layout.slots[i];
+    if (!slot) continue;
+
+    const elapsed = Date.now() - startedAt;
+    const remainingBudgetMs = totalBudgetMs - elapsed;
+    if (remainingBudgetMs <= 0) break;
+
+    let crop: any;
+    try {
+      crop = cropRect(screenshot.image, slot.titleRect);
+    } catch {
+      continue;
+    }
+
+    let best: any = null;
+    const variants = buildOcrVariants(crop);
+    for (const variant of variants) {
+      let ocrText = "";
+      try {
+        const tempPath = buildTempImagePath(TEMP_IMAGE, `reward-slot-${i + 1}-${variant.id}`);
+        fs.writeFileSync(tempPath, variant.image.toPNG());
+        try {
+          ocrText = await runOCR(
+            tempPath,
+            Math.max(500, Math.min(scanSettings.ocrTimeoutMs, remainingBudgetMs)),
+          );
+        } finally {
+          try {
+            fs.unlinkSync(tempPath);
+          } catch {
+            // best effort temp cleanup
+          }
+        }
+      } catch {
+        continue;
+      }
+
+      const matched = matchItemsDetailed(ocrText, scanSettings.matchThreshold, sortedItems);
+      const candidate = {
+        ...matched,
+        text: ocrText,
+        ocrVariant: variant.id,
+      };
+      best = chooseBetterOcrPass(best, candidate);
+      if (matched.exactCount >= 1) break;
+    }
+
+    if (!best?.items?.length) continue;
+    const item = best.items[0];
+    if (!item) continue;
+    collected.push(item);
+    score += Number(best.score || 0);
+    exactCount += Number(best.exactCount || 0) > 0 ? 1 : 0;
+  }
+
+  if (!collected.length) return null;
+
+  return {
+    items: collected.slice(0, slotLimit),
+    score,
+    exactCount,
+    slotCount: slotLimit,
+    strategy: "slot-fallback",
+    slotConfidence: layout.confidence,
+  };
+}
+
 // --- Relic era detection ----------------------------------------------------
 
 export async function detectRelicSelectionEra(options: any = {}): Promise<{
@@ -387,15 +499,19 @@ export async function detectRelicSelectionEra(options: any = {}): Promise<{
     for (const variant of variants) {
       if (Date.now() - startedAt >= timeoutMs) break;
 
+      let ocrText = "";
       try {
-        fs.writeFileSync(TEMP_ERA_IMAGE, variant.image.toPNG());
-      } catch {
-        continue;
-      }
-
-      let ocrText: string;
-      try {
-        ocrText = await runOCR(TEMP_ERA_IMAGE, perAttemptTimeoutMs);
+        const tempPath = buildTempImagePath(TEMP_ERA_IMAGE, `era-${rect.id}-${variant.id}`);
+        fs.writeFileSync(tempPath, variant.image.toPNG());
+        try {
+          ocrText = await runOCR(tempPath, perAttemptTimeoutMs);
+        } finally {
+          try {
+            fs.unlinkSync(tempPath);
+          } catch {
+            // best effort temp cleanup
+          }
+        }
       } catch {
         continue;
       }
@@ -439,15 +555,19 @@ export async function detectRelicSelectionEra(options: any = {}): Promise<{
       for (const variant of variants) {
         if (Date.now() - startedAt >= timeoutMs) break;
 
+        let ocrText = "";
         try {
-          fs.writeFileSync(TEMP_ERA_IMAGE, variant.image.toPNG());
-        } catch {
-          continue;
-        }
-
-        let ocrText: string;
-        try {
-          ocrText = await runOCR(TEMP_ERA_IMAGE, perAttemptTimeoutMs);
+          const tempPath = buildTempImagePath(TEMP_ERA_IMAGE, `era-band-${variant.id}`);
+          fs.writeFileSync(tempPath, variant.image.toPNG());
+          try {
+            ocrText = await runOCR(tempPath, perAttemptTimeoutMs);
+          } finally {
+            try {
+              fs.unlinkSync(tempPath);
+            } catch {
+              // best effort temp cleanup
+            }
+          }
         } catch {
           continue;
         }
@@ -501,6 +621,7 @@ export async function scanRewardsDetailed(): Promise<{
   }
 
   const scanStartedAt = Date.now();
+  const totalBudgetMs = computeRewardScanBudgetMs();
 
   let screenshot: any;
   try {
@@ -522,12 +643,26 @@ export async function scanRewardsDetailed(): Promise<{
 
   const threshold = scanSettings.matchThreshold;
   const bands = getBandsForPasses(scanSettings.cropPreset, scanSettings.ocrPasses);
+  const detectedLayout = detectRewardSlotLayout(screenshot.image);
+  const expectedItemCount =
+    detectedLayout.count >= 2 && detectedLayout.confidence >= 0.38
+      ? Math.min(detectedLayout.count, MAX_REWARD_SLOTS)
+      : MAX_REWARD_SLOTS;
+
+  log.log(
+    `[RewardScanner] Slot layout estimate: count=${detectedLayout.count} confidence=${detectedLayout.confidence.toFixed(3)} expected=${expectedItemCount}`,
+  );
 
   let hadOcrSuccess = false;
   const passResults: any[] = [];
   let bestPass: any = null;
 
   for (let i = 0; i < bands.length; i += 1) {
+    if (Date.now() - scanStartedAt >= totalBudgetMs) {
+      log.log(`[RewardScanner] scan budget exhausted before pass ${i + 1}/${bands.length}`);
+      break;
+    }
+
     let cropped: any;
     try {
       cropped = cropRewardBand(screenshot.image, bands[i]);
@@ -540,10 +675,29 @@ export async function scanRewardsDetailed(): Promise<{
     const variants = buildOcrVariants(cropped);
 
     for (const variant of variants) {
+      const elapsed = Date.now() - scanStartedAt;
+      const remainingBudgetMs = totalBudgetMs - elapsed;
+      if (remainingBudgetMs <= 0) {
+        log.log(`[RewardScanner] scan budget exhausted before OCR on pass ${i + 1}`);
+        break;
+      }
+
       let ocrText: string;
       try {
-        fs.writeFileSync(TEMP_IMAGE, variant.image.toPNG());
-        ocrText = await runOCR(TEMP_IMAGE, scanSettings.ocrTimeoutMs);
+        const tempPath = buildTempImagePath(TEMP_IMAGE, `reward-p${i + 1}-${variant.id}`);
+        fs.writeFileSync(tempPath, variant.image.toPNG());
+        try {
+          ocrText = await runOCR(
+            tempPath,
+            Math.max(700, Math.min(scanSettings.ocrTimeoutMs, remainingBudgetMs)),
+          );
+        } finally {
+          try {
+            fs.unlinkSync(tempPath);
+          } catch {
+            // best effort temp cleanup
+          }
+        }
         hadOcrSuccess = true;
       } catch (err) {
         log.error(
@@ -564,7 +718,7 @@ export async function scanRewardsDetailed(): Promise<{
 
       passResult = chooseBetterOcrPass(passResult, candidate);
 
-      if (matched.items.length === MAX_REWARD_SLOTS && matched.exactCount === MAX_REWARD_SLOTS) {
+      if (matched.items.length >= expectedItemCount && matched.exactCount >= expectedItemCount) {
         break;
       }
     }
@@ -580,8 +734,8 @@ export async function scanRewardsDetailed(): Promise<{
     }
 
     if (
-      passResult.items.length === MAX_REWARD_SLOTS &&
-      passResult.exactCount === MAX_REWARD_SLOTS
+      passResult.items.length >= expectedItemCount &&
+      passResult.exactCount >= expectedItemCount
     ) {
       break;
     }
@@ -593,11 +747,29 @@ export async function scanRewardsDetailed(): Promise<{
 
   const consensus = buildConsensusSelection(passResults);
   const selectedPass = consensus?.selectedPass || bestPass || passResults[0] || null;
-  const items = (consensus?.items || selectedPass?.items || []).slice(0, MAX_REWARD_SLOTS);
+  let items = (consensus?.items || selectedPass?.items || []).slice(0, expectedItemCount);
+  let finalStrategy = consensus?.strategy || "best-pass";
+
+  if (items.length < expectedItemCount) {
+    const slotFallback = await scanRewardSlotsFallback(
+      screenshot,
+      expectedItemCount,
+      totalBudgetMs,
+      scanStartedAt,
+    );
+    if (slotFallback && slotFallback.items.length > items.length) {
+      items = slotFallback.items;
+      finalStrategy = slotFallback.strategy;
+      log.log(
+        `[RewardScanner] Slot fallback improved result: ${slotFallback.items.length}/${expectedItemCount} items ` +
+          `(exact=${slotFallback.exactCount}, confidence=${slotFallback.slotConfidence.toFixed(3)})`,
+      );
+    }
+  }
 
   if (items.length > 0) {
     log.log(
-      `[RewardScanner] Detected (${consensus?.strategy || "best-pass"} pass ${selectedPass?.passIndex ?? "?"}, ` +
+      `[RewardScanner] Detected (${finalStrategy} pass ${selectedPass?.passIndex ?? "?"}, ` +
         `score ${Number(selectedPass?.score || 0).toFixed(2)}, variant ${selectedPass?.ocrVariant || "raw"}):`,
       items.map((item: any) => item.name).join(" | "),
     );
@@ -616,7 +788,7 @@ export async function scanRewardsDetailed(): Promise<{
     screenshot,
     selectedPass,
     passCount: bands.length,
-    strategy: consensus?.strategy || "best-pass",
+    strategy: finalStrategy,
     elapsedMs: Date.now() - scanStartedAt,
     hadOcrSuccess,
   });

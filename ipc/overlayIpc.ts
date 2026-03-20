@@ -26,7 +26,6 @@ import * as warframeStatus from "../services/warframeStatus";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 import { startEscMonitor, stopEscMonitor } from "../services/keyboardMonitor";
 
-
 const requireRuntime = createRuntimeRequire(__dirname, 1);
 
 const log = withScope("overlayIpc");
@@ -248,9 +247,9 @@ let _rivenRollScanTimer: ReturnType<typeof setTimeout> | null = null;
 // ROLL: The roll animation is slow (card flip, particle effects) — needs a generous delay.
 // CHOICE_RESCAN: After the "Cycle Riven into current selection?" confirm, the game
 // quickly transitions back to the single-card view — shorter delay than a full roll.
-const INITIAL_SCAN_DELAY_MS = 800;
-const ROLL_SCAN_DELAY_MS = 3000;
-const CHOICE_RESCAN_DELAY_MS = 1200;
+const INITIAL_SCAN_DELAY_MS = 700;
+const ROLL_SCAN_DELAY_MS = 2600;
+const CHOICE_RESCAN_DELAY_MS = 900;
 
 // Last known stats for choice detection (old vs new)
 let _rivenInitialStats: rivenScan.RivenStat[] = [];
@@ -268,6 +267,54 @@ let _rivenWeaponName = "";
 function tryGradeStats(stats: rivenScan.RivenStat[]): rivenGrading.RivenGradeResult | null {
   if (!_rivenWeaponName || _rivenWeaponName === "Riven" || stats.length === 0) return null;
   return rivenGrading.gradeRiven(_rivenWeaponName, stats);
+}
+
+function scoreRivenStatSimilarity(
+  left: rivenScan.RivenStat[],
+  right: rivenScan.RivenStat[],
+): number {
+  if (!Array.isArray(left) || !Array.isArray(right) || left.length === 0 || right.length === 0) {
+    return 0;
+  }
+
+  const rightByName = new Map(right.map((stat) => [stat.name.toLowerCase(), stat] as const));
+
+  let score = 0;
+  for (const stat of left) {
+    const match = rightByName.get(stat.name.toLowerCase());
+    if (!match) {
+      score -= 4;
+      continue;
+    }
+
+    score += stat.positive === match.positive ? 12 : 2;
+    if (stat.value != null && match.value != null) {
+      const base = Math.max(5, Math.abs(stat.value), Math.abs(match.value));
+      const diffRatio = Math.abs(stat.value - match.value) / base;
+      score += Math.max(0, 8 - diffRatio * 24);
+    } else if (stat.value === match.value) {
+      score += 2;
+    }
+  }
+
+  const unmatchedRight = Math.max(0, right.length - left.length);
+  score -= unmatchedRight * 3;
+  return score;
+}
+
+function inferChosenSide(current: rivenScan.RivenStat[]): "left" | "right" | "unknown" {
+  if (!current.length || !_rivenInitialStats.length || !_rivenNewRollStats.length) return "unknown";
+
+  const leftScore = scoreRivenStatSimilarity(current, _rivenInitialStats);
+  const rightScore = scoreRivenStatSimilarity(current, _rivenNewRollStats);
+  log.log(
+    `[RivenScan] choice similarity: left=${leftScore.toFixed(2)} right=${rightScore.toFixed(2)}`,
+  );
+
+  const best = Math.max(leftScore, rightScore);
+  const delta = Math.abs(leftScore - rightScore);
+  if (best < 12 || delta < 6) return "unknown";
+  return rightScore > leftScore ? "right" : "left";
 }
 
 /**
@@ -317,8 +364,14 @@ function sendWeaponEnrichment(): void {
 }
 
 function clearRivenScanTimers(): void {
-  if (_rivenInitialScanTimer) { clearTimeout(_rivenInitialScanTimer); _rivenInitialScanTimer = null; }
-  if (_rivenRollScanTimer) { clearTimeout(_rivenRollScanTimer); _rivenRollScanTimer = null; }
+  if (_rivenInitialScanTimer) {
+    clearTimeout(_rivenInitialScanTimer);
+    _rivenInitialScanTimer = null;
+  }
+  if (_rivenRollScanTimer) {
+    clearTimeout(_rivenRollScanTimer);
+    _rivenRollScanTimer = null;
+  }
 }
 
 function triggerInitialScan(): void {
@@ -326,7 +379,7 @@ function triggerInitialScan(): void {
   _rivenInitialScanTimer = setTimeout(async () => {
     _rivenInitialScanTimer = null;
     try {
-      const { stats, rawText } = await rivenScan.scanInitialCard();
+      const { stats, rawText } = await rivenScan.scanInitialCard(_rivenWeaponName);
       _rivenInitialStats = stats;
 
       // Try to extract weapon name from OCR text if not already known
@@ -358,10 +411,10 @@ function triggerRollScan(): void {
   _rivenRollScanTimer = setTimeout(async () => {
     _rivenRollScanTimer = null;
     try {
-      const panels = await rivenScan.scanNewRoll();
+      const panels = await rivenScan.scanNewRoll(_rivenWeaponName);
       // If the OCR produced per-panel results, use them directly.  Otherwise
       // fall back to the initial stats we already have for the left panel.
-      const leftStats  = panels.left.length  > 0 ? panels.left  : _rivenInitialStats;
+      const leftStats = panels.left.length > 0 ? panels.left : _rivenInitialStats;
       const rightStats = panels.right;
       _rivenNewRollStats = rightStats;
       if (rightStats.length > 0) {
@@ -371,7 +424,7 @@ function triggerRollScan(): void {
           right: rightStats,
         });
         // Send grading for both panels
-        const leftGraded  = tryGradeStats(leftStats);
+        const leftGraded = tryGradeStats(leftStats);
         const rightGraded = tryGradeStats(rightStats);
         if (leftGraded || rightGraded) {
           forEachRivenWindow((win) => {
@@ -425,7 +478,9 @@ export function onRivenChatView(): void {
     _rivenInteractive = false;
     const leftWin = createSingleRivenWindow("left", dx + PAD, dy + 80, { show: true });
     ctx.rivenOverlayLeftWindow = leftWin;
-    leftWin.on("closed", () => { ctx.rivenOverlayLeftWindow = null; });
+    leftWin.on("closed", () => {
+      ctx.rivenOverlayLeftWindow = null;
+    });
   } else {
     existLeft.setAlwaysOnTop(true, "screen-saver");
     existLeft.moveTop();
@@ -510,11 +565,15 @@ export function onRivenChoiceConfirmed(): void {
   _rivenInitialScanTimer = setTimeout(async () => {
     _rivenInitialScanTimer = null;
     try {
-      const stats = await rivenScan.scanChoiceRescan();
+      const stats = await rivenScan.scanChoiceRescan(_rivenWeaponName);
+      const chosenSide = inferChosenSide(stats);
       _rivenInitialStats = stats;
       if (stats.length > 0) {
         rivenSession.onInitialStats(getRivenWindows(), stats);
         sendGradedInitialStats();
+      }
+      if (chosenSide !== "unknown") {
+        rivenSession.onChoiceMade(getRivenWindows(), chosenSide);
       }
     } catch (err) {
       log.warn("[RivenScan] choice rescan failed:", String(err));
@@ -578,7 +637,9 @@ function toggleOverlayInteractionMode(source = "unknown"): void {
       : null;
   const anyRivenVisible =
     (rivenLeftWindow && rivenLeftWindow.isVisible()) ||
-    (ctx.rivenOverlayRightWindow && !ctx.rivenOverlayRightWindow.isDestroyed() && ctx.rivenOverlayRightWindow.isVisible());
+    (ctx.rivenOverlayRightWindow &&
+      !ctx.rivenOverlayRightWindow.isDestroyed() &&
+      ctx.rivenOverlayRightWindow.isVisible());
 
   // Only consider a window "active" if it is currently visible.
   const activeWindow =
@@ -803,11 +864,7 @@ function register(): void {
 
   ipcMain.on("riven-overlay-close", (event: unknown) => {
     if (
-      !isAuthorizedSender(
-        assertRivenOverlayRendererSender,
-        event as never,
-        "riven-overlay-close",
-      )
+      !isAuthorizedSender(assertRivenOverlayRendererSender, event as never, "riven-overlay-close")
     ) {
       return;
     }
@@ -823,11 +880,7 @@ function register(): void {
 
   ipcMain.on("riven-open-auction", (event: unknown, auctionId: unknown) => {
     if (
-      !isAuthorizedSender(
-        assertRivenOverlayRendererSender,
-        event as never,
-        "riven-open-auction",
-      )
+      !isAuthorizedSender(assertRivenOverlayRendererSender, event as never, "riven-open-auction")
     ) {
       return;
     }
@@ -958,11 +1011,7 @@ function register(): void {
 
   ipcMain.on("overlay:push-relic-filters", (event: unknown, rawFilters: unknown) => {
     if (
-      !isAuthorizedSender(
-        assertMainRendererSender,
-        event as never,
-        "overlay:push-relic-filters",
-      )
+      !isAuthorizedSender(assertMainRendererSender, event as never, "overlay:push-relic-filters")
     ) {
       return;
     }

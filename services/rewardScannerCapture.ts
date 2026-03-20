@@ -82,13 +82,10 @@ export function isLikelyWrongWindowName(name: any): boolean {
 }
 
 interface PickScreenOptions {
-  preferredDisplayId?: string;
+  preferredDisplayId?: string | null;
 }
 
-export function pickScreenSource(
-  sources: any[],
-  options: PickScreenOptions = {},
-): any | null {
+export function pickScreenSource(sources: any[], options: PickScreenOptions = {}): any | null {
   if (!Array.isArray(sources) || sources.length === 0) return null;
 
   const preferredDisplayId =
@@ -134,16 +131,16 @@ export function pickScreenSource(
       if (byPrimaryDisplay) return byPrimaryDisplay;
     }
   } catch (err) {
-    log.warn(
-      "[RewardScanner] pickScreenSource primary lookup failed:",
-      normalizeErrorMessage(err),
-    );
+    log.warn("[RewardScanner] pickScreenSource primary lookup failed:", normalizeErrorMessage(err));
   }
 
   return sources[0] || null;
 }
 
-export function getCaptureThumbnailSize(): { width: number; height: number } {
+export function getCaptureThumbnailSize(preferredDisplayId?: string | null): {
+  width: number;
+  height: number;
+} {
   let screenApi: any;
   try {
     ({ screen: screenApi } = require("electron") as typeof import("electron"));
@@ -155,7 +152,12 @@ export function getCaptureThumbnailSize(): { width: number; height: number } {
   }
 
   try {
-    const primary = screenApi.getPrimaryDisplay();
+    const displays = screenApi.getAllDisplays?.() || [];
+    const preferred =
+      preferredDisplayId != null
+        ? displays.find((display: any) => String(display?.id ?? "") === String(preferredDisplayId))
+        : null;
+    const primary = preferred || screenApi.getPrimaryDisplay();
     const width = clampNumber(
       primary?.size?.width || 0,
       CAPTURE_THUMBNAIL_LIMITS.minWidth,
@@ -204,7 +206,7 @@ export async function captureScreen(options: CaptureOptions = {}): Promise<Captu
   }
 
   let sources: any[];
-  const thumbnailSize = getCaptureThumbnailSize();
+  const thumbnailSize = getCaptureThumbnailSize(options.preferredDisplayId || null);
   try {
     sources = await desktopCapturer.getSources({
       types: ["window"],
@@ -254,9 +256,7 @@ export async function captureScreen(options: CaptureOptions = {}): Promise<Captu
   return null;
 }
 
-export async function captureDebugFrame(
-  options: CaptureOptions = {},
-): Promise<{
+export async function captureDebugFrame(options: CaptureOptions = {}): Promise<{
   imageDataUrl: string;
   width: number;
   height: number;

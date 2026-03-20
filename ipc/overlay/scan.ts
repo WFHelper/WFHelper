@@ -1,4 +1,3 @@
-
 import { createRuntimeRequire } from "../runtimeRequire";
 
 const requireRuntime = createRuntimeRequire(__dirname, 2);
@@ -36,7 +35,7 @@ type OverlayScanControllerOptions = {
     error: (...args: unknown[]) => void;
   };
   rewardScanner: {
-    scanRewardsDetailed: () => Promise<RewardScanResult>;
+    scanRewardsDetailed: () => Promise<RewardScanResult | null>;
     waitForRewardUiReady?: (options: {
       timeoutMs: number;
       pollMs: number;
@@ -114,7 +113,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
     while (attempts < SCAN_MAX_ATTEMPTS && Date.now() - startedAt < SCAN_RETRY_WINDOW_MS) {
       attempts += 1;
 
-      let result: RewardScanResult | undefined;
+      let result: RewardScanResult | null | undefined;
       try {
         result = await rewardScanner.scanRewardsDetailed();
       } catch (err) {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { RIVEN_PATTERNS } from "../../services/eeLogMonitor";
-import { parseRivenStats } from "../../ipc/overlay/rivenScan";
+import { __test__ as rivenScanTest, parseRivenStats } from "../../ipc/overlay/rivenScan";
+import { findWeaponInText } from "../../services/rivenData";
 
 // ── EE.log riven pattern tests ────────────────────────────────────────────────
 
@@ -47,16 +48,14 @@ describe("RIVEN_PATTERNS", () => {
     });
 
     it("does not match the choice confirm dialog", () => {
-      const line =
-        "Dialog::CreateOkCancel(description=Cycle Riven into current selection?, ...)";
+      const line = "Dialog::CreateOkCancel(description=Cycle Riven into current selection?, ...)";
       expect(RIVEN_PATTERNS.cycleConfirmEn.test(line)).toBe(false);
     });
   });
 
   describe("choiceConfirmEn", () => {
     it("matches the keep/reroll choice dialog (English)", () => {
-      const line =
-        "Dialog::CreateOkCancel(description=Cycle Riven into current selection?, ...)";
+      const line = "Dialog::CreateOkCancel(description=Cycle Riven into current selection?, ...)";
       expect(RIVEN_PATTERNS.choiceConfirmEn.test(line)).toBe(true);
     });
 
@@ -85,9 +84,7 @@ describe("RIVEN_PATTERNS", () => {
     });
 
     it("does not match SendResult", () => {
-      expect(
-        RIVEN_PATTERNS.genericDialog.test("Dialog.lua: Dialog::SendResult(4)"),
-      ).toBe(false);
+      expect(RIVEN_PATTERNS.genericDialog.test("Dialog.lua: Dialog::SendResult(4)")).toBe(false);
     });
   });
 
@@ -302,11 +299,7 @@ describe("parseRivenStats", () => {
   });
 
   it("recognises melee-specific stats", () => {
-    const text = [
-      "+50.2% Attack Speed",
-      "+120% Range",
-      "-30% Combo Duration",
-    ].join("\n");
+    const text = ["+50.2% Attack Speed", "+120% Range", "-30% Combo Duration"].join("\n");
     const result = parseRivenStats(text);
     expect(result).toHaveLength(3);
     expect(result.map((s) => s.name)).toEqual(["Attack Speed", "Range", "Combo Duration"]);
@@ -434,7 +427,8 @@ describe("parseRivenStats", () => {
 
   it("parses full riven card: Melee Damage + Critical Chance (x2) + Combo Duration + x-mult", () => {
     // Simulates OCR output from screenshot 1
-    const text = "+186,7% Melee Damage\n+185,5% Critical Chance\n(x2 for Heavy Attacks)\n+8,5s Combo Duration\nx0,62 Damage to Infested";
+    const text =
+      "+186,7% Melee Damage\n+185,5% Critical Chance\n(x2 for Heavy Attacks)\n+8,5s Combo Duration\nx0,62 Damage to Infested";
     const result = parseRivenStats(text);
     expect(result.length).toBeGreaterThanOrEqual(4);
     const names = result.map((s) => s.name);
@@ -454,7 +448,8 @@ describe("parseRivenStats", () => {
 
   it("parses Critical Chance for Slide Attack + negative Critical Chance on same card", () => {
     // Simulates screenshot 3 OCR
-    const text = "+128,1% Critical Chance\nfor Slide Attack\n+157% Melee Damage\n+98,8% Heat\n-147,6% Critical Chance\n(x2 for Heavy Attacks)";
+    const text =
+      "+128,1% Critical Chance\nfor Slide Attack\n+157% Melee Damage\n+98,8% Heat\n-147,6% Critical Chance\n(x2 for Heavy Attacks)";
     const result = parseRivenStats(text);
     const names = result.map((s) => s.name);
     expect(names).toContain("Critical Chance for Slide Attack");
@@ -470,5 +465,75 @@ describe("parseRivenStats", () => {
     const cc = result.find((s) => s.name === "Critical Chance");
     expect(cc!.value).toBe(147.6);
     expect(cc!.positive).toBe(false);
+  });
+
+  it("rejoins orphan numeric lines with the following stat line", () => {
+    const text = [
+      "+126,2% Status Duration",
+      "+122,2%",
+      "4 Electricity",
+      "+112% Multishot",
+      "x0,58 Damage to Grineer",
+    ].join("\n");
+    const result = parseRivenStats(text);
+    expect(result.map((s) => [s.name, s.value])).toEqual([
+      ["Status Duration", 126.2],
+      ["Electricity", 122.2],
+      ["Multishot", 112],
+      ["Damage to Grineer", 0.58],
+    ]);
+  });
+
+  it("ignores junk glyphs before elemental stats", () => {
+    const result = parseRivenStats("+122,2% ┬Ñ Electricity <");
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("Electricity");
+    expect(result[0].value).toBe(122.2);
+  });
+});
+
+describe("findWeaponInText", () => {
+  it("finds exact weapon names inside OCR text", () => {
+    expect(findWeaponInText("Rubico Prime Crita-acrit\n+185.1% Critical Chance")).toBe(
+      "Rubico Prime",
+    );
+  });
+
+  it("recovers fuzzy weapon names from OCR title lines", () => {
+    expect(findWeaponInText("Rubico Prine Crita-acrit\n+185.1% Critical Chance")).toBe(
+      "Rubico Prime",
+    );
+  });
+
+  it("supports Aleca-style alias fallback names", () => {
+    expect(findWeaponInText("Gotva Visi-critata\n+198.2% Multishot")).toBe("Gotva Prime");
+  });
+});
+
+describe("scoreStatsCandidate", () => {
+  it("prefers plausible mapped stat sets over absurd OCR output", () => {
+    const plausible = rivenScanTest.scoreStatsCandidate(
+      [
+        { name: "Critical Chance", positive: true, value: 185.5 },
+        { name: "Melee Damage", positive: true, value: 186.7 },
+        { name: "Combo Duration", positive: true, value: 8.5 },
+        { name: "Damage to Infested", positive: false, value: 0.62, multiplier: true },
+      ],
+      "Nikana Crita-acrit\n+186.7% Melee Damage",
+      "Nikana",
+    );
+
+    const implausible = rivenScanTest.scoreStatsCandidate(
+      [
+        { name: "Critical Chance", positive: true, value: 1855 },
+        { name: "Melee Damage", positive: true, value: 1867 },
+        { name: "Unknown Noise", positive: true, value: 999 },
+        { name: "Critical Chance", positive: true, value: 1855 },
+      ],
+      "Nikana Crita-acrit\n+1867% Melee Damage",
+      "Nikana",
+    );
+
+    expect(plausible).toBeGreaterThan(implausible);
   });
 });

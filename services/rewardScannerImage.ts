@@ -6,7 +6,7 @@
  */
 
 import { withScope } from "./logger";
-import { clampNumber, luminanceFromBgr } from "./rewardScannerUtils";
+import { clampNumber, clamp01, computeMeanAndStd, luminanceFromBgr } from "./rewardScannerUtils";
 const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
   normalizeErrorMessage: (err: any) => string;
 };
@@ -125,6 +125,153 @@ export function enhanceForOcr(nativeImage: any): any {
 interface OcrVariant {
   id: string;
   image: any;
+}
+
+export interface RewardSlotRect {
+  index: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  titleRect: { x: number; y: number; width: number; height: number };
+}
+
+export interface RewardSlotLayout {
+  count: number;
+  confidence: number;
+  slots: RewardSlotRect[];
+}
+
+const SLOT_LAYOUT_REGION = Object.freeze({ x: 0.22, y: 0.18, width: 0.56, height: 0.29 });
+
+function smoothColumns(values: number[]): number[] {
+  if (values.length <= 2) return values.slice();
+  return values.map((value, index) => {
+    const prev = index > 0 ? values[index - 1] : value;
+    const next = index < values.length - 1 ? values[index + 1] : value;
+    return (prev + value + next) / 3;
+  });
+}
+
+function collectRuns(
+  values: number[],
+  threshold: number,
+  minRun: number,
+): Array<{ start: number; end: number }> {
+  const runs: Array<{ start: number; end: number }> = [];
+  let runStart = -1;
+
+  for (let i = 0; i < values.length; i += 1) {
+    if (values[i] >= threshold) {
+      if (runStart < 0) runStart = i;
+      continue;
+    }
+    if (runStart >= 0 && i - runStart >= minRun) {
+      runs.push({ start: runStart, end: i - 1 });
+    }
+    runStart = -1;
+  }
+
+  if (runStart >= 0 && values.length - runStart >= minRun) {
+    runs.push({ start: runStart, end: values.length - 1 });
+  }
+
+  return runs;
+}
+
+export function detectRewardSlotLayout(nativeImage: any): RewardSlotLayout {
+  if (!nativeImage || typeof nativeImage.getSize !== "function") {
+    return { count: 0, confidence: 0, slots: [] };
+  }
+
+  let region: any;
+  try {
+    region = cropRect(nativeImage, SLOT_LAYOUT_REGION);
+  } catch {
+    return { count: 0, confidence: 0, slots: [] };
+  }
+
+  const { width, height } = region.getSize();
+  if (width < 120 || height < 60) {
+    return { count: 0, confidence: 0, slots: [] };
+  }
+
+  const bitmap: Buffer = region.toBitmap();
+  const colScores = new Array<number>(width).fill(0);
+
+  for (let x = 0; x < width; x += 1) {
+    let score = 0;
+    for (let y = 0; y < height; y += 2) {
+      const idx = (y * width + x) * 4;
+      const blue = bitmap[idx];
+      const green = bitmap[idx + 1];
+      const red = bitmap[idx + 2];
+      const lum = luminanceFromBgr(blue, green, red);
+      const maxC = Math.max(red, green, blue);
+      const minC = Math.min(red, green, blue);
+      const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
+      if (lum >= 108 || (lum >= 86 && sat <= 0.38)) {
+        score += 1;
+      }
+    }
+    colScores[x] = score;
+  }
+
+  const smoothed = smoothColumns(colScores);
+  const stats = computeMeanAndStd(smoothed);
+  const threshold = Math.max(3, stats.mean + stats.std * 0.38);
+  const minRun = Math.max(24, Math.floor(width * 0.08));
+  const runs = collectRuns(smoothed, threshold, minRun)
+    .map((run) => {
+      const pad = Math.max(8, Math.floor(width * 0.01));
+      return {
+        start: Math.max(0, run.start - pad),
+        end: Math.min(width - 1, run.end + pad),
+      };
+    })
+    .slice(0, 4);
+
+  if (runs.length === 0) {
+    return { count: 0, confidence: 0, slots: [] };
+  }
+
+  const slots: RewardSlotRect[] = runs.map((run, index) => {
+    const runWidth = Math.max(32, run.end - run.start + 1);
+    const xRatio = SLOT_LAYOUT_REGION.x + (run.start / width) * SLOT_LAYOUT_REGION.width;
+    const widthRatio = (runWidth / width) * SLOT_LAYOUT_REGION.width;
+    const yRatio = SLOT_LAYOUT_REGION.y;
+    const heightRatio = SLOT_LAYOUT_REGION.height;
+
+    return {
+      index,
+      x: xRatio,
+      y: yRatio,
+      width: widthRatio,
+      height: heightRatio,
+      titleRect: {
+        x: xRatio,
+        y: yRatio + heightRatio * 0.6,
+        width: widthRatio,
+        height: heightRatio * 0.2,
+      },
+    };
+  });
+
+  const coverage =
+    runs.reduce((sum, run) => sum + (run.end - run.start + 1), 0) / Math.max(1, width);
+  const confidence = Number(
+    (
+      clamp01(runs.length / 4) * 0.45 +
+      clamp01(coverage / 0.72) * 0.3 +
+      clamp01(stats.std / 36) * 0.25
+    ).toFixed(3),
+  );
+
+  return {
+    count: runs.length,
+    confidence,
+    slots,
+  };
 }
 
 export function buildOcrVariants(nativeImage: any): OcrVariant[] {
