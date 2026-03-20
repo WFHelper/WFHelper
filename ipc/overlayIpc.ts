@@ -1,7 +1,6 @@
 import ctx from "./context";
 import {
   assertAuthorizedSender,
-  assertCropDebugRendererSender,
   assertMainRendererSender,
   assertOverlayRendererSender,
   assertRivenOverlayRendererSender,
@@ -39,12 +38,10 @@ const { ipcMain, BrowserWindow, globalShortcut, app, screen, shell } =
 const path = require("node:path") as typeof import("node:path");
 const fs = require("node:fs") as typeof import("node:fs");
 const {
-  OVERLAY_CROP_PRESETS,
   OVERLAY_OCR_ENGINES,
   OVERLAY_SETTINGS_DEFAULTS,
   OVERLAY_SETTINGS_LIMITS,
 } = requireRuntime<{
-  OVERLAY_CROP_PRESETS: string[];
   OVERLAY_OCR_ENGINES: string[];
   OVERLAY_SETTINGS_DEFAULTS: Record<string, any>;
   OVERLAY_SETTINGS_LIMITS: Record<string, number>;
@@ -57,7 +54,6 @@ const APP_ROOT = app.getAppPath();
 const OVERLAY_WINDOW_FILE = path.join(APP_ROOT, "renderer", "overlay.html");
 const PLANNER_WINDOW_FILE = path.join(APP_ROOT, "renderer", "overlay.html");
 const RIVEN_WINDOW_FILE = path.join(APP_ROOT, "renderer", "riven-overlay.html");
-const CROP_DEBUG_WINDOW_FILE = path.join(APP_ROOT, "renderer", "crop-debug.html");
 
 const rewardWindowsController = createOverlayWindowsController({
   app,
@@ -67,7 +63,6 @@ const rewardWindowsController = createOverlayWindowsController({
   log,
   hardenBrowserWindowNavigation,
   overlayWindowFile: OVERLAY_WINDOW_FILE,
-  cropDebugWindowFile: CROP_DEBUG_WINDOW_FILE,
 });
 
 // Adjust planner overlay z-order so it hides behind other apps when Warframe loses focus.
@@ -103,7 +98,6 @@ const plannerWindowsController = createOverlayWindowsController({
   log,
   hardenBrowserWindowNavigation,
   overlayWindowFile: PLANNER_WINDOW_FILE,
-  cropDebugWindowFile: CROP_DEBUG_WINDOW_FILE,
   placement: "top-right",
   windowWidth: 460,
   windowHeight: 320,
@@ -698,19 +692,6 @@ let scanController = createOverlayScanController({
   warframeStatus,
 });
 
-async function openOcrCropDebugger(source = "manual") {
-  const frame = await rewardScanner.captureDebugFrame();
-  if (!frame) {
-    const msg = "Could not capture Warframe screen for crop debug.";
-    log.warn("[CropDebug] open failed:", msg);
-    return { ok: false, error: msg };
-  }
-
-  rewardWindowsController.createCropDebugWindow(frame);
-  log.log(`[CropDebug] opened from ${source}`);
-  return { ok: true, settings: { ...ctx.overlaySettings } };
-}
-
 const OVERLAY_THEME_VAR_ALLOWLIST = new Set([
   "--bg-deep",
   "--bg-base",
@@ -789,12 +770,10 @@ const settingsController = createOverlaySettingsController({
   settingsFile: OVERLAY_SETTINGS_FILE,
   defaults: OVERLAY_SETTINGS_DEFAULTS,
   limits: OVERLAY_SETTINGS_LIMITS,
-  cropPresets: OVERLAY_CROP_PRESETS,
   ocrEngines: OVERLAY_OCR_ENGINES,
   rewardScanner,
   onRelicRewardTrigger,
   onToggleOverlayInteractionMode: toggleOverlayInteractionMode,
-  onOpenCropDebugger: openOcrCropDebugger,
 });
 
 scanController = createOverlayScanController({
@@ -906,15 +885,6 @@ function register(): void {
     }
   });
 
-  ipcMain.on("crop-debug-close", (event: unknown) => {
-    if (!isAuthorizedSender(assertCropDebugRendererSender, event as never, "crop-debug-close")) {
-      return;
-    }
-    if (ctx.cropDebugWindow && !ctx.cropDebugWindow.isDestroyed()) {
-      ctx.cropDebugWindow.close();
-    }
-  });
-
   ipcMain.handle("overlay-get-relic-items", async (event: unknown) => {
     assertAuthorizedSender(assertOverlayRendererSender, event as never, "overlay-get-relic-items");
 
@@ -959,30 +929,6 @@ function register(): void {
     const settings = settingsController.setOverlaySettings(nextSettings);
     settingsController.registerOverlayHotkey();
     return settings;
-  });
-
-  ipcMain.handle("overlay:open-crop-debugger", async (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, "overlay:open-crop-debugger");
-    return openOcrCropDebugger("ipc");
-  });
-
-  ipcMain.handle("overlay:apply-crop-selection", async (event: unknown, selection: unknown) => {
-    assertAuthorizedSender(
-      assertCropDebugRendererSender,
-      event as never,
-      "overlay:apply-crop-selection",
-    );
-
-    try {
-      const settings = settingsController.applyCropSelection(selection);
-      return { ok: true, settings };
-    } catch (err) {
-      log.error("[CropDebug] apply selection failed:", normalizeErrorMessage(err));
-      return {
-        ok: false,
-        error: normalizeErrorMessage(err),
-      };
-    }
   });
 
   ipcMain.on("toggle-overlay", (event: unknown) => {
@@ -1051,5 +997,4 @@ export {
   onRelicRewardTrigger,
   onRelicSelectionTrigger,
   onRelicSelectionClose,
-  openOcrCropDebugger,
 };

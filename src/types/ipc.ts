@@ -38,11 +38,6 @@ export interface OverlaySettings {
   hotkey: string;
   interactionHotkeyEnabled: boolean;
   interactionHotkey: string;
-  cropDebugHotkeyEnabled: boolean;
-  cropDebugHotkey: string;
-  cropPreset: "balanced" | "tight" | "wide" | "custom";
-  cropTopRatio: number;
-  cropHeightRatio: number;
   ocrEngine: "windows" | "tesseract";
   ocrPasses: number;
   matchThreshold: number;
@@ -231,10 +226,6 @@ export interface IpcInvokeMap {
   setOverlaySettings: {
     args: [settings: Partial<OverlaySettings>];
     return: OverlaySettings;
-  };
-  openOcrCropDebugger: {
-    args: [];
-    return: { ok: boolean; error?: string; settings?: OverlaySettings };
   };
   checkForAppUpdates: {
     args: [];

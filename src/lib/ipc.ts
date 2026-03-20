@@ -93,7 +93,6 @@ export const ipc = {
   getOverlaySettings: () => window.api.getOverlaySettings(),
   setOverlaySettings: (...args: IpcInvokeMap["setOverlaySettings"]["args"]) =>
     window.api.setOverlaySettings(...args),
-  openOcrCropDebugger: () => window.api.openOcrCropDebugger(),
   onInventoryUpdated: (callback: (data: IpcEventMap["inventory-updated"]) => void) =>
     window.api.onInventoryUpdated(callback),
   onAppUpdateStatus: (callback: (state: IpcEventMap["app-update-status"]) => void) =>

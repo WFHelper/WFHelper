@@ -91,7 +91,7 @@
     border-bottom: 3px solid transparent;
     background: none;
     font-family: var(--font-display);
-    font-size: 0.8rem;
+    font-size: 1rem;
     color: #8a8c95;
     cursor: pointer;
     transition: color 0.15s, border-color 0.15s;

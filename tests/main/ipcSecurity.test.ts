@@ -18,12 +18,10 @@ function makeEvent(webContentsId: number, url: string) {
 describe("ipc sender guards", () => {
   const originalMainWindow = ctx.mainWindow;
   const originalOverlayWindow = ctx.overlayWindow;
-  const originalCropDebugWindow = ctx.cropDebugWindow;
 
   afterEach(() => {
     ctx.mainWindow = originalMainWindow;
     ctx.overlayWindow = originalOverlayWindow;
-    ctx.cropDebugWindow = originalCropDebugWindow;
   });
 
   it("accepts the expected main renderer sender", () => {
@@ -62,18 +60,5 @@ describe("ipc sender guards", () => {
     expect(() =>
       ipcSecurity.assertOverlayRendererSender(event, "overlay-get-relic-items"),
     ).toThrow();
-  });
-
-  it("accepts crop debug sender only from crop debug page", () => {
-    ctx.cropDebugWindow = {
-      isDestroyed: () => false,
-      webContents: { id: 44 },
-    } as any;
-
-    const event = makeEvent(44, "file:///D:/Github/warframe-companion/renderer/crop-debug.html");
-
-    expect(() =>
-      ipcSecurity.assertCropDebugRendererSender(event, "overlay:apply-crop-selection"),
-    ).not.toThrow();
   });
 });

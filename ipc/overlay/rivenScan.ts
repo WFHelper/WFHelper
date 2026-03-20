@@ -182,6 +182,10 @@ function preprocessOcrText(raw: string): string {
   // Fix "Z" right after a digit → likely "%"
   text = text.replace(/(\d)\s*Z\b/g, "$1%");
 
+  // Fix OCR misread of zero as letter O in x-multiplier context.
+  // Warframe uses "x0,58" for curse multipliers — OCR often reads "xO,58".
+  text = text.replace(/\bx\s*O([.,]\d)/gi, "x0$1");
+
   // Normalise locale decimal separator (comma → period) BEFORE space collapse.
   // OCR sometimes reads the comma as a space: "73,9%" → "73 9%".  If we
   // collapsed spaces first, "73 9" would merge into "739" and the decimal
@@ -781,12 +785,31 @@ function detectRivenCardFrame(nativeImage: any): TextBounds | null {
     new Array<number>(sampleCols).fill(0),
   );
 
+  // Step 7: Also track golden/blue border pixels for color-based edge detection.
+  // Riven card borders have a distinctive golden (R>180, G>140, B<120) or
+  // blue/cyan (B>160, G>120, R<100) glow that makes them more identifiable.
+  const borderColScore = new Array<number>(sampleCols).fill(0);
+  const borderRowScore = new Array<number>(sampleRows).fill(0);
+
   for (let sy = 0; sy < sampleRows; sy += 1) {
     const y = Math.min(height - 1, sy * stepY);
     for (let sx = 0; sx < sampleCols; sx += 1) {
       const x = Math.min(width - 1, sx * stepX);
       const idx = (y * width + x) * 4;
-      lumaGrid[sy][sx] = (bitmap[idx] + bitmap[idx + 1] + bitmap[idx + 2]) / 3;
+      const b = bitmap[idx];
+      const g = bitmap[idx + 1];
+      const r = bitmap[idx + 2];
+      lumaGrid[sy][sx] = (b + g + r) / 3;
+
+      // Check for golden/warm border glow
+      const isGolden = r > 180 && g > 140 && b < 120 && (r - b) > 80;
+      // Check for blue/cyan border glow (kuva/lich rivens)
+      const isBlueCyan = b > 160 && g > 120 && r < 100 && (b - r) > 80;
+
+      if (isGolden || isBlueCyan) {
+        borderColScore[sx] += 1;
+        borderRowScore[sy] += 1;
+      }
     }
   }
 
@@ -800,8 +823,12 @@ function detectRivenCardFrame(nativeImage: any): TextBounds | null {
     }
   }
 
-  const smoothCols = smoothSeries(colEdges);
-  const smoothRows = smoothSeries(rowEdges);
+  // Combine luminance edges with color border scores for more robust detection
+  const combinedCols = colEdges.map((edge, i) => edge + borderColScore[i] * 12);
+  const combinedRows = rowEdges.map((edge, i) => edge + borderRowScore[i] * 12);
+
+  const smoothCols = smoothSeries(combinedCols);
+  const smoothRows = smoothSeries(combinedRows);
   const leftPeak = findPeakIndex(
     smoothCols,
     Math.floor(sampleCols * 0.08),

@@ -15,14 +15,12 @@ let overlayWindow: BrowserWindow | null = null;
 let plannerOverlayWindow: BrowserWindow | null = null;
 let rivenOverlayLeftWindow: BrowserWindow | null = null;
 let rivenOverlayRightWindow: BrowserWindow | null = null;
-let cropDebugWindow: BrowserWindow | null = null;
 let currentInventoryPath: string | null = null;
 let currentInventoryData: InventoryData = null;
 let watcher: FSWatcher | null = null;
 let overlaySettings: OverlaySettings = {};
 let overlayThemeVars: OverlayThemeVars = {};
 let overlayHotkeyRegistered: string | null = null;
-let overlayCropHotkeyRegistered: string | null = null;
 let overlayInteractionHotkeyRegistered: string | null = null;
 let overlayInteractiveMode = false;
 let overlayDismissedUntilMs = 0;
@@ -61,13 +59,6 @@ const ctx = {
   },
   set rivenOverlayRightWindow(v: BrowserWindow | null) {
     rivenOverlayRightWindow = v;
-  },
-
-  get cropDebugWindow() {
-    return cropDebugWindow;
-  },
-  set cropDebugWindow(v: BrowserWindow | null) {
-    cropDebugWindow = v;
   },
 
   get currentInventoryPath() {
@@ -110,13 +101,6 @@ const ctx = {
   },
   set overlayHotkeyRegistered(v: string | null) {
     overlayHotkeyRegistered = v;
-  },
-
-  get overlayCropHotkeyRegistered() {
-    return overlayCropHotkeyRegistered;
-  },
-  set overlayCropHotkeyRegistered(v: string | null) {
-    overlayCropHotkeyRegistered = v;
   },
 
   get overlayInteractionHotkeyRegistered() {

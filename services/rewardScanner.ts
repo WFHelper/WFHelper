@@ -18,6 +18,7 @@ const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
 };
 
 import fs from "fs";
+import crypto from "node:crypto";
 import os from "os";
 import path from "path";
 import { createRewardOcrRunner } from "./rewardScannerOcr";
@@ -35,6 +36,7 @@ import {
   cropRect,
   buildOcrVariants,
   detectRewardSlotLayout,
+  detectConsoleOpen,
 } from "./rewardScannerImage";
 import {
   matchItemsDetailed,
@@ -50,6 +52,90 @@ import { waitForRewardUiReady as _waitForRewardUiReady } from "./rewardScannerRe
 export { captureDebugFrame, captureSourceMeta };
 
 const log = withScope("rewardScanner");
+
+// --- Frame dedup state (Step 3) --------------------------------------------
+
+let _lastFrameHash: string | null = null;
+let _lastFrameResult: { items: any[]; meta: any } | null = null;
+const FRAME_DEDUP_TTL_MS = 5_000;
+let _lastFrameHashTs = 0;
+
+function computeFrameHash(nativeImage: any): string | null {
+  try {
+    const bitmap: Buffer = nativeImage.toBitmap();
+    // Sample every 256th byte for speed — still unique enough for dedup
+    const sample = Buffer.alloc(Math.ceil(bitmap.length / 256));
+    for (let i = 0; i < sample.length; i++) {
+      sample[i] = bitmap[i * 256];
+    }
+    return crypto.createHash("sha1").update(sample).digest("hex");
+  } catch {
+    return null;
+  }
+}
+
+export function resetFrameDedup(): void {
+  _lastFrameHash = null;
+  _lastFrameResult = null;
+  _lastFrameHashTs = 0;
+}
+
+// --- Adaptive strategy tracker (Step 8) ------------------------------------
+// Remembers which band index and OCR variant produced the best results, and
+// tries them first on subsequent scans to reduce average OCR calls.
+
+interface StrategyWin {
+  bandIndex: number;
+  variantId: string;
+  score: number;
+  timestamp: number;
+}
+
+const STRATEGY_HISTORY_MAX = 10;
+const STRATEGY_HISTORY_TTL_MS = 300_000; // 5 minutes
+const _strategyHistory: StrategyWin[] = [];
+
+function recordStrategyWin(bandIndex: number, variantId: string, score: number): void {
+  _strategyHistory.push({ bandIndex, variantId, score, timestamp: Date.now() });
+  if (_strategyHistory.length > STRATEGY_HISTORY_MAX) {
+    _strategyHistory.shift();
+  }
+}
+
+/** Returns the preferred band index and variant to try first, or null. */
+export function getAdaptiveStrategyHint(): { bandIndex: number; variantId: string } | null {
+  const now = Date.now();
+  const recent = _strategyHistory.filter((w) => now - w.timestamp < STRATEGY_HISTORY_TTL_MS);
+  if (recent.length < 2) return null;
+
+  // Count wins per band index
+  const bandCounts = new Map<number, number>();
+  const variantCounts = new Map<string, number>();
+  for (const win of recent) {
+    bandCounts.set(win.bandIndex, (bandCounts.get(win.bandIndex) || 0) + 1);
+    variantCounts.set(win.variantId, (variantCounts.get(win.variantId) || 0) + 1);
+  }
+
+  let bestBand = -1;
+  let bestBandCount = 0;
+  for (const [band, count] of bandCounts) {
+    if (count > bestBandCount) {
+      bestBand = band;
+      bestBandCount = count;
+    }
+  }
+
+  let bestVariant = "raw";
+  let bestVariantCount = 0;
+  for (const [variant, count] of variantCounts) {
+    if (count > bestVariantCount) {
+      bestVariant = variant;
+      bestVariantCount = count;
+    }
+  }
+
+  return bestBand >= 0 ? { bandIndex: bestBand, variantId: bestVariant } : null;
+}
 
 // --- Paths ------------------------------------------------------------------
 
@@ -103,16 +189,6 @@ const CROP_PRESETS: Record<string, Array<{ top: number; height: number }>> = {
     { top: 0.36, height: 0.4 },
     { top: 0.4, height: 0.34 },
   ],
-  tight: [
-    { top: 0.42, height: 0.3 },
-    { top: 0.4, height: 0.32 },
-    { top: 0.44, height: 0.28 },
-  ],
-  wide: [
-    { top: 0.34, height: 0.44 },
-    { top: 0.32, height: 0.46 },
-    { top: 0.36, height: 0.42 },
-  ],
 };
 
 // --- State ------------------------------------------------------------------
@@ -137,35 +213,9 @@ function normalizeOcrEngine(value: any, fallback: string = OCR_ENGINE_WINDOWS): 
 
 function sanitizeSettings(raw: any): Record<string, any> {
   const candidate = raw && typeof raw === "object" ? raw : {};
-  const preset =
-    typeof candidate.cropPreset === "string" ? candidate.cropPreset.trim().toLowerCase() : "";
-
-  let cropTopRatio = clampNumber(
-    candidate.cropTopRatio,
-    OVERLAY_SETTINGS_LIMITS.cropTopRatioMin,
-    OVERLAY_SETTINGS_LIMITS.cropTopRatioMax,
-    DEFAULT_SCAN_SETTINGS.cropTopRatio,
-  );
-  let cropHeightRatio = clampNumber(
-    candidate.cropHeightRatio,
-    OVERLAY_SETTINGS_LIMITS.cropHeightRatioMin,
-    OVERLAY_SETTINGS_LIMITS.cropHeightRatioMax,
-    DEFAULT_SCAN_SETTINGS.cropHeightRatio,
-  );
-
-  const minHeight = OVERLAY_SETTINGS_LIMITS.cropHeightRatioMin;
-  if (cropTopRatio + cropHeightRatio > 1.0) {
-    cropHeightRatio = Math.max(minHeight, 1.0 - cropTopRatio);
-  }
-  if (cropTopRatio + cropHeightRatio > 1.0) {
-    cropTopRatio = Math.max(0, 1.0 - cropHeightRatio);
-  }
 
   return {
-    cropPreset:
-      preset === "custom" || CROP_PRESETS[preset] ? preset : DEFAULT_SCAN_SETTINGS.cropPreset,
-    cropTopRatio,
-    cropHeightRatio,
+    cropPreset: "balanced",
     ocrEngine: normalizeOcrEngine(candidate.ocrEngine, DEFAULT_SCAN_SETTINGS.ocrEngine),
     ocrPasses: Math.floor(
       clampNumber(
@@ -199,7 +249,18 @@ export function setRelicItems(items: any[]): void {
 }
 
 export function setSettings(nextSettings: any): Record<string, any> {
+  const prev = scanSettings;
   scanSettings = sanitizeSettings({ ...scanSettings, ...(nextSettings || {}) });
+
+  // Invalidate frame dedup when user changes OCR engine or matching threshold,
+  // so a cached result from the old settings doesn't persist.
+  if (
+    prev.ocrEngine !== scanSettings.ocrEngine ||
+    prev.matchThreshold !== scanSettings.matchThreshold
+  ) {
+    resetFrameDedup();
+  }
+
   return getSettings();
 }
 
@@ -222,6 +283,7 @@ const { runOCR, runOCRBuffer, runOCRStructuredBuffer } = createRewardOcrRunner({
   tesseractLanguage: TESSERACT_LANGUAGE,
   engineWindows: OCR_ENGINE_WINDOWS,
   engineTesseract: OCR_ENGINE_TESSERACT,
+  tesseractContext: "reward",
 });
 
 // --- Band helpers -----------------------------------------------------------
@@ -230,35 +292,6 @@ function getBandsForPasses(
   presetName: string,
   passes: number,
 ): Array<{ top: number; height: number }> {
-  if (presetName === "custom") {
-    const customTop = clampNumber(
-      scanSettings.cropTopRatio,
-      OVERLAY_SETTINGS_LIMITS.cropTopRatioMin,
-      OVERLAY_SETTINGS_LIMITS.cropTopRatioMax,
-      DEFAULT_SCAN_SETTINGS.cropTopRatio,
-    );
-    const customHeight = clampNumber(
-      scanSettings.cropHeightRatio,
-      OVERLAY_SETTINGS_LIMITS.cropHeightRatioMin,
-      OVERLAY_SETTINGS_LIMITS.cropHeightRatioMax,
-      DEFAULT_SCAN_SETTINGS.cropHeightRatio,
-    );
-
-    const bands: Array<{ top: number; height: number }> = [];
-    const center = Math.floor(passes / 2);
-    for (let i = 0; i < passes; i += 1) {
-      const shift = (i - center) * 0.01;
-      const shiftedTop = clampNumber(
-        customTop + shift,
-        0,
-        Math.max(0, 1.0 - customHeight),
-        customTop,
-      );
-      bands.push({ top: shiftedTop, height: customHeight });
-    }
-    return bands;
-  }
-
   const preset = CROP_PRESETS[presetName] || CROP_PRESETS.balanced;
   const bands: Array<{ top: number; height: number }> = [];
   for (let i = 0; i < passes; i += 1) {
@@ -268,14 +301,7 @@ function getBandsForPasses(
 }
 
 function getPrimaryBand(): { top: number; height: number } {
-  const [band] = getBandsForPasses(scanSettings.cropPreset, 1);
-  if (band && Number.isFinite(band.top) && Number.isFinite(band.height)) {
-    return band;
-  }
-  return {
-    top: scanSettings.cropTopRatio,
-    height: scanSettings.cropHeightRatio,
-  };
+  return getBandsForPasses(scanSettings.cropPreset, 1)[0];
 }
 
 // --- Scan meta builder ------------------------------------------------------
@@ -744,8 +770,34 @@ export async function scanRewardsDetailed(): Promise<{
       `(display:${screenshot.sourceDisplayId || "n/a"})`,
   );
 
+  if (detectConsoleOpen(screenshot.image)) {
+    log.log("[RewardScanner] Chat console detected — skipping scan");
+    return null;
+  }
+
+  // Frame dedup: skip OCR if the captured frame is identical to the previous one
+  const frameHash = computeFrameHash(screenshot.image);
+  if (
+    frameHash &&
+    frameHash === _lastFrameHash &&
+    _lastFrameResult &&
+    Date.now() - _lastFrameHashTs < FRAME_DEDUP_TTL_MS
+  ) {
+    log.log("[RewardScanner] Frame unchanged — returning cached result");
+    return _lastFrameResult;
+  }
+
   const threshold = scanSettings.matchThreshold;
   const bands = getBandsForPasses(scanSettings.cropPreset, scanSettings.ocrPasses);
+
+  // Adaptive strategy: reorder bands so the historically-winning band is tried first
+  const adaptiveHint = getAdaptiveStrategyHint();
+  if (adaptiveHint && adaptiveHint.bandIndex > 0 && adaptiveHint.bandIndex < bands.length) {
+    const hintBand = bands[adaptiveHint.bandIndex];
+    bands.splice(adaptiveHint.bandIndex, 1);
+    bands.unshift(hintBand);
+  }
+
   const detectedLayout = detectRewardSlotLayout(screenshot.image);
   const expectedItemCount =
     detectedLayout.count >= 2 && detectedLayout.confidence >= 0.38
@@ -795,6 +847,40 @@ export async function scanRewardsDetailed(): Promise<{
         items: slotFirst.items,
         meta,
       };
+    }
+
+    // Partial slot-first success: if we matched ≥75% of expected items,
+    // skip the expensive band-OCR loop and accept the slot result.
+    if (
+      slotFirst &&
+      slotFirst.items.length >= Math.ceil(expectedItemCount * 0.75) &&
+      slotFirst.exactCount >= Math.ceil(slotFirst.items.length * 0.5)
+    ) {
+      log.log(
+        `[RewardScanner] Partial slot-primary hit: ${slotFirst.items.length}/${expectedItemCount} items ` +
+          `(exact=${slotFirst.exactCount}, confidence=${slotFirst.slotConfidence.toFixed(3)}) — skipping band OCR`,
+      );
+      const meta = buildScanMeta({
+        screenshot,
+        selectedPass: {
+          passIndex: 0,
+          score: slotFirst.score,
+          ocrVariant: "slot-primary-partial",
+          band: null,
+        },
+        passCount: bands.length,
+        strategy: "slot-partial",
+        elapsedMs: Date.now() - scanStartedAt,
+        hadOcrSuccess: true,
+      });
+
+      const result = { items: slotFirst.items, meta };
+      if (frameHash) {
+        _lastFrameHash = frameHash;
+        _lastFrameResult = result;
+        _lastFrameHashTs = Date.now();
+      }
+      return result;
     }
   }
 
@@ -934,10 +1020,25 @@ export async function scanRewardsDetailed(): Promise<{
     hadOcrSuccess,
   });
 
-  return {
-    items,
-    meta,
-  };
+  const result = { items, meta };
+
+  // Record winning strategy for adaptive reordering
+  if (selectedPass && items.length > 0) {
+    recordStrategyWin(
+      selectedPass.passIndex != null ? selectedPass.passIndex - 1 : 0,
+      selectedPass.ocrVariant || "raw",
+      selectedPass.score || 0,
+    );
+  }
+
+  // Cache frame hash for dedup on next retry
+  if (frameHash) {
+    _lastFrameHash = frameHash;
+    _lastFrameResult = result;
+    _lastFrameHashTs = Date.now();
+  }
+
+  return result;
 }
 
 export async function scanRewards(): Promise<any[] | null> {

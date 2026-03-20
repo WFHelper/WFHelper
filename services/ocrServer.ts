@@ -400,3 +400,109 @@ class OcrServerPool {
 }
 
 export const ocrServer = new OcrServerPool(OCR_SERVER_POOL_SIZE);
+
+// --- Native OCR engine (Step 5) -------------------------------------------
+// Uses @napi-rs/system-ocr which calls Windows Media.Ocr directly from native
+// code, eliminating the PowerShell process pool IPC overhead.
+// Falls back to the PowerShell pool if the native module fails to load.
+
+let _nativeRecognize: ((input: Buffer | string) => Promise<{ text: string; confidence: number }>) | null = null;
+
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const mod = require("@napi-rs/system-ocr") as {
+    recognize: (input: Buffer | string) => Promise<{ text: string; confidence: number }>;
+  };
+  _nativeRecognize = mod.recognize;
+  log.log("[OcrServer] Native OCR engine loaded (@napi-rs/system-ocr)");
+} catch {
+  log.log("[OcrServer] Native OCR engine not available, using PowerShell pool");
+}
+
+export const nativeOcrAvailable = !!_nativeRecognize;
+
+export async function nativeOcrBuffer(imageBuffer: Buffer, _timeoutMs?: number): Promise<string> {
+  if (!_nativeRecognize) throw new Error("Native OCR not available");
+  const result = await _nativeRecognize(imageBuffer);
+  return result.text || "";
+}
+
+export async function nativeOcrFile(imagePath: string, _timeoutMs?: number): Promise<string> {
+  if (!_nativeRecognize) throw new Error("Native OCR not available");
+  const result = await _nativeRecognize(imagePath);
+  return result.text || "";
+}
+
+// --- Persistent Tesseract WASM worker (Step 10) ----------------------------
+// Pre-initializes a Tesseract.js worker that stays in memory, eliminating the
+// ~500ms cold-start overhead on each fallback call. The worker is lazily
+// created on first use and reused for all subsequent calls.
+
+let _tesseractWorker: any = null;
+let _tesseractWorkerReady: Promise<any> | null = null;
+let _tesseractWorkerLanguage: string = "eng";
+
+async function _initTesseractWorker(language: string): Promise<any> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Tesseract = require("tesseract.js") as {
+      createWorker: (lang: string, oem?: number, opts?: any) => Promise<any>;
+    };
+    const worker = await Tesseract.createWorker(language);
+    _tesseractWorkerLanguage = language;
+    log.log("[OcrServer] Persistent Tesseract WASM worker initialized");
+    return worker;
+  } catch (err) {
+    log.log("[OcrServer] Tesseract WASM worker init failed — will fall back to per-call recognize");
+    return null;
+  }
+}
+
+/**
+ * Get (or lazily create) the persistent Tesseract worker. Returns null if
+ * Tesseract.js is not installed.
+ */
+export function getTesseractWorker(language: string = "eng"): Promise<any> | null {
+  if (_tesseractWorkerReady && _tesseractWorkerLanguage === language) {
+    return _tesseractWorkerReady;
+  }
+  _tesseractWorkerReady = _initTesseractWorker(language).then((w) => {
+    _tesseractWorker = w;
+    return w;
+  });
+  return _tesseractWorkerReady;
+}
+
+export const tesseractWorkerAvailable: boolean = (() => {
+  try {
+    require.resolve("tesseract.js");
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+/**
+ * Run OCR via the persistent Tesseract worker. Falls through to null if the
+ * worker is unavailable, so callers can fall back to `tesseract.recognize()`.
+ */
+export async function tesseractWorkerRecognize(
+  imagePath: string,
+  params?: Record<string, string>,
+): Promise<string | null> {
+  const workerPromise = getTesseractWorker();
+  if (!workerPromise) return null;
+
+  const worker = await workerPromise;
+  if (!worker) return null;
+
+  try {
+    if (params) {
+      await worker.setParameters(params);
+    }
+    const result = await worker.recognize(imagePath);
+    return result?.data?.text || "";
+  } catch {
+    return null;
+  }
+}

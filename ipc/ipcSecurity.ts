@@ -15,7 +15,6 @@ const { normalizeErrorMessage } = runtimeRequire<{
 const MAIN_RENDERER_SUFFIX = path.normalize(path.join("renderer", "dist", "index.html"));
 const OVERLAY_RENDERER_SUFFIX = path.normalize(path.join("renderer", "overlay.html"));
 const RIVEN_OVERLAY_RENDERER_SUFFIX = path.normalize(path.join("renderer", "riven-overlay.html"));
-const CROP_DEBUG_RENDERER_SUFFIX = path.normalize(path.join("renderer", "crop-debug.html"));
 
 type IpcEventLike = {
   sender?: {
@@ -179,18 +178,6 @@ function assertRivenOverlayRendererSender(event: IpcEventLike, _channel: string)
   assertWindowSender(event, rightWin, RIVEN_OVERLAY_RENDERER_SUFFIX);
 }
 
-function assertCropDebugRendererSender(event: IpcEventLike, _channel: string): void {
-  assertWindowSender(
-    event,
-    ctx.cropDebugWindow
-      ? {
-          isDestroyed: () => ctx.cropDebugWindow?.isDestroyed() ?? true,
-          webContents: { id: ctx.cropDebugWindow.webContents.id },
-        }
-      : null,
-    CROP_DEBUG_RENDERER_SUFFIX,
-  );
-}
 
 type AssertSenderFn = (event: IpcEventLike, channel: string) => void;
 
@@ -227,7 +214,6 @@ export {
   assertMainRendererSender,
   assertOverlayRendererSender,
   assertRivenOverlayRendererSender,
-  assertCropDebugRendererSender,
   assertAuthorizedSender,
   isAuthorizedSender,
 };
@@ -236,7 +222,6 @@ export const __test__ = {
   MAIN_RENDERER_SUFFIX,
   OVERLAY_RENDERER_SUFFIX,
   RIVEN_OVERLAY_RENDERER_SUFFIX,
-  CROP_DEBUG_RENDERER_SUFFIX,
   getSenderUrl,
   senderHasAllowedFileSuffix,
   normalizePathForCompare,

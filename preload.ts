@@ -67,7 +67,6 @@ contextBridge.exposeInMainWorld("api", {
   pushRelicFilters: (filters: unknown) => ipcRenderer.send("overlay:push-relic-filters", filters),
   getOverlaySettings: () => ipcRenderer.invoke("overlay:get-settings"),
   setOverlaySettings: (settings: unknown) => ipcRenderer.invoke("overlay:set-settings", settings),
-  openOcrCropDebugger: () => ipcRenderer.invoke("overlay:open-crop-debugger"),
 
   openExternal: (url: string) => ipcRenderer.send("open-external", url),
   logWarn: (message: string, ...args: unknown[]) => ipcRenderer.send("log:warn", message, ...args),

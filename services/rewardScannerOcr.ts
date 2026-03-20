@@ -1,7 +1,7 @@
 "use strict";
 
 import { execFile } from "child_process";
-import { ocrServer } from "./ocrServer";
+import { ocrServer, nativeOcrAvailable, nativeOcrBuffer, nativeOcrFile, tesseractWorkerAvailable, tesseractWorkerRecognize } from "./ocrServer";
 import type { StructuredOcrResult } from "./ocrServer";
 const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
   normalizeErrorMessage: (err: any) => string;
@@ -32,6 +32,12 @@ interface OcrRunnerOptions {
   tesseractLanguage?: string;
   engineWindows?: string;
   engineTesseract?: string;
+  /**
+   * Tesseract character whitelist context.
+   * - `"reward"`: letters + spaces + apostrophe (reward item names only)
+   * - `"riven"` (default): full riven stat character set (digits, +, -, %, etc.)
+   */
+  tesseractContext?: "reward" | "riven";
 }
 
 interface OcrRunner {
@@ -68,6 +74,7 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
   const tesseractLanguage = String(options?.tesseractLanguage || "eng");
   const engineWindows = String(options?.engineWindows || "windows");
   const engineTesseract = String(options?.engineTesseract || "tesseract");
+  const tesseractContext = options?.tesseractContext || "riven";
 
   /** One-shot PowerShell OCR — used as fallback when the persistent server is unavailable. */
   function runPowerShellOcrOneShot(imagePath: string, timeoutMs: number): Promise<string> {
@@ -91,8 +98,18 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
     });
   }
 
-  /** Windows OCR via persistent server (fast) with one-shot execFile as fallback. */
+  /** Windows OCR via native binding (fastest), persistent server, or one-shot PowerShell. */
   async function runPowerShellOCR(imagePath: string, timeoutMs: number): Promise<string> {
+    if (nativeOcrAvailable) {
+      try {
+        return await nativeOcrFile(imagePath, timeoutMs);
+      } catch (nativeErr) {
+        log?.warn?.(
+          "[RewardScanner] Native OCR failed, falling back to server:",
+          normalizeErrorMessage(nativeErr),
+        );
+      }
+    }
     try {
       return await ocrServer.runOCR(imagePath, timeoutMs);
     } catch (serverErr) {
@@ -105,6 +122,16 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
   }
 
   async function runPowerShellOCRBuffer(imageBuffer: Buffer, timeoutMs: number): Promise<string> {
+    if (nativeOcrAvailable) {
+      try {
+        return await nativeOcrBuffer(imageBuffer, timeoutMs);
+      } catch (nativeErr) {
+        log?.warn?.(
+          "[RewardScanner] Native OCR buffer failed, falling back to server:",
+          normalizeErrorMessage(nativeErr),
+        );
+      }
+    }
     try {
       return await ocrServer.runOCRBuffer(imageBuffer, timeoutMs);
     } catch (serverErr) {
@@ -132,6 +159,27 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
   }
 
   async function runTesseractOCR(imagePath: string, timeoutMs: number): Promise<string> {
+    // Context-aware Tesseract configuration:
+    // - "reward": narrow whitelist (letters + spaces + apostrophe) — reward item
+    //   names never contain digits, parens, or math symbols. Reduces misreads.
+    // - "riven": full character set for riven stat text (digits, +, -, %, etc.)
+    const tesseditCharWhitelist =
+      tesseractContext === "reward"
+        ? " ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'"
+        : " 1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,()+-%x";
+
+    const params: Record<string, string> = {
+      tessedit_char_whitelist: tesseditCharWhitelist,
+      tessedit_pageseg_mode: "6",
+    };
+
+    // Try the persistent WASM worker first (eliminates ~500ms cold-start)
+    if (tesseractWorkerAvailable) {
+      const workerResult = await tesseractWorkerRecognize(imagePath, params);
+      if (workerResult !== null) return workerResult;
+    }
+
+    // Fall back to per-call recognize() if the persistent worker is unavailable
     let tesseract: any;
     try {
       tesseract = require("tesseract.js");
@@ -141,13 +189,7 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
 
     const recognizePromise = tesseract.recognize(imagePath, tesseractLanguage, {
       logger: () => {},
-      // Restrict to the character set that can appear in Warframe riven text —
-      // same restriction AlecaFrame uses.  Dramatically reduces misreads by
-      // preventing Tesseract from matching Unicode characters that never appear.
-      tessedit_char_whitelist:
-        " 1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,()+-%x",
-      // PSM 6: uniform block of text — correct for the ~4-line columnar layout
-      // of a riven card.  Default PSM 3 (full auto) wastes time on layout analysis.
+      tessedit_char_whitelist: tesseditCharWhitelist,
       tessedit_pageseg_mode: "6",
     });
 
@@ -231,26 +273,60 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
     imagePath: string,
     timeoutMs: number,
   ): Promise<StructuredOcrResult> {
-    try {
-      return await runStructuredViaServer({ imagePath }, timeoutMs);
-    } catch {
-      const text = await runOCR(imagePath, timeoutMs);
-      return textToStructuredResult(text);
+    const engine = typeof getRequestedEngine === "function" ? getRequestedEngine() : "auto";
+
+    // Only try the Windows structured server when the engine is windows or auto-on-Windows
+    if (engine !== engineTesseract) {
+      try {
+        return await runStructuredViaServer({ imagePath }, timeoutMs);
+      } catch {
+        // fall through to text-only fallback
+      }
     }
+
+    const text = await runOCR(imagePath, timeoutMs);
+    return textToStructuredResult(text);
   }
 
   async function runOCRStructuredBuffer(
     imageBuffer: Buffer,
     timeoutMs: number,
   ): Promise<StructuredOcrResult> {
+    const engine = typeof getRequestedEngine === "function" ? getRequestedEngine() : "auto";
+
+    // Only try the Windows structured server when the engine is windows or auto-on-Windows
+    if (engine !== engineTesseract) {
+      try {
+        return await runStructuredViaServer(
+          { imageBase64: imageBuffer.toString("base64") },
+          timeoutMs,
+        );
+      } catch {
+        // fall through to buffer/text fallback
+      }
+    }
+
+    // Buffer fallback: try native buffer OCR if available, else write to temp file for Tesseract
     try {
-      return await runStructuredViaServer(
-        { imageBase64: imageBuffer.toString("base64") },
-        timeoutMs,
-      );
-    } catch {
       const text = await runOCRBuffer(imageBuffer, timeoutMs);
       return textToStructuredResult(text);
+    } catch {
+      // runOCRBuffer only works for Windows engine; fall back to Tesseract via temp file
+      const tmpPath = require("node:path").join(
+        require("node:os").tmpdir(),
+        `wf-ocr-structured-${Date.now()}.png`,
+      );
+      try {
+        require("node:fs").writeFileSync(tmpPath, imageBuffer);
+        const text = await runTesseractOCR(tmpPath, timeoutMs);
+        return textToStructuredResult(text);
+      } finally {
+        try {
+          require("node:fs").unlinkSync(tmpPath);
+        } catch {
+          // cleanup best-effort
+        }
+      }
     }
   }
 

@@ -25,7 +25,7 @@
     "dev:main": "npm run copy:config && tsc -p tsconfig.main.json --watch --preserveWatchOutput",
     "dev:renderer": "vite build --watch",
     "typecheck:renderer": "tsc --noEmit",
-    "dev:electron": "wait-on .electron-build/main.js renderer/dist/index.html && nodemon --watch .electron-build/main.js --watch .electron-build/preload.js --watch .electron-build/preload-overlay.js --watch .electron-build/preload-crop.js --watch .electron-build/ipc --watch ipc --watch services --watch config --watch renderer/dist --watch renderer/overlay.js --watch renderer/overlay.html --ext js,json,html,css,ts --exec electron .",
+    "dev:electron": "wait-on .electron-build/main.js renderer/dist/index.html && nodemon --watch .electron-build/main.js --watch .electron-build/preload.js --watch .electron-build/preload-overlay.js --watch .electron-build/ipc --watch ipc --watch services --watch config --watch renderer/dist --watch renderer/overlay.js --watch renderer/overlay.html --ext js,json,html,css,ts --exec electron .",
     "typecheck:main": "tsc -p tsconfig.main.json --noEmit",
     "test:main": "vitest run tests/main",
     "test:e2e": "npm run build && playwright test --config playwright.config.ts",
@@ -79,6 +79,7 @@
     "esbuild": "^0.25.11"
   },
   "dependencies": {
+    "@napi-rs/system-ocr": "^1.0.2",
     "@sentry/browser": "^10.40.0",
     "@sentry/electron": "^7.9.0",
     "@wfcd/items": "^1.1272.0",

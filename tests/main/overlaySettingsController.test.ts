@@ -8,11 +8,6 @@ function buildController() {
       autoTriggerEnabled: true,
       hotkeyEnabled: true,
       hotkey: "Control+Alt+R",
-      cropDebugHotkeyEnabled: true,
-      cropDebugHotkey: "Control+Alt+D",
-      cropPreset: "middle",
-      cropTopRatio: 0.4,
-      cropHeightRatio: 0.34,
       ocrEngine: "native",
       ocrPasses: 3,
       matchThreshold: 0.72,
@@ -20,8 +15,7 @@ function buildController() {
       worldNotificationsEnabled: true,
     },
     overlayHotkeyRegistered: null,
-    overlayCropHotkeyRegistered: null,
-    cropDebugWindow: null,
+    overlayInteractionHotkeyRegistered: null,
   };
 
   const registerCallbacks = new Map<string, () => void>();
@@ -52,11 +46,6 @@ function buildController() {
       autoTriggerEnabled: true,
       hotkeyEnabled: true,
       hotkey: "Control+Alt+R",
-      cropDebugHotkeyEnabled: true,
-      cropDebugHotkey: "Control+Alt+D",
-      cropPreset: "middle",
-      cropTopRatio: 0.4,
-      cropHeightRatio: 0.34,
       ocrEngine: "native",
       ocrPasses: 3,
       matchThreshold: 0.72,
@@ -64,10 +53,6 @@ function buildController() {
       worldNotificationsEnabled: true,
     },
     limits: {
-      cropTopRatioMin: 0.05,
-      cropTopRatioMax: 0.9,
-      cropHeightRatioMin: 0.08,
-      cropHeightRatioMax: 0.95,
       ocrPassesMin: 1,
       ocrPassesMax: 6,
       matchThresholdMin: 0.4,
@@ -75,13 +60,11 @@ function buildController() {
       ocrTimeoutMsMin: 400,
       ocrTimeoutMsMax: 6000,
     },
-    cropPresets: ["top", "middle", "bottom", "custom"],
     ocrEngines: ["native", "tesseract"],
     rewardScanner: {
       setSettings: vi.fn(),
     },
     onRelicRewardTrigger: vi.fn(),
-    onOpenCropDebugger: vi.fn(async () => ({ ok: true })),
   };
 
   const controller = createOverlaySettingsController(deps);
@@ -89,15 +72,11 @@ function buildController() {
 }
 
 describe("overlay settings controller", () => {
-  it("normalizes hotkeys and clamps crop/settings values", () => {
+  it("normalizes hotkeys and clamps settings values", () => {
     const { controller } = buildController();
 
     const normalized = controller.normalizeOverlaySettings({
       hotkey: "ctrl + k",
-      cropDebugHotkey: "shift + f8",
-      cropPreset: "invalid",
-      cropTopRatio: 0.93,
-      cropHeightRatio: 0.5,
       ocrEngine: "invalid",
       ocrPasses: 999,
       matchThreshold: 0.1,
@@ -105,10 +84,6 @@ describe("overlay settings controller", () => {
     });
 
     expect(normalized.hotkey).toBe("Control+K");
-    expect(normalized.cropDebugHotkey).toBe("Shift+F8");
-    expect(normalized.cropPreset).toBe("middle");
-    expect(normalized.cropTopRatio).toBeLessThanOrEqual(0.9);
-    expect(normalized.cropTopRatio + normalized.cropHeightRatio).toBeLessThanOrEqual(1);
     expect(normalized.ocrEngine).toBe("native");
     expect(normalized.ocrPasses).toBe(6);
     expect(normalized.matchThreshold).toBe(0.4);
@@ -120,18 +95,16 @@ describe("overlay settings controller", () => {
 
     const next = controller.setOverlaySettings({
       hotkey: "alt + p",
-      cropPreset: "top",
       worldNotificationsEnabled: false,
     });
 
     expect(next.hotkey).toBe("Alt+P");
-    expect(next.cropPreset).toBe("top");
     expect(next.worldNotificationsEnabled).toBe(false);
     expect(deps.rewardScanner.setSettings).toHaveBeenCalledWith(next);
     expect(deps.fs.writeFileSync).toHaveBeenCalledTimes(1);
   });
 
-  it("registers hotkeys and dispatches trigger callbacks", async () => {
+  it("registers hotkeys and dispatches trigger callbacks", () => {
     const { controller, deps, registerCallbacks } = buildController();
     controller.registerOverlayHotkey();
 
@@ -139,15 +112,8 @@ describe("overlay settings controller", () => {
       "Control+Alt+R",
       expect.any(Function),
     );
-    expect(deps.globalShortcut.register).toHaveBeenCalledWith(
-      "Control+Alt+D",
-      expect.any(Function),
-    );
 
     registerCallbacks.get("Control+Alt+R")?.();
     expect(deps.onRelicRewardTrigger).toHaveBeenCalledWith("hotkey");
-
-    await registerCallbacks.get("Control+Alt+D")?.();
-    expect(deps.onOpenCropDebugger).toHaveBeenCalledWith("hotkey");
   });
 });

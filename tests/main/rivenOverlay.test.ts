@@ -484,6 +484,18 @@ describe("parseRivenStats", () => {
     ]);
   });
 
+  it("fixes OCR misread xO→x0 in multiplier values (xO,58 Damage to Grineer)", () => {
+    // OCR reads zero as letter O: "xO,58" instead of "x0,58"
+    const text =
+      "+126,2% Status Duration +122,2% f Electricity +112% Multishot xO,58 Damage to Grineer";
+    const result = parseRivenStats(text);
+    const dmg = result.find((s) => s.name === "Damage to Grineer");
+    expect(dmg).toBeDefined();
+    expect(dmg!.value).toBe(0.58);
+    expect(dmg!.multiplier).toBe(true);
+    expect(dmg!.positive).toBe(false);
+  });
+
   it("ignores junk glyphs before elemental stats", () => {
     const result = parseRivenStats("+122,2% ┬Ñ Electricity <");
     expect(result).toHaveLength(1);

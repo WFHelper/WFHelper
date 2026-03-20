@@ -28,7 +28,6 @@ type OverlayAnchorMeta = {
 
 type OverlayContext = {
   overlayWindow: import("electron").BrowserWindow | null;
-  cropDebugWindow: import("electron").BrowserWindow | null;
   overlaySettings: Record<string, unknown>;
   overlayInteractiveMode: boolean;
 };
@@ -52,7 +51,6 @@ type OverlayWindowsControllerOptions = {
     },
   ) => void;
   overlayWindowFile: string;
-  cropDebugWindowFile: string;
   placement?: "center" | "top-left" | "top-right";
   windowWidth?: number;
   windowHeight?: number;
@@ -77,7 +75,6 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     log,
     hardenBrowserWindowNavigation,
     overlayWindowFile,
-    cropDebugWindowFile,
     placement = "center",
     windowWidth = OVERLAY_WINDOW_BOUNDS.width,
     windowHeight = OVERLAY_WINDOW_BOUNDS.height,
@@ -288,57 +285,6 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     });
   }
 
-  function createCropDebugWindow(frame: Record<string, unknown>): void {
-    if (ctx.cropDebugWindow && !ctx.cropDebugWindow.isDestroyed()) {
-      ctx.cropDebugWindow.show();
-      ctx.cropDebugWindow.focus();
-      ctx.cropDebugWindow.webContents.send("crop-debug:init", {
-        ...frame,
-        cropTopRatio: ctx.overlaySettings.cropTopRatio,
-        cropHeightRatio: ctx.overlaySettings.cropHeightRatio,
-      });
-      return;
-    }
-
-    ctx.cropDebugWindow = new BrowserWindow({
-      width: 1200,
-      height: 760,
-      minWidth: 900,
-      minHeight: 600,
-      autoHideMenuBar: true,
-      title: "OCR Crop Debugger",
-      backgroundColor: "#0b1320",
-      webPreferences: {
-        preload: getElectronBuildFile("preload-crop.js"),
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-      },
-    });
-
-    hardenBrowserWindowNavigation(ctx.cropDebugWindow, {
-      label: "crop debug window",
-      allowedFilePaths: [cropDebugWindowFile],
-      log,
-    });
-
-    void ctx.cropDebugWindow.loadFile(cropDebugWindowFile);
-
-    ctx.cropDebugWindow.webContents.once("did-finish-load", () => {
-      if (ctx.cropDebugWindow && !ctx.cropDebugWindow.isDestroyed()) {
-        ctx.cropDebugWindow.webContents.send("crop-debug:init", {
-          ...frame,
-          cropTopRatio: ctx.overlaySettings.cropTopRatio,
-          cropHeightRatio: ctx.overlaySettings.cropHeightRatio,
-        });
-      }
-    });
-
-    ctx.cropDebugWindow.on("closed", () => {
-      ctx.cropDebugWindow = null;
-    });
-  }
-
   function clearOverlayAutoHideTimer(): void {
     if (!overlayAutoHideTimer) return;
     clearTimeout(overlayAutoHideTimer);
@@ -414,7 +360,6 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     getOverlayBoundsForActiveDisplay,
     positionOverlayWindow,
     createOverlayWindow,
-    createCropDebugWindow,
     clearOverlayAutoHideTimer,
     scheduleOverlayAutoHide,
     sendOverlayEvent,

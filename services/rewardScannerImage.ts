@@ -448,6 +448,60 @@ export function detectRewardSlotLayout(nativeImage: any): RewardSlotLayout {
   };
 }
 
+/**
+ * Detect whether the Warframe in-game chat console is open.
+ *
+ * When the player presses `/` (or `T`), a bright text-input bar appears across
+ * the bottom ~4% of the screen.  This corrupts reward-band OCR because the chat
+ * text overlaps the reward names.
+ *
+ * Heuristic: sample the bottom 4% strip of the frame.  If >55% of sampled
+ * pixels are bright (luminance ≥ 140) AND exhibit low saturation (≤ 0.3),
+ * the console is very likely open.  Warframe's chat bar is a near-white
+ * semi-transparent overlay, so this is a reliable signal.
+ */
+export function detectConsoleOpen(nativeImage: any): boolean {
+  if (!nativeImage || typeof nativeImage.getSize !== "function") return false;
+
+  const { width, height } = nativeImage.getSize();
+  if (width < 120 || height < 120) return false;
+
+  const stripTop = Math.floor(height * 0.96);
+  const stripHeight = height - stripTop;
+  if (stripHeight < 4) return false;
+
+  let strip: any;
+  try {
+    strip = nativeImage.crop({ x: 0, y: stripTop, width, height: stripHeight });
+  } catch {
+    return false;
+  }
+
+  const bitmap: Buffer = strip.toBitmap();
+  const stepX = Math.max(1, Math.floor(width / 200));
+  const stepY = Math.max(1, Math.floor(stripHeight / 8));
+
+  let bright = 0;
+  let total = 0;
+
+  for (let y = 0; y < stripHeight; y += stepY) {
+    for (let x = 0; x < width; x += stepX) {
+      const idx = (y * width + x) * 4;
+      const blue = bitmap[idx];
+      const green = bitmap[idx + 1];
+      const red = bitmap[idx + 2];
+      const lum = luminanceFromBgr(blue, green, red);
+      const maxC = Math.max(red, green, blue);
+      const minC = Math.min(red, green, blue);
+      const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
+      if (lum >= 140 && sat <= 0.3) bright += 1;
+      total += 1;
+    }
+  }
+
+  return total > 0 && bright / total >= 0.55;
+}
+
 export function buildOcrVariants(nativeImage: any): OcrVariant[] {
   const variants: OcrVariant[] = [{ id: "raw", image: nativeImage }];
 
@@ -461,4 +515,92 @@ export function buildOcrVariants(nativeImage: any): OcrVariant[] {
   }
 
   return variants;
+}
+
+/**
+ * Step 6: Infer reward slot boundaries from structured OCR bounding boxes.
+ *
+ * Groups OCR lines by their horizontal center position, clustering text that
+ * falls within the same vertical column.  Each cluster is a candidate reward
+ * slot.  Returns a layout compatible with `RewardSlotLayout` so it can replace
+ * or supplement the pixel-based `detectRewardSlotLayout`.
+ *
+ * This is more robust in low-contrast screenshots where pixel-based column
+ * analysis fails, but requires structured OCR output (PowerShell pool).
+ */
+export function detectSlotLayoutFromStructuredOcr(
+  structuredResult: { lines?: Array<{ text: string; box: { left: number; top: number; width: number; height: number } }> },
+  imageWidth: number,
+  imageHeight: number,
+): RewardSlotLayout | null {
+  const lines = structuredResult?.lines;
+  if (!Array.isArray(lines) || lines.length < 2 || imageWidth < 120 || imageHeight < 80) {
+    return null;
+  }
+
+  // Filter to lines in the lower half of the image (reward names appear there)
+  const rewardLines = lines.filter((line) => {
+    const centerY = (line.box.top + line.box.height / 2) / imageHeight;
+    return centerY >= 0.35 && centerY <= 0.85 && line.text.trim().length > 2;
+  });
+
+  if (rewardLines.length < 2) return null;
+
+  // Cluster lines by horizontal center using a gap-based approach
+  const sorted = [...rewardLines].sort(
+    (a, b) => (a.box.left + a.box.width / 2) - (b.box.left + b.box.width / 2),
+  );
+
+  const clusters: Array<typeof rewardLines> = [];
+  let currentCluster = [sorted[0]];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const prevCenter = (currentCluster[currentCluster.length - 1].box.left +
+      currentCluster[currentCluster.length - 1].box.width / 2);
+    const curCenter = sorted[i].box.left + sorted[i].box.width / 2;
+    const gap = (curCenter - prevCenter) / imageWidth;
+
+    if (gap > 0.08) {
+      // significant horizontal gap → new cluster
+      clusters.push(currentCluster);
+      currentCluster = [sorted[i]];
+    } else {
+      currentCluster.push(sorted[i]);
+    }
+  }
+  clusters.push(currentCluster);
+
+  if (clusters.length < 2 || clusters.length > 4) return null;
+
+  const slots: RewardSlotRect[] = clusters.map((cluster, index) => {
+    const minLeft = Math.min(...cluster.map((l) => l.box.left));
+    const maxRight = Math.max(...cluster.map((l) => l.box.left + l.box.width));
+    const minTop = Math.min(...cluster.map((l) => l.box.top));
+    const maxBottom = Math.max(...cluster.map((l) => l.box.top + l.box.height));
+
+    const x = minLeft / imageWidth;
+    const y = minTop / imageHeight;
+    const width = (maxRight - minLeft) / imageWidth;
+    const height = (maxBottom - minTop) / imageHeight;
+
+    return {
+      index,
+      x,
+      y,
+      width,
+      height,
+      titleRect: {
+        x,
+        y: y + height * 0.5,
+        width,
+        height: height * 0.5,
+      },
+    };
+  });
+
+  return {
+    count: slots.length,
+    confidence: Math.min(0.85, 0.5 + slots.length * 0.1),
+    slots,
+  };
 }
