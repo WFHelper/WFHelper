@@ -527,10 +527,10 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     return { rows: sliced, totalOwnedCount };
   }
 
-  function sendFallbackRows(scanToken: number, source: string): void {
+  function sendFallbackRows(scanToken: number, source: string, era: string | null): void {
     const startedAt = Date.now();
     try {
-      const { rows, totalOwnedCount } = buildRecommendations(null);
+      const { rows, totalOwnedCount } = buildRecommendations(era);
       if (scanToken !== activeScanToken) return;
 
       windows.sendOverlayEvent("relic-recommendations", {
@@ -732,7 +732,16 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       windows.sendOverlayEvent("relic-planner-trigger", { source });
       windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_DETECTING_MAX_MS);
 
-      sendFallbackRows(scanToken, source);
+      // Only send immediate rows if we have a cached era from this mission session.
+      // Without one, buildRecommendations(null) returns all eras which causes a visible
+      // flash of every relic before OCR completes.
+      const cachedEra =
+        activeMissionTier && Date.now() - activeMissionTierSetAt < MISSION_TIER_TTL_MS
+          ? activeMissionTier
+          : null;
+      if (cachedEra) {
+        sendFallbackRows(scanToken, source, cachedEra);
+      }
 
       setTimeout(() => {
         void runRefinement(scanToken, source, preferredDisplayId);
