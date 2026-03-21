@@ -265,7 +265,12 @@ let _rivenRollScanTimer: ReturnType<typeof setTimeout> | null = null;
 //   We use 1000 ms + readiness gate (up to 1800 ms) — equivalent on stable frames,
 //   more robust on slow machines.
 const INITIAL_SCAN_DELAY_MS = 200;
-const ROLL_SCAN_DELAY_MS = 1800;
+// True last-resort fallback: only fires when the diorama event is never received
+// (e.g. EE.log lag, network stall, or the animation completes before the log line
+// arrives).  The diorama event at ~1500–2500 ms post-roll is the authoritative
+// trigger; this fires at 3500 ms to stay well clear of the diorama window so no
+// redundant OCR is wasted in the normal case.
+const ROLL_SCAN_DELAY_MS = 3500;
 const ROLL_DIORAMA_SCAN_DELAY_MS = 200;
 const CHOICE_RESCAN_DELAY_MS = 1000;
 
@@ -447,6 +452,8 @@ function triggerRollScan(delayMs = ROLL_SCAN_DELAY_MS, skipGate = false): void {
   _rivenRollScanTimer = setTimeout(async () => {
     _rivenRollScanTimer = null;
     if (mySerial !== _rollScanSerial) return; // superseded by a later scan
+    // Clear any abort flag left by the previous scan before starting fresh.
+    rivenScan.resetRivenScanAbort();
     try {
       const panels = await rivenScan.scanNewRoll(_rivenWeaponName, skipGate);
       if (mySerial !== _rollScanSerial) return; // superseded while awaiting OCR
@@ -606,13 +613,19 @@ export function onRivenRollConfirmed(): void {
 // roll animation completes.  We only want to scan for new-roll results, so we
 // guard with _rivenRollConfirmedAt.
 //
-// The fallback roll scan timer (ROLL_SCAN_DELAY_MS = 1800 ms) fires well
-// before the diorama (~2-3 s animation), so _rivenRollScanTimer is null by
-// the time we arrive here.  triggerRollScan increments _rollScanSerial, which
-// causes the already-running stale scan to discard its results.
+// ROLL_SCAN_DELAY_MS (3500 ms) is a last-resort fallback for cases where the
+// diorama event is never received (EE.log lag, log drop).  In the normal case
+// this diorama handler fires first (~1500–2500 ms after roll confirm), aborts
+// the stale fallback gate and any pending OCR iterations, and starts a fresh
+// skipGate scan.  triggerRollScan increments _rollScanSerial, so if the rare
+// fallback does fire it will discard its result immediately.
 export function onRivenDioramaSetup(): void {
   // Ignore if no roll has been confirmed recently (initial session-open diorama).
   if (Date.now() - _rivenRollConfirmedAt > 30_000) return;
+
+  // Abort the stale fallback gate and any in-flight OCR iterations so they
+  // exit immediately rather than running to completion and being discarded.
+  rivenScan.abortRivenScans();
 
   // Cancel the fallback timer if it somehow hasn't fired yet (very fast machine).
   if (_rivenRollScanTimer !== null) {

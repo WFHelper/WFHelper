@@ -52,6 +52,9 @@ const MIN_ACCEPTABLE_RIVEN_STATS = 2;
 // captures (roll, choice) use the same monitor as the initial capture.
 let _rivenDisplayId: string | null = null;
 
+// Abort flag: set by abortRivenScans() to cancel between-iteration OCR work.
+let _ocrAborted = false;
+
 const ocrRunner = createRewardOcrRunner({
   log,
   ocrScriptPath: OCR_SCRIPT,
@@ -193,6 +196,7 @@ async function ocrCropMultiStrategy(
   const results: CandidateResult[] = [];
 
   for (const plan of orderedCandidates) {
+    if (_ocrAborted) break;
     const cropVariant = cropVariants.find((variant) => variant.id === plan.cropId);
     if (!cropVariant) continue;
 
@@ -405,10 +409,12 @@ async function ocrCropMultiStrategy(
 }
 
 export function abortRivenScans(): void {
+  _ocrAborted = true;
   abortRivenScanWaits();
 }
 
 export function resetRivenScanAbort(): void {
+  _ocrAborted = false;
   resetRivenScanWaits();
 }
 
@@ -498,7 +504,7 @@ export async function scanNewRoll(expectedWeaponName = "", skipGate = false): Pr
     // Diorama-triggered path: both cards are confirmed loaded, skip stability
     // polling and capture directly.  Matches AlecaFrame’s immediate-screenshot
     // behaviour on OmegaRerollSelection.lua: Diorama setup.
-    capture = await captureScreen({ preferredDisplayId: _rivenDisplayId });
+    capture = await captureScreen({ preferScreenCapture: true, preferredDisplayId: _rivenDisplayId });
     if (!capture) {
       log.warn("[RivenScan] scanNewRoll: captureScreen returned null");
       return { left: [], right: [] };
