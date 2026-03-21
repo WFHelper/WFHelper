@@ -441,6 +441,7 @@ export async function nativeOcrFile(imagePath: string, _timeoutMs?: number): Pro
 let _tesseractWorker: any = null;
 let _tesseractWorkerReady: Promise<any> | null = null;
 let _tesseractWorkerLanguage: string = "eng";
+let _lastTessParamsKey: string = "";
 
 async function _initTesseractWorker(language: string): Promise<any> {
   try {
@@ -448,7 +449,7 @@ async function _initTesseractWorker(language: string): Promise<any> {
     const Tesseract = require("tesseract.js") as {
       createWorker: (lang: string, oem?: number, opts?: any) => Promise<any>;
     };
-    const worker = await Tesseract.createWorker(language);
+    const worker = await Tesseract.createWorker(language, 1 /* OEM.LSTM_ONLY — neural LSTM only, faster than legacy+LSTM combined */);
     _tesseractWorkerLanguage = language;
     log.log("[OcrServer] Persistent Tesseract WASM worker initialized");
     return worker;
@@ -485,9 +486,10 @@ export const tesseractWorkerAvailable: boolean = (() => {
 /**
  * Run OCR via the persistent Tesseract worker. Falls through to null if the
  * worker is unavailable, so callers can fall back to `tesseract.recognize()`.
+ * Accepts a file path or a PNG Buffer directly (tesseract.js supports both).
  */
 export async function tesseractWorkerRecognize(
-  imagePath: string,
+  image: string | Buffer,
   params?: Record<string, string>,
 ): Promise<string | null> {
   const workerPromise = getTesseractWorker();
@@ -498,9 +500,13 @@ export async function tesseractWorkerRecognize(
 
   try {
     if (params) {
-      await worker.setParameters(params);
+      const paramsKey = JSON.stringify(params);
+      if (paramsKey !== _lastTessParamsKey) {
+        await worker.setParameters(params);
+        _lastTessParamsKey = paramsKey;
+      }
     }
-    const result = await worker.recognize(imagePath);
+    const result = await worker.recognize(image);
     return result?.data?.text || "";
   } catch {
     return null;

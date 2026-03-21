@@ -14,7 +14,7 @@ import {
   luminanceFromBgr,
 } from "./rewardScannerUtils";
 import { cropRewardBand, detectRewardSlotLayout } from "./rewardScannerImage";
-import { captureScreen } from "./rewardScannerCapture";
+import { captureScreenFast } from "./rewardScannerCapture";
 
 export const UI_READY_DEFAULT_TIMEOUT_MS = 2_200;
 export const UI_READY_DEFAULT_POLL_MS = 120;
@@ -327,7 +327,7 @@ export async function waitForRewardUiReady(
   while (Date.now() - startedAt < timeoutMs) {
     attempts += 1;
 
-    const screenshot = await captureScreen({ preferScreenCapture: true });
+    const screenshot = await captureScreenFast();
     if (!screenshot || !screenshot.image) {
       consecutiveHits = 0;
       await sleep(pollMs);

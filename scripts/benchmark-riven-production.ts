@@ -21,7 +21,6 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
 
 import {
   parseRivenStats,
@@ -33,7 +32,7 @@ import {
 
 // ── Constants matching production ────────────────────────────────────────────
 const SINGLE_CARD_CROP = { x: 0.22, y: 0.43, width: 0.56, height: 0.45 };
-const ROLL_CARD_CROP = { x: 0.38, y: 0.35, width: 0.26, height: 0.45 };
+const ROLL_CARD_CROP = { x: 0.42, y: 0.35, width: 0.20, height: 0.45 };
 const MIN_OCR_WIDTH = 1800;
 const MIN_ACCEPTABLE_RIVEN_STATS = 2;
 
@@ -80,28 +79,31 @@ async function initTesseractWorker(): Promise<any> {
     const Tesseract = require("tesseract.js") as {
       createWorker: (lang: string, oem?: number, opts?: any) => Promise<any>;
     };
-    const worker = await Tesseract.createWorker("eng");
+    const worker = await Tesseract.createWorker("eng", 1 /* OEM.LSTM_ONLY — mirrors production ocrServer.ts */);
     return worker;
   } catch {
     return null;
   }
 }
 
+// setParameters dedup: avoid redundant calls when params haven't changed
+let _lastBenchTessParamsKey = "";
+
 async function tesseractOcr(pngBuffer: Buffer): Promise<string> {
   if (!_tessWorker) return "";
-  const tmpPath = path.join(os.tmpdir(), `wf-bench-tess-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`);
-  try {
-    fs.writeFileSync(tmpPath, pngBuffer);
-    await _tessWorker.setParameters({
-      tessedit_char_whitelist:
-        " 1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,()+-%x",
-      tessedit_pageseg_mode: "6",
-    });
-    const result = await _tessWorker.recognize(tmpPath);
-    return result?.data?.text || "";
-  } finally {
-    try { fs.unlinkSync(tmpPath); } catch { /* */ }
+  const params = {
+    tessedit_char_whitelist:
+      " 1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,()+-%x",
+    tessedit_pageseg_mode: "6",
+  };
+  const paramsKey = JSON.stringify(params);
+  if (paramsKey !== _lastBenchTessParamsKey) {
+    await _tessWorker.setParameters(params);
+    _lastBenchTessParamsKey = paramsKey;
   }
+  // Pass buffer directly — tesseract.js accepts Buffer (no temp file needed)
+  const result = await _tessWorker.recognize(pngBuffer);
+  return result?.data?.text || "";
 }
 
 // ── Image helpers (Sharp-based, replicating NativeImage operations) ──────────
@@ -268,7 +270,62 @@ function formatStats(stats: RivenStat[]): string {
     .join(", ");
 }
 
-// ── Full production ocrCropMultiStrategy (native + tesseract fallback) ───────
+// Tracks the currently running eager Tesseract promise so the main loop can
+// drain it between images (simulates real production behaviour where scans
+// are seconds apart and a previous scan's background Tesseract always finishes
+// long before the next scan begins).
+let _activeTessPromise: Promise<CandidateResult[]> | null = null;
+
+// ── Tesseract strategies runner (parallel eager start, mirrors runTesseractCandidates) ───
+async function runTesseractCandidatesBenchmark(
+  cropVariants: Array<{ id: string; image: RawImage }>,
+  enhanceCache?: Map<string, Buffer>,
+): Promise<CandidateResult[]> {
+  const promise = (async (): Promise<CandidateResult[]> => {
+    const candidates: CandidateResult[] = [];
+    const plans: Array<{ cropId: string; mode: EnhanceMode }> = [];
+    for (const mode of TESSERACT_STRATEGIES) {
+      for (const cv of cropVariants) {
+        plans.push({ cropId: cv.id, mode });
+      }
+    }
+    for (const plan of plans) {
+      const cv = cropVariants.find((v) => v.id === plan.cropId)!;
+      const modeLabel =
+        plan.mode.kind === "original"
+          ? `tess:${cv.id}:original`
+          : `tess:${cv.id}:bright-${plan.mode.threshold}${plan.mode.dilate ? "+dilate" : ""}`;
+      try {
+        const tOcr0 = Date.now();
+        const cacheKey = modeLabel.replace(/^tess:/, "");
+        let enhancedPng = enhanceCache?.get(cacheKey);
+        if (!enhancedPng) {
+          enhancedPng = await enhance(cv.image, plan.mode);
+          enhanceCache?.set(cacheKey, enhancedPng);
+        }
+        const text = await tesseractOcr(enhancedPng);
+        const tOcr1 = Date.now();
+        const structured = textToStructuredResult(text);
+        const split = splitRivenStructuredText(structured);
+        const stats = parseRivenStats(split.statsText || text || "");
+        const valueCount = stats.filter((s) => s.value !== null).length;
+        const score = scoreStatsCandidate(stats, text);
+        console.log(
+          `    [${modeLabel}] ${tOcr1 - tOcr0}ms → ${stats.length} stats, ${valueCount} values (score=${score})`,
+        );
+        candidates.push({ text, stats, score, valueCount, modeLabel, cropId: cv.id });
+        // Early exit on confidence (mirrors runTesseractCandidates in production)
+        const last = candidates[candidates.length - 1];
+        if (isConfidentEnough(last)) break;
+      } catch { /* non-fatal */ }
+    }
+    return candidates;
+  })();
+  _activeTessPromise = promise;
+  return promise;
+}
+
+// ── Full production ocrCropMultiStrategy (native + parallel Tesseract) ───────
 async function ocrCropMultiStrategy(
   image: RawImage,
   rect: { x: number; y: number; width: number; height: number },
@@ -278,9 +335,20 @@ async function ocrCropMultiStrategy(
   stats: RivenStat[];
   nativeMs: number;
   tessMs: number;
+  tessParallelTotalMs: number;
+  tessWaitedMs: number;
   tessTriggered: boolean;
   nativeOnlyStats: RivenStat[];
 }> {
+  // Drain the previous image's eager Tesseract if it is still running.
+  // In production, scans are separated by multiple seconds so this never
+  // matters, but the benchmark runs images back-to-back and the Tesseract
+  // WASM worker can only process one call at a time.
+  if (_activeTessPromise) {
+    await _activeTessPromise.catch(() => {});
+    _activeTessPromise = null;
+  }
+
   const roughCrop = cropRgba(image, rect);
 
   // Build crop variants (rough only — refined crop depends on Sobel card detection
@@ -296,6 +364,16 @@ async function ocrCropMultiStrategy(
     }
   }
 
+  // Per-scan enhance cache: avoids re-running enhance on the same crop+mode pair
+  // across native and Tesseract loops (mirrors production Change 2).
+  const enhanceCache = new Map<string, Buffer>();
+
+  // === 2750 ms hard budget: mirrors AlecaFrame and production SCAN_BUDGET_MS ===
+  const SCAN_BUDGET_MS = 2750;
+  const scanStart = Date.now();
+  let tessEagerPromise: Promise<CandidateResult[]> | null = null;
+  let tessGlobalStart = 0;
+
   // Phase 1: Native OCR
   const nativeStart = Date.now();
   const nativeResults: CandidateResult[] = [];
@@ -310,7 +388,12 @@ async function ocrCropMultiStrategy(
 
     try {
       const nOcr0 = Date.now();
-      const enhancedPng = await enhance(cv.image, plan.mode);
+      const cacheKey = modeLabel;
+      let enhancedPng = enhanceCache.get(cacheKey);
+      if (!enhancedPng) {
+        enhancedPng = await enhance(cv.image, plan.mode);
+        enhanceCache.set(cacheKey, enhancedPng);
+      }
       const text = await ocrFn(enhancedPng);
       const nOcr1 = Date.now();
       const structured = textToStructuredResult(text);
@@ -331,6 +414,20 @@ async function ocrCropMultiStrategy(
         cropId: cv.id,
       };
       nativeResults.push(result);
+
+      // Always launch Tesseract after rough:original (parallel with remaining native strategies).
+      if (
+        tessEagerPromise === null &&
+        _tessWorker &&
+        cv.id === "rough" &&
+        plan.mode.kind === "original"
+      ) {
+        tessGlobalStart = Date.now();
+        tessEagerPromise = runTesseractCandidatesBenchmark(cropVariants, enhanceCache).catch(() => []);
+      }
+
+      // Hard budget: stop native loop if budget exhausted.
+      if (Date.now() - scanStart >= SCAN_BUDGET_MS) break;
 
       if (isConfidentEnough(result)) {
         earlyAccept = result;
@@ -411,150 +508,124 @@ async function ocrCropMultiStrategy(
   // Snapshot after native-only phase
   const nativeOnlyStats = chosen.stats.map((s) => ({ ...s }));
 
-  // Phase 2: Tesseract fallback (only when needed)
-  let tessMs = 0;
+  // Phase 2: Await Tesseract (mirrors production gate logic).
+  // tessGlobalStart set when gate triggered; tessWaitedMs = cost after native completed.
+  // If gate never triggered but native still needs Tesseract, do a sequential late launch.
   let tessTriggered = false;
+  let tessWaitedMs = 0;
+  let tessParallelTotalMs = 0;
   const remainingNulls = chosen.stats.filter((s) => s.value === null).length;
   const statsTooFew = chosen.stats.length < MIN_ACCEPTABLE_RIVEN_STATS;
 
-  if ((remainingNulls > 0 || statsTooFew) && _tessWorker) {
+  if ((remainingNulls > 0 || statsTooFew) && tessEagerPromise) {
     tessTriggered = true;
-    const tessStart = Date.now();
+    const waitStart = Date.now();
+    const budgetRemainingMs = SCAN_BUDGET_MS - (Date.now() - scanStart);
+    const tesseractCandidates = budgetRemainingMs > 0
+      ? await Promise.race([
+          tessEagerPromise,
+          new Promise<CandidateResult[]>((r) => setTimeout(() => r([]), budgetRemainingMs)),
+        ])
+      : [];
+    tessWaitedMs = Date.now() - waitStart;
+    tessParallelTotalMs = Date.now() - tessGlobalStart; // total tess wall time (start to resolve)
 
     try {
-      const tesseractCandidates: CandidateResult[] = [];
-      const tesseractPlans: Array<{ cropId: string; mode: EnhanceMode }> = [];
-      for (const mode of TESSERACT_STRATEGIES) {
-        for (const cv of cropVariants) {
-          tesseractPlans.push({ cropId: cv.id, mode });
-        }
-      }
-      for (const plan of tesseractPlans) {
-        const cv = cropVariants.find((v) => v.id === plan.cropId)!;
-        const modeLabel =
-          plan.mode.kind === "original"
-            ? `tess:${cv.id}:original`
-            : `tess:${cv.id}:bright-${plan.mode.threshold}${plan.mode.dilate ? "+dilate" : ""}`;
-
-        try {
-          const tOcr0 = Date.now();
-          const enhancedPng = await enhance(cv.image, plan.mode);
-          const text = await tesseractOcr(enhancedPng);
-          const tOcr1 = Date.now();
-          const structured = textToStructuredResult(text);
-          const split = splitRivenStructuredText(structured);
-          const stats = parseRivenStats(split.statsText || text || "");
-          const valueCount = stats.filter((s) => s.value !== null).length;
-          const score = scoreStatsCandidate(stats, text);
-          console.log(
-            `    [${modeLabel}] ${tOcr1 - tOcr0}ms → ${stats.length} stats, ${valueCount} values (score=${score})`,
-          );
-
-          tesseractCandidates.push({ text, stats, score, valueCount, modeLabel, cropId: cv.id });
-
-          // Early-accept: Tesseract confident AND better than native
-          const tc = tesseractCandidates[tesseractCandidates.length - 1];
-          if (isConfidentEnough(tc) && tc.score > chosen.score) {
-            chosen = { ...chosen, stats: tc.stats, text: tc.text, score: tc.score };
-            tessMs = Date.now() - tessStart;
-            return { stats: chosen.stats, nativeMs, tessMs, tessTriggered, nativeOnlyStats };
-          }
-        } catch { /* non-fatal */ }
-      }
-
-      // Best Tesseract candidate
+      // Pick best Tesseract candidate
       let bestTess: CandidateResult | null = null;
       for (const tc of tesseractCandidates) {
         if (!bestTess || tc.score > bestTess.score) bestTess = tc;
       }
 
       if (bestTess && bestTess.stats.length >= MIN_ACCEPTABLE_RIVEN_STATS) {
-        // Outright better?
-        const tessValues = bestTess.stats.filter((s) => s.value !== null).length;
-        const nativeValues = chosen.stats.filter((s) => s.value !== null).length;
-        if (bestTess.score > chosen.score && tessValues > nativeValues) {
+        // Confident early-accept (Tesseract better than native)
+        if (isConfidentEnough(bestTess) && bestTess.score > chosen.score) {
           chosen = { ...chosen, stats: bestTess.stats, text: bestTess.text, score: bestTess.score };
-          tessMs = Date.now() - tessStart;
-          return { stats: chosen.stats, nativeMs, tessMs, tessTriggered, nativeOnlyStats };
-        }
-
-        // Cross-engine injection by stat name
-        nullSlots = chosen.stats
-          .map((s, i) => (s.value === null ? i : -1))
-          .filter((i) => i >= 0);
-        if (nullSlots.length > 0) {
-          const assignedValues = new Set(
-            chosen.stats.filter((s) => s.value !== null).map((s) => s.value as number),
-          );
-          const injected = chosen.stats.slice();
-          let injectedCount = 0;
-          for (const ni of nullSlots) {
-            const statName = injected[ni].name.toLowerCase();
-            const tessMatch = bestTess.stats.find(
-              (ts) => ts.name.toLowerCase() === statName && ts.value !== null,
-            );
-            if (tessMatch && !assignedValues.has(tessMatch.value!)) {
-              injected[ni] = {
-                ...injected[ni],
-                value: tessMatch.value,
-                positive: tessMatch.positive,
-                ...(tessMatch.multiplier && { multiplier: true }),
-              };
-              assignedValues.add(tessMatch.value!);
-              injectedCount++;
-            }
-          }
-          // Orphan values from Tesseract text for remaining nulls
-          if (injectedCount < nullSlots.length) {
-            const orphanValues: Array<{
-              value: number;
-              positive: boolean;
-              multiplier?: boolean;
-            }> = [];
-            for (const tc of tesseractCandidates) {
-              const cleaned = preprocessOcrText(tc.text || "");
-              for (const match of cleaned.matchAll(/x\s*(\d+\.?\d*)/gi)) {
-                const v = parseFloat(match[1]);
-                if (!Number.isFinite(v) || v <= 0) continue;
-                if (assignedValues.has(v)) continue;
-                if (orphanValues.some((o) => Math.abs(o.value - v) < 0.05)) continue;
-                orphanValues.push({ value: v, positive: v >= 1, multiplier: true });
+        } else {
+          // Outright better?
+          const tessValues = bestTess.stats.filter((s) => s.value !== null).length;
+          const nativeValues = chosen.stats.filter((s) => s.value !== null).length;
+          if (bestTess.score > chosen.score && tessValues > nativeValues) {
+            chosen = { ...chosen, stats: bestTess.stats, text: bestTess.text, score: bestTess.score };
+          } else {
+            // Cross-engine injection by stat name
+            nullSlots = chosen.stats
+              .map((s, i) => (s.value === null ? i : -1))
+              .filter((i) => i >= 0);
+            if (nullSlots.length > 0) {
+              const assignedValues = new Set(
+                chosen.stats.filter((s) => s.value !== null).map((s) => s.value as number),
+              );
+              const injected = chosen.stats.slice();
+              let injectedCount = 0;
+              for (const ni of nullSlots) {
+                const statName = injected[ni].name.toLowerCase();
+                const tessMatch = bestTess.stats.find(
+                  (ts) => ts.name.toLowerCase() === statName && ts.value !== null,
+                );
+                if (tessMatch && !assignedValues.has(tessMatch.value!)) {
+                  injected[ni] = {
+                    ...injected[ni],
+                    value: tessMatch.value,
+                    positive: tessMatch.positive,
+                    ...(tessMatch.multiplier && { multiplier: true }),
+                  };
+                  assignedValues.add(tessMatch.value!);
+                  injectedCount++;
+                }
               }
-              for (const match of cleaned.matchAll(/([+\-])\s*(\d+\.?\d*)\s*%/g)) {
-                const v = parseFloat(match[2]);
-                if (!Number.isFinite(v) || v <= 0) continue;
-                if (assignedValues.has(v)) continue;
-                if (orphanValues.some((o) => Math.abs(o.value - v) < 0.5)) continue;
-                orphanValues.push({ value: v, positive: match[1] !== "-" });
+              // Orphan values from Tesseract text for remaining nulls
+              if (injectedCount < nullSlots.length) {
+                const orphanValues: Array<{
+                  value: number;
+                  positive: boolean;
+                  multiplier?: boolean;
+                }> = [];
+                for (const tc of tesseractCandidates) {
+                  const cleaned = preprocessOcrText(tc.text || "");
+                  for (const match of cleaned.matchAll(/x\s*(\d+\.?\d*)/gi)) {
+                    const v = parseFloat(match[1]);
+                    if (!Number.isFinite(v) || v <= 0) continue;
+                    if (assignedValues.has(v)) continue;
+                    if (orphanValues.some((o) => Math.abs(o.value - v) < 0.05)) continue;
+                    orphanValues.push({ value: v, positive: v >= 1, multiplier: true });
+                  }
+                  for (const match of cleaned.matchAll(/([+\-])\s*(\d+\.?\d*)\s*%/g)) {
+                    const v = parseFloat(match[2]);
+                    if (!Number.isFinite(v) || v <= 0) continue;
+                    if (assignedValues.has(v)) continue;
+                    if (orphanValues.some((o) => Math.abs(o.value - v) < 0.5)) continue;
+                    orphanValues.push({ value: v, positive: match[1] !== "-" });
+                  }
+                }
+                let oi = 0;
+                const remainingNullIdxs = nullSlots.filter((i) => injected[i].value === null);
+                for (const ni of remainingNullIdxs) {
+                  if (oi >= orphanValues.length) break;
+                  injected[ni] = {
+                    ...injected[ni],
+                    value: orphanValues[oi].value,
+                    positive: orphanValues[oi].positive,
+                    ...(orphanValues[oi].multiplier && { multiplier: true }),
+                  };
+                  assignedValues.add(orphanValues[oi].value);
+                  oi++;
+                  injectedCount++;
+                }
+              }
+              if (injectedCount > 0) {
+                chosen = { ...chosen, stats: injected };
               }
             }
-            let oi = 0;
-            const remainingNullIdxs = nullSlots.filter((i) => injected[i].value === null);
-            for (const ni of remainingNullIdxs) {
-              if (oi >= orphanValues.length) break;
-              injected[ni] = {
-                ...injected[ni],
-                value: orphanValues[oi].value,
-                positive: orphanValues[oi].positive,
-                ...(orphanValues[oi].multiplier && { multiplier: true }),
-              };
-              assignedValues.add(orphanValues[oi].value);
-              oi++;
-              injectedCount++;
-            }
-          }
-          if (injectedCount > 0) {
-            chosen = { ...chosen, stats: injected };
           }
         }
       }
-      tessMs = Date.now() - tessStart;
-    } catch {
-      tessMs = Date.now() - (Date.now() - tessMs);
-    }
+    } catch { /* merge failure is non-fatal */ }
   }
 
-  return { stats: chosen.stats, nativeMs, tessMs, tessTriggered, nativeOnlyStats };
+  // tessMs: wall time of Tesseract when used (backwards-compat reporting)
+  const tessMs = tessTriggered ? tessParallelTotalMs : 0;
+  return { stats: chosen.stats, nativeMs, tessMs, tessParallelTotalMs, tessWaitedMs, tessTriggered, nativeOnlyStats };
 }
 
 // ── Ground truth ─────────────────────────────────────────────────────────────
@@ -619,12 +690,14 @@ function scoreAccuracy(
 ): {
   namesMatched: number;
   valuesMatched: number;
+  signsMatched: number;
   totalExpected: number;
   details: string[];
 } {
   const details: string[] = [];
   let namesMatched = 0;
   let valuesMatched = 0;
+  let signsMatched = 0;
   const totalExpected = expected.length;
 
   for (const exp of expected) {
@@ -633,22 +706,30 @@ function scoreAccuracy(
     );
     if (found) {
       namesMatched++;
+      const signOk = found.positive === exp.positive;
+      if (!signOk) {
+        details.push(
+          `  ✗ ${exp.name}: sign WRONG — got ${found.positive ? "+" : "-"} expected ${exp.positive ? "+" : "-"}`,
+        );
+      }
       if (exp.value === null) {
-        // For x-multiplier stats, just check the stat was found
+        // For x-multiplier stats, just check the stat was found with any value
         if (found.value !== null) {
           valuesMatched++;
-          details.push(`  ✓ ${exp.name}: found value ${found.multiplier ? "x" : ""}${found.value}`);
+          if (signOk) signsMatched++;
+          details.push(`  ✓ ${exp.name}: found value ${found.multiplier ? "x" : ""}${found.value}${signOk ? "" : " [sign ✗]"}`);
         } else {
           details.push(`  ~ ${exp.name}: name matched but value missing`);
         }
       } else if (found.value !== null && Math.abs(found.value - exp.value) < 3) {
         valuesMatched++;
+        if (signOk) signsMatched++;
         details.push(
-          `  ✓ ${exp.name}: ${found.value}${found.multiplier ? "x" : "%"} (expected ${exp.value})`,
+          `  ✓ ${exp.name}: ${found.positive ? "+" : "-"}${found.multiplier ? "x" : ""}${found.value} (expected ${exp.positive ? "+" : "-"}${exp.value})${signOk ? "" : " [sign ✗]"}`,
         );
       } else {
         details.push(
-          `  ✗ ${exp.name}: value ${found.value ?? "null"} (expected ${exp.value})`,
+          `  ✗ ${exp.name}: value ${found.value ?? "null"} (expected ${exp.value}), sign ${found.positive ? "+" : "-"} (expected ${exp.positive ? "+" : "-"})`,
         );
       }
     } else {
@@ -662,11 +743,11 @@ function scoreAccuracy(
       (e) => e.name.toLowerCase() === s.name.toLowerCase(),
     );
     if (!inGt) {
-      details.push(`  ? ${s.name}: extra stat (${s.value ?? "?"}) not in ground truth`);
+      details.push(`  ? ${s.name}: extra stat (${s.positive ? "+" : "-"}${s.value ?? "?"}) not in ground truth`);
     }
   }
 
-  return { namesMatched, valuesMatched, totalExpected, details };
+  return { namesMatched, valuesMatched, signsMatched, totalExpected, details };
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -699,11 +780,15 @@ function scoreAccuracy(
   let totalNativeMs = 0;
   let totalTessMs = 0;
   let totalFullMs = 0;
+  let totalTessParallelMs = 0;
+  let totalTessWaitedMs = 0;
   let totalImages = 0;
   let totalNamesNative = 0;
   let totalValuesNative = 0;
+  let totalSignsNative = 0;
   let totalNamesFull = 0;
   let totalValuesFull = 0;
+  let totalSignsFull = 0;
   let totalExpected = 0;
   let tessTriggeredCount = 0;
 
@@ -723,13 +808,13 @@ function scoreAccuracy(
     console.log(`    Stats: ${formatStats(result.nativeOnlyStats)}`);
 
     if (result.tessTriggered) {
-      console.log(`  Tesseract fallback (+${result.tessMs}ms):`);
+      console.log(`  Tesseract parallel total: ${result.tessParallelTotalMs}ms | waited after native: ${result.tessWaitedMs}ms`);
       console.log(`    Final: ${formatStats(result.stats)}`);
     } else {
-      console.log(`  Tesseract: not needed`);
+      console.log(`  Tesseract: not needed (ran eagerly but result discarded)`);
     }
 
-    const fullMs = result.nativeMs + result.tessMs;
+    const fullMs = result.nativeMs + result.tessWaitedMs;
     console.log(`  Total: ${fullMs}ms`);
 
     // Accuracy vs ground truth
@@ -739,21 +824,23 @@ function scoreAccuracy(
       const fullAcc = scoreAccuracy(result.stats, gt);
 
       console.log(
-        `\n  Accuracy (native-only): ${nativeAcc.namesMatched}/${nativeAcc.totalExpected} names, ${nativeAcc.valuesMatched}/${nativeAcc.totalExpected} values`,
+        `\n  Accuracy (native-only): ${nativeAcc.namesMatched}/${nativeAcc.totalExpected} names, ${nativeAcc.valuesMatched}/${nativeAcc.totalExpected} values, ${nativeAcc.signsMatched}/${nativeAcc.totalExpected} correct signs`,
       );
       for (const d of nativeAcc.details) console.log(`  ${d}`);
 
       if (result.tessTriggered) {
         console.log(
-          `  Accuracy (full pipeline): ${fullAcc.namesMatched}/${fullAcc.totalExpected} names, ${fullAcc.valuesMatched}/${fullAcc.totalExpected} values`,
+          `  Accuracy (full pipeline): ${fullAcc.namesMatched}/${fullAcc.totalExpected} names, ${fullAcc.valuesMatched}/${fullAcc.totalExpected} values, ${fullAcc.signsMatched}/${fullAcc.totalExpected} correct signs`,
         );
         for (const d of fullAcc.details) console.log(`  ${d}`);
       }
 
       totalNamesNative += nativeAcc.namesMatched;
       totalValuesNative += nativeAcc.valuesMatched;
+      totalSignsNative += nativeAcc.signsMatched;
       totalNamesFull += fullAcc.namesMatched;
       totalValuesFull += fullAcc.valuesMatched;
+      totalSignsFull += fullAcc.signsMatched;
       totalExpected += nativeAcc.totalExpected;
     } else {
       console.log("  (no ground truth for this image)");
@@ -761,7 +848,9 @@ function scoreAccuracy(
 
     totalNativeMs += result.nativeMs;
     totalTessMs += result.tessMs;
-    totalFullMs += fullMs;
+    totalFullMs += result.nativeMs + result.tessWaitedMs;
+    totalTessParallelMs += result.tessParallelTotalMs;
+    totalTessWaitedMs += result.tessWaitedMs;
     totalImages++;
     if (result.tessTriggered) tessTriggeredCount++;
   }
@@ -774,21 +863,46 @@ function scoreAccuracy(
   console.log(`Tesseract triggered: ${tessTriggeredCount}/${totalImages} images`);
   console.log();
   console.log("Speed:");
-  console.log(`  Native-only avg:    ${Math.round(totalNativeMs / totalImages)}ms/image`);
+  console.log(`  Native-only avg:          ${Math.round(totalNativeMs / totalImages)}ms/image`);
   if (tessTriggeredCount > 0) {
     console.log(
-      `  Tesseract avg:      ${Math.round(totalTessMs / tessTriggeredCount)}ms/image (when triggered)`,
+      `  Tesseract parallel avg:   ${Math.round(totalTessParallelMs / tessTriggeredCount)}ms (total wall time when triggered)`,
+    );
+    console.log(
+      `  Tesseract waited avg:     ${Math.round(totalTessWaitedMs / tessTriggeredCount)}ms (extra wait AFTER native, savings vs sequential)`,
     );
   }
-  console.log(`  Full pipeline avg:  ${Math.round(totalFullMs / totalImages)}ms/image`);
+  console.log(`  Full pipeline avg:        ${Math.round(totalFullMs / totalImages)}ms/image (native + wait)`);
+  console.log(`  [NOTE] Compare with pre-optimization baseline (864ms/image) and post-buffer-changes baseline (779ms/image)`);
   console.log();
   console.log("Accuracy (vs ground truth):");
   console.log(
-    `  Native-only: ${totalNamesNative}/${totalExpected} names (${((totalNamesNative / totalExpected) * 100).toFixed(0)}%), ${totalValuesNative}/${totalExpected} values (${((totalValuesNative / totalExpected) * 100).toFixed(0)}%)`,
+    `  Native-only: ${totalNamesNative}/${totalExpected} names (${((totalNamesNative / totalExpected) * 100).toFixed(0)}%), ${totalValuesNative}/${totalExpected} values (${((totalValuesNative / totalExpected) * 100).toFixed(0)}%), ${totalSignsNative}/${totalExpected} correct signs (${((totalSignsNative / totalExpected) * 100).toFixed(0)}%)`,
   );
   console.log(
-    `  Full pipeline: ${totalNamesFull}/${totalExpected} names (${((totalNamesFull / totalExpected) * 100).toFixed(0)}%), ${totalValuesFull}/${totalExpected} values (${((totalValuesFull / totalExpected) * 100).toFixed(0)}%)`,
+    `  Full pipeline: ${totalNamesFull}/${totalExpected} names (${((totalNamesFull / totalExpected) * 100).toFixed(0)}%), ${totalValuesFull}/${totalExpected} values (${((totalValuesFull / totalExpected) * 100).toFixed(0)}%), ${totalSignsFull}/${totalExpected} correct signs (${((totalSignsFull / totalExpected) * 100).toFixed(0)}%)`,
   );
+
+  // Machine-readable summary line for easy before/after comparison
+  const summary = {
+    images: totalImages,
+    tessTriggered: tessTriggeredCount,
+    speed: {
+      nativeAvgMs: Math.round(totalNativeMs / totalImages),
+      tessParallelAvgMs: tessTriggeredCount > 0 ? Math.round(totalTessParallelMs / tessTriggeredCount) : 0,
+      tessWaitedAvgMs: tessTriggeredCount > 0 ? Math.round(totalTessWaitedMs / tessTriggeredCount) : 0,
+      fullAvgMs: Math.round(totalFullMs / totalImages),
+    },
+    accuracy: {
+      namesNative: `${totalNamesNative}/${totalExpected}`,
+      valuesNative: `${totalValuesNative}/${totalExpected}`,
+      signsNative: `${totalSignsNative}/${totalExpected}`,
+      namesFull: `${totalNamesFull}/${totalExpected}`,
+      valuesFull: `${totalValuesFull}/${totalExpected}`,
+      signsFull: `${totalSignsFull}/${totalExpected}`,
+    },
+  };
+  console.log("\nSUMMARY_JSON:", JSON.stringify(summary));
 
   // Cleanup
   if (_tessWorker) {

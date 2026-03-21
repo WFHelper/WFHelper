@@ -159,7 +159,7 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
     }
   }
 
-  async function runTesseractOCR(imagePath: string, timeoutMs: number): Promise<string> {
+  async function runTesseractOCR(image: string | Buffer, timeoutMs: number): Promise<string> {
     // Context-aware Tesseract configuration:
     // - "reward": narrow whitelist (letters + spaces + apostrophe) — reward item
     //   names never contain digits, parens, or math symbols. Reduces misreads.
@@ -176,7 +176,7 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
 
     // Try the persistent WASM worker first (eliminates ~500ms cold-start)
     if (tesseractWorkerAvailable) {
-      const workerResult = await tesseractWorkerRecognize(imagePath, params);
+      const workerResult = await tesseractWorkerRecognize(image, params);
       if (workerResult !== null) return workerResult;
     }
 
@@ -188,7 +188,7 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
       throw new Error(`Tesseract OCR unavailable: ${normalizeErrorMessage(error)}`);
     }
 
-    const recognizePromise = tesseract.recognize(imagePath, tesseractLanguage, {
+    const recognizePromise = tesseract.recognize(image, tesseractLanguage, {
       logger: () => {},
       tessedit_char_whitelist: tesseditCharWhitelist,
       tessedit_pageseg_mode: "6",
@@ -324,32 +324,14 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
     // Native: call binding directly — no PS server, no temp file, no disk I/O
     if (engine === engineNative) {
       if (!nativeOcrAvailable) {
-        // Fallback: write temp file → Tesseract
-        const tmpPath = require("node:path").join(
-          require("node:os").tmpdir(),
-          `wf-ocr-native-fallback-${Date.now()}.png`,
-        );
-        try {
-          require("node:fs").writeFileSync(tmpPath, imageBuffer);
-          return textToStructuredResult(await runTesseractOCR(tmpPath, timeoutMs));
-        } finally {
-          try { require("node:fs").unlinkSync(tmpPath); } catch { /* best-effort */ }
-        }
+        // Fallback: pass buffer directly to Tesseract (supports Buffer input)
+        return textToStructuredResult(await runTesseractOCR(imageBuffer, timeoutMs));
       }
       try {
         return textToStructuredResult(await nativeOcrBuffer(imageBuffer, timeoutMs));
       } catch (error) {
         log?.warn?.("[RewardScanner] Native OCR buffer failed, falling back to Tesseract:", normalizeErrorMessage(error));
-        const tmpPath = require("node:path").join(
-          require("node:os").tmpdir(),
-          `wf-ocr-native-fallback-${Date.now()}.png`,
-        );
-        try {
-          require("node:fs").writeFileSync(tmpPath, imageBuffer);
-          return textToStructuredResult(await runTesseractOCR(tmpPath, timeoutMs));
-        } finally {
-          try { require("node:fs").unlinkSync(tmpPath); } catch { /* best-effort */ }
-        }
+        return textToStructuredResult(await runTesseractOCR(imageBuffer, timeoutMs));
       }
     }
 
@@ -377,27 +359,14 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
       }
     }
 
-    // Buffer fallback: try native buffer OCR if available, else write to temp file for Tesseract
+    // Buffer fallback: try native buffer OCR if available, else pass buffer to Tesseract directly
     try {
       const text = await runOCRBuffer(imageBuffer, timeoutMs);
       return textToStructuredResult(text);
     } catch {
-      // runOCRBuffer only works for Windows engine; fall back to Tesseract via temp file
-      const tmpPath = require("node:path").join(
-        require("node:os").tmpdir(),
-        `wf-ocr-structured-${Date.now()}.png`,
-      );
-      try {
-        require("node:fs").writeFileSync(tmpPath, imageBuffer);
-        const text = await runTesseractOCR(tmpPath, timeoutMs);
-        return textToStructuredResult(text);
-      } finally {
-        try {
-          require("node:fs").unlinkSync(tmpPath);
-        } catch {
-          // cleanup best-effort
-        }
-      }
+      // runOCRBuffer only works for Windows engine; fall back to Tesseract with buffer
+      const text = await runTesseractOCR(imageBuffer, timeoutMs);
+      return textToStructuredResult(text);
     }
   }
 

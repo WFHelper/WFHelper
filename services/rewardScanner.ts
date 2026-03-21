@@ -29,7 +29,7 @@ const { OVERLAY_SETTINGS_DEFAULTS, OVERLAY_SETTINGS_LIMITS } =
   };
 
 import { clampNumber, round4, luminanceFromBgr } from "./rewardScannerUtils";
-import { captureScreen, captureDebugFrame, captureSourceMeta } from "./rewardScannerCapture";
+import { captureScreenFast, captureDebugFrame, captureSourceMeta } from "./rewardScannerCapture";
 import {
   cropRewardBand,
   cropBand,
@@ -657,10 +657,7 @@ export async function detectRelicSelectionEra(options: any = {}): Promise<{
 
   let screenshot: any;
   try {
-    screenshot = await captureScreen({
-      preferredDisplayId: options.preferredDisplayId || null,
-      preferScreenCapture: true,
-    });
+    screenshot = await captureScreenFast(options.preferredDisplayId || null);
   } catch (err) {
     log.warn("[RewardScanner] Relic era capture failed:", normalizeErrorMessage(err));
     return {
@@ -852,7 +849,7 @@ export async function scanRewardsDetailed(
     const captureStart = Date.now();
     captureCountStat = 1;
     try {
-      screenshot = await captureScreen({ preferScreenCapture: true });
+      screenshot = await captureScreenFast();
     } catch (err) {
       log.error("[RewardScanner] captureScreen error:", normalizeErrorMessage(err));
       _lastTriggerStats = { captureCount: captureCountStat, captureMs: Date.now() - captureStart, ocrCallCount: 0, ocrTotalMs: 0, slotDetectMs: 0, strategy: "failed", failureReason: "capture-error" };
@@ -899,7 +896,9 @@ export async function scanRewardsDetailed(
     bands.unshift(hintBand);
   }
 
+  const slotDetectStart = Date.now();
   const detectedLayout = detectRewardSlotLayout(screenshot.image);
+  const slotDetectMs = Date.now() - slotDetectStart;
   const expectedItemCount =
     detectedLayout.count >= 2 && detectedLayout.confidence >= 0.38
       ? Math.min(detectedLayout.count, MAX_REWARD_SLOTS)
@@ -955,7 +954,7 @@ export async function scanRewardsDetailed(
         _lastFrameHashTs = Date.now();
       }
       recordTemporalEntry(slotFirst.items, expectedItemCount);
-      _lastTriggerStats = { captureCount: captureCountStat, captureMs, ocrCallCount, ocrTotalMs, slotDetectMs: 0, strategy: slotFirst.strategy, failureReason: null };
+      _lastTriggerStats = { captureCount: captureCountStat, captureMs, ocrCallCount, ocrTotalMs, slotDetectMs, strategy: slotFirst.strategy, failureReason: null };
       return result;
     }
 
@@ -1159,7 +1158,7 @@ export async function scanRewardsDetailed(
   recordTemporalEntry(items, expectedItemCount);
 
   // F4: record instrumentation stats
-  const slotDetectMs = 0; // embedded in layout detection above; not separately timed
+  // slotDetectMs is captured at layout detection above
   _lastTriggerStats = {
     captureCount: captureCountStat,
     captureMs,

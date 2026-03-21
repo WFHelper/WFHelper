@@ -33,16 +33,26 @@ export function startEscMonitor(callback: () => void): void {
 
 /**
  * Deactivate the ESC observer and stop the low-level keyboard hook.
- * Safe to call even if the hook isn't running.
+ * The callback is disarmed immediately so no further ESC events fire.
+ * The actual native hook shutdown is deferred to the next event-loop turn
+ * to avoid calling uIOhook.stop() from within the hook’s own callback chain,
+ * which can deadlock the main thread for seconds on Windows.
  */
 export function stopEscMonitor(): void {
   escCallback = null;
   if (!isRunning) return;
-  try {
-    uIOhook.stop();
-    isRunning = false;
-    log.log("[KeyboardMonitor] hook stopped");
-  } catch (err) {
-    log.warn("[KeyboardMonitor] stop failed:", String(err));
-  }
+  // Defer: the hook thread is currently inside the keydown dispatch that
+  // called us.  Stopping synchronously here would wait for that dispatch to
+  // return, which can’t happen until WE return — classic re-entrant deadlock.
+  setImmediate(() => {
+    if (!isRunning) return; // another call already stopped it
+    try {
+      uIOhook.stop();
+      isRunning = false;
+      log.log("[KeyboardMonitor] hook stopped");
+    } catch (err) {
+      isRunning = false;
+      log.warn("[KeyboardMonitor] stop failed:", String(err));
+    }
+  });
 }

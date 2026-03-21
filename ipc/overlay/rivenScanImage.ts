@@ -1,6 +1,6 @@
 "use strict";
 
-import { captureScreen } from "../../services/rewardScannerCapture";
+import { captureScreenFast } from "../../services/rewardScannerCapture";
 import { cropRect } from "../../services/rewardScannerImage";
 import { clamp01, computeMeanAndStd, sleep } from "../../services/rewardScannerUtils";
 
@@ -461,7 +461,7 @@ export async function waitForRivenUiReady(
     if (_rivenScanAborted) break;
     attempts += 1;
 
-    const screenshot = await captureScreen({ preferScreenCapture: true, preferredDisplayId });
+    const screenshot = await captureScreenFast(preferredDisplayId);
     if (!screenshot?.image) {
       consecutiveHits = 0;
       await sleep(RIVEN_READY_POLL_MS);

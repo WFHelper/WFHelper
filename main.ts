@@ -39,6 +39,7 @@ const relicService = fromAppRoot("services/relicService");
 const eeLogMonitor = fromAppRoot("services/eeLogMonitor");
 const keyboardMonitor = fromAppRoot("services/keyboardMonitor");
 const rewardScanner = fromAppRoot("services/rewardScanner");
+const ocrServer = fromAppRoot("services/ocrServer");
 const crashReporter = fromAppRoot("services/crashReporter");
 const autoUpdater = fromAppRoot("services/autoUpdater");
 
@@ -321,6 +322,14 @@ app.whenReady().then(async () => {
   // The pool starts on first actual use (first riven/relic scan), adding one
   // ~450 ms warmup delay only if the native @napi-rs/system-ocr engine is
   // unavailable. That one-time cost is acceptable.
+
+  // Pre-warm the Tesseract WASM worker in the background (Change 4).
+  // Unlike the PowerShell OCR pool, the Tesseract WASM worker is pure JS/WASM
+  // with no external process spawn, so it is safe to initialise at startup.
+  // This eliminates the ~500 ms first-scan cold-start for riven roll scanning.
+  if (ocrServer.tesseractWorkerAvailable) {
+    ocrServer.getTesseractWorker(); // fire-and-forget; rejects are swallowed inside _initTesseractWorker
+  }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

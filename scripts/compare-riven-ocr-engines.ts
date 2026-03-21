@@ -16,7 +16,7 @@ import {
 } from "../ipc/overlay/rivenScanText.js";
 
 const SINGLE_CARD_CROP = { x: 0.22, y: 0.43, width: 0.56, height: 0.45 };
-const ROLL_CARD_CROP = { x: 0.38, y: 0.35, width: 0.26, height: 0.45 };
+const ROLL_CARD_CROP = { x: 0.42, y: 0.35, width: 0.20, height: 0.45 };
 const MIN_OCR_WIDTH = 1800;
 
 // ── Engines ──────────────────────────────────────────────────────────────────

@@ -189,12 +189,79 @@ interface CaptureOptions {
   preferScreenCapture?: boolean;
 }
 
-interface CaptureResult {
+export interface CaptureResult {
   image: any;
   sourceType: "window" | "screen";
   sourceName: string;
   sourceId: string;
   sourceDisplayId: string;
+}
+
+/**
+ * Fast screen-only capture: DXGI Desktop Duplication (~2-10 ms) with an
+ * electron desktopCapturer screen source as fallback.
+ *
+ * Skips the window `getSources` call entirely — use this everywhere the
+ * Warframe window capture is not desired (riven overlay, reward scanner,
+ * readiness gates). Replaces the verbose
+ * `captureScreen({ preferScreenCapture: true, preferredDisplayId })` pattern.
+ */
+export async function captureScreenFast(
+  preferredDisplayId?: string | null,
+): Promise<CaptureResult | null> {
+  // DXGI Desktop Duplication — ~2-10 ms when available
+  if (isDxgiAvailable()) {
+    try {
+      const dxgiResult = captureDxgi(0, preferredDisplayId || null);
+      if (dxgiResult) {
+        const { nativeImage: electronNativeImage } =
+          require("electron") as typeof import("electron");
+        const img = electronNativeImage.createFromBitmap(dxgiResult.buffer, {
+          width: dxgiResult.width,
+          height: dxgiResult.height,
+        });
+        if (img && !img.isEmpty()) {
+          return {
+            image: img,
+            sourceType: "screen",
+            sourceName: "DXGI Desktop Duplication",
+            sourceId: `dxgi:${dxgiResult.displayId || "0"}`,
+            sourceDisplayId: dxgiResult.displayId || "",
+          };
+        }
+      }
+    } catch (err) {
+      log.warn("[RewardScanner] DXGI capture failed, falling back:", normalizeErrorMessage(err));
+    }
+  }
+
+  // Fallback: electron desktopCapturer screen source (~100-300 ms)
+  let desktopCapturer: any;
+  try {
+    ({ desktopCapturer } = require("electron") as typeof import("electron"));
+  } catch {
+    log.warn("[RewardScanner] electron.desktopCapturer unavailable");
+    return null;
+  }
+
+  const thumbnailSize = getCaptureThumbnailSize(preferredDisplayId || null);
+  try {
+    const screens = await desktopCapturer.getSources({ types: ["screen"], thumbnailSize });
+    const pickedScreen = pickScreenSource(screens, { preferredDisplayId });
+    if (pickedScreen && pickedScreen.thumbnail && !pickedScreen.thumbnail.isEmpty()) {
+      return {
+        image: pickedScreen.thumbnail,
+        sourceType: "screen",
+        sourceName: sourceName(pickedScreen),
+        sourceId: String(pickedScreen.id || ""),
+        sourceDisplayId: String(pickedScreen.display_id || ""),
+      };
+    }
+  } catch (err) {
+    log.warn("[RewardScanner] getSources(screen) failed:", normalizeErrorMessage(err));
+  }
+
+  return null;
 }
 
 export async function captureScreen(options: CaptureOptions = {}): Promise<CaptureResult | null> {
