@@ -16,6 +16,7 @@ import { withScope } from "../../services/logger";
 import { captureScreen } from "../../services/rewardScannerCapture";
 import { cropRect } from "../../services/rewardScannerImage";
 import { createRewardOcrRunner } from "../../services/rewardScannerOcr";
+import { tesseractWorkerAvailable } from "../../services/ocrServer";
 import { sleep } from "../../services/rewardScannerUtils";
 import {
   abortRivenScanWaits,
@@ -61,9 +62,30 @@ const ocrRunner = createRewardOcrRunner({
   getRequestedEngine: () => "native",
 });
 
+// Secondary Tesseract-based OCR runner used for cross-engine value injection.
+// Only invoked when the native engine leaves null-value slots in the best
+// candidate — adds ~400-800ms but recovers values WinRT cannot read (e.g.
+// x-multiplier decimals, coloured element text on animated backgrounds).
+const tesseractOcrRunner = createRewardOcrRunner({
+  log,
+  ocrScriptPath: OCR_SCRIPT,
+  getRequestedEngine: () => "tesseract",
+  tesseractContext: "riven",
+});
+
 const ENHANCE_STRATEGIES: readonly EnhanceMode[] = Object.freeze([
   { kind: "original" },
   { kind: "bright", threshold: 150, dilate: true },
+  { kind: "bright", threshold: 120, dilate: true },
+]);
+
+// Tesseract strategy order: original first (best text accuracy for early-accept
+// on high-contrast cards), then bright-120 (recovers coloured text on animated
+// backgrounds that original misses). Skips bright-150 — redundant with bright-120
+// for Tesseract and saves ~600ms per fallback invocation.
+const TESSERACT_STRATEGIES: readonly EnhanceMode[] = Object.freeze([
+  { kind: "original" },
+  { kind: "bright", threshold: 120, dilate: true },
 ]);
 
 // Initial / choice scan: single centred card covers x 0.22–0.78.
@@ -330,7 +352,7 @@ async function ocrCropMultiStrategy(
     }
   }
 
-  const chosen =
+  let chosen =
     best ?? {
       text: "",
       titleText: "",
@@ -355,7 +377,7 @@ async function ocrCropMultiStrategy(
   // Kuva portal background), try to recover them from orphan percent values found in
   // OTHER candidates' raw texts.  The bright+dilate strategy often reads the numeric
   // value when the element text is below the 150-brightness threshold for the name.
-  const nullSlots = chosen.stats
+  let nullSlots = chosen.stats
     .map((s, i) => (s.value === null ? i : -1))
     .filter((i) => i >= 0);
   if (nullSlots.length > 0) {
@@ -391,12 +413,207 @@ async function ocrCropMultiStrategy(
           `[RivenScan] injected ${orphanIdx} orphan value(s) into null-value stat(s) from alternate strategy`,
         );
       }
-      return {
-        text: chosen.text,
-        titleText: chosen.titleText,
-        footerText: chosen.footerText,
+      chosen = {
+        ...chosen,
         stats: injected,
       };
+    }
+  }
+
+  // Cross-engine Tesseract fallback: when the native-only pipeline still has
+  // null-value slots (or found fewer stats than expected), run Tesseract on
+  // the same crop variants. Tesseract reads animated-background text differently
+  // from WinRT and often recovers x-multiplier decimals and element values that
+  // WinRT drops. Only adds ~400-800ms and only triggers when needed.
+  const remainingNulls = chosen.stats.filter((s) => s.value === null).length;
+  const statsTooFew = chosen.stats.length < MIN_ACCEPTABLE_RIVEN_STATS;
+  if ((remainingNulls > 0 || statsTooFew) && tesseractWorkerAvailable && !_ocrAborted) {
+    if (label) {
+      log.log(
+        `[RivenScan] ${label} native result has ${remainingNulls} null value(s) / ${chosen.stats.length} stats — trying Tesseract fallback`,
+      );
+    }
+    try {
+      // Run Tesseract on crop variants — uses a shorter, optimised strategy order
+      // to keep fallback latency under ~600ms (vs ~2s with all native strategies).
+      const tesseractCandidates: CandidateResult[] = [];
+      const tesseractPlans: Array<{ cropId: "rough" | "refined"; mode: EnhanceMode }> = [];
+      for (const mode of TESSERACT_STRATEGIES) {
+        tesseractPlans.push({ cropId: "rough", mode });
+        if (cropVariants.some((v) => v.id === "refined")) {
+          tesseractPlans.push({ cropId: "refined", mode });
+        }
+      }
+      for (const plan of tesseractPlans) {
+        if (_ocrAborted) break;
+        const cropVariant = cropVariants.find((variant) => variant.id === plan.cropId);
+        if (!cropVariant) continue;
+
+        const modeLabel =
+          plan.mode.kind === "original"
+            ? `${cropVariant.id}:original`
+            : `${cropVariant.id}:bright-${plan.mode.threshold}${plan.mode.dilate ? "+dilate" : ""}`;
+
+        try {
+          const enhancedPng = await enhanceForRivenOcr(cropVariant.image, plan.mode);
+          const structured = await tesseractOcrRunner.runOCRStructuredBuffer(
+            enhancedPng,
+            OCR_TIMEOUT_MS,
+          );
+          const split = splitRivenStructuredText(structured);
+          const stats = parseRivenStats(split.statsText || structured.text || "");
+          const valueCount = stats.filter((s) => s.value !== null).length;
+          const score = scoreStatsCandidate(stats, split.mergedText || "", expectedWeaponName);
+
+          if (label) {
+            const preview = (split.mergedText || "").replace(/\r?\n/g, " | ").slice(0, 130);
+            log.log(
+              `[RivenScan] Tesseract ${label} ${modeLabel}: ${stats.length} stats (score=${score}) "${preview}"`,
+            );
+          }
+
+          tesseractCandidates.push({
+            text: split.mergedText || structured.text || "",
+            titleText: split.titleText || "",
+            footerText: split.footerText || "",
+            stats,
+            score,
+            cropId: cropVariant.id,
+            refined: cropVariant.refined,
+            valueCount,
+            modeLabel: `tesseract:${modeLabel}`,
+          });
+
+          // Early-accept: if Tesseract alone gives a confident result, use it
+          const tc = tesseractCandidates[tesseractCandidates.length - 1];
+          if (isConfidentEnough(tc) && tc.score > chosen.score) {
+            if (label) {
+              log.log(
+                `[RivenScan] Tesseract early-accept ${label}: score=${tc.score} > native=${chosen.score}`,
+              );
+            }
+            return {
+              text: tc.text,
+              titleText: tc.titleText,
+              footerText: tc.footerText,
+              stats: tc.stats,
+            };
+          }
+        } catch {
+          // Tesseract failure on one variant is non-fatal
+        }
+      }
+
+      // Pick best Tesseract candidate
+      let bestTess: CandidateResult | null = null;
+      for (const tc of tesseractCandidates) {
+        if (!bestTess || tc.score > bestTess.score) bestTess = tc;
+      }
+
+      if (bestTess && bestTess.stats.length >= MIN_ACCEPTABLE_RIVEN_STATS) {
+        // If Tesseract found a strictly better result, use it outright
+        const tessValues = bestTess.stats.filter((s) => s.value !== null).length;
+        const nativeValues = chosen.stats.filter((s) => s.value !== null).length;
+        if (bestTess.score > chosen.score && tessValues > nativeValues) {
+          if (label) {
+            log.log(
+              `[RivenScan] Tesseract ${label} outright better: score=${bestTess.score} values=${tessValues} vs native score=${chosen.score} values=${nativeValues}`,
+            );
+          }
+          return {
+            text: bestTess.text,
+            titleText: bestTess.titleText || chosen.titleText,
+            footerText: bestTess.footerText || chosen.footerText,
+            stats: bestTess.stats,
+          };
+        }
+
+        // Cross-engine injection: fill remaining null slots from Tesseract values
+        nullSlots = chosen.stats
+          .map((s, i) => (s.value === null ? i : -1))
+          .filter((i) => i >= 0);
+        if (nullSlots.length > 0) {
+          const assignedValues = new Set(
+            chosen.stats.filter((s) => s.value !== null).map((s) => s.value as number),
+          );
+          // Match by stat name first — most reliable
+          const injected = chosen.stats.slice();
+          let injectedCount = 0;
+          for (const nullIdx of nullSlots) {
+            const statName = injected[nullIdx].name.toLowerCase();
+            const tessMatch = bestTess.stats.find(
+              (ts) => ts.name.toLowerCase() === statName && ts.value !== null,
+            );
+            if (tessMatch && !assignedValues.has(tessMatch.value!)) {
+              injected[nullIdx] = {
+                ...injected[nullIdx],
+                value: tessMatch.value,
+                positive: tessMatch.positive,
+                ...(tessMatch.multiplier && { multiplier: true }),
+              };
+              assignedValues.add(tessMatch.value!);
+              injectedCount++;
+            }
+          }
+
+          // Fall back to orphan % values from Tesseract text for any remaining nulls
+          if (injectedCount < nullSlots.length) {
+            const orphanValues: Array<{ value: number; positive: boolean; multiplier?: boolean }> = [];
+            for (const tc of tesseractCandidates) {
+              const cleaned = preprocessOcrText(tc.text || "");
+              // Collect x-multiplier values
+              for (const match of cleaned.matchAll(/x\s*(\d+\.?\d*)/gi)) {
+                const v = parseFloat(match[1]);
+                if (!Number.isFinite(v) || v <= 0) continue;
+                if (assignedValues.has(v)) continue;
+                if (orphanValues.some((o) => Math.abs(o.value - v) < 0.05)) continue;
+                orphanValues.push({ value: v, positive: v >= 1, multiplier: true });
+              }
+              // Collect % values
+              for (const match of cleaned.matchAll(/([+\-])\s*(\d+\.?\d*)\s*%/g)) {
+                const v = parseFloat(match[2]);
+                if (!Number.isFinite(v) || v <= 0) continue;
+                if (assignedValues.has(v)) continue;
+                if (orphanValues.some((o) => Math.abs(o.value - v) < 0.5)) continue;
+                orphanValues.push({ value: v, positive: match[1] !== "-" });
+              }
+            }
+            let orphanIdx = 0;
+            const remainingNullIdxs = nullSlots.filter((i) => injected[i].value === null);
+            for (const nullIdx of remainingNullIdxs) {
+              if (orphanIdx >= orphanValues.length) break;
+              injected[nullIdx] = {
+                ...injected[nullIdx],
+                value: orphanValues[orphanIdx].value,
+                positive: orphanValues[orphanIdx].positive,
+                ...(orphanValues[orphanIdx].multiplier && { multiplier: true }),
+              };
+              assignedValues.add(orphanValues[orphanIdx].value);
+              orphanIdx++;
+              injectedCount++;
+            }
+          }
+
+          if (label && injectedCount > 0) {
+            log.log(
+              `[RivenScan] cross-engine injected ${injectedCount} value(s) from Tesseract into native result`,
+            );
+          }
+          if (injectedCount > 0) {
+            return {
+              text: chosen.text,
+              titleText: chosen.titleText,
+              footerText: chosen.footerText,
+              stats: injected,
+            };
+          }
+        }
+      }
+    } catch (tessErr) {
+      // Tesseract fallback is optional — never block on failure
+      if (label) {
+        log.log(`[RivenScan] Tesseract fallback failed: ${String(tessErr)}`);
+      }
     }
   }
 
@@ -426,7 +643,7 @@ export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialS
     );
   }
 
-  const capture = ready.screenshot || (await captureScreen());
+  const capture = ready.screenshot || (await captureScreen({ preferScreenCapture: true }));
   if (!capture) {
     log.warn("[RivenScan] scanInitialCard: captureScreen returned null");
     return { stats: [], rawText: "", titleText: "", footerText: "" };
@@ -462,7 +679,7 @@ export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialS
       result.stats,
       650,
       async () => {
-        const retryCapture = await captureScreen({ preferredDisplayId: _rivenDisplayId });
+        const retryCapture = await captureScreen({ preferScreenCapture: true, preferredDisplayId: _rivenDisplayId });
         if (!retryCapture) return result;
         try {
           const retryHash = computeRivenFrameHash(cropRect(retryCapture.image, SINGLE_CARD_CROP));
@@ -516,7 +733,7 @@ export async function scanNewRoll(expectedWeaponName = "", skipGate = false): Pr
         `[RivenScan] roll UI gate timed out after ${ready.elapsedMs}ms (${ready.attempts} samples, best=${ready.bestScore.toFixed(3)})`,
       );
     }
-    capture = ready.screenshot || (await captureScreen({ preferredDisplayId: _rivenDisplayId }));
+    capture = ready.screenshot || (await captureScreen({ preferScreenCapture: true, preferredDisplayId: _rivenDisplayId }));
     if (!capture) {
       log.warn("[RivenScan] scanNewRoll: captureScreen returned null");
       return { left: [], right: [] };
@@ -548,7 +765,7 @@ export async function scanNewRoll(expectedWeaponName = "", skipGate = false): Pr
 
     if (rightResult.stats.length < MIN_ACCEPTABLE_RIVEN_STATS) {
       await sleep(800);
-      const retryCapture = await captureScreen({ preferredDisplayId: _rivenDisplayId });
+      const retryCapture = await captureScreen({ preferScreenCapture: true, preferredDisplayId: _rivenDisplayId });
       if (retryCapture) {
         try {
           const retryHash = computeRivenFrameHash(cropRect(retryCapture.image, ROLL_CARD_CROP));
@@ -590,7 +807,7 @@ export async function scanChoiceRescan(expectedWeaponName = ""): Promise<RivenSt
     );
   }
 
-  const capture = ready.screenshot || (await captureScreen({ preferredDisplayId: _rivenDisplayId }));
+  const capture = ready.screenshot || (await captureScreen({ preferScreenCapture: true, preferredDisplayId: _rivenDisplayId }));
   if (!capture) {
     log.warn("[RivenScan] scanChoiceRescan: captureScreen returned null");
     return [];
@@ -617,7 +834,7 @@ export async function scanChoiceRescan(expectedWeaponName = ""): Promise<RivenSt
       result.stats,
       500,
       async () => {
-        const retryCapture = await captureScreen({ preferredDisplayId: _rivenDisplayId });
+        const retryCapture = await captureScreen({ preferScreenCapture: true, preferredDisplayId: _rivenDisplayId });
         if (!retryCapture) return result;
         try {
           const retryHash = computeRivenFrameHash(cropRect(retryCapture.image, SINGLE_CARD_CROP));

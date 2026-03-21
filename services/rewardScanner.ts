@@ -852,7 +852,7 @@ export async function scanRewardsDetailed(
     const captureStart = Date.now();
     captureCountStat = 1;
     try {
-      screenshot = await captureScreen();
+      screenshot = await captureScreen({ preferScreenCapture: true });
     } catch (err) {
       log.error("[RewardScanner] captureScreen error:", normalizeErrorMessage(err));
       _lastTriggerStats = { captureCount: captureCountStat, captureMs: Date.now() - captureStart, ocrCallCount: 0, ocrTotalMs: 0, slotDetectMs: 0, strategy: "failed", failureReason: "capture-error" };

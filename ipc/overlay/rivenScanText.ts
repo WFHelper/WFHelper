@@ -138,7 +138,20 @@ export function preprocessOcrText(raw: string): string {
   text = text.replace(/\bx[lI]\b/g, "x1");
   // Collapse spaced decimal on multiplier: "x1 , 44" or "x1 ,44" → "x1.44".
   text = text.replace(/\bx(\d)\s*,\s*(\d+)/g, "x$1.$2");
+  // Fix spaced decimal comma in percent values: "+62, 2%" → "+62.2%".
+  // WinRT OCR sometimes splits a value like "+62.2%" into "+62, 2%" when comma
+  // is the decimal separator and a space follows.  The general comma→period pass
+  // below requires no intervening space; this handles the space-separated variant.
+  text = text.replace(/([+\-\u2013]?\d+),\s+(\d+)\s*%/g, "$1.$2%");
   text = text.replace(/,(\d)/g, ".$1");
+  // Rejoin split x-multiplier integer + decimal across a line boundary:
+  // "x1\n.3 Damage to Corpus" → "x1.3 Damage to Corpus"
+  // WinRT OCR sometimes splits "x 1,3 Damage" into two lines: "x 1" and ",3 Damage".
+  // After xl-fix ("x 1" → "x1") and comma→dot (",3" → ".3"), we get "x1\n.3 Damage".
+  text = text.replace(/(x\d+)\n(\.\d+)/g, "$1$2");
+  // Fix spaced decimal point: "+151 .4%" → "+151.4%".
+  // WinRT OCR sometimes inserts a space before the decimal point.
+  text = text.replace(/(\d)\s+\.(\d)/g, "$1.$2");
   text = text.replace(/(\d)\s([1-9])\s*%/g, "$1.$2%");
 
   for (let pass = 0; pass < 5; pass++) {
@@ -351,7 +364,9 @@ function collapseOrphanValueLines(lines: string[]): string[] {
       !!extracted &&
       extracted.value !== null &&
       !lineContainsKnownStat(current) &&
-      /^[+\-\u2013x\d\s.%]+$/i.test(current);
+      // Allow trailing comma so "+62," (integer part of a split "+62.2%") is
+      // treated as a value-only orphan and paired with the following stat name.
+      /^[+\-\u2013x\d\s.,% ]+$/i.test(current);
 
     if (looksLikeValueOnly) {
       pendingValues.push(current);
@@ -433,9 +448,9 @@ function parseStatsFromLines(text: string): RivenStat[] {
     for (let index = 0; index < filtered.length; index++) {
       const { stat, idx } = filtered[index];
       const key = stat.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
 
+      // Compute prefix/value before the seen-check so the deduplication logic
+      // below can compare the new value against the existing one.
       const prefixStart = index > 0 ? filtered[index - 1].idx + filtered[index - 1].stat.length : 0;
       const prefix = line.slice(prefixStart, idx);
       let extracted = extractSignAndValue(prefix);
@@ -454,19 +469,58 @@ function parseStatsFromLines(text: string): RivenStat[] {
       let effectivePositive = positive;
       const multiplier = extracted?.multiplier ?? false;
 
+      if (seen.has(key)) {
+        // When the duplicate occurrence carries more precision than the first,
+        // replace it.  The canonical case: the small duplicate stat panel shows
+        // "xl" (→ x1, value=1) while the main panel shows "x 1,3" (→ x1.3,
+        // value=1.3).  Bounding-box sort may put the duplicate first in statsText.
+        // Condition: existing value is an integer, new value has decimals and the
+        // same integer part (e.g. 1.0 → 1.3, but not 1.0 → 62.2).
+        if (value !== null) {
+          const existingIdx = results.findIndex((r) => r.name.toLowerCase() === key);
+          if (existingIdx >= 0) {
+            const existingValue = results[existingIdx].value;
+            if (
+              existingValue !== null &&
+              Number.isInteger(existingValue) &&
+              !Number.isInteger(value) &&
+              Math.floor(value) === existingValue
+            ) {
+              results[existingIdx] = {
+                name: stat,
+                positive: effectivePositive,
+                value,
+                ...(multiplier && { multiplier: true }),
+              };
+            }
+          }
+        }
+        continue;
+      }
+      seen.add(key);
+
       // Carry-forward: when a damage-type stat has no value but the previous
       // stat in the SAME line segment does, they share a single combined roll
-      // (e.g. "+112% Electricity Impact" → Impact inherits 112% from Electricity,
-      //  "+126.2% Status Duration + Electricity" → Electricity inherits 126.2%).
+      // (e.g. "+112% Electricity Impact" → Impact inherits 112% from Electricity).
       // Guard: block carry-forward when a sign char in the prefix is followed by
       // non-whitespace garbage (e.g. "-ÔÇ×e" from a WinRT element-icon misread),
       // which means the two stats are on SEPARATE card rows, not a combined element.
       // A prefix of "+ " (sign + whitespace only, directly before the stat name)
       // IS the combined-element separator and SHOULD carry forward.
+      // Also require the PREVIOUS stat itself to be a damage type — combined
+      // element combos only happen between two damage-type stats (e.g.
+      // "Electricity Impact", "Cold Toxin").  Non-damage stats like
+      // "Status Duration" or "Melee Damage" never combine with an element.
       const hasNoisySignInPrefix = /[+\-\u2013]\s*\S/.test(prefix);
       if (value === null && index > 0 && DAMAGE_TYPE_STAT_NAMES.has(key) && !hasNoisySignInPrefix) {
         const prev = results[results.length - 1];
-        if (prev && prev.value !== null) {
+        // Do not carry-forward from multiplier stats (x1.3 Damage to Grineer is a
+        // different stat class — carry-forward is only for shared elemental combos
+        // like "+112% Electricity Impact").
+        // Do not carry-forward from non-damage-type stats — those are separate
+        // card rows that WinRT OCR merged onto one line.
+        const prevIsDamageType = prev && DAMAGE_TYPE_STAT_NAMES.has(prev.name.toLowerCase());
+        if (prev && prev.value !== null && !prev.multiplier && prevIsDamageType) {
           value = prev.value;
           effectivePositive = prev.positive;
         }

@@ -92,6 +92,7 @@ const REWARD_TOKEN_ALIASES: Readonly<Record<string, string>> = Object.freeze({
   blueprint: "blueprint",
   bIueprint: "blueprint",
   biueprint: "blueprint",
+  lueprint: "blueprint",
   //  Systems variants
   svst: "systems",
   svstems: "systems",
@@ -105,11 +106,14 @@ const REWARD_TOKEN_ALIASES: Readonly<Record<string, string>> = Object.freeze({
   neurcptics: "neuroptics",
   neuropiics: "neuroptics",
   neuraptics: "neuroptics",
+  eurobtic: "neuroptics",
+  europtics: "neuroptics",
   // Chassis variants
   chassls: "chassis",
   chassi: "chassis",
   chassl: "chassis",
   chassi5: "chassis",
+  hassis: "chassis",
   // Receiver variants
   recelver: "receiver",
   recelvar: "receiver",

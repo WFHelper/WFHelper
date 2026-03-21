@@ -1,185 +1,249 @@
 #!/usr/bin/env npx tsx
+/**
+ * Quick comparison: Native WinRT vs Tesseract.js on ALL riven corpus images.
+ * Tests 3 enhancement strategies × 2 engines to find the best combination.
+ */
+
 import fs from "node:fs";
 import path from "node:path";
-import { createRewardOcrRunner } from "../services/rewardScannerOcr";
-import { __test__ as rivenTest, parseRivenStats } from "../ipc/overlay/rivenScan";
 
-const corpusDir = path.join(process.cwd(), "OCR-debug", "riven_images");
-const files = fs
-  .readdirSync(corpusDir)
-  .filter((file) => /\.(png|jpg|jpeg)$/i.test(file))
-  .sort();
+import {
+  parseRivenStats,
+  splitRivenStructuredText,
+  preprocessOcrText,
+  scoreStatsCandidate,
+  type RivenStat,
+} from "../ipc/overlay/rivenScanText.js";
 
-const CROPS = {
-  single: { x: 0.3, y: 0.38, width: 0.4, height: 0.38 },
-  left: { x: 0.15, y: 0.38, width: 0.28, height: 0.38 },
-  right: { x: 0.5, y: 0.38, width: 0.28, height: 0.38 },
-};
+const SINGLE_CARD_CROP = { x: 0.22, y: 0.43, width: 0.56, height: 0.45 };
+const ROLL_CARD_CROP = { x: 0.38, y: 0.35, width: 0.26, height: 0.45 };
+const MIN_OCR_WIDTH = 1800;
 
-type EngineName = "windows" | "tesseract" | "native";
-
-interface ImageInfo {
-  width: number;
-  height: number;
-  data: Buffer;
-  channels: 1 | 4;
+// ── Engines ──────────────────────────────────────────────────────────────────
+let _nativeRecognize: ((input: Buffer) => Promise<{ text: string; confidence: number }>) | null =
+  null;
+try {
+  const mod = require("@napi-rs/system-ocr") as {
+    recognize: (input: Buffer) => Promise<{ text: string; confidence: number }>;
+  };
+  _nativeRecognize = mod.recognize;
+} catch {
+  /* unavailable */
 }
 
-async function loadImage(filePath: string): Promise<ImageInfo> {
-  const sharp = require("sharp") as typeof import("sharp");
-  const meta = await sharp(filePath).metadata();
-  const rawBuf = await sharp(filePath).raw().ensureAlpha().toBuffer();
-  return { width: meta.width!, height: meta.height!, data: rawBuf, channels: 4 };
+let _tesseractRecognize: ((img: Buffer) => Promise<string>) | null = null;
+try {
+  const Tesseract = require("tesseract.js") as {
+    createWorker: (lang: string) => Promise<any>;
+  };
+  const workerPromise = Tesseract.createWorker("eng");
+  _tesseractRecognize = async (img: Buffer): Promise<string> => {
+    const worker = await workerPromise;
+    const result = await worker.recognize(img);
+    return result?.data?.text || "";
+  };
+} catch {
+  /* unavailable */
 }
 
-function cropImage(
-  img: ImageInfo,
+// ── Image helpers ────────────────────────────────────────────────────────────
+async function loadRgba(
+  filePath: string,
+): Promise<{ data: Buffer; width: number; height: number }> {
+  const sharp = (await import("sharp")).default;
+  const { data, info } = await sharp(filePath)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  return { data, width: info.width, height: info.height };
+}
+
+function cropRgba(
+  img: { data: Buffer; width: number; height: number },
   rect: { x: number; y: number; width: number; height: number },
-): ImageInfo {
+): { data: Buffer; width: number; height: number } {
   const cx = Math.floor(img.width * rect.x);
   const cy = Math.floor(img.height * rect.y);
-  const cw = Math.max(24, Math.floor(img.width * rect.width));
-  const ch = Math.max(24, Math.floor(img.height * rect.height));
+  const cw = Math.max(1, Math.floor(img.width * rect.width));
+  const ch = Math.max(1, Math.floor(img.height * rect.height));
   const out = Buffer.alloc(cw * ch * 4);
-  for (let row = 0; row < ch; row += 1) {
-    const srcOffset = ((cy + row) * img.width + cx) * 4;
-    const dstOffset = row * cw * 4;
-    img.data.copy(out, dstOffset, srcOffset, srcOffset + cw * 4);
+  for (let row = 0; row < ch; row++) {
+    const srcRow = Math.min(cy + row, img.height - 1);
+    const srcOff = (srcRow * img.width + cx) * 4;
+    const dstOff = row * cw * 4;
+    const copyLen = Math.min(cw * 4, img.data.length - srcOff);
+    if (copyLen > 0) img.data.copy(out, dstOff, srcOff, srcOff + copyLen);
   }
-  return { width: cw, height: ch, data: out, channels: 4 };
+  return { data: out, width: cw, height: ch };
 }
 
-async function upscaleSharp(img: ImageInfo, scale: number): Promise<ImageInfo> {
-  if (scale <= 1) return img;
-  const sharp = require("sharp") as typeof import("sharp");
-  const newW = Math.min(6000, Math.round(img.width * scale));
-  const newH = Math.min(6000, Math.round(img.height * scale));
-  const resized = await sharp(Buffer.from(img.data), {
-    raw: { width: img.width, height: img.height, channels: img.channels },
-  })
-    .resize(newW, newH, { kernel: "lanczos3" })
-    .toBuffer();
-  return { width: newW, height: newH, data: resized, channels: img.channels };
-}
-
-function autoScale(imgWidth: number): number {
-  const minWidth = 1800;
-  if (imgWidth >= minWidth) return 1;
-  return Math.ceil(minWidth / imgWidth);
-}
-
-function brightThreshold(img: ImageInfo, threshold: number): ImageInfo {
-  const out = Buffer.alloc(img.width * img.height);
-  for (let i = 0, j = 0; i < img.data.length; i += 4, j += 1) {
-    const r = img.data[i];
-    const g = img.data[i + 1];
-    const b = img.data[i + 2];
-    out[j] = Math.max(r, g, b) >= threshold ? 0 : 255;
+async function enhanceOriginal(
+  cropped: { data: Buffer; width: number; height: number },
+): Promise<Buffer> {
+  const sharp = (await import("sharp")).default;
+  const { width, height, data } = cropped;
+  const scale = width >= MIN_OCR_WIDTH ? 1 : Math.min(3, Math.ceil(MIN_OCR_WIDTH / width));
+  if (scale <= 1) {
+    return sharp(data, { raw: { width, height, channels: 4 } }).png().toBuffer();
   }
-  return { width: img.width, height: img.height, data: out, channels: 1 as const };
-}
-
-function lowSatHighBright(img: ImageInfo, minBright: number, maxSat: number): ImageInfo {
-  const out = Buffer.alloc(img.width * img.height);
-  for (let i = 0, j = 0; i < img.data.length; i += 4, j += 1) {
-    const r = img.data[i];
-    const g = img.data[i + 1];
-    const b = img.data[i + 2];
-    const maxC = Math.max(r, g, b);
-    const minC = Math.min(r, g, b);
-    const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
-    out[j] = maxC >= minBright && sat <= maxSat ? 0 : 255;
-  }
-  return { width: img.width, height: img.height, data: out, channels: 1 as const };
-}
-
-const strategies = [
-  {
-    name: "bright-120",
-    enhance: async (img: ImageInfo) =>
-      brightThreshold(await upscaleSharp(img, autoScale(img.width)), 120),
-  },
-  {
-    name: "bright-150",
-    enhance: async (img: ImageInfo) =>
-      brightThreshold(await upscaleSharp(img, autoScale(img.width)), 150),
-  },
-  {
-    name: "lowsat-bright",
-    enhance: async (img: ImageInfo) =>
-      lowSatHighBright(await upscaleSharp(img, autoScale(img.width)), 155, 0.35),
-  },
-];
-
-async function saveTempPng(img: ImageInfo, filePath: string): Promise<void> {
-  const sharp = require("sharp") as typeof import("sharp");
-  await sharp(Buffer.from(img.data), {
-    raw: { width: img.width, height: img.height, channels: img.channels },
-  })
+  const sw = Math.min(6000, width * scale);
+  const sh = Math.min(6000, height * scale);
+  return sharp(data, { raw: { width, height, channels: 4 } })
+    .resize(sw, sh, { kernel: "lanczos3" })
     .png()
-    .toFile(filePath);
+    .toBuffer();
 }
 
-async function main() {
-  const runnerFor = (engine: EngineName) =>
-    createRewardOcrRunner({
-      getRequestedEngine: () => engine,
-      engineWindows: "windows",
-      engineTesseract: "tesseract",
-      ocrScriptPath: path.join(process.cwd(), "scripts", "ocr.ps1"),
-      tesseractLanguage: "eng",
-    });
+async function enhanceBrightDilate(
+  cropped: { data: Buffer; width: number; height: number },
+  threshold: number,
+): Promise<Buffer> {
+  const sharp = (await import("sharp")).default;
+  const { width, height, data } = cropped;
+  const scale = width >= MIN_OCR_WIDTH ? 1 : Math.ceil(MIN_OCR_WIDTH / width);
+  const sw = Math.min(6000, width * scale);
+  const sh = Math.min(6000, height * scale);
 
-  for (const engine of ["windows", "tesseract", "native"] as const) {
-    const runner = runnerFor(engine);
-    console.log(`\n=== ${engine.toUpperCase()} ===`);
-    let totalStats = 0;
-    let totalTime = 0;
-    let samples = 0;
+  const rawBuf = await sharp(data, { raw: { width, height, channels: 4 } })
+    .resize(sw, sh, { kernel: "linear" })
+    .ensureAlpha()
+    .raw()
+    .toBuffer();
 
-    for (const file of files) {
-      const img = await loadImage(path.join(corpusDir, file));
-      const rect = /multipanel/i.test(file) ? CROPS.right : CROPS.single;
-      const crop = cropImage(img, rect);
-      let bestScore = -Infinity;
-      let bestLine = "";
-      let bestStats = 0;
-      const started = Date.now();
+  const pixelCount = sw * sh;
+  const mask = Buffer.alloc(pixelCount);
+  for (let bi = 0, pi = 0; bi < rawBuf.length; bi += 4, pi++) {
+    const maxC = Math.max(rawBuf[bi], rawBuf[bi + 1], rawBuf[bi + 2]);
+    mask[pi] = maxC >= threshold ? 1 : 0;
+  }
 
-      for (const strat of strategies) {
-        const enhanced = await strat.enhance(crop);
-        const tmp = path.join(process.cwd(), `tmp-${engine}-${strat.name}.png`);
-        await saveTempPng(enhanced, tmp);
-        try {
-          const text = await runner.runOCR(tmp, 12000);
-          const stats = parseRivenStats(text);
-          const score = rivenTest.scoreStatsCandidate(stats, text, "");
-          if (score > bestScore) {
-            bestScore = score;
-            bestStats = stats.length;
-            bestLine = `${file}: ${strat.name} -> ${stats.length} stats | ${stats.map((s: any) => `${s.name}:${s.value ?? "?"}`).join(", ")}`;
-          }
-        } finally {
-          try {
-            fs.unlinkSync(tmp);
-          } catch {}
+  const output = Buffer.alloc(pixelCount);
+  for (let y = 0; y < sh; y++) {
+    for (let x = 0; x < sw; x++) {
+      let found = false;
+      for (let dy = -1; dy <= 1 && !found; dy++) {
+        for (let dx = -1; dx <= 1 && !found; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx >= 0 && nx < sw && ny >= 0 && ny < sh && mask[ny * sw + nx]) found = true;
         }
       }
-
-      const elapsed = Date.now() - started;
-      totalTime += elapsed;
-      totalStats += bestStats;
-      samples += 1;
-      console.log(`${bestLine} | ${elapsed}ms`);
+      output[y * sw + x] = found ? 0 : 255;
     }
-
-    console.log(
-      `SUMMARY ${engine}: avgTime=${Math.round(totalTime / Math.max(1, samples))}ms avgStats=${(totalStats / Math.max(1, samples)).toFixed(2)}`,
-    );
   }
+
+  return sharp(output, { raw: { width: sw, height: sh, channels: 1 } }).png().toBuffer();
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+function textToStructuredResult(text: string) {
+  const lines = String(text || "")
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0)
+    .map((line) => ({
+      text: line,
+      box: { left: 0, top: 0, width: 0, height: 0 },
+      words: line
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((word) => ({ text: word, box: { left: 0, top: 0, width: 0, height: 0 } })),
+    }));
+  return { text: text || "", lines };
+}
+
+function formatStats(stats: RivenStat[]): string {
+  if (stats.length === 0) return "(none)";
+  return stats
+    .map((s) => {
+      const sign = s.positive ? "+" : "-";
+      const val = s.value === null ? "?" : s.multiplier ? `x${s.value}` : `${s.value}%`;
+      return `${sign}${val} ${s.name}`;
+    })
+    .join(", ");
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+(async () => {
+  const engines: Array<{
+    name: string;
+    run: (buf: Buffer) => Promise<{ text: string; ms: number }>;
+  }> = [];
+
+  if (_nativeRecognize) {
+    const rec = _nativeRecognize;
+    engines.push({
+      name: "Native",
+      run: async (buf) => {
+        const t0 = Date.now();
+        const r = await rec(buf);
+        return { text: r.text, ms: Date.now() - t0 };
+      },
+    });
+  }
+  if (_tesseractRecognize) {
+    const rec = _tesseractRecognize;
+    engines.push({
+      name: "Tesseract",
+      run: async (buf) => {
+        const t0 = Date.now();
+        const text = await rec(buf);
+        return { text, ms: Date.now() - t0 };
+      },
+    });
+  }
+
+  if (engines.length === 0) {
+    console.error("No OCR engines available");
+    process.exit(1);
+  }
+
+  console.log(`Engines: ${engines.map((e) => e.name).join(", ")}\n`);
+
+  const corpusDir = path.join(process.cwd(), "OCR-debug", "riven_images");
+  const files = fs
+    .readdirSync(corpusDir)
+    .filter((f) => /\.(png|jpg|jpeg)$/i.test(f))
+    .sort();
+
+  const enhanceStrategies = [
+    { label: "original", fn: (c: any) => enhanceOriginal(c) },
+    { label: "bright-150+dilate", fn: (c: any) => enhanceBrightDilate(c, 150) },
+    { label: "bright-120+dilate", fn: (c: any) => enhanceBrightDilate(c, 120) },
+  ];
+
+  for (const file of files) {
+    const fullPath = path.join(corpusDir, file);
+    const isMultipanel = /multipanel/i.test(file);
+    const crop = isMultipanel ? ROLL_CARD_CROP : SINGLE_CARD_CROP;
+
+    console.log(`\n${"═".repeat(70)}`);
+    console.log(`  ${file}`);
+    console.log(`${"═".repeat(70)}`);
+
+    const img = await loadRgba(fullPath);
+    const cropped = cropRgba(img, crop);
+
+    for (const strategy of enhanceStrategies) {
+      const enhanced = await strategy.fn(cropped);
+      console.log(`\n  ── ${strategy.label} ──`);
+
+      for (const engine of engines) {
+        const { text, ms } = await engine.run(enhanced);
+        const structured = textToStructuredResult(text);
+        const split = splitRivenStructuredText(structured);
+        const stats = parseRivenStats(split.statsText || text || "");
+        const valueCount = stats.filter((s) => s.value !== null).length;
+        const score = scoreStatsCandidate(stats, text);
+        const rawPreview = preprocessOcrText(text).replace(/\r?\n/g, " | ").slice(0, 140);
+
+        console.log(
+          `  [${engine.name}] ${ms}ms  ${stats.length}s/${valueCount}v score=${score}`,
+        );
+        console.log(`    raw: "${rawPreview}"`);
+        if (stats.length > 0) console.log(`    → ${formatStats(stats)}`);
+      }
+    }
+  }
+
+  console.log("\nDone.");
+  process.exit(0);
+})();

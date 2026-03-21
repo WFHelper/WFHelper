@@ -240,7 +240,7 @@ export async function captureScreen(options: CaptureOptions = {}): Promise<Captu
   // desktopCapturer.getSources. Falls back transparently on failure.
   if (isDxgiAvailable()) {
     try {
-      const dxgiResult = captureDxgi();
+      const dxgiResult = captureDxgi(0, options.preferredDisplayId || null);
       if (dxgiResult) {
         const { nativeImage: electronNativeImage } = require("electron") as typeof import("electron");
         const img = electronNativeImage.createFromBitmap(dxgiResult.buffer, {
@@ -252,8 +252,8 @@ export async function captureScreen(options: CaptureOptions = {}): Promise<Captu
             image: img,
             sourceType: "screen",
             sourceName: "DXGI Desktop Duplication",
-            sourceId: "dxgi:0",
-            sourceDisplayId: "",
+            sourceId: `dxgi:${dxgiResult.displayId || "0"}`,
+            sourceDisplayId: dxgiResult.displayId || "",
           };
         }
       }

@@ -569,10 +569,11 @@ describe("parseRivenStats", () => {
     expect(range!.positive).toBe(false);
   });
 
-  it("carries forward when combined-element '+' separator present (Status Duration + Electricity)", () => {
+  it("does not carry-forward from non-damage-type stat (Status Duration + Electricity)", () => {
     // WinRT reads "+126.2% Status Duration + Electricity" as a single line.
-    // The prefix before Electricity is "+ " (sign + whitespace only — no garbage).
-    // Carry-forward MUST fire so Electricity inherits 126.2% from Status Duration.
+    // Status Duration is NOT a damage-type stat, so the "+" before Electricity
+    // is the sign indicator for a separate stat — not a combined element.
+    // Carry-forward must NOT fire; Electricity should have null value.
     const text = "+126.2% Status Duration + Electricity";
     const result = parseRivenStats(text);
     const sd = result.find((s) => s.name === "Status Duration");
@@ -580,8 +581,30 @@ describe("parseRivenStats", () => {
     expect(sd).toBeDefined();
     expect(sd!.value).toBe(126.2);
     expect(elec).toBeDefined();
-    expect(elec!.value).toBe(126.2); // shared combined-element value
+    expect(elec!.value).toBeNull(); // separate stat, not combined element
     expect(elec!.positive).toBe(true);
+  });
+
+  it("carries forward between damage-type stats (Electricity + Impact combined element)", () => {
+    // Combined element roll: "+112% Electricity Impact" — both are damage types.
+    const text = "+112% Electricity Impact";
+    const result = parseRivenStats(text);
+    const elec = result.find((s) => s.name === "Electricity");
+    const imp = result.find((s) => s.name === "Impact");
+    expect(elec).toBeDefined();
+    expect(elec!.value).toBe(112);
+    expect(imp).toBeDefined();
+    expect(imp!.value).toBe(112); // carry-forward from damage-type to damage-type
+    expect(imp!.positive).toBe(true);
+  });
+
+  it("fixes spaced decimal point in OCR values (+151 .4% → +151.4%)", () => {
+    const text = "+2.5 Range\n+70.6% Attack Speed\n+151 .4% Impact\n-8.6 Combo Duration";
+    const result = parseRivenStats(text);
+    const impact = result.find((s) => s.name === "Impact");
+    expect(impact).toBeDefined();
+    expect(impact!.value).toBe(151.4);
+    expect(impact!.positive).toBe(true);
   });
 
   it("fixes OCR misread xO→x0 in multiplier values (xO,58 Damage to Grineer)", () => {
@@ -683,6 +706,89 @@ describe("parseRivenStats", () => {
     expect(imp!.value).toBe(134.6);
     expect(slash).toBeDefined();
     expect(slash!.value).toBe(134.6);
+  });
+
+  it("rejoins split x-multiplier decimal: WinRT splits 'x 1,3 Damage' into 'x 1' + ',3 Damage to Corpus'", () => {
+    // WinRT OCR splits the word group across two lines when the icon between
+    // "x value" and "Stat Name" causes a layout break.
+    // After xl-fix "x 1" → "x1" and comma→dot ",3" → ".3", the preprocessor
+    // must join "x1\n.3 Damage to Corpus" into "x1.3 Damage to Corpus".
+    const text = "x 1\n,3 Damage to Corpus\nx 1,36 Damage to Grineer\n-68,4% Impact";
+    const result = parseRivenStats(text);
+    const corpus = result.find((s) => s.name === "Damage to Corpus");
+    expect(corpus).toBeDefined();
+    expect(corpus!.value).toBeCloseTo(1.3, 5);
+    expect(corpus!.multiplier).toBe(true);
+    const grineer = result.find((s) => s.name === "Damage to Grineer");
+    expect(grineer).toBeDefined();
+    expect(grineer!.value).toBeCloseTo(1.36, 5);
+    expect(grineer!.multiplier).toBe(true);
+  });
+
+  it("does not carry-forward value from multiplier stat to elemental stat on same line", () => {
+    // WinRT OCR merges "x 1,36 Damage to Grineer" and "*Heat" onto one line when
+    // the Heat value "+62,2%" is missed entirely. The carry-forward must NOT
+    // assign Grineer's multiplier value (1.36) to Heat.
+    const text = "x1.36 Damage to Grineer  Heat";
+    const result = parseRivenStats(text);
+    const grineer = result.find((s) => s.name === "Damage to Grineer");
+    const heat = result.find((s) => s.name === "Heat");
+    expect(grineer).toBeDefined();
+    expect(grineer!.value).toBeCloseTo(1.36, 5);
+    expect(grineer!.multiplier).toBe(true);
+    expect(heat).toBeDefined();
+    expect(heat!.value).toBeNull(); // must NOT inherit 1.36 from the multiplier stat
+  });
+
+  it("normalises spaced decimal comma in percent value: '+62, 2% Heat' → 62.2", () => {
+    // WinRT OCR sometimes outputs "+62.2%" as "+62, 2%" when the decimal separator
+    // (comma) is followed by a space.  The preprocessing fix must recover the full
+    // value before parsing so Heat gets 62.2, not 2 or carry-forward.
+    const text =
+      "x1.3 Damage to Corpus\nx1.36 Damage to Grineer\n+62, 2% Heat\n-68.4% Impact";
+    const result = parseRivenStats(text);
+    const heat = result.find((s) => s.name === "Heat");
+    expect(heat).toBeDefined();
+    expect(heat!.value).toBeCloseTo(62.2, 5);
+    expect(heat!.positive).toBe(true);
+  });
+
+  it("orphan '+62,' (trailing comma) pairs with following stat name", () => {
+    // WinRT OCR splits "+62.2%" across two structural lines: "+62," and "2% Heat".
+    // The orphan-value detection must recognise "+62," (with trailing comma) as a
+    // value fragment, so Heat doesn't fall through to carry-forward.
+    const text = "+62,\nHeat";
+    const result = parseRivenStats(text);
+    const heat = result.find((s) => s.name === "Heat");
+    expect(heat).toBeDefined();
+    expect(heat!.positive).toBe(true);
+    // Value is 62 (integer part of +62.2) — the orphan pairs the fragment with Heat
+    expect(heat!.value).toBe(62);
+  });
+
+  it("deduplication prefers non-integer over integer value for same stat (xl vs x1.3)", () => {
+    // The duplicate stat panel typically OCRs "xl" → x1 (value=1) while the main
+    // panel shows "x 1,3" → x1.3 (value=1.3).  Bounding-box sort may put the
+    // duplicate first; the parser must keep the more precise value.
+    const text = "xl Damage to Corpus\nx 1,3 Damage to Corpus";
+    const result = parseRivenStats(text);
+    // Only one "Damage to Corpus" entry
+    const matches = result.filter((s) => s.name === "Damage to Corpus");
+    expect(matches).toHaveLength(1);
+    expect(matches[0].value).toBeCloseTo(1.3, 5);
+    expect(matches[0].multiplier).toBe(true);
+  });
+
+  it("deduplication does NOT replace when integer parts differ (value=2 vs value=62.2)", () => {
+    // Ensure the precision-replacement only fires when the integer-part matches
+    // (floor(new)==existing).  A genuine duplicate like "+2% Heat" followed by
+    // "+62.2% Heat" must NOT replace the first entry because floor(62.2)=62 ≠ 2.
+    const text = "+2% Heat\n+62.2% Heat";
+    const result = parseRivenStats(text);
+    const matches = result.filter((s) => s.name === "Heat");
+    expect(matches).toHaveLength(1);
+    // First occurrence (value=2) is kept; second does not satisfy floor(62.2)=2
+    expect(matches[0].value).toBe(2);
   });
 });
 

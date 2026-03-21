@@ -327,7 +327,7 @@ export async function waitForRewardUiReady(
   while (Date.now() - startedAt < timeoutMs) {
     attempts += 1;
 
-    const screenshot = await captureScreen();
+    const screenshot = await captureScreen({ preferScreenCapture: true });
     if (!screenshot || !screenshot.image) {
       consecutiveHits = 0;
       await sleep(pollMs);

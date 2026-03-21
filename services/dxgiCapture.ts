@@ -100,6 +100,7 @@ let _protos: {
   EnumAdapters: any;
   EnumOutputs: any;
   GetAdapterDesc: any;
+  GetOutputDesc: any;
   DuplicateOutput: any;
   GetDuplDesc: any;
   AcquireNextFrame: any;
@@ -137,6 +138,7 @@ function ensureProtos(): void {
     EnumAdapters: uniqueProto(k, "int32", ["uint32", outPtr]),
     EnumOutputs: uniqueProto(k, "int32", ["uint32", outPtr]),
     GetAdapterDesc: uniqueProto(k, "int32", ["void*"]),
+    GetOutputDesc: uniqueProto(k, "int32", ["void*"]),
     DuplicateOutput: uniqueProto(k, "int32", ["void*", outPtr]),
     GetDuplDesc: uniqueProto(k, "int32", ["void*"]),
     AcquireNextFrame: uniqueProto(k, "int32", ["uint32", "void*", outPtr]),
@@ -183,6 +185,16 @@ interface DxgiSession {
   staging: any;
   width: number;
   height: number;
+  /** Electron display.id (= HMONITOR handle on Windows) for this output, or "" */
+  displayId: string;
+}
+
+/** Discovered DXGI output → HMONITOR mapping entry */
+interface DxgiOutputInfo {
+  adapterIdx: number;
+  outputIdx: number;
+  /** HMONITOR handle as a decimal string (matches Electron display.id on Windows) */
+  displayId: string;
 }
 
 let _session: DxgiSession | null = null;
@@ -191,11 +203,80 @@ let _initFailed = false;
 // the readiness gate sees identical consecutive frames and correctly detects stability.
 let _lastFrame: DxgiCaptureResult | null = null;
 
+/** Cached output enumeration — rebuilt on each initSession call */
+let _outputMap: DxgiOutputInfo[] = [];
+
 // ---------------------------------------------------------------------------
 // Session lifecycle
 // ---------------------------------------------------------------------------
 
-function initSession(): DxgiSession | null {
+/** Size of DXGI_OUTPUT_DESC on x64 (DeviceName[32]=64 + RECT=16 + BOOL=4 + Rotation=4 + HMONITOR=8) */
+const DXGI_OUTPUT_DESC_SIZE = 96;
+/** Offset of HMONITOR in DXGI_OUTPUT_DESC on x64 */
+const HMONITOR_OFFSET = 88;
+
+/**
+ * Read the HMONITOR handle from a DXGI output via GetDesc (IDXGIOutput, vtable slot 7).
+ * On Windows x64, HMONITOR is an 8-byte pointer at offset 88 in DXGI_OUTPUT_DESC.
+ * Electron's `display.id` is the HMONITOR handle cast to int32 (truncated to 32-bit signed).
+ */
+function readOutputHmonitor(output: any): string {
+  const descBuf = Buffer.alloc(DXGI_OUTPUT_DESC_SIZE);
+  const hr = comCall(output, 7, _protos.GetOutputDesc, descBuf);
+  if (hr !== S_OK) return "";
+  // Read HMONITOR as a 64-bit LE value. Electron truncates to int32 (signed).
+  // For typical HMONITOR values that fit in 32 bits, reading as UInt32 suffices.
+  // Electron uses `static_cast<int32_t>(hmonitor)` which gives a signed value.
+  const raw32 = descBuf.readUInt32LE(HMONITOR_OFFSET);
+  // Interpret as signed int32 to match Electron's display.id
+  const signed = raw32 | 0;
+  return String(signed);
+}
+
+/**
+ * Enumerate all DXGI adapters and outputs, building the output map.
+ * Returns the enumerated entries or an empty array on failure.
+ * The factory COM object is needed but NOT released here — caller owns it.
+ */
+function enumerateOutputs(factory: any): DxgiOutputInfo[] {
+  const results: DxgiOutputInfo[] = [];
+
+  for (let ai = 0; ; ai++) {
+    const adapterOut = [null];
+    const hr = comCall(factory, 7, _protos.EnumAdapters, ai, adapterOut);
+    if (hr !== S_OK) break; // DXGI_ERROR_NOT_FOUND = no more adapters
+
+    const adapter = adapterOut[0];
+    try {
+      for (let oi = 0; ; oi++) {
+        const outputOut = [null];
+        const ohr = comCall(adapter, 7, _protos.EnumOutputs, oi, outputOut);
+        if (ohr !== S_OK) break; // no more outputs on this adapter
+
+        const output = outputOut[0];
+        try {
+          const displayId = readOutputHmonitor(output);
+          if (displayId) {
+            results.push({ adapterIdx: ai, outputIdx: oi, displayId });
+          }
+        } finally {
+          comRelease(output);
+        }
+      }
+    } finally {
+      comRelease(adapter);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Initialise a DXGI Desktop Duplication session for a specific adapter/output.
+ * If `preferredDisplayId` is provided, the output whose HMONITOR matches is
+ * used; otherwise adapter 0 / output 0 (primary monitor).
+ */
+function initSession(preferredDisplayId?: string | null): DxgiSession | null {
   ensureProtos();
 
   const factoryOut = [null];
@@ -206,11 +287,53 @@ function initSession(): DxgiSession | null {
   }
   const factory = factoryOut[0];
 
-  // Enumerate adapter 0 (primary GPU)
+  // Build output map for display-id resolution
+  _outputMap = enumerateOutputs(factory);
+  if (_outputMap.length > 0) {
+    log.log(
+      "[dxgiCapture] Enumerated outputs:",
+      _outputMap.map((o) => `adapter${o.adapterIdx}:output${o.outputIdx}=display${o.displayId}`).join(", "),
+    );
+  }
+
+  // Resolve target adapter + output indices
+  let targetAdapterIdx = 0;
+  let targetOutputIdx = 0;
+  let targetDisplayId = "";
+
+  const wantedId = preferredDisplayId?.trim() || null;
+  if (wantedId) {
+    const match = _outputMap.find((o) => o.displayId === wantedId);
+    if (match) {
+      targetAdapterIdx = match.adapterIdx;
+      targetOutputIdx = match.outputIdx;
+      targetDisplayId = match.displayId;
+      log.log(
+        `[dxgiCapture] Targeting preferred display ${wantedId} → adapter${targetAdapterIdx}:output${targetOutputIdx}`,
+      );
+    } else {
+      log.warn(
+        `[dxgiCapture] Preferred display ${wantedId} not found in output map, falling back to primary`,
+      );
+    }
+  }
+
+  // If no displayId resolved yet, populate from output map for adapter0:output0
+  if (!targetDisplayId) {
+    const primary = _outputMap.find(
+      (o) => o.adapterIdx === targetAdapterIdx && o.outputIdx === targetOutputIdx,
+    );
+    if (primary) targetDisplayId = primary.displayId;
+  }
+
+  // Enumerate target adapter
   const adapterOut = [null];
-  hr = comCall(factory, 7, _protos.EnumAdapters, 0, adapterOut);
+  hr = comCall(factory, 7, _protos.EnumAdapters, targetAdapterIdx, adapterOut);
   if (hr !== S_OK) {
-    log.warn("[dxgiCapture] EnumAdapters(0) failed:", "0x" + (hr >>> 0).toString(16));
+    log.warn(
+      `[dxgiCapture] EnumAdapters(${targetAdapterIdx}) failed:`,
+      "0x" + (hr >>> 0).toString(16),
+    );
     comRelease(factory);
     return null;
   }
@@ -222,11 +345,14 @@ function initSession(): DxgiSession | null {
   const adName = adBuf.subarray(0, 256).toString("utf16le").replace(/\0+$/, "");
   log.log("[dxgiCapture] Adapter:", adName);
 
-  // Enumerate output 0 (primary monitor)
+  // Enumerate target output
   const outputOut = [null];
-  hr = comCall(adapter, 7, _protos.EnumOutputs, 0, outputOut);
+  hr = comCall(adapter, 7, _protos.EnumOutputs, targetOutputIdx, outputOut);
   if (hr !== S_OK) {
-    log.warn("[dxgiCapture] EnumOutputs(0) failed:", "0x" + (hr >>> 0).toString(16));
+    log.warn(
+      `[dxgiCapture] EnumOutputs(${targetOutputIdx}) failed:`,
+      "0x" + (hr >>> 0).toString(16),
+    );
     comRelease(adapter);
     comRelease(factory);
     return null;
@@ -332,6 +458,7 @@ function initSession(): DxgiSession | null {
     staging: stagingOut[0],
     width,
     height,
+    displayId: targetDisplayId,
   };
 }
 
@@ -368,10 +495,17 @@ export interface DxgiCaptureResult {
   buffer: Buffer;
   width: number;
   height: number;
+  /** Electron display.id for the captured output, or "" if unknown */
+  displayId: string;
 }
 
 /**
- * Capture the primary display via DXGI Desktop Duplication.
+ * Capture a display via DXGI Desktop Duplication.
+ *
+ * If `preferredDisplayId` is provided, the matching output is targeted;
+ * otherwise the primary monitor (adapter 0, output 0) is used.  When the
+ * requested display differs from the current session, the session is torn
+ * down and re-created for the new output.
  *
  * Returns BGRA pixel data or `null` if capture fails. On
  * `DXGI_ERROR_ACCESS_LOST` the session is torn down so the next call
@@ -383,12 +517,25 @@ export interface DxgiCaptureResult {
  * instead — this means the display content is unchanged, which the readiness
  * gate interprets correctly as a stable frame.
  */
-export function captureDxgi(timeoutMs = 0): DxgiCaptureResult | null {
+export function captureDxgi(
+  timeoutMs = 0,
+  preferredDisplayId?: string | null,
+): DxgiCaptureResult | null {
   if (_initFailed) return null;
+
+  const wantedDisplay = preferredDisplayId?.trim() || null;
+
+  // If a session exists but targets a different display, tear it down
+  if (_session && wantedDisplay && _session.displayId && _session.displayId !== wantedDisplay) {
+    log.log(
+      `[dxgiCapture] Display switch requested: ${_session.displayId} → ${wantedDisplay}, reinitialising`,
+    );
+    destroyDxgi();
+  }
 
   if (!_session) {
     try {
-      _session = initSession();
+      _session = initSession(wantedDisplay);
     } catch (err) {
       log.warn("[dxgiCapture] initSession threw:", String(err));
       _initFailed = true;
@@ -476,7 +623,7 @@ export function captureDxgi(timeoutMs = 0): DxgiCaptureResult | null {
           }
         }
 
-        result = { buffer: pixelBuf, width: s.width, height: s.height };
+        result = { buffer: pixelBuf, width: s.width, height: s.height, displayId: s.displayId };
         _lastFrame = result; // cache for WAIT_TIMEOUT returns
       } finally {
         // Unmap (slot 15)
