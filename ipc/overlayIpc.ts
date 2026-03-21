@@ -253,8 +253,10 @@ let _rivenRollScanTimer: ReturnType<typeof setTimeout> | null = null;
 // INITIAL: AlecaFrame Thread.Sleep(200) in RivenSelectedForRerollDetected.
 //   Card is already visible; readiness gate handles remaining stability.
 // ROLL (fallback timer): AlecaFrame Thread.Sleep(2750) in RivenRerollDetected.
-//   We use 1800 ms + a gate — this is better than AlecaFrame's fixed sleep.
-//   Do NOT increase to 2750 ms; the gate approach is strictly superior.
+//   We use 1800 ms delay + 500 ms gate = 2300 ms total ≈ AlecaFrame's 2750 ms.
+//   Gate is kept short: the card is already settled when the delay fires (~1200 ms
+//   animation), and the Kuva portal animation means the gate never passes — it
+//   always times out and returns lastScreenshot. 2–3 polls is sufficient.
 // ROLL (diorama trigger): AlecaFrame fires RivenSelectedForRerollDetected immediately
 //   on "Diorama setup", which has an internal Sleep(200). We pass skipGate=true so
 //   the readiness gate is bypassed — same behaviour.

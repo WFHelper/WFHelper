@@ -49,15 +49,21 @@ export interface RivenUiReadyResult {
 
 const RIVEN_READY_TIMEOUTS_MS = Object.freeze({
   initial: 1800,
-  // Roll timeout is shorter because:
-  // 1. The Kuva portal animation keeps coverage/bounding-box fluctuating, so
-  //    the stability gate virtually never passes anyway (it always hits timeout).
-  // 2. The new card is settled ~1.2 s after the roll-confirm event.
-  // 3. waitForRivenUiReady returns lastScreenshot on timeout, which is the
-  //    most recent captured frame — exactly what we want.
-  // Using 1500 ms (+ 800 ms ROLL_SCAN_DELAY beforehand) gives ~2.3 s total,
-  // enough for the animation without the old 4.9 s worst-case delay.
-  roll: 3000,
+  // Roll gate: kept SHORT because the card is ALREADY settled when this fires.
+  // ROLL_SCAN_DELAY_MS (1800 ms) fires after the ~1200 ms card animation, so by
+  // the time we enter this gate the new card is fully visible.  The Kuva portal
+  // background animation prevents the stability check from ever passing, so the
+  // gate ALWAYS times out and returns lastScreenshot.
+  //
+  // The gate exists only to collect a fresh frame after the delay; 2–3 polls is
+  // enough.  Original design target was 2300 ms total (800 ms delay + 1500 ms
+  // gate), meaning ~500 ms gate is correct now that delay is 1800 ms:
+  //   1800 ms delay + 500 ms gate = 2300 ms total ≈ AlecaFrame Thread.Sleep(2750)
+  //
+  // Do NOT increase back to 3000 ms — that makes total = 4800 ms (2× AlecaFrame)
+  // for no benefit since the gate never passes and lastScreenshot is equally good
+  // after just 2 polls as it is after 10+ polls.
+  roll: 500,
   choice: 1800,
 });
 const RIVEN_READY_POLL_MS = 140;
