@@ -456,13 +456,15 @@ function parseStatsFromLines(text: string): RivenStat[] {
 
       // Carry-forward: when a damage-type stat has no value but the previous
       // stat in the SAME line segment does, they share a single combined roll
-      // (e.g. "+112% Electricity Impact" → Impact inherits 112% from Electricity).
-      // Guard: only carry-forward when the prefix between the two stats has NO sign
-      // character. If the prefix contains "-" (e.g. "-ÔÇ×e" from a WinRT element
-      // icon misread), the two stats are on SEPARATE rows of the card and share no
-      // value — carrying would give the second stat the wrong number.
-      const hasSignInPrefix = /[+\-\u2013]/.test(prefix);
-      if (value === null && index > 0 && DAMAGE_TYPE_STAT_NAMES.has(key) && !hasSignInPrefix) {
+      // (e.g. "+112% Electricity Impact" → Impact inherits 112% from Electricity,
+      //  "+126.2% Status Duration + Electricity" → Electricity inherits 126.2%).
+      // Guard: block carry-forward when a sign char in the prefix is followed by
+      // non-whitespace garbage (e.g. "-ÔÇ×e" from a WinRT element-icon misread),
+      // which means the two stats are on SEPARATE card rows, not a combined element.
+      // A prefix of "+ " (sign + whitespace only, directly before the stat name)
+      // IS the combined-element separator and SHOULD carry forward.
+      const hasNoisySignInPrefix = /[+\-\u2013]\s*\S/.test(prefix);
+      if (value === null && index > 0 && DAMAGE_TYPE_STAT_NAMES.has(key) && !hasNoisySignInPrefix) {
         const prev = results[results.length - 1];
         if (prev && prev.value !== null) {
           value = prev.value;

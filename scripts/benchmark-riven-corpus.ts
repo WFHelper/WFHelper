@@ -24,6 +24,7 @@ import {
   parseRivenStats,
   splitRivenStructuredText,
   preprocessOcrText,
+  scoreStatsCandidate,
   type RivenStat,
 } from "../ipc/overlay/rivenScanText.js";
 
@@ -157,6 +158,24 @@ function textToStructuredResult(text: string) {
   return { text: text || "", lines };
 }
 
+// ── Production candidate types (mirrors ipc/overlay/rivenScan.ts) ───────────
+interface BenchmarkCandidate {
+  modeLabel: string;
+  text: string;
+  stats: RivenStat[];
+  score: number;
+  valueCount: number;
+}
+
+// Exact copy of isConfidentEnough from ipc/overlay/rivenScan.ts
+function isConfidentEnough(c: BenchmarkCandidate): boolean {
+  if (c.score < 0) return false;
+  if (c.stats.length >= 4 && c.valueCount >= 3 && c.score >= 75) return true;
+  if (c.stats.length >= 3 && c.valueCount >= 3 && c.score >= 85) return true;
+  if (c.stats.length === 2 && c.valueCount === 2 && c.score >= 55) return true;
+  return false;
+}
+
 function formatStats(stats: RivenStat[]): string {
   if (stats.length === 0) return "(none)";
   return stats
@@ -209,9 +228,10 @@ function formatStats(stats: RivenStat[]): string {
     console.log(`  full ${img.width}x${img.height} → crop ${cropped.width}x${cropped.height}`);
 
     let imageMs = 0;
-    let bestStats: RivenStat[] = [];
-    let bestLabel = "";
+    const candidates: BenchmarkCandidate[] = [];
+    let earlyExit = false;
 
+    // Strategy loop — same order as ENHANCE_STRATEGIES in production
     for (const strategy of strategies) {
       const t0 = Date.now();
       const png = await strategy.enhance(cropped);
@@ -222,25 +242,78 @@ function formatStats(stats: RivenStat[]): string {
       const structured = textToStructuredResult(ocr.text);
       const split = splitRivenStructuredText(structured);
       const stats = parseRivenStats(split.statsText || ocr.text || "");
-      const withValues = stats.filter((s) => s.value !== null).length;
+      const valueCount = stats.filter((s) => s.value !== null).length;
+      const score = scoreStatsCandidate(stats, ocr.text);
 
       const rawPreview = preprocessOcrText(ocr.text).replace(/\r?\n/g, " | ").slice(0, 120);
-      console.log(`  [${strategy.label}] ${ocrMs}ms  ${stats.length} stats (${withValues} values)`);
+      console.log(`  [${strategy.label}] ${ocrMs}ms  ${stats.length} stats (${valueCount} values, score=${score})`);
       console.log(`    raw: "${rawPreview}"`);
       console.log(`    → ${formatStats(stats)}`);
 
-      if (stats.length > bestStats.length || (stats.length === bestStats.length && withValues > bestStats.filter(s => s.value !== null).length)) {
-        bestStats = stats;
-        bestLabel = strategy.label;
+      const candidate: BenchmarkCandidate = { modeLabel: strategy.label, text: ocr.text, stats, score, valueCount };
+      candidates.push(candidate);
+
+      if (isConfidentEnough(candidate)) {
+        earlyExit = true;
+        break; // matches production isConfidentEnough early-accept
       }
     }
 
+    // Score-based selection — exact tie-break order from production
+    let chosen = candidates[0];
+    for (const c of candidates.slice(1)) {
+      if (c.score > chosen.score) { chosen = c; continue; }
+      if (c.score < chosen.score) continue;
+      if (c.stats.length > chosen.stats.length) { chosen = c; continue; }
+      if (c.stats.length < chosen.stats.length) continue;
+      if (c.valueCount > chosen.valueCount) { chosen = c; }
+    }
+
+    // Cross-strategy injection — exact copy of production ocrCropMultiStrategy
+    let finalStats = chosen.stats;
+    const nullSlots = chosen.stats.map((s, i) => (s.value === null ? i : -1)).filter((i) => i >= 0);
+    if (nullSlots.length > 0) {
+      const assignedValues = new Set(
+        chosen.stats.filter((s) => s.value !== null).map((s) => s.value as number),
+      );
+      const orphanValues: Array<{ value: number; positive: boolean }> = [];
+      for (const c of candidates) {
+        if (c === chosen) continue;
+        const cleaned = preprocessOcrText(c.text || "");
+        for (const match of cleaned.matchAll(/([+\-])\s*(\d+\.?\d*)\s*%/g)) {
+          const v = parseFloat(match[2]);
+          if (!Number.isFinite(v) || v <= 0) continue;
+          if (assignedValues.has(v)) continue;
+          if (orphanValues.some((o) => Math.abs(o.value - v) < 0.5)) continue;
+          orphanValues.push({ value: v, positive: match[1] !== "-" });
+        }
+      }
+      if (orphanValues.length > 0) {
+        const injected = chosen.stats.slice();
+        let orphanIdx = 0;
+        for (const nullIdx of nullSlots) {
+          if (orphanIdx >= orphanValues.length) break;
+          injected[nullIdx] = {
+            ...injected[nullIdx],
+            value: orphanValues[orphanIdx].value,
+            positive: orphanValues[orphanIdx].positive,
+          };
+          orphanIdx++;
+        }
+        if (orphanIdx > 0) {
+          console.log(`  [injection] filled ${orphanIdx} null slot(s) from alternate strategy`);
+          finalStats = injected;
+        }
+      }
+    }
+
+    const bestValueCount = finalStats.filter((s) => s.value !== null).length;
     totalMs += imageMs;
     totalImages++;
-    totalStatsFound += bestStats.length;
-    totalStatsWithValues += bestStats.filter(s => s.value !== null).length;
+    totalStatsFound += finalStats.length;
+    totalStatsWithValues += bestValueCount;
 
-    console.log(`  BEST: ${bestLabel} → ${bestStats.length} stats, ${bestStats.filter(s=> s.value !== null).length} values (${imageMs}ms total)`);
+    console.log(`  BEST: ${chosen.modeLabel}${earlyExit ? " [early-accept]" : ""} → ${finalStats.length} stats, ${bestValueCount} values (${imageMs}ms total)`);
   }
 
   console.log(`\n${"─".repeat(60)}`);

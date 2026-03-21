@@ -553,8 +553,8 @@ describe("parseRivenStats", () => {
 
   it("does not carry-forward when icon-artifact dash present before element stat (Magnatox scenario)", () => {
     // WinRT reads element icons as "-ÔÇ×e" between Impact and Toxin.
-    // The prefix " -ÔÇ×e " contains a "-" sign char, so carry-forward must NOT fire —
-    // Impact=180.7 must not bleed into Toxin (they are separate stat rows on the card).
+    // The prefix " -ÔÇ×e " contains "-" followed by garbage chars, so carry-forward
+    // must NOT fire — Impact=180.7 must not bleed into Toxin (separate card rows).
     const text = "+180.7% Impact -ÔÇ×e Toxin -1.1 Range";
     const result = parseRivenStats(text);
     const impact = result.find((s) => s.name === "Impact");
@@ -567,6 +567,21 @@ describe("parseRivenStats", () => {
     expect(range).toBeDefined();
     expect(range!.value).toBe(1.1);
     expect(range!.positive).toBe(false);
+  });
+
+  it("carries forward when combined-element '+' separator present (Status Duration + Electricity)", () => {
+    // WinRT reads "+126.2% Status Duration + Electricity" as a single line.
+    // The prefix before Electricity is "+ " (sign + whitespace only — no garbage).
+    // Carry-forward MUST fire so Electricity inherits 126.2% from Status Duration.
+    const text = "+126.2% Status Duration + Electricity";
+    const result = parseRivenStats(text);
+    const sd = result.find((s) => s.name === "Status Duration");
+    const elec = result.find((s) => s.name === "Electricity");
+    expect(sd).toBeDefined();
+    expect(sd!.value).toBe(126.2);
+    expect(elec).toBeDefined();
+    expect(elec!.value).toBe(126.2); // shared combined-element value
+    expect(elec!.positive).toBe(true);
   });
 
   it("fixes OCR misread xO→x0 in multiplier values (xO,58 Damage to Grineer)", () => {
