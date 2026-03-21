@@ -625,7 +625,7 @@ export function onRivenChoiceConfirmed(): void {
   // native OCR binding with FATAL ERROR: ThrowAsJavaScriptException.
   const anyVisible = getRivenWindows().some((w) => w && !w.isDestroyed() && w.isVisible());
   if (!anyVisible) {
-    log.log("[RivenScan] choice confirmed but overlay is not visible — skipping rescan");
+    log.log("[RivenScan] choice confirmed but overlay is not visible — skipping");
     return;
   }
 
@@ -634,31 +634,47 @@ export function onRivenChoiceConfirmed(): void {
   // fire after the choice and overwrite the right panel with old roll data.
   clearRivenScanTimers();
   _rivenHasRollResult = false;
+
+  // SendResult(4) = ACCEPT new roll.  Cancel (SendResult(5)) never reaches this
+  // callback — see eeLogMonitor.ts sendResult handling.  We already have the new
+  // stats from scanNewRoll in _rivenNewRollStats; use them directly — no OCR needed.
+  // The previous approach (scanChoiceRescan with SINGLE_CARD_CROP x:0.22 w:0.56)
+  // spanned both panels of the choice screen, and WinRT always read the left
+  // (old/current) panel first, overwriting the overlay with the wrong stats.
+  const acceptedStats = _rivenNewRollStats.slice();
   _rivenNewRollStats = [];
 
-  // Tell the renderer immediately: choice was made, reset the right panel.
-  rivenSession.onChoiceMade(getRivenWindows(), "unknown");
-
-  // Re-scan the single card the game now shows — uses a center-only crop
-  // to avoid capturing stale two-card transition text at screen edges.
-  if (_rivenInitialScanTimer) clearTimeout(_rivenInitialScanTimer);
-  _rivenInitialScanTimer = setTimeout(async () => {
-    _rivenInitialScanTimer = null;
-    try {
-      const stats = await rivenScan.scanChoiceRescan(_rivenWeaponName);
-      const chosenSide = inferChosenSide(stats);
-      _rivenInitialStats = stats;
-      if (stats.length > 0) {
-        rivenSession.onInitialStats(getRivenWindows(), stats);
-        sendGradedInitialStats();
+  if (acceptedStats.length > 0) {
+    log.log(
+      `[RivenScan] choice confirmed: accepted new roll (${acceptedStats.length} stats), no rescan needed`,
+    );
+    _rivenInitialStats = acceptedStats;
+    rivenSession.onChoiceMade(getRivenWindows(), "right");
+    rivenSession.onInitialStats(getRivenWindows(), _rivenInitialStats);
+    sendGradedInitialStats();
+  } else {
+    // Roll scan hadn't completed when the user confirmed (very fast user or OCR error).
+    // Fall back: re-scan the right panel while both cards are still visible on screen,
+    // using the same ROLL_CARD_CROP as scanNewRoll (skipGate=true, both cards loaded).
+    log.log("[RivenScan] choice confirmed: roll stats unavailable, scheduling right-panel fallback scan");
+    rivenSession.onChoiceMade(getRivenWindows(), "unknown");
+    if (_rivenInitialScanTimer) clearTimeout(_rivenInitialScanTimer);
+    _rivenInitialScanTimer = setTimeout(async () => {
+      _rivenInitialScanTimer = null;
+      try {
+        const panels = await rivenScan.scanNewRoll(_rivenWeaponName, true);
+        const rightStats = panels.right;
+        if (rightStats.length > 0) {
+          _rivenInitialStats = rightStats;
+          rivenSession.onChoiceMade(getRivenWindows(), "right");
+          rivenSession.onInitialStats(getRivenWindows(), _rivenInitialStats);
+          sendGradedInitialStats();
+        }
+      } catch (err) {
+        log.warn("[RivenScan] choice fallback scan failed:", String(err));
       }
-      if (chosenSide !== "unknown") {
-        rivenSession.onChoiceMade(getRivenWindows(), chosenSide);
-      }
-    } catch (err) {
-      log.warn("[RivenScan] choice rescan failed:", String(err));
-    }
-  }, CHOICE_RESCAN_DELAY_MS);
+    }, CHOICE_RESCAN_DELAY_MS);
+  }
 }
 
 function pushOverlayInteractionMode(): void {
