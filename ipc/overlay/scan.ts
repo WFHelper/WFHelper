@@ -35,7 +35,7 @@ type OverlayScanControllerOptions = {
     error: (...args: unknown[]) => void;
   };
   rewardScanner: {
-    scanRewardsDetailed: () => Promise<RewardScanResult | null>;
+    scanRewardsDetailed: (preCapture?: { image: any; sourceType?: string | null; sourceName?: string | null; sourceId?: string | null; sourceDisplayId?: string | null } | null) => Promise<RewardScanResult | null>;
     waitForRewardUiReady?: (options: {
       timeoutMs: number;
       pollMs: number;
@@ -46,6 +46,7 @@ type OverlayScanControllerOptions = {
           ready?: boolean;
           elapsedMs?: number;
           attempts?: number;
+          lastScreenshot?: any;
           best?: {
             sourceDisplayId?: string | null;
             bandBottomRatio?: number;
@@ -105,17 +106,22 @@ export function createOverlayScanController(options: OverlayScanControllerOption
 
   let rewardScanInFlight = false;
 
-  async function runRewardScanWithRetries(triggerSource: string): Promise<RewardScanResult> {
+  async function runRewardScanWithRetries(triggerSource: string, gatePre?: any): Promise<RewardScanResult> {
     const startedAt = Date.now();
     let attempts = 0;
     let bestResult: RewardScanResult | null = null;
+    let gatePreUsed = false;
 
     while (attempts < SCAN_MAX_ATTEMPTS && Date.now() - startedAt < SCAN_RETRY_WINDOW_MS) {
       attempts += 1;
 
+      // F2: use gate pre-captured screenshot on first attempt only; fresh capture on retries
+      const preCapture = !gatePreUsed && gatePre ? gatePre : undefined;
+      if (preCapture) gatePreUsed = true;
+
       let result: RewardScanResult | null | undefined;
       try {
-        result = await rewardScanner.scanRewardsDetailed();
+        result = await rewardScanner.scanRewardsDetailed(preCapture);
       } catch (err) {
         log.error(`[Trigger] scan attempt ${attempts} failed:`, normalizeErrorMessage(err));
       }
@@ -181,6 +187,8 @@ export function createOverlayScanController(options: OverlayScanControllerOption
         }
       }
 
+      // F2: store the gate's last screenshot so we can pass it as preCapture
+      let gatePre: any = undefined;
       if (typeof rewardScanner.waitForRewardUiReady === "function") {
         const gate = await rewardScanner.waitForRewardUiReady({
           timeoutMs: UI_READY_GATE_TIMEOUT_MS,
@@ -188,6 +196,8 @@ export function createOverlayScanController(options: OverlayScanControllerOption
           requiredHits: UI_READY_GATE_REQUIRED_HITS,
           scoreThreshold: UI_READY_GATE_SCORE_THRESHOLD,
         });
+
+        gatePre = gate?.lastScreenshot ?? undefined;
 
         if (gate?.best && Number.isFinite(gate.best.bandBottomRatio)) {
           windows.setAnchorMeta({
@@ -218,7 +228,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
         }
       }
 
-      const result = await runRewardScanWithRetries(source);
+      const result = await runRewardScanWithRetries(source, gatePre);
       const items = Array.isArray(result?.items) ? result.items.slice(0, MAX_REWARD_ITEMS) : [];
 
       if (source === "eelog" && items.length > 0) {

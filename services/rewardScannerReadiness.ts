@@ -266,6 +266,8 @@ interface WaitResult {
   attempts: number;
   elapsedMs: number;
   threshold: number;
+  /** Last screenshot captured during the readiness gate; pass to scanRewardsDetailed as preCapture (F2). */
+  lastScreenshot: any;
   best:
     | (ReadinessResult & {
         sourceType: string | null;
@@ -320,6 +322,7 @@ export async function waitForRewardUiReady(
   let attempts = 0;
   let consecutiveHits = 0;
   let best: WaitResult["best"] = null;
+  let lastScreenshot: any = null;
 
   while (Date.now() - startedAt < timeoutMs) {
     attempts += 1;
@@ -330,6 +333,7 @@ export async function waitForRewardUiReady(
       await sleep(pollMs);
       continue;
     }
+    lastScreenshot = screenshot;
 
     const readiness = analyzeRewardBandReadiness(screenshot.image, band);
     const sample = {
@@ -357,6 +361,7 @@ export async function waitForRewardUiReady(
         attempts,
         elapsedMs: Date.now() - startedAt,
         threshold: scoreThreshold,
+        lastScreenshot,
         best: sample,
       };
     }
@@ -369,6 +374,7 @@ export async function waitForRewardUiReady(
     attempts,
     elapsedMs: Date.now() - startedAt,
     threshold: scoreThreshold,
+    lastScreenshot,
     best,
   };
 }
