@@ -185,7 +185,8 @@ describe("parseRivenStats", () => {
     const result = parseRivenStats("\u201394.5% Recoil");
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe("Recoil");
-    expect(result[0].positive).toBe(false);
+    // Recoil is an inverted-polarity stat: minus on screen = beneficial
+    expect(result[0].positive).toBe(true);
     expect(result[0].value).toBe(94.5);
   });
 
@@ -193,7 +194,8 @@ describe("parseRivenStats", () => {
     const result = parseRivenStats("-27.3% Zoom");
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe("Zoom");
-    expect(result[0].positive).toBe(false);
+    // Zoom is an inverted-polarity stat: minus on screen = beneficial
+    expect(result[0].positive).toBe(true);
     expect(result[0].value).toBe(27.3);
   });
 
@@ -219,7 +221,8 @@ describe("parseRivenStats", () => {
       "Zoom",
       "Multishot",
     ]);
-    expect(result.map((s) => s.positive)).toEqual([true, true, false, true]);
+    // Zoom is inverted-polarity: minus on screen = beneficial (positive: true)
+    expect(result.map((s) => s.positive)).toEqual([true, true, true, true]);
     expect(result.map((s) => s.value)).toEqual([48.3, 127.2, 27.3, 15.5]);
   });
 

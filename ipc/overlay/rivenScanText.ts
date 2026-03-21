@@ -96,6 +96,18 @@ export interface RivenStat {
 
 const MAX_REASONABLE_VALUE = 500;
 
+/**
+ * Stats where the game displays a minus sign for the BUFF direction.
+ * For these, a "-XX%" value on-screen means the stat is beneficial (positive),
+ * and "+XX%" would mean a curse (negative).  We flip `positive` after parsing
+ * so the overlay colours green/red correctly.
+ */
+const INVERTED_POLARITY_STATS = new Set([
+  "weapon recoil",
+  "recoil",
+  "zoom",
+]);
+
 export function preprocessOcrText(raw: string): string {
   let text = raw;
 
@@ -524,6 +536,13 @@ function parseStatsFromLines(text: string): RivenStat[] {
           value = prev.value;
           effectivePositive = prev.positive;
         }
+      }
+
+      // Inverted-polarity stats: the game shows a minus sign for the buff
+      // direction (e.g. "-70.9% Weapon Recoil" is beneficial).  Flip the
+      // positive flag so the overlay shows the correct green/red colour.
+      if (INVERTED_POLARITY_STATS.has(key)) {
+        effectivePositive = !effectivePositive;
       }
 
       results.push({ name: stat, positive: effectivePositive, value, ...(multiplier && { multiplier: true }) });

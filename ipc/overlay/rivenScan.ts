@@ -300,22 +300,24 @@ interface CandidateResult {
 
 function buildOrderedCandidates(
   hasRefinedCrop: boolean,
+  statsOnly = false,
 ): Array<{ cropId: "rough" | "refined"; mode: EnhanceMode }> {
   const ordered: Array<{ cropId: "rough" | "refined"; mode: EnhanceMode }> = [];
-  if (hasRefinedCrop) {
-    // Try refined:original FIRST — AlecaFrame always runs edge detection
+  if (!statsOnly && hasRefinedCrop) {
+    // Full scan: refined:original FIRST — AlecaFrame always runs edge detection
     // (DetailedRivenCrop) before OCR.  The tight text-area crop removes card
     // art and animated backgrounds, giving WinRT the cleanest possible input.
-    // If this yields a confident result, we skip everything else (fast path).
     ordered.push({ cropId: "refined", mode: ENHANCE_STRATEGIES[0] }); // original
   }
-  // Rough passes: Tesseract launches in parallel after rough:original.
+  // Rough passes — for roll scans (statsOnly) rough:original is the primary path
+  // so it must come first to enable single-pass early-accept.
   for (const mode of ENHANCE_STRATEGIES) {
     ordered.push({ cropId: "rough", mode });
   }
   if (hasRefinedCrop) {
     // Remaining refined strategies as fallback.
-    for (let i = 1; i < ENHANCE_STRATEGIES.length; i++) {
+    const startIdx = statsOnly ? 0 : 1;
+    for (let i = startIdx; i < ENHANCE_STRATEGIES.length; i++) {
       ordered.push({ cropId: "refined", mode: ENHANCE_STRATEGIES[i] });
     }
   }
@@ -328,11 +330,17 @@ function isConfidentEnough(result: CandidateResult, statsOnly = false): boolean 
   if (result.stats.length >= 3 && result.valueCount >= 3 && result.score >= 85) return true;
   if (result.stats.length === 2 && result.valueCount === 2 && result.score >= 55) return true;
   // Roll-scan fast path: when statsOnly=true we know the card is visible and just
-  // need stat values.  Accept 2 stats with values at a lower threshold so the
-  // first native pass can publish immediately instead of running all 3 strategies.
-  // Without weapon context the scorer caps ~49 for a clean 2-stat read — 35 still
-  // rejects garbage while accepting any plausible 2-stat result on the first pass.
-  if (statsOnly && result.stats.length >= 2 && result.valueCount >= 2 && result.score >= 35) return true;
+  // need stat values.  Accept 2+ stats at a lower score threshold so the first
+  // native pass can publish immediately.  Require valueCount >= stats-1 so we
+  // never early-accept a 4-stat read with only 2 values (missing half the data).
+  if (
+    statsOnly &&
+    result.stats.length >= 2 &&
+    result.valueCount >= 2 &&
+    result.valueCount >= result.stats.length - 1 &&
+    result.score >= 35
+  )
+    return true;
   return false;
 }
 
@@ -492,6 +500,7 @@ async function ocrCropMultiStrategy(
 
   const orderedCandidates = buildOrderedCandidates(
     cropVariants.some((variant) => variant.id === "refined"),
+    statsOnly,
   );
   const results: CandidateResult[] = [];
 
@@ -566,10 +575,12 @@ async function ocrCropMultiStrategy(
 
     results.push(result);
 
-    // Always launch Tesseract after rough:original so it runs in parallel with
-    // the remaining native strategies (bright-150, bright-120).
+    // Launch Tesseract in parallel after rough:original — but NOT for roll scans
+    // (statsOnly) where the first native pass typically early-accepts.  Launching
+    // Tesseract is wasted CPU when early-accept fires before Tesseract finishes.
     if (
       tessEagerPromise === null &&
+      !statsOnly &&
       tesseractWorkerAvailable &&
       !_ocrAborted &&
       plan.cropId === "rough" &&
