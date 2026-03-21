@@ -498,6 +498,77 @@ describe("parseRivenStats", () => {
     ]);
   });
 
+  it("pairs orphan value with stat name when noise line intervenes (Gelimantiton/Cold scenario)", () => {
+    // WinRT OCR on bright-150+dilate sometimes places the riven-name suffix (e.g.
+    // "Gelimantiton") BETWEEN the element value line and the element name line.
+    // The FIFO queue in collapseOrphanValueLines must skip over that noise and pair
+    // "+95.5%" with "Cold", not with "Gelimantiton".
+    const text = [
+      "+95,50/0",        // Cold value (+95.5%) — 0/0 is WinRT misread of %
+      "Gelimantiton",    // riven-name suffix injected as a stats-area line by WinRT
+      "Cold",
+      "+122,4% Impact",
+      "x1,46 Damage to Corpus",
+    ].join("\n");
+    const result = parseRivenStats(text);
+    const cold = result.find((s) => s.name === "Cold");
+    const impact = result.find((s) => s.name === "Impact");
+    const dtc = result.find((s) => s.name === "Damage to Corpus");
+    expect(cold).toBeDefined();
+    expect(cold!.value).toBe(95.5);
+    expect(cold!.positive).toBe(true);
+    expect(impact).toBeDefined();
+    expect(impact!.value).toBe(122.4);
+    expect(dtc).toBeDefined();
+    expect(dtc!.value).toBeCloseTo(1.46, 2);
+    expect(dtc!.multiplier).toBe(true);
+  });
+
+  it("FIFO: two consecutive value lines each pair with the following stat in order", () => {
+    // Values and stat-names appear in two separate blocks: values first, then names.
+    // FIFO ensures Cold gets +95.5 and Impact gets +122.4, not vice versa.
+    const text = ["+95,5%", "+122,4%", "Cold", "Impact", "x1,46 Damage to Corpus"].join("\n");
+    const result = parseRivenStats(text);
+    const cold = result.find((s) => s.name === "Cold");
+    const impact = result.find((s) => s.name === "Impact");
+    expect(cold).toBeDefined();
+    expect(cold!.value).toBe(95.5);
+    expect(impact).toBeDefined();
+    expect(impact!.value).toBe(122.4);
+  });
+
+  it("FIFO: does not steal orphan value from stat-name line that already has its own value", () => {
+    // bright+dilate OCR produces two orphan values then a stat+value line:
+    //   "+180.7%" "+133.9%" "-1.1 Range"
+    // The -1.1 belongs to Range and must NOT be overwritten by the orphan +180.7.
+    const text = ["+180.7%", "+133.9%", "-1.1 Range"].join("\n");
+    const result = parseRivenStats(text);
+    const range = result.find((s) => s.name === "Range");
+    expect(range).toBeDefined();
+    expect(range!.value).toBe(1.1);
+    expect(range!.positive).toBe(false);
+    // orphan values have no stat name — expect only Range
+    expect(result).toHaveLength(1);
+  });
+
+  it("does not carry-forward when icon-artifact dash present before element stat (Magnatox scenario)", () => {
+    // WinRT reads element icons as "-ÔÇ×e" between Impact and Toxin.
+    // The prefix " -ÔÇ×e " contains a "-" sign char, so carry-forward must NOT fire —
+    // Impact=180.7 must not bleed into Toxin (they are separate stat rows on the card).
+    const text = "+180.7% Impact -ÔÇ×e Toxin -1.1 Range";
+    const result = parseRivenStats(text);
+    const impact = result.find((s) => s.name === "Impact");
+    const toxin = result.find((s) => s.name === "Toxin");
+    const range = result.find((s) => s.name === "Range");
+    expect(impact).toBeDefined();
+    expect(impact!.value).toBe(180.7);
+    expect(toxin).toBeDefined();
+    expect(toxin!.value).toBeNull(); // must NOT carry 180.7 from Impact
+    expect(range).toBeDefined();
+    expect(range!.value).toBe(1.1);
+    expect(range!.positive).toBe(false);
+  });
+
   it("fixes OCR misread xO→x0 in multiplier values (xO,58 Damage to Grineer)", () => {
     // OCR reads zero as letter O: "xO,58" instead of "x0,58"
     const text =

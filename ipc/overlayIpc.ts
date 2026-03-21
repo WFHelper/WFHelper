@@ -247,21 +247,25 @@ let _rivenInitialScanTimer: ReturnType<typeof setTimeout> | null = null;
 let _rivenRollScanTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Delay before OCR scan (ms) — gives the riven card animation time to settle.
-// INITIAL: The riven card is already visible when OmegaRerollSelection.swf loads;
-// a short delay is enough for the UI to finish rendering.
-// ROLL: Reduced from 2600ms — the readiness gate now handles stability; we no longer
-// need to wait out the full roll animation before starting to poll.
-// CHOICE_RESCAN: After the "Cycle Riven into current selection?" confirm, the game
-// quickly transitions back to the single-card view — shorter delay than a full roll.
-const INITIAL_SCAN_DELAY_MS = 300;
+// All values are aligned to AlecaFrame's confirmed ILSpy-decompiled timings
+// (docs/ilspy-decompiled/AlecaFrameClientLib/AlecaFrameClientLib.Data/RivenOverlays.cs):
+//
+// INITIAL: AlecaFrame Thread.Sleep(200) in RivenSelectedForRerollDetected.
+//   Card is already visible; readiness gate handles remaining stability.
+// ROLL (fallback timer): AlecaFrame Thread.Sleep(2750) in RivenRerollDetected.
+//   We use 1800 ms + a gate — this is better than AlecaFrame's fixed sleep.
+//   Do NOT increase to 2750 ms; the gate approach is strictly superior.
+// ROLL (diorama trigger): AlecaFrame fires RivenSelectedForRerollDetected immediately
+//   on "Diorama setup", which has an internal Sleep(200). We pass skipGate=true so
+//   the readiness gate is bypassed — same behaviour.
+// CHOICE_RESCAN: AlecaFrame RivenRerollCycleComplete: Thread.Sleep(1000) then calls
+//   RivenSelectedForRerollDetected (another Sleep(200)) = 1200 ms total, no gate.
+//   We use 1000 ms + readiness gate (up to 1800 ms) — equivalent on stable frames,
+//   more robust on slow machines.
+const INITIAL_SCAN_DELAY_MS = 200;
 const ROLL_SCAN_DELAY_MS = 1800;
-// When triggered by the diorama-setup EE.log line, both cards are already showing;
-// a 300 ms delay is enough for rendering to finish before OCR starts.
-const ROLL_DIORAMA_SCAN_DELAY_MS = 300;
-// Choice rescan: needs to wait for the two-card → single-card transition animation
-// (~1 s) before OCR-ing.  400 ms was too short — the readiness gate settled on the
-// mid-transition frame where both panels were still visible.
-const CHOICE_RESCAN_DELAY_MS = 1500;
+const ROLL_DIORAMA_SCAN_DELAY_MS = 200;
+const CHOICE_RESCAN_DELAY_MS = 1000;
 
 // Last known stats for choice detection (old vs new)
 let _rivenInitialStats: rivenScan.RivenStat[] = [];

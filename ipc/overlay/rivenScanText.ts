@@ -333,6 +333,14 @@ export function splitRivenStructuredText(result: StructuredOcrResult | null | un
 
 function collapseOrphanValueLines(lines: string[]): string[] {
   const collapsed: string[] = [];
+  // FIFO queue of "value-only" lines waiting to be paired with a following stat-name line.
+  // Using a queue (rather than an immediate merge) ensures that noise lines appearing
+  // between a numeric value and its stat name (e.g. the riven suffix "Gelimantiton"
+  // interleaved by WinRT OCR between "+95.5%" and "Cold") do not consume the pending
+  // value.  Each value pairs with the *oldest* unmatched stat-name line that follows
+  // it, preserving Cold=+95.5, Impact=+122.4, etc. even when OCR mixes the riven
+  // name text into the stats area.
+  const pendingValues: string[] = [];
 
   for (let index = 0; index < lines.length; index += 1) {
     const current = lines[index].trim();
@@ -345,21 +353,31 @@ function collapseOrphanValueLines(lines: string[]): string[] {
       !lineContainsKnownStat(current) &&
       /^[+\-\u2013x\d\s.%]+$/i.test(current);
 
-    if (!looksLikeValueOnly) {
-      collapsed.push(current);
+    if (looksLikeValueOnly) {
+      pendingValues.push(current);
       continue;
     }
 
-    let nextIndex = index + 1;
-    while (nextIndex < lines.length && !lines[nextIndex].trim()) nextIndex += 1;
-    if (nextIndex >= lines.length) {
+    if (pendingValues.length > 0 && lineContainsKnownStat(current)) {
+      // Only pair the oldest pending value with this stat-name line if the line
+      // does NOT already have its own extractable value. If it does (e.g.
+      // "-1.1 Range"), the orphan is irrelevant — the stat's value is right
+      // there in the line and prepending would corrupt it.
+      const lineOwnValue = extractSignAndValue(current);
+      if (lineOwnValue === null || lineOwnValue.value === null) {
+        const prefix = pendingValues.shift()!;
+        collapsed.push(`${prefix} ${current}`.trim());
+      } else {
+        collapsed.push(current);
+      }
+    } else {
       collapsed.push(current);
-      continue;
     }
+  }
 
-    const next = lines[nextIndex].trim();
-    collapsed.push(`${current} ${next}`.trim());
-    index = nextIndex;
+  // Flush any remaining orphan values so they are at least visible to the blob-parse fallback.
+  for (const pending of pendingValues) {
+    collapsed.push(pending);
   }
 
   return collapsed;
@@ -439,7 +457,12 @@ function parseStatsFromLines(text: string): RivenStat[] {
       // Carry-forward: when a damage-type stat has no value but the previous
       // stat in the SAME line segment does, they share a single combined roll
       // (e.g. "+112% Electricity Impact" → Impact inherits 112% from Electricity).
-      if (value === null && index > 0 && DAMAGE_TYPE_STAT_NAMES.has(key)) {
+      // Guard: only carry-forward when the prefix between the two stats has NO sign
+      // character. If the prefix contains "-" (e.g. "-ÔÇ×e" from a WinRT element
+      // icon misread), the two stats are on SEPARATE rows of the card and share no
+      // value — carrying would give the second stat the wrong number.
+      const hasSignInPrefix = /[+\-\u2013]/.test(prefix);
+      if (value === null && index > 0 && DAMAGE_TYPE_STAT_NAMES.has(key) && !hasSignInPrefix) {
         const prev = results[results.length - 1];
         if (prev && prev.value !== null) {
           value = prev.value;

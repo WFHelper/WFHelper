@@ -346,6 +346,56 @@ async function ocrCropMultiStrategy(
     );
   }
 
+  // Cross-strategy value injection: if the best candidate has stats with null values
+  // (e.g. WinRT couldn't read a colored element value like green Toxin text over the
+  // Kuva portal background), try to recover them from orphan percent values found in
+  // OTHER candidates' raw texts.  The bright+dilate strategy often reads the numeric
+  // value when the element text is below the 150-brightness threshold for the name.
+  const nullSlots = chosen.stats
+    .map((s, i) => (s.value === null ? i : -1))
+    .filter((i) => i >= 0);
+  if (nullSlots.length > 0) {
+    const assignedValues = new Set(
+      chosen.stats.filter((s) => s.value !== null).map((s) => s.value as number),
+    );
+    const orphanValues: Array<{ value: number; positive: boolean }> = [];
+    for (const candidate of results) {
+      if (candidate === chosen) continue;
+      const cleaned = preprocessOcrText(candidate.text || "");
+      for (const match of cleaned.matchAll(/([+\-])\s*(\d+\.?\d*)\s*%/g)) {
+        const v = parseFloat(match[2]);
+        if (!Number.isFinite(v) || v <= 0) continue;
+        if (assignedValues.has(v)) continue;
+        if (orphanValues.some((o) => Math.abs(o.value - v) < 0.5)) continue;
+        orphanValues.push({ value: v, positive: match[1] !== "-" });
+      }
+    }
+    if (orphanValues.length > 0) {
+      const injected = chosen.stats.slice();
+      let orphanIdx = 0;
+      for (const nullIdx of nullSlots) {
+        if (orphanIdx >= orphanValues.length) break;
+        injected[nullIdx] = {
+          ...injected[nullIdx],
+          value: orphanValues[orphanIdx].value,
+          positive: orphanValues[orphanIdx].positive,
+        };
+        orphanIdx++;
+      }
+      if (label && orphanIdx > 0) {
+        log.log(
+          `[RivenScan] injected ${orphanIdx} orphan value(s) into null-value stat(s) from alternate strategy`,
+        );
+      }
+      return {
+        text: chosen.text,
+        titleText: chosen.titleText,
+        footerText: chosen.footerText,
+        stats: injected,
+      };
+    }
+  }
+
   return {
     text: chosen.text,
     titleText: chosen.titleText,
