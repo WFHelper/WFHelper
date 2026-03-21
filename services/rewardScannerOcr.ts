@@ -355,6 +355,18 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
 
     // Only try the Windows structured server when the engine is windows or auto-on-Windows
     if (engine !== engineTesseract) {
+      // If the native binding is available, prefer it — it's faster and avoids the
+      // PowerShell server process entirely (no startup latency, no crash risk).
+      if (nativeOcrAvailable) {
+        try {
+          return textToStructuredResult(await nativeOcrBuffer(imageBuffer, timeoutMs));
+        } catch (nativeErr) {
+          log?.warn?.(
+            "[RewardScanner] runOCRStructuredBuffer native fallback failed, trying server:",
+            normalizeErrorMessage(nativeErr),
+          );
+        }
+      }
       try {
         return await runStructuredViaServer(
           { imageBase64: imageBuffer.toString("base64") },

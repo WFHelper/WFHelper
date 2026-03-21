@@ -240,6 +240,7 @@ interface ImageBenchResult {
 async function benchmarkImage(
   filePath: string,
   fileName: string,
+  debugCrops = false,
 ): Promise<ImageBenchResult> {
   const expectedSlots = GROUND_TRUTH[fileName]?.slotCount ?? -1;
 
@@ -249,6 +250,26 @@ async function benchmarkImage(
   const slotDetectStart = Date.now();
   const layout = detectRewardSlotLayout(mockImage);
   const slotDetectMs = Date.now() - slotDetectStart;
+
+  // Debug: save each slot's titleRect as a PNG for visual inspection
+  if (debugCrops) {
+    const { width: imgW, height: imgH } = mockImage.getSize();
+    const cropDir = path.join(process.cwd(), "OCR-debug", "slot-crops");
+    if (!fs.existsSync(cropDir)) fs.mkdirSync(cropDir, { recursive: true });
+    const base = path.basename(fileName, path.extname(fileName));
+    for (const slot of layout.slots) {
+      const tr = slot.titleRect;
+      const px = Math.round(tr.x * imgW);
+      const py = Math.round(tr.y * imgH);
+      const pw = Math.max(1, Math.round(tr.width * imgW));
+      const ph = Math.max(1, Math.round(tr.height * imgH));
+      const crop = mockImage.crop({ x: px, y: py, width: pw, height: ph });
+      const pngBuf = crop.toPNG();
+      const outPath = path.join(cropDir, `${base}_slot${slot.index}_title_${px}x${py}_${pw}x${ph}.png`);
+      fs.writeFileSync(outPath, pngBuf);
+    }
+    console.log(`  [debug] Saved ${layout.slots.length} slot crops to ${cropDir}`);
+  }
 
   // Phase B: full scan pipeline via F2 preCapture injection
   const preCapture = {
@@ -302,6 +323,7 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const labelIdx = args.indexOf("--label");
   const label = labelIdx >= 0 ? (args[labelIdx + 1] || "unlabeled") : new Date().toISOString().slice(0, 19).replace("T", " ");
+  const debugCrops = args.includes("--debug-crops");
 
   if (!fs.existsSync(corpusDir)) {
     console.error(`Corpus directory not found: ${corpusDir}`);
@@ -333,7 +355,7 @@ async function main(): Promise<void> {
   for (const file of files) {
     const filePath = path.join(corpusDir, file);
     try {
-      const r = await benchmarkImage(filePath, file);
+      const r = await benchmarkImage(filePath, file, debugCrops);
       results.push(r);
     } catch (err) {
       console.error(`  ERROR processing ${file}:`, (err as Error).message);
