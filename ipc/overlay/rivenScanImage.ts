@@ -49,11 +49,9 @@ export interface RivenUiReadyResult {
 
 const RIVEN_READY_TIMEOUTS_MS = Object.freeze({
   initial: 1800,
-  // Roll gate: kept SHORT because the diorama event is the authoritative trigger
-  // and arrives ~1500–2500 ms after roll confirm.  When the diorama fires, the
-  // fallback scan (now 3500 ms) is aborted immediately, so the gate rarely runs
-  // to timeout in normal use.  500 ms gives ~12 polls as a safety net for the
-  // rare case the fallback scan fires (no diorama event received).
+  // Roll and choice gates removed — AlecaFrame uses fixed delays (2750 ms / 1200 ms)
+  // with immediate capture, no visual readiness polling.  These remain for type
+  // compatibility but are no longer called from production code paths.
   roll: 500,
   choice: 1800,
 });

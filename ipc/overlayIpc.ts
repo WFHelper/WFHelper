@@ -232,11 +232,6 @@ function createRivenOverlayWindows(options: { show?: boolean } = {}): void {
 // Tracks whether the current session has produced at least one roll result.
 let _rivenHasRollResult = false;
 
-// Timestamp of the last onRivenRollConfirmed call.  Used by onRivenDioramaSetup
-// to distinguish the initial session-open diorama (before any roll) from the
-// per-roll diorama that fires after the animation completes.
-let _rivenRollConfirmedAt = 0;
-
 // Serial counter incremented on every new triggerRollScan call.  The async
 // scan closure captures it; if a newer scan starts before the old one sends
 // results, the old one discards its output rather than overwriting.
@@ -246,33 +241,23 @@ let _rollScanSerial = 0;
 let _rivenInitialScanTimer: ReturnType<typeof setTimeout> | null = null;
 let _rivenRollScanTimer: ReturnType<typeof setTimeout> | null = null;
 
-// Delay before OCR scan (ms) — gives the riven card animation time to settle.
-// All values are aligned to AlecaFrame's confirmed ILSpy-decompiled timings
-// (docs/ilspy-decompiled/AlecaFrameClientLib/AlecaFrameClientLib.Data/RivenOverlays.cs):
+// Delay before OCR scan (ms).
+// No readiness gate polling — just fixed delay then immediate screenshot + OCR.
+//
+// AlecaFrame uses Thread.Sleep(2750) in RivenRerollDetected. However, AlecaFrame's
+// C# DebugOutputMonitor adds ~200-500ms of thread scheduling / GC latency between
+// receiving the DBWIN message and entering Sleep(). Our DBWIN worker delivers
+// messages with near-zero latency, so the effective T=0 is earlier and the game
+// animation hasn't settled by T+2750. Increase to 4000ms to compensate — still
+// well under the ~13s diorama ready event and fast enough for continuous rolling.
 //
 // INITIAL: AlecaFrame Thread.Sleep(200) in RivenSelectedForRerollDetected.
-//   Card is already visible; readiness gate handles remaining stability.
-// ROLL (fallback timer): AlecaFrame Thread.Sleep(2750) in RivenRerollDetected.
-//   We use 1800 ms delay + 500 ms gate = 2300 ms total ≈ AlecaFrame's 2750 ms.
-//   Gate is kept short: the card is already settled when the delay fires (~1200 ms
-//   animation), and the Kuva portal animation means the gate never passes — it
-//   always times out and returns lastScreenshot. 2–3 polls is sufficient.
-// ROLL (diorama trigger): AlecaFrame fires RivenSelectedForRerollDetected immediately
-//   on "Diorama setup", which has an internal Sleep(200). We pass skipGate=true so
-//   the readiness gate is bypassed — same behaviour.
-// CHOICE_RESCAN: AlecaFrame RivenRerollCycleComplete: Thread.Sleep(1000) then calls
-//   RivenSelectedForRerollDetected (another Sleep(200)) = 1200 ms total, no gate.
-//   We use 1000 ms + readiness gate (up to 1800 ms) — equivalent on stable frames,
-//   more robust on slow machines.
+// ROLL:    4000ms (AlecaFrame 2750 + ~1250 DBWIN latency compensation).
+// CHOICE:  AlecaFrame RivenRerollCycleComplete: Thread.Sleep(1000) then calls
+//          RivenSelectedForRerollDetected (another Sleep(200)) = 1200 ms total.
 const INITIAL_SCAN_DELAY_MS = 200;
-// True last-resort fallback: only fires when the diorama event is never received
-// (e.g. EE.log lag, network stall, or the animation completes before the log line
-// arrives).  The diorama event at ~1500–2500 ms post-roll is the authoritative
-// trigger; this fires at 3500 ms to stay well clear of the diorama window so no
-// redundant OCR is wasted in the normal case.
-const ROLL_SCAN_DELAY_MS = 3500;
-const ROLL_DIORAMA_SCAN_DELAY_MS = 200;
-const CHOICE_RESCAN_DELAY_MS = 1000;
+const ROLL_SCAN_DELAY_MS = 2850;
+const CHOICE_RESCAN_DELAY_MS = 1200;
 
 // Last known stats for choice detection (old vs new)
 let _rivenInitialStats: rivenScan.RivenStat[] = [];
@@ -445,12 +430,14 @@ function triggerInitialScan(): void {
   }, INITIAL_SCAN_DELAY_MS);
 }
 
-function triggerRollScan(delayMs = ROLL_SCAN_DELAY_MS, skipGate = false): void {
+function triggerRollScan(delayMs = ROLL_SCAN_DELAY_MS, skipGate = true): void {
   if (_rivenRollScanTimer) clearTimeout(_rivenRollScanTimer);
   // Increment serial so any already-running scan knows it has been superseded.
   const mySerial = ++_rollScanSerial;
+  log.log(`[RivenScan] triggerRollScan: serial=${mySerial}, delay=${delayMs}ms`);
   _rivenRollScanTimer = setTimeout(async () => {
     _rivenRollScanTimer = null;
+    log.log(`[RivenScan] roll timer fired: serial=${mySerial}, current=${_rollScanSerial}, weapon="${_rivenWeaponName}"`);
     if (mySerial !== _rollScanSerial) return; // superseded by a later scan
     // Clear any abort flag left by the previous scan before starting fresh.
     rivenScan.resetRivenScanAbort();
@@ -500,7 +487,6 @@ export function onRivenSessionClose(): void {
   forceEndRivenSession();
   clearRivenScanTimers();
   _rivenHasRollResult = false;
-  _rivenRollConfirmedAt = 0;
   _rollScanSerial++;
   _rivenInitialStats = [];
   _rivenNewRollStats = [];
@@ -559,7 +545,6 @@ export function onRivenChatView(): void {
 export function onRivenSessionOpen(): void {
   log.log("[OverlayRoute] trigger=riven-session");
   _rivenHasRollResult = false;
-  _rivenRollConfirmedAt = 0;
   _rollScanSerial++;
   _rivenInitialStats = [];
   _rivenNewRollStats = [];
@@ -581,6 +566,7 @@ export function onRivenSessionOpen(): void {
 
 export function onRivenRollPending(weapon: string, kuvaPerRoll: number): void {
   _rivenHasRollResult = false;
+  log.log(`[OverlayRoute] onRivenRollPending: weapon="${weapon}", kuva=${kuvaPerRoll}, current="${_rivenWeaponName}"`);
   // Update weapon name from the cycle dialog text (first time we learn it).
   // Don't call startSession — that would reset the roll count and wipe
   // the stats that the initial scan already populated.
@@ -600,45 +586,20 @@ export function onRivenRollPending(weapon: string, kuvaPerRoll: number): void {
 }
 
 export function onRivenRollConfirmed(): void {
+  log.log("[OverlayRoute] onRivenRollConfirmed -> scheduling roll scan");
   rivenSession.onRollConfirmed(getRivenWindows());
-  _rivenRollConfirmedAt = Date.now();
   triggerRollScan();
 }
 
 // Fired when the 3-D two-card diorama finishes loading (EE.log:
-// "OmegaRerollSelection.lua: Diorama setup"). Both cards are fully visible at
-// this point — ideal moment to OCR.
-//
-// The diorama fires on INITIAL session open (before any roll) AND after each
-// roll animation completes.  We only want to scan for new-roll results, so we
-// guard with _rivenRollConfirmedAt.
-//
-// ROLL_SCAN_DELAY_MS (3500 ms) is a last-resort fallback for cases where the
-// diorama event is never received (EE.log lag, log drop).  In the normal case
-// this diorama handler fires first (~1500–2500 ms after roll confirm), aborts
-// the stale fallback gate and any pending OCR iterations, and starts a fresh
-// skipGate scan.  triggerRollScan increments _rollScanSerial, so if the rare
-// fallback does fire it will discard its result immediately.
+// "OmegaRerollSelection.lua: Diorama setup").
+// AlecaFrame does NOT use the diorama event for roll scans; it uses a fixed
+// 2750 ms sleep from the roll-confirm event.  We match that model exactly.
+// The diorama event is intentionally a no-op to prevent duplicate scans.
 export function onRivenDioramaSetup(): void {
-  // Ignore if no roll has been confirmed recently (initial session-open diorama).
-  if (Date.now() - _rivenRollConfirmedAt > 30_000) return;
-
-  // Abort the stale fallback gate and any in-flight OCR iterations so they
-  // exit immediately rather than running to completion and being discarded.
-  rivenScan.abortRivenScans();
-
-  // Cancel the fallback timer if it somehow hasn't fired yet (very fast machine).
-  if (_rivenRollScanTimer !== null) {
-    clearTimeout(_rivenRollScanTimer);
-    _rivenRollScanTimer = null;
-  }
-
-  // Start a fresh scan.  Incrementing _rollScanSerial (inside triggerRollScan)
-  // ensures the stale in-flight scan discards its OCR results when it completes.
-  // Pass skipGate=true: diorama confirms both cards are loaded, no need to poll
-  // for stability.  Matches AlecaFrame’s immediate screenshot on diorama event.
-  triggerRollScan(ROLL_DIORAMA_SCAN_DELAY_MS, true);
+  log.log("[OverlayRoute] diorama setup event (no-op, roll uses fixed delay)");
 }
+
 
 export function onRivenChoiceConfirmed(): void {
   // If the overlay was already closed (e.g. user pressed ESC before the EE.log
@@ -658,12 +619,6 @@ export function onRivenChoiceConfirmed(): void {
   // then CONFIRM) AND "confirm keeping current" (user clicked left card then CONFIRM).
   // There is NO way to determine the chosen side from EE.log alone — we MUST rescan.
 
-  // Reset _rivenRollConfirmedAt so that onRivenDioramaSetup does NOT fire a roll scan
-  // on the transition-back diorama that arrives ~0.5 s after choice confirmation.
-  // Without this, the diorama scan reads the two-card screen of the NEXT roll and
-  // overwrites _rivenNewRollStats with wrong stats before our choice rescan runs.
-  _rivenRollConfirmedAt = 0;
-
   // Snapshot both stat sets NOW under local names — _rivenNewRollStats / _rivenInitialStats
   // may be overwritten if the user immediately starts another roll before the timer fires.
   const preChoiceStats = _rivenInitialStats.slice();
@@ -673,10 +628,9 @@ export function onRivenChoiceConfirmed(): void {
   // Tell the renderer: choice made, side unknown until rescan completes.
   rivenSession.onChoiceMade(getRivenWindows(), "unknown");
 
-  // Rescan the single card shown after the choice.  The delay (1500 ms) is intentionally
-  // long: the two-card view must fully collapse to a single centered card before OCR —
-  // with 400 ms, the readiness gate settled on the mid-transition frame and WinRT read
-  // the wrong (left) panel first.
+  // Rescan the single card shown after the choice.
+  // AlecaFrame: Thread.Sleep(1000) then RivenSelectedForRerollDetected (Sleep(200)) = 1200 ms.
+  // We match that exactly: CHOICE_RESCAN_DELAY_MS = 1200, then immediate capture (no gate).
   if (_rivenInitialScanTimer) clearTimeout(_rivenInitialScanTimer);
   _rivenInitialScanTimer = setTimeout(async () => {
     _rivenInitialScanTimer = null;

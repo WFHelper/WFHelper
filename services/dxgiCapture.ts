@@ -663,3 +663,155 @@ export function isDxgiAvailable(): boolean {
 export function resetDxgiFailure(): void {
   _initFailed = false;
 }
+
+// ---------------------------------------------------------------------------
+// GDI screen capture — guaranteed fresh frame
+// ---------------------------------------------------------------------------
+// Unlike DXGI Desktop Duplication, GDI (BitBlt) reads from the final display
+// output after hardware overlay composition, so it always returns the current
+// screen content even when Multi-Plane Overlay (MPO) prevents DXGI from seeing
+// game frame updates.  ~15-50 ms per capture.
+
+let _gdiFns: {
+  GetDC: any;
+  ReleaseDC: any;
+  GetSystemMetrics: any;
+  GetMonitorInfoW: any;
+  CreateCompatibleDC: any;
+  CreateCompatibleBitmap: any;
+  SelectObject: any;
+  BitBlt: any;
+  GetDIBits: any;
+  DeleteObject: any;
+  DeleteDC: any;
+} | null = null;
+let _gdiInitFailed = false;
+
+function ensureGdi(): boolean {
+  if (_gdiFns) return true;
+  if (_gdiInitFailed) return false;
+  try {
+    const k = koffi();
+    const u32 = k.load("user32.dll");
+    const g32 = k.load("gdi32.dll");
+    _gdiFns = {
+      GetDC: u32.func("__stdcall", "GetDC", "void*", ["void*"]),
+      ReleaseDC: u32.func("__stdcall", "ReleaseDC", "int32", ["void*", "void*"]),
+      GetSystemMetrics: u32.func("__stdcall", "GetSystemMetrics", "int32", ["int32"]),
+      GetMonitorInfoW: u32.func("__stdcall", "GetMonitorInfoW", "int32", ["void*", "void*"]),
+      CreateCompatibleDC: g32.func("__stdcall", "CreateCompatibleDC", "void*", ["void*"]),
+      CreateCompatibleBitmap: g32.func("__stdcall", "CreateCompatibleBitmap", "void*", [
+        "void*", "int32", "int32",
+      ]),
+      SelectObject: g32.func("__stdcall", "SelectObject", "void*", ["void*", "void*"]),
+      BitBlt: g32.func("__stdcall", "BitBlt", "int32", [
+        "void*", "int32", "int32", "int32", "int32", "void*", "int32", "int32", "uint32",
+      ]),
+      GetDIBits: g32.func("__stdcall", "GetDIBits", "int32", [
+        "void*", "void*", "uint32", "uint32", "void*", "void*", "uint32",
+      ]),
+      DeleteObject: g32.func("__stdcall", "DeleteObject", "int32", ["void*"]),
+      DeleteDC: g32.func("__stdcall", "DeleteDC", "int32", ["void*"]),
+    };
+    return true;
+  } catch (err) {
+    log.warn("[dxgiCapture] GDI init failed:", String(err));
+    _gdiInitFailed = true;
+    return false;
+  }
+}
+
+/**
+ * Capture a display via GDI BitBlt.  Always returns *current* screen content
+ * regardless of Multi-Plane Overlay (MPO) / DWM optimisations that can make
+ * DXGI Desktop Duplication return stale cached frames.
+ *
+ * If `displayId` is provided (Electron display.id = HMONITOR as int32),
+ * captures that specific monitor; otherwise captures the primary display.
+ *
+ * Returns BGRA pixel data or `null` on failure.
+ */
+export function captureGdi(displayId?: string | null): DxgiCaptureResult | null {
+  if (process.platform !== "win32") return null;
+  if (!ensureGdi()) return null;
+  const g = _gdiFns!;
+
+  // Determine capture area from target display
+  let cx = 0, cy = 0, cw = 0, ch = 0;
+  let resolvedDisplayId = "";
+
+  const wantedId = displayId?.trim() || null;
+  if (wantedId) {
+    const hMon = parseInt(wantedId, 10);
+    if (hMon) {
+      // MONITORINFO: cbSize(4) + rcMonitor(16) + rcWork(16) + dwFlags(4) = 40
+      const mi = Buffer.alloc(40);
+      mi.writeUInt32LE(40, 0); // cbSize
+      if (g.GetMonitorInfoW(hMon, mi)) {
+        cx = mi.readInt32LE(4);  // rcMonitor.left
+        cy = mi.readInt32LE(8);  // rcMonitor.top
+        cw = mi.readInt32LE(12) - cx; // right - left
+        ch = mi.readInt32LE(16) - cy; // bottom - top
+        resolvedDisplayId = wantedId;
+      }
+    }
+  }
+
+  // Fallback to primary screen metrics
+  if (cw <= 0 || ch <= 0) {
+    cw = g.GetSystemMetrics(0); // SM_CXSCREEN
+    ch = g.GetSystemMetrics(1); // SM_CYSCREEN
+    cx = 0;
+    cy = 0;
+    if (!resolvedDisplayId) {
+      const primary = _outputMap.find(
+        (o) => o.adapterIdx === 0 && o.outputIdx === 0,
+      );
+      resolvedDisplayId = primary?.displayId || "";
+    }
+  }
+  if (cw <= 0 || ch <= 0) return null;
+
+  const hdcScreen = g.GetDC(null);
+  if (!hdcScreen) return null;
+
+  let hdcMem: any = null;
+  let hBitmap: any = null;
+  let hOld: any = null;
+
+  try {
+    hdcMem = g.CreateCompatibleDC(hdcScreen);
+    if (!hdcMem) return null;
+
+    hBitmap = g.CreateCompatibleBitmap(hdcScreen, cw, ch);
+    if (!hBitmap) return null;
+
+    hOld = g.SelectObject(hdcMem, hBitmap);
+
+    // SRCCOPY = 0x00CC0020
+    if (!g.BitBlt(hdcMem, 0, 0, cw, ch, hdcScreen, cx, cy, 0x00cc0020)) return null;
+
+    g.SelectObject(hdcMem, hOld);
+    hOld = null;
+
+    // BITMAPINFOHEADER (40 bytes): top-down 32-bit BGRA
+    const bmi = Buffer.alloc(40);
+    bmi.writeUInt32LE(40, 0);   // biSize
+    bmi.writeInt32LE(cw, 4);    // biWidth
+    bmi.writeInt32LE(-ch, 8);   // biHeight (negative → top-down)
+    bmi.writeUInt16LE(1, 12);   // biPlanes
+    bmi.writeUInt16LE(32, 14);  // biBitCount
+    // biCompression = BI_RGB (0), rest zero
+
+    const pixels = Buffer.alloc(cw * ch * 4);
+    const lines = g.GetDIBits(hdcScreen, hBitmap, 0, ch, pixels, bmi, 0);
+    if (lines <= 0) return null;
+
+    return { buffer: pixels, width: cw, height: ch, displayId: resolvedDisplayId };
+  } finally {
+    if (hOld && hdcMem) g.SelectObject(hdcMem, hOld);
+    if (hBitmap) g.DeleteObject(hBitmap);
+    if (hdcMem) g.DeleteDC(hdcMem);
+    g.ReleaseDC(null, hdcScreen);
+  }
+}

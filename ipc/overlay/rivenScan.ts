@@ -5,12 +5,17 @@
  *
  * Scanning strategy:
  *  1. Session opens -> scanInitialCard() - OCR the centered single card
- *  2. Roll confirmed -> scanNewRoll() - OCR only the RIGHT panel (new roll)
+ *  2. Roll confirmed -> scanNewRoll() - centered crop matching AlecaFrame's
+ *     CutBitmapToRoughSize, with edge detection to isolate the card.
  *
- * The left panel (current/old stats) is never scanned - we already know those
- * stats from step 1 or from the previous roll cycle.
+ * At 2750ms after roll confirm, the game may still be transitioning from the
+ * single new-card display to the two-panel diorama layout.  The CENTERED crop
+ * (matching AlecaFrame exactly) captures whatever card is visible in the center
+ * at that moment, and our Sobel edge detection (detectRivenCardFrame) narrows
+ * to the actual text area.
  */
 
+import fs from "node:fs";
 import path from "node:path";
 import { withScope } from "../../services/logger";
 import { captureScreenFast } from "../../services/rewardScannerCapture";
@@ -97,14 +102,177 @@ const TESSERACT_STRATEGIES: readonly EnhanceMode[] = Object.freeze([
 // Initial / choice scan: single centred card covers x 0.22–0.78.
 const SINGLE_CARD_CROP = { x: 0.22, y: 0.43, width: 0.56, height: 0.45 };
 
-// Roll scan: crop around the new-roll card (RIGHT card in the two-panel roll view).
-// Brightness analysis of corpus images confirms the new card sits at x≈819–1104 (43–57%).
-// The old left card stat text extends to approximately x=780 (40.6%).  The crop MUST
-// start past that to avoid reading left-card stats.
-// x=0.42 (806 px @1920) gives a safe margin past the left text and a small gutter
-// before the right card edge (819 px).  Width 0.20 covers 806–1190, fully
-// encompassing the right card text area plus margin.
-const ROLL_CARD_CROP = { x: 0.42, y: 0.35, width: 0.20, height: 0.45 };
+// Roll scan: AlecaFrame-matching centered crop.  AlecaFrame's CutBitmapToRoughSize
+// for RivenReroll crops a CENTER strip (not offset to right) and relies on edge
+// detection (DetailedRivenCrop) to isolate the card within.  At 2750ms after roll
+// confirm the new card may still be centered on screen before the two-panel diorama
+// layout settles.  Exact AlecaFrame math at 1920×1080:
+//   roughHeight = H*0.7 = 756, roughWidth = roughHeight*0.45 = 340
+//   x = W/2 - roughWidth/2 = 790 (41.1%), topCut = 0.38*roughHeight = 287
+//   y = H/2 - roughHeight/2 + topCut = 449 (41.6%), h = roughHeight - topCut = 469
+// As fractions: { x: 0.411, y: 0.416, width: 0.177, height: 0.434 }
+const ROLL_CARD_CROP = { x: 0.411, y: 0.416, width: 0.177, height: 0.434 };
+
+// DXGI timeout for captures that MUST return a fresh frame (roll scans, choice
+// re-scans). With timeout=0 (the default), captureDxgi returns the _lastFrame
+// cache when DWM hasn't composed a new frame since the last acquire. After a
+// known screen change (riven roll, choice confirm) we need the NEXT frame, not
+// the cached one. 100 ms is ~6 refresh cycles at 60 Hz — more than enough.
+const DXGI_FRESH_TIMEOUT_MS = 100;
+
+// ── Debug image saving ─────────────────────────────────────────────────────────
+// Gated by RIVEN_DEBUG. Set to true during development/benchmarking to save
+// full screenshot + crop PNGs to riven-ocr-debug/ and show a red overlay.
+// MUST be false for production timing tests — debug I/O adds ~400ms.
+const RIVEN_DEBUG = false;
+
+// Writes full screenshot + crop PNG to riven-ocr-debug/ (already in .gitignore).
+// Also draws a red rectangle on the full screenshot to visualise the crop region.
+// The red rectangle is drawn directly into the BGRA bitmap buffer.
+function saveDebugImages(
+  fullImage: any,
+  cropImage: any,
+  cropRegion: { x: number; y: number; width: number; height: number },
+  label: string,
+): void {
+  try {
+    const debugDir = path.join(__dirname, "..", "..", "..", "riven-ocr-debug");
+    fs.mkdirSync(debugDir, { recursive: true });
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+
+    // Save the raw crop
+    const cropPng = cropImage.toPNG?.();
+    if (cropPng) {
+      fs.writeFileSync(path.join(debugDir, `${ts}_${label}_crop.png`), cropPng);
+    }
+
+    // Draw red rectangle on full screenshot to show crop boundary
+    const fullSize = fullImage.getSize?.();
+    if (fullSize) {
+      const { width: fw, height: fh } = fullSize;
+      const bitmap: Buffer = Buffer.from(fullImage.toBitmap());
+      const cx = Math.floor(fw * cropRegion.x);
+      const cy = Math.floor(fh * cropRegion.y);
+      const cw = Math.floor(fw * cropRegion.width);
+      const ch = Math.floor(fh * cropRegion.height);
+      const thickness = 3;
+
+      // Draw horizontal lines (top + bottom edges)
+      for (let t = 0; t < thickness; t++) {
+        for (let px = cx; px < cx + cw && px < fw; px++) {
+          // Top edge
+          const yt = cy + t;
+          if (yt >= 0 && yt < fh) {
+            const idx = (yt * fw + px) * 4;
+            bitmap[idx] = 0;       // B
+            bitmap[idx + 1] = 0;   // G
+            bitmap[idx + 2] = 255; // R
+            bitmap[idx + 3] = 255; // A
+          }
+          // Bottom edge
+          const yb = cy + ch - 1 - t;
+          if (yb >= 0 && yb < fh) {
+            const idx = (yb * fw + px) * 4;
+            bitmap[idx] = 0;
+            bitmap[idx + 1] = 0;
+            bitmap[idx + 2] = 255;
+            bitmap[idx + 3] = 255;
+          }
+        }
+        // Vertical lines (left + right edges)
+        for (let py = cy; py < cy + ch && py < fh; py++) {
+          const xl = cx + t;
+          if (xl >= 0 && xl < fw) {
+            const idx = (py * fw + xl) * 4;
+            bitmap[idx] = 0;
+            bitmap[idx + 1] = 0;
+            bitmap[idx + 2] = 255;
+            bitmap[idx + 3] = 255;
+          }
+          const xr = cx + cw - 1 - t;
+          if (xr >= 0 && xr < fw) {
+            const idx = (py * fw + xr) * 4;
+            bitmap[idx] = 0;
+            bitmap[idx + 1] = 0;
+            bitmap[idx + 2] = 255;
+            bitmap[idx + 3] = 255;
+          }
+        }
+      }
+
+      const { nativeImage: electronNativeImage } =
+        require("electron") as typeof import("electron");
+      const annotated = electronNativeImage.createFromBitmap(bitmap, {
+        width: fw,
+        height: fh,
+      });
+      const annotatedPng = annotated.toPNG?.();
+      if (annotatedPng) {
+        fs.writeFileSync(path.join(debugDir, `${ts}_${label}_full.png`), annotatedPng);
+      }
+    }
+    log.log(`[RivenScan] debug images saved to riven-ocr-debug/${ts}_${label}_*`);
+  } catch (err) {
+    log.warn("[RivenScan] debug image save failed:", String(err));
+  }
+}
+
+// Show a live red rectangle on screen at the crop coordinates for 3 seconds.
+// Uses a temporary frameless, transparent, click-through BrowserWindow with a data URL.
+let _debugOverlayWin: any = null;
+function showDebugCropOverlay(
+  rect: { x: number; y: number; width: number; height: number },
+  displayId: string | null,
+): void {
+  try {
+    const { BrowserWindow, screen } = require("electron") as typeof import("electron");
+    // Find the display to position the overlay on
+    let display = screen.getPrimaryDisplay();
+    if (displayId) {
+      const match = screen.getAllDisplays().find((d: any) => String(d.id) === displayId);
+      if (match) display = match;
+    }
+    const { x: dx, y: dy, width: dw, height: dh } = display.bounds;
+    const cropX = dx + Math.floor(dw * rect.x);
+    const cropY = dy + Math.floor(dh * rect.y);
+    const cropW = Math.floor(dw * rect.width);
+    const cropH = Math.floor(dh * rect.height);
+
+    // Close any existing debug overlay
+    if (_debugOverlayWin && !_debugOverlayWin.isDestroyed()) {
+      _debugOverlayWin.close();
+    }
+
+    const win = new BrowserWindow({
+      x: cropX,
+      y: cropY,
+      width: cropW,
+      height: cropH,
+      frame: false,
+      transparent: true,
+      alwaysOnTop: true,
+      focusable: false,
+      skipTaskbar: true,
+      hasShadow: false,
+      webPreferences: { nodeIntegration: false, contextIsolation: true },
+    });
+    win.setIgnoreMouseEvents(true, { forward: true });
+    win.loadURL(
+      `data:text/html,<html><body style="margin:0;border:3px solid red;width:100%;height:100%;box-sizing:border-box;background:transparent"></body></html>`,
+    );
+    _debugOverlayWin = win;
+
+    // Auto-close after 3 seconds
+    setTimeout(() => {
+      if (win && !win.isDestroyed()) win.close();
+      if (_debugOverlayWin === win) _debugOverlayWin = null;
+    }, 3000);
+
+    log.log(`[RivenScan] debug overlay shown at screen (${cropX},${cropY}) ${cropW}×${cropH}`);
+  } catch (err) {
+    log.warn("[RivenScan] debug overlay failed:", String(err));
+  }
+}
 
 export interface RollPanelResult {
   left: RivenStat[];
@@ -134,25 +302,37 @@ function buildOrderedCandidates(
   hasRefinedCrop: boolean,
 ): Array<{ cropId: "rough" | "refined"; mode: EnhanceMode }> {
   const ordered: Array<{ cropId: "rough" | "refined"; mode: EnhanceMode }> = [];
-  // All rough passes first: Tesseract starts in parallel after rough:original
-  // (the first iteration), and an early-accept on any rough pass skips all
-  // refined passes entirely — avoiding wasted OCR calls on a small refined crop.
+  if (hasRefinedCrop) {
+    // Try refined:original FIRST — AlecaFrame always runs edge detection
+    // (DetailedRivenCrop) before OCR.  The tight text-area crop removes card
+    // art and animated backgrounds, giving WinRT the cleanest possible input.
+    // If this yields a confident result, we skip everything else (fast path).
+    ordered.push({ cropId: "refined", mode: ENHANCE_STRATEGIES[0] }); // original
+  }
+  // Rough passes: Tesseract launches in parallel after rough:original.
   for (const mode of ENHANCE_STRATEGIES) {
     ordered.push({ cropId: "rough", mode });
   }
   if (hasRefinedCrop) {
-    for (const mode of ENHANCE_STRATEGIES) {
-      ordered.push({ cropId: "refined", mode });
+    // Remaining refined strategies as fallback.
+    for (let i = 1; i < ENHANCE_STRATEGIES.length; i++) {
+      ordered.push({ cropId: "refined", mode: ENHANCE_STRATEGIES[i] });
     }
   }
   return ordered;
 }
 
-function isConfidentEnough(result: CandidateResult): boolean {
+function isConfidentEnough(result: CandidateResult, statsOnly = false): boolean {
   if (result.score < 0) return false;
   if (result.stats.length >= 4 && result.valueCount >= 3 && result.score >= 75) return true;
   if (result.stats.length >= 3 && result.valueCount >= 3 && result.score >= 85) return true;
   if (result.stats.length === 2 && result.valueCount === 2 && result.score >= 55) return true;
+  // Roll-scan fast path: when statsOnly=true we know the card is visible and just
+  // need stat values.  Accept 2 stats with values at a lower threshold so the
+  // first native pass can publish immediately instead of running all 3 strategies.
+  // Without weapon context the scorer caps ~49 for a clean 2-stat read — 35 still
+  // rejects garbage while accepting any plausible 2-stat result on the first pass.
+  if (statsOnly && result.stats.length >= 2 && result.valueCount >= 2 && result.score >= 35) return true;
   return false;
 }
 
@@ -221,7 +401,7 @@ async function runTesseractCandidates(
       });
       // Early-exit if Tesseract alone gives a confident standalone result
       const last = candidates[candidates.length - 1];
-      if (isConfidentEnough(last)) break;
+      if (isConfidentEnough(last, false)) break;
     } catch {
       // Non-fatal — Tesseract failure on one variant is acceptable
     }
@@ -281,13 +461,16 @@ async function ocrCropMultiStrategy(
   const roughCrop = cropRect(image, rect);
   const refined = refineRivenTextCrop(roughCrop);
   const cropVariants = [{ id: "rough", image: roughCrop, refined: false, metrics: refined.metrics }];
-  // Skip refined when it is too small to upscale usefully. The enhance pipeline
-  // caps the upscale multiplier at 3× (lanczos3), so any refined crop narrower
-  // than MIN_OCR_WIDTH/3 ≈ 600 px cannot reach MIN_OCR_WIDTH and will be OCR'd
-  // at lower resolution than the rough crop — guaranteed 0 stats.
+  // Always include the refined (edge-detected) crop when available.
+  // AlecaFrame's DetailedRivenCrop always runs edge detection to isolate the
+  // card text area — the tight crop removes animated Kuva portal backgrounds
+  // and card art, giving WinRT a cleaner image.
+  // Skip only when the refined crop is too small to upscale usefully (the
+  // enhance pipeline caps at 3× lanczos3, so anything narrower than
+  // MIN_OCR_WIDTH/3 ≈ 600 px would be lower resolution than the rough crop).
   const roughW = (roughCrop as any).getSize?.()?.width ?? 0;
   const refinedW = (refined.image as any)?.getSize?.()?.width ?? 0;
-  if (refined.refined && refined.metrics.coverage < 0.25 && refinedW >= roughW / 2) {
+  if (refined.refined && refinedW >= roughW / 2) {
     cropVariants.push({
       id: "refined",
       image: refined.image,
@@ -400,7 +583,7 @@ async function ocrCropMultiStrategy(
     // Hard budget: stop running native strategies once the scan budget is exhausted.
     if (Date.now() - scanStart >= SCAN_BUDGET_MS) break;
 
-    if (isConfidentEnough(result)) {
+    if (isConfidentEnough(result, statsOnly)) {
       if (label) {
         log.log(
           `[RivenScan] early-accept ${label} candidate crop=${result.cropId} refined=${result.refined} ` +
@@ -601,7 +784,7 @@ async function ocrCropMultiStrategy(
 
       if (bestTess && bestTess.stats.length >= MIN_ACCEPTABLE_RIVEN_STATS) {
         // If Tesseract alone gives a confident result better than native, use it outright
-        if (isConfidentEnough(bestTess) && bestTess.score > chosen.score) {
+        if (isConfidentEnough(bestTess, statsOnly) && bestTess.score > chosen.score) {
           if (label) {
             log.log(
               `[RivenScan] Tesseract early-accept ${label}: score=${bestTess.score} > native=${chosen.score}`,
@@ -778,6 +961,15 @@ export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialS
     `[RivenScan] initial capture: source=${capture.sourceType} name="${capture.sourceName}" size=${imgSize.width}x${imgSize.height}`,
   );
 
+  // Fire-and-forget debug saves — never block the OCR path.
+  if (RIVEN_DEBUG) {
+    try {
+      const debugCrop = cropRect(capture.image, SINGLE_CARD_CROP);
+      saveDebugImages(capture.image, debugCrop, SINGLE_CARD_CROP, "initial");
+    } catch { /* non-fatal */ }
+    showDebugCropOverlay(SINGLE_CARD_CROP, _rivenDisplayId);
+  }
+
   try {
     let result = await ocrCropMultiStrategy(
       capture.image,
@@ -824,45 +1016,37 @@ export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialS
   }
 }
 
-export async function scanNewRoll(expectedWeaponName = "", skipGate = false): Promise<RollPanelResult> {
+export async function scanNewRoll(expectedWeaponName = "", skipGate = true): Promise<RollPanelResult> {
+  log.log(`[RivenScan] >>> scanNewRoll ENTERED (weapon="${expectedWeaponName}", skipGate=${skipGate})`);
   const myGeneration = ++_scanGeneration;
   const startAt = Date.now();
-  let capture: Awaited<ReturnType<typeof captureScreenFast>>;
-  let frameHash = "";
-  if (skipGate) {
-    // Diorama-triggered path: both cards are confirmed loaded, skip stability
-    // polling and capture directly.  Matches AlecaFrame’s immediate-screenshot
-    // behaviour on OmegaRerollSelection.lua: Diorama setup.
-    capture = await captureScreenFast(_rivenDisplayId);
-    if (!capture) {
-      log.warn("[RivenScan] scanNewRoll: captureScreen returned null");
-      return { left: [], right: [] };
-    }
-  } else {
-    const ready = await waitForRivenUiReady(ROLL_CARD_CROP, "roll", _rivenDisplayId);
-    if (!ready.ready) {
-      log.log(
-        `[RivenScan] roll UI gate timed out after ${ready.elapsedMs}ms (${ready.attempts} samples, best=${ready.bestScore.toFixed(3)})`,
-      );
-    }
-    capture = ready.screenshot || (await captureScreenFast(_rivenDisplayId));
-    if (!capture) {
-      log.warn("[RivenScan] scanNewRoll: captureScreen returned null");
-      return { left: [], right: [] };
-    }
-    frameHash = ready.frameHash;
+  // AlecaFrame model: fixed 2750 ms delay already elapsed before this function
+  // is called, so we capture immediately — no readiness gate polling.
+  // Use non-zero DXGI timeout to force a fresh frame (not the cached initial card).
+  const capture = await captureScreenFast(_rivenDisplayId, DXGI_FRESH_TIMEOUT_MS);
+  if (!capture) {
+    log.warn("[RivenScan] scanNewRoll: captureScreen returned null");
+    return { left: [], right: [] };
   }
-  if (!frameHash) {
-    try {
-      frameHash = computeRivenFrameHash(cropRect(capture.image, ROLL_CARD_CROP));
-    } catch {
-      frameHash = "";
-    }
+  let frameHash = "";
+  try {
+    frameHash = computeRivenFrameHash(cropRect(capture.image, ROLL_CARD_CROP));
+  } catch {
+    frameHash = "";
   }
   const imgSize = capture.image.getSize?.() ?? { width: "?", height: "?" };
   log.log(
     `[RivenScan] roll capture: source=${capture.sourceType} name="${capture.sourceName}" size=${imgSize.width}x${imgSize.height}`,
   );
+
+  // Fire-and-forget debug saves — never block the OCR path.
+  if (RIVEN_DEBUG) {
+    try {
+      const debugCrop = cropRect(capture.image, ROLL_CARD_CROP);
+      saveDebugImages(capture.image, debugCrop, ROLL_CARD_CROP, "roll");
+    } catch { /* non-fatal */ }
+    showDebugCropOverlay(ROLL_CARD_CROP, _rivenDisplayId);
+  }
 
   try {
     let rightResult = await ocrCropMultiStrategy(
@@ -878,7 +1062,7 @@ export async function scanNewRoll(expectedWeaponName = "", skipGate = false): Pr
 
     if (rightResult.stats.length < MIN_ACCEPTABLE_RIVEN_STATS) {
       await sleep(800);
-      const retryCapture = await captureScreenFast(_rivenDisplayId);
+      const retryCapture = await captureScreenFast(_rivenDisplayId, DXGI_FRESH_TIMEOUT_MS);
       if (retryCapture) {
         try {
           const retryHash = computeRivenFrameHash(cropRect(retryCapture.image, ROLL_CARD_CROP));
@@ -914,26 +1098,20 @@ export async function scanNewRoll(expectedWeaponName = "", skipGate = false): Pr
 }
 
 export async function scanChoiceRescan(expectedWeaponName = ""): Promise<RivenStat[]> {
-  const ready = await waitForRivenUiReady(SINGLE_CARD_CROP, "choice", _rivenDisplayId);
-  if (!ready.ready) {
-    log.log(
-      `[RivenScan] choice UI gate timed out after ${ready.elapsedMs}ms (${ready.attempts} samples, best=${ready.bestScore.toFixed(3)})`,
-    );
-  }
-
-  const capture = ready.screenshot || (await captureScreenFast(_rivenDisplayId));
+  // AlecaFrame model: CHOICE_RESCAN_DELAY_MS (1200 ms) already elapsed.
+  // Capture immediately — no readiness gate polling.
+  // Use non-zero DXGI timeout to force a fresh frame after the choice animation.
+  const capture = await captureScreenFast(_rivenDisplayId, DXGI_FRESH_TIMEOUT_MS);
   if (!capture) {
     log.warn("[RivenScan] scanChoiceRescan: captureScreen returned null");
     return [];
   }
 
-  let frameHash = ready.frameHash;
-  if (!frameHash) {
-    try {
-      frameHash = computeRivenFrameHash(cropRect(capture.image, SINGLE_CARD_CROP));
-    } catch {
-      frameHash = "";
-    }
+  let frameHash = "";
+  try {
+    frameHash = computeRivenFrameHash(cropRect(capture.image, SINGLE_CARD_CROP));
+  } catch {
+    frameHash = "";
   }
 
   try {
@@ -949,7 +1127,7 @@ export async function scanChoiceRescan(expectedWeaponName = ""): Promise<RivenSt
       result.stats,
       500,
       async () => {
-        const retryCapture = await captureScreenFast(_rivenDisplayId);
+        const retryCapture = await captureScreenFast(_rivenDisplayId, DXGI_FRESH_TIMEOUT_MS);
         if (!retryCapture) return result;
         try {
           const retryHash = computeRivenFrameHash(cropRect(retryCapture.image, SINGLE_CARD_CROP));

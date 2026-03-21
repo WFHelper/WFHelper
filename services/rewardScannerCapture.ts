@@ -7,7 +7,7 @@
 
 import { withScope } from "./logger";
 import { clampNumber } from "./rewardScannerUtils";
-import { captureDxgi, isDxgiAvailable } from "./dxgiCapture";
+import { captureDxgi, captureGdi, isDxgiAvailable } from "./dxgiCapture";
 const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
   normalizeErrorMessage: (err: any) => string;
 };
@@ -208,11 +208,40 @@ export interface CaptureResult {
  */
 export async function captureScreenFast(
   preferredDisplayId?: string | null,
+  dxgiTimeoutMs = 0,
 ): Promise<CaptureResult | null> {
+  // When a fresh frame is explicitly requested (timeout > 0), use GDI capture
+  // first — it always returns current screen content even when Multi-Plane
+  // Overlay (MPO) causes DXGI Desktop Duplication to return stale cached frames.
+  if (dxgiTimeoutMs > 0) {
+    try {
+      const gdiResult = captureGdi(preferredDisplayId || null);
+      if (gdiResult) {
+        const { nativeImage: electronNativeImage } =
+          require("electron") as typeof import("electron");
+        const img = electronNativeImage.createFromBitmap(gdiResult.buffer, {
+          width: gdiResult.width,
+          height: gdiResult.height,
+        });
+        if (img && !img.isEmpty()) {
+          return {
+            image: img,
+            sourceType: "screen",
+            sourceName: "GDI BitBlt",
+            sourceId: `gdi:${gdiResult.displayId || "0"}`,
+            sourceDisplayId: gdiResult.displayId || "",
+          };
+        }
+      }
+    } catch (err) {
+      log.warn("[RewardScanner] GDI capture failed, falling back to DXGI:", normalizeErrorMessage(err));
+    }
+  }
+
   // DXGI Desktop Duplication — ~2-10 ms when available
   if (isDxgiAvailable()) {
     try {
-      const dxgiResult = captureDxgi(0, preferredDisplayId || null);
+      const dxgiResult = captureDxgi(dxgiTimeoutMs, preferredDisplayId || null);
       if (dxgiResult) {
         const { nativeImage: electronNativeImage } =
           require("electron") as typeof import("electron");
