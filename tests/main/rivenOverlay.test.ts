@@ -510,11 +510,93 @@ describe("parseRivenStats", () => {
     expect(dmg!.positive).toBe(false);
   });
 
+  it("fixes OCR misread xl→x1 in multiplier values (xl,56 Damage to Corpus)", () => {
+    // WinRT OCR reads digit 1 as lowercase l: "xl,56" instead of "x1,56"
+    const text =
+      "+136,2% Impact +9,7s Combo Duration xl,56 Damage to Corpus -52,5% Attack Speed";
+    const result = parseRivenStats(text);
+    const dmg = result.find((s) => s.name === "Damage to Corpus");
+    expect(dmg).toBeDefined();
+    expect(dmg!.value).toBe(1.56);
+    expect(dmg!.multiplier).toBe(true);
+    expect(dmg!.positive).toBe(true);
+  });
+
+  it("fixes spaced multiplier misread 'x I , 44 Damage to Grineer' → x1.44", () => {
+    // WinRT OCR reads "x1,44" as "x I , 44" with spaces between each part
+    const text = "+1,8 Range +109,1% Slash x I , 44 Damage to Grineer";
+    const result = parseRivenStats(text);
+    const dmg = result.find((s) => s.name === "Damage to Grineer");
+    expect(dmg).toBeDefined();
+    expect(dmg!.value).toBe(1.44);
+    expect(dmg!.multiplier).toBe(true);
+    expect(dmg!.positive).toBe(true);
+  });
+
+  it("fixes spaced multiplier 'x1 , 44' with space around comma", () => {
+    const text = "x1 , 44 Damage to Grineer";
+    const result = parseRivenStats(text);
+    const dmg = result.find((s) => s.name === "Damage to Grineer");
+    expect(dmg).toBeDefined();
+    expect(dmg!.value).toBe(1.44);
+    expect(dmg!.multiplier).toBe(true);
+  });
+
+  it("rejoins Finisher\\nDamage split across lines (WinRT icon line-break)", () => {
+    // WinRT OCR splits "Finisher Damage" across two lines: value is on the
+    // same line as the first word; second word starts the next line.
+    const text = "+144,9% Finisher\nDamage";
+    const result = parseRivenStats(text);
+    const fin = result.find((s) => s.name === "Finisher Damage");
+    expect(fin).toBeDefined();
+    expect(fin!.value).toBe(144.9);
+    expect(fin!.positive).toBe(true);
+  });
+
+  it("rejoins Critical\\nChance split across lines", () => {
+    const text = "+95,3% Critical\nChance";
+    const result = parseRivenStats(text);
+    const cc = result.find((s) => s.name === "Critical Chance");
+    expect(cc).toBeDefined();
+    expect(cc!.value).toBe(95.3);
+  });
+
+  it("rejoins Status\\nDuration split across lines", () => {
+    const text = "+124% Status\nDuration";
+    const result = parseRivenStats(text);
+    const sd = result.find((s) => s.name === "Status Duration");
+    expect(sd).toBeDefined();
+    expect(sd!.value).toBe(124);
+  });
+
   it("ignores junk glyphs before elemental stats", () => {
     const result = parseRivenStats("+122,2% ┬Ñ Electricity <");
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe("Electricity");
     expect(result[0].value).toBe(122.2);
+  });
+
+  it("carries value to combined damage-type stat on same line (e.g. Electricity + Impact)", () => {
+    // WinRT OCR reads "+112,3% 4 Electricity *Impact" — after icon stripping
+    // "Impact" appears on the same sub-line as "Electricity" with no preceding value.
+    const result = parseRivenStats("+112,3% 4 Electricity *Impact +117,2% Critical Damage -53% Attack Speed");
+    const elec = result.find((s) => s.name === "Electricity");
+    const imp = result.find((s) => s.name === "Impact");
+    expect(elec).toBeDefined();
+    expect(elec!.value).toBe(112.3);
+    expect(imp).toBeDefined();
+    expect(imp!.value).toBe(112.3);
+    expect(imp!.positive).toBe(true);
+  });
+
+  it("carries value to Impact when appearing after Impact on same line", () => {
+    const result = parseRivenStats("+134,6% *Impact v Slash +119,2% Status Chance -106,2% Chance to Gain Combo Count");
+    const imp = result.find((s) => s.name === "Impact");
+    const slash = result.find((s) => s.name === "Slash");
+    expect(imp).toBeDefined();
+    expect(imp!.value).toBe(134.6);
+    expect(slash).toBeDefined();
+    expect(slash!.value).toBe(134.6);
   });
 });
 

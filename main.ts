@@ -282,6 +282,7 @@ app.whenReady().then(async () => {
     onRivenRollPending: (weapon: string, cost: number) =>
       overlayIpc.onRivenRollPending(weapon, cost),
     onRivenRollConfirmed: () => overlayIpc.onRivenRollConfirmed(),
+    onRivenDioramaSetup: () => overlayIpc.onRivenDioramaSetup(),
     onRivenChoiceConfirmed: () => overlayIpc.onRivenChoiceConfirmed(),
     onRivenChatView: () => overlayIpc.onRivenChatView(),
   });

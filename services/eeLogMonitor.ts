@@ -52,7 +52,9 @@ const REWARD_TRIGGER_COOLDOWN_MS = 2500;
 // seconds later unless the cooldown covers the full flush window.
 // 8 s is safely larger than any observed EE.log flush delay, yet far smaller
 // than the minimum realistic time between two consecutive fissure mission entries.
-const RELIC_PICKER_COOLDOWN_MS = 8000;
+// 3 s is enough to absorb any DBWIN→file-poll re-deliver after DBWIN becomes inactive.
+// skipRelicFromFilePoll handles the common case while DBWIN is active.
+const RELIC_PICKER_COOLDOWN_MS = 3000;
 const RELIC_PICKER_CLOSE_COOLDOWN_MS = 500;
 // Minimum gap between the last open trigger and a close trigger being honoured.
 // Prevents Dialog::SendResult from closing the overlay when it fires as part of
@@ -100,6 +102,10 @@ export const RIVEN_PATTERNS = {
   genericDialogNonInteractive: /leftItem=nil/,
   // Captures the result code: 4 = confirm (MENU_SELECT), 5 = cancel (MENU_CANCEL)
   sendResult: /Dialog\.lua:\s*Dialog::SendResult\((\d+)\)/,
+  // Fires when the 3-D two-card diorama finishes loading after a roll — this is
+  // the exact moment both cards are visible on screen, making it the ideal OCR
+  // trigger (AlecaFrame uses the same pattern for the same reason).
+  diaoramaSetup: /OmegaRerollSelection\.lua.*Diorama setup/i,
 } as const;
 
 let rivenSessionOpenCallback: (() => void) | null = null;
@@ -108,7 +114,10 @@ let rivenChatViewCallback: (() => void) | null = null;
 let _rivenChatViewActive = false;
 let rivenRollPendingCallback: ((weapon: string, kuvaPerRoll: number) => void) | null = null;
 let rivenRollConfirmedCallback: (() => void) | null = null;
+let rivenDioramaSetupCallback: (() => void) | null = null;
 let rivenChoiceConfirmedCallback: (() => void) | null = null;
+
+
 
 // Tracks which riven dialog is currently pending so SendResult can be dispatched correctly.
 // "roll_confirm" = "Are you sure you want to cycle X for Y?" dialog
@@ -152,6 +161,20 @@ const RIVEN_CHOICE_DIALOG_COOLDOWN_MS = 2000;
 // `onRivenSessionOpen` fires twice — wiping stats from the first scan.
 let _lastRivenSessionOpenAt = 0;
 const RIVEN_SESSION_OPEN_COOLDOWN_MS = 15_000;
+
+// Cooldown to deduplicate diorama-setup events: DBWIN delivers the line
+// instantly and the file poll may re-deliver it 1-2 s later.  A short 2 s
+// window is enough — distinct rolls are seconds apart at minimum.
+let _lastRivenDioramaAt = 0;
+const RIVEN_DIORAMA_DEDUP_MS = 2_000;
+
+// Timestamp of the last forceEndRivenSession() call.  After the user presses
+// ESC the EE.log file poll may re-deliver stale choice/cycle dialog lines
+// 0–5 s later. The English-specific Layer-1 patterns activate the session
+// regardless of _rivenSessionActive, which would re-enable the flow against
+// the already-closed overlay windows. Guard them with this cooldown.
+let _rivenForceEndedAt = 0;
+const RIVEN_FORCE_END_COOLDOWN_MS = 5_000;
 
 // When DBWIN is active, riven events arrive in real-time via the worker thread.
 // The EE.log file poll re-delivers the exact same lines 0–5 s later.  If we
@@ -478,6 +501,24 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   // NpcManager::ClearAgents fires when the player leaves the riven cycling screen.
   // Only dispatch if a riven session is currently active — this line also fires
   // during other game flows, so we must not false-trigger.
+  // Diorama ready: both cards are now displayed — trigger roll OCR immediately.
+  // NOTE: NOT gated by skipRivenFromFilePoll — OmegaRerollSelection.lua lines
+  // are Lua script output that appears only in EE.log file, never via DBWIN
+  // OutputDebugString.  The 2 s RIVEN_DIORAMA_DEDUP_MS cooldown prevents the
+  // file-poll double-delivery from firing the callback twice.
+  if (
+    _rivenSessionActive &&
+    RIVEN_PATTERNS.diaoramaSetup.test(line)
+  ) {
+    const now = Date.now();
+    if (now - _lastRivenDioramaAt >= RIVEN_DIORAMA_DEDUP_MS) {
+      _lastRivenDioramaAt = now;
+      resetRivenIdleTimer();
+      log.log("[EELog] Riven diorama ready -> dispatching diorama OCR trigger");
+      if (typeof rivenDioramaSetupCallback === "function") rivenDioramaSetupCallback();
+    }
+  }
+
   if (!skipRivenFromFilePoll && _rivenSessionActive && RIVEN_PATTERNS.sessionClose.test(line)) {
     log.log("[EELog] Riven session close (ClearAgents) -> dispatching overlay close");
     _rivenSessionActive = false;
@@ -522,7 +563,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   let rivenDialogHandled = skipRivenFromFilePoll; // skip all dialog detection from file poll
 
   const rivenCycleMatch = !skipRivenFromFilePoll ? line.match(RIVEN_PATTERNS.cycleConfirmEn) : null;
-  if (rivenCycleMatch) {
+  if (rivenCycleMatch && !(!_rivenSessionActive && Date.now() - _rivenForceEndedAt < RIVEN_FORCE_END_COOLDOWN_MS)) {
     rivenDialogHandled = true;
     _rivenSessionActive = true;
     resetRivenIdleTimer();
@@ -534,7 +575,8 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
     if (typeof rivenRollPendingCallback === "function") rivenRollPendingCallback(weapon, cost);
   }
 
-  if (!rivenDialogHandled && !skipRivenFromFilePoll && RIVEN_PATTERNS.choiceConfirmEn.test(line)) {
+  if (!rivenDialogHandled && !skipRivenFromFilePoll && RIVEN_PATTERNS.choiceConfirmEn.test(line) &&
+      !(!_rivenSessionActive && Date.now() - _rivenForceEndedAt < RIVEN_FORCE_END_COOLDOWN_MS)) {
     rivenDialogHandled = true;
     _rivenSessionActive = true;
     resetRivenIdleTimer();
@@ -729,6 +771,7 @@ interface EeLogHandlers {
   onRivenSessionClose?: (() => void) | null;
   onRivenRollPending?: ((weapon: string, kuvaPerRoll: number) => void) | null;
   onRivenRollConfirmed?: (() => void) | null;
+  onRivenDioramaSetup?: (() => void) | null;
   onRivenChoiceConfirmed?: (() => void) | null;
   onRivenChatView?: (() => void) | null;
 }
@@ -745,6 +788,7 @@ function normalizeHandlers(
   onRivenSessionClose: (() => void) | null;
   onRivenRollPending: ((weapon: string, kuvaPerRoll: number) => void) | null;
   onRivenRollConfirmed: (() => void) | null;
+  onRivenDioramaSetup: (() => void) | null;
   onRivenChoiceConfirmed: (() => void) | null;
   onRivenChatView: (() => void) | null;
 } {
@@ -759,6 +803,7 @@ function normalizeHandlers(
       onRivenSessionClose: null,
       onRivenRollPending: null,
       onRivenRollConfirmed: null,
+      onRivenDioramaSetup: null,
       onRivenChoiceConfirmed: null,
       onRivenChatView: null,
     };
@@ -775,6 +820,7 @@ function normalizeHandlers(
       onRivenSessionClose: null,
       onRivenRollPending: null,
       onRivenRollConfirmed: null,
+      onRivenDioramaSetup: null,
       onRivenChoiceConfirmed: null,
       onRivenChatView: null,
     };
@@ -799,6 +845,8 @@ function normalizeHandlers(
       typeof handlers.onRivenRollPending === "function" ? handlers.onRivenRollPending : null,
     onRivenRollConfirmed:
       typeof handlers.onRivenRollConfirmed === "function" ? handlers.onRivenRollConfirmed : null,
+    onRivenDioramaSetup:
+      typeof handlers.onRivenDioramaSetup === "function" ? handlers.onRivenDioramaSetup : null,
     onRivenChoiceConfirmed:
       typeof handlers.onRivenChoiceConfirmed === "function"
         ? handlers.onRivenChoiceConfirmed
@@ -830,6 +878,7 @@ export function startWatching(
   rivenSessionCloseCallback = normalized.onRivenSessionClose;
   rivenRollPendingCallback = normalized.onRivenRollPending;
   rivenRollConfirmedCallback = normalized.onRivenRollConfirmed;
+  rivenDioramaSetupCallback = normalized.onRivenDioramaSetup;
   rivenChoiceConfirmedCallback = normalized.onRivenChoiceConfirmed;
   rivenChatViewCallback = normalized.onRivenChatView;
 
@@ -887,6 +936,7 @@ export function forceEndRivenSession(): void {
   _rivenSessionActive = false;
   _rivenPendingDialog = null;
   _rivenNextDialog = "cycle";
+  _rivenForceEndedAt = Date.now();
   if (_rivenSessionIdleTimer) {
     clearTimeout(_rivenSessionIdleTimer);
     _rivenSessionIdleTimer = null;
@@ -912,6 +962,7 @@ export function stopWatching(): void {
   rivenSessionCloseCallback = null;
   rivenRollPendingCallback = null;
   rivenRollConfirmedCallback = null;
+  rivenDioramaSetupCallback = null;
   rivenChoiceConfirmedCallback = null;
   rivenChatViewCallback = null;
   _rivenPendingDialog = null;

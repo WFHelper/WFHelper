@@ -67,7 +67,7 @@ const rewardWindowsController = createOverlayWindowsController({
 });
 
 // Adjust planner overlay z-order so it hides behind other apps when Warframe loses focus.
-// Polls every 1 s; warframeStatus caches its result for 900 ms so this is cheap.
+// Polls every 2 s — only runs when the planner overlay is visible.
 setInterval(async () => {
   const win = ctx.plannerOverlayWindow;
   if (!win || win.isDestroyed() || !win.isVisible()) return;
@@ -81,7 +81,7 @@ setInterval(async () => {
   } catch {
     // ignore
   }
-}, 1000);
+}, 2000);
 
 const plannerWindowsController = createOverlayWindowsController({
   app,
@@ -232,6 +232,16 @@ function createRivenOverlayWindows(options: { show?: boolean } = {}): void {
 // Tracks whether the current session has produced at least one roll result.
 let _rivenHasRollResult = false;
 
+// Timestamp of the last onRivenRollConfirmed call.  Used by onRivenDioramaSetup
+// to distinguish the initial session-open diorama (before any roll) from the
+// per-roll diorama that fires after the animation completes.
+let _rivenRollConfirmedAt = 0;
+
+// Serial counter incremented on every new triggerRollScan call.  The async
+// scan closure captures it; if a newer scan starts before the old one sends
+// results, the old one discards its output rather than overwriting.
+let _rollScanSerial = 0;
+
 // OCR scan timers — scans run after a short delay to let the UI animate.
 let _rivenInitialScanTimer: ReturnType<typeof setTimeout> | null = null;
 let _rivenRollScanTimer: ReturnType<typeof setTimeout> | null = null;
@@ -243,9 +253,12 @@ let _rivenRollScanTimer: ReturnType<typeof setTimeout> | null = null;
 // need to wait out the full roll animation before starting to poll.
 // CHOICE_RESCAN: After the "Cycle Riven into current selection?" confirm, the game
 // quickly transitions back to the single-card view — shorter delay than a full roll.
-const INITIAL_SCAN_DELAY_MS = 700;
-const ROLL_SCAN_DELAY_MS = 800;
-const CHOICE_RESCAN_DELAY_MS = 900;
+const INITIAL_SCAN_DELAY_MS = 300;
+const ROLL_SCAN_DELAY_MS = 1800;
+// When triggered by the diorama-setup EE.log line, both cards are already showing;
+// a 300 ms delay is enough for rendering to finish before OCR starts.
+const ROLL_DIORAMA_SCAN_DELAY_MS = 300;
+const CHOICE_RESCAN_DELAY_MS = 400;
 
 // Last known stats for choice detection (old vs new)
 let _rivenInitialStats: rivenScan.RivenStat[] = [];
@@ -418,12 +431,16 @@ function triggerInitialScan(): void {
   }, INITIAL_SCAN_DELAY_MS);
 }
 
-function triggerRollScan(): void {
+function triggerRollScan(delayMs = ROLL_SCAN_DELAY_MS, skipGate = false): void {
   if (_rivenRollScanTimer) clearTimeout(_rivenRollScanTimer);
+  // Increment serial so any already-running scan knows it has been superseded.
+  const mySerial = ++_rollScanSerial;
   _rivenRollScanTimer = setTimeout(async () => {
     _rivenRollScanTimer = null;
+    if (mySerial !== _rollScanSerial) return; // superseded by a later scan
     try {
-      const panels = await rivenScan.scanNewRoll(_rivenWeaponName);
+      const panels = await rivenScan.scanNewRoll(_rivenWeaponName, skipGate);
+      if (mySerial !== _rollScanSerial) return; // superseded while awaiting OCR
       // If the OCR produced per-panel results, use them directly.  Otherwise
       // fall back to the initial stats we already have for the left panel.
       const leftStats = panels.left.length > 0 ? panels.left : _rivenInitialStats;
@@ -452,7 +469,7 @@ function triggerRollScan(): void {
     } catch (err) {
       log.warn("[RivenScan] roll scan failed:", String(err));
     }
-  }, ROLL_SCAN_DELAY_MS);
+  }, delayMs);
 }
 
 // ── Exported riven callbacks (wired from main.ts via eeLogMonitor) ─────────────
@@ -467,6 +484,8 @@ export function onRivenSessionClose(): void {
   forceEndRivenSession();
   clearRivenScanTimers();
   _rivenHasRollResult = false;
+  _rivenRollConfirmedAt = 0;
+  _rollScanSerial++;
   _rivenInitialStats = [];
   _rivenNewRollStats = [];
   _rivenWeaponName = "";
@@ -524,6 +543,8 @@ export function onRivenChatView(): void {
 export function onRivenSessionOpen(): void {
   log.log("[OverlayRoute] trigger=riven-session");
   _rivenHasRollResult = false;
+  _rivenRollConfirmedAt = 0;
+  _rollScanSerial++;
   _rivenInitialStats = [];
   _rivenNewRollStats = [];
   _rivenWeaponName = "";
@@ -564,10 +585,50 @@ export function onRivenRollPending(weapon: string, kuvaPerRoll: number): void {
 
 export function onRivenRollConfirmed(): void {
   rivenSession.onRollConfirmed(getRivenWindows());
+  _rivenRollConfirmedAt = Date.now();
   triggerRollScan();
 }
 
+// Fired when the 3-D two-card diorama finishes loading (EE.log:
+// "OmegaRerollSelection.lua: Diorama setup"). Both cards are fully visible at
+// this point — ideal moment to OCR.
+//
+// The diorama fires on INITIAL session open (before any roll) AND after each
+// roll animation completes.  We only want to scan for new-roll results, so we
+// guard with _rivenRollConfirmedAt.
+//
+// The fallback roll scan timer (ROLL_SCAN_DELAY_MS = 1800 ms) fires well
+// before the diorama (~2-3 s animation), so _rivenRollScanTimer is null by
+// the time we arrive here.  triggerRollScan increments _rollScanSerial, which
+// causes the already-running stale scan to discard its results.
+export function onRivenDioramaSetup(): void {
+  // Ignore if no roll has been confirmed recently (initial session-open diorama).
+  if (Date.now() - _rivenRollConfirmedAt > 30_000) return;
+
+  // Cancel the fallback timer if it somehow hasn't fired yet (very fast machine).
+  if (_rivenRollScanTimer !== null) {
+    clearTimeout(_rivenRollScanTimer);
+    _rivenRollScanTimer = null;
+  }
+
+  // Start a fresh scan.  Incrementing _rollScanSerial (inside triggerRollScan)
+  // ensures the stale in-flight scan discards its OCR results when it completes.
+  // Pass skipGate=true: diorama confirms both cards are loaded, no need to poll
+  // for stability.  Matches AlecaFrame’s immediate screenshot on diorama event.
+  triggerRollScan(ROLL_DIORAMA_SCAN_DELAY_MS, true);
+}
+
 export function onRivenChoiceConfirmed(): void {
+  // If the overlay was already closed (e.g. user pressed ESC before the EE.log
+  // file poll delivered the choice-confirm line), bail out immediately.  Scanning
+  // against a hidden/non-existent window captures the desktop and can crash the
+  // native OCR binding with FATAL ERROR: ThrowAsJavaScriptException.
+  const anyVisible = getRivenWindows().some((w) => w && !w.isDestroyed() && w.isVisible());
+  if (!anyVisible) {
+    log.log("[RivenScan] choice confirmed but overlay is not visible — skipping rescan");
+    return;
+  }
+
   // Cancel any in-flight scan timers (e.g. a roll scan that started just before
   // the user pressed CONFIRM very quickly).  Without this, a stale timer could
   // fire after the choice and overwrite the right panel with old roll data.

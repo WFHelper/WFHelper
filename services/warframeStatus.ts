@@ -8,10 +8,9 @@ const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
 
 const log = withScope("warframeStatus");
 
-const STATUS_CACHE_TTL_MS = 900;
+const STATUS_CACHE_TTL_MS = 2000;
 const TASKLIST_TIMEOUT_MS = 1200;
 const FOCUS_TIMEOUT_MS = 1200;
-const WINDOW_CAPTURE_SIZE = Object.freeze({ width: 640, height: 360 });
 
 function getElectronScreen(): any {
   try {
@@ -32,7 +31,6 @@ interface WindowBounds {
 interface WarframeStatus {
   isOpen: boolean;
   isFocused: boolean;
-  windowDetected: boolean;
   processRunning: boolean;
   focusedProcessName: string | null;
   focusedWindowBounds: WindowBounds | null;
@@ -73,36 +71,6 @@ async function isWarframeProcessRunning(): Promise<boolean> {
     return rows.some((row) => row.toLowerCase().includes("warframe.x64.exe"));
   } catch (err) {
     log.warn("[WarframeStatus] tasklist check failed:", normalizeErrorMessage(err));
-    return false;
-  }
-}
-
-async function isWarframeWindowDetected(): Promise<boolean> {
-  let desktopCapturer: any;
-  try {
-    ({ desktopCapturer } = require("electron") as typeof import("electron"));
-  } catch {
-    return false;
-  }
-
-  try {
-    const sources = await desktopCapturer.getSources({
-      types: ["window"],
-      thumbnailSize: WINDOW_CAPTURE_SIZE,
-      fetchWindowIcons: false,
-    });
-
-    for (const source of sources) {
-      const name = String(source?.name || "").toLowerCase();
-      if (!name.includes("warframe")) continue;
-      if (name.includes("warframe companion")) continue;
-      if (name.includes("ocr crop debugger")) continue;
-      return true;
-    }
-
-    return false;
-  } catch (err) {
-    log.warn("[WarframeStatus] window source scan failed:", normalizeErrorMessage(err));
     return false;
   }
 }
@@ -192,8 +160,7 @@ function getDisplayIdForBounds(bounds: WindowBounds | null): string | null {
 }
 
 async function collectStatus(): Promise<WarframeStatus> {
-  const [windowDetected, processRunning, foregroundWindow] = await Promise.all([
-    isWarframeWindowDetected(),
+  const [processRunning, foregroundWindow] = await Promise.all([
     isWarframeProcessRunning(),
     getForegroundWindowInfo(),
   ]);
@@ -201,14 +168,13 @@ async function collectStatus(): Promise<WarframeStatus> {
   const focusedProcessName = foregroundWindow?.processName || null;
   const focusedLow = String(focusedProcessName || "").toLowerCase();
   const isFocused = !focusedProcessName || focusedLow.includes("warframe");
-  const isOpen = windowDetected || processRunning;
+  const isOpen = processRunning;
   const focusedWindowBounds = foregroundWindow?.bounds || null;
   const focusedDisplayId = getDisplayIdForBounds(focusedWindowBounds);
 
   return {
     isOpen,
     isFocused,
-    windowDetected,
     processRunning,
     focusedProcessName,
     focusedWindowBounds,
@@ -234,7 +200,6 @@ export async function getStatus(options: { force?: boolean } = {}): Promise<Warf
       return {
         isOpen: false,
         isFocused: false,
-        windowDetected: false,
         processRunning: false,
         focusedProcessName: null,
         focusedWindowBounds: null,
