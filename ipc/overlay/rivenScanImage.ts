@@ -52,13 +52,19 @@ const RIVEN_READY_TIMEOUTS_MS = Object.freeze({
   // Roll gate: kept SHORT because the diorama event is the authoritative trigger
   // and arrives ~1500–2500 ms after roll confirm.  When the diorama fires, the
   // fallback scan (now 3500 ms) is aborted immediately, so the gate rarely runs
-  // to timeout in normal use.  500 ms gives 2–3 polls as a safety net for the
+  // to timeout in normal use.  500 ms gives ~12 polls as a safety net for the
   // rare case the fallback scan fires (no diorama event received).
   roll: 500,
   choice: 1800,
 });
-const RIVEN_READY_POLL_MS = 140;
-const RIVEN_READY_REQUIRED_HITS = 2;
+// With DXGI capture at ~10 ms/frame (non-blocking AcquireNextFrame), each poll
+// cycle is ~10 ms capture + ~5 ms analysis + 40 ms sleep ≈ 55 ms.  Reducing
+// from 140 ms allows 3× more samples in the same window, so we increase
+// REQUIRED_HITS from 2 → 3 for better stability confidence at no latency cost:
+//   old: 2 hits × 140 ms = 280 ms minimum detection
+//   new: 3 hits × 40 ms  = 120 ms minimum detection  (~2.3× faster + more accurate)
+const RIVEN_READY_POLL_MS = 40;
+const RIVEN_READY_REQUIRED_HITS = 3;
 const RIVEN_READY_SCORE_THRESHOLD = 0.2;
 const MIN_OCR_WIDTH = 1800;
 

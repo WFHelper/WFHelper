@@ -7,6 +7,7 @@
 
 import { withScope } from "./logger";
 import { clampNumber } from "./rewardScannerUtils";
+import { captureDxgi, isDxgiAvailable } from "./dxgiCapture";
 const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
   normalizeErrorMessage: (err: any) => string;
 };
@@ -232,6 +233,32 @@ export async function captureScreen(options: CaptureOptions = {}): Promise<Captu
         sourceId: String(wfWindow.id || ""),
         sourceDisplayId: String(wfWindow.display_id || ""),
       };
+    }
+  }
+
+  // Try DXGI Desktop Duplication first — ~2-10 ms vs ~100-300 ms with
+  // desktopCapturer.getSources. Falls back transparently on failure.
+  if (isDxgiAvailable()) {
+    try {
+      const dxgiResult = captureDxgi();
+      if (dxgiResult) {
+        const { nativeImage: electronNativeImage } = require("electron") as typeof import("electron");
+        const img = electronNativeImage.createFromBitmap(dxgiResult.buffer, {
+          width: dxgiResult.width,
+          height: dxgiResult.height,
+        });
+        if (img && !img.isEmpty()) {
+          return {
+            image: img,
+            sourceType: "screen",
+            sourceName: "DXGI Desktop Duplication",
+            sourceId: "dxgi:0",
+            sourceDisplayId: "",
+          };
+        }
+      }
+    } catch (err) {
+      log.warn("[RewardScanner] DXGI capture failed, falling back:", normalizeErrorMessage(err));
     }
   }
 
