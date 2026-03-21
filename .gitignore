@@ -8,6 +8,7 @@ release/
 *.log
 .tmp/
 alecaframe-reverse-engineering.md
+docs/ilspy-decompiled/
 
 test-results/
 main.js
