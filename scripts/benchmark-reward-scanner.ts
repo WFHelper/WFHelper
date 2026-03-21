@@ -181,6 +181,34 @@ function loadRelicItems(): Array<{ name: string }> {
         if (!seen.has(name)) seen.set(name, { name });
       }
     }
+    // @wfcd/items is cosmetics-focused and misses many tradeable relic drops that ARE
+    // in the production WFM catalog.  Supplement with the most common ones so the
+    // benchmark DB is representative of what the production scanner actually uses.
+    const supplemental = [
+      // Consumables / universal drops
+      "Forma Blueprint", "Exilus Adapter Blueprint", "Orokin Catalyst Blueprint", "Orokin Reactor Blueprint",
+      // Narmer/Caliban era (missing from @wfcd/items component list)
+      "Caliban Prime Blueprint", "Caliban Prime Neuroptics Blueprint",
+      "Caliban Prime Chassis Blueprint", "Caliban Prime Systems Blueprint",
+      // Nautilus sentinel
+      "Nautilus Prime Blueprint", "Nautilus Prime Cerebrum Blueprint",
+      "Nautilus Prime Carapace Blueprint", "Nautilus Prime Systems Blueprint",
+      // Wukong (commonly in relics)
+      "Wukong Prime Blueprint", "Wukong Prime Neuroptics Blueprint",
+      "Wukong Prime Chassis Blueprint", "Wukong Prime Systems Blueprint",
+      // Zephyr (commonly in relics)
+      "Zephyr Prime Blueprint", "Zephyr Prime Neuroptics Blueprint",
+      "Zephyr Prime Chassis Blueprint", "Zephyr Prime Systems Blueprint",
+      // Epitaph (companion weapon)
+      "Epitaph Prime Blueprint", "Epitaph Prime Receiver", "Epitaph Prime Stock", "Epitaph Prime Barrel",
+      // Braton / Paris (common prime weapons)
+      "Braton Prime Blueprint", "Braton Prime Barrel", "Braton Prime Receiver", "Braton Prime Stock",
+      "Paris Prime Blueprint", "Paris Prime Limb", "Paris Prime String", "Paris Prime Upper Limb",
+      "Trumna Prime Blueprint", "Trumna Prime Barrel", "Trumna Prime Receiver", "Trumna Prime Stock",
+    ];
+    for (const name of supplemental) {
+      if (!seen.has(name)) seen.set(name, { name });
+    }
     return [...seen.values()];
   } catch {
     // Static fallback — enough to exercise the matching path for typical 

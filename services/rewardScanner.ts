@@ -959,12 +959,15 @@ export async function scanRewardsDetailed(
       return result;
     }
 
-    // Partial slot-first success: if we matched ≥75% of expected items,
-    // skip the expensive band-OCR loop and accept the slot result.
-    // exactCount is intentionally NOT required — same rationale as full hit above.
+    // Partial slot-first success: only skip band-OCR when we matched ≥75% of
+    // expected items AND we're already deep into the time budget (>70% elapsed) OR
+    // when we have 100% fill but with only fuzzy/low-confidence matches.
+    // This prevents prematurely skipping a Prime item in the last slot.
+    const elapsedRatio = (Date.now() - scanStartedAt) / totalBudgetMs;
     if (
       slotFirst &&
-      slotFirst.items.length >= Math.ceil(expectedItemCount * 0.75)
+      slotFirst.items.length >= Math.ceil(expectedItemCount * 0.75) &&
+      (elapsedRatio >= 0.7 || slotFirst.items.length === expectedItemCount)
     ) {
       log.log(
         `[RewardScanner] Partial slot-primary hit: ${slotFirst.items.length}/${expectedItemCount} items ` +
