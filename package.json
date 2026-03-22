@@ -87,6 +87,7 @@
     "electron-log": "^5.4.3",
     "electron-updater": "^6.8.3",
     "koffi": "^2.15.1",
+    "onnxruntime-node": "^1.24.3",
     "tesseract.js": "^7.0.0",
     "uiohook-napi": "^1.5.4",
     "warframe-public-export-plus": "^0.5.101"

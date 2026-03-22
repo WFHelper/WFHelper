@@ -563,6 +563,7 @@ export async function enhanceForRivenOcr(croppedImage: any, mode: EnhanceMode): 
 
   const pixelCount = scaledWidth * scaledHeight;
   const mask = Buffer.alloc(pixelCount);
+
   for (let bufferIndex = 0, pixelIndex = 0; bufferIndex < rawBuffer.length; bufferIndex += 4, pixelIndex++) {
     const red = rawBuffer[bufferIndex];
     const green = rawBuffer[bufferIndex + 1];

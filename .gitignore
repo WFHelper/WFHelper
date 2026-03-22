@@ -29,3 +29,21 @@ order-summary-hotset*.json
 
 # Riven OCR debug output (test images + enhanced crops)
 riven-ocr-debug/
+
+# Riven CRNN training artifacts (generated dataset + PyTorch checkpoints)
+# These are reproducible via generate_dataset.py / train.py — no value in tracking.
+scripts/train-paddleocr/train_data/
+scripts/train-paddleocr/checkpoint/
+
+# Trained model output — large binary (~32 MB). Ignore to keep repo lightweight.
+# To use: copy riven_rec.onnx + riven_rec_vocab.json here after training.
+scripts/train-paddleocr/output/
+
+# Temporary per-run debug crops written by benchmark/probe scripts
+temp_*.png
+
+# OCR corpus debug images (test screenshots — large PNGs, not source code)
+OCR-debug/riven_images/
+OCR-debug/reward_images/
+OCR-debug/relic_selection/
+OCR-debug/slot-crops/

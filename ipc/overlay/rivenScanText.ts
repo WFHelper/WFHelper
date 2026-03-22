@@ -18,6 +18,9 @@ const RIVEN_STAT_ALIAS_REPLACEMENTS: ReadonlyArray<[RegExp, string]> = Object.fr
   [/Re load/gi, "Reload"],
   [/Elec tricity/gi, "Electricity"],
   [/Punc ture/gi, "Puncture"],
+  [/Pi[uo]ncture/gi, "Puncture"],
+  [/Puincture/gi, "Puncture"],
+  [/\bReload\s+Spe[de]\b/gi, "Reload Speed"],
   [/Maga zine/gi, "Magazine"],
   [/Capaclty/gi, "Capacity"],
   [/Maxinnunn/gi, "Maximum"],
@@ -161,6 +164,16 @@ export function preprocessOcrText(raw: string): string {
   // WinRT OCR sometimes splits "x 1,3 Damage" into two lines: "x 1" and ",3 Damage".
   // After xl-fix ("x 1" → "x1") and comma→dot (",3" → ".3"), we get "x1\n.3 Damage".
   text = text.replace(/(x\d+)\n(\.\d+)/g, "$1$2");
+  // Also rejoin when the decimal is on the same line with a space:
+  // "x1 .3 Damage" → "x1.3 Damage" / "x1 .36 Damage" → "x1.36 Damage"
+  text = text.replace(/\b(x\d+)\s+\.(\d+)/g, "$1.$2");
+  // Rejoin x-multiplier where WinRT splits the decimal after the stat name:
+  // "x1 Damage to Corpus\n.3" or "x1\nDamage to Corpus .3" — capture the trailing
+  // orphan decimal and attach to the previous x-multiplier on the same or prior line.
+  text = text.replace(/\b(x\d+)(\s+(?:Damage\s+to\s+\w+|[A-Z][a-z]+))\n\.(\d+)/g, "$1.$3$2");
+  // Handle WinRT emitting an integer x-multiplier followed by isolated decimal on next line:
+  // "x1\n3 Damage" → "x1.3 Damage" (when digit after newline is 1-9 and followed by space+stat)
+  text = text.replace(/(x\d+)\n([1-9]\d?\s+(?:Damage|[A-Z]))/g, "$1.$2");
   // Fix spaced decimal point: "+151 .4%" → "+151.4%".
   // WinRT OCR sometimes inserts a space before the decimal point.
   text = text.replace(/(\d)\s+\.(\d)/g, "$1.$2");
@@ -188,6 +201,9 @@ export function preprocessOcrText(raw: string): string {
   text = text.replace(/[*()\[\]{}|\\<>^~°©®™•→←↑↓↗↘►◄▸▾▲▼■□●○]+\s*/g, " ");
   text = text.replace(/\bx\d+\s*(?:for\s*)?Heavy\s*Attack[a-z]*\b/gi, "");
   text = text.replace(/%\s+[A-Z0-9]\s+(?=[A-Z])/g, "% ");
+  // Strip isolated uppercase letter (element-icon artifact) between sign and digits.
+  // e.g. "+ A0,58 Damage to Grineer" → "+0,58 Damage to Grineer"
+  text = text.replace(/([+\-\u2013]\s*)[A-Z]\s*(\d)/g, "$1$2");
   text = text.replace(
     /[0-9'"`]\s*(?=(?:Slash|Cold|Heat|Electricity|Toxin|Impact|Puncture|Radiation|Viral|Corrosive|Blast|Magnetic|Gas)\b)/gi,
     "",
@@ -216,6 +232,20 @@ export function sanitiseValue(value: number): number {
     const str = String(value);
     const corrected = parseFloat(str.slice(0, -1) + "." + str.slice(-1));
     if (Number.isFinite(corrected)) return corrected;
+  }
+  // Non-integer values > 1000 (e.g. 1126.2) have a spurious leading digit from
+  // an adjacent OCR strip that got merged in.  Strip the leading digit when the
+  // result would be ≤ MAX_REASONABLE_VALUE, e.g. 1126.2 → 126.2.
+  if (value > 1000 && !Number.isInteger(value)) {
+    const str = String(Math.round(value * 10) / 10);
+    const dotIdx = str.indexOf(".");
+    const intPart = dotIdx >= 0 ? str.slice(0, dotIdx) : str;
+    const decPart = dotIdx >= 0 ? str.slice(dotIdx + 1) : "";
+    if (intPart.length > 3) {
+      const corrected = parseFloat(intPart.slice(1) + (decPart ? "." + decPart : ""));
+      if (Number.isFinite(corrected) && corrected > 0 && corrected <= MAX_REASONABLE_VALUE)
+        return corrected;
+    }
   }
   return value;
 }
@@ -378,7 +408,11 @@ function collapseOrphanValueLines(lines: string[]): string[] {
       !lineContainsKnownStat(current) &&
       // Allow trailing comma so "+62," (integer part of a split "+62.2%") is
       // treated as a value-only orphan and paired with the following stat name.
-      /^[+\-\u2013x\d\s.,% ]+$/i.test(current);
+      /^[+\-\u2013x\d\s.,% ]+$/i.test(current) &&
+      // Reject bare integers (1–4 digits, no sign, %, s, x, or .) — these are
+      // UI artefacts such as tier indicators ("7"), polarity+rank ("47") or MR
+      // numbers that appear at the edges of the stats area and are not stat values.
+      !/^\d{1,4}$/.test(current.trim());
 
     if (looksLikeValueOnly) {
       pendingValues.push(current);

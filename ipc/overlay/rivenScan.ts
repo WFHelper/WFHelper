@@ -20,8 +20,8 @@ import path from "node:path";
 import { withScope } from "../../services/logger";
 import { captureScreenFast } from "../../services/rewardScannerCapture";
 import { cropRect } from "../../services/rewardScannerImage";
-import { createRewardOcrRunner } from "../../services/rewardScannerOcr";
-import { getTesseractWorker, tesseractWorkerAvailable } from "../../services/ocrServer";
+import { paddleOcrServer } from "../../services/paddleOcrServer";
+import { rivenOcrOnnxAvailable, recognizeRivenCardLines } from "../../services/rivenOcrOnnx";
 import { sleep } from "../../services/rewardScannerUtils";
 import {
   abortRivenScanWaits,
@@ -49,8 +49,6 @@ export type { RivenStat } from "./rivenScanText";
 
 const log = withScope("rivenScan");
 
-// __dirname at runtime is .electron-build/ipc/overlay/ - three levels up to reach project root
-const OCR_SCRIPT = path.join(__dirname, "..", "..", "..", "scripts", "ocr.ps1");
 const OCR_TIMEOUT_MS = 8000;
 const MIN_ACCEPTABLE_RIVEN_STATS = 2;
 
@@ -67,35 +65,9 @@ let _ocrAborted = false;
 // stale results after a new scan has already started.
 let _scanGeneration = 0;
 
-const ocrRunner = createRewardOcrRunner({
-  log,
-  ocrScriptPath: OCR_SCRIPT,
-  getRequestedEngine: () => "native",
-});
-
-// Secondary Tesseract-based OCR runner used for cross-engine value injection.
-// Only invoked when the native engine leaves null-value slots in the best
-// candidate — adds ~400-800ms but recovers values WinRT cannot read (e.g.
-// x-multiplier decimals, coloured element text on animated backgrounds).
-const tesseractOcrRunner = createRewardOcrRunner({
-  log,
-  ocrScriptPath: OCR_SCRIPT,
-  getRequestedEngine: () => "tesseract",
-  tesseractContext: "riven",
-});
-
 const ENHANCE_STRATEGIES: readonly EnhanceMode[] = Object.freeze([
   { kind: "original" },
   { kind: "bright", threshold: 150, dilate: true },
-  { kind: "bright", threshold: 120, dilate: true },
-]);
-
-// Tesseract strategy order: original first (best text accuracy for early-accept
-// on high-contrast cards), then bright-120 (recovers coloured text on animated
-// backgrounds that original misses). Skips bright-150 — redundant with bright-120
-// for Tesseract and saves ~600ms per fallback invocation.
-const TESSERACT_STRATEGIES: readonly EnhanceMode[] = Object.freeze([
-  { kind: "original" },
   { kind: "bright", threshold: 120, dilate: true },
 ]);
 
@@ -344,78 +316,7 @@ function isConfidentEnough(result: CandidateResult, statsOnly = false): boolean 
   return false;
 }
 
-/**
- * Run all Tesseract strategies on the given crop variants.
- * Extracted as a standalone async function so it can be started in parallel
- * with the native strategy loop rather than sequentially after it.
- * Returns the list of scored candidates (best-first if early-accepted).
- */
-async function runTesseractCandidates(
-  cropVariants: Array<{ id: string; image: any; refined: boolean; metrics: any }>,
-  expectedWeaponName = "",
-  label = "",
-  myGeneration = -1,
-  enhanceCache?: Map<string, Buffer>,
-): Promise<CandidateResult[]> {
-  const candidates: CandidateResult[] = [];
-  const hasRefined = cropVariants.some((v) => v.id === "refined");
-  // Rough passes first; refined appended after.  A guard inside the loop skips
-  // the entire refined section when rough already produced usable stats.
-  const plans: Array<{ cropId: "rough" | "refined"; mode: EnhanceMode }> = [
-    ...TESSERACT_STRATEGIES.map((mode) => ({ cropId: "rough" as const, mode })),
-    ...(hasRefined ? TESSERACT_STRATEGIES.map((mode) => ({ cropId: "refined" as const, mode })) : []),
-  ];
-  for (const plan of plans) {
-    if (_ocrAborted || (myGeneration >= 0 && _scanGeneration !== myGeneration)) break;
-    // Skip all remaining refined passes if any rough pass already found stats.
-    if (plan.cropId === "refined" && candidates.some((c) => c.stats.length >= MIN_ACCEPTABLE_RIVEN_STATS)) break;
-    const cropVariant = cropVariants.find((v) => v.id === plan.cropId);
-    if (!cropVariant) continue;
-    const modeLabel =
-      plan.mode.kind === "original"
-        ? `${cropVariant.id}:original`
-        : `${cropVariant.id}:bright-${plan.mode.threshold}${plan.mode.dilate ? "+dilate" : ""}`;
-    try {
-      const cacheKey = modeLabel;
-      let enhancedPng = enhanceCache?.get(cacheKey);
-      if (!enhancedPng) {
-        enhancedPng = await enhanceForRivenOcr(cropVariant.image, plan.mode);
-        enhanceCache?.set(cacheKey, enhancedPng);
-      }
-      const structured = await tesseractOcrRunner.runOCRStructuredBuffer(
-        enhancedPng,
-        OCR_TIMEOUT_MS,
-      );
-      const split = splitRivenStructuredText(structured);
-      const stats = parseRivenStats(split.statsText || structured.text || "");
-      const valueCount = stats.filter((s) => s.value !== null).length;
-      const score = scoreStatsCandidate(stats, split.mergedText || "", expectedWeaponName);
-      if (label) {
-        const preview = (split.mergedText || "").replace(/\r?\n/g, " | ").slice(0, 130);
-        log.log(
-          `[RivenScan] Tesseract ${label} ${modeLabel}: ${stats.length} stats (score=${score}) "${preview}"`,
-        );
-      }
-      candidates.push({
-        text: split.mergedText || structured.text || "",
-        titleText: split.titleText || "",
-        footerText: split.footerText || "",
-        stats,
-        score,
-        cropId: cropVariant.id,
-        refined: cropVariant.refined,
-        valueCount,
-        modeLabel: `tesseract:${modeLabel}`,
-      });
-      // Early-exit if Tesseract alone gives a confident standalone result
-      const last = candidates[candidates.length - 1];
-      if (isConfidentEnough(last, false)) break;
-    } catch {
-      // Non-fatal — Tesseract failure on one variant is acceptable
-    }
-  }
-  return candidates;
-}
+
 
 async function retrySparseRivenScan<T>(
   attemptLabel: string,
@@ -448,7 +349,7 @@ async function runStructuredRegion(
   statsText: string;
 }> {
   const enhanced = await enhanceForRivenOcr(imageRegion, mode);
-  const structured = await ocrRunner.runOCRStructuredBuffer(enhanced, OCR_TIMEOUT_MS);
+  const structured = await paddleOcrServer.runOCRStructuredBuffer(enhanced, OCR_TIMEOUT_MS);
   const split = splitRivenStructuredText(structured);
   return {
     text: split.mergedText || structured.text || "",
@@ -464,10 +365,58 @@ async function ocrCropMultiStrategy(
   label = "",
   expectedWeaponName = "",
   statsOnly = false,
+  isMultipanel = false,
 ): Promise<{ text: string; titleText: string; footerText: string; stats: RivenStat[] }> {
   const myGeneration = _scanGeneration; // snapshot; stale if a new scan started
   const roughCrop = cropRect(image, rect);
+
+  // ── Compute refined (edge-detected) crop early ─────────────────────────────
+  // Always needed: used by WinRT crop variants.
+  // refineRivenTextCrop runs Sobel card-frame detection; if it fails, refined.image
+  // equals roughCrop and refined.refined=false.
   const refined = refineRivenTextCrop(roughCrop);
+  const roughW = (roughCrop as any).getSize?.()?.width ?? 0;
+  const refinedW = (refined.image as any)?.getSize?.()?.width ?? 0;
+
+  // ── CRNN fast path (no Python dependency) ────────────────────────────────
+  // Pure Node.js: luma variance row detection + CRNN recognition.
+  // For multipanel (ROLL_CARD_CROP) scans: pass roughCrop directly — the narrow
+  //   clean crop gives variance detection reliable row positions (~100 ms, ~100%).
+  // For single-card: skip CRNN entirely.  The current CRNN model gets 100% stat
+  //   names on the narrow center crop but only ~61% values (dropped leading digits,
+  //   lost decimals, sign flips).  The scoreStatsCandidate check rejects every
+  //   single-card result, so the ~130ms CRNN attempt is wasted overhead.  Once the
+  //   model is retrained for the narrow crop's characteristics, re-enable by
+  //   removing the isMultipanel guard below.
+  if (isMultipanel && rivenOcrOnnxAvailable()) {
+    try {
+      // Multipanel: roughCrop is already the narrow ROLL_CARD_CROP.
+      const cardPng: Buffer | undefined = (roughCrop as any)?.toPNG?.();
+      if (cardPng) {
+        const crnnLines = await recognizeRivenCardLines(cardPng, /* isMultipanel */ true);
+        const text = crnnLines.join("\n");
+        const stats = parseRivenStats(text);
+        if (stats.length >= MIN_ACCEPTABLE_RIVEN_STATS) {
+          if (label) {
+            log.log(
+              `[RivenScan] CRNN ${label}: ${stats.length} stats — ` +
+              stats.map((s) => `${s.positive ? "+" : "-"}${s.value ?? "?"}${s.multiplier ? "x" : "%"} ${s.name}`).join(", "),
+            );
+          }
+          return { text, titleText: "", footerText: "", stats };
+        }
+        if (label) {
+          log.log(`[RivenScan] CRNN ${label}: sparse (${stats.length} stats), falling through to WinRT`);
+        }
+      }
+    } catch (err) {
+      log.warn("[RivenScan] CRNN path failed:", String(err));
+    }
+    if (_ocrAborted || _scanGeneration !== myGeneration) {
+      return { text: "", titleText: "", footerText: "", stats: [] };
+    }
+  }
+
   const cropVariants = [{ id: "rough", image: roughCrop, refined: false, metrics: refined.metrics }];
   // Always include the refined (edge-detected) crop when available.
   // AlecaFrame's DetailedRivenCrop always runs edge detection to isolate the
@@ -476,8 +425,6 @@ async function ocrCropMultiStrategy(
   // Skip only when the refined crop is too small to upscale usefully (the
   // enhance pipeline caps at 3× lanczos3, so anything narrower than
   // MIN_OCR_WIDTH/3 ≈ 600 px would be lower resolution than the rough crop).
-  const roughW = (roughCrop as any).getSize?.()?.width ?? 0;
-  const refinedW = (refined.image as any)?.getSize?.()?.width ?? 0;
   if (refined.refined && refinedW >= roughW / 2) {
     cropVariants.push({
       id: "refined",
@@ -513,7 +460,6 @@ async function ocrCropMultiStrategy(
   // loop or the Tesseract wait exceed this, we break early and return what we have.
   const SCAN_BUDGET_MS = 2750;
   const scanStart = Date.now();
-  let tessEagerPromise: Promise<CandidateResult[]> | null = null;
 
   for (const plan of orderedCandidates) {
     if (_ocrAborted || _scanGeneration !== myGeneration) break;
@@ -533,7 +479,7 @@ async function ocrCropMultiStrategy(
         enhancedPng = await enhanceForRivenOcr(cropVariant.image, plan.mode);
         enhanceCache.set(cacheKey, enhancedPng);
       }
-      const structured = await ocrRunner.runOCRStructuredBuffer(enhancedPng, OCR_TIMEOUT_MS);
+      const structured = await paddleOcrServer.runOCRStructuredBuffer(enhancedPng, OCR_TIMEOUT_MS);
       const split = splitRivenStructuredText(structured);
 
       const mergedText = split.mergedText || structured.text || "";
@@ -574,22 +520,6 @@ async function ocrCropMultiStrategy(
     }
 
     results.push(result);
-
-    // Launch Tesseract in parallel after rough:original — but NOT for roll scans
-    // (statsOnly) where the first native pass typically early-accepts.  Launching
-    // Tesseract is wasted CPU when early-accept fires before Tesseract finishes.
-    if (
-      tessEagerPromise === null &&
-      !statsOnly &&
-      tesseractWorkerAvailable &&
-      !_ocrAborted &&
-      plan.cropId === "rough" &&
-      plan.mode.kind === "original"
-    ) {
-      tessEagerPromise = runTesseractCandidates(
-        cropVariants, expectedWeaponName, label, myGeneration, enhanceCache,
-      ).catch(() => []);
-    }
 
     // Hard budget: stop running native strategies once the scan budget is exhausted.
     if (Date.now() - scanStart >= SCAN_BUDGET_MS) break;
@@ -765,151 +695,41 @@ async function ocrCropMultiStrategy(
     }
   }
 
-  // Cross-engine Tesseract: await the eagerly-started parallel promise when native
-  // still has null values or too few stats.  Because Tesseract launches in parallel
-  // with the native loop, the wait here is (tessMs – nativeMs) or ~0 ms if it
-  // already finished.  The hard budget caps the total wait.
-  // When native was sufficient, tessEagerPromise is simply ignored.
-  const remainingNulls = chosen.stats.filter((s) => s.value === null).length;
-  const statsTooFew = chosen.stats.length < MIN_ACCEPTABLE_RIVEN_STATS;
-  if ((remainingNulls > 0 || statsTooFew) && tessEagerPromise && !_ocrAborted && _scanGeneration === myGeneration) {
-    if (label) {
-      log.log(
-        `[RivenScan] ${label} native result has ${remainingNulls} null value(s) / ${chosen.stats.length} stats — awaiting parallel Tesseract`,
-      );
+  // x-multiplier refinement: when the best candidate has multiplier stats with
+  // integer values (e.g. x1 instead of x1.3), search other candidates for the
+  // same stat with a more precise decimal value.  WinRT bright thresholds often
+  // lose the small ".3" decimal, but other strategies or Tesseract may read it.
+  const intMultSlots = chosen.stats
+    .map((s, i) => (s.multiplier && s.value !== null && Number.isInteger(s.value) ? i : -1))
+    .filter((i) => i >= 0);
+  if (intMultSlots.length > 0) {
+    const refined = chosen.stats.slice();
+    let refinedCount = 0;
+    for (const idx of intMultSlots) {
+      const statName = refined[idx].name.toLowerCase();
+      for (const candidate of results) {
+        if (candidate === chosen) continue;
+        const match = candidate.stats.find(
+          (cs) =>
+            cs.name.toLowerCase() === statName &&
+            cs.multiplier &&
+            cs.value !== null &&
+            !Number.isInteger(cs.value),
+        );
+        if (match) {
+          refined[idx] = { ...refined[idx], value: match.value, positive: match.positive };
+          refinedCount++;
+          break;
+        }
+      }
     }
-    const budgetRemainingMs = SCAN_BUDGET_MS - (Date.now() - scanStart);
-    try {
-      const tesseractCandidates = budgetRemainingMs > 0
-        ? await Promise.race([
-            tessEagerPromise,
-            sleep(budgetRemainingMs).then(() => [] as CandidateResult[]),
-          ])
-        : [];
-
-      // Pick best Tesseract candidate (first confident one wins, else highest score)
-      let bestTess: CandidateResult | null = null;
-      for (const tc of tesseractCandidates) {
-        if (!bestTess || tc.score > bestTess.score) bestTess = tc;
-      }
-
-      if (bestTess && bestTess.stats.length >= MIN_ACCEPTABLE_RIVEN_STATS) {
-        // If Tesseract alone gives a confident result better than native, use it outright
-        if (isConfidentEnough(bestTess, statsOnly) && bestTess.score > chosen.score) {
-          if (label) {
-            log.log(
-              `[RivenScan] Tesseract early-accept ${label}: score=${bestTess.score} > native=${chosen.score}`,
-            );
-          }
-          return {
-            text: bestTess.text,
-            titleText: bestTess.titleText,
-            footerText: bestTess.footerText,
-            stats: bestTess.stats,
-          };
-        }
-
-        // If Tesseract found a strictly better result by score+values, use it outright
-        const tessValues = bestTess.stats.filter((s) => s.value !== null).length;
-        const nativeValues = chosen.stats.filter((s) => s.value !== null).length;
-        if (bestTess.score > chosen.score && tessValues > nativeValues) {
-          if (label) {
-            log.log(
-              `[RivenScan] Tesseract ${label} outright better: score=${bestTess.score} values=${tessValues} vs native score=${chosen.score} values=${nativeValues}`,
-            );
-          }
-          return {
-            text: bestTess.text,
-            titleText: bestTess.titleText || chosen.titleText,
-            footerText: bestTess.footerText || chosen.footerText,
-            stats: bestTess.stats,
-          };
-        }
-
-        // Cross-engine injection: fill null slots from Tesseract values
-        nullSlots = chosen.stats
-          .map((s, i) => (s.value === null ? i : -1))
-          .filter((i) => i >= 0);
-        if (nullSlots.length > 0) {
-          const assignedValues = new Set(
-            chosen.stats.filter((s) => s.value !== null).map((s) => s.value as number),
-          );
-          // Match by stat name first — most reliable
-          const injected = chosen.stats.slice();
-          let injectedCount = 0;
-          for (const nullIdx of nullSlots) {
-            const statName = injected[nullIdx].name.toLowerCase();
-            const tessMatch = bestTess.stats.find(
-              (ts) => ts.name.toLowerCase() === statName && ts.value !== null,
-            );
-            if (tessMatch && !assignedValues.has(tessMatch.value!)) {
-              injected[nullIdx] = {
-                ...injected[nullIdx],
-                value: tessMatch.value,
-                positive: tessMatch.positive,
-                ...(tessMatch.multiplier && { multiplier: true }),
-              };
-              assignedValues.add(tessMatch.value!);
-              injectedCount++;
-            }
-          }
-
-          // Fall back to orphan % values from Tesseract text for any remaining nulls
-          if (injectedCount < nullSlots.length) {
-            const orphanValues: Array<{ value: number; positive: boolean; multiplier?: boolean }> = [];
-            for (const tc of tesseractCandidates) {
-              const cleaned = preprocessOcrText(tc.text || "");
-              for (const match of cleaned.matchAll(/x\s*(\d+\.?\d*)/gi)) {
-                const v = parseFloat(match[1]);
-                if (!Number.isFinite(v) || v <= 0) continue;
-                if (assignedValues.has(v)) continue;
-                if (orphanValues.some((o) => Math.abs(o.value - v) < 0.05)) continue;
-                orphanValues.push({ value: v, positive: v >= 1, multiplier: true });
-              }
-              for (const match of cleaned.matchAll(/([+\-])\s*(\d+\.?\d*)\s*%/g)) {
-                const v = parseFloat(match[2]);
-                if (!Number.isFinite(v) || v <= 0) continue;
-                if (assignedValues.has(v)) continue;
-                if (orphanValues.some((o) => Math.abs(o.value - v) < 0.5)) continue;
-                orphanValues.push({ value: v, positive: match[1] !== "-" });
-              }
-            }
-            let orphanIdx = 0;
-            const remainingNullIdxs = nullSlots.filter((i) => injected[i].value === null);
-            for (const nullIdx of remainingNullIdxs) {
-              if (orphanIdx >= orphanValues.length) break;
-              injected[nullIdx] = {
-                ...injected[nullIdx],
-                value: orphanValues[orphanIdx].value,
-                positive: orphanValues[orphanIdx].positive,
-                ...(orphanValues[orphanIdx].multiplier && { multiplier: true }),
-              };
-              assignedValues.add(orphanValues[orphanIdx].value);
-              orphanIdx++;
-              injectedCount++;
-            }
-          }
-
-          if (label && injectedCount > 0) {
-            log.log(
-              `[RivenScan] cross-engine injected ${injectedCount} value(s) from Tesseract into native result`,
-            );
-          }
-          if (injectedCount > 0) {
-            return {
-              text: chosen.text,
-              titleText: chosen.titleText,
-              footerText: chosen.footerText,
-              stats: injected,
-            };
-          }
-        }
-      }
-    } catch (tessErr) {
-      // Tesseract fallback is optional — never block on failure
+    if (refinedCount > 0) {
       if (label) {
-        log.log(`[RivenScan] Tesseract await failed: ${String(tessErr)}`);
+        log.log(
+          `[RivenScan] refined ${refinedCount} integer x-multiplier(s) with decimal values from alternate strategy`,
+        );
       }
+      chosen = { ...chosen, stats: refined };
     }
   }
 
@@ -929,14 +749,7 @@ export function abortRivenScans(): void {
 export function resetRivenScanAbort(): void {
   _ocrAborted = false;
   resetRivenScanWaits();
-  // Kick off the persistent Tesseract WASM worker so it is ready before the
-  // first native scan finishes and potentially needs the cross-engine fallback.
-  // getTesseractWorker() is idempotent — this is a no-op when startup already
-  // completed the init; it only pays off if the app just started or the worker
-  // was never successfully initialised.
-  if (tesseractWorkerAvailable) {
-    getTesseractWorker(); // fire-and-forget; errors are swallowed inside _initTesseractWorker
-  }
+  paddleOcrServer.warmup();
 }
 
 export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialScanResult> {
@@ -1065,7 +878,8 @@ export async function scanNewRoll(expectedWeaponName = "", skipGate = true): Pro
       ROLL_CARD_CROP,
       "roll-right",
       expectedWeaponName,
-      true,
+      true,  // statsOnly
+      true,  // isMultipanel
     );
     log.log(
       `[RivenScan] roll scan: right=${rightResult.stats.length} stats, elapsed=${Date.now() - startAt}ms`,
@@ -1090,7 +904,8 @@ export async function scanNewRoll(expectedWeaponName = "", skipGate = true): Pro
           ROLL_CARD_CROP,
           "roll-right-retry",
           expectedWeaponName,
-          true,
+          true,  // statsOnly
+          true,  // isMultipanel
         );
         log.log(
           `[RivenScan] roll-retry: right=${retryResult.stats.length} stats, elapsed=${Date.now() - startAt}ms`,

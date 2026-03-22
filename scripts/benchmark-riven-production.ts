@@ -4,7 +4,10 @@
  *
  * Mirrors ipc/overlay/rivenScan.ts `ocrCropMultiStrategy` exactly:
  *
- *   Phase 1 (Native): 3 enhancement strategies × rough crop (refined if coverage < 0.25)
+ *   Phase 0 (CRNN): ONNX variance-row-detect + custom CRNN recognizer (pure Node.js)
+ *     → fast path, no Python/WinRT dependency
+ *     → if >= MIN_ACCEPTABLE_RIVEN_STATS found, skip Phases 1+2 entirely
+ *   Phase 1 (Native/WinRT): 3 enhancement strategies × rough crop
  *     → early-accept if confident enough
  *     → cross-strategy value injection for null slots
  *   Phase 2 (Tesseract fallback): only when nulls remain or <2 stats
@@ -12,11 +15,14 @@
  *     → outright-better check, then cross-engine injection by stat name, then orphan values
  *
  * Reports per-image:
- *   - Native-only time, stat count, values, accuracy
+ *   - CRNN-only time, stat count, values, accuracy
+ *   - Native-only time (when CRNN fails), stat count, values, accuracy
  *   - Full pipeline time (native + tesseract when triggered), stat count, values, accuracy
  *
  * Usage:
  *   npx tsx scripts/benchmark-riven-production.ts
+ *   npx tsx scripts/benchmark-riven-production.ts --crnn-only   # CRNN path only (fastest)
+ *   npx tsx scripts/benchmark-riven-production.ts --skip-crnn   # WinRT+Tesseract only
  */
 
 import fs from "node:fs";
@@ -30,9 +36,16 @@ import {
   type RivenStat,
 } from "../ipc/overlay/rivenScanText.js";
 
+import { recognizeRivenCardLines } from "../services/rivenOcrOnnx.js";
+
+// ── CLI flags ────────────────────────────────────────────────────────────────
+const CRNN_ONLY = process.argv.includes("--crnn-only");
+const SKIP_CRNN = process.argv.includes("--skip-crnn");
+
 // ── Constants matching production ────────────────────────────────────────────
 const SINGLE_CARD_CROP = { x: 0.22, y: 0.43, width: 0.56, height: 0.45 };
-const ROLL_CARD_CROP = { x: 0.42, y: 0.35, width: 0.20, height: 0.45 };
+// Production ROLL_CARD_CROP (matches rivenScan.ts AlecaFrame math):
+const ROLL_CARD_CROP = { x: 0.411, y: 0.416, width: 0.177, height: 0.434 };
 const MIN_OCR_WIDTH = 1800;
 const MIN_ACCEPTABLE_RIVEN_STATS = 2;
 
@@ -196,6 +209,7 @@ async function enhance(img: RawImage, mode: EnhanceMode): Promise<Buffer> {
 
   const pixelCount = sw * sh;
   const mask = Buffer.alloc(pixelCount);
+
   for (let bi = 0, pi = 0; bi < rawBuf.length; bi += 4, pi++) {
     const maxC = Math.max(rawBuf[bi], rawBuf[bi + 1], rawBuf[bi + 2]);
     mask[pi] = maxC >= mode.threshold ? 1 : 0;
@@ -505,6 +519,32 @@ async function ocrCropMultiStrategy(
     }
   }
 
+  // x-multiplier refinement: prefer decimal values over integer for same stat.
+  const intMultSlots = chosen.stats
+    .map((s, i) => (s.multiplier && s.value !== null && Number.isInteger(s.value) ? i : -1))
+    .filter((i) => i >= 0);
+  if (intMultSlots.length > 0) {
+    const refined = chosen.stats.slice();
+    for (const idx of intMultSlots) {
+      const statName = refined[idx].name.toLowerCase();
+      for (const c of nativeResults) {
+        if (c === chosen) continue;
+        const match = c.stats.find(
+          (cs) =>
+            cs.name.toLowerCase() === statName &&
+            cs.multiplier &&
+            cs.value !== null &&
+            !Number.isInteger(cs.value),
+        );
+        if (match) {
+          refined[idx] = { ...refined[idx], value: match.value, positive: match.positive };
+          break;
+        }
+      }
+    }
+    chosen = { ...chosen, stats: refined };
+  }
+
   // Snapshot after native-only phase
   const nativeOnlyStats = chosen.stats.map((s) => ({ ...s }));
 
@@ -682,6 +722,15 @@ const GROUND_TRUTH: Record<
     { name: "Ammo Maximum", value: 67.9, positive: true },
     { name: "Status Chance", value: 115.9, positive: true },
   ],
+  "real_production_initial.png": [
+    { name: "Damage to Corpus", value: 1.3, positive: true, multiplier: true },
+    { name: "Damage to Grineer", value: 1.36, positive: true, multiplier: true },
+    { name: "Heat", value: 62.2, positive: true },
+    { name: "Impact", value: 68.4, positive: false },
+  ],
+  // real_production_rolling_multipanel.png is a mid-animation screenshot (values
+  // animating before final settle) — not suitable as a ground-truth accuracy target.
+  // The file stays in the corpus for visual/diagnostic use only.
 };
 
 function scoreAccuracy(
@@ -752,17 +801,19 @@ function scoreAccuracy(
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 (async () => {
-  if (!_nativeRecognize) {
-    console.error("ERROR: @napi-rs/system-ocr not available");
+  if (!CRNN_ONLY && !_nativeRecognize) {
+    console.error("ERROR: @napi-rs/system-ocr not available (use --crnn-only to skip WinRT)");
     process.exit(1);
   }
 
-  console.log("Initializing Tesseract.js persistent worker...");
-  _tessWorker = await initTesseractWorker();
-  if (_tessWorker) {
-    console.log("✓ Tesseract worker ready\n");
-  } else {
-    console.log("✗ Tesseract not available — running native-only\n");
+  if (!CRNN_ONLY) {
+    console.log("Initializing Tesseract.js persistent worker...");
+    _tessWorker = await initTesseractWorker();
+    if (_tessWorker) {
+      console.log("✓ Tesseract worker ready\n");
+    } else {
+      console.log("✗ Tesseract not available — running native-only\n");
+    }
   }
 
   const corpusDir = path.join(process.cwd(), "OCR-debug", "riven_images");
@@ -771,18 +822,30 @@ function scoreAccuracy(
     .filter((f) => /\.(png|jpg|jpeg)$/i.test(f))
     .sort();
 
-  console.log(`Riven OCR Benchmark — Full Production Pipeline (${files.length} images)`);
-  console.log(`Engines: Native (WinRT) + Tesseract.js fallback`);
+  const modeLabel = CRNN_ONLY
+    ? "CRNN only"
+    : SKIP_CRNN
+    ? "WinRT + Tesseract (no CRNN)"
+    : "CRNN → WinRT → Tesseract (full production)";
+
+  console.log(`Riven OCR Benchmark — ${modeLabel} (${files.length} images)`);
+  console.log(`Engines: ${SKIP_CRNN ? "" : "CRNN (ONNX) + "}${CRNN_ONLY ? "" : "Native (WinRT) + Tesseract.js"}`);
   console.log(`Strategies: original, bright-150+dilate, bright-120+dilate`);
   console.log("═".repeat(72));
 
   // Aggregates
+  let totalCrnnMs = 0;
   let totalNativeMs = 0;
   let totalTessMs = 0;
   let totalFullMs = 0;
   let totalTessParallelMs = 0;
   let totalTessWaitedMs = 0;
   let totalImages = 0;
+  let crnnSucceeded = 0;
+  let crnnSkippedNativeCount = 0;
+  let totalNamesCrnn = 0;
+  let totalValuesCrnn = 0;
+  let totalSignsCrnn = 0;
   let totalNamesNative = 0;
   let totalValuesNative = 0;
   let totalSignsNative = 0;
@@ -802,57 +865,136 @@ function scoreAccuracy(
     const img = await loadImage(fullPath);
     console.log(`  Image: ${img.width}×${img.height}`);
 
-    const result = await ocrCropMultiStrategy(img, crop, nativeOcr, file);
+    // ── Phase 0: CRNN fast path (mirrors production rivenScan.ts) ──────────
+    // For single-card: use narrow ROLL_CARD_CROP (AlecaFrame center strip) — the card
+    // is always centered on screen. For multipanel: use ROLL_CARD_CROP as before.
+    // Both paths pass isMultipanel=true to recognizeRivenCardLines since the narrow
+    // crop has the same layout regardless of game state.
+    let crnnStats: RivenStat[] = [];
+    let crnnMs = 0;
+    let crnnSkippedNative = false;
 
-    console.log(`\n  Native-only (${result.nativeMs}ms):`);
-    console.log(`    Stats: ${formatStats(result.nativeOnlyStats)}`);
-
-    if (result.tessTriggered) {
-      console.log(`  Tesseract parallel total: ${result.tessParallelTotalMs}ms | waited after native: ${result.tessWaitedMs}ms`);
-      console.log(`    Final: ${formatStats(result.stats)}`);
-    } else {
-      console.log(`  Tesseract: not needed (ran eagerly but result discarded)`);
+    if (!SKIP_CRNN) {
+      const crnnStart = Date.now();
+      try {
+        // Always use ROLL_CARD_CROP for CRNN — narrow center strip where variance
+        // row detection works reliably (matches production ocrCropMultiStrategy).
+        const crnnCrop = isMultipanel ? crop : ROLL_CARD_CROP;
+        const cardPng = await rawToPng(cropRgba(img, crnnCrop));
+        const crnnLines = await recognizeRivenCardLines(cardPng, /* isMultipanel */ true);
+        const crnnText = crnnLines.join("\n");
+        crnnStats = parseRivenStats(crnnText);
+        crnnMs = Date.now() - crnnStart;
+        const crnnValueCount = crnnStats.filter((s) => s.value !== null).length;
+        const crnnScore = scoreStatsCandidate(crnnStats, crnnText);
+        console.log(`\n  CRNN Phase 0 (${crnnMs}ms):`);
+        console.log(`    Lines: ${crnnLines.map((l) => `"${l}"`).join(", ")}`);
+        console.log(`    Stats: ${formatStats(crnnStats)}`);
+        console.log(`    Score: ${crnnScore}, Values: ${crnnValueCount}/${crnnStats.length}`);
+        // Mirror production confidence check: multipanel accepts at normal threshold,
+        // single-card requires strict score + value coverage.
+        const crnnConfident = isMultipanel
+          ? crnnStats.length >= MIN_ACCEPTABLE_RIVEN_STATS
+          : crnnStats.length >= MIN_ACCEPTABLE_RIVEN_STATS &&
+            crnnValueCount >= crnnStats.length &&
+            crnnScore >= 75;
+        if (crnnConfident) {
+          crnnSkippedNative = true;
+          crnnSkippedNativeCount++;
+          console.log(`    → CRNN confident (${crnnStats.length} stats, score=${crnnScore}) — would skip WinRT+Tesseract in production`);
+        } else if (crnnStats.length >= MIN_ACCEPTABLE_RIVEN_STATS) {
+          console.log(`    → CRNN found ${crnnStats.length} stats but not confident (score=${crnnScore}, values=${crnnValueCount}) — would fall through to WinRT`);
+        } else {
+          console.log(`    → CRNN sparse (${crnnStats.length} stats) — would fall through to WinRT`);
+        }
+        if (crnnStats.length >= MIN_ACCEPTABLE_RIVEN_STATS) crnnSucceeded++;
+      } catch (err) {
+        crnnMs = Date.now() - crnnStart;
+        console.log(`\n  CRNN Phase 0 FAILED (${crnnMs}ms): ${err}`);
+      }
+      totalCrnnMs += crnnMs;
     }
 
-    const fullMs = result.nativeMs + result.tessWaitedMs;
-    console.log(`  Total: ${fullMs}ms`);
+    // ── Phases 1+2: WinRT + Tesseract (skipped in production when CRNN succeeds) ──
+    let result: Awaited<ReturnType<typeof ocrCropMultiStrategy>> | null = null;
+    if (!CRNN_ONLY && (!crnnSkippedNative || !SKIP_CRNN)) {
+      result = await ocrCropMultiStrategy(img, crop, nativeOcr, file);
+
+      console.log(`\n  WinRT Phase 1 (${result.nativeMs}ms):`);
+      console.log(`    Stats: ${formatStats(result.nativeOnlyStats)}`);
+
+      if (result.tessTriggered) {
+        console.log(`  Tesseract parallel total: ${result.tessParallelTotalMs}ms | waited after native: ${result.tessWaitedMs}ms`);
+        console.log(`    Final: ${formatStats(result.stats)}`);
+      } else {
+        console.log(`  Tesseract: not needed (ran eagerly but result discarded)`);
+      }
+
+      const winrtFullMs = result.nativeMs + result.tessWaitedMs;
+      console.log(`  WinRT+Tess total: ${winrtFullMs}ms`);
+    }
+
+    // ── Effective result: CRNN if it succeeded (in production mode), else WinRT+Tess ──
+    const productionStats = (crnnSkippedNative && !SKIP_CRNN)
+      ? crnnStats
+      : (result?.stats ?? crnnStats);
+    const productionMs = (crnnSkippedNative && !SKIP_CRNN)
+      ? crnnMs
+      : crnnMs + (result ? result.nativeMs + result.tessWaitedMs : 0);
+
+    console.log(`\n  ► PRODUCTION RESULT (${productionMs}ms): ${formatStats(productionStats)}`);
 
     // Accuracy vs ground truth
     const gt = GROUND_TRUTH[file];
     if (gt) {
-      const nativeAcc = scoreAccuracy(result.nativeOnlyStats, gt);
-      const fullAcc = scoreAccuracy(result.stats, gt);
-
-      console.log(
-        `\n  Accuracy (native-only): ${nativeAcc.namesMatched}/${nativeAcc.totalExpected} names, ${nativeAcc.valuesMatched}/${nativeAcc.totalExpected} values, ${nativeAcc.signsMatched}/${nativeAcc.totalExpected} correct signs`,
-      );
-      for (const d of nativeAcc.details) console.log(`  ${d}`);
-
-      if (result.tessTriggered) {
+      if (!SKIP_CRNN) {
+        const crnnAcc = scoreAccuracy(crnnStats, gt);
         console.log(
-          `  Accuracy (full pipeline): ${fullAcc.namesMatched}/${fullAcc.totalExpected} names, ${fullAcc.valuesMatched}/${fullAcc.totalExpected} values, ${fullAcc.signsMatched}/${fullAcc.totalExpected} correct signs`,
+          `\n  Accuracy (CRNN): ${crnnAcc.namesMatched}/${crnnAcc.totalExpected} names, ${crnnAcc.valuesMatched}/${crnnAcc.totalExpected} values, ${crnnAcc.signsMatched}/${crnnAcc.totalExpected} correct signs`,
         );
-        for (const d of fullAcc.details) console.log(`  ${d}`);
+        for (const d of crnnAcc.details) console.log(`  ${d}`);
+        totalNamesCrnn += crnnAcc.namesMatched;
+        totalValuesCrnn += crnnAcc.valuesMatched;
+        totalSignsCrnn += crnnAcc.signsMatched;
       }
 
-      totalNamesNative += nativeAcc.namesMatched;
-      totalValuesNative += nativeAcc.valuesMatched;
-      totalSignsNative += nativeAcc.signsMatched;
-      totalNamesFull += fullAcc.namesMatched;
-      totalValuesFull += fullAcc.valuesMatched;
-      totalSignsFull += fullAcc.signsMatched;
-      totalExpected += nativeAcc.totalExpected;
+      if (result) {
+        const nativeAcc = scoreAccuracy(result.nativeOnlyStats, gt);
+        const fullAcc = scoreAccuracy(result.stats, gt);
+
+        console.log(
+          `\n  Accuracy (WinRT-only): ${nativeAcc.namesMatched}/${nativeAcc.totalExpected} names, ${nativeAcc.valuesMatched}/${nativeAcc.totalExpected} values`,
+        );
+        for (const d of nativeAcc.details) console.log(`   ${d}`);
+
+        if (result.tessTriggered) {
+          console.log(
+            `  Accuracy (WinRT+Tess): ${fullAcc.namesMatched}/${fullAcc.totalExpected} names, ${fullAcc.valuesMatched}/${fullAcc.totalExpected} values`,
+          );
+          for (const d of fullAcc.details) console.log(`   ${d}`);
+        }
+
+        totalNamesNative += nativeAcc.namesMatched;
+        totalValuesNative += nativeAcc.valuesMatched;
+        totalSignsNative += nativeAcc.signsMatched;
+        totalNamesFull += fullAcc.namesMatched;
+        totalValuesFull += fullAcc.valuesMatched;
+        totalSignsFull += fullAcc.signsMatched;
+      }
+      totalExpected += gt.length;
     } else {
       console.log("  (no ground truth for this image)");
     }
 
-    totalNativeMs += result.nativeMs;
-    totalTessMs += result.tessMs;
-    totalFullMs += result.nativeMs + result.tessWaitedMs;
-    totalTessParallelMs += result.tessParallelTotalMs;
-    totalTessWaitedMs += result.tessWaitedMs;
+    if (result) {
+      totalNativeMs += result.nativeMs;
+      totalTessMs += result.tessMs;
+      totalFullMs += result.nativeMs + result.tessWaitedMs;
+      totalTessParallelMs += result.tessParallelTotalMs;
+      totalTessWaitedMs += result.tessWaitedMs;
+      if (result.tessTriggered) tessTriggeredCount++;
+    }
     totalImages++;
-    if (result.tessTriggered) tessTriggeredCount++;
   }
 
   // Summary
@@ -860,28 +1002,46 @@ function scoreAccuracy(
   console.log("SUMMARY");
   console.log("═".repeat(72));
   console.log(`Images: ${totalImages}`);
-  console.log(`Tesseract triggered: ${tessTriggeredCount}/${totalImages} images`);
-  console.log();
-  console.log("Speed:");
-  console.log(`  Native-only avg:          ${Math.round(totalNativeMs / totalImages)}ms/image`);
-  if (tessTriggeredCount > 0) {
+
+  if (!SKIP_CRNN) {
+    console.log(`CRNN (Phase 0):`);
+    console.log(`  Succeeded (>=2 stats):   ${crnnSucceeded}/${totalImages} images`);
+    console.log(`  Would skip WinRT:         ${crnnSkippedNativeCount}/${totalImages} images`);
+    console.log(`  Avg time:                 ${Math.round(totalCrnnMs / totalImages)}ms/image`);
+  }
+
+  if (!CRNN_ONLY) {
+    console.log(`\nWinRT+Tesseract (Phases 1+2, when CRNN insufficient):`);
+    const winrtImages = totalImages - crnnSkippedNativeCount;
+    if (winrtImages > 0) {
+      console.log(`  Tesseract triggered:     ${tessTriggeredCount}/${winrtImages} WinRT-path images`);
+      console.log(`  WinRT avg:               ${Math.round(totalNativeMs / Math.max(1, winrtImages))}ms/image`);
+      if (tessTriggeredCount > 0) {
+        console.log(
+          `  Tesseract parallel avg:  ${Math.round(totalTessParallelMs / tessTriggeredCount)}ms (total wall when triggered)`,
+        );
+        console.log(
+          `  Tesseract waited avg:    ${Math.round(totalTessWaitedMs / tessTriggeredCount)}ms (extra wait after WinRT)`,
+        );
+      }
+      console.log(`  Full WinRT+Tess avg:     ${Math.round(totalFullMs / Math.max(1, winrtImages))}ms/image`);
+    }
+  }
+
+  console.log("\nAccuracy (vs ground truth):");
+  if (!SKIP_CRNN && totalExpected > 0) {
     console.log(
-      `  Tesseract parallel avg:   ${Math.round(totalTessParallelMs / tessTriggeredCount)}ms (total wall time when triggered)`,
-    );
-    console.log(
-      `  Tesseract waited avg:     ${Math.round(totalTessWaitedMs / tessTriggeredCount)}ms (extra wait AFTER native, savings vs sequential)`,
+      `  CRNN:       ${totalNamesCrnn}/${totalExpected} names (${((totalNamesCrnn / totalExpected) * 100).toFixed(0)}%), ${totalValuesCrnn}/${totalExpected} values (${((totalValuesCrnn / totalExpected) * 100).toFixed(0)}%)`,
     );
   }
-  console.log(`  Full pipeline avg:        ${Math.round(totalFullMs / totalImages)}ms/image (native + wait)`);
-  console.log(`  [NOTE] Compare with pre-optimization baseline (864ms/image) and post-buffer-changes baseline (779ms/image)`);
-  console.log();
-  console.log("Accuracy (vs ground truth):");
-  console.log(
-    `  Native-only: ${totalNamesNative}/${totalExpected} names (${((totalNamesNative / totalExpected) * 100).toFixed(0)}%), ${totalValuesNative}/${totalExpected} values (${((totalValuesNative / totalExpected) * 100).toFixed(0)}%), ${totalSignsNative}/${totalExpected} correct signs (${((totalSignsNative / totalExpected) * 100).toFixed(0)}%)`,
-  );
-  console.log(
-    `  Full pipeline: ${totalNamesFull}/${totalExpected} names (${((totalNamesFull / totalExpected) * 100).toFixed(0)}%), ${totalValuesFull}/${totalExpected} values (${((totalValuesFull / totalExpected) * 100).toFixed(0)}%), ${totalSignsFull}/${totalExpected} correct signs (${((totalSignsFull / totalExpected) * 100).toFixed(0)}%)`,
-  );
+  if (!CRNN_ONLY && totalExpected > 0) {
+    console.log(
+      `  WinRT-only: ${totalNamesNative}/${totalExpected} names (${((totalNamesNative / totalExpected) * 100).toFixed(0)}%), ${totalValuesNative}/${totalExpected} values (${((totalValuesNative / totalExpected) * 100).toFixed(0)}%)`,
+    );
+    console.log(
+      `  WinRT+Tess: ${totalNamesFull}/${totalExpected} names (${((totalNamesFull / totalExpected) * 100).toFixed(0)}%), ${totalValuesFull}/${totalExpected} values (${((totalValuesFull / totalExpected) * 100).toFixed(0)}%)`,
+    );
+  }
 
   // Machine-readable summary line for easy before/after comparison
   const summary = {
