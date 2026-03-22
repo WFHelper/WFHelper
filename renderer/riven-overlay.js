@@ -229,7 +229,7 @@ function renderStats(stats) {
 /** State: current stat names (lowercase) for best-attribute matching. */
 let _currentStatNamesLc = [];
 
-function renderOverallGrade(attributeGrade, assumedLevel) {
+function renderOverallGrade(attributeGrade) {
   const wrapper = el("overall-grade");
   const badge = el("overall-grade-badge");
   if (!wrapper || !badge) return;
@@ -240,8 +240,7 @@ function renderOverallGrade(attributeGrade, assumedLevel) {
   }
 
   badge.className = "attr-grade-badge attr-grade-" + attributeGrade.toLowerCase();
-  badge.textContent =
-    assumedLevel == null ? attributeGrade : attributeGrade + " · r" + assumedLevel;
+  badge.textContent = attributeGrade;
   wrapper.classList.remove("is-hidden");
 }
 
@@ -252,9 +251,9 @@ function renderOverallGrade(attributeGrade, assumedLevel) {
  */
 function applyGradingToStats(gradingResult) {
   if (!gradingResult) return;
-  const { stats, attributeGrade, assumedLevel } = gradingResult;
+  const { stats, attributeGrade } = gradingResult;
 
-  renderOverallGrade(attributeGrade, assumedLevel);
+  renderOverallGrade(attributeGrade);
 
   if (!Array.isArray(stats)) return;
 

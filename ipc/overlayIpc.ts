@@ -274,22 +274,7 @@ let _rivenWeaponName = "";
  */
 function tryGradeStats(stats: rivenScan.RivenStat[]): rivenGrading.RivenGradeResult | null {
   if (!_rivenWeaponName || _rivenWeaponName === "Riven" || stats.length === 0) return null;
-  return (
-    [
-      rivenGrading.gradeRiven(_rivenWeaponName, stats, { level: 0 }),
-      rivenGrading.gradeRiven(_rivenWeaponName, stats, { level: 8 }),
-    ]
-      .filter((candidate): candidate is rivenGrading.RivenGradeResult => !!candidate)
-      .sort((a, b) => {
-        const aClamped = a.stats.filter(
-          (stat) => stat.value != null && (stat.rollFloat <= 0 || stat.rollFloat >= 1),
-        ).length;
-        const bClamped = b.stats.filter(
-          (stat) => stat.value != null && (stat.rollFloat <= 0 || stat.rollFloat >= 1),
-        ).length;
-        return aClamped - bClamped;
-      })[0] || null
-  );
+  return rivenGrading.gradeRiven(_rivenWeaponName, stats);
 }
 
 function scoreRivenStatSimilarity(

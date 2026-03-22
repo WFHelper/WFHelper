@@ -47,7 +47,6 @@ export interface RivenGradeResult {
   overallGrade: string;
   /** Attribute-based riven quality: "Great" | "Good" | "OK" | "Bad" */
   attributeGrade: string;
-  assumedLevel: number | null;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -262,7 +261,6 @@ function computeAttributeGrade(
 export function gradeRiven(
   weaponName: string,
   stats: { name: string; positive: boolean; value: number | null; multiplier?: boolean }[],
-  options: { level?: number | null } = {},
 ): RivenGradeResult | null {
   if (!stats || stats.length === 0) return null;
 
@@ -281,7 +279,7 @@ export function gradeRiven(
   // Count buffs and curses
   const numBuffs = stats.filter((s) => s.positive).length;
   const numCurses = stats.filter((s) => !s.positive).length;
-  const assumedLevel = Number.isFinite(options.level) ? Number(options.level) : DEFAULT_LVL;
+  const assumedLevel = DEFAULT_LVL;
 
   const gradedStats: GradedStat[] = [];
   let scoreSum = 0;
@@ -383,5 +381,5 @@ export function gradeRiven(
   const isShotgun = rivenData.isWeaponShotgun(weaponName);
   const attributeGrade = computeAttributeGrade(stats, weaponCategory, isShotgun);
 
-  return { stats: gradedStats, overallGrade, attributeGrade, assumedLevel };
+  return { stats: gradedStats, overallGrade, attributeGrade };
 }

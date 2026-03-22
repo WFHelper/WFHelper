@@ -323,6 +323,9 @@ function buildOrderedCandidates(
 
 function isConfidentEnough(result: CandidateResult, statsOnly = false): boolean {
   if (result.score < 0) return false;
+  // Fix 2: never early-accept when there are null values — allow the next strategy
+  // (bright-120+dilate) to attempt recovery before committing to an incomplete result.
+  if (result.stats.some((s) => s.value === null)) return false;
   if (result.stats.length >= 4 && result.valueCount >= 3 && result.score >= 75) return true;
   if (result.stats.length >= 3 && result.valueCount >= 3 && result.score >= 85) return true;
   if (result.stats.length === 2 && result.valueCount === 2 && result.score >= 55) return true;
@@ -495,6 +498,20 @@ async function ocrCropMultiStrategy(
     const cropVariant = cropVariants.find((variant) => variant.id === plan.cropId);
     if (!cropVariant) continue;
 
+    // Fix 1: skip "original" for rough crops when the animated background score is high.
+    // The Kuva portal animation floods the crop with colour noise that overwhelms WinRT's
+    // text-block detector, producing 0 stats at the cost of ~280 ms. bright+dilate
+    // strategies are unaffected because they threshold-mask the animated background away.
+    if (plan.mode.kind === "original" && plan.cropId === "rough" &&
+        cropVariant.metrics.coverage > 0.25) {
+      if (label) {
+        log.log(
+          `[RivenScan] skip rough:original (coverage=${cropVariant.metrics.coverage.toFixed(3)}>0.25)`,
+        );
+      }
+      continue;
+    }
+
     const modeLabel =
       plan.mode.kind === "original"
         ? `${cropVariant.id}:original`
@@ -561,11 +578,15 @@ async function ocrCropMultiStrategy(
     if (Date.now() - scanStart >= SCAN_BUDGET_MS) break;
 
     // Diminishing returns: after 2 candidates, if the best so far has sufficient
-    // data (2+ stats with 2+ values), stop — bright-mode variants rarely improve
-    // a decent original-mode read and add 300-500ms per additional OCR call.
+    // data (2+ stats with 2+ values) AND no null values, stop — bright-mode
+    // variants rarely improve a complete read and add 300-500ms per call.
+    // Fix 2: do NOT break when there are null values; allow the next strategy
+    // (bright-120+dilate) to attempt recovery of element-stat values that
+    // bright-150 misses (e.g. green Electricity, orange Heat on Kuva portals).
     if (results.length >= 2) {
       const bestSoFar = results.reduce((a, b) => (b.score > a.score ? b : a));
       if (
+        !bestSoFar.stats.some((s) => s.value === null) &&
         bestSoFar.stats.length >= 2 &&
         bestSoFar.valueCount >= 2 &&
         bestSoFar.score >= 20
@@ -663,6 +684,11 @@ async function ocrCropMultiStrategy(
   if (chosen.stats.length < 2 || hasNullValues || (!statsOnly && !chosen.titleText)) {
     const bestCropVariant = cropVariants.find((v) => v.id === chosen.cropId);
     const bestMode = (() => {
+      // Fix 2: for null-value recovery, always prefer bright-120+dilate.
+      // Elemental stat values (green Electricity, orange Heat over the Kuva portal)
+      // sit below the bright-150 threshold but above bright-120, so the default
+      // mode derived from the winning strategy would reproduce the same null.
+      if (hasNullValues) return ENHANCE_STRATEGIES[2]; // bright-120+dilate
       const ml = chosen.modeLabel;
       if (ml.includes("original")) return ENHANCE_STRATEGIES[0];
       if (ml.includes("bright-150")) return ENHANCE_STRATEGIES[1];

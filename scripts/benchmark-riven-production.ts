@@ -154,6 +154,37 @@ function cropRgba(
   return { data: out, width: cw, height: ch };
 }
 
+/**
+ * Approximate coverage proxy (mirrors analyzeRivenTextMetrics coverage).
+ * Samples a 32x32 grid of the crop luma. "Active" = luma >= 60 (non-black pixel).
+ * Returns fraction of active cells. > 0.25 approximates animated Kuva portal.
+ *
+ * This is NOT identical to the production Sobel-based metric but is close enough
+ * to replicate the Fix-1 skip decision for the benchmark corpus.
+ */
+function computeRoughCoverage(img: RawImage): number {
+  const GRID = 32;
+  const xStep = Math.max(1, Math.floor(img.width / GRID));
+  const yStep = Math.max(1, Math.floor(img.height / GRID));
+  let active = 0;
+  let total = 0;
+  for (let gy = 0; gy < GRID; gy++) {
+    for (let gx = 0; gx < GRID; gx++) {
+      const px = Math.min(gx * xStep, img.width - 1);
+      const py = Math.min(gy * yStep, img.height - 1);
+      const off = (py * img.width + px) * 4;
+      const r = img.data[off];
+      const g = img.data[off + 1];
+      const b = img.data[off + 2];
+      // luma (Rec.601)
+      const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+      if (luma >= 60) active++;
+      total++;
+    }
+  }
+  return total > 0 ? active / total : 0;
+}
+
 function cropAbsoluteRgba(
   img: RawImage,
   bounds: { left: number; top: number; width: number; height: number },
@@ -267,6 +298,9 @@ interface CandidateResult {
 
 function isConfidentEnough(c: CandidateResult, statsOnly = false): boolean {
   if (c.score < 0) return false;
+  // Fix 2: never early-accept when there are null values — allow the next strategy
+  // (bright-120+dilate) to attempt recovery before committing to an incomplete result.
+  if (c.stats.some((s) => s.value === null)) return false;
   if (c.stats.length >= 4 && c.valueCount >= 3 && c.score >= 75) return true;
   if (c.stats.length >= 3 && c.valueCount >= 3 && c.score >= 85) return true;
   if (!statsOnly && c.stats.length === 2 && c.valueCount === 2 && c.score >= 55) return true;
@@ -365,6 +399,15 @@ async function ocrCropMultiStrategy(
 
   const roughCrop = cropRgba(image, rect);
 
+  // Fix 1: compute approximate coverage to decide whether to skip "original".
+  // > 0.25 indicates animated background (Kuva portal) where original wastes ~280ms.
+  // NOTE: This value is computed but NOT used to skip original in the benchmark.
+  // The production Sobel-based coverage is much more accurate; the luma proxy here
+  // over-fires on multipanel/narrow crops causing false regressions. We report it
+  // for diagnostic purposes only.
+  const roughCoverage = computeRoughCoverage(roughCrop);
+  void roughCoverage; // diagnostic only
+
   // Build crop variants (rough only — refined crop depends on Sobel card detection
   // which uses NativeImage internals. In production, refined is skipped when coverage >= 0.25)
   const cropVariants: Array<{ id: string; image: RawImage }> = [
@@ -403,6 +446,7 @@ async function ocrCropMultiStrategy(
     try {
       const nOcr0 = Date.now();
       const cacheKey = modeLabel;
+
       let enhancedPng = enhanceCache.get(cacheKey);
       if (!enhancedPng) {
         enhancedPng = await enhance(cv.image, plan.mode);
@@ -444,13 +488,29 @@ async function ocrCropMultiStrategy(
       // Hard budget: stop native loop if budget exhausted.
       if (Date.now() - scanStart >= SCAN_BUDGET_MS) break;
 
-      // Diminishing returns: after 2 candidates, if the best so far has sufficient
-      // data (2+ stats with 2+ values, score ≥20), stop — mirrors production.
+      // Diminishing returns: after 2 candidates, stop only when best has NO null
+      // values. Fix 2: do NOT break when best still has nulls — allow bright-120+dilate
+      // to attempt recovery of element-stat values (green Electricity, orange Heat)
+      // that bright-150 masks out. This mirrors production rivenScan.ts after the fix.
       if (nativeResults.length >= 2) {
         const bestSoFar = nativeResults.reduce((a, b) => (b.score > a.score ? b : a));
-        if (bestSoFar.stats.length >= 2 && bestSoFar.valueCount >= 2 && bestSoFar.score >= 20) {
+        if (
+          !bestSoFar.stats.some((s) => s.value === null) &&
+          bestSoFar.stats.length >= 2 && bestSoFar.valueCount >= 2 && bestSoFar.score >= 20
+        ) {
           console.log(`    [diminishing-returns] sufficient after ${nativeResults.length} candidates: score=${bestSoFar.score} stats=${bestSoFar.stats.length}`);
           break;
+        } else if (nativeResults.length >= 2 && bestSoFar.stats.some((s) => s.value === null)) {
+          // Log that we're continuing due to null values (diagnostic only)
+          if (nativeResults.length === 2) {
+            console.log(`    [null-aware] best has null values — continuing to bright-120+dilate`);
+          }
+        } else if (nativeResults.length >= 3) {
+          // After 3+ candidates, normal diminishing returns applies even with nulls
+          if (bestSoFar.stats.length >= 2 && bestSoFar.valueCount >= 2 && bestSoFar.score >= 20) {
+            console.log(`    [diminishing-returns] sufficient after ${nativeResults.length} candidates: score=${bestSoFar.score} stats=${bestSoFar.stats.length}`);
+            break;
+          }
         }
       }
 

@@ -711,16 +711,9 @@ export function scoreStatsCandidate(
     const validation = validateRivenStats(effectiveWeapon, stats);
     score -= validation.invalidNames.length * 6;
 
-    const gradingCandidates = [
-      rivenGrading.gradeRiven(effectiveWeapon, stats, { level: 0 }),
-      rivenGrading.gradeRiven(effectiveWeapon, stats, { level: 8 }),
-    ]
-      .filter((candidate): candidate is NonNullable<typeof candidate> => !!candidate)
-      .sort((a, b) => computeGradingPenalty([b]) - computeGradingPenalty([a]));
-
-    const graded = gradingCandidates[0] || null;
+    const graded = rivenGrading.gradeRiven(effectiveWeapon, stats) || null;
     if (graded) {
-      score += computeGradingPenalty(gradingCandidates);
+      score += computeGradingPenalty([graded]);
       score += computeSuffixMatchScore(titleText || rawText, effectiveWeapon, stats);
     } else {
       score -= 10;
