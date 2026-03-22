@@ -213,8 +213,8 @@ const OCR_SCRIPT = path.join(__dirname, "..", "scripts", "ocr.ps1");
 const TEMP_IMAGE = path.join(os.tmpdir(), "wf-companion-reward-ocr.png");
 const TEMP_ERA_IMAGE = path.join(os.tmpdir(), "wf-companion-era-ocr.png");
 
-const REWARD_SCAN_BUDGET_MIN_MS = 2500;
-const REWARD_SCAN_BUDGET_MAX_MS = 9000;
+const REWARD_SCAN_BUDGET_MIN_MS = 1800;
+const REWARD_SCAN_BUDGET_MAX_MS = 5000;
 
 // --- OCR engine constants ---------------------------------------------------
 
@@ -426,10 +426,10 @@ function buildTempImagePath(basePath: string, label: string): string {
 
 function computeRewardScanBudgetMs(): number {
   const passes = Math.max(1, Math.floor(scanSettings.ocrPasses || 1));
-  const perAttempt = Math.max(700, Math.min(Number(scanSettings.ocrTimeoutMs) || 0, 2500));
+  const perAttempt = Math.max(500, Math.min(Number(scanSettings.ocrTimeoutMs) || 0, 2000));
   return Math.max(
     REWARD_SCAN_BUDGET_MIN_MS,
-    Math.min(REWARD_SCAN_BUDGET_MAX_MS, 1200 + passes * 700 + perAttempt),
+    Math.min(REWARD_SCAN_BUDGET_MAX_MS, 800 + passes * 500 + perAttempt),
   );
 }
 
@@ -913,7 +913,7 @@ export async function scanRewardsDetailed(
   let bestPass: any = null;
   let slotFirstResult: Awaited<ReturnType<typeof scanRewardSlotsFallback>> | null = null;
 
-  if (detectedLayout.count >= 2 && detectedLayout.confidence >= 0.45) {
+  if (detectedLayout.count >= 2 && detectedLayout.confidence >= 0.38) {
     slotFirstResult = await scanRewardSlotsFallback(
       screenshot,
       expectedItemCount,

@@ -265,11 +265,11 @@ interface CandidateResult {
   cropId: string;
 }
 
-function isConfidentEnough(c: CandidateResult): boolean {
+function isConfidentEnough(c: CandidateResult, statsOnly = false): boolean {
   if (c.score < 0) return false;
   if (c.stats.length >= 4 && c.valueCount >= 3 && c.score >= 75) return true;
   if (c.stats.length >= 3 && c.valueCount >= 3 && c.score >= 85) return true;
-  if (c.stats.length === 2 && c.valueCount === 2 && c.score >= 55) return true;
+  if (!statsOnly && c.stats.length === 2 && c.valueCount === 2 && c.score >= 55) return true;
   return false;
 }
 
@@ -323,7 +323,7 @@ async function runTesseractCandidatesBenchmark(
         const split = splitRivenStructuredText(structured);
         const stats = parseRivenStats(split.statsText || text || "");
         const valueCount = stats.filter((s) => s.value !== null).length;
-        const score = scoreStatsCandidate(stats, text);
+        const score = scoreStatsCandidate(stats, text, "", "");
         console.log(
           `    [${modeLabel}] ${tOcr1 - tOcr0}ms → ${stats.length} stats, ${valueCount} values (score=${score})`,
         );
@@ -414,7 +414,8 @@ async function ocrCropMultiStrategy(
       const split = splitRivenStructuredText(structured);
       const stats = parseRivenStats(split.statsText || text || "");
       const valueCount = stats.filter((s) => s.value !== null).length;
-      const score = scoreStatsCandidate(stats, text);
+      // Pass empty weaponName + titleText to exercise validateRivenStats path (matches production).
+      const score = scoreStatsCandidate(stats, text, "", "");
       console.log(
         `    [${modeLabel}] ${nOcr1 - nOcr0}ms → ${stats.length} stats, ${valueCount} values (score=${score})`,
       );
@@ -442,6 +443,16 @@ async function ocrCropMultiStrategy(
 
       // Hard budget: stop native loop if budget exhausted.
       if (Date.now() - scanStart >= SCAN_BUDGET_MS) break;
+
+      // Diminishing returns: after 2 candidates, if the best so far has sufficient
+      // data (2+ stats with 2+ values, score ≥20), stop — mirrors production.
+      if (nativeResults.length >= 2) {
+        const bestSoFar = nativeResults.reduce((a, b) => (b.score > a.score ? b : a));
+        if (bestSoFar.stats.length >= 2 && bestSoFar.valueCount >= 2 && bestSoFar.score >= 20) {
+          console.log(`    [diminishing-returns] sufficient after ${nativeResults.length} candidates: score=${bestSoFar.score} stats=${bestSoFar.stats.length}`);
+          break;
+        }
+      }
 
       if (isConfidentEnough(result)) {
         earlyAccept = result;

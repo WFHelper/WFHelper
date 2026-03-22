@@ -3,22 +3,12 @@
 /**
  * rivenOcrOnnx.ts
  * ---------------
- * ONNX-based riven text RECOGNIZER for the custom-trained CRNN model.
+ * ONNX-based riven text RECOGNIZER for a custom-trained CRNN model.
  * This is the post-training drop-in for the recognition stage only.
- * Text DETECTION still runs through paddleOcrServer (PP-OCRv4 det model).
  *
- * Architecture:
- *   paddleOcrServer detects bounding boxes  →  crop each box  →  recognizeRivenCrop()
- *
- * How to activate after training:
- *   1. Generate data:   python scripts/train-paddleocr/generate_dataset.py --n 20000
- *   2. Train:           python scripts/train-paddleocr/train.py --gpu --epochs 150
- *   3. Export ONNX:     python scripts/train-paddleocr/train.py --export-only
- *      Outputs: scripts/train-paddleocr/output/riven_rec.onnx
- *               scripts/train-paddleocr/output/riven_rec_vocab.json
- *   4. Install runtime: npm install onnxruntime-node
- *   5. In rivenScan.ts, call recognizeRivenCrop(paddleCropBuffer) instead of
- *      letting paddleOcrServer do recognition.
+ * NOTE: The ONNX model was destroyed during retraining; this module is
+ * currently inert (`rivenOcrOnnxAvailable()` returns false).  The riven OCR
+ * pipeline now uses the WinRT/Tesseract engine chain from rewardScannerOcr.
  *
  * Model specs:
  *   Input:  float32 [1, 1, 32, W]   grayscale, H=32, W=dynamic, values in [-1,1] (x/127.5-1)

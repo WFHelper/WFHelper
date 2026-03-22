@@ -1,13 +1,13 @@
 "use strict";
 
 /**
- * Electron screen / window capture helpers for reward scanning.
- * Isolates all `require("electron")` calls for desktopCapturer and screen.
+ * Screen capture helpers for reward and riven scanning.
+ * Uses GDI BitBlt via koffi as the sole capture method.
  */
 
 import { withScope } from "./logger";
 import { clampNumber } from "./rewardScannerUtils";
-import { captureDxgi, captureGdi, isDxgiAvailable } from "./dxgiCapture";
+import { captureGdi } from "./dxgiCapture";
 const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
   normalizeErrorMessage: (err: any) => string;
 };
@@ -198,187 +198,43 @@ export interface CaptureResult {
 }
 
 /**
- * Fast screen-only capture: DXGI Desktop Duplication (~2-10 ms) with an
- * electron desktopCapturer screen source as fallback.
+ * Fast screen-only capture via GDI BitBlt (~15-50 ms).
  *
- * Skips the window `getSources` call entirely — use this everywhere the
- * Warframe window capture is not desired (riven overlay, reward scanner,
- * readiness gates). Replaces the verbose
- * `captureScreen({ preferScreenCapture: true, preferredDisplayId })` pattern.
+ * The `_dxgiTimeoutMs` parameter is accepted for API compatibility but
+ * ignored — GDI always returns current screen content.
  */
 export async function captureScreenFast(
   preferredDisplayId?: string | null,
-  dxgiTimeoutMs = 0,
+  _dxgiTimeoutMs = 0,
 ): Promise<CaptureResult | null> {
-  // When a fresh frame is explicitly requested (timeout > 0), use GDI capture
-  // first — it always returns current screen content even when Multi-Plane
-  // Overlay (MPO) causes DXGI Desktop Duplication to return stale cached frames.
-  if (dxgiTimeoutMs > 0) {
-    try {
-      const gdiResult = captureGdi(preferredDisplayId || null);
-      if (gdiResult) {
-        const { nativeImage: electronNativeImage } =
-          require("electron") as typeof import("electron");
-        const img = electronNativeImage.createFromBitmap(gdiResult.buffer, {
-          width: gdiResult.width,
-          height: gdiResult.height,
-        });
-        if (img && !img.isEmpty()) {
-          return {
-            image: img,
-            sourceType: "screen",
-            sourceName: "GDI BitBlt",
-            sourceId: `gdi:${gdiResult.displayId || "0"}`,
-            sourceDisplayId: gdiResult.displayId || "",
-          };
-        }
-      }
-    } catch (err) {
-      log.warn("[RewardScanner] GDI capture failed, falling back to DXGI:", normalizeErrorMessage(err));
-    }
-  }
-
-  // DXGI Desktop Duplication — ~2-10 ms when available
-  if (isDxgiAvailable()) {
-    try {
-      const dxgiResult = captureDxgi(dxgiTimeoutMs, preferredDisplayId || null);
-      if (dxgiResult) {
-        const { nativeImage: electronNativeImage } =
-          require("electron") as typeof import("electron");
-        const img = electronNativeImage.createFromBitmap(dxgiResult.buffer, {
-          width: dxgiResult.width,
-          height: dxgiResult.height,
-        });
-        if (img && !img.isEmpty()) {
-          return {
-            image: img,
-            sourceType: "screen",
-            sourceName: "DXGI Desktop Duplication",
-            sourceId: `dxgi:${dxgiResult.displayId || "0"}`,
-            sourceDisplayId: dxgiResult.displayId || "",
-          };
-        }
-      }
-    } catch (err) {
-      log.warn("[RewardScanner] DXGI capture failed, falling back:", normalizeErrorMessage(err));
-    }
-  }
-
-  // Fallback: electron desktopCapturer screen source (~100-300 ms)
-  let desktopCapturer: any;
   try {
-    ({ desktopCapturer } = require("electron") as typeof import("electron"));
-  } catch {
-    log.warn("[RewardScanner] electron.desktopCapturer unavailable");
-    return null;
-  }
-
-  const thumbnailSize = getCaptureThumbnailSize(preferredDisplayId || null);
-  try {
-    const screens = await desktopCapturer.getSources({ types: ["screen"], thumbnailSize });
-    const pickedScreen = pickScreenSource(screens, { preferredDisplayId });
-    if (pickedScreen && pickedScreen.thumbnail && !pickedScreen.thumbnail.isEmpty()) {
-      return {
-        image: pickedScreen.thumbnail,
-        sourceType: "screen",
-        sourceName: sourceName(pickedScreen),
-        sourceId: String(pickedScreen.id || ""),
-        sourceDisplayId: String(pickedScreen.display_id || ""),
-      };
+    const gdiResult = captureGdi(preferredDisplayId || null);
+    if (gdiResult) {
+      const { nativeImage: electronNativeImage } =
+        require("electron") as typeof import("electron");
+      const img = electronNativeImage.createFromBitmap(gdiResult.buffer, {
+        width: gdiResult.width,
+        height: gdiResult.height,
+      });
+      if (img && !img.isEmpty()) {
+        return {
+          image: img,
+          sourceType: "screen",
+          sourceName: "GDI BitBlt",
+          sourceId: `gdi:${gdiResult.displayId || "0"}`,
+          sourceDisplayId: gdiResult.displayId || "",
+        };
+      }
     }
   } catch (err) {
-    log.warn("[RewardScanner] getSources(screen) failed:", normalizeErrorMessage(err));
+    log.warn("[RewardScanner] GDI capture failed:", normalizeErrorMessage(err));
   }
 
   return null;
 }
 
 export async function captureScreen(options: CaptureOptions = {}): Promise<CaptureResult | null> {
-  let desktopCapturer: any;
-  try {
-    ({ desktopCapturer } = require("electron") as typeof import("electron"));
-  } catch {
-    log.warn("[RewardScanner] electron.desktopCapturer unavailable");
-    return null;
-  }
-
-  let sources: any[];
-  const thumbnailSize = getCaptureThumbnailSize(options.preferredDisplayId || null);
-
-  // When the caller wants a screen source, skip the window getSources call entirely.
-  // It would be discarded anyway and costs ~300-600 ms per call.
-  if (options?.preferScreenCapture !== true) {
-    try {
-      sources = await desktopCapturer.getSources({
-        types: ["window"],
-        thumbnailSize,
-        fetchWindowIcons: false,
-      });
-    } catch (err) {
-      log.warn("[RewardScanner] getSources(window) failed:", normalizeErrorMessage(err));
-      sources = [];
-    }
-
-    const wfWindow = pickWindowSource(sources);
-    const skipWindowCapture = isLikelyWrongWindowName(sourceName(wfWindow || null));
-    if (!skipWindowCapture && wfWindow && wfWindow.thumbnail && !wfWindow.thumbnail.isEmpty()) {
-      return {
-        image: wfWindow.thumbnail,
-        sourceType: "window",
-        sourceName: sourceName(wfWindow),
-        sourceId: String(wfWindow.id || ""),
-        sourceDisplayId: String(wfWindow.display_id || ""),
-      };
-    }
-  }
-
-  // Try DXGI Desktop Duplication first — ~2-10 ms vs ~100-300 ms with
-  // desktopCapturer.getSources. Falls back transparently on failure.
-  if (isDxgiAvailable()) {
-    try {
-      const dxgiResult = captureDxgi(0, options.preferredDisplayId || null);
-      if (dxgiResult) {
-        const { nativeImage: electronNativeImage } = require("electron") as typeof import("electron");
-        const img = electronNativeImage.createFromBitmap(dxgiResult.buffer, {
-          width: dxgiResult.width,
-          height: dxgiResult.height,
-        });
-        if (img && !img.isEmpty()) {
-          return {
-            image: img,
-            sourceType: "screen",
-            sourceName: "DXGI Desktop Duplication",
-            sourceId: `dxgi:${dxgiResult.displayId || "0"}`,
-            sourceDisplayId: dxgiResult.displayId || "",
-          };
-        }
-      }
-    } catch (err) {
-      log.warn("[RewardScanner] DXGI capture failed, falling back:", normalizeErrorMessage(err));
-    }
-  }
-
-  try {
-    const screens = await desktopCapturer.getSources({
-      types: ["screen"],
-      thumbnailSize,
-    });
-
-    const pickedScreen = pickScreenSource(screens, options);
-    if (pickedScreen && pickedScreen.thumbnail && !pickedScreen.thumbnail.isEmpty()) {
-      return {
-        image: pickedScreen.thumbnail,
-        sourceType: "screen",
-        sourceName: sourceName(pickedScreen),
-        sourceId: String(pickedScreen.id || ""),
-        sourceDisplayId: String(pickedScreen.display_id || ""),
-      };
-    }
-  } catch (err) {
-    log.warn("[RewardScanner] getSources(screen) failed:", normalizeErrorMessage(err));
-  }
-
-  return null;
+  return captureScreenFast(options.preferredDisplayId || null);
 }
 
 export async function captureDebugFrame(options: CaptureOptions = {}): Promise<{

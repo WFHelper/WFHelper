@@ -1,7 +1,7 @@
 "use strict";
 
 import { captureScreenFast } from "../../services/rewardScannerCapture";
-import { cropRect } from "../../services/rewardScannerImage";
+import { cropRectContent, detectGameContentRect } from "../../services/rewardScannerImage";
 import { clamp01, computeMeanAndStd, sleep } from "../../services/rewardScannerUtils";
 
 interface TextBounds {
@@ -121,20 +121,17 @@ function findBounds(values: number[], threshold: number): { start: number; end: 
   return { start, end };
 }
 
-function analyzeRivenTextMetrics(nativeImage: any): RivenTextMetrics {
-  if (!nativeImage || typeof nativeImage.getSize !== "function") {
-    return {
-      score: 0,
-      coverage: 0,
-      activeRows: 0,
-      activeCols: 0,
-      rowGroups: 0,
-      bounds: null,
-    };
-  }
-
+/** Extract BGRA bitmap once; reuse across analyzeRivenTextMetrics / detectRivenCardFrame / computeRivenFrameHash. */
+export function getRivenBitmap(nativeImage: any): { bitmap: Buffer; width: number; height: number } | null {
+  if (!nativeImage || typeof nativeImage.getSize !== "function") return null;
   const { width, height } = nativeImage.getSize();
-  if (width < 24 || height < 24) {
+  if (width < 24 || height < 24) return null;
+  return { bitmap: nativeImage.toBitmap(), width, height };
+}
+
+function analyzeRivenTextMetrics(nativeImage: any, shared?: { bitmap: Buffer; width: number; height: number } | null): RivenTextMetrics {
+  const data = shared || getRivenBitmap(nativeImage);
+  if (!data) {
     return {
       score: 0,
       coverage: 0,
@@ -145,7 +142,7 @@ function analyzeRivenTextMetrics(nativeImage: any): RivenTextMetrics {
     };
   }
 
-  const bitmap: Buffer = nativeImage.toBitmap();
+  const { width, height, bitmap } = data;
   const sampleCols = Math.max(48, Math.min(width, 320));
   const sampleRows = Math.max(32, Math.min(height, 160));
   const stepX = Math.max(1, Math.floor(width / sampleCols));
@@ -232,10 +229,10 @@ function analyzeRivenTextMetrics(nativeImage: any): RivenTextMetrics {
   };
 }
 
-export function computeRivenFrameHash(nativeImage: any): string {
-  if (!nativeImage || typeof nativeImage.getSize !== "function") return "";
-  const { width, height } = nativeImage.getSize();
-  const bitmap: Buffer = nativeImage.toBitmap();
+export function computeRivenFrameHash(nativeImage: any, shared?: { bitmap: Buffer; width: number; height: number } | null): string {
+  const data = shared || getRivenBitmap(nativeImage);
+  if (!data) return "";
+  const { width, height, bitmap } = data;
   const sampleCols = Math.max(12, Math.min(width, 24));
   const sampleRows = Math.max(8, Math.min(height, 16));
   const stepX = Math.max(1, Math.floor(width / sampleCols));
@@ -268,12 +265,11 @@ function findPeakIndex(values: number[], start: number, end: number): number {
   return bestIndex;
 }
 
-function detectRivenCardFrame(nativeImage: any): TextBounds | null {
-  if (!nativeImage?.getSize) return null;
-  const { width, height } = nativeImage.getSize();
+function detectRivenCardFrame(nativeImage: any, shared?: { bitmap: Buffer; width: number; height: number } | null): TextBounds | null {
+  const data = shared || getRivenBitmap(nativeImage);
+  if (!data) return null;
+  const { width, height, bitmap } = data;
   if (width < 160 || height < 120) return null;
-
-  const bitmap: Buffer = nativeImage.toBitmap();
   const sampleCols = Math.max(80, Math.min(width, 220));
   const sampleRows = Math.max(70, Math.min(height, 180));
   const stepX = Math.max(1, Math.floor(width / sampleCols));
@@ -411,8 +407,9 @@ export function refineRivenTextCrop(nativeImage: any): {
   metrics: RivenTextMetrics;
   refined: boolean;
 } {
-  const metrics = analyzeRivenTextMetrics(nativeImage);
-  const cardFrame = detectRivenCardFrame(nativeImage);
+  const shared = getRivenBitmap(nativeImage);
+  const metrics = analyzeRivenTextMetrics(nativeImage, shared);
+  const cardFrame = detectRivenCardFrame(nativeImage, shared);
   let targetBounds = metrics.bounds;
 
   if (cardFrame) {
@@ -454,6 +451,7 @@ export async function waitForRivenUiReady(
   let lastMetrics: RivenTextMetrics | null = null;
   let lastFrameHash = "";
   let lastScreenshot: any | null = null;
+  let cachedContentRect: ReturnType<typeof detectGameContentRect> | null = null;
 
   while (Date.now() - startedAt < timeoutMs) {
     if (_rivenScanAborted) break;
@@ -469,15 +467,19 @@ export async function waitForRivenUiReady(
 
     let roughCrop: any;
     try {
-      roughCrop = cropRect(screenshot.image, rect);
+      if (!cachedContentRect) {
+        cachedContentRect = detectGameContentRect(screenshot.image);
+      }
+      roughCrop = cropRectContent(screenshot.image, rect, cachedContentRect);
     } catch {
       consecutiveHits = 0;
       await sleep(RIVEN_READY_POLL_MS);
       continue;
     }
 
-    const metrics = analyzeRivenTextMetrics(roughCrop);
-    const frameHash = computeRivenFrameHash(roughCrop);
+    const shared = getRivenBitmap(roughCrop);
+    const metrics = analyzeRivenTextMetrics(roughCrop, shared);
+    const frameHash = computeRivenFrameHash(roughCrop, shared);
     if (metrics.score > bestScore) {
       bestScore = metrics.score;
       bestScreenshot = screenshot;

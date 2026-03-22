@@ -707,6 +707,10 @@ export function scoreStatsCandidate(
     const mappedCount = countMappedStats(stats, effectiveWeapon);
     score += mappedCount * 4;
 
+    // Deterministic validation: penalize stats that don't belong to this weapon.
+    const validation = validateRivenStats(effectiveWeapon, stats);
+    score -= validation.invalidNames.length * 6;
+
     const gradingCandidates = [
       rivenGrading.gradeRiven(effectiveWeapon, stats, { level: 0 }),
       rivenGrading.gradeRiven(effectiveWeapon, stats, { level: 8 }),
@@ -724,4 +728,42 @@ export function scoreStatsCandidate(
   }
 
   return score;
+}
+
+/**
+ * Deterministic riven stat validation: given a weapon name, check how many OCR
+ * stats map to valid upgrade entries for that weapon's riven type.
+ *
+ * Returns the count of stats whose tag exists in the weapon's valid stat pool.
+ * A stat is "valid" if: (1) its name maps to a tag via statNameToTag, AND
+ * (2) findUpgradeEntry returns a non-null entry for that tag + weapon riven type.
+ *
+ * This rejects OCR noise that produces plausible-looking stat names that don't
+ * actually exist on the weapon (e.g. "Reload Speed" on a melee riven).
+ */
+export function validateRivenStats(
+  weaponName: string,
+  stats: RivenStat[],
+): { validCount: number; invalidNames: string[] } {
+  if (!weaponName || stats.length === 0) return { validCount: 0, invalidNames: [] };
+
+  const rivenTypeKey = rivenData.resolveRivenType(weaponName);
+  if (!rivenTypeKey) return { validCount: 0, invalidNames: [] };
+
+  let validCount = 0;
+  const invalidNames: string[] = [];
+  for (const stat of stats) {
+    const tag = rivenData.statNameToTag(stat.name);
+    if (!tag) {
+      invalidNames.push(stat.name);
+      continue;
+    }
+    const entry = rivenData.findUpgradeEntry(rivenTypeKey, tag);
+    if (entry) {
+      validCount++;
+    } else {
+      invalidNames.push(stat.name);
+    }
+  }
+  return { validCount, invalidNames };
 }

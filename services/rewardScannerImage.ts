@@ -13,6 +13,78 @@ const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
 
 const log = withScope("rewardScanner");
 
+// ── 16:9 letterbox / pillarbox detection ─────────────────────────────────────
+// Warframe renders at 16:9.  On non-16:9 displays, black bars appear.
+// Detect them so crop ratios align to game content, not the full frame.
+
+interface GameContentRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const BAR_LUMA_THRESHOLD = 12; // pixel considered "black bar" if luma ≤ this
+const BAR_SAMPLE_COUNT = 32;   // number of samples per row/col test
+const BAR_BLACK_RATIO = 0.85;  // fraction of samples that must be black
+
+export function detectGameContentRect(nativeImage: any): GameContentRect {
+  const { width, height } = nativeImage.getSize();
+  if (width < 120 || height < 80) return { x: 0, y: 0, width, height };
+
+  const bitmap: Buffer = nativeImage.toBitmap();
+
+  function isRowBlack(y: number): boolean {
+    let blackCount = 0;
+    const step = Math.max(1, Math.floor(width / BAR_SAMPLE_COUNT));
+    for (let sx = 0; sx < BAR_SAMPLE_COUNT; sx++) {
+      const x = Math.min(width - 1, sx * step);
+      const idx = (y * width + x) * 4;
+      const lum = (bitmap[idx] + bitmap[idx + 1] + bitmap[idx + 2]) / 3;
+      if (lum <= BAR_LUMA_THRESHOLD) blackCount++;
+    }
+    return blackCount / BAR_SAMPLE_COUNT >= BAR_BLACK_RATIO;
+  }
+
+  function isColBlack(x: number): boolean {
+    let blackCount = 0;
+    const step = Math.max(1, Math.floor(height / BAR_SAMPLE_COUNT));
+    for (let sy = 0; sy < BAR_SAMPLE_COUNT; sy++) {
+      const y = Math.min(height - 1, sy * step);
+      const idx = (y * width + x) * 4;
+      const lum = (bitmap[idx] + bitmap[idx + 1] + bitmap[idx + 2]) / 3;
+      if (lum <= BAR_LUMA_THRESHOLD) blackCount++;
+    }
+    return blackCount / BAR_SAMPLE_COUNT >= BAR_BLACK_RATIO;
+  }
+
+  // Scan inward from each edge to find the content boundary.
+  let top = 0;
+  for (let y = 0; y < Math.floor(height * 0.25); y++) {
+    if (!isRowBlack(y)) { top = y; break; }
+    top = y + 1;
+  }
+  let bottom = height;
+  for (let y = height - 1; y >= Math.floor(height * 0.75); y--) {
+    if (!isRowBlack(y)) { bottom = y + 1; break; }
+    bottom = y;
+  }
+  let left = 0;
+  for (let x = 0; x < Math.floor(width * 0.25); x++) {
+    if (!isColBlack(x)) { left = x; break; }
+    left = x + 1;
+  }
+  let right = width;
+  for (let x = width - 1; x >= Math.floor(width * 0.75); x--) {
+    if (!isColBlack(x)) { right = x + 1; break; }
+    right = x;
+  }
+
+  const contentW = Math.max(24, right - left);
+  const contentH = Math.max(24, bottom - top);
+  return { x: left, y: top, width: contentW, height: contentH };
+}
+
 export const OCR_ENHANCE: Readonly<{
   upscaleFactor: number;
   maxWidth: number;
@@ -76,6 +148,31 @@ export function cropRect(nativeImage: any, rect: Rect | null | undefined): any {
   return nativeImage.crop({ x, y, width: cropWidth, height: cropHeight });
 }
 
+/**
+ * Letterbox-aware crop: applies ratio-based rect relative to the detected
+ * 16:9 game content area instead of the full frame.  On standard 16:9
+ * displays, contentRect matches the full frame = zero overhead.
+ */
+export function cropRectContent(
+  nativeImage: any,
+  rect: Rect | null | undefined,
+  contentRect: GameContentRect,
+): any {
+  const xRatio = clampNumber(rect?.x, 0.0, 0.98, 0);
+  const yRatio = clampNumber(rect?.y, 0.0, 0.98, 0);
+  const maxWidthRatio = Math.max(0.02, 1 - xRatio);
+  const maxHeightRatio = Math.max(0.02, 1 - yRatio);
+  const widthRatio = clampNumber(rect?.width, 0.02, maxWidthRatio, 0.2);
+  const heightRatio = clampNumber(rect?.height, 0.02, maxHeightRatio, 0.2);
+
+  const x = Math.max(0, contentRect.x + Math.floor(contentRect.width * xRatio));
+  const y = Math.max(0, contentRect.y + Math.floor(contentRect.height * yRatio));
+  const cropWidth = Math.max(24, Math.floor(contentRect.width * widthRatio));
+  const cropHeight = Math.max(24, Math.floor(contentRect.height * heightRatio));
+
+  return nativeImage.crop({ x, y, width: cropWidth, height: cropHeight });
+}
+
 export function enhanceForOcr(nativeImage: any): any {
   const { width, height } = nativeImage.getSize();
   const scaledWidth = Math.min(
@@ -87,38 +184,52 @@ export function enhanceForOcr(nativeImage: any): any {
     Math.max(height, Math.floor(height * OCR_ENHANCE.upscaleFactor)),
   );
 
-  let resized = nativeImage;
-  if (scaledWidth !== width || scaledHeight !== height) {
-    resized = nativeImage.resize({
+  const range = Math.max(1, OCR_ENHANCE.whitePoint - OCR_ENHANCE.blackPoint);
+
+  // Precomputed 256-entry LUT: input luminance → output value.
+  // Replaces per-pixel Math.pow / normalize / clamp with a single table lookup.
+  const lut = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) {
+    let normalized = (i - OCR_ENHANCE.blackPoint) / range;
+    if (normalized < 0) normalized = 0;
+    else if (normalized > 1) normalized = 1;
+    lut[i] = (Math.pow(normalized, 0.9) * 255 + 0.5) | 0;
+  }
+
+  let targetBitmap: Buffer;
+  let targetW: number;
+  let targetH: number;
+
+  if (scaledWidth === width && scaledHeight === height) {
+    targetBitmap = nativeImage.toBitmap();
+    targetW = width;
+    targetH = height;
+  } else {
+    const resized = nativeImage.resize({
       width: scaledWidth,
       height: scaledHeight,
       quality: "best",
     });
+    targetBitmap = resized.toBitmap();
+    targetW = scaledWidth;
+    targetH = scaledHeight;
   }
 
-  const bitmap: Buffer = resized.toBitmap();
-  for (let i = 0; i < bitmap.length; i += 4) {
-    const blue = bitmap[i];
-    const green = bitmap[i + 1];
-    const red = bitmap[i + 2];
-    const luminance = luminanceFromBgr(blue, green, red);
-
-    let normalized =
-      (luminance - OCR_ENHANCE.blackPoint) /
-      Math.max(1, OCR_ENHANCE.whitePoint - OCR_ENHANCE.blackPoint);
-    normalized = Math.max(0, Math.min(1, normalized));
-
-    const boosted = Math.round(Math.pow(normalized, 0.9) * 255);
-    bitmap[i] = boosted;
-    bitmap[i + 1] = boosted;
-    bitmap[i + 2] = boosted;
-    bitmap[i + 3] = 255;
+  // Apply LUT: BGRA bitmap → greyscale via integer luminance approximation.
+  for (let i = 0; i < targetBitmap.length; i += 4) {
+    // BT.601 luminance: (114*B + 587*G + 299*R) / 1000
+    const lum = ((targetBitmap[i] * 114 + targetBitmap[i + 1] * 587 + targetBitmap[i + 2] * 299 + 500) / 1000) | 0;
+    const out = lut[lum > 255 ? 255 : lum < 0 ? 0 : lum];
+    targetBitmap[i] = out;
+    targetBitmap[i + 1] = out;
+    targetBitmap[i + 2] = out;
+    targetBitmap[i + 3] = 255;
   }
 
   const { nativeImage: electronNativeImage } = require("electron") as typeof import("electron");
-  return electronNativeImage.createFromBitmap(bitmap, {
-    width: scaledWidth,
-    height: scaledHeight,
+  return electronNativeImage.createFromBitmap(targetBitmap, {
+    width: targetW,
+    height: targetH,
   });
 }
 

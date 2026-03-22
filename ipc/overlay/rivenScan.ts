@@ -19,8 +19,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { withScope } from "../../services/logger";
 import { captureScreenFast } from "../../services/rewardScannerCapture";
-import { cropRect } from "../../services/rewardScannerImage";
-import { paddleOcrServer } from "../../services/paddleOcrServer";
+import { cropRect, cropRectContent, detectGameContentRect } from "../../services/rewardScannerImage";
+import { createRewardOcrRunner } from "../../services/rewardScannerOcr";
 import { rivenOcrOnnxAvailable, recognizeRivenCardLines } from "../../services/rivenOcrOnnx";
 import { sleep } from "../../services/rewardScannerUtils";
 import {
@@ -51,6 +51,33 @@ const log = withScope("rivenScan");
 
 const OCR_TIMEOUT_MS = 8000;
 const MIN_ACCEPTABLE_RIVEN_STATS = 2;
+
+const rivenOcrRunner = createRewardOcrRunner({ log, tesseractContext: "riven" });
+
+// ── Per-stage timing instrumentation ─────────────────────────────────────────
+interface RivenScanTiming {
+  captureMs: number;
+  cropRefineMs: number;
+  enhanceMs: number;
+  ocrMs: number;
+  ocrCalls: number;
+  parseMs: number;
+  totalMs: number;
+}
+
+let _lastScanTiming: RivenScanTiming | null = null;
+
+export function getLastRivenScanTiming(): RivenScanTiming | null {
+  return _lastScanTiming;
+}
+
+function logScanTiming(label: string, t: RivenScanTiming): void {
+  log.log(
+    `[RivenScan] timing ${label}: capture=${t.captureMs}ms crop=${t.cropRefineMs}ms ` +
+      `enhance=${t.enhanceMs}ms ocr=${t.ocrMs}ms(${t.ocrCalls}calls) ` +
+      `parse=${t.parseMs}ms total=${t.totalMs}ms`,
+  );
+}
 
 // Display ID pinning: set from the initial card scan so all subsequent
 // captures (roll, choice) use the same monitor as the initial capture.
@@ -85,11 +112,9 @@ const SINGLE_CARD_CROP = { x: 0.22, y: 0.43, width: 0.56, height: 0.45 };
 // As fractions: { x: 0.411, y: 0.416, width: 0.177, height: 0.434 }
 const ROLL_CARD_CROP = { x: 0.411, y: 0.416, width: 0.177, height: 0.434 };
 
-// DXGI timeout for captures that MUST return a fresh frame (roll scans, choice
-// re-scans). With timeout=0 (the default), captureDxgi returns the _lastFrame
-// cache when DWM hasn't composed a new frame since the last acquire. After a
-// known screen change (riven roll, choice confirm) we need the NEXT frame, not
-// the cached one. 100 ms is ~6 refresh cycles at 60 Hz — more than enough.
+// GDI timeout hint for captures that MUST return a fresh frame (roll scans,
+// choice re-scans). GDI BitBlt always returns the current framebuffer, so this
+// is mainly a semantic marker passed through `captureScreenFast`.
 const DXGI_FRESH_TIMEOUT_MS = 100;
 
 // ── Debug image saving ─────────────────────────────────────────────────────────
@@ -301,10 +326,6 @@ function isConfidentEnough(result: CandidateResult, statsOnly = false): boolean 
   if (result.stats.length >= 4 && result.valueCount >= 3 && result.score >= 75) return true;
   if (result.stats.length >= 3 && result.valueCount >= 3 && result.score >= 85) return true;
   if (result.stats.length === 2 && result.valueCount === 2 && result.score >= 55) return true;
-  // Roll-scan fast path: when statsOnly=true we know the card is visible and just
-  // need stat values.  Accept 2+ stats at a lower score threshold so the first
-  // native pass can publish immediately.  Require valueCount >= stats-1 so we
-  // never early-accept a 4-stat read with only 2 values (missing half the data).
   if (
     statsOnly &&
     result.stats.length >= 2 &&
@@ -349,7 +370,7 @@ async function runStructuredRegion(
   statsText: string;
 }> {
   const enhanced = await enhanceForRivenOcr(imageRegion, mode);
-  const structured = await paddleOcrServer.runOCRStructuredBuffer(enhanced, OCR_TIMEOUT_MS);
+  const structured = await rivenOcrRunner.runOCRStructuredBuffer(enhanced, OCR_TIMEOUT_MS);
   const split = splitRivenStructuredText(structured);
   return {
     text: split.mergedText || structured.text || "",
@@ -368,13 +389,21 @@ async function ocrCropMultiStrategy(
   isMultipanel = false,
 ): Promise<{ text: string; titleText: string; footerText: string; stats: RivenStat[] }> {
   const myGeneration = _scanGeneration; // snapshot; stale if a new scan started
-  const roughCrop = cropRect(image, rect);
+  const totalStart = Date.now();
+  let enhanceMs = 0;
+  let ocrMs = 0;
+  let ocrCalls = 0;
+  let parseMs = 0;
+
+  const cropStart = Date.now();
+  const roughCrop = cropRectContent(image, rect, detectGameContentRect(image));
 
   // ── Compute refined (edge-detected) crop early ─────────────────────────────
   // Always needed: used by WinRT crop variants.
   // refineRivenTextCrop runs Sobel card-frame detection; if it fails, refined.image
   // equals roughCrop and refined.refined=false.
   const refined = refineRivenTextCrop(roughCrop);
+  const cropRefineMs = Date.now() - cropStart;
   const roughW = (roughCrop as any).getSize?.()?.width ?? 0;
   const refinedW = (refined.image as any)?.getSize?.()?.width ?? 0;
 
@@ -476,16 +505,23 @@ async function ocrCropMultiStrategy(
       const cacheKey = modeLabel;
       let enhancedPng = enhanceCache.get(cacheKey);
       if (!enhancedPng) {
+        const eStart = Date.now();
         enhancedPng = await enhanceForRivenOcr(cropVariant.image, plan.mode);
+        enhanceMs += Date.now() - eStart;
         enhanceCache.set(cacheKey, enhancedPng);
       }
-      const structured = await paddleOcrServer.runOCRStructuredBuffer(enhancedPng, OCR_TIMEOUT_MS);
+      const oStart = Date.now();
+      const structured = await rivenOcrRunner.runOCRStructuredBuffer(enhancedPng, OCR_TIMEOUT_MS);
+      ocrMs += Date.now() - oStart;
+      ocrCalls++;
+      const pStart = Date.now();
       const split = splitRivenStructuredText(structured);
 
       const mergedText = split.mergedText || structured.text || "";
       const titleText = statsOnly ? "" : (split.titleText || "");
       const footerText = statsOnly ? "" : (split.footerText || "");
       const stats = parseRivenStats(split.statsText || structured.text || "");
+      parseMs += Date.now() - pStart;
 
       result = {
         text: mergedText,
@@ -524,6 +560,25 @@ async function ocrCropMultiStrategy(
     // Hard budget: stop running native strategies once the scan budget is exhausted.
     if (Date.now() - scanStart >= SCAN_BUDGET_MS) break;
 
+    // Diminishing returns: after 2 candidates, if the best so far has sufficient
+    // data (2+ stats with 2+ values), stop — bright-mode variants rarely improve
+    // a decent original-mode read and add 300-500ms per additional OCR call.
+    if (results.length >= 2) {
+      const bestSoFar = results.reduce((a, b) => (b.score > a.score ? b : a));
+      if (
+        bestSoFar.stats.length >= 2 &&
+        bestSoFar.valueCount >= 2 &&
+        bestSoFar.score >= 20
+      ) {
+        if (label) {
+          log.log(
+            `[RivenScan] sufficient after ${results.length} candidates: score=${bestSoFar.score} stats=${bestSoFar.stats.length}`,
+          );
+        }
+        break;
+      }
+    }
+
     if (isConfidentEnough(result, statsOnly)) {
       if (label) {
         log.log(
@@ -531,6 +586,16 @@ async function ocrCropMultiStrategy(
             `score=${result.score} stats=${result.stats.length} values=${result.valueCount}`,
         );
       }
+      _lastScanTiming = {
+        captureMs: 0,
+        cropRefineMs,
+        enhanceMs,
+        ocrMs,
+        ocrCalls,
+        parseMs,
+        totalMs: Date.now() - totalStart,
+      };
+      logScanTiming(label || "early-accept", _lastScanTiming);
       return {
         text: result.text,
         titleText: result.titleText,
@@ -591,12 +656,11 @@ async function ocrCropMultiStrategy(
     );
   }
 
-  // Deferred region OCR: run once on the best candidate when it has sparse stats or
-  // missing title.  Previous code ran this inside EVERY native candidate iteration
-  // (up to 3 extra WinRT calls per candidate × 3-6 candidates = 9-18 calls).
-  // Now it runs at most 3 calls total, only when needed.
+  // Deferred region OCR: run once on the best candidate when it has sparse stats,
+  // missing values, or missing title.  Runs at most 3 calls total.
   // In statsOnly mode, skip title/footer region scans entirely.
-  if (chosen.stats.length < 2 || (!statsOnly && !chosen.titleText)) {
+  const hasNullValues = chosen.stats.some((s) => s.value === null);
+  if (chosen.stats.length < 2 || hasNullValues || (!statsOnly && !chosen.titleText)) {
     const bestCropVariant = cropVariants.find((v) => v.id === chosen.cropId);
     const bestMode = (() => {
       const ml = chosen.modeLabel;
@@ -634,6 +698,24 @@ async function ocrCropMultiStrategy(
             valueCount: regionStats.filter((s) => s.value !== null).length,
             score: scoreStatsCandidate(regionStats, mergedText, expectedWeaponName, regionTitle || chosen.titleText),
           };
+        } else if (regionStats.length >= chosen.stats.length) {
+          // Same stat count but region OCR may have recovered null values.
+          const regionValueCount = regionStats.filter((s) => s.value !== null).length;
+          if (regionValueCount > chosen.valueCount) {
+            // Inject recovered values from region stats into chosen stats by name.
+            const patched = chosen.stats.map((s) => {
+              if (s.value !== null) return s;
+              const match = regionStats.find(
+                (rs) => rs.name.toLowerCase() === s.name.toLowerCase() && rs.value !== null,
+              );
+              return match ? { ...s, value: match.value, positive: match.positive } : s;
+            });
+            chosen = {
+              ...chosen,
+              stats: patched,
+              valueCount: patched.filter((s) => s.value !== null).length,
+            };
+          }
         }
         if (!chosen.titleText && regionTitle) {
           chosen = { ...chosen, titleText: regionTitle };
@@ -733,6 +815,17 @@ async function ocrCropMultiStrategy(
     }
   }
 
+  _lastScanTiming = {
+    captureMs: 0,
+    cropRefineMs,
+    enhanceMs,
+    ocrMs,
+    ocrCalls,
+    parseMs,
+    totalMs: Date.now() - totalStart,
+  };
+  logScanTiming(label || "full-scan", _lastScanTiming);
+
   return {
     text: chosen.text,
     titleText: chosen.titleText,
@@ -749,11 +842,12 @@ export function abortRivenScans(): void {
 export function resetRivenScanAbort(): void {
   _ocrAborted = false;
   resetRivenScanWaits();
-  paddleOcrServer.warmup();
+  // OCR runner warms up on first call; no explicit warmup needed.
 }
 
 export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialScanResult> {
   const myGeneration = ++_scanGeneration;
+  const entryStart = Date.now();
   const ready = await waitForRivenUiReady(SINGLE_CARD_CROP, "initial");
   if (!ready.ready) {
     log.log(
@@ -762,6 +856,7 @@ export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialS
   }
 
   const capture = ready.screenshot || (await captureScreenFast());
+  const captureMs = Date.now() - entryStart;
   if (!capture) {
     log.warn("[RivenScan] scanInitialCard: captureScreen returned null");
     return { stats: [], rawText: "", titleText: "", footerText: "" };
@@ -829,6 +924,7 @@ export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialS
     if (retry) result = retry;
 
     const { stats, text, titleText, footerText } = result;
+    if (_lastScanTiming) _lastScanTiming.captureMs = captureMs;
     log.log(
       `[RivenScan] initial card scan: ${stats.length} stats found`,
       stats.map((stat) => `${stat.positive ? "+" : "-"}${stat.value ?? "?"}% ${stat.name}`).join(", "),
@@ -844,10 +940,9 @@ export async function scanNewRoll(expectedWeaponName = "", skipGate = true): Pro
   log.log(`[RivenScan] >>> scanNewRoll ENTERED (weapon="${expectedWeaponName}", skipGate=${skipGate})`);
   const myGeneration = ++_scanGeneration;
   const startAt = Date.now();
-  // AlecaFrame model: fixed 2750 ms delay already elapsed before this function
-  // is called, so we capture immediately — no readiness gate polling.
-  // Use non-zero DXGI timeout to force a fresh frame (not the cached initial card).
+  const captureStart = Date.now();
   const capture = await captureScreenFast(_rivenDisplayId, DXGI_FRESH_TIMEOUT_MS);
+  const rollCaptureMs = Date.now() - captureStart;
   if (!capture) {
     log.warn("[RivenScan] scanNewRoll: captureScreen returned null");
     return { left: [], right: [] };
@@ -884,6 +979,7 @@ export async function scanNewRoll(expectedWeaponName = "", skipGate = true): Pro
     log.log(
       `[RivenScan] roll scan: right=${rightResult.stats.length} stats, elapsed=${Date.now() - startAt}ms`,
     );
+    if (_lastScanTiming) _lastScanTiming.captureMs = rollCaptureMs;
 
     if (rightResult.stats.length < MIN_ACCEPTABLE_RIVEN_STATS) {
       await sleep(800);
