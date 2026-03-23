@@ -3,19 +3,24 @@
 /**
  * rivenOcrOnnx.ts
  * ---------------
- * ONNX-based riven text RECOGNIZER for a custom-trained CRNN model.
- * This is the post-training drop-in for the recognition stage only.
+ * ONNX-based riven text recognition using a hybrid multi-model pipeline:
  *
- * NOTE: The ONNX model was destroyed during retraining; this module is
- * currently inert (`rivenOcrOnnxAvailable()` returns false).  The riven OCR
- * pipeline now uses the WinRT/Tesseract engine chain from rewardScannerOcr.
+ *   1. Old CRNN (riven_rec.onnx) — reads the full stat line via CTC decoding.
+ *      Used to extract the numeric value prefix (+126.2%, ×2.4, …).
+ *   2. StatClassifier (label_classifier.onnx) — CNN image classifier that maps
+ *      the right ~62% of each line (the stat name region) directly to one of
+ *      46 known riven stat names.  Used when confidence ≥ 0.6.
+ *   3. Edit-distance fallback — when classifier confidence < 0.6, the name
+ *      fragment from CRNN is matched against KNOWN_STATS via edit distance.
  *
- * Model specs:
- *   Input:  float32 [1, 1, 32, W]   grayscale, H=32, W=dynamic, values in [-1,1] (x/127.5-1)
+ * Model specs — CRNN (riven_rec.onnx):
+ *   Input:  float32 [1, 1, 32, W]   grayscale, H=32, W=dynamic, values in [-1,1]
  *   Output: float32 [T, 1, C]       log-softmax CTC character probabilities
  *   Vocab:  70 characters + 1 CTC blank (blank_idx = 70)
- *   Size:   ~2.4 MB ONNX
- *   Speed:  ~4-8 ms CPU / ~0.5 ms GPU per crop
+ *
+ * Model specs — StatClassifier (label_classifier.onnx):
+ *   Input:  float32 [1, 1, 32, 192]  grayscale, normalized to [-1,1]
+ *   Output: float32 [1, N_classes]   raw logits (softmax applied in code)
  */
 
 import path from "node:path";
@@ -59,6 +64,26 @@ function resolveVocabPath(): string {
   return candidates.find(existsSync) ?? candidates[0];
 }
 
+// ── Label classifier path resolution ─────────────────────────────────────────
+
+function resolveLabelModelPath(): string {
+  const candidates = [
+    path.join(__dirname, "..", "scripts", "train-paddleocr", "output", "label", "label_classifier.onnx"),
+    path.join(__dirname, "..", "..", "scripts", "train-paddleocr", "output", "label", "label_classifier.onnx"),
+    path.join(process.cwd(), "scripts", "train-paddleocr", "output", "label", "label_classifier.onnx"),
+  ];
+  return candidates.find(existsSync) ?? candidates[0];
+}
+
+function resolveLabelClassesPath(): string {
+  const candidates = [
+    path.join(__dirname, "..", "scripts", "train-paddleocr", "output", "label", "label_classes.json"),
+    path.join(__dirname, "..", "..", "scripts", "train-paddleocr", "output", "label", "label_classes.json"),
+    path.join(process.cwd(), "scripts", "train-paddleocr", "output", "label", "label_classes.json"),
+  ];
+  return candidates.find(existsSync) ?? candidates[0];
+}
+
 // ── Lazy session ──────────────────────────────────────────────────────────────
 
 interface VocabData {
@@ -66,10 +91,18 @@ interface VocabData {
   blank_idx: number;
 }
 
+interface LabelClassesData {
+  classes: string[];
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _sessionPromise: Promise<any> | null = null;
 let _vocab: string[] = [];
 let _blankIdx = 70;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _labelSessionPromise: Promise<any> | null = null;
+let _labelClasses: string[] = [];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getSession(): Promise<any> {
@@ -113,6 +146,40 @@ async function getSession(): Promise<any> {
   return _sessionPromise;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getLabelSession(): Promise<any> {
+  if (_labelSessionPromise) return _labelSessionPromise;
+
+  _labelSessionPromise = (async () => {
+    const modelPath = resolveLabelModelPath();
+    const classesPath = resolveLabelClassesPath();
+
+    if (!existsSync(modelPath)) {
+      throw new Error(`Label classifier model not found at ${modelPath}`);
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+    const ort: any = require("onnxruntime-node");
+
+    if (existsSync(classesPath)) {
+      const data = JSON.parse(readFileSync(classesPath, "utf8")) as LabelClassesData;
+      _labelClasses = data.classes;
+    }
+
+    const session = await ort.InferenceSession.create(modelPath, {
+      executionProviders: ["cpu"],
+    });
+
+    log.log(`[RivenOcrOnnx] Label classifier loaded — ${_labelClasses.length} classes`);
+    return session;
+  })().catch((err) => {
+    _labelSessionPromise = null;
+    throw err;
+  });
+
+  return _labelSessionPromise;
+}
+
 /**
  * Returns true if the ONNX model file exists on disk.
  * Does NOT load the model — just checks the file path.
@@ -141,6 +208,62 @@ function greedyCtcDecode(logProbs: Float32Array, T: number, C: number): string {
     prev = best;
   }
   return chars.join("");
+}
+
+// ── Label classifier inference ────────────────────────────────────────────────
+
+const LABEL_IMG_H = 32;
+const LABEL_IMG_W = 192;
+
+/**
+ * Classify a stat label crop using the StatClassifier ONNX model.
+ * Input: raw grayscale pixel buffer of the label region.
+ * Returns [className, confidenceScore] or ["", 0] on failure.
+ */
+async function classifyStatLabel(
+  grayBuf: Buffer,
+  srcW: number,
+  srcH: number,
+): Promise<[string, number]> {
+  if (_labelClasses.length === 0) return ["", 0];
+
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+  const sharp: any = require("sharp");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+  const ort: any = require("onnxruntime-node");
+
+  const session = await getLabelSession();
+
+  const { data } = await sharp(grayBuf, {
+    raw: { width: srcW, height: srcH, channels: 1 },
+  })
+    .resize(LABEL_IMG_W, LABEL_IMG_H, { fit: "fill", kernel: "linear" })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const float32 = new Float32Array(LABEL_IMG_H * LABEL_IMG_W);
+  for (let i = 0; i < (data as Buffer).length; i++) {
+    float32[i] = (data as Buffer)[i] / 127.5 - 1.0;
+  }
+
+  const tensor = new ort.Tensor("float32", float32, [1, 1, LABEL_IMG_H, LABEL_IMG_W]);
+  const output = await session.run({ input: tensor });
+  const logits: Float32Array = output["output"]?.data ?? output["logits"]?.data;
+  const numClasses = _labelClasses.length;
+
+  // Softmax → pick argmax + probability
+  let maxLogit = -Infinity;
+  for (let i = 0; i < numClasses; i++) if (logits[i] > maxLogit) maxLogit = logits[i];
+  let sumExp = 0;
+  const probs = new Float32Array(numClasses);
+  for (let i = 0; i < numClasses; i++) { probs[i] = Math.exp(logits[i] - maxLogit); sumExp += probs[i]; }
+  let bestIdx = 0, bestP = 0;
+  for (let i = 0; i < numClasses; i++) {
+    const p = probs[i] / sumExp;
+    if (p > bestP) { bestP = p; bestIdx = i; }
+  }
+
+  return [_labelClasses[bestIdx] ?? "", bestP];
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -394,90 +517,72 @@ export async function recognizeVgbLines(vgbPng: Buffer): Promise<string[]> {
     xMax = Math.min(W - 1, xMax + xPad);
     const cropW = xMax - xMin + 1;
 
-    // Column density analysis: strip edge artifacts
-    // Edge artifacts (card borders) are large solid dark blocks at crop edges.
-    // Text region is the widest contiguous run of columns with moderate density.
-    const colDensity = new Float32Array(cropW);
-    for (let cx = 0; cx < cropW; cx++) {
-      let count = 0;
-      for (let y = y0; y < y1; y++) {
-        if (gray[y * W + (xMin + cx)] < 128) count++;
-      }
-      colDensity[cx] = count / rowH;
-    }
+    if (cropW < 30) continue;
 
-    // Smooth and find text region
-    const kernelSize = Math.max(3, Math.floor(cropW / 30));
-    const smoothed = new Float32Array(cropW);
-    for (let i = 0; i < cropW; i++) {
-      let sum = 0, cnt = 0;
-      for (let k = -Math.floor(kernelSize / 2); k <= Math.floor(kernelSize / 2); k++) {
-        const idx = i + k;
-        if (idx >= 0 && idx < cropW) { sum += colDensity[idx]; cnt++; }
-      }
-      smoothed[i] = sum / cnt;
-    }
-
-    // Find contiguous runs of text columns (smoothed density > 0.03)
-    const runs: Array<[number, number]> = [];
-    let runStart = -1;
-    for (let x = 0; x < cropW; x++) {
-      if (smoothed[x] > 0.03) {
-        if (runStart < 0) runStart = x;
-      } else {
-        if (runStart >= 0) { runs.push([runStart, x]); runStart = -1; }
-      }
-    }
-    if (runStart >= 0) runs.push([runStart, cropW]);
-
-    if (runs.length === 0) continue;
-
-    // Pick widest run as text region
-    let bestRun = runs[0];
-    for (const run of runs) {
-      if (run[1] - run[0] > bestRun[1] - bestRun[0]) bestRun = run;
-    }
-    const [tx1, tx2] = bestRun;
-    if (tx2 - tx1 < 30) continue;
-
-    // Vertical extent: find tight bounds of dark pixels within the text region
+    // Tight vertical bounds across the full horizontal extent (preserves both
+    // value prefix and stat name — fixes the old "widest run" truncation bug).
     let tyMin = rowH, tyMax = 0;
     for (let ry = 0; ry < rowH; ry++) {
-      let hasText = false;
-      for (let cx = tx1; cx < tx2; cx++) {
-        if (gray[(y0 + ry) * W + (xMin + cx)] < 128) { hasText = true; break; }
-      }
-      if (hasText) {
-        if (ry < tyMin) tyMin = ry;
-        tyMax = ry;
+      for (let cx = 0; cx < cropW; cx++) {
+        if (gray[(y0 + ry) * W + (xMin + cx)] < 128) {
+          if (ry < tyMin) tyMin = ry;
+          tyMax = ry;
+          break;
+        }
       }
     }
     if (tyMax - tyMin < 4) continue;
 
-    // Extract the tight crop
     const finalY0 = y0 + Math.max(0, tyMin - 2);
     const finalY1 = y0 + Math.min(rowH, tyMax + 3);
-    const finalX0 = xMin + tx1;
-    const finalW = tx2 - tx1;
     const finalH = finalY1 - finalY0;
+    if (finalH < 6) continue;
 
-    if (finalH < 6 || finalW < 20) continue;
-
-    // Create PNG of the line crop
+    // ── Step 3: Run CRNN on the full line crop ──
+    // Full-width crop preserves value + stat-name; CRNN gives us the value part.
     const linePng: Buffer = await sharp(gray, {
       raw: { width: W, height: H, channels: 1 },
     })
-      .extract({ left: finalX0, top: finalY0, width: finalW, height: finalH })
+      .extract({ left: xMin, top: finalY0, width: cropW, height: finalH })
       .png()
       .toBuffer();
 
-    // ── Step 3: Run CRNN on the line crop ──
     const rawText = (await recognizeRivenCrop(linePng, /* isVgb */ true)).trim();
     if (!rawText) continue;
 
-    // ── Step 4: Post-process with known vocabulary ──
-    const corrected = postprocessStatLine(rawText);
-    if (corrected) lines.push(corrected);
+    // Extract value prefix and name fragment from CRNN output.
+    const valueMatch = rawText.match(/^([+\-x][\d,.]+[%s]?)\s*/i);
+    const valueText = valueMatch ? valueMatch[1] : "";
+    const nameFragment = rawText.replace(/^[+\-x][\d,.]+[%s]?\s*/i, "").trim();
+
+    // ── Step 4: Classify stat label from right ~62% of the line crop ──
+    // The value occupies the left ~38% of the line; the name fills the rest.
+    let statName = "";
+    const labelX0 = xMin + Math.floor(cropW * 0.38);
+    const labelW = cropW - Math.floor(cropW * 0.38);
+    if (labelW >= 20) {
+      try {
+        const { data: labelRaw } = await sharp(gray, {
+          raw: { width: W, height: H, channels: 1 },
+        })
+          .extract({ left: labelX0, top: finalY0, width: labelW, height: finalH })
+          .raw()
+          .toBuffer({ resolveWithObject: true });
+        const [className, confidence] = await classifyStatLabel(labelRaw as Buffer, labelW, finalH);
+        if (confidence >= 0.6 && className) statName = className;
+      } catch {
+        // classifier not available — fall through to edit-distance
+      }
+    }
+
+    // Fallback: edit-distance match on the name fragment from CRNN.
+    if (!statName && nameFragment) statName = postprocessStatLine(nameFragment);
+
+    // Compose final line: "valueText statName" or best effort.
+    const result = valueText && statName
+      ? `${valueText} ${statName}`
+      : statName || postprocessStatLine(rawText);
+    if (result) lines.push(result);
   }
 
   return lines;
