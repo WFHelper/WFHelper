@@ -374,6 +374,23 @@ export async function recognizeRivenCrop(pngBuffer: Buffer, isVgb = false): Prom
 
 // ── Known vocabulary for post-processing ─────────────────────────────────────
 
+const STAT_RULES: Record<string, { isPercent?: boolean; suffix?: string }> = {
+  "Punch Through": { isPercent: false },
+  "Range": { isPercent: false },
+  "Combo Duration": { isPercent: false, suffix: "s" },
+  "Initial Combo": { isPercent: false },
+  "Zoom": { isPercent: true },
+  "Critical Chance": { isPercent: true },
+  "Critical Damage": { isPercent: true },
+  "Multishot": { isPercent: true },
+  "Status Chance": { isPercent: true },
+  "Status Duration": { isPercent: true },
+  "Fire Rate": { isPercent: true },
+  "Magazine Capacity": { isPercent: true },
+  "Ammo Maximum": { isPercent: true },
+  "Melee Damage": { isPercent: true },
+};
+
 const KNOWN_STATS = [
   "Additional Combo Count Chance", "Chance to Gain Combo Count",
   "Critical Chance for Slide Attack", "Heavy Attack Efficiency",
@@ -402,6 +419,36 @@ function editDistance(a: string, b: string): number {
     prev.splice(0, prev.length, ...curr);
   }
   return prev[b.length];
+}
+
+function validateStat(valueStr: string, statName: string): [string, string] {
+  if (!statName || !KNOWN_STATS.includes(statName)) {
+    return [valueStr, statName];
+  }
+
+  if (!valueStr) {
+    return [valueStr, statName];
+  }
+
+  const rules = STAT_RULES[statName];
+  if (!rules) {
+    return [valueStr, statName];
+  }
+
+  let result = valueStr;
+
+  // Add missing suffix (e.g., 's' for Combo Duration)
+  if (rules.suffix && !result.endsWith(rules.suffix)) {
+    result = result + rules.suffix;
+  }
+
+  // Strip percent from flat stats
+  const hasPercent = result.includes("%");
+  if (rules.isPercent === false && hasPercent) {
+    result = result.replace("%", "");
+  }
+
+  return [result, statName];
 }
 
 function postprocessStatLine(rawText: string): string {
@@ -578,10 +625,13 @@ export async function recognizeVgbLines(vgbPng: Buffer): Promise<string[]> {
     // Fallback: edit-distance match on the name fragment from CRNN.
     if (!statName && nameFragment) statName = postprocessStatLine(nameFragment);
 
+    // Schema validation: add missing suffixes, clean up formatting
+    const [validatedValue, validatedName] = validateStat(valueText, statName);
+
     // Compose final line: "valueText statName" or best effort.
-    const result = valueText && statName
-      ? `${valueText} ${statName}`
-      : statName || postprocessStatLine(rawText);
+    const result = validatedValue && validatedName
+      ? `${validatedValue} ${validatedName}`
+      : validatedName || postprocessStatLine(rawText);
     if (result) lines.push(result);
   }
 
