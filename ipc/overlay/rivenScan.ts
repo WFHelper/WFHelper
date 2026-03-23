@@ -21,7 +21,7 @@ import { withScope } from "../../services/logger";
 import { captureScreenFast } from "../../services/rewardScannerCapture";
 import { cropRect, cropRectContent, detectGameContentRect } from "../../services/rewardScannerImage";
 import { createRewardOcrRunner } from "../../services/rewardScannerOcr";
-import { rivenOcrOnnxAvailable, recognizeRivenCardLines } from "../../services/rivenOcrOnnx";
+import { rivenOcrOnnxAvailable, recognizeRivenCardLines, recognizeVgbLines } from "../../services/rivenOcrOnnx";
 import { sleep } from "../../services/rewardScannerUtils";
 import {
   abortRivenScanWaits,
@@ -93,6 +93,9 @@ let _ocrAborted = false;
 let _scanGeneration = 0;
 
 const ENHANCE_STRATEGIES: readonly EnhanceMode[] = Object.freeze([
+  { kind: "violet" },                    // NO dilate — best for stat names + most values
+  { kind: "violet-guided-bright" },      // Hybrid: violet rows + bright pixels → catches element icon values
+  { kind: "violet", dilate: true },      // dilate variant as fallback for thin text
   { kind: "original" },
   { kind: "bright", threshold: 150, dilate: true },
   { kind: "bright", threshold: 120, dilate: true },
@@ -300,21 +303,23 @@ function buildOrderedCandidates(
   statsOnly = false,
 ): Array<{ cropId: "rough" | "refined"; mode: EnhanceMode }> {
   const ordered: Array<{ cropId: "rough" | "refined"; mode: EnhanceMode }> = [];
-  if (!statsOnly && hasRefinedCrop) {
-    // Full scan: refined:original FIRST — AlecaFrame always runs edge detection
-    // (DetailedRivenCrop) before OCR.  The tight text-area crop removes card
-    // art and animated backgrounds, giving WinRT the cleanest possible input.
-    ordered.push({ cropId: "refined", mode: ENHANCE_STRATEGIES[0] }); // original
+
+  // ALWAYS try violet FIRST — violet color segmentation isolates the purple
+  // riven text from Kuva animation noise, giving WinRT the cleanest possible
+  // input.  This is critical for both full scans AND roll scans (statsOnly).
+  if (hasRefinedCrop) {
+    ordered.push({ cropId: "refined", mode: ENHANCE_STRATEGIES[0] }); // refined:violet
   }
-  // Rough passes — for roll scans (statsOnly) rough:original is the primary path
-  // so it must come first to enable single-pass early-accept.
-  for (const mode of ENHANCE_STRATEGIES) {
-    ordered.push({ cropId: "rough", mode });
+  // rough:violet as primary fallback (or first if no refined crop)
+  ordered.push({ cropId: "rough", mode: ENHANCE_STRATEGIES[0] }); // rough:violet
+
+  // Remaining rough passes (original, bright variants)
+  for (let i = 1; i < ENHANCE_STRATEGIES.length; i++) {
+    ordered.push({ cropId: "rough", mode: ENHANCE_STRATEGIES[i] });
   }
   if (hasRefinedCrop) {
     // Remaining refined strategies as fallback.
-    const startIdx = statsOnly ? 0 : 1;
-    for (let i = startIdx; i < ENHANCE_STRATEGIES.length; i++) {
+    for (let i = 1; i < ENHANCE_STRATEGIES.length; i++) {
       ordered.push({ cropId: "refined", mode: ENHANCE_STRATEGIES[i] });
     }
   }
@@ -411,38 +416,31 @@ async function ocrCropMultiStrategy(
   const refinedW = (refined.image as any)?.getSize?.()?.width ?? 0;
 
   // ── CRNN fast path (no Python dependency) ────────────────────────────────
-  // Pure Node.js: luma variance row detection + CRNN recognition.
-  // For multipanel (ROLL_CARD_CROP) scans: pass roughCrop directly — the narrow
-  //   clean crop gives variance detection reliable row positions (~100 ms, ~100%).
-  // For single-card: skip CRNN entirely.  The current CRNN model gets 100% stat
-  //   names on the narrow center crop but only ~61% values (dropped leading digits,
-  //   lost decimals, sign flips).  The scoreStatsCandidate check rejects every
-  //   single-card result, so the ~130ms CRNN attempt is wasted overhead.  Once the
-  //   model is retrained for the narrow crop's characteristics, re-enable by
-  //   removing the isMultipanel guard below.
-  if (isMultipanel && rivenOcrOnnxAvailable()) {
+  // VGB + CRNN: violet-guided-bright preprocessing → per-line crop extraction →
+  // CRNN recognition → vocabulary post-processing.  Achieves 100% accuracy on
+  // clean line crops.  Falls through to WinRT when <2 stats are found.
+  if (rivenOcrOnnxAvailable()) {
     try {
-      // Multipanel: roughCrop is already the narrow ROLL_CARD_CROP.
-      const cardPng: Buffer | undefined = (roughCrop as any)?.toPNG?.();
-      if (cardPng) {
-        const crnnLines = await recognizeRivenCardLines(cardPng, /* isMultipanel */ true);
-        const text = crnnLines.join("\n");
-        const stats = parseRivenStats(text);
-        if (stats.length >= MIN_ACCEPTABLE_RIVEN_STATS) {
-          if (label) {
-            log.log(
-              `[RivenScan] CRNN ${label}: ${stats.length} stats — ` +
-              stats.map((s) => `${s.positive ? "+" : "-"}${s.value ?? "?"}${s.multiplier ? "x" : "%"} ${s.name}`).join(", "),
-            );
-          }
-          return { text, titleText: "", footerText: "", stats };
-        }
+      // Use refined crop (stat area) for VGB processing when available.
+      const vgbSource = refined.refined ? refined.image : roughCrop;
+      const vgbPng = await enhanceForRivenOcr(vgbSource, { kind: "violet-guided-bright" });
+      const crnnLines = await recognizeVgbLines(vgbPng);
+      const text = crnnLines.join("\n");
+      const stats = parseRivenStats(text);
+      if (stats.length >= MIN_ACCEPTABLE_RIVEN_STATS) {
         if (label) {
-          log.log(`[RivenScan] CRNN ${label}: sparse (${stats.length} stats), falling through to WinRT`);
+          log.log(
+            `[RivenScan] VGB+CRNN ${label}: ${stats.length} stats — ` +
+            stats.map((s) => `${s.positive ? "+" : "-"}${s.value ?? "?"}${s.multiplier ? "x" : "%"} ${s.name}`).join(", "),
+          );
         }
+        return { text, titleText: "", footerText: "", stats };
+      }
+      if (label) {
+        log.log(`[RivenScan] VGB+CRNN ${label}: sparse (${stats.length} stats), falling through to WinRT`);
       }
     } catch (err) {
-      log.warn("[RivenScan] CRNN path failed:", String(err));
+      log.warn("[RivenScan] VGB+CRNN path failed:", String(err));
     }
     if (_ocrAborted || _scanGeneration !== myGeneration) {
       return { text: "", titleText: "", footerText: "", stats: [] };
@@ -515,7 +513,11 @@ async function ocrCropMultiStrategy(
     const modeLabel =
       plan.mode.kind === "original"
         ? `${cropVariant.id}:original`
-        : `${cropVariant.id}:bright-${plan.mode.threshold}${plan.mode.dilate ? "+dilate" : ""}`;
+        : plan.mode.kind === "violet"
+          ? `${cropVariant.id}:violet${plan.mode.dilate ? "+dilate" : ""}`
+          : plan.mode.kind === "violet-guided-bright"
+            ? `${cropVariant.id}:vgbright`
+            : `${cropVariant.id}:bright-${(plan.mode as any).threshold}${(plan.mode as any).dilate ? "+dilate" : ""}`;
 
     let result: CandidateResult;
     try {
@@ -688,11 +690,12 @@ async function ocrCropMultiStrategy(
       // Elemental stat values (green Electricity, orange Heat over the Kuva portal)
       // sit below the bright-150 threshold but above bright-120, so the default
       // mode derived from the winning strategy would reproduce the same null.
-      if (hasNullValues) return ENHANCE_STRATEGIES[2]; // bright-120+dilate
+      if (hasNullValues) return ENHANCE_STRATEGIES[5]; // bright-120+dilate
       const ml = chosen.modeLabel;
-      if (ml.includes("original")) return ENHANCE_STRATEGIES[0];
-      if (ml.includes("bright-150")) return ENHANCE_STRATEGIES[1];
-      if (ml.includes("bright-120")) return ENHANCE_STRATEGIES[2];
+      if (ml.includes("violet")) return ENHANCE_STRATEGIES[0];
+      if (ml.includes("original")) return ENHANCE_STRATEGIES[3];
+      if (ml.includes("bright-150")) return ENHANCE_STRATEGIES[4];
+      if (ml.includes("bright-120")) return ENHANCE_STRATEGIES[5];
       return ENHANCE_STRATEGIES[0];
     })();
     if (bestCropVariant?.metrics.bounds) {

@@ -36,7 +36,23 @@ export interface FilteredMode {
   dilate?: boolean;
 }
 
-export type EnhanceMode = OriginalMode | FilteredMode;
+export interface VioletMode {
+  kind: "violet";
+  dilate?: boolean;
+}
+
+/**
+ * Hybrid mode: uses violet filter to locate text rows, then applies brightness
+ * threshold within those rows to capture ALL text — including element icons
+ * (Heat🔥, Electricity⚡, Cold❄) that the pure violet filter strips.  This
+ * preserves value-name association across icon gaps.
+ */
+export interface VioletGuidedBrightMode {
+  kind: "violet-guided-bright";
+  brightThreshold?: number; // default 140
+}
+
+export type EnhanceMode = OriginalMode | FilteredMode | VioletMode | VioletGuidedBrightMode;
 
 export interface RivenUiReadyResult {
   ready: boolean;
@@ -537,6 +553,46 @@ export async function waitForRivenUiReady(
   };
 }
 
+/**
+ * Check if an RGB pixel falls within the violet/purple hue range typical of
+ * Warframe riven mod text.  Uses inline RGB→HSV conversion to avoid external
+ * dependencies.
+ *
+ * Sampled from real riven cards:
+ *   stat text   RGB ~(176, 135, 213)  → H≈272°  S≈0.37  V≈0.84
+ *   weapon name RGB ~(183, 144, 204)  → H≈279°  S≈0.29  V≈0.80
+ *   MR / footer RGB ~(139, 118, 173)  → H≈263°  S≈0.32  V≈0.68
+ *
+ * Filter range (in 0-360° hue):  H ∈ [230, 330],  S ≥ 0.06,  V ≥ 0.27
+ * This deliberately wide range catches all text brightness levels while
+ * excluding the warm-toned Kuva animation noise (reds, oranges, golds).
+ */
+function isVioletPixel(r: number, g: number, b: number): boolean {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+
+  // Value check (V ≥ ~70/255 ≈ 0.27)
+  if (max < 70) return false;
+
+  // Saturation check (S ≥ ~15/255 ≈ 0.06)
+  if (max === 0 || delta / max < 0.06) return false;
+
+  // Hue calculation (0-360°)
+  let hue: number;
+  if (max === r) {
+    hue = 60 * (((g - b) / delta) % 6);
+  } else if (max === g) {
+    hue = 60 * ((b - r) / delta + 2);
+  } else {
+    hue = 60 * ((r - g) / delta + 4);
+  }
+  if (hue < 0) hue += 360;
+
+  // Purple/violet range: 230° – 330°
+  return hue >= 230 && hue <= 330;
+}
+
 export async function enhanceForRivenOcr(croppedImage: any, mode: EnhanceMode): Promise<Buffer> {
   const sharp = require("sharp") as typeof import("sharp");
   const { width, height } = croppedImage.getSize();
@@ -549,6 +605,132 @@ export async function enhanceForRivenOcr(croppedImage: any, mode: EnhanceMode): 
     const scaledHeight = Math.min(6000, height * scale);
     return sharp(pngBuffer)
       .resize(scaledWidth, scaledHeight, { kernel: "lanczos3" })
+      .png()
+      .toBuffer();
+  }
+
+  // ── Violet-guided-bright: hybrid two-pass approach ─────────────────────────
+  // Pass 1: violet filter to find text row positions
+  // Pass 2: brightness threshold within those rows → captures element icons
+  if (mode.kind === "violet-guided-bright") {
+    const vgbScale = width >= MIN_OCR_WIDTH ? 1 : Math.ceil(MIN_OCR_WIDTH / width);
+    const vgbWidth = Math.min(6000, width * vgbScale);
+    const vgbHeight = Math.min(6000, height * vgbScale);
+    const vgbPng: Buffer = croppedImage.toPNG();
+    const vgbRaw = await sharp(vgbPng)
+      .resize(vgbWidth, vgbHeight, { kernel: "linear" })
+      .ensureAlpha()
+      .raw()
+      .toBuffer();
+    const vgbPixels = vgbWidth * vgbHeight;
+    const brightThreshold = mode.brightThreshold ?? 140;
+
+    // Pass 1: violet mask to locate text rows
+    const violetMask = Buffer.alloc(vgbPixels);
+    for (let bi = 0, pi = 0; bi < vgbRaw.length; bi += 4, pi++) {
+      violetMask[pi] = isVioletPixel(vgbRaw[bi], vgbRaw[bi + 1], vgbRaw[bi + 2]) ? 1 : 0;
+    }
+
+    // Row density projection
+    const rowDensity = new Array<number>(vgbHeight).fill(0);
+    for (let y = 0; y < vgbHeight; y++) {
+      for (let x = 0; x < vgbWidth; x++) {
+        if (violetMask[y * vgbWidth + x]) rowDensity[y] += 1;
+      }
+    }
+    const rowThreshold = Math.max(5, rowDensity.reduce((a, b) => a + b, 0) / vgbHeight * 0.3);
+
+    // Find text row ranges
+    const textRows: Array<{ yStart: number; yEnd: number }> = [];
+    let inRow = false;
+    let rowStart = 0;
+    for (let y = 0; y < vgbHeight; y++) {
+      if (rowDensity[y] >= rowThreshold) {
+        if (!inRow) { rowStart = y; inRow = true; }
+      } else if (inRow) {
+        if (y - rowStart >= 6) textRows.push({ yStart: rowStart, yEnd: y });
+        inRow = false;
+      }
+    }
+    if (inRow && vgbHeight - rowStart >= 6) {
+      textRows.push({ yStart: rowStart, yEnd: vgbHeight });
+    }
+
+    // Pass 2: bright mask, but only within detected text rows
+    const vgbOutput = Buffer.alloc(vgbPixels); // all 0 = black
+    const padY = 4;
+    for (const row of textRows) {
+      // Find horizontal extent from violet mask (with 2% padding)
+      let xMin = vgbWidth;
+      let xMax = 0;
+      for (let y = row.yStart; y < row.yEnd; y++) {
+        for (let x = 0; x < vgbWidth; x++) {
+          if (violetMask[y * vgbWidth + x]) {
+            if (x < xMin) xMin = x;
+            if (x > xMax) xMax = x;
+          }
+        }
+      }
+      if (xMax <= xMin) continue;
+
+      const xPad = Math.floor(vgbWidth * 0.02);
+      xMin = Math.max(0, xMin - xPad);
+      xMax = Math.min(vgbWidth - 1, xMax + xPad);
+
+      const y0 = Math.max(0, row.yStart - padY);
+      const y1 = Math.min(vgbHeight, row.yEnd + padY);
+
+      // Copy bright pixels within this row region
+      for (let y = y0; y < y1; y++) {
+        for (let x = xMin; x <= xMax; x++) {
+          const bi = (y * vgbWidth + x) * 4;
+          const maxCh = Math.max(vgbRaw[bi], vgbRaw[bi + 1], vgbRaw[bi + 2]);
+          if (maxCh >= brightThreshold) {
+            vgbOutput[y * vgbWidth + x] = 1;
+          }
+        }
+      }
+    }
+
+    // Morphological close (4-connected cross kernel)
+    const vgbDilated = Buffer.alloc(vgbPixels);
+    for (let y = 0; y < vgbHeight; y++) {
+      for (let x = 0; x < vgbWidth; x++) {
+        const i = y * vgbWidth + x;
+        if (vgbOutput[i]) {
+          vgbDilated[i] = 1;
+          if (x > 0) vgbDilated[i - 1] = 1;
+          if (x < vgbWidth - 1) vgbDilated[i + 1] = 1;
+          if (y > 0) vgbDilated[i - vgbWidth] = 1;
+          if (y < vgbHeight - 1) vgbDilated[i + vgbWidth] = 1;
+        }
+      }
+    }
+    for (let y = 0; y < vgbHeight; y++) {
+      for (let x = 0; x < vgbWidth; x++) {
+        const i = y * vgbWidth + x;
+        if (vgbDilated[i]) {
+          const hasAll =
+            (x === 0 || vgbDilated[i - 1]) &&
+            (x === vgbWidth - 1 || vgbDilated[i + 1]) &&
+            (y === 0 || vgbDilated[i - vgbWidth]) &&
+            (y === vgbHeight - 1 || vgbDilated[i + vgbWidth]);
+          vgbOutput[i] = hasAll ? 1 : 0;
+        } else {
+          vgbOutput[i] = 0;
+        }
+      }
+    }
+
+    // Invert: black text on white background
+    const vgbFinal = Buffer.alloc(vgbPixels);
+    for (let i = 0; i < vgbPixels; i++) {
+      vgbFinal[i] = vgbOutput[i] ? 0 : 255;
+    }
+
+    return sharp(vgbFinal, {
+      raw: { width: vgbWidth, height: vgbHeight, channels: 1 },
+    })
       .png()
       .toBuffer();
   }
@@ -566,16 +748,67 @@ export async function enhanceForRivenOcr(croppedImage: any, mode: EnhanceMode): 
   const pixelCount = scaledWidth * scaledHeight;
   const mask = Buffer.alloc(pixelCount);
 
-  for (let bufferIndex = 0, pixelIndex = 0; bufferIndex < rawBuffer.length; bufferIndex += 4, pixelIndex++) {
-    const red = rawBuffer[bufferIndex];
-    const green = rawBuffer[bufferIndex + 1];
-    const blue = rawBuffer[bufferIndex + 2];
-    const maxChannel = Math.max(red, green, blue);
-    mask[pixelIndex] = maxChannel >= mode.threshold ? 1 : 0;
+  if (mode.kind === "violet") {
+    // HSV-based violet text isolation — targets the purple/violet hue of
+    // Warframe riven card text while rejecting Kuva animation noise.
+    for (let bufferIndex = 0, pixelIndex = 0; bufferIndex < rawBuffer.length; bufferIndex += 4, pixelIndex++) {
+      const red = rawBuffer[bufferIndex];
+      const green = rawBuffer[bufferIndex + 1];
+      const blue = rawBuffer[bufferIndex + 2];
+      mask[pixelIndex] = isVioletPixel(red, green, blue) ? 1 : 0;
+    }
+  } else {
+    // Brightness-based threshold (existing logic)
+    for (let bufferIndex = 0, pixelIndex = 0; bufferIndex < rawBuffer.length; bufferIndex += 4, pixelIndex++) {
+      const red = rawBuffer[bufferIndex];
+      const green = rawBuffer[bufferIndex + 1];
+      const blue = rawBuffer[bufferIndex + 2];
+      const maxChannel = Math.max(red, green, blue);
+      mask[pixelIndex] = maxChannel >= mode.threshold ? 1 : 0;
+    }
+  }
+
+  // Violet mode cleanup: morphological close (fill 1px gaps in thin strokes)
+  // then remove isolated noise pixels.  Intentionally gentler than the
+  // brightness-mode erode — the violet filter already rejects most non-text
+  // pixels by hue, so only tiny scattered dots remain.
+  if (mode.kind === "violet") {
+    // Close: dilate then erode — fills 1px gaps in text strokes
+    const dilated = Buffer.alloc(pixelCount);
+    for (let y = 0; y < scaledHeight; y++) {
+      for (let x = 0; x < scaledWidth; x++) {
+        const i = y * scaledWidth + x;
+        if (mask[i]) {
+          dilated[i] = 1;
+          if (x > 0) dilated[i - 1] = 1;
+          if (x < scaledWidth - 1) dilated[i + 1] = 1;
+          if (y > 0) dilated[i - scaledWidth] = 1;
+          if (y < scaledHeight - 1) dilated[i + scaledWidth] = 1;
+        }
+      }
+    }
+    // Erode back to original size
+    for (let y = 0; y < scaledHeight; y++) {
+      for (let x = 0; x < scaledWidth; x++) {
+        const i = y * scaledWidth + x;
+        if (dilated[i]) {
+          // Keep pixel only if all 4-connected neighbours survived dilation
+          const hasAll =
+            (x === 0 || dilated[i - 1]) &&
+            (x === scaledWidth - 1 || dilated[i + 1]) &&
+            (y === 0 || dilated[i - scaledWidth]) &&
+            (y === scaledHeight - 1 || dilated[i + scaledWidth]);
+          mask[i] = hasAll ? 1 : 0;
+        } else {
+          mask[i] = 0;
+        }
+      }
+    }
   }
 
   const output = Buffer.alloc(pixelCount);
-  if (mode.dilate) {
+  const shouldDilate = "dilate" in mode && mode.dilate;
+  if (shouldDilate) {
     for (let y = 0; y < scaledHeight; y++) {
       for (let x = 0; x < scaledWidth; x++) {
         let found = false;

@@ -146,24 +146,90 @@ function greedyCtcDecode(logProbs: Float32Array, T: number, C: number): string {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
+ * Check if an RGB pixel falls within the violet/purple hue range typical of
+ * Warframe riven mod text.  Same logic as rivenScanImage.ts isVioletPixel.
+ */
+function isVioletPixel(r: number, g: number, b: number): boolean {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+  if (max < 70) return false;
+  if (max === 0 || delta / max < 0.06) return false;
+  let hue: number;
+  if (max === r) {
+    hue = 60 * (((g - b) / delta) % 6);
+  } else if (max === g) {
+    hue = 60 * ((b - r) / delta + 2);
+  } else {
+    hue = 60 * ((r - g) / delta + 4);
+  }
+  if (hue < 0) hue += 360;
+  return hue >= 230 && hue <= 330;
+}
+
+/**
+ * Apply violet color segmentation to an RGBA buffer, producing a grayscale
+ * buffer where violet text pixels are white (255) and everything else is
+ * black (0).  This bridges the domain gap between real screenshots (noisy
+ * Kuva backgrounds) and the CRNN training data (clean text on dark).
+ */
+function violetSegmentRgba(rgba: Buffer, width: number, height: number): Buffer {
+  const out = Buffer.alloc(width * height);
+  for (let i = 0, p = 0; i < rgba.length; i += 4, p++) {
+    out[p] = isVioletPixel(rgba[i], rgba[i + 1], rgba[i + 2]) ? 255 : 0;
+  }
+  return out;
+}
+
+/**
  * Recognize text in a single riven stat line PNG crop.
  *
  * This covers RECOGNITION ONLY.  Feed it one detected text-region crop at a
- * time (the crop that paddleOcrServer would normally pass to the PP-OCRv4 rec
- * model).  Returns the recognized text string.
+ * time.  Returns the recognized text string.
  *
  * @param pngBuffer  PNG-encoded image of a single text line (any size).
  *                   Will be resized to height=32, keeping aspect ratio.
+ * @param isVgb      true when the input has already been processed by the VGB
+ *                   pipeline (black text on white).  When false, violet color
+ *                   segmentation is applied first.
  */
-export async function recognizeRivenCrop(pngBuffer: Buffer): Promise<string> {
+export async function recognizeRivenCrop(pngBuffer: Buffer, isVgb = false): Promise<string> {
   const session = await getSession();
 
-  // Resize to H=32, keep aspect ratio; pad horizontally if too narrow.
   // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
   const sharp: any = require("sharp");
-  const { data, info } = await sharp(pngBuffer)
-    .resize({ height: 32, fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 255 } })
-    .grayscale()
+
+  let grayBuf: Buffer;
+  let rawW: number;
+  let rawH: number;
+
+  if (isVgb) {
+    // VGB input is already black-on-white — just convert to grayscale
+    const { data, info } = await sharp(pngBuffer)
+      .grayscale()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    grayBuf = data as Buffer;
+    rawW = info.width;
+    rawH = info.height;
+  } else {
+    // Step 1: decode to RGBA for violet color segmentation
+    const { data: rgbaData, info: rgbaInfo } = await sharp(pngBuffer)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    rawW = rgbaInfo.width;
+    rawH = rgbaInfo.height;
+
+    // Step 2: violet color segmentation — isolate purple text, remove Kuva noise
+    grayBuf = violetSegmentRgba(rgbaData as Buffer, rawW, rawH);
+  }
+
+  // Resize to H=32
+  const { data, info } = await sharp(grayBuf, {
+    raw: { width: rawW, height: rawH, channels: 1 },
+  })
+    .resize({ height: 32, fit: "contain", background: { r: 0, g: 0, b: 0 } })
     .raw()
     .toBuffer({ resolveWithObject: true });
 
@@ -176,11 +242,245 @@ export async function recognizeRivenCrop(pngBuffer: Buffer): Promise<string> {
   // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
   const ort: any = require("onnxruntime-node");
   const tensor = new ort.Tensor("float32", float32, [1, 1, 32, W]);
-  const output = await session.run({ image: tensor });
+  const output = await session.run({ input: tensor });
 
-  const logProbs: Float32Array = output["log_probs"]?.data ?? output["logits"]?.data;
-  const [T, , C]: [number, number, number] = (output["log_probs"]?.dims ?? output["logits"]?.dims) ?? [0, 1, 1];
+  const logProbs: Float32Array = output["output"]?.data ?? output["log_probs"]?.data ?? output["logits"]?.data;
+  const [T, , C]: [number, number, number] = (output["output"]?.dims ?? output["log_probs"]?.dims ?? output["logits"]?.dims) ?? [0, 1, 1];
   return greedyCtcDecode(logProbs, T, C);
+}
+
+// ── Known vocabulary for post-processing ─────────────────────────────────────
+
+const KNOWN_STATS = [
+  "Additional Combo Count Chance", "Chance to Gain Combo Count",
+  "Critical Chance for Slide Attack", "Heavy Attack Efficiency",
+  "Magazine Capacity", "Damage to Grineer", "Damage to Corpus",
+  "Damage to Infested", "Critical Chance", "Critical Damage",
+  "Finisher Damage", "Melee Damage", "Weapon Recoil", "Status Duration",
+  "Status Chance", "Projectile Speed", "Reload Speed", "Attack Speed",
+  "Flight Speed", "Fire Rate", "Punch Through", "Combo Duration",
+  "Initial Combo", "Ammo Maximum", "Heavy Attack", "Channeling Damage",
+  "Channeling Efficiency", "Multishot", "Electricity", "Corrosive",
+  "Radiation", "Magnetic", "Cold", "Heat", "Toxin", "Viral", "Blast",
+  "Gas", "Impact", "Puncture", "Slash", "Magazine", "Recoil", "Damage",
+  "Range", "Slide", "Zoom",
+];
+
+function editDistance(a: string, b: string): number {
+  if (a.length < b.length) return editDistance(b, a);
+  if (b.length === 0) return a.length;
+  const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 0; i < a.length; i++) {
+    const curr = [i + 1, ...new Array<number>(b.length).fill(0)];
+    for (let j = 0; j < b.length; j++) {
+      const cost = a[i] === b[j] ? 0 : 1;
+      curr[j + 1] = Math.min(curr[j] + 1, prev[j + 1] + 1, prev[j] + cost);
+    }
+    prev.splice(0, prev.length, ...curr);
+  }
+  return prev[b.length];
+}
+
+function postprocessStatLine(rawText: string): string {
+  const text = rawText.trim();
+  if (!text) return text;
+
+  const match = text.match(/^([+\-x][\d,.]+%?)\s*(.*)/);
+  const valuePart = match ? match[1] : "";
+  const namePart = (match ? match[2] : text).trim();
+  if (!namePart) return text;
+
+  let bestStat: string | null = null;
+  let bestDist = Infinity;
+  const nameLower = namePart.toLowerCase();
+
+  for (const stat of KNOWN_STATS) {
+    const dist = editDistance(nameLower, stat.toLowerCase());
+    const maxLen = Math.max(namePart.length, stat.length);
+    const normDist = dist / Math.max(1, maxLen);
+    if (dist < bestDist && normDist < 0.35) {
+      bestDist = dist;
+      bestStat = stat;
+    }
+  }
+
+  if (bestStat) {
+    return valuePart ? `${valuePart} ${bestStat}` : bestStat;
+  }
+  return text;
+}
+
+// ── VGB line extraction + CRNN recognition ──────────────────────────────────
+
+/**
+ * Extract per-line crops from a VGB-processed PNG (black text on white),
+ * recognize each with the CRNN model, and apply post-processing.
+ *
+ * This is the main entry point for VGB+CRNN recognition.
+ *
+ * @param vgbPng  PNG buffer of the full VGB output (grayscale, black-on-white)
+ * @returns       Recognized text lines (post-processed against known vocabulary)
+ */
+export async function recognizeVgbLines(vgbPng: Buffer): Promise<string[]> {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+  const sharp: any = require("sharp");
+
+  // Decode VGB image to raw grayscale
+  const { data, info } = await sharp(vgbPng)
+    .grayscale()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const gray = data as Buffer;
+  const W: number = info.width;
+  const H: number = info.height;
+
+  // ── Step 1: Detect text rows using dark pixel density ──
+  // In VGB output (black-on-white), text pixels are dark (< 128).
+  const rowDensity = new Float32Array(H);
+  for (let y = 0; y < H; y++) {
+    let count = 0;
+    for (let x = 0; x < W; x++) {
+      if (gray[y * W + x] < 128) count++;
+    }
+    rowDensity[y] = count;
+  }
+  const meanDensity = rowDensity.reduce((a, b) => a + b, 0) / H;
+  const rowThresh = Math.max(5, meanDensity * 0.3);
+
+  const textRows: Array<{ yStart: number; yEnd: number }> = [];
+  let inRow = false;
+  let rowStart = 0;
+  for (let y = 0; y < H; y++) {
+    if (rowDensity[y] >= rowThresh) {
+      if (!inRow) { rowStart = y; inRow = true; }
+    } else {
+      if (inRow && y - rowStart >= 6) {
+        textRows.push({ yStart: rowStart, yEnd: y });
+      }
+      inRow = false;
+    }
+  }
+  if (inRow && H - rowStart >= 6) {
+    textRows.push({ yStart: rowStart, yEnd: H });
+  }
+
+  if (textRows.length === 0) return [];
+
+  // ── Step 2: For each row, find horizontal text extent and extract crop ──
+  const padY = 4;
+  const lines: string[] = [];
+
+  for (const row of textRows) {
+    const y0 = Math.max(0, row.yStart - padY);
+    const y1 = Math.min(H, row.yEnd + padY);
+    const rowH = y1 - y0;
+    if (rowH < 8) continue;
+
+    // Find horizontal extent of dark pixels in this row
+    let xMin = W, xMax = 0;
+    for (let y = y0; y < y1; y++) {
+      for (let x = 0; x < W; x++) {
+        if (gray[y * W + x] < 128) {
+          if (x < xMin) xMin = x;
+          if (x > xMax) xMax = x;
+        }
+      }
+    }
+    if (xMax <= xMin + 20) continue; // too narrow
+
+    // Add small horizontal padding
+    const xPad = Math.floor(W * 0.01);
+    xMin = Math.max(0, xMin - xPad);
+    xMax = Math.min(W - 1, xMax + xPad);
+    const cropW = xMax - xMin + 1;
+
+    // Column density analysis: strip edge artifacts
+    // Edge artifacts (card borders) are large solid dark blocks at crop edges.
+    // Text region is the widest contiguous run of columns with moderate density.
+    const colDensity = new Float32Array(cropW);
+    for (let cx = 0; cx < cropW; cx++) {
+      let count = 0;
+      for (let y = y0; y < y1; y++) {
+        if (gray[y * W + (xMin + cx)] < 128) count++;
+      }
+      colDensity[cx] = count / rowH;
+    }
+
+    // Smooth and find text region
+    const kernelSize = Math.max(3, Math.floor(cropW / 30));
+    const smoothed = new Float32Array(cropW);
+    for (let i = 0; i < cropW; i++) {
+      let sum = 0, cnt = 0;
+      for (let k = -Math.floor(kernelSize / 2); k <= Math.floor(kernelSize / 2); k++) {
+        const idx = i + k;
+        if (idx >= 0 && idx < cropW) { sum += colDensity[idx]; cnt++; }
+      }
+      smoothed[i] = sum / cnt;
+    }
+
+    // Find contiguous runs of text columns (smoothed density > 0.03)
+    const runs: Array<[number, number]> = [];
+    let runStart = -1;
+    for (let x = 0; x < cropW; x++) {
+      if (smoothed[x] > 0.03) {
+        if (runStart < 0) runStart = x;
+      } else {
+        if (runStart >= 0) { runs.push([runStart, x]); runStart = -1; }
+      }
+    }
+    if (runStart >= 0) runs.push([runStart, cropW]);
+
+    if (runs.length === 0) continue;
+
+    // Pick widest run as text region
+    let bestRun = runs[0];
+    for (const run of runs) {
+      if (run[1] - run[0] > bestRun[1] - bestRun[0]) bestRun = run;
+    }
+    const [tx1, tx2] = bestRun;
+    if (tx2 - tx1 < 30) continue;
+
+    // Vertical extent: find tight bounds of dark pixels within the text region
+    let tyMin = rowH, tyMax = 0;
+    for (let ry = 0; ry < rowH; ry++) {
+      let hasText = false;
+      for (let cx = tx1; cx < tx2; cx++) {
+        if (gray[(y0 + ry) * W + (xMin + cx)] < 128) { hasText = true; break; }
+      }
+      if (hasText) {
+        if (ry < tyMin) tyMin = ry;
+        tyMax = ry;
+      }
+    }
+    if (tyMax - tyMin < 4) continue;
+
+    // Extract the tight crop
+    const finalY0 = y0 + Math.max(0, tyMin - 2);
+    const finalY1 = y0 + Math.min(rowH, tyMax + 3);
+    const finalX0 = xMin + tx1;
+    const finalW = tx2 - tx1;
+    const finalH = finalY1 - finalY0;
+
+    if (finalH < 6 || finalW < 20) continue;
+
+    // Create PNG of the line crop
+    const linePng: Buffer = await sharp(gray, {
+      raw: { width: W, height: H, channels: 1 },
+    })
+      .extract({ left: finalX0, top: finalY0, width: finalW, height: finalH })
+      .png()
+      .toBuffer();
+
+    // ── Step 3: Run CRNN on the line crop ──
+    const rawText = (await recognizeRivenCrop(linePng, /* isVgb */ true)).trim();
+    if (!rawText) continue;
+
+    // ── Step 4: Post-process with known vocabulary ──
+    const corrected = postprocessStatLine(rawText);
+    if (corrected) lines.push(corrected);
+  }
+
+  return lines;
 }
 
 // ── Per-card recognition pipeline ────────────────────────────────────────────
@@ -408,15 +708,10 @@ export async function recognizeRivenCardLines(
   const W: number = info.width;
   const H: number = info.height;
 
-  // ── Single-card without pre-refinement: return sparse so WinRT handles it ──
-  // The SINGLE_CARD_CROP (1075×486) contains card art + animated Kuva portal.
-  // Reliable CRNN output requires the stats-only sub-image produced by
-  // refineRivenTextCrop in production.  When the caller hasn't pre-refined
-  // (statsOnlyMode=false, !isMultipanel), return [] immediately so
-  // ocrCropMultiStrategy falls through to WinRT (100% accurate on this crop).
-  if (!isMultipanel && !statsOnlyMode) {
-    return [];
-  }
+  // Single-card without pre-refinement: previously returned [] because the
+  // Kuva animation confused the model.  With violet color segmentation in
+  // recognizeRivenCrop, the domain gap is bridged and CRNN can handle both
+  // single-card and multipanel crops.
 
   // Column bounds:
   //   statsOnlyMode  — full image IS the stats area; 3-97% covers all text.

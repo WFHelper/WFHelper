@@ -36,7 +36,7 @@ import {
   type RivenStat,
 } from "../ipc/overlay/rivenScanText.js";
 
-import { recognizeRivenCardLines } from "../services/rivenOcrOnnx.js";
+import { recognizeRivenCardLines, recognizeVgbLines } from "../services/rivenOcrOnnx.js";
 
 // ── CLI flags ────────────────────────────────────────────────────────────────
 const CRNN_ONLY = process.argv.includes("--crnn-only");
@@ -51,16 +51,19 @@ const MIN_ACCEPTABLE_RIVEN_STATS = 2;
 
 type EnhanceMode =
   | { kind: "original" }
-  | { kind: "bright"; threshold: number; dilate?: boolean };
+  | { kind: "bright"; threshold: number; dilate?: boolean }
+  | { kind: "violet"; dilate?: boolean };
 
 const ENHANCE_STRATEGIES: readonly EnhanceMode[] = [
+  { kind: "violet", dilate: true },
   { kind: "original" },
   { kind: "bright", threshold: 150, dilate: true },
   { kind: "bright", threshold: 120, dilate: true },
 ];
 
-// Tesseract: original first (best text accuracy for early-accept), then bright-120.
+// Tesseract: violet first, then original, then bright-120.
 const TESSERACT_STRATEGIES: readonly EnhanceMode[] = [
+  { kind: "violet", dilate: true },
   { kind: "original" },
   { kind: "bright", threshold: 120, dilate: true },
 ];
@@ -210,6 +213,25 @@ async function rawToPng(img: RawImage): Promise<Buffer> {
     .toBuffer();
 }
 
+// ── Violet pixel detection (HSV color filter for riven card text) ────────────
+function isVioletPixel(r: number, g: number, b: number): boolean {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+  if (max < 70) return false;
+  if (max === 0 || delta / max < 0.06) return false;
+  let hue: number;
+  if (max === r) {
+    hue = 60 * (((g - b) / delta) % 6);
+  } else if (max === g) {
+    hue = 60 * ((b - r) / delta + 2);
+  } else {
+    hue = 60 * ((r - g) / delta + 4);
+  }
+  if (hue < 0) hue += 360;
+  return hue >= 230 && hue <= 330;
+}
+
 // ── Enhancement (matches enhanceForRivenOcr exactly) ────────────────────────
 async function enhance(img: RawImage, mode: EnhanceMode): Promise<Buffer> {
   const sharp = (await import("sharp")).default;
@@ -228,7 +250,7 @@ async function enhance(img: RawImage, mode: EnhanceMode): Promise<Buffer> {
       .toBuffer();
   }
 
-  // Bright threshold
+  // Bright threshold or violet color segmentation
   const scale = width >= MIN_OCR_WIDTH ? 1 : Math.ceil(MIN_OCR_WIDTH / width);
   const sw = Math.min(6000, width * scale);
   const sh = Math.min(6000, height * scale);
@@ -241,13 +263,49 @@ async function enhance(img: RawImage, mode: EnhanceMode): Promise<Buffer> {
   const pixelCount = sw * sh;
   const mask = Buffer.alloc(pixelCount);
 
-  for (let bi = 0, pi = 0; bi < rawBuf.length; bi += 4, pi++) {
-    const maxC = Math.max(rawBuf[bi], rawBuf[bi + 1], rawBuf[bi + 2]);
-    mask[pi] = maxC >= mode.threshold ? 1 : 0;
+  if (mode.kind === "violet") {
+    for (let bi = 0, pi = 0; bi < rawBuf.length; bi += 4, pi++) {
+      mask[pi] = isVioletPixel(rawBuf[bi], rawBuf[bi + 1], rawBuf[bi + 2]) ? 1 : 0;
+    }
+    // Morphological close (dilate then erode) to fill 1px gaps
+    const dilated = Buffer.alloc(pixelCount);
+    for (let y = 0; y < sh; y++) {
+      for (let x = 0; x < sw; x++) {
+        const i = y * sw + x;
+        if (mask[i]) {
+          dilated[i] = 1;
+          if (x > 0) dilated[i - 1] = 1;
+          if (x < sw - 1) dilated[i + 1] = 1;
+          if (y > 0) dilated[i - sw] = 1;
+          if (y < sh - 1) dilated[i + sw] = 1;
+        }
+      }
+    }
+    for (let y = 0; y < sh; y++) {
+      for (let x = 0; x < sw; x++) {
+        const i = y * sw + x;
+        if (dilated[i]) {
+          const hasAll =
+            (x === 0 || dilated[i - 1]) &&
+            (x === sw - 1 || dilated[i + 1]) &&
+            (y === 0 || dilated[i - sw]) &&
+            (y === sh - 1 || dilated[i + sw]);
+          mask[i] = hasAll ? 1 : 0;
+        } else {
+          mask[i] = 0;
+        }
+      }
+    }
+  } else {
+    for (let bi = 0, pi = 0; bi < rawBuf.length; bi += 4, pi++) {
+      const maxC = Math.max(rawBuf[bi], rawBuf[bi + 1], rawBuf[bi + 2]);
+      mask[pi] = maxC >= mode.threshold ? 1 : 0;
+    }
   }
 
   const output = Buffer.alloc(pixelCount);
-  if (mode.dilate) {
+  const shouldDilate = "dilate" in mode && mode.dilate;
+  if (shouldDilate) {
     for (let y = 0; y < sh; y++) {
       for (let x = 0; x < sw; x++) {
         let found = false;
@@ -342,7 +400,9 @@ async function runTesseractCandidatesBenchmark(
       const modeLabel =
         plan.mode.kind === "original"
           ? `tess:${cv.id}:original`
-          : `tess:${cv.id}:bright-${plan.mode.threshold}${plan.mode.dilate ? "+dilate" : ""}`;
+          : plan.mode.kind === "violet"
+            ? `tess:${cv.id}:violet${plan.mode.dilate ? "+dilate" : ""}`
+            : `tess:${cv.id}:bright-${plan.mode.threshold}${plan.mode.dilate ? "+dilate" : ""}`;
       try {
         const tOcr0 = Date.now();
         const cacheKey = modeLabel.replace(/^tess:/, "");
@@ -441,7 +501,9 @@ async function ocrCropMultiStrategy(
     const modeLabel =
       plan.mode.kind === "original"
         ? `${cv.id}:original`
-        : `${cv.id}:bright-${plan.mode.threshold}${plan.mode.dilate ? "+dilate" : ""}`;
+        : plan.mode.kind === "violet"
+          ? `${cv.id}:violet${plan.mode.dilate ? "+dilate" : ""}`
+          : `${cv.id}:bright-${plan.mode.threshold}${plan.mode.dilate ? "+dilate" : ""}`;
 
     try {
       const nOcr0 = Date.now();
