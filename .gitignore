@@ -47,3 +47,5 @@ OCR-debug/riven_images/
 OCR-debug/reward_images/
 OCR-debug/relic_selection/
 OCR-debug/slot-crops/
+OCR-debug/multi_model_test/
+scripts/train-paddleocr/real_vgb_crops

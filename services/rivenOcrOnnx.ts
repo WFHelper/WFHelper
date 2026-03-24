@@ -374,21 +374,40 @@ export async function recognizeRivenCrop(pngBuffer: Buffer, isVgb = false): Prom
 
 // ── Known vocabulary for post-processing ─────────────────────────────────────
 
-const STAT_RULES: Record<string, { isPercent?: boolean; suffix?: string }> = {
-  "Punch Through": { isPercent: false },
-  "Range": { isPercent: false },
-  "Combo Duration": { isPercent: false, suffix: "s" },
-  "Initial Combo": { isPercent: false },
-  "Zoom": { isPercent: true },
-  "Critical Chance": { isPercent: true },
-  "Critical Damage": { isPercent: true },
-  "Multishot": { isPercent: true },
-  "Status Chance": { isPercent: true },
-  "Status Duration": { isPercent: true },
-  "Fire Rate": { isPercent: true },
-  "Magazine Capacity": { isPercent: true },
-  "Ammo Maximum": { isPercent: true },
-  "Melee Damage": { isPercent: true },
+const STAT_RULES: Record<string, { isPercent?: boolean; suffix?: string; min?: number; max?: number }> = {
+  "Punch Through": { isPercent: false, min: 0.1, max: 5.0 },
+  "Range": { isPercent: false, min: 0.1, max: 4.0 },
+  "Combo Duration": { isPercent: false, suffix: "s", min: 0.1, max: 15.0 },
+  "Initial Combo": { isPercent: false, min: 1, max: 60 },
+  "Zoom": { isPercent: true, min: 5, max: 120 },
+  "Critical Chance": { isPercent: true, min: 10, max: 300 },
+  "Critical Damage": { isPercent: true, min: 10, max: 200 },
+  "Multishot": { isPercent: true, min: 10, max: 250 },
+  "Status Chance": { isPercent: true, min: 10, max: 200 },
+  "Status Duration": { isPercent: true, min: 10, max: 200 },
+  "Fire Rate": { isPercent: true, min: 10, max: 200 },
+  "Magazine Capacity": { isPercent: true, min: 10, max: 200 },
+  "Ammo Maximum": { isPercent: true, min: 10, max: 200 },
+  "Melee Damage": { isPercent: true, min: 30, max: 300 },
+  "Impact": { isPercent: true, min: 10, max: 200 },
+  "Puncture": { isPercent: true, min: 10, max: 200 },
+  "Slash": { isPercent: true, min: 10, max: 200 },
+  "Electricity": { isPercent: true, min: 10, max: 200 },
+  "Cold": { isPercent: true, min: 10, max: 200 },
+  "Heat": { isPercent: true, min: 10, max: 200 },
+  "Toxin": { isPercent: true, min: 10, max: 200 },
+  "Reload Speed": { isPercent: true, min: 10, max: 200 },
+  "Attack Speed": { isPercent: true, min: 10, max: 200 },
+  "Projectile Speed": { isPercent: true, min: 10, max: 200 },
+  "Finisher Damage": { isPercent: true, min: 20, max: 200 },
+  "Damage": { isPercent: true, min: 30, max: 400 },
+  "Heavy Attack": { isPercent: true, min: 20, max: 200 },
+  "Weapon Recoil": { isPercent: true, min: 10, max: 200 },
+  "Flight Speed": { isPercent: true, min: 10, max: 200 },
+  "Critical Chance for Slide Attack": { isPercent: true, min: 20, max: 300 },
+  "Damage to Grineer": { isPercent: false, min: 0.3, max: 4.0 },
+  "Damage to Corpus": { isPercent: false, min: 0.3, max: 4.0 },
+  "Damage to Infested": { isPercent: false, min: 0.3, max: 4.0 },
 };
 
 const KNOWN_STATS = [
@@ -448,7 +467,33 @@ function validateStat(valueStr: string, statName: string): [string, string] {
     result = result.replace("%", "");
   }
 
+  // Phantom-comma correction: CRNN often inserts a spurious comma in
+  // 3-digit values, e.g. "+157%" → "+15,7%".  If the parsed value is
+  // below the stat's expected minimum, try removing the comma.
+  if (rules.min != null && result.includes(",")) {
+    const parsed = tryParseNumeric(result);
+    if (parsed !== null && Math.abs(parsed) < rules.min) {
+      const noComma = result.replace(",", "");
+      const alt = tryParseNumeric(noComma);
+      if (alt !== null && rules.min <= Math.abs(alt) && Math.abs(alt) <= (rules.max ?? 99999)) {
+        result = noComma;
+      }
+    }
+  }
+
   return [result, statName];
+}
+
+function tryParseNumeric(val: string): number | null {
+  let s = val.trim();
+  if (!s) return null;
+  let sign = 1;
+  if (s[0] === "-") { sign = -1; s = s.slice(1); }
+  else if (s[0] === "+" || s[0] === "x") { s = s.slice(1); }
+  s = s.replace(/%$/, "").replace(/s$/, "");
+  s = s.replace(/,/g, ".");
+  const n = parseFloat(s);
+  return isNaN(n) ? null : sign * n;
 }
 
 function postprocessStatLine(rawText: string): string {
