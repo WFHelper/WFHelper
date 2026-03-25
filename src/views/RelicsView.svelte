@@ -6,6 +6,7 @@
     relicEvRevision,
     relicOwnedCounts,
     relicQualityMode,
+    relicSortDirection,
     relicSearch,
     relicSortMode,
     relicSquadSize,
@@ -42,6 +43,8 @@
   import type { ParsedItem } from "../types/inventory.js";
   import type { RelicGroup, RelicQuality, RelicReward } from "../types/relics.js";
 
+  type RelicQualityModeView = "owned" | RelicQuality;
+
   const TIER_OPTIONS: Array<[string, string]> = [
     ["all", "All"],
     ["Lith", "Lith"],
@@ -51,23 +54,16 @@
     ["Requiem", "Requiem"],
   ];
 
-  const SORT_OPTIONS: Array<[
-    "tier" | "ev_desc" | "ev_asc" | "ducat_desc" | "ducat_asc" | "ducatonator_desc" | "ducatonator_asc",
-    string,
-  ]> = [
+  const SORT_OPTIONS: Array<["tier" | "name" | "ev" | "ducat" | "ducatonator", string]> = [
     ["tier", "Default"],
-    ["ev_desc", "Plat desc"],
-    ["ev_asc", "Plat asc"],
-    ["ducat_desc", "Ducat desc"],
-    ["ducat_asc", "Ducat asc"],
-    ["ducatonator_desc", "d/p desc"],
-    ["ducatonator_asc", "d/p asc"],
+    ["name", "Name"],
+    ["ev", "Platinum"],
+    ["ducat", "Ducats"],
+    ["ducatonator", "Ducats/Plat"],
   ];
 
-  const QUALITY_OPTIONS: Array<
-    ["best" | "intact" | "exceptional" | "flawless" | "radiant", string]
-  > = [
-    ["best", "Best"],
+  const QUALITY_OPTIONS: Array<[RelicQualityModeView, string]> = [
+    ["owned", "Owned"],
     ["intact", "Intact"],
     ["exceptional", "Exceptional"],
     ["flawless", "Flawless"],
@@ -82,6 +78,12 @@
   ];
 
   const RELIC_QUALITY_COLUMNS: RelicQuality[] = ["intact", "exceptional", "flawless", "radiant"];
+  const RELIC_QUALITY_LABEL: Record<RelicQuality, string> = {
+    intact: "Intact",
+    exceptional: "Exceptional",
+    flawless: "Flawless",
+    radiant: "Radiant",
+  };
   const RELIC_QUALITY_SHORT: Record<RelicQuality, string> = {
     intact: "Int",
     exceptional: "Ex",
@@ -106,6 +108,14 @@
     });
   }
 
+  function toggleRelicSortDirection(): void {
+    relicSortDirection.update((value) => (value === "asc" ? "desc" : "asc"));
+  }
+
+  function openRelic(group: RelicGroup): void {
+    activeRelic.set(group);
+  }
+
   const EV_WARMUP_UI_DEBOUNCE_MS = 800;
   const CARD_WARMUP_UI_DEBOUNCE_MS = 450;
   const EV_WARMUP_START_DELAY_MS = 2000;
@@ -121,6 +131,7 @@
   let ducatUiDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   let priceUpdateEvRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   let relicViewMounted = true;
+  let ownedModeSelectedQualityByGroup: Record<string, RelicQuality> = {};
   let ownedRewardInternalNames: Record<string, true> = {};
   let ownedRewardNames: Record<string, true> = {};
   let rewardGameRefBySlug: Record<string, string> = {};
@@ -324,11 +335,11 @@
       relicGroups = relicGroups.filter((group) => relicGroupMatchesSearch(group, $relicSearch));
     }
 
-    if ($relicSortMode === "ev_desc" || $relicSortMode === "ev_asc") {
-      const direction = $relicSortMode === "ev_desc" ? -1 : 1;
+    if ($relicSortMode === "ev") {
+      const direction = $relicSortDirection === "desc" ? -1 : 1;
       relicGroups = [...relicGroups].sort((a, b) => {
-        const aEv = getCachedEv(a.key, $relicSquadSize, $relicQualityMode);
-        const bEv = getCachedEv(b.key, $relicSquadSize, $relicQualityMode);
+        const aEv = selectedEvDataForMode(a, $relicQualityMode).plat;
+        const bEv = selectedEvDataForMode(b, $relicQualityMode).plat;
 
         if ((aEv == null) !== (bEv == null)) return aEv == null ? 1 : -1;
         if (aEv != null && bEv != null && aEv !== bEv) {
@@ -339,11 +350,11 @@
         const tierB = RELIC_TIER_ORDER[b.tier] ?? 99;
         return tierA !== tierB ? tierA - tierB : a.name.localeCompare(b.name);
       });
-    } else if ($relicSortMode === "ducat_desc" || $relicSortMode === "ducat_asc") {
-      const direction = $relicSortMode === "ducat_desc" ? -1 : 1;
+    } else if ($relicSortMode === "ducat") {
+      const direction = $relicSortDirection === "desc" ? -1 : 1;
       relicGroups = [...relicGroups].sort((a, b) => {
-        const aEv = computeGroupDucatEv(a, $relicSquadSize, $relicQualityMode);
-        const bEv = computeGroupDucatEv(b, $relicSquadSize, $relicQualityMode);
+        const aEv = selectedEvDataForMode(a, $relicQualityMode).ducat;
+        const bEv = selectedEvDataForMode(b, $relicQualityMode).ducat;
 
         if ((aEv == null) !== (bEv == null)) return aEv == null ? 1 : -1;
         if (aEv != null && bEv != null && aEv !== bEv) {
@@ -354,14 +365,11 @@
         const tierB = RELIC_TIER_ORDER[b.tier] ?? 99;
         return tierA !== tierB ? tierA - tierB : a.name.localeCompare(b.name);
       });
-    } else if (
-      $relicSortMode === "ducatonator_desc" ||
-      $relicSortMode === "ducatonator_asc"
-    ) {
-      const direction = $relicSortMode === "ducatonator_desc" ? -1 : 1;
+    } else if ($relicSortMode === "ducatonator") {
+      const direction = $relicSortDirection === "desc" ? -1 : 1;
       relicGroups = [...relicGroups].sort((a, b) => {
-        const aRatio = computeGroupDucatonator(a, $relicSquadSize, $relicQualityMode);
-        const bRatio = computeGroupDucatonator(b, $relicSquadSize, $relicQualityMode);
+        const aRatio = selectedEvDataForMode(a, $relicQualityMode).ratio;
+        const bRatio = selectedEvDataForMode(b, $relicQualityMode).ratio;
 
         if ((aRatio == null) !== (bRatio == null)) return aRatio == null ? 1 : -1;
         if (aRatio != null && bRatio != null && aRatio !== bRatio) {
@@ -372,11 +380,16 @@
         const tierB = RELIC_TIER_ORDER[b.tier] ?? 99;
         return tierA !== tierB ? tierA - tierB : a.name.localeCompare(b.name);
       });
+    } else if ($relicSortMode === "name") {
+      const direction = $relicSortDirection === "desc" ? -1 : 1;
+      relicGroups = [...relicGroups].sort((a, b) => direction * a.name.localeCompare(b.name));
     } else {
+      const direction = $relicSortDirection === "desc" ? -1 : 1;
       relicGroups = [...relicGroups].sort((a, b) => {
         const tierA = RELIC_TIER_ORDER[a.tier] ?? 99;
         const tierB = RELIC_TIER_ORDER[b.tier] ?? 99;
-        return tierA !== tierB ? tierA - tierB : a.name.localeCompare(b.name);
+        const tierOrder = tierA !== tierB ? tierA - tierB : a.name.localeCompare(b.name);
+        return tierOrder * direction;
       });
     }
 
@@ -385,7 +398,7 @@
 
   $: if ($perfSnapshot.relicWarmupFirstUsefulMs == null && groups.length > 0) {
     const hasUsefulPrice = groups.some((group) => {
-      const ev = getCachedEv(group.key, $relicSquadSize, $relicQualityMode);
+      const ev = selectedEvDataForMode(group, $relicQualityMode).plat;
       const relicPrice = getCachedRelicCardPrice(group.key);
       return ev != null || relicPrice != null;
     });
@@ -408,11 +421,11 @@
     cls: "has-value" | "loading" | "no-data";
   }
 
-  function selectedEvData(group: RelicGroup): RowEvData {
-    const platEv = getCachedEv(group.key, $relicSquadSize, $relicQualityMode);
-    const ducatEv = computeGroupDucatEv(group, $relicSquadSize, $relicQualityMode);
-    const ratio = computeGroupDucatonator(group, $relicSquadSize, $relicQualityMode);
-    const noData = evHasFreshNoData(group.key, $relicSquadSize, $relicQualityMode);
+  function qualityEvData(group: RelicGroup, quality: RelicQuality): RowEvData {
+    const platEv = getCachedEv(group.key, $relicSquadSize, quality);
+    const ducatEv = computeGroupDucatEv(group, $relicSquadSize, quality);
+    const ratio = computeGroupDucatonator(group, $relicSquadSize, quality);
+    const noData = evHasFreshNoData(group.key, $relicSquadSize, quality);
 
     return {
       plat: platEv,
@@ -420,6 +433,55 @@
       ratio,
       cls: platEv != null || ducatEv != null ? "has-value" : noData ? "no-data" : "loading",
     };
+  }
+
+  function selectedOwnedQuality(
+    group: RelicGroup,
+    selectedFromState: RelicQuality | undefined,
+  ): RelicQuality | null {
+    const selected = selectedFromState;
+    if (selected && ownedCount(group, selected) > 0) {
+      return selected;
+    }
+
+    for (const quality of RELIC_QUALITY_COLUMNS) {
+      if (ownedCount(group, quality) > 0) {
+        return quality;
+      }
+    }
+
+    return null;
+  }
+
+  function setOwnedQuality(group: RelicGroup, quality: RelicQuality): void {
+    if (ownedCount(group, quality) <= 0) return;
+    ownedModeSelectedQualityByGroup = {
+      ...ownedModeSelectedQualityByGroup,
+      [group.key]: quality,
+    };
+  }
+
+  function selectedEvDataForMode(
+    group: RelicGroup,
+    mode: RelicQualityModeView,
+    selectedOwned: RelicQuality | null = selectedOwnedQuality(
+      group,
+      ownedModeSelectedQualityByGroup[group.key],
+    ),
+  ): RowEvData {
+    if (mode === "owned") {
+      if (selectedOwned) {
+        return qualityEvData(group, selectedOwned);
+      }
+      return {
+        plat: null,
+        ducat: null,
+        ratio: null,
+        cls: "no-data",
+      };
+    }
+
+    return qualityEvData(group, mode);
   }
 
   function bestQualityBadge(group: RelicGroup): { text: string; cls: "has-value" | "loading" | "no-data" } {
@@ -465,6 +527,16 @@
   function ownedCount(group: RelicGroup, quality: RelicQuality): number {
     const owned = $relicOwnedCounts[group.key];
     return owned?.[quality] ?? 0;
+  }
+
+  function ownedQualityBreakdown(
+    group: RelicGroup,
+  ): Array<{ quality: RelicQuality; label: string; count: number }> {
+    return RELIC_QUALITY_COLUMNS.map((quality) => ({
+      quality,
+      label: RELIC_QUALITY_LABEL[quality],
+      count: ownedCount(group, quality),
+    })).filter((entry) => entry.count > 0);
   }
 
   function previewRewards(group: RelicGroup): RelicReward[] {
@@ -532,10 +604,19 @@
     return `${reward.name} (${rarity}, ${reward.chance}%)`;
   }
 
-  function selectedQualityHeader(mode: "best" | RelicQuality): string {
-    if (mode === "best") return "Selected EV (Best)";
-    const label = mode.charAt(0).toUpperCase() + mode.slice(1);
-    return `Selected EV (${label})`;
+  function selectedQualityHeader(
+    mode: RelicQualityModeView,
+    group: RelicGroup,
+    selectedOwned: RelicQuality | null,
+  ): string {
+    if (mode === "owned") {
+      if (selectedOwned) {
+        return `Selected EV: ${RELIC_QUALITY_LABEL[selectedOwned]}`;
+      }
+      return "Selected EV: Owned";
+    }
+
+    return `Selected EV: ${RELIC_QUALITY_LABEL[mode]}`;
   }
 
   function fallbackIconForTier(tierClass: string): string {
@@ -631,14 +712,37 @@
           <input type="text" bind:value={$relicSearch} placeholder="Search relics..." />
         </div>
 
-        <label class="shared-filter-sort" title="Sort relics">
-          <span>Sort</span>
-          <select class="shared-filter-select" bind:value={$relicSortMode}>
-            {#each SORT_OPTIONS as [key, label]}
-              <option value={key}>{label}</option>
-            {/each}
-          </select>
-        </label>
+        <div class="shared-sort-controls">
+          <button
+            class="shared-sort-direction"
+            on:click={toggleRelicSortDirection}
+            title="Sort direction"
+            aria-label={$relicSortDirection === "asc"
+              ? "Sort direction ascending"
+              : "Sort direction descending"}
+          >
+            {#if $relicSortDirection === "asc"}
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M8 3v10" />
+                <path d="M5.5 5.5L8 3l2.5 2.5" />
+              </svg>
+            {:else}
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M8 3v10" />
+                <path d="M5.5 10.5L8 13l2.5-2.5" />
+              </svg>
+            {/if}
+          </button>
+
+          <label class="shared-filter-sort" title="Sort relics">
+            <span>Sort</span>
+            <select class="shared-filter-select" bind:value={$relicSortMode}>
+              {#each SORT_OPTIONS as [key, label]}
+                <option value={key}>{label}</option>
+              {/each}
+            </select>
+          </label>
+        </div>
 
         <label class="shared-filter-sort" title="Relic quality for EV">
           <span>Quality</span>
@@ -685,15 +789,12 @@
         {@const tierClass = fissureTierClass(group.tier)}
         {@const iconSrc =
           group.imageUrl || RELIC_ICON_PATHS[tierClass] || RELIC_ICON_PATHS.default}
-        {@const selected = selectedEvData(group)}
+        {@const selectedOwned = selectedOwnedQuality(group, ownedModeSelectedQualityByGroup[group.key])}
+        {@const selected = selectedEvDataForMode(group, $relicQualityMode, selectedOwned)}
         {@const rewardIcons = previewRewards(group)}
-        {@const totalOwned = RELIC_QUALITY_COLUMNS.reduce(
-          (sum, quality) => sum + ownedCount(group, quality),
-          0,
-        )}
 
-        <button type="button" class="relic-compact-card" on:click={() => activeRelic.set(group)}>
-          <span class="relic-compact-head">
+        <div class="relic-compact-card">
+          <button type="button" class="relic-compact-head relic-compact-head-button" on:click={() => openRelic(group)}>
             <span class="relic-row-icon-shell">
               <span class="relic-icon {tierClass}">
                 <img
@@ -708,14 +809,25 @@
 
             <span class="relic-row-main">
               <span class="relic-row-name">{group.name}</span>
-              <span class="relic-row-meta">
-                <span class="relic-card-tier tier-{tierClass}">{group.tier}</span>
-                {#if totalOwned > 0}
-                  <span class="relic-owned-inline">x{totalOwned}</span>
-                {/if}
+            </span>
+
+            <span class="relic-head-ev">
+              <span class="relic-compact-block-label relic-compact-block-label-inline"
+                >{selectedQualityHeader($relicQualityMode, group, selectedOwned)}</span
+              >
+              <span class="relic-compact-ev-row relic-compact-ev-row-inline">
+                <span class={`relic-row-pill relic-row-pill-plat ${selected.cls}`}>
+                  {selected.plat != null ? `${selected.plat.toFixed(1)}p` : "p -"}
+                </span>
+                <span class={`relic-row-pill relic-row-pill-ducat ${selected.cls}`}>
+                  {selected.ducat != null ? `${selected.ducat.toFixed(1)}d` : "d -"}
+                </span>
+                <span class={`relic-row-pill relic-row-pill-ratio ${selected.cls}`}>
+                  {selected.ratio != null ? `${selected.ratio.toFixed(1)} d/p` : "d/p -"}
+                </span>
               </span>
             </span>
-          </span>
+          </button>
 
           <span class="relic-reward-preview-row">
             {#each rewardIcons as reward}
@@ -729,35 +841,31 @@
             {/each}
           </span>
 
-          <span class="relic-compact-ev-block">
-            <span class="relic-compact-block-label">{selectedQualityHeader($relicQualityMode)}</span>
-            <span class="relic-compact-ev-row">
-              <span class={`relic-row-pill relic-row-pill-plat ${selected.cls}`}>
-                {selected.plat != null ? `${selected.plat.toFixed(1)}p` : "p -"}
-              </span>
-              <span class={`relic-row-pill relic-row-pill-ducat ${selected.cls}`}>
-                {selected.ducat != null ? `${selected.ducat.toFixed(1)}d` : "d -"}
-              </span>
-              <span class={`relic-row-pill relic-row-pill-ratio ${selected.cls}`}>
-                {selected.ratio != null ? `${selected.ratio.toFixed(1)} d/p` : "d/p -"}
-              </span>
-
-              <span class="relic-quality-inline-counts">
-                {#each RELIC_QUALITY_COLUMNS as quality}
-                  {@const count = ownedCount(group, quality)}
-                  <span class="relic-quality-inline-pill" class:zero={count === 0}>
-                    <span class="relic-quality-inline-label">{RELIC_QUALITY_SHORT[quality]}</span>
-                    <span class="relic-quality-inline-value">{count}</span>
-                  </span>
-                {/each}
-              </span>
-            </span>
+          <span class="relic-quality-inline-counts">
+            {#each RELIC_QUALITY_COLUMNS as quality}
+              {@const count = ownedCount(group, quality)}
+              <button
+                type="button"
+                class="relic-quality-inline-pill"
+                class:zero={count === 0}
+                class:active={$relicQualityMode === "owned" && selectedOwned === quality}
+                class:disabled={$relicQualityMode !== "owned" || count === 0}
+                on:click|stopPropagation={() => {
+                  if ($relicQualityMode === "owned" && count > 0) {
+                    setOwnedQuality(group, quality);
+                  }
+                }}
+              >
+                <span class="relic-quality-inline-label">{RELIC_QUALITY_SHORT[quality]}:</span>
+                <span class="relic-quality-inline-value">{count}</span>
+              </button>
+            {/each}
           </span>
 
           {#if $debugMode}
             <span class="debug-reason">show:relic-planner:{group.key}</span>
           {/if}
-        </button>
+        </div>
       {/each}
     </div>
   {/if}
@@ -830,7 +938,3 @@
     min-width: 4rem;
   }
 </style>
-
-
-
-

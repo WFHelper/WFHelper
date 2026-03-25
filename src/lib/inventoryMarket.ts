@@ -2,6 +2,7 @@ import type { SharedFiltersState } from "../types/filters.js";
 import type { ParsedItem } from "../types/inventory.js";
 import type { WfmItemsLookup } from "../types/ipc.js";
 import type { WfmOrdersResult } from "../types/market.js";
+import type { RelicDatabase } from "../types/relics.js";
 import { getCachedPriceState } from "./wfm/priceCache.js";
 import { getCachedOrderSummaryState } from "./wfm/orderSummaryCache.js";
 import numericShared from "../../config/shared/numeric.cjs";
@@ -325,21 +326,29 @@ export function buildBaseInventoryItems(
   wfmLookup: WfmItemsLookup,
   orderedNames: Record<string, true>,
   orderedSlugs: Record<string, true>,
+  relicDb?: RelicDatabase | null,
 ): InventoryBaseItem[] {
   return parsedItems
     .filter((item) => matchesFilterTab(item, activeTab))
     .map<InventoryBaseItem | null>((item) => {
       const group = (item.inventoryGroup || itemGroupFallback(item)) as InventoryFilterTab;
-      const lookupByName = getLookupByName(item.name, wfmLookup);
+      const relicLookupInfo =
+        group === "relics" ? (relicDb?.byUniqueName?.[item.internalName] ?? null) : null;
+      const relicGroupName = relicLookupInfo
+        ? (relicDb?.groups?.[relicLookupInfo.groupKey]?.name ?? null)
+        : null;
+      const lookupByName = getLookupByName(relicGroupName || item.name, wfmLookup);
       const lookupByGameRef = getLookupByGameRef(item.internalName, wfmLookup);
       const mappedSlug = lookupByName?.url_name ? toMarketSlug(lookupByName.url_name) : null;
       const mappedGameRefSlug = lookupByGameRef?.url_name
         ? toMarketSlug(lookupByGameRef.url_name)
         : null;
+      const displayName = relicGroupName || item.name;
+      const fallbackRelicSlug = group === "relics" ? toMarketSlug(displayName) : null;
       const excludedRankedItem =
         isRankedGroup(group) &&
         isExcludedRankedMarketItem(
-          item.name,
+          displayName,
           mappedGameRefSlug ||
             mappedSlug ||
             (typeof item.marketSlug === "string" ? item.marketSlug : null),
@@ -359,6 +368,7 @@ export function buildBaseInventoryItems(
       const marketSlug = canIndexMarket
         ? mappedGameRefSlug ||
           mappedSlug ||
+          fallbackRelicSlug ||
           (group === "all_parts" && item.tradable !== true ? null : resolveSlug(item, wfmLookup))
         : null;
       const marketThumb = lookupByName?.thumb || lookupByName?.icon || null;
@@ -374,11 +384,12 @@ export function buildBaseInventoryItems(
           : 0;
 
       const orderPlaced =
-        Boolean(orderedNames[normalizeName(item.name)]) ||
+        Boolean(orderedNames[normalizeName(displayName)]) ||
         (marketSlug ? Boolean(orderedSlugs[marketSlug]) : false);
 
       return {
         ...item,
+        name: displayName,
         internalName:
           typeof item.inventoryKey === "string" && item.inventoryKey.trim().length > 0
             ? item.inventoryKey

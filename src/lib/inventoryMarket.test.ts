@@ -10,6 +10,7 @@ import {
   type InventoryBaseItem,
   type ItemMetrics,
 } from "./inventoryMarket.js";
+import type { RelicDatabase } from "../types/relics.js";
 import { setCachedPrice } from "./wfm/priceCache.js";
 import { clearOrderSummaryCache, setCachedOrderSummary } from "./wfm/orderSummaryCache.js";
 
@@ -253,6 +254,41 @@ describe("inventoryMarket view mapping", () => {
     });
 
     expect(match?.url_name).toBe("riot_848_stock");
+  });
+
+  it("normalizes relic names and slugs using relic database mapping", () => {
+    const relicItem = makeBaseItem({
+      name: "Intact Axi A1 Relic",
+      internalName: "/Lotus/Types/Game/Projections/RelicAxiA1Intact",
+      category: "relics",
+      categoryLabel: "Relic",
+      inventoryGroup: "relics",
+      maxRank: 0,
+      rank: 0,
+    });
+
+    const relicDb: RelicDatabase = {
+      groups: {
+        "Axi A1 Relic": {
+          key: "Axi A1 Relic",
+          name: "Axi A1 Relic",
+          tier: "Axi",
+          code: "A1",
+          imageUrl: null,
+          qualities: {},
+        },
+      },
+      byUniqueName: {
+        "/Lotus/Types/Game/Projections/RelicAxiA1Intact": {
+          groupKey: "Axi A1 Relic",
+          quality: "intact",
+        },
+      },
+    };
+
+    const [mapped] = buildBaseInventoryItems([relicItem], "relics", {}, {}, {}, relicDb);
+    expect(mapped.name).toBe("Axi A1 Relic");
+    expect(mapped.marketSlug).toBe("axi_a1_relic");
   });
 
   it("sanitizes non-finite metric numbers to avoid NaN display values", () => {

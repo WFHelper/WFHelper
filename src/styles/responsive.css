@@ -84,9 +84,9 @@
     gap: 0.22rem;
   }
   .relic-quality-inline-counts {
-    margin-left: auto;
+    margin-left: 0;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    justify-content: flex-end;
+    justify-content: stretch;
   }
   .relic-rewards-header,
   .relic-reward-row {

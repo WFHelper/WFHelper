@@ -7,6 +7,12 @@ export interface ResolvedItem extends ItemDbEntry {
   imageUrl: string | null;
 }
 
+function sanitizeDisplayName(name: string): string {
+  return String(name || "")
+    .replace(/^<ARCHWING>\s*/i, "")
+    .trim();
+}
+
 // --- Category / classification constants ------------------------------------
 
 interface CategoryDef {
@@ -78,9 +84,10 @@ export function resolveItem(
 ): ResolvedItem {
   const dbEntry = itemDb[internalName];
   if (dbEntry?.name) {
+    const name = sanitizeDisplayName(dbEntry.name);
     return {
       ...dbEntry,
-      name: dbEntry.name,
+      name,
       imageUrl: dbEntry.imageUrl ?? null,
     };
   }
@@ -89,7 +96,7 @@ export function resolveItem(
   const segments = internalName.split("/");
   let name = segments[segments.length - 1] || "Unknown";
   name = name.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
-  return { name, imageUrl: null, category: "Unknown" };
+  return { name: sanitizeDisplayName(name), imageUrl: null, category: "Unknown" };
 }
 
 // --- Classification predicates ----------------------------------------------

@@ -3,7 +3,11 @@
   export let alt = "";
   export let cls = "item-img";
 
+  const FORMA_ICON_SRC = new URL("../../assets/Forma.webp", import.meta.url).href;
+
+  let lastSrc: string | null = null;
   let failed = false;
+  let useFormaFallback = false;
 
   const imageBase =
     "h-auto w-auto object-contain [image-rendering:auto] [filter:drop-shadow(0_2px_6px_rgba(0,0,0,0.4))]";
@@ -11,16 +15,38 @@
     "flex h-12 w-12 items-center justify-center text-[var(--text-muted)] opacity-30";
   const placeholderIconBase = "h-full w-full";
 
+  $: isFormaIcon = /\bforma\b/i.test(alt);
+  $: if (src !== lastSrc) {
+    lastSrc = src;
+    failed = false;
+    useFormaFallback = false;
+  }
+  $: effectiveSrc = useFormaFallback
+    ? FORMA_ICON_SRC
+    : src || (isFormaIcon ? FORMA_ICON_SRC : null);
+
   $: mergedImageClass = `${imageBase} ${cls}`.trim();
   $: mergedPlaceholderClass = `${placeholderBase} ${cls}`.trim();
 
-  function onError(): void {
+  function onError(event: Event): void {
+    const img = event.currentTarget as HTMLImageElement | null;
+    if (
+      isFormaIcon &&
+      !useFormaFallback &&
+      img &&
+      !img.src.endsWith("Forma.webp")
+    ) {
+      useFormaFallback = true;
+      failed = false;
+      return;
+    }
+
     failed = true;
   }
 </script>
 
-{#if src && !failed}
-  <img class={mergedImageClass} {src} {alt} loading="lazy" on:error={onError} />
+{#if effectiveSrc && !failed}
+  <img class={mergedImageClass} src={effectiveSrc} {alt} loading="lazy" on:error={onError} />
 {:else}
   <div class={mergedPlaceholderClass}>
     <svg class={placeholderIconBase} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">

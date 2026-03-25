@@ -17,6 +17,12 @@ const log = withScope("itemDatabase");
 const WFCD_CDN = "https://cdn.warframestat.us/img/";
 const BROWSE_WF = "https://browse.wf";
 
+function sanitizeDisplayName(name: string): string {
+  return String(name || "")
+    .replace(/^<ARCHWING>\s*/i, "")
+    .trim();
+}
+
 function isLikelyBuildComponent(uniqueName: string, componentName: string = ""): boolean {
   if (!uniqueName) return false;
 
@@ -75,8 +81,8 @@ function buildComponentDisplayName(
   componentName: string,
   forceBlueprintSuffix: boolean = false,
 ): string {
-  const parent = String(parentName || "").trim();
-  const component = String(componentName || "").trim();
+  const parent = sanitizeDisplayName(parentName);
+  const component = sanitizeDisplayName(componentName);
 
   if (!parent && !component) return "Unknown";
   if (!component) return parent || "Unknown";
@@ -230,7 +236,9 @@ function loadPublicExportPlus(): number {
       for (const [uniqueName, item] of Object.entries(exportData) as [string, any][]) {
         if (!uniqueName || uniqueName === "default") continue;
 
-        const resolvedName = resolveName(item.name) || extractFallbackName(uniqueName);
+        const resolvedName = sanitizeDisplayName(
+          resolveName(item.name) || extractFallbackName(uniqueName),
+        );
 
         const pepDucats =
           typeof item.primeSellingPrice === "number" && Number.isFinite(item.primeSellingPrice)
@@ -304,10 +312,10 @@ function loadWfcdItems(): number {
           : null;
 
       const wfcdEntry: ItemEntry = {
-        name: item.name || "Unknown",
+        name: sanitizeDisplayName(item.name || "Unknown"),
         category: item.category || "Misc",
         imageUrl: wfcdImageUrl,
-        isPrime: (item.name || "").includes("Prime"),
+        isPrime: sanitizeDisplayName(item.name || "").includes("Prime"),
         masteryReq: item.masteryReq || 0,
         masterable: typeof item.masterable === "boolean" ? item.masterable : undefined,
         tradable: normalizeOptionalBoolean(item.tradable),
@@ -452,8 +460,9 @@ function loadWfcdItems(): number {
         existing.imageUrl = wfcdImageUrl || existing.browseWfUrl || null;
 
         if (existing.name.startsWith("/Lotus/") && item.name) {
-          existing.name = item.name;
-          existing.isPrime = item.name.includes("Prime");
+          const cleanedName = sanitizeDisplayName(item.name);
+          existing.name = cleanedName;
+          existing.isPrime = cleanedName.includes("Prime");
         }
 
         const mergedItemTradable = pickTradable(existing.tradable, item.tradable);
@@ -535,7 +544,7 @@ function extractFallbackName(uniqueName: string): string {
   let name = segments[segments.length - 1] || "Unknown";
   name = name.replace(/([a-z])([A-Z])/g, "$1 $2");
   name = name.replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
-  return name;
+  return sanitizeDisplayName(name);
 }
 
 // ─── Public API ────────────────────────────────────────────────────────────

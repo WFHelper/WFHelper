@@ -141,6 +141,12 @@ const INV_CATEGORIES: Record<string, number> = {
   MechSuits: MAX_ITEM_RANK,
 };
 
+function sanitizeDisplayName(name: string): string {
+  return String(name || "")
+    .replace(/^<ARCHWING>\s*/i, "")
+    .trim();
+}
+
 function xpToRank(xp: number, maxRank: number = MAX_ITEM_RANK): number {
   if (!xp || xp <= 0) return 0;
   return Math.min(maxRank, Math.floor(xp / XP_PER_RANK));
@@ -332,36 +338,38 @@ export function getAllMasterableItems(): MasterableItem[] {
   const seenNames = new Set<string>();
 
   for (const [uniqueName, item] of Object.entries(allItems as Record<string, any>)) {
+    const displayName = sanitizeDisplayName(item.name || "Unknown");
+
     if (!MASTERABLE_DB_CATEGORIES.has(item.category)) {
       debugLog(
-        `[MasteryDebug][Exclude] ${item.name} | ${uniqueName} | reason=db-category:${item.category}`,
+        `[MasteryDebug][Exclude] ${displayName} | ${uniqueName} | reason=db-category:${item.category}`,
       );
       continue;
     }
     const ampPrismOverride = isAmpPrismMasterableOverride(item, uniqueName);
     if (item.masterable === false && !ampPrismOverride) {
-      debugLog(`[MasteryDebug][Exclude] ${item.name} | ${uniqueName} | reason=masterable:false`);
+      debugLog(`[MasteryDebug][Exclude] ${displayName} | ${uniqueName} | reason=masterable:false`);
       continue;
     }
 
-    const excludeReason = getExcludeReason(uniqueName, item.name, item);
+    const excludeReason = getExcludeReason(uniqueName, displayName, item);
     if (excludeReason) {
-      debugLog(`[MasteryDebug][Exclude] ${item.name} | ${uniqueName} | reason=${excludeReason}`);
+      debugLog(`[MasteryDebug][Exclude] ${displayName} | ${uniqueName} | reason=${excludeReason}`);
       continue;
     }
 
-    const nameKey = item.name.toLowerCase();
+    const nameKey = displayName.toLowerCase();
     if (seenNames.has(nameKey)) {
-      debugLog(`[MasteryDebug][Exclude] ${item.name} | ${uniqueName} | reason=duplicate-name`);
+      debugLog(`[MasteryDebug][Exclude] ${displayName} | ${uniqueName} | reason=duplicate-name`);
       continue;
     }
     seenNames.add(nameKey);
 
     const display = resolveDisplayCategoryInfo(item, uniqueName);
-    const keywords = getKeywords(uniqueName, item.name);
+    const keywords = getKeywords(uniqueName, displayName);
     if (display.category === "Railjack") {
       debugLog(
-        `[MasteryDebug][Exclude] ${item.name} | ${uniqueName} | reason=category-railjack-hidden`,
+        `[MasteryDebug][Exclude] ${displayName} | ${uniqueName} | reason=category-railjack-hidden`,
       );
       continue;
     }
@@ -371,11 +379,11 @@ export function getAllMasterableItems(): MasterableItem[] {
         ? "wfcd-masterable:true"
         : "default";
     debugLog(
-      `[MasteryDebug][Include] ${item.name} | ${uniqueName} | category=${display.category} | masterableSource=${masterableSource} | categorySource=${display.source}`,
+      `[MasteryDebug][Include] ${displayName} | ${uniqueName} | category=${display.category} | masterableSource=${masterableSource} | categorySource=${display.source}`,
     );
 
     items.push({
-      name: item.name,
+      name: displayName,
       uniqueName,
       category: display.category,
       imageUrl: item.imageUrl || item.browseWfUrl || null,
@@ -432,7 +440,10 @@ export function computeMasteryProgress(inventoryData: any): {
     mastered: number;
     inProgress: number;
     missing: number;
-    byCategory: Record<string, { total: number; mastered: number; inProgress: number; missing: number }>;
+    byCategory: Record<
+      string,
+      { total: number; mastered: number; inProgress: number; missing: number }
+    >;
     profileMastery: { rank: number | null; percentToNext: number | null } | null;
   };
 } {
@@ -442,7 +453,10 @@ export function computeMasteryProgress(inventoryData: any): {
   const componentOwnership = buildComponentOwnership(inventoryData);
 
   // Build owned map: uniqueName → { rank, maxRank, owned }
-  const ownedMap = new Map<string, { rank: number; maxRank: number; owned: boolean; fromXPInfo?: boolean }>();
+  const ownedMap = new Map<
+    string,
+    { rank: number; maxRank: number; owned: boolean; fromXPInfo?: boolean }
+  >();
 
   for (const [invKey, maxRank] of Object.entries(INV_CATEGORIES)) {
     const arr = inventoryData[invKey];
@@ -470,7 +484,10 @@ export function computeMasteryProgress(inventoryData: any): {
   }
 
   // Name-based fallback matching
-  const ownedByName = new Map<string, { rank: number; maxRank: number; owned: boolean; uniqueName: string }>();
+  const ownedByName = new Map<
+    string,
+    { rank: number; maxRank: number; owned: boolean; uniqueName: string }
+  >();
   for (const [uname, data] of ownedMap) {
     const dbItem = itemDb.lookupItem(uname);
     if (dbItem) {
@@ -518,7 +535,10 @@ export function computeMasteryProgress(inventoryData: any): {
   const inProgress = items.filter((i) => i.status === "progress").length;
   const missing = items.filter((i) => i.status === "missing").length;
 
-  const byCategory: Record<string, { total: number; mastered: number; inProgress: number; missing: number }> = {};
+  const byCategory: Record<
+    string,
+    { total: number; mastered: number; inProgress: number; missing: number }
+  > = {};
   for (const item of items) {
     if (!byCategory[item.category]) {
       byCategory[item.category] = { total: 0, mastered: 0, inProgress: 0, missing: 0 };
