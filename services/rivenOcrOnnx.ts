@@ -84,6 +84,26 @@ function resolveLabelClassesPath(): string {
   return candidates.find(existsSync) ?? candidates[0];
 }
 
+// ── Numeric CRNN path resolution ─────────────────────────────────────────────
+
+function resolveNumericModelPath(): string {
+  const candidates = [
+    path.join(__dirname, "..", "scripts", "train-paddleocr", "output", "numeric", "numeric_rec.onnx"),
+    path.join(__dirname, "..", "..", "scripts", "train-paddleocr", "output", "numeric", "numeric_rec.onnx"),
+    path.join(process.cwd(), "scripts", "train-paddleocr", "output", "numeric", "numeric_rec.onnx"),
+  ];
+  return candidates.find(existsSync) ?? candidates[0];
+}
+
+function resolveNumericVocabPath(): string {
+  const candidates = [
+    path.join(__dirname, "..", "scripts", "train-paddleocr", "output", "numeric", "numeric_vocab.json"),
+    path.join(__dirname, "..", "..", "scripts", "train-paddleocr", "output", "numeric", "numeric_vocab.json"),
+    path.join(process.cwd(), "scripts", "train-paddleocr", "output", "numeric", "numeric_vocab.json"),
+  ];
+  return candidates.find(existsSync) ?? candidates[0];
+}
+
 // ── Lazy session ──────────────────────────────────────────────────────────────
 
 interface VocabData {
@@ -180,6 +200,49 @@ async function getLabelSession(): Promise<any> {
   return _labelSessionPromise;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _numericSessionPromise: Promise<any> | null = null;
+let _numericVocab: string[] = [];
+let _numericBlankIdx = 18;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getNumericSession(): Promise<any> {
+  if (_numericSessionPromise) return _numericSessionPromise;
+
+  _numericSessionPromise = (async () => {
+    const modelPath = resolveNumericModelPath();
+    const vocabPath = resolveNumericVocabPath();
+
+    if (!existsSync(modelPath)) {
+      return null; // NumericCRNN is optional — old CRNN handles values as fallback
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+    const ort: any = require("onnxruntime-node");
+
+    if (existsSync(vocabPath)) {
+      const data = JSON.parse(readFileSync(vocabPath, "utf8")) as VocabData;
+      // The numeric vocab is stored as a single string — split to char array
+      _numericVocab = typeof data.vocab === "string" ? (data.vocab as string).split("") : data.vocab;
+      _numericBlankIdx = data.blank_idx;
+    }
+
+    const session = await ort.InferenceSession.create(modelPath, {
+      executionProviders: ["cpu"],
+    });
+
+    log.log(
+      `[RivenOcrOnnx] NumericCRNN loaded — vocab=${_numericVocab.length} chars, blank=${_numericBlankIdx}`,
+    );
+    return session;
+  })().catch((err) => {
+    _numericSessionPromise = null;
+    throw err;
+  });
+
+  return _numericSessionPromise;
+}
+
 /**
  * Returns true if the ONNX model file exists on disk.
  * Does NOT load the model — just checks the file path.
@@ -208,6 +271,126 @@ function greedyCtcDecode(logProbs: Float32Array, T: number, C: number): string {
     prev = best;
   }
   return chars.join("");
+}
+
+// ── CTC beam search decode ────────────────────────────────────────────────────
+
+/**
+ * CTC beam search returning top-K candidates with log-probability scores.
+ * Used by NumericCRNN to provide alternative value readings when greedy fails.
+ */
+function ctcBeamDecode(
+  logProbs: Float32Array, T: number, C: number,
+  vocab: string[], blankIdx: number,
+  beamWidth = 6, topK = 5,
+): Array<[string, number]> {
+  // Normalize to log-probabilities per timestep
+  const lp = new Float32Array(T * C);
+  for (let t = 0; t < T; t++) {
+    let maxVal = -Infinity;
+    for (let c = 0; c < C; c++) {
+      const v = logProbs[t * C + c];
+      if (v > maxVal) maxVal = v;
+    }
+    let sumExp = 0;
+    for (let c = 0; c < C; c++) sumExp += Math.exp(logProbs[t * C + c] - maxVal);
+    const logSumExp = Math.log(sumExp);
+    for (let c = 0; c < C; c++) {
+      lp[t * C + c] = logProbs[t * C + c] - maxVal - logSumExp;
+    }
+  }
+
+  // beams: [prefix, lastCharIdx, accumulatedLogProb]
+  let beams: Array<[string, number, number]> = [["", -1, 0.0]];
+
+  for (let t = 0; t < T; t++) {
+    const newBeams = new Map<string, [string, number, number]>();
+    const setBeam = (key: string, val: [string, number, number]) => {
+      const existing = newBeams.get(key);
+      if (!existing || existing[2] < val[2]) newBeams.set(key, val);
+    };
+
+    for (const [prefix, lastIdx, score] of beams) {
+      // Blank extension
+      const blankScore = score + lp[t * C + blankIdx];
+      setBeam(`${prefix}\0${blankIdx}`, [prefix, blankIdx, blankScore]);
+
+      // Top character extensions
+      const indices: number[] = [];
+      for (let c = 0; c < C; c++) if (c !== blankIdx) indices.push(c);
+      indices.sort((a, b) => lp[t * C + b] - lp[t * C + a]);
+      const topN = Math.min(indices.length, beamWidth * 2);
+
+      for (let i = 0; i < topN; i++) {
+        const idx = indices[i];
+        const charScore = score + lp[t * C + idx];
+        if (idx === lastIdx) {
+          // CTC collapse: same char, don't extend prefix
+          setBeam(`${prefix}\0${idx}`, [prefix, idx, charScore]);
+        } else {
+          const newPrefix = prefix + (vocab[idx] ?? "");
+          setBeam(`${newPrefix}\0${idx}`, [newPrefix, idx, charScore]);
+        }
+      }
+    }
+
+    // Prune to top beamWidth
+    const sorted = Array.from(newBeams.values()).sort((a, b) => b[2] - a[2]);
+    beams = sorted.slice(0, beamWidth);
+  }
+
+  // Merge beams with same prefix
+  const merged = new Map<string, number>();
+  for (const [prefix, , score] of beams) {
+    const existing = merged.get(prefix);
+    if (existing === undefined || existing < score) merged.set(prefix, score);
+  }
+  const results = Array.from(merged.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, topK) as Array<[string, number]>;
+  return results.length > 0 ? results : [["", 0]];
+}
+
+// ── NumericCRNN inference ─────────────────────────────────────────────────────
+
+/**
+ * Recognize the numeric value from a line crop's left portion using NumericCRNN.
+ * Returns top-K beam candidates: [(text, logProbScore), ...].
+ */
+async function recognizeNumericTopK(
+  grayBuf: Buffer,
+  srcW: number,
+  srcH: number,
+  beamWidth = 6,
+  topK = 5,
+): Promise<Array<[string, number]>> {
+  const session = await getNumericSession();
+  if (!session) return [["", 0]];
+
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+  const sharp: any = require("sharp");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+  const ort: any = require("onnxruntime-node");
+
+  const { data } = await sharp(grayBuf, {
+    raw: { width: srcW, height: srcH, channels: 1 },
+  })
+    .resize({ height: 32, fit: "contain", background: { r: 0, g: 0, b: 0 } })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const W = Math.round(((data as Buffer).length) / 32);
+  const float32 = new Float32Array(W * 32);
+  for (let i = 0; i < (data as Buffer).length; i++) {
+    float32[i] = (data as Buffer)[i] / 127.5 - 1.0;
+  }
+
+  const tensor = new ort.Tensor("float32", float32, [1, 1, 32, W]);
+  const output = await session.run({ input: tensor });
+  const logProbs: Float32Array = output["output"]?.data ?? output["log_probs"]?.data ?? output["logits"]?.data;
+  const [T, , C]: [number, number, number] = (output["output"]?.dims ?? output["log_probs"]?.dims ?? output["logits"]?.dims) ?? [0, 1, 1];
+
+  return ctcBeamDecode(logProbs, T, C, _numericVocab, _numericBlankIdx, beamWidth, topK);
 }
 
 // ── Label classifier inference ────────────────────────────────────────────────
@@ -402,6 +585,9 @@ const STAT_RULES: Record<string, { isPercent?: boolean; suffix?: string; min?: n
   "Finisher Damage": { isPercent: true, min: 20, max: 200 },
   "Damage": { isPercent: true, min: 30, max: 400 },
   "Heavy Attack": { isPercent: true, min: 20, max: 200 },
+  "Heavy Attack Efficiency": { isPercent: true, min: 20, max: 200 },
+  "Chance to Gain Combo Count": { isPercent: true, min: 10, max: 200 },
+  "Additional Combo Count Chance": { isPercent: true, min: 10, max: 200 },
   "Weapon Recoil": { isPercent: true, min: 10, max: 200 },
   "Flight Speed": { isPercent: true, min: 10, max: 200 },
   "Critical Chance for Slide Attack": { isPercent: true, min: 20, max: 300 },
@@ -449,7 +635,7 @@ function validateStat(valueStr: string, statName: string): [string, string] {
     return [valueStr, statName];
   }
 
-  const rules = STAT_RULES[statName];
+  let rules = STAT_RULES[statName];
   if (!rules) {
     return [valueStr, statName];
   }
@@ -462,14 +648,40 @@ function validateStat(valueStr: string, statName: string): [string, string] {
   }
 
   // Strip percent from flat stats
-  const hasPercent = result.includes("%");
-  if (rules.isPercent === false && hasPercent) {
+  if (rules.isPercent === false && result.includes("%")) {
     result = result.replace("%", "");
   }
 
-  // Phantom-comma correction: CRNN often inserts a spurious comma in
-  // 3-digit values, e.g. "+157%" → "+15,7%".  If the parsed value is
-  // below the stat's expected minimum, try removing the comma.
+  // ── Prefix/suffix vs stat type consistency (multiplier redirect) ──
+  const MULTIPLIER_STATS = ["Damage to Grineer", "Damage to Corpus", "Damage to Infested"];
+  if (MULTIPLIER_STATS.includes(statName) && result && !result.startsWith("x")) {
+    const parsed = tryParseNumeric(result);
+    if (parsed !== null) {
+      const mag = Math.abs(parsed);
+      let bestCandidate: string | null = null;
+      for (const [candidate, crules] of Object.entries(STAT_RULES)) {
+        if (crules.isPercent && !MULTIPLIER_STATS.includes(candidate)) {
+          if ((crules.min ?? 0) <= mag && mag <= (crules.max ?? 99999)) {
+            if (mag > 100 && (candidate === "Melee Damage" || candidate === "Damage")) {
+              bestCandidate = candidate;
+              break;
+            } else if (!bestCandidate) {
+              bestCandidate = candidate;
+            }
+          }
+        }
+      }
+      if (bestCandidate) {
+        statName = bestCandidate;
+        rules = STAT_RULES[statName] ?? rules;
+        if (rules.isPercent && !result.includes("%")) {
+          result = result + "%";
+        }
+      }
+    }
+  }
+
+  // ── Phantom-comma removal ──
   if (rules.min != null && result.includes(",")) {
     const parsed = tryParseNumeric(result);
     if (parsed !== null && Math.abs(parsed) < rules.min) {
@@ -481,7 +693,302 @@ function validateStat(valueStr: string, statName: string): [string, string] {
     }
   }
 
+  // ── Comma-reposition ──
+  // When value has comma and is out of range, try repositioning the comma
+  // across all digit positions. Only uses the OCR's own digits.
+  if (rules.min != null && result.includes(",")) {
+    const parsed = tryParseNumeric(result);
+    if (parsed !== null) {
+      const statMin = rules.min;
+      const statMax = rules.max ?? 99999;
+      const outOfRange = Math.abs(parsed) < statMin || Math.abs(parsed) > statMax * 1.5;
+      if (outOfRange) {
+        const crMatch = result.trim().match(/^([+\-x]?)(\d+),(\d*)(.*)/);
+        if (crMatch) {
+          const [, prefix, intPart, decPart, suffix] = crMatch;
+          const digits = intPart + decPart;
+          let bestCand: string | null = null;
+          let bestDist = Infinity;
+          for (let i = 1; i < digits.length; i++) {
+            const cand = `${prefix}${digits.slice(0, i)},${digits.slice(i)}${suffix}`;
+            const cp = tryParseNumeric(cand);
+            if (cp !== null && statMin <= Math.abs(cp) && Math.abs(cp) <= statMax) {
+              const dist = Math.abs(parsed) < statMin
+                ? Math.abs(cp) - statMin
+                : statMax - Math.abs(cp);
+              if (dist < bestDist) {
+                bestDist = dist;
+                bestCand = cand;
+              }
+            }
+          }
+          if (bestCand) result = bestCand;
+        }
+      }
+    }
+  }
+
+  // ── Phantom-digit removal ──
+  if (rules.max != null && result.includes(",")) {
+    const parsed = tryParseNumeric(result);
+    if (parsed !== null && Math.abs(parsed) > (rules.max ?? 99999) * 1.5) {
+      const pdMatch = result.match(/^([+\-x]?)(\d+),(\d+)(.*)/);
+      if (pdMatch) {
+        const [, prefix, intPart, decPart, suffix] = pdMatch;
+        for (let i = 0; i < intPart.length; i++) {
+          const shorter = intPart.slice(0, i) + intPart.slice(i + 1);
+          if (shorter) {
+            const candidate = `${prefix}${shorter},${decPart}${suffix}`;
+            const alt = tryParseNumeric(candidate);
+            if (alt !== null && (rules.min ?? 0) <= Math.abs(alt) && Math.abs(alt) <= (rules.max ?? 99999)) {
+              result = candidate;
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // ── Dropped-comma insertion ──
+  if (rules.max != null && !result.includes(",")) {
+    const parsed = tryParseNumeric(result);
+    if (parsed !== null && Math.abs(parsed) > (rules.max ?? 99999) * 1.5) {
+      const dcMatch = result.match(/^([+\-x])(\d{3,})(.*)/);
+      if (dcMatch) {
+        const [, prefix, digits, suffix] = dcMatch;
+        const withComma = prefix + digits.slice(0, -1) + "," + digits.slice(-1) + suffix;
+        const alt = tryParseNumeric(withComma);
+        if (alt !== null && (rules.min ?? 0) <= Math.abs(alt) && Math.abs(alt) <= (rules.max ?? 99999)) {
+          result = withComma;
+        }
+      }
+    }
+  }
+
+  // ── Over-inflated flat-value recovery ──
+  if (rules.max != null) {
+    const parsed = tryParseNumeric(result);
+    if (parsed !== null && Math.abs(parsed) > (rules.max ?? 99999) * 1.5 && (rules.max ?? 99999) < 100) {
+      const deflated = parsed / 100.0;
+      if ((rules.min ?? 0) <= Math.abs(deflated) && Math.abs(deflated) <= (rules.max ?? 99999)) {
+        const prefix = result.startsWith("x") ? "x" : (parsed >= 0 ? "+" : "-");
+        const suffixChar = rules.suffix ?? "";
+        const absVal = Math.abs(deflated);
+        result = absVal === Math.floor(absVal)
+          ? `${prefix}${Math.floor(absVal)}${suffixChar}`
+          : `${prefix}${absVal.toFixed(1).replace(".", ",")}${suffixChar}`;
+      }
+    }
+  }
+
   return [result, statName];
+}
+
+// ── Value ensemble: pick best from old CRNN and NumericCRNN ──────────────────
+
+function pickBestValue(oldValue: string, numericValue: string): string {
+  if (!oldValue && !numericValue) return "";
+  if (!oldValue) return numericValue;
+  if (!numericValue) return oldValue;
+
+  const oldParsed = tryParseNumeric(oldValue);
+  const numParsed = tryParseNumeric(numericValue);
+
+  if (oldParsed === null && numParsed !== null) return numericValue;
+  if (numParsed === null) return oldValue;
+
+  const oldMag = Math.abs(oldParsed!);
+  const numMag = Math.abs(numParsed!);
+
+  // Phantom comma in old CRNN: old reads +15,7% (15.7), numeric reads +157%
+  if (numMag > 0 && oldMag > 0) {
+    const ratio = numMag / oldMag;
+    if (ratio > 8.0 && ratio < 12.0 && oldValue.includes(",") &&
+        !numericValue.replace("x", "").includes(",") && oldMag < 30) {
+      return numericValue;
+    }
+  }
+
+  // Numeric much larger — old may have edge artifact
+  if (numMag > 0 && oldMag > 0 && oldMag < 10) {
+    const ratio = numMag / oldMag;
+    if (ratio > 5.0) {
+      const hasSuffix = oldValue.endsWith("s");
+      const bothMult = oldValue.startsWith("x") && numericValue.startsWith("x");
+      if (!hasSuffix && !bothMult) return numericValue;
+    }
+  }
+
+  // Sign mismatch with diverging magnitudes
+  const oldSign = oldValue[0] ?? "";
+  const numSign = numericValue[0] ?? "";
+  if (oldSign !== numSign && "+-".includes(oldSign) && "+-".includes(numSign) &&
+      numMag > 20 && oldMag < numMag * 1.5) {
+    const magRatio = numMag > 0 ? oldMag / numMag : 0;
+    if (magRatio < 0.90 || magRatio > 1.10) return numericValue;
+  }
+
+  // Default: old CRNN preserves commas better
+  return oldValue;
+}
+
+/**
+ * Enhanced value picking with beam search + STAT_RULES validation.
+ * Tries alternative beam candidates when greedy value fails range check.
+ */
+function pickBestValueWithBeam(
+  oldValue: string,
+  numericCandidates: Array<[string, number]>,
+  statName: string,
+): string {
+  const greedyNum = numericCandidates.length > 0 ? numericCandidates[0][0] : "";
+  const bestValue = pickBestValue(oldValue, greedyNum);
+
+  const rules = STAT_RULES[statName];
+  if (!rules || !statName) return bestValue;
+
+  const greedyParsed = tryParseNumeric(bestValue);
+  const statMin = rules.min ?? 0;
+  const statMax = rules.max ?? 99999;
+  if (greedyParsed !== null && statMin <= Math.abs(greedyParsed) && Math.abs(greedyParsed) <= statMax) {
+    return bestValue; // Greedy in range
+  }
+
+  // Try alternative beam candidates
+  for (let i = 1; i < numericCandidates.length; i++) {
+    const candText = numericCandidates[i][0];
+    if (!candText) continue;
+    const candVal = pickBestValue(oldValue, candText);
+    const candParsed = tryParseNumeric(candVal);
+    if (candParsed !== null && statMin <= Math.abs(candParsed) && Math.abs(candParsed) <= statMax) {
+      return candVal;
+    }
+  }
+
+  return bestValue; // No beam validates — validateStat may fix it
+}
+
+// ── Spatial split: separate numeric value from stat label ────────────────────
+
+/**
+ * Split a VGB line crop (grayscale buffer) into numeric (left) and label (right)
+ * portions using column density gap detection.
+ * Returns [numericBuf, labelBuf, numW, labelW] or [fullBuf, null, fullW, 0] if
+ * no split found.
+ */
+function splitValueAndLabel(
+  grayBuf: Buffer, w: number, h: number,
+): { numBuf: Buffer; numW: number; labelBuf: Buffer | null; labelW: number } {
+  if (w < 60) return { numBuf: grayBuf, numW: w, labelBuf: null, labelW: 0 };
+
+  // Binarize: dark pixels = text (VGB black-on-white)
+  const binary = Buffer.alloc(w * h);
+  for (let i = 0; i < grayBuf.length; i++) {
+    binary[i] = grayBuf[i] < 180 ? 255 : 0;
+  }
+
+  // Column density
+  const colDensity = new Float32Array(w);
+  for (let x = 0; x < w; x++) {
+    let count = 0;
+    for (let y = 0; y < h; y++) {
+      if (binary[y * w + x] > 0) count++;
+    }
+    colDensity[x] = count / h;
+  }
+
+  // Smooth
+  const ks = Math.max(3, Math.floor(w / 40)) | 1; // ensure odd
+  const smoothed = new Float32Array(w);
+  const half = (ks - 1) / 2;
+  for (let x = 0; x < w; x++) {
+    let sum = 0;
+    let cnt = 0;
+    for (let k = -half; k <= half; k++) {
+      const idx = x + k;
+      if (idx >= 0 && idx < w) { sum += colDensity[idx]; cnt++; }
+    }
+    smoothed[x] = sum / cnt;
+  }
+
+  // Find gaps
+  const gapThresh = 0.02;
+  const gaps: Array<[number, number, number]> = [];
+  let inGap = false;
+  let gapStart = 0;
+  for (let x = 0; x < w; x++) {
+    if (smoothed[x] < gapThresh) {
+      if (!inGap) { gapStart = x; inGap = true; }
+    } else {
+      if (inGap && x - gapStart >= 4) {
+        gaps.push([gapStart, x, x - gapStart]);
+      }
+      inGap = false;
+    }
+  }
+  if (inGap && w - gapStart >= 4) {
+    gaps.push([gapStart, w, w - gapStart]);
+  }
+
+  if (gaps.length === 0) return { numBuf: grayBuf, numW: w, labelBuf: null, labelW: 0 };
+
+  // Find widest gap between 10-80% of width
+  let best: [number, number, number] | null = null;
+  for (const gap of gaps) {
+    const center = (gap[0] + gap[1]) / 2;
+    const rel = center / w;
+    if (rel > 0.10 && rel < 0.80 && gap[2] >= 5) {
+      if (!best || gap[2] > best[2]) best = gap;
+    }
+  }
+
+  if (!best) return { numBuf: grayBuf, numW: w, labelBuf: null, labelW: 0 };
+
+  const numW = best[0];
+  const labelStart = best[1];
+  const labelW = w - labelStart;
+  const minNumW = Math.max(15, Math.floor(w * 0.08));
+
+  if (numW < minNumW || labelW < 20) {
+    // Try second-widest gap
+    let secondBest: [number, number, number] | null = null;
+    for (const gap of gaps) {
+      const center = (gap[0] + gap[1]) / 2;
+      const rel = center / w;
+      if (rel > 0.10 && rel < 0.80 && gap[2] >= 5 && gap !== best) {
+        if (!secondBest || gap[2] > secondBest[2]) secondBest = gap;
+      }
+    }
+    if (secondBest) {
+      const nW = secondBest[0];
+      const lS = secondBest[1];
+      const lW = w - lS;
+      if (nW >= minNumW && lW >= 20) {
+        const nBuf = extractColumns(grayBuf, w, h, 0, nW);
+        const lBuf = extractColumns(grayBuf, w, h, lS, lW);
+        return { numBuf: nBuf, numW: nW, labelBuf: lBuf, labelW: lW };
+      }
+    }
+    return { numBuf: grayBuf, numW: w, labelBuf: null, labelW: 0 };
+  }
+
+  const nBuf = extractColumns(grayBuf, w, h, 0, numW);
+  const lBuf = extractColumns(grayBuf, w, h, labelStart, labelW);
+  return { numBuf: nBuf, numW: numW, labelBuf: lBuf, labelW: labelW };
+}
+
+/**
+ * Extract a column range from a grayscale buffer.
+ */
+function extractColumns(src: Buffer, srcW: number, h: number, startX: number, width: number): Buffer {
+  const dst = Buffer.alloc(width * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < width; x++) {
+      dst[y * width + x] = src[y * srcW + startX + x];
+    }
+  }
+  return dst;
 }
 
 function tryParseNumeric(val: string): number | null {
@@ -527,6 +1034,26 @@ function postprocessStatLine(rawText: string): string {
 
 // ── VGB line extraction + CRNN recognition ──────────────────────────────────
 
+export interface VgbLineResult {
+  text: string;
+  value: string;
+  statName: string;
+  labelConfidence: number;
+  /** Best NumericCRNN beam candidate log-probability (0 if unavailable) */
+  numericConfidence: number;
+}
+
+/**
+ * Extract per-line crops from a VGB-processed PNG (black text on white),
+ * recognize each with the multi-model pipeline, and apply post-processing.
+ *
+ * Returns rich per-line results including confidence scores.
+ */
+export async function recognizeVgbLinesDetailed(vgbPng: Buffer): Promise<VgbLineResult[]> {
+  const lines = await _recognizeVgbLinesInternal(vgbPng);
+  return lines;
+}
+
 /**
  * Extract per-line crops from a VGB-processed PNG (black text on white),
  * recognize each with the CRNN model, and apply post-processing.
@@ -537,6 +1064,11 @@ function postprocessStatLine(rawText: string): string {
  * @returns       Recognized text lines (post-processed against known vocabulary)
  */
 export async function recognizeVgbLines(vgbPng: Buffer): Promise<string[]> {
+  const detailed = await _recognizeVgbLinesInternal(vgbPng);
+  return detailed.map((r) => r.text);
+}
+
+async function _recognizeVgbLinesInternal(vgbPng: Buffer): Promise<VgbLineResult[]> {
   // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
   const sharp: any = require("sharp");
 
@@ -583,7 +1115,7 @@ export async function recognizeVgbLines(vgbPng: Buffer): Promise<string[]> {
 
   // ── Step 2: For each row, find horizontal text extent and extract crop ──
   const padY = 4;
-  const lines: string[] = [];
+  const lines: VgbLineResult[] = [];
 
   for (const row of textRows) {
     const y0 = Math.max(0, row.yStart - padY);
@@ -630,54 +1162,105 @@ export async function recognizeVgbLines(vgbPng: Buffer): Promise<string[]> {
     const finalH = finalY1 - finalY0;
     if (finalH < 6) continue;
 
-    // ── Step 3: Run CRNN on the full line crop ──
-    // Full-width crop preserves value + stat-name; CRNN gives us the value part.
-    const linePng: Buffer = await sharp(gray, {
-      raw: { width: W, height: H, channels: 1 },
-    })
-      .extract({ left: xMin, top: finalY0, width: cropW, height: finalH })
-      .png()
-      .toBuffer();
+    // ── Step 3: Extract grayscale line crop for spatial split + multi-model ──
+    const lineGray = Buffer.alloc(cropW * finalH);
+    for (let ry = 0; ry < finalH; ry++) {
+      for (let cx = 0; cx < cropW; cx++) {
+        lineGray[ry * cropW + cx] = gray[(finalY0 + ry) * W + (xMin + cx)];
+      }
+    }
+
+    // Full-line old CRNN (value + name text)
+    const linePng: Buffer = await sharp(lineGray, {
+      raw: { width: cropW, height: finalH, channels: 1 },
+    }).png().toBuffer();
 
     const rawText = (await recognizeRivenCrop(linePng, /* isVgb */ true)).trim();
     if (!rawText) continue;
 
-    // Extract value prefix and name fragment from CRNN output.
+    // Extract value prefix and name fragment from old CRNN output
     const valueMatch = rawText.match(/^([+\-x][\d,.]+[%s]?)\s*/i);
-    const valueText = valueMatch ? valueMatch[1] : "";
+    const oldValue = valueMatch ? valueMatch[1] : "";
     const nameFragment = rawText.replace(/^[+\-x][\d,.]+[%s]?\s*/i, "").trim();
 
-    // ── Step 4: Classify stat label from right ~62% of the line crop ──
-    // The value occupies the left ~38% of the line; the name fills the rest.
-    let statName = "";
-    const labelX0 = xMin + Math.floor(cropW * 0.38);
-    const labelW = cropW - Math.floor(cropW * 0.38);
-    if (labelW >= 20) {
-      try {
-        const { data: labelRaw } = await sharp(gray, {
-          raw: { width: W, height: H, channels: 1 },
-        })
-          .extract({ left: labelX0, top: finalY0, width: labelW, height: finalH })
-          .raw()
-          .toBuffer({ resolveWithObject: true });
-        const [className, confidence] = await classifyStatLabel(labelRaw as Buffer, labelW, finalH);
-        if (confidence >= 0.6 && className) statName = className;
-      } catch {
-        // classifier not available — fall through to edit-distance
-      }
+    // ── Step 4: Spatial split via column density gap detection ──
+    const split = splitValueAndLabel(lineGray, cropW, finalH);
+
+    // ── Step 5: NumericCRNN beam search on numeric (left) portion ──
+    let numericCandidates: Array<[string, number]> = [];
+    try {
+      numericCandidates = await recognizeNumericTopK(split.numBuf, split.numW, finalH);
+    } catch {
+      // NumericCRNN not available — value ensemble falls back to old CRNN only
     }
 
-    // Fallback: edit-distance match on the name fragment from CRNN.
+    // ── Step 6: Classify stat label from split label portion (or fallback) ──
+    let statName = "";
+    let labelConf = 0;
+    if (split.labelBuf && split.labelW >= 20) {
+      try {
+        const [className, confidence] = await classifyStatLabel(
+          split.labelBuf, split.labelW, finalH,
+        );
+        if (confidence >= 0.5 && className) {
+          statName = className;
+          labelConf = confidence;
+        }
+      } catch {
+        // classifier not available
+      }
+    }
+    // Fallback: classify from fixed 62% right portion
+    if (!statName) {
+      const labelX0 = xMin + Math.floor(cropW * 0.38);
+      const labelW = cropW - Math.floor(cropW * 0.38);
+      if (labelW >= 20) {
+        try {
+          const { data: labelRaw } = await sharp(gray, {
+            raw: { width: W, height: H, channels: 1 },
+          })
+            .extract({ left: labelX0, top: finalY0, width: labelW, height: finalH })
+            .raw()
+            .toBuffer({ resolveWithObject: true });
+          const [className, confidence] = await classifyStatLabel(
+            labelRaw as Buffer, labelW, finalH,
+          );
+          if (confidence >= 0.5 && className) {
+            statName = className;
+            labelConf = confidence;
+          }
+        } catch {
+          // classifier not available
+        }
+      }
+    }
+    // Last resort: edit-distance match on CRNN name fragment
     if (!statName && nameFragment) statName = postprocessStatLine(nameFragment);
 
-    // Schema validation: add missing suffixes, clean up formatting
-    const [validatedValue, validatedName] = validateStat(valueText, statName);
+    // ── Step 7: Value ensemble — pick best from old CRNN + NumericCRNN beam ──
+    const ensembleValue = numericCandidates.length > 0
+      ? pickBestValueWithBeam(oldValue, numericCandidates, statName)
+      : oldValue;
 
-    // Compose final line: "valueText statName" or best effort.
-    const result = validatedValue && validatedName
+    // Best NumericCRNN log-prob (higher = more confident)
+    const numericConf = numericCandidates.length > 0 ? numericCandidates[0][1] : 0;
+
+    // ── Step 8: Schema validation (comma-reposition, phantom-digit, etc.) ──
+    const [validatedValue, validatedName] = validateStat(ensembleValue, statName);
+
+    // Compose final line
+    const text = validatedValue && validatedName
       ? `${validatedValue} ${validatedName}`
       : validatedName || postprocessStatLine(rawText);
-    if (result) lines.push(result);
+    if (text) {
+      lines.push({
+        text,
+        value: validatedValue || oldValue,
+        statName: validatedName || statName,
+        labelConfidence: labelConf,
+        numericConfidence: numericConf,
+      });
+    }
   }
 
   return lines;

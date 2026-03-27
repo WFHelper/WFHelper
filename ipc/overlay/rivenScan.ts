@@ -21,7 +21,8 @@ import { withScope } from "../../services/logger";
 import { captureScreenFast } from "../../services/rewardScannerCapture";
 import { cropRect, cropRectContent, detectGameContentRect } from "../../services/rewardScannerImage";
 import { createRewardOcrRunner } from "../../services/rewardScannerOcr";
-import { rivenOcrOnnxAvailable, recognizeRivenCardLines, recognizeVgbLines } from "../../services/rivenOcrOnnx";
+import { rivenOcrOnnxAvailable, recognizeRivenCardLines, recognizeVgbLinesDetailed } from "../../services/rivenOcrOnnx";
+import type { VgbLineResult } from "../../services/rivenOcrOnnx";
 import { sleep } from "../../services/rewardScannerUtils";
 import {
   abortRivenScanWaits,
@@ -416,36 +417,90 @@ async function ocrCropMultiStrategy(
   const refinedW = (refined.image as any)?.getSize?.()?.width ?? 0;
 
   // ── CRNN fast path (no Python dependency) ────────────────────────────────
-  // VGB + CRNN: violet-guided-bright preprocessing → per-line crop extraction →
-  // CRNN recognition → vocabulary post-processing.  Achieves 100% accuracy on
-  // clean line crops.  Falls through to WinRT when <2 stats are found.
+  // VGB + multi-model CRNN pipeline: violet-guided-bright preprocessing →
+  // spatial split → NumericCRNN beam search + Old CRNN + StatClassifier →
+  // value ensemble → schema validation.  CRNN-only: WinRT/Tesseract disabled.
   if (rivenOcrOnnxAvailable()) {
-    try {
-      // Use refined crop (stat area) for VGB processing when available.
-      const vgbSource = refined.refined ? refined.image : roughCrop;
-      const vgbPng = await enhanceForRivenOcr(vgbSource, { kind: "violet-guided-bright" });
-      const crnnLines = await recognizeVgbLines(vgbPng);
-      const text = crnnLines.join("\n");
-      const stats = parseRivenStats(text);
-      if (stats.length >= MIN_ACCEPTABLE_RIVEN_STATS) {
+    const CRNN_MAX_RETRIES = 2;
+    const CRNN_RETRY_DELAY_MS = 300;
+    const LOW_CONFIDENCE_THRESHOLD = 0.4;
+
+    let bestDetailedLines: VgbLineResult[] = [];
+    let bestStats: RivenStat[] = [];
+    let bestText = "";
+
+    for (let attempt = 0; attempt <= CRNN_MAX_RETRIES; attempt++) {
+      if (_ocrAborted || _scanGeneration !== myGeneration) {
+        return { text: "", titleText: "", footerText: "", stats: [] };
+      }
+
+      try {
+        // Use refined crop (stat area) for VGB processing when available.
+        const vgbSource = refined.refined ? refined.image : roughCrop;
+        const vgbPng = await enhanceForRivenOcr(vgbSource, { kind: "violet-guided-bright" });
+        const detailedLines = await recognizeVgbLinesDetailed(vgbPng);
+        const text = detailedLines.map((l) => l.text).join("\n");
+        const stats = parseRivenStats(text);
+
         if (label) {
           log.log(
-            `[RivenScan] VGB+CRNN ${label}: ${stats.length} stats — ` +
+            `[RivenScan] VGB+CRNN ${label} attempt=${attempt}: ${stats.length} stats — ` +
             stats.map((s) => `${s.positive ? "+" : "-"}${s.value ?? "?"}${s.multiplier ? "x" : "%"} ${s.name}`).join(", "),
           );
+          for (const line of detailedLines) {
+            log.log(
+              `  [CRNN] "${line.text}" label_conf=${line.labelConfidence.toFixed(3)} num_conf=${line.numericConfidence.toFixed(3)}`,
+            );
+          }
         }
-        return { text, titleText: "", footerText: "", stats };
+
+        // Keep the best result across retries (most stats, then highest confidence)
+        if (stats.length > bestStats.length ||
+            (stats.length === bestStats.length && detailedLines.length > bestDetailedLines.length)) {
+          bestDetailedLines = detailedLines;
+          bestStats = stats;
+          bestText = text;
+        }
+
+        // Good enough: ≥2 stats and no low-confidence labels
+        if (stats.length >= MIN_ACCEPTABLE_RIVEN_STATS) {
+          const hasLowConf = detailedLines.some(
+            (l) => l.labelConfidence > 0 && l.labelConfidence < LOW_CONFIDENCE_THRESHOLD,
+          );
+          const hasNullValues = stats.some((s) => s.value === null);
+          if (!hasLowConf && !hasNullValues) break;
+          if (label) {
+            log.log(
+              `[RivenScan] VGB+CRNN ${label}: low confidence or null values, retrying...` +
+              (hasLowConf ? " (low_conf)" : "") + (hasNullValues ? " (null_vals)" : ""),
+            );
+          }
+        }
+      } catch (err) {
+        log.warn(`[RivenScan] VGB+CRNN attempt=${attempt} failed:`, String(err));
       }
-      if (label) {
-        log.log(`[RivenScan] VGB+CRNN ${label}: sparse (${stats.length} stats), falling through to WinRT`);
+
+      // Retry delay (skip on last attempt)
+      if (attempt < CRNN_MAX_RETRIES) {
+        await sleep(CRNN_RETRY_DELAY_MS);
       }
-    } catch (err) {
-      log.warn("[RivenScan] VGB+CRNN path failed:", String(err));
     }
-    if (_ocrAborted || _scanGeneration !== myGeneration) {
-      return { text: "", titleText: "", footerText: "", stats: [] };
-    }
+
+    _lastScanTiming = {
+      captureMs: 0,
+      cropRefineMs,
+      enhanceMs: 0,
+      ocrMs: 0,
+      ocrCalls: 0,
+      parseMs: 0,
+      totalMs: Date.now() - totalStart,
+    };
+    logScanTiming(label || "crnn-only", _lastScanTiming);
+
+    return { text: bestText, titleText: "", footerText: "", stats: bestStats };
   }
+
+  // ── WinRT/Tesseract fallback (only when CRNN models are unavailable) ───────
 
   const cropVariants = [{ id: "rough", image: roughCrop, refined: false, metrics: refined.metrics }];
   // Always include the refined (edge-detected) crop when available.
