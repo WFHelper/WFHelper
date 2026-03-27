@@ -486,8 +486,9 @@ async function ocrCropMultiStrategy(
   // "original" and "bright-120+dilate", so this saves 30-80ms per overlap.
   const enhanceCache = new Map<string, Buffer>();
 
-  // 2750 ms hard scan budget: mirrors AlecaFrame's per-scan cap.  If the native
-  // loop or the Tesseract wait exceed this, we break early and return what we have.
+  // Hard OCR strategy budget: caps how long the multi-strategy OCR loop runs.
+  // NOT related to the 2750ms animation delay — this is a separate limit to
+  // prevent spending too long iterating enhance/OCR strategies on a single frame.
   const SCAN_BUDGET_MS = 2750;
   const scanStart = Date.now();
 

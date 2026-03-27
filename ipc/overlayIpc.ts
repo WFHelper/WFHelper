@@ -244,15 +244,13 @@ let _rivenRollScanTimer: ReturnType<typeof setTimeout> | null = null;
 // Delay before OCR scan (ms).
 // No readiness gate polling — just fixed delay then immediate screenshot + OCR.
 //
-// AlecaFrame uses Thread.Sleep(2750) in RivenRerollDetected. However, AlecaFrame's
-// C# DebugOutputMonitor adds ~200-500ms of thread scheduling / GC latency between
-// receiving the DBWIN message and entering Sleep(). Our DBWIN worker delivers
-// messages with near-zero latency, so the effective T=0 is earlier and the game
-// animation hasn't settled by T+2750. Increase to 4000ms to compensate — still
-// well under the ~13s diorama ready event and fast enough for continuous rolling.
+// AlecaFrame uses Thread.Sleep(2750) in RivenRerollDetected — that is how long
+// the roll animation takes.  Our DBWIN worker delivers messages with near-zero
+// latency (vs AlecaFrame's ~200-500ms C# thread scheduling), so we add a small
+// buffer: 2850ms = 2750ms animation + 100ms safety margin.
 //
 // INITIAL: AlecaFrame Thread.Sleep(200) in RivenSelectedForRerollDetected.
-// ROLL:    4000ms (AlecaFrame 2750 + ~1250 DBWIN latency compensation).
+// ROLL:    2850ms (AlecaFrame 2750ms animation + 100ms buffer).
 // CHOICE:  AlecaFrame RivenRerollCycleComplete: Thread.Sleep(1000) then calls
 //          RivenSelectedForRerollDetected (another Sleep(200)) = 1200 ms total.
 const INITIAL_SCAN_DELAY_MS = 200;
