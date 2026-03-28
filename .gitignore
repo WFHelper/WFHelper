@@ -78,6 +78,9 @@ OCR-debug/multi_model_test/
 
 # OCR debug output images and benchmark logs (generated, not source)
 OCR-debug/*.png
+OCR-debug/training_riven_images
+OCR-debug/fails_report
+OCR-debug/*.jpg
 OCR-debug/*.txt
 OCR-debug/benchmark_visual/
 OCR-debug/clean_for_ocr/
