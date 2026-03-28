@@ -408,14 +408,15 @@ async function classifyStatLabel(
   srcW: number,
   srcH: number,
 ): Promise<[string, number]> {
-  if (_labelClasses.length === 0) return ["", 0];
-
   // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
   const sharp: any = require("sharp");
   // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
   const ort: any = require("onnxruntime-node");
 
+  // getLabelSession() populates _labelClasses as a side effect.
+  // Must be called BEFORE checking _labelClasses.length.
   const session = await getLabelSession();
+  if (_labelClasses.length === 0) return ["", 0];
 
   const { data } = await sharp(grayBuf, {
     raw: { width: srcW, height: srcH, channels: 1 },
