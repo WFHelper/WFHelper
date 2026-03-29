@@ -93,3 +93,8 @@ OCR-debug/label_crops/
 OCR-debug/violet_synthetic/
 OCR-debug/violet_test/
 OCR-debug/violet_v2/
+scripts/train-paddleocr/real_vgb_crops_all/
+scripts/train-paddleocr/debug_value_splits/
+scripts/train-paddleocr/diag_output/
+scripts/train-paddleocr/*.png
+scripts/train-paddleocr/*.jpg

@@ -30,6 +30,7 @@ import {
   cropAbsolute,
   deriveRivenRegions,
   enhanceForRivenOcr,
+  enhanceForRivenOcrVgb,
   refineRivenTextCrop,
   resetRivenScanWaits,
   waitForRivenUiReady,
@@ -389,6 +390,42 @@ async function runStructuredRegion(
   };
 }
 
+// ── Fixed-percentage stat area crop (matches Python trim_to_card_aspect + refine_crop) ──
+// The Python benchmark achieves 98% accuracy with this simple approach.
+// Sobel edge detection (refineRivenTextCrop) is unreliable with Kuva portal animation.
+const CARD_ASPECT_RATIO = 287 / 433; // ≈ 0.663 (riven card width/height)
+
+function _cropStatAreaForVgb(roughCrop: any): any {
+  const { width: w, height: h } = roughCrop.getSize();
+  if (w < 50 || h < 50) return roughCrop;
+
+  // Step 1: Trim to card aspect ratio (matches Python trim_to_card_aspect)
+  // SINGLE_CARD_CROP is ~2.2:1 aspect, card is 0.663:1, so this centers on the card.
+  const expectedW = Math.floor(h * CARD_ASPECT_RATIO);
+  let trimmed = roughCrop;
+  let tw = w;
+  const th = h;
+  if (w > expectedW * 1.10) {
+    const excess = w - expectedW;
+    const x1 = Math.floor(excess / 2);
+    tw = expectedW;
+    trimmed = roughCrop.crop({ x: x1, y: 0, width: expectedW, height: h });
+  }
+
+  // Step 2: Fixed stat area crop (matches Python refine_crop)
+  // Stat text occupies ~34-84% of card height, 8-92% of card width.
+  const sy0 = Math.floor(th * 0.34);
+  const sy1 = Math.floor(th * 0.84);
+  const sx0 = Math.floor(tw * 0.08);
+  const sx1 = Math.floor(tw * 0.92);
+  const cropW = sx1 - sx0;
+  const cropH = sy1 - sy0;
+
+  if (cropW < 30 || cropH < 30) return roughCrop;
+
+  return trimmed.crop({ x: sx0, y: sy0, width: cropW, height: cropH });
+}
+
 async function ocrCropMultiStrategy(
   image: any,
   rect: { x: number; y: number; width: number; height: number },
@@ -435,16 +472,20 @@ async function ocrCropMultiStrategy(
       }
 
       try {
-        // Use refined crop (stat area) for VGB processing when available.
-        const vgbSource = refined.refined ? refined.image : roughCrop;
-        const vgbPng = await enhanceForRivenOcr(vgbSource, { kind: "violet-guided-bright" });
-        const detailedLines = await recognizeVgbLinesDetailed(vgbPng);
+        // Fixed-percentage crop matching the Python benchmark exactly.
+        // Sobel edge detection is unreliable with Kuva portal animation.
+        const vgbSource = _cropStatAreaForVgb(roughCrop);
+        const vgbResult = await enhanceForRivenOcrVgb(vgbSource);
+        const detailedLines = await recognizeVgbLinesDetailed(vgbResult.png, vgbResult.rowRegions);
         const text = detailedLines.map((l) => l.text).join("\n");
         const stats = parseRivenStats(text);
 
         if (label) {
+          const srcSz = vgbSource.getSize();
           log.log(
-            `[RivenScan] VGB+CRNN ${label} attempt=${attempt}: ${stats.length} stats — ` +
+            `[RivenScan] VGB+CRNN ${label} attempt=${attempt}: ${stats.length} stats, ` +
+            `${vgbResult.rowRegions.length} vgb-rows in ${vgbResult.width}×${vgbResult.height} ` +
+            `(source ${srcSz.width}×${srcSz.height}) — ` +
             stats.map((s) => `${s.positive ? "+" : "-"}${s.value ?? "?"}${s.multiplier ? "x" : "%"} ${s.name}`).join(", "),
           );
           for (const line of detailedLines) {

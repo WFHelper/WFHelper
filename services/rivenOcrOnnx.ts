@@ -1044,14 +1044,28 @@ export interface VgbLineResult {
   numericConfidence: number;
 }
 
+/** Row region from VGB preprocessing (y0, y1, x0, x1 bounds). */
+export interface VgbInputRegion {
+  y0: number;
+  y1: number;
+  x0: number;
+  x1: number;
+}
+
 /**
  * Extract per-line crops from a VGB-processed PNG (black text on white),
  * recognize each with the multi-model pipeline, and apply post-processing.
  *
+ * When `rowRegions` is provided (from enhanceForRivenOcrVgb), uses those
+ * precise bounds instead of re-detecting rows from the VGB output.
+ *
  * Returns rich per-line results including confidence scores.
  */
-export async function recognizeVgbLinesDetailed(vgbPng: Buffer): Promise<VgbLineResult[]> {
-  const lines = await _recognizeVgbLinesInternal(vgbPng);
+export async function recognizeVgbLinesDetailed(
+  vgbPng: Buffer,
+  rowRegions?: VgbInputRegion[],
+): Promise<VgbLineResult[]> {
+  const lines = await _recognizeVgbLinesInternal(vgbPng, rowRegions);
   return lines;
 }
 
@@ -1069,21 +1083,65 @@ export async function recognizeVgbLines(vgbPng: Buffer): Promise<string[]> {
   return detailed.map((r) => r.text);
 }
 
-async function _recognizeVgbLinesInternal(vgbPng: Buffer): Promise<VgbLineResult[]> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
-  const sharp: any = require("sharp");
+/** Split an oversized row by dark-pixel density gaps (matches Python _split_oversized_row). */
+function _splitOversizedRow(
+  gray: Buffer,
+  W: number,
+  y0: number,
+  y1: number,
+  minSubH: number,
+  maxSubH: number,
+): Array<{ yStart: number; yEnd: number }> {
+  const rh = y1 - y0;
+  const subDensity = new Float32Array(rh);
+  for (let ry = 0; ry < rh; ry++) {
+    let cnt = 0;
+    for (let x = 0; x < W; x++) {
+      if (gray[(y0 + ry) * W + x] < 128) cnt++;
+    }
+    subDensity[ry] = cnt / Math.max(1, W);
+  }
+  const ks = Math.max(3, Math.floor(rh / 80)) | 1;
+  const halfK = (ks - 1) / 2;
+  const smoothed = new Float32Array(rh);
+  for (let i = 0; i < rh; i++) {
+    let sum = 0, cnt = 0;
+    for (let j = Math.max(0, i - halfK); j <= Math.min(rh - 1, i + halfK); j++) {
+      sum += subDensity[j]; cnt++;
+    }
+    smoothed[i] = sum / cnt;
+  }
+  const gapThresh = 0.015;
+  let inSub = false, subStart = 0;
+  const subRows: Array<{ yStart: number; yEnd: number }> = [];
+  for (let ry = 0; ry < rh; ry++) {
+    if (smoothed[ry] > gapThresh) {
+      if (!inSub) { subStart = ry; inSub = true; }
+    } else if (inSub) {
+      const subH = ry - subStart;
+      if (subH >= minSubH && subH <= maxSubH) {
+        subRows.push({ yStart: y0 + subStart, yEnd: y0 + ry });
+      }
+      inSub = false;
+    }
+  }
+  if (inSub) {
+    const subH = rh - subStart;
+    if (subH >= minSubH && subH <= maxSubH) {
+      subRows.push({ yStart: y0 + subStart, yEnd: y0 + rh });
+    }
+  }
+  return subRows;
+}
 
-  // Decode VGB image to raw grayscale
-  const { data, info } = await sharp(vgbPng)
-    .grayscale()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const gray = data as Buffer;
-  const W: number = info.width;
-  const H: number = info.height;
-
-  // ── Step 1: Detect text rows using dark pixel density ──
-  // In VGB output (black-on-white), text pixels are dark (< 128).
+/** Detect text rows from dark pixel density in a VGB output (fallback when no rowRegions). */
+function _detectRowsFromVgb(
+  gray: Buffer,
+  W: number,
+  H: number,
+  minRowH: number,
+  maxRowH: number,
+): Array<{ yStart: number; yEnd: number }> {
   const rowDensity = new Float32Array(H);
   for (let y = 0; y < H; y++) {
     let count = 0;
@@ -1112,34 +1170,120 @@ async function _recognizeVgbLinesInternal(vgbPng: Buffer): Promise<VgbLineResult
     textRows.push({ yStart: rowStart, yEnd: H });
   }
 
-  if (textRows.length === 0) return [];
+  // Split oversized rows
+  const expandedRows: Array<{ yStart: number; yEnd: number }> = [];
+  for (const row of textRows) {
+    const rh = row.yEnd - row.yStart;
+    if (rh > maxRowH) {
+      const subRows = _splitOversizedRow(gray, W, row.yStart, row.yEnd, minRowH, maxRowH);
+      if (subRows.length > 0) {
+        expandedRows.push(...subRows);
+      }
+    } else {
+      expandedRows.push(row);
+    }
+  }
+  return expandedRows;
+}
+
+async function _recognizeVgbLinesInternal(
+  vgbPng: Buffer,
+  inputRegions?: VgbInputRegion[],
+): Promise<VgbLineResult[]> {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+  const sharp: any = require("sharp");
+
+  // Decode VGB image to raw grayscale
+  const { data, info } = await sharp(vgbPng)
+    .grayscale()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const gray = data as Buffer;
+  const W: number = info.width;
+  const H: number = info.height;
+
+  // ── Step 1b filter thresholds (shared by both paths) ──
+  const MIN_ROW_H = 40;
+  const MAX_ROW_H = 250;
+  const yMinThresh = Math.floor(H * 0.08);
+  const yMaxThresh = Math.floor(H * 0.97);
+  const wMinThresh = Math.floor(W * 0.30);
+
+  // ── Build expandedRows from VGB row regions or from dark-pixel detection ──
+  let expandedRows: Array<{ yStart: number; yEnd: number; x0?: number; x1?: number }>;
+
+  if (inputRegions && inputRegions.length > 0) {
+    // Use VGB-provided row regions directly (matches Python extract_line_crops
+    // using vgb_process row_regions). Oversized splitting is already handled
+    // by the oversized-row logic in extract_line_crops below.
+    expandedRows = [];
+    for (const reg of inputRegions) {
+      const rh = reg.y1 - reg.y0;
+      if (rh > MAX_ROW_H) {
+        // Density-based sub-splitting (same as the fallback path)
+        const subRows = _splitOversizedRow(gray, W, reg.y0, reg.y1, MIN_ROW_H, MAX_ROW_H);
+        if (subRows.length > 0) {
+          expandedRows.push(...subRows.map((s) => ({ ...s, x0: reg.x0, x1: reg.x1 })));
+        }
+      } else {
+        expandedRows.push({ yStart: reg.y0, yEnd: reg.y1, x0: reg.x0, x1: reg.x1 });
+      }
+    }
+  } else {
+    // Fallback: detect rows from dark pixel density in the VGB output
+    expandedRows = _detectRowsFromVgb(gray, W, H, MIN_ROW_H, MAX_ROW_H);
+  }
 
   // ── Step 2: For each row, find horizontal text extent and extract crop ──
   const padY = 4;
   const lines: VgbLineResult[] = [];
 
-  for (const row of textRows) {
+  for (const row of expandedRows) {
+    const rh = row.yEnd - row.yStart;
+
+    // Height filter: stat lines are ~100-200px after upscale to 1800px.
+    // Skip tiny noise strips and oversized rows.
+    if (rh < MIN_ROW_H || rh > MAX_ROW_H) continue;
+
+    // Y-position filter: skip title at top (~8%) and footer at bottom (~3%)
+    const yCenter = (row.yStart + row.yEnd) / 2;
+    if (yCenter < yMinThresh || yCenter > yMaxThresh) continue;
+
     const y0 = Math.max(0, row.yStart - padY);
     const y1 = Math.min(H, row.yEnd + padY);
     const rowH = y1 - y0;
     if (rowH < 8) continue;
 
-    // Find horizontal extent of dark pixels in this row
-    let xMin = W, xMax = 0;
-    for (let y = y0; y < y1; y++) {
-      for (let x = 0; x < W; x++) {
-        if (gray[y * W + x] < 128) {
-          if (x < xMin) xMin = x;
-          if (x > xMax) xMax = x;
+    let xMin: number;
+    let xMax: number;
+
+    if (row.x0 != null && row.x1 != null) {
+      // Use VGB-provided horizontal bounds (from color mask x-extent)
+      xMin = row.x0;
+      xMax = row.x1 - 1; // x1 is exclusive in VgbRowRegion
+    } else {
+      // Fallback: find horizontal extent of dark pixels in this row
+      xMin = W; xMax = 0;
+      for (let y = y0; y < y1; y++) {
+        for (let x = 0; x < W; x++) {
+          if (gray[y * W + x] < 128) {
+            if (x < xMin) xMin = x;
+            if (x > xMax) xMax = x;
+          }
         }
       }
-    }
-    if (xMax <= xMin + 20) continue; // too narrow
+      if (xMax <= xMin + 20) continue; // too narrow
 
-    // Add small horizontal padding
-    const xPad = Math.floor(W * 0.01);
-    xMin = Math.max(0, xMin - xPad);
-    xMax = Math.min(W - 1, xMax + xPad);
+      // Width filter: skip narrow noise fragments (< 30% of image width)
+      const rawRowW = xMax - xMin;
+      if (rawRowW < wMinThresh) continue;
+
+      // Add small horizontal padding
+      const xPad = Math.floor(W * 0.01);
+      xMin = Math.max(0, xMin - xPad);
+      xMax = Math.min(W - 1, xMax + xPad);
+    }
+
     const cropW = xMax - xMin + 1;
 
     if (cropW < 30) continue;
@@ -1162,6 +1306,9 @@ async function _recognizeVgbLinesInternal(vgbPng: Buffer): Promise<VgbLineResult
     const finalY1 = y0 + Math.min(rowH, tyMax + 3);
     const finalH = finalY1 - finalY0;
     if (finalH < 6) continue;
+
+    // Safety cap: rivens have 2-4 stats; limit to 8 crops to avoid noise
+    if (lines.length >= 8) break;
 
     // ── Step 3: Extract grayscale line crop for spatial split + multi-model ──
     const lineGray = Buffer.alloc(cropW * finalH);
