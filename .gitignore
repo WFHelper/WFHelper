@@ -68,6 +68,13 @@ scripts/train-paddleocr/color_validation_result.txt
 scripts/train-paddleocr/unet_datagen_log.txt
 scripts/train-paddleocr/unet_v3_bench.txt
 scripts/train-paddleocr/real_vgb_crops
+scripts/train-paddleocr/backups/
+scripts/train-paddleocr/benchmark_results/
+scripts/train-paddleocr/debug_full_crops/
+scripts/train-paddleocr/debug_signs/
+scripts/train-paddleocr/debug_sign_regions/
+scripts/train-paddleocr/fonts/
+scripts/train-paddleocr/*.txt
 
 # OCR corpus debug images (test screenshots — large PNGs, not source code)
 OCR-debug/riven_images/
@@ -98,3 +105,32 @@ scripts/train-paddleocr/debug_value_splits/
 scripts/train-paddleocr/diag_output/
 scripts/train-paddleocr/*.png
 scripts/train-paddleocr/*.jpg
+
+# YOLO training datasets (generated — 50k+ images/labels, reproducible via scripts)
+scripts/train-paddleocr/yolo_dataset/
+scripts/train-paddleocr/yolo_dataset_v2/
+scripts/train-paddleocr/yolo_dataset_v3/
+scripts/train-paddleocr/yolo_dataset_v3b/
+scripts/train-paddleocr/yolo_mixed_dataset/
+scripts/train-paddleocr/yolo_mixed_v3_dataset/
+scripts/train-paddleocr/yolo_annotation/
+scripts/train-paddleocr/yolo_runs/
+scripts/train-paddleocr/yolo_crop_debug/
+scripts/train-paddleocr/real_yolo_crops/
+scripts/train-paddleocr/crop_comparison/
+scripts/train-paddleocr/crop_debug/
+
+# YOLO experiment scripts (not part of production pipeline)
+scripts/train-paddleocr/*yolo*.py
+scripts/train-paddleocr/analyze_sign_flips.py
+scripts/train-paddleocr/compare_crops.py
+scripts/train-paddleocr/compare_fonts.py
+scripts/train-paddleocr/convert_synthetic_v2.py
+scripts/train-paddleocr/convert_synthetic_v3_cropped.py
+scripts/train-paddleocr/crnn_crop_diff.py
+scripts/train-paddleocr/inspect_labels.py
+scripts/train-paddleocr/build_mixed_v3_dataset.py
+
+# Temporary benchmark output files in repo root
+_*.txt
+yolo_*.txt

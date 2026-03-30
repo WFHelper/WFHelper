@@ -541,8 +541,13 @@ async function ocrCropMultiStrategy(
     return { text: bestText, titleText: "", footerText: "", stats: bestStats };
   }
 
-  // ── WinRT/Tesseract fallback (only when CRNN models are unavailable) ───────
+  // ── WinRT/Tesseract fallback — DISABLED ───────
+  // The ONNX multi-model pipeline is the only supported riven OCR path.
+  // WinRT and Tesseract are unreliable for riven stat text and are no longer used.
+  log.warn("[RivenScan] ONNX models not found — riven OCR unavailable. Install models to enable riven scanning.");
+  return { text: "", titleText: "", footerText: "", stats: [] };
 
+  /* eslint-disable no-unreachable */
   const cropVariants = [{ id: "rough", image: roughCrop, refined: false, metrics: refined.metrics }];
   // Always include the refined (edge-detected) crop when available.
   // AlecaFrame's DetailedRivenCrop always runs edge detection to isolate the
@@ -958,6 +963,7 @@ async function ocrCropMultiStrategy(
     footerText: chosen.footerText,
     stats: chosen.stats,
   };
+  /* eslint-enable no-unreachable */
 }
 
 export function abortRivenScans(): void {

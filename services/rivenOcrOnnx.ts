@@ -565,11 +565,13 @@ const STAT_RULES: Record<string, { isPercent?: boolean; suffix?: string; min?: n
   "Initial Combo": { isPercent: false, min: 1, max: 60 },
   "Zoom": { isPercent: true, min: 5, max: 120 },
   "Critical Chance": { isPercent: true, min: 10, max: 300 },
+  "Critical Chance (x2 for Heavy Attacks)": { isPercent: true, min: 10, max: 300 },
   "Critical Damage": { isPercent: true, min: 10, max: 200 },
   "Multishot": { isPercent: true, min: 10, max: 250 },
   "Status Chance": { isPercent: true, min: 10, max: 200 },
   "Status Duration": { isPercent: true, min: 10, max: 200 },
   "Fire Rate": { isPercent: true, min: 10, max: 200 },
+  "Fire Rate (x2 for Bows)": { isPercent: true, min: 10, max: 200 },
   "Magazine Capacity": { isPercent: true, min: 10, max: 200 },
   "Ammo Maximum": { isPercent: true, min: 10, max: 200 },
   "Melee Damage": { isPercent: true, min: 30, max: 300 },
@@ -779,6 +781,27 @@ function validateStat(valueStr: string, statName: string): [string, string] {
         result = absVal === Math.floor(absVal)
           ? `${prefix}${Math.floor(absVal)}${suffixChar}`
           : `${prefix}${absVal.toFixed(1).replace(".", ",")}${suffixChar}`;
+      }
+    }
+  }
+
+  // ── Two-decimal correction for percent stats ──
+  // Real riven percent values always have 0 or 1 decimal digit. "+NN,NN%" with
+  // exactly 2 integer + 2 decimal digits is always an OCR hallucination.
+  // Recovery: use the 2 decimal digits as the plain integer value.
+  if (rules.isPercent) {
+    const m2d = result.match(/^([+\-])(\d{2}),(\d{2})(%)$/);
+    if (m2d) {
+      const cur2d = tryParseNumeric(result);
+      const statMin2 = rules.min ?? 0;
+      const statMax2 = rules.max ?? 99999;
+      const curInRange = cur2d !== null && statMin2 <= Math.abs(cur2d) && Math.abs(cur2d) <= statMax2;
+      if (!curInRange) {
+        const cand2d = `${m2d[1]}${m2d[3]}${m2d[4]}`;
+        const pv2d = tryParseNumeric(cand2d);
+        if (pv2d !== null && statMin2 <= Math.abs(pv2d) && Math.abs(pv2d) <= statMax2) {
+          result = cand2d;
+        }
       }
     }
   }
@@ -1186,6 +1209,34 @@ function _detectRowsFromVgb(
   return expandedRows;
 }
 
+// ── Stat-line gating: reject garbage crops before production dedup ────────────
+
+const JUNK_FRAGMENTS = new Set([
+  "forheavyattacks", "for heavy attacks", "bow x2", "bowx2",
+  "heavy attacks", "x2 for bows", "x2forbows",
+]);
+
+/**
+ * Return true if a recognised crop looks like a genuine riven stat line.
+ * Garbage crops (title text, card decorations) are rejected here so they
+ * don't pollute the per-stat dedup scoring.
+ */
+function isStatLine(valueText: string, statName: string, confidence: number): boolean {
+  if (!statName || !KNOWN_STATS.includes(statName)) return false;
+  if (confidence < 0.15) return false;
+  if (JUNK_FRAGMENTS.has(statName.toLowerCase().replace(/ /g, ""))) return false;
+
+  if (!valueText) return false;
+  const v = valueText.trim();
+  if (!v) return false;
+  if (!"+-x".includes(v[0])) return false;
+  if (!/\d/.test(v)) return false;
+  // After comma must follow at least one digit (rejects "+3,s" garbage)
+  if (v.includes(",") && !/,\d/.test(v)) return false;
+
+  return true;
+}
+
 async function _recognizeVgbLinesInternal(
   vgbPng: Buffer,
   inputRegions?: VgbInputRegion[],
@@ -1386,7 +1437,7 @@ async function _recognizeVgbLinesInternal(
     if (!statName && nameFragment) statName = postprocessStatLine(nameFragment);
 
     // ── Step 7: Value ensemble — pick best from old CRNN + NumericCRNN beam ──
-    const ensembleValue = numericCandidates.length > 0
+    let ensembleValue = numericCandidates.length > 0
       ? pickBestValueWithBeam(oldValue, numericCandidates, statName)
       : oldValue;
 
@@ -1394,24 +1445,86 @@ async function _recognizeVgbLinesInternal(
     const numericConf = numericCandidates.length > 0 ? numericCandidates[0][1] : 0;
 
     // ── Step 8: Schema validation (comma-reposition, phantom-digit, etc.) ──
-    const [validatedValue, validatedName] = validateStat(ensembleValue, statName);
+    [ensembleValue, statName] = validateStat(ensembleValue, statName);
+
+    // ── Step 9: Ghost-crop gating ──
+    // When ALL beam candidates have no digits, the numeric crop is noise.
+    // But if the old CRNN (full-line) read valid digits, allow through —
+    // the numeric portion was just too small for NumericCRNN.
+    let beamAllNoDigit = false;
+    if (numericCandidates.length > 0) {
+      beamAllNoDigit = numericCandidates.every(
+        ([candText]) => !candText || !/\d/.test(candText),
+      );
+    }
+
+    let isGenuine: boolean;
+    if (beamAllNoDigit) {
+      const oldHasDigits = !!oldValue && /\d/.test(oldValue);
+      isGenuine = oldHasDigits
+        ? isStatLine(ensembleValue, statName, labelConf)
+        : false;
+    } else {
+      isGenuine = isStatLine(ensembleValue, statName, labelConf);
+    }
+
+    if (!isGenuine) continue;
 
     // Compose final line
-    const text = validatedValue && validatedName
-      ? `${validatedValue} ${validatedName}`
-      : validatedName || postprocessStatLine(rawText);
+    const text = ensembleValue && statName
+      ? `${ensembleValue} ${statName}`
+      : statName || postprocessStatLine(rawText);
     if (text) {
       lines.push({
         text,
-        value: validatedValue || oldValue,
-        statName: validatedName || statName,
+        value: ensembleValue || oldValue,
+        statName: statName,
         labelConfidence: labelConf,
         numericConfidence: numericConf,
       });
     }
   }
 
-  return lines;
+  // ── Step 10: Production dedup — best reading per stat name ──
+  // When VGB+BRT produce duplicate readings for the same stat, keep the one
+  // with the highest composite score (label confidence + range validation).
+  const seenStats = new Map<string, VgbLineResult[]>();
+  for (const line of lines) {
+    if (!line.statName) continue;
+    const bucket = seenStats.get(line.statName) ?? [];
+    bucket.push(line);
+    seenStats.set(line.statName, bucket);
+  }
+
+  const dedupedLines: VgbLineResult[] = [];
+  seenStats.forEach((entries) => {
+    let best = entries[0];
+    let bestScore = -Infinity;
+    for (const entry of entries) {
+      let score = entry.labelConfidence;
+      // Range validation bonus/penalty
+      const rules = STAT_RULES[entry.statName];
+      if (rules && entry.value) {
+        const pv = tryParseNumeric(entry.value);
+        if (pv !== null) {
+          const statMin = rules.min ?? 0;
+          const statMax = rules.max ?? 99999;
+          if (statMin <= Math.abs(pv) && Math.abs(pv) <= statMax) {
+            score += 0.15;
+          } else {
+            score -= 0.30;
+          }
+        }
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        best = entry;
+      }
+    }
+    dedupedLines.push(best);
+  });
+
+  return dedupedLines;
 }
 
 // ── Per-card recognition pipeline ────────────────────────────────────────────
