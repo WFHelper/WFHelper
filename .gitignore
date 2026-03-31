@@ -42,10 +42,13 @@ scripts/train-paddleocr/checkpoint/
 # To use: copy riven_rec.onnx + riven_rec_vocab.json here after training.
 scripts/train-paddleocr/output/
 
-# PyTorch / ONNX model weights (too large for git)
+# PyTorch / ONNX / PaddlePaddle model weights and archives (too large for git)
 *.pt
 *.pth
 *.onnx
+*.tar
+scripts/train-paddleocr/models/tmp_wheels/
+scripts/train-paddleocr/models/*/
 
 # Python bytecode
 __pycache__/
