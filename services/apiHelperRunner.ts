@@ -9,6 +9,7 @@ const path = require("node:path") as typeof import("node:path");
 const fs = require("node:fs") as typeof import("node:fs");
 const https = require("node:https") as typeof import("node:https");
 const http = require("node:http") as typeof import("node:http");
+const crypto = require("node:crypto") as typeof import("node:crypto");
 const { spawn } = require("node:child_process") as typeof import("node:child_process");
 const { app } = require("electron") as typeof import("electron");
 
@@ -325,7 +326,16 @@ export async function downloadHelper(
       });
     });
 
-    // 5. Atomically rename temp → final
+    // 5. Verify downloaded file is a valid PE executable (MZ magic bytes)
+    const downloadedBytes = fs.readFileSync(tempPath);
+    if (downloadedBytes.length < 2 || downloadedBytes[0] !== 0x4D || downloadedBytes[1] !== 0x5A) {
+      fs.unlinkSync(tempPath);
+      throw new Error("Downloaded file is not a valid PE executable (missing MZ header)");
+    }
+    const sha256 = crypto.createHash("sha256").update(downloadedBytes).digest("hex");
+    log.log(`Helper PE verified, SHA-256: ${sha256}`);
+
+    // 6. Atomically rename temp → final
     try {
       fs.unlinkSync(destPath);
     } catch {
@@ -333,7 +343,7 @@ export async function downloadHelper(
     }
     fs.renameSync(tempPath, destPath);
 
-    // 6. Refresh cached exe path
+    // 7. Refresh cached exe path
     _exePath = destPath;
 
     log.log("Helper downloaded to:", destPath);
