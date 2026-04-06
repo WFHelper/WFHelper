@@ -198,7 +198,7 @@ export function preprocessOcrText(raw: string): string {
 
   text = text.replace(/\(x\d+\s*(?:for\s*)?Heavy\s*Attack[a-z]*\)/gi, "");
   text = text.replace(/\(\s*(\d+[.,]\d+)/g, "x$1");
-  text = text.replace(/[*()\[\]{}|\\<>^~°©®™•→←↑↓↗↘►◄▸▾▲▼■□●○]+\s*/g, " ");
+  text = text.replace(/[*()[\]{}|\\<>^~°©®™•→←↑↓↗↘►◄▸▾▲▼■□●○]+\s*/g, " ");
   text = text.replace(/\bx\d+\s*(?:for\s*)?Heavy\s*Attack[a-z]*\b/gi, "");
   text = text.replace(/%\s+[A-Z0-9]\s+(?=[A-Z])/g, "% ");
   // Strip isolated uppercase letter (element-icon artifact) between sign and digits.

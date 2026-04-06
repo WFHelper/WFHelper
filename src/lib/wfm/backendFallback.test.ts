@@ -62,6 +62,7 @@ beforeEach(() => {
   vi.resetModules();
   vi.stubEnv("VITE_WFM_BACKEND_URL", BACKEND_URL);
   vi.stubEnv("VITE_WFM_BACKEND_DIRECT_FALLBACK", "always");
+  vi.stubEnv("VITE_WFM_BACKEND_BOOTSTRAP_ENABLED", ""); // disable bootstrap in tests
 });
 
 afterEach(() => {

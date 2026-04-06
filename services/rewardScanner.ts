@@ -708,7 +708,7 @@ export async function detectRelicSelectionEra(options: any = {}): Promise<{
     for (const variant of variants) {
       if (Date.now() - startedAt >= timeoutMs) break;
 
-      let ocrText = "";
+      let ocrText: string;
       try {
         ocrText = await runVariantOcr(
           variant.image,
@@ -758,7 +758,7 @@ export async function detectRelicSelectionEra(options: any = {}): Promise<{
       for (const variant of variants) {
         if (Date.now() - startedAt >= timeoutMs) break;
 
-        let ocrText = "";
+        let ocrText: string;
         try {
           ocrText = await runVariantOcr(
             variant.image,
@@ -1030,7 +1030,7 @@ export async function scanRewardsDetailed(
 
       // F5: use structured OCR to separate title lines geometrically
       let matched: ReturnType<typeof matchItemsDetailed> | null = null;
-      let ocrTextForLog = "";
+      let ocrTextForLog: string;
       try {
         const pngBuf = variant.image.toPNG();
         const ocrStart = Date.now();

@@ -17,6 +17,7 @@
 
   $: isFormaIcon = /\bforma\b/i.test(alt);
   $: if (src !== lastSrc) {
+    // eslint-disable-next-line no-useless-assignment -- guard: lastSrc prevents re-firing until src changes again
     lastSrc = src;
     failed = false;
     useFormaFallback = false;

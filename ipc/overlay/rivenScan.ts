@@ -564,7 +564,7 @@ export async function scanNewRoll(expectedWeaponName = "", skipGate = true): Pro
     log.warn("[RivenScan] scanNewRoll: captureScreen returned null");
     return { left: [], right: [] };
   }
-  let frameHash = "";
+  let frameHash: string;
   try {
     frameHash = computeRivenFrameHash(cropRect(capture.image, ROLL_CARD_CROP));
   } catch {

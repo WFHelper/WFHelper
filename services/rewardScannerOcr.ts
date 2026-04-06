@@ -185,7 +185,7 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
     try {
       tesseract = require("tesseract.js");
     } catch (error) {
-      throw new Error(`Tesseract OCR unavailable: ${normalizeErrorMessage(error)}`);
+      throw new Error(`Tesseract OCR unavailable: ${normalizeErrorMessage(error)}`, { cause: error });
     }
 
     const recognizePromise = tesseract.recognize(image, tesseractLanguage, {
@@ -256,6 +256,7 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
       if (powerShellError) {
         throw new Error(
           `OCR failed (Windows + Tesseract): ${normalizeErrorMessage(powerShellError)} | ${normalizeErrorMessage(error)}`,
+          { cause: error },
         );
       }
       throw error;

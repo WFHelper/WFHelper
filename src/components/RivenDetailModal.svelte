@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { SvelteSet } from "svelte/reactivity";
   import type { DecodedRiven, WfmRivenListing } from "../types/ipc.js";
   import { ipc } from "../lib/ipc.js";
   import { getBestAttributes } from "../lib/rivenBestAttributes.js";
@@ -31,9 +32,9 @@
     listingStats: { name: string; value: number; positive: boolean }[],
   ): { pct: number; matchedNames: Set<string> } {
     if (!myStatNames.length || !listingStats.length) {
-      return { pct: 0, matchedNames: new Set() };
+      return { pct: 0, matchedNames: new SvelteSet<string>() };
     }
-    const matchedNames = new Set<string>();
+    const matchedNames = new SvelteSet<string>();
     const listingNamesLc = listingStats.map((s) => s.name.toLowerCase());
     for (const myName of myStatNames) {
       for (const ln of listingNamesLc) {
