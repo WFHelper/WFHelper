@@ -58,16 +58,13 @@ function resolveChDictPath(): string {
 
 // ── Lazy ONNX sessions ───────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _yoloSessionPromise: Promise<any> | null = null;
 let _yoloInputName = "";
 let _yoloInputSize = 640;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _chRecSessionPromise: Promise<any> | null = null;
 let _chDict: string[] = [];
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getYoloSession(): Promise<any> {
   if (_yoloSessionPromise) return _yoloSessionPromise;
 
@@ -77,7 +74,7 @@ async function getYoloSession(): Promise<any> {
       throw new Error(`YOLO model not found at ${modelPath}`);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+  
     const ort: any = require("onnxruntime-node");
 
     const session = await ort.InferenceSession.create(modelPath, {
@@ -99,7 +96,6 @@ async function getYoloSession(): Promise<any> {
   return _yoloSessionPromise;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getChRecSession(): Promise<any> {
   if (_chRecSessionPromise) return _chRecSessionPromise;
 
@@ -110,7 +106,6 @@ async function getChRecSession(): Promise<any> {
       throw new Error(`PaddleOCR CH model not found at ${modelPath}`);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
     const ort: any = require("onnxruntime-node");
 
     // Load dictionary: index 0 = blank (CTC), then one char per line
@@ -172,9 +167,9 @@ async function yoloDetectStatLines(
 ): Promise<YoloBox[]> {
   const session = await getYoloSession();
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+
   const ort: any = require("onnxruntime-node");
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+
   const sharp: any = require("sharp");
 
   const imgsz = _yoloInputSize; // 640
@@ -312,7 +307,7 @@ async function extractAndUpscaleCrops(
 ): Promise<RgbCrop[]> {
   if (boxes.length === 0) return [];
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+
   const sharp: any = require("sharp");
 
   const rawCrops: RgbCrop[] = [];
@@ -418,9 +413,9 @@ async function recognizeCropsBatch(crops: RgbCrop[]): Promise<OcrLineResult[]> {
   if (crops.length === 0) return [];
   const session = await getChRecSession();
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+
   const ort: any = require("onnxruntime-node");
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+
   const sharp: any = require("sharp");
 
   const imgH = 48;

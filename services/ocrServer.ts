@@ -409,7 +409,6 @@ export const ocrServer = new OcrServerPool(OCR_SERVER_POOL_SIZE);
 let _nativeRecognize: ((input: Buffer | string) => Promise<{ text: string; confidence: number }>) | null = null;
 
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const mod = require("@napi-rs/system-ocr") as {
     recognize: (input: Buffer | string) => Promise<{ text: string; confidence: number }>;
   };
@@ -445,7 +444,6 @@ let _lastTessParamsKey: string = "";
 
 async function _initTesseractWorker(language: string): Promise<any> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const Tesseract = require("tesseract.js") as {
       createWorker: (lang: string, oem?: number, opts?: any) => Promise<any>;
     };
@@ -453,7 +451,7 @@ async function _initTesseractWorker(language: string): Promise<any> {
     _tesseractWorkerLanguage = language;
     log.log("[OcrServer] Persistent Tesseract WASM worker initialized");
     return worker;
-  } catch (err) {
+  } catch {
     log.log("[OcrServer] Tesseract WASM worker init failed — will fall back to per-call recognize");
     return null;
   }

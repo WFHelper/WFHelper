@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { ipc } from "../lib/ipc.js";
-  import type { DecodedRiven, RivenResult, VeiledRivenEntry, VeiledRivenGroup } from "../types/ipc.js";
+  import type { DecodedRiven, VeiledRivenEntry, VeiledRivenGroup } from "../types/ipc.js";
   import RivenDetailModal from "../components/RivenDetailModal.svelte";
   import RivenFinder from "../components/RivenFinder.svelte";
   import { tr } from "../lib/i18n.js";
@@ -19,8 +19,6 @@
   let viewTab = $state<"unveiled" | "veiled" | "finder">("unveiled");
 
   const TYPES = ["all", "Rifle", "Shotgun", "Pistol", "Melee", "Archgun", "Kitgun", "Zaw"];
-  const GRADES = ["all", "S", "A", "B", "C", "D", "F"];
-
   const GRADE_ORDER: Record<string, number> = {
     S: 6,
     A: 5,
@@ -100,24 +98,6 @@
 
   function toggleSortDir() {
     sortDir = sortDir === "asc" ? "desc" : "asc";
-  }
-
-  function dispoStars(dispo: number): string {
-    if (dispo >= 1.3) return "●●●●●";
-    if (dispo >= 1.1) return "●●●●○";
-    if (dispo >= 0.9) return "●●●○○";
-    if (dispo >= 0.7) return "●●○○○";
-    return "●○○○○";
-  }
-
-  function polaritySymbol(pol: string): string {
-    switch (pol) {
-      case "AP_ATTACK": return "⌇";
-      case "AP_DEFENSE": return "△";
-      case "AP_TACTIC": return "▽";
-      case "AP_POWER": return "◆";
-      default: return "";
-    }
   }
 
   const ELEMENT_ICONS: Record<string, string> = {

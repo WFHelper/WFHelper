@@ -30,10 +30,6 @@ const requireRuntime = createRuntimeRequire(__dirname, 1);
 
 const log = withScope("overlayIpc");
 
-const { normalizeErrorMessage } = requireRuntime<{
-  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
-}>("config/shared/errors.cjs");
-
 const { ipcMain, BrowserWindow, globalShortcut, app, screen, shell } =
   require("electron") as typeof import("electron");
 const path = require("node:path") as typeof import("node:path");
@@ -57,7 +53,6 @@ const OVERLAY_SETTINGS_FILE = path.join(app.getPath("userData"), "overlay-settin
 const PRICE_CACHE_FILE = path.join(app.getPath("userData"), "snapshot-cache.json");
 const APP_ROOT = app.getAppPath();
 const OVERLAY_WINDOW_FILE = path.join(APP_ROOT, "renderer", "overlay.html");
-const PLANNER_WINDOW_FILE = path.join(APP_ROOT, "renderer", "overlay.html");
 const RIVEN_WINDOW_FILE = path.join(APP_ROOT, "renderer", "riven-overlay.html");
 
 const rewardWindowsController = createOverlayWindowsController({
@@ -102,7 +97,7 @@ const plannerWindowsController = createOverlayWindowsController({
   },
   log,
   hardenBrowserWindowNavigation,
-  overlayWindowFile: PLANNER_WINDOW_FILE,
+  overlayWindowFile: OVERLAY_WINDOW_FILE,
   placement: "top-right",
   windowWidth: 460,
   windowHeight: 320,
@@ -310,21 +305,6 @@ function scoreRivenStatSimilarity(
   const unmatchedRight = Math.max(0, right.length - left.length);
   score -= unmatchedRight * 3;
   return score;
-}
-
-function inferChosenSide(current: rivenScan.RivenStat[]): "left" | "right" | "unknown" {
-  if (!current.length || !_rivenInitialStats.length || !_rivenNewRollStats.length) return "unknown";
-
-  const leftScore = scoreRivenStatSimilarity(current, _rivenInitialStats);
-  const rightScore = scoreRivenStatSimilarity(current, _rivenNewRollStats);
-  log.log(
-    `[RivenScan] choice similarity: left=${leftScore.toFixed(2)} right=${rightScore.toFixed(2)}`,
-  );
-
-  const best = Math.max(leftScore, rightScore);
-  const delta = Math.abs(leftScore - rightScore);
-  if (best < 12 || delta < 6) return "unknown";
-  return rightScore > leftScore ? "right" : "left";
 }
 
 /**

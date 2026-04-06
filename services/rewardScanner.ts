@@ -211,8 +211,6 @@ export function getAdaptiveStrategyHint(): { bandIndex: number; variantId: strin
 
 const OCR_SCRIPT = path.join(__dirname, "..", "scripts", "ocr.ps1");
 const TEMP_IMAGE = path.join(os.tmpdir(), "wf-companion-reward-ocr.png");
-const TEMP_ERA_IMAGE = path.join(os.tmpdir(), "wf-companion-era-ocr.png");
-
 const REWARD_SCAN_BUDGET_MIN_MS = 1800;
 const REWARD_SCAN_BUDGET_MAX_MS = 5000;
 

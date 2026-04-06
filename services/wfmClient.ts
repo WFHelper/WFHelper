@@ -303,7 +303,7 @@ function _coreRequest(
           if (rb?.error?.message) detail = rb.error.message;
           else if (typeof rb?.error === "string") detail = rb.error;
           else if (rb?.message) detail = rb.message;
-        } catch (_) {
+        } catch {
           // ignore – detail already has a fallback value
         }
       } catch (parseErr) {
@@ -392,7 +392,7 @@ export function requestRaw(
           const msgs = (Object.values(rawBody.error) as any[]).flat().slice(0, 2) as string[];
           detail = msgs.length ? msgs.join("; ") : "Invalid credentials.";
         }
-      } catch (_) {
+      } catch {
         /* ignore parse error */
       }
       log.error(`[WFMClient] sign-in ${res.status} body:`, JSON.stringify(rawBody));

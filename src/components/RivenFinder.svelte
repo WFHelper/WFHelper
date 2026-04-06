@@ -227,7 +227,7 @@
     <div class="finder-section">
       <span class="finder-section-label">Attributes</span>
       <div class="attr-rows">
-        {#each attrSlots as slot, i}
+        {#each attrSlots as slot}
           <div class="attr-row" class:attr-row-pos={slot.positive} class:attr-row-neg={!slot.positive}>
             <span class="attr-row-label">{slot.positive ? "+" : "−"}</span>
             <select class="attr-select" bind:value={slot.selectedStat}>

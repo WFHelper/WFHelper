@@ -15,8 +15,6 @@
  * to the actual text area.
  */
 
-import fs from "node:fs";
-import path from "node:path";
 import { withScope } from "../../services/logger";
 import { captureScreenFast } from "../../services/rewardScannerCapture";
 import { cropRect, cropRectContent, detectGameContentRect } from "../../services/rewardScannerImage";
@@ -102,160 +100,6 @@ const ROLL_CARD_CROP = { x: 0.411, y: 0.416, width: 0.177, height: 0.434 };
 // is mainly a semantic marker passed through `captureScreenFast`.
 const DXGI_FRESH_TIMEOUT_MS = 100;
 
-// ── Debug image saving ─────────────────────────────────────────────────────────
-// Gated by RIVEN_DEBUG. Set to true during development/benchmarking to save
-// full screenshot + crop PNGs to riven-ocr-debug/ and show a red overlay.
-// MUST be false for production timing tests — debug I/O adds ~400ms.
-const RIVEN_DEBUG = false;
-
-// Writes full screenshot + crop PNG to riven-ocr-debug/ (already in .gitignore).
-// Also draws a red rectangle on the full screenshot to visualise the crop region.
-// The red rectangle is drawn directly into the BGRA bitmap buffer.
-function saveDebugImages(
-  fullImage: any,
-  cropImage: any,
-  cropRegion: { x: number; y: number; width: number; height: number },
-  label: string,
-): void {
-  try {
-    const debugDir = path.join(__dirname, "..", "..", "..", "riven-ocr-debug");
-    fs.mkdirSync(debugDir, { recursive: true });
-    const ts = new Date().toISOString().replace(/[:.]/g, "-");
-
-    // Save the raw crop
-    const cropPng = cropImage.toPNG?.();
-    if (cropPng) {
-      fs.writeFileSync(path.join(debugDir, `${ts}_${label}_crop.png`), cropPng);
-    }
-
-    // Draw red rectangle on full screenshot to show crop boundary
-    const fullSize = fullImage.getSize?.();
-    if (fullSize) {
-      const { width: fw, height: fh } = fullSize;
-      const bitmap: Buffer = Buffer.from(fullImage.toBitmap());
-      const cx = Math.floor(fw * cropRegion.x);
-      const cy = Math.floor(fh * cropRegion.y);
-      const cw = Math.floor(fw * cropRegion.width);
-      const ch = Math.floor(fh * cropRegion.height);
-      const thickness = 3;
-
-      // Draw horizontal lines (top + bottom edges)
-      for (let t = 0; t < thickness; t++) {
-        for (let px = cx; px < cx + cw && px < fw; px++) {
-          // Top edge
-          const yt = cy + t;
-          if (yt >= 0 && yt < fh) {
-            const idx = (yt * fw + px) * 4;
-            bitmap[idx] = 0;       // B
-            bitmap[idx + 1] = 0;   // G
-            bitmap[idx + 2] = 255; // R
-            bitmap[idx + 3] = 255; // A
-          }
-          // Bottom edge
-          const yb = cy + ch - 1 - t;
-          if (yb >= 0 && yb < fh) {
-            const idx = (yb * fw + px) * 4;
-            bitmap[idx] = 0;
-            bitmap[idx + 1] = 0;
-            bitmap[idx + 2] = 255;
-            bitmap[idx + 3] = 255;
-          }
-        }
-        // Vertical lines (left + right edges)
-        for (let py = cy; py < cy + ch && py < fh; py++) {
-          const xl = cx + t;
-          if (xl >= 0 && xl < fw) {
-            const idx = (py * fw + xl) * 4;
-            bitmap[idx] = 0;
-            bitmap[idx + 1] = 0;
-            bitmap[idx + 2] = 255;
-            bitmap[idx + 3] = 255;
-          }
-          const xr = cx + cw - 1 - t;
-          if (xr >= 0 && xr < fw) {
-            const idx = (py * fw + xr) * 4;
-            bitmap[idx] = 0;
-            bitmap[idx + 1] = 0;
-            bitmap[idx + 2] = 255;
-            bitmap[idx + 3] = 255;
-          }
-        }
-      }
-
-      const { nativeImage: electronNativeImage } =
-        require("electron") as typeof import("electron");
-      const annotated = electronNativeImage.createFromBitmap(bitmap, {
-        width: fw,
-        height: fh,
-      });
-      const annotatedPng = annotated.toPNG?.();
-      if (annotatedPng) {
-        fs.writeFileSync(path.join(debugDir, `${ts}_${label}_full.png`), annotatedPng);
-      }
-    }
-    log.log(`[RivenScan] debug images saved to riven-ocr-debug/${ts}_${label}_*`);
-  } catch (err) {
-    log.warn("[RivenScan] debug image save failed:", String(err));
-  }
-}
-
-// Show a live red rectangle on screen at the crop coordinates for 3 seconds.
-// Uses a temporary frameless, transparent, click-through BrowserWindow with a data URL.
-let _debugOverlayWin: any = null;
-function showDebugCropOverlay(
-  rect: { x: number; y: number; width: number; height: number },
-  displayId: string | null,
-): void {
-  try {
-    const { BrowserWindow, screen } = require("electron") as typeof import("electron");
-    // Find the display to position the overlay on
-    let display = screen.getPrimaryDisplay();
-    if (displayId) {
-      const match = screen.getAllDisplays().find((d: any) => String(d.id) === displayId);
-      if (match) display = match;
-    }
-    const { x: dx, y: dy, width: dw, height: dh } = display.bounds;
-    const cropX = dx + Math.floor(dw * rect.x);
-    const cropY = dy + Math.floor(dh * rect.y);
-    const cropW = Math.floor(dw * rect.width);
-    const cropH = Math.floor(dh * rect.height);
-
-    // Close any existing debug overlay
-    if (_debugOverlayWin && !_debugOverlayWin.isDestroyed()) {
-      _debugOverlayWin.close();
-    }
-
-    const win = new BrowserWindow({
-      x: cropX,
-      y: cropY,
-      width: cropW,
-      height: cropH,
-      frame: false,
-      transparent: true,
-      alwaysOnTop: true,
-      focusable: false,
-      skipTaskbar: true,
-      hasShadow: false,
-      webPreferences: { nodeIntegration: false, contextIsolation: true },
-    });
-    win.setIgnoreMouseEvents(true, { forward: true });
-    win.loadURL(
-      `data:text/html,<html><body style="margin:0;border:3px solid red;width:100%;height:100%;box-sizing:border-box;background:transparent"></body></html>`,
-    );
-    _debugOverlayWin = win;
-
-    // Auto-close after 3 seconds
-    setTimeout(() => {
-      if (win && !win.isDestroyed()) win.close();
-      if (_debugOverlayWin === win) _debugOverlayWin = null;
-    }, 3000);
-
-    log.log(`[RivenScan] debug overlay shown at screen (${cropX},${cropY}) ${cropW}×${cropH}`);
-  } catch (err) {
-    log.warn("[RivenScan] debug overlay failed:", String(err));
-  }
-}
-
 export interface RollPanelResult {
   left: RivenStat[];
   right: RivenStat[];
@@ -329,9 +173,9 @@ async function ocrCropMultiStrategy(
   image: any,
   rect: { x: number; y: number; width: number; height: number },
   label = "",
-  expectedWeaponName = "",
-  statsOnly = false,
-  isMultipanel = false,
+  _expectedWeaponName = "",
+  _statsOnly = false,
+  _isMultipanel = false,
 ): Promise<{ text: string; titleText: string; footerText: string; stats: RivenStat[] }> {
   const myGeneration = _scanGeneration; // snapshot; stale if a new scan started
   const totalStart = Date.now();
@@ -347,7 +191,6 @@ async function ocrCropMultiStrategy(
     const MAX_RETRIES = 2;
     const RETRY_DELAY_MS = 300;
 
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
     const sharp: any = require("sharp");
 
     let bestResult: RivenOcrResult | null = null;
@@ -463,7 +306,7 @@ export function resetRivenScanAbort(): void {
 }
 
 export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialScanResult> {
-  const myGeneration = ++_scanGeneration;
+  ++_scanGeneration;
   const entryStart = Date.now();
   const ready = await waitForRivenUiReady(SINGLE_CARD_CROP, "initial");
   if (!ready.ready) {
@@ -496,15 +339,6 @@ export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialS
   log.log(
     `[RivenScan] initial capture: source=${capture.sourceType} name="${capture.sourceName}" size=${imgSize.width}x${imgSize.height}`,
   );
-
-  // Fire-and-forget debug saves — never block the OCR path.
-  if (RIVEN_DEBUG) {
-    try {
-      const debugCrop = cropRect(capture.image, SINGLE_CARD_CROP);
-      saveDebugImages(capture.image, debugCrop, SINGLE_CARD_CROP, "initial");
-    } catch { /* non-fatal */ }
-    showDebugCropOverlay(SINGLE_CARD_CROP, _rivenDisplayId);
-  }
 
   try {
     let result = await ocrCropMultiStrategy(
@@ -555,7 +389,7 @@ export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialS
 
 export async function scanNewRoll(expectedWeaponName = "", skipGate = true): Promise<RollPanelResult> {
   log.log(`[RivenScan] >>> scanNewRoll ENTERED (weapon="${expectedWeaponName}", skipGate=${skipGate})`);
-  const myGeneration = ++_scanGeneration;
+  ++_scanGeneration;
   const startAt = Date.now();
   const captureStart = Date.now();
   const capture = await captureScreenFast(_rivenDisplayId, DXGI_FRESH_TIMEOUT_MS);
@@ -574,15 +408,6 @@ export async function scanNewRoll(expectedWeaponName = "", skipGate = true): Pro
   log.log(
     `[RivenScan] roll capture: source=${capture.sourceType} name="${capture.sourceName}" size=${imgSize.width}x${imgSize.height}`,
   );
-
-  // Fire-and-forget debug saves — never block the OCR path.
-  if (RIVEN_DEBUG) {
-    try {
-      const debugCrop = cropRect(capture.image, ROLL_CARD_CROP);
-      saveDebugImages(capture.image, debugCrop, ROLL_CARD_CROP, "roll");
-    } catch { /* non-fatal */ }
-    showDebugCropOverlay(ROLL_CARD_CROP, _rivenDisplayId);
-  }
 
   try {
     let rightResult = await ocrCropMultiStrategy(

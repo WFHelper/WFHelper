@@ -524,7 +524,7 @@ export function findWeaponInText(text: string): string | null {
   const lc = text.toLowerCase();
   let bestExact: string | null = null;
   let bestExactLen = 0;
-  for (const [nameLc, info] of _weaponByNameLc) {
+  for (const [nameLc] of _weaponByNameLc) {
     if (nameLc.length <= bestExactLen) continue;
     if (nameLc.length < 3) continue; // skip very short names to avoid false positives
     if (lc.includes(nameLc)) {

@@ -484,59 +484,9 @@
     return qualityEvData(group, mode);
   }
 
-  function bestQualityBadge(group: RelicGroup): { text: string; cls: "has-value" | "loading" | "no-data" } {
-    let bestPlat: { quality: RelicQuality; value: number } | null = null;
-    let bestDucat: { quality: RelicQuality; value: number } | null = null;
-
-    for (const quality of RELIC_QUALITY_COLUMNS) {
-      const plat = getCachedEv(group.key, $relicSquadSize, quality);
-      if (plat != null && (!bestPlat || plat > bestPlat.value)) {
-        bestPlat = { quality, value: plat };
-      }
-
-      const ducat = computeGroupDucatEv(group, $relicSquadSize, quality);
-      if (ducat != null && (!bestDucat || ducat > bestDucat.value)) {
-        bestDucat = { quality, value: ducat };
-      }
-    }
-
-    if (bestPlat) {
-      return {
-        text: `${RELIC_QUALITY_SHORT[bestPlat.quality]} ${bestPlat.value.toFixed(1)}p`,
-        cls: "has-value",
-      };
-    }
-
-    if (bestDucat) {
-      return {
-        text: `${RELIC_QUALITY_SHORT[bestDucat.quality]} ${bestDucat.value.toFixed(1)}d`,
-        cls: "has-value",
-      };
-    }
-
-    const anyNoData = RELIC_QUALITY_COLUMNS.some((quality) =>
-      evHasFreshNoData(group.key, $relicSquadSize, quality),
-    );
-
-    return {
-      text: anyNoData ? "N/A" : "...",
-      cls: anyNoData ? "no-data" : "loading",
-    };
-  }
-
   function ownedCount(group: RelicGroup, quality: RelicQuality): number {
     const owned = $relicOwnedCounts[group.key];
     return owned?.[quality] ?? 0;
-  }
-
-  function ownedQualityBreakdown(
-    group: RelicGroup,
-  ): Array<{ quality: RelicQuality; label: string; count: number }> {
-    return RELIC_QUALITY_COLUMNS.map((quality) => ({
-      quality,
-      label: RELIC_QUALITY_LABEL[quality],
-      count: ownedCount(group, quality),
-    })).filter((entry) => entry.count > 0);
   }
 
   function previewRewards(group: RelicGroup): RelicReward[] {
