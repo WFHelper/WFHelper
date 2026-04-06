@@ -48,6 +48,10 @@ const {
   OVERLAY_SETTINGS_LIMITS: Record<string, number>;
 }>("config/runtime/overlaySettings");
 
+const { isAllowedExternalHost } = requireRuntime<{
+  isAllowedExternalHost: (hostname: string) => boolean;
+}>("config/runtime/security");
+
 const OVERLAY_SETTINGS_FILE = path.join(app.getPath("userData"), "overlay-settings.json");
 // Prices (and ducat meta) now live in the snapshot cache — price-cache.json is no longer written.
 const PRICE_CACHE_FILE = path.join(app.getPath("userData"), "snapshot-cache.json");
@@ -945,7 +949,10 @@ function register(): void {
     }
     const id = String(auctionId || "").replace(/[^a-zA-Z0-9]/g, "");
     if (id) {
-      void shell.openExternal(`https://warframe.market/auction/${id}`);
+      const url = new URL(`https://warframe.market/auction/${id}`);
+      if (url.protocol === "https:" && isAllowedExternalHost(url.hostname)) {
+        void shell.openExternal(url.toString());
+      }
     }
   });
 

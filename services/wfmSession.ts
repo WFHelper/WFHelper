@@ -57,8 +57,6 @@ export interface WfmUserProfile {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SESSION_FILE = (): string => path.join(app.getPath("userData"), "wfm.session");
-const ALLOW_INSECURE_SESSION = process.env.WFM_ALLOW_INSECURE_SESSION === "1";
-
 // ── In-memory state ───────────────────────────────────────────────────────────
 
 let _token: string | null = null;
@@ -76,14 +74,6 @@ function _saveSession(token: string, userName: string): void {
     if (safeStorage.isEncryptionAvailable()) {
       const encrypted = safeStorage.encryptString(payload);
       fs.writeFileSync(SESSION_FILE(), encrypted);
-      return;
-    }
-
-    if (ALLOW_INSECURE_SESSION) {
-      log.warn(
-        "[WFMSession] safeStorage unavailable — insecure base64 session persistence is enabled",
-      );
-      fs.writeFileSync(SESSION_FILE(), Buffer.from(payload, "utf-8").toString("base64"));
       return;
     }
 
@@ -116,8 +106,6 @@ function _loadSession(): { token: string; userName: string; platform: string } |
 
     if (safeStorage.isEncryptionAvailable()) {
       payload = safeStorage.decryptString(raw);
-    } else if (ALLOW_INSECURE_SESSION) {
-      payload = Buffer.from(raw.toString(), "base64").toString("utf-8");
     } else {
       log.warn("[WFMSession] safeStorage unavailable — skipping persisted session restore");
       return null;

@@ -30,7 +30,8 @@ export default {
 		try {
 			return await handleFetch(req, env, ctx);
 		} catch (err) {
-			return jsonResponse({ ok: false, error: 'internal_error', detail: String(err) }, req, env, 500);
+			console.error('[worker] Unhandled error:', err);
+			return jsonResponse({ ok: false, error: 'internal_error' }, req, env, 500);
 		}
 	},
 
