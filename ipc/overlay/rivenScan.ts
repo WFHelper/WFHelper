@@ -20,21 +20,14 @@ import path from "node:path";
 import { withScope } from "../../services/logger";
 import { captureScreenFast } from "../../services/rewardScannerCapture";
 import { cropRect, cropRectContent, detectGameContentRect } from "../../services/rewardScannerImage";
-import { createRewardOcrRunner } from "../../services/rewardScannerOcr";
-import { rivenOcrOnnxAvailable, recognizeRivenCardLines, recognizeVgbLinesDetailed } from "../../services/rivenOcrOnnx";
-import type { VgbLineResult } from "../../services/rivenOcrOnnx";
+import { rivenOcrOnnxAvailable, recognizeStatArea, hasLowConfidenceLine, LOW_CONFIDENCE_THRESHOLD } from "../../services/rivenOcrOnnx";
+import type { RivenOcrResult } from "../../services/rivenOcrOnnx";
 import { sleep } from "../../services/rewardScannerUtils";
 import {
   abortRivenScanWaits,
   computeRivenFrameHash,
-  cropAbsolute,
-  deriveRivenRegions,
-  enhanceForRivenOcr,
-  enhanceForRivenOcrVgb,
-  refineRivenTextCrop,
   resetRivenScanWaits,
   waitForRivenUiReady,
-  type EnhanceMode,
 } from "./rivenScanImage";
 import {
   extractSignAndValue,
@@ -42,7 +35,6 @@ import {
   preprocessOcrText,
   sanitiseValue,
   scoreStatsCandidate,
-  splitRivenStructuredText,
   type RivenStat,
 } from "./rivenScanText";
 
@@ -51,10 +43,7 @@ export type { RivenStat } from "./rivenScanText";
 
 const log = withScope("rivenScan");
 
-const OCR_TIMEOUT_MS = 8000;
 const MIN_ACCEPTABLE_RIVEN_STATS = 2;
-
-const rivenOcrRunner = createRewardOcrRunner({ log, tesseractContext: "riven" });
 
 // ── Per-stage timing instrumentation ─────────────────────────────────────────
 interface RivenScanTiming {
@@ -93,15 +82,6 @@ let _ocrAborted = false;
 // early when the counter has moved on, preventing a slow scan from publishing
 // stale results after a new scan has already started.
 let _scanGeneration = 0;
-
-const ENHANCE_STRATEGIES: readonly EnhanceMode[] = Object.freeze([
-  { kind: "violet" },                    // NO dilate — best for stat names + most values
-  { kind: "violet-guided-bright" },      // Hybrid: violet rows + bright pixels → catches element icon values
-  { kind: "violet", dilate: true },      // dilate variant as fallback for thin text
-  { kind: "original" },
-  { kind: "bright", threshold: 150, dilate: true },
-  { kind: "bright", threshold: 120, dilate: true },
-]);
 
 // Initial / choice scan: single centred card covers x 0.22–0.78.
 const SINGLE_CARD_CROP = { x: 0.22, y: 0.43, width: 0.56, height: 0.45 };
@@ -288,67 +268,6 @@ export interface InitialScanResult {
   footerText: string;
 }
 
-interface CandidateResult {
-  text: string;
-  titleText: string;
-  footerText: string;
-  stats: RivenStat[];
-  score: number;
-  cropId: string;
-  refined: boolean;
-  valueCount: number;
-  modeLabel: string;
-}
-
-function buildOrderedCandidates(
-  hasRefinedCrop: boolean,
-  statsOnly = false,
-): Array<{ cropId: "rough" | "refined"; mode: EnhanceMode }> {
-  const ordered: Array<{ cropId: "rough" | "refined"; mode: EnhanceMode }> = [];
-
-  // ALWAYS try violet FIRST — violet color segmentation isolates the purple
-  // riven text from Kuva animation noise, giving WinRT the cleanest possible
-  // input.  This is critical for both full scans AND roll scans (statsOnly).
-  if (hasRefinedCrop) {
-    ordered.push({ cropId: "refined", mode: ENHANCE_STRATEGIES[0] }); // refined:violet
-  }
-  // rough:violet as primary fallback (or first if no refined crop)
-  ordered.push({ cropId: "rough", mode: ENHANCE_STRATEGIES[0] }); // rough:violet
-
-  // Remaining rough passes (original, bright variants)
-  for (let i = 1; i < ENHANCE_STRATEGIES.length; i++) {
-    ordered.push({ cropId: "rough", mode: ENHANCE_STRATEGIES[i] });
-  }
-  if (hasRefinedCrop) {
-    // Remaining refined strategies as fallback.
-    for (let i = 1; i < ENHANCE_STRATEGIES.length; i++) {
-      ordered.push({ cropId: "refined", mode: ENHANCE_STRATEGIES[i] });
-    }
-  }
-  return ordered;
-}
-
-function isConfidentEnough(result: CandidateResult, statsOnly = false): boolean {
-  if (result.score < 0) return false;
-  // Fix 2: never early-accept when there are null values — allow the next strategy
-  // (bright-120+dilate) to attempt recovery before committing to an incomplete result.
-  if (result.stats.some((s) => s.value === null)) return false;
-  if (result.stats.length >= 4 && result.valueCount >= 3 && result.score >= 75) return true;
-  if (result.stats.length >= 3 && result.valueCount >= 3 && result.score >= 85) return true;
-  if (result.stats.length === 2 && result.valueCount === 2 && result.score >= 55) return true;
-  if (
-    statsOnly &&
-    result.stats.length >= 2 &&
-    result.valueCount >= 2 &&
-    result.valueCount >= result.stats.length - 1 &&
-    result.score >= 35
-  )
-    return true;
-  return false;
-}
-
-
-
 async function retrySparseRivenScan<T>(
   attemptLabel: string,
   currentStats: RivenStat[],
@@ -368,26 +287,6 @@ async function retrySparseRivenScan<T>(
     return retried;
   }
   return null;
-}
-
-async function runStructuredRegion(
-  imageRegion: any,
-  mode: EnhanceMode,
-): Promise<{
-  text: string;
-  titleText: string;
-  footerText: string;
-  statsText: string;
-}> {
-  const enhanced = await enhanceForRivenOcr(imageRegion, mode);
-  const structured = await rivenOcrRunner.runOCRStructuredBuffer(enhanced, OCR_TIMEOUT_MS);
-  const split = splitRivenStructuredText(structured);
-  return {
-    text: split.mergedText || structured.text || "",
-    titleText: split.titleText || "",
-    footerText: split.footerText || "",
-    statsText: split.statsText || structured.text || "",
-  };
 }
 
 // ── Fixed-percentage stat area crop (matches Python trim_to_card_aspect + refine_crop) ──
@@ -436,95 +335,101 @@ async function ocrCropMultiStrategy(
 ): Promise<{ text: string; titleText: string; footerText: string; stats: RivenStat[] }> {
   const myGeneration = _scanGeneration; // snapshot; stale if a new scan started
   const totalStart = Date.now();
-  let enhanceMs = 0;
-  let ocrMs = 0;
-  let ocrCalls = 0;
-  let parseMs = 0;
 
   const cropStart = Date.now();
   const roughCrop = cropRectContent(image, rect, detectGameContentRect(image));
-
-  // ── Compute refined (edge-detected) crop early ─────────────────────────────
-  // Always needed: used by WinRT crop variants.
-  // refineRivenTextCrop runs Sobel card-frame detection; if it fails, refined.image
-  // equals roughCrop and refined.refined=false.
-  const refined = refineRivenTextCrop(roughCrop);
   const cropRefineMs = Date.now() - cropStart;
-  const roughW = (roughCrop as any).getSize?.()?.width ?? 0;
-  const refinedW = (refined.image as any)?.getSize?.()?.width ?? 0;
 
-  // ── CRNN fast path (no Python dependency) ────────────────────────────────
-  // VGB + multi-model CRNN pipeline: violet-guided-bright preprocessing →
-  // spatial split → NumericCRNN beam search + Old CRNN + StatClassifier →
-  // value ensemble → schema validation.  CRNN-only: WinRT/Tesseract disabled.
+  // ── YOLO + PaddleOCR fast path ─────────────────────────────────────────────
+  // YOLO stat-line detector + PaddleOCR CH v3 recognition pipeline.
+  // No VGB preprocessing needed — YOLO detects lines directly from raw image.
   if (rivenOcrOnnxAvailable()) {
-    const CRNN_MAX_RETRIES = 2;
-    const CRNN_RETRY_DELAY_MS = 300;
-    const LOW_CONFIDENCE_THRESHOLD = 0.4;
+    const MAX_RETRIES = 2;
+    const RETRY_DELAY_MS = 300;
 
-    let bestDetailedLines: VgbLineResult[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+    const sharp: any = require("sharp");
+
+    let bestResult: RivenOcrResult | null = null;
     let bestStats: RivenStat[] = [];
     let bestText = "";
 
-    for (let attempt = 0; attempt <= CRNN_MAX_RETRIES; attempt++) {
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       if (_ocrAborted || _scanGeneration !== myGeneration) {
         return { text: "", titleText: "", footerText: "", stats: [] };
       }
 
       try {
         // Fixed-percentage crop matching the Python benchmark exactly.
-        // Sobel edge detection is unreliable with Kuva portal animation.
-        const vgbSource = _cropStatAreaForVgb(roughCrop);
-        const vgbResult = await enhanceForRivenOcrVgb(vgbSource);
-        const detailedLines = await recognizeVgbLinesDetailed(vgbResult.png, vgbResult.rowRegions);
-        const text = detailedLines.map((l) => l.text).join("\n");
-        const stats = parseRivenStats(text);
+        const statAreaCrop = _cropStatAreaForVgb(roughCrop);
+        const statAreaSize = statAreaCrop.getSize();
+
+        // Convert NativeImage to raw RGBA buffer for the ONNX pipeline
+        const statAreaPng = statAreaCrop.toPNG();
+        const { data: rgbaBuf, info: rgbaInfo } = await sharp(statAreaPng)
+          .ensureAlpha()
+          .raw()
+          .toBuffer({ resolveWithObject: true });
+
+        const ocrResult = await recognizeStatArea(
+          rgbaBuf as Buffer,
+          rgbaInfo.width as number,
+          rgbaInfo.height as number,
+        );
+
+        const stats = parseRivenStats(ocrResult.text);
 
         if (label) {
-          const srcSz = vgbSource.getSize();
           log.log(
-            `[RivenScan] VGB+CRNN ${label} attempt=${attempt}: ${stats.length} stats, ` +
-            `${vgbResult.rowRegions.length} vgb-rows in ${vgbResult.width}×${vgbResult.height} ` +
-            `(source ${srcSz.width}×${srcSz.height}) — ` +
+            `[RivenScan] YOLO+PaddleOCR ${label} attempt=${attempt}: ${stats.length} stats, ` +
+            `${ocrResult.yoloBoxCount} YOLO boxes, minConf=${ocrResult.minConfidence.toFixed(3)} ` +
+            `(source ${statAreaSize.width}×${statAreaSize.height}) — ` +
             stats.map((s) => `${s.positive ? "+" : "-"}${s.value ?? "?"}${s.multiplier ? "x" : "%"} ${s.name}`).join(", "),
           );
-          for (const line of detailedLines) {
-            log.log(
-              `  [CRNN] "${line.text}" label_conf=${line.labelConfidence.toFixed(3)} num_conf=${line.numericConfidence.toFixed(3)}`,
-            );
+          for (const line of ocrResult.lines) {
+            log.log(`  [OCR] "${line.text}" conf=${line.confidence.toFixed(3)}`);
           }
         }
 
-        // Keep the best result across retries (most stats, then highest confidence)
-        if (stats.length > bestStats.length ||
-            (stats.length === bestStats.length && detailedLines.length > bestDetailedLines.length)) {
-          bestDetailedLines = detailedLines;
+        // Keep the best result across retries (most stats wins)
+        if (stats.length > bestStats.length) {
+          bestResult = ocrResult;
           bestStats = stats;
-          bestText = text;
+          bestText = ocrResult.text;
         }
 
-        // Good enough: ≥2 stats and no low-confidence labels
+        // Good enough: ≥2 stats and all lines have sufficient confidence
         if (stats.length >= MIN_ACCEPTABLE_RIVEN_STATS) {
-          const hasLowConf = detailedLines.some(
-            (l) => l.labelConfidence > 0 && l.labelConfidence < LOW_CONFIDENCE_THRESHOLD,
-          );
+          const lowConf = hasLowConfidenceLine(ocrResult);
           const hasNullValues = stats.some((s) => s.value === null);
-          if (!hasLowConf && !hasNullValues) break;
+          if (!lowConf && !hasNullValues) break;
           if (label) {
             log.log(
-              `[RivenScan] VGB+CRNN ${label}: low confidence or null values, retrying...` +
-              (hasLowConf ? " (low_conf)" : "") + (hasNullValues ? " (null_vals)" : ""),
+              `[RivenScan] YOLO+PaddleOCR ${label}: ` +
+              (lowConf ? `low confidence (min=${ocrResult.minConfidence.toFixed(3)} < ${LOW_CONFIDENCE_THRESHOLD}), ` : "") +
+              (hasNullValues ? "null values, " : "") +
+              "retrying...",
             );
           }
         }
       } catch (err) {
-        log.warn(`[RivenScan] VGB+CRNN attempt=${attempt} failed:`, String(err));
+        log.warn(`[RivenScan] YOLO+PaddleOCR attempt=${attempt} failed:`, String(err));
       }
 
-      // Retry delay (skip on last attempt)
-      if (attempt < CRNN_MAX_RETRIES) {
-        await sleep(CRNN_RETRY_DELAY_MS);
+      if (attempt < MAX_RETRIES) {
+        await sleep(RETRY_DELAY_MS);
       }
+    }
+
+    // If best result has low confidence on any stat, return empty (show error, not wrong stats)
+    if (bestResult && bestStats.length >= MIN_ACCEPTABLE_RIVEN_STATS && hasLowConfidenceLine(bestResult)) {
+      if (label) {
+        log.warn(
+          `[RivenScan] YOLO+PaddleOCR ${label}: low confidence after all retries ` +
+          `(min=${bestResult.minConfidence.toFixed(3)}), returning error instead of wrong stats`,
+        );
+      }
+      return { text: "", titleText: "", footerText: "", stats: [] };
     }
 
     _lastScanTiming = {
@@ -536,434 +441,14 @@ async function ocrCropMultiStrategy(
       parseMs: 0,
       totalMs: Date.now() - totalStart,
     };
-    logScanTiming(label || "crnn-only", _lastScanTiming);
+    logScanTiming(label || "yolo-paddle", _lastScanTiming);
 
     return { text: bestText, titleText: "", footerText: "", stats: bestStats };
   }
 
-  // ── WinRT/Tesseract fallback — DISABLED ───────
-  // The ONNX multi-model pipeline is the only supported riven OCR path.
-  // WinRT and Tesseract are unreliable for riven stat text and are no longer used.
-  log.warn("[RivenScan] ONNX models not found — riven OCR unavailable. Install models to enable riven scanning.");
+  // YOLO + PaddleOCR pipeline is the only supported riven OCR path.
+  log.warn("[RivenScan] ONNX models not found — riven OCR unavailable.");
   return { text: "", titleText: "", footerText: "", stats: [] };
-
-  /* eslint-disable no-unreachable */
-  const cropVariants = [{ id: "rough", image: roughCrop, refined: false, metrics: refined.metrics }];
-  // Always include the refined (edge-detected) crop when available.
-  // AlecaFrame's DetailedRivenCrop always runs edge detection to isolate the
-  // card text area — the tight crop removes animated Kuva portal backgrounds
-  // and card art, giving WinRT a cleaner image.
-  // Skip only when the refined crop is too small to upscale usefully (the
-  // enhance pipeline caps at 3× lanczos3, so anything narrower than
-  // MIN_OCR_WIDTH/3 ≈ 600 px would be lower resolution than the rough crop).
-  if (refined.refined && refinedW >= roughW / 2) {
-    cropVariants.push({
-      id: "refined",
-      image: refined.image,
-      refined: true,
-      metrics: refined.metrics,
-    });
-  }
-
-  if (label) {
-    for (const variant of cropVariants) {
-      const size = variant.image.getSize?.() ?? { width: 0, height: 0 };
-      log.log(
-        `[RivenScan] ${label} crop ${variant.id}: score=${variant.metrics.score.toFixed(3)} ` +
-          `coverage=${variant.metrics.coverage.toFixed(4)} rows=${variant.metrics.activeRows} cols=${variant.metrics.activeCols} ` +
-          `size=${size.width}x${size.height}`,
-      );
-    }
-  }
-
-  const orderedCandidates = buildOrderedCandidates(
-    cropVariants.some((variant) => variant.id === "refined"),
-    statsOnly,
-  );
-  const results: CandidateResult[] = [];
-
-  // Per-scan enhance cache: avoids re-running enhanceForRivenOcr on the same
-  // crop+mode pair across native and Tesseract loops.  Strategies overlap on
-  // "original" and "bright-120+dilate", so this saves 30-80ms per overlap.
-  const enhanceCache = new Map<string, Buffer>();
-
-  // Hard OCR strategy budget: caps how long the multi-strategy OCR loop runs.
-  // NOT related to the 2750ms animation delay — this is a separate limit to
-  // prevent spending too long iterating enhance/OCR strategies on a single frame.
-  const SCAN_BUDGET_MS = 2750;
-  const scanStart = Date.now();
-
-  for (const plan of orderedCandidates) {
-    if (_ocrAborted || _scanGeneration !== myGeneration) break;
-    const cropVariant = cropVariants.find((variant) => variant.id === plan.cropId);
-    if (!cropVariant) continue;
-
-    // Fix 1: skip "original" for rough crops when the animated background score is high.
-    // The Kuva portal animation floods the crop with colour noise that overwhelms WinRT's
-    // text-block detector, producing 0 stats at the cost of ~280 ms. bright+dilate
-    // strategies are unaffected because they threshold-mask the animated background away.
-    if (plan.mode.kind === "original" && plan.cropId === "rough" &&
-        cropVariant.metrics.coverage > 0.25) {
-      if (label) {
-        log.log(
-          `[RivenScan] skip rough:original (coverage=${cropVariant.metrics.coverage.toFixed(3)}>0.25)`,
-        );
-      }
-      continue;
-    }
-
-    const modeLabel =
-      plan.mode.kind === "original"
-        ? `${cropVariant.id}:original`
-        : plan.mode.kind === "violet"
-          ? `${cropVariant.id}:violet${plan.mode.dilate ? "+dilate" : ""}`
-          : plan.mode.kind === "violet-guided-bright"
-            ? `${cropVariant.id}:vgbright`
-            : `${cropVariant.id}:bright-${(plan.mode as any).threshold}${(plan.mode as any).dilate ? "+dilate" : ""}`;
-
-    let result: CandidateResult;
-    try {
-      const cacheKey = modeLabel;
-      let enhancedPng = enhanceCache.get(cacheKey);
-      if (!enhancedPng) {
-        const eStart = Date.now();
-        enhancedPng = await enhanceForRivenOcr(cropVariant.image, plan.mode);
-        enhanceMs += Date.now() - eStart;
-        enhanceCache.set(cacheKey, enhancedPng);
-      }
-      const oStart = Date.now();
-      const structured = await rivenOcrRunner.runOCRStructuredBuffer(enhancedPng, OCR_TIMEOUT_MS);
-      ocrMs += Date.now() - oStart;
-      ocrCalls++;
-      const pStart = Date.now();
-      const split = splitRivenStructuredText(structured);
-
-      const mergedText = split.mergedText || structured.text || "";
-      const titleText = statsOnly ? "" : (split.titleText || "");
-      const footerText = statsOnly ? "" : (split.footerText || "");
-      const stats = parseRivenStats(split.statsText || structured.text || "");
-      parseMs += Date.now() - pStart;
-
-      result = {
-        text: mergedText,
-        titleText,
-        footerText,
-        stats,
-        score: scoreStatsCandidate(stats, mergedText, expectedWeaponName, titleText),
-        cropId: cropVariant.id,
-        refined: cropVariant.refined,
-        valueCount: stats.filter((stat) => stat.value !== null).length,
-        modeLabel,
-      };
-    } catch {
-      result = {
-        text: "",
-        titleText: "",
-        footerText: "",
-        stats: [],
-        score: -1,
-        cropId: cropVariant.id,
-        refined: cropVariant.refined,
-        valueCount: 0,
-        modeLabel,
-      };
-    }
-
-    if (label) {
-      const preview = result.text.replace(/\r?\n/g, " | ").slice(0, 150);
-      log.log(
-        `[RivenScan] OCR ${label} ${result.modeLabel}: ${result.stats.length} stats (score=${result.score}) "${preview}"`,
-      );
-    }
-
-    results.push(result);
-
-    // Hard budget: stop running native strategies once the scan budget is exhausted.
-    if (Date.now() - scanStart >= SCAN_BUDGET_MS) break;
-
-    // Diminishing returns: after 2 candidates, if the best so far has sufficient
-    // data (2+ stats with 2+ values) AND no null values, stop — bright-mode
-    // variants rarely improve a complete read and add 300-500ms per call.
-    // Fix 2: do NOT break when there are null values; allow the next strategy
-    // (bright-120+dilate) to attempt recovery of element-stat values that
-    // bright-150 misses (e.g. green Electricity, orange Heat on Kuva portals).
-    if (results.length >= 2) {
-      const bestSoFar = results.reduce((a, b) => (b.score > a.score ? b : a));
-      if (
-        !bestSoFar.stats.some((s) => s.value === null) &&
-        bestSoFar.stats.length >= 2 &&
-        bestSoFar.valueCount >= 2 &&
-        bestSoFar.score >= 20
-      ) {
-        if (label) {
-          log.log(
-            `[RivenScan] sufficient after ${results.length} candidates: score=${bestSoFar.score} stats=${bestSoFar.stats.length}`,
-          );
-        }
-        break;
-      }
-    }
-
-    if (isConfidentEnough(result, statsOnly)) {
-      if (label) {
-        log.log(
-          `[RivenScan] early-accept ${label} candidate crop=${result.cropId} refined=${result.refined} ` +
-            `score=${result.score} stats=${result.stats.length} values=${result.valueCount}`,
-        );
-      }
-      _lastScanTiming = {
-        captureMs: 0,
-        cropRefineMs,
-        enhanceMs,
-        ocrMs,
-        ocrCalls,
-        parseMs,
-        totalMs: Date.now() - totalStart,
-      };
-      logScanTiming(label || "early-accept", _lastScanTiming);
-      return {
-        text: result.text,
-        titleText: result.titleText,
-        footerText: result.footerText,
-        stats: result.stats,
-      };
-    }
-  }
-
-  let best: CandidateResult | null = null;
-  for (const result of results) {
-    if (!best) {
-      best = result;
-      continue;
-    }
-    if (result.score > best.score) {
-      best = result;
-      continue;
-    }
-    if (result.score < best.score) continue;
-    if (result.stats.length > best.stats.length) {
-      best = result;
-      continue;
-    }
-    if (result.stats.length < best.stats.length) continue;
-    if (result.valueCount > best.valueCount) {
-      best = result;
-      continue;
-    }
-    if (result.valueCount < best.valueCount) continue;
-    if (result.refined && !best.refined) {
-      best = result;
-      continue;
-    }
-    if (!result.refined && best.refined) continue;
-    if (result.text.length > best.text.length) {
-      best = result;
-    }
-  }
-
-  let chosen =
-    best ?? {
-      text: "",
-      titleText: "",
-      footerText: "",
-      stats: [],
-      score: -1,
-      cropId: "",
-      refined: false,
-      valueCount: 0,
-      modeLabel: "",
-    };
-
-  if (label) {
-    log.log(
-      `[RivenScan] chose ${label} candidate crop=${chosen.cropId || "unknown"} refined=${chosen.refined} ` +
-        `score=${chosen.score} stats=${chosen.stats.length} values=${chosen.valueCount}`,
-    );
-  }
-
-  // Deferred region OCR: run once on the best candidate when it has sparse stats,
-  // missing values, or missing title.  Runs at most 3 calls total.
-  // In statsOnly mode, skip title/footer region scans entirely.
-  const hasNullValues = chosen.stats.some((s) => s.value === null);
-  if (chosen.stats.length < 2 || hasNullValues || (!statsOnly && !chosen.titleText)) {
-    const bestCropVariant = cropVariants.find((v) => v.id === chosen.cropId);
-    const bestMode = (() => {
-      // Fix 2: for null-value recovery, always prefer bright-120+dilate.
-      // Elemental stat values (green Electricity, orange Heat over the Kuva portal)
-      // sit below the bright-150 threshold but above bright-120, so the default
-      // mode derived from the winning strategy would reproduce the same null.
-      if (hasNullValues) return ENHANCE_STRATEGIES[5]; // bright-120+dilate
-      const ml = chosen.modeLabel;
-      if (ml.includes("violet")) return ENHANCE_STRATEGIES[0];
-      if (ml.includes("original")) return ENHANCE_STRATEGIES[3];
-      if (ml.includes("bright-150")) return ENHANCE_STRATEGIES[4];
-      if (ml.includes("bright-120")) return ENHANCE_STRATEGIES[5];
-      return ENHANCE_STRATEGIES[0];
-    })();
-    if (bestCropVariant?.metrics.bounds) {
-      try {
-        const regions = deriveRivenRegions(bestCropVariant.image, bestCropVariant.metrics.bounds);
-        const statsRegion = await runStructuredRegion(
-          cropAbsolute(bestCropVariant.image, regions.stats),
-          bestMode,
-        );
-        const titleRegion = statsOnly || chosen.titleText
-          ? null
-          : await runStructuredRegion(cropAbsolute(bestCropVariant.image, regions.title), bestMode);
-        const footerRegion = statsOnly || chosen.footerText
-          ? null
-          : await runStructuredRegion(cropAbsolute(bestCropVariant.image, regions.footer), bestMode);
-        const regionTitle = chosen.titleText || titleRegion?.text || "";
-        const regionFooter = chosen.footerText || footerRegion?.text || "";
-        const regionStats = parseRivenStats(statsRegion.statsText || statsRegion.text || "");
-        if (regionStats.length > chosen.stats.length) {
-          const mergedText = [regionTitle || chosen.titleText, statsRegion.text, regionFooter || chosen.footerText]
-            .filter(Boolean)
-            .join("\n");
-          chosen = {
-            ...chosen,
-            stats: regionStats,
-            titleText: regionTitle || chosen.titleText,
-            footerText: regionFooter || chosen.footerText,
-            text: mergedText,
-            valueCount: regionStats.filter((s) => s.value !== null).length,
-            score: scoreStatsCandidate(regionStats, mergedText, expectedWeaponName, regionTitle || chosen.titleText),
-          };
-        } else if (regionStats.length >= chosen.stats.length) {
-          // Same stat count but region OCR may have recovered null values.
-          const regionValueCount = regionStats.filter((s) => s.value !== null).length;
-          if (regionValueCount > chosen.valueCount) {
-            // Inject recovered values from region stats into chosen stats by name.
-            const patched = chosen.stats.map((s) => {
-              if (s.value !== null) return s;
-              const match = regionStats.find(
-                (rs) => rs.name.toLowerCase() === s.name.toLowerCase() && rs.value !== null,
-              );
-              return match ? { ...s, value: match.value, positive: match.positive } : s;
-            });
-            chosen = {
-              ...chosen,
-              stats: patched,
-              valueCount: patched.filter((s) => s.value !== null).length,
-            };
-          }
-        }
-        if (!chosen.titleText && regionTitle) {
-          chosen = { ...chosen, titleText: regionTitle };
-        }
-        if (!chosen.footerText && regionFooter) {
-          chosen = { ...chosen, footerText: regionFooter };
-        }
-      } catch {
-        // Region OCR is an optional refinement path.
-      }
-    }
-  }
-
-  // Cross-strategy value injection: if the best candidate has stats with null values
-  // (e.g. WinRT couldn't read a colored element value like green Toxin text over the
-  // Kuva portal background), try to recover them from orphan percent values found in
-  // OTHER candidates' raw texts.  The bright+dilate strategy often reads the numeric
-  // value when the element text is below the 150-brightness threshold for the name.
-  let nullSlots = chosen.stats
-    .map((s, i) => (s.value === null ? i : -1))
-    .filter((i) => i >= 0);
-  if (nullSlots.length > 0) {
-    const assignedValues = new Set(
-      chosen.stats.filter((s) => s.value !== null).map((s) => s.value as number),
-    );
-    const orphanValues: Array<{ value: number; positive: boolean }> = [];
-    for (const candidate of results) {
-      if (candidate === chosen) continue;
-      const cleaned = preprocessOcrText(candidate.text || "");
-      for (const match of cleaned.matchAll(/([+\-])\s*(\d+\.?\d*)\s*%/g)) {
-        const v = parseFloat(match[2]);
-        if (!Number.isFinite(v) || v <= 0) continue;
-        if (assignedValues.has(v)) continue;
-        if (orphanValues.some((o) => Math.abs(o.value - v) < 0.5)) continue;
-        orphanValues.push({ value: v, positive: match[1] !== "-" });
-      }
-    }
-    if (orphanValues.length > 0) {
-      const injected = chosen.stats.slice();
-      let orphanIdx = 0;
-      for (const nullIdx of nullSlots) {
-        if (orphanIdx >= orphanValues.length) break;
-        injected[nullIdx] = {
-          ...injected[nullIdx],
-          value: orphanValues[orphanIdx].value,
-          positive: orphanValues[orphanIdx].positive,
-        };
-        orphanIdx++;
-      }
-      if (label && orphanIdx > 0) {
-        log.log(
-          `[RivenScan] injected ${orphanIdx} orphan value(s) into null-value stat(s) from alternate strategy`,
-        );
-      }
-      chosen = {
-        ...chosen,
-        stats: injected,
-      };
-    }
-  }
-
-  // x-multiplier refinement: when the best candidate has multiplier stats with
-  // integer values (e.g. x1 instead of x1.3), search other candidates for the
-  // same stat with a more precise decimal value.  WinRT bright thresholds often
-  // lose the small ".3" decimal, but other strategies or Tesseract may read it.
-  const intMultSlots = chosen.stats
-    .map((s, i) => (s.multiplier && s.value !== null && Number.isInteger(s.value) ? i : -1))
-    .filter((i) => i >= 0);
-  if (intMultSlots.length > 0) {
-    const refined = chosen.stats.slice();
-    let refinedCount = 0;
-    for (const idx of intMultSlots) {
-      const statName = refined[idx].name.toLowerCase();
-      for (const candidate of results) {
-        if (candidate === chosen) continue;
-        const match = candidate.stats.find(
-          (cs) =>
-            cs.name.toLowerCase() === statName &&
-            cs.multiplier &&
-            cs.value !== null &&
-            !Number.isInteger(cs.value),
-        );
-        if (match) {
-          refined[idx] = { ...refined[idx], value: match.value, positive: match.positive };
-          refinedCount++;
-          break;
-        }
-      }
-    }
-    if (refinedCount > 0) {
-      if (label) {
-        log.log(
-          `[RivenScan] refined ${refinedCount} integer x-multiplier(s) with decimal values from alternate strategy`,
-        );
-      }
-      chosen = { ...chosen, stats: refined };
-    }
-  }
-
-  _lastScanTiming = {
-    captureMs: 0,
-    cropRefineMs,
-    enhanceMs,
-    ocrMs,
-    ocrCalls,
-    parseMs,
-    totalMs: Date.now() - totalStart,
-  };
-  logScanTiming(label || "full-scan", _lastScanTiming);
-
-  return {
-    text: chosen.text,
-    titleText: chosen.titleText,
-    footerText: chosen.footerText,
-    stats: chosen.stats,
-  };
-  /* eslint-enable no-unreachable */
 }
 
 export function abortRivenScans(): void {
