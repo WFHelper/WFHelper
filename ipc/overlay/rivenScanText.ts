@@ -254,7 +254,7 @@ export function extractSignAndValue(
   fragment: string,
 ): { positive: boolean; value: number | null; multiplier?: boolean } | null {
   const signMatches = [...fragment.matchAll(/[+\-\u2013](?=\s*\d)/g)];
-  const lastSign = signMatches.at(-1);
+  const lastSign = signMatches[signMatches.length - 1];
   const positive = !lastSign || (lastSign[0] !== "-" && lastSign[0] !== "\u2013");
 
   const percentMatches = [...fragment.matchAll(/(\d+\.?\d*)\s*%/g)];
