@@ -112,10 +112,10 @@ function createWindow(): void {
       "before-input-event",
       (_event: unknown, input: { type?: string; key?: string }) => {
         if (input.type === "keyDown" && input.key === "F12") {
-          if (ctx.mainWindow.webContents.isDevToolsOpened()) {
+          if (ctx.mainWindow?.webContents.isDevToolsOpened()) {
             ctx.mainWindow.webContents.closeDevTools();
           } else {
-            ctx.mainWindow.webContents.openDevTools({ mode: "detach" });
+            ctx.mainWindow?.webContents.openDevTools({ mode: "detach" });
           }
         }
       },
@@ -242,7 +242,7 @@ app.whenReady().then(async () => {
   profileStage("wfm-session:restore-dispatch", sessionRestoreStart);
 
   const updaterStart = Date.now();
-  autoUpdater.initialize(ctx.mainWindow);
+  autoUpdater.initialize(ctx.mainWindow!);
   profileStage("auto-updater:init", updaterStart);
 
   const hotkeyStart = Date.now();

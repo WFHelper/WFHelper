@@ -165,12 +165,15 @@ export function loadHistory(): void {
     const parsed: unknown = JSON.parse(raw);
     if (Array.isArray(parsed)) {
       // Back-fill any fields missing from older schema so the shape is always complete
-      _history = (parsed as DailyStatEntry[]).map((e) => ({
+      const backFillDefaults: Pick<DailyStatEntry, "ducatsDelta" | "ayaDelta" | "relicsOpened" | "daysPlayed" | "dailyTrades"> = {
         ducatsDelta: 0,
         ayaDelta: 0,
         relicsOpened: 0,
         daysPlayed: 1,
         dailyTrades: 0,
+      };
+      _history = (parsed as DailyStatEntry[]).map((e) => ({
+        ...backFillDefaults,
         ...e,
       }));
       // Restore today's relic accumulator so app restarts don't reset the daily count to 0

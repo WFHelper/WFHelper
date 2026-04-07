@@ -30,8 +30,8 @@ const OVERLAY_AUTO_HIDE_FAILURE_MS = 4_500;
 /** Hard ceiling for the detecting phase before giving up and hiding. */
 const OVERLAY_AUTO_HIDE_DETECTING_MAX_MS = 20_000;
 
-const QUALITY_ORDER = Object.freeze(["radiant", "flawless", "exceptional", "intact"]);
-const QUALITY_LABEL = Object.freeze({
+const QUALITY_ORDER: readonly (keyof OwnedCountRow)[] = Object.freeze(["radiant", "flawless", "exceptional", "intact"]);
+const QUALITY_LABEL: Readonly<Record<keyof OwnedCountRow, string>> = Object.freeze({
   intact: "Intact",
   exceptional: "Exceptional",
   flawless: "Flawless",

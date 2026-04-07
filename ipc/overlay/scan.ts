@@ -35,7 +35,7 @@ type OverlayScanControllerOptions = {
     error: (...args: unknown[]) => void;
   };
   rewardScanner: {
-    scanRewardsDetailed: (preCapture?: { image: any; sourceType?: string | null; sourceName?: string | null; sourceId?: string | null; sourceDisplayId?: string | null } | null) => Promise<RewardScanResult | null>;
+    scanRewardsDetailed: (preCapture?: { image: any; sourceType: string | null; sourceName: string | null; sourceId: string | null; sourceDisplayId: string | null } | null) => Promise<RewardScanResult | null>;
     waitForRewardUiReady?: (options: {
       timeoutMs: number;
       pollMs: number;
