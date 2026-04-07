@@ -3,8 +3,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import type * as WfmSessionTypes from "./services/wfmSession";
-
 const APP_ROOT = path.resolve(__dirname, "..");
 
 function fromAppRoot(relPath: string): any {
@@ -25,38 +23,41 @@ function fromAppRoot(relPath: string): any {
   }
 }
 
-const log = fromAppRoot("services/logger").withScope("Main");
-const { MAIN_WINDOW_CSP, PERMISSIONS_POLICY } = fromAppRoot("config/runtime/security");
-const windowSecurity = fromAppRoot("services/windowSecurity");
+const log = (fromAppRoot("services/logger") as typeof import("./services/logger")).withScope("Main");
+const { MAIN_WINDOW_CSP, PERMISSIONS_POLICY } = fromAppRoot("config/runtime/security") as {
+  MAIN_WINDOW_CSP: string;
+  PERMISSIONS_POLICY: string;
+};
+const windowSecurity = fromAppRoot("services/windowSecurity") as typeof import("./services/windowSecurity");
 
 const MAIN_WINDOW_ENTRY_FILE = path.join(APP_ROOT, "renderer", "dist", "index.html");
 
 // Services
-const itemDb = fromAppRoot("services/itemDatabase");
-const wfmCatalog = fromAppRoot("services/wfmCatalog");
-const wfmSession: typeof WfmSessionTypes = fromAppRoot("services/wfmSession");
-const relicService = fromAppRoot("services/relicService");
-const eeLogMonitor = fromAppRoot("services/eeLogMonitor");
-const keyboardMonitor = fromAppRoot("services/keyboardMonitor");
-const rewardScanner = fromAppRoot("services/rewardScanner");
-const ocrServer = fromAppRoot("services/ocrServer");
-const crashReporter = fromAppRoot("services/crashReporter");
-const autoUpdater = fromAppRoot("services/autoUpdater");
+const itemDb = fromAppRoot("services/itemDatabase") as typeof import("./services/itemDatabase");
+const wfmCatalog = fromAppRoot("services/wfmCatalog") as typeof import("./services/wfmCatalog");
+const wfmSession = fromAppRoot("services/wfmSession") as typeof import("./services/wfmSession");
+const relicService = fromAppRoot("services/relicService") as typeof import("./services/relicService");
+const eeLogMonitor = fromAppRoot("services/eeLogMonitor") as typeof import("./services/eeLogMonitor");
+const keyboardMonitor = fromAppRoot("services/keyboardMonitor") as typeof import("./services/keyboardMonitor");
+const rewardScanner = fromAppRoot("services/rewardScanner") as typeof import("./services/rewardScanner");
+const ocrServer = fromAppRoot("services/ocrServer") as typeof import("./services/ocrServer");
+const crashReporter = fromAppRoot("services/crashReporter") as typeof import("./services/crashReporter");
+const autoUpdater = fromAppRoot("services/autoUpdater") as typeof import("./services/autoUpdater");
 
 // IPC modules
-const ctx = fromAppRoot("ipc/context");
-const inventoryIpc = fromAppRoot("ipc/inventoryIpc");
-const wfmIpc = fromAppRoot("ipc/wfmIpc");
-const overlayIpc = fromAppRoot("ipc/overlayIpc");
-const worldStateIpc = fromAppRoot("ipc/worldStateIpc");
-const systemIpc = fromAppRoot("ipc/systemIpc");
-const snapshotCacheIpc = fromAppRoot("ipc/snapshotCacheIpc");
-const rankedHotsetIpc = fromAppRoot("ipc/rankedHotsetIpc");
-const statsIpc = fromAppRoot("ipc/statsIpc");
-const rivensIpc = fromAppRoot("ipc/rivensIpc");
-const statsTracker = fromAppRoot("services/statsTracker");
-const tradeTracker = fromAppRoot("services/tradeTracker");
-const apiHelperRunner = fromAppRoot("services/apiHelperRunner");
+const ctx = fromAppRoot("ipc/context") as typeof import("./ipc/context")["default"];
+const inventoryIpc = fromAppRoot("ipc/inventoryIpc") as typeof import("./ipc/inventoryIpc");
+const wfmIpc = fromAppRoot("ipc/wfmIpc") as typeof import("./ipc/wfmIpc");
+const overlayIpc = fromAppRoot("ipc/overlayIpc") as typeof import("./ipc/overlayIpc");
+const worldStateIpc = fromAppRoot("ipc/worldStateIpc") as typeof import("./ipc/worldStateIpc");
+const systemIpc = fromAppRoot("ipc/systemIpc") as typeof import("./ipc/systemIpc");
+const snapshotCacheIpc = fromAppRoot("ipc/snapshotCacheIpc") as typeof import("./ipc/snapshotCacheIpc");
+const rankedHotsetIpc = fromAppRoot("ipc/rankedHotsetIpc") as typeof import("./ipc/rankedHotsetIpc");
+const statsIpc = fromAppRoot("ipc/statsIpc") as typeof import("./ipc/statsIpc");
+const rivensIpc = fromAppRoot("ipc/rivensIpc") as typeof import("./ipc/rivensIpc");
+const statsTracker = fromAppRoot("services/statsTracker") as typeof import("./services/statsTracker");
+const tradeTracker = fromAppRoot("services/tradeTracker") as typeof import("./services/tradeTracker");
+const apiHelperRunner = fromAppRoot("services/apiHelperRunner") as typeof import("./services/apiHelperRunner");
 
 // Suppress noisy Chromium/DevTools internal logging in terminal.
 app.commandLine.appendSwitch("disable-logging");
