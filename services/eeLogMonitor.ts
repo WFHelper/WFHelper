@@ -44,8 +44,11 @@ const RELIC_PICKER_CLOSE_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
 // We capture the username at the end, stripping a trailing period if present.
 const TRADE_PARTNER_PATTERN = /TradingPost\.lua.*?[Tt]rade.*?[Ww]ith[: ]+([A-Za-z0-9_\-.]+)\.?\s*$/i;
 
+/** Debounce before firing the reward-screen overlay after a log pattern match. */
 const TRIGGER_DELAY_MS = 450;
+/** Shorter debounce for relic-picker — the UI appears almost instantly. */
 const RELIC_TRIGGER_DELAY_MS = 120;
+/** Cooldown between consecutive reward scans to avoid re-triggering on duplicate log lines. */
 const REWARD_TRIGGER_COOLDOWN_MS = 2500;
 // DBWIN fires at T=0 (instant); EE.log file flush can lag 0–5 s behind.
 // With both sources active the file-based read would re-trigger the overlay
@@ -55,6 +58,7 @@ const REWARD_TRIGGER_COOLDOWN_MS = 2500;
 // 3 s is enough to absorb any DBWIN→file-poll re-deliver after DBWIN becomes inactive.
 // skipRelicFromFilePoll handles the common case while DBWIN is active.
 const RELIC_PICKER_COOLDOWN_MS = 3000;
+/** Grace period after close before another close can fire — debounces rapid log flushes. */
 const RELIC_PICKER_CLOSE_COOLDOWN_MS = 500;
 // Minimum gap between the last open trigger and a close trigger being honoured.
 // Prevents Dialog::SendResult from closing the overlay when it fires as part of
@@ -65,6 +69,7 @@ const RELIC_PICKER_CLOSE_MIN_GAP_MS = 2000;
 const POLL_INTERVAL_MS = 500;
 const MAX_READ_BYTES = 256 * 1024;
 const MAX_READ_LOOPS_PER_TICK = 8;
+/** How often we check whether EE.log was truncated/rotated (game restart detection). */
 const TRUNCATION_CHECK_INTERVAL_MS = 2000;
 
 let watcher: ReturnType<typeof chokidar.watch> | null = null;
@@ -204,6 +209,7 @@ export interface ParsedLogTrade {
 let _tradeDialogBuffer: string[] | null = null;
 const TRADE_DIALOG_START = "Are you sure you want to accept this trade?";
 const TRADE_SUCCESS = "The trade was successful!";
+/** Max time to wait for the confirmation dialog to resolve before discarding buffered lines. */
 const TRADE_DIALOG_TIMEOUT_MS = 60_000;
 let _tradeDialogStartAt = 0;
 
@@ -395,7 +401,8 @@ function stopDbwinWorker(): void {
     dbwinStopBuffer = null;
   }
 
-  // Force-terminate after 1.5 s in case the Worker is somehow stuck
+  // Force-terminate after 1500 ms in case the Worker is somehow stuck.
+  // Generous enough for a clean exit, short enough to not block app shutdown.
   const w = dbwinWorker;
   dbwinWorker = null;
 

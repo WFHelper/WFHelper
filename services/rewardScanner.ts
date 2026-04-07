@@ -211,7 +211,9 @@ export function getAdaptiveStrategyHint(): { bandIndex: number; variantId: strin
 
 const OCR_SCRIPT = path.join(__dirname, "..", "scripts", "ocr.ps1");
 const TEMP_IMAGE = path.join(os.tmpdir(), "wf-companion-reward-ocr.png");
+/** Minimum scan budget: enough for one fast structured-OCR pass even on slow hardware. */
 const REWARD_SCAN_BUDGET_MIN_MS = 1800;
+/** Maximum scan budget: capped to keep the overlay response perceptually instant. */
 const REWARD_SCAN_BUDGET_MAX_MS = 5000;
 
 // --- OCR engine constants ---------------------------------------------------

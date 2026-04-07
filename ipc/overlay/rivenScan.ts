@@ -188,7 +188,9 @@ async function ocrCropMultiStrategy(
   // YOLO stat-line detector + PaddleOCR CH v3 recognition pipeline.
   // No VGB preprocessing needed — YOLO detects lines directly from raw image.
   if (rivenOcrOnnxAvailable()) {
+    /** Retry up to 2× on low-confidence scans — riven card animation may still be settling. */
     const MAX_RETRIES = 2;
+    /** Short delay between retries to let the on-screen card fully render. */
     const RETRY_DELAY_MS = 300;
 
     const sharp: any = require("sharp");

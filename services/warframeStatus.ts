@@ -8,8 +8,11 @@ const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
 
 const log = withScope("warframeStatus");
 
+/** Throttle repeated isWarframeRunning queries — 2 s keeps UI responsive without hammering tasklist. */
 const STATUS_CACHE_TTL_MS = 2000;
+/** Kill tasklist.exe if it hangs longer than this — prevents zombie processes on locked PCs. */
 const TASKLIST_TIMEOUT_MS = 1200;
+/** Kill the foreground-window check after this long to avoid blocking the overlay loop. */
 const FOCUS_TIMEOUT_MS = 1200;
 
 function getElectronScreen(): any {

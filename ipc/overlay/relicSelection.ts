@@ -14,13 +14,20 @@ const { toFiniteOr, clampNumber } = sharedNumeric;
 
 const RECOMMENDATION_ROW_LIMIT = 6;
 const RECOMMENDATION_SQUAD_SIZE = 4;
+/** How long computed recommendations stay cached before a full recompute. */
 const RECOMMENDATION_CACHE_TTL_MS = 10_000;
+/** Minimum gap between two EE.log trigger events to avoid double-firing. */
 const MIN_EELOG_TRIGGER_GAP_MS = 900;
+/** Max time for the OCR era-detection pass before falling back to desktop filter hint. */
 const ERA_DETECTION_TIMEOUT_MS = 1500;
+/** Suppress overlay reopen for this long after an explicit close to prevent flicker. */
 const REOPEN_SUPPRESS_AFTER_CLOSE_MS = 3_000;
 
+/** Auto-hide the overlay after a successful recommendation push (covers one full relic cycle). */
 const OVERLAY_AUTO_HIDE_SUCCESS_MS = 18_000;
+/** Auto-hide after a detection failure — keep visible briefly so the user sees the state. */
 const OVERLAY_AUTO_HIDE_FAILURE_MS = 4_500;
+/** Hard ceiling for the detecting phase before giving up and hiding. */
 const OVERLAY_AUTO_HIDE_DETECTING_MAX_MS = 20_000;
 
 const QUALITY_ORDER = Object.freeze(["radiant", "flawless", "exceptional", "intact"]);
@@ -31,7 +38,9 @@ const QUALITY_LABEL = Object.freeze({
   radiant: "Radiant",
 });
 
+/** Cache duration for successful price lookups (12 h — prices change slowly). */
 const PRICE_OK_TTL_MS = 12 * 60 * 60 * 1000;
+/** Shorter TTL for items with no data so we retry sooner when the market populates. */
 const PRICE_NODATA_TTL_MS = 6 * 60 * 60 * 1000;
 
 type Reward = {
