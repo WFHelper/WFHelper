@@ -11,7 +11,6 @@ const CHUNK_SIZE_WARNING_LIMIT_KB = 700;
 const CHUNK_VENDOR_SVELTE = "vendor-svelte";
 const CHUNK_VENDOR_MARKET = "vendor-market";
 const CHUNK_VENDOR_RELIC = "vendor-relic";
-const CHUNK_VENDOR_WORLD = "vendor-world";
 const CHUNK_VENDOR_PRICING = "vendor-pricing";
 const CHUNK_VENDOR_SHARED = "vendor-shared";
 
@@ -27,18 +26,18 @@ const RELIC_CHUNK_PATHS = [
   "/src/stores/relics.ts",
   "/src/lib/relic.ts",
   "/src/lib/relic/",
+  // World modules live in this chunk too — fissures are relic missions and the
+  // two graphs share transitive dependencies that created a circular-chunk
+  // warning when they were separate.
+  "/src/views/WorldView.svelte",
+  "/src/stores/world.ts",
+  "/src/lib/world.ts",
 ];
 
 const PRICING_CHUNK_PATHS = [
   "/src/lib/wfmPrice.ts",
   "/src/lib/priceCache.ts",
   "/src/stores/pricing.ts",
-];
-
-const WORLD_CHUNK_PATHS = [
-  "/src/views/WorldView.svelte",
-  "/src/stores/world.ts",
-  "/src/lib/world.ts",
 ];
 
 function normalizeModuleId(id) {
@@ -77,10 +76,6 @@ function resolveManualChunk(id) {
 
   if (hasPathMatch(normalizedId, RELIC_CHUNK_PATHS)) {
     return CHUNK_VENDOR_RELIC;
-  }
-
-  if (hasPathMatch(normalizedId, WORLD_CHUNK_PATHS)) {
-    return CHUNK_VENDOR_WORLD;
   }
 
   return undefined;

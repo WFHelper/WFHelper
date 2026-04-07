@@ -1,5 +1,8 @@
 import type { ItemDbEntry, RawInventoryData } from "../types/inventory.js";
 import type { VaultTrader, VaultTraderInventoryItem } from "../types/world.js";
+import { RELIC_ICON_PATHS, fissureTierClass } from "./relic/relicConstants.js";
+
+export { RELIC_ICON_PATHS, fissureTierClass };
 
 export const PLANET_ICON_PATHS = {
   earth: "world-icons/earth.webp",
@@ -7,33 +10,6 @@ export const PLANET_ICON_PATHS = {
   vallis: "world-icons/vallis.webp",
   cambion: "world-icons/cambion.webp",
 } as const;
-
-/**
- * Local copy kept in the world module to avoid a cross-chunk circular dependency
- * between vendor-world and vendor-relic at bundle time. The canonical definition
- * lives in `src/lib/relic/relicConstants.ts`.
- */
-export const RELIC_ICON_PATHS: Record<string, string> = {
-  lith: "world-icons/relic-lith.png",
-  meso: "world-icons/relic-meso.png",
-  neo: "world-icons/relic-neo.png",
-  axi: "world-icons/relic-axi.png",
-  requiem: "world-icons/relic-requiem.png",
-  omnia: "world-icons/relic-requiem.png",
-  default: "world-icons/relic-lith.png",
-};
-
-/** @see {@link RELIC_ICON_PATHS} — same bundling rationale. */
-export function fissureTierClass(tier: string = ""): string {
-  const t = tier.toLowerCase();
-  if (t.includes("lith")) return "lith";
-  if (t.includes("meso")) return "meso";
-  if (t.includes("neo")) return "neo";
-  if (t.includes("axi")) return "axi";
-  if (t.includes("requiem")) return "requiem";
-  if (t.includes("omnia")) return "omnia";
-  return "default";
-}
 
 function isLikelyPrimeGear(name: string = ""): boolean {
   return (
