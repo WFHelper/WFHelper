@@ -86,6 +86,7 @@
         on:click={() => currentView.set(item.view)}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <!-- @html safe: item.svg is a hardcoded string literal, never user-supplied -->
           {@html item.svg}
         </svg>
         <span>{$tr(item.labelKey)}</span>
