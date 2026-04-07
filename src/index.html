@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https:; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none';"
-    />
+    <!-- CSP is enforced at runtime via onHeadersReceived in main.ts with a
+         strict connect-src allowlist. A <meta> tag here would be less
+         restrictive (connect-src 'self' https:) and becomes the sole policy
+         if the runtime header ever fails to apply, so we omit it. -->
     <title>Warframe Companion</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow:wght@300;400;500;600&display=swap"
