@@ -30,9 +30,15 @@ export interface WfmRequestOptions {
   headers?: Record<string, string>;
 }
 
-export interface WfmApiError extends Error {
+export class WfmApiError extends Error {
   code?: string;
   status?: number;
+  constructor(message: string, code?: string, status?: number) {
+    super(message);
+    this.name = "WfmApiError";
+    this.code = code;
+    this.status = status;
+  }
 }
 
 export interface WfmResponseLike {
@@ -196,8 +202,7 @@ function _nodeRequest(
     });
 
     timeoutId = setTimeout(() => {
-      const err = new Error(`WFM request timeout after ${REQUEST_TIMEOUT_MS}ms`) as any;
-      err.code = "WFM_TIMEOUT";
+      const err = new WfmApiError(`WFM request timeout after ${REQUEST_TIMEOUT_MS}ms`, "WFM_TIMEOUT");
       req.destroy(err);
     }, REQUEST_TIMEOUT_MS);
 
@@ -266,18 +271,18 @@ function _coreRequest(
     try {
       res = await _nodeRequest(method, url, headers, body);
     } catch (networkErr) {
-      const err = new Error(
+      throw new WfmApiError(
         `${label} network error: ${normalizeErrorMessage(networkErr)}`,
-      ) as any;
-      err.code = "WFM_NETWORK_ERROR";
-      throw err;
+        "WFM_NETWORK_ERROR",
+      );
     }
 
     if (res.status === 401) {
-      const err = new Error("Warframe.market session expired or invalid.") as any;
-      err.code = "WFM_UNAUTHORIZED";
-      err.status = 401;
-      throw err;
+      throw new WfmApiError(
+        "Warframe.market session expired or invalid.",
+        "WFM_UNAUTHORIZED",
+        401,
+      );
     }
 
     if (res.status === 429) {
@@ -285,12 +290,11 @@ function _coreRequest(
       const cooldownMs = Math.max(retryAfterSec * 1000, 30_000);
       _lastRequestAt = Date.now() + cooldownMs - MIN_DELAY_MS;
       log.warn(`[${label}] Rate limited (429). Cooling down for ${Math.ceil(cooldownMs / 1000)}s.`);
-      const err = new Error(
+      throw new WfmApiError(
         `Warframe.market rate limit hit. Please wait ${Math.ceil(cooldownMs / 1_000)}s.`,
-      ) as any;
-      err.code = "WFM_RATE_LIMITED";
-      err.status = 429;
-      throw err;
+        "WFM_RATE_LIMITED",
+        429,
+      );
     }
 
     if (!res.ok) {
@@ -309,9 +313,7 @@ function _coreRequest(
       } catch (parseErr) {
         log.warn(`[${label}] Failed to read error response body:`, normalizeErrorMessage(parseErr));
       }
-      const err = new Error(`${label} API error: ${detail}`) as any;
-      err.code = "WFM_API_ERROR";
-      err.status = res.status;
+      const err = new WfmApiError(`${label} API error: ${detail}`, "WFM_API_ERROR", res.status);
       throw err;
     }
 
@@ -372,9 +374,10 @@ export function requestRaw(
     try {
       res = await _nodeRequest(method, url, headers, body);
     } catch (networkErr) {
-      const err = new Error(`WFM network error: ${normalizeErrorMessage(networkErr)}`) as any;
-      err.code = "WFM_NETWORK_ERROR";
-      throw err;
+      throw new WfmApiError(
+        `WFM network error: ${normalizeErrorMessage(networkErr)}`,
+        "WFM_NETWORK_ERROR",
+      );
     }
 
     if (!res.ok) {
@@ -396,10 +399,11 @@ export function requestRaw(
         /* ignore parse error */
       }
       log.error(`[WFMClient] sign-in ${res.status} body:`, JSON.stringify(rawBody));
-      const err = new Error(`WFM sign-in error: ${detail}`) as any;
-      err.code = res.status === 401 ? "WFM_UNAUTHORIZED" : "WFM_API_ERROR";
-      err.status = res.status;
-      throw err;
+      throw new WfmApiError(
+        `WFM sign-in error: ${detail}`,
+        res.status === 401 ? "WFM_UNAUTHORIZED" : "WFM_API_ERROR",
+        res.status,
+      );
     }
 
     const resBody = await res.json();
