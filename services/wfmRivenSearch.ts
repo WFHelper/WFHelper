@@ -8,6 +8,8 @@
  */
 
 import { withScope } from "./logger";
+import type { WfmRawAuction, WfmAuctionSearchPayload, WfmAuctionCreatePayload } from "./wfmTypes";
+import { unwrapWfmResponse } from "./wfmTypes";
 const wfmClient = require("./wfmClient") as typeof import("./wfmClient");
 
 const log = withScope("wfmRivenSearch");
@@ -51,7 +53,7 @@ function pruneCache(): void {
 
 let _loggedWfmName = false;
 
-function parseAuctions(auctions: any[]): WfmRivenListing[] {
+function parseAuctions(auctions: WfmRawAuction[]): WfmRivenListing[] {
   const listings: WfmRivenListing[] = [];
   for (const a of auctions) {
     if (!a.item?.attributes) continue;
@@ -60,7 +62,7 @@ function parseAuctions(auctions: any[]): WfmRivenListing[] {
       _loggedWfmName = true;
     }
 
-    const stats = (a.item.attributes as any[]).map((attr: any) => ({
+    const stats = a.item.attributes.map((attr) => ({
       name: String(attr.url_name || "")
         .replace(/_/g, " ")
         .replace(/\b\w/g, (c: string) => c.toUpperCase()),
@@ -129,7 +131,7 @@ export async function searchSimilarRivens(
     const seenIds = new Set<string>();
     const allListings: WfmRivenListing[] = [];
 
-    const addAuctions = (auctions: any[]) => {
+    const addAuctions = (auctions: WfmRawAuction[]) => {
       for (const l of parseAuctions(auctions)) {
         if (!seenIds.has(l.id)) {
           seenIds.add(l.id);
@@ -141,8 +143,8 @@ export async function searchSimilarRivens(
     // First, try a quick unfiltered price_asc to gauge result count.
     const quickPath =
       `/auctions/search?type=riven&weapon_url_name=${encodeURIComponent(weaponSlug)}${statParams}&sort_by=price_asc`;
-    const quickData = (await wfmClient.request("GET", quickPath)) as any;
-    const quickAuctions: any[] = quickData?.payload?.auctions || [];
+    const quickPayload = unwrapWfmResponse<WfmAuctionSearchPayload>(await wfmClient.request("GET", quickPath));
+    const quickAuctions = quickPayload?.auctions || [];
     addAuctions(quickAuctions);
 
     if (quickAuctions.length >= 490) {
@@ -152,16 +154,16 @@ export async function searchSimilarRivens(
           const path =
             `/auctions/search?type=riven&weapon_url_name=${encodeURIComponent(weaponSlug)}` +
             `&polarity=${pol}${statParams}&sort_by=${sort}`;
-          const data = (await wfmClient.request("GET", path)) as any;
-          addAuctions(data?.payload?.auctions || []);
+          const payload = unwrapWfmResponse<WfmAuctionSearchPayload>(await wfmClient.request("GET", path));
+          addAuctions(payload?.auctions || []);
         }
       }
     } else if (quickAuctions.length > 0) {
       // Small pool — also fetch price_desc just in case (cheap, already under 500).
       const descPath =
         `/auctions/search?type=riven&weapon_url_name=${encodeURIComponent(weaponSlug)}${statParams}&sort_by=price_desc`;
-      const descData = (await wfmClient.request("GET", descPath)) as any;
-      addAuctions(descData?.payload?.auctions || []);
+      const descPayload = unwrapWfmResponse<WfmAuctionSearchPayload>(await wfmClient.request("GET", descPath));
+      addAuctions(descPayload?.auctions || []);
     }
 
     // Cache the full result
@@ -170,8 +172,9 @@ export async function searchSimilarRivens(
 
     log.log(`[WfmRivenSearch] Found ${allListings.length} auctions for "${weaponSlug}"`);
     return allListings.slice(0, limit);
-  } catch (err: any) {
-    log.warn(`[WfmRivenSearch] Search failed for "${weaponSlug}":`, err?.message || err);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.warn(`[WfmRivenSearch] Search failed for "${weaponSlug}":`, msg);
     return [];
   }
 }
@@ -224,12 +227,13 @@ export async function createRivenAuction(
 
   try {
     log.log(`[WfmRivenSearch] Creating auction for "${opts.weaponSlug}" polarity=${opts.polarity} rank=${opts.modRank} attrs=${opts.attributes.length}`);
-    const data = (await wfmClient.request("POST", "/auctions/create", { json: body })) as any;
-    const auctionId = data?.payload?.auction?.id;
+    const data = await wfmClient.request("POST", "/auctions/create", { json: body });
+    const payload = unwrapWfmResponse<WfmAuctionCreatePayload>(data);
+    const auctionId = payload?.auction?.id;
     log.log(`[WfmRivenSearch] Created auction ${auctionId || "(no id)"} for "${opts.weaponSlug}"`);
     return { ok: true, auctionId: auctionId || undefined };
-  } catch (err: any) {
-    const msg = err?.message || String(err);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
     log.warn(`[WfmRivenSearch] Create auction failed for "${opts.weaponSlug}":`, msg);
     log.warn(`[WfmRivenSearch] Request body:`, JSON.stringify(body));
     return { ok: false, error: msg };
