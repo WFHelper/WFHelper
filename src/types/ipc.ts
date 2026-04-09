@@ -413,36 +413,10 @@ export interface WfmNotification {
   content: string;
 }
 
-export interface DailyStatEntry {
-  date: string;           // "YYYY-MM-DD"
-  platDelta: number;
-  creditsDelta: number;
-  endoDelta: number;
-  ducatsDelta: number;    // net change in Void Ducats (DUCTCREDITS)
-  ayaDelta: number;       // net change in Aya (PrimeTokens)
-  relicsOpened: number;   // relics consumed today (LevelKeys decrease tracking)
-  daysPlayed: number;     // 1 = inventory data received; 0 = gap/imported entry
-  dailyTrades: number;    // trades detected or imported for this day
-  absPlat?: number;       // absolute platinum balance at end of day
-  absCredits?: number;    // absolute credits balance at end of day
-  absEndo?: number;       // absolute endo balance at end of day
-  absDucats?: number;     // absolute ducats balance at end of day
-  absAya?: number;        // absolute aya balance at end of day
-}
-
-export interface SessionStats {
-  platDelta: number;
-  creditsDelta: number;
-  endoDelta: number;
-  ducatsDelta: number;
-  ayaDelta: number;
-  currentPlat: number | null;
-  currentCredits: number | null;
-  currentEndo: number | null;
-  currentDucats: number | null;
-  currentAya: number | null;
-  hasData: boolean;
-}
+// Single source of truth for DailyStatEntry and SessionStats lives in
+// config/shared/statsTypes.ts — imported here for local use and re-exported.
+import type { DailyStatEntry, SessionStats } from "../../config/shared/statsTypes.js";
+export type { DailyStatEntry, SessionStats };
 
 export interface IpcEventMap {
   "inventory-updated": RawInventoryData;
