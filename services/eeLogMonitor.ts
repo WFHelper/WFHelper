@@ -2,9 +2,17 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { Worker } from "worker_threads";
 import chokidar from "chokidar";
 import { withScope } from "./logger";
+import { startDbwinWorker, stopDbwinWorker, isDbwinActive } from "./dbwinMonitor";
+import {
+  RIVEN_PATTERNS as _RIVEN_PATTERNS,
+  processRivenPatterns,
+  setRivenCallbacks,
+  forceEndRivenSession as _forceEndRivenSession,
+  isRivenSessionActive,
+  resetRivenState,
+} from "./rivenLogStateMachine";
 const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
   normalizeErrorMessage: (err: any) => string;
 };
@@ -87,109 +95,9 @@ let relicPickerCloseCallback: (() => void) | null = null;
 let tradePartnerCallback: ((username: string) => void) | null = null;
 let tradeConfirmedCallback: ((trade: ParsedLogTrade) => void) | null = null;
 
-export const RIVEN_PATTERNS = {
-  sessionOpen: /Sys \[Info\]: Created \/Lotus\/Interface\/OmegaRerollSelection\.swf/,
-  // NpcManager::ClearAgents fires when the player closes / leaves the riven
-  // cycling screen.  Used to close the overlay.
-  sessionClose: /NpcManager::ClearAgents\(\) ReadyToCreateAgents = false/,
-  // Fires when a player clicks a riven mod link in chat — opens a read-only preview.
-  chatRivenView: /ThemedDetailedPurchaseDialog\.lua: DBG: HudVis 1/,
-  // Fires when the chat riven preview dialog closes.
-  chatRivenClose: /ThemedDetailedPurchaseDialog\.lua: DBG: HudVis 0/,
-  // English-only patterns — used to extract weapon name and kuva cost when available.
-  // Non-English games fall back to the generic dialog detection below.
-  cycleConfirmEn:
-    /Dialog::CreateOkCancel\(description=Are you sure you want to cycle (.+?) for ([\d,. ]+)\?/,
-  choiceConfirmEn: /Dialog::CreateOkCancel\(description=Cycle Riven into current selection\?/,
-  // Language-independent: matches ANY CreateOkCancel dialog that has real buttons.
-  // Excludes non-interactive dialogs like NavBar_QuickMatchPleaseWait (leftItem=nil).
-  genericDialog: /Dialog::CreateOkCancel\(/,
-  genericDialogNonInteractive: /leftItem=nil/,
-  // Captures the result code: 4 = confirm (MENU_SELECT), 5 = cancel (MENU_CANCEL)
-  sendResult: /Dialog\.lua:\s*Dialog::SendResult\((\d+)\)/,
-  // Fires when the 3-D two-card diorama finishes loading after a roll — this is
-  // the exact moment both cards are visible on screen, making it the ideal OCR
-  // trigger (AlecaFrame uses the same pattern for the same reason).
-  diaoramaSetup: /OmegaRerollSelection\.lua.*Diorama setup/i,
-} as const;
-
-let rivenSessionOpenCallback: (() => void) | null = null;
-let rivenSessionCloseCallback: (() => void) | null = null;
-let rivenChatViewCallback: (() => void) | null = null;
-let _rivenChatViewActive = false;
-let rivenRollPendingCallback: ((weapon: string, kuvaPerRoll: number) => void) | null = null;
-let rivenRollConfirmedCallback: (() => void) | null = null;
-let rivenDioramaSetupCallback: (() => void) | null = null;
-let rivenChoiceConfirmedCallback: (() => void) | null = null;
-
-
-
-// Tracks which riven dialog is currently pending so SendResult can be dispatched correctly.
-// "roll_confirm" = "Are you sure you want to cycle X for Y?" dialog
-// "choice"       = "Cycle Riven into current selection?" dialog
-let _rivenPendingDialog: "roll_confirm" | "choice" | null = null;
-let _rivenSessionActive = false;
-let _rivenSessionIdleTimer: ReturnType<typeof setTimeout> | null = null;
-// Users may browse their riven inventory for a while before rolling — 2 min
-// gives enough headroom. Timer is refreshed on every riven-related event.
-const RIVEN_SESSION_IDLE_TIMEOUT_MS = 120_000;
-
-// Language-independent dialog tracking: the riven rolling flow is strictly alternating
-// CreateOkCancel (cycle) → SendResult → CreateOkCancel (choice) → SendResult → repeat.
-// This lets us detect riven dialogs in ANY language without relying on the description text.
-let _rivenNextDialog: "cycle" | "choice" = "cycle";
-
-// Cooldown to prevent duplicate fires from DBWIN + file poll delivering the same line.
-// Both sources feed handleLine() on the main thread, but the second source delivers the
-// same sequence ~0-5s later, causing the full state machine to re-trigger.
-let _lastRivenSendResultAt = 0;
-const RIVEN_SEND_RESULT_COOLDOWN_MS = 400;
-
-// Cooldown for generic dialog detection.  After a SendResult fires, other game
-// dialogs (matchmaking, squad, etc.) can appear in the same EE.log batch.  These
-// would be misidentified as riven dialogs by the generic fallback.  A short cooldown
-// prevents the generic path from matching immediately after a SendResult.
-let _lastRivenGenericDialogAt = 0;
-const RIVEN_GENERIC_DIALOG_COOLDOWN_MS = 600;
-
-// Cooldown for the English choice dialog pattern.  DBWIN sometimes delivers the
-// same OutputDebugString line several times in a single burst (Warframe writes the
-// dialog description multiple times as it builds the UI).  Without a cooldown the
-// log fills with repeated "Riven choice dialog detected" messages.
-// The state updates (_rivenPendingDialog, _rivenSessionActive) still happen on
-// every match so the state machine stays correct; only the log line is throttled.
-let _lastRivenChoiceDialogAt = 0;
-const RIVEN_CHOICE_DIALOG_COOLDOWN_MS = 2000;
-
-// Cooldown for session-open detection.  DBWIN delivers the OmegaRerollSelection.swf
-// line instantly, and the file poll re-delivers it seconds later.  Without this,
-// `onRivenSessionOpen` fires twice — wiping stats from the first scan.
-let _lastRivenSessionOpenAt = 0;
-const RIVEN_SESSION_OPEN_COOLDOWN_MS = 15_000;
-
-// Cooldown to deduplicate diorama-setup events: DBWIN delivers the line
-// instantly and the file poll may re-deliver it 1-2 s later.  A short 2 s
-// window is enough — distinct rolls are seconds apart at minimum.
-let _lastRivenDioramaAt = 0;
-const RIVEN_DIORAMA_DEDUP_MS = 2_000;
-
-// Timestamp of the last forceEndRivenSession() call.  After the user presses
-// ESC the EE.log file poll may re-deliver stale choice/cycle dialog lines
-// 0–5 s later. The English-specific Layer-1 patterns activate the session
-// regardless of _rivenSessionActive, which would re-enable the flow against
-// the already-closed overlay windows. Guard them with this cooldown.
-let _rivenForceEndedAt = 0;
-const RIVEN_FORCE_END_COOLDOWN_MS = 5_000;
-
-// When DBWIN is active, riven events arrive in real-time via the worker thread.
-// The EE.log file poll re-delivers the exact same lines 0–5 s later.  If we
-// process the stale file-poll copies, the dialog state machine mis-advances:
-// e.g. a SendResult(4) for the ROLL confirmation arrives after the choice dialog
-// has already set _rivenPendingDialog to "choice", causing a false
-// onRivenChoiceConfirmed that resets both overlay panels.
-// Fix: when DBWIN is active, skip ALL riven pattern processing from file-poll
-// lines.  Non-riven events (rewards, relic picker, trades) still use both sources.
-let _dbwinActive = false;
+// Re-export from extracted modules for backward compatibility
+export const RIVEN_PATTERNS = _RIVEN_PATTERNS;
+export const forceEndRivenSession = _forceEndRivenSession;
 
 // ── Trade dialog multi-line buffer ────────────────────────────────────────────
 
@@ -218,10 +126,6 @@ let pendingRelicPickerTimer: ReturnType<typeof setTimeout> | null = null;
 let lastRewardAt = 0;
 let lastRelicPickerAt = 0;
 let lastRelicPickerCloseAt = 0;
-
-let dbwinWorker: Worker | null = null;
-let dbwinStopBuffer: SharedArrayBuffer | null = null;
-let dbwinStopTimer: ReturnType<typeof setTimeout> | null = null;
 
 function clearPendingTimers(): void {
   if (pendingRewardTimer) {
@@ -328,108 +232,6 @@ function scheduleTrigger(type: "reward" | "relic_picker"): void {
   }, RELIC_TRIGGER_DELAY_MS);
 }
 
-// ---------------------------------------------------------------------------
-// OutputDebugString / DBWIN worker — parallel zero-latency log source
-// ---------------------------------------------------------------------------
-// Warframe (like all Win32 apps) calls OutputDebugString() for each log line.
-// OutputDebugString writes the message into a shared-memory ring ("DBWIN_BUFFER")
-// and signals "DBWIN_DATA_READY" — with NO file-system flush involved.
-// Reading from that buffer gives us the line the instant Warframe emits it,
-// bypassing whatever buffering delay exists between OutputDebugString and the
-// EE.log flush to disk (which can be 0–5 s depending on Warframe's I/O scheduler).
-//
-// The Worker thread (dbwinWorker.ts) owns the Win32 handle lifetime and runs
-// WaitForSingleObject in a tight loop without touching the main event loop.
-// Lines it receives are fed into the same handleLine() path used by file polling,
-// so the existing cooldown/dedup logic naturally absorbs duplicates from both sources.
-
-interface DbwinWorkerMessage {
-  type: "ready" | "line" | "error" | "stopped";
-  pid?: number;
-  msg?: string;
-  alreadyExists?: boolean;
-  message?: string;
-}
-
-function startDbwinWorker(): void {
-  if (dbwinWorker) return;
-
-  dbwinStopBuffer = new SharedArrayBuffer(4);
-  Atomics.store(new Int32Array(dbwinStopBuffer), 0, 0);
-
-  // dbwinWorker.ts compiles to the same output directory as this module
-  dbwinWorker = new Worker(path.join(__dirname, "dbwinWorker.js"), {
-    workerData: { stopBuffer: dbwinStopBuffer },
-  });
-
-  dbwinWorker.on("message", (m: DbwinWorkerMessage) => {
-    switch (m.type) {
-      case "ready":
-        _dbwinActive = true;
-        log.log("[EELog/DBWIN] OutputDebugString listener ready (alreadyExists:", m.alreadyExists, ")");
-        break;
-      case "line":
-        if (m.msg) handleLine(m.msg, "dbwin");
-        break;
-      case "error":
-        log.warn("[EELog/DBWIN] Worker error:", m.message);
-        break;
-      case "stopped":
-        log.log("[EELog/DBWIN] Worker stopped cleanly");
-        break;
-    }
-  });
-
-  dbwinWorker.on("error", (err: Error) => {
-    log.warn("[EELog/DBWIN] Worker threw:", String(err));
-    dbwinWorker = null;
-    _dbwinActive = false;
-  });
-
-  dbwinWorker.on("exit", () => {
-    dbwinWorker = null;
-    _dbwinActive = false;
-  });
-}
-
-function stopDbwinWorker(): void {
-  if (!dbwinWorker) return;
-
-  // Signal the Worker to exit its WaitForSingleObject loop
-  if (dbwinStopBuffer) {
-    Atomics.store(new Int32Array(dbwinStopBuffer), 0, 1);
-    dbwinStopBuffer = null;
-  }
-
-  // Force-terminate after 1500 ms in case the Worker is somehow stuck.
-  // Generous enough for a clean exit, short enough to not block app shutdown.
-  const w = dbwinWorker;
-  dbwinWorker = null;
-
-  dbwinStopTimer = setTimeout(() => {
-    dbwinStopTimer = null;
-    w.terminate().catch(() => {});
-  }, 1500);
-
-  w.once("exit", () => {
-    if (dbwinStopTimer) {
-      clearTimeout(dbwinStopTimer);
-      dbwinStopTimer = null;
-    }
-  });
-}
-
-function resetRivenIdleTimer(): void {
-  if (_rivenSessionIdleTimer) clearTimeout(_rivenSessionIdleTimer);
-  _rivenSessionIdleTimer = setTimeout(() => {
-    _rivenSessionIdleTimer = null;
-    _rivenPendingDialog = null;
-    _rivenNextDialog = "cycle";
-    _rivenSessionActive = false;
-    log.log("[EELog] Riven session idle timeout — resetting");
-  }, RIVEN_SESSION_IDLE_TIMEOUT_MS);
-}
-
 function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   if (!line) return;
 
@@ -440,7 +242,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   // When DBWIN is active, skip relic picker pattern processing from file-poll lines.
   // DBWIN delivers lines instantly; the file poll re-delivers the same lines 0–15 s later,
   // after the 8 s cooldown has expired, causing a phantom re-open just like riven events.
-  const skipRelicFromFilePoll = _dbwinActive && source === "file";
+  const skipRelicFromFilePoll = isDbwinActive() && source === "file";
 
   if (!skipRelicFromFilePoll && RELIC_PICKER_PATTERNS.some((pattern) => pattern.test(line))) {
     scheduleTrigger("relic_picker");
@@ -478,201 +280,14 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   }
 
   // ── Riven rolling session ──────────────────────────────────────────────────
-  // Riven patterns MUST be evaluated before RELIC_PICKER_CLOSE_PATTERNS because
-  // both share the same Dialog::SendResult regex. When a riven dialog is pending
-  // or a riven session is active ALL SendResult events belong to the riven flow.
-  //
-  // When DBWIN is active, skip riven processing from file-poll lines.  DBWIN
-  // delivers riven events instantly; the file poll re-delivers the same lines
-  // 0–5 s later — by which time the dialog state machine has already advanced,
-  // causing stale events to mis-fire callbacks (e.g. a roll-confirm SendResult
-  // arriving after _rivenPendingDialog has changed to "choice").
-  const skipRivenFromFilePoll = _dbwinActive && source === "file";
-
-  if (!skipRivenFromFilePoll && RIVEN_PATTERNS.sessionOpen.test(line)) {
-    const now = Date.now();
-    if (now - _lastRivenSessionOpenAt >= RIVEN_SESSION_OPEN_COOLDOWN_MS) {
-      _lastRivenSessionOpenAt = now;
-      _rivenSessionActive = true;
-      _rivenChatViewActive = false; // rolling supersedes chat view
-      _rivenNextDialog = "cycle";
-      _rivenPendingDialog = null;
-      resetRivenIdleTimer();
-      log.log("[EELog] Riven rolling screen opened -> dispatching session open");
-      if (typeof rivenSessionOpenCallback === "function") rivenSessionOpenCallback();
-    } else {
-      log.log("[EELog] Riven session open suppressed (cooldown)");
-    }
-  }
-
-  // NpcManager::ClearAgents fires when the player leaves the riven cycling screen.
-  // Only dispatch if a riven session is currently active — this line also fires
-  // during other game flows, so we must not false-trigger.
-  // Diorama ready: both cards are now displayed — trigger roll OCR immediately.
-  // NOTE: NOT gated by skipRivenFromFilePoll — OmegaRerollSelection.lua lines
-  // are Lua script output that appears only in EE.log file, never via DBWIN
-  // OutputDebugString.  The 2 s RIVEN_DIORAMA_DEDUP_MS cooldown prevents the
-  // file-poll double-delivery from firing the callback twice.
-  if (
-    _rivenSessionActive &&
-    RIVEN_PATTERNS.diaoramaSetup.test(line)
-  ) {
-    const now = Date.now();
-    if (now - _lastRivenDioramaAt >= RIVEN_DIORAMA_DEDUP_MS) {
-      _lastRivenDioramaAt = now;
-      resetRivenIdleTimer();
-      log.log("[EELog] Riven diorama ready -> dispatching diorama OCR trigger");
-      if (typeof rivenDioramaSetupCallback === "function") rivenDioramaSetupCallback();
-    }
-  }
-
-  if (!skipRivenFromFilePoll && _rivenSessionActive && RIVEN_PATTERNS.sessionClose.test(line)) {
-    log.log("[EELog] Riven session close (ClearAgents) -> dispatching overlay close");
-    _rivenSessionActive = false;
-    _rivenPendingDialog = null;
-    _rivenNextDialog = "cycle";
-    if (_rivenSessionIdleTimer) {
-      clearTimeout(_rivenSessionIdleTimer);
-      _rivenSessionIdleTimer = null;
-    }
-    if (typeof rivenSessionCloseCallback === "function") rivenSessionCloseCallback();
-  }
-
-  // ── Riven chat-link view ──────────────────────────────────────────────────
-  // Clicking a riven mod link in chat opens a read-only preview dialog.
-  // Show only the left overlay panel (no rolling, no right panel).
-  // Only fire when NOT already in a rolling session — the rolling screen
-  // also triggers HudVis internally, and we don't want to override it.
-  // NOTE: NOT gated by skipRivenFromFilePoll — ThemedDetailedPurchaseDialog
-  // lines may only appear in EE.log file (not via DBWIN OutputDebugString),
-  // and there is no state-machine race condition for these simple open/close events.
-  if (!_rivenSessionActive && RIVEN_PATTERNS.chatRivenView.test(line)) {
-    _rivenChatViewActive = true;
-    log.log("[EELog] Riven chat-link view detected -> dispatching chat view");
-    if (typeof rivenChatViewCallback === "function") rivenChatViewCallback();
-  }
-
-  // Close the chat riven preview — HudVis 0 fires when the dialog is dismissed.
-  if (_rivenChatViewActive && RIVEN_PATTERNS.chatRivenClose.test(line)) {
-    _rivenChatViewActive = false;
-    log.log("[EELog] Riven chat-link view closed -> dispatching session close");
-    if (typeof rivenSessionCloseCallback === "function") rivenSessionCloseCallback();
-  }
-
-  // ── Dialog detection (two layers) ─────────────────────────────────────────
-  // Layer 1: English-specific patterns — work REGARDLESS of _rivenSessionActive
-  // because the description text is unique enough to identify riven dialogs.
-  // They also re-activate the session if the idle timer had expired.
-  //
-  // Layer 2 (fallback): Generic Dialog::CreateOkCancel during an active session —
-  // uses the _rivenNextDialog toggle to determine cycle vs choice when the
-  // description text can't be matched (non-English game language).
-  let rivenDialogHandled = skipRivenFromFilePoll; // skip all dialog detection from file poll
-
-  const rivenCycleMatch = !skipRivenFromFilePoll ? line.match(RIVEN_PATTERNS.cycleConfirmEn) : null;
-  if (rivenCycleMatch && !(!_rivenSessionActive && Date.now() - _rivenForceEndedAt < RIVEN_FORCE_END_COOLDOWN_MS)) {
-    rivenDialogHandled = true;
-    _rivenSessionActive = true;
-    resetRivenIdleTimer();
-    _rivenPendingDialog = "roll_confirm";
-    const weapon = rivenCycleMatch[1].trim();
-    // Kuva costs are always integers; strip all locale thousands separators (., ,, space)
-    const cost = parseInt(rivenCycleMatch[2].replace(/[,. ]/g, ""), 10) || 0;
-    log.log(`[EELog] Riven roll pending: weapon=${weapon}, cost=${cost}`);
-    if (typeof rivenRollPendingCallback === "function") rivenRollPendingCallback(weapon, cost);
-  }
-
-  if (!rivenDialogHandled && !skipRivenFromFilePoll && RIVEN_PATTERNS.choiceConfirmEn.test(line) &&
-      !(!_rivenSessionActive && Date.now() - _rivenForceEndedAt < RIVEN_FORCE_END_COOLDOWN_MS)) {
-    rivenDialogHandled = true;
-    _rivenSessionActive = true;
-    resetRivenIdleTimer();
-    _rivenPendingDialog = "choice";
-    // Only log once per burst — DBWIN can deliver the same dialog line several
-    // times in rapid succession; the state updates above are harmless but the
-    // repeated log messages are confusing.
-    const now = Date.now();
-    if (now - _lastRivenChoiceDialogAt >= RIVEN_CHOICE_DIALOG_COOLDOWN_MS) {
-      _lastRivenChoiceDialogAt = now;
-      log.log("[EELog] Riven choice dialog detected (English)");
-    }
-  }
-
-  // Layer 2: generic fallback — only during an active session (within idle window).
-  // Skip non-interactive dialogs (NavBar_QuickMatchPleaseWait has leftItem=nil).
-  // Also skip if a SendResult just fired — other game dialogs (matchmaking, squad)
-  // can appear in the same log batch and would be misidentified as riven dialogs.
-  if (
-    !rivenDialogHandled &&
-    _rivenSessionActive &&
-    _rivenPendingDialog === null &&
-    Date.now() - _lastRivenSendResultAt >= RIVEN_GENERIC_DIALOG_COOLDOWN_MS &&
-    RIVEN_PATTERNS.genericDialog.test(line) &&
-    !RIVEN_PATTERNS.genericDialogNonInteractive.test(line)
-  ) {
-    resetRivenIdleTimer();
-    _lastRivenGenericDialogAt = Date.now();
-    if (_rivenNextDialog === "cycle") {
-      _rivenPendingDialog = "roll_confirm";
-      log.log("[EELog] Riven roll pending (generic dialog)");
-      if (typeof rivenRollPendingCallback === "function") rivenRollPendingCallback("", 0);
-    } else {
-      _rivenPendingDialog = "choice";
-      log.log("[EELog] Riven choice dialog detected (generic)");
-    }
-  }
-
-  // Track whether SendResult was consumed by the riven flow
-  let sendResultConsumedByRiven = false;
-
-  // Consume SendResult when either a riven dialog is pending (from English or generic
-  // detection) OR the riven session is active (prevents stale SendResult from leaking
-  // to the relic picker close handler).
-  //
-  // Result codes:  4 = confirm (MENU_SELECT)  →  dispatch callback + advance state
-  //                5 = cancel  (MENU_CANCEL)  →  clear pending, do NOT dispatch
-  const sendResultMatch = line.match(RIVEN_PATTERNS.sendResult);
-  // Even when skipping riven processing from file poll, we must still mark
-  // SendResult as consumed so it doesn't leak to the relic picker close handler.
-  if (sendResultMatch && _rivenSessionActive && skipRivenFromFilePoll) {
-    sendResultConsumedByRiven = true;
-  }
-  if (sendResultMatch && !skipRivenFromFilePoll && (_rivenPendingDialog !== null || _rivenSessionActive)) {
-    sendResultConsumedByRiven = true;
-    if (_rivenSessionActive) resetRivenIdleTimer();
-    const resultCode = sendResultMatch[1];
-
-    if (_rivenPendingDialog !== null) {
-      if (resultCode === "4") {
-        // CONFIRM — dispatch and advance the dialog toggle
-        const now = Date.now();
-        // Cooldown prevents DBWIN + file poll from double-firing the same callback.
-        if (now - _lastRivenSendResultAt >= RIVEN_SEND_RESULT_COOLDOWN_MS) {
-          _lastRivenSendResultAt = now;
-          if (_rivenPendingDialog === "roll_confirm") {
-            _rivenNextDialog = "choice";
-            log.log("[EELog] Riven roll confirmed -> dispatching OCR trigger");
-            if (typeof rivenRollConfirmedCallback === "function") rivenRollConfirmedCallback();
-          } else if (_rivenPendingDialog === "choice") {
-            _rivenNextDialog = "cycle";
-            log.log("[EELog] Riven choice confirmed -> dispatching choice scan");
-            if (typeof rivenChoiceConfirmedCallback === "function") rivenChoiceConfirmedCallback();
-          }
-        }
-      } else {
-        // CANCEL (5) or other — clear pending without dispatching or advancing.
-        // The user cancelled the dialog, so we stay in the same state.
-        log.log(`[EELog] Riven dialog cancelled (SendResult ${resultCode})`);
-      }
-      _rivenPendingDialog = null;
-    }
-  }
+  // Delegate to the riven state machine — returns whether SendResult was consumed.
+  const sendResultConsumedByRiven = processRivenPatterns(line, source, isDbwinActive());
 
   // ── Relic picker close detection ────────────────────────────────────────────
   // Only fire the relic close callback if SendResult was NOT consumed by riven
   // AND no riven session is active (any SendResult during a riven session belongs
   // to the riven flow, even when _rivenPendingDialog is null between steps).
-  if (!sendResultConsumedByRiven && !_rivenSessionActive && !skipRelicFromFilePoll && RELIC_PICKER_CLOSE_PATTERNS.some((pattern) => pattern.test(line))) {
+  if (!sendResultConsumedByRiven && !isRivenSessionActive() && !skipRelicFromFilePoll && RELIC_PICKER_CLOSE_PATTERNS.some((pattern) => pattern.test(line))) {
     const now = Date.now();
     if (now - lastRelicPickerCloseAt >= RELIC_PICKER_CLOSE_COOLDOWN_MS) {
       lastRelicPickerCloseAt = now;
@@ -881,13 +496,15 @@ export function startWatching(
   relicPickerCloseCallback = normalized.onRelicSelectionClose;
   tradePartnerCallback = normalized.onTradingPartner;
   tradeConfirmedCallback = normalized.onTradeConfirmed;
-  rivenSessionOpenCallback = normalized.onRivenSessionOpen;
-  rivenSessionCloseCallback = normalized.onRivenSessionClose;
-  rivenRollPendingCallback = normalized.onRivenRollPending;
-  rivenRollConfirmedCallback = normalized.onRivenRollConfirmed;
-  rivenDioramaSetupCallback = normalized.onRivenDioramaSetup;
-  rivenChoiceConfirmedCallback = normalized.onRivenChoiceConfirmed;
-  rivenChatViewCallback = normalized.onRivenChatView;
+  setRivenCallbacks({
+    onRivenSessionOpen: normalized.onRivenSessionOpen,
+    onRivenSessionClose: normalized.onRivenSessionClose,
+    onRivenRollPending: normalized.onRivenRollPending,
+    onRivenRollConfirmed: normalized.onRivenRollConfirmed,
+    onRivenDioramaSetup: normalized.onRivenDioramaSetup,
+    onRivenChoiceConfirmed: normalized.onRivenChoiceConfirmed,
+    onRivenChatView: normalized.onRivenChatView,
+  });
 
   clearPollTimer();
   closePollFd();
@@ -923,7 +540,7 @@ export function startWatching(
   }
   pollReadNewBytes();
 
-  startDbwinWorker();
+  startDbwinWorker((line) => handleLine(line, "dbwin"));
 
   log.log("[EELog] Watching:", EE_LOG_PATH);
   return EE_LOG_PATH;
@@ -938,18 +555,7 @@ export function startWatching(
  *
  * Safe to call when no session is active — returns early in that case.
  */
-export function forceEndRivenSession(): void {
-  if (!_rivenSessionActive && !_rivenPendingDialog) return;
-  _rivenSessionActive = false;
-  _rivenPendingDialog = null;
-  _rivenNextDialog = "cycle";
-  _rivenForceEndedAt = Date.now();
-  if (_rivenSessionIdleTimer) {
-    clearTimeout(_rivenSessionIdleTimer);
-    _rivenSessionIdleTimer = null;
-  }
-  log.log("[EELog] Riven session force-ended (overlay dismissed externally)");
-}
+// forceEndRivenSession is re-exported from rivenLogStateMachine at the top of this file.
 
 export function stopWatching(): void {
   stopDbwinWorker();
@@ -965,25 +571,6 @@ export function stopWatching(): void {
   rewardCallback = null;
   relicPickerCallback = null;
   relicPickerCloseCallback = null;
-  rivenSessionOpenCallback = null;
-  rivenSessionCloseCallback = null;
-  rivenRollPendingCallback = null;
-  rivenRollConfirmedCallback = null;
-  rivenDioramaSetupCallback = null;
-  rivenChoiceConfirmedCallback = null;
-  rivenChatViewCallback = null;
-  _rivenPendingDialog = null;
-  _rivenNextDialog = "cycle";
-  _rivenSessionActive = false;
-  _rivenChatViewActive = false;
-  _lastRivenSendResultAt = 0;
-  _lastRivenGenericDialogAt = 0;
-  _lastRivenChoiceDialogAt = 0;
-  _lastRivenSessionOpenAt = 0;
-  _dbwinActive = false;
-  if (_rivenSessionIdleTimer) {
-    clearTimeout(_rivenSessionIdleTimer);
-    _rivenSessionIdleTimer = null;
-  }
+  resetRivenState();
   lineRemainder = "";
 }
