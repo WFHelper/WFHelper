@@ -5,6 +5,9 @@
 
 import type { BrowserWindow } from "electron";
 import type { FSWatcher } from "chokidar";
+import { withScope } from "../services/logger";
+
+const log = withScope("ctx");
 
 type InventoryData = Record<string, unknown> | null;
 type OverlaySettings = Record<string, unknown>;
@@ -30,6 +33,7 @@ const ctx = {
     return mainWindow;
   },
   set mainWindow(v: BrowserWindow | null) {
+    log.log(`mainWindow ${mainWindow ? "set" : "null"} -> ${v ? "set" : "null"}`);
     mainWindow = v;
   },
 
@@ -37,6 +41,7 @@ const ctx = {
     return overlayWindow;
   },
   set overlayWindow(v: BrowserWindow | null) {
+    log.log(`overlayWindow ${overlayWindow ? "set" : "null"} -> ${v ? "set" : "null"}`);
     overlayWindow = v;
   },
 
@@ -44,6 +49,7 @@ const ctx = {
     return plannerOverlayWindow;
   },
   set plannerOverlayWindow(v: BrowserWindow | null) {
+    log.log(`plannerOverlayWindow ${plannerOverlayWindow ? "set" : "null"} -> ${v ? "set" : "null"}`);
     plannerOverlayWindow = v;
   },
 
@@ -51,6 +57,7 @@ const ctx = {
     return rivenOverlayLeftWindow;
   },
   set rivenOverlayLeftWindow(v: BrowserWindow | null) {
+    log.log(`rivenOverlayLeftWindow ${rivenOverlayLeftWindow ? "set" : "null"} -> ${v ? "set" : "null"}`);
     rivenOverlayLeftWindow = v;
   },
 
@@ -58,6 +65,7 @@ const ctx = {
     return rivenOverlayRightWindow;
   },
   set rivenOverlayRightWindow(v: BrowserWindow | null) {
+    log.log(`rivenOverlayRightWindow ${rivenOverlayRightWindow ? "set" : "null"} -> ${v ? "set" : "null"}`);
     rivenOverlayRightWindow = v;
   },
 
@@ -65,6 +73,7 @@ const ctx = {
     return currentInventoryPath;
   },
   set currentInventoryPath(v: string | null) {
+    log.log(`currentInventoryPath ${currentInventoryPath ? "set" : "null"} -> ${v ? "set" : "null"}`);
     currentInventoryPath = v;
   },
 
@@ -79,6 +88,7 @@ const ctx = {
     return watcher;
   },
   set watcher(v: FSWatcher | null) {
+    log.log(`watcher ${watcher ? "set" : "null"} -> ${v ? "set" : "null"}`);
     watcher = v;
   },
 
@@ -100,6 +110,7 @@ const ctx = {
     return overlayHotkeyRegistered;
   },
   set overlayHotkeyRegistered(v: string | null) {
+    log.log(`overlayHotkeyRegistered "${overlayHotkeyRegistered}" -> "${v}"`);
     overlayHotkeyRegistered = v;
   },
 
@@ -107,6 +118,7 @@ const ctx = {
     return overlayInteractionHotkeyRegistered;
   },
   set overlayInteractionHotkeyRegistered(v: string | null) {
+    log.log(`overlayInteractionHotkeyRegistered "${overlayInteractionHotkeyRegistered}" -> "${v}"`);
     overlayInteractionHotkeyRegistered = v;
   },
 
@@ -114,7 +126,11 @@ const ctx = {
     return overlayInteractiveMode;
   },
   set overlayInteractiveMode(v: boolean) {
-    overlayInteractiveMode = !!v;
+    const next = !!v;
+    if (next !== overlayInteractiveMode) {
+      log.log(`overlayInteractiveMode ${overlayInteractiveMode} -> ${next}`);
+    }
+    overlayInteractiveMode = next;
   },
 
   get overlayDismissedUntilMs() {
