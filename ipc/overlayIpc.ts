@@ -3,36 +3,22 @@ import {
   assertAuthorizedSender,
   assertMainRendererSender,
   assertOverlayRendererSender,
-  assertRivenOverlayRendererSender,
   isAuthorizedSender,
 } from "./ipcSecurity";
-import { createOverlayScanController } from "./overlay/scan";
-import { createRelicSelectionController } from "./overlay/relicSelection";
 import { createOverlaySettingsController } from "./overlay/settings";
-import { createOverlayWindowsController } from "./overlay/windows";
-import * as rivenSession from "./overlay/rivenSession";
-import * as rivenScan from "./overlay/rivenScan";
-import * as rivenGrading from "../services/rivenGrading";
-import * as rivenDataSvc from "../services/rivenData";
-import * as rivenBestAttributes from "../services/rivenBestAttributes";
-import * as wfmRivenSearch from "../services/wfmRivenSearch";
 import { createRuntimeRequire } from "./runtimeRequire";
 import { withScope } from "../services/logger";
-import * as relicService from "../services/relicService";
 import * as rewardScanner from "../services/rewardScanner";
-import * as wfmStatsPrice from "../services/wfmStatsPrice";
 import * as warframeStatus from "../services/warframeStatus";
-import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
-import { startEscMonitor, stopEscMonitor } from "../services/keyboardMonitor";
-import { forceEndRivenSession } from "../services/eeLogMonitor";
+import * as rivenOverlayIpc from "./rivenOverlayIpc";
+import * as rewardOverlayIpc from "./rewardOverlayIpc";
 
 const requireRuntime = createRuntimeRequire(__dirname, 1);
 
 const log = withScope("overlayIpc");
 
-const { ipcMain, BrowserWindow, globalShortcut, app, screen, shell } =
+const { ipcMain, globalShortcut } =
   require("electron") as typeof import("electron");
-const path = require("node:path") as typeof import("node:path");
 const fs = require("node:fs") as typeof import("node:fs");
 const {
   OVERLAY_OCR_ENGINES,
@@ -44,618 +30,27 @@ const {
   OVERLAY_SETTINGS_LIMITS: Record<string, number>;
 }>("config/runtime/overlaySettings");
 
-const { isAllowedExternalHost } = requireRuntime<{
-  isAllowedExternalHost: (hostname: string) => boolean;
-}>("config/runtime/security");
-
-const OVERLAY_SETTINGS_FILE = path.join(app.getPath("userData"), "overlay-settings.json");
-// Prices (and ducat meta) now live in the snapshot cache — price-cache.json is no longer written.
-const PRICE_CACHE_FILE = path.join(app.getPath("userData"), "snapshot-cache.json");
-const APP_ROOT = app.getAppPath();
-const OVERLAY_WINDOW_FILE = path.join(APP_ROOT, "renderer", "overlay.html");
-const RIVEN_WINDOW_FILE = path.join(APP_ROOT, "renderer", "riven-overlay.html");
-
-const rewardWindowsController = createOverlayWindowsController({
-  app,
-  BrowserWindow,
-  screen,
-  ctx,
-  log,
-  hardenBrowserWindowNavigation,
-  overlayWindowFile: OVERLAY_WINDOW_FILE,
-});
-
-// Adjust planner overlay z-order so it hides behind other apps when Warframe loses focus.
-// Polls every 2 s — only runs when the planner overlay is visible.
-setInterval(async () => {
-  const win = ctx.plannerOverlayWindow;
-  if (!win || win.isDestroyed() || !win.isVisible()) return;
-  try {
-    const status = await warframeStatus.getStatus();
-    if (status.isFocused) {
-      win.setAlwaysOnTop(true, "screen-saver");
-    } else {
-      win.setAlwaysOnTop(false);
-    }
-  } catch {
-    // ignore
-  }
-}, 2000);
-
-const plannerWindowsController = createOverlayWindowsController({
-  app,
-  BrowserWindow,
-  screen,
-  ctx,
-  getOverlayWindow: () => ctx.plannerOverlayWindow,
-  setOverlayWindow: (window) => {
-    ctx.plannerOverlayWindow = window;
-  },
-  getOverlayInteractiveMode: () => ctx.overlayInteractiveMode,
-  setOverlayInteractiveModeState: (enabled) => {
-    ctx.overlayInteractiveMode = !!enabled;
-  },
-  log,
-  hardenBrowserWindowNavigation,
-  overlayWindowFile: OVERLAY_WINDOW_FILE,
-  placement: "top-right",
-  windowWidth: 460,
-  windowHeight: 320,
-  transparent: false,
-  backgroundColor: "#060a12",
-});
-
-// ── Riven overlay windows (left = current, right = new roll) ─────────────────
-
-let _rivenInteractive = false;
-
-const RIVEN_WIN_W = 420;
-const RIVEN_WIN_H = 640;
-
-/** Returns both riven windows as an array for broadcasting IPC events. */
-function getRivenWindows(): (InstanceType<typeof BrowserWindow> | null)[] {
-  return [ctx.rivenOverlayLeftWindow, ctx.rivenOverlayRightWindow];
-}
-
-/** Run a callback on each live riven window. */
-function forEachRivenWindow(fn: (win: InstanceType<typeof BrowserWindow>) => void): void {
-  for (const win of getRivenWindows()) {
-    if (win && !win.isDestroyed()) fn(win);
-  }
-}
-
-function toggleRivenInteractiveMode(): void {
-  _rivenInteractive = !_rivenInteractive;
-  forEachRivenWindow((win) => {
-    if (_rivenInteractive) {
-      win.setIgnoreMouseEvents(false);
-      win.setFocusable(true);
-      win.moveTop();
-      win.focus();
-    } else {
-      win.setIgnoreMouseEvents(true);
-      win.moveTop();
-      win.showInactive();
-    }
-    win.webContents.send("overlay-interaction-mode", { interactive: _rivenInteractive });
-  });
-}
-
-function createSingleRivenWindow(
-  side: "left" | "right",
-  x: number,
-  y: number,
-  options: { show?: boolean },
-): InstanceType<typeof BrowserWindow> {
-  const preloadPath = path.join(app.getAppPath(), ".electron-build", "preload-riven.js");
-  const win = new BrowserWindow({
-    width: RIVEN_WIN_W,
-    height: RIVEN_WIN_H,
-    x,
-    y,
-    show: false,
-    transparent: false,
-    frame: false,
-    backgroundColor: "#060a12",
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    resizable: false,
-    focusable: true,
-    hasShadow: false,
-    webPreferences: {
-      preload: preloadPath,
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  });
-
-  hardenBrowserWindowNavigation(win, {
-    label: `riven overlay ${side} window`,
-    allowedFilePaths: [RIVEN_WINDOW_FILE],
-    log,
-  });
-
-  void win.loadFile(RIVEN_WINDOW_FILE, { search: `side=${side}` });
-  win.setAlwaysOnTop(true, "screen-saver");
-  win.moveTop();
-  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  // No { forward: true } — forwarding mouse events through a message hook
-  // can cause DWM/GPU stalls when combined with fullscreen DirectX games.
-  // The riven panels are positioned at screen edges, away from game UI.
-  win.setIgnoreMouseEvents(true);
-
-  if (options.show !== false) win.showInactive();
-
-  return win;
-}
-
-function createRivenOverlayWindows(options: { show?: boolean } = {}): void {
-  // If both already exist, just bring them to front
-  const existLeft = ctx.rivenOverlayLeftWindow;
-  const existRight = ctx.rivenOverlayRightWindow;
-  if (existLeft && !existLeft.isDestroyed() && existRight && !existRight.isDestroyed()) {
-    forEachRivenWindow((win) => {
-      win.setAlwaysOnTop(true, "screen-saver");
-      win.moveTop();
-      if (options.show !== false) win.showInactive();
-    });
-    return;
-  }
-
-  const display = screen.getPrimaryDisplay();
-  const { x: dx, y: dy, width: dw } = display.workArea;
-  const PAD = 16;
-
-  // Destroy stale windows
-  if (existLeft && !existLeft.isDestroyed()) existLeft.destroy();
-  if (existRight && !existRight.isDestroyed()) existRight.destroy();
-
-  _rivenInteractive = false;
-
-  // Left panel at top-left edge, pushed down to avoid game HUD
-  const leftWin = createSingleRivenWindow("left", dx + PAD, dy + 80, options);
-  ctx.rivenOverlayLeftWindow = leftWin;
-  leftWin.on("closed", () => {
-    ctx.rivenOverlayLeftWindow = null;
-  });
-
-  // Right panel at top-right edge, pushed down to avoid game HUD
-  const rightWin = createSingleRivenWindow("right", dx + dw - RIVEN_WIN_W - PAD, dy + 80, options);
-  ctx.rivenOverlayRightWindow = rightWin;
-  rightWin.on("closed", () => {
-    ctx.rivenOverlayRightWindow = null;
-  });
-}
-
-// Tracks whether the current session has produced at least one roll result.
-let _rivenHasRollResult = false;
-
-// Serial counter incremented on every new triggerRollScan call.  The async
-// scan closure captures it; if a newer scan starts before the old one sends
-// results, the old one discards its output rather than overwriting.
-let _rollScanSerial = 0;
-
-// OCR scan timers — scans run after a short delay to let the UI animate.
-let _rivenInitialScanTimer: ReturnType<typeof setTimeout> | null = null;
-let _rivenRollScanTimer: ReturnType<typeof setTimeout> | null = null;
-
-// Delay before OCR scan (ms).
-// No readiness gate polling — just fixed delay then immediate screenshot + OCR.
-//
-// AlecaFrame uses Thread.Sleep(2750) in RivenRerollDetected — that is how long
-// the roll animation takes.  Our DBWIN worker delivers messages with near-zero
-// latency (vs AlecaFrame's ~200-500ms C# thread scheduling), so we add a small
-// buffer: 2850ms = 2750ms animation + 100ms safety margin.
-//
-// INITIAL: AlecaFrame Thread.Sleep(200) in RivenSelectedForRerollDetected.
-// ROLL:    2850ms (AlecaFrame 2750ms animation + 100ms buffer).
-// CHOICE:  AlecaFrame RivenRerollCycleComplete: Thread.Sleep(1000) then calls
-//          RivenSelectedForRerollDetected (another Sleep(200)) = 1200 ms total.
-const INITIAL_SCAN_DELAY_MS = 200;
-const ROLL_SCAN_DELAY_MS = 2850;
-const CHOICE_RESCAN_DELAY_MS = 1200;
-
-// Last known stats for choice detection (old vs new)
-let _rivenInitialStats: rivenScan.RivenStat[] = [];
-let _rivenNewRollStats: rivenScan.RivenStat[] = [];
-
-// Weapon name — starts as "Riven" placeholder, updated when cycle dialog reveals it
-let _rivenWeaponName = "";
-
-// ── Riven grading + enrichment ──────────────────────────────────────────────
-
-/**
- * Try to grade stats using the current weapon name.
- * Returns the grading result or null if weapon is unknown/unresolvable.
- */
-function tryGradeStats(stats: rivenScan.RivenStat[]): rivenGrading.RivenGradeResult | null {
-  if (!_rivenWeaponName || _rivenWeaponName === "Riven" || stats.length === 0) return null;
-  return rivenGrading.gradeRiven(_rivenWeaponName, stats);
-}
-
-function scoreRivenStatSimilarity(
-  left: rivenScan.RivenStat[],
-  right: rivenScan.RivenStat[],
-): number {
-  if (!Array.isArray(left) || !Array.isArray(right) || left.length === 0 || right.length === 0) {
-    return 0;
-  }
-
-  const rightByName = new Map(right.map((stat) => [stat.name.toLowerCase(), stat] as const));
-
-  let score = 0;
-  for (const stat of left) {
-    const match = rightByName.get(stat.name.toLowerCase());
-    if (!match) {
-      score -= 4;
-      continue;
-    }
-
-    score += stat.positive === match.positive ? 12 : 2;
-    if (stat.value != null && match.value != null) {
-      const base = Math.max(5, Math.abs(stat.value), Math.abs(match.value));
-      const diffRatio = Math.abs(stat.value - match.value) / base;
-      score += Math.max(0, 8 - diffRatio * 24);
-    } else if (stat.value === match.value) {
-      score += 2;
-    }
-  }
-
-  const unmatchedRight = Math.max(0, right.length - left.length);
-  score -= unmatchedRight * 3;
-  return score;
-}
-
-/**
- * Send grading data for initial stats to the overlay.
- * Called when we have both weapon name AND initial stats.
- */
-function sendGradedInitialStats(): void {
-  const graded = tryGradeStats(_rivenInitialStats);
-  if (graded) {
-    forEachRivenWindow((win) => {
-      if (!win.isDestroyed()) win.webContents.send("riven-grading-initial", graded);
-    });
-  }
-}
-
-/**
- * Send best attributes and trigger WFM search when weapon name becomes available.
- */
-function sendWeaponEnrichment(): void {
-  if (!_rivenWeaponName || _rivenWeaponName === "Riven") return;
-
-  // Send best attributes to both panels
-  const category = rivenDataSvc.getWeaponCategory(_rivenWeaponName);
-  const weaponInfo = category ? rivenBestAttributes.getBestAttributes(category) : null;
-  if (weaponInfo) {
-    forEachRivenWindow((win) => {
-      if (!win.isDestroyed()) win.webContents.send("riven-best-attributes", weaponInfo);
-    });
-  }
-
-  // Fetch ALL auctions for this weapon (no stat filtering) so the overlay
-  // renderer's computeSimilarity() can rank them client-side — same approach
-  // as RivenDetailModal.
-  const slug = rivenDataSvc.getRivenFamilySlug(_rivenWeaponName);
-  wfmRivenSearch
-    .searchSimilarRivens(slug, { limit: 30 })
-    .then((listings) => {
-      if (listings.length > 0) {
-        forEachRivenWindow((win) => {
-          if (!win.isDestroyed()) win.webContents.send("riven-similar-listings", listings);
-        });
-      }
-    })
-    .catch((err) => {
-      log.warn("[WfmRivenSearch] search failed:", String(err));
-    });
-}
-
-function clearRivenScanTimers(): void {
-  if (_rivenInitialScanTimer) {
-    clearTimeout(_rivenInitialScanTimer);
-    _rivenInitialScanTimer = null;
-  }
-  if (_rivenRollScanTimer) {
-    clearTimeout(_rivenRollScanTimer);
-    _rivenRollScanTimer = null;
-  }
-}
-
-function triggerInitialScan(): void {
-  if (_rivenInitialScanTimer) clearTimeout(_rivenInitialScanTimer);
-  _rivenInitialScanTimer = setTimeout(async () => {
-    _rivenInitialScanTimer = null;
-    try {
-      const { stats, rawText, titleText } = await rivenScan.scanInitialCard(_rivenWeaponName);
-      _rivenInitialStats = stats;
-
-      // Try to extract weapon name from OCR text if not already known
-      const weaponSourceText = titleText || rawText;
-      if (weaponSourceText && (!_rivenWeaponName || _rivenWeaponName === "Riven")) {
-        const detected = rivenDataSvc.findWeaponInText(weaponSourceText);
-        if (detected) {
-          log.log(`[RivenScan] weapon detected from OCR: "${detected}"`);
-          _rivenWeaponName = detected;
-          forEachRivenWindow((win) => {
-            if (!win.isDestroyed()) win.webContents.send("riven-weapon-update", detected);
-          });
-          sendWeaponEnrichment();
-        }
-      }
-
-      if (stats.length > 0) {
-        rivenSession.onInitialStats(getRivenWindows(), stats);
-        // If weapon name is already known, send grading immediately
-        sendGradedInitialStats();
-      }
-    } catch (err) {
-      log.warn("[RivenScan] initial scan failed:", String(err));
-    }
-  }, INITIAL_SCAN_DELAY_MS);
-}
-
-function triggerRollScan(delayMs = ROLL_SCAN_DELAY_MS, skipGate = true): void {
-  if (_rivenRollScanTimer) clearTimeout(_rivenRollScanTimer);
-  // Increment serial so any already-running scan knows it has been superseded.
-  const mySerial = ++_rollScanSerial;
-  log.log(`[RivenScan] triggerRollScan: serial=${mySerial}, delay=${delayMs}ms`);
-  _rivenRollScanTimer = setTimeout(async () => {
-    _rivenRollScanTimer = null;
-    log.log(`[RivenScan] roll timer fired: serial=${mySerial}, current=${_rollScanSerial}, weapon="${_rivenWeaponName}"`);
-    if (mySerial !== _rollScanSerial) return; // superseded by a later scan
-    // Clear any abort flag left by the previous scan before starting fresh.
-    rivenScan.resetRivenScanAbort();
-    try {
-      const panels = await rivenScan.scanNewRoll(_rivenWeaponName, skipGate);
-      if (mySerial !== _rollScanSerial) return; // superseded while awaiting OCR
-      // If the OCR produced per-panel results, use them directly.  Otherwise
-      // fall back to the initial stats we already have for the left panel.
-      const leftStats = panels.left.length > 0 ? panels.left : _rivenInitialStats;
-      const rightStats = panels.right;
-      _rivenNewRollStats = rightStats;
-      if (rightStats.length > 0) {
-        _rivenHasRollResult = true;
-        rivenSession.onRollResult(getRivenWindows(), {
-          left: leftStats,
-          right: rightStats,
-        });
-        // Send grading for both panels
-        const leftGraded = tryGradeStats(leftStats);
-        const rightGraded = tryGradeStats(rightStats);
-        if (leftGraded || rightGraded) {
-          forEachRivenWindow((win) => {
-            if (!win.isDestroyed()) {
-              win.webContents.send("riven-grading-roll", {
-                left: leftGraded,
-                right: rightGraded,
-              });
-            }
-          });
-        }
-      }
-    } catch (err) {
-      log.warn("[RivenScan] roll scan failed:", String(err));
-    }
-  }, delayMs);
-}
-
-// ── Exported riven callbacks (wired from main.ts via eeLogMonitor) ─────────────
-
-export function onRivenSessionClose(): void {
-  log.log("[OverlayRoute] trigger=riven-session-close");
-  stopEscMonitor();
-  rivenScan.abortRivenScans();
-  // Reset the eeLogMonitor session state so subsequent EE.log events (e.g. a
-  // "Cycle Riven into current selection?" dialog arriving after the user pressed
-  // ESC) don't re-trigger choice scans against the now-closed overlay windows.
-  forceEndRivenSession();
-  clearRivenScanTimers();
-  _rivenHasRollResult = false;
-  _rollScanSerial++;
-  _rivenInitialStats = [];
-  _rivenNewRollStats = [];
-  _rivenWeaponName = "";
-  _rivenInteractive = false;
-  rivenSession.endSession(getRivenWindows());
-  forEachRivenWindow((win) => win.hide());
-}
-
-export function onRivenChatView(): void {
-  log.log("[OverlayRoute] trigger=riven-chat-view (left panel only)");
-  // Don't interrupt an active rolling session
-  if (_rivenHasRollResult) return;
-
-  _rivenHasRollResult = false;
-  _rivenInitialStats = [];
-  _rivenNewRollStats = [];
-  _rivenWeaponName = "";
-  rivenScan.resetRivenScanAbort();
-
-  // Create only the left window (or reuse if already exists)
-  const display = screen.getPrimaryDisplay();
-  const { x: dx, y: dy } = display.workArea;
-  const PAD = 16;
-
-  const existLeft = ctx.rivenOverlayLeftWindow;
-  if (!existLeft || existLeft.isDestroyed()) {
-    _rivenInteractive = false;
-    const leftWin = createSingleRivenWindow("left", dx + PAD, dy + 80, { show: true });
-    ctx.rivenOverlayLeftWindow = leftWin;
-    leftWin.on("closed", () => {
-      ctx.rivenOverlayLeftWindow = null;
-    });
-  } else {
-    existLeft.setAlwaysOnTop(true, "screen-saver");
-    existLeft.moveTop();
-    existLeft.showInactive();
-  }
-
-  // Hide right window if it exists (chat view = left only)
-  const existRight = ctx.rivenOverlayRightWindow;
-  if (existRight && !existRight.isDestroyed()) existRight.hide();
-
-  // Start session with "Riven" placeholder, no kuva cost
-  const wins = [ctx.rivenOverlayLeftWindow];
-  rivenSession.startSession(wins, "Riven", 0);
-  if (ctx.overlayThemeVars && Object.keys(ctx.overlayThemeVars).length > 0) {
-    const vars = { ...ctx.overlayThemeVars };
-    const lw = ctx.rivenOverlayLeftWindow;
-    if (lw && !lw.isDestroyed()) lw.webContents.send("overlay-theme-vars", vars);
-  }
-  startEscMonitor(() => onRivenSessionClose());
-  triggerInitialScan();
-}
-
-export function onRivenSessionOpen(): void {
-  log.log("[OverlayRoute] trigger=riven-session");
-  _rivenHasRollResult = false;
-  _rollScanSerial++;
-  _rivenInitialStats = [];
-  _rivenNewRollStats = [];
-  _rivenWeaponName = "";
-  rivenScan.resetRivenScanAbort();
-  createRivenOverlayWindows({ show: true });
-  // Start (or restart) the session — resets roll count, clears panels.
-  // Weapon name is "Riven" placeholder until the first cycle dialog reveals it.
-  rivenSession.startSession(getRivenWindows(), "Riven", 0);
-  if (ctx.overlayThemeVars && Object.keys(ctx.overlayThemeVars).length > 0) {
-    const vars = { ...ctx.overlayThemeVars };
-    forEachRivenWindow((win) => win.webContents.send("overlay-theme-vars", vars));
-  }
-  // ESC key closes the riven overlay — uses the same low-level keyboard hook
-  // as the relic recommendation overlay (uiohook-napi).
-  startEscMonitor(() => onRivenSessionClose());
-  triggerInitialScan();
-}
-
-export function onRivenRollPending(weapon: string, kuvaPerRoll: number): void {
-  _rivenHasRollResult = false;
-  log.log(`[OverlayRoute] onRivenRollPending: weapon="${weapon}", kuva=${kuvaPerRoll}, current="${_rivenWeaponName}"`);
-  // Update weapon name from the cycle dialog text (first time we learn it).
-  // Don't call startSession — that would reset the roll count and wipe
-  // the stats that the initial scan already populated.
-  const isFirstReveal = _rivenWeaponName === "" || _rivenWeaponName === "Riven";
-  if (weapon) {
-    _rivenWeaponName = weapon;
-    forEachRivenWindow((win) => {
-      if (!win.isDestroyed()) win.webContents.send("riven-weapon-update", weapon);
-    });
-
-    // First time weapon name is revealed → grade existing stats + send enrichment
-    if (isFirstReveal) {
-      sendGradedInitialStats();
-      sendWeaponEnrichment();
-    }
-  }
-}
-
-export function onRivenRollConfirmed(): void {
-  log.log("[OverlayRoute] onRivenRollConfirmed -> scheduling roll scan");
-  rivenSession.onRollConfirmed(getRivenWindows());
-  triggerRollScan();
-}
-
-// Fired when the 3-D two-card diorama finishes loading (EE.log:
-// "OmegaRerollSelection.lua: Diorama setup").
-// AlecaFrame does NOT use the diorama event for roll scans; it uses a fixed
-// 2750 ms sleep from the roll-confirm event.  We match that model exactly.
-// The diorama event is intentionally a no-op to prevent duplicate scans.
-export function onRivenDioramaSetup(): void {
-  log.log("[OverlayRoute] diorama setup event (no-op, roll uses fixed delay)");
-}
-
-
-export function onRivenChoiceConfirmed(): void {
-  // If the overlay was already closed (e.g. user pressed ESC before the EE.log
-  // file poll delivered the choice-confirm line), bail out immediately.  Scanning
-  // against a hidden/non-existent window captures the desktop and can crash the
-  // native OCR binding with FATAL ERROR: ThrowAsJavaScriptException.
-  const anyVisible = getRivenWindows().some((w) => w && !w.isDestroyed() && w.isVisible());
-  if (!anyVisible) {
-    log.log("[RivenScan] choice confirmed but overlay is not visible — skipping");
-    return;
-  }
-
-  clearRivenScanTimers();
-  _rivenHasRollResult = false;
-
-  // IMPORTANT: SendResult(4) fires for BOTH "accept new roll" (user clicked right card
-  // then CONFIRM) AND "confirm keeping current" (user clicked left card then CONFIRM).
-  // There is NO way to determine the chosen side from EE.log alone — we MUST rescan.
-
-  // Snapshot both stat sets NOW under local names — _rivenNewRollStats / _rivenInitialStats
-  // may be overwritten if the user immediately starts another roll before the timer fires.
-  const preChoiceStats = _rivenInitialStats.slice();
-  const newRollStats = _rivenNewRollStats.slice();
-  _rivenNewRollStats = [];
-
-  // Tell the renderer: choice made, side unknown until rescan completes.
-  rivenSession.onChoiceMade(getRivenWindows(), "unknown");
-
-  // Rescan the single card shown after the choice.
-  // AlecaFrame: Thread.Sleep(1000) then RivenSelectedForRerollDetected (Sleep(200)) = 1200 ms.
-  // We match that exactly: CHOICE_RESCAN_DELAY_MS = 1200, then immediate capture (no gate).
-  if (_rivenInitialScanTimer) clearTimeout(_rivenInitialScanTimer);
-  _rivenInitialScanTimer = setTimeout(async () => {
-    _rivenInitialScanTimer = null;
-    try {
-      const stats = await rivenScan.scanChoiceRescan(_rivenWeaponName);
-
-      // Determine which side was chosen by comparing OCR result to both known stat sets.
-      let chosenSide: "left" | "right" | "unknown" = "unknown";
-      if (stats.length > 0 && preChoiceStats.length > 0 && newRollStats.length > 0) {
-        const leftScore = scoreRivenStatSimilarity(stats, preChoiceStats);
-        const rightScore = scoreRivenStatSimilarity(stats, newRollStats);
-        log.log(
-          `[RivenScan] choice similarity: left=${leftScore.toFixed(2)} right=${rightScore.toFixed(2)}`,
-        );
-        const best = Math.max(leftScore, rightScore);
-        const delta = Math.abs(leftScore - rightScore);
-        if (best >= 12 && delta >= 6) {
-          chosenSide = rightScore > leftScore ? "right" : "left";
-        }
-      }
-
-      // Update _rivenInitialStats to whichever side was confirmed.
-      if (chosenSide === "right" && newRollStats.length > 0) {
-        _rivenInitialStats = newRollStats;
-      } else if (chosenSide === "left" && preChoiceStats.length > 0) {
-        _rivenInitialStats = preChoiceStats;
-      } else if (stats.length > 0) {
-        _rivenInitialStats = stats; // fallback: use OCR text directly
-      }
-
-      if (_rivenInitialStats.length > 0) {
-        rivenSession.onChoiceMade(getRivenWindows(), chosenSide);
-        rivenSession.onInitialStats(getRivenWindows(), _rivenInitialStats);
-        sendGradedInitialStats();
-      }
-    } catch (err) {
-      log.warn("[RivenScan] choice rescan failed:", String(err));
-    }
-  }, CHOICE_RESCAN_DELAY_MS);
-}
+// ── Cross-overlay helpers ────────────────────────────────────────────────────
 
 function pushOverlayInteractionMode(): void {
   const payload = {
     interactive: !!ctx.overlayInteractiveMode,
   };
-  rewardWindowsController.sendOverlayEvent("overlay-interaction-mode", payload);
-  plannerWindowsController.sendOverlayEvent("overlay-interaction-mode", payload);
+  rewardOverlayIpc.getRewardWindowsController().sendOverlayEvent("overlay-interaction-mode", payload);
+  rewardOverlayIpc.getPlannerWindowsController().sendOverlayEvent("overlay-interaction-mode", payload);
 }
 
 async function bringOverlayToWarframeDisplayIfAvailable(): Promise<void> {
   try {
+    const rwc = rewardOverlayIpc.getRewardWindowsController();
+    const pwc = rewardOverlayIpc.getPlannerWindowsController();
     const status = await warframeStatus.getStatus({ force: true });
     if (status?.focusedDisplayId) {
       const anchor = { sourceDisplayId: String(status.focusedDisplayId) };
-      rewardWindowsController.setAnchorMeta(anchor);
-      plannerWindowsController.setAnchorMeta(anchor);
-      rewardWindowsController.positionOverlayWindow(rewardWindowsController.getAnchorMeta());
-      plannerWindowsController.positionOverlayWindow(plannerWindowsController.getAnchorMeta());
+      rwc.setAnchorMeta(anchor);
+      pwc.setAnchorMeta(anchor);
+      rwc.positionOverlayWindow(rwc.getAnchorMeta());
+      pwc.positionOverlayWindow(pwc.getAnchorMeta());
     }
   } catch {
     // best effort
@@ -663,19 +58,21 @@ async function bringOverlayToWarframeDisplayIfAvailable(): Promise<void> {
 }
 
 function setOverlayInteractionMode(enabled: boolean, source = "unknown"): void {
+  const rwc = rewardOverlayIpc.getRewardWindowsController();
+  const pwc = rewardOverlayIpc.getPlannerWindowsController();
   const next = !!enabled;
   const rewardExists = !!(ctx.overlayWindow && !ctx.overlayWindow.isDestroyed());
   const plannerExists = !!(ctx.plannerOverlayWindow && !ctx.plannerOverlayWindow.isDestroyed());
   if (ctx.overlayInteractiveMode === next && (rewardExists || plannerExists)) {
-    if (rewardExists) rewardWindowsController.setOverlayInteractiveMode(next);
-    if (plannerExists) plannerWindowsController.setOverlayInteractiveMode(next);
+    if (rewardExists) rwc.setOverlayInteractiveMode(next);
+    if (plannerExists) pwc.setOverlayInteractiveMode(next);
     pushOverlayInteractionMode();
     return;
   }
 
   ctx.overlayInteractiveMode = next;
-  if (rewardExists) rewardWindowsController.setOverlayInteractiveMode(next);
-  if (plannerExists) plannerWindowsController.setOverlayInteractiveMode(next);
+  if (rewardExists) rwc.setOverlayInteractiveMode(next);
+  if (plannerExists) pwc.setOverlayInteractiveMode(next);
   pushOverlayInteractionMode();
   log.log(`[OverlayInteraction] mode=${next ? "interactive" : "passive"} source=${source}`);
 }
@@ -717,28 +114,13 @@ function toggleOverlayInteractionMode(source = "unknown"): void {
 
   // If any riven overlay is visible, toggle interactive mode on both riven windows.
   if (anyRivenVisible) {
-    toggleRivenInteractiveMode();
+    rivenOverlayIpc.toggleRivenInteractiveMode();
   }
 
   setOverlayInteractionMode(!ctx.overlayInteractiveMode, source);
 }
 
-function ensureOverlayWindowPrimed(): void {
-  rewardWindowsController.createOverlayWindow({ show: false });
-  plannerWindowsController.createOverlayWindow({ show: false });
-  rewardWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
-  plannerWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
-  pushOverlayInteractionMode();
-  pushOverlayThemeVars();
-}
-
-let scanController = createOverlayScanController({
-  log,
-  rewardScanner,
-  ctx,
-  windows: rewardWindowsController,
-  warframeStatus,
-});
+// ── Theme management ─────────────────────────────────────────────────────────
 
 const OVERLAY_THEME_VAR_ALLOWLIST = new Set([
   "--bg-deep",
@@ -781,34 +163,39 @@ function sanitizeOverlayThemeVars(raw: unknown): Record<string, string> {
   return sanitized;
 }
 
-function pushOverlayThemeVars() {
+function pushOverlayThemeVars(): void {
   if (!ctx.overlayThemeVars || Object.keys(ctx.overlayThemeVars).length === 0) return;
   const vars = { ...ctx.overlayThemeVars };
-  rewardWindowsController.sendOverlayEvent("overlay-theme-vars", vars);
-  plannerWindowsController.sendOverlayEvent("overlay-theme-vars", vars);
-  forEachRivenWindow((win) => win.webContents.send("overlay-theme-vars", vars));
+  rewardOverlayIpc.getRewardWindowsController().sendOverlayEvent("overlay-theme-vars", vars);
+  rewardOverlayIpc.getPlannerWindowsController().sendOverlayEvent("overlay-theme-vars", vars);
+  rivenOverlayIpc.forEachRivenWindow((win) => win.webContents.send("overlay-theme-vars", vars));
 }
 
-function onRelicRewardTrigger(source = "manual") {
-  log.log(`[OverlayRoute] trigger=reward source=${source}`);
-  void bringOverlayToWarframeDisplayIfAvailable();
-  rewardWindowsController.createOverlayWindow();
-  rewardWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
+function ensureOverlayWindowPrimed(): void {
+  const rwc = rewardOverlayIpc.getRewardWindowsController();
+  const pwc = rewardOverlayIpc.getPlannerWindowsController();
+  rwc.createOverlayWindow({ show: false });
+  pwc.createOverlayWindow({ show: false });
+  rwc.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
+  pwc.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
   pushOverlayInteractionMode();
   pushOverlayThemeVars();
-  scanController.onRelicRewardTrigger(source);
 }
 
-function onRelicSelectionTrigger(source: string) {
-  log.log(`[OverlayRoute] trigger=planner source=${source}`);
-  void bringOverlayToWarframeDisplayIfAvailable();
-  plannerWindowsController.createOverlayWindow();
-  plannerWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
-  pushOverlayInteractionMode();
-  pushOverlayThemeVars();
-  void relicSelectionController.onRelicSelectionTrigger(source);
-  startEscMonitor(onRelicSelectionCloseByEsc);
+// ── Settings controller ──────────────────────────────────────────────────────
+
+function onRelicRewardTrigger(source = "manual"): void {
+  rewardOverlayIpc.onRelicRewardTrigger(
+    source,
+    pushOverlayInteractionMode,
+    pushOverlayThemeVars,
+    bringOverlayToWarframeDisplayIfAvailable,
+  );
 }
+
+const { app } = require("electron") as typeof import("electron");
+const path = require("node:path") as typeof import("node:path");
+const OVERLAY_SETTINGS_FILE = path.join(app.getPath("userData"), "overlay-settings.json");
 
 const settingsController = createOverlaySettingsController({
   log,
@@ -824,49 +211,25 @@ const settingsController = createOverlaySettingsController({
   onToggleOverlayInteractionMode: toggleOverlayInteractionMode,
 });
 
-scanController = createOverlayScanController({
-  log,
-  rewardScanner,
-  ctx,
-  windows: rewardWindowsController,
-  warframeStatus,
-});
+// ── Relay callbacks (exposed to main.ts) ─────────────────────────────────────
 
-const relicSelectionController = createRelicSelectionController({
-  log,
-  ctx,
-  windows: plannerWindowsController,
-  relicService,
-  rewardScanner,
-  wfmStatsPrice,
-  warframeStatus,
-  fs,
-  cacheFilePath: PRICE_CACHE_FILE,
-});
+function onRelicSelectionTrigger(source: string): void {
+  const onCloseByEsc = () =>
+    rewardOverlayIpc.onRelicSelectionCloseByEsc(pushOverlayInteractionMode);
+  rewardOverlayIpc.onRelicSelectionTrigger(
+    source,
+    pushOverlayInteractionMode,
+    pushOverlayThemeVars,
+    bringOverlayToWarframeDisplayIfAvailable,
+    onCloseByEsc,
+  );
+}
 
 function onRelicSelectionClose(): void {
-  stopEscMonitor();
-  const win = ctx.plannerOverlayWindow;
-  if (!win || win.isDestroyed() || !win.isVisible()) return;
-  // Do NOT call suppressReopenForClose here — the EE.log-based close fires for
-  // dialog navigation (including entering the relic selection area), so suppressing
-  // reopen would block the overlay on the very next PopulateInventoryGrid event.
-  // suppressReopenForClose is reserved for explicit user close (the X button / overlay-close IPC).
-  plannerWindowsController.clearOverlayAutoHideTimer();
-  ctx.overlayInteractiveMode = false;
-  pushOverlayInteractionMode();
-  win.hide();
-  log.log("[OverlayClose] planner closed via ESC / Dialog::SendResult");
+  rewardOverlayIpc.onRelicSelectionClose(pushOverlayInteractionMode);
 }
 
-// ESC-key close: the user has explicitly navigated away from the fissure screen,
-// so we also reset the cached mission era so a different era fissure opened
-// later gets a fresh OCR pass.  Dialog::SendResult (cracking a relic) does NOT
-// call this wrapper — that keeps the era cached for the next endless rotation.
-function onRelicSelectionCloseByEsc(): void {
-  relicSelectionController.resetMissionTier?.();
-  onRelicSelectionClose();
-}
+// ── IPC registration ─────────────────────────────────────────────────────────
 
 function register(): void {
   ensureOverlayWindowPrimed();
@@ -879,94 +242,14 @@ function register(): void {
     }
   }, 150);
 
-  ipcMain.on("overlay-close", (event: unknown) => {
-    if (!isAuthorizedSender(assertOverlayRendererSender, event as never, "overlay-close")) return;
-    stopEscMonitor();
-    rewardWindowsController.clearOverlayAutoHideTimer();
-    plannerWindowsController.clearOverlayAutoHideTimer();
-    relicSelectionController.suppressReopenForClose?.();
+  // Delegate domain-specific IPC to sub-modules
+  rivenOverlayIpc.register();
+  rewardOverlayIpc.register(pushOverlayInteractionMode, pushOverlayThemeVars);
 
-    // Reset interactive mode so the next trigger opens the overlay in passive mode.
-    ctx.overlayInteractiveMode = false;
-    pushOverlayInteractionMode();
-
-    const senderId = Number((event as { sender?: { id?: number } } | null)?.sender?.id || 0);
-    if (
-      ctx.plannerOverlayWindow &&
-      !ctx.plannerOverlayWindow.isDestroyed() &&
-      senderId === ctx.plannerOverlayWindow.webContents.id
-    ) {
-      ctx.plannerOverlayWindow.hide();
-      return;
-    }
-
-    if (ctx.overlayWindow && !ctx.overlayWindow.isDestroyed()) {
-      ctx.overlayWindow.hide();
-    }
-  });
-
-  ipcMain.on("riven-overlay-close", (event: unknown) => {
-    if (
-      !isAuthorizedSender(assertRivenOverlayRendererSender, event as never, "riven-overlay-close")
-    ) {
-      return;
-    }
-    stopEscMonitor();
-    clearRivenScanTimers();
-    _rivenInteractive = false;
-    _rivenHasRollResult = false;
-    _rivenInitialStats = [];
-    _rivenNewRollStats = [];
-    rivenSession.endSession(getRivenWindows());
-    forEachRivenWindow((win) => win.hide());
-  });
-
-  ipcMain.on("riven-open-auction", (event: unknown, auctionId: unknown) => {
-    if (
-      !isAuthorizedSender(assertRivenOverlayRendererSender, event as never, "riven-open-auction")
-    ) {
-      return;
-    }
-    const id = String(auctionId || "").replace(/[^a-zA-Z0-9]/g, "");
-    if (id) {
-      const url = new URL(`https://warframe.market/auction/${id}`);
-      if (url.protocol === "https:" && isAllowedExternalHost(url.hostname)) {
-        void shell.openExternal(url.toString());
-      }
-    }
-  });
-
-  ipcMain.handle("overlay-get-relic-items", async (event: unknown) => {
-    assertAuthorizedSender(assertOverlayRendererSender, event as never, "overlay-get-relic-items");
-
-    const db = relicService.getRelicDatabase();
-    const seen = new Map<string, { name: string; urlName: string | null; rarity: string }>();
-    for (const group of Object.values(db.groups)) {
-      if (!group.qualities) continue;
-      for (const qualData of Object.values(group.qualities)) {
-        if (!qualData?.rewards) continue;
-        for (const reward of qualData.rewards) {
-          if (reward.name && !seen.has(reward.name)) {
-            seen.set(reward.name, {
-              name: reward.name,
-              urlName: reward.urlName || null,
-              rarity: reward.rarity || "Common",
-            });
-          }
-        }
-      }
-    }
-    return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
-  });
-
+  // Settings & theme IPC (shared across all overlays)
   ipcMain.handle("overlay:get-settings", async (event: unknown) => {
     assertAuthorizedSender(assertMainRendererSender, event as never, "overlay:get-settings");
     return { ...ctx.overlaySettings };
-  });
-
-  ipcMain.handle("overlay:get-price", async (event: unknown, slug: string) => {
-    assertAuthorizedSender(assertOverlayRendererSender, event as never, "overlay:get-price");
-    return wfmStatsPrice.fetchPriceBySlug(slug);
   });
 
   ipcMain.handle("overlay:get-theme-vars", async (event: unknown) => {
@@ -982,26 +265,6 @@ function register(): void {
     return settings;
   });
 
-  ipcMain.on("toggle-overlay", (event: unknown) => {
-    if (!isAuthorizedSender(assertMainRendererSender, event as never, "toggle-overlay")) return;
-
-    rewardWindowsController.clearOverlayAutoHideTimer();
-    if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) {
-      rewardWindowsController.createOverlayWindow();
-      rewardWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
-      pushOverlayInteractionMode();
-      pushOverlayThemeVars();
-    } else if (ctx.overlayWindow.isVisible()) {
-      ctx.overlayWindow.hide();
-    } else {
-      rewardWindowsController.positionOverlayWindow(rewardWindowsController.getAnchorMeta());
-      rewardWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
-      pushOverlayInteractionMode();
-      pushOverlayThemeVars();
-      ctx.overlayWindow.showInactive();
-    }
-  });
-
   ipcMain.on("overlay-theme-updated", (event: unknown, rawVars: unknown) => {
     if (!isAuthorizedSender(assertMainRendererSender, event as never, "overlay-theme-updated")) {
       return;
@@ -1013,28 +276,6 @@ function register(): void {
     if (Object.keys(sanitized).length > 0) {
       pushOverlayThemeVars();
     }
-  });
-
-  ipcMain.on("simulate-relic-trigger", (event: unknown) => {
-    if (!isAuthorizedSender(assertMainRendererSender, event as never, "simulate-relic-trigger")) {
-      return;
-    }
-    onRelicRewardTrigger("simulate");
-  });
-
-  ipcMain.on("overlay:push-relic-filters", (event: unknown, rawFilters: unknown) => {
-    if (
-      !isAuthorizedSender(assertMainRendererSender, event as never, "overlay:push-relic-filters")
-    ) {
-      return;
-    }
-
-    if (!rawFilters || typeof rawFilters !== "object") return;
-    const filters = rawFilters as Record<string, unknown>;
-    relicSelectionController.setDesktopFilters({
-      squadSize: typeof filters.squadSize === "number" ? filters.squadSize : undefined,
-      tierFilter: typeof filters.tierFilter === "string" ? filters.tierFilter : null,
-    });
   });
 }
 
@@ -1049,3 +290,14 @@ export {
   onRelicSelectionTrigger,
   onRelicSelectionClose,
 };
+
+// Re-export riven callbacks for main.ts wiring
+export {
+  onRivenSessionClose,
+  onRivenChatView,
+  onRivenSessionOpen,
+  onRivenRollPending,
+  onRivenRollConfirmed,
+  onRivenDioramaSetup,
+  onRivenChoiceConfirmed,
+} from "./rivenOverlayIpc";
