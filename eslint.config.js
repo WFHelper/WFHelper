@@ -43,7 +43,15 @@ module.exports = [
     },
   },
   {
-    files: ["main.ts", "preload.ts", "preload-overlay.ts", "ipc/**/*.ts", "services/**/*.ts"],
+    files: [
+      "main.ts",
+      "preload.ts",
+      "preload-overlay.ts",
+      "preload-trade-notification.ts",
+      "ipc/**/*.ts",
+      "services/**/*.ts",
+      "config/**/*.ts",
+    ],
     languageOptions: {
       parser: tsParser,
       parserOptions: {

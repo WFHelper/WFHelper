@@ -24,7 +24,7 @@ const { WFM_ASSET_BASE: WFM_THUMB_BASE } = require("../config/shared/wfm.cjs") a
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
-interface NormalisedOrder {
+export interface NormalisedOrder {
   id: string;
   orderType: string;
   platinum: number;
@@ -92,7 +92,7 @@ function _extractOrders(data: unknown): { sell: NormalisedOrder[]; buy: Normalis
     sell = ordersList.filter((o) => getType(o) === "sell").map((o) => normalise(o));
     buy = ordersList.filter((o) => getType(o) === "buy").map((o) => normalise(o));
   } else if (Array.isArray(payload)) {
-    const arr = payload as unknown as WfmRawOrder[];
+    const arr = payload as WfmRawOrder[];
     sell = arr.filter((o) => getType(o) === "sell").map((o) => normalise(o));
     buy = arr.filter((o) => getType(o) === "buy").map((o) => normalise(o));
   } else {

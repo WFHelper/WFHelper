@@ -15,6 +15,9 @@ const { normalizeErrorMessage } = runtimeRequire<{
 const MAIN_RENDERER_SUFFIX = path.normalize(path.join("renderer", "dist", "index.html"));
 const OVERLAY_RENDERER_SUFFIX = path.normalize(path.join("renderer", "overlay.html"));
 const RIVEN_OVERLAY_RENDERER_SUFFIX = path.normalize(path.join("renderer", "riven-overlay.html"));
+const TRADE_NOTIFICATION_RENDERER_SUFFIX = path.normalize(
+  path.join("renderer", "trade-notification.html"),
+);
 
 type IpcEventLike = {
   sender?: {
@@ -153,6 +156,19 @@ function assertOverlayRendererSender(event: IpcEventLike, _channel: string): voi
   assertWindowSender(event, rivenRightWindow, RIVEN_OVERLAY_RENDERER_SUFFIX);
 }
 
+function assertTradeNotificationSender(event: IpcEventLike, _channel: string): void {
+  assertWindowSender(
+    event,
+    ctx.tradeNotificationWindow
+      ? {
+          isDestroyed: () => ctx.tradeNotificationWindow?.isDestroyed() ?? true,
+          webContents: { id: ctx.tradeNotificationWindow.webContents.id },
+        }
+      : null,
+    TRADE_NOTIFICATION_RENDERER_SUFFIX,
+  );
+}
+
 function assertRivenOverlayRendererSender(event: IpcEventLike, _channel: string): void {
   const leftWin = ctx.rivenOverlayLeftWindow
     ? {
@@ -214,6 +230,7 @@ export {
   assertMainRendererSender,
   assertOverlayRendererSender,
   assertRivenOverlayRendererSender,
+  assertTradeNotificationSender,
   assertAuthorizedSender,
   isAuthorizedSender,
 };
@@ -222,6 +239,7 @@ export const __test__ = {
   MAIN_RENDERER_SUFFIX,
   OVERLAY_RENDERER_SUFFIX,
   RIVEN_OVERLAY_RENDERER_SUFFIX,
+  TRADE_NOTIFICATION_RENDERER_SUFFIX,
   getSenderUrl,
   senderHasAllowedFileSuffix,
   normalizePathForCompare,

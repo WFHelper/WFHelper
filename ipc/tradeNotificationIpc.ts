@@ -8,6 +8,7 @@
  */
 
 import ctx from "./context";
+import { assertTradeNotificationSender, isAuthorizedSender } from "./ipcSecurity";
 import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 
@@ -23,7 +24,33 @@ const WIN_W = 370;
 const WIN_H = 80;
 const MARGIN = 16;
 const NOTIFICATION_FILE = path.join(__dirname, "..", "renderer", "trade-notification.html");
-const AUTO_HIDE_MS = 6_000;
+
+// Timing: the renderer shows the toast for RENDERER_VISIBLE_MS, then fades out
+// over RENDERER_FADE_MS. The main process hides the window slightly later so
+// the renderer always finishes its animation before visibility is revoked.
+const RENDERER_VISIBLE_MS = 5_000;
+const RENDERER_FADE_MS = 400;
+const MAIN_HIDE_BUFFER_MS = 600;
+const AUTO_HIDE_MS = RENDERER_VISIBLE_MS + RENDERER_FADE_MS + MAIN_HIDE_BUFFER_MS;
+
+/** Payload sent to the notification renderer. Shape is stable so the vanilla
+ *  JS renderer can read it without importing TypeScript types. */
+export interface TradeNotificationShowPayload {
+  match: {
+    orderId: string;
+    itemName: string;
+    itemUrlName: string | null;
+    itemThumb: string | null;
+    quantity: number;
+    platinum: number;
+    partner: string;
+    type: "sale" | "purchase";
+  };
+  timing: {
+    visibleMs: number;
+    fadeMs: number;
+  };
+}
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -93,22 +120,18 @@ function _getOrCreateWindow(): InstanceType<typeof BrowserWindow> {
 /**
  * Show a trade-finished notification for a matched WFM order.
  */
-export function showTradeNotification(match: {
-  orderId: string;
-  itemName: string;
-  itemUrlName: string | null;
-  itemThumb: string | null;
-  quantity: number;
-  platinum: number;
-  partner: string;
-  type: "sale" | "purchase";
-}): void {
+export function showTradeNotification(match: TradeNotificationShowPayload["match"]): void {
   const win = _getOrCreateWindow();
-  win.webContents.send("trade-notification-show", match);
+  const payload: TradeNotificationShowPayload = {
+    match,
+    timing: { visibleMs: RENDERER_VISIBLE_MS, fadeMs: RENDERER_FADE_MS },
+  };
+  win.webContents.send("trade-notification-show", payload);
   win.showInactive();
   win.moveTop();
 
-  // Auto-hide after delay
+  // Auto-hide after delay — always slightly later than the renderer's
+  // visibleMs + fadeMs so the animation completes before visibility is revoked.
   if (_hideTimer) clearTimeout(_hideTimer);
   _hideTimer = setTimeout(() => {
     if (!win.isDestroyed()) win.hide();
@@ -124,7 +147,16 @@ export function showTradeNotification(match: {
  * Register IPC handlers from the notification overlay window.
  */
 export function register(): void {
-  ipcMain.on("trade-notification-dismiss", () => {
+  ipcMain.on("trade-notification-dismiss", (event: unknown) => {
+    if (
+      !isAuthorizedSender(
+        assertTradeNotificationSender,
+        event as never,
+        "trade-notification-dismiss",
+      )
+    ) {
+      return;
+    }
     const win = ctx.tradeNotificationWindow;
     if (win && !win.isDestroyed()) win.hide();
     if (_hideTimer) {

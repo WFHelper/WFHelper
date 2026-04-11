@@ -14,6 +14,7 @@
 
 import { withScope } from "./logger";
 import * as wfmOrders from "./wfmOrders";
+import type { NormalisedOrder } from "./wfmOrders";
 import * as wfmSession from "./wfmSession";
 import * as wfmCatalog from "./wfmCatalog";
 
@@ -89,7 +90,7 @@ export async function matchTradeToOrder(
   }
 
   // Fetch user's current orders
-  let orders: { sell: any[]; buy: any[] };
+  let orders: { sell: NormalisedOrder[]; buy: NormalisedOrder[] };
   try {
     orders = await wfmOrders.getMyOrders();
   } catch (err) {
@@ -116,7 +117,7 @@ export async function matchTradeToOrder(
       || wfmCatalog.lookupByName(item.displayName.replace(/ Blueprint$/i, ""));
 
     // Filter orders that match this item by name
-    const matching = candidateOrders.filter((order: any) => {
+    const matching = candidateOrders.filter((order: NormalisedOrder) => {
       if (_recentlyClosedOrders.has(order.id)) return false;
 
       const orderItemName = normalizeName(String(order.itemName || ""));
@@ -131,7 +132,7 @@ export async function matchTradeToOrder(
     if (matching.length === 0) continue;
 
     // Sort by AlecaFrame's tiebreaker: plat proximity → rank proximity → quantity
-    matching.sort((a: any, b: any) => {
+    matching.sort((a: NormalisedOrder, b: NormalisedOrder) => {
       const platDiffA = Math.abs((a.platinum || 0) - trade.platChange);
       const platDiffB = Math.abs((b.platinum || 0) - trade.platChange);
       if (platDiffA !== platDiffB) return platDiffA - platDiffB;

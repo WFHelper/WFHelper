@@ -281,7 +281,7 @@ app.whenReady().then(async () => {
     onRewardTrigger: () => overlayIpc.onRelicRewardTrigger("eelog"),
     onRelicSelectionOpen: () => overlayIpc.onRelicSelectionTrigger("eelog"),
     onRelicSelectionClose: () => overlayIpc.onRelicSelectionClose(),
-    onTradeConfirmed: (trade: any) => {
+    onTradeConfirmed: (trade: import("./services/eeLogMonitor").ParsedLogTrade) => {
       const event = tradeTracker.recordTradeFromLog(trade);
       if (!event) return;
 

@@ -100,11 +100,25 @@ export function shortDate(iso: string): string {
 
 // ── Bar chart computation ──────────────────────────────────────────────────────
 
+/** Typed accessor for chart-keyed numeric fields on DailyStatEntry. */
+function pickNumericField(entry: DailyStatEntry, key: ChartKey): number {
+  switch (key) {
+    case "platDelta": return entry.platDelta;
+    case "creditsDelta": return entry.creditsDelta;
+    case "endoDelta": return entry.endoDelta;
+    case "ducatsDelta": return entry.ducatsDelta;
+    case "ayaDelta": return entry.ayaDelta;
+    case "relicsOpened": return entry.relicsOpened;
+    case "daysPlayed": return entry.daysPlayed;
+    case "dailyTrades": return entry.dailyTrades;
+  }
+}
+
 export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, barH: number = BAR_H): ChartResult {
   const slice = hist.slice(-days);
   if (slice.length === 0) return { bars: [], hasBaseline: false, bw: 4, absLine: null, absValues: [], hasAbsData: false };
 
-  const values: number[] = slice.map((e) => ((e as unknown) as Record<string, number>)[key] ?? 0);
+  const values: number[] = slice.map((e) => pickNumericField(e, key) ?? 0);
   const maxAbs = Math.max(1, ...values.map(Math.abs));
   const bw = Math.min(MAX_BAR_W, Math.max(2, (SVG_W - BAR_GAP * (slice.length - 1)) / slice.length));
   const hasNeg = values.some((v) => v < 0);

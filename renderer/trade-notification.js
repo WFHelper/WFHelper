@@ -3,7 +3,10 @@
   "use strict";
 
   const WFM_ASSET_BASE = "https://warframe.market/static/assets/";
-  const AUTO_DISMISS_MS = 5000;
+  // Fallback values used only if the main process sends a legacy payload
+  // without a `timing` field. The real values come from the payload.
+  const FALLBACK_VISIBLE_MS = 5000;
+  const FALLBACK_FADE_MS = 400;
 
   const notification = document.getElementById("notification");
   const itemThumb = document.getElementById("item-thumb");
@@ -14,7 +17,13 @@
 
   let dismissTimer = null;
 
-  function showNotification(match) {
+  function showNotification(payload) {
+    if (!payload) return;
+    // Accept both the new { match, timing } shape and the legacy bare match.
+    const match = payload.match || payload;
+    const timing = payload.timing || {};
+    const visibleMs = typeof timing.visibleMs === "number" ? timing.visibleMs : FALLBACK_VISIBLE_MS;
+    const fadeMs = typeof timing.fadeMs === "number" ? timing.fadeMs : FALLBACK_FADE_MS;
     if (!match) return;
 
     // Set thumbnail
@@ -59,14 +68,14 @@
         if (window.tradeNotificationApi && window.tradeNotificationApi.dismiss) {
           window.tradeNotificationApi.dismiss();
         }
-      }, 400);
-    }, AUTO_DISMISS_MS);
+      }, fadeMs);
+    }, visibleMs);
   }
 
   // Listen for IPC events from main
   if (window.tradeNotificationApi) {
-    window.tradeNotificationApi.onShow(function (match) {
-      showNotification(match);
+    window.tradeNotificationApi.onShow(function (payload) {
+      showNotification(payload);
     });
   }
 })();
