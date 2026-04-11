@@ -18,6 +18,7 @@ let overlayWindow: BrowserWindow | null = null;
 let plannerOverlayWindow: BrowserWindow | null = null;
 let rivenOverlayLeftWindow: BrowserWindow | null = null;
 let rivenOverlayRightWindow: BrowserWindow | null = null;
+let tradeNotificationWindow: BrowserWindow | null = null;
 let currentInventoryPath: string | null = null;
 let currentInventoryData: InventoryData = null;
 let watcher: FSWatcher | null = null;
@@ -67,6 +68,14 @@ const ctx = {
   set rivenOverlayRightWindow(v: BrowserWindow | null) {
     log.log(`rivenOverlayRightWindow ${rivenOverlayRightWindow ? "set" : "null"} -> ${v ? "set" : "null"}`);
     rivenOverlayRightWindow = v;
+  },
+
+  get tradeNotificationWindow() {
+    return tradeNotificationWindow;
+  },
+  set tradeNotificationWindow(v: BrowserWindow | null) {
+    log.log(`tradeNotificationWindow ${tradeNotificationWindow ? "set" : "null"} -> ${v ? "set" : "null"}`);
+    tradeNotificationWindow = v;
   },
 
   get currentInventoryPath() {

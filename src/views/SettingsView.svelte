@@ -12,6 +12,8 @@
 
   let autoTrigger = OVERLAY_DEFAULTS.autoTriggerEnabled;
   let wfmNotificationsEnabled = OVERLAY_DEFAULTS.wfmNotificationsEnabled;
+  let autoCloseWfmOrders = OVERLAY_DEFAULTS.autoCloseWfmOrders;
+  let showTradeNotification = OVERLAY_DEFAULTS.showTradeNotification;
   let hotkeyEnabled = OVERLAY_DEFAULTS.hotkeyEnabled;
   let hotkey = OVERLAY_DEFAULTS.hotkey;
   let interactionHotkeyEnabled = OVERLAY_DEFAULTS.interactionHotkeyEnabled;
@@ -24,6 +26,8 @@
   function applyToForm(s: Partial<OverlaySettings>): void {
     autoTrigger = !!s.autoTriggerEnabled;
     wfmNotificationsEnabled = !!s.wfmNotificationsEnabled;
+    autoCloseWfmOrders = s.autoCloseWfmOrders ?? OVERLAY_DEFAULTS.autoCloseWfmOrders;
+    showTradeNotification = s.showTradeNotification ?? OVERLAY_DEFAULTS.showTradeNotification;
     hotkeyEnabled = !!s.hotkeyEnabled;
     hotkey = s.hotkey || OVERLAY_DEFAULTS.hotkey;
     interactionHotkeyEnabled = !!s.interactionHotkeyEnabled;
@@ -54,6 +58,8 @@
     const payload = {
       autoTriggerEnabled: autoTrigger,
       wfmNotificationsEnabled,
+      autoCloseWfmOrders,
+      showTradeNotification,
       hotkeyEnabled,
       hotkey,
       interactionHotkeyEnabled,
@@ -124,6 +130,16 @@
         <label class="settings-row settings-row-toggle">
           <span class="settings-label">WFM DM notifications</span>
           <input type="checkbox" bind:checked={wfmNotificationsEnabled} />
+        </label>
+
+        <label class="settings-row settings-row-toggle">
+          <span class="settings-label">Auto-close WFM orders on trade</span>
+          <input type="checkbox" bind:checked={autoCloseWfmOrders} />
+        </label>
+
+        <label class="settings-row settings-row-toggle">
+          <span class="settings-label">Trade finished notification</span>
+          <input type="checkbox" bind:checked={showTradeNotification} />
         </label>
 
         <label class="settings-row settings-row-toggle">

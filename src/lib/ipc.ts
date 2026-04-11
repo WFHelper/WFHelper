@@ -26,6 +26,8 @@ const eventApiMap: Record<
     window.api.onWfmNotification(cb as (n: IpcEventMap["wfm:notification"]) => void),
   "helper-download-progress": (cb) =>
     window.api.onHelperDownloadProgress(cb as (p: IpcEventMap["helper-download-progress"]) => void),
+  "trade-recorded": (cb) =>
+    window.api.onTradeRecorded(cb as (e: IpcEventMap["trade-recorded"]) => void),
 };
 
 export function on<K extends EventChannel>(
@@ -135,4 +137,6 @@ export const ipc = {
     window.api.createRivenAuction(...args),
   onHelperDownloadProgress: (callback: (progress: IpcEventMap["helper-download-progress"]) => void) =>
     window.api.onHelperDownloadProgress(callback),
+  onTradeRecorded: (callback: (event: IpcEventMap["trade-recorded"]) => void) =>
+    window.api.onTradeRecorded(callback),
 } as const;

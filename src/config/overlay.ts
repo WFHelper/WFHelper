@@ -25,4 +25,6 @@ export const OVERLAY_DEFAULTS: OverlaySettings = Object.freeze({
   cycleAlerts: { earth: false, cetus: false, vallis: false, cambion: false },
   fissureAlerts: [],
   wfmNotificationsEnabled: false,
+  autoCloseWfmOrders: true,
+  showTradeNotification: true,
 });

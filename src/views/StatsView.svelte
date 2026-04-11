@@ -35,6 +35,7 @@
   let importError = false;
 
   let unsubInventory: (() => void) | null = null;
+  let unsubTrade: (() => void) | null = null;
 
   onMount(async () => {
     try {
@@ -55,10 +56,26 @@
         session = await ipc.getStatsCurrentSession();
       } catch { /* ignore */ }
     });
+
+    // Live trade push — prepend new trades as they arrive
+    unsubTrade = ipc.onTradeRecorded((data: any) => {
+      if (data?.trade) {
+        // Check if we already have this trade (from initial push before WFM match)
+        const idx = trades.findIndex((t) => t.id === data.trade.id);
+        if (idx >= 0) {
+          // Update in place (e.g., wfmClosed flag added)
+          trades[idx] = data.trade;
+          trades = trades;
+        } else {
+          trades = [data.trade, ...trades];
+        }
+      }
+    });
   });
 
   onDestroy(() => {
     unsubInventory?.();
+    unsubTrade?.();
   });
 
   // ── AlecaFrame import ────────────────────────────────────────────────────────

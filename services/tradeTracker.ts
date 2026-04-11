@@ -19,6 +19,7 @@ const fs = require("node:fs") as typeof import("node:fs");
 const { app } = require("electron") as typeof import("electron");
 const { withScope } = require("./logger") as typeof import("./logger");
 const statsTracker = require("./statsTracker") as typeof import("./statsTracker");
+const wfmCatalog = require("./wfmCatalog") as typeof import("./wfmCatalog");
 
 const log = withScope("tradeTracker");
 
@@ -29,6 +30,8 @@ export interface TradeItem {
   displayName: string;  // last path segment used as fallback display name
   count: number;        // absolute quantity that changed
   direction: "received" | "given";
+  wfmSlug?: string;     // WFM url_name when resolved
+  wfmThumb?: string;    // WFM thumbnail URL when resolved
 }
 
 export interface TradeEvent {
@@ -38,6 +41,7 @@ export interface TradeEvent {
   platChange: number;      // always positive (absolute delta)
   items: TradeItem[];      // items that changed alongside the plat
   partner?: string;        // trading partner username (from EE.log)
+  wfmClosed?: boolean;     // true when a WFM order was auto-closed for this trade
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -97,12 +101,18 @@ export function recordTradeFromLog(parsed: {
 
   const id = `${new Date().toISOString()}-${Math.random().toString(36).slice(2, 6)}`;
 
-  const items: TradeItem[] = parsed.items.map((i) => ({
-    internalName: "",
-    displayName: i.displayName,
-    count: i.count,
-    direction: i.direction,
-  }));
+  const items: TradeItem[] = parsed.items.map((i) => {
+    const catalogItem = wfmCatalog.lookupByName(i.displayName)
+      || wfmCatalog.lookupByName(i.displayName.replace(/ Blueprint$/i, ""));
+    return {
+      internalName: "",
+      displayName: i.displayName,
+      count: i.count,
+      direction: i.direction,
+      ...(catalogItem?.url_name ? { wfmSlug: catalogItem.url_name } : {}),
+      ...(catalogItem?.thumb ? { wfmThumb: catalogItem.thumb } : {}),
+    };
+  });
 
   const event: TradeEvent = {
     id,
@@ -124,6 +134,17 @@ export function recordTradeFromLog(parsed: {
   );
 
   return event;
+}
+
+/**
+ * Mark an existing trade event as having had its WFM order auto-closed.
+ */
+export function markTradeWfmClosed(tradeId: string): void {
+  const trade = _tradeLog.find((t) => t.id === tradeId);
+  if (trade) {
+    trade.wfmClosed = true;
+    _saveLog();
+  }
 }
 
 /**

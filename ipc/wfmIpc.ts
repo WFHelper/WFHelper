@@ -3,6 +3,7 @@ import {
   errorCode,
   errorStatus,
   normalizeErrorMessage,
+  parseCloseOrderPayload,
   parseContractsPayload,
   parseCreateOrderParams,
   parseCredentials,
@@ -192,6 +193,23 @@ function register(): void {
     }
   });
 
+  handleMainRenderer("wfm:close-order", async (_event, payload) => {
+    const parsed = parseCloseOrderPayload(payload);
+    if (!parsed) {
+      log.warn("[Security] wfm:close-order blocked due to invalid payload");
+      return { error: "Invalid close-order payload." };
+    }
+
+    try {
+      return await wfmOrders.closeOrder(parsed.orderId, parsed.quantity);
+    } catch (err) {
+      if (errorCode(err) === "WFM_UNAUTHORIZED") {
+        void wfmSession.signOut();
+      }
+      return { error: normalizeErrorMessage(err, "Failed to close order.") };
+    }
+  });
+
   handleMainRenderer("wfm:set-visible", async (_event, payload) => {
     const parsed = parseSetVisiblePayload(payload);
     if (!parsed) {
@@ -295,6 +313,7 @@ const testExports = {
   parseSearchPayload,
   parseStatusPayload,
   parseContractsPayload,
+  parseCloseOrderPayload,
   normalizeErrorMessage,
 };
 

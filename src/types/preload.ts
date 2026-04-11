@@ -53,6 +53,9 @@ export interface PreloadAPI {
   onWfmNotification: (
     callback: (notification: IpcEventMap["wfm:notification"]) => void,
   ) => () => void;
+  onTradeRecorded: (
+    callback: (data: IpcEventMap["trade-recorded"]) => void,
+  ) => () => void;
   minimizeWindow: () => void;
   maximizeWindow: () => void;
   closeWindow: () => void;

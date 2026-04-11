@@ -55,8 +55,10 @@ const snapshotCacheIpc = fromAppRoot("ipc/snapshotCacheIpc") as typeof import(".
 const rankedHotsetIpc = fromAppRoot("ipc/rankedHotsetIpc") as typeof import("./ipc/rankedHotsetIpc");
 const statsIpc = fromAppRoot("ipc/statsIpc") as typeof import("./ipc/statsIpc");
 const rivensIpc = fromAppRoot("ipc/rivensIpc") as typeof import("./ipc/rivensIpc");
+const tradeNotificationIpc = fromAppRoot("ipc/tradeNotificationIpc") as typeof import("./ipc/tradeNotificationIpc");
 const statsTracker = fromAppRoot("services/statsTracker") as typeof import("./services/statsTracker");
 const tradeTracker = fromAppRoot("services/tradeTracker") as typeof import("./services/tradeTracker");
+const tradeWfmMatcher = fromAppRoot("services/tradeWfmMatcher") as typeof import("./services/tradeWfmMatcher");
 const apiHelperRunner = fromAppRoot("services/apiHelperRunner") as typeof import("./services/apiHelperRunner");
 
 // Suppress noisy Chromium/DevTools internal logging in terminal.
@@ -180,6 +182,7 @@ app.whenReady().then(async () => {
   rankedHotsetIpc.register();
   statsIpc.register();
   rivensIpc.register();
+  tradeNotificationIpc.register();
 
   // Helper runner IPC
   const ipcSecurityMod = fromAppRoot("ipc/ipcSecurity");
@@ -278,7 +281,47 @@ app.whenReady().then(async () => {
     onRewardTrigger: () => overlayIpc.onRelicRewardTrigger("eelog"),
     onRelicSelectionOpen: () => overlayIpc.onRelicSelectionTrigger("eelog"),
     onRelicSelectionClose: () => overlayIpc.onRelicSelectionClose(),
-    onTradeConfirmed: (trade: any) => tradeTracker.recordTradeFromLog(trade),
+    onTradeConfirmed: (trade: any) => {
+      const event = tradeTracker.recordTradeFromLog(trade);
+      if (!event) return;
+
+      // Push trade to renderer in real-time
+      const win = ctx.mainWindow;
+      if (win && !win.isDestroyed()) {
+        win.webContents.send("trade-recorded", { trade: event, wfmMatch: null });
+      }
+
+      // Attempt WFM auto-close (async, fire-and-forget)
+      const settings = ctx.overlaySettings as Record<string, unknown>;
+      if (settings?.autoCloseWfmOrders === false) return;
+
+      void (async () => {
+        try {
+          const match = await tradeWfmMatcher.matchTradeToOrder(trade);
+          if (!match) return;
+
+          const closed = await tradeWfmMatcher.closeMatchedOrder(match);
+          if (!closed) return;
+
+          tradeTracker.markTradeWfmClosed(event.id);
+
+          // Update renderer with the WFM match info
+          if (win && !win.isDestroyed()) {
+            win.webContents.send("trade-recorded", {
+              trade: { ...event, wfmClosed: true },
+              wfmMatch: match,
+            });
+          }
+
+          // Show trade notification overlay (if enabled)
+          if (settings?.showTradeNotification !== false) {
+            tradeNotificationIpc.showTradeNotification(match);
+          }
+        } catch (err) {
+          log.warn("[Trade] Auto-close error:", String(err));
+        }
+      })();
+    },
     onRivenSessionOpen: () => overlayIpc.onRivenSessionOpen(),
     onRivenSessionClose: () => overlayIpc.onRivenSessionClose(),
     onRivenRollPending: (weapon: string, cost: number) =>

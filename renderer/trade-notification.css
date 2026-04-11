@@ -1,0 +1,144 @@
+/* Trade Notification Overlay – small toast-style popup */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: transparent;
+  overflow: hidden;
+  font-family: "Barlow", "Segoe UI", sans-serif;
+  -webkit-app-region: no-drag;
+  user-select: none;
+}
+
+#notification {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(15, 20, 32, 0.92);
+  border: 1px solid rgba(212, 168, 67, 0.4);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  max-width: 360px;
+}
+
+#notification.hidden {
+  opacity: 0;
+  transform: translateX(20px);
+  pointer-events: none;
+}
+
+#notification.fade-out {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+/* Icon */
+#icon-area {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#item-thumb {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+}
+
+#item-thumb[src=""],
+#item-thumb:not([src]) {
+  display: none;
+}
+
+/* Info area */
+#info-area {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+#top-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#trade-label {
+  font-family: "Rajdhani", sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(212, 168, 67, 0.9);
+}
+
+#trade-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+#trade-badge.sale {
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+#trade-badge.purchase {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+}
+
+#item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e8e0d0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#bottom-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+#plat-amount {
+  font-weight: 700;
+}
+
+#plat-amount.positive {
+  color: #4ade80;
+}
+
+#plat-amount.negative {
+  color: #60a5fa;
+}
+
+#partner-name {
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -15,7 +15,7 @@ const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
 import { requestV2 } from "./wfmClient";
 import { getInGameName } from "./wfmSession";
 import * as wfmCatalog from "./wfmCatalog";
-import type { WfmRawOrder, WfmRawOrderItem, WfmOrderMutationData } from "./wfmTypes";
+import type { WfmRawOrder, WfmRawOrderItem, WfmOrderMutationData, WfmCloseOrderResult } from "./wfmTypes";
 import { unwrapWfmResponse } from "./wfmTypes";
 
 const { WFM_ASSET_BASE: WFM_THUMB_BASE } = require("../config/shared/wfm.cjs") as {
@@ -203,6 +203,30 @@ export async function deleteOrder(orderId: string): Promise<{ deleted: boolean; 
   // v2: DELETE /order/{id}
   await requestV2("DELETE", `/order/${encodeURIComponent(orderId)}`);
   return { deleted: true, id: orderId };
+}
+
+/**
+ * Close (mark as sold/bought) an order by decrementing its quantity.
+ * Uses `POST /v2/order/{id}/close` with `{ quantity }`.
+ * When the remaining quantity reaches 0, WFM removes the listing automatically.
+ */
+export async function closeOrder(
+  orderId: string,
+  quantity: number,
+): Promise<WfmCloseOrderResult> {
+  if (!orderId) throw new Error("closeOrder: orderId is required.");
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    throw new Error("closeOrder: quantity must be a positive integer.");
+  }
+
+  log.log(`[WFMOrders] → POST /v2/order/${orderId}/close  qty=${quantity}`);
+  await requestV2("POST", `/order/${encodeURIComponent(orderId)}/close`, {
+    json: { quantity },
+  });
+
+  // The API does not return the remaining quantity, so we report 0 as unknown.
+  // Callers should re-fetch orders to get the updated state.
+  return { closed: true, id: orderId, remainingQuantity: 0 };
 }
 
 export async function setOrdersVisible(

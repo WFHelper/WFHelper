@@ -16,6 +16,8 @@ const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   cycleAlerts: Object.freeze({ earth: false, cetus: false, vallis: false, cambion: false }),
   fissureAlerts: Object.freeze([]),
   wfmNotificationsEnabled: false,
+  autoCloseWfmOrders: true,
+  showTradeNotification: true,
 });
 
 const OVERLAY_SETTINGS_LIMITS = Object.freeze({

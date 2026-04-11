@@ -46,6 +46,8 @@ export interface OverlaySettings {
   cycleAlerts: CycleAlerts;
   fissureAlerts: FissureAlert[];
   wfmNotificationsEnabled: boolean;
+  autoCloseWfmOrders: boolean;
+  showTradeNotification: boolean;
 }
 
 export type AppUpdateStatus =
@@ -396,6 +398,8 @@ export interface TradeItem {
   displayName: string;
   count: number;
   direction: "received" | "given";
+  wfmSlug?: string;
+  wfmThumb?: string;
 }
 
 export interface TradeEvent {
@@ -405,6 +409,7 @@ export interface TradeEvent {
   platChange: number;              // always positive
   items: TradeItem[];
   partner?: string;                // trading partner username (best-effort from EE.log)
+  wfmClosed?: boolean;             // true when a WFM order was auto-closed for this trade
 }
 
 export interface WfmNotification {
@@ -418,11 +423,28 @@ export interface WfmNotification {
 import type { DailyStatEntry, SessionStats } from "../../config/shared/statsTypes.js";
 export type { DailyStatEntry, SessionStats };
 
+export interface WfmTradeMatchEvent {
+  orderId: string;
+  itemName: string;
+  itemUrlName: string | null;
+  itemThumb: string | null;
+  quantity: number;
+  platinum: number;
+  partner: string;
+  type: "sale" | "purchase";
+}
+
+export interface TradeRecordedEvent {
+  trade: TradeEvent;
+  wfmMatch: WfmTradeMatchEvent | null;
+}
+
 export interface IpcEventMap {
   "inventory-updated": RawInventoryData;
   "app-update-status": AppUpdateState;
   "wfm:notification": WfmNotification;
   "helper-download-progress": HelperDownloadProgress;
+  "trade-recorded": TradeRecordedEvent;
 }
 
 export interface IpcSendMap {

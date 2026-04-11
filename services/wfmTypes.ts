@@ -79,6 +79,13 @@ export interface WfmOrderMutationData {
   [key: string]: unknown;
 }
 
+/** v2 order close response: `POST /v2/order/{id}/close` */
+export interface WfmCloseOrderResult {
+  closed: boolean;
+  id: string;
+  remainingQuantity: number;
+}
+
 // ── Envelope unwrapper ───────────────────────────────────────────────────────
 
 /** The two envelope shapes WFM uses. */

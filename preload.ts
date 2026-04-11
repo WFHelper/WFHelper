@@ -57,6 +57,14 @@ contextBridge.exposeInMainWorld("api", {
     };
   },
 
+  onTradeRecorded: (callback: (data: unknown) => void) => {
+    const listener = (_event: unknown, data: unknown) => callback(data);
+    ipcRenderer.on("trade-recorded", listener);
+    return () => {
+      ipcRenderer.removeListener("trade-recorded", listener);
+    };
+  },
+
   minimizeWindow: () => ipcRenderer.send("window-minimize"),
   maximizeWindow: () => ipcRenderer.send("window-maximize"),
   closeWindow: () => ipcRenderer.send("window-close"),

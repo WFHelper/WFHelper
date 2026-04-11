@@ -46,6 +46,7 @@ export type ParsedUpdateOrderPayload = {
   };
 };
 export type ParsedDeleteOrderPayload = { orderId: string };
+export type ParsedCloseOrderPayload = { orderId: string; quantity: number };
 export type ParsedSetVisiblePayload = { orderIds: string[]; visible: boolean };
 export type ParsedSearchPayload = { query: string; limit: number };
 export type ParsedStatusPayload = { status: string };
@@ -166,6 +167,15 @@ function parseDeleteOrderPayload(payload: unknown): ParsedDeleteOrderPayload | n
   return { orderId };
 }
 
+function parseCloseOrderPayload(payload: unknown): ParsedCloseOrderPayload | null {
+  if (!isObject(payload)) return null;
+  const orderId = toTrimmedString(payload.orderId, 64);
+  if (!orderId || !WFM_ID_RE.test(orderId)) return null;
+  const quantity = toClampedInteger(payload.quantity, 1, MAX_QUANTITY);
+  if (quantity == null) return null;
+  return { orderId, quantity };
+}
+
 function parseSetVisiblePayload(payload: unknown): ParsedSetVisiblePayload | null {
   if (!isObject(payload)) return null;
   if (typeof payload.visible !== "boolean") return null;
@@ -241,6 +251,7 @@ export {
   parseCreateOrderParams,
   parseUpdateOrderPayload,
   parseDeleteOrderPayload,
+  parseCloseOrderPayload,
   parseSetVisiblePayload,
   parseSearchPayload,
   parseStatusPayload,

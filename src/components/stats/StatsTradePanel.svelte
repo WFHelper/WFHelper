@@ -2,6 +2,8 @@
   import { tr } from "../../lib/i18n.js";
   import type { TradeEvent } from "../../types/ipc.js";
 
+  const WFM_ASSET_BASE = "https://warframe.market/static/assets/";
+
   export let trades: TradeEvent[] = [];
 
   type TradeFilter = "all" | "sale" | "purchase";
@@ -26,6 +28,11 @@
     const da = d.getDate();
     const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
     return `${mo}/${da}  ${time}`;
+  }
+
+  function thumbUrl(thumb: string | undefined | null): string | null {
+    if (!thumb) return null;
+    return thumb.startsWith("http") ? thumb : WFM_ASSET_BASE + thumb;
   }
 </script>
 
@@ -74,11 +81,14 @@
     {:else}
       <div class="trade-grid">
         {#each filteredTrades as trade (trade.id)}
-          <div class="trade-card">
+          <div class="trade-card" class:trade-card--wfm={trade.wfmClosed}>
             <div class="trade-card-top">
               <span class="trade-badge trade-badge--{trade.type}">
                 {trade.type === "sale" ? "Sale" : "Purchase"}
               </span>
+              {#if trade.wfmClosed}
+                <span class="trade-wfm-badge" title="WFM order auto-closed">WFM</span>
+              {/if}
               <span class="trade-plat {trade.type === 'sale' ? 'delta-positive' : 'delta-negative'}">
                 {trade.type === "sale" ? "+" : "−"}{trade.platChange}
                 <span class="plat-icon">p</span>
@@ -92,6 +102,9 @@
               <div class="trade-items">
                 {#each trade.items as item}
                   <span class="trade-item" class:item-received={item.direction === "received"} class:item-given={item.direction === "given"}>
+                    {#if item.wfmThumb}
+                      <img class="trade-item-thumb" src={thumbUrl(item.wfmThumb)} alt="" />
+                    {/if}
                     <span class="trade-item-dir">{item.direction === "received" ? "↓" : "↑"}</span>
                     {item.count > 1 ? `${item.count}×` : ""}{item.displayName}
                   </span>
@@ -335,4 +348,31 @@
   }
   .item-received .trade-item-dir { color: var(--success, #4ade80); }
   .item-given    .trade-item-dir { color: var(--danger, #f87171); }
+
+  /* WFM auto-closed badge */
+  .trade-wfm-badge {
+    font-size: 0.55rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: rgba(212, 168, 67, 0.15);
+    color: var(--accent, #d4a843);
+    border: 1px solid rgba(212, 168, 67, 0.3);
+    flex-shrink: 0;
+  }
+
+  .trade-card--wfm {
+    border-color: rgba(212, 168, 67, 0.2);
+  }
+
+  /* Item thumbnails */
+  .trade-item-thumb {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    flex-shrink: 0;
+    border-radius: 2px;
+  }
 </style>
