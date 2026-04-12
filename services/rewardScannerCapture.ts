@@ -185,8 +185,10 @@ interface CaptureOptions {
   preferScreenCapture?: boolean;
 }
 
+import type { NativeImage } from "electron";
+
 export interface CaptureResult {
-  image: any;
+  image: NativeImage;
   sourceType: "window" | "screen";
   sourceName: string;
   sourceId: string;

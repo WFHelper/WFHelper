@@ -28,7 +28,7 @@ export const CONSENSUS_TUNING: Readonly<{
   confidenceDecimals: 3,
 });
 
-export function normalizeOcrToken(token: any): string {
+export function normalizeOcrToken(token: unknown): string {
   return String(token || "")
     .toUpperCase()
     .replace(/[1|!]/g, "I")
@@ -38,7 +38,7 @@ export function normalizeOcrToken(token: any): string {
     .trim();
 }
 
-export function norm(text: any): string {
+export function norm(text: unknown): string {
   return String(text || "")
     .toLowerCase()
     .replace(/\s+/g, " ")
@@ -54,9 +54,9 @@ export function buildWordSet(text: string): Set<string> {
   );
 }
 
-interface SortedItem {
+export interface SortedItem {
   name: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface MatchEntry {
@@ -448,12 +448,15 @@ export function detectRelicEraFromTileLabelText(text: string): {
   };
 }
 
-interface PassResult {
+export interface PassResult {
   items: Array<SortedItem & { confidence: number }>;
   score: number;
   matches: MatchEntry[];
   exactCount: number;
-  [key: string]: any;
+  passIndex?: number;
+  band?: { top: number; height: number };
+  text?: string;
+  ocrVariant?: string;
 }
 
 interface ConsensusResult {

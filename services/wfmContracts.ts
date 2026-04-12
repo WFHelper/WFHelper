@@ -58,7 +58,7 @@ interface PageInfo {
 }
 
 interface ExtractedContracts extends PageInfo {
-  rows: any[];
+  rows: Record<string, unknown>[];
 }
 
 interface EndpointCandidate {
@@ -69,13 +69,13 @@ interface EndpointCandidate {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function toNonEmptyString(value: any): string | null {
+function toNonEmptyString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function normalizeAssetUrl(value: any): string | null {
+function normalizeAssetUrl(value: unknown): string | null {
   const p = toNonEmptyString(value);
   if (!p) return null;
   return p.startsWith("http") ? p : `${WFM_THUMB_BASE}${p}`;
@@ -87,29 +87,30 @@ function titleFromSlug(slug: string): string {
     .replace(/\b[a-z]/g, (m) => m.toUpperCase());
 }
 
-function normalizeAttribute(rawAttribute: any): NormalisedAttribute | null {
+function normalizeAttribute(rawAttribute: unknown): NormalisedAttribute | null {
   if (!rawAttribute || typeof rawAttribute !== "object") return null;
+  const attr = rawAttribute as Record<string, unknown>;
 
   const urlName =
-    toNonEmptyString(rawAttribute.url_name) ||
-    toNonEmptyString(rawAttribute.urlName) ||
-    toNonEmptyString(rawAttribute.name) ||
+    toNonEmptyString(attr.url_name) ||
+    toNonEmptyString(attr.urlName) ||
+    toNonEmptyString(attr.name) ||
     "unknown";
 
   const label =
-    toNonEmptyString(rawAttribute.display_name) ||
-    toNonEmptyString(rawAttribute.displayName) ||
+    toNonEmptyString(attr.display_name) ||
+    toNonEmptyString(attr.displayName) ||
     titleFromSlug(urlName);
 
-  const numericValue = toFiniteNumber(rawAttribute.value);
+  const numericValue = toFiniteNumber(attr.value);
   const value: number | string | null =
-    numericValue != null ? numericValue : toNonEmptyString(rawAttribute.value);
+    numericValue != null ? numericValue : toNonEmptyString(attr.value);
 
   const positive: boolean | null =
-    typeof rawAttribute.positive === "boolean"
-      ? rawAttribute.positive
-      : typeof rawAttribute.is_positive === "boolean"
-        ? rawAttribute.is_positive
+    typeof attr.positive === "boolean"
+      ? attr.positive
+      : typeof attr.is_positive === "boolean"
+        ? attr.is_positive
         : null;
 
   return {
@@ -120,65 +121,70 @@ function normalizeAttribute(rawAttribute: any): NormalisedAttribute | null {
   };
 }
 
-function toIsoTimestamp(value: any): string | null {
+function toIsoTimestamp(value: unknown): string | null {
   const s = toNonEmptyString(value);
   if (!s) return null;
   const parsed = Date.parse(s);
   return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
 }
 
-function normalizeContract(raw: any): NormalisedContract | null {
+function normalizeContract(raw: unknown): NormalisedContract | null {
   if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
 
-  const item = raw.item && typeof raw.item === "object" ? raw.item : {};
-  const itemSlug = toNonEmptyString(item.url_name) || toNonEmptyString(raw.item_url_name);
+  const item = (r.item && typeof r.item === "object" ? r.item : {}) as Record<string, unknown>;
+  const i18nEn = ((item.i18n as Record<string, unknown> | undefined)?.en ?? {}) as Record<
+    string,
+    unknown
+  >;
+  const itemSlug = toNonEmptyString(item.url_name) || toNonEmptyString(r.item_url_name);
   const weaponSlug =
     toNonEmptyString(item.weapon_url_name) ||
     toNonEmptyString(item.weaponUrlName) ||
-    toNonEmptyString(raw.weapon_url_name) ||
-    toNonEmptyString(raw.weaponUrlName);
+    toNonEmptyString(r.weapon_url_name) ||
+    toNonEmptyString(r.weaponUrlName);
 
   const itemName =
-    toNonEmptyString(item?.i18n?.en?.item_name) ||
-    toNonEmptyString(item?.i18n?.en?.itemName) ||
+    toNonEmptyString(i18nEn.item_name) ||
+    toNonEmptyString(i18nEn.itemName) ||
     toNonEmptyString(item.item_name) ||
     toNonEmptyString(item.itemName) ||
     toNonEmptyString(item.weapon_name) ||
     toNonEmptyString(item.weaponName) ||
-    toNonEmptyString(raw.item_name) ||
-    toNonEmptyString(raw.itemName) ||
+    toNonEmptyString(r.item_name) ||
+    toNonEmptyString(r.itemName) ||
     (weaponSlug ? `${titleFromSlug(weaponSlug)} Riven` : "Riven Contract");
 
   const itemThumb = normalizeAssetUrl(
-    item.thumb || item.icon || item.image || raw.thumb || raw.icon || null,
+    item.thumb || item.icon || item.image || r.thumb || r.icon || null,
   );
 
-  const buyoutPlatinum = toFiniteNumber(raw.buyout_price ?? raw.buyoutPrice);
-  const startingPlatinum = toFiniteNumber(raw.starting_price ?? raw.startingPrice);
+  const buyoutPlatinum = toFiniteNumber(r.buyout_price ?? r.buyoutPrice);
+  const startingPlatinum = toFiniteNumber(r.starting_price ?? r.startingPrice);
   const listedPrice =
-    toFiniteNumber(raw.platinum) ??
-    toFiniteNumber(raw.price) ??
+    toFiniteNumber(r.platinum) ??
+    toFiniteNumber(r.price) ??
     buyoutPlatinum ??
     startingPlatinum ??
     0;
 
   const attributesRaw = Array.isArray(item.attributes)
     ? item.attributes
-    : Array.isArray(raw.attributes)
-      ? raw.attributes
+    : Array.isArray(r.attributes)
+      ? r.attributes
       : [];
 
   const id =
-    toNonEmptyString(raw.id) ||
-    toNonEmptyString(raw._id) ||
-    toNonEmptyString(raw.contract_id) ||
-    toNonEmptyString(raw.contractId);
+    toNonEmptyString(r.id) ||
+    toNonEmptyString(r._id) ||
+    toNonEmptyString(r.contract_id) ||
+    toNonEmptyString(r.contractId);
 
   if (!id) return null;
 
   const directSell =
-    raw.is_direct_sell === true ||
-    raw.isDirectSell === true ||
+    r.is_direct_sell === true ||
+    r.isDirectSell === true ||
     (buyoutPlatinum != null &&
       buyoutPlatinum > 0 &&
       (startingPlatinum == null || startingPlatinum <= 0));
@@ -186,7 +192,7 @@ function normalizeContract(raw: any): NormalisedContract | null {
   return {
     id,
     itemName: itemName || "Riven Contract",
-    itemId: toNonEmptyString(item.id) || toNonEmptyString(raw.itemId) || null,
+    itemId: toNonEmptyString(item.id) || toNonEmptyString(r.itemId) || null,
     itemUrlName: itemSlug || weaponSlug || null,
     weaponUrlName: weaponSlug || null,
     itemThumb,
@@ -195,55 +201,56 @@ function normalizeContract(raw: any): NormalisedContract | null {
       buyoutPlatinum != null ? Math.max(0, Math.round(Math.abs(buyoutPlatinum))) : null,
     startingPlatinum:
       startingPlatinum != null ? Math.max(0, Math.round(Math.abs(startingPlatinum))) : null,
-    quantity: Math.max(1, Math.round(Math.abs(toFiniteNumber(raw.quantity) ?? 1))),
-    visible: raw.visible !== false,
-    modRank: toFiniteNumber(item.mod_rank ?? item.rank ?? raw.mod_rank ?? raw.rank),
-    rerolls: toFiniteNumber(item.re_rolls ?? item.reRolls ?? raw.re_rolls ?? raw.reRolls),
+    quantity: Math.max(1, Math.round(Math.abs(toFiniteNumber(r.quantity) ?? 1))),
+    visible: r.visible !== false,
+    modRank: toFiniteNumber(item.mod_rank ?? item.rank ?? r.mod_rank ?? r.rank),
+    rerolls: toFiniteNumber(item.re_rolls ?? item.reRolls ?? r.re_rolls ?? r.reRolls),
     masteryLevel: toFiniteNumber(
-      item.mastery_level ?? item.masteryLevel ?? raw.mastery_level ?? raw.masteryLevel,
+      item.mastery_level ?? item.masteryLevel ?? r.mastery_level ?? r.masteryLevel,
     ),
     polarity:
       toNonEmptyString(item.polarity) ||
-      toNonEmptyString(raw.polarity) ||
+      toNonEmptyString(r.polarity) ||
       toNonEmptyString(item.mod_polarity) ||
       null,
     isDirectSell: directSell,
-    listedAt: toIsoTimestamp(raw.created_at ?? raw.createdAt),
-    updatedAt: toIsoTimestamp(raw.updated_at ?? raw.updatedAt),
-    note: toNonEmptyString(raw.note) || null,
+    listedAt: toIsoTimestamp(r.created_at ?? r.createdAt),
+    updatedAt: toIsoTimestamp(r.updated_at ?? r.updatedAt),
+    note: toNonEmptyString(r.note) || null,
     stats: (attributesRaw.map(normalizeAttribute).filter(Boolean) as NormalisedAttribute[]),
     listingUrl: `https://warframe.market/auctions/${encodeURIComponent(id)}`,
     sourceType:
-      toNonEmptyString(raw.type) ||
-      toNonEmptyString(raw.contract_type) ||
-      toNonEmptyString(raw.contractType) ||
+      toNonEmptyString(r.type) ||
+      toNonEmptyString(r.contract_type) ||
+      toNonEmptyString(r.contractType) ||
       null,
   };
 }
 
-function parsePageInfo(container: any): PageInfo {
+function parsePageInfo(container: unknown): PageInfo {
   if (!container || typeof container !== "object") {
     return { page: DEFAULT_PAGE, totalPages: null, hasMore: false };
   }
+  const c = container as Record<string, unknown>;
 
   const page =
-    toFiniteNumber(container.page) ||
-    toFiniteNumber(container.current_page) ||
-    toFiniteNumber(container.currentPage) ||
+    toFiniteNumber(c.page) ||
+    toFiniteNumber(c.current_page) ||
+    toFiniteNumber(c.currentPage) ||
     DEFAULT_PAGE;
 
   const totalPages =
-    toFiniteNumber(container.total_pages) ||
-    toFiniteNumber(container.totalPages) ||
-    toFiniteNumber(container.last_page) ||
-    toFiniteNumber(container.lastPage) ||
+    toFiniteNumber(c.total_pages) ||
+    toFiniteNumber(c.totalPages) ||
+    toFiniteNumber(c.last_page) ||
+    toFiniteNumber(c.lastPage) ||
     null;
 
   const hasMore =
-    typeof container.has_more === "boolean"
-      ? container.has_more
-      : typeof container.hasMore === "boolean"
-        ? container.hasMore
+    typeof c.has_more === "boolean"
+      ? c.has_more
+      : typeof c.hasMore === "boolean"
+        ? c.hasMore
         : totalPages != null
           ? (page ?? DEFAULT_PAGE) < (totalPages ?? 0)
           : false;
@@ -251,28 +258,30 @@ function parsePageInfo(container: any): PageInfo {
   return { page: page ?? DEFAULT_PAGE, totalPages, hasMore };
 }
 
-function extractContracts(data: any): ExtractedContracts {
-  const root = data?.data ?? data?.payload ?? data;
+function extractContracts(data: unknown): ExtractedContracts {
+  const d = data as Record<string, unknown> | null;
+  const root = (d?.data ?? d?.payload ?? d) as Record<string, unknown> | null;
   const candidates = [root, root?.data, root?.payload].filter(Boolean);
 
   for (const candidate of candidates) {
     if (Array.isArray(candidate)) {
-      return { rows: candidate, ...parsePageInfo(root) };
+      return { rows: candidate as Record<string, unknown>[], ...parsePageInfo(root) };
     }
 
     if (!candidate || typeof candidate !== "object") continue;
+    const c = candidate as Record<string, unknown>;
 
-    if (Array.isArray(candidate.contracts)) {
-      return { rows: candidate.contracts, ...parsePageInfo(candidate) };
+    if (Array.isArray(c.contracts)) {
+      return { rows: c.contracts as Record<string, unknown>[], ...parsePageInfo(c) };
     }
-    if (Array.isArray(candidate.auctions)) {
-      return { rows: candidate.auctions, ...parsePageInfo(candidate) };
+    if (Array.isArray(c.auctions)) {
+      return { rows: c.auctions as Record<string, unknown>[], ...parsePageInfo(c) };
     }
-    if (Array.isArray(candidate.items)) {
-      return { rows: candidate.items, ...parsePageInfo(candidate) };
+    if (Array.isArray(c.items)) {
+      return { rows: c.items as Record<string, unknown>[], ...parsePageInfo(c) };
     }
-    if (Array.isArray(candidate.results)) {
-      return { rows: candidate.results, ...parsePageInfo(candidate) };
+    if (Array.isArray(c.results)) {
+      return { rows: c.results as Record<string, unknown>[], ...parsePageInfo(c) };
     }
   }
 
@@ -341,16 +350,16 @@ function endpointCandidates(
   return candidates;
 }
 
-async function invokeCandidate(candidate: EndpointCandidate): Promise<any> {
+async function invokeCandidate(candidate: EndpointCandidate): Promise<unknown> {
   if (candidate.api === "v2") {
     return requestV2("GET", candidate.path);
   }
   return request("GET", candidate.path);
 }
 
-function isSkippableError(err: any): boolean {
+function isSkippableError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
-  const status = Number(err.status);
+  const status = Number((err as Record<string, unknown>).status);
   return SKIPPABLE_HTTP_STATUSES.has(status);
 }
 
@@ -384,7 +393,7 @@ export async function getMyContracts({
     });
   }
 
-  let lastError: any = null;
+  let lastError: unknown = null;
 
   for (const candidate of candidates) {
     try {
@@ -399,14 +408,14 @@ export async function getMyContracts({
         totalPages: extracted.totalPages,
         hasMore: extracted.hasMore,
       };
-    } catch (err: any) {
-      if (err && typeof err === "object" && err.code === "WFM_UNAUTHORIZED") {
+    } catch (err: unknown) {
+      if (err && typeof err === "object" && (err as Record<string, unknown>).code === "WFM_UNAUTHORIZED") {
         throw err;
       }
 
       if (isSkippableError(err)) {
         log.log(
-          `[WFMContracts] ${candidate.api.toUpperCase()} ${candidate.path} unavailable (${err.status})`,
+          `[WFMContracts] ${candidate.api.toUpperCase()} ${candidate.path} unavailable (${(err as Record<string, unknown>).status})`,
         );
         if (_resolvedEndpointName === candidate.name) {
           _resolvedEndpointName = null;

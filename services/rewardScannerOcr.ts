@@ -22,7 +22,7 @@ function timeoutWrap<T>(promise: Promise<T>, timeoutMs: number, label: string): 
 }
 
 interface OcrRunnerOptions {
-  log?: { warn?: (...args: any[]) => void };
+  log?: { warn?: (...args: unknown[]) => void };
   getRequestedEngine?: () => string;
   ocrScriptPath?: string;
   tesseractLanguage?: string;
@@ -177,7 +177,7 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
     }
 
     // Fall back to per-call recognize() if the persistent worker is unavailable
-    let tesseract: any;
+    let tesseract: { recognize: (image: string | Buffer, lang: string, opts: Record<string, unknown>) => Promise<{ data: { text: string } }> };
     try {
       tesseract = require("tesseract.js");
     } catch (error) {
@@ -190,8 +190,8 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
       tessedit_pageseg_mode: "6",
     });
 
-    const result = await timeoutWrap(recognizePromise, timeoutMs, "Tesseract OCR");
-    return (result as any)?.data?.text || "";
+    const result = await timeoutWrap(recognizePromise, timeoutMs, "Tesseract OCR") as { data?: { text?: string } };
+    return result?.data?.text || "";
   }
 
   async function runOCR(imagePath: string, timeoutMs: number): Promise<string> {

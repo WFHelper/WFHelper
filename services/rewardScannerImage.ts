@@ -4,6 +4,7 @@
  */
 
 import { withScope } from "./logger";
+import type { NativeImage } from "electron";
 import { clampNumber, clamp01, computeMeanAndStd, luminanceFromBgr } from "./rewardScannerUtils";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
@@ -24,7 +25,7 @@ const BAR_LUMA_THRESHOLD = 12; // pixel considered "black bar" if luma ≤ this
 const BAR_SAMPLE_COUNT = 32;   // number of samples per row/col test
 const BAR_BLACK_RATIO = 0.85;  // fraction of samples that must be black
 
-export function detectGameContentRect(nativeImage: any): GameContentRect {
+export function detectGameContentRect(nativeImage: NativeImage): GameContentRect {
   const { width, height } = nativeImage.getSize();
   if (width < 120 || height < 80) return { x: 0, y: 0, width, height };
 
@@ -107,7 +108,7 @@ interface Rect {
   height?: number;
 }
 
-export function cropRewardBand(nativeImage: any, band: Band | null | undefined): any {
+export function cropRewardBand(nativeImage: NativeImage, band: Band | null | undefined): NativeImage {
   const { width, height } = nativeImage.getSize();
   const topRatio = clampNumber(band?.top, 0.0, 0.95, 0.38);
   const maxHeightRatio = Math.max(0.05, 1.0 - topRatio);
@@ -117,7 +118,7 @@ export function cropRewardBand(nativeImage: any, band: Band | null | undefined):
   return nativeImage.crop({ x: 0, y: top, width, height: cropHeight });
 }
 
-export function cropBand(nativeImage: any, band: Band | null | undefined): any {
+export function cropBand(nativeImage: NativeImage, band: Band | null | undefined): NativeImage {
   const { width, height } = nativeImage.getSize();
   const topRatio = clampNumber(band?.top, 0.0, 0.95, 0.16);
   const maxHeightRatio = Math.max(0.04, 1.0 - topRatio);
@@ -127,7 +128,7 @@ export function cropBand(nativeImage: any, band: Band | null | undefined): any {
   return nativeImage.crop({ x: 0, y: top, width, height: cropHeight });
 }
 
-export function cropRect(nativeImage: any, rect: Rect | null | undefined): any {
+export function cropRect(nativeImage: NativeImage, rect: Rect | null | undefined): NativeImage {
   const { width, height } = nativeImage.getSize();
   const xRatio = clampNumber(rect?.x, 0.0, 0.98, 0);
   const yRatio = clampNumber(rect?.y, 0.0, 0.98, 0);
@@ -150,10 +151,10 @@ export function cropRect(nativeImage: any, rect: Rect | null | undefined): any {
  * displays, contentRect matches the full frame = zero overhead.
  */
 export function cropRectContent(
-  nativeImage: any,
+  nativeImage: NativeImage,
   rect: Rect | null | undefined,
   contentRect: GameContentRect,
-): any {
+): NativeImage {
   const xRatio = clampNumber(rect?.x, 0.0, 0.98, 0);
   const yRatio = clampNumber(rect?.y, 0.0, 0.98, 0);
   const maxWidthRatio = Math.max(0.02, 1 - xRatio);
@@ -169,7 +170,7 @@ export function cropRectContent(
   return nativeImage.crop({ x, y, width: cropWidth, height: cropHeight });
 }
 
-export function enhanceForOcr(nativeImage: any): any {
+export function enhanceForOcr(nativeImage: NativeImage): NativeImage {
   const { width, height } = nativeImage.getSize();
   const scaledWidth = Math.min(
     OCR_ENHANCE.maxWidth,
@@ -231,7 +232,7 @@ export function enhanceForOcr(nativeImage: any): any {
 
 interface OcrVariant {
   id: string;
-  image: any;
+  image: NativeImage;
 }
 
 export interface RewardSlotRect {
@@ -319,10 +320,10 @@ function collectRuns(
 }
 
 function computeSlotActivity(
-  nativeImage: any,
+  nativeImage: NativeImage,
   rect: { x: number; y: number; width: number; height: number },
 ): number {
-  let region: any;
+  let region: NativeImage;
   try {
     region = cropRect(nativeImage, rect);
   } catch {
@@ -362,10 +363,10 @@ function computeSlotActivity(
   return Number((brightScore * 0.45 + textureScore * 0.55).toFixed(3));
 }
 
-function detectRewardSquadCount(nativeImage: any): number {
+function detectRewardSquadCount(nativeImage: NativeImage): number {
   let count = 0;
   for (const rect of HEADER_SQUAD_ICON_RECTS) {
-    let region: any;
+    let region: NativeImage;
     try {
       region = cropRect(nativeImage, rect);
     } catch {
@@ -399,7 +400,7 @@ function detectRewardSquadCount(nativeImage: any): number {
   return count;
 }
 
-function detectFixedRewardSlotLayout(nativeImage: any): RewardSlotLayout | null {
+function detectFixedRewardSlotLayout(nativeImage: NativeImage): RewardSlotLayout | null {
   let best: RewardSlotLayout | null = null;
   const squadCount = detectRewardSquadCount(nativeImage);
 
@@ -457,7 +458,7 @@ function detectFixedRewardSlotLayout(nativeImage: any): RewardSlotLayout | null 
   return best && best.confidence >= 0.5 ? best : null;
 }
 
-export function detectRewardSlotLayout(nativeImage: any): RewardSlotLayout {
+export function detectRewardSlotLayout(nativeImage: NativeImage): RewardSlotLayout {
   if (!nativeImage || typeof nativeImage.getSize !== "function") {
     return { count: 0, confidence: 0, slots: [] };
   }
@@ -465,7 +466,7 @@ export function detectRewardSlotLayout(nativeImage: any): RewardSlotLayout {
   const fixedLayout = detectFixedRewardSlotLayout(nativeImage);
   if (fixedLayout) return fixedLayout;
 
-  let region: any;
+  let region: NativeImage;
   try {
     region = cropRect(nativeImage, SLOT_LAYOUT_REGION);
   } catch {
@@ -567,7 +568,7 @@ export function detectRewardSlotLayout(nativeImage: any): RewardSlotLayout {
  * the console is very likely open.  Warframe's chat bar is a near-white
  * semi-transparent overlay, so this is a reliable signal.
  */
-export function detectConsoleOpen(nativeImage: any): boolean {
+export function detectConsoleOpen(nativeImage: NativeImage): boolean {
   if (!nativeImage || typeof nativeImage.getSize !== "function") return false;
 
   const { width, height } = nativeImage.getSize();
@@ -577,7 +578,7 @@ export function detectConsoleOpen(nativeImage: any): boolean {
   const stripHeight = height - stripTop;
   if (stripHeight < 4) return false;
 
-  let strip: any;
+  let strip: NativeImage;
   try {
     strip = nativeImage.crop({ x: 0, y: stripTop, width, height: stripHeight });
   } catch {
@@ -609,7 +610,7 @@ export function detectConsoleOpen(nativeImage: any): boolean {
   return total > 0 && bright / total >= 0.55;
 }
 
-export function buildOcrVariants(nativeImage: any): OcrVariant[] {
+export function buildOcrVariants(nativeImage: NativeImage): OcrVariant[] {
   const variants: OcrVariant[] = [{ id: "raw", image: nativeImage }];
 
   try {

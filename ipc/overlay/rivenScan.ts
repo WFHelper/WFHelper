@@ -38,6 +38,7 @@ export { parseRivenStats };
 export type { RivenStat } from "./rivenScanText";
 
 const log = withScope("rivenScan");
+import type { NativeImage } from "electron";
 
 const MIN_ACCEPTABLE_RIVEN_STATS = 2;
 
@@ -136,7 +137,7 @@ async function retrySparseRivenScan<T>(
 // Sobel edge detection (refineRivenTextCrop) is unreliable with Kuva portal animation.
 const CARD_ASPECT_RATIO = 287 / 433; // ≈ 0.663 (riven card width/height)
 
-function _cropStatAreaForVgb(roughCrop: any): any {
+function _cropStatAreaForVgb(roughCrop: NativeImage): NativeImage {
   const { width: w, height: h } = roughCrop.getSize();
   if (w < 50 || h < 50) return roughCrop;
 
@@ -168,7 +169,7 @@ function _cropStatAreaForVgb(roughCrop: any): any {
 }
 
 async function ocrCropMultiStrategy(
-  image: any,
+  image: NativeImage,
   rect: { x: number; y: number; width: number; height: number },
   label = "",
   _expectedWeaponName = "",
@@ -191,7 +192,7 @@ async function ocrCropMultiStrategy(
     /** Short delay between retries to let the on-screen card fully render. */
     const RETRY_DELAY_MS = 300;
 
-    const sharp: any = require("sharp");
+    const sharp = require("sharp") as typeof import("sharp");
 
     let bestResult: RivenOcrResult | null = null;
     let bestStats: RivenStat[] = [];

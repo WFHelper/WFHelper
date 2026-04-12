@@ -1,3 +1,4 @@
+import type { NativeImage } from "electron";
 import { normalizeErrorMessage } from "../../config/shared/errors";
 
 const SCAN_RETRY_WINDOW_MS = 5_000;
@@ -30,7 +31,7 @@ type OverlayScanControllerOptions = {
     error: (...args: unknown[]) => void;
   };
   rewardScanner: {
-    scanRewardsDetailed: (preCapture?: { image: any; sourceType: string | null; sourceName: string | null; sourceId: string | null; sourceDisplayId: string | null } | null) => Promise<RewardScanResult | null>;
+    scanRewardsDetailed: (preCapture?: { image: NativeImage; sourceType: string | null; sourceName: string | null; sourceId: string | null; sourceDisplayId: string | null } | null) => Promise<RewardScanResult | null>;
     waitForRewardUiReady?: (options: {
       timeoutMs: number;
       pollMs: number;
@@ -41,12 +42,12 @@ type OverlayScanControllerOptions = {
           ready?: boolean;
           elapsedMs?: number;
           attempts?: number;
-          lastScreenshot?: any;
+          lastScreenshot?: unknown;
           best?: {
             sourceDisplayId?: string | null;
-            bandBottomRatio?: number;
+            bandBottomRatio?: number | null;
             score?: number;
-          };
+          } | null;
         }
       | undefined
     >;

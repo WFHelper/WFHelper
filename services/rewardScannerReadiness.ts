@@ -12,7 +12,8 @@ import {
   luminanceFromBgr,
 } from "./rewardScannerUtils";
 import { cropRewardBand, detectRewardSlotLayout } from "./rewardScannerImage";
-import { captureScreenFast } from "./rewardScannerCapture";
+import { captureScreenFast, type CaptureResult } from "./rewardScannerCapture";
+import type { NativeImage } from "electron";
 
 export const UI_READY_DEFAULT_TIMEOUT_MS = 2_200;
 export const UI_READY_DEFAULT_POLL_MS = 120;
@@ -96,7 +97,7 @@ interface ReadinessResult {
 }
 
 export function analyzeRewardBandReadiness(
-  nativeImage: any,
+  nativeImage: NativeImage,
   band: Band | null | undefined,
 ): ReadinessResult {
   if (!nativeImage || typeof nativeImage.getSize !== "function") {
@@ -114,7 +115,7 @@ export function analyzeRewardBandReadiness(
     };
   }
 
-  let cropped: any;
+  let cropped: NativeImage;
   try {
     cropped = cropRewardBand(nativeImage, band);
   } catch {
@@ -265,7 +266,7 @@ interface WaitResult {
   elapsedMs: number;
   threshold: number;
   /** Last screenshot captured during the readiness gate; pass to scanRewardsDetailed as preCapture (F2). */
-  lastScreenshot: any;
+  lastScreenshot: CaptureResult | null;
   best:
     | (ReadinessResult & {
         sourceType: string | null;
@@ -320,7 +321,7 @@ export async function waitForRewardUiReady(
   let attempts = 0;
   let consecutiveHits = 0;
   let best: WaitResult["best"] = null;
-  let lastScreenshot: any = null;
+  let lastScreenshot: CaptureResult | null = null;
 
   while (Date.now() - startedAt < timeoutMs) {
     attempts += 1;
