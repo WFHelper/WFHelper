@@ -5,13 +5,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import * as itemDb from "./itemDatabase";
-const { MAX_ITEM_RANK, XP_PER_RANK } = require("../config/game/constants") as {
-  MAX_ITEM_RANK: number;
-  XP_PER_RANK: number;
-};
-const { toFiniteNumber } = require("../config/shared/numeric.cjs") as {
-  toFiniteNumber: (v: any) => number | null;
-};
+import { MAX_ITEM_RANK, XP_PER_RANK } from "../config/game/constants";
+import { toFiniteNumber } from "../config/shared/numeric";
 
 let debugMode = false;
 

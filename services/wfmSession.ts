@@ -1,11 +1,7 @@
-"use strict";
-
 import path from "path";
 import fs from "fs";
 import { withScope } from "./logger";
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
-  normalizeErrorMessage: (err: any) => string;
-};
+import { normalizeErrorMessage } from "../config/shared/errors";
 
 /**
  * wfmSession.ts — Warframe.market session management (main-process only)
@@ -22,8 +18,7 @@ import {
   clearCsrfToken,
 } from "./wfmClient";
 import { setStatusViaWebSocket } from "./wfmWebSocket";
-
-const { app, safeStorage } = require("electron") as typeof import("electron");
+import { app, safeStorage } from "electron";
 
 const log = withScope("wfmSession");
 

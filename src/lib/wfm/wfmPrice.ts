@@ -7,18 +7,11 @@ import {
   shouldDirectFallback,
   type BackendRequestPriority,
 } from "./backendLite.js";
-import wfmStatsShared from "../../../config/shared/wfmStats.cjs";
-import numericShared from "../../../config/shared/numeric.cjs";
-import wfmExclusionsShared from "../../../config/shared/wfmExclusions.cjs";
+import { extractMedianFromStatsPayload } from "../../../config/shared/wfmStats.js";
+import { normalizeRankFilter as normalizePriceRank } from "../../../config/shared/numeric.js";
+import { isWfmExcludedSlug } from "../../../config/shared/wfmExclusions.js";
 import { log } from "../log.js";
-
-const { isWfmExcludedSlug } = wfmExclusionsShared as {
-  isWfmExcludedSlug: (slug: unknown) => boolean;
-};
-
-const { normalizeRankFilter: normalizePriceRank } = numericShared as {
-  normalizeRankFilter: (value: unknown) => number | null;
-};
+import { WFM_HEADERS } from "../../../config/shared/wfm.js";
 
 const BASE_DELAY_MS = 350;
 const MAX_DYNAMIC_DELAY_MS = 1200;
@@ -29,21 +22,6 @@ const MIN_429_COOLDOWN_MS = 30_000;
 // When the backend returns an error and direct fallback is not allowed, suppress
 // retries for this duration so a cold/erroring worker doesn't get hammered.
 const BACKEND_ERROR_COOLDOWN_MS = 60_000;
-
-type SharedWfmStatsModule = {
-  extractMedianFromStatsPayload: (
-    jsonPayload: unknown,
-    options?: { rank?: number | null },
-  ) => number | null;
-};
-
-const { extractMedianFromStatsPayload } = wfmStatsShared as SharedWfmStatsModule;
-
-import wfmShared from "../../../config/shared/wfm.cjs";
-
-const { WFM_HEADERS } = wfmShared as {
-  WFM_HEADERS: Readonly<Record<string, string>>;
-};
 
 let _lastRequestAt = 0;
 let _runnerActive = false;
@@ -327,7 +305,7 @@ async function fetchPriceBySlugInternal(
     cacheNoData(cacheKey, slug);
     if (!_warnedNoDataSlugs.has(slug)) {
       _warnedNoDataSlugs.add(slug);
-      log.warn(`[WFM price] No data for "${slug}" — if non-tradable, add to WFM_EXCLUDED_SLUGS in config/shared/wfmExclusions.cjs`);
+      log.warn(`[WFM price] No data for "${slug}" — if non-tradable, add to WFM_EXCLUDED_SLUGS in config/shared/wfmExclusions.ts`);
     }
     bumpCounter("resultNoData");
     return { status: "no_data", slug, median: null };

@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Shared riven mod constants used by both rivenGrading and rivenFingerprint.
  * Values sourced from the game's riven mod formulae (via RivenParser.js).

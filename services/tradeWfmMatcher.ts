@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * tradeWfmMatcher.ts — Matches completed in-game trades to the user's
  * active WFM orders and closes the best match.

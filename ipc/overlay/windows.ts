@@ -1,13 +1,5 @@
-"use strict";
-
 import path from "node:path";
-import { createRuntimeRequire } from "../runtimeRequire";
-
-
-const requireRuntime = createRuntimeRequire(__dirname, 2);
-const { clampNumber } = requireRuntime<{
-  clampNumber: (value: unknown, min: number, max: number, fallback: number) => number;
-}>("config/shared/numeric.cjs");
+import { clampNumber } from "../../config/shared/numeric";
 
 const OVERLAY_WINDOW_BOUNDS = Object.freeze({
   width: 980,
@@ -28,7 +20,7 @@ type OverlayAnchorMeta = {
 
 type OverlayContext = {
   overlayWindow: import("electron").BrowserWindow | null;
-  overlaySettings: Record<string, unknown>;
+  overlaySettings: import("../../config/runtime/overlaySettings").OverlaySettings;
   overlayInteractiveMode: boolean;
 };
 

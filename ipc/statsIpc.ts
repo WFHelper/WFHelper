@@ -1,15 +1,7 @@
 import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
-import { createRuntimeRequire } from "./runtimeRequire";
-
-const requireRuntime = createRuntimeRequire(__dirname, 1);
-const statsTracker = requireRuntime<typeof import("../services/statsTracker")>(
-  "services/statsTracker",
-);
-const tradeTracker = requireRuntime<typeof import("../services/tradeTracker")>(
-  "services/tradeTracker",
-);
-
-const { ipcMain } = require("electron") as typeof import("electron");
+import * as statsTracker from "../services/statsTracker";
+import * as tradeTracker from "../services/tradeTracker";
+import { ipcMain } from "electron";
 
 function register(): void {
   ipcMain.handle("stats:get-history", (event: unknown) => {

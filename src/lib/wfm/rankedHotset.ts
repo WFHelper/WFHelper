@@ -1,9 +1,5 @@
 import { normalizeWfmSlug } from "./backendLite.js";
-import numericShared from "../../../config/shared/numeric.cjs";
-
-const { normalizeRankFilter } = numericShared as {
-  normalizeRankFilter: (value: unknown) => number | null;
-};
+import { normalizeRankFilter } from "../../../config/shared/numeric.js";
 
 const HOTSET_SCHEMA_VERSION = 1;
 const HOTSET_MAX_ENTRIES = 64;

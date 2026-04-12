@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * OCR scanning for the riven rolling screen.
  *

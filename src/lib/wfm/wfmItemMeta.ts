@@ -5,22 +5,10 @@ import {
   type BackendRequestPriority,
 } from "./backendLite.js";
 import { log } from "../log.js";
-import numericShared from "../../../config/shared/numeric.cjs";
-import wfmShared from "../../../config/shared/wfm.cjs";
-import wfmExclusionsShared from "../../../config/shared/wfmExclusions.cjs";
+import { toFiniteNumber } from "../../../config/shared/numeric.js";
+import { WFM_HEADERS, WFM_ASSET_BASE } from "../../../config/shared/wfm.js";
+import { isWfmExcludedSlug } from "../../../config/shared/wfmExclusions.js";
 
-const { isWfmExcludedSlug } = wfmExclusionsShared as {
-  isWfmExcludedSlug: (slug: unknown) => boolean;
-};
-
-const { toFiniteNumber } = numericShared as {
-  toFiniteNumber: (value: unknown) => number | null;
-};
-
-const { WFM_HEADERS, WFM_ASSET_BASE } = wfmShared as {
-  WFM_HEADERS: Readonly<Record<string, string>>;
-  WFM_ASSET_BASE: string;
-};
 const META_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const META_NO_DATA_TTL_MS = 6 * 60 * 60 * 1000;
 
@@ -197,7 +185,7 @@ export async function fetchWfmItemMetaBySlug(
         rememberNoData(normalizedSlug);
         if (!_warnedNoMetaSlugs.has(normalizedSlug)) {
           _warnedNoMetaSlugs.add(normalizedSlug);
-          log.warn(`[WFM meta] No listing for "${normalizedSlug}" — item may not exist on warframe.market. If non-tradable, add to WFM_EXCLUDED_SLUGS in config/shared/wfmExclusions.cjs`);
+          log.warn(`[WFM meta] No listing for "${normalizedSlug}" — item may not exist on warframe.market. If non-tradable, add to WFM_EXCLUDED_SLUGS in config/shared/wfmExclusions.ts`);
         }
         return null;
       }
@@ -217,7 +205,7 @@ export async function fetchWfmItemMetaBySlug(
         rememberNoData(normalizedSlug);
         if (!_warnedNoMetaSlugs.has(normalizedSlug)) {
           _warnedNoMetaSlugs.add(normalizedSlug);
-          log.warn(`[WFM meta] No listing for "${normalizedSlug}" — item may not exist on warframe.market. If non-tradable, add to WFM_EXCLUDED_SLUGS in config/shared/wfmExclusions.cjs`);
+          log.warn(`[WFM meta] No listing for "${normalizedSlug}" — item may not exist on warframe.market. If non-tradable, add to WFM_EXCLUDED_SLUGS in config/shared/wfmExclusions.ts`);
         }
         return null;
       }

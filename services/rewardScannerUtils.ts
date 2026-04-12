@@ -3,9 +3,7 @@
  * No Electron or Node dependencies — safe for unit-testing.
  */
 
-const { clampNumber } = require("../config/shared/numeric.cjs") as {
-  clampNumber: (value: unknown, min: number, max: number, fallback?: number) => number;
-};
+import { clampNumber } from "../config/shared/numeric";
 
 export function clamp01(value: unknown): number {
   return clampNumber(value, 0, 1, 0);

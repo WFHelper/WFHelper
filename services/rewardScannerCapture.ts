@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Screen capture helpers for reward and riven scanning.
  * Uses GDI BitBlt via koffi as the sole capture method.
@@ -8,9 +6,7 @@
 import { withScope } from "./logger";
 import { clampNumber } from "./rewardScannerUtils";
 import { captureGdi } from "./dxgiCapture";
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
-  normalizeErrorMessage: (err: any) => string;
-};
+import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("rewardScanner");
 

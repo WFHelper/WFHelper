@@ -6,11 +6,12 @@
     "moduleResolution": "node",
     "esModuleInterop": true,
     "strict": true,
+    "noImplicitAny": true,
     "skipLibCheck": true,
     "types": ["node", "electron"],
     "rootDir": ".",
     "outDir": ".electron-build",
     "noEmitOnError": true
   },
-  "include": ["main.ts", "preload.ts", "preload-overlay.ts", "preload-riven.ts", "preload-trade-notification.ts", "ipc/**/*.ts", "services/**/*.ts", "config/shared/statsTypes.ts"]
+  "include": ["main.ts", "preload.ts", "preload-overlay.ts", "preload-riven.ts", "preload-trade-notification.ts", "ipc/**/*.ts", "services/**/*.ts", "config/**/*.ts"]
 }

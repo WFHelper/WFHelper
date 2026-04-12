@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * rivenBestAttributes.ts — Desired riven attributes per weapon category
  *

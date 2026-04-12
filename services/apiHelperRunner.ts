@@ -4,14 +4,13 @@
  */
 
 import { withScope } from "./logger";
-
-const path = require("node:path") as typeof import("node:path");
-const fs = require("node:fs") as typeof import("node:fs");
-const https = require("node:https") as typeof import("node:https");
-const http = require("node:http") as typeof import("node:http");
-const crypto = require("node:crypto") as typeof import("node:crypto");
-const { spawn } = require("node:child_process") as typeof import("node:child_process");
-const { app } = require("electron") as typeof import("electron");
+import path from "node:path";
+import fs from "node:fs";
+import https from "node:https";
+import http from "node:http";
+import crypto from "node:crypto";
+import { spawn } from "node:child_process";
+import { app } from "electron";
 
 const log = withScope("apiHelperRunner");
 

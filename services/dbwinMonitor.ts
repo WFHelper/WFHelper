@@ -1,5 +1,3 @@
-"use strict";
-
 import path from "node:path";
 import { Worker } from "worker_threads";
 import { withScope } from "./logger";

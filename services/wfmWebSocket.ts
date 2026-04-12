@@ -1,11 +1,7 @@
-"use strict";
-
 import tls from "node:tls";
 import crypto from "node:crypto";
 import { withScope } from "./logger";
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
-  normalizeErrorMessage: (err: any) => string;
-};
+import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("wfmWebSocket");
 

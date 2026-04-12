@@ -1,18 +1,10 @@
-"use strict";
-
 import { withScope } from "./logger";
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
-  normalizeErrorMessage: (err: any) => string;
-};
+import { normalizeErrorMessage } from "../config/shared/errors";
 
 import { request, requestV2 } from "./wfmClient";
 import { getInGameName } from "./wfmSession";
-const { toFiniteNumber } = require("../config/shared/numeric.cjs") as {
-  toFiniteNumber: (v: any) => number | null;
-};
-const { WFM_ASSET_BASE: WFM_THUMB_BASE } = require("../config/shared/wfm.cjs") as {
-  WFM_ASSET_BASE: string;
-};
+import { toFiniteNumber } from "../config/shared/numeric";
+import { WFM_ASSET_BASE as WFM_THUMB_BASE } from "../config/shared/wfm";
 
 const log = withScope("wfmContracts");
 

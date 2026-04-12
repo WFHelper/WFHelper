@@ -1,30 +1,10 @@
-"use strict";
-
 import { withScope } from "./logger";
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
-  normalizeErrorMessage: (err: any) => string;
-};
+import { normalizeErrorMessage } from "../config/shared/errors";
 
 import fs from "fs";
 import path from "path";
 
-const { WORLD_STATE_CONFIG } = require("../config/runtime/worldState") as {
-  WORLD_STATE_CONFIG: {
-    fetchUrl: string;
-    oracleWorldStateUrl: string;
-    oracleBountyCycleUrl: string;
-    earthCycleUrl: string;
-    fetchTimeoutMs: number;
-    cycleFetchTimeoutMs: number;
-    earthCycleFetchTimeoutMs: number;
-    vallisEpochIso: string;
-    vallisPeriodMs: number;
-    vallisWarmMs: number;
-    poeNightMs: number;
-    duviriMoodPeriodMs: number;
-    duviriMoods: string[];
-  };
-};
+import { WORLD_STATE_CONFIG } from "../config/runtime/worldState";
 
 const log = withScope("worldStateParser");
 

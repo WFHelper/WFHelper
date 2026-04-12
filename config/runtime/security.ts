@@ -1,6 +1,6 @@
-"use strict";
+import { BACKEND_URL } from "../shared/backendConfig";
 
-const OPEN_EXTERNAL_ALLOWED_HOSTS = Object.freeze([
+const OPEN_EXTERNAL_ALLOWED_HOSTS: readonly string[] = Object.freeze([
   "warframe.market",
   "www.warframe.market",
   "github.com",
@@ -8,7 +8,7 @@ const OPEN_EXTERNAL_ALLOWED_HOSTS = Object.freeze([
   "sainan.github.io",
 ]);
 
-const BASE_CONNECT_SRC_ALLOWLIST = Object.freeze([
+const BASE_CONNECT_SRC_ALLOWLIST: readonly string[] = Object.freeze([
   "'self'",
   "https://api.warframe.market",
   "https://warframe.market",
@@ -16,7 +16,7 @@ const BASE_CONNECT_SRC_ALLOWLIST = Object.freeze([
   "https://api.warframestat.us",
 ]);
 
-function toAllowedConnectOrigin(value) {
+export function toAllowedConnectOrigin(value: unknown): string | null {
   if (typeof value !== "string" || !value.trim()) return null;
   try {
     const parsed = new URL(value.trim());
@@ -27,12 +27,12 @@ function toAllowedConnectOrigin(value) {
   }
 }
 
-function buildConnectSrcAllowlist() {
-  const entries = new Set(BASE_CONNECT_SRC_ALLOWLIST);
+export function buildConnectSrcAllowlist(): string {
+  const entries = new Set<string>(BASE_CONNECT_SRC_ALLOWLIST);
 
   // Allow localhost connections only during development
   try {
-    const { app } = require("electron");
+    const { app } = require("electron") as typeof import("electron");
     if (!app.isPackaged) {
       entries.add("http://localhost:*");
       entries.add("https://localhost:*");
@@ -46,12 +46,7 @@ function buildConnectSrcAllowlist() {
   // doesn't use Vite, so we read the shared config directly.
   let backendUrl = process.env.VITE_WFM_BACKEND_URL || "";
   if (!backendUrl) {
-    try {
-      const { BACKEND_URL } = require("../shared/backendConfig.cjs");
-      backendUrl = BACKEND_URL || "";
-    } catch {
-      // shared config missing — skip
-    }
+    backendUrl = BACKEND_URL || "";
   }
   const backendOrigin = toAllowedConnectOrigin(backendUrl);
   if (backendOrigin) {
@@ -69,7 +64,7 @@ function buildConnectSrcAllowlist() {
   return [...entries].join(" ");
 }
 
-function isAllowedExternalHost(hostname) {
+export function isAllowedExternalHost(hostname: unknown): boolean {
   const host = String(hostname || "")
     .trim()
     .toLowerCase();
@@ -77,7 +72,7 @@ function isAllowedExternalHost(hostname) {
   return OPEN_EXTERNAL_ALLOWED_HOSTS.includes(host);
 }
 
-const MAIN_WINDOW_CSP = [
+export const MAIN_WINDOW_CSP = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' https://fonts.googleapis.com",
@@ -90,14 +85,6 @@ const MAIN_WINDOW_CSP = [
   "form-action 'none'",
 ].join("; ");
 
-const PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(), usb=()";
+export const PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(), usb=()";
 
-module.exports = {
-  OPEN_EXTERNAL_ALLOWED_HOSTS,
-  BASE_CONNECT_SRC_ALLOWLIST,
-  isAllowedExternalHost,
-  toAllowedConnectOrigin,
-  buildConnectSrcAllowlist,
-  MAIN_WINDOW_CSP,
-  PERMISSIONS_POLICY,
-};
+export { OPEN_EXTERNAL_ALLOWED_HOSTS, BASE_CONNECT_SRC_ALLOWLIST };

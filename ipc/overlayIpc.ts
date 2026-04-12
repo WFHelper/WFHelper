@@ -6,29 +6,22 @@ import {
   isAuthorizedSender,
 } from "./ipcSecurity";
 import { createOverlaySettingsController } from "./overlay/settings";
-import { createRuntimeRequire } from "./runtimeRequire";
 import { withScope } from "../services/logger";
 import * as rewardScanner from "../services/rewardScanner";
 import * as warframeStatus from "../services/warframeStatus";
 import * as rivenOverlayIpc from "./rivenOverlayIpc";
 import * as rewardOverlayIpc from "./rewardOverlayIpc";
-
-const requireRuntime = createRuntimeRequire(__dirname, 1);
-
-const log = withScope("overlayIpc");
-
-const { ipcMain, globalShortcut } =
-  require("electron") as typeof import("electron");
-const fs = require("node:fs") as typeof import("node:fs");
-const {
+import {
   OVERLAY_OCR_ENGINES,
   OVERLAY_SETTINGS_DEFAULTS,
   OVERLAY_SETTINGS_LIMITS,
-} = requireRuntime<{
-  OVERLAY_OCR_ENGINES: string[];
-  OVERLAY_SETTINGS_DEFAULTS: Record<string, any>;
-  OVERLAY_SETTINGS_LIMITS: Record<string, number>;
-}>("config/runtime/overlaySettings");
+} from "../config/runtime/overlaySettings";
+
+const log = withScope("overlayIpc");
+
+import { ipcMain, globalShortcut, app } from "electron";
+import fs from "node:fs";
+import path from "node:path";
 
 // ── Cross-overlay helpers ────────────────────────────────────────────────────
 
@@ -193,8 +186,6 @@ function onRelicRewardTrigger(source = "manual"): void {
   );
 }
 
-const { app } = require("electron") as typeof import("electron");
-const path = require("node:path") as typeof import("node:path");
 const OVERLAY_SETTINGS_FILE = path.join(app.getPath("userData"), "overlay-settings.json");
 
 const settingsController = createOverlaySettingsController({

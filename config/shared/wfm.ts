@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Shared Warframe Market constants and helpers used by main-process,
  * renderer, and (optionally) the worker.
@@ -16,9 +14,8 @@
  * Standard request headers for the warframe.market v1 API.
  *
  * Individual callers may spread these and add extras (e.g. `User-Agent`).
- * @type {Readonly<Record<string, string>>}
  */
-const WFM_HEADERS = Object.freeze({
+export const WFM_HEADERS: Readonly<Record<string, string>> = Object.freeze({
   Platform: "pc",
   Language: "en",
   Crossplay: "true",
@@ -30,7 +27,7 @@ const WFM_HEADERS = Object.freeze({
 // ---------------------------------------------------------------------------
 
 /** Base URL for warframe.market static assets (icons, thumbnails). */
-const WFM_ASSET_BASE = "https://warframe.market/static/assets/";
+export const WFM_ASSET_BASE = "https://warframe.market/static/assets/";
 
 // ---------------------------------------------------------------------------
 // Slug normalization
@@ -40,32 +37,19 @@ const WFM_ASSET_BASE = "https://warframe.market/static/assets/";
  * Normalize a warframe.market item slug.
  *
  * - Trims and lowercases.
- * - Strips smart quotes / apostrophes.
+ * - Strips ASCII apostrophes (U+0027). Unicode quotes become underscores.
  * - Collapses non-alphanumeric runs to underscores.
  * - Strips leading/trailing underscores.
  *
  * Returns `null` for non-string or empty input.
- *
- * @param {string | null | undefined} value
- * @returns {string | null}
  */
-function normalizeWfmSlug(value) {
+export function normalizeWfmSlug(value: string | null | undefined): string | null {
   if (typeof value !== "string") return null;
   const normalized = value
     .trim()
     .toLowerCase()
-    .replace(/['']/g, "")
+    .replace(/'/g, "")
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
   return normalized || null;
 }
-
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
-
-module.exports = {
-  WFM_HEADERS,
-  WFM_ASSET_BASE,
-  normalizeWfmSlug,
-};

@@ -9,19 +9,11 @@
  */
 
 import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
-import { createRuntimeRequire } from "./runtimeRequire";
 import { withScope, type ScopedLogger } from "../services/logger";
-
-
-const requireRuntime = createRuntimeRequire(__dirname, 1);
-
-const { normalizeErrorMessage } = requireRuntime<{
-  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
-}>("config/shared/errors.cjs");
-
-const { ipcMain, app } = require("electron") as typeof import("electron");
-const path = require("node:path") as typeof import("node:path");
-const fs = require("node:fs") as typeof import("node:fs");
+import { normalizeErrorMessage } from "../config/shared/errors";
+import { ipcMain, app } from "electron";
+import path from "node:path";
+import fs from "node:fs";
 
 export interface DiskCacheIpcConfig {
   /** Logger scope name, e.g. `"priceCacheIpc"`. */

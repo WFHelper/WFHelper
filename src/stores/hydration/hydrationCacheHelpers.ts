@@ -5,11 +5,7 @@ import {
 } from "../../lib/wfm/orderSummaryCache.js";
 import type { InventoryBaseItem } from "../../lib/inventoryMarket.js";
 import { resolveRankedMaxRank } from "./hydrationHelpers.js";
-import sharedNumeric from "../../../config/shared/numeric.cjs";
-
-const { isRankedGroup } = sharedNumeric as {
-  isRankedGroup: (group: string | null | undefined) => boolean;
-};
+import { isRankedGroup } from "../../../config/shared/numeric.js";
 
 // ---------------------------------------------------------------------------
 // Price cache lookups

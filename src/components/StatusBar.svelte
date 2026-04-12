@@ -19,11 +19,7 @@
     type RelicRuntimeCacheStats,
   } from "../lib/relic.js";
 
-  import sharedErrors from "../../config/shared/errors.cjs";
-
-  const { normalizeErrorMessage } = sharedErrors as {
-    normalizeErrorMessage: (err: unknown, fallback?: string) => string;
-  };
+  import { normalizeErrorMessage } from "../../config/shared/errors.js";
 
   const COUNTER_POLL_MS = 1000;
 

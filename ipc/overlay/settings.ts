@@ -1,13 +1,10 @@
 
-import { createRuntimeRequire } from "../runtimeRequire";
+import { normalizeErrorMessage } from "../../config/shared/errors";
+import { clampNumber } from "../../config/shared/numeric";
+import type { OverlaySettings } from "../../config/runtime/overlaySettings";
 
-const requireRuntime = createRuntimeRequire(__dirname, 2);
-const { normalizeErrorMessage } = requireRuntime<{
-  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
-}>("config/shared/errors.cjs");
-const { clampNumber } = requireRuntime<{
-  clampNumber: (value: unknown, min: number, max: number, fallback: number) => number;
-}>("config/shared/numeric.cjs");
+/** Internal dict for validation before assigning to typed ctx.overlaySettings. */
+type OverlaySettingsDict = Record<string, unknown>;
 
 type Logger = {
   log: (...args: unknown[]) => void;
@@ -15,11 +12,8 @@ type Logger = {
   error: (...args: unknown[]) => void;
 };
 
-/** Overlay settings dictionary — values are primitive but stored as unknown for compatibility. */
-type OverlaySettingsDict = Record<string, unknown>;
-
 type OverlayCtx = {
-  overlaySettings: Record<string, unknown>;
+  overlaySettings: OverlaySettings;
   overlayHotkeyRegistered: string | null;
   overlayWindow: import("electron").BrowserWindow | null;
   plannerOverlayWindow?: import("electron").BrowserWindow | null;
@@ -197,21 +191,21 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     };
   }
 
-  function loadOverlaySettings(): OverlaySettingsDict {
+  function loadOverlaySettings(): OverlaySettings {
     try {
       if (fs.existsSync(settingsFile)) {
         const raw = fs.readFileSync(settingsFile, "utf8");
         const parsed = JSON.parse(raw);
-        ctx.overlaySettings = normalizeOverlaySettings({ ...defaults, ...parsed });
+        ctx.overlaySettings = normalizeOverlaySettings({ ...defaults, ...parsed }) as OverlaySettings;
       } else {
-        ctx.overlaySettings = { ...defaults };
+        ctx.overlaySettings = { ...defaults } as OverlaySettings;
       }
     } catch (err) {
       log.warn(
         "[OverlaySettings] Failed to load settings, using defaults:",
         normalizeErrorMessage(err),
       );
-      ctx.overlaySettings = { ...defaults };
+      ctx.overlaySettings = { ...defaults } as OverlaySettings;
     }
     rewardScanner.setSettings(ctx.overlaySettings);
     return ctx.overlaySettings;
@@ -316,13 +310,13 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     return triggerOk || interactionOk;
   }
 
-  function setOverlaySettings(nextSettings: unknown): OverlaySettingsDict {
+  function setOverlaySettings(nextSettings: unknown): OverlaySettings {
     ctx.overlaySettings = normalizeOverlaySettings({
       ...ctx.overlaySettings,
       ...(nextSettings && typeof nextSettings === "object"
         ? (nextSettings as Record<string, unknown>)
         : {}),
-    });
+    }) as OverlaySettings;
 
     rewardScanner.setSettings(ctx.overlaySettings);
     saveOverlaySettings();

@@ -12,13 +12,7 @@
   } from "../../lib/wfm/orderBook.js";
   import type { InventoryViewItem } from "../../lib/inventoryMarket.js";
   import type { WfmLookupItem } from "../../types/market.js";
-  import sharedNumeric from "../../../config/shared/numeric.cjs";
-
-  const { normalizeRank, isRankedGroup, MAX_SUPPORTED_RANK } = sharedNumeric as {
-    normalizeRank: (value: unknown, maxRank?: number) => number | null;
-    isRankedGroup: (group: string | null | undefined) => boolean;
-    MAX_SUPPORTED_RANK: number;
-  };
+  import { normalizeRank, isRankedGroup, MAX_SUPPORTED_RANK } from "../../../config/shared/numeric.js";
 
   export let item: InventoryViewItem | null = null;
 

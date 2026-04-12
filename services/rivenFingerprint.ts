@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * rivenFingerprint.ts — Decode riven stats from inventory UpgradeFingerprint
  *

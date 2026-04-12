@@ -6,11 +6,12 @@
 import type { BrowserWindow } from "electron";
 import type { FSWatcher } from "chokidar";
 import { withScope } from "../services/logger";
+import type { OverlaySettings } from "../config/runtime/overlaySettings";
+import { OVERLAY_SETTINGS_DEFAULTS } from "../config/runtime/overlaySettings";
 
 const log = withScope("ctx");
 
 type InventoryData = Record<string, unknown> | null;
-type OverlaySettings = Record<string, unknown>;
 type OverlayThemeVars = Record<string, string>;
 
 let mainWindow: BrowserWindow | null = null;
@@ -22,7 +23,7 @@ let tradeNotificationWindow: BrowserWindow | null = null;
 let currentInventoryPath: string | null = null;
 let currentInventoryData: InventoryData = null;
 let watcher: FSWatcher | null = null;
-let overlaySettings: OverlaySettings = {};
+let overlaySettings = { ...OVERLAY_SETTINGS_DEFAULTS } as OverlaySettings;
 let overlayThemeVars: OverlayThemeVars = {};
 let overlayHotkeyRegistered: string | null = null;
 let overlayInteractionHotkeyRegistered: string | null = null;

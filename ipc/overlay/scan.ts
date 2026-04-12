@@ -1,9 +1,4 @@
-import { createRuntimeRequire } from "../runtimeRequire";
-
-const requireRuntime = createRuntimeRequire(__dirname, 2);
-const { normalizeErrorMessage } = requireRuntime<{
-  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
-}>("config/shared/errors.cjs");
+import { normalizeErrorMessage } from "../../config/shared/errors";
 
 const SCAN_RETRY_WINDOW_MS = 5_000;
 const SCAN_RETRY_INTERVAL_MS = 450;

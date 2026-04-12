@@ -1,5 +1,3 @@
-"use strict";
-
 import path from "node:path";
 import { spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";

@@ -1,10 +1,8 @@
-"use strict";
-
-const { normalizeRank } = require("./numeric.cjs");
+import { normalizeRank } from "./numeric";
 
 const SELL_ORDER_TYPE = "sell";
-const STATS_WINDOW_KEYS = Object.freeze(["48hours", "48_hours"]);
-const MEDIAN_CANDIDATE_FIELDS = Object.freeze([
+const STATS_WINDOW_KEYS: readonly string[] = Object.freeze(["48hours", "48_hours"]);
+const MEDIAN_CANDIDATE_FIELDS: readonly string[] = Object.freeze([
   "median",
   "moving_avg",
   "wa_price",
@@ -12,32 +10,28 @@ const MEDIAN_CANDIDATE_FIELDS = Object.freeze([
   "min_price",
 ]);
 
-/**
- * @param {unknown} statsSection
- * @returns {Array<Record<string, unknown>>}
- */
-function pickStatsWindowRows(statsSection) {
+function pickStatsWindowRows(
+  statsSection: unknown,
+): Array<Record<string, unknown>> {
   if (!statsSection || typeof statsSection !== "object") return [];
-  const section = /** @type {Record<string, unknown>} */ (statsSection);
+  const section = statsSection as Record<string, unknown>;
   for (const key of STATS_WINDOW_KEYS) {
     const rows = section[key];
-    if (Array.isArray(rows)) return /** @type {Array<Record<string, unknown>>} */ (rows);
+    if (Array.isArray(rows)) return rows as Array<Record<string, unknown>>;
   }
   return [];
 }
 
-/**
- * @param {unknown} jsonPayload
- * @returns {Array<Record<string, unknown>>}
- */
-function extractSellRows(jsonPayload) {
+export function extractSellRows(
+  jsonPayload: unknown,
+): Array<Record<string, unknown>> {
   const payload =
     jsonPayload && typeof jsonPayload === "object"
-      ? /** @type {Record<string, unknown>} */ (jsonPayload).payload
+      ? (jsonPayload as Record<string, unknown>).payload
       : null;
   if (!payload || typeof payload !== "object") return [];
 
-  const payloadRecord = /** @type {Record<string, unknown>} */ (payload);
+  const payloadRecord = payload as Record<string, unknown>;
 
   const closedRows = pickStatsWindowRows(payloadRecord.statistics_closed || {});
   const liveRows = pickStatsWindowRows(payloadRecord.statistics_live || {});
@@ -50,22 +44,17 @@ function extractSellRows(jsonPayload) {
     );
 }
 
-/**
- * @param {unknown} options
- * @returns {number|null}
- */
-function resolveTargetRank(options) {
+function resolveTargetRank(options: unknown): number | null {
   if (!options || typeof options !== "object") return null;
-  const record = /** @type {{ rank?: unknown }} */ (options);
+  const record = options as { rank?: unknown };
   const rank = normalizeRank(record.rank);
   return rank;
 }
 
-/**
- * @param {unknown} jsonPayload
- * @param {{ rank?: unknown }} [options]
- */
-function extractMedianFromStatsPayload(jsonPayload, options) {
+export function extractMedianFromStatsPayload(
+  jsonPayload: unknown,
+  options?: { rank?: unknown },
+): number | null {
   const targetRank = resolveTargetRank(options);
   const rows = extractSellRows(jsonPayload).filter((entry) => {
     if (targetRank == null) return true;
@@ -75,7 +64,7 @@ function extractMedianFromStatsPayload(jsonPayload, options) {
   const latest = rows.length > 0 ? rows[rows.length - 1] : null;
   if (!latest || typeof latest !== "object") return null;
 
-  let raw = null;
+  let raw: unknown = null;
   for (const field of MEDIAN_CANDIDATE_FIELDS) {
     if (latest[field] != null) {
       raw = latest[field];
@@ -88,15 +77,11 @@ function extractMedianFromStatsPayload(jsonPayload, options) {
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
-module.exports = {
-  extractSellRows,
-  extractMedianFromStatsPayload,
-  __test__: {
-    SELL_ORDER_TYPE,
-    STATS_WINDOW_KEYS,
-    MEDIAN_CANDIDATE_FIELDS,
-    pickStatsWindowRows,
-    normalizeRankValue: normalizeRank,
-    resolveTargetRank,
-  },
+export const __test__ = {
+  SELL_ORDER_TYPE,
+  STATS_WINDOW_KEYS,
+  MEDIAN_CANDIDATE_FIELDS,
+  pickStatsWindowRows,
+  normalizeRankValue: normalizeRank,
+  resolveTargetRank,
 };

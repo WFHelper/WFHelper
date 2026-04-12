@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * UI readiness detection for reward scanning.
  * Analyzes screen captures to determine if the reward selection UI is visible.

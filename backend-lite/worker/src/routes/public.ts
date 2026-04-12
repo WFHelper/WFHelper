@@ -13,11 +13,7 @@ import {
 } from '../services/readThrough';
 import type { Env } from '../types';
 import { getJsonFromKv, getSlug } from '../utils';
-import sharedNumeric from '../../../../config/shared/numeric.cjs';
-
-const { normalizeRankFilter } = sharedNumeric as {
-	normalizeRankFilter: (value: unknown) => number | null;
-};
+import { normalizeRankFilter } from '../../../../config/shared/numeric';
 
 const routeStats = {
 	healthzRequests: 0,

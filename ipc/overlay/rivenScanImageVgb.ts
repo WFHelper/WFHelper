@@ -1,5 +1,3 @@
-"use strict";
-
 /** Row region detected during VGB preprocessing — (y0, y1, x0, x1) bounds. */
 export interface VgbRowRegion {
   y0: number;

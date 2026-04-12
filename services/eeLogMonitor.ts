@@ -1,5 +1,3 @@
-"use strict";
-
 import fs from "node:fs";
 import path from "node:path";
 import chokidar from "chokidar";
@@ -13,9 +11,7 @@ import {
   isRivenSessionActive,
   resetRivenState,
 } from "./rivenLogStateMachine";
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
-  normalizeErrorMessage: (err: any) => string;
-};
+import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("eeLogMonitor");
 

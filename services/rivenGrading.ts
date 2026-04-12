@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * rivenGrading.ts — Riven stat grading service (main-process only)
  *

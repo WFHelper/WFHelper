@@ -20,10 +20,9 @@ import * as wfmContracts from "../services/wfmContracts";
 import * as wfmCatalog from "../services/wfmCatalog";
 import { startListening, stopListening } from "../services/wfmWebSocketListener";
 import ctx from "./context";
+import { ipcMain } from "electron";
 
 const log = withScope("wfmIpc");
-
-const { ipcMain } = require("electron") as typeof import("electron");
 
 // ── WFM DM notification helper ────────────────────────────────────────────────
 

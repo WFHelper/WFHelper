@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-
-const { WFM_HEADERS, WFM_ASSET_BASE, normalizeWfmSlug } = require("../../config/shared/wfm.cjs");
+import { WFM_HEADERS, WFM_ASSET_BASE, normalizeWfmSlug } from "../../config/shared/wfm";
 
 // ---------------------------------------------------------------------------
 // WFM_HEADERS

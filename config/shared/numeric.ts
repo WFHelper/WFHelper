@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Shared numeric utilities used by main-process, renderer, and worker.
  *
@@ -13,10 +11,10 @@
 // ---------------------------------------------------------------------------
 
 /** Highest mod/arcane rank the app supports for cache keys and API queries. */
-const MAX_SUPPORTED_RANK = 20;
+export const MAX_SUPPORTED_RANK = 20;
 
 /** Inventory groups whose items carry a rank (mods, arcanes). */
-const RANKED_GROUPS = Object.freeze(["mods", "arcanes"]);
+export const RANKED_GROUPS: readonly string[] = Object.freeze(["mods", "arcanes"]);
 
 // ---------------------------------------------------------------------------
 // Core numeric coercion
@@ -33,18 +31,15 @@ const RANKED_GROUPS = Object.freeze(["mods", "arcanes"]);
  *
  * Returns `null` for anything else (`NaN`, `Infinity`, empty strings,
  * `null`, `undefined`, booleans, arrays, …).
- *
- * @param {unknown} value
- * @returns {number | null}
  */
-function toFiniteNumber(value) {
+export function toFiniteNumber(value: unknown): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (typeof value === "string" && value.trim()) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
   }
   if (value && typeof value === "object" && !Array.isArray(value)) {
-    const record = /** @type {Record<string, unknown>} */ (value);
+    const record = value as Record<string, unknown>;
     const boxed =
       record.$numberInt ??
       record.$numberLong ??
@@ -59,13 +54,8 @@ function toFiniteNumber(value) {
 /**
  * Like {@link toFiniteNumber} but returns a configurable fallback instead
  * of `null`.
- *
- * @param {unknown} value
- * @param {number}  fallback  Value returned when coercion fails (default `0`).
- * @returns {number}
  */
-function toFiniteOr(value, fallback) {
-  if (fallback === undefined) fallback = 0;
+export function toFiniteOr(value: unknown, fallback: number = 0): number {
   const n = toFiniteNumber(value);
   return n !== null ? n : fallback;
 }
@@ -81,16 +71,15 @@ function toFiniteOr(value, fallback) {
  * When a 4th `fallback` arg is provided the value is first coerced
  * via `Number()` and, if the result is not finite, `fallback` is
  * returned instead of clamping.
- *
- * @param {unknown} value
- * @param {number}  min
- * @param {number}  max
- * @param {number}  [fallback]  Returned when `Number(value)` is not finite.
- * @returns {number}
  */
-function clampNumber(value, min, max, fallback) {
-  const n = arguments.length >= 4 ? Number(value) : /** @type {number} */ (value);
-  if (!Number.isFinite(n)) return /** @type {number} */ (fallback);
+export function clampNumber(
+  value: unknown,
+  min: number,
+  max: number,
+  fallback?: number,
+): number {
+  const n = fallback !== undefined ? Number(value) : (value as number);
+  if (!Number.isFinite(n)) return fallback as number;
   return Math.max(min, Math.min(max, n));
 }
 
@@ -104,13 +93,8 @@ function clampNumber(value, min, max, fallback) {
  *
  * Returns `null` for values that are not finite non-negative numbers,
  * empty strings, or `null`/`undefined`.
- *
- * @param {unknown}  value
- * @param {number}   [maxRank]  Upper bound (inclusive).  When omitted no
- *                              upper bound is enforced.
- * @returns {number | null}
  */
-function normalizeRank(value, maxRank) {
+export function normalizeRank(value: unknown, maxRank?: number): number | null {
   if (value == null) return null;
   if (typeof value === "string" && value.trim().length === 0) return null;
   const parsed = Number(value);
@@ -125,11 +109,8 @@ function normalizeRank(value, maxRank) {
  *
  * Use this when the rank represents a filter/cache-key for WFM price
  * lookups rather than an inventory-level rank.
- *
- * @param {unknown} value
- * @returns {number | null}
  */
-function normalizeRankFilter(value) {
+export function normalizeRankFilter(value: unknown): number | null {
   return normalizeRank(value, MAX_SUPPORTED_RANK);
 }
 
@@ -137,11 +118,8 @@ function normalizeRankFilter(value) {
  * Coerce a value to a finite positive (> 0) integer, or `null`.
  *
  * Useful for parsing `maxRank` values where 0 is not meaningful.
- *
- * @param {unknown} value
- * @returns {number | null}
  */
-function toFinitePositiveInt(value) {
+export function toFinitePositiveInt(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value) && value > 0) {
     return Math.floor(value);
   }
@@ -154,11 +132,8 @@ function toFinitePositiveInt(value) {
 
 /**
  * Coerce a value to a finite non-negative (>= 0) integer, or `null`.
- *
- * @param {unknown} value
- * @returns {number | null}
  */
-function toFiniteNonNegativeInt(value) {
+export function toFiniteNonNegativeInt(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
     return Math.round(value);
   }
@@ -176,27 +151,7 @@ function toFiniteNonNegativeInt(value) {
 /**
  * Return `true` when the given inventory group is rank-bearing
  * (currently `"mods"` or `"arcanes"`).
- *
- * @param {string | null | undefined} group
- * @returns {boolean}
  */
-function isRankedGroup(group) {
+export function isRankedGroup(group: string | null | undefined): boolean {
   return group === "mods" || group === "arcanes";
 }
-
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
-
-module.exports = {
-  MAX_SUPPORTED_RANK,
-  RANKED_GROUPS,
-  toFiniteNumber,
-  toFiniteOr,
-  clampNumber,
-  normalizeRank,
-  normalizeRankFilter,
-  toFinitePositiveInt,
-  toFiniteNonNegativeInt,
-  isRankedGroup,
-};

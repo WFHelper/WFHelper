@@ -3,11 +3,7 @@
 
   import ItemImage from "../ItemImage.svelte";
   import type { InventoryViewItem } from "../../lib/inventoryMarket.js";
-  import sharedNumeric from "../../../config/shared/numeric.cjs";
-
-  const { isRankedGroup } = sharedNumeric as {
-    isRankedGroup: (group: string | null | undefined) => boolean;
-  };
+  import { isRankedGroup } from "../../../config/shared/numeric.js";
 
   export let item: InventoryViewItem;
   export let showDebug = false;

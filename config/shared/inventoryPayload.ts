@@ -1,9 +1,7 @@
-"use strict";
-
 const DEFAULT_MAX_UNWRAP_DEPTH = 4;
 const MAX_SAFE_UNWRAP_DEPTH = 12;
 
-const INVENTORY_ARRAY_KEYS = Object.freeze([
+const INVENTORY_ARRAY_KEYS: readonly string[] = Object.freeze([
   "Suits",
   "RawUpgrades",
   "Upgrades",
@@ -12,7 +10,7 @@ const INVENTORY_ARRAY_KEYS = Object.freeze([
   "MiscItems",
 ]);
 
-const ENVELOPE_KEYS = Object.freeze([
+const ENVELOPE_KEYS: readonly string[] = Object.freeze([
   "InventoryJson",
   "inventoryJson",
   "inventory_json",
@@ -20,15 +18,13 @@ const ENVELOPE_KEYS = Object.freeze([
   "data",
 ]);
 
-/** @param {unknown} value */
-function hasInventoryShape(value) {
+export function hasInventoryShape(value: unknown): boolean {
   if (!value || typeof value !== "object") return false;
-  const record = /** @type {Record<string, unknown>} */ (value);
+  const record = value as Record<string, unknown>;
   return INVENTORY_ARRAY_KEYS.some((key) => Array.isArray(record[key]));
 }
 
-/** @param {unknown} value */
-function normalizeMaxDepth(value) {
+function normalizeMaxDepth(value: unknown): number {
   const n = Number(value);
   if (!Number.isFinite(n)) return DEFAULT_MAX_UNWRAP_DEPTH;
   const rounded = Math.floor(n);
@@ -36,23 +32,23 @@ function normalizeMaxDepth(value) {
   return Math.min(rounded, MAX_SAFE_UNWRAP_DEPTH);
 }
 
-/** @param {Record<string, unknown>} record */
-function firstEnvelopeValue(record) {
+function firstEnvelopeValue(record: Record<string, unknown>): unknown {
   for (const key of ENVELOPE_KEYS) {
     if (record[key] !== undefined) return record[key];
   }
   return undefined;
 }
 
-/**
- * @typedef {Object} UnwrapInventoryOptions
- * @property {boolean=} returnInputOnFailure
- * @property {(error: unknown) => void=} onParseError
- * @property {number=} maxDepth
- */
+export interface UnwrapInventoryOptions {
+  returnInputOnFailure?: boolean;
+  onParseError?: (error: unknown) => void;
+  maxDepth?: number;
+}
 
-/** @param {unknown} value @param {UnwrapInventoryOptions=} options */
-function unwrapInventoryPayload(value, options = {}) {
+export function unwrapInventoryPayload(
+  value: unknown,
+  options: UnwrapInventoryOptions = {},
+): unknown {
   let current = value;
   const returnInputOnFailure = Boolean(options.returnInputOnFailure);
   const onParseError = typeof options.onParseError === "function" ? options.onParseError : null;
@@ -64,7 +60,7 @@ function unwrapInventoryPayload(value, options = {}) {
       return returnInputOnFailure ? value : current;
     }
 
-    const next = firstEnvelopeValue(/** @type {Record<string, unknown>} */ (current));
+    const next = firstEnvelopeValue(current as Record<string, unknown>);
 
     if (typeof next === "string") {
       try {
@@ -87,15 +83,11 @@ function unwrapInventoryPayload(value, options = {}) {
   return current;
 }
 
-module.exports = {
-  hasInventoryShape,
-  unwrapInventoryPayload,
-  __test__: {
-    DEFAULT_MAX_UNWRAP_DEPTH,
-    MAX_SAFE_UNWRAP_DEPTH,
-    INVENTORY_ARRAY_KEYS,
-    ENVELOPE_KEYS,
-    normalizeMaxDepth,
-    firstEnvelopeValue,
-  },
+export const __test__ = {
+  DEFAULT_MAX_UNWRAP_DEPTH,
+  MAX_SAFE_UNWRAP_DEPTH,
+  INVENTORY_ARRAY_KEYS,
+  ENVELOPE_KEYS,
+  normalizeMaxDepth,
+  firstEnvelopeValue,
 };

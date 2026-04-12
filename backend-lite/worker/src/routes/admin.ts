@@ -19,11 +19,7 @@ import { isAdminAuthorized } from '../security/adminAuth';
 import { checkAdminRateLimit } from '../security/rateLimit';
 import type { Env } from '../types';
 import { getJsonFromKv, parseJsonBody, parsePositiveInt } from '../utils';
-import sharedNumeric from '../../../../config/shared/numeric.cjs';
-
-const { normalizeRankFilter } = sharedNumeric as {
-	normalizeRankFilter: (value: unknown) => number | null;
-};
+import { normalizeRankFilter } from '../../../../config/shared/numeric';
 
 function parseHotsetEntries(value: unknown): Array<{ slug: string; maxRank: number; lastSeenAt: number }> {
 	if (!Array.isArray(value)) return [];

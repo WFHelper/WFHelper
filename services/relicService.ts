@@ -1,12 +1,6 @@
-"use strict";
-
 import { withScope } from "./logger";
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
-  normalizeErrorMessage: (err: any) => string;
-};
-const { normalizeWfmSlug } = require("../config/shared/wfm.cjs") as {
-  normalizeWfmSlug: (slug: any) => string | null;
-};
+import { normalizeErrorMessage } from "../config/shared/errors";
+import { normalizeWfmSlug } from "../config/shared/wfm";
 
 const log = withScope("relicService");
 

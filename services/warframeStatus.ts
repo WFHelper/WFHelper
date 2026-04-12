@@ -1,10 +1,6 @@
-"use strict";
-
 import { execFile } from "node:child_process";
 import { withScope } from "./logger";
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
-  normalizeErrorMessage: (err: any) => string;
-};
+import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("warframeStatus");
 

@@ -1,13 +1,5 @@
-import numericShared from "../../../config/shared/numeric.cjs";
-import wfmShared from "../../../config/shared/wfm.cjs";
-
-const { toFiniteNumber } = numericShared as {
-  toFiniteNumber: (value: unknown) => number | null;
-};
-
-const { normalizeWfmSlug: _normalizeWfmSlug } = wfmShared as {
-  normalizeWfmSlug: (value: string | null | undefined) => string | null;
-};
+import { toFiniteNumber } from "../../../config/shared/numeric.js";
+import { normalizeWfmSlug as _normalizeWfmSlug } from "../../../config/shared/wfm.js";
 
 /** Re-export from shared module for existing renderer consumers. */
 export const normalizeWfmSlug = _normalizeWfmSlug;

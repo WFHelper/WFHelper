@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Image processing helpers for reward scanning.
  * Crop, enhance, and build OCR variants from Electron NativeImage objects.
@@ -7,9 +5,7 @@
 
 import { withScope } from "./logger";
 import { clampNumber, clamp01, computeMeanAndStd, luminanceFromBgr } from "./rewardScannerUtils";
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
-  normalizeErrorMessage: (err: any) => string;
-};
+import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("rewardScanner");
 

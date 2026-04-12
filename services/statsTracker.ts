@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * statsTracker.ts — Tracks per-session and daily inventory stat deltas.
  *
@@ -12,10 +10,10 @@
  *   daysPlayed    — 1 if inventory data was received today, else 0
  */
 
-const path = require("node:path") as typeof import("node:path");
-const fs = require("node:fs") as typeof import("node:fs");
-const { app } = require("electron") as typeof import("electron");
-const { withScope } = require("./logger") as typeof import("./logger");
+import path from "node:path";
+import fs from "node:fs";
+import { app } from "electron";
+import { withScope } from "./logger";
 
 const log = withScope("statsTracker");
 

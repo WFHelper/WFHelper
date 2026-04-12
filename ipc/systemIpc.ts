@@ -5,27 +5,17 @@ import {
   isAuthorizedSender,
 } from "./ipcSecurity";
 import { unwrapInventoryPayload } from "./inventoryPayload";
-import { createRuntimeRequire } from "./runtimeRequire";
 import { withScope } from "../services/logger";
 import * as itemDb from "../services/itemDatabase";
 import * as wfmCatalog from "../services/wfmCatalog";
 import * as masteryHelper from "../services/masteryHelper";
 import * as relicService from "../services/relicService";
 import * as autoUpdater from "../services/autoUpdater";
-
-
-const requireRuntime = createRuntimeRequire(__dirname, 1);
+import { normalizeErrorMessage } from "../config/shared/errors";
+import { isAllowedExternalHost } from "../config/runtime/security";
+import { ipcMain, shell } from "electron";
 
 const log = withScope("systemIpc");
-
-const { normalizeErrorMessage } = requireRuntime<{
-  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
-}>("config/shared/errors.cjs");
-
-const { ipcMain, shell } = require("electron") as typeof import("electron");
-const { isAllowedExternalHost } = requireRuntime<{
-  isAllowedExternalHost: (hostname: string) => boolean;
-}>("config/runtime/security");
 
 function register(): void {
   ipcMain.handle("get-item-database", async (event: unknown) => {

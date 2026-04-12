@@ -1,22 +1,15 @@
 import ctx from "./context";
 import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
 import { unwrapInventoryPayload } from "./inventoryPayload";
-import { createRuntimeRequire } from "./runtimeRequire";
 import { withScope } from "../services/logger";
-
-
-const requireRuntime = createRuntimeRequire(__dirname, 1);
+import { normalizeErrorMessage } from "../config/shared/errors";
+import { ipcMain, dialog, app } from "electron";
+import path from "node:path";
+import fs from "node:fs";
+import chokidar from "chokidar";
+import crypto from "node:crypto";
 
 const log = withScope("inventoryIpc");
-
-const { normalizeErrorMessage } = requireRuntime<{
-  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
-}>("config/shared/errors.cjs");
-
-const { ipcMain, dialog, app } = require("electron") as typeof import("electron");
-const path = require("node:path") as typeof import("node:path");
-const fs = require("node:fs") as typeof import("node:fs");
-const chokidar = require("chokidar") as typeof import("chokidar");
 
 const USER_INVENTORY_DIRECTORIES = [
   app.getPath("downloads"),
@@ -37,7 +30,6 @@ const INVENTORY_WATCH_STABILITY_MS = 500;
 const MIN_RELOAD_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 const JSON_ENCODING = "utf-8";
 
-const crypto = require("node:crypto") as typeof import("node:crypto");
 let _lastInventoryHash: string | null = null;
 let _lastReloadAt = 0;
 

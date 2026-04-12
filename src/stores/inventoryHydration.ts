@@ -49,11 +49,7 @@ import {
   getCachedRankOrderSummary,
 } from "./hydration/hydrationCacheHelpers.js";
 import { hydrateItemMetrics, type HydrationContext } from "./hydration/hydrateItemMetrics.js";
-import sharedNumeric from "../../config/shared/numeric.cjs";
-
-const { isRankedGroup } = sharedNumeric as {
-  isRankedGroup: (group: string | null | undefined) => boolean;
-};
+import { isRankedGroup } from "../../config/shared/numeric.js";
 
 // Re-export types that consumers reference.
 export type {

@@ -1,5 +1,3 @@
-"use strict";
-
 import { withScope } from "./logger";
 
 const log = withScope("rivenStateMachine");

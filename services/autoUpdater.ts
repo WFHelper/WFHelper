@@ -1,10 +1,7 @@
 import { withScope } from "./logger";
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
-  normalizeErrorMessage: (err: any, fallback?: string) => string;
-};
-
-const { app } = require("electron") as typeof import("electron");
-const { autoUpdater } = require("electron-updater") as typeof import("electron-updater");
+import { normalizeErrorMessage } from "../config/shared/errors";
+import { app } from "electron";
+import { autoUpdater } from "electron-updater";
 
 const log = withScope("autoUpdater");
 

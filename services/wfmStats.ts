@@ -1,7 +1,4 @@
-const { extractSellRows, extractMedianFromStatsPayload } = require("../config/shared/wfmStats.cjs") as {
-  extractSellRows: (jsonPayload: unknown) => Array<Record<string, unknown>>;
-  extractMedianFromStatsPayload: (jsonPayload: unknown, options?: { rank?: unknown }) => number | null;
-};
+import { extractSellRows, extractMedianFromStatsPayload } from "../config/shared/wfmStats";
 
 export { extractMedianFromStatsPayload };
 

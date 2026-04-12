@@ -1,17 +1,11 @@
 import ctx from "./context";
 import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
-import { createRuntimeRequire } from "./runtimeRequire";
 import { withScope } from "../services/logger";
 import * as worldStateParser from "../services/worldStateParser";
-
-
-const requireRuntime = createRuntimeRequire(__dirname, 1);
+import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("worldStateIpc");
 
-const { normalizeErrorMessage } = requireRuntime<{
-  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
-}>("config/shared/errors.cjs");
 function getElectronModule(): Partial<typeof import("electron")> {
   const loaded = require("electron") as unknown;
   if (loaded && typeof loaded === "object") {
@@ -192,11 +186,7 @@ function maybeNotifyWorldEvents(state: unknown): void {
   }
 
   // Per-cycle transition notifications (opt-in via cycleAlerts settings)
-  const rawCycleAlerts = ctx.overlaySettings?.cycleAlerts;
-  const cycleAlerts =
-    rawCycleAlerts && typeof rawCycleAlerts === "object"
-      ? (rawCycleAlerts as Record<string, boolean>)
-      : {};
+  const cycleAlerts = ctx.overlaySettings?.cycleAlerts ?? { earth: false, cetus: false, vallis: false, cambion: false };
 
   if (
     cycleAlerts.earth &&
@@ -239,13 +229,8 @@ function maybeNotifyWorldEvents(state: unknown): void {
   }
 
   // Fissure appearance alerts (opt-in per configured alert rules)
-  const rawFissureAlerts = ctx.overlaySettings?.fissureAlerts;
-  if (Array.isArray(rawFissureAlerts) && rawFissureAlerts.length > 0) {
-    const fissureAlertRules = rawFissureAlerts as Array<{
-      tier: string;
-      missionType: string;
-      steelPath: string;
-    }>;
+  const fissureAlertRules = ctx.overlaySettings?.fissureAlerts;
+  if (Array.isArray(fissureAlertRules) && fissureAlertRules.length > 0) {
 
     const rawFissures = Array.isArray(stateRecord.fissures)
       ? (stateRecord.fissures as unknown[])

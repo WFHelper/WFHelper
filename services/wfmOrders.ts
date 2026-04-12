@@ -1,9 +1,5 @@
-"use strict";
-
 import { withScope } from "./logger";
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
-  normalizeErrorMessage: (err: any) => string;
-};
+import { normalizeErrorMessage } from "../config/shared/errors";
 
 /**
  * wfmOrders.ts — Warframe.market order management (main-process only)
@@ -18,9 +14,7 @@ import * as wfmCatalog from "./wfmCatalog";
 import type { WfmRawOrder, WfmRawOrderItem, WfmOrderMutationData, WfmCloseOrderResult } from "./wfmTypes";
 import { unwrapWfmResponse } from "./wfmTypes";
 
-const { WFM_ASSET_BASE: WFM_THUMB_BASE } = require("../config/shared/wfm.cjs") as {
-  WFM_ASSET_BASE: string;
-};
+import { WFM_ASSET_BASE as WFM_THUMB_BASE } from "../config/shared/wfm";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 

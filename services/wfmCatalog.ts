@@ -1,9 +1,5 @@
-"use strict";
-
 import { withScope } from "./logger";
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
-  normalizeErrorMessage: (err: any) => string;
-};
+import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("wfmCatalog");
 
@@ -17,10 +13,7 @@ const log = withScope("wfmCatalog");
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const { WFM_HEADERS: _BASE_HEADERS, WFM_ASSET_BASE } = require("../config/shared/wfm.cjs") as {
-  WFM_HEADERS: Record<string, string>;
-  WFM_ASSET_BASE: string;
-};
+import { WFM_HEADERS as _BASE_HEADERS, WFM_ASSET_BASE } from "../config/shared/wfm";
 
 const WFM_V2_BASE = "https://api.warframe.market/v2";
 const WFM_HEADERS: Record<string, string> = Object.freeze({

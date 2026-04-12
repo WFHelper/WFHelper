@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * rivenData.ts — Riven mod data service (main-process only)
  *

@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * GDI BitBlt screen capture via koffi FFI.
  *

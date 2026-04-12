@@ -1,5 +1,3 @@
-"use strict";
-
 import type { StructuredOcrLine, StructuredOcrResult } from "../../services/ocrServer";
 import { levenshteinDistance } from "../../services/rewardScannerUtils";
 import * as rivenData from "../../services/rivenData";

@@ -2,15 +2,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import ctx from "./context";
-import { createRuntimeRequire } from "./runtimeRequire";
 import { withScope } from "../services/logger";
+import { normalizeErrorMessage } from "../config/shared/errors";
 
-const runtimeRequire = createRuntimeRequire(__dirname, 1);
 const log = withScope("ipcSecurity");
-
-const { normalizeErrorMessage } = runtimeRequire<{
-  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
-}>("config/shared/errors.cjs");
 
 const MAIN_RENDERER_SUFFIX = path.normalize(path.join("renderer", "dist", "index.html"));
 const OVERLAY_RENDERER_SUFFIX = path.normalize(path.join("renderer", "overlay.html"));
@@ -94,66 +89,31 @@ function assertMainRendererSender(event: IpcEventLike, _channel: string): void {
 }
 
 function assertOverlayRendererSender(event: IpcEventLike, _channel: string): void {
-  const rewardWindow = ctx.overlayWindow
-    ? {
-        isDestroyed: () => ctx.overlayWindow?.isDestroyed() ?? true,
-        webContents: { id: ctx.overlayWindow.webContents.id },
-      }
-    : null;
+  const candidates: Array<{ win: import("electron").BrowserWindow | null; suffix: string }> = [
+    { win: ctx.overlayWindow, suffix: OVERLAY_RENDERER_SUFFIX },
+    { win: ctx.plannerOverlayWindow, suffix: OVERLAY_RENDERER_SUFFIX },
+    { win: ctx.rivenOverlayLeftWindow, suffix: RIVEN_OVERLAY_RENDERER_SUFFIX },
+    { win: ctx.rivenOverlayRightWindow, suffix: RIVEN_OVERLAY_RENDERER_SUFFIX },
+  ];
 
-  const plannerWindow = (
-    ctx as typeof ctx & { plannerOverlayWindow?: import("electron").BrowserWindow | null }
-  ).plannerOverlayWindow
-    ? {
-        isDestroyed: () =>
-          (
-            ctx as typeof ctx & { plannerOverlayWindow?: import("electron").BrowserWindow | null }
-          ).plannerOverlayWindow?.isDestroyed() ?? true,
-        webContents: {
-          id: (
-            (ctx as typeof ctx & { plannerOverlayWindow?: import("electron").BrowserWindow | null })
-              .plannerOverlayWindow as import("electron").BrowserWindow
-          ).webContents.id,
-        },
-      }
-    : null;
-
-  const rivenLeftWindow = ctx.rivenOverlayLeftWindow
-    ? {
-        isDestroyed: () => ctx.rivenOverlayLeftWindow?.isDestroyed() ?? true,
-        webContents: { id: ctx.rivenOverlayLeftWindow.webContents.id },
-      }
-    : null;
-
-  const rivenRightWindow = ctx.rivenOverlayRightWindow
-    ? {
-        isDestroyed: () => ctx.rivenOverlayRightWindow?.isDestroyed() ?? true,
-        webContents: { id: ctx.rivenOverlayRightWindow.webContents.id },
-      }
-    : null;
-
-  try {
-    assertWindowSender(event, rewardWindow, OVERLAY_RENDERER_SUFFIX);
-    return;
-  } catch {
-    // fallback to planner window check
+  for (const { win, suffix } of candidates) {
+    try {
+      assertWindowSender(
+        event,
+        win
+          ? {
+              isDestroyed: () => win?.isDestroyed() ?? true,
+              webContents: { id: win.webContents.id },
+            }
+          : null,
+        suffix,
+      );
+      return;
+    } catch {
+      // try next candidate
+    }
   }
-
-  try {
-    assertWindowSender(event, plannerWindow, OVERLAY_RENDERER_SUFFIX);
-    return;
-  } catch {
-    // fallback to riven window check
-  }
-
-  try {
-    assertWindowSender(event, rivenLeftWindow, RIVEN_OVERLAY_RENDERER_SUFFIX);
-    return;
-  } catch {
-    // try right riven window
-  }
-
-  assertWindowSender(event, rivenRightWindow, RIVEN_OVERLAY_RENDERER_SUFFIX);
+  throw new Error("No matching overlay window for sender");
 }
 
 function assertTradeNotificationSender(event: IpcEventLike, _channel: string): void {

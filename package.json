@@ -20,12 +20,11 @@
     "lint:main": "eslint main.ts preload.ts preload-overlay.ts config ipc services --ext .js,.ts",
     "audit:prod": "npm audit --omit=dev",
     "audit:all": "npm audit",
-    "copy:config": "node -e \"require('fs').cpSync('config', '.electron-build/config', {recursive: true, force: true})\"",
-    "build:main": "tsc -p tsconfig.main.json && npm run copy:config",
-    "dev:main": "npm run copy:config && tsc -p tsconfig.main.json --watch --preserveWatchOutput",
+    "build:main": "tsc -p tsconfig.main.json",
+    "dev:main": "tsc -p tsconfig.main.json --watch --preserveWatchOutput",
     "dev:renderer": "vite build --watch",
     "typecheck:renderer": "tsc --noEmit",
-    "dev:electron": "wait-on .electron-build/main.js renderer/dist/index.html && nodemon --watch .electron-build/main.js --watch .electron-build/preload.js --watch .electron-build/preload-overlay.js --watch .electron-build/ipc --watch ipc --watch services --watch config --watch renderer/dist --watch renderer/overlay.js --watch renderer/overlay.html --ext js,json,html,css,ts --exec electron .",
+    "dev:electron": "wait-on .electron-build/main.js renderer/dist/index.html && nodemon --watch .electron-build --watch renderer --ext js,json,html,css --exec electron .",
     "typecheck:main": "tsc -p tsconfig.main.json --noEmit",
     "test:main": "vitest run tests/main",
     "test:e2e": "npm run build && playwright test --config playwright.config.ts",
@@ -72,8 +71,7 @@
     "typescript": "^5.9.3",
     "vite": "^5.4.21",
     "vitest": "^4.0.18",
-    "wait-on": "^9.0.4",
-    "yaml": "^2.8.2"
+    "wait-on": "^9.0.4"
   },
   "overrides": {
     "esbuild": "^0.25.11"
@@ -100,10 +98,7 @@
     },
     "files": [
       ".electron-build/**/*",
-      "ipc/**/*",
-      "services/**/*",
       "renderer/**/*",
-      "config/**/*",
       "assets/**/*",
       "scripts/**/*",
       "package.json",

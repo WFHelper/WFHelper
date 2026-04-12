@@ -58,7 +58,7 @@
     });
 
     // Live trade push — prepend new trades as they arrive
-    unsubTrade = ipc.onTradeRecorded((data: any) => {
+    unsubTrade = ipc.onTradeRecorded((data) => {
       if (data?.trade) {
         // Check if we already have this trade (from initial push before WFM match)
         const idx = trades.findIndex((t) => t.id === data.trade.id);

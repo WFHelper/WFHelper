@@ -1,10 +1,5 @@
 import type { InventoryBaseItem, ItemMetrics } from "../../lib/inventoryMarket.js";
-import sharedNumeric from "../../../config/shared/numeric.cjs";
-
-const { normalizeRank, isRankedGroup } = sharedNumeric as {
-  normalizeRank: (value: unknown, maxRank?: number) => number | null;
-  isRankedGroup: (group: string | null | undefined) => boolean;
-};
+import { normalizeRank, isRankedGroup } from "../../../config/shared/numeric.js";
 
 // ---------------------------------------------------------------------------
 // Rank resolution

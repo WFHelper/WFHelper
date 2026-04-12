@@ -95,7 +95,7 @@ module.exports = [
     rules: {
       ...tsPlugin.configs.recommended.rules,
       "no-unused-vars": "off",
-      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": [
         "warn",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
@@ -126,7 +126,7 @@ module.exports = [
       "svelte/no-at-html-tags": "off",
       "no-undef": "off",
       "no-unused-vars": "off",
-      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": [
         "warn",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },

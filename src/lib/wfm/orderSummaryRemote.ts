@@ -4,11 +4,7 @@ import {
   type BackendFetchResult,
   type BackendOrderSummaryPayload,
 } from "./backendLite.js";
-import numericShared from "../../../config/shared/numeric.cjs";
-
-const { normalizeRankFilter } = numericShared as {
-  normalizeRankFilter: (value: unknown) => number | null;
-};
+import { normalizeRankFilter } from "../../../config/shared/numeric.js";
 
 const CIRCUIT_BREAKER_THRESHOLD = 6;
 const CIRCUIT_BREAKER_COOLDOWN_MS = 90_000;

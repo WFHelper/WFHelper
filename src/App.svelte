@@ -8,11 +8,7 @@
   import ErrorBoundary from "./components/ErrorBoundary.svelte";
   import ToastHost from "./components/ToastHost.svelte";
 
-  import sharedErrors from "../config/shared/errors.cjs";
-
-  const { normalizeErrorMessage } = sharedErrors as {
-    normalizeErrorMessage: (err: unknown, fallback?: string) => string;
-  };
+  import { normalizeErrorMessage } from "../config/shared/errors.js";
 
   import WelcomeView from "./views/WelcomeView.svelte";
   import SetupView from "./views/SetupView.svelte";

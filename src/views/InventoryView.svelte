@@ -35,11 +35,7 @@
   } from "../lib/wfm/rankedHotset.js";
   import { getInventoryHydrationController } from "../stores/inventoryHydration.js";
   import { sharedFilters } from "../stores/filters.js";
-  import sharedNumeric from "../../config/shared/numeric.cjs";
-
-  const { isRankedGroup } = sharedNumeric as {
-    isRankedGroup: (group: string | null | undefined) => boolean;
-  };
+  import { isRankedGroup } from "../../config/shared/numeric.js";
 
   const METRIC_VISIBLE_PREFETCH_LIMIT = 42;
   const METRIC_BACKGROUND_PREFETCH_LIMIT = 210;

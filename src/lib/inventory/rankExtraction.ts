@@ -1,10 +1,6 @@
 import type { InventoryGroup, ItemDbEntry, RawInventoryEntry } from "../../types/inventory.js";
 import { MAX_ITEM_RANK, XP_PER_RANK } from "../../config/game.js";
-import sharedNumeric from "../../../config/shared/numeric.cjs";
-
-const { toFiniteNumber } = sharedNumeric as {
-  toFiniteNumber: (value: unknown) => number | null;
-};
+import { toFiniteNumber } from "../../../config/shared/numeric.js";
 
 // --- Key sets for rank detection --------------------------------------------
 

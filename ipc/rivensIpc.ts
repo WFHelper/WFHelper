@@ -1,19 +1,9 @@
 import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
-import { createRuntimeRequire } from "./runtimeRequire";
 import ctx from "./context";
-
-const requireRuntime = createRuntimeRequire(__dirname, 1);
-const rivenFingerprint = requireRuntime<typeof import("../services/rivenFingerprint")>(
-  "services/rivenFingerprint",
-);
-const wfmRivenSearch = requireRuntime<typeof import("../services/wfmRivenSearch")>(
-  "services/wfmRivenSearch",
-);
-const rivenData = requireRuntime<typeof import("../services/rivenData")>(
-  "services/rivenData",
-);
-
-const { ipcMain } = require("electron") as typeof import("electron");
+import * as rivenFingerprint from "../services/rivenFingerprint";
+import * as wfmRivenSearch from "../services/wfmRivenSearch";
+import * as rivenData from "../services/rivenData";
+import { ipcMain } from "electron";
 
 /** Map game polarity internal names to WFM API names. */
 const POLARITY_TO_WFM: Record<string, string> = {

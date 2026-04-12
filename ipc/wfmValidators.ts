@@ -1,9 +1,4 @@
-import { createRuntimeRequire } from "./runtimeRequire";
-
-const requireRuntime = createRuntimeRequire(__dirname, 1);
-const { normalizeErrorMessage } = requireRuntime<{
-  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
-}>("config/shared/errors.cjs");
+import { normalizeErrorMessage } from "../config/shared/errors";
 
 const WFM_ID_RE = /^[a-f0-9]{24}$/i;
 const VALID_ORDER_TYPES = new Set(["sell", "buy"]);

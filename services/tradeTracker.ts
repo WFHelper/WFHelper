@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * tradeTracker.ts — Persists trade events detected from EE.log trade
  * confirmation dialogs.
@@ -14,12 +12,12 @@
  * Stored in %APPDATA%/warframe-companion/trade-log.json.
  */
 
-const path = require("node:path") as typeof import("node:path");
-const fs = require("node:fs") as typeof import("node:fs");
-const { app } = require("electron") as typeof import("electron");
-const { withScope } = require("./logger") as typeof import("./logger");
-const statsTracker = require("./statsTracker") as typeof import("./statsTracker");
-const wfmCatalog = require("./wfmCatalog") as typeof import("./wfmCatalog");
+import path from "node:path";
+import fs from "node:fs";
+import { app } from "electron";
+import { withScope } from "./logger";
+import * as statsTracker from "./statsTracker";
+import * as wfmCatalog from "./wfmCatalog";
 
 const log = withScope("tradeTracker");
 

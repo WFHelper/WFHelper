@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Riven rolling session state and overlay IPC helper.
  *

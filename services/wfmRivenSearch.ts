@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * wfmRivenSearch.ts — Warframe.market riven auction search (main-process only)
  *
@@ -10,7 +8,7 @@
 import { withScope } from "./logger";
 import type { WfmRawAuction, WfmAuctionSearchPayload, WfmAuctionCreatePayload } from "./wfmTypes";
 import { unwrapWfmResponse } from "./wfmTypes";
-const wfmClient = require("./wfmClient") as typeof import("./wfmClient");
+import * as wfmClient from "./wfmClient";
 
 const log = withScope("wfmRivenSearch");
 

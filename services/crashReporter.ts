@@ -1,9 +1,7 @@
 import { withScope } from "./logger";
 import type { ScopedLogger } from "./logger";
 
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
-  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
-};
+import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log: ScopedLogger = withScope("crashReporter");
 

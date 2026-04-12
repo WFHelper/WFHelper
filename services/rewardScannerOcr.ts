@@ -1,11 +1,7 @@
-"use strict";
-
 import { execFile } from "child_process";
 import { ocrServer, nativeOcrAvailable, nativeOcrBuffer, nativeOcrFile, tesseractWorkerAvailable, tesseractWorkerRecognize } from "./ocrServer";
 import type { StructuredOcrResult } from "./ocrServer";
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
-  normalizeErrorMessage: (err: any) => string;
-};
+import { normalizeErrorMessage } from "../config/shared/errors";
 
 function timeoutWrap<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   return new Promise((resolve, reject) => {

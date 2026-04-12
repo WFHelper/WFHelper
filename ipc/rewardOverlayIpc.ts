@@ -18,10 +18,9 @@ import * as warframeStatus from "../services/warframeStatus";
 
 const log = withScope("rewardOverlayIpc");
 
-const { ipcMain, BrowserWindow, screen, app } =
-  require("electron") as typeof import("electron");
-const path = require("node:path") as typeof import("node:path");
-const fs = require("node:fs") as typeof import("node:fs");
+import { ipcMain, BrowserWindow, screen, app } from "electron";
+import path from "node:path";
+import fs from "node:fs";
 
 const APP_ROOT = app.getAppPath();
 const OVERLAY_WINDOW_FILE = path.join(APP_ROOT, "renderer", "overlay.html");

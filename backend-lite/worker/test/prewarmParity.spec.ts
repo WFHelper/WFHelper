@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import wfmStatsShared from '../../../config/shared/wfmStats.cjs';
+import { extractMedianFromStatsPayload } from '../../../config/shared/wfmStats';
 import { __test__ as prewarmTest } from '../src/services/prewarm';
-
-type SharedWfmStatsModule = {
-	extractMedianFromStatsPayload: (jsonPayload: unknown) => number | null;
-};
-
-const { extractMedianFromStatsPayload } = wfmStatsShared as SharedWfmStatsModule;
 
 const canonicalStatsPayload = {
 	payload: {

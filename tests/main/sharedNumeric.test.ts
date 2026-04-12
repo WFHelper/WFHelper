@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-
-const {
+import {
   MAX_SUPPORTED_RANK,
   RANKED_GROUPS,
   toFiniteNumber,
@@ -11,7 +10,7 @@ const {
   toFinitePositiveInt,
   toFiniteNonNegativeInt,
   isRankedGroup,
-} = require("../../config/shared/numeric.cjs");
+} from "../../config/shared/numeric";
 
 // ---------------------------------------------------------------------------
 // toFiniteNumber

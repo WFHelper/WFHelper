@@ -5,21 +5,8 @@ import type { WfmOrdersResult } from "../types/market.js";
 import type { RelicDatabase } from "../types/relics.js";
 import { getCachedPriceState } from "./wfm/priceCache.js";
 import { getCachedOrderSummaryState } from "./wfm/orderSummaryCache.js";
-import numericShared from "../../config/shared/numeric.cjs";
-import wfmExclusionsShared from "../../config/shared/wfmExclusions.cjs";
-
-const { toFinitePositiveInt, toFiniteNumber, isRankedGroup } = numericShared as {
-  toFinitePositiveInt: (value: unknown) => number | null;
-  toFiniteNumber: (value: unknown) => number | null;
-  isRankedGroup: (group: string | null | undefined) => boolean;
-};
-
-const { isExcludedRankedMarketItem } = wfmExclusionsShared as {
-  isExcludedRankedMarketItem: (
-    name: string | null | undefined,
-    slug: string | null | undefined,
-  ) => boolean;
-};
+import { toFinitePositiveInt, toFiniteNumber, isRankedGroup } from "../../config/shared/numeric.js";
+import { isExcludedRankedMarketItem } from "../../config/shared/wfmExclusions.js";
 
 export type InventoryFilterTab = "all_parts" | "relics" | "mods" | "arcanes" | "full_sets" | "misc";
 

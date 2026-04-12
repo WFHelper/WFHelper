@@ -11,15 +11,8 @@ import {
 	putOrderSummaryPayload,
 	putPricePayload,
 } from './prewarm';
-import sharedNumeric from '../../../../config/shared/numeric.cjs';
-import wfmExclusionsShared from '../../../../config/shared/wfmExclusions.cjs';
-
-const { normalizeRankFilter } = sharedNumeric as {
-	normalizeRankFilter: (value: unknown) => number | null;
-};
-const { isExcludedRankedMarketItem } = wfmExclusionsShared as {
-	isExcludedRankedMarketItem: (name: string | null | undefined, slug: string | null | undefined) => boolean;
-};
+import { normalizeRankFilter } from '../../../../config/shared/numeric';
+import { isExcludedRankedMarketItem } from '../../../../config/shared/wfmExclusions';
 
 type AutoReadResult =
 	| { status: 'ok'; data: Record<string, unknown> }

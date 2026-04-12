@@ -1,17 +1,9 @@
 import type { RawInventoryData } from "../types/inventory.js";
 
-import inventoryPayloadShared from "../../config/shared/inventoryPayload.cjs";
-
-type SharedInventoryPayloadModule = {
-  hasInventoryShape: (value: unknown) => boolean;
-  unwrapInventoryPayload: (
-    value: unknown,
-    options?: { returnInputOnFailure?: boolean; maxDepth?: number },
-  ) => unknown;
-};
-
-const { hasInventoryShape: sharedHasInventoryShape, unwrapInventoryPayload: sharedUnwrap } =
-  inventoryPayloadShared as SharedInventoryPayloadModule;
+import {
+  hasInventoryShape as sharedHasInventoryShape,
+  unwrapInventoryPayload as sharedUnwrap,
+} from "../../config/shared/inventoryPayload.js";
 
 export function hasInventoryShape(data: unknown): data is RawInventoryData {
   return sharedHasInventoryShape(data);

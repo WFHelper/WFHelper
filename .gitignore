@@ -22,6 +22,7 @@ preload-crop.js
 api-inventory-data/
 
 .opencode/
+docs/
 
 # Cloudflare worker local secrets / state
 .dev.vars*

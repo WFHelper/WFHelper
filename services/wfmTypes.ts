@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * wfmTypes.ts — Shared Warframe.market API response types (main-process only)
  *

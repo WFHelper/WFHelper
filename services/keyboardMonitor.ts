@@ -1,6 +1,5 @@
 import { withScope } from "./logger";
-
-const { uIOhook, UiohookKey } = require("uiohook-napi") as typeof import("uiohook-napi");
+import { uIOhook, UiohookKey } from "uiohook-napi";
 
 const log = withScope("keyboardMonitor");
 

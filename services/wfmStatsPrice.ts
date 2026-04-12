@@ -1,19 +1,13 @@
-"use strict";
-
 import { withScope } from "./logger";
 import { extractMedianFromStatsPayload } from "./wfmStats";
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
-  normalizeErrorMessage: (err: any) => string;
-};
+import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("wfmStatsPrice");
 
 const STATS_TTL_MS = 5 * 60 * 1000;
 const STATS_TIMEOUT_MS = 7_000;
 
-const { WFM_HEADERS } = require("../config/shared/wfm.cjs") as {
-  WFM_HEADERS: Record<string, string>;
-};
+import { WFM_HEADERS } from "../config/shared/wfm";
 
 interface CacheEntry {
   median: number;

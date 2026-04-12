@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import * as mainInventory from "../../ipc/inventoryPayload";
 import * as mainStats from "../../services/wfmStats";
-const sharedInventory = require("../../config/shared/inventoryPayload.cjs");
-const sharedStats = require("../../config/shared/wfmStats.cjs");
+import * as sharedInventory from "../../config/shared/inventoryPayload";
+import * as sharedStats from "../../config/shared/wfmStats";
 
 import {
   hasInventoryShape as rendererHasInventoryShape,

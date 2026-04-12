@@ -1,14 +1,6 @@
 import { normalizeWfmSlug } from "./backendLite.js";
-import numericShared from "../../../config/shared/numeric.cjs";
-import wfmShared from "../../../config/shared/wfm.cjs";
-
-const { normalizeRank } = numericShared as {
-  normalizeRank: (value: unknown, maxRank?: number) => number | null;
-};
-
-const { WFM_HEADERS } = wfmShared as {
-  WFM_HEADERS: Readonly<Record<string, string>>;
-};
+import { normalizeRank } from "../../../config/shared/numeric.js";
+import { WFM_HEADERS } from "../../../config/shared/wfm.js";
 
 export interface OrderBookEntry {
   userName: string;

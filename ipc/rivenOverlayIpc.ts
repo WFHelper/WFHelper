@@ -13,19 +13,12 @@ import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 import { startEscMonitor, stopEscMonitor } from "../services/keyboardMonitor";
 import { forceEndRivenSession } from "../services/eeLogMonitor";
-import { createRuntimeRequire } from "./runtimeRequire";
-
-const requireRuntime = createRuntimeRequire(__dirname, 1);
+import { isAllowedExternalHost } from "../config/runtime/security";
 
 const log = withScope("rivenOverlayIpc");
 
-const { ipcMain, BrowserWindow, app, screen, shell } =
-  require("electron") as typeof import("electron");
-const path = require("node:path") as typeof import("node:path");
-
-const { isAllowedExternalHost } = requireRuntime<{
-  isAllowedExternalHost: (hostname: string) => boolean;
-}>("config/runtime/security");
+import { ipcMain, BrowserWindow, app, screen, shell } from "electron";
+import path from "node:path";
 
 const APP_ROOT = app.getAppPath();
 const RIVEN_WINDOW_FILE = path.join(APP_ROOT, "renderer", "riven-overlay.html");

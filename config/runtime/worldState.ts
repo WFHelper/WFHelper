@@ -1,6 +1,4 @@
-"use strict";
-
-const WORLD_STATE_CONFIG = Object.freeze({
+export const WORLD_STATE_CONFIG = Object.freeze({
   fetchUrl: "https://content.warframe.com/dynamic/worldState.php",
   oracleWorldStateUrl: "https://oracle.browse.wf/worldState.json",
   oracleBountyCycleUrl: "https://oracle.browse.wf/bounty-cycle",
@@ -15,5 +13,3 @@ const WORLD_STATE_CONFIG = Object.freeze({
   duviriMoodPeriodMs: 7_200_000,
   duviriMoods: Object.freeze(["Sorrow", "Fear", "Joy", "Anger", "Envy"]),
 });
-
-module.exports = { WORLD_STATE_CONFIG };

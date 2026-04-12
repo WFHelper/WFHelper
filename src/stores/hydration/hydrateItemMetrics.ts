@@ -28,19 +28,8 @@ import {
   hasRankPairCoverage,
 } from "./hydrationHelpers.js";
 import { getCachedMedian, getCachedRankOrderSummary } from "./hydrationCacheHelpers.js";
-import sharedNumeric from "../../../config/shared/numeric.cjs";
-import wfmExclusionsShared from "../../../config/shared/wfmExclusions.cjs";
-
-const { isRankedGroup } = sharedNumeric as {
-  isRankedGroup: (group: string | null | undefined) => boolean;
-};
-
-const { isExcludedRankedMarketItem } = wfmExclusionsShared as {
-  isExcludedRankedMarketItem: (
-    name: string | null | undefined,
-    slug: string | null | undefined,
-  ) => boolean;
-};
+import { isRankedGroup } from "../../../config/shared/numeric.js";
+import { isExcludedRankedMarketItem } from "../../../config/shared/wfmExclusions.js";
 
 // ---------------------------------------------------------------------------
 // Hydration context — provides controlled access to controller closure state

@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-
-const { normalizeErrorMessage } = require("../../config/shared/errors.cjs");
+import { normalizeErrorMessage } from "../../config/shared/errors";
 
 // ---------------------------------------------------------------------------
 // normalizeErrorMessage

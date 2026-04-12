@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * tradeNotificationIpc.ts — Manages the trade notification overlay window.
  *
@@ -14,9 +12,8 @@ import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 
 const log = withScope("tradeNotificationIpc");
 
-const path = require("node:path") as typeof import("node:path");
-const { app, BrowserWindow, ipcMain, screen } =
-  require("electron") as typeof import("electron");
+import path from "node:path";
+import { app, BrowserWindow, ipcMain, screen } from "electron";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

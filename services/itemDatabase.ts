@@ -1,7 +1,5 @@
 import { withScope } from "./logger";
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
-  normalizeErrorMessage: (err: any) => string;
-};
+import { normalizeErrorMessage } from "../config/shared/errors";
 // ═══════════════════════════════════════════════════════════════════════════
 // Item Database Service
 // Primary:  warframe-public-export-plus (Sainan/calamity-inc) — raw game data

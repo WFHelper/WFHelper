@@ -25,24 +25,12 @@ import type {
 	PrewarmResult,
 } from '../types';
 import { clamp, getJsonFromKv, parsePositiveInt } from '../utils';
-import wfmStatsShared from '../../../../config/shared/wfmStats.cjs';
-import sharedNumeric from '../../../../config/shared/numeric.cjs';
-import wfmExclusionsShared from '../../../../config/shared/wfmExclusions.cjs';
+import { extractMedianFromStatsPayload } from '../../../../config/shared/wfmStats';
+import { normalizeRankFilter } from '../../../../config/shared/numeric';
+import { isExcludedRankedMarketItem } from '../../../../config/shared/wfmExclusions';
 
 const UNTRADABLE_SKIP_TTL_SEC = 30 * 24 * 60 * 60;
 const ORDER_SUMMARY_HOTSET_MAX_ENTRIES = 96;
-
-type SharedWfmStatsModule = {
-	extractMedianFromStatsPayload: (jsonPayload: unknown, options?: { rank?: number | null }) => number | null;
-};
-
-const { extractMedianFromStatsPayload } = wfmStatsShared as SharedWfmStatsModule;
-const { normalizeRankFilter } = sharedNumeric as {
-	normalizeRankFilter: (value: unknown) => number | null;
-};
-const { isExcludedRankedMarketItem } = wfmExclusionsShared as {
-	isExcludedRankedMarketItem: (name: string | null | undefined, slug: string | null | undefined) => boolean;
-};
 
 export function cacheTtlSec(env: Env): number {
 	return clamp(parsePositiveInt(env.CACHE_TTL_SEC, 43200), 60, 604800);

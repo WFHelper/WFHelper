@@ -3,63 +3,43 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const APP_ROOT = path.resolve(__dirname, "..");
+import { withScope } from "./services/logger";
+import { MAIN_WINDOW_CSP, PERMISSIONS_POLICY } from "./config/runtime/security";
+import * as windowSecurity from "./services/windowSecurity";
 
-function fromAppRoot(relPath: string): any {
-  const unwrapDefault = (loaded: any): any => {
-    if (!loaded || typeof loaded !== "object") return loaded;
-    if (!Object.prototype.hasOwnProperty.call(loaded, "default")) return loaded;
-    const keys = Object.keys(loaded);
-    const defaultOnly = keys.every((key) => key === "default" || key === "__esModule");
-    return defaultOnly ? loaded.default : loaded;
-  };
+const log = withScope("Main");
 
-  const buildPath = path.join(__dirname, relPath);
-  try {
-    const resolved = require.resolve(buildPath);
-    return unwrapDefault(require(resolved));
-  } catch {
-    return unwrapDefault(require(path.join(APP_ROOT, relPath)));
-  }
-}
-
-const log = (fromAppRoot("services/logger") as typeof import("./services/logger")).withScope("Main");
-const { MAIN_WINDOW_CSP, PERMISSIONS_POLICY } = fromAppRoot("config/runtime/security") as {
-  MAIN_WINDOW_CSP: string;
-  PERMISSIONS_POLICY: string;
-};
-const windowSecurity = fromAppRoot("services/windowSecurity") as typeof import("./services/windowSecurity");
-
-const MAIN_WINDOW_ENTRY_FILE = path.join(APP_ROOT, "renderer", "dist", "index.html");
+const MAIN_WINDOW_ENTRY_FILE = path.join(app.getAppPath(), "renderer", "dist", "index.html");
 
 // Services
-const itemDb = fromAppRoot("services/itemDatabase") as typeof import("./services/itemDatabase");
-const wfmCatalog = fromAppRoot("services/wfmCatalog") as typeof import("./services/wfmCatalog");
-const wfmSession = fromAppRoot("services/wfmSession") as typeof import("./services/wfmSession");
-const relicService = fromAppRoot("services/relicService") as typeof import("./services/relicService");
-const eeLogMonitor = fromAppRoot("services/eeLogMonitor") as typeof import("./services/eeLogMonitor");
-const keyboardMonitor = fromAppRoot("services/keyboardMonitor") as typeof import("./services/keyboardMonitor");
-const rewardScanner = fromAppRoot("services/rewardScanner") as typeof import("./services/rewardScanner");
-const ocrServer = fromAppRoot("services/ocrServer") as typeof import("./services/ocrServer");
-const crashReporter = fromAppRoot("services/crashReporter") as typeof import("./services/crashReporter");
-const autoUpdater = fromAppRoot("services/autoUpdater") as typeof import("./services/autoUpdater");
+import * as itemDb from "./services/itemDatabase";
+import * as wfmCatalog from "./services/wfmCatalog";
+import * as wfmSession from "./services/wfmSession";
+import * as relicService from "./services/relicService";
+import * as eeLogMonitor from "./services/eeLogMonitor";
+import * as keyboardMonitor from "./services/keyboardMonitor";
+import * as rewardScanner from "./services/rewardScanner";
+import * as ocrServer from "./services/ocrServer";
+import * as crashReporter from "./services/crashReporter";
+import * as autoUpdater from "./services/autoUpdater";
 
 // IPC modules
-const ctx = fromAppRoot("ipc/context") as typeof import("./ipc/context")["default"];
-const inventoryIpc = fromAppRoot("ipc/inventoryIpc") as typeof import("./ipc/inventoryIpc");
-const wfmIpc = fromAppRoot("ipc/wfmIpc") as typeof import("./ipc/wfmIpc");
-const overlayIpc = fromAppRoot("ipc/overlayIpc") as typeof import("./ipc/overlayIpc");
-const worldStateIpc = fromAppRoot("ipc/worldStateIpc") as typeof import("./ipc/worldStateIpc");
-const systemIpc = fromAppRoot("ipc/systemIpc") as typeof import("./ipc/systemIpc");
-const snapshotCacheIpc = fromAppRoot("ipc/snapshotCacheIpc") as typeof import("./ipc/snapshotCacheIpc");
-const rankedHotsetIpc = fromAppRoot("ipc/rankedHotsetIpc") as typeof import("./ipc/rankedHotsetIpc");
-const statsIpc = fromAppRoot("ipc/statsIpc") as typeof import("./ipc/statsIpc");
-const rivensIpc = fromAppRoot("ipc/rivensIpc") as typeof import("./ipc/rivensIpc");
-const tradeNotificationIpc = fromAppRoot("ipc/tradeNotificationIpc") as typeof import("./ipc/tradeNotificationIpc");
-const statsTracker = fromAppRoot("services/statsTracker") as typeof import("./services/statsTracker");
-const tradeTracker = fromAppRoot("services/tradeTracker") as typeof import("./services/tradeTracker");
-const tradeWfmMatcher = fromAppRoot("services/tradeWfmMatcher") as typeof import("./services/tradeWfmMatcher");
-const apiHelperRunner = fromAppRoot("services/apiHelperRunner") as typeof import("./services/apiHelperRunner");
+import ctx from "./ipc/context";
+import * as inventoryIpc from "./ipc/inventoryIpc";
+import * as wfmIpc from "./ipc/wfmIpc";
+import * as overlayIpc from "./ipc/overlayIpc";
+import * as worldStateIpc from "./ipc/worldStateIpc";
+import * as systemIpc from "./ipc/systemIpc";
+import * as snapshotCacheIpc from "./ipc/snapshotCacheIpc";
+import * as rankedHotsetIpc from "./ipc/rankedHotsetIpc";
+import * as statsIpc from "./ipc/statsIpc";
+import * as rivensIpc from "./ipc/rivensIpc";
+import * as tradeNotificationIpc from "./ipc/tradeNotificationIpc";
+import { assertAuthorizedSender, assertMainRendererSender } from "./ipc/ipcSecurity";
+import * as statsTracker from "./services/statsTracker";
+import * as tradeTracker from "./services/tradeTracker";
+import * as tradeWfmMatcher from "./services/tradeWfmMatcher";
+import * as apiHelperRunner from "./services/apiHelperRunner";
 
 // Suppress noisy Chromium/DevTools internal logging in terminal.
 app.commandLine.appendSwitch("disable-logging");
@@ -185,28 +165,27 @@ app.whenReady().then(async () => {
   tradeNotificationIpc.register();
 
   // Helper runner IPC
-  const ipcSecurityMod = fromAppRoot("ipc/ipcSecurity");
   ipcMain.handle("helper:get-status", (event: unknown) => {
-    ipcSecurityMod.assertAuthorizedSender(
-      ipcSecurityMod.assertMainRendererSender,
-      event,
+    assertAuthorizedSender(
+      assertMainRendererSender,
+      event as never,
       "helper:get-status",
     );
     return apiHelperRunner.getStatus();
   });
   ipcMain.handle("helper:run-now", async (event: unknown) => {
-    ipcSecurityMod.assertAuthorizedSender(
-      ipcSecurityMod.assertMainRendererSender,
-      event,
+    assertAuthorizedSender(
+      assertMainRendererSender,
+      event as never,
       "helper:run-now",
     );
     const ok = await apiHelperRunner.runOnce();
     return { ok };
   });
   ipcMain.handle("helper:download", async (event: unknown) => {
-    ipcSecurityMod.assertAuthorizedSender(
-      ipcSecurityMod.assertMainRendererSender,
-      event,
+    assertAuthorizedSender(
+      assertMainRendererSender,
+      event as never,
       "helper:download",
     );
     const ok = await apiHelperRunner.downloadHelper((progress) => {
@@ -292,8 +271,7 @@ app.whenReady().then(async () => {
       }
 
       // Attempt WFM auto-close (async, fire-and-forget)
-      const settings = ctx.overlaySettings as Record<string, unknown>;
-      if (settings?.autoCloseWfmOrders === false) return;
+      if (!ctx.overlaySettings.autoCloseWfmOrders) return;
 
       void (async () => {
         try {
@@ -314,7 +292,7 @@ app.whenReady().then(async () => {
           }
 
           // Show trade notification overlay (if enabled)
-          if (settings?.showTradeNotification !== false) {
+          if (ctx.overlaySettings.showTradeNotification !== false) {
             tradeNotificationIpc.showTradeNotification(match);
           }
         } catch (err) {

@@ -1,16 +1,5 @@
-import { createRuntimeRequire } from "../runtimeRequire";
-
-const requireRuntime = createRuntimeRequire(__dirname, 2);
-const sharedNumeric = requireRuntime<{
-  toFiniteOr: (value: unknown, fallback: number) => number;
-  clampNumber: (value: number, min: number, max: number) => number;
-}>("config/shared/numeric.cjs");
-
-const { normalizeErrorMessage } = requireRuntime<{
-  normalizeErrorMessage: (err: unknown, fallback?: string) => string;
-}>("config/shared/errors.cjs");
-
-const { toFiniteOr, clampNumber } = sharedNumeric;
+import { toFiniteOr, clampNumber } from "../../config/shared/numeric";
+import { normalizeErrorMessage } from "../../config/shared/errors";
 
 const RECOMMENDATION_ROW_LIMIT = 6;
 const RECOMMENDATION_SQUAD_SIZE = 4;
@@ -84,7 +73,7 @@ type OverlayRecommendationControllerOptions = {
     error: (...args: unknown[]) => void;
   };
   ctx: {
-    overlaySettings: Record<string, unknown>;
+    overlaySettings: import("../../config/runtime/overlaySettings").OverlaySettings;
     currentInventoryData: Record<string, unknown> | null;
     overlayDismissedUntilMs?: number;
   };

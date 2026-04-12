@@ -1,5 +1,3 @@
-"use strict";
-
 import { captureScreenFast } from "../../services/rewardScannerCapture";
 import { cropRectContent, detectGameContentRect } from "../../services/rewardScannerImage";
 import { clamp01, computeMeanAndStd, sleep } from "../../services/rewardScannerUtils";

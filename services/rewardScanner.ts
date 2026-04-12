@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Reward scanner orchestrator.
  *
@@ -13,20 +11,14 @@
  */
 
 import { withScope } from "./logger";
-const { normalizeErrorMessage } = require("../config/shared/errors.cjs") as {
-  normalizeErrorMessage: (err: any) => string;
-};
+import { normalizeErrorMessage } from "../config/shared/errors";
 
 import fs from "fs";
 import crypto from "node:crypto";
 import os from "os";
 import path from "path";
 import { createRewardOcrRunner } from "./rewardScannerOcr";
-const { OVERLAY_SETTINGS_DEFAULTS, OVERLAY_SETTINGS_LIMITS } =
-  require("../config/runtime/overlaySettings") as {
-    OVERLAY_SETTINGS_DEFAULTS: Record<string, any>;
-    OVERLAY_SETTINGS_LIMITS: Record<string, any>;
-  };
+import { OVERLAY_SETTINGS_DEFAULTS, OVERLAY_SETTINGS_LIMITS } from "../config/runtime/overlaySettings";
 
 import { clampNumber, round4, luminanceFromBgr } from "./rewardScannerUtils";
 import { captureScreenFast, captureDebugFrame, captureSourceMeta } from "./rewardScannerCapture";
