@@ -21,6 +21,8 @@ preload-overlay.js
 preload-crop.js
 api-inventory-data/
 
+.opencode/
+
 # Cloudflare worker local secrets / state
 .dev.vars*
 !.dev.vars.example
