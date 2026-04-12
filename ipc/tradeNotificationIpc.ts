@@ -9,6 +9,9 @@ import ctx from "./context";
 import { assertTradeNotificationSender, isAuthorizedSender } from "./ipcSecurity";
 import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
+import {
+  TRADE_NOTIFICATION_SHOW, TRADE_NOTIFICATION_DISMISS,
+} from "../config/shared/ipcChannels";
 
 const log = withScope("tradeNotificationIpc");
 
@@ -123,7 +126,7 @@ export function showTradeNotification(match: TradeNotificationShowPayload["match
     match,
     timing: { visibleMs: RENDERER_VISIBLE_MS, fadeMs: RENDERER_FADE_MS },
   };
-  win.webContents.send("trade-notification-show", payload);
+  win.webContents.send(TRADE_NOTIFICATION_SHOW, payload);
   win.showInactive();
   win.moveTop();
 
@@ -144,12 +147,12 @@ export function showTradeNotification(match: TradeNotificationShowPayload["match
  * Register IPC handlers from the notification overlay window.
  */
 export function register(): void {
-  ipcMain.on("trade-notification-dismiss", (event: unknown) => {
+  ipcMain.on(TRADE_NOTIFICATION_DISMISS, (event: unknown) => {
     if (
       !isAuthorizedSender(
         assertTradeNotificationSender,
         event as never,
-        "trade-notification-dismiss",
+        TRADE_NOTIFICATION_DISMISS,
       )
     ) {
       return;

@@ -3,6 +3,9 @@ import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity"
 import { unwrapInventoryPayload } from "./inventoryPayload";
 import { withScope } from "../services/logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import {
+  INVENTORY_GET, INVENTORY_OPEN_FILE, INVENTORY_GET_STATUS, INVENTORY_UPDATED,
+} from "../config/shared/ipcChannels";
 import { ipcMain, dialog, app } from "electron";
 import path from "node:path";
 import fs from "node:fs";
@@ -228,7 +231,7 @@ function watchInventoryFile(filePath: string): void {
         _notifyListeners(data as Record<string, unknown>);
       }
       if (data && ctx.mainWindow) {
-        ctx.mainWindow.webContents.send("inventory-updated", data);
+        ctx.mainWindow.webContents.send(INVENTORY_UPDATED, data);
       }
     } catch (err) {
       log.error("Failed to parse inventory:", normalizeErrorMessage(err));
@@ -237,8 +240,8 @@ function watchInventoryFile(filePath: string): void {
 }
 
 function register(): void {
-  ipcMain.handle("get-inventory", async (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, "get-inventory");
+  ipcMain.handle(INVENTORY_GET, async (event: unknown) => {
+    assertAuthorizedSender(assertMainRendererSender, event as never, INVENTORY_GET);
 
     if (!ctx.currentInventoryPath) {
       const discovered = findInventoryFile();
@@ -255,8 +258,8 @@ function register(): void {
     return null;
   });
 
-  ipcMain.handle("open-inventory-file", async (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, "open-inventory-file");
+  ipcMain.handle(INVENTORY_OPEN_FILE, async (event: unknown) => {
+    assertAuthorizedSender(assertMainRendererSender, event as never, INVENTORY_OPEN_FILE);
 
     const openOptions: import("electron").OpenDialogOptions = {
       title: "Select warframe-api-helper inventory JSON",
@@ -281,8 +284,8 @@ function register(): void {
     return null;
   });
 
-  ipcMain.handle("get-inventory-status", async (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, "get-inventory-status");
+  ipcMain.handle(INVENTORY_GET_STATUS, async (event: unknown) => {
+    assertAuthorizedSender(assertMainRendererSender, event as never, INVENTORY_GET_STATUS);
     return {
       path: ctx.currentInventoryPath,
       found: ctx.currentInventoryPath !== null,

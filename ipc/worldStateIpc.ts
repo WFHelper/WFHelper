@@ -3,6 +3,7 @@ import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity"
 import { withScope } from "../services/logger";
 import * as worldStateParser from "../services/worldStateParser";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { DB_GET_WORLD_STATE } from "../config/shared/ipcChannels";
 
 const log = withScope("worldStateIpc");
 
@@ -293,8 +294,8 @@ function register(
     notificationCtor = options.Notification as typeof notificationCtor;
   }
 
-  ipc.handle("get-world-state", async (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, "get-world-state");
+  ipc.handle(DB_GET_WORLD_STATE, async (event: unknown) => {
+    assertAuthorizedSender(assertMainRendererSender, event as never, DB_GET_WORLD_STATE);
 
     const now = Date.now();
     if (_worldStateCache && now - _worldStateCacheTime < WORLD_STATE_TTL_MS) {

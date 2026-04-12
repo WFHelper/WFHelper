@@ -1,5 +1,6 @@
 import { toFiniteOr, clampNumber } from "../../config/shared/numeric";
 import { normalizeErrorMessage } from "../../config/shared/errors";
+import { RELIC_RECOMMENDATIONS, RELIC_PLANNER_TRIGGER } from "../../config/shared/ipcChannels";
 
 const RECOMMENDATION_ROW_LIMIT = 6;
 const RECOMMENDATION_SQUAD_SIZE = 4;
@@ -531,7 +532,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       const { rows, totalOwnedCount } = buildRecommendations(era);
       if (scanToken !== activeScanToken) return;
 
-      windows.sendOverlayEvent("relic-recommendations", {
+      windows.sendOverlayEvent(RELIC_RECOMMENDATIONS, {
         source,
         era: null,
         rows,
@@ -651,7 +652,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       const { rows, totalOwnedCount } = buildRecommendations(effectiveEra);
       if (scanToken !== activeScanToken) return;
 
-      windows.sendOverlayEvent("relic-recommendations", {
+      windows.sendOverlayEvent(RELIC_RECOMMENDATIONS, {
         source,
         era: effectiveEra,
         rows,
@@ -675,7 +676,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     } catch (err) {
       if (scanToken !== activeScanToken) return;
       log.error("[RelicSelection] recommendation refinement failed:", normalizeErrorMessage(err));
-      windows.sendOverlayEvent("relic-recommendations", {
+      windows.sendOverlayEvent(RELIC_RECOMMENDATIONS, {
         source,
         era: null,
         rows: [],
@@ -729,7 +730,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
           windows.getAnchorMeta()?.sourceDisplayId || "unknown",
         )} token=${scanToken}`,
       );
-      windows.sendOverlayEvent("relic-planner-trigger", { source });
+      windows.sendOverlayEvent(RELIC_PLANNER_TRIGGER, { source });
       windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_DETECTING_MAX_MS);
 
       // Only send immediate rows if we have a cached era from this mission session.
@@ -750,7 +751,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       if (scanToken !== activeScanToken) return;
       inFlight = false;
       log.error("[RelicSelection] recommendation pipeline failed:", normalizeErrorMessage(err));
-      windows.sendOverlayEvent("relic-recommendations", {
+      windows.sendOverlayEvent(RELIC_RECOMMENDATIONS, {
         source,
         era: null,
         rows: [],

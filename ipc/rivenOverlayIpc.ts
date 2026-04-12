@@ -14,6 +14,12 @@ import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 import { startEscMonitor, stopEscMonitor } from "../services/keyboardMonitor";
 import { forceEndRivenSession } from "../services/eeLogMonitor";
 import { isAllowedExternalHost } from "../config/runtime/security";
+import {
+  OVERLAY_INTERACTION_MODE,
+  RIVEN_OVERLAY_CLOSE, RIVEN_OPEN_AUCTION,
+  RIVEN_GRADING_INITIAL, RIVEN_GRADING_ROLL,
+  RIVEN_BEST_ATTRIBUTES, RIVEN_SIMILAR_LISTINGS, RIVEN_WEAPON_UPDATE,
+} from "../config/shared/ipcChannels";
 
 const log = withScope("rivenOverlayIpc");
 
@@ -55,7 +61,7 @@ function toggleRivenInteractiveMode(): void {
       win.moveTop();
       win.showInactive();
     }
-    win.webContents.send("overlay-interaction-mode", { interactive: _rivenInteractive });
+    win.webContents.send(OVERLAY_INTERACTION_MODE, { interactive: _rivenInteractive });
   });
 }
 
@@ -231,7 +237,7 @@ function sendGradedInitialStats(): void {
   const graded = tryGradeStats(_rivenInitialStats);
   if (graded) {
     forEachRivenWindow((win) => {
-      if (!win.isDestroyed()) win.webContents.send("riven-grading-initial", graded);
+      if (!win.isDestroyed()) win.webContents.send(RIVEN_GRADING_INITIAL, graded);
     });
   }
 }
@@ -247,7 +253,7 @@ function sendWeaponEnrichment(): void {
   const weaponInfo = category ? rivenBestAttributes.getBestAttributes(category) : null;
   if (weaponInfo) {
     forEachRivenWindow((win) => {
-      if (!win.isDestroyed()) win.webContents.send("riven-best-attributes", weaponInfo);
+      if (!win.isDestroyed()) win.webContents.send(RIVEN_BEST_ATTRIBUTES, weaponInfo);
     });
   }
 
@@ -260,7 +266,7 @@ function sendWeaponEnrichment(): void {
     .then((listings) => {
       if (listings.length > 0) {
         forEachRivenWindow((win) => {
-          if (!win.isDestroyed()) win.webContents.send("riven-similar-listings", listings);
+          if (!win.isDestroyed()) win.webContents.send(RIVEN_SIMILAR_LISTINGS, listings);
         });
       }
     })
@@ -296,7 +302,7 @@ function triggerInitialScan(): void {
           log.log(`[RivenScan] weapon detected from OCR: "${detected}"`);
           _rivenWeaponName = detected;
           forEachRivenWindow((win) => {
-            if (!win.isDestroyed()) win.webContents.send("riven-weapon-update", detected);
+            if (!win.isDestroyed()) win.webContents.send(RIVEN_WEAPON_UPDATE, detected);
           });
           sendWeaponEnrichment();
         }
@@ -344,7 +350,7 @@ function triggerRollScan(delayMs = ROLL_SCAN_DELAY_MS, skipGate = true): void {
         if (leftGraded || rightGraded) {
           forEachRivenWindow((win) => {
             if (!win.isDestroyed()) {
-              win.webContents.send("riven-grading-roll", {
+              win.webContents.send(RIVEN_GRADING_ROLL, {
                 left: leftGraded,
                 right: rightGraded,
               });
@@ -457,7 +463,7 @@ export function onRivenRollPending(weapon: string, kuvaPerRoll: number): void {
   if (weapon) {
     _rivenWeaponName = weapon;
     forEachRivenWindow((win) => {
-      if (!win.isDestroyed()) win.webContents.send("riven-weapon-update", weapon);
+      if (!win.isDestroyed()) win.webContents.send(RIVEN_WEAPON_UPDATE, weapon);
     });
 
     // First time weapon name is revealed → grade existing stats + send enrichment
@@ -561,9 +567,9 @@ export { toggleRivenInteractiveMode, forEachRivenWindow, getRivenWindows };
 // ── IPC registration ─────────────────────────────────────────────────────────
 
 export function register(): void {
-  ipcMain.on("riven-overlay-close", (event: unknown) => {
+  ipcMain.on(RIVEN_OVERLAY_CLOSE, (event: unknown) => {
     if (
-      !isAuthorizedSender(assertRivenOverlayRendererSender, event as never, "riven-overlay-close")
+      !isAuthorizedSender(assertRivenOverlayRendererSender, event as never, RIVEN_OVERLAY_CLOSE)
     ) {
       return;
     }
@@ -577,9 +583,9 @@ export function register(): void {
     forEachRivenWindow((win) => win.hide());
   });
 
-  ipcMain.on("riven-open-auction", (event: unknown, auctionId: unknown) => {
+  ipcMain.on(RIVEN_OPEN_AUCTION, (event: unknown, auctionId: unknown) => {
     if (
-      !isAuthorizedSender(assertRivenOverlayRendererSender, event as never, "riven-open-auction")
+      !isAuthorizedSender(assertRivenOverlayRendererSender, event as never, RIVEN_OPEN_AUCTION)
     ) {
       return;
     }

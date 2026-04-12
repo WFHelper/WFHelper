@@ -1,5 +1,6 @@
 import type { NativeImage } from "electron";
 import { normalizeErrorMessage } from "../../config/shared/errors";
+import { RELIC_REWARD_ITEMS, RELIC_REWARD_TRIGGER } from "../../config/shared/ipcChannels";
 
 const SCAN_RETRY_WINDOW_MS = 5_000;
 const SCAN_RETRY_INTERVAL_MS = 450;
@@ -166,7 +167,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
         const status = await warframeStatus.getStatus();
         if (!status.isOpen) {
           log.log("[Trigger] skipped reward scan: Warframe is not open");
-          windows.sendOverlayEvent("relic-reward-items", []);
+          windows.sendOverlayEvent(RELIC_REWARD_ITEMS, []);
           windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_FAILURE_MS);
           return;
         }
@@ -175,7 +176,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
             `[Trigger] skipped reward scan: Warframe is not focused (${status.focusedProcessName || "unknown"})`,
           );
           if (!status.focusedDisplayId) {
-            windows.sendOverlayEvent("relic-reward-items", []);
+            windows.sendOverlayEvent(RELIC_REWARD_ITEMS, []);
             windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_FAILURE_MS);
             return;
           }
@@ -247,13 +248,13 @@ export function createOverlayScanController(options: OverlayScanControllerOption
         );
       }
 
-      windows.sendOverlayEvent("relic-reward-items", items);
+      windows.sendOverlayEvent(RELIC_REWARD_ITEMS, items);
       windows.scheduleOverlayAutoHide(
         items.length > 0 ? OVERLAY_AUTO_HIDE_SUCCESS_MS : OVERLAY_AUTO_HIDE_FAILURE_MS,
       );
     } catch (err) {
       log.error("[Trigger] scan pipeline error:", normalizeErrorMessage(err));
-      windows.sendOverlayEvent("relic-reward-items", []);
+      windows.sendOverlayEvent(RELIC_REWARD_ITEMS, []);
       windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_FAILURE_MS);
     } finally {
       rewardScanInFlight = false;
@@ -270,7 +271,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
 
     windows.positionOverlayWindow(windows.getAnchorMeta());
     if (showImmediately) {
-      windows.sendOverlayEvent("relic-reward-trigger");
+      windows.sendOverlayEvent(RELIC_REWARD_TRIGGER);
       windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_DETECTING_MAX_MS);
     }
 

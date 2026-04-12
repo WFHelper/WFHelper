@@ -16,6 +16,11 @@ import {
   OVERLAY_SETTINGS_DEFAULTS,
   OVERLAY_SETTINGS_LIMITS,
 } from "../config/runtime/overlaySettings";
+import {
+  OVERLAY_INTERACTION_MODE, OVERLAY_THEME_VARS,
+  OVERLAY_GET_SETTINGS, OVERLAY_GET_THEME_VARS, OVERLAY_SET_SETTINGS,
+  OVERLAY_THEME_UPDATED,
+} from "../config/shared/ipcChannels";
 
 const log = withScope("overlayIpc");
 
@@ -29,8 +34,8 @@ function pushOverlayInteractionMode(): void {
   const payload = {
     interactive: !!ctx.overlayInteractiveMode,
   };
-  rewardOverlayIpc.getRewardWindowsController().sendOverlayEvent("overlay-interaction-mode", payload);
-  rewardOverlayIpc.getPlannerWindowsController().sendOverlayEvent("overlay-interaction-mode", payload);
+  rewardOverlayIpc.getRewardWindowsController().sendOverlayEvent(OVERLAY_INTERACTION_MODE, payload);
+  rewardOverlayIpc.getPlannerWindowsController().sendOverlayEvent(OVERLAY_INTERACTION_MODE, payload);
 }
 
 async function bringOverlayToWarframeDisplayIfAvailable(): Promise<void> {
@@ -159,9 +164,9 @@ function sanitizeOverlayThemeVars(raw: unknown): Record<string, string> {
 function pushOverlayThemeVars(): void {
   if (!ctx.overlayThemeVars || Object.keys(ctx.overlayThemeVars).length === 0) return;
   const vars = { ...ctx.overlayThemeVars };
-  rewardOverlayIpc.getRewardWindowsController().sendOverlayEvent("overlay-theme-vars", vars);
-  rewardOverlayIpc.getPlannerWindowsController().sendOverlayEvent("overlay-theme-vars", vars);
-  rivenOverlayIpc.forEachRivenWindow((win) => win.webContents.send("overlay-theme-vars", vars));
+  rewardOverlayIpc.getRewardWindowsController().sendOverlayEvent(OVERLAY_THEME_VARS, vars);
+  rewardOverlayIpc.getPlannerWindowsController().sendOverlayEvent(OVERLAY_THEME_VARS, vars);
+  rivenOverlayIpc.forEachRivenWindow((win) => win.webContents.send(OVERLAY_THEME_VARS, vars));
 }
 
 function ensureOverlayWindowPrimed(): void {
@@ -238,26 +243,26 @@ function register(): void {
   rewardOverlayIpc.register(pushOverlayInteractionMode, pushOverlayThemeVars);
 
   // Settings & theme IPC (shared across all overlays)
-  ipcMain.handle("overlay:get-settings", async (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, "overlay:get-settings");
+  ipcMain.handle(OVERLAY_GET_SETTINGS, async (event: unknown) => {
+    assertAuthorizedSender(assertMainRendererSender, event as never, OVERLAY_GET_SETTINGS);
     return { ...ctx.overlaySettings };
   });
 
-  ipcMain.handle("overlay:get-theme-vars", async (event: unknown) => {
-    assertAuthorizedSender(assertOverlayRendererSender, event as never, "overlay:get-theme-vars");
+  ipcMain.handle(OVERLAY_GET_THEME_VARS, async (event: unknown) => {
+    assertAuthorizedSender(assertOverlayRendererSender, event as never, OVERLAY_GET_THEME_VARS);
     return { ...(ctx.overlayThemeVars || {}) };
   });
 
-  ipcMain.handle("overlay:set-settings", async (event: unknown, nextSettings: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, "overlay:set-settings");
+  ipcMain.handle(OVERLAY_SET_SETTINGS, async (event: unknown, nextSettings: unknown) => {
+    assertAuthorizedSender(assertMainRendererSender, event as never, OVERLAY_SET_SETTINGS);
 
     const settings = settingsController.setOverlaySettings(nextSettings);
     settingsController.registerOverlayHotkey();
     return settings;
   });
 
-  ipcMain.on("overlay-theme-updated", (event: unknown, rawVars: unknown) => {
-    if (!isAuthorizedSender(assertMainRendererSender, event as never, "overlay-theme-updated")) {
+  ipcMain.on(OVERLAY_THEME_UPDATED, (event: unknown, rawVars: unknown) => {
+    if (!isAuthorizedSender(assertMainRendererSender, event as never, OVERLAY_THEME_UPDATED)) {
       return;
     }
 

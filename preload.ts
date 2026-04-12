@@ -1,105 +1,124 @@
 ﻿import { contextBridge, ipcRenderer } from "electron";
+import {
+  INVENTORY_GET, INVENTORY_OPEN_FILE, INVENTORY_GET_STATUS, INVENTORY_UPDATED,
+  DB_GET_ITEM_DATABASE, DB_GET_WORLD_STATE, DB_GET_RELIC_DATABASE, DB_GET_WFM_ITEMS,
+  DB_GET_MASTERY, DB_SET_DEBUG_MODE,
+  WFM_SIGNIN, WFM_SIGNOUT, WFM_SESSION, WFM_GET_ORDERS, WFM_GET_CONTRACTS,
+  WFM_CREATE_ORDER, WFM_UPDATE_ORDER, WFM_DELETE_ORDER, WFM_SET_VISIBLE,
+  WFM_SEARCH_ITEMS, WFM_LOOKUP_ITEM, WFM_GET_ME, WFM_SET_STATUS, WFM_NOTIFICATION,
+  APP_UPDATE_CHECK, APP_UPDATE_STATE, APP_UPDATE_INSTALL, APP_UPDATE_STATUS,
+  WINDOW_MINIMIZE, WINDOW_MAXIMIZE, WINDOW_CLOSE,
+  TOGGLE_OVERLAY, SIMULATE_RELIC_TRIGGER, OVERLAY_THEME_UPDATED,
+  OVERLAY_PUSH_RELIC_FILTERS, OVERLAY_GET_SETTINGS, OVERLAY_SET_SETTINGS,
+  OPEN_EXTERNAL, LOG_WARN,
+  RANKED_HOTSET_LOAD, RANKED_HOTSET_SAVE, SNAPSHOT_CACHE_LOAD, SNAPSHOT_CACHE_SAVE,
+  STATS_GET_HISTORY, STATS_GET_CURRENT, STATS_IMPORT, STATS_GET_TRADES, STATS_IMPORT_TRADES,
+  TRADE_RECORDED,
+  HELPER_GET_STATUS, HELPER_RUN_NOW, HELPER_DOWNLOAD, HELPER_DOWNLOAD_PROGRESS,
+  RIVENS_GET, RIVENS_GET_WEAPON_NAMES, RIVENS_GET_STAT_OPTIONS,
+  RIVENS_SEARCH_AUCTIONS, RIVENS_GET_WEAPON_TYPE, RIVENS_CREATE_AUCTION,
+} from "./config/shared/ipcChannels";
 
 contextBridge.exposeInMainWorld("api", {
-  getInventory: () => ipcRenderer.invoke("get-inventory"),
-  openInventoryFile: () => ipcRenderer.invoke("open-inventory-file"),
-  getInventoryStatus: () => ipcRenderer.invoke("get-inventory-status"),
+  getInventory: () => ipcRenderer.invoke(INVENTORY_GET),
+  openInventoryFile: () => ipcRenderer.invoke(INVENTORY_OPEN_FILE),
+  getInventoryStatus: () => ipcRenderer.invoke(INVENTORY_GET_STATUS),
 
-  getItemDatabase: () => ipcRenderer.invoke("get-item-database"),
-  getWorldState: () => ipcRenderer.invoke("get-world-state"),
-  getRelicDatabase: () => ipcRenderer.invoke("get-relic-database"),
-  getWfmItems: () => ipcRenderer.invoke("get-wfm-items"),
+  getItemDatabase: () => ipcRenderer.invoke(DB_GET_ITEM_DATABASE),
+  getWorldState: () => ipcRenderer.invoke(DB_GET_WORLD_STATE),
+  getRelicDatabase: () => ipcRenderer.invoke(DB_GET_RELIC_DATABASE),
+  getWfmItems: () => ipcRenderer.invoke(DB_GET_WFM_ITEMS),
 
-  wfmSignIn: (creds: unknown) => ipcRenderer.invoke("wfm:signin", creds),
-  wfmSignOut: () => ipcRenderer.invoke("wfm:signout"),
-  wfmGetSession: () => ipcRenderer.invoke("wfm:session"),
-  wfmGetOrders: () => ipcRenderer.invoke("wfm:get-orders"),
-  wfmGetContracts: (query?: unknown) => ipcRenderer.invoke("wfm:get-contracts", query),
-  wfmCreateOrder: (params: unknown) => ipcRenderer.invoke("wfm:create-order", params),
+  wfmSignIn: (creds: unknown) => ipcRenderer.invoke(WFM_SIGNIN, creds),
+  wfmSignOut: () => ipcRenderer.invoke(WFM_SIGNOUT),
+  wfmGetSession: () => ipcRenderer.invoke(WFM_SESSION),
+  wfmGetOrders: () => ipcRenderer.invoke(WFM_GET_ORDERS),
+  wfmGetContracts: (query?: unknown) => ipcRenderer.invoke(WFM_GET_CONTRACTS, query),
+  wfmCreateOrder: (params: unknown) => ipcRenderer.invoke(WFM_CREATE_ORDER, params),
   wfmUpdateOrder: (orderId: string, updates: unknown) =>
-    ipcRenderer.invoke("wfm:update-order", { orderId, updates }),
-  wfmDeleteOrder: (orderId: string) => ipcRenderer.invoke("wfm:delete-order", { orderId }),
+    ipcRenderer.invoke(WFM_UPDATE_ORDER, { orderId, updates }),
+  wfmDeleteOrder: (orderId: string) => ipcRenderer.invoke(WFM_DELETE_ORDER, { orderId }),
   wfmSetVisible: (orderIds: string[], visible: boolean) =>
-    ipcRenderer.invoke("wfm:set-visible", { orderIds, visible }),
+    ipcRenderer.invoke(WFM_SET_VISIBLE, { orderIds, visible }),
   wfmSearchItems: (query: string, limit?: number) =>
-    ipcRenderer.invoke("wfm:search-items", { query, limit }),
-  wfmLookupItemBySlug: (slug: string) => ipcRenderer.invoke("wfm:lookup-item-by-slug", { slug }),
-  wfmGetMe: () => ipcRenderer.invoke("wfm:get-me"),
-  wfmSetStatus: (status: string) => ipcRenderer.invoke("wfm:set-status", { status }),
+    ipcRenderer.invoke(WFM_SEARCH_ITEMS, { query, limit }),
+  wfmLookupItemBySlug: (slug: string) => ipcRenderer.invoke(WFM_LOOKUP_ITEM, { slug }),
+  wfmGetMe: () => ipcRenderer.invoke(WFM_GET_ME),
+  wfmSetStatus: (status: string) => ipcRenderer.invoke(WFM_SET_STATUS, { status }),
 
-  getMasteryProgress: () => ipcRenderer.invoke("get-mastery-progress"),
-  setDebugMode: (enabled: boolean) => ipcRenderer.invoke("set-debug-mode", !!enabled),
-  checkForAppUpdates: () => ipcRenderer.invoke("app:update-check"),
-  getAppUpdateState: () => ipcRenderer.invoke("app:update-state"),
-  installDownloadedUpdate: () => ipcRenderer.invoke("app:update-install"),
+  getMasteryProgress: () => ipcRenderer.invoke(DB_GET_MASTERY),
+  setDebugMode: (enabled: boolean) => ipcRenderer.invoke(DB_SET_DEBUG_MODE, !!enabled),
+  checkForAppUpdates: () => ipcRenderer.invoke(APP_UPDATE_CHECK),
+  getAppUpdateState: () => ipcRenderer.invoke(APP_UPDATE_STATE),
+  installDownloadedUpdate: () => ipcRenderer.invoke(APP_UPDATE_INSTALL),
 
   onInventoryUpdated: (callback: (data: unknown) => void) => {
     const listener = (_event: unknown, data: unknown) => callback(data);
-    ipcRenderer.on("inventory-updated", listener);
+    ipcRenderer.on(INVENTORY_UPDATED, listener);
     return () => {
-      ipcRenderer.removeListener("inventory-updated", listener);
+      ipcRenderer.removeListener(INVENTORY_UPDATED, listener);
     };
   },
 
   onAppUpdateStatus: (callback: (state: unknown) => void) => {
     const listener = (_event: unknown, state: unknown) => callback(state);
-    ipcRenderer.on("app-update-status", listener);
+    ipcRenderer.on(APP_UPDATE_STATUS, listener);
     return () => {
-      ipcRenderer.removeListener("app-update-status", listener);
+      ipcRenderer.removeListener(APP_UPDATE_STATUS, listener);
     };
   },
 
   onWfmNotification: (callback: (notification: unknown) => void) => {
     const listener = (_event: unknown, notification: unknown) => callback(notification);
-    ipcRenderer.on("wfm:notification", listener);
+    ipcRenderer.on(WFM_NOTIFICATION, listener);
     return () => {
-      ipcRenderer.removeListener("wfm:notification", listener);
+      ipcRenderer.removeListener(WFM_NOTIFICATION, listener);
     };
   },
 
   onTradeRecorded: (callback: (data: unknown) => void) => {
     const listener = (_event: unknown, data: unknown) => callback(data);
-    ipcRenderer.on("trade-recorded", listener);
+    ipcRenderer.on(TRADE_RECORDED, listener);
     return () => {
-      ipcRenderer.removeListener("trade-recorded", listener);
+      ipcRenderer.removeListener(TRADE_RECORDED, listener);
     };
   },
 
-  minimizeWindow: () => ipcRenderer.send("window-minimize"),
-  maximizeWindow: () => ipcRenderer.send("window-maximize"),
-  closeWindow: () => ipcRenderer.send("window-close"),
+  minimizeWindow: () => ipcRenderer.send(WINDOW_MINIMIZE),
+  maximizeWindow: () => ipcRenderer.send(WINDOW_MAXIMIZE),
+  closeWindow: () => ipcRenderer.send(WINDOW_CLOSE),
 
-  toggleOverlay: () => ipcRenderer.send("toggle-overlay"),
-  simulateRelicTrigger: () => ipcRenderer.send("simulate-relic-trigger"),
-  updateOverlayTheme: (themeVars: unknown) => ipcRenderer.send("overlay-theme-updated", themeVars),
-  pushRelicFilters: (filters: unknown) => ipcRenderer.send("overlay:push-relic-filters", filters),
-  getOverlaySettings: () => ipcRenderer.invoke("overlay:get-settings"),
-  setOverlaySettings: (settings: unknown) => ipcRenderer.invoke("overlay:set-settings", settings),
+  toggleOverlay: () => ipcRenderer.send(TOGGLE_OVERLAY),
+  simulateRelicTrigger: () => ipcRenderer.send(SIMULATE_RELIC_TRIGGER),
+  updateOverlayTheme: (themeVars: unknown) => ipcRenderer.send(OVERLAY_THEME_UPDATED, themeVars),
+  pushRelicFilters: (filters: unknown) => ipcRenderer.send(OVERLAY_PUSH_RELIC_FILTERS, filters),
+  getOverlaySettings: () => ipcRenderer.invoke(OVERLAY_GET_SETTINGS),
+  setOverlaySettings: (settings: unknown) => ipcRenderer.invoke(OVERLAY_SET_SETTINGS, settings),
 
-  openExternal: (url: string) => ipcRenderer.send("open-external", url),
-  logWarn: (message: string, ...args: unknown[]) => ipcRenderer.send("log:warn", message, ...args),
+  openExternal: (url: string) => ipcRenderer.send(OPEN_EXTERNAL, url),
+  logWarn: (message: string, ...args: unknown[]) => ipcRenderer.send(LOG_WARN, message, ...args),
 
-  loadRankedHotset: () => ipcRenderer.invoke("ranked-hotset:load"),
-  saveRankedHotset: (data: unknown) => ipcRenderer.invoke("ranked-hotset:save", data),
-  loadSnapshotCache: () => ipcRenderer.invoke("snapshot-cache:load"),
-  saveSnapshotCache: (data: unknown) => ipcRenderer.invoke("snapshot-cache:save", data),
+  loadRankedHotset: () => ipcRenderer.invoke(RANKED_HOTSET_LOAD),
+  saveRankedHotset: (data: unknown) => ipcRenderer.invoke(RANKED_HOTSET_SAVE, data),
+  loadSnapshotCache: () => ipcRenderer.invoke(SNAPSHOT_CACHE_LOAD),
+  saveSnapshotCache: (data: unknown) => ipcRenderer.invoke(SNAPSHOT_CACHE_SAVE, data),
 
-  getStatsHistory: () => ipcRenderer.invoke("stats:get-history"),
-  getStatsCurrentSession: () => ipcRenderer.invoke("stats:get-current"),
-  importStatsHistory: (raw: unknown[]) => ipcRenderer.invoke("stats:import", raw),
-  getTradeLog: () => ipcRenderer.invoke("stats:get-trades"),
-  importTradeLog: (events: unknown[]) => ipcRenderer.invoke("stats:import-trades", events),
+  getStatsHistory: () => ipcRenderer.invoke(STATS_GET_HISTORY),
+  getStatsCurrentSession: () => ipcRenderer.invoke(STATS_GET_CURRENT),
+  importStatsHistory: (raw: unknown[]) => ipcRenderer.invoke(STATS_IMPORT, raw),
+  getTradeLog: () => ipcRenderer.invoke(STATS_GET_TRADES),
+  importTradeLog: (events: unknown[]) => ipcRenderer.invoke(STATS_IMPORT_TRADES, events),
 
-  getHelperStatus: () => ipcRenderer.invoke("helper:get-status"),
-  runHelperNow: () => ipcRenderer.invoke("helper:run-now"),
-  downloadHelper: () => ipcRenderer.invoke("helper:download"),
-  getRivens: () => ipcRenderer.invoke("get-rivens"),
-  getRivenWeaponNames: () => ipcRenderer.invoke("get-riven-weapon-names"),
-  getRivenStatOptions: () => ipcRenderer.invoke("get-riven-stat-options"),
+  getHelperStatus: () => ipcRenderer.invoke(HELPER_GET_STATUS),
+  runHelperNow: () => ipcRenderer.invoke(HELPER_RUN_NOW),
+  downloadHelper: () => ipcRenderer.invoke(HELPER_DOWNLOAD),
+  getRivens: () => ipcRenderer.invoke(RIVENS_GET),
+  getRivenWeaponNames: () => ipcRenderer.invoke(RIVENS_GET_WEAPON_NAMES),
+  getRivenStatOptions: () => ipcRenderer.invoke(RIVENS_GET_STAT_OPTIONS),
   searchRivenAuctions: (weaponName: string, positiveWfmNames: string[], negativeWfmNames: string[]) =>
-    ipcRenderer.invoke("search-riven-auctions", weaponName, positiveWfmNames, negativeWfmNames),
+    ipcRenderer.invoke(RIVENS_SEARCH_AUCTIONS, weaponName, positiveWfmNames, negativeWfmNames),
   getWeaponRivenType: (weaponName: string) =>
-    ipcRenderer.invoke("get-weapon-riven-type", weaponName),
+    ipcRenderer.invoke(RIVENS_GET_WEAPON_TYPE, weaponName),
   createRivenAuction: (
     weaponName: string,
     rivenName: string,
@@ -114,15 +133,15 @@ contextBridge.exposeInMainWorld("api", {
     description: string,
   ) =>
     ipcRenderer.invoke(
-      "create-riven-auction",
+      RIVENS_CREATE_AUCTION,
       weaponName, rivenName, stats, rerolls, masteryReq, polarity, modRank,
       buyoutPrice, startingPrice, isPrivate, description,
     ),
   onHelperDownloadProgress: (callback: (progress: unknown) => void) => {
     const listener = (_event: unknown, progress: unknown) => callback(progress);
-    ipcRenderer.on("helper-download-progress", listener);
+    ipcRenderer.on(HELPER_DOWNLOAD_PROGRESS, listener);
     return () => {
-      ipcRenderer.removeListener("helper-download-progress", listener);
+      ipcRenderer.removeListener(HELPER_DOWNLOAD_PROGRESS, listener);
     };
   },
 });

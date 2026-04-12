@@ -7,6 +7,10 @@
 
 import type { BrowserWindow } from "electron";
 import type { RivenStat, RollPanelResult } from "./rivenScan";
+import {
+  RIVEN_SESSION_START, RIVEN_INITIAL_STATS, RIVEN_ROLL_SCANNING,
+  RIVEN_ROLL_RESULT, RIVEN_CHOICE_MADE, RIVEN_SESSION_END,
+} from "../../config/shared/ipcChannels";
 
 // ── Session state ──────────────────────────────────────────────────────────
 
@@ -49,7 +53,7 @@ export function startSession(
   _totalKuvaSpent = 0;
   _active = true;
 
-  sendToWindows(wins, "riven-session-start", weapon, kuvaPerRoll);
+  sendToWindows(wins, RIVEN_SESSION_START, weapon, kuvaPerRoll);
 }
 
 /**
@@ -57,7 +61,7 @@ export function startSession(
  * Populates the left (current) panel with the riven's existing stats.
  */
 export function onInitialStats(wins: WindowRef[], stats: RivenStat[]): void {
-  sendToWindows(wins, "riven-initial-stats", stats);
+  sendToWindows(wins, RIVEN_INITIAL_STATS, stats);
 }
 
 /**
@@ -65,7 +69,7 @@ export function onInitialStats(wins: WindowRef[], stats: RivenStat[]): void {
  * Sends the scanning indicator to the overlay.
  */
 export function onRollConfirmed(wins: WindowRef[]): void {
-  sendToWindows(wins, "riven-roll-scanning");
+  sendToWindows(wins, RIVEN_ROLL_SCANNING);
 }
 
 /**
@@ -75,7 +79,7 @@ export function onRollResult(wins: WindowRef[], panels: RollPanelResult): void {
   _rollCount += 1;
   _totalKuvaSpent += _kuvaPerRoll;
 
-  sendToWindows(wins, "riven-roll-result", {
+  sendToWindows(wins, RIVEN_ROLL_RESULT, {
     rollCount: _rollCount,
     totalKuvaSpent: _totalKuvaSpent,
     left: panels.left,
@@ -88,7 +92,7 @@ export function onRollResult(wins: WindowRef[], panels: RollPanelResult): void {
  * The choice side is determined asynchronously in overlayIpc after OCR.
  */
 export function onChoiceMade(wins: WindowRef[], side: "left" | "right" | "unknown"): void {
-  sendToWindows(wins, "riven-choice-made", side);
+  sendToWindows(wins, RIVEN_CHOICE_MADE, side);
 }
 
 /**
@@ -100,5 +104,5 @@ export function endSession(wins: WindowRef[]): void {
   _kuvaPerRoll = 0;
   _rollCount = 0;
   _totalKuvaSpent = 0;
-  sendToWindows(wins, "riven-session-end");
+  sendToWindows(wins, RIVEN_SESSION_END);
 }

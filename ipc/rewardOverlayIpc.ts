@@ -15,6 +15,10 @@ import * as relicService from "../services/relicService";
 import * as rewardScanner from "../services/rewardScanner";
 import * as wfmStatsPrice from "../services/wfmStatsPrice";
 import * as warframeStatus from "../services/warframeStatus";
+import {
+  OVERLAY_CLOSE, OVERLAY_GET_RELIC_ITEMS, OVERLAY_GET_PRICE,
+  TOGGLE_OVERLAY, SIMULATE_RELIC_TRIGGER, OVERLAY_PUSH_RELIC_FILTERS,
+} from "../config/shared/ipcChannels";
 
 const log = withScope("rewardOverlayIpc");
 
@@ -174,8 +178,8 @@ export function onRelicSelectionCloseByEsc(pushOverlayInteractionMode: () => voi
 // ── IPC registration ─────────────────────────────────────────────────────────
 
 export function register(pushOverlayInteractionMode: () => void, pushOverlayThemeVars: () => void): void {
-  ipcMain.on("overlay-close", (event: unknown) => {
-    if (!isAuthorizedSender(assertOverlayRendererSender, event as never, "overlay-close")) return;
+  ipcMain.on(OVERLAY_CLOSE, (event: unknown) => {
+    if (!isAuthorizedSender(assertOverlayRendererSender, event as never, OVERLAY_CLOSE)) return;
     stopEscMonitor();
     rewardWindowsController.clearOverlayAutoHideTimer();
     plannerWindowsController.clearOverlayAutoHideTimer();
@@ -200,8 +204,8 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
     }
   });
 
-  ipcMain.handle("overlay-get-relic-items", async (event: unknown) => {
-    assertAuthorizedSender(assertOverlayRendererSender, event as never, "overlay-get-relic-items");
+  ipcMain.handle(OVERLAY_GET_RELIC_ITEMS, async (event: unknown) => {
+    assertAuthorizedSender(assertOverlayRendererSender, event as never, OVERLAY_GET_RELIC_ITEMS);
 
     const db = relicService.getRelicDatabase();
     const seen = new Map<string, { name: string; urlName: string | null; rarity: string }>();
@@ -223,13 +227,13 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
     return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
   });
 
-  ipcMain.handle("overlay:get-price", async (event: unknown, slug: string) => {
-    assertAuthorizedSender(assertOverlayRendererSender, event as never, "overlay:get-price");
+  ipcMain.handle(OVERLAY_GET_PRICE, async (event: unknown, slug: string) => {
+    assertAuthorizedSender(assertOverlayRendererSender, event as never, OVERLAY_GET_PRICE);
     return wfmStatsPrice.fetchPriceBySlug(slug);
   });
 
-  ipcMain.on("toggle-overlay", (event: unknown) => {
-    if (!isAuthorizedSender(assertMainRendererSender, event as never, "toggle-overlay")) return;
+  ipcMain.on(TOGGLE_OVERLAY, (event: unknown) => {
+    if (!isAuthorizedSender(assertMainRendererSender, event as never, TOGGLE_OVERLAY)) return;
 
     rewardWindowsController.clearOverlayAutoHideTimer();
     if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) {
@@ -248,8 +252,8 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
     }
   });
 
-  ipcMain.on("simulate-relic-trigger", (event: unknown) => {
-    if (!isAuthorizedSender(assertMainRendererSender, event as never, "simulate-relic-trigger")) {
+  ipcMain.on(SIMULATE_RELIC_TRIGGER, (event: unknown) => {
+    if (!isAuthorizedSender(assertMainRendererSender, event as never, SIMULATE_RELIC_TRIGGER)) {
       return;
     }
     onRelicRewardTrigger(
@@ -260,9 +264,9 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
     );
   });
 
-  ipcMain.on("overlay:push-relic-filters", (event: unknown, rawFilters: unknown) => {
+  ipcMain.on(OVERLAY_PUSH_RELIC_FILTERS, (event: unknown, rawFilters: unknown) => {
     if (
-      !isAuthorizedSender(assertMainRendererSender, event as never, "overlay:push-relic-filters")
+      !isAuthorizedSender(assertMainRendererSender, event as never, OVERLAY_PUSH_RELIC_FILTERS)
     ) {
       return;
     }

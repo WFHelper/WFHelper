@@ -1,11 +1,12 @@
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { APP_UPDATE_STATUS } from "../config/shared/ipcChannels";
 import { app } from "electron";
 import { autoUpdater } from "electron-updater";
 
 const log = withScope("autoUpdater");
 
-const UPDATE_STATUS_CHANNEL = "app-update-status";
+const UPDATE_STATUS_CHANNEL = APP_UPDATE_STATUS;
 const STARTUP_CHECK_DELAY_MS = 12_000;
 
 let mainWindow: import("electron").BrowserWindow | null = null;

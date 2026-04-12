@@ -4,6 +4,10 @@ import * as rivenFingerprint from "../services/rivenFingerprint";
 import * as wfmRivenSearch from "../services/wfmRivenSearch";
 import * as rivenData from "../services/rivenData";
 import { ipcMain } from "electron";
+import {
+  RIVENS_GET, RIVENS_GET_WEAPON_NAMES, RIVENS_GET_STAT_OPTIONS,
+  RIVENS_SEARCH_AUCTIONS, RIVENS_GET_WEAPON_TYPE, RIVENS_CREATE_AUCTION,
+} from "../config/shared/ipcChannels";
 
 /** Map game polarity internal names to WFM API names. */
 const POLARITY_TO_WFM: Record<string, string> = {
@@ -13,8 +17,8 @@ const POLARITY_TO_WFM: Record<string, string> = {
 };
 
 function register(): void {
-  ipcMain.handle("get-rivens", (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, "get-rivens");
+  ipcMain.handle(RIVENS_GET, (event: unknown) => {
+    assertAuthorizedSender(assertMainRendererSender, event as never, RIVENS_GET);
 
     if (!ctx.currentInventoryData) {
       return { unveiled: [], veiled: [], veiledUnseen: [] };
@@ -23,20 +27,20 @@ function register(): void {
     return rivenFingerprint.decodeAllRivens(ctx.currentInventoryData);
   });
 
-  ipcMain.handle("get-riven-weapon-names", (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, "get-riven-weapon-names");
+  ipcMain.handle(RIVENS_GET_WEAPON_NAMES, (event: unknown) => {
+    assertAuthorizedSender(assertMainRendererSender, event as never, RIVENS_GET_WEAPON_NAMES);
     return rivenData.getAllRivenWeaponNames();
   });
 
-  ipcMain.handle("get-riven-stat-options", (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, "get-riven-stat-options");
+  ipcMain.handle(RIVENS_GET_STAT_OPTIONS, (event: unknown) => {
+    assertAuthorizedSender(assertMainRendererSender, event as never, RIVENS_GET_STAT_OPTIONS);
     return rivenData.getRivenStatOptions();
   });
 
   ipcMain.handle(
-    "search-riven-auctions",
+    RIVENS_SEARCH_AUCTIONS,
     async (event: unknown, weaponName: unknown, positiveWfmNames: unknown, negativeWfmNames: unknown) => {
-      assertAuthorizedSender(assertMainRendererSender, event as never, "search-riven-auctions");
+      assertAuthorizedSender(assertMainRendererSender, event as never, RIVENS_SEARCH_AUCTIONS);
       if (typeof weaponName !== "string" || !weaponName) return [];
       const slug = rivenData.getRivenFamilySlug(weaponName);
       if (!slug) return [];
@@ -56,14 +60,14 @@ function register(): void {
     },
   );
 
-  ipcMain.handle("get-weapon-riven-type", (event: unknown, weaponName: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, "get-weapon-riven-type");
+  ipcMain.handle(RIVENS_GET_WEAPON_TYPE, (event: unknown, weaponName: unknown) => {
+    assertAuthorizedSender(assertMainRendererSender, event as never, RIVENS_GET_WEAPON_TYPE);
     if (typeof weaponName !== "string" || !weaponName) return null;
     return rivenData.getWeaponRivenTypeLabel(weaponName);
   });
 
   ipcMain.handle(
-    "create-riven-auction",
+    RIVENS_CREATE_AUCTION,
     async (
       event: unknown,
       weaponName: unknown,
@@ -78,7 +82,7 @@ function register(): void {
       isPrivate: unknown,
       description: unknown,
     ) => {
-      assertAuthorizedSender(assertMainRendererSender, event as never, "create-riven-auction");
+      assertAuthorizedSender(assertMainRendererSender, event as never, RIVENS_CREATE_AUCTION);
       if (typeof weaponName !== "string" || !weaponName) return { ok: false, error: "Invalid weapon name" };
       if (!Array.isArray(stats) || stats.length === 0) return { ok: false, error: "No stats provided" };
       if (typeof startingPrice !== "number" || startingPrice < 1) return { ok: false, error: "Invalid price" };

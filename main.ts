@@ -36,6 +36,10 @@ import * as statsIpc from "./ipc/statsIpc";
 import * as rivensIpc from "./ipc/rivensIpc";
 import * as tradeNotificationIpc from "./ipc/tradeNotificationIpc";
 import { assertAuthorizedSender, assertMainRendererSender } from "./ipc/ipcSecurity";
+import {
+  HELPER_GET_STATUS, HELPER_RUN_NOW, HELPER_DOWNLOAD, HELPER_DOWNLOAD_PROGRESS,
+  INVENTORY_UPDATED, TRADE_RECORDED,
+} from "./config/shared/ipcChannels";
 import * as statsTracker from "./services/statsTracker";
 import * as tradeTracker from "./services/tradeTracker";
 import * as tradeWfmMatcher from "./services/tradeWfmMatcher";
@@ -165,32 +169,32 @@ app.whenReady().then(async () => {
   tradeNotificationIpc.register();
 
   // Helper runner IPC
-  ipcMain.handle("helper:get-status", (event: unknown) => {
+  ipcMain.handle(HELPER_GET_STATUS, (event: unknown) => {
     assertAuthorizedSender(
       assertMainRendererSender,
       event as never,
-      "helper:get-status",
+      HELPER_GET_STATUS,
     );
     return apiHelperRunner.getStatus();
   });
-  ipcMain.handle("helper:run-now", async (event: unknown) => {
+  ipcMain.handle(HELPER_RUN_NOW, async (event: unknown) => {
     assertAuthorizedSender(
       assertMainRendererSender,
       event as never,
-      "helper:run-now",
+      HELPER_RUN_NOW,
     );
     const ok = await apiHelperRunner.runOnce();
     return { ok };
   });
-  ipcMain.handle("helper:download", async (event: unknown) => {
+  ipcMain.handle(HELPER_DOWNLOAD, async (event: unknown) => {
     assertAuthorizedSender(
       assertMainRendererSender,
       event as never,
-      "helper:download",
+      HELPER_DOWNLOAD,
     );
     const ok = await apiHelperRunner.downloadHelper((progress) => {
       if (ctx.mainWindow) {
-        ctx.mainWindow.webContents.send("helper-download-progress", progress);
+        ctx.mainWindow.webContents.send(HELPER_DOWNLOAD_PROGRESS, progress);
       }
     });
     return { ok };
@@ -244,7 +248,7 @@ app.whenReady().then(async () => {
     if (data && ctx.mainWindow) {
       ctx.mainWindow.webContents.once("did-finish-load", () => {
         if (ctx.mainWindow) {
-          ctx.mainWindow.webContents.send("inventory-updated", data);
+          ctx.mainWindow.webContents.send(INVENTORY_UPDATED, data);
         }
       });
     }
@@ -267,7 +271,7 @@ app.whenReady().then(async () => {
       // Push trade to renderer in real-time
       const win = ctx.mainWindow;
       if (win && !win.isDestroyed()) {
-        win.webContents.send("trade-recorded", { trade: event, wfmMatch: null });
+        win.webContents.send(TRADE_RECORDED, { trade: event, wfmMatch: null });
       }
 
       // Attempt WFM auto-close (async, fire-and-forget)
@@ -285,7 +289,7 @@ app.whenReady().then(async () => {
 
           // Update renderer with the WFM match info
           if (win && !win.isDestroyed()) {
-            win.webContents.send("trade-recorded", {
+            win.webContents.send(TRADE_RECORDED, {
               trade: { ...event, wfmClosed: true },
               wfmMatch: match,
             });
