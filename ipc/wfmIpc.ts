@@ -1,7 +1,6 @@
 import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
 import {
   errorCode,
-  errorStatus,
   normalizeErrorMessage,
   parseCloseOrderPayload,
   parseContractsPayload,
@@ -29,6 +28,23 @@ import {
 } from "../config/shared/ipcChannels";
 
 const log = withScope("wfmIpc");
+
+// ── Shared WFM error handler ──────────────────────────────────────────────────
+
+async function withWfmError<T>(
+  label: string,
+  fn: () => Promise<T>,
+  fallback: string,
+): Promise<T | { error: string }> {
+  try {
+    return await fn();
+  } catch (err) {
+    const message = normalizeErrorMessage(err, fallback);
+    log.error(`[WFM IPC] ${label}:`, message);
+    if (errorCode(err) === "WFM_UNAUTHORIZED") void wfmSession.signOut();
+    return { error: message };
+  }
+}
 
 // ── WFM DM notification helper ────────────────────────────────────────────────
 
@@ -99,26 +115,9 @@ function register(): void {
     return wfmSession.getSession();
   });
 
-  handleMainRenderer(WFM_GET_ORDERS, async () => {
-    try {
-      return await wfmOrders.getMyOrders();
-    } catch (err) {
-      const message = normalizeErrorMessage(err, "Failed to fetch orders.");
-      const code = errorCode(err);
-      log.error(
-        "[WFM IPC] get-orders error:",
-        message,
-        "status:",
-        errorStatus(err) || "?",
-        "code:",
-        code || "?",
-      );
-      if (code === "WFM_UNAUTHORIZED") {
-        void wfmSession.signOut();
-      }
-      return { error: message };
-    }
-  });
+  handleMainRenderer(WFM_GET_ORDERS, async () =>
+    withWfmError("get-orders", () => wfmOrders.getMyOrders(), "Failed to fetch orders."),
+  );
 
   handleMainRenderer(WFM_GET_CONTRACTS, async (_event, payload) => {
     const parsed = parseContractsPayload(payload);
@@ -126,25 +125,7 @@ function register(): void {
       log.warn("[Security] wfm:get-contracts blocked due to invalid payload");
       return { error: "Invalid contracts payload." };
     }
-
-    try {
-      return await wfmContracts.getMyContracts(parsed);
-    } catch (err) {
-      const message = normalizeErrorMessage(err, "Failed to fetch contracts.");
-      const code = errorCode(err);
-      log.error(
-        "[WFM IPC] get-contracts error:",
-        message,
-        "status:",
-        errorStatus(err) || "?",
-        "code:",
-        code || "?",
-      );
-      if (code === "WFM_UNAUTHORIZED") {
-        void wfmSession.signOut();
-      }
-      return { error: message };
-    }
+    return withWfmError("get-contracts", () => wfmContracts.getMyContracts(parsed), "Failed to fetch contracts.");
   });
 
   handleMainRenderer(WFM_CREATE_ORDER, async (_event, payload) => {
@@ -153,15 +134,7 @@ function register(): void {
       log.warn("[Security] wfm:create-order blocked due to invalid payload");
       return { error: "Invalid create-order payload." };
     }
-
-    try {
-      return await wfmOrders.createOrder(params);
-    } catch (err) {
-      if (errorCode(err) === "WFM_UNAUTHORIZED") {
-        void wfmSession.signOut();
-      }
-      return { error: normalizeErrorMessage(err, "Failed to create order.") };
-    }
+    return withWfmError("create-order", () => wfmOrders.createOrder(params), "Failed to create order.");
   });
 
   handleMainRenderer(WFM_UPDATE_ORDER, async (_event, payload) => {
@@ -170,15 +143,7 @@ function register(): void {
       log.warn("[Security] wfm:update-order blocked due to invalid payload");
       return { error: "Invalid update-order payload." };
     }
-
-    try {
-      return await wfmOrders.updateOrder(parsed.orderId, parsed.updates);
-    } catch (err) {
-      if (errorCode(err) === "WFM_UNAUTHORIZED") {
-        void wfmSession.signOut();
-      }
-      return { error: normalizeErrorMessage(err, "Failed to update order.") };
-    }
+    return withWfmError("update-order", () => wfmOrders.updateOrder(parsed.orderId, parsed.updates), "Failed to update order.");
   });
 
   handleMainRenderer(WFM_DELETE_ORDER, async (_event, payload) => {
@@ -187,15 +152,7 @@ function register(): void {
       log.warn("[Security] wfm:delete-order blocked due to invalid payload");
       return { error: "Invalid delete-order payload." };
     }
-
-    try {
-      return await wfmOrders.deleteOrder(parsed.orderId);
-    } catch (err) {
-      if (errorCode(err) === "WFM_UNAUTHORIZED") {
-        void wfmSession.signOut();
-      }
-      return { error: normalizeErrorMessage(err, "Failed to delete order.") };
-    }
+    return withWfmError("delete-order", () => wfmOrders.deleteOrder(parsed.orderId), "Failed to delete order.");
   });
 
   handleMainRenderer(WFM_CLOSE_ORDER, async (_event, payload) => {
@@ -204,15 +161,7 @@ function register(): void {
       log.warn("[Security] wfm:close-order blocked due to invalid payload");
       return { error: "Invalid close-order payload." };
     }
-
-    try {
-      return await wfmOrders.closeOrder(parsed.orderId, parsed.quantity);
-    } catch (err) {
-      if (errorCode(err) === "WFM_UNAUTHORIZED") {
-        void wfmSession.signOut();
-      }
-      return { error: normalizeErrorMessage(err, "Failed to close order.") };
-    }
+    return withWfmError("close-order", () => wfmOrders.closeOrder(parsed.orderId, parsed.quantity), "Failed to close order.");
   });
 
   handleMainRenderer(WFM_SET_VISIBLE, async (_event, payload) => {
@@ -221,15 +170,7 @@ function register(): void {
       log.warn("[Security] wfm:set-visible blocked due to invalid payload");
       return { error: "Invalid set-visible payload." };
     }
-
-    try {
-      return await wfmOrders.setOrdersVisible(parsed.orderIds, parsed.visible);
-    } catch (err) {
-      if (errorCode(err) === "WFM_UNAUTHORIZED") {
-        void wfmSession.signOut();
-      }
-      return { error: normalizeErrorMessage(err, "Failed to update order visibility.") };
-    }
+    return withWfmError("set-visible", () => wfmOrders.setOrdersVisible(parsed.orderIds, parsed.visible), "Failed to update order visibility.");
   });
 
   handleMainRenderer(WFM_SEARCH_ITEMS, async (_event, payload) => {
@@ -238,12 +179,7 @@ function register(): void {
       log.warn("[Security] wfm:search-items blocked due to invalid payload");
       return { error: "Invalid search payload." };
     }
-
-    try {
-      return await wfmCatalog.searchItems(parsed.query, parsed.limit);
-    } catch (err) {
-      return { error: normalizeErrorMessage(err, "Failed to search items.") };
-    }
+    return withWfmError("search-items", () => wfmCatalog.searchItems(parsed.query, parsed.limit), "Failed to search items.");
   });
 
   handleMainRenderer(WFM_LOOKUP_ITEM, async (_event, payload) => {
@@ -283,13 +219,9 @@ function register(): void {
     }
   });
 
-  handleMainRenderer(WFM_GET_ME, async () => {
-    try {
-      return await wfmSession.getMe();
-    } catch (err) {
-      return { error: normalizeErrorMessage(err, "Failed to get user profile.") };
-    }
-  });
+  handleMainRenderer(WFM_GET_ME, async () =>
+    withWfmError("get-me", () => wfmSession.getMe(), "Failed to get user profile."),
+  );
 
   handleMainRenderer(WFM_SET_STATUS, async (_event, payload) => {
     const parsed = parseStatusPayload(payload);
@@ -298,14 +230,7 @@ function register(): void {
       return { error: "Invalid status. Must be one of: online, ingame, invisible." };
     }
 
-    try {
-      return await wfmSession.setStatus(parsed.status as "online" | "ingame" | "invisible");
-    } catch (err) {
-      if (errorCode(err) === "WFM_UNAUTHORIZED") {
-        void wfmSession.signOut();
-      }
-      return { error: normalizeErrorMessage(err, "Failed to set status.") };
-    }
+    return withWfmError("set-status", () => wfmSession.setStatus(parsed.status as "online" | "ingame" | "invisible"), "Failed to set status.");
   });
 }
 

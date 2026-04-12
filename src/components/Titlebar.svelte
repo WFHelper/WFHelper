@@ -30,12 +30,13 @@
     return "WF data missing";
   })();
 
-  $: helperDotClass = (() => {
-    if (!helperStatus) return "bg-gray-500";
-    if (helperStatus.running) return "bg-yellow-400 animate-pulse";
-    if (helperStatus.inventoryLastModified) return "bg-emerald-400";
-    return "bg-red-400";
+  $: helperDotColor = (() => {
+    if (!helperStatus) return "#6b7280";
+    if (helperStatus.running) return "#facc15";
+    if (helperStatus.inventoryLastModified) return "#34d399";
+    return "#f87171";
   })();
+  $: helperDotPulse = helperStatus?.running ?? false;
 
   onMount(() => {
     const refreshHelperStatus = (): void => {
@@ -59,53 +60,143 @@
   });
 </script>
 
-<header
-  class="app-region-drag z-50 flex h-[var(--titlebar-height)] select-none items-center justify-between border-b border-[var(--border)] bg-[var(--bg-deep)]"
->
-  <div class="flex min-w-0 items-center gap-2 pl-3.5">
+<header class="titlebar app-region-drag">
+  <div class="titlebar-left">
     {#if logoUrl}
-      <img src={logoUrl} alt="Logo" class="h-4 w-4 object-contain" />
+      <img src={logoUrl} alt="Logo" class="titlebar-logo" />
     {:else}
-      <svg class="h-4 w-4 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <svg class="titlebar-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--accent)">
         <polygon points="12,2 22,20 2,20" />
         <circle cx="12" cy="14" r="3" />
       </svg>
     {/if}
-    <span class="font-[var(--font-display)] text-xs font-semibold tracking-wider text-[var(--text-secondary)]">
+    <span class="titlebar-name">
       {appName}
     </span>
     <span
-      class="hidden items-center gap-1 rounded border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] text-[var(--text-muted)] lg:inline-flex"
+      class="titlebar-helper"
       title={helperStatus?.exeFound ? "warframe-api-helper active" : "warframe-api-helper not found"}
     >
-      <span class="inline-block h-[6px] w-[6px] rounded-full {helperDotClass}"></span>
-      <span class="truncate max-w-[18rem]">{helperStatusText}</span>
+      <span class="helper-dot" class:helper-dot--pulse={helperDotPulse} style="background:{helperDotColor}"></span>
+      <span class="helper-text">{helperStatusText}</span>
     </span>
   </div>
-  <div class="app-region-no-drag flex">
+  <div class="app-region-no-drag titlebar-controls">
     <button
-      class="flex h-[var(--titlebar-height)] w-[var(--size-titlebar-control)] cursor-pointer items-center justify-center border-0 bg-transparent text-[var(--text-secondary)] transition-colors duration-150 hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+      class="titlebar-btn"
       title="Minimize"
       on:click={ipc.minimizeWindow}
     >
-      <svg class="h-3 w-3" viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.2"/></svg>
+      <svg class="titlebar-icon" viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.2"/></svg>
     </button>
     <button
-      class="flex h-[var(--titlebar-height)] w-[var(--size-titlebar-control)] cursor-pointer items-center justify-center border-0 bg-transparent text-[var(--text-secondary)] transition-colors duration-150 hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+      class="titlebar-btn"
       title="Maximize"
       on:click={ipc.maximizeWindow}
     >
-      <svg class="h-3 w-3" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      <svg class="titlebar-icon" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
     </button>
     <button
-      class="flex h-[var(--titlebar-height)] w-[var(--size-titlebar-control)] cursor-pointer items-center justify-center border-0 bg-transparent text-[var(--text-secondary)] transition-colors duration-150 hover:bg-[var(--danger)] hover:text-white"
+      class="titlebar-btn titlebar-btn--close"
       title="Close"
       on:click={ipc.closeWindow}
     >
-      <svg class="h-3 w-3" viewBox="0 0 12 12">
+      <svg class="titlebar-icon" viewBox="0 0 12 12">
         <line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.2"/>
         <line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.2"/>
       </svg>
     </button>
   </div>
 </header>
+
+<style>
+  .titlebar {
+    z-index: 50;
+    display: flex;
+    height: var(--titlebar-height);
+    user-select: none;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-deep);
+  }
+  .titlebar-left {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.5rem;
+    padding-left: 0.875rem;
+  }
+  .titlebar-logo {
+    height: 1rem;
+    width: 1rem;
+    object-fit: contain;
+  }
+  .titlebar-name {
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+  }
+  .titlebar-helper {
+    display: none;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.05);
+    padding: 0.125rem 0.5rem;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+  @media (min-width: 1024px) {
+    .titlebar-helper { display: inline-flex; }
+  }
+  .helper-dot {
+    display: inline-block;
+    height: 6px;
+    width: 6px;
+    border-radius: 50%;
+  }
+  .helper-dot--pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .helper-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 18rem;
+  }
+  .titlebar-controls {
+    display: flex;
+  }
+  .titlebar-btn {
+    display: flex;
+    height: var(--titlebar-height);
+    width: var(--size-titlebar-control);
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    transition: color 0.15s, background-color 0.15s;
+  }
+  .titlebar-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+  .titlebar-btn--close:hover {
+    background: var(--danger);
+    color: white;
+  }
+  .titlebar-icon {
+    height: 0.75rem;
+    width: 0.75rem;
+  }
+</style>

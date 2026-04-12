@@ -1,6 +1,5 @@
 import { defineConfig } from "vite";
 import { svelte, vitePreprocess } from "@sveltejs/vite-plugin-svelte";
-import tailwindcss from "@tailwindcss/vite";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -95,7 +94,6 @@ const plugins = [
       },
     },
   }),
-  tailwindcss(),
 ];
 
 if (sentryUploadEnabled) {

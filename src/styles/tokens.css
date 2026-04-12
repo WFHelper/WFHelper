@@ -1,25 +1,3 @@
-@theme {
-  --color-void-deep: #060a12;
-  --color-void-base: #0a0e17;
-  --color-void-surface: #111827;
-  --color-void-raised: #1a2234;
-  --color-void-hover: #1f2b3f;
-  --color-orokin: #d4a843;
-  --color-orokin-dim: #a07830;
-  --color-orokin-bright: #f0c95c;
-  --color-text-primary: #e8e4dc;
-  --color-text-secondary: #8b93a5;
-  --color-text-muted: #8d9ab3;
-  --color-success: #4ade80;
-  --color-warning: #fbbf24;
-  --color-danger: #f87171;
-  --color-info: #60a5fa;
-  --font-display: "Rajdhani", sans-serif;
-  --font-body: "Barlow", sans-serif;
-  --size-titlebar-control: 2.875rem;
-  --size-relic-detail-icon: 3.25rem;
-}
-
 :root {
   --bg-deep: #060a12;
   --bg-base: #0a0e17;
@@ -57,5 +35,7 @@
   --relic-card-pad-x: 0.78rem;
   --font-display: "Rajdhani", sans-serif;
   --font-body: "Barlow", sans-serif;
+  --size-titlebar-control: 2.875rem;
+  --size-relic-detail-icon: 3.25rem;
 }
 
