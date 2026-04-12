@@ -5,6 +5,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import * as itemDb from "./itemDatabase";
+import type { ComponentEntry } from "./types/gameData";
 import { MAX_ITEM_RANK, XP_PER_RANK } from "../config/game/constants";
 import { toFiniteNumber } from "../config/shared/numeric";
 
@@ -14,7 +15,7 @@ export function setDebugMode(enabled: boolean): void {
   debugMode = !!enabled;
 }
 
-function debugLog(_message: string, _payload?: any): void {
+function debugLog(_message: string, _payload?: unknown): void {
   // Debug reasons are now surfaced in the UI; avoid terminal spam.
   if (!debugMode) return;
 }
@@ -147,16 +148,16 @@ function xpToRank(xp: number, maxRank: number = MAX_ITEM_RANK): number {
   return Math.min(maxRank, Math.floor(xp / XP_PER_RANK));
 }
 
-function getValueAtPath(obj: any, path: string[]): any {
-  let cur = obj;
+function getValueAtPath(obj: Record<string, unknown>, path: string[]): unknown {
+  let cur: unknown = obj;
   for (const key of path) {
     if (!cur || typeof cur !== "object" || !(key in cur)) return undefined;
-    cur = cur[key];
+    cur = (cur as Record<string, unknown>)[key];
   }
   return cur;
 }
 
-function pickNumber(obj: any, paths: string[][]): number | null {
+function pickNumber(obj: Record<string, unknown>, paths: string[][]): number | null {
   for (const p of paths) {
     const v = getValueAtPath(obj, p);
     const n = toFiniteNumber(v);
@@ -166,7 +167,7 @@ function pickNumber(obj: any, paths: string[][]): number | null {
 }
 
 function extractProfileMastery(
-  inventoryData: any,
+  inventoryData: Record<string, unknown>,
 ): { rank: number | null; percentToNext: number | null } | null {
   const rank = pickNumber(inventoryData, [
     ["MasteryRank"],
@@ -215,7 +216,7 @@ function extractProfileMastery(
 
 // ─── Exclusion filter ────────────────────────────────────────────────────
 
-function getExcludeReason(uniqueName: string, name: string | null, item: any): string | null {
+function getExcludeReason(uniqueName: string, name: string | null, item: { exalted?: boolean; productCategory?: string | null; type?: string }): string | null {
   if (uniqueName.includes("/Recipes/")) return "recipe";
   if (uniqueName.includes("/StoreItems/")) return "store-item";
   if (uniqueName.includes("/OperatorLoadOuts/")) return "operator-loadout";
@@ -258,7 +259,7 @@ function getExcludeReason(uniqueName: string, name: string | null, item: any): s
 // ─── Category resolver ───────────────────────────────────────────────────
 
 function resolveDisplayCategoryInfo(
-  item: any,
+  item: { productCategory?: string | null; category?: string; type?: string },
   uniqueName: string,
 ): { category: string; source: string } {
   // K-Drive boards are currently exported with Weapon/Pistols metadata.
@@ -276,9 +277,9 @@ function resolveDisplayCategoryInfo(
   if (/\/OperatorAmplifiers?\//i.test(uniqueName)) {
     return { category: "Amps", source: "path:OperatorAmplifiers" };
   }
-  if (item.productCategory && PRODUCT_DISPLAY[item.productCategory]) {
+  if (item.productCategory && PRODUCT_DISPLAY[item.productCategory as string]) {
     return {
-      category: PRODUCT_DISPLAY[item.productCategory],
+      category: PRODUCT_DISPLAY[item.productCategory as string],
       source: `productCategory:${item.productCategory}`,
     };
   }
@@ -293,7 +294,7 @@ function resolveDisplayCategoryInfo(
   return { category: "Other", source: "fallback:Other" };
 }
 
-function isAmpPrismMasterableOverride(item: any, uniqueName: string): boolean {
+function isAmpPrismMasterableOverride(item: { name?: string }, uniqueName: string): boolean {
   if (!/\/OperatorAmplifiers?\//i.test(uniqueName)) return false;
   if (/\/SentTrainingAmplifier/i.test(uniqueName)) return false;
   if (!/\/Barrel\//i.test(uniqueName)) return false;
@@ -315,7 +316,7 @@ interface MasterableItem {
   tradable: boolean;
   keywords: string[];
   debugReason: string;
-  components: any[];
+  components: ComponentEntry[];
 }
 
 interface MasteryProgressItem extends MasterableItem {
@@ -332,7 +333,7 @@ export function getAllMasterableItems(): MasterableItem[] {
   const items: MasterableItem[] = [];
   const seenNames = new Set<string>();
 
-  for (const [uniqueName, item] of Object.entries(allItems as Record<string, any>)) {
+  for (const [uniqueName, item] of Object.entries(allItems)) {
     const displayName = sanitizeDisplayName(item.name || "Unknown");
 
     if (!MASTERABLE_DB_CATEGORIES.has(item.category)) {
@@ -399,26 +400,26 @@ export function getAllMasterableItems(): MasterableItem[] {
 
 // ─── Build component ownership map from inventory ────────────────────────
 
-function buildComponentOwnership(inventoryData: any): Map<string, number> {
+function buildComponentOwnership(inventoryData: Record<string, unknown>): Map<string, number> {
   const owned = new Map<string, number>(); // uniqueName → count
 
-  // MiscItems (resources/components)
-  if (Array.isArray(inventoryData.MiscItems)) {
-    for (const e of inventoryData.MiscItems) {
+  const miscItems = inventoryData.MiscItems;
+  if (Array.isArray(miscItems)) {
+    for (const e of miscItems as { ItemType?: string; ItemCount?: number }[]) {
       if (e.ItemType) owned.set(e.ItemType, (owned.get(e.ItemType) || 0) + (e.ItemCount || 1));
     }
   }
 
-  // Recipes (blueprints)
-  if (Array.isArray(inventoryData.Recipes)) {
-    for (const e of inventoryData.Recipes) {
+  const recipes = inventoryData.Recipes;
+  if (Array.isArray(recipes)) {
+    for (const e of recipes as { ItemType?: string; ItemCount?: number }[]) {
       if (e.ItemType) owned.set(e.ItemType, (owned.get(e.ItemType) || 0) + (e.ItemCount || 1));
     }
   }
 
-  // PendingRecipes (currently building)
-  if (Array.isArray(inventoryData.PendingRecipes)) {
-    for (const e of inventoryData.PendingRecipes) {
+  const pendingRecipes = inventoryData.PendingRecipes;
+  if (Array.isArray(pendingRecipes)) {
+    for (const e of pendingRecipes as { ItemType?: string }[]) {
       if (e.ItemType) owned.set(e.ItemType, (owned.get(e.ItemType) || 0) + 1);
     }
   }
@@ -428,7 +429,7 @@ function buildComponentOwnership(inventoryData: any): Map<string, number> {
 
 // ─── Compare vs inventory ────────────────────────────────────────────────
 
-export function computeMasteryProgress(inventoryData: any): {
+export function computeMasteryProgress(inventoryData: Record<string, unknown>): {
   items: MasteryProgressItem[];
   stats: {
     total: number;
@@ -442,7 +443,7 @@ export function computeMasteryProgress(inventoryData: any): {
     profileMastery: { rank: number | null; percentToNext: number | null } | null;
   };
 } {
-  if (!inventoryData) return { items: [], stats: {} as any };
+  if (!inventoryData) return { items: [], stats: { total: 0, mastered: 0, inProgress: 0, missing: 0, byCategory: {}, profileMastery: null } };
 
   const allMasterable = getAllMasterableItems();
   const componentOwnership = buildComponentOwnership(inventoryData);
@@ -456,7 +457,7 @@ export function computeMasteryProgress(inventoryData: any): {
   for (const [invKey, maxRank] of Object.entries(INV_CATEGORIES)) {
     const arr = inventoryData[invKey];
     if (!Array.isArray(arr)) continue;
-    for (const entry of arr) {
+    for (const entry of arr as { ItemType?: string; XP?: number }[]) {
       if (!entry.ItemType) continue;
       const rank = xpToRank(entry.XP || 0, maxRank as number);
       ownedMap.set(entry.ItemType, { rank, maxRank: maxRank as number, owned: true });
@@ -464,8 +465,9 @@ export function computeMasteryProgress(inventoryData: any): {
   }
 
   // XPInfo: items sold but XP still counts
-  if (Array.isArray(inventoryData.XPInfo)) {
-    for (const entry of inventoryData.XPInfo) {
+  const xpInfo = inventoryData.XPInfo;
+  if (Array.isArray(xpInfo)) {
+    for (const entry of xpInfo as { ItemType?: string; XP?: number }[]) {
       if (!entry.ItemType) continue;
       if (ownedMap.has(entry.ItemType)) continue;
       const rank = xpToRank(entry.XP || 0, MAX_ITEM_RANK);
@@ -486,14 +488,14 @@ export function computeMasteryProgress(inventoryData: any): {
   for (const [uname, data] of ownedMap) {
     const dbItem = itemDb.lookupItem(uname);
     if (dbItem) {
-      ownedByName.set((dbItem as any).name.toLowerCase(), { ...data, uniqueName: uname });
+      ownedByName.set(dbItem.name.toLowerCase(), { ...data, uniqueName: uname });
     }
   }
 
   // Annotate each masterable item with ownership + component status
   const items: MasteryProgressItem[] = allMasterable.map((item) => {
     let owned = ownedMap.get(item.uniqueName);
-    if (!owned) owned = ownedByName.get(item.name.toLowerCase()) as any;
+    if (!owned) owned = ownedByName.get(item.name.toLowerCase()) ?? undefined;
 
     let status: "mastered" | "progress" | "missing" = "missing";
     let rank = 0;
@@ -508,7 +510,7 @@ export function computeMasteryProgress(inventoryData: any): {
     }
 
     // Annotate components with ownership
-    const components = (item.components || []).map((comp: any) => {
+    const components = (item.components || []).map((comp: ComponentEntry) => {
       const ownedCount = comp.uniqueName ? componentOwnership.get(comp.uniqueName) || 0 : 0;
       return {
         name: comp.name || "",

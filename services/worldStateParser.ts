@@ -1,5 +1,6 @@
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import type { WorldStateRaw, WorldStateDate, ActiveMissionRaw, SortieRaw, DescentRaw, EndlessXpChoice } from "./types/gameData";
 
 import fs from "fs";
 import path from "path";
@@ -27,15 +28,15 @@ const POE_NIGHT_MS = WORLD_STATE_CONFIG.poeNightMs;
 const DUVIRI_MOOD_PERIOD_MS = WORLD_STATE_CONFIG.duviriMoodPeriodMs;
 const DUVIRI_MOODS = WORLD_STATE_CONFIG.duviriMoods;
 
-const EMPTY_LOOKUP: Record<string, any> = Object.freeze({});
+const EMPTY_LOOKUP: Record<string, string> = Object.freeze({});
 
-function loadRegionTranslationData(): { regions: Record<string, any>; dict: Record<string, any> } {
+function loadRegionTranslationData(): { regions: Record<string, Record<string, unknown>>; dict: Record<string, string> } {
   try {
     const pep = require("warframe-public-export-plus");
     if (pep?.ExportRegions && pep?.dict_en) {
       return {
-        regions: pep.ExportRegions,
-        dict: pep.dict_en,
+        regions: pep.ExportRegions as Record<string, Record<string, unknown>>,
+        dict: pep.dict_en as Record<string, string>,
       };
     }
   } catch (err) {
@@ -48,8 +49,8 @@ function loadRegionTranslationData(): { regions: Record<string, any>; dict: Reco
   try {
     const pkgPath = require.resolve("warframe-public-export-plus/package.json");
     const pkgDir = path.dirname(pkgPath);
-    const regions = JSON.parse(fs.readFileSync(path.join(pkgDir, "ExportRegions.json"), "utf8"));
-    const dict = JSON.parse(fs.readFileSync(path.join(pkgDir, "dict.en.json"), "utf8"));
+    const regions = JSON.parse(fs.readFileSync(path.join(pkgDir, "ExportRegions.json"), "utf8")) as Record<string, Record<string, unknown>>;
+    const dict = JSON.parse(fs.readFileSync(path.join(pkgDir, "dict.en.json"), "utf8")) as Record<string, string>;
     return { regions, dict };
   } catch (err) {
     log.warn(
@@ -59,7 +60,7 @@ function loadRegionTranslationData(): { regions: Record<string, any>; dict: Reco
   }
 
   return {
-    regions: EMPTY_LOOKUP,
+    regions: EMPTY_LOOKUP as unknown as Record<string, Record<string, unknown>>,
     dict: EMPTY_LOOKUP,
   };
 }
@@ -95,7 +96,7 @@ export function emptyWorldState(): any {
   };
 }
 
-function deDate(obj: any): string | null {
+function deDate(obj: WorldStateDate | null | undefined): string | null {
   if (!obj) return null;
   const ms = obj?.["$date"]?.["$numberLong"];
   return ms ? new Date(Number(ms)).toISOString() : null;
@@ -153,13 +154,13 @@ const HUB_NODE: Record<string, string> = {
 async function fetchJsonWithTimeout(
   url: string,
   timeoutMs: number = CYCLE_FETCH_TIMEOUT_MS,
-): Promise<any> {
+): Promise<unknown> {
   const resp = await fetchWithTimeout(url, timeoutMs, { headers: { Accept: "application/json" } });
   if (!resp.ok) throw new Error(`HTTP ${resp.status} for ${url}`);
   return resp.json();
 }
 
-function resolveDictValue(value: any): string | null {
+function resolveDictValue(value: unknown): string | null {
   if (typeof value !== "string" || value.length === 0) {
     return null;
   }
@@ -169,7 +170,7 @@ function resolveDictValue(value: any): string | null {
   return REGION_TRANSLATION.dict[value] || null;
 }
 
-function formatNodeLabel(nodeId: any): string {
+function formatNodeLabel(nodeId: string): string {
   if (typeof nodeId !== "string" || nodeId.length === 0) {
     return "Unknown";
   }
@@ -197,7 +198,7 @@ function formatMissionTypeLabel(missionType: string, nodeId: string): string {
   return missionType || "Unknown";
 }
 
-function computeVallisCycle(nowMs: number = Date.now()): any {
+function computeVallisCycle(nowMs: number = Date.now()): { isWarm: boolean; timeLeft: string; expiry: string } {
   const elapsed = (nowMs - VALLIS_EPOCH_MS) % VALLIS_PERIOD_MS;
   const isWarm = elapsed < VALLIS_WARM_MS;
   const timeLeftMs = isWarm ? VALLIS_WARM_MS - elapsed : VALLIS_PERIOD_MS - elapsed;
@@ -211,7 +212,7 @@ function computeVallisCycle(nowMs: number = Date.now()): any {
 function computeCetusCambionCycles(
   bountyCycleExpiryMs: number,
   nowMs: number = Date.now(),
-): { cetus: any; cambion: any } {
+): { cetus: { isDay: boolean; timeLeft: string; expiry: string }; cambion: { active: string; timeLeft: string; expiry: string } } {
   const nightStart = bountyCycleExpiryMs - POE_NIGHT_MS;
   const isDay = nowMs < nightStart;
   const expiryIso = new Date(isDay ? nightStart : bountyCycleExpiryMs).toISOString();
@@ -221,7 +222,7 @@ function computeCetusCambionCycles(
   };
 }
 
-function computeDuviriMoodCycle(nowMs: number = Date.now()): any {
+function computeDuviriMoodCycle(nowMs: number = Date.now()): { state: string; expiry: string } {
   const moodIndex = Math.trunc(nowMs / DUVIRI_MOOD_PERIOD_MS);
   const moodStart = moodIndex * DUVIRI_MOOD_PERIOD_MS;
   const moodEnd = moodStart + DUVIRI_MOOD_PERIOD_MS;
@@ -233,10 +234,10 @@ function computeDuviriMoodCycle(nowMs: number = Date.now()): any {
   };
 }
 
-async function fetchEarthCycle(): Promise<any | null> {
+async function fetchEarthCycle(): Promise<{ isDay: boolean; timeLeft: string; expiry: string } | null> {
   try {
-    const data = await fetchJsonWithTimeout(EARTH_CYCLE_URL, EARTH_CYCLE_FETCH_TIMEOUT_MS);
-    const earthData = data && typeof data.earthCycle === "object" ? data.earthCycle : data;
+    const data = await fetchJsonWithTimeout(EARTH_CYCLE_URL, EARTH_CYCLE_FETCH_TIMEOUT_MS) as Record<string, unknown>;
+    const earthData = (data && typeof data.earthCycle === "object" ? data.earthCycle : data) as Record<string, unknown> | null;
 
     const expiryIsoRaw = typeof earthData?.expiry === "string" ? earthData.expiry : null;
     const expiryMs = expiryIsoRaw ? Date.parse(expiryIsoRaw) : Number.NaN;
@@ -268,9 +269,9 @@ async function fetchEarthCycle(): Promise<any | null> {
   }
 }
 
-async function fetchAndComputeCycles(): Promise<any> {
+async function fetchAndComputeCycles(): Promise<Record<string, unknown>> {
   const nowMs = Date.now();
-  const data = await fetchJsonWithTimeout(ORACLE_BOUNTY_CYCLE_URL, CYCLE_FETCH_TIMEOUT_MS);
+  const data = await fetchJsonWithTimeout(ORACLE_BOUNTY_CYCLE_URL, CYCLE_FETCH_TIMEOUT_MS) as { expiry?: number };
   const expiryMs = Number(data.expiry);
   if (!expiryMs) throw new Error("oracle bounty-cycle: missing expiry");
 
@@ -286,8 +287,8 @@ async function fetchAndComputeCycles(): Promise<any> {
   };
 }
 
-async function fetchPrimaryWorldState(): Promise<any> {
-  const raw = await fetchJsonWithTimeout(ORACLE_WORLDSTATE_URL, FETCH_TIMEOUT_MS);
+async function fetchPrimaryWorldState(): Promise<WorldStateRaw> {
+  const raw = await fetchJsonWithTimeout(ORACLE_WORLDSTATE_URL, FETCH_TIMEOUT_MS) as WorldStateRaw;
   if (!raw || typeof raw !== "object" || Object.keys(raw).length === 0) {
     throw new Error("oracle returned empty object");
   }
@@ -295,7 +296,7 @@ async function fetchPrimaryWorldState(): Promise<any> {
   return raw;
 }
 
-async function fetchFallbackWorldState(): Promise<any | null> {
+async function fetchFallbackWorldState(): Promise<WorldStateRaw | null> {
   try {
     const resp = await fetchWithTimeout(FETCH_URL, FETCH_TIMEOUT_MS, {
       headers: { Accept: "application/json" },
@@ -304,7 +305,7 @@ async function fetchFallbackWorldState(): Promise<any | null> {
       log.warn("[WorldState] DE world-state returned HTTP", resp.status);
       return null;
     }
-    const raw = await resp.json();
+    const raw = await resp.json() as WorldStateRaw;
     log.log("[WorldState] fetched DE world-state OK");
     return raw;
   } catch (deErr) {
@@ -313,8 +314,8 @@ async function fetchFallbackWorldState(): Promise<any | null> {
   }
 }
 
-export async function fetchAndParse(): Promise<any> {
-  let raw: any;
+export async function fetchAndParse(): Promise<Record<string, unknown>> {
+  let raw: WorldStateRaw | null;
   try {
     raw = await fetchPrimaryWorldState();
   } catch (oracleErr) {
@@ -341,16 +342,16 @@ export async function fetchAndParse(): Promise<any> {
   }
 }
 
-export function parseRaw(raw: any): any {
-  if (!raw) return null;
+export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> {
+  if (!raw) return null as unknown as Record<string, unknown>;
   const nowMs = Date.now();
 
   const fissures = (raw.ActiveMissions || [])
-    .filter((m: any) => {
+    .filter((m) => {
       const mod = m.Modifier || "";
       return mod.startsWith("VoidT") && VOID_TIER[mod];
     })
-    .map((m: any) => {
+    .map((m) => {
       const mod = m.Modifier || "";
       const missionTypeRaw = m.MissionType || "";
       const nodeId = m.Node || "Unknown";
@@ -366,7 +367,7 @@ export function parseRaw(raw: any): any {
         expired: expMs < nowMs,
       };
     })
-    .filter((f: any) => !f.expired);
+    .filter((f) => !f.expired);
 
   const baroRaw = Array.isArray(raw.VoidTraders) ? raw.VoidTraders[0] : raw.VoidTraders;
   const voidTrader = baroRaw
@@ -385,7 +386,7 @@ export function parseRaw(raw: any): any {
         activation: deDate(varziaRaw.Activation),
         expiry: deDate(varziaRaw.Expiry),
         location: HUB_NODE[varziaRaw.Node] || varziaRaw.Node || "Varzia",
-        inventory: (varziaRaw.Manifest || []).map((i: any) => ({
+        inventory: (varziaRaw.Manifest || []).map((i) => ({
           uniqueName: (i.ItemType || "").replace(/^\/Lotus\/StoreItems/, "/Lotus"),
           item: (i.ItemType || "").split("/").pop() || "",
         })),
@@ -394,13 +395,13 @@ export function parseRaw(raw: any): any {
 
   const sortieArr = Array.isArray(raw.Sorties) ? raw.Sorties : raw.Sorties ? [raw.Sorties] : [];
   const sortieRaw =
-    sortieArr.find((s: any) => Number(s.Expiry?.["$date"]?.["$numberLong"] || 0) > nowMs) ||
+    sortieArr.find((s) => Number(s.Expiry?.["$date"]?.["$numberLong"] || 0) > nowMs) ||
     sortieArr[0];
   const sortie = sortieRaw ? { expiry: deDate(sortieRaw.Expiry) } : null;
 
   const descentArr = Array.isArray(raw.Descents) ? raw.Descents : [];
   const descentRaw =
-    descentArr.find((d: any) => {
+    descentArr.find((d) => {
       const act = Number(d.Activation?.["$date"]?.["$numberLong"] || 0);
       const exp = Number(d.Expiry?.["$date"]?.["$numberLong"] || 0);
       return act <= nowMs && exp > nowMs;
@@ -408,16 +409,16 @@ export function parseRaw(raw: any): any {
 
   const xpChoices = raw.EndlessXpChoices || [];
   const duviriCycle = {
-    state: null,
+    state: null as string | null,
     expiry: descentRaw ? deDate(descentRaw.Expiry) : null,
     choices: [
       {
         category: "normal",
-        choices: xpChoices.find((c: any) => c.Category === "EXC_NORMAL")?.Choices || [],
+        choices: xpChoices.find((c) => c.Category === "EXC_NORMAL")?.Choices || [],
       },
       {
         category: "hard",
-        choices: xpChoices.find((c: any) => c.Category === "EXC_HARD")?.Choices || [],
+        choices: xpChoices.find((c) => c.Category === "EXC_HARD")?.Choices || [],
       },
     ],
   };

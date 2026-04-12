@@ -1,5 +1,13 @@
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import type {
+  PepExportItem,
+  WfcdComponent,
+  WfcdDrop,
+  DropEntry,
+  ComponentEntry,
+  RendererItemEntry,
+} from "./types/gameData";
 // ═══════════════════════════════════════════════════════════════════════════
 // Item Database Service
 // Primary:  warframe-public-export-plus (Sainan/calamity-inc) — raw game data
@@ -39,11 +47,11 @@ function isLikelyBuildComponent(uniqueName: string, componentName: string = ""):
   );
 }
 
-function normalizeOptionalBoolean(value: any): boolean | undefined {
+function normalizeOptionalBoolean(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
 }
 
-function pickTradable(currentValue: any, incomingValue: any): boolean | undefined {
+function pickTradable(currentValue: unknown, incomingValue: unknown): boolean | undefined {
   const current = normalizeOptionalBoolean(currentValue);
   const incoming = normalizeOptionalBoolean(incomingValue);
 
@@ -55,8 +63,8 @@ function isWeaponPartRecipePath(uniqueName: string = ""): boolean {
 }
 
 function resolveComponentTradable(
-  componentTradable: any,
-  parentTradable: any,
+  componentTradable: unknown,
+  parentTradable: unknown,
   uniqueName: string = "",
 ): boolean | undefined {
   const component = normalizeOptionalBoolean(componentTradable);
@@ -125,8 +133,8 @@ interface ItemEntry {
   _source: string;
   type?: string;
   wikiaUrl?: string | null;
-  components?: any[];
-  drops?: any[];
+  components?: ComponentEntry[];
+  drops?: DropEntry[];
   isBuildComponent?: boolean;
   componentOf?: string;
 }
@@ -136,7 +144,7 @@ let wfcdItemsByUniqueName: Record<string, ItemEntry> = {};
 
 // ─── Load English dictionary from public-export-plus ───────────────────────
 
-function loadDict(): Record<string, any> {
+function loadDict(): Record<string, string> {
   const attempts: string[] = [];
 
   try {
@@ -194,14 +202,14 @@ function loadPublicExportPlus(): number {
     const pep = require("warframe-public-export-plus");
     const dict = loadDict();
 
-    function resolveName(nameKey: any): string | null {
+    function resolveName(nameKey: string | null | undefined): string | null {
       if (!nameKey) return null;
       if (!nameKey.startsWith("/")) return nameKey;
-      if (dict.__getString) return dict.__getString(nameKey) || null;
+      if ((dict as Record<string, unknown>).__getString) return ((dict as Record<string, unknown>).__getString as (k: string) => string | null)(nameKey) || null;
       return dict[nameKey] || null;
     }
 
-    function resolveIcon(iconPath: any): string | null {
+    function resolveIcon(iconPath: string | null | undefined): string | null {
       if (!iconPath) return null;
       return BROWSE_WF + iconPath;
     }
@@ -231,7 +239,7 @@ function loadPublicExportPlus(): number {
       const exportData = pep[exportKey];
       if (!exportData || typeof exportData !== "object") continue;
 
-      for (const [uniqueName, item] of Object.entries(exportData) as [string, any][]) {
+      for (const [uniqueName, item] of Object.entries(exportData) as [string, PepExportItem][]) {
         if (!uniqueName || uniqueName === "default") continue;
 
         const resolvedName = sanitizeDisplayName(
@@ -577,8 +585,8 @@ export function lookupImage(uniqueName: string): string | null {
   return item?.imageUrl || null;
 }
 
-export function getRendererLookup(): Record<string, any> {
-  const lookup: Record<string, any> = {};
+export function getRendererLookup(): Record<string, RendererItemEntry> {
+  const lookup: Record<string, RendererItemEntry> = {};
   for (const [key, item] of Object.entries(itemsByUniqueName)) {
     lookup[key] = {
       name: item.name,
@@ -595,19 +603,19 @@ export function getRendererLookup(): Record<string, any> {
       description: item.description || "",
       productCategory: item.productCategory || null,
       ducats: typeof item.ducats === "number" ? item.ducats : null,
-      components: (item.components || []).map((c: any) => ({
+      components: (item.components || []).map((c: ComponentEntry) => ({
         name: c.name || "",
         uniqueName: c.uniqueName || "",
         tradable: typeof c.tradable === "boolean" ? c.tradable : undefined,
         itemCount: c.itemCount || 1,
-        drops: (c.drops || []).map((d: any) => ({
+        drops: (c.drops || []).map((d: DropEntry) => ({
           location: d.location || "",
           type: d.type || "",
           chance: d.chance || 0,
           rarity: d.rarity || "",
         })),
       })),
-      drops: (item.drops || []).slice(0, 20).map((d: any) => ({
+      drops: (item.drops || []).slice(0, 20).map((d: DropEntry) => ({
         location: d.location || "",
         type: d.type || "",
         chance: d.chance || 0,

@@ -48,7 +48,7 @@ function register(): void {
           normalizeErrorMessage(error),
         ),
     });
-    return masteryHelper.computeMasteryProgress(data);
+    return masteryHelper.computeMasteryProgress(data as Record<string, unknown>);
   });
 
   ipcMain.handle("set-debug-mode", async (event: unknown, enabled: unknown) => {
