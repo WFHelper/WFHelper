@@ -56,6 +56,9 @@ export interface PreloadAPI {
   onTradeRecorded: (
     callback: (data: IpcEventMap["trade-recorded"]) => void,
   ) => () => void;
+  onWorldStateFetchError: (
+    callback: (message: IpcEventMap["world-state-fetch-error"]) => void,
+  ) => () => void;
   minimizeWindow: () => void;
   maximizeWindow: () => void;
   closeWindow: () => void;

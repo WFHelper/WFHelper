@@ -447,6 +447,7 @@ export interface IpcEventMap {
   "wfm:notification": WfmNotification;
   "helper-download-progress": HelperDownloadProgress;
   "trade-recorded": TradeRecordedEvent;
+  "world-state-fetch-error": string;
 }
 
 export interface IpcSendMap {

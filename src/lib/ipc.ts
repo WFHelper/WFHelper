@@ -28,6 +28,8 @@ const eventApiMap: Record<
     window.api.onHelperDownloadProgress(cb as (p: IpcEventMap["helper-download-progress"]) => void),
   "trade-recorded": (cb) =>
     window.api.onTradeRecorded(cb as (e: IpcEventMap["trade-recorded"]) => void),
+  "world-state-fetch-error": (cb) =>
+    window.api.onWorldStateFetchError(cb as (m: IpcEventMap["world-state-fetch-error"]) => void),
 };
 
 export function on<K extends EventChannel>(

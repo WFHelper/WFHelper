@@ -8,6 +8,7 @@
   } from "../lib/format.js";
   import { PLANET_ICON_PATHS, RELIC_ICON_PATHS, fissureTierClass, buildFeaturedPrimes } from "../lib/world.js";
   import { ipc } from "../lib/ipc.js";
+  import { addToast } from "../stores/toasts.js";
   import { overlaySettings, overlaySettingsLoaded, OVERLAY_DEFAULTS } from "../stores/overlaySettings.js";
   import FissureAlerts from "../components/settings/FissureAlerts.svelte";
 
@@ -18,9 +19,19 @@
   let nowMs = Date.now();
   let clockInterval: ReturnType<typeof setInterval> | null = null;
   let worldPollInterval: ReturnType<typeof setInterval> | null = null;
+  let unsubFetchError: (() => void) | null = null;
 
   onMount(() => {
     void fetchWorldData(true);
+
+    unsubFetchError = ipc.onWorldStateFetchError((message) => {
+      addToast({
+        level: "warning",
+        title: "World State",
+        message: `Failed to fetch world state: ${message}`,
+        durationMs: 8000,
+      });
+    });
 
     // Ensure overlay settings are loaded so cycle-alert toggles reflect persisted state
     if (!$overlaySettingsLoaded) {
@@ -44,6 +55,7 @@
   onDestroy(() => {
     if (clockInterval) clearInterval(clockInterval);
     if (worldPollInterval) clearInterval(worldPollInterval);
+    unsubFetchError?.();
   });
 
   async function toggleCycleAlert(key: "earth" | "cetus" | "vallis" | "cambion") {

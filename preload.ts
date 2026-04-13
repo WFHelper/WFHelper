@@ -17,6 +17,7 @@ import {
   HELPER_GET_STATUS, HELPER_RUN_NOW, HELPER_DOWNLOAD, HELPER_DOWNLOAD_PROGRESS,
   RIVENS_GET, RIVENS_GET_WEAPON_NAMES, RIVENS_GET_STAT_OPTIONS,
   RIVENS_SEARCH_AUCTIONS, RIVENS_GET_WEAPON_TYPE, RIVENS_CREATE_AUCTION,
+  WORLD_STATE_FETCH_ERROR,
 } from "./config/shared/ipcChannels";
 
 contextBridge.exposeInMainWorld("api", {
@@ -81,6 +82,14 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.on(TRADE_RECORDED, listener);
     return () => {
       ipcRenderer.removeListener(TRADE_RECORDED, listener);
+    };
+  },
+
+  onWorldStateFetchError: (callback: (message: unknown) => void) => {
+    const listener = (_event: unknown, message: unknown) => callback(message);
+    ipcRenderer.on(WORLD_STATE_FETCH_ERROR, listener);
+    return () => {
+      ipcRenderer.removeListener(WORLD_STATE_FETCH_ERROR, listener);
     };
   },
 

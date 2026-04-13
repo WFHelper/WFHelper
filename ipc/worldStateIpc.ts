@@ -3,7 +3,7 @@ import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity"
 import { withScope } from "../services/logger";
 import * as worldStateParser from "../services/worldStateParser";
 import { normalizeErrorMessage } from "../config/shared/errors";
-import { DB_GET_WORLD_STATE } from "../config/shared/ipcChannels";
+import { DB_GET_WORLD_STATE, WORLD_STATE_FETCH_ERROR } from "../config/shared/ipcChannels";
 
 const log = withScope("worldStateIpc");
 
@@ -309,7 +309,9 @@ function register(
       log.log("[WorldState] Fetched and parsed DE world state");
       return _worldStateCache;
     } catch (err) {
-      log.error("[WorldState] fetch failed:", normalizeErrorMessage(err));
+      const msg = normalizeErrorMessage(err);
+      log.error("[WorldState] fetch failed:", msg);
+      ctx.mainWindow?.webContents.send(WORLD_STATE_FETCH_ERROR, msg);
       if (!_worldStateCache) {
         _worldStateCache = worldStateParser.emptyWorldState();
       }

@@ -15,6 +15,7 @@ export const INVENTORY_UPDATED = "inventory-updated";
 // ── Database / catalog ─────────────────────────────────────────────────────
 export const DB_GET_ITEM_DATABASE = "get-item-database";
 export const DB_GET_WORLD_STATE = "get-world-state";
+export const WORLD_STATE_FETCH_ERROR = "world-state-fetch-error";
 export const DB_GET_RELIC_DATABASE = "get-relic-database";
 export const DB_GET_WFM_ITEMS = "get-wfm-items";
 export const DB_GET_MASTERY = "get-mastery-progress";
