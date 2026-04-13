@@ -97,19 +97,19 @@
     const buyoutPrice = listingType === "direct" ? listingPrice : null;
     const startingPrice = listingPrice;
 
-    const result = await ipc.createRivenAuction(
-      riven.weaponName,
-      riven.rivenName,
+    const result = await ipc.createRivenAuction({
+      weaponName: riven.weaponName,
+      rivenName: riven.rivenName,
       stats,
-      riven.rerolls,
-      riven.masteryReq,
-      riven.polarity,
-      riven.currentRank,
+      rerolls: riven.rerolls,
+      masteryReq: riven.masteryReq,
+      polarity: riven.polarity,
+      modRank: riven.currentRank,
       buyoutPrice,
       startingPrice,
-      listingVisibility === "private",
-      listingDescription,
-    );
+      isPrivate: listingVisibility === "private",
+      description: listingDescription,
+    });
 
     listingBusy = false;
     if (result.ok) {

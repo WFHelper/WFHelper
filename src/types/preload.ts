@@ -1,4 +1,4 @@
-import type { IpcEventMap, IpcInvokeMap } from "./ipc.js";
+import type { CreateRivenAuctionPayload, IpcEventMap, IpcInvokeMap } from "./ipc.js";
 import type { WfmStatus } from "./market.js";
 
 export interface PreloadAPI {
@@ -97,17 +97,7 @@ export interface PreloadAPI {
   ) => Promise<IpcInvokeMap["searchRivenAuctions"]["return"]>;
   getWeaponRivenType: (weaponName: string) => Promise<IpcInvokeMap["getWeaponRivenType"]["return"]>;
   createRivenAuction: (
-    weaponName: string,
-    rivenName: string,
-    stats: { tag: string; value: number; positive: boolean; multiplier?: boolean }[],
-    rerolls: number,
-    masteryReq: number,
-    polarity: string,
-    modRank: number,
-    buyoutPrice: number | null,
-    startingPrice: number,
-    isPrivate: boolean,
-    description: string,
+    payload: CreateRivenAuctionPayload,
   ) => Promise<IpcInvokeMap["createRivenAuction"]["return"]>;
   onHelperDownloadProgress: (callback: (progress: IpcEventMap["helper-download-progress"]) => void) => () => void;
 }

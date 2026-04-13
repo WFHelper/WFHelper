@@ -132,6 +132,20 @@ export type WfmSessionResponse = WfmSession;
 export type WfmSignInResponse = WfmSession;
 export type WfmMeResponse = WfmUserProfile | WfmMutationError | null;
 
+export interface CreateRivenAuctionPayload {
+  weaponName: string;
+  rivenName: string;
+  stats: { tag: string; value: number; positive: boolean; multiplier?: boolean }[];
+  rerolls: number;
+  masteryReq: number;
+  polarity: string;
+  modRank: number;
+  buyoutPrice: number | null;
+  startingPrice: number;
+  isPrivate: boolean;
+  description: string;
+}
+
 export interface IpcInvokeMap {
   getInventory: {
     args: [];
@@ -310,19 +324,7 @@ export interface IpcInvokeMap {
     return: string | null;
   };
   createRivenAuction: {
-    args: [
-      weaponName: string,
-      rivenName: string,
-      stats: { tag: string; value: number; positive: boolean; multiplier?: boolean }[],
-      rerolls: number,
-      masteryReq: number,
-      polarity: string,
-      modRank: number,
-      buyoutPrice: number | null,
-      startingPrice: number,
-      isPrivate: boolean,
-      description: string,
-    ];
+    args: [payload: CreateRivenAuctionPayload];
     return: { ok: boolean; auctionId?: string; error?: string };
   };
 }

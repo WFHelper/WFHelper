@@ -119,24 +119,8 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke(RIVENS_SEARCH_AUCTIONS, weaponName, positiveWfmNames, negativeWfmNames),
   getWeaponRivenType: (weaponName: string) =>
     ipcRenderer.invoke(RIVENS_GET_WEAPON_TYPE, weaponName),
-  createRivenAuction: (
-    weaponName: string,
-    rivenName: string,
-    stats: { tag: string; value: number; positive: boolean }[],
-    rerolls: number,
-    masteryReq: number,
-    polarity: string,
-    modRank: number,
-    buyoutPrice: number | null,
-    startingPrice: number,
-    isPrivate: boolean,
-    description: string,
-  ) =>
-    ipcRenderer.invoke(
-      RIVENS_CREATE_AUCTION,
-      weaponName, rivenName, stats, rerolls, masteryReq, polarity, modRank,
-      buyoutPrice, startingPrice, isPrivate, description,
-    ),
+  createRivenAuction: (payload: { weaponName: string; rivenName: string; stats: { tag: string; value: number; positive: boolean; multiplier?: boolean }[]; rerolls: number; masteryReq: number; polarity: string; modRank: number; buyoutPrice: number | null; startingPrice: number; isPrivate: boolean; description: string }) =>
+    ipcRenderer.invoke(RIVENS_CREATE_AUCTION, payload),
   onHelperDownloadProgress: (callback: (progress: unknown) => void) => {
     const listener = (_event: unknown, progress: unknown) => callback(progress);
     ipcRenderer.on(HELPER_DOWNLOAD_PROGRESS, listener);

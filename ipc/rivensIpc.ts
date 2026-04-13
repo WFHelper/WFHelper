@@ -68,21 +68,13 @@ function register(): void {
 
   ipcMain.handle(
     RIVENS_CREATE_AUCTION,
-    async (
-      event: unknown,
-      weaponName: unknown,
-      rivenName: unknown,
-      stats: unknown,
-      rerolls: unknown,
-      masteryReq: unknown,
-      polarity: unknown,
-      modRank: unknown,
-      buyoutPrice: unknown,
-      startingPrice: unknown,
-      isPrivate: unknown,
-      description: unknown,
-    ) => {
+    async (event: unknown, payload: unknown) => {
       assertAuthorizedSender(assertMainRendererSender, event as never, RIVENS_CREATE_AUCTION);
+      if (!payload || typeof payload !== "object") return { ok: false, error: "Invalid payload" };
+      const {
+        weaponName, rivenName, stats, rerolls, masteryReq,
+        polarity, modRank, buyoutPrice, startingPrice, isPrivate, description,
+      } = payload as Record<string, unknown>;
       if (typeof weaponName !== "string" || !weaponName) return { ok: false, error: "Invalid weapon name" };
       if (!Array.isArray(stats) || stats.length === 0) return { ok: false, error: "No stats provided" };
       if (typeof startingPrice !== "number" || startingPrice < 1) return { ok: false, error: "Invalid price" };
