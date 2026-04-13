@@ -54,16 +54,25 @@ function resolveChDictPath(): string {
   return candidates.find(existsSync) ?? candidates[0];
 }
 
+// ── ONNX session type (lazy-loaded via require, cannot import directly) ──────
+
+/** Minimal interface matching onnxruntime-node InferenceSession */
+interface OrtInferenceSession {
+  inputNames: readonly string[];
+  outputNames: readonly string[];
+  run(feeds: Record<string, unknown>): Promise<Record<string, { data: Float32Array; dims: number[] }>>;
+}
+
 // ── Lazy ONNX sessions ───────────────────────────────────────────────────────
 
-let _yoloSessionPromise: Promise<any> | null = null;
+let _yoloSessionPromise: Promise<OrtInferenceSession> | null = null;
 let _yoloInputName = "";
 let _yoloInputSize = 640;
 
-let _chRecSessionPromise: Promise<any> | null = null;
+let _chRecSessionPromise: Promise<OrtInferenceSession> | null = null;
 let _chDict: string[] = [];
 
-async function getYoloSession(): Promise<any> {
+async function getYoloSession(): Promise<OrtInferenceSession> {
   if (_yoloSessionPromise) return _yoloSessionPromise;
 
   _yoloSessionPromise = (async () => {
@@ -73,7 +82,7 @@ async function getYoloSession(): Promise<any> {
     }
 
   
-    const ort: any = require("onnxruntime-node");
+    const ort: typeof import("onnxruntime-node") = require("onnxruntime-node");
 
     const session = await ort.InferenceSession.create(modelPath, {
       executionProviders: ["cpu"],
@@ -85,16 +94,17 @@ async function getYoloSession(): Promise<any> {
     _yoloInputName = session.inputNames[0];
 
     log.log(`[RivenOcrOnnx] YOLO detector loaded — input=${_yoloInputName} size=${_yoloInputSize}`);
-    return session;
+    return session as unknown as OrtInferenceSession;
   })().catch((err) => {
     _yoloSessionPromise = null;
     throw err;
   });
 
-  return _yoloSessionPromise;
+  const pending = _yoloSessionPromise;
+  return pending;
 }
 
-async function getChRecSession(): Promise<any> {
+async function getChRecSession(): Promise<OrtInferenceSession> {
   if (_chRecSessionPromise) return _chRecSessionPromise;
 
   _chRecSessionPromise = (async () => {
@@ -104,7 +114,7 @@ async function getChRecSession(): Promise<any> {
       throw new Error(`PaddleOCR CH model not found at ${modelPath}`);
     }
 
-    const ort: any = require("onnxruntime-node");
+    const ort: typeof import("onnxruntime-node") = require("onnxruntime-node");
 
     // Load dictionary: index 0 = blank (CTC), then one char per line
     if (existsSync(dictPath)) {
@@ -120,13 +130,14 @@ async function getChRecSession(): Promise<any> {
     });
 
     log.log(`[RivenOcrOnnx] PaddleOCR CH v3 loaded — ${_chDict.length} chars (incl. blank)`);
-    return session;
+    return session as unknown as OrtInferenceSession;
   })().catch((err) => {
     _chRecSessionPromise = null;
     throw err;
   });
 
-  return _chRecSessionPromise;
+  const pending = _chRecSessionPromise;
+  return pending;
 }
 
 /**
@@ -166,9 +177,9 @@ async function yoloDetectStatLines(
   const session = await getYoloSession();
 
 
-  const ort: any = require("onnxruntime-node");
+  const ort: typeof import("onnxruntime-node") = require("onnxruntime-node");
 
-  const sharp: any = require("sharp");
+  const sharp: typeof import("sharp") = require("sharp");
 
   const imgsz = _yoloInputSize; // 640
 
@@ -306,7 +317,7 @@ async function extractAndUpscaleCrops(
   if (boxes.length === 0) return [];
 
 
-  const sharp: any = require("sharp");
+  const sharp: typeof import("sharp") = require("sharp");
 
   const rawCrops: RgbCrop[] = [];
   for (const box of boxes) {
@@ -412,9 +423,9 @@ async function recognizeCropsBatch(crops: RgbCrop[]): Promise<OcrLineResult[]> {
   const session = await getChRecSession();
 
 
-  const ort: any = require("onnxruntime-node");
+  const ort: typeof import("onnxruntime-node") = require("onnxruntime-node");
 
-  const sharp: any = require("sharp");
+  const sharp: typeof import("sharp") = require("sharp");
 
   const imgH = 48;
 
