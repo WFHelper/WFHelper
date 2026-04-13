@@ -3,6 +3,7 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 import { APP_UPDATE_STATUS } from "../config/shared/ipcChannels";
 import { app } from "electron";
 import { autoUpdater } from "electron-updater";
+import type { UpdateInfo, ProgressInfo, UpdateDownloadedEvent } from "electron-updater";
 
 const log = withScope("autoUpdater");
 
@@ -11,7 +12,7 @@ const STARTUP_CHECK_DELAY_MS = 12_000;
 
 let mainWindow: import("electron").BrowserWindow | null = null;
 let initialized = false;
-let checkPromise: Promise<any> | null = null;
+let checkPromise: Promise<{ ok: boolean; source: string; state: UpdateState }> | null = null;
 let startupTimer: ReturnType<typeof setTimeout> | null = null;
 
 interface UpdateState {
@@ -47,7 +48,7 @@ function setUpdateState(status: string, patch: Partial<UpdateState> = {}): void 
   emitUpdateState();
 }
 
-function toInfoPatch(info: any): Partial<UpdateState> {
+function toInfoPatch(info: UpdateInfo): Partial<UpdateState> {
   return {
     version: info?.version || null,
     releaseName: info?.releaseName || null,
@@ -94,7 +95,7 @@ export function initialize(windowRef: import("electron").BrowserWindow): void {
     setUpdateState("checking", { message: "Checking for updates..." });
   });
 
-  autoUpdater.on("update-available", (info: any) => {
+  autoUpdater.on("update-available", (info: UpdateInfo) => {
     log.info("Update available:", info?.version);
     setUpdateState("available", {
       ...toInfoPatch(info),
@@ -102,7 +103,7 @@ export function initialize(windowRef: import("electron").BrowserWindow): void {
     });
   });
 
-  autoUpdater.on("update-not-available", (info: any) => {
+  autoUpdater.on("update-not-available", (info: UpdateInfo) => {
     log.info("No updates available");
     setUpdateState("not-available", {
       ...toInfoPatch(info),
@@ -110,7 +111,7 @@ export function initialize(windowRef: import("electron").BrowserWindow): void {
     });
   });
 
-  autoUpdater.on("download-progress", (progress: any) => {
+  autoUpdater.on("download-progress", (progress: ProgressInfo) => {
     setUpdateState("downloading", {
       percent: typeof progress?.percent === "number" ? progress.percent : 0,
       bytesPerSecond: progress?.bytesPerSecond || 0,
@@ -120,7 +121,7 @@ export function initialize(windowRef: import("electron").BrowserWindow): void {
     });
   });
 
-  autoUpdater.on("update-downloaded", (info: any) => {
+  autoUpdater.on("update-downloaded", (info: UpdateDownloadedEvent) => {
     log.info("Update downloaded:", info?.version);
     setUpdateState("downloaded", {
       ...toInfoPatch(info),
@@ -128,7 +129,7 @@ export function initialize(windowRef: import("electron").BrowserWindow): void {
     });
   });
 
-  autoUpdater.on("error", (err: any) => {
+  autoUpdater.on("error", (err: Error) => {
     const message = normalizeErrorMessage(err, "Unknown updater error");
     log.error("Updater error:", message);
     setUpdateState("error", { message });
