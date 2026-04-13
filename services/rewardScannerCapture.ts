@@ -3,6 +3,7 @@
  * Uses GDI BitBlt via koffi as the sole capture method.
  */
 
+import type { DesktopCapturerSource, Display, Screen } from "electron";
 import { withScope } from "./logger";
 import { clampNumber } from "./rewardScannerUtils";
 import { captureGdi } from "./dxgiCapture";
@@ -39,23 +40,23 @@ const COMPANION_WINDOW_TOKENS: ReadonlyArray<string> = Object.freeze([
 
 const WARFRAME_WINDOW_NAME_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([/^warframe\b/i]);
 
-export function sourceName(source: any): string {
+export function sourceName(source: DesktopCapturerSource): string {
   return String(source?.name || "").trim();
 }
 
-export function isCompanionWindowSource(source: any): boolean {
+export function isCompanionWindowSource(source: DesktopCapturerSource): boolean {
   const name = sourceName(source).toLowerCase();
   return COMPANION_WINDOW_TOKENS.some((token) => name.includes(token));
 }
 
-export function isWarframeWindowSource(source: any): boolean {
+export function isWarframeWindowSource(source: DesktopCapturerSource): boolean {
   const name = sourceName(source).toLowerCase();
   if (!name.includes("warframe")) return false;
   if (isCompanionWindowSource(source)) return false;
   return WARFRAME_WINDOW_NAME_PATTERNS.some((pattern) => pattern.test(name));
 }
 
-export function pickWindowSource(sources: any[]): any | null {
+export function pickWindowSource(sources: DesktopCapturerSource[]): DesktopCapturerSource | null {
   if (!Array.isArray(sources) || sources.length === 0) return null;
 
   const candidates = sources.filter(isWarframeWindowSource);
@@ -68,10 +69,10 @@ export function pickWindowSource(sources: any[]): any | null {
   );
 }
 
-export function isLikelyWrongWindowName(name: any): boolean {
+export function isLikelyWrongWindowName(name: unknown): boolean {
   const low = String(name || "").toLowerCase();
   if (!low.includes("warframe")) return true;
-  if (isCompanionWindowSource({ name: low })) return true;
+  if (COMPANION_WINDOW_TOKENS.some((token) => low.includes(token))) return true;
   if (low.includes("github") || low.includes("readme") || low.includes("comparison.md"))
     return true;
   if (low.includes("visual studio") || low.includes("code")) return true;
@@ -82,7 +83,7 @@ interface PickScreenOptions {
   preferredDisplayId?: string | null;
 }
 
-export function pickScreenSource(sources: any[], options: PickScreenOptions = {}): any | null {
+export function pickScreenSource(sources: DesktopCapturerSource[], options: PickScreenOptions = {}): DesktopCapturerSource | null {
   if (!Array.isArray(sources) || sources.length === 0) return null;
 
   const preferredDisplayId =
@@ -97,7 +98,7 @@ export function pickScreenSource(sources: any[], options: PickScreenOptions = {}
     if (byPreferredDisplay) return byPreferredDisplay;
   }
 
-  let screenApi: any;
+  let screenApi: Screen | undefined;
   try {
     ({ screen: screenApi } = require("electron") as typeof import("electron"));
   } catch {
@@ -106,7 +107,7 @@ export function pickScreenSource(sources: any[], options: PickScreenOptions = {}
 
   try {
     const cursor = screenApi.getCursorScreenPoint();
-    const display = screenApi.getDisplayNearestPoint(cursor);
+    const display: Display = screenApi.getDisplayNearestPoint(cursor);
     const displayId = String(display?.id ?? "");
     if (displayId) {
       const byCursorDisplay = sources.find(
@@ -138,7 +139,7 @@ export function getCaptureThumbnailSize(preferredDisplayId?: string | null): {
   width: number;
   height: number;
 } {
-  let screenApi: any;
+  let screenApi: Screen | undefined;
   try {
     ({ screen: screenApi } = require("electron") as typeof import("electron"));
   } catch {
@@ -152,7 +153,7 @@ export function getCaptureThumbnailSize(preferredDisplayId?: string | null): {
     const displays = screenApi.getAllDisplays?.() || [];
     const preferred =
       preferredDisplayId != null
-        ? displays.find((display: any) => String(display?.id ?? "") === String(preferredDisplayId))
+        ? displays.find((display: Display) => String(display?.id ?? "") === String(preferredDisplayId))
         : null;
     const primary = preferred || screenApi.getPrimaryDisplay();
     const width = clampNumber(
