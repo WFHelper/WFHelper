@@ -4,10 +4,20 @@ type InvokeKey = keyof IpcInvokeMap;
 type EventChannel = keyof IpcEventMap;
 type SendChannel = keyof IpcSendMap;
 
+function assertApi(): void {
+  if (!window.api) {
+    throw new Error(
+      "window.api is undefined — preload bridge failed to initialize. " +
+      "Check the DevTools console for '[Preload] FATAL' errors.",
+    );
+  }
+}
+
 export function invoke<K extends InvokeKey>(
   channel: K,
   ...args: IpcInvokeMap[K]["args"]
 ): Promise<IpcInvokeMap[K]["return"]> {
+  assertApi();
   const fn = window.api[channel] as (
     ...a: IpcInvokeMap[K]["args"]
   ) => Promise<IpcInvokeMap[K]["return"]>;
@@ -141,4 +151,6 @@ export const ipc = {
     window.api.onHelperDownloadProgress(callback),
   onTradeRecorded: (callback: (event: IpcEventMap["trade-recorded"]) => void) =>
     window.api.onTradeRecorded(callback),
+  onWorldStateFetchError: (callback: (message: IpcEventMap["world-state-fetch-error"]) => void) =>
+    window.api.onWorldStateFetchError(callback),
 } as const;

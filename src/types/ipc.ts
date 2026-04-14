@@ -44,6 +44,7 @@ export interface OverlaySettings {
   ocrTimeoutMs: number;
   worldNotificationsEnabled: boolean;
   cycleAlerts: CycleAlerts;
+  cycleAlertMinutesBefore: number;
   fissureAlerts: FissureAlert[];
   wfmNotificationsEnabled: boolean;
   autoCloseWfmOrders: boolean;

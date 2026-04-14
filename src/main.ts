@@ -4,6 +4,14 @@ import { initRendererCrashReporting } from "./lib/crashReporting.js";
 import { ipc } from "./lib/ipc.js";
 import { themeSettings } from "./stores/theme.js";
 
+if (!window.api) {
+  console.error(
+    "[Renderer] FATAL: window.api is undefined. The preload bridge failed to initialize.\n" +
+    "This usually means preload.js threw an error during startup.\n" +
+    "Check the main process terminal output for errors.",
+  );
+}
+
 const root = document.getElementById("root");
 if (!root) {
   throw new Error("Missing #root mount node");

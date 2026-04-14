@@ -20,6 +20,7 @@ import {
   WORLD_STATE_FETCH_ERROR,
 } from "./config/shared/ipcChannels";
 
+try {
 contextBridge.exposeInMainWorld("api", {
   getInventory: () => ipcRenderer.invoke(INVENTORY_GET),
   openInventoryFile: () => ipcRenderer.invoke(INVENTORY_OPEN_FILE),
@@ -138,3 +139,6 @@ contextBridge.exposeInMainWorld("api", {
     };
   },
 });
+} catch (err) {
+  console.error("[Preload] FATAL: contextBridge.exposeInMainWorld failed:", err);
+}

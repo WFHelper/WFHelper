@@ -183,6 +183,9 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
           ? !!candidate.worldNotificationsEnabled
           : !!defaults.worldNotificationsEnabled,
       cycleAlerts: normalizeCycleAlerts(candidate.cycleAlerts, defaults.cycleAlerts),
+      cycleAlertMinutesBefore: Math.floor(
+        clampNumber(candidate.cycleAlertMinutesBefore, 0, 120, Number((defaults as Record<string, unknown>).cycleAlertMinutesBefore ?? 3)),
+      ),
       fissureAlerts: normalizeFissureAlerts(candidate.fissureAlerts, defaults.fissureAlerts),
       wfmNotificationsEnabled:
         candidate.wfmNotificationsEnabled !== undefined

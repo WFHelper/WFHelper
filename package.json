@@ -20,7 +20,7 @@
     "lint:main": "eslint main.ts preload.ts preload-overlay.ts config ipc services --ext .js,.ts",
     "audit:prod": "npm audit --omit=dev",
     "audit:all": "npm audit",
-    "build:main": "tsc -p tsconfig.main.json",
+    "build:main": "tsc -p tsconfig.main.json && node scripts/bundle-preloads.js",
     "dev:main": "tsc -p tsconfig.main.json --watch --preserveWatchOutput",
     "dev:renderer": "vite build --watch",
     "typecheck:renderer": "tsc --noEmit",

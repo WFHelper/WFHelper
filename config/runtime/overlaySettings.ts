@@ -25,6 +25,7 @@ export interface OverlaySettings {
   ocrTimeoutMs: number;
   worldNotificationsEnabled: boolean;
   cycleAlerts: CycleAlerts;
+  cycleAlertMinutesBefore: number;
   fissureAlerts: FissureAlert[];
   wfmNotificationsEnabled: boolean;
   autoCloseWfmOrders: boolean;
@@ -45,6 +46,7 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   ocrTimeoutMs: 15_000,
   worldNotificationsEnabled: true,
   cycleAlerts: Object.freeze({ earth: false, cetus: false, vallis: false, cambion: false }),
+  cycleAlertMinutesBefore: 3,
   fissureAlerts: Object.freeze([] as FissureAlert[]),
   wfmNotificationsEnabled: false,
   autoCloseWfmOrders: true,

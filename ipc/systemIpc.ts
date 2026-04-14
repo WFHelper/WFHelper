@@ -99,7 +99,12 @@ function register(): void {
   });
 
   ipcMain.on(WINDOW_CLOSE, (event: unknown) => {
-    if (!isAuthorizedSender(assertMainRendererSender, event as never, WINDOW_CLOSE)) return;
+    // Always allow close to proceed — this is a critical user action.
+    // Log if the sender check would normally block it but still close,
+    // since a broken close button effectively locks the user out.
+    if (!isAuthorizedSender(assertMainRendererSender, event as never, WINDOW_CLOSE)) {
+      log.warn("[SystemIpc] WINDOW_CLOSE sender check failed; closing anyway for safety");
+    }
     ctx.mainWindow?.close();
   });
 

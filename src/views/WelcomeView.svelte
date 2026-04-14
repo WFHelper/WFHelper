@@ -13,6 +13,20 @@
   let destroyed = false;
 
   onMount(async () => {
+    // Listen for inventory push from main process (covers race condition
+    // where auto-detect happens before renderer IPC is ready)
+    const removeInventoryListener = ipc.on("inventory-updated", async (data) => {
+      if (destroyed || loadingApi) return;
+      try {
+        await onInventoryLoaded(data);
+        if (!destroyed) {
+          currentView.set("inventory");
+        }
+      } catch {
+        // ignore — user can still load manually
+      }
+    });
+
     await refreshHelperStatus();
     // Also get runner status
     try {
@@ -29,11 +43,17 @@
         await loadApiHelper(false);
       }
     }, 5000);
+
+    // Store cleanup ref
+    _removeInventoryListener = removeInventoryListener;
   });
+
+  let _removeInventoryListener: (() => void) | null = null;
 
   onDestroy(() => {
     destroyed = true;
     if (pollingTimer) clearInterval(pollingTimer);
+    _removeInventoryListener?.();
   });
 
   async function refreshHelperStatus() {
@@ -47,7 +67,10 @@
         helperPath = null;
       }
     } catch (error) {
-      helperStatus = "error";
+      // Only show "error" state on first check; keep previous state on polling errors
+      if (helperStatus === "checking") {
+        helperStatus = "error";
+      }
       helperPath = null;
       console.error("[Welcome] getInventoryStatus failed:", error);
     }

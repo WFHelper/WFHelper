@@ -28,11 +28,19 @@ let _worldNotificationSnapshot: {
   varziaExpiry: string | null;
   varziaLocation: string | null;
   earthIsDay: boolean | null;
+  earthExpiry: string | null;
   cetusIsDay: boolean | null;
+  cetusExpiry: string | null;
   vallisIsWarm: boolean | null;
+  vallisExpiry: string | null;
   cambionActive: string | null;
+  cambionExpiry: string | null;
   fissureIds: Set<string>;
 } | null = null;
+
+// Track which upcoming cycle expiries we've already sent a "heads up" notification for,
+// keyed by "{cycle}:{expiryIso}" so we don't repeat within the same cycle.
+const _cyclePreNotified = new Set<string>();
 
 function parseIsoMs(value: unknown): number | null {
   if (!value || typeof value !== "string") return null;
@@ -109,9 +117,19 @@ function buildNotificationSnapshot(state: unknown) {
         ? earthCycle.isDay
         : null
       : null,
+    earthExpiry: earthCycle
+      ? typeof earthCycle.expiry === "string"
+        ? earthCycle.expiry
+        : null
+      : null,
     cetusIsDay: cetusCycle
       ? typeof cetusCycle.isDay === "boolean"
         ? cetusCycle.isDay
+        : null
+      : null,
+    cetusExpiry: cetusCycle
+      ? typeof cetusCycle.expiry === "string"
+        ? cetusCycle.expiry
         : null
       : null,
     vallisIsWarm: vallisCycle
@@ -119,9 +137,19 @@ function buildNotificationSnapshot(state: unknown) {
         ? vallisCycle.isWarm
         : null
       : null,
+    vallisExpiry: vallisCycle
+      ? typeof vallisCycle.expiry === "string"
+        ? vallisCycle.expiry
+        : null
+      : null,
     cambionActive: cambionCycle
       ? typeof cambionCycle.active === "string"
         ? cambionCycle.active.toLowerCase()
+        : null
+      : null,
+    cambionExpiry: cambionCycle
+      ? typeof cambionCycle.expiry === "string"
+        ? cambionCycle.expiry
         : null
       : null,
     fissureIds,
@@ -129,6 +157,10 @@ function buildNotificationSnapshot(state: unknown) {
 }
 
 function canSendNotifications(): boolean {
+  // Lazy-load Notification after app.whenReady() to ensure it's fully initialized
+  if (!notificationCtor) {
+    notificationCtor = getElectronModule().Notification;
+  }
   if (typeof notificationCtor !== "function") return false;
   if (typeof (notificationCtor as { isSupported?: () => boolean }).isSupported === "function") {
     return (notificationCtor as { isSupported: () => boolean }).isSupported();
@@ -136,19 +168,42 @@ function canSendNotifications(): boolean {
   return true;
 }
 
+// Keep references to active notifications so they don't get garbage collected
+// before Windows actually displays them.  Cleared on close/timeout.
+const _activeNotifications = new Set<{ close: () => void }>();
+
 function sendDesktopNotification(title: string, body: string): void {
   try {
-    const NotificationCtor = notificationCtor as {
-      new (options: { title: string; body: string; silent: boolean }): { show: () => void };
-    };
-    const notification = new NotificationCtor({
+    if (!canSendNotifications()) {
+      log.warn("[WorldState] Notification not supported on this platform");
+      return;
+    }
+    log.log("[WorldState] sending notification:", title, "-", body);
+    const { Notification: ElectronNotification } = require("electron") as { Notification: typeof import("electron").Notification };
+    const notification = new ElectronNotification({
       title,
       body,
       silent: false,
     });
+    // Hold a strong reference so GC doesn't collect before OS displays it
+    _activeNotifications.add(notification);
+    const release = () => { _activeNotifications.delete(notification); };
+    notification.on("show", () => {
+      log.log("[WorldState] notification shown OK:", title);
+    });
+    notification.on("failed", (_event: unknown, error: string) => {
+      log.warn("[WorldState] notification FAILED:", title, error);
+      release();
+    });
+    notification.on("close", () => {
+      log.log("[WorldState] notification closed:", title);
+      release();
+    });
+    // Safety: release after 30 s regardless to prevent leaks
+    setTimeout(release, 30_000);
     notification.show();
   } catch (err) {
-    log.warn("[WorldState] notification failed:", normalizeErrorMessage(err));
+    log.warn("[WorldState] notification error:", normalizeErrorMessage(err));
   }
 }
 
@@ -189,6 +244,7 @@ function maybeNotifyWorldEvents(state: unknown): void {
   // Per-cycle transition notifications (opt-in via cycleAlerts settings)
   const cycleAlerts = ctx.overlaySettings?.cycleAlerts ?? { earth: false, cetus: false, vallis: false, cambion: false };
 
+  // --- Transition notifications (fire when cycle actually changes) ---
   if (
     cycleAlerts.earth &&
     prev.earthIsDay !== null &&
@@ -279,6 +335,50 @@ function maybeNotifyWorldEvents(state: unknown): void {
   }
 }
 
+/**
+ * Time-based pre-cycle notifications. Runs on EVERY poll (including cached
+ * responses) so we never miss the lead-time window. Transition detection
+ * stays in maybeNotifyWorldEvents which only runs on fresh fetches.
+ */
+function checkPreCycleNotifications(state: unknown): void {
+  if (!canSendNotifications()) return;
+
+  const cycleAlerts = ctx.overlaySettings?.cycleAlerts ?? { earth: false, cetus: false, vallis: false, cambion: false };
+  const leadMinutes = ctx.overlaySettings?.cycleAlertMinutesBefore ?? 3;
+  if (leadMinutes <= 0) return;
+
+  const leadMs = leadMinutes * 60_000;
+  const nowMs = Date.now();
+
+  const snap = _worldNotificationSnapshot ?? buildNotificationSnapshot(state);
+
+  const upcomingCycles: { key: string; enabled: boolean; expiry: string | null; label: string }[] = [
+    { key: "earth", enabled: !!cycleAlerts.earth, expiry: snap.earthExpiry, label: snap.earthIsDay ? "Night" : "Day" },
+    { key: "cetus", enabled: !!cycleAlerts.cetus, expiry: snap.cetusExpiry, label: snap.cetusIsDay ? "Night" : "Day" },
+    { key: "vallis", enabled: !!cycleAlerts.vallis, expiry: snap.vallisExpiry, label: snap.vallisIsWarm ? "Cold" : "Warm" },
+    { key: "cambion", enabled: !!cycleAlerts.cambion, expiry: snap.cambionExpiry, label: snap.cambionActive === "fass" ? "VOME" : "FASS" },
+  ];
+
+  for (const c of upcomingCycles) {
+    if (!c.enabled || !c.expiry) continue;
+    const expiryMs = Date.parse(c.expiry);
+    if (!Number.isFinite(expiryMs)) continue;
+    const remaining = expiryMs - nowMs;
+    const preKey = `${c.key}:${c.expiry}`;
+    if (remaining > 0 && remaining <= leadMs && !_cyclePreNotified.has(preKey)) {
+      _cyclePreNotified.add(preKey);
+      const mins = Math.ceil(remaining / 60_000);
+      const cycleName = c.key.charAt(0).toUpperCase() + c.key.slice(1);
+      sendDesktopNotification(
+        `${cycleName} Cycle`,
+        `${c.label} in ~${mins} min${mins !== 1 ? "s" : ""}.`,
+      );
+    }
+    // Evict old entries to prevent memory growth
+    if (remaining < -300_000) _cyclePreNotified.delete(preKey);
+  }
+}
+
 function register(
   options: {
     ipcMain?: { handle?: (channel: string, handler: (event: unknown) => Promise<unknown>) => void };
@@ -299,6 +399,7 @@ function register(
 
     const now = Date.now();
     if (_worldStateCache && now - _worldStateCacheTime < WORLD_STATE_TTL_MS) {
+      checkPreCycleNotifications(_worldStateCache);
       return _worldStateCache;
     }
 
@@ -306,6 +407,7 @@ function register(
       _worldStateCache = await worldStateParser.fetchAndParse();
       _worldStateCacheTime = Date.now();
       maybeNotifyWorldEvents(_worldStateCache);
+      checkPreCycleNotifications(_worldStateCache);
       log.log("[WorldState] Fetched and parsed DE world state");
       return _worldStateCache;
     } catch (err) {
@@ -318,6 +420,14 @@ function register(
       return _worldStateCache;
     }
   });
+
+  // Proactive pre-cycle notification timer — runs every 15 s in the main process
+  // independent of renderer polls, so we never miss the lead-time window.
+  setInterval(() => {
+    if (_worldStateCache) {
+      checkPreCycleNotifications(_worldStateCache);
+    }
+  }, 15_000);
 }
 
 export { register };

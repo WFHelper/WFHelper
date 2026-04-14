@@ -4,11 +4,12 @@ import { RELIC_ICON_PATHS, fissureTierClass } from "./relic/relicConstants.js";
 
 export { RELIC_ICON_PATHS, fissureTierClass };
 
-export const PLANET_ICON_PATHS = {
+export const PLANET_ICON_PATHS: Record<string, string> = {
   earth: "world-icons/earth.webp",
   cetus: "world-icons/earth.webp",
   vallis: "world-icons/vallis.webp",
   cambion: "world-icons/cambion.webp",
+  duviri: "world-icons/zariman.webp",
 } as const;
 
 function isLikelyPrimeGear(name: string = ""): boolean {
@@ -81,6 +82,7 @@ interface FeaturedPrime {
   name: string;
   imageUrl: string;
   owned: boolean;
+  uniqueName: string;
 }
 
 type ItemDbLookup = Record<string, ItemDbEntry>;
@@ -141,6 +143,7 @@ export function buildFeaturedPrimes(
       name: db.name,
       imageUrl: db.imageUrl,
       owned: ownedUnique.has(inv.uniqueName || "") || ownedNames.has(key),
+      uniqueName: inv.uniqueName || "",
     });
     if (featured.length >= 9) break;
   }
@@ -185,6 +188,7 @@ export function buildFeaturedPrimes(
           name: entry.name,
           imageUrl: entry.imageUrl,
           owned: (entry.uniqueName && ownedUnique.has(entry.uniqueName)) || ownedNames.has(key),
+          uniqueName: entry.uniqueName || "",
         });
         if (featured.length >= 9) break;
       }
@@ -193,4 +197,80 @@ export function buildFeaturedPrimes(
   }
 
   return featured;
+}
+
+export interface CircuitChoice {
+  name: string;
+  imageUrl: string;
+  owned: boolean;
+  uniqueName: string;
+}
+
+/**
+ * Resolve circuit choice names to images and ownership.
+ * Warframes: owned if found in inventory Suits OR subsumed (ConsumedSuits).
+ * Weapons: owned if found in weapon inventory (LongGuns/Pistols/Melee).
+ */
+export function resolveCircuitChoices(
+  choices: string[],
+  itemDb: Record<string, ItemDbEntry>,
+  inventoryData: RawInventoryData | null,
+): CircuitChoice[] {
+  if (!choices.length || !itemDb) return [];
+
+  // Build name → { uniqueName, imageUrl, category } lookup
+  const byName = new Map<string, { uniqueName: string; imageUrl: string; category: string }>();
+  for (const [uniqueName, entry] of Object.entries(itemDb)) {
+    if (!entry?.name || !entry.imageUrl) continue;
+    const key = entry.name.toLowerCase();
+    if (!byName.has(key)) {
+      byName.set(key, {
+        uniqueName,
+        imageUrl: entry.imageUrl,
+        category: (entry.category || entry.productCategory || "").toLowerCase(),
+      });
+    }
+  }
+
+  // Build ownership sets
+  const ownedSuits = new Set<string>();
+  const ownedWeapons = new Set<string>();
+  if (inventoryData) {
+    // Warframes currently in inventory
+    for (const suit of (inventoryData.Suits || []) as Array<{ ItemType?: string }>) {
+      if (suit.ItemType) ownedSuits.add(suit.ItemType);
+    }
+    // Warframes subsumed to Helminth (no longer in Suits but still "owned")
+    const consumedSuits = (
+      (inventoryData as Record<string, unknown>).InfestedFoundry as
+        | { ConsumedSuits?: Array<{ s?: string }> }
+        | undefined
+    )?.ConsumedSuits;
+    if (Array.isArray(consumedSuits)) {
+      for (const entry of consumedSuits) {
+        if (entry.s) ownedSuits.add(entry.s);
+      }
+    }
+    // Weapons
+    const weaponKeys: Array<keyof RawInventoryData> = ["LongGuns", "Pistols", "Melee"];
+    for (const k of weaponKeys) {
+      for (const wpn of (inventoryData[k] || []) as Array<{ ItemType?: string }>) {
+        if (wpn.ItemType) ownedWeapons.add(wpn.ItemType);
+      }
+    }
+  }
+
+  const WARFRAME_CATS = new Set(["warframe", "warframes", "suits"]);
+
+  return choices.map((name) => {
+    const match = byName.get(name.toLowerCase());
+    if (!match) return { name, imageUrl: "", owned: false, uniqueName: "" };
+
+    const isFrame = WARFRAME_CATS.has(match.category);
+    const owned = isFrame
+      ? ownedSuits.has(match.uniqueName)
+      : ownedWeapons.has(match.uniqueName);
+
+    return { name, imageUrl: match.imageUrl, owned, uniqueName: match.uniqueName };
+  });
 }

@@ -55,6 +55,33 @@ app.commandLine.appendSwitch("log-level", "3");
 // rendering is indistinguishable and far more power-efficient.
 app.disableHardwareAcceleration();
 
+// Required on Windows for Notification.show() to work correctly.
+// Without this, toast notifications are silently suppressed.
+if (process.platform === "win32") {
+  const AUMID = app.isPackaged ? "com.warframe-companion.app" : "com.squirrel.warframe-companion.WarframeCompanion";
+  app.setAppUserModelId(AUMID);
+
+  // In dev mode, Windows requires a Start Menu shortcut with the matching
+  // AppUserModelId for toast notifications to actually appear on screen.
+  if (!app.isPackaged) {
+    const { shell } = require("electron") as typeof import("electron");
+    const shortcutPath = path.join(
+      app.getPath("appData"),
+      "Microsoft", "Windows", "Start Menu", "Programs",
+      "Warframe Companion (Dev).lnk",
+    );
+    try {
+      shell.writeShortcutLink(shortcutPath, "create", {
+        target: process.execPath,
+        appUserModelId: AUMID,
+        description: "Warframe Companion (Dev)",
+      });
+    } catch {
+      // shortcut may already exist — that's fine
+    }
+  }
+}
+
 crashReporter.initCrashReporting();
 
 process.on("uncaughtException", (err: Error) => {
@@ -243,14 +270,22 @@ app.whenReady().then(async () => {
     inventoryIpc.watchInventoryFile(found);
     log.log("Auto-detected inventory at:", found);
 
-    // Auto-load inventory and send to renderer once the page is ready
+    // Auto-load inventory and send to renderer once the page is ready.
+    // Guard against a race where did-finish-load fires before this point
+    // (local file loads can complete in <100 ms).
     const data = inventoryIpc.readInventory(found);
     if (data && ctx.mainWindow) {
-      ctx.mainWindow.webContents.once("did-finish-load", () => {
+      const wc = ctx.mainWindow.webContents;
+      const sendInventory = () => {
         if (ctx.mainWindow) {
           ctx.mainWindow.webContents.send(INVENTORY_UPDATED, data);
         }
-      });
+      };
+      if (wc.isLoading()) {
+        wc.once("did-finish-load", sendInventory);
+      } else {
+        sendInventory();
+      }
     }
   }
 

@@ -356,10 +356,17 @@ function loadWfcdItems(): number {
               forceComponentBlueprintName,
             );
 
+            // "blueprint.png" is a generic placeholder that 404s on the WFCD CDN —
+            // fall back to the parent item's image for blueprint components.
+            const compImageUrl =
+              comp.imageName && comp.imageName !== "blueprint.png"
+                ? WFCD_CDN + comp.imageName
+                : wfcdImageUrl;
+
             const componentEntry: ItemEntry = {
               ...wfcdEntry,
               name: componentName,
-              imageUrl: comp.imageName ? WFCD_CDN + comp.imageName : wfcdImageUrl,
+              imageUrl: compImageUrl,
               tradable: resolveComponentTradable(comp.tradable, item.tradable, comp.uniqueName),
               type: comp.name ? `${comp.name} Part` : wfcdEntry.type || "Part",
               components: [],

@@ -23,6 +23,7 @@ export const OVERLAY_DEFAULTS: OverlaySettings = Object.freeze({
   ocrTimeoutMs: 15_000,
   worldNotificationsEnabled: true,
   cycleAlerts: { earth: false, cetus: false, vallis: false, cambion: false },
+  cycleAlertMinutesBefore: 3,
   fissureAlerts: [],
   wfmNotificationsEnabled: false,
   autoCloseWfmOrders: true,

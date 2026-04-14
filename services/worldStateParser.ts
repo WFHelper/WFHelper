@@ -271,19 +271,41 @@ async function fetchEarthCycle(): Promise<{ isDay: boolean; timeLeft: string; ex
 
 async function fetchAndComputeCycles(): Promise<Record<string, unknown>> {
   const nowMs = Date.now();
-  const data = await fetchJsonWithTimeout(ORACLE_BOUNTY_CYCLE_URL, CYCLE_FETCH_TIMEOUT_MS) as { expiry?: number };
-  const expiryMs = Number(data.expiry);
-  if (!expiryMs) throw new Error("oracle bounty-cycle: missing expiry");
 
-  const { cetus, cambion } = computeCetusCambionCycles(expiryMs, nowMs);
-  const earthCycle = await fetchEarthCycle();
+  // Vallis and Duviri are pure math — always available
+  const vallisCycle = computeVallisCycle(nowMs);
+  const duviriCycle = computeDuviriMoodCycle(nowMs);
+
+  // Fetch oracle bounty-cycle and earth cycle in parallel (avoids 4s+4s sequential wait)
+  const [oracleResult, earthResult] = await Promise.allSettled([
+    fetchJsonWithTimeout(ORACLE_BOUNTY_CYCLE_URL, CYCLE_FETCH_TIMEOUT_MS) as Promise<{ expiry?: number }>,
+    fetchEarthCycle(),
+  ]);
+
+  let cetusCycle: { isDay: boolean; timeLeft: string; expiry: string } | null = null;
+  let cambionCycle: { active: string; timeLeft: string; expiry: string } | null = null;
+  if (oracleResult.status === "fulfilled") {
+    const expiryMs = Number(oracleResult.value.expiry);
+    if (expiryMs) {
+      const { cetus, cambion } = computeCetusCambionCycles(expiryMs, nowMs);
+      cetusCycle = cetus;
+      cambionCycle = cambion;
+    }
+  } else {
+    log.warn("[WorldState] oracle bounty-cycle fetch failed:", normalizeErrorMessage(oracleResult.reason));
+  }
+
+  let earthCycle = earthResult.status === "fulfilled" ? earthResult.value : null;
+  if (!earthCycle && cetusCycle) {
+    earthCycle = { isDay: cetusCycle.isDay, timeLeft: "", expiry: cetusCycle.expiry };
+  }
 
   return {
-    earthCycle: earthCycle || { isDay: cetus.isDay, timeLeft: "", expiry: cetus.expiry },
-    cetusCycle: cetus,
-    vallisCycle: computeVallisCycle(nowMs),
-    cambionCycle: cambion,
-    duviriCycle: computeDuviriMoodCycle(nowMs),
+    earthCycle,
+    cetusCycle,
+    vallisCycle,
+    cambionCycle,
+    duviriCycle,
   };
 }
 
@@ -338,7 +360,16 @@ export async function fetchAndParse(): Promise<Record<string, unknown>> {
     };
   } catch (cycleErr) {
     log.warn("[WorldState] planet cycle computation failed:", normalizeErrorMessage(cycleErr));
-    return parsed;
+    // Vallis and Duviri are pure-math computations that never need the network
+    const nowMs = Date.now();
+    return {
+      ...parsed,
+      vallisCycle: computeVallisCycle(nowMs),
+      duviriCycle: {
+        ...(parsed?.duviriCycle || {}),
+        ...computeDuviriMoodCycle(nowMs),
+      },
+    };
   }
 }
 
