@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { worldData, worldLoading, worldLastFetch, worldFissureMode } from "../stores/world.js";
-  import { inventoryData, itemDb } from "../stores/data.js";
+  import { inventoryData, itemDb, componentOwnership, enrichComponents } from "../stores/data.js";
   import {
     parseIsoDate, timeTo, timeToStrict, cycleTimeDisplay,
     nextDailyResetUtc, nextWeeklyResetUtc,
@@ -126,7 +126,7 @@
       vaulted: db.vaulted || false,
       tradable: db.tradable || false,
       description: db.description || "",
-      components: db.components || [],
+      components: enrichComponents(db.components || [], $componentOwnership),
       drops: db.drops || [],
       wikiaUrl: db.wikiaUrl || null,
       uniqueName,

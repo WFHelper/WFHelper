@@ -134,6 +134,12 @@
             {/if}
           </div>
         </div>
+
+        {#if item.wikiaUrl}
+          <div class="detail-section">
+            <button class="market-link-btn" on:click={() => ipc.openExternal(item.wikiaUrl)}>Open on Wiki</button>
+          </div>
+        {/if}
       </div>
     </div>
   </div>

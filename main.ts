@@ -55,31 +55,14 @@ app.commandLine.appendSwitch("log-level", "3");
 // rendering is indistinguishable and far more power-efficient.
 app.disableHardwareAcceleration();
 
-// Required on Windows for Notification.show() to work correctly.
-// Without this, toast notifications are silently suppressed.
+// Set our AUMID in all modes so toast notifications are associated with
+// "Warframe Companion" in Windows Settings → Notifications, and Focus Assist
+// "Priority only" mode recognises us as a proper app.  A matching Start Menu
+// shortcut is created in worldStateIpc.register() so Windows has the full
+// AUMID → shortcut mapping that desktop-app toasts require.
+const WIN_APP_USER_MODEL_ID = "com.warframe.companion";
 if (process.platform === "win32") {
-  const AUMID = app.isPackaged ? "com.warframe-companion.app" : "com.squirrel.warframe-companion.WarframeCompanion";
-  app.setAppUserModelId(AUMID);
-
-  // In dev mode, Windows requires a Start Menu shortcut with the matching
-  // AppUserModelId for toast notifications to actually appear on screen.
-  if (!app.isPackaged) {
-    const { shell } = require("electron") as typeof import("electron");
-    const shortcutPath = path.join(
-      app.getPath("appData"),
-      "Microsoft", "Windows", "Start Menu", "Programs",
-      "Warframe Companion (Dev).lnk",
-    );
-    try {
-      shell.writeShortcutLink(shortcutPath, "create", {
-        target: process.execPath,
-        appUserModelId: AUMID,
-        description: "Warframe Companion (Dev)",
-      });
-    } catch {
-      // shortcut may already exist — that's fine
-    }
-  }
+  app.setAppUserModelId(WIN_APP_USER_MODEL_ID);
 }
 
 crashReporter.initCrashReporting();

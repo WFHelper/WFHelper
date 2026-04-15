@@ -114,7 +114,10 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Warframe Companion",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "publish": [
       {
