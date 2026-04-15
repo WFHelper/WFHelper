@@ -58,7 +58,16 @@
   <div class="detail-overlay" on:click|self={close}>
     <div class="detail-backdrop" on:click={close}></div>
     <div class="detail-panel">
-      <button class="detail-close" on:click={close}>&times;</button>
+      <div class="detail-panel-top-actions">
+        {#if item.wikiaUrl}
+          <button class="detail-wiki-btn" on:click={() => ipc.openExternal(item.wikiaUrl!)} title="Open on Wiki">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true">
+              <path d="M9 2h5v5l-1.8-1.8L9 8.4 7.6 7l3.2-3.2L9 2zM4 4h3v1.5H4v7h7V9.5h1.5V13a.5.5 0 0 1-.5.5H3.5A.5.5 0 0 1 3 13V4.5A.5.5 0 0 1 3.5 4H4z"/>
+            </svg>
+          </button>
+        {/if}
+        <button class="detail-close" on:click={close}>&times;</button>
+      </div>
 
       <div class="detail-header">
         <div class="detail-img-wrap">
@@ -135,11 +144,6 @@
           </div>
         </div>
 
-        {#if item.wikiaUrl}
-          <div class="detail-section">
-            <button class="market-link-btn" on:click={() => ipc.openExternal(item.wikiaUrl)}>Open on Wiki</button>
-          </div>
-        {/if}
       </div>
     </div>
   </div>

@@ -12,12 +12,28 @@
   import { overlaySettings, overlaySettingsLoaded, OVERLAY_DEFAULTS } from "../stores/overlaySettings.js";
   import { activeItem } from "../stores/modals.js";
   import type { ParsedItem } from "../types/inventory.js";
+  import type { Invasion, SyndicateBounty, SteelPathHonors } from "../types/world.js";
   import FissureAlerts from "../components/settings/FissureAlerts.svelte";
 
   const WORLD_REFRESH_MS = 120_000;
   const WORLD_POLL_MS = 30_000;
   const FISSURE_EXPIRY_GUARD_MS = 1_500;
   const FISSURE_TIER_ORDER: Record<string, number> = { lith: 0, meso: 1, neo: 2, axi: 3, requiem: 4, omnia: 5 };
+
+  // Collapse state per section — persisted to localStorage
+  const COLLAPSE_KEY = "world-collapsed-sections";
+  function loadCollapsed(): Record<string, boolean> {
+    try {
+      const raw = localStorage.getItem(COLLAPSE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  }
+  let collapsed: Record<string, boolean> = loadCollapsed();
+  function toggleSection(key: string) {
+    collapsed[key] = !collapsed[key];
+    collapsed = collapsed; // trigger reactivity
+    try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(collapsed)); } catch { /* best effort */ }
+  }
 
   let nowMs = Date.now();
   let clockInterval: ReturnType<typeof setInterval> | null = null;
@@ -145,7 +161,7 @@
   $: cambion   = wd?.cambionCycle || {};
   $: duviri    = wd?.duviriCycle  || {};
   $: sortie    = wd?.sortie       || {};
-  $: steelPath = wd?.steelPath    || {};
+  $: steelPath = wd?.steelPath    || null;
 
   $: varziaAct    = parseIsoDate(varzia?.activation);
   $: varziaExpiry = parseIsoDate(varzia?.expiry);
@@ -172,7 +188,7 @@
     daily: timeTo(nextDailyResetUtc(), nowMs),
     weekly: timeTo(nextWeeklyResetUtc(), nowMs),
     sortie: timeTo(parseIsoDate(sortie?.expiry) || nextDailyResetUtc(), nowMs),
-    steelPath: timeTo(parseIsoDate(steelPath?.expiry) || nextWeeklyResetUtc(), nowMs),
+    steelPath: timeTo(parseIsoDate(steelPath?.expiry ?? undefined) || nextWeeklyResetUtc(), nowMs),
     duviri: timeTo(duviriExpiry, nowMs),
     earth: cycleTimeDisplay(earth.timeLeft, earth.expiry, nowMs),
     cetus: cycleTimeDisplay(cetus.timeLeft, cetus.expiry, nowMs),
@@ -218,6 +234,41 @@
   $: cetusLabel   = cetus.isDay    ? 'Day'     : 'Night';
   $: vallisLabel  = vallis.isWarm  ? 'Warm'    : 'Cold';
   $: cambionLabel = (cambion.active || '').toString().toUpperCase() || 'Unknown';
+
+  // Invasions from warframestat.us
+  $: invasions = ((wd?.invasions || []) as Invasion[]).filter(inv => !inv.completed);
+
+  // Steel Path Honors from warframestat.us
+  $: steelPathHonors = (wd?.steelPath && typeof (wd.steelPath as unknown as { currentReward?: unknown }).currentReward === 'object')
+    ? wd.steelPath as SteelPathHonors
+    : null;
+
+  // Bounties from warframestat.us
+  $: bounties = ((wd?.bounties || []) as SyndicateBounty[]).filter(b => b.jobs.length > 0);
+
+  // Baro relay location for countdown display
+  $: baroLocation = typeof baro?.location === "string" && baro.location ? baro.location : null;
+
+  // Helper: invasion reward display text
+  function invasionRewardLabel(side: Invasion["attacker"] | Invasion["defender"]): string {
+    const r = side.reward;
+    if (!r) return "";
+    if (r.countedItems?.length > 0) {
+      return r.countedItems.map(ci => ci.count > 1 ? `${ci.count}x ${ci.type}` : ci.type).join(", ");
+    }
+    if (r.items?.length > 0) return r.items.join(", ");
+    if (r.credits > 0) return `${r.credits.toLocaleString()} Credits`;
+    return "";
+  }
+
+  // Faction color class helper
+  function factionClass(faction: string): string {
+    const f = faction.toLowerCase();
+    if (f === "grineer") return "grineer";
+    if (f === "corpus") return "corpus";
+    if (f === "infested") return "infested";
+    return "";
+  }
 </script>
 
 <section class="view active">
@@ -237,11 +288,19 @@
         <!-- PRIME RESURGENCE -->
         <div class="world-section">
           <div class="world-section-head">
-            <h3>Prime Resurgence</h3>
-            {#if baroActive || baroAct}
-              <span class="world-baro-pill">Baro in {times.baro}</span>
+            <button class="world-section-toggle" on:click={() => toggleSection('resurgence')} aria-expanded={!collapsed.resurgence}>
+              <span class="world-toggle-icon" class:collapsed={collapsed.resurgence}>&#x25BE;</span>
+              <h3>Prime Resurgence</h3>
+            </button>
+            {#if baroActive}
+              <span class="world-baro-pill">Baro leaves in {times.baro}</span>
+            {:else if baroAct}
+              <span class="world-baro-pill" title={baroLocation ? `Next visit at ${baroLocation}` : ''}>
+                Baro in {times.baro}{#if baroLocation} · {baroLocation}{/if}
+              </span>
             {/if}
           </div>
+          {#if !collapsed.resurgence}
           <div class="world-resurgence-meta">
             Rotation ends in <strong>{times.varzia}</strong>
           </div>
@@ -259,16 +318,22 @@
           {:else}
             <span class="world-note">No featured prime items found</span>
           {/if}
+          {/if}
         </div>
 
         <!-- PLANET CYCLES -->
         <div class="world-section">
-          <h3>Planet Cycles</h3>
+          <button class="world-section-toggle" on:click={() => toggleSection('cycles')} aria-expanded={!collapsed.cycles}>
+            <span class="world-toggle-icon" class:collapsed={collapsed.cycles}>&#x25BE;</span>
+            <h3>Planet Cycles</h3>
+          </button>
+          {#if !collapsed.cycles}
           {#if cycleRows.length > 0}
             <div class="world-cycles-grid">
               {#each cycleRows as row}
                 {@const alertKey = row.key}
-                {@const alertOn = !!$overlaySettings.cycleAlerts?.[alertKey]}
+                {@const hasCycleAlert = alertKey === 'earth' || alertKey === 'cetus' || alertKey === 'vallis' || alertKey === 'cambion'}
+                {@const alertOn = hasCycleAlert && !!$overlaySettings.cycleAlerts?.[alertKey]}
                 <div class="world-cycle-cell">
                   <div class="world-cycle-info">
                     <img class="world-cycle-icon" src={row.src} alt="" />
@@ -277,6 +342,7 @@
                   </div>
                   <span class="world-cycle-right">
                     <span class="world-cycle-timer">{row.time}</span>
+                    {#if hasCycleAlert}
                     <button
                       class="cycle-alert-btn"
                       class:active={alertOn}
@@ -288,6 +354,7 @@
                         <path d="M8 1a5 5 0 0 0-5 5v2.586l-.707.707A1 1 0 0 0 3 11h10a1 1 0 0 0 .707-1.707L13 8.586V6a5 5 0 0 0-5-5zM6.5 14a1.5 1.5 0 0 0 3 0H6.5z"/>
                       </svg>
                     </button>
+                    {/if}
                   </span>
                 </div>
               {/each}
@@ -309,20 +376,30 @@
           {:else}
             <span class="world-note">Cycle data unavailable</span>
           {/if}
+          {/if}
         </div>
 
         <!-- RESET TIMERS -->
         <div class="world-section">
-          <h3>Reset Timers</h3>
+          <button class="world-section-toggle" on:click={() => toggleSection('timers')} aria-expanded={!collapsed.timers}>
+            <span class="world-toggle-icon" class:collapsed={collapsed.timers}>&#x25BE;</span>
+            <h3>Reset Timers</h3>
+          </button>
+          {#if !collapsed.timers}
           <div class="world-row"><span class="world-row-label">Daily sortie</span><span class="world-row-value">{times.sortie}</span></div>
           <div class="world-row"><span class="world-row-label">Daily reset</span><span class="world-row-value">{times.daily}</span></div>
           <div class="world-row"><span class="world-row-label">Weekly resets</span><span class="world-row-value">{times.weekly}</span></div>
           <div class="world-row"><span class="world-row-label">Steel Path honours</span><span class="world-row-value">{times.steelPath}</span></div>
+          {/if}
         </div>
 
         <!-- THE CIRCUIT -->
         <div class="world-section">
-          <h3>The Circuit</h3>
+          <button class="world-section-toggle" on:click={() => toggleSection('circuit')} aria-expanded={!collapsed.circuit}>
+            <span class="world-toggle-icon" class:collapsed={collapsed.circuit}>&#x25BE;</span>
+            <h3>The Circuit</h3>
+          </button>
+          {#if !collapsed.circuit}
           <div class="world-circuit-label">Normal rotation</div>
           <div class="world-circuit-icons">
             {#each circuitNormalItems as item}
@@ -353,6 +430,7 @@
               <span class="world-note">No data</span>
             {/each}
           </div>
+          {/if}
         </div>
       </div>
 
@@ -362,7 +440,10 @@
         <!-- VOID FISSURES -->
         <div class="world-section">
           <div class="world-section-head">
-            <h3>Void Fissures</h3>
+            <button class="world-section-toggle" on:click={() => toggleSection('fissures')} aria-expanded={!collapsed.fissures}>
+              <span class="world-toggle-icon" class:collapsed={collapsed.fissures}>&#x25BE;</span>
+              <h3>Void Fissures</h3>
+            </button>
             <div class="world-fissure-tabs">
               <button
                 class="world-fissure-tab"
@@ -376,6 +457,7 @@
               >Steel Path</button>
             </div>
           </div>
+          {#if !collapsed.fissures}
           <div class="world-fissure-list">
             {#if fissureFlat.length === 0}
               <span class="world-note">No active {$worldFissureMode === 'steel' ? 'Steel Path' : 'Normal'} fissures</span>
@@ -395,12 +477,104 @@
               {/each}
             {/if}
           </div>
+          {/if}
         </div>
 
         <!-- FISSURE ALERTS -->
         <div class="world-section">
           <FissureAlerts />
         </div>
+
+        <!-- INVASIONS -->
+        {#if invasions.length > 0}
+        <div class="world-section">
+          <button class="world-section-toggle" on:click={() => toggleSection('invasions')} aria-expanded={!collapsed.invasions}>
+            <span class="world-toggle-icon" class:collapsed={collapsed.invasions}>&#x25BE;</span>
+            <h3>Invasions</h3>
+          </button>
+          {#if !collapsed.invasions}
+          <div class="world-invasion-list">
+            {#each invasions as inv}
+              <div class="world-invasion-row">
+                <div class="world-invasion-header">
+                  <span class="world-invasion-node">{inv.node}</span>
+                  {#if inv.vsInfestation}
+                    <span class="world-invasion-tag infested">Infested</span>
+                  {/if}
+                </div>
+                <div class="world-invasion-sides">
+                  <span class="world-invasion-reward world-faction-{factionClass(inv.attacker.faction)}">
+                    {invasionRewardLabel(inv.attacker) || inv.attacker.faction}
+                  </span>
+                  <span class="world-invasion-vs">vs</span>
+                  <span class="world-invasion-reward world-faction-{factionClass(inv.defender.faction)}">
+                    {invasionRewardLabel(inv.defender) || inv.defender.faction}
+                  </span>
+                </div>
+                <div class="world-invasion-bar">
+                  <div class="world-invasion-fill world-faction-bg-{factionClass(inv.attacker.faction)}" style="width: {Math.max(0, Math.min(100, inv.completion))}%"></div>
+                </div>
+                <span class="world-invasion-pct">{inv.completion}%</span>
+              </div>
+            {/each}
+          </div>
+          {/if}
+        </div>
+        {/if}
+
+        <!-- STEEL PATH HONORS -->
+        {#if steelPathHonors}
+        <div class="world-section">
+          <div class="world-section-head">
+            <button class="world-section-toggle" on:click={() => toggleSection('steelpath')} aria-expanded={!collapsed.steelpath}>
+              <span class="world-toggle-icon" class:collapsed={collapsed.steelpath}>&#x25BE;</span>
+              <h3>Steel Path Honors</h3>
+            </button>
+            <span class="world-row-value">{times.steelPath}</span>
+          </div>
+          {#if !collapsed.steelpath}
+          <div class="world-sp-current">
+            <span class="world-sp-label">This week</span>
+            <span class="world-sp-item">{steelPathHonors.currentReward.name}</span>
+            <span class="world-sp-cost">{steelPathHonors.currentReward.cost} Steel Essence</span>
+          </div>
+          {/if}
+        </div>
+        {/if}
+
+        <!-- BOUNTIES -->
+        {#if bounties.length > 0}
+        <div class="world-section">
+          <button class="world-section-toggle" on:click={() => toggleSection('bounties')} aria-expanded={!collapsed.bounties}>
+            <span class="world-toggle-icon" class:collapsed={collapsed.bounties}>&#x25BE;</span>
+            <h3>Bounties</h3>
+          </button>
+          {#if !collapsed.bounties}
+          <div class="world-bounty-groups">
+            {#each bounties as group}
+              <div class="world-bounty-group">
+                <button class="world-bounty-group-toggle" on:click={() => toggleSection(`bounty-${group.syndicateKey}`)} aria-expanded={!collapsed[`bounty-${group.syndicateKey}`]}>
+                  <span class="world-toggle-icon" class:collapsed={collapsed[`bounty-${group.syndicateKey}`]}>&#x25BE;</span>
+                  <span class="world-bounty-syndicate">{group.syndicate}</span>
+                  <span class="world-bounty-count">{group.jobs.length} bounties</span>
+                </button>
+                {#if !collapsed[`bounty-${group.syndicateKey}`]}
+                <div class="world-bounty-jobs">
+                  {#each group.jobs as job}
+                    <div class="world-bounty-job">
+                      <span class="world-bounty-type">{job.type}</span>
+                      <span class="world-bounty-levels">{job.enemyLevels[0]}–{job.enemyLevels[1]}</span>
+                      <span class="world-bounty-standing">{job.standingStages.reduce((a, b) => a + b, 0)} Standing</span>
+                    </div>
+                  {/each}
+                </div>
+                {/if}
+              </div>
+            {/each}
+          </div>
+          {/if}
+        </div>
+        {/if}
       </div>
     </div>
   {/if}

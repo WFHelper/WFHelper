@@ -677,10 +677,6 @@
     width: 680px;
   }
   .detail-close {
-    position: absolute;
-    top: 0.7rem;
-    right: 0.76rem;
-    z-index: 2;
     width: 2rem;
     height: 2rem;
     border-radius: 0.45rem;
@@ -693,6 +689,31 @@
   .detail-close:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
+  }
+  .detail-panel-top-actions {
+    position: absolute;
+    top: 0.7rem;
+    right: 0.76rem;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+  }
+  .detail-wiki-btn {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.45rem;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .detail-wiki-btn:hover {
+    background: var(--bg-hover);
+    color: var(--accent, #d4a843);
   }
   .detail-header {
     display: flex;

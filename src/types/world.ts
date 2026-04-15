@@ -45,6 +45,50 @@ export interface DuviriCycle {
   [key: string]: unknown;
 }
 
+export interface InvasionReward {
+  items: string[];
+  countedItems: { count: number; type: string }[];
+  credits: number;
+}
+
+export interface Invasion {
+  id: string;
+  node: string;
+  desc?: string;
+  attacker: { reward?: InvasionReward; faction: string };
+  defender: { reward?: InvasionReward; faction: string };
+  vsInfestation: boolean;
+  completion: number;
+  completed: boolean;
+}
+
+export interface BountyJob {
+  type: string;
+  enemyLevels: [number, number];
+  standingStages: number[];
+  minMR?: number;
+}
+
+export interface SyndicateBounty {
+  syndicate: string;
+  syndicateKey: string;
+  expiry?: string;
+  jobs: BountyJob[];
+}
+
+export interface SteelPathReward {
+  name: string;
+  cost: number;
+}
+
+export interface SteelPathHonors {
+  currentReward: SteelPathReward;
+  activation?: string;
+  expiry?: string;
+  rotation: SteelPathReward[];
+  evergreens: SteelPathReward[];
+}
+
 export interface WorldState {
   vaultTrader?: VaultTrader | null;
   voidTrader?: VaultTrader | null;
@@ -54,7 +98,9 @@ export interface WorldState {
   cambionCycle?: CycleData;
   duviriCycle?: DuviriCycle;
   sortie?: { expiry?: string; [key: string]: unknown };
-  steelPath?: { expiry?: string; [key: string]: unknown };
+  steelPath?: SteelPathHonors | null;
   fissures?: Fissure[];
+  invasions?: Invasion[];
+  bounties?: SyndicateBounty[];
   [key: string]: unknown;
 }

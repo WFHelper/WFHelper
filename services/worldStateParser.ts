@@ -13,6 +13,7 @@ const FETCH_URL = WORLD_STATE_CONFIG.fetchUrl;
 const ORACLE_WORLDSTATE_URL = WORLD_STATE_CONFIG.oracleWorldStateUrl;
 const ORACLE_BOUNTY_CYCLE_URL = WORLD_STATE_CONFIG.oracleBountyCycleUrl;
 const EARTH_CYCLE_URL = WORLD_STATE_CONFIG.earthCycleUrl;
+const WARFRAMESTAT_BASE_URL = WORLD_STATE_CONFIG.warframestatBaseUrl;
 const FETCH_TIMEOUT_MS = WORLD_STATE_CONFIG.fetchTimeoutMs;
 const CYCLE_FETCH_TIMEOUT_MS = WORLD_STATE_CONFIG.cycleFetchTimeoutMs;
 const EARTH_CYCLE_FETCH_TIMEOUT_MS = WORLD_STATE_CONFIG.earthCycleFetchTimeoutMs;
@@ -93,6 +94,8 @@ export function emptyWorldState(): any {
     cetusCycle: null,
     vallisCycle: null,
     cambionCycle: null,
+    invasions: [],
+    bounties: [],
   };
 }
 
@@ -269,6 +272,131 @@ async function fetchEarthCycle(): Promise<{ isDay: boolean; timeLeft: string; ex
   }
 }
 
+// ─── Bounty syndicates worth showing (have open-world jobs) ────────────────
+const BOUNTY_SYNDICATES = new Set([
+  "Ostrons",         // CetusSyndicate
+  "Solaris United",  // SolarisSyndicate
+  "Entrati",         // EntratiSyndicate
+  "The Holdfasts",   // ZarimanSyndicate
+  "Cavia",           // EntratiLabSyndicate
+  "The Hex",         // HexSyndicate
+]);
+
+interface WarframestatInvasion {
+  id: string;
+  node?: string;
+  desc?: string;
+  attacker?: { reward?: { items?: string[]; countedItems?: { count: number; type: string }[]; credits?: number }; faction?: string };
+  defender?: { reward?: { items?: string[]; countedItems?: { count: number; type: string }[]; credits?: number }; faction?: string };
+  vsInfestation?: boolean;
+  completion?: number;
+  completed?: boolean;
+}
+
+interface WarframestatSteelPath {
+  currentReward?: { name?: string; cost?: number };
+  activation?: string;
+  expiry?: string;
+  rotation?: { name?: string; cost?: number }[];
+  evergreens?: { name?: string; cost?: number }[];
+}
+
+interface WarframestatSyndicateMission {
+  syndicate?: string;
+  syndicateKey?: string;
+  expiry?: string;
+  jobs?: {
+    type?: string;
+    enemyLevels?: number[];
+    standingStages?: number[];
+    minMR?: number;
+  }[];
+}
+
+async function fetchWarframestatExtras(): Promise<{
+  invasions: unknown[];
+  steelPath: unknown;
+  bounties: unknown[];
+}> {
+  const result = { invasions: [] as unknown[], steelPath: null as unknown, bounties: [] as unknown[] };
+
+  const [invasionsRes, steelPathRes, syndicateRes] = await Promise.allSettled([
+    fetchJsonWithTimeout(`${WARFRAMESTAT_BASE_URL}/invasions`, CYCLE_FETCH_TIMEOUT_MS),
+    fetchJsonWithTimeout(`${WARFRAMESTAT_BASE_URL}/steelPath`, CYCLE_FETCH_TIMEOUT_MS),
+    fetchJsonWithTimeout(`${WARFRAMESTAT_BASE_URL}/syndicateMissions`, CYCLE_FETCH_TIMEOUT_MS),
+  ]);
+
+  // Invasions
+  if (invasionsRes.status === "fulfilled" && Array.isArray(invasionsRes.value)) {
+    result.invasions = (invasionsRes.value as WarframestatInvasion[])
+      .filter((inv) => inv && !inv.completed)
+      .map((inv) => ({
+        id: inv.id || "",
+        node: inv.node || "Unknown",
+        desc: inv.desc || "",
+        attacker: {
+          reward: {
+            items: inv.attacker?.reward?.items || [],
+            countedItems: inv.attacker?.reward?.countedItems || [],
+            credits: inv.attacker?.reward?.credits || 0,
+          },
+          faction: inv.attacker?.faction || "Unknown",
+        },
+        defender: {
+          reward: {
+            items: inv.defender?.reward?.items || [],
+            countedItems: inv.defender?.reward?.countedItems || [],
+            credits: inv.defender?.reward?.credits || 0,
+          },
+          faction: inv.defender?.faction || "Unknown",
+        },
+        vsInfestation: inv.vsInfestation || false,
+        completion: typeof inv.completion === "number" ? Math.round(inv.completion * 10) / 10 : 0,
+        completed: false,
+      }));
+  } else if (invasionsRes.status === "rejected") {
+    log.warn("[WorldState] invasions fetch failed:", normalizeErrorMessage(invasionsRes.reason));
+  }
+
+  // Steel Path
+  if (steelPathRes.status === "fulfilled" && steelPathRes.value && typeof steelPathRes.value === "object") {
+    const sp = steelPathRes.value as WarframestatSteelPath;
+    result.steelPath = {
+      currentReward: {
+        name: sp.currentReward?.name || "Unknown",
+        cost: sp.currentReward?.cost || 0,
+      },
+      activation: sp.activation || null,
+      expiry: sp.expiry || null,
+      rotation: (sp.rotation || []).map((r) => ({ name: r.name || "", cost: r.cost || 0 })),
+      evergreens: (sp.evergreens || []).map((e) => ({ name: e.name || "", cost: e.cost || 0 })),
+    };
+  } else if (steelPathRes.status === "rejected") {
+    log.warn("[WorldState] steelPath fetch failed:", normalizeErrorMessage(steelPathRes.reason));
+  }
+
+  // Bounties (syndicate missions with jobs)
+  if (syndicateRes.status === "fulfilled" && Array.isArray(syndicateRes.value)) {
+    result.bounties = (syndicateRes.value as WarframestatSyndicateMission[])
+      .filter((sm) => BOUNTY_SYNDICATES.has(sm.syndicate || "") && Array.isArray(sm.jobs) && sm.jobs.length > 0)
+      .map((sm) => ({
+        syndicate: sm.syndicate || "",
+        syndicateKey: sm.syndicateKey || "",
+        expiry: sm.expiry || null,
+        jobs: (sm.jobs || []).map((j) => ({
+          type: j.type || "Unknown",
+          enemyLevels: Array.isArray(j.enemyLevels) ? [j.enemyLevels[0] || 0, j.enemyLevels[1] || 0] : [0, 0],
+          standingStages: j.standingStages || [],
+          minMR: j.minMR || 0,
+        })),
+      }));
+  } else if (syndicateRes.status === "rejected") {
+    log.warn("[WorldState] syndicateMissions fetch failed:", normalizeErrorMessage(syndicateRes.reason));
+  }
+
+  return result;
+}
+
 async function fetchAndComputeCycles(): Promise<Record<string, unknown>> {
   const nowMs = Date.now();
 
@@ -348,29 +476,42 @@ export async function fetchAndParse(): Promise<Record<string, unknown>> {
 
   const parsed = parseRaw(raw);
 
-  try {
-    const cycles = await fetchAndComputeCycles();
-    return {
-      ...parsed,
-      ...cycles,
-      duviriCycle: {
-        ...(parsed?.duviriCycle || {}),
-        ...(cycles?.duviriCycle || {}),
-      },
-    };
-  } catch (cycleErr) {
-    log.warn("[WorldState] planet cycle computation failed:", normalizeErrorMessage(cycleErr));
-    // Vallis and Duviri are pure-math computations that never need the network
-    const nowMs = Date.now();
-    return {
-      ...parsed,
-      vallisCycle: computeVallisCycle(nowMs),
-      duviriCycle: {
-        ...(parsed?.duviriCycle || {}),
-        ...computeDuviriMoodCycle(nowMs),
-      },
-    };
+  // Fetch cycles and warframestat extras in parallel
+  const [cyclesResult, extrasResult] = await Promise.allSettled([
+    fetchAndComputeCycles(),
+    fetchWarframestatExtras(),
+  ]);
+
+  const cycles = cyclesResult.status === "fulfilled" ? cyclesResult.value : null;
+  const extras = extrasResult.status === "fulfilled" ? extrasResult.value : null;
+
+  if (cyclesResult.status === "rejected") {
+    log.warn("[WorldState] planet cycle computation failed:", normalizeErrorMessage(cyclesResult.reason));
   }
+  if (extrasResult.status === "rejected") {
+    log.warn("[WorldState] warframestat extras failed:", normalizeErrorMessage(extrasResult.reason));
+  }
+
+  const nowMs = Date.now();
+  const fallbackCycles = cycles || {
+    vallisCycle: computeVallisCycle(nowMs),
+    duviriCycle: computeDuviriMoodCycle(nowMs),
+  };
+
+  // Use steelPath from warframestat (has currentReward + rotation) if available
+  const steelPath = extras?.steelPath || parsed.steelPath || null;
+
+  return {
+    ...parsed,
+    ...fallbackCycles,
+    duviriCycle: {
+      ...(parsed?.duviriCycle || {}),
+      ...(fallbackCycles?.duviriCycle || {}),
+    },
+    steelPath,
+    invasions: extras?.invasions || [],
+    bounties: extras?.bounties || [],
+  };
 }
 
 export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> {
@@ -465,5 +606,7 @@ export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> {
     cetusCycle: null,
     vallisCycle: null,
     cambionCycle: null,
+    invasions: [],
+    bounties: [],
   };
 }

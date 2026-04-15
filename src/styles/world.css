@@ -426,4 +426,210 @@
     color: var(--text-secondary);
     opacity: 0.7;
   }
+
+  /* ── section toggle (collapse/expand) ────────────────────── */
+  .world-section-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+  }
+  .world-section-toggle h3 {
+    margin: 0;
+  }
+  .world-toggle-icon {
+    display: inline-block;
+    font-size: 0.7rem;
+    transition: transform 0.15s ease;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+  .world-toggle-icon.collapsed {
+    transform: rotate(-90deg);
+  }
+
+  /* ── invasions ───────────────────────────────────────────── */
+  .world-invasion-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+  .world-invasion-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+  }
+  .world-invasion-row:last-child {
+    border-bottom: none;
+  }
+  .world-invasion-header {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .world-invasion-node {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .world-invasion-tag {
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 0.06rem 0.3rem;
+    border-radius: 0.2rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .world-invasion-tag.infested {
+    background: rgba(74, 222, 128, 0.12);
+    color: #4ade80;
+  }
+  .world-invasion-sides {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+  }
+  .world-invasion-reward {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .world-invasion-vs {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--text-muted, var(--text-secondary));
+    text-transform: uppercase;
+    opacity: 0.5;
+    flex-shrink: 0;
+  }
+  .world-faction-grineer { color: #ef5350; }
+  .world-faction-corpus  { color: #42a5f5; }
+  .world-faction-infested { color: #66bb6a; }
+  .world-invasion-bar {
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+  .world-invasion-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+  .world-faction-bg-grineer { background: #ef5350; }
+  .world-faction-bg-corpus  { background: #42a5f5; }
+  .world-faction-bg-infested { background: #66bb6a; }
+  .world-invasion-pct {
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+    font-family: var(--font-display);
+  }
+
+  /* ── steel path honors ───────────────────────────────────── */
+  .world-sp-current {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0;
+  }
+  .world-sp-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+  }
+  .world-sp-item {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--warning, #fbbf24);
+    flex: 1;
+    min-width: 0;
+  }
+  .world-sp-cost {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* ── bounties ────────────────────────────────────────────── */
+  .world-bounty-groups {
+    display: flex;
+    flex-direction: column;
+  }
+  .world-bounty-group {
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+    padding: 0.25rem 0;
+  }
+  .world-bounty-group:last-child {
+    border-bottom: none;
+  }
+  .world-bounty-group-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 0.2rem 0;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+  }
+  .world-bounty-syndicate {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .world-bounty-count {
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+    margin-left: auto;
+  }
+  .world-bounty-jobs {
+    display: flex;
+    flex-direction: column;
+    padding-left: 1rem;
+  }
+  .world-bounty-job {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.22rem 0;
+    font-size: 0.78rem;
+  }
+  .world-bounty-type {
+    flex: 1;
+    min-width: 0;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .world-bounty-levels {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .world-bounty-standing {
+    font-size: 0.7rem;
+    color: var(--accent, #d4a843);
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-family: var(--font-display);
+  }
 }

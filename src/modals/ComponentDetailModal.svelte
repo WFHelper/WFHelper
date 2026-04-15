@@ -1,6 +1,6 @@
 <script lang="ts">
   import { activeComponent } from "../stores/modals.js";
-  import { wfmItems } from "../stores/data.js";
+  import { itemDb, wfmItems } from "../stores/data.js";
   import { fetchPriceByName } from "../lib/wfm/wfmPrice.js";
   import { ipc } from "../lib/ipc.js";
 
@@ -10,6 +10,22 @@
   $: data = $activeComponent;
   $: comp = data?.comp;
   $: parentName = data?.parentName || '';
+
+  // Fall back to itemDb drops when comp.drops is empty (non-prime components)
+  $: compDrops = (() => {
+    if (comp?.drops && comp.drops.length > 0) return comp.drops;
+    if (comp?.uniqueName) {
+      const dbEntry = $itemDb[comp.uniqueName];
+      if (dbEntry?.drops && dbEntry.drops.length > 0) return dbEntry.drops;
+    }
+    return [];
+  })();
+
+  // Get image from itemDb if available
+  $: compImageUrl = comp?.uniqueName ? ($itemDb[comp.uniqueName]?.imageUrl || null) : null;
+
+  // Get description from itemDb if available
+  $: compDescription = comp?.uniqueName ? ($itemDb[comp.uniqueName]?.description || '') : '';
 
   $: if (comp) {
     loadPrice(comp.name);
@@ -59,24 +75,38 @@
 
       <div class="detail-header">
         <div class="detail-title-area">
-          <h2>{comp.name || 'Unknown Component'}</h2>
-          <div class="detail-meta">
-            {[parentName || null, comp.tradable ? 'Tradable' : null, `${comp.ownedCount ?? 0}/${comp.itemCount || 1} owned`].filter(Boolean).join(' · ')}
+          {#if compImageUrl}
+            <div class="detail-img-wrap">
+              <img class="item-img" src={compImageUrl} alt={comp.name} />
+            </div>
+          {/if}
+          <div>
+            <h2>{comp.name || 'Unknown Component'}</h2>
+            <div class="detail-meta">
+              {[parentName || null, comp.tradable ? 'Tradable' : null, `${comp.ownedCount ?? 0}/${comp.itemCount || 1} owned`].filter(Boolean).join(' · ')}
+            </div>
           </div>
         </div>
       </div>
 
       <div class="detail-body">
-        {#if (comp.drops || []).length > 0}
+        {#if compDescription}
+          <div class="detail-desc">{compDescription}</div>
+        {/if}
+
+        {#if compDrops.length > 0}
           <div class="detail-section">
             <h3>Drop Sources</h3>
             <div class="detail-acquisition">
-              {#each (comp.drops || []).slice(0, 15) as d}
+              {#each compDrops.slice(0, 15) as d}
                 <div class="drop-entry">
                   <span class="drop-location">{d.location}</span>
                   {#if d.rarity}<span class="drop-rarity">({d.rarity})</span>{/if}
                 </div>
               {/each}
+              {#if compDrops.length > 15}
+                <div class="drop-entry drop-entry-more">…and {compDrops.length - 15} more sources</div>
+              {/if}
             </div>
           </div>
         {/if}

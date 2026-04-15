@@ -3,6 +3,7 @@ export const WORLD_STATE_CONFIG = Object.freeze({
   oracleWorldStateUrl: "https://oracle.browse.wf/worldState.json",
   oracleBountyCycleUrl: "https://oracle.browse.wf/bounty-cycle",
   earthCycleUrl: "https://api.warframestat.us/pc",
+  warframestatBaseUrl: "https://api.warframestat.us/pc",
   fetchTimeoutMs: 20_000,
   cycleFetchTimeoutMs: 4_000,
   earthCycleFetchTimeoutMs: 4_000,
