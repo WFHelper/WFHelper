@@ -1,5 +1,5 @@
 import type { SharedFiltersState } from "../types/filters.js";
-import type { ParsedItem } from "../types/inventory.js";
+import type { ParsedItem, InventoryGroup } from "../types/inventory.js";
 import type { WfmItemsLookup } from "../types/ipc.js";
 import type { WfmOrdersResult } from "../types/market.js";
 import type { RelicDatabase } from "../types/relics.js";
@@ -8,10 +8,10 @@ import { getCachedOrderSummaryState } from "./wfm/orderSummaryCache.js";
 import { toFinitePositiveInt, toFiniteNumber, isRankedGroup } from "../../config/shared/numeric.js";
 import { isExcludedRankedMarketItem } from "../../config/shared/wfmExclusions.js";
 
-export type InventoryFilterTab = "all_parts" | "relics" | "mods" | "arcanes" | "full_sets" | "misc";
+export type InventoryFilterTab = InventoryGroup | "resources";
 
 export interface InventoryBaseItem extends ParsedItem {
-  inventoryGroup: InventoryFilterTab;
+  inventoryGroup: InventoryGroup;
   partType: "normal" | "prime";
   amount: number;
   favorite: boolean;
@@ -71,6 +71,7 @@ export const INVENTORY_FILTERS: Array<{ key: InventoryFilterTab; label: string }
   { key: "mods", label: "Mods" },
   { key: "arcanes", label: "Arcanes" },
   { key: "full_sets", label: "Full Sets" },
+  { key: "resources", label: "Resources" },
   { key: "misc", label: "Misc" },
 ];
 
@@ -318,7 +319,7 @@ export function buildBaseInventoryItems(
   return parsedItems
     .filter((item) => matchesFilterTab(item, activeTab))
     .map<InventoryBaseItem | null>((item) => {
-      const group = (item.inventoryGroup || itemGroupFallback(item)) as InventoryFilterTab;
+      const group = (item.inventoryGroup || itemGroupFallback(item)) as InventoryGroup;
       const relicLookupInfo =
         group === "relics" ? (relicDb?.byUniqueName?.[item.internalName] ?? null) : null;
       const relicGroupName = relicLookupInfo

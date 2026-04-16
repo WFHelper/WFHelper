@@ -85,6 +85,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: "#0a0e17",
+    icon: path.join(app.getAppPath(), "assets", "logo.ico"),
     titleBarStyle: "hidden",
     ...(process.platform === "darwin" ? { titleBarOverlay: false } : { frame: false }),
     webPreferences: {

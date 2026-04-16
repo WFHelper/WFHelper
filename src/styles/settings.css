@@ -1,14 +1,12 @@
 @layer components {
-  /* ── settings grid & cards ───────────────────────────────────── */
-  .settings-grid {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.75rem;
+  /* ── settings tab layout ─────────────────────────────────────── */
+  .settings-tab-content {
     padding: 0.8rem 0;
+    max-width: 660px;
+    margin: 0 auto;
   }
   .settings-card {
-    width: min(560px, 100%);
+    width: 100%;
     border: 1px solid var(--border);
     border-radius: 0.75rem;
     background: var(--bg-surface);

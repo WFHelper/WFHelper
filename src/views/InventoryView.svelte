@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
 
-  import { parsedItems, wfmItems } from "../stores/data.js";
+  import { parsedItems, wfmItems, inventoryData, itemDb } from "../stores/data.js";
   import { marketOrders } from "../stores/market.js";
   import { relicDb } from "../stores/relics.js";
   import { debugMode } from "../stores/app.js";
@@ -10,6 +10,8 @@
   import InventoryGrid from "../components/inventory/InventoryGrid.svelte";
   import InventoryOrderBookPanel from "../components/inventory/InventoryOrderBookPanel.svelte";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
+  import ResourcesView from "./ResourcesView.svelte";
+  import { parseResources } from "../lib/inventory.js";
   import { applySharedFiltersAndSort } from "../lib/filters.js";
   import {
     INVENTORY_FILTERS,
@@ -52,6 +54,7 @@
   let filter: InventoryFilterTab = "all_parts";
   let showFilterPanel = false;
   let selectedInternalName: string | null = null;
+  let resourceSearch = '';
   const FILTERS = INVENTORY_FILTERS;
   const inventoryFilters = sharedFilters("inventory");
 
@@ -387,7 +390,25 @@
     ? tabItems.find((entry) => entry.internalName === selectedInternalName) || null
     : null;
   $: filtered = applySharedFiltersAndSort(searchableTabItems, $inventoryFilters);
-  $: filteredTotalCount = computeFilteredTotalCount(filtered);
+  $: resourceList = ($inventoryData && Object.keys($itemDb).length > 0)
+    ? parseResources($inventoryData, $itemDb)
+    : [];
+  $: filteredResources = (() => {
+    const search = $inventoryFilters.search.trim().toLowerCase();
+    const searched = search
+      ? resourceList.filter(r =>
+          r.name.toLowerCase().includes(search) ||
+          r.internalName.toLowerCase().includes(search)
+        )
+      : resourceList;
+    const dir = $inventoryFilters.sortDirection === "asc" ? 1 : -1;
+    return [...searched].sort((a, b) =>
+      $inventoryFilters.sortBy === "amount"
+        ? (a.count - b.count) * dir
+        : a.name.localeCompare(b.name) * dir
+    );
+  })();
+  $: filteredTotalCount = filter === "resources" ? filteredResources.length : computeFilteredTotalCount(filtered);
   $: showDucats = filter === "all_parts" || filter === "full_sets";
   $: metricNeeds = metricNeedsFromFilters($inventoryFilters, filter);
   $: if ($startupPriceCacheReady && Object.keys($wfmItems).length > 0) {
@@ -410,33 +431,37 @@
     on:toggle={handleToggleFilterPanel}
   />
 
-  {#if $debugMode}
-    <InventoryDebugPanel
-      activeTab={filter}
-      debug={$hydrationDebug}
-      backendHitOk={$hydrationDebug.priceDebugCounters.backendHitOk}
-      backendHitNoData={$hydrationDebug.priceDebugCounters.backendHitNoData}
-      backendError={$hydrationDebug.priceDebugCounters.backendError}
-    />
-  {/if}
-
-  {#if showFilterPanel}
-    <div class="inventory-filter-popover">
-      <SharedFilterBar scope="inventory" showBasic={false} showAdvanced={true} />
-    </div>
-  {/if}
-
-  <div class="inventory-split-layout">
-    <div class="inventory-split-main">
-      <InventoryGrid
-        items={filtered}
-        showDebug={$debugMode}
-        {showDucats}
-        on:select={handleItemSelect}
-        on:visible={handleItemVisible}
+  {#if filter === "resources"}
+    <ResourcesView resources={filteredResources} />
+  {:else}
+    {#if $debugMode}
+      <InventoryDebugPanel
+        activeTab={filter}
+        debug={$hydrationDebug}
+        backendHitOk={$hydrationDebug.priceDebugCounters.backendHitOk}
+        backendHitNoData={$hydrationDebug.priceDebugCounters.backendHitNoData}
+        backendError={$hydrationDebug.priceDebugCounters.backendError}
       />
-    </div>
+    {/if}
 
-    <InventoryOrderBookPanel item={selectedItem} />
-  </div>
+    {#if showFilterPanel}
+      <div class="inventory-filter-popover">
+        <SharedFilterBar scope="inventory" showBasic={false} showAdvanced={true} />
+      </div>
+    {/if}
+
+    <div class="inventory-split-layout">
+      <div class="inventory-split-main">
+        <InventoryGrid
+          items={filtered}
+          showDebug={$debugMode}
+          {showDucats}
+          on:select={handleItemSelect}
+          on:visible={handleItemVisible}
+        />
+      </div>
+
+      <InventoryOrderBookPanel item={selectedItem} />
+    </div>
+  {/if}
 </section>

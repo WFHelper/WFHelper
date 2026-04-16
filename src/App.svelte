@@ -14,7 +14,6 @@
   import SetupView from "./views/SetupView.svelte";
   import InventoryView from "./views/InventoryView.svelte";
   import FoundryView from "./views/FoundryView.svelte";
-  import ResourcesView from "./views/ResourcesView.svelte";
   import MasteryView from "./views/MasteryView.svelte";
   import StatsView from "./views/StatsView.svelte";
   import SettingsView from "./views/SettingsView.svelte";
@@ -47,7 +46,6 @@
     | "welcome"
     | "inventory"
     | "foundry"
-    | "resources"
     | "mastery"
     | "stats"
     | "world"
@@ -246,8 +244,6 @@
         <InventoryView />
       {:else if $currentView === "foundry"}
         <FoundryView />
-      {:else if $currentView === "resources"}
-        <ResourcesView />
       {:else if $currentView === "mastery"}
         <MasteryView />
       {:else if $currentView === "stats"}

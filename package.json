@@ -107,6 +107,7 @@
     ],
     "asar": true,
     "win": {
+      "icon": "assets/logo.ico",
       "signAndEditExecutable": false,
       "target": [
         "nsis"

@@ -337,45 +337,6 @@
     margin: 0;
   }
 
-  /* ── Tab bar (AlecaFrame style) ── */
-  .tab-bar {
-    display: flex;
-    gap: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
-    margin-bottom: 1rem;
-  }
-
-  .tab-item {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.5rem 1rem;
-    border: none;
-    border-bottom: 3px solid transparent;
-    background: none;
-    font-family: var(--font-display);
-    font-size: 1rem;
-    color: #8a8c95;
-    cursor: pointer;
-    transition: color 0.15s, border-color 0.15s;
-    white-space: nowrap;
-  }
-
-  .tab-item:hover {
-    color: #b0b2ba;
-  }
-
-  .tab-item.active {
-    color: #ffffff;
-    border-bottom-color: #ffffff;
-  }
-
-  .tab-icon {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-  }
-
   .rivens-toolbar {
     display: flex;
     align-items: center;

@@ -5,7 +5,12 @@ function readBoolFromStorage(key: string): boolean {
   return localStorage.getItem(key) === "1";
 }
 
-export const currentView = writable<string>("welcome");
+function getInitialView(): string {
+  if (typeof localStorage === "undefined") return "welcome";
+  return localStorage.getItem("setup-completed") === "1" ? "inventory" : "welcome";
+}
+
+export const currentView = writable<string>(getInitialView());
 export const statusText = writable<string>("No inventory loaded");
 export const debugMode = writable<boolean>(readBoolFromStorage("wf_debug_mode"));
 
