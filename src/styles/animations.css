@@ -11,7 +11,7 @@
 @keyframes detailSlideIn {
   from {
     opacity: 0;
-    transform: translateY(16px) scale(0.97);
+    transform: translateY(8px) scale(0.99);
   }
   to {
     opacity: 1;

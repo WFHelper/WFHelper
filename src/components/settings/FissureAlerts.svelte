@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { overlaySettings, overlaySettingsLoaded, OVERLAY_DEFAULTS } from "../../stores/overlaySettings.js";
+  import { overlaySettings, applyOverlaySettingsResponse } from "../../stores/overlaySettings.js";
   import { ipc } from "../../lib/ipc.js";
   import type { FissureAlert } from "../../types/ipc.js";
 
@@ -25,11 +25,19 @@
     { value: "normal", label: "Normal" },
     { value: "steel",  label: "Steel Path" },
   ] as const;
+  const PLANETS = [
+    "any",
+    "Ceres", "Earth", "Eris", "Europa", "Jupiter", "Kuva Fortress",
+    "Lua", "Mars", "Mercury", "Neptune", "Phobos", "Pluto",
+    "Saturn", "Sedna", "Uranus", "Venus", "Void", "Zariman",
+    "Deimos",
+  ] as const;
 
   // Form state for new alert
   let newTier: string = "any";
   let newMissionType: string = "any";
   let newSteelPath: "any" | "normal" | "steel" = "any";
+  let newPlanet: string = "any";
   let saving = false;
   let error = "";
 
@@ -40,10 +48,7 @@
     error = "";
     try {
       const saved = await ipc.setOverlaySettings({ fissureAlerts: updated });
-      if (saved) {
-        overlaySettings.set({ ...OVERLAY_DEFAULTS, ...saved });
-        overlaySettingsLoaded.set(true);
-      }
+      if (saved) applyOverlaySettingsResponse(saved);
     } catch (e: unknown) {
       error = e instanceof Error ? e.message : "Failed to save";
     } finally {
@@ -57,6 +62,7 @@
       tier: newTier,
       missionType: newMissionType,
       steelPath: newSteelPath,
+      planet: newPlanet,
     };
     await persistAlerts([...alerts, newAlert]);
   }
@@ -74,6 +80,9 @@
   function spLabel(sp: string): string {
     return sp === "any" ? "Any" : sp === "steel" ? "Steel Path" : "Normal";
   }
+  function planetLabel(p: string): string {
+    return p === "any" ? "Any planet" : p;
+  }
 </script>
 
 <div class="fissure-alerts">
@@ -89,6 +98,7 @@
           <span class="fa-badge fa-tier">{tierLabel(alert.tier)}</span>
           <span class="fa-badge fa-mission">{missionLabel(alert.missionType)}</span>
           <span class="fa-badge fa-sp">{spLabel(alert.steelPath)}</span>
+          <span class="fa-badge fa-planet">{planetLabel(alert.planet)}</span>
           <button
             class="fa-remove"
             title="Remove alert"
@@ -116,6 +126,11 @@
         <option value={opt.value}>{opt.label}</option>
       {/each}
     </select>
+    <select bind:value={newPlanet} class="fa-select" disabled={saving}>
+      {#each PLANETS as p}
+        <option value={p}>{p === "any" ? "Any planet" : p}</option>
+      {/each}
+    </select>
     <button class="btn-primary btn-sm" disabled={saving} on:click={addAlert}>Add</button>
   </div>
 
@@ -126,9 +141,9 @@
 
 <style>
   .fissure-alerts {
-    margin-top: 1rem;
-    padding-top: 0.75rem;
-    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
   }
   .fa-heading {
     margin: 0 0 0.25rem;

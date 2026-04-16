@@ -146,6 +146,48 @@ export interface SortieRaw {
   Expiry: WorldStateDate;
 }
 
+export interface SyndicateMissionJobRaw {
+  jobType: string;
+  rewards: string;
+  masteryReq: number;
+  minEnemyLevel: number;
+  maxEnemyLevel: number;
+  xpAmounts: number[];
+}
+
+export interface SyndicateMissionRaw {
+  Activation: WorldStateDate;
+  Expiry: WorldStateDate;
+  Tag: string;
+  Seed: number;
+  Nodes?: string[];
+  Jobs?: SyndicateMissionJobRaw[];
+}
+
+export interface InvasionCountedItemRaw {
+  ItemType: string;
+  ItemCount: number;
+}
+
+export interface InvasionRewardRaw {
+  countedItems?: InvasionCountedItemRaw[];
+  credits?: number;
+}
+
+export interface InvasionRaw {
+  _id: { $oid: string };
+  Faction: string;
+  DefenderFaction: string;
+  Node: string;
+  Count: number;
+  Goal: number;
+  LocTag: string;
+  Completed: boolean;
+  AttackerReward?: InvasionRewardRaw;
+  DefenderReward?: InvasionRewardRaw;
+  Activation?: WorldStateDate;
+}
+
 export interface WorldStateRaw {
   ActiveMissions?: ActiveMissionRaw[];
   VoidTraders?: VoidTraderRaw | VoidTraderRaw[];
@@ -153,6 +195,8 @@ export interface WorldStateRaw {
   Sorties?: SortieRaw | SortieRaw[];
   Descents?: DescentRaw[];
   EndlessXpChoices?: EndlessXpChoice[];
+  SyndicateMissions?: SyndicateMissionRaw[];
+  Invasions?: InvasionRaw[];
 }
 
 export interface DescentRaw {

@@ -23,6 +23,7 @@ export interface CycleAlerts {
   cetus: boolean;
   vallis: boolean;
   cambion: boolean;
+  duviri: boolean;
 }
 
 export interface FissureAlert {
@@ -30,6 +31,7 @@ export interface FissureAlert {
   tier: string; // tier name or "any"
   missionType: string; // mission type or "any"
   steelPath: "any" | "normal" | "steel";
+  planet: string; // planet name or "any"
 }
 
 export interface OverlaySettings {

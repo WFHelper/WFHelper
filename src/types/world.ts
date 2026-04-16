@@ -67,6 +67,7 @@ export interface BountyJob {
   enemyLevels: [number, number];
   standingStages: number[];
   minMR?: number;
+  challengeDesc?: string;
 }
 
 export interface SyndicateBounty {
@@ -102,5 +103,6 @@ export interface WorldState {
   fissures?: Fissure[];
   invasions?: Invasion[];
   bounties?: SyndicateBounty[];
+  bountyRotation?: string;
   [key: string]: unknown;
 }

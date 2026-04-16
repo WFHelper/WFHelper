@@ -93,7 +93,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
   function normalizeFissureAlerts(
     value: unknown,
     fallback: unknown,
-  ): Array<{ id: string; tier: string; missionType: string; steelPath: string }> {
+  ): Array<{ id: string; tier: string; missionType: string; steelPath: string; planet: string }> {
     const arr = Array.isArray(value) ? value : Array.isArray(fallback) ? fallback : [];
     return arr
       .filter((item) => item && typeof item === "object")
@@ -110,6 +110,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
             r.steelPath === "normal" || r.steelPath === "steel"
               ? (r.steelPath as string)
               : "any",
+          planet: typeof r.planet === "string" ? r.planet : "any",
         };
       });
   }
@@ -117,7 +118,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
   function normalizeCycleAlerts(
     value: unknown,
     fallback: unknown,
-  ): { earth: boolean; cetus: boolean; vallis: boolean; cambion: boolean } {
+  ): { earth: boolean; cetus: boolean; vallis: boolean; cambion: boolean; duviri: boolean } {
     const def =
       fallback && typeof fallback === "object" ? (fallback as Record<string, unknown>) : {};
     const v = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -126,6 +127,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       cetus: v.cetus !== undefined ? !!v.cetus : !!def.cetus,
       vallis: v.vallis !== undefined ? !!v.vallis : !!def.vallis,
       cambion: v.cambion !== undefined ? !!v.cambion : !!def.cambion,
+      duviri: v.duviri !== undefined ? !!v.duviri : !!def.duviri,
     };
   }
 

@@ -4,6 +4,7 @@ import { relicOwnedCounts, relicSquadSize } from "../stores/relics.js";
 import { fetchPriceBySlug } from "../lib/wfm/wfmPrice.js";
 import { fetchWfmItemMetaBySlug } from "../lib/wfm/wfmItemMeta.js";
 import { ipc } from "../lib/ipc.js";
+import { buildWikiUrl } from "../lib/wikiUrl.js";
   import {
     computeSquadDucatEV,
     computeSquadEV,
@@ -144,8 +145,7 @@ import { ipc } from "../lib/ipc.js";
 
   function openOnWiki(): void {
     if (!group) return;
-    const query = encodeURIComponent(`${group.name} Relic`);
-    ipc.openExternal(`https://warframe.fandom.com/wiki/Special:Search?query=${query}`);
+    ipc.openExternal(buildWikiUrl(`${group.name} Relic`));
   }
 </script>
 

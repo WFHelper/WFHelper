@@ -9,3 +9,9 @@ export const overlaySettings = writable<OverlaySettings>({
 });
 
 export const overlaySettingsLoaded = writable<boolean>(false);
+
+/** Apply a saved settings response to the stores. Call after ipc.setOverlaySettings / getOverlaySettings. */
+export function applyOverlaySettingsResponse(saved: OverlaySettings): void {
+  overlaySettings.set({ ...OVERLAY_DEFAULTS, ...saved });
+  overlaySettingsLoaded.set(true);
+}

@@ -13,15 +13,18 @@
   /* ── sections (separated by lines, not cards) ────────────── */
   .world-section {
     padding: 0.85rem 0;
-    border-bottom: 1px solid var(--border);
+    border-top: 1px solid var(--border);
   }
-  .world-section:last-child {
-    border-bottom: none;
+  .world-section:first-child {
+    border-top: none;
+  }
+  .world-section-no-border {
+    border-top: none;
   }
   .world-section h3 {
     margin: 0 0 0.55rem;
     font-family: var(--font-display);
-    font-size: 0.72rem;
+    font-size: 0.82rem;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -62,6 +65,11 @@
   }
 
   /* ── prime resurgence ────────────────────────────────────── */
+  .world-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
   .world-baro-pill {
     font-size: 0.72rem;
     font-weight: 600;
@@ -81,7 +89,10 @@
     display: flex;
     gap: 0.6rem;
     overflow-x: auto;
+    overflow-y: visible;
+    padding-top: 0.3rem;
     padding-bottom: 0.3rem;
+    padding-left: 0.25rem;
   }
   .world-prime-item {
     display: flex;
@@ -99,6 +110,7 @@
   }
   .world-prime-item:hover {
     transform: scale(1.05);
+    z-index: 1;
   }
   .world-prime-icon {
     width: 100px;
@@ -178,6 +190,11 @@
     color: var(--text-primary);
     white-space: nowrap;
     letter-spacing: 0.02em;
+  }
+  .world-cycle-next {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
   }
 
   /* cycle state colors */
@@ -370,7 +387,8 @@
     display: flex;
     gap: 0.5rem;
     overflow-x: auto;
-    padding-bottom: 0.25rem;
+    overflow-y: visible;
+    padding: 0.3rem 0.15rem 0.25rem;
     margin-bottom: 0.5rem;
   }
   .world-circuit-item {
@@ -388,7 +406,8 @@
     transition: transform 0.1s ease;
   }
   .world-circuit-item:hover {
-    transform: scale(1.05);
+    transform: scale(1.08);
+    z-index: 1;
   }
   .world-circuit-img {
     width: 80px;
@@ -443,8 +462,12 @@
     margin: 0;
   }
   .world-toggle-icon {
-    display: inline-block;
-    font-size: 0.7rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    width: 1.4rem;
+    height: 1.4rem;
     transition: transform 0.15s ease;
     color: var(--text-secondary);
     flex-shrink: 0;
@@ -475,12 +498,12 @@
     gap: 0.35rem;
   }
   .world-invasion-node {
-    font-size: 0.82rem;
+    font-size: 1.06rem;
     font-weight: 600;
     color: var(--text-primary);
   }
   .world-invasion-tag {
-    font-size: 0.6rem;
+    font-size: 0.62rem;
     font-weight: 700;
     padding: 0.06rem 0.3rem;
     border-radius: 0.2rem;
@@ -495,7 +518,15 @@
     display: flex;
     align-items: center;
     gap: 0.35rem;
-    font-size: 0.78rem;
+    font-size: 0.98rem;
+  }
+  .world-invasion-faction {
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+    opacity: 0.9;
   }
   .world-invasion-reward {
     flex: 1;
@@ -503,13 +534,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: var(--accent, #d4a843);
   }
+  .world-invasion-reward-left  { text-align: right; }
+  .world-invasion-reward-right { text-align: left; }
   .world-invasion-vs {
-    font-size: 0.62rem;
+    font-size: 0.94rem;
     font-weight: 700;
     color: var(--text-muted, var(--text-secondary));
     text-transform: uppercase;
-    opacity: 0.5;
+    opacity: 0.45;
     flex-shrink: 0;
   }
   .world-faction-grineer { color: #ef5350; }
@@ -518,21 +552,26 @@
   .world-invasion-bar {
     height: 3px;
     border-radius: 2px;
-    background: rgba(255, 255, 255, 0.08);
     overflow: hidden;
+    display: flex;
   }
   .world-invasion-fill {
     height: 100%;
-    border-radius: 2px;
     transition: width 0.3s ease;
   }
   .world-faction-bg-grineer { background: #ef5350; }
   .world-faction-bg-corpus  { background: #42a5f5; }
   .world-faction-bg-infested { background: #66bb6a; }
   .world-invasion-pct {
-    font-size: 0.68rem;
+    font-size: 0.86rem;
     color: var(--text-secondary);
     font-family: var(--font-display);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .world-invasion-pct-div {
+    opacity: 0.4;
   }
 
   /* ── steel path honors ───────────────────────────────────── */
@@ -564,13 +603,22 @@
     flex-shrink: 0;
   }
 
+  /* ── urgency timer ─────────────────────────────────────── */
+  .world-timer-urgent {
+    color: #ef4444 !important;
+  }
+
   /* ── bounties ────────────────────────────────────────────── */
+  .world-bounties-fullwidth {
+    margin-top: 0.5rem;
+  }
   .world-bounty-groups {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.25rem 1.2rem;
   }
   .world-bounty-group {
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--border);
     padding: 0.25rem 0;
   }
   .world-bounty-group:last-child {
@@ -590,14 +638,21 @@
     text-align: left;
   }
   .world-bounty-syndicate {
-    font-size: 0.82rem;
+    font-size: 1.15rem;
     font-weight: 600;
     color: var(--text-primary);
   }
   .world-bounty-count {
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     color: var(--text-secondary);
     margin-left: auto;
+  }
+  .world-bounty-timer {
+    font-size: 0.88rem;
+    font-family: var(--font-display);
+    color: var(--text-primary);
+    white-space: nowrap;
+    letter-spacing: 0.02em;
   }
   .world-bounty-jobs {
     display: flex;
@@ -609,7 +664,43 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.22rem 0;
+    font-size: 0.88rem;
+    background: none;
+    border: none;
+    width: 100%;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+  }
+  .world-bounty-job:hover {
+    background: rgba(255, 255, 255, 0.03);
+  }
+  .world-bounty-chevron {
+    font-size: 0.75rem;
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+  .world-bounty-detail {
+    padding: 0.2rem 0 0.3rem 1.2rem;
+    border-left: 2px solid rgba(255, 255, 255, 0.08);
+    margin-left: 0.3rem;
+    margin-bottom: 0.2rem;
+  }
+  .world-bounty-stage {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.12rem 0;
     font-size: 0.78rem;
+  }
+  .world-bounty-stage-label {
+    color: var(--text-secondary);
+  }
+  .world-bounty-stage-val {
+    color: var(--accent, #d4a843);
+    font-family: var(--font-display);
   }
   .world-bounty-type {
     flex: 1;
@@ -619,17 +710,82 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .world-bounty-levels {
-    font-size: 0.7rem;
+  .world-bounty-challenge {
     color: var(--text-secondary);
-    white-space: nowrap;
-    flex-shrink: 0;
+    font-size: 0.92em;
   }
-  .world-bounty-standing {
-    font-size: 0.7rem;
+  .world-bounty-levels {
+    font-size: 1rem;
     color: var(--accent, #d4a843);
     white-space: nowrap;
     flex-shrink: 0;
     font-family: var(--font-display);
+  }
+
+  /* ── bounty reward drops ─────────────────────────────────── */
+  .world-bounty-rewards {
+    margin-top: 0.35rem;
+  }
+  .world-bounty-rewards-loading {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    padding: 0.2rem 0;
+  }
+  .world-bounty-reward-group {
+    margin-bottom: 0.3rem;
+  }
+  .world-bounty-reward-stage-label {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    display: block;
+    margin-bottom: 0.1rem;
+  }
+  .world-bounty-reward-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+  .world-bounty-reward-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    padding: 0.05rem 0;
+    gap: 0.3rem;
+  }
+  .world-bounty-reward-clickable {
+    cursor: pointer;
+    border-radius: 0.2rem;
+    padding: 0.05rem 0.2rem;
+    margin: 0 -0.2rem;
+    transition: background 0.15s;
+  }
+  .world-bounty-reward-clickable:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .world-bounty-reward-item.reward-rare {
+    color: var(--accent, #d4a843);
+  }
+  .world-bounty-reward-icon {
+    width: 1.1rem;
+    height: 1.1rem;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+  .world-bounty-reward-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .world-bounty-reward-chance {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-left: 0.5rem;
+    white-space: nowrap;
   }
 }

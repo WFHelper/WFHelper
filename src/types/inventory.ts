@@ -1,6 +1,7 @@
 export interface DropInfo {
   location: string;
   rarity?: string;
+  chance?: number;
   [key: string]: unknown;
 }
 

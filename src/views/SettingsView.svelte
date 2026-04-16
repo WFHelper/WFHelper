@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { overlaySettings, overlaySettingsLoaded, OVERLAY_DEFAULTS } from "../stores/overlaySettings.js";
+  import { overlaySettings, overlaySettingsLoaded, OVERLAY_DEFAULTS, applyOverlaySettingsResponse } from "../stores/overlaySettings.js";
   import AppearanceCard from "../components/settings/AppearanceCard.svelte";
   import { OVERLAY_SETTINGS_LIMITS } from "../config/overlay.js";
   import { ipc } from "../lib/ipc.js";
@@ -42,10 +42,7 @@
     if (!$overlaySettingsLoaded) {
       try {
         const loaded = await ipc.getOverlaySettings();
-        if (loaded) {
-          overlaySettings.set({ ...OVERLAY_DEFAULTS, ...loaded });
-          overlaySettingsLoaded.set(true);
-        }
+        if (loaded) applyOverlaySettingsResponse(loaded);
       } catch {
         statusMsg = $tr("settings.loadFailed");
         statusError = true;
@@ -73,8 +70,7 @@
     try {
       const saved = await ipc.setOverlaySettings(payload);
       if (saved) {
-        overlaySettings.set({ ...OVERLAY_DEFAULTS, ...saved });
-        overlaySettingsLoaded.set(true);
+        applyOverlaySettingsResponse(saved);
         applyToForm($overlaySettings);
       }
       statusMsg = $tr("settings.saved");
@@ -89,10 +85,7 @@
     applyToForm(OVERLAY_DEFAULTS);
     try {
       const saved = await ipc.setOverlaySettings({ ...OVERLAY_DEFAULTS });
-      if (saved) {
-        overlaySettings.set({ ...OVERLAY_DEFAULTS, ...saved });
-        overlaySettingsLoaded.set(true);
-      }
+      if (saved) applyOverlaySettingsResponse(saved);
       statusMsg = $tr("settings.defaultsRestored");
       statusError = false;
     } catch {

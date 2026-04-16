@@ -68,6 +68,78 @@ function loadRegionTranslationData(): { regions: Record<string, Record<string, u
 
 const REGION_TRANSLATION = loadRegionTranslationData();
 
+/** Lazy-loaded challenge lookup: maps Lotus challenge paths → { requiredCount } from ExportChallenges */
+let _challengeLookup: Record<string, { requiredCount?: number }> | null = null;
+function getChallengeLookup(): Record<string, { requiredCount?: number }> {
+  if (_challengeLookup) return _challengeLookup;
+  _challengeLookup = {};
+  try {
+    const pep = require("warframe-public-export-plus");
+    if (pep?.ExportChallenges && typeof pep.ExportChallenges === "object") {
+      Object.assign(_challengeLookup, pep.ExportChallenges);
+    }
+  } catch {
+    try {
+      const pkgDir = path.dirname(require.resolve("warframe-public-export-plus/package.json"));
+      const data = JSON.parse(fs.readFileSync(path.join(pkgDir, "ExportChallenges.json"), "utf8"));
+      if (data && typeof data === "object") Object.assign(_challengeLookup, data);
+    } catch {
+      log.warn("[WorldState] failed to load challenge data");
+    }
+  }
+  return _challengeLookup;
+}
+
+/** Lazy-loaded item lookup: maps Lotus item paths → { name: string } from ExportResources + ExportRecipes */
+let _itemLookup: Record<string, { name?: string }> | null = null;
+function getItemLookup(): Record<string, { name?: string }> {
+  if (_itemLookup) return _itemLookup;
+  _itemLookup = {};
+  try {
+    const pep = require("warframe-public-export-plus");
+    for (const key of ["ExportResources", "ExportRecipes", "ExportUpgrades", "ExportGear"]) {
+      const data = pep?.[key];
+      if (data && typeof data === "object") {
+        Object.assign(_itemLookup, data);
+      }
+    }
+  } catch {
+    try {
+      const pkgDir = path.dirname(require.resolve("warframe-public-export-plus/package.json"));
+      for (const file of ["ExportResources.json", "ExportRecipes.json", "ExportUpgrades.json", "ExportGear.json"]) {
+        try {
+          const data = JSON.parse(fs.readFileSync(path.join(pkgDir, file), "utf8"));
+          if (data && typeof data === "object") Object.assign(_itemLookup, data);
+        } catch { /* skip missing file */ }
+      }
+    } catch {
+      log.warn("[WorldState] failed to load item data for invasion rewards");
+    }
+  }
+  return _itemLookup;
+}
+
+/** Resolve a Lotus item path (e.g. /Lotus/Types/Items/...) to a display name */
+function resolveItemName(itemPath: string): string {
+  const items = getItemLookup();
+  const entry = items[itemPath];
+  if (entry?.name) {
+    const resolved = resolveDictValue(entry.name);
+    if (resolved) return resolved;
+  }
+  // Fallback: extract readable name from path slug
+  const slug = itemPath.split("/").pop() || itemPath;
+  return slug.replace(/([a-z])([A-Z])/g, "$1 $2").trim();
+}
+
+const FACTION_LABEL: Record<string, string> = {
+  FC_GRINEER: "Grineer",
+  FC_CORPUS: "Corpus",
+  FC_INFESTATION: "Infested",
+  FC_OROKIN: "Orokin",
+  FC_SENTIENT: "Sentient",
+};
+
 async function fetchWithTimeout(
   url: string,
   timeoutMs: number,
@@ -123,8 +195,10 @@ const VOID_TIER: Record<string, string> = {
 
 const MISSION_TYPE: Record<string, string> = {
   MT_ARTIFACT: "Disruption",
+  MT_ASSASSINATION: "Assassination",
   MT_CAPTURE: "Capture",
   MT_DEFENSE: "Defense",
+  MT_ENDLESS_CAPTURE: "Endless Capture",
   MT_EXCAVATE: "Excavation",
   MT_EXCAVATION: "Excavation",
   MT_EXTERMINATION: "Extermination",
@@ -142,16 +216,17 @@ const MISSION_TYPE: Record<string, string> = {
   MT_SECTOR: "Dark Sector",
   MT_SURVIVAL: "Survival",
   MT_TERRITORY: "Infested Salvage",
+  MT_VOID_ARMAGEDDON: "Void Armageddon",
   MT_VOID_CASCADE: "Void Cascade",
   MT_VOID_FLOOD: "Void Flood",
 };
 
 const HUB_NODE: Record<string, string> = {
-  SaturnHUB: "Saturn Relay",
-  MarsHUB: "Mars Relay",
-  CerberusHUB: "Pluto Relay",
-  EarthHUB: "Earth Relay",
-  VenusHUB: "Venus Relay",
+  SaturnHUB: "Kronia Relay (Saturn)",
+  MarsHUB: "Strata Relay (Mars)",
+  CerberusHUB: "Orcus Relay (Pluto)",
+  EarthHUB: "Larunda Relay (Earth)",
+  VenusHUB: "Vesper Relay (Venus)",
 };
 
 async function fetchJsonWithTimeout(
@@ -196,7 +271,11 @@ function formatMissionTypeLabel(missionType: string, nodeId: string): string {
     return missionName;
   }
   if (typeof missionType === "string" && missionType.startsWith("MT_")) {
-    return missionType.replace(/^MT_/, "");
+    return missionType
+      .replace(/^MT_/, "")
+      .toLowerCase()
+      .replace(/(^|\s|_)\w/g, (c) => c.toUpperCase())
+      .replace(/_/g, " ");
   }
   return missionType || "Unknown";
 }
@@ -225,15 +304,17 @@ function computeCetusCambionCycles(
   };
 }
 
-function computeDuviriMoodCycle(nowMs: number = Date.now()): { state: string; expiry: string } {
+function computeDuviriMoodCycle(nowMs: number = Date.now()): { state: string; expiry: string; nextState: string } {
   const moodIndex = Math.trunc(nowMs / DUVIRI_MOOD_PERIOD_MS);
   const moodStart = moodIndex * DUVIRI_MOOD_PERIOD_MS;
   const moodEnd = moodStart + DUVIRI_MOOD_PERIOD_MS;
   const state = DUVIRI_MOODS[moodIndex % DUVIRI_MOODS.length] || "Unknown";
+  const nextState = DUVIRI_MOODS[(moodIndex + 1) % DUVIRI_MOODS.length] || "Unknown";
 
   return {
     state,
     expiry: new Date(moodEnd).toISOString(),
+    nextState,
   };
 }
 
@@ -281,6 +362,49 @@ const BOUNTY_SYNDICATES = new Set([
   "Cavia",           // EntratiLabSyndicate
   "The Hex",         // HexSyndicate
 ]);
+
+// ─── Raw-world-state bounty syndicates (have explicit Jobs array) ──────────
+const RAW_BOUNTY_SYNDICATES: Record<string, string> = {
+  CetusSyndicate: "Ostrons",
+  SolarisSyndicate: "Solaris United",
+  EntratiSyndicate: "Entrati",
+};
+
+// ─── Seed-generated bounty syndicates (from oracle bounty-cycle) ───────────
+// These syndicates don't have Jobs in the raw world state — they're procedurally
+// generated from a seed. oracle.browse.wf/bounty-cycle pre-computes the node
+// assignments. Standing tiers are static per syndicate tier index.
+interface BountyCycleJob {
+  node: string;
+  challenge?: string;
+  ally?: string;
+}
+
+interface BountyCycleResponse {
+  expiry?: number;
+  rot?: string;
+  vaultRot?: string;
+  zarimanFaction?: string;
+  bounties?: Record<string, BountyCycleJob[]>;
+}
+
+const BOUNTY_CYCLE_SYNDICATES: Record<string, { displayName: string; standingTiers: number[][] }> = {
+  ZarimanSyndicate: {
+    displayName: "The Holdfasts",
+    standingTiers: [[1000, 1500], [2000, 3000], [3000, 4500], [4000, 6000], [5000, 7500]],
+  },
+  EntratiLabSyndicate: {
+    displayName: "Cavia",
+    standingTiers: [[1000, 1500], [2000, 3000], [3000, 4500], [4000, 6000], [5000, 7500]],
+  },
+  HexSyndicate: {
+    displayName: "The Hex",
+    standingTiers: [
+      [1000, 1500], [2000, 3000], [3000, 4500], [4000, 6000],
+      [5000, 7500], [6000, 9000], [7500, 11250],
+    ],
+  },
+};
 
 interface WarframestatInvasion {
   id: string;
@@ -397,6 +521,136 @@ async function fetchWarframestatExtras(): Promise<{
   return result;
 }
 
+// ─── Parse seed-generated bounties from oracle bounty-cycle ────────────────
+
+// Dict key prefixes for challenge description lookup (tried in order)
+const CHALLENGE_DESC_PREFIXES = [
+  "/Lotus/Language/Challenges/Challenge_",
+  "/Lotus/Language/EntratiLab/EntratiGeneral/Challenge_",
+  "/Lotus/Language/1999Bounties/Challenge_",
+];
+
+// Difficulty suffixes appended by the oracle that don't exist in the dict
+const DIFFICULTY_SUFFIXES = ["VeryHard", "Hard", "Normal", "Easy"];
+
+/**
+ * Resolve an oracle challenge path to a human-readable name and description.
+ * Oracle paths like `/Lotus/Types/Challenges/Zariman/ZarimanFindMelicaCacheChallenge`
+ * map to dict keys like `/Lotus/Language/Challenges/Challenge_ZarimanFindMelicaCacheChallenge_Desc`.
+ */
+function resolveChallengeInfo(
+  challengePath: string,
+  allyName?: string,
+): { desc?: string } | null {
+  if (!challengePath) return null;
+
+  const slug = challengePath.split("/").pop() || "";
+  if (!slug) return null;
+
+  // Look up requiredCount from ExportChallenges using the original path
+  const challengeData = getChallengeLookup()[challengePath];
+  const count = challengeData?.requiredCount;
+
+  // Build candidate slugs: original, with "Challenge" added, and with difficulty stripped
+  const candidates: string[] = [];
+  const addCandidates = (s: string) => {
+    candidates.push(s);
+    if (!s.endsWith("Challenge")) candidates.push(s + "Challenge");
+  };
+  addCandidates(slug);
+  for (const suffix of DIFFICULTY_SUFFIXES) {
+    if (slug.endsWith(suffix)) {
+      addCandidates(slug.slice(0, -suffix.length));
+      break;
+    }
+    // Also try stripping difficulty before the "Challenge" suffix
+    // e.g. EntratiLabKillMurmurEasyChallenge -> EntratiLabKillMurmurChallenge
+    const mid = suffix + "Challenge";
+    if (slug.endsWith(mid)) {
+      addCandidates(slug.slice(0, -mid.length) + "Challenge");
+      break;
+    }
+  }
+
+  for (const candidate of candidates) {
+    for (const prefix of CHALLENGE_DESC_PREFIXES) {
+      const descKey = prefix + candidate + "_Desc";
+      const desc = REGION_TRANSLATION.dict[descKey];
+      if (desc) {
+        return {
+          desc: cleanChallengeText(desc, allyName, count),
+        };
+      }
+    }
+  }
+  return null;
+}
+
+/** Strip markup tags from challenge description text. */
+function cleanChallengeText(text: string, allyName?: string, count?: number): string {
+  let cleaned = text
+    .replace(/\|COUNT\|/g, count != null ? String(count) : "X")
+    .replace(/\|ALLY\|/g, allyName || "Ally")
+    .replace(/\|OPEN_COLOR\|[^|]*\|CLOSE_COLOR\|\s*/g, "")
+    .replace(/\n/g, " ")
+    .trim();
+  return cleaned;
+}
+
+/** Extract ally display name from oracle path (e.g. `.../QuincyAllyAgent` → `Quincy`). */
+function resolveAllyName(allyPath: string | undefined): string | undefined {
+  if (!allyPath) return undefined;
+  const slug = allyPath.split("/").pop() || "";
+  return slug.replace(/AllyAgent$/, "") || undefined;
+}
+
+function parseBountyCycleBounties(data: BountyCycleResponse): unknown[] {
+  const bounties = data.bounties;
+  if (!bounties || typeof bounties !== "object") return [];
+
+  const expiryIso = data.expiry ? new Date(data.expiry).toISOString() : undefined;
+  const result: unknown[] = [];
+
+  for (const [syndicateKey, jobs] of Object.entries(bounties)) {
+    const config = BOUNTY_CYCLE_SYNDICATES[syndicateKey];
+    if (!config || !Array.isArray(jobs) || jobs.length === 0) continue;
+
+    const parsedJobs = jobs.map((job, index) => {
+      const region = REGION_TRANSLATION.regions[job.node];
+      const missionType = region?.missionType
+        ? formatMissionTypeLabel(String(region.missionType), job.node)
+        : "Unknown";
+      const minLevel = Number(region?.minEnemyLevel) || 0;
+      const maxLevel = Number(region?.maxEnemyLevel) || 0;
+      // Oracle bounties are single-stage; standingTiers[index] is [base, bonus], not per-stage
+      const standingPair = config.standingTiers[index] || [];
+      const stages = standingPair.length > 0 ? [standingPair[0]] : [];
+
+      // Resolve challenge name and description
+      const allyName = resolveAllyName(job.ally);
+      const challengeInfo = job.challenge
+        ? resolveChallengeInfo(job.challenge, allyName)
+        : null;
+
+      return {
+        type: missionType,
+        enemyLevels: [minLevel, maxLevel],
+        standingStages: stages,
+        minMR: 0,
+        ...(challengeInfo?.desc ? { challengeDesc: challengeInfo.desc } : {}),
+      };
+    });
+
+    result.push({
+      syndicate: config.displayName,
+      syndicateKey,
+      expiry: expiryIso,
+      jobs: parsedJobs,
+    });
+  }
+  return result;
+}
+
 async function fetchAndComputeCycles(): Promise<Record<string, unknown>> {
   const nowMs = Date.now();
 
@@ -406,12 +660,14 @@ async function fetchAndComputeCycles(): Promise<Record<string, unknown>> {
 
   // Fetch oracle bounty-cycle and earth cycle in parallel (avoids 4s+4s sequential wait)
   const [oracleResult, earthResult] = await Promise.allSettled([
-    fetchJsonWithTimeout(ORACLE_BOUNTY_CYCLE_URL, CYCLE_FETCH_TIMEOUT_MS) as Promise<{ expiry?: number }>,
+    fetchJsonWithTimeout(ORACLE_BOUNTY_CYCLE_URL, CYCLE_FETCH_TIMEOUT_MS) as Promise<BountyCycleResponse>,
     fetchEarthCycle(),
   ]);
 
   let cetusCycle: { isDay: boolean; timeLeft: string; expiry: string } | null = null;
   let cambionCycle: { active: string; timeLeft: string; expiry: string } | null = null;
+  let bountyCycleBounties: unknown[] = [];
+  let bountyRotation: string | undefined;
   if (oracleResult.status === "fulfilled") {
     const expiryMs = Number(oracleResult.value.expiry);
     if (expiryMs) {
@@ -419,6 +675,8 @@ async function fetchAndComputeCycles(): Promise<Record<string, unknown>> {
       cetusCycle = cetus;
       cambionCycle = cambion;
     }
+    bountyCycleBounties = parseBountyCycleBounties(oracleResult.value);
+    bountyRotation = oracleResult.value.rot || undefined;
   } else {
     log.warn("[WorldState] oracle bounty-cycle fetch failed:", normalizeErrorMessage(oracleResult.reason));
   }
@@ -434,6 +692,8 @@ async function fetchAndComputeCycles(): Promise<Record<string, unknown>> {
     vallisCycle,
     cambionCycle,
     duviriCycle,
+    bountyCycleBounties,
+    bountyRotation,
   };
 }
 
@@ -501,6 +761,32 @@ export async function fetchAndParse(): Promise<Record<string, unknown>> {
   // Use steelPath from warframestat (has currentReward + rotation) if available
   const steelPath = extras?.steelPath || parsed.steelPath || null;
 
+  // Merge bounties from three sources:
+  // 1. Raw world state (Ostrons/Solaris/Entrati — most reliable)
+  // 2. Warframestat (same syndicates, fallback with nicer names)
+  // 3. Bounty-cycle (seed-generated: Holdfasts/Cavia/Hex)
+  const rawBounties = (parsed.bounties || []) as { syndicateKey?: string }[];
+  const warframestatBounties = (extras?.bounties || []) as { syndicateKey?: string }[];
+  const seedBounties = ((cycles?.bountyCycleBounties || []) as { syndicateKey?: string }[]);
+
+  // Collect all display names already covered by raw bounties
+  const rawDisplayNames = new Set(rawBounties.map((b) => RAW_BOUNTY_SYNDICATES[b.syndicateKey || ""]));
+  // Build final list: raw first, warframestat fills gaps (by display name), seed fills remaining
+  const bountyMap = new Map<string, unknown>();
+  for (const b of rawBounties) {
+    if (b.syndicateKey) bountyMap.set(b.syndicateKey, b);
+  }
+  // warframestat uses display names as syndicateKey — skip if raw already has this syndicate
+  for (const b of warframestatBounties) {
+    if (b.syndicateKey && !rawDisplayNames.has(b.syndicateKey) && !bountyMap.has(b.syndicateKey)) {
+      bountyMap.set(b.syndicateKey, b);
+    }
+  }
+  for (const b of seedBounties) {
+    if (b.syndicateKey && !bountyMap.has(b.syndicateKey)) bountyMap.set(b.syndicateKey, b);
+  }
+  const allBounties = [...bountyMap.values()];
+
   return {
     ...parsed,
     ...fallbackCycles,
@@ -509,8 +795,9 @@ export async function fetchAndParse(): Promise<Record<string, unknown>> {
       ...(fallbackCycles?.duviriCycle || {}),
     },
     steelPath,
-    invasions: extras?.invasions || [],
-    bounties: extras?.bounties || [],
+    invasions: (parsed.invasions as unknown[])?.length > 0 ? parsed.invasions : (extras?.invasions || []),
+    bounties: allBounties,
+    bountyRotation: (cycles as Record<string, unknown>)?.bountyRotation || undefined,
   };
 }
 
@@ -595,6 +882,68 @@ export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> {
     ],
   };
 
+  // ─── Bounties from raw SyndicateMissions (Ostrons, Solaris, Entrati) ───
+  const rawBounties = (raw.SyndicateMissions || [])
+    .filter((sm) => {
+      const displayName = RAW_BOUNTY_SYNDICATES[sm.Tag];
+      if (!displayName) return false;
+      const expMs = Number(sm.Expiry?.["$date"]?.["$numberLong"] || 0);
+      return expMs > nowMs && Array.isArray(sm.Jobs) && sm.Jobs.length > 0;
+    })
+    .map((sm) => ({
+      syndicate: RAW_BOUNTY_SYNDICATES[sm.Tag],
+      syndicateKey: sm.Tag,
+      expiry: deDate(sm.Expiry),
+      jobs: sm.Jobs!.filter((j) => j.jobType).map((j) => {
+        // Extract a short label from the Lotus path (e.g. "/Lotus/.../AttritionBountyExt" → "Attrition Bounty")
+        const slug = (j.jobType || "").split("/").pop() || "Unknown";
+        const type = slug
+          .replace(/Bounty.*/, " Bounty")
+          .replace(/([a-z])([A-Z])/g, "$1 $2")
+          .trim() || "Unknown";
+        return {
+          type,
+          enemyLevels: [j.minEnemyLevel || 0, j.maxEnemyLevel || 0],
+          standingStages: j.xpAmounts || [],
+          minMR: j.masteryReq || 0,
+        };
+      }),
+    }));
+
+  // ─── Invasions from raw world state ───────────────────────────────────
+  const rawInvasions = (raw.Invasions || [])
+    .filter((inv) => !inv.Completed)
+    .map((inv) => {
+      const atkFaction = FACTION_LABEL[inv.Faction] || inv.Faction;
+      const defFaction = FACTION_LABEL[inv.DefenderFaction] || inv.DefenderFaction;
+      const vsInfestation = inv.Faction === "FC_INFESTATION";
+      const completion = inv.Goal > 0
+        ? Math.round((inv.Count / inv.Goal) * 1000) / 10
+        : 0;
+
+      function mapReward(reward?: { countedItems?: { ItemType: string; ItemCount: number }[]; credits?: number }) {
+        if (!reward) return { items: [], countedItems: [], credits: 0 };
+        return {
+          items: [] as string[],
+          countedItems: (reward.countedItems || []).map((ci) => ({
+            count: ci.ItemCount || 1,
+            type: resolveItemName(ci.ItemType),
+          })),
+          credits: reward.credits || 0,
+        };
+      }
+
+      return {
+        id: inv._id?.$oid || "",
+        node: formatNodeLabel(inv.Node),
+        attacker: { reward: mapReward(inv.AttackerReward), faction: atkFaction },
+        defender: { reward: mapReward(inv.DefenderReward), faction: defFaction },
+        vsInfestation,
+        completion: Math.max(0, Math.min(100, Math.abs(completion))),
+        completed: false,
+      };
+    });
+
   return {
     fissures,
     voidTrader,
@@ -606,7 +955,7 @@ export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> {
     cetusCycle: null,
     vallisCycle: null,
     cambionCycle: null,
-    invasions: [],
-    bounties: [],
+    invasions: rawInvasions,
+    bounties: rawBounties,
   };
 }

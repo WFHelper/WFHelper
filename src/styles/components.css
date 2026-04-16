@@ -651,8 +651,8 @@
   .detail-backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(6px);
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(3px);
   }
   .detail-panel {
     position: relative;
@@ -661,11 +661,50 @@
     max-width: 90vw;
     max-height: 85vh;
     overflow-y: auto;
-    border: 1px solid var(--border-strong);
+    border: 1px solid var(--border);
     border-radius: 0.75rem;
     background: var(--bg-surface);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
-    animation: detailSlideIn 0.18s ease;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    animation: detailSlideIn 0.15s ease-out;
+  }
+  .detail-dual-container {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    gap: 0;
+    max-width: 90vw;
+    max-height: 85vh;
+  }
+  .detail-dual-container > .detail-panel {
+    box-shadow: none;
+  }
+  .detail-dual-container:not(.has-comp) > .detail-panel {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+  .detail-dual-container.has-comp {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    overflow: hidden;
+  }
+  .detail-dual-container.has-comp > .detail-panel {
+    border-radius: 0;
+    border: none;
+    border-right: 1px solid var(--border);
+  }
+  .comp-inline-panel {
+    width: 400px;
+    border-radius: 0;
+    border: none;
+    animation: compSlideIn 0.18s ease;
+  }
+  .detail-comp-row.active {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 0.25rem;
+  }
+  @keyframes compSlideIn {
+    from { opacity: 0; transform: translateX(-12px); }
+    to { opacity: 1; transform: translateX(0); }
   }
   .comp-panel {
     width: 440px;
@@ -676,19 +715,31 @@
   .relic-detail-panel {
     width: 680px;
   }
-  .detail-close {
-    width: 2rem;
+  .detail-close,
+  .detail-wiki-btn {
     height: 2rem;
+    padding: 0 0.5rem;
     border-radius: 0.45rem;
     border: 0;
     background: transparent;
     color: var(--text-muted);
-    font-size: 1.5rem;
-    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    font-family: var(--font-display);
+    white-space: nowrap;
   }
-  .detail-close:hover {
+  .detail-close:hover,
+  .detail-wiki-btn:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
+  }
+  .detail-close {
+    font-size: 1.5rem;
+    line-height: 1;
   }
   .detail-panel-top-actions {
     position: absolute;
@@ -698,22 +749,6 @@
     display: flex;
     align-items: center;
     gap: 0.2rem;
-  }
-  .detail-wiki-btn {
-    width: 2rem;
-    height: 2rem;
-    border-radius: 0.45rem;
-    border: 0;
-    background: transparent;
-    color: var(--text-muted);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-  }
-  .detail-wiki-btn:hover {
-    background: var(--bg-hover);
-    color: var(--accent, #d4a843);
   }
   .detail-header {
     display: flex;
@@ -825,9 +860,15 @@
   }
   .detail-comp-row {
     cursor: pointer;
+    padding-left: 0.3rem;
+    padding-right: 0.3rem;
+    margin-left: -0.3rem;
+    margin-right: -0.3rem;
   }
   .detail-comp-row:hover {
     color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 0.25rem;
   }
   .detail-comp-row.owned .comp-count,
   .comp-count.has-enough {
@@ -841,13 +882,54 @@
   .comp-count.has-none {
     color: var(--danger);
   }
+  .drop-entry {
+    justify-content: flex-start;
+  }
   .drop-location {
     color: var(--text-primary);
   }
   .drop-rarity {
     color: var(--text-muted);
   }
+  .drop-chance {
+    color: var(--accent, #d4a843);
+    font-size: 0.78rem;
+    flex-shrink: 0;
+  }
   .drop-entry-more {
     opacity: 0.5;
+  }
+  .detail-meta-inline {
+    font-size: 0.64rem;
+    font-family: var(--font-display);
+    color: var(--text-muted);
+    align-self: center;
+    letter-spacing: 0.03em;
+  }
+  .detail-desc-header {
+    margin-top: 0.3rem;
+    line-height: 1.35;
+  }
+  .comp-meta-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+  .drop-view-all {
+    display: block;
+    width: 100%;
+    padding: 0.35rem 0;
+    border: none;
+    background: none;
+    color: var(--accent, #d4a843);
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    cursor: pointer;
+    text-align: left;
+    opacity: 0.85;
+  }
+  .drop-view-all:hover {
+    opacity: 1;
+    text-decoration: underline;
   }
 }

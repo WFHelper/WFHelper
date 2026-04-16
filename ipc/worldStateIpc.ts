@@ -41,6 +41,8 @@ let _worldNotificationSnapshot: {
   vallisExpiry: string | null;
   cambionActive: string | null;
   cambionExpiry: string | null;
+  duviriState: string | null;
+  duviriExpiry: string | null;
   fissureIds: Set<string>;
 } | null = null;
 
@@ -91,6 +93,10 @@ function buildNotificationSnapshot(state: unknown) {
   const cambionCycle =
     stateRecord.cambionCycle && typeof stateRecord.cambionCycle === "object"
       ? (stateRecord.cambionCycle as Record<string, unknown>)
+      : null;
+  const duviriCycle =
+    stateRecord.duviriCycle && typeof stateRecord.duviriCycle === "object"
+      ? (stateRecord.duviriCycle as Record<string, unknown>)
       : null;
 
   const rawFissures = Array.isArray(stateRecord.fissures)
@@ -156,6 +162,16 @@ function buildNotificationSnapshot(state: unknown) {
     cambionExpiry: cambionCycle
       ? typeof cambionCycle.expiry === "string"
         ? cambionCycle.expiry
+        : null
+      : null,
+    duviriState: duviriCycle
+      ? typeof duviriCycle.state === "string"
+        ? duviriCycle.state.toLowerCase()
+        : null
+      : null,
+    duviriExpiry: duviriCycle
+      ? typeof duviriCycle.expiry === "string"
+        ? duviriCycle.expiry
         : null
       : null,
     fissureIds,
@@ -318,7 +334,7 @@ function maybeNotifyWorldEvents(state: unknown): void {
   }
 
   // Per-cycle transition notifications (opt-in via cycleAlerts settings)
-  const cycleAlerts = ctx.overlaySettings?.cycleAlerts ?? { earth: false, cetus: false, vallis: false, cambion: false };
+  const cycleAlerts = ctx.overlaySettings?.cycleAlerts ?? { earth: false, cetus: false, vallis: false, cambion: false, duviri: false };
 
   // --- Transition notifications (fire when cycle actually changes) ---
   if (
@@ -361,6 +377,16 @@ function maybeNotifyWorldEvents(state: unknown): void {
     sendDesktopNotification("Cambion Drift Cycle", `${label} cycle has begun.`);
   }
 
+  if (
+    cycleAlerts.duviri &&
+    prev.duviriState !== null &&
+    next.duviriState !== null &&
+    prev.duviriState !== next.duviriState
+  ) {
+    const label = next.duviriState ? next.duviriState.charAt(0).toUpperCase() + next.duviriState.slice(1) : "Unknown";
+    sendDesktopNotification("Duviri Cycle", `${label} mood has begun.`);
+  }
+
   // Fissure appearance alerts (opt-in per configured alert rules)
   const fissureAlertRules = ctx.overlaySettings?.fissureAlerts;
   if (Array.isArray(fissureAlertRules) && fissureAlertRules.length > 0) {
@@ -396,7 +422,10 @@ function maybeNotifyWorldEvents(state: unknown): void {
           rule.steelPath === "any" ||
           (rule.steelPath === "steel" && isHard) ||
           (rule.steelPath === "normal" && !isHard);
-        return tierOk && missionOk && spOk;
+        const planetOk =
+          !rule.planet || rule.planet === "any" ||
+          node.toLowerCase().includes(`(${rule.planet.toLowerCase()})`);
+        return tierOk && missionOk && spOk && planetOk;
       });
 
       if (matches) {
@@ -419,7 +448,7 @@ function maybeNotifyWorldEvents(state: unknown): void {
 function checkPreCycleNotifications(state: unknown): void {
   if (!canSendNotifications()) return;
 
-  const cycleAlerts = ctx.overlaySettings?.cycleAlerts ?? { earth: false, cetus: false, vallis: false, cambion: false };
+  const cycleAlerts = ctx.overlaySettings?.cycleAlerts ?? { earth: false, cetus: false, vallis: false, cambion: false, duviri: false };
   const leadMinutes = ctx.overlaySettings?.cycleAlertMinutesBefore ?? 3;
   if (leadMinutes <= 0) return;
 
@@ -433,6 +462,7 @@ function checkPreCycleNotifications(state: unknown): void {
     { key: "cetus", enabled: !!cycleAlerts.cetus, expiry: snap.cetusExpiry, label: snap.cetusIsDay ? "Night" : "Day" },
     { key: "vallis", enabled: !!cycleAlerts.vallis, expiry: snap.vallisExpiry, label: snap.vallisIsWarm ? "Cold" : "Warm" },
     { key: "cambion", enabled: !!cycleAlerts.cambion, expiry: snap.cambionExpiry, label: snap.cambionActive === "fass" ? "VOME" : "FASS" },
+    { key: "duviri", enabled: !!cycleAlerts.duviri, expiry: snap.duviriExpiry, label: snap.duviriState ? snap.duviriState.charAt(0).toUpperCase() + snap.duviriState.slice(1) : "Unknown" },
   ];
 
   for (const c of upcomingCycles) {

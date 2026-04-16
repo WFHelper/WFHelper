@@ -42,8 +42,8 @@ describe("worldStateParser.parseRaw", () => {
     expect(parsed.fissures).toHaveLength(1);
     expect(parsed.fissures[0].tier).toBe("Axi");
     expect(parsed.fissures[0].missionType).toBe("Capture");
-    expect(parsed.voidTrader?.location).toBe("Earth Relay");
-    expect(parsed.vaultTrader?.location).toBe("Mars Relay");
+    expect(parsed.voidTrader?.location).toBe("Larunda Relay (Earth)");
+    expect(parsed.vaultTrader?.location).toBe("Strata Relay (Mars)");
     expect(parsed.sortie?.expiry).toBeTruthy();
   });
 

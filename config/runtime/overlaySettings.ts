@@ -3,6 +3,7 @@ export interface CycleAlerts {
   cetus: boolean;
   vallis: boolean;
   cambion: boolean;
+  duviri: boolean;
 }
 
 export interface FissureAlert {
@@ -10,6 +11,7 @@ export interface FissureAlert {
   tier: string;
   missionType: string;
   steelPath: "any" | "normal" | "steel";
+  planet: string;
 }
 
 export interface OverlaySettings {
@@ -45,7 +47,7 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   matchThreshold: 0.74,
   ocrTimeoutMs: 15_000,
   worldNotificationsEnabled: true,
-  cycleAlerts: Object.freeze({ earth: false, cetus: false, vallis: false, cambion: false }),
+  cycleAlerts: Object.freeze({ earth: false, cetus: false, vallis: false, cambion: false, duviri: false }),
   cycleAlertMinutesBefore: 3,
   fissureAlerts: Object.freeze([] as FissureAlert[]),
   wfmNotificationsEnabled: false,

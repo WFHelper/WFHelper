@@ -6,6 +6,7 @@ const OPEN_EXTERNAL_ALLOWED_HOSTS: readonly string[] = Object.freeze([
   "github.com",
   "www.github.com",
   "sainan.github.io",
+  "wiki.warframe.com",
 ]);
 
 const BASE_CONNECT_SRC_ALLOWLIST: readonly string[] = Object.freeze([
@@ -14,6 +15,7 @@ const BASE_CONNECT_SRC_ALLOWLIST: readonly string[] = Object.freeze([
   "https://warframe.market",
   "https://content.warframe.com",
   "https://api.warframestat.us",
+  "https://drops.warframestat.us",
 ]);
 
 export function toAllowedConnectOrigin(value: unknown): string | null {
