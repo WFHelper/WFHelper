@@ -12,11 +12,9 @@
   import {
     type ChartKey,
     type SessionStatKey,
-    type BarData,
     type ChartResult,
     BAR_H,
     BAR_H_EXPAND,
-    BAR_GAP,
     SVG_W,
     TIMEFRAME_OPTIONS,
     formatDelta,
@@ -199,32 +197,6 @@
   // ── Hover tooltip ─────────────────────────────────────────────────────────────
 
   let tooltip: { text: string; x: number; y: number } | null = null;
-
-  function onSvgMouseMove(
-    e: MouseEvent,
-    key: ChartKey,
-    bars: BarData[],
-    bw: number,
-    absVals?: number[],
-  ): void {
-    const svg = e.currentTarget as SVGSVGElement;
-    const rect = svg.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    // Convert viewport pixel → SVG coordinate space
-    const svgX = (mx / rect.width) * SVG_W;
-    const barIdx = Math.floor(svgX / (bw + BAR_GAP));
-    if (barIdx >= 0 && barIdx < bars.length) {
-      const bar = bars[barIdx];
-      const sign = bar.value >= 0 ? "+" : "−";
-      let text = `${shortDate(bar.date)}  ${sign}${formatters[key](Math.abs(bar.value))}`;
-      if (showValue && absVals && barIdx < absVals.length && !Number.isNaN(absVals[barIdx])) {
-        text += `  (${formatters[key](absVals[barIdx])})`;
-      }
-      tooltip = { text, x: e.clientX, y: e.clientY };
-    } else {
-      tooltip = null;
-    }
-  }
 
   /** Tooltip for individual dot hover (compact charts) */
   function onDotEnter(e: MouseEvent, key: ChartKey, barIdx: number, absVal: number): void {

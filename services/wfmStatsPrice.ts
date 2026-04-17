@@ -17,7 +17,7 @@ interface CacheEntry {
 const cache = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<number | null>>();
 
-function normalizeSlug(slug: any): string {
+function normalizeSlug(slug: unknown): string {
   if (typeof slug !== "string") return "";
   return slug.trim().toLowerCase();
 }
@@ -39,14 +39,14 @@ function setCachedPrice(slug: string, median: number): void {
   });
 }
 
-export function getCachedPriceBySlug(slugInput: any): number | null {
+export function getCachedPriceBySlug(slugInput: unknown): number | null {
   const slug = normalizeSlug(slugInput);
   if (!slug) return null;
   return getCachedPrice(slug);
 }
 
 export async function fetchPriceBySlug(
-  slugInput: any,
+  slugInput: unknown,
   options: { timeoutMs?: number } = {},
 ): Promise<number | null> {
   const slug = normalizeSlug(slugInput);

@@ -308,8 +308,11 @@ function triggerInitialScan(): void {
         }
       }
 
+      // Always notify the overlay so it can stop the scanning spinner.
+      // When stats is empty, the overlay shows the "waiting" placeholder;
+      // when stats are present, it renders them.
+      rivenSession.onInitialStats(getRivenWindows(), stats);
       if (stats.length > 0) {
-        rivenSession.onInitialStats(getRivenWindows(), stats);
         // If weapon name is already known, send grading immediately
         sendGradedInitialStats();
       }

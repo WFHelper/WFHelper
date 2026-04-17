@@ -534,8 +534,8 @@ export function startWatching(
   });
 
   pollTimer = setInterval(pollReadNewBytes, POLL_INTERVAL_MS);
-  if (typeof (pollTimer as any)?.unref === "function") {
-    (pollTimer as any).unref();
+  if (typeof (pollTimer as NodeJS.Timeout)?.unref === "function") {
+    (pollTimer as NodeJS.Timeout).unref();
   }
   pollReadNewBytes();
 

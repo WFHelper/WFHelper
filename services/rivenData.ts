@@ -226,10 +226,12 @@ function ensureBuilt(): void {
   _built = true;
 
   try {
-    const pep = require("warframe-public-export-plus") as any;
+    /* eslint-disable @typescript-eslint/no-explicit-any -- untyped warframe-public-export-plus */
+    const pep = require("warframe-public-export-plus") as Record<string, any>;
     const dict: Record<string, string> = pep.dict_en || {};
-    const weapons: Record<string, any> = pep.ExportWeapons || {};
-    const upgrades: Record<string, any> = pep.ExportUpgrades || {};
+    const weapons: Record<string, Record<string, any>> = pep.ExportWeapons || {};
+    const upgrades: Record<string, Record<string, any>> = pep.ExportUpgrades || {};
+    /* eslint-enable @typescript-eslint/no-explicit-any */
 
     // ── Index weapons ──────────────────────────────────────────────────────
     let weaponCount = 0;

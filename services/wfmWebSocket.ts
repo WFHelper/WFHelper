@@ -243,6 +243,7 @@ export function setStatusViaWebSocket(
         }
         if (opcode !== 1) continue;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped WFM websocket message
         let msg: any;
         try {
           msg = JSON.parse(text);

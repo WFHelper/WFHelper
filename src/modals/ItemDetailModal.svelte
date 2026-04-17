@@ -6,7 +6,7 @@
   import { send } from "../lib/ipc.js";
   import { toOfficialWikiUrl, buildWikiUrl } from "../lib/wikiUrl.js";
   import { resolveDrops } from "../lib/resolveDrops.js";
-  import type { ComponentInfo, DropInfo } from "../types/inventory.js";
+  import type { ComponentInfo } from "../types/inventory.js";
 
   let priceText = "";
   let priceSlug: string | null = null;

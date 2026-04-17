@@ -1,6 +1,6 @@
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
-import type { WorldStateRaw, WorldStateDate, ActiveMissionRaw, SortieRaw, DescentRaw, EndlessXpChoice } from "./types/gameData";
+import type { WorldStateRaw, WorldStateDate } from "./types/gameData";
 
 import fs from "fs";
 import path from "path";
@@ -154,7 +154,7 @@ async function fetchWithTimeout(
   }
 }
 
-export function emptyWorldState(): any {
+export function emptyWorldState(): Record<string, unknown> {
   return {
     fissures: [],
     voidTrader: null,

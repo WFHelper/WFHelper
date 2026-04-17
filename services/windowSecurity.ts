@@ -59,20 +59,22 @@ export function hardenBrowserWindowNavigation(
     }
   };
 
+  /* eslint-disable @typescript-eslint/no-explicit-any -- Electron event listener overloads */
   browserWindow.webContents.on("will-navigate", blockUnexpectedNavigation as any);
 
-  browserWindow.webContents.on("will-frame-navigate", ((event: any, details: any) => {
+  browserWindow.webContents.on("will-frame-navigate", ((event: Electron.Event, details: Record<string, unknown>) => {
     const targetUrl =
       details && typeof details === "object" && typeof details.url === "string" ? details.url : "";
     blockUnexpectedNavigation(event, targetUrl);
   }) as any);
 
-  browserWindow.webContents.on("will-attach-webview", ((event: any) => {
+  browserWindow.webContents.on("will-attach-webview", ((event: Electron.Event) => {
     event.preventDefault();
     if (logger && typeof logger.warn === "function") {
       logger.warn(`[Security] Blocked ${label} webview attach attempt`);
     }
   }) as any);
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 }
 
 export const __test__ = {

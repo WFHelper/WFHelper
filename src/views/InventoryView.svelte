@@ -54,7 +54,6 @@
   let filter: InventoryFilterTab = "all_parts";
   let showFilterPanel = false;
   let selectedInternalName: string | null = null;
-  let resourceSearch = '';
   const FILTERS = INVENTORY_FILTERS;
   const inventoryFilters = sharedFilters("inventory");
 

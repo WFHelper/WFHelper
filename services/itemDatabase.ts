@@ -8,8 +8,6 @@ import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import type {
   PepExportItem,
-  WfcdComponent,
-  WfcdDrop,
   DropEntry,
   ComponentEntry,
   RendererItemEntry,

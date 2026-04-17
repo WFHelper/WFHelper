@@ -202,7 +202,7 @@ function escapeXml(text: string): string {
 function ensureStartMenuShortcut(): void {
   if (process.platform !== "win32") return;
   try {
-    const { app, shell } = require("electron") as typeof import("electron");
+    const { shell } = require("electron") as typeof import("electron");
     const startMenuDir = path.join(
       process.env.APPDATA || "",
       "Microsoft", "Windows", "Start Menu", "Programs",

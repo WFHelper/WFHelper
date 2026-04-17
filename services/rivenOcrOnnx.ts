@@ -705,9 +705,13 @@ export async function recognizeStatArea(
   }
 
   const text = mergedLines.map((l) => l.text).join("\n");
-  const minConfidence = mergedLines.length > 0
-    ? Math.min(...mergedLines.map((l) => l.confidence))
-    : -1;
+  // Only stat-relevant lines (starting with +/-/x/×) count for minConfidence;
+  // title, MR footer, and continuation fragments are excluded.
+  const statLineRe = /^[+\-x×]/i;
+  const statConfs = mergedLines.filter((l) => statLineRe.test(l.text.trim())).map((l) => l.confidence);
+  const minConfidence = statConfs.length > 0
+    ? Math.min(...statConfs)
+    : (mergedLines.length > 0 ? Math.min(...mergedLines.map((l) => l.confidence)) : -1);
 
   return {
     lines: mergedLines,
@@ -718,10 +722,16 @@ export async function recognizeStatArea(
 }
 
 /**
- * Check if any line in the result has low confidence.
+ * Check if any *stat-relevant* line has low confidence.
+ * Only lines that look like stat values (starting with +, -, x, ×) are checked;
+ * title lines ("Sobek Croni-zetican"), MR/footer lines, and continuation
+ * fragments ("Bows)") are ignored since they don't affect parsed stats.
  */
 export function hasLowConfidenceLine(result: RivenOcrResult): boolean {
-  return result.lines.some((l) => l.confidence < LOW_CONFIDENCE_THRESHOLD);
+  const statLineRe = /^[+\-x×]/i;
+  const statLines = result.lines.filter((l) => statLineRe.test(l.text.trim()));
+  if (statLines.length === 0) return false;
+  return statLines.some((l) => l.confidence < LOW_CONFIDENCE_THRESHOLD);
 }
 
 // ── Legacy exports (backward compatibility for benchmark scripts) ─────────────

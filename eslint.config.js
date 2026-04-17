@@ -67,6 +67,7 @@ module.exports = [
     },
     rules: {
       ...tsPlugin.configs.recommended.rules,
+      "no-undef": "off",
       "no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-require-imports": "off",

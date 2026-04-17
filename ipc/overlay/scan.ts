@@ -2,6 +2,14 @@ import type { NativeImage } from "electron";
 import { normalizeErrorMessage } from "../../config/shared/errors";
 import { RELIC_REWARD_ITEMS, RELIC_REWARD_TRIGGER } from "../../config/shared/ipcChannels";
 
+type GatePreCapture = {
+  image: NativeImage;
+  sourceType: string | null;
+  sourceName: string | null;
+  sourceId: string | null;
+  sourceDisplayId: string | null;
+};
+
 const SCAN_RETRY_WINDOW_MS = 5_000;
 const SCAN_RETRY_INTERVAL_MS = 450;
 const SCAN_MAX_ATTEMPTS = 10;
@@ -103,7 +111,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
 
   let rewardScanInFlight = false;
 
-  async function runRewardScanWithRetries(triggerSource: string, gatePre?: any): Promise<RewardScanResult> {
+  async function runRewardScanWithRetries(triggerSource: string, gatePre?: GatePreCapture | null): Promise<RewardScanResult> {
     const startedAt = Date.now();
     let attempts = 0;
     let bestResult: RewardScanResult | null = null;
@@ -185,7 +193,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
       }
 
       // F2: store the gate's last screenshot so we can pass it as preCapture
-      let gatePre: any = undefined;
+      let gatePre: GatePreCapture | undefined = undefined;
       if (typeof rewardScanner.waitForRewardUiReady === "function") {
         const gate = await rewardScanner.waitForRewardUiReady({
           timeoutMs: UI_READY_GATE_TIMEOUT_MS,
@@ -194,7 +202,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
           scoreThreshold: UI_READY_GATE_SCORE_THRESHOLD,
         });
 
-        gatePre = gate?.lastScreenshot ?? undefined;
+        gatePre = (gate?.lastScreenshot ?? undefined) as typeof gatePre;
 
         if (gate?.best && Number.isFinite(gate.best.bandBottomRatio)) {
           windows.setAnchorMeta({

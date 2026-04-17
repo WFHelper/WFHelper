@@ -47,7 +47,7 @@ export type ParsedSearchPayload = { query: string; limit: number };
 export type ParsedStatusPayload = { status: string };
 export type ParsedContractsPayload = { page: number; limit: number };
 
-function isObject(value: unknown): value is Record<string, any> {
+function isObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 

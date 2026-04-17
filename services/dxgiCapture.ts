@@ -36,19 +36,21 @@ export interface GdiCaptureResult {
 // GDI screen capture via BitBlt — guaranteed fresh frame
 // ---------------------------------------------------------------------------
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- native FFI bindings, return types unknown at compile time */
 let _gdiFns: {
-  GetDC: any;
-  ReleaseDC: any;
-  GetSystemMetrics: any;
-  GetMonitorInfoW: any;
-  CreateCompatibleDC: any;
-  CreateCompatibleBitmap: any;
-  SelectObject: any;
-  BitBlt: any;
-  GetDIBits: any;
-  DeleteObject: any;
-  DeleteDC: any;
+  GetDC: (...args: any[]) => any;
+  ReleaseDC: (...args: any[]) => any;
+  GetSystemMetrics: (...args: any[]) => any;
+  GetMonitorInfoW: (...args: any[]) => any;
+  CreateCompatibleDC: (...args: any[]) => any;
+  CreateCompatibleBitmap: (...args: any[]) => any;
+  SelectObject: (...args: any[]) => any;
+  BitBlt: (...args: any[]) => any;
+  GetDIBits: (...args: any[]) => any;
+  DeleteObject: (...args: any[]) => any;
+  DeleteDC: (...args: any[]) => any;
 } | null = null;
+/* eslint-enable @typescript-eslint/no-explicit-any */
 let _gdiInitFailed = false;
 
 function ensureGdi(): boolean {
@@ -132,9 +134,9 @@ export function captureGdi(displayId?: string | null): GdiCaptureResult | null {
   const hdcScreen = g.GetDC(null);
   if (!hdcScreen) return null;
 
-  let hdcMem: any = null;
-  let hBitmap: any = null;
-  let hOld: any = null;
+  let hdcMem: unknown = null;
+  let hBitmap: unknown = null;
+  let hOld: unknown = null;
 
   try {
     hdcMem = g.CreateCompatibleDC(hdcScreen);

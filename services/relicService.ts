@@ -52,6 +52,7 @@ interface RelicDatabase {
 let _db: RelicDatabase | null = null;
 
 function buildRelicDatabase(): RelicDatabase {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped @wfcd/items constructor
   let Items: any;
   try {
     Items = require("@wfcd/items");
@@ -100,6 +101,7 @@ function buildRelicDatabase(): RelicDatabase {
 
     group.qualities[quality.toLowerCase()] = {
       uniqueName: relic.uniqueName || null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped @wfcd/items reward
       rewards: (relic.rewards || []).map((r: any) => {
         const rawSlug = r.item?.warframeMarket?.urlName || r.item?.warframeMarket?.url_name || null;
         return {

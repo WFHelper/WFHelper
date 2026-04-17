@@ -53,15 +53,17 @@ let _loading: Promise<void> | null = null;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function _unwrap(obj: any): any {
-  if (!obj) return null;
-  if (obj.data !== undefined) return obj.data;
-  if (obj.payload !== undefined) return obj.payload;
+function _unwrap(obj: unknown): unknown {
+  if (!obj || typeof obj !== "object") return null;
+  const o = obj as Record<string, unknown>;
+  if (o.data !== undefined) return o.data;
+  if (o.payload !== undefined) return o.payload;
   return obj;
 }
 
-function _normalise(raw: any): CatalogItem {
-  const source = raw && typeof raw === "object" ? raw : {};
+function _normalise(raw: unknown): CatalogItem {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- deeply nested untyped WFM API response
+  const source = (raw && typeof raw === "object" ? raw : {}) as Record<string, any>;
   const slug: string = source.slug || source.url_name || source._slug || "";
   const name: string =
     source?.i18n?.en?.name ||
@@ -102,7 +104,7 @@ async function _load(): Promise<void> {
     try {
       log.log("[WFMCatalog] Fetching item catalog (v2)…");
 
-      let rawItems: any[] = [];
+      let rawItems: unknown[] = [];
 
       for (const path of ITEM_PATH_CANDIDATES) {
         if (rawItems.length) break;
@@ -116,10 +118,12 @@ async function _load(): Promise<void> {
           const data = _unwrap(json);
           if (!data) continue;
 
-          if (Array.isArray(data.items)) {
-            rawItems = data.items;
-          } else if (data.items && typeof data.items === "object") {
-            rawItems = Object.entries(data.items).map(([k, v]) =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- deeply nested untyped WFM catalog
+          const d = data as Record<string, any>;
+          if (Array.isArray(d.items)) {
+            rawItems = d.items;
+          } else if (d.items && typeof d.items === "object") {
+            rawItems = Object.entries(d.items as Record<string, unknown>).map(([k, v]) =>
               v && typeof v === "object" ? { _slug: k, ...(v as object) } : { _slug: k },
             );
           } else if (Array.isArray(data)) {
@@ -223,8 +227,8 @@ export function getMarketUrl(itemName: string): string | null {
   return `${WFM_ITEM_URL_BASE}${item.url_name}`;
 }
 
-export function getRendererLookup(): Record<string, any> {
-  const lookup: Record<string, any> = {};
+export function getRendererLookup(): Record<string, Record<string, unknown>> {
+  const lookup: Record<string, Record<string, unknown>> = {};
   for (const [name, item] of _byNameLc.entries()) {
     lookup[name] = {
       url_name: item.url_name,

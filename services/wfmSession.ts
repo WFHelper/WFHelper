@@ -116,6 +116,13 @@ function _loadSession(): { token: string; userName: string; platform: string } |
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
+/** Safely extract a nested value from an untyped WFM auth response (v1/v2 envelope). */
+function _authField<T>(body: unknown, key: string): T | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped WFM auth envelope
+  const b = body as any;
+  return b?.payload?.[key] ?? b?.[key] ?? undefined;
+}
+
 /**
  * Sign in with email + password.
  * Returns a safe summary (no token) on success.
@@ -160,14 +167,14 @@ export async function signIn(email: string, password: string): Promise<SignInRes
   }
 
   if (!token) {
-    token = (body as any)?.payload?.token || (body as any)?.token || null;
+    token = _authField<string>(body, "token") || null;
   }
 
   if (!token) {
     throw new Error("Sign-in succeeded but no session token was returned. Please try again.");
   }
 
-  const userInfo = (body as any)?.payload?.user || (body as any)?.user || {};
+  const userInfo = _authField<Record<string, string>>(body, "user") || {};
   const userName = userInfo.ingame_name || userInfo.name || email.split("@")[0];
   _platform = userInfo.platform || "pc";
 
@@ -244,8 +251,9 @@ export function getInGameName(): string | null {
 export async function getMe(): Promise<WfmUserProfile | null> {
   if (!_token) return null;
   try {
-    const data = await requestV2("GET", "/me") as any;
-    return data?.data || null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped WFM v2 envelope
+    const data = (await requestV2("GET", "/me")) as Record<string, any>;
+    return (data?.data ?? null) as WfmUserProfile | null;
   } catch (err) {
     log.warn("[WFMSession] getMe failed:", normalizeErrorMessage(err));
     return null;

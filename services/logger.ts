@@ -19,8 +19,9 @@ function resetLogFileOnAppStart(): void {
   if (!resetLogOnStart) return;
 
   try {
-    if (typeof (electronLog.transports.file as any).clear === "function") {
-      (electronLog.transports.file as any).clear();
+    const transport = electronLog.transports.file as unknown as { clear?: () => void };
+    if (typeof transport.clear === "function") {
+      transport.clear();
       return;
     }
   } catch {
@@ -39,8 +40,8 @@ function resetLogFileOnAppStart(): void {
   }
 }
 
-electronLog.transports.file.level = level as any;
-electronLog.transports.console.level = level as any;
+electronLog.transports.file.level = level as typeof electronLog.transports.file.level;
+electronLog.transports.console.level = level as typeof electronLog.transports.console.level;
 electronLog.transports.file.maxSize = 5 * 1024 * 1024;
 electronLog.initialize();
 resetLogFileOnAppStart();

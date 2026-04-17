@@ -341,9 +341,9 @@ app.whenReady().then(async () => {
   try {
     const db = relicService.getRelicDatabase();
     const seen = new Map();
-    for (const group of Object.values(db.groups as Record<string, any>)) {
-      for (const qualData of Object.values((group as any).qualities as Record<string, any>)) {
-        for (const reward of (qualData as any).rewards || []) {
+    for (const group of Object.values(db.groups)) {
+      for (const qualData of Object.values(group.qualities)) {
+        for (const reward of qualData.rewards || []) {
           if (reward.name && !seen.has(reward.name)) {
             seen.set(reward.name, {
               name: reward.name,

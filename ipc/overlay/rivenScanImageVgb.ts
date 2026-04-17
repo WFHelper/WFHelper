@@ -143,7 +143,7 @@ function _morphCloseCross(mask: Buffer, w: number, h: number): void {
  * output (which loses information and can miss faint lines).
  */
 export async function enhanceForRivenOcrVgb(
-  croppedImage: any,
+  croppedImage: { getSize: () => { width: number; height: number }; toPNG: () => Buffer },
   brightThreshold = 140,
 ): Promise<VgbResult> {
   const sharp = require("sharp") as typeof import("sharp");

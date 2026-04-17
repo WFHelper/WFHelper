@@ -11,7 +11,7 @@ const TASKLIST_TIMEOUT_MS = 1200;
 /** Kill the foreground-window check after this long to avoid blocking the overlay loop. */
 const FOCUS_TIMEOUT_MS = 1200;
 
-function getElectronScreen(): any {
+function getElectronScreen(): Electron.Screen | null {
   try {
     const { screen } = require("electron") as typeof import("electron");
     return screen || null;
@@ -117,7 +117,8 @@ async function getForegroundWindowInfo(): Promise<{
     const trimmed = out.trim();
     if (!trimmed) return null;
 
-    const parsed = JSON.parse(trimmed) as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped PowerShell JSON output
+    const parsed = JSON.parse(trimmed) as Record<string, any>;
     const processName = typeof parsed?.processName === "string" ? parsed.processName.trim() : "";
     const bounds = parsed?.bounds;
 

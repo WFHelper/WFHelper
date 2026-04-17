@@ -435,15 +435,21 @@ export async function nativeOcrFile(imagePath: string, _timeoutMs?: number): Pro
 // ~500ms cold-start overhead on each fallback call. The worker is lazily
 // created on first use and reused for all subsequent calls.
 
-let _tesseractWorker: any = null;
-let _tesseractWorkerReady: Promise<any> | null = null;
+interface TesseractWorker {
+  setParameters: (params: Record<string, string>) => Promise<void>;
+  recognize: (image: Buffer | string) => Promise<{ data: { text: string } }>;
+  terminate: () => Promise<void>;
+}
+
+let _tesseractWorker: TesseractWorker | null = null;
+let _tesseractWorkerReady: Promise<TesseractWorker | null> | null = null;
 let _tesseractWorkerLanguage: string = "eng";
 let _lastTessParamsKey: string = "";
 
-async function _initTesseractWorker(language: string): Promise<any> {
+async function _initTesseractWorker(language: string): Promise<TesseractWorker | null> {
   try {
     const Tesseract = require("tesseract.js") as {
-      createWorker: (lang: string, oem?: number, opts?: any) => Promise<any>;
+      createWorker: (lang: string, oem?: number, opts?: Record<string, unknown>) => Promise<TesseractWorker>;
     };
     const worker = await Tesseract.createWorker(language, 1 /* OEM.LSTM_ONLY — neural LSTM only, faster than legacy+LSTM combined */);
     _tesseractWorkerLanguage = language;
@@ -459,7 +465,7 @@ async function _initTesseractWorker(language: string): Promise<any> {
  * Get (or lazily create) the persistent Tesseract worker. Returns null if
  * Tesseract.js is not installed.
  */
-export function getTesseractWorker(language: string = "eng"): Promise<any> | null {
+export function getTesseractWorker(language: string = "eng"): Promise<TesseractWorker | null> | null {
   if (_tesseractWorkerReady && _tesseractWorkerLanguage === language) {
     return _tesseractWorkerReady;
   }

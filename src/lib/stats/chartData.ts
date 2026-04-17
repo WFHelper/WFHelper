@@ -45,7 +45,6 @@ export const BAR_H = 64;
 export const BAR_H_EXPAND = 300;
 export const BAR_GAP = 2;
 export const SVG_W = 800;
-export const MAX_BAR_W = 16;
 
 export const TIMEFRAME_OPTIONS = [7, 14, 30, 90] as const;
 
@@ -93,8 +92,8 @@ export const formatters: Record<ChartKey, (abs: number) => string> = {
 export function formatAbsolute(n: number | null): string {
   if (n === null) return "—";
   const abs = Math.abs(n);
-  if (abs >= 1_000_000) return `${(abs / 1_000_000).toFixed(2)}M`;
-  if (abs >= 1_000) return `${(abs / 1_000).toFixed(1)}k`;
+  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (abs >= 100_000) return `${(n / 1_000).toFixed(1)}k`;
   return n.toLocaleString();
 }
 
@@ -103,8 +102,6 @@ export function deltaClass(n: number): string {
   if (n < 0) return "delta-negative";
   return "delta-neutral";
 }
-
-const SHORT_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 export function shortDate(iso: string): string {
   const parts = iso.split("-");
@@ -170,14 +167,22 @@ function pickNumericField(entry: DailyStatEntry, key: ChartKey): number {
   }
 }
 
+/** Format YYYY-MM-DD from a local Date. */
+function localDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 /** Generate all YYYY-MM-DD strings from startDate to today (inclusive). */
 function allCalendarDays(startIso: string): string[] {
   const result: string[] = [];
   const d = new Date(startIso + "T00:00:00");
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setHours(23, 59, 59, 999);
   while (d <= today) {
-    result.push(d.toISOString().slice(0, 10));
+    result.push(localDateStr(d));
     d.setDate(d.getDate() + 1);
   }
   return result;
@@ -187,7 +192,7 @@ export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, 
   // Build a full calendar grid from cutoff to today
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const cutoffStr = localDateStr(cutoff);
   const calendarDays = allCalendarDays(cutoffStr);
   if (calendarDays.length === 0) return { bars: [], hasBaseline: false, bw: 4, absLine: null, absValues: [], hasAbsData: false, realData: [], yTicks: [], niceMax: 0 };
 
@@ -197,24 +202,22 @@ export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, 
     if (e.date >= cutoffStr) entryMap.set(e.date, e);
   }
 
-  // Build per-day values and track which days have real data
+  // Build per-day values, abs values, and track which days have real data
   const realData: boolean[] = [];
   let values: number[] = [];
   const absField = ABS_FIELD_MAP[key];
+  const rawAbs: (number | undefined)[] = [];
 
   for (const day of calendarDays) {
     const entry = entryMap.get(day);
     realData.push(!!entry);
     values.push(entry ? (pickNumericField(entry, key) ?? 0) : 0);
+    rawAbs.push(absField && entry ? ((entry[absField] as number | undefined) ?? undefined) : undefined);
   }
 
   // Fallback: derive deltas from absolute values for entries where delta is 0
   // but consecutive abs values show a change
   if (absField) {
-    const rawAbs = calendarDays.map((day) => {
-      const entry = entryMap.get(day);
-      return entry ? ((entry[absField] as number | undefined) ?? undefined) : undefined;
-    });
     for (let i = 1; i < values.length; i++) {
       if (values[i] === 0 && rawAbs[i] !== undefined && rawAbs[i - 1] !== undefined) {
         const derived = (rawAbs[i] as number) - (rawAbs[i - 1] as number);
@@ -275,11 +278,7 @@ export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, 
   let niceMax = 0;
 
   if (absField) {
-    // Build raw abs array for every calendar day, carry forward last known value
-    const rawAbs: (number | undefined)[] = calendarDays.map((day) => {
-      const entry = entryMap.get(day);
-      return entry ? ((entry[absField] as number | undefined) ?? undefined) : undefined;
-    });
+    // Carry forward the last known absolute value so the line extends across gaps
     let lastKnown: number | undefined;
     for (let i = 0; i < rawAbs.length; i++) {
       if (rawAbs[i] !== undefined) lastKnown = rawAbs[i];

@@ -80,13 +80,6 @@ function resolveDropsFile(syndicateKey: string): string | undefined {
   return SYNDICATE_FILE[syndicateKey] ?? SYNDICATE_FILE[SYNDICATE_ALIASES[syndicateKey]];
 }
 
-const STAGE_ORDER: Record<string, number> = {
-  "Stage 1": 0,
-  "Stages 2-3": 1,
-  "Stage 4": 2,
-  "Final": 3,
-};
-
 const RARITY_ORDER: Record<string, number> = {
   Legendary: 0,
   Rare: 1,

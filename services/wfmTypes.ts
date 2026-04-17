@@ -86,14 +86,6 @@ export interface WfmCloseOrderResult {
 
 // ── Envelope unwrapper ───────────────────────────────────────────────────────
 
-/** The two envelope shapes WFM uses. */
-interface WfmV1Envelope<T> {
-  payload: T;
-}
-interface WfmV2Envelope<T> {
-  data: T;
-}
-
 /**
  * Unwrap a WFM API response from its envelope.
  *

@@ -85,7 +85,7 @@ function enqueue<T>(fn: () => Promise<T>): Promise<T> {
 let _csrfToken: string | null = null;
 let _cookieJwt: string | null = null;
 
-function _decodeJwtPayload(jwt: string): any {
+function _decodeJwtPayload(jwt: string): Record<string, unknown> | null {
   try {
     const b64 = jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
     return JSON.parse(Buffer.from(b64, "base64").toString("utf-8"));
@@ -111,7 +111,7 @@ async function _ensureCsrfToken(): Promise<string | null> {
     if (jwtMatch) {
       _cookieJwt = jwtMatch[1];
       const payload = _decodeJwtPayload(_cookieJwt);
-      if (payload?.csrf_token) {
+      if (typeof payload?.csrf_token === "string") {
         _csrfToken = payload.csrf_token;
         log.log("[WFMClient] CSRF token acquired from JWT payload");
       } else {
@@ -128,7 +128,7 @@ async function _ensureCsrfToken(): Promise<string | null> {
 
 export function updateCsrfFromToken(token: string): void {
   const payload = _decodeJwtPayload(token);
-  if (payload?.csrf_token) {
+  if (typeof payload?.csrf_token === "string") {
     _csrfToken = payload.csrf_token;
     _cookieJwt = token;
     log.log("[WFMClient] CSRF token updated from authenticated JWT");
@@ -299,7 +299,8 @@ function _coreRequest(
         const text = await res.text();
         log.log(`[${label}] ${method} ${path} → ${res.status} body:`, text.slice(0, 500));
         try {
-          const rb = JSON.parse(text) as any;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped WFM error response
+          const rb = JSON.parse(text) as Record<string, any>;
           if (rb?.error?.message) detail = rb.error.message;
           else if (typeof rb?.error === "string") detail = rb.error;
           else if (rb?.message) detail = rb.message;
@@ -378,9 +379,11 @@ export function requestRaw(
 
     if (!res.ok) {
       let detail = `HTTP ${res.status}`;
-      let rawBody: any = null;
+      /* eslint-disable @typescript-eslint/no-explicit-any -- untyped WFM error response */
+      let rawBody: Record<string, any> | null = null;
       try {
-        rawBody = await res.json();
+        rawBody = (await res.json()) as Record<string, any>;
+        /* eslint-enable @typescript-eslint/no-explicit-any */
         if (typeof rawBody?.error === "string") {
           detail = rawBody.error;
         } else if (typeof rawBody?.error?.message === "string") {
@@ -388,7 +391,7 @@ export function requestRaw(
         } else if (rawBody?.message) {
           detail = rawBody.message;
         } else if (rawBody?.error && typeof rawBody.error === "object") {
-          const msgs = (Object.values(rawBody.error) as any[]).flat().slice(0, 2) as string[];
+          const msgs = (Object.values(rawBody.error) as unknown[]).flat().slice(0, 2) as string[];
           detail = msgs.length ? msgs.join("; ") : "Invalid credentials.";
         }
       } catch {
