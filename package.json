@@ -90,7 +90,7 @@
   },
   "build": {
     "appId": "com.warframe.companion",
-    "productName": "Warframe Companion",
+    "productName": "WFHelper",
     "directories": {
       "output": "release"
     },
@@ -98,17 +98,29 @@
       ".electron-build/**/*",
       "renderer/**/*",
       "assets/**/*",
-      "scripts/**/*",
+      "scripts/train-paddleocr/output/yolo_detector/stat_line_detector.onnx",
+      "scripts/train-paddleocr/output/paddle_ocr/ch_PP-OCRv3_rec_infer.onnx",
+      "scripts/train-paddleocr/models/ch_dict.txt",
       "package.json",
       "node_modules/**/*",
       "!node_modules/**/{test,tests,__tests__,example,examples,docs,doc}/**",
       "!node_modules/**/*.map",
-      "!node_modules/**/*.md"
+      "!node_modules/**/*.md",
+      "!node_modules/**/electron/**",
+      "!node_modules/**/electron-builder/**",
+      "!node_modules/**/app-builder-bin/**",
+      "!node_modules/**/typescript/**",
+      "!node_modules/**/vitest/**",
+      "!node_modules/**/vite/**",
+      "!node_modules/**/prettier/**",
+      "!node_modules/**/eslint/**",
+      "!node_modules/**/playwright*/**",
+      "!node_modules/**/@playwright/**",
+      "!node_modules/**/svelte-check/**"
     ],
     "asar": true,
     "win": {
       "icon": "assets/logo.ico",
-      "signAndEditExecutable": false,
       "target": [
         "nsis"
       ]
@@ -116,7 +128,7 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "shortcutName": "Warframe Companion",
+      "shortcutName": "WFHelper",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     },

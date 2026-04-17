@@ -1,6 +1,6 @@
 <script lang="ts">
   import { overlaySettings, applyOverlaySettingsResponse } from "../../stores/overlaySettings.js";
-  import { ipc } from "../../lib/ipc.js";
+  import { invoke } from "../../lib/ipc.js";
   import type { FissureAlert } from "../../types/ipc.js";
 
   const TIERS = ["any", "Lith", "Meso", "Neo", "Axi", "Requiem", "Omnia"] as const;
@@ -47,7 +47,7 @@
     saving = true;
     error = "";
     try {
-      const saved = await ipc.setOverlaySettings({ fissureAlerts: updated });
+      const saved = await invoke("setOverlaySettings", { fissureAlerts: updated });
       if (saved) applyOverlaySettingsResponse(saved);
     } catch (e: unknown) {
       error = e instanceof Error ? e.message : "Failed to save";

@@ -1,5 +1,5 @@
 import type { SharedFiltersState } from "../types/filters.js";
-import type { ParsedItem, InventoryGroup } from "../types/inventory.js";
+import type { ParsedItem, InventoryGroup, PartType } from "../types/inventory.js";
 import type { WfmItemsLookup } from "../types/ipc.js";
 import type { WfmOrdersResult } from "../types/market.js";
 import type { RelicDatabase } from "../types/relics.js";
@@ -12,7 +12,7 @@ export type InventoryFilterTab = InventoryGroup | "resources";
 
 export interface InventoryBaseItem extends ParsedItem {
   inventoryGroup: InventoryGroup;
-  partType: "normal" | "prime";
+  partType: PartType;
   amount: number;
   favorite: boolean;
   equipped: boolean;
@@ -385,7 +385,7 @@ export function buildBaseInventoryItems(
         rank: resolvedRank,
         maxRank: resolvedMaxRank,
         inventoryGroup: group,
-        partType: (item.partType || (item.isPrime ? "prime" : "normal")) as "normal" | "prime",
+        partType: (item.partType || (item.isPrime ? "prime" : "normal")) as PartType,
         amount: typeof item.amount === "number" ? item.amount : 1,
         favorite: Boolean(item.favorite),
         equipped: Boolean(item.equipped),

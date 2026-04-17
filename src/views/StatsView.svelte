@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { ipc } from "../lib/ipc.js";
+  import { invoke, on } from "../lib/ipc.js";
   import { tr } from "../lib/i18n.js";
   import type { DailyStatEntry, SessionStats, TradeEvent } from "../types/ipc.js";
   import type { MessageKey } from "../lib/i18n.js";
@@ -26,7 +26,6 @@
     shortDate,
     barsForKey,
     labelStep,
-    absYAxisTicks,
   } from "../lib/stats/chartData.js";
 
   // ── Data state ───────────────────────────────────────────────────────────────
@@ -44,9 +43,9 @@
   onMount(async () => {
     try {
       [session, history, trades] = await Promise.all([
-        ipc.getStatsCurrentSession(),
-        ipc.getStatsHistory(),
-        ipc.getTradeLog(),
+        invoke("getStatsCurrentSession"),
+        invoke("getStatsHistory"),
+        invoke("getTradeLog"),
       ]);
     } catch {
       // silently ignore — stats tracker may not have data yet
@@ -55,14 +54,14 @@
     }
 
     // Refresh session card whenever new inventory data arrives
-    unsubInventory = ipc.onInventoryUpdated(async () => {
+    unsubInventory = on("inventory-updated", async () => {
       try {
-        session = await ipc.getStatsCurrentSession();
+        session = await invoke("getStatsCurrentSession");
       } catch { /* ignore */ }
     });
 
     // Live trade push — prepend new trades as they arrive
-    unsubTrade = ipc.onTradeRecorded((data) => {
+    unsubTrade = on("trade-recorded", (data) => {
       if (data?.trade) {
         // Check if we already have this trade (from initial push before WFM match)
         const idx = trades.findIndex((t) => t.id === data.trade.id);
@@ -111,14 +110,14 @@
         return;
       }
 
-      const result = await ipc.importStatsHistory(normalized);
+      const result = await invoke("importStatsHistory", normalized);
       let statMsg = "";
       if (result.ok) {
         if (result.count === 0) {
           statMsg = "No new stat entries.";
         } else {
           statMsg = `Imported/updated ${result.count} day${result.count === 1 ? "" : "s"}.`;
-          history = await ipc.getStatsHistory();
+          history = await invoke("getStatsHistory");
         }
       } else {
         importStatus = "Stats import failed.";
@@ -129,10 +128,10 @@
       const importedTrades = parseAlecaFrameTrades(parsed);
       let tradeMsg = "";
       if (importedTrades.length > 0) {
-        const tradeResult = await ipc.importTradeLog(importedTrades);
+        const tradeResult = await invoke("importTradeLog", importedTrades);
         if (tradeResult.ok && tradeResult.count > 0) {
           tradeMsg = ` ${tradeResult.count} trade${tradeResult.count === 1 ? "" : "s"} imported.`;
-          trades = await ipc.getTradeLog();
+          trades = await invoke("getTradeLog");
         }
       }
 
@@ -168,8 +167,18 @@
     { key: "endoDelta",    labelKey: "stats.endo" },
     { key: "relicsOpened", labelKey: "stats.relicsOpened" },
     { key: "dailyTrades",  labelKey: "stats.dailyTrades" },
-    { key: "daysPlayed",   labelKey: "stats.daysPlayed" },
   ];
+
+  /** Icon map for each chart/session key */
+  const ICON_MAP: Record<ChartKey, string> = {
+    platDelta:    "Platinum.png",
+    ducatsDelta:  "icons/misc/ducats.png",
+    ayaDelta:     "icons/misc/aya.webp",
+    creditsDelta: "Bounties/Credits.png",
+    endoDelta:    "Bounties/Endo.png",
+    relicsOpened: "world-icons/relic-lith.png",
+    dailyTrades:  "icons/misc/trade.png",
+  };
 
   let chartDays = 30;
 
@@ -217,15 +226,38 @@
     }
   }
 
+  /** Tooltip for individual dot hover (compact charts) */
+  function onDotEnter(e: MouseEvent, key: ChartKey, barIdx: number, absVal: number): void {
+    const cd = chartDataMap[key];
+    const bar = cd.bars[barIdx];
+    if (!bar) return;
+    let text = shortDate(bar.date);
+    if (!Number.isNaN(absVal)) text += `  ${formatters[key](absVal)}`;
+    if (bar.value !== 0) {
+      const sign = bar.value >= 0 ? "+" : "−";
+      text += `  (${sign}${formatters[key](Math.abs(bar.value))})`;
+    }
+    tooltip = { text, x: e.clientX, y: e.clientY };
+  }
+
   // ── Expand modal ──────────────────────────────────────────────────────────────
 
   let showChange = true;
-  let showValue = false;
+  let showValue = true;
 
   let expandedKey: ChartKey | null = null;
 
   function expandedChartTitle(key: ChartKey): MessageKey {
     return (CHART_SECTIONS.find((s) => s.key === key)?.labelKey ?? "stats.title") as MessageKey;
+  }
+
+  function navigateExpanded(dir: -1 | 1): void {
+    if (!expandedKey) return;
+    const idx = CHART_SECTIONS.findIndex((s) => s.key === expandedKey);
+    if (idx < 0) return;
+    const next = (idx + dir + CHART_SECTIONS.length) % CHART_SECTIONS.length;
+    expandedKey = CHART_SECTIONS[next].key;
+    tooltip = null;
   }
 
 </script>
@@ -247,13 +279,17 @@
   {@const exBaseline = expandedChartData.hasBaseline}
   {@const exBw = expandedChartData.bw}
   {@const step = labelStep(chartDays)}
-  {@const yTicks = showValue ? absYAxisTicks(expandedChartData.absValues, expandedKey) : []}
+  {@const exYTicks = expandedChartData.yTicks}
+  {@const exIcon = ICON_MAP[expandedKey]}
   <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
   <div class="chart-modal-backdrop" on:click={() => { expandedKey = null; tooltip = null; }}>
     <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
     <div class="chart-modal" on:click|stopPropagation>
       <div class="chart-modal-header">
-        <span class="chart-modal-title">{$tr(expandedChartTitle(expandedKey))}</span>
+        <span class="chart-modal-title">
+          {#if exIcon}<img src={exIcon} alt="" class="stats-icon" />{/if}
+          {$tr(expandedChartTitle(expandedKey))}
+        </span>
         <div class="chart-modal-header-right">
           <button
             class="stats-overlay-btn"
@@ -269,11 +305,13 @@
         </div>
       </div>
       <div class="chart-modal-body">
+        <button class="chart-modal-nav chart-modal-nav--prev" on:click={() => navigateExpanded(-1)} title="Previous">‹</button>
+        <button class="chart-modal-nav chart-modal-nav--next" on:click={() => navigateExpanded(1)} title="Next">›</button>
         <div class="chart-modal-chart-area">
-          {#if showValue && yTicks.length > 0}
+          {#if exYTicks.length > 0}
             <div class="chart-y-axis">
-              {#each yTicks as tick}
-                <span class="chart-y-label" style="top:{tick.frac * 100}%">{tick.label}</span>
+              {#each exYTicks as tick}
+                <span class="chart-y-label" style="top:{tick.yFrac * 100}%">{tick.label}</span>
               {/each}
             </div>
           {/if}
@@ -283,9 +321,15 @@
               viewBox="0 0 {SVG_W} {BAR_H_EXPAND}"
               preserveAspectRatio="none"
               aria-hidden="true"
-              on:mousemove={(e) => onSvgMouseMove(e, expandedKey!, exBars, exBw, expandedChartData?.absValues)}
-              on:mouseleave={() => { tooltip = null; }}
             >
+              {#each exYTicks as tick}
+                <line x1="0" y1={tick.yFrac * BAR_H_EXPAND} x2={SVG_W} y2={tick.yFrac * BAR_H_EXPAND} stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+              {/each}
+              {#each exBars as bar, i}
+                {#if i > 0 && i % labelStep(chartDays) === 0}
+                  <line x1={bar.x} y1="0" x2={bar.x} y2={BAR_H_EXPAND} stroke="rgba(255,255,255,0.06)" stroke-width="1" />
+                {/if}
+              {/each}
               <line
                 x1="0" y1={exBaseline ? BAR_H_EXPAND / 2 : BAR_H_EXPAND}
                 x2={SVG_W} y2={exBaseline ? BAR_H_EXPAND / 2 : BAR_H_EXPAND}
@@ -311,22 +355,37 @@
                   stroke-linecap="round"
                   vector-effect="non-scaling-stroke"
                 />
-                {#each expandedChartData.absLine as pt}
-                  <circle
-                    cx={pt.x} cy={pt.y} r="3.5"
-                    fill="var(--bg-surface, #1a1d2e)"
-                    stroke="rgba(255,255,255,0.85)"
-                    stroke-width="2"
-                    vector-effect="non-scaling-stroke"
-                  />
-                {/each}
               {/if}
             </svg>
+            <!-- Expanded dot overlay — tooltip only on dot hover, active days only -->
+            {#if showValue && expandedChartData?.absLine}
+              <div class="chart-dot-overlay">
+                {#each expandedChartData.absLine as pt}
+                  {@const bar = exBars[pt.idx]}
+                  {@const absVal = expandedChartData.absValues[pt.idx] ?? NaN}
+                  {#if bar && expandedChartData.realData[pt.idx] && bar.value !== 0}
+                    <!-- svelte-ignore a11y-no-static-element-interactions -->
+                    <span
+                      class="chart-dot chart-dot--expanded"
+                      style="left:{pt.x / SVG_W * 100}%; top:{pt.y / BAR_H_EXPAND * 100}%"
+                      on:mouseenter={(e) => {
+                        let text = shortDate(bar.date);
+                        if (!Number.isNaN(absVal)) text += `  ${formatters[expandedKey!](absVal)}`;
+                        const sign = bar.value >= 0 ? '+' : '−';
+                        text += `  (${sign}${formatters[expandedKey!](Math.abs(bar.value))})`;
+                        tooltip = { text, x: e.clientX, y: e.clientY };
+                      }}
+                      on:mouseleave={() => { tooltip = null; }}
+                    ></span>
+                  {/if}
+                {/each}
+              </div>
+            {/if}
           </div>
         </div>
         <!-- Per-day date labels below the expanded chart -->
         {#if exBars.length > 0}
-          <div class="chart-expand-dates" style={showValue && yTicks.length > 0 ? 'margin-left:60px' : ''}>
+          <div class="chart-expand-dates" style={exYTicks.length > 0 ? 'margin-left:60px' : ''}>
             {#each exBars as bar, i}
               <span class="chart-expand-date" style="width:{100 / exBars.length}%">
                 {i % step === 0 ? shortDate(bar.date) : ""}
@@ -385,27 +444,29 @@
         {/if}
 
         <!-- Session card -->
-        <article class="stats-card">
-          <h3 class="stats-section-title">{$tr("stats.sessionTitle")}</h3>
-
-          {#if !session?.hasData}
-            <p class="stats-empty">{$tr("stats.noData")}</p>
-          {:else}
-            <div class="stats-session-grid">
-              {#each SESSION_SECTIONS as { key, labelKey, currentKey }}
-                {@const delta = session[key]}
-                {@const current = session[currentKey]}
-                <div class="stats-stat-cell">
-                  <span class="stats-stat-label">{$tr(labelKey)}</span>
-                  <span class="stats-stat-value {deltaClass(delta)}">
-                    {formatDelta(delta, formatters[key])}
-                  </span>
-                  <span class="stats-stat-current">{formatAbsolute(current)} total</span>
-                </div>
-              {/each}
-            </div>
-          {/if}
-        </article>
+        {#if !session?.hasData}
+          <p class="stats-empty">{$tr("stats.noData")}</p>
+        {:else}
+          <div class="stats-session-grid">
+            {#each SESSION_SECTIONS as { key, labelKey, currentKey }}
+              {@const delta = session[key]}
+              {@const current = session[currentKey]}
+              {@const icon = ICON_MAP[key]}
+              <div class="stats-stat-cell">
+                <span class="stats-stat-label">
+                  {#if icon}<img src={icon} alt="" class="stats-icon" />{/if}
+                  {$tr(labelKey)}
+                </span>
+                <span class="stats-stat-value">
+                  {formatAbsolute(current)}
+                </span>
+                <span class="stats-stat-current {deltaClass(delta)}">
+                  {formatDelta(delta, formatters[key])} today
+                </span>
+              </div>
+            {/each}
+          </div>
+        {/if}
 
         <!-- Chart grid -->
         {#if history.length === 0}
@@ -414,9 +475,13 @@
           <div class="stats-chart-grid">
             {#each CHART_SECTIONS as { key, labelKey }}
               {@const cd = chartDataMap[key]}
+              {@const icon = ICON_MAP[key]}
               <div class="stats-chart-block">
                 <div class="stats-chart-header">
-                  <span class="stats-chart-label">{$tr(labelKey)}</span>
+                  <span class="stats-chart-label">
+                    {#if icon}<img src={icon} alt="" class="stats-icon" />{/if}
+                    {$tr(labelKey)}
+                  </span>
                   <button
                     class="chart-expand-btn"
                     title="Expand chart"
@@ -424,59 +489,83 @@
                     aria-label="Expand {$tr(labelKey)} chart"
                   >⛶</button>
                 </div>
-                <div class="chart-svg-wrap">
-                <svg
-                  class="stats-chart-svg"
-                  viewBox="0 0 {SVG_W} {BAR_H}"
-                  preserveAspectRatio="none"
-                  aria-hidden="true"
-                  on:mousemove={(e) => onSvgMouseMove(e, key, cd.bars, cd.bw, cd.absValues)}
-                  on:mouseleave={() => { tooltip = null; }}
-                >
-                  <line
-                    x1="0" y1={cd.hasBaseline ? BAR_H / 2 : BAR_H}
-                    x2={SVG_W} y2={cd.hasBaseline ? BAR_H / 2 : BAR_H}
-                    stroke="var(--border)" stroke-width="0.5"
-                  />
-                  {#if showChange}
-                    {#each cd.bars as bar}
-                      <rect
-                        x={bar.x} y={bar.y}
-                        width={cd.bw} height={bar.h}
-                        class={bar.positive ? "bar-pos" : "bar-neg"}
-                        rx="1"
+                <div class="chart-body-row">
+                  {#if cd.yTicks.length > 0}
+                    <div class="chart-y-axis chart-y-axis--compact">
+                      {#each cd.yTicks as tick}
+                        <span class="chart-y-label" style="top:{tick.yFrac * 100}%">{tick.label}</span>
+                      {/each}
+                    </div>
+                  {/if}
+                  <div class="chart-svg-wrap">
+                    <svg
+                      class="stats-chart-svg stats-chart-svg--compact"
+                      viewBox="0 0 {SVG_W} {BAR_H}"
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                    >
+                      {#each cd.yTicks as tick}
+                        <line x1="0" y1={tick.yFrac * BAR_H} x2={SVG_W} y2={tick.yFrac * BAR_H} stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+                      {/each}
+                      {#each cd.bars as bar, i}
+                        {#if i > 0 && i % labelStep(chartDays) === 0}
+                          <line x1={bar.x} y1="0" x2={bar.x} y2={BAR_H} stroke="rgba(255,255,255,0.06)" stroke-width="1" />
+                        {/if}
+                      {/each}
+                      <line
+                        x1="0" y1={cd.hasBaseline ? BAR_H / 2 : BAR_H}
+                        x2={SVG_W} y2={cd.hasBaseline ? BAR_H / 2 : BAR_H}
+                        stroke="var(--border)" stroke-width="0.5"
                       />
-                    {/each}
-                  {/if}
-                  {#if showValue && cd.absLine}
-                    <polyline
-                      points={cd.absLine.map((p) => `${p.x},${p.y}`).join(' ')}
-                      fill="none"
-                      stroke="rgba(255,255,255,0.7)"
-                      stroke-width="1.5"
-                      stroke-linejoin="round"
-                      stroke-linecap="round"
-                      vector-effect="non-scaling-stroke"
-                    />
-                  {/if}
-                </svg>
-                <!-- HTML dot overlay: positioned with percentages to avoid SVG distortion -->
-                {#if showValue && cd.absLine}
-                  <div class="chart-dot-overlay">
-                    {#each cd.absLine as pt}
-                      <span class="chart-dot" style="left:{pt.x / SVG_W * 100}%; top:{pt.y / BAR_H * 100}%"></span>
-                    {/each}
-                  </div>
-                {/if}
-                </div><!-- /chart-svg-wrap -->
-                {#if cd.bars.length > 0}
-                  <div class="chart-dates-row">
-                    {#each cd.bars as bar, i}
-                      {#if i % 2 === 0}
-                        <span style="width:{cd.bw + BAR_GAP}px;text-align:center">{shortDate(bar.date)}</span>
-                      {:else}
-                        <span style="width:{cd.bw + BAR_GAP}px"></span>
+                      {#if showChange}
+                        {#each cd.bars as bar}
+                          <rect
+                            x={bar.x} y={bar.y}
+                            width={cd.bw} height={bar.h}
+                            class={bar.positive ? "bar-pos" : "bar-neg"}
+                            rx="1"
+                          />
+                        {/each}
                       {/if}
+                      {#if showValue && cd.absLine}
+                        <polyline
+                          points={cd.absLine.map((p) => `${p.x},${p.y}`).join(' ')}
+                          fill="none"
+                          stroke="rgba(255,255,255,0.7)"
+                          stroke-width="1.5"
+                          stroke-linejoin="round"
+                          stroke-linecap="round"
+                          vector-effect="non-scaling-stroke"
+                        />
+                      {/if}
+                    </svg>
+                    <!-- HTML dot overlay: only on days with activity, tooltip on hover -->
+                    {#if showValue && cd.absLine}
+                      <div class="chart-dot-overlay">
+                        {#each cd.absLine as pt}
+                          {@const bar = cd.bars[pt.idx]}
+                          {@const absVal = cd.absValues[pt.idx] ?? NaN}
+                          {#if bar && cd.realData[pt.idx] && bar.value !== 0}
+                            <!-- svelte-ignore a11y-no-static-element-interactions -->
+                            <span
+                              class="chart-dot"
+                              style="left:{pt.x / SVG_W * 100}%; top:{pt.y / BAR_H * 100}%"
+                              on:mouseenter={(e) => onDotEnter(e, key, pt.idx, absVal)}
+                              on:mouseleave={() => { tooltip = null; }}
+                            ></span>
+                          {/if}
+                        {/each}
+                      </div>
+                    {/if}
+                  </div><!-- /chart-svg-wrap -->
+                </div><!-- /chart-body-row -->
+                {#if cd.bars.length > 0}
+                  {@const dateStep = labelStep(chartDays)}
+                  <div class="chart-dates-row" style={cd.yTicks.length > 0 ? 'margin-left:55px' : ''}>
+                    {#each cd.bars as bar, i}
+                      <span class="chart-date-cell" style="width:{100 / cd.bars.length}%">
+                        {i % dateStep === 0 ? shortDate(bar.date) : ''}
+                      </span>
                     {/each}
                   </div>
                 {/if}

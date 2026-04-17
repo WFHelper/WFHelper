@@ -1,7 +1,7 @@
 import "./app.css";
 import App from "./App.svelte";
 import { initRendererCrashReporting } from "./lib/crashReporting.js";
-import { ipc } from "./lib/ipc.js";
+import { send } from "./lib/ipc.js";
 import { themeSettings } from "./stores/theme.js";
 
 if (!window.api) {
@@ -106,7 +106,7 @@ themeSettings.subscribe((settings) => {
   copyRootVar("--font-body-size");
   copyRootVar("--font-small-size");
 
-  ipc.send("overlay-theme-updated", vars);
+  send("overlay-theme-updated", vars);
 });
 
 const app = new App({ target: root });

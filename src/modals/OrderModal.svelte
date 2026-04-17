@@ -1,11 +1,12 @@
 <script lang="ts">
   import { orderModalState, marketOrders } from "../stores/market.js";
-  import { ipc } from "../lib/ipc.js";
+  import { invoke } from "../lib/ipc.js";
   import type {
     WfmLookupItem,
     WfmOrder,
     WfmSearchItem,
     WfmUpdateOrderInput,
+    OrderType,
   } from "../types/market.js";
 
   const ITEM_SEARCH_MIN_CHARS = 2;
@@ -16,7 +17,7 @@
   let itemDropdown: WfmSearchItem[] = [];
   let itemSelected: WfmSearchItem | null = null;
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
-  let orderType: "sell" | "buy" = "sell";
+  let orderType: OrderType = "sell";
   let platinum = "";
   let quantity = 1;
   let visible = true;
@@ -41,7 +42,7 @@
     itemSelected = null;
     submitting = false;
     if (isEdit && order) {
-      orderType = (order.orderType as "sell" | "buy") || "sell";
+      orderType = (order.orderType as OrderType) || "sell";
       platinum = String(order.platinum ?? "");
       quantity = Number(order.quantity ?? 1);
       visible = Boolean(order.visible);
@@ -76,7 +77,7 @@
     itemDropdown = [];
     if (itemSearchQuery.length < ITEM_SEARCH_MIN_CHARS) return;
     searchTimer = setTimeout(async () => {
-      const results = await ipc.wfmSearchItems(itemSearchQuery, ITEM_SEARCH_LIMIT);
+      const results = await invoke("wfmSearchItems", itemSearchQuery, ITEM_SEARCH_LIMIT);
       if (results && !("error" in results)) itemDropdown = results;
     }, ITEM_SEARCH_DEBOUNCE_MS);
   }
@@ -117,7 +118,7 @@
         if (showRankField && !Number.isNaN(Number(modRank))) {
           updates.modRank = Number(modRank);
         }
-        result = await ipc.wfmUpdateOrder(order.id, updates);
+        result = await invoke("wfmUpdateOrder", order.id, updates);
       } else {
         if (!itemSelected) {
           errorMsg = "Please select an item.";
@@ -141,7 +142,7 @@
         if (showRankField && !Number.isNaN(Number(modRank))) {
           payload.modRank = Number(modRank);
         }
-        result = await ipc.wfmCreateOrder(payload);
+        result = await invoke("wfmCreateOrder", payload);
       }
 
       if (result && "error" in result && typeof result.error === "string") {
@@ -149,7 +150,7 @@
         return;
       }
 
-      const refreshed = await ipc.wfmGetOrders();
+      const refreshed = await invoke("wfmGetOrders");
       if (refreshed && !("error" in refreshed)) marketOrders.set(refreshed);
 
       orderModalState.set(null);

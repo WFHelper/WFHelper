@@ -2,6 +2,7 @@ import tls from "node:tls";
 import crypto from "node:crypto";
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import type { WfmStatus } from "../config/shared/wfm";
 
 const log = withScope("wfmWebSocket");
 
@@ -120,7 +121,7 @@ function _parseFrame(buf: Buffer): ParsedFrame | null {
  */
 export function setStatusViaWebSocket(
   token: string,
-  status: "online" | "ingame" | "invisible",
+  status: WfmStatus,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     let settled = false;

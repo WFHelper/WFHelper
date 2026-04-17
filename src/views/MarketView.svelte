@@ -15,7 +15,7 @@
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
   import { sharedFilters } from "../stores/filters.js";
   import { applySharedFiltersAndSort } from "../lib/filters.js";
-  import { ipc } from "../lib/ipc.js";
+  import { invoke, send } from "../lib/ipc.js";
   import type {
     MarketTab,
     WfmContract,
@@ -135,7 +135,7 @@
 
   async function loadView(): Promise<void> {
     try {
-      const session = await ipc.wfmGetSession();
+      const session = await invoke("wfmGetSession");
       marketSession.set(session);
     } catch (error) {
       console.error("[Market] getSession failed:", error);
@@ -151,7 +151,7 @@
 
     if (!$marketStatus) {
       try {
-        const me = await ipc.wfmGetMe();
+        const me = await invoke("wfmGetMe");
         if (me?.status) marketStatus.set(me.status as WfmStatus);
       } catch (error) {
         console.warn("[Market] getMe failed:", error);
@@ -172,7 +172,7 @@
     loginError = "";
     loginLoading = true;
     try {
-      const result = await ipc.wfmSignIn({ email, password });
+      const result = await invoke("wfmSignIn", { email, password });
       if (!result.loggedIn) {
         loginError = result.error || "Sign-in failed. Check your credentials.";
       } else {
@@ -191,7 +191,7 @@
   }
 
   async function logout(): Promise<void> {
-    await ipc.wfmSignOut();
+    await invoke("wfmSignOut");
     marketSession.set({ loggedIn: false, userName: null, platform: "pc" });
     marketOrders.set({ sell: [], buy: [] });
     marketContracts.set({ contracts: [], page: 1, totalPages: null, hasMore: false });
@@ -206,7 +206,7 @@
     ordersLoading = true;
     ordersError = "";
     try {
-      const result = await ipc.wfmGetOrders();
+      const result = await invoke("wfmGetOrders");
       if (hasError(result)) {
         if (result.error.includes("Not logged") || result.error.includes("expired")) {
           marketSession.set({ loggedIn: false, userName: null, platform: "pc" });
@@ -231,7 +231,7 @@
     contractsError = "";
 
     try {
-      const result = await ipc.wfmGetContracts({ page, limit: CONTRACTS_PAGE_SIZE });
+      const result = await invoke("wfmGetContracts", { page, limit: CONTRACTS_PAGE_SIZE });
       if (hasError(result)) {
         if (result.error.includes("Not logged") || result.error.includes("expired")) {
           marketSession.set({ loggedIn: false, userName: null, platform: "pc" });
@@ -289,7 +289,7 @@
   async function setStatus(status: WfmStatus): Promise<void> {
     if (status === $marketStatus) return;
     try {
-      await ipc.wfmSetStatus(status);
+      await invoke("wfmSetStatus", status);
       marketStatus.set(status);
     } catch (error) {
       console.error("[Market] setStatus failed:", error);
@@ -298,7 +298,7 @@
 
   async function deleteOrder(orderId: string): Promise<void> {
     if (!confirm("Delete this order?")) return;
-    const result = await ipc.wfmDeleteOrder(orderId);
+    const result = await invoke("wfmDeleteOrder", orderId);
     if (hasError(result)) {
       alert(`Delete failed: ${result.error}`);
       return;
@@ -317,7 +317,7 @@
     if (!isOrdersTab($marketTypeTab)) return;
     const ids = [...$marketSelected];
     if (!ids.length) return;
-    await ipc.wfmSetVisible(ids, visible);
+    await invoke("wfmSetVisible", ids, visible);
     await fetchOrders();
   }
 
@@ -327,7 +327,7 @@
     if (!ids.length) return;
     if (!confirm(`Delete ${ids.length} order(s)?`)) return;
     for (const id of ids) {
-      await ipc.wfmDeleteOrder(id);
+      await invoke("wfmDeleteOrder", id);
     }
     await fetchOrders();
   }
@@ -346,7 +346,7 @@
 
   function openContractListing(contract: WfmContract): void {
     if (!contract.listingUrl) return;
-    ipc.openExternal(contract.listingUrl);
+    send("open-external", contract.listingUrl);
   }
 
   $: isRivensTab = $marketTypeTab === "rivens";
@@ -378,7 +378,7 @@
           <button
             type="button"
             class="link-btn"
-            on:click={() => ipc.openExternal("https://warframe.market/profile/settings#password")}
+            on:click={() => send("open-external", "https://warframe.market/profile/settings#password")}
           >WFM account settings</button> first.
         </p>
         <form autocomplete="on" on:submit={login}>

@@ -15,16 +15,15 @@ import * as wfmOrders from "./wfmOrders";
 import type { NormalisedOrder } from "./wfmOrders";
 import * as wfmSession from "./wfmSession";
 import * as wfmCatalog from "./wfmCatalog";
+import type { TradeType, TradeDirection } from "../config/shared/statsTypes";
 
 const log = withScope("tradeWfmMatcher");
-
-// ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface ParsedTradeForMatching {
   partner: string;
   platChange: number;
-  type: "sale" | "purchase";
-  items: Array<{ displayName: string; count: number; direction: "given" | "received" }>;
+  type: TradeType;
+  items: Array<{ displayName: string; count: number; direction: TradeDirection }>;
 }
 
 export interface WfmTradeMatch {
@@ -35,7 +34,7 @@ export interface WfmTradeMatch {
   quantity: number;
   platinum: number;
   partner: string;
-  type: "sale" | "purchase";
+  type: TradeType;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────

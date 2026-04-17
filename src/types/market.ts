@@ -1,4 +1,6 @@
-export type WfmStatus = "online" | "ingame" | "invisible";
+import type { WfmStatus } from "../../config/shared/wfm.js";
+export type { WfmStatus };
+export type OrderType = "sell" | "buy";
 export type MarketTab = "sell" | "buy" | "rivens";
 
 export interface WfmSession {
@@ -10,7 +12,7 @@ export interface WfmSession {
 
 export interface WfmOrder {
   id: string;
-  orderType: "sell" | "buy" | string;
+  orderType: OrderType | string;
   platinum: number;
   quantity: number;
   visible: boolean;
@@ -110,7 +112,7 @@ export interface WfmUserProfile {
 
 export interface WfmCreateOrderInput {
   itemId: string;
-  orderType: "sell" | "buy";
+  orderType: OrderType;
   platinum: number;
   quantity: number;
   visible?: boolean;
@@ -129,7 +131,7 @@ export interface OrderModalState {
   order: WfmOrder | null;
   draft?: {
     item?: WfmLookupItem | null;
-    orderType?: "sell" | "buy";
+    orderType?: OrderType;
     modRank?: number | null;
   };
 }

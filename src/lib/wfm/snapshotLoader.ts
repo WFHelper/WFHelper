@@ -7,7 +7,7 @@ import type { WfmItemMeta } from "./wfmItemMeta.js";
 import { fetchBackendRaw, isBackendLiteConfigured } from "./backendLite.js";
 import { schedulePriceCacheRevision } from "../../stores/pricing.js";
 import { log } from "../log.js";
-import { ipc } from "../ipc.js";
+import { invoke } from "../ipc.js";
 
 const SNAPSHOT_FRESH_MS = 2 * 60 * 60 * 1000; // 2 hours
 const SNAPSHOT_VERSION = 1;
@@ -55,7 +55,7 @@ export async function tryLoadSnapshot(): Promise<void> {
 
     // 1. Try disk cache first
     try {
-      const disk = await ipc.loadSnapshotCache();
+      const disk = await invoke("loadSnapshotCache");
       if (disk && isValidSnapshot(disk)) {
         if (Date.now() - disk.generatedAt < SNAPSHOT_FRESH_MS) {
           snapshot = disk;
@@ -107,7 +107,7 @@ export async function tryLoadSnapshot(): Promise<void> {
 
       // Persist to disk for next startup
       try {
-        await ipc.saveSnapshotCache(snapshot as unknown as Record<string, unknown>);
+        await invoke("saveSnapshotCache", snapshot as unknown as Record<string, unknown>);
       } catch {
         // non-fatal
       }

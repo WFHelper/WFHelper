@@ -7,7 +7,7 @@
   import { applySharedFiltersAndSort } from "../lib/filters.js";
   import { sharedFilters } from "../stores/filters.js";
   import ItemImage from "../components/ItemImage.svelte";
-  import { ipc } from "../lib/ipc.js";
+  import { send } from "../lib/ipc.js";
   import type { MasteryCategoryStats } from "../types/inventory.js";
 
   const CAT_ORDER = ['Warframes', 'Primary', 'Secondary', 'Melee', 'Companions', 'Archwing', 'Amps', 'Necramech', 'Misc'];
@@ -217,7 +217,7 @@
                   class="wfm-link"
                   title="View on warframe.market"
                   aria-label="View {item.name} on warframe.market"
-                  on:click|stopPropagation={() => ipc.openExternal(`https://warframe.market/items/${item.wfm.url_name}`)}
+                  on:click|stopPropagation={() => send('open-external', `https://warframe.market/items/${item.wfm.url_name}`)}
                 >
                   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M6 3H3v10h10v-3"/>

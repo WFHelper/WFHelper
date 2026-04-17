@@ -5,7 +5,7 @@ import { statusText } from "../stores/app.js";
 import { relicDb, relicOwnedCounts } from "../stores/relics.js";
 import { parseOwnedRelics } from "./relic.js";
 import { unwrapInventoryPayload } from "./inventoryPayload.js";
-import { ipc } from "./ipc.js";
+import { invoke } from "./ipc.js";
 import type { RawInventoryData } from "../types/inventory.js";
 
 export async function onInventoryLoaded(data: RawInventoryData): Promise<void> {
@@ -18,8 +18,7 @@ export async function onInventoryLoaded(data: RawInventoryData): Promise<void> {
     relicOwnedCounts.set(parseOwnedRelics(parsedData, db));
   }
 
-  ipc
-    .getMasteryProgress()
+  invoke("getMasteryProgress")
     .then((md) => masteryData.set(md))
     .catch((err) => console.warn("[Mastery] getMasteryProgress failed:", err));
 }

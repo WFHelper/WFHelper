@@ -3,7 +3,7 @@ import { activeRelic } from "../stores/modals.js";
 import { relicOwnedCounts, relicSquadSize } from "../stores/relics.js";
 import { fetchPriceBySlug } from "../lib/wfm/wfmPrice.js";
 import { fetchWfmItemMetaBySlug } from "../lib/wfm/wfmItemMeta.js";
-import { ipc } from "../lib/ipc.js";
+import { send } from "../lib/ipc.js";
 import { buildWikiUrl } from "../lib/wikiUrl.js";
   import {
     computeSquadDucatEV,
@@ -145,7 +145,7 @@ import { buildWikiUrl } from "../lib/wikiUrl.js";
 
   function openOnWiki(): void {
     if (!group) return;
-    ipc.openExternal(buildWikiUrl(`${group.name} Relic`));
+    send("open-external", buildWikiUrl(`${group.name} Relic`));
   }
 </script>
 

@@ -24,6 +24,7 @@ export const CAPTURE_THUMBNAIL_LIMITS: Readonly<{
 });
 
 const COMPANION_WINDOW_TOKENS: ReadonlyArray<string> = Object.freeze([
+  "wfhelper",
   "warframe companion",
   "warframe-companion",
   "warframe_companion",

@@ -6,7 +6,7 @@
 
   export let trades: TradeEvent[] = [];
 
-  type TradeFilter = "all" | "sale" | "purchase";
+  type TradeFilter = "all" | "sale" | "purchase" | "trade";
   let tradeFilter: TradeFilter = "all";
   let tradeSearch = "";
 
@@ -41,13 +41,13 @@
     <span class="stats-right-title">{$tr("stats.trades")}</span>
     <div class="trade-controls">
       <div class="trade-filter-tabs">
-        {#each (["all", "sale", "purchase"] as const) as f}
+        {#each (["all", "sale", "purchase", "trade"] as const) as f}
           <button
             class="trade-filter-tab"
             class:active={tradeFilter === f}
             on:click={() => tradeFilter = f}
           >
-            {f === "all" ? "∞" : f === "sale" ? "Sale" : "Purchase"}
+            {f === "all" ? "∞" : f === "sale" ? "Sale" : f === "purchase" ? "Purchase" : "Trade"}
             <span class="trade-tab-count">
               {f === "all" ? trades.length : trades.filter(t => t.type === f).length}
             </span>
@@ -84,15 +84,17 @@
           <div class="trade-card" class:trade-card--wfm={trade.wfmClosed}>
             <div class="trade-card-top">
               <span class="trade-badge trade-badge--{trade.type}">
-                {trade.type === "sale" ? "Sale" : "Purchase"}
+                {trade.type === "sale" ? "Sale" : trade.type === "purchase" ? "Purchase" : "Trade"}
               </span>
               {#if trade.wfmClosed}
                 <span class="trade-wfm-badge" title="WFM order auto-closed">WFM</span>
               {/if}
-              <span class="trade-plat {trade.type === 'sale' ? 'delta-positive' : 'delta-negative'}">
-                {trade.type === "sale" ? "+" : "−"}{trade.platChange}
-                <span class="plat-icon">p</span>
-              </span>
+              {#if trade.platChange > 0}
+                <span class="trade-plat {trade.type === 'sale' ? 'delta-positive' : trade.type === 'purchase' ? 'delta-negative' : 'delta-neutral'}">
+                  {trade.type === "sale" ? "+" : trade.type === "purchase" ? "−" : ""}{trade.platChange}
+                  <span class="plat-icon">p</span>
+                </span>
+              {/if}
               {#if trade.partner}
                 <span class="trade-partner">{trade.partner}</span>
               {/if}
@@ -284,6 +286,12 @@
     background: rgba(96, 165, 250, 0.15);
     color: var(--info, #60a5fa);
     border: 1px solid rgba(96, 165, 250, 0.3);
+  }
+
+  .trade-badge--trade {
+    background: rgba(168, 162, 186, 0.15);
+    color: var(--text-secondary, #a8a2ba);
+    border: 1px solid rgba(168, 162, 186, 0.3);
   }
 
   .trade-plat {

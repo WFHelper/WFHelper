@@ -116,10 +116,14 @@ async function getChRecSession(): Promise<OrtInferenceSession> {
 
     const ort: typeof import("onnxruntime-node") = require("onnxruntime-node");
 
-    // Load dictionary: index 0 = blank (CTC), then one char per line
+    // Load dictionary: index 0 = blank (CTC), then one char per line.
+    // Use /\r?\n/ split to handle Windows CRLF line endings — plain \n split
+    // leaves \r on each character, breaking all CTC decoded text.
     if (existsSync(dictPath)) {
       const dictContent = readFileSync(dictPath, "utf8");
-      _chDict = ["blank", ...dictContent.split("\n").filter((l) => l.length > 0)];
+      const lines = dictContent.split(/\r?\n/);
+      if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+      _chDict = ["blank", ...lines];
     }
 
     const session = await ort.InferenceSession.create(modelPath, {

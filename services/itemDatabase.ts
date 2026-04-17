@@ -1,3 +1,9 @@
+/**
+ * itemDatabase.ts — Item database service.
+ * Primary:  warframe-public-export-plus (Sainan/calamity-inc) — raw game data
+ * Fallback: @wfcd/items (WFCD) — curated community data with proven image CDN
+ */
+
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import type {
@@ -8,12 +14,6 @@ import type {
   ComponentEntry,
   RendererItemEntry,
 } from "./types/gameData";
-// ═══════════════════════════════════════════════════════════════════════════
-// Item Database Service
-// Primary:  warframe-public-export-plus (Sainan/calamity-inc) — raw game data
-// Fallback: @wfcd/items (WFCD) — curated community data with proven image CDN
-// ═══════════════════════════════════════════════════════════════════════════
-
 import path from "path";
 import fs from "fs";
 

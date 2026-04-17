@@ -1,16 +1,47 @@
 /**
- * Shared stats types used by both main-process (services/statsTracker.ts)
- * and renderer (src/types/ipc.ts).
+ * Shared stats/trade types used by both main-process and renderer.
  *
- * Single source of truth — do not duplicate these interfaces elsewhere.
+ * Single source of truth — do not duplicate these types elsewhere.
  */
+
+/** Classification of a trade event. */
+export type TradeType = "sale" | "purchase" | "trade";
+
+/** Download stage for the API helper binary. */
+export type DownloadStage = "resolving" | "downloading" | "done" | "error";
+
+/** Direction of an item in a trade. */
+export type TradeDirection = "given" | "received";
+
+// ── Trade types ───────────────────────────────────────────────────────────────
+
+export interface TradeItem {
+  internalName: string;
+  displayName: string;
+  count: number;
+  direction: TradeDirection;
+  wfmSlug?: string;
+  wfmThumb?: string;
+}
+
+export interface TradeEvent {
+  id: string;
+  date: string;            // ISO datetime
+  type: TradeType;
+  platChange: number;      // always positive (0 for pure item swaps)
+  items: TradeItem[];
+  partner?: string;        // trading partner username (best-effort from EE.log)
+  wfmClosed?: boolean;     // true when a WFM order was auto-closed for this trade
+}
+
+// ── Stat history types ────────────────────────────────────────────────────────
 
 export interface DailyStatEntry {
   date: string;           // "YYYY-MM-DD"
   platDelta: number;      // net plat change this session/day
   creditsDelta: number;
   endoDelta: number;
-  ducatsDelta: number;    // net Void Ducat change (DUCTCREDITS)
+  ducatsDelta: number;    // net Void Ducat change (MiscItems/PrimeBucks)
   ayaDelta: number;       // net Aya (PrimeTokens) change
   relicsOpened: number;   // relics consumed (LevelKeys net decrease, ≥0)
   daysPlayed: number;     // 1 = played; 0 = no inventory data (imported gap)

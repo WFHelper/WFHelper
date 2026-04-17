@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { currentView } from "../stores/app.js";
-  import { ipc } from "../lib/ipc.js";
+  import { invoke, on } from "../lib/ipc.js";
   import type { HelperDownloadProgress } from "../types/ipc.js";
 
   type Step = "welcome" | "consent" | "downloading" | "done" | "error";
@@ -10,7 +10,7 @@
   let progress: HelperDownloadProgress | null = null;
   let errorMessage = "";
 
-  const unsubProgress = ipc.onHelperDownloadProgress((p) => {
+  const unsubProgress = on("helper-download-progress", (p) => {
     progress = p;
     if (p.stage === "done") {
       step = "done";
@@ -27,7 +27,7 @@
   async function startDownload() {
     step = "downloading";
     progress = null;
-    const result = await ipc.downloadHelper();
+    const result = await invoke("downloadHelper");
     if (!result.ok && step === "downloading") {
       step = "error";
       errorMessage = "Download failed — check your internet connection.";

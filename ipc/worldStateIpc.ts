@@ -207,7 +207,7 @@ function ensureStartMenuShortcut(): void {
       process.env.APPDATA || "",
       "Microsoft", "Windows", "Start Menu", "Programs",
     );
-    const lnkPath = path.join(startMenuDir, "Warframe Companion.lnk");
+    const lnkPath = path.join(startMenuDir, "WFHelper.lnk");
 
     // Read existing shortcut to check if it already has the correct target + AUMID.
     let needWrite = true;
@@ -224,7 +224,7 @@ function ensureStartMenuShortcut(): void {
       shell.writeShortcutLink(lnkPath, "create", {
         target: process.execPath,
         appUserModelId: APP_USER_MODEL_ID,
-        description: "Warframe Companion",
+        description: "WFHelper",
       });
       log.log("[WorldState] created/updated Start Menu shortcut for notifications");
     }

@@ -8,6 +8,7 @@
     SortDirection,
     YesNoFilterMode,
   } from "../types/filters.js";
+  import type { PartType } from "../types/inventory.js";
 
   export let scope: FilterScope;
   export let singleLine = false;
@@ -89,7 +90,7 @@
     updateSharedFilters(scope, { [key]: next });
   }
 
-  function setPartTypeFilter(value: "normal" | "prime"): void {
+  function setPartTypeFilter(value: PartType): void {
     const next = state.partType === value ? "all" : value;
     updateSharedFilters(scope, { partType: next });
   }

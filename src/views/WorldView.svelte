@@ -7,7 +7,7 @@
     nextDailyResetUtc, nextWeeklyResetUtc,
   } from "../lib/format.js";
   import { PLANET_ICON_PATHS, RELIC_ICON_PATHS, fissureTierClass, buildFeaturedPrimes, resolveCircuitChoices } from "../lib/world.js";
-  import { ipc } from "../lib/ipc.js";
+  import { invoke, on } from "../lib/ipc.js";
   import { addToast } from "../stores/toasts.js";
   import { overlaySettings, overlaySettingsLoaded, applyOverlaySettingsResponse } from "../stores/overlaySettings.js";
   import { activeItem } from "../stores/modals.js";
@@ -50,7 +50,7 @@
   onMount(() => {
     void fetchWorldData(true);
 
-    unsubFetchError = ipc.onWorldStateFetchError((message) => {
+    unsubFetchError = on("world-state-fetch-error", (message) => {
       addToast({
         level: "warning",
         title: "World State",
@@ -61,7 +61,7 @@
 
     // Ensure overlay settings are loaded so cycle-alert toggles reflect persisted state
     if (!$overlaySettingsLoaded) {
-      void ipc.getOverlaySettings().then((loaded) => {
+      void invoke("getOverlaySettings").then((loaded) => {
         if (loaded) applyOverlaySettingsResponse(loaded);
       }).catch((e: unknown) => console.error("[World] getOverlaySettings failed:", e));
     }
@@ -85,7 +85,7 @@
     const current = $overlaySettings.cycleAlerts?.[key] ?? false;
     const newAlerts = { ...$overlaySettings.cycleAlerts, [key]: !current };
     try {
-      const saved = await ipc.setOverlaySettings({ cycleAlerts: newAlerts });
+      const saved = await invoke("setOverlaySettings", { cycleAlerts: newAlerts });
       if (saved) applyOverlaySettingsResponse(saved);
     } catch (e: unknown) {
       console.error("[World] toggleCycleAlert failed:", e);
@@ -95,7 +95,7 @@
   async function setCycleAlertMinutes(minutes: number) {
     const clamped = Math.max(0, Math.min(120, Math.round(minutes)));
     try {
-      const saved = await ipc.setOverlaySettings({ cycleAlertMinutesBefore: clamped });
+      const saved = await invoke("setOverlaySettings", { cycleAlertMinutesBefore: clamped });
       if (saved) applyOverlaySettingsResponse(saved);
     } catch (e: unknown) {
       console.error("[World] setCycleAlertMinutes failed:", e);
@@ -109,7 +109,7 @@
 
     worldLoading.set(true);
     try {
-      const data = await ipc.getWorldState();
+      const data = await invoke("getWorldState");
       if (data) {
         worldData.set(data);
         worldLastFetch.set(Date.now());

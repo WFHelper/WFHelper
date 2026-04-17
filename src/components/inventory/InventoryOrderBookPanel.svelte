@@ -2,7 +2,7 @@
   import { onDestroy } from "svelte";
 
   import ItemImage from "../ItemImage.svelte";
-  import { ipc } from "../../lib/ipc.js";
+  import { invoke, send } from "../../lib/ipc.js";
   import { orderModalState } from "../../stores/market.js";
   import {
     clearOrderBookCache,
@@ -11,12 +11,12 @@
     type OrderBookEntry,
   } from "../../lib/wfm/orderBook.js";
   import type { InventoryViewItem } from "../../lib/inventoryMarket.js";
-  import type { WfmLookupItem } from "../../types/market.js";
+  import type { WfmLookupItem, OrderType } from "../../types/market.js";
   import { normalizeRank, isRankedGroup, MAX_SUPPORTED_RANK } from "../../../config/shared/numeric.js";
 
   export let item: InventoryViewItem | null = null;
 
-  type OrderSide = "sell" | "buy";
+  type OrderSide = OrderType;
   type SideSort = "best" | "price_low" | "price_high" | "quantity_high" | "name_asc";
 
   const SELL_SORT_OPTIONS: Array<{ value: SideSort; label: string }> = [
@@ -224,7 +224,7 @@
 
   function openOnWarframeMarket(): void {
     if (!currentSlug) return;
-    ipc.openExternal(`https://warframe.market/items/${currentSlug}`);
+    send("open-external", `https://warframe.market/items/${currentSlug}`);
   }
 
   function rowKey(entry: OrderBookEntry, index: number): string {
@@ -332,7 +332,7 @@
   }
 
   function openSellerProfile(entry: OrderBookEntry): void {
-    ipc.openExternal(`https://warframe.market/profile/${encodeURIComponent(entry.userName)}`);
+    send("open-external", `https://warframe.market/profile/${encodeURIComponent(entry.userName)}`);
   }
 
   function isLookupError(value: unknown): value is { error: string } {
@@ -360,13 +360,13 @@
   async function openPostOrder(orderType: "sell" | "buy"): Promise<void> {
     if (!currentSlug) return;
 
-    const session = await ipc.wfmGetSession();
+    const session = await invoke("wfmGetSession");
     if (!session.loggedIn) {
       setFeedback("Sign in on the Market tab first.");
       return;
     }
 
-    const lookup = await ipc.wfmLookupItemBySlug(currentSlug);
+    const lookup = await invoke("wfmLookupItemBySlug", currentSlug);
     if (isLookupError(lookup)) {
       setFeedback(lookup.error || "Unable to prepare order for this item.");
       return;

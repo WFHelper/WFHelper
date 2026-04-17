@@ -1,4 +1,5 @@
 import type { SharedFiltersState } from "../types/filters.js";
+import type { MasteryStatus, PartType } from "../types/inventory.js";
 
 export interface FilterableItem {
   name: string;
@@ -9,14 +10,14 @@ export interface FilterableItem {
   isPrime?: boolean;
   rank?: number;
   maxRank?: number;
-  status?: "mastered" | "progress" | "missing" | string;
+  status?: MasteryStatus | string;
   platinum?: number | null;
   ducats?: number | null;
   amount?: number | null;
   ducatonator?: number | null;
   completeSets?: number | boolean | null;
   orderPlaced?: boolean;
-  partType?: "normal" | "prime";
+  partType?: PartType;
   favorite?: boolean;
   equipped?: boolean;
   leveledUp?: boolean;

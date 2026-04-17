@@ -18,36 +18,14 @@ import { app } from "electron";
 import { withScope } from "./logger";
 import * as statsTracker from "./statsTracker";
 import * as wfmCatalog from "./wfmCatalog";
+import type { TradeType, TradeDirection, TradeItem, TradeEvent } from "../config/shared/statsTypes";
+
+export type { TradeItem, TradeEvent };
 
 const log = withScope("tradeTracker");
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface TradeItem {
-  internalName: string; // full ItemType path, e.g. "/Lotus/Types/Items/MiscItems/Aya"
-  displayName: string;  // last path segment used as fallback display name
-  count: number;        // absolute quantity that changed
-  direction: "received" | "given";
-  wfmSlug?: string;     // WFM url_name when resolved
-  wfmThumb?: string;    // WFM thumbnail URL when resolved
-}
-
-export interface TradeEvent {
-  id: string;              // unique — ISO timestamp + random suffix
-  date: string;            // ISO datetime string
-  type: "sale" | "purchase"; // sale = plat gained, purchase = plat spent
-  platChange: number;      // always positive (absolute delta)
-  items: TradeItem[];      // items that changed alongside the plat
-  partner?: string;        // trading partner username (from EE.log)
-  wfmClosed?: boolean;     // true when a WFM order was auto-closed for this trade
-}
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
 const MAX_EVENTS = 2000;
 const MIN_COOLDOWN_MS = 10_000; // 10 s — suppresses duplicate events
-
-// ── State ─────────────────────────────────────────────────────────────────────
 
 let _lastEventTime = 0;
 let _tradeLog: TradeEvent[] = [];
@@ -91,8 +69,8 @@ export function loadTradeLog(): void {
 export function recordTradeFromLog(parsed: {
   partner: string;
   platChange: number;
-  type: "sale" | "purchase";
-  items: Array<{ displayName: string; count: number; direction: "given" | "received" }>;
+  type: TradeType;
+  items: Array<{ displayName: string; count: number; direction: TradeDirection }>;
 }): TradeEvent | null {
   const now = Date.now();
   if (now - _lastEventTime < MIN_COOLDOWN_MS) return null;

@@ -11,6 +11,7 @@ import http from "node:http";
 import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { app } from "electron";
+import type { DownloadStage } from "../config/shared/statsTypes";
 
 const log = withScope("apiHelperRunner");
 
@@ -33,8 +34,10 @@ export interface HelperStatus {
   inventoryLastModified: number | null; // unix ms
 }
 
+export type { DownloadStage };
+
 export interface DownloadProgress {
-  stage: "resolving" | "downloading" | "done" | "error";
+  stage: DownloadStage;
   percent: number; // 0-100
   bytesReceived: number;
   bytesTotal: number;

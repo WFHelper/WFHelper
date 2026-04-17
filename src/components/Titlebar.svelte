@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
 
-  import { ipc } from "../lib/ipc.js";
+  import { invoke, send } from "../lib/ipc.js";
   import { themeSettings } from "../stores/theme.js";
   import { DEFAULT_APP_NAME } from "../config/themeDefaults.js";
   import type { HelperStatus } from "../types/ipc.js";
@@ -40,8 +40,7 @@
 
   onMount(() => {
     const refreshHelperStatus = (): void => {
-      ipc
-        .getHelperStatus()
+      invoke("getHelperStatus")
         .then((status) => {
           helperStatus = status;
         })
@@ -62,14 +61,7 @@
 
 <header class="titlebar app-region-drag">
   <div class="titlebar-left">
-    {#if logoUrl}
-      <img src={logoUrl} alt="Logo" class="titlebar-logo" />
-    {:else}
-      <svg class="titlebar-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--accent)">
-        <polygon points="12,2 22,20 2,20" />
-        <circle cx="12" cy="14" r="3" />
-      </svg>
-    {/if}
+    <img src={logoUrl || "logo.png"} alt="Logo" class="titlebar-logo" />
     <span class="titlebar-name">
       {appName}
     </span>
@@ -85,21 +77,21 @@
     <button
       class="titlebar-btn"
       title="Minimize"
-      on:click={ipc.minimizeWindow}
+      on:click={() => send("window-minimize")}
     >
       <svg class="titlebar-icon" viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.2"/></svg>
     </button>
     <button
       class="titlebar-btn"
       title="Maximize"
-      on:click={ipc.maximizeWindow}
+      on:click={() => send("window-maximize")}
     >
       <svg class="titlebar-icon" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
     </button>
     <button
       class="titlebar-btn titlebar-btn--close"
       title="Close"
-      on:click={ipc.closeWindow}
+      on:click={() => send("window-close")}
     >
       <svg class="titlebar-icon" viewBox="0 0 12 12">
         <line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.2"/>

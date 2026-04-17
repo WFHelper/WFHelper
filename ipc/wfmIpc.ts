@@ -1,4 +1,5 @@
 import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
+import type { WfmStatus } from "../config/shared/wfm";
 import {
   errorCode,
   normalizeErrorMessage,
@@ -230,7 +231,7 @@ function register(): void {
       return { error: "Invalid status. Must be one of: online, ingame, invisible." };
     }
 
-    return withWfmError("set-status", () => wfmSession.setStatus(parsed.status as "online" | "ingame" | "invisible"), "Failed to set status.");
+    return withWfmError("set-status", () => wfmSession.setStatus(parsed.status as WfmStatus), "Failed to set status.");
   });
 }
 

@@ -12,6 +12,7 @@ import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 import {
   TRADE_NOTIFICATION_SHOW, TRADE_NOTIFICATION_DISMISS,
 } from "../config/shared/ipcChannels";
+import type { TradeType } from "../config/shared/statsTypes";
 
 const log = withScope("tradeNotificationIpc");
 
@@ -44,7 +45,7 @@ export interface TradeNotificationShowPayload {
     quantity: number;
     platinum: number;
     partner: string;
-    type: "sale" | "purchase";
+    type: TradeType;
   };
   timing: {
     visibleMs: number;

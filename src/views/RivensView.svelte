@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { ipc } from "../lib/ipc.js";
+  import { invoke, on } from "../lib/ipc.js";
   import type { DecodedRiven, VeiledRivenEntry, VeiledRivenGroup } from "../types/ipc.js";
   import RivenDetailModal from "../components/RivenDetailModal.svelte";
   import RivenFinder from "../components/RivenFinder.svelte";
@@ -63,7 +63,7 @@
   async function loadRivens() {
     loading = true;
     try {
-      const result = await ipc.getRivens();
+      const result = await invoke("getRivens");
       rivens = result.unveiled;
       veiledRivens = result.veiled ?? [];
       veiledUnseen = result.veiledUnseen ?? [];
@@ -125,7 +125,7 @@
 
   onMount(() => {
     loadRivens();
-    const unsub = ipc.on("inventory-updated", () => {
+    const unsub = on("inventory-updated", () => {
       loadRivens();
     });
     return unsub;

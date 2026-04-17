@@ -17,56 +17,16 @@ import {
   BASE_DRAIN,
   NON_PERCENTAGE_TAGS,
 } from "./rivenConstants";
+import type {
+  DecodedRivenStat,
+  DecodedRiven,
+  VeiledRivenEntry,
+  VeiledRivenGroup,
+} from "../config/shared/rivenTypes";
+
+export type { DecodedRivenStat, DecodedRiven, VeiledRivenEntry, VeiledRivenGroup };
 
 const log = withScope("rivenFingerprint");
-
-// ── Types ────────────────────────────────────────────────────────────────────
-
-export interface DecodedRivenStat {
-  tag: string;
-  name: string;
-  displayValue: number;
-  rollFloat: number;
-  grade: string;
-  positive: boolean;
-  /** True for faction-damage / multiplier-style stats (displayed as xN.NN) */
-  multiplier: boolean;
-}
-
-export interface DecodedRiven {
-  itemId: string;
-  weaponName: string;
-  weaponUniqueName: string;
-  rivenName: string;
-  masteryReq: number;
-  currentRank: number;
-  maxRank: number;
-  rerolls: number;
-  polarity: string;
-  disposition: number;
-  stats: DecodedRivenStat[];
-  overallGrade: string;
-  attributeGrade: string;
-  /** Average rollFloat across all stats — higher = closer to perfect */
-  statPerfectness: number;
-  /** Riven mod type (Rifle / Shotgun / Pistol / Melee / etc.) */
-  rivenType: string;
-}
-
-export interface VeiledRivenEntry {
-  itemType: string;
-  label: string;
-  challengeType?: string;
-  challengeDesc?: string;
-  challengeProgress?: number;
-  challengeRequired?: number;
-}
-
-export interface VeiledRivenGroup {
-  itemType: string;
-  label: string;
-  count: number;
-}
 
 interface RawFingerprint {
   compat?: string;

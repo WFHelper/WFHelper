@@ -12,6 +12,7 @@ import {
   resetRivenState,
 } from "./rivenLogStateMachine";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import type { TradeType, TradeDirection } from "../config/shared/statsTypes";
 
 const log = withScope("eeLogMonitor");
 
@@ -100,13 +101,13 @@ export const forceEndRivenSession = _forceEndRivenSession;
 export interface ParsedLogTradeItem {
   displayName: string;
   count: number;
-  direction: "given" | "received";
+  direction: TradeDirection;
 }
 
 export interface ParsedLogTrade {
   partner: string;
   platChange: number;
-  type: "sale" | "purchase";
+  type: TradeType;
   items: ParsedLogTradeItem[];
 }
 
@@ -354,8 +355,10 @@ function _parseTradeDialog(lines: string[]): ParsedLogTrade | null {
   // Determine trade type and plat
   const platGained = received.plat;
   const platSpent = offered.plat;
-  const isSale = platGained > 0;
-  const platChange = isSale ? platGained : platSpent;
+  const isSale = platGained > 0 && platSpent === 0;
+  const isPurchase = platSpent > 0 && platGained === 0;
+  const type = isSale ? "sale" : isPurchase ? "purchase" : "trade";
+  const platChange = Math.max(platGained, platSpent);
 
   // Set directions
   for (const item of offered.items) item.direction = "given";
@@ -364,7 +367,7 @@ function _parseTradeDialog(lines: string[]): ParsedLogTrade | null {
   return {
     partner,
     platChange,
-    type: isSale ? "sale" : "purchase",
+    type,
     items: [...offered.items, ...received.items],
   };
 }

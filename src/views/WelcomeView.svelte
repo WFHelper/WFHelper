@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import { onInventoryLoaded } from "../lib/actions.js";
   import { currentView, statusText } from "../stores/app.js";
-  import { ipc } from "../lib/ipc.js";
+  import { invoke, on, send } from "../lib/ipc.js";
   import type { HelperStatus } from "../types/ipc.js";
 
   let helperStatus: "checking" | "found" | "not_found" | "error" = "checking";
@@ -15,7 +15,7 @@
   onMount(async () => {
     // Listen for inventory push from main process (covers race condition
     // where auto-detect happens before renderer IPC is ready)
-    const removeInventoryListener = ipc.on("inventory-updated", async (data) => {
+    const removeInventoryListener = on("inventory-updated", async (data) => {
       if (destroyed || loadingApi) return;
       try {
         await onInventoryLoaded(data);
@@ -30,7 +30,7 @@
     await refreshHelperStatus();
     // Also get runner status
     try {
-      runnerStatus = await ipc.getHelperStatus();
+      runnerStatus = await invoke("getHelperStatus");
     } catch { /* ignore */ }
 
     if (destroyed) return;
@@ -58,7 +58,7 @@
 
   async function refreshHelperStatus() {
     try {
-      const status = await ipc.getInventoryStatus();
+      const status = await invoke("getInventoryStatus");
       if (status?.found) {
         helperStatus = "found";
         helperPath = status.path || null;
@@ -90,12 +90,12 @@
       let errorMessage: string | null = null;
 
       if (!preferPicker) {
-        data = await ipc.getInventory();
+        data = await invoke("getInventory");
         errorMessage = getLoadErrorMessage(data);
       }
 
       if (!data || errorMessage) {
-        data = await ipc.openInventoryFile();
+        data = await invoke("openInventoryFile");
         errorMessage = getLoadErrorMessage(data);
       }
 
@@ -118,7 +118,7 @@
   async function triggerHelperRun() {
     try {
       statusText.set("Running warframe-api-helper...");
-      await ipc.runHelperNow();
+      await invoke("runHelperNow");
       statusText.set("Helper finished — waiting for inventory...");
     } catch {
       statusText.set("Failed to run helper");
@@ -188,7 +188,7 @@
 
         <div class="source-steps-mini">
           <!-- svelte-ignore a11y-invalid-attribute -->
-          <span>1. <a href="#" on:click|preventDefault={() => ipc.openExternal('https://github.com/Sainan/warframe-api-helper/releases')}>Download warframe-api-helper</a></span>
+          <span>1. <a href="#" on:click|preventDefault={() => send('open-external', 'https://github.com/Sainan/warframe-api-helper/releases')}>Download warframe-api-helper</a></span>
           <span>2. Run it while Warframe is open</span>
           <span>3. Load the generated <code>inventory.json</code></span>
         </div>

@@ -1,3 +1,7 @@
+import type { MasteryStatus } from "../../config/shared/masteryTypes.js";
+export type { MasteryStatus };
+export type PartType = "normal" | "prime";
+
 export interface DropInfo {
   location: string;
   rarity?: string;
@@ -86,7 +90,7 @@ export interface ParsedItem {
   components: ComponentInfo[];
   drops: DropInfo[];
   wikiaUrl: string | null;
-  status?: "mastered" | "progress" | "missing";
+  status?: MasteryStatus;
   currentlyOwned?: boolean;
   uniqueName?: string;
   inventoryKey?: string;
@@ -97,7 +101,7 @@ export interface ParsedItem {
   ducatonator?: number | null;
   completeSets?: number | boolean | null;
   orderPlaced?: boolean;
-  partType?: "normal" | "prime";
+  partType?: PartType;
   inventoryGroup?: InventoryGroup;
   favorite?: boolean;
   equipped?: boolean;

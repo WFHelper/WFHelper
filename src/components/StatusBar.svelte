@@ -4,7 +4,7 @@
   import { statusText, debugMode } from "../stores/app.js";
   import { appUpdateState } from "../stores/updates.js";
   import { addToast } from "../stores/toasts.js";
-  import { ipc } from "../lib/ipc.js";
+  import { invoke } from "../lib/ipc.js";
   import { perfSnapshot, resetPerfMetrics } from "../lib/perf.js";
   import {
     getPriceDebugCounters,
@@ -63,7 +63,7 @@
     updateActionPending = true;
     try {
       if ($appUpdateState.status === "downloaded") {
-        const result = await ipc.installDownloadedUpdate();
+        const result = await invoke("installDownloadedUpdate");
         if (!result.ok) {
           addToast({
             level: "warning",
@@ -74,7 +74,7 @@
         return;
       }
 
-      const result = await ipc.checkForAppUpdates();
+      const result = await invoke("checkForAppUpdates");
       if (!result.ok && result.message) {
         addToast({
           level: "warning",

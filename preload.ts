@@ -1,4 +1,5 @@
 ﻿import { contextBridge, ipcRenderer } from "electron";
+import type { CreateRivenAuctionPayload } from "./config/shared/rivenTypes";
 import {
   INVENTORY_GET, INVENTORY_OPEN_FILE, INVENTORY_GET_STATUS, INVENTORY_UPDATED,
   DB_GET_ITEM_DATABASE, DB_GET_WORLD_STATE, DB_GET_RELIC_DATABASE, DB_GET_WFM_ITEMS,
@@ -129,7 +130,7 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke(RIVENS_SEARCH_AUCTIONS, weaponName, positiveWfmNames, negativeWfmNames),
   getWeaponRivenType: (weaponName: string) =>
     ipcRenderer.invoke(RIVENS_GET_WEAPON_TYPE, weaponName),
-  createRivenAuction: (payload: { weaponName: string; rivenName: string; stats: { tag: string; value: number; positive: boolean; multiplier?: boolean }[]; rerolls: number; masteryReq: number; polarity: string; modRank: number; buyoutPrice: number | null; startingPrice: number; isPrivate: boolean; description: string }) =>
+  createRivenAuction: (payload: CreateRivenAuctionPayload) =>
     ipcRenderer.invoke(RIVENS_CREATE_AUCTION, payload),
   onHelperDownloadProgress: (callback: (progress: unknown) => void) => {
     const listener = (_event: unknown, progress: unknown) => callback(progress);

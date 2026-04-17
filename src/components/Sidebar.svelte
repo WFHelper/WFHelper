@@ -1,6 +1,6 @@
 <script lang="ts">
   import { currentView } from "../stores/app.js";
-  import { ipc } from "../lib/ipc.js";
+  import { invoke, send } from "../lib/ipc.js";
   import { tr } from "../lib/i18n.js";
   import type { MessageKey } from "../lib/i18n.js";
 
@@ -70,16 +70,16 @@
   ];
 
   async function loadInventoryFile(): Promise<void> {
-    const result = await ipc.openInventoryFile();
+    const result = await invoke("openInventoryFile");
     if (result) currentView.set("inventory");
   }
 
   function toggleOverlay(): void {
-    ipc.toggleOverlay();
+    send("toggle-overlay");
   }
 
   function testOverlay(): void {
-    ipc.simulateRelicTrigger();
+    send("simulate-relic-trigger");
   }
 </script>
 

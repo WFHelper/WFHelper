@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
   import type { DecodedRiven, WfmRivenListing } from "../types/ipc.js";
-  import { ipc } from "../lib/ipc.js";
+  import { invoke } from "../lib/ipc.js";
   import { getBestAttributes } from "../lib/rivenBestAttributes.js";
 
   interface Props {
@@ -52,8 +52,7 @@
 
   onMount(() => {
     // Fetch ALL auctions for this weapon — no stat filtering, similarity is client-side
-    ipc
-      .searchRivenAuctions(riven.weaponName, [], [])
+    invoke("searchRivenAuctions", riven.weaponName, [], [])
       .then((listings) => {
         const myStatNames = riven.stats.map((s) => s.name.toLowerCase());
         const enriched = listings.map((listing) => {
@@ -73,7 +72,7 @@
         loadingListings = false;
       });
 
-    ipc.wfmGetSession().then((s) => {
+    invoke("wfmGetSession").then((s) => {
       isLoggedIn = s.loggedIn;
     }).catch(() => {});
   });
@@ -97,7 +96,7 @@
     const buyoutPrice = listingType === "direct" ? listingPrice : null;
     const startingPrice = listingPrice;
 
-    const result = await ipc.createRivenAuction({
+    const result = await invoke("createRivenAuction", {
       weaponName: riven.weaponName,
       rivenName: riven.rivenName,
       stats,

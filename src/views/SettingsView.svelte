@@ -3,7 +3,7 @@
   import { overlaySettings, overlaySettingsLoaded, OVERLAY_DEFAULTS, applyOverlaySettingsResponse } from "../stores/overlaySettings.js";
   import AppearanceCard from "../components/settings/AppearanceCard.svelte";
   import { OVERLAY_SETTINGS_LIMITS } from "../config/overlay.js";
-  import { ipc } from "../lib/ipc.js";
+  import { invoke, send } from "../lib/ipc.js";
   import { tr } from "../lib/i18n.js";
   import type { OverlaySettings } from "../types/ipc.js";
 
@@ -42,7 +42,7 @@
   onMount(async () => {
     if (!$overlaySettingsLoaded) {
       try {
-        const loaded = await ipc.getOverlaySettings();
+        const loaded = await invoke("getOverlaySettings");
         if (loaded) applyOverlaySettingsResponse(loaded);
       } catch {
         statusMsg = $tr("settings.loadFailed");
@@ -69,7 +69,7 @@
     };
 
     try {
-      const saved = await ipc.setOverlaySettings(payload);
+      const saved = await invoke("setOverlaySettings", payload);
       if (saved) {
         applyOverlaySettingsResponse(saved);
         applyToForm($overlaySettings);
@@ -85,7 +85,7 @@
   async function resetDefaults() {
     applyToForm(OVERLAY_DEFAULTS);
     try {
-      const saved = await ipc.setOverlaySettings({ ...OVERLAY_DEFAULTS });
+      const saved = await invoke("setOverlaySettings", { ...OVERLAY_DEFAULTS });
       if (saved) applyOverlaySettingsResponse(saved);
       statusMsg = $tr("settings.defaultsRestored");
       statusError = false;
@@ -96,7 +96,7 @@
   }
 
   function testTrigger() {
-    ipc.simulateRelicTrigger();
+    send("simulate-relic-trigger");
   }
 </script>
 

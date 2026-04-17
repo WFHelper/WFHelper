@@ -1,5 +1,5 @@
 import { fetchPriceByName } from "./wfm/wfmPrice.js";
-import { ipc } from "./ipc.js";
+import { send } from "./ipc.js";
 
 export interface PriceState {
   text: string;
@@ -35,5 +35,5 @@ export async function loadItemPrice(
 
 /** Open an item on warframe.market by slug. */
 export function openOnWfm(slug: string | null): void {
-  if (slug) ipc.openExternal(`https://warframe.market/items/${slug}`);
+  if (slug) send("open-external", `https://warframe.market/items/${slug}`);
 }

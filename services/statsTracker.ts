@@ -5,7 +5,7 @@
  *   platDelta     — net PremiumCredits change (platinum)
  *   creditsDelta  — net RegularCredits change
  *   endoDelta     — net FusionPoints change (endo)
- *   ducatsDelta   — net DUCTCREDITS change (Void Ducats)
+ *   ducatsDelta   — net Void Ducats change (MiscItems/PrimeBucks)
  *   relicsOpened  — number of relics consumed (LevelKeys total decrease)
  *   daysPlayed    — 1 if inventory data was received today, else 0
  */
@@ -68,6 +68,13 @@ function _historyPath(): string {
 
 function _todayStr(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/** Look up an item's count inside the MiscItems inventory array. */
+function _findMiscItemCount(data: Record<string, unknown>, itemType: string): number | null {
+  const misc = Array.isArray(data.MiscItems) ? data.MiscItems as Array<Record<string, unknown>> : [];
+  const entry = misc.find((e) => e.ItemType === itemType);
+  return entry && typeof entry.ItemCount === "number" ? entry.ItemCount : null;
 }
 
 function _saveHistory(): void {
@@ -183,8 +190,8 @@ export function onInventoryData(data: Record<string, unknown>): void {
   const plat    = typeof data.PremiumCredits === "number" ? data.PremiumCredits : null;
   const credits = typeof data.RegularCredits === "number" ? data.RegularCredits : null;
   const endo    = typeof data.FusionPoints   === "number" ? data.FusionPoints   : null;
-  // DUCTCREDITS is the raw field name for Void Ducats in the Warframe inventory JSON
-  const ducats  = typeof data.DUCTCREDITS    === "number" ? data.DUCTCREDITS    : null;
+  // Ducats are stored as a MiscItem entry, not a top-level field
+  const ducats  = _findMiscItemCount(data, "/Lotus/Types/Items/MiscItems/PrimeBucks");
   // PrimeTokens is the raw field name for Aya in the Warframe inventory JSON
   const aya     = typeof data.PrimeTokens    === "number" ? data.PrimeTokens    : null;
 

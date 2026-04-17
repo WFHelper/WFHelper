@@ -1,4 +1,4 @@
-import type { TradeEvent, TradeItem } from "../../types/ipc.js";
+import type { TradeEvent, TradeItem, TradeType } from "../../types/ipc.js";
 
 export interface NormalizedStatEntry {
   date: string;
@@ -122,9 +122,9 @@ export function parseAlecaFrameTrades(parsed: unknown): TradeEvent[] {
     if (!ts) continue;
 
     const afType = typeof t.type === "number" ? t.type : -1;
-    // 0 = sale, 1 = purchase, 2 = gift — skip gifts
-    if (afType === 2) continue;
-    const tradeType: "sale" | "purchase" = afType === 1 ? "purchase" : "sale";
+    // 0 = sale, 1 = purchase, 2 = trade (item swap / gift)
+    if (afType < 0 || afType > 2) continue;
+    const tradeType: TradeType = afType === 1 ? "purchase" : afType === 0 ? "sale" : "trade";
     const totalPlat = typeof t.totalPlat === "number" ? t.totalPlat : 0;
 
     // Strip trailing non-printable / PUA unicode chars from partner name

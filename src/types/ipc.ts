@@ -103,7 +103,7 @@ export interface HelperStatus {
 }
 
 export interface HelperDownloadProgress {
-  stage: "resolving" | "downloading" | "done" | "error";
+  stage: DownloadStage;
   percent: number;
   bytesReceived: number;
   bytesTotal: number;
@@ -135,19 +135,14 @@ export type WfmSessionResponse = WfmSession;
 export type WfmSignInResponse = WfmSession;
 export type WfmMeResponse = WfmUserProfile | WfmMutationError | null;
 
-export interface CreateRivenAuctionPayload {
-  weaponName: string;
-  rivenName: string;
-  stats: { tag: string; value: number; positive: boolean; multiplier?: boolean }[];
-  rerolls: number;
-  masteryReq: number;
-  polarity: string;
-  modRank: number;
-  buyoutPrice: number | null;
-  startingPrice: number;
-  isPrivate: boolean;
-  description: string;
-}
+import type {
+  CreateRivenAuctionPayload,
+  DecodedRiven,
+  DecodedRivenStat,
+  VeiledRivenEntry,
+  VeiledRivenGroup,
+} from "../../config/shared/rivenTypes.js";
+export type { CreateRivenAuctionPayload, DecodedRiven, DecodedRivenStat, VeiledRivenEntry, VeiledRivenGroup };
 
 export interface IpcInvokeMap {
   getInventory: {
@@ -338,48 +333,6 @@ export interface RivenStatOption {
   displayName: string;
 }
 
-export interface DecodedRivenStat {
-  tag: string;
-  name: string;
-  displayValue: number;
-  rollFloat: number;
-  grade: string;
-  positive: boolean;
-  multiplier: boolean;
-}
-
-export interface DecodedRiven {
-  itemId: string;
-  weaponName: string;
-  weaponUniqueName: string;
-  rivenName: string;
-  masteryReq: number;
-  currentRank: number;
-  maxRank: number;
-  rerolls: number;
-  polarity: string;
-  disposition: number;
-  stats: DecodedRivenStat[];
-  overallGrade: string;
-  attributeGrade: string;
-  statPerfectness: number;
-  rivenType: string;
-}
-
-export interface VeiledRivenEntry {
-  itemType: string;
-  label: string;
-  challengeType?: string;
-  challengeDesc?: string;
-  challengeProgress?: number;
-  challengeRequired?: number;
-}
-
-export interface VeiledRivenGroup {
-  itemType: string;
-  label: string;
-  count: number;
-}
 
 export interface RivenResult {
   unveiled: DecodedRiven[];
@@ -398,35 +351,23 @@ export interface WfmRivenListing {
   isDirectSell: boolean;
 }
 
-export interface TradeItem {
-  internalName: string;
-  displayName: string;
-  count: number;
-  direction: "received" | "given";
-  wfmSlug?: string;
-  wfmThumb?: string;
-}
-
-export interface TradeEvent {
-  id: string;
-  date: string;                    // ISO datetime
-  type: "sale" | "purchase";
-  platChange: number;              // always positive
-  items: TradeItem[];
-  partner?: string;                // trading partner username (best-effort from EE.log)
-  wfmClosed?: boolean;             // true when a WFM order was auto-closed for this trade
-}
-
 export interface WfmNotification {
   type: "whisper" | "trade";
   from: string;
   content: string;
 }
 
-// Single source of truth for DailyStatEntry and SessionStats lives in
-// config/shared/statsTypes.ts — imported here for local use and re-exported.
-import type { DailyStatEntry, SessionStats } from "../../config/shared/statsTypes.js";
-export type { DailyStatEntry, SessionStats };
+// Single source of truth for trade/stat types lives in config/shared/statsTypes.ts.
+import type {
+  DailyStatEntry,
+  DownloadStage,
+  SessionStats,
+  TradeDirection,
+  TradeEvent,
+  TradeItem,
+  TradeType,
+} from "../../config/shared/statsTypes.js";
+export type { DailyStatEntry, DownloadStage, SessionStats, TradeDirection, TradeEvent, TradeItem, TradeType };
 
 export interface WfmTradeMatchEvent {
   orderId: string;
@@ -436,7 +377,7 @@ export interface WfmTradeMatchEvent {
   quantity: number;
   platinum: number;
   partner: string;
-  type: "sale" | "purchase";
+  type: TradeType;
 }
 
 export interface TradeRecordedEvent {

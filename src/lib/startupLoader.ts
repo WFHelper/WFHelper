@@ -1,4 +1,4 @@
-import { ipc } from "./ipc.js";
+import { invoke } from "./ipc.js";
 import { itemDb, wfmItems } from "../stores/data.js";
 import { relicDb } from "../stores/relics.js";
 import { debugMode } from "../stores/app.js";
@@ -41,14 +41,14 @@ export function initStartup(): StartupHandle {
 
   void (async () => {
     try {
-      await ipc.setDebugMode(get(debugMode));
+      await invoke("setDebugMode", get(debugMode));
     } catch {
       // not critical
     }
 
     try {
       const stageStart = Date.now();
-      const rankedHotset = await ipc.loadRankedHotset();
+      const rankedHotset = await invoke("loadRankedHotset");
       if (rankedHotset) {
         const count = importRankedHotset(rankedHotset as Record<string, unknown>);
         log.info(`[Startup] Restored ${count} ranked hotset entries from disk cache`);
@@ -71,7 +71,7 @@ export function initStartup(): StartupHandle {
 
     try {
       const stageStart = Date.now();
-      const db = await ipc.getItemDatabase();
+      const db = await invoke("getItemDatabase");
       itemDb.set(db || {});
       profileStage("item-db:load", stageStart);
     } catch (e) {
@@ -80,7 +80,7 @@ export function initStartup(): StartupHandle {
 
     try {
       const stageStart = Date.now();
-      const items = await ipc.getWfmItems();
+      const items = await invoke("getWfmItems");
       wfmItems.set(items || {});
       profileStage("wfm-items:load", stageStart);
     } catch (e) {
@@ -89,7 +89,7 @@ export function initStartup(): StartupHandle {
 
     try {
       const stageStart = Date.now();
-      const state = await ipc.getAppUpdateState();
+      const state = await invoke("getAppUpdateState");
       applyUpdateState(state, false);
       profileStage("app-update-state:load", stageStart);
     } catch {
@@ -134,7 +134,7 @@ async function flushPriceCacheToDisk(): Promise<void> {
   try {
     const hotsetData = exportRankedHotset();
     if (Array.isArray(hotsetData.entries) && hotsetData.entries.length > 0) {
-      await ipc.saveRankedHotset(hotsetData as unknown as Record<string, unknown>);
+      await invoke("saveRankedHotset", hotsetData as unknown as Record<string, unknown>);
     }
   } catch {
     // best-effort, don't log every periodic failure
@@ -145,7 +145,7 @@ async function startPrimePriceWarmup(): Promise<void> {
   try {
     let db = get(relicDb);
     if (!db) {
-      db = await ipc.getRelicDatabase();
+      db = await invoke("getRelicDatabase");
       relicDb.set(db);
     }
     if (db) {

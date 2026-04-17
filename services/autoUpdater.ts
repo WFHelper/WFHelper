@@ -58,7 +58,10 @@ function toInfoPatch(info: UpdateInfo): Partial<UpdateState> {
 
 function shouldEnableAutoUpdater(): boolean {
   if (process.env.WF_DISABLE_AUTO_UPDATE === "1") return false;
-  return app.isPackaged;
+  if (!app.isPackaged) return false;
+  // --dir builds lack app-update.yml; only enable when the file exists
+  const ymlPath = require("node:path").join(process.resourcesPath, "app-update.yml");
+  return require("node:fs").existsSync(ymlPath);
 }
 
 function clearStartupCheck(): void {

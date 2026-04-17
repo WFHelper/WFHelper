@@ -37,7 +37,7 @@
     markStartupInteractive,
     type HeavyViewName,
   } from "./lib/perf.js";
-  import { ipc } from "./lib/ipc.js";
+  import { invoke, on } from "./lib/ipc.js";
   import { tr } from "./lib/i18n.js";
   import type { MessageKey } from "./lib/i18n.js";
 
@@ -88,7 +88,7 @@
       handleViewChange(view);
     });
 
-    const unsubscribeInventoryUpdated = ipc.onInventoryUpdated(async (data) => {
+    const unsubscribeInventoryUpdated = on("inventory-updated", async (data) => {
       if (data && !(data as { error?: unknown }).error) {
         await onInventoryLoaded(data);
         // Auto-navigate to inventory only on initial load (from welcome/setup screens)
@@ -99,11 +99,11 @@
       }
     });
 
-    const unsubscribeUpdateStatus = ipc.onAppUpdateStatus((state) => {
+    const unsubscribeUpdateStatus = on("app-update-status", (state) => {
       applyUpdateState(state, true);
     });
 
-    const unsubscribeWfmNotification = ipc.onWfmNotification((notification) => {
+    const unsubscribeWfmNotification = on("wfm:notification", (notification) => {
       addToast({
         level: "info",
         title: `WFM DM from ${notification.from}`,
@@ -116,7 +116,7 @@
 
     // Show setup wizard on first launch if helper exe isn't installed
     if (!localStorage.getItem("setup-completed")) {
-      ipc.getHelperStatus().then((status) => {
+      invoke("getHelperStatus").then((status) => {
         if (!status.exeFound && $currentView === "welcome") {
           currentView.set("setup");
         } else {

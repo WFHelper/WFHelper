@@ -1,10 +1,11 @@
 import { toFiniteNumber } from "../../../config/shared/numeric.js";
 import { normalizeWfmSlug as _normalizeWfmSlug } from "../../../config/shared/wfm.js";
+import type { RequestPriority } from "./wfmPrice.js";
 
 /** Re-export from shared module for existing renderer consumers. */
 export const normalizeWfmSlug = _normalizeWfmSlug;
 
-export type BackendRequestPriority = "high" | "normal" | "low";
+export type BackendRequestPriority = RequestPriority;
 
 type FallbackMode = "always" | "high" | "never";
 

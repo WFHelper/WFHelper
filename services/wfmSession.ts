@@ -2,6 +2,7 @@ import path from "path";
 import fs from "fs";
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import type { WfmStatus } from "../config/shared/wfm";
 
 /**
  * wfmSession.ts — Warframe.market session management (main-process only)
@@ -39,7 +40,7 @@ export interface SignOutResult {
 }
 
 export interface SetStatusResult {
-  status: "online" | "ingame" | "invisible";
+  status: WfmStatus;
 }
 
 export interface WfmUserProfile {
@@ -256,7 +257,7 @@ export async function getMe(): Promise<WfmUserProfile | null> {
  * @param status
  */
 export async function setStatus(
-  status: "online" | "ingame" | "invisible",
+  status: WfmStatus,
 ): Promise<SetStatusResult> {
   if (!_token) throw new Error("Not logged in to Warframe.market.");
   await setStatusViaWebSocket(_token, status);

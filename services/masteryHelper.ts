@@ -1,13 +1,13 @@
-// ═══════════════════════════════════════════════════════════════════════════
-// Mastery Helper Service
-// Builds a complete list of all masterable items in the game,
-// then compares against user inventory to show owned / missing / mastered.
-// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * masteryHelper.ts — Builds a complete list of all masterable items in the game,
+ * then compares against the user's inventory to show owned / missing / mastered.
+ */
 
 import * as itemDb from "./itemDatabase";
 import type { ComponentEntry } from "./types/gameData";
 import { MAX_ITEM_RANK, XP_PER_RANK } from "../config/game/constants";
 import { toFiniteNumber } from "../config/shared/numeric";
+import type { MasteryStatus } from "../config/shared/masteryTypes";
 
 let debugMode = false;
 
@@ -320,7 +320,7 @@ interface MasterableItem {
 }
 
 interface MasteryProgressItem extends MasterableItem {
-  status: "mastered" | "progress" | "missing";
+  status: MasteryStatus;
   rank: number;
   maxRank: number;
   currentlyOwned: boolean;
@@ -497,7 +497,7 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
     let owned = ownedMap.get(item.uniqueName);
     if (!owned) owned = ownedByName.get(item.name.toLowerCase()) ?? undefined;
 
-    let status: "mastered" | "progress" | "missing" = "missing";
+    let status: MasteryStatus = "missing";
     let rank = 0;
     let maxRank = MAX_ITEM_RANK;
     let currentlyOwned = false;

@@ -53,4 +53,4 @@ export const LOGO_MAX_BYTES = 256 * 1024;
 export const APP_NAME_MAX_LENGTH = 30;
 
 /** Default app name shown in titlebar */
-export const DEFAULT_APP_NAME = "WARFRAME COMPANION";
+export const DEFAULT_APP_NAME = "WFHELPER";

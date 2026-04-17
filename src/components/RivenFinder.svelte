@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { ipc } from "../lib/ipc.js";
+  import { invoke, send } from "../lib/ipc.js";
   import type { WfmRivenListing, RivenStatOption } from "../types/ipc.js";
   import { getBestAttributes } from "../lib/rivenBestAttributes.js";
 
@@ -135,8 +135,8 @@
 
   onMount(async () => {
     const [names, stats] = await Promise.all([
-      ipc.getRivenWeaponNames(),
-      ipc.getRivenStatOptions(),
+      invoke("getRivenWeaponNames"),
+      invoke("getRivenStatOptions"),
     ]);
     weaponNames = names;
     statOptions = stats;
@@ -146,7 +146,7 @@
     selectedWeapon = name;
     weaponSearch = name;
     showWeaponDropdown = false;
-    weaponType = await ipc.getWeaponRivenType(name);
+    weaponType = await invoke("getWeaponRivenType", name);
   }
 
   async function doSearch() {
@@ -155,7 +155,7 @@
     hasSearched = true;
     try {
       // Fetch ALL auctions for this weapon — filtering + similarity is client-side
-      rawResults = await ipc.searchRivenAuctions(selectedWeapon, [], []);
+      rawResults = await invoke("searchRivenAuctions", selectedWeapon, [], []);
     } catch {
       rawResults = [];
     } finally {
@@ -164,7 +164,7 @@
   }
 
   function openAuction(id: string) {
-    window.api.openExternal(`https://warframe.market/auction/${id}`);
+    send("open-external", `https://warframe.market/auction/${id}`);
   }
 
   function handleWeaponFocus() {

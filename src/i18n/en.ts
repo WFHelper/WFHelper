@@ -30,7 +30,6 @@ export const en = {
   "stats.endo": "Endo",
   "stats.relicsOpened": "Relics Opened",
   "stats.dailyTrades": "Daily Trades",
-  "stats.daysPlayed": "Days Played",
   "stats.noDays": "No history yet.",
   "stats.timeframe": "Timeframe",
   "stats.trades": "Trade History",

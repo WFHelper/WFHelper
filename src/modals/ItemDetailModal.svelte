@@ -3,7 +3,7 @@
   import { itemDb, wfmItems } from "../stores/data.js";
   import { loadItemPrice, openOnWfm } from "../lib/priceLoader.js";
   import ItemImage from "../components/ItemImage.svelte";
-  import { ipc } from "../lib/ipc.js";
+  import { send } from "../lib/ipc.js";
   import { toOfficialWikiUrl, buildWikiUrl } from "../lib/wikiUrl.js";
   import { resolveDrops } from "../lib/resolveDrops.js";
   import type { ComponentInfo, DropInfo } from "../types/inventory.js";
@@ -88,7 +88,7 @@
       <div class="detail-panel">
         <div class="detail-panel-top-actions">
           {#if item.wikiaUrl}
-            <button class="detail-wiki-btn" on:click={() => ipc.openExternal(toOfficialWikiUrl(item.wikiaUrl!))} title="Open on Wiki">
+            <button class="detail-wiki-btn" on:click={() => send('open-external', toOfficialWikiUrl(item.wikiaUrl!))} title="Open on Wiki">
               <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true">
                 <path d="M9 2h5v5l-1.8-1.8L9 8.4 7.6 7l3.2-3.2L9 2zM4 4h3v1.5H4v7h7V9.5h1.5V13a.5.5 0 0 1-.5.5H3.5A.5.5 0 0 1 3 13V4.5A.5.5 0 0 1 3.5 4H4z"/>
               </svg>
@@ -181,7 +181,7 @@
       {#if selectedComp}
         <div class="detail-panel comp-inline-panel">
           <div class="detail-panel-top-actions">
-            <button class="detail-wiki-btn" on:click={() => ipc.openExternal(compWikiUrl ? toOfficialWikiUrl(compWikiUrl) : buildWikiUrl(`${item.name} ${selectedComp?.name || ''}`))} title="Open on Wiki">
+            <button class="detail-wiki-btn" on:click={() => send('open-external', compWikiUrl ? toOfficialWikiUrl(compWikiUrl) : buildWikiUrl(`${item.name} ${selectedComp?.name || ''}`))} title="Open on Wiki">
               <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true">
                 <path d="M9 2h5v5l-1.8-1.8L9 8.4 7.6 7l3.2-3.2L9 2zM4 4h3v1.5H4v7h7V9.5h1.5V13a.5.5 0 0 1-.5.5H3.5A.5.5 0 0 1 3 13V4.5A.5.5 0 0 1 3.5 4H4z"/>
               </svg>

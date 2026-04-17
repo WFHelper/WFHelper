@@ -32,7 +32,7 @@
     warmupRelicEvs,
     relicGroupMatchesSearch,
   } from "../lib/relic.js";
-  import { ipc } from "../lib/ipc.js";
+  import { invoke, send } from "../lib/ipc.js";
   import {
     markRelicWarmupComplete,
     markRelicWarmupFirstUseful,
@@ -102,7 +102,7 @@
   }
 
   function pushFiltersToOverlay(): void {
-    ipc.pushRelicFilters({
+    send("overlay:push-relic-filters", {
       squadSize: $relicSquadSize,
       tierFilter: $relicTierFilter === "all" ? null : $relicTierFilter,
     });
@@ -167,7 +167,7 @@
     if (!$relicDb) {
       loading = true;
       try {
-        const db = await ipc.getRelicDatabase();
+        const db = await invoke("getRelicDatabase");
         relicDb.set(db);
         if ($inventoryData) {
           relicOwnedCounts.set(parseOwnedRelics($inventoryData, db));
