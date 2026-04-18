@@ -22,6 +22,7 @@ const RIVEN_STAT_ALIAS_REPLACEMENTS: ReadonlyArray<[RegExp, string]> = Object.fr
   [/Maga zine/gi, "Magazine"],
   [/Capaclty/gi, "Capacity"],
   [/Maxinnunn/gi, "Maximum"],
+  [/Maximu[rn]/gi, "Maximum"],
   [/Annnno/gi, "Ammo"],
   [/Mel[ae]e/gi, "Melee"],
   [/Fini sher/gi, "Finisher"],
@@ -477,7 +478,36 @@ function parseStatsFromLines(text: string): RivenStat[] {
       const idx = lineLower.indexOf(stat.toLowerCase());
       if (idx !== -1) hits.push({ stat, idx });
     }
-    if (hits.length === 0) continue;
+
+    // Fuzzy fallback: if no exact match but the line looks like a stat line
+    // (starts with +/-/x), try Levenshtein distance against known stat names.
+    // Handles single-character OCR misreads like "Maximur" → "Maximum".
+    if (hits.length === 0) {
+      if (/^[+\-\u2013x\xd7]/i.test(line)) {
+        // Strip sign+value prefix to isolate the stat name portion
+        const namePart = line.replace(/^[+\-\u2013x\xd7]?[\d.,\s%]*/, "").trim();
+        if (namePart.length >= 3) {
+          let bestStat = "";
+          let bestDist = Infinity;
+          let bestIdx = -1;
+          const namePartLower = namePart.toLowerCase();
+          for (const stat of KNOWN_RIVEN_STATS) {
+            const statLower = stat.toLowerCase();
+            // Compare the name portion (trimmed to stat length + slack) against the stat
+            const dist = levenshteinDistance(namePartLower.slice(0, statLower.length + 2), statLower);
+            if (dist < bestDist && dist <= 2) {
+              bestDist = dist;
+              bestStat = stat;
+              bestIdx = lineLower.indexOf(namePartLower);
+            }
+          }
+          if (bestStat && bestIdx >= 0) {
+            hits.push({ stat: bestStat, idx: bestIdx });
+          }
+        }
+      }
+      if (hits.length === 0) continue;
+    }
 
     hits.sort((a, b) => a.idx - b.idx || b.stat.length - a.stat.length);
     const filtered: typeof hits = [];
