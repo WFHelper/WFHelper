@@ -21,6 +21,8 @@ export interface Fissure {
 export interface VaultTraderInventoryItem {
   uniqueName?: string;
   item?: string;
+  ducats?: number;
+  credits?: number;
   [key: string]: unknown;
 }
 

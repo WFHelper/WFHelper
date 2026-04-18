@@ -210,14 +210,11 @@ const settingsController = createOverlaySettingsController({
 // ── Relay callbacks (exposed to main.ts) ─────────────────────────────────────
 
 function onRelicSelectionTrigger(source: string): void {
-  const onCloseByEsc = () =>
-    rewardOverlayIpc.onRelicSelectionCloseByEsc(pushOverlayInteractionMode);
   rewardOverlayIpc.onRelicSelectionTrigger(
     source,
     pushOverlayInteractionMode,
     pushOverlayThemeVars,
     bringOverlayToWarframeDisplayIfAvailable,
-    onCloseByEsc,
   );
 }
 

@@ -7,8 +7,10 @@ const log = withScope("rivenStateMachine");
 export const RIVEN_PATTERNS = {
   sessionOpen: /Sys \[Info\]: Created \/Lotus\/Interface\/OmegaRerollSelection\.swf/,
   sessionClose: /NpcManager::ClearAgents\(\) ReadyToCreateAgents = false/,
-  chatRivenView: /ThemedDetailedPurchaseDialog\.lua: DBG: HudVis 1/,
-  chatRivenClose: /ThemedDetailedPurchaseDialog\.lua: DBG: HudVis 0/,
+  /** Matches any HudVis line — we extract the number to track increments/decrements. */
+  hudVis: /ThemedDetailedPurchaseDialog\.lua: DBG: HudVis (\d+)/,
+  /** Two-step riven detection: PopulateInfo with a Randomized mod path confirms it's a riven. */
+  populateRiven: /ThemedDetailedPurchaseDialog\.lua: PopulateInfo->\/Lotus\/StoreItems\/Upgrades\/Mods\/Randomized\//,
   cycleConfirmEn:
     /Dialog::CreateOkCancel\(description=Are you sure you want to cycle (.+?) for ([\d,. ]+)\?/,
   choiceConfirmEn: /Dialog::CreateOkCancel\(description=Cycle Riven into current selection\?/,
@@ -16,6 +18,8 @@ export const RIVEN_PATTERNS = {
   genericDialogNonInteractive: /leftItem=nil/,
   sendResult: /Dialog\.lua:\s*Dialog::SendResult\((\d+)\)/,
   diaoramaSetup: /OmegaRerollSelection\.lua.*Diorama setup/i,
+  /** Extra close signal used by AlecaFrame: recycled effects line. */
+  recycledEffects: /ytes of recycled effects/,
 } as const;
 
 // ── Callbacks ─────────────────────────────────────────────────────────────────
@@ -69,8 +73,18 @@ const RIVEN_SESSION_OPEN_COOLDOWN_MS = 15_000;
 let _lastRivenDioramaAt = 0;
 const RIVEN_DIORAMA_DEDUP_MS = 2_000;
 
+/** True once the diorama-setup line fires — mirrors AlecaFrame's `isRerollUIOpen`.
+ * Close patterns (ClearAgents / recycled effects) are gated on this so that
+ * lines emitted during the loading transition TO the riven screen are ignored. */
+let _rivenDioramaReady = false;
+
 let _rivenForceEndedAt = 0;
 const RIVEN_FORCE_END_COOLDOWN_MS = 5_000;
+
+/** Track HudVis for two-step chat riven detection (AlecaFrame-style). */
+let _lastHudVis = 0;
+let _lastHudVisIncreaseAt = 0;
+const CHAT_RIVEN_POPULATE_WINDOW_MS = 2_000;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -81,6 +95,7 @@ function resetRivenIdleTimer(): void {
     _rivenPendingDialog = null;
     _rivenNextDialog = "cycle";
     _rivenSessionActive = false;
+    _rivenDioramaReady = false;
     log.log("[EELog] Riven session idle timeout — resetting");
   }, RIVEN_SESSION_IDLE_TIMEOUT_MS);
 }
@@ -115,8 +130,8 @@ export function processRivenPatterns(
   }
 
   // Diorama ready: both cards are now displayed — trigger roll OCR immediately.
-  // NOT gated by skipRivenFromFilePoll — OmegaRerollSelection.lua lines
-  // are Lua script output that appears only in EE.log file, never via DBWIN.
+  // Arrives via both DBWIN and file poll. Not gated by skipRivenFromFilePoll
+  // so it works regardless of which source delivers first.
   if (
     _rivenSessionActive &&
     RIVEN_PATTERNS.diaoramaSetup.test(line)
@@ -124,15 +139,20 @@ export function processRivenPatterns(
     const now = Date.now();
     if (now - _lastRivenDioramaAt >= RIVEN_DIORAMA_DEDUP_MS) {
       _lastRivenDioramaAt = now;
+      _rivenDioramaReady = true;
       resetRivenIdleTimer();
       log.log("[EELog] Riven diorama ready -> dispatching diorama OCR trigger");
       if (typeof _callbacks.onRivenDioramaSetup === "function") _callbacks.onRivenDioramaSetup();
     }
   }
 
-  if (!skipRivenFromFilePoll && _rivenSessionActive && RIVEN_PATTERNS.sessionClose.test(line)) {
-    log.log("[EELog] Riven session close (ClearAgents) -> dispatching overlay close");
+  // Session close: NpcManager::ClearAgents or recycled effects.
+  // Gated on _rivenDioramaReady (mirrors AlecaFrame's isRerollUIOpen) — these lines
+  // fire during the loading transition TO the riven screen, before the diorama is set up.
+  if (!skipRivenFromFilePoll && _rivenSessionActive && _rivenDioramaReady && (RIVEN_PATTERNS.sessionClose.test(line) || RIVEN_PATTERNS.recycledEffects.test(line))) {
+    log.log("[EELog] Riven session close detected -> dispatching overlay close");
     _rivenSessionActive = false;
+    _rivenDioramaReady = false;
     _rivenPendingDialog = null;
     _rivenNextDialog = "cycle";
     if (_rivenSessionIdleTimer) {
@@ -142,17 +162,37 @@ export function processRivenPatterns(
     if (typeof _callbacks.onRivenSessionClose === "function") _callbacks.onRivenSessionClose();
   }
 
-  // ── Riven chat-link view ──────────────────────────────────────────────────
-  if (!_rivenSessionActive && RIVEN_PATTERNS.chatRivenView.test(line)) {
-    _rivenChatViewActive = true;
-    log.log("[EELog] Riven chat-link view detected -> dispatching chat view");
-    if (typeof _callbacks.onRivenChatView === "function") _callbacks.onRivenChatView();
+  // ── Riven chat-link view (two-step AlecaFrame-style detection) ──────────
+  // Step 1: Track HudVis changes. On increment, record timestamp.
+  // Step 2: If PopulateInfo with Randomized mod path appears within 2s, it's a riven.
+  // On decrement, close the chat riven view.
+  const hudVisMatch = line.match(RIVEN_PATTERNS.hudVis);
+  if (hudVisMatch && !_rivenSessionActive) {
+    const newVis = parseInt(hudVisMatch[1], 10);
+    if (newVis < _lastHudVis) {
+      // HudVis decreased → chat item view closed
+      if (_rivenChatViewActive) {
+        _rivenChatViewActive = false;
+        log.log("[EELog] Riven chat-link view closed (HudVis decreased) -> dispatching session close");
+        if (typeof _callbacks.onRivenSessionClose === "function") _callbacks.onRivenSessionClose();
+      }
+    } else if (newVis > _lastHudVis) {
+      // HudVis increased → record timestamp, wait for PopulateInfo confirmation
+      _lastHudVisIncreaseAt = Date.now();
+    }
+    _lastHudVis = newVis;
   }
 
-  if (_rivenChatViewActive && RIVEN_PATTERNS.chatRivenClose.test(line)) {
-    _rivenChatViewActive = false;
-    log.log("[EELog] Riven chat-link view closed -> dispatching session close");
-    if (typeof _callbacks.onRivenSessionClose === "function") _callbacks.onRivenSessionClose();
+  // Step 2: PopulateInfo with Randomized mod path within 2s of HudVis increase = riven
+  if (
+    !_rivenSessionActive &&
+    !_rivenChatViewActive &&
+    RIVEN_PATTERNS.populateRiven.test(line) &&
+    Date.now() - _lastHudVisIncreaseAt < CHAT_RIVEN_POPULATE_WINDOW_MS
+  ) {
+    _rivenChatViewActive = true;
+    log.log("[EELog] Riven chat-link view confirmed (PopulateInfo within HudVis window) -> dispatching chat view");
+    if (typeof _callbacks.onRivenChatView === "function") _callbacks.onRivenChatView();
   }
 
   // ── Dialog detection (two layers) ─────────────────────────────────────────
@@ -250,11 +290,15 @@ export function isRivenSessionActive(): boolean {
 }
 
 export function forceEndRivenSession(): void {
-  if (!_rivenSessionActive && !_rivenPendingDialog) return;
+  if (!_rivenSessionActive && !_rivenPendingDialog && !_rivenChatViewActive) return;
   _rivenSessionActive = false;
+  _rivenDioramaReady = false;
+  _rivenChatViewActive = false;
   _rivenPendingDialog = null;
   _rivenNextDialog = "cycle";
   _rivenForceEndedAt = Date.now();
+  _lastHudVis = 0;
+  _lastHudVisIncreaseAt = 0;
   if (_rivenSessionIdleTimer) {
     clearTimeout(_rivenSessionIdleTimer);
     _rivenSessionIdleTimer = null;
@@ -266,11 +310,14 @@ export function resetRivenState(): void {
   _rivenPendingDialog = null;
   _rivenNextDialog = "cycle";
   _rivenSessionActive = false;
+  _rivenDioramaReady = false;
   _rivenChatViewActive = false;
   _lastRivenSendResultAt = 0;
   _lastRivenGenericDialogAt = 0;
   _lastRivenChoiceDialogAt = 0;
   _lastRivenSessionOpenAt = 0;
+  _lastHudVis = 0;
+  _lastHudVisIncreaseAt = 0;
   if (_rivenSessionIdleTimer) {
     clearTimeout(_rivenSessionIdleTimer);
     _rivenSessionIdleTimer = null;

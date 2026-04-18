@@ -11,7 +11,7 @@ import * as rivenBestAttributes from "../services/rivenBestAttributes";
 import * as wfmRivenSearch from "../services/wfmRivenSearch";
 import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
-import { startEscMonitor, stopEscMonitor } from "../services/keyboardMonitor";
+
 import { forceEndRivenSession } from "../services/eeLogMonitor";
 import { isAllowedExternalHost } from "../config/runtime/security";
 import {
@@ -371,7 +371,6 @@ function triggerRollScan(delayMs = ROLL_SCAN_DELAY_MS, skipGate = true): void {
 
 export function onRivenSessionClose(): void {
   log.log("[OverlayRoute] trigger=riven-session-close");
-  stopEscMonitor();
   rivenScan.abortRivenScans();
   // Reset the eeLogMonitor session state so subsequent EE.log events (e.g. a
   // "Cycle Riven into current selection?" dialog arriving after the user pressed
@@ -430,7 +429,6 @@ export function onRivenChatView(): void {
     const lw = ctx.rivenOverlayLeftWindow;
     if (lw && !lw.isDestroyed()) lw.webContents.send("overlay-theme-vars", vars);
   }
-  startEscMonitor(() => onRivenSessionClose());
   triggerInitialScan();
 }
 
@@ -450,9 +448,6 @@ export function onRivenSessionOpen(): void {
     const vars = { ...ctx.overlayThemeVars };
     forEachRivenWindow((win) => win.webContents.send("overlay-theme-vars", vars));
   }
-  // ESC key closes the riven overlay — uses the same low-level keyboard hook
-  // as the relic recommendation overlay (uiohook-napi).
-  startEscMonitor(() => onRivenSessionClose());
   triggerInitialScan();
 }
 
@@ -576,7 +571,6 @@ export function register(): void {
     ) {
       return;
     }
-    stopEscMonitor();
     clearRivenScanTimers();
     _rivenInteractive = false;
     _rivenHasRollResult = false;

@@ -138,28 +138,36 @@ describe("RIVEN_PATTERNS", () => {
     });
   });
 
-  describe("chatRivenView", () => {
-    it("matches HudVis 1 (chat riven opened)", () => {
+  describe("hudVis", () => {
+    it("matches HudVis with any number", () => {
       const line = "ThemedDetailedPurchaseDialog.lua: DBG: HudVis 1";
-      expect(RIVEN_PATTERNS.chatRivenView.test(line)).toBe(true);
+      const m = RIVEN_PATTERNS.hudVis.exec(line);
+      expect(m).not.toBeNull();
+      expect(m![1]).toBe("1");
     });
 
-    it("does not match HudVis 0 (chat riven closed)", () => {
-      expect(
-        RIVEN_PATTERNS.chatRivenView.test("ThemedDetailedPurchaseDialog.lua: DBG: HudVis 0"),
-      ).toBe(false);
+    it("matches HudVis 0", () => {
+      const m = RIVEN_PATTERNS.hudVis.exec("ThemedDetailedPurchaseDialog.lua: DBG: HudVis 0");
+      expect(m).not.toBeNull();
+      expect(m![1]).toBe("0");
+    });
+
+    it("extracts higher HudVis numbers", () => {
+      const m = RIVEN_PATTERNS.hudVis.exec("ThemedDetailedPurchaseDialog.lua: DBG: HudVis 3");
+      expect(m).not.toBeNull();
+      expect(m![1]).toBe("3");
     });
   });
 
-  describe("chatRivenClose", () => {
-    it("matches HudVis 0 (chat riven closed)", () => {
-      const line = "ThemedDetailedPurchaseDialog.lua: DBG: HudVis 0";
-      expect(RIVEN_PATTERNS.chatRivenClose.test(line)).toBe(true);
+  describe("populateRiven", () => {
+    it("matches PopulateInfo with Randomized mod path", () => {
+      const line = "ThemedDetailedPurchaseDialog.lua: PopulateInfo->/Lotus/StoreItems/Upgrades/Mods/Randomized/LotusArchgunRandomMod";
+      expect(RIVEN_PATTERNS.populateRiven.test(line)).toBe(true);
     });
 
-    it("does not match HudVis 1 (chat riven opened)", () => {
+    it("does not match PopulateInfo with non-riven path", () => {
       expect(
-        RIVEN_PATTERNS.chatRivenClose.test("ThemedDetailedPurchaseDialog.lua: DBG: HudVis 1"),
+        RIVEN_PATTERNS.populateRiven.test("ThemedDetailedPurchaseDialog.lua: PopulateInfo->/Lotus/StoreItems/Weapons/Tenno/Melee"),
       ).toBe(false);
     });
   });

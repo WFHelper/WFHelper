@@ -29,6 +29,64 @@ const POE_NIGHT_MS = WORLD_STATE_CONFIG.poeNightMs;
 const DUVIRI_MOOD_PERIOD_MS = WORLD_STATE_CONFIG.duviriMoodPeriodMs;
 const DUVIRI_MOODS = WORLD_STATE_CONFIG.duviriMoods;
 
+// Steel Path Honors - weekly rotating offer (epoch + rotation from WFCD warframe-worldstate-data)
+const STEEL_PATH_EPOCH_MS = new Date("2020-11-16T00:00:00.000Z").getTime();
+const STEEL_PATH_EIGHT_WEEKS_S = 4838400; // 8 * 7 * 86400
+const STEEL_PATH_SEVEN_DAYS_S = 604800;   // 7 * 86400
+const STEEL_PATH_ROTATION: { name: string; cost: number }[] = [
+  { name: "Umbra Forma Blueprint", cost: 150 },
+  { name: "50,000 Kuva", cost: 55 },
+  { name: "Kitgun Riven Mod", cost: 75 },
+  { name: "3x Forma", cost: 75 },
+  { name: "Zaw Riven Mod", cost: 75 },
+  { name: "30,000 Endo", cost: 150 },
+  { name: "Rifle Riven Mod", cost: 75 },
+  { name: "Shotgun Riven Mod", cost: 75 },
+];
+const STEEL_PATH_EVERGREENS: { name: string; cost: number }[] = [
+  { name: "Veiled Riven Cipher", cost: 20 },
+  { name: "Bishamo Pauldrons Blueprint", cost: 15 },
+  { name: "Bishamo Cuirass Blueprint", cost: 25 },
+  { name: "Bishamo Helmet Blueprint", cost: 20 },
+  { name: "Bishamo Greaves Blueprint", cost: 25 },
+  { name: "10k Kuva", cost: 15 },
+  { name: "Primary Arcane Adapter", cost: 15 },
+  { name: "Secondary Arcane Adapter", cost: 15 },
+  { name: "Relic Pack", cost: 15 },
+  { name: "Stance Forma Blueprint", cost: 10 },
+];
+
+function computeSteelPathHonors(): {
+  currentReward: { name: string; cost: number };
+  activation: string;
+  expiry: string;
+  rotation: { name: string; cost: number }[];
+  evergreens: { name: string; cost: number }[];
+} {
+  const nowMs = Date.now();
+  const sSinceStart = (nowMs - STEEL_PATH_EPOCH_MS) / 1000;
+  const ind = Math.floor((sSinceStart % STEEL_PATH_EIGHT_WEEKS_S) / STEEL_PATH_SEVEN_DAYS_S);
+
+  // Compute week boundaries (Monday 0:00 UTC)
+  const now = new Date(nowMs);
+  const dayOfWeek = now.getUTCDay(); // 0=Sun, 1=Mon
+  const offset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const activation = new Date(nowMs);
+  activation.setUTCDate(activation.getUTCDate() - offset);
+  activation.setUTCHours(0, 0, 0, 0);
+  const expiry = new Date(activation);
+  expiry.setUTCDate(expiry.getUTCDate() + 6);
+  expiry.setUTCHours(23, 59, 59, 0);
+
+  return {
+    currentReward: STEEL_PATH_ROTATION[ind],
+    activation: activation.toISOString(),
+    expiry: expiry.toISOString(),
+    rotation: STEEL_PATH_ROTATION,
+    evergreens: STEEL_PATH_EVERGREENS,
+  };
+}
+
 const EMPTY_LOOKUP: Record<string, string> = Object.freeze({});
 
 function loadRegionTranslationData(): { regions: Record<string, Record<string, unknown>>; dict: Record<string, string> } {
@@ -90,14 +148,31 @@ function getChallengeLookup(): Record<string, { requiredCount?: number }> {
   return _challengeLookup;
 }
 
+/** Browse.wf icon overrides for items missing from public exports */
+const BROWSE_WF = "https://browse.wf";
+const BARO_ICON_OVERRIDES: Record<string, string> = {
+  "/Lotus/Types/Items/ShipDecos/Plushies/PlushyNecraLoid":
+    BROWSE_WF + "/Lotus/Interface/Icons/StoreIcons/ShipDecos/Decorations/NecraloidFloof.png",
+};
+
+/** Resolve a browse.wf icon for an item path, checking exports then overrides */
+function resolveBaroIcon(itemPath: string): string | null {
+  if (BARO_ICON_OVERRIDES[itemPath]) return BARO_ICON_OVERRIDES[itemPath];
+  const entry = getItemLookup()[itemPath];
+  if (entry && typeof (entry as Record<string, unknown>).icon === "string") {
+    return BROWSE_WF + (entry as Record<string, unknown>).icon;
+  }
+  return null;
+}
+
 /** Lazy-loaded item lookup: maps Lotus item paths → { name: string } from ExportResources + ExportRecipes */
-let _itemLookup: Record<string, { name?: string }> | null = null;
-function getItemLookup(): Record<string, { name?: string }> {
+let _itemLookup: Record<string, { name?: string; era?: string; category?: string; resultType?: string }> | null = null;
+function getItemLookup(): Record<string, { name?: string; era?: string; category?: string; resultType?: string }> {
   if (_itemLookup) return _itemLookup;
   _itemLookup = {};
   try {
     const pep = require("warframe-public-export-plus");
-    for (const key of ["ExportResources", "ExportRecipes", "ExportUpgrades", "ExportGear"]) {
+    for (const key of ["ExportResources", "ExportRecipes", "ExportUpgrades", "ExportGear", "ExportRelics", "ExportKeys"]) {
       const data = pep?.[key];
       if (data && typeof data === "object") {
         Object.assign(_itemLookup, data);
@@ -106,7 +181,7 @@ function getItemLookup(): Record<string, { name?: string }> {
   } catch {
     try {
       const pkgDir = path.dirname(require.resolve("warframe-public-export-plus/package.json"));
-      for (const file of ["ExportResources.json", "ExportRecipes.json", "ExportUpgrades.json", "ExportGear.json"]) {
+      for (const file of ["ExportResources.json", "ExportRecipes.json", "ExportUpgrades.json", "ExportGear.json", "ExportRelics.json", "ExportKeys.json"]) {
         try {
           const data = JSON.parse(fs.readFileSync(path.join(pkgDir, file), "utf8"));
           if (data && typeof data === "object") Object.assign(_itemLookup, data);
@@ -127,6 +202,16 @@ function resolveItemName(itemPath: string): string {
     const resolved = resolveDictValue(entry.name);
     if (resolved) return resolved;
   }
+  // Recipe fallback: resolve name via resultType (e.g. MummyQuestKeyBlueprint → "Sands of Inaros Blueprint")
+  if (entry?.resultType) {
+    const result = items[entry.resultType];
+    if (result?.name) {
+      const resolved = resolveDictValue(result.name);
+      if (resolved) return `${resolved} Blueprint`;
+    }
+  }
+  // Relic fallback: ExportRelics entries have era + category but no name
+  if (entry?.era && entry?.category) return `${entry.era} ${entry.category} Relic`;
   // Fallback: extract readable name from path slug
   const slug = itemPath.split("/").pop() || itemPath;
   return slug.replace(/([a-z])([A-Z])/g, "$1 $2").trim();
@@ -160,7 +245,7 @@ export function emptyWorldState(): Record<string, unknown> {
     voidTrader: null,
     vaultTrader: null,
     sortie: null,
-    steelPath: null,
+    steelPath: computeSteelPathHonors(),
     duviriCycle: null,
     earthCycle: null,
     cetusCycle: null,
@@ -417,14 +502,6 @@ interface WarframestatInvasion {
   completed?: boolean;
 }
 
-interface WarframestatSteelPath {
-  currentReward?: { name?: string; cost?: number };
-  activation?: string;
-  expiry?: string;
-  rotation?: { name?: string; cost?: number }[];
-  evergreens?: { name?: string; cost?: number }[];
-}
-
 interface WarframestatSyndicateMission {
   syndicate?: string;
   syndicateKey?: string;
@@ -439,14 +516,12 @@ interface WarframestatSyndicateMission {
 
 async function fetchWarframestatExtras(): Promise<{
   invasions: unknown[];
-  steelPath: unknown;
   bounties: unknown[];
 }> {
-  const result = { invasions: [] as unknown[], steelPath: null as unknown, bounties: [] as unknown[] };
+  const result = { invasions: [] as unknown[], bounties: [] as unknown[] };
 
-  const [invasionsRes, steelPathRes, syndicateRes] = await Promise.allSettled([
+  const [invasionsRes, syndicateRes] = await Promise.allSettled([
     fetchJsonWithTimeout(`${WARFRAMESTAT_BASE_URL}/invasions`, CYCLE_FETCH_TIMEOUT_MS),
-    fetchJsonWithTimeout(`${WARFRAMESTAT_BASE_URL}/steelPath`, CYCLE_FETCH_TIMEOUT_MS),
     fetchJsonWithTimeout(`${WARFRAMESTAT_BASE_URL}/syndicateMissions`, CYCLE_FETCH_TIMEOUT_MS),
   ]);
 
@@ -480,23 +555,6 @@ async function fetchWarframestatExtras(): Promise<{
       }));
   } else if (invasionsRes.status === "rejected") {
     log.warn("[WorldState] invasions fetch failed:", normalizeErrorMessage(invasionsRes.reason));
-  }
-
-  // Steel Path
-  if (steelPathRes.status === "fulfilled" && steelPathRes.value && typeof steelPathRes.value === "object") {
-    const sp = steelPathRes.value as WarframestatSteelPath;
-    result.steelPath = {
-      currentReward: {
-        name: sp.currentReward?.name || "Unknown",
-        cost: sp.currentReward?.cost || 0,
-      },
-      activation: sp.activation || null,
-      expiry: sp.expiry || null,
-      rotation: (sp.rotation || []).map((r) => ({ name: r.name || "", cost: r.cost || 0 })),
-      evergreens: (sp.evergreens || []).map((e) => ({ name: e.name || "", cost: e.cost || 0 })),
-    };
-  } else if (steelPathRes.status === "rejected") {
-    log.warn("[WorldState] steelPath fetch failed:", normalizeErrorMessage(steelPathRes.reason));
   }
 
   // Bounties (syndicate missions with jobs)
@@ -758,8 +816,8 @@ export async function fetchAndParse(): Promise<Record<string, unknown>> {
     duviriCycle: computeDuviriMoodCycle(nowMs),
   };
 
-  // Use steelPath from warframestat (has currentReward + rotation) if available
-  const steelPath = extras?.steelPath || parsed.steelPath || null;
+  // Steel Path is computed locally (epoch-based rotation) — no external API needed
+  const steelPath = computeSteelPathHonors();
 
   // Merge bounties from three sources:
   // 1. Raw world state (Ostrons/Solaris/Entrati — most reliable)
@@ -834,6 +892,18 @@ export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> {
         activation: deDate(baroRaw.Activation),
         expiry: deDate(baroRaw.Expiry),
         location: HUB_NODE[baroRaw.Node] || baroRaw.Node || "Unknown",
+        inventory: (baroRaw.Manifest || [])
+          .filter((i) => !(i.ItemType || "").includes("BaroTreasureBox"))
+          .map((i) => {
+          const un = (i.ItemType || "").replace(/^\/Lotus\/StoreItems/, "/Lotus");
+          return {
+            uniqueName: un,
+            item: resolveItemName(un),
+            ducats: i.PrimePrice ?? 0,
+            credits: i.RegularPrice ?? 0,
+            imageOverride: resolveBaroIcon(un),
+          };
+        }),
       }
     : null;
 
@@ -949,7 +1019,7 @@ export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> {
     voidTrader,
     vaultTrader,
     sortie,
-    steelPath: null,
+    steelPath: computeSteelPathHonors(),
     duviriCycle,
     earthCycle: null,
     cetusCycle: null,

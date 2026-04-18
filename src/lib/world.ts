@@ -112,6 +112,29 @@ function getInventoryRows(inventoryData: RawInventoryData): Array<{ ItemType?: s
   );
 }
 
+/** Build a Set of uniqueNames the player owns — covers gear, mods, relics, cosmetics, misc */
+export function buildBaroOwnedSet(inventoryData: RawInventoryData | null): Set<string> {
+  if (!inventoryData) return new Set();
+  const BARO_INV_KEYS: Array<keyof RawInventoryData> = [
+    "Suits", "LongGuns", "Pistols", "Melee",
+    "Sentinels", "SentinelWeapons", "SpaceSuits", "SpaceGuns", "SpaceMelee",
+    "OperatorAmps", "MechSuits",
+    "RawUpgrades", "Upgrades",
+    "LevelKeys",
+    "MiscItems",
+    "FlavourItems",
+  ];
+  const owned = new Set<string>();
+  for (const key of BARO_INV_KEYS) {
+    const rows = inventoryData[key];
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows as Array<{ ItemType?: string }>) {
+      if (row.ItemType) owned.add(row.ItemType);
+    }
+  }
+  return owned;
+}
+
 export function buildFeaturedPrimes(
   varzia: VaultTrader | null | undefined,
   inventoryData: RawInventoryData | null,

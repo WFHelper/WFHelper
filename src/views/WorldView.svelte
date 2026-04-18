@@ -1,12 +1,13 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { worldData, worldLoading, worldLastFetch, worldFissureMode } from "../stores/world.js";
-  import { inventoryData, itemDb, componentOwnership, enrichComponents } from "../stores/data.js";
+  import { inventoryData, itemDb, componentOwnership, enrichComponents, wfmItems } from "../stores/data.js";
+  import { getLookupByName } from "../lib/inventoryMarket.js";
   import {
     parseIsoDate, timeTo, timeToStrict, cycleTimeDisplay,
     nextDailyResetUtc, nextWeeklyResetUtc,
   } from "../lib/format.js";
-  import { PLANET_ICON_PATHS, RELIC_ICON_PATHS, fissureTierClass, buildFeaturedPrimes, resolveCircuitChoices } from "../lib/world.js";
+  import { PLANET_ICON_PATHS, RELIC_ICON_PATHS, fissureTierClass, buildFeaturedPrimes, buildBaroOwnedSet, resolveCircuitChoices } from "../lib/world.js";
   import { invoke, on } from "../lib/ipc.js";
   import { addToast } from "../stores/toasts.js";
   import { overlaySettings, overlaySettingsLoaded, applyOverlaySettingsResponse } from "../stores/overlaySettings.js";
@@ -297,6 +298,9 @@
   // Baro relay location for countdown display
   $: baroLocation = typeof baro?.location === "string" && baro.location ? baro.location : null;
 
+  // Baro ownership set — covers mods, weapons, relics, cosmetics
+  $: baroOwnedSet = buildBaroOwnedSet($inventoryData);
+
   // Helper: invasion reward display text
   function invasionRewardLabel(side: Invasion["attacker"] | Invasion["defender"]): string {
     const r = side.reward;
@@ -325,10 +329,6 @@
       <h2>World</h2>
       {#if baroActive}
         <span class="world-baro-pill">Baro leaves in {times.baro}</span>
-      {:else if baroAct}
-        <span class="world-baro-pill" title={baroLocation ? `Next visit at ${baroLocation}` : ''}>
-          Baro in {times.baro}{#if baroLocation} · {baroLocation}{/if}
-        </span>
       {/if}
     </div>
   </div>
@@ -571,8 +571,58 @@
         </div>
         {/if}
 
+        <!-- BARO KI'TEER (inactive — under invasions) -->
+        {#if !baroActive && baroAct}
+        <div class="world-section">
+          <div class="world-baro-inactive">
+            <span class="world-baro-inactive-name">Baro Ki'Teer</span>
+            <span class="world-baro-inactive-badge">Inactive</span>
+            <span class="world-baro-inactive-timer">{times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
+          </div>
+        </div>
+        {/if}
+
       </div>
     </div>
+
+    <!-- BARO KI'TEER (active — full-width with icon grid) -->
+    {#if baroActive && baro?.inventory && baro.inventory.length > 0}
+    <div class="world-section world-baro-fullwidth">
+      <CollapsibleSection title="Baro Ki'Teer" collapsed={collapsed.baro} onToggle={() => toggleSection('baro')}>
+      <div class="world-baro-meta">
+        <span>{baroLocation}</span>
+        <span class="world-baro-timer">Leaves in <strong>{times.baro}</strong></span>
+      </div>
+      <div class="world-baro-icons">
+        {#each baro.inventory as inv}
+          {@const dbEntry = $itemDb[inv.uniqueName || '']}
+          {@const hasDb = !!dbEntry}
+          {@const isMod = dbEntry?.category === 'Mod'}
+          {@const wfmEntry = isMod ? getLookupByName(inv.item || '', $wfmItems) : null}
+          {@const wfmIcon = wfmEntry?.icon || wfmEntry?.thumb || null}
+          {@const imgUrl = (isMod ? wfmIcon : null) || dbEntry?.imageUrl || (typeof inv.imageOverride === 'string' ? inv.imageOverride : null)}
+          {@const owned = baroOwnedSet.has(inv.uniqueName || '')}
+          <button class="world-baro-icon-item" class:world-baro-icon-clickable={hasDb} class:world-baro-icon-owned={owned} class:world-baro-mod-card={isMod} disabled={!hasDb} on:click={() => hasDb && openItemDetail(inv.uniqueName || '')} title="{inv.item || 'Unknown'}{inv.ducats ? ` — ${inv.ducats} duc` : ''}{inv.credits ? ` / ${inv.credits.toLocaleString()} cr` : ''}">
+            <div class="world-baro-icon-img" class:world-baro-mod-frame={isMod}>
+              {#if imgUrl}
+                <img src={imgUrl} alt={inv.item || ''} loading="lazy" />
+              {:else}
+                <span class="world-baro-icon-placeholder">{(inv.item || '?')[0]}</span>
+              {/if}
+              {#if inv.ducats}
+                <span class="world-baro-ducat-badge">{inv.ducats}</span>
+              {/if}
+              {#if owned}
+                <span class="world-baro-owned-badge">✓</span>
+              {/if}
+            </div>
+            <span class="world-baro-icon-name">{inv.item || 'Unknown'}</span>
+          </button>
+        {/each}
+      </div>
+      </CollapsibleSection>
+    </div>
+    {/if}
 
     <!-- BOUNTIES (full-width below grid) -->
     {#if bounties.length > 0}

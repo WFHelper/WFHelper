@@ -160,11 +160,16 @@ const uint8ArrayType = koffi.array("uint8", DBWIN_BUFFER_SIZE);
 const FILTER_SUBSTRINGS_LOWER = [
   "loadingcompleteend",        // relic selection screen ready (primary trigger)
   "populateinventorygrid",     // relic selection screen ready (fallback trigger)
+  "initmapping",               // relic picker close (returns to gameplay)
   "dialog::sendresult",        // relic/riven dialog closing
   "pause countdown done",      // mission reward trigger
   "got rewards",               // mission reward trigger
   "omegarerollselection.swf",  // riven rolling screen opened
+  "diorama setup",             // riven diorama ready (OmegaRerollSelection.lua)
+  "npcmanager::clearagents",   // riven session close
+  "recycled effects",          // riven session close (alt signal)
   "dialog::createokcancel",    // riven cycle confirm / choice confirm
+  "themeddetailedpurchasedialog", // chat riven HudVis + PopulateInfo detection
   "tradingpost.lua",           // trade partner detection
   "you are offering",          // trade dialog buffering start
   "the trade was successful",  // trade dialog success

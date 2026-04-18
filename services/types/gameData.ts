@@ -13,12 +13,15 @@
 export interface PepExportItem {
   name: string;
   description?: string;
+  resultType?: string;
   icon?: string;
   masteryReq?: number;
   primeSellingPrice?: number;
   tradable?: boolean;
   vaulted?: boolean;
   productCategory?: string;
+  era?: string;
+  category?: string;
 }
 
 /** Region entry from ExportRegions. */
@@ -133,6 +136,7 @@ export interface VoidTraderRaw {
   Activation: WorldStateDate;
   Expiry: WorldStateDate;
   Node: string;
+  Manifest?: { ItemType: string; PrimePrice?: number; RegularPrice?: number }[];
 }
 
 export interface VaultTraderRaw {

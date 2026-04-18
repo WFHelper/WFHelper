@@ -97,6 +97,8 @@
               {/each}
               {#if !showAllDrops && compDrops.length > 5}
                 <button class="drop-view-all" on:click={() => showAllDrops = true}>View all {compDrops.length} sources</button>
+              {:else if showAllDrops && compDrops.length > 5}
+                <button class="drop-view-all" on:click={() => showAllDrops = false}>Show fewer</button>
               {/if}
             </div>
           </div>

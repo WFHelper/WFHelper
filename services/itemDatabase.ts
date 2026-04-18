@@ -217,11 +217,11 @@ function loadPublicExportPlus(): number {
       { exportKey: "ExportWeapons", category: "Weapon" },
       { exportKey: "ExportSentinels", category: "Companion" },
       { exportKey: "ExportResources", category: "Resource" },
+      { exportKey: "ExportKeys", category: "Key" },
       { exportKey: "ExportRecipes", category: "Recipe" },
       { exportKey: "ExportGear", category: "Gear" },
       { exportKey: "ExportArcanes", category: "Arcane" },
       { exportKey: "ExportUpgrades", category: "Mod" },
-      { exportKey: "ExportKeys", category: "Key" },
       { exportKey: "ExportMisc", category: "Misc" },
       { exportKey: "ExportRelics", category: "Relic" },
       { exportKey: "ExportRailjackWeapons", category: "Railjack" },
@@ -240,8 +240,21 @@ function loadPublicExportPlus(): number {
       for (const [uniqueName, item] of Object.entries(exportData) as [string, PepExportItem][]) {
         if (!uniqueName || uniqueName === "default") continue;
 
+        // Relics have no name field — build from era + category (e.g. "Axi A2 Relic")
+        const relicName =
+          exportKey === "ExportRelics" && item.era && item.category
+            ? `${item.era} ${item.category} Relic`
+            : null;
+
+        // Recipes have no name — resolve via resultType (e.g. "Sands of Inaros Blueprint")
+        let recipeName: string | null = null;
+        if (exportKey === "ExportRecipes" && !item.name && item.resultType) {
+          const resultEntry = itemsByUniqueName[item.resultType];
+          if (resultEntry?.name) recipeName = `${resultEntry.name} Blueprint`;
+        }
+
         const resolvedName = sanitizeDisplayName(
-          resolveName(item.name) || extractFallbackName(uniqueName),
+          relicName || recipeName || resolveName(item.name) || extractFallbackName(uniqueName),
         );
 
         const pepDucats =
@@ -249,11 +262,16 @@ function loadPublicExportPlus(): number {
             ? Math.max(0, Math.round(item.primeSellingPrice))
             : null;
 
+        // For recipes without an icon, inherit from the result item
+        const recipeIcon = !item.icon && item.resultType
+          ? itemsByUniqueName[item.resultType]?.browseWfUrl ?? null
+          : null;
+
         itemsByUniqueName[uniqueName] = {
           name: resolvedName,
           category,
           imageUrl: null,
-          browseWfUrl: resolveIcon(item.icon),
+          browseWfUrl: resolveIcon(item.icon) || recipeIcon,
           isPrime: resolvedName.includes("Prime"),
           masteryReq: item.masteryReq || 0,
           tradable: normalizeOptionalBoolean(item.tradable),

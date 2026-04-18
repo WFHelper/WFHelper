@@ -10,7 +10,7 @@ import { createRelicSelectionController } from "./overlay/relicSelection";
 import { createOverlayWindowsController } from "./overlay/windows";
 import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
-import { startEscMonitor, stopEscMonitor } from "../services/keyboardMonitor";
+
 import * as relicService from "../services/relicService";
 import * as rewardScanner from "../services/rewardScanner";
 import * as wfmStatsPrice from "../services/wfmStatsPrice";
@@ -147,7 +147,6 @@ export function onRelicSelectionTrigger(
   pushOverlayInteractionMode: () => void,
   pushOverlayThemeVars: () => void,
   bringOverlayToWarframeDisplayIfAvailable: () => Promise<void>,
-  onRelicSelectionCloseByEsc: () => void,
 ): void {
   log.log(`[OverlayRoute] trigger=planner source=${source}`);
   void bringOverlayToWarframeDisplayIfAvailable();
@@ -156,23 +155,17 @@ export function onRelicSelectionTrigger(
   pushOverlayInteractionMode();
   pushOverlayThemeVars();
   void relicSelectionController.onRelicSelectionTrigger(source);
-  startEscMonitor(onRelicSelectionCloseByEsc);
 }
 
 export function onRelicSelectionClose(pushOverlayInteractionMode: () => void): void {
-  stopEscMonitor();
+  relicSelectionController.resetMissionTier?.();
   const win = ctx.plannerOverlayWindow;
   if (!win || win.isDestroyed() || !win.isVisible()) return;
   plannerWindowsController.clearOverlayAutoHideTimer();
   ctx.overlayInteractiveMode = false;
   pushOverlayInteractionMode();
   win.hide();
-  log.log("[OverlayClose] planner closed via ESC / Dialog::SendResult");
-}
-
-export function onRelicSelectionCloseByEsc(pushOverlayInteractionMode: () => void): void {
-  relicSelectionController.resetMissionTier?.();
-  onRelicSelectionClose(pushOverlayInteractionMode);
+  log.log("[OverlayClose] planner closed via Dialog::SendResult");
 }
 
 // ── IPC registration ─────────────────────────────────────────────────────────
@@ -180,7 +173,6 @@ export function onRelicSelectionCloseByEsc(pushOverlayInteractionMode: () => voi
 export function register(pushOverlayInteractionMode: () => void, pushOverlayThemeVars: () => void): void {
   ipcMain.on(OVERLAY_CLOSE, (event: unknown) => {
     if (!isAuthorizedSender(assertOverlayRendererSender, event as never, OVERLAY_CLOSE)) return;
-    stopEscMonitor();
     rewardWindowsController.clearOverlayAutoHideTimer();
     plannerWindowsController.clearOverlayAutoHideTimer();
     relicSelectionController.suppressReopenForClose?.();

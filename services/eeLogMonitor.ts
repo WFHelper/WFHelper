@@ -36,13 +36,14 @@ const RELIC_PICKER_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
   /\bProjectionManager\.lua:\s*PopulateInventoryGrid\b/i,
   /\bProjection[A-Za-z_]*\.lua:\s*PopulateInventoryGrid\b/i,
 ]);
-// Dialog::SendResult fires when the relic-selection dialog closes (ESC, confirm, cancel).
-// RELIC_PICKER_CLOSE_MIN_GAP_MS: if SendResult fires within this window of the last open
-// trigger it is from navigating TO the relic screen, not FROM it — ignore it.
-// (AlecaFrame has the same guard: "Skipped relic close because it was too close to
-// the recommendation start!")
+// AlecaFrame uses "InitMapping for all devices with bindings" to detect when the player
+// leaves the relic-selection screen (back, cancel, or relic chosen). This line fires when
+// the game re-initialises input bindings on returning to gameplay from any full-screen UI.
+// RELIC_PICKER_CLOSE_MIN_GAP_MS guards against the InitMapping that fires when navigating
+// TO the relic screen (same guard as AlecaFrame: "Skipped relic close because it was too
+// close to the recommendation start!").
 const RELIC_PICKER_CLOSE_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
-  /\bDialog\.lua:\s*Dialog::SendResult\(\d+\)/i,
+  /\bInitMapping for all devices with bindings\b/i,
 ]);
 // TradingPost.lua emits a line like:
 //   Script [Info]: TradingPost.lua: Initiating Trade With: <username>.
@@ -51,8 +52,8 @@ const TRADE_PARTNER_PATTERN = /TradingPost\.lua.*?[Tt]rade.*?[Ww]ith[: ]+([A-Za-
 
 /** Debounce before firing the reward-screen overlay after a log pattern match. */
 const TRIGGER_DELAY_MS = 450;
-/** Shorter debounce for relic-picker — the UI appears almost instantly. */
-const RELIC_TRIGGER_DELAY_MS = 120;
+/** Debounce for relic-picker — gives the in-game UI time to finish rendering. */
+const RELIC_TRIGGER_DELAY_MS = 300;
 /** Cooldown between consecutive reward scans to avoid re-triggering on duplicate log lines. */
 const REWARD_TRIGGER_COOLDOWN_MS = 2500;
 // DBWIN fires at T=0 (instant); EE.log file flush can lag 0–5 s behind.
@@ -66,9 +67,11 @@ const RELIC_PICKER_COOLDOWN_MS = 3000;
 /** Grace period after close before another close can fire — debounces rapid log flushes. */
 const RELIC_PICKER_CLOSE_COOLDOWN_MS = 500;
 // Minimum gap between the last open trigger and a close trigger being honoured.
-// Prevents Dialog::SendResult from closing the overlay when it fires as part of
+// Prevents InitMapping from closing the overlay when it fires as part of
 // the navigation flow that leads TO the relic selection screen.
-const RELIC_PICKER_CLOSE_MIN_GAP_MS = 2000;
+// AlecaFrame uses 3.5 s when a relic was just opened, 500 ms otherwise;
+// we use 3.5 s as a safe unified guard.
+const RELIC_PICKER_CLOSE_MIN_GAP_MS = 3500;
 // File-based poll is a safety net — DBWIN delivers lines with zero-latency.
 // 500 ms keeps the backup responsive while cutting CPU wake-ups by 5×.
 const POLL_INTERVAL_MS = 500;
@@ -237,8 +240,8 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   }
 
   // When DBWIN is active, skip relic picker pattern processing from file-poll lines.
-  // DBWIN delivers lines instantly; the file poll re-delivers the same lines 0–15 s later,
-  // after the 8 s cooldown has expired, causing a phantom re-open just like riven events.
+  // DBWIN delivers lines instantly; the file poll re-delivers the same lines later,
+  // causing phantom re-opens after cooldown expiry.
   const skipRelicFromFilePoll = isDbwinActive() && source === "file";
 
   if (!skipRelicFromFilePoll && RELIC_PICKER_PATTERNS.some((pattern) => pattern.test(line))) {
@@ -255,12 +258,21 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   }
 
   // ── Trade dialog buffering ─────────────────────────────────────────────────
+  // AlecaFrame behavior: start buffering on the dialog description line.
+  // Stop buffering when a new log-framework prefix appears ([Info]/[Error]/[Warning]).
+  // Single-line dialogs (ending with leftItem=/Menu/Confirm_Item_Ok) are handled immediately.
   if (line.includes(TRADE_DIALOG_START)) {
     _tradeDialogBuffer = [line];
     _tradeDialogStartAt = Date.now();
+    // Check if single-line dialog (all content on one line)
+    if (line.includes(", leftItem=/Menu/Confirm_Item_Ok")) {
+      // Single-line: buffer is complete, wait for trade success confirmation
+    }
   } else if (_tradeDialogBuffer !== null) {
-    // Timeout guard — abandon if dialog stays open too long
-    if (Date.now() - _tradeDialogStartAt > TRADE_DIALOG_TIMEOUT_MS) {
+    // Stop buffering when a log framework line appears (matches AlecaFrame behavior)
+    if (/\[(Info|Error|Warning)\]/.test(line)) {
+      // Buffer is complete — don't add this line, just stop buffering and wait for success
+    } else if (Date.now() - _tradeDialogStartAt > TRADE_DIALOG_TIMEOUT_MS) {
       _tradeDialogBuffer = null;
     } else {
       _tradeDialogBuffer.push(line);
@@ -278,18 +290,18 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
 
   // ── Riven rolling session ──────────────────────────────────────────────────
   // Delegate to the riven state machine — returns whether SendResult was consumed.
-  const sendResultConsumedByRiven = processRivenPatterns(line, source, isDbwinActive());
+  processRivenPatterns(line, source, isDbwinActive());
 
   // ── Relic picker close detection ────────────────────────────────────────────
-  // Only fire the relic close callback if SendResult was NOT consumed by riven
-  // AND no riven session is active (any SendResult during a riven session belongs
-  // to the riven flow, even when _rivenPendingDialog is null between steps).
-  if (!sendResultConsumedByRiven && !isRivenSessionActive() && !skipRelicFromFilePoll && RELIC_PICKER_CLOSE_PATTERNS.some((pattern) => pattern.test(line))) {
+  // InitMapping fires when the game returns to gameplay from any full-screen UI.
+  // Guard against riven session (SendResult during riven belongs to the riven flow)
+  // and against file-poll duplicates when DBWIN is active.
+  if (!isRivenSessionActive() && !skipRelicFromFilePoll && RELIC_PICKER_CLOSE_PATTERNS.some((pattern) => pattern.test(line))) {
     const now = Date.now();
     if (now - lastRelicPickerCloseAt >= RELIC_PICKER_CLOSE_COOLDOWN_MS) {
       lastRelicPickerCloseAt = now;
       if (now - lastRelicPickerAt < RELIC_PICKER_CLOSE_MIN_GAP_MS) {
-        // Too close to the last open trigger — this SendResult is from navigating
+        // Too close to the last open trigger — this InitMapping is from navigating
         // TO the relic screen, not FROM it. Skip to avoid closing the overlay
         // immediately after it opens.
         log.log("[EELog] Relic picker close skipped — too close to last open trigger");
@@ -331,8 +343,12 @@ function _parseTradeDialog(lines: string[]): ParsedLogTrade | null {
       if (!line) continue;
       // Stop if we hit the closing part of Dialog args
       if (line.startsWith("leftItem=") || line.startsWith("rightItem=")) break;
+      // Skip EE.log framework lines that may have leaked into the buffer
+      if (/\[(Info|Error|Warning)\]/.test(line)) continue;
+      // Skip lines that look like log timestamps or system messages
+      if (/^\d+\.\d+\s/.test(line)) continue;
       // Remove trailing comma from last item "..., leftItem=..."
-      const cleaned = line.replace(/,\s*leftItem=.*$/i, "").trim();
+      const cleaned = line.replace(/,\s*leftItem=.*$/i, "").replace(/\r/g, "").trim();
       if (!cleaned) continue;
 
       const platMatch = cleaned.match(/^Platinum\s+x\s+(\d+)$/i);
