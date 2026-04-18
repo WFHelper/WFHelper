@@ -68,7 +68,7 @@ const plannerWindowsController = createOverlayWindowsController({
 
 // Adjust planner overlay z-order so it hides behind other apps when Warframe loses focus.
 // Polls every 2 s — only runs when the planner overlay is visible.
-setInterval(async () => {
+const plannerZOrderInterval = setInterval(async () => {
   const win = ctx.plannerOverlayWindow;
   if (!win || win.isDestroyed() || !win.isVisible()) return;
   try {
@@ -82,6 +82,10 @@ setInterval(async () => {
     // ignore
   }
 }, 2000);
+
+app.on("before-quit", () => {
+  clearInterval(plannerZOrderInterval);
+});
 
 let scanController = createOverlayScanController({
   log,

@@ -7,5 +7,9 @@ export default defineWorkersConfig({
 				wrangler: { configPath: './wrangler.jsonc' },
 			},
 		},
+		// Smoke tests hit the live deployed worker. Keep them out of the default
+		// test run so a WFM blip or deploy lag can't flake developer PRs. Run
+		// explicitly with `npm run test:smoke`.
+		exclude: ['node_modules/**', 'test/smoke.spec.ts'],
 	},
 });

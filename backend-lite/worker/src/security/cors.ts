@@ -13,14 +13,15 @@ function allowedOrigins(env: Env): string[] {
 
 export function originIsAllowed(req: Request, env: Env): boolean {
 	const origin = requestOrigin(req);
+	// No Origin header → non-browser client (Electron, curl, Worker-to-Worker).
+	// CORS only guards cross-site browser requests, so these are unaffected.
 	if (!origin) return true;
 
 	const allowList = allowedOrigins(env);
-	if (allowList.includes('*')) {
-		const hasAuthHeader = Boolean(req.headers.get('authorization'));
-		if (hasAuthHeader) return false;
-		return true;
-	}
+	// Wildcard is intentionally NOT supported. A misconfigured "*" in production
+	// would allow any site to read authenticated responses. Browser clients must
+	// come from an explicitly listed origin; all other clients pass the !origin
+	// check above.
 	return allowList.includes(origin);
 }
 

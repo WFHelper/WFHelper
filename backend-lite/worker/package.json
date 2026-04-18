@@ -7,6 +7,7 @@
 		"dev": "wrangler dev",
 		"start": "wrangler dev",
 		"test": "vitest",
+		"test:smoke": "vitest run --config vitest.smoke.mts",
 		"cf-typegen": "wrangler types"
 	},
 	"devDependencies": {

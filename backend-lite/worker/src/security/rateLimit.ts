@@ -5,16 +5,16 @@ import { clamp, clientIp, parsePositiveInt } from '../utils';
 type PublicRateLimitRoute = 'healthz' | 'bootstrap' | 'prices' | 'meta' | 'order-summary' | 'orders' | 'snapshot';
 
 // These limits are a secondary defence behind Cloudflare edge rate limiting.
-// They are intentionally generous so a legitimate desktop user with a large
-// inventory doing a cold-cache load (potentially 1000+ requests per 10 min)
-// is never blocked. Real bot traffic is caught at the edge before it reaches
-// these counters.
+// 2000 req/10 min per IP per route comfortably covers a legitimate desktop user
+// with a large inventory on a cold cache (~1000 requests observed), while
+// refusing the 20k+ storms a scraper or runaway loop would produce. Real bot
+// traffic is caught at the edge before it reaches these counters.
 const PUBLIC_ROUTE_LIMITS: Record<PublicRateLimitRoute, { maxRequests: number; windowSec: number }> = {
 	healthz: { maxRequests: 5, windowSec: 60 },
 	bootstrap: { maxRequests: 60, windowSec: 600 },
-	prices: { maxRequests: 20000, windowSec: 600 },
-	meta: { maxRequests: 20000, windowSec: 600 },
-	'order-summary': { maxRequests: 20000, windowSec: 600 },
+	prices: { maxRequests: 2000, windowSec: 600 },
+	meta: { maxRequests: 2000, windowSec: 600 },
+	'order-summary': { maxRequests: 2000, windowSec: 600 },
 	orders: { maxRequests: 60, windowSec: 600 },
 	// Snapshot is a large payload (~850 KB). Edge cache absorbs nearly all real
 	// traffic (cache-control: public, max-age=7200); this limit only fires on

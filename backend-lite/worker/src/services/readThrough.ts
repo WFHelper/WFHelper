@@ -56,8 +56,25 @@ const orderSummaryInFlight = new Map<string, Promise<HydrateResult>>();
 const ORDER_SUMMARY_BREAKER_THRESHOLD = 6;
 const ORDER_SUMMARY_BREAKER_COOLDOWN_MS = 90_000;
 
-let orderSummaryTransientStreak = 0;
-let orderSummaryCircuitOpenUntil = 0;
+/**
+ * Circuit-breaker state is per-V8-isolate, not global.
+ *
+ * Cloudflare Workers run in multiple isolates across hundreds of PoPs. Each
+ * isolate loads its own copy of this module, so these counters are NOT shared
+ * across isolates. The practical effect:
+ *
+ *   - Under steady load, each isolate independently discovers upstream is down
+ *     (up to ~6 failed calls per isolate before opening).
+ *   - A "tripped" breaker in PoP-A does not prevent PoP-B from hammering WFM.
+ *   - Aggregate failed calls during a full outage can be up to N * threshold,
+ *     where N is the number of active isolates (typically single-digits).
+ *
+ * This is acceptable: the goal is to stop *this* isolate from retry-storming
+ * WFM, not to coordinate a global shutdown. A true global breaker would require
+ * KV-backed state, which adds a KV read per request — not worth it.
+ */
+let localOrderSummaryTransientStreak = 0;
+let localOrderSummaryCircuitOpenUntil = 0;
 
 const autoStats = {
 	priceCacheHits: 0,
@@ -132,20 +149,20 @@ function isOrderSummaryStale(data: Record<string, unknown> | null, env: Env): bo
 }
 
 function noteOrderSummaryTransient(): void {
-	orderSummaryTransientStreak += 1;
-	if (orderSummaryTransientStreak >= ORDER_SUMMARY_BREAKER_THRESHOLD) {
-		orderSummaryCircuitOpenUntil = Date.now() + ORDER_SUMMARY_BREAKER_COOLDOWN_MS;
+	localOrderSummaryTransientStreak += 1;
+	if (localOrderSummaryTransientStreak >= ORDER_SUMMARY_BREAKER_THRESHOLD) {
+		localOrderSummaryCircuitOpenUntil = Date.now() + ORDER_SUMMARY_BREAKER_COOLDOWN_MS;
 		autoStats.orderSummaryCircuitOpen += 1;
 	}
 }
 
 function noteOrderSummaryRecovery(): void {
-	orderSummaryTransientStreak = 0;
-	orderSummaryCircuitOpenUntil = 0;
+	localOrderSummaryTransientStreak = 0;
+	localOrderSummaryCircuitOpenUntil = 0;
 }
 
 function orderSummaryCircuitOpen(): boolean {
-	return orderSummaryCircuitOpenUntil > Date.now();
+	return localOrderSummaryCircuitOpenUntil > Date.now();
 }
 
 async function setNegativeMarker(namespace: KVNamespace, key: string, env: Env): Promise<void> {
@@ -457,7 +474,7 @@ export function getAutoCacheStats(): Record<string, number> {
 	return {
 		...autoStats,
 		orderSummaryCircuitActive: orderSummaryCircuitOpen() ? 1 : 0,
-		orderSummaryCircuitRetryAfterMs: Math.max(0, orderSummaryCircuitOpenUntil - Date.now()),
+		orderSummaryCircuitRetryAfterMs: Math.max(0, localOrderSummaryCircuitOpenUntil - Date.now()),
 	};
 }
 

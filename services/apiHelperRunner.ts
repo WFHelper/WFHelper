@@ -16,6 +16,8 @@ const log = withScope("apiHelperRunner");
 
 const EXE_NAME = "warframe-api-helper.exe";
 const DEFAULT_POLL_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+// Hard kill the helper if it hasn't exited after this long. Normal runs are <5s.
+const HELPER_SPAWN_TIMEOUT_MS = 60 * 1000;
 const GITHUB_RELEASES_URL =
   "https://api.github.com/repos/Sainan/warframe-api-helper/releases/latest";
 
@@ -169,24 +171,39 @@ export function runOnce(): Promise<boolean> {
       detached: false,
     });
 
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutHandle);
+      _running = false;
+      _lastRunOk = ok;
+      _lastRunAt = Date.now();
+      resolve(ok);
+    };
+
+    const timeoutHandle = setTimeout(() => {
+      log.warn(`Helper did not exit within ${HELPER_SPAWN_TIMEOUT_MS / 1000}s — killing`);
+      try {
+        child.kill("SIGKILL");
+      } catch (err) {
+        log.warn("Helper kill failed:", err instanceof Error ? err.message : String(err));
+      }
+      finish(false);
+    }, HELPER_SPAWN_TIMEOUT_MS);
+
     child.on("error", (err: Error) => {
       log.error("Helper spawn error:", err.message);
-      _running = false;
-      _lastRunOk = false;
-      _lastRunAt = Date.now();
-      resolve(false);
+      finish(false);
     });
 
     child.on("exit", (code: number | null) => {
-      _running = false;
-      _lastRunAt = Date.now();
-      _lastRunOk = code === 0;
       if (code !== 0) {
         log.warn(`Helper exited with code ${code}`);
       } else {
         log.log("Helper finished successfully");
       }
-      resolve(code === 0);
+      finish(code === 0);
     });
   });
 }

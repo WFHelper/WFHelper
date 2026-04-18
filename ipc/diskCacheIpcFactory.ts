@@ -24,7 +24,21 @@ export interface DiskCacheIpcConfig {
   channelPrefix: string;
   /** Human-readable noun for log messages, e.g. `"price cache"`. */
   noun: string;
+  /**
+   * Maximum serialized payload size in bytes. Save calls exceeding this limit
+   * are rejected to prevent a compromised renderer from exhausting disk.
+   * Defaults to 64 MiB (snapshot cache is ~2 MiB today, so 30x headroom).
+   */
+  maxPayloadBytes?: number;
+  /**
+   * Maximum top-level key count. Rejects absurdly large objects even if their
+   * serialized size fits. Defaults to 200_000 (snapshot has ~13k top-level keys).
+   */
+  maxKeyCount?: number;
 }
+
+const DEFAULT_MAX_PAYLOAD_BYTES = 64 * 1024 * 1024;
+const DEFAULT_MAX_KEY_COUNT = 200_000;
 
 /**
  * Create a `{ register }` object that, when `register()` is called, installs
@@ -32,6 +46,8 @@ export interface DiskCacheIpcConfig {
  */
 function createDiskCacheIpc(config: DiskCacheIpcConfig): { register: () => void } {
   const { scope, filename, channelPrefix, noun } = config;
+  const maxPayloadBytes = config.maxPayloadBytes ?? DEFAULT_MAX_PAYLOAD_BYTES;
+  const maxKeyCount = config.maxKeyCount ?? DEFAULT_MAX_KEY_COUNT;
   const log: ScopedLogger = withScope(scope);
 
   function getCachePath(): string {
@@ -66,8 +82,22 @@ function createDiskCacheIpc(config: DiskCacheIpcConfig): { register: () => void 
           return { ok: false };
         }
 
+        const keyCount = Object.keys(data as Record<string, unknown>).length;
+        if (keyCount > maxKeyCount) {
+          log.warn(`Refusing ${noun} save: ${keyCount} keys exceeds limit ${maxKeyCount}`);
+          return { ok: false };
+        }
+
+        const serialized = JSON.stringify(data);
+        if (serialized.length > maxPayloadBytes) {
+          log.warn(
+            `Refusing ${noun} save: ${serialized.length} bytes exceeds limit ${maxPayloadBytes}`,
+          );
+          return { ok: false };
+        }
+
         const filePath = getCachePath();
-        fs.writeFileSync(filePath, JSON.stringify(data), "utf-8");
+        fs.writeFileSync(filePath, serialized, "utf-8");
         return { ok: true };
       } catch (err) {
         log.error(`Failed to save ${noun}:`, normalizeErrorMessage(err));
