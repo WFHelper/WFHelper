@@ -4,8 +4,8 @@
 	"private": true,
 	"scripts": {
 		"deploy": "wrangler deploy",
-		"dev": "wrangler dev",
-		"start": "wrangler dev",
+		"dev": "wrangler dev --env dev",
+		"start": "wrangler dev --env dev",
 		"test": "vitest",
 		"test:smoke": "vitest run --config vitest.smoke.mts",
 		"cf-typegen": "wrangler types"

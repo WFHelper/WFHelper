@@ -50,4 +50,18 @@
 	"triggers": {
 		"crons": ["*/5 * * * *"],
 	},
+
+	// Local development override. `npm run dev` runs `wrangler dev --env dev`
+	// so local browser clients (vite on :5173) pass the CORS check without
+	// needing anyone to edit the top-level ALLOW_ORIGIN. Production deploys
+	// use `wrangler deploy` with no --env flag, which keeps the top-level
+	// vars (https://wfhelper.com) untouched.
+	"env": {
+		"dev": {
+			"vars": {
+				"ALLOW_ORIGIN": "http://localhost:5173",
+				"PUBLIC_BOOTSTRAP_REQUIRED": "0",
+			},
+		},
+	},
 }

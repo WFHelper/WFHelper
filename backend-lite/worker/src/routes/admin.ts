@@ -42,12 +42,12 @@ function parseHotsetEntries(value: unknown): Array<{ slug: string; maxRank: numb
 
 export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promise<Response | null> {
 	if (req.method === 'POST' && url.pathname === '/admin/prewarm') {
-		const rateLimited = await checkAdminRateLimit(req, env);
-		if (rateLimited) return rateLimited;
-
 		if (!isAdminAuthorized(req, env)) {
 			return jsonResponse({ ok: false, error: 'unauthorized' }, req, env, 401);
 		}
+
+		const rateLimited = await checkAdminRateLimit(req, env);
+		if (rateLimited) return rateLimited;
 
 		const body = parseJsonBody(await req.text());
 		const result = await prewarmBatch(env, {
@@ -70,12 +70,12 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 	}
 
 	if (req.method === 'POST' && url.pathname === '/admin/order-summary-hotset') {
-		const rateLimited = await checkAdminRateLimit(req, env);
-		if (rateLimited) return rateLimited;
-
 		if (!isAdminAuthorized(req, env)) {
 			return jsonResponse({ ok: false, error: 'unauthorized' }, req, env, 401);
 		}
+
+		const rateLimited = await checkAdminRateLimit(req, env);
+		if (rateLimited) return rateLimited;
 
 		const body = parseJsonBody(await req.text());
 		const nextEntries = parseHotsetEntries(body.entries);
@@ -112,12 +112,12 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 	}
 
 	if (req.method === 'POST' && url.pathname === '/admin/prewarm/order-summaries') {
-		const rateLimited = await checkAdminRateLimit(req, env);
-		if (rateLimited) return rateLimited;
-
 		if (!isAdminAuthorized(req, env)) {
 			return jsonResponse({ ok: false, error: 'unauthorized' }, req, env, 401);
 		}
+
+		const rateLimited = await checkAdminRateLimit(req, env);
+		if (rateLimited) return rateLimited;
 
 		const body = parseJsonBody(await req.text());
 		const source = body.source === 'hotset' ? 'hotset' : 'catalog';

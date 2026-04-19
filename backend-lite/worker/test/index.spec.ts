@@ -162,7 +162,7 @@ describe('backend-lite worker', () => {
 				method: 'POST',
 				headers: {
 					'cf-connecting-ip': '10.0.0.44',
-					authorization: 'Bearer wrong-key',
+					authorization: 'Bearer test-key',
 				},
 				body: JSON.stringify({ batchSize: 1 }),
 			});
@@ -177,10 +177,43 @@ describe('backend-lite worker', () => {
 		await waitOnExecutionContext(ctxB);
 		await waitOnExecutionContext(ctxC);
 
-		expect(first.status).toBe(401);
-		expect(second.status).toBe(401);
+		// Auth must be checked before rate limit so anonymous floods can't burn KV
+		// writes or lock out operators. First two authed calls succeed (202),
+		// third one is rejected by the rate limiter.
+		expect(first.status).toBe(202);
+		expect(second.status).toBe(202);
 		expect(third.status).toBe(429);
 		expect(await third.json()).toEqual({ ok: false, error: 'rate_limited' });
+	});
+
+	it('rejects unauthenticated admin requests before rate limit', async () => {
+		const testEnv = {
+			...env,
+			ADMIN_API_KEY: 'test-key',
+			ADMIN_RATE_LIMIT_MAX: '2',
+			ADMIN_RATE_LIMIT_WINDOW_SEC: '120',
+		};
+
+		const makeRequest = () =>
+			new IncomingRequest('http://example.com/admin/prewarm', {
+				method: 'POST',
+				headers: {
+					'cf-connecting-ip': '10.0.0.45',
+					authorization: 'Bearer wrong-key',
+				},
+				body: JSON.stringify({ batchSize: 1 }),
+			});
+
+		// Five unauthenticated requests in a row — all must return 401, never 429.
+		// Rate limit threshold is 2, so if auth were checked second we'd see 429
+		// on the third request. The point of this test is to prove that does not
+		// happen: anonymous floods don't consume rate-limit slots.
+		for (let i = 0; i < 5; i += 1) {
+			const ctx = createExecutionContext();
+			const res = await worker.fetch(makeRequest(), testEnv as unknown as Env, ctx);
+			await waitOnExecutionContext(ctx);
+			expect(res.status).toBe(401);
+		}
 	});
 
 	it('rate limits repeated public health requests from same IP', async () => {
