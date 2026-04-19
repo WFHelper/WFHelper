@@ -58,6 +58,18 @@ const MIN_DELAY_MS = 350;
 const REQUEST_TIMEOUT_MS = 20000;
 const MAX_QUEUE_DEPTH = 64;
 
+// Shared by both _coreRequest and requestRaw. The auth (Authorization/Cookie)
+// and CSRF (Origin/Referer) headers are NOT here because the two callers have
+// different auth models — _coreRequest uses the user JWT via _getToken(),
+// requestRaw uses _cookieJwt. Keep those at the call sites where the
+// difference is visible.
+const WFM_BASE_HEADERS: Readonly<Record<string, string>> = {
+  Accept: "application/json",
+  "Content-Type": "application/json",
+  Platform: "pc",
+  Language: "en",
+};
+
 // ── Rate-limit queue ──────────────────────────────────────────────────────────
 
 let _queue: Promise<void> = Promise.resolve();
@@ -273,10 +285,7 @@ function _coreRequest(
     const url = baseUrl + path;
 
     const headers: Record<string, string> = {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Platform: "pc",
-      Language: "en",
+      ...WFM_BASE_HEADERS,
       ...baseHeaders,
       ...extraHeaders,
     };
@@ -381,10 +390,7 @@ export function requestRaw(
     const url = BASE_URL + path;
 
     const headers: Record<string, string> = {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Platform: "pc",
-      Language: "en",
+      ...WFM_BASE_HEADERS,
       ...extraHeaders,
     };
 

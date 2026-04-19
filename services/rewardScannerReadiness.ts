@@ -96,57 +96,39 @@ interface ReadinessResult {
   bandBottomRatio: number | null;
 }
 
+function emptyReadinessResult(band: Band | null | undefined): ReadinessResult {
+  return {
+    ready: false,
+    score: 0,
+    peakCount: 0,
+    textureScore: 0,
+    coverageScore: 0,
+    slotCount: 0,
+    slotConfidence: 0,
+    bandTopRatio: round4(band?.top, 0),
+    bandHeightRatio: round4(band?.height, 0),
+    bandBottomRatio: round4((Number(band?.top) || 0) + (Number(band?.height) || 0), 0),
+  };
+}
+
 export function analyzeRewardBandReadiness(
   nativeImage: NativeImage,
   band: Band | null | undefined,
 ): ReadinessResult {
   if (!nativeImage || typeof nativeImage.getSize !== "function") {
-    return {
-      ready: false,
-      score: 0,
-      peakCount: 0,
-      textureScore: 0,
-      coverageScore: 0,
-      slotCount: 0,
-      slotConfidence: 0,
-      bandTopRatio: round4(band?.top, 0),
-      bandHeightRatio: round4(band?.height, 0),
-      bandBottomRatio: round4((Number(band?.top) || 0) + (Number(band?.height) || 0), 0),
-    };
+    return emptyReadinessResult(band);
   }
 
   let cropped: NativeImage;
   try {
     cropped = cropRewardBand(nativeImage, band);
   } catch {
-    return {
-      ready: false,
-      score: 0,
-      peakCount: 0,
-      textureScore: 0,
-      coverageScore: 0,
-      slotCount: 0,
-      slotConfidence: 0,
-      bandTopRatio: round4(band?.top, 0),
-      bandHeightRatio: round4(band?.height, 0),
-      bandBottomRatio: round4((Number(band?.top) || 0) + (Number(band?.height) || 0), 0),
-    };
+    return emptyReadinessResult(band);
   }
 
   const { width, height } = cropped.getSize();
   if (width < READINESS_ANALYSIS.minCropWidth || height < READINESS_ANALYSIS.minCropHeight) {
-    return {
-      ready: false,
-      score: 0,
-      peakCount: 0,
-      textureScore: 0,
-      coverageScore: 0,
-      slotCount: 0,
-      slotConfidence: 0,
-      bandTopRatio: round4(band?.top, 0),
-      bandHeightRatio: round4(band?.height, 0),
-      bandBottomRatio: round4((Number(band?.top) || 0) + (Number(band?.height) || 0), 0),
-    };
+    return emptyReadinessResult(band);
   }
 
   const bitmap: Buffer = cropped.toBitmap();

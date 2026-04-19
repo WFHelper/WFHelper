@@ -52,8 +52,17 @@ export function setRivenCallbacks(cbs: Partial<RivenCallbacks>): void {
 
 let _rivenPendingDialog: "roll_confirm" | "choice" | null = null;
 let _rivenSessionActive = false;
+let _rivenSessionStartedAt = 0;
 let _rivenSessionIdleTimer: ReturnType<typeof setTimeout> | null = null;
 const RIVEN_SESSION_IDLE_TIMEOUT_MS = 120_000;
+/**
+ * Absolute ceiling on a single riven session. The 120s idle timer only fires
+ * when matches stop arriving; if the user reliably pulls new rolls every <120s
+ * (easy during bulk kuva grinding) the session can extend indefinitely. Nothing
+ * downstream wants a "session" that's been open for an hour, so hard-cap at
+ * 30 minutes and force-close even if matches keep coming.
+ */
+const RIVEN_SESSION_MAX_MS = 30 * 60_000;
 
 let _rivenNextDialog: "cycle" | "choice" = "cycle";
 let _rivenChatViewActive = false;
@@ -95,9 +104,36 @@ function resetRivenIdleTimer(): void {
     _rivenPendingDialog = null;
     _rivenNextDialog = "cycle";
     _rivenSessionActive = false;
+    _rivenSessionStartedAt = 0;
     _rivenDioramaReady = false;
     log.log("[EELog] Riven session idle timeout — resetting");
   }, RIVEN_SESSION_IDLE_TIMEOUT_MS);
+}
+
+/**
+ * If the current session has exceeded RIVEN_SESSION_MAX_MS, force-close it and
+ * fire the session-close callback. Call at the top of every log-line handler
+ * that would otherwise extend the session, so a continuous stream of matches
+ * can't keep a session alive past the cap.
+ * Returns true if the session was force-closed on this call.
+ */
+function forceEndRivenSessionIfExpired(): boolean {
+  if (!_rivenSessionActive || _rivenSessionStartedAt === 0) return false;
+  if (Date.now() - _rivenSessionStartedAt < RIVEN_SESSION_MAX_MS) return false;
+
+  log.log(`[EELog] Riven session exceeded ${RIVEN_SESSION_MAX_MS / 60_000}min cap — force closing`);
+  _rivenSessionActive = false;
+  _rivenSessionStartedAt = 0;
+  _rivenDioramaReady = false;
+  _rivenPendingDialog = null;
+  _rivenNextDialog = "cycle";
+  if (_rivenSessionIdleTimer) {
+    clearTimeout(_rivenSessionIdleTimer);
+    _rivenSessionIdleTimer = null;
+  }
+  _rivenForceEndedAt = Date.now();
+  if (typeof _callbacks.onRivenSessionClose === "function") _callbacks.onRivenSessionClose();
+  return true;
 }
 
 // ── Core processing ───────────────────────────────────────────────────────────
@@ -113,11 +149,18 @@ export function processRivenPatterns(
 ): boolean {
   const skipRivenFromFilePoll = dbwinActive && source === "file";
 
+  // Hard cap: if the session's been open > RIVEN_SESSION_MAX_MS, force-close
+  // before processing this line. Prevents a continuous kuva grind from keeping
+  // a "session" alive indefinitely (the 120s idle timer only fires when
+  // matches STOP).
+  forceEndRivenSessionIfExpired();
+
   if (!skipRivenFromFilePoll && RIVEN_PATTERNS.sessionOpen.test(line)) {
     const now = Date.now();
     if (now - _lastRivenSessionOpenAt >= RIVEN_SESSION_OPEN_COOLDOWN_MS) {
       _lastRivenSessionOpenAt = now;
       _rivenSessionActive = true;
+      _rivenSessionStartedAt = now;
       _rivenChatViewActive = false;
       _rivenNextDialog = "cycle";
       _rivenPendingDialog = null;
@@ -152,6 +195,7 @@ export function processRivenPatterns(
   if (!skipRivenFromFilePoll && _rivenSessionActive && _rivenDioramaReady && (RIVEN_PATTERNS.sessionClose.test(line) || RIVEN_PATTERNS.recycledEffects.test(line))) {
     log.log("[EELog] Riven session close detected -> dispatching overlay close");
     _rivenSessionActive = false;
+    _rivenSessionStartedAt = 0;
     _rivenDioramaReady = false;
     _rivenPendingDialog = null;
     _rivenNextDialog = "cycle";
@@ -292,6 +336,7 @@ export function isRivenSessionActive(): boolean {
 export function forceEndRivenSession(): void {
   if (!_rivenSessionActive && !_rivenPendingDialog && !_rivenChatViewActive) return;
   _rivenSessionActive = false;
+  _rivenSessionStartedAt = 0;
   _rivenDioramaReady = false;
   _rivenChatViewActive = false;
   _rivenPendingDialog = null;
@@ -310,6 +355,7 @@ export function resetRivenState(): void {
   _rivenPendingDialog = null;
   _rivenNextDialog = "cycle";
   _rivenSessionActive = false;
+  _rivenSessionStartedAt = 0;
   _rivenDioramaReady = false;
   _rivenChatViewActive = false;
   _lastRivenSendResultAt = 0;

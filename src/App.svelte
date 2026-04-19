@@ -57,13 +57,16 @@
   type LazyViewName = Extract<ViewName, HeavyViewName>;
   type LazyViewModule = { default: ComponentType };
 
-  const lazyViewLoaders: Record<LazyViewName, () => Promise<LazyViewModule>> = {
-    world: () => import("./views/WorldView.svelte") as unknown as Promise<LazyViewModule>,
-    market: () => import("./views/MarketView.svelte") as unknown as Promise<LazyViewModule>,
-    relics: () => import("./views/RelicsView.svelte") as unknown as Promise<LazyViewModule>,
-  };
+  interface LazyViewEntry {
+    loader: () => Promise<LazyViewModule>;
+    component: ComponentType | null;
+  }
 
-  const lazyViewCache: Partial<Record<LazyViewName, ComponentType>> = {};
+  const lazyViews = new Map<LazyViewName, LazyViewEntry>([
+    ["world", { loader: () => import("./views/WorldView.svelte") as unknown as Promise<LazyViewModule>, component: null }],
+    ["market", { loader: () => import("./views/MarketView.svelte") as unknown as Promise<LazyViewModule>, component: null }],
+    ["relics", { loader: () => import("./views/RelicsView.svelte") as unknown as Promise<LazyViewModule>, component: null }],
+  ]);
 
   let lazyViewComponent: ComponentType | null = null;
   let lazyViewLoading = false;
@@ -180,11 +183,13 @@
     lazyViewLoading = true;
 
     try {
-      let component = lazyViewCache[view];
+      const entry = lazyViews.get(view);
+      if (!entry) throw new Error(`Unknown lazy view: ${view}`);
+      let component = entry.component;
       if (!component) {
-        const loaded = await lazyViewLoaders[view]();
+        const loaded = await entry.loader();
         component = loaded.default;
-        lazyViewCache[view] = component;
+        entry.component = component;
       }
 
       if (requestToken !== lazyRequestToken || $currentView !== view) {

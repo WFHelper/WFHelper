@@ -7,6 +7,7 @@
     marketOrders,
     marketOrdersLastFetch,
     marketSelected,
+    mutateMarketSelected,
     marketSession,
     marketStatus,
     marketTypeTab,
@@ -307,9 +308,8 @@
       sell: ordersState.sell.filter((entry) => entry.id !== orderId),
       buy: ordersState.buy.filter((entry) => entry.id !== orderId),
     }));
-    marketSelected.update((selected) => {
+    mutateMarketSelected((selected) => {
       selected.delete(orderId);
-      return new Set(selected);
     });
   }
 
@@ -333,10 +333,9 @@
   }
 
   function toggleSelect(id: string, checked: boolean): void {
-    marketSelected.update((selected) => {
+    mutateMarketSelected((selected) => {
       if (checked) selected.add(id);
       else selected.delete(id);
-      return new Set(selected);
     });
   }
 

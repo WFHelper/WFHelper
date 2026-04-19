@@ -24,6 +24,20 @@ export const marketContracts = writable<WfmContractsResult>({
 export const marketTypeTab = writable<MarketTab>("sell");
 export const marketStatus = writable<WfmStatus | null>(null);
 export const marketSelected = writable<Set<string>>(new Set());
+
+/**
+ * Mutate `marketSelected` through a callback and have the replacement
+ * `new Set(...)` handled for you. Svelte stores only notify subscribers
+ * when the reference changes; mutating the Set in place (e.g. `s.add(x);
+ * return s;`) silently breaks reactivity. Routing every mutation through
+ * this helper makes that mistake impossible.
+ */
+export function mutateMarketSelected(mutator: (s: Set<string>) => void): void {
+  marketSelected.update((s) => {
+    mutator(s);
+    return new Set(s);
+  });
+}
 export const marketOrdersLastFetch = writable<number>(0);
 export const marketContractsLastFetch = writable<number>(0);
 export const orderModalState = writable<OrderModalState | null>(null);
