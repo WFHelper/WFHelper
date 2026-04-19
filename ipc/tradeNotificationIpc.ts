@@ -6,7 +6,7 @@
  */
 
 import ctx from "./context";
-import { assertTradeNotificationSender, isAuthorizedSender } from "./ipcSecurity";
+import { assertTradeNotificationSender, onAuthorized } from "./ipcSecurity";
 import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 import {
@@ -17,7 +17,7 @@ import type { TradeType } from "../config/shared/statsTypes";
 const log = withScope("tradeNotificationIpc");
 
 import path from "node:path";
-import { app, BrowserWindow, ipcMain, screen } from "electron";
+import { app, BrowserWindow, screen } from "electron";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -148,16 +148,7 @@ export function showTradeNotification(match: TradeNotificationShowPayload["match
  * Register IPC handlers from the notification overlay window.
  */
 export function register(): void {
-  ipcMain.on(TRADE_NOTIFICATION_DISMISS, (event: unknown) => {
-    if (
-      !isAuthorizedSender(
-        assertTradeNotificationSender,
-        event as never,
-        TRADE_NOTIFICATION_DISMISS,
-      )
-    ) {
-      return;
-    }
+  onAuthorized(TRADE_NOTIFICATION_DISMISS, assertTradeNotificationSender, () => {
     const win = ctx.tradeNotificationWindow;
     if (win && !win.isDestroyed()) win.hide();
     if (_hideTimer) {

@@ -1,12 +1,12 @@
 import ctx from "./context";
-import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
+import { assertMainRendererSender, handleAuthorized } from "./ipcSecurity";
 import { unwrapInventoryPayload } from "./inventoryPayload";
 import { withScope } from "../services/logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import {
   INVENTORY_GET, INVENTORY_OPEN_FILE, INVENTORY_GET_STATUS, INVENTORY_UPDATED,
 } from "../config/shared/ipcChannels";
-import { ipcMain, dialog, app } from "electron";
+import { dialog, app } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import chokidar from "chokidar";
@@ -266,9 +266,7 @@ function watchInventoryFile(filePath: string): void {
 }
 
 function register(): void {
-  ipcMain.handle(INVENTORY_GET, async (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, INVENTORY_GET);
-
+  handleAuthorized(INVENTORY_GET, assertMainRendererSender, async () => {
     if (!ctx.currentInventoryPath) {
       const discovered = findInventoryFile();
       if (discovered) {
@@ -284,9 +282,7 @@ function register(): void {
     return null;
   });
 
-  ipcMain.handle(INVENTORY_OPEN_FILE, async (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, INVENTORY_OPEN_FILE);
-
+  handleAuthorized(INVENTORY_OPEN_FILE, assertMainRendererSender, async () => {
     const openOptions: import("electron").OpenDialogOptions = {
       title: "Select warframe-api-helper inventory JSON",
       defaultPath: path.join(process.cwd(), "api-inventory-data", "inventory.json"),
@@ -310,14 +306,11 @@ function register(): void {
     return null;
   });
 
-  ipcMain.handle(INVENTORY_GET_STATUS, async (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, INVENTORY_GET_STATUS);
-    return {
-      path: ctx.currentInventoryPath,
-      found: ctx.currentInventoryPath !== null,
-      lastError: _lastReadError,
-    };
-  });
+  handleAuthorized(INVENTORY_GET_STATUS, assertMainRendererSender, async () => ({
+    path: ctx.currentInventoryPath,
+    found: ctx.currentInventoryPath !== null,
+    lastError: _lastReadError,
+  }));
 }
 
 export { register, findInventoryFile, watchInventoryFile, readInventory };

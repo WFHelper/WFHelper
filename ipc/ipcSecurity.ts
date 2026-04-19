@@ -1,6 +1,9 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { ipcMain } from "electron";
+import type { IpcMainEvent, IpcMainInvokeEvent } from "electron";
+
 import ctx from "./context";
 import { withScope } from "../services/logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
@@ -186,6 +189,39 @@ function isAuthorizedSender(
   }
 }
 
+/**
+ * Register an `ipcMain.handle` handler that first asserts the sender is
+ * authorized. Rejects with "Unauthorized IPC sender" when the guard fails,
+ * so the renderer's invoke() promise rejects. Keeps the channel name
+ * single-sourced so a copy-pasted handler can't drift.
+ */
+function handleAuthorized<Args extends unknown[], R>(
+  channel: string,
+  assertFn: AssertSenderFn,
+  handler: (event: IpcMainInvokeEvent, ...args: Args) => R | Promise<R>,
+): void {
+  ipcMain.handle(channel, async (event, ...args) => {
+    assertAuthorizedSender(assertFn, event as never, channel);
+    return handler(event, ...(args as Args));
+  });
+}
+
+/**
+ * Register an `ipcMain.on` handler that silently drops messages from
+ * unauthorized senders (logged at warn level). Fire-and-forget counterpart
+ * to `handleAuthorized`.
+ */
+function onAuthorized<Args extends unknown[]>(
+  channel: string,
+  assertFn: AssertSenderFn,
+  handler: (event: IpcMainEvent, ...args: Args) => void,
+): void {
+  ipcMain.on(channel, (event, ...args) => {
+    if (!isAuthorizedSender(assertFn, event as never, channel)) return;
+    handler(event, ...(args as Args));
+  });
+}
+
 export {
   assertMainRendererSender,
   assertOverlayRendererSender,
@@ -193,6 +229,8 @@ export {
   assertTradeNotificationSender,
   assertAuthorizedSender,
   isAuthorizedSender,
+  handleAuthorized,
+  onAuthorized,
 };
 
 export const __test__ = {

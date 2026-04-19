@@ -1,7 +1,7 @@
 import ctx from "./context";
 import {
   assertRivenOverlayRendererSender,
-  isAuthorizedSender,
+  onAuthorized,
 } from "./ipcSecurity";
 import * as rivenSession from "./overlay/rivenSession";
 import * as rivenScan from "./overlay/rivenScan";
@@ -23,7 +23,7 @@ import {
 
 const log = withScope("rivenOverlayIpc");
 
-import { ipcMain, BrowserWindow, app, screen, shell } from "electron";
+import { BrowserWindow, app, screen, shell } from "electron";
 import path from "node:path";
 
 const APP_ROOT = app.getAppPath();
@@ -565,12 +565,7 @@ export { toggleRivenInteractiveMode, forEachRivenWindow, getRivenWindows };
 // ── IPC registration ─────────────────────────────────────────────────────────
 
 export function register(): void {
-  ipcMain.on(RIVEN_OVERLAY_CLOSE, (event: unknown) => {
-    if (
-      !isAuthorizedSender(assertRivenOverlayRendererSender, event as never, RIVEN_OVERLAY_CLOSE)
-    ) {
-      return;
-    }
+  onAuthorized(RIVEN_OVERLAY_CLOSE, assertRivenOverlayRendererSender, () => {
     clearRivenScanTimers();
     _rivenInteractive = false;
     _rivenHasRollResult = false;
@@ -580,12 +575,7 @@ export function register(): void {
     forEachRivenWindow((win) => win.hide());
   });
 
-  ipcMain.on(RIVEN_OPEN_AUCTION, (event: unknown, auctionId: unknown) => {
-    if (
-      !isAuthorizedSender(assertRivenOverlayRendererSender, event as never, RIVEN_OPEN_AUCTION)
-    ) {
-      return;
-    }
+  onAuthorized(RIVEN_OPEN_AUCTION, assertRivenOverlayRendererSender, (_event, auctionId: unknown) => {
     const id = String(auctionId || "").replace(/[^a-zA-Z0-9]/g, "");
     if (id) {
       const url = new URL(`https://warframe.market/auction/${id}`);

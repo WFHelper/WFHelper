@@ -1,9 +1,9 @@
 import ctx from "./context";
 import {
-  assertAuthorizedSender,
   assertMainRendererSender,
   assertOverlayRendererSender,
-  isAuthorizedSender,
+  handleAuthorized,
+  onAuthorized,
 } from "./ipcSecurity";
 import { createOverlayScanController } from "./overlay/scan";
 import { createRelicSelectionController } from "./overlay/relicSelection";
@@ -22,7 +22,7 @@ import {
 
 const log = withScope("rewardOverlayIpc");
 
-import { ipcMain, BrowserWindow, screen, app } from "electron";
+import { BrowserWindow, screen, app } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 
@@ -175,8 +175,7 @@ export function onRelicSelectionClose(pushOverlayInteractionMode: () => void): v
 // ── IPC registration ─────────────────────────────────────────────────────────
 
 export function register(pushOverlayInteractionMode: () => void, pushOverlayThemeVars: () => void): void {
-  ipcMain.on(OVERLAY_CLOSE, (event: unknown) => {
-    if (!isAuthorizedSender(assertOverlayRendererSender, event as never, OVERLAY_CLOSE)) return;
+  onAuthorized(OVERLAY_CLOSE, assertOverlayRendererSender, (event) => {
     rewardWindowsController.clearOverlayAutoHideTimer();
     plannerWindowsController.clearOverlayAutoHideTimer();
     relicSelectionController.suppressReopenForClose?.();
@@ -185,7 +184,7 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
     ctx.overlayInteractiveMode = false;
     pushOverlayInteractionMode();
 
-    const senderId = Number((event as { sender?: { id?: number } } | null)?.sender?.id || 0);
+    const senderId = Number(event?.sender?.id || 0);
     if (
       ctx.plannerOverlayWindow &&
       !ctx.plannerOverlayWindow.isDestroyed() &&
@@ -200,9 +199,7 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
     }
   });
 
-  ipcMain.handle(OVERLAY_GET_RELIC_ITEMS, async (event: unknown) => {
-    assertAuthorizedSender(assertOverlayRendererSender, event as never, OVERLAY_GET_RELIC_ITEMS);
-
+  handleAuthorized(OVERLAY_GET_RELIC_ITEMS, assertOverlayRendererSender, async () => {
     const db = relicService.getRelicDatabase();
     const seen = new Map<string, { name: string; urlName: string | null; rarity: string }>();
     for (const group of Object.values(db.groups)) {
@@ -223,14 +220,11 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
     return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
   });
 
-  ipcMain.handle(OVERLAY_GET_PRICE, async (event: unknown, slug: string) => {
-    assertAuthorizedSender(assertOverlayRendererSender, event as never, OVERLAY_GET_PRICE);
+  handleAuthorized(OVERLAY_GET_PRICE, assertOverlayRendererSender, async (_event, slug: string) => {
     return wfmStatsPrice.fetchPriceBySlug(slug);
   });
 
-  ipcMain.on(TOGGLE_OVERLAY, (event: unknown) => {
-    if (!isAuthorizedSender(assertMainRendererSender, event as never, TOGGLE_OVERLAY)) return;
-
+  onAuthorized(TOGGLE_OVERLAY, assertMainRendererSender, () => {
     rewardWindowsController.clearOverlayAutoHideTimer();
     if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) {
       rewardWindowsController.createOverlayWindow();
@@ -248,10 +242,7 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
     }
   });
 
-  ipcMain.on(SIMULATE_RELIC_TRIGGER, (event: unknown) => {
-    if (!isAuthorizedSender(assertMainRendererSender, event as never, SIMULATE_RELIC_TRIGGER)) {
-      return;
-    }
+  onAuthorized(SIMULATE_RELIC_TRIGGER, assertMainRendererSender, () => {
     onRelicRewardTrigger(
       "simulate",
       pushOverlayInteractionMode,
@@ -260,13 +251,7 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
     );
   });
 
-  ipcMain.on(OVERLAY_PUSH_RELIC_FILTERS, (event: unknown, rawFilters: unknown) => {
-    if (
-      !isAuthorizedSender(assertMainRendererSender, event as never, OVERLAY_PUSH_RELIC_FILTERS)
-    ) {
-      return;
-    }
-
+  onAuthorized(OVERLAY_PUSH_RELIC_FILTERS, assertMainRendererSender, (_event, rawFilters: unknown) => {
     if (!rawFilters || typeof rawFilters !== "object") return;
     const filters = rawFilters as Record<string, unknown>;
     relicSelectionController.setDesktopFilters({

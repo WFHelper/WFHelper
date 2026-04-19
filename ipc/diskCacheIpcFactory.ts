@@ -8,10 +8,10 @@
  * All handlers enforce sender authorization via `assertMainRendererSender`.
  */
 
-import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
+import { assertMainRendererSender, handleAuthorized } from "./ipcSecurity";
 import { withScope, type ScopedLogger } from "../services/logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
-import { ipcMain, app } from "electron";
+import { app } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 
@@ -55,9 +55,7 @@ function createDiskCacheIpc(config: DiskCacheIpcConfig): { register: () => void 
   }
 
   function register(): void {
-    ipcMain.handle(`${channelPrefix}:load`, async (event: unknown) => {
-      assertAuthorizedSender(assertMainRendererSender, event as never, `${channelPrefix}:load`);
-
+    handleAuthorized(`${channelPrefix}:load`, assertMainRendererSender, async () => {
       try {
         const filePath = getCachePath();
         if (!fs.existsSync(filePath)) return null;
@@ -74,9 +72,7 @@ function createDiskCacheIpc(config: DiskCacheIpcConfig): { register: () => void 
       }
     });
 
-    ipcMain.handle(`${channelPrefix}:save`, async (event: unknown, data: unknown) => {
-      assertAuthorizedSender(assertMainRendererSender, event as never, `${channelPrefix}:save`);
-
+    handleAuthorized(`${channelPrefix}:save`, assertMainRendererSender, async (_event, data: unknown) => {
       try {
         if (!data || typeof data !== "object" || Array.isArray(data)) {
           return { ok: false };

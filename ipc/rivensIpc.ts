@@ -1,9 +1,8 @@
-import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
+import { assertMainRendererSender, handleAuthorized } from "./ipcSecurity";
 import ctx from "./context";
 import * as rivenFingerprint from "../services/rivenFingerprint";
 import * as wfmRivenSearch from "../services/wfmRivenSearch";
 import * as rivenData from "../services/rivenData";
-import { ipcMain } from "electron";
 import {
   RIVENS_GET, RIVENS_GET_WEAPON_NAMES, RIVENS_GET_STAT_OPTIONS,
   RIVENS_SEARCH_AUCTIONS, RIVENS_GET_WEAPON_TYPE, RIVENS_CREATE_AUCTION,
@@ -17,9 +16,7 @@ const POLARITY_TO_WFM: Record<string, string> = {
 };
 
 function register(): void {
-  ipcMain.handle(RIVENS_GET, (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, RIVENS_GET);
-
+  handleAuthorized(RIVENS_GET, assertMainRendererSender, () => {
     if (!ctx.currentInventoryData) {
       return { unveiled: [], veiled: [], veiledUnseen: [] };
     }
@@ -27,20 +24,18 @@ function register(): void {
     return rivenFingerprint.decodeAllRivens(ctx.currentInventoryData);
   });
 
-  ipcMain.handle(RIVENS_GET_WEAPON_NAMES, (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, RIVENS_GET_WEAPON_NAMES);
-    return rivenData.getAllRivenWeaponNames();
-  });
+  handleAuthorized(RIVENS_GET_WEAPON_NAMES, assertMainRendererSender, () =>
+    rivenData.getAllRivenWeaponNames(),
+  );
 
-  ipcMain.handle(RIVENS_GET_STAT_OPTIONS, (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, RIVENS_GET_STAT_OPTIONS);
-    return rivenData.getRivenStatOptions();
-  });
+  handleAuthorized(RIVENS_GET_STAT_OPTIONS, assertMainRendererSender, () =>
+    rivenData.getRivenStatOptions(),
+  );
 
-  ipcMain.handle(
+  handleAuthorized(
     RIVENS_SEARCH_AUCTIONS,
-    async (event: unknown, weaponName: unknown, positiveWfmNames: unknown, negativeWfmNames: unknown) => {
-      assertAuthorizedSender(assertMainRendererSender, event as never, RIVENS_SEARCH_AUCTIONS);
+    assertMainRendererSender,
+    async (_event, weaponName: unknown, positiveWfmNames: unknown, negativeWfmNames: unknown) => {
       if (typeof weaponName !== "string" || !weaponName) return [];
       const slug = rivenData.getRivenFamilySlug(weaponName);
       if (!slug) return [];
@@ -60,16 +55,15 @@ function register(): void {
     },
   );
 
-  ipcMain.handle(RIVENS_GET_WEAPON_TYPE, (event: unknown, weaponName: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, RIVENS_GET_WEAPON_TYPE);
+  handleAuthorized(RIVENS_GET_WEAPON_TYPE, assertMainRendererSender, (_event, weaponName: unknown) => {
     if (typeof weaponName !== "string" || !weaponName) return null;
     return rivenData.getWeaponRivenTypeLabel(weaponName);
   });
 
-  ipcMain.handle(
+  handleAuthorized(
     RIVENS_CREATE_AUCTION,
-    async (event: unknown, payload: unknown) => {
-      assertAuthorizedSender(assertMainRendererSender, event as never, RIVENS_CREATE_AUCTION);
+    assertMainRendererSender,
+    async (_event, payload: unknown) => {
       if (!payload || typeof payload !== "object") return { ok: false, error: "Invalid payload" };
       const {
         weaponName, rivenName, stats, rerolls, masteryReq,

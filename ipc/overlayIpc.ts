@@ -1,9 +1,9 @@
 import ctx from "./context";
 import {
-  assertAuthorizedSender,
   assertMainRendererSender,
   assertOverlayRendererSender,
-  isAuthorizedSender,
+  handleAuthorized,
+  onAuthorized,
 } from "./ipcSecurity";
 import { createOverlaySettingsController } from "./overlay/settings";
 import { withScope } from "../services/logger";
@@ -24,7 +24,7 @@ import {
 
 const log = withScope("overlayIpc");
 
-import { ipcMain, globalShortcut, app } from "electron";
+import { globalShortcut, app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -240,29 +240,21 @@ function register(): void {
   rewardOverlayIpc.register(pushOverlayInteractionMode, pushOverlayThemeVars);
 
   // Settings & theme IPC (shared across all overlays)
-  ipcMain.handle(OVERLAY_GET_SETTINGS, async (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, OVERLAY_GET_SETTINGS);
+  handleAuthorized(OVERLAY_GET_SETTINGS, assertMainRendererSender, async () => {
     return { ...ctx.overlaySettings };
   });
 
-  ipcMain.handle(OVERLAY_GET_THEME_VARS, async (event: unknown) => {
-    assertAuthorizedSender(assertOverlayRendererSender, event as never, OVERLAY_GET_THEME_VARS);
+  handleAuthorized(OVERLAY_GET_THEME_VARS, assertOverlayRendererSender, async () => {
     return { ...(ctx.overlayThemeVars || {}) };
   });
 
-  ipcMain.handle(OVERLAY_SET_SETTINGS, async (event: unknown, nextSettings: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, OVERLAY_SET_SETTINGS);
-
+  handleAuthorized(OVERLAY_SET_SETTINGS, assertMainRendererSender, async (_event, nextSettings: unknown) => {
     const settings = settingsController.setOverlaySettings(nextSettings);
     settingsController.registerOverlayHotkey();
     return settings;
   });
 
-  ipcMain.on(OVERLAY_THEME_UPDATED, (event: unknown, rawVars: unknown) => {
-    if (!isAuthorizedSender(assertMainRendererSender, event as never, OVERLAY_THEME_UPDATED)) {
-      return;
-    }
-
+  onAuthorized(OVERLAY_THEME_UPDATED, assertMainRendererSender, (_event, rawVars: unknown) => {
     const sanitized = sanitizeOverlayThemeVars(rawVars);
     ctx.overlayThemeVars = sanitized;
     log.log(`[OverlayTheme] updated vars=${Object.keys(sanitized).length}`);

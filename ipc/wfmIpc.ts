@@ -1,4 +1,4 @@
-import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
+import { assertMainRendererSender, handleAuthorized } from "./ipcSecurity";
 import type { WfmStatus } from "../config/shared/wfm";
 import {
   errorCode,
@@ -20,7 +20,6 @@ import * as wfmContracts from "../services/wfmContracts";
 import * as wfmCatalog from "../services/wfmCatalog";
 import { startListening, stopListening } from "../services/wfmWebSocketListener";
 import ctx from "./context";
-import { ipcMain } from "electron";
 import {
   WFM_SIGNIN, WFM_SIGNOUT, WFM_SESSION, WFM_GET_ORDERS, WFM_GET_CONTRACTS,
   WFM_CREATE_ORDER, WFM_UPDATE_ORDER, WFM_DELETE_ORDER, WFM_CLOSE_ORDER,
@@ -77,17 +76,7 @@ function _handleWfmEvent(route: string, payload: unknown): void {
 const WFM_SLUG_RE = /^[a-z0-9_]+$/;
 
 function register(): void {
-  const handleMainRenderer = (
-    channel: string,
-    handler: (event: unknown, ...args: unknown[]) => Promise<unknown>,
-  ) => {
-    ipcMain.handle(channel, async (event: unknown, ...args: unknown[]) => {
-      assertAuthorizedSender(assertMainRendererSender, event as never, channel);
-      return handler(event, ...args);
-    });
-  };
-
-  handleMainRenderer(WFM_SIGNIN, async (_event, payload) => {
+  handleAuthorized(WFM_SIGNIN, assertMainRendererSender, async (_event, payload) => {
     const creds = parseCredentials(payload);
     if (!creds) {
       log.warn("[Security] wfm:signin blocked due to invalid payload shape");
@@ -107,20 +96,20 @@ function register(): void {
     }
   });
 
-  handleMainRenderer(WFM_SIGNOUT, async () => {
+  handleAuthorized(WFM_SIGNOUT, assertMainRendererSender, async () => {
     stopListening();
     return wfmSession.signOut();
   });
 
-  handleMainRenderer(WFM_SESSION, async () => {
+  handleAuthorized(WFM_SESSION, assertMainRendererSender, async () => {
     return wfmSession.getSession();
   });
 
-  handleMainRenderer(WFM_GET_ORDERS, async () =>
+  handleAuthorized(WFM_GET_ORDERS, assertMainRendererSender, async () =>
     withWfmError("get-orders", () => wfmOrders.getMyOrders(), "Failed to fetch orders."),
   );
 
-  handleMainRenderer(WFM_GET_CONTRACTS, async (_event, payload) => {
+  handleAuthorized(WFM_GET_CONTRACTS, assertMainRendererSender, async (_event, payload) => {
     const parsed = parseContractsPayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:get-contracts blocked due to invalid payload");
@@ -129,7 +118,7 @@ function register(): void {
     return withWfmError("get-contracts", () => wfmContracts.getMyContracts(parsed), "Failed to fetch contracts.");
   });
 
-  handleMainRenderer(WFM_CREATE_ORDER, async (_event, payload) => {
+  handleAuthorized(WFM_CREATE_ORDER, assertMainRendererSender, async (_event, payload) => {
     const params = parseCreateOrderParams(payload);
     if (!params) {
       log.warn("[Security] wfm:create-order blocked due to invalid payload");
@@ -138,7 +127,7 @@ function register(): void {
     return withWfmError("create-order", () => wfmOrders.createOrder(params), "Failed to create order.");
   });
 
-  handleMainRenderer(WFM_UPDATE_ORDER, async (_event, payload) => {
+  handleAuthorized(WFM_UPDATE_ORDER, assertMainRendererSender, async (_event, payload) => {
     const parsed = parseUpdateOrderPayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:update-order blocked due to invalid payload");
@@ -147,7 +136,7 @@ function register(): void {
     return withWfmError("update-order", () => wfmOrders.updateOrder(parsed.orderId, parsed.updates), "Failed to update order.");
   });
 
-  handleMainRenderer(WFM_DELETE_ORDER, async (_event, payload) => {
+  handleAuthorized(WFM_DELETE_ORDER, assertMainRendererSender, async (_event, payload) => {
     const parsed = parseDeleteOrderPayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:delete-order blocked due to invalid payload");
@@ -156,7 +145,7 @@ function register(): void {
     return withWfmError("delete-order", () => wfmOrders.deleteOrder(parsed.orderId), "Failed to delete order.");
   });
 
-  handleMainRenderer(WFM_CLOSE_ORDER, async (_event, payload) => {
+  handleAuthorized(WFM_CLOSE_ORDER, assertMainRendererSender, async (_event, payload) => {
     const parsed = parseCloseOrderPayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:close-order blocked due to invalid payload");
@@ -165,7 +154,7 @@ function register(): void {
     return withWfmError("close-order", () => wfmOrders.closeOrder(parsed.orderId, parsed.quantity), "Failed to close order.");
   });
 
-  handleMainRenderer(WFM_SET_VISIBLE, async (_event, payload) => {
+  handleAuthorized(WFM_SET_VISIBLE, assertMainRendererSender, async (_event, payload) => {
     const parsed = parseSetVisiblePayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:set-visible blocked due to invalid payload");
@@ -174,7 +163,7 @@ function register(): void {
     return withWfmError("set-visible", () => wfmOrders.setOrdersVisible(parsed.orderIds, parsed.visible), "Failed to update order visibility.");
   });
 
-  handleMainRenderer(WFM_SEARCH_ITEMS, async (_event, payload) => {
+  handleAuthorized(WFM_SEARCH_ITEMS, assertMainRendererSender, async (_event, payload) => {
     const parsed = parseSearchPayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:search-items blocked due to invalid payload");
@@ -183,7 +172,7 @@ function register(): void {
     return withWfmError("search-items", () => wfmCatalog.searchItems(parsed.query, parsed.limit), "Failed to search items.");
   });
 
-  handleMainRenderer(WFM_LOOKUP_ITEM, async (_event, payload) => {
+  handleAuthorized(WFM_LOOKUP_ITEM, assertMainRendererSender, async (_event, payload) => {
     const slugRaw =
       payload && typeof payload === "object" && "slug" in payload
         ? (payload as { slug?: unknown }).slug
@@ -220,11 +209,11 @@ function register(): void {
     }
   });
 
-  handleMainRenderer(WFM_GET_ME, async () =>
+  handleAuthorized(WFM_GET_ME, assertMainRendererSender, async () =>
     withWfmError("get-me", () => wfmSession.getMe(), "Failed to get user profile."),
   );
 
-  handleMainRenderer(WFM_SET_STATUS, async (_event, payload) => {
+  handleAuthorized(WFM_SET_STATUS, assertMainRendererSender, async (_event, payload) => {
     const parsed = parseStatusPayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:set-status blocked due to invalid payload");

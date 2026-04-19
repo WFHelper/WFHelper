@@ -7,6 +7,7 @@ import { normalizeWfmSlug } from "../config/shared/wfm";
 const log = withScope("wfmStatsPrice");
 
 const STATS_TTL_MS = 5 * 60 * 1000;
+const CACHE_MAX_ENTRIES = 5_000;
 
 interface CacheEntry {
   median: number;
@@ -27,6 +28,12 @@ function getCachedPrice(slug: string): number | null {
 }
 
 function setCachedPrice(slug: string, median: number): void {
+  // Evict the oldest entry (first insertion) when the cache grows past the
+  // cap. Map preserves insertion order, so the first key is the oldest.
+  if (!cache.has(slug) && cache.size >= CACHE_MAX_ENTRIES) {
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) cache.delete(oldest);
+  }
   cache.set(slug, {
     median,
     ts: Date.now(),

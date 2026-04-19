@@ -1,8 +1,8 @@
 import ctx from "./context";
 import {
-  assertAuthorizedSender,
   assertMainRendererSender,
-  isAuthorizedSender,
+  handleAuthorized,
+  onAuthorized,
 } from "./ipcSecurity";
 import { unwrapInventoryPayload } from "./inventoryPayload";
 import { withScope } from "../services/logger";
@@ -13,7 +13,7 @@ import * as relicService from "../services/relicService";
 import * as autoUpdater from "../services/autoUpdater";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { isAllowedExternalHost } from "../config/runtime/security";
-import { ipcMain, shell } from "electron";
+import { shell } from "electron";
 import {
   DB_GET_ITEM_DATABASE, DB_GET_WFM_ITEMS, DB_GET_MASTERY, DB_SET_DEBUG_MODE,
   DB_GET_RELIC_DATABASE,
@@ -25,14 +25,11 @@ import {
 const log = withScope("systemIpc");
 
 function register(): void {
-  ipcMain.handle(DB_GET_ITEM_DATABASE, async (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, DB_GET_ITEM_DATABASE);
-    return itemDb.getRendererLookup();
-  });
+  handleAuthorized(DB_GET_ITEM_DATABASE, assertMainRendererSender, () =>
+    itemDb.getRendererLookup(),
+  );
 
-  ipcMain.handle(DB_GET_WFM_ITEMS, async (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, DB_GET_WFM_ITEMS);
-
+  handleAuthorized(DB_GET_WFM_ITEMS, assertMainRendererSender, async () => {
     if (!wfmCatalog.isLoaded()) {
       try {
         await wfmCatalog.ensureLoaded();
@@ -43,9 +40,7 @@ function register(): void {
     return wfmCatalog.getRendererLookup();
   });
 
-  ipcMain.handle(DB_GET_MASTERY, async (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, DB_GET_MASTERY);
-
+  handleAuthorized(DB_GET_MASTERY, assertMainRendererSender, () => {
     if (!ctx.currentInventoryData) return null;
 
     const data = unwrapInventoryPayload(ctx.currentInventoryData, {
@@ -58,39 +53,30 @@ function register(): void {
     return masteryHelper.computeMasteryProgress(data as Record<string, unknown>);
   });
 
-  ipcMain.handle(DB_SET_DEBUG_MODE, async (event: unknown, enabled: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, DB_SET_DEBUG_MODE);
-
+  handleAuthorized(DB_SET_DEBUG_MODE, assertMainRendererSender, (_event, enabled: unknown) => {
     masteryHelper.setDebugMode(Boolean(enabled));
     return { enabled: Boolean(enabled) };
   });
 
-  ipcMain.handle(APP_UPDATE_CHECK, async (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, APP_UPDATE_CHECK);
-    return autoUpdater.checkForUpdates("manual");
-  });
-  ipcMain.handle(APP_UPDATE_STATE, async (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, APP_UPDATE_STATE);
-    return autoUpdater.getUpdateState();
-  });
-  ipcMain.handle(APP_UPDATE_INSTALL, async (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, APP_UPDATE_INSTALL);
-    return autoUpdater.installDownloadedUpdate();
-  });
+  handleAuthorized(APP_UPDATE_CHECK, assertMainRendererSender, () =>
+    autoUpdater.checkForUpdates("manual"),
+  );
+  handleAuthorized(APP_UPDATE_STATE, assertMainRendererSender, () =>
+    autoUpdater.getUpdateState(),
+  );
+  handleAuthorized(APP_UPDATE_INSTALL, assertMainRendererSender, () =>
+    autoUpdater.installDownloadedUpdate(),
+  );
 
-  ipcMain.handle(DB_GET_RELIC_DATABASE, async (event: unknown) => {
-    assertAuthorizedSender(assertMainRendererSender, event as never, DB_GET_RELIC_DATABASE);
-    return relicService.getRelicDatabase();
-  });
+  handleAuthorized(DB_GET_RELIC_DATABASE, assertMainRendererSender, () =>
+    relicService.getRelicDatabase(),
+  );
 
-  ipcMain.on(WINDOW_MINIMIZE, (event: unknown) => {
-    if (!isAuthorizedSender(assertMainRendererSender, event as never, WINDOW_MINIMIZE)) return;
+  onAuthorized(WINDOW_MINIMIZE, assertMainRendererSender, () => {
     ctx.mainWindow?.minimize();
   });
 
-  ipcMain.on(WINDOW_MAXIMIZE, (event: unknown) => {
-    if (!isAuthorizedSender(assertMainRendererSender, event as never, WINDOW_MAXIMIZE)) return;
-
+  onAuthorized(WINDOW_MAXIMIZE, assertMainRendererSender, () => {
     if (ctx.mainWindow?.isMaximized()) {
       ctx.mainWindow.unmaximize();
     } else {
@@ -98,19 +84,19 @@ function register(): void {
     }
   });
 
-  ipcMain.on(WINDOW_CLOSE, (event: unknown) => {
-    if (!isAuthorizedSender(assertMainRendererSender, event as never, WINDOW_CLOSE)) return;
+  onAuthorized(WINDOW_CLOSE, assertMainRendererSender, () => {
     ctx.mainWindow?.close();
   });
 
-  ipcMain.on(LOG_WARN, (event: unknown, message: unknown, ...args: unknown[]) => {
-    if (!isAuthorizedSender(assertMainRendererSender, event as never, LOG_WARN)) return;
-    log.warn("[renderer]", String(message), ...args);
-  });
+  onAuthorized(
+    LOG_WARN,
+    assertMainRendererSender,
+    (_event, message: unknown, ...args: unknown[]) => {
+      log.warn("[renderer]", String(message), ...args);
+    },
+  );
 
-  ipcMain.on(OPEN_EXTERNAL, (event: unknown, url: unknown) => {
-    if (!isAuthorizedSender(assertMainRendererSender, event as never, OPEN_EXTERNAL)) return;
-
+  onAuthorized(OPEN_EXTERNAL, assertMainRendererSender, (_event, url: unknown) => {
     try {
       const parsed = new URL(String(url));
       const isHttps = parsed.protocol === "https:";
