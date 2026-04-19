@@ -122,6 +122,17 @@ function hasSufficientTextureForOcr(nativeImage: NativeImage): boolean {
 
 let _lastFrameHash: string | null = null;
 let _lastFrameResult: { items: SortedItem[]; meta: Record<string, unknown> } | null = null;
+/**
+ * Window during which an identical frame hash short-circuits back to the
+ * cached result instead of re-running template matching.
+ *
+ * 5 s is picked to comfortably span a single reward-screen dwell (the
+ * rewards are on-screen ~8 s typically, but the scanner only fires after
+ * the screen settles — so the interesting window is ~2–4 s) while still
+ * expiring fast enough that a follow-up mission with the same backdrop
+ * doesn't serve stale items. Shorter TTLs cause needless re-scans during
+ * the same mission's end-screen; longer TTLs risk cross-mission bleed.
+ */
 const FRAME_DEDUP_TTL_MS = 5_000;
 let _lastFrameHashTs = 0;
 

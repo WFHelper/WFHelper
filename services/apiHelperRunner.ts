@@ -135,8 +135,25 @@ export function runOnce(): Promise<boolean> {
       return;
     }
 
-    // Re-verify hash immediately before spawn (defends against swap between
-    // discovery and execution).
+    /*
+     * TOCTOU HARDENING — DO NOT REMOVE.
+     *
+     * The helper path was verified (hash, location, quarantine attributes)
+     * when it was discovered, but that was some indeterminate time ago.
+     * Between discovery and this spawn, an attacker with filesystem write
+     * access could have swapped the binary at _exePath for a malicious
+     * one with the same filename. The discovery-time hash check would
+     * not protect us because it was performed on the old bytes.
+     *
+     * Re-hashing here, immediately before spawn, is the mitigation. It
+     * narrows the attack window from minutes/hours down to the few
+     * microseconds between this sha256 read and the spawn() call —
+     * small enough that racing it requires kernel-level primitives
+     * we can't defend against from userspace anyway.
+     *
+     * If you're tempted to "clean this up" as a duplicate check: the
+     * duplication is the point. Keep both.
+     */
     try {
       const hashNow = sha256OfFile(_exePath);
       if (!isPinnedHash(hashNow)) {

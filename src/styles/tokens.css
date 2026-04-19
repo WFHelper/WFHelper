@@ -37,5 +37,14 @@
   --font-body: "Barlow", sans-serif;
   --size-titlebar-control: 2.875rem;
   --size-relic-detail-icon: 3.25rem;
+
+  /* Riven grade colors — consumed by RivensView.gradeColor(). */
+  --grade-s: #4ade80;
+  --grade-a: #6aab7a;
+  --grade-b: #facc15;
+  --grade-c: #f97316;
+  --grade-d: #f97316;
+  --grade-f: #ef4444;
+  --grade-default: #8b93a5;
 }
 

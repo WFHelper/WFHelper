@@ -54,7 +54,17 @@ const TRADE_PARTNER_PATTERN = /TradingPost\.lua.*?[Tt]rade.*?[Ww]ith[: ]+([A-Za-
 const TRIGGER_DELAY_MS = 450;
 /** Debounce for relic-picker — gives the in-game UI time to finish rendering. */
 const RELIC_TRIGGER_DELAY_MS = 300;
-/** Cooldown between consecutive reward scans to avoid re-triggering on duplicate log lines. */
+/**
+ * Cooldown between consecutive reward scans to avoid re-triggering on
+ * duplicate log lines.
+ *
+ * 2500 ms is tuned to exceed the typical gap between DBWIN and file-poll
+ * re-delivery of the same event (usually < 1 s observed, < 2 s worst case)
+ * while staying well below the minimum time between two legitimate
+ * reward screens (successive mission completions are always separated by
+ * loading + navigation flow, > 10 s in practice). Lower values re-fire
+ * the overlay; higher values risk dropping a legitimate rapid-retry.
+ */
 const REWARD_TRIGGER_COOLDOWN_MS = 2500;
 // DBWIN fires at T=0 (instant); EE.log file flush can lag 0–5 s behind.
 // With both sources active the file-based read would re-trigger the overlay

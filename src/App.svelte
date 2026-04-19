@@ -117,8 +117,10 @@
 
     const startup = initStartup();
 
-    // Show setup wizard on first launch if helper exe isn't installed
-    if (!localStorage.getItem("setup-completed")) {
+    // Show setup wizard on first launch if helper exe isn't installed.
+    // Match the exact-"1" check used in stores/app.ts:10 so any future
+    // non-"1" leftover value is treated consistently.
+    if (localStorage.getItem("setup-completed") !== "1") {
       invoke("getHelperStatus").then((status) => {
         if (!status.exeFound && $currentView === "welcome") {
           currentView.set("setup");

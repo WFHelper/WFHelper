@@ -77,22 +77,24 @@
   }
 
   function gradeColor(grade: string): string {
+    // CSS custom properties defined in styles/tokens.css. Centralizing keeps
+    // the grade palette consistent with any other UI that references them.
     const base = grade.charAt(0);
     switch (base) {
       case "S":
-        return "#4ade80";
+        return "var(--grade-s)";
       case "A":
-        return "#6aab7a";
+        return "var(--grade-a)";
       case "B":
-        return "#facc15";
+        return "var(--grade-b)";
       case "C":
-        return "#f97316";
+        return "var(--grade-c)";
       case "D":
-        return "#f97316";
+        return "var(--grade-d)";
       case "F":
-        return "#ef4444";
+        return "var(--grade-f)";
       default:
-        return "#8b93a5";
+        return "var(--grade-default)";
     }
   }
 
