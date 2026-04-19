@@ -1,4 +1,5 @@
 import { withScope } from "./logger";
+import * as wfmClient from "./wfmClient";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("wfmCatalog");
@@ -13,13 +14,8 @@ const log = withScope("wfmCatalog");
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-import { WFM_HEADERS as _BASE_HEADERS, WFM_ASSET_BASE } from "../config/shared/wfm";
+import { WFM_ASSET_BASE } from "../config/shared/wfm";
 
-const WFM_V2_BASE = "https://api.warframe.market/v2";
-const WFM_HEADERS: Record<string, string> = Object.freeze({
-  ..._BASE_HEADERS,
-  "User-Agent": "WarframeCompanion/1.0",
-});
 const WFM_THUMB_BASE = WFM_ASSET_BASE;
 const WFM_ITEM_URL_BASE = "https://warframe.market/items/";
 const ITEM_PATH_CANDIDATES: ReadonlyArray<string> = Object.freeze([
@@ -109,12 +105,9 @@ async function _load(): Promise<void> {
       for (const path of ITEM_PATH_CANDIDATES) {
         if (rawItems.length) break;
         try {
-          const resp = await fetch(`${WFM_V2_BASE}${path}`, { headers: WFM_HEADERS });
-          if (!resp.ok) {
-            log.warn(`[WFMCatalog] ${path} returned ${resp.status}`);
-            continue;
-          }
-          const json = await resp.json();
+          // Route through the shared wfmClient queue so the catalog load
+          // shares the 350 ms rate-limit budget with every other WFM call.
+          const json = await wfmClient.requestV2("GET", path);
           const data = _unwrap(json);
           if (!data) continue;
 

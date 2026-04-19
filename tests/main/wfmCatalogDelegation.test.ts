@@ -1,36 +1,30 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => {
-  vi.unstubAllGlobals();
   vi.restoreAllMocks();
   vi.resetModules();
 });
 
 describe("wfmCatalog item lookups", () => {
   it("loads and exposes name/url/renderer mapping", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          data: {
-            items: [
-              {
-                id: "wf-item-id",
-                slug: "ash_prime_set",
-                i18n: {
-                  en: {
-                    itemName: "Ash Prime Set",
-                    thumb: "thumb/ash.png",
-                    icon: "icon/ash.png",
-                  },
-                },
+    const wfmClient = await import("../../services/wfmClient");
+    vi.spyOn(wfmClient, "requestV2").mockResolvedValue({
+      data: {
+        items: [
+          {
+            id: "wf-item-id",
+            slug: "ash_prime_set",
+            i18n: {
+              en: {
+                itemName: "Ash Prime Set",
+                thumb: "thumb/ash.png",
+                icon: "icon/ash.png",
               },
-            ],
+            },
           },
-        }),
-      }),
-    );
+        ],
+      },
+    });
 
     const wfmCatalog = await import("../../services/wfmCatalog");
 

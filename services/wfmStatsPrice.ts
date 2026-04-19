@@ -1,12 +1,12 @@
 import { withScope } from "./logger";
 import { extractMedianFromStatsPayload } from "./wfmStats";
+import * as wfmClient from "./wfmClient";
 import { normalizeErrorMessage } from "../config/shared/errors";
-import { WFM_HEADERS, normalizeWfmSlug } from "../config/shared/wfm";
+import { normalizeWfmSlug } from "../config/shared/wfm";
 
 const log = withScope("wfmStatsPrice");
 
 const STATS_TTL_MS = 5 * 60 * 1000;
-const STATS_TIMEOUT_MS = 7_000;
 
 interface CacheEntry {
   median: number;
@@ -39,10 +39,7 @@ export function getCachedPriceBySlug(slugInput: unknown): number | null {
   return getCachedPrice(slug);
 }
 
-export async function fetchPriceBySlug(
-  slugInput: unknown,
-  options: { timeoutMs?: number } = {},
-): Promise<number | null> {
+export async function fetchPriceBySlug(slugInput: unknown): Promise<number | null> {
   const slug = normalizeWfmSlug(typeof slugInput === "string" ? slugInput : null);
   if (!slug) return null;
 
@@ -53,21 +50,11 @@ export async function fetchPriceBySlug(
   if (pending) return pending;
 
   const task = (async (): Promise<number | null> => {
-    const controller = new AbortController();
-    const timeoutMs = Number.isFinite(Number(options.timeoutMs))
-      ? Math.max(500, Number(options.timeoutMs))
-      : STATS_TIMEOUT_MS;
-    const timer = setTimeout(() => controller.abort(new Error("timeout")), timeoutMs);
-
     try {
-      const response = await fetch(`https://api.warframe.market/v1/items/${slug}/statistics`, {
-        headers: WFM_HEADERS,
-        signal: controller.signal,
-      });
-
-      if (!response.ok) return null;
-
-      const payload = await response.json();
+      // Route through the shared wfmClient queue so stats fetches share the
+      // 350 ms rate-limit budget with every other WFM call. A direct fetch()
+      // here would bypass the queue and can trigger 429 bans.
+      const payload = await wfmClient.request("GET", `/items/${slug}/statistics`);
       const median = extractMedianFromStatsPayload(payload);
       if (median == null) return null;
 
@@ -77,7 +64,6 @@ export async function fetchPriceBySlug(
       log.warn(`[WFM] stats fetch failed for ${slug}:`, normalizeErrorMessage(err));
       return null;
     } finally {
-      clearTimeout(timer);
       inFlight.delete(slug);
     }
   })();
