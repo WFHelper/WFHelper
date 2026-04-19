@@ -1,13 +1,12 @@
 import { withScope } from "./logger";
 import { extractMedianFromStatsPayload } from "./wfmStats";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { WFM_HEADERS, normalizeWfmSlug } from "../config/shared/wfm";
 
 const log = withScope("wfmStatsPrice");
 
 const STATS_TTL_MS = 5 * 60 * 1000;
 const STATS_TIMEOUT_MS = 7_000;
-
-import { WFM_HEADERS } from "../config/shared/wfm";
 
 interface CacheEntry {
   median: number;
@@ -16,11 +15,6 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<number | null>>();
-
-function normalizeSlug(slug: unknown): string {
-  if (typeof slug !== "string") return "";
-  return slug.trim().toLowerCase();
-}
 
 function getCachedPrice(slug: string): number | null {
   const hit = cache.get(slug);
@@ -40,7 +34,7 @@ function setCachedPrice(slug: string, median: number): void {
 }
 
 export function getCachedPriceBySlug(slugInput: unknown): number | null {
-  const slug = normalizeSlug(slugInput);
+  const slug = normalizeWfmSlug(typeof slugInput === "string" ? slugInput : null);
   if (!slug) return null;
   return getCachedPrice(slug);
 }
@@ -49,7 +43,7 @@ export async function fetchPriceBySlug(
   slugInput: unknown,
   options: { timeoutMs?: number } = {},
 ): Promise<number | null> {
-  const slug = normalizeSlug(slugInput);
+  const slug = normalizeWfmSlug(typeof slugInput === "string" ? slugInput : null);
   if (!slug) return null;
 
   const cached = getCachedPrice(slug);
@@ -98,7 +92,6 @@ function clearCache(): void {
 }
 
 export const __test__ = {
-  normalizeSlug,
   clearCache,
   getCachedPrice,
   setCachedPrice,

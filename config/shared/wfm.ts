@@ -44,7 +44,9 @@ export const WFM_ASSET_BASE = "https://warframe.market/static/assets/";
  * Normalize a warframe.market item slug.
  *
  * - Trims and lowercases.
- * - Strips ASCII apostrophes (U+0027). Unicode quotes become underscores.
+ * - Strips ASCII and Unicode apostrophes (U+0027, U+2019, U+2018) so
+ *   `"Loki's Decoy"` and `"Loki\u2019s Decoy"` both map to `lokis_decoy`
+ *   (matching WFM canonical slugs).
  * - Collapses non-alphanumeric runs to underscores.
  * - Strips leading/trailing underscores.
  *
@@ -55,7 +57,7 @@ export function normalizeWfmSlug(value: string | null | undefined): string | nul
   const normalized = value
     .trim()
     .toLowerCase()
-    .replace(/'/g, "")
+    .replace(/['\u2019\u2018]/g, "")
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
   return normalized || null;

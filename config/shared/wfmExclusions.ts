@@ -1,3 +1,5 @@
+import { normalizeWfmSlug } from "./wfm";
+
 const BLOOD_FOR_SLUGS = new Set(["blood_for_ammo", "blood_for_energy", "blood_for_life"]);
 
 // Slugs that exist in the Warframe inventory but have no WFM listing at all.
@@ -6,13 +8,7 @@ const BLOOD_FOR_SLUGS = new Set(["blood_for_ammo", "blood_for_energy", "blood_fo
 const WFM_EXCLUDED_SLUGS = new Set(["vendor-relic"]);
 
 function normalizeSlug(value: unknown): string {
-  if (typeof value !== "string") return "";
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/['\u2019]/g, "")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
+  return normalizeWfmSlug(typeof value === "string" ? value : null) ?? "";
 }
 
 function normalizeName(value: unknown): string {

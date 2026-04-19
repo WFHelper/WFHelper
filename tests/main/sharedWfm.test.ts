@@ -49,11 +49,11 @@ describe("normalizeWfmSlug", () => {
     expect(normalizeWfmSlug("Loki's Decoy")).toBe("lokis_decoy");
   });
 
-  it("treats unicode curly quotes as non-alphanumeric (underscore)", () => {
-    // U+2019 (right single quote) and U+2018 (left single quote) are NOT in
-    // the strip list, so they become underscores via the [^a-z0-9]+ rule.
-    expect(normalizeWfmSlug("Loki\u2019s Decoy")).toBe("loki_s_decoy");
-    expect(normalizeWfmSlug("Loki\u2018s Decoy")).toBe("loki_s_decoy");
+  it("strips unicode curly quotes (U+2019, U+2018) like ASCII apostrophe", () => {
+    // Matches WFM's canonical slug form: user input with smart quotes must
+    // resolve to the same slug as ASCII apostrophe input.
+    expect(normalizeWfmSlug("Loki\u2019s Decoy")).toBe("lokis_decoy");
+    expect(normalizeWfmSlug("Loki\u2018s Decoy")).toBe("lokis_decoy");
   });
 
   it("collapses multiple non-alphanumeric runs to single underscore", () => {
