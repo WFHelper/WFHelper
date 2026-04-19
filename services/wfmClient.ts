@@ -207,7 +207,24 @@ function _nodeRequest(
               return Array.isArray(v) ? v.join(", ") : (v ?? null);
             },
           },
-          json: () => Promise.resolve(JSON.parse(text)),
+          json: () => {
+            try {
+              return Promise.resolve(JSON.parse(text));
+            } catch (err) {
+              // Upstream returned non-JSON (HTML error page, empty body from a
+              // proxy, etc). Convert to a typed WfmApiError so callers get a
+              // rejected promise they can pattern-match, instead of a raw
+              // SyntaxError surfacing unpredictably higher up the stack.
+              const preview = text.slice(0, 200);
+              return Promise.reject(
+                new WfmApiError(
+                  `WFM returned non-JSON response (status ${res.statusCode ?? 0}): ${(err as Error).message} — preview: ${preview}`,
+                  "WFM_INVALID_JSON",
+                  res.statusCode ?? 0,
+                ),
+              );
+            }
+          },
           text: () => Promise.resolve(text),
         });
       });
