@@ -89,9 +89,23 @@ export interface AppUpdateInstallResult {
   message?: string;
 }
 
+export interface InventoryReadError {
+  kind: "parse" | "read";
+  message: string;
+  path: string;
+  at: number;
+}
+
 export interface InventoryStatus {
   path: string | null;
   found: boolean;
+  /**
+   * Most recent failure to read or parse the inventory file. Set when
+   * readInventory() catches; cleared on a successful read. Lets the UI
+   * distinguish "no inventory file discovered" (lastError null) from
+   * "inventory file exists but is unreadable/corrupt".
+   */
+  lastError?: InventoryReadError | null;
 }
 
 export interface HelperStatus {

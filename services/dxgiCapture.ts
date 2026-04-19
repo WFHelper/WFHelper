@@ -108,7 +108,9 @@ export function captureGdi(displayId?: string | null): GdiCaptureResult | null {
   const wantedId = displayId?.trim() || null;
   if (wantedId) {
     const hMon = parseInt(wantedId, 10);
-    if (hMon) {
+    // Must be a finite positive integer. parseInt accepts "123abc" → 123 and
+    // "abc" → NaN; only the former is a real HMONITOR-shaped value.
+    if (Number.isFinite(hMon) && hMon > 0) {
       // MONITORINFO: cbSize(4) + rcMonitor(16) + rcWork(16) + dwFlags(4) = 40
       const mi = Buffer.alloc(40);
       mi.writeUInt32LE(40, 0); // cbSize

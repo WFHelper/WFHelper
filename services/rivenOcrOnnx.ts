@@ -72,16 +72,26 @@ let _yoloInputSize = 640;
 let _chRecSessionPromise: Promise<OrtInferenceSession> | null = null;
 let _chDict: string[] = [];
 
+// Permanent-failure sentinels: if a model file is missing on disk, the load
+// will never succeed until the user reinstalls/downloads. Retrying on every
+// caller hammers the filesystem for no reason. Transient errors (corrupt
+// model, ORT init crash) still clear the promise so the next call retries.
+let _yoloSessionPermanentError: Error | null = null;
+let _chRecSessionPermanentError: Error | null = null;
+
 async function getYoloSession(): Promise<OrtInferenceSession> {
+  if (_yoloSessionPermanentError) throw _yoloSessionPermanentError;
   if (_yoloSessionPromise) return _yoloSessionPromise;
 
   _yoloSessionPromise = (async () => {
     const modelPath = resolveYoloModelPath();
     if (!existsSync(modelPath)) {
-      throw new Error(`YOLO model not found at ${modelPath}`);
+      const err = new Error(`YOLO model not found at ${modelPath}`);
+      _yoloSessionPermanentError = err;
+      throw err;
     }
 
-  
+
     const ort: typeof import("onnxruntime-node") = require("onnxruntime-node");
 
     const session = await ort.InferenceSession.create(modelPath, {
@@ -105,13 +115,16 @@ async function getYoloSession(): Promise<OrtInferenceSession> {
 }
 
 async function getChRecSession(): Promise<OrtInferenceSession> {
+  if (_chRecSessionPermanentError) throw _chRecSessionPermanentError;
   if (_chRecSessionPromise) return _chRecSessionPromise;
 
   _chRecSessionPromise = (async () => {
     const modelPath = resolveChRecModelPath();
     const dictPath = resolveChDictPath();
     if (!existsSync(modelPath)) {
-      throw new Error(`PaddleOCR CH model not found at ${modelPath}`);
+      const err = new Error(`PaddleOCR CH model not found at ${modelPath}`);
+      _chRecSessionPermanentError = err;
+      throw err;
     }
 
     const ort: typeof import("onnxruntime-node") = require("onnxruntime-node");

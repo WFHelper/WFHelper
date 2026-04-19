@@ -92,6 +92,12 @@ function resolveHelperCommand(): { command: string; args: string[] } | null {
   };
 }
 
+// Throttle for malformed-stdout warnings: log the first occurrence immediately,
+// then at most once per MALFORMED_WARN_INTERVAL_MS with the accumulated count.
+// Without this, a helper that starts emitting garbage would either spam the log
+// or (previously) vanish silently.
+const MALFORMED_WARN_INTERVAL_MS = 30_000;
+
 class OcrServerWorker {
   private _proc: ChildProcessWithoutNullStreams | null = null;
   private _ready = false;
@@ -103,6 +109,8 @@ class OcrServerWorker {
   private _restartCount = 0;
   private _disposed = false;
   private _requestSeq = 0;
+  private _malformedLineCount = 0;
+  private _lastMalformedWarnAt = 0;
 
   async warmup(): Promise<void> {
     try {
@@ -311,6 +319,15 @@ class OcrServerWorker {
       try {
         response = JSON.parse(rawLine) as OcrHelperResponse;
       } catch {
+        this._malformedLineCount += 1;
+        const now = Date.now();
+        if (now - this._lastMalformedWarnAt >= MALFORMED_WARN_INTERVAL_MS) {
+          log.warn(
+            `OCR helper emitted ${this._malformedLineCount} malformed stdout line(s); latest preview: ${rawLine.slice(0, 120)}`,
+          );
+          this._lastMalformedWarnAt = now;
+          this._malformedLineCount = 0;
+        }
         continue;
       }
 

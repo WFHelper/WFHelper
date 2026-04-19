@@ -36,6 +36,14 @@ const JSON_ENCODING = "utf-8";
 let _lastInventoryHash: string | null = null;
 let _lastReloadAt = 0;
 
+interface InventoryReadError {
+  kind: "parse" | "read";
+  message: string;
+  path: string;
+  at: number;
+}
+let _lastReadError: InventoryReadError | null = null;
+
 const _inventoryStatePath = path.join(app.getPath("userData"), "inventory-reload-state.json");
 
 function _loadPersistedState(): void {
@@ -153,19 +161,30 @@ function findInventoryFile(): string | null {
 }
 
 function readInventory(filePath: string): unknown {
+  let raw: string;
   try {
-    const raw = fs.readFileSync(filePath, JSON_ENCODING);
+    raw = fs.readFileSync(filePath, JSON_ENCODING);
+  } catch (err) {
+    const message = normalizeErrorMessage(err);
+    log.error(`Failed to read inventory at ${filePath}:`, message);
+    _lastReadError = { kind: "read", message, path: filePath, at: Date.now() };
+    return null;
+  }
+
+  let data: unknown;
+  try {
     const hash = crypto.createHash("sha256").update(raw).digest("hex");
     const now = Date.now();
     const withinCooldown = now - _lastReloadAt < MIN_RELOAD_INTERVAL_MS;
     const contentUnchanged = hash === _lastInventoryHash;
 
     // Always parse so ctx.currentInventoryData is populated for the UI
-    const data = unwrapInventoryPayload(JSON.parse(raw), {
+    data = unwrapInventoryPayload(JSON.parse(raw), {
       onParseError: (err: unknown) =>
         log.warn("Failed to parse nested inventory payload string:", normalizeErrorMessage(err)),
     });
     ctx.currentInventoryData = data as Record<string, unknown> | null;
+    _lastReadError = null;
 
     if (withinCooldown && contentUnchanged) {
       log.log("Inventory read skipped broadcast (unchanged within 10 min cooldown).");
@@ -180,7 +199,9 @@ function readInventory(filePath: string): unknown {
     }
     return data;
   } catch (err) {
-    log.error("Failed to read inventory:", normalizeErrorMessage(err));
+    const message = normalizeErrorMessage(err);
+    log.error(`Failed to parse inventory at ${filePath}:`, message);
+    _lastReadError = { kind: "parse", message, path: filePath, at: Date.now() };
     return null;
   }
 }
@@ -206,7 +227,9 @@ function watchInventoryFile(filePath: string): void {
     try {
       raw = fs.readFileSync(filePath, JSON_ENCODING);
     } catch (err) {
-      log.error("Failed to read inventory file:", normalizeErrorMessage(err));
+      const message = normalizeErrorMessage(err);
+      log.error("Failed to read inventory file:", message);
+      _lastReadError = { kind: "read", message, path: filePath, at: Date.now() };
       return;
     }
 
@@ -227,6 +250,7 @@ function watchInventoryFile(filePath: string): void {
           log.warn("Failed to parse nested inventory payload string:", normalizeErrorMessage(err)),
       });
       ctx.currentInventoryData = data as Record<string, unknown> | null;
+      _lastReadError = null;
       if (data && typeof data === "object") {
         _notifyListeners(data as Record<string, unknown>);
       }
@@ -234,7 +258,9 @@ function watchInventoryFile(filePath: string): void {
         ctx.mainWindow.webContents.send(INVENTORY_UPDATED, data);
       }
     } catch (err) {
-      log.error("Failed to parse inventory:", normalizeErrorMessage(err));
+      const message = normalizeErrorMessage(err);
+      log.error("Failed to parse inventory:", message);
+      _lastReadError = { kind: "parse", message, path: filePath, at: Date.now() };
     }
   });
 }
@@ -289,6 +315,7 @@ function register(): void {
     return {
       path: ctx.currentInventoryPath,
       found: ctx.currentInventoryPath !== null,
+      lastError: _lastReadError,
     };
   });
 }

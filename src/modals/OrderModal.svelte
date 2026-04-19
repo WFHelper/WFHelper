@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
   import { orderModalState, marketOrders } from "../stores/market.js";
   import { invoke } from "../lib/ipc.js";
   import type {
@@ -81,6 +82,13 @@
       if (results && !("error" in results)) itemDropdown = results;
     }, ITEM_SEARCH_DEBOUNCE_MS);
   }
+
+  onDestroy(() => {
+    if (searchTimer) {
+      clearTimeout(searchTimer);
+      searchTimer = null;
+    }
+  });
 
   function selectItem(item: WfmSearchItem): void {
     itemSelected = item;
