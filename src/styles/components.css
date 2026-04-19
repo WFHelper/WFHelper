@@ -720,16 +720,16 @@
   .detail-dual-container > .detail-panel {
     box-shadow: none;
   }
-  .detail-dual-container:not(.has-comp) > .detail-panel {
+  .detail-dual-container:not(:is(.has-comp, .has-reward)) > .detail-panel {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   }
-  .detail-dual-container.has-comp {
+  .detail-dual-container:is(.has-comp, .has-reward) {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     border: 1px solid var(--border);
     border-radius: 0.75rem;
     overflow: hidden;
   }
-  .detail-dual-container.has-comp > .detail-panel {
+  .detail-dual-container:is(.has-comp, .has-reward) > .detail-panel {
     border-radius: 0;
     border: none;
     border-right: 1px solid var(--border);

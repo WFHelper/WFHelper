@@ -104,6 +104,7 @@ export interface RendererItemEntry {
   masterable?: boolean;
   type: string;
   isBuildComponent: boolean;
+  componentOf?: string;
   description: string;
   productCategory: string | null;
   ducats: number | null;

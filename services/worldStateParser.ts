@@ -214,7 +214,10 @@ function resolveItemName(itemPath: string): string {
   if (entry?.era && entry?.category) return `${entry.era} ${entry.category} Relic`;
   // Fallback: extract readable name from path slug
   const slug = itemPath.split("/").pop() || itemPath;
-  return slug.replace(/([a-z])([A-Z])/g, "$1 $2").trim();
+  const readable = slug.replace(/([a-z])([A-Z])/g, "$1 $2").trim();
+  // Glyphs are stored as "AvatarImage..." in data — display as "Glyph ..."
+  if (readable.startsWith("Avatar Image")) return readable.replace("Avatar Image", "Glyph").trim();
+  return readable;
 }
 
 const FACTION_LABEL: Record<string, string> = {

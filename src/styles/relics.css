@@ -414,7 +414,7 @@
   .relic-rewards-list {
     margin-top: 0.65rem;
     display: grid;
-    gap: 0.22rem;
+    gap: 0;
   }
   .relic-rewards-header {
     display: grid;
@@ -422,17 +422,45 @@
     gap: 0.42rem;
     font-size: 0.72rem;
     color: var(--text-muted);
+    padding: 0 0.4rem;
   }
   .relic-reward-row {
     display: grid;
     grid-template-columns: 30px minmax(0, 1fr) 72px 78px 78px 120px;
     gap: 0.42rem;
     align-items: center;
-    padding: 0.36rem 0;
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+    padding: 0.42rem 0.4rem;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 0.25rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    width: 100%;
   }
   .relic-reward-row:last-child {
     border-bottom: 0;
+  }
+  .relic-reward-clickable {
+    cursor: pointer;
+  }
+  .relic-reward-clickable:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .relic-reward-clickable:hover:not(:disabled) .relic-reward-name {
+    color: var(--accent, #d4a843);
+  }
+  .relic-reward-active {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .relic-reward-item-panel {
+    width: 520px;
+    border-radius: 0;
+    border: none;
+    overflow-y: auto;
+    animation: compSlideIn 0.18s ease;
   }
   .relic-reward-rarity {
     display: inline-flex;
@@ -498,9 +526,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.26rem;
-  }
-  .relic-detail-links {
-    margin-top: 0.42rem;
   }
   .relic-detail-body {
     padding: 0 1rem 1rem;

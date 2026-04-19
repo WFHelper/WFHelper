@@ -776,6 +776,7 @@
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 0.25rem 1.2rem;
+    align-items: start;
   }
   .world-bounty-group {
     border-bottom: 1px solid var(--border);
@@ -844,7 +845,7 @@
   }
   .world-bounty-detail {
     padding: 0.2rem 0 0.3rem 1.2rem;
-    border-left: 2px solid rgba(255, 255, 255, 0.08);
+    border-left: 2px solid var(--accent, #d4a843);
     margin-left: 0.3rem;
     margin-bottom: 0.2rem;
   }

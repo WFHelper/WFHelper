@@ -623,6 +623,7 @@ export function getRendererLookup(): Record<string, RendererItemEntry> {
       masterable: typeof item.masterable === "boolean" ? item.masterable : undefined,
       type: item.type || "",
       isBuildComponent: item.isBuildComponent === true,
+      ...(item.componentOf ? { componentOf: item.componentOf } : {}),
       description: item.description || "",
       productCategory: item.productCategory || null,
       ducats: typeof item.ducats === "number" ? item.ducats : null,
