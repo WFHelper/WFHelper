@@ -1,9 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { invoke, on } from "../lib/ipc.js";
+  import { gradeColor } from "../lib/rivenGradeColors.js";
   import type { DecodedRiven, VeiledRivenEntry, VeiledRivenGroup } from "../types/ipc.js";
   import RivenDetailModal from "../components/RivenDetailModal.svelte";
   import RivenFinder from "../components/RivenFinder.svelte";
+  import SearchBox from "../components/SearchBox.svelte";
   import { tr } from "../lib/i18n.js";
 
   let rivens: DecodedRiven[] = $state([]);
@@ -76,28 +78,6 @@
     }
   }
 
-  function gradeColor(grade: string): string {
-    // CSS custom properties defined in styles/tokens.css. Centralizing keeps
-    // the grade palette consistent with any other UI that references them.
-    const base = grade.charAt(0);
-    switch (base) {
-      case "S":
-        return "var(--grade-s)";
-      case "A":
-        return "var(--grade-a)";
-      case "B":
-        return "var(--grade-b)";
-      case "C":
-        return "var(--grade-c)";
-      case "D":
-        return "var(--grade-d)";
-      case "F":
-        return "var(--grade-f)";
-      default:
-        return "var(--grade-default)";
-    }
-  }
-
   function toggleSortDir() {
     sortDir = sortDir === "asc" ? "desc" : "asc";
   }
@@ -164,16 +144,7 @@
 
   {#if viewTab === "unveiled"}
     <div class="flex items-center gap-3 flex-wrap mb-4">
-      <div class="search-box">
-        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-        </svg>
-        <input
-          type="text"
-          placeholder="Search weapons or stats…"
-          bind:value={searchQuery}
-        />
-      </div>
+      <SearchBox bind:value={searchQuery} placeholder="Search weapons or stats…" class="min-w-[14rem]" />
 
       <div class="flex gap-1 flex-wrap">
         {#each TYPES as typ}
@@ -325,16 +296,6 @@
 {/if}
 
 <style>
-  .search-box { position: relative; min-width: 14rem; }
-  .search-box input {
-    width: 100%; padding: 0.5rem 0.75rem 0.5rem 2.25rem; border: 1px solid var(--border);
-    border-radius: 0.375rem; background: var(--bg-surface); color: var(--text-primary);
-    font-size: 0.8125rem; font-family: var(--font-body); outline: none;
-    transition: border-color 0.15s, background-color 0.15s;
-  }
-  .search-box input:focus { border-color: var(--accent); background: var(--bg-raised); box-shadow: 0 0 0 3px rgba(212, 168, 67, 0.12); }
-  .search-icon { position: absolute; left: 0.65rem; top: 50%; transform: translateY(-50%); width: 1rem; height: 1rem; color: var(--text-muted); pointer-events: none; }
-
   .filter-tab {
     padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: 0.375rem;
     background: var(--bg-surface); font-family: var(--font-display); font-size: 0.75rem;

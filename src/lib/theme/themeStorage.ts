@@ -49,6 +49,13 @@ function migrateAndNormalize(raw: Record<string, unknown>): ThemeSettings {
       info: asString(rawColors.info, DEFAULT_COLORS.info),
       border: asString(rawColors.border, DEFAULT_COLORS.border),
       borderStrong: asString(rawColors.borderStrong, DEFAULT_COLORS.borderStrong),
+      gradeS: asString(rawColors.gradeS, DEFAULT_COLORS.gradeS),
+      gradeA: asString(rawColors.gradeA, DEFAULT_COLORS.gradeA),
+      gradeB: asString(rawColors.gradeB, DEFAULT_COLORS.gradeB),
+      gradeC: asString(rawColors.gradeC, DEFAULT_COLORS.gradeC),
+      gradeD: asString(rawColors.gradeD, DEFAULT_COLORS.gradeD),
+      gradeF: asString(rawColors.gradeF, DEFAULT_COLORS.gradeF),
+      gradeDefault: asString(rawColors.gradeDefault, DEFAULT_COLORS.gradeDefault),
     },
     fontSizes: buildFontSizes(
       asNumber(rawFontSizes.globalScale, DEFAULT_FONT_SIZES.globalScale, 0.75, 1.5),

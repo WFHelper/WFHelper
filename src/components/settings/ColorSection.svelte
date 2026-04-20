@@ -46,6 +46,18 @@
         { key: "info", labelKey: "appearance.label.info" },
       ],
     },
+    {
+      labelKey: "appearance.colorsGrades",
+      keys: [
+        { key: "gradeS", labelKey: "appearance.label.gradeS" },
+        { key: "gradeA", labelKey: "appearance.label.gradeA" },
+        { key: "gradeB", labelKey: "appearance.label.gradeB" },
+        { key: "gradeC", labelKey: "appearance.label.gradeC" },
+        { key: "gradeD", labelKey: "appearance.label.gradeD" },
+        { key: "gradeF", labelKey: "appearance.label.gradeF" },
+        { key: "gradeDefault", labelKey: "appearance.label.gradeDefault" },
+      ],
+    },
   ];
 
   $: colors = $themeSettings.colors;

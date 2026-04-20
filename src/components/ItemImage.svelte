@@ -10,7 +10,7 @@
   let useFormaFallback = false;
 
   const imageBase =
-    "h-auto w-auto object-contain [image-rendering:auto] [filter:drop-shadow(0_2px_6px_rgba(0,0,0,0.4))]";
+    "h-auto w-auto object-contain [image-rendering:auto]";
   const placeholderBase =
     "flex h-12 w-12 items-center justify-center text-[var(--text-muted)] opacity-30";
   const placeholderIconBase = "h-full w-full";

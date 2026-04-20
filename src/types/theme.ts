@@ -16,6 +16,13 @@ export interface ThemeColors {
   info: string;
   border: string;
   borderStrong: string;
+  gradeS: string;
+  gradeA: string;
+  gradeB: string;
+  gradeC: string;
+  gradeD: string;
+  gradeF: string;
+  gradeDefault: string;
 }
 
 export interface ThemeFontSizes {
@@ -65,4 +72,11 @@ export const THEME_COLOR_CSS_MAP: Record<keyof ThemeColors, string> = {
   info: "--info",
   border: "--border",
   borderStrong: "--border-strong",
+  gradeS: "--grade-s",
+  gradeA: "--grade-a",
+  gradeB: "--grade-b",
+  gradeC: "--grade-c",
+  gradeD: "--grade-d",
+  gradeF: "--grade-f",
+  gradeDefault: "--grade-default",
 } as const;

@@ -18,6 +18,13 @@ export const DEFAULT_COLORS: Readonly<ThemeColors> = Object.freeze({
   info: "#60a5fa",
   border: "rgba(212, 168, 67, 0.1)",
   borderStrong: "rgba(212, 168, 67, 0.25)",
+  gradeS: "#4ade80",
+  gradeA: "#6aab7a",
+  gradeB: "#facc15",
+  gradeC: "#f97316",
+  gradeD: "#f97316",
+  gradeF: "#ef4444",
+  gradeDefault: "#8b93a5",
 });
 
 export const DEFAULT_FONT_SIZES: Readonly<ThemeFontSizes> = Object.freeze({

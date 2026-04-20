@@ -4,6 +4,7 @@
   import type { DecodedRiven, WfmRivenListing } from "../types/ipc.js";
   import { invoke } from "../lib/ipc.js";
   import { getBestAttributes } from "../lib/rivenBestAttributes.js";
+  import { gradeColor, attrGradeColor, dispoStars } from "../lib/rivenGradeColors.js";
 
   interface Props {
     riven: DecodedRiven;
@@ -116,49 +117,6 @@
     } else {
       listingError = result.error || "Failed to create auction";
     }
-  }
-
-  function gradeColor(grade: string): string {
-    const base = grade.charAt(0);
-    switch (base) {
-      case "S":
-        return "#4ade80";
-      case "A":
-        return "#6aab7a";
-      case "B":
-        return "#facc15";
-      case "C":
-        return "#f97316";
-      case "D":
-        return "#f97316";
-      case "F":
-        return "#ef4444";
-      default:
-        return "#8b93a5";
-    }
-  }
-
-  function attrGradeColor(grade: string): string {
-    switch (grade) {
-      case "Great":
-        return "#4ade80";
-      case "Good":
-        return "#6aab7a";
-      case "OK":
-        return "#facc15";
-      case "Bad":
-        return "#ef4444";
-      default:
-        return "#8b93a5";
-    }
-  }
-
-  function dispoStars(dispo: number): string {
-    if (dispo >= 1.3) return "●●●●●";
-    if (dispo >= 1.1) return "●●●●○";
-    if (dispo >= 0.9) return "●●●○○";
-    if (dispo >= 0.7) return "●●○○○";
-    return "●○○○○";
   }
 
   function handleKeydown(e: KeyboardEvent) {
