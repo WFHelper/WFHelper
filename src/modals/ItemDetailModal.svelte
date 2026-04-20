@@ -1,8 +1,9 @@
 <script lang="ts">
   import { activeItem } from "../stores/modals.js";
+  import { openWithCraftingTree } from "../stores/modals.js";
   import { itemDb, wfmItems, componentOwnership } from "../stores/data.js";
   import { loadItemPrice } from "../lib/priceLoader.js";
-  import { buildCraftingTree, computeCraftingSummary, formatBuildTime } from "../lib/craftingTree.js";
+  import { buildCraftingTree } from "../lib/craftingTree.js";
   import ItemImage from "../components/ItemImage.svelte";
   import DropsList from "../components/DropsList.svelte";
   import MarketPrice from "../components/MarketPrice.svelte";
@@ -30,12 +31,12 @@
   $: craftingTree = hasCraftingTree && showCraftingTree
     ? buildCraftingTree(itemKey, $itemDb || {}, $componentOwnership)
     : null;
-  $: craftingSummary = craftingTree ? computeCraftingSummary(craftingTree) : null;
 
   // Reset selected component when item changes
   $: if (item) {
     selectedComp = null;
-    showCraftingTree = false;
+    showCraftingTree = $openWithCraftingTree;
+    openWithCraftingTree.set(false);
     loadPrice(item.name);
   }
 
@@ -73,8 +74,9 @@
   }
 
   function onModalClose() {
-    // Escape / backdrop: close inline component panel first if open, otherwise full close.
+    // Escape / backdrop: close inline panel first, then tree, then full close.
     if (selectedComp) closeCompPanel();
+    else if (showCraftingTree) showCraftingTree = false;
     else close();
   }
 </script>
@@ -82,79 +84,65 @@
 {#if item}
   <ModalShell ariaLabel={item.name} onClose={onModalClose}>
     <div class="detail-dual-container" class:has-comp={selectedComp}>
-      <div class="detail-panel">
+      <div class="detail-panel" class:crafting-tree-wide={showCraftingTree}>
         <div class="detail-panel-top-actions">
+          {#if hasCraftingTree}
+            <button
+              type="button"
+              class="rounded border border-border-subtle bg-transparent px-2.5 py-0.5 text-xs text-text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-text-primary data-[active]:bg-surface-hover data-[active]:text-accent data-[active]:border-accent"
+              data-active={showCraftingTree || undefined}
+              on:click={() => { showCraftingTree = !showCraftingTree; }}
+            >
+              {showCraftingTree ? '← Details' : 'Crafting Tree'}
+            </button>
+          {/if}
           <WikiButton wikiUrl={item.wikiaUrl} fallbackName={item.name} />
           <button class="detail-close" aria-label="Close" on:click={close}>&times;</button>
         </div>
 
-        <div class="detail-header">
-          <div class="detail-img-wrap">
-            <ItemImage src={item.imageUrl} alt={item.name} cls="item-img" />
-          </div>
-          <div class="detail-title-area">
-            <h2>{item.name}</h2>
-            <div class="detail-tags">
-              {#if item.isPrime}<span class="detail-tag prime">PRIME</span>{/if}
-              {#if item.vaulted}<span class="detail-tag vaulted">VAULTED</span>{/if}
-              {#if item.status === 'mastered'}<span class="detail-tag mastered">MASTERED</span>{/if}
-              {#if item.status === 'progress'}<span class="detail-tag progress">IN PROGRESS</span>{/if}
-              {#if item.status === 'missing'}<span class="detail-tag missing">MISSING</span>{/if}
-              {#if item.categoryLabel || item.category}
-                <span class="detail-meta-inline">{item.categoryLabel || item.category}</span>
-              {/if}
+        {#if showCraftingTree && craftingTree}
+          <!-- Crafting tree mode: compact header + full tree -->
+          <div class="flex items-center gap-3 px-4 py-2 border-b border-white/[0.06]">
+            <div class="shrink-0 h-10 w-10">
+              <ItemImage src={item.imageUrl} alt={item.name} cls="item-img h-10 w-10" />
             </div>
-            {#if item.description}
-              <div class="detail-desc detail-desc-header">{item.description}</div>
-            {/if}
+            <div>
+              <h2 class="m-0 font-display text-base font-bold text-text-primary">{item.name}</h2>
+              <span class="text-[0.72rem] text-text-muted">Crafting Tree</span>
+            </div>
           </div>
-        </div>
 
-        <div class="detail-body">
-          {#if (item.components || []).length > 0}
-            <div class="detail-section">
-              <div class="flex items-center justify-between gap-2">
-                <h3>Components</h3>
-                {#if hasCraftingTree}
-                  <button
-                    type="button"
-                    class="rounded border border-border-subtle bg-transparent px-2.5 py-0.5 text-xs text-text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-text-primary data-[active]:bg-surface-hover data-[active]:text-accent data-[active]:border-accent"
-                    data-active={showCraftingTree || undefined}
-                    on:click={() => { showCraftingTree = !showCraftingTree; }}
-                  >
-                    {showCraftingTree ? 'Components' : 'Crafting Tree'}
-                  </button>
+          <div class="crafting-tree-body">
+            <CraftingTree tree={craftingTree} />
+          </div>
+        {:else}
+          <!-- Normal detail mode -->
+          <div class="detail-header">
+            <div class="detail-img-wrap">
+              <ItemImage src={item.imageUrl} alt={item.name} cls="item-img" />
+            </div>
+            <div class="detail-title-area">
+              <h2>{item.name}</h2>
+              <div class="detail-tags">
+                {#if item.isPrime}<span class="detail-tag prime">PRIME</span>{/if}
+                {#if item.vaulted}<span class="detail-tag vaulted">VAULTED</span>{/if}
+                {#if item.status === 'mastered'}<span class="detail-tag mastered">MASTERED</span>{/if}
+                {#if item.status === 'progress'}<span class="detail-tag progress">IN PROGRESS</span>{/if}
+                {#if item.status === 'missing'}<span class="detail-tag missing">MISSING</span>{/if}
+                {#if item.categoryLabel || item.category}
+                  <span class="detail-meta-inline">{item.categoryLabel || item.category}</span>
                 {/if}
               </div>
+              {#if item.description}
+                <div class="detail-desc detail-desc-header">{item.description}</div>
+              {/if}
+            </div>
+          </div>
 
-              {#if showCraftingTree && craftingTree}
-                <div class="mt-1">
-                  <CraftingTree node={craftingTree} />
-
-                  {#if craftingSummary}
-                    <div class="mt-3 rounded-md bg-surface-hover p-2 text-[0.8rem]">
-                      <div class="flex justify-between py-0.5 text-text-secondary">
-                        <span>Credits:</span>
-                        <span class="font-semibold tabular-nums text-text-primary">{craftingSummary.totalCredits.toLocaleString()}</span>
-                      </div>
-                      <div class="flex justify-between py-0.5 text-text-secondary">
-                        <span>Build time:</span>
-                        <span class="font-semibold tabular-nums text-text-primary">{formatBuildTime(craftingSummary.totalBuildTime)}</span>
-                      </div>
-                      {#if craftingSummary.resources.length > 0}
-                        <div class="mt-1.5 mb-0.5 font-semibold text-text-secondary">Resources needed:</div>
-                        {#each craftingSummary.resources as res (res.uniqueName)}
-                          {@const resMissing = Math.max(0, res.count - res.owned)}
-                          <div class="flex justify-between py-px text-text-muted" class:opacity-50={resMissing === 0}>
-                            <span class="min-w-0 flex-1 truncate">{res.name}</span>
-                            <span class="shrink-0 tabular-nums">{res.owned}/{res.count}</span>
-                          </div>
-                        {/each}
-                      {/if}
-                    </div>
-                  {/if}
-                </div>
-              {:else}
+          <div class="detail-body">
+            {#if (item.components || []).length > 0}
+              <div class="detail-section">
+                <h3>Components</h3>
                 <div class="detail-components">
                   {#each item.components as comp}
                   {@const ownedCount = comp.ownedCount ?? 0}
@@ -173,18 +161,18 @@
                   </button>
                 {/each}
               </div>
-              {/if}
-            </div>
-          {/if}
+              </div>
+            {/if}
 
-          <DropsList drops={item.drops || []} />
+            <DropsList drops={item.drops || []} />
 
-          <MarketPrice text={priceText} slug={priceSlug} />
+            <MarketPrice text={priceText} slug={priceSlug} />
 
-        </div>
+          </div>
+        {/if}
       </div>
 
-      {#if selectedComp}
+      {#if selectedComp && !showCraftingTree}
         <ComponentPanel
           comp={selectedComp}
           parentName={item.name}
@@ -196,3 +184,15 @@
   </ModalShell>
 {/if}
 
+<style>
+  .crafting-tree-wide {
+    width: 90vw;
+    max-width: 1100px;
+  }
+  .crafting-tree-body {
+    height: 60vh;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+  }
+</style>

@@ -14,7 +14,9 @@ export interface CraftingTreeNode {
 
 export interface CraftingTreeSummary {
   totalCredits: number;
-  totalBuildTime: number;
+  minBuildTime: number;
+  maxBuildTime: number;
+  blueprints: { uniqueName: string; name: string; count: number; owned: number }[];
   resources: { uniqueName: string; name: string; count: number; owned: number }[];
 }
 
@@ -78,13 +80,16 @@ export function computeCraftingSummary(
   tree: CraftingTreeNode,
 ): CraftingTreeSummary {
   let totalCredits = 0;
-  let totalBuildTime = 0;
+  let minBuildTime = 0;
+  let maxBuildTime = 0;
+  const blueprintMap = new Map<string, { name: string; count: number; owned: number }>();
   const resourceMap = new Map<string, { name: string; count: number; owned: number }>();
 
-  function walk(node: CraftingTreeNode): void {
+  function walk(node: CraftingTreeNode, depth: number): number {
+    let subtreeTime = 0;
     if (node.recipe) {
       totalCredits += node.recipe.buildPrice;
-      totalBuildTime = Math.max(totalBuildTime, node.recipe.buildTime);
+      subtreeTime = node.recipe.buildTime;
     }
 
     if (node.children.length === 0 && !node.isCraftable) {
@@ -100,16 +105,49 @@ export function computeCraftingSummary(
         });
       }
     } else {
+      // Craftable item with children = blueprint
+      if (depth > 0 && node.isCraftable) {
+        const existing = blueprintMap.get(node.uniqueName);
+        if (existing) {
+          existing.count += node.count;
+        } else {
+          blueprintMap.set(node.uniqueName, {
+            name: node.name,
+            count: node.count,
+            owned: node.owned,
+          });
+        }
+      }
+
+      let maxChildTime = 0;
+      let totalChildTime = 0;
       for (const child of node.children) {
-        walk(child);
+        const childTime = walk(child, depth + 1);
+        maxChildTime = Math.max(maxChildTime, childTime);
+        totalChildTime += childTime;
+      }
+      // Min = parallel crafting (max of children + own build)
+      // Max = sequential crafting (sum of children + own build)
+      if (depth === 0) {
+        minBuildTime = subtreeTime + maxChildTime;
+        maxBuildTime = subtreeTime + totalChildTime;
+      } else {
+        subtreeTime += maxChildTime;
       }
     }
+
+    return subtreeTime;
   }
 
-  walk(tree);
+  walk(tree, 0);
   return {
     totalCredits,
-    totalBuildTime,
+    minBuildTime,
+    maxBuildTime,
+    blueprints: Array.from(blueprintMap.entries()).map(([uniqueName, r]) => ({
+      uniqueName,
+      ...r,
+    })),
     resources: Array.from(resourceMap.entries()).map(([uniqueName, r]) => ({
       uniqueName,
       ...r,

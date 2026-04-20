@@ -1,64 +1,157 @@
 <script lang="ts">
   import type { CraftingTreeNode } from "../lib/craftingTree.js";
-  import { formatBuildTime } from "../lib/craftingTree.js";
-  import ItemImage from "./ItemImage.svelte";
+  import { computeCraftingSummary, formatBuildTime } from "../lib/craftingTree.js";
+  import CraftingTreeNodeCard from "./CraftingTreeNode.svelte";
 
-  export let node: CraftingTreeNode;
-  export let depth: number = 0;
+  export let tree: CraftingTreeNode;
 
-  let expanded = depth < 2;
+  let hideCompleted = false;
+  let scale = 1;
+  let panX = 0;
+  let panY = 0;
+  let isPanning = false;
+  let panStartX = 0;
+  let panStartY = 0;
 
-  function toggle() {
-    expanded = !expanded;
+  $: summary = computeCraftingSummary(tree);
+
+  $: visibleTree = hideCompleted ? filterCompleted(tree) : tree;
+
+  $: missingBlueprints = summary.blueprints.filter((b) => b.owned < b.count);
+  $: missingResources = summary.resources.filter((r) => r.owned < r.count);
+
+  $: creditsLabel =
+    summary.totalCredits >= 1000
+      ? `${Math.round(summary.totalCredits / 1000)}K`
+      : String(summary.totalCredits);
+
+  function filterCompleted(node: CraftingTreeNode): CraftingTreeNode | null {
+    if (node.owned >= node.count && node.children.length === 0) return null;
+    const children = node.children
+      .map((c) => filterCompleted(c))
+      .filter((c): c is CraftingTreeNode => c !== null);
+    // Keep root even if owned (always show the top item)
+    if (node === tree) return { ...node, children };
+    if (node.owned >= node.count && children.length === 0) return null;
+    return { ...node, children };
   }
 
-  $: hasChildren = node.children.length > 0;
-  $: gotEnough = node.owned >= node.count;
+  function handleWheel(e: WheelEvent) {
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 0.9 : 1.1;
+    scale = Math.max(0.15, Math.min(3, scale * factor));
+  }
+
+  function handlePointerDown(e: PointerEvent) {
+    if (e.button !== 0) return;
+    isPanning = true;
+    panStartX = e.clientX - panX;
+    panStartY = e.clientY - panY;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+
+  function handlePointerMove(e: PointerEvent) {
+    if (!isPanning) return;
+    panX = e.clientX - panStartX;
+    panY = e.clientY - panStartY;
+  }
+
+  function handlePointerUp() {
+    isPanning = false;
+  }
+
+  function resetView() {
+    scale = 1;
+    panX = 0;
+    panY = 0;
+  }
 </script>
 
-<div class="text-[0.85rem]" class:text-[0.9rem]={depth === 0}>
-  <button
-    type="button"
-    class="flex w-full items-center gap-1.5 rounded border-none bg-transparent px-1.5 py-0.5 text-left text-text-primary transition-colors duration-150 hover:enabled:cursor-pointer hover:enabled:bg-surface-hover disabled:cursor-default"
-    class:has-enough={gotEnough}
-    class:is-craftable={node.isCraftable && !gotEnough}
-    on:click={toggle}
-    disabled={!hasChildren}
-  >
-    <span class="shrink-0" style="width: {depth * 20}px"></span>
-
-    {#if hasChildren}
-      <span class="shrink-0 w-3.5 text-xs text-text-muted transition-transform duration-150" class:rotate-90={expanded}>&#9656;</span>
-    {:else}
-      <span class="shrink-0 w-3.5"></span>
-    {/if}
-
-    <span class="shrink-0 h-[22px] w-[22px]">
-      <ItemImage src={node.imageUrl} alt={node.name} cls="h-[22px] w-[22px]" />
-    </span>
-
-    <span class="min-w-0 flex-1 truncate" class:opacity-50={gotEnough}>{node.name}</span>
-
-    <span class="shrink-0 text-[0.8rem] font-semibold tabular-nums" class:text-text-muted={!gotEnough} class:text-grade-s={gotEnough}>
-      {node.owned}/{node.count}
-    </span>
-
-    {#if node.recipe}
-      <span class="shrink-0 text-[0.7rem] text-text-muted opacity-70">
-        {formatBuildTime(node.recipe.buildTime)}
-        {#if node.recipe.buildPrice > 0}
-          · {node.recipe.buildPrice.toLocaleString()} cr
-        {/if}
-      </span>
-    {/if}
-  </button>
-
-  {#if hasChildren && expanded}
-    <div class="ml-4 border-l border-white/[0.08]">
-      {#each node.children as child (child.uniqueName)}
-        <svelte:self node={child} depth={depth + 1} />
-      {/each}
+<div class="flex flex-col h-full min-h-0">
+  <!-- Toolbar -->
+  <div class="flex items-center justify-between px-2 py-1.5 border-b border-white/[0.08] shrink-0">
+    <label class="flex items-center gap-2 text-[0.72rem] text-text-secondary cursor-pointer select-none">
+      Hide completed:
+      <button
+        type="button"
+        class="relative inline-block w-9 h-[18px] rounded-full transition-colors duration-150 {hideCompleted ? 'bg-accent' : 'bg-white/[0.15]'}"
+        on:click={() => (hideCompleted = !hideCompleted)}
+        aria-pressed={hideCompleted}
+        aria-label="Hide completed"
+      >
+        <span
+          class="absolute top-[2px] left-[2px] h-3.5 w-3.5 rounded-full bg-white transition-transform duration-150 {hideCompleted ? 'translate-x-[18px]' : ''}"
+        ></span>
+      </button>
+    </label>
+    <div class="flex items-center gap-1.5">
+      <button
+        class="rounded px-1.5 py-0.5 text-xs text-text-muted transition-colors duration-150 hover:bg-surface-hover hover:text-text-primary"
+        on:click={resetView}
+        title="Reset zoom"
+      >↺</button>
+      <span class="w-10 text-center text-[0.65rem] tabular-nums text-text-muted">{Math.round(scale * 100)}%</span>
     </div>
-  {/if}
+  </div>
+
+  <!-- Zoomable / pannable canvas -->
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <div
+    class="tree-canvas flex-1 min-h-0 overflow-hidden relative"
+    class:cursor-grabbing={isPanning}
+    on:wheel|preventDefault={handleWheel}
+    on:pointerdown={handlePointerDown}
+    on:pointermove={handlePointerMove}
+    on:pointerup={handlePointerUp}
+    on:pointercancel={handlePointerUp}
+  >
+    <div
+      class="inline-flex p-8 origin-top-left will-change-transform"
+      style="transform: translate({panX}px, {panY}px) scale({scale})"
+    >
+      {#if visibleTree}
+        <CraftingTreeNodeCard node={visibleTree} />
+      {/if}
+    </div>
+  </div>
+
+  <!-- Summary panel -->
+  <div class="shrink-0 border-t border-white/[0.08] px-3 py-2 text-[0.72rem]">
+    <div class="grid gap-x-6 gap-y-1" style="grid-template-columns: 1fr auto;">
+      <div>
+        <div class="font-display font-semibold text-text-secondary uppercase tracking-wider mb-0.5">Blueprints needed:</div>
+        {#if missingBlueprints.length === 0}
+          <span class="text-success">No blueprints missing</span>
+        {:else}
+          {#each missingBlueprints as bp (bp.uniqueName)}
+            <div class="text-text-muted">{bp.name} ({bp.owned}/{bp.count})</div>
+          {/each}
+        {/if}
+        <div class="font-display font-semibold text-text-secondary uppercase tracking-wider mt-1.5 mb-0.5">Resources needed:</div>
+        {#if missingResources.length === 0}
+          <span class="text-success">No resources missing</span>
+        {:else}
+          {#each missingResources as res (res.uniqueName)}
+            <div class="text-text-muted">{res.name} ({res.owned}/{res.count})</div>
+          {/each}
+        {/if}
+      </div>
+      <div class="flex flex-col items-end justify-end">
+        <div class="rounded-lg border border-border bg-bg-raised px-3 py-1.5 text-[0.72rem] text-text-secondary">
+          <div>Total 💰: <strong class="text-text-primary">{creditsLabel}</strong></div>
+          <div>Min. time: <strong class="text-text-primary">{formatBuildTime(summary.minBuildTime)}</strong></div>
+          <div>Max. time: <strong class="text-text-primary">{formatBuildTime(summary.maxBuildTime)}</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
+<style>
+  .tree-canvas {
+    cursor: grab;
+  }
+  .tree-canvas.cursor-grabbing {
+    cursor: grabbing;
+  }
+</style>
