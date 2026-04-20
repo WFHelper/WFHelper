@@ -342,7 +342,7 @@
 
 <section class="view active">
   <div class="view-header">
-    <div class="world-header-left">
+    <div class="flex items-center gap-3">
       <h2>World</h2>
       {#if baroActive}
         <span class="world-baro-pill">Baro leaves in {times.baro}</span>
@@ -357,7 +357,7 @@
   {:else}
     <div class="world-layout">
       <!-- LEFT COLUMN -->
-      <div class="world-col">
+      <div class="flex flex-col">
 
         <!-- PLANET CYCLES -->
         <div class="world-section">
@@ -416,7 +416,7 @@
               </span>
             </div>
           {:else}
-            <span class="world-note">Cycle data unavailable</span>
+            <span class="text-[0.82rem] text-text-secondary opacity-70">Cycle data unavailable</span>
           {/if}
           </CollapsibleSection>
         </div>
@@ -440,7 +440,7 @@
             </button>
           </div>
           {#if !collapsed.resurgence}
-          <div class="world-resurgence-meta">
+          <div class="text-[0.82rem] text-text-secondary mb-[0.55rem]">
             Rotation ends in <strong>{times.varzia}</strong>
           </div>
           {#if featuredPrimes.length > 0}
@@ -455,7 +455,7 @@
               {/each}
             </div>
           {:else}
-            <span class="world-note">No featured prime items found</span>
+            <span class="text-[0.82rem] text-text-secondary opacity-70">No featured prime items found</span>
           {/if}
           {/if}
         </div>
@@ -476,7 +476,7 @@
                 <span class="world-circuit-name">{item.name}</span>
               </button>
             {:else}
-              <span class="world-note">No data</span>
+              <span class="text-[0.82rem] text-text-secondary opacity-70">No data</span>
             {/each}
           </div>
           {/each}
@@ -494,10 +494,10 @@
             <span class="world-row-value">{times.steelPath}</span>
           </div>
           {#if !collapsed.steelpath}
-          <div class="world-sp-current">
-            <span class="world-sp-label">This week</span>
-            <span class="world-sp-item">{steelPathHonors.currentReward.name}</span>
-            <span class="world-sp-cost">{steelPathHonors.currentReward.cost} Steel Essence</span>
+          <div class="flex items-center gap-2 py-[0.35rem]">
+            <span class="text-[0.72rem] font-bold text-text-secondary uppercase tracking-[0.06em] shrink-0">This week</span>
+            <span class="text-[0.88rem] font-semibold text-warning flex-1 min-w-0">{steelPathHonors.currentReward.name}</span>
+            <span class="text-[0.72rem] text-text-secondary whitespace-nowrap shrink-0">{steelPathHonors.currentReward.cost} Steel Essence</span>
           </div>
           {/if}
         </div>
@@ -505,7 +505,7 @@
       </div>
 
       <!-- RIGHT COLUMN -->
-      <div class="world-col">
+      <div class="flex flex-col">
 
         <!-- VOID FISSURES -->
         <div class="world-section world-section-no-border">
@@ -530,7 +530,7 @@
           {#if !collapsed.fissures}
           <div class="world-fissure-list">
             {#if fissureFlat.length === 0}
-              <span class="world-note">No active {$worldFissureMode === 'steel' ? 'Steel Path' : 'Normal'} fissures</span>
+              <span class="text-[0.82rem] text-text-secondary opacity-70">No active {$worldFissureMode === 'steel' ? 'Steel Path' : 'Normal'} fissures</span>
             {:else}
               {#each fissureFlat as f}
                 <div class="world-fissure-row">
@@ -559,16 +559,16 @@
         {#if invasions.length > 0}
         <div class="world-section">
           <CollapsibleSection title="Invasions" collapsed={collapsed.invasions} onToggle={() => toggleSection('invasions')}>
-          <div class="world-invasion-list">
+          <div class="flex flex-col">
             {#each invasions as inv}
               <div class="world-invasion-row">
-                <div class="world-invasion-header">
-                  <span class="world-invasion-node">{inv.node}</span>
+                <div class="flex items-center gap-[0.35rem]">
+                  <span class="text-[1.06rem] font-semibold text-text-primary">{inv.node}</span>
                 </div>
                 <div class="world-invasion-sides">
                   <span class="world-invasion-faction world-faction-{factionClass(inv.attacker.faction)}">{inv.attacker.faction}</span>
                   <span class="world-invasion-reward world-invasion-reward-left">{invasionRewardLabel(inv.attacker)}</span>
-                  <span class="world-invasion-vs">VS</span>
+                  <span class="text-[0.94rem] font-bold text-text-muted uppercase opacity-45 shrink-0">VS</span>
                   <span class="world-invasion-reward world-invasion-reward-right">{invasionRewardLabel(inv.defender)}</span>
                   <span class="world-invasion-faction world-faction-{factionClass(inv.defender.faction)}">{inv.defender.faction}</span>
                 </div>
@@ -578,7 +578,7 @@
                 </div>
                 <span class="world-invasion-pct">
                   <span class="world-faction-{factionClass(inv.attacker.faction)}">{inv.completion.toFixed(1)}%</span>
-                  <span class="world-invasion-pct-div">–</span>
+                  <span class="opacity-40">–</span>
                   <span class="world-faction-{factionClass(inv.defender.faction)}">{(100 - inv.completion).toFixed(1)}%</span>
                 </span>
               </div>
@@ -591,10 +591,10 @@
         <!-- BARO KI'TEER (inactive — under invasions) -->
         {#if !baroActive && baroAct}
         <div class="world-section">
-          <div class="world-baro-inactive">
-            <span class="world-baro-inactive-name">Baro Ki'Teer</span>
-            <span class="world-baro-inactive-badge">Inactive</span>
-            <span class="world-baro-inactive-timer">{times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
+          <div class="flex items-center gap-[0.55rem] py-[0.35rem]">
+            <span class="text-[0.88rem] font-semibold text-text-primary">Baro Ki'Teer</span>
+            <span class="text-[0.62rem] font-bold py-[0.1rem] px-[0.4rem] rounded-[0.2rem] uppercase tracking-[0.06em] bg-white/[0.06] text-text-secondary opacity-70">Inactive</span>
+            <span class="text-[0.82rem] font-display text-text-secondary ml-auto">{times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
           </div>
         </div>
         {/if}
@@ -606,9 +606,9 @@
     {#if baroActive && baro?.inventory && baro.inventory.length > 0}
     <div class="world-section world-baro-fullwidth">
       <CollapsibleSection title="Baro Ki'Teer" collapsed={collapsed.baro} onToggle={() => toggleSection('baro')}>
-      <div class="world-baro-meta">
+      <div class="flex items-center justify-between py-[0.35rem] text-[0.82rem] text-text-secondary">
         <span>{baroLocation}</span>
-        <span class="world-baro-timer">Leaves in <strong>{times.baro}</strong></span>
+        <span class="text-text-secondary text-[0.78rem]">Leaves in <strong>{times.baro}</strong></span>
       </div>
       <div class="world-baro-icons">
         {#each baro.inventory as inv}
@@ -678,14 +678,14 @@
                     </div>
                   {/if}
                   {#await getBountyRewards(group.syndicateKey, job.enemyLevels, job.standingStages.length, bountyRotation)}
-                    <span class="world-bounty-rewards-loading">Loading rewards…</span>
+                    <span class="text-[0.7rem] text-text-secondary py-[0.2rem]">Loading rewards…</span>
                   {:then rewards}
                     {#if rewards.length > 0}
-                    <div class="world-bounty-rewards">
+                    <div class="mt-[0.35rem]">
                       {#each rewards as sr}
-                        <div class="world-bounty-reward-group">
-                          <span class="world-bounty-reward-stage-label">{sr.label}</span>
-                          <div class="world-bounty-reward-items">
+                        <div class="mb-[0.3rem]">
+                          <span class="text-[1.05rem] font-semibold text-text-secondary block mb-[0.1rem]">{sr.label}</span>
+                          <div class="flex flex-col gap-[0.1rem]">
                             {#each sr.items as item}
                               {@const rewardUniqueName = resolveRewardUniqueName(item.itemName, $itemDb)}
                               {@const rewardIcon = resolveRewardIcon(item.itemName, $itemDb)}
@@ -732,10 +732,6 @@
     display: grid;
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
     gap: 0 1.5rem;
-  }
-  .world-col {
-    display: flex;
-    flex-direction: column;
   }
 
   /* ── sections ── */
@@ -823,11 +819,6 @@
   }
 
   /* ── prime resurgence ── */
-  .world-header-left {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
   .world-baro-pill {
     font-size: 0.72rem;
     font-weight: 600;
@@ -837,11 +828,6 @@
     background: rgba(251, 191, 36, 0.1);
     color: var(--warning, #fbbf24);
     white-space: nowrap;
-  }
-  .world-resurgence-meta {
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.55rem;
   }
   .world-prime-row {
     display: flex;
@@ -1187,19 +1173,7 @@
     white-space: nowrap;
   }
 
-  /* ── misc ── */
-  .world-note {
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-    opacity: 0.7;
-  }
-
   /* ── invasions ── */
-  .world-invasion-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-  }
   .world-invasion-row {
     display: flex;
     flex-direction: column;
@@ -1209,16 +1183,6 @@
   }
   .world-invasion-row:last-child {
     border-bottom: none;
-  }
-  .world-invasion-header {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-  }
-  .world-invasion-node {
-    font-size: 1.06rem;
-    font-weight: 600;
-    color: var(--text-primary);
   }
   .world-invasion-tag {
     font-size: 0.62rem;
@@ -1256,14 +1220,6 @@
   }
   .world-invasion-reward-left  { text-align: right; }
   .world-invasion-reward-right { text-align: left; }
-  .world-invasion-vs {
-    font-size: 0.94rem;
-    font-weight: 700;
-    color: var(--text-muted, var(--text-secondary));
-    text-transform: uppercase;
-    opacity: 0.45;
-    flex-shrink: 0;
-  }
   :global(.world-faction-grineer) { color: #ef5350; }
   :global(.world-faction-corpus)  { color: #42a5f5; }
   :global(.world-faction-infested) { color: #66bb6a; }
@@ -1288,25 +1244,10 @@
     align-items: center;
     gap: 0.3rem;
   }
-  .world-invasion-pct-div {
-    opacity: 0.4;
-  }
 
   /* ── baro ki'teer ── */
   .world-baro-fullwidth {
     margin-top: 0.5rem;
-  }
-  .world-baro-meta {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.35rem 0;
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-  }
-  .world-baro-timer {
-    color: var(--text-secondary);
-    font-size: 0.78rem;
   }
   .world-baro-icons {
     display: flex;
@@ -1421,64 +1362,6 @@
   :global(.world-baro-icon-owned.world-baro-mod-card) .world-baro-icon-img {
     border: none;
     box-shadow: 0 0 8px 2px rgba(34, 139, 34, 0.5);
-  }
-  /* baro inactive */
-  .world-baro-inactive {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0.35rem 0;
-  }
-  .world-baro-inactive-name {
-    font-size: 0.88rem;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-  .world-baro-inactive-badge {
-    font-size: 0.62rem;
-    font-weight: 700;
-    padding: 0.1rem 0.4rem;
-    border-radius: 0.2rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--text-secondary);
-    opacity: 0.7;
-  }
-  .world-baro-inactive-timer {
-    font-size: 0.82rem;
-    font-family: var(--font-display);
-    color: var(--text-secondary);
-    margin-left: auto;
-  }
-
-  /* ── steel path honors ── */
-  .world-sp-current {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.35rem 0;
-  }
-  .world-sp-label {
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    flex-shrink: 0;
-  }
-  .world-sp-item {
-    font-size: 0.88rem;
-    font-weight: 600;
-    color: var(--warning, #fbbf24);
-    flex: 1;
-    min-width: 0;
-  }
-  .world-sp-cost {
-    font-size: 0.72rem;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    flex-shrink: 0;
   }
 
   /* ── urgency timer ── */
@@ -1602,29 +1485,6 @@
   }
 
   /* ── bounty reward drops ── */
-  .world-bounty-rewards {
-    margin-top: 0.35rem;
-  }
-  .world-bounty-rewards-loading {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-    padding: 0.2rem 0;
-  }
-  .world-bounty-reward-group {
-    margin-bottom: 0.3rem;
-  }
-  .world-bounty-reward-stage-label {
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    display: block;
-    margin-bottom: 0.1rem;
-  }
-  .world-bounty-reward-items {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-  }
   .world-bounty-reward-item {
     display: flex;
     align-items: center;
