@@ -119,7 +119,6 @@
     {/if}
   </div>
 </div>
-</div>
 
 <style>
   .trade-filter-tab:hover { color: var(--text-primary); }
