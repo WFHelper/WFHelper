@@ -29,7 +29,7 @@
       {:else}
         {#each foundry.building as item}
           {@const isReady = item.endDate && item.endDate <= new Date()}
-          <div class="flex items-center justify-between px-2.5 py-2">
+          <div class="foundry-item flex items-center justify-between px-2.5 py-2">
             <div class="flex min-w-0 items-center gap-2.5">
               <div class="h-[var(--foundry-image-wrap)] w-[var(--foundry-image-wrap)] shrink-0">
                 <ItemImage src={item.imageUrl} alt={item.name} cls="max-w-[var(--foundry-image-max)] max-h-[var(--foundry-image-max)] object-contain" />
@@ -57,7 +57,7 @@
         </div>
       {:else}
         {#each [...foundry.recipes].sort((a, b) => b.count - a.count).slice(0, 100) as item}
-          <div class="flex items-center justify-between px-2.5 py-2">
+          <div class="foundry-item flex items-center justify-between px-2.5 py-2">
             <div class="flex min-w-0 items-center gap-2.5">
               <div class="h-[var(--foundry-image-wrap)] w-[var(--foundry-image-wrap)] shrink-0">
                 <ItemImage src={item.imageUrl} alt={item.name} cls="max-w-[var(--foundry-image-max)] max-h-[var(--foundry-image-max)] object-contain" />

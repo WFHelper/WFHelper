@@ -492,7 +492,7 @@
             <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">No riven contracts found.</div>
           {:else}
             {#each filteredContractRows as contract}
-              <div class="flex items-center gap-2 rounded-lg px-2.5 py-2">
+              <div class="order-row flex items-center gap-2 px-2.5 py-2">
                 <span class="h-[15px] w-[15px] shrink-0" aria-hidden="true"></span>
                 <div class="flex flex-1 items-center gap-2 min-w-0">
                   {#if contract.itemThumb}
@@ -569,7 +569,7 @@
           </div>
         {:else}
           {#each filteredOrderRows as order}
-            <div class="flex items-center gap-2 rounded-lg px-2.5 py-2">
+            <div class="order-row flex items-center gap-2 px-2.5 py-2">
               <input
                 type="checkbox"
                 class="h-[15px] w-[15px] shrink-0 accent-accent"

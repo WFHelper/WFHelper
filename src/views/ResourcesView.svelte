@@ -14,7 +14,7 @@
       </div>
     {:else}
       {#each resources as r}
-        <div class="flex items-center gap-2.5 px-2.5 py-2">
+        <div class="resource-card flex items-center gap-2.5 px-2.5 py-2">
           <div class="h-[var(--resource-image-wrap)] w-[var(--resource-image-wrap)] shrink-0">
             <ItemImage src={r.imageUrl} alt={r.name} cls="max-w-[var(--resource-image-max)] max-h-[var(--resource-image-max)] object-contain" />
           </div>
