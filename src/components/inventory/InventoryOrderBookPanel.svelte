@@ -499,9 +499,9 @@
                 <div class="inventory-orderbook-row">
                   <div class="inventory-orderbook-row-head">
                     <div class="inventory-orderbook-user-block">
-                      <span class="inventory-orderbook-user" title={entry.userName}>{entry.userName}</span>
+                      <span class="overflow-hidden text-ellipsis whitespace-nowrap text-[0.76rem] text-text-primary" title={entry.userName}>{entry.userName}</span>
                       {#if isRankedListingItem}
-                        <span class="inventory-orderbook-rank-sub"
+                        <span class="inventory-orderbook-rank-sub text-[0.62rem] text-text-muted font-display tracking-[0.03em] uppercase"
                           >{entry.rank != null ? `R${entry.rank}` : "R?"}</span
                         >
                       {/if}

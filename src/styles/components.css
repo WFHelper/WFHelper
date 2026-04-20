@@ -891,6 +891,12 @@
     background: rgba(251, 191, 36, 0.15);
     color: var(--warning);
   }
+  .settings-card {
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: var(--bg-surface);
+    padding: 1rem;
+  }
   .detail-meta,
   .detail-desc,
   .detail-market-body,
