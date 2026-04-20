@@ -1,6 +1,6 @@
 import type { OverlaySettings } from "../types/ipc.js";
 
-export const OVERLAY_OCR_ENGINES = ["windows", "tesseract"] as const;
+export const OVERLAY_OCR_ENGINES = ["windows"] as const;
 
 export const OVERLAY_SETTINGS_LIMITS = Object.freeze({
   ocrPassesMin: 1,

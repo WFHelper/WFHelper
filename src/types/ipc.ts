@@ -40,7 +40,7 @@ export interface OverlaySettings {
   hotkey: string;
   interactionHotkeyEnabled: boolean;
   interactionHotkey: string;
-  ocrEngine: "windows" | "tesseract";
+  ocrEngine: "windows";
   ocrPasses: number;
   matchThreshold: number;
   ocrTimeoutMs: number;

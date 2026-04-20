@@ -60,7 +60,7 @@ function buildController() {
       ocrTimeoutMsMin: 400,
       ocrTimeoutMsMax: 6000,
     },
-    ocrEngines: ["native", "tesseract"],
+    ocrEngines: ["windows"],
     rewardScanner: {
       setSettings: vi.fn(),
     },

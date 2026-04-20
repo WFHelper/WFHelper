@@ -362,10 +362,6 @@ app.whenReady().then(async () => {
 
   profileStage("total-main-startup-sequence", startupStartedAt);
 
-  if (ocrServer.tesseractWorkerAvailable) {
-    ocrServer.getTesseractWorker();
-  }
-
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

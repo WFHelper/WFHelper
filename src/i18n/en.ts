@@ -58,7 +58,7 @@ export const en = {
   "settings.interactionHotkeyPlaceholder": "Control+Tab",
   "settings.ocrEngine": "OCR engine",
   "settings.ocrEngineWindows": "Windows OCR",
-  "settings.ocrEngineTesseract": "Tesseract OCR",
+
   "settings.ocrPasses": "OCR passes",
   "settings.matchThreshold": "Match threshold",
   "settings.ocrTimeout": "OCR timeout (ms)",

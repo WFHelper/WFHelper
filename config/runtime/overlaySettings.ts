@@ -34,7 +34,7 @@ export interface OverlaySettings {
   showTradeNotification: boolean;
 }
 
-export const OVERLAY_OCR_ENGINES: string[] = ["windows", "tesseract"];
+export const OVERLAY_OCR_ENGINES: string[] = ["windows"];
 
 export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   autoTriggerEnabled: true,

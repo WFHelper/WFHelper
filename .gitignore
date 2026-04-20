@@ -57,8 +57,7 @@ scripts/train-paddleocr/models/*/
 __pycache__/
 *.pyc
 
-# Tesseract trained data
-eng.traineddata
+
 
 # Temporary per-run debug crops written by benchmark/probe scripts
 temp_*.png

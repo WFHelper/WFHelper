@@ -227,11 +227,9 @@ const REWARD_SCAN_BUDGET_MAX_MS = 5000;
 const OCR_ENGINE_AUTO = "auto";
 const OCR_ENGINE_WINDOWS = "windows";
 const OCR_ENGINE_POWERSHELL = "powershell";
-const OCR_ENGINE_TESSERACT = "tesseract";
 const OCR_ENGINE_ENV = String(process.env.WF_OCR_ENGINE || OCR_ENGINE_AUTO)
   .trim()
   .toLowerCase();
-const TESSERACT_LANGUAGE = "eng";
 
 // --- Relic era scan config --------------------------------------------------
 
@@ -282,7 +280,6 @@ function normalizeOcrEngine(value: unknown, fallback: string = OCR_ENGINE_WINDOW
     .trim()
     .toLowerCase();
   if (v === OCR_ENGINE_WINDOWS || v === OCR_ENGINE_POWERSHELL) return OCR_ENGINE_WINDOWS;
-  if (v === OCR_ENGINE_TESSERACT) return OCR_ENGINE_TESSERACT;
   if (v === OCR_ENGINE_AUTO) return OCR_ENGINE_AUTO;
   return fallback;
 }
@@ -357,10 +354,7 @@ const { runOCR, runOCRBuffer, runOCRStructuredBuffer } = createRewardOcrRunner({
   log,
   getRequestedEngine: getRequestedOcrEngine,
   ocrScriptPath: OCR_SCRIPT,
-  tesseractLanguage: TESSERACT_LANGUAGE,
   engineWindows: OCR_ENGINE_WINDOWS,
-  engineTesseract: OCR_ENGINE_TESSERACT,
-  tesseractContext: "reward",
 });
 
 // --- Band helpers -----------------------------------------------------------
