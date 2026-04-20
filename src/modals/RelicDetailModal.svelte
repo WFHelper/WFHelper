@@ -236,7 +236,7 @@ import ModalShell from "../components/ModalShell.svelte";
           <button class="detail-close" aria-label="Close" on:click={close}>&times;</button>
         </div>
 
-        <div class="detail-header relic-detail-header">
+        <div class="detail-header relic-detail-header items-center">
           <div class="relic-detail-icon">
             <span class="relic-icon relic-detail-icon-shell {tierCls}">
               <img class="relic-icon-img relic-detail-icon-image" src={iconSrc} alt={group.name} />
@@ -244,7 +244,7 @@ import ModalShell from "../components/ModalShell.svelte";
           </div>
           <div class="relic-detail-title-area">
             <h2>{group.name}</h2>
-            <div class="relic-detail-owned">
+            <div class="relic-detail-owned flex flex-wrap gap-[0.26rem]">
               {#each QUAL_ENTRIES as [quality, label]}
                 {#if (owned[quality] || 0) > 0}
                   <span class="relic-owned-pill">{label}: x{owned[quality]}</span>
@@ -256,8 +256,8 @@ import ModalShell from "../components/ModalShell.svelte";
           </div>
         </div>
 
-        <div class="relic-detail-body">
-          <div class="relic-quality-tabs filter-tabs">
+        <div class="px-4 pb-4">
+          <div class="mt-[0.56rem] filter-tabs">
             {#each qualities as quality}
               <button
                 class="filter-tab"
@@ -269,8 +269,8 @@ import ModalShell from "../components/ModalShell.svelte";
             {/each}
           </div>
 
-          <div class="relic-squad-selector">
-            <span class="relic-squad-label">Squad:</span>
+          <div class="mt-[0.56rem] flex items-center gap-[0.38rem]">
+            <span class="text-[0.8rem] text-text-secondary">Squad:</span>
             {#each SQUAD_OPTIONS as [size, label]}
               <button
                 class="relic-squad-btn"
@@ -280,7 +280,7 @@ import ModalShell from "../components/ModalShell.svelte";
             {/each}
           </div>
 
-          <div class="relic-rewards-list">
+          <div class="relic-rewards-list mt-[0.65rem] grid gap-0">
             <div class="relic-rewards-header">
               <span></span><span>Item</span><span class="text-right">Chance</span>
               <span class="text-right">Price</span><span class="text-right">Ducats</span><span class="text-right">E.V.</span>
@@ -292,26 +292,26 @@ import ModalShell from "../components/ModalShell.svelte";
               {@const ducatEv = ducatValue != null ? (reward.chance / 100) * ducatValue : null}
               {@const canClick = itemNameIndex.has(reward.name)}
               <button class="relic-reward-row" class:relic-reward-clickable={canClick} class:relic-reward-active={selectedReward === reward} disabled={!canClick} on:click={() => selectReward(reward)}>
-                <span class="relic-reward-rarity {rarityClass(reward.rarity)}" title={reward.rarity}
+                <span class="relic-reward-rarity inline-flex items-center justify-center w-5 h-5 rounded-full text-[0.67rem] font-bold {rarityClass(reward.rarity)}" title={reward.rarity}
                   >{reward.rarity?.charAt(0) || "?"}</span
                 >
-                <span class="relic-reward-name" title={reward.name}>{reward.name}</span>
-                <span class="relic-reward-chance">{reward.chance}%</span>
-                <span class="relic-reward-price">
+                <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text-primary text-[0.82rem]" title={reward.name}>{reward.name}</span>
+                <span class="text-right text-[0.8rem] text-text-secondary">{reward.chance}%</span>
+                <span class="text-right text-[0.8rem] text-text-secondary">
                   {#if price != null}
                     <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">{price}p</span>
                   {:else}
                     <span class="detail-muted">-</span>
                   {/if}
                 </span>
-                <span class="relic-reward-price">
+                <span class="text-right text-[0.8rem] text-text-secondary">
                   {#if ducatValue != null}
                     <span>{ducatValue}d</span>
                   {:else}
                     <span class="detail-muted">-</span>
                   {/if}
                 </span>
-                <span class="relic-reward-ev">
+                <span class="text-right text-[0.8rem] text-text-secondary">
                   {#if platEv != null && ducatEv != null}
                     {`~${platEv.toFixed(1)}p | ${ducatEv.toFixed(1)}d`}
                   {:else if platEv != null}
@@ -324,7 +324,7 @@ import ModalShell from "../components/ModalShell.svelte";
             {/each}
           </div>
 
-          <div class="relic-ev-total">
+          <div class="relic-ev-total mt-[0.66rem] border-t border-border pt-[0.52rem] text-[0.84rem] text-text-secondary">
             {#if loadingPrices}
               Loading prices and ducats...
             {:else if !hasAnyPrice && !hasAnyDucats}
@@ -360,143 +360,38 @@ import ModalShell from "../components/ModalShell.svelte";
 {/if}
 
 <style>
-  .relic-detail-header {
-    align-items: center;
-  }
   .relic-detail-icon-shell,
   .relic-detail-icon-image {
     width: var(--size-relic-detail-icon);
     height: var(--size-relic-detail-icon);
   }
-  .relic-detail-owned {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.26rem;
-  }
-  .relic-detail-owned :global(.relic-owned-pill) {
-    font-size: 0.66rem;
-  }
-  .relic-detail-body {
-    padding: 0 1rem 1rem;
-  }
-  .relic-squad-selector {
-    margin-top: 0.56rem;
-    display: flex;
-    align-items: center;
-    gap: 0.38rem;
-  }
-  .relic-squad-label {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-  }
-  .relic-quality-tabs {
-    margin-top: 0.56rem;
-  }
-
-  /* ── reward table ── */
-  .relic-rewards-list {
-    margin-top: 0.65rem;
-    display: grid;
-    gap: 0;
-  }
+  .relic-detail-owned :global(.relic-owned-pill) { font-size: 0.66rem; }
   .relic-rewards-header {
     display: grid;
     grid-template-columns: 30px minmax(0, 1fr) 72px 78px 78px 120px;
-    gap: 0.42rem;
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    padding: 0 0.4rem;
+    gap: 0.42rem; font-size: 0.72rem; color: var(--text-muted); padding: 0 0.4rem;
   }
   .relic-reward-row {
     display: grid;
     grid-template-columns: 30px minmax(0, 1fr) 72px 78px 78px 120px;
-    gap: 0.42rem;
-    align-items: center;
-    padding: 0.42rem 0.4rem;
-    border: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 0.25rem;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-    width: 100%;
+    gap: 0.42rem; align-items: center; padding: 0.42rem 0.4rem;
+    border: none; border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 0.25rem; background: transparent; color: inherit;
+    font: inherit; text-align: left; cursor: pointer; width: 100%;
   }
-  .relic-reward-row:last-child {
-    border-bottom: 0;
-  }
-  .relic-reward-clickable {
-    cursor: pointer;
-  }
-  .relic-reward-clickable:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.06);
-  }
-  .relic-reward-clickable:hover:not(:disabled) .relic-reward-name {
-    color: var(--accent, #d4a843);
-  }
-  .relic-reward-active {
-    background: rgba(255, 255, 255, 0.1);
-  }
-  .relic-reward-rarity {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    border-radius: 999px;
-    font-size: 0.67rem;
-    font-weight: 700;
-  }
-  :global(.rarity-rare) {
-    background: rgba(212, 168, 67, 0.2);
-    color: #d4a843;
-    border: 1px solid rgba(212, 168, 67, 0.4);
-  }
-  :global(.rarity-uncommon) {
-    background: rgba(148, 163, 184, 0.15);
-    color: #94a3b8;
-    border: 1px solid rgba(148, 163, 184, 0.3);
-  }
-  :global(.rarity-common) {
-    background: rgba(71, 85, 105, 0.25);
-    color: #64748b;
-    border: 1px solid rgba(71, 85, 105, 0.4);
-  }
-  .relic-reward-name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--text-primary);
-    font-size: var(--font-body-size, 0.82rem);
-  }
-  .relic-reward-chance,
-  .relic-reward-price,
-  .relic-reward-ev {
-    text-align: right;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-  }
-  .relic-ev-total {
-    margin-top: 0.66rem;
-    border-top: 1px solid var(--border);
-    padding-top: 0.52rem;
-    font-size: 0.84rem;
-    color: var(--text-secondary);
-  }
-  .relic-ev-total :global(strong) {
-    color: var(--accent);
-  }
+  .relic-reward-row:last-child { border-bottom: 0; }
+  .relic-reward-clickable { cursor: pointer; }
+  .relic-reward-clickable:hover:not(:disabled) { background: rgba(255, 255, 255, 0.06); }
+  .relic-reward-clickable:hover:not(:disabled) .relic-reward-name { color: var(--accent, #d4a843); }
+  .relic-reward-active { background: rgba(255, 255, 255, 0.1); }
+  :global(.rarity-rare) { background: rgba(212, 168, 67, 0.2); color: #d4a843; border: 1px solid rgba(212, 168, 67, 0.4); }
+  :global(.rarity-uncommon) { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); }
+  :global(.rarity-common) { background: rgba(71, 85, 105, 0.25); color: #64748b; border: 1px solid rgba(71, 85, 105, 0.4); }
+  .relic-ev-total :global(strong) { color: var(--accent); }
   :global(.relic-reward-item-panel) {
-    width: 520px;
-    border-radius: 0;
-    border: none;
-    overflow-y: auto;
-    animation: compSlideIn 0.18s ease;
+    width: 520px; border-radius: 0; border: none;
+    overflow-y: auto; animation: compSlideIn 0.18s ease;
   }
-
-  /* ── responsive ── */
   @media (max-width: 800px) {
     .relic-rewards-header,
     .relic-reward-row {

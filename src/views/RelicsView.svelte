@@ -660,10 +660,10 @@
 </script>
 
 <section class="view active">
-  <div class="relics-header-wrap">
-    <h2 class="relics-title">Relic Planner ({groups.length} groups / {visibleRelicEntryCount} entries)</h2>
-    <div class="relics-tab-row">
-      <div class="relics-tier-tab-bar">
+  <div class="mb-4">
+    <h2 class="m-0 mb-2 font-display text-[1.875rem] font-semibold tracking-[0.03em] text-text-primary">Relic Planner ({groups.length} groups / {visibleRelicEntryCount} entries)</h2>
+    <div class="flex items-end border-b border-white/[0.09]">
+      <div class="flex">
         {#each TIER_OPTIONS as [key, label]}
           <button
             class="relics-tier-tab-item"
@@ -672,8 +672,8 @@
           >{label}</button>
         {/each}
       </div>
-      <div class="relics-right-controls">
-        <div class="search-box relics-search">
+      <div class="ml-auto flex items-center gap-2 pb-[0.45rem] shrink-0 flex-nowrap">
+        <div class="search-box min-w-[11rem]">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="7" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -724,7 +724,7 @@
 
         <label class="shared-filter-sort" title="Squad size for EV">
           <span>Squad</span>
-          <select class="shared-filter-select relics-squad-select" bind:value={$relicSquadSize}>
+          <select class="shared-filter-select min-w-[4rem]" bind:value={$relicSquadSize}>
             {#each SQUAD_OPTIONS as [size, label]}
               <option value={size}>{label}</option>
             {/each}
@@ -753,7 +753,7 @@
   {:else if groups.length === 0}
     <div class="empty-state"><p>No relics found</p></div>
   {:else}
-    <div class="relic-cards relic-cards-3">
+    <div class="grid gap-[var(--relic-grid-gap)] grid-cols-[repeat(var(--relic-grid-columns),minmax(0,1fr))]">
       {#each groups as group (group.key)}
         {@const tierClass = fissureTierClass(group.tier)}
         {@const iconSrc =
@@ -763,8 +763,8 @@
         {@const rewardIcons = previewRewards(group)}
 
         <div class="relic-compact-card">
-          <button type="button" class="relic-compact-head relic-compact-head-button" on:click={() => openRelic(group)}>
-            <span class="relic-row-icon-shell">
+          <button type="button" class="relic-compact-head grid grid-cols-[auto_minmax(0,1fr)_auto] min-w-0 items-center gap-[0.36rem] w-full border-0 p-0 m-0 bg-transparent text-inherit text-left cursor-pointer" on:click={() => openRelic(group)}>
+            <span class="inline-flex items-center justify-center w-[2.4rem] shrink-0">
               <span class="relic-icon {tierClass}">
                 <img
                   class="relic-icon-img"
@@ -776,15 +776,15 @@
               </span>
             </span>
 
-            <span class="relic-row-main">
-              <span class="relic-row-name">{group.name}</span>
+            <span class="flex min-w-0 flex-col gap-[0.24rem]">
+              <span class="relic-row-name overflow-hidden text-ellipsis whitespace-nowrap font-display text-[1.24rem] font-semibold tracking-[0.01em]">{group.name}</span>
             </span>
 
-            <span class="relic-head-ev">
-              <span class="relic-compact-block-label relic-compact-block-label-inline"
+            <span class="min-w-0 flex flex-col items-end gap-[0.16rem]">
+              <span class="relic-compact-block-label text-right font-display text-[0.72rem] tracking-[0.06em] uppercase text-text-secondary"
                 >{selectedQualityHeader($relicQualityMode, group, selectedOwned)}</span
               >
-              <span class="relic-compact-ev-row relic-compact-ev-row-inline">
+              <span class="flex flex-nowrap items-center justify-end gap-[0.24rem] min-w-0">
                 <span class={`relic-row-pill relic-row-pill-plat ${selected.cls}`}>
                   {selected.plat != null ? `${selected.plat.toFixed(1)}p` : "p -"}
                 </span>
@@ -798,7 +798,7 @@
             </span>
           </button>
 
-          <span class="relic-reward-preview-row">
+          <span class="relic-reward-preview-row grid grid-cols-6 gap-[0.3rem]">
             {#each rewardIcons as reward}
               <span
                 class="relic-reward-preview-icon"
@@ -810,7 +810,7 @@
             {/each}
           </span>
 
-          <span class="relic-quality-inline-counts">
+          <span class="relic-quality-inline-counts ml-0 inline-grid grid-cols-4 w-full min-w-0 justify-stretch gap-[0.14rem]">
             {#each RELIC_QUALITY_COLUMNS as quality}
               {@const count = ownedCount(group, quality)}
               <button
@@ -825,7 +825,7 @@
                   }
                 }}
               >
-                <span class="relic-quality-inline-label">{RELIC_QUALITY_SHORT[quality]}:</span>
+                <span class="leading-none normal-case opacity-[0.96]">{RELIC_QUALITY_SHORT[quality]}:</span>
                 <span class="relic-quality-inline-value">{count}</span>
               </button>
             {/each}
@@ -841,212 +841,41 @@
 </section>
 
 <style>
-  .relics-header-wrap {
-    margin-bottom: 1rem;
-  }
-
-  .relics-title {
-    margin: 0 0 0.5rem;
-    font-family: var(--font-display);
-    font-size: var(--font-heading-size, 1.875rem);
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    color: var(--text-primary);
-  }
-
-  .relics-tab-row {
-    display: flex;
-    align-items: flex-end;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
-  }
-
-  .relics-tier-tab-bar {
-    display: flex;
-  }
-
   .relics-tier-tab-item {
-    display: flex;
-    align-items: center;
-    padding: 0.45rem 0.95rem;
-    border: none;
-    border-bottom: 3px solid transparent;
-    background: none;
-    font-family: var(--font-display);
-    font-size: 1rem;
-    color: #8a8c95;
-    cursor: pointer;
-    transition: color 0.15s, border-color 0.15s;
-    white-space: nowrap;
-    margin-bottom: -1px;
+    display: flex; align-items: center; padding: 0.45rem 0.95rem;
+    border: none; border-bottom: 3px solid transparent; background: none;
+    font-family: var(--font-display); font-size: 1rem; color: #8a8c95;
+    cursor: pointer; transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap; margin-bottom: -1px;
   }
+  .relics-tier-tab-item:hover { color: #b0b2ba; }
+  .relics-tier-tab-item.active { color: #ffffff; border-bottom-color: #ffffff; }
 
-  .relics-tier-tab-item:hover {
-    color: #b0b2ba;
-  }
-
-  .relics-tier-tab-item.active {
-    color: #ffffff;
-    border-bottom-color: #ffffff;
-  }
-
-  .relics-right-controls {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding-bottom: 0.45rem;
-    flex-shrink: 0;
-    flex-wrap: nowrap;
-  }
-
-  .relics-search {
-    min-width: 11rem;
-  }
-
-  .relics-squad-select {
-    min-width: 4rem;
-  }
-
-  /* ── compact card grid ── */
-  .relic-cards {
-    display: grid;
-    gap: var(--relic-grid-gap);
-  }
-  .relic-cards-3 {
-    grid-template-columns: repeat(var(--relic-grid-columns), minmax(0, 1fr));
-  }
-
-  /* ── compact card ── */
   .relic-compact-card {
-    width: 100%;
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 0.5rem;
-    border: 1px solid var(--border);
-    border-radius: 0.74rem;
+    width: 100%; display: flex; min-width: 0; flex-direction: column; gap: 0.5rem;
+    border: 1px solid var(--border); border-radius: 0.74rem;
     background:
-      radial-gradient(
-        circle at 14% 30%,
-        color-mix(in oklab, var(--accent) 20%, transparent) 0%,
-        transparent 52%
-      ),
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, var(--bg-surface) 88%, black) 0%,
-        color-mix(in oklab, var(--bg-base) 94%, black) 100%
-      );
-    padding: 0.6rem;
-    cursor: default;
-    text-align: left;
-    color: var(--text-primary);
-    font: inherit;
-    transition:
-      border-color 0.14s ease,
-      background 0.14s ease,
-      transform 0.14s ease;
+      radial-gradient(circle at 14% 30%, color-mix(in oklab, var(--accent) 20%, transparent) 0%, transparent 52%),
+      linear-gradient(180deg, color-mix(in oklab, var(--bg-surface) 88%, black) 0%, color-mix(in oklab, var(--bg-base) 94%, black) 100%);
+    padding: 0.6rem; cursor: default; text-align: left; color: var(--text-primary); font: inherit;
+    transition: border-color 0.14s ease, background 0.14s ease, transform 0.14s ease;
   }
   .relic-compact-card:hover {
     border-color: var(--border-strong);
     background:
-      radial-gradient(
-        circle at 14% 30%,
-        color-mix(in oklab, var(--accent) 30%, transparent) 0%,
-        transparent 56%
-      ),
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, var(--bg-raised) 86%, black) 0%,
-        color-mix(in oklab, var(--bg-base) 92%, black) 100%
-      );
+      radial-gradient(circle at 14% 30%, color-mix(in oklab, var(--accent) 30%, transparent) 0%, transparent 56%),
+      linear-gradient(180deg, color-mix(in oklab, var(--bg-raised) 86%, black) 0%, color-mix(in oklab, var(--bg-base) 92%, black) 100%);
     transform: translateY(-1px);
   }
-  .relic-compact-head {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    min-width: 0;
-    align-items: center;
-    gap: 0.36rem;
-  }
-  .relic-compact-head-button {
-    width: 100%;
-    border: 0;
-    padding: 0;
-    margin: 0;
-    background: transparent;
-    color: inherit;
-    text-align: left;
-    cursor: pointer;
-    font: inherit;
-    align-items: center;
-  }
-  .relic-row-icon-shell {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.4rem;
-    flex-shrink: 0;
-  }
-  .relic-compact-card :global(.relic-icon) {
-    width: 1.85rem;
-    height: 1.85rem;
-  }
-  .relic-compact-card :global(.relic-icon-img) {
-    transform: scale(1.06);
-  }
-  .relic-row-main {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 0.24rem;
-  }
-  .relic-row-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-family: var(--font-display);
-    font-size: 1.24rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-  }
-  .relic-head-ev {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0.16rem;
-  }
-  .relic-compact-block-label-inline {
-    text-align: right;
-    font-family: var(--font-display);
-    font-size: 0.72rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-secondary);
-  }
-  .relic-compact-ev-row-inline {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.24rem;
-    min-width: 0;
-  }
+  .relic-compact-card :global(.relic-icon) { width: 1.85rem; height: 1.85rem; }
+  .relic-compact-card :global(.relic-icon-img) { transform: scale(1.06); }
 
-  /* ── EV / best-chip pills ── */
   .relic-row-pill {
-    display: inline-flex;
-    align-items: center;
-    border-radius: 999px;
+    display: inline-flex; align-items: center; border-radius: 999px;
     border: 1px solid var(--border);
     background: color-mix(in oklab, var(--bg-raised) 88%, var(--bg-base));
-    padding: 0.2rem 0.6rem;
-    font-family: var(--font-display);
-    font-size: 0.85rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    color: var(--text-secondary);
-    white-space: nowrap;
+    padding: 0.2rem 0.6rem; font-family: var(--font-display); font-size: 0.85rem;
+    font-weight: 700; letter-spacing: 0.03em; color: var(--text-secondary); white-space: nowrap;
   }
   :global(.has-value).relic-row-pill {
     border-color: color-mix(in oklab, var(--accent) 52%, transparent);
@@ -1064,21 +893,11 @@
     color: color-mix(in oklab, var(--success) 82%, white);
   }
 
-  /* ── reward preview strip ── */
-  .relic-reward-preview-row {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 0.3rem;
-  }
   .relic-reward-preview-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.5rem;
-    border: 1px solid var(--border);
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 0.5rem; border: 1px solid var(--border);
     background: color-mix(in oklab, var(--bg-raised) 86%, var(--bg-base));
-    padding: 0.2rem;
-    min-height: 2.05rem;
+    padding: 0.2rem; min-height: 2.05rem;
   }
   .relic-reward-preview-icon.owned {
     border-color: color-mix(in oklab, var(--success) 56%, transparent);
@@ -1086,76 +905,35 @@
     box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--success) 24%, transparent);
   }
 
-  /* ── quality inline pills ── */
-  .relic-quality-inline-counts {
-    margin-left: 0;
-    display: inline-grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    width: 100%;
-    min-width: 0;
-    justify-content: stretch;
-    gap: 0.14rem;
-  }
   .relic-quality-inline-pill {
-    appearance: none;
-    min-width: 0;
-    width: 100%;
-    display: inline-flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
+    appearance: none; min-width: 0; width: 100%; display: inline-flex;
+    flex-direction: row; align-items: center; justify-content: center;
     border-radius: 0.34rem;
     border: 1px solid color-mix(in oklab, var(--info) 36%, transparent);
     background: color-mix(in oklab, var(--info) 14%, var(--bg-base));
-    gap: 0.2rem;
-    padding: 0.18rem 0.3rem;
-    font-family: var(--font-display);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    gap: 0.2rem; padding: 0.18rem 0.3rem; font-family: var(--font-display);
+    font-size: 0.78rem; font-weight: 700; letter-spacing: 0.02em;
     color: color-mix(in oklab, var(--text-secondary) 88%, white);
-    white-space: nowrap;
-    cursor: pointer;
+    white-space: nowrap; cursor: pointer;
   }
   .relic-quality-inline-pill.active {
     border-color: color-mix(in oklab, var(--accent) 62%, transparent);
     background: color-mix(in oklab, var(--accent) 22%, var(--bg-base));
     box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 28%, transparent);
   }
-  .relic-quality-inline-pill.disabled {
-    cursor: default;
-    opacity: 0.86;
-  }
-  .relic-quality-inline-label {
-    line-height: 1;
-    text-transform: none;
-    opacity: 0.96;
-  }
+  .relic-quality-inline-pill.disabled { cursor: default; opacity: 0.86; }
   .relic-quality-inline-value {
-    line-height: 1;
-    font-size: 0.78rem;
-    letter-spacing: 0.02em;
+    line-height: 1; font-size: 0.78rem; letter-spacing: 0.02em;
     color: color-mix(in oklab, var(--info) 76%, white);
   }
-  .relic-quality-inline-pill.zero {
-    color: var(--text-muted);
-    opacity: 0.9;
-  }
-  .relic-quality-inline-pill.zero .relic-quality-inline-value {
-    color: var(--text-muted);
-  }
+  .relic-quality-inline-pill.zero { color: var(--text-muted); opacity: 0.9; }
+  .relic-quality-inline-pill.zero .relic-quality-inline-value { color: var(--text-muted); }
 
-  /* ── responsive ── */
   @media (max-width: 800px) {
-    .relic-row-name {
-      font-size: 0.94rem;
-    }
-    .relic-reward-preview-row {
-      gap: 0.22rem;
-    }
+    .relic-row-name { font-size: 0.94rem; }
+    .relic-reward-preview-row { gap: 0.22rem; }
     .relic-quality-inline-counts {
-      margin-left: 0;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-left: 0; grid-template-columns: repeat(4, minmax(0, 1fr));
       justify-content: stretch;
     }
   }
