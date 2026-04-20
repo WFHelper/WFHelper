@@ -57,9 +57,9 @@
 </script>
 
 <section class="view active">
-  <div class="setup-wizard">
+  <div class="flex max-w-[680px] mx-auto my-8 border border-border rounded-xl bg-bg-surface overflow-hidden min-h-[380px]">
     <!-- Left panel — branding -->
-    <div class="setup-left">
+    <div class="setup-left w-[190px] shrink-0 flex flex-col items-center pt-7 px-4 pb-6 bg-gradient-to-b from-bg-deep to-bg-raised border-r border-border">
       <div class="setup-logo">
         <svg viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="1.5">
           <polygon points="40,5 75,65 5,65" stroke-width="2"/>
@@ -67,25 +67,25 @@
           <line x1="40" y1="20" x2="40" y2="30" stroke-width="2"/>
         </svg>
       </div>
-      <div class="setup-steps">
-        <div class="setup-step" class:active={step === "welcome"} class:done={step !== "welcome"}>
-          <span class="step-dot"></span> Welcome
+      <div class="mt-8 flex flex-col gap-4 w-full">
+        <div class="setup-step flex items-center gap-2 text-[0.78rem] text-text-muted transition-colors duration-200" class:active={step === "welcome"} class:done={step !== "welcome"}>
+          <span class="step-dot w-2 h-2 rounded-full bg-text-muted shrink-0 transition-[background] duration-200"></span> Welcome
         </div>
-        <div class="setup-step" class:active={step === "consent"} class:done={step === "downloading" || step === "done"}>
-          <span class="step-dot"></span> Component Setup
+        <div class="setup-step flex items-center gap-2 text-[0.78rem] text-text-muted transition-colors duration-200" class:active={step === "consent"} class:done={step === "downloading" || step === "done"}>
+          <span class="step-dot w-2 h-2 rounded-full bg-text-muted shrink-0 transition-[background] duration-200"></span> Component Setup
         </div>
-        <div class="setup-step" class:active={step === "downloading"} class:done={step === "done"}>
-          <span class="step-dot"></span> Download
+        <div class="setup-step flex items-center gap-2 text-[0.78rem] text-text-muted transition-colors duration-200" class:active={step === "downloading"} class:done={step === "done"}>
+          <span class="step-dot w-2 h-2 rounded-full bg-text-muted shrink-0 transition-[background] duration-200"></span> Download
         </div>
-        <div class="setup-step" class:active={step === "done"}>
-          <span class="step-dot"></span> Finish
+        <div class="setup-step flex items-center gap-2 text-[0.78rem] text-text-muted transition-colors duration-200" class:active={step === "done"}>
+          <span class="step-dot w-2 h-2 rounded-full bg-text-muted shrink-0 transition-[background] duration-200"></span> Finish
         </div>
       </div>
     </div>
 
     <!-- Right panel — content -->
-    <div class="setup-right">
-      <div class="setup-content">
+    <div class="flex-1 flex flex-col pt-7 px-6 pb-5">
+      <div class="setup-content flex-1">
         {#if step === "welcome"}
           <h2>Welcome to Warframe Companion</h2>
           <p>This setup wizard will help you configure the required components to get started.</p>
@@ -94,23 +94,23 @@
         {:else if step === "consent"}
           <h2>Download warframe-api-helper</h2>
           <p>The following component will be downloaded from GitHub:</p>
-          <div class="setup-component-box">
-            <div class="component-row">
-              <span class="component-name">warframe-api-helper.exe</span>
-              <span class="component-size">~1 MB</span>
+          <div class="border border-border rounded-lg bg-bg-raised py-[0.65rem] px-[0.85rem] my-3">
+            <div class="flex justify-between items-center">
+              <span class="font-display text-[0.84rem] font-semibold text-text-primary">warframe-api-helper.exe</span>
+              <span class="text-xs text-text-muted">~1 MB</span>
             </div>
-            <span class="component-source">Source: github.com/Sainan/warframe-api-helper</span>
+            <span class="block mt-1 text-[0.72rem] text-text-muted">Source: github.com/Sainan/warframe-api-helper</span>
           </div>
           <p>This tool connects to the Warframe API to fetch your inventory data. It runs silently in the background every 10 minutes while the app is open.</p>
           <p class="setup-hint">Click <strong>Install</strong> to download, or <strong>Skip</strong> to set it up yourself later.</p>
         {:else if step === "downloading"}
           <h2>Downloading…</h2>
           <p>Fetching warframe-api-helper from GitHub Releases.</p>
-          <div class="setup-progress-container">
-            <div class="setup-progress-bar">
-              <div class="setup-progress-fill" style="width: {progressPercent}%"></div>
+          <div class="my-4">
+            <div class="h-2 rounded bg-bg-raised overflow-hidden border border-border">
+              <div class="h-full bg-accent rounded transition-[width] duration-300 ease-in-out" style="width: {progressPercent}%"></div>
             </div>
-            <div class="setup-progress-info">
+            <div class="flex justify-between mt-[0.35rem] text-xs text-text-muted">
               <span>{progressPercent}%</span>
               <span>{bytesLabel}</span>
             </div>
@@ -120,7 +120,7 @@
           <h2>Setup Complete</h2>
           <p>warframe-api-helper has been downloaded and is ready to use.</p>
           <p>The helper will run automatically in the background every 10 minutes to keep your inventory data fresh. Make sure Warframe is running for it to work.</p>
-          <div class="setup-done-icon">
+          <div class="setup-done-icon flex justify-center my-4">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
@@ -134,7 +134,7 @@
       </div>
 
       <!-- Bottom button bar -->
-      <div class="setup-buttons">
+      <div class="flex justify-end gap-2 pt-4 border-t border-border mt-2">
         {#if step === "welcome"}
           <button class="btn-secondary btn-sm" on:click={skip}>Skip</button>
           <button class="btn-primary btn-sm" on:click={() => (step = "consent")}>Next &gt;</button>
@@ -157,196 +157,17 @@
 </section>
 
 <style>
-  .setup-wizard {
-    display: flex;
-    max-width: 680px;
-    margin: 2rem auto;
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    background: var(--bg-surface);
-    overflow: hidden;
-    min-height: 380px;
-  }
-
-  /* ── Left panel ── */
-  .setup-left {
-    width: 190px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 1.75rem 1rem 1.5rem;
-    background: linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-raised) 100%);
-    border-right: 1px solid var(--border);
-  }
-
-  .setup-logo svg {
-    width: 3.5rem;
-    height: 3.5rem;
-    color: var(--accent);
-    opacity: 0.7;
-  }
-
-  .setup-steps {
-    margin-top: 2rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    width: 100%;
-  }
-
-  .setup-step {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    transition: color 0.2s;
-  }
-  .setup-step.active {
-    color: var(--accent);
-    font-weight: 600;
-  }
-  .setup-step.done {
-    color: var(--success);
-  }
-
-  .step-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--text-muted);
-    flex-shrink: 0;
-    transition: background 0.2s;
-  }
-  .setup-step.active .step-dot {
-    background: var(--accent);
-    box-shadow: 0 0 6px var(--accent);
-  }
-  .setup-step.done .step-dot {
-    background: var(--success);
-  }
-
-  /* ── Right panel ── */
-  .setup-right {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 1.75rem 1.5rem 1.25rem;
-  }
-
-  .setup-content {
-    flex: 1;
-  }
-
+  .setup-logo svg { width: 3.5rem; height: 3.5rem; color: var(--accent); opacity: 0.7; }
+  .setup-step.active { color: var(--accent); font-weight: 600; }
+  .setup-step.done { color: var(--success); }
+  .setup-step.active .step-dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .setup-step.done .step-dot { background: var(--success); }
   .setup-content h2 {
-    margin: 0 0 0.75rem;
-    font-family: var(--font-display);
-    font-size: 1.2rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    margin: 0 0 0.75rem; font-family: var(--font-display);
+    font-size: 1.2rem; font-weight: 700; letter-spacing: 0.02em;
   }
-
-  .setup-content p {
-    margin: 0 0 0.65rem;
-    font-size: 0.84rem;
-    color: var(--text-secondary);
-    line-height: 1.55;
-  }
-
-  .setup-hint {
-    color: var(--text-muted) !important;
-    font-size: 0.78rem !important;
-    margin-top: 1rem !important;
-  }
-
-  /* ── Component box ── */
-  .setup-component-box {
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    background: var(--bg-raised);
-    padding: 0.65rem 0.85rem;
-    margin: 0.75rem 0;
-  }
-
-  .component-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .component-name {
-    font-family: var(--font-display);
-    font-size: 0.84rem;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .component-size {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-  }
-
-  .component-source {
-    display: block;
-    margin-top: 0.25rem;
-    font-size: 0.72rem;
-    color: var(--text-muted);
-  }
-
-  /* ── Progress bar ── */
-  .setup-progress-container {
-    margin: 1rem 0;
-  }
-
-  .setup-progress-bar {
-    height: 8px;
-    border-radius: 4px;
-    background: var(--bg-raised);
-    overflow: hidden;
-    border: 1px solid var(--border);
-  }
-
-  .setup-progress-fill {
-    height: 100%;
-    background: var(--accent);
-    border-radius: 4px;
-    transition: width 0.3s ease;
-  }
-
-  .setup-progress-info {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 0.35rem;
-    font-size: 0.75rem;
-    color: var(--text-muted);
-  }
-
-  /* ── Done icon ── */
-  .setup-done-icon {
-    display: flex;
-    justify-content: center;
-    margin: 1rem 0;
-  }
-  .setup-done-icon svg {
-    width: 2.5rem;
-    height: 2.5rem;
-    color: var(--success);
-  }
-
-  /* ── Error ── */
-  .setup-error-msg {
-    color: var(--danger) !important;
-    font-weight: 600;
-  }
-
-  /* ── Buttons ── */
-  .setup-buttons {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border);
-    margin-top: 0.5rem;
-  }
+  .setup-content p { margin: 0 0 0.65rem; font-size: 0.84rem; color: var(--text-secondary); line-height: 1.55; }
+  .setup-hint { color: var(--text-muted) !important; font-size: 0.78rem !important; margin-top: 1rem !important; }
+  .setup-done-icon svg { width: 2.5rem; height: 2.5rem; color: var(--success); }
+  .setup-error-msg { color: var(--danger) !important; font-weight: 600; }
 </style>

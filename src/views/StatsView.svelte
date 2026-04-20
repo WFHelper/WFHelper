@@ -237,7 +237,7 @@
 <!-- Global tooltip (position: fixed, follows mouse) -->
 {#if tooltip}
   <div
-    class="chart-tooltip-global"
+    class="fixed pointer-events-none rounded border border-border-strong bg-bg-raised px-[10px] py-1 text-[0.7rem] text-text-primary whitespace-nowrap z-[500] shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
     style="left:{tooltip.x + 14}px; top:{tooltip.y - 38}px"
     aria-hidden="true"
   >
@@ -273,13 +273,13 @@
             class:active={showChange}
             on:click={() => { showChange = !showChange; }}
           >Change</button>
-          <button class="chart-modal-close" on:click={() => { expandedKey = null; tooltip = null; }}>✕</button>
+          <button class="border-none bg-transparent text-text-muted cursor-pointer text-base leading-none px-1.5 py-0.5 rounded transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-raised" on:click={() => { expandedKey = null; tooltip = null; }}>✕</button>
         </div>
       </div>
-      <div class="chart-modal-body">
+      <div class="flex-1 min-h-0 flex flex-col">
         <button class="chart-modal-nav chart-modal-nav--prev" on:click={() => navigateExpanded(-1)} title="Previous">‹</button>
         <button class="chart-modal-nav chart-modal-nav--next" on:click={() => navigateExpanded(1)} title="Next">›</button>
-        <div class="chart-modal-chart-area">
+        <div class="flex-1 min-h-0 flex relative">
           {#if exYTicks.length > 0}
             <div class="chart-y-axis">
               {#each exYTicks as tick}
@@ -287,7 +287,7 @@
               {/each}
             </div>
           {/if}
-          <div class="chart-modal-svg-wrap">
+          <div class="flex-1 min-w-0 relative [&_.stats-chart-svg]:min-h-[40px] [&_.stats-chart-svg]:block">
             <svg
               class="stats-chart-svg"
               viewBox="0 0 {SVG_W} {BAR_H_EXPAND}"
@@ -331,7 +331,7 @@
             </svg>
             <!-- Expanded dot overlay — tooltip only on dot hover, active days only -->
             {#if showValue && expandedChartData?.absLine}
-              <div class="chart-dot-overlay">
+              <div class="absolute inset-0 pointer-events-none">
                 {#each expandedChartData.absLine as pt}
                   {@const bar = exBars[pt.idx]}
                   {@const absVal = expandedChartData.absValues[pt.idx] ?? NaN}
@@ -357,9 +357,9 @@
         </div>
         <!-- Per-day date labels below the expanded chart -->
         {#if exBars.length > 0}
-          <div class="chart-expand-dates" style={exYTicks.length > 0 ? 'margin-left:60px' : ''}>
+          <div class="flex shrink-0 h-[22px] mt-1" style={exYTicks.length > 0 ? 'margin-left:60px' : ''}>
             {#each exBars as bar, i}
-              <span class="chart-expand-date" style="width:{100 / exBars.length}%">
+              <span class="text-center text-[0.68rem] text-text-muted whitespace-nowrap overflow-visible" style="width:{100 / exBars.length}%">
                 {i % step === 0 ? shortDate(bar.date) : ""}
               </span>
             {/each}
@@ -395,7 +395,7 @@
           {/each}
         </select>
       </label>
-      <label class="stats-import-btn" title="Import AlecaFrame stats JSON export">
+      <label class="text-[0.7rem] py-1 px-[0.6rem] rounded border border-border bg-bg-raised text-text-secondary cursor-pointer transition-[color,border-color] duration-150 whitespace-nowrap hover:text-accent hover:border-accent" title="Import AlecaFrame stats JSON export">
         Import AlecaFrame JSON
         <input type="file" accept=".json" style="display:none" on:change={handleImportFile} />
       </label>
@@ -461,7 +461,7 @@
                     aria-label="Expand {$tr(labelKey)} chart"
                   >⛶</button>
                 </div>
-                <div class="chart-body-row">
+                <div class="flex-1 min-h-0 flex">
                   {#if cd.yTicks.length > 0}
                     <div class="chart-y-axis chart-y-axis--compact">
                       {#each cd.yTicks as tick}
@@ -469,7 +469,7 @@
                       {/each}
                     </div>
                   {/if}
-                  <div class="chart-svg-wrap">
+                  <div class="flex-1 min-h-0 min-w-0 relative">
                     <svg
                       class="stats-chart-svg stats-chart-svg--compact"
                       viewBox="0 0 {SVG_W} {BAR_H}"
@@ -513,7 +513,7 @@
                     </svg>
                     <!-- HTML dot overlay: only on days with activity, tooltip on hover -->
                     {#if showValue && cd.absLine}
-                      <div class="chart-dot-overlay">
+                      <div class="absolute inset-0 pointer-events-none">
                         {#each cd.absLine as pt}
                           {@const bar = cd.bars[pt.idx]}
                           {@const absVal = cd.absValues[pt.idx] ?? NaN}
@@ -533,9 +533,9 @@
                 </div><!-- /chart-body-row -->
                 {#if cd.bars.length > 0}
                   {@const dateStep = labelStep(chartDays)}
-                  <div class="chart-dates-row" style={cd.yTicks.length > 0 ? 'margin-left:55px' : ''}>
+                  <div class="flex text-[0.7rem] text-text-muted mt-0.5 overflow-visible shrink-0 h-[18px]" style={cd.yTicks.length > 0 ? 'margin-left:55px' : ''}>
                     {#each cd.bars as bar, i}
-                      <span class="chart-date-cell" style="width:{100 / cd.bars.length}%">
+                      <span class="text-center overflow-visible whitespace-nowrap shrink-0 text-[0.65rem]" style="width:{100 / cd.bars.length}%">
                         {i % dateStep === 0 ? shortDate(bar.date) : ''}
                       </span>
                     {/each}
@@ -566,12 +566,6 @@
     background: color-mix(in srgb, var(--accent) 18%, transparent);
     border-color: var(--accent); color: var(--accent); font-weight: 600;
   }
-  .stats-import-btn {
-    font-size: 0.7rem; padding: 0.25rem 0.6rem; border-radius: 4px;
-    border: 1px solid var(--border); background: var(--bg-raised); color: var(--text-secondary);
-    cursor: pointer; transition: color 0.15s, border-color 0.15s; white-space: nowrap;
-  }
-  .stats-import-btn:hover { color: var(--accent); border-color: var(--accent); }
   .stats-chart-block {
     position: relative; display: flex; flex-direction: column; min-width: 0; height: 240px;
     overflow: hidden; background: var(--bg-surface); border: 1px solid var(--border);
@@ -584,17 +578,12 @@
   }
   .stats-chart-block:hover .chart-expand-btn { opacity: 0.7; }
   .chart-expand-btn:hover { opacity: 1 !important; color: var(--accent); background: var(--bg-raised); }
-  .chart-body-row { flex: 1 1 0; min-height: 0; display: flex; }
   .chart-y-axis { position: relative; width: 60px; flex-shrink: 0; }
   .chart-y-axis--compact { width: 55px; flex-shrink: 0; position: relative; }
   .chart-y-axis--compact .chart-y-label { font-size: 0.7rem; right: 4px; }
   .chart-y-label { position: absolute; right: 6px; font-size: 0.72rem; color: var(--text-muted); transform: translateY(-50%); white-space: nowrap; }
-  .chart-svg-wrap { flex: 1; min-height: 0; min-width: 0; position: relative; }
   .stats-chart-svg { width: 100%; height: 100%; }
   .stats-chart-svg--compact { cursor: default; }
-  .chart-modal-svg-wrap { flex: 1; min-width: 0; position: relative; }
-  .chart-modal-svg-wrap .stats-chart-svg { min-height: 40px; display: block; }
-  .chart-dot-overlay { position: absolute; inset: 0; pointer-events: none; }
   .chart-dot {
     position: absolute; width: 12px; height: 12px; border-radius: 50%;
     background: var(--bg-surface); border: 2px solid rgba(255,255,255,0.8);
@@ -608,24 +597,6 @@
   .chart-dot--expanded { width: 15px; height: 15px; border-width: 3px; }
   .stats-chart-svg .bar-pos { fill: var(--success); opacity: 0.75; }
   .stats-chart-svg .bar-neg { fill: var(--danger); opacity: 0.75; }
-  .chart-dates-row {
-    display: flex; font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;
-    overflow: visible; flex-shrink: 0; height: 18px;
-  }
-  .chart-date-cell { text-align: center; overflow: visible; white-space: nowrap; flex-shrink: 0; font-size: 0.65rem; }
-  .chart-tooltip-global {
-    position: fixed; pointer-events: none; background: var(--bg-raised);
-    border: 1px solid var(--border-strong); border-radius: 4px; padding: 4px 10px;
-    font-size: 0.7rem; color: var(--text-primary); white-space: nowrap; z-index: 500;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-  }
-  .chart-modal-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-  .chart-modal-close {
-    background: none; border: none; color: var(--text-muted); cursor: pointer;
-    font-size: 1rem; line-height: 1; padding: 2px 6px; border-radius: 4px;
-    transition: color 0.15s, background 0.15s;
-  }
-  .chart-modal-close:hover { color: var(--text-primary); background: var(--bg-raised); }
   .chart-modal-nav {
     position: absolute; top: 50%; transform: translateY(-50%); z-index: 10;
     background: var(--bg-raised); border: 1px solid var(--border); border-radius: 6px;
@@ -635,7 +606,4 @@
   .chart-modal-nav:hover { color: var(--text-primary); background: var(--bg-surface); }
   .chart-modal-nav--prev { left: 8px; }
   .chart-modal-nav--next { right: 8px; }
-  .chart-modal-chart-area { flex: 1; min-height: 0; display: flex; position: relative; }
-  .chart-expand-dates { display: flex; flex-shrink: 0; height: 22px; margin-top: 4px; }
-  .chart-expand-date { text-align: center; font-size: 0.68rem; color: var(--text-muted); white-space: nowrap; overflow: visible; }
 </style>

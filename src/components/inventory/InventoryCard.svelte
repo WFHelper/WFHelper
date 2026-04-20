@@ -77,7 +77,7 @@
     <ItemImage src={item.displayImageUrl} alt={item.name} />
     {#if item.isPrime}<span class="prime-badge">PRIME</span>{/if}
     {#if item.vaulted}<span class="vault-badge">V</span>{/if}
-    <span class="inventory-count-badge">x{item.amount}</span>
+    <span class="absolute right-[0.4rem] bottom-[0.35rem] rounded-full py-[0.1rem] px-[0.4rem] border border-[rgba(74,222,128,0.4)] bg-[rgba(6,97,58,0.72)] text-[#a9ffcb] font-display text-[0.67rem] font-bold tracking-[0.03em]">x{item.amount}</span>
   </div>
   <div class="item-body">
     <span class="item-name">{item.name}</span>
@@ -88,7 +88,7 @@
       {/if}
     </span>
 
-    <div class="inventory-value-row">
+    <div class="flex flex-wrap gap-1 min-h-[1.45rem] mt-[0.2rem]">
       <span
         class="inventory-value-pill inventory-value-pill-plat"
         class:inventory-value-pill-missing={item.platinum == null}
@@ -105,7 +105,7 @@
     </div>
 
     {#if showRankOrderSummary}
-      <div class="inventory-rank-order-grid">
+      <div class="grid grid-cols-2 gap-[0.24rem]">
         <span class="inventory-rank-order-box">
           <span class="inventory-rank-order-label">WTS R{rankCapLabel}</span>
           <strong>{wtsRankMaxLabel}</strong>
@@ -145,7 +145,7 @@
     {/if}
 
     {#if item.equippedSummary}
-      <span class="inventory-equipped-note">{item.equippedSummary}</span>
+      <span class="text-[0.74rem] text-success whitespace-nowrap overflow-hidden text-ellipsis">{item.equippedSummary}</span>
     {/if}
 
     {#if showDebug}
@@ -160,32 +160,6 @@
   }
   .item-card.prime {
     border-color: rgba(212, 168, 67, 0.28);
-  }
-  .inventory-count-badge {
-    position: absolute;
-    right: 0.4rem;
-    bottom: 0.35rem;
-    border-radius: 999px;
-    padding: 0.1rem 0.4rem;
-    border: 1px solid rgba(74, 222, 128, 0.4);
-    background: rgba(6, 97, 58, 0.72);
-    color: #a9ffcb;
-    font-family: var(--font-display);
-    font-size: 0.67rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-  }
-  .inventory-value-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-    min-height: 1.45rem;
-    margin-top: 0.2rem;
-  }
-  .inventory-rank-order-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.24rem;
   }
   .inventory-rank-order-box {
     border: 1px solid rgba(240, 201, 92, 0.48);
@@ -235,12 +209,5 @@
     border-color: rgba(148, 163, 184, 0.26);
     background: rgba(31, 41, 55, 0.58);
     color: #94a3b8;
-  }
-  .inventory-equipped-note {
-    font-size: 0.74rem;
-    color: var(--success);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 </style>
