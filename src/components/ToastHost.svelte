@@ -1,16 +1,29 @@
 <script lang="ts">
   import { toasts, removeToast } from "../stores/toasts.js";
+
+  const LEVEL_CLASSES: Record<string, string> = {
+    info: "border-[rgba(147,197,253,0.35)] bg-[rgba(59,130,246,0.15)] text-[#dbeafe]",
+    success: "border-[rgba(110,231,183,0.35)] bg-[rgba(16,185,129,0.15)] text-[#d1fae5]",
+    warning: "border-[rgba(252,211,77,0.35)] bg-[rgba(245,158,11,0.15)] text-[#fef3c7]",
+    error: "border-[rgba(252,165,165,0.4)] bg-[rgba(239,68,68,0.2)] text-[#fee2e2]",
+  };
+  const TITLE_CLASSES: Record<string, string> = {
+    info: "text-[#bfdbfe]",
+    success: "text-[#a7f3d0]",
+    warning: "text-[#fde68a]",
+    error: "text-[#fecaca]",
+  };
 </script>
 
-<div class="toast-container">
+<div class="pointer-events-none fixed right-4 top-[calc(var(--titlebar-height)+0.65rem)] z-[1200] flex w-[22rem] max-w-[90vw] flex-col gap-2">
   {#each $toasts as toast (toast.id)}
-    <article class="toast toast-{toast.level}">
-      <header class="toast-header">
-        <strong class="toast-title toast-title-{toast.level}">
+    <article class="pointer-events-auto rounded-lg border p-3 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] backdrop-blur-sm {LEVEL_CLASSES[toast.level] || ''}">
+      <header class="mb-1 flex items-start justify-between gap-3">
+        <strong class="font-display text-sm tracking-wide {TITLE_CLASSES[toast.level] || ''}">
           {toast.title || toast.level}
         </strong>
         <button
-          class="toast-dismiss"
+          class="cursor-pointer rounded border border-[rgba(255,255,255,0.15)] bg-transparent px-1.5 py-0.5 text-xs text-[rgba(255,255,255,0.8)] transition-[border-color,color] duration-150 hover:border-[rgba(255,255,255,0.35)] hover:text-white"
           on:click={() => removeToast(toast.id)}
           aria-label="Dismiss notification"
           title="Dismiss"
@@ -18,69 +31,7 @@
           x
         </button>
       </header>
-      <p class="toast-message">{toast.message}</p>
+      <p class="text-sm leading-[1.375] text-[rgba(255,255,255,0.9)]">{toast.message}</p>
     </article>
   {/each}
 </div>
-
-<style>
-  .toast-container {
-    pointer-events: none;
-    position: fixed;
-    right: 1rem;
-    top: calc(var(--titlebar-height) + 0.65rem);
-    z-index: 1200;
-    display: flex;
-    width: 22rem;
-    max-width: 90vw;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  .toast {
-    pointer-events: auto;
-    border-radius: 0.5rem;
-    border: 1px solid;
-    padding: 0.75rem;
-    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
-    backdrop-filter: blur(8px);
-  }
-  .toast-info    { border-color: rgba(147,197,253,0.35); background: rgba(59,130,246,0.15); color: #dbeafe; }
-  .toast-success { border-color: rgba(110,231,183,0.35); background: rgba(16,185,129,0.15); color: #d1fae5; }
-  .toast-warning { border-color: rgba(252,211,77,0.35);  background: rgba(245,158,11,0.15); color: #fef3c7; }
-  .toast-error   { border-color: rgba(252,165,165,0.4);  background: rgba(239,68,68,0.2);   color: #fee2e2; }
-  .toast-header {
-    margin-bottom: 0.25rem;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-  .toast-title {
-    font-family: var(--font-display);
-    font-size: 0.875rem;
-    letter-spacing: 0.05em;
-  }
-  .toast-title-info    { color: #bfdbfe; }
-  .toast-title-success { color: #a7f3d0; }
-  .toast-title-warning { color: #fde68a; }
-  .toast-title-error   { color: #fecaca; }
-  .toast-dismiss {
-    cursor: pointer;
-    border-radius: 4px;
-    border: 1px solid rgba(255,255,255,0.15);
-    padding: 0.125rem 0.375rem;
-    font-size: 0.75rem;
-    color: rgba(255,255,255,0.8);
-    background: transparent;
-    transition: border-color 0.15s, color 0.15s;
-  }
-  .toast-dismiss:hover {
-    border-color: rgba(255,255,255,0.35);
-    color: white;
-  }
-  .toast-message {
-    font-size: 0.875rem;
-    line-height: 1.375;
-    color: rgba(255,255,255,0.9);
-  }
-</style>

@@ -100,11 +100,11 @@
   }
 </script>
 
-<footer class="statusbar">
-  <span class="statusbar-left">
+<footer class="flex h-[var(--statusbar-height)] select-none items-center justify-between border-t border-border bg-bg-deep px-[0.875rem] text-[12px] text-text-muted">
+  <span class="flex items-center gap-2">
     <span>{$statusText}</span>
     {#if $debugMode}
-      <span class="debug-panel">
+      <span class="rounded border border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.05)] px-2 py-0.5 font-mono text-[11px] text-text-secondary">
         WFM r:{counters.requests}
         hit:{counters.cacheHitOk + counters.cacheHitNoData}
         ded:{counters.inFlightDeduped}
@@ -122,7 +122,7 @@
         p-relic:{msOrDash($perfSnapshot.relicWarmupFirstUsefulMs)}/{msOrDash($perfSnapshot.relicWarmupCompleteMs)}
       </span>
       <button
-        class="debug-reset-btn"
+        class="cursor-pointer rounded border border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.05)] px-1.5 py-0.5 text-[10px] text-text-muted transition-[color,border-color] duration-150 hover:border-[rgba(255,255,255,0.3)] hover:text-text-primary"
         title="Reset debug counters"
         on:click={() => {
           resetPriceDebugCounters();
@@ -138,16 +138,16 @@
     {/if}
   </span>
   <button
-    class="update-btn"
+    class="ml-auto mr-2 cursor-pointer rounded-full border border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.05)] px-[0.625rem] py-0.5 font-body text-xs tracking-wide text-text-muted transition-[color,border-color] duration-150 hover:border-[rgba(255,255,255,0.3)] hover:text-text-primary disabled:cursor-default disabled:opacity-60"
     title={$appUpdateState.message || "Check for app updates"}
     on:click={onUpdateAction}
     disabled={updateButtonDisabled}
   >
     {updateButtonText}
   </button>
-  <span class="version-label" title="App version">v{import.meta.env.VITE_APP_VERSION || '?'}</span>
+  <span class="text-[10px] opacity-50" title="App version">v{import.meta.env.VITE_APP_VERSION || '?'}</span>
   <button
-    class="debug-toggle"
+    class="debug-toggle mr-[0.625rem] cursor-pointer rounded-full px-[0.625rem] py-0.5 font-body text-xs tracking-wide border border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.05)] text-text-muted transition-[color,border-color] duration-150 hover:border-[rgba(255,255,255,0.3)] hover:text-text-primary"
     class:debug-active={debugActive}
     title="Toggle debug logging"
     on:click={() => debugMode.update(v => !v)}
@@ -157,89 +157,6 @@
 </footer>
 
 <style>
-  .statusbar {
-    display: flex;
-    height: var(--statusbar-height);
-    user-select: none;
-    align-items: center;
-    justify-content: space-between;
-    border-top: 1px solid var(--border);
-    background: var(--bg-deep);
-    padding: 0 0.875rem;
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-  .statusbar-left {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .debug-panel {
-    border-radius: 4px;
-    border: 1px solid rgba(255,255,255,0.2);
-    background: rgba(255,255,255,0.05);
-    padding: 0.125rem 0.5rem;
-    font-family: monospace;
-    font-size: 11px;
-    color: var(--text-secondary);
-  }
-  .debug-reset-btn {
-    cursor: pointer;
-    border-radius: 4px;
-    border: 1px solid rgba(255,255,255,0.2);
-    background: rgba(255,255,255,0.05);
-    padding: 0.125rem 0.375rem;
-    font-size: 10px;
-    color: var(--text-muted);
-    transition: color 0.15s, border-color 0.15s;
-  }
-  .debug-reset-btn:hover {
-    border-color: rgba(255,255,255,0.3);
-    color: var(--text-primary);
-  }
-  .update-btn {
-    margin-left: auto;
-    margin-right: 0.5rem;
-    cursor: pointer;
-    border-radius: 9999px;
-    border: 1px solid rgba(255,255,255,0.2);
-    background: rgba(255,255,255,0.05);
-    padding: 0.125rem 0.625rem;
-    font-family: var(--font-body);
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-    transition: color 0.15s, border-color 0.15s;
-  }
-  .update-btn:hover {
-    border-color: rgba(255,255,255,0.3);
-    color: var(--text-primary);
-  }
-  .update-btn:disabled {
-    cursor: default;
-    opacity: 0.6;
-  }
-  .version-label {
-    font-size: 10px;
-    opacity: 0.5;
-  }
-  .debug-toggle {
-    margin-right: 0.625rem;
-    cursor: pointer;
-    border-radius: 9999px;
-    padding: 0.125rem 0.625rem;
-    font-family: var(--font-body);
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
-    border: 1px solid rgba(255,255,255,0.2);
-    background: rgba(255,255,255,0.05);
-    color: var(--text-muted);
-    transition: color 0.15s, border-color 0.15s;
-  }
-  .debug-toggle:hover {
-    border-color: rgba(255,255,255,0.3);
-    color: var(--text-primary);
-  }
   .debug-toggle.debug-active {
     border-color: rgba(110,231,183,0.5);
     background: rgba(16,185,129,0.15);

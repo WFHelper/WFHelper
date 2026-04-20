@@ -72,20 +72,20 @@
 </script>
 
 {#if hasError}
-  <section class="error-boundary">
-    <h2 class="error-boundary-title">Renderer crashed</h2>
-    <p class="error-boundary-message">
+  <section class="m-6 rounded-xl border border-[rgba(252,165,165,0.35)] bg-[rgba(239,68,68,0.1)] p-5 text-[#fee2e2]">
+    <h2 class="font-display text-2xl tracking-wide">Renderer crashed</h2>
+    <p class="mt-2 text-sm leading-relaxed text-[rgba(254,226,226,0.9)]">
       {errorMessage}
     </p>
-    <div class="error-boundary-actions">
+    <div class="mt-4 flex flex-wrap gap-2">
       <button
-        class="error-boundary-btn error-boundary-btn--recover"
+        class="cursor-pointer rounded border border-[rgba(254,202,202,0.45)] bg-[rgba(239,68,68,0.2)] px-3 py-1.5 text-sm transition-[border-color,background] duration-150 hover:border-[rgba(254,226,226,0.7)] hover:bg-[rgba(239,68,68,0.3)]"
         on:click={resetBoundary}
       >
         Try recover
       </button>
       <button
-        class="error-boundary-btn error-boundary-btn--reload"
+        class="cursor-pointer rounded border border-[rgba(255,255,255,0.25)] bg-[rgba(255,255,255,0.1)] px-3 py-1.5 text-sm transition-[border-color,background] duration-150 hover:border-[rgba(255,255,255,0.45)] hover:bg-[rgba(255,255,255,0.15)]"
         on:click={reloadApp}
       >
         Reload app
@@ -96,53 +96,3 @@
   <slot />
 {/if}
 
-<style>
-  .error-boundary {
-    margin: 1.5rem;
-    border-radius: 0.75rem;
-    border: 1px solid rgba(252,165,165,0.35);
-    background: rgba(239,68,68,0.1);
-    padding: 1.25rem;
-    color: #fee2e2;
-  }
-  .error-boundary-title {
-    font-family: var(--font-display);
-    font-size: 1.5rem;
-    letter-spacing: 0.05em;
-  }
-  .error-boundary-message {
-    margin-top: 0.5rem;
-    font-size: 0.875rem;
-    line-height: 1.625;
-    color: rgba(254,226,226,0.9);
-  }
-  .error-boundary-actions {
-    margin-top: 1rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-  .error-boundary-btn {
-    cursor: pointer;
-    border-radius: 4px;
-    padding: 0.375rem 0.75rem;
-    font-size: 0.875rem;
-    transition: border-color 0.15s, background 0.15s;
-  }
-  .error-boundary-btn--recover {
-    border: 1px solid rgba(254,202,202,0.45);
-    background: rgba(239,68,68,0.2);
-  }
-  .error-boundary-btn--recover:hover {
-    border-color: rgba(254,226,226,0.7);
-    background: rgba(239,68,68,0.3);
-  }
-  .error-boundary-btn--reload {
-    border: 1px solid rgba(255,255,255,0.25);
-    background: rgba(255,255,255,0.1);
-  }
-  .error-boundary-btn--reload:hover {
-    border-color: rgba(255,255,255,0.45);
-    background: rgba(255,255,255,0.15);
-  }
-</style>

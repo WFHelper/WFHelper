@@ -61,28 +61,28 @@
     </button>
   </div>
 
-  <div class="font-size-controls">
-    <label class="font-size-row">
-      <span class="font-size-label">{$tr("appearance.globalScale")}</span>
-      <div class="font-size-slider-wrap">
+  <div class="grid gap-[0.45rem]">
+    <label class="flex items-center justify-between gap-[0.6rem] border border-border rounded-lg bg-bg-raised py-[0.45rem] px-[0.55rem]">
+      <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.globalScale")}</span>
+      <div class="flex items-center gap-[0.4rem]">
         <input
           type="range"
-          class="font-size-slider"
+          class="w-32 accent-accent"
           min={FONT_SCALE_MIN}
           max={FONT_SCALE_MAX}
           step={FONT_SCALE_STEP}
           value={fontSizes.globalScale}
           on:input={onScaleChange}
         />
-        <span class="font-size-value">{scalePercent}%</span>
+        <span class="font-display text-[0.78rem] font-bold text-accent min-w-[3rem] text-right">{scalePercent}%</span>
       </div>
     </label>
 
-    <label class="font-size-row">
-      <span class="font-size-label">{$tr("appearance.headingSize")}</span>
+    <label class="flex items-center justify-between gap-[0.6rem] border border-border rounded-lg bg-bg-raised py-[0.45rem] px-[0.55rem]">
+      <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.headingSize")}</span>
       <input
         type="number"
-        class="font-size-input"
+        class="w-20 border border-border rounded-[0.42rem] bg-bg-base text-text-primary text-[0.84rem] py-[0.3rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
         min="0.5"
         max="5"
         step="0.05"
@@ -92,11 +92,11 @@
       />
     </label>
 
-    <label class="font-size-row">
-      <span class="font-size-label">{$tr("appearance.bodySize")}</span>
+    <label class="flex items-center justify-between gap-[0.6rem] border border-border rounded-lg bg-bg-raised py-[0.45rem] px-[0.55rem]">
+      <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.bodySize")}</span>
       <input
         type="number"
-        class="font-size-input"
+        class="w-20 border border-border rounded-[0.42rem] bg-bg-base text-text-primary text-[0.84rem] py-[0.3rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
         min="0.5"
         max="5"
         step="0.05"
@@ -106,11 +106,11 @@
       />
     </label>
 
-    <label class="font-size-row">
-      <span class="font-size-label">{$tr("appearance.smallSize")}</span>
+    <label class="flex items-center justify-between gap-[0.6rem] border border-border rounded-lg bg-bg-raised py-[0.45rem] px-[0.55rem]">
+      <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.smallSize")}</span>
       <input
         type="number"
-        class="font-size-input"
+        class="w-20 border border-border rounded-[0.42rem] bg-bg-base text-text-primary text-[0.84rem] py-[0.3rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
         min="0.3"
         max="3"
         step="0.05"
@@ -122,56 +122,3 @@
   </div>
 </div>
 
-<style>
-  .font-size-controls {
-    display: grid;
-    gap: 0.45rem;
-  }
-  .font-size-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.6rem;
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    background: var(--bg-raised);
-    padding: 0.45rem 0.55rem;
-  }
-  .font-size-label {
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-    font-weight: 500;
-  }
-  .font-size-slider-wrap {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-  .font-size-slider {
-    width: 8rem;
-    accent-color: var(--accent);
-  }
-  .font-size-value {
-    font-family: var(--font-display);
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: var(--accent);
-    min-width: 3rem;
-    text-align: right;
-  }
-  .font-size-input {
-    width: 5rem;
-    border: 1px solid var(--border);
-    border-radius: 0.42rem;
-    background: var(--bg-base);
-    color: var(--text-primary);
-    font-size: 0.84rem;
-    padding: 0.3rem 0.5rem;
-    outline: none;
-    text-align: right;
-  }
-  .font-size-input:focus {
-    border-color: var(--accent-dim);
-    box-shadow: 0 0 0 2px rgba(212, 168, 67, 0.12);
-  }
-</style>

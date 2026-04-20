@@ -79,18 +79,18 @@
   </div>
 
   {#each groups as group}
-    <div class="color-group">
-      <span class="color-group-label">{$tr(group.labelKey)}</span>
-      <div class="color-swatches">
+    <div class="mb-[0.6rem]">
+      <span class="block mb-[0.3rem] font-display text-[0.7rem] font-semibold tracking-[0.04em] text-text-muted uppercase">{$tr(group.labelKey)}</span>
+      <div class="flex flex-wrap gap-2">
         {#each group.keys as item}
-          <label class="color-swatch-item">
+          <label class="flex flex-col items-center gap-[0.2rem] cursor-pointer">
             <input
               type="color"
-              class="color-input"
+              class="color-input w-8 h-8 border border-border rounded-[0.35rem] p-0 cursor-pointer bg-transparent"
               value={toHexInput(colors[item.key])}
               on:input={(e) => onColorChange(item.key, e)}
             />
-            <span class="color-swatch-label">{$tr(item.labelKey)}</span>
+            <span class="text-[0.6rem] text-text-secondary font-display tracking-[0.02em]">{$tr(item.labelKey)}</span>
             {#if item.isText && $themeSettings.contrastSafeMode}
               <ContrastBadge fg={colors[item.key]} bg={colors.bgBase} />
             {/if}
@@ -102,51 +102,11 @@
 </div>
 
 <style>
-  .color-group {
-    margin-bottom: 0.6rem;
-  }
-  .color-group-label {
-    display: block;
-    margin-bottom: 0.3rem;
-    font-family: var(--font-display);
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    color: var(--text-muted);
-    text-transform: uppercase;
-  }
-  .color-swatches {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-  .color-swatch-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.2rem;
-    cursor: pointer;
-  }
-  .color-input {
-    width: 2rem;
-    height: 2rem;
-    border: 1px solid var(--border);
-    border-radius: 0.35rem;
-    padding: 0;
-    cursor: pointer;
-    background: transparent;
-  }
   .color-input::-webkit-color-swatch-wrapper {
     padding: 2px;
   }
   .color-input::-webkit-color-swatch {
     border: none;
     border-radius: 0.2rem;
-  }
-  .color-swatch-label {
-    font-size: 0.6rem;
-    color: var(--text-secondary);
-    font-family: var(--font-display);
-    letter-spacing: 0.02em;
   }
 </style>

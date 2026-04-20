@@ -23,19 +23,19 @@
   }
 </script>
 
-<div class="inv-header-wrap">
-  <h2 class="inv-title">Inventory ({totalCount})</h2>
-  <div class="inv-tab-row">
-    <div class="inv-tab-bar">
+<div class="mb-4">
+  <h2 class="m-0 mb-2 font-display text-[var(--font-heading-size,1.875rem)] font-semibold tracking-[0.03em] text-text-primary">Inventory ({totalCount})</h2>
+  <div class="flex items-end border-b border-[rgba(255,255,255,0.09)]">
+    <div class="flex">
       {#each filters as filterOption}
         <button
-          class="inv-tab-item"
+          class="inv-tab-item flex items-center py-[0.45rem] px-[0.95rem] border-none border-b-[3px] border-b-transparent bg-transparent font-display text-base text-[#8a8c95] cursor-pointer transition-[color,border-color] duration-150 whitespace-nowrap -mb-px hover:text-[#b0b2ba]"
           class:active={activeFilter === filterOption.key}
           on:click={() => selectFilter(filterOption.key)}
         >{filterOption.label}</button>
       {/each}
     </div>
-    <div class="inv-right-controls">
+    <div class="ml-auto flex items-center gap-2 pb-[0.45rem] shrink-0 flex-nowrap">
       <SharedFilterBar
         scope="inventory"
         singleLine={true}
@@ -60,61 +60,8 @@
 </div>
 
 <style>
-  .inv-header-wrap {
-    margin-bottom: 1rem;
-  }
-
-  .inv-title {
-    margin: 0 0 0.5rem;
-    font-family: var(--font-display);
-    font-size: var(--font-heading-size, 1.875rem);
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    color: var(--text-primary);
-  }
-
-  .inv-tab-row {
-    display: flex;
-    align-items: flex-end;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
-  }
-
-  .inv-tab-bar {
-    display: flex;
-  }
-
-  .inv-tab-item {
-    display: flex;
-    align-items: center;
-    padding: 0.45rem 0.95rem;
-    border: none;
-    border-bottom: 3px solid transparent;
-    background: none;
-    font-family: var(--font-display);
-    font-size: 1rem;
-    color: #8a8c95;
-    cursor: pointer;
-    transition: color 0.15s, border-color 0.15s;
-    white-space: nowrap;
-    margin-bottom: -1px;
-  }
-
-  .inv-tab-item:hover {
-    color: #b0b2ba;
-  }
-
   .inv-tab-item.active {
     color: #ffffff;
     border-bottom-color: #ffffff;
-  }
-
-  .inv-right-controls {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding-bottom: 0.45rem;
-    flex-shrink: 0;
-    flex-wrap: nowrap;
   }
 </style>

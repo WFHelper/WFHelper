@@ -270,8 +270,8 @@
           <section class="view active">
             <div class="empty-state gap-3">
               <p>{$tr("app.failedLoadView", { view: $tr(lazyViewLabelKey(activeLazyView)) })}</p>
-              <p class="lazy-error-detail">{lazyViewError}</p>
-              <button class="lazy-error-retry" on:click={retryLazyViewLoad}>{$tr("common.retry")}</button>
+              <p class="text-sm text-text-muted">{lazyViewError}</p>
+              <button class="cursor-pointer rounded border border-border bg-bg-soft px-3 py-1 text-sm text-text-secondary transition-[border-color,color] duration-150 hover:border-border-strong hover:text-text-primary" on:click={retryLazyViewLoad}>{$tr("common.retry")}</button>
             </div>
           </section>
         {:else if lazyViewComponent}
@@ -291,26 +291,6 @@
 
 <ToastHost />
 
-<style>
-  .lazy-error-detail {
-    font-size: 0.875rem;
-    color: var(--text-muted);
-  }
-  .lazy-error-retry {
-    cursor: pointer;
-    border-radius: 4px;
-    border: 1px solid var(--border);
-    background: var(--bg-soft);
-    padding: 0.25rem 0.75rem;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    transition: border-color 0.15s, color 0.15s;
-  }
-  .lazy-error-retry:hover {
-    border-color: var(--border-strong);
-    color: var(--text-primary);
-  }
-</style>
 
 
 

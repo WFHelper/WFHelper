@@ -85,22 +85,22 @@
   }
 </script>
 
-<div class="fissure-alerts">
-  <h4 class="fa-heading">Fissure Alerts</h4>
-  <p class="fa-desc">Get a desktop notification when a matching fissure appears.</p>
+<div class="mt-0 pt-0 border-t-0">
+  <h4 class="m-0 mb-1 text-[0.82rem] font-bold text-text-primary">Fissure Alerts</h4>
+  <p class="text-[0.74rem] text-text-secondary m-0 mb-[0.6rem]">Get a desktop notification when a matching fissure appears.</p>
 
   {#if alerts.length === 0}
-    <p class="fa-empty">No alert rules configured.</p>
+    <p class="text-[0.74rem] text-text-secondary italic m-0 mb-2">No alert rules configured.</p>
   {:else}
-    <ul class="fa-list">
+    <ul class="list-none m-0 mb-2 p-0 flex flex-col gap-[0.3rem]">
       {#each alerts as alert (alert.id)}
-        <li class="fa-row">
-          <span class="fa-badge fa-tier">{tierLabel(alert.tier)}</span>
-          <span class="fa-badge fa-mission">{missionLabel(alert.missionType)}</span>
-          <span class="fa-badge fa-sp">{spLabel(alert.steelPath)}</span>
-          <span class="fa-badge fa-planet">{planetLabel(alert.planet)}</span>
+        <li class="flex items-center gap-[0.35rem] flex-wrap">
+          <span class="inline-flex items-center rounded-full py-[0.12rem] px-2 text-[0.68rem] font-semibold border border-border bg-[rgba(255,255,255,0.05)] text-text-secondary">{tierLabel(alert.tier)}</span>
+          <span class="inline-flex items-center rounded-full py-[0.12rem] px-2 text-[0.68rem] font-semibold border border-border bg-[rgba(255,255,255,0.05)] text-text-secondary">{missionLabel(alert.missionType)}</span>
+          <span class="inline-flex items-center rounded-full py-[0.12rem] px-2 text-[0.68rem] font-semibold border border-border bg-[rgba(255,255,255,0.05)] text-text-secondary">{spLabel(alert.steelPath)}</span>
+          <span class="inline-flex items-center rounded-full py-[0.12rem] px-2 text-[0.68rem] font-semibold border border-border bg-[rgba(255,255,255,0.05)] text-text-secondary">{planetLabel(alert.planet)}</span>
           <button
-            class="fa-remove"
+            class="ml-auto inline-flex items-center justify-center w-[1.3rem] h-[1.3rem] rounded border border-border bg-transparent text-text-secondary cursor-pointer text-[0.9rem] p-0 transition-[color,border-color,background] duration-150 hover:text-[var(--danger,#f87171)] hover:border-[rgba(248,113,113,0.4)] hover:bg-[rgba(248,113,113,0.1)] disabled:opacity-40 disabled:cursor-not-allowed"
             title="Remove alert"
             disabled={saving}
             on:click={() => removeAlert(alert.id)}
@@ -110,23 +110,23 @@
     </ul>
   {/if}
 
-  <div class="fa-add-row">
-    <select bind:value={newTier} class="fa-select" disabled={saving}>
+  <div class="flex items-center gap-[0.4rem] flex-wrap">
+    <select bind:value={newTier} class="text-[0.74rem] rounded-[0.3rem] border border-border bg-bg-raised text-text-primary py-[0.2rem] px-[0.4rem] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled={saving}>
       {#each TIERS as t}
         <option value={t}>{t === "any" ? "Any tier" : t}</option>
       {/each}
     </select>
-    <select bind:value={newMissionType} class="fa-select" disabled={saving}>
+    <select bind:value={newMissionType} class="text-[0.74rem] rounded-[0.3rem] border border-border bg-bg-raised text-text-primary py-[0.2rem] px-[0.4rem] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled={saving}>
       {#each MISSION_TYPES as m}
         <option value={m}>{m === "any" ? "Any mission" : m}</option>
       {/each}
     </select>
-    <select bind:value={newSteelPath} class="fa-select" disabled={saving}>
+    <select bind:value={newSteelPath} class="text-[0.74rem] rounded-[0.3rem] border border-border bg-bg-raised text-text-primary py-[0.2rem] px-[0.4rem] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled={saving}>
       {#each STEEL_PATH_OPTIONS as opt}
         <option value={opt.value}>{opt.label}</option>
       {/each}
     </select>
-    <select bind:value={newPlanet} class="fa-select" disabled={saving}>
+    <select bind:value={newPlanet} class="text-[0.74rem] rounded-[0.3rem] border border-border bg-bg-raised text-text-primary py-[0.2rem] px-[0.4rem] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled={saving}>
       {#each PLANETS as p}
         <option value={p}>{p === "any" ? "Any planet" : p}</option>
       {/each}
@@ -135,105 +135,6 @@
   </div>
 
   {#if error}
-    <p class="fa-error">{error}</p>
+    <p class="text-[0.74rem] text-[var(--danger,#f87171)] mt-[0.3rem] mb-0">{error}</p>
   {/if}
 </div>
-
-<style>
-  .fissure-alerts {
-    margin-top: 0;
-    padding-top: 0;
-    border-top: none;
-  }
-  .fa-heading {
-    margin: 0 0 0.25rem;
-    font-size: 0.82rem;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-  .fa-desc {
-    font-size: 0.74rem;
-    color: var(--text-secondary);
-    margin: 0 0 0.6rem;
-  }
-  .fa-empty {
-    font-size: 0.74rem;
-    color: var(--text-secondary);
-    font-style: italic;
-    margin: 0 0 0.5rem;
-  }
-  .fa-list {
-    list-style: none;
-    margin: 0 0 0.5rem;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-  }
-  .fa-row {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    flex-wrap: wrap;
-  }
-  .fa-badge {
-    display: inline-flex;
-    align-items: center;
-    border-radius: 999px;
-    padding: 0.12rem 0.5rem;
-    font-size: 0.68rem;
-    font-weight: 600;
-    border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-secondary);
-  }
-  .fa-remove {
-    margin-left: auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.3rem;
-    height: 1.3rem;
-    border-radius: 0.25rem;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-size: 0.9rem;
-    padding: 0;
-    transition: color 0.15s, border-color 0.15s, background 0.15s;
-  }
-  .fa-remove:hover {
-    color: var(--danger, #f87171);
-    border-color: rgba(248, 113, 113, 0.4);
-    background: rgba(248, 113, 113, 0.1);
-  }
-  .fa-remove:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-  .fa-add-row {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    flex-wrap: wrap;
-  }
-  .fa-select {
-    font-size: 0.74rem;
-    border-radius: 0.3rem;
-    border: 1px solid var(--border);
-    background: var(--bg-raised);
-    color: var(--text-primary);
-    padding: 0.2rem 0.4rem;
-    cursor: pointer;
-  }
-  .fa-select:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  .fa-error {
-    font-size: 0.74rem;
-    color: var(--danger, #f87171);
-    margin: 0.3rem 0 0;
-  }
-</style>
