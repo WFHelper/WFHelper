@@ -42,14 +42,25 @@
     priceSlug = null;
     const fullName = parent ? `${parent} ${c.name}` : c.name;
     const lookup = $wfmItems || {};
-    const isTradable = !!c.tradable || !!lookup[fullName?.toLowerCase()] || !!lookup[c.name?.toLowerCase() || ""];
-    const result = await loadItemPrice(fullName, lookup, isTradable);
+    const nameKey = fullName?.toLowerCase() || "";
+    const isTradable = !!c.tradable || !!lookup[nameKey] || !!lookup[c.name?.toLowerCase() || ""];
+    let result = await loadItemPrice(fullName, lookup, isTradable);
+    // WFM lists warframe parts with "Blueprint" suffix (e.g. "Gauss Prime Chassis Blueprint")
+    if (!result.slug && isTradable && parent && !nameKey.endsWith(" blueprint")) {
+      result = await loadItemPrice(`${fullName} Blueprint`, lookup, true);
+    }
     if (token !== priceToken) return; // user switched components; discard stale result
     priceText = result.text;
     priceSlug = result.slug;
   }
 
-  $: wikiFallback = parentName || comp.name;
+  // Only use parent wiki for build components (Chassis, Systems, etc.) that lack
+  // their own wiki page. Resources (Orokin Cell, Neurodes) have standalone pages.
+  $: wikiFallback = (() => {
+    const dbEntry = comp?.uniqueName ? $itemDb[comp.uniqueName] : null;
+    if (dbEntry?.isBuildComponent && parentName) return parentName;
+    return dbEntry?.name || comp.name;
+  })();
 </script>
 
 <div class="detail-panel {panelClass}">

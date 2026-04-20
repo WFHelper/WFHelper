@@ -349,9 +349,9 @@
     <div class="flex items-center gap-3">
       <h2>World</h2>
       {#if baroActive}
-        <span class="world-baro-pill">Baro leaves in {times.baro}</span>
+        <span class="world-baro-pill">Baro leaves in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
       {:else if baroAct}
-        <span class="world-baro-pill world-baro-pill-inactive">Baro arrives in {times.baro}</span>
+        <span class="world-baro-pill">Baro arrives in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
       {/if}
     </div>
   </div>
@@ -828,11 +828,6 @@
     background: rgba(251, 191, 36, 0.1);
     color: var(--warning, #fbbf24);
     white-space: nowrap;
-  }
-  .world-baro-pill-inactive {
-    border-color: rgba(148, 163, 184, 0.3);
-    background: rgba(148, 163, 184, 0.08);
-    color: var(--text-secondary);
   }
   .world-prime-row {
     display: flex;
