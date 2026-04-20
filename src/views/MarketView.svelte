@@ -362,16 +362,16 @@
 
 <section class="view active">
   {#if !$marketSession.loggedIn}
-    <div class="market-login-panel">
-      <div class="market-login-card">
-        <div class="market-login-icon">
-          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
+    <div class="flex flex-col items-center gap-3 py-3">
+      <div class="w-[min(560px,100%)] rounded-xl border border-border bg-bg-surface p-4">
+        <div class="mb-2.5 text-accent">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" class="h-10 w-10">
             <circle cx="24" cy="14" r="8" />
             <path d="M8 40c0-8.837 7.163-16 16-16s16 7.163 16 16" />
           </svg>
         </div>
-        <h2>Warframe.market</h2>
-        <p class="market-login-note">
+        <h2 class="m-0 font-display text-2xl font-bold">Warframe.market</h2>
+        <p class="mt-1.5 mb-3.5 text-sm text-text-secondary">
           Sign in with your <strong>email &amp; password</strong>.<br />
           Steam/Discord users: add a password in your
           <button
@@ -381,22 +381,24 @@
           >WFM account settings</button> first.
         </p>
         <form autocomplete="on" on:submit={login}>
-          <div class="market-field">
-            <label for="market-email">Email</label>
+          <div class="grid gap-1 mb-2">
+            <label for="market-email" class="text-sm font-medium text-text-secondary">Email</label>
             <input
               id="market-email"
               type="email"
+              class="rounded-[0.42rem] border border-border bg-bg-base px-2.5 py-2 text-sm text-text-primary outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
               bind:value={email}
               placeholder="you@example.com"
               autocomplete="email"
               required
             />
           </div>
-          <div class="market-field">
-            <label for="market-password">Password</label>
+          <div class="grid gap-1 mb-2">
+            <label for="market-password" class="text-sm font-medium text-text-secondary">Password</label>
             <input
               id="market-password"
               type="password"
+              class="rounded-[0.42rem] border border-border bg-bg-base px-2.5 py-2 text-sm text-text-primary outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
               bind:value={password}
               placeholder="........"
               autocomplete="current-password"
@@ -404,9 +406,9 @@
             />
           </div>
           {#if loginError}
-            <div class="market-login-error">{loginError}</div>
+            <div class="text-danger">{loginError}</div>
           {/if}
-          <button type="submit" class="btn-primary market-login-btn" disabled={loginLoading}>
+          <button type="submit" class="btn-primary mt-1 w-full" disabled={loginLoading}>
             {loginLoading ? "Signing in..." : "Sign In"}
           </button>
         </form>
@@ -416,9 +418,9 @@
     <div>
       <div class="view-header">
         <h2>{isRivensTab ? "My Rivens" : "My Orders"}</h2>
-        <div class="view-controls market-header-controls">
+        <div class="view-controls gap-[0.45rem]">
           {#if $marketSession.userName}
-            <span class="market-user-badge">@{$marketSession.userName}</span>
+            <span class="rounded-full border border-border bg-white/5 px-2 py-1 font-display text-xs font-bold text-text-primary">@{$marketSession.userName}</span>
           {/if}
 
           <div class="market-status-group">
@@ -452,7 +454,7 @@
         </div>
       </div>
 
-      <div class="filter-tabs market-tabs">
+      <div class="filter-tabs mb-2.5">
         {#each ORDER_TYPE_OPTIONS as [type, label]}
           <button
             class="filter-tab"
@@ -471,8 +473,8 @@
       />
 
       {#if !isRivensTab && $marketSelected.size > 0}
-        <div class="market-bulk-bar">
-          <span>{$marketSelected.size} selected</span>
+        <div class="flex flex-wrap items-center gap-1.5 mb-2.5 rounded-lg border border-border bg-bg-surface px-2.5 py-2">
+          <span class="mr-1.5 text-xs text-text-secondary">{$marketSelected.size} selected</span>
           <button class="btn-sm btn-secondary" on:click={() => bulkSetVisible(true)}>Set Visible</button>
           <button class="btn-sm btn-secondary" on:click={() => bulkSetVisible(false)}>Set Hidden</button>
           <button class="btn-sm btn-danger" on:click={bulkDelete}>Delete Selected</button>
@@ -480,46 +482,46 @@
         </div>
       {/if}
 
-      <div class="market-orders-list">
+      <div class="grid gap-[0.44rem]">
         {#if isRivensTab}
           {#if contractsLoading}
-            <div class="market-loading">Loading riven contracts...</div>
+            <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">Loading riven contracts...</div>
           {:else if contractsError}
-            <div class="market-error">{contractsError}</div>
+            <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-danger">{contractsError}</div>
           {:else if filteredContractRows.length === 0}
-            <div class="market-empty">No riven contracts found.</div>
+            <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">No riven contracts found.</div>
           {:else}
             {#each filteredContractRows as contract}
-              <div class="order-row">
-                <span class="order-checkbox-placeholder" aria-hidden="true"></span>
-                <div class="order-item-info">
+              <div class="flex items-center gap-2 rounded-lg px-2.5 py-2">
+                <span class="h-[15px] w-[15px] shrink-0" aria-hidden="true"></span>
+                <div class="flex flex-1 items-center gap-2 min-w-0">
                   {#if contract.itemThumb}
                     <img
                       src={contract.itemThumb}
                       alt={contract.itemName}
-                      class="order-item-thumb"
+                      class="h-9 w-9 rounded-[0.32rem] object-contain"
                       loading="lazy"
                     />
                   {:else}
-                    <div class="order-item-thumb order-item-thumb-placeholder"></div>
+                    <div class="h-9 w-9 rounded-[0.32rem] bg-white/5"></div>
                   {/if}
-                  <div class="market-contract-text">
+                  <div class="grid gap-1 min-w-0">
                     <span class="order-item-name">
                       {contract.itemName}
                       {#if contract.modRank != null}
-                        <span class="order-rank-badge">R{contract.modRank}</span>
+                        <span class="ml-1 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">R{contract.modRank}</span>
                       {/if}
                       {#if contract.rerolls != null}
-                        <span class="order-rank-badge">RR{contract.rerolls}</span>
+                        <span class="ml-1 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">RR{contract.rerolls}</span>
                       {/if}
                     </span>
                     {#if contractStatsPreview(contract)}
-                      <span class="market-contract-stats">{contractStatsPreview(contract)}</span>
+                      <span class="truncate text-[0.72rem] text-text-muted">{contractStatsPreview(contract)}</span>
                     {/if}
                   </div>
                 </div>
-                <div class="order-meta">
-                  <span class="order-plat">
+                <div class="flex shrink-0 items-center gap-2">
+                  <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">
                     <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5">
                       <circle cx="7" cy="7" r="5.5" />
                       <path d="M5 7h4M7 5v4" />
@@ -543,7 +545,7 @@
                     {contractBadge(contract)}
                   </span>
                 </div>
-                <div class="order-actions">
+                <div class="flex shrink-0 gap-1">
                   <button class="btn-sm btn-secondary" on:click={() => openContractListing(contract)}>
                     Open
                   </button>
@@ -552,44 +554,44 @@
             {/each}
 
             {#if $marketContracts.hasMore}
-              <button class="btn-secondary btn-sm market-load-more" on:click={loadMoreContracts} disabled={contractsLoading}>
+              <button class="btn-secondary btn-sm justify-self-center mt-1" on:click={loadMoreContracts} disabled={contractsLoading}>
                 {contractsLoading ? "Loading..." : "Load More"}
               </button>
             {/if}
           {/if}
         {:else if ordersLoading}
-          <div class="market-loading">Loading orders...</div>
+          <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">Loading orders...</div>
         {:else if ordersError}
-          <div class="market-error">{ordersError}</div>
+          <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-danger">{ordersError}</div>
         {:else if filteredOrderRows.length === 0}
-          <div class="market-empty">
+          <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">
             No {$marketTypeTab} orders. Click <strong>+ New Order</strong> to create one.
           </div>
         {:else}
           {#each filteredOrderRows as order}
-            <div class="order-row">
+            <div class="flex items-center gap-2 rounded-lg px-2.5 py-2">
               <input
                 type="checkbox"
-                class="order-checkbox"
+                class="h-[15px] w-[15px] shrink-0 accent-accent"
                 checked={$marketSelected.has(order.id)}
                 title="Select for bulk action"
                 on:change={(event) => onOrderCheckboxChange(order.id, event)}
               />
-              <div class="order-item-info">
+              <div class="flex flex-1 items-center gap-2 min-w-0">
                 {#if order.itemThumb}
-                  <img src={order.itemThumb} alt={order.itemName} class="order-item-thumb" loading="lazy" />
+                  <img src={order.itemThumb} alt={order.itemName} class="h-9 w-9 rounded-[0.32rem] object-contain" loading="lazy" />
                 {:else}
-                  <div class="order-item-thumb order-item-thumb-placeholder"></div>
+                  <div class="h-9 w-9 rounded-[0.32rem] bg-white/5"></div>
                 {/if}
                 <span class="order-item-name">
                   {order.itemName}
                   {#if order.modRank != null}
-                    <span class="order-rank-badge">R{order.modRank}</span>
+                    <span class="ml-1 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">R{order.modRank}</span>
                   {/if}
                 </span>
               </div>
-              <div class="order-meta">
-                <span class="order-plat">
+              <div class="flex shrink-0 items-center gap-2">
+                <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">
                   <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5">
                     <circle cx="7" cy="7" r="5.5" />
                     <path d="M5 7h4M7 5v4" />
@@ -601,14 +603,14 @@
                   {order.visible ? "Visible" : "Hidden"}
                 </span>
               </div>
-              <div class="order-actions">
+              <div class="flex shrink-0 gap-1">
                 <button
-                  class="btn-sm btn-secondary order-edit-btn"
+                  class="btn-sm btn-secondary"
                   on:click={() => orderModalState.set({ mode: "edit", order })}
                 >
                   Edit
                 </button>
-                <button class="btn-sm btn-danger order-del-btn" on:click={() => deleteOrder(order.id)}>&times;</button>
+                <button class="btn-sm btn-danger" on:click={() => deleteOrder(order.id)}>&times;</button>
               </div>
             </div>
           {/each}
@@ -617,3 +619,16 @@
     </div>
   {/if}
 </section>
+
+<style>
+  .order-vis.order-vis-on {
+    border-color: rgba(74, 222, 128, 0.35);
+    background: rgba(74, 222, 128, 0.13);
+    color: var(--success);
+  }
+  .order-vis.order-vis-off {
+    border-color: rgba(251, 191, 36, 0.35);
+    background: rgba(251, 191, 36, 0.13);
+    color: var(--warning);
+  }
+</style>

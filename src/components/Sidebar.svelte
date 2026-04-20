@@ -83,19 +83,19 @@
   }
 </script>
 
-<nav id="sidebar">
-  <div class="nav-section">
+<nav id="sidebar" class="flex w-[var(--sidebar-width)] shrink-0 flex-col justify-between border-r border-border bg-bg-base px-2.5 py-3.5">
+  <div class="flex flex-col gap-0.5">
     {#each navItems as item}
       <button
-        class="nav-btn"
+        class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary"
         class:active={$currentView === item.view}
         aria-current={$currentView === item.view ? "page" : undefined}
         on:click={() => currentView.set(item.view)}
       >
         {#if item.icon}
-          <img src={item.icon} alt="" />
+          <img src={item.icon} alt="" class="h-6 w-6 shrink-0 object-contain brightness-[0.85]" />
         {:else}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
             <!-- @html safe: item.svg is a hardcoded string literal, never user-supplied -->
             {@html item.svg}
           </svg>
@@ -105,23 +105,23 @@
     {/each}
   </div>
 
-  <div class="nav-section nav-bottom">
-    <button class="nav-btn nav-btn-dim" title={$tr("nav.testTitle")} on:click={testOverlay}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+  <div class="mt-2 flex flex-col gap-0.5">
+    <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-muted transition-colors duration-150 hover:bg-bg-hover hover:text-text-secondary" title={$tr("nav.testTitle")} on:click={testOverlay}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
         <path d="M9 3h6l1 6-3.5 2L16 21H8l3.5-10L8 9l1-6z"/>
       </svg>
       <span>{$tr("nav.test")}</span>
     </button>
-    <button class="nav-btn" title={$tr("nav.overlayTitle")} on:click={toggleOverlay}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+    <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary" title={$tr("nav.overlayTitle")} on:click={toggleOverlay}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
         <polygon points="12,2 22,12 12,22 2,12"/>
         <line x1="12" y1="8" x2="12" y2="16"/>
         <line x1="8" y1="12" x2="16" y2="12"/>
       </svg>
       <span>{$tr("nav.overlay")}</span>
     </button>
-    <button class="nav-btn" on:click={loadInventoryFile}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+    <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary" on:click={loadInventoryFile}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
         <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
         <polyline points="17 8 12 3 7 8"/>
         <line x1="12" y1="3" x2="12" y2="15"/>
@@ -130,3 +130,20 @@
     </button>
   </div>
 </nav>
+
+<style>
+  .nav-btn.active {
+    background: var(--accent-glow);
+    color: var(--accent);
+  }
+  .nav-btn.active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.375rem;
+    bottom: 0.375rem;
+    width: 0.25rem;
+    border-radius: 0 0.25rem 0.25rem 0;
+    background: var(--accent);
+  }
+</style>

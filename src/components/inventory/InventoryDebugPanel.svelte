@@ -9,7 +9,7 @@
   export let backendError = 0;
 </script>
 
-<div class="inventory-debug-panel">
+<div class="mb-2.5 flex flex-wrap gap-[0.45rem] rounded-[0.42rem] border border-dashed border-blue-400/40 bg-blue-400/[0.08] px-[0.55rem] py-1.5 font-mono text-[0.72rem] leading-tight text-[#a8c9ff]">
   <span>tab={activeTab}</span>
   <span>queue={debug.priceQueueStats.high}/{debug.priceQueueStats.normal}/{debug.priceQueueStats.low}</span>
   <span>pending={debug.pending}</span>

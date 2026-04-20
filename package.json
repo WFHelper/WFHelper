@@ -53,6 +53,7 @@
     "@playwright/test": "^1.58.2",
     "@sentry/vite-plugin": "^5.1.1",
     "@sveltejs/vite-plugin-svelte": "^4.0.4",
+    "@tailwindcss/vite": "^4.2.2",
     "@tsconfig/svelte": "^5.0.8",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
@@ -65,10 +66,12 @@
     "globals": "^17.4.0",
     "nodemon": "^3.1.14",
     "prettier": "^3.8.1",
+    "prettier-plugin-tailwindcss": "^0.7.2",
     "sharp": "^0.34.5",
     "svelte": "^5.53.7",
     "svelte-check": "^4.4.4",
     "svelte-eslint-parser": "^1.5.1",
+    "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
     "vite": "^5.4.21",
     "vitest": "^4.0.18",
@@ -87,7 +90,6 @@
     "electron-updater": "^6.8.3",
     "koffi": "^2.15.1",
     "onnxruntime-node": "^1.24.3",
-
     "uiohook-napi": "^1.5.4",
     "warframe-public-export-plus": "^0.5.101"
   },

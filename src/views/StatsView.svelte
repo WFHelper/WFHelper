@@ -254,15 +254,15 @@
   {@const exYTicks = expandedChartData.yTicks}
   {@const exIcon = ICON_MAP[expandedKey]}
   <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-  <div class="chart-modal-backdrop" on:click={() => { expandedKey = null; tooltip = null; }}>
+  <div class="fixed inset-0 z-[400] flex items-center justify-center bg-black/65" on:click={() => { expandedKey = null; tooltip = null; }}>
     <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-    <div class="chart-modal" on:click|stopPropagation>
-      <div class="chart-modal-header">
-        <span class="chart-modal-title">
-          {#if exIcon}<img src={exIcon} alt="" class="stats-icon" />{/if}
+    <div class="flex h-[72vh] w-[86vw] flex-col overflow-hidden rounded-md border border-border-strong bg-bg-surface p-4 pb-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)]" on:click|stopPropagation>
+      <div class="mb-3 flex shrink-0 items-center justify-between">
+        <span class="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-text-muted">
+          {#if exIcon}<img src={exIcon} alt="" class="stats-icon h-[18px] w-[18px]" />{/if}
           {$tr(expandedChartTitle(expandedKey))}
         </span>
-        <div class="chart-modal-header-right">
+        <div class="flex items-center gap-2">
           <button
             class="stats-overlay-btn"
             class:active={showValue}
@@ -374,7 +374,7 @@
 <section class="view active" on:mouseleave={() => { tooltip = null; }}>
   <div class="view-header">
     <h2>{$tr("stats.title")}</h2>
-    <div class="stats-header-controls">
+    <div class="flex items-center gap-2 ml-auto">
       <button
         class="stats-overlay-btn"
         class:active={showValue}
@@ -387,9 +387,9 @@
         on:click={() => { showChange = !showChange; }}
         title="Toggle daily change bars on charts"
       >Change</button>
-      <label class="stats-timeframe-label">
+      <label class="flex items-center gap-1.5 whitespace-nowrap text-[0.7rem] text-text-muted">
         {$tr("stats.timeframe")}:
-        <select class="stats-timeframe-select" bind:value={chartDays}>
+        <select class="cursor-pointer rounded border border-border bg-bg-raised px-1.5 py-1 text-[0.7rem] text-text-secondary" bind:value={chartDays}>
           {#each TIMEFRAME_OPTIONS as days}
             <option value={days}>{days}d</option>
           {/each}
@@ -406,33 +406,33 @@
     <div class="empty-state"><p>Loading…</p></div>
 
   {:else}
-    <div class="stats-layout">
+    <div class="flex flex-1 min-h-0 overflow-hidden">
 
       <!-- ── LEFT: session stats + charts ────────────────────────────────── -->
-      <div class="stats-left">
+      <div class="flex flex-1 min-w-0 flex-col gap-4 overflow-y-auto overflow-x-hidden p-4">
 
         {#if importStatus}
-          <p class="stats-import-status" class:error={importError}>{importStatus}</p>
+          <p class="mb-3 text-[0.7rem] {importError ? 'text-danger' : 'text-success'}">{importStatus}</p>
         {/if}
 
         <!-- Session card -->
         {#if !session?.hasData}
-          <p class="stats-empty">{$tr("stats.noData")}</p>
+          <p class="m-0 text-sm text-text-muted">{$tr("stats.noData")}</p>
         {:else}
-          <div class="stats-session-grid">
+          <div class="grid grid-cols-5 gap-3">
             {#each SESSION_SECTIONS as { key, labelKey, currentKey }}
               {@const delta = session[key]}
               {@const current = session[currentKey]}
               {@const icon = ICON_MAP[key]}
-              <div class="stats-stat-cell">
-                <span class="stats-stat-label">
+              <div class="flex flex-col gap-0.5 rounded-md border border-border bg-bg-surface px-4 py-3">
+                <span class="flex items-center gap-1 text-[0.7rem] uppercase tracking-wide text-text-muted">
                   {#if icon}<img src={icon} alt="" class="stats-icon" />{/if}
                   {$tr(labelKey)}
                 </span>
-                <span class="stats-stat-value">
+                <span class="my-1.5 text-2xl font-bold leading-none tracking-tight text-text-primary">
                   {formatAbsolute(current)}
                 </span>
-                <span class="stats-stat-current {deltaClass(delta)}">
+                <span class="text-[0.7rem] {deltaClass(delta)}">
                   {formatDelta(delta, formatters[key])} today
                 </span>
               </div>
@@ -442,15 +442,15 @@
 
         <!-- Chart grid -->
         {#if history.length === 0}
-          <p class="stats-empty">{$tr("stats.noDays")}</p>
+          <p class="m-0 text-sm text-text-muted">{$tr("stats.noDays")}</p>
         {:else}
-          <div class="stats-chart-grid">
+          <div class="grid grid-cols-2 gap-3">
             {#each CHART_SECTIONS as { key, labelKey }}
               {@const cd = chartDataMap[key]}
               {@const icon = ICON_MAP[key]}
               <div class="stats-chart-block">
-                <div class="stats-chart-header">
-                  <span class="stats-chart-label">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="flex items-center gap-1.5 text-[0.85rem] text-text-secondary">
                     {#if icon}<img src={icon} alt="" class="stats-icon" />{/if}
                     {$tr(labelKey)}
                   </span>
@@ -553,3 +553,89 @@
     </div><!-- /stats-layout -->
   {/if}
 </section>
+
+<style>
+  .stats-icon { width: 20px; height: 20px; object-fit: contain; vertical-align: middle; opacity: 0.85; }
+  .stats-overlay-btn {
+    font-size: 0.7rem; padding: 0.25rem 0.6rem; border-radius: 4px;
+    border: 1px solid var(--border); background: var(--bg-raised); color: var(--text-secondary);
+    cursor: pointer; transition: color 0.15s, border-color 0.15s, background 0.15s; white-space: nowrap;
+  }
+  .stats-overlay-btn:hover { color: var(--text-primary); border-color: var(--border-strong); }
+  .stats-overlay-btn.active {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    border-color: var(--accent); color: var(--accent); font-weight: 600;
+  }
+  .stats-import-btn {
+    font-size: 0.7rem; padding: 0.25rem 0.6rem; border-radius: 4px;
+    border: 1px solid var(--border); background: var(--bg-raised); color: var(--text-secondary);
+    cursor: pointer; transition: color 0.15s, border-color 0.15s; white-space: nowrap;
+  }
+  .stats-import-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .stats-chart-block {
+    position: relative; display: flex; flex-direction: column; min-width: 0; height: 240px;
+    overflow: hidden; background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 13px 8px;
+  }
+  .chart-expand-btn {
+    background: none; border: none; color: var(--text-muted); cursor: pointer;
+    font-size: 0.9rem; padding: 2px 4px; line-height: 1; opacity: 0.5;
+    transition: opacity 0.15s, color 0.15s; border-radius: 4px;
+  }
+  .stats-chart-block:hover .chart-expand-btn { opacity: 0.7; }
+  .chart-expand-btn:hover { opacity: 1 !important; color: var(--accent); background: var(--bg-raised); }
+  .chart-body-row { flex: 1 1 0; min-height: 0; display: flex; }
+  .chart-y-axis { position: relative; width: 60px; flex-shrink: 0; }
+  .chart-y-axis--compact { width: 55px; flex-shrink: 0; position: relative; }
+  .chart-y-axis--compact .chart-y-label { font-size: 0.7rem; right: 4px; }
+  .chart-y-label { position: absolute; right: 6px; font-size: 0.72rem; color: var(--text-muted); transform: translateY(-50%); white-space: nowrap; }
+  .chart-svg-wrap { flex: 1; min-height: 0; min-width: 0; position: relative; }
+  .stats-chart-svg { width: 100%; height: 100%; }
+  .stats-chart-svg--compact { cursor: default; }
+  .chart-modal-svg-wrap { flex: 1; min-width: 0; position: relative; }
+  .chart-modal-svg-wrap .stats-chart-svg { min-height: 40px; display: block; }
+  .chart-dot-overlay { position: absolute; inset: 0; pointer-events: none; }
+  .chart-dot {
+    position: absolute; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--bg-surface); border: 2px solid rgba(255,255,255,0.8);
+    transform: translate(-50%, -50%); pointer-events: auto;
+    transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s, background 0.12s; cursor: pointer;
+  }
+  .chart-dot:hover {
+    transform: translate(-50%, -50%) scale(1.35); border-color: #fff;
+    background: rgba(255,255,255,0.15); box-shadow: 0 0 6px rgba(255,255,255,0.35);
+  }
+  .chart-dot--expanded { width: 15px; height: 15px; border-width: 3px; }
+  .stats-chart-svg .bar-pos { fill: var(--success); opacity: 0.75; }
+  .stats-chart-svg .bar-neg { fill: var(--danger); opacity: 0.75; }
+  .chart-dates-row {
+    display: flex; font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;
+    overflow: visible; flex-shrink: 0; height: 18px;
+  }
+  .chart-date-cell { text-align: center; overflow: visible; white-space: nowrap; flex-shrink: 0; font-size: 0.65rem; }
+  .chart-tooltip-global {
+    position: fixed; pointer-events: none; background: var(--bg-raised);
+    border: 1px solid var(--border-strong); border-radius: 4px; padding: 4px 10px;
+    font-size: 0.7rem; color: var(--text-primary); white-space: nowrap; z-index: 500;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .chart-modal-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .chart-modal-close {
+    background: none; border: none; color: var(--text-muted); cursor: pointer;
+    font-size: 1rem; line-height: 1; padding: 2px 6px; border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .chart-modal-close:hover { color: var(--text-primary); background: var(--bg-raised); }
+  .chart-modal-nav {
+    position: absolute; top: 50%; transform: translateY(-50%); z-index: 10;
+    background: var(--bg-raised); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text-muted); font-size: 1.6rem; padding: 4px 10px; cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+  }
+  .chart-modal-nav:hover { color: var(--text-primary); background: var(--bg-surface); }
+  .chart-modal-nav--prev { left: 8px; }
+  .chart-modal-nav--next { right: 8px; }
+  .chart-modal-chart-area { flex: 1; min-height: 0; display: flex; position: relative; }
+  .chart-expand-dates { display: flex; flex-shrink: 0; height: 22px; margin-top: 4px; }
+  .chart-expand-date { text-align: center; font-size: 0.68rem; color: var(--text-muted); white-space: nowrap; overflow: visible; }
+</style>

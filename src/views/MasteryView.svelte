@@ -80,10 +80,10 @@
     {@const profileMastery = stats.profileMastery || null}
 
     <!-- Stats overview -->
-    <div class="mastery-stats">
-      <div class="mastery-overview">
-        <div class="mastery-ring-wrap">
-          <svg class="mastery-ring" viewBox="0 0 120 120">
+    <div class="grid gap-3 mb-3.5">
+      <div class="flex flex-wrap items-center gap-3.5">
+        <div class="shrink-0">
+          <svg class="h-[120px] w-[120px]" viewBox="0 0 120 120">
             <circle cx="60" cy="60" r={RING_R} fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
             <circle
               cx="60" cy="60" r={RING_R}
@@ -97,15 +97,15 @@
             <text x="60" y="72" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="Barlow">MASTERED</text>
           </svg>
         </div>
-        <div class="mastery-stat-cards">
-          <div class="mstat-card mastered"><div class="mstat-num">{stats.mastered}</div><div class="mstat-label">Mastered</div></div>
-          <div class="mstat-card progress"><div class="mstat-num">{stats.inProgress}</div><div class="mstat-label">In Progress</div></div>
-          <div class="mstat-card missing"><div class="mstat-num">{stats.missing}</div><div class="mstat-label">Missing</div></div>
-          <div class="mstat-card total"><div class="mstat-num">{stats.total}</div><div class="mstat-label">Total</div></div>
+        <div class="grid flex-1 gap-2 grid-cols-[repeat(auto-fit,minmax(120px,1fr))]">
+          <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2"><div class="font-display text-[1.1rem] font-bold text-success">{stats.mastered}</div><div class="text-[0.74rem] text-text-muted">Mastered</div></div>
+          <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2"><div class="font-display text-[1.1rem] font-bold text-warning">{stats.inProgress}</div><div class="text-[0.74rem] text-text-muted">In Progress</div></div>
+          <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2"><div class="font-display text-[1.1rem] font-bold text-danger">{stats.missing}</div><div class="text-[0.74rem] text-text-muted">Missing</div></div>
+          <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2"><div class="font-display text-[1.1rem] font-bold text-text-primary">{stats.total}</div><div class="text-[0.74rem] text-text-muted">Total</div></div>
           {#if profileMastery && profileMastery.rank != null}
-            <div class="mstat-card">
-              <div class="mstat-num">MR {profileMastery.rank}</div>
-              <div class="mstat-label">
+            <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2">
+              <div class="font-display text-[1.1rem] font-bold text-text-primary">MR {profileMastery.rank}</div>
+              <div class="text-[0.74rem] text-text-muted">
                 {profileMastery.percentToNext != null ? `${profileMastery.percentToNext}% to next` : 'Progress unavailable'}
               </div>
             </div>
@@ -113,38 +113,38 @@
         </div>
       </div>
 
-      <div class="mastery-cat-bars">
+      <div class="grid gap-[0.46rem] rounded-[0.6rem] border border-border bg-bg-surface p-2.5">
         {#each categories as cat}
           {@const cs = stats.byCategory[cat]}
           {@const masteredWidth = clampPct(cs.mastered, cs.total)}
           {@const progressWidth = clampPct(cs.inProgress, cs.total)}
-          <div class="cat-bar-row">
-            <span class="cat-bar-label">{cat}</span>
-            <svg class="cat-bar-track" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
-              <rect class="cat-bar-fill mastered" x="0" y="0" width={masteredWidth} height="1"></rect>
+          <div class="grid items-center gap-2 grid-cols-[minmax(72px,110px)_1fr_auto]">
+            <span class="text-[0.8rem] text-text-secondary">{cat}</span>
+            <svg class="block h-[0.36rem] w-full overflow-hidden rounded-full bg-white/[0.07]" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
+              <rect class="fill-success" x="0" y="0" width={masteredWidth} height="1"></rect>
               <rect
-                class="cat-bar-fill progress"
+                class="fill-warning opacity-60"
                 x={masteredWidth}
                 y="0"
                 width={progressWidth}
                 height="1"
               ></rect>
             </svg>
-            <span class="cat-bar-nums">{cs.mastered}/{cs.total} <small>({pct(cs.mastered, cs.total)}%)</small></span>
+            <span class="whitespace-nowrap text-[0.77rem] text-text-secondary">{cs.mastered}/{cs.total} <small class="text-text-muted">({pct(cs.mastered, cs.total)}%)</small></span>
           </div>
         {/each}
       </div>
     </div>
 
     <!-- Filters -->
-    <div class="mastery-controls">
+    <div class="grid gap-2 mb-3">
       <div class="filter-tabs">
         <button class="filter-tab" class:active={catFilter === 'all'} on:click={() => (catFilter = 'all')}>All</button>
         {#each categories as cat}
           <button class="filter-tab" class:active={catFilter === cat} on:click={() => (catFilter = cat)}>{cat}</button>
         {/each}
       </div>
-      <div class="filter-tabs mastery-status-filters">
+      <div class="filter-tabs gap-[0.35rem]">
         {#each [['all','All'],['missing','Missing'],['progress','In Progress'],['mastered','Mastered']] as [key, label]}
           <button class="filter-tab" class:active={statusFilter === key} on:click={() => (statusFilter = key)}>{label}</button>
         {/each}
@@ -152,7 +152,7 @@
     </div>
 
     <!-- Item grid -->
-    <div class="item-grid mastery-grid">
+    <div class="item-grid">
       {#if filtered.length === 0}
         <div class="empty-state col-span-full"><p>No items match your filters</p></div>
       {:else}
@@ -160,7 +160,7 @@
           <!-- svelte-ignore a11y-click-events-have-key-events -->
           <!-- svelte-ignore a11y-no-static-element-interactions -->
           <div
-            class="item-card mastery-card {item.status}"
+            class="item-card group mastery-card {item.status}"
             class:prime={item.isPrime}
             on:click={() => activeItem.set(item)}
           >
@@ -192,19 +192,19 @@
                 </div>
                 <span class="item-rank-text">Lv {item.rank}/{item.maxRank} · {item.nextPct}%</span>
               {:else}
-                <span class="mastery-missing-label">Not owned</span>
+                <span class="text-[0.72rem] text-text-muted">Not owned</span>
               {/if}
               {#if $debugMode}
                 <span class="debug-reason">{item.debugReason || 'show:mastery'}</span>
               {/if}
               {#if (item.components || []).length > 0}
-                <div class="comp-dots">
+                <div class="mt-1.5 flex flex-wrap gap-1">
                   {#each (item.components || []).slice(0, 8) as comp, compIndex (`${comp.uniqueName || comp.name || 'component'}-${compIndex}`)}
                     {@const isOwned = comp.owned || ((comp.ownedCount ?? 0) >= (comp.itemCount || 1))}
                     <!-- svelte-ignore a11y-click-events-have-key-events -->
                     <!-- svelte-ignore a11y-no-static-element-interactions -->
                     <span
-                      class="comp-dot {isOwned ? 'owned' : 'missing'}"
+                      class="comp-dot h-[0.42rem] w-[0.42rem] rounded-full border border-transparent {isOwned ? 'owned' : 'missing'}"
                       title="{comp.name || '?'}: {isOwned ? 'owned' : 'missing'}"
                       on:click|stopPropagation={() => activeComponent.set({ comp, parentName: item.name })}
                     ></span>
@@ -214,12 +214,12 @@
               {#if item.wfm}
                 <button
                   type="button"
-                  class="wfm-link"
+                  class="wfm-link absolute top-1.5 right-1.5 inline-flex h-[1.45rem] w-[1.45rem] items-center justify-center rounded-[0.3rem] border border-border bg-black/25 text-text-muted opacity-0 transition-[opacity,color,border-color] duration-[120ms] group-hover:opacity-100 hover:text-accent hover:border-accent-dim"
                   title="View on warframe.market"
                   aria-label="View {item.name} on warframe.market"
                   on:click|stopPropagation={() => send('open-external', `https://warframe.market/items/${item.wfm.url_name}`)}
                 >
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" class="h-[0.86rem] w-[0.86rem]">
                     <path d="M6 3H3v10h10v-3"/>
                     <path d="M9 2h5v5"/>
                     <path d="M14 2L7 9"/>
@@ -237,3 +237,29 @@
     </div>
   {/if}
 </section>
+
+<style>
+  .mastery-card.missing { opacity: 0.62; }
+  .mastery-card.mastered { border-color: rgba(74, 222, 128, 0.24); }
+  .mastery-card.progress { border-color: rgba(251, 191, 36, 0.24); }
+  .status-indicator {
+    position: absolute;
+    right: 0.4rem;
+    bottom: 0.4rem;
+    width: 0.42rem;
+    height: 0.42rem;
+    border-radius: 999px;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.38);
+  }
+  .status-indicator.mastered { background: var(--success); }
+  .status-indicator.progress { background: var(--warning); }
+  .status-indicator.missing { background: var(--danger); opacity: 0.7; }
+  .comp-dot.owned {
+    background: color-mix(in oklab, var(--success) 65%, transparent);
+    border-color: color-mix(in oklab, var(--success) 60%, transparent);
+  }
+  .comp-dot.missing {
+    background: color-mix(in oklab, var(--danger) 65%, transparent);
+    border-color: color-mix(in oklab, var(--danger) 60%, transparent);
+  }
+</style>

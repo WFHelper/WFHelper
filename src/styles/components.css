@@ -21,7 +21,7 @@
   }
   .view {
     display: block;
-    animation: fadeIn 0.18s ease;
+    animation: fade-in 0.18s ease;
   }
 
   /* Stats view needs to fill #content so the split-pane layout
@@ -433,6 +433,10 @@
       background-color 0.15s,
       transform 0.15s;
   }
+  .item-card {
+    cursor: pointer;
+    overflow: hidden;
+  }
   .item-card:hover,
   .resource-card:hover,
   .foundry-item:hover,
@@ -483,6 +487,50 @@
     border-radius: 0.45rem;
     background: var(--bg-raised);
     border: 1px solid var(--border);
+  }
+  .item-img-wrap {
+    position: relative;
+    display: flex;
+    height: 120px;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in oklab, var(--bg-surface) 65%, black);
+    padding: 0.6rem;
+  }
+  .item-img {
+    max-width: var(--item-image-max);
+    max-height: var(--item-image-max);
+    object-fit: contain;
+  }
+
+  /* ── cross-component rank bar ────────────────────────────────── */
+  .item-rank-bar {
+    margin-top: 0.2rem;
+    height: 0.28rem;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .rank-bar-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .rank-fill-svg {
+    fill: var(--warning);
+  }
+  .rank-fill-svg.max {
+    fill: var(--success);
+  }
+  .item-rank-text,
+  .debug-reason {
+    font-size: var(--font-small-size, 0.72rem);
+    color: var(--text-muted);
+  }
+  .debug-reason {
+    font-family: monospace;
   }
 
   /* ── cross-component badges ──────────────────────────────────── */
@@ -707,7 +755,7 @@
     border-radius: 0.75rem;
     background: var(--bg-surface);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    animation: detailSlideIn 0.15s ease-out;
+    animation: detail-slide-in 0.15s ease-out;
   }
   .detail-dual-container {
     position: relative;

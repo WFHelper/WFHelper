@@ -98,9 +98,9 @@ export function formatAbsolute(n: number | null): string {
 }
 
 export function deltaClass(n: number): string {
-  if (n > 0) return "delta-positive";
-  if (n < 0) return "delta-negative";
-  return "delta-neutral";
+  if (n > 0) return "text-success";
+  if (n < 0) return "text-danger";
+  return "text-text-secondary";
 }
 
 export function shortDate(iso: string): string {

@@ -275,8 +275,8 @@
       </div>
     {/if}
 
-    <div class="inventory-split-layout">
-      <div class="inventory-split-main">
+    <div class="grid grid-cols-[minmax(0,1fr)_360px] items-start gap-3">
+      <div class="min-w-0">
         <InventoryGrid
           items={filtered}
           showDebug={$debugMode}

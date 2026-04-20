@@ -1,3 +1,54 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-deep: #060a12;
+  --color-bg-base: #0a0e17;
+  --color-bg-surface: #111827;
+  --color-bg-raised: #1a2234;
+  --color-bg-hover: #1f2b3f;
+  --color-accent: #d4a843;
+  --color-accent-dim: #a07830;
+  --color-accent-glow: rgba(212, 168, 67, 0.15);
+  --color-accent-bright: #f0c95c;
+  --color-text-primary: #e8e4dc;
+  --color-text-secondary: #8b93a5;
+  --color-text-muted: #8d9ab3;
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --color-info: #60a5fa;
+  --color-accent-blue: #60a5fa;
+  --color-border: rgba(212, 168, 67, 0.1);
+  --color-border-strong: rgba(212, 168, 67, 0.25);
+  --font-display: "Rajdhani", sans-serif;
+  --font-body: "Barlow", sans-serif;
+
+  --animate-fade-in: fade-in 0.18s ease;
+  --animate-detail-slide-in: detail-slide-in 0.15s ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes detail-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @import "./styles/tokens.css";
 @import "./styles/base.css";
 
@@ -5,16 +56,7 @@
 @import "./styles/components.css";
 
 /* View-specific styles — one file per feature */
-@import "./styles/sidebar.css";
-@import "./styles/welcome.css";
-@import "./styles/inventory.css";
-@import "./styles/mastery.css";
-@import "./styles/foundry.css";
 @import "./styles/world.css";
-@import "./styles/market.css";
-@import "./styles/settings.css";
 @import "./styles/relics.css";
-@import "./styles/stats.css";
 
-@import "./styles/animations.css";
 @import "./styles/responsive.css";

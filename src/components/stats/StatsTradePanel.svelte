@@ -90,7 +90,7 @@
                 <span class="trade-wfm-badge" title="WFM order auto-closed">WFM</span>
               {/if}
               {#if trade.platChange > 0}
-                <span class="trade-plat {trade.type === 'sale' ? 'delta-positive' : trade.type === 'purchase' ? 'delta-negative' : 'delta-neutral'}">
+                <span class="trade-plat {trade.type === 'sale' ? 'text-success' : trade.type === 'purchase' ? 'text-danger' : 'text-text-secondary'}">
                   {trade.type === "sale" ? "+" : trade.type === "purchase" ? "−" : ""}{trade.platChange}
                   <span class="plat-icon">p</span>
                 </span>

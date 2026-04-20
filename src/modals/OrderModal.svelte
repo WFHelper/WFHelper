@@ -193,36 +193,37 @@
 
           <!-- Item search (create mode only) -->
           {#if !isEdit}
-            <div class="market-field">
-              <label for="order-item-search">Item</label>
+            <div class="grid gap-1 mb-2">
+              <label for="order-item-search" class="text-sm font-medium text-text-secondary">Item</label>
               {#if itemSelected}
-                <div class="market-item-selected">
+                <div class="flex items-center gap-2 mt-1 rounded-[0.4rem] border border-accent-dim bg-accent-glow px-2 py-1.5 text-sm">
                   {#if itemSelected.thumb}
-                    <img src={itemSelected.thumb} alt="" width="28" height="28" loading="lazy" />
+                    <img src={itemSelected.thumb} alt="" width="28" height="28" loading="lazy" class="rounded-[0.32rem] object-contain" />
                   {/if}
                   <span>{itemSelected.item_name}</span>
-                  <button type="button" class="order-clear-item" on:click={clearItem}>&times;</button>
+                  <button type="button" class="ml-auto border-0 bg-transparent text-base leading-none text-text-muted hover:text-text-primary" on:click={clearItem}>&times;</button>
                 </div>
               {:else}
-                <div class="market-item-search-wrap">
+                <div class="relative">
                   <input
                     id="order-item-search"
                     type="text"
+                    class="w-full rounded-[0.42rem] border border-border bg-bg-base px-2.5 py-2 text-sm text-text-primary outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
                     bind:value={itemSearchQuery}
                     on:input={onSearchInput}
                     placeholder="Search items…"
                     autocomplete="off"
                   />
                   {#if itemDropdown.length > 0}
-                    <div class="market-item-dropdown">
+                    <div class="absolute top-[calc(100%+4px)] left-0 right-0 z-20 max-h-[220px] overflow-y-auto rounded-lg border border-border-strong bg-bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
                       {#each itemDropdown as item}
                         <!-- svelte-ignore a11y-click-events-have-key-events -->
                         <!-- svelte-ignore a11y-no-static-element-interactions -->
-                        <div class="market-item-result" on:click={() => selectItem(item)}>
+                        <div class="flex cursor-pointer items-center gap-2 px-2.5 py-2 text-sm text-text-primary hover:bg-bg-hover" on:click={() => selectItem(item)}>
                           {#if item.thumb}
-                            <img src={item.thumb} alt="" width="24" height="24" loading="lazy" />
+                            <img src={item.thumb} alt="" width="24" height="24" loading="lazy" class="shrink-0 rounded-sm object-contain" />
                           {:else}
-                            <span class="order-search-no-thumb"></span>
+                            <span class="h-6 w-6 shrink-0 rounded-sm bg-white/5"></span>
                           {/if}
                           <span>{item.item_name}</span>
                         </div>
@@ -234,42 +235,42 @@
             </div>
 
             <!-- Order type -->
-            <fieldset class="market-field market-fieldset">
-              <legend class="market-field-legend">Order Type</legend>
-              <div class="market-radio-group">
-                <label class="market-radio">
-                  <input type="radio" bind:group={orderType} value="sell" /> Sell
+            <fieldset class="grid gap-1 mb-2 rounded-lg border border-border px-2.5 py-2">
+              <legend class="px-1 font-display text-xs font-semibold text-text-secondary">Order Type</legend>
+              <div>
+                <label class="inline-flex items-center gap-1 text-[0.86rem]">
+                  <input type="radio" class="accent-accent" bind:group={orderType} value="sell" /> Sell
                 </label>
-                <label class="market-radio">
-                  <input type="radio" bind:group={orderType} value="buy" /> Buy
+                <label class="inline-flex items-center gap-1 text-[0.86rem]">
+                  <input type="radio" class="accent-accent" bind:group={orderType} value="buy" /> Buy
                 </label>
               </div>
             </fieldset>
           {/if}
 
           <!-- Price -->
-          <div class="market-field">
-            <label for="order-platinum">Price (platinum)</label>
-            <input id="order-platinum" type="number" min="1" max="99999" bind:value={platinum} placeholder="e.g. 50" required />
+          <div class="grid gap-1 mb-2">
+            <label for="order-platinum" class="text-sm font-medium text-text-secondary">Price (platinum)</label>
+            <input id="order-platinum" type="number" min="1" max="99999" class="rounded-[0.42rem] border border-border bg-bg-base px-2.5 py-2 text-sm text-text-primary outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]" bind:value={platinum} placeholder="e.g. 50" required />
           </div>
 
           <!-- Quantity -->
-          <div class="market-field">
-            <label for="order-quantity">Quantity</label>
-            <input id="order-quantity" type="number" min="1" max="999" bind:value={quantity} required />
+          <div class="grid gap-1 mb-2">
+            <label for="order-quantity" class="text-sm font-medium text-text-secondary">Quantity</label>
+            <input id="order-quantity" type="number" min="1" max="999" class="rounded-[0.42rem] border border-border bg-bg-base px-2.5 py-2 text-sm text-text-primary outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]" bind:value={quantity} required />
           </div>
 
           <!-- Mod rank (optional) -->
           {#if showRankField}
-            <div class="market-field">
-              <label for="order-rank">Mod Rank</label>
-              <input id="order-rank" type="number" min="0" max="20" bind:value={modRank} />
+            <div class="grid gap-1 mb-2">
+              <label for="order-rank" class="text-sm font-medium text-text-secondary">Mod Rank</label>
+              <input id="order-rank" type="number" min="0" max="20" class="rounded-[0.42rem] border border-border bg-bg-base px-2.5 py-2 text-sm text-text-primary outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]" bind:value={modRank} />
             </div>
           {/if}
 
           <!-- Visibility -->
-          <div class="market-field market-field-inline">
-            <label for="order-visible">Visible on site</label>
+          <div class="flex items-center justify-between gap-2.5 mb-2">
+            <label for="order-visible" class="text-sm font-medium text-text-secondary">Visible on site</label>
             <label class="market-toggle">
               <input id="order-visible" type="checkbox" bind:checked={visible} />
               <span class="market-toggle-slider"></span>
@@ -277,10 +278,10 @@
           </div>
 
           {#if errorMsg}
-            <div class="market-login-error">{errorMsg}</div>
+            <div class="text-danger">{errorMsg}</div>
           {/if}
 
-          <div class="market-modal-actions">
+          <div class="mt-3 flex justify-end gap-2">
             <button type="button" class="btn-secondary" on:click={close}>Cancel</button>
             <button type="submit" class="btn-primary" disabled={submitting}>
               {submitting ? (isEdit ? 'Saving…' : 'Creating…') : (isEdit ? 'Save Changes' : 'Create Order')}
@@ -291,3 +292,43 @@
     </div>
   </div>
 {/if}
+
+<style>
+  .market-toggle {
+    position: relative;
+    display: inline-block;
+    width: 42px;
+    height: 22px;
+  }
+  .market-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .market-toggle-slider {
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    transition: all 0.15s;
+  }
+  .market-toggle-slider::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: #fff;
+    transition: transform 0.15s;
+  }
+  .market-toggle input:checked + .market-toggle-slider {
+    border-color: rgba(74, 222, 128, 0.4);
+    background: rgba(74, 222, 128, 0.2);
+  }
+  .market-toggle input:checked + .market-toggle-slider::before {
+    transform: translateX(18px);
+  }
+</style>

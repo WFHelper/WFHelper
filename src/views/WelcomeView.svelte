@@ -127,30 +127,30 @@
 </script>
 
 <section class="view active">
-  <div class="welcome-card">
-    <div class="welcome-icon">
-      <svg viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="1.5">
+  <div class="mx-auto max-w-[740px] text-center">
+    <div class="mb-4">
+      <svg viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="1.5" class="mx-auto h-16 w-16 text-accent opacity-60">
         <polygon points="40,5 75,65 5,65" stroke-width="2"/>
         <circle cx="40" cy="45" r="10" stroke-width="2"/>
         <line x1="40" y1="20" x2="40" y2="30" stroke-width="2"/>
       </svg>
     </div>
-    <h1>Welcome, Tenno</h1>
-    <p>Choose how to load your Warframe inventory data.</p>
+    <h1 class="mb-2 font-display text-[2rem] font-bold tracking-wide">Welcome, Tenno</h1>
+    <p class="mb-6 text-text-secondary">Choose how to load your Warframe inventory data.</p>
 
-    <div class="source-cards">
+    <div class="grid gap-3 text-left">
 
       {#if helperStatus === "not_found" && runnerStatus?.exeFound}
-        <div class="source-card" style="border-color: var(--accent-warning, #f59e0b); background: rgba(245, 158, 11, 0.06);">
-          <div class="source-header">
-            <span class="source-badge" style="background: var(--accent-warning, #f59e0b); color: #000;">WAITING FOR DATA</span>
-            <h3>Go in-game to generate inventory data</h3>
-            <p class="source-desc">
+        <div class="rounded-xl border border-border bg-bg-surface px-4 py-4" style="border-color: var(--accent-warning, #f59e0b); background: rgba(245, 158, 11, 0.06);">
+          <div>
+            <span class="mb-1 inline-block rounded bg-[#f59e0b] px-2 py-0.5 font-display text-[0.65rem] font-bold tracking-widest text-black">WAITING FOR DATA</span>
+            <h3 class="font-display text-base font-semibold">Go in-game to generate inventory data</h3>
+            <p class="mt-0.5 text-sm leading-snug text-text-secondary">
               The helper is running in the background. Log into Warframe and it will automatically fetch your inventory.
               This page will update automatically once data is available.
             </p>
           </div>
-          <div class="source-actions">
+          <div class="mt-2">
             <button class="btn-primary btn-sm" on:click={triggerHelperRun}>
               Run helper now
             </button>
@@ -161,38 +161,38 @@
         </div>
       {/if}
 
-      <div class="source-card">
-        <div class="source-header">
-          <span class="source-badge">RECOMMENDED</span>
-          <h3>warframe-api-helper</h3>
-          <p class="source-desc">Use the official API snapshot (`inventory.json`) as the primary source.</p>
+      <div class="rounded-xl border border-border bg-bg-surface px-4 py-4 hover:border-border-strong">
+        <div>
+          <span class="mb-1 inline-block rounded bg-success/15 px-2 py-0.5 font-display text-[0.65rem] font-bold tracking-widest text-success">RECOMMENDED</span>
+          <h3 class="font-display text-base font-semibold">warframe-api-helper</h3>
+          <p class="mt-0.5 text-sm leading-snug text-text-secondary">Use the official API snapshot (`inventory.json`) as the primary source.</p>
         </div>
 
-        <div class="source-status">
+        <div class="mt-2">
           {#if helperStatus === "checking"}
-            <span class="status-checking">Checking…</span>
+            <span class="text-text-muted">Checking…</span>
           {:else if helperStatus === "found"}
-            <span class="status-ok">Found inventory.json</span>
+            <span class="text-success">Found inventory.json</span>
           {:else if helperStatus === "not_found"}
-            <span class="status-warn">No auto-detected inventory.json</span>
+            <span class="text-text-muted">No auto-detected inventory.json</span>
           {:else}
-            <span class="status-error">Inventory detection failed</span>
+            <span class="text-danger">Inventory detection failed</span>
           {/if}
         </div>
 
         {#if helperPath}
-          <div class="source-fallback">
-            <p class="source-desc">Detected path: <code>{helperPath}</code></p>
+          <div class="mt-2">
+            <p class="mt-0.5 text-sm leading-snug text-text-secondary">Detected path: <code class="rounded bg-bg-raised px-1.5 py-0.5 text-xs text-accent">{helperPath}</code></p>
           </div>
         {/if}
 
-        <div class="source-steps-mini">
+        <div class="mt-2 grid gap-1 text-sm text-text-secondary">
           <!-- svelte-ignore a11y-invalid-attribute -->
           <span>1. <a href="#" on:click|preventDefault={() => send('open-external', 'https://github.com/Sainan/warframe-api-helper/releases')}>Download warframe-api-helper</a></span>
           <span>2. Run it while Warframe is open</span>
-          <span>3. Load the generated <code>inventory.json</code></span>
+          <span>3. Load the generated <code class="rounded bg-bg-raised px-1.5 py-0.5 text-xs text-accent">inventory.json</code></span>
         </div>
-        <div class="source-actions">
+        <div class="mt-2">
           <button class="btn-primary btn-sm" disabled={loadingApi} on:click={() => loadApiHelper(false)}>
             {loadingApi ? "Loading..." : helperPath ? "Load detected inventory.json" : "Select inventory.json"}
           </button>
@@ -203,12 +203,12 @@
       </div>
 
       <!-- Manual JSON Source -->
-      <div class="source-card source-card-compact">
-        <div class="source-header">
-          <h3>Legacy Sources</h3>
-          <p class="source-desc">Only use this if your API-helper file is unavailable.</p>
+      <div class="rounded-xl border border-border bg-bg-surface px-4 py-3.5 hover:border-border-strong">
+        <div>
+          <h3 class="font-display text-base font-semibold">Legacy Sources</h3>
+          <p class="mt-0.5 text-sm leading-snug text-text-secondary">Only use this if your API-helper file is unavailable.</p>
         </div>
-        <button class="btn-secondary btn-sm" disabled={loadingApi} on:click={() => loadApiHelper(true)}>Browse for File</button>
+        <button class="btn-secondary btn-sm mt-2" disabled={loadingApi} on:click={() => loadApiHelper(true)}>Browse for File</button>
       </div>
 
     </div>

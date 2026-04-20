@@ -153,3 +153,94 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .item-card.mastered {
+    border-color: rgba(74, 222, 128, 0.25);
+  }
+  .item-card.prime {
+    border-color: rgba(212, 168, 67, 0.28);
+  }
+  .inventory-count-badge {
+    position: absolute;
+    right: 0.4rem;
+    bottom: 0.35rem;
+    border-radius: 999px;
+    padding: 0.1rem 0.4rem;
+    border: 1px solid rgba(74, 222, 128, 0.4);
+    background: rgba(6, 97, 58, 0.72);
+    color: #a9ffcb;
+    font-family: var(--font-display);
+    font-size: 0.67rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+  .inventory-value-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    min-height: 1.45rem;
+    margin-top: 0.2rem;
+  }
+  .inventory-rank-order-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.24rem;
+  }
+  .inventory-rank-order-box {
+    border: 1px solid rgba(240, 201, 92, 0.48);
+    background: rgba(212, 168, 67, 0.2);
+    border-radius: 0.42rem;
+    padding: 0.22rem 0.34rem;
+    display: grid;
+    gap: 0.08rem;
+    min-height: 2.05rem;
+    align-content: center;
+  }
+  .inventory-rank-order-label {
+    font-size: 0.57rem;
+    color: color-mix(in oklab, var(--accent-bright) 80%, white);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-family: var(--font-display);
+  }
+  .inventory-rank-order-box :global(strong) {
+    font-family: var(--font-display);
+    color: var(--accent-bright);
+    font-size: 0.86rem;
+    line-height: 1.05;
+    letter-spacing: 0.01em;
+  }
+  .inventory-value-pill {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(212, 168, 67, 0.28);
+    background: rgba(212, 168, 67, 0.1);
+    color: var(--accent);
+    border-radius: 999px;
+    padding: 0.08rem 0.42rem;
+    font-size: 0.69rem;
+    font-family: var(--font-display);
+    letter-spacing: 0.02em;
+    font-weight: 700;
+  }
+  .inventory-value-pill-plat {
+    font-size: 0.85rem;
+    padding: 0.1rem 0.5rem;
+    border-color: rgba(240, 201, 92, 0.5);
+    background: rgba(212, 168, 67, 0.2);
+    color: var(--accent-bright);
+  }
+  .inventory-value-pill-missing {
+    border-color: rgba(148, 163, 184, 0.26);
+    background: rgba(31, 41, 55, 0.58);
+    color: #94a3b8;
+  }
+  .inventory-equipped-note {
+    font-size: 0.74rem;
+    color: var(--success);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>

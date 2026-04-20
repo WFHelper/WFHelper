@@ -299,7 +299,7 @@ import ModalShell from "../components/ModalShell.svelte";
                 <span class="relic-reward-chance">{reward.chance}%</span>
                 <span class="relic-reward-price">
                   {#if price != null}
-                    <span class="relic-plat">{price}p</span>
+                    <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">{price}p</span>
                   {:else}
                     <span class="detail-muted">-</span>
                   {/if}
