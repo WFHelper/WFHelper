@@ -667,8 +667,8 @@
       <div class="flex">
         {#each TIER_OPTIONS as [key, label]}
           <button
-            class="relics-tier-tab-item"
-            class:active={$relicTierFilter === key}
+            class="relics-tier-tab-item data-[active]:text-white data-[active]:border-b-white"
+            data-active={$relicTierFilter === key || undefined}
             on:click={() => relicTierFilter.set(key)}
           >{label}</button>
         {/each}
@@ -844,7 +844,6 @@
     white-space: nowrap; margin-bottom: -1px;
   }
   .relics-tier-tab-item:hover { color: #b0b2ba; }
-  .relics-tier-tab-item.active { color: #ffffff; border-bottom-color: #ffffff; }
 
   .relic-compact-card {
     width: 100%; display: flex; min-width: 0; flex-direction: column; gap: 0.5rem;

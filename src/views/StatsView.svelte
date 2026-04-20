@@ -259,37 +259,35 @@
     <div class="flex h-[72vh] w-[86vw] flex-col overflow-hidden rounded-md border border-border-strong bg-bg-surface p-4 pb-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)]" on:click|stopPropagation>
       <div class="mb-3 flex shrink-0 items-center justify-between">
         <span class="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-text-muted">
-          {#if exIcon}<img src={exIcon} alt="" class="stats-icon h-[18px] w-[18px]" />{/if}
+          {#if exIcon}<img src={exIcon} alt="" class="w-[18px] h-[18px] object-contain align-middle opacity-85" />{/if}
           {$tr(expandedChartTitle(expandedKey))}
         </span>
         <div class="flex items-center gap-2">
           <button
-            class="stats-overlay-btn"
-            class:active={showValue}
+            class="text-[0.7rem] py-1 px-[0.6rem] rounded border cursor-pointer transition-[color,border-color,background] duration-150 whitespace-nowrap {showValue ? 'bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] border-accent text-accent font-semibold' : 'border-border bg-bg-raised text-text-secondary hover:text-text-primary hover:border-border-strong'}"
             on:click={() => { showValue = !showValue; }}
           >Value</button>
           <button
-            class="stats-overlay-btn"
-            class:active={showChange}
+            class="text-[0.7rem] py-1 px-[0.6rem] rounded border cursor-pointer transition-[color,border-color,background] duration-150 whitespace-nowrap {showChange ? 'bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] border-accent text-accent font-semibold' : 'border-border bg-bg-raised text-text-secondary hover:text-text-primary hover:border-border-strong'}"
             on:click={() => { showChange = !showChange; }}
           >Change</button>
           <button class="border-none bg-transparent text-text-muted cursor-pointer text-base leading-none px-1.5 py-0.5 rounded transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-raised" on:click={() => { expandedKey = null; tooltip = null; }}>✕</button>
         </div>
       </div>
       <div class="flex-1 min-h-0 flex flex-col">
-        <button class="chart-modal-nav chart-modal-nav--prev" on:click={() => navigateExpanded(-1)} title="Previous">‹</button>
-        <button class="chart-modal-nav chart-modal-nav--next" on:click={() => navigateExpanded(1)} title="Next">›</button>
+        <button class="absolute top-1/2 -translate-y-1/2 z-10 bg-bg-raised border border-border rounded-[6px] text-text-muted text-[1.6rem] py-1 px-[10px] cursor-pointer transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-surface left-2" on:click={() => navigateExpanded(-1)} title="Previous">‹</button>
+        <button class="absolute top-1/2 -translate-y-1/2 z-10 bg-bg-raised border border-border rounded-[6px] text-text-muted text-[1.6rem] py-1 px-[10px] cursor-pointer transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-surface right-2" on:click={() => navigateExpanded(1)} title="Next">›</button>
         <div class="flex-1 min-h-0 flex relative">
           {#if exYTicks.length > 0}
-            <div class="chart-y-axis">
+            <div class="relative w-[60px] shrink-0">
               {#each exYTicks as tick}
-                <span class="chart-y-label" style="top:{tick.yFrac * 100}%">{tick.label}</span>
+                <span class="absolute right-[6px] text-[0.72rem] text-text-muted -translate-y-1/2 whitespace-nowrap" style="top:{tick.yFrac * 100}%">{tick.label}</span>
               {/each}
             </div>
           {/if}
-          <div class="flex-1 min-w-0 relative [&_.stats-chart-svg]:min-h-[40px] [&_.stats-chart-svg]:block">
+          <div class="flex-1 min-w-0 relative">
             <svg
-              class="stats-chart-svg"
+              class="w-full h-full min-h-[40px] block"
               viewBox="0 0 {SVG_W} {BAR_H_EXPAND}"
               preserveAspectRatio="none"
               aria-hidden="true"
@@ -312,7 +310,7 @@
                   <rect
                     x={bar.x} y={bar.y}
                     width={exBw} height={bar.h}
-                    class={bar.positive ? "bar-pos" : "bar-neg"}
+                    class={bar.positive ? "fill-[var(--success)] opacity-75" : "fill-[var(--danger)] opacity-75"}
                     rx="1"
                   />
                 {/each}
@@ -338,7 +336,7 @@
                   {#if bar && expandedChartData.realData[pt.idx] && bar.value !== 0}
                     <!-- svelte-ignore a11y-no-static-element-interactions -->
                     <span
-                      class="chart-dot chart-dot--expanded"
+                      class="absolute w-[15px] h-[15px] rounded-full bg-bg-surface border-[3px] border-white/80 -translate-x-1/2 -translate-y-1/2 pointer-events-auto transition-[transform,box-shadow,border-color,background] duration-[0.12s] cursor-pointer hover:scale-[1.35] hover:border-white hover:bg-white/15 hover:shadow-[0_0_6px_rgba(255,255,255,0.35)]"
                       style="left:{pt.x / SVG_W * 100}%; top:{pt.y / BAR_H_EXPAND * 100}%"
                       on:mouseenter={(e) => {
                         let text = shortDate(bar.date);
@@ -376,14 +374,12 @@
     <h2>{$tr("stats.title")}</h2>
     <div class="flex items-center gap-2 ml-auto">
       <button
-        class="stats-overlay-btn"
-        class:active={showValue}
+        class="text-[0.7rem] py-1 px-[0.6rem] rounded border cursor-pointer transition-[color,border-color,background] duration-150 whitespace-nowrap {showValue ? 'bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] border-accent text-accent font-semibold' : 'border-border bg-bg-raised text-text-secondary hover:text-text-primary hover:border-border-strong'}"
         on:click={() => { showValue = !showValue; }}
         title="Toggle absolute value line on charts"
       >Value</button>
       <button
-        class="stats-overlay-btn"
-        class:active={showChange}
+        class="text-[0.7rem] py-1 px-[0.6rem] rounded border cursor-pointer transition-[color,border-color,background] duration-150 whitespace-nowrap {showChange ? 'bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] border-accent text-accent font-semibold' : 'border-border bg-bg-raised text-text-secondary hover:text-text-primary hover:border-border-strong'}"
         on:click={() => { showChange = !showChange; }}
         title="Toggle daily change bars on charts"
       >Change</button>
@@ -426,7 +422,7 @@
               {@const icon = ICON_MAP[key]}
               <div class="flex flex-col gap-0.5 rounded-md border border-border bg-bg-surface px-4 py-3">
                 <span class="flex items-center gap-1 text-[0.7rem] uppercase tracking-wide text-text-muted">
-                  {#if icon}<img src={icon} alt="" class="stats-icon" />{/if}
+                  {#if icon}<img src={icon} alt="" class="w-5 h-5 object-contain align-middle opacity-85" />{/if}
                   {$tr(labelKey)}
                 </span>
                 <span class="my-1.5 text-2xl font-bold leading-none tracking-tight text-text-primary">
@@ -448,14 +444,14 @@
             {#each CHART_SECTIONS as { key, labelKey }}
               {@const cd = chartDataMap[key]}
               {@const icon = ICON_MAP[key]}
-              <div class="stats-chart-block group/chart">
+              <div class="relative flex flex-col min-w-0 h-[240px] overflow-hidden bg-bg-surface border border-border rounded-[6px] py-[6px] px-[13px] pb-2 group/chart">
                 <div class="flex items-center justify-between mb-1">
                   <span class="flex items-center gap-1.5 text-[0.85rem] text-text-secondary">
-                    {#if icon}<img src={icon} alt="" class="stats-icon" />{/if}
+                    {#if icon}<img src={icon} alt="" class="w-5 h-5 object-contain align-middle opacity-85" />{/if}
                     {$tr(labelKey)}
                   </span>
                   <button
-                    class="chart-expand-btn group-hover/chart:opacity-70"
+                    class="bg-transparent border-0 text-text-muted cursor-pointer text-[1.15rem] py-1 px-2 leading-none opacity-50 transition-[opacity,color] duration-150 rounded hover:!opacity-100 hover:text-accent hover:bg-bg-raised group-hover/chart:opacity-70"
                     title="Expand chart"
                     on:click={() => { expandedKey = key; tooltip = null; }}
                     aria-label="Expand {$tr(labelKey)} chart"
@@ -463,15 +459,15 @@
                 </div>
                 <div class="flex-1 min-h-0 flex">
                   {#if cd.yTicks.length > 0}
-                    <div class="chart-y-axis chart-y-axis--compact">
+                    <div class="relative w-[55px] shrink-0">
                       {#each cd.yTicks as tick}
-                        <span class="chart-y-label" style="top:{tick.yFrac * 100}%">{tick.label}</span>
+                        <span class="absolute right-1 text-[0.7rem] text-text-muted -translate-y-1/2 whitespace-nowrap" style="top:{tick.yFrac * 100}%">{tick.label}</span>
                       {/each}
                     </div>
                   {/if}
                   <div class="flex-1 min-h-0 min-w-0 relative">
                     <svg
-                      class="stats-chart-svg stats-chart-svg--compact"
+                      class="w-full h-full cursor-default"
                       viewBox="0 0 {SVG_W} {BAR_H}"
                       preserveAspectRatio="none"
                       aria-hidden="true"
@@ -494,7 +490,7 @@
                           <rect
                             x={bar.x} y={bar.y}
                             width={cd.bw} height={bar.h}
-                            class={bar.positive ? "bar-pos" : "bar-neg"}
+                            class={bar.positive ? "fill-[var(--success)] opacity-75" : "fill-[var(--danger)] opacity-75"}
                             rx="1"
                           />
                         {/each}
@@ -520,7 +516,7 @@
                           {#if bar && cd.realData[pt.idx] && bar.value !== 0}
                             <!-- svelte-ignore a11y-no-static-element-interactions -->
                             <span
-                              class="chart-dot"
+                              class="absolute w-3 h-3 rounded-full bg-bg-surface border-2 border-white/80 -translate-x-1/2 -translate-y-1/2 pointer-events-auto transition-[transform,box-shadow,border-color,background] duration-[0.12s] cursor-pointer hover:scale-[1.35] hover:border-white hover:bg-white/15 hover:shadow-[0_0_6px_rgba(255,255,255,0.35)]"
                               style="left:{pt.x / SVG_W * 100}%; top:{pt.y / BAR_H * 100}%"
                               on:mouseenter={(e) => onDotEnter(e, key, pt.idx, absVal)}
                               on:mouseleave={() => { tooltip = null; }}
@@ -554,55 +550,3 @@
   {/if}
 </section>
 
-<style>
-  .stats-icon { width: 20px; height: 20px; object-fit: contain; vertical-align: middle; opacity: 0.85; }
-  .stats-overlay-btn {
-    font-size: 0.7rem; padding: 0.25rem 0.6rem; border-radius: 4px;
-    border: 1px solid var(--border); background: var(--bg-raised); color: var(--text-secondary);
-    cursor: pointer; transition: color 0.15s, border-color 0.15s, background 0.15s; white-space: nowrap;
-  }
-  .stats-overlay-btn:hover { color: var(--text-primary); border-color: var(--border-strong); }
-  .stats-overlay-btn.active {
-    background: color-mix(in srgb, var(--accent) 18%, transparent);
-    border-color: var(--accent); color: var(--accent); font-weight: 600;
-  }
-  .stats-chart-block {
-    position: relative; display: flex; flex-direction: column; min-width: 0; height: 240px;
-    overflow: hidden; background: var(--bg-surface); border: 1px solid var(--border);
-    border-radius: 6px; padding: 6px 13px 8px;
-  }
-  .chart-expand-btn {
-    background: none; border: none; color: var(--text-muted); cursor: pointer;
-    font-size: 1.15rem; padding: 4px 8px; line-height: 1; opacity: 0.5;
-    transition: opacity 0.15s, color 0.15s; border-radius: 4px;
-  }
-  .chart-expand-btn:hover { opacity: 1 !important; color: var(--accent); background: var(--bg-raised); }
-  .chart-y-axis { position: relative; width: 60px; flex-shrink: 0; }
-  .chart-y-axis--compact { width: 55px; flex-shrink: 0; position: relative; }
-  .chart-y-axis--compact .chart-y-label { font-size: 0.7rem; right: 4px; }
-  .chart-y-label { position: absolute; right: 6px; font-size: 0.72rem; color: var(--text-muted); transform: translateY(-50%); white-space: nowrap; }
-  .stats-chart-svg { width: 100%; height: 100%; }
-  .stats-chart-svg--compact { cursor: default; }
-  .chart-dot {
-    position: absolute; width: 12px; height: 12px; border-radius: 50%;
-    background: var(--bg-surface); border: 2px solid rgba(255,255,255,0.8);
-    transform: translate(-50%, -50%); pointer-events: auto;
-    transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s, background 0.12s; cursor: pointer;
-  }
-  .chart-dot:hover {
-    transform: translate(-50%, -50%) scale(1.35); border-color: #fff;
-    background: rgba(255,255,255,0.15); box-shadow: 0 0 6px rgba(255,255,255,0.35);
-  }
-  .chart-dot--expanded { width: 15px; height: 15px; border-width: 3px; }
-  .stats-chart-svg .bar-pos { fill: var(--success); opacity: 0.75; }
-  .stats-chart-svg .bar-neg { fill: var(--danger); opacity: 0.75; }
-  .chart-modal-nav {
-    position: absolute; top: 50%; transform: translateY(-50%); z-index: 10;
-    background: var(--bg-raised); border: 1px solid var(--border); border-radius: 6px;
-    color: var(--text-muted); font-size: 1.6rem; padding: 4px 10px; cursor: pointer;
-    transition: color 0.15s, background 0.15s;
-  }
-  .chart-modal-nav:hover { color: var(--text-primary); background: var(--bg-surface); }
-  .chart-modal-nav--prev { left: 8px; }
-  .chart-modal-nav--next { right: 8px; }
-</style>

@@ -149,8 +149,8 @@
       <div class="flex gap-1 flex-wrap">
         {#each TYPES as typ}
           <button
-            class="filter-tab"
-            class:active={typeFilter === typ}
+            class="py-[0.3rem] px-[0.6rem] border border-border rounded-[0.375rem] bg-bg-surface font-display text-[0.75rem] text-text-secondary cursor-pointer transition-all duration-150 hover:border-border-strong hover:bg-bg-hover data-[active]:border-accent data-[active]:bg-accent-glow data-[active]:text-accent"
+            data-active={typeFilter === typ || undefined}
             onclick={() => (typeFilter = typ)}
           >
             {typ === "all" ? "All" : typ}
@@ -159,13 +159,13 @@
       </div>
 
       <div class="ml-auto flex items-center gap-[0.375rem]">
-        <select class="sort-select" bind:value={sortBy}>
+        <select class="py-[0.35rem] px-[0.6rem] border border-border rounded-[0.375rem] bg-bg-surface text-text-primary font-display text-[0.75rem] cursor-pointer outline-none focus:border-accent" bind:value={sortBy}>
           <option value="name">Name</option>
           <option value="disposition">Disposition</option>
           <option value="rerolls">Rerolls</option>
           <option value="grade">Grade</option>
         </select>
-        <button class="sort-dir-btn" onclick={toggleSortDir} title="Toggle sort direction">
+        <button class="py-[0.35rem] px-2 border border-border rounded-[0.375rem] bg-bg-surface text-text-secondary text-[0.85rem] cursor-pointer transition-all duration-150 hover:border-border-strong hover:text-text-primary" onclick={toggleSortDir} title="Toggle sort direction">
           {sortDir === "asc" ? "↑" : "↓"}
         </button>
       </div>
@@ -183,42 +183,42 @@
       <div class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5 justify-items-center">
         {#each filteredRivens as riven (riven.itemId)}
           <button
-            class="riven-card"
+            class="relative block mx-auto p-0 border-0 outline-none bg-transparent appearance-none cursor-pointer w-[min(100%,18rem)] max-[700px]:w-[min(100%,16rem)] aspect-[316/400] overflow-visible transition-transform duration-[0.18s] ease hover:-translate-y-1 hover:z-[2] focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
             onclick={() => (selectedRiven = riven)}
           >
-            <div class="riven-card-inner">
-              <span class="riven-grade-corner" style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span>
+            <div class="relative w-full h-full bg-[url('/RivenTemplate.png')] bg-center bg-[length:100%_100%] bg-no-repeat">
+              <span class="absolute top-[10%] right-[15%] z-[2] font-display font-extrabold text-[1rem] leading-none [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,0.9)]" style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span>
 
-              <div class="riven-card-top">
-                <span class="riven-weapon">{riven.weaponName}</span>
+              <div class="absolute z-[1] left-[13%] right-[11%] top-[51%] text-center">
+                <span class="font-display text-[1.3rem] max-[700px]:text-[1.25rem] font-bold text-white leading-[1.1] [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,1),0_2px_12px_rgba(0,0,0,0.95),0_0_20px_rgba(80,40,160,0.3)]">{riven.weaponName}</span>
                 {#if rivenSuffix(riven)}
-                  <span class="riven-suffix"> {rivenSuffix(riven)}</span>
+                  <span class="font-display text-[0.85rem] font-semibold text-[rgba(200,180,255,0.9)] leading-[1.1] [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,0.95)]"> {rivenSuffix(riven)}</span>
                 {/if}
               </div>
 
-              <div class="riven-card-stats">
+              <div class="absolute z-[1] left-[13%] right-[11%] top-[59%] flex flex-col gap-0 items-center text-center">
                 {#each riven.stats as stat}
-                  <div class="riven-stat-row" class:stat-positive={stat.positive} class:stat-negative={!stat.positive}>
-                    <span class="stat-value">
+                  <div class="flex items-baseline justify-center gap-[0.25em] w-full text-[1.05rem] max-[700px]:text-[0.9rem] font-display leading-[1.05] whitespace-nowrap overflow-hidden text-ellipsis [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_6px_rgba(0,0,0,1),0_2px_8px_rgba(0,0,0,0.95)]">
+                    <span class="font-bold shrink-0 {stat.positive ? 'text-[#8ee4a8]' : 'text-[#ff7a7a]'}">
                       {stat.positive ? "+" : "-"}{stat.multiplier ? `x${stat.displayValue}` : `${stat.displayValue}%`}
                     </span>
                     {#if elementIcon(stat.name)}
-                      <img class="stat-element-icon" src={elementIcon(stat.name)} alt="" />
+                      <img class="w-4 h-4 align-middle shrink-0 self-center [filter:drop-shadow(0_1px_3px_rgba(0,0,0,0.8))]" src={elementIcon(stat.name)} alt="" />
                     {/if}
-                    <span class="stat-name">{stat.name}</span>
+                    <span class="overflow-hidden text-ellipsis text-[rgba(255,255,255,0.88)] font-medium min-w-0">{stat.name}</span>
                   </div>
                 {/each}
               </div>
 
-              <div class="riven-rank-pips">
+              <div class="absolute z-[1] left-[18%] right-[18%] top-[94%] flex justify-center gap-1">
                 {#each Array(riven.maxRank) as _, i}
-                  <span class="rank-pip" class:rank-pip-active={i < riven.currentRank}></span>
+                  <span class="w-2 h-2 rounded-[1px] border {i < riven.currentRank ? 'bg-[#5ec8ff] border-[#7dd8ff] shadow-[0_0_4px_rgba(94,200,255,0.9),0_0_8px_rgba(94,200,255,0.5),0_0_12px_rgba(94,200,255,0.25)]' : 'bg-[rgba(40,35,65,0.6)] border-[rgba(80,70,120,0.5)]'}"></span>
                 {/each}
               </div>
 
-              <div class="riven-card-bottom">
-                <span class="riven-mr">MR {riven.masteryReq}</span>
-                <span class="riven-rerolls">⟳ {riven.rerolls}</span>
+              <div class="absolute z-[1] left-[22%] right-[22%] top-[83.5%] flex items-center justify-between text-[0.75rem] font-display leading-none [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_6px_rgba(0,0,0,1)]">
+                <span class="text-[rgba(255,255,255,0.85)] font-bold">MR {riven.masteryReq}</span>
+                <span class="text-[#f06dff] font-bold">⟳ {riven.rerolls}</span>
               </div>
             </div>
           </button>
@@ -240,15 +240,15 @@
         <div class="mb-5">
           <div class="flex flex-col gap-2">
             {#each veiledRivens as entry}
-              <div class="veiled-entry">
-                <div class="veiled-entry-type">{entry.label} Riven Mod</div>
+              <div class="flex items-center justify-between py-[0.65rem] px-4 bg-bg-surface border border-border rounded-[0.5rem] transition-[border-color] duration-150 hover:border-border-strong">
+                <div class="font-display text-[0.9rem] font-semibold text-text-primary min-w-[10rem] shrink-0">{entry.label} Riven Mod</div>
                 {#if entry.challengeDesc}
                   <div class="flex items-center gap-3 flex-1 min-w-0">
                     <span class="text-[0.8rem] text-text-secondary">{entry.challengeDesc}</span>
                     {#if entry.challengeProgress != null && entry.challengeRequired != null}
-                      <div class="veiled-progress-bar">
+                      <div class="w-20 h-[6px] bg-white/[0.08] rounded-[3px] overflow-hidden shrink-0">
                         <div
-                          class="veiled-progress-fill"
+                          class="h-full bg-accent rounded-[3px] transition-[width] duration-300"
                           style="width: {Math.min(100, (entry.challengeProgress / Math.max(entry.challengeRequired, 1)) * 100)}%"
                         ></div>
                       </div>
@@ -273,7 +273,7 @@
           <h3 class="font-display text-[0.9rem] font-semibold text-text-secondary m-0 mb-2">Unseen (???) rivens</h3>
           <div class="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-3">
             {#each veiledUnseen as group}
-              <div class="unseen-card">
+              <div class="flex flex-col items-center text-center py-4 px-3 bg-[linear-gradient(135deg,rgba(60,45,90,0.45),rgba(40,30,70,0.5))] border border-[rgba(100,70,160,0.3)] rounded-[0.5rem] gap-2 transition-[border-color] duration-150 hover:border-[rgba(100,70,160,0.55)]">
                 <div class="font-display text-[0.95rem] font-bold text-text-primary">{group.label}</div>
                 <div class="text-[0.72rem] text-text-muted leading-[1.3]">Equip these rivens to reveal their challenge</div>
                 <div class="flex items-center gap-2 mt-auto">
@@ -294,108 +294,3 @@
 {#if selectedRiven}
   <RivenDetailModal riven={selectedRiven} onclose={() => (selectedRiven = null)} />
 {/if}
-
-<style>
-  .filter-tab {
-    padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: 0.375rem;
-    background: var(--bg-surface); font-family: var(--font-display); font-size: 0.75rem;
-    color: var(--text-secondary); cursor: pointer; transition: all 0.15s;
-  }
-  .filter-tab:hover { border-color: var(--border-strong); background: var(--bg-hover); }
-  .filter-tab.active { border-color: var(--accent); background: var(--accent-glow); color: var(--accent); }
-
-  .sort-select {
-    padding: 0.35rem 0.6rem; border: 1px solid var(--border); border-radius: 0.375rem;
-    background: var(--bg-surface); color: var(--text-primary); font-family: var(--font-display);
-    font-size: 0.75rem; cursor: pointer; outline: none;
-  }
-  .sort-select:focus { border-color: var(--accent); }
-  .sort-dir-btn {
-    padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: 0.375rem;
-    background: var(--bg-surface); color: var(--text-secondary); font-size: 0.85rem;
-    cursor: pointer; transition: all 0.15s;
-  }
-  .sort-dir-btn:hover { border-color: var(--border-strong); color: var(--text-primary); }
-
-  /* ── Riven card ── */
-  .riven-card {
-    position: relative; display: block; margin: 0 auto; padding: 0; border: none;
-    outline: none; background: transparent; appearance: none; -webkit-appearance: none;
-    cursor: pointer; width: min(100%, 18rem); aspect-ratio: 316 / 400;
-    overflow: visible; transition: transform 0.18s ease;
-  }
-  .riven-card:hover { transform: translateY(-4px); z-index: 2; }
-  .riven-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .riven-card-inner { position: relative; width: 100%; height: 100%; background: url("/RivenTemplate.png") center / 100% 100% no-repeat; }
-  .riven-grade-corner {
-    position: absolute; top: 10%; right: 15%; z-index: 2;
-    font-family: var(--font-display); font-weight: 800; font-size: 1rem; line-height: 1;
-    text-shadow: 0 0 4px rgba(0, 0, 0, 1), 0 0 8px rgba(0, 0, 0, 0.9);
-  }
-  .riven-card-top, .riven-card-stats, .riven-card-bottom { position: absolute; z-index: 1; left: 13%; right: 11%; }
-  .riven-card-top { top: 51%; text-align: center; }
-  .riven-weapon {
-    font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: #fff; line-height: 1.1;
-    text-shadow: 0 0 4px rgba(0, 0, 0, 1), 0 0 8px rgba(0, 0, 0, 1), 0 2px 12px rgba(0, 0, 0, 0.95), 0 0 20px rgba(80, 40, 160, 0.3);
-  }
-  .riven-suffix {
-    font-family: var(--font-display); font-size: 0.85rem; font-weight: 600;
-    color: rgba(200, 180, 255, 0.9); line-height: 1.1;
-    text-shadow: 0 0 4px rgba(0, 0, 0, 1), 0 0 8px rgba(0, 0, 0, 0.95);
-  }
-  .riven-card-stats { top: 59%; display: flex; flex-direction: column; gap: 0; align-items: center; text-align: center; }
-  .riven-stat-row {
-    display: flex; align-items: baseline; justify-content: center; gap: 0.25em; width: 100%;
-    font-size: 1.05rem; font-family: var(--font-display); line-height: 1.05;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    text-shadow: 0 0 3px rgba(0, 0, 0, 1), 0 0 6px rgba(0, 0, 0, 1), 0 2px 8px rgba(0, 0, 0, 0.95);
-  }
-  .stat-value { font-weight: 700; flex-shrink: 0; }
-  .stat-element-icon { width: 1rem; height: 1rem; vertical-align: middle; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.8)); flex-shrink: 0; align-self: center; }
-  .stat-name { overflow: hidden; text-overflow: ellipsis; color: rgba(255, 255, 255, 0.88); font-weight: 500; min-width: 0; }
-  .stat-positive .stat-value { color: #8ee4a8; }
-  .stat-negative .stat-value { color: #ff7a7a; }
-  .riven-rank-pips { position: absolute; z-index: 1; left: 18%; right: 18%; top: 94%; display: flex; justify-content: center; gap: 4px; }
-  .rank-pip { width: 8px; height: 8px; border-radius: 1px; background: rgba(40, 35, 65, 0.6); border: 1px solid rgba(80, 70, 120, 0.5); }
-  .rank-pip-active {
-    background: #5ec8ff; border-color: #7dd8ff;
-    box-shadow: 0 0 4px rgba(94, 200, 255, 0.9), 0 0 8px rgba(94, 200, 255, 0.5), 0 0 12px rgba(94, 200, 255, 0.25);
-  }
-  .riven-card-bottom {
-    left: 22%; right: 22%; top: 83.5%; bottom: auto;
-    display: flex; align-items: center; justify-content: space-between;
-    font-size: 0.75rem; font-family: var(--font-display); line-height: 1;
-    text-shadow: 0 0 3px rgba(0, 0, 0, 1), 0 0 6px rgba(0, 0, 0, 1);
-  }
-  .riven-mr { color: rgba(255, 255, 255, 0.85); font-weight: 700; }
-  .riven-rerolls { color: #f06dff; font-weight: 700; }
-
-  @media (max-width: 700px) {
-    .riven-card { width: min(100%, 16rem); }
-    .riven-weapon { font-size: 1.25rem; }
-    .riven-stat-row { font-size: 0.9rem; }
-  }
-
-  /* ── Veiled ── */
-  .veiled-entry {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0.65rem 1rem; background: var(--bg-surface); border: 1px solid var(--border);
-    border-radius: 0.5rem; transition: border-color 0.15s;
-  }
-  .veiled-entry:hover { border-color: var(--border-strong); }
-  .veiled-entry-type {
-    font-family: var(--font-display); font-size: 0.9rem; font-weight: 600;
-    color: var(--text-primary); min-width: 10rem; flex-shrink: 0;
-  }
-  .veiled-progress-bar { width: 80px; height: 6px; background: rgba(255, 255, 255, 0.08); border-radius: 3px; overflow: hidden; flex-shrink: 0; }
-  .veiled-progress-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.3s ease; }
-
-  /* ── Unseen ── */
-  .unseen-card {
-    display: flex; flex-direction: column; align-items: center; text-align: center;
-    padding: 1rem 0.75rem; background: linear-gradient(135deg, rgba(60, 45, 90, 0.45), rgba(40, 30, 70, 0.5));
-    border: 1px solid rgba(100, 70, 160, 0.3); border-radius: 0.5rem; gap: 0.5rem;
-    transition: border-color 0.15s;
-  }
-  .unseen-card:hover { border-color: rgba(100, 70, 160, 0.55); }
-</style>

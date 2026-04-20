@@ -349,9 +349,9 @@
     <div class="flex items-center gap-3">
       <h2>World</h2>
       {#if baroActive}
-        <span class="world-baro-pill">Baro leaves in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
+        <span class="rounded-[0.3rem] border border-[rgba(251,191,36,0.3)] bg-[rgba(251,191,36,0.1)] px-2 py-[0.15rem] text-[0.72rem] font-semibold whitespace-nowrap text-warning">Baro leaves in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
       {:else if baroAct}
-        <span class="world-baro-pill">Baro arrives in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
+        <span class="rounded-[0.3rem] border border-[rgba(251,191,36,0.3)] bg-[rgba(251,191,36,0.1)] px-2 py-[0.15rem] text-[0.72rem] font-semibold whitespace-nowrap text-warning">Baro arrives in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
       {/if}
     </div>
   </div>
@@ -361,7 +361,7 @@
   {:else if !wd}
     <div class="empty-state"><p>World data unavailable</p></div>
   {:else}
-    <div class="world-layout">
+    <div class="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-x-6 max-[1100px]:grid-cols-1">
       <!-- LEFT COLUMN -->
       <div class="flex flex-col">
 
@@ -369,24 +369,24 @@
         <div class="world-section">
           <CollapsibleSection title="Planet Cycles" collapsed={collapsed.cycles} onToggle={() => toggleSection('cycles')}>
           {#if cycleRows.length > 0}
-            <div class="world-cycles-grid">
+            <div class="grid grid-cols-2 gap-x-5">
               {#each cycleRows as row}
                 {@const alertKey = row.key}
                 {@const hasCycleAlert = alertKey === 'earth' || alertKey === 'cetus' || alertKey === 'vallis' || alertKey === 'cambion' || alertKey === 'duviri'}
                 {@const alertOn = hasCycleAlert && !!$overlaySettings.cycleAlerts?.[alertKey]}
-                <div class="world-cycle-cell">
-                  <div class="world-cycle-info">
-                    <img class="world-cycle-icon" src={row.src} alt="" />
-                    <span class="world-cycle-name">{row.key.charAt(0).toUpperCase() + row.key.slice(1)}</span>
-                    <span class="world-cycle-state world-state-{row.stateClass}">{row.stateLabel}</span>
+                <div class="flex items-center justify-between py-[0.38rem] border-b border-dashed border-white/[0.06]">
+                  <div class="flex items-center gap-[0.35rem] min-w-0">
+                    <img class="h-[33px] w-[33px] shrink-0 rounded-full object-cover" src={row.src} alt="" />
+                    <span class="text-[0.88rem] font-semibold whitespace-nowrap text-text-primary">{row.key.charAt(0).toUpperCase() + row.key.slice(1)}</span>
+                    <span class="world-state-{row.stateClass} rounded-[0.2rem] px-[0.35rem] py-[0.08rem] text-[0.72rem] font-bold whitespace-nowrap">{row.stateLabel}</span>
                   </div>
-                  <span class="world-cycle-right">
-                    <span class="world-cycle-next">{row.nextLabel} in</span>
-                    <span class="world-cycle-timer" class:world-timer-urgent={row.urgent}>{row.time}</span>
+                  <span class="flex shrink-0 items-center gap-[0.3rem]">
+                    <span class="text-[0.78rem] whitespace-nowrap text-text-secondary">{row.nextLabel} in</span>
+                    <span class="font-display text-[0.85rem] tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={row.urgent}>{row.time}</span>
                     {#if hasCycleAlert}
                     <button
-                      class="cycle-alert-btn"
-                      class:active={alertOn}
+                      class="inline-flex shrink-0 items-center justify-center w-5 h-5 rounded border border-border bg-transparent p-0 text-text-muted opacity-35 transition-[opacity,background,color,border-color] duration-150 cursor-pointer hover:opacity-80 hover:bg-white/[0.06] data-[active]:opacity-100 data-[active]:text-warning data-[active]:border-[rgba(251,191,36,0.4)] data-[active]:bg-[rgba(251,191,36,0.1)]"
+                      data-active={alertOn || undefined}
                       title={alertOn ? `Disable ${row.key} notification` : `Enable ${row.key} notification`}
                       on:click={() => toggleCycleAlert(alertKey)}
                       aria-pressed={alertOn}
@@ -407,12 +407,12 @@
                 </div>
               {/each}
             </div>
-            <div class="world-cycle-notify">
+            <div class="mt-[0.15rem] flex items-center gap-2 pt-[0.35rem] text-[0.78rem] text-text-secondary">
               <span>Notify before cycle change</span>
-              <span class="world-cycle-notify-input">
+              <span class="flex items-center gap-1">
                 <input
                   type="number"
-                  class="cycle-lead-input"
+                  class="cycle-lead-input w-[2.6rem] rounded border border-border bg-[rgba(0,0,0,0.25)] px-[0.3rem] py-[0.15rem] text-center text-[0.78rem] text-text-primary outline-none"
                   min="0"
                   max="120"
                   value={$overlaySettings.cycleAlertMinutesBefore ?? 3}
@@ -430,16 +430,16 @@
         <!-- RESET TIMERS -->
         <div class="world-section">
           <CollapsibleSection title="Reset Timers" collapsed={collapsed.timers} onToggle={() => toggleSection('timers')}>
-          <div class="world-row"><span class="world-row-label">Daily sortie</span><span class="world-row-value" class:world-timer-urgent={resetUrgency.sortie}>{times.sortie}</span></div>
-          <div class="world-row"><span class="world-row-label">Daily reset</span><span class="world-row-value" class:world-timer-urgent={resetUrgency.daily}>{times.daily}</span></div>
-          <div class="world-row"><span class="world-row-label">Weekly resets</span><span class="world-row-value" class:world-timer-urgent={resetUrgency.weekly}>{times.weekly}</span></div>
-          <div class="world-row"><span class="world-row-label">Steel Path honours</span><span class="world-row-value" class:world-timer-urgent={resetUrgency.steelPath}>{times.steelPath}</span></div>
+          <div class="world-row"><span class="text-[0.88rem] text-text-secondary">Daily sortie</span><span class="font-display text-[0.88rem] tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={resetUrgency.sortie}>{times.sortie}</span></div>
+          <div class="world-row"><span class="text-[0.88rem] text-text-secondary">Daily reset</span><span class="font-display text-[0.88rem] tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={resetUrgency.daily}>{times.daily}</span></div>
+          <div class="world-row"><span class="text-[0.88rem] text-text-secondary">Weekly resets</span><span class="font-display text-[0.88rem] tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={resetUrgency.weekly}>{times.weekly}</span></div>
+          <div class="world-row"><span class="text-[0.88rem] text-text-secondary">Steel Path honours</span><span class="font-display text-[0.88rem] tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={resetUrgency.steelPath}>{times.steelPath}</span></div>
           </CollapsibleSection>
         </div>
 
         <!-- PRIME RESURGENCE -->
         <div class="world-section">
-          <div class="world-section-head">
+          <div class="flex items-center justify-between gap-2 mb-[0.55rem]">
             <button class="world-section-toggle" on:click={() => toggleSection('resurgence')} aria-expanded={!collapsed.resurgence}>
               <span class="world-toggle-icon" class:collapsed={collapsed.resurgence}>&#x25BE;</span>
               <h3>Prime Resurgence</h3>
@@ -450,13 +450,13 @@
             Rotation ends in <strong>{times.varzia}</strong>
           </div>
           {#if featuredPrimes.length > 0}
-            <div class="world-prime-row">
+            <div class="flex gap-[0.6rem] overflow-x-auto overflow-y-visible px-1 py-[0.3rem]">
               {#each featuredPrimes as p}
-                <button class="world-prime-item" class:owned={p.owned} on:click={() => openItemDetail(p.uniqueName)} title="View {p.name} details">
-                  <div class="world-prime-icon">
-                    <img src={p.imageUrl} alt={p.name} loading="lazy" />
+                <button class="group flex shrink-0 flex-col items-center gap-[0.2rem] border-0 bg-transparent p-0 text-inherit cursor-pointer transition-transform duration-100 hover:scale-105 hover:z-[1]" on:click={() => openItemDetail(p.uniqueName)} title="View {p.name} details">
+                  <div class="h-[100px] w-[100px] overflow-hidden rounded-[0.35rem] border-2 border-border bg-[rgba(0,0,0,0.3)] {p.owned ? 'border-[rgba(74,222,128,0.5)] shadow-[0_0_6px_rgba(74,222,128,0.15)]' : ''}">
+                    <img class="h-full w-full object-contain" src={p.imageUrl} alt={p.name} loading="lazy" />
                   </div>
-                  <span class="world-prime-name">{p.name}</span>
+                  <span class="max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap text-center text-[0.68rem] text-text-secondary">{p.name}</span>
                 </button>
               {/each}
             </div>
@@ -469,17 +469,17 @@
         <!-- THE CIRCUIT -->
         <div class="world-section">
           <CollapsibleSection title="The Circuit" collapsed={collapsed.circuit} onToggle={() => toggleSection('circuit')}>
-          {#each [{ label: 'Normal rotation', items: circuitNormalItems, cls: '' }, { label: 'Steel Path rotation', items: circuitHardItems, cls: ' world-circuit-label-steel' }] as rot}
-          <div class="world-circuit-label{rot.cls}">{rot.label}</div>
-          <div class="world-circuit-icons">
+          {#each [{ label: 'Normal rotation', items: circuitNormalItems, isSteelPath: false }, { label: 'Steel Path rotation', items: circuitHardItems, isSteelPath: true }] as rot}
+          <div class="mb-[0.3rem] text-[0.7rem] font-bold uppercase tracking-[0.06em] {rot.isSteelPath ? 'text-warning' : 'text-text-secondary'}">{rot.label}</div>
+          <div class="mb-2 flex gap-2 overflow-x-auto overflow-y-visible px-[0.15rem] py-[0.3rem]">
             {#each rot.items as item}
-              <button class="world-circuit-item" class:owned={item.owned} on:click={() => openItemDetail(item.uniqueName)} title="View {item.name} details">
-                <div class="world-circuit-img">
+              <button class="group flex shrink-0 flex-col items-center gap-[0.15rem] border-0 bg-transparent p-0 text-inherit cursor-pointer transition-transform duration-100 hover:scale-[1.08] hover:z-[1]" on:click={() => openItemDetail(item.uniqueName)} title="View {item.name} details">
+                <div class="flex h-20 w-20 items-center justify-center overflow-hidden rounded-[0.3rem] border-[1.5px] border-border bg-[rgba(0,0,0,0.3)] {item.owned ? 'border-[rgba(74,222,128,0.5)] shadow-[0_0_5px_rgba(74,222,128,0.15)]' : ''}">
                   {#if item.imageUrl}
-                    <img src={item.imageUrl} alt={item.name} loading="lazy" />
+                    <img class="h-full w-full object-contain" src={item.imageUrl} alt={item.name} loading="lazy" />
                   {/if}
                 </div>
-                <span class="world-circuit-name">{item.name}</span>
+                <span class="max-w-20 overflow-hidden text-ellipsis whitespace-nowrap text-center text-[0.65rem] text-text-secondary">{item.name}</span>
               </button>
             {:else}
               <span class="text-[0.82rem] text-text-secondary opacity-70">No data</span>
@@ -492,12 +492,12 @@
         <!-- STEEL PATH HONORS -->
         {#if steelPathHonors}
         <div class="world-section">
-          <div class="world-section-head">
+          <div class="flex items-center justify-between gap-2 mb-[0.55rem]">
             <button class="world-section-toggle" on:click={() => toggleSection('steelpath')} aria-expanded={!collapsed.steelpath}>
               <span class="world-toggle-icon" class:collapsed={collapsed.steelpath}>&#x25BE;</span>
               <h3>Steel Path Honors</h3>
             </button>
-            <span class="world-row-value">{times.steelPath}</span>
+            <span class="font-display text-[0.88rem] tracking-[0.02em] whitespace-nowrap text-text-primary">{times.steelPath}</span>
           </div>
           {#if !collapsed.steelpath}
           <div class="flex items-center gap-2 py-[0.35rem]">
@@ -514,41 +514,41 @@
       <div class="flex flex-col">
 
         <!-- VOID FISSURES -->
-        <div class="world-section world-section-no-border">
-          <div class="world-section-head">
+        <div class="border-0 py-[0.85rem]">
+          <div class="flex items-center justify-between gap-2 mb-[0.55rem]">
             <button class="world-section-toggle" on:click={() => toggleSection('fissures')} aria-expanded={!collapsed.fissures}>
               <span class="world-toggle-icon" class:collapsed={collapsed.fissures}>&#x25BE;</span>
               <h3>Void Fissures</h3>
             </button>
-            <div class="world-fissure-tabs">
+            <div class="flex">
               <button
-                class="world-fissure-tab"
-                class:active={$worldFissureMode === 'normal'}
+                class="fissure-tab rounded-l-[0.3rem] data-[active]:bg-accent data-[active]:text-bg-primary data-[active]:border-accent"
+                data-active={$worldFissureMode === 'normal' || undefined}
                 on:click={() => worldFissureMode.set('normal')}
               >Normal</button>
               <button
-                class="world-fissure-tab"
-                class:active={$worldFissureMode === 'steel'}
+                class="fissure-tab rounded-r-[0.3rem] border-l-0 data-[active]:bg-accent data-[active]:text-bg-primary data-[active]:border-accent"
+                data-active={$worldFissureMode === 'steel' || undefined}
                 on:click={() => worldFissureMode.set('steel')}
               >Steel Path</button>
             </div>
           </div>
           {#if !collapsed.fissures}
-          <div class="world-fissure-list">
+          <div class="flex flex-col">
             {#if fissureFlat.length === 0}
               <span class="text-[0.82rem] text-text-secondary opacity-70">No active {$worldFissureMode === 'steel' ? 'Steel Path' : 'Normal'} fissures</span>
             {:else}
               {#each fissureFlat as f}
-                <div class="world-fissure-row">
-                  <span class="world-fissure-badge world-badge-{f.tierCls}">
-                    <img class="world-fissure-badge-icon" src={RELIC_ICON_PATHS[f.tierCls] || RELIC_ICON_PATHS.default} alt="" />
+                <div class="world-row">
+                  <span class="world-badge-{f.tierCls} inline-flex min-w-20 shrink-0 items-center gap-[0.2rem] rounded px-[0.45rem] py-[0.18rem] text-[0.66rem] font-bold uppercase tracking-[0.06em]">
+                    <img class="h-3.5 w-3.5 shrink-0" src={RELIC_ICON_PATHS[f.tierCls] || RELIC_ICON_PATHS.default} alt="" />
                     {f.tier}
                   </span>
-                  <span class="world-fissure-info">
-                    <strong>{f.missionType || 'Mission'}</strong>
-                    <span class="world-fissure-node">{f.node || 'Unknown'}</span>
+                  <span class="min-w-0 flex-1 text-[0.84rem]">
+                    <strong class="text-text-primary">{f.missionType || 'Mission'}</strong>
+                    <span class="ml-[0.35rem] text-[0.78rem] text-text-secondary opacity-75">{f.node || 'Unknown'}</span>
                   </span>
-                  <span class="world-fissure-timer">{f.timeStr}</span>
+                  <span class="shrink-0 font-display text-[0.84rem] tracking-[0.02em] whitespace-nowrap text-text-primary">{f.timeStr}</span>
                 </div>
               {/each}
             {/if}
@@ -557,7 +557,7 @@
         </div>
 
         <!-- FISSURE ALERTS -->
-        <div class="world-section world-section-no-border" style="padding-top: 0;">
+        <div class="py-0">
           <FissureAlerts />
         </div>
 
@@ -567,22 +567,22 @@
           <CollapsibleSection title="Invasions" collapsed={collapsed.invasions} onToggle={() => toggleSection('invasions')}>
           <div class="flex flex-col">
             {#each invasions as inv}
-              <div class="world-invasion-row">
+              <div class="flex flex-col gap-[0.2rem] border-b border-dashed border-white/[0.06] py-[0.35rem] last:border-b-0">
                 <div class="flex items-center gap-[0.35rem]">
                   <span class="text-[1.06rem] font-semibold text-text-primary">{inv.node}</span>
                 </div>
-                <div class="world-invasion-sides">
-                  <span class="world-invasion-faction world-faction-{factionClass(inv.attacker.faction)}">{inv.attacker.faction}</span>
-                  <span class="world-invasion-reward world-invasion-reward-left">{invasionRewardLabel(inv.attacker)}</span>
+                <div class="flex items-center gap-[0.35rem] text-[0.98rem]">
+                  <span class="shrink-0 text-[0.82rem] font-bold uppercase tracking-[0.05em] opacity-90 world-faction-{factionClass(inv.attacker.faction)}">{inv.attacker.faction}</span>
+                  <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-right text-accent">{invasionRewardLabel(inv.attacker)}</span>
                   <span class="text-[0.94rem] font-bold text-text-muted uppercase opacity-45 shrink-0">VS</span>
-                  <span class="world-invasion-reward world-invasion-reward-right">{invasionRewardLabel(inv.defender)}</span>
-                  <span class="world-invasion-faction world-faction-{factionClass(inv.defender.faction)}">{inv.defender.faction}</span>
+                  <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-left text-accent">{invasionRewardLabel(inv.defender)}</span>
+                  <span class="shrink-0 text-[0.82rem] font-bold uppercase tracking-[0.05em] opacity-90 world-faction-{factionClass(inv.defender.faction)}">{inv.defender.faction}</span>
                 </div>
-                <div class="world-invasion-bar">
-                  <div class="world-invasion-fill world-faction-bg-{factionClass(inv.attacker.faction)}" style="width: {Math.max(0, Math.min(100, inv.completion))}%"></div>
-                  <div class="world-invasion-fill world-faction-bg-{factionClass(inv.defender.faction)}" style="width: {Math.max(0, Math.min(100, 100 - inv.completion))}%"></div>
+                <div class="flex h-[3px] overflow-hidden rounded-sm">
+                  <div class="h-full world-faction-bg-{factionClass(inv.attacker.faction)} transition-[width] duration-300" style="width: {Math.max(0, Math.min(100, inv.completion))}%"></div>
+                  <div class="h-full world-faction-bg-{factionClass(inv.defender.faction)} transition-[width] duration-300" style="width: {Math.max(0, Math.min(100, 100 - inv.completion))}%"></div>
                 </div>
-                <span class="world-invasion-pct">
+                <span class="flex items-center gap-[0.3rem] font-display text-[0.86rem] text-text-secondary">
                   <span class="world-faction-{factionClass(inv.attacker.faction)}">{inv.completion.toFixed(1)}%</span>
                   <span class="opacity-40">–</span>
                   <span class="world-faction-{factionClass(inv.defender.faction)}">{(100 - inv.completion).toFixed(1)}%</span>
@@ -610,13 +610,13 @@
 
     <!-- BARO KI'TEER (active — full-width with icon grid) -->
     {#if baroActive && baro?.inventory && baro.inventory.length > 0}
-    <div class="world-section world-baro-fullwidth">
+    <div class="world-section mt-2">
       <CollapsibleSection title="Baro Ki'Teer" collapsed={collapsed.baro} onToggle={() => toggleSection('baro')}>
       <div class="flex items-center justify-between py-[0.35rem] text-[0.82rem] text-text-secondary">
         <span>{baroLocation}</span>
         <span class="text-text-secondary text-[0.78rem]">Leaves in <strong>{times.baro}</strong></span>
       </div>
-      <div class="world-baro-icons">
+      <div class="flex flex-wrap gap-[0.6rem] px-1 py-[0.3rem]">
         {#each baro.inventory as inv}
           {@const dbEntry = $itemDb[inv.uniqueName || '']}
           {@const hasDb = !!dbEntry}
@@ -625,21 +625,26 @@
           {@const wfmIcon = wfmEntry?.icon || wfmEntry?.thumb || null}
           {@const imgUrl = (isMod ? wfmIcon : null) || dbEntry?.imageUrl || (typeof inv.imageOverride === 'string' ? inv.imageOverride : null)}
           {@const owned = baroOwnedSet.has(inv.uniqueName || '')}
-          <button class="world-baro-icon-item" class:world-baro-icon-clickable={hasDb} class:world-baro-icon-owned={owned} class:world-baro-mod-card={isMod} disabled={!hasDb} on:click={() => hasDb && openItemDetail(inv.uniqueName || '')} title="{inv.item || 'Unknown'}{inv.ducats ? ` — ${inv.ducats} duc` : ''}{inv.credits ? ` / ${inv.credits.toLocaleString()} cr` : ''}">
-            <div class="world-baro-icon-img" class:world-baro-mod-frame={isMod}>
+          <button
+            class="flex shrink-0 flex-col items-center gap-[0.2rem] border-0 bg-transparent p-0 text-inherit transition-transform duration-100 disabled:cursor-default disabled:opacity-85 {hasDb ? 'cursor-pointer hover:scale-105 hover:z-[1]' : ''}"
+            disabled={!hasDb}
+            on:click={() => hasDb && openItemDetail(inv.uniqueName || '')}
+            title="{inv.item || 'Unknown'}{inv.ducats ? ` — ${inv.ducats} duc` : ''}{inv.credits ? ` / ${inv.credits.toLocaleString()} cr` : ''}"
+          >
+            <div class="relative flex items-center justify-center overflow-hidden rounded-[0.35rem] border-2 bg-[rgba(0,0,0,0.3)] {isMod ? 'h-[140px] w-[100px] border-0 bg-transparent rounded-[0.3rem]' : 'h-[120px] w-[120px]'} {owned ? 'border-[rgba(34,139,34,0.7)]' : 'border-border'} {isMod && owned ? 'shadow-[0_0_8px_2px_rgba(34,139,34,0.5)]' : ''}">
               {#if imgUrl}
-                <img src={imgUrl} alt={inv.item || ''} loading="lazy" />
+                <img class="h-full w-full object-contain" src={imgUrl} alt={inv.item || ''} loading="lazy" />
               {:else}
-                <span class="world-baro-icon-placeholder">{(inv.item || '?')[0]}</span>
+                <span class="text-[1.8rem] font-bold text-text-secondary opacity-40">{(inv.item || '?')[0]}</span>
               {/if}
               {#if inv.ducats}
-                <span class="world-baro-ducat-badge">{inv.ducats}</span>
+                <span class="absolute top-[3px] left-[3px] rounded bg-[rgba(0,0,0,0.78)] px-[6px] py-[2px] text-[1.1rem] font-bold leading-[1.2] text-accent pointer-events-none">{inv.ducats}</span>
               {/if}
               {#if owned}
-                <span class="world-baro-owned-badge">✓</span>
+                <span class="absolute bottom-[3px] right-[3px] flex h-6 w-6 items-center justify-center rounded-full bg-[rgba(34,139,34,0.85)] text-[1rem] font-bold leading-none text-white pointer-events-none">✓</span>
               {/if}
             </div>
-            <span class="world-baro-icon-name">{inv.item || 'Unknown'}</span>
+            <span class="overflow-hidden text-ellipsis whitespace-nowrap text-center text-[0.65rem] text-text-secondary {isMod ? 'max-w-[100px]' : 'max-w-[120px]'}">{inv.item || 'Unknown'}</span>
           </button>
         {/each}
       </div>
@@ -649,34 +654,34 @@
 
     <!-- BOUNTIES (full-width below grid) -->
     {#if bounties.length > 0}
-    <div class="world-section world-bounties-fullwidth">
+    <div class="world-section mt-2">
       <CollapsibleSection title="Bounties" collapsed={collapsed.bounties} onToggle={() => toggleSection('bounties')}>
-      <div class="world-bounty-groups">
+      <div class="grid grid-cols-2 items-start gap-x-5 gap-y-1">
         {#each bounties as group}
-          <div class="world-bounty-group">
-            <button class="world-bounty-group-toggle" on:click={() => toggleSection(`bounty-${group.syndicateKey}`)} aria-expanded={!collapsed[`bounty-${group.syndicateKey}`]}>
+          <div class="border-b border-border py-1 last:border-b-0">
+            <button class="flex w-full items-center gap-[0.3rem] border-0 bg-transparent py-[0.2rem] text-left text-inherit cursor-pointer" on:click={() => toggleSection(`bounty-${group.syndicateKey}`)} aria-expanded={!collapsed[`bounty-${group.syndicateKey}`]}>
               <span class="world-toggle-icon" class:collapsed={collapsed[`bounty-${group.syndicateKey}`]}>&#x25BE;</span>
-              <span class="world-bounty-syndicate">{group.syndicate}</span>
+              <span class="text-[1.15rem] font-semibold text-text-primary">{group.syndicate}</span>
               {#if bountyTimers[group.syndicateKey]?.timeStr}
-                <span class="world-bounty-timer" class:world-timer-urgent={bountyTimers[group.syndicateKey]?.urgent}>{bountyTimers[group.syndicateKey].timeStr}</span>
+                <span class="font-display text-[0.88rem] tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={bountyTimers[group.syndicateKey]?.urgent}>{bountyTimers[group.syndicateKey].timeStr}</span>
               {/if}
-              <span class="world-bounty-count">{group.jobs.length} bounties</span>
+              <span class="ml-auto text-[0.75rem] text-text-secondary">{group.jobs.length} bounties</span>
             </button>
             {#if !collapsed[`bounty-${group.syndicateKey}`]}
-            <div class="world-bounty-jobs">
+            <div class="flex flex-col pl-4">
               {#each group.jobs as job, ji}
-                <button class="world-bounty-job" on:click={() => toggleSection(`bounty-${group.syndicateKey}-${ji}`)}>
-                  <span class="world-bounty-type">
+                <button class="flex w-full items-center gap-2 border-0 bg-transparent px-0 py-[0.22rem] text-left text-[0.88rem] text-inherit cursor-pointer hover:bg-white/[0.03]" on:click={() => toggleSection(`bounty-${group.syndicateKey}-${ji}`)}>
+                  <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-text-primary">
                     {titleCase(job.type)}
                     {#if job.challengeDesc}
-                      <span class="world-bounty-challenge"> — {job.challengeDesc}</span>
+                      <span class="text-text-secondary text-[0.92em]"> — {job.challengeDesc}</span>
                     {/if}
                   </span>
-                  <span class="world-bounty-levels">{job.enemyLevels[0]}–{job.enemyLevels[1]}</span>
-                  <span class="world-toggle-icon world-bounty-chevron" class:collapsed={!collapsed[`bounty-${group.syndicateKey}-${ji}`]}>&#x25BE;</span>
+                  <span class="shrink-0 font-display whitespace-nowrap text-accent text-[1rem]">{job.enemyLevels[0]}–{job.enemyLevels[1]}</span>
+                  <span class="world-toggle-icon h-4 w-4 shrink-0 text-[0.75rem]" class:collapsed={!collapsed[`bounty-${group.syndicateKey}-${ji}`]}>&#x25BE;</span>
                 </button>
                 {#if collapsed[`bounty-${group.syndicateKey}-${ji}`]}
-                <div class="world-bounty-detail">
+                <div class="mb-[0.2rem] ml-[0.3rem] border-l-2 border-accent py-[0.2rem] pl-[1.2rem]">
                   {#await getBountyRewards(group.syndicateKey, job.enemyLevels, job.standingStages.length, bountyRotation)}
                     <span class="text-[0.7rem] text-text-secondary py-[0.2rem]">Loading rewards…</span>
                   {:then rewards}
@@ -691,17 +696,15 @@
                               {@const rewardIcon = resolveRewardIcon(item.itemName, $itemDb)}
                               <button
                                 type="button"
-                                class="world-bounty-reward-item"
-                                class:reward-rare={item.rarity === 'Rare' || item.rarity === 'Legendary'}
-                                class:world-bounty-reward-clickable={!!rewardUniqueName}
+                                class="flex w-full items-center justify-between gap-[0.3rem] border-0 bg-transparent px-0 py-[0.05rem] text-left text-[0.82rem] text-text-primary appearance-none disabled:text-text-primary disabled:opacity-100 disabled:cursor-default {rewardUniqueName ? 'cursor-pointer rounded-[0.2rem] px-[0.2rem] -mx-[0.2rem] transition-[background] duration-150 hover:bg-white/[0.06]' : ''} {item.rarity === 'Rare' || item.rarity === 'Legendary' ? 'text-accent' : ''}"
                                 disabled={!rewardUniqueName}
                                 on:click={() => rewardUniqueName && openItemDetail(rewardUniqueName, [{location: `${group.syndicate} Bounty (${job.enemyLevels[0]}\u2013${job.enemyLevels[1]}) \u2014 ${sr.label}`, rarity: item.rarity, chance: item.chance / 100}])}
                               >
                                 {#if rewardIcon}
-                                  <img class="world-bounty-reward-icon" src={rewardIcon} alt="" />
+                                  <img class="h-[1.1rem] w-[1.1rem] shrink-0 object-contain" src={rewardIcon} alt="" />
                                 {/if}
-                                <span class="world-bounty-reward-name">{item.itemName}</span>
-                                <span class="world-bounty-reward-chance">{item.chance.toFixed(2)}%</span>
+                                <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{item.itemName}</span>
+                                <span class="ml-2 shrink-0 whitespace-nowrap text-[0.78rem] font-semibold">{item.chance.toFixed(2)}%</span>
                               </button>
                             {/each}
                           </div>
@@ -727,822 +730,79 @@
 </section>
 
 <style>
-  /* ── layout ── */
-  .world-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-    gap: 0 1.5rem;
-  }
+  /* Sections — border-top with :first-child exception */
+  .world-section { padding: 0.85rem 0; border-top: 1px solid var(--border); }
+  .world-section:first-child { border-top: none; }
 
-  /* ── sections ── */
-  .world-section {
-    padding: 0.85rem 0;
-    border-top: 1px solid var(--border);
+  /* Shared row with dashed bottom border + :last-child exception */
+  .world-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.32rem 0; border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
   }
-  .world-section:first-child {
-    border-top: none;
-  }
-  .world-section-no-border {
-    border-top: none;
-  }
+  .world-row:last-child { border-bottom: none; }
+
+  /* Section h3 — :global() for CollapsibleSection child */
   .world-section :global(h3) {
-    margin: 0 0 0.55rem;
-    font-family: var(--font-display);
-    font-size: 0.82rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    margin: 0 0 0.55rem; font-family: var(--font-display); font-size: 0.82rem;
+    font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
     color: var(--accent, #d4a843);
   }
-  .world-section-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    margin-bottom: 0.55rem;
-  }
-  .world-section-head :global(h3) {
-    margin: 0;
-  }
 
-  /* ── section toggle (child component) ── */
+  /* Toggle button — :global() for CollapsibleSection */
   :global(.world-section-toggle) {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    color: inherit;
-    font: inherit;
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    background: none; border: none; padding: 0; cursor: pointer; color: inherit; font: inherit;
   }
-  :global(.world-section-toggle h3) {
-    margin: 0;
-  }
+  :global(.world-section-toggle h3) { margin: 0; }
   :global(.world-toggle-icon) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.1rem;
-    width: 1.4rem;
-    height: 1.4rem;
-    transition: transform 0.15s ease;
-    color: var(--text-secondary);
-    flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; width: 1.4rem; height: 1.4rem;
+    transition: transform 0.15s ease; color: var(--text-secondary); flex-shrink: 0;
   }
-  :global(.world-toggle-icon.collapsed) {
-    transform: rotate(-90deg);
-  }
+  :global(.world-toggle-icon.collapsed) { transform: rotate(-90deg); }
 
-  /* ── common row ── */
-  .world-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.32rem 0;
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
-  }
-  .world-row:last-child {
-    border-bottom: none;
-  }
-  .world-row-label {
-    font-size: 0.88rem;
-    color: var(--text-secondary);
-  }
-  .world-row-value {
-    font-size: 0.88rem;
-    font-family: var(--font-display);
-    color: var(--text-primary);
-    white-space: nowrap;
-    letter-spacing: 0.02em;
-  }
-
-  /* ── prime resurgence ── */
-  .world-baro-pill {
-    font-size: 0.72rem;
-    font-weight: 600;
-    padding: 0.15rem 0.5rem;
-    border-radius: 0.3rem;
-    border: 1px solid rgba(251, 191, 36, 0.3);
-    background: rgba(251, 191, 36, 0.1);
-    color: var(--warning, #fbbf24);
-    white-space: nowrap;
-  }
-  .world-prime-row {
-    display: flex;
-    gap: 0.6rem;
-    overflow-x: auto;
-    overflow-y: visible;
-    padding-top: 0.3rem;
-    padding-bottom: 0.3rem;
-    padding-left: 0.25rem;
-  }
-  .world-prime-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.2rem;
-    flex-shrink: 0;
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    color: inherit;
-    font: inherit;
-    transition: transform 0.1s ease;
-  }
-  .world-prime-item:hover {
-    transform: scale(1.05);
-    z-index: 1;
-  }
-  .world-prime-icon {
-    width: 100px;
-    height: 100px;
-    border-radius: 0.35rem;
-    overflow: hidden;
-    border: 2px solid var(--border);
-    background: var(--bg-secondary, rgba(0, 0, 0, 0.3));
-  }
-  .world-prime-item.owned .world-prime-icon {
-    border-color: rgba(74, 222, 128, 0.5);
-    box-shadow: 0 0 6px rgba(74, 222, 128, 0.15);
-  }
-  .world-prime-icon :global(img) {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-  .world-prime-name {
-    font-size: 0.68rem;
-    color: var(--text-secondary);
-    text-align: center;
-    max-width: 100px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  /* ── planet cycles ── */
-  .world-cycles-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0 1.25rem;
-  }
-  .world-cycle-cell {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.38rem 0;
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
-  }
-  .world-cycle-info {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    min-width: 0;
-  }
-  .world-cycle-icon {
-    width: 33px;
-    height: 33px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0;
-  }
-  .world-cycle-name {
-    font-size: 0.88rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    white-space: nowrap;
-  }
-  .world-cycle-state {
-    font-size: 0.72rem;
-    font-weight: 700;
-    padding: 0.08rem 0.35rem;
-    border-radius: 0.2rem;
-    white-space: nowrap;
-  }
-  .world-cycle-right {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    flex-shrink: 0;
-  }
-  .world-cycle-timer {
-    font-size: 0.85rem;
-    font-family: var(--font-display);
-    color: var(--text-primary);
-    white-space: nowrap;
-    letter-spacing: 0.02em;
-  }
-  .world-cycle-next {
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-    white-space: nowrap;
-  }
-
-  /* cycle state colors */
-  :global(.world-state-day)   { color: #fbbf24; background: rgba(251, 191, 36, 0.1); }
-  :global(.world-state-night) { color: #60a5fa; background: rgba(96, 165, 250, 0.1); }
-  :global(.world-state-warm)  { color: #f97316; background: rgba(249, 115, 22, 0.1); }
-  :global(.world-state-cold)  { color: #38bdf8; background: rgba(56, 189, 248, 0.1); }
-  :global(.world-state-fass)  { color: #f97316; background: rgba(249, 115, 22, 0.1); }
-  :global(.world-state-vome)  { color: #a78bfa; background: rgba(167, 139, 250, 0.1); }
-  :global(.world-state-anger) { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
-  :global(.world-state-joy)   { color: #fbbf24; background: rgba(251, 191, 36, 0.1); }
-  :global(.world-state-envy)  { color: #22c55e; background: rgba(34, 197, 94, 0.1); }
+  /* Cycle state colors — :global() dynamic class */
+  :global(.world-state-day)    { color: #fbbf24; background: rgba(251, 191, 36, 0.1); }
+  :global(.world-state-night)  { color: #60a5fa; background: rgba(96, 165, 250, 0.1); }
+  :global(.world-state-warm)   { color: #f97316; background: rgba(249, 115, 22, 0.1); }
+  :global(.world-state-cold)   { color: #38bdf8; background: rgba(56, 189, 248, 0.1); }
+  :global(.world-state-fass)   { color: #f97316; background: rgba(249, 115, 22, 0.1); }
+  :global(.world-state-vome)   { color: #a78bfa; background: rgba(167, 139, 250, 0.1); }
+  :global(.world-state-anger)  { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+  :global(.world-state-joy)    { color: #fbbf24; background: rgba(251, 191, 36, 0.1); }
+  :global(.world-state-envy)   { color: #22c55e; background: rgba(34, 197, 94, 0.1); }
   :global(.world-state-sorrow) { color: #60a5fa; background: rgba(96, 165, 250, 0.1); }
-  :global(.world-state-fear)  { color: #a78bfa; background: rgba(167, 139, 250, 0.1); }
+  :global(.world-state-fear)   { color: #a78bfa; background: rgba(167, 139, 250, 0.1); }
 
-  /* cycle alert bell */
-  .cycle-alert-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.25rem;
-    height: 1.25rem;
-    border-radius: 0.25rem;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text-muted, var(--text-secondary));
-    cursor: pointer;
-    padding: 0;
-    opacity: 0.35;
-    transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
-    flex-shrink: 0;
-  }
-  .cycle-alert-btn:hover {
-    opacity: 0.8;
-    background: rgba(255, 255, 255, 0.06);
-  }
-  .cycle-alert-btn.active {
-    opacity: 1;
-    color: var(--warning, #fbbf24);
-    border-color: rgba(251, 191, 36, 0.4);
-    background: rgba(251, 191, 36, 0.1);
-  }
-  .world-cycle-notify {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.35rem 0 0;
-    margin-top: 0.15rem;
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-  }
-  .world-cycle-notify-input {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-  }
-  .cycle-lead-input {
-    width: 2.6rem;
-    padding: 0.15rem 0.3rem;
-    border: 1px solid var(--border);
-    border-radius: 0.25rem;
-    background: var(--bg-secondary, rgba(0, 0, 0, 0.25));
-    color: var(--text);
-    font-size: 0.78rem;
-    text-align: center;
-    appearance: textfield;
-    -moz-appearance: textfield;
-  }
-  .cycle-lead-input::-webkit-inner-spin-button,
-  .cycle-lead-input::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-
-  /* ── fissure tabs ── */
-  .world-fissure-tabs {
-    display: flex;
-    gap: 0;
-  }
-  .world-fissure-tab {
-    padding: 0.25rem 0.65rem;
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .world-fissure-tab:first-child {
-    border-radius: 0.3rem 0 0 0.3rem;
-  }
-  .world-fissure-tab:last-child {
-    border-radius: 0 0.3rem 0.3rem 0;
-    border-left: none;
-  }
-  .world-fissure-tab.active {
-    background: var(--accent, #d4a843);
-    color: var(--bg-primary, #0a0e17);
-    border-color: var(--accent, #d4a843);
-  }
-
-  /* ── fissure list ── */
-  .world-fissure-list {
-    display: flex;
-    flex-direction: column;
-  }
-  .world-fissure-row {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0.35rem 0;
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
-  }
-  .world-fissure-row:last-child {
-    border-bottom: none;
-  }
-  .world-fissure-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.2rem;
-    min-width: 5rem;
-    padding: 0.18rem 0.45rem;
-    border-radius: 0.25rem;
-    font-size: 0.66rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    flex-shrink: 0;
-  }
-  .world-fissure-badge-icon {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-  }
+  /* Fissure badge colors — :global() dynamic class */
   :global(.world-badge-lith)    { background: rgba(74, 222, 128, 0.12); color: #4ade80; }
   :global(.world-badge-meso)    { background: rgba(120, 120, 130, 0.18); color: #9a9aa0; }
   :global(.world-badge-neo)     { background: rgba(190, 195, 210, 0.12); color: #c0c5d0; }
   :global(.world-badge-axi)     { background: rgba(251, 191, 36, 0.12); color: #fbbf24; }
   :global(.world-badge-requiem) { background: rgba(239, 68, 68, 0.14); color: #ef4444; }
   :global(.world-badge-omnia)   { background: rgba(45, 212, 191, 0.12); color: #2dd4bf; }
-  .world-fissure-info {
-    flex: 1;
-    min-width: 0;
-    font-size: 0.84rem;
-  }
-  .world-fissure-info :global(strong) {
-    color: var(--text-primary);
-  }
-  .world-fissure-node {
-    color: var(--text-secondary);
-    font-size: 0.78rem;
-    margin-left: 0.35rem;
-    opacity: 0.75;
-  }
-  .world-fissure-timer {
-    font-size: 0.84rem;
-    font-family: var(--font-display);
-    color: var(--text-primary);
-    white-space: nowrap;
-    letter-spacing: 0.02em;
-    flex-shrink: 0;
-  }
 
-  /* ── circuit ── */
-  .world-circuit-label {
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: var(--text-secondary);
-    margin-bottom: 0.3rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  .world-circuit-label-steel {
-    color: var(--warning, #fbbf24);
-  }
-  .world-circuit-icons {
-    display: flex;
-    gap: 0.5rem;
-    overflow-x: auto;
-    overflow-y: visible;
-    padding: 0.3rem 0.15rem 0.25rem;
-    margin-bottom: 0.5rem;
-  }
-  .world-circuit-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.15rem;
-    flex-shrink: 0;
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    color: inherit;
-    font: inherit;
-    transition: transform 0.1s ease;
-  }
-  .world-circuit-item:hover {
-    transform: scale(1.08);
-    z-index: 1;
-  }
-  .world-circuit-img {
-    width: 80px;
-    height: 80px;
-    border-radius: 0.3rem;
-    overflow: hidden;
-    border: 1.5px solid var(--border);
-    background: var(--bg-secondary, rgba(0, 0, 0, 0.3));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .world-circuit-item.owned .world-circuit-img {
-    border-color: rgba(74, 222, 128, 0.5);
-    box-shadow: 0 0 5px rgba(74, 222, 128, 0.15);
-  }
-  .world-circuit-img :global(img) {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-  .world-circuit-name {
-    font-size: 0.65rem;
-    color: var(--text-secondary);
-    text-align: center;
-    max-width: 80px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  /* ── invasions ── */
-  .world-invasion-row {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    padding: 0.35rem 0;
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
-  }
-  .world-invasion-row:last-child {
-    border-bottom: none;
-  }
-  .world-invasion-tag {
-    font-size: 0.62rem;
-    font-weight: 700;
-    padding: 0.06rem 0.3rem;
-    border-radius: 0.2rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  .world-invasion-tag.infested {
-    background: rgba(74, 222, 128, 0.12);
-    color: #4ade80;
-  }
-  .world-invasion-sides {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.98rem;
-  }
-  .world-invasion-faction {
-    font-size: 0.82rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    flex-shrink: 0;
-    opacity: 0.9;
-  }
-  .world-invasion-reward {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--accent, #d4a843);
-  }
-  .world-invasion-reward-left  { text-align: right; }
-  .world-invasion-reward-right { text-align: left; }
-  :global(.world-faction-grineer) { color: #ef5350; }
-  :global(.world-faction-corpus)  { color: #42a5f5; }
-  :global(.world-faction-infested) { color: #66bb6a; }
-  .world-invasion-bar {
-    height: 3px;
-    border-radius: 2px;
-    overflow: hidden;
-    display: flex;
-  }
-  .world-invasion-fill {
-    height: 100%;
-    transition: width 0.3s ease;
-  }
+  /* Faction colors — :global() dynamic class */
+  :global(.world-faction-grineer)    { color: #ef5350; }
+  :global(.world-faction-corpus)     { color: #42a5f5; }
+  :global(.world-faction-infested)   { color: #66bb6a; }
   :global(.world-faction-bg-grineer) { background: #ef5350; }
   :global(.world-faction-bg-corpus)  { background: #42a5f5; }
-  :global(.world-faction-bg-infested) { background: #66bb6a; }
-  .world-invasion-pct {
-    font-size: 0.86rem;
-    color: var(--text-secondary);
-    font-family: var(--font-display);
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
+  :global(.world-faction-bg-infested){ background: #66bb6a; }
+
+  /* Urgent timer — :global() used by class: directive */
+  :global(.world-timer-urgent) { color: #ef4444 !important; }
+
+  /* Fissure tab base — :first-child/:last-child for radius */
+  .fissure-tab {
+    padding: 0.25rem 0.65rem; font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase; background: none;
+    border: 1px solid var(--border); color: var(--text-secondary);
+    cursor: pointer; transition: all 0.15s;
   }
 
-  /* ── baro ki'teer ── */
-  .world-baro-fullwidth {
-    margin-top: 0.5rem;
-  }
-  .world-baro-icons {
-    display: flex;
-    gap: 0.6rem;
-    flex-wrap: wrap;
-    padding: 0.3rem 0.25rem;
-  }
-  .world-baro-icon-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.2rem;
-    flex-shrink: 0;
-    background: none;
-    border: none;
-    padding: 0;
-    color: inherit;
-    font: inherit;
-    transition: transform 0.1s ease;
-  }
-  .world-baro-icon-clickable {
-    cursor: pointer;
-  }
-  .world-baro-icon-clickable:hover {
-    transform: scale(1.05);
-    z-index: 1;
-  }
-  .world-baro-icon-item:disabled {
-    cursor: default;
-    opacity: 0.85;
-  }
-  .world-baro-icon-img {
-    width: 120px;
-    height: 120px;
-    border-radius: 0.35rem;
-    overflow: hidden;
-    border: 2px solid var(--border);
-    background: var(--bg-secondary, rgba(0, 0, 0, 0.3));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-  }
-  .world-baro-icon-img :global(img) {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-  .world-baro-icon-placeholder {
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: var(--text-secondary);
-    opacity: 0.4;
-  }
-  .world-baro-icon-name {
-    font-size: 0.65rem;
-    color: var(--text-secondary);
-    text-align: center;
-    max-width: 120px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .world-baro-ducat-badge {
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    background: rgba(0, 0, 0, 0.78);
-    color: var(--accent, #d4a843);
-    font-size: 1.1rem;
-    font-weight: 700;
-    padding: 2px 6px;
-    border-radius: 0.25rem;
-    line-height: 1.2;
-    pointer-events: none;
-  }
-  .world-baro-owned-badge {
-    position: absolute;
-    bottom: 3px;
-    right: 3px;
-    background: rgba(34, 139, 34, 0.85);
-    color: #fff;
-    font-size: 1rem;
-    font-weight: 700;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-    pointer-events: none;
-  }
-  .world-baro-icon-owned .world-baro-icon-img {
-    border-color: rgba(34, 139, 34, 0.7);
-  }
-  .world-baro-mod-frame {
-    width: 100px;
-    height: 140px;
-    border: none;
-    background: transparent;
-    border-radius: 0.3rem;
-  }
-  .world-baro-mod-frame :global(img) {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-  :global(.world-baro-mod-card) .world-baro-icon-name {
-    max-width: 100px;
-  }
-  :global(.world-baro-icon-owned.world-baro-mod-card) .world-baro-icon-img {
-    border: none;
-    box-shadow: 0 0 8px 2px rgba(34, 139, 34, 0.5);
-  }
-
-  /* ── urgency timer ── */
-  :global(.world-timer-urgent) {
-    color: #ef4444 !important;
-  }
-
-  /* ── bounties ── */
-  .world-bounties-fullwidth {
-    margin-top: 0.5rem;
-  }
-  .world-bounty-groups {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.25rem 1.2rem;
-    align-items: start;
-  }
-  .world-bounty-group {
-    border-bottom: 1px solid var(--border);
-    padding: 0.25rem 0;
-  }
-  .world-bounty-group:last-child {
-    border-bottom: none;
-  }
-  .world-bounty-group-toggle {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    width: 100%;
-    background: none;
-    border: none;
-    padding: 0.2rem 0;
-    cursor: pointer;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-  }
-  .world-bounty-syndicate {
-    font-size: 1.15rem;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-  .world-bounty-count {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    margin-left: auto;
-  }
-  .world-bounty-timer {
-    font-size: 0.88rem;
-    font-family: var(--font-display);
-    color: var(--text-primary);
-    white-space: nowrap;
-    letter-spacing: 0.02em;
-  }
-  .world-bounty-jobs {
-    display: flex;
-    flex-direction: column;
-    padding-left: 1rem;
-  }
-  .world-bounty-job {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.22rem 0;
-    font-size: 0.88rem;
-    background: none;
-    border: none;
-    width: 100%;
-    cursor: pointer;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-  }
-  .world-bounty-job:hover {
-    background: rgba(255, 255, 255, 0.03);
-  }
-  .world-bounty-chevron {
-    font-size: 0.75rem;
-    width: 1rem;
-    height: 1rem;
-    flex-shrink: 0;
-  }
-  .world-bounty-detail {
-    padding: 0.2rem 0 0.3rem 1.2rem;
-    border-left: 2px solid var(--accent, #d4a843);
-    margin-left: 0.3rem;
-    margin-bottom: 0.2rem;
-  }
-  .world-bounty-stage {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.12rem 0;
-    font-size: 0.78rem;
-  }
-  .world-bounty-stage-label {
-    color: var(--text-secondary);
-  }
-  .world-bounty-stage-val {
-    color: var(--accent, #d4a843);
-    font-family: var(--font-display);
-  }
-  .world-bounty-type {
-    flex: 1;
-    min-width: 0;
-    color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .world-bounty-challenge {
-    color: var(--text-secondary);
-    font-size: 0.92em;
-  }
-  .world-bounty-levels {
-    font-size: 1rem;
-    color: var(--accent, #d4a843);
-    white-space: nowrap;
-    flex-shrink: 0;
-    font-family: var(--font-display);
-  }
-
-  /* ── bounty reward drops ── */
-  .world-bounty-reward-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 0.82rem;
-    color: var(--text-primary);
-    padding: 0.05rem 0;
-    gap: 0.3rem;
-    background: transparent;
-    border: 0;
-    text-align: left;
-    font-family: inherit;
-    width: 100%;
-    appearance: none;
-  }
-  .world-bounty-reward-item:disabled {
-    color: var(--text-primary);
-    opacity: 1;
-    cursor: default;
-  }
-  .world-bounty-reward-clickable {
-    cursor: pointer;
-    border-radius: 0.2rem;
-    padding: 0.05rem 0.2rem;
-    margin: 0 -0.2rem;
-    transition: background 0.15s;
-  }
-  .world-bounty-reward-clickable:hover {
-    background: rgba(255, 255, 255, 0.06);
-  }
-  :global(.reward-rare).world-bounty-reward-item {
-    color: var(--accent, #d4a843);
-  }
-  .world-bounty-reward-icon {
-    width: 1.1rem;
-    height: 1.1rem;
-    object-fit: contain;
-    flex-shrink: 0;
-  }
-  .world-bounty-reward-name {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .world-bounty-reward-chance {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: inherit;
-    margin-left: 0.5rem;
-    white-space: nowrap;
-  }
-
-  /* ── responsive ── */
-  @media (max-width: 1100px) {
-    .world-layout {
-      grid-template-columns: 1fr;
-    }
-  }
+  /* Spin button removal — vendor prefix */
+  .cycle-lead-input { appearance: textfield; -moz-appearance: textfield; }
+  .cycle-lead-input::-webkit-inner-spin-button,
+  .cycle-lead-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 </style>

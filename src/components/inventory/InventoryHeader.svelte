@@ -29,8 +29,8 @@
     <div class="flex">
       {#each filters as filterOption}
         <button
-          class="inv-tab-item flex items-center py-[0.45rem] px-[0.95rem] border-none border-b-[3px] border-b-transparent bg-transparent font-display text-base text-[#8a8c95] cursor-pointer transition-[color,border-color] duration-150 whitespace-nowrap -mb-px hover:text-[#b0b2ba]"
-          class:active={activeFilter === filterOption.key}
+          class="inv-tab-item flex items-center py-[0.45rem] px-[0.95rem] border-none border-b-[3px] border-b-transparent bg-transparent font-display text-base text-[#8a8c95] cursor-pointer transition-[color,border-color] duration-150 whitespace-nowrap -mb-px hover:text-[#b0b2ba] data-[active]:text-white data-[active]:border-b-white"
+          data-active={activeFilter === filterOption.key || undefined}
           on:click={() => selectFilter(filterOption.key)}
         >{filterOption.label}</button>
       {/each}
@@ -59,9 +59,3 @@
   </div>
 </div>
 
-<style>
-  .inv-tab-item.active {
-    color: #ffffff;
-    border-bottom-color: #ffffff;
-  }
-</style>

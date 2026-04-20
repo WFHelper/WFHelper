@@ -130,15 +130,15 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div
-  class="modal-backdrop"
+  class="fixed inset-0 flex items-center justify-center z-[1000] bg-black/65 animate-[fadeIn_0.15s_ease]"
   role="dialog"
   aria-modal="true"
   aria-label="Riven details: {riven.rivenName || riven.weaponName}"
   tabindex="-1"
 >
-  <button type="button" class="modal-backdrop-dismiss" aria-label="Close dialog" onclick={onclose}></button>
-  <div class="modal-content">
-    <button class="modal-close" onclick={onclose} aria-label="Close">✕</button>
+  <button type="button" class="absolute inset-0 bg-transparent border-0 p-0 cursor-pointer appearance-none" aria-label="Close dialog" onclick={onclose}></button>
+  <div class="relative z-[1] w-[92vw] max-w-[850px] max-h-[90vh] overflow-y-auto bg-bg-base border border-border-strong rounded-2xl py-8 px-[2.25rem] animate-[slideUp_0.18s_ease]">
+    <button class="absolute top-3 right-3 bg-transparent border-0 text-text-muted text-[1.1rem] cursor-pointer px-2 py-1 rounded transition-all duration-150 hover:text-text-primary hover:bg-bg-hover" onclick={onclose} aria-label="Close">✕</button>
 
     <div class="mb-5">
       <div class="flex items-center gap-3">
@@ -148,15 +148,15 @@
       <div class="flex gap-[0.85rem] flex-wrap mt-2 font-display text-[0.875rem] text-text-muted">
         <span class="uppercase tracking-[0.04em] text-accent-dim">{riven.rivenType}</span>
         <span class="tracking-[-0.3px]" title="Disposition: {riven.disposition.toFixed(3)}">{dispoStars(riven.disposition)} {riven.disposition.toFixed(2)}</span>
-        <span class="rerolls-label">{riven.rerolls} rolls</span>
-        <span class="rank-label">Rank {riven.currentRank}/{riven.maxRank}</span>
+        <span>{riven.rerolls} rolls</span>
+        <span>Rank {riven.currentRank}/{riven.maxRank}</span>
         {#if riven.masteryReq > 0}
-          <span class="mr-label">MR {riven.masteryReq}</span>
+          <span>MR {riven.masteryReq}</span>
         {/if}
       </div>
     </div>
 
-    <div class="modal-body">
+    <div>
       <div class="grid grid-cols-2 gap-4 mb-5">
         <div class="flex flex-col items-center p-4 bg-bg-surface border border-border rounded-[0.625rem] gap-[0.3rem]">
           <span class="font-display text-[0.75rem] uppercase tracking-[0.08em] text-text-muted">Roll Quality</span>
@@ -173,26 +173,24 @@
         </div>
       </div>
 
-      <div class="stats-section">
+      <div>
         <h3 class="font-display text-[0.8rem] uppercase tracking-[0.08em] text-text-muted m-0 mb-[0.625rem]">Attributes</h3>
         <div class="flex flex-col gap-2">
           {#each riven.stats as stat}
-            <div class="stat-row" class:stat-positive={stat.positive} class:stat-negative={!stat.positive}>
+            <div class="flex items-center gap-[0.625rem] py-[0.55rem] px-3 rounded-[0.5rem] {stat.positive ? 'bg-[rgba(74,222,128,0.06)]' : 'bg-[rgba(248,113,113,0.06)]'}">
               <div class="flex items-center gap-[0.375rem] min-w-0 flex-1">
-                <span class="stat-val">
+                <span class="font-display font-semibold text-[1.15rem] min-w-[5.5rem] text-right shrink-0 {stat.positive ? 'text-success' : 'text-danger'}">
                   {stat.positive ? "+" : "-"}{stat.multiplier ? `x${stat.displayValue}` : `${stat.displayValue}%`}
                 </span>
                 <span class="text-[1.05rem] text-text-primary overflow-hidden text-ellipsis whitespace-nowrap">{stat.name}</span>
               </div>
               <div class="w-[100px] h-[6px] bg-bg-raised rounded-[3px] shrink-0 overflow-hidden">
                 <div
-                  class="stat-bar"
-                  class:bar-positive={stat.positive}
-                  class:bar-negative={!stat.positive}
+                  class="h-full rounded-sm transition-[width] duration-300 {stat.positive ? 'bg-success' : 'bg-danger'}"
                   style="width: {Math.min((stat.positive ? stat.rollFloat : 1 - stat.rollFloat) * 100, 100)}%"
                 ></div>
               </div>
-              <span class="stat-grd" style="color: {gradeColor(stat.grade)}">{stat.grade}</span>
+              <span class="font-display font-bold text-[1.05rem] min-w-[1.5rem] text-center shrink-0" style="color: {gradeColor(stat.grade)}">{stat.grade}</span>
             </div>
           {/each}
         </div>
@@ -202,17 +200,17 @@
         <h3 class="font-display text-[0.8rem] uppercase tracking-[0.08em] text-text-muted m-0 mb-[0.625rem]">Best Attributes for {riven.rivenType}</h3>
         <div class="grid grid-cols-2 gap-4">
           <div class="flex flex-col gap-[0.2rem]">
-            <span class="best-attrs-heading positive">Desired Positives</span>
+            <span class="font-display text-[0.75rem] uppercase tracking-[0.06em] font-bold mb-1 text-[#4ade80]">Desired Positives</span>
             {#each bestAttrs.positives as attr}
               {@const matched = myStatNamesLc.has(attr.toLowerCase())}
-              <span class="best-attr" class:best-matched={matched}>{attr}{#if matched} ✓{/if}</span>
+              <span class="font-display text-[0.8rem] text-text-muted py-[0.15rem] px-[0.4rem] rounded {matched ? 'text-[#4ade80] bg-[rgba(74,222,128,0.1)] font-semibold' : ''}">{attr}{#if matched} ✓{/if}</span>
             {/each}
           </div>
           <div class="flex flex-col gap-[0.2rem]">
-            <span class="best-attrs-heading negative">Desired Negatives</span>
+            <span class="font-display text-[0.75rem] uppercase tracking-[0.06em] font-bold mb-1 text-[#ef4444]">Desired Negatives</span>
             {#each bestAttrs.negatives as attr}
               {@const matched = riven.stats.some(s => !s.positive && s.name.toLowerCase() === attr.toLowerCase())}
-              <span class="best-attr" class:best-matched={matched}>{attr}{#if matched} ✓{/if}</span>
+              <span class="font-display text-[0.8rem] text-text-muted py-[0.15rem] px-[0.4rem] rounded {matched ? 'text-[#4ade80] bg-[rgba(74,222,128,0.1)] font-semibold' : ''}">{attr}{#if matched} ✓{/if}</span>
             {/each}
           </div>
         </div>
@@ -229,12 +227,7 @@
             {#each similarListings as { listing, pct, matchedNames }}
               <div class="similar-card">
                 <div class="flex items-center gap-2 font-display text-[0.8rem]">
-                  <span
-                    class="sim-badge"
-                    class:sim-high={pct >= 75}
-                    class:sim-medium={pct >= 40 && pct < 75}
-                    class:sim-low={pct < 40}>{pct}%</span
-                  >
+                  <span class="py-[0.15rem] px-[0.4rem] rounded font-bold text-[0.75rem] {pct >= 75 ? 'bg-[rgba(74,222,128,0.15)] text-success' : pct >= 40 ? 'bg-[rgba(250,204,21,0.15)] text-warning' : 'bg-[rgba(248,113,113,0.12)] text-danger'}">{pct}%</span>
                   <span class="font-bold text-accent-bright"
                     >{listing.buyoutPrice ?? listing.startingPrice ?? listing.platinum}p</span
                   >
@@ -243,19 +236,14 @@
                 <div class="flex flex-col gap-[0.1rem]">
                   {#each listing.stats as s}
                     {@const isMatch = matchedNames.has(s.name.toLowerCase())}
-                    <div
-                      class="sim-stat-line"
-                      class:pos={s.positive}
-                      class:neg={!s.positive}
-                      class:crossed={!isMatch}
-                    >
+                    <div class="font-display text-[0.75rem] whitespace-nowrap overflow-hidden text-ellipsis {s.positive ? 'text-success' : 'text-danger'} {!isMatch ? 'opacity-40 line-through' : ''}">
                       {s.positive ? "+" : "−"}{Math.round(s.value)}% {s.name}
                     </div>
                   {/each}
                 </div>
                 <div class="flex items-center justify-between mt-[0.15rem]">
                   <span class="text-[0.7rem] text-text-muted">{listing.seller}</span>
-                  <button class="sim-open-btn" title="Open on warframe.market" onclick={() => window.api.openExternal(`https://warframe.market/auction/${listing.id}`)}>WFM ↗</button>
+                  <button class="font-display text-[0.65rem] font-bold py-[0.15rem] px-[0.4rem] rounded border border-border bg-bg-raised text-accent-bright cursor-pointer uppercase tracking-[0.03em] transition-all duration-150 hover:bg-accent-bright hover:text-bg-base hover:border-accent-bright" title="Open on warframe.market" onclick={() => window.api.openExternal(`https://warframe.market/auction/${listing.id}`)}>WFM ↗</button>
                 </div>
               </div>
             {/each}
@@ -273,20 +261,20 @@
               <div class="flex flex-col gap-1">
                 <span class="font-display text-[0.7rem] uppercase tracking-[0.06em] text-text-muted">Type:</span>
                 <div class="flex gap-[0.35rem]">
-                  <button class="listing-toggle" class:active={listingType === "direct"} onclick={() => listingType = "direct"}>Direct sale</button>
-                  <button class="listing-toggle" class:active={listingType === "auction"} onclick={() => listingType = "auction"}>Auction</button>
+                  <button class="font-display text-[0.75rem] font-semibold py-[0.3rem] px-[0.65rem] rounded-[0.35rem] border cursor-pointer transition-all duration-150 {listingType === 'direct' ? 'bg-accent-bright text-bg-base border-accent-bright' : 'border-border bg-bg-raised text-text-secondary hover:bg-bg-hover hover:text-text-primary'}" onclick={() => listingType = "direct"}>Direct sale</button>
+                  <button class="font-display text-[0.75rem] font-semibold py-[0.3rem] px-[0.65rem] rounded-[0.35rem] border cursor-pointer transition-all duration-150 {listingType === 'auction' ? 'bg-accent-bright text-bg-base border-accent-bright' : 'border-border bg-bg-raised text-text-secondary hover:bg-bg-hover hover:text-text-primary'}" onclick={() => listingType = "auction"}>Auction</button>
                 </div>
               </div>
               <div class="flex flex-col gap-1">
                 <span class="font-display text-[0.7rem] uppercase tracking-[0.06em] text-text-muted">Visibility:</span>
                 <div class="flex gap-[0.35rem]">
-                  <button class="listing-toggle" class:active={listingVisibility === "public"} onclick={() => listingVisibility = "public"}>Public</button>
-                  <button class="listing-toggle" class:active={listingVisibility === "private"} onclick={() => listingVisibility = "private"}>Private</button>
+                  <button class="font-display text-[0.75rem] font-semibold py-[0.3rem] px-[0.65rem] rounded-[0.35rem] border cursor-pointer transition-all duration-150 {listingVisibility === 'public' ? 'bg-accent-bright text-bg-base border-accent-bright' : 'border-border bg-bg-raised text-text-secondary hover:bg-bg-hover hover:text-text-primary'}" onclick={() => listingVisibility = "public"}>Public</button>
+                  <button class="font-display text-[0.75rem] font-semibold py-[0.3rem] px-[0.65rem] rounded-[0.35rem] border cursor-pointer transition-all duration-150 {listingVisibility === 'private' ? 'bg-accent-bright text-bg-base border-accent-bright' : 'border-border bg-bg-raised text-text-secondary hover:bg-bg-hover hover:text-text-primary'}" onclick={() => listingVisibility = "private"}>Private</button>
                 </div>
               </div>
               <div class="flex flex-col gap-1 flex-1 min-w-[140px]">
                 <span class="font-display text-[0.7rem] uppercase tracking-[0.06em] text-text-muted">Description (Optional):</span>
-                <input type="text" class="listing-input listing-desc-input" bind:value={listingDescription} placeholder="" />
+                <input type="text" class="w-full text-[0.85rem] py-[0.3rem] px-2 rounded-[0.35rem] border border-border bg-bg-raised text-text-primary outline-none transition-[border-color] duration-150 focus:border-accent-bright" bind:value={listingDescription} placeholder="" />
               </div>
             </div>
             <div class="flex items-end gap-5 flex-wrap justify-between">
@@ -294,10 +282,10 @@
                 <span class="font-display text-[0.7rem] uppercase tracking-[0.06em] text-text-muted">Selling price:</span>
                 <div class="flex items-center gap-[0.3rem]">
                   <img class="align-middle shrink-0" src="Platinum.png" alt="Platinum" width="16" height="16" />
-                  <input type="number" class="listing-input listing-price-input" bind:value={listingPrice} min="1" />
+                  <input type="number" class="w-20 text-[0.85rem] py-[0.3rem] px-2 rounded-[0.35rem] border border-border bg-bg-raised text-text-primary outline-none transition-[border-color] duration-150 focus:border-accent-bright" bind:value={listingPrice} min="1" />
                 </div>
               </div>
-              <button class="listing-submit-btn" onclick={handleListOnWfm} disabled={listingBusy}>
+              <button class="font-display text-[0.8rem] font-bold py-[0.45rem] px-5 rounded-[0.4rem] border-0 bg-accent-bright text-bg-base cursor-pointer transition-all duration-150 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed hover:enabled:brightness-[1.15]" onclick={handleListOnWfm} disabled={listingBusy}>
                 {listingBusy ? "Listing…" : "List on WFMarket"}
               </button>
             </div>
@@ -315,223 +303,6 @@
 </div>
 
 <style>
-  .modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.65);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    animation: fadeIn 0.15s ease;
-  }
-  .modal-backdrop-dismiss {
-    position: absolute;
-    inset: 0;
-    background: transparent;
-    border: 0;
-    padding: 0;
-    cursor: pointer;
-    appearance: none;
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-
-  .modal-content {
-    position: relative;
-    z-index: 1;
-    width: 92vw;
-    max-width: 850px;
-    max-height: 90vh;
-    overflow-y: auto;
-    background: var(--bg-base);
-    border: 1px solid var(--border-strong);
-    border-radius: 1rem;
-    padding: 2rem 2.25rem;
-    animation: slideUp 0.18s ease;
-  }
-  @keyframes slideUp {
-    from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .modal-close {
-    position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-size: 1.1rem;
-    cursor: pointer;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    transition: all 0.15s;
-  }
-  .modal-close:hover {
-    color: var(--text-primary);
-    background: var(--bg-hover);
-  }
-
-  /* ── Stat rows (compound class: directives + parent-child) ──────────── */
-  .stat-row {
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-    padding: 0.55rem 0.75rem;
-    border-radius: 0.5rem;
-  }
-  .stat-row.stat-positive { background: rgba(74, 222, 128, 0.06); }
-  .stat-row.stat-negative { background: rgba(248, 113, 113, 0.06); }
-
-  .stat-val {
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 1.15rem;
-    min-width: 5.5rem;
-    text-align: right;
-    flex-shrink: 0;
-  }
-  .stat-positive .stat-val { color: var(--success); }
-  .stat-negative .stat-val { color: var(--danger); }
-
-  .stat-bar {
-    height: 100%;
-    border-radius: 2px;
-    transition: width 0.3s ease;
-  }
-  .bar-positive { background: var(--success); }
-  .bar-negative { background: var(--danger); }
-
-  .stat-grd {
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 1.05rem;
-    min-width: 1.5rem;
-    text-align: center;
-    flex-shrink: 0;
-  }
-
-  /* ── Best attributes (compound class: directives) ───────────────────── */
-  .best-attrs-heading {
-    font-family: var(--font-display);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    font-weight: 700;
-    margin-bottom: 0.25rem;
-  }
-  .best-attrs-heading.positive { color: #4ade80; }
-  .best-attrs-heading.negative { color: #ef4444; }
-
-  .best-attr {
-    font-family: var(--font-display);
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    padding: 0.15rem 0.4rem;
-    border-radius: 0.25rem;
-  }
-  .best-attr.best-matched {
-    color: #4ade80;
-    background: rgba(74, 222, 128, 0.1);
-    font-weight: 600;
-  }
-
-  /* ── Similar cards (compound class: directives) ─────────────────────── */
-  .sim-badge {
-    padding: 0.15rem 0.4rem;
-    border-radius: 0.25rem;
-    font-weight: 700;
-    font-size: 0.75rem;
-  }
-  .sim-badge.sim-high { background: rgba(74, 222, 128, 0.15); color: var(--success); }
-  .sim-badge.sim-medium { background: rgba(250, 204, 21, 0.15); color: var(--warning); }
-  .sim-badge.sim-low { background: rgba(248, 113, 113, 0.12); color: var(--danger); }
-
-  .sim-stat-line {
-    font-family: var(--font-display);
-    font-size: 0.75rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .sim-stat-line.pos { color: var(--success); }
-  .sim-stat-line.neg { color: var(--danger); }
-  .sim-stat-line.crossed { opacity: 0.4; text-decoration: line-through; }
-
-  .sim-open-btn {
-    font-family: var(--font-display);
-    font-size: 0.65rem;
-    font-weight: 700;
-    padding: 0.15rem 0.4rem;
-    border-radius: 0.25rem;
-    border: 1px solid var(--border);
-    background: var(--bg-raised);
-    color: var(--accent-bright);
-    cursor: pointer;
-    transition: all 0.15s;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-  }
-  .sim-open-btn:hover {
-    background: var(--accent-bright);
-    color: var(--bg-base);
-    border-color: var(--accent-bright);
-  }
-
-  /* ── Listing (compound/hover/focus) ─────────────────────────────────── */
-  .listing-toggle {
-    font-family: var(--font-display);
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 0.3rem 0.65rem;
-    border-radius: 0.35rem;
-    border: 1px solid var(--border);
-    background: var(--bg-raised);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .listing-toggle.active {
-    background: var(--accent-bright);
-    color: var(--bg-base);
-    border-color: var(--accent-bright);
-  }
-  .listing-toggle:hover:not(.active) {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-  }
-
-  .listing-input {
-    font-family: var(--font-body);
-    font-size: 0.85rem;
-    padding: 0.3rem 0.5rem;
-    border-radius: 0.35rem;
-    border: 1px solid var(--border);
-    background: var(--bg-raised);
-    color: var(--text-primary);
-    outline: none;
-    transition: border-color 0.15s;
-  }
-  .listing-input:focus { border-color: var(--accent-bright); }
-  .listing-desc-input { width: 100%; }
-  .listing-price-input { width: 5rem; }
-
-  .listing-submit-btn {
-    font-family: var(--font-display);
-    font-size: 0.8rem;
-    font-weight: 700;
-    padding: 0.45rem 1.25rem;
-    border-radius: 0.4rem;
-    border: none;
-    background: var(--accent-bright);
-    color: var(--bg-base);
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
-  .listing-submit-btn:hover:not(:disabled) { filter: brightness(1.15); }
-  .listing-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 </style>

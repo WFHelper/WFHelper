@@ -84,7 +84,7 @@
 {#if item}
   <ModalShell ariaLabel={item.name} onClose={onModalClose}>
     <div class="detail-dual-container" class:has-comp={selectedComp}>
-      <div class="detail-panel" class:crafting-tree-wide={showCraftingTree}>
+      <div class="detail-panel {showCraftingTree ? 'w-[90vw] max-w-[1100px]' : ''}">
         <div class="detail-panel-top-actions">
           {#if hasCraftingTree}
             <button
@@ -112,7 +112,7 @@
             </div>
           </div>
 
-          <div class="crafting-tree-body">
+          <div class="h-[60vh] min-h-[300px] flex flex-col">
             <CraftingTree tree={craftingTree} />
           </div>
         {:else}
@@ -184,15 +184,3 @@
   </ModalShell>
 {/if}
 
-<style>
-  .crafting-tree-wide {
-    width: 90vw;
-    max-width: 1100px;
-  }
-  .crafting-tree-body {
-    height: 60vh;
-    min-height: 300px;
-    display: flex;
-    flex-direction: column;
-  }
-</style>

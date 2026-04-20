@@ -286,7 +286,7 @@ import ModalShell from "../components/ModalShell.svelte";
           </div>
 
           <div class="relic-rewards-list mt-[0.65rem] grid gap-0">
-            <div class="relic-rewards-header">
+            <div class="relic-grid-row gap-[0.42rem] text-[0.72rem] text-text-muted px-[0.4rem]">
               <span></span><span>Item</span><span class="text-right">Chance</span>
               <span class="text-right">Price</span><span class="text-right">Ducats</span><span class="text-right">E.V.</span>
             </div>
@@ -296,7 +296,7 @@ import ModalShell from "../components/ModalShell.svelte";
               {@const platEv = price != null ? (reward.chance / 100) * price : null}
               {@const ducatEv = ducatValue != null ? (reward.chance / 100) * ducatValue : null}
               {@const canClick = itemNameIndex.has(reward.name)}
-              <button class="relic-reward-row" class:relic-reward-clickable={canClick} class:relic-reward-active={selectedReward === reward} disabled={!canClick} on:click={() => selectReward(reward)}>
+              <button class="relic-grid-row gap-[0.42rem] items-center px-[0.4rem] py-[0.42rem] border-0 border-b border-[rgba(255,255,255,0.06)] rounded-[0.25rem] bg-transparent text-inherit text-left w-full last:border-b-0 {canClick ? 'cursor-pointer hover:enabled:bg-white/[0.06]' : ''} {selectedReward === reward ? 'bg-white/10' : ''}" disabled={!canClick} on:click={() => selectReward(reward)}>
                 <span class="relic-reward-rarity inline-flex items-center justify-center w-5 h-5 rounded-full text-[0.67rem] font-bold {rarityClass(reward.rarity)}" title={reward.rarity}
                   >{reward.rarity?.charAt(0) || "?"}</span
                 >
@@ -371,24 +371,10 @@ import ModalShell from "../components/ModalShell.svelte";
     height: var(--size-relic-detail-icon);
   }
   .relic-detail-owned :global(.relic-owned-pill) { font-size: 0.66rem; }
-  .relic-rewards-header {
+  .relic-grid-row {
     display: grid;
     grid-template-columns: 30px minmax(0, 1fr) 72px 78px 78px 120px;
-    gap: 0.42rem; font-size: 0.72rem; color: var(--text-muted); padding: 0 0.4rem;
   }
-  .relic-reward-row {
-    display: grid;
-    grid-template-columns: 30px minmax(0, 1fr) 72px 78px 78px 120px;
-    gap: 0.42rem; align-items: center; padding: 0.42rem 0.4rem;
-    border: none; border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 0.25rem; background: transparent; color: inherit;
-    font: inherit; text-align: left; cursor: pointer; width: 100%;
-  }
-  .relic-reward-row:last-child { border-bottom: 0; }
-  .relic-reward-clickable { cursor: pointer; }
-  .relic-reward-clickable:hover:not(:disabled) { background: rgba(255, 255, 255, 0.06); }
-  .relic-reward-clickable:hover:not(:disabled) .relic-reward-name { color: var(--accent, #d4a843); }
-  .relic-reward-active { background: rgba(255, 255, 255, 0.1); }
   :global(.rarity-rare) { background: rgba(212, 168, 67, 0.2); color: #d4a843; border: 1px solid rgba(212, 168, 67, 0.4); }
   :global(.rarity-uncommon) { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); }
   :global(.rarity-common) { background: rgba(71, 85, 105, 0.25); color: #64748b; border: 1px solid rgba(71, 85, 105, 0.4); }
@@ -398,8 +384,7 @@ import ModalShell from "../components/ModalShell.svelte";
     overflow-y: auto; animation: compSlideIn 0.18s ease;
   }
   @media (max-width: 800px) {
-    .relic-rewards-header,
-    .relic-reward-row {
+    .relic-grid-row {
       grid-template-columns: 24px minmax(0, 1fr) 56px 60px 60px 94px;
       gap: 0.32rem;
     }

@@ -228,7 +228,7 @@
                 </button>
               {/if}
               {#if hasRecipe}
-                <button
+              <button
                   type="button"
                   class="absolute bottom-1.5 right-1.5 inline-flex h-[1.45rem] w-[1.45rem] items-center justify-center rounded-[0.3rem] border border-border bg-black/25 text-text-muted opacity-0 transition-[opacity,color,border-color] duration-[120ms] group-hover:opacity-100 hover:text-accent hover:border-accent-dim"
                   title="Open crafting tree"
