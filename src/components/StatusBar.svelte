@@ -147,8 +147,7 @@
   </button>
   <span class="text-[10px] opacity-50" title="App version">v{import.meta.env.VITE_APP_VERSION || '?'}</span>
   <button
-    class="debug-toggle mr-[0.625rem] cursor-pointer rounded-full px-[0.625rem] py-0.5 font-body text-xs tracking-wide border border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.05)] text-text-muted transition-[color,border-color] duration-150 hover:border-[rgba(255,255,255,0.3)] hover:text-text-primary"
-    class:debug-active={debugActive}
+    class="mr-[0.625rem] cursor-pointer rounded-full px-[0.625rem] py-0.5 font-body text-xs tracking-wide transition-[color,border-color] duration-150 {debugActive ? 'border-[rgba(110,231,183,0.5)] bg-[rgba(16,185,129,0.15)] text-[#6ee7b7]' : 'border border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.05)] text-text-muted hover:border-[rgba(255,255,255,0.3)] hover:text-text-primary'}"
     title="Toggle debug logging"
     on:click={() => debugMode.update(v => !v)}
   >
@@ -156,10 +155,3 @@
   </button>
 </footer>
 
-<style>
-  .debug-toggle.debug-active {
-    border-color: rgba(110,231,183,0.5);
-    background: rgba(16,185,129,0.15);
-    color: #6ee7b7;
-  }
-</style>

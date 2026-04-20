@@ -310,7 +310,7 @@
                   <rect
                     x={bar.x} y={bar.y}
                     width={exBw} height={bar.h}
-                    class={bar.positive ? "fill-[var(--success)] opacity-75" : "fill-[var(--danger)] opacity-75"}
+                    class={bar.positive ? "fill-success opacity-75" : "fill-danger opacity-75"}
                     rx="1"
                   />
                 {/each}
@@ -490,7 +490,7 @@
                           <rect
                             x={bar.x} y={bar.y}
                             width={cd.bw} height={bar.h}
-                            class={bar.positive ? "fill-[var(--success)] opacity-75" : "fill-[var(--danger)] opacity-75"}
+                            class={bar.positive ? "fill-success opacity-75" : "fill-danger opacity-75"}
                             rx="1"
                           />
                         {/each}

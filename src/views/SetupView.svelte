@@ -61,24 +61,24 @@
     <!-- Left panel — branding -->
     <div class="setup-left w-[190px] shrink-0 flex flex-col items-center pt-7 px-4 pb-6 bg-gradient-to-b from-bg-deep to-bg-raised border-r border-border">
       <div class="setup-logo">
-        <svg viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="1.5">
+        <svg class="w-14 h-14 text-accent opacity-70" viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="1.5">
           <polygon points="40,5 75,65 5,65" stroke-width="2"/>
           <circle cx="40" cy="45" r="10" stroke-width="2"/>
           <line x1="40" y1="20" x2="40" y2="30" stroke-width="2"/>
         </svg>
       </div>
       <div class="mt-8 flex flex-col gap-4 w-full">
-        <div class="setup-step flex items-center gap-2 text-[0.78rem] text-text-muted transition-colors duration-200" class:active={step === "welcome"} class:done={step !== "welcome"}>
-          <span class="step-dot w-2 h-2 rounded-full bg-text-muted shrink-0 transition-[background] duration-200"></span> Welcome
+        <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {step === 'welcome' ? 'text-accent font-semibold' : 'text-success'}">
+          <span class="w-2 h-2 rounded-full shrink-0 transition-[background] duration-200 {step === 'welcome' ? 'bg-accent shadow-[0_0_6px_var(--accent)]' : 'bg-success'}"></span> Welcome
         </div>
-        <div class="setup-step flex items-center gap-2 text-[0.78rem] text-text-muted transition-colors duration-200" class:active={step === "consent"} class:done={step === "downloading" || step === "done"}>
-          <span class="step-dot w-2 h-2 rounded-full bg-text-muted shrink-0 transition-[background] duration-200"></span> Component Setup
+        <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {step === 'consent' ? 'text-accent font-semibold' : (step === 'downloading' || step === 'done') ? 'text-success' : 'text-text-muted'}">
+          <span class="w-2 h-2 rounded-full shrink-0 transition-[background] duration-200 {step === 'consent' ? 'bg-accent shadow-[0_0_6px_var(--accent)]' : (step === 'downloading' || step === 'done') ? 'bg-success' : 'bg-text-muted'}"></span> Component Setup
         </div>
-        <div class="setup-step flex items-center gap-2 text-[0.78rem] text-text-muted transition-colors duration-200" class:active={step === "downloading"} class:done={step === "done"}>
-          <span class="step-dot w-2 h-2 rounded-full bg-text-muted shrink-0 transition-[background] duration-200"></span> Download
+        <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {step === 'downloading' ? 'text-accent font-semibold' : step === 'done' ? 'text-success' : 'text-text-muted'}">
+          <span class="w-2 h-2 rounded-full shrink-0 transition-[background] duration-200 {step === 'downloading' ? 'bg-accent shadow-[0_0_6px_var(--accent)]' : step === 'done' ? 'bg-success' : 'bg-text-muted'}"></span> Download
         </div>
-        <div class="setup-step flex items-center gap-2 text-[0.78rem] text-text-muted transition-colors duration-200" class:active={step === "done"}>
-          <span class="step-dot w-2 h-2 rounded-full bg-text-muted shrink-0 transition-[background] duration-200"></span> Finish
+        <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {step === 'done' ? 'text-accent font-semibold' : 'text-text-muted'}">
+          <span class="w-2 h-2 rounded-full shrink-0 transition-[background] duration-200 {step === 'done' ? 'bg-accent shadow-[0_0_6px_var(--accent)]' : 'bg-text-muted'}"></span> Finish
         </div>
       </div>
     </div>
@@ -87,13 +87,13 @@
     <div class="flex-1 flex flex-col pt-7 px-6 pb-5">
       <div class="setup-content flex-1">
         {#if step === "welcome"}
-          <h2>Welcome to Warframe Companion</h2>
-          <p>This setup wizard will help you configure the required components to get started.</p>
-          <p>Warframe Companion uses <strong>warframe-api-helper</strong> to read your in-game inventory data. This small tool needs to be downloaded once (~1 MB).</p>
-          <p class="setup-hint">Click <strong>Next</strong> to continue, or <strong>Skip</strong> if you already have it installed.</p>
+          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Welcome to Warframe Companion</h2>
+          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">This setup wizard will help you configure the required components to get started.</p>
+          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">Warframe Companion uses <strong>warframe-api-helper</strong> to read your in-game inventory data. This small tool needs to be downloaded once (~1 MB).</p>
+          <p class="!text-text-muted !text-[0.78rem] !mt-4">Click <strong>Next</strong> to continue, or <strong>Skip</strong> if you already have it installed.</p>
         {:else if step === "consent"}
-          <h2>Download warframe-api-helper</h2>
-          <p>The following component will be downloaded from GitHub:</p>
+          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Download warframe-api-helper</h2>
+          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">The following component will be downloaded from GitHub:</p>
           <div class="border border-border rounded-lg bg-bg-raised py-[0.65rem] px-[0.85rem] my-3">
             <div class="flex justify-between items-center">
               <span class="font-display text-[0.84rem] font-semibold text-text-primary">warframe-api-helper.exe</span>
@@ -101,11 +101,11 @@
             </div>
             <span class="block mt-1 text-[0.72rem] text-text-muted">Source: github.com/Sainan/warframe-api-helper</span>
           </div>
-          <p>This tool connects to the Warframe API to fetch your inventory data. It runs silently in the background every 10 minutes while the app is open.</p>
-          <p class="setup-hint">Click <strong>Install</strong> to download, or <strong>Skip</strong> to set it up yourself later.</p>
+          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">This tool connects to the Warframe API to fetch your inventory data. It runs silently in the background every 10 minutes while the app is open.</p>
+          <p class="!text-text-muted !text-[0.78rem] !mt-4">Click <strong>Install</strong> to download, or <strong>Skip</strong> to set it up yourself later.</p>
         {:else if step === "downloading"}
-          <h2>Downloading…</h2>
-          <p>Fetching warframe-api-helper from GitHub Releases.</p>
+          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Downloading…</h2>
+          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">Fetching warframe-api-helper from GitHub Releases.</p>
           <div class="my-4">
             <div class="h-2 rounded bg-bg-raised overflow-hidden border border-border">
               <div class="h-full bg-accent rounded transition-[width] duration-300 ease-in-out" style="width: {progressPercent}%"></div>
@@ -115,21 +115,21 @@
               <span>{bytesLabel}</span>
             </div>
           </div>
-          <p class="setup-hint">Please wait — this should only take a moment.</p>
+          <p class="!text-text-muted !text-[0.78rem] !mt-4">Please wait — this should only take a moment.</p>
         {:else if step === "done"}
-          <h2>Setup Complete</h2>
-          <p>warframe-api-helper has been downloaded and is ready to use.</p>
-          <p>The helper will run automatically in the background every 10 minutes to keep your inventory data fresh. Make sure Warframe is running for it to work.</p>
-          <div class="setup-done-icon flex justify-center my-4">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Setup Complete</h2>
+          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">warframe-api-helper has been downloaded and is ready to use.</p>
+          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">The helper will run automatically in the background every 10 minutes to keep your inventory data fresh. Make sure Warframe is running for it to work.</p>
+          <div class="flex justify-center my-4">
+            <svg class="w-10 h-10 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
           </div>
-          <p class="setup-hint">Click <strong>Finish</strong> to start using Warframe Companion.</p>
+          <p class="!text-text-muted !text-[0.78rem] !mt-4">Click <strong>Finish</strong> to start using Warframe Companion.</p>
         {:else if step === "error"}
-          <h2>Download Failed</h2>
-          <p class="setup-error-msg">{errorMessage}</p>
-          <p>You can retry the download, or skip and manually download <strong>warframe-api-helper</strong> from GitHub later.</p>
+          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Download Failed</h2>
+          <p class="!text-danger !font-semibold mb-[0.65rem] text-[0.84rem] leading-[1.55]">{errorMessage}</p>
+          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">You can retry the download, or skip and manually download <strong>warframe-api-helper</strong> from GitHub later.</p>
         {/if}
       </div>
 
@@ -156,18 +156,3 @@
   </div>
 </section>
 
-<style>
-  .setup-logo svg { width: 3.5rem; height: 3.5rem; color: var(--accent); opacity: 0.7; }
-  .setup-step.active { color: var(--accent); font-weight: 600; }
-  .setup-step.done { color: var(--success); }
-  .setup-step.active .step-dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
-  .setup-step.done .step-dot { background: var(--success); }
-  .setup-content h2 {
-    margin: 0 0 0.75rem; font-family: var(--font-display);
-    font-size: 1.2rem; font-weight: 700; letter-spacing: 0.02em;
-  }
-  .setup-content p { margin: 0 0 0.65rem; font-size: 0.84rem; color: var(--text-secondary); line-height: 1.55; }
-  .setup-hint { color: var(--text-muted) !important; font-size: 0.78rem !important; margin-top: 1rem !important; }
-  .setup-done-icon svg { width: 2.5rem; height: 2.5rem; color: var(--success); }
-  .setup-error-msg { color: var(--danger) !important; font-weight: 600; }
-</style>

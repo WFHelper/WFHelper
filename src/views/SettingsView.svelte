@@ -19,7 +19,6 @@
   let hotkey = OVERLAY_DEFAULTS.hotkey;
   let interactionHotkeyEnabled = OVERLAY_DEFAULTS.interactionHotkeyEnabled;
   let interactionHotkey = OVERLAY_DEFAULTS.interactionHotkey;
-  let ocrEngine: OverlaySettings["ocrEngine"] = OVERLAY_DEFAULTS.ocrEngine;
   let ocrPasses = OVERLAY_DEFAULTS.ocrPasses;
   let matchThreshold = OVERLAY_DEFAULTS.matchThreshold;
   let ocrTimeoutMs = OVERLAY_DEFAULTS.ocrTimeoutMs;
@@ -33,7 +32,6 @@
     hotkey = s.hotkey || OVERLAY_DEFAULTS.hotkey;
     interactionHotkeyEnabled = !!s.interactionHotkeyEnabled;
     interactionHotkey = s.interactionHotkey || OVERLAY_DEFAULTS.interactionHotkey;
-    ocrEngine = s.ocrEngine || OVERLAY_DEFAULTS.ocrEngine;
     ocrPasses = s.ocrPasses ?? OVERLAY_DEFAULTS.ocrPasses;
     matchThreshold = s.matchThreshold ?? OVERLAY_DEFAULTS.matchThreshold;
     ocrTimeoutMs = s.ocrTimeoutMs ?? OVERLAY_DEFAULTS.ocrTimeoutMs;
@@ -62,7 +60,7 @@
       hotkey,
       interactionHotkeyEnabled,
       interactionHotkey,
-      ocrEngine,
+      ocrEngine: "windows" as const,
       ocrPasses: Math.floor(Number(ocrPasses)),
       matchThreshold: Number(matchThreshold),
       ocrTimeoutMs: Math.floor(Number(ocrTimeoutMs)),

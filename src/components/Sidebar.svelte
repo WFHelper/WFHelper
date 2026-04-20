@@ -87,8 +87,7 @@
   <div class="flex flex-col gap-0.5">
     {#each navItems as item}
       <button
-        class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary"
-        class:active={$currentView === item.view}
+        class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide transition-colors duration-150 {$currentView === item.view ? 'bg-accent-glow text-accent before:content-[\'\'] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:rounded-r before:bg-accent max-[800px]:before:hidden' : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'}"
         aria-current={$currentView === item.view ? "page" : undefined}
         on:click={() => currentView.set(item.view)}
       >
@@ -132,22 +131,6 @@
 </nav>
 
 <style>
-  .nav-btn.active {
-    background: var(--accent-glow);
-    color: var(--accent);
-  }
-  .nav-btn.active::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 0.375rem;
-    bottom: 0.375rem;
-    width: 0.25rem;
-    border-radius: 0 0.25rem 0.25rem 0;
-    background: var(--accent);
-  }
-
-  /* ── responsive ── */
   @media (max-width: 800px) {
     .nav-btn :global(span) {
       display: none;
@@ -156,9 +139,6 @@
       justify-content: center;
       padding-left: 0.625rem;
       padding-right: 0.625rem;
-    }
-    .nav-btn.active::before {
-      display: none;
     }
   }
 </style>

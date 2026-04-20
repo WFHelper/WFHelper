@@ -599,7 +599,7 @@
                   {order.platinum}
                 </span>
                 <span class="order-qty">x{order.quantity}</span>
-                <span class="order-vis" class:order-vis-on={order.visible} class:order-vis-off={!order.visible}>
+                <span class="order-vis {order.visible ? 'border-[rgba(74,222,128,0.35)] bg-[rgba(74,222,128,0.13)] text-success' : 'border-[rgba(251,191,36,0.35)] bg-[rgba(251,191,36,0.13)] text-warning'}">
                   {order.visible ? "Visible" : "Hidden"}
                 </span>
               </div>
@@ -620,15 +620,3 @@
   {/if}
 </section>
 
-<style>
-  .order-vis.order-vis-on {
-    border-color: rgba(74, 222, 128, 0.35);
-    background: rgba(74, 222, 128, 0.13);
-    color: var(--success);
-  }
-  .order-vis.order-vis-off {
-    border-color: rgba(251, 191, 36, 0.35);
-    background: rgba(251, 191, 36, 0.13);
-    color: var(--warning);
-  }
-</style>

@@ -43,19 +43,18 @@
       <div class="flex gap-1">
         {#each (["all", "sale", "purchase", "trade"] as const) as f}
           <button
-            class="trade-filter-tab flex-1 flex items-center justify-center gap-1 py-1 px-[6px] text-[0.7rem] border border-border rounded bg-transparent text-text-muted cursor-pointer transition-[background,color,border-color] duration-150 whitespace-nowrap"
-            class:active={tradeFilter === f}
+            class="flex-1 flex items-center justify-center gap-1 py-1 px-[6px] text-[0.7rem] border rounded cursor-pointer transition-[background,color,border-color] duration-150 whitespace-nowrap {tradeFilter === f ? 'bg-accent border-accent text-black font-semibold' : 'border-border bg-transparent text-text-muted hover:text-text-primary'}"
             on:click={() => tradeFilter = f}
           >
             {f === "all" ? "∞" : f === "sale" ? "Sale" : f === "purchase" ? "Purchase" : "Trade"}
-            <span class="trade-tab-count text-[0.65rem] bg-black/20 rounded-lg px-1 min-w-[16px] text-center">
+            <span class="text-[0.65rem] rounded-lg px-1 min-w-[16px] text-center {tradeFilter === f ? 'bg-black/25' : 'bg-black/20'}">
               {f === "all" ? trades.length : trades.filter(t => t.type === f).length}
             </span>
           </button>
         {/each}
       </div>
       <input
-        class="trade-search w-full bg-bg-raised border border-border rounded py-[0.3rem] px-[0.6rem] text-[0.7rem] text-text-primary"
+        class="w-full bg-bg-raised border border-border rounded py-[0.3rem] px-[0.6rem] text-[0.7rem] text-text-primary placeholder:text-text-muted"
         type="text"
         placeholder="Search items…"
         bind:value={tradeSearch}
@@ -81,9 +80,9 @@
     {:else}
       <div class="flex flex-col gap-2">
         {#each filteredTrades as trade (trade.id)}
-          <div class="trade-card bg-bg-surface border border-border rounded-md py-3 px-4 transition-[border-color,background] duration-150 hover:border-border-strong hover:bg-bg-raised" class:trade-card--wfm={trade.wfmClosed}>
+          <div class="bg-bg-surface border rounded-md py-3 px-4 transition-[border-color,background] duration-150 hover:border-border-strong hover:bg-bg-raised {trade.wfmClosed ? 'border-[rgba(212,168,67,0.2)]' : 'border-border'}">
             <div class="flex items-center gap-2 mb-[6px]">
-              <span class="trade-badge trade-badge--{trade.type} text-[0.6rem] py-[2px] px-[6px] rounded-[3px] uppercase tracking-[0.05em] font-bold shrink-0">
+              <span class="text-[0.6rem] py-[2px] px-[6px] rounded-[3px] uppercase tracking-[0.05em] font-bold shrink-0 border {trade.type === 'sale' ? 'bg-[rgba(74,222,128,0.15)] text-success border-[rgba(74,222,128,0.3)]' : trade.type === 'purchase' ? 'bg-[rgba(96,165,250,0.15)] text-info border-[rgba(96,165,250,0.3)]' : 'bg-[rgba(168,162,186,0.15)] text-text-secondary border-[rgba(168,162,186,0.3)]'}">
                 {trade.type === "sale" ? "Sale" : trade.type === "purchase" ? "Purchase" : "Trade"}
               </span>
               {#if trade.wfmClosed}
@@ -103,11 +102,11 @@
             {#if trade.items.length > 0}
               <div class="flex flex-wrap gap-1 mt-1">
                 {#each trade.items as item}
-                  <span class="trade-item inline-flex items-center gap-[3px] text-[0.68rem] text-text-secondary bg-bg-deep rounded-[3px] py-[2px] px-[6px] border border-transparent max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap" class:item-received={item.direction === "received"} class:item-given={item.direction === "given"}>
+                  <span class="inline-flex items-center gap-[3px] text-[0.68rem] text-text-secondary bg-bg-deep rounded-[3px] py-[2px] px-[6px] border max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap {item.direction === 'received' ? 'border-[rgba(74,222,128,0.15)]' : item.direction === 'given' ? 'border-[rgba(248,113,113,0.15)]' : 'border-transparent'}">
                     {#if item.wfmThumb}
                       <img class="w-4 h-4 object-contain shrink-0 rounded-sm" src={thumbUrl(item.wfmThumb)} alt="" />
                     {/if}
-                    <span class="trade-item-dir text-[0.7rem] shrink-0">{item.direction === "received" ? "↓" : "↑"}</span>
+                    <span class="text-[0.7rem] shrink-0 {item.direction === 'received' ? 'text-success' : item.direction === 'given' ? 'text-danger' : ''}">{item.direction === "received" ? "↓" : "↑"}</span>
                     {item.count > 1 ? `${item.count}×` : ""}{item.displayName}
                   </span>
                 {/each}
@@ -120,20 +119,3 @@
   </div>
 </div>
 
-<style>
-  .trade-filter-tab:hover { color: var(--text-primary); }
-  .trade-filter-tab.active {
-    background: var(--accent, #d4a843); border-color: var(--accent, #d4a843);
-    color: #000; font-weight: 600;
-  }
-  .trade-filter-tab.active .trade-tab-count { background: rgba(0,0,0,0.25); }
-  .trade-search::placeholder { color: var(--text-muted); }
-  .trade-badge--sale { background: rgba(74, 222, 128, 0.15); color: var(--success, #4ade80); border: 1px solid rgba(74, 222, 128, 0.3); }
-  .trade-badge--purchase { background: rgba(96, 165, 250, 0.15); color: var(--info, #60a5fa); border: 1px solid rgba(96, 165, 250, 0.3); }
-  .trade-badge--trade { background: rgba(168, 162, 186, 0.15); color: var(--text-secondary, #a8a2ba); border: 1px solid rgba(168, 162, 186, 0.3); }
-  .trade-item.item-received { border-color: rgba(74, 222, 128, 0.15); }
-  .trade-item.item-given { border-color: rgba(248, 113, 113, 0.15); }
-  .item-received .trade-item-dir { color: var(--success, #4ade80); }
-  .item-given .trade-item-dir { color: var(--danger, #f87171); }
-  .trade-card--wfm { border-color: rgba(212, 168, 67, 0.2); }
-</style>

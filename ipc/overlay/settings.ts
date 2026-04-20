@@ -31,7 +31,6 @@ type OverlaySettingsControllerOptions = {
   settingsFile: string;
   defaults: OverlaySettingsDict;
   limits: Record<string, number>;
-  ocrEngines: string[];
   rewardScanner: { setSettings: (settings: OverlaySettingsDict) => unknown };
   onRelicRewardTrigger: (source?: string) => void;
   onToggleOverlayInteractionMode: (source?: string) => void;
@@ -84,7 +83,6 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     settingsFile,
     defaults,
     limits,
-    ocrEngines,
     rewardScanner,
     onRelicRewardTrigger,
     onToggleOverlayInteractionMode,
@@ -131,9 +129,8 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     };
   }
 
-  function normalizeOcrEngine(value: unknown): string {
-    const engine = typeof value === "string" ? value.trim().toLowerCase() : "";
-    return ocrEngines.includes(engine) ? engine : String(defaults.ocrEngine);
+  function normalizeOcrEngine(_value: unknown): string {
+    return "windows";
   }
 
   function normalizeOverlaySettings(raw: unknown): OverlaySettingsDict {

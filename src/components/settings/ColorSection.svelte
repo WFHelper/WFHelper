@@ -98,7 +98,7 @@
           <label class="flex flex-col items-center gap-[0.2rem] cursor-pointer">
             <input
               type="color"
-              class="color-input w-8 h-8 border border-border rounded-[0.35rem] p-0 cursor-pointer bg-transparent"
+              class="w-8 h-8 border border-border rounded-[0.35rem] p-0 cursor-pointer bg-transparent [&::-webkit-color-swatch-wrapper]:p-0.5 [&::-webkit-color-swatch]:border-none [&::-webkit-color-swatch]:rounded-[0.2rem]"
               value={toHexInput(colors[item.key])}
               on:input={(e) => onColorChange(item.key, e)}
             />
@@ -113,12 +113,3 @@
   {/each}
 </div>
 
-<style>
-  .color-input::-webkit-color-swatch-wrapper {
-    padding: 2px;
-  }
-  .color-input::-webkit-color-swatch {
-    border: none;
-    border-radius: 0.2rem;
-  }
-</style>

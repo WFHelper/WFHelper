@@ -12,6 +12,7 @@
   let isPanning = false;
   let panStartX = 0;
   let panStartY = 0;
+  let transformEl: HTMLDivElement;
 
   $: summary = computeCraftingSummary(tree);
 
@@ -36,10 +37,17 @@
     return { ...node, children };
   }
 
+  function applyTransform() {
+    if (transformEl) {
+      transformEl.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    }
+  }
+
   function handleWheel(e: WheelEvent) {
     e.preventDefault();
     const factor = e.deltaY > 0 ? 0.9 : 1.1;
     scale = Math.max(0.15, Math.min(3, scale * factor));
+    applyTransform();
   }
 
   function handlePointerDown(e: PointerEvent) {
@@ -54,6 +62,7 @@
     if (!isPanning) return;
     panX = e.clientX - panStartX;
     panY = e.clientY - panStartY;
+    applyTransform();
   }
 
   function handlePointerUp() {
@@ -64,6 +73,7 @@
     scale = 1;
     panX = 0;
     panY = 0;
+    applyTransform();
   }
 </script>
 
@@ -97,8 +107,7 @@
   <!-- Zoomable / pannable canvas -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
   <div
-    class="tree-canvas flex-1 min-h-0 overflow-hidden relative"
-    class:cursor-grabbing={isPanning}
+    class="flex-1 min-h-0 overflow-hidden relative select-none touch-none cursor-grab {isPanning ? 'cursor-grabbing' : ''}"
     on:wheel|preventDefault={handleWheel}
     on:pointerdown={handlePointerDown}
     on:pointermove={handlePointerMove}
@@ -106,6 +115,7 @@
     on:pointercancel={handlePointerUp}
   >
     <div
+      bind:this={transformEl}
       class="inline-flex p-8 origin-top-left will-change-transform"
       style="transform: translate({panX}px, {panY}px) scale({scale})"
     >
@@ -147,11 +157,3 @@
   </div>
 </div>
 
-<style>
-  .tree-canvas {
-    cursor: grab;
-  }
-  .tree-canvas.cursor-grabbing {
-    cursor: grabbing;
-  }
-</style>

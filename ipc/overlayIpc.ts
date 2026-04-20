@@ -12,7 +12,6 @@ import * as warframeStatus from "../services/warframeStatus";
 import * as rivenOverlayIpc from "./rivenOverlayIpc";
 import * as rewardOverlayIpc from "./rewardOverlayIpc";
 import {
-  OVERLAY_OCR_ENGINES,
   OVERLAY_SETTINGS_DEFAULTS,
   OVERLAY_SETTINGS_LIMITS,
 } from "../config/runtime/overlaySettings";
@@ -201,7 +200,6 @@ const settingsController = createOverlaySettingsController({
   settingsFile: OVERLAY_SETTINGS_FILE,
   defaults: OVERLAY_SETTINGS_DEFAULTS,
   limits: OVERLAY_SETTINGS_LIMITS,
-  ocrEngines: OVERLAY_OCR_ENGINES,
   rewardScanner,
   onRelicRewardTrigger,
   onToggleOverlayInteractionMode: toggleOverlayInteractionMode,

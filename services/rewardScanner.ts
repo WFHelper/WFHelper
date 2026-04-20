@@ -222,15 +222,6 @@ const REWARD_SCAN_BUDGET_MIN_MS = 1800;
 /** Maximum scan budget: capped to keep the overlay response perceptually instant. */
 const REWARD_SCAN_BUDGET_MAX_MS = 5000;
 
-// --- OCR engine constants ---------------------------------------------------
-
-const OCR_ENGINE_AUTO = "auto";
-const OCR_ENGINE_WINDOWS = "windows";
-const OCR_ENGINE_POWERSHELL = "powershell";
-const OCR_ENGINE_ENV = String(process.env.WF_OCR_ENGINE || OCR_ENGINE_AUTO)
-  .trim()
-  .toLowerCase();
-
 // --- Relic era scan config --------------------------------------------------
 
 const RELIC_ERA_BANDS: ReadonlyArray<{ top: number; height: number }> = Object.freeze([
@@ -275,22 +266,13 @@ let scanSettings: OverlaySettings = sanitizeSettings(DEFAULT_SCAN_SETTINGS);
 
 // --- Settings helpers -------------------------------------------------------
 
-function normalizeOcrEngine(value: unknown, fallback: string = OCR_ENGINE_WINDOWS): string {
-  const v = String(value || "")
-    .trim()
-    .toLowerCase();
-  if (v === OCR_ENGINE_WINDOWS || v === OCR_ENGINE_POWERSHELL) return OCR_ENGINE_WINDOWS;
-  if (v === OCR_ENGINE_AUTO) return OCR_ENGINE_AUTO;
-  return fallback;
-}
-
 function sanitizeSettings(raw: unknown): OverlaySettings {
   const candidate = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
 
   return {
     ...DEFAULT_SCAN_SETTINGS,
     cropPreset: "balanced",
-    ocrEngine: normalizeOcrEngine(candidate.ocrEngine, DEFAULT_SCAN_SETTINGS.ocrEngine),
+    ocrEngine: "windows",
     ocrPasses: Math.floor(
       clampNumber(
         candidate.ocrPasses,
@@ -326,12 +308,9 @@ export function setSettings(nextSettings: unknown): OverlaySettings {
   const prev = scanSettings;
   scanSettings = sanitizeSettings({ ...scanSettings, ...(nextSettings || {}) });
 
-  // Invalidate frame dedup when user changes OCR engine or matching threshold,
+  // Invalidate frame dedup when user changes matching threshold,
   // so a cached result from the old settings doesn't persist.
-  if (
-    prev.ocrEngine !== scanSettings.ocrEngine ||
-    prev.matchThreshold !== scanSettings.matchThreshold
-  ) {
+  if (prev.matchThreshold !== scanSettings.matchThreshold) {
     resetFrameDedup();
   }
 
@@ -344,17 +323,11 @@ export function getSettings(): OverlaySettings {
 
 // --- OCR runner setup -------------------------------------------------------
 
-function getRequestedOcrEngine(): string {
-  const envEngine = normalizeOcrEngine(OCR_ENGINE_ENV, OCR_ENGINE_AUTO);
-  if (envEngine !== OCR_ENGINE_AUTO) return envEngine;
-  return normalizeOcrEngine(scanSettings.ocrEngine, OCR_ENGINE_WINDOWS);
-}
-
 const { runOCR, runOCRBuffer, runOCRStructuredBuffer } = createRewardOcrRunner({
   log,
-  getRequestedEngine: getRequestedOcrEngine,
+  getRequestedEngine: () => "windows",
   ocrScriptPath: OCR_SCRIPT,
-  engineWindows: OCR_ENGINE_WINDOWS,
+  engineWindows: "windows",
 });
 
 // --- Band helpers -----------------------------------------------------------

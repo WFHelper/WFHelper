@@ -667,7 +667,7 @@
       <div class="flex">
         {#each TIER_OPTIONS as [key, label]}
           <button
-            class="relics-tier-tab-item data-[active]:text-white data-[active]:border-b-white"
+            class="flex items-center py-[0.45rem] px-[0.95rem] border-none border-b-[3px] border-b-transparent bg-none font-display text-base text-[#8a8c95] cursor-pointer transition-[color,border-color] duration-150 whitespace-nowrap -mb-px hover:text-[#b0b2ba] data-[active]:text-white data-[active]:border-b-white"
             data-active={$relicTierFilter === key || undefined}
             on:click={() => relicTierFilter.set(key)}
           >{label}</button>
@@ -810,10 +810,8 @@
               {@const count = ownedCount(group, quality)}
               <button
                 type="button"
-                class="relic-quality-inline-pill"
-                class:zero={count === 0}
+                class="relic-quality-inline-pill {count === 0 ? 'text-text-muted opacity-90' : ''} {$relicQualityMode !== 'owned' || count === 0 ? 'cursor-default opacity-[0.86]' : ''}"
                 class:active={$relicQualityMode === "owned" && selectedOwned === quality}
-                class:disabled={$relicQualityMode !== "owned" || count === 0}
                 on:click|stopPropagation={() => {
                   if ($relicQualityMode === "owned" && count > 0) {
                     setOwnedQuality(group, quality);
@@ -821,7 +819,7 @@
                 }}
               >
                 <span class="leading-none normal-case opacity-[0.96]">{RELIC_QUALITY_SHORT[quality]}:</span>
-                <span class="relic-quality-inline-value">{count}</span>
+                <span class="relic-quality-inline-value {count === 0 ? '!text-text-muted' : ''}">{count}</span>
               </button>
             {/each}
           </span>
@@ -836,15 +834,6 @@
 </section>
 
 <style>
-  .relics-tier-tab-item {
-    display: flex; align-items: center; padding: 0.45rem 0.95rem;
-    border: none; border-bottom: 3px solid transparent; background: none;
-    font-family: var(--font-display); font-size: 1rem; color: #8a8c95;
-    cursor: pointer; transition: color 0.15s, border-color 0.15s;
-    white-space: nowrap; margin-bottom: -1px;
-  }
-  .relics-tier-tab-item:hover { color: #b0b2ba; }
-
   .relic-compact-card {
     width: 100%; display: flex; min-width: 0; flex-direction: column; gap: 0.5rem;
     border: 1px solid var(--border); border-radius: 0.74rem;
@@ -915,13 +904,10 @@
     background: color-mix(in oklab, var(--accent) 22%, var(--bg-base));
     box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 28%, transparent);
   }
-  .relic-quality-inline-pill.disabled { cursor: default; opacity: 0.86; }
   .relic-quality-inline-value {
     line-height: 1; font-size: 0.78rem; letter-spacing: 0.02em;
     color: color-mix(in oklab, var(--info) 76%, white);
   }
-  .relic-quality-inline-pill.zero { color: var(--text-muted); opacity: 0.9; }
-  .relic-quality-inline-pill.zero .relic-quality-inline-value { color: var(--text-muted); }
 
   @media (max-width: 800px) {
     .relic-row-name { font-size: 0.94rem; }

@@ -16,8 +16,7 @@
     {#each PRESET_KEYS as key}
       {@const preset = THEME_PRESETS[key]}
       <button
-        class="preset-btn flex flex-col items-center gap-[0.3rem] cursor-pointer border border-border rounded-lg bg-bg-raised py-[0.45rem] px-[0.55rem] transition-[border-color,background-color] duration-150 hover:border-border-strong hover:bg-bg-hover"
-        class:preset-active={activePreset === key}
+        class="flex flex-col items-center gap-[0.3rem] cursor-pointer border rounded-lg py-[0.45rem] px-[0.55rem] transition-[border-color,background-color] duration-150 {activePreset === key ? 'border-accent bg-accent-glow' : 'border-border bg-bg-raised hover:border-border-strong hover:bg-bg-hover'}"
         title={preset.label}
         on:click={() => selectPreset(key)}
       >
@@ -26,12 +25,12 @@
           <span class="w-4 h-4 rounded-full border border-[rgba(255,255,255,0.15)]" style="background: {preset.colors.accent};"></span>
           <span class="w-4 h-4 rounded-full border border-[rgba(255,255,255,0.15)]" style="background: {preset.colors.textPrimary};"></span>
         </div>
-        <span class="preset-label font-display text-[0.65rem] font-semibold tracking-[0.03em] text-text-secondary">{preset.label}</span>
+        <span class="font-display text-[0.65rem] font-semibold tracking-[0.03em] {activePreset === key ? 'text-accent' : 'text-text-secondary'}">{preset.label}</span>
       </button>
     {/each}
     {#if activePreset === "custom"}
       <button
-        class="preset-btn preset-active flex flex-col items-center gap-[0.3rem] cursor-pointer border border-border rounded-lg bg-bg-raised py-[0.45rem] px-[0.55rem] transition-[border-color,background-color] duration-150 hover:border-border-strong hover:bg-bg-hover"
+        class="flex flex-col items-center gap-[0.3rem] cursor-pointer border border-accent rounded-lg bg-accent-glow py-[0.45rem] px-[0.55rem] transition-[border-color,background-color] duration-150"
         title={$tr("appearance.customPreset")}
         disabled
       >
@@ -40,18 +39,9 @@
           <span class="w-4 h-4 rounded-full border border-[rgba(255,255,255,0.15)]" style="background: {$themeSettings.colors.accent};"></span>
           <span class="w-4 h-4 rounded-full border border-[rgba(255,255,255,0.15)]" style="background: {$themeSettings.colors.textPrimary};"></span>
         </div>
-        <span class="preset-label font-display text-[0.65rem] font-semibold tracking-[0.03em] text-text-secondary">{$tr("appearance.customPreset")}</span>
+        <span class="font-display text-[0.65rem] font-semibold tracking-[0.03em] text-accent">{$tr("appearance.customPreset")}</span>
       </button>
     {/if}
   </div>
 </div>
 
-<style>
-  .preset-btn.preset-active {
-    border-color: var(--accent);
-    background: var(--accent-glow);
-  }
-  .preset-btn.preset-active .preset-label {
-    color: var(--accent);
-  }
-</style>

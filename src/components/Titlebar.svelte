@@ -69,7 +69,7 @@
       class="hidden lg:inline-flex items-center gap-1 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] px-2 py-0.5 text-[10px] text-text-muted"
       title={helperStatus?.exeFound ? "warframe-api-helper active" : "warframe-api-helper not found"}
     >
-      <span class="helper-dot inline-block h-1.5 w-1.5 rounded-full" class:helper-dot--pulse={helperDotPulse} style="background:{helperDotColor}"></span>
+      <span class="inline-block h-1.5 w-1.5 rounded-full {helperDotPulse ? 'animate-pulse' : ''}" style="background:{helperDotColor}"></span>
       <span class="overflow-hidden text-ellipsis whitespace-nowrap max-w-[18rem]">{helperStatusText}</span>
     </span>
   </div>
@@ -101,12 +101,3 @@
   </div>
 </header>
 
-<style>
-  .helper-dot--pulse {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
-</style>

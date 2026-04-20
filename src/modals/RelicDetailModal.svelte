@@ -243,8 +243,8 @@ import ModalShell from "../components/ModalShell.svelte";
 
         <div class="detail-header relic-detail-header items-center">
           <div class="relic-detail-icon">
-            <span class="relic-icon relic-detail-icon-shell {tierCls}">
-              <img class="relic-icon-img relic-detail-icon-image" src={iconSrc} alt={group.name} />
+            <span class="relic-icon w-[var(--size-relic-detail-icon)] h-[var(--size-relic-detail-icon)] {tierCls}">
+              <img class="relic-icon-img w-[var(--size-relic-detail-icon)] h-[var(--size-relic-detail-icon)]" src={iconSrc} alt={group.name} />
             </span>
           </div>
           <div class="relic-detail-title-area">
@@ -286,7 +286,7 @@ import ModalShell from "../components/ModalShell.svelte";
           </div>
 
           <div class="relic-rewards-list mt-[0.65rem] grid gap-0">
-            <div class="relic-grid-row gap-[0.42rem] text-[0.72rem] text-text-muted px-[0.4rem]">
+            <div class="grid grid-cols-[30px_minmax(0,1fr)_72px_78px_78px_120px] max-[800px]:grid-cols-[24px_minmax(0,1fr)_56px_60px_60px_94px] max-[800px]:gap-[0.32rem] gap-[0.42rem] text-[0.72rem] text-text-muted px-[0.4rem]">
               <span></span><span>Item</span><span class="text-right">Chance</span>
               <span class="text-right">Price</span><span class="text-right">Ducats</span><span class="text-right">E.V.</span>
             </div>
@@ -296,7 +296,7 @@ import ModalShell from "../components/ModalShell.svelte";
               {@const platEv = price != null ? (reward.chance / 100) * price : null}
               {@const ducatEv = ducatValue != null ? (reward.chance / 100) * ducatValue : null}
               {@const canClick = itemNameIndex.has(reward.name)}
-              <button class="relic-grid-row gap-[0.42rem] items-center px-[0.4rem] py-[0.42rem] border-0 border-b border-[rgba(255,255,255,0.06)] rounded-[0.25rem] bg-transparent text-inherit text-left w-full last:border-b-0 {canClick ? 'cursor-pointer hover:enabled:bg-white/[0.06]' : ''} {selectedReward === reward ? 'bg-white/10' : ''}" disabled={!canClick} on:click={() => selectReward(reward)}>
+              <button class="grid grid-cols-[30px_minmax(0,1fr)_72px_78px_78px_120px] max-[800px]:grid-cols-[24px_minmax(0,1fr)_56px_60px_60px_94px] max-[800px]:gap-[0.32rem] gap-[0.42rem] items-center px-[0.4rem] py-[0.42rem] border-0 border-b border-[rgba(255,255,255,0.06)] rounded-[0.25rem] bg-transparent text-inherit text-left w-full last:border-b-0 {canClick ? 'cursor-pointer hover:enabled:bg-white/[0.06]' : ''} {selectedReward === reward ? 'bg-white/10' : ''}" disabled={!canClick} on:click={() => selectReward(reward)}>
                 <span class="relic-reward-rarity inline-flex items-center justify-center w-5 h-5 rounded-full text-[0.67rem] font-bold {rarityClass(reward.rarity)}" title={reward.rarity}
                   >{reward.rarity?.charAt(0) || "?"}</span
                 >
@@ -365,16 +365,7 @@ import ModalShell from "../components/ModalShell.svelte";
 {/if}
 
 <style>
-  .relic-detail-icon-shell,
-  .relic-detail-icon-image {
-    width: var(--size-relic-detail-icon);
-    height: var(--size-relic-detail-icon);
-  }
   .relic-detail-owned :global(.relic-owned-pill) { font-size: 0.66rem; }
-  .relic-grid-row {
-    display: grid;
-    grid-template-columns: 30px minmax(0, 1fr) 72px 78px 78px 120px;
-  }
   :global(.rarity-rare) { background: rgba(212, 168, 67, 0.2); color: #d4a843; border: 1px solid rgba(212, 168, 67, 0.4); }
   :global(.rarity-uncommon) { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); }
   :global(.rarity-common) { background: rgba(71, 85, 105, 0.25); color: #64748b; border: 1px solid rgba(71, 85, 105, 0.4); }
@@ -382,11 +373,5 @@ import ModalShell from "../components/ModalShell.svelte";
   :global(.relic-reward-item-panel) {
     width: 520px; border-radius: 0; border: none;
     overflow-y: auto; animation: compSlideIn 0.18s ease;
-  }
-  @media (max-width: 800px) {
-    .relic-grid-row {
-      grid-template-columns: 24px minmax(0, 1fr) 56px 60px 60px 94px;
-      gap: 0.32rem;
-    }
   }
 </style>

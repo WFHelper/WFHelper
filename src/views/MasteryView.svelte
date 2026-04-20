@@ -161,7 +161,7 @@
           <!-- svelte-ignore a11y-click-events-have-key-events -->
           <!-- svelte-ignore a11y-no-static-element-interactions -->
           <div
-            class="item-card group mastery-card {item.status}"
+            class="item-card group {item.status === 'missing' ? 'opacity-[0.62]' : item.status === 'mastered' ? 'border-[rgba(74,222,128,0.24)]' : item.status === 'progress' ? 'border-[rgba(251,191,36,0.24)]' : ''}"
             class:prime={item.isPrime}
             on:click={() => activeItem.set(item)}
           >
@@ -169,7 +169,7 @@
               <ItemImage src={item.imageUrl} alt={item.name} />
               {#if item.isPrime}<span class="prime-badge">P</span>{/if}
               {#if item.vaulted}<span class="vault-badge">V</span>{/if}
-              <span class="status-indicator {item.status}"></span>
+              <span class="absolute right-1.5 bottom-1.5 w-[0.42rem] h-[0.42rem] rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.38)] {item.status === 'mastered' ? 'bg-success' : item.status === 'progress' ? 'bg-warning' : 'bg-danger opacity-70'}"></span>
             </div>
             <div class="item-body">
               <span class="item-name">{item.name}</span>
@@ -256,21 +256,6 @@
 </section>
 
 <style>
-  .mastery-card.missing { opacity: 0.62; }
-  .mastery-card.mastered { border-color: rgba(74, 222, 128, 0.24); }
-  .mastery-card.progress { border-color: rgba(251, 191, 36, 0.24); }
-  .status-indicator {
-    position: absolute;
-    right: 0.4rem;
-    bottom: 0.4rem;
-    width: 0.42rem;
-    height: 0.42rem;
-    border-radius: 999px;
-    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.38);
-  }
-  .status-indicator.mastered { background: var(--success); }
-  .status-indicator.progress { background: var(--warning); }
-  .status-indicator.missing { background: var(--danger); opacity: 0.7; }
   .comp-dot.owned {
     background: color-mix(in oklab, var(--success) 65%, transparent);
     border-color: color-mix(in oklab, var(--success) 60%, transparent);

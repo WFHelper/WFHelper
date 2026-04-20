@@ -8,7 +8,7 @@ function buildController() {
       autoTriggerEnabled: true,
       hotkeyEnabled: true,
       hotkey: "Control+Alt+R",
-      ocrEngine: "native",
+      ocrEngine: "windows",
       ocrPasses: 3,
       matchThreshold: 0.72,
       ocrTimeoutMs: 1800,
@@ -60,7 +60,6 @@ function buildController() {
       ocrTimeoutMsMin: 400,
       ocrTimeoutMsMax: 6000,
     },
-    ocrEngines: ["windows"],
     rewardScanner: {
       setSettings: vi.fn(),
     },
@@ -84,7 +83,7 @@ describe("overlay settings controller", () => {
     });
 
     expect(normalized.hotkey).toBe("Control+K");
-    expect(normalized.ocrEngine).toBe("native");
+    expect(normalized.ocrEngine).toBe("windows");
     expect(normalized.ocrPasses).toBe(6);
     expect(normalized.matchThreshold).toBe(0.4);
     expect(normalized.ocrTimeoutMs).toBe(400);

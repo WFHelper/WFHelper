@@ -271,9 +271,9 @@
           <!-- Visibility -->
           <div class="flex items-center justify-between gap-2.5 mb-2">
             <label for="order-visible" class="text-sm font-medium text-text-secondary">Visible on site</label>
-            <label class="market-toggle">
-              <input id="order-visible" type="checkbox" bind:checked={visible} />
-              <span class="market-toggle-slider"></span>
+            <label class="relative inline-block w-[42px] h-[22px]">
+              <input id="order-visible" type="checkbox" class="peer opacity-0 w-0 h-0" bind:checked={visible} />
+              <span class="absolute inset-0 border border-border rounded-full bg-white/[0.08] transition-all duration-150 peer-checked:border-[rgba(74,222,128,0.4)] peer-checked:bg-[rgba(74,222,128,0.2)] before:content-[''] before:absolute before:left-0.5 before:top-0.5 before:w-4 before:h-4 before:rounded-full before:bg-white before:transition-transform before:duration-150 peer-checked:before:translate-x-[18px]"></span>
             </label>
           </div>
 
@@ -293,42 +293,3 @@
   </div>
 {/if}
 
-<style>
-  .market-toggle {
-    position: relative;
-    display: inline-block;
-    width: 42px;
-    height: 22px;
-  }
-  .market-toggle input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-  .market-toggle-slider {
-    position: absolute;
-    inset: 0;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
-    transition: all 0.15s;
-  }
-  .market-toggle-slider::before {
-    content: "";
-    position: absolute;
-    left: 2px;
-    top: 2px;
-    width: 16px;
-    height: 16px;
-    border-radius: 999px;
-    background: #fff;
-    transition: transform 0.15s;
-  }
-  .market-toggle input:checked + .market-toggle-slider {
-    border-color: rgba(74, 222, 128, 0.4);
-    background: rgba(74, 222, 128, 0.2);
-  }
-  .market-toggle input:checked + .market-toggle-slider::before {
-    transform: translateX(18px);
-  }
-</style>

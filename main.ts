@@ -19,7 +19,6 @@ import * as relicService from "./services/relicService";
 import * as eeLogMonitor from "./services/eeLogMonitor";
 import * as keyboardMonitor from "./services/keyboardMonitor";
 import * as rewardScanner from "./services/rewardScanner";
-import * as ocrServer from "./services/ocrServer";
 import * as crashReporter from "./services/crashReporter";
 import * as autoUpdater from "./services/autoUpdater";
 

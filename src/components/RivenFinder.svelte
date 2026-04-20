@@ -250,19 +250,19 @@
       <div class="flex flex-col gap-[0.35rem]">
         <div class="flex items-center gap-[0.35rem]">
           <span class="font-display text-[0.7rem] text-text-secondary min-w-[3.5rem] shrink-0">Price</span>
-          <input type="number" class="filter-input w-20 py-[0.3rem] px-2 border border-border rounded bg-bg-surface text-text-primary font-body text-[0.75rem] outline-none focus:border-accent" placeholder="Min" bind:value={priceMin} min="0" />
+          <input type="number" class="w-20 py-[0.3rem] px-2 border border-border rounded bg-bg-surface text-text-primary font-body text-[0.75rem] outline-none focus:border-accent [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0" placeholder="Min" bind:value={priceMin} min="0" />
           <span class="text-text-muted text-[0.75rem]">–</span>
-          <input type="number" class="filter-input w-20 py-[0.3rem] px-2 border border-border rounded bg-bg-surface text-text-primary font-body text-[0.75rem] outline-none focus:border-accent" placeholder="Max" bind:value={priceMax} min="0" />
+          <input type="number" class="w-20 py-[0.3rem] px-2 border border-border rounded bg-bg-surface text-text-primary font-body text-[0.75rem] outline-none focus:border-accent [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0" placeholder="Max" bind:value={priceMax} min="0" />
         </div>
         <div class="flex items-center gap-[0.35rem]">
           <span class="font-display text-[0.7rem] text-text-secondary min-w-[3.5rem] shrink-0">Rerolls</span>
-          <input type="number" class="filter-input w-20 py-[0.3rem] px-2 border border-border rounded bg-bg-surface text-text-primary font-body text-[0.75rem] outline-none focus:border-accent" placeholder="Min" bind:value={rerollsMin} min="0" />
+          <input type="number" class="w-20 py-[0.3rem] px-2 border border-border rounded bg-bg-surface text-text-primary font-body text-[0.75rem] outline-none focus:border-accent [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0" placeholder="Min" bind:value={rerollsMin} min="0" />
           <span class="text-text-muted text-[0.75rem]">–</span>
-          <input type="number" class="filter-input w-20 py-[0.3rem] px-2 border border-border rounded bg-bg-surface text-text-primary font-body text-[0.75rem] outline-none focus:border-accent" placeholder="Max" bind:value={rerollsMax} min="0" />
+          <input type="number" class="w-20 py-[0.3rem] px-2 border border-border rounded bg-bg-surface text-text-primary font-body text-[0.75rem] outline-none focus:border-accent [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0" placeholder="Max" bind:value={rerollsMax} min="0" />
         </div>
         <div class="flex items-center gap-[0.35rem]">
           <span class="font-display text-[0.7rem] text-text-secondary min-w-[3.5rem] shrink-0">Similarity</span>
-          <input type="number" class="filter-input w-20 py-[0.3rem] px-2 border border-border rounded bg-bg-surface text-text-primary font-body text-[0.75rem] outline-none focus:border-accent" placeholder="Min %" bind:value={minSimilarity} min="0" max="100" />
+          <input type="number" class="w-20 py-[0.3rem] px-2 border border-border rounded bg-bg-surface text-text-primary font-body text-[0.75rem] outline-none focus:border-accent [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0" placeholder="Min %" bind:value={minSimilarity} min="0" max="100" />
           <span class="text-text-muted text-[0.75rem]">%</span>
         </div>
         <label class="flex items-center gap-[0.35rem] font-display text-[0.75rem] text-text-secondary cursor-pointer select-none mt-[0.15rem]">
@@ -314,7 +314,3 @@
   </div>
 {/if}
 
-<style>
-  .filter-input::-webkit-outer-spin-button,
-  .filter-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-</style>

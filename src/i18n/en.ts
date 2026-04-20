@@ -56,8 +56,6 @@ export const en = {
   "settings.interactionHotkeyEnabled": "Enable overlay interaction toggle",
   "settings.interactionHotkey": "Overlay interaction toggle",
   "settings.interactionHotkeyPlaceholder": "Control+Tab",
-  "settings.ocrEngine": "OCR engine",
-  "settings.ocrEngineWindows": "Windows OCR",
 
   "settings.ocrPasses": "OCR passes",
   "settings.matchThreshold": "Match threshold",
