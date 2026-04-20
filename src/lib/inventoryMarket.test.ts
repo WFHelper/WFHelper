@@ -13,6 +13,7 @@ import {
 import type { RelicDatabase } from "../types/relics.js";
 import { setCachedPrice } from "./wfm/priceCache.js";
 import { clearOrderSummaryCache, setCachedOrderSummary } from "./wfm/orderSummaryCache.js";
+import { importMetaFromSnapshot } from "./wfm/wfmItemMeta.js";
 
 function makeBaseItem(overrides: Partial<InventoryBaseItem> = {}): InventoryBaseItem {
   return {
@@ -438,6 +439,45 @@ describe("inventoryMarket view mapping", () => {
     );
 
     expect(mapped.marketSlug).toBe("primed_cleanse_corrupted");
+  });
+
+  it("uses cached snapshot meta thumbnails for ranked items before hydration", () => {
+    importMetaFromSnapshot({
+      primed_continuity: {
+        slug: "primed_continuity",
+        ducats: null,
+        setRoot: false,
+        thumb: "https://warframe.market/static/assets/primed_continuity_thumb.png",
+        icon: null,
+        timestamp: Date.now(),
+      },
+    });
+
+    const [mapped] = buildBaseInventoryItems(
+      [
+        makeBaseItem({
+          name: "Primed Continuity",
+          internalName: "/Lotus/Upgrades/Mods/PrimedContinuity",
+          marketThumb: null,
+          marketSlug: null,
+        }),
+      ],
+      "mods",
+      {
+        "primed continuity": {
+          url_name: "primed_continuity",
+          item_name: "Primed Continuity",
+          thumb: null,
+          icon: null,
+        },
+      },
+      {},
+      {},
+    );
+
+    expect(mapped.marketThumb).toBe(
+      "https://warframe.market/static/assets/primed_continuity_thumb.png",
+    );
   });
 
   it("keeps untradable mods visible but without market indexing", () => {

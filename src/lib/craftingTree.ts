@@ -22,6 +22,12 @@ export interface CraftingTreeSummary {
 
 const MAX_DEPTH = 5;
 
+/** Common resource path prefixes — never recurse into these sub-trees. */
+const LEAF_RESOURCE_PREFIXES = [
+  "/Lotus/Types/Items/MiscItems/",
+  "/Lotus/Types/Items/Research/",
+];
+
 /**
  * Build a crafting tree for the given item uniqueName.
  * Returns null if the item has no recipe.
@@ -35,6 +41,10 @@ export function buildCraftingTree(
   if (!item?.recipe) return null;
 
   return buildNode(uniqueName, 1, item.recipe, itemDb, ownership, 0);
+}
+
+function isLeafResource(uniqueName: string): boolean {
+  return LEAF_RESOURCE_PREFIXES.some((p) => uniqueName.startsWith(p));
 }
 
 function buildNode(
@@ -51,9 +61,30 @@ function buildNode(
   const owned = ownership.get(uniqueName) || 0;
   const missing = Math.max(0, count - owned);
 
+  // Treat common resources as leaf nodes even if they have recipes
+  const effectiveRecipe = isLeafResource(uniqueName) ? null : recipe;
+
   const children: CraftingTreeNode[] = [];
-  if (recipe && depth < MAX_DEPTH) {
-    for (const ing of recipe.ingredients) {
+  if (effectiveRecipe && depth < MAX_DEPTH) {
+    // Add blueprint as first child (it's needed to craft but not listed in ingredients)
+    if (effectiveRecipe.blueprintUniqueName) {
+      const bpUn = effectiveRecipe.blueprintUniqueName;
+      const bpItem = itemDb[bpUn];
+      const bpOwned = ownership.get(bpUn) || 0;
+      children.push({
+        uniqueName: bpUn,
+        name: bpItem?.name || `${name} Blueprint`,
+        imageUrl: bpItem?.imageUrl || null,
+        count,
+        owned: bpOwned,
+        missing: Math.max(0, count - bpOwned),
+        isCraftable: false,
+        recipe: null,
+        children: [],
+      });
+    }
+
+    for (const ing of effectiveRecipe.ingredients) {
       const ingItem = itemDb[ing.uniqueName];
       const ingRecipe = ingItem?.recipe || null;
       children.push(
@@ -69,8 +100,8 @@ function buildNode(
     count,
     owned,
     missing,
-    isCraftable: recipe !== null,
-    recipe,
+    isCraftable: effectiveRecipe !== null,
+    recipe: effectiveRecipe,
     children,
   };
 }
@@ -165,8 +196,15 @@ function extractFallbackName(uniqueName: string): string {
 /** Format seconds into a human-readable duration string. */
 export function formatBuildTime(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
-  const hours = Math.floor(seconds / 3600);
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
+  if (days > 0) {
+    if (hours === 0 && minutes === 0) return `${days}d`;
+    if (minutes === 0) return `${days}d ${hours}h`;
+    if (hours === 0) return `${days}d ${minutes}m`;
+    return `${days}d ${hours}h ${minutes}m`;
+  }
   if (hours === 0) return `${minutes}m`;
   if (minutes === 0) return `${hours}h`;
   return `${hours}h ${minutes}m`;

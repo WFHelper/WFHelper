@@ -597,12 +597,13 @@ function buildRecipeIndex(): void {
 
     recipesByResultType = {};
     let count = 0;
-    for (const item of Object.values(exportData) as PepRecipeItem[]) {
+    for (const [recipeKey, item] of Object.entries(exportData) as [string, PepRecipeItem][]) {
       if (!item.resultType || !Array.isArray(item.ingredients)) continue;
       recipesByResultType[item.resultType] = {
         buildPrice: item.buildPrice || 0,
         buildTime: item.buildTime || 0,
         num: item.num || 1,
+        blueprintUniqueName: recipeKey,
         ingredients: item.ingredients.map((i) => ({
           uniqueName: i.ItemType,
           count: i.ItemCount || 1,

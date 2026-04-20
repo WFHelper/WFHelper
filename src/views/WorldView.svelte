@@ -453,7 +453,7 @@
             <div class="flex gap-[0.6rem] overflow-x-auto overflow-y-visible px-1 py-[0.3rem]">
               {#each featuredPrimes as p}
                 <button class="group flex shrink-0 flex-col items-center gap-[0.2rem] border-0 bg-transparent p-0 text-inherit cursor-pointer transition-transform duration-100 hover:scale-105 hover:z-[1]" on:click={() => openItemDetail(p.uniqueName)} title="View {p.name} details">
-                  <div class="h-[100px] w-[100px] overflow-hidden rounded-[0.35rem] border-2 border-border bg-[rgba(0,0,0,0.3)] {p.owned ? 'border-[rgba(74,222,128,0.5)] shadow-[0_0_6px_rgba(74,222,128,0.15)]' : ''}">
+                  <div class="h-[100px] w-[100px] overflow-hidden rounded-[0.35rem] border-2 bg-[rgba(0,0,0,0.3)] {p.owned ? 'border-[rgba(74,222,128,0.5)] shadow-[0_0_6px_rgba(74,222,128,0.15)]' : 'border-border'}">
                     <img class="h-full w-full object-contain" src={p.imageUrl} alt={p.name} loading="lazy" />
                   </div>
                   <span class="max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap text-center text-[0.68rem] text-text-secondary">{p.name}</span>
@@ -474,7 +474,7 @@
           <div class="mb-2 flex gap-2 overflow-x-auto overflow-y-visible px-[0.15rem] py-[0.3rem]">
             {#each rot.items as item}
               <button class="group flex shrink-0 flex-col items-center gap-[0.15rem] border-0 bg-transparent p-0 text-inherit cursor-pointer transition-transform duration-100 hover:scale-[1.08] hover:z-[1]" on:click={() => openItemDetail(item.uniqueName)} title="View {item.name} details">
-                <div class="flex h-20 w-20 items-center justify-center overflow-hidden rounded-[0.3rem] border-[1.5px] border-border bg-[rgba(0,0,0,0.3)] {item.owned ? 'border-[rgba(74,222,128,0.5)] shadow-[0_0_5px_rgba(74,222,128,0.15)]' : ''}">
+                <div class="flex h-20 w-20 items-center justify-center overflow-hidden rounded-[0.3rem] border-[1.5px] bg-[rgba(0,0,0,0.3)] {item.owned ? 'border-[rgba(74,222,128,0.5)] shadow-[0_0_5px_rgba(74,222,128,0.15)]' : 'border-border'}">
                   {#if item.imageUrl}
                     <img class="h-full w-full object-contain" src={item.imageUrl} alt={item.name} loading="lazy" />
                   {/if}
@@ -514,7 +514,7 @@
       <div class="flex flex-col">
 
         <!-- VOID FISSURES -->
-        <div class="border-0 py-[0.85rem]">
+        <div class="world-section border-t-0">
           <div class="flex items-center justify-between gap-2 mb-[0.55rem]">
             <button class="world-section-toggle" on:click={() => toggleSection('fissures')} aria-expanded={!collapsed.fissures}>
               <span class="world-toggle-icon" class:collapsed={collapsed.fissures}>&#x25BE;</span>
@@ -522,12 +522,12 @@
             </button>
             <div class="flex">
               <button
-                class="fissure-tab rounded-l-[0.3rem] data-[active]:bg-accent data-[active]:text-bg-primary data-[active]:border-accent"
+                class="fissure-tab rounded-l-[0.3rem] data-[active]:bg-accent data-[active]:text-bg-deep data-[active]:border-accent"
                 data-active={$worldFissureMode === 'normal' || undefined}
                 on:click={() => worldFissureMode.set('normal')}
               >Normal</button>
               <button
-                class="fissure-tab rounded-r-[0.3rem] border-l-0 data-[active]:bg-accent data-[active]:text-bg-primary data-[active]:border-accent"
+                class="fissure-tab rounded-r-[0.3rem] border-l-0 data-[active]:bg-accent data-[active]:text-bg-deep data-[active]:border-accent"
                 data-active={$worldFissureMode === 'steel' || undefined}
                 on:click={() => worldFissureMode.set('steel')}
               >Steel Path</button>
@@ -539,8 +539,8 @@
               <span class="text-[0.82rem] text-text-secondary opacity-70">No active {$worldFissureMode === 'steel' ? 'Steel Path' : 'Normal'} fissures</span>
             {:else}
               {#each fissureFlat as f}
-                <div class="world-row">
-                  <span class="world-badge-{f.tierCls} inline-flex min-w-20 shrink-0 items-center gap-[0.2rem] rounded px-[0.45rem] py-[0.18rem] text-[0.66rem] font-bold uppercase tracking-[0.06em]">
+                <div class="fissure-row">
+                  <span class="world-badge-{f.tierCls} inline-flex min-w-20 items-center gap-[0.2rem] rounded px-[0.45rem] py-[0.18rem] text-[0.66rem] font-bold uppercase tracking-[0.06em]">
                     <img class="h-3.5 w-3.5 shrink-0" src={RELIC_ICON_PATHS[f.tierCls] || RELIC_ICON_PATHS.default} alt="" />
                     {f.tier}
                   </span>
@@ -696,7 +696,7 @@
                               {@const rewardIcon = resolveRewardIcon(item.itemName, $itemDb)}
                               <button
                                 type="button"
-                                class="flex w-full items-center justify-between gap-[0.3rem] border-0 bg-transparent px-0 py-[0.05rem] text-left text-[0.82rem] text-text-primary appearance-none disabled:text-text-primary disabled:opacity-100 disabled:cursor-default {rewardUniqueName ? 'cursor-pointer rounded-[0.2rem] px-[0.2rem] -mx-[0.2rem] transition-[background] duration-150 hover:bg-white/[0.06]' : ''} {item.rarity === 'Rare' || item.rarity === 'Legendary' ? 'text-accent' : ''}"
+                                class="flex w-full items-center justify-between gap-[0.3rem] border-0 bg-transparent px-0 py-[0.05rem] text-left text-[0.82rem] appearance-none disabled:text-text-primary disabled:opacity-100 disabled:cursor-default {rewardUniqueName ? 'cursor-pointer rounded-[0.2rem] px-[0.2rem] -mx-[0.2rem] transition-[background] duration-150 hover:bg-white/[0.06]' : ''} {item.rarity === 'Rare' || item.rarity === 'Legendary' ? 'text-accent' : 'text-text-primary'}"
                                 disabled={!rewardUniqueName}
                                 on:click={() => rewardUniqueName && openItemDetail(rewardUniqueName, [{location: `${group.syndicate} Bounty (${job.enemyLevels[0]}\u2013${job.enemyLevels[1]}) \u2014 ${sr.label}`, rarity: item.rarity, chance: item.chance / 100}])}
                               >
@@ -793,12 +793,22 @@
   /* Urgent timer — :global() used by class: directive */
   :global(.world-timer-urgent) { color: #ef4444 !important; }
 
+  /* Fissure row — gap-based layout instead of space-between */
+  .fissure-row {
+    display: flex; align-items: center; gap: 0.55rem;
+    padding: 0.35rem 0; border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+  }
+  .fissure-row:last-child { border-bottom: none; }
+
   /* Fissure tab base — :first-child/:last-child for radius */
   .fissure-tab {
     padding: 0.25rem 0.65rem; font-size: 0.68rem; font-weight: 700;
     letter-spacing: 0.06em; text-transform: uppercase; background: none;
     border: 1px solid var(--border); color: var(--text-secondary);
     cursor: pointer; transition: all 0.15s;
+  }
+  .fissure-tab[data-active] {
+    background: var(--accent); color: var(--bg-deep); border-color: var(--accent);
   }
 
   /* Spin button removal — vendor prefix */

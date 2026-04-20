@@ -120,6 +120,17 @@ export function importMetaFromSnapshot(
   return count;
 }
 
+export function getCachedWfmItemMeta(
+  slug: string | null | undefined,
+): WfmItemMeta | null {
+  const normalizedSlug = normalizeWfmSlug(slug);
+  if (!normalizedSlug) return null;
+
+  const cached = metaCache.get(normalizedSlug);
+  if (!cached || !isFresh(cached)) return null;
+  return cached;
+}
+
 export async function fetchWfmItemMetaBySlug(
   slug: string | null | undefined,
   options?: FetchMetaOptions,

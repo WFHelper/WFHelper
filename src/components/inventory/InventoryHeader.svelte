@@ -24,12 +24,12 @@
 </script>
 
 <div class="mb-4">
-  <h2 class="m-0 mb-2 font-display text-[var(--font-heading-size,1.875rem)] font-semibold tracking-[0.03em] text-text-primary">Inventory ({totalCount})</h2>
+  <h2 class="m-0 mb-2 font-display text-[2.1rem] leading-none font-semibold tracking-[0.03em] text-text-primary">Inventory ({totalCount})</h2>
   <div class="flex items-end border-b border-[rgba(255,255,255,0.09)]">
     <div class="flex">
       {#each filters as filterOption}
         <button
-          class="inv-tab-item flex items-center py-[0.45rem] px-[0.95rem] border-none border-b-[3px] border-b-transparent bg-transparent font-display text-base text-[#8a8c95] cursor-pointer transition-[color,border-color] duration-150 whitespace-nowrap -mb-px hover:text-[#b0b2ba] data-[active]:text-white data-[active]:border-b-white"
+          class="inv-tab-item flex items-center py-[0.48rem] px-[0.95rem] border-0 border-b-[3px] border-b-transparent bg-transparent font-display text-[1.02rem] text-[#8a8c95] cursor-pointer transition-[color,border-color] duration-150 whitespace-nowrap -mb-px hover:text-[#b0b2ba] data-[active]:text-white data-[active]:border-b-white"
           data-active={activeFilter === filterOption.key || undefined}
           on:click={() => selectFilter(filterOption.key)}
         >{filterOption.label}</button>

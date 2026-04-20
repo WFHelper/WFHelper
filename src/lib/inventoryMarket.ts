@@ -5,6 +5,7 @@ import type { WfmOrdersResult } from "../types/market.js";
 import type { RelicDatabase } from "../types/relics.js";
 import { getCachedPriceState } from "./wfm/priceCache.js";
 import { getCachedOrderSummaryState } from "./wfm/orderSummaryCache.js";
+import { getCachedWfmItemMeta } from "./wfm/wfmItemMeta.js";
 import { toFinitePositiveInt, toFiniteNumber, isRankedGroup } from "../../config/shared/numeric.js";
 import { isExcludedRankedMarketItem } from "../../config/shared/wfmExclusions.js";
 
@@ -355,15 +356,23 @@ export function buildBaseInventoryItems(
       }
 
       const isRankedListingItem = isRankedGroup(group);
+      const slugCandidate =
+        mappedGameRefSlug ||
+        mappedSlug ||
+        fallbackRelicSlug ||
+        (group === "all_parts" && item.tradable !== true ? null : resolveSlug(item, wfmLookup));
+      const cachedMeta = getCachedWfmItemMeta(slugCandidate);
       const canIndexMarket =
         !isRankedListingItem || (item.tradable === true && !excludedRankedItem);
-      const marketSlug = canIndexMarket
-        ? mappedGameRefSlug ||
-          mappedSlug ||
-          fallbackRelicSlug ||
-          (group === "all_parts" && item.tradable !== true ? null : resolveSlug(item, wfmLookup))
-        : null;
-      const marketThumb = lookupByName?.thumb || lookupByName?.icon || null;
+      const marketSlug = canIndexMarket ? slugCandidate : null;
+      const marketThumb =
+        lookupByGameRef?.thumb ||
+        lookupByName?.thumb ||
+        lookupByGameRef?.icon ||
+        lookupByName?.icon ||
+        cachedMeta?.thumb ||
+        cachedMeta?.icon ||
+        null;
       const lookupMaxRank = toFinitePositiveInt(lookupByName?.maxRank);
       const resolvedMaxRank =
         isRankedListingItem && lookupMaxRank != null ? lookupMaxRank : item.maxRank;

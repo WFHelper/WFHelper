@@ -129,11 +129,7 @@
 <section class="view active">
   <div class="mx-auto max-w-[740px] text-center">
     <div class="mb-4">
-      <svg viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="1.5" class="mx-auto h-16 w-16 text-accent opacity-60">
-        <polygon points="40,5 75,65 5,65" stroke-width="2"/>
-        <circle cx="40" cy="45" r="10" stroke-width="2"/>
-        <line x1="40" y1="20" x2="40" y2="30" stroke-width="2"/>
-      </svg>
+      <img src={new URL("../../assets/logo.png", import.meta.url).href} alt="App Logo" class="mx-auto h-20 w-20 object-contain" />
     </div>
     <h1 class="mb-2 font-display text-[2rem] font-bold tracking-wide">Welcome, Tenno</h1>
     <p class="mb-6 text-text-secondary">Choose how to load your Warframe inventory data.</p>

@@ -1,7 +1,11 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
+
   import type { CraftingTreeNode } from "../lib/craftingTree.js";
   import { computeCraftingSummary, formatBuildTime } from "../lib/craftingTree.js";
   import CraftingTreeNodeCard from "./CraftingTreeNode.svelte";
+
+  const creditsIconUrl = new URL("../../assets/Bounties/Credits.png", import.meta.url).href;
 
   export let tree: CraftingTreeNode;
 
@@ -12,7 +16,9 @@
   let isPanning = false;
   let panStartX = 0;
   let panStartY = 0;
-  let transformEl: HTMLDivElement;
+  let panEl: HTMLDivElement;
+  let zoomEl: HTMLDivElement;
+  let panFrame = 0;
 
   $: summary = computeCraftingSummary(tree);
 
@@ -37,17 +43,31 @@
     return { ...node, children };
   }
 
-  function applyTransform() {
-    if (transformEl) {
-      transformEl.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  function applyZoom() {
+    if (zoomEl) {
+      zoomEl.style.zoom = String(scale);
     }
+  }
+
+  function applyPan() {
+    if (panEl) {
+      panEl.style.transform = `translate(${panX}px, ${panY}px)`;
+    }
+  }
+
+  function schedulePan() {
+    if (panFrame) return;
+    panFrame = requestAnimationFrame(() => {
+      panFrame = 0;
+      applyPan();
+    });
   }
 
   function handleWheel(e: WheelEvent) {
     e.preventDefault();
     const factor = e.deltaY > 0 ? 0.9 : 1.1;
     scale = Math.max(0.15, Math.min(3, scale * factor));
-    applyTransform();
+    applyZoom();
   }
 
   function handlePointerDown(e: PointerEvent) {
@@ -62,7 +82,7 @@
     if (!isPanning) return;
     panX = e.clientX - panStartX;
     panY = e.clientY - panStartY;
-    applyTransform();
+    schedulePan();
   }
 
   function handlePointerUp() {
@@ -73,8 +93,16 @@
     scale = 1;
     panX = 0;
     panY = 0;
-    applyTransform();
+    applyZoom();
+    applyPan();
   }
+
+  onDestroy(() => {
+    if (panFrame) {
+      cancelAnimationFrame(panFrame);
+      panFrame = 0;
+    }
+  });
 </script>
 
 <div class="flex flex-col h-full min-h-0">
@@ -115,13 +143,15 @@
     on:pointercancel={handlePointerUp}
   >
     <div
-      bind:this={transformEl}
-      class="inline-flex p-8 origin-top-left will-change-transform"
-      style="transform: translate({panX}px, {panY}px) scale({scale})"
+      bind:this={panEl}
+      class="inline-flex will-change-transform"
+      style="transform: translate({panX}px, {panY}px)"
     >
-      {#if visibleTree}
-        <CraftingTreeNodeCard node={visibleTree} />
-      {/if}
+      <div bind:this={zoomEl} class="inline-flex p-8 origin-top-left" style="zoom: {scale}">
+        {#if visibleTree}
+          <CraftingTreeNodeCard node={visibleTree} />
+        {/if}
+      </div>
     </div>
   </div>
 
@@ -148,7 +178,7 @@
       </div>
       <div class="flex flex-col items-end justify-end">
         <div class="rounded-lg border border-border bg-bg-raised px-3 py-1.5 text-[0.72rem] text-text-secondary">
-          <div>Total 💰: <strong class="text-text-primary">{creditsLabel}</strong></div>
+          <div class="flex items-center gap-1">Total <img src={creditsIconUrl} alt="credits" class="h-4 w-4 inline-block" />: <strong class="text-text-primary">{creditsLabel}</strong></div>
           <div>Min. time: <strong class="text-text-primary">{formatBuildTime(summary.minBuildTime)}</strong></div>
           <div>Max. time: <strong class="text-text-primary">{formatBuildTime(summary.maxBuildTime)}</strong></div>
         </div>

@@ -667,7 +667,7 @@
       <div class="flex">
         {#each TIER_OPTIONS as [key, label]}
           <button
-            class="flex items-center py-[0.45rem] px-[0.95rem] border-none border-b-[3px] border-b-transparent bg-none font-display text-base text-[#8a8c95] cursor-pointer transition-[color,border-color] duration-150 whitespace-nowrap -mb-px hover:text-[#b0b2ba] data-[active]:text-white data-[active]:border-b-white"
+            class="flex items-center py-[0.45rem] px-[0.95rem] border-0 border-b-[3px] border-b-transparent bg-none font-display text-base text-[#8a8c95] cursor-pointer transition-[color,border-color] duration-150 whitespace-nowrap -mb-px hover:text-[#b0b2ba] data-[active]:text-white data-[active]:border-b-white"
             data-active={$relicTierFilter === key || undefined}
             on:click={() => relicTierFilter.set(key)}
           >{label}</button>

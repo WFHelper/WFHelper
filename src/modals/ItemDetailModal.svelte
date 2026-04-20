@@ -25,7 +25,7 @@
   $: item = $activeItem;
 
   // Build crafting tree reactively when item changes
-  $: itemKey = item?.internalName || "";
+  $: itemKey = item?.uniqueName || item?.internalName || "";
   $: dbEntry = itemKey ? ($itemDb || {})[itemKey] : null;
   $: hasCraftingTree = !!dbEntry?.recipe;
   $: craftingTree = hasCraftingTree && showCraftingTree
@@ -104,7 +104,7 @@
           <!-- Crafting tree mode: compact header + full tree -->
           <div class="flex items-center gap-3 px-4 py-2 border-b border-white/[0.06]">
             <div class="shrink-0 h-10 w-10">
-              <ItemImage src={item.imageUrl} alt={item.name} cls="item-img h-10 w-10" />
+              <ItemImage src={item.imageUrl} alt={item.name} cls="h-10 w-10 object-contain" />
             </div>
             <div>
               <h2 class="m-0 font-display text-base font-bold text-text-primary">{item.name}</h2>

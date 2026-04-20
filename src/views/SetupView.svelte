@@ -61,11 +61,7 @@
     <!-- Left panel — branding -->
     <div class="setup-left w-[190px] shrink-0 flex flex-col items-center pt-7 px-4 pb-6 bg-gradient-to-b from-bg-deep to-bg-raised border-r border-border">
       <div class="setup-logo">
-        <svg class="w-14 h-14 text-accent opacity-70" viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="1.5">
-          <polygon points="40,5 75,65 5,65" stroke-width="2"/>
-          <circle cx="40" cy="45" r="10" stroke-width="2"/>
-          <line x1="40" y1="20" x2="40" y2="30" stroke-width="2"/>
-        </svg>
+        <img src={new URL("../../assets/logo.png", import.meta.url).href} alt="App Logo" class="w-14 h-14 object-contain" />
       </div>
       <div class="mt-8 flex flex-col gap-4 w-full">
         <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {step === 'welcome' ? 'text-accent font-semibold' : 'text-success'}">

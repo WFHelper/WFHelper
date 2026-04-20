@@ -203,14 +203,14 @@
             <span class="font-display text-[0.75rem] uppercase tracking-[0.06em] font-bold mb-1 text-[#4ade80]">Desired Positives</span>
             {#each bestAttrs.positives as attr}
               {@const matched = myStatNamesLc.has(attr.toLowerCase())}
-              <span class="font-display text-[0.8rem] text-text-muted py-[0.15rem] px-[0.4rem] rounded {matched ? 'text-[#4ade80] bg-[rgba(74,222,128,0.1)] font-semibold' : ''}">{attr}{#if matched} ✓{/if}</span>
+              <span class="font-display text-[0.8rem] py-[0.15rem] px-[0.4rem] rounded {matched ? 'text-[#4ade80] bg-[rgba(74,222,128,0.1)] font-semibold' : 'text-text-muted'}">{attr}{#if matched} ✓{/if}</span>
             {/each}
           </div>
           <div class="flex flex-col gap-[0.2rem]">
             <span class="font-display text-[0.75rem] uppercase tracking-[0.06em] font-bold mb-1 text-[#ef4444]">Desired Negatives</span>
             {#each bestAttrs.negatives as attr}
               {@const matched = riven.stats.some(s => !s.positive && s.name.toLowerCase() === attr.toLowerCase())}
-              <span class="font-display text-[0.8rem] text-text-muted py-[0.15rem] px-[0.4rem] rounded {matched ? 'text-[#4ade80] bg-[rgba(74,222,128,0.1)] font-semibold' : ''}">{attr}{#if matched} ✓{/if}</span>
+              <span class="font-display text-[0.8rem] py-[0.15rem] px-[0.4rem] rounded {matched ? 'text-[#4ade80] bg-[rgba(74,222,128,0.1)] font-semibold' : 'text-text-muted'}">{attr}{#if matched} ✓{/if}</span>
             {/each}
           </div>
         </div>

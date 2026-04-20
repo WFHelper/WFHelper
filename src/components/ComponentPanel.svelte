@@ -43,12 +43,15 @@
     const fullName = parent ? `${parent} ${c.name}` : c.name;
     const lookup = $wfmItems || {};
     const nameKey = fullName?.toLowerCase() || "";
-    const isTradable = !!c.tradable || !!lookup[nameKey] || !!lookup[c.name?.toLowerCase() || ""];
+    const directMatch = lookup[nameKey] || lookup[c.name?.toLowerCase() || ""];
+    const isTradable = !!c.tradable || !!directMatch;
 
-    // WFM lists warframe parts with "Blueprint" suffix (e.g. "Gauss Prime Chassis Blueprint").
-    // Try the Blueprint variant first for build components to avoid 404 noise.
+    // WFM lists warframe PARTS (Chassis/Systems/Neuroptics) as "Blueprint" suffix.
+    // Only try Blueprint-first when the direct name isn't already in the WFM catalog —
+    // prime weapon parts (receiver/barrel/link/stock) are listed without Blueprint suffix.
     const dbEntry = c.uniqueName ? $itemDb[c.uniqueName] : null;
-    const isBuildComp = dbEntry?.isBuildComponent && parent && !nameKey.endsWith(" blueprint");
+    const isBuildComp =
+      dbEntry?.isBuildComponent && parent && !nameKey.endsWith(" blueprint") && !directMatch;
     let result: { text: string; slug: string | null };
     if (isBuildComp) {
       result = await loadItemPrice(`${fullName} Blueprint`, lookup, true);

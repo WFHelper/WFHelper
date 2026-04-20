@@ -83,6 +83,7 @@ export interface RecipeData {
   buildPrice: number;
   buildTime: number;
   num: number;
+  blueprintUniqueName?: string;
   ingredients: RecipeIngredient[];
 }
 

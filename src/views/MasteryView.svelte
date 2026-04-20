@@ -157,7 +157,7 @@
         <div class="empty-state col-span-full"><p>No items match your filters</p></div>
       {:else}
         {#each filtered as item, itemIndex (`${item.uniqueName || item.internalName || item.name}-${itemIndex}`)}
-          {@const hasRecipe = !!($itemDb || {})[item.internalName]?.recipe}
+          {@const hasRecipe = !!($itemDb || {})[item.uniqueName || item.internalName]?.recipe}
           <!-- svelte-ignore a11y-click-events-have-key-events -->
           <!-- svelte-ignore a11y-no-static-element-interactions -->
           <div
@@ -230,7 +230,7 @@
               {#if hasRecipe}
               <button
                   type="button"
-                  class="absolute bottom-1.5 right-1.5 inline-flex h-[1.45rem] w-[1.45rem] items-center justify-center rounded-[0.3rem] border border-border bg-black/25 text-text-muted opacity-0 transition-[opacity,color,border-color] duration-[120ms] group-hover:opacity-100 hover:text-accent hover:border-accent-dim"
+                  class="absolute bottom-1.5 right-1.5 inline-flex h-[1.45rem] w-[1.45rem] items-center justify-center rounded-[0.3rem] border border-border bg-black/25 text-text-muted transition-[opacity,color,border-color] duration-[120ms] hover:text-accent hover:border-accent-dim"
                   title="Open crafting tree"
                   aria-label="Crafting tree for {item.name}"
                   on:click|stopPropagation={() => { openWithCraftingTree.set(true); activeItem.set(item); }}
