@@ -72,6 +72,20 @@ export interface WfcdItem {
   drops?: WfcdDrop[];
 }
 
+// ── Recipe / crafting types ──────────────────────────────────────────────────
+
+export interface RecipeIngredient {
+  uniqueName: string;
+  count: number;
+}
+
+export interface RecipeData {
+  buildPrice: number;
+  buildTime: number;
+  num: number;
+  ingredients: RecipeIngredient[];
+}
+
 // ── Item database output types ──────────────────────────────────────────────
 
 export interface DropEntry {
@@ -117,6 +131,7 @@ export interface RendererItemEntry {
   }[];
   drops: DropEntry[];
   wikiaUrl?: string | null;
+  recipe?: RecipeData;
 }
 
 // ── World state raw API types ───────────────────────────────────────────────

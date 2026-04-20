@@ -1,13 +1,15 @@
 <script lang="ts">
   import { activeItem } from "../stores/modals.js";
-  import { wfmItems } from "../stores/data.js";
+  import { itemDb, wfmItems, componentOwnership } from "../stores/data.js";
   import { loadItemPrice } from "../lib/priceLoader.js";
+  import { buildCraftingTree, computeCraftingSummary, formatBuildTime } from "../lib/craftingTree.js";
   import ItemImage from "../components/ItemImage.svelte";
   import DropsList from "../components/DropsList.svelte";
   import MarketPrice from "../components/MarketPrice.svelte";
   import WikiButton from "../components/WikiButton.svelte";
   import ModalShell from "../components/ModalShell.svelte";
   import ComponentPanel from "../components/ComponentPanel.svelte";
+  import CraftingTree from "../components/CraftingTree.svelte";
   import type { ComponentInfo } from "../types/inventory.js";
 
   let priceText = "";
@@ -17,12 +19,23 @@
 
   // Inline component panel state
   let selectedComp: ComponentInfo | null = null;
+  let showCraftingTree = false;
 
   $: item = $activeItem;
+
+  // Build crafting tree reactively when item changes
+  $: itemKey = item?.internalName || "";
+  $: dbEntry = itemKey ? ($itemDb || {})[itemKey] : null;
+  $: hasCraftingTree = !!dbEntry?.recipe;
+  $: craftingTree = hasCraftingTree && showCraftingTree
+    ? buildCraftingTree(itemKey, $itemDb || {}, $componentOwnership)
+    : null;
+  $: craftingSummary = craftingTree ? computeCraftingSummary(craftingTree) : null;
 
   // Reset selected component when item changes
   $: if (item) {
     selectedComp = null;
+    showCraftingTree = false;
     loadPrice(item.name);
   }
 
@@ -100,9 +113,50 @@
         <div class="detail-body">
           {#if (item.components || []).length > 0}
             <div class="detail-section">
-              <h3>Components</h3>
-              <div class="detail-components">
-                {#each item.components as comp}
+              <div class="flex items-center justify-between gap-2">
+                <h3>Components</h3>
+                {#if hasCraftingTree}
+                  <button
+                    type="button"
+                    class="rounded border border-border-subtle bg-transparent px-2.5 py-0.5 text-xs text-text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-text-primary data-[active]:bg-surface-hover data-[active]:text-accent data-[active]:border-accent"
+                    data-active={showCraftingTree || undefined}
+                    on:click={() => { showCraftingTree = !showCraftingTree; }}
+                  >
+                    {showCraftingTree ? 'Components' : 'Crafting Tree'}
+                  </button>
+                {/if}
+              </div>
+
+              {#if showCraftingTree && craftingTree}
+                <div class="mt-1">
+                  <CraftingTree node={craftingTree} />
+
+                  {#if craftingSummary}
+                    <div class="mt-3 rounded-md bg-surface-hover p-2 text-[0.8rem]">
+                      <div class="flex justify-between py-0.5 text-text-secondary">
+                        <span>Credits:</span>
+                        <span class="font-semibold tabular-nums text-text-primary">{craftingSummary.totalCredits.toLocaleString()}</span>
+                      </div>
+                      <div class="flex justify-between py-0.5 text-text-secondary">
+                        <span>Build time:</span>
+                        <span class="font-semibold tabular-nums text-text-primary">{formatBuildTime(craftingSummary.totalBuildTime)}</span>
+                      </div>
+                      {#if craftingSummary.resources.length > 0}
+                        <div class="mt-1.5 mb-0.5 font-semibold text-text-secondary">Resources needed:</div>
+                        {#each craftingSummary.resources as res (res.uniqueName)}
+                          {@const resMissing = Math.max(0, res.count - res.owned)}
+                          <div class="flex justify-between py-px text-text-muted" class:opacity-50={resMissing === 0}>
+                            <span class="min-w-0 flex-1 truncate">{res.name}</span>
+                            <span class="shrink-0 tabular-nums">{res.owned}/{res.count}</span>
+                          </div>
+                        {/each}
+                      {/if}
+                    </div>
+                  {/if}
+                </div>
+              {:else}
+                <div class="detail-components">
+                  {#each item.components as comp}
                   {@const ownedCount = comp.ownedCount ?? 0}
                   {@const needed = comp.itemCount || 1}
                   {@const stateClass = ownedCount >= needed ? 'owned' : ownedCount > 0 ? 'partial' : 'not-owned'}
@@ -119,6 +173,7 @@
                   </button>
                 {/each}
               </div>
+              {/if}
             </div>
           {/if}
 
@@ -140,3 +195,4 @@
     </div>
   </ModalShell>
 {/if}
+

@@ -100,7 +100,7 @@
           <span class="inline-flex items-center rounded-full py-[0.12rem] px-2 text-[0.68rem] font-semibold border border-border bg-[rgba(255,255,255,0.05)] text-text-secondary">{spLabel(alert.steelPath)}</span>
           <span class="inline-flex items-center rounded-full py-[0.12rem] px-2 text-[0.68rem] font-semibold border border-border bg-[rgba(255,255,255,0.05)] text-text-secondary">{planetLabel(alert.planet)}</span>
           <button
-            class="ml-auto inline-flex items-center justify-center w-[1.3rem] h-[1.3rem] rounded border border-border bg-transparent text-text-secondary cursor-pointer text-[0.9rem] p-0 transition-[color,border-color,background] duration-150 hover:text-[var(--danger,#f87171)] hover:border-[rgba(248,113,113,0.4)] hover:bg-[rgba(248,113,113,0.1)] disabled:opacity-40 disabled:cursor-not-allowed"
+            class="ml-auto inline-flex items-center justify-center w-[1.3rem] h-[1.3rem] rounded border border-border bg-transparent text-text-secondary cursor-pointer text-[0.9rem] p-0 transition-[color,border-color,background] duration-150 hover:text-danger hover:border-[rgba(248,113,113,0.4)] hover:bg-[rgba(248,113,113,0.1)] disabled:opacity-40 disabled:cursor-not-allowed"
             title="Remove alert"
             disabled={saving}
             on:click={() => removeAlert(alert.id)}
@@ -135,6 +135,6 @@
   </div>
 
   {#if error}
-    <p class="text-[0.74rem] text-[var(--danger,#f87171)] mt-[0.3rem] mb-0">{error}</p>
+    <p class="text-[0.74rem] text-danger mt-[0.3rem] mb-0">{error}</p>
   {/if}
 </div>

@@ -2,26 +2,19 @@
 dist/
 out/
 release/
-_files_to_remove.txt
-_git_tracked_ocr.txt
-NUL
 .env
 .env.local
 .env.*.local
 *.log
 .tmp/
-alecaframe-reverse-engineering.md
 docs/ilspy-decompiled/
 
-test-results/
 main.js
 preload.js
 preload-overlay.js
 .electron-build/
-preload-crop.js
 api-inventory-data/
 
-.opencode/
 docs/
 
 # Cloudflare worker local secrets / state
@@ -33,108 +26,40 @@ docs/
 ranked-hotset.json
 order-summary-hotset*.json
 
-# Riven OCR debug output (test images + enhanced crops)
+# OCR debug output (test images, crops, benchmark logs)
 riven-ocr-debug/
+OCR-debug/
+temp_*.png
 
-# Riven CRNN training artifacts (generated dataset + PyTorch checkpoints)
-# These are reproducible via generate_dataset.py / train.py — no value in tracking.
+# PaddleOCR / YOLO training artifacts (generated, reproducible)
 scripts/train-paddleocr/train_data/
 scripts/train-paddleocr/checkpoint/
-
-# Trained model output — large binary (~32 MB). Ignore to keep repo lightweight.
-# To use: copy riven_rec.onnx + riven_rec_vocab.json here after training.
 scripts/train-paddleocr/output/
+scripts/train-paddleocr/models/tmp_wheels/
+scripts/train-paddleocr/models/*/
+scripts/train-paddleocr/_*
+scripts/train-paddleocr/*.txt
+scripts/train-paddleocr/*.png
+scripts/train-paddleocr/*.jpg
+scripts/train-paddleocr/*yolo*/
+scripts/train-paddleocr/yolo_*/
+scripts/train-paddleocr/real_*/
+scripts/train-paddleocr/debug_*/
+scripts/train-paddleocr/backups/
+scripts/train-paddleocr/benchmark_results/
+scripts/train-paddleocr/crop_*/
+scripts/train-paddleocr/fonts/
+scripts/train-paddleocr/diag_output/
 
-# PyTorch / ONNX / PaddlePaddle model weights and archives (too large for git)
+# PyTorch / ONNX / PaddlePaddle model weights (too large for git)
 *.pt
 *.pth
 *.onnx
 *.tar
-scripts/train-paddleocr/models/tmp_wheels/
-scripts/train-paddleocr/models/*/
 
 # Python bytecode
 __pycache__/
 *.pyc
-
-
-
-# Temporary per-run debug crops written by benchmark/probe scripts
-temp_*.png
-
-# Ephemeral analysis/debug files in the CRNN training dir
-scripts/train-paddleocr/_*
-scripts/train-paddleocr/augment_real_v2.py
-scripts/train-paddleocr/categorize_misses.py
-scripts/train-paddleocr/compare_bench.py
-scripts/train-paddleocr/show_wrong_values.py
-scripts/train-paddleocr/test_multi_model_backup_retrained_950.py
-scripts/train-paddleocr/color_validation_result.txt
-scripts/train-paddleocr/unet_datagen_log.txt
-scripts/train-paddleocr/unet_v3_bench.txt
-scripts/train-paddleocr/real_vgb_crops
-scripts/train-paddleocr/backups/
-scripts/train-paddleocr/benchmark_results/
-scripts/train-paddleocr/debug_full_crops/
-scripts/train-paddleocr/debug_signs/
-scripts/train-paddleocr/debug_sign_regions/
-scripts/train-paddleocr/fonts/
-scripts/train-paddleocr/*.txt
-
-# OCR corpus debug images (test screenshots — large PNGs, not source code)
-OCR-debug/riven_images/
-OCR-debug/reward_images/
-OCR-debug/relic_selection/
-OCR-debug/slot-crops/
-OCR-debug/multi_model_test/
-
-# OCR debug output images and benchmark logs (generated, not source)
-OCR-debug/*.png
-OCR-debug/training_riven_images
-OCR-debug/fails_report
-OCR-debug/*.jpg
-OCR-debug/*.txt
-OCR-debug/benchmark_visual/
-OCR-debug/clean_for_ocr/
-OCR-debug/color_seg_debug/
-OCR-debug/color_seg_v2/
-OCR-debug/crnn_test/
-OCR-debug/crnn_violet_test/
-OCR-debug/crop_debug/
-OCR-debug/label_crops/
-OCR-debug/violet_synthetic/
-OCR-debug/violet_test/
-OCR-debug/violet_v2/
-scripts/train-paddleocr/real_vgb_crops_all/
-scripts/train-paddleocr/debug_value_splits/
-scripts/train-paddleocr/diag_output/
-scripts/train-paddleocr/*.png
-scripts/train-paddleocr/*.jpg
-
-# YOLO training datasets (generated — 50k+ images/labels, reproducible via scripts)
-scripts/train-paddleocr/yolo_dataset/
-scripts/train-paddleocr/yolo_dataset_v2/
-scripts/train-paddleocr/yolo_dataset_v3/
-scripts/train-paddleocr/yolo_dataset_v3b/
-scripts/train-paddleocr/yolo_mixed_dataset/
-scripts/train-paddleocr/yolo_mixed_v3_dataset/
-scripts/train-paddleocr/yolo_annotation/
-scripts/train-paddleocr/yolo_runs/
-scripts/train-paddleocr/yolo_crop_debug/
-scripts/train-paddleocr/real_yolo_crops/
-scripts/train-paddleocr/crop_comparison/
-scripts/train-paddleocr/crop_debug/
-
-# YOLO experiment scripts (not part of production pipeline)
-scripts/train-paddleocr/*yolo*.py
-scripts/train-paddleocr/analyze_sign_flips.py
-scripts/train-paddleocr/compare_crops.py
-scripts/train-paddleocr/compare_fonts.py
-scripts/train-paddleocr/convert_synthetic_v2.py
-scripts/train-paddleocr/convert_synthetic_v3_cropped.py
-scripts/train-paddleocr/crnn_crop_diff.py
-scripts/train-paddleocr/inspect_labels.py
-scripts/train-paddleocr/build_mixed_v3_dataset.py
 
 # Temporary benchmark output files in repo root
 _*.txt

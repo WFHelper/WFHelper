@@ -20,6 +20,15 @@
   --color-accent-blue: var(--accent-blue);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
+  --color-border-subtle: var(--border-subtle);
+  --color-surface-hover: var(--surface-hover);
+  --color-grade-s: var(--grade-s);
+  --color-grade-a: var(--grade-a);
+  --color-grade-b: var(--grade-b);
+  --color-grade-c: var(--grade-c);
+  --color-grade-d: var(--grade-d);
+  --color-grade-f: var(--grade-f);
+  --color-grade-default: var(--grade-default);
   --font-display: "Rajdhani", sans-serif;
   --font-body: "Barlow", sans-serif;
 

@@ -10,6 +10,7 @@ import type {
   PepExportItem,
   DropEntry,
   ComponentEntry,
+  RecipeData,
   RendererItemEntry,
 } from "./types/gameData";
 import path from "path";
@@ -139,6 +140,8 @@ interface ItemEntry {
 
 let itemsByUniqueName: Record<string, ItemEntry> = {};
 let wfcdItemsByUniqueName: Record<string, ItemEntry> = {};
+/** Maps resultType (the produced item's uniqueName) → recipe data. */
+let recipesByResultType: Record<string, RecipeData> = {};
 
 // ─── Load English dictionary from public-export-plus ───────────────────────
 
@@ -576,12 +579,50 @@ function extractFallbackName(uniqueName: string): string {
   return sanitizeDisplayName(name);
 }
 
+// ─── Build recipe index from ExportRecipes ─────────────────────────────────
+
+interface PepRecipeItem {
+  resultType?: string;
+  buildPrice?: number;
+  buildTime?: number;
+  num?: number;
+  ingredients?: { ItemType: string; ItemCount: number }[];
+}
+
+function buildRecipeIndex(): void {
+  try {
+    const pep = require("warframe-public-export-plus");
+    const exportData = pep.ExportRecipes;
+    if (!exportData || typeof exportData !== "object") return;
+
+    recipesByResultType = {};
+    let count = 0;
+    for (const item of Object.values(exportData) as PepRecipeItem[]) {
+      if (!item.resultType || !Array.isArray(item.ingredients)) continue;
+      recipesByResultType[item.resultType] = {
+        buildPrice: item.buildPrice || 0,
+        buildTime: item.buildTime || 0,
+        num: item.num || 1,
+        ingredients: item.ingredients.map((i) => ({
+          uniqueName: i.ItemType,
+          count: i.ItemCount || 1,
+        })),
+      };
+      count++;
+    }
+    log.log(`[ItemDB] Recipe index: ${count} recipes by resultType`);
+  } catch {
+    log.warn("[ItemDB] Could not build recipe index");
+  }
+}
+
 // ─── Public API ────────────────────────────────────────────────────────────
 
 export function buildDatabase(): void {
   log.time("[ItemDB] Total build time");
 
   const pepCount = loadPublicExportPlus();
+  buildRecipeIndex();
   const wfcdCount = loadWfcdItems();
   resolveAllImages();
 
@@ -646,6 +687,7 @@ export function getRendererLookup(): Record<string, RendererItemEntry> {
         rarity: d.rarity || "",
       })),
       wikiaUrl: item.wikiaUrl || null,
+      ...(recipesByResultType[key] ? { recipe: recipesByResultType[key] } : {}),
     };
   }
   return lookup;

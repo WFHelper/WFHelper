@@ -448,14 +448,14 @@
             {#each CHART_SECTIONS as { key, labelKey }}
               {@const cd = chartDataMap[key]}
               {@const icon = ICON_MAP[key]}
-              <div class="stats-chart-block">
+              <div class="stats-chart-block group/chart">
                 <div class="flex items-center justify-between mb-1">
                   <span class="flex items-center gap-1.5 text-[0.85rem] text-text-secondary">
                     {#if icon}<img src={icon} alt="" class="stats-icon" />{/if}
                     {$tr(labelKey)}
                   </span>
                   <button
-                    class="chart-expand-btn"
+                    class="chart-expand-btn group-hover/chart:opacity-70"
                     title="Expand chart"
                     on:click={() => { expandedKey = key; tooltip = null; }}
                     aria-label="Expand {$tr(labelKey)} chart"
@@ -573,10 +573,9 @@
   }
   .chart-expand-btn {
     background: none; border: none; color: var(--text-muted); cursor: pointer;
-    font-size: 0.9rem; padding: 2px 4px; line-height: 1; opacity: 0.5;
+    font-size: 1.15rem; padding: 4px 8px; line-height: 1; opacity: 0.5;
     transition: opacity 0.15s, color 0.15s; border-radius: 4px;
   }
-  .stats-chart-block:hover .chart-expand-btn { opacity: 0.7; }
   .chart-expand-btn:hover { opacity: 1 !important; color: var(--accent); background: var(--bg-raised); }
   .chart-y-axis { position: relative; width: 60px; flex-shrink: 0; }
   .chart-y-axis--compact { width: 55px; flex-shrink: 0; position: relative; }

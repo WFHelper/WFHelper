@@ -2,6 +2,18 @@ import type { MasteryStatus } from "../../config/shared/masteryTypes.js";
 export type { MasteryStatus };
 export type PartType = "normal" | "prime";
 
+export interface RecipeIngredient {
+  uniqueName: string;
+  count: number;
+}
+
+export interface RecipeData {
+  buildPrice: number;
+  buildTime: number;
+  num: number;
+  ingredients: RecipeIngredient[];
+}
+
 export interface DropInfo {
   location: string;
   rarity?: string;
@@ -38,6 +50,7 @@ export interface ItemDbEntry {
   wikiaUrl?: string | null;
   exalted?: boolean;
   ducats?: number | null;
+  recipe?: RecipeData;
   [key: string]: unknown;
 }
 
