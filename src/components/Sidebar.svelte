@@ -146,4 +146,19 @@
     border-radius: 0 0.25rem 0.25rem 0;
     background: var(--accent);
   }
+
+  /* ── responsive ── */
+  @media (max-width: 800px) {
+    .nav-btn :global(span) {
+      display: none;
+    }
+    .nav-btn {
+      justify-content: center;
+      padding-left: 0.625rem;
+      padding-right: 0.625rem;
+    }
+    .nav-btn.active::before {
+      display: none;
+    }
+  }
 </style>

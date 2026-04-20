@@ -906,4 +906,257 @@
   .relics-squad-select {
     min-width: 4rem;
   }
+
+  /* ── compact card grid ── */
+  .relic-cards {
+    display: grid;
+    gap: var(--relic-grid-gap);
+  }
+  .relic-cards-3 {
+    grid-template-columns: repeat(var(--relic-grid-columns), minmax(0, 1fr));
+  }
+
+  /* ── compact card ── */
+  .relic-compact-card {
+    width: 100%;
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 0.74rem;
+    background:
+      radial-gradient(
+        circle at 14% 30%,
+        color-mix(in oklab, var(--accent) 20%, transparent) 0%,
+        transparent 52%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--bg-surface) 88%, black) 0%,
+        color-mix(in oklab, var(--bg-base) 94%, black) 100%
+      );
+    padding: 0.6rem;
+    cursor: default;
+    text-align: left;
+    color: var(--text-primary);
+    font: inherit;
+    transition:
+      border-color 0.14s ease,
+      background 0.14s ease,
+      transform 0.14s ease;
+  }
+  .relic-compact-card:hover {
+    border-color: var(--border-strong);
+    background:
+      radial-gradient(
+        circle at 14% 30%,
+        color-mix(in oklab, var(--accent) 30%, transparent) 0%,
+        transparent 56%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--bg-raised) 86%, black) 0%,
+        color-mix(in oklab, var(--bg-base) 92%, black) 100%
+      );
+    transform: translateY(-1px);
+  }
+  .relic-compact-head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    min-width: 0;
+    align-items: center;
+    gap: 0.36rem;
+  }
+  .relic-compact-head-button {
+    width: 100%;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    align-items: center;
+  }
+  .relic-row-icon-shell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.4rem;
+    flex-shrink: 0;
+  }
+  .relic-compact-card :global(.relic-icon) {
+    width: 1.85rem;
+    height: 1.85rem;
+  }
+  .relic-compact-card :global(.relic-icon-img) {
+    transform: scale(1.06);
+  }
+  .relic-row-main {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.24rem;
+  }
+  .relic-row-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-display);
+    font-size: 1.24rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .relic-head-ev {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.16rem;
+  }
+  .relic-compact-block-label-inline {
+    text-align: right;
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+  .relic-compact-ev-row-inline {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.24rem;
+    min-width: 0;
+  }
+
+  /* ── EV / best-chip pills ── */
+  .relic-row-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: color-mix(in oklab, var(--bg-raised) 88%, var(--bg-base));
+    padding: 0.2rem 0.6rem;
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  :global(.has-value).relic-row-pill {
+    border-color: color-mix(in oklab, var(--accent) 52%, transparent);
+    background: color-mix(in oklab, var(--accent) 20%, var(--bg-raised));
+    color: var(--accent-bright);
+  }
+  :global(.no-data).relic-row-pill {
+    border-color: color-mix(in oklab, var(--text-muted) 35%, transparent);
+    background: color-mix(in oklab, var(--bg-raised) 84%, var(--bg-base));
+    color: var(--text-muted);
+  }
+  :global(.relic-row-pill-ratio).relic-row-pill {
+    border-color: color-mix(in oklab, var(--success) 48%, transparent);
+    background: color-mix(in oklab, var(--success) 16%, var(--bg-raised));
+    color: color-mix(in oklab, var(--success) 82%, white);
+  }
+
+  /* ── reward preview strip ── */
+  .relic-reward-preview-row {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.3rem;
+  }
+  .relic-reward-preview-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border);
+    background: color-mix(in oklab, var(--bg-raised) 86%, var(--bg-base));
+    padding: 0.2rem;
+    min-height: 2.05rem;
+  }
+  .relic-reward-preview-icon.owned {
+    border-color: color-mix(in oklab, var(--success) 56%, transparent);
+    background: color-mix(in oklab, var(--success) 18%, var(--bg-raised));
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--success) 24%, transparent);
+  }
+
+  /* ── quality inline pills ── */
+  .relic-quality-inline-counts {
+    margin-left: 0;
+    display: inline-grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+    min-width: 0;
+    justify-content: stretch;
+    gap: 0.14rem;
+  }
+  .relic-quality-inline-pill {
+    appearance: none;
+    min-width: 0;
+    width: 100%;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.34rem;
+    border: 1px solid color-mix(in oklab, var(--info) 36%, transparent);
+    background: color-mix(in oklab, var(--info) 14%, var(--bg-base));
+    gap: 0.2rem;
+    padding: 0.18rem 0.3rem;
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: color-mix(in oklab, var(--text-secondary) 88%, white);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .relic-quality-inline-pill.active {
+    border-color: color-mix(in oklab, var(--accent) 62%, transparent);
+    background: color-mix(in oklab, var(--accent) 22%, var(--bg-base));
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 28%, transparent);
+  }
+  .relic-quality-inline-pill.disabled {
+    cursor: default;
+    opacity: 0.86;
+  }
+  .relic-quality-inline-label {
+    line-height: 1;
+    text-transform: none;
+    opacity: 0.96;
+  }
+  .relic-quality-inline-value {
+    line-height: 1;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    color: color-mix(in oklab, var(--info) 76%, white);
+  }
+  .relic-quality-inline-pill.zero {
+    color: var(--text-muted);
+    opacity: 0.9;
+  }
+  .relic-quality-inline-pill.zero .relic-quality-inline-value {
+    color: var(--text-muted);
+  }
+
+  /* ── responsive ── */
+  @media (max-width: 800px) {
+    .relic-row-name {
+      font-size: 0.94rem;
+    }
+    .relic-reward-preview-row {
+      gap: 0.22rem;
+    }
+    .relic-quality-inline-counts {
+      margin-left: 0;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      justify-content: stretch;
+    }
+  }
 </style>

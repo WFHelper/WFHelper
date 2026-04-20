@@ -55,8 +55,4 @@
 /* Shared infrastructure (layout, buttons, filters, modals) */
 @import "./styles/components.css";
 
-/* View-specific styles — one file per feature */
-@import "./styles/world.css";
-@import "./styles/relics.css";
-
 @import "./styles/responsive.css";

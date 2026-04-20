@@ -1,10 +1,7 @@
 /*
  * Shared infrastructure styles.
  *
- * View-specific styles live in their own files next to this one:
- *   sidebar.css  · welcome.css  · inventory.css  · mastery.css
- *   foundry.css  · world.css    · market.css      · settings.css
- *   relics.css
+ * View-specific styles live in scoped <style> blocks within each Svelte component.
  */
 
 @layer components {
@@ -478,8 +475,7 @@
   /* ── cross-component image wrapper base ──────────────────────── */
   .foundry-img-wrap,
   .resource-img-wrap,
-  .order-item-thumb,
-  .resurgence-img-wrap {
+  .order-item-thumb {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -573,7 +569,6 @@
   }
 
   /* ── cross-component pills / icons / tier colours ────────────── */
-  .world-pill,
   .relic-card-tier,
   .relic-owned-pill,
   .order-vis {
@@ -590,7 +585,6 @@
     letter-spacing: 0.03em;
     color: var(--text-secondary);
   }
-  .world-icon,
   .relic-icon {
     display: inline-flex;
     width: 1.55rem;
@@ -603,40 +597,33 @@
     flex-shrink: 0;
     overflow: hidden;
   }
-  .world-icon-img,
   .relic-icon-img {
     width: 100%;
     height: 100%;
     object-fit: contain;
   }
   .relic-icon.lith,
-  .tier-lith,
-  .fissure-dot.lith {
+  .tier-lith {
     color: #9ca3af;
   }
   .relic-icon.meso,
-  .tier-meso,
-  .fissure-dot.meso {
+  .tier-meso {
     color: #f59e0b;
   }
   .relic-icon.neo,
-  .tier-neo,
-  .fissure-dot.neo {
+  .tier-neo {
     color: #60a5fa;
   }
   .relic-icon.axi,
-  .tier-axi,
-  .fissure-dot.axi {
+  .tier-axi {
     color: #ef4444;
   }
   .relic-icon.requiem,
-  .tier-requiem,
-  .fissure-dot.requiem {
+  .tier-requiem {
     color: #a855f7;
   }
 
   /* ── cross-component toggle button groups ────────────────────── */
-  .fissure-mode-toggle,
   .market-status-group,
   .market-radio-group,
   .settings-actions {
@@ -644,7 +631,6 @@
     flex-wrap: wrap;
     gap: 0.35rem;
   }
-  .fissure-mode-btn,
   .status-btn,
   .relic-squad-btn {
     border-radius: 0.36rem;
@@ -657,13 +643,11 @@
     color: var(--text-secondary);
     transition: all 0.14s ease;
   }
-  .fissure-mode-btn:hover,
   .status-btn:hover,
   .relic-squad-btn:hover {
     border-color: var(--text-secondary);
     color: var(--text-primary);
   }
-  .fissure-mode-btn.active,
   .relic-squad-btn.active {
     border-color: var(--accent);
     background: var(--accent-glow);

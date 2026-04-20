@@ -2,15 +2,6 @@
   :root {
     --relic-grid-columns: 2;
   }
-  .world-layout {
-    grid-template-columns: 1fr;
-  }
-  .inventory-split-layout {
-    grid-template-columns: 1fr;
-  }
-  .inventory-orderbook-panel {
-    position: static;
-  }
 }
 
 @media (max-width: 800px) {
@@ -24,17 +15,6 @@
   #content {
     padding: 1rem;
   }
-  .nav-btn span {
-    display: none;
-  }
-  .nav-btn {
-    justify-content: center;
-    padding-left: 0.625rem;
-    padding-right: 0.625rem;
-  }
-  .nav-btn.active::before {
-    display: none;
-  }
   .view-header h2 {
     font-size: 1.5rem;
   }
@@ -42,55 +22,5 @@
   .resource-grid,
   #relic-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  }
-  .inventory-orderbook-columns {
-    grid-template-columns: 1fr;
-  }
-  .inventory-orderbook-side-sorters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .inventory-orderbook-post-actions {
-    grid-template-columns: 1fr;
-  }
-  .inventory-orderbook-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .inventory-orderbook-updated {
-    text-align: left;
-  }
-  .inventory-orderbook-row-head {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "user status"
-      "qty price";
-  }
-  .inventory-orderbook-user-block {
-    grid-area: user;
-  }
-  .inventory-orderbook-status {
-    grid-area: status;
-    justify-self: end;
-  }
-  .inventory-orderbook-qty {
-    grid-area: qty;
-  }
-  .inventory-orderbook-plat {
-    grid-area: price;
-  }
-  .relic-row-name {
-    font-size: 0.94rem;
-  }
-  .relic-reward-preview-row {
-    gap: 0.22rem;
-  }
-  .relic-quality-inline-counts {
-    margin-left: 0;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    justify-content: stretch;
-  }
-  .relic-rewards-header,
-  .relic-reward-row {
-    grid-template-columns: 24px minmax(0, 1fr) 56px 60px 60px 94px;
-    gap: 0.32rem;
   }
 }

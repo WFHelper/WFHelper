@@ -275,7 +275,7 @@
       </div>
     {/if}
 
-    <div class="grid grid-cols-[minmax(0,1fr)_360px] items-start gap-3">
+    <div class="grid grid-cols-1 min-[1101px]:grid-cols-[minmax(0,1fr)_360px] items-start gap-3">
       <div class="min-w-0">
         <InventoryGrid
           items={filtered}

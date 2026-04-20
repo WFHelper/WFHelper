@@ -861,4 +861,47 @@
     font-size: 0.76rem;
     color: var(--text-primary);
   }
+
+  /* ── responsive ── */
+  @media (max-width: 1100px) {
+    .inventory-orderbook-panel {
+      position: static;
+    }
+  }
+  @media (max-width: 800px) {
+    .inventory-orderbook-columns {
+      grid-template-columns: 1fr;
+    }
+    .inventory-orderbook-side-sorters {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .inventory-orderbook-post-actions {
+      grid-template-columns: 1fr;
+    }
+    .inventory-orderbook-summary {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .inventory-orderbook-updated {
+      text-align: left;
+    }
+    .inventory-orderbook-row-head {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "user status"
+        "qty price";
+    }
+    .inventory-orderbook-user-block {
+      grid-area: user;
+    }
+    .inventory-orderbook-status {
+      grid-area: status;
+      justify-self: end;
+    }
+    .inventory-orderbook-qty {
+      grid-area: qty;
+    }
+    .inventory-orderbook-plat {
+      grid-area: price;
+    }
+  }
 </style>
