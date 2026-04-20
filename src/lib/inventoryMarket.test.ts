@@ -258,8 +258,8 @@ describe("inventoryMarket view mapping", () => {
 
   it("normalizes relic names and slugs using relic database mapping", () => {
     const relicItem = makeBaseItem({
-      name: "Intact Axi A1 Relic",
-      internalName: "/Lotus/Types/Game/Projections/RelicAxiA1Intact",
+      name: "Axi A1 Relic",
+      internalName: "/Lotus/Types/Game/Projections/T4VoidProjectionEBronze",
       category: "relics",
       categoryLabel: "Relic",
       inventoryGroup: "relics",
@@ -269,9 +269,9 @@ describe("inventoryMarket view mapping", () => {
 
     const relicDb: RelicDatabase = {
       groups: {
-        "Axi A1 Relic": {
-          key: "Axi A1 Relic",
-          name: "Axi A1 Relic",
+        "Axi A1": {
+          key: "Axi A1",
+          name: "Axi A1",
           tier: "Axi",
           code: "A1",
           imageUrl: null,
@@ -279,8 +279,8 @@ describe("inventoryMarket view mapping", () => {
         },
       },
       byUniqueName: {
-        "/Lotus/Types/Game/Projections/RelicAxiA1Intact": {
-          groupKey: "Axi A1 Relic",
+        "/Lotus/Types/Game/Projections/T4VoidProjectionEBronze": {
+          groupKey: "Axi A1",
           quality: "intact",
         },
       },

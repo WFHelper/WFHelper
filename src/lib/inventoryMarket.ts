@@ -322,9 +322,13 @@ export function buildBaseInventoryItems(
       const group = (item.inventoryGroup || itemGroupFallback(item)) as InventoryGroup;
       const relicLookupInfo =
         group === "relics" ? (relicDb?.byUniqueName?.[item.internalName] ?? null) : null;
-      const relicGroupName = relicLookupInfo
+      const rawRelicGroupName = relicLookupInfo
         ? (relicDb?.groups?.[relicLookupInfo.groupKey]?.name ?? null)
         : null;
+      const relicGroupName =
+        rawRelicGroupName && !rawRelicGroupName.endsWith(" Relic")
+          ? `${rawRelicGroupName} Relic`
+          : rawRelicGroupName;
       const lookupByName = getLookupByName(relicGroupName || item.name, wfmLookup);
       const lookupByGameRef = getLookupByGameRef(item.internalName, wfmLookup);
       const mappedSlug = lookupByName?.url_name ? toMarketSlug(lookupByName.url_name) : null;

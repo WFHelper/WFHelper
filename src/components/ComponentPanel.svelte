@@ -44,10 +44,17 @@
     const lookup = $wfmItems || {};
     const nameKey = fullName?.toLowerCase() || "";
     const isTradable = !!c.tradable || !!lookup[nameKey] || !!lookup[c.name?.toLowerCase() || ""];
-    let result = await loadItemPrice(fullName, lookup, isTradable);
-    // WFM lists warframe parts with "Blueprint" suffix (e.g. "Gauss Prime Chassis Blueprint")
-    if (!result.slug && isTradable && parent && !nameKey.endsWith(" blueprint")) {
+
+    // WFM lists warframe parts with "Blueprint" suffix (e.g. "Gauss Prime Chassis Blueprint").
+    // Try the Blueprint variant first for build components to avoid 404 noise.
+    const dbEntry = c.uniqueName ? $itemDb[c.uniqueName] : null;
+    const isBuildComp = dbEntry?.isBuildComponent && parent && !nameKey.endsWith(" blueprint");
+    let result: { text: string; slug: string | null };
+    if (isBuildComp) {
       result = await loadItemPrice(`${fullName} Blueprint`, lookup, true);
+      if (!result.slug) result = await loadItemPrice(fullName, lookup, isTradable);
+    } else {
+      result = await loadItemPrice(fullName, lookup, isTradable);
     }
     if (token !== priceToken) return; // user switched components; discard stale result
     priceText = result.text;
