@@ -182,14 +182,14 @@
   <div class="modal-content">
     <button class="modal-close" onclick={onclose} aria-label="Close">✕</button>
 
-    <div class="modal-header">
-      <div class="modal-title-row">
-        <h2 class="weapon-name">{riven.rivenName || riven.weaponName}</h2>
-        <span class="overall-grade" style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span>
+    <div class="mb-5">
+      <div class="flex items-center gap-3">
+        <h2 class="font-display text-[2.1rem] font-bold text-white m-0">{riven.rivenName || riven.weaponName}</h2>
+        <span class="font-display text-[2.1rem] font-extrabold shrink-0" style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span>
       </div>
-      <div class="modal-subtitle">
-        <span class="type-label">{riven.rivenType}</span>
-        <span class="dispo-label" title="Disposition: {riven.disposition.toFixed(3)}">{dispoStars(riven.disposition)} {riven.disposition.toFixed(2)}</span>
+      <div class="flex gap-[0.85rem] flex-wrap mt-2 font-display text-[0.875rem] text-text-muted">
+        <span class="uppercase tracking-[0.04em] text-accent-dim">{riven.rivenType}</span>
+        <span class="tracking-[-0.3px]" title="Disposition: {riven.disposition.toFixed(3)}">{dispoStars(riven.disposition)} {riven.disposition.toFixed(2)}</span>
         <span class="rerolls-label">{riven.rerolls} rolls</span>
         <span class="rank-label">Rank {riven.currentRank}/{riven.maxRank}</span>
         {#if riven.masteryReq > 0}
@@ -199,16 +199,16 @@
     </div>
 
     <div class="modal-body">
-      <div class="quality-section">
-        <div class="quality-card">
-          <span class="quality-label">Roll Quality</span>
-          <span class="quality-value" style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span>
-          <span class="quality-sub">{Math.round(riven.statPerfectness * 100)}% perfect</span>
+      <div class="grid grid-cols-2 gap-4 mb-5">
+        <div class="flex flex-col items-center p-4 bg-bg-surface border border-border rounded-[0.625rem] gap-[0.3rem]">
+          <span class="font-display text-[0.75rem] uppercase tracking-[0.08em] text-text-muted">Roll Quality</span>
+          <span class="font-display text-[1.85rem] font-extrabold" style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span>
+          <span class="text-[0.8rem] text-text-secondary">{Math.round(riven.statPerfectness * 100)}% perfect</span>
         </div>
-        <div class="quality-card">
-          <span class="quality-label">Attributes</span>
-          <span class="quality-value" style="color: {attrGradeColor(riven.attributeGrade)}">{riven.attributeGrade}</span>
-          <span class="quality-sub">
+        <div class="flex flex-col items-center p-4 bg-bg-surface border border-border rounded-[0.625rem] gap-[0.3rem]">
+          <span class="font-display text-[0.75rem] uppercase tracking-[0.08em] text-text-muted">Attributes</span>
+          <span class="font-display text-[1.85rem] font-extrabold" style="color: {attrGradeColor(riven.attributeGrade)}">{riven.attributeGrade}</span>
+          <span class="text-[0.8rem] text-text-secondary">
             {riven.stats.filter((s) => s.positive).length} buff{riven.stats.filter((s) => s.positive).length !== 1 ? "s" : ""}
             {#if riven.stats.some((s) => !s.positive)}, 1 curse{/if}
           </span>
@@ -216,17 +216,17 @@
       </div>
 
       <div class="stats-section">
-        <h3 class="section-label">Attributes</h3>
-        <div class="stat-list">
+        <h3 class="font-display text-[0.8rem] uppercase tracking-[0.08em] text-text-muted m-0 mb-[0.625rem]">Attributes</h3>
+        <div class="flex flex-col gap-2">
           {#each riven.stats as stat}
             <div class="stat-row" class:stat-positive={stat.positive} class:stat-negative={!stat.positive}>
-              <div class="stat-info">
+              <div class="flex items-center gap-[0.375rem] min-w-0 flex-1">
                 <span class="stat-val">
                   {stat.positive ? "+" : "-"}{stat.multiplier ? `x${stat.displayValue}` : `${stat.displayValue}%`}
                 </span>
-                <span class="stat-nm">{stat.name}</span>
+                <span class="text-[1.05rem] text-text-primary overflow-hidden text-ellipsis whitespace-nowrap">{stat.name}</span>
               </div>
-              <div class="stat-bar-wrap">
+              <div class="w-[100px] h-[6px] bg-bg-raised rounded-[3px] shrink-0 overflow-hidden">
                 <div
                   class="stat-bar"
                   class:bar-positive={stat.positive}
@@ -240,17 +240,17 @@
         </div>
       </div>
 
-      <div class="best-attrs-section">
-        <h3 class="section-label">Best Attributes for {riven.rivenType}</h3>
-        <div class="best-attrs-row">
-          <div class="best-attrs-col">
+      <div class="mt-5">
+        <h3 class="font-display text-[0.8rem] uppercase tracking-[0.08em] text-text-muted m-0 mb-[0.625rem]">Best Attributes for {riven.rivenType}</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="flex flex-col gap-[0.2rem]">
             <span class="best-attrs-heading positive">Desired Positives</span>
             {#each bestAttrs.positives as attr}
               {@const matched = myStatNamesLc.has(attr.toLowerCase())}
               <span class="best-attr" class:best-matched={matched}>{attr}{#if matched} ✓{/if}</span>
             {/each}
           </div>
-          <div class="best-attrs-col">
+          <div class="flex flex-col gap-[0.2rem]">
             <span class="best-attrs-heading negative">Desired Negatives</span>
             {#each bestAttrs.negatives as attr}
               {@const matched = riven.stats.some(s => !s.positive && s.name.toLowerCase() === attr.toLowerCase())}
@@ -260,29 +260,29 @@
         </div>
       </div>
 
-      <div class="similar-section">
-        <h3 class="section-label">Similar on WFM</h3>
+      <div class="mt-6">
+        <h3 class="font-display text-[0.8rem] uppercase tracking-[0.08em] text-text-muted m-0 mb-[0.625rem]">Similar on WFM</h3>
         {#if loadingListings}
-          <div class="similar-loading">Searching auctions…</div>
+          <div class="text-[0.875rem] text-text-muted text-center py-4">Searching auctions…</div>
         {:else if similarListings.length === 0}
-          <div class="similar-empty">No similar rivens found</div>
+          <div class="text-[0.875rem] text-text-muted text-center py-4">No similar rivens found</div>
         {:else}
-          <div class="similar-grid">
+          <div class="grid grid-cols-2 gap-[0.625rem]">
             {#each similarListings as { listing, pct, matchedNames }}
               <div class="similar-card">
-                <div class="similar-top">
+                <div class="flex items-center gap-2 font-display text-[0.8rem]">
                   <span
                     class="sim-badge"
                     class:sim-high={pct >= 75}
                     class:sim-medium={pct >= 40 && pct < 75}
                     class:sim-low={pct < 40}>{pct}%</span
                   >
-                  <span class="sim-price"
+                  <span class="font-bold text-accent-bright"
                     >{listing.buyoutPrice ?? listing.startingPrice ?? listing.platinum}p</span
                   >
-                  <span class="sim-rolls">{listing.rerolls} rolls</span>
+                  <span class="text-text-muted ml-auto">{listing.rerolls} rolls</span>
                 </div>
-                <div class="sim-stats">
+                <div class="flex flex-col gap-[0.1rem]">
                   {#each listing.stats as s}
                     {@const isMatch = matchedNames.has(s.name.toLowerCase())}
                     <div
@@ -295,8 +295,8 @@
                     </div>
                   {/each}
                 </div>
-                <div class="sim-bottom">
-                  <span class="sim-seller">{listing.seller}</span>
+                <div class="flex items-center justify-between mt-[0.15rem]">
+                  <span class="text-[0.7rem] text-text-muted">{listing.seller}</span>
                   <button class="sim-open-btn" title="Open on warframe.market" onclick={() => window.api.openExternal(`https://warframe.market/auction/${listing.id}`)}>WFM ↗</button>
                 </div>
               </div>
@@ -305,37 +305,37 @@
         {/if}
       </div>
 
-      <div class="listing-section">
-        <h3 class="section-label">List on WFMarket:</h3>
+      <div class="mt-6 border-t border-border pt-4">
+        <h3 class="font-display text-[0.8rem] uppercase tracking-[0.08em] text-text-muted m-0 mb-[0.625rem]">List on WFMarket:</h3>
         {#if !isLoggedIn}
-          <div class="listing-login-hint">Log in to WFMarket to list this riven.</div>
+          <div class="text-[0.85rem] text-text-muted text-center py-3">Log in to WFMarket to list this riven.</div>
         {:else}
-          <div class="listing-controls">
-            <div class="listing-row">
-              <div class="listing-field">
-                <span class="listing-field-label">Type:</span>
-                <div class="listing-btn-group">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-end gap-5 flex-wrap">
+              <div class="flex flex-col gap-1">
+                <span class="font-display text-[0.7rem] uppercase tracking-[0.06em] text-text-muted">Type:</span>
+                <div class="flex gap-[0.35rem]">
                   <button class="listing-toggle" class:active={listingType === "direct"} onclick={() => listingType = "direct"}>Direct sale</button>
                   <button class="listing-toggle" class:active={listingType === "auction"} onclick={() => listingType = "auction"}>Auction</button>
                 </div>
               </div>
-              <div class="listing-field">
-                <span class="listing-field-label">Visibility:</span>
-                <div class="listing-btn-group">
+              <div class="flex flex-col gap-1">
+                <span class="font-display text-[0.7rem] uppercase tracking-[0.06em] text-text-muted">Visibility:</span>
+                <div class="flex gap-[0.35rem]">
                   <button class="listing-toggle" class:active={listingVisibility === "public"} onclick={() => listingVisibility = "public"}>Public</button>
                   <button class="listing-toggle" class:active={listingVisibility === "private"} onclick={() => listingVisibility = "private"}>Private</button>
                 </div>
               </div>
-              <div class="listing-field listing-desc-field">
-                <span class="listing-field-label">Description (Optional):</span>
+              <div class="flex flex-col gap-1 flex-1 min-w-[140px]">
+                <span class="font-display text-[0.7rem] uppercase tracking-[0.06em] text-text-muted">Description (Optional):</span>
                 <input type="text" class="listing-input listing-desc-input" bind:value={listingDescription} placeholder="" />
               </div>
             </div>
-            <div class="listing-row listing-bottom-row">
-              <div class="listing-field">
-                <span class="listing-field-label">Selling price:</span>
-                <div class="listing-price-wrap">
-                  <img class="listing-plat-icon" src="Platinum.png" alt="Platinum" width="16" height="16" />
+            <div class="flex items-end gap-5 flex-wrap justify-between">
+              <div class="flex flex-col gap-1">
+                <span class="font-display text-[0.7rem] uppercase tracking-[0.06em] text-text-muted">Selling price:</span>
+                <div class="flex items-center gap-[0.3rem]">
+                  <img class="align-middle shrink-0" src="Platinum.png" alt="Platinum" width="16" height="16" />
                   <input type="number" class="listing-input listing-price-input" bind:value={listingPrice} min="1" />
                 </div>
               </div>
@@ -344,10 +344,10 @@
               </button>
             </div>
             {#if listingError}
-              <div class="listing-msg listing-error">{listingError}</div>
+              <div class="text-[0.8rem] py-[0.3rem] text-danger">{listingError}</div>
             {/if}
             {#if listingSuccess}
-              <div class="listing-msg listing-success">{listingSuccess}</div>
+              <div class="text-[0.8rem] py-[0.3rem] text-success">{listingSuccess}</div>
             {/if}
           </div>
         {/if}
@@ -367,8 +367,6 @@
     z-index: 1000;
     animation: fadeIn 0.15s ease;
   }
-  /* Invisible full-bleed button sitting behind .modal-content; provides a proper
-     interactive element for click-to-dismiss without breaking the visual layout. */
   .modal-backdrop-dismiss {
     position: absolute;
     inset: 0;
@@ -379,12 +377,8 @@
     appearance: none;
   }
   @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
   .modal-content {
@@ -400,16 +394,9 @@
     padding: 2rem 2.25rem;
     animation: slideUp 0.18s ease;
   }
-
   @keyframes slideUp {
-    from {
-      opacity: 0;
-      transform: translateY(12px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   .modal-close {
@@ -425,72 +412,12 @@
     border-radius: 0.25rem;
     transition: all 0.15s;
   }
-
   .modal-close:hover {
     color: var(--text-primary);
     background: var(--bg-hover);
   }
 
-  .modal-header {
-    margin-bottom: 1.25rem;
-  }
-
-  .modal-title-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .weapon-name {
-    font-family: var(--font-display);
-    font-size: 2.1rem;
-    font-weight: 700;
-    color: #fff;
-    margin: 0;
-  }
-
-  .overall-grade {
-    font-family: var(--font-display);
-    font-size: 2.1rem;
-    font-weight: 800;
-    flex-shrink: 0;
-  }
-
-  .modal-subtitle {
-    display: flex;
-    gap: 0.85rem;
-    flex-wrap: wrap;
-    margin-top: 0.5rem;
-    font-family: var(--font-display);
-    font-size: 0.875rem;
-    color: var(--text-muted);
-  }
-
-  .type-label {
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--accent-dim);
-  }
-
-  .dispo-label {
-    letter-spacing: -0.3px;
-  }
-
-  .section-label {
-    font-family: var(--font-display);
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-    margin: 0 0 0.625rem;
-  }
-
-  .stat-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
+  /* ── Stat rows (compound class: directives + parent-child) ──────────── */
   .stat-row {
     display: flex;
     align-items: center;
@@ -498,22 +425,8 @@
     padding: 0.55rem 0.75rem;
     border-radius: 0.5rem;
   }
-
-  .stat-row.stat-positive {
-    background: rgba(74, 222, 128, 0.06);
-  }
-
-  .stat-row.stat-negative {
-    background: rgba(248, 113, 113, 0.06);
-  }
-
-  .stat-info {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    min-width: 0;
-    flex: 1;
-  }
+  .stat-row.stat-positive { background: rgba(74, 222, 128, 0.06); }
+  .stat-row.stat-negative { background: rgba(248, 113, 113, 0.06); }
 
   .stat-val {
     font-family: var(--font-display);
@@ -523,45 +436,16 @@
     text-align: right;
     flex-shrink: 0;
   }
-
-  .stat-positive .stat-val {
-    color: var(--success);
-  }
-
-  .stat-negative .stat-val {
-    color: var(--danger);
-  }
-
-  .stat-nm {
-    font-size: 1.05rem;
-    color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .stat-bar-wrap {
-    width: 100px;
-    height: 6px;
-    background: var(--bg-raised);
-    border-radius: 3px;
-    flex-shrink: 0;
-    overflow: hidden;
-  }
+  .stat-positive .stat-val { color: var(--success); }
+  .stat-negative .stat-val { color: var(--danger); }
 
   .stat-bar {
     height: 100%;
     border-radius: 2px;
     transition: width 0.3s ease;
   }
-
-  .bar-positive {
-    background: var(--success);
-  }
-
-  .bar-negative {
-    background: var(--danger);
-  }
+  .bar-positive { background: var(--success); }
+  .bar-negative { background: var(--danger); }
 
   .stat-grd {
     font-family: var(--font-display);
@@ -572,62 +456,7 @@
     flex-shrink: 0;
   }
 
-  .quality-section {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 1.25rem;
-  }
-
-  .quality-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 1rem;
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 0.625rem;
-    gap: 0.3rem;
-  }
-
-  .quality-label {
-    font-family: var(--font-display);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-  }
-
-  .quality-value {
-    font-family: var(--font-display);
-    font-size: 1.85rem;
-    font-weight: 800;
-  }
-
-  .quality-sub {
-    font-family: var(--font-body);
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-  }
-
-  /* ── Best attributes ──────────────────────────────────────────────────── */
-
-  .best-attrs-section {
-    margin-top: 1.25rem;
-  }
-
-  .best-attrs-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-  }
-
-  .best-attrs-col {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-  }
-
+  /* ── Best attributes (compound class: directives) ───────────────────── */
   .best-attrs-heading {
     font-family: var(--font-display);
     font-size: 0.75rem;
@@ -636,14 +465,8 @@
     font-weight: 700;
     margin-bottom: 0.25rem;
   }
-
-  .best-attrs-heading.positive {
-    color: #4ade80;
-  }
-
-  .best-attrs-heading.negative {
-    color: #ef4444;
-  }
+  .best-attrs-heading.positive { color: #4ade80; }
+  .best-attrs-heading.negative { color: #ef4444; }
 
   .best-attr {
     font-family: var(--font-display);
@@ -652,89 +475,22 @@
     padding: 0.15rem 0.4rem;
     border-radius: 0.25rem;
   }
-
   .best-attr.best-matched {
     color: #4ade80;
     background: rgba(74, 222, 128, 0.1);
     font-weight: 600;
   }
 
-  /* ── Similar rivens ─────────────────────────────────────────────────────── */
-
-  .similar-section {
-    margin-top: 1.5rem;
-  }
-
-  .similar-loading,
-  .similar-empty {
-    font-family: var(--font-body);
-    font-size: 0.875rem;
-    color: var(--text-muted);
-    text-align: center;
-    padding: 1rem 0;
-  }
-
-  .similar-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.625rem;
-  }
-
-  .similar-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    padding: 0.625rem 0.75rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-  }
-
-  .similar-top {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-family: var(--font-display);
-    font-size: 0.8rem;
-  }
-
+  /* ── Similar cards (compound class: directives) ─────────────────────── */
   .sim-badge {
     padding: 0.15rem 0.4rem;
     border-radius: 0.25rem;
     font-weight: 700;
     font-size: 0.75rem;
   }
-
-  .sim-badge.sim-high {
-    background: rgba(74, 222, 128, 0.15);
-    color: var(--success);
-  }
-
-  .sim-badge.sim-medium {
-    background: rgba(250, 204, 21, 0.15);
-    color: var(--warning);
-  }
-
-  .sim-badge.sim-low {
-    background: rgba(248, 113, 113, 0.12);
-    color: var(--danger);
-  }
-
-  .sim-price {
-    font-weight: 700;
-    color: var(--accent-bright);
-  }
-
-  .sim-rolls {
-    color: var(--text-muted);
-    margin-left: auto;
-  }
-
-  .sim-stats {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-  }
+  .sim-badge.sim-high { background: rgba(74, 222, 128, 0.15); color: var(--success); }
+  .sim-badge.sim-medium { background: rgba(250, 204, 21, 0.15); color: var(--warning); }
+  .sim-badge.sim-low { background: rgba(248, 113, 113, 0.12); color: var(--danger); }
 
   .sim-stat-line {
     font-family: var(--font-display);
@@ -743,32 +499,9 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-
-  .sim-stat-line.pos {
-    color: var(--success);
-  }
-
-  .sim-stat-line.neg {
-    color: var(--danger);
-  }
-
-  .sim-stat-line.crossed {
-    opacity: 0.4;
-    text-decoration: line-through;
-  }
-
-  .sim-bottom {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 0.15rem;
-  }
-
-  .sim-seller {
-    font-family: var(--font-body);
-    font-size: 0.7rem;
-    color: var(--text-muted);
-  }
+  .sim-stat-line.pos { color: var(--success); }
+  .sim-stat-line.neg { color: var(--danger); }
+  .sim-stat-line.crossed { opacity: 0.4; text-decoration: line-through; }
 
   .sim-open-btn {
     font-family: var(--font-display);
@@ -784,66 +517,13 @@
     text-transform: uppercase;
     letter-spacing: 0.03em;
   }
-
   .sim-open-btn:hover {
     background: var(--accent-bright);
     color: var(--bg-base);
     border-color: var(--accent-bright);
   }
 
-  /* ── Listing section ──────────────────────────────────────────────────── */
-
-  .listing-section {
-    margin-top: 1.5rem;
-    border-top: 1px solid var(--border);
-    padding-top: 1rem;
-  }
-
-  .listing-login-hint {
-    font-family: var(--font-body);
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    text-align: center;
-    padding: 0.75rem 0;
-  }
-
-  .listing-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .listing-row {
-    display: flex;
-    align-items: flex-end;
-    gap: 1.25rem;
-    flex-wrap: wrap;
-  }
-
-  .listing-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .listing-desc-field {
-    flex: 1;
-    min-width: 140px;
-  }
-
-  .listing-field-label {
-    font-family: var(--font-display);
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-muted);
-  }
-
-  .listing-btn-group {
-    display: flex;
-    gap: 0.35rem;
-  }
-
+  /* ── Listing (compound/hover/focus) ─────────────────────────────────── */
   .listing-toggle {
     font-family: var(--font-display);
     font-size: 0.75rem;
@@ -856,13 +536,11 @@
     cursor: pointer;
     transition: all 0.15s;
   }
-
   .listing-toggle.active {
     background: var(--accent-bright);
     color: var(--bg-base);
     border-color: var(--accent-bright);
   }
-
   .listing-toggle:hover:not(.active) {
     background: var(--bg-hover);
     color: var(--text-primary);
@@ -879,34 +557,9 @@
     outline: none;
     transition: border-color 0.15s;
   }
-
-  .listing-input:focus {
-    border-color: var(--accent-bright);
-  }
-
-  .listing-desc-input {
-    width: 100%;
-  }
-
-  .listing-price-wrap {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-
-  .listing-plat-icon {
-    vertical-align: middle;
-    flex-shrink: 0;
-  }
-
-  .listing-price-input {
-    width: 5rem;
-  }
-
-  .listing-bottom-row {
-    align-items: flex-end;
-    justify-content: space-between;
-  }
+  .listing-input:focus { border-color: var(--accent-bright); }
+  .listing-desc-input { width: 100%; }
+  .listing-price-input { width: 5rem; }
 
   .listing-submit-btn {
     font-family: var(--font-display);
@@ -921,27 +574,6 @@
     transition: all 0.15s;
     white-space: nowrap;
   }
-
-  .listing-submit-btn:hover:not(:disabled) {
-    filter: brightness(1.15);
-  }
-
-  .listing-submit-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .listing-msg {
-    font-family: var(--font-body);
-    font-size: 0.8rem;
-    padding: 0.3rem 0;
-  }
-
-  .listing-error {
-    color: var(--danger);
-  }
-
-  .listing-success {
-    color: var(--success);
-  }
+  .listing-submit-btn:hover:not(:disabled) { filter: brightness(1.15); }
+  .listing-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

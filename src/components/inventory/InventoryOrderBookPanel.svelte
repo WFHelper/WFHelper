@@ -389,10 +389,10 @@
 </script>
 
 <aside class="inventory-orderbook-panel">
-  <div class="inventory-orderbook-head">
-    <h3>Market Listings</h3>
+  <div class="flex justify-between items-center gap-[0.4rem]">
+    <h3 class="inventory-orderbook-head-title">Market Listings</h3>
     {#if currentSlug}
-      <div class="inventory-orderbook-actions">
+      <div class="flex gap-[0.32rem]">
         <button class="btn-secondary btn-sm" on:click={refresh}>Refresh</button>
         <button class="btn-secondary btn-sm" on:click={openOnWarframeMarket}>Open WFM</button>
       </div>
@@ -405,13 +405,13 @@
   {#if !item}
     <div class="inventory-orderbook-empty">Select an item to view WTS/WTB listings.</div>
   {:else}
-    <div class="inventory-orderbook-item">
-      <div class="inventory-orderbook-item-image">
+    <div class="grid grid-cols-[52px_minmax(0,1fr)] gap-[0.55rem] items-center">
+      <div class="h-[52px] w-[52px] flex items-center justify-center rounded-[0.45rem] border border-border bg-bg-raised overflow-hidden">
         <ItemImage src={item.displayImageUrl} alt={item.name} />
       </div>
       <div class="inventory-orderbook-item-meta">
-        <div class="inventory-orderbook-item-name">{item.name}</div>
-        <div class="inventory-orderbook-item-sub">
+        <div class="font-display text-[0.9rem] font-semibold text-text-primary overflow-hidden text-ellipsis whitespace-nowrap">{item.name}</div>
+        <div class="text-[0.76rem] text-text-secondary">
           x{item.amount} · {item.categoryLabel}{#if requestRank != null} · Viewing R{requestRank}{/if}
         </div>
       </div>
@@ -445,11 +445,11 @@
       </div>
 
       <div class="inventory-orderbook-controls">
-        <label class="inventory-orderbook-toggle">
-          <input type="checkbox" bind:checked={onlineIngameOnly} />
+        <label class="inline-flex items-center gap-[0.4rem] text-[0.74rem] text-text-secondary select-none">
+          <input type="checkbox" class="accent-accent" bind:checked={onlineIngameOnly} />
           <span>Online/In-game only</span>
         </label>
-        <div class="inventory-orderbook-sorters">
+        <div class="grid gap-[0.4rem]">
           {#if isRankedListingItem}
             <label class="inventory-orderbook-sort">
               <span>Rank view</span>
@@ -512,7 +512,7 @@
                     <span class="inventory-orderbook-qty">x{entry.quantity}</span>
                     <span class="inventory-orderbook-plat">{entry.platinum}p</span>
                   </div>
-                  <div class="inventory-orderbook-row-actions">
+                  <div class="flex gap-[0.32rem]">
                     <button class="btn-secondary btn-sm inventory-orderbook-row-btn" on:click={() => copyWhisper(entry, "sell")}>
                       Whisper
                     </button>
@@ -538,9 +538,9 @@
                 <div class="inventory-orderbook-row">
                   <div class="inventory-orderbook-row-head">
                     <div class="inventory-orderbook-user-block">
-                      <span class="inventory-orderbook-user" title={entry.userName}>{entry.userName}</span>
+                      <span class="overflow-hidden text-ellipsis whitespace-nowrap text-[0.76rem] text-text-primary" title={entry.userName}>{entry.userName}</span>
                       {#if isRankedListingItem}
-                        <span class="inventory-orderbook-rank-sub"
+                        <span class="inventory-orderbook-rank-sub text-[0.62rem] text-text-muted font-display tracking-[0.03em] uppercase"
                           >{entry.rank != null ? `R${entry.rank}` : "R?"}</span
                         >
                       {/if}
@@ -551,7 +551,7 @@
                     <span class="inventory-orderbook-qty">x{entry.quantity}</span>
                     <span class="inventory-orderbook-plat">{entry.platinum}p</span>
                   </div>
-                  <div class="inventory-orderbook-row-actions">
+                  <div class="flex gap-[0.32rem]">
                     <button class="btn-secondary btn-sm inventory-orderbook-row-btn" on:click={() => copyWhisper(entry, "buy")}>
                       Whisper
                     </button>
@@ -571,337 +571,103 @@
 
 <style>
   .inventory-orderbook-panel {
-    position: sticky;
-    top: 0.65rem;
-    border: 1px solid var(--border);
-    border-radius: 0.625rem;
-    background: var(--bg-surface);
-    padding: 0.62rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.58rem;
+    position: sticky; top: 0.65rem; border: 1px solid var(--border);
+    border-radius: 0.625rem; background: var(--bg-surface); padding: 0.62rem;
+    display: flex; flex-direction: column; gap: 0.58rem;
   }
-  .inventory-orderbook-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.4rem;
-  }
-  .inventory-orderbook-head h3 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 0.94rem;
-    color: var(--text-primary);
-  }
-  .inventory-orderbook-actions {
-    display: flex;
-    gap: 0.32rem;
-  }
-  .inventory-orderbook-item {
-    display: grid;
-    grid-template-columns: 52px minmax(0, 1fr);
-    gap: 0.55rem;
-    align-items: center;
-  }
-  .inventory-orderbook-item-image {
-    height: 52px;
-    width: 52px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.45rem;
-    border: 1px solid var(--border);
-    background: var(--bg-raised);
-    overflow: hidden;
-  }
-  .inventory-orderbook-item-name {
-    font-family: var(--font-display);
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .inventory-orderbook-item-sub {
-    font-size: 0.76rem;
-    color: var(--text-secondary);
+  .inventory-orderbook-head-title {
+    margin: 0; font-family: var(--font-display); font-size: 0.94rem; color: var(--text-primary);
   }
   .inventory-orderbook-loading,
   .inventory-orderbook-empty,
   .inventory-orderbook-error,
   .inventory-orderbook-side-empty {
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-    border: 1px dashed var(--border);
-    border-radius: 0.45rem;
-    background: var(--bg-soft);
-    padding: 0.5rem 0.55rem;
+    font-size: 0.78rem; color: var(--text-secondary);
+    border: 1px dashed var(--border); border-radius: 0.45rem;
+    background: var(--bg-soft); padding: 0.5rem 0.55rem;
   }
   .inventory-orderbook-feedback {
-    font-size: 0.76rem;
-    color: var(--accent-bright);
+    font-size: 0.76rem; color: var(--accent-bright);
     border: 1px solid color-mix(in oklab, var(--accent) 42%, transparent);
     border-radius: 0.45rem;
     background: color-mix(in oklab, var(--accent) 14%, var(--bg-soft));
     padding: 0.44rem 0.55rem;
   }
-  .inventory-orderbook-error {
-    color: var(--danger);
-    border-color: rgba(248, 113, 113, 0.4);
-  }
-  .inventory-orderbook-summary {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.36rem;
-  }
+  .inventory-orderbook-error { color: var(--danger); border-color: rgba(248, 113, 113, 0.4); }
+  .inventory-orderbook-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.36rem; }
   .inventory-orderbook-stat {
-    border: 1px solid var(--border);
-    border-radius: 0.45rem;
-    background: var(--bg-soft);
-    padding: 0.35rem 0.45rem;
-    display: grid;
-    gap: 0.16rem;
+    border: 1px solid var(--border); border-radius: 0.45rem;
+    background: var(--bg-soft); padding: 0.35rem 0.45rem; display: grid; gap: 0.16rem;
   }
-  .inventory-orderbook-stat span {
-    font-size: 0.66rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .inventory-orderbook-stat strong {
-    font-family: var(--font-display);
-    font-size: 0.8rem;
-    color: var(--text-primary);
-  }
-  .inventory-orderbook-updated {
-    grid-column: 1 / -1;
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    text-align: right;
-  }
+  .inventory-orderbook-stat span { font-size: 0.66rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .inventory-orderbook-stat strong { font-family: var(--font-display); font-size: 0.8rem; color: var(--text-primary); }
+  .inventory-orderbook-updated { grid-column: 1 / -1; font-size: 0.72rem; color: var(--text-muted); text-align: right; }
   .inventory-orderbook-controls {
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
+    border: 1px solid var(--border); border-radius: 0.5rem;
     background: color-mix(in oklab, var(--bg-surface) 84%, var(--bg-raised));
-    padding: 0.45rem;
-    display: grid;
-    gap: 0.42rem;
+    padding: 0.45rem; display: grid; gap: 0.42rem;
   }
-  .inventory-orderbook-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.74rem;
-    color: var(--text-secondary);
-    user-select: none;
-  }
-  .inventory-orderbook-toggle input {
-    accent-color: var(--accent);
-  }
-  .inventory-orderbook-sorters {
-    display: grid;
-    gap: 0.4rem;
-  }
-  .inventory-orderbook-side-sorters {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.4rem;
-  }
-  .inventory-orderbook-sort {
-    display: grid;
-    gap: 0.2rem;
-  }
-  .inventory-orderbook-sort span {
-    font-size: 0.65rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
+  .inventory-orderbook-side-sorters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; }
+  .inventory-orderbook-sort { display: grid; gap: 0.2rem; }
+  .inventory-orderbook-sort span { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
   .inventory-orderbook-sort select {
-    width: 100%;
-    border: 1px solid var(--border);
-    border-radius: 0.38rem;
-    background: var(--bg-raised);
-    color: var(--text-primary);
-    padding: 0.26rem 0.34rem;
-    font-size: 0.72rem;
+    width: 100%; border: 1px solid var(--border); border-radius: 0.38rem;
+    background: var(--bg-raised); color: var(--text-primary); padding: 0.26rem 0.34rem; font-size: 0.72rem;
   }
   .inventory-orderbook-sort select:focus {
-    outline: none;
-    border-color: var(--accent);
+    outline: none; border-color: var(--accent);
     box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 30%, transparent);
   }
-  .inventory-orderbook-post-actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.38rem;
-  }
-  .inventory-orderbook-columns {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
-  }
+  .inventory-orderbook-post-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.38rem; }
+  .inventory-orderbook-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
   .inventory-orderbook-side {
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    overflow: hidden;
+    border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden;
     background: color-mix(in oklab, var(--bg-surface) 82%, var(--bg-raised));
   }
   .inventory-orderbook-side header {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 0.32rem 0.4rem;
-    font-family: var(--font-display);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
+    display: flex; justify-content: center; align-items: center;
+    padding: 0.32rem 0.4rem; font-family: var(--font-display);
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.03em;
   }
-  .inventory-orderbook-side-sell header {
-    background: rgba(185, 28, 28, 0.2);
-    color: #fda4af;
-    border-bottom: 1px solid rgba(251, 113, 133, 0.25);
-  }
-  .inventory-orderbook-side-buy header {
-    background: rgba(6, 95, 70, 0.2);
-    color: #86efac;
-    border-bottom: 1px solid rgba(52, 211, 153, 0.24);
-  }
-  .inventory-orderbook-rows {
-    display: grid;
-  }
+  .inventory-orderbook-side-sell header { background: rgba(185, 28, 28, 0.2); color: #fda4af; border-bottom: 1px solid rgba(251, 113, 133, 0.25); }
+  .inventory-orderbook-side-buy header { background: rgba(6, 95, 70, 0.2); color: #86efac; border-bottom: 1px solid rgba(52, 211, 153, 0.24); }
+  .inventory-orderbook-rows { display: grid; }
   .inventory-orderbook-row {
-    display: grid;
-    gap: 0.32rem;
-    padding: 0.35rem 0.45rem;
+    display: grid; gap: 0.32rem; padding: 0.35rem 0.45rem;
     border-top: 1px solid color-mix(in oklab, var(--border) 72%, transparent);
   }
-  .inventory-orderbook-row:first-child {
-    border-top: 0;
-  }
-  .inventory-orderbook-row-head {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto auto;
-    gap: 0.3rem;
-    align-items: center;
-  }
-  .inventory-orderbook-user-block {
-    display: grid;
-    gap: 0.08rem;
-    min-width: 0;
-  }
-  .inventory-orderbook-row-actions {
-    display: flex;
-    gap: 0.32rem;
-  }
-  .inventory-orderbook-row-btn {
-    flex: 1;
-    min-height: 1.7rem;
-    padding: 0.24rem 0.46rem;
-    font-size: 0.66rem;
-  }
+  .inventory-orderbook-row:first-child { border-top: 0; }
+  .inventory-orderbook-row-head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 0.3rem; align-items: center; }
+  .inventory-orderbook-user-block { display: grid; gap: 0.08rem; min-width: 0; }
+  .inventory-orderbook-row-btn { flex: 1; min-height: 1.7rem; padding: 0.24rem 0.46rem; font-size: 0.66rem; }
   .inventory-orderbook-status {
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    padding: 0.1rem 0.38rem;
-    font-size: 0.62rem;
-    font-family: var(--font-display);
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    white-space: nowrap;
+    border-radius: 999px; border: 1px solid var(--border); padding: 0.1rem 0.38rem;
+    font-size: 0.62rem; font-family: var(--font-display); letter-spacing: 0.03em;
+    text-transform: uppercase; white-space: nowrap;
   }
-  .inventory-orderbook-status-ingame {
-    border-color: rgba(74, 222, 128, 0.45);
-    background: rgba(34, 197, 94, 0.16);
-    color: #86efac;
-  }
-  .inventory-orderbook-status-online {
-    border-color: rgba(147, 197, 253, 0.45);
-    background: rgba(59, 130, 246, 0.16);
-    color: #bfdbfe;
-  }
-  .inventory-orderbook-status-offline {
-    border-color: rgba(148, 163, 184, 0.4);
-    background: rgba(51, 65, 85, 0.26);
-    color: #cbd5e1;
-  }
-  .inventory-orderbook-status-invisible {
-    border-color: rgba(251, 191, 36, 0.42);
-    background: rgba(161, 98, 7, 0.24);
-    color: #fde68a;
-  }
-  .inventory-orderbook-status-unknown {
-    border-color: rgba(148, 163, 184, 0.45);
-    background: rgba(71, 85, 105, 0.24);
-    color: #cbd5e1;
-  }
-  .inventory-orderbook-rank-sub {
-    font-size: 0.62rem;
-    color: var(--text-muted);
-    font-family: var(--font-display);
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-  }
+  .inventory-orderbook-status-ingame { border-color: rgba(74, 222, 128, 0.45); background: rgba(34, 197, 94, 0.16); color: #86efac; }
+  .inventory-orderbook-status-online { border-color: rgba(147, 197, 253, 0.45); background: rgba(59, 130, 246, 0.16); color: #bfdbfe; }
+  .inventory-orderbook-status-offline { border-color: rgba(148, 163, 184, 0.4); background: rgba(51, 65, 85, 0.26); color: #cbd5e1; }
+  .inventory-orderbook-status-invisible { border-color: rgba(251, 191, 36, 0.42); background: rgba(161, 98, 7, 0.24); color: #fde68a; }
+  .inventory-orderbook-status-unknown { border-color: rgba(148, 163, 184, 0.45); background: rgba(71, 85, 105, 0.24); color: #cbd5e1; }
   .inventory-orderbook-qty,
-  .inventory-orderbook-plat {
-    font-family: var(--font-display);
-    font-size: 0.74rem;
-    color: var(--text-secondary);
-  }
-  .inventory-orderbook-plat {
-    text-align: right;
-    color: var(--accent-bright);
-    font-weight: 700;
-  }
-  .inventory-orderbook-user {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.76rem;
-    color: var(--text-primary);
-  }
+  .inventory-orderbook-plat { font-family: var(--font-display); font-size: 0.74rem; color: var(--text-secondary); }
+  .inventory-orderbook-plat { text-align: right; color: var(--accent-bright); font-weight: 700; }
 
-  /* ── responsive ── */
-  @media (max-width: 1100px) {
-    .inventory-orderbook-panel {
-      position: static;
-    }
-  }
+  @media (max-width: 1100px) { .inventory-orderbook-panel { position: static; } }
   @media (max-width: 800px) {
-    .inventory-orderbook-columns {
-      grid-template-columns: 1fr;
-    }
-    .inventory-orderbook-side-sorters {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .inventory-orderbook-post-actions {
-      grid-template-columns: 1fr;
-    }
-    .inventory-orderbook-summary {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .inventory-orderbook-updated {
-      text-align: left;
-    }
+    .inventory-orderbook-columns { grid-template-columns: 1fr; }
+    .inventory-orderbook-side-sorters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .inventory-orderbook-post-actions { grid-template-columns: 1fr; }
+    .inventory-orderbook-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .inventory-orderbook-updated { text-align: left; }
     .inventory-orderbook-row-head {
       grid-template-columns: minmax(0, 1fr) auto;
-      grid-template-areas:
-        "user status"
-        "qty price";
+      grid-template-areas: "user status" "qty price";
     }
-    .inventory-orderbook-user-block {
-      grid-area: user;
-    }
-    .inventory-orderbook-status {
-      grid-area: status;
-      justify-self: end;
-    }
-    .inventory-orderbook-qty {
-      grid-area: qty;
-    }
-    .inventory-orderbook-plat {
-      grid-area: price;
-    }
+    .inventory-orderbook-user-block { grid-area: user; }
+    .inventory-orderbook-status { grid-area: status; justify-self: end; }
+    .inventory-orderbook-qty { grid-area: qty; }
+    .inventory-orderbook-plat { grid-area: price; }
   }
 </style>

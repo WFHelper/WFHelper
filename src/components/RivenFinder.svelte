@@ -179,10 +179,10 @@
 
 <div class="finder-layout">
   <!-- ── Left panel: Weapon info + best attributes ── -->
-  <div class="finder-left">
-    <div class="finder-section">
-      <span class="finder-section-label">Weapon</span>
-      <div class="weapon-picker">
+  <div class="flex flex-col gap-3">
+    <div class="flex flex-col gap-[0.35rem]">
+      <span class="font-display text-[0.7rem] uppercase tracking-[0.06em] text-text-muted">Weapon</span>
+      <div class="relative">
         <input
           type="text"
           class="finder-input"
@@ -192,7 +192,7 @@
           oninput={handleWeaponInput}
         />
         {#if showWeaponDropdown && weaponSearch !== selectedWeapon && filteredWeapons.length > 0}
-          <div class="weapon-dropdown">
+          <div class="absolute top-full left-0 right-0 max-h-[220px] overflow-y-auto bg-bg-raised border border-border-strong rounded-b-[0.375rem] z-50">
             {#each filteredWeapons as name}
               <button class="weapon-option" onclick={() => selectWeapon(name)}>{name}</button>
             {/each}
@@ -202,18 +202,18 @@
     </div>
 
     {#if bestAttrs}
-      <div class="finder-section">
-        <span class="finder-section-label">Best Positives</span>
-        <div class="best-attr-chips">
+      <div class="flex flex-col gap-[0.35rem]">
+        <span class="font-display text-[0.7rem] uppercase tracking-[0.06em] text-text-muted">Best Positives</span>
+        <div class="flex flex-wrap gap-[0.3rem]">
           {#each bestAttrs.positives as attr}
             <span class="attr-chip attr-chip-pos">{attr}</span>
           {/each}
         </div>
       </div>
 
-      <div class="finder-section">
-        <span class="finder-section-label">Best Negatives</span>
-        <div class="best-attr-chips">
+      <div class="flex flex-col gap-[0.35rem]">
+        <span class="font-display text-[0.7rem] uppercase tracking-[0.06em] text-text-muted">Best Negatives</span>
+        <div class="flex flex-wrap gap-[0.3rem]">
           {#each bestAttrs.negatives as attr}
             <span class="attr-chip attr-chip-neg">{attr}</span>
           {/each}
@@ -223,10 +223,10 @@
   </div>
 
   <!-- ── Right panel: Attribute filters + search ── -->
-  <div class="finder-right">
-    <div class="finder-section">
-      <span class="finder-section-label">Attributes</span>
-      <div class="attr-rows">
+  <div class="flex flex-col gap-3">
+    <div class="flex flex-col gap-[0.35rem]">
+      <span class="font-display text-[0.7rem] uppercase tracking-[0.06em] text-text-muted">Attributes</span>
+      <div class="flex flex-col gap-[0.35rem]">
         {#each attrSlots as slot}
           <div class="attr-row" class:attr-row-pos={slot.positive} class:attr-row-neg={!slot.positive}>
             <span class="attr-row-label">{slot.positive ? "+" : "−"}</span>
@@ -245,25 +245,25 @@
       </div>
     </div>
 
-    <div class="finder-section">
-      <span class="finder-section-label">Filters</span>
-      <div class="filter-grid">
-        <div class="filter-row">
-          <span class="filter-label">Price</span>
+    <div class="flex flex-col gap-[0.35rem]">
+      <span class="font-display text-[0.7rem] uppercase tracking-[0.06em] text-text-muted">Filters</span>
+      <div class="flex flex-col gap-[0.35rem]">
+        <div class="flex items-center gap-[0.35rem]">
+          <span class="font-display text-[0.7rem] text-text-secondary min-w-[3.5rem] shrink-0">Price</span>
           <input type="number" class="filter-input" placeholder="Min" bind:value={priceMin} min="0" />
-          <span class="filter-dash">–</span>
+          <span class="text-text-muted text-[0.75rem]">–</span>
           <input type="number" class="filter-input" placeholder="Max" bind:value={priceMax} min="0" />
         </div>
-        <div class="filter-row">
-          <span class="filter-label">Rerolls</span>
+        <div class="flex items-center gap-[0.35rem]">
+          <span class="font-display text-[0.7rem] text-text-secondary min-w-[3.5rem] shrink-0">Rerolls</span>
           <input type="number" class="filter-input" placeholder="Min" bind:value={rerollsMin} min="0" />
-          <span class="filter-dash">–</span>
+          <span class="text-text-muted text-[0.75rem]">–</span>
           <input type="number" class="filter-input" placeholder="Max" bind:value={rerollsMax} min="0" />
         </div>
-        <div class="filter-row">
-          <span class="filter-label">Similarity</span>
+        <div class="flex items-center gap-[0.35rem]">
+          <span class="font-display text-[0.7rem] text-text-secondary min-w-[3.5rem] shrink-0">Similarity</span>
           <input type="number" class="filter-input" placeholder="Min %" bind:value={minSimilarity} min="0" max="100" />
-          <span class="filter-dash">%</span>
+          <span class="text-text-muted text-[0.75rem]">%</span>
         </div>
         <label class="filter-toggle">
           <input type="checkbox" bind:checked={requireNegative} />
@@ -280,31 +280,31 @@
 
 <!-- ── Results ── -->
 {#if searching}
-  <div class="finder-status">Searching warframe.market auctions…</div>
+  <div class="text-center py-8 text-[0.875rem] text-text-muted">Searching warframe.market auctions…</div>
 {:else if hasSearched && filteredResults.length === 0}
-  <div class="finder-status">No auctions found{rawResults.length > 0 ? " matching filters" : ""}</div>
+  <div class="text-center py-8 text-[0.875rem] text-text-muted">No auctions found{rawResults.length > 0 ? " matching filters" : ""}</div>
 {:else if filteredResults.length > 0}
-  <div class="finder-header">
-    <span class="finder-header-label">Similar rivens:</span>
-    <span class="finder-header-count">{filteredResults.length} results</span>
+  <div class="flex items-baseline gap-3 mb-2">
+    <span class="font-display text-[0.85rem] font-semibold text-text-secondary">Similar rivens:</span>
+    <span class="text-[0.75rem] text-text-muted">{filteredResults.length} results</span>
   </div>
-  <div class="finder-results">
+  <div class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 max-h-[600px] overflow-y-auto">
     {#each filteredResults as { listing, similarity }}
       <div class="finder-card">
-        <div class="finder-card-top">
-          <span class="finder-sim">{similarity}%</span>
-          <span class="finder-price">{listing.buyoutPrice ?? listing.startingPrice ?? listing.platinum}p</span>
-          <span class="finder-seller">{listing.seller}</span>
+        <div class="flex items-center gap-[0.4rem] font-display text-[0.8rem]">
+          <span class="font-bold text-text-muted text-[0.75rem] min-w-[2.2rem]">{similarity}%</span>
+          <span class="font-bold text-accent-bright">{listing.buyoutPrice ?? listing.startingPrice ?? listing.platinum}p</span>
+          <span class="ml-auto text-text-muted text-[0.65rem] overflow-hidden text-ellipsis whitespace-nowrap max-w-[6rem]">{listing.seller}</span>
         </div>
-        <div class="finder-stats">
+        <div class="flex flex-col gap-[0.05rem]">
           {#each listing.stats as s}
             <span class="finder-stat" class:pos={s.positive} class:neg={!s.positive}>
               {s.positive ? "+" : "−"}{s.name}
             </span>
           {/each}
         </div>
-        <div class="finder-card-bottom">
-          <span class="finder-rolls">{listing.rerolls} rolls</span>
+        <div class="flex items-center justify-between gap-[0.35rem] mt-auto">
+          <span class="font-display text-[0.65rem] text-text-muted">{listing.rerolls} rolls</span>
           <button class="finder-open-btn" onclick={() => openAuction(listing.id)}>
             Open on WFM ↗
           </button>
@@ -315,431 +315,99 @@
 {/if}
 
 <style>
-  /* ── Two-panel layout ── */
-  .finder-layout {
-    display: grid;
-    grid-template-columns: 1fr 1.4fr;
-    gap: 1.25rem;
-    margin-bottom: 1rem;
-  }
+  .finder-layout { display: grid; grid-template-columns: 1fr 1.4fr; gap: 1.25rem; margin-bottom: 1rem; }
 
-  .finder-left,
-  .finder-right {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .finder-section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  .finder-section-label {
-    font-family: var(--font-display);
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-muted);
-  }
-
-  /* ── Weapon picker ── */
   .finder-input {
-    width: 100%;
-    padding: 0.45rem 0.65rem;
-    border: 1px solid var(--border);
-    border-radius: 0.375rem;
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    font-family: var(--font-body);
-    font-size: 0.8125rem;
-    outline: none;
-    transition: border-color 0.15s;
+    width: 100%; padding: 0.45rem 0.65rem; border: 1px solid var(--border);
+    border-radius: 0.375rem; background: var(--bg-surface); color: var(--text-primary);
+    font-family: var(--font-body); font-size: 0.8125rem; outline: none; transition: border-color 0.15s;
   }
-
-  .finder-input:focus {
-    border-color: var(--accent);
-  }
-
-  .weapon-picker {
-    position: relative;
-  }
-
-  .weapon-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    max-height: 220px;
-    overflow-y: auto;
-    background: var(--bg-raised);
-    border: 1px solid var(--border-strong);
-    border-radius: 0 0 0.375rem 0.375rem;
-    z-index: 50;
-  }
+  .finder-input:focus { border-color: var(--accent); }
 
   .weapon-option {
-    display: block;
-    width: 100%;
-    padding: 0.35rem 0.65rem;
-    border: none;
-    background: none;
-    color: var(--text-primary);
-    font-family: var(--font-body);
-    font-size: 0.8125rem;
-    text-align: left;
-    cursor: pointer;
+    display: block; width: 100%; padding: 0.35rem 0.65rem; border: none; background: none;
+    color: var(--text-primary); font-family: var(--font-body); font-size: 0.8125rem;
+    text-align: left; cursor: pointer;
   }
-
-  .weapon-option:hover {
-    background: var(--bg-hover);
-    color: var(--accent);
-  }
-
-  /* ── Best attribute chips ── */
-  .best-attr-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.3rem;
-  }
+  .weapon-option:hover { background: var(--bg-hover); color: var(--accent); }
 
   .attr-chip {
-    padding: 0.2rem 0.5rem;
-    border-radius: 0.25rem;
-    font-family: var(--font-display);
-    font-size: 0.7rem;
-    font-weight: 600;
+    padding: 0.2rem 0.5rem; border-radius: 0.25rem;
+    font-family: var(--font-display); font-size: 0.7rem; font-weight: 600;
   }
-
-  .attr-chip-pos {
-    background: rgba(33, 124, 33, 0.35);
-    color: #8ee4a8;
-    border: 1px solid rgba(33, 124, 33, 0.5);
-  }
-
-  .attr-chip-neg {
-    background: rgba(125, 60, 60, 0.35);
-    color: #ff9a9a;
-    border: 1px solid rgba(125, 60, 60, 0.5);
-  }
-
-  /* ── Attribute rows ── */
-  .attr-rows {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
+  .attr-chip-pos { background: rgba(33, 124, 33, 0.35); color: #8ee4a8; border: 1px solid rgba(33, 124, 33, 0.5); }
+  .attr-chip-neg { background: rgba(125, 60, 60, 0.35); color: #ff9a9a; border: 1px solid rgba(125, 60, 60, 0.5); }
 
   .attr-row {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.35rem 0.5rem;
-    border-radius: 0.375rem;
+    display: flex; align-items: center; gap: 0.4rem;
+    padding: 0.35rem 0.5rem; border-radius: 0.375rem;
   }
-
-  .attr-row-pos {
-    background: rgba(33, 124, 33, 0.18);
-    border: 1px solid rgba(33, 124, 33, 0.3);
-  }
-
-  .attr-row-neg {
-    background: rgba(125, 60, 60, 0.18);
-    border: 1px solid rgba(125, 60, 60, 0.3);
-  }
-
+  .attr-row-pos { background: rgba(33, 124, 33, 0.18); border: 1px solid rgba(33, 124, 33, 0.3); }
+  .attr-row-neg { background: rgba(125, 60, 60, 0.18); border: 1px solid rgba(125, 60, 60, 0.3); }
   .attr-row-label {
-    font-family: var(--font-display);
-    font-size: 0.9rem;
-    font-weight: 700;
-    width: 1rem;
-    text-align: center;
-    flex-shrink: 0;
+    font-family: var(--font-display); font-size: 0.9rem; font-weight: 700;
+    width: 1rem; text-align: center; flex-shrink: 0;
   }
-
-  .attr-row-pos .attr-row-label {
-    color: #8ee4a8;
-  }
-
-  .attr-row-neg .attr-row-label {
-    color: #ff7a7a;
-  }
-
+  .attr-row-pos .attr-row-label { color: #8ee4a8; }
+  .attr-row-neg .attr-row-label { color: #ff7a7a; }
   .attr-select {
-    flex: 1;
-    padding: 0.3rem 0.5rem;
-    border: 1px solid var(--border);
-    border-radius: 0.25rem;
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    font-family: var(--font-body);
-    font-size: 0.75rem;
-    outline: none;
-    min-width: 0;
+    flex: 1; padding: 0.3rem 0.5rem; border: 1px solid var(--border); border-radius: 0.25rem;
+    background: var(--bg-surface); color: var(--text-primary); font-family: var(--font-body);
+    font-size: 0.75rem; outline: none; min-width: 0;
   }
-
-  .attr-select:focus {
-    border-color: var(--accent);
-  }
-
+  .attr-select:focus { border-color: var(--accent); }
   .attr-required {
-    display: flex;
-    align-items: center;
-    gap: 0.2rem;
-    font-family: var(--font-display);
-    font-size: 0.65rem;
-    color: var(--text-muted);
-    cursor: pointer;
-    flex-shrink: 0;
-    user-select: none;
+    display: flex; align-items: center; gap: 0.2rem;
+    font-family: var(--font-display); font-size: 0.65rem; color: var(--text-muted);
+    cursor: pointer; flex-shrink: 0; user-select: none;
   }
-
-  .attr-required input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
-    accent-color: var(--accent);
-    cursor: pointer;
-  }
-
-  /* ── Filters ── */
-  .filter-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  .filter-row {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-  }
-
-  .filter-label {
-    font-family: var(--font-display);
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-    min-width: 3.5rem;
-    flex-shrink: 0;
-  }
+  .attr-required input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; }
 
   .filter-input {
-    width: 5rem;
-    padding: 0.3rem 0.5rem;
-    border: 1px solid var(--border);
-    border-radius: 0.25rem;
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    font-family: var(--font-body);
-    font-size: 0.75rem;
-    outline: none;
+    width: 5rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border); border-radius: 0.25rem;
+    background: var(--bg-surface); color: var(--text-primary); font-family: var(--font-body);
+    font-size: 0.75rem; outline: none;
   }
-
-  .filter-input:focus {
-    border-color: var(--accent);
-  }
-
-  /* Hide number input spinners */
+  .filter-input:focus { border-color: var(--accent); }
   .filter-input::-webkit-outer-spin-button,
-  .filter-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-
-  .filter-dash {
-    color: var(--text-muted);
-    font-size: 0.75rem;
-  }
-
+  .filter-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .filter-toggle {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-family: var(--font-display);
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    cursor: pointer;
-    user-select: none;
-    margin-top: 0.15rem;
+    display: flex; align-items: center; gap: 0.35rem;
+    font-family: var(--font-display); font-size: 0.75rem; color: var(--text-secondary);
+    cursor: pointer; user-select: none; margin-top: 0.15rem;
   }
+  .filter-toggle input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; }
 
-  .filter-toggle input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
-    accent-color: var(--accent);
-    cursor: pointer;
-  }
-
-  /* ── Search button ── */
   .finder-search-btn {
-    padding: 0.5rem 1.5rem;
-    border: 1px solid var(--accent);
-    border-radius: 0.375rem;
-    background: var(--accent-glow);
-    color: var(--accent);
-    font-family: var(--font-display);
-    font-size: 0.85rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-    align-self: flex-start;
+    padding: 0.5rem 1.5rem; border: 1px solid var(--accent); border-radius: 0.375rem;
+    background: var(--accent-glow); color: var(--accent); font-family: var(--font-display);
+    font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.15s;
+    white-space: nowrap; align-self: flex-start;
   }
-
-  .finder-search-btn:hover:not(:disabled) {
-    background: var(--accent);
-    color: var(--bg-base);
-  }
-
-  .finder-search-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  /* ── Results ── */
-  .finder-status {
-    text-align: center;
-    padding: 2rem 0;
-    font-family: var(--font-body);
-    font-size: 0.875rem;
-    color: var(--text-muted);
-  }
-
-  .finder-header {
-    display: flex;
-    align-items: baseline;
-    gap: 0.75rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .finder-header-label {
-    font-family: var(--font-display);
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-  }
-
-  .finder-header-count {
-    font-family: var(--font-body);
-    font-size: 0.75rem;
-    color: var(--text-muted);
-  }
-
-  .finder-results {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 0.5rem;
-    max-height: 600px;
-    overflow-y: auto;
-  }
+  .finder-search-btn:hover:not(:disabled) { background: var(--accent); color: var(--bg-base); }
+  .finder-search-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .finder-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    padding: 0.5rem 0.6rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+    background: var(--bg-surface); border: 1px solid var(--border); border-radius: 0.5rem;
+    padding: 0.5rem 0.6rem; display: flex; flex-direction: column; gap: 0.25rem;
     transition: border-color 0.15s;
   }
-
-  .finder-card:hover {
-    border-color: var(--border-strong);
-  }
-
-  .finder-card-top {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-family: var(--font-display);
-    font-size: 0.8rem;
-  }
-
-  .finder-sim {
-    font-weight: 700;
-    color: var(--text-muted);
-    font-size: 0.75rem;
-    min-width: 2.2rem;
-  }
-
-  .finder-price {
-    font-weight: 700;
-    color: var(--accent-bright);
-  }
-
-  .finder-seller {
-    margin-left: auto;
-    color: var(--text-muted);
-    font-size: 0.65rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 6rem;
-  }
-
-  .finder-stats {
-    display: flex;
-    flex-direction: column;
-    gap: 0.05rem;
-  }
+  .finder-card:hover { border-color: var(--border-strong); }
 
   .finder-stat {
-    font-family: var(--font-display);
-    font-size: 0.8rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-family: var(--font-display); font-size: 0.8rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-
-  .finder-stat.pos {
-    color: #4ade80;
-  }
-
-  .finder-stat.neg {
-    color: #ef4444;
-  }
-
-  .finder-card-bottom {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.35rem;
-    margin-top: auto;
-  }
-
-  .finder-rolls {
-    font-family: var(--font-display);
-    font-size: 0.65rem;
-    color: var(--text-muted);
-  }
+  .finder-stat.pos { color: #4ade80; }
+  .finder-stat.neg { color: #ef4444; }
 
   .finder-open-btn {
-    padding: 0.2rem 0.4rem;
-    border: 1px solid var(--border);
-    border-radius: 0.25rem;
-    background: var(--bg-raised);
-    color: var(--accent-bright);
-    font-family: var(--font-display);
-    font-size: 0.6rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.15s;
-    text-align: center;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    white-space: nowrap;
+    padding: 0.2rem 0.4rem; border: 1px solid var(--border); border-radius: 0.25rem;
+    background: var(--bg-raised); color: var(--accent-bright); font-family: var(--font-display);
+    font-size: 0.6rem; font-weight: 700; cursor: pointer; transition: all 0.15s;
+    text-align: center; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap;
   }
+  .finder-open-btn:hover { background: var(--accent-bright); color: var(--bg-base); border-color: var(--accent-bright); }
 
-  .finder-open-btn:hover {
-    background: var(--accent-bright);
-    color: var(--bg-base);
-    border-color: var(--accent-bright);
-  }
-
-  @media (max-width: 650px) {
-    .finder-layout {
-      grid-template-columns: 1fr;
-    }
-  }
+  @media (max-width: 650px) { .finder-layout { grid-template-columns: 1fr; } }
 </style>

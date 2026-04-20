@@ -135,8 +135,8 @@
 </script>
 
 <section class="view active">
-  <div class="view-header">
-    <h2>{$tr("rivens.title")}</h2>
+  <div class="flex items-center gap-4 mb-2">
+    <h2 class="font-display text-2xl text-text-primary m-0">{$tr("rivens.title")}</h2>
   </div>
 
   <div class="tab-bar">
@@ -163,7 +163,7 @@
   </div>
 
   {#if viewTab === "unveiled"}
-    <div class="rivens-toolbar">
+    <div class="flex items-center gap-3 flex-wrap mb-4">
       <div class="search-box">
         <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
@@ -175,7 +175,7 @@
         />
       </div>
 
-      <div class="filter-tabs">
+      <div class="flex gap-1 flex-wrap">
         {#each TYPES as typ}
           <button
             class="filter-tab"
@@ -187,7 +187,7 @@
         {/each}
       </div>
 
-      <div class="toolbar-right">
+      <div class="ml-auto flex items-center gap-[0.375rem]">
         <select class="sort-select" bind:value={sortBy}>
           <option value="name">Name</option>
           <option value="disposition">Disposition</option>
@@ -201,15 +201,15 @@
     </div>
 
     {#if loading}
-      <div class="empty-state">
+      <div class="flex flex-col items-center justify-center min-h-[40vh] text-text-muted text-[0.9rem]">
         <p>Loading rivens…</p>
       </div>
     {:else if filteredRivens.length === 0}
-      <div class="empty-state">
+      <div class="flex flex-col items-center justify-center min-h-[40vh] text-text-muted text-[0.9rem]">
         <p>{rivens.length === 0 ? $tr("rivens.noData") : $tr("rivens.noResults")}</p>
       </div>
     {:else}
-      <div class="rivens-grid">
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5 justify-items-center">
         {#each filteredRivens as riven (riven.itemId)}
           <button
             class="riven-card"
@@ -257,23 +257,23 @@
 
   {:else if viewTab === "veiled"}
     {#if loading}
-      <div class="empty-state">
+      <div class="flex flex-col items-center justify-center min-h-[40vh] text-text-muted text-[0.9rem]">
         <p>Loading rivens…</p>
       </div>
     {:else if veiledRivens.length === 0 && veiledUnseen.length === 0}
-      <div class="empty-state">
+      <div class="flex flex-col items-center justify-center min-h-[40vh] text-text-muted text-[0.9rem]">
         <p>No veiled rivens found</p>
       </div>
     {:else}
       {#if veiledRivens.length > 0}
-        <div class="veiled-section">
-          <div class="veiled-list">
+        <div class="mb-5">
+          <div class="flex flex-col gap-2">
             {#each veiledRivens as entry}
               <div class="veiled-entry">
                 <div class="veiled-entry-type">{entry.label} Riven Mod</div>
                 {#if entry.challengeDesc}
-                  <div class="veiled-challenge">
-                    <span class="veiled-challenge-text">{entry.challengeDesc}</span>
+                  <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <span class="text-[0.8rem] text-text-secondary">{entry.challengeDesc}</span>
                     {#if entry.challengeProgress != null && entry.challengeRequired != null}
                       <div class="veiled-progress-bar">
                         <div
@@ -281,14 +281,14 @@
                           style="width: {Math.min(100, (entry.challengeProgress / Math.max(entry.challengeRequired, 1)) * 100)}%"
                         ></div>
                       </div>
-                      <span class="veiled-progress-text">
+                      <span class="font-display text-[0.7rem] text-text-muted shrink-0">
                         {entry.challengeProgress} / {entry.challengeRequired}
                       </span>
                     {/if}
                   </div>
                 {:else}
-                  <div class="veiled-challenge">
-                    <span class="veiled-unseen-label">Challenge not yet assigned</span>
+                  <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <span class="text-[0.8rem] text-text-muted italic">Challenge not yet assigned</span>
                   </div>
                 {/if}
               </div>
@@ -298,15 +298,15 @@
       {/if}
 
       {#if veiledUnseen.length > 0}
-        <div class="veiled-section">
-          <h3 class="veiled-section-title">Unseen (???) rivens</h3>
-          <div class="unseen-grid">
+        <div class="mb-5">
+          <h3 class="font-display text-[0.9rem] font-semibold text-text-secondary m-0 mb-2">Unseen (???) rivens</h3>
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-3">
             {#each veiledUnseen as group}
               <div class="unseen-card">
-                <div class="unseen-card-title">{group.label}</div>
-                <div class="unseen-card-desc">Equip these rivens to reveal their challenge</div>
-                <div class="unseen-card-footer">
-                  <span class="unseen-count">x{group.count}</span>
+                <div class="font-display text-[0.95rem] font-bold text-text-primary">{group.label}</div>
+                <div class="text-[0.72rem] text-text-muted leading-[1.3]">{"Equip these rivens to reveal their challenge"}</div>
+                <div class="flex items-center gap-2 mt-auto">
+                  <span class="font-display text-[0.85rem] font-bold text-text-secondary">x{group.count}</span>
                 </div>
               </div>
             {/each}
@@ -325,507 +325,116 @@
 {/if}
 
 <style>
-  .view-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .view-header h2 {
-    font-family: var(--font-display);
-    font-size: 1.5rem;
-    color: var(--text-primary);
-    margin: 0;
-  }
-
-  .rivens-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-    margin-bottom: 1rem;
-  }
-
-  .search-box {
-    position: relative;
-    min-width: 14rem;
-  }
-
+  .search-box { position: relative; min-width: 14rem; }
   .search-box input {
-    width: 100%;
-    padding: 0.5rem 0.75rem 0.5rem 2.25rem;
-    border: 1px solid var(--border);
-    border-radius: 0.375rem;
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    font-size: 0.8125rem;
-    font-family: var(--font-body);
-    outline: none;
+    width: 100%; padding: 0.5rem 0.75rem 0.5rem 2.25rem; border: 1px solid var(--border);
+    border-radius: 0.375rem; background: var(--bg-surface); color: var(--text-primary);
+    font-size: 0.8125rem; font-family: var(--font-body); outline: none;
     transition: border-color 0.15s, background-color 0.15s;
   }
-
-  .search-box input:focus {
-    border-color: var(--accent);
-    background: var(--bg-raised);
-    box-shadow: 0 0 0 3px rgba(212, 168, 67, 0.12);
-  }
-
-  .search-icon {
-    position: absolute;
-    left: 0.65rem;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 1rem;
-    height: 1rem;
-    color: var(--text-muted);
-    pointer-events: none;
-  }
-
-  .filter-tabs {
-    display: flex;
-    gap: 0.25rem;
-    flex-wrap: wrap;
-  }
+  .search-box input:focus { border-color: var(--accent); background: var(--bg-raised); box-shadow: 0 0 0 3px rgba(212, 168, 67, 0.12); }
+  .search-icon { position: absolute; left: 0.65rem; top: 50%; transform: translateY(-50%); width: 1rem; height: 1rem; color: var(--text-muted); pointer-events: none; }
 
   .filter-tab {
-    padding: 0.3rem 0.6rem;
-    border: 1px solid var(--border);
-    border-radius: 0.375rem;
-    background: var(--bg-surface);
-    font-family: var(--font-display);
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.15s;
+    padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: 0.375rem;
+    background: var(--bg-surface); font-family: var(--font-display); font-size: 0.75rem;
+    color: var(--text-secondary); cursor: pointer; transition: all 0.15s;
   }
-
-  .filter-tab:hover {
-    border-color: var(--border-strong);
-    background: var(--bg-hover);
-  }
-
-  .filter-tab.active {
-    border-color: var(--accent);
-    background: var(--accent-glow);
-    color: var(--accent);
-  }
-
-  .toolbar-right {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-  }
+  .filter-tab:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+  .filter-tab.active { border-color: var(--accent); background: var(--accent-glow); color: var(--accent); }
 
   .sort-select {
-    padding: 0.35rem 0.6rem;
-    border: 1px solid var(--border);
-    border-radius: 0.375rem;
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    font-family: var(--font-display);
-    font-size: 0.75rem;
-    cursor: pointer;
-    outline: none;
+    padding: 0.35rem 0.6rem; border: 1px solid var(--border); border-radius: 0.375rem;
+    background: var(--bg-surface); color: var(--text-primary); font-family: var(--font-display);
+    font-size: 0.75rem; cursor: pointer; outline: none;
   }
-
-  .sort-select:focus {
-    border-color: var(--accent);
-  }
-
+  .sort-select:focus { border-color: var(--accent); }
   .sort-dir-btn {
-    padding: 0.35rem 0.5rem;
-    border: 1px solid var(--border);
-    border-radius: 0.375rem;
-    background: var(--bg-surface);
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.15s;
+    padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: 0.375rem;
+    background: var(--bg-surface); color: var(--text-secondary); font-size: 0.85rem;
+    cursor: pointer; transition: all 0.15s;
   }
+  .sort-dir-btn:hover { border-color: var(--border-strong); color: var(--text-primary); }
 
-  .sort-dir-btn:hover {
-    border-color: var(--border-strong);
-    color: var(--text-primary);
-  }
-
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 40vh;
-    color: var(--text-muted);
-    font-family: var(--font-body);
-    font-size: 0.9rem;
-  }
-
-  .rivens-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 1.25rem;
-    justify-items: center;
-  }
-
+  /* ── Riven card ── */
   .riven-card {
-    position: relative;
-    display: block;
-    margin: 0 auto;
-    padding: 0;
-    border: none;
-    outline: none;
-    background: transparent;
-    appearance: none;
-    -webkit-appearance: none;
-    cursor: pointer;
-    width: min(100%, 18rem);
-    aspect-ratio: 316 / 400;
-    overflow: visible;
-    transition: transform 0.18s ease;
+    position: relative; display: block; margin: 0 auto; padding: 0; border: none;
+    outline: none; background: transparent; appearance: none; -webkit-appearance: none;
+    cursor: pointer; width: min(100%, 18rem); aspect-ratio: 316 / 400;
+    overflow: visible; transition: transform 0.18s ease;
   }
-
-  .riven-card:hover {
-    transform: translateY(-4px);
-    z-index: 2;
-  }
-
-  .riven-card:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-
-  .riven-card-inner {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    background: url("/RivenTemplate.png") center / 100% 100% no-repeat;
-  }
-
-  /* No ::before scrim — text-shadow provides readability without creating
-     a visible dark rectangle in the template's transparent corners. */
-
-  /* ── Grade badge: top-right inside the frame ── */
+  .riven-card:hover { transform: translateY(-4px); z-index: 2; }
+  .riven-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .riven-card-inner { position: relative; width: 100%; height: 100%; background: url("/RivenTemplate.png") center / 100% 100% no-repeat; }
   .riven-grade-corner {
-    position: absolute;
-    top: 10%;
-    right: 15%;
-    z-index: 2;
-    font-family: var(--font-display);
-    font-weight: 800;
-    font-size: 1rem;
-    line-height: 1;
-    text-shadow:
-      0 0 4px rgba(0, 0, 0, 1),
-      0 0 8px rgba(0, 0, 0, 0.9);
+    position: absolute; top: 10%; right: 15%; z-index: 2;
+    font-family: var(--font-display); font-weight: 800; font-size: 1rem; line-height: 1;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 1), 0 0 8px rgba(0, 0, 0, 0.9);
   }
-
-  .riven-card-top,
-  .riven-card-stats,
-  .riven-card-bottom {
-    position: absolute;
-    z-index: 1;
-    left: 13%;
-    right: 11%;
-  }
-
-  /* ── Weapon + riven name: centered in dark zone ── */
-  .riven-card-top {
-    top: 51%;
-    text-align: center;
-  }
-
+  .riven-card-top, .riven-card-stats, .riven-card-bottom { position: absolute; z-index: 1; left: 13%; right: 11%; }
+  .riven-card-top { top: 51%; text-align: center; }
   .riven-weapon {
-    font-family: var(--font-display);
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: #fff;
-    text-shadow:
-      0 0 4px rgba(0, 0, 0, 1),
-      0 0 8px rgba(0, 0, 0, 1),
-      0 2px 12px rgba(0, 0, 0, 0.95),
-      0 0 20px rgba(80, 40, 160, 0.3);
-    line-height: 1.1;
+    font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: #fff; line-height: 1.1;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 1), 0 0 8px rgba(0, 0, 0, 1), 0 2px 12px rgba(0, 0, 0, 0.95), 0 0 20px rgba(80, 40, 160, 0.3);
   }
-
   .riven-suffix {
-    font-family: var(--font-display);
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: rgba(200, 180, 255, 0.9);
-    text-shadow:
-      0 0 4px rgba(0, 0, 0, 1),
-      0 0 8px rgba(0, 0, 0, 0.95);
-    line-height: 1.1;
+    font-family: var(--font-display); font-size: 0.85rem; font-weight: 600;
+    color: rgba(200, 180, 255, 0.9); line-height: 1.1;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 1), 0 0 8px rgba(0, 0, 0, 0.95);
   }
-
-  /* ── Stat rows: centered with element icons (dark zone: 50%–82%) ── */
-  .riven-card-stats {
-    top: 59%;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    align-items: center;
-    text-align: center;
-  }
-
+  .riven-card-stats { top: 59%; display: flex; flex-direction: column; gap: 0; align-items: center; text-align: center; }
   .riven-stat-row {
-    display: flex;
-    align-items: baseline;
-    justify-content: center;
-    gap: 0.25em;
-    width: 100%;
-    font-size: 1.05rem;
-    text-shadow:
-      0 0 3px rgba(0, 0, 0, 1),
-      0 0 6px rgba(0, 0, 0, 1),
-      0 2px 8px rgba(0, 0, 0, 0.95);
-    font-family: var(--font-display);
-    line-height: 1.05;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: flex; align-items: baseline; justify-content: center; gap: 0.25em; width: 100%;
+    font-size: 1.05rem; font-family: var(--font-display); line-height: 1.05;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    text-shadow: 0 0 3px rgba(0, 0, 0, 1), 0 0 6px rgba(0, 0, 0, 1), 0 2px 8px rgba(0, 0, 0, 0.95);
   }
-
-  .stat-value {
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-
-  .stat-element-icon {
-    width: 1rem;
-    height: 1rem;
-    vertical-align: middle;
-    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.8));
-    flex-shrink: 0;
-    align-self: center;
-  }
-
-  .stat-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .stat-positive .stat-value {
-    color: #8ee4a8;
-  }
-
-  .stat-negative .stat-value {
-    color: #ff7a7a;
-  }
-
-  .stat-name {
-    color: rgba(255, 255, 255, 0.88);
-    font-weight: 500;
-    min-width: 0;
-  }
-
-  /* ── Rank pips: own positioned box (template separator at ~82%) ── */
-  .riven-rank-pips {
-    position: absolute;
-    z-index: 1;
-    left: 18%;
-    right: 18%;
-    top: 94%;
-    display: flex;
-    justify-content: center;
-    gap: 4px;
-  }
-
-  .rank-pip {
-    width: 8px;
-    height: 8px;
-    border-radius: 1px;
-    background: rgba(40, 35, 65, 0.6);
-    border: 1px solid rgba(80, 70, 120, 0.5);
-  }
-
+  .stat-value { font-weight: 700; flex-shrink: 0; }
+  .stat-element-icon { width: 1rem; height: 1rem; vertical-align: middle; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.8)); flex-shrink: 0; align-self: center; }
+  .stat-name { overflow: hidden; text-overflow: ellipsis; color: rgba(255, 255, 255, 0.88); font-weight: 500; min-width: 0; }
+  .stat-positive .stat-value { color: #8ee4a8; }
+  .stat-negative .stat-value { color: #ff7a7a; }
+  .riven-rank-pips { position: absolute; z-index: 1; left: 18%; right: 18%; top: 94%; display: flex; justify-content: center; gap: 4px; }
+  .rank-pip { width: 8px; height: 8px; border-radius: 1px; background: rgba(40, 35, 65, 0.6); border: 1px solid rgba(80, 70, 120, 0.5); }
   .rank-pip-active {
-    background: #5ec8ff;
-    border-color: #7dd8ff;
-    box-shadow:
-      0 0 4px rgba(94, 200, 255, 0.9),
-      0 0 8px rgba(94, 200, 255, 0.5),
-      0 0 12px rgba(94, 200, 255, 0.25);
+    background: #5ec8ff; border-color: #7dd8ff;
+    box-shadow: 0 0 4px rgba(94, 200, 255, 0.9), 0 0 8px rgba(94, 200, 255, 0.5), 0 0 12px rgba(94, 200, 255, 0.25);
   }
-
-  /* ── Bottom bar: MR / rerolls (template zone: 84%–88%) ── */
   .riven-card-bottom {
-    left: 22%;
-    right: 22%;
-    top: 83.5%;
-    bottom: auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 0.75rem;
-    font-family: var(--font-display);
-    text-shadow:
-      0 0 3px rgba(0, 0, 0, 1),
-      0 0 6px rgba(0, 0, 0, 1);
-    line-height: 1;
+    left: 22%; right: 22%; top: 83.5%; bottom: auto;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 0.75rem; font-family: var(--font-display); line-height: 1;
+    text-shadow: 0 0 3px rgba(0, 0, 0, 1), 0 0 6px rgba(0, 0, 0, 1);
   }
-
-  .riven-mr {
-    color: rgba(255, 255, 255, 0.85);
-    font-weight: 700;
-  }
-
-  .riven-rerolls {
-    color: #f06dff;
-    font-weight: 700;
-  }
+  .riven-mr { color: rgba(255, 255, 255, 0.85); font-weight: 700; }
+  .riven-rerolls { color: #f06dff; font-weight: 700; }
 
   @media (max-width: 700px) {
-    .riven-card {
-      width: min(100%, 16rem);
-    }
-
-    .riven-weapon {
-      font-size: 1.25rem;
-    }
-
-    .riven-stat-row {
-      font-size: 0.9rem;
-    }
+    .riven-card { width: min(100%, 16rem); }
+    .riven-weapon { font-size: 1.25rem; }
+    .riven-stat-row { font-size: 0.9rem; }
   }
 
-  /* ── Veiled rivens tab ── */
-  .veiled-section {
-    margin-bottom: 1.25rem;
-  }
-
-  .veiled-section-title {
-    font-family: var(--font-display);
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    margin: 0 0 0.5rem 0;
-  }
-
-  .veiled-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
+  /* ── Veiled ── */
   .veiled-entry {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.65rem 1rem;
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    transition: border-color 0.15s;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.65rem 1rem; background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 0.5rem; transition: border-color 0.15s;
   }
-
-  .veiled-entry:hover {
-    border-color: var(--border-strong);
-  }
-
+  .veiled-entry:hover { border-color: var(--border-strong); }
   .veiled-entry-type {
-    font-family: var(--font-display);
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    min-width: 10rem;
-    flex-shrink: 0;
+    font-family: var(--font-display); font-size: 0.9rem; font-weight: 600;
+    color: var(--text-primary); min-width: 10rem; flex-shrink: 0;
   }
+  .veiled-progress-bar { width: 80px; height: 6px; background: rgba(255, 255, 255, 0.08); border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+  .veiled-progress-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.3s ease; }
 
-  .veiled-challenge {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .veiled-challenge-text {
-    font-family: var(--font-body);
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-  }
-
-  .veiled-unseen-label {
-    font-family: var(--font-body);
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    font-style: italic;
-  }
-
-  .veiled-progress-bar {
-    width: 80px;
-    height: 6px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 3px;
-    overflow: hidden;
-    flex-shrink: 0;
-  }
-
-  .veiled-progress-fill {
-    height: 100%;
-    background: var(--accent);
-    border-radius: 3px;
-    transition: width 0.3s ease;
-  }
-
-  .veiled-progress-text {
-    font-family: var(--font-display);
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    flex-shrink: 0;
-  }
-
-  /* ── Unseen riven cards ── */
-  .unseen-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-    gap: 0.75rem;
-  }
-
+  /* ── Unseen ── */
   .unseen-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 1rem 0.75rem;
-    background: linear-gradient(135deg, rgba(60, 45, 90, 0.45), rgba(40, 30, 70, 0.5));
-    border: 1px solid rgba(100, 70, 160, 0.3);
-    border-radius: 0.5rem;
-    gap: 0.5rem;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    padding: 1rem 0.75rem; background: linear-gradient(135deg, rgba(60, 45, 90, 0.45), rgba(40, 30, 70, 0.5));
+    border: 1px solid rgba(100, 70, 160, 0.3); border-radius: 0.5rem; gap: 0.5rem;
     transition: border-color 0.15s;
   }
-
-  .unseen-card:hover {
-    border-color: rgba(100, 70, 160, 0.55);
-  }
-
-  .unseen-card-title {
-    font-family: var(--font-display);
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .unseen-card-desc {
-    font-family: var(--font-body);
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    line-height: 1.3;
-  }
-
-  .unseen-card-footer {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: auto;
-  }
-
-  .unseen-count {
-    font-family: var(--font-display);
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--text-secondary);
-  }
+  .unseen-card:hover { border-color: rgba(100, 70, 160, 0.55); }
 </style>
