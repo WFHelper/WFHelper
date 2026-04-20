@@ -4,6 +4,7 @@ import { itemDb, componentOwnership, enrichComponents } from "../stores/data.js"
 import { relicOwnedCounts, relicSquadSize } from "../stores/relics.js";
 import { fetchPriceBySlug } from "../lib/wfm/wfmPrice.js";
 import { fetchWfmItemMetaBySlug } from "../lib/wfm/wfmItemMeta.js";
+import { SvelteMap } from "svelte/reactivity";
 import WikiButton from "../components/WikiButton.svelte";
 import ComponentPanel from "../components/ComponentPanel.svelte";
 import ModalShell from "../components/ModalShell.svelte";
@@ -151,7 +152,7 @@ import ModalShell from "../components/ModalShell.svelte";
   // Reverse index: item name → uniqueName key (rebuilt when itemDb changes)
   $: itemNameIndex = (() => {
     const db = $itemDb;
-    const map = new Map<string, string>();
+    const map = new SvelteMap<string, string>();
     for (const key of Object.keys(db)) {
       const name = db[key].name;
       if (name) map.set(name, key);

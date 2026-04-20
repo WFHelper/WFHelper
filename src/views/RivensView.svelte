@@ -304,7 +304,7 @@
             {#each veiledUnseen as group}
               <div class="unseen-card">
                 <div class="font-display text-[0.95rem] font-bold text-text-primary">{group.label}</div>
-                <div class="text-[0.72rem] text-text-muted leading-[1.3]">{"Equip these rivens to reveal their challenge"}</div>
+                <div class="text-[0.72rem] text-text-muted leading-[1.3]">Equip these rivens to reveal their challenge</div>
                 <div class="flex items-center gap-2 mt-auto">
                   <span class="font-display text-[0.85rem] font-bold text-text-secondary">x{group.count}</span>
                 </div>
