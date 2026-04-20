@@ -338,6 +338,10 @@
     if (f === "infested") return "infested";
     return "";
   }
+
+  function titleCase(s: string): string {
+    return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  }
 </script>
 
 <section class="view active">
@@ -346,6 +350,8 @@
       <h2>World</h2>
       {#if baroActive}
         <span class="world-baro-pill">Baro leaves in {times.baro}</span>
+      {:else if baroAct}
+        <span class="world-baro-pill world-baro-pill-inactive">Baro arrives in {times.baro}</span>
       {/if}
     </div>
   </div>
@@ -661,7 +667,7 @@
               {#each group.jobs as job, ji}
                 <button class="world-bounty-job" on:click={() => toggleSection(`bounty-${group.syndicateKey}-${ji}`)}>
                   <span class="world-bounty-type">
-                    {job.type}
+                    {titleCase(job.type)}
                     {#if job.challengeDesc}
                       <span class="world-bounty-challenge"> — {job.challengeDesc}</span>
                     {/if}
@@ -671,12 +677,6 @@
                 </button>
                 {#if collapsed[`bounty-${group.syndicateKey}-${ji}`]}
                 <div class="world-bounty-detail">
-                  {#if job.minMR}
-                    <div class="world-bounty-stage">
-                      <span class="world-bounty-stage-label">Mastery Req</span>
-                      <span class="world-bounty-stage-val">MR {job.minMR}</span>
-                    </div>
-                  {/if}
                   {#await getBountyRewards(group.syndicateKey, job.enemyLevels, job.standingStages.length, bountyRotation)}
                     <span class="text-[0.7rem] text-text-secondary py-[0.2rem]">Loading rewards…</span>
                   {:then rewards}
@@ -828,6 +828,11 @@
     background: rgba(251, 191, 36, 0.1);
     color: var(--warning, #fbbf24);
     white-space: nowrap;
+  }
+  .world-baro-pill-inactive {
+    border-color: rgba(148, 163, 184, 0.3);
+    background: rgba(148, 163, 184, 0.08);
+    color: var(--text-secondary);
   }
   .world-prime-row {
     display: flex;

@@ -105,6 +105,18 @@ function createWindow(): void {
 
   ctx.mainWindow.loadFile(MAIN_WINDOW_ENTRY_FILE);
 
+  // Block page reload shortcuts (Ctrl+R, Ctrl+Shift+R, F5) to prevent breaking app state.
+  ctx.mainWindow.webContents.on(
+    "before-input-event",
+    (event: { preventDefault: () => void }, input: { type?: string; key?: string; control?: boolean; meta?: boolean; shift?: boolean }) => {
+      if (input.type !== "keyDown") return;
+      const ctrl = input.control || input.meta;
+      if ((ctrl && input.key === "r") || (ctrl && input.key === "R") || input.key === "F5") {
+        event.preventDefault();
+      }
+    },
+  );
+
   if (!app.isPackaged) {
     ctx.mainWindow.webContents.on(
       "before-input-event",

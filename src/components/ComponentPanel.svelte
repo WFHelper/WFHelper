@@ -49,7 +49,7 @@
     priceSlug = result.slug;
   }
 
-  $: wikiFallback = parentName ? `${parentName} ${comp.name}` : comp.name;
+  $: wikiFallback = parentName || comp.name;
 </script>
 
 <div class="detail-panel {panelClass}">

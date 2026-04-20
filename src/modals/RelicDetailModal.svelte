@@ -1,7 +1,7 @@
 <script lang="ts">
 import { activeRelic } from "../stores/modals.js";
 import { itemDb, componentOwnership, enrichComponents } from "../stores/data.js";
-import { relicOwnedCounts, relicSquadSize } from "../stores/relics.js";
+import { relicOwnedCounts } from "../stores/relics.js";
 import { fetchPriceBySlug } from "../lib/wfm/wfmPrice.js";
 import { fetchWfmItemMetaBySlug } from "../lib/wfm/wfmItemMeta.js";
 import { SvelteMap } from "svelte/reactivity";
@@ -53,6 +53,7 @@ import ModalShell from "../components/ModalShell.svelte";
   let ducats: Array<number | null> | null = null;
   let loadingPrices = false;
   let currentGroup: RelicGroup | null = null;
+  let localSquadSize = 1;
   let currentQuality: RelicQuality | null = null;
 
   // ── inline reward detail (side panel) ──
@@ -130,16 +131,16 @@ import ModalShell from "../components/ModalShell.svelte";
     return "rarity-common";
   }
 
-  $: squadEV = prices && rewards.length ? computeSquadEV(rewards, prices, $relicSquadSize) : null;
+  $: squadEV = prices && rewards.length ? computeSquadEV(rewards, prices, localSquadSize) : null;
   $: squadDucatEV =
-    ducats && rewards.length ? computeSquadDucatEV(rewards, ducats, $relicSquadSize) : null;
+    ducats && rewards.length ? computeSquadDucatEV(rewards, ducats, localSquadSize) : null;
   $: hasAnyPrice = prices?.some((price) => price != null);
   $: hasAnyDucats = ducats?.some((value) => value != null);
   $: ducatonator =
     squadEV != null && squadDucatEV != null && squadEV > 0
       ? squadDucatEV / squadEV
       : null;
-  $: squadLabel = $relicSquadSize === 1 ? "Solo" : `best of ${$relicSquadSize}`;
+  $: squadLabel = localSquadSize === 1 ? "Solo" : `best of ${localSquadSize}`;
   $: qualLabel = QUAL_LABELS[activeQuality] || activeQuality;
 
   $: owned = group ? ($relicOwnedCounts[group.key] || EMPTY_OWNED) : EMPTY_OWNED;
@@ -189,7 +190,10 @@ import ModalShell from "../components/ModalShell.svelte";
       if (parentComp) {
         rewardComp = parentComp;
       } else {
-        // Fallback: component not found in parent's list
+        // Fallback: component not found in parent's list.
+        // db.name is already the full name (e.g. "Gauss Prime Chassis"),
+        // so clear parentName to avoid double-prefixing in ComponentPanel.
+        rewardParentName = "";
         rewardComp = {
           name: db.name || reward.name,
           uniqueName: un,
@@ -233,7 +237,7 @@ import ModalShell from "../components/ModalShell.svelte";
     <div class="detail-dual-container" class:has-reward={rewardComp}>
       <div class="detail-panel relic-detail-panel">
         <div class="detail-panel-top-actions">
-          <WikiButton wikiUrl={null} fallbackName="{group.name} Relic" />
+          <WikiButton wikiUrl={null} fallbackName={group.name} />
           <button class="detail-close" aria-label="Close" on:click={close}>&times;</button>
         </div>
 
@@ -275,8 +279,8 @@ import ModalShell from "../components/ModalShell.svelte";
             {#each SQUAD_OPTIONS as [size, label]}
               <button
                 class="relic-squad-btn"
-                class:active={$relicSquadSize === size}
-                on:click={() => relicSquadSize.set(size)}
+                class:active={localSquadSize === size}
+                on:click={() => (localSquadSize = size)}
               >{label}</button>
             {/each}
           </div>
