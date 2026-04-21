@@ -10,7 +10,6 @@
   export let name: string;
 
   onMount(() => {
-    if (!import.meta.env.DEV) return;
     const done = measureViewMount(name);
     // Wait two rAF frames to approximate "first paint".
     const raf1 = requestAnimationFrame(() => {

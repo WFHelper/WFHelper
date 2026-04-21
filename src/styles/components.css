@@ -91,17 +91,18 @@
     border-radius: 0.375rem;
     background: var(--bg-surface);
     color: var(--text-primary);
-    font-size: var(--font-body-size, 0.875rem);
-    padding: 0.5rem 0.75rem;
-    min-width: 9rem;
+    font-size: 0.8rem;
+    /* Match the .search-box input height visually while staying compact.
+       We set an explicit height + line-height so the selected option sits
+       centered vertically regardless of font metrics. Text stays left
+       aligned as requested. */
+    height: 2.1rem;
+    line-height: 2.1rem;
+    padding: 0 1.75rem 0 0.55rem;
+    min-width: 7.5rem;
     outline: none;
-    text-align: center;
-    /* text-align-last centers the currently-selected option in the closed
-       control on Chromium; plain text-align does not for <select>. */
-    text-align-last: center;
-  }
-  .shared-filter-select option {
-    text-align: center;
+    text-align: left;
+    text-align-last: left;
   }
   .shared-filter-select:focus {
     border-color: var(--accent-dim);
@@ -181,7 +182,7 @@
     flex-wrap: nowrap;
   }
   .shared-filter-bar-inline .shared-filter-select {
-    min-width: 9.5rem;
+    min-width: 7.5rem;
   }
 
   /* Inventory-specific filter bar variants */

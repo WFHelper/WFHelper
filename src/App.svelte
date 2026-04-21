@@ -292,9 +292,10 @@
 
 <ToastHost />
 
-{#if import.meta.env.DEV}
-  <PerfHud />
-{/if}
+<!-- Perf HUD: always mounted; hidden until Ctrl+Alt+P.
+     (We don't gate on import.meta.env.DEV because `vite build --watch`
+     produces a prod bundle in which DEV is false.) -->
+<PerfHud />
 
 
 
