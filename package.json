@@ -9,7 +9,7 @@
   "scripts": {
     "build": "npm run build:main && vite build",
     "start": "npm run build && electron .",
-    "dev": "concurrently -k \"npm:dev:main\" \"npm:dev:renderer\" \"npm:dev:electron\"",
+    "dev": "npm run build:main && concurrently -k \"npm:dev:main\" \"npm:dev:preloads\" \"npm:dev:renderer\" \"npm:dev:electron\"",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win nsis",
     "check": "svelte-check --tsconfig tsconfig.json",
@@ -25,6 +25,7 @@
     "audit:all": "npm audit",
     "build:main": "tsc -p tsconfig.main.json && node scripts/bundle-preloads.js",
     "dev:main": "tsc -p tsconfig.main.json --watch --preserveWatchOutput",
+    "dev:preloads": "node scripts/bundle-preloads.js --watch",
     "dev:renderer": "vite build --watch",
     "typecheck:renderer": "tsc --noEmit",
     "dev:electron": "wait-on .electron-build/main.js renderer/dist/index.html && nodemon --watch .electron-build --watch renderer --ext js,json,html,css --exec electron .",
