@@ -417,22 +417,25 @@
         {#if !session?.hasData}
           <p class="m-0 text-sm text-text-muted">{$tr("stats.noData")}</p>
         {:else}
-          <div class="flex flex-wrap items-baseline gap-x-8 gap-y-3">
-            {#each SESSION_SECTIONS as { key, labelKey, currentKey }}
+          <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-3 rounded-lg border border-border bg-bg-surface px-4 py-3">
+            {#each SESSION_SECTIONS as { key, labelKey, currentKey }, i}
               {@const delta = session[key]}
               {@const current = session[currentKey]}
               {@const icon = ICON_MAP[key]}
-              <div class="flex flex-col gap-0.5 min-w-[7rem]">
+              {#if i > 0}
+                <span class="text-xl font-light text-border select-none" aria-hidden="true">|</span>
+              {/if}
+              <div class="flex flex-col items-center gap-1">
                 <div class="flex items-baseline gap-2">
-                  <span class="flex items-center gap-1 text-[0.7rem] uppercase tracking-wide text-text-muted">
-                    {#if icon}<img src={icon} alt="" class="w-4 h-4 object-contain align-middle opacity-85" />{/if}
+                  <span class="flex items-center gap-1.5 text-[0.82rem] font-semibold uppercase tracking-wide text-text-secondary">
+                    {#if icon}<img src={icon} alt="" class="w-5 h-5 object-contain align-middle opacity-85" />{/if}
                     {$tr(labelKey)}
                   </span>
-                  <span class="text-2xl font-bold leading-none tracking-tight text-text-primary">
+                  <span class="text-[1.75rem] font-bold leading-none tracking-tight text-text-primary">
                     {formatAbsolute(current)}
                   </span>
                 </div>
-                <span class="text-[0.7rem] {deltaClass(delta)}">
+                <span class="text-[0.75rem] font-semibold {deltaClass(delta)}">
                   {formatDelta(delta, formatters[key])} today
                 </span>
               </div>

@@ -99,27 +99,31 @@
             <text x="60" y="72" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="Barlow">MASTERED</text>
           </svg>
         </div>
-        <div class="flex flex-1 flex-wrap items-baseline gap-x-6 gap-y-2">
-          <div class="flex items-baseline gap-1.5">
-            <span class="font-display text-[1.35rem] font-bold text-success leading-none">{stats.mastered}</span>
-            <span class="text-[0.8rem] text-text-muted">Mastered</span>
+        <div class="flex flex-1 flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border bg-bg-surface px-4 py-3">
+          <div class="flex items-baseline gap-2">
+            <span class="font-display text-2xl font-bold text-success leading-none">{stats.mastered}</span>
+            <span class="text-[0.95rem] font-semibold text-text-secondary">Mastered</span>
           </div>
-          <div class="flex items-baseline gap-1.5">
-            <span class="font-display text-[1.35rem] font-bold text-warning leading-none">{stats.inProgress}</span>
-            <span class="text-[0.8rem] text-text-muted">In Progress</span>
+          <span class="text-lg font-light text-border select-none" aria-hidden="true">|</span>
+          <div class="flex items-baseline gap-2">
+            <span class="font-display text-2xl font-bold text-warning leading-none">{stats.inProgress}</span>
+            <span class="text-[0.95rem] font-semibold text-text-secondary">In Progress</span>
           </div>
-          <div class="flex items-baseline gap-1.5">
-            <span class="font-display text-[1.35rem] font-bold text-danger leading-none">{stats.missing}</span>
-            <span class="text-[0.8rem] text-text-muted">Missing</span>
+          <span class="text-lg font-light text-border select-none" aria-hidden="true">|</span>
+          <div class="flex items-baseline gap-2">
+            <span class="font-display text-2xl font-bold text-danger leading-none">{stats.missing}</span>
+            <span class="text-[0.95rem] font-semibold text-text-secondary">Missing</span>
           </div>
-          <div class="flex items-baseline gap-1.5">
-            <span class="font-display text-[1.35rem] font-bold text-text-primary leading-none">{stats.total}</span>
-            <span class="text-[0.8rem] text-text-muted">Total</span>
+          <span class="text-lg font-light text-border select-none" aria-hidden="true">|</span>
+          <div class="flex items-baseline gap-2">
+            <span class="font-display text-2xl font-bold text-text-primary leading-none">{stats.total}</span>
+            <span class="text-[0.95rem] font-semibold text-text-secondary">Total</span>
           </div>
           {#if profileMastery && profileMastery.rank != null}
-            <div class="flex items-baseline gap-1.5">
-              <span class="font-display text-[1.35rem] font-bold text-text-primary leading-none">MR {profileMastery.rank}</span>
-              <span class="text-[0.8rem] text-text-muted">
+            <span class="text-lg font-light text-border select-none" aria-hidden="true">|</span>
+            <div class="flex items-baseline gap-2">
+              <span class="font-display text-2xl font-bold text-text-primary leading-none">MR {profileMastery.rank}</span>
+              <span class="text-[0.95rem] font-semibold text-text-secondary">
                 {profileMastery.percentToNext != null ? `${profileMastery.percentToNext}% to next` : 'Progress unavailable'}
               </span>
             </div>
