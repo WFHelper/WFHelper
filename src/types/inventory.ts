@@ -129,12 +129,33 @@ export interface FoundryBuildingItem {
   name: string;
   imageUrl: string | null;
   endDate: Date | null;
+  /** Blueprint recipe uniqueName (the raw ItemType in PendingRecipes). */
+  uniqueName: string | null;
+  /** Resolved product uniqueName (the thing being built), if the recipe could be mapped. */
+  productUniqueName: string | null;
+  /** Product category (e.g. "Warframes", "Primary", "Gear"). "" when unresolved. */
+  category: string;
+  /** Ingredient list + build cost from the product's recipe. Empty when no recipe. */
+  ingredients: RecipeIngredient[];
+  buildPrice: number;
 }
 
 export interface FoundryRecipeItem {
   name: string;
   imageUrl: string | null;
   count: number;
+  /** Blueprint recipe uniqueName (the raw ItemType in Recipes). */
+  uniqueName: string | null;
+  /** Resolved product uniqueName (the thing this blueprint builds), if mapped. */
+  productUniqueName: string | null;
+  /** True when the product is used as an ingredient in some other recipe. */
+  isIngredient: boolean;
+  /** Product category (e.g. "Warframes", "Primary", "Gear"). "" when unresolved. */
+  category: string;
+  /** Ingredient list + build cost from the product's recipe. Empty when no recipe. */
+  ingredients: RecipeIngredient[];
+  buildPrice: number;
+  buildTime: number;
 }
 
 export interface FoundryData {

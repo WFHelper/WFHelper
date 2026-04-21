@@ -731,7 +731,7 @@
   .detail-panel {
     position: relative;
     z-index: 1;
-    width: 520px;
+    width: 620px;
     max-width: 90vw;
     max-height: 85vh;
     overflow-y: auto;
@@ -854,7 +854,7 @@
     flex: 1;
   }
   .detail-title-area h2 {
-    margin: 0 2rem 0.3rem 0;
+    margin: 0 12rem 0.3rem 0;
     font-family: var(--font-display);
     font-size: 1.4rem;
     font-weight: 700;

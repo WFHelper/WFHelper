@@ -227,7 +227,11 @@ export function runOnce(): Promise<boolean> {
 
 /**
  * Start the periodic polling loop (default 10 minutes).
- * Runs the helper immediately on first call, then repeats.
+ *
+ * Cooldown honours `inventory.json` mtime across restarts: if the last refresh
+ * happened less than `intervalMs` ago, we defer the first run until
+ * `mtime + intervalMs`. This keeps the 10-minute rate-limit stable even when
+ * the app is relaunched repeatedly.
  */
 export function startPolling(intervalMs = DEFAULT_POLL_INTERVAL_MS): void {
   if (_pollTimer) return; // already started
@@ -240,12 +244,34 @@ export function startPolling(intervalMs = DEFAULT_POLL_INTERVAL_MS): void {
 
   log.log(`Starting helper polling every ${(intervalMs / 60_000).toFixed(0)} min`);
 
-  // Run immediately, then on interval
-  void runOnce();
+  const mtime = getInventoryMtime();
+  const ageMs = mtime !== null ? Date.now() - mtime : Infinity;
+  const initialDelay = ageMs >= intervalMs ? 0 : intervalMs - ageMs;
 
-  _pollTimer = setInterval(() => {
+  const scheduleInterval = () => {
+    if (_pollTimer) return;
+    _pollTimer = setInterval(() => {
+      void runOnce();
+    }, intervalMs);
+  };
+
+  if (initialDelay === 0) {
     void runOnce();
-  }, intervalMs);
+    scheduleInterval();
+  } else {
+    log.log(
+      `inventory.json was refreshed ${(ageMs / 60_000).toFixed(1)} min ago — ` +
+        `deferring first run by ${(initialDelay / 60_000).toFixed(1)} min`,
+    );
+    // Treat the existing inventory.json as our "last successful run" so the
+    // titlebar status reflects reality instead of showing "WF data missing".
+    _lastRunAt = mtime;
+    _lastRunOk = true;
+    setTimeout(() => {
+      void runOnce();
+      scheduleInterval();
+    }, initialDelay);
+  }
 }
 
 export function stopPolling(): void {
