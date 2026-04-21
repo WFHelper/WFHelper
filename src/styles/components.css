@@ -74,10 +74,11 @@
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
-    border: 1px solid var(--border);
-    border-radius: 0.375rem;
-    background: var(--bg-surface);
-    padding: 0.32rem 0.45rem;
+    /* No outer card — labels read as plain text; the <select> itself keeps its
+       own border so it still looks like an input. */
+    background: transparent;
+    border: 0;
+    padding: 0;
   }
   .shared-filter-sort span {
     font-family: var(--font-display);
