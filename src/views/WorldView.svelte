@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ViewPerfMark from "../components/ViewPerfMark.svelte";
   import { onMount, onDestroy } from "svelte";
   import { worldData, worldLoading, worldLastFetch, worldFissureMode } from "../stores/world.js";
   import { inventoryData, itemDb, componentOwnership, enrichComponents, wfmItems } from "../stores/data.js";
@@ -345,6 +346,7 @@
 </script>
 
 <section class="view active">
+<ViewPerfMark name="world" />
   <div class="view-header">
     <div class="flex items-center gap-3">
       <h2>World</h2>

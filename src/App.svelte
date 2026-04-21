@@ -7,6 +7,7 @@
   import StatusBar from "./components/StatusBar.svelte";
   import ErrorBoundary from "./components/ErrorBoundary.svelte";
   import ToastHost from "./components/ToastHost.svelte";
+  import PerfHud from "./components/PerfHud.svelte";
 
   import { normalizeErrorMessage } from "../config/shared/errors.js";
 
@@ -290,6 +291,10 @@
 </ErrorBoundary>
 
 <ToastHost />
+
+{#if import.meta.env.DEV}
+  <PerfHud />
+{/if}
 
 
 

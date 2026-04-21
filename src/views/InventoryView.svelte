@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ViewPerfMark from "../components/ViewPerfMark.svelte";
   import { onDestroy, onMount } from "svelte";
 
   import { parsedItems, wfmItems, inventoryData, itemDb } from "../stores/data.js";
@@ -247,6 +248,7 @@
 </script>
 
 <section class="view active">
+<ViewPerfMark name="inventory" />
   <InventoryHeader
     totalCount={filteredTotalCount}
     filters={FILTERS}

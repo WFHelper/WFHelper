@@ -1,4 +1,5 @@
 ﻿<script lang="ts">
+  import ViewPerfMark from "../components/ViewPerfMark.svelte";
   import { onMount, onDestroy } from "svelte";
   import { itemDb, componentOwnership, enrichComponents, foundryData } from "../stores/data.js";
   import { activeItem } from "../stores/modals.js";
@@ -267,6 +268,7 @@
 </script>
 
 <section class="view active">
+<ViewPerfMark name="foundry" />
   <div class="view-header">
     <h2>Foundry</h2>
   </div>

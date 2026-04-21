@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ViewPerfMark from "../components/ViewPerfMark.svelte";
   import { onMount } from "svelte";
   import { invoke, on } from "../lib/ipc.js";
   import { gradeColor } from "../lib/rivenGradeColors.js";
@@ -115,6 +116,7 @@
 </script>
 
 <section class="view active">
+<ViewPerfMark name="rivens" />
   <div class="flex items-center gap-4 mb-2">
     <h2 class="font-display text-2xl text-text-primary m-0">{$tr("rivens.title")}</h2>
   </div>

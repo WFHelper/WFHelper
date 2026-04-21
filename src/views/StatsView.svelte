@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ViewPerfMark from "../components/ViewPerfMark.svelte";
   import { onMount, onDestroy } from "svelte";
   import { invoke, on } from "../lib/ipc.js";
   import { tr } from "../lib/i18n.js";
@@ -370,6 +371,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <section class="view active" on:mouseleave={() => { tooltip = null; }}>
+<ViewPerfMark name="stats" />
   <div class="view-header">
     <h2>{$tr("stats.title")}</h2>
     <div class="flex items-center gap-2 ml-auto">

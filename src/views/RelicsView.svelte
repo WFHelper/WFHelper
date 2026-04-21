@@ -1,4 +1,5 @@
 ﻿<script lang="ts">
+  import ViewPerfMark from "../components/ViewPerfMark.svelte";
   import { onDestroy, onMount } from "svelte";
 
   import {
@@ -661,6 +662,7 @@
 </script>
 
 <section class="view active">
+<ViewPerfMark name="relics" />
   <div class="mb-4">
     <h2 class="m-0 mb-2 font-display text-[1.875rem] font-semibold tracking-[0.03em] text-text-primary">Relic Planner ({groups.length} groups / {visibleRelicEntryCount} entries)</h2>
     <div class="flex items-end border-b border-white/[0.09]">

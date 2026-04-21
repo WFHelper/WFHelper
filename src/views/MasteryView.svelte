@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ViewPerfMark from "../components/ViewPerfMark.svelte";
   import { masteryData } from "../stores/mastery.js";
   import { wfmItems, itemDb } from "../stores/data.js";
   import { debugMode } from "../stores/app.js";
@@ -68,6 +69,7 @@
 </script>
 
 <section class="view active">
+<ViewPerfMark name="mastery" />
   <div class="view-header">
     <h2>Mastery Helper</h2>
   </div>
