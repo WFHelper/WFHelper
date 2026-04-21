@@ -18,6 +18,7 @@
   import { sharedFilters } from "../stores/filters.js";
   import { applySharedFiltersAndSort } from "../lib/filters.js";
   import { invoke, send } from "../lib/ipc.js";
+  import { marketDensity } from "../stores/uiDensity.js";
   import type {
     MarketTab,
     WfmContract,
@@ -484,7 +485,7 @@
         </div>
       {/if}
 
-      <div class="grid gap-[0.44rem]">
+      <div class="grid gap-[0.44rem] {$marketDensity === 'compact' ? 'grid-cols-[repeat(auto-fill,minmax(260px,1fr))]' : ''}">
         {#if isRivensTab}
           {#if contractsLoading}
             <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">Loading riven contracts...</div>
@@ -494,8 +495,8 @@
             <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">No riven contracts found.</div>
           {:else}
             {#each filteredContractRows as contract}
-              <div class="order-row flex items-center gap-2 px-2.5 py-2">
-                <span class="h-[15px] w-[15px] shrink-0" aria-hidden="true"></span>
+              <div class="order-row {$marketDensity === 'compact' ? 'flex-col items-stretch gap-2' : 'flex items-center gap-2'} px-2.5 py-2">
+                {#if $marketDensity !== 'compact'}<span class="h-[15px] w-[15px] shrink-0" aria-hidden="true"></span>{/if}
                 <div class="flex flex-1 items-center gap-2 min-w-0">
                   {#if contract.itemThumb}
                     <img
@@ -522,7 +523,7 @@
                     {/if}
                   </div>
                 </div>
-                <div class="flex shrink-0 items-center gap-2">
+                <div class="flex shrink-0 items-center gap-2 {$marketDensity === 'compact' ? 'justify-between' : ''}">
                   <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">
                     <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5">
                       <circle cx="7" cy="7" r="5.5" />
@@ -547,7 +548,7 @@
                     {contractBadge(contract)}
                   </span>
                 </div>
-                <div class="flex shrink-0 gap-1">
+                <div class="flex shrink-0 gap-1 {$marketDensity === 'compact' ? 'justify-end' : ''}">
                   <button class="btn-sm btn-secondary" on:click={() => openContractListing(contract)}>
                     Open
                   </button>
@@ -571,15 +572,15 @@
           </div>
         {:else}
           {#each filteredOrderRows as order}
-            <div class="order-row flex items-center gap-2 px-2.5 py-2">
-              <input
-                type="checkbox"
-                class="h-[15px] w-[15px] shrink-0 accent-accent"
-                checked={$marketSelected.has(order.id)}
-                title="Select for bulk action"
-                on:change={(event) => onOrderCheckboxChange(order.id, event)}
-              />
-              <div class="flex flex-1 items-center gap-2 min-w-0">
+            <div class="order-row {$marketDensity === 'compact' ? 'flex-col items-stretch gap-2' : 'flex items-center gap-2'} px-2.5 py-2">
+              <div class="flex items-center gap-2 {$marketDensity === 'compact' ? '' : 'min-w-0 flex-1'}">
+                <input
+                  type="checkbox"
+                  class="h-[15px] w-[15px] shrink-0 accent-accent"
+                  checked={$marketSelected.has(order.id)}
+                  title="Select for bulk action"
+                  on:change={(event) => onOrderCheckboxChange(order.id, event)}
+                />
                 {#if order.itemThumb}
                   <img src={order.itemThumb} alt={order.itemName} class="h-9 w-9 rounded-[0.32rem] object-contain" loading="lazy" />
                 {:else}
@@ -592,7 +593,7 @@
                   {/if}
                 </span>
               </div>
-              <div class="flex shrink-0 items-center gap-2">
+              <div class="flex shrink-0 items-center gap-2 {$marketDensity === 'compact' ? 'justify-between' : ''}">
                 <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">
                   <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5">
                     <circle cx="7" cy="7" r="5.5" />
@@ -605,7 +606,7 @@
                   {order.visible ? "Visible" : "Hidden"}
                 </span>
               </div>
-              <div class="flex shrink-0 gap-1">
+              <div class="flex shrink-0 gap-1 {$marketDensity === 'compact' ? 'justify-end' : ''}">
                 <button
                   class="btn-sm btn-secondary"
                   on:click={() => orderModalState.set({ mode: "edit", order })}

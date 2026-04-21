@@ -1,5 +1,6 @@
 <script lang="ts">
   import { themeSettings } from "../../stores/theme.js";
+  import { marketDensity } from "../../stores/uiDensity.js";
   import { tr } from "../../lib/i18n.js";
   import PresetSelector from "./PresetSelector.svelte";
   import ColorSection from "./ColorSection.svelte";
@@ -35,6 +36,32 @@
           on:change={(e) => themeSettings.setContrastSafeMode((e.target as HTMLInputElement).checked)}
         />
       </label>
+    </div>
+
+    <!-- Market list density -->
+    <div class="appearance-section">
+      <div class="rounded-lg border border-border bg-bg-raised py-[0.52rem] px-[0.6rem]">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-text-secondary text-[0.8rem] font-medium">
+            Market list density
+            <span class="block text-[0.68rem] text-text-muted font-normal mt-[0.1rem]">
+              Choose how your Warframe.market orders and riven contracts are displayed.
+            </span>
+          </span>
+          <div class="inline-flex overflow-hidden rounded border border-border bg-bg-surface text-[0.72rem]">
+            <button
+              type="button"
+              class="px-2 py-1 transition-colors {$marketDensity === 'compact' ? 'bg-accent text-bg-base font-semibold' : 'text-text-secondary hover:text-text-primary'}"
+              on:click={() => marketDensity.set("compact")}
+            >Compact cards</button>
+            <button
+              type="button"
+              class="px-2 py-1 border-l border-border transition-colors {$marketDensity === 'row' ? 'bg-accent text-bg-base font-semibold' : 'text-text-secondary hover:text-text-primary'}"
+              on:click={() => marketDensity.set("row")}
+            >Rows</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Global Actions -->
