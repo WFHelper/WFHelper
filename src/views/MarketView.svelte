@@ -485,7 +485,7 @@
         </div>
       {/if}
 
-      <div class="grid gap-[0.44rem] {$marketDensity === 'compact' ? 'grid-cols-[repeat(auto-fill,minmax(260px,1fr))]' : ''}">
+      <div class="mt-4 grid gap-[0.5rem] {$marketDensity === 'compact' ? 'grid-cols-[repeat(auto-fill,minmax(280px,1fr))]' : ''}">
         {#if isRivensTab}
           {#if contractsLoading}
             <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">Loading riven contracts...</div>
@@ -495,65 +495,117 @@
             <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">No riven contracts found.</div>
           {:else}
             {#each filteredContractRows as contract}
-              <div class="order-row {$marketDensity === 'compact' ? 'flex-col items-stretch gap-2' : 'flex items-center gap-2'} px-2.5 py-2">
-                {#if $marketDensity !== 'compact'}<span class="h-[15px] w-[15px] shrink-0" aria-hidden="true"></span>{/if}
-                <div class="flex flex-1 items-center gap-2 min-w-0">
-                  {#if contract.itemThumb}
-                    <img
-                      src={contract.itemThumb}
-                      alt={contract.itemName}
-                      class="h-9 w-9 rounded-[0.32rem] object-contain"
-                      loading="lazy"
-                    />
-                  {:else}
-                    <div class="h-9 w-9 rounded-[0.32rem] bg-white/5"></div>
-                  {/if}
-                  <div class="grid gap-1 min-w-0">
-                    <span class="order-item-name">
-                      {contract.itemName}
-                      {#if contract.modRank != null}
-                        <span class="ml-1 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">R{contract.modRank}</span>
-                      {/if}
-                      {#if contract.rerolls != null}
-                        <span class="ml-1 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">RR{contract.rerolls}</span>
-                      {/if}
+              {#if $marketDensity === 'compact'}
+                <div class="order-row flex flex-col overflow-hidden p-0">
+                  <!-- Header -->
+                  <div class="flex items-center gap-2 border-b border-border bg-bg-raised px-2.5 py-1.5">
+                    <span class="shrink-0 rounded px-1.5 py-0.5 text-[0.62rem] font-bold tracking-wide {contract.isDirectSell ? 'bg-amber-500/20 text-amber-300' : 'bg-sky-500/20 text-sky-300'}">
+                      {contractBadge(contract)}
                     </span>
-                    {#if contractStatsPreview(contract)}
-                      <span class="truncate text-[0.72rem] text-text-muted">{contractStatsPreview(contract)}</span>
+                    <span class="min-w-0 flex-1 truncate font-display text-[0.88rem] font-bold text-text-primary" title={contract.itemName}>
+                      {contract.itemName}
+                    </span>
+                    {#if contract.modRank != null}
+                      <span class="shrink-0 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">R{contract.modRank}</span>
+                    {/if}
+                    {#if contract.rerolls != null}
+                      <span class="shrink-0 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">RR{contract.rerolls}</span>
                     {/if}
                   </div>
-                </div>
-                <div class="flex shrink-0 items-center gap-2 {$marketDensity === 'compact' ? 'justify-between' : ''}">
-                  <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">
-                    <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5">
-                      <circle cx="7" cy="7" r="5.5" />
-                      <path d="M5 7h4M7 5v4" />
-                    </svg>
-                    {contract.platinum}
-                  </span>
-                  <span class="order-qty">
-                    {#if contract.masteryLevel != null}
-                      MR{contract.masteryLevel}
-                    {:else if contract.polarity}
-                      {contract.polarity}
+                  <!-- Body -->
+                  <div class="flex items-center gap-2.5 px-2.5 py-2">
+                    {#if contract.itemThumb}
+                      <img src={contract.itemThumb} alt={contract.itemName} class="h-11 w-11 shrink-0 rounded-[0.32rem] bg-black/30 object-contain" loading="lazy" />
                     {:else}
-                      -
+                      <div class="h-11 w-11 shrink-0 rounded-[0.32rem] bg-white/5"></div>
                     {/if}
-                  </span>
-                  <span
-                    class="order-vis"
-                    class:order-vis-on={contract.isDirectSell}
-                    class:order-vis-off={!contract.isDirectSell}
-                  >
-                    {contractBadge(contract)}
-                  </span>
+                    <div class="flex flex-1 flex-col gap-0.5 min-w-0">
+                      <div class="flex items-center gap-3">
+                        <span class="flex items-center gap-1 font-display" title="Platinum">
+                          <svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" class="text-accent">
+                            <circle cx="7" cy="7" r="5.5" />
+                            <path d="M5 7h4M7 5v4" />
+                          </svg>
+                          <span class="text-lg font-bold leading-none text-accent">{contract.platinum}</span>
+                        </span>
+                        <span class="text-[0.72rem] font-semibold text-text-secondary">
+                          {#if contract.masteryLevel != null}
+                            MR{contract.masteryLevel}
+                          {:else if contract.polarity}
+                            {contract.polarity}
+                          {:else}
+                            -
+                          {/if}
+                        </span>
+                      </div>
+                      {#if contractStatsPreview(contract)}
+                        <span class="truncate text-[0.68rem] text-text-muted" title={contractStatsPreview(contract)}>{contractStatsPreview(contract)}</span>
+                      {/if}
+                    </div>
+                    <div class="flex shrink-0 gap-1">
+                      <button class="btn-sm btn-secondary" on:click={() => openContractListing(contract)}>Open</button>
+                    </div>
+                  </div>
                 </div>
-                <div class="flex shrink-0 gap-1 {$marketDensity === 'compact' ? 'justify-end' : ''}">
-                  <button class="btn-sm btn-secondary" on:click={() => openContractListing(contract)}>
-                    Open
-                  </button>
+              {:else}
+                <div class="order-row flex items-center gap-2 px-2.5 py-2">
+                  <span class="h-[15px] w-[15px] shrink-0" aria-hidden="true"></span>
+                  <div class="flex flex-1 items-center gap-2 min-w-0">
+                    {#if contract.itemThumb}
+                      <img
+                        src={contract.itemThumb}
+                        alt={contract.itemName}
+                        class="h-9 w-9 rounded-[0.32rem] object-contain"
+                        loading="lazy"
+                      />
+                    {:else}
+                      <div class="h-9 w-9 rounded-[0.32rem] bg-white/5"></div>
+                    {/if}
+                    <div class="grid gap-1 min-w-0">
+                      <span class="order-item-name">
+                        {contract.itemName}
+                        {#if contract.modRank != null}
+                          <span class="ml-1 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">R{contract.modRank}</span>
+                        {/if}
+                        {#if contract.rerolls != null}
+                          <span class="ml-1 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">RR{contract.rerolls}</span>
+                        {/if}
+                      </span>
+                      {#if contractStatsPreview(contract)}
+                        <span class="truncate text-[0.72rem] text-text-muted">{contractStatsPreview(contract)}</span>
+                      {/if}
+                    </div>
+                  </div>
+                  <div class="flex shrink-0 items-center gap-2">
+                    <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">
+                      <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="7" cy="7" r="5.5" />
+                        <path d="M5 7h4M7 5v4" />
+                      </svg>
+                      {contract.platinum}
+                    </span>
+                    <span class="order-qty">
+                      {#if contract.masteryLevel != null}
+                        MR{contract.masteryLevel}
+                      {:else if contract.polarity}
+                        {contract.polarity}
+                      {:else}
+                        -
+                      {/if}
+                    </span>
+                    <span
+                      class="order-vis"
+                      class:order-vis-on={contract.isDirectSell}
+                      class:order-vis-off={!contract.isDirectSell}
+                    >
+                      {contractBadge(contract)}
+                    </span>
+                  </div>
+                  <div class="flex shrink-0 gap-1">
+                    <button class="btn-sm btn-secondary" on:click={() => openContractListing(contract)}>Open</button>
+                  </div>
                 </div>
-              </div>
+              {/if}
             {/each}
 
             {#if $marketContracts.hasMore}
@@ -572,8 +624,67 @@
           </div>
         {:else}
           {#each filteredOrderRows as order}
-            <div class="order-row {$marketDensity === 'compact' ? 'flex-col items-stretch gap-2' : 'flex items-center gap-2'} px-2.5 py-2">
-              <div class="flex items-center gap-2 {$marketDensity === 'compact' ? '' : 'min-w-0 flex-1'}">
+            {#if $marketDensity === 'compact'}
+              <!-- Compact card: header strip + body -->
+              <div class="order-row flex flex-col overflow-hidden p-0">
+                <!-- Header strip -->
+                <div class="flex items-center gap-2 border-b border-border bg-bg-raised px-2.5 py-1.5">
+                  <input
+                    type="checkbox"
+                    class="h-3.5 w-3.5 shrink-0 accent-accent"
+                    checked={$marketSelected.has(order.id)}
+                    title="Select for bulk action"
+                    on:change={(event) => onOrderCheckboxChange(order.id, event)}
+                  />
+                  <span class="shrink-0 rounded px-1.5 py-0.5 text-[0.62rem] font-bold tracking-wide {order.orderType === 'buy' ? 'bg-sky-500/20 text-sky-300' : 'bg-amber-500/20 text-amber-300'}">
+                    {order.orderType === 'buy' ? 'WTB' : 'WTS'}
+                  </span>
+                  <span class="min-w-0 flex-1 truncate font-display text-[0.88rem] font-bold text-text-primary" title={order.itemName}>
+                    {order.itemName}
+                  </span>
+                  {#if order.modRank != null}
+                    <span class="shrink-0 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">R{order.modRank}</span>
+                  {/if}
+                  <span
+                    class="shrink-0 text-[0.68rem] font-semibold {order.visible ? 'text-success' : 'text-warning'}"
+                    title={order.visible ? 'Visible on WFM' : 'Hidden on WFM'}
+                  >
+                    {order.visible ? '● live' : '○ hidden'}
+                  </span>
+                </div>
+                <!-- Body: thumb + values + actions -->
+                <div class="flex items-center gap-2.5 px-2.5 py-2">
+                  {#if order.itemThumb}
+                    <img src={order.itemThumb} alt={order.itemName} class="h-11 w-11 shrink-0 rounded-[0.32rem] bg-black/30 object-contain" loading="lazy" />
+                  {:else}
+                    <div class="h-11 w-11 shrink-0 rounded-[0.32rem] bg-white/5"></div>
+                  {/if}
+                  <div class="flex flex-1 items-center gap-4">
+                    <span class="flex items-baseline gap-1 font-display" title="Quantity">
+                      <span class="text-[0.75rem] text-text-muted">×</span>
+                      <span class="text-lg font-bold leading-none text-text-primary">{order.quantity}</span>
+                    </span>
+                    <span class="flex items-center gap-1 font-display" title="Platinum">
+                      <svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" class="text-accent">
+                        <circle cx="7" cy="7" r="5.5" />
+                        <path d="M5 7h4M7 5v4" />
+                      </svg>
+                      <span class="text-lg font-bold leading-none text-accent">{order.platinum}</span>
+                    </span>
+                  </div>
+                  <div class="flex shrink-0 gap-1">
+                    <button
+                      class="btn-sm btn-secondary"
+                      title="Edit"
+                      on:click={() => orderModalState.set({ mode: "edit", order })}
+                    >Edit</button>
+                    <button class="btn-sm btn-danger" title="Delete" on:click={() => deleteOrder(order.id)}>&times;</button>
+                  </div>
+                </div>
+              </div>
+            {:else}
+              <!-- Row mode (unchanged layout) -->
+              <div class="order-row flex items-center gap-2 px-2.5 py-2">
                 <input
                   type="checkbox"
                   class="h-[15px] w-[15px] shrink-0 accent-accent"
@@ -581,41 +692,41 @@
                   title="Select for bulk action"
                   on:change={(event) => onOrderCheckboxChange(order.id, event)}
                 />
-                {#if order.itemThumb}
-                  <img src={order.itemThumb} alt={order.itemName} class="h-9 w-9 rounded-[0.32rem] object-contain" loading="lazy" />
-                {:else}
-                  <div class="h-9 w-9 rounded-[0.32rem] bg-white/5"></div>
-                {/if}
-                <span class="order-item-name">
-                  {order.itemName}
-                  {#if order.modRank != null}
-                    <span class="ml-1 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">R{order.modRank}</span>
+                <div class="flex flex-1 items-center gap-2 min-w-0">
+                  {#if order.itemThumb}
+                    <img src={order.itemThumb} alt={order.itemName} class="h-9 w-9 rounded-[0.32rem] object-contain" loading="lazy" />
+                  {:else}
+                    <div class="h-9 w-9 rounded-[0.32rem] bg-white/5"></div>
                   {/if}
-                </span>
+                  <span class="order-item-name">
+                    {order.itemName}
+                    {#if order.modRank != null}
+                      <span class="ml-1 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">R{order.modRank}</span>
+                    {/if}
+                  </span>
+                </div>
+                <div class="flex shrink-0 items-center gap-2">
+                  <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">
+                    <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <circle cx="7" cy="7" r="5.5" />
+                      <path d="M5 7h4M7 5v4" />
+                    </svg>
+                    {order.platinum}
+                  </span>
+                  <span class="order-qty">x{order.quantity}</span>
+                  <span class="order-vis {order.visible ? 'border-[rgba(74,222,128,0.35)] bg-[rgba(74,222,128,0.13)] text-success' : 'border-[rgba(251,191,36,0.35)] bg-[rgba(251,191,36,0.13)] text-warning'}">
+                    {order.visible ? 'Visible' : 'Hidden'}
+                  </span>
+                </div>
+                <div class="flex shrink-0 gap-1">
+                  <button
+                    class="btn-sm btn-secondary"
+                    on:click={() => orderModalState.set({ mode: "edit", order })}
+                  >Edit</button>
+                  <button class="btn-sm btn-danger" on:click={() => deleteOrder(order.id)}>&times;</button>
+                </div>
               </div>
-              <div class="flex shrink-0 items-center gap-2 {$marketDensity === 'compact' ? 'justify-between' : ''}">
-                <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">
-                  <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <circle cx="7" cy="7" r="5.5" />
-                    <path d="M5 7h4M7 5v4" />
-                  </svg>
-                  {order.platinum}
-                </span>
-                <span class="order-qty">x{order.quantity}</span>
-                <span class="order-vis {order.visible ? 'border-[rgba(74,222,128,0.35)] bg-[rgba(74,222,128,0.13)] text-success' : 'border-[rgba(251,191,36,0.35)] bg-[rgba(251,191,36,0.13)] text-warning'}">
-                  {order.visible ? "Visible" : "Hidden"}
-                </span>
-              </div>
-              <div class="flex shrink-0 gap-1 {$marketDensity === 'compact' ? 'justify-end' : ''}">
-                <button
-                  class="btn-sm btn-secondary"
-                  on:click={() => orderModalState.set({ mode: "edit", order })}
-                >
-                  Edit
-                </button>
-                <button class="btn-sm btn-danger" on:click={() => deleteOrder(order.id)}>&times;</button>
-              </div>
-            </div>
+            {/if}
           {/each}
         {/if}
       </div>
