@@ -99,17 +99,29 @@
             <text x="60" y="72" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="Barlow">MASTERED</text>
           </svg>
         </div>
-        <div class="grid flex-1 gap-2 grid-cols-[repeat(auto-fit,minmax(120px,1fr))]">
-          <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2"><div class="font-display text-[1.1rem] font-bold text-success">{stats.mastered}</div><div class="text-[0.74rem] text-text-muted">Mastered</div></div>
-          <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2"><div class="font-display text-[1.1rem] font-bold text-warning">{stats.inProgress}</div><div class="text-[0.74rem] text-text-muted">In Progress</div></div>
-          <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2"><div class="font-display text-[1.1rem] font-bold text-danger">{stats.missing}</div><div class="text-[0.74rem] text-text-muted">Missing</div></div>
-          <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2"><div class="font-display text-[1.1rem] font-bold text-text-primary">{stats.total}</div><div class="text-[0.74rem] text-text-muted">Total</div></div>
+        <div class="flex flex-1 flex-wrap items-baseline gap-x-6 gap-y-2">
+          <div class="flex items-baseline gap-1.5">
+            <span class="font-display text-[1.35rem] font-bold text-success leading-none">{stats.mastered}</span>
+            <span class="text-[0.8rem] text-text-muted">Mastered</span>
+          </div>
+          <div class="flex items-baseline gap-1.5">
+            <span class="font-display text-[1.35rem] font-bold text-warning leading-none">{stats.inProgress}</span>
+            <span class="text-[0.8rem] text-text-muted">In Progress</span>
+          </div>
+          <div class="flex items-baseline gap-1.5">
+            <span class="font-display text-[1.35rem] font-bold text-danger leading-none">{stats.missing}</span>
+            <span class="text-[0.8rem] text-text-muted">Missing</span>
+          </div>
+          <div class="flex items-baseline gap-1.5">
+            <span class="font-display text-[1.35rem] font-bold text-text-primary leading-none">{stats.total}</span>
+            <span class="text-[0.8rem] text-text-muted">Total</span>
+          </div>
           {#if profileMastery && profileMastery.rank != null}
-            <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2">
-              <div class="font-display text-[1.1rem] font-bold text-text-primary">MR {profileMastery.rank}</div>
-              <div class="text-[0.74rem] text-text-muted">
+            <div class="flex items-baseline gap-1.5">
+              <span class="font-display text-[1.35rem] font-bold text-text-primary leading-none">MR {profileMastery.rank}</span>
+              <span class="text-[0.8rem] text-text-muted">
                 {profileMastery.percentToNext != null ? `${profileMastery.percentToNext}% to next` : 'Progress unavailable'}
-              </div>
+              </span>
             </div>
           {/if}
         </div>

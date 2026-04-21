@@ -417,19 +417,21 @@
         {#if !session?.hasData}
           <p class="m-0 text-sm text-text-muted">{$tr("stats.noData")}</p>
         {:else}
-          <div class="grid grid-cols-5 gap-3">
+          <div class="flex flex-wrap items-baseline gap-x-8 gap-y-3">
             {#each SESSION_SECTIONS as { key, labelKey, currentKey }}
               {@const delta = session[key]}
               {@const current = session[currentKey]}
               {@const icon = ICON_MAP[key]}
-              <div class="flex flex-col gap-0.5 rounded-md border border-border bg-bg-surface px-4 py-3">
-                <span class="flex items-center gap-1 text-[0.7rem] uppercase tracking-wide text-text-muted">
-                  {#if icon}<img src={icon} alt="" class="w-5 h-5 object-contain align-middle opacity-85" />{/if}
-                  {$tr(labelKey)}
-                </span>
-                <span class="my-1.5 text-2xl font-bold leading-none tracking-tight text-text-primary">
-                  {formatAbsolute(current)}
-                </span>
+              <div class="flex flex-col gap-0.5 min-w-[7rem]">
+                <div class="flex items-baseline gap-2">
+                  <span class="flex items-center gap-1 text-[0.7rem] uppercase tracking-wide text-text-muted">
+                    {#if icon}<img src={icon} alt="" class="w-4 h-4 object-contain align-middle opacity-85" />{/if}
+                    {$tr(labelKey)}
+                  </span>
+                  <span class="text-2xl font-bold leading-none tracking-tight text-text-primary">
+                    {formatAbsolute(current)}
+                  </span>
+                </div>
                 <span class="text-[0.7rem] {deltaClass(delta)}">
                   {formatDelta(delta, formatters[key])} today
                 </span>
