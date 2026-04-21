@@ -83,7 +83,7 @@
 
     <!-- Stats overview -->
     <div class="grid gap-3 mb-3.5">
-      <div class="flex flex-wrap items-center gap-3.5">
+      <div class="flex flex-wrap items-center justify-center gap-3.5">
         <div class="shrink-0">
           <svg class="h-[120px] w-[120px]" viewBox="0 0 120 120">
             <circle cx="60" cy="60" r={RING_R} fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
