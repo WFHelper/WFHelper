@@ -66,25 +66,32 @@ const plannerWindowsController = createOverlayWindowsController({
   backgroundColor: "#060a12",
 });
 
-// Adjust planner overlay z-order so it hides behind other apps when Warframe loses focus.
-// Polls every 2 s — only runs when the planner overlay is visible.
-const plannerZOrderInterval = setInterval(async () => {
-  const win = ctx.plannerOverlayWindow;
+function syncOverlayWindowZOrder(
+  win: InstanceType<typeof BrowserWindow> | null,
+  warframeFocused: boolean,
+): void {
   if (!win || win.isDestroyed() || !win.isVisible()) return;
+
+  if (warframeFocused) {
+    win.setAlwaysOnTop(true, "screen-saver");
+  } else {
+    win.setAlwaysOnTop(false);
+  }
+}
+
+// Keep overlay windows attached to Warframe's z-order instead of floating above other apps.
+const overlayZOrderInterval = setInterval(async () => {
   try {
     const status = await warframeStatus.getStatus();
-    if (status.isFocused) {
-      win.setAlwaysOnTop(true, "screen-saver");
-    } else {
-      win.setAlwaysOnTop(false);
-    }
+    syncOverlayWindowZOrder(ctx.overlayWindow, status.isFocused);
+    syncOverlayWindowZOrder(ctx.plannerOverlayWindow, status.isFocused);
   } catch {
     // ignore
   }
 }, 2000);
 
 app.on("before-quit", () => {
-  clearInterval(plannerZOrderInterval);
+  clearInterval(overlayZOrderInterval);
 });
 
 let scanController = createOverlayScanController({

@@ -9,6 +9,11 @@ export interface CraftingTreeNode {
   missing: number;
   isCraftable: boolean;
   recipe: RecipeData | null;
+  usedFor: Array<{
+    uniqueName: string;
+    name: string;
+    imageUrl: string | null;
+  }>;
   children: CraftingTreeNode[];
 }
 
@@ -40,7 +45,7 @@ export function buildCraftingTree(
   const item = itemDb[uniqueName];
   if (!item?.recipe) return null;
 
-  return buildNode(uniqueName, 1, item.recipe, itemDb, ownership, 0);
+  return buildNode(uniqueName, 1, item.recipe, itemDb, ownership, 0, findUsedFor(uniqueName, itemDb));
 }
 
 function isLeafResource(uniqueName: string): boolean {
@@ -54,6 +59,7 @@ function buildNode(
   itemDb: Record<string, ItemDbEntry>,
   ownership: Map<string, number>,
   depth: number,
+  usedFor: CraftingTreeNode["usedFor"] = [],
 ): CraftingTreeNode {
   const item = itemDb[uniqueName];
   const name = item?.name || extractFallbackName(uniqueName);
@@ -80,6 +86,7 @@ function buildNode(
         missing: Math.max(0, count - bpOwned),
         isCraftable: false,
         recipe: null,
+        usedFor: [],
         children: [],
       });
     }
@@ -102,8 +109,33 @@ function buildNode(
     missing,
     isCraftable: effectiveRecipe !== null,
     recipe: effectiveRecipe,
+    usedFor,
     children,
   };
+}
+
+function findUsedFor(
+  uniqueName: string,
+  itemDb: Record<string, ItemDbEntry>,
+): CraftingTreeNode["usedFor"] {
+  const seen = new Set<string>();
+  const matches: CraftingTreeNode["usedFor"] = [];
+
+  for (const [productUniqueName, entry] of Object.entries(itemDb)) {
+    const ingredients = entry.recipe?.ingredients ?? [];
+    if (!ingredients.some((ingredient) => ingredient.uniqueName === uniqueName)) continue;
+    if (seen.has(productUniqueName)) continue;
+
+    seen.add(productUniqueName);
+    matches.push({
+      uniqueName: productUniqueName,
+      name: entry.name || extractFallbackName(productUniqueName),
+      imageUrl: entry.imageUrl || null,
+    });
+  }
+
+  matches.sort((a, b) => a.name.localeCompare(b.name));
+  return matches;
 }
 
 /** Compute a summary of all leaf resources needed. */

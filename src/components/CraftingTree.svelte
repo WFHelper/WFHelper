@@ -4,6 +4,7 @@
   import type { CraftingTreeNode } from "../lib/craftingTree.js";
   import { computeCraftingSummary, formatBuildTime } from "../lib/craftingTree.js";
   import CraftingTreeNodeCard from "./CraftingTreeNode.svelte";
+  import ItemImage from "./ItemImage.svelte";
 
   const creditsIconUrl = new URL("../../assets/Bounties/Credits.png", import.meta.url).href;
 
@@ -23,6 +24,7 @@
   $: summary = computeCraftingSummary(tree);
 
   $: visibleTree = hideCompleted ? filterCompleted(tree) : tree;
+  $: usedFor = tree.usedFor || [];
 
   $: missingBlueprints = summary.blueprints.filter((b) => b.owned < b.count);
   $: missingResources = summary.resources.filter((r) => r.owned < r.count);
@@ -147,7 +149,26 @@
       class="inline-flex will-change-transform"
       style="transform: translate({panX}px, {panY}px)"
     >
-      <div bind:this={zoomEl} class="inline-flex p-8 origin-top-left" style="zoom: {scale}">
+      <div bind:this={zoomEl} class="inline-flex flex-col items-center gap-8 p-8 origin-top-left" style="zoom: {scale}">
+        {#if usedFor.length > 0}
+          <div class="flex flex-col items-center gap-2">
+            <span class="font-display text-[0.8rem] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+              Used for crafting:
+            </span>
+            <div class="flex flex-wrap items-start justify-center gap-3 max-w-[680px]">
+              {#each usedFor as usage (usage.uniqueName)}
+                <div class="flex w-[6rem] flex-col items-center gap-1 rounded-xl border border-border bg-bg-raised/80 px-3 py-2">
+                  <div class="flex h-[4.25rem] w-[4.25rem] items-center justify-center rounded-lg border border-border bg-white/[0.04]">
+                    <ItemImage src={usage.imageUrl} alt={usage.name} cls="h-12 w-12 object-contain" />
+                  </div>
+                  <span class="max-w-full break-words text-center font-display text-[0.72rem] font-semibold leading-tight text-text-primary">
+                    {usage.name}
+                  </span>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
         {#if visibleTree}
           <CraftingTreeNodeCard node={visibleTree} />
         {/if}

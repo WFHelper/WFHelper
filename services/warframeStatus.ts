@@ -167,7 +167,7 @@ async function collectStatus(): Promise<WarframeStatus> {
 
   const focusedProcessName = foregroundWindow?.processName || null;
   const focusedLow = String(focusedProcessName || "").toLowerCase();
-  const isFocused = !focusedProcessName || focusedLow.includes("warframe");
+  const isFocused = focusedLow.includes("warframe");
   const isOpen = processRunning;
   const focusedWindowBounds = foregroundWindow?.bounds || null;
   const focusedDisplayId = getDisplayIdForBounds(focusedWindowBounds);

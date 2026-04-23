@@ -9,6 +9,7 @@ import * as rivenGrading from "../services/rivenGrading";
 import * as rivenDataSvc from "../services/rivenData";
 import * as rivenBestAttributes from "../services/rivenBestAttributes";
 import * as wfmRivenSearch from "../services/wfmRivenSearch";
+import * as warframeStatus from "../services/warframeStatus";
 import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 
@@ -46,6 +47,17 @@ function forEachRivenWindow(fn: (win: InstanceType<typeof BrowserWindow>) => voi
   for (const win of getRivenWindows()) {
     if (win && !win.isDestroyed()) fn(win);
   }
+}
+
+function syncRivenWindowZOrder(warframeFocused: boolean): void {
+  forEachRivenWindow((win) => {
+    if (!win.isVisible()) return;
+    if (warframeFocused) {
+      win.setAlwaysOnTop(true, "screen-saver");
+    } else {
+      win.setAlwaysOnTop(false);
+    }
+  });
 }
 
 function toggleRivenInteractiveMode(): void {
@@ -151,6 +163,19 @@ function createRivenOverlayWindows(options: { show?: boolean } = {}): void {
     ctx.rivenOverlayRightWindow = null;
   });
 }
+
+const rivenZOrderInterval = setInterval(async () => {
+  try {
+    const status = await warframeStatus.getStatus();
+    syncRivenWindowZOrder(status.isFocused);
+  } catch {
+    // ignore
+  }
+}, 2000);
+
+app.on("before-quit", () => {
+  clearInterval(rivenZOrderInterval);
+});
 
 // Tracks whether the current session has produced at least one roll result.
 let _rivenHasRollResult = false;
