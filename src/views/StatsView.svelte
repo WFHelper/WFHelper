@@ -417,27 +417,26 @@
         {#if !session?.hasData}
           <p class="m-0 text-sm text-text-muted">{$tr("stats.noData")}</p>
         {:else}
-          <div class="inline-flex flex-wrap items-stretch justify-center gap-x-5 gap-y-3 self-center rounded-lg border border-border bg-bg-surface px-5 py-3">
-            {#each SESSION_SECTIONS as { key, labelKey, currentKey }, i}
+          <div class="flex flex-wrap items-stretch rounded-lg border border-border bg-bg-surface divide-x divide-border-strong">
+            {#each SESSION_SECTIONS as { key, labelKey, currentKey } (key)}
               {@const delta = session[key]}
               {@const current = session[currentKey]}
               {@const icon = ICON_MAP[key]}
-              {#if i > 0}
-                <span class="self-stretch w-px bg-border" aria-hidden="true"></span>
-              {/if}
-              <div class="flex flex-col items-center gap-1">
-                <div class="flex items-baseline gap-2">
-                  <span class="flex items-center gap-1.5 text-[0.85rem] font-semibold uppercase tracking-wide text-text-primary">
-                    {#if icon}<img src={icon} alt="" class="w-5 h-5 object-contain align-middle opacity-90" />{/if}
-                    {$tr(labelKey)}
-                  </span>
-                  <span class="text-[1.5rem] font-bold leading-none tracking-tight text-text-primary">
-                    {formatAbsolute(current)}
+              <div class="flex flex-1 items-center gap-3 px-5 py-4 min-w-[11rem]">
+                {#if icon}<img src={icon} alt="" class="w-9 h-9 object-contain opacity-90 shrink-0" />{/if}
+                <div class="flex flex-col gap-1 min-w-0 flex-1">
+                  <div class="flex items-baseline gap-2 flex-wrap">
+                    <span class="text-[0.95rem] font-semibold uppercase tracking-wide text-text-primary">
+                      {$tr(labelKey)}
+                    </span>
+                    <span class="text-[1.4rem] font-bold leading-none tracking-tight text-text-primary">
+                      {formatAbsolute(current)}
+                    </span>
+                  </div>
+                  <span class="text-[0.72rem] font-semibold {deltaClass(delta)}">
+                    {formatDelta(delta, formatters[key])} today
                   </span>
                 </div>
-                <span class="text-[0.75rem] font-semibold {deltaClass(delta)}">
-                  {formatDelta(delta, formatters[key])} today
-                </span>
               </div>
             {/each}
           </div>

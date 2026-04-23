@@ -219,6 +219,7 @@ function watchInventoryFile(filePath: string): void {
   ctx.watcher.on("change", () => {
     const now = Date.now();
     if (now - _lastReloadAt < MIN_RELOAD_INTERVAL_MS) {
+      // Intentional 10m cooldown
       log.log("Inventory file changed, skipping (too soon after last reload).");
       return;
     }

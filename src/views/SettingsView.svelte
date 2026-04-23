@@ -120,8 +120,8 @@
     </div>
   {:else if settingsTab === "overlay"}
     <div class="mx-auto max-w-[660px] py-3">
-      <article class="w-full rounded-xl border border-border bg-bg-surface p-4">
-        <div>
+      <article class="settings-card w-full">
+        <div class="settings-card-head">
           <h3>{$tr("settings.overlayTitle")}</h3>
           <p>{$tr("settings.overlayDescription")}</p>
           <p class="mt-1 text-xs leading-tight text-text-muted">{$tr("settings.overlayRequirements")}</p>

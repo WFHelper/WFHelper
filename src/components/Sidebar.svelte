@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { currentView } from "../stores/app.js";
   import { invoke, send } from "../lib/ipc.js";
   import { tr } from "../lib/i18n.js";
@@ -13,6 +14,22 @@
   const marketIcon = new URL("../../assets/icons/Market.png", import.meta.url).href;
   const settingsIcon = new URL("../../assets/icons/Settings.png", import.meta.url).href;
   const statsIcon = new URL("../../assets/icons/Stats.png", import.meta.url).href;
+
+  const COLLAPSED_STORAGE_KEY = "sidebar.collapsed";
+  let collapsed = false;
+
+  onMount(() => {
+    try {
+      collapsed = localStorage.getItem(COLLAPSED_STORAGE_KEY) === "1";
+    } catch { /* ignore */ }
+  });
+
+  function toggleCollapsed(): void {
+    collapsed = !collapsed;
+    try {
+      localStorage.setItem(COLLAPSED_STORAGE_KEY, collapsed ? "1" : "0");
+    } catch { /* ignore */ }
+  }
 
   interface NavItem {
     view: string;
@@ -83,8 +100,19 @@
   }
 </script>
 
-<nav id="sidebar" class="flex w-[var(--sidebar-width)] shrink-0 flex-col justify-between border-r border-border bg-bg-base px-2.5 py-3.5">
+<nav id="sidebar" class="sidebar-shell flex shrink-0 flex-col justify-between border-r border-border bg-bg-base px-2.5 py-3.5" class:sidebar-collapsed={collapsed} style:width={collapsed ? "3.75rem" : "var(--sidebar-width)"}>
   <div class="flex flex-col gap-0.5">
+    <button
+      class="nav-btn nav-btn-collapse relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-muted transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary"
+      title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      on:click={toggleCollapsed}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0 transition-transform duration-150" style:transform={collapsed ? "rotate(180deg)" : "none"}>
+        <polyline points="15 18 9 12 15 6" />
+      </svg>
+      <span>Collapse</span>
+    </button>
     {#each navItems as item}
       <button
         class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide transition-colors duration-150 {$currentView === item.view ? 'bg-accent-glow text-accent before:content-[\'\'] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:rounded-r before:bg-accent max-[800px]:before:hidden' : 'bg-transparent text-text-secondary hover:bg-bg-hover hover:text-text-primary'}"
@@ -131,6 +159,15 @@
 </nav>
 
 <style>
+  .sidebar-collapsed :global(.nav-btn span) {
+    display: none;
+  }
+  .sidebar-collapsed :global(.nav-btn) {
+    justify-content: center;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    gap: 0;
+  }
   @media (max-width: 800px) {
     .nav-btn :global(span) {
       display: none;

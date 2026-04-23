@@ -485,7 +485,7 @@
         </div>
       {/if}
 
-      <div class="mt-4 grid gap-[0.5rem] {$marketDensity === 'compact' ? 'grid-cols-[repeat(auto-fill,minmax(280px,1fr))]' : ''}">
+      <div class="mt-4 grid gap-[0.65rem] {$marketDensity === 'compact' ? 'grid-cols-[repeat(auto-fill,minmax(336px,1fr))] [&_.order-row]:[zoom:1.2]' : ''}">
         {#if isRivensTab}
           {#if contractsLoading}
             <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">Loading riven contracts...</div>
