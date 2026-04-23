@@ -1,7 +1,14 @@
 ﻿<script lang="ts">
   import ViewPerfMark from "../components/ViewPerfMark.svelte";
   import { onMount, onDestroy } from "svelte";
-  import { itemDb, componentOwnership, enrichComponents, foundryData } from "../stores/data.js";
+  import {
+    itemDb,
+    componentOwnership,
+    enrichComponents,
+    foundryData,
+    parsedItems,
+  } from "../stores/data.js";
+  import { masteryData } from "../stores/mastery.js";
   import { activeItem } from "../stores/modals.js";
   import { formatTimeRemaining, formatNumber } from "../lib/format.js";
   import ItemImage from "../components/ItemImage.svelte";
@@ -9,6 +16,7 @@
   import type {
     FoundryBuildingItem,
     FoundryRecipeItem,
+    MasteryStatus,
     ParsedItem,
     RecipeIngredient,
   } from "../types/inventory.js";
@@ -145,6 +153,41 @@
 
   /** Lookup: ingredient uniqueName → owned count (tracks componentOwnership store). */
   $: ownedMap = $componentOwnership;
+  $: productOwnedLookup = (() => {
+    const byUniqueName = new Map<string, number>();
+
+    for (const item of $parsedItems) {
+      const amount = item.amount ?? 0;
+      if (amount <= 0) continue;
+
+      if (item.internalName) {
+        byUniqueName.set(item.internalName, (byUniqueName.get(item.internalName) ?? 0) + amount);
+      }
+    }
+
+    return byUniqueName;
+  })();
+  $: masteryLookup = (() => {
+    const byUniqueName = new Map<string, MasteryStatus>();
+    const byName = new Map<string, MasteryStatus>();
+
+    for (const item of $masteryData?.items ?? []) {
+      const status = item.status;
+      if (!status) continue;
+
+      const uniqueName = item.uniqueName || item.internalName;
+      if (uniqueName && !byUniqueName.has(uniqueName)) {
+        byUniqueName.set(uniqueName, status);
+      }
+
+      const nameKey = normalizeLookupKey(item.name);
+      if (nameKey && !byName.has(nameKey)) {
+        byName.set(nameKey, status);
+      }
+    }
+
+    return { byUniqueName, byName };
+  })();
 
   function statusOf(entry: FoundryEntry, now: number): ItemStatus {
     if (entry.source === "building") {
@@ -156,6 +199,39 @@
       (ing) => (ownedMap.get(ing.uniqueName) ?? 0) >= ing.count,
     );
     return allOwned ? "ready-to-build" : "not-ready";
+  }
+
+  function normalizeLookupKey(value: string | null | undefined): string {
+    return (value || "").trim().toLowerCase();
+  }
+
+  function ownedCountFor(entry: FoundryEntry): number {
+    if (!entry.productUniqueName) return 0;
+    return productOwnedLookup.get(entry.productUniqueName) ?? 0;
+  }
+
+  function masteryStateFor(entry: FoundryEntry): MasteryStatus | "unknown" {
+    if (!$masteryData) return "unknown";
+
+    if (entry.productUniqueName) {
+      const direct = masteryLookup.byUniqueName.get(entry.productUniqueName);
+      if (direct) return direct;
+    }
+
+    return masteryLookup.byName.get(normalizeLookupKey(entry.name)) ?? "missing";
+  }
+
+  function masteryLabelFor(state: MasteryStatus | "unknown"): string {
+    switch (state) {
+      case "mastered":
+        return "Mastered";
+      case "progress":
+        return "In Progress";
+      case "missing":
+        return "Not Mastered";
+      default:
+        return "Mastery N/A";
+    }
   }
 
   $: q = query.trim().toLowerCase();
@@ -328,6 +404,8 @@
       </div>
     {:else}
       {#each sorted as { e: item, status }, i (cardKey(item, i))}
+        {@const ownedCount = ownedCountFor(item)}
+        {@const masteryState = masteryStateFor(item)}
         {@const statusBorder =
           status === "claimable" ? "border-accent/70" :
           status === "in-progress" ? "border-[rgba(80,160,255,0.35)]" :
@@ -349,7 +427,7 @@
             <div class="h-14 w-14 shrink-0 flex items-center justify-center">
               <ItemImage src={item.imageUrl} alt={item.name} cls="max-h-14 max-w-14 object-contain" />
             </div>
-            <div class="flex-1 min-w-0 flex flex-col gap-0.5">
+            <div class="flex-1 min-w-0 flex flex-col gap-1">
               <span class="font-display font-semibold text-sm text-text-primary truncate uppercase tracking-wide">
                 {item.name}{#if item.source === "blueprint"}<span class="ml-2 text-accent font-bold">×{item.count}</span>{/if}
               </span>
@@ -362,8 +440,14 @@
                   {/if}
                 </span>
                 {#if item.source === "blueprint" && item.isIngredient}
-                  <span class="font-display text-[0.6rem] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded bg-white/5 text-text-muted border border-border">
-                    Used in crafting
+                  <span class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.62rem] font-display font-bold uppercase tracking-[0.08em] border-border bg-white/[0.04] text-text-muted">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" class="h-3.5 w-3.5 shrink-0">
+                      <path d="M3 4.5h4.5v4.5H3z" />
+                      <path d="M8.5 2h4.5v4.5H8.5z" />
+                      <path d="M8.5 9h4.5v4.5H8.5z" />
+                      <path d="M7.5 6.75h1M10.75 6.5v2.5" />
+                    </svg>
+                    <span>Used in crafting</span>
                   </span>
                 {/if}
               </div>
@@ -392,27 +476,54 @@
             </div>
           {/if}
 
-          <!-- Footer: credits icon + cost · build time -->
-          {#if item.buildPrice > 0 || (item.source === "blueprint" && item.buildTime > 0) || (item.source === "blueprint" && item.ingredients.length === 0)}
-            <div class="flex items-center justify-between gap-3 pt-2 border-t border-border text-[0.9rem] text-text-secondary">
-              <div class="flex items-center gap-3">
-                {#if item.buildPrice > 0}
-                  <span class="flex items-center gap-1.5 font-display font-semibold tracking-wide text-accent">
-                    <img src={CREDITS_ICON} alt="Credits" class="h-5 w-5 object-contain" />
-                    {formatNumber(item.buildPrice)}
-                  </span>
-                {/if}
-                {#if item.source === "blueprint" && item.buildTime > 0}
-                  <span class="font-display font-semibold tracking-wide text-text-secondary">
-                    ⏱ {formatBuildTime(item.buildTime)}
-                  </span>
-                {/if}
-              </div>
+          <div class="mt-auto flex items-center justify-between gap-3 pt-2 border-t border-border text-[0.9rem] text-text-secondary">
+            <div class="flex items-center gap-3">
+              {#if item.buildPrice > 0}
+                <span class="flex items-center gap-1.5 font-display font-semibold tracking-wide text-accent">
+                  <img src={CREDITS_ICON} alt="Credits" class="h-5 w-5 object-contain" />
+                  {formatNumber(item.buildPrice)}
+                </span>
+              {/if}
+              {#if item.source === "blueprint" && item.buildTime > 0}
+                <span class="font-display font-semibold tracking-wide text-text-secondary">
+                  ⏱ {formatBuildTime(item.buildTime)}
+                </span>
+              {/if}
               {#if item.source === "blueprint" && item.ingredients.length === 0}
                 <span class="text-text-muted italic">No recipe data</span>
               {/if}
             </div>
-          {/if}
+            <div class="flex items-center justify-end gap-1.5 flex-wrap">
+              <span
+                class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.62rem] font-display font-bold uppercase tracking-[0.08em] {ownedCount > 0
+                  ? 'border-[rgba(74,222,128,0.3)] bg-[rgba(16,185,129,0.12)] text-success'
+                  : 'border-border bg-white/[0.04] text-text-muted'}"
+                title={`Owned copies: ${ownedCount}`}
+              >
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" class="h-3.5 w-3.5 shrink-0">
+                  <path d="M2 5.5 8 2l6 3.5v5L8 14l-6-3.5z" />
+                  <path d="M2 5.5 8 9l6-3.5" />
+                  <path d="M8 9v5" />
+                </svg>
+                <span>{ownedCount} Owned</span>
+              </span>
+              <span
+                class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.62rem] font-display font-bold uppercase tracking-[0.08em] {masteryState === 'mastered'
+                  ? 'border-[rgba(74,222,128,0.3)] bg-[rgba(16,185,129,0.12)] text-success'
+                  : masteryState === 'progress'
+                    ? 'border-[rgba(251,191,36,0.28)] bg-[rgba(251,191,36,0.12)] text-warning'
+                    : 'border-border bg-white/[0.04] text-text-muted'}"
+                title={masteryLabelFor(masteryState)}
+              >
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" class="h-3.5 w-3.5 shrink-0">
+                  <circle cx="8" cy="6.5" r="3.75" />
+                  <path d="m6.35 6.55 1.15 1.15 2.25-2.3" />
+                  <path d="M6.1 10.4 5 14l3-1.55L11 14l-1.1-3.6" />
+                </svg>
+                <span>{masteryLabelFor(masteryState)}</span>
+              </span>
+            </div>
+          </div>
         </button>
       {/each}
     {/if}
