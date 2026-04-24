@@ -276,6 +276,60 @@ describe("WFM backend fallback integration", () => {
       "https://api.warframe.market/v1/items/primed_flow/statistics",
     );
   });
+
+  it("single-flights bootstrap token fetches across parallel backend requests", async () => {
+    vi.stubEnv("VITE_WFM_BACKEND_BOOTSTRAP_ENABLED", "1");
+    vi.stubEnv("VITE_WFM_BACKEND_DIRECT_FALLBACK", "never");
+    vi.resetModules();
+
+    const fetchMock = vi.fn(async (input: Request | URL | string) => {
+      const url = toUrl(input);
+      if (url === `${BACKEND_URL}/v1/bootstrap`) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return jsonResponse(200, {
+          ok: true,
+          data: {
+            token: "bootstrap-token",
+            expiresAt: Date.now() + 300_000,
+          },
+        });
+      }
+
+      if (url.startsWith(`${BACKEND_URL}/v1/prices/bootstrap_test_`)) {
+        return new Response("", { status: 404 });
+      }
+
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const { fetchPriceBySlug } = await import("./wfmPrice.js");
+    const results = await Promise.all(
+      Array.from({ length: 10 }, (_, index) =>
+        fetchPriceBySlug(`bootstrap_test_${index}`, { priority: "normal" }),
+      ),
+    );
+
+    expect(results.every((result) => result.status === "no_data")).toBe(true);
+    expect(
+      fetchMock.mock.calls.filter((call) => toUrl(call[0]) === `${BACKEND_URL}/v1/bootstrap`),
+    ).toHaveLength(1);
+  });
+
+  it("drops renderer price fetches when the queue is full", async () => {
+    vi.resetModules();
+
+    const { __test__, getPriceDebugCounters } = await import("./wfmPrice.js");
+    for (let i = 0; i < 65; i += 1) {
+      void __test__.enqueueForTest(() => new Promise(() => {}), "normal").catch(() => {});
+    }
+
+    await expect(__test__.enqueueForTest(() => Promise.resolve("ok"), "normal")).rejects.toThrow(
+      __test__.priceQueueFullError,
+    );
+    expect(getPriceDebugCounters().queueDropped).toBe(1);
+  });
+
   it("uses backend order summary route for ranked card summaries", async () => {
     const fetchMock = vi.fn(async (input: Request | URL | string) => {
       const url = toUrl(input);

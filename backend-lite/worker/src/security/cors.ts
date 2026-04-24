@@ -28,11 +28,7 @@ export function originIsAllowed(req: Request, env: Env): boolean {
 export function jsonResponse(data: unknown, req: Request, env: Env, status = 200, extraHeaders?: Record<string, string>): Response {
 	const headers: Record<string, string> = {
 		'content-type': 'application/json; charset=utf-8',
-		// Only allow CDN/browser caching for successful responses.
-		// Error responses (4xx, 5xx) must never be cached: a cached 429 would
-		// make legitimate clients look rate-limited, and a cached 403 / 401
-		// would silently block users even after the condition is resolved.
-		'cache-control': status === 200 ? 'public, max-age=60' : 'no-store',
+		'cache-control': 'no-store',
 		'x-content-type-options': 'nosniff',
 		'access-control-allow-methods': 'GET,POST,OPTIONS',
 		'access-control-allow-headers': 'content-type,authorization,x-wfhelper-bootstrap',

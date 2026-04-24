@@ -272,7 +272,6 @@ function sanitizeSettings(raw: unknown): OverlaySettings {
   return {
     ...DEFAULT_SCAN_SETTINGS,
     cropPreset: "balanced",
-    ocrEngine: "windows",
     ocrPasses: Math.floor(
       clampNumber(
         candidate.ocrPasses,

@@ -61,7 +61,6 @@
       hotkey,
       interactionHotkeyEnabled,
       interactionHotkey,
-      ocrEngine: "windows" as const,
       ocrPasses: Math.floor(Number(ocrPasses)),
       matchThreshold: Number(matchThreshold),
       ocrTimeoutMs: Math.floor(Number(ocrTimeoutMs)),

@@ -1,7 +1,5 @@
 import type { OverlaySettings } from "../types/ipc.js";
 
-export const OVERLAY_OCR_ENGINES = ["windows"] as const;
-
 export const OVERLAY_SETTINGS_LIMITS = Object.freeze({
   ocrPassesMin: 1,
   ocrPassesMax: 6,
@@ -17,7 +15,6 @@ export const OVERLAY_DEFAULTS: OverlaySettings = Object.freeze({
   hotkey: "F8",
   interactionHotkeyEnabled: true,
   interactionHotkey: "Control+Tab",
-  ocrEngine: "windows",
   ocrPasses: 2,
   matchThreshold: 0.74,
   ocrTimeoutMs: 15_000,

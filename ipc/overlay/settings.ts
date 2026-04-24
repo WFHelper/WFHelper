@@ -129,10 +129,6 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     };
   }
 
-  function normalizeOcrEngine(_value: unknown): string {
-    return "windows";
-  }
-
   function normalizeOverlaySettings(raw: unknown): OverlaySettingsDict {
     const candidate = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
 
@@ -154,7 +150,6 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
         candidate.interactionHotkey ?? defaults.interactionHotkey,
         String(defaults.interactionHotkey),
       ),
-      ocrEngine: normalizeOcrEngine(candidate.ocrEngine),
       ocrPasses: Math.floor(
         clampNumber(
           candidate.ocrPasses,
@@ -190,6 +185,14 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
         candidate.wfmNotificationsEnabled !== undefined
           ? !!candidate.wfmNotificationsEnabled
           : !!defaults.wfmNotificationsEnabled,
+      autoCloseWfmOrders:
+        candidate.autoCloseWfmOrders !== undefined
+          ? !!candidate.autoCloseWfmOrders
+          : !!defaults.autoCloseWfmOrders,
+      showTradeNotification:
+        candidate.showTradeNotification !== undefined
+          ? !!candidate.showTradeNotification
+          : !!defaults.showTradeNotification,
     };
   }
 

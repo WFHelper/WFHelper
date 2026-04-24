@@ -21,7 +21,6 @@ export interface OverlaySettings {
   hotkey: string;
   interactionHotkeyEnabled: boolean;
   interactionHotkey: string;
-  ocrEngine: string;
   ocrPasses: number;
   matchThreshold: number;
   ocrTimeoutMs: number;
@@ -40,7 +39,6 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   hotkey: "F8",
   interactionHotkeyEnabled: true,
   interactionHotkey: "Control+Tab",
-  ocrEngine: "windows",
   ocrPasses: 2,
   matchThreshold: 0.74,
   ocrTimeoutMs: 15_000,

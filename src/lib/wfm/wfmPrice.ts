@@ -19,6 +19,8 @@ const DELAY_DECAY_STEP_MS = 5;
 const DELAY_BACKOFF_STEP_MS = 120;
 const DEFAULT_RETRY_AFTER_SECONDS = 30;
 const MIN_429_COOLDOWN_MS = 30_000;
+const MAX_PRICE_QUEUE_DEPTH = 64;
+const PRICE_QUEUE_FULL_ERROR = "WFM_PRICE_QUEUE_FULL";
 // When the backend returns an error and direct fallback is not allowed, suppress
 // retries for this duration so a cold/erroring worker doesn't get hammered.
 const BACKEND_ERROR_COOLDOWN_MS = 60_000;
@@ -55,6 +57,7 @@ export interface PriceDebugCounters {
   backendHitOk: number;
   backendHitNoData: number;
   backendError: number;
+  queueDropped: number;
 }
 
 export interface PriceQueueStats {
@@ -84,6 +87,7 @@ const priceDebugCounters: PriceDebugCounters = {
   backendHitOk: 0,
   backendHitNoData: 0,
   backendError: 0,
+  queueDropped: 0,
 };
 
 // Per-slug transient error cooldown. Populated when backend errors with no fallback
@@ -111,6 +115,10 @@ const inFlightBySlug = new Map<string, Promise<PriceBySlugResult>>();
 
 function bumpCounter(counter: keyof PriceDebugCounters): void {
   priceDebugCounters[counter] += 1;
+}
+
+function queuedTaskCount(): number {
+  return laneQueues.high.length + laneQueues.normal.length + laneQueues.low.length;
 }
 
 function emitPriceCacheUpdate(slug: string, status: PriceCacheUpdateStatus): void {
@@ -229,6 +237,11 @@ async function runQueueRunner(): Promise<void> {
 }
 
 function enqueue<T>(fn: () => Promise<T>, priority: RequestPriority = "normal"): Promise<T> {
+  if (queuedTaskCount() >= MAX_PRICE_QUEUE_DEPTH) {
+    bumpCounter("queueDropped");
+    return Promise.reject(new Error(PRICE_QUEUE_FULL_ERROR));
+  }
+
   return new Promise<T>((resolve, reject) => {
     laneQueues[priority].push({
       fn: fn as () => Promise<unknown>,
@@ -458,4 +471,6 @@ export async function fetchPriceByName(
 
 export const __test__ = {
   extractMedianFromStatsPayload,
+  enqueueForTest: enqueue,
+  priceQueueFullError: PRICE_QUEUE_FULL_ERROR,
 } as const;

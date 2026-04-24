@@ -31,6 +31,7 @@ const BOOTSTRAP_REFRESH_MARGIN_MS = 60_000; // re-fetch 1 min before expiry
 
 let _bootstrapToken: string | null = null;
 let _bootstrapTokenExpiry = 0;
+let _bootstrapInFlight: Promise<string | null> | null = null;
 // After a failed bootstrap fetch, suppress retries for this long so a
 // CSP block / network error doesn't cause every parallel request to pile
 // up on the bootstrap endpoint.
@@ -48,6 +49,15 @@ async function ensureBootstrapToken(): Promise<string | null> {
   // Back off after recent failures so parallel requests don't all retry at once
   if (Date.now() < _bootstrapRetryAfter) return null;
 
+  if (_bootstrapInFlight) return _bootstrapInFlight;
+
+  _bootstrapInFlight = fetchBootstrapToken().finally(() => {
+    _bootstrapInFlight = null;
+  });
+  return _bootstrapInFlight;
+}
+
+async function fetchBootstrapToken(): Promise<string | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {

@@ -1,19 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { OVERLAY_SETTINGS_DEFAULTS } from "../../config/runtime/overlaySettings";
 import { createOverlaySettingsController } from "../../ipc/overlay/settings";
 
 function buildController() {
   const ctx = {
-    overlaySettings: {
-      autoTriggerEnabled: true,
-      hotkeyEnabled: true,
-      hotkey: "Control+Alt+R",
-      ocrEngine: "windows",
-      ocrPasses: 3,
-      matchThreshold: 0.72,
-      ocrTimeoutMs: 1800,
-      worldNotificationsEnabled: true,
-    },
+    overlaySettings: { ...OVERLAY_SETTINGS_DEFAULTS, hotkey: "Control+Alt+R" },
     overlayHotkeyRegistered: null,
     overlayInteractionHotkeyRegistered: null,
   };
@@ -43,14 +35,11 @@ function buildController() {
     ctx,
     settingsFile: "D:/tmp/overlay-settings.json",
     defaults: {
-      autoTriggerEnabled: true,
-      hotkeyEnabled: true,
+      ...OVERLAY_SETTINGS_DEFAULTS,
       hotkey: "Control+Alt+R",
-      ocrEngine: "native",
       ocrPasses: 3,
       matchThreshold: 0.72,
       ocrTimeoutMs: 1800,
-      worldNotificationsEnabled: true,
     },
     limits: {
       ocrPassesMin: 1,
@@ -76,17 +65,37 @@ describe("overlay settings controller", () => {
 
     const normalized = controller.normalizeOverlaySettings({
       hotkey: "ctrl + k",
-      ocrEngine: "invalid",
       ocrPasses: 999,
       matchThreshold: 0.1,
       ocrTimeoutMs: 10,
     });
 
     expect(normalized.hotkey).toBe("Control+K");
-    expect(normalized.ocrEngine).toBe("windows");
     expect(normalized.ocrPasses).toBe(6);
     expect(normalized.matchThreshold).toBe(0.4);
     expect(normalized.ocrTimeoutMs).toBe(400);
+  });
+
+  it("normalizes the full overlay settings schema", () => {
+    const { controller } = buildController();
+
+    const normalized = controller.normalizeOverlaySettings({});
+
+    expect(Object.keys(normalized).sort()).toEqual(
+      Object.keys(OVERLAY_SETTINGS_DEFAULTS).sort(),
+    );
+  });
+
+  it("preserves WFM order automation settings", () => {
+    const { controller } = buildController();
+
+    const normalized = controller.normalizeOverlaySettings({
+      autoCloseWfmOrders: false,
+      showTradeNotification: false,
+    });
+
+    expect(normalized.autoCloseWfmOrders).toBe(false);
+    expect(normalized.showTradeNotification).toBe(false);
   });
 
   it("persists settings and updates scanner state", () => {

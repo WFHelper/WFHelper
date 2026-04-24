@@ -42,6 +42,7 @@ function isPinnedHash(hash: string): boolean {
 }
 
 let _pollTimer: ReturnType<typeof setInterval> | null = null;
+let _startupTimer: ReturnType<typeof setTimeout> | null = null;
 let _running = false;
 let _lastRunAt: number | null = null;
 let _lastRunOk: boolean | null = null;
@@ -234,7 +235,7 @@ export function runOnce(): Promise<boolean> {
  * the app is relaunched repeatedly.
  */
 export function startPolling(intervalMs = DEFAULT_POLL_INTERVAL_MS): void {
-  if (_pollTimer) return; // already started
+  if (_pollTimer || _startupTimer) return; // already started
 
   _exePath = findExePath();
   if (!_exePath) {
@@ -267,7 +268,8 @@ export function startPolling(intervalMs = DEFAULT_POLL_INTERVAL_MS): void {
     // titlebar status reflects reality instead of showing "WF data missing".
     _lastRunAt = mtime;
     _lastRunOk = true;
-    setTimeout(() => {
+    _startupTimer = setTimeout(() => {
+      _startupTimer = null;
       void runOnce();
       scheduleInterval();
     }, initialDelay);
@@ -275,6 +277,10 @@ export function startPolling(intervalMs = DEFAULT_POLL_INTERVAL_MS): void {
 }
 
 export function stopPolling(): void {
+  if (_startupTimer) {
+    clearTimeout(_startupTimer);
+    _startupTimer = null;
+  }
   if (_pollTimer) {
     clearInterval(_pollTimer);
     _pollTimer = null;

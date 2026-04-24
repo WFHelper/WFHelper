@@ -1,10 +1,14 @@
 import { SELF, createExecutionContext, env, waitOnExecutionContext } from 'cloudflare:test';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import worker from '../src/index';
 import type { Env } from '../src/types';
 
 const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
 const originalFetch = globalThis.fetch;
+
+beforeEach(() => {
+	(env as unknown as Record<string, string>).PUBLIC_BOOTSTRAP_REQUIRED = '0';
+});
 
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -257,6 +261,7 @@ describe('backend-lite worker', () => {
 		await waitOnExecutionContext(bootstrapCtx);
 
 		expect(bootstrapResponse.status).toBe(200);
+		expect(bootstrapResponse.headers.get('cache-control')).toBe('no-store');
 		const bootstrapJson = (await bootstrapResponse.json()) as {
 			data?: { token?: string };
 		};
@@ -296,6 +301,31 @@ describe('backend-lite worker', () => {
 		expect(tokenResponse.status).toBe(404);
 	});
 
+	it('fails closed when bootstrap is required but the secret is missing', async () => {
+		const testEnv = {
+			...env,
+			BOOTSTRAP_TOKEN_SECRET: '',
+			PUBLIC_BOOTSTRAP_REQUIRED: '1',
+		};
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(
+			new IncomingRequest('https://example.com/v1/meta/not_a_real_slug', {
+				headers: {
+					'cf-connecting-ip': '10.0.0.78',
+					'user-agent': 'wfhelper-test',
+				},
+			}),
+			testEnv as unknown as Env,
+			ctx,
+		);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(503);
+		expect(response.headers.get('cache-control')).toBe('no-store');
+		expect(await response.json()).toEqual({ ok: false, error: 'bootstrap_misconfigured' });
+	});
+
 	it('auto-hydrates price endpoint on cache miss', async () => {
 		const slug = 'wf_test_price_slug';
 		await env.PRICE_CACHE.delete(`price:${slug}`);
@@ -326,6 +356,7 @@ describe('backend-lite worker', () => {
 		const response = await worker.fetch(new IncomingRequest(`https://example.com/v1/prices/${slug}`), env, ctx);
 		await waitOnExecutionContext(ctx);
 		expect(response.status).toBe(200);
+		expect(response.headers.get('cache-control')).toBe('public, max-age=60');
 		expect(await response.json()).toMatchObject({ ok: true, data: { slug, median: 42 } });
 
 		const cached = await env.PRICE_CACHE.get(`price:${slug}`);

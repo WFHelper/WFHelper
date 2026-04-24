@@ -30,6 +30,8 @@ const routeStats = {
 	ordersRequests: 0,
 };
 
+const PUBLIC_JSON_CACHE_HEADERS = { 'cache-control': 'public, max-age=60' };
+
 function parseRankFilter(url: URL): number | null {
 	const rawRank = url.searchParams.get('rank');
 	if (!rawRank) return null;
@@ -73,14 +75,26 @@ async function validateRankedSlugAndRank(
 	return { ok: true, maxRank };
 }
 
-async function requireBootstrapIfNeeded(req: Request, env: Env): Promise<boolean> {
-	if (!bootstrapRequired(env)) return true;
-	// If the secret hasn't been configured yet, the token can't be verified.
-	// Pass through rather than blocking all traffic — this covers the deployment
-	// window between setting PUBLIC_BOOTSTRAP_REQUIRED=1 and running
-	// `wrangler secret put BOOTSTRAP_TOKEN_SECRET`.
-	if (!bootstrapEnabled(env)) return true;
-	return verifyBootstrapToken(req, env);
+async function requireBootstrapIfNeeded(req: Request, env: Env): Promise<'ok' | 'missing_secret' | 'invalid'> {
+	if (!bootstrapRequired(env)) return 'ok';
+	// Required mode without a secret is a server misconfiguration; fail closed so
+	// token protection cannot be silently disabled in production.
+	if (!bootstrapEnabled(env)) return 'missing_secret';
+	return (await verifyBootstrapToken(req, env)) ? 'ok' : 'invalid';
+}
+
+function bootstrapGuardResponse(result: 'missing_secret' | 'invalid', req: Request, env: Env): Response {
+	if (result === 'missing_secret') {
+		return jsonResponse({ ok: false, error: 'bootstrap_misconfigured' }, req, env, 503);
+	}
+	return jsonResponse({ ok: false, error: 'bootstrap_required' }, req, env, 401);
+}
+
+async function guardBootstrap(req: Request, env: Env): Promise<Response | null> {
+	const bootstrapGuard = await requireBootstrapIfNeeded(req, env);
+	if (bootstrapGuard === 'ok') return null;
+	routeStats.bootstrapRejectedRequests += 1;
+	return bootstrapGuardResponse(bootstrapGuard, req, env);
 }
 
 function publicOrdersRouteEnabled(env: Env): boolean {
@@ -225,10 +239,8 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 			return rateLimited;
 		}
 
-		if (!(await requireBootstrapIfNeeded(req, env))) {
-			routeStats.bootstrapRejectedRequests += 1;
-			return jsonResponse({ ok: false, error: 'bootstrap_required' }, req, env, 401);
-		}
+		const bootstrapResponse = await guardBootstrap(req, env);
+		if (bootstrapResponse) return bootstrapResponse;
 
 		routeStats.priceRequests += 1;
 		const rank = parseRankFilter(url);
@@ -239,7 +251,7 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		}
 
 		const result = await getOrHydratePrice(env, priceSlug, ctx, rank);
-		if (result.status === 'ok') return jsonResponse({ ok: true, data: result.data }, req, env, 200);
+		if (result.status === 'ok') return jsonResponse({ ok: true, data: result.data }, req, env, 200, PUBLIC_JSON_CACHE_HEADERS);
 		if (result.status === 'unavailable') return jsonResponse({ ok: false, error: 'unavailable' }, req, env, 503);
 		return jsonResponse({ ok: false, error: 'not_found' }, req, env, 404);
 	}
@@ -252,15 +264,13 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 			return rateLimited;
 		}
 
-		if (!(await requireBootstrapIfNeeded(req, env))) {
-			routeStats.bootstrapRejectedRequests += 1;
-			return jsonResponse({ ok: false, error: 'bootstrap_required' }, req, env, 401);
-		}
+		const bootstrapResponse = await guardBootstrap(req, env);
+		if (bootstrapResponse) return bootstrapResponse;
 
 		routeStats.metaRequests += 1;
 		const data = await getOrHydrateMeta(env, metaSlug, ctx);
 		if (!data) return jsonResponse({ ok: false, error: 'not_found' }, req, env, 404);
-		return jsonResponse({ ok: true, data }, req, env, 200);
+		return jsonResponse({ ok: true, data }, req, env, 200, PUBLIC_JSON_CACHE_HEADERS);
 	}
 
 	const orderSummarySlug = getSlug(url.pathname, '/v1/order-summary/');
@@ -271,10 +281,8 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 			return rateLimited;
 		}
 
-		if (!(await requireBootstrapIfNeeded(req, env))) {
-			routeStats.bootstrapRejectedRequests += 1;
-			return jsonResponse({ ok: false, error: 'bootstrap_required' }, req, env, 401);
-		}
+		const bootstrapResponse = await guardBootstrap(req, env);
+		if (bootstrapResponse) return bootstrapResponse;
 
 		routeStats.orderSummaryRequests += 1;
 		const rank = parseRankFilter(url);
@@ -285,7 +293,7 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		}
 
 		const result = await getOrHydrateOrderSummary(env, orderSummarySlug, ctx, rank);
-		if (result.status === 'ok') return jsonResponse({ ok: true, data: result.data }, req, env, 200);
+		if (result.status === 'ok') return jsonResponse({ ok: true, data: result.data }, req, env, 200, PUBLIC_JSON_CACHE_HEADERS);
 		if (result.status === 'unavailable') return jsonResponse({ ok: false, error: 'unavailable' }, req, env, 503);
 		return jsonResponse({ ok: false, error: 'not_found' }, req, env, 404);
 	}
@@ -303,10 +311,8 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 			return rateLimited;
 		}
 
-		if (!(await requireBootstrapIfNeeded(req, env))) {
-			routeStats.bootstrapRejectedRequests += 1;
-			return jsonResponse({ ok: false, error: 'bootstrap_required' }, req, env, 401);
-		}
+		const bootstrapResponse = await guardBootstrap(req, env);
+		if (bootstrapResponse) return bootstrapResponse;
 
 		routeStats.ordersRequests += 1;
 		const rank = parseRankFilter(url);
@@ -317,7 +323,7 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		}
 
 		const result = await getOrHydrateOrders(env, ordersSlug, ctx, rank);
-		if (result.status === 'ok') return jsonResponse({ ok: true, data: result.data }, req, env, 200);
+		if (result.status === 'ok') return jsonResponse({ ok: true, data: result.data }, req, env, 200, PUBLIC_JSON_CACHE_HEADERS);
 		if (result.status === 'unavailable') return jsonResponse({ ok: false, error: 'unavailable' }, req, env, 503);
 		return jsonResponse({ ok: false, error: 'not_found' }, req, env, 404);
 	}
