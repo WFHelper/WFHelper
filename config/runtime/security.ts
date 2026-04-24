@@ -22,7 +22,9 @@ export function toAllowedConnectOrigin(value: unknown): string | null {
   if (typeof value !== "string" || !value.trim()) return null;
   try {
     const parsed = new URL(value.trim());
-    if (parsed.protocol !== "https:" && parsed.hostname !== "localhost") return null;
+    const isLocalhost = parsed.hostname === "localhost";
+    if (isLocalhost && parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    if (!isLocalhost && parsed.protocol !== "https:") return null;
     return parsed.origin;
   } catch {
     return null;

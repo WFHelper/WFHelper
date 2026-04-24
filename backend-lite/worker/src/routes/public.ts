@@ -31,6 +31,7 @@ const routeStats = {
 };
 
 const PUBLIC_JSON_CACHE_HEADERS = { 'cache-control': 'public, max-age=60' };
+const SNAPSHOT_CACHE_CONTROL = 'public, max-age=7200';
 
 function parseRankFilter(url: URL): number | null {
 	const rawRank = url.searchParams.get('rank');
@@ -99,6 +100,23 @@ async function guardBootstrap(req: Request, env: Env): Promise<Response | null> 
 
 function publicOrdersRouteEnabled(env: Env): boolean {
 	return (env.ENABLE_PUBLIC_ORDERS_ROUTE || '').trim() === '1';
+}
+
+function snapshotNotModifiedResponse(etag: string, cacheControl: string): Response {
+	return new Response(null, {
+		status: 304,
+		headers: { 'etag': etag, 'cache-control': cacheControl },
+	});
+}
+
+function requestHasMatchingEtag(req: Request, etag: string | null): etag is string {
+	if (!etag) return false;
+	const clientEtags = req.headers.get('if-none-match');
+	if (!clientEtags) return false;
+	return clientEtags
+		.split(',')
+		.map((entry) => entry.trim())
+		.includes(etag);
 }
 
 export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response | null> {
@@ -192,6 +210,13 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		const edgeCache = caches.default;
 		const cachedResponse = await edgeCache.match(cacheKey);
 		if (cachedResponse) {
+			const cachedEtag = cachedResponse.headers.get('etag');
+			if (requestHasMatchingEtag(req, cachedEtag)) {
+				return snapshotNotModifiedResponse(
+					cachedEtag,
+					cachedResponse.headers.get('cache-control') || SNAPSHOT_CACHE_CONTROL,
+				);
+			}
 			return cachedResponse;
 		}
 
@@ -211,14 +236,13 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		}
 
 		// Return 304 if the client already has this snapshot version.
-		const clientEtag = req.headers.get('if-none-match');
-		if (etag && clientEtag === etag) {
-			return new Response(null, { status: 304, headers: { 'etag': etag, 'cache-control': 'public, max-age=7200' } });
+		if (requestHasMatchingEtag(req, etag)) {
+			return snapshotNotModifiedResponse(etag, SNAPSHOT_CACHE_CONTROL);
 		}
 
 		const responseHeaders: Record<string, string> = {
 			'content-type': 'application/json',
-			'cache-control': 'public, max-age=7200',
+			'cache-control': SNAPSHOT_CACHE_CONTROL,
 		};
 		if (etag) responseHeaders['etag'] = etag;
 

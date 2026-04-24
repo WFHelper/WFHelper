@@ -28,6 +28,10 @@ const WORLD_STATE_TTL_MS = 90_000;
 
 let _worldStateCache: unknown = null;
 let _worldStateCacheTime = 0;
+let _registered = false;
+let _startupSeedTimer: ReturnType<typeof setTimeout> | null = null;
+let _preCycleInterval: ReturnType<typeof setInterval> | null = null;
+let _refreshInterval: ReturnType<typeof setInterval> | null = null;
 let _worldNotificationSnapshot: {
   baroActive: boolean;
   baroExpiry: string | null;
@@ -485,19 +489,46 @@ function checkPreCycleNotifications(state: unknown): void {
   }
 }
 
+function clearRegisteredTimers(): void {
+  if (_startupSeedTimer) {
+    clearTimeout(_startupSeedTimer);
+    _startupSeedTimer = null;
+  }
+  if (_preCycleInterval) {
+    clearInterval(_preCycleInterval);
+    _preCycleInterval = null;
+  }
+  if (_refreshInterval) {
+    clearInterval(_refreshInterval);
+    _refreshInterval = null;
+  }
+}
+
+function resetForTest(): void {
+  clearRegisteredTimers();
+  _registered = false;
+  _worldStateCache = null;
+  _worldStateCacheTime = 0;
+  _worldNotificationSnapshot = null;
+  _cyclePreNotified.clear();
+  notificationCtor = electronModule.Notification;
+}
+
 function register(
   options: {
     ipcMain?: { handle?: (channel: string, handler: (event: unknown) => Promise<unknown>) => void };
     Notification?: unknown;
   } = {},
 ): void {
+  if (Object.prototype.hasOwnProperty.call(options, "Notification")) {
+    notificationCtor = options.Notification as typeof notificationCtor;
+  }
+
+  if (_registered) return;
+
   const ipc = options.ipcMain || electronModule.ipcMain;
   if (!ipc || typeof ipc.handle !== "function") {
     throw new Error("IPC main bridge is unavailable");
-  }
-
-  if (Object.prototype.hasOwnProperty.call(options, "Notification")) {
-    notificationCtor = options.Notification as typeof notificationCtor;
   }
 
   ipc.handle(DB_GET_WORLD_STATE, async (event: unknown) => {
@@ -526,6 +557,7 @@ function register(
       return _worldStateCache;
     }
   });
+  _registered = true;
 
   // Ensure we have a Start Menu shortcut so Windows recognises us for
   // toast notifications under Focus Assist "Priority only" mode.
@@ -533,7 +565,8 @@ function register(
 
   // Seed the world state cache shortly after startup so cycle notifications
   // work immediately, even before the user visits the World tab.
-  setTimeout(async () => {
+  _startupSeedTimer = setTimeout(async () => {
+    _startupSeedTimer = null;
     try {
       _worldStateCache = await worldStateParser.fetchAndParse();
       _worldStateCacheTime = Date.now();
@@ -547,13 +580,13 @@ function register(
 
   // Check cached world state every 15 s so we catch the moment a cycle
   // enters the lead-time window without waiting for a full re-fetch.
-  setInterval(() => {
+  _preCycleInterval = setInterval(() => {
     if (_worldStateCache) checkPreCycleNotifications(_worldStateCache);
   }, 15_000);
 
   // Re-fetch world state every 60 s in the background so the cache stays
   // current and transition notifications fire correctly.
-  setInterval(async () => {
+  _refreshInterval = setInterval(async () => {
     try {
       const fresh = await worldStateParser.fetchAndParse();
       _worldStateCache = fresh;
@@ -564,4 +597,8 @@ function register(
   }, 60_000);
 }
 
-export { register };
+const __test__ = {
+  reset: resetForTest,
+};
+
+export { register, __test__ };

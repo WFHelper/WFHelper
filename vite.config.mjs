@@ -35,8 +35,8 @@ const RELIC_CHUNK_PATHS = [
 ];
 
 const PRICING_CHUNK_PATHS = [
-  "/src/lib/wfmPrice.ts",
-  "/src/lib/priceCache.ts",
+  "/src/lib/wfm/wfmPrice.ts",
+  "/src/lib/wfm/priceCache.ts",
   "/src/stores/pricing.ts",
 ];
 

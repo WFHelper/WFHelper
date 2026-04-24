@@ -1081,6 +1081,7 @@ describe('backend-lite worker', () => {
 			orderSummaries: {},
 		};
 		await env.PRICE_CACHE.put('snapshot:full:v1', JSON.stringify(snapshot));
+		await caches.default.delete(new Request('https://example.com/v1/snapshot'));
 
 		try {
 			const ctx = createExecutionContext();
@@ -1096,6 +1097,53 @@ describe('backend-lite worker', () => {
 			expect(body.prices['ash_prime']).toMatchObject({ status: 'ok', median: 45 });
 		} finally {
 			await env.PRICE_CACHE.delete('snapshot:full:v1');
+			await caches.default.delete(new Request('https://example.com/v1/snapshot'));
+		}
+	});
+
+	it('honors If-None-Match when the snapshot is already edge-cached', async () => {
+		const snapshot = { version: 1, generatedAt: Date.now(), prices: {}, meta: {}, orderSummaries: {} };
+		await env.PRICE_CACHE.put('snapshot:full:v1', JSON.stringify(snapshot));
+		await env.PRICE_CACHE.put('snapshot:etag:v1', '"snapshot-test-etag"');
+		await caches.default.delete(new Request('https://example.com/v1/snapshot'));
+
+		try {
+			const primeCtx = createExecutionContext();
+			const primeResponse = await worker.fetch(new IncomingRequest('https://example.com/v1/snapshot'), env, primeCtx);
+			await waitOnExecutionContext(primeCtx);
+			expect(primeResponse.status).toBe(200);
+			expect(primeResponse.headers.get('etag')).toBe('"snapshot-test-etag"');
+
+			const matchingCtx = createExecutionContext();
+			const matchingResponse = await worker.fetch(
+				new IncomingRequest('https://example.com/v1/snapshot', {
+					headers: { 'if-none-match': '"snapshot-test-etag"' },
+				}),
+				env,
+				matchingCtx,
+			);
+			await waitOnExecutionContext(matchingCtx);
+
+			const nonMatchingCtx = createExecutionContext();
+			const nonMatchingResponse = await worker.fetch(
+				new IncomingRequest('https://example.com/v1/snapshot', {
+					headers: { 'if-none-match': '"other-etag"' },
+				}),
+				env,
+				nonMatchingCtx,
+			);
+			await waitOnExecutionContext(nonMatchingCtx);
+
+			expect(matchingResponse.status).toBe(304);
+			expect(matchingResponse.headers.get('etag')).toBe('"snapshot-test-etag"');
+			expect(matchingResponse.headers.get('cache-control')).toBe('public, max-age=7200');
+			expect(await matchingResponse.text()).toBe('');
+			expect(nonMatchingResponse.status).toBe(200);
+			expect(await nonMatchingResponse.json()).toMatchObject({ version: 1 });
+		} finally {
+			await env.PRICE_CACHE.delete('snapshot:full:v1');
+			await env.PRICE_CACHE.delete('snapshot:etag:v1');
+			await caches.default.delete(new Request('https://example.com/v1/snapshot'));
 		}
 	});
 

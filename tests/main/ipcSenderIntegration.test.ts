@@ -1,6 +1,19 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ctx from "../../ipc/context";
+
+async function resetWorldStateIpc() {
+  const worldStateIpc = await import("../../ipc/worldStateIpc");
+  worldStateIpc.__test__.reset();
+}
+
+class MockNotification {
+  static isSupported() {
+    return false;
+  }
+
+  show() {}
+}
 
 function makeEvent(webContentsId: number, url: string) {
   return {
@@ -15,6 +28,46 @@ function makeEvent(webContentsId: number, url: string) {
 }
 
 describe("IPC sender guard integration", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(async () => {
+    await resetWorldStateIpc();
+    ctx.mainWindow = null;
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("registers world-state IPC once and tears down timers for tests", async () => {
+    const worldStateIpc = await import("../../ipc/worldStateIpc");
+    const handle = vi.fn();
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+    const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
+
+    worldStateIpc.register({
+      ipcMain: { handle },
+      Notification: MockNotification,
+    });
+    worldStateIpc.register({
+      ipcMain: { handle },
+      Notification: MockNotification,
+    });
+
+    expect(handle).toHaveBeenCalledTimes(1);
+    expect(handle.mock.calls[0]?.[0]).toBe("get-world-state");
+    expect(setTimeoutSpy).toHaveBeenCalledTimes(1);
+    expect(setIntervalSpy).toHaveBeenCalledTimes(2);
+
+    worldStateIpc.__test__.reset();
+    worldStateIpc.register({
+      ipcMain: { handle },
+      Notification: MockNotification,
+    });
+
+    expect(handle).toHaveBeenCalledTimes(2);
+  });
+
   it("blocks unauthorized sender through registered world-state handler", async () => {
     const handlers = new Map<string, (event: any) => Promise<unknown>>();
 
@@ -25,13 +78,7 @@ describe("IPC sender guard integration", () => {
           handlers.set(channel, handler);
         },
       },
-      Notification: class MockNotification {
-        static isSupported() {
-          return false;
-        }
-
-        show() {}
-      },
+      Notification: MockNotification,
     });
 
     ctx.mainWindow = {
