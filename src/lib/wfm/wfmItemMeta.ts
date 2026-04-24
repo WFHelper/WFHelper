@@ -6,8 +6,7 @@ import {
 } from "./backendLite.js";
 import { log } from "../log.js";
 import { toFiniteNumber } from "../../../config/shared/numeric.js";
-import { WFM_HEADERS } from "../../../config/shared/wfm.js";
-import { formatWfmAssetUrl } from "../../../config/shared/wfmAssets.js";
+import { formatWfmAssetUrl, WFM_HEADERS } from "../../../config/shared/wfm.js";
 import { isWfmExcludedSlug } from "../../../config/shared/wfmExclusions.js";
 
 const META_TTL_MS = 7 * 24 * 60 * 60 * 1000;

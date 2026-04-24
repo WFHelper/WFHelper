@@ -1,7 +1,7 @@
 import { withScope } from "./logger";
 import * as wfmClient from "./wfmClient";
 import { normalizeErrorMessage } from "../config/shared/errors";
-import { formatWfmAssetUrl } from "../config/shared/wfmAssets";
+import { formatWfmAssetUrl } from "../config/shared/wfm";
 
 const log = withScope("wfmCatalog");
 

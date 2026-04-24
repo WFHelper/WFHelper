@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { aggregateComponentOwnership } from "../../config/shared/componentOwnership";
 import { RIVEN_BEST_ATTRIBUTE_SETS } from "../../config/shared/rivenBestAttributes";
-import { formatWfmAssetUrl } from "../../config/shared/wfmAssets";
+import { formatWfmAssetUrl } from "../../config/shared/wfm";
 import { encodeWfmWsFrame, parseWfmWsFrame } from "../../services/wfmWsProtocol";
 import { getBestAttributes as getMainBestAttributes } from "../../services/rivenBestAttributes";
 

@@ -36,6 +36,13 @@ export const WFM_HEADERS: Readonly<Record<string, string>> = Object.freeze({
 /** Base URL for warframe.market static assets (icons, thumbnails). */
 export const WFM_ASSET_BASE = "https://warframe.market/static/assets/";
 
+/** Normalize a WFM asset path to an absolute URL. */
+export function formatWfmAssetUrl(path: unknown): string | null {
+  if (typeof path !== "string" || !path.trim()) return null;
+  const trimmed = path.trim();
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `${WFM_ASSET_BASE}${trimmed}`;
+}
+
 // ---------------------------------------------------------------------------
 // Slug normalization
 // ---------------------------------------------------------------------------
