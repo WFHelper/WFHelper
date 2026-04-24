@@ -4,20 +4,19 @@
   import {
     itemDb,
     componentOwnership,
-    enrichComponents,
     foundryData,
     parsedItems,
   } from "../stores/data.js";
   import { masteryData } from "../stores/mastery.js";
   import { activeItem } from "../stores/modals.js";
   import { formatTimeRemaining, formatNumber } from "../lib/format.js";
+  import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
   import ItemImage from "../components/ItemImage.svelte";
   import SearchBox from "../components/SearchBox.svelte";
   import type {
     FoundryBuildingItem,
     FoundryRecipeItem,
     MasteryStatus,
-    ParsedItem,
     RecipeIngredient,
   } from "../types/inventory.js";
 
@@ -289,25 +288,7 @@
     if (!uniqueName) return;
     const db = $itemDb[uniqueName];
     if (!db) return;
-    const item: ParsedItem = {
-      name: db.name || "Unknown",
-      internalName: uniqueName,
-      category: db.category || "",
-      categoryLabel: db.category || "",
-      rank: 0,
-      maxRank: 0,
-      imageUrl: db.imageUrl || null,
-      isPrime: db.isPrime || false,
-      masteryReq: db.masteryReq || 0,
-      vaulted: db.vaulted || false,
-      tradable: db.tradable || false,
-      description: db.description || "",
-      components: enrichComponents(db.components || [], $componentOwnership),
-      drops: db.drops || [],
-      wikiaUrl: db.wikiaUrl || null,
-      uniqueName,
-    };
-    activeItem.set(item);
+    activeItem.set(buildParsedItemFromDb(uniqueName, db, $componentOwnership));
   }
 
   function cardKey(entry: FoundryEntry, i: number): string {

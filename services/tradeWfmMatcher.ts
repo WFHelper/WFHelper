@@ -16,6 +16,7 @@ import type { NormalisedOrder } from "./wfmOrders";
 import * as wfmSession from "./wfmSession";
 import * as wfmCatalog from "./wfmCatalog";
 import type { TradeType, TradeDirection } from "../config/shared/statsTypes";
+import type { TradeMatchPayload } from "../config/shared/tradeMatch";
 
 const log = withScope("tradeWfmMatcher");
 
@@ -26,16 +27,7 @@ export interface ParsedTradeForMatching {
   items: Array<{ displayName: string; count: number; direction: TradeDirection }>;
 }
 
-export interface WfmTradeMatch {
-  orderId: string;
-  itemName: string;
-  itemUrlName: string | null;
-  itemThumb: string | null;
-  quantity: number;
-  platinum: number;
-  partner: string;
-  type: TradeType;
-}
+export type WfmTradeMatch = TradeMatchPayload;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

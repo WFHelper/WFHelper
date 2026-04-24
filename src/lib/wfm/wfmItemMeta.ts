@@ -6,7 +6,8 @@ import {
 } from "./backendLite.js";
 import { log } from "../log.js";
 import { toFiniteNumber } from "../../../config/shared/numeric.js";
-import { WFM_HEADERS, WFM_ASSET_BASE } from "../../../config/shared/wfm.js";
+import { WFM_HEADERS } from "../../../config/shared/wfm.js";
+import { formatWfmAssetUrl } from "../../../config/shared/wfmAssets.js";
 import { isWfmExcludedSlug } from "../../../config/shared/wfmExclusions.js";
 
 const META_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -40,11 +41,6 @@ function rememberNoData(slug: string): void {
   metaNoDataCache.set(slug, Date.now());
 }
 
-function withAssetBase(path: unknown): string | null {
-  if (typeof path !== "string" || !path.trim()) return null;
-  return path.startsWith("http") ? path : `${WFM_ASSET_BASE}${path}`;
-}
-
 function isFresh(entry: WfmItemMeta): boolean {
   return Date.now() - entry.timestamp < META_TTL_MS;
 }
@@ -57,8 +53,8 @@ function toMeta(slug: string, json: unknown): WfmItemMeta | null {
   const ducats = ducatsRaw != null ? Math.max(0, Math.round(ducatsRaw)) : null;
 
   const i18nEn = (data.i18n as { en?: Record<string, unknown> } | undefined)?.en || {};
-  const thumb = withAssetBase(i18nEn.thumb || data.thumb || null);
-  const icon = withAssetBase(i18nEn.icon || data.icon || null);
+  const thumb = formatWfmAssetUrl(i18nEn.thumb || data.thumb || null);
+  const icon = formatWfmAssetUrl(i18nEn.icon || data.icon || null);
 
   return {
     slug,
@@ -169,8 +165,8 @@ export async function fetchWfmItemMetaBySlug(
           slug: normalizeWfmSlug(backendResult.data.slug) || normalizedSlug,
           ducats: backendDucats != null ? Math.max(0, Math.round(backendDucats)) : null,
           setRoot: backendResult.data.setRoot,
-          thumb: withAssetBase(backendResult.data.thumb),
-          icon: withAssetBase(backendResult.data.icon),
+          thumb: formatWfmAssetUrl(backendResult.data.thumb),
+          icon: formatWfmAssetUrl(backendResult.data.icon),
           timestamp: backendTimestamp != null ? Math.floor(backendTimestamp) : Date.now(),
         };
 

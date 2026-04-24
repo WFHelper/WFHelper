@@ -6,6 +6,7 @@
 import * as itemDb from "./itemDatabase";
 import type { ComponentEntry } from "./types/gameData";
 import { MAX_ITEM_RANK, XP_PER_RANK } from "../config/game/constants";
+import { aggregateComponentOwnership } from "../config/shared/componentOwnership";
 import { toFiniteNumber } from "../config/shared/numeric";
 import type { MasteryStatus } from "../config/shared/masteryTypes";
 
@@ -398,35 +399,6 @@ export function getAllMasterableItems(): MasterableItem[] {
   return items;
 }
 
-// ─── Build component ownership map from inventory ────────────────────────
-
-function buildComponentOwnership(inventoryData: Record<string, unknown>): Map<string, number> {
-  const owned = new Map<string, number>(); // uniqueName → count
-
-  const miscItems = inventoryData.MiscItems;
-  if (Array.isArray(miscItems)) {
-    for (const e of miscItems as { ItemType?: string; ItemCount?: number }[]) {
-      if (e.ItemType) owned.set(e.ItemType, (owned.get(e.ItemType) || 0) + (e.ItemCount || 1));
-    }
-  }
-
-  const recipes = inventoryData.Recipes;
-  if (Array.isArray(recipes)) {
-    for (const e of recipes as { ItemType?: string; ItemCount?: number }[]) {
-      if (e.ItemType) owned.set(e.ItemType, (owned.get(e.ItemType) || 0) + (e.ItemCount || 1));
-    }
-  }
-
-  const pendingRecipes = inventoryData.PendingRecipes;
-  if (Array.isArray(pendingRecipes)) {
-    for (const e of pendingRecipes as { ItemType?: string }[]) {
-      if (e.ItemType) owned.set(e.ItemType, (owned.get(e.ItemType) || 0) + 1);
-    }
-  }
-
-  return owned;
-}
-
 // ─── Compare vs inventory ────────────────────────────────────────────────
 
 export function computeMasteryProgress(inventoryData: Record<string, unknown>): {
@@ -446,7 +418,11 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
   if (!inventoryData) return { items: [], stats: { total: 0, mastered: 0, inProgress: 0, missing: 0, byCategory: {}, profileMastery: null } };
 
   const allMasterable = getAllMasterableItems();
-  const componentOwnership = buildComponentOwnership(inventoryData);
+  const componentOwnership = aggregateComponentOwnership(
+    inventoryData.MiscItems,
+    inventoryData.Recipes,
+    inventoryData.PendingRecipes,
+  );
 
   // Build owned map: uniqueName → { rank, maxRank, owned }
   const ownedMap = new Map<

@@ -1,6 +1,7 @@
 import { withScope } from "./logger";
 import * as wfmClient from "./wfmClient";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { formatWfmAssetUrl } from "../config/shared/wfmAssets";
 
 const log = withScope("wfmCatalog");
 
@@ -14,9 +15,6 @@ const log = withScope("wfmCatalog");
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-import { WFM_ASSET_BASE } from "../config/shared/wfm";
-
-const WFM_THUMB_BASE = WFM_ASSET_BASE;
 const WFM_ITEM_URL_BASE = "https://warframe.market/items/";
 const ITEM_PATH_CANDIDATES: ReadonlyArray<string> = Object.freeze([
   "/items",
@@ -83,8 +81,8 @@ function _normalise(raw: unknown): CatalogItem {
     id: source.id || null,
     url_name: slug,
     item_name: name,
-    thumb: thumb ? (thumb.startsWith("http") ? thumb : WFM_THUMB_BASE + thumb) : null,
-    icon: icon ? (icon.startsWith("http") ? icon : WFM_THUMB_BASE + icon) : null,
+    thumb: formatWfmAssetUrl(thumb),
+    icon: formatWfmAssetUrl(icon),
     maxRank,
     gameRef,
   };

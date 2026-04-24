@@ -380,18 +380,10 @@ import type {
   TradeItem,
   TradeType,
 } from "../../config/shared/statsTypes.js";
+import type { TradeMatchPayload } from "../../config/shared/tradeMatch.js";
 export type { DailyStatEntry, DownloadStage, SessionStats, TradeDirection, TradeEvent, TradeItem, TradeType };
 
-export interface WfmTradeMatchEvent {
-  orderId: string;
-  itemName: string;
-  itemUrlName: string | null;
-  itemThumb: string | null;
-  quantity: number;
-  platinum: number;
-  partner: string;
-  type: TradeType;
-}
+export type WfmTradeMatchEvent = TradeMatchPayload;
 
 export interface TradeRecordedEvent {
   trade: TradeEvent;

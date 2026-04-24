@@ -12,7 +12,7 @@ import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 import {
   TRADE_NOTIFICATION_SHOW, TRADE_NOTIFICATION_DISMISS,
 } from "../config/shared/ipcChannels";
-import type { TradeType } from "../config/shared/statsTypes";
+import type { TradeMatchPayload } from "../config/shared/tradeMatch";
 
 const log = withScope("tradeNotificationIpc");
 
@@ -37,16 +37,7 @@ const AUTO_HIDE_MS = RENDERER_VISIBLE_MS + RENDERER_FADE_MS + MAIN_HIDE_BUFFER_M
 /** Payload sent to the notification renderer. Shape is stable so the vanilla
  *  JS renderer can read it without importing TypeScript types. */
 export interface TradeNotificationShowPayload {
-  match: {
-    orderId: string;
-    itemName: string;
-    itemUrlName: string | null;
-    itemThumb: string | null;
-    quantity: number;
-    platinum: number;
-    partner: string;
-    type: TradeType;
-  };
+  match: TradeMatchPayload;
   timing: {
     visibleMs: number;
     fadeMs: number;

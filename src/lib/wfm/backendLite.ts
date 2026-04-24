@@ -199,26 +199,27 @@ function parseOrderBookSide(value: unknown): BackendOrderBookEntry[] {
     .filter((entry): entry is BackendOrderBookEntry => entry != null);
 }
 
-/**
- * Make a raw authenticated GET request to the backend.
- * Handles bootstrap token and timeout. Returns the raw Response on 2xx,
- * or null on any network/auth error. Callers are responsible for parsing the body.
- */
-export async function fetchBackendRaw(
+interface BackendRequestOptions {
+  timeoutMs?: number;
+  headers?: Record<string, string>;
+  allowStatuses?: number[];
+}
+
+async function requestBackend(
   pathname: string,
-  options?: { timeoutMs?: number; headers?: Record<string, string> },
+  options: BackendRequestOptions = {},
 ): Promise<Response | null> {
   if (!isBackendLiteConfigured()) return null;
 
   const bootstrapToken = await ensureBootstrapToken();
   const controller = new AbortController();
-  const timeoutMs = options?.timeoutMs ?? REQUEST_TIMEOUT_MS;
+  const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const headers: Record<string, string> = { Accept: "application/json" };
     if (bootstrapToken) headers[BOOTSTRAP_HEADER] = bootstrapToken;
-    if (options?.headers) Object.assign(headers, options.headers);
+    if (options.headers) Object.assign(headers, options.headers);
 
     const response = await fetch(`${BACKEND_BASE_URL}${pathname}`, {
       signal: controller.signal,
@@ -229,8 +230,7 @@ export async function fetchBackendRaw(
       invalidateBootstrapToken();
       return null;
     }
-    // 304 is a valid success response — return it so callers can handle it.
-    if (!response.ok && response.status !== 304) return null;
+    if (!response.ok && !options.allowStatuses?.includes(response.status)) return null;
     return response;
   } catch {
     return null;
@@ -239,47 +239,35 @@ export async function fetchBackendRaw(
   }
 }
 
+/**
+ * Make a raw authenticated GET request to the backend.
+ * Handles bootstrap token and timeout. Returns the raw Response on 2xx,
+ * or null on any network/auth error. Callers are responsible for parsing the body.
+ */
+export async function fetchBackendRaw(
+  pathname: string,
+  options?: { timeoutMs?: number; headers?: Record<string, string> },
+): Promise<Response | null> {
+  return requestBackend(pathname, { ...options, allowStatuses: [304] });
+}
+
 async function fetchBackendJson(
   pathname: string,
 ): Promise<BackendFetchResult<Record<string, unknown>>> {
-  if (!isBackendLiteConfigured()) {
-    return { status: "unavailable" };
-  }
+  if (!isBackendLiteConfigured()) return { status: "unavailable" };
 
-  const bootstrapToken = await ensureBootstrapToken();
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const response = await requestBackend(pathname, { allowStatuses: [404] });
+  if (!response) return { status: "error" };
+  if (response.status === 404) return { status: "not_found" };
 
   try {
-    const headers: Record<string, string> = { Accept: "application/json" };
-    if (bootstrapToken) headers[BOOTSTRAP_HEADER] = bootstrapToken;
-
-    const response = await fetch(`${BACKEND_BASE_URL}${pathname}`, {
-      signal: controller.signal,
-      headers,
-    });
-
-    if (response.status === 401) {
-      // Token was rejected (expired or server secret rotated) — invalidate so
-      // the next call fetches a fresh one.  Treat this call as an error so the
-      // caller falls through to the direct-WFM fallback.
-      invalidateBootstrapToken();
-      return { status: "error" };
-    }
-    if (response.status === 404) return { status: "not_found" };
-    if (!response.ok) return { status: "error" };
-
     const json = (await response.json()) as { ok?: boolean; data?: unknown };
     if (!json || json.ok !== true || !json.data || typeof json.data !== "object") {
       return { status: "not_found" };
     }
-
     return { status: "ok", data: json.data as Record<string, unknown> };
   } catch {
     return { status: "error" };
-  } finally {
-    clearTimeout(timeout);
   }
 }
 

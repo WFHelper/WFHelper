@@ -1,48 +1,24 @@
 /**
- * Best riven attributes per weapon category (renderer-side static lookup).
- * Mirrors services/rivenBestAttributes.ts data for display in the riven detail modal.
+ * Best riven attributes per weapon category (renderer-side lookup).
  */
 
-export interface BestAttributes {
-  positives: string[];
-  negatives: string[];
-}
+import {
+  RIVEN_BEST_ATTRIBUTE_SETS,
+  type BestAttributes,
+} from "../../config/shared/rivenBestAttributes.js";
 
-const RIFLE: BestAttributes = {
-  positives: ["Critical Chance", "Critical Damage", "Multishot", "Damage", "Electricity", "Toxin", "Heat", "Cold"],
-  negatives: ["Zoom", "Ammo Maximum", "Weapon Recoil", "Projectile Speed"],
-};
-
-const SHOTGUN: BestAttributes = {
-  positives: ["Critical Chance", "Critical Damage", "Multishot", "Status Chance", "Damage", "Electricity", "Toxin", "Heat"],
-  negatives: ["Zoom", "Ammo Maximum", "Weapon Recoil", "Projectile Speed"],
-};
-
-const PISTOL: BestAttributes = {
-  positives: ["Critical Chance", "Critical Damage", "Multishot", "Damage", "Electricity", "Toxin", "Heat", "Cold"],
-  negatives: ["Zoom", "Ammo Maximum", "Weapon Recoil", "Projectile Speed"],
-};
-
-const MELEE: BestAttributes = {
-  positives: ["Critical Chance", "Critical Damage", "Melee Damage", "Attack Speed", "Range", "Electricity", "Toxin", "Heat"],
-  negatives: ["Finisher Damage", "Heavy Attack Efficiency", "Combo Duration", "Slide Attack"],
-};
-
-const ARCHGUN: BestAttributes = {
-  positives: ["Critical Chance", "Critical Damage", "Multishot", "Damage", "Electricity", "Toxin"],
-  negatives: ["Zoom", "Ammo Maximum", "Weapon Recoil"],
-};
+export type { BestAttributes };
 
 const TYPE_MAP: Record<string, BestAttributes> = {
-  Rifle: RIFLE,
-  Shotgun: SHOTGUN,
-  Pistol: PISTOL,
-  Kitgun: PISTOL,
-  Melee: MELEE,
-  Zaw: MELEE,
-  Archgun: ARCHGUN,
+  Rifle: RIVEN_BEST_ATTRIBUTE_SETS.rifle,
+  Shotgun: RIVEN_BEST_ATTRIBUTE_SETS.shotgun,
+  Pistol: RIVEN_BEST_ATTRIBUTE_SETS.pistol,
+  Kitgun: RIVEN_BEST_ATTRIBUTE_SETS.pistol,
+  Melee: RIVEN_BEST_ATTRIBUTE_SETS.melee,
+  Zaw: RIVEN_BEST_ATTRIBUTE_SETS.melee,
+  Archgun: RIVEN_BEST_ATTRIBUTE_SETS.archgun,
 };
 
 export function getBestAttributes(rivenType: string): BestAttributes {
-  return TYPE_MAP[rivenType] ?? RIFLE;
+  return TYPE_MAP[rivenType] ?? RIVEN_BEST_ATTRIBUTE_SETS.rifle;
 }

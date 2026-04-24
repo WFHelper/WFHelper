@@ -1,4 +1,5 @@
 import { writable, derived } from "svelte/store";
+import { aggregateComponentOwnership } from "../../config/shared/componentOwnership.js";
 import { parseInventory } from "../lib/inventory.js";
 import { parseFoundry } from "../lib/inventory/foundryResources.js";
 import type { WfmItemsLookup } from "../types/ipc.js";
@@ -17,22 +18,8 @@ export const inventoryData = writable<RawInventoryData | null>(null);
 /** Reactive map of uniqueName → owned count, derived from MiscItems + Recipes + PendingRecipes. */
 export const componentOwnership = derived(
   inventoryData,
-  ($inv): Map<string, number> => {
-    const owned = new Map<string, number>();
-    if (!$inv) return owned;
-    for (const arr of [$inv.MiscItems, $inv.Recipes]) {
-      if (!Array.isArray(arr)) continue;
-      for (const e of arr) {
-        if (e.ItemType) owned.set(e.ItemType, (owned.get(e.ItemType) || 0) + (e.ItemCount || 1));
-      }
-    }
-    if (Array.isArray($inv.PendingRecipes)) {
-      for (const e of $inv.PendingRecipes) {
-        if (e.ItemType) owned.set(e.ItemType, (owned.get(e.ItemType) || 0) + 1);
-      }
-    }
-    return owned;
-  },
+  ($inv): Map<string, number> =>
+    $inv ? aggregateComponentOwnership($inv.MiscItems, $inv.Recipes, $inv.PendingRecipes) : new Map(),
 );
 
 /** Enrich raw db components with ownership counts from the reactive ownership map. */

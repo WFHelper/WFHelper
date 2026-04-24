@@ -2,7 +2,7 @@
   import ViewPerfMark from "../components/ViewPerfMark.svelte";
   import { onMount, onDestroy } from "svelte";
   import { worldData, worldLoading, worldLastFetch, worldFissureMode } from "../stores/world.js";
-  import { inventoryData, itemDb, componentOwnership, enrichComponents, wfmItems } from "../stores/data.js";
+  import { inventoryData, itemDb, componentOwnership, wfmItems } from "../stores/data.js";
   import { getLookupByName } from "../lib/inventoryMarket.js";
   import {
     parseIsoDate, timeTo, timeToStrict, cycleTimeDisplay,
@@ -13,11 +13,11 @@
   import { addToast } from "../stores/toasts.js";
   import { overlaySettings, overlaySettingsLoaded, applyOverlaySettingsResponse } from "../stores/overlaySettings.js";
   import { activeItem } from "../stores/modals.js";
-  import type { ParsedItem } from "../types/inventory.js";
   import type { Invasion, SyndicateBounty, SteelPathHonors } from "../types/world.js";
   import FissureAlerts from "../components/settings/FissureAlerts.svelte";
   import CollapsibleSection from "../components/CollapsibleSection.svelte";
   import { getBountyRewards, resolveRewardIcon, resolveRewardUniqueName } from "../lib/bountyRewards.js";
+  import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
 
   const WORLD_REFRESH_MS = 120_000;
   const WORLD_POLL_MS = 30_000;
@@ -141,25 +141,7 @@
     const db = $itemDb[uniqueName];
     if (!db) return;
 
-    const item: ParsedItem = {
-      name: db.name || "Unknown",
-      internalName: uniqueName,
-      category: db.category || "",
-      categoryLabel: db.category || "",
-      rank: 0,
-      maxRank: 0,
-      imageUrl: db.imageUrl || null,
-      isPrime: db.isPrime || false,
-      masteryReq: db.masteryReq || 0,
-      vaulted: db.vaulted || false,
-      tradable: db.tradable || false,
-      description: db.description || "",
-      components: enrichComponents(db.components || [], $componentOwnership),
-      drops: [...(db.drops || []), ...(extraDrops || [])],
-      wikiaUrl: db.wikiaUrl || null,
-      uniqueName,
-    };
-    activeItem.set(item);
+    activeItem.set(buildParsedItemFromDb(uniqueName, db, $componentOwnership, { extraDrops }));
   }
 
   // Urgency threshold: remaining < 20% of total duration → urgent.
