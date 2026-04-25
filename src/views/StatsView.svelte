@@ -4,6 +4,9 @@
   import { tr } from "../lib/i18n.js";
   import type { DailyStatEntry, SessionStats, TradeEvent } from "../types/ipc.js";
   import type { MessageKey } from "../lib/i18n.js";
+  import ThemedButton from "../components/ThemedButton.svelte";
+  import ThemedPanel from "../components/ThemedPanel.svelte";
+  import ThemedSelect from "../components/ThemedSelect.svelte";
   import StatsTradePanel from "../components/stats/StatsTradePanel.svelte";
   import { STAT_ICON_URLS } from "../lib/assetUrls.js";
   import {
@@ -264,8 +267,8 @@
           {$tr(expandedChartTitle(expandedKey))}
         </span>
         <div class="flex items-center gap-2">
-          <button class="cursor-pointer whitespace-nowrap rounded-[var(--radius-md)] border px-[0.6rem] py-1 text-[0.7rem] transition-[color,border-color,background] duration-150 hover:border-accent hover:text-accent {showValue ? 'border-accent bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] font-semibold text-accent' : 'border-[color:var(--ui-control-border)] bg-bg-surface text-text-secondary'}" on:click={() => { showValue = !showValue; }}>Value</button>
-          <button class="cursor-pointer whitespace-nowrap rounded-[var(--radius-md)] border px-[0.6rem] py-1 text-[0.7rem] transition-[color,border-color,background] duration-150 hover:border-accent hover:text-accent {showChange ? 'border-accent bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] font-semibold text-accent' : 'border-[color:var(--ui-control-border)] bg-bg-surface text-text-secondary'}" on:click={() => { showChange = !showChange; }}>Change</button>
+          <ThemedButton active={showValue} onClick={() => { showValue = !showValue; }}>Value</ThemedButton>
+          <ThemedButton active={showChange} onClick={() => { showChange = !showChange; }}>Change</ThemedButton>
           <button class="border-none bg-transparent text-text-muted cursor-pointer text-base leading-none px-1.5 py-0.5 rounded-[var(--radius-md)] transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-raised" on:click={() => { expandedKey = null; tooltip = null; }}>✕</button>
         </div>
       </div>
@@ -368,28 +371,28 @@
   <div class="view-header">
     <h2>{$tr("stats.title")}</h2>
     <div class="flex items-center gap-2 ml-auto">
-      <button
-        class="cursor-pointer whitespace-nowrap rounded-[var(--radius-md)] border px-[0.6rem] py-1 text-[0.7rem] transition-[color,border-color,background] duration-150 hover:border-accent hover:text-accent {showValue ? 'border-accent bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] font-semibold text-accent' : 'border-[color:var(--ui-control-border)] bg-bg-surface text-text-secondary'}"
-        on:click={() => { showValue = !showValue; }}
+      <ThemedButton
+        active={showValue}
+        onClick={() => { showValue = !showValue; }}
         title="Toggle absolute value line on charts"
-      >Value</button>
-      <button
-        class="cursor-pointer whitespace-nowrap rounded-[var(--radius-md)] border px-[0.6rem] py-1 text-[0.7rem] transition-[color,border-color,background] duration-150 hover:border-accent hover:text-accent {showChange ? 'border-accent bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] font-semibold text-accent' : 'border-[color:var(--ui-control-border)] bg-bg-surface text-text-secondary'}"
-        on:click={() => { showChange = !showChange; }}
+      >Value</ThemedButton>
+      <ThemedButton
+        active={showChange}
+        onClick={() => { showChange = !showChange; }}
         title="Toggle daily change bars on charts"
-      >Change</button>
+      >Change</ThemedButton>
       <label class="flex items-center gap-1.5 whitespace-nowrap text-[0.7rem] text-text-muted">
         {$tr("stats.timeframe")}:
-        <select class="cursor-pointer whitespace-nowrap rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-bg-surface px-[0.38rem] py-1 text-[0.7rem] text-text-secondary [&_option]:bg-bg-surface [&_option]:text-text-primary" bind:value={chartDays}>
+        <ThemedSelect bind:value={chartDays}>
           {#each TIMEFRAME_OPTIONS as days}
             <option value={days}>{days}d</option>
           {/each}
-        </select>
+        </ThemedSelect>
       </label>
-      <label class="cursor-pointer whitespace-nowrap rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-bg-surface px-[0.6rem] py-1 text-[0.7rem] text-text-secondary transition-[color,border-color,background] duration-150 hover:border-accent hover:text-accent" title="Import AlecaFrame stats JSON export">
+      <ThemedButton as="label" title="Import AlecaFrame stats JSON export">
         Import AlecaFrame JSON
         <input type="file" accept=".json" style="display:none" on:change={handleImportFile} />
-      </label>
+      </ThemedButton>
     </div>
   </div>
 
@@ -410,7 +413,7 @@
         {#if !session?.hasData}
           <p class="m-0 text-sm text-text-muted">{$tr("stats.noData")}</p>
         {:else}
-          <div class="flex flex-wrap items-stretch divide-x divide-border-strong rounded-[var(--radius-lg)] border border-[color:var(--ui-panel-border)] bg-[var(--ui-panel-bg)]">
+          <ThemedPanel className="flex flex-wrap items-stretch divide-x divide-border-strong">
             {#each SESSION_SECTIONS as { key, labelKey, currentKey } (key)}
               {@const delta = session[key]}
               {@const current = session[currentKey]}
@@ -432,7 +435,7 @@
                 </div>
               </div>
             {/each}
-          </div>
+          </ThemedPanel>
         {/if}
 
         <!-- Chart grid -->
@@ -443,7 +446,7 @@
             {#each CHART_SECTIONS as { key, labelKey }}
               {@const cd = chartDataMap[key]}
               {@const icon = ICON_MAP[key]}
-              <div class="relative flex h-[240px] min-w-0 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[color:var(--ui-panel-border)] bg-[var(--ui-panel-bg)] px-[13px] py-[6px] pb-2 group/chart">
+              <ThemedPanel className="relative flex h-[240px] min-w-0 flex-col overflow-hidden px-[13px] py-[6px] pb-2 group/chart">
                 <div class="flex items-center justify-between mb-1">
                   <span class="flex items-center gap-1.5 text-[0.85rem] text-text-secondary">
                     {#if icon}<img src={icon} alt="" class="w-5 h-5 object-contain align-middle opacity-85" />{/if}
@@ -536,7 +539,7 @@
                     {/each}
                   </div>
                 {/if}
-              </div>
+              </ThemedPanel>
             {/each}
           </div>
         {/if}

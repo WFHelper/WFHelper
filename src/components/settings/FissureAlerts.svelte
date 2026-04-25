@@ -2,6 +2,7 @@
   import { overlaySettings, applyOverlaySettingsResponse } from "../../stores/overlaySettings.js";
   import { invoke } from "../../lib/ipc.js";
   import type { FissureAlert } from "../../types/ipc.js";
+  import ThemedButton from "../ThemedButton.svelte";
   import ThemedSelect from "../ThemedSelect.svelte";
 
   const TIERS = ["any", "Lith", "Meso", "Neo", "Axi", "Requiem", "Omnia"] as const;
@@ -132,11 +133,7 @@
         <option value={p}>{p === "any" ? "Any planet" : p}</option>
       {/each}
     </ThemedSelect>
-    <button
-      class="h-[1.6rem] leading-none cursor-pointer rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-bg-surface px-[0.55rem] py-0 text-[0.74rem] text-text-primary transition-[color,border-color,background] duration-150 hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
-      disabled={saving}
-      on:click={addAlert}
-    >Add</button>
+    <ThemedButton size="compact" className="!text-text-primary" disabled={saving} onClick={addAlert}>Add</ThemedButton>
   </div>
 
   {#if error}

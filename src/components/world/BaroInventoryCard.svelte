@@ -33,8 +33,8 @@
 
   // Variant classes — broken out for readability.
   $: shapeCls = isMod
-    ? "h-[140px] w-[100px] rounded-[0.3rem] border-0 bg-transparent"
-    : "h-[120px] w-[120px] rounded-[0.35rem] border-2 bg-[rgba(0,0,0,0.3)]";
+    ? "h-[140px] w-[100px] rounded-[var(--radius-md)] border-0 bg-transparent"
+    : "h-[120px] w-[120px] rounded-[var(--radius-lg)] border-2 bg-[rgba(0,0,0,0.3)]";
   $: borderCls = isMod
     ? owned
       ? "shadow-[0_0_8px_2px_rgba(34,139,34,0.5)]"

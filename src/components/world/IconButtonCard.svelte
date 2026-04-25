@@ -17,6 +17,7 @@
   $: sizeCls = size === 100 ? "h-[100px] w-[100px]" : "h-20 w-20";
   $: labelMaxW = size === 100 ? "max-w-[100px]" : "max-w-20";
   $: hoverCls = hoverScale === 105 ? "hover:scale-105" : "hover:scale-[1.08]";
+  $: radiusCls = size === 100 ? "rounded-[var(--radius-lg)]" : "rounded-[var(--radius-md)]";
   $: borderCls = borderWidth === "2" ? "border-2" : "border-[1.5px]";
   $: glowCls = owned
     ? size === 100
@@ -35,8 +36,8 @@
   title="View {name} details"
 >
   <div
-    class="flex items-center justify-center overflow-hidden rounded-[0.3rem] bg-[rgba(0,0,0,0.3)]
-           {sizeCls} {borderCls} {glowCls}"
+    class="flex items-center justify-center overflow-hidden bg-[rgba(0,0,0,0.3)]
+           {radiusCls} {sizeCls} {borderCls} {glowCls}"
   >
     {#if imageUrl}
       <img class="h-full w-full object-contain" src={imageUrl} alt={name} loading="lazy" />

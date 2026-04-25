@@ -18,6 +18,7 @@
   import BaroInventoryCard from "../components/world/BaroInventoryCard.svelte";
   import CycleRow from "../components/world/CycleRow.svelte";
   import IconButtonCard from "../components/world/IconButtonCard.svelte";
+  import WorldToggleIcon from "../components/world/WorldToggleIcon.svelte";
   import { getBountyRewards, resolveRewardIcon, resolveRewardUniqueName } from "../lib/bountyRewards.js";
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
 
@@ -392,7 +393,7 @@
         <div class="world-section">
           <div class="flex items-center justify-between gap-2 mb-[0.55rem]">
             <button class="world-section-toggle" on:click={() => toggleSection('resurgence')} aria-expanded={!collapsed.resurgence}>
-              <svg class="world-toggle-icon" class:collapsed={collapsed.resurgence} viewBox="0 0 12 12" aria-hidden="true"><polygon points="2,4 10,4 6,9" fill="currentColor" /></svg>
+              <WorldToggleIcon collapsed={collapsed.resurgence} />
               <h3>Prime Resurgence</h3>
             </button>
           </div>
@@ -449,7 +450,7 @@
         <div class="world-section">
           <div class="flex items-center justify-between gap-2 mb-[0.55rem]">
             <button class="world-section-toggle" on:click={() => toggleSection('steelpath')} aria-expanded={!collapsed.steelpath}>
-              <svg class="world-toggle-icon" class:collapsed={collapsed.steelpath} viewBox="0 0 12 12" aria-hidden="true"><polygon points="2,4 10,4 6,9" fill="currentColor" /></svg>
+              <WorldToggleIcon collapsed={collapsed.steelpath} />
               <h3>Steel Path Honors</h3>
             </button>
             <span class="font-display text-[0.88rem] tracking-[0.02em] whitespace-nowrap text-text-primary">{times.steelPath}</span>
@@ -472,7 +473,7 @@
         <div class="world-section border-t-0">
           <div class="flex items-center justify-between gap-2 mb-[0.55rem]">
             <button class="world-section-toggle" on:click={() => toggleSection('fissures')} aria-expanded={!collapsed.fissures}>
-              <svg class="world-toggle-icon" class:collapsed={collapsed.fissures} viewBox="0 0 12 12" aria-hidden="true"><polygon points="2,4 10,4 6,9" fill="currentColor" /></svg>
+              <WorldToggleIcon collapsed={collapsed.fissures} />
               <h3>Void Fissures</h3>
             </button>
             <div class="flex">
@@ -574,7 +575,7 @@
         {#each bounties as group}
           <div class="border-b border-border py-1 last:border-b-0">
             <button class="flex w-full items-center gap-[0.3rem] border-0 bg-transparent py-[0.2rem] text-left text-inherit cursor-pointer" on:click={() => toggleSection(`bounty-${group.syndicateKey}`)} aria-expanded={!collapsed[`bounty-${group.syndicateKey}`]}>
-              <svg class="world-toggle-icon" class:collapsed={collapsed[`bounty-${group.syndicateKey}`]} viewBox="0 0 12 12" aria-hidden="true"><polygon points="2,4 10,4 6,9" fill="currentColor" /></svg>
+              <WorldToggleIcon collapsed={collapsed[`bounty-${group.syndicateKey}`]} />
               <span class="text-[1.15rem] font-semibold text-text-primary">{group.syndicate}</span>
               {#if bountyTimers[group.syndicateKey]?.timeStr}
                 <span class="font-display text-[0.88rem] tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={bountyTimers[group.syndicateKey]?.urgent}>{bountyTimers[group.syndicateKey].timeStr}</span>
@@ -592,7 +593,7 @@
                     {/if}
                   </span>
                   <span class="shrink-0 font-display whitespace-nowrap text-accent text-[1rem]">{job.enemyLevels[0]}–{job.enemyLevels[1]}</span>
-                  <svg class="world-toggle-icon" class:collapsed={!collapsed[`bounty-${group.syndicateKey}-${ji}`]} viewBox="0 0 12 12" aria-hidden="true"><polygon points="2,4 10,4 6,9" fill="currentColor" /></svg>
+                  <WorldToggleIcon collapsed={!collapsed[`bounty-${group.syndicateKey}-${ji}`]} />
                 </button>
                 {#if collapsed[`bounty-${group.syndicateKey}-${ji}`]}
                 <div class="mb-[0.2rem] ml-[0.3rem] border-l-2 border-accent py-[0.2rem] pl-[1.2rem]">
