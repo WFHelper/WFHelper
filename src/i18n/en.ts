@@ -93,6 +93,7 @@ export const en = {
   "appearance.builtinThemes": "Theme",
   "appearance.customThemes": "Custom themes",
   "appearance.noCustomThemes": "No saved custom themes",
+  "appearance.selectCustomTheme": "Select custom theme",
   "appearance.colors": "Colours",
   "appearance.colorsBackgrounds": "Backgrounds",
   "appearance.colorsAccent": "Highlights",

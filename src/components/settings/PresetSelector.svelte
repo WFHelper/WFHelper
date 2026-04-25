@@ -2,6 +2,7 @@
   import { THEME_PRESETS, PRESET_KEYS } from "../../config/themePresets.js";
   import { themeSettings } from "../../stores/theme.js";
   import { tr } from "../../lib/i18n.js";
+  import SortArrow from "../SortArrow.svelte";
 
   let customName = "";
   let builtInOpen = false;
@@ -11,8 +12,13 @@
   $: customThemes = $themeSettings.customThemes;
   $: activeCustomTheme = customThemes.find((theme) => theme.id === activePreset);
   $: activeBuiltInPreset = THEME_PRESETS[activePreset];
-  $: builtInLabel = activeBuiltInPreset?.label ?? $tr("appearance.builtinThemes");
-  $: customLabel = activeCustomTheme?.label ?? $tr("appearance.noCustomThemes");
+  $: builtInLabel =
+    activeBuiltInPreset?.label ?? activeCustomTheme?.label ?? $tr("appearance.customPreset");
+  $: customLabel =
+    activeCustomTheme?.label ??
+    (customThemes.length > 0
+      ? $tr("appearance.selectCustomTheme")
+      : $tr("appearance.noCustomThemes"));
 
   function selectPreset(key: string): void {
     themeSettings.applyPreset(key);
@@ -44,7 +50,7 @@
       >
         <span>{$tr("appearance.builtinThemes")}</span>
         <strong>{builtInLabel}</strong>
-        <span class="theme-dropdown-chevron">v</span>
+        <span class="theme-dropdown-chevron"><SortArrow asc={builtInOpen} /></span>
       </button>
 
       {#if builtInOpen}
@@ -79,7 +85,7 @@
       >
         <span>{$tr("appearance.customThemes")}</span>
         <strong>{customLabel}</strong>
-        <span class="theme-dropdown-chevron">v</span>
+        <span class="theme-dropdown-chevron"><SortArrow asc={customOpen} /></span>
       </button>
 
       {#if customOpen && customThemes.length > 0}
@@ -159,9 +165,17 @@
   }
 
   .theme-dropdown-chevron {
+    display: inline-flex;
+    width: 1rem;
+    height: 1rem;
+    align-items: center;
+    justify-content: center;
     color: var(--text-muted);
-    font-family: var(--font-display);
-    font-weight: 700;
+  }
+
+  .theme-dropdown-chevron :global(svg) {
+    width: 0.9rem;
+    height: 0.9rem;
   }
 
   .theme-dropdown-menu {
@@ -173,7 +187,7 @@
     display: grid;
     max-height: 17rem;
     overflow-y: auto;
-    border: 1px solid var(--ui-panel-border);
+    border: 1px solid var(--border);
     border-radius: var(--radius-xl);
     background: color-mix(in srgb, var(--bg-base) 94%, transparent);
     padding: 0.45rem;

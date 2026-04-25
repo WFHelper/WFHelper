@@ -85,7 +85,7 @@
   .shared-filter-select {
     border: 1px solid var(--ui-control-border);
     border-radius: var(--radius-md);
-    background: var(--ui-control-bg);
+    background: var(--bg-surface);
     color: var(--text-muted);
     font-size: 0.88rem;
     height: 2.1rem;
@@ -95,6 +95,10 @@
     outline: none;
     text-align: left;
     text-align-last: left;
+  }
+  .shared-filter-select option {
+    background: var(--bg-surface);
+    color: var(--text-primary);
   }
   .shared-filter-select:focus {
     border-color: var(--accent-dim);
@@ -430,7 +434,7 @@
   .resource-card,
   .foundry-item,
   .order-row {
-    border: 1px solid var(--ui-panel-border);
+    border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     background: var(--ui-panel-bg);
     box-shadow: var(--ui-panel-shadow);
@@ -737,9 +741,9 @@
     max-width: 90vw;
     max-height: 85vh;
     overflow-y: auto;
-    border: 1px solid var(--ui-panel-border);
+    border: 1px solid var(--border);
     border-radius: var(--radius-xl);
-    background: var(--ui-panel-bg);
+    background: var(--bg-surface);
     box-shadow: var(--ui-panel-shadow);
     backdrop-filter: var(--ui-backdrop-blur);
     animation: detail-slide-in 0.15s ease-out;
@@ -762,7 +766,7 @@
   }
   .detail-dual-container:is(.has-comp, .has-reward) {
     box-shadow: var(--ui-panel-shadow);
-    border: 1px solid var(--ui-panel-border);
+    border: 1px solid var(--border);
     border-radius: var(--radius-xl);
     backdrop-filter: var(--ui-backdrop-blur);
     overflow: hidden;

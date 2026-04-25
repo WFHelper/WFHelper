@@ -106,7 +106,7 @@ function resolveSurfaceTokens(effects: ThemeEffects): {
       panelBg: "transparent",
       panelBorder: "transparent",
       panelShadow: "none",
-      controlBg: "transparent",
+      controlBg: "var(--bg-surface)",
       controlBorder: "var(--border)",
       backdropBlur: "none",
     };

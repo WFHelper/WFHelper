@@ -734,18 +734,19 @@
   .world-section :global(h3) {
     margin: 0 0 0.55rem; font-family: var(--font-display); font-size: 0.82rem;
     font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    line-height: 1;
     color: var(--accent, #d4a843);
   }
 
   /* Toggle button — :global() for CollapsibleSection */
   :global(.world-section-toggle) {
-    display: inline-flex; align-items: center; gap: 0.3rem;
+    display: inline-flex; align-items: center; gap: 0.35rem;
     background: none; border: none; padding: 0; cursor: pointer; color: inherit; font: inherit;
   }
   :global(.world-section-toggle h3) { margin: 0; }
   :global(.world-toggle-icon) {
     display: inline-flex; align-items: center; justify-content: center;
-    font-size: 1.1rem; width: 1.4rem; height: 1.4rem;
+    font-size: 0.95rem; line-height: 1; width: 1rem; height: 1rem;
     transition: transform 0.15s ease; color: var(--text-secondary); flex-shrink: 0;
   }
   :global(.world-toggle-icon.collapsed) { transform: rotate(-90deg); }
