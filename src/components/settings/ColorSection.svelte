@@ -47,6 +47,13 @@
       ],
     },
     {
+      labelKey: "appearance.colorsBorders",
+      keys: [
+        { key: "border", labelKey: "appearance.label.border" },
+        { key: "borderStrong", labelKey: "appearance.label.borderStrong" },
+      ],
+    },
+    {
       labelKey: "appearance.colorsGrades",
       keys: [
         { key: "gradeS", labelKey: "appearance.label.gradeS" },
@@ -98,7 +105,7 @@
           <label class="flex flex-col items-center gap-[0.2rem] cursor-pointer">
             <input
               type="color"
-              class="w-8 h-8 border border-border rounded-[0.35rem] p-0 cursor-pointer bg-transparent [&::-webkit-color-swatch-wrapper]:p-0.5 [&::-webkit-color-swatch]:border-none [&::-webkit-color-swatch]:rounded-[0.2rem]"
+              class="w-8 h-8 border border-[var(--ui-control-border)] rounded-[var(--radius-md)] p-0 cursor-pointer bg-transparent [&::-webkit-color-swatch-wrapper]:p-0.5 [&::-webkit-color-swatch]:border-none [&::-webkit-color-swatch]:rounded-[var(--radius-sm)]"
               value={toHexInput(colors[item.key])}
               on:input={(e) => onColorChange(item.key, e)}
             />

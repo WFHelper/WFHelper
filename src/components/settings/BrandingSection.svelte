@@ -56,11 +56,11 @@
 
   <div class="grid gap-[0.45rem]">
     <!-- Logo -->
-    <div class="flex items-center justify-between gap-[0.6rem] flex-wrap border border-border rounded-lg bg-bg-raised py-[0.45rem] px-[0.55rem]">
+    <div class="flex items-center justify-between gap-[0.6rem] flex-wrap border border-[var(--ui-control-border)] rounded-[var(--radius-lg)] bg-[var(--ui-control-bg)] py-[0.45rem] px-[0.55rem]">
       <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.appLogo")}</span>
       <div class="flex items-center gap-[0.35rem]">
         {#if branding.logoDataUrl}
-          <img class="w-6 h-6 object-contain rounded border border-border" src={branding.logoDataUrl} alt="Logo" />
+          <img class="w-6 h-6 object-contain rounded-[var(--radius-sm)] border border-[var(--ui-control-border)]" src={branding.logoDataUrl} alt="Logo" />
           <button class="btn-secondary btn-sm" on:click={removeLogo}>
             {$tr("appearance.removeLogo")}
           </button>
@@ -82,11 +82,11 @@
     </div>
 
     <!-- App Name -->
-    <div class="flex items-center justify-between gap-[0.6rem] flex-wrap border border-border rounded-lg bg-bg-raised py-[0.45rem] px-[0.55rem]">
+    <div class="flex items-center justify-between gap-[0.6rem] flex-wrap border border-[var(--ui-control-border)] rounded-[var(--radius-lg)] bg-[var(--ui-control-bg)] py-[0.45rem] px-[0.55rem]">
       <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.appName")}</span>
       <input
         type="text"
-        class="w-56 border border-border rounded-[0.42rem] bg-bg-base text-text-primary text-[0.84rem] py-[0.3rem] px-2 outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
+        class="w-56 border border-[var(--ui-control-border)] rounded-[var(--radius-md)] bg-bg-base text-text-primary text-[0.84rem] py-[0.3rem] px-2 outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
         placeholder="WARFRAME COMPANION"
         maxlength={APP_NAME_MAX_LENGTH}
         value={branding.appName ?? ""}

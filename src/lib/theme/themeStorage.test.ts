@@ -1,5 +1,10 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { loadThemeSettings, saveThemeSettings, clearThemeSettings, cloneDefaultTheme } from "./themeStorage.js";
+import {
+  loadThemeSettings,
+  saveThemeSettings,
+  clearThemeSettings,
+  cloneDefaultTheme,
+} from "./themeStorage.js";
 import { DEFAULT_THEME, DEFAULT_COLORS } from "../../config/themeDefaults.js";
 
 // Mock localStorage
@@ -28,6 +33,8 @@ describe("cloneDefaultTheme", () => {
     expect(clone).not.toBe(DEFAULT_THEME);
     expect(clone.colors).not.toBe(DEFAULT_THEME.colors);
     expect(clone.fontSizes).not.toBe(DEFAULT_THEME.fontSizes);
+    expect(clone.effects).not.toBe(DEFAULT_THEME.effects);
+    expect(clone.customThemes).not.toBe(DEFAULT_THEME.customThemes);
     expect(clone.branding).not.toBe(DEFAULT_THEME.branding);
   });
 });
@@ -61,6 +68,32 @@ describe("loadThemeSettings", () => {
     expect(settings.activePreset).toBe("custom");
     expect(settings.colors.accent).toBe("#ff0000");
     expect(settings.colors.bgBase).toBe(DEFAULT_COLORS.bgBase);
+    expect(settings.effects.cornerStyle).toBe("soft");
+    expect(settings.customThemes).toEqual([]);
+  });
+
+  it("normalizes saved custom themes and effects", () => {
+    store["wf_theme_settings"] = JSON.stringify({
+      version: 1,
+      activePreset: "custom:test",
+      effects: { cornerStyle: "round", surfaceStyle: "minimal", glass: true },
+      customThemes: [
+        {
+          id: "custom:test",
+          label: "My Theme",
+          colors: { accent: "#00ff00" },
+          fontSizes: { globalScale: 1.25 },
+          effects: { cornerStyle: "sharp", surfaceStyle: "border", glass: false },
+        },
+      ],
+    });
+    const settings = loadThemeSettings();
+    expect(settings.effects.cornerStyle).toBe("round");
+    expect(settings.effects.surfaceStyle).toBe("minimal");
+    expect(settings.effects.glass).toBe(true);
+    expect(settings.customThemes).toHaveLength(1);
+    expect(settings.customThemes[0]?.colors.accent).toBe("#00ff00");
+    expect(settings.customThemes[0]?.effects.surfaceStyle).toBe("border");
   });
 
   it("validates logoDataUrl starts with data:image/", () => {
@@ -78,10 +111,7 @@ describe("saveThemeSettings", () => {
     const theme = cloneDefaultTheme();
     theme.activePreset = "midnight";
     saveThemeSettings(theme);
-    expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
-      "wf_theme_settings",
-      expect.any(String),
-    );
+    expect(mockLocalStorage.setItem).toHaveBeenCalledWith("wf_theme_settings", expect.any(String));
     const saved = JSON.parse(store["wf_theme_settings"]);
     expect(saved.activePreset).toBe("midnight");
   });

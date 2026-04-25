@@ -26,12 +26,21 @@ export interface ThemeColors {
 }
 
 export interface ThemeFontSizes {
-  /** Global scale multiplier, 0.75–1.5; default 1.0 */
+  /** Global scale multiplier, 0.75-1.5; default 1.0 */
   globalScale: number;
   /** Optional per-category overrides (rem values) */
   headingSize?: number;
   bodySize?: number;
   smallSize?: number;
+}
+
+export type ThemeCornerStyle = "sharp" | "soft" | "round";
+export type ThemeSurfaceStyle = "full" | "border" | "minimal";
+
+export interface ThemeEffects {
+  cornerStyle: ThemeCornerStyle;
+  surfaceStyle: ThemeSurfaceStyle;
+  glass: boolean;
 }
 
 export interface ThemeBranding {
@@ -41,6 +50,14 @@ export interface ThemeBranding {
   appName: string | null;
 }
 
+export interface CustomThemePreset {
+  id: string;
+  label: string;
+  colors: ThemeColors;
+  fontSizes: ThemeFontSizes;
+  effects: ThemeEffects;
+}
+
 export interface ThemeSettings {
   /** Schema version for future migrations */
   version: 1;
@@ -48,6 +65,8 @@ export interface ThemeSettings {
   activePreset: string;
   colors: ThemeColors;
   fontSizes: ThemeFontSizes;
+  effects: ThemeEffects;
+  customThemes: CustomThemePreset[];
   branding: ThemeBranding;
   /** Enable contrast-safe mode: auto-adjusts text colors when backgrounds are too similar */
   contrastSafeMode: boolean;
@@ -79,4 +98,17 @@ export const THEME_COLOR_CSS_MAP: Record<keyof ThemeColors, string> = {
   gradeD: "--grade-d",
   gradeF: "--grade-f",
   gradeDefault: "--grade-default",
+} as const;
+
+export const THEME_EFFECT_CSS_MAP = {
+  radiusSm: "--radius-sm",
+  radiusMd: "--radius-md",
+  radiusLg: "--radius-lg",
+  radiusXl: "--radius-xl",
+  panelBg: "--ui-panel-bg",
+  panelBorder: "--ui-panel-border",
+  panelShadow: "--ui-panel-shadow",
+  controlBg: "--ui-control-bg",
+  controlBorder: "--ui-control-border",
+  backdropBlur: "--ui-backdrop-blur",
 } as const;

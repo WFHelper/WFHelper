@@ -1,5 +1,5 @@
-import type { ThemeSettings, ThemeColors } from "../../types/theme.js";
-import { THEME_COLOR_CSS_MAP } from "../../types/theme.js";
+import type { ThemeColors, ThemeEffects, ThemeSettings } from "../../types/theme.js";
+import { THEME_COLOR_CSS_MAP, THEME_EFFECT_CSS_MAP } from "../../types/theme.js";
 import { BASE_FONT_SIZE_PX } from "../../config/themeDefaults.js";
 import { autoAdjustTextColor, WCAG_AA_NORMAL } from "./contrastUtils.js";
 
@@ -25,6 +25,8 @@ export function applyTheme(settings: ThemeSettings): void {
   const accent = colors.accent;
   root.style.setProperty("--accent-glow", hexToAccentGlow(accent));
 
+  applyEffectTokens(root, settings.effects);
+
   // Font scale
   const scale = settings.fontSizes.globalScale;
   root.style.setProperty("font-size", `${BASE_FONT_SIZE_PX * scale}px`);
@@ -45,6 +47,101 @@ export function applyTheme(settings: ThemeSettings): void {
   } else {
     root.style.removeProperty("--font-small-size");
   }
+}
+
+function applyEffectTokens(root: HTMLElement, effects: ThemeEffects): void {
+  const radii = resolveRadii(effects.cornerStyle);
+  for (const [key, value] of Object.entries(radii)) {
+    root.style.setProperty(THEME_EFFECT_CSS_MAP[key as keyof typeof radii], value);
+  }
+
+  const surface = resolveSurfaceTokens(effects);
+  root.style.setProperty(THEME_EFFECT_CSS_MAP.panelBg, surface.panelBg);
+  root.style.setProperty(THEME_EFFECT_CSS_MAP.panelBorder, surface.panelBorder);
+  root.style.setProperty(THEME_EFFECT_CSS_MAP.panelShadow, surface.panelShadow);
+  root.style.setProperty(THEME_EFFECT_CSS_MAP.controlBg, surface.controlBg);
+  root.style.setProperty(THEME_EFFECT_CSS_MAP.controlBorder, surface.controlBorder);
+  root.style.setProperty(THEME_EFFECT_CSS_MAP.backdropBlur, surface.backdropBlur);
+}
+
+function resolveRadii(
+  cornerStyle: ThemeEffects["cornerStyle"],
+): Record<"radiusSm" | "radiusMd" | "radiusLg" | "radiusXl", string> {
+  if (cornerStyle === "sharp") {
+    return {
+      radiusSm: "2px",
+      radiusMd: "3px",
+      radiusLg: "4px",
+      radiusXl: "6px",
+    };
+  }
+
+  if (cornerStyle === "round") {
+    return {
+      radiusSm: "0.55rem",
+      radiusMd: "0.8rem",
+      radiusLg: "1.05rem",
+      radiusXl: "1.35rem",
+    };
+  }
+
+  return {
+    radiusSm: "0.28rem",
+    radiusMd: "0.42rem",
+    radiusLg: "0.62rem",
+    radiusXl: "0.78rem",
+  };
+}
+
+function resolveSurfaceTokens(effects: ThemeEffects): {
+  panelBg: string;
+  panelBorder: string;
+  panelShadow: string;
+  controlBg: string;
+  controlBorder: string;
+  backdropBlur: string;
+} {
+  if (effects.surfaceStyle === "minimal") {
+    return {
+      panelBg: "transparent",
+      panelBorder: "transparent",
+      panelShadow: "none",
+      controlBg: "transparent",
+      controlBorder: "transparent",
+      backdropBlur: "none",
+    };
+  }
+
+  if (effects.surfaceStyle === "border") {
+    return {
+      panelBg: "transparent",
+      panelBorder: "var(--border)",
+      panelShadow: "none",
+      controlBg: "transparent",
+      controlBorder: "var(--border)",
+      backdropBlur: "none",
+    };
+  }
+
+  if (effects.glass) {
+    return {
+      panelBg: "color-mix(in srgb, var(--bg-surface) 76%, transparent)",
+      panelBorder: "color-mix(in srgb, var(--border-strong) 82%, transparent)",
+      panelShadow: "0 14px 44px rgba(0, 0, 0, 0.34)",
+      controlBg: "color-mix(in srgb, var(--bg-raised) 72%, transparent)",
+      controlBorder: "color-mix(in srgb, var(--border) 90%, transparent)",
+      backdropBlur: "blur(10px)",
+    };
+  }
+
+  return {
+    panelBg: "var(--bg-surface)",
+    panelBorder: "var(--border)",
+    panelShadow: "0 10px 30px rgba(0, 0, 0, 0.22)",
+    controlBg: "var(--bg-raised)",
+    controlBorder: "var(--border)",
+    backdropBlur: "none",
+  };
 }
 
 /**

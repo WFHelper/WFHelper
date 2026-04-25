@@ -1,10 +1,11 @@
-import type { ThemeColors, ThemeFontSizes } from "../types/theme.js";
-import { DEFAULT_COLORS, DEFAULT_FONT_SIZES } from "./themeDefaults.js";
+import type { ThemeColors, ThemeEffects, ThemeFontSizes } from "../types/theme.js";
+import { DEFAULT_COLORS, DEFAULT_EFFECTS, DEFAULT_FONT_SIZES } from "./themeDefaults.js";
 
 export interface ThemePreset {
   label: string;
   colors: ThemeColors;
   fontSizes: ThemeFontSizes;
+  effects: ThemeEffects;
 }
 
 export const THEME_PRESETS: Record<string, ThemePreset> = {
@@ -12,6 +13,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
     label: "Orokin Dark",
     colors: { ...DEFAULT_COLORS },
     fontSizes: { ...DEFAULT_FONT_SIZES },
+    effects: { ...DEFAULT_EFFECTS },
   },
 
   midnight: {
@@ -43,6 +45,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeDefault: "#8b93a5",
     },
     fontSizes: { ...DEFAULT_FONT_SIZES },
+    effects: { ...DEFAULT_EFFECTS },
   },
 
   highContrast: {
@@ -74,6 +77,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeDefault: "#a0a0a0",
     },
     fontSizes: { ...DEFAULT_FONT_SIZES },
+    effects: { ...DEFAULT_EFFECTS, cornerStyle: "sharp" },
   },
 
   lotus: {
@@ -105,6 +109,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeDefault: "#8b93a5",
     },
     fontSizes: { ...DEFAULT_FONT_SIZES },
+    effects: { ...DEFAULT_EFFECTS, glass: true },
   },
 
   light: {
@@ -136,6 +141,135 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeDefault: "#555555",
     },
     fontSizes: { ...DEFAULT_FONT_SIZES },
+    effects: { ...DEFAULT_EFFECTS, surfaceStyle: "border" },
+  },
+
+  corpusGlass: {
+    label: "Corpus Glass",
+    colors: {
+      bgDeep: "#041016",
+      bgBase: "#071922",
+      bgSurface: "rgba(13, 38, 51, 0.72)",
+      bgRaised: "rgba(20, 55, 73, 0.76)",
+      bgHover: "rgba(36, 87, 112, 0.72)",
+      accent: "#65d8ff",
+      accentDim: "#2d9fc5",
+      accentBright: "#a5edff",
+      textPrimary: "#e7fbff",
+      textSecondary: "#9dc5d1",
+      textMuted: "#6f95a3",
+      success: "#55e6a5",
+      warning: "#f5d76e",
+      danger: "#ff6f8d",
+      info: "#65d8ff",
+      border: "rgba(101, 216, 255, 0.2)",
+      borderStrong: "rgba(101, 216, 255, 0.46)",
+      gradeS: "#55e6a5",
+      gradeA: "#72c7a6",
+      gradeB: "#f5d76e",
+      gradeC: "#ff9b54",
+      gradeD: "#ff7a42",
+      gradeF: "#ff6f8d",
+      gradeDefault: "#9dc5d1",
+    },
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+    effects: { cornerStyle: "round", surfaceStyle: "full", glass: true },
+  },
+
+  zarimanMist: {
+    label: "Zariman Mist",
+    colors: {
+      bgDeep: "#050806",
+      bgBase: "#08110d",
+      bgSurface: "rgba(18, 34, 27, 0.72)",
+      bgRaised: "rgba(28, 48, 38, 0.78)",
+      bgHover: "rgba(41, 70, 55, 0.76)",
+      accent: "#8df0c8",
+      accentDim: "#4db48d",
+      accentBright: "#c3ffe8",
+      textPrimary: "#e8fff6",
+      textSecondary: "#9fc7b8",
+      textMuted: "#75998c",
+      success: "#79f2a6",
+      warning: "#e6d46f",
+      danger: "#f77678",
+      info: "#7bd9ff",
+      border: "rgba(141, 240, 200, 0.18)",
+      borderStrong: "rgba(141, 240, 200, 0.4)",
+      gradeS: "#79f2a6",
+      gradeA: "#72c796",
+      gradeB: "#e6d46f",
+      gradeC: "#e99855",
+      gradeD: "#df7d43",
+      gradeF: "#f77678",
+      gradeDefault: "#9fc7b8",
+    },
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+    effects: { cornerStyle: "soft", surfaceStyle: "full", glass: true },
+  },
+
+  grineerForge: {
+    label: "Grineer Forge",
+    colors: {
+      bgDeep: "#0d0906",
+      bgBase: "#15100b",
+      bgSurface: "#201711",
+      bgRaised: "#2a1d14",
+      bgHover: "#38261a",
+      accent: "#d29b4a",
+      accentDim: "#9c6a2c",
+      accentBright: "#f1c36f",
+      textPrimary: "#f0e1cf",
+      textSecondary: "#b29478",
+      textMuted: "#846c58",
+      success: "#8bcf75",
+      warning: "#e6b44a",
+      danger: "#e0644f",
+      info: "#6da6bd",
+      border: "rgba(210, 155, 74, 0.18)",
+      borderStrong: "rgba(210, 155, 74, 0.42)",
+      gradeS: "#8bcf75",
+      gradeA: "#7eaa65",
+      gradeB: "#e6b44a",
+      gradeC: "#dc7d38",
+      gradeD: "#c96833",
+      gradeF: "#e0644f",
+      gradeDefault: "#b29478",
+    },
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+    effects: { cornerStyle: "sharp", surfaceStyle: "full", glass: false },
+  },
+
+  tennoMinimal: {
+    label: "Tenno Minimal",
+    colors: {
+      bgDeep: "#020304",
+      bgBase: "#060708",
+      bgSurface: "#0c0d0e",
+      bgRaised: "#111315",
+      bgHover: "#191c1f",
+      accent: "#e5f4ff",
+      accentDim: "#8da6b7",
+      accentBright: "#ffffff",
+      textPrimary: "#f4f7f8",
+      textSecondary: "#a4adb2",
+      textMuted: "#6f787d",
+      success: "#52d987",
+      warning: "#e8d45d",
+      danger: "#ef6464",
+      info: "#7ebcff",
+      border: "rgba(255, 255, 255, 0.12)",
+      borderStrong: "rgba(255, 255, 255, 0.25)",
+      gradeS: "#52d987",
+      gradeA: "#75b987",
+      gradeB: "#e8d45d",
+      gradeC: "#e58d44",
+      gradeD: "#d7793b",
+      gradeF: "#ef6464",
+      gradeDefault: "#a4adb2",
+    },
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+    effects: { cornerStyle: "sharp", surfaceStyle: "minimal", glass: false },
   },
 };
 

@@ -1,4 +1,10 @@
-import type { ThemeColors, ThemeFontSizes, ThemeBranding, ThemeSettings } from "../types/theme.js";
+import type {
+  ThemeBranding,
+  ThemeColors,
+  ThemeEffects,
+  ThemeFontSizes,
+  ThemeSettings,
+} from "../types/theme.js";
 
 export const DEFAULT_COLORS: Readonly<ThemeColors> = Object.freeze({
   bgDeep: "#060a12",
@@ -31,6 +37,12 @@ export const DEFAULT_FONT_SIZES: Readonly<ThemeFontSizes> = Object.freeze({
   globalScale: 1.0,
 });
 
+export const DEFAULT_EFFECTS: Readonly<ThemeEffects> = Object.freeze({
+  cornerStyle: "soft",
+  surfaceStyle: "full",
+  glass: false,
+});
+
 export const DEFAULT_BRANDING: Readonly<ThemeBranding> = Object.freeze({
   logoDataUrl: null,
   appName: null,
@@ -41,6 +53,8 @@ export const DEFAULT_THEME: Readonly<ThemeSettings> = Object.freeze({
   activePreset: "default",
   colors: { ...DEFAULT_COLORS },
   fontSizes: { ...DEFAULT_FONT_SIZES },
+  effects: { ...DEFAULT_EFFECTS },
+  customThemes: [],
   branding: { ...DEFAULT_BRANDING },
   contrastSafeMode: false,
 });

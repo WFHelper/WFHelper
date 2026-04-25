@@ -8,7 +8,17 @@
 
   function onScaleChange(event: Event): void {
     const input = event.target as HTMLInputElement;
-    const value = Math.max(FONT_SCALE_MIN, Math.min(FONT_SCALE_MAX, Number(input.value)));
+    const parsed = Number(input.value);
+    if (!Number.isFinite(parsed)) return;
+    const value = Math.max(FONT_SCALE_MIN, Math.min(FONT_SCALE_MAX, parsed));
+    themeSettings.setGlobalScale(value);
+  }
+
+  function onScalePercentChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const parsed = Number(input.value);
+    if (!Number.isFinite(parsed)) return;
+    const value = Math.max(FONT_SCALE_MIN, Math.min(FONT_SCALE_MAX, parsed / 100));
     themeSettings.setGlobalScale(value);
   }
 
@@ -41,15 +51,7 @@
     key: "headingSize" | "bodySize" | "smallSize",
     value: number | undefined,
   ): void {
-    themeSettings.update((s) => {
-      const next = { ...s, fontSizes: { ...s.fontSizes } };
-      if (value != null) {
-        next.fontSizes[key] = value;
-      } else {
-        delete next.fontSizes[key];
-      }
-      return next;
-    });
+    themeSettings.setOptionalFontSize(key, value);
   }
 </script>
 
@@ -62,7 +64,7 @@
   </div>
 
   <div class="grid gap-[0.45rem]">
-    <label class="flex items-center justify-between gap-[0.6rem] border border-border rounded-lg bg-bg-raised py-[0.45rem] px-[0.55rem]">
+    <label class="flex items-center justify-between gap-[0.6rem] border border-[var(--ui-control-border)] rounded-[var(--radius-lg)] bg-[var(--ui-control-bg)] py-[0.45rem] px-[0.55rem]">
       <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.globalScale")}</span>
       <div class="flex items-center gap-[0.4rem]">
         <input
@@ -74,15 +76,24 @@
           value={fontSizes.globalScale}
           on:input={onScaleChange}
         />
-        <span class="font-display text-[0.78rem] font-bold text-accent min-w-[3rem] text-right">{scalePercent}%</span>
+        <input
+          type="number"
+          class="w-[4.3rem] border border-[var(--ui-control-border)] rounded-[var(--radius-md)] bg-bg-base text-text-primary text-[0.78rem] py-[0.24rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
+          min={Math.round(FONT_SCALE_MIN * 100)}
+          max={Math.round(FONT_SCALE_MAX * 100)}
+          step={Math.round(FONT_SCALE_STEP * 100)}
+          value={scalePercent}
+          on:input={onScalePercentChange}
+        />
+        <span class="font-display text-[0.78rem] font-bold text-accent">%</span>
       </div>
     </label>
 
-    <label class="flex items-center justify-between gap-[0.6rem] border border-border rounded-lg bg-bg-raised py-[0.45rem] px-[0.55rem]">
+    <label class="flex items-center justify-between gap-[0.6rem] border border-[var(--ui-control-border)] rounded-[var(--radius-lg)] bg-[var(--ui-control-bg)] py-[0.45rem] px-[0.55rem]">
       <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.headingSize")}</span>
       <input
         type="number"
-        class="w-20 border border-border rounded-[0.42rem] bg-bg-base text-text-primary text-[0.84rem] py-[0.3rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
+        class="w-20 border border-[var(--ui-control-border)] rounded-[var(--radius-md)] bg-bg-base text-text-primary text-[0.84rem] py-[0.3rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
         min="0.5"
         max="5"
         step="0.05"
@@ -92,11 +103,11 @@
       />
     </label>
 
-    <label class="flex items-center justify-between gap-[0.6rem] border border-border rounded-lg bg-bg-raised py-[0.45rem] px-[0.55rem]">
+    <label class="flex items-center justify-between gap-[0.6rem] border border-[var(--ui-control-border)] rounded-[var(--radius-lg)] bg-[var(--ui-control-bg)] py-[0.45rem] px-[0.55rem]">
       <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.bodySize")}</span>
       <input
         type="number"
-        class="w-20 border border-border rounded-[0.42rem] bg-bg-base text-text-primary text-[0.84rem] py-[0.3rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
+        class="w-20 border border-[var(--ui-control-border)] rounded-[var(--radius-md)] bg-bg-base text-text-primary text-[0.84rem] py-[0.3rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
         min="0.5"
         max="5"
         step="0.05"
@@ -106,11 +117,11 @@
       />
     </label>
 
-    <label class="flex items-center justify-between gap-[0.6rem] border border-border rounded-lg bg-bg-raised py-[0.45rem] px-[0.55rem]">
+    <label class="flex items-center justify-between gap-[0.6rem] border border-[var(--ui-control-border)] rounded-[var(--radius-lg)] bg-[var(--ui-control-bg)] py-[0.45rem] px-[0.55rem]">
       <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.smallSize")}</span>
       <input
         type="number"
-        class="w-20 border border-border rounded-[0.42rem] bg-bg-base text-text-primary text-[0.84rem] py-[0.3rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
+        class="w-20 border border-[var(--ui-control-border)] rounded-[var(--radius-md)] bg-bg-base text-text-primary text-[0.84rem] py-[0.3rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
         min="0.3"
         max="3"
         step="0.05"

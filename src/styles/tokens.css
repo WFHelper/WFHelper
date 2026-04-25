@@ -20,6 +20,16 @@
   --border-strong: rgba(212, 168, 67, 0.25);
   --border-subtle: rgba(255, 255, 255, 0.12);
   --surface-hover: rgba(255, 255, 255, 0.05);
+  --radius-sm: 0.28rem;
+  --radius-md: 0.42rem;
+  --radius-lg: 0.62rem;
+  --radius-xl: 0.78rem;
+  --ui-panel-bg: var(--bg-surface);
+  --ui-panel-border: var(--border);
+  --ui-panel-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+  --ui-control-bg: var(--bg-raised);
+  --ui-control-border: var(--border);
+  --ui-backdrop-blur: none;
   --sidebar-width: 300px;
   --titlebar-height: 38px;
   --statusbar-height: 28px;
@@ -49,4 +59,3 @@
   --grade-f: #ef4444;
   --grade-default: #8b93a5;
 }
-

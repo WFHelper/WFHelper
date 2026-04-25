@@ -3,12 +3,14 @@ import App from "./App.svelte";
 import { initRendererCrashReporting } from "./lib/crashReporting.js";
 import { send } from "./lib/ipc.js";
 import { themeSettings } from "./stores/theme.js";
+import type { ThemeColors } from "./types/theme.js";
+import { THEME_COLOR_CSS_MAP, THEME_EFFECT_CSS_MAP } from "./types/theme.js";
 
 if (!window.api) {
   console.error(
     "[Renderer] FATAL: window.api is undefined. The preload bridge failed to initialize.\n" +
-    "This usually means preload.js threw an error during startup.\n" +
-    "Check the main process terminal output for errors.",
+      "This usually means preload.js threw an error during startup.\n" +
+      "Check the main process terminal output for errors.",
   );
 }
 
@@ -19,46 +21,6 @@ if (!root) {
 
 initRendererCrashReporting();
 
-const OVERLAY_THEME_KEYS = Object.freeze([
-  "bgDeep",
-  "bgBase",
-  "bgSurface",
-  "bgRaised",
-  "bgHover",
-  "accent",
-  "accentDim",
-  "accentBright",
-  "textPrimary",
-  "textSecondary",
-  "textMuted",
-  "success",
-  "warning",
-  "danger",
-  "info",
-  "border",
-  "borderStrong",
-] as const);
-
-const OVERLAY_THEME_VAR_MAP: Record<(typeof OVERLAY_THEME_KEYS)[number], string> = {
-  bgDeep: "--bg-deep",
-  bgBase: "--bg-base",
-  bgSurface: "--bg-surface",
-  bgRaised: "--bg-raised",
-  bgHover: "--bg-hover",
-  accent: "--accent",
-  accentDim: "--accent-dim",
-  accentBright: "--accent-bright",
-  textPrimary: "--text-primary",
-  textSecondary: "--text-secondary",
-  textMuted: "--text-muted",
-  success: "--success",
-  warning: "--warning",
-  danger: "--danger",
-  info: "--info",
-  border: "--border",
-  borderStrong: "--border-strong",
-};
-
 themeSettings.subscribe((settings) => {
   if (typeof window === "undefined" || typeof window.api?.updateOverlayTheme !== "function") {
     return;
@@ -68,10 +30,12 @@ themeSettings.subscribe((settings) => {
   if (!colors) return;
 
   const vars: Record<string, string> = {};
-  for (const key of OVERLAY_THEME_KEYS) {
+  for (const [key, cssVar] of Object.entries(THEME_COLOR_CSS_MAP) as Array<
+    [keyof ThemeColors, string]
+  >) {
     const value = colors[key];
     if (typeof value !== "string" || value.trim().length === 0) continue;
-    vars[OVERLAY_THEME_VAR_MAP[key]] = value;
+    vars[cssVar] = value;
   }
 
   if (vars["--accent"]) {
@@ -105,6 +69,9 @@ themeSettings.subscribe((settings) => {
   copyRootVar("--font-heading-size");
   copyRootVar("--font-body-size");
   copyRootVar("--font-small-size");
+  for (const cssVar of Object.values(THEME_EFFECT_CSS_MAP)) {
+    copyRootVar(cssVar);
+  }
 
   send("overlay-theme-updated", vars);
 });

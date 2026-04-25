@@ -25,7 +25,6 @@
     evHasFreshNoData,
     fissureTierClass,
     getCachedEv,
-    getCachedRelicCardPrice,
     parseOwnedRelics,
     warmupRelicCardPrices,
     warmupRewardDucats,
@@ -800,18 +799,14 @@
 <style>
   .relic-compact-card {
     width: 100%; display: flex; min-width: 0; flex-direction: column; gap: 0.5rem;
-    border: 1px solid var(--border); border-radius: 0.74rem;
-    background:
-      radial-gradient(circle at 14% 30%, color-mix(in oklab, var(--accent) 20%, transparent) 0%, transparent 52%),
-      linear-gradient(180deg, color-mix(in oklab, var(--bg-surface) 88%, black) 0%, color-mix(in oklab, var(--bg-base) 94%, black) 100%);
+    border: 1px solid var(--ui-panel-border); border-radius: var(--radius-xl);
+    background: var(--ui-panel-bg);
     padding: 0.6rem; cursor: default; text-align: left; color: var(--text-primary); font: inherit;
     transition: border-color 0.14s ease, background 0.14s ease, transform 0.14s ease;
   }
   .relic-compact-card:hover {
     border-color: var(--border-strong);
-    background:
-      radial-gradient(circle at 14% 30%, color-mix(in oklab, var(--accent) 30%, transparent) 0%, transparent 56%),
-      linear-gradient(180deg, color-mix(in oklab, var(--bg-raised) 86%, black) 0%, color-mix(in oklab, var(--bg-base) 92%, black) 100%);
+    background: var(--bg-hover);
     transform: translateY(-1px);
   }
   .relic-compact-card :global(.relic-icon) { width: 1.85rem; height: 1.85rem; }
@@ -842,7 +837,7 @@
 
   .relic-reward-preview-icon {
     display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 0.5rem; border: 1px solid var(--border);
+    border-radius: var(--radius-md); border: 1px solid var(--ui-control-border);
     background: color-mix(in oklab, var(--bg-raised) 86%, var(--bg-base));
     padding: 0.2rem; min-height: 2.05rem;
   }
@@ -855,7 +850,7 @@
   .relic-quality-inline-pill {
     appearance: none; min-width: 0; width: 100%; display: inline-flex;
     flex-direction: row; align-items: center; justify-content: center;
-    border-radius: 0.34rem;
+    border-radius: var(--radius-md);
     border: 1px solid color-mix(in oklab, var(--info) 36%, transparent);
     background: color-mix(in oklab, var(--info) 14%, var(--bg-base));
     gap: 0.2rem; padding: 0.18rem 0.3rem; font-family: var(--font-display);

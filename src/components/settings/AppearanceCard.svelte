@@ -4,6 +4,7 @@
   import { tr } from "../../lib/i18n.js";
   import PresetSelector from "./PresetSelector.svelte";
   import ColorSection from "./ColorSection.svelte";
+  import StyleSection from "./StyleSection.svelte";
   import FontSizeSection from "./FontSizeSection.svelte";
   import BrandingSection from "./BrandingSection.svelte";
 
@@ -18,13 +19,14 @@
 
   <div class="settings-form">
     <PresetSelector />
+    <StyleSection />
     <ColorSection />
     <FontSizeSection />
     <BrandingSection />
 
     <!-- Contrast-Safe Mode -->
     <div class="appearance-section">
-      <label class="flex items-center justify-between gap-[0.6rem] cursor-pointer border border-border rounded-lg bg-bg-raised py-[0.52rem] px-[0.6rem]">
+      <label class="flex items-center justify-between gap-[0.6rem] cursor-pointer border border-[var(--ui-control-border)] rounded-[var(--radius-lg)] bg-[var(--ui-control-bg)] py-[0.52rem] px-[0.6rem]">
         <span class="text-text-secondary text-[0.8rem] font-medium">
           {$tr("appearance.contrastSafeMode")}
           <span class="block text-[0.68rem] text-text-muted font-normal mt-[0.1rem]">{$tr("appearance.contrastSafeModeHint")}</span>
@@ -40,7 +42,7 @@
 
     <!-- Market list density -->
     <div class="appearance-section">
-      <div class="rounded-lg border border-border bg-bg-raised py-[0.52rem] px-[0.6rem]">
+      <div class="rounded-[var(--radius-lg)] border border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] py-[0.52rem] px-[0.6rem]">
         <div class="flex items-center justify-between gap-2">
           <span class="text-text-secondary text-[0.8rem] font-medium">
             Market list density
@@ -48,7 +50,7 @@
               Choose how your Warframe.market orders and riven contracts are displayed.
             </span>
           </span>
-          <div class="inline-flex overflow-hidden rounded border border-border bg-bg-surface text-[0.72rem]">
+          <div class="inline-flex overflow-hidden rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-bg-surface text-[0.72rem]">
             <button
               type="button"
               class="px-2 py-1 transition-colors {$marketDensity === 'compact' ? 'bg-accent text-bg-base font-semibold' : 'text-text-secondary hover:text-text-primary'}"

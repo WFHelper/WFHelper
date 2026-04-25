@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { applyTheme } from "./applyTheme.js";
 import { cloneDefaultTheme } from "./themeStorage.js";
-import { THEME_COLOR_CSS_MAP } from "../../types/theme.js";
+import { THEME_COLOR_CSS_MAP, THEME_EFFECT_CSS_MAP } from "../../types/theme.js";
 
 // Mock document.documentElement.style
 const styleProps = new Map<string, string>();
@@ -45,6 +45,28 @@ describe("applyTheme", () => {
 
     const fontSize = styleProps.get("font-size");
     expect(fontSize).toContain("px");
+  });
+
+  it("sets effect CSS variables", () => {
+    const theme = cloneDefaultTheme();
+    theme.effects.cornerStyle = "round";
+    theme.effects.surfaceStyle = "border";
+    applyTheme(theme);
+
+    for (const cssVar of Object.values(THEME_EFFECT_CSS_MAP)) {
+      expect(styleProps.has(cssVar)).toBe(true);
+    }
+    expect(styleProps.get("--radius-lg")).toBe("1.05rem");
+    expect(styleProps.get("--ui-panel-bg")).toBe("transparent");
+    expect(styleProps.get("--ui-panel-border")).toBe("var(--border)");
+  });
+
+  it("enables real blur for full glass surfaces", () => {
+    const theme = cloneDefaultTheme();
+    theme.effects.glass = true;
+    applyTheme(theme);
+
+    expect(styleProps.get("--ui-backdrop-blur")).toBe("blur(10px)");
   });
 
   it("sets per-category font size variables when defined", () => {
