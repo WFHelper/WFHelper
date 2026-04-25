@@ -1,6 +1,5 @@
 <script lang="ts">
   import { activeItem } from "../stores/modals.js";
-  import { openWithCraftingTree } from "../stores/modals.js";
   import { itemDb, wfmItems, componentOwnership } from "../stores/data.js";
   import { loadItemPrice } from "../lib/priceLoader.js";
   import { buildCraftingTree } from "../lib/craftingTree.js";
@@ -35,8 +34,7 @@
   // Reset selected component when item changes
   $: if (item) {
     selectedComp = null;
-    showCraftingTree = $openWithCraftingTree;
-    openWithCraftingTree.set(false);
+    showCraftingTree = false;
     loadPrice(item.name);
   }
 

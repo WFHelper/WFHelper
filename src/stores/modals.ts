@@ -10,6 +10,3 @@ export interface ActiveComponentState {
 export const activeItem = writable<ParsedItem | null>(null);
 export const activeComponent = writable<ActiveComponentState | null>(null);
 export const activeRelic = writable<RelicGroup | null>(null);
-
-/** When set alongside activeItem, opens the item detail modal with crafting tree visible. */
-export const openWithCraftingTree = writable(false);

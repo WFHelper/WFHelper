@@ -5,7 +5,6 @@
   import type { InventoryViewItem } from "../../lib/inventoryMarket.js";
 
   export let items: InventoryViewItem[] = [];
-  export let showDebug = false;
   export let showDucats = true;
 
   const dispatch = createEventDispatcher<{ select: InventoryViewItem; visible: InventoryViewItem }>();
@@ -32,7 +31,6 @@
     {#each items as item (item.internalName)}
       <InventoryCard
         {item}
-        {showDebug}
         {showDucats}
         on:select={handleSelect}
         on:visible={handleVisible}

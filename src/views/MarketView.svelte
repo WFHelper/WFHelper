@@ -1,5 +1,4 @@
 <script lang="ts">
-  import ViewPerfMark from "../components/ViewPerfMark.svelte";
   import { onMount } from "svelte";
 
   import {
@@ -364,7 +363,6 @@
 </script>
 
 <section class="view active">
-<ViewPerfMark name="market" />
   {#if !$marketSession.loggedIn}
     <div class="flex flex-col items-center gap-3 py-3">
       <div class="w-[min(560px,100%)] rounded-xl border border-border bg-bg-surface p-4">

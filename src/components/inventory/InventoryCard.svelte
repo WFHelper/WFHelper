@@ -6,7 +6,6 @@
   import { isRankedGroup } from "../../../config/shared/numeric.js";
 
   export let item: InventoryViewItem;
-  export let showDebug = false;
   export let showDucats = true;
 
   const dispatch = createEventDispatcher<{ select: InventoryViewItem; visible: InventoryViewItem }>();
@@ -146,9 +145,6 @@
       <span class="text-[0.74rem] text-success whitespace-nowrap overflow-hidden text-ellipsis">{item.equippedSummary}</span>
     {/if}
 
-    {#if showDebug}
-      <span class="debug-reason">{item.debugLabel}</span>
-    {/if}
   </div>
 </div>
 

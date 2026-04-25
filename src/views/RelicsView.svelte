@@ -1,5 +1,4 @@
 ﻿<script lang="ts">
-  import ViewPerfMark from "../components/ViewPerfMark.svelte";
   import { onDestroy, onMount } from "svelte";
 
   import {
@@ -34,12 +33,6 @@
     relicGroupMatchesSearch,
   } from "../lib/relic.js";
   import { invoke, send } from "../lib/ipc.js";
-  import {
-    markRelicWarmupComplete,
-    markRelicWarmupFirstUseful,
-    perfSnapshot,
-  } from "../lib/perf.js";
-  import { debugMode } from "../stores/app.js";
   import ItemImage from "../components/ItemImage.svelte";
   import SearchBox from "../components/SearchBox.svelte";
   import SortArrow from "../components/SortArrow.svelte";
@@ -319,12 +312,6 @@
         await warmupRelicEvs(ownedGroups, onEvBatchDone, "high");
         await warmupRelicEvs(unownedGroups, onEvBatchDone, "low");
 
-        if (
-          relicViewMounted &&
-          $perfSnapshot.relicWarmupCompleteMs == null
-        ) {
-          markRelicWarmupComplete();
-        }
       })();
     }, EV_WARMUP_START_DELAY_MS);
   }
@@ -417,18 +404,6 @@
 
     return relicGroups;
   })();
-
-  $: if ($perfSnapshot.relicWarmupFirstUsefulMs == null && groups.length > 0) {
-    const hasUsefulPrice = groups.some((group) => {
-      const ev = selectedEvDataForMode(group, $relicQualityMode).plat;
-      const relicPrice = getCachedRelicCardPrice(group.key);
-      return ev != null || relicPrice != null;
-    });
-
-    if (hasUsefulPrice) {
-      markRelicWarmupFirstUseful();
-    }
-  }
 
   $: visibleRelicEntryCount = groups.reduce(
     (sum, group) =>
@@ -663,7 +638,6 @@
 </script>
 
 <section class="view active">
-<ViewPerfMark name="relics" />
   <div class="mb-4">
     <h2 class="m-0 mb-2 font-display text-[1.875rem] font-semibold tracking-[0.03em] text-text-primary">Relic Planner ({groups.length} groups / {visibleRelicEntryCount} entries)</h2>
     <div class="flex items-end border-b border-white/[0.09]">
@@ -817,9 +791,6 @@
             {/each}
           </span>
 
-          {#if $debugMode}
-            <span class="debug-reason">show:relic-planner:{group.key}</span>
-          {/if}
         </div>
       {/each}
     </div>

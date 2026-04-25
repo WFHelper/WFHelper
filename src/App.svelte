@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
+  import { onMount } from "svelte";
   import type { ComponentType } from "svelte";
 
   import Titlebar from "./components/Titlebar.svelte";
@@ -7,7 +7,6 @@
   import StatusBar from "./components/StatusBar.svelte";
   import ErrorBoundary from "./components/ErrorBoundary.svelte";
   import ToastHost from "./components/ToastHost.svelte";
-  import PerfHud from "./components/PerfHud.svelte";
 
   import { normalizeErrorMessage } from "../config/shared/errors.js";
 
@@ -32,12 +31,6 @@
   import { addToast } from "./stores/toasts.js";
   import { onInventoryLoaded, setInventoryStatus } from "./lib/actions.js";
   import { initStartup } from "./lib/startupLoader.js";
-  import {
-    beginHeavyViewOpen,
-    completeHeavyViewOpen,
-    markStartupInteractive,
-    type HeavyViewName,
-  } from "./lib/perf.js";
   import { invoke, on } from "./lib/ipc.js";
   import { tr } from "./lib/i18n.js";
   import type { MessageKey } from "./lib/i18n.js";
@@ -55,7 +48,7 @@
     | "rivens"
     | "settings";
 
-  type LazyViewName = Extract<ViewName, HeavyViewName>;
+  type LazyViewName = Extract<ViewName, "world" | "market" | "relics">;
   type LazyViewModule = { default: ComponentType };
 
   interface LazyViewEntry {
@@ -79,15 +72,6 @@
   $: setInventoryStatus($parsedItems.length);
 
   onMount(() => {
-    let startupInteractiveFrameA: number | null = null;
-    let startupInteractiveFrameB: number | null = null;
-
-    startupInteractiveFrameA = requestAnimationFrame(() => {
-      startupInteractiveFrameB = requestAnimationFrame(() => {
-        markStartupInteractive();
-      });
-    });
-
     const unsubscribeViewChange = currentView.subscribe((view) => {
       handleViewChange(view);
     });
@@ -136,13 +120,6 @@
 
     return () => {
       startup.dispose();
-      if (startupInteractiveFrameA != null) {
-        cancelAnimationFrame(startupInteractiveFrameA);
-      }
-      if (startupInteractiveFrameB != null) {
-        cancelAnimationFrame(startupInteractiveFrameB);
-      }
-
       unsubscribeViewChange();
       unsubscribeInventoryUpdated();
       unsubscribeUpdateStatus();
@@ -168,7 +145,6 @@
       if (lastRequestedLazyView === view) return;
 
       lastRequestedLazyView = view;
-      beginHeavyViewOpen(view);
       void loadLazyView(view);
       return;
     }
@@ -201,8 +177,6 @@
 
       lazyViewComponent = component;
       lazyViewLoading = false;
-      await tick();
-      completeHeavyViewOpen(view);
     } catch (err) {
       if (requestToken !== lazyRequestToken || $currentView !== view) {
         return;
@@ -211,13 +185,11 @@
       lazyViewComponent = null;
       lazyViewLoading = false;
       lazyViewError = normalizeErrorMessage(err);
-      completeHeavyViewOpen(view);
     }
   }
 
   function retryLazyViewLoad(): void {
     if (!activeLazyView) return;
-    beginHeavyViewOpen(activeLazyView);
     void loadLazyView(activeLazyView);
   }
 
@@ -291,12 +263,5 @@
 </ErrorBoundary>
 
 <ToastHost />
-
-<!-- Perf HUD: always mounted; hidden until Ctrl+Alt+P.
-     (We don't gate on import.meta.env.DEV because `vite build --watch`
-     produces a prod bundle in which DEV is false.) -->
-<PerfHud />
-
-
 
 

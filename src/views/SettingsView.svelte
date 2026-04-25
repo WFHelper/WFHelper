@@ -1,5 +1,4 @@
 <script lang="ts">
-  import ViewPerfMark from "../components/ViewPerfMark.svelte";
   import { onMount } from "svelte";
   import { overlaySettings, overlaySettingsLoaded, OVERLAY_DEFAULTS, applyOverlaySettingsResponse } from "../stores/overlaySettings.js";
   import AppearanceCard from "../components/settings/AppearanceCard.svelte";
@@ -99,7 +98,6 @@
 </script>
 
 <section class="view active">
-<ViewPerfMark name="settings" />
   <div class="view-header">
     <h2>{$tr("settings.title")}</h2>
   </div>

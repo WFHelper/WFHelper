@@ -1,13 +1,10 @@
 <script lang="ts">
-  import ViewPerfMark from "../components/ViewPerfMark.svelte";
   import { onDestroy, onMount } from "svelte";
 
   import { parsedItems, wfmItems, inventoryData, itemDb } from "../stores/data.js";
   import { marketOrders } from "../stores/market.js";
   import { relicDb } from "../stores/relics.js";
-  import { debugMode } from "../stores/app.js";
   import InventoryHeader from "../components/inventory/InventoryHeader.svelte";
-  import InventoryDebugPanel from "../components/inventory/InventoryDebugPanel.svelte";
   import InventoryGrid from "../components/inventory/InventoryGrid.svelte";
   import InventoryOrderBookPanel from "../components/inventory/InventoryOrderBookPanel.svelte";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
@@ -41,7 +38,6 @@
 
   const METRIC_VISIBLE_PREFETCH_LIMIT = 42;
   const METRIC_BACKGROUND_PREFETCH_LIMIT = 210;
-  const DEBUG_REFRESH_MS = 900;
   const HOTSET_REFRESH_DELAY_MS = 4_000;
   const HOTSET_REFRESH_LIMIT = 12;
 
@@ -53,8 +49,6 @@
 
   const hydration = getInventoryHydrationController();
   const hydrationMetrics = hydration.metricsByKey;
-  const hydrationDebug = hydration.debugState;
-  let debugStatsTimer: ReturnType<typeof setInterval> | null = null;
   let hotsetRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   let hotsetRefreshSignature = "";
   let hotsetRefreshCompletedSignature = "";
@@ -167,23 +161,12 @@
 
   onMount(() => {
     hydration.resume();
-    hydration.refreshDebugStats();
-
-    if (debugStatsTimer) clearInterval(debugStatsTimer);
-    debugStatsTimer = setInterval(() => {
-      if (!$debugMode) return;
-      hydration.refreshDebugStats();
-    }, DEBUG_REFRESH_MS);
   });
 
   onDestroy(() => {
     clearHotsetRefreshTimer();
 
     hydration.pause();
-    if (debugStatsTimer) {
-      clearInterval(debugStatsTimer);
-      debugStatsTimer = null;
-    }
   });
 
   $: ({ orderedNames, orderedSlugs } = buildOrderLookups($marketOrders));
@@ -242,13 +225,9 @@
     prefetchVisibleMetrics(filtered, metricNeeds);
     maybeScheduleRankedHotsetRefresh(allRankedBaseItems);
   }
-  $: if ($debugMode) {
-    hydration.refreshDebugStats();
-  }
 </script>
 
 <section class="view active">
-<ViewPerfMark name="inventory" />
   <InventoryHeader
     totalCount={filteredTotalCount}
     filters={FILTERS}
@@ -261,16 +240,6 @@
   {#if filter === "resources"}
     <ResourcesView resources={filteredResources} />
   {:else}
-    {#if $debugMode}
-      <InventoryDebugPanel
-        activeTab={filter}
-        debug={$hydrationDebug}
-        backendHitOk={$hydrationDebug.priceDebugCounters.backendHitOk}
-        backendHitNoData={$hydrationDebug.priceDebugCounters.backendHitNoData}
-        backendError={$hydrationDebug.priceDebugCounters.backendError}
-      />
-    {/if}
-
     {#if showFilterPanel}
       <div class="inventory-filter-popover">
         <SharedFilterBar scope="inventory" showBasic={false} showAdvanced={true} />
@@ -281,7 +250,6 @@
       <div class="min-w-0">
         <InventoryGrid
           items={filtered}
-          showDebug={$debugMode}
           {showDucats}
           on:select={handleItemSelect}
           on:visible={handleItemVisible}

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import ViewPerfMark from "../components/ViewPerfMark.svelte";
   import { onMount, onDestroy } from "svelte";
   import { worldData, worldLoading, worldLastFetch, worldFissureMode } from "../stores/world.js";
   import { inventoryData, itemDb, componentOwnership, wfmItems } from "../stores/data.js";
@@ -141,7 +140,14 @@
     const db = $itemDb[uniqueName];
     if (!db) return;
 
-    activeItem.set(buildParsedItemFromDb(uniqueName, db, $componentOwnership, { extraDrops }));
+    activeItem.set(
+      buildParsedItemFromDb(
+        uniqueName,
+        db,
+        $componentOwnership,
+        extraDrops ? { extraDrops } : {},
+      ),
+    );
   }
 
   // Urgency threshold: remaining < 20% of total duration → urgent.
@@ -328,7 +334,6 @@
 </script>
 
 <section class="view active">
-<ViewPerfMark name="world" />
   <div class="view-header">
     <div class="flex items-center gap-3">
       <h2>World</h2>

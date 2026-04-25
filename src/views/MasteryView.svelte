@@ -1,9 +1,7 @@
 <script lang="ts">
-  import ViewPerfMark from "../components/ViewPerfMark.svelte";
   import { masteryData } from "../stores/mastery.js";
-  import { wfmItems, itemDb } from "../stores/data.js";
-  import { debugMode } from "../stores/app.js";
-  import { activeItem, activeComponent, openWithCraftingTree } from "../stores/modals.js";
+  import { wfmItems } from "../stores/data.js";
+  import { activeItem, activeComponent } from "../stores/modals.js";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
   import { applySharedFiltersAndSort } from "../lib/filters.js";
   import { sharedFilters } from "../stores/filters.js";
@@ -69,7 +67,6 @@
 </script>
 
 <section class="view active">
-<ViewPerfMark name="mastery" />
   <div class="view-header">
     <h2>Mastery Helper</h2>
   </div>
@@ -175,7 +172,6 @@
         <div class="empty-state col-span-full"><p>No items match your filters</p></div>
       {:else}
         {#each filtered as item, itemIndex (`${item.uniqueName || item.internalName || item.name}-${itemIndex}`)}
-          {@const hasRecipe = !!($itemDb || {})[item.uniqueName || item.internalName]?.recipe}
           <!-- svelte-ignore a11y-click-events-have-key-events -->
           <!-- svelte-ignore a11y-no-static-element-interactions -->
           <div
@@ -213,9 +209,6 @@
               {:else}
                 <span class="text-[0.72rem] text-text-muted">Not owned</span>
               {/if}
-              {#if $debugMode}
-                <span class="debug-reason">{item.debugReason || 'show:mastery'}</span>
-              {/if}
               {#if (item.components || []).length > 0}
                 <div class="mt-1.5 flex flex-wrap gap-1">
                   {#each (item.components || []).slice(0, 8) as comp, compIndex (`${comp.uniqueName || comp.name || 'component'}-${compIndex}`)}
@@ -242,22 +235,6 @@
                     <path d="M6 3H3v10h10v-3"/>
                     <path d="M9 2h5v5"/>
                     <path d="M14 2L7 9"/>
-                  </svg>
-                </button>
-              {/if}
-              {#if hasRecipe}
-              <button
-                  type="button"
-                  class="absolute bottom-1.5 right-1.5 inline-flex h-[1.45rem] w-[1.45rem] items-center justify-center rounded-[0.3rem] border border-border bg-black/25 text-text-muted transition-[opacity,color,border-color] duration-[120ms] hover:text-accent hover:border-accent-dim"
-                  title="Open crafting tree"
-                  aria-label="Crafting tree for {item.name}"
-                  on:click|stopPropagation={() => { openWithCraftingTree.set(true); activeItem.set(item); }}
-                >
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" class="h-[0.86rem] w-[0.86rem]">
-                    <circle cx="8" cy="3" r="1.5" />
-                    <circle cx="3" cy="13" r="1.5" />
-                    <circle cx="13" cy="13" r="1.5" />
-                    <path d="M8 4.5V8M8 8L3 11.5M8 8l5 3.5" />
                   </svg>
                 </button>
               {/if}

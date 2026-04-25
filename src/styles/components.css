@@ -435,7 +435,7 @@
       border-color 0.12s,
       background-color 0.12s;
     /* Paint containment isolates each card so hover repaints stay local
-       instead of invalidating the grid. Big FPS win with many cards. */
+       instead of invalidating the grid when many cards are visible. */
     contain: layout paint style;
   }
   .item-card {
@@ -523,13 +523,9 @@
   .rank-fill-svg.max {
     fill: var(--success);
   }
-  .item-rank-text,
-  .debug-reason {
+  .item-rank-text {
     font-size: var(--font-small-size, 0.72rem);
     color: var(--text-muted);
-  }
-  .debug-reason {
-    font-family: monospace;
   }
 
   /* ── cross-component badges ──────────────────────────────────── */
