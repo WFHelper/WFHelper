@@ -5,7 +5,7 @@
 </script>
 
 <button class="world-section-toggle" on:click={onToggle} aria-expanded={!collapsed}>
-  <span class="world-toggle-icon" class:collapsed>&#x25BE;</span>
+  <span class="world-toggle-icon" class:collapsed aria-hidden="true"></span>
   <h3>{title}</h3>
 </button>
 

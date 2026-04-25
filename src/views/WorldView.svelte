@@ -367,14 +367,14 @@
                   <div class="flex items-center gap-[0.35rem] min-w-0">
                     <img class="h-[33px] w-[33px] shrink-0 rounded-full object-cover" src={row.src} alt="" />
                     <span class="text-[0.88rem] font-semibold whitespace-nowrap text-text-primary">{row.key.charAt(0).toUpperCase() + row.key.slice(1)}</span>
-                    <span class="world-state-{row.stateClass} rounded-[0.2rem] px-[0.35rem] py-[0.08rem] text-[0.72rem] font-bold whitespace-nowrap">{row.stateLabel}</span>
+                    <span class="world-state-{row.stateClass} rounded-[var(--radius-sm)] px-[0.35rem] py-[0.08rem] text-[0.72rem] font-bold whitespace-nowrap">{row.stateLabel}</span>
                   </div>
                   <span class="flex shrink-0 items-center gap-[0.3rem]">
                     <span class="text-[0.78rem] whitespace-nowrap text-text-secondary">{row.nextLabel} in</span>
                     <span class="font-display text-[0.85rem] tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={row.urgent}>{row.time}</span>
                     {#if hasCycleAlert}
                     <button
-                      class="inline-flex shrink-0 items-center justify-center w-5 h-5 rounded border border-border bg-transparent p-0 text-text-muted opacity-35 transition-[opacity,background,color,border-color] duration-150 cursor-pointer hover:opacity-80 hover:bg-white/[0.06] data-[active]:opacity-100 data-[active]:text-warning data-[active]:border-[rgba(251,191,36,0.4)] data-[active]:bg-[rgba(251,191,36,0.1)]"
+                      class="inline-flex shrink-0 items-center justify-center w-5 h-5 rounded-[var(--radius-md)] border border-border bg-transparent p-0 text-text-muted opacity-35 transition-[opacity,background,color,border-color] duration-150 cursor-pointer hover:opacity-80 hover:bg-white/[0.06] data-[active]:opacity-100 data-[active]:text-warning data-[active]:border-[rgba(251,191,36,0.4)] data-[active]:bg-[rgba(251,191,36,0.1)]"
                       data-active={alertOn || undefined}
                       title={alertOn ? `Disable ${row.key} notification` : `Enable ${row.key} notification`}
                       on:click={() => toggleCycleAlert(alertKey)}
@@ -401,7 +401,7 @@
               <span class="flex items-center gap-1">
                 <input
                   type="number"
-                  class="cycle-lead-input w-[2.6rem] rounded border border-border bg-[rgba(0,0,0,0.25)] px-[0.3rem] py-[0.15rem] text-center text-[0.78rem] text-text-primary outline-none"
+                  class="cycle-lead-input w-[2.6rem] rounded-[var(--radius-md)] border border-border bg-[rgba(0,0,0,0.25)] px-[0.3rem] py-[0.15rem] text-center text-[0.78rem] text-text-primary outline-none"
                   min="0"
                   max="120"
                   value={$overlaySettings.cycleAlertMinutesBefore ?? 3}
@@ -430,7 +430,7 @@
         <div class="world-section">
           <div class="flex items-center justify-between gap-2 mb-[0.55rem]">
             <button class="world-section-toggle" on:click={() => toggleSection('resurgence')} aria-expanded={!collapsed.resurgence}>
-              <span class="world-toggle-icon" class:collapsed={collapsed.resurgence}>&#x25BE;</span>
+              <span class="world-toggle-icon" class:collapsed={collapsed.resurgence} aria-hidden="true"></span>
               <h3>Prime Resurgence</h3>
             </button>
           </div>
@@ -483,7 +483,7 @@
         <div class="world-section">
           <div class="flex items-center justify-between gap-2 mb-[0.55rem]">
             <button class="world-section-toggle" on:click={() => toggleSection('steelpath')} aria-expanded={!collapsed.steelpath}>
-              <span class="world-toggle-icon" class:collapsed={collapsed.steelpath}>&#x25BE;</span>
+              <span class="world-toggle-icon" class:collapsed={collapsed.steelpath} aria-hidden="true"></span>
               <h3>Steel Path Honors</h3>
             </button>
             <span class="font-display text-[0.88rem] tracking-[0.02em] whitespace-nowrap text-text-primary">{times.steelPath}</span>
@@ -506,17 +506,17 @@
         <div class="world-section border-t-0">
           <div class="flex items-center justify-between gap-2 mb-[0.55rem]">
             <button class="world-section-toggle" on:click={() => toggleSection('fissures')} aria-expanded={!collapsed.fissures}>
-              <span class="world-toggle-icon" class:collapsed={collapsed.fissures}>&#x25BE;</span>
+              <span class="world-toggle-icon" class:collapsed={collapsed.fissures} aria-hidden="true"></span>
               <h3>Void Fissures</h3>
             </button>
             <div class="flex">
               <button
-                class="fissure-tab rounded-l-[0.3rem] data-[active]:bg-accent data-[active]:text-bg-deep data-[active]:border-accent"
+                class="fissure-tab data-[active]:bg-accent data-[active]:text-bg-deep data-[active]:border-accent"
                 data-active={$worldFissureMode === 'normal' || undefined}
                 on:click={() => worldFissureMode.set('normal')}
               >Normal</button>
               <button
-                class="fissure-tab rounded-r-[0.3rem] border-l-0 data-[active]:bg-accent data-[active]:text-bg-deep data-[active]:border-accent"
+                class="fissure-tab border-l-0 data-[active]:bg-accent data-[active]:text-bg-deep data-[active]:border-accent"
                 data-active={$worldFissureMode === 'steel' || undefined}
                 on:click={() => worldFissureMode.set('steel')}
               >Steel Path</button>
@@ -529,7 +529,7 @@
             {:else}
               {#each fissureFlat as f}
                 <div class="fissure-row">
-                  <span class="world-badge-{f.tierCls} inline-flex min-w-20 items-center gap-[0.2rem] rounded px-[0.45rem] py-[0.18rem] text-[0.66rem] font-bold uppercase tracking-[0.06em]">
+                  <span class="world-badge-{f.tierCls} inline-flex min-w-20 items-center gap-[0.2rem] rounded-[var(--radius-md)] px-[0.45rem] py-[0.18rem] text-[0.66rem] font-bold uppercase tracking-[0.06em]">
                     <img class="h-3.5 w-3.5 shrink-0" src={RELIC_ICON_PATHS[f.tierCls] || RELIC_ICON_PATHS.default} alt="" />
                     {f.tier}
                   </span>
@@ -649,7 +649,7 @@
         {#each bounties as group}
           <div class="border-b border-border py-1 last:border-b-0">
             <button class="flex w-full items-center gap-[0.3rem] border-0 bg-transparent py-[0.2rem] text-left text-inherit cursor-pointer" on:click={() => toggleSection(`bounty-${group.syndicateKey}`)} aria-expanded={!collapsed[`bounty-${group.syndicateKey}`]}>
-              <span class="world-toggle-icon" class:collapsed={collapsed[`bounty-${group.syndicateKey}`]}>&#x25BE;</span>
+              <span class="world-toggle-icon" class:collapsed={collapsed[`bounty-${group.syndicateKey}`]} aria-hidden="true"></span>
               <span class="text-[1.15rem] font-semibold text-text-primary">{group.syndicate}</span>
               {#if bountyTimers[group.syndicateKey]?.timeStr}
                 <span class="font-display text-[0.88rem] tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={bountyTimers[group.syndicateKey]?.urgent}>{bountyTimers[group.syndicateKey].timeStr}</span>
@@ -667,7 +667,7 @@
                     {/if}
                   </span>
                   <span class="shrink-0 font-display whitespace-nowrap text-accent text-[1rem]">{job.enemyLevels[0]}–{job.enemyLevels[1]}</span>
-                  <span class="world-toggle-icon h-4 w-4 shrink-0 text-[0.75rem]" class:collapsed={!collapsed[`bounty-${group.syndicateKey}-${ji}`]}>&#x25BE;</span>
+                  <span class="world-toggle-icon h-4 w-4 shrink-0 text-[0.75rem]" class:collapsed={!collapsed[`bounty-${group.syndicateKey}-${ji}`]} aria-hidden="true"></span>
                 </button>
                 {#if collapsed[`bounty-${group.syndicateKey}-${ji}`]}
                 <div class="mb-[0.2rem] ml-[0.3rem] border-l-2 border-accent py-[0.2rem] pl-[1.2rem]">
@@ -746,8 +746,19 @@
   :global(.world-section-toggle h3) { margin: 0; }
   :global(.world-toggle-icon) {
     display: inline-flex; align-items: center; justify-content: center;
-    font-size: 0.95rem; line-height: 1; width: 1rem; height: 1rem;
+    font-size: 0; line-height: 1; width: 0.85rem; height: 0.85rem;
     transition: transform 0.15s ease; color: var(--text-secondary); flex-shrink: 0;
+    transform-origin: center;
+    margin-top: 0.02rem;
+  }
+  :global(.world-toggle-icon::before) {
+    content: "";
+    width: 0;
+    height: 0;
+    border-left: 0.22rem solid transparent;
+    border-right: 0.22rem solid transparent;
+    border-top: 0.32rem solid currentColor;
+    transform: translateY(-0.08rem);
   }
   :global(.world-toggle-icon.collapsed) { transform: rotate(-90deg); }
 
@@ -795,7 +806,16 @@
     padding: 0.25rem 0.65rem; font-size: 0.68rem; font-weight: 700;
     letter-spacing: 0.06em; text-transform: uppercase; background: none;
     border: 1px solid var(--border); color: var(--text-secondary);
+    border-radius: 0;
     cursor: pointer; transition: all 0.15s;
+  }
+  .fissure-tab:first-child {
+    border-top-left-radius: var(--radius-md);
+    border-bottom-left-radius: var(--radius-md);
+  }
+  .fissure-tab:last-child {
+    border-top-right-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
   }
   .fissure-tab[data-active] {
     background: var(--accent); color: var(--bg-deep); border-color: var(--accent);

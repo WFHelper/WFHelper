@@ -100,7 +100,7 @@
           <span class="inline-flex items-center rounded-full py-[0.12rem] px-2 text-[0.68rem] font-semibold border border-border bg-[rgba(255,255,255,0.05)] text-text-secondary">{spLabel(alert.steelPath)}</span>
           <span class="inline-flex items-center rounded-full py-[0.12rem] px-2 text-[0.68rem] font-semibold border border-border bg-[rgba(255,255,255,0.05)] text-text-secondary">{planetLabel(alert.planet)}</span>
           <button
-            class="ml-auto inline-flex items-center justify-center w-[1.3rem] h-[1.3rem] rounded border border-border bg-transparent text-text-secondary cursor-pointer text-[0.9rem] p-0 transition-[color,border-color,background] duration-150 hover:text-danger hover:border-[rgba(248,113,113,0.4)] hover:bg-[rgba(248,113,113,0.1)] disabled:opacity-40 disabled:cursor-not-allowed"
+            class="ml-auto inline-flex items-center justify-center w-[1.3rem] h-[1.3rem] rounded-[var(--radius-md)] border border-border bg-transparent text-text-secondary cursor-pointer text-[0.9rem] p-0 transition-[color,border-color,background] duration-150 hover:text-danger hover:border-[rgba(248,113,113,0.4)] hover:bg-[rgba(248,113,113,0.1)] disabled:opacity-40 disabled:cursor-not-allowed"
             title="Remove alert"
             disabled={saving}
             on:click={() => removeAlert(alert.id)}
@@ -111,27 +111,31 @@
   {/if}
 
   <div class="flex items-center gap-[0.4rem] flex-wrap">
-    <select bind:value={newTier} class="text-[0.74rem] rounded-[0.3rem] border border-border bg-bg-raised text-text-primary py-[0.2rem] px-[0.4rem] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled={saving}>
+    <select bind:value={newTier} class="cursor-pointer rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-bg-surface px-[0.4rem] py-[0.2rem] text-[0.74rem] text-text-primary disabled:cursor-not-allowed disabled:opacity-50 [&_option]:bg-bg-surface [&_option]:text-text-primary" disabled={saving}>
       {#each TIERS as t}
         <option value={t}>{t === "any" ? "Any tier" : t}</option>
       {/each}
     </select>
-    <select bind:value={newMissionType} class="text-[0.74rem] rounded-[0.3rem] border border-border bg-bg-raised text-text-primary py-[0.2rem] px-[0.4rem] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled={saving}>
+    <select bind:value={newMissionType} class="cursor-pointer rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-bg-surface px-[0.4rem] py-[0.2rem] text-[0.74rem] text-text-primary disabled:cursor-not-allowed disabled:opacity-50 [&_option]:bg-bg-surface [&_option]:text-text-primary" disabled={saving}>
       {#each MISSION_TYPES as m}
         <option value={m}>{m === "any" ? "Any mission" : m}</option>
       {/each}
     </select>
-    <select bind:value={newSteelPath} class="text-[0.74rem] rounded-[0.3rem] border border-border bg-bg-raised text-text-primary py-[0.2rem] px-[0.4rem] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled={saving}>
+    <select bind:value={newSteelPath} class="cursor-pointer rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-bg-surface px-[0.4rem] py-[0.2rem] text-[0.74rem] text-text-primary disabled:cursor-not-allowed disabled:opacity-50 [&_option]:bg-bg-surface [&_option]:text-text-primary" disabled={saving}>
       {#each STEEL_PATH_OPTIONS as opt}
         <option value={opt.value}>{opt.label}</option>
       {/each}
     </select>
-    <select bind:value={newPlanet} class="text-[0.74rem] rounded-[0.3rem] border border-border bg-bg-raised text-text-primary py-[0.2rem] px-[0.4rem] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled={saving}>
+    <select bind:value={newPlanet} class="cursor-pointer rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-bg-surface px-[0.4rem] py-[0.2rem] text-[0.74rem] text-text-primary disabled:cursor-not-allowed disabled:opacity-50 [&_option]:bg-bg-surface [&_option]:text-text-primary" disabled={saving}>
       {#each PLANETS as p}
         <option value={p}>{p === "any" ? "Any planet" : p}</option>
       {/each}
     </select>
-    <button class="btn-primary btn-sm" disabled={saving} on:click={addAlert}>Add</button>
+    <button
+      class="cursor-pointer rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-bg-surface px-[0.55rem] py-[0.2rem] text-[0.74rem] text-text-primary transition-[color,border-color,background] duration-150 hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+      disabled={saving}
+      on:click={addAlert}
+    >Add</button>
   </div>
 
   {#if error}

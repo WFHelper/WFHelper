@@ -2,6 +2,7 @@ import type {
   CustomThemePreset,
   ThemeCornerStyle,
   ThemeColors,
+  ThemeEffects,
   ThemeFontSizes,
   RelicCardStyle,
   ThemeSettings,
@@ -56,15 +57,7 @@ function migrateAndNormalize(raw: Record<string, unknown>): ThemeSettings {
       asOptionalNumber(rawFontSizes.bodySize, 0.5, 5),
       asOptionalNumber(rawFontSizes.smallSize, 0.3, 3),
     ),
-    effects: {
-      cornerStyle: asCornerStyle(rawEffects.cornerStyle, DEFAULT_EFFECTS.cornerStyle),
-      surfaceStyle: asSurfaceStyle(rawEffects.surfaceStyle, DEFAULT_EFFECTS.surfaceStyle),
-      glass: typeof rawEffects.glass === "boolean" ? rawEffects.glass : DEFAULT_EFFECTS.glass,
-      relicCardStyle: asRelicCardStyle(
-        rawEffects.relicCardStyle,
-        DEFAULT_EFFECTS.relicCardStyle,
-      ),
-    },
+    effects: normalizeEffects(rawEffects),
     customThemes: normalizeCustomThemes(raw.customThemes),
     branding: {
       logoDataUrl:
@@ -137,6 +130,15 @@ function asRelicCardStyle(value: unknown, fallback: RelicCardStyle): RelicCardSt
   return value === "ornate" || value === "plain" ? value : fallback;
 }
 
+function normalizeEffects(rawEffects: Record<string, unknown>): ThemeEffects {
+  return {
+    cornerStyle: asCornerStyle(rawEffects.cornerStyle, DEFAULT_EFFECTS.cornerStyle),
+    surfaceStyle: asSurfaceStyle(rawEffects.surfaceStyle, DEFAULT_EFFECTS.surfaceStyle),
+    glass: typeof rawEffects.glass === "boolean" ? rawEffects.glass : DEFAULT_EFFECTS.glass,
+    relicCardStyle: asRelicCardStyle(rawEffects.relicCardStyle, DEFAULT_EFFECTS.relicCardStyle),
+  };
+}
+
 function normalizeCustomThemes(value: unknown): CustomThemePreset[] {
   if (!Array.isArray(value)) return [];
 
@@ -168,15 +170,7 @@ function normalizeCustomThemes(value: unknown): CustomThemePreset[] {
         asOptionalNumber(rawFontSizes.bodySize, 0.5, 5),
         asOptionalNumber(rawFontSizes.smallSize, 0.3, 3),
       ),
-      effects: {
-        cornerStyle: asCornerStyle(rawEffects.cornerStyle, DEFAULT_EFFECTS.cornerStyle),
-        surfaceStyle: asSurfaceStyle(rawEffects.surfaceStyle, DEFAULT_EFFECTS.surfaceStyle),
-        glass: typeof rawEffects.glass === "boolean" ? rawEffects.glass : DEFAULT_EFFECTS.glass,
-        relicCardStyle: asRelicCardStyle(
-          rawEffects.relicCardStyle,
-          DEFAULT_EFFECTS.relicCardStyle,
-        ),
-      },
+      effects: normalizeEffects(rawEffects),
     });
   }
 

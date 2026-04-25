@@ -238,7 +238,7 @@
 <!-- Global tooltip (position: fixed, follows mouse) -->
 {#if tooltip}
   <div
-    class="fixed pointer-events-none rounded border border-border-strong bg-bg-raised px-[10px] py-1 text-[0.7rem] text-text-primary whitespace-nowrap z-[500] shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
+    class="fixed pointer-events-none rounded-[var(--radius-sm)] border border-border-strong bg-bg-raised px-[10px] py-1 text-[0.7rem] text-text-primary whitespace-nowrap z-[500] shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
     style="left:{tooltip.x + 14}px; top:{tooltip.y - 38}px"
     aria-hidden="true"
   >
@@ -257,27 +257,21 @@
   <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
   <div class="fixed inset-0 z-[400] flex items-center justify-center bg-black/65" on:click={() => { expandedKey = null; tooltip = null; }}>
     <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-    <div class="flex h-[72vh] w-[86vw] flex-col overflow-hidden rounded-md border border-border-strong bg-bg-surface p-4 pb-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)]" on:click|stopPropagation>
+    <div class="flex h-[72vh] w-[86vw] flex-col overflow-hidden rounded-[var(--radius-xl)] border border-border-strong bg-bg-surface p-4 pb-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)]" on:click|stopPropagation>
       <div class="mb-3 flex shrink-0 items-center justify-between">
         <span class="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-text-muted">
           {#if exIcon}<img src={exIcon} alt="" class="w-[18px] h-[18px] object-contain align-middle opacity-85" />{/if}
           {$tr(expandedChartTitle(expandedKey))}
         </span>
         <div class="flex items-center gap-2">
-          <button
-            class="text-[0.7rem] py-1 px-[0.6rem] rounded border cursor-pointer transition-[color,border-color,background] duration-150 whitespace-nowrap {showValue ? 'bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] border-accent text-accent font-semibold' : 'border-border bg-bg-raised text-text-secondary hover:text-text-primary hover:border-border-strong'}"
-            on:click={() => { showValue = !showValue; }}
-          >Value</button>
-          <button
-            class="text-[0.7rem] py-1 px-[0.6rem] rounded border cursor-pointer transition-[color,border-color,background] duration-150 whitespace-nowrap {showChange ? 'bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] border-accent text-accent font-semibold' : 'border-border bg-bg-raised text-text-secondary hover:text-text-primary hover:border-border-strong'}"
-            on:click={() => { showChange = !showChange; }}
-          >Change</button>
-          <button class="border-none bg-transparent text-text-muted cursor-pointer text-base leading-none px-1.5 py-0.5 rounded transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-raised" on:click={() => { expandedKey = null; tooltip = null; }}>✕</button>
+          <button class="cursor-pointer whitespace-nowrap rounded-[var(--radius-md)] border px-[0.6rem] py-1 text-[0.7rem] transition-[color,border-color,background] duration-150 hover:border-accent hover:text-accent {showValue ? 'border-accent bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] font-semibold text-accent' : 'border-[color:var(--ui-control-border)] bg-bg-surface text-text-secondary'}" on:click={() => { showValue = !showValue; }}>Value</button>
+          <button class="cursor-pointer whitespace-nowrap rounded-[var(--radius-md)] border px-[0.6rem] py-1 text-[0.7rem] transition-[color,border-color,background] duration-150 hover:border-accent hover:text-accent {showChange ? 'border-accent bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] font-semibold text-accent' : 'border-[color:var(--ui-control-border)] bg-bg-surface text-text-secondary'}" on:click={() => { showChange = !showChange; }}>Change</button>
+          <button class="border-none bg-transparent text-text-muted cursor-pointer text-base leading-none px-1.5 py-0.5 rounded-[var(--radius-md)] transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-raised" on:click={() => { expandedKey = null; tooltip = null; }}>✕</button>
         </div>
       </div>
       <div class="flex-1 min-h-0 flex flex-col">
-        <button class="absolute top-1/2 -translate-y-1/2 z-10 bg-bg-raised border border-border rounded-[6px] text-text-muted text-[1.6rem] py-1 px-[10px] cursor-pointer transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-surface left-2" on:click={() => navigateExpanded(-1)} title="Previous">‹</button>
-        <button class="absolute top-1/2 -translate-y-1/2 z-10 bg-bg-raised border border-border rounded-[6px] text-text-muted text-[1.6rem] py-1 px-[10px] cursor-pointer transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-surface right-2" on:click={() => navigateExpanded(1)} title="Next">›</button>
+        <button class="absolute top-1/2 -translate-y-1/2 z-10 bg-bg-raised border border-border rounded-[var(--radius-md)] text-text-muted text-[1.6rem] py-1 px-[10px] cursor-pointer transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-surface left-2" on:click={() => navigateExpanded(-1)} title="Previous">‹</button>
+        <button class="absolute top-1/2 -translate-y-1/2 z-10 bg-bg-raised border border-border rounded-[var(--radius-md)] text-text-muted text-[1.6rem] py-1 px-[10px] cursor-pointer transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-surface right-2" on:click={() => navigateExpanded(1)} title="Next">›</button>
         <div class="flex-1 min-h-0 flex relative">
           {#if exYTicks.length > 0}
             <div class="relative w-[60px] shrink-0">
@@ -375,24 +369,24 @@
     <h2>{$tr("stats.title")}</h2>
     <div class="flex items-center gap-2 ml-auto">
       <button
-        class="text-[0.7rem] py-1 px-[0.6rem] rounded border cursor-pointer transition-[color,border-color,background] duration-150 whitespace-nowrap {showValue ? 'bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] border-accent text-accent font-semibold' : 'border-border bg-bg-raised text-text-secondary hover:text-text-primary hover:border-border-strong'}"
+        class="cursor-pointer whitespace-nowrap rounded-[var(--radius-md)] border px-[0.6rem] py-1 text-[0.7rem] transition-[color,border-color,background] duration-150 hover:border-accent hover:text-accent {showValue ? 'border-accent bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] font-semibold text-accent' : 'border-[color:var(--ui-control-border)] bg-bg-surface text-text-secondary'}"
         on:click={() => { showValue = !showValue; }}
         title="Toggle absolute value line on charts"
       >Value</button>
       <button
-        class="text-[0.7rem] py-1 px-[0.6rem] rounded border cursor-pointer transition-[color,border-color,background] duration-150 whitespace-nowrap {showChange ? 'bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] border-accent text-accent font-semibold' : 'border-border bg-bg-raised text-text-secondary hover:text-text-primary hover:border-border-strong'}"
+        class="cursor-pointer whitespace-nowrap rounded-[var(--radius-md)] border px-[0.6rem] py-1 text-[0.7rem] transition-[color,border-color,background] duration-150 hover:border-accent hover:text-accent {showChange ? 'border-accent bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] font-semibold text-accent' : 'border-[color:var(--ui-control-border)] bg-bg-surface text-text-secondary'}"
         on:click={() => { showChange = !showChange; }}
         title="Toggle daily change bars on charts"
       >Change</button>
       <label class="flex items-center gap-1.5 whitespace-nowrap text-[0.7rem] text-text-muted">
         {$tr("stats.timeframe")}:
-        <select class="cursor-pointer rounded border border-border bg-bg-raised px-1.5 py-1 text-[0.7rem] text-text-secondary" bind:value={chartDays}>
+        <select class="cursor-pointer whitespace-nowrap rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-bg-surface px-[0.38rem] py-1 text-[0.7rem] text-text-secondary [&_option]:bg-bg-surface [&_option]:text-text-primary" bind:value={chartDays}>
           {#each TIMEFRAME_OPTIONS as days}
             <option value={days}>{days}d</option>
           {/each}
         </select>
       </label>
-      <label class="text-[0.7rem] py-1 px-[0.6rem] rounded border border-border bg-bg-raised text-text-secondary cursor-pointer transition-[color,border-color] duration-150 whitespace-nowrap hover:text-accent hover:border-accent" title="Import AlecaFrame stats JSON export">
+      <label class="cursor-pointer whitespace-nowrap rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-bg-surface px-[0.6rem] py-1 text-[0.7rem] text-text-secondary transition-[color,border-color,background] duration-150 hover:border-accent hover:text-accent" title="Import AlecaFrame stats JSON export">
         Import AlecaFrame JSON
         <input type="file" accept=".json" style="display:none" on:change={handleImportFile} />
       </label>
@@ -416,7 +410,7 @@
         {#if !session?.hasData}
           <p class="m-0 text-sm text-text-muted">{$tr("stats.noData")}</p>
         {:else}
-          <div class="stats-panel flex flex-wrap items-stretch divide-x divide-border-strong">
+          <div class="flex flex-wrap items-stretch divide-x divide-border-strong rounded-[var(--radius-lg)] border border-[color:var(--ui-panel-border)] bg-[var(--ui-panel-bg)]">
             {#each SESSION_SECTIONS as { key, labelKey, currentKey } (key)}
               {@const delta = session[key]}
               {@const current = session[currentKey]}
@@ -449,14 +443,14 @@
             {#each CHART_SECTIONS as { key, labelKey }}
               {@const cd = chartDataMap[key]}
               {@const icon = ICON_MAP[key]}
-              <div class="stats-panel relative flex flex-col min-w-0 h-[240px] overflow-hidden py-[6px] px-[13px] pb-2 group/chart">
+              <div class="relative flex h-[240px] min-w-0 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[color:var(--ui-panel-border)] bg-[var(--ui-panel-bg)] px-[13px] py-[6px] pb-2 group/chart">
                 <div class="flex items-center justify-between mb-1">
                   <span class="flex items-center gap-1.5 text-[0.85rem] text-text-secondary">
                     {#if icon}<img src={icon} alt="" class="w-5 h-5 object-contain align-middle opacity-85" />{/if}
                     {$tr(labelKey)}
                   </span>
                   <button
-                    class="bg-transparent border-0 text-text-muted cursor-pointer text-[1.15rem] py-1 px-2 leading-none opacity-50 transition-[opacity,color] duration-150 rounded hover:!opacity-100 hover:text-accent hover:bg-bg-raised group-hover/chart:opacity-70"
+                    class="bg-transparent border-0 text-text-muted cursor-pointer text-[1.15rem] py-1 px-2 leading-none opacity-50 transition-[opacity,color] duration-150 rounded-[var(--radius-md)] hover:!opacity-100 hover:text-accent hover:bg-bg-raised group-hover/chart:opacity-70"
                     title="Expand chart"
                     on:click={() => { expandedKey = key; tooltip = null; }}
                     aria-label="Expand {$tr(labelKey)} chart"
@@ -554,11 +548,3 @@
     </div><!-- /stats-layout -->
   {/if}
 </section>
-
-<style>
-  .stats-panel {
-    border: 1px solid var(--ui-panel-border);
-    border-radius: var(--radius-lg);
-    background: var(--ui-panel-bg);
-  }
-</style>
