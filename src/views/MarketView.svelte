@@ -18,6 +18,7 @@
   import { sharedFilters } from "../stores/filters.js";
   import { applySharedFiltersAndSort } from "../lib/filters.js";
   import { invoke, send } from "../lib/ipc.js";
+  import { PLATINUM_ICON_URL } from "../lib/assetUrls.js";
   import { marketDensity } from "../stores/uiDensity.js";
   import type {
     MarketTab,
@@ -522,7 +523,7 @@
                     <div class="flex flex-1 flex-col gap-0.5 min-w-0">
                       <div class="flex items-center gap-3">
                         <span class="flex items-center gap-1 font-display" title="Platinum">
-                          <img src="Platinum.png" alt="" width="16" height="16" class="shrink-0" />
+                          <img src={PLATINUM_ICON_URL} alt="" width="16" height="16" class="shrink-0" />
                           <span class="text-lg font-bold leading-none text-accent">{contract.platinum}</span>
                         </span>
                         <span class="text-[0.72rem] font-semibold text-text-secondary">
@@ -575,7 +576,7 @@
                   </div>
                   <div class="flex shrink-0 items-center gap-2">
                     <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">
-                      <img src="Platinum.png" alt="" width="14" height="14" class="shrink-0" />
+                      <img src={PLATINUM_ICON_URL} alt="" width="14" height="14" class="shrink-0" />
                       {contract.platinum}
                     </span>
                     <span class="order-qty">
@@ -659,7 +660,7 @@
                       <span class="text-lg font-bold leading-none text-text-primary">{order.quantity}</span>
                     </span>
                     <span class="flex items-center gap-1 font-display" title="Platinum">
-                      <img src="Platinum.png" alt="" width="16" height="16" class="shrink-0" />
+                      <img src={PLATINUM_ICON_URL} alt="" width="16" height="16" class="shrink-0" />
                       <span class="text-lg font-bold leading-none text-accent">{order.platinum}</span>
                     </span>
                   </div>
@@ -698,7 +699,7 @@
                 </div>
                 <div class="flex shrink-0 items-center gap-2">
                   <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">
-                    <img src="Platinum.png" alt="" width="14" height="14" class="shrink-0" />
+                    <img src={PLATINUM_ICON_URL} alt="" width="14" height="14" class="shrink-0" />
                     {order.platinum}
                   </span>
                   <span class="order-qty">x{order.quantity}</span>

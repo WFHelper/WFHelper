@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
   import type { DecodedRiven, WfmRivenListing } from "../types/ipc.js";
+  import { PLATINUM_ICON_URL } from "../lib/assetUrls.js";
   import { invoke } from "../lib/ipc.js";
   import { getBestAttributes } from "../lib/rivenBestAttributes.js";
   import { gradeColor, attrGradeColor, dispoStars } from "../lib/rivenGradeColors.js";
@@ -281,7 +282,7 @@
               <div class="flex flex-col gap-1">
                 <span class="font-display text-[0.7rem] uppercase tracking-[0.06em] text-text-muted">Selling price:</span>
                 <div class="flex items-center gap-[0.3rem]">
-                  <img class="align-middle shrink-0" src="Platinum.png" alt="Platinum" width="16" height="16" />
+                  <img class="align-middle shrink-0" src={PLATINUM_ICON_URL} alt="Platinum" width="16" height="16" />
                   <input type="number" class="w-20 text-[0.85rem] py-[0.3rem] px-2 rounded-[0.35rem] border border-border bg-bg-raised text-text-primary outline-none transition-[border-color] duration-150 focus:border-accent-bright" bind:value={listingPrice} min="1" />
                 </div>
               </div>

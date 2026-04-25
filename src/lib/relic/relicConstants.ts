@@ -1,14 +1,7 @@
 import type { RelicQuality } from "../../types/relics.js";
+import { RELIC_ICON_URLS } from "../assetUrls.js";
 
-export const RELIC_ICON_PATHS: Record<string, string> = {
-  lith: "world-icons/relic-lith.png",
-  meso: "world-icons/relic-meso.png",
-  neo: "world-icons/relic-neo.png",
-  axi: "world-icons/relic-axi.png",
-  requiem: "world-icons/relic-requiem.png",
-  omnia: "world-icons/relic-requiem.png",
-  default: "world-icons/relic-lith.png",
-};
+export const RELIC_ICON_PATHS: Record<string, string> = RELIC_ICON_URLS;
 
 export const RELIC_TIER_ORDER: Record<string, number> = {
   Lith: 0,

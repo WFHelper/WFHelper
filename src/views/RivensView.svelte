@@ -2,6 +2,7 @@
   import ViewPerfMark from "../components/ViewPerfMark.svelte";
   import { onMount } from "svelte";
   import { invoke, on } from "../lib/ipc.js";
+  import { ELEMENT_ICON_URLS, RIVEN_TEMPLATE_URL } from "../lib/assetUrls.js";
   import { gradeColor } from "../lib/rivenGradeColors.js";
   import type { DecodedRiven, VeiledRivenEntry, VeiledRivenGroup } from "../types/ipc.js";
   import RivenDetailModal from "../components/RivenDetailModal.svelte";
@@ -83,15 +84,7 @@
     sortDir = sortDir === "asc" ? "desc" : "asc";
   }
 
-  const ELEMENT_ICONS: Record<string, string> = {
-    cold: "elements/Cold.png",
-    heat: "elements/Heat.png",
-    electricity: "elements/Electricity.png",
-    toxin: "elements/Toxin.png",
-    impact: "elements/Impact.png",
-    puncture: "elements/Puncture.png",
-    slash: "elements/Slash.png",
-  };
+  const ELEMENT_ICONS: Record<string, string> = ELEMENT_ICON_URLS;
 
   function elementIcon(statName: string): string | null {
     const lower = statName.toLowerCase();
@@ -190,7 +183,7 @@
             class="relative block mx-auto p-0 border-0 outline-none bg-transparent appearance-none cursor-pointer w-[min(100%,18rem)] max-[700px]:w-[min(100%,16rem)] aspect-[316/400] overflow-visible transition-transform duration-[0.18s] ease hover:-translate-y-1 hover:z-[2] focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
             onclick={() => (selectedRiven = riven)}
           >
-            <div class="relative w-full h-full bg-[url('/RivenTemplate.png')] bg-center bg-[length:100%_100%] bg-no-repeat">
+            <div class="relative w-full h-full bg-center bg-[length:100%_100%] bg-no-repeat" style:background-image={`url("${RIVEN_TEMPLATE_URL}")`}>
               <span class="absolute top-[10%] right-[15%] z-[2] font-display font-extrabold text-[1rem] leading-none [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,0.9)]" style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span>
 
               <div class="absolute z-[1] left-[13%] right-[11%] top-[51%] text-center">

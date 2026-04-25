@@ -223,7 +223,7 @@
         <img src={rg.imageUrl} alt={rg.name} class="w-8 h-8 object-contain shrink-0" />
       {:else}
         {@const iconPath = RELIC_ICON_PATHS[rg.tier.toLowerCase()] ?? RELIC_ICON_PATHS.default}
-        <img src={new URL(`../../assets/${iconPath}`, import.meta.url).href} alt={rg.tier} class="w-8 h-8 object-contain shrink-0" />
+        <img src={iconPath} alt={rg.tier} class="w-8 h-8 object-contain shrink-0" />
       {/if}
       <div class="flex-1 min-w-0 flex flex-col gap-0.5">
         <span class="font-display text-[0.82rem] font-semibold text-text-primary truncate">{rg.name}</span>

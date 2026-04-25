@@ -1,4 +1,5 @@
 import { log } from "./log.js";
+import { BOUNTY_FALLBACK_ICON_URLS } from "./assetUrls.js";
 import type { ItemDbEntry } from "../types/inventory.js";
 
 const DROPS_BASE_URL = "https://drops.warframestat.us/data";
@@ -31,9 +32,9 @@ export interface BountyStageRewards {
 /**
  * Resolve an icon path for a bounty reward item.
  * Priority order:
- *  1. Credits items    → Bounties/Credits.png
- *  2. Endo items       → Bounties/Endo.png
- *  3. Mod items (via itemDb category === "Mod") → Bounties/IconMods.png
+ *  1. Credits items
+ *  2. Endo items
+ *  3. Mod items (via itemDb category === "Mod")
  *  4. CDN image from itemDb
  */
 function resolveRewardIconPath(itemName: string, nameToEntry?: Map<string, NameLookupEntry>): string | undefined {
@@ -44,12 +45,12 @@ function resolveRewardIconPath(itemName: string, nameToEntry?: Map<string, NameL
   const lowerStripped = stripped.toLowerCase();
 
   // Category overrides (by name pattern)
-  if (/\bcredits?\b/i.test(stripped)) return "Bounties/Credits.png";
-  if (/\bendo\b/i.test(stripped)) return "Bounties/Endo.png";
+  if (/\bcredits?\b/i.test(stripped)) return BOUNTY_FALLBACK_ICON_URLS.credits;
+  if (/\bendo\b/i.test(stripped)) return BOUNTY_FALLBACK_ICON_URLS.endo;
 
   if (nameToEntry) {
     const entry = nameToEntry.get(lowerStripped) ?? nameToEntry.get(itemName.toLowerCase());
-    if (entry?.category === "Mod") return "Bounties/IconMods.png";
+    if (entry?.category === "Mod") return BOUNTY_FALLBACK_ICON_URLS.mod;
     if (entry?.imageUrl) return entry.imageUrl;
   }
 

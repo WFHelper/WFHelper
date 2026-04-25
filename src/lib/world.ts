@@ -1,16 +1,11 @@
 import type { ItemDbEntry, RawInventoryData } from "../types/inventory.js";
 import type { VaultTrader, VaultTraderInventoryItem } from "../types/world.js";
+import { PLANET_ICON_URLS } from "./assetUrls.js";
 import { RELIC_ICON_PATHS, fissureTierClass } from "./relic/relicConstants.js";
 
 export { RELIC_ICON_PATHS, fissureTierClass };
 
-export const PLANET_ICON_PATHS: Record<string, string> = {
-  earth: "world-icons/earth.webp",
-  cetus: "world-icons/earth.webp",
-  vallis: "world-icons/vallis.webp",
-  cambion: "world-icons/cambion.webp",
-  duviri: "world-icons/zariman.webp",
-} as const;
+export const PLANET_ICON_PATHS: Record<string, string> = PLANET_ICON_URLS;
 
 function isLikelyPrimeGear(name: string = ""): boolean {
   return (

@@ -6,6 +6,7 @@
   import type { DailyStatEntry, SessionStats, TradeEvent } from "../types/ipc.js";
   import type { MessageKey } from "../lib/i18n.js";
   import StatsTradePanel from "../components/stats/StatsTradePanel.svelte";
+  import { STAT_ICON_URLS } from "../lib/assetUrls.js";
   import {
     normalizeAlecaFrameStats,
     parseAlecaFrameTrades,
@@ -170,13 +171,13 @@
 
   /** Icon map for each chart/session key */
   const ICON_MAP: Record<ChartKey, string> = {
-    platDelta:    "Platinum.png",
-    ducatsDelta:  "icons/misc/ducats.png",
-    ayaDelta:     "icons/misc/aya.webp",
-    creditsDelta: "Bounties/Credits.png",
-    endoDelta:    "Bounties/Endo.png",
-    relicsOpened: "world-icons/relic-lith.png",
-    dailyTrades:  "icons/misc/trade.png",
+    platDelta:    STAT_ICON_URLS.platDelta,
+    ducatsDelta:  STAT_ICON_URLS.ducatsDelta,
+    ayaDelta:     STAT_ICON_URLS.ayaDelta,
+    creditsDelta: STAT_ICON_URLS.creditsDelta,
+    endoDelta:    STAT_ICON_URLS.endoDelta,
+    relicsOpened: STAT_ICON_URLS.relicsOpened,
+    dailyTrades:  STAT_ICON_URLS.dailyTrades,
   };
 
   let chartDays = 30;
