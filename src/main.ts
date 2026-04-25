@@ -4,7 +4,11 @@ import { initRendererCrashReporting } from "./lib/crashReporting.js";
 import { send } from "./lib/ipc.js";
 import { themeSettings } from "./stores/theme.js";
 import type { ThemeColors } from "./types/theme.js";
-import { THEME_COLOR_CSS_MAP, THEME_EFFECT_CSS_MAP } from "./types/theme.js";
+import { THEME_COLOR_CSS_MAP } from "./types/theme.js";
+import {
+  OVERLAY_FORWARDED_FONT_VARS,
+  OVERLAY_FORWARDED_EFFECT_VARS,
+} from "../config/shared/themeCssVars.js";
 
 if (!window.api) {
   console.error(
@@ -64,12 +68,10 @@ themeSettings.subscribe((settings) => {
     vars[name] = value.trim();
   };
 
-  copyRootVar("--font-display");
-  copyRootVar("--font-body");
-  copyRootVar("--font-heading-size");
-  copyRootVar("--font-body-size");
-  copyRootVar("--font-small-size");
-  for (const cssVar of Object.values(THEME_EFFECT_CSS_MAP)) {
+  for (const cssVar of OVERLAY_FORWARDED_FONT_VARS) {
+    copyRootVar(cssVar);
+  }
+  for (const cssVar of OVERLAY_FORWARDED_EFFECT_VARS) {
     copyRootVar(cssVar);
   }
 

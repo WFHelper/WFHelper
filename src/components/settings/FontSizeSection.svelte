@@ -2,6 +2,7 @@
   import { themeSettings } from "../../stores/theme.js";
   import { tr } from "../../lib/i18n.js";
   import { FONT_SCALE_MIN, FONT_SCALE_MAX, FONT_SCALE_STEP } from "../../config/themeDefaults.js";
+  import ThemedControlCard from "../ThemedControlCard.svelte";
 
   $: fontSizes = $themeSettings.fontSizes;
   $: scalePercent = Math.round(fontSizes.globalScale * 100);
@@ -64,7 +65,7 @@
   </div>
 
   <div class="grid gap-[0.45rem]">
-    <label class="flex items-center justify-between gap-[0.6rem] border border-[var(--ui-control-border)] rounded-[var(--radius-lg)] bg-[var(--ui-control-bg)] py-[0.45rem] px-[0.55rem]">
+    <ThemedControlCard as="label" density="tight">
       <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.globalScale")}</span>
       <div class="flex items-center gap-[0.4rem]">
         <input
@@ -87,9 +88,9 @@
         />
         <span class="font-display text-[0.78rem] font-bold text-accent">%</span>
       </div>
-    </label>
+    </ThemedControlCard>
 
-    <label class="flex items-center justify-between gap-[0.6rem] border border-[var(--ui-control-border)] rounded-[var(--radius-lg)] bg-[var(--ui-control-bg)] py-[0.45rem] px-[0.55rem]">
+    <ThemedControlCard as="label" density="tight">
       <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.headingSize")}</span>
       <input
         type="number"
@@ -101,9 +102,9 @@
         value={fontSizes.headingSize ?? ""}
         on:input={onHeadingChange}
       />
-    </label>
+    </ThemedControlCard>
 
-    <label class="flex items-center justify-between gap-[0.6rem] border border-[var(--ui-control-border)] rounded-[var(--radius-lg)] bg-[var(--ui-control-bg)] py-[0.45rem] px-[0.55rem]">
+    <ThemedControlCard as="label" density="tight">
       <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.bodySize")}</span>
       <input
         type="number"
@@ -115,9 +116,9 @@
         value={fontSizes.bodySize ?? ""}
         on:input={onBodyChange}
       />
-    </label>
+    </ThemedControlCard>
 
-    <label class="flex items-center justify-between gap-[0.6rem] border border-[var(--ui-control-border)] rounded-[var(--radius-lg)] bg-[var(--ui-control-bg)] py-[0.45rem] px-[0.55rem]">
+    <ThemedControlCard as="label" density="tight">
       <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.smallSize")}</span>
       <input
         type="number"
@@ -129,7 +130,7 @@
         value={fontSizes.smallSize ?? ""}
         on:input={onSmallChange}
       />
-    </label>
+    </ThemedControlCard>
   </div>
 </div>
 

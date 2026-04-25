@@ -20,6 +20,7 @@ import {
   OVERLAY_GET_SETTINGS, OVERLAY_GET_THEME_VARS, OVERLAY_SET_SETTINGS,
   OVERLAY_THEME_UPDATED,
 } from "../config/shared/ipcChannels";
+import { OVERLAY_FORWARDED_CSS_VARS } from "../config/shared/themeCssVars";
 
 const log = withScope("overlayIpc");
 
@@ -119,31 +120,10 @@ function toggleOverlayInteractionMode(source = "unknown"): void {
 
 // ── Theme management ─────────────────────────────────────────────────────────
 
-const OVERLAY_THEME_VAR_ALLOWLIST = new Set([
-  "--bg-deep",
-  "--bg-base",
-  "--bg-surface",
-  "--bg-raised",
-  "--bg-hover",
-  "--accent",
-  "--accent-dim",
-  "--accent-bright",
-  "--accent-glow",
-  "--text-primary",
-  "--text-secondary",
-  "--text-muted",
-  "--success",
-  "--warning",
-  "--danger",
-  "--info",
-  "--border",
-  "--border-strong",
-  "--font-display",
-  "--font-body",
-  "--font-heading-size",
-  "--font-body-size",
-  "--font-small-size",
-]);
+// Allowlist is derived from the shared list in config/shared/themeCssVars.ts so
+// renderer (sender) and main (gate) cannot drift. Update that file to add a new
+// themed variable.
+const OVERLAY_THEME_VAR_ALLOWLIST: ReadonlySet<string> = new Set(OVERLAY_FORWARDED_CSS_VARS);
 
 function sanitizeOverlayThemeVars(raw: unknown): Record<string, string> {
   if (!raw || typeof raw !== "object") return {};

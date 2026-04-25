@@ -5,7 +5,9 @@
 </script>
 
 <button class="world-section-toggle" on:click={onToggle} aria-expanded={!collapsed}>
-  <span class="world-toggle-icon" class:collapsed aria-hidden="true"></span>
+  <svg class="world-toggle-icon" class:collapsed viewBox="0 0 12 12" aria-hidden="true">
+    <polygon points="2,4 10,4 6,9" fill="currentColor" />
+  </svg>
   <h3>{title}</h3>
 </button>
 

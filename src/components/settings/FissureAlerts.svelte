@@ -2,6 +2,7 @@
   import { overlaySettings, applyOverlaySettingsResponse } from "../../stores/overlaySettings.js";
   import { invoke } from "../../lib/ipc.js";
   import type { FissureAlert } from "../../types/ipc.js";
+  import ThemedSelect from "../ThemedSelect.svelte";
 
   const TIERS = ["any", "Lith", "Meso", "Neo", "Axi", "Requiem", "Omnia"] as const;
   const MISSION_TYPES = [
@@ -111,28 +112,28 @@
   {/if}
 
   <div class="flex items-center gap-[0.4rem] flex-wrap">
-    <select bind:value={newTier} class="cursor-pointer rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-bg-surface px-[0.4rem] py-[0.2rem] text-[0.74rem] text-text-primary disabled:cursor-not-allowed disabled:opacity-50 [&_option]:bg-bg-surface [&_option]:text-text-primary" disabled={saving}>
+    <ThemedSelect bind:value={newTier} disabled={saving}>
       {#each TIERS as t}
         <option value={t}>{t === "any" ? "Any tier" : t}</option>
       {/each}
-    </select>
-    <select bind:value={newMissionType} class="cursor-pointer rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-bg-surface px-[0.4rem] py-[0.2rem] text-[0.74rem] text-text-primary disabled:cursor-not-allowed disabled:opacity-50 [&_option]:bg-bg-surface [&_option]:text-text-primary" disabled={saving}>
+    </ThemedSelect>
+    <ThemedSelect bind:value={newMissionType} disabled={saving}>
       {#each MISSION_TYPES as m}
         <option value={m}>{m === "any" ? "Any mission" : m}</option>
       {/each}
-    </select>
-    <select bind:value={newSteelPath} class="cursor-pointer rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-bg-surface px-[0.4rem] py-[0.2rem] text-[0.74rem] text-text-primary disabled:cursor-not-allowed disabled:opacity-50 [&_option]:bg-bg-surface [&_option]:text-text-primary" disabled={saving}>
+    </ThemedSelect>
+    <ThemedSelect bind:value={newSteelPath} disabled={saving}>
       {#each STEEL_PATH_OPTIONS as opt}
         <option value={opt.value}>{opt.label}</option>
       {/each}
-    </select>
-    <select bind:value={newPlanet} class="cursor-pointer rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-bg-surface px-[0.4rem] py-[0.2rem] text-[0.74rem] text-text-primary disabled:cursor-not-allowed disabled:opacity-50 [&_option]:bg-bg-surface [&_option]:text-text-primary" disabled={saving}>
+    </ThemedSelect>
+    <ThemedSelect bind:value={newPlanet} disabled={saving}>
       {#each PLANETS as p}
         <option value={p}>{p === "any" ? "Any planet" : p}</option>
       {/each}
-    </select>
+    </ThemedSelect>
     <button
-      class="cursor-pointer rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-bg-surface px-[0.55rem] py-[0.2rem] text-[0.74rem] text-text-primary transition-[color,border-color,background] duration-150 hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+      class="h-[1.6rem] leading-none cursor-pointer rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-bg-surface px-[0.55rem] py-0 text-[0.74rem] text-text-primary transition-[color,border-color,background] duration-150 hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
       disabled={saving}
       on:click={addAlert}
     >Add</button>
