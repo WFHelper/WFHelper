@@ -69,10 +69,10 @@ function resolveRadii(
 ): Record<"radiusSm" | "radiusMd" | "radiusLg" | "radiusXl", string> {
   if (cornerStyle === "sharp") {
     return {
-      radiusSm: "2px",
-      radiusMd: "3px",
-      radiusLg: "4px",
-      radiusXl: "6px",
+      radiusSm: "0px",
+      radiusMd: "0px",
+      radiusLg: "0px",
+      radiusXl: "0px",
     };
   }
 
@@ -107,7 +107,7 @@ function resolveSurfaceTokens(effects: ThemeEffects): {
       panelBorder: "transparent",
       panelShadow: "none",
       controlBg: "transparent",
-      controlBorder: "transparent",
+      controlBorder: "var(--border)",
       backdropBlur: "none",
     };
   }
@@ -127,7 +127,7 @@ function resolveSurfaceTokens(effects: ThemeEffects): {
     return {
       panelBg: "color-mix(in srgb, var(--bg-surface) 76%, transparent)",
       panelBorder: "color-mix(in srgb, var(--border-strong) 82%, transparent)",
-      panelShadow: "0 14px 44px rgba(0, 0, 0, 0.34)",
+      panelShadow: "none",
       controlBg: "color-mix(in srgb, var(--bg-raised) 72%, transparent)",
       controlBorder: "color-mix(in srgb, var(--border) 90%, transparent)",
       backdropBlur: "blur(10px)",
@@ -137,7 +137,7 @@ function resolveSurfaceTokens(effects: ThemeEffects): {
   return {
     panelBg: "var(--bg-surface)",
     panelBorder: "var(--border)",
-    panelShadow: "0 10px 30px rgba(0, 0, 0, 0.22)",
+    panelShadow: "none",
     controlBg: "var(--bg-raised)",
     controlBorder: "var(--border)",
     backdropBlur: "none",

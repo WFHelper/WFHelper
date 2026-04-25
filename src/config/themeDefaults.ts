@@ -41,6 +41,7 @@ export const DEFAULT_EFFECTS: Readonly<ThemeEffects> = Object.freeze({
   cornerStyle: "soft",
   surfaceStyle: "full",
   glass: false,
+  relicCardStyle: "ornate",
 });
 
 export const DEFAULT_BRANDING: Readonly<ThemeBranding> = Object.freeze({
@@ -66,12 +67,6 @@ export const FONT_SCALE_STEP = 0.05;
 
 /** Base font size in px (from app.css html rule) */
 export const BASE_FONT_SIZE_PX = 15;
-
-/** Maximum logo file size in bytes (256 KB) */
-export const LOGO_MAX_BYTES = 256 * 1024;
-
-/** Maximum app name length */
-export const APP_NAME_MAX_LENGTH = 30;
 
 /** Default app name shown in titlebar */
 export const DEFAULT_APP_NAME = "WFHELPER";

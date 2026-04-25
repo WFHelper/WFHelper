@@ -36,11 +36,13 @@ export interface ThemeFontSizes {
 
 export type ThemeCornerStyle = "sharp" | "soft" | "round";
 export type ThemeSurfaceStyle = "full" | "border" | "minimal";
+export type RelicCardStyle = "ornate" | "plain";
 
 export interface ThemeEffects {
   cornerStyle: ThemeCornerStyle;
   surfaceStyle: ThemeSurfaceStyle;
   glass: boolean;
+  relicCardStyle: RelicCardStyle;
 }
 
 export interface ThemeBranding {

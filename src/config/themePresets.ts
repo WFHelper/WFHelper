@@ -173,7 +173,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeDefault: "#9dc5d1",
     },
     fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { cornerStyle: "round", surfaceStyle: "full", glass: true },
+    effects: { ...DEFAULT_EFFECTS, cornerStyle: "round", surfaceStyle: "full", glass: true },
   },
 
   zarimanMist: {
@@ -205,7 +205,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeDefault: "#9fc7b8",
     },
     fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { cornerStyle: "soft", surfaceStyle: "full", glass: true },
+    effects: { ...DEFAULT_EFFECTS, cornerStyle: "soft", surfaceStyle: "full", glass: true },
   },
 
   grineerForge: {
@@ -237,7 +237,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeDefault: "#b29478",
     },
     fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { cornerStyle: "sharp", surfaceStyle: "full", glass: false },
+    effects: { ...DEFAULT_EFFECTS, cornerStyle: "sharp", surfaceStyle: "full", glass: false },
   },
 
   tennoMinimal: {
@@ -269,7 +269,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeDefault: "#a4adb2",
     },
     fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { cornerStyle: "sharp", surfaceStyle: "minimal", glass: false },
+    effects: { ...DEFAULT_EFFECTS, cornerStyle: "sharp", surfaceStyle: "minimal", glass: false },
   },
 };
 

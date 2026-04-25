@@ -416,7 +416,7 @@
         {#if !session?.hasData}
           <p class="m-0 text-sm text-text-muted">{$tr("stats.noData")}</p>
         {:else}
-          <div class="flex flex-wrap items-stretch rounded-lg border border-border bg-bg-surface divide-x divide-border-strong">
+          <div class="stats-panel flex flex-wrap items-stretch divide-x divide-border-strong">
             {#each SESSION_SECTIONS as { key, labelKey, currentKey } (key)}
               {@const delta = session[key]}
               {@const current = session[currentKey]}
@@ -449,7 +449,7 @@
             {#each CHART_SECTIONS as { key, labelKey }}
               {@const cd = chartDataMap[key]}
               {@const icon = ICON_MAP[key]}
-              <div class="relative flex flex-col min-w-0 h-[240px] overflow-hidden bg-bg-surface border border-border rounded-[6px] py-[6px] px-[13px] pb-2 group/chart">
+              <div class="stats-panel relative flex flex-col min-w-0 h-[240px] overflow-hidden py-[6px] px-[13px] pb-2 group/chart">
                 <div class="flex items-center justify-between mb-1">
                   <span class="flex items-center gap-1.5 text-[0.85rem] text-text-secondary">
                     {#if icon}<img src={icon} alt="" class="w-5 h-5 object-contain align-middle opacity-85" />{/if}
@@ -555,3 +555,10 @@
   {/if}
 </section>
 
+<style>
+  .stats-panel {
+    border: 1px solid var(--ui-panel-border);
+    border-radius: var(--radius-lg);
+    background: var(--ui-panel-bg);
+  }
+</style>

@@ -69,6 +69,7 @@ describe("loadThemeSettings", () => {
     expect(settings.colors.accent).toBe("#ff0000");
     expect(settings.colors.bgBase).toBe(DEFAULT_COLORS.bgBase);
     expect(settings.effects.cornerStyle).toBe("soft");
+    expect(settings.effects.relicCardStyle).toBe("ornate");
     expect(settings.customThemes).toEqual([]);
   });
 
@@ -76,14 +77,24 @@ describe("loadThemeSettings", () => {
     store["wf_theme_settings"] = JSON.stringify({
       version: 1,
       activePreset: "custom:test",
-      effects: { cornerStyle: "round", surfaceStyle: "minimal", glass: true },
+      effects: {
+        cornerStyle: "round",
+        surfaceStyle: "minimal",
+        glass: true,
+        relicCardStyle: "plain",
+      },
       customThemes: [
         {
           id: "custom:test",
           label: "My Theme",
           colors: { accent: "#00ff00" },
           fontSizes: { globalScale: 1.25 },
-          effects: { cornerStyle: "sharp", surfaceStyle: "border", glass: false },
+          effects: {
+            cornerStyle: "sharp",
+            surfaceStyle: "border",
+            glass: false,
+            relicCardStyle: "ornate",
+          },
         },
       ],
     });
@@ -91,9 +102,11 @@ describe("loadThemeSettings", () => {
     expect(settings.effects.cornerStyle).toBe("round");
     expect(settings.effects.surfaceStyle).toBe("minimal");
     expect(settings.effects.glass).toBe(true);
+    expect(settings.effects.relicCardStyle).toBe("plain");
     expect(settings.customThemes).toHaveLength(1);
     expect(settings.customThemes[0]?.colors.accent).toBe("#00ff00");
     expect(settings.customThemes[0]?.effects.surfaceStyle).toBe("border");
+    expect(settings.customThemes[0]?.effects.relicCardStyle).toBe("ornate");
   });
 
   it("validates logoDataUrl starts with data:image/", () => {

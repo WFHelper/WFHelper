@@ -4,13 +4,20 @@
   import { tr } from "../../lib/i18n.js";
 
   let customName = "";
+  let builtInOpen = false;
+  let customOpen = false;
 
   $: activePreset = $themeSettings.activePreset;
   $: customThemes = $themeSettings.customThemes;
   $: activeCustomTheme = customThemes.find((theme) => theme.id === activePreset);
+  $: activeBuiltInPreset = THEME_PRESETS[activePreset];
+  $: builtInLabel = activeBuiltInPreset?.label ?? $tr("appearance.builtinThemes");
+  $: customLabel = activeCustomTheme?.label ?? $tr("appearance.noCustomThemes");
 
   function selectPreset(key: string): void {
     themeSettings.applyPreset(key);
+    builtInOpen = false;
+    customOpen = false;
   }
 
   function saveCustomTheme(): void {
@@ -28,50 +35,74 @@
 
 <div class="appearance-section">
   <h4 class="appearance-section-label">{$tr("appearance.presets")}</h4>
-  <div class="flex flex-wrap gap-2">
-    {#each PRESET_KEYS as key}
-      {@const preset = THEME_PRESETS[key]}
+  <div class="grid gap-[0.55rem]">
+    <div class="theme-dropdown">
       <button
-        class="flex flex-col items-center gap-[0.3rem] cursor-pointer border rounded-[var(--radius-lg)] py-[0.45rem] px-[0.55rem] transition-[border-color,background-color] duration-150 {activePreset === key ? 'border-accent bg-accent-glow' : 'border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] hover:border-border-strong hover:bg-bg-hover'}"
-        title={preset.label}
-        on:click={() => selectPreset(key)}
+        type="button"
+        class="theme-dropdown-trigger"
+        on:click={() => { builtInOpen = !builtInOpen; customOpen = false; }}
       >
-        <div class="flex gap-[0.2rem]">
-          <span class="w-4 h-4 rounded-full border border-[rgba(255,255,255,0.15)]" style="background: {preset.colors.bgBase};"></span>
-          <span class="w-4 h-4 rounded-full border border-[rgba(255,255,255,0.15)]" style="background: {preset.colors.accent};"></span>
-          <span class="w-4 h-4 rounded-full border border-[rgba(255,255,255,0.15)]" style="background: {preset.colors.textPrimary};"></span>
-        </div>
-        <span class="font-display text-[0.65rem] font-semibold tracking-[0.03em] {activePreset === key ? 'text-accent' : 'text-text-secondary'}">{preset.label}</span>
+        <span>{$tr("appearance.builtinThemes")}</span>
+        <strong>{builtInLabel}</strong>
+        <span class="theme-dropdown-chevron">v</span>
       </button>
-    {/each}
-    {#each customThemes as theme}
+
+      {#if builtInOpen}
+        <div class="theme-dropdown-menu">
+          {#each PRESET_KEYS as key}
+            {@const preset = THEME_PRESETS[key]}
+            <button
+              type="button"
+              class="theme-option"
+              class:active={activePreset === key}
+              on:click={() => selectPreset(key)}
+            >
+              <span class="theme-swatches">
+                <span style="background: {preset.colors.bgBase};"></span>
+                <span style="background: {preset.colors.bgRaised};"></span>
+                <span style="background: {preset.colors.textPrimary};"></span>
+                <span style="background: {preset.colors.accent};"></span>
+              </span>
+              <span>{preset.label}</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </div>
+
+    <div class="theme-dropdown">
       <button
-        class="flex flex-col items-center gap-[0.3rem] cursor-pointer border rounded-[var(--radius-lg)] py-[0.45rem] px-[0.55rem] transition-[border-color,background-color] duration-150 {activePreset === theme.id ? 'border-accent bg-accent-glow' : 'border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] hover:border-border-strong hover:bg-bg-hover'}"
-        title={theme.label}
-        on:click={() => selectPreset(theme.id)}
+        type="button"
+        class="theme-dropdown-trigger"
+        disabled={customThemes.length === 0}
+        on:click={() => { customOpen = !customOpen; builtInOpen = false; }}
       >
-        <div class="flex gap-[0.2rem]">
-          <span class="w-4 h-4 rounded-full border border-[rgba(255,255,255,0.15)]" style="background: {theme.colors.bgBase};"></span>
-          <span class="w-4 h-4 rounded-full border border-[rgba(255,255,255,0.15)]" style="background: {theme.colors.accent};"></span>
-          <span class="w-4 h-4 rounded-full border border-[rgba(255,255,255,0.15)]" style="background: {theme.colors.textPrimary};"></span>
-        </div>
-        <span class="font-display text-[0.65rem] font-semibold tracking-[0.03em] {activePreset === theme.id ? 'text-accent' : 'text-text-secondary'}">{theme.label}</span>
+        <span>{$tr("appearance.customThemes")}</span>
+        <strong>{customLabel}</strong>
+        <span class="theme-dropdown-chevron">v</span>
       </button>
-    {/each}
-    {#if activePreset === "custom"}
-      <button
-        class="flex flex-col items-center gap-[0.3rem] cursor-pointer border border-accent rounded-[var(--radius-lg)] bg-accent-glow py-[0.45rem] px-[0.55rem] transition-[border-color,background-color] duration-150"
-        title={$tr("appearance.customPreset")}
-        disabled
-      >
-        <div class="flex gap-[0.2rem]">
-          <span class="w-4 h-4 rounded-full border border-[rgba(255,255,255,0.15)]" style="background: {$themeSettings.colors.bgBase};"></span>
-          <span class="w-4 h-4 rounded-full border border-[rgba(255,255,255,0.15)]" style="background: {$themeSettings.colors.accent};"></span>
-          <span class="w-4 h-4 rounded-full border border-[rgba(255,255,255,0.15)]" style="background: {$themeSettings.colors.textPrimary};"></span>
+
+      {#if customOpen && customThemes.length > 0}
+        <div class="theme-dropdown-menu">
+          {#each customThemes as theme}
+            <button
+              type="button"
+              class="theme-option"
+              class:active={activePreset === theme.id}
+              on:click={() => selectPreset(theme.id)}
+            >
+              <span class="theme-swatches">
+                <span style="background: {theme.colors.bgBase};"></span>
+                <span style="background: {theme.colors.bgRaised};"></span>
+                <span style="background: {theme.colors.textPrimary};"></span>
+                <span style="background: {theme.colors.accent};"></span>
+              </span>
+              <span>{theme.label}</span>
+            </button>
+          {/each}
         </div>
-        <span class="font-display text-[0.65rem] font-semibold tracking-[0.03em] text-accent">{$tr("appearance.customPreset")}</span>
-      </button>
-    {/if}
+      {/if}
+    </div>
   </div>
 
   <div class="mt-[0.55rem] flex flex-wrap items-center gap-2">
@@ -92,3 +123,93 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .theme-dropdown {
+    position: relative;
+  }
+
+  .theme-dropdown-trigger {
+    display: grid;
+    width: 100%;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.6rem;
+    border: 1px solid var(--ui-control-border);
+    border-radius: var(--radius-xl);
+    background: var(--ui-control-bg);
+    color: var(--text-secondary);
+    padding: 0.48rem 0.75rem;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .theme-dropdown-trigger:disabled {
+    cursor: default;
+    opacity: 0.55;
+  }
+
+  .theme-dropdown-trigger strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .theme-dropdown-chevron {
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-weight: 700;
+  }
+
+  .theme-dropdown-menu {
+    position: absolute;
+    z-index: 15;
+    top: calc(100% + 0.35rem);
+    left: 0;
+    right: 0;
+    display: grid;
+    max-height: 17rem;
+    overflow-y: auto;
+    border: 1px solid var(--ui-panel-border);
+    border-radius: var(--radius-xl);
+    background: color-mix(in srgb, var(--bg-base) 94%, transparent);
+    padding: 0.45rem;
+    backdrop-filter: var(--ui-backdrop-blur);
+  }
+
+  .theme-option {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0.65rem;
+    border: 0;
+    border-left: 2px solid transparent;
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 0.48rem 0.45rem;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .theme-option:hover,
+  .theme-option.active {
+    color: var(--text-primary);
+    border-left-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+
+  .theme-swatches {
+    display: inline-flex;
+    gap: 0.22rem;
+  }
+
+  .theme-swatches span {
+    width: 0.86rem;
+    height: 0.86rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+</style>

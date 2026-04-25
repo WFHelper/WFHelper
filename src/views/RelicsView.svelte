@@ -15,6 +15,7 @@
   import { inventoryData, itemDb, parsedItems, wfmItems } from "../stores/data.js";
   import { activeRelic } from "../stores/modals.js";
   import { priceCacheRevision } from "../stores/pricing.js";
+  import { themeSettings } from "../stores/theme.js";
   import {
     computeGroupDucatonator,
     computeGroupDucatEv,
@@ -723,7 +724,7 @@
         {@const selected = selectedEvDataForMode(group, $relicQualityMode, selectedOwned)}
         {@const rewardIcons = previewRewards(group)}
 
-        <div class="relic-compact-card">
+        <div class="relic-compact-card" class:plain={$themeSettings.effects.relicCardStyle === "plain"}>
           <button type="button" class="relic-compact-head grid grid-cols-[auto_minmax(0,1fr)_auto] min-w-0 items-center gap-[0.36rem] w-full border-0 p-0 m-0 bg-transparent text-inherit text-left cursor-pointer" on:click={() => openRelic(group)}>
             <span class="inline-flex items-center justify-center w-[2.4rem] shrink-0">
               <span class="relic-icon {tierClass}">
@@ -799,15 +800,25 @@
 <style>
   .relic-compact-card {
     width: 100%; display: flex; min-width: 0; flex-direction: column; gap: 0.5rem;
-    border: 1px solid var(--ui-panel-border); border-radius: var(--radius-xl);
-    background: var(--ui-panel-bg);
+    border: 1px solid var(--border); border-radius: var(--radius-xl);
+    background:
+      radial-gradient(circle at 14% 30%, color-mix(in oklab, var(--accent) 20%, transparent) 0%, transparent 52%),
+      linear-gradient(180deg, color-mix(in oklab, var(--bg-surface) 88%, black) 0%, color-mix(in oklab, var(--bg-base) 94%, black) 100%);
     padding: 0.6rem; cursor: default; text-align: left; color: var(--text-primary); font: inherit;
     transition: border-color 0.14s ease, background 0.14s ease, transform 0.14s ease;
   }
   .relic-compact-card:hover {
     border-color: var(--border-strong);
-    background: var(--bg-hover);
+    background:
+      radial-gradient(circle at 14% 30%, color-mix(in oklab, var(--accent) 30%, transparent) 0%, transparent 56%),
+      linear-gradient(180deg, color-mix(in oklab, var(--bg-raised) 86%, black) 0%, color-mix(in oklab, var(--bg-base) 92%, black) 100%);
     transform: translateY(-1px);
+  }
+  .relic-compact-card.plain {
+    background: var(--ui-panel-bg);
+  }
+  .relic-compact-card.plain:hover {
+    background: var(--bg-hover);
   }
   .relic-compact-card :global(.relic-icon) { width: 1.85rem; height: 1.85rem; }
   .relic-compact-card :global(.relic-icon-img) { transform: scale(1.06); }

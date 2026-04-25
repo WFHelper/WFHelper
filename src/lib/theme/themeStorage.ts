@@ -3,6 +3,7 @@ import type {
   ThemeCornerStyle,
   ThemeColors,
   ThemeFontSizes,
+  RelicCardStyle,
   ThemeSettings,
   ThemeSurfaceStyle,
 } from "../../types/theme.js";
@@ -59,6 +60,10 @@ function migrateAndNormalize(raw: Record<string, unknown>): ThemeSettings {
       cornerStyle: asCornerStyle(rawEffects.cornerStyle, DEFAULT_EFFECTS.cornerStyle),
       surfaceStyle: asSurfaceStyle(rawEffects.surfaceStyle, DEFAULT_EFFECTS.surfaceStyle),
       glass: typeof rawEffects.glass === "boolean" ? rawEffects.glass : DEFAULT_EFFECTS.glass,
+      relicCardStyle: asRelicCardStyle(
+        rawEffects.relicCardStyle,
+        DEFAULT_EFFECTS.relicCardStyle,
+      ),
     },
     customThemes: normalizeCustomThemes(raw.customThemes),
     branding: {
@@ -128,6 +133,10 @@ function asSurfaceStyle(value: unknown, fallback: ThemeSurfaceStyle): ThemeSurfa
   return value === "full" || value === "border" || value === "minimal" ? value : fallback;
 }
 
+function asRelicCardStyle(value: unknown, fallback: RelicCardStyle): RelicCardStyle {
+  return value === "ornate" || value === "plain" ? value : fallback;
+}
+
 function normalizeCustomThemes(value: unknown): CustomThemePreset[] {
   if (!Array.isArray(value)) return [];
 
@@ -163,6 +172,10 @@ function normalizeCustomThemes(value: unknown): CustomThemePreset[] {
         cornerStyle: asCornerStyle(rawEffects.cornerStyle, DEFAULT_EFFECTS.cornerStyle),
         surfaceStyle: asSurfaceStyle(rawEffects.surfaceStyle, DEFAULT_EFFECTS.surfaceStyle),
         glass: typeof rawEffects.glass === "boolean" ? rawEffects.glass : DEFAULT_EFFECTS.glass,
+        relicCardStyle: asRelicCardStyle(
+          rawEffects.relicCardStyle,
+          DEFAULT_EFFECTS.relicCardStyle,
+        ),
       },
     });
   }

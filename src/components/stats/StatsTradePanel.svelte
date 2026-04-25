@@ -54,7 +54,7 @@
         {/each}
       </div>
       <input
-        class="w-full bg-bg-raised border border-border rounded py-[0.3rem] px-[0.6rem] text-[0.7rem] text-text-primary placeholder:text-text-muted"
+        class="w-full bg-[var(--ui-control-bg)] border border-[var(--ui-control-border)] rounded-[var(--radius-md)] py-[0.3rem] px-[0.6rem] text-[0.7rem] text-text-primary placeholder:text-text-muted"
         type="text"
         placeholder="Search items…"
         bind:value={tradeSearch}
@@ -80,7 +80,7 @@
     {:else}
       <div class="flex flex-col gap-2">
         {#each filteredTrades as trade (trade.id)}
-          <div class="bg-bg-surface border rounded-md py-3 px-4 transition-[border-color,background] duration-150 hover:border-border-strong hover:bg-bg-raised {trade.wfmClosed ? 'border-[rgba(212,168,67,0.2)]' : 'border-border'}">
+          <div class="bg-[var(--ui-panel-bg)] border rounded-[var(--radius-md)] py-3 px-4 transition-[border-color,background] duration-150 hover:border-border-strong hover:bg-bg-raised {trade.wfmClosed ? 'border-[rgba(212,168,67,0.2)]' : 'border-[var(--ui-panel-border)]'}">
             <div class="flex items-center gap-2 mb-[6px]">
               <span class="text-[0.6rem] py-[2px] px-[6px] rounded-[3px] uppercase tracking-[0.05em] font-bold shrink-0 border {trade.type === 'sale' ? 'bg-[rgba(74,222,128,0.15)] text-success border-[rgba(74,222,128,0.3)]' : trade.type === 'purchase' ? 'bg-[rgba(96,165,250,0.15)] text-info border-[rgba(96,165,250,0.3)]' : 'bg-[rgba(168,162,186,0.15)] text-text-secondary border-[rgba(168,162,186,0.3)]'}">
                 {trade.type === "sale" ? "Sale" : trade.type === "purchase" ? "Purchase" : "Trade"}

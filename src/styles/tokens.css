@@ -26,7 +26,7 @@
   --radius-xl: 0.78rem;
   --ui-panel-bg: var(--bg-surface);
   --ui-panel-border: var(--border);
-  --ui-panel-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+  --ui-panel-shadow: none;
   --ui-control-bg: var(--bg-raised);
   --ui-control-border: var(--border);
   --ui-backdrop-blur: none;

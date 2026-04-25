@@ -193,14 +193,6 @@ function createThemeStore() {
       });
     },
 
-    /** Update branding. */
-    setBranding(branding: Partial<ThemeSettings["branding"]>): void {
-      update((s) => ({
-        ...s,
-        branding: { ...s.branding, ...branding },
-      }));
-    },
-
     /** Toggle contrast-safe mode. */
     setContrastSafeMode(enabled: boolean): void {
       update((s) => ({
@@ -228,13 +220,6 @@ function createThemeStore() {
       update((s) => applyMutableThemeEdits(s, { fontSizes: { ...DEFAULT_FONT_SIZES } }));
     },
 
-    /** Reset only branding to default. */
-    resetBranding(): void {
-      update((s) => ({
-        ...s,
-        branding: { ...DEFAULT_BRANDING },
-      }));
-    },
   };
 }
 

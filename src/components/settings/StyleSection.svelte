@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ThemeCornerStyle, ThemeSurfaceStyle } from "../../types/theme.js";
+  import type { RelicCardStyle, ThemeCornerStyle, ThemeSurfaceStyle } from "../../types/theme.js";
   import { tr } from "../../lib/i18n.js";
   import type { MessageKey } from "../../lib/i18n.js";
   import { themeSettings } from "../../stores/theme.js";
@@ -14,6 +14,11 @@
     { value: "full", labelKey: "appearance.surfaceFull" },
     { value: "border", labelKey: "appearance.surfaceBorder" },
     { value: "minimal", labelKey: "appearance.surfaceMinimal" },
+  ];
+
+  const relicCardOptions: Array<{ value: RelicCardStyle; labelKey: MessageKey }> = [
+    { value: "ornate", labelKey: "appearance.relicCardsOrnate" },
+    { value: "plain", labelKey: "appearance.relicCardsPlain" },
   ];
 
   $: effects = $themeSettings.effects;
@@ -69,5 +74,22 @@
         on:change={(e) => themeSettings.setEffects({ glass: (e.target as HTMLInputElement).checked })}
       />
     </label>
+
+    <div class="border border-[var(--ui-control-border)] rounded-[var(--radius-lg)] bg-[var(--ui-control-bg)] py-[0.52rem] px-[0.6rem]">
+      <div class="flex items-center justify-between gap-3">
+        <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.relicCards")}</span>
+        <div class="inline-flex overflow-hidden rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-bg-surface text-[0.72rem]">
+          {#each relicCardOptions as option, index}
+            <button
+              type="button"
+              class="px-2 py-1 transition-colors {index > 0 ? 'border-l border-border' : ''} {effects.relicCardStyle === option.value ? 'bg-accent text-bg-base font-semibold' : 'text-text-secondary hover:text-text-primary'}"
+              on:click={() => themeSettings.setEffects({ relicCardStyle: option.value })}
+            >
+              {$tr(option.labelKey)}
+            </button>
+          {/each}
+        </div>
+      </div>
+    </div>
   </div>
 </div>

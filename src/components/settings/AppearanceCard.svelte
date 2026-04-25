@@ -6,7 +6,6 @@
   import ColorSection from "./ColorSection.svelte";
   import StyleSection from "./StyleSection.svelte";
   import FontSizeSection from "./FontSizeSection.svelte";
-  import BrandingSection from "./BrandingSection.svelte";
 
   $: contrastSafe = $themeSettings.contrastSafeMode;
 </script>
@@ -22,7 +21,6 @@
     <StyleSection />
     <ColorSection />
     <FontSizeSection />
-    <BrandingSection />
 
     <!-- Contrast-Safe Mode -->
     <div class="appearance-section">

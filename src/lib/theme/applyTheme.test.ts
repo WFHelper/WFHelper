@@ -61,6 +61,15 @@ describe("applyTheme", () => {
     expect(styleProps.get("--ui-panel-border")).toBe("var(--border)");
   });
 
+  it("sets sharp corners to zero radius", () => {
+    const theme = cloneDefaultTheme();
+    theme.effects.cornerStyle = "sharp";
+    applyTheme(theme);
+
+    expect(styleProps.get("--radius-sm")).toBe("0px");
+    expect(styleProps.get("--radius-xl")).toBe("0px");
+  });
+
   it("enables real blur for full glass surfaces", () => {
     const theme = cloneDefaultTheme();
     theme.effects.glass = true;
