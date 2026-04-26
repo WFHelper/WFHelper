@@ -109,7 +109,7 @@
     "Misc",
   ];
 
-  $: foundryFilterTabs = [
+  const foundryFilterTabs = [
     { key: "all", label: "All" },
     { key: "status:in-progress", label: "In Progress" },
     { key: "status:ready", label: "Ready to Build" },
@@ -157,8 +157,6 @@
   /** All category tabs, always shown regardless of whether items exist in that
    *  category right now — matches the in-game Foundry which always displays
    *  the full bar. */
-  const categoriesPresent = CATEGORY_ORDER;
-
   /** Lookup: ingredient uniqueName → owned count (tracks componentOwnership store). */
   $: ownedMap = $componentOwnership;
   $: productOwnedLookup = (() => {

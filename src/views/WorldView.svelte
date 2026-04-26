@@ -27,7 +27,8 @@
   const WORLD_POLL_MS = 30_000;
   const FISSURE_EXPIRY_GUARD_MS = 1_500;
   const FISSURE_TIER_ORDER: Record<string, number> = { lith: 0, meso: 1, neo: 2, axi: 3, requiem: 4, omnia: 5 };
-  const FISSURE_MODE_OPTIONS = [
+  type FissureMode = "normal" | "steel";
+  const FISSURE_MODE_OPTIONS: Array<{ value: FissureMode; label: string }> = [
     { value: "normal", label: "Normal" },
     { value: "steel", label: "Steel Path" },
   ];
