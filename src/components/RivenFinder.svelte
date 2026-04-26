@@ -1,6 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { invoke, send } from "../lib/ipc.js";
+  import ThemedButton from "./ThemedButton.svelte";
+  import ThemedInput from "./ThemedInput.svelte";
+  import ThemedPanel from "./ThemedPanel.svelte";
+  import ThemedSelect from "./ThemedSelect.svelte";
   import type { WfmRivenListing, RivenStatOption } from "../types/ipc.js";
   import { getBestAttributes } from "../lib/rivenBestAttributes.js";
 
@@ -183,14 +187,7 @@
     <div class="flex flex-col gap-[0.35rem]">
       <span class="font-display text-[0.7rem] uppercase tracking-[0.06em] text-text-muted">Weapon</span>
       <div class="relative">
-        <input
-          type="text"
-          class="w-full py-[0.45rem] px-[0.65rem] border border-border rounded-[0.375rem] bg-bg-surface text-text-primary font-body text-[0.8125rem] outline-none transition-[border-color] duration-150 focus:border-accent"
-          placeholder="Type weapon name…"
-          bind:value={weaponSearch}
-          onfocus={handleWeaponFocus}
-          oninput={handleWeaponInput}
-        />
+        <ThemedInput type="text" placeholder="Type weapon name..." bind:value={weaponSearch} onFocus={handleWeaponFocus} onInput={handleWeaponInput} className="w-full" />
         {#if showWeaponDropdown && weaponSearch !== selectedWeapon && filteredWeapons.length > 0}
           <div class="absolute top-full left-0 right-0 max-h-[220px] overflow-y-auto bg-bg-raised border border-border-strong rounded-b-[0.375rem] z-50">
             {#each filteredWeapons as name}
@@ -230,12 +227,12 @@
         {#each attrSlots as slot}
           <div class="flex items-center gap-[0.4rem] py-[0.35rem] px-2 rounded-[0.375rem] {slot.positive ? 'bg-[rgba(33,124,33,0.18)] border border-[rgba(33,124,33,0.3)]' : 'bg-[rgba(125,60,60,0.18)] border border-[rgba(125,60,60,0.3)]'}">
             <span class="font-display text-[0.9rem] font-bold w-4 text-center shrink-0 {slot.positive ? 'text-[#8ee4a8]' : 'text-[#ff7a7a]'}">{slot.positive ? "+" : "−"}</span>
-            <select class="flex-1 py-[0.3rem] px-2 border border-border rounded bg-bg-surface text-text-primary font-body text-[0.75rem] outline-none min-w-0 focus:border-accent" bind:value={slot.selectedStat}>
+            <ThemedSelect bind:value={slot.selectedStat} className="flex-1 min-w-0">
               <option value="">{slot.positive ? "Any positive" : "Any negative"}</option>
               {#each statOptions as opt}
                 <option value={opt.wfmUrlName}>{opt.displayName}</option>
               {/each}
-            </select>
+            </ThemedSelect>
             <label class="flex items-center gap-[0.2rem] font-display text-[0.65rem] text-text-muted cursor-pointer shrink-0 select-none">
               <input type="checkbox" class="w-[14px] h-[14px] accent-accent cursor-pointer" bind:checked={slot.required} />
               <span>Req</span>
@@ -250,19 +247,19 @@
       <div class="flex flex-col gap-[0.35rem]">
         <div class="flex items-center gap-[0.35rem]">
           <span class="font-display text-[0.7rem] text-text-secondary min-w-[3.5rem] shrink-0">Price</span>
-          <input type="number" class="w-20 py-[0.3rem] px-2 border border-border rounded bg-bg-surface text-text-primary font-body text-[0.75rem] outline-none focus:border-accent [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0" placeholder="Min" bind:value={priceMin} min="0" />
+          <ThemedInput type="number" className="w-20 py-[0.3rem] text-[0.75rem]" placeholder="Min" bind:value={priceMin} min="0" />
           <span class="text-text-muted text-[0.75rem]">–</span>
-          <input type="number" class="w-20 py-[0.3rem] px-2 border border-border rounded bg-bg-surface text-text-primary font-body text-[0.75rem] outline-none focus:border-accent [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0" placeholder="Max" bind:value={priceMax} min="0" />
+          <ThemedInput type="number" className="w-20 py-[0.3rem] text-[0.75rem]" placeholder="Max" bind:value={priceMax} min="0" />
         </div>
         <div class="flex items-center gap-[0.35rem]">
           <span class="font-display text-[0.7rem] text-text-secondary min-w-[3.5rem] shrink-0">Rerolls</span>
-          <input type="number" class="w-20 py-[0.3rem] px-2 border border-border rounded bg-bg-surface text-text-primary font-body text-[0.75rem] outline-none focus:border-accent [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0" placeholder="Min" bind:value={rerollsMin} min="0" />
+          <ThemedInput type="number" className="w-20 py-[0.3rem] text-[0.75rem]" placeholder="Min" bind:value={rerollsMin} min="0" />
           <span class="text-text-muted text-[0.75rem]">–</span>
-          <input type="number" class="w-20 py-[0.3rem] px-2 border border-border rounded bg-bg-surface text-text-primary font-body text-[0.75rem] outline-none focus:border-accent [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0" placeholder="Max" bind:value={rerollsMax} min="0" />
+          <ThemedInput type="number" className="w-20 py-[0.3rem] text-[0.75rem]" placeholder="Max" bind:value={rerollsMax} min="0" />
         </div>
         <div class="flex items-center gap-[0.35rem]">
           <span class="font-display text-[0.7rem] text-text-secondary min-w-[3.5rem] shrink-0">Similarity</span>
-          <input type="number" class="w-20 py-[0.3rem] px-2 border border-border rounded bg-bg-surface text-text-primary font-body text-[0.75rem] outline-none focus:border-accent [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0" placeholder="Min %" bind:value={minSimilarity} min="0" max="100" />
+          <ThemedInput type="number" className="w-20 py-[0.3rem] text-[0.75rem]" placeholder="Min %" bind:value={minSimilarity} min="0" max="100" />
           <span class="text-text-muted text-[0.75rem]">%</span>
         </div>
         <label class="flex items-center gap-[0.35rem] font-display text-[0.75rem] text-text-secondary cursor-pointer select-none mt-[0.15rem]">
@@ -272,9 +269,7 @@
       </div>
     </div>
 
-    <button class="py-2 px-6 border border-accent rounded-[0.375rem] bg-accent-glow text-accent font-display text-[0.85rem] font-bold cursor-pointer transition-all duration-150 whitespace-nowrap self-start disabled:opacity-50 disabled:cursor-not-allowed hover:enabled:bg-accent hover:enabled:text-bg-base" onclick={doSearch} disabled={!selectedWeapon || searching}>
-      {searching ? "Searching…" : "Search WFM"}
-    </button>
+    <ThemedButton active={true} disabled={!selectedWeapon || searching} className="self-start px-6 py-2 text-[0.85rem]" onClick={doSearch}>{searching ? "Searching..." : "Search WFM"}</ThemedButton>
   </div>
 </div>
 
@@ -290,7 +285,7 @@
   </div>
   <div class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 max-h-[600px] overflow-y-auto">
     {#each filteredResults as { listing, similarity }}
-      <div class="bg-bg-surface border border-border rounded-[0.5rem] py-2 px-[0.6rem] flex flex-col gap-1 transition-[border-color] duration-150 hover:border-border-strong">
+      <ThemedPanel className="flex flex-col gap-1 px-[0.6rem] py-2 transition-[border-color] duration-150 hover:border-border-strong">
         <div class="flex items-center gap-[0.4rem] font-display text-[0.8rem]">
           <span class="font-bold text-text-muted text-[0.75rem] min-w-[2.2rem]">{similarity}%</span>
           <span class="font-bold text-accent-bright">{listing.buyoutPrice ?? listing.startingPrice ?? listing.platinum}p</span>
@@ -309,7 +304,7 @@
             Open on WFM ↗
           </button>
         </div>
-      </div>
+      </ThemedPanel>
     {/each}
   </div>
 {/if}

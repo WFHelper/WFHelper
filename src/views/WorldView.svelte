@@ -659,7 +659,7 @@
     gap: 0.4rem;
 
     font-family: var(--font-display);
-    font-size: 0.75rem;
+    font-size: 0.84rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     line-height: 1;
@@ -672,8 +672,8 @@
   }
   /* SVG caret shares the section title line-height, so alignment is controlled once. */
   :global(.world-toggle-icon) {
-    width: 1lh;
-    height: 1lh;
+    width: 1.12lh;
+    height: 1.12lh;
     flex: 0 0 auto;
     display: block;
 

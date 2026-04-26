@@ -7,10 +7,18 @@
   export let items: InventoryViewItem[] = [];
   export let showDucats = true;
 
-  const dispatch = createEventDispatcher<{ select: InventoryViewItem; visible: InventoryViewItem }>();
+  const dispatch = createEventDispatcher<{
+    detail: InventoryViewItem;
+    select: InventoryViewItem;
+    visible: InventoryViewItem;
+  }>();
 
   function handleSelect(event: CustomEvent<InventoryViewItem>): void {
     dispatch("select", event.detail);
+  }
+
+  function handleDetail(event: CustomEvent<InventoryViewItem>): void {
+    dispatch("detail", event.detail);
   }
 
   function handleVisible(event: CustomEvent<InventoryViewItem>): void {
@@ -32,6 +40,7 @@
       <InventoryCard
         {item}
         {showDucats}
+        on:detail={handleDetail}
         on:select={handleSelect}
         on:visible={handleVisible}
       />

@@ -3,6 +3,7 @@
   import { wfmItems } from "../stores/data.js";
   import { activeItem, activeComponent } from "../stores/modals.js";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
+  import ThemedPanel from "../components/ThemedPanel.svelte";
   import { applySharedFiltersAndSort } from "../lib/filters.js";
   import { sharedFilters } from "../stores/filters.js";
   import ItemImage from "../components/ItemImage.svelte";
@@ -96,7 +97,7 @@
             <text x="60" y="72" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="Barlow">MASTERED</text>
           </svg>
         </div>
-        <div class="mastery-panel inline-flex flex-wrap items-stretch gap-x-5 gap-y-3 px-6 py-4">
+        <ThemedPanel className="inline-flex flex-wrap items-stretch gap-x-5 gap-y-3 px-6 py-4">
           <div class="flex items-center gap-3">
             <span class="font-display text-[2rem] font-bold text-success leading-none">{stats.mastered}</span>
             <span class="text-lg font-semibold text-text-secondary">Mastered</span>
@@ -125,10 +126,10 @@
               </span>
             </div>
           {/if}
-        </div>
+        </ThemedPanel>
       </div>
 
-      <div class="mastery-panel grid gap-[0.46rem] p-2.5">
+      <ThemedPanel className="grid gap-[0.46rem] p-2.5">
         {#each categories as cat}
           {@const cs = stats.byCategory[cat]}
           {@const masteredWidth = clampPct(cs.mastered, cs.total)}
@@ -148,7 +149,7 @@
             <span class="whitespace-nowrap text-[0.77rem] text-text-secondary">{cs.mastered}/{cs.total} <small class="text-text-muted">({pct(cs.mastered, cs.total)}%)</small></span>
           </div>
         {/each}
-      </div>
+      </ThemedPanel>
     </div>
 
     <!-- Filters -->
@@ -251,12 +252,6 @@
 </section>
 
 <style>
-  .mastery-panel {
-    border: 1px solid var(--ui-panel-border);
-    border-radius: var(--radius-lg);
-    background: var(--ui-panel-bg);
-  }
-
   .comp-dot.owned {
     background: color-mix(in oklab, var(--success) 65%, transparent);
     border-color: color-mix(in oklab, var(--success) 60%, transparent);

@@ -8,7 +8,11 @@
   export let item: InventoryViewItem;
   export let showDucats = true;
 
-  const dispatch = createEventDispatcher<{ select: InventoryViewItem; visible: InventoryViewItem }>();
+  const dispatch = createEventDispatcher<{
+    detail: InventoryViewItem;
+    select: InventoryViewItem;
+    visible: InventoryViewItem;
+  }>();
   let cardEl: HTMLDivElement | null = null;
   let visibilityObserver: IntersectionObserver | null = null;
   let visibilityReported = false;
@@ -34,6 +38,11 @@
 
   function selectCard(): void {
     dispatch("select", item);
+  }
+
+  function openDetail(event: MouseEvent): void {
+    event.stopPropagation();
+    dispatch("detail", item);
   }
 
   onMount(() => {
@@ -71,7 +80,7 @@
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <!-- svelte-ignore a11y-no-static-element-interactions -->
-<div class="item-card {mastered ? 'border-[rgba(74,222,128,0.25)]' : ''} {item.isPrime ? 'border-[rgba(212,168,67,0.28)]' : ''}" on:click={selectCard} bind:this={cardEl}>
+<div class="item-card group relative {mastered ? 'border-[rgba(74,222,128,0.25)]' : ''} {item.isPrime ? 'border-[rgba(212,168,67,0.28)]' : ''}" on:click={selectCard} bind:this={cardEl}>
   <div class="item-img-wrap">
     <ItemImage src={item.displayImageUrl} alt={item.name} />
     {#if item.isPrime}<span class="prime-badge">PRIME</span>{/if}
@@ -145,6 +154,15 @@
       <span class="text-[0.74rem] text-success whitespace-nowrap overflow-hidden text-ellipsis">{item.equippedSummary}</span>
     {/if}
 
+  </div>
+  <div class="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full border-t border-border bg-[color-mix(in_oklab,var(--bg-raised)_92%,black)] px-2.5 py-2 opacity-0 transition-[opacity,transform] duration-150 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100">
+    <button
+      type="button"
+      class="btn-secondary btn-sm pointer-events-auto w-full"
+      on:click={openDetail}
+    >
+      Details
+    </button>
   </div>
 </div>
 

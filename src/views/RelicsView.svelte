@@ -34,6 +34,7 @@
   } from "../lib/relic.js";
   import { invoke, send } from "../lib/ipc.js";
   import ItemImage from "../components/ItemImage.svelte";
+  import RelicMetricPill from "../components/relics/RelicMetricPill.svelte";
   import SearchBox from "../components/SearchBox.svelte";
   import SortArrow from "../components/SortArrow.svelte";
   import type { ParsedItem } from "../types/inventory.js";
@@ -747,15 +748,9 @@
                 >{selectedQualityHeader($relicQualityMode, group, selectedOwned)}</span
               >
               <span class="flex flex-nowrap items-center justify-end gap-[0.24rem] min-w-0">
-                <span class={`relic-row-pill relic-row-pill-plat ${selected.cls}`}>
-                  {selected.plat != null ? `${selected.plat.toFixed(1)}p` : "p -"}
-                </span>
-                <span class={`relic-row-pill relic-row-pill-ducat ${selected.cls}`}>
-                  {selected.ducat != null ? `${selected.ducat.toFixed(1)}d` : "d -"}
-                </span>
-                <span class={`relic-row-pill relic-row-pill-ratio ${selected.cls}`}>
-                  {selected.ratio != null ? `${selected.ratio.toFixed(1)} d/p` : "d/p -"}
-                </span>
+                <RelicMetricPill kind="plat" state={selected.cls} value={selected.plat != null ? `${selected.plat.toFixed(1)}p` : "p -"} />
+                <RelicMetricPill kind="ducat" state={selected.cls} value={selected.ducat != null ? `${selected.ducat.toFixed(1)}d` : "d -"} />
+                <RelicMetricPill kind="ratio" state={selected.cls} value={selected.ratio != null ? `${selected.ratio.toFixed(1)} d/p` : "d/p -"} />
               </span>
             </span>
           </button>
@@ -822,29 +817,6 @@
   }
   .relic-compact-card :global(.relic-icon) { width: 1.85rem; height: 1.85rem; }
   .relic-compact-card :global(.relic-icon-img) { transform: scale(1.06); }
-
-  .relic-row-pill {
-    display: inline-flex; align-items: center; border-radius: 999px;
-    border: 1px solid var(--border);
-    background: color-mix(in oklab, var(--bg-raised) 88%, var(--bg-base));
-    padding: 0.2rem 0.6rem; font-family: var(--font-display); font-size: 0.85rem;
-    font-weight: 700; letter-spacing: 0.03em; color: var(--text-secondary); white-space: nowrap;
-  }
-  :global(.has-value).relic-row-pill {
-    border-color: color-mix(in oklab, var(--accent) 52%, transparent);
-    background: color-mix(in oklab, var(--accent) 20%, var(--bg-raised));
-    color: var(--accent-bright);
-  }
-  :global(.no-data).relic-row-pill {
-    border-color: color-mix(in oklab, var(--text-muted) 35%, transparent);
-    background: color-mix(in oklab, var(--bg-raised) 84%, var(--bg-base));
-    color: var(--text-muted);
-  }
-  :global(.relic-row-pill-ratio).relic-row-pill {
-    border-color: color-mix(in oklab, var(--success) 48%, transparent);
-    background: color-mix(in oklab, var(--success) 16%, var(--bg-raised));
-    color: color-mix(in oklab, var(--success) 82%, white);
-  }
 
   .relic-reward-preview-icon {
     display: inline-flex; align-items: center; justify-content: center;

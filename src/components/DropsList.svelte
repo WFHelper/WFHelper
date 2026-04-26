@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { SvelteSet } from "svelte/reactivity";
+
   import { relicDb, relicOwnedCounts } from "../stores/relics.js";
   import { activeItem, activeComponent, activeRelic } from "../stores/modals.js";
   import { RELIC_ICON_PATHS } from "../lib/relic.js";
@@ -15,7 +17,7 @@
 
   $: dedupedDrops = (() => {
     const out: DropInfo[] = [];
-    const seenRelicKeys = new Set<string>();
+    const seenRelicKeys = new SvelteSet<string>();
 
     for (const d of drops || []) {
       const rg = resolveRelicGroup(d.location);
@@ -47,6 +49,7 @@
   $: {
     const key = (drops || []).map((d) => d.location).join("|");
     if (key !== lastDropsKey) {
+      // eslint-disable-next-line no-useless-assignment -- persists between reactive runs
       lastDropsKey = key;
       showAll = false;
       openRelicKey = null;

@@ -2,6 +2,9 @@
   import { onDestroy } from "svelte";
   import { orderModalState, marketOrders } from "../stores/market.js";
   import { invoke } from "../lib/ipc.js";
+  import ThemedButton from "../components/ThemedButton.svelte";
+  import ThemedInput from "../components/ThemedInput.svelte";
+  import SegmentedControl from "../components/SegmentedControl.svelte";
   import type {
     WfmLookupItem,
     WfmOrder,
@@ -13,6 +16,10 @@
   const ITEM_SEARCH_MIN_CHARS = 2;
   const ITEM_SEARCH_LIMIT = 15;
   const ITEM_SEARCH_DEBOUNCE_MS = 250;
+  const ORDER_TYPE_OPTIONS: Array<{ value: OrderType; label: string }> = [
+    { value: "sell", label: "Sell" },
+    { value: "buy", label: "Buy" },
+  ];
 
   let itemSearchQuery = "";
   let itemDropdown: WfmSearchItem[] = [];
@@ -205,15 +212,7 @@
                 </div>
               {:else}
                 <div class="relative">
-                  <input
-                    id="order-item-search"
-                    type="text"
-                    class="w-full rounded-[0.42rem] border border-border bg-bg-base px-2.5 py-2 text-sm text-text-primary outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
-                    bind:value={itemSearchQuery}
-                    on:input={onSearchInput}
-                    placeholder="Search items…"
-                    autocomplete="off"
-                  />
+                  <ThemedInput id="order-item-search" type="text" bind:value={itemSearchQuery} onInput={onSearchInput} placeholder="Search items..." autocomplete="off" className="w-full" />
                   {#if itemDropdown.length > 0}
                     <div class="absolute top-[calc(100%+4px)] left-0 right-0 z-20 max-h-[220px] overflow-y-auto rounded-lg border border-border-strong bg-bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
                       {#each itemDropdown as item}
@@ -235,36 +234,29 @@
             </div>
 
             <!-- Order type -->
-            <fieldset class="grid gap-1 mb-2 rounded-lg border border-border px-2.5 py-2">
+            <fieldset class="grid gap-1 mb-2 rounded-[var(--radius-lg)] border border-border px-2.5 py-2">
               <legend class="px-1 font-display text-xs font-semibold text-text-secondary">Order Type</legend>
-              <div>
-                <label class="inline-flex items-center gap-1 text-[0.86rem]">
-                  <input type="radio" class="accent-accent" bind:group={orderType} value="sell" /> Sell
-                </label>
-                <label class="inline-flex items-center gap-1 text-[0.86rem]">
-                  <input type="radio" class="accent-accent" bind:group={orderType} value="buy" /> Buy
-                </label>
-              </div>
+              <SegmentedControl value={orderType} options={ORDER_TYPE_OPTIONS} onChange={(value) => (orderType = value)} />
             </fieldset>
           {/if}
 
           <!-- Price -->
           <div class="grid gap-1 mb-2">
             <label for="order-platinum" class="text-sm font-medium text-text-secondary">Price (platinum)</label>
-            <input id="order-platinum" type="number" min="1" max="99999" class="rounded-[0.42rem] border border-border bg-bg-base px-2.5 py-2 text-sm text-text-primary outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]" bind:value={platinum} placeholder="e.g. 50" required />
+            <ThemedInput id="order-platinum" type="number" min="1" max="99999" bind:value={platinum} placeholder="e.g. 50" required />
           </div>
 
           <!-- Quantity -->
           <div class="grid gap-1 mb-2">
             <label for="order-quantity" class="text-sm font-medium text-text-secondary">Quantity</label>
-            <input id="order-quantity" type="number" min="1" max="999" class="rounded-[0.42rem] border border-border bg-bg-base px-2.5 py-2 text-sm text-text-primary outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]" bind:value={quantity} required />
+            <ThemedInput id="order-quantity" type="number" min="1" max="999" bind:value={quantity} required />
           </div>
 
           <!-- Mod rank (optional) -->
           {#if showRankField}
             <div class="grid gap-1 mb-2">
               <label for="order-rank" class="text-sm font-medium text-text-secondary">Mod Rank</label>
-              <input id="order-rank" type="number" min="0" max="20" class="rounded-[0.42rem] border border-border bg-bg-base px-2.5 py-2 text-sm text-text-primary outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]" bind:value={modRank} />
+              <ThemedInput id="order-rank" type="number" min="0" max="20" bind:value={modRank} />
             </div>
           {/if}
 
@@ -282,7 +274,7 @@
           {/if}
 
           <div class="mt-3 flex justify-end gap-2">
-            <button type="button" class="btn-secondary" on:click={close}>Cancel</button>
+            <ThemedButton type="button" onClick={close}>Cancel</ThemedButton>
             <button type="submit" class="btn-primary" disabled={submitting}>
               {submitting ? (isEdit ? 'Saving…' : 'Creating…') : (isEdit ? 'Save Changes' : 'Create Order')}
             </button>

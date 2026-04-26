@@ -14,10 +14,12 @@
     orderModalState,
   } from "../stores/market.js";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
+  import MarketContractRow from "../components/market/MarketContractRow.svelte";
+  import MarketOrderRow from "../components/market/MarketOrderRow.svelte";
+  import ThemedInput from "../components/ThemedInput.svelte";
   import { sharedFilters } from "../stores/filters.js";
   import { applySharedFiltersAndSort } from "../lib/filters.js";
   import { invoke, send } from "../lib/ipc.js";
-  import { PLATINUM_ICON_URL } from "../lib/assetUrls.js";
   import { marketDensity } from "../stores/uiDensity.js";
   import type {
     MarketTab,
@@ -106,21 +108,6 @@
         ...statKeywords,
       ].filter(Boolean),
     };
-  }
-
-  function contractStatsPreview(contract: WfmContract): string {
-    if (!Array.isArray(contract.stats) || contract.stats.length === 0) return "";
-    return contract.stats
-      .slice(0, 2)
-      .map((attribute) => attributeKeyword(attribute as WfmContractAttribute))
-      .filter(Boolean)
-      .join(" | ");
-  }
-
-  function contractBadge(contract: WfmContract): string {
-    if (contract.isDirectSell) return "Direct";
-    if (contract.buyoutPlatinum != null && contract.buyoutPlatinum > 0) return "Auction";
-    return "Listing";
   }
 
   let email = "";
@@ -341,8 +328,12 @@
     });
   }
 
-  function onOrderCheckboxChange(orderId: string, event: Event): void {
-    toggleSelect(orderId, (event.currentTarget as HTMLInputElement).checked);
+  function onOrderSelectChange(orderId: string, checked: boolean): void {
+    toggleSelect(orderId, checked);
+  }
+
+  function editOrder(order: WfmOrder): void {
+    orderModalState.set({ mode: "edit", order });
   }
 
   function openContractListing(contract: WfmContract): void {
@@ -385,26 +376,26 @@
         <form autocomplete="on" on:submit={login}>
           <div class="grid gap-1 mb-2">
             <label for="market-email" class="text-sm font-medium text-text-secondary">Email</label>
-            <input
+            <ThemedInput
               id="market-email"
               type="email"
-              class="rounded-[0.42rem] border border-border bg-bg-base px-2.5 py-2 text-sm text-text-primary outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
               bind:value={email}
               placeholder="you@example.com"
               autocomplete="email"
               required
+              className="w-full"
             />
           </div>
           <div class="grid gap-1 mb-2">
             <label for="market-password" class="text-sm font-medium text-text-secondary">Password</label>
-            <input
+            <ThemedInput
               id="market-password"
               type="password"
-              class="rounded-[0.42rem] border border-border bg-bg-base px-2.5 py-2 text-sm text-text-primary outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
               bind:value={password}
               placeholder="........"
               autocomplete="current-password"
               required
+              className="w-full"
             />
           </div>
           {#if loginError}
@@ -494,111 +485,11 @@
             <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">No riven contracts found.</div>
           {:else}
             {#each filteredContractRows as contract}
-              {#if $marketDensity === 'compact'}
-                <div class="order-row flex flex-col overflow-hidden p-0">
-                  <!-- Header -->
-                  <div class="flex items-center gap-2 border-b border-border bg-bg-raised px-2.5 py-1.5">
-                    <span class="shrink-0 rounded px-1.5 py-0.5 text-[0.62rem] font-bold tracking-wide {contract.isDirectSell ? 'bg-amber-500/20 text-amber-300' : 'bg-sky-500/20 text-sky-300'}">
-                      {contractBadge(contract)}
-                    </span>
-                    <span class="min-w-0 flex-1 truncate font-display text-[0.88rem] font-bold text-text-primary" title={contract.itemName}>
-                      {contract.itemName}
-                    </span>
-                    {#if contract.modRank != null}
-                      <span class="shrink-0 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">R{contract.modRank}</span>
-                    {/if}
-                    {#if contract.rerolls != null}
-                      <span class="shrink-0 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">RR{contract.rerolls}</span>
-                    {/if}
-                  </div>
-                  <!-- Body -->
-                  <div class="flex items-center gap-2.5 px-2.5 py-2">
-                    {#if contract.itemThumb}
-                      <img src={contract.itemThumb} alt={contract.itemName} class="h-11 w-11 shrink-0 rounded-[0.32rem] bg-black/30 object-contain" loading="lazy" />
-                    {:else}
-                      <div class="h-11 w-11 shrink-0 rounded-[0.32rem] bg-white/5"></div>
-                    {/if}
-                    <div class="flex flex-1 flex-col gap-0.5 min-w-0">
-                      <div class="flex items-center gap-3">
-                        <span class="flex items-center gap-1 font-display" title="Platinum">
-                          <img src={PLATINUM_ICON_URL} alt="" width="16" height="16" class="shrink-0" />
-                          <span class="text-lg font-bold leading-none text-accent">{contract.platinum}</span>
-                        </span>
-                        <span class="text-[0.72rem] font-semibold text-text-secondary">
-                          {#if contract.masteryLevel != null}
-                            MR{contract.masteryLevel}
-                          {:else if contract.polarity}
-                            {contract.polarity}
-                          {:else}
-                            -
-                          {/if}
-                        </span>
-                      </div>
-                      {#if contractStatsPreview(contract)}
-                        <span class="truncate text-[0.68rem] text-text-muted" title={contractStatsPreview(contract)}>{contractStatsPreview(contract)}</span>
-                      {/if}
-                    </div>
-                    <div class="flex shrink-0 gap-1">
-                      <button class="btn-sm btn-secondary" on:click={() => openContractListing(contract)}>Open</button>
-                    </div>
-                  </div>
-                </div>
-              {:else}
-                <div class="order-row flex items-center gap-2 px-2.5 py-2">
-                  <span class="h-[15px] w-[15px] shrink-0" aria-hidden="true"></span>
-                  <div class="flex flex-1 items-center gap-2 min-w-0">
-                    {#if contract.itemThumb}
-                      <img
-                        src={contract.itemThumb}
-                        alt={contract.itemName}
-                        class="h-9 w-9 rounded-[0.32rem] object-contain"
-                        loading="lazy"
-                      />
-                    {:else}
-                      <div class="h-9 w-9 rounded-[0.32rem] bg-white/5"></div>
-                    {/if}
-                    <div class="grid gap-1 min-w-0">
-                      <span class="order-item-name">
-                        {contract.itemName}
-                        {#if contract.modRank != null}
-                          <span class="ml-1 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">R{contract.modRank}</span>
-                        {/if}
-                        {#if contract.rerolls != null}
-                          <span class="ml-1 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">RR{contract.rerolls}</span>
-                        {/if}
-                      </span>
-                      {#if contractStatsPreview(contract)}
-                        <span class="truncate text-[0.72rem] text-text-muted">{contractStatsPreview(contract)}</span>
-                      {/if}
-                    </div>
-                  </div>
-                  <div class="flex shrink-0 items-center gap-2">
-                    <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">
-                      <img src={PLATINUM_ICON_URL} alt="" width="14" height="14" class="shrink-0" />
-                      {contract.platinum}
-                    </span>
-                    <span class="order-qty">
-                      {#if contract.masteryLevel != null}
-                        MR{contract.masteryLevel}
-                      {:else if contract.polarity}
-                        {contract.polarity}
-                      {:else}
-                        -
-                      {/if}
-                    </span>
-                    <span
-                      class="order-vis"
-                      class:order-vis-on={contract.isDirectSell}
-                      class:order-vis-off={!contract.isDirectSell}
-                    >
-                      {contractBadge(contract)}
-                    </span>
-                  </div>
-                  <div class="flex shrink-0 gap-1">
-                    <button class="btn-sm btn-secondary" on:click={() => openContractListing(contract)}>Open</button>
-                  </div>
-                </div>
-              {/if}
+              <MarketContractRow
+                {contract}
+                compact={$marketDensity === "compact"}
+                onOpen={openContractListing}
+              />
             {/each}
 
             {#if $marketContracts.hasMore}
@@ -617,103 +508,14 @@
           </div>
         {:else}
           {#each filteredOrderRows as order}
-            {#if $marketDensity === 'compact'}
-              <!-- Compact card: header strip + body -->
-              <div class="order-row flex flex-col overflow-hidden p-0">
-                <!-- Header strip -->
-                <div class="flex items-center gap-2 border-b border-border bg-bg-raised px-2.5 py-1.5">
-                  <input
-                    type="checkbox"
-                    class="h-3.5 w-3.5 shrink-0 accent-accent"
-                    checked={$marketSelected.has(order.id)}
-                    title="Select for bulk action"
-                    on:change={(event) => onOrderCheckboxChange(order.id, event)}
-                  />
-                  <span class="shrink-0 rounded px-1.5 py-0.5 text-[0.62rem] font-bold tracking-wide {order.orderType === 'buy' ? 'bg-sky-500/20 text-sky-300' : 'bg-amber-500/20 text-amber-300'}">
-                    {order.orderType === 'buy' ? 'WTB' : 'WTS'}
-                  </span>
-                  <span class="min-w-0 flex-1 truncate font-display text-[0.88rem] font-bold text-text-primary" title={order.itemName}>
-                    {order.itemName}
-                  </span>
-                  {#if order.modRank != null}
-                    <span class="shrink-0 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">R{order.modRank}</span>
-                  {/if}
-                  <span
-                    class="shrink-0 text-[0.68rem] font-semibold {order.visible ? 'text-success' : 'text-warning'}"
-                    title={order.visible ? 'Visible on WFM' : 'Hidden on WFM'}
-                  >
-                    {order.visible ? '● live' : '○ hidden'}
-                  </span>
-                </div>
-                <!-- Body: thumb + values + actions -->
-                <div class="flex items-center gap-2.5 px-2.5 py-2">
-                  {#if order.itemThumb}
-                    <img src={order.itemThumb} alt={order.itemName} class="h-11 w-11 shrink-0 rounded-[0.32rem] bg-black/30 object-contain" loading="lazy" />
-                  {:else}
-                    <div class="h-11 w-11 shrink-0 rounded-[0.32rem] bg-white/5"></div>
-                  {/if}
-                  <div class="flex flex-1 items-center gap-4">
-                    <span class="flex items-baseline gap-1 font-display" title="Quantity">
-                      <span class="text-[0.75rem] text-text-muted">×</span>
-                      <span class="text-lg font-bold leading-none text-text-primary">{order.quantity}</span>
-                    </span>
-                    <span class="flex items-center gap-1 font-display" title="Platinum">
-                      <img src={PLATINUM_ICON_URL} alt="" width="16" height="16" class="shrink-0" />
-                      <span class="text-lg font-bold leading-none text-accent">{order.platinum}</span>
-                    </span>
-                  </div>
-                  <div class="flex shrink-0 gap-1">
-                    <button
-                      class="btn-sm btn-secondary"
-                      title="Edit"
-                      on:click={() => orderModalState.set({ mode: "edit", order })}
-                    >Edit</button>
-                    <button class="btn-sm btn-danger" title="Delete" on:click={() => deleteOrder(order.id)}>&times;</button>
-                  </div>
-                </div>
-              </div>
-            {:else}
-              <!-- Row mode (unchanged layout) -->
-              <div class="order-row flex items-center gap-2 px-2.5 py-2">
-                <input
-                  type="checkbox"
-                  class="h-[15px] w-[15px] shrink-0 accent-accent"
-                  checked={$marketSelected.has(order.id)}
-                  title="Select for bulk action"
-                  on:change={(event) => onOrderCheckboxChange(order.id, event)}
-                />
-                <div class="flex flex-1 items-center gap-2 min-w-0">
-                  {#if order.itemThumb}
-                    <img src={order.itemThumb} alt={order.itemName} class="h-9 w-9 rounded-[0.32rem] object-contain" loading="lazy" />
-                  {:else}
-                    <div class="h-9 w-9 rounded-[0.32rem] bg-white/5"></div>
-                  {/if}
-                  <span class="order-item-name">
-                    {order.itemName}
-                    {#if order.modRank != null}
-                      <span class="ml-1 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">R{order.modRank}</span>
-                    {/if}
-                  </span>
-                </div>
-                <div class="flex shrink-0 items-center gap-2">
-                  <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">
-                    <img src={PLATINUM_ICON_URL} alt="" width="14" height="14" class="shrink-0" />
-                    {order.platinum}
-                  </span>
-                  <span class="order-qty">x{order.quantity}</span>
-                  <span class="order-vis {order.visible ? 'border-[rgba(74,222,128,0.35)] bg-[rgba(74,222,128,0.13)] text-success' : 'border-[rgba(251,191,36,0.35)] bg-[rgba(251,191,36,0.13)] text-warning'}">
-                    {order.visible ? 'Visible' : 'Hidden'}
-                  </span>
-                </div>
-                <div class="flex shrink-0 gap-1">
-                  <button
-                    class="btn-sm btn-secondary"
-                    on:click={() => orderModalState.set({ mode: "edit", order })}
-                  >Edit</button>
-                  <button class="btn-sm btn-danger" on:click={() => deleteOrder(order.id)}>&times;</button>
-                </div>
-              </div>
-            {/if}
+            <MarketOrderRow
+              {order}
+              compact={$marketDensity === "compact"}
+              selected={$marketSelected.has(order.id)}
+              onSelectChange={onOrderSelectChange}
+              onEdit={editOrder}
+              onDelete={deleteOrder}
+            />
           {/each}
         {/if}
       </div>

@@ -3,6 +3,7 @@
 
   import { parsedItems, wfmItems, inventoryData, itemDb } from "../stores/data.js";
   import { marketOrders } from "../stores/market.js";
+  import { activeItem } from "../stores/modals.js";
   import { relicDb } from "../stores/relics.js";
   import InventoryHeader from "../components/inventory/InventoryHeader.svelte";
   import InventoryGrid from "../components/inventory/InventoryGrid.svelte";
@@ -86,6 +87,10 @@
       trackRankedHotset(selectedBaseItem);
       hydration.enqueue([selectedBaseItem], $wfmItems, { price: true, ducats: false, orders: true });
     }
+  }
+
+  function handleItemDetail(event: CustomEvent<InventoryViewItem>): void {
+    activeItem.set(event.detail);
   }
 
   function handleItemVisible(event: CustomEvent<InventoryViewItem>): void {
@@ -251,6 +256,7 @@
         <InventoryGrid
           items={filtered}
           {showDucats}
+          on:detail={handleItemDetail}
           on:select={handleItemSelect}
           on:visible={handleItemVisible}
         />

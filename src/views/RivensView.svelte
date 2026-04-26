@@ -7,6 +7,9 @@
   import RivenDetailModal from "../components/RivenDetailModal.svelte";
   import RivenFinder from "../components/RivenFinder.svelte";
   import SearchBox from "../components/SearchBox.svelte";
+  import SegmentedControl from "../components/SegmentedControl.svelte";
+  import ThemedButton from "../components/ThemedButton.svelte";
+  import ThemedSelect from "../components/ThemedSelect.svelte";
   import { tr } from "../lib/i18n.js";
 
   let rivens: DecodedRiven[] = $state([]);
@@ -22,6 +25,7 @@
   let viewTab = $state<"unveiled" | "veiled" | "finder">("unveiled");
 
   const TYPES = ["all", "Rifle", "Shotgun", "Pistol", "Melee", "Archgun", "Kitgun", "Zaw"];
+  const TYPE_OPTIONS = TYPES.map((value) => ({ value, label: value === "all" ? "All" : value }));
   const GRADE_ORDER: Record<string, number> = {
     S: 6,
     A: 5,
@@ -145,28 +149,16 @@
     <div class="flex items-center gap-3 flex-wrap mb-4">
       <SearchBox bind:value={searchQuery} placeholder="Search weapons or stats…" class="min-w-[14rem]" />
 
-      <div class="flex gap-1 flex-wrap">
-        {#each TYPES as typ}
-          <button
-            class="py-[0.3rem] px-[0.6rem] border border-border rounded-[0.375rem] bg-bg-surface font-display text-[0.75rem] text-text-secondary cursor-pointer transition-all duration-150 hover:border-border-strong hover:bg-bg-hover data-[active]:border-accent data-[active]:bg-accent-glow data-[active]:text-accent"
-            data-active={typeFilter === typ || undefined}
-            onclick={() => (typeFilter = typ)}
-          >
-            {typ === "all" ? "All" : typ}
-          </button>
-        {/each}
-      </div>
+      <SegmentedControl value={typeFilter} options={TYPE_OPTIONS} onChange={(value) => (typeFilter = value)} />
 
       <div class="ml-auto flex items-center gap-[0.375rem]">
-        <select class="py-[0.35rem] px-[0.6rem] border border-border rounded-[0.375rem] bg-bg-surface text-text-primary font-display text-[0.75rem] cursor-pointer outline-none focus:border-accent" bind:value={sortBy}>
+        <ThemedSelect bind:value={sortBy} className="font-display min-w-[8rem]">
           <option value="name">Name</option>
           <option value="disposition">Disposition</option>
           <option value="rerolls">Rerolls</option>
           <option value="grade">Grade</option>
-        </select>
-        <button class="py-[0.35rem] px-2 border border-border rounded-[0.375rem] bg-bg-surface text-text-secondary text-[0.85rem] cursor-pointer transition-all duration-150 hover:border-border-strong hover:text-text-primary" onclick={toggleSortDir} title="Toggle sort direction">
-          {sortDir === "asc" ? "↑" : "↓"}
-        </button>
+        </ThemedSelect>
+        <ThemedButton size="compact" onClick={toggleSortDir} title="Toggle sort direction">{sortDir === "asc" ? "↑" : "↓"}</ThemedButton>
       </div>
     </div>
 

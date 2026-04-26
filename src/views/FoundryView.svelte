@@ -1,5 +1,6 @@
 ﻿<script lang="ts">
   import { onMount, onDestroy } from "svelte";
+  import { SvelteMap } from "svelte/reactivity";
   import {
     itemDb,
     componentOwnership,
@@ -148,12 +149,12 @@
   /** All category tabs, always shown regardless of whether items exist in that
    *  category right now — matches the in-game Foundry which always displays
    *  the full bar. */
-  $: categoriesPresent = CATEGORY_ORDER;
+  const categoriesPresent = CATEGORY_ORDER;
 
   /** Lookup: ingredient uniqueName → owned count (tracks componentOwnership store). */
   $: ownedMap = $componentOwnership;
   $: productOwnedLookup = (() => {
-    const byUniqueName = new Map<string, number>();
+    const byUniqueName = new SvelteMap<string, number>();
 
     for (const item of $parsedItems) {
       const amount = item.amount ?? 0;
@@ -167,8 +168,8 @@
     return byUniqueName;
   })();
   $: masteryLookup = (() => {
-    const byUniqueName = new Map<string, MasteryStatus>();
-    const byName = new Map<string, MasteryStatus>();
+    const byUniqueName = new SvelteMap<string, MasteryStatus>();
+    const byName = new SvelteMap<string, MasteryStatus>();
 
     for (const item of $masteryData?.items ?? []) {
       const status = item.status;
@@ -356,13 +357,13 @@
   </div>
 
   <!-- Unified filter row: All / status / categories -->
-  <div class="foundry-filter-tabs mb-3">
-    <button class="foundry-filter-tab" class:active={activeFilter === "all"} on:click={() => (activeFilter = "all")}>All</button>
-    <button class="foundry-filter-tab" class:active={activeFilter === "status:in-progress"} on:click={() => (activeFilter = "status:in-progress")}>In Progress</button>
-    <button class="foundry-filter-tab" class:active={activeFilter === "status:ready"} on:click={() => (activeFilter = "status:ready")}>Ready to Build</button>
+  <div class="filter-tabs mb-3">
+    <button class="filter-tab" class:active={activeFilter === "all"} on:click={() => (activeFilter = "all")}>All</button>
+    <button class="filter-tab" class:active={activeFilter === "status:in-progress"} on:click={() => (activeFilter = "status:in-progress")}>In Progress</button>
+    <button class="filter-tab" class:active={activeFilter === "status:ready"} on:click={() => (activeFilter = "status:ready")}>Ready to Build</button>
     {#each categoriesPresent as cat (cat)}
       {@const key = `cat:${cat}` as FilterKey}
-      <button class="foundry-filter-tab" class:active={activeFilter === key} on:click={() => (activeFilter = key)}>{cat}</button>
+      <button class="filter-tab" class:active={activeFilter === key} on:click={() => (activeFilter = key)}>{cat}</button>
     {/each}
   </div>
 
@@ -499,39 +500,3 @@
     {/if}
   </div>
 </section>
-
-<style>
-  .foundry-filter-tabs {
-    display: flex;
-    align-items: center;
-    gap: 0.15rem;
-    border-bottom: 1px solid var(--border);
-    overflow-x: auto;
-  }
-
-  .foundry-filter-tab {
-    position: relative;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    background: transparent;
-    color: var(--text-secondary);
-    cursor: pointer;
-    padding: 0.58rem 0.85rem;
-    font-family: var(--font-display);
-    font-size: 0.82rem;
-    letter-spacing: 0.03em;
-    white-space: nowrap;
-    transition:
-      color 0.15s ease,
-      border-color 0.15s ease;
-  }
-
-  .foundry-filter-tab:hover {
-    color: var(--text-primary);
-  }
-
-  .foundry-filter-tab.active {
-    border-bottom-color: var(--text-primary);
-    color: var(--text-primary);
-  }
-</style>
