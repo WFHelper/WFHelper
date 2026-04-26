@@ -4,7 +4,7 @@
   import { ELEMENT_ICON_URLS, RIVEN_TEMPLATE_URL } from "../lib/assetUrls.js";
   import { gradeColor } from "../lib/rivenGradeColors.js";
   import type { DecodedRiven, VeiledRivenEntry, VeiledRivenGroup } from "../types/ipc.js";
-  import RivenDetailModal from "../components/RivenDetailModal.svelte";
+  import RivenDetailModal from "../modals/RivenDetailModal.svelte";
   import RivenFinder from "../components/RivenFinder.svelte";
   import HeaderTabs from "../components/HeaderTabs.svelte";
   import SearchBox from "../components/SearchBox.svelte";

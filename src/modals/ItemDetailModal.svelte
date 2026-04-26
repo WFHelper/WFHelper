@@ -7,7 +7,7 @@
   import DropsList from "../components/DropsList.svelte";
   import MarketPrice from "../components/MarketPrice.svelte";
   import WikiButton from "../components/WikiButton.svelte";
-  import ModalShell from "../components/ModalShell.svelte";
+  import DetailModalBase from "./DetailModalBase.svelte";
   import ComponentPanel from "../components/ComponentPanel.svelte";
   import CraftingTree from "../components/CraftingTree.svelte";
   import type { ComponentInfo } from "../types/inventory.js";
@@ -80,9 +80,12 @@
 </script>
 
 {#if item}
-  <ModalShell ariaLabel={item.name} onClose={onModalClose}>
-    <div class="detail-dual-container" class:has-comp={selectedComp}>
-      <div class="detail-panel {showCraftingTree ? 'w-[90vw] max-w-[1100px]' : ''}">
+  <DetailModalBase
+    ariaLabel={item.name}
+    onClose={onModalClose}
+    sideState={selectedComp ? "component" : "none"}
+    panelClass={showCraftingTree ? "w-[90vw] max-w-[1100px]" : ""}
+  >
         <div class="detail-panel-top-actions">
           {#if hasCraftingTree}
             <button
@@ -168,17 +171,17 @@
 
           </div>
         {/if}
-      </div>
 
-      {#if selectedComp && !showCraftingTree}
-        <ComponentPanel
-          comp={selectedComp}
-          parentName={item.name}
-          panelClass="comp-inline-panel"
-          onClose={closeCompPanel}
-        />
-      {/if}
-    </div>
-  </ModalShell>
+      <svelte:fragment slot="sidePanel">
+        {#if selectedComp && !showCraftingTree}
+          <ComponentPanel
+            comp={selectedComp}
+            parentName={item.name}
+            panelClass="comp-inline-panel"
+            onClose={closeCompPanel}
+          />
+        {/if}
+      </svelte:fragment>
+  </DetailModalBase>
 {/if}
 

@@ -6,6 +6,7 @@
   import { invoke } from "../lib/ipc.js";
   import { getBestAttributes } from "../lib/rivenBestAttributes.js";
   import { gradeColor, attrGradeColor, dispoStars } from "../lib/rivenGradeColors.js";
+  import DetailModalBase from "./DetailModalBase.svelte";
 
   interface Props {
     riven: DecodedRiven;
@@ -130,14 +131,11 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div
-  class="fixed inset-0 flex items-center justify-center z-[1000] bg-black/65 animate-[fadeIn_0.15s_ease]"
-  role="dialog"
-  aria-modal="true"
-  aria-label="Riven details: {riven.rivenName || riven.weaponName}"
-  tabindex="-1"
+<DetailModalBase
+  ariaLabel={`Riven details: ${riven.rivenName || riven.weaponName}`}
+  onClose={onclose}
+  wrapPanel={false}
 >
-  <button type="button" class="absolute inset-0 bg-transparent border-0 p-0 cursor-pointer appearance-none" aria-label="Close dialog" onclick={onclose}></button>
   <div class="relative z-[1] w-[92vw] max-w-[850px] max-h-[90vh] overflow-y-auto bg-bg-base border border-border-strong rounded-2xl py-8 px-[2.25rem] animate-[slideUp_0.18s_ease]">
     <button class="absolute top-3 right-3 bg-transparent border-0 text-text-muted text-[1.1rem] cursor-pointer px-2 py-1 rounded transition-all duration-150 hover:text-text-primary hover:bg-bg-hover" onclick={onclose} aria-label="Close">✕</button>
 
@@ -301,7 +299,7 @@
       </div>
     </div>
   </div>
-</div>
+</DetailModalBase>
 
 <style>
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { activeComponent } from "../stores/modals.js";
-  import ModalShell from "../components/ModalShell.svelte";
   import ComponentPanel from "../components/ComponentPanel.svelte";
+  import DetailModalBase from "./DetailModalBase.svelte";
 
   $: data = $activeComponent;
   $: comp = data?.comp;
@@ -13,10 +13,11 @@
 </script>
 
 {#if comp}
-  <ModalShell
+  <DetailModalBase
     ariaLabel={comp.name || 'Component details'}
     overlayClass="comp-overlay"
     onClose={close}
+    wrapPanel={false}
   >
     <ComponentPanel
       {comp}
@@ -24,5 +25,5 @@
       panelClass="comp-panel"
       onClose={close}
     />
-  </ModalShell>
+  </DetailModalBase>
 {/if}

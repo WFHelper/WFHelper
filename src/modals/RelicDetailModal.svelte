@@ -7,7 +7,7 @@ import { fetchWfmItemMetaBySlug } from "../lib/wfm/wfmItemMeta.js";
 import { SvelteMap } from "svelte/reactivity";
 import WikiButton from "../components/WikiButton.svelte";
 import ComponentPanel from "../components/ComponentPanel.svelte";
-import ModalShell from "../components/ModalShell.svelte";
+import DetailModalBase from "./DetailModalBase.svelte";
   import {
     computeSquadDucatEV,
     computeSquadEV,
@@ -230,9 +230,12 @@ import ModalShell from "../components/ModalShell.svelte";
 </script>
 
 {#if group}
-  <ModalShell ariaLabel={group.name} onClose={onModalClose}>
-    <div class="detail-dual-container" class:has-reward={rewardComp}>
-      <div class="detail-panel relic-detail-panel">
+  <DetailModalBase
+    ariaLabel={group.name}
+    onClose={onModalClose}
+    sideState={rewardComp ? "reward" : "none"}
+    panelClass="relic-detail-panel"
+  >
         <div class="detail-panel-top-actions">
           <WikiButton wikiUrl={null} fallbackName={group.name} />
           <button class="detail-close" aria-label="Close" on:click={close}>&times;</button>
@@ -347,18 +350,18 @@ import ModalShell from "../components/ModalShell.svelte";
             {/if}
           </div>
         </div>
-      </div>
 
-      {#if rewardComp}
-        <ComponentPanel
-          comp={rewardComp}
-          parentName={rewardParentName}
-          panelClass="relic-reward-item-panel"
-          onClose={closeRewardPanel}
-        />
-      {/if}
-    </div>
-  </ModalShell>
+      <svelte:fragment slot="sidePanel">
+        {#if rewardComp}
+          <ComponentPanel
+            comp={rewardComp}
+            parentName={rewardParentName}
+            panelClass="relic-reward-item-panel"
+            onClose={closeRewardPanel}
+          />
+        {/if}
+      </svelte:fragment>
+  </DetailModalBase>
 {/if}
 
 <style>
