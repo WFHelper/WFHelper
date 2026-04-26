@@ -7,15 +7,14 @@
   } from "../stores/data.js";
   import {
     marketContracts,
-    marketContractsLastFetch,
     marketOrders,
-    marketOrdersLastFetch,
     marketSelected,
     mutateMarketSelected,
     marketSession,
-    marketStatus,
-    marketTypeTab,
+    marketViewState,
     orderModalState,
+    resetMarketFetchTimes,
+    setMarketViewState,
   } from "../stores/market.js";
   import HeaderTabs from "../components/HeaderTabs.svelte";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
@@ -152,23 +151,24 @@
     if (!$marketSession.loggedIn) return;
 
     const hasOrders = $marketOrders.sell.length + $marketOrders.buy.length > 0;
-    const ordersStale = Date.now() - $marketOrdersLastFetch > ORDERS_STALE_MS;
+    const ordersStale = Date.now() - $marketViewState.ordersLastFetch > ORDERS_STALE_MS;
     if (!hasOrders || ordersStale) {
       await fetchOrders();
     }
 
-    if (!$marketStatus) {
+    if (!$marketViewState.status) {
       try {
         const me = await invoke("wfmGetMe");
-        if (me?.status) marketStatus.set(me.status as WfmStatus);
+        if (me?.status) setMarketViewState({ status: me.status as WfmStatus });
       } catch (error) {
         console.warn("[Market] getMe failed:", error);
       }
     }
 
-    if ($marketTypeTab === "rivens") {
+    if ($marketViewState.typeTab === "rivens") {
       const hasContracts = $marketContracts.contracts.length > 0;
-      const contractsStale = Date.now() - $marketContractsLastFetch > CONTRACTS_STALE_MS;
+      const contractsStale =
+        Date.now() - $marketViewState.contractsLastFetch > CONTRACTS_STALE_MS;
       if (!hasContracts || contractsStale) {
         await fetchContracts();
       }
@@ -187,7 +187,7 @@
         marketSession.set(result);
         password = "";
         await fetchOrders();
-        if ($marketTypeTab === "rivens") {
+        if ($marketViewState.typeTab === "rivens") {
           await fetchContracts();
         }
       }
@@ -204,8 +204,7 @@
     marketOrders.set({ sell: [], buy: [] });
     marketContracts.set({ contracts: [], page: 1, totalPages: null, hasMore: false });
     marketSelected.set(new Set());
-    marketOrdersLastFetch.set(0);
-    marketContractsLastFetch.set(0);
+    resetMarketFetchTimes();
     ordersError = "";
     contractsError = "";
   }
@@ -226,7 +225,7 @@
 
       marketOrders.set(result);
       marketSelected.set(new Set());
-      marketOrdersLastFetch.set(Date.now());
+      setMarketViewState({ ordersLastFetch: Date.now() });
     } catch (error) {
       ordersError = (error as Error).message;
     } finally {
@@ -259,7 +258,7 @@
         ...result,
         contracts: deduped,
       });
-      marketContractsLastFetch.set(Date.now());
+      setMarketViewState({ contractsLastFetch: Date.now() });
       marketSelected.set(new Set());
     } catch (error) {
       contractsError = (error as Error).message;
@@ -274,7 +273,7 @@
   }
 
   async function refreshCurrentTab(): Promise<void> {
-    if ($marketTypeTab === "rivens") {
+    if ($marketViewState.typeTab === "rivens") {
       await fetchContracts();
       return;
     }
@@ -282,12 +281,13 @@
   }
 
   function switchTypeTab(type: MarketTab): void {
-    marketTypeTab.set(type);
+    setMarketViewState({ typeTab: type });
     marketSelected.set(new Set());
 
     if (type === "rivens") {
       const hasContracts = $marketContracts.contracts.length > 0;
-      const contractsStale = Date.now() - $marketContractsLastFetch > CONTRACTS_STALE_MS;
+      const contractsStale =
+        Date.now() - $marketViewState.contractsLastFetch > CONTRACTS_STALE_MS;
       if (!hasContracts || contractsStale) {
         void fetchContracts();
       }
@@ -295,10 +295,10 @@
   }
 
   async function setStatus(status: WfmStatus): Promise<void> {
-    if (status === $marketStatus) return;
+    if (status === $marketViewState.status) return;
     try {
       await invoke("wfmSetStatus", status);
-      marketStatus.set(status);
+      setMarketViewState({ status });
     } catch (error) {
       console.error("[Market] setStatus failed:", error);
     }
@@ -321,7 +321,7 @@
   }
 
   async function bulkSetVisible(visible: boolean): Promise<void> {
-    if (!isOrdersTab($marketTypeTab)) return;
+    if (!isOrdersTab($marketViewState.typeTab)) return;
     const ids = [...$marketSelected];
     if (!ids.length) return;
     await invoke("wfmSetVisible", ids, visible);
@@ -329,7 +329,7 @@
   }
 
   async function bulkDelete(): Promise<void> {
-    if (!isOrdersTab($marketTypeTab)) return;
+    if (!isOrdersTab($marketViewState.typeTab)) return;
     const ids = [...$marketSelected];
     if (!ids.length) return;
     if (!confirm(`Delete ${ids.length} order(s)?`)) return;
@@ -368,8 +368,10 @@
     send("open-external", contract.listingUrl);
   }
 
-  $: isRivensTab = $marketTypeTab === "rivens";
-  $: activeOrders = isOrdersTab($marketTypeTab) ? ($marketOrders[$marketTypeTab] || []) : [];
+  $: isRivensTab = $marketViewState.typeTab === "rivens";
+  $: activeOrders = isOrdersTab($marketViewState.typeTab)
+    ? ($marketOrders[$marketViewState.typeTab] || [])
+    : [];
   $: filteredOrderRows = applySharedFiltersAndSort(
     activeOrders.map(normalizeOrderForFilter),
     $marketFilters,
@@ -474,7 +476,7 @@
               <button
                 class="status-btn"
                 data-status={statusKey}
-                class:status-active={$marketStatus === statusKey}
+                class:status-active={$marketViewState.status === statusKey}
                 on:click={() => setStatus(statusKey)}
               >{label}</button>
             {/each}
@@ -503,7 +505,7 @@
       <div class="mb-2.5 flex items-end border-b border-[rgba(255,255,255,0.09)]">
         <HeaderTabs
           options={ORDER_TYPE_TABS}
-          activeKey={$marketTypeTab}
+          activeKey={$marketViewState.typeTab}
           onSelect={handleTypeTabSelect}
         />
       </div>
@@ -560,7 +562,7 @@
           <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-danger">{ordersError}</div>
         {:else if filteredOrderRows.length === 0}
           <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">
-            No {$marketTypeTab} orders. Click <strong>+ New Order</strong> to create one.
+            No {$marketViewState.typeTab} orders. Click <strong>+ New Order</strong> to create one.
           </div>
         {:else}
           {#each filteredOrderRows as order}

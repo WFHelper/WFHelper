@@ -1,14 +1,36 @@
 import { writable } from "svelte/store";
 import type { OwnedCounts, RelicDatabase } from "../types/relics.js";
 
+export type RelicSortMode = "tier" | "name" | "ev" | "ducat" | "ducatonator";
+export type RelicQualityMode = "owned" | "intact" | "exceptional" | "flawless" | "radiant";
+
+export interface RelicViewState {
+  tierFilter: string;
+  search: string;
+  sortMode: RelicSortMode;
+  sortDirection: "asc" | "desc";
+  qualityMode: RelicQualityMode;
+  squadSize: number;
+}
+
+export const DEFAULT_RELIC_VIEW_STATE: RelicViewState = {
+  tierFilter: "all",
+  search: "",
+  sortMode: "tier",
+  sortDirection: "asc",
+  qualityMode: "owned",
+  squadSize: 1,
+};
+
 export const relicDb = writable<RelicDatabase | null>(null);
-export const relicTierFilter = writable<string>("all");
-export const relicSearch = writable<string>("");
-export const relicSortMode = writable<"tier" | "name" | "ev" | "ducat" | "ducatonator">("tier");
-export const relicSortDirection = writable<"asc" | "desc">("asc");
-export const relicQualityMode = writable<
-  "owned" | "intact" | "exceptional" | "flawless" | "radiant"
->("owned");
-export const relicSquadSize = writable<number>(1);
+export const relicViewState = writable<RelicViewState>({ ...DEFAULT_RELIC_VIEW_STATE });
 export const relicOwnedCounts = writable<OwnedCounts>({});
 export const relicEvRevision = writable<number>(0);
+
+export function setRelicFilter(patch: Partial<RelicViewState>): void {
+  relicViewState.update((state) => ({ ...state, ...patch }));
+}
+
+export function resetRelicFilters(): void {
+  relicViewState.set({ ...DEFAULT_RELIC_VIEW_STATE });
+}

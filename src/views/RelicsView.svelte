@@ -5,12 +5,8 @@
     relicDb,
     relicEvRevision,
     relicOwnedCounts,
-    relicQualityMode,
-    relicSortDirection,
-    relicSearch,
-    relicSortMode,
-    relicSquadSize,
-    relicTierFilter,
+    relicViewState,
+    setRelicFilter,
   } from "../stores/relics.js";
   import { inventoryData, itemDb, parsedItems, wfmItems } from "../stores/data.js";
   import { activeRelic } from "../stores/modals.js";
@@ -39,8 +35,9 @@
   import SortArrow from "../components/SortArrow.svelte";
   import type { ParsedItem } from "../types/inventory.js";
   import type { RelicGroup, RelicQuality, RelicReward } from "../types/relics.js";
+  import type { RelicQualityMode, RelicSortMode } from "../stores/relics.js";
 
-  type RelicQualityModeView = "owned" | RelicQuality;
+  type RelicQualityModeView = RelicQualityMode;
 
   const TIER_OPTIONS: Array<[string, string]> = [
     ["all", "All"],
@@ -51,7 +48,7 @@
     ["Requiem", "Requiem"],
   ];
 
-  const SORT_OPTIONS: Array<["tier" | "name" | "ev" | "ducat" | "ducatonator", string]> = [
+  const SORT_OPTIONS: Array<[RelicSortMode, string]> = [
     ["tier", "Default"],
     ["name", "Name"],
     ["ev", "Platinum"],
@@ -100,13 +97,32 @@
 
   function pushFiltersToOverlay(): void {
     send("overlay:push-relic-filters", {
-      squadSize: $relicSquadSize,
-      tierFilter: $relicTierFilter === "all" ? null : $relicTierFilter,
+      squadSize: $relicViewState.squadSize,
+      tierFilter: $relicViewState.tierFilter === "all" ? null : $relicViewState.tierFilter,
     });
   }
 
   function toggleRelicSortDirection(): void {
-    relicSortDirection.update((value) => (value === "asc" ? "desc" : "asc"));
+    setRelicFilter({
+      sortDirection: $relicViewState.sortDirection === "asc" ? "desc" : "asc",
+    });
+  }
+
+  function setRelicSortMode(event: Event): void {
+    setRelicFilter({ sortMode: (event.currentTarget as HTMLSelectElement).value as RelicSortMode });
+  }
+
+  function setRelicQualityMode(event: Event): void {
+    setRelicFilter({
+      qualityMode: (event.currentTarget as HTMLSelectElement).value as RelicQualityMode,
+    });
+  }
+
+  function setRelicSquadSize(event: Event): void {
+    const squadSize = Number((event.currentTarget as HTMLSelectElement).value);
+    if (Number.isFinite(squadSize)) {
+      setRelicFilter({ squadSize });
+    }
   }
 
   function openRelic(group: RelicGroup): void {
@@ -212,7 +228,7 @@
 
   // Re-run warmup for the currently selected squad/quality. Debounced so that
   // simultaneous squad+quality store updates collapse into one startWarmup call.
-  $: if ($relicSquadSize || $relicQualityMode) {
+  $: if ($relicViewState.squadSize || $relicViewState.qualityMode) {
     if ($relicDb) scheduleWarmup();
   }
 
@@ -337,19 +353,21 @@
       }
     }
 
-    if ($relicTierFilter !== "all") {
-      relicGroups = relicGroups.filter((group) => group.tier === $relicTierFilter);
+    if ($relicViewState.tierFilter !== "all") {
+      relicGroups = relicGroups.filter((group) => group.tier === $relicViewState.tierFilter);
     }
 
-    if ($relicSearch) {
-      relicGroups = relicGroups.filter((group) => relicGroupMatchesSearch(group, $relicSearch));
+    if ($relicViewState.search) {
+      relicGroups = relicGroups.filter((group) =>
+        relicGroupMatchesSearch(group, $relicViewState.search),
+      );
     }
 
-    if ($relicSortMode === "ev") {
-      const direction = $relicSortDirection === "desc" ? -1 : 1;
+    if ($relicViewState.sortMode === "ev") {
+      const direction = $relicViewState.sortDirection === "desc" ? -1 : 1;
       relicGroups = [...relicGroups].sort((a, b) => {
-        const aEv = selectedEvDataForMode(a, $relicQualityMode).plat;
-        const bEv = selectedEvDataForMode(b, $relicQualityMode).plat;
+        const aEv = selectedEvDataForMode(a, $relicViewState.qualityMode).plat;
+        const bEv = selectedEvDataForMode(b, $relicViewState.qualityMode).plat;
 
         if ((aEv == null) !== (bEv == null)) return aEv == null ? 1 : -1;
         if (aEv != null && bEv != null && aEv !== bEv) {
@@ -360,11 +378,11 @@
         const tierB = RELIC_TIER_ORDER[b.tier] ?? 99;
         return tierA !== tierB ? tierA - tierB : a.name.localeCompare(b.name);
       });
-    } else if ($relicSortMode === "ducat") {
-      const direction = $relicSortDirection === "desc" ? -1 : 1;
+    } else if ($relicViewState.sortMode === "ducat") {
+      const direction = $relicViewState.sortDirection === "desc" ? -1 : 1;
       relicGroups = [...relicGroups].sort((a, b) => {
-        const aEv = selectedEvDataForMode(a, $relicQualityMode).ducat;
-        const bEv = selectedEvDataForMode(b, $relicQualityMode).ducat;
+        const aEv = selectedEvDataForMode(a, $relicViewState.qualityMode).ducat;
+        const bEv = selectedEvDataForMode(b, $relicViewState.qualityMode).ducat;
 
         if ((aEv == null) !== (bEv == null)) return aEv == null ? 1 : -1;
         if (aEv != null && bEv != null && aEv !== bEv) {
@@ -375,11 +393,11 @@
         const tierB = RELIC_TIER_ORDER[b.tier] ?? 99;
         return tierA !== tierB ? tierA - tierB : a.name.localeCompare(b.name);
       });
-    } else if ($relicSortMode === "ducatonator") {
-      const direction = $relicSortDirection === "desc" ? -1 : 1;
+    } else if ($relicViewState.sortMode === "ducatonator") {
+      const direction = $relicViewState.sortDirection === "desc" ? -1 : 1;
       relicGroups = [...relicGroups].sort((a, b) => {
-        const aRatio = selectedEvDataForMode(a, $relicQualityMode).ratio;
-        const bRatio = selectedEvDataForMode(b, $relicQualityMode).ratio;
+        const aRatio = selectedEvDataForMode(a, $relicViewState.qualityMode).ratio;
+        const bRatio = selectedEvDataForMode(b, $relicViewState.qualityMode).ratio;
 
         if ((aRatio == null) !== (bRatio == null)) return aRatio == null ? 1 : -1;
         if (aRatio != null && bRatio != null && aRatio !== bRatio) {
@@ -390,11 +408,11 @@
         const tierB = RELIC_TIER_ORDER[b.tier] ?? 99;
         return tierA !== tierB ? tierA - tierB : a.name.localeCompare(b.name);
       });
-    } else if ($relicSortMode === "name") {
-      const direction = $relicSortDirection === "desc" ? -1 : 1;
+    } else if ($relicViewState.sortMode === "name") {
+      const direction = $relicViewState.sortDirection === "desc" ? -1 : 1;
       relicGroups = [...relicGroups].sort((a, b) => direction * a.name.localeCompare(b.name));
     } else {
-      const direction = $relicSortDirection === "desc" ? -1 : 1;
+      const direction = $relicViewState.sortDirection === "desc" ? -1 : 1;
       relicGroups = [...relicGroups].sort((a, b) => {
         const tierA = RELIC_TIER_ORDER[a.tier] ?? 99;
         const tierB = RELIC_TIER_ORDER[b.tier] ?? 99;
@@ -420,10 +438,10 @@
   }
 
   function qualityEvData(group: RelicGroup, quality: RelicQuality): RowEvData {
-    const platEv = getCachedEv(group.key, $relicSquadSize, quality);
-    const ducatEv = computeGroupDucatEv(group, $relicSquadSize, quality);
-    const ratio = computeGroupDucatonator(group, $relicSquadSize, quality);
-    const noData = evHasFreshNoData(group.key, $relicSquadSize, quality);
+    const platEv = getCachedEv(group.key, $relicViewState.squadSize, quality);
+    const ducatEv = computeGroupDucatEv(group, $relicViewState.squadSize, quality);
+    const ratio = computeGroupDucatonator(group, $relicViewState.squadSize, quality);
+    const noData = evHasFreshNoData(group.key, $relicViewState.squadSize, quality);
 
     return {
       plat: platEv,
@@ -646,29 +664,38 @@
         {#each TIER_OPTIONS as [key, label]}
           <button
             class="flex items-center py-[0.45rem] px-[0.95rem] border-0 border-b-[3px] border-b-transparent bg-none font-display text-base text-[#8a8c95] cursor-pointer transition-[color,border-color] duration-150 whitespace-nowrap -mb-px hover:text-[#b0b2ba] data-[active]:text-white data-[active]:border-b-white"
-            data-active={$relicTierFilter === key || undefined}
-            on:click={() => relicTierFilter.set(key)}
+            data-active={$relicViewState.tierFilter === key || undefined}
+            on:click={() => setRelicFilter({ tierFilter: key })}
           >{label}</button>
         {/each}
       </div>
       <div class="ml-auto flex items-center gap-2 pb-[0.45rem] shrink-0 flex-nowrap">
-        <SearchBox bind:value={$relicSearch} placeholder="Search relics..." class="min-w-[11rem]" />
+        <SearchBox
+          value={$relicViewState.search}
+          onValueChange={(search) => setRelicFilter({ search })}
+          placeholder="Search relics..."
+          class="min-w-[11rem]"
+        />
 
         <div class="shared-sort-controls">
           <button
             class="shared-sort-direction"
             on:click={toggleRelicSortDirection}
             title="Sort direction"
-            aria-label={$relicSortDirection === "asc"
+            aria-label={$relicViewState.sortDirection === "asc"
               ? "Sort direction ascending"
               : "Sort direction descending"}
           >
-            <SortArrow asc={$relicSortDirection === "asc"} />
+            <SortArrow asc={$relicViewState.sortDirection === "asc"} />
           </button>
 
           <label class="shared-filter-sort" title="Sort relics">
             <span>Sort</span>
-            <select class="shared-filter-select" bind:value={$relicSortMode}>
+            <select
+              class="shared-filter-select"
+              value={$relicViewState.sortMode}
+              on:change={setRelicSortMode}
+            >
               {#each SORT_OPTIONS as [key, label]}
                 <option value={key}>{label}</option>
               {/each}
@@ -678,7 +705,11 @@
 
         <label class="shared-filter-sort" title="Relic quality for EV">
           <span>Quality</span>
-          <select class="shared-filter-select" bind:value={$relicQualityMode}>
+          <select
+            class="shared-filter-select"
+            value={$relicViewState.qualityMode}
+            on:change={setRelicQualityMode}
+          >
             {#each QUALITY_OPTIONS as [key, label]}
               <option value={key}>{label}</option>
             {/each}
@@ -687,7 +718,11 @@
 
         <label class="shared-filter-sort" title="Squad size for EV">
           <span>Squad</span>
-          <select class="shared-filter-select min-w-[4rem]" bind:value={$relicSquadSize}>
+          <select
+            class="shared-filter-select min-w-[4rem]"
+            value={$relicViewState.squadSize}
+            on:change={setRelicSquadSize}
+          >
             {#each SQUAD_OPTIONS as [size, label]}
               <option value={size}>{label}</option>
             {/each}
@@ -722,7 +757,7 @@
         {@const iconSrc =
           group.imageUrl || RELIC_ICON_PATHS[tierClass] || RELIC_ICON_PATHS.default}
         {@const selectedOwned = selectedOwnedQuality(group, ownedModeSelectedQualityByGroup[group.key])}
-        {@const selected = selectedEvDataForMode(group, $relicQualityMode, selectedOwned)}
+        {@const selected = selectedEvDataForMode(group, $relicViewState.qualityMode, selectedOwned)}
         {@const rewardIcons = previewRewards(group)}
 
         <div class="relic-compact-card" class:plain={$themeSettings.effects.relicCardStyle === "plain"}>
@@ -745,7 +780,7 @@
 
             <span class="min-w-0 flex flex-col items-end gap-[0.16rem]">
               <span class="relic-compact-block-label text-right font-display text-[0.72rem] tracking-[0.06em] uppercase text-text-secondary"
-                >{selectedQualityHeader($relicQualityMode, group, selectedOwned)}</span
+                >{selectedQualityHeader($relicViewState.qualityMode, group, selectedOwned)}</span
               >
               <span class="flex flex-nowrap items-center justify-end gap-[0.24rem] min-w-0">
                 <RelicMetricPill kind="plat" state={selected.cls} value={selected.plat != null ? `${selected.plat.toFixed(1)}p` : "p -"} />
@@ -772,10 +807,10 @@
               {@const count = ownedCount(group, quality)}
               <button
                 type="button"
-                class="relic-quality-inline-pill {count === 0 ? 'text-text-muted opacity-90' : ''} {$relicQualityMode !== 'owned' || count === 0 ? 'cursor-default opacity-[0.86]' : ''}"
-                class:active={$relicQualityMode === "owned" && selectedOwned === quality}
+                class="relic-quality-inline-pill {count === 0 ? 'text-text-muted opacity-90' : ''} {$relicViewState.qualityMode !== 'owned' || count === 0 ? 'cursor-default opacity-[0.86]' : ''}"
+                class:active={$relicViewState.qualityMode === "owned" && selectedOwned === quality}
                 on:click|stopPropagation={() => {
-                  if ($relicQualityMode === "owned" && count > 0) {
+                  if ($relicViewState.qualityMode === "owned" && count > 0) {
                     setOwnedQuality(group, quality);
                   }
                 }}

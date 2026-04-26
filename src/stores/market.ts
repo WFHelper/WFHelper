@@ -21,8 +21,22 @@ export const marketContracts = writable<WfmContractsResult>({
   totalPages: null,
   hasMore: false,
 });
-export const marketTypeTab = writable<MarketTab>("sell");
-export const marketStatus = writable<WfmStatus | null>(null);
+
+export interface MarketViewState {
+  typeTab: MarketTab;
+  status: WfmStatus | null;
+  ordersLastFetch: number;
+  contractsLastFetch: number;
+}
+
+export const DEFAULT_MARKET_VIEW_STATE: MarketViewState = {
+  typeTab: "sell",
+  status: null,
+  ordersLastFetch: 0,
+  contractsLastFetch: 0,
+};
+
+export const marketViewState = writable<MarketViewState>({ ...DEFAULT_MARKET_VIEW_STATE });
 export const marketSelected = writable<Set<string>>(new Set());
 
 /**
@@ -38,6 +52,13 @@ export function mutateMarketSelected(mutator: (s: Set<string>) => void): void {
     return new Set(s);
   });
 }
-export const marketOrdersLastFetch = writable<number>(0);
-export const marketContractsLastFetch = writable<number>(0);
+
+export function setMarketViewState(patch: Partial<MarketViewState>): void {
+  marketViewState.update((state) => ({ ...state, ...patch }));
+}
+
+export function resetMarketFetchTimes(): void {
+  setMarketViewState({ ordersLastFetch: 0, contractsLastFetch: 0 });
+}
+
 export const orderModalState = writable<OrderModalState | null>(null);
