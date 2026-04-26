@@ -30,6 +30,7 @@
   } from "../lib/relic.js";
   import { invoke, send } from "../lib/ipc.js";
   import ItemImage from "../components/ItemImage.svelte";
+  import HeaderTabs from "../components/HeaderTabs.svelte";
   import RelicMetricPill from "../components/relics/RelicMetricPill.svelte";
   import SearchBox from "../components/SearchBox.svelte";
   import SortArrow from "../components/SortArrow.svelte";
@@ -47,6 +48,7 @@
     ["Axi", "Axi"],
     ["Requiem", "Requiem"],
   ];
+  const TIER_TABS = TIER_OPTIONS.map(([key, label]) => ({ key, label }));
 
   const SORT_OPTIONS: Array<[RelicSortMode, string]> = [
     ["tier", "Default"],
@@ -660,15 +662,11 @@
   <div class="mb-4">
     <h2 class="m-0 mb-2 font-display text-[1.875rem] font-semibold tracking-[0.03em] text-text-primary">Relic Planner ({groups.length} groups / {visibleRelicEntryCount} entries)</h2>
     <div class="flex items-end border-b border-white/[0.09]">
-      <div class="flex">
-        {#each TIER_OPTIONS as [key, label]}
-          <button
-            class="flex items-center py-[0.45rem] px-[0.95rem] border-0 border-b-[3px] border-b-transparent bg-none font-display text-base text-[#8a8c95] cursor-pointer transition-[color,border-color] duration-150 whitespace-nowrap -mb-px hover:text-[#b0b2ba] data-[active]:text-white data-[active]:border-b-white"
-            data-active={$relicViewState.tierFilter === key || undefined}
-            on:click={() => setRelicFilter({ tierFilter: key })}
-          >{label}</button>
-        {/each}
-      </div>
+      <HeaderTabs
+        options={TIER_TABS}
+        activeKey={$relicViewState.tierFilter}
+        onSelect={(tierFilter) => setRelicFilter({ tierFilter })}
+      />
       <div class="ml-auto flex items-center gap-2 pb-[0.45rem] shrink-0 flex-nowrap">
         <SearchBox
           value={$relicViewState.search}

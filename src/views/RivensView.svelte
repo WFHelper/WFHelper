@@ -6,6 +6,7 @@
   import type { DecodedRiven, VeiledRivenEntry, VeiledRivenGroup } from "../types/ipc.js";
   import RivenDetailModal from "../components/RivenDetailModal.svelte";
   import RivenFinder from "../components/RivenFinder.svelte";
+  import HeaderTabs from "../components/HeaderTabs.svelte";
   import SearchBox from "../components/SearchBox.svelte";
   import SegmentedControl from "../components/SegmentedControl.svelte";
   import ThemedButton from "../components/ThemedButton.svelte";
@@ -26,6 +27,11 @@
 
   const TYPES = ["all", "Rifle", "Shotgun", "Pistol", "Melee", "Archgun", "Kitgun", "Zaw"];
   const TYPE_OPTIONS = TYPES.map((value) => ({ value, label: value === "all" ? "All" : value }));
+  const VIEW_TABS = [
+    { key: "unveiled", label: "Unveiled" },
+    { key: "veiled", label: "Veiled" },
+    { key: "finder", label: "Riven Finder" },
+  ];
   const GRADE_ORDER: Record<string, number> = {
     S: 6,
     A: 5,
@@ -87,6 +93,10 @@
     sortDir = sortDir === "asc" ? "desc" : "asc";
   }
 
+  function setViewTab(key: string): void {
+    viewTab = key as typeof viewTab;
+  }
+
   const ELEMENT_ICONS: Record<string, string> = ELEMENT_ICON_URLS;
 
   function elementIcon(statName: string): string | null {
@@ -122,27 +132,20 @@
     <h2 class="font-display text-2xl text-text-primary m-0">{$tr("rivens.title")}</h2>
   </div>
 
-  <div class="tab-bar">
-    <button class="tab-item" class:active={viewTab === "unveiled"} onclick={() => (viewTab = "unveiled")}>
-      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-      <span>Unveiled ({rivens.length})</span>
-    </button>
-    <button class="tab-item" class:active={viewTab === "veiled"} onclick={() => (viewTab = "veiled")}>
-      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-        <line x1="1" y1="1" x2="23" y2="23" />
-      </svg>
-      <span>Veiled ({totalVeiled})</span>
-    </button>
-    <button class="tab-item" class:active={viewTab === "finder"} onclick={() => (viewTab = "finder")}>
-      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-      </svg>
-      <span>Riven Finder</span>
-    </button>
+  <div class="mb-4 flex items-end border-b border-white/[0.09]">
+    <HeaderTabs
+      options={VIEW_TABS.map((tab) => ({
+        ...tab,
+        label:
+          tab.key === "unveiled"
+            ? `Unveiled (${rivens.length})`
+            : tab.key === "veiled"
+              ? `Veiled (${totalVeiled})`
+              : tab.label,
+      }))}
+      activeKey={viewTab}
+      onSelect={setViewTab}
+    />
   </div>
 
   {#if viewTab === "unveiled"}

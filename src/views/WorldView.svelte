@@ -19,6 +19,7 @@
   import CycleRow from "../components/world/CycleRow.svelte";
   import IconButtonCard from "../components/world/IconButtonCard.svelte";
   import WorldToggleIcon from "../components/world/WorldToggleIcon.svelte";
+  import SegmentedControl from "../components/SegmentedControl.svelte";
   import { getBountyRewards, resolveRewardIcon, resolveRewardUniqueName } from "../lib/bountyRewards.js";
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
 
@@ -26,6 +27,10 @@
   const WORLD_POLL_MS = 30_000;
   const FISSURE_EXPIRY_GUARD_MS = 1_500;
   const FISSURE_TIER_ORDER: Record<string, number> = { lith: 0, meso: 1, neo: 2, axi: 3, requiem: 4, omnia: 5 };
+  const FISSURE_MODE_OPTIONS = [
+    { value: "normal", label: "Normal" },
+    { value: "steel", label: "Steel Path" },
+  ];
 
   // Collapse state per section — persisted to localStorage
   const COLLAPSE_KEY = "world-collapsed-sections";
@@ -463,18 +468,11 @@
         <div class="world-section border-t-0">
           <CollapsibleSection title="Void Fissures" collapsed={collapsed.fissures} onToggle={() => toggleSection('fissures')}>
             <svelte:fragment slot="actions">
-            <div class="flex">
-              <button
-                class="fissure-tab data-[active]:bg-accent data-[active]:text-bg-deep data-[active]:border-accent"
-                data-active={$worldFissureMode === 'normal' || undefined}
-                on:click={() => worldFissureMode.set('normal')}
-              >Normal</button>
-              <button
-                class="fissure-tab border-l-0 data-[active]:bg-accent data-[active]:text-bg-deep data-[active]:border-accent"
-                data-active={$worldFissureMode === 'steel' || undefined}
-                on:click={() => worldFissureMode.set('steel')}
-              >Steel Path</button>
-            </div>
+            <SegmentedControl
+              value={$worldFissureMode}
+              options={FISSURE_MODE_OPTIONS}
+              onChange={(mode) => worldFissureMode.set(mode)}
+            />
             </svelte:fragment>
           <div class="flex flex-col">
             {#if fissureFlat.length === 0}
@@ -723,26 +721,6 @@
     padding: 0.35rem 0; border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
   }
   .fissure-row:last-child { border-bottom: none; }
-
-  /* Fissure tab base — :first-child/:last-child for radius */
-  .fissure-tab {
-    padding: 0.25rem 0.65rem; font-size: 0.68rem; font-weight: 700;
-    letter-spacing: 0.06em; text-transform: uppercase; background: none;
-    border: 1px solid var(--border); color: var(--text-secondary);
-    border-radius: 0;
-    cursor: pointer; transition: all 0.15s;
-  }
-  .fissure-tab:first-child {
-    border-top-left-radius: var(--radius-md);
-    border-bottom-left-radius: var(--radius-md);
-  }
-  .fissure-tab:last-child {
-    border-top-right-radius: var(--radius-md);
-    border-bottom-right-radius: var(--radius-md);
-  }
-  .fissure-tab[data-active] {
-    background: var(--accent); color: var(--bg-deep); border-color: var(--accent);
-  }
 
   /* Spin button removal — vendor prefix */
   .cycle-lead-input { appearance: textfield; -moz-appearance: textfield; }

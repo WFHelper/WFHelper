@@ -3,6 +3,7 @@
   import { wfmItems } from "../stores/data.js";
   import { activeItem, activeComponent } from "../stores/modals.js";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
+  import HeaderTabs from "../components/HeaderTabs.svelte";
   import SummaryStrip, { type SummaryStripItem } from "../components/SummaryStrip.svelte";
   import ThemedPanel from "../components/ThemedPanel.svelte";
   import { applySharedFiltersAndSort } from "../lib/filters.js";
@@ -20,6 +21,12 @@
   let catFilter    = 'all';
   let statusFilter = 'all';
   const masteryFilters = sharedFilters("mastery");
+  const STATUS_TABS = [
+    { key: "all", label: "All" },
+    { key: "missing", label: "Missing" },
+    { key: "progress", label: "In Progress" },
+    { key: "mastered", label: "Mastered" },
+  ];
 
   function orderedCategories(byCategory: Record<string, MasteryCategoryStats>): string[] {
     const keys = Object.keys(byCategory);
@@ -92,6 +99,11 @@
   }
   const RING_R = 52;
   const RING_C = 2 * Math.PI * RING_R;
+
+  $: categoryTabs = [
+    { key: "all", label: "All" },
+    ...categories.map((cat) => ({ key: cat, label: cat })),
+  ];
 </script>
 
 <section class="view active">
@@ -151,16 +163,15 @@
 
     <!-- Filters -->
     <div class="grid gap-2 mb-3">
-      <div class="filter-tabs">
-        <button class="filter-tab" class:active={catFilter === 'all'} on:click={() => (catFilter = 'all')}>All</button>
-        {#each categories as cat}
-          <button class="filter-tab" class:active={catFilter === cat} on:click={() => (catFilter = cat)}>{cat}</button>
-        {/each}
+      <div class="flex items-end border-b border-white/[0.09]">
+        <HeaderTabs options={categoryTabs} activeKey={catFilter} onSelect={(key) => (catFilter = key)} />
       </div>
-      <div class="filter-tabs gap-[0.35rem]">
-        {#each [['all','All'],['missing','Missing'],['progress','In Progress'],['mastered','Mastered']] as [key, label]}
-          <button class="filter-tab" class:active={statusFilter === key} on:click={() => (statusFilter = key)}>{label}</button>
-        {/each}
+      <div class="flex items-end border-b border-white/[0.09]">
+        <HeaderTabs
+          options={STATUS_TABS}
+          activeKey={statusFilter}
+          onSelect={(key) => (statusFilter = key)}
+        />
       </div>
     </div>
 

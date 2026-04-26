@@ -12,6 +12,7 @@
   import { formatTimeRemaining, formatNumber } from "../lib/format.js";
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
   import ItemImage from "../components/ItemImage.svelte";
+  import HeaderTabs from "../components/HeaderTabs.svelte";
   import SearchBox from "../components/SearchBox.svelte";
   import SortArrow from "../components/SortArrow.svelte";
   import type {
@@ -106,6 +107,13 @@
     "Gear",
     "Modular",
     "Misc",
+  ];
+
+  $: foundryFilterTabs = [
+    { key: "all", label: "All" },
+    { key: "status:in-progress", label: "In Progress" },
+    { key: "status:ready", label: "Ready to Build" },
+    ...CATEGORY_ORDER.map((cat) => ({ key: `cat:${cat}`, label: cat })),
   ];
 
   function toEntryFromBuilding(b: FoundryBuildingItem): FoundryEntry {
@@ -296,6 +304,10 @@
     return `${entry.source}:${entry.uniqueName ?? entry.name}:${i}`;
   }
 
+  function setActiveFilter(key: string): void {
+    activeFilter = key as FilterKey;
+  }
+
   function ingredientName(un: string): string {
     return $itemDb[un]?.name ?? un.split("/").pop() ?? un;
   }
@@ -357,14 +369,8 @@
   </div>
 
   <!-- Unified filter row: All / status / categories -->
-  <div class="filter-tabs mb-3">
-    <button class="filter-tab" class:active={activeFilter === "all"} on:click={() => (activeFilter = "all")}>All</button>
-    <button class="filter-tab" class:active={activeFilter === "status:in-progress"} on:click={() => (activeFilter = "status:in-progress")}>In Progress</button>
-    <button class="filter-tab" class:active={activeFilter === "status:ready"} on:click={() => (activeFilter = "status:ready")}>Ready to Build</button>
-    {#each categoriesPresent as cat (cat)}
-      {@const key = `cat:${cat}` as FilterKey}
-      <button class="filter-tab" class:active={activeFilter === key} on:click={() => (activeFilter = key)}>{cat}</button>
-    {/each}
+  <div class="mb-3 flex items-end border-b border-white/[0.09]">
+    <HeaderTabs options={foundryFilterTabs} activeKey={activeFilter} onSelect={setActiveFilter} />
   </div>
 
   <!-- Unified grid -->
