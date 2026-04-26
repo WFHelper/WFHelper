@@ -17,6 +17,8 @@ export interface FilterableItem {
   ducatonator?: number | null;
   completeSets?: number | boolean | null;
   orderPlaced?: boolean;
+  owned?: boolean;
+  currentlyOwned?: boolean;
   partType?: PartType;
   favorite?: boolean;
   equipped?: boolean;
@@ -73,6 +75,12 @@ function toMetric(item: FilterableItem, sortBy: SharedFiltersState["sortBy"]): n
   }
   if (sortBy === "amount") {
     return typeof item.amount === "number" ? item.amount : null;
+  }
+  if (sortBy === "owned") {
+    if (typeof item.owned === "boolean") return item.owned ? 1 : 0;
+    if (typeof item.currentlyOwned === "boolean") return item.currentlyOwned ? 1 : 0;
+    if (typeof item.amount === "number") return item.amount > 0 ? 1 : 0;
+    return null;
   }
   if (sortBy === "ducatonator") {
     if (typeof item.ducatonator === "number") return item.ducatonator;

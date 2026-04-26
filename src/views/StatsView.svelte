@@ -413,11 +413,14 @@
         {#if !session?.hasData}
           <p class="m-0 text-sm text-text-muted">{$tr("stats.noData")}</p>
         {:else}
-          <ThemedPanel className="flex flex-wrap items-stretch divide-x divide-border-strong">
-            {#each SESSION_SECTIONS as { key, labelKey, currentKey } (key)}
+          <ThemedPanel className="flex flex-wrap items-stretch">
+            {#each SESSION_SECTIONS as { key, labelKey, currentKey }, sectionIndex (key)}
               {@const delta = session[key]}
               {@const current = session[currentKey]}
               {@const icon = ICON_MAP[key]}
+              {#if sectionIndex > 0}
+                <span class="self-stretch w-px bg-border" aria-hidden="true"></span>
+              {/if}
               <div class="flex flex-1 items-center gap-3 px-5 py-4 min-w-[11rem]">
                 {#if icon}<img src={icon} alt="" class="w-9 h-9 object-contain opacity-90 shrink-0" />{/if}
                 <div class="flex flex-col gap-1 min-w-0 flex-1">

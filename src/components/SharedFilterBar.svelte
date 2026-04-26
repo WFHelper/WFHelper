@@ -16,6 +16,7 @@
   export let showBasic = true;
   export let showAdvanced = true;
   export let basicVariant: "full" | "quick" = "full";
+  export let sortOptions: Array<[SharedSortKey, string]> | null = null;
 
   const PRIME_OPTIONS: Array<[PrimeFilterMode, string]> = [
     ["all", "All"],
@@ -29,7 +30,7 @@
     ["not_mastered", "Not Mastered"],
   ];
 
-  const SORT_OPTIONS: Array<[SharedSortKey, string]> = [
+  const DEFAULT_SORT_OPTIONS: Array<[SharedSortKey, string]> = [
     ["name", "Name"],
     ["platinum", "Platinum"],
     ["ducats", "Ducats"],
@@ -53,6 +54,10 @@
   $: scopeStore = sharedFilters(scope);
   $: state = $scopeStore;
   $: isInventoryScope = scope === "inventory";
+  $: activeSortOptions = sortOptions ?? DEFAULT_SORT_OPTIONS;
+  $: if (state && !activeSortOptions.some(([value]) => value === state.sortBy)) {
+    updateSharedFilters(scope, { sortBy: activeSortOptions[0]?.[0] ?? "name" });
+  }
 
   function setSearch(value: string): void {
     updateSharedFilters(scope, { search: value });
@@ -152,7 +157,7 @@
             value={state.sortBy}
             on:change={onSortByChange}
           >
-            {#each SORT_OPTIONS as [value, label]}
+            {#each activeSortOptions as [value, label]}
               <option value={value}>{label}</option>
             {/each}
           </select>

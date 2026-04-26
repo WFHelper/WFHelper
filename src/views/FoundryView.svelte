@@ -439,8 +439,11 @@
                   <span class="truncate {ok ? 'text-text-secondary' : 'text-text-muted'}">
                     {formatNumber(owned)}/{formatNumber(ing.count)}
                   </span>
-                  <span class="shrink-0 leading-none {fewIng ? 'text-xl' : 'text-base'} {ok ? 'text-success' : 'text-danger'}" aria-hidden="true">
-                    {ok ? '✓' : '✗'}
+                  <span
+                    class="shrink-0 font-mono font-black leading-none tracking-normal {fewIng ? 'text-[1.05rem]' : 'text-[0.9rem]'} {ok ? 'text-success' : 'text-danger'}"
+                    aria-hidden="true"
+                  >
+                    {ok ? "OK" : "NO"}
                   </span>
                 </div>
               {/each}

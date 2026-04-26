@@ -2,6 +2,10 @@
   import { onMount } from "svelte";
 
   import {
+    parsedItems,
+    wfmItems,
+  } from "../stores/data.js";
+  import {
     marketContracts,
     marketContractsLastFetch,
     marketOrders,
@@ -16,11 +20,19 @@
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
   import MarketContractRow from "../components/market/MarketContractRow.svelte";
   import MarketOrderRow from "../components/market/MarketOrderRow.svelte";
+  import InventoryOrderBookPanel from "../components/inventory/InventoryOrderBookPanel.svelte";
   import ThemedInput from "../components/ThemedInput.svelte";
   import { sharedFilters } from "../stores/filters.js";
   import { applySharedFiltersAndSort } from "../lib/filters.js";
+  import {
+    buildInventoryViewItems,
+    type InventoryBaseItem,
+  } from "../lib/inventoryMarket.js";
   import { invoke, send } from "../lib/ipc.js";
+  import { startupPriceCacheReady } from "../lib/startupLoader.js";
   import { marketDensity } from "../stores/uiDensity.js";
+  import { getInventoryHydrationController } from "../stores/inventoryHydration.js";
+  import { isRankedGroup, toFinitePositiveInt } from "../../config/shared/numeric.js";
   import type {
     MarketTab,
     WfmContract,
@@ -28,10 +40,12 @@
     WfmOrder,
     WfmStatus,
   } from "../types/market.js";
+  import type { InventoryGroup, ParsedItem } from "../types/inventory.js";
 
   const ORDERS_STALE_MS = 30_000;
   const CONTRACTS_STALE_MS = 60_000;
   const CONTRACTS_PAGE_SIZE = 40;
+  const MARKET_METRIC_PREFETCH_LIMIT = 64;
 
   const STATUS_OPTIONS: Array<[WfmStatus, string]> = [
     ["online", "Online"],
@@ -46,6 +60,8 @@
   ];
 
   const marketFilters = sharedFilters("market");
+  const hydration = getInventoryHydrationController();
+  const hydrationMetrics = hydration.metricsByKey;
 
   function hasError(value: unknown): value is { error: string } {
     return (
@@ -118,8 +134,10 @@
   let ordersError = "";
   let contractsLoading = false;
   let contractsError = "";
+  let selectedOrderItemKey: string | null = null;
 
   onMount(async () => {
+    hydration.resume();
     await loadView();
   });
 
@@ -336,9 +354,105 @@
     orderModalState.set({ mode: "edit", order });
   }
 
+  function selectOrder(order: WfmOrder): void {
+    const item = marketOrderViewItems.find((entry) => entry.sourceOrderId === order.id);
+    selectedOrderItemKey = item?.internalName ?? null;
+  }
+
   function openContractListing(contract: WfmContract): void {
     if (!contract.listingUrl) return;
     send("open-external", contract.listingUrl);
+  }
+
+  function toMarketSlug(value: string | null | undefined): string {
+    return (value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[']/g, "")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  }
+
+  function normalizedName(value: string | null | undefined): string {
+    return (value || "").trim().toLowerCase();
+  }
+
+  function parsedItemForOrder(order: WfmOrder): ParsedItem | null {
+    const orderName = normalizedName(order.itemName);
+    const orderSlug = toMarketSlug(order.itemUrlName || order.itemName);
+    return (
+      $parsedItems.find((item) => normalizedName(item.name) === orderName) ||
+      $parsedItems.find((item) => toMarketSlug(item.name) === orderSlug) ||
+      null
+    );
+  }
+
+  function lookupMaxRank(order: WfmOrder): number | null {
+    const slug = toMarketSlug(order.itemUrlName || order.itemName);
+    for (const item of Object.values($wfmItems)) {
+      if (toMarketSlug(item.url_name) !== slug) continue;
+      return toFinitePositiveInt(item.maxRank);
+    }
+    return null;
+  }
+
+  function inventoryGroupForOrder(
+    order: WfmOrder,
+    parsedItem: ParsedItem | null,
+  ): InventoryGroup {
+    if (parsedItem?.inventoryGroup) return parsedItem.inventoryGroup;
+    if (parsedItem?.categoryLabel?.toLowerCase().includes("arcane")) return "arcanes";
+    if (parsedItem?.categoryLabel?.toLowerCase().includes("mod")) return "mods";
+    if (order.modRank != null) return "mods";
+    return "all_parts";
+  }
+
+  function ownedCountForOrder(parsedItem: ParsedItem | null): number {
+    if (!parsedItem) return 0;
+    if (typeof parsedItem.amount === "number") return parsedItem.amount;
+    return parsedItem.currentlyOwned ? 1 : 0;
+  }
+
+  function buildMarketInventoryItem(order: WfmOrder): InventoryBaseItem & { sourceOrderId: string } {
+    const parsedItem = parsedItemForOrder(order);
+    const inventoryGroup = inventoryGroupForOrder(order, parsedItem);
+    const isRankedListing = isRankedGroup(inventoryGroup);
+    const rank = isRankedListing ? Math.max(0, Math.floor(order.modRank ?? 0)) : 0;
+    const maxRank =
+      toFinitePositiveInt(parsedItem?.maxRank) ??
+      lookupMaxRank(order) ??
+      (inventoryGroup === "mods" ? 10 : inventoryGroup === "arcanes" ? 5 : 0);
+    const marketSlug = toMarketSlug(order.itemUrlName || order.itemName);
+    const ownedCount = ownedCountForOrder(parsedItem);
+
+    return {
+      ...(parsedItem ?? {}),
+      sourceOrderId: order.id,
+      name: order.itemName,
+      internalName: `market-order:${marketSlug || order.id}:r${rank}`,
+      category: parsedItem?.category ?? (inventoryGroup === "mods" ? "Mods" : "Market"),
+      categoryLabel: parsedItem?.categoryLabel ?? (inventoryGroup === "mods" ? "Mod" : "Market Item"),
+      rank,
+      maxRank,
+      imageUrl: parsedItem?.imageUrl ?? order.itemThumb,
+      isPrime: parsedItem?.isPrime ?? /\bprime\b/i.test(order.itemName),
+      masteryReq: parsedItem?.masteryReq ?? 0,
+      vaulted: parsedItem?.vaulted ?? false,
+      tradable: true,
+      description: parsedItem?.description ?? "",
+      components: parsedItem?.components ?? [],
+      drops: parsedItem?.drops ?? [],
+      wikiaUrl: parsedItem?.wikiaUrl ?? null,
+      inventoryGroup,
+      partType: parsedItem?.partType ?? (/\bprime\b/i.test(order.itemName) ? "prime" : "normal"),
+      amount: ownedCount,
+      favorite: parsedItem?.favorite ?? false,
+      equipped: parsedItem?.equipped ?? false,
+      orderPlaced: true,
+      completeSets: parsedItem?.completeSets ?? null,
+      marketSlug: marketSlug || null,
+      marketThumb: order.itemThumb ?? null,
+    };
   }
 
   $: isRivensTab = $marketTypeTab === "rivens";
@@ -351,6 +465,30 @@
     $marketContracts.contracts.map(normalizeContractForFilter),
     $marketFilters,
   );
+  $: marketOrderBaseItems = filteredOrderRows.map(buildMarketInventoryItem);
+  $: marketOrderViewItems = buildInventoryViewItems(
+    marketOrderBaseItems,
+    $hydrationMetrics,
+    "misc",
+  ).map((item, index) => ({
+    ...item,
+    sourceOrderId: marketOrderBaseItems[index]?.sourceOrderId ?? "",
+  }));
+  $: selectedOrderItem = selectedOrderItemKey
+    ? marketOrderViewItems.find((item) => item.internalName === selectedOrderItemKey) ?? null
+    : null;
+  $: if (
+    !isRivensTab &&
+    $startupPriceCacheReady &&
+    Object.keys($wfmItems).length > 0 &&
+    marketOrderBaseItems.length > 0
+  ) {
+    hydration.enqueue(
+      marketOrderBaseItems.slice(0, MARKET_METRIC_PREFETCH_LIMIT),
+      $wfmItems,
+      { price: true, ducats: false, orders: true },
+    );
+  }
 </script>
 
 <section class="view active">
@@ -475,7 +613,12 @@
         </div>
       {/if}
 
-      <div class="mt-4 grid gap-[0.65rem] {$marketDensity === 'compact' ? 'grid-cols-[repeat(auto-fill,minmax(336px,1fr))] [&_.order-row]:[zoom:1.2]' : ''}">
+      <div
+        class="mt-4 grid items-start gap-3 {!isRivensTab
+          ? 'min-[1101px]:grid-cols-[minmax(0,1fr)_360px]'
+          : ''}"
+      >
+        <div class="grid gap-[0.65rem] {$marketDensity === 'compact' ? 'grid-cols-[repeat(auto-fill,minmax(336px,1fr))] [&_.order-row]:[zoom:1.2]' : ''}">
         {#if isRivensTab}
           {#if contractsLoading}
             <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">Loading riven contracts...</div>
@@ -508,15 +651,22 @@
           </div>
         {:else}
           {#each filteredOrderRows as order}
+            {@const orderItem = marketOrderViewItems.find((entry) => entry.sourceOrderId === order.id) ?? null}
             <MarketOrderRow
               {order}
+              item={orderItem}
               compact={$marketDensity === "compact"}
               selected={$marketSelected.has(order.id)}
               onSelectChange={onOrderSelectChange}
+              onOpen={selectOrder}
               onEdit={editOrder}
               onDelete={deleteOrder}
             />
           {/each}
+        {/if}
+        </div>
+        {#if !isRivensTab}
+          <InventoryOrderBookPanel item={selectedOrderItem} />
         {/if}
       </div>
     </div>

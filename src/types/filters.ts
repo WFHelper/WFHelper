@@ -7,6 +7,7 @@ export type PartTypeFilterMode = "all" | "normal" | "prime";
 
 export type SharedSortKey =
   | "name"
+  | "owned"
   | "platinum"
   | "ducats"
   | "amount"

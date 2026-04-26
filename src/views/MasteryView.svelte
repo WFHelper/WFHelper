@@ -11,6 +11,10 @@
   import type { MasteryCategoryStats } from "../types/inventory.js";
 
   const CAT_ORDER = ['Warframes', 'Primary', 'Secondary', 'Melee', 'Companions', 'Archwing', 'Amps', 'Necramech', 'Misc'];
+  const MASTERY_SORT_OPTIONS = [
+    ["name", "Name"],
+    ["owned", "Owned"],
+  ] satisfies Array<["name" | "owned", string]>;
 
   let catFilter    = 'all';
   let statusFilter = 'all';
@@ -48,6 +52,7 @@
           partType: item.isPrime ? ("prime" as const) : ("normal" as const),
           leveledUp: item.rank > 0,
           amount: item.currentlyOwned ? 1 : 0,
+          owned: item.currentlyOwned === true,
         };
       });
 
@@ -72,7 +77,7 @@
     <h2>Mastery Helper</h2>
   </div>
 
-  <SharedFilterBar scope="mastery" />
+  <SharedFilterBar scope="mastery" sortOptions={MASTERY_SORT_OPTIONS} />
 
   {#if $masteryData}
     {@const stats = $masteryData.stats}
