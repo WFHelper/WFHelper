@@ -3,6 +3,7 @@ import {
   assertRivenOverlayRendererSender,
   onAuthorized,
 } from "./ipcSecurity";
+import { createOverlayWindowsController } from "./overlay/windows";
 import * as rivenSession from "./overlay/rivenSession";
 import * as rivenScan from "./overlay/rivenScan";
 import * as rivenGrading from "../services/rivenGrading";
@@ -36,6 +37,58 @@ let _rivenInteractive = false;
 
 const RIVEN_WIN_W = 420;
 const RIVEN_WIN_H = 640;
+const RIVEN_TOP_OFFSET = 80;
+
+const rivenWindowBaseOptions = {
+  app,
+  BrowserWindow,
+  screen,
+  ctx,
+  log,
+  hardenBrowserWindowNavigation,
+  overlayWindowFile: RIVEN_WINDOW_FILE,
+  displayMode: "primary" as const,
+  windowWidth: RIVEN_WIN_W,
+  windowHeight: RIVEN_WIN_H,
+  minWindowWidth: RIVEN_WIN_W,
+  minWindowHeight: RIVEN_WIN_H,
+  topOffset: RIVEN_TOP_OFFSET,
+  transparent: false,
+  backgroundColor: "#060a12",
+  preloadFileName: "preload-riven.js",
+  hasShadow: false,
+  ignoreMouseEventsForward: false,
+};
+
+const rivenLeftWindowsController = createOverlayWindowsController({
+  ...rivenWindowBaseOptions,
+  getOverlayWindow: () => ctx.rivenOverlayLeftWindow,
+  setOverlayWindow: (window) => {
+    ctx.rivenOverlayLeftWindow = window;
+  },
+  getOverlayInteractiveMode: () => _rivenInteractive,
+  setOverlayInteractiveModeState: (enabled) => {
+    _rivenInteractive = !!enabled;
+  },
+  windowLabel: "riven overlay left window",
+  fileSearch: "side=left",
+  placement: "top-left",
+});
+
+const rivenRightWindowsController = createOverlayWindowsController({
+  ...rivenWindowBaseOptions,
+  getOverlayWindow: () => ctx.rivenOverlayRightWindow,
+  setOverlayWindow: (window) => {
+    ctx.rivenOverlayRightWindow = window;
+  },
+  getOverlayInteractiveMode: () => _rivenInteractive,
+  setOverlayInteractiveModeState: (enabled) => {
+    _rivenInteractive = !!enabled;
+  },
+  windowLabel: "riven overlay right window",
+  fileSearch: "side=right",
+  placement: "top-right",
+});
 
 /** Returns both riven windows as an array for broadcasting IPC events. */
 function getRivenWindows(): (InstanceType<typeof BrowserWindow> | null)[] {
@@ -62,68 +115,17 @@ function syncRivenWindowZOrder(warframeFocused: boolean): void {
 
 function toggleRivenInteractiveMode(): void {
   _rivenInteractive = !_rivenInteractive;
+  rivenLeftWindowsController.setOverlayInteractiveMode(_rivenInteractive);
+  rivenRightWindowsController.setOverlayInteractiveMode(_rivenInteractive);
   forEachRivenWindow((win) => {
-    if (_rivenInteractive) {
-      win.setIgnoreMouseEvents(false);
-      win.setFocusable(true);
-      win.moveTop();
-      win.focus();
-    } else {
-      win.setIgnoreMouseEvents(true);
-      win.moveTop();
-      win.showInactive();
-    }
     win.webContents.send(OVERLAY_INTERACTION_MODE, { interactive: _rivenInteractive });
   });
 }
 
-function createSingleRivenWindow(
-  side: "left" | "right",
-  x: number,
-  y: number,
-  options: { show?: boolean },
-): InstanceType<typeof BrowserWindow> {
-  const preloadPath = path.join(app.getAppPath(), ".electron-build", "preload-riven.js");
-  const win = new BrowserWindow({
-    width: RIVEN_WIN_W,
-    height: RIVEN_WIN_H,
-    x,
-    y,
-    show: false,
-    transparent: false,
-    frame: false,
-    backgroundColor: "#060a12",
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    resizable: false,
-    focusable: true,
-    hasShadow: false,
-    webPreferences: {
-      preload: preloadPath,
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  });
-
-  hardenBrowserWindowNavigation(win, {
-    label: `riven overlay ${side} window`,
-    allowedFilePaths: [RIVEN_WINDOW_FILE],
-    log,
-  });
-
-  void win.loadFile(RIVEN_WINDOW_FILE, { search: `side=${side}` });
-  win.setAlwaysOnTop(true, "screen-saver");
-  win.moveTop();
-  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  // No { forward: true } — forwarding mouse events through a message hook
-  // can cause DWM/GPU stalls when combined with fullscreen DirectX games.
-  // The riven panels are positioned at screen edges, away from game UI.
-  win.setIgnoreMouseEvents(true);
-
-  if (options.show !== false) win.showInactive();
-
-  return win;
+function createRivenWindow(side: "left" | "right", options: { show?: boolean }): void {
+  const controller = side === "left" ? rivenLeftWindowsController : rivenRightWindowsController;
+  controller.createOverlayWindow(options);
+  controller.setOverlayInteractiveMode(_rivenInteractive);
 }
 
 function createRivenOverlayWindows(options: { show?: boolean } = {}): void {
@@ -136,12 +138,10 @@ function createRivenOverlayWindows(options: { show?: boolean } = {}): void {
       win.moveTop();
       if (options.show !== false) win.showInactive();
     });
+    rivenLeftWindowsController.setOverlayInteractiveMode(_rivenInteractive);
+    rivenRightWindowsController.setOverlayInteractiveMode(_rivenInteractive);
     return;
   }
-
-  const display = screen.getPrimaryDisplay();
-  const { x: dx, y: dy, width: dw } = display.workArea;
-  const PAD = 16;
 
   // Destroy stale windows
   if (existLeft && !existLeft.isDestroyed()) existLeft.destroy();
@@ -149,19 +149,8 @@ function createRivenOverlayWindows(options: { show?: boolean } = {}): void {
 
   _rivenInteractive = false;
 
-  // Left panel at top-left edge, pushed down to avoid game HUD
-  const leftWin = createSingleRivenWindow("left", dx + PAD, dy + 80, options);
-  ctx.rivenOverlayLeftWindow = leftWin;
-  leftWin.on("closed", () => {
-    ctx.rivenOverlayLeftWindow = null;
-  });
-
-  // Right panel at top-right edge, pushed down to avoid game HUD
-  const rightWin = createSingleRivenWindow("right", dx + dw - RIVEN_WIN_W - PAD, dy + 80, options);
-  ctx.rivenOverlayRightWindow = rightWin;
-  rightWin.on("closed", () => {
-    ctx.rivenOverlayRightWindow = null;
-  });
+  createRivenWindow("left", options);
+  createRivenWindow("right", options);
 }
 
 const rivenZOrderInterval = setInterval(async () => {
@@ -424,22 +413,15 @@ export function onRivenChatView(): void {
   rivenScan.resetRivenScanAbort();
 
   // Create only the left window (or reuse if already exists)
-  const display = screen.getPrimaryDisplay();
-  const { x: dx, y: dy } = display.workArea;
-  const PAD = 16;
-
   const existLeft = ctx.rivenOverlayLeftWindow;
   if (!existLeft || existLeft.isDestroyed()) {
     _rivenInteractive = false;
-    const leftWin = createSingleRivenWindow("left", dx + PAD, dy + 80, { show: true });
-    ctx.rivenOverlayLeftWindow = leftWin;
-    leftWin.on("closed", () => {
-      ctx.rivenOverlayLeftWindow = null;
-    });
+    createRivenWindow("left", { show: true });
   } else {
     existLeft.setAlwaysOnTop(true, "screen-saver");
     existLeft.moveTop();
     existLeft.showInactive();
+    rivenLeftWindowsController.setOverlayInteractiveMode(_rivenInteractive);
   }
 
   // Hide right window if it exists (chat view = left only)

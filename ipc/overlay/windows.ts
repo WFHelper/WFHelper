@@ -43,11 +43,18 @@ type OverlayWindowsControllerOptions = {
     },
   ) => void;
   overlayWindowFile: string;
+  windowLabel?: string;
+  preloadFileName?: string;
+  fileSearch?: string;
   placement?: "center" | "top-left" | "top-right";
+  displayMode?: "cursor" | "primary";
+  topOffset?: number;
   windowWidth?: number;
   windowHeight?: number;
   minWindowWidth?: number;
   minWindowHeight?: number;
+  hasShadow?: boolean;
+  ignoreMouseEventsForward?: boolean;
   /** When false the window gets a solid background (default: true = transparent). */
   transparent?: boolean;
   /** Background colour used when transparent=false (default: '#060a12'). */
@@ -67,11 +74,18 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     log,
     hardenBrowserWindowNavigation,
     overlayWindowFile,
+    windowLabel = "overlay window",
+    preloadFileName = "preload-overlay.js",
+    fileSearch,
     placement = "center",
+    displayMode = "cursor",
+    topOffset = OVERLAY_WINDOW_BOUNDS.topMargin,
     windowWidth = OVERLAY_WINDOW_BOUNDS.width,
     windowHeight = OVERLAY_WINDOW_BOUNDS.height,
     minWindowWidth = 760,
     minWindowHeight = 160,
+    hasShadow,
+    ignoreMouseEventsForward = true,
     transparent = true,
     backgroundColor = "#060a12",
   } = options;
@@ -114,6 +128,10 @@ export function createOverlayWindowsController(options: OverlayWindowsController
   }
 
   function getDisplayForOverlay(anchorMeta: OverlayAnchorMeta | null): import("electron").Display {
+    if (displayMode === "primary") {
+      return screen.getPrimaryDisplay();
+    }
+
     const metaDisplayId =
       anchorMeta && typeof anchorMeta === "object" ? anchorMeta.sourceDisplayId : null;
 
@@ -187,10 +205,10 @@ export function createOverlayWindowsController(options: OverlayWindowsController
 
     if (placement === "top-left") {
       x = minX;
-      y = minY;
+      y = area.y + Math.max(0, topOffset);
     } else if (placement === "top-right") {
       x = maxX;
-      y = minY;
+      y = area.y + Math.max(0, topOffset);
     }
 
     x = Math.max(minX, Math.min(maxX, x));
@@ -246,8 +264,9 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       skipTaskbar: true,
       resizable: false,
       focusable: true,
+      hasShadow,
       webPreferences: {
-        preload: getElectronBuildFile("preload-overlay.js"),
+        preload: getElectronBuildFile(preloadFileName),
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
@@ -257,12 +276,15 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     writeOverlayWindow(createdWindow);
 
     hardenBrowserWindowNavigation(createdWindow, {
-      label: "overlay window",
+      label: windowLabel,
       allowedFilePaths: [overlayWindowFile],
       log,
     });
 
-    void createdWindow.loadFile(overlayWindowFile);
+    void createdWindow.loadFile(
+      overlayWindowFile,
+      fileSearch ? { search: fileSearch } : undefined,
+    );
     createdWindow.setAlwaysOnTop(true, "screen-saver");
     createdWindow.moveTop();
     createdWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -339,7 +361,11 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       overlayWindow.moveTop();
       overlayWindow.focus();
     } else {
-      overlayWindow.setIgnoreMouseEvents(true, { forward: true });
+      if (ignoreMouseEventsForward) {
+        overlayWindow.setIgnoreMouseEvents(true, { forward: true });
+      } else {
+        overlayWindow.setIgnoreMouseEvents(true);
+      }
       overlayWindow.setFocusable(true);
       overlayWindow.blur();
       overlayWindow.setAlwaysOnTop(true, "screen-saver");
