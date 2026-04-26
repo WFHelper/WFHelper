@@ -7,6 +7,7 @@
   import ThemedButton from "../components/ThemedButton.svelte";
   import ThemedPanel from "../components/ThemedPanel.svelte";
   import ThemedSelect from "../components/ThemedSelect.svelte";
+  import SummaryStrip, { type SummaryStripItem } from "../components/SummaryStrip.svelte";
   import StatsTradePanel from "../components/stats/StatsTradePanel.svelte";
   import { STAT_ICON_URLS } from "../lib/assetUrls.js";
   import {
@@ -24,7 +25,6 @@
     formatDelta,
     formatters,
     formatAbsolute,
-    deltaClass,
     shortDate,
     barsForKey,
     labelStep,
@@ -197,6 +197,15 @@
   $: expandedChartData = expandedKey
     ? barsForKey(expandedKey, history, chartDays, BAR_H_EXPAND)
     : null;
+  $: sessionSummaryItems = session?.hasData
+    ? SESSION_SECTIONS.map(({ key, labelKey, currentKey }): SummaryStripItem => ({
+        key,
+        label: $tr(labelKey),
+        value: formatAbsolute(session?.[currentKey] ?? 0),
+        icon: ICON_MAP[key],
+        subtext: `${formatDelta(session?.[key] ?? 0, formatters[key])} today`,
+      }))
+    : [];
 
   // ── Hover tooltip ─────────────────────────────────────────────────────────────
 
@@ -413,32 +422,7 @@
         {#if !session?.hasData}
           <p class="m-0 text-sm text-text-muted">{$tr("stats.noData")}</p>
         {:else}
-          <ThemedPanel className="flex flex-wrap items-stretch">
-            {#each SESSION_SECTIONS as { key, labelKey, currentKey }, sectionIndex (key)}
-              {@const delta = session[key]}
-              {@const current = session[currentKey]}
-              {@const icon = ICON_MAP[key]}
-              {#if sectionIndex > 0}
-                <span class="self-stretch w-px bg-border" aria-hidden="true"></span>
-              {/if}
-              <div class="flex flex-1 items-center gap-3 px-5 py-4 min-w-[11rem]">
-                {#if icon}<img src={icon} alt="" class="w-9 h-9 object-contain opacity-90 shrink-0" />{/if}
-                <div class="flex flex-col gap-1 min-w-0 flex-1">
-                  <div class="flex items-baseline gap-2 flex-wrap">
-                    <span class="text-[0.95rem] font-semibold uppercase tracking-wide text-text-primary">
-                      {$tr(labelKey)}
-                    </span>
-                    <span class="text-[1.4rem] font-bold leading-none tracking-tight text-text-primary">
-                      {formatAbsolute(current)}
-                    </span>
-                  </div>
-                  <span class="text-[0.72rem] font-semibold {deltaClass(delta)}">
-                    {formatDelta(delta, formatters[key])} today
-                  </span>
-                </div>
-              </div>
-            {/each}
-          </ThemedPanel>
+          <SummaryStrip items={sessionSummaryItems} />
         {/if}
 
         <!-- Chart grid -->

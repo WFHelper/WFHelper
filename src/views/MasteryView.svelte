@@ -3,6 +3,7 @@
   import { wfmItems } from "../stores/data.js";
   import { activeItem, activeComponent } from "../stores/modals.js";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
+  import SummaryStrip, { type SummaryStripItem } from "../components/SummaryStrip.svelte";
   import ThemedPanel from "../components/ThemedPanel.svelte";
   import { applySharedFiltersAndSort } from "../lib/filters.js";
   import { sharedFilters } from "../stores/filters.js";
@@ -28,6 +29,27 @@
   }
 
   $: categories = $masteryData ? orderedCategories($masteryData.stats.byCategory) : [];
+  $: masterySummaryItems = (() => {
+    if (!$masteryData) return [];
+    const stats = $masteryData.stats;
+    const profileMastery = stats.profileMastery || null;
+    const rows: SummaryStripItem[] = [
+      { key: "mastered", value: stats.mastered, label: "Mastered", tone: "success" },
+      { key: "progress", value: stats.inProgress, label: "In Progress", tone: "warning" },
+      { key: "missing", value: stats.missing, label: "Missing", tone: "danger" },
+      { key: "total", value: stats.total, label: "Total" },
+    ];
+    if (profileMastery && profileMastery.rank != null) {
+      rows.push({
+        key: "mr",
+        value: `MR ${profileMastery.rank}`,
+        label: profileMastery.percentToNext != null
+          ? `${profileMastery.percentToNext}% to next`
+          : "Progress unavailable",
+      });
+    }
+    return rows;
+  })();
 
   $: filtered = (() => {
     if (!$masteryData) return [];
@@ -82,7 +104,6 @@
   {#if $masteryData}
     {@const stats = $masteryData.stats}
     {@const masteredPct = pct(stats.mastered, stats.total)}
-    {@const profileMastery = stats.profileMastery || null}
 
     <!-- Stats overview -->
     <div class="grid gap-3 mb-3.5">
@@ -102,36 +123,7 @@
             <text x="60" y="72" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="Barlow">MASTERED</text>
           </svg>
         </div>
-        <ThemedPanel className="inline-flex flex-wrap items-stretch gap-x-5 gap-y-3 px-6 py-4">
-          <div class="flex items-center gap-3">
-            <span class="font-display text-[2rem] font-bold text-success leading-none">{stats.mastered}</span>
-            <span class="text-lg font-semibold text-text-secondary">Mastered</span>
-          </div>
-          <span class="self-stretch w-px bg-border" aria-hidden="true"></span>
-          <div class="flex items-center gap-3">
-            <span class="font-display text-[2rem] font-bold text-warning leading-none">{stats.inProgress}</span>
-            <span class="text-lg font-semibold text-text-secondary">In Progress</span>
-          </div>
-          <span class="self-stretch w-px bg-border" aria-hidden="true"></span>
-          <div class="flex items-center gap-3">
-            <span class="font-display text-[2rem] font-bold text-danger leading-none">{stats.missing}</span>
-            <span class="text-lg font-semibold text-text-secondary">Missing</span>
-          </div>
-          <span class="self-stretch w-px bg-border" aria-hidden="true"></span>
-          <div class="flex items-center gap-3">
-            <span class="font-display text-[2rem] font-bold text-text-primary leading-none">{stats.total}</span>
-            <span class="text-lg font-semibold text-text-secondary">Total</span>
-          </div>
-          {#if profileMastery && profileMastery.rank != null}
-            <span class="self-stretch w-px bg-border" aria-hidden="true"></span>
-            <div class="flex items-center gap-3">
-              <span class="font-display text-[2rem] font-bold text-text-primary leading-none">MR {profileMastery.rank}</span>
-              <span class="text-lg font-semibold text-text-secondary">
-                {profileMastery.percentToNext != null ? `${profileMastery.percentToNext}% to next` : 'Progress unavailable'}
-              </span>
-            </div>
-          {/if}
-        </ThemedPanel>
+        <SummaryStrip items={masterySummaryItems} variant="mastery" />
       </div>
 
       <ThemedPanel className="grid gap-[0.46rem] p-2.5">

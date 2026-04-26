@@ -38,7 +38,7 @@
   }
 </script>
 
-<div class="w-[300px] shrink-0 border-l border-border flex flex-col min-h-0 overflow-hidden">
+<div class="w-[300px] shrink-0 border-l border-[color:var(--ui-panel-border)] flex flex-col min-h-0 overflow-hidden">
   <div class="px-3 pt-2 shrink-0">
     <span class="block text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-text-muted mb-[0.4rem]">{$tr("stats.trades")}</span>
     <div class="flex flex-col gap-2">
