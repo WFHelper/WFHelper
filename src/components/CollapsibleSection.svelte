@@ -6,10 +6,13 @@
   export let title: string;
 </script>
 
-<button class="world-section-toggle" on:click={onToggle} aria-expanded={!collapsed}>
-  <WorldToggleIcon {collapsed} />
-  <h3>{title}</h3>
-</button>
+<div class="world-section-header">
+  <button class="world-section-toggle" on:click={onToggle} aria-expanded={!collapsed}>
+    <WorldToggleIcon {collapsed} />
+    <span class="world-section-title">{title}</span>
+  </button>
+  <slot name="actions" />
+</div>
 
 {#if !collapsed}
   <slot />

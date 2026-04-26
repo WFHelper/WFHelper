@@ -391,13 +391,7 @@
 
         <!-- PRIME RESURGENCE -->
         <div class="world-section">
-          <div class="flex items-center justify-between gap-2 mb-[0.55rem]">
-            <button class="world-section-toggle" on:click={() => toggleSection('resurgence')} aria-expanded={!collapsed.resurgence}>
-              <WorldToggleIcon collapsed={collapsed.resurgence} />
-              <h3>Prime Resurgence</h3>
-            </button>
-          </div>
-          {#if !collapsed.resurgence}
+          <CollapsibleSection title="Prime Resurgence" collapsed={collapsed.resurgence} onToggle={() => toggleSection('resurgence')}>
           <div class="text-[0.82rem] text-text-secondary mb-[0.55rem]">
             Rotation ends in <strong>{times.varzia}</strong>
           </div>
@@ -418,7 +412,7 @@
           {:else}
             <span class="text-[0.82rem] text-text-secondary opacity-70">No featured prime items found</span>
           {/if}
-          {/if}
+          </CollapsibleSection>
         </div>
 
         <!-- THE CIRCUIT -->
@@ -448,20 +442,16 @@
         <!-- STEEL PATH HONORS -->
         {#if steelPathHonors}
         <div class="world-section">
-          <div class="flex items-center justify-between gap-2 mb-[0.55rem]">
-            <button class="world-section-toggle" on:click={() => toggleSection('steelpath')} aria-expanded={!collapsed.steelpath}>
-              <WorldToggleIcon collapsed={collapsed.steelpath} />
-              <h3>Steel Path Honors</h3>
-            </button>
+          <CollapsibleSection title="Steel Path Honors" collapsed={collapsed.steelpath} onToggle={() => toggleSection('steelpath')}>
+            <svelte:fragment slot="actions">
             <span class="font-display text-[0.88rem] tracking-[0.02em] whitespace-nowrap text-text-primary">{times.steelPath}</span>
-          </div>
-          {#if !collapsed.steelpath}
+            </svelte:fragment>
           <div class="flex items-center gap-2 py-[0.35rem]">
             <span class="text-[0.72rem] font-bold text-text-secondary uppercase tracking-[0.06em] shrink-0">This week</span>
             <span class="text-[0.88rem] font-semibold text-warning flex-1 min-w-0">{steelPathHonors.currentReward.name}</span>
             <span class="text-[0.72rem] text-text-secondary whitespace-nowrap shrink-0">{steelPathHonors.currentReward.cost} Steel Essence</span>
           </div>
-          {/if}
+          </CollapsibleSection>
         </div>
         {/if}
       </div>
@@ -471,11 +461,8 @@
 
         <!-- VOID FISSURES -->
         <div class="world-section border-t-0">
-          <div class="flex items-center justify-between gap-2 mb-[0.55rem]">
-            <button class="world-section-toggle" on:click={() => toggleSection('fissures')} aria-expanded={!collapsed.fissures}>
-              <WorldToggleIcon collapsed={collapsed.fissures} />
-              <h3>Void Fissures</h3>
-            </button>
+          <CollapsibleSection title="Void Fissures" collapsed={collapsed.fissures} onToggle={() => toggleSection('fissures')}>
+            <svelte:fragment slot="actions">
             <div class="flex">
               <button
                 class="fissure-tab data-[active]:bg-accent data-[active]:text-bg-deep data-[active]:border-accent"
@@ -488,8 +475,7 @@
                 on:click={() => worldFissureMode.set('steel')}
               >Steel Path</button>
             </div>
-          </div>
-          {#if !collapsed.fissures}
+            </svelte:fragment>
           <div class="flex flex-col">
             {#if fissureFlat.length === 0}
               <span class="text-[0.82rem] text-text-secondary opacity-70">No active {$worldFissureMode === 'steel' ? 'Steel Path' : 'Normal'} fissures</span>
@@ -509,7 +495,7 @@
               {/each}
             {/if}
           </div>
-          {/if}
+          </CollapsibleSection>
         </div>
 
         <!-- FISSURE ALERTS -->
@@ -656,34 +642,48 @@
   }
   .world-row:last-child { border-bottom: none; }
 
-  /* Section h3 — :global() for CollapsibleSection child */
-  .world-section :global(h3) {
-    margin: 0 0 0.55rem; font-family: var(--font-display); font-size: 0.82rem;
-    font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-    line-height: 1;
-    color: var(--accent, #d4a843);
-  }
-
   /* Toggle button — :global() for CollapsibleSection */
-  :global(.world-section-toggle) {
-    display: inline-flex; align-items: center; gap: 0.4rem;
-    background: none; border: none; padding: 0; cursor: pointer; color: inherit; font: inherit;
+  :global(.world-section-header) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.55rem;
   }
-  :global(.world-section-toggle h3) { margin: 0; }
-  /* SVG caret — high-ascender fonts (Cinzel) render low in their line box,
-     so the optical center of the text is lower than the flex center. 
-     We push the caret DOWN by 0.12rem (positive) so it sits level with the caps. */
+  :global(.world-section-title) {
+    line-height: inherit;
+  }
+  :global(.world-section-toggle) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1;
+
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+  }
+  /* SVG caret shares the section title line-height, so alignment is controlled once. */
   :global(.world-toggle-icon) {
-    width: 0.9rem; height: 0.9rem;
-    flex-shrink: 0;
+    width: 1lh;
+    height: 1lh;
+    flex: 0 0 auto;
+    display: block;
+
     color: var(--text-secondary);
     transition: transform 0.15s ease;
     transform-origin: center;
-    transform: translateY(-0.5rem);
   }
-  :global(.world-toggle-icon.collapsed) { transform: translateY(-0.5rem) rotate(-90deg); }
-
-
+  :global(.world-toggle-icon.collapsed) {
+    transform: rotate(-90deg);
+  }
 
   /* Cycle state colors — :global() dynamic class */
   :global(.world-state-day)    { color: #fbbf24; background: rgba(251, 191, 36, 0.1); }
