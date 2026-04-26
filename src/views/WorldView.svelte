@@ -670,17 +670,18 @@
     background: none; border: none; padding: 0; cursor: pointer; color: inherit; font: inherit;
   }
   :global(.world-section-toggle h3) { margin: 0; }
-  /* SVG caret — sized ~50% larger than the prior glyph and shifted up by 0.06rem
-     so its centroid lands on the H3 cap-mid (line-box center is below cap-mid). */
+  /* SVG caret — high-ascender fonts (Cinzel) render low in their line box,
+     so the optical center of the text is lower than the flex center. 
+     We push the caret DOWN by 0.12rem (positive) so it sits level with the caps. */
   :global(.world-toggle-icon) {
     width: 0.9rem; height: 0.9rem;
     flex-shrink: 0;
     color: var(--text-secondary);
     transition: transform 0.15s ease;
     transform-origin: center;
-    margin-top: -0.06rem;
+    transform: translateY(-0.5rem);
   }
-  :global(.world-toggle-icon.collapsed) { transform: rotate(-90deg); }
+  :global(.world-toggle-icon.collapsed) { transform: translateY(-0.5rem) rotate(-90deg); }
 
 
 
