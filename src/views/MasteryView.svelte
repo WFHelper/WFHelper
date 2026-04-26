@@ -51,8 +51,8 @@
           wfm,
           partType: item.isPrime ? ("prime" as const) : ("normal" as const),
           leveledUp: item.rank > 0,
-          amount: item.currentlyOwned ? 1 : 0,
-          owned: item.currentlyOwned === true,
+          amount: item.status !== "missing" || item.currentlyOwned ? 1 : 0,
+          owned: item.status !== "missing" || item.currentlyOwned === true,
         };
       });
 

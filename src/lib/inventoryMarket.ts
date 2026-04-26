@@ -141,7 +141,7 @@ function lookupNameCandidates(itemName: string): string[] {
   return [...candidates];
 }
 
-function toMarketSlug(name: string): string {
+export function toMarketSlug(name: string): string {
   return normalizeName(name)
     .replace(/[’']/g, "")
     .replace(/[^a-z0-9]+/g, "_")

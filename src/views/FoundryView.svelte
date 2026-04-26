@@ -440,10 +440,10 @@
                     {formatNumber(owned)}/{formatNumber(ing.count)}
                   </span>
                   <span
-                    class="shrink-0 font-mono font-black leading-none tracking-normal {fewIng ? 'text-[1.05rem]' : 'text-[0.9rem]'} {ok ? 'text-success' : 'text-danger'}"
+                    class="shrink-0 font-sans font-black leading-none tracking-normal {fewIng ? 'text-[1.35rem]' : 'text-[1.05rem]'} {ok ? 'text-success' : 'text-danger'}"
                     aria-hidden="true"
                   >
-                    {ok ? "OK" : "NO"}
+                    {ok ? "✓" : "×"}
                   </span>
                 </div>
               {/each}

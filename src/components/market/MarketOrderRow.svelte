@@ -1,5 +1,6 @@
 <script lang="ts">
   import { PLATINUM_ICON_URL } from "../../lib/assetUrls.js";
+  import MarketOrderSummary from "./MarketOrderSummary.svelte";
   import { isRankedGroup } from "../../../config/shared/numeric.js";
   import type { InventoryViewItem } from "../../lib/inventoryMarket.js";
   import type { WfmOrder } from "../../types/market.js";
@@ -102,14 +103,7 @@
           <img src={PLATINUM_ICON_URL} alt="" width="16" height="16" class="shrink-0" />
           <span class="text-lg font-bold leading-none text-accent">{order.platinum}</span>
         </span>
-        <div class="col-span-full grid grid-cols-2 gap-1">
-          {#if isRankedListing && summaryRank != null}
-            <span class="market-summary-chip"><small>WTS R{summaryRank}</small><strong>{wtsLabel}</strong></span>
-            <span class="market-summary-chip"><small>WTB R{summaryRank}</small><strong>{wtbLabel}</strong></span>
-          {:else}
-            <span class="market-summary-chip col-span-full"><small>Median</small><strong>{medianLabel}</strong></span>
-          {/if}
-        </div>
+        <MarketOrderSummary {isRankedListing} {summaryRank} {wtsLabel} {wtbLabel} {medianLabel} />
       </div>
       <div class="flex shrink-0 gap-1">
         <button class="btn-sm btn-secondary h-8" title="Edit" on:click={stopAndEdit}>Edit</button>
@@ -144,14 +138,7 @@
         </span>
         <span class="ml-2 text-[0.7rem] font-semibold text-text-muted">Owned {ownedCount}</span>
       </div>
-      <div class="flex flex-wrap gap-1">
-        {#if isRankedListing && summaryRank != null}
-          <span class="market-summary-chip"><small>WTS R{summaryRank}</small><strong>{wtsLabel}</strong></span>
-          <span class="market-summary-chip"><small>WTB R{summaryRank}</small><strong>{wtbLabel}</strong></span>
-        {:else}
-          <span class="market-summary-chip"><small>Median</small><strong>{medianLabel}</strong></span>
-        {/if}
-      </div>
+      <MarketOrderSummary {isRankedListing} {summaryRank} {wtsLabel} {wtbLabel} {medianLabel} />
     </div>
     <div class="flex min-w-[6.5rem] shrink-0 items-center justify-center gap-1 font-display text-[1.12rem] font-bold text-accent">
       <img src={PLATINUM_ICON_URL} alt="" width="14" height="14" class="shrink-0" />
@@ -169,30 +156,3 @@
     </div>
   </div>
 {/if}
-
-<style>
-  .market-summary-chip {
-    display: inline-grid;
-    min-width: 4.7rem;
-    gap: 0.05rem;
-    border: 1px solid color-mix(in oklab, var(--accent) 38%, transparent);
-    border-radius: var(--radius-md);
-    background: color-mix(in oklab, var(--accent) 12%, var(--bg-raised));
-    padding: 0.18rem 0.38rem;
-  }
-  .market-summary-chip small {
-    color: color-mix(in oklab, var(--accent-bright) 76%, white);
-    font-family: var(--font-display);
-    font-size: 0.56rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    line-height: 1;
-    text-transform: uppercase;
-  }
-  .market-summary-chip strong {
-    color: var(--accent-bright);
-    font-family: var(--font-display);
-    font-size: 0.76rem;
-    line-height: 1.05;
-  }
-</style>
