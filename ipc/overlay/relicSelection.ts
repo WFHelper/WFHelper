@@ -2,6 +2,7 @@ import { toFiniteOr, clampNumber } from "../../config/shared/numeric";
 import { normalizeErrorMessage } from "../../config/shared/errors";
 import { RELIC_RECOMMENDATIONS, RELIC_PLANNER_TRIGGER } from "../../config/shared/ipcChannels";
 import { normalizeWfmSlug } from "../../config/shared/wfm";
+import { RELIC_MISSION_TIER_CACHE_TTL_MS } from "../../config/runtime/cacheConfig";
 
 const RECOMMENDATION_ROW_LIMIT = 6;
 const RECOMMENDATION_SQUAD_SIZE = 4;
@@ -415,7 +416,6 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
   // rotations) so OCR is skipped entirely.  TTL is refreshed on each cache hit so a long
   // endless run never expires mid-session.  Once the player leaves for longer than the TTL
   // the next open runs OCR afresh.
-  const MISSION_TIER_TTL_MS = 25 * 60 * 1000; // 25 minutes
   let activeMissionTier: string | null = null;
   let activeMissionTierSetAt = 0;
   let cache: {
@@ -574,7 +574,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       // so running captureSourceMeta first would be a redundant ~600 ms capture.
       const cacheAge = Date.now() - activeMissionTierSetAt;
       let era: string | null =
-        activeMissionTier && cacheAge < MISSION_TIER_TTL_MS ? activeMissionTier : null;
+        activeMissionTier && cacheAge < RELIC_MISSION_TIER_CACHE_TTL_MS ? activeMissionTier : null;
       let eraConfidence = era ? 1.0 : 0;
 
       if (era) {
@@ -736,7 +736,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       // Without one, buildRecommendations(null) returns all eras which causes a visible
       // flash of every relic before OCR completes.
       const cachedEra =
-        activeMissionTier && Date.now() - activeMissionTierSetAt < MISSION_TIER_TTL_MS
+        activeMissionTier && Date.now() - activeMissionTierSetAt < RELIC_MISSION_TIER_CACHE_TTL_MS
           ? activeMissionTier
           : null;
       if (cachedEra) {

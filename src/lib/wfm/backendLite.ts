@@ -1,4 +1,5 @@
 import { toFiniteNumber } from "../../../config/shared/numeric.js";
+import { BACKEND_BOOTSTRAP_FAILURE_COOLDOWN_MS } from "../../../config/runtime/cacheConfig.js";
 import { normalizeWfmSlug as _normalizeWfmSlug } from "../../../config/shared/wfm.js";
 import type { RequestPriority } from "./wfmPrice.js";
 
@@ -36,7 +37,6 @@ let _bootstrapInFlight: Promise<string | null> | null = null;
 // CSP block / network error doesn't cause every parallel request to pile
 // up on the bootstrap endpoint.
 let _bootstrapRetryAfter = 0;
-const BOOTSTRAP_FAILURE_COOLDOWN_MS = 30_000;
 
 async function ensureBootstrapToken(): Promise<string | null> {
   if (!BOOTSTRAP_ENABLED || !isBackendLiteConfigured()) return null;
@@ -66,7 +66,7 @@ async function fetchBootstrapToken(): Promise<string | null> {
       headers: { Accept: "application/json" },
     });
     if (!response.ok) {
-      _bootstrapRetryAfter = Date.now() + BOOTSTRAP_FAILURE_COOLDOWN_MS;
+      _bootstrapRetryAfter = Date.now() + BACKEND_BOOTSTRAP_FAILURE_COOLDOWN_MS;
       return null;
     }
     const json = (await response.json()) as {
@@ -78,7 +78,7 @@ async function fetchBootstrapToken(): Promise<string | null> {
       typeof json.data?.token !== "string" ||
       typeof json.data?.expiresAt !== "number"
     ) {
-      _bootstrapRetryAfter = Date.now() + BOOTSTRAP_FAILURE_COOLDOWN_MS;
+      _bootstrapRetryAfter = Date.now() + BACKEND_BOOTSTRAP_FAILURE_COOLDOWN_MS;
       return null;
     }
     _bootstrapRetryAfter = 0;
@@ -86,7 +86,7 @@ async function fetchBootstrapToken(): Promise<string | null> {
     _bootstrapTokenExpiry = json.data.expiresAt;
     return _bootstrapToken;
   } catch {
-    _bootstrapRetryAfter = Date.now() + BOOTSTRAP_FAILURE_COOLDOWN_MS;
+    _bootstrapRetryAfter = Date.now() + BACKEND_BOOTSTRAP_FAILURE_COOLDOWN_MS;
     return null;
   } finally {
     clearTimeout(timeout);

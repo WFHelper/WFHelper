@@ -88,9 +88,9 @@
   }
 
   const RARITY_COLOUR: Record<string, string> = {
-    Common: "#c0a06a",
-    Uncommon: "#b0b8c8",
-    Rare: "#d4a843",
+    Common: "var(--rarity-common)",
+    Uncommon: "var(--rarity-uncommon)",
+    Rare: "var(--rarity-rare)",
   };
 
   function getPopoverRewards(rg: RelicGroup) {

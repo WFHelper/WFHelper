@@ -58,4 +58,34 @@
   --grade-d: #f97316;
   --grade-f: #ef4444;
   --grade-default: #8b93a5;
+
+  /* Relic reward rarity colors. */
+  --rarity-common: #c0a06a;
+  --rarity-uncommon: #b0b8c8;
+  --rarity-rare: #d4a843;
+
+  /* World cycle state colors. */
+  --world-state-day-text: #fbbf24;
+  --world-state-night-text: #60a5fa;
+  --world-state-warm-text: #f97316;
+  --world-state-cold-text: #38bdf8;
+  --world-state-fass-text: #f97316;
+  --world-state-vome-text: #a78bfa;
+  --world-state-anger-text: #ef4444;
+  --world-state-joy-text: #fbbf24;
+  --world-state-envy-text: #22c55e;
+  --world-state-sorrow-text: #60a5fa;
+  --world-state-fear-text: #a78bfa;
+
+  /* World fissure tier and faction colors. */
+  --world-badge-lith-text: #4ade80;
+  --world-badge-meso-text: #9a9aa0;
+  --world-badge-neo-text: #c0c5d0;
+  --world-badge-axi-text: #fbbf24;
+  --world-badge-requiem-text: #ef4444;
+  --world-badge-omnia-text: #2dd4bf;
+  --world-faction-grineer: #ef5350;
+  --world-faction-corpus: #42a5f5;
+  --world-faction-infested: #66bb6a;
+  --world-timer-urgent-text: #ef4444;
 }

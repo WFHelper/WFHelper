@@ -4,6 +4,7 @@
  */
 
 import { levenshteinDistance } from "./rewardScannerUtils";
+import { normalizeForOcr, normalizeForSearch } from "../config/shared/textNormalize";
 
 export const MAX_REWARD_SLOTS = 4;
 const EXACT_MATCH_SKIP_OVERLAP_COUNT = 3;
@@ -29,20 +30,11 @@ export const CONSENSUS_TUNING: Readonly<{
 });
 
 export function normalizeOcrToken(token: unknown): string {
-  return String(token || "")
-    .toUpperCase()
-    .replace(/[1|!]/g, "I")
-    .replace(/0/g, "O")
-    .replace(/5/g, "S")
-    .replace(/[^A-Z]/g, "")
-    .trim();
+  return normalizeForOcr(token);
 }
 
 export function norm(text: unknown): string {
-  return String(text || "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
+  return normalizeForSearch(text);
 }
 
 export function buildWordSet(text: string): Set<string> {

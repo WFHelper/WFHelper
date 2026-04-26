@@ -366,9 +366,21 @@ import DetailModalBase from "./DetailModalBase.svelte";
 
 <style>
   .relic-detail-owned :global(.relic-owned-pill) { font-size: 0.66rem; }
-  :global(.rarity-rare) { background: rgba(212, 168, 67, 0.2); color: #d4a843; border: 1px solid rgba(212, 168, 67, 0.4); }
-  :global(.rarity-uncommon) { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); }
-  :global(.rarity-common) { background: rgba(71, 85, 105, 0.25); color: #64748b; border: 1px solid rgba(71, 85, 105, 0.4); }
+  :global(.rarity-rare) {
+    background: color-mix(in srgb, var(--rarity-rare) 20%, transparent);
+    color: var(--rarity-rare);
+    border: 1px solid color-mix(in srgb, var(--rarity-rare) 40%, transparent);
+  }
+  :global(.rarity-uncommon) {
+    background: color-mix(in srgb, var(--rarity-uncommon) 15%, transparent);
+    color: var(--rarity-uncommon);
+    border: 1px solid color-mix(in srgb, var(--rarity-uncommon) 30%, transparent);
+  }
+  :global(.rarity-common) {
+    background: color-mix(in srgb, var(--rarity-common) 18%, transparent);
+    color: var(--rarity-common);
+    border: 1px solid color-mix(in srgb, var(--rarity-common) 34%, transparent);
+  }
   .relic-ev-total :global(strong) { color: var(--accent); }
   :global(.relic-reward-item-panel) {
     width: 520px; border-radius: 0; border: none;

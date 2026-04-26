@@ -43,6 +43,8 @@ export function formatWfmAssetUrl(path: unknown): string | null {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `${WFM_ASSET_BASE}${trimmed}`;
 }
 
+import { normalizeForSlug } from "./textNormalize";
+
 // ---------------------------------------------------------------------------
 // Slug normalization
 // ---------------------------------------------------------------------------
@@ -60,12 +62,5 @@ export function formatWfmAssetUrl(path: unknown): string | null {
  * Returns `null` for non-string or empty input.
  */
 export function normalizeWfmSlug(value: string | null | undefined): string | null {
-  if (typeof value !== "string") return null;
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/['\u2019\u2018]/g, "")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return normalized || null;
+  return normalizeForSlug(value);
 }

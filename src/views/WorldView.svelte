@@ -327,9 +327,9 @@
     <div class="flex items-center gap-3">
       <h2>World</h2>
       {#if baroActive}
-        <span class="rounded-[0.3rem] border border-[rgba(251,191,36,0.3)] bg-[rgba(251,191,36,0.1)] px-2 py-[0.15rem] text-[0.72rem] font-semibold whitespace-nowrap text-warning">Baro leaves in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
+        <span class="rounded-[0.3rem] border border-warning/30 bg-warning/10 px-2 py-[0.15rem] text-[0.72rem] font-semibold whitespace-nowrap text-warning">Baro leaves in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
       {:else if baroAct}
-        <span class="rounded-[0.3rem] border border-[rgba(251,191,36,0.3)] bg-[rgba(251,191,36,0.1)] px-2 py-[0.15rem] text-[0.72rem] font-semibold whitespace-nowrap text-warning">Baro arrives in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
+        <span class="rounded-[0.3rem] border border-warning/30 bg-warning/10 px-2 py-[0.15rem] text-[0.72rem] font-semibold whitespace-nowrap text-warning">Baro arrives in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
       {/if}
     </div>
   </div>
@@ -685,36 +685,36 @@
   }
 
   /* Cycle state colors — :global() dynamic class */
-  :global(.world-state-day)    { color: #fbbf24; background: rgba(251, 191, 36, 0.1); }
-  :global(.world-state-night)  { color: #60a5fa; background: rgba(96, 165, 250, 0.1); }
-  :global(.world-state-warm)   { color: #f97316; background: rgba(249, 115, 22, 0.1); }
-  :global(.world-state-cold)   { color: #38bdf8; background: rgba(56, 189, 248, 0.1); }
-  :global(.world-state-fass)   { color: #f97316; background: rgba(249, 115, 22, 0.1); }
-  :global(.world-state-vome)   { color: #a78bfa; background: rgba(167, 139, 250, 0.1); }
-  :global(.world-state-anger)  { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
-  :global(.world-state-joy)    { color: #fbbf24; background: rgba(251, 191, 36, 0.1); }
-  :global(.world-state-envy)   { color: #22c55e; background: rgba(34, 197, 94, 0.1); }
-  :global(.world-state-sorrow) { color: #60a5fa; background: rgba(96, 165, 250, 0.1); }
-  :global(.world-state-fear)   { color: #a78bfa; background: rgba(167, 139, 250, 0.1); }
+  :global(.world-state-day)    { color: var(--world-state-day-text); background: color-mix(in srgb, var(--world-state-day-text) 10%, transparent); }
+  :global(.world-state-night)  { color: var(--world-state-night-text); background: color-mix(in srgb, var(--world-state-night-text) 10%, transparent); }
+  :global(.world-state-warm)   { color: var(--world-state-warm-text); background: color-mix(in srgb, var(--world-state-warm-text) 10%, transparent); }
+  :global(.world-state-cold)   { color: var(--world-state-cold-text); background: color-mix(in srgb, var(--world-state-cold-text) 10%, transparent); }
+  :global(.world-state-fass)   { color: var(--world-state-fass-text); background: color-mix(in srgb, var(--world-state-fass-text) 10%, transparent); }
+  :global(.world-state-vome)   { color: var(--world-state-vome-text); background: color-mix(in srgb, var(--world-state-vome-text) 10%, transparent); }
+  :global(.world-state-anger)  { color: var(--world-state-anger-text); background: color-mix(in srgb, var(--world-state-anger-text) 10%, transparent); }
+  :global(.world-state-joy)    { color: var(--world-state-joy-text); background: color-mix(in srgb, var(--world-state-joy-text) 10%, transparent); }
+  :global(.world-state-envy)   { color: var(--world-state-envy-text); background: color-mix(in srgb, var(--world-state-envy-text) 10%, transparent); }
+  :global(.world-state-sorrow) { color: var(--world-state-sorrow-text); background: color-mix(in srgb, var(--world-state-sorrow-text) 10%, transparent); }
+  :global(.world-state-fear)   { color: var(--world-state-fear-text); background: color-mix(in srgb, var(--world-state-fear-text) 10%, transparent); }
 
   /* Fissure badge colors — :global() dynamic class */
-  :global(.world-badge-lith)    { background: rgba(74, 222, 128, 0.12); color: #4ade80; }
-  :global(.world-badge-meso)    { background: rgba(120, 120, 130, 0.18); color: #9a9aa0; }
-  :global(.world-badge-neo)     { background: rgba(190, 195, 210, 0.12); color: #c0c5d0; }
-  :global(.world-badge-axi)     { background: rgba(251, 191, 36, 0.12); color: #fbbf24; }
-  :global(.world-badge-requiem) { background: rgba(239, 68, 68, 0.14); color: #ef4444; }
-  :global(.world-badge-omnia)   { background: rgba(45, 212, 191, 0.12); color: #2dd4bf; }
+  :global(.world-badge-lith)    { background: color-mix(in srgb, var(--world-badge-lith-text) 12%, transparent); color: var(--world-badge-lith-text); }
+  :global(.world-badge-meso)    { background: color-mix(in srgb, var(--world-badge-meso-text) 18%, transparent); color: var(--world-badge-meso-text); }
+  :global(.world-badge-neo)     { background: color-mix(in srgb, var(--world-badge-neo-text) 12%, transparent); color: var(--world-badge-neo-text); }
+  :global(.world-badge-axi)     { background: color-mix(in srgb, var(--world-badge-axi-text) 12%, transparent); color: var(--world-badge-axi-text); }
+  :global(.world-badge-requiem) { background: color-mix(in srgb, var(--world-badge-requiem-text) 14%, transparent); color: var(--world-badge-requiem-text); }
+  :global(.world-badge-omnia)   { background: color-mix(in srgb, var(--world-badge-omnia-text) 12%, transparent); color: var(--world-badge-omnia-text); }
 
   /* Faction colors — :global() dynamic class */
-  :global(.world-faction-grineer)    { color: #ef5350; }
-  :global(.world-faction-corpus)     { color: #42a5f5; }
-  :global(.world-faction-infested)   { color: #66bb6a; }
-  :global(.world-faction-bg-grineer) { background: #ef5350; }
-  :global(.world-faction-bg-corpus)  { background: #42a5f5; }
-  :global(.world-faction-bg-infested){ background: #66bb6a; }
+  :global(.world-faction-grineer)    { color: var(--world-faction-grineer); }
+  :global(.world-faction-corpus)     { color: var(--world-faction-corpus); }
+  :global(.world-faction-infested)   { color: var(--world-faction-infested); }
+  :global(.world-faction-bg-grineer) { background: var(--world-faction-grineer); }
+  :global(.world-faction-bg-corpus)  { background: var(--world-faction-corpus); }
+  :global(.world-faction-bg-infested){ background: var(--world-faction-infested); }
 
   /* Urgent timer — :global() used by class: directive */
-  :global(.world-timer-urgent) { color: #ef4444 !important; }
+  :global(.world-timer-urgent) { color: var(--world-timer-urgent-text) !important; }
 
   /* Fissure row — gap-based layout instead of space-between */
   .fissure-row {

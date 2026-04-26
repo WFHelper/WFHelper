@@ -10,6 +10,7 @@ import {
 import { extractMedianFromStatsPayload } from "../../../config/shared/wfmStats.js";
 import { normalizeRankFilter as normalizePriceRank } from "../../../config/shared/numeric.js";
 import { isWfmExcludedSlug } from "../../../config/shared/wfmExclusions.js";
+import { WFM_BACKEND_ERROR_COOLDOWN_MS } from "../../../config/runtime/cacheConfig.js";
 import { log } from "../log.js";
 import { WFM_HEADERS } from "../../../config/shared/wfm.js";
 
@@ -23,7 +24,6 @@ const MAX_PRICE_QUEUE_DEPTH = 64;
 const PRICE_QUEUE_FULL_ERROR = "WFM_PRICE_QUEUE_FULL";
 // When the backend returns an error and direct fallback is not allowed, suppress
 // retries for this duration so a cold/erroring worker doesn't get hammered.
-const BACKEND_ERROR_COOLDOWN_MS = 60_000;
 
 let _lastRequestAt = 0;
 let _runnerActive = false;
@@ -91,7 +91,7 @@ const priceDebugCounters: PriceDebugCounters = {
 };
 
 // Per-slug transient error cooldown. Populated when backend errors with no fallback
-// allowed so retries are suppressed for BACKEND_ERROR_COOLDOWN_MS instead of
+// allowed so retries are suppressed for WFM_BACKEND_ERROR_COOLDOWN_MS instead of
 // hammering the worker on every render cycle.
 const backendErrorCooldown = new Map<string, number>(); // cacheKey → expiry timestamp
 // Tracks slugs that returned no price data this session so the warning is
@@ -330,7 +330,7 @@ async function fetchPriceBySlugInternal(
 
   if (!fallbackAllowed) {
     bumpCounter("resultTransient");
-    backendErrorCooldown.set(cacheKey, Date.now() + BACKEND_ERROR_COOLDOWN_MS);
+    backendErrorCooldown.set(cacheKey, Date.now() + WFM_BACKEND_ERROR_COOLDOWN_MS);
     if (backendErrorCooldown.size > 1000) pruneBackendErrorCooldown();
     return { status: "transient", slug, median: null };
   }

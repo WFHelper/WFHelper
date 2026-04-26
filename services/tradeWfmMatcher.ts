@@ -15,6 +15,7 @@ import * as wfmOrders from "./wfmOrders";
 import type { NormalisedOrder } from "./wfmOrders";
 import * as wfmSession from "./wfmSession";
 import * as wfmCatalog from "./wfmCatalog";
+import { normalizeForSearch } from "../config/shared/textNormalize";
 import type { TradeType, TradeDirection } from "../config/shared/statsTypes";
 import type { TradeMatchPayload } from "../config/shared/tradeMatch";
 
@@ -41,7 +42,7 @@ const CLOSE_DEDUP_MS = 30_000;
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function normalizeName(name: string): string {
-  return name.replace(/ Blueprint$/i, "").trim().toLowerCase();
+  return normalizeForSearch(name.replace(/ Blueprint$/i, ""));
 }
 
 function cleanupRecentlyClosed(): void {

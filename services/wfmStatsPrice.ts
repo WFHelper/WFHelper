@@ -3,10 +3,10 @@ import { extractMedianFromStatsPayload } from "../config/shared/wfmStats";
 import * as wfmClient from "./wfmClient";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { normalizeWfmSlug } from "../config/shared/wfm";
+import { WFM_STATS_CACHE_TTL_MS } from "../config/runtime/cacheConfig";
 
 const log = withScope("wfmStatsPrice");
 
-const STATS_TTL_MS = 5 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 5_000;
 
 interface CacheEntry {
@@ -20,7 +20,7 @@ const inFlight = new Map<string, Promise<number | null>>();
 function getCachedPrice(slug: string): number | null {
   const hit = cache.get(slug);
   if (!hit) return null;
-  if (Date.now() - hit.ts > STATS_TTL_MS) {
+  if (Date.now() - hit.ts > WFM_STATS_CACHE_TTL_MS) {
     cache.delete(slug);
     return null;
   }

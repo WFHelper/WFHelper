@@ -19,6 +19,10 @@ import os from "os";
 import path from "path";
 import { createRewardOcrRunner } from "./rewardScannerOcr";
 import { OVERLAY_SETTINGS_DEFAULTS, OVERLAY_SETTINGS_LIMITS, type OverlaySettings } from "../config/runtime/overlaySettings";
+import {
+  REWARD_FRAME_DEDUP_TTL_MS,
+  REWARD_STRATEGY_HISTORY_TTL_MS,
+} from "../config/runtime/cacheConfig";
 import type { NativeImage } from "electron";
 
 import { clampNumber, round4, luminanceFromBgr } from "./rewardScannerUtils";
@@ -133,7 +137,6 @@ let _lastFrameResult: { items: SortedItem[]; meta: Record<string, unknown> } | n
  * doesn't serve stale items. Shorter TTLs cause needless re-scans during
  * the same mission's end-screen; longer TTLs risk cross-mission bleed.
  */
-const FRAME_DEDUP_TTL_MS = 5_000;
 let _lastFrameHashTs = 0;
 
 function computeFrameHash(nativeImage: NativeImage): string | null {
@@ -168,7 +171,6 @@ interface StrategyWin {
 }
 
 const STRATEGY_HISTORY_MAX = 10;
-const STRATEGY_HISTORY_TTL_MS = 300_000; // 5 minutes
 const _strategyHistory: StrategyWin[] = [];
 
 function recordStrategyWin(bandIndex: number, variantId: string, score: number): void {
@@ -181,7 +183,7 @@ function recordStrategyWin(bandIndex: number, variantId: string, score: number):
 /** Returns the preferred band index and variant to try first, or null. */
 export function getAdaptiveStrategyHint(): { bandIndex: number; variantId: string } | null {
   const now = Date.now();
-  const recent = _strategyHistory.filter((w) => now - w.timestamp < STRATEGY_HISTORY_TTL_MS);
+  const recent = _strategyHistory.filter((w) => now - w.timestamp < REWARD_STRATEGY_HISTORY_TTL_MS);
   if (recent.length < 2) return null;
 
   // Count wins per band index
@@ -864,7 +866,7 @@ export async function scanRewardsDetailed(
     frameHash &&
     frameHash === _lastFrameHash &&
     _lastFrameResult &&
-    Date.now() - _lastFrameHashTs < FRAME_DEDUP_TTL_MS
+    Date.now() - _lastFrameHashTs < REWARD_FRAME_DEDUP_TTL_MS
   ) {
     log.log("[RewardScanner] Frame unchanged — returning cached result");
     return _lastFrameResult;

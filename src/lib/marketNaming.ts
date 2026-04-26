@@ -1,5 +1,7 @@
+import { normalizeForSearch, normalizeForSlug } from "../../config/shared/textNormalize.js";
+
 export function normalizeMarketName(value: string): string {
-  return value.trim().toLowerCase();
+  return normalizeForSearch(value);
 }
 
 export function normalizeLooseMarketName(value: string): string {
@@ -7,8 +9,5 @@ export function normalizeLooseMarketName(value: string): string {
 }
 
 export function toMarketSlug(name: string): string {
-  return normalizeMarketName(name)
-    .replace(/[’']/g, "")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
+  return normalizeForSlug(name) || "";
 }

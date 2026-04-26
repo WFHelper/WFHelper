@@ -1,11 +1,10 @@
 import { execFile } from "node:child_process";
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { WARFRAME_STATUS_CACHE_TTL_MS } from "../config/runtime/cacheConfig";
 
 const log = withScope("warframeStatus");
 
-/** Throttle repeated isWarframeRunning queries — 2 s keeps UI responsive without hammering tasklist. */
-const STATUS_CACHE_TTL_MS = 2000;
 /** Kill tasklist.exe if it hangs longer than this — prevents zombie processes on locked PCs. */
 const TASKLIST_TIMEOUT_MS = 1200;
 /** Kill the foreground-window check after this long to avoid blocking the overlay loop. */
@@ -186,7 +185,7 @@ async function collectStatus(): Promise<WarframeStatus> {
 export async function getStatus(options: { force?: boolean } = {}): Promise<WarframeStatus> {
   const force = !!options.force;
   const now = Date.now();
-  if (!force && lastStatus && now - lastStatusAt < STATUS_CACHE_TTL_MS) {
+  if (!force && lastStatus && now - lastStatusAt < WARFRAME_STATUS_CACHE_TTL_MS) {
     return lastStatus;
   }
 

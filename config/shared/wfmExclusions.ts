@@ -1,4 +1,5 @@
 import { normalizeWfmSlug } from "./wfm";
+import { normalizeForSearch } from "./textNormalize";
 
 const BLOOD_FOR_SLUGS = new Set(["blood_for_ammo", "blood_for_energy", "blood_for_life"]);
 
@@ -12,8 +13,7 @@ function normalizeSlug(value: unknown): string {
 }
 
 function normalizeName(value: unknown): string {
-  if (typeof value !== "string") return "";
-  return value.trim().toLowerCase();
+  return typeof value === "string" ? normalizeForSearch(value) : "";
 }
 
 export function isVeiledRivenSlug(slug: unknown): boolean {

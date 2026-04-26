@@ -1,5 +1,6 @@
 <script lang="ts">
   import { PLATINUM_ICON_URL } from "../../lib/assetUrls.js";
+  import MarketRowBase from "./MarketRowBase.svelte";
   import type { WfmContract, WfmContractAttribute } from "../../types/market.js";
 
   export let contract: WfmContract;
@@ -31,32 +32,26 @@
 
   $: statsPreview = contractStatsPreview(contract);
   $: badge = contractBadge(contract);
+  $: badgeClass = contract.isDirectSell ? "bg-amber-500/20 text-amber-300" : "bg-sky-500/20 text-sky-300";
   $: masteryOrPolarity =
     contract.masteryLevel != null ? `MR${contract.masteryLevel}` : contract.polarity || "-";
+  $: rankBadges = [
+    ...(contract.modRank != null ? [`R${contract.modRank}`] : []),
+    ...(contract.rerolls != null ? [`RR${contract.rerolls}`] : []),
+  ];
 </script>
 
 {#if compact}
-  <div class="order-row flex flex-col overflow-hidden p-0">
-    <div class="flex items-center gap-2 border-b border-border bg-bg-raised px-2.5 py-1.5">
-      <span class="shrink-0 rounded px-1.5 py-0.5 text-[0.62rem] font-bold tracking-wide {contract.isDirectSell ? 'bg-amber-500/20 text-amber-300' : 'bg-sky-500/20 text-sky-300'}">
-        {badge}
-      </span>
-      <span class="min-w-0 flex-1 truncate font-display text-[0.88rem] font-bold text-text-primary" title={contract.itemName}>
-        {contract.itemName}
-      </span>
-      {#if contract.modRank != null}
-        <span class="shrink-0 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">R{contract.modRank}</span>
-      {/if}
-      {#if contract.rerolls != null}
-        <span class="shrink-0 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">RR{contract.rerolls}</span>
-      {/if}
-    </div>
-    <div class="flex items-center gap-2.5 px-2.5 py-2">
-      {#if contract.itemThumb}
-        <img src={contract.itemThumb} alt={contract.itemName} class="h-11 w-11 shrink-0 rounded-[var(--radius-md)] bg-black/30 object-contain" loading="lazy" />
-      {:else}
-        <div class="h-11 w-11 shrink-0 rounded-[var(--radius-md)] bg-white/5"></div>
-      {/if}
+  <MarketRowBase
+    compact
+    title={contract.itemName}
+    thumb={contract.itemThumb}
+    badgeLabel={badge}
+    {badgeClass}
+    {rankBadges}
+    compactBodyClass="flex items-center gap-2.5 px-2.5 py-2"
+  >
+    <svelte:fragment slot="compactBody">
       <div class="flex min-w-0 flex-1 flex-col gap-0.5">
         <div class="flex items-center gap-3">
           <span class="flex items-center gap-1 font-display" title="Platinum">
@@ -69,43 +64,33 @@
           <span class="truncate text-[0.68rem] text-text-muted" title={statsPreview}>{statsPreview}</span>
         {/if}
       </div>
+    </svelte:fragment>
+    <svelte:fragment slot="compactActions">
       <button class="btn-sm btn-secondary shrink-0" on:click={() => onOpen(contract)}>Open</button>
-    </div>
-  </div>
+    </svelte:fragment>
+  </MarketRowBase>
 {:else}
-  <div class="order-row flex items-center gap-2 px-2.5 py-2">
-    <span class="h-[15px] w-[15px] shrink-0" aria-hidden="true"></span>
-    <div class="flex min-w-0 flex-1 items-center gap-2">
-      {#if contract.itemThumb}
-        <img src={contract.itemThumb} alt={contract.itemName} class="h-9 w-9 rounded-[var(--radius-md)] object-contain" loading="lazy" />
-      {:else}
-        <div class="h-9 w-9 rounded-[var(--radius-md)] bg-white/5"></div>
+  <MarketRowBase title={contract.itemName} thumb={contract.itemThumb} {rankBadges}>
+    <svelte:fragment slot="fullStart">
+      <span class="h-[15px] w-[15px] shrink-0" aria-hidden="true"></span>
+    </svelte:fragment>
+    <svelte:fragment slot="fullBody">
+      {#if statsPreview}
+        <span class="truncate text-[0.72rem] text-text-muted">{statsPreview}</span>
       {/if}
-      <div class="grid min-w-0 gap-1">
-        <span class="order-item-name">
-          {contract.itemName}
-          {#if contract.modRank != null}
-            <span class="ml-1 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">R{contract.modRank}</span>
-          {/if}
-          {#if contract.rerolls != null}
-            <span class="ml-1 rounded-sm bg-[rgba(212,168,67,0.2)] px-1 py-0.5 text-[0.62rem] font-bold text-accent">RR{contract.rerolls}</span>
-          {/if}
+    </svelte:fragment>
+    <svelte:fragment slot="fullActions">
+      <div class="flex shrink-0 items-center gap-2">
+        <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">
+          <img src={PLATINUM_ICON_URL} alt="" width="14" height="14" class="shrink-0" />
+          {contract.platinum}
         </span>
-        {#if statsPreview}
-          <span class="truncate text-[0.72rem] text-text-muted">{statsPreview}</span>
-        {/if}
+        <span class="order-qty">{masteryOrPolarity}</span>
+        <span class="order-vis" class:order-vis-on={contract.isDirectSell} class:order-vis-off={!contract.isDirectSell}>
+          {badge}
+        </span>
       </div>
-    </div>
-    <div class="flex shrink-0 items-center gap-2">
-      <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">
-        <img src={PLATINUM_ICON_URL} alt="" width="14" height="14" class="shrink-0" />
-        {contract.platinum}
-      </span>
-      <span class="order-qty">{masteryOrPolarity}</span>
-      <span class="order-vis" class:order-vis-on={contract.isDirectSell} class:order-vis-off={!contract.isDirectSell}>
-        {badge}
-      </span>
-    </div>
-    <button class="btn-sm btn-secondary shrink-0" on:click={() => onOpen(contract)}>Open</button>
-  </div>
+      <button class="btn-sm btn-secondary shrink-0" on:click={() => onOpen(contract)}>Open</button>
+    </svelte:fragment>
+  </MarketRowBase>
 {/if}
