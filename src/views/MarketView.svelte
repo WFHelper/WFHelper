@@ -17,6 +17,7 @@
     marketTypeTab,
     orderModalState,
   } from "../stores/market.js";
+  import HeaderTabs from "../components/HeaderTabs.svelte";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
   import MarketContractRow from "../components/market/MarketContractRow.svelte";
   import MarketOrderRow from "../components/market/MarketOrderRow.svelte";
@@ -56,6 +57,7 @@
     ["buy", "Buy Orders"],
     ["rivens", "Rivens"],
   ];
+  const ORDER_TYPE_TABS = ORDER_TYPE_OPTIONS.map(([key, label]) => ({ key, label }));
 
   const marketFilters = sharedFilters("market");
   const hydration = getInventoryHydrationController();
@@ -348,6 +350,10 @@
     toggleSelect(orderId, checked);
   }
 
+  function handleTypeTabSelect(type: string): void {
+    switchTypeTab(type as MarketTab);
+  }
+
   function editOrder(order: WfmOrder): void {
     orderModalState.set({ mode: "edit", order });
   }
@@ -494,15 +500,12 @@
         </div>
       </div>
 
-      <div class="mb-2.5 flex flex-wrap items-center gap-[0.35rem]">
-        {#each ORDER_TYPE_OPTIONS as [type, label]}
-          <button
-            class="h-9 border px-3 font-display text-[0.75rem] font-medium tracking-[0.03em] transition-[border-color,background,color] duration-150 {$marketTypeTab === type
-              ? 'border-text-primary bg-[var(--ui-control-bg)] text-text-primary'
-              : 'border-transparent bg-[var(--ui-control-bg)] text-text-secondary hover:border-border hover:text-text-primary'}"
-            on:click={() => switchTypeTab(type)}
-          >{label}</button>
-        {/each}
+      <div class="mb-2.5 flex items-end border-b border-[rgba(255,255,255,0.09)]">
+        <HeaderTabs
+          options={ORDER_TYPE_TABS}
+          activeKey={$marketTypeTab}
+          onSelect={handleTypeTabSelect}
+        />
       </div>
 
       <SharedFilterBar

@@ -6,6 +6,11 @@ import type { RelicDatabase } from "../types/relics.js";
 import { getCachedPriceState } from "./wfm/priceCache.js";
 import { getCachedOrderSummaryState } from "./wfm/orderSummaryCache.js";
 import { getCachedWfmItemMeta } from "./wfm/wfmItemMeta.js";
+import {
+  normalizeLooseMarketName,
+  normalizeMarketName,
+  toMarketSlug,
+} from "./marketNaming.js";
 import { toFinitePositiveInt, toFiniteNumber, isRankedGroup } from "../../config/shared/numeric.js";
 import { isExcludedRankedMarketItem } from "../../config/shared/wfmExclusions.js";
 
@@ -76,14 +81,6 @@ export const INVENTORY_FILTERS: Array<{ key: InventoryFilterTab; label: string }
   { key: "misc", label: "Misc" },
 ];
 
-export function normalizeName(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function normalizeLooseName(value: string): string {
-  return normalizeName(value).replace(/[^a-z0-9]+/g, "");
-}
-
 function lookupNameCandidates(itemName: string): string[] {
   const base = itemName.trim();
   const candidates = new Set<string>([base]);
@@ -139,13 +136,6 @@ function lookupNameCandidates(itemName: string): string[] {
   }
 
   return [...candidates];
-}
-
-export function toMarketSlug(name: string): string {
-  return normalizeName(name)
-    .replace(/[’']/g, "")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
 }
 
 function isSetSlug(slug: string | null | undefined): boolean {
@@ -210,12 +200,12 @@ export function getLookupByName(
   lookup: WfmItemsLookup,
 ): WfmItemsLookup[string] | null {
   for (const candidate of lookupNameCandidates(itemName)) {
-    const key = normalizeName(candidate);
+    const key = normalizeMarketName(candidate);
     const direct = lookup[key] || null;
     if (!direct) continue;
 
     const mappedName = typeof direct.item_name === "string" ? direct.item_name : null;
-    if (mappedName && normalizeLooseName(mappedName) !== normalizeLooseName(candidate)) {
+    if (mappedName && normalizeLooseMarketName(mappedName) !== normalizeLooseMarketName(candidate)) {
       continue;
     }
 
@@ -230,13 +220,13 @@ function getLookupByGameRef(
   lookup: WfmItemsLookup,
 ): WfmItemsLookup[string] | null {
   if (!gameRef) return null;
-  const key = normalizeName(gameRef);
+  const key = normalizeMarketName(gameRef);
   const direct = lookup[key] || null;
   if (!direct) return null;
 
   const mappedRef =
     typeof direct.gameRef === "string" && direct.gameRef.trim().length > 0
-      ? normalizeName(direct.gameRef)
+      ? normalizeMarketName(direct.gameRef)
       : null;
   if (mappedRef && mappedRef !== key) return null;
   return direct;
@@ -294,7 +284,7 @@ export function buildOrderLookups(orders: WfmOrdersResult): {
   const merged = [...orders.sell, ...orders.buy];
   const orderedNames = Object.fromEntries(
     merged
-      .map((order) => normalizeName(order.itemName || ""))
+      .map((order) => normalizeMarketName(order.itemName || ""))
       .filter(Boolean)
       .map((name) => [name, true]),
   ) as Record<string, true>;
@@ -385,7 +375,7 @@ export function buildBaseInventoryItems(
           : 0;
 
       const orderPlaced =
-        Boolean(orderedNames[normalizeName(displayName)]) ||
+        Boolean(orderedNames[normalizeMarketName(displayName)]) ||
         (marketSlug ? Boolean(orderedSlugs[marketSlug]) : false);
 
       return {

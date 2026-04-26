@@ -1,7 +1,6 @@
 import { isRankedGroup, toFinitePositiveInt } from "../../config/shared/numeric.js";
+import { normalizeMarketName, toMarketSlug } from "./marketNaming.js";
 import {
-  normalizeName,
-  toMarketSlug,
   type InventoryBaseItem,
 } from "./inventoryMarket.js";
 import type { InventoryGroup, ParsedItem } from "../types/inventory.js";
@@ -11,10 +10,10 @@ import type { WfmOrder } from "../types/market.js";
 export type MarketOrderInventoryItem = InventoryBaseItem & { sourceOrderId: string };
 
 function parsedItemForOrder(order: WfmOrder, parsedItems: ParsedItem[]): ParsedItem | null {
-  const orderName = normalizeName(order.itemName);
+  const orderName = normalizeMarketName(order.itemName);
   const orderSlug = toMarketSlug(order.itemUrlName || order.itemName);
   return (
-    parsedItems.find((item) => normalizeName(item.name) === orderName) ||
+    parsedItems.find((item) => normalizeMarketName(item.name) === orderName) ||
     parsedItems.find((item) => toMarketSlug(item.name) === orderSlug) ||
     null
   );

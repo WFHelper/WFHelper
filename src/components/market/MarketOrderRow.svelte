@@ -94,18 +94,18 @@
       {:else}
         <div class="h-11 w-11 shrink-0 rounded-[var(--radius-md)] bg-white/5"></div>
       {/if}
-      <div class="grid flex-1 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-1.5">
-        <span class="flex items-baseline gap-1 font-display" title="Listed quantity">
+      <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+        <span class="flex items-baseline gap-1 font-display leading-none" title="Listed quantity">
           <span class="text-[0.68rem] uppercase tracking-[0.04em] text-text-muted">Qty</span>
           <span class="text-lg font-bold leading-none text-text-primary">{order.quantity}</span>
         </span>
-        <span class="flex items-center justify-center gap-1 font-display" title="Platinum">
-          <img src={PLATINUM_ICON_URL} alt="" width="16" height="16" class="shrink-0" />
-          <span class="text-lg font-bold leading-none text-accent">{order.platinum}</span>
-        </span>
         <MarketOrderSummary {isRankedListing} {summaryRank} {wtsLabel} {wtbLabel} {medianLabel} />
       </div>
-      <div class="flex shrink-0 gap-1">
+      <div class="flex shrink-0 items-center gap-2">
+        <span class="flex items-center gap-1 font-display text-lg font-bold leading-none text-accent" title="Platinum">
+          <img src={PLATINUM_ICON_URL} alt="" width="16" height="16" class="shrink-0" />
+          {order.platinum}
+        </span>
         <button class="btn-sm btn-secondary h-8" title="Edit" on:click={stopAndEdit}>Edit</button>
         <button class="btn-sm btn-danger h-8 w-8 px-0 text-base font-black" title="Delete" aria-label="Delete" on:click={stopAndDelete}>X</button>
       </div>
@@ -114,7 +114,7 @@
 {:else}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="order-row grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-stretch gap-2 px-2.5 py-2.5 text-left" on:click={() => onOpen(order)}>
+  <div class="order-row grid grid-cols-[auto_minmax(0,1fr)_auto] items-stretch gap-2 px-2.5 py-2.5 text-left" on:click={() => onOpen(order)}>
     <input
       type="checkbox"
       class="mt-1 h-[15px] w-[15px] shrink-0 accent-accent"
@@ -140,17 +140,15 @@
       </div>
       <MarketOrderSummary {isRankedListing} {summaryRank} {wtsLabel} {wtbLabel} {medianLabel} />
     </div>
-    <div class="flex min-w-[6.5rem] shrink-0 items-center justify-center gap-1 font-display text-[1.12rem] font-bold text-accent">
-      <img src={PLATINUM_ICON_URL} alt="" width="14" height="14" class="shrink-0" />
-      {order.platinum}
-    </div>
     <div class="flex shrink-0 items-center gap-2">
       <span class="order-qty" title="Listed quantity">Qty {order.quantity}</span>
       <span class="order-vis {order.visible ? 'border-[rgba(74,222,128,0.35)] bg-[rgba(74,222,128,0.13)] text-success' : 'border-[rgba(251,191,36,0.35)] bg-[rgba(251,191,36,0.13)] text-warning'}">
         {order.visible ? "Visible" : "Hidden"}
       </span>
-    </div>
-    <div class="flex shrink-0 gap-1">
+      <span class="flex min-w-[3.9rem] items-center justify-end gap-1 font-display text-[1.12rem] font-bold text-accent">
+        <img src={PLATINUM_ICON_URL} alt="" width="14" height="14" class="shrink-0" />
+        {order.platinum}
+      </span>
       <button class="btn-sm btn-secondary h-8" on:click={stopAndEdit}>Edit</button>
       <button class="btn-sm btn-danger h-8 w-8 px-0 text-base font-black" title="Delete" aria-label="Delete" on:click={stopAndDelete}>X</button>
     </div>

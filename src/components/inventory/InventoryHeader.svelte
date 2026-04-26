@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
 
+  import HeaderTabs from "../HeaderTabs.svelte";
   import SharedFilterBar from "../SharedFilterBar.svelte";
   import type { InventoryFilterTab } from "../../lib/inventoryMarket.js";
 
@@ -21,20 +22,16 @@
   function toggleFilters(): void {
     dispatch("toggle");
   }
+
+  function handleTabSelect(value: string): void {
+    selectFilter(value as InventoryFilterTab);
+  }
 </script>
 
 <div class="mb-4">
   <h2 class="m-0 mb-2 font-display text-[2.1rem] leading-none font-semibold tracking-[0.03em] text-text-primary">Inventory ({totalCount})</h2>
   <div class="flex items-end border-b border-[rgba(255,255,255,0.09)]">
-    <div class="flex">
-      {#each filters as filterOption}
-        <button
-          class="inv-tab-item flex items-center py-[0.48rem] px-[0.95rem] border-0 border-b-[3px] border-b-transparent bg-transparent font-display text-[1.02rem] text-[#8a8c95] cursor-pointer transition-[color,border-color] duration-150 whitespace-nowrap -mb-px hover:text-[#b0b2ba] data-[active]:text-white data-[active]:border-b-white"
-          data-active={activeFilter === filterOption.key || undefined}
-          on:click={() => selectFilter(filterOption.key)}
-        >{filterOption.label}</button>
-      {/each}
-    </div>
+    <HeaderTabs options={filters} activeKey={activeFilter} onSelect={handleTabSelect} />
     <div class="ml-auto flex items-center gap-2 pb-[0.45rem] shrink-0 flex-nowrap">
       <SharedFilterBar
         scope="inventory"
