@@ -1,6 +1,6 @@
 import ctx from "./context";
 import { assertMainRendererSender, handleAuthorized } from "./ipcSecurity";
-import { unwrapInventoryPayload } from "./inventoryPayload";
+import { unwrapInventoryPayload } from "../config/shared/inventoryPayload";
 import { withScope } from "../services/logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import {

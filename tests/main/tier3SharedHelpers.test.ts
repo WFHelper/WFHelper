@@ -26,7 +26,7 @@ describe("Tier 3 shared helpers", () => {
   it("aggregates component ownership across inventory slices", () => {
     const owned = aggregateComponentOwnership(
       [{ ItemType: "/A", ItemCount: 2 }, { ItemType: "/B" }],
-      [{ ItemType: "/A", ItemCount: 3 }],
+      [{ ItemType: "/A", ItemCount: 3 }, { ItemType: "/D", ItemCount: 0 }],
       [{ ItemType: "/C" }, { ItemType: "/B" }],
     );
 
@@ -34,6 +34,7 @@ describe("Tier 3 shared helpers", () => {
       ["/A", 5],
       ["/B", 2],
       ["/C", 1],
+      ["/D", 0],
     ]);
   });
 

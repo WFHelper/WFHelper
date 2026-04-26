@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { hasInventoryShape, unwrapInventoryPayload } from "../../ipc/inventoryPayload";
+import { hasInventoryShape, unwrapInventoryPayload } from "../../config/shared/inventoryPayload";
 
 describe("main inventory payload helper", () => {
   it("detects inventory-like payloads", () => {

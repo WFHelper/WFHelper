@@ -4,7 +4,7 @@ import {
   handleAuthorized,
   onAuthorized,
 } from "./ipcSecurity";
-import { unwrapInventoryPayload } from "./inventoryPayload";
+import { unwrapInventoryPayload } from "../config/shared/inventoryPayload";
 import { withScope } from "../services/logger";
 import * as itemDb from "../services/itemDatabase";
 import * as wfmCatalog from "../services/wfmCatalog";

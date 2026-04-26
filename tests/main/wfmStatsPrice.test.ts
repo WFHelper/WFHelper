@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import * as wfmStats from "../../services/wfmStats";
+import * as wfmStats from "../../config/shared/wfmStats";
 import * as wfmStatsPrice from "../../services/wfmStatsPrice";
 import * as wfmClient from "../../services/wfmClient";
 

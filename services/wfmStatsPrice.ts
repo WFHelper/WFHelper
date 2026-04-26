@@ -1,5 +1,5 @@
 import { withScope } from "./logger";
-import { extractMedianFromStatsPayload } from "./wfmStats";
+import { extractMedianFromStatsPayload } from "../config/shared/wfmStats";
 import * as wfmClient from "./wfmClient";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { normalizeWfmSlug } from "../config/shared/wfm";
