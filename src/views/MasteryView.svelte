@@ -185,12 +185,10 @@
           <!-- svelte-ignore a11y-no-static-element-interactions -->
           <div
             class="item-card group {item.status === 'missing' ? 'opacity-[0.62]' : item.status === 'mastered' ? 'border-[rgba(74,222,128,0.24)]' : item.status === 'progress' ? 'border-[rgba(251,191,36,0.24)]' : ''}"
-            class:prime={item.isPrime}
             on:click={() => activeItem.set(item)}
           >
             <div class="item-img-wrap">
               <ItemImage src={item.imageUrl} alt={item.name} />
-              {#if item.isPrime}<span class="prime-badge">P</span>{/if}
               {#if item.vaulted}<span class="vault-badge">V</span>{/if}
               <span class="absolute right-1.5 bottom-1.5 w-[0.42rem] h-[0.42rem] rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.38)] {item.status === 'mastered' ? 'bg-success' : item.status === 'progress' ? 'bg-warning' : 'bg-danger opacity-70'}"></span>
             </div>

@@ -25,8 +25,8 @@
 
 <ThemedPanel
   className={variant === "mastery"
-    ? "inline-flex flex-wrap items-stretch px-6 py-4"
-    : "flex flex-wrap items-stretch"}
+    ? "inline-flex flex-wrap items-stretch px-7 py-5"
+    : "flex flex-wrap items-stretch px-6 py-4"}
 >
   {#each items as item, index (item.key)}
     {#if index > 0}
@@ -34,12 +34,12 @@
     {/if}
 
     {#if variant === "mastery"}
-      <div class="flex items-center gap-3 px-5">
-        <span class="font-display text-[2rem] font-bold leading-none {toneClass(item.tone)}">{item.value}</span>
-        <span class="text-lg font-semibold text-text-secondary">{item.label}</span>
+      <div class="flex items-center gap-4 px-6">
+        <span class="font-display text-[2.9rem] font-bold leading-none {toneClass(item.tone)}">{item.value}</span>
+        <span class="text-[1.6rem] font-semibold text-text-secondary">{item.label}</span>
       </div>
     {:else}
-      <div class="flex flex-1 items-center gap-3 px-5 py-4 min-w-[11rem]">
+      <div class="flex flex-1 items-center gap-3 px-5 min-w-[11rem]">
         {#if item.icon}
           <img src={item.icon} alt="" class="w-9 h-9 object-contain opacity-90 shrink-0" />
         {/if}

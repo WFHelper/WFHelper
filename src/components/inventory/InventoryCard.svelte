@@ -4,6 +4,10 @@
   import ItemImage from "../ItemImage.svelte";
   import type { InventoryViewItem } from "../../lib/inventoryMarket.js";
   import { isRankedGroup } from "../../../config/shared/numeric.js";
+  import { PLATINUM_ICON_URL, STAT_ICON_URLS } from "../../lib/assetUrls.js";
+
+  const PLAT_ICON = PLATINUM_ICON_URL;
+  const DUCAT_ICON = STAT_ICON_URLS.ducatsDelta;
 
   export let item: InventoryViewItem;
   export let showDucats = true;
@@ -24,9 +28,9 @@
       ? Math.max(0, Math.min(100, (item.rank / item.maxRank) * 100))
       : 0;
 
-  $: platinumLabel = item.platinum != null ? `~${item.platinum}p` : "-p";
-  $: ducatLabel = item.ducats != null ? `${item.ducats}d` : "-d";
-  $: ratioLabel = item.ducatonator != null ? `${item.ducatonator} d/p` : "- d/p";
+  $: platinumLabel = item.platinum != null ? `${item.platinum}` : "—";
+  $: ducatLabel = item.ducats != null ? `${item.ducats}` : "—";
+  $: ratioLabel = item.ducatonator != null ? `${item.ducatonator}` : "—";
   $: showRankOrderSummary =
     isRankedGroup(item.inventoryGroup) && item.maxRank > 1;
   $: rankCapLabel = Number.isFinite(item.maxRank) ? Math.max(0, Math.floor(item.maxRank)) : 0;
@@ -96,17 +100,31 @@
       {/if}
     </span>
 
-    <div class="flex flex-wrap gap-1 min-h-[1.45rem] mt-[0.2rem]">
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 min-h-[1.7rem] mt-[0.2rem]">
       <span
-        class="inline-flex items-center rounded-full font-display font-bold tracking-[0.02em] {item.platinum == null ? 'border border-[rgba(148,163,184,0.26)] bg-[rgba(31,41,55,0.58)] text-[#94a3b8] text-[0.69rem] py-[0.08rem] px-[0.42rem]' : 'border border-[rgba(240,201,92,0.5)] bg-[rgba(212,168,67,0.2)] text-accent-bright text-[0.85rem] py-[0.1rem] px-2'}"
-      >{platinumLabel}</span>
+        class="inline-flex items-center gap-1 font-display font-bold tracking-[0.02em] {item.platinum == null ? 'text-[#94a3b8] text-[0.95rem]' : 'text-accent-bright text-[1.05rem]'}"
+        title="Platinum"
+      >
+        <img src={PLAT_ICON} alt="" class="h-4 w-4 object-contain shrink-0" />
+        {platinumLabel}
+      </span>
       {#if showDucats}
-        <span class="inline-flex items-center rounded-full font-display font-bold tracking-[0.02em] text-[0.69rem] py-[0.08rem] px-[0.42rem] {item.ducats == null ? 'border border-[rgba(148,163,184,0.26)] bg-[rgba(31,41,55,0.58)] text-[#94a3b8]' : 'border border-[rgba(212,168,67,0.28)] bg-[rgba(212,168,67,0.1)] text-accent'}"
-          >{ducatLabel}</span
-        >
         <span
-          class="inline-flex items-center rounded-full font-display font-bold tracking-[0.02em] text-[0.69rem] py-[0.08rem] px-[0.42rem] {item.ducatonator == null ? 'border border-[rgba(148,163,184,0.26)] bg-[rgba(31,41,55,0.58)] text-[#94a3b8]' : 'border border-[rgba(212,168,67,0.28)] bg-[rgba(212,168,67,0.1)] text-accent'}"
-        >{ratioLabel}</span>
+          class="inline-flex items-center gap-1 font-display font-bold tracking-[0.02em] {item.ducats == null ? 'text-[#94a3b8] text-[0.95rem]' : 'text-accent text-[1.05rem]'}"
+          title="Ducats"
+        >
+          <img src={DUCAT_ICON} alt="" class="h-4 w-4 object-contain shrink-0" />
+          {ducatLabel}
+        </span>
+        <span
+          class="inline-flex items-center gap-0.5 font-display font-bold tracking-[0.02em] {item.ducatonator == null ? 'text-[#94a3b8] text-[0.95rem]' : 'text-accent text-[1.05rem]'}"
+          title="Ducats per platinum"
+        >
+          <img src={DUCAT_ICON} alt="" class="h-3 w-3 object-contain shrink-0" />
+          <span aria-hidden="true" class="text-text-muted text-[0.8em]">/</span>
+          <img src={PLAT_ICON} alt="" class="h-3 w-3 object-contain shrink-0 mr-1" />
+          {ratioLabel}
+        </span>
       {/if}
     </div>
 

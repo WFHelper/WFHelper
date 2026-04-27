@@ -443,12 +443,22 @@
                   <span class="truncate {ok ? 'text-text-secondary' : 'text-text-muted'}">
                     {formatNumber(owned)}/{formatNumber(ing.count)}
                   </span>
-                  <span
-                    class="shrink-0 font-sans font-black leading-none tracking-normal {fewIng ? 'text-[1.35rem]' : 'text-[1.05rem]'} {ok ? 'text-success' : 'text-danger'}"
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="shrink-0 {fewIng ? 'h-5 w-5' : 'h-4 w-4'} {ok ? 'text-success' : 'text-danger'}"
                     aria-hidden="true"
                   >
-                    {ok ? "✓" : "×"}
-                  </span>
+                    {#if ok}
+                      <path d="M5 12.5l4.5 4.5L19 7.5" />
+                    {:else}
+                      <path d="M6 6l12 12M18 6L6 18" />
+                    {/if}
+                  </svg>
                 </div>
               {/each}
             </div>
