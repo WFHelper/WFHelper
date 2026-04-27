@@ -3,9 +3,11 @@ import ctx from "./context";
 import * as rivenFingerprint from "../services/rivenFingerprint";
 import * as wfmRivenSearch from "../services/wfmRivenSearch";
 import * as rivenData from "../services/rivenData";
+import * as rivenBestAttributes from "../services/rivenBestAttributes";
 import {
   RIVENS_GET, RIVENS_GET_WEAPON_NAMES, RIVENS_GET_STAT_OPTIONS,
-  RIVENS_SEARCH_AUCTIONS, RIVENS_GET_WEAPON_TYPE, RIVENS_CREATE_AUCTION,
+  RIVENS_SEARCH_AUCTIONS, RIVENS_GET_WEAPON_TYPE, RIVENS_GET_BEST_ATTRIBUTES,
+  RIVENS_CREATE_AUCTION,
 } from "../config/shared/ipcChannels";
 
 /** Map game polarity internal names to WFM API names. */
@@ -16,11 +18,12 @@ const POLARITY_TO_WFM: Record<string, string> = {
 };
 
 function register(): void {
-  handleAuthorized(RIVENS_GET, assertMainRendererSender, () => {
+  handleAuthorized(RIVENS_GET, assertMainRendererSender, async () => {
     if (!ctx.currentInventoryData) {
       return { unveiled: [], veiled: [], veiledUnseen: [] };
     }
 
+    await rivenBestAttributes.ensureRivenGoodRollsLoaded();
     return rivenFingerprint.decodeAllRivens(ctx.currentInventoryData);
   });
 
@@ -59,6 +62,18 @@ function register(): void {
     if (typeof weaponName !== "string" || !weaponName) return null;
     return rivenData.getWeaponRivenTypeLabel(weaponName);
   });
+
+  handleAuthorized(
+    RIVENS_GET_BEST_ATTRIBUTES,
+    assertMainRendererSender,
+    async (_event, weaponName: unknown) => {
+      if (typeof weaponName !== "string" || !weaponName) return null;
+      await rivenBestAttributes.ensureRivenGoodRollsLoaded();
+      const category = rivenData.getWeaponCategory(weaponName);
+      const isMelee = category === "Melee" || category === "SpaceMelee";
+      return rivenBestAttributes.getBestAttributes(weaponName, isMelee);
+    },
+  );
 
   handleAuthorized(
     RIVENS_CREATE_AUCTION,

@@ -99,6 +99,9 @@ export interface PreloadAPI {
     negativeWfmNames: string[],
   ) => Promise<IpcInvokeMap["searchRivenAuctions"]["return"]>;
   getWeaponRivenType: (weaponName: string) => Promise<IpcInvokeMap["getWeaponRivenType"]["return"]>;
+  getRivenBestAttributes: (
+    weaponName: string,
+  ) => Promise<IpcInvokeMap["getRivenBestAttributes"]["return"]>;
   createRivenAuction: (
     payload: CreateRivenAuctionPayload,
   ) => Promise<IpcInvokeMap["createRivenAuction"]["return"]>;

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, beforeAll } from "vitest";
 
 // Mock logger before importing rivenGrading (which imports logger via rivenData)
 vi.mock("../../services/logger", () => ({
@@ -13,7 +13,65 @@ vi.mock("../../services/logger", () => ({
 // Use real warframe-public-export-plus data for realistic tests.
 
 import { floatToGrade, unparseBuff, unparseCurse, gradeRiven } from "../../services/rivenGrading";
+import { setRivenGoodRollsForTest } from "../../services/rivenBestAttributes";
 import * as rivenData from "../../services/rivenData";
+
+beforeAll(() => {
+  setRivenGoodRollsForTest({
+    lex: {
+      goodAttrs: [
+        {
+          mandatory: ["WeaponCritDamageMod"],
+          optional: [
+            "WeaponFireIterationsMod",
+            "WeaponToxinDamageMod",
+            "WeaponDamageAmountMod",
+            "WeaponFireRateMod",
+            "WeaponCritChanceMod",
+            "WeaponPunctureDepthMod",
+          ],
+        },
+      ],
+      acceptedBadAttrs: [
+        "WeaponZoomFovMod",
+        "WeaponRecoilReductionMod",
+        "WeaponArmorPiercingDamageMod",
+      ],
+    },
+    galatine: {
+      goodAttrs: [
+        {
+          mandatory: ["WeaponCritDamageMod", "WeaponFireRateMod", "WeaponMeleeRangeIncMod"],
+          optional: [],
+        },
+      ],
+      acceptedBadAttrs: [
+        "WeaponMeleeComboEfficiencyMod",
+        "SlideAttackCritChanceMod",
+        "WeaponMeleeFinisherDamageMod",
+      ],
+    },
+    angstrum: {
+      goodAttrs: [
+        {
+          mandatory: ["WeaponCritDamageMod"],
+          optional: [
+            "WeaponFireIterationsMod",
+            "WeaponToxinDamageMod",
+            "WeaponDamageAmountMod",
+            "WeaponFireRateMod",
+            "WeaponCritChanceMod",
+          ],
+        },
+        {
+          mandatory: ["WeaponFireIterationsMod", "WeaponDamageAmountMod"],
+          optional: ["WeaponStunChanceMod", "WeaponToxinDamageMod"],
+        },
+      ],
+      acceptedBadAttrs: ["WeaponZoomFovMod"],
+    },
+  });
+});
 
 // ── floatToGrade ──────────────────────────────────────────────────────────────
 
@@ -349,7 +407,6 @@ describe("gradeRiven", () => {
 // ── rivenBestAttributes ──────────────────────────────────────────────────────
 
 describe("rivenBestAttributes", () => {
-  // Import directly — no mocking needed (pure data)
   let getBestAttributes: typeof import("../../services/rivenBestAttributes").getBestAttributes;
 
   beforeEach(async () => {
@@ -357,27 +414,36 @@ describe("rivenBestAttributes", () => {
     getBestAttributes = mod.getBestAttributes;
   });
 
-  it("returns rifle attributes for LongGuns", () => {
-    const attrs = getBestAttributes("LongGuns");
-    expect(attrs.positives).toContain("Critical Chance");
-    expect(attrs.positives).toContain("Critical Damage");
-    expect(attrs.negatives.length).toBeGreaterThan(0);
+  it("returns per-weapon attributes from the dataset", () => {
+    const attrs = getBestAttributes("Lex");
+    expect(attrs).not.toBeNull();
+    expect(attrs!.positives).toContain("Critical Damage");
+    expect(attrs!.negatives.length).toBeGreaterThan(0);
   });
 
-  it("returns melee attributes for Melee", () => {
-    const attrs = getBestAttributes("Melee");
-    expect(attrs.positives).toContain("Attack Speed");
-    expect(attrs.positives).toContain("Range");
+  it("labels WeaponFireRateMod as Attack Speed when melee=true", () => {
+    const attrs = getBestAttributes("Galatine", true);
+    expect(attrs).not.toBeNull();
+    expect(attrs!.positives).toContain("Attack Speed");
+    expect(attrs!.positives).not.toContain("Fire Rate");
   });
 
-  it("returns shotgun attributes with isShotgun flag", () => {
-    const attrs = getBestAttributes("LongGuns", true);
-    expect(attrs.positives).toContain("Status Chance");
+  it("uses the sheet-specific Angstrum positives and negatives", () => {
+    const attrs = getBestAttributes("Angstrum");
+    expect(attrs).not.toBeNull();
+    expect(attrs!.positives).toEqual([
+      "Critical Damage",
+      "Multishot",
+      "Damage",
+      "Toxin",
+      "Fire Rate",
+      "Critical Chance",
+      "Status Chance",
+    ]);
+    expect(attrs!.negatives).toEqual(["Zoom"]);
   });
 
-  it("returns fallback for unknown category", () => {
-    const attrs = getBestAttributes("UnknownCategory");
-    expect(attrs.positives.length).toBeGreaterThan(0);
-    expect(attrs.negatives.length).toBeGreaterThan(0);
+  it("returns null for unknown weapons (no fallback)", () => {
+    expect(getBestAttributes("NotAWeaponName")).toBeNull();
   });
 });

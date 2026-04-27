@@ -334,6 +334,10 @@ export interface IpcInvokeMap {
     args: [weaponName: string];
     return: string | null;
   };
+  getRivenBestAttributes: {
+    args: [weaponName: string];
+    return: RivenBestAttributes | null;
+  };
   createRivenAuction: {
     args: [payload: CreateRivenAuctionPayload];
     return: { ok: boolean; auctionId?: string; error?: string };
@@ -344,6 +348,11 @@ export interface RivenStatOption {
   tag: string;
   wfmUrlName: string;
   displayName: string;
+}
+
+export interface RivenBestAttributes {
+  positives: string[];
+  negatives: string[];
 }
 
 

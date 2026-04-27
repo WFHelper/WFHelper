@@ -5,8 +5,7 @@
   import ThemedInput from "./ThemedInput.svelte";
   import ThemedPanel from "./ThemedPanel.svelte";
   import ThemedSelect from "./ThemedSelect.svelte";
-  import type { WfmRivenListing, RivenStatOption } from "../types/ipc.js";
-  import { getBestAttributes } from "../lib/rivenBestAttributes.js";
+  import type { RivenBestAttributes, WfmRivenListing, RivenStatOption } from "../types/ipc.js";
 
   interface AttrSlot {
     positive: boolean;
@@ -18,7 +17,7 @@
   let statOptions: RivenStatOption[] = $state([]);
   let selectedWeapon = $state("");
   let weaponSearch = $state("");
-  let weaponType = $state<string | null>(null);
+  let bestAttrs = $state<RivenBestAttributes | null>(null);
   let rawResults: WfmRivenListing[] = $state([]);
   let searching = $state(false);
   let hasSearched = $state(false);
@@ -42,11 +41,6 @@
     if (!weaponSearch) return weaponNames.slice(0, 50);
     const q = weaponSearch.toLowerCase();
     return weaponNames.filter((n) => n.toLowerCase().includes(q)).slice(0, 50);
-  });
-
-  const bestAttrs = $derived.by(() => {
-    if (!weaponType) return null;
-    return getBestAttributes(weaponType);
   });
 
   interface ScoredListing {
@@ -150,7 +144,10 @@
     selectedWeapon = name;
     weaponSearch = name;
     showWeaponDropdown = false;
-    weaponType = await invoke("getWeaponRivenType", name);
+    bestAttrs = null;
+    const attrs = await invoke("getRivenBestAttributes", name);
+    if (selectedWeapon !== name) return;
+    bestAttrs = attrs;
   }
 
   async function doSearch() {

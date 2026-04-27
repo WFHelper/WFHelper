@@ -9,7 +9,6 @@
 import { withScope } from "./logger";
 import * as rivenData from "./rivenData";
 import * as rivenGrading from "./rivenGrading";
-import { getBestAttributes } from "./rivenBestAttributes";
 import {
   NUM_BUFFS_ATTEN,
   NUM_BUFFS_CURSE_ATTEN,
@@ -354,34 +353,13 @@ function decodeSingleRiven(
   const avgRollFloat = scoredCount > 0 ? rollFloatSum / scoredCount : 0.5;
   const overallGrade = rivenGrading.floatToGrade(avgRollFloat, false);
 
-  // Attribute grade (Great/Good/OK/Bad)
-  const weaponCategory = rivenData.getWeaponCategory(weaponName) || "";
-  const isShotgun = rivenData.isWeaponShotgun(weaponName);
-  const best = getBestAttributes(weaponCategory, isShotgun);
-  const bestPosLc = new Set(best.positives.map((s) => s.toLowerCase()));
-  const bestNegLc = new Set(best.negatives.map((s) => s.toLowerCase()));
-
+  // Attribute grade (Great/Good/OK/Bad) — uses AlecaFrame-style per-weapon dataset.
   const positives = decodedStats.filter((s) => s.positive);
   const negatives = decodedStats.filter((s) => !s.positive);
-  let attributeGrade = "Bad";
-
-  if (positives.length > 0) {
-    let goodPosCount = 0;
-    for (const s of positives) {
-      if (bestPosLc.has(s.name.toLowerCase())) goodPosCount++;
-    }
-    const hasNeg = negatives.length > 0;
-    const negIsHarmless = hasNeg && bestNegLc.has(negatives[0].name.toLowerCase());
-    const negIsHarmful = hasNeg && !negIsHarmless;
-    const allPosGood = goodPosCount === positives.length;
-    const mostPosGood = goodPosCount >= Math.ceil(positives.length / 2);
-
-    if (allPosGood && (!hasNeg || negIsHarmless)) attributeGrade = "Great";
-    else if (allPosGood && negIsHarmful) attributeGrade = "Good";
-    else if (mostPosGood && !negIsHarmful) attributeGrade = "Good";
-    else if (mostPosGood && negIsHarmful) attributeGrade = "OK";
-    else if (goodPosCount > 0) attributeGrade = "OK";
-  }
+  const attributeGrade = rivenGrading.computeAttributeGrade(
+    [...positives, ...negatives].map((s) => ({ name: s.name, positive: s.positive })),
+    weaponName,
+  );
 
   // Generate riven suffix name from buff/curse stat tags
   const buffTags = buffs.map((b) => b.Tag);

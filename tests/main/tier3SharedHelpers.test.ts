@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { aggregateComponentOwnership } from "../../config/shared/componentOwnership";
-import { RIVEN_BEST_ATTRIBUTE_SETS } from "../../config/shared/rivenBestAttributes";
 import { formatWfmAssetUrl } from "../../config/shared/wfm";
 import { encodeWfmWsFrame, parseWfmWsFrame } from "../../services/wfmWsProtocol";
-import { getBestAttributes as getMainBestAttributes } from "../../services/rivenBestAttributes";
+import {
+  getBestAttributes as getMainBestAttributes,
+  setRivenGoodRollsForTest,
+} from "../../services/rivenBestAttributes";
 
 describe("Tier 3 shared helpers", () => {
   it("round-trips WFM websocket text frames", () => {
@@ -45,9 +47,20 @@ describe("Tier 3 shared helpers", () => {
     expect(formatWfmAssetUrl(null)).toBeNull();
   });
 
-  it("keeps main-process riven adapters backed by shared data", () => {
-    expect(getMainBestAttributes("LongGuns")).toBe(RIVEN_BEST_ATTRIBUTE_SETS.rifle);
-    expect(getMainBestAttributes("LongGuns", true)).toBe(RIVEN_BEST_ATTRIBUTE_SETS.shotgun);
-    expect(getMainBestAttributes("UnknownCategory")).toBe(RIVEN_BEST_ATTRIBUTE_SETS.fallback);
+  it("resolves per-weapon best attributes from the 44bananas dataset", () => {
+    setRivenGoodRollsForTest({
+      lex: {
+        goodAttrs: [{ mandatory: ["WeaponCritDamageMod"], optional: [] }],
+        acceptedBadAttrs: ["WeaponZoomFovMod"],
+      },
+    });
+    const lex = getMainBestAttributes("Lex");
+    expect(lex).not.toBeNull();
+    expect(lex?.positives).toContain("Critical Damage");
+    expect(lex?.negatives).toContain("Zoom");
+    // Variant fallback: "Lex Prime" not in the sheet, but "Lex" is.
+    expect(getMainBestAttributes("Lex Prime")).not.toBeNull();
+    // Unknown weapon→null (no fallback).
+    expect(getMainBestAttributes("NotAWeaponName")).toBeNull();
   });
 });

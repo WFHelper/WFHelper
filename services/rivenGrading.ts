@@ -18,7 +18,6 @@
 
 import { withScope } from "./logger";
 import * as rivenData from "./rivenData";
-import { getBestAttributes } from "./rivenBestAttributes";
 import {
   NUM_BUFFS_ATTEN,
   NUM_BUFFS_CURSE_ATTEN,
@@ -26,6 +25,10 @@ import {
   BASE_DRAIN,
   NON_PERCENTAGE_TAGS,
 } from "./rivenConstants";
+import {
+  getGoodRolls,
+  type GoodRollData,
+} from "./rivenBestAttributes";
 
 const log = withScope("rivenGrading");
 
@@ -208,47 +211,105 @@ export function unparseCurse(
 // ── Attribute-based grading ─────────────────────────────────────────────────
 
 /**
- * Compute an attribute-quality grade for a riven based on whether the stat
- * types (not magnitudes) are desirable for the weapon.
- *
- * Uses the same tier definitions as AlecaFrame:
- *   Great — all positives are top-tier AND negative (if present) is harmless
- *   Good  — majority of positives are desirable
- *   OK    — some desirable stats, some not (or harmful negative)
- *   Bad   — no desirable positives, or a crippling negative
+ * Per-attribute grade. Mirrors AlecaFrame's `AlecaFrameAttributeGrade`:
+ *   Decisive  — positive listed in some `goodAttrs[*].mandatory`
+ *   Good      — positive in some `goodAttrs[*].optional`,
+ *               or a negative listed in `acceptedBadAttrs`
+ *   Bad       — negative listed in some `goodAttrs[*].mandatory|optional`
+ *   NotHelping — anything else
  */
-function computeAttributeGrade(
-  stats: { name: string; positive: boolean }[],
-  weaponCategory: string,
-  isShotgun: boolean,
-): string {
-  const best = getBestAttributes(weaponCategory, isShotgun);
-  const bestPosLc = new Set(best.positives.map((s) => s.toLowerCase()));
-  const bestNegLc = new Set(best.negatives.map((s) => s.toLowerCase()));
+type AlecaAttrGrade = "Decisive" | "Good" | "NotHelping" | "Bad";
 
+function gradeFromGoodRolls(
+  data: GoodRollData,
+  goodTags: string[],
+  badTags: string[],
+): { positive: AlecaAttrGrade[]; negative: AlecaAttrGrade[]; overall: string } {
+  const positive: AlecaAttrGrade[] = goodTags.map(() => "NotHelping");
+  const negative: AlecaAttrGrade[] = badTags.map(() => "NotHelping");
+
+  // Negative grades.
+  for (let i = 0; i < badTags.length; i++) {
+    const tag = badTags[i];
+    if (data.acceptedBadAttrs.includes(tag)) {
+      negative[i] = "Good";
+    } else if (
+      data.goodAttrs.some((g) => g.mandatory.includes(tag) || g.optional.includes(tag))
+    ) {
+      negative[i] = "Bad";
+    } else {
+      negative[i] = "NotHelping";
+    }
+  }
+
+  // Positive grades.
+  for (let i = 0; i < goodTags.length; i++) {
+    const tag = goodTags[i];
+    if (data.goodAttrs.some((g) => g.mandatory.includes(tag))) {
+      positive[i] = "Decisive";
+    } else if (data.goodAttrs.some((g) => g.optional.includes(tag))) {
+      positive[i] = "Good";
+    } else {
+      positive[i] = "NotHelping";
+    }
+  }
+
+  // Does at least one full GoodRoll match? (all mandatory present, and the
+  // user's positives are a subset of mandatory∪optional)
+  const goodSet = new Set(goodTags);
+  const matches = data.goodAttrs.filter((g) => {
+    if (!g.mandatory.every((m) => goodSet.has(m))) return false;
+    const allowed = new Set([...g.mandatory, ...g.optional]);
+    return goodTags.every((t) => allowed.has(t));
+  });
+  const flag = matches.length > 0;
+  const num = positive.filter((p) => p === "Decisive" || p === "Good").length;
+  const hasBadNeg = negative.some((n) => n === "Bad");
+  const hasNotHelpingNeg = negative.some((n) => n === "NotHelping");
+  const hasAnyNeg = negative.length > 0;
+
+  // Overall grade — mirror AlecaFrame's AlecaFrameRivenGrade returns, then
+  // flatten to the 4-level UI scale already in use (Great/Good/OK/Bad).
+  let overall: string;
+  if (hasBadNeg) {
+    overall = (flag && num >= 2) || num >= 3 ? "OK" /* HasPotential */ : "Bad";
+  } else if (hasNotHelpingNeg) {
+    if (flag || num >= 2) overall = "Good";
+    else if (num >= 1) overall = "OK"; /* HasPotential */
+    else overall = "Bad";
+  } else if (flag) {
+    overall = num >= 2 && hasAnyNeg ? "Great" /* Perfect */ : "Good";
+  } else if (num >= 2) {
+    overall = "Good";
+  } else if (num >= 1) {
+    overall = "OK";
+  } else {
+    overall = "Bad";
+  }
+  return { positive, negative, overall };
+}
+
+/**
+ * Compute an attribute-quality grade for a riven.
+ *
+ * Uses AlecaFrame-style scoring against the per-weapon `GoodRollData` sourced
+ * from 44bananas' "good rolls for selling" sheet (see
+ * `config/shared/rivenGoodRolls.ts`). Returns "?" when the weapon
+ * isn't in the dataset.
+ */
+export function computeAttributeGrade(
+  stats: { name: string; positive: boolean }[],
+  weaponName: string,
+): string {
   const positives = stats.filter((s) => s.positive);
   const negatives = stats.filter((s) => !s.positive);
 
-  if (positives.length === 0) return "Bad";
+  const data = getGoodRolls(weaponName);
+  if (!data) return "?";
 
-  let goodPosCount = 0;
-  for (const s of positives) {
-    if (bestPosLc.has(s.name.toLowerCase())) goodPosCount++;
-  }
-
-  const hasNeg = negatives.length > 0;
-  const negIsHarmless = hasNeg && bestNegLc.has(negatives[0].name.toLowerCase());
-  const negIsHarmful = hasNeg && !negIsHarmless;
-
-  const allPosGood = goodPosCount === positives.length;
-  const mostPosGood = goodPosCount >= Math.ceil(positives.length / 2);
-
-  if (allPosGood && (!hasNeg || negIsHarmless)) return "Great";
-  if (allPosGood && negIsHarmful) return "Good";
-  if (mostPosGood && !negIsHarmful) return "Good";
-  if (mostPosGood && negIsHarmful) return "OK";
-  if (goodPosCount > 0) return "OK";
-  return "Bad";
+  const goodTags = positives.map((s) => rivenData.statNameToTag(s.name) ?? s.name);
+  const badTags = negatives.map((s) => rivenData.statNameToTag(s.name) ?? s.name);
+  return gradeFromGoodRolls(data, goodTags, badTags).overall;
 }
 
 /**
@@ -375,9 +436,7 @@ export function gradeRiven(
   }
 
   // Attribute-based grade (Great/Good/OK/Bad)
-  const weaponCategory = rivenData.getWeaponCategory(weaponName) || "";
-  const isShotgun = rivenData.isWeaponShotgun(weaponName);
-  const attributeGrade = computeAttributeGrade(stats, weaponCategory, isShotgun);
+  const attributeGrade = computeAttributeGrade(stats, weaponName);
 
   return { stats: gradedStats, overallGrade, attributeGrade };
 }

@@ -17,7 +17,8 @@ import {
   TRADE_RECORDED,
   HELPER_GET_STATUS, HELPER_RUN_NOW, HELPER_DOWNLOAD, HELPER_DOWNLOAD_PROGRESS,
   RIVENS_GET, RIVENS_GET_WEAPON_NAMES, RIVENS_GET_STAT_OPTIONS,
-  RIVENS_SEARCH_AUCTIONS, RIVENS_GET_WEAPON_TYPE, RIVENS_CREATE_AUCTION,
+  RIVENS_SEARCH_AUCTIONS, RIVENS_GET_WEAPON_TYPE, RIVENS_GET_BEST_ATTRIBUTES,
+  RIVENS_CREATE_AUCTION,
   WORLD_STATE_FETCH_ERROR,
 } from "./config/shared/ipcChannels";
 
@@ -130,6 +131,8 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke(RIVENS_SEARCH_AUCTIONS, weaponName, positiveWfmNames, negativeWfmNames),
   getWeaponRivenType: (weaponName: string) =>
     ipcRenderer.invoke(RIVENS_GET_WEAPON_TYPE, weaponName),
+  getRivenBestAttributes: (weaponName: string) =>
+    ipcRenderer.invoke(RIVENS_GET_BEST_ATTRIBUTES, weaponName),
   createRivenAuction: (payload: CreateRivenAuctionPayload) =>
     ipcRenderer.invoke(RIVENS_CREATE_AUCTION, payload),
   onHelperDownloadProgress: (callback: (progress: unknown) => void) => {

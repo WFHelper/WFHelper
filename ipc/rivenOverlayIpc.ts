@@ -263,13 +263,17 @@ function sendWeaponEnrichment(): void {
   if (!_rivenWeaponName || _rivenWeaponName === "Riven") return;
 
   // Send best attributes to both panels
-  const category = rivenDataSvc.getWeaponCategory(_rivenWeaponName);
-  const weaponInfo = category ? rivenBestAttributes.getBestAttributes(category) : null;
-  if (weaponInfo) {
-    forEachRivenWindow((win) => {
-      if (!win.isDestroyed()) win.webContents.send(RIVEN_BEST_ATTRIBUTES, weaponInfo);
-    });
-  }
+  void rivenBestAttributes.ensureRivenGoodRollsLoaded().then(() => {
+    if (!_rivenWeaponName || _rivenWeaponName === "Riven") return;
+    const category = rivenDataSvc.getWeaponCategory(_rivenWeaponName);
+    const isMelee = category === "Melee" || category === "SpaceMelee";
+    const weaponInfo = rivenBestAttributes.getBestAttributes(_rivenWeaponName, isMelee);
+    if (weaponInfo) {
+      forEachRivenWindow((win) => {
+        if (!win.isDestroyed()) win.webContents.send(RIVEN_BEST_ATTRIBUTES, weaponInfo);
+      });
+    }
+  });
 
   // Fetch ALL auctions for this weapon (no stat filtering) so the overlay
   // renderer's computeSimilarity() can rank them client-side — same approach

@@ -21,6 +21,7 @@ import * as keyboardMonitor from "./services/keyboardMonitor";
 import * as rewardScanner from "./services/rewardScanner";
 import * as crashReporter from "./services/crashReporter";
 import * as autoUpdater from "./services/autoUpdater";
+import * as rivenBestAttributes from "./services/rivenBestAttributes";
 
 // IPC modules
 import ctx from "./ipc/context";
@@ -234,6 +235,12 @@ app.whenReady().then(async () => {
     .ensureLoaded()
     .catch((err: Error) => log.error("[WFMarket] startup fetch failed:", err));
   profileStage("wfm-catalog:ensureLoaded-dispatch", catalogStart);
+
+  const rivenGoodRollsStart = Date.now();
+  void rivenBestAttributes
+    .ensureRivenGoodRollsLoaded(true)
+    .catch((err: Error) => log.error("[Rivens] startup good-roll fetch failed:", err));
+  profileStage("riven-good-rolls:ensureLoaded-dispatch", rivenGoodRollsStart);
 
   const windowStart = Date.now();
   createWindow();

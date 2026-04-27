@@ -1,10 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
-  import type { DecodedRiven, WfmRivenListing } from "../types/ipc.js";
+  import type { DecodedRiven, RivenBestAttributes, WfmRivenListing } from "../types/ipc.js";
   import { PLATINUM_ICON_URL } from "../lib/assetUrls.js";
   import { invoke } from "../lib/ipc.js";
-  import { getBestAttributes } from "../lib/rivenBestAttributes.js";
   import { gradeColor, attrGradeColor, dispoStars } from "../lib/rivenGradeColors.js";
   import DetailModalBase from "./DetailModalBase.svelte";
 
@@ -29,6 +28,9 @@
   let listingError = $state("");
   let listingSuccess = $state("");
   let isLoggedIn = $state(false);
+  let bestAttrs = $state<RivenBestAttributes | null>(null);
+  let showAllListings = $state(false);
+  const DEFAULT_LISTING_COUNT = 20;
 
   function computeSimilarity(
     myStatNames: string[],
@@ -68,8 +70,8 @@
           const pb = b.listing.buyoutPrice ?? b.listing.startingPrice ?? b.listing.platinum;
           return pa - pb;
         });
-        // Show top 30 results with at least 25% similarity
-        similarListings = enriched.filter((e) => e.pct >= 25).slice(0, 30);
+        // Show all matching results with at least 25% similarity (capped via UI)
+        similarListings = enriched.filter((e) => e.pct >= 25);
       })
       .finally(() => {
         loadingListings = false;
@@ -78,6 +80,14 @@
     invoke("wfmGetSession").then((s) => {
       isLoggedIn = s.loggedIn;
     }).catch(() => {});
+
+    invoke("getRivenBestAttributes", riven.weaponName)
+      .then((attrs) => {
+        bestAttrs = attrs;
+      })
+      .catch(() => {
+        bestAttrs = null;
+      });
   });
 
   async function handleListOnWfm() {
@@ -125,7 +135,6 @@
     if (e.key === "Escape") onclose();
   }
 
-  const bestAttrs = $derived(getBestAttributes(riven.rivenType));
   const myStatNamesLc = $derived(new Set(riven.stats.map(s => s.name.toLowerCase())));
 </script>
 
@@ -134,10 +143,12 @@
 <DetailModalBase
   ariaLabel={`Riven details: ${riven.rivenName || riven.weaponName}`}
   onClose={onclose}
-  wrapPanel={false}
+  panelClass="!w-[860px] !max-w-[92vw]"
 >
-  <div class="relative z-[1] w-[92vw] max-w-[850px] max-h-[90vh] overflow-y-auto bg-bg-base border border-border-strong rounded-2xl py-8 px-[2.25rem] animate-[slideUp_0.18s_ease]">
-    <button class="absolute top-3 right-3 bg-transparent border-0 text-text-muted text-[1.1rem] cursor-pointer px-2 py-1 rounded transition-all duration-150 hover:text-text-primary hover:bg-bg-hover" onclick={onclose} aria-label="Close">✕</button>
+  <div class="detail-panel-top-actions">
+    <button class="detail-close" aria-label="Close" onclick={onclose}>&times;</button>
+  </div>
+  <div class="px-7 pt-2 pb-7">
 
     <div class="mb-5">
       <div class="flex items-center gap-3">
@@ -177,8 +188,8 @@
         <div class="flex flex-col gap-2">
           {#each riven.stats as stat}
             <div class="flex items-center gap-[0.625rem] py-[0.55rem] px-3 rounded-[0.5rem] {stat.positive ? 'bg-[rgba(74,222,128,0.06)]' : 'bg-[rgba(248,113,113,0.06)]'}">
-              <div class="flex items-center gap-[0.375rem] min-w-0 flex-1">
-                <span class="font-display font-semibold text-[1.15rem] min-w-[5.5rem] text-right shrink-0 {stat.positive ? 'text-success' : 'text-danger'}">
+              <div class="flex items-center gap-[0.5rem] min-w-0 flex-1">
+                <span class="font-display font-semibold text-[1.15rem] shrink-0 tabular-nums {stat.positive ? 'text-success' : 'text-danger'}">
                   {stat.positive ? "+" : "-"}{stat.multiplier ? `x${stat.displayValue}` : `${stat.displayValue}%`}
                 </span>
                 <span class="text-[1.05rem] text-text-primary overflow-hidden text-ellipsis whitespace-nowrap">{stat.name}</span>
@@ -195,8 +206,9 @@
         </div>
       </div>
 
+      {#if bestAttrs}
       <div class="mt-5">
-        <h3 class="font-display text-[0.8rem] uppercase tracking-[0.08em] text-text-muted m-0 mb-[0.625rem]">Best Attributes for {riven.rivenType}</h3>
+        <h3 class="font-display text-[0.8rem] uppercase tracking-[0.08em] text-text-muted m-0 mb-[0.625rem]">Best Attributes for {riven.weaponName}</h3>
         <div class="grid grid-cols-2 gap-4">
           <div class="flex flex-col gap-[0.2rem]">
             <span class="font-display text-[0.75rem] uppercase tracking-[0.06em] font-bold mb-1 text-[#4ade80]">Desired Positives</span>
@@ -214,6 +226,7 @@
           </div>
         </div>
       </div>
+      {/if}
 
       <div class="mt-6">
         <h3 class="font-display text-[0.8rem] uppercase tracking-[0.08em] text-text-muted m-0 mb-[0.625rem]">Similar on WFM</h3>
@@ -222,8 +235,10 @@
         {:else if similarListings.length === 0}
           <div class="text-[0.875rem] text-text-muted text-center py-4">No similar rivens found</div>
         {:else}
+          {@const visibleListings = showAllListings ? similarListings : similarListings.slice(0, DEFAULT_LISTING_COUNT)}
+          {@const hiddenCount = similarListings.length - visibleListings.length}
           <div class="grid grid-cols-2 gap-[0.625rem]">
-            {#each similarListings as { listing, pct, matchedNames }}
+            {#each visibleListings as { listing, pct, matchedNames }}
               <div class="similar-card">
                 <div class="flex items-center gap-2 font-display text-[0.8rem]">
                   <span class="py-[0.15rem] px-[0.4rem] rounded font-bold text-[0.75rem] {pct >= 75 ? 'bg-[rgba(74,222,128,0.15)] text-success' : pct >= 40 ? 'bg-[rgba(250,204,21,0.15)] text-warning' : 'bg-[rgba(248,113,113,0.12)] text-danger'}">{pct}%</span>
@@ -247,6 +262,20 @@
               </div>
             {/each}
           </div>
+          {#if similarListings.length > DEFAULT_LISTING_COUNT}
+            <div class="flex justify-center mt-3">
+              <button
+                type="button"
+                class="font-display text-[0.75rem] font-semibold py-[0.35rem] px-[0.85rem] rounded-[0.35rem] border border-border bg-bg-raised text-text-secondary cursor-pointer transition-all duration-150 hover:bg-bg-hover hover:text-text-primary hover:border-accent-dim"
+                onclick={() => (showAllListings = !showAllListings)}
+              >
+                {showAllListings ? "Show fewer" : `Show all (${similarListings.length})`}
+                {#if !showAllListings && hiddenCount > 0}
+                  <span class="text-text-muted ml-1">· {hiddenCount} more</span>
+                {/if}
+              </button>
+            </div>
+          {/if}
         {/if}
       </div>
 
