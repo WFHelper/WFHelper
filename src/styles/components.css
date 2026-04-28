@@ -536,7 +536,6 @@
   }
 
   /* ── cross-component badges ──────────────────────────────────── */
-  .prime-badge,
   .vault-badge,
   .count-badge,
   .relic-owned-badge {
@@ -547,13 +546,6 @@
     font-size: 0.62rem;
     font-weight: 700;
     letter-spacing: 0.04em;
-  }
-  .prime-badge {
-    top: 0.4rem;
-    left: 0.4rem;
-    background: rgba(212, 168, 67, 0.18);
-    color: var(--accent);
-    border: 1px solid rgba(212, 168, 67, 0.35);
   }
   .vault-badge {
     top: 0.4rem;

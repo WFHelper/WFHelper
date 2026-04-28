@@ -2,18 +2,14 @@
   import { createEventDispatcher, onDestroy, onMount } from "svelte";
 
   import ItemImage from "../ItemImage.svelte";
+  import MarketMetricStrip from "../MarketMetricStrip.svelte";
   import type { InventoryViewItem } from "../../lib/inventoryMarket.js";
   import { isRankedGroup } from "../../../config/shared/numeric.js";
-  import { PLATINUM_ICON_URL, STAT_ICON_URLS } from "../../lib/assetUrls.js";
-
-  const PLAT_ICON = PLATINUM_ICON_URL;
-  const DUCAT_ICON = STAT_ICON_URLS.ducatsDelta;
 
   export let item: InventoryViewItem;
   export let showDucats = true;
 
   const dispatch = createEventDispatcher<{
-    detail: InventoryViewItem;
     select: InventoryViewItem;
     visible: InventoryViewItem;
   }>();
@@ -28,9 +24,6 @@
       ? Math.max(0, Math.min(100, (item.rank / item.maxRank) * 100))
       : 0;
 
-  $: platinumLabel = item.platinum != null ? `${item.platinum}` : "—";
-  $: ducatLabel = item.ducats != null ? `${item.ducats}` : "—";
-  $: ratioLabel = item.ducatonator != null ? `${item.ducatonator}` : "—";
   $: showRankOrderSummary =
     isRankedGroup(item.inventoryGroup) && item.maxRank > 1;
   $: rankCapLabel = Number.isFinite(item.maxRank) ? Math.max(0, Math.floor(item.maxRank)) : 0;
@@ -42,11 +35,6 @@
 
   function selectCard(): void {
     dispatch("select", item);
-  }
-
-  function openDetail(event: MouseEvent): void {
-    event.stopPropagation();
-    dispatch("detail", item);
   }
 
   onMount(() => {
@@ -84,12 +72,11 @@
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <!-- svelte-ignore a11y-no-static-element-interactions -->
-<div class="item-card group relative {mastered ? 'border-[rgba(74,222,128,0.25)]' : ''} {item.isPrime ? 'border-[rgba(212,168,67,0.28)]' : ''}" on:click={selectCard} bind:this={cardEl}>
+<div class="item-card relative {mastered ? 'border-[rgba(74,222,128,0.25)]' : ''} {item.isPrime ? 'border-[rgba(212,168,67,0.28)]' : ''}" on:click={selectCard} bind:this={cardEl}>
   <div class="item-img-wrap">
     <ItemImage src={item.displayImageUrl} alt={item.name} />
-    {#if item.isPrime}<span class="prime-badge">PRIME</span>{/if}
     {#if item.vaulted}<span class="vault-badge">V</span>{/if}
-    <span class="absolute right-[0.4rem] bottom-[0.35rem] rounded-full py-[0.1rem] px-[0.4rem] border border-[rgba(74,222,128,0.4)] bg-[rgba(6,97,58,0.72)] text-[#a9ffcb] font-display text-[0.67rem] font-bold tracking-[0.03em]">x{item.amount}</span>
+    <span class="absolute right-[0.5rem] bottom-[0.34rem] font-display text-[0.95rem] font-bold text-success drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">x{item.amount}</span>
   </div>
   <div class="item-body">
     <span class="item-name">{item.name}</span>
@@ -100,33 +87,13 @@
       {/if}
     </span>
 
-    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 min-h-[1.7rem] mt-[0.2rem]">
-      <span
-        class="inline-flex items-center gap-1 font-display font-bold tracking-[0.02em] {item.platinum == null ? 'text-[#94a3b8] text-[0.95rem]' : 'text-accent-bright text-[1.05rem]'}"
-        title="Platinum"
-      >
-        <img src={PLAT_ICON} alt="" class="h-4 w-4 object-contain shrink-0" />
-        {platinumLabel}
-      </span>
-      {#if showDucats}
-        <span
-          class="inline-flex items-center gap-1 font-display font-bold tracking-[0.02em] {item.ducats == null ? 'text-[#94a3b8] text-[0.95rem]' : 'text-accent text-[1.05rem]'}"
-          title="Ducats"
-        >
-          <img src={DUCAT_ICON} alt="" class="h-4 w-4 object-contain shrink-0" />
-          {ducatLabel}
-        </span>
-        <span
-          class="inline-flex items-center gap-0.5 font-display font-bold tracking-[0.02em] {item.ducatonator == null ? 'text-[#94a3b8] text-[0.95rem]' : 'text-accent text-[1.05rem]'}"
-          title="Ducats per platinum"
-        >
-          <img src={DUCAT_ICON} alt="" class="h-3 w-3 object-contain shrink-0" />
-          <span aria-hidden="true" class="text-text-muted text-[0.8em]">/</span>
-          <img src={PLAT_ICON} alt="" class="h-3 w-3 object-contain shrink-0 mr-1" />
-          {ratioLabel}
-        </span>
-      {/if}
-    </div>
+    <MarketMetricStrip
+      platinum={item.platinum}
+      ducats={item.ducats}
+      ratio={item.ducatonator}
+      {showDucats}
+      className="mt-[0.2rem]"
+    />
 
     {#if showRankOrderSummary}
       <div class="grid grid-cols-2 gap-[0.24rem]">
@@ -171,16 +138,6 @@
     {#if item.equippedSummary}
       <span class="text-[0.74rem] text-success whitespace-nowrap overflow-hidden text-ellipsis">{item.equippedSummary}</span>
     {/if}
-
-  </div>
-  <div class="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full border-t border-border bg-[color-mix(in_oklab,var(--bg-raised)_92%,black)] px-2.5 py-2 opacity-0 transition-[opacity,transform] duration-150 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100">
-    <button
-      type="button"
-      class="btn-secondary btn-sm pointer-events-auto w-full"
-      on:click={openDetail}
-    >
-      Details
-    </button>
   </div>
 </div>
 

@@ -38,28 +38,39 @@
   let loading = true;
   let importStatus = "";
   let importError = false;
+  let destroyed = false;
 
   let unsubInventory: (() => void) | null = null;
   let unsubTrade: (() => void) | null = null;
 
-  onMount(async () => {
+  async function refreshStats(): Promise<void> {
     try {
-      [session, history, trades] = await Promise.all([
+      const [nextSession, nextHistory] = await Promise.all([
         invoke("getStatsCurrentSession"),
         invoke("getStatsHistory"),
-        invoke("getTradeLog"),
       ]);
+      if (destroyed) return;
+      session = nextSession;
+      history = nextHistory;
     } catch {
       // silently ignore — stats tracker may not have data yet
-    } finally {
-      loading = false;
     }
+  }
 
+  async function refreshTrades(): Promise<void> {
+    try {
+      const nextTrades = await invoke("getTradeLog");
+      if (destroyed) return;
+      trades = nextTrades;
+    } catch {
+      // trade history is optional until the tracker has data
+    }
+  }
+
+  onMount(async () => {
     // Refresh session card whenever new inventory data arrives
-    unsubInventory = on("inventory-updated", async () => {
-      try {
-        session = await invoke("getStatsCurrentSession");
-      } catch { /* ignore */ }
+    unsubInventory = on("inventory-updated", () => {
+      void refreshStats();
     });
 
     // Live trade push — prepend new trades as they arrive
@@ -76,9 +87,15 @@
         }
       }
     });
+
+    await Promise.all([refreshStats(), refreshTrades()]);
+    if (!destroyed) {
+      loading = false;
+    }
   });
 
   onDestroy(() => {
+    destroyed = true;
     unsubInventory?.();
     unsubTrade?.();
   });

@@ -31,7 +31,7 @@
   import { invoke, send } from "../lib/ipc.js";
   import ItemImage from "../components/ItemImage.svelte";
   import HeaderTabs from "../components/HeaderTabs.svelte";
-  import RelicMetricPill from "../components/relics/RelicMetricPill.svelte";
+  import MarketMetricStrip from "../components/MarketMetricStrip.svelte";
   import SearchBox from "../components/SearchBox.svelte";
   import SortArrow from "../components/SortArrow.svelte";
   import type { ParsedItem } from "../types/inventory.js";
@@ -780,11 +780,16 @@
               <span class="relic-compact-block-label text-right font-display text-[0.72rem] tracking-[0.06em] uppercase text-text-secondary"
                 >{selectedQualityHeader($relicViewState.qualityMode, group, selectedOwned)}</span
               >
-              <span class="flex flex-nowrap items-center justify-end gap-[0.24rem] min-w-0">
-                <RelicMetricPill kind="plat" state={selected.cls} value={selected.plat != null ? `${selected.plat.toFixed(1)}p` : "p -"} />
-                <RelicMetricPill kind="ducat" state={selected.cls} value={selected.ducat != null ? `${selected.ducat.toFixed(1)}d` : "d -"} />
-                <RelicMetricPill kind="ratio" state={selected.cls} value={selected.ratio != null ? `${selected.ratio.toFixed(1)} d/p` : "d/p -"} />
-              </span>
+              <MarketMetricStrip
+                platinum={selected.plat != null ? selected.plat.toFixed(1) : null}
+                ducats={selected.ducat != null ? selected.ducat.toFixed(1) : null}
+                ratio={selected.ratio != null ? selected.ratio.toFixed(1) : null}
+                state={selected.cls}
+                size="compact"
+                wrap={false}
+                justify="end"
+                className="min-h-0"
+              />
             </span>
           </button>
 

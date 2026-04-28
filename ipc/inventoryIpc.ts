@@ -35,6 +35,7 @@ const JSON_ENCODING = "utf-8";
 
 let _lastInventoryHash: string | null = null;
 let _lastReloadAt = 0;
+let _lastListenerInventoryHash: string | null = null;
 
 interface InventoryReadError {
   kind: "parse" | "read";
@@ -96,6 +97,13 @@ function _notifyListeners(data: Record<string, unknown>): void {
       // ignore
     }
   }
+}
+
+function _notifyListenersOncePerProcessHash(hash: string, data: unknown): void {
+  if (!data || typeof data !== "object") return;
+  if (hash === _lastListenerInventoryHash) return;
+  _lastListenerInventoryHash = hash;
+  _notifyListeners(data as Record<string, unknown>);
 }
 
 function newestExistingInventoryPath(paths: string[]): string | null {
@@ -186,6 +194,8 @@ function readInventory(filePath: string): unknown {
     ctx.currentInventoryData = data as Record<string, unknown> | null;
     _lastReadError = null;
 
+    _notifyListenersOncePerProcessHash(hash, data);
+
     if (withinCooldown && contentUnchanged) {
       log.log("Inventory read skipped broadcast (unchanged within 10 min cooldown).");
       return data;
@@ -194,9 +204,6 @@ function readInventory(filePath: string): unknown {
     _lastInventoryHash = hash;
     _lastReloadAt = now;
     _persistState();
-    if (data && typeof data === "object") {
-      _notifyListeners(data as Record<string, unknown>);
-    }
     return data;
   } catch (err) {
     const message = normalizeErrorMessage(err);
@@ -252,9 +259,7 @@ function watchInventoryFile(filePath: string): void {
       });
       ctx.currentInventoryData = data as Record<string, unknown> | null;
       _lastReadError = null;
-      if (data && typeof data === "object") {
-        _notifyListeners(data as Record<string, unknown>);
-      }
+      _notifyListenersOncePerProcessHash(hash, data);
       if (data && ctx.mainWindow) {
         ctx.mainWindow.webContents.send(INVENTORY_UPDATED, data);
       }
