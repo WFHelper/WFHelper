@@ -9,9 +9,10 @@
   import HeaderTabs from "../components/HeaderTabs.svelte";
   import SearchBox from "../components/SearchBox.svelte";
   import SegmentedControl from "../components/SegmentedControl.svelte";
-  import ThemedButton from "../components/ThemedButton.svelte";
-  import ThemedSelect from "../components/ThemedSelect.svelte";
+  import SortArrow from "../components/SortArrow.svelte";
   import { tr } from "../lib/i18n.js";
+
+  type RivenSortKey = "name" | "disposition" | "rerolls" | "grade";
 
   let rivens: DecodedRiven[] = $state([]);
   let veiledRivens: VeiledRivenEntry[] = $state([]);
@@ -20,7 +21,7 @@
   let searchQuery = $state("");
   let typeFilter = $state("all");
   let gradeFilter = $state("all");
-  let sortBy = $state<"name" | "disposition" | "rerolls" | "grade">("name");
+  let sortBy = $state<RivenSortKey>("name");
   let sortDir = $state<"asc" | "desc">("asc");
   let selectedRiven = $state<DecodedRiven | null>(null);
   let viewTab = $state<"unveiled" | "veiled" | "finder">("unveiled");
@@ -32,6 +33,12 @@
     { key: "veiled", label: "Veiled" },
     { key: "finder", label: "Riven Finder" },
   ];
+  const SORT_OPTIONS: Array<[RivenSortKey, string]> = [
+    ["name", "Name"],
+    ["disposition", "Disposition"],
+    ["rerolls", "Rerolls"],
+    ["grade", "Grade"],
+  ];
   const GRADE_ORDER: Record<string, number> = {
     S: 6,
     A: 5,
@@ -39,6 +46,28 @@
     C: 3,
     D: 2,
     F: 1,
+  };
+  const SORT_COMPARATORS: Record<RivenSortKey, (a: DecodedRiven, b: DecodedRiven) => number> = {
+    name: (a, b) => a.weaponName.localeCompare(b.weaponName),
+    disposition: (a, b) => a.disposition - b.disposition,
+    rerolls: (a, b) => a.rerolls - b.rerolls,
+    grade: (a, b) => (GRADE_ORDER[a.overallGrade] ?? 0) - (GRADE_ORDER[b.overallGrade] ?? 0),
+  };
+  const POLARITY_LABELS: Record<string, string> = {
+    AP_ATTACK: "Madurai",
+    AP_TACTIC: "Naramon",
+    AP_DEFENSE: "Vazarin",
+    AP_POWER: "Zenurik",
+    AP_WARD: "Unairu",
+    AP_PRECEPT: "Penjaga",
+    AP_UMBRA: "Umbra",
+    madurai: "Madurai",
+    naramon: "Naramon",
+    vazarin: "Vazarin",
+    zenurik: "Zenurik",
+    unairu: "Unairu",
+    penjaga: "Penjaga",
+    umbra: "Umbra",
   };
 
   const filteredRivens = $derived.by(() => {
@@ -57,13 +86,9 @@
     if (gradeFilter !== "all") {
       list = list.filter((r) => r.overallGrade === gradeFilter);
     }
+    const compare = SORT_COMPARATORS[sortBy];
     list = [...list].sort((a, b) => {
-      let cmp = 0;
-      if (sortBy === "name") cmp = a.weaponName.localeCompare(b.weaponName);
-      else if (sortBy === "disposition") cmp = a.disposition - b.disposition;
-      else if (sortBy === "rerolls") cmp = a.rerolls - b.rerolls;
-      else if (sortBy === "grade")
-        cmp = (GRADE_ORDER[a.overallGrade] ?? 0) - (GRADE_ORDER[b.overallGrade] ?? 0);
+      const cmp = compare(a, b);
       return sortDir === "desc" ? -cmp : cmp;
     });
     return list;
@@ -93,6 +118,10 @@
     sortDir = sortDir === "asc" ? "desc" : "asc";
   }
 
+  function onSortByChange(event: Event): void {
+    sortBy = (event.currentTarget as HTMLSelectElement).value as RivenSortKey;
+  }
+
   function setViewTab(key: string): void {
     viewTab = key as typeof viewTab;
   }
@@ -110,6 +139,13 @@
   function rivenSuffix(riven: DecodedRiven): string {
     if (!riven.rivenName || riven.rivenName === riven.weaponName) return "";
     return riven.rivenName.slice(riven.weaponName.length).trim();
+  }
+
+  function polarityLabel(polarity: string): string {
+    const value = polarity.trim();
+    if (!value) return "No polarity";
+    const normalized = value.toLowerCase();
+    return POLARITY_LABELS[value] ?? POLARITY_LABELS[normalized] ?? value.replace(/^AP_/, "");
   }
 
   onMount(() => {
@@ -154,14 +190,24 @@
 
       <SegmentedControl value={typeFilter} options={TYPE_OPTIONS} onChange={(value) => (typeFilter = value)} />
 
-      <div class="ml-auto flex items-center gap-[0.375rem]">
-        <ThemedSelect bind:value={sortBy} className="font-display min-w-[8rem]">
-          <option value="name">Name</option>
-          <option value="disposition">Disposition</option>
-          <option value="rerolls">Rerolls</option>
-          <option value="grade">Grade</option>
-        </ThemedSelect>
-        <ThemedButton size="compact" onClick={toggleSortDir} title="Toggle sort direction">{sortDir === "asc" ? "↑" : "↓"}</ThemedButton>
+      <div class="shared-sort-controls ml-auto">
+        <button
+          type="button"
+          class="shared-sort-direction"
+          onclick={toggleSortDir}
+          title="Sort direction"
+          aria-label={sortDir === "asc" ? "Sort ascending" : "Sort descending"}
+        >
+          <SortArrow asc={sortDir === "asc"} />
+        </button>
+        <label class="shared-filter-sort" title="Sort rivens">
+          <span>Sort</span>
+          <select class="shared-filter-select" value={sortBy} onchange={onSortByChange}>
+            {#each SORT_OPTIONS as [value, label]}
+              <option value={value}>{label}</option>
+            {/each}
+          </select>
+        </label>
       </div>
     </div>
 
@@ -172,6 +218,7 @@
     {:else}
       <div class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5 justify-items-center">
         {#each filteredRivens as riven (riven.itemId)}
+          {@const polarity = polarityLabel(riven.polarity)}
           <button
             class="relative block mx-auto p-0 border-0 outline-none bg-transparent appearance-none cursor-pointer w-[min(100%,18rem)] max-[700px]:w-[min(100%,16rem)] aspect-[316/400] overflow-visible transition-transform duration-[0.18s] ease hover:-translate-y-1 hover:z-[2] focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
             onclick={() => (selectedRiven = riven)}
@@ -208,6 +255,7 @@
 
               <div class="absolute z-[1] left-[22%] right-[22%] top-[83.5%] flex items-center justify-between text-[0.75rem] font-display leading-none [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_6px_rgba(0,0,0,1)]">
                 <span class="text-[rgba(255,255,255,0.85)] font-bold">MR {riven.masteryReq}</span>
+                <span class="max-w-[5.2rem] truncate px-1 text-[rgba(214,198,255,0.92)] font-bold" title={`Polarity: ${polarity}`}>{polarity}</span>
                 <span class="text-[#f06dff] font-bold">⟳ {riven.rerolls}</span>
               </div>
             </div>
