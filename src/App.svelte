@@ -31,7 +31,7 @@
   import { addToast } from "./stores/toasts.js";
   import { onInventoryLoaded, setInventoryStatus } from "./lib/actions.js";
   import { initStartup } from "./lib/startupLoader.js";
-  import { invoke, on } from "./lib/ipc.js";
+  import { on } from "./lib/ipc.js";
   import { tr } from "./lib/i18n.js";
   import type { MessageKey } from "./lib/i18n.js";
 
@@ -102,18 +102,10 @@
 
     const startup = initStartup();
 
-    // Show setup wizard on first launch if helper exe isn't installed.
     // Match the exact-"1" check used in stores/app.ts:10 so any future
     // non-"1" leftover value is treated consistently.
     if (localStorage.getItem("setup-completed") !== "1") {
-      invoke("getHelperStatus").then((status) => {
-        if (!status.exeFound && $currentView === "welcome") {
-          currentView.set("setup");
-        } else {
-          // Helper already exists (e.g. dev env), mark setup done
-          localStorage.setItem("setup-completed", "1");
-        }
-      }).catch(() => {});
+      currentView.set("setup");
     }
 
     window.addEventListener("keydown", onKeyDown);

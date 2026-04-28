@@ -10,14 +10,14 @@ export interface ThemePreset {
 
 export const THEME_PRESETS: Record<string, ThemePreset> = {
   default: {
-    label: "Orokin Dark",
+    label: "VS Code Dark+",
     colors: { ...DEFAULT_COLORS },
     fontSizes: { ...DEFAULT_FONT_SIZES },
     effects: { ...DEFAULT_EFFECTS },
   },
 
   midnight: {
-    label: "Midnight",
+    label: "GitHub Dark",
     colors: {
       bgDeep: "#020816",
       bgBase: "#050d1a",
@@ -49,7 +49,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
   },
 
   highContrast: {
-    label: "High Contrast",
+    label: "High Contrast Dark",
     colors: {
       bgDeep: "#000000",
       bgBase: "#0a0a0a",
@@ -81,7 +81,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
   },
 
   lotus: {
-    label: "Warframe Lotus",
+    label: "Tokyo Night",
     colors: {
       bgDeep: "#080614",
       bgBase: "#0e0a1e",
@@ -113,7 +113,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
   },
 
   light: {
-    label: "Light",
+    label: "VS Code Light+",
     colors: {
       bgDeep: "#f0f0f0",
       bgBase: "#f8f8f8",
@@ -145,7 +145,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
   },
 
   corpusGlass: {
-    label: "Corpus Glass",
+    label: "Acrylic Dark",
     colors: {
       bgDeep: "#041016",
       bgBase: "#071922",
@@ -177,7 +177,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
   },
 
   zarimanMist: {
-    label: "Zariman Mist",
+    label: "Rose Pine",
     colors: {
       bgDeep: "#050806",
       bgBase: "#08110d",
@@ -209,7 +209,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
   },
 
   grineerForge: {
-    label: "Grineer Forge",
+    label: "Gruvbox Dark",
     colors: {
       bgDeep: "#0d0906",
       bgBase: "#15100b",
@@ -241,7 +241,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
   },
 
   tennoMinimal: {
-    label: "Tenno Minimal",
+    label: "Minimal Dark",
     colors: {
       bgDeep: "#020304",
       bgBase: "#060708",
@@ -270,6 +270,198 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
     },
     fontSizes: { ...DEFAULT_FONT_SIZES },
     effects: { ...DEFAULT_EFFECTS, cornerStyle: "sharp", surfaceStyle: "minimal", glass: false },
+  },
+
+  glassyDark: {
+    label: "Glassy Dark",
+    colors: {
+      bgDeep: "#05070b",
+      bgBase: "#0a0d13",
+      bgSurface: "rgba(19, 24, 34, 0.74)",
+      bgRaised: "rgba(31, 38, 52, 0.78)",
+      bgHover: "rgba(45, 55, 72, 0.76)",
+      accent: "#8ab4f8",
+      accentDim: "#5f85c8",
+      accentBright: "#c2d7ff",
+      textPrimary: "#eef2f8",
+      textSecondary: "#a8b3c4",
+      textMuted: "#7a8493",
+      success: "#64d48c",
+      warning: "#e8c45c",
+      danger: "#ef6f78",
+      info: "#8ab4f8",
+      border: "rgba(138, 180, 248, 0.18)",
+      borderStrong: "rgba(138, 180, 248, 0.42)",
+      gradeS: "#64d48c",
+      gradeA: "#83bd86",
+      gradeB: "#e8c45c",
+      gradeC: "#df8a4d",
+      gradeD: "#d37541",
+      gradeF: "#ef6f78",
+      gradeDefault: "#a8b3c4",
+    },
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+    effects: { ...DEFAULT_EFFECTS, cornerStyle: "round", surfaceStyle: "full", glass: true },
+  },
+
+  gruvboxLight: {
+    label: "Gruvbox Light",
+    colors: {
+      bgDeep: "#e8dcc2",
+      bgBase: "#fbf1c7",
+      bgSurface: "#f2e5bc",
+      bgRaised: "#ebdbb2",
+      bgHover: "#dacba3",
+      accent: "#af3a03",
+      accentDim: "#8f3f12",
+      accentBright: "#d65d0e",
+      textPrimary: "#282828",
+      textSecondary: "#504945",
+      textMuted: "#7c6f64",
+      success: "#79740e",
+      warning: "#b57614",
+      danger: "#9d0006",
+      info: "#076678",
+      border: "rgba(80, 73, 69, 0.2)",
+      borderStrong: "rgba(80, 73, 69, 0.42)",
+      gradeS: "#79740e",
+      gradeA: "#427b58",
+      gradeB: "#b57614",
+      gradeC: "#af3a03",
+      gradeD: "#af3a03",
+      gradeF: "#9d0006",
+      gradeDefault: "#7c6f64",
+    },
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+    effects: { ...DEFAULT_EFFECTS, surfaceStyle: "border", glass: false },
+  },
+
+  solarizedLight: {
+    label: "Solarized Light",
+    colors: {
+      bgDeep: "#eee8d5",
+      bgBase: "#fdf6e3",
+      bgSurface: "#eee8d5",
+      bgRaised: "#e2d9bd",
+      bgHover: "#d8cfb2",
+      accent: "#268bd2",
+      accentDim: "#2076ad",
+      accentBright: "#2aa198",
+      textPrimary: "#002b36",
+      textSecondary: "#586e75",
+      textMuted: "#839496",
+      success: "#859900",
+      warning: "#b58900",
+      danger: "#dc322f",
+      info: "#268bd2",
+      border: "rgba(88, 110, 117, 0.22)",
+      borderStrong: "rgba(88, 110, 117, 0.45)",
+      gradeS: "#859900",
+      gradeA: "#2aa198",
+      gradeB: "#b58900",
+      gradeC: "#cb4b16",
+      gradeD: "#cb4b16",
+      gradeF: "#dc322f",
+      gradeDefault: "#586e75",
+    },
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+    effects: { ...DEFAULT_EFFECTS, surfaceStyle: "border", glass: false },
+  },
+
+  materialLight: {
+    label: "Material Light",
+    colors: {
+      bgDeep: "#e8eaed",
+      bgBase: "#f8fafd",
+      bgSurface: "#ffffff",
+      bgRaised: "#eef2f7",
+      bgHover: "#e3e8ef",
+      accent: "#1a73e8",
+      accentDim: "#1558b0",
+      accentBright: "#4285f4",
+      textPrimary: "#202124",
+      textSecondary: "#5f6368",
+      textMuted: "#80868b",
+      success: "#188038",
+      warning: "#f29900",
+      danger: "#d93025",
+      info: "#1a73e8",
+      border: "rgba(95, 99, 104, 0.18)",
+      borderStrong: "rgba(95, 99, 104, 0.36)",
+      gradeS: "#188038",
+      gradeA: "#2e7d32",
+      gradeB: "#f29900",
+      gradeC: "#e8710a",
+      gradeD: "#e8710a",
+      gradeF: "#d93025",
+      gradeDefault: "#5f6368",
+    },
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+    effects: { ...DEFAULT_EFFECTS, cornerStyle: "soft", surfaceStyle: "full", glass: false },
+  },
+
+  highContrastLight: {
+    label: "High Contrast Light",
+    colors: {
+      bgDeep: "#ffffff",
+      bgBase: "#ffffff",
+      bgSurface: "#f4f4f4",
+      bgRaised: "#e8e8e8",
+      bgHover: "#dcdcdc",
+      accent: "#0037da",
+      accentDim: "#001f8f",
+      accentBright: "#0057ff",
+      textPrimary: "#000000",
+      textSecondary: "#202020",
+      textMuted: "#555555",
+      success: "#006b1b",
+      warning: "#8a5a00",
+      danger: "#c00000",
+      info: "#0037da",
+      border: "rgba(0, 0, 0, 0.42)",
+      borderStrong: "rgba(0, 0, 0, 0.72)",
+      gradeS: "#006b1b",
+      gradeA: "#0b6a35",
+      gradeB: "#8a5a00",
+      gradeC: "#b85000",
+      gradeD: "#b85000",
+      gradeF: "#c00000",
+      gradeDefault: "#202020",
+    },
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+    effects: { ...DEFAULT_EFFECTS, cornerStyle: "sharp", surfaceStyle: "border", glass: false },
+  },
+
+  nord: {
+    label: "Nord",
+    colors: {
+      bgDeep: "#1f2530",
+      bgBase: "#2e3440",
+      bgSurface: "#3b4252",
+      bgRaised: "#434c5e",
+      bgHover: "#4c566a",
+      accent: "#88c0d0",
+      accentDim: "#6aa2b2",
+      accentBright: "#8fbcbb",
+      textPrimary: "#eceff4",
+      textSecondary: "#d8dee9",
+      textMuted: "#aeb7c5",
+      success: "#a3be8c",
+      warning: "#ebcb8b",
+      danger: "#bf616a",
+      info: "#81a1c1",
+      border: "rgba(136, 192, 208, 0.16)",
+      borderStrong: "rgba(136, 192, 208, 0.36)",
+      gradeS: "#a3be8c",
+      gradeA: "#8fbcbb",
+      gradeB: "#ebcb8b",
+      gradeC: "#d08770",
+      gradeD: "#d08770",
+      gradeF: "#bf616a",
+      gradeDefault: "#d8dee9",
+    },
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+    effects: { ...DEFAULT_EFFECTS, cornerStyle: "soft", surfaceStyle: "full", glass: false },
   },
 };
 

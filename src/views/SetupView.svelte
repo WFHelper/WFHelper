@@ -1,14 +1,35 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
+  import { onInventoryLoaded } from "../lib/actions.js";
   import { currentView } from "../stores/app.js";
+  import { themeSettings } from "../stores/theme.js";
   import { invoke, on } from "../lib/ipc.js";
+  import type { ThemeCornerStyle, ThemeSurfaceStyle } from "../types/theme.js";
   import type { HelperDownloadProgress } from "../types/ipc.js";
+  import SegmentedControl from "../components/SegmentedControl.svelte";
 
-  type Step = "welcome" | "consent" | "downloading" | "done" | "error";
+  type Step = "configure" | "downloading" | "done" | "error";
+  type InventorySource = "helper" | "import";
 
-  let step: Step = "welcome";
+  let step: Step = "configure";
+  let inventorySource: InventorySource = "helper";
   let progress: HelperDownloadProgress | null = null;
   let errorMessage = "";
+
+  const sourceOptions: Array<{ value: InventorySource; label: string }> = [
+    { value: "helper", label: "Install API helper" },
+    { value: "import", label: "Import AlecaFrame JSON" },
+  ];
+  const surfaceOptions: Array<{ value: ThemeSurfaceStyle; label: string }> = [
+    { value: "full", label: "Full" },
+    { value: "border", label: "Border" },
+    { value: "minimal", label: "Minimal" },
+  ];
+  const cornerOptions: Array<{ value: ThemeCornerStyle; label: string }> = [
+    { value: "sharp", label: "Sharp" },
+    { value: "soft", label: "Soft" },
+    { value: "round", label: "Round" },
+  ];
 
   const unsubProgress = on("helper-download-progress", (p) => {
     progress = p;
@@ -34,21 +55,52 @@
     }
   }
 
-  function finish() {
+  async function importInventory() {
+    try {
+      const data = await invoke("openInventoryFile");
+      if (!data || (typeof data === "object" && data !== null && "error" in data)) {
+        errorMessage = "Inventory import failed. Choose an inventory JSON export and try again.";
+        step = "error";
+        return;
+      }
+
+      await onInventoryLoaded(data);
+      completeSetup("inventory");
+    } catch (error) {
+      errorMessage = `Inventory import failed: ${(error as Error).message}`;
+      step = "error";
+    }
+  }
+
+  async function continueSetup() {
+    if (inventorySource === "helper") {
+      await startDownload();
+      return;
+    }
+
+    await importInventory();
+  }
+
+  function completeSetup(nextView: "welcome" | "inventory" = "welcome") {
     localStorage.setItem("setup-completed", "1");
-    currentView.set("welcome");
+    currentView.set(nextView);
+  }
+
+  function finish() {
+    completeSetup("welcome");
   }
 
   function skip() {
-    localStorage.setItem("setup-completed", "1");
-    currentView.set("welcome");
+    completeSetup("welcome");
   }
 
   function retry() {
-    step = "consent";
+    step = "configure";
     errorMessage = "";
     progress = null;
   }
+
+  $: effects = $themeSettings.effects;
 
   $: progressPercent = progress?.percent ?? 0;
   $: bytesLabel = progress
@@ -57,21 +109,17 @@
 </script>
 
 <section class="view active">
-  <div class="flex max-w-[680px] mx-auto my-8 border border-border rounded-xl bg-bg-surface overflow-hidden min-h-[380px]">
-    <!-- Left panel — branding -->
+  <div class="flex max-w-[760px] mx-auto my-8 border border-border rounded-xl bg-bg-surface overflow-hidden min-h-[430px]">
     <div class="setup-left w-[190px] shrink-0 flex flex-col items-center pt-7 px-4 pb-6 bg-gradient-to-b from-bg-deep to-bg-raised border-r border-border">
       <div class="setup-logo">
         <img src={new URL("../../assets/logo.png", import.meta.url).href} alt="App Logo" class="w-14 h-14 object-contain" />
       </div>
       <div class="mt-8 flex flex-col gap-4 w-full">
-        <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {step === 'welcome' ? 'text-accent font-semibold' : 'text-success'}">
-          <span class="w-2 h-2 rounded-full shrink-0 transition-[background] duration-200 {step === 'welcome' ? 'bg-accent shadow-[0_0_6px_var(--accent)]' : 'bg-success'}"></span> Welcome
-        </div>
-        <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {step === 'consent' ? 'text-accent font-semibold' : (step === 'downloading' || step === 'done') ? 'text-success' : 'text-text-muted'}">
-          <span class="w-2 h-2 rounded-full shrink-0 transition-[background] duration-200 {step === 'consent' ? 'bg-accent shadow-[0_0_6px_var(--accent)]' : (step === 'downloading' || step === 'done') ? 'bg-success' : 'bg-text-muted'}"></span> Component Setup
+        <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {step === 'configure' ? 'text-accent font-semibold' : step === 'error' ? 'text-danger' : 'text-success'}">
+          <span class="w-2 h-2 rounded-full shrink-0 transition-[background] duration-200 {step === 'configure' ? 'bg-accent shadow-[0_0_6px_var(--accent)]' : step === 'error' ? 'bg-danger' : 'bg-success'}"></span> Configure
         </div>
         <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {step === 'downloading' ? 'text-accent font-semibold' : step === 'done' ? 'text-success' : 'text-text-muted'}">
-          <span class="w-2 h-2 rounded-full shrink-0 transition-[background] duration-200 {step === 'downloading' ? 'bg-accent shadow-[0_0_6px_var(--accent)]' : step === 'done' ? 'bg-success' : 'bg-text-muted'}"></span> Download
+          <span class="w-2 h-2 rounded-full shrink-0 transition-[background] duration-200 {step === 'downloading' ? 'bg-accent shadow-[0_0_6px_var(--accent)]' : step === 'done' ? 'bg-success' : 'bg-text-muted'}"></span> Inventory Source
         </div>
         <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {step === 'done' ? 'text-accent font-semibold' : 'text-text-muted'}">
           <span class="w-2 h-2 rounded-full shrink-0 transition-[background] duration-200 {step === 'done' ? 'bg-accent shadow-[0_0_6px_var(--accent)]' : 'bg-text-muted'}"></span> Finish
@@ -79,26 +127,57 @@
       </div>
     </div>
 
-    <!-- Right panel — content -->
     <div class="flex-1 flex flex-col pt-7 px-6 pb-5">
       <div class="setup-content flex-1">
-        {#if step === "welcome"}
+        {#if step === "configure"}
           <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Welcome to Warframe Companion</h2>
-          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">This setup wizard will help you configure the required components to get started.</p>
-          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">Warframe Companion uses <strong>warframe-api-helper</strong> to read your in-game inventory data. This small tool needs to be downloaded once (~1 MB).</p>
-          <p class="!text-text-muted !text-[0.78rem] !mt-4">Click <strong>Next</strong> to continue, or <strong>Skip</strong> if you already have it installed.</p>
-        {:else if step === "consent"}
-          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Download warframe-api-helper</h2>
-          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">The following component will be downloaded from GitHub:</p>
-          <div class="border border-border rounded-lg bg-bg-raised py-[0.65rem] px-[0.85rem] my-3">
-            <div class="flex justify-between items-center">
-              <span class="font-display text-[0.84rem] font-semibold text-text-primary">warframe-api-helper.exe</span>
-              <span class="text-xs text-text-muted">~1 MB</span>
+
+          <div class="grid gap-3">
+            <div class="rounded-lg border border-border bg-bg-raised px-3 py-3">
+              <div class="mb-2 flex items-start justify-between gap-3">
+                <div>
+                  <h3 class="m-0 font-display text-[0.92rem] font-semibold text-text-primary">Inventory source</h3>
+                  <p class="mt-0.5 text-[0.76rem] leading-snug text-text-muted">Choose the first data path for this install.</p>
+                </div>
+              </div>
+              <SegmentedControl value={inventorySource} options={sourceOptions} onChange={(value) => (inventorySource = value)} />
+              <div class="mt-2 text-[0.78rem] leading-snug text-text-secondary">
+                {#if inventorySource === "helper"}
+                  Downloads warframe-api-helper and uses its inventory JSON on startup.
+                {:else}
+                  Opens an existing AlecaFrame or inventory JSON export now.
+                {/if}
+              </div>
             </div>
-            <span class="block mt-1 text-[0.72rem] text-text-muted">Source: github.com/Sainan/warframe-api-helper</span>
+
+            <div class="rounded-lg border border-border bg-bg-raised px-3 py-3">
+              <div class="mb-2 flex items-start justify-between gap-3">
+                <div>
+                  <h3 class="m-0 font-display text-[0.92rem] font-semibold text-text-primary">UI style</h3>
+                  <p class="mt-0.5 text-[0.76rem] leading-snug text-text-muted">Uses the same setting as Appearance.</p>
+                </div>
+              </div>
+              <SegmentedControl
+                value={effects.surfaceStyle}
+                options={surfaceOptions}
+                onChange={(surfaceStyle) => themeSettings.setEffects({ surfaceStyle })}
+              />
+            </div>
+
+            <div class="rounded-lg border border-border bg-bg-raised px-3 py-3">
+              <div class="mb-2 flex items-start justify-between gap-3">
+                <div>
+                  <h3 class="m-0 font-display text-[0.92rem] font-semibold text-text-primary">Border style</h3>
+                  <p class="mt-0.5 text-[0.76rem] leading-snug text-text-muted">Choose how sharp or rounded app controls should feel.</p>
+                </div>
+              </div>
+              <SegmentedControl
+                value={effects.cornerStyle}
+                options={cornerOptions}
+                onChange={(cornerStyle) => themeSettings.setEffects({ cornerStyle })}
+              />
+            </div>
           </div>
-          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">This tool connects to the Warframe API to fetch your inventory data. It runs silently in the background every 10 minutes while the app is open.</p>
-          <p class="!text-text-muted !text-[0.78rem] !mt-4">Click <strong>Install</strong> to download, or <strong>Skip</strong> to set it up yourself later.</p>
         {:else if step === "downloading"}
           <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Downloading…</h2>
           <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">Fetching warframe-api-helper from GitHub Releases.</p>
@@ -123,23 +202,18 @@
           </div>
           <p class="!text-text-muted !text-[0.78rem] !mt-4">Click <strong>Finish</strong> to start using Warframe Companion.</p>
         {:else if step === "error"}
-          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Download Failed</h2>
+          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Setup Needs Attention</h2>
           <p class="!text-danger !font-semibold mb-[0.65rem] text-[0.84rem] leading-[1.55]">{errorMessage}</p>
-          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">You can retry the download, or skip and manually download <strong>warframe-api-helper</strong> from GitHub later.</p>
+          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">You can retry this setup path or skip and configure inventory loading later.</p>
         {/if}
       </div>
 
-      <!-- Bottom button bar -->
       <div class="flex justify-end gap-2 pt-4 border-t border-border mt-2">
-        {#if step === "welcome"}
+        {#if step === "configure"}
           <button class="btn-secondary btn-sm" on:click={skip}>Skip</button>
-          <button class="btn-primary btn-sm" on:click={() => (step = "consent")}>Next &gt;</button>
-        {:else if step === "consent"}
-          <button class="btn-secondary btn-sm" on:click={skip}>Skip</button>
-          <button class="btn-primary btn-sm" on:click={startDownload}>Install</button>
+          <button class="btn-primary btn-sm" on:click={continueSetup}>{inventorySource === "helper" ? "Install" : "Import"}</button>
         {:else if step === "downloading"}
           <span></span>
-          <!-- no buttons during download -->
         {:else if step === "done"}
           <span></span>
           <button class="btn-primary btn-sm" on:click={finish}>Finish</button>

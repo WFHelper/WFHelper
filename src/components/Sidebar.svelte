@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { currentView } from "../stores/app.js";
+  import { currentView, debugMode } from "../stores/app.js";
   import { invoke, send } from "../lib/ipc.js";
   import { tr } from "../lib/i18n.js";
   import type { MessageKey } from "../lib/i18n.js";
@@ -125,6 +125,15 @@
   </div>
 
   <div class="mt-2 flex flex-col gap-0.5">
+    {#if import.meta.env.DEV || $debugMode}
+      <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-muted transition-colors duration-150 hover:bg-bg-hover hover:text-text-secondary" title="Preview setup wizard" on:click={() => currentView.set("setup")}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
+          <rect x="4" y="5" width="16" height="14" rx="2" />
+          <path d="M8 9h8M8 13h5M16 13h1" />
+        </svg>
+        <span>Setup</span>
+      </button>
+    {/if}
     <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-muted transition-colors duration-150 hover:bg-bg-hover hover:text-text-secondary" title={$tr("nav.testTitle")} on:click={testOverlay}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
         <path d="M9 3h6l1 6-3.5 2L16 21H8l3.5-10L8 9l1-6z"/>
