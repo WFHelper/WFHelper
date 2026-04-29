@@ -15,17 +15,13 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 
 import fs from "fs";
 import crypto from "node:crypto";
-import os from "os";
 import path from "path";
 import { createRewardOcrRunner } from "./rewardScannerOcr";
 import { OVERLAY_SETTINGS_DEFAULTS, OVERLAY_SETTINGS_LIMITS, type OverlaySettings } from "../config/runtime/overlaySettings";
-import {
-  REWARD_FRAME_DEDUP_TTL_MS,
-  REWARD_STRATEGY_HISTORY_TTL_MS,
-} from "../config/runtime/cacheConfig";
+import { REWARD_FRAME_DEDUP_TTL_MS } from "../config/runtime/cacheConfig";
 import type { NativeImage } from "electron";
 
-import { clampNumber, round4, luminanceFromBgr } from "./rewardScannerUtils";
+import { clampNumber, round4 } from "./rewardScannerUtils";
 import { captureScreenFast, captureDebugFrame, captureSourceMeta, type CaptureResult } from "./rewardScannerCapture";
 import {
   cropRewardBand,
@@ -47,12 +43,26 @@ import {
   type PassResult,
 } from "./rewardScannerMatch";
 import { waitForRewardUiReady as _waitForRewardUiReady } from "./rewardScannerReadiness";
+import { recordStrategyWin, getAdaptiveStrategyHint } from "./rewardScannerAdaptiveStrategy";
+import { hasSufficientTextureForOcr } from "./rewardScannerLowInfoCrop";
+import {
+  expectedRewardItemCount,
+  hasConfidentSlotLayout,
+  shouldAcceptPartialSlotResult,
+} from "./rewardScannerSlotExpectations";
+import { findTemporalFallback, recordTemporalEntry } from "./rewardScannerTemporal";
+import {
+  CROP_PRESETS,
+  RELIC_ERA_BANDS,
+  RELIC_ROW_TILE_LABEL_RECTS,
+  SCANNER_TUNING,
+} from "./rewardScannerTuning";
 
 export { captureDebugFrame, captureSourceMeta };
 
 const log = withScope("rewardScanner");
 
-// --- Per-scan instrumentation (F4) -----------------------------------------
+// --- Per-scan instrumentation ----------------------------------------------
 
 export interface TriggerStats {
   captureCount: number;
@@ -70,59 +80,7 @@ export function getLastTriggerStats(): TriggerStats | null {
   return _lastTriggerStats ? { ..._lastTriggerStats } : null;
 }
 
-// --- Temporal result smoother (F6) -----------------------------------------
-
-const TEMPORAL_WINDOW_MS = 12_000;
-const TEMPORAL_MAX_RESULTS = 5;
-
-interface TemporalEntry {
-  items: SortedItem[];
-  expectedCount: number;
-  ts: number;
-}
-
-const _recentScanEntries: TemporalEntry[] = [];
-
-function recordTemporalEntry(items: SortedItem[], expectedCount: number): void {
-  _recentScanEntries.push({ items: items.slice(), expectedCount, ts: Date.now() });
-  while (_recentScanEntries.length > TEMPORAL_MAX_RESULTS) _recentScanEntries.shift();
-}
-
-function findTemporalFallback(items: SortedItem[], expectedCount: number): SortedItem[] | null {
-  if (items.length >= expectedCount) return null;
-  const now = Date.now();
-  const recent = _recentScanEntries.filter(
-    (e) => now - e.ts < TEMPORAL_WINDOW_MS && e.items.length >= expectedCount,
-  );
-  if (recent.length < 2) return null;
-  return recent[recent.length - 1].items;
-}
-
-// --- Low-information crop filter (F7) --------------------------------------
-
-function hasSufficientTextureForOcr(nativeImage: NativeImage): boolean {
-  try {
-    const { width, height } = nativeImage.getSize();
-    const bitmap: Buffer = nativeImage.toBitmap();
-    const step = Math.max(1, Math.floor(Math.max(width, height) / 40));
-    let minLum = 255;
-    let maxLum = 0;
-    for (let y = 0; y < height; y += step) {
-      for (let x = 0; x < width; x += step) {
-        const idx = (y * width + x) * 4;
-        const lum = luminanceFromBgr(bitmap[idx], bitmap[idx + 1], bitmap[idx + 2]);
-        if (lum < minLum) minLum = lum;
-        if (lum > maxLum) maxLum = lum;
-        if (maxLum - minLum >= 18) return true;
-      }
-    }
-    return maxLum - minLum >= 18;
-  } catch {
-    return true;
-  }
-}
-
-// --- Frame dedup state (Step 3) --------------------------------------------
+// --- Frame dedup state ------------------------------------------------------
 
 let _lastFrameHash: string | null = null;
 let _lastFrameResult: { items: SortedItem[]; meta: Record<string, unknown> } | null = null;
@@ -159,104 +117,7 @@ export function resetFrameDedup(): void {
   _lastFrameHashTs = 0;
 }
 
-// --- Adaptive strategy tracker (Step 8) ------------------------------------
-// Remembers which band index and OCR variant produced the best results, and
-// tries them first on subsequent scans to reduce average OCR calls.
-
-interface StrategyWin {
-  bandIndex: number;
-  variantId: string;
-  score: number;
-  timestamp: number;
-}
-
-const STRATEGY_HISTORY_MAX = 10;
-const _strategyHistory: StrategyWin[] = [];
-
-function recordStrategyWin(bandIndex: number, variantId: string, score: number): void {
-  _strategyHistory.push({ bandIndex, variantId, score, timestamp: Date.now() });
-  if (_strategyHistory.length > STRATEGY_HISTORY_MAX) {
-    _strategyHistory.shift();
-  }
-}
-
-/** Returns the preferred band index and variant to try first, or null. */
-export function getAdaptiveStrategyHint(): { bandIndex: number; variantId: string } | null {
-  const now = Date.now();
-  const recent = _strategyHistory.filter((w) => now - w.timestamp < REWARD_STRATEGY_HISTORY_TTL_MS);
-  if (recent.length < 2) return null;
-
-  // Count wins per band index
-  const bandCounts = new Map<number, number>();
-  const variantCounts = new Map<string, number>();
-  for (const win of recent) {
-    bandCounts.set(win.bandIndex, (bandCounts.get(win.bandIndex) || 0) + 1);
-    variantCounts.set(win.variantId, (variantCounts.get(win.variantId) || 0) + 1);
-  }
-
-  let bestBand = -1;
-  let bestBandCount = 0;
-  for (const [band, count] of bandCounts) {
-    if (count > bestBandCount) {
-      bestBand = band;
-      bestBandCount = count;
-    }
-  }
-
-  let bestVariant = "raw";
-  let bestVariantCount = 0;
-  for (const [variant, count] of variantCounts) {
-    if (count > bestVariantCount) {
-      bestVariant = variant;
-      bestVariantCount = count;
-    }
-  }
-
-  return bestBand >= 0 ? { bandIndex: bestBand, variantId: bestVariant } : null;
-}
-
 // --- Paths ------------------------------------------------------------------
-
-const OCR_SCRIPT = path.join(__dirname, "..", "scripts", "ocr.ps1");
-const TEMP_IMAGE = path.join(os.tmpdir(), "wf-companion-reward-ocr.png");
-/** Minimum scan budget: enough for one fast structured-OCR pass even on slow hardware. */
-const REWARD_SCAN_BUDGET_MIN_MS = 1800;
-/** Maximum scan budget: capped to keep the overlay response perceptually instant. */
-const REWARD_SCAN_BUDGET_MAX_MS = 5000;
-
-// --- Relic era scan config --------------------------------------------------
-
-const RELIC_ERA_BANDS: ReadonlyArray<{ top: number; height: number }> = Object.freeze([
-  { top: 0.12, height: 0.12 },
-  { top: 0.16, height: 0.13 },
-  { top: 0.2, height: 0.14 },
-]);
-
-const RELIC_ROW_TILE_LABEL_RECTS: ReadonlyArray<{
-  id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}> = Object.freeze([
-  { id: "slot-1", x: 0.02, y: 0.5, width: 0.18, height: 0.42 },
-  { id: "slot-2", x: 0.2, y: 0.5, width: 0.18, height: 0.42 },
-  { id: "slot-3", x: 0.38, y: 0.5, width: 0.18, height: 0.42 },
-  { id: "slot-4", x: 0.56, y: 0.5, width: 0.18, height: 0.42 },
-  { id: "slot-5", x: 0.74, y: 0.5, width: 0.18, height: 0.42 },
-]);
-
-const OCR_TEXT_PREVIEW_MAX_CHARS = 240;
-
-// --- Crop presets -----------------------------------------------------------
-
-const CROP_PRESETS: Record<string, Array<{ top: number; height: number }>> = {
-  balanced: [
-    { top: 0.38, height: 0.36 },
-    { top: 0.36, height: 0.4 },
-    { top: 0.4, height: 0.34 },
-  ],
-};
 
 // --- State ------------------------------------------------------------------
 
@@ -327,7 +188,7 @@ export function getSettings(): OverlaySettings {
 const { runOCR, runOCRBuffer, runOCRStructuredBuffer } = createRewardOcrRunner({
   log,
   getRequestedEngine: () => "windows",
-  ocrScriptPath: OCR_SCRIPT,
+  ocrScriptPath: SCANNER_TUNING.paths.ocrScript,
   engineWindows: "windows",
 });
 
@@ -403,8 +264,8 @@ function computeRewardScanBudgetMs(): number {
   const passes = Math.max(1, Math.floor(scanSettings.ocrPasses || 1));
   const perAttempt = Math.max(500, Math.min(Number(scanSettings.ocrTimeoutMs) || 0, 2000));
   return Math.max(
-    REWARD_SCAN_BUDGET_MIN_MS,
-    Math.min(REWARD_SCAN_BUDGET_MAX_MS, 800 + passes * 500 + perAttempt),
+    SCANNER_TUNING.budget.minMs,
+    Math.min(SCANNER_TUNING.budget.maxMs, 800 + passes * 500 + perAttempt),
   );
 }
 
@@ -413,7 +274,7 @@ async function runVariantOcr(variantImage: NativeImage, timeoutMs: number, label
   try {
     return await runOCRBuffer(pngBuffer, timeoutMs);
   } catch {
-    const tempPath = buildTempImagePath(TEMP_IMAGE, label);
+    const tempPath = buildTempImagePath(SCANNER_TUNING.paths.tempImage, label);
     fs.writeFileSync(tempPath, pngBuffer);
     try {
       return await runOCR(tempPath, timeoutMs);
@@ -526,7 +387,7 @@ async function scanRewardSlotsFallback(
   slotConfidence: number;
 } | null> {
   const layout = detectRewardSlotLayout(screenshot?.image);
-  if (!layout.count || layout.confidence < 0.38) return null;
+  if (!hasConfidentSlotLayout(layout)) return null;
 
   const slotLimit = Math.min(expectedCount || layout.count, layout.count, MAX_REWARD_SLOTS);
   const slotResults = await Promise.all(
@@ -714,7 +575,7 @@ export async function detectRelicSelectionEra(options: { timeoutMs?: number; pre
           textPreview: String(ocrText || "")
             .replace(/\s+/g, " ")
             .trim()
-            .slice(0, OCR_TEXT_PREVIEW_MAX_CHARS),
+            .slice(0, SCANNER_TUNING.ocr.textPreviewMaxChars),
           candidateId: `tile-${rect.id}`,
           bandTopRatio: round4(rect.y, null),
           bandHeightRatio: round4(rect.height, null),
@@ -764,7 +625,7 @@ export async function detectRelicSelectionEra(options: { timeoutMs?: number; pre
             textPreview: String(ocrText || "")
               .replace(/\s+/g, " ")
               .trim()
-              .slice(0, OCR_TEXT_PREVIEW_MAX_CHARS),
+              .slice(0, SCANNER_TUNING.ocr.textPreviewMaxChars),
             candidateId: "header-band",
             bandTopRatio: round4(band.top, null),
             bandHeightRatio: round4(band.height, null),
@@ -818,7 +679,7 @@ export async function scanRewardsDetailed(
   const scanStartedAt = Date.now();
   const totalBudgetMs = computeRewardScanBudgetMs();
 
-  // F4 instrumentation counters
+  // Per-scan instrumentation counters.
   let captureCountStat = 0;
   let captureMs = 0;
   let ocrCallCount = 0;
@@ -826,7 +687,7 @@ export async function scanRewardsDetailed(
 
   let screenshot: CaptureResult | PreCaptureResult | null;
   if (preCapture?.image) {
-    // F2: caller supplied pre-captured screenshot — skip capture entirely
+    // Caller supplied a pre-captured screenshot; skip capture entirely.
     screenshot = preCapture;
     log.log(
       "[RewardScanner] Using pre-captured screenshot" +
@@ -886,10 +747,7 @@ export async function scanRewardsDetailed(
   const slotDetectStart = Date.now();
   const detectedLayout = detectRewardSlotLayout(screenshot.image);
   const slotDetectMs = Date.now() - slotDetectStart;
-  const expectedItemCount =
-    detectedLayout.count >= 2 && detectedLayout.confidence >= 0.38
-      ? Math.min(detectedLayout.count, MAX_REWARD_SLOTS)
-      : MAX_REWARD_SLOTS;
+  const expectedItemCount = expectedRewardItemCount(detectedLayout);
 
   log.log(
     `[RewardScanner] Slot layout estimate: count=${detectedLayout.count} confidence=${detectedLayout.confidence.toFixed(3)} expected=${expectedItemCount}`,
@@ -900,7 +758,7 @@ export async function scanRewardsDetailed(
   let bestPass: PassResult | null = null;
   let slotFirstResult: Awaited<ReturnType<typeof scanRewardSlotsFallback>> | null = null;
 
-  if (detectedLayout.count >= 2 && detectedLayout.confidence >= 0.38) {
+  if (hasConfidentSlotLayout(detectedLayout)) {
     slotFirstResult = await scanRewardSlotsFallback(
       screenshot,
       expectedItemCount,
@@ -912,7 +770,6 @@ export async function scanRewardsDetailed(
       slotFirst &&
       slotFirst.items.length >= expectedItemCount
     ) {
-      // F1: accept slot-primary hit when all expected slots are filled.
       // exactCount is intentionally NOT required here — fuzzy word-overlap matches
       // for Prime item names are reliable enough and slot geometry already validated.
       log.log(
@@ -952,8 +809,11 @@ export async function scanRewardsDetailed(
     const elapsedRatio = (Date.now() - scanStartedAt) / totalBudgetMs;
     if (
       slotFirst &&
-      slotFirst.items.length >= Math.ceil(expectedItemCount * 0.75) &&
-      (elapsedRatio >= 0.7 || slotFirst.items.length === expectedItemCount)
+      shouldAcceptPartialSlotResult({
+        itemCount: slotFirst.items.length,
+        expectedCount: expectedItemCount,
+        elapsedRatio,
+      })
     ) {
       log.log(
         `[RewardScanner] Partial slot-primary hit: ${slotFirst.items.length}/${expectedItemCount} items ` +
@@ -1009,13 +869,13 @@ export async function scanRewardsDetailed(
         break;
       }
 
-        // F7: skip near-empty crops before spending an OCR call
+      // Skip near-empty crops before spending an OCR call.
       if (!hasSufficientTextureForOcr(variant.image)) {
         log.log(`[RewardScanner] Skipping low-texture crop (pass ${i + 1} ${variant.id})`);
         continue;
       }
 
-      // F5: use structured OCR to separate title lines geometrically
+      // Use structured OCR to separate title lines geometrically.
       let matched: ReturnType<typeof matchItemsDetailed> | null = null;
       let ocrTextForLog: string;
       try {
@@ -1095,7 +955,7 @@ export async function scanRewardsDetailed(
   }
 
   if (items.length < expectedItemCount) {
-    // F3: reuse the already-computed slotFirstResult if available; avoids a second
+    // Reuse the already-computed slotFirstResult if available; avoids a second
     // scanRewardSlotsFallback call which would duplicate all the OCR work.
     const slotFallback =
       slotFirstResult && slotFirstResult.items.length > 0
@@ -1111,7 +971,7 @@ export async function scanRewardsDetailed(
     }
   }
 
-  // F6: temporal consistency — if current result is sparse but recent full results
+  // Temporal consistency: if current result is sparse but recent full results
   // confirm there should be more items, use the last confirmed full result instead
   // of showing a partially-detected overlay.
   const temporalFallback = findTemporalFallback(items, expectedItemCount);
@@ -1132,7 +992,7 @@ export async function scanRewardsDetailed(
     );
   } else {
     const textPreview = selectedPass?.text
-      ? selectedPass.text.slice(0, OCR_TEXT_PREVIEW_MAX_CHARS).replace(/\s+/g, " ")
+      ? selectedPass.text.slice(0, SCANNER_TUNING.ocr.textPreviewMaxChars).replace(/\s+/g, " ")
       : "";
     if (textPreview) {
       log.log("[RewardScanner] No items matched OCR text:", textPreview);
@@ -1141,10 +1001,9 @@ export async function scanRewardsDetailed(
     }
   }
 
-  // F6: record result for temporal smoothing
+  // Record result for temporal smoothing.
   recordTemporalEntry(items, expectedItemCount);
 
-  // F4: record instrumentation stats
   // slotDetectMs is captured at layout detection above
   _lastTriggerStats = {
     captureCount: captureCountStat,
