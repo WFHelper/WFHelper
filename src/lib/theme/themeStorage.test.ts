@@ -117,6 +117,19 @@ describe("loadThemeSettings", () => {
     const settings = loadThemeSettings();
     expect(settings.branding.logoDataUrl).toBeNull();
   });
+
+  it("rejects unsafe color values", () => {
+    store["wf_theme_settings"] = JSON.stringify({
+      version: 1,
+      colors: {
+        accent: "red; background: url(javascript:alert(1))",
+        border: "rgba(1, 2, 3, 0.4)",
+      },
+    });
+    const settings = loadThemeSettings();
+    expect(settings.colors.accent).toBe(DEFAULT_COLORS.accent);
+    expect(settings.colors.border).toBe("rgba(1, 2, 3, 0.4)");
+  });
 });
 
 describe("saveThemeSettings", () => {

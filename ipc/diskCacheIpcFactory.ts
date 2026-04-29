@@ -35,6 +35,8 @@ export interface DiskCacheIpcConfig {
    * serialized size fits. Defaults to 200_000 (snapshot has ~13k top-level keys).
    */
   maxKeyCount?: number;
+  /** Optional cache-specific shape validator applied on load and save. */
+  validateData?: (data: Record<string, unknown>) => boolean;
 }
 
 const DEFAULT_MAX_PAYLOAD_BYTES = 64 * 1024 * 1024;
@@ -63,6 +65,10 @@ function createDiskCacheIpc(config: DiskCacheIpcConfig): { register: () => void 
         const raw = fs.readFileSync(filePath, "utf-8");
         const parsed: unknown = JSON.parse(raw);
         if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+        if (config.validateData && !config.validateData(parsed as Record<string, unknown>)) {
+          log.warn(`Ignoring invalid ${noun} shape from disk`);
+          return null;
+        }
 
         log.log(`Loaded ${noun} from disk (${Object.keys(parsed as object).length} entries)`);
         return parsed as Record<string, unknown>;
@@ -75,6 +81,10 @@ function createDiskCacheIpc(config: DiskCacheIpcConfig): { register: () => void 
     handleAuthorized(`${channelPrefix}:save`, assertMainRendererSender, async (_event, data: unknown) => {
       try {
         if (!data || typeof data !== "object" || Array.isArray(data)) {
+          return { ok: false };
+        }
+        if (config.validateData && !config.validateData(data as Record<string, unknown>)) {
+          log.warn(`Refusing ${noun} save: invalid shape`);
           return { ok: false };
         }
 

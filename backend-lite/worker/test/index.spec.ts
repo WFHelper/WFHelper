@@ -15,6 +15,19 @@ afterEach(() => {
 	globalThis.fetch = originalFetch;
 });
 
+async function seedRankedCatalog(
+	targetEnv: Pick<Env, 'ITEM_META'>,
+	entries: Array<{ slug: string; maxRank: number }>,
+): Promise<void> {
+	await targetEnv.ITEM_META.put(
+		'order-summary:catalog:v1',
+		JSON.stringify({
+			updatedAt: Date.now(),
+			entries,
+		}),
+	);
+}
+
 describe('backend-lite worker', () => {
 	it('returns health status (unit style)', async () => {
 		const request = new IncomingRequest('http://example.com/healthz');
@@ -368,6 +381,7 @@ describe('backend-lite worker', () => {
 
 	it('supports ranked price lookups for mod and arcane stats', async () => {
 		const slug = 'wf_test_ranked_price_slug';
+		await seedRankedCatalog(env, [{ slug, maxRank: 10 }]);
 		await env.PRICE_CACHE.delete(`price:${slug}:r0`);
 		await env.PRICE_CACHE.delete(`price:${slug}:r10`);
 		await env.PRICE_CACHE.delete(`miss:price:v2:${slug}:r0`);
@@ -599,8 +613,25 @@ describe('backend-lite worker', () => {
 		}
 	});
 
+	it('fails closed for ranked requests when catalog is unavailable', async () => {
+		await env.ITEM_META.delete('order-summary:catalog:v1');
+		const fetchMock = vi.fn(async () => {
+			throw new Error('should not fetch upstream when ranked catalog is unavailable');
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(new IncomingRequest('https://example.com/v1/prices/primed_flow?rank=10'), env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(503);
+		expect(await response.json()).toEqual({ ok: false, error: 'catalog_unavailable' });
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
 	it('auto-hydrates order summary endpoint on cache miss', async () => {
 		const slug = 'wf_test_order_summary_slug';
+		await seedRankedCatalog(env, [{ slug, maxRank: 10 }]);
 		await env.PRICE_CACHE.delete(`orders-summary:${slug}:r10`);
 		await env.PRICE_CACHE.delete(`miss:orders-summary:v1:${slug}:r10`);
 
@@ -832,6 +863,7 @@ describe('backend-lite worker', () => {
 
 	it('serves stale cached order summary during transient upstream failure', async () => {
 		const slug = 'wf_test_stale_order_summary_slug';
+		await seedRankedCatalog(env, [{ slug, maxRank: 10 }]);
 		await env.PRICE_CACHE.put(
 			`orders-summary:${slug}:r0`,
 			JSON.stringify({
@@ -869,6 +901,7 @@ describe('backend-lite worker', () => {
 
 	it('filters orders by rank and preserves offline statuses', async () => {
 		const slug = 'wf_test_ranked_orders_slug';
+		await seedRankedCatalog(env, [{ slug, maxRank: 10 }]);
 		await env.PRICE_CACHE.delete(`orders:${slug}:r10`);
 		await env.PRICE_CACHE.delete(`miss:orders:v2:${slug}:r10`);
 
@@ -940,6 +973,7 @@ describe('backend-lite worker', () => {
 
 	it('keeps active rank orders even when many cheaper offline rows exist', async () => {
 		const slug = 'wf_test_rank_activity_window_slug';
+		await seedRankedCatalog(env, [{ slug, maxRank: 10 }]);
 		await env.PRICE_CACHE.delete(`orders:${slug}:r0`);
 		await env.PRICE_CACHE.delete(`miss:orders:v2:${slug}:r0`);
 
@@ -1088,12 +1122,21 @@ describe('backend-lite worker', () => {
 
 		try {
 			const ctx = createExecutionContext();
-			const response = await worker.fetch(new IncomingRequest('https://example.com/v1/snapshot'), env, ctx);
+			const response = await worker.fetch(
+				new IncomingRequest('https://example.com/v1/snapshot', {
+					headers: { Origin: 'https://wfhelper.com' },
+				}),
+				env,
+				ctx,
+			);
 			await waitOnExecutionContext(ctx);
 
 			expect(response.status).toBe(200);
 			expect(response.headers.get('content-type')).toContain('application/json');
 			expect(response.headers.get('cache-control')).toBe('public, max-age=7200');
+			expect(response.headers.get('vary')).toBe('Origin');
+			expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+			expect(response.headers.get('access-control-allow-origin')).toBe('https://wfhelper.com');
 
 			const body = (await response.json()) as typeof snapshot;
 			expect(body.version).toBe(1);

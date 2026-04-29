@@ -25,7 +25,7 @@ export function originIsAllowed(req: Request, env: Env): boolean {
 	return allowList.includes(origin);
 }
 
-export function jsonResponse(data: unknown, req: Request, env: Env, status = 200, extraHeaders?: Record<string, string>): Response {
+function responseHeaders(req: Request, env: Env, extraHeaders?: Record<string, string>): Record<string, string> {
 	const headers: Record<string, string> = {
 		'content-type': 'application/json; charset=utf-8',
 		'cache-control': 'no-store',
@@ -41,8 +41,19 @@ export function jsonResponse(data: unknown, req: Request, env: Env, status = 200
 		headers['access-control-allow-origin'] = origin;
 	}
 
+	return headers;
+}
+
+export function jsonResponse(data: unknown, req: Request, env: Env, status = 200, extraHeaders?: Record<string, string>): Response {
 	return new Response(JSON.stringify(data), {
 		status,
-		headers,
+		headers: responseHeaders(req, env, extraHeaders),
+	});
+}
+
+export function rawJsonResponse(raw: string, req: Request, env: Env, status = 200, extraHeaders?: Record<string, string>): Response {
+	return new Response(raw, {
+		status,
+		headers: responseHeaders(req, env, extraHeaders),
 	});
 }

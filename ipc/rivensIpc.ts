@@ -5,8 +5,12 @@ import * as wfmRivenSearch from "../services/wfmRivenSearch";
 import * as rivenData from "../services/rivenData";
 import * as rivenBestAttributes from "../services/rivenBestAttributes";
 import {
-  RIVENS_GET, RIVENS_GET_WEAPON_NAMES, RIVENS_GET_STAT_OPTIONS,
-  RIVENS_SEARCH_AUCTIONS, RIVENS_GET_WEAPON_TYPE, RIVENS_GET_BEST_ATTRIBUTES,
+  RIVENS_GET,
+  RIVENS_GET_WEAPON_NAMES,
+  RIVENS_GET_STAT_OPTIONS,
+  RIVENS_SEARCH_AUCTIONS,
+  RIVENS_GET_WEAPON_TYPE,
+  RIVENS_GET_BEST_ATTRIBUTES,
   RIVENS_CREATE_AUCTION,
 } from "../config/shared/ipcChannels";
 
@@ -16,6 +20,26 @@ const POLARITY_TO_WFM: Record<string, string> = {
   AP_TACTIC: "naramon",
   AP_DEFENSE: "vazarin",
 };
+
+interface CreateAuctionStat {
+  tag: string;
+  value: number;
+  positive: boolean;
+  multiplier?: boolean;
+}
+
+function isCreateAuctionStat(value: unknown): value is CreateAuctionStat {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.tag === "string" &&
+    row.tag.length > 0 &&
+    typeof row.value === "number" &&
+    Number.isFinite(row.value) &&
+    typeof row.positive === "boolean" &&
+    (row.multiplier == null || typeof row.multiplier === "boolean")
+  );
+}
 
 function register(): void {
   handleAuthorized(RIVENS_GET, assertMainRendererSender, async () => {
@@ -58,10 +82,14 @@ function register(): void {
     },
   );
 
-  handleAuthorized(RIVENS_GET_WEAPON_TYPE, assertMainRendererSender, (_event, weaponName: unknown) => {
-    if (typeof weaponName !== "string" || !weaponName) return null;
-    return rivenData.getWeaponRivenTypeLabel(weaponName);
-  });
+  handleAuthorized(
+    RIVENS_GET_WEAPON_TYPE,
+    assertMainRendererSender,
+    (_event, weaponName: unknown) => {
+      if (typeof weaponName !== "string" || !weaponName) return null;
+      return rivenData.getWeaponRivenTypeLabel(weaponName);
+    },
+  );
 
   handleAuthorized(
     RIVENS_GET_BEST_ATTRIBUTES,
@@ -81,17 +109,30 @@ function register(): void {
     async (_event, payload: unknown) => {
       if (!payload || typeof payload !== "object") return { ok: false, error: "Invalid payload" };
       const {
-        weaponName, rivenName, stats, rerolls, masteryReq,
-        polarity, modRank, buyoutPrice, startingPrice, isPrivate, description,
+        weaponName,
+        rivenName,
+        stats,
+        rerolls,
+        masteryReq,
+        polarity,
+        modRank,
+        buyoutPrice,
+        startingPrice,
+        isPrivate,
+        description,
       } = payload as Record<string, unknown>;
-      if (typeof weaponName !== "string" || !weaponName) return { ok: false, error: "Invalid weapon name" };
-      if (!Array.isArray(stats) || stats.length === 0) return { ok: false, error: "No stats provided" };
-      if (typeof startingPrice !== "number" || startingPrice < 1) return { ok: false, error: "Invalid price" };
+      if (typeof weaponName !== "string" || !weaponName)
+        return { ok: false, error: "Invalid weapon name" };
+      if (!Array.isArray(stats) || stats.length === 0)
+        return { ok: false, error: "No stats provided" };
+      if (!stats.every(isCreateAuctionStat)) return { ok: false, error: "Invalid stats payload" };
+      if (typeof startingPrice !== "number" || startingPrice < 1)
+        return { ok: false, error: "Invalid price" };
 
       const slug = rivenData.getRivenFamilySlug(weaponName);
       if (!slug) return { ok: false, error: "Unknown weapon" };
 
-      const attributes = (stats as { tag: string; value: number; positive: boolean; multiplier?: boolean }[]).map((s) => {
+      const attributes = stats.map((s) => {
         const urlName = rivenData.tagToWfmUrlName(String(s.tag));
         const rawVal = typeof s.value === "number" ? s.value : 0;
         // WFM expects negative values for non-multiplier curse stats.
@@ -105,9 +146,10 @@ function register(): void {
         };
       });
 
-      const wfmPolarity = typeof polarity === "string"
-        ? POLARITY_TO_WFM[polarity] || polarity.toLowerCase()
-        : "madurai";
+      const wfmPolarity =
+        typeof polarity === "string"
+          ? POLARITY_TO_WFM[polarity] || polarity.toLowerCase()
+          : "madurai";
 
       // WFM expects only the generated suffix portion of the riven name in lowercase
       // (e.g. "croni-visican"), NOT the full "Angstrum Croni-visican".

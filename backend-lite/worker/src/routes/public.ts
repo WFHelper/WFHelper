@@ -1,5 +1,5 @@
 import { ORDER_SUMMARY_CATALOG_KEY, ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY, PREWARM_LAST_RUN_KEY, SNAPSHOT_ETAG_KEY, SNAPSHOT_KEY } from '../constants';
-import { jsonResponse } from '../security/cors';
+import { jsonResponse, rawJsonResponse } from '../security/cors';
 import { isAdminAuthorized } from '../security/adminAuth';
 import { bootstrapEnabled, bootstrapHeaderName, bootstrapRequired, issueBootstrapToken, verifyBootstrapToken } from '../security/bootstrap';
 import { checkPublicRateLimit } from '../security/rateLimit';
@@ -38,6 +38,7 @@ type HydrateResult<T> =
 	| { status: 'ok'; data: T }
 	| { status: 'unavailable' }
 	| { status: 'not_found' };
+type RankedValidation = { ok: true; maxRank: number | null } | { ok: false; error?: 'catalog_unavailable' };
 
 function parseRankFilter(url: URL): number | null {
 	const rawRank = url.searchParams.get('rank');
@@ -66,20 +67,27 @@ async function validateRankedSlugAndRank(
 	slug: string,
 	rank: number | null,
 	options?: { rankRequired?: boolean },
-): Promise<{ ok: true; maxRank: number | null } | { ok: false }> {
+): Promise<RankedValidation> {
 	if (rank == null) {
 		return options?.rankRequired ? { ok: false } : { ok: true, maxRank: null };
 	}
 
 	const rankedCatalog = await getRankedCatalogBySlug(env);
 	if (rankedCatalog.size === 0) {
-		return { ok: true, maxRank: null };
+		return { ok: false, error: 'catalog_unavailable' };
 	}
 
 	const maxRank = rankedCatalog.get(slug) ?? null;
 	if (maxRank == null) return { ok: false };
 	if (rank !== 0 && rank !== maxRank) return { ok: false };
 	return { ok: true, maxRank };
+}
+
+function rankedValidationFailureResponse(validation: RankedValidation, req: Request, env: Env): Response {
+	if (validation.error === 'catalog_unavailable') {
+		return jsonResponse({ ok: false, error: 'catalog_unavailable' }, req, env, 503);
+	}
+	return jsonResponse({ ok: false, error: 'not_found' }, req, env, 404);
 }
 
 async function requireBootstrapIfNeeded(req: Request, env: Env): Promise<'ok' | 'missing_secret' | 'invalid'> {
@@ -147,7 +155,7 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		if (rateLimited) return rateLimited;
 
 		routeStats.healthzRequests += 1;
-		if (!isAdminAuthorized(req, env)) {
+		if (!(await isAdminAuthorized(req, env))) {
 			return jsonResponse(
 				{
 					ok: true,
@@ -253,13 +261,10 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 			return snapshotNotModifiedResponse(etag, SNAPSHOT_CACHE_CONTROL);
 		}
 
-		const responseHeaders: Record<string, string> = {
-			'content-type': 'application/json',
-			'cache-control': SNAPSHOT_CACHE_CONTROL,
-		};
+		const responseHeaders: Record<string, string> = { 'cache-control': SNAPSHOT_CACHE_CONTROL };
 		if (etag) responseHeaders['etag'] = etag;
 
-		const response = new Response(raw, { headers: responseHeaders });
+		const response = rawJsonResponse(raw, req, env, 200, responseHeaders);
 
 		if (ctx) {
 			ctx.waitUntil(edgeCache.put(cacheKey, response.clone()));
@@ -281,7 +286,7 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		const validation = await validateRankedSlugAndRank(env, priceSlug, rank);
 		if (!validation.ok) {
 			routeStats.invalidRankRequests += 1;
-			return jsonResponse({ ok: false, error: 'not_found' }, req, env, 404);
+			return rankedValidationFailureResponse(validation, req, env);
 		}
 
 		const result = await getOrHydratePrice(env, priceSlug, ctx, rank);
@@ -315,7 +320,7 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		const validation = await validateRankedSlugAndRank(env, orderSummarySlug, rank, { rankRequired: true });
 		if (!validation.ok) {
 			routeStats.invalidRankRequests += 1;
-			return jsonResponse({ ok: false, error: 'not_found' }, req, env, 404);
+			return rankedValidationFailureResponse(validation, req, env);
 		}
 
 		const result = await getOrHydrateOrderSummary(env, orderSummarySlug, ctx, rank);
@@ -340,7 +345,7 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		const validation = await validateRankedSlugAndRank(env, ordersSlug, rank);
 		if (!validation.ok) {
 			routeStats.invalidRankRequests += 1;
-			return jsonResponse({ ok: false, error: 'not_found' }, req, env, 404);
+			return rankedValidationFailureResponse(validation, req, env);
 		}
 
 		const result = await getOrHydrateOrders(env, ordersSlug, ctx, rank);

@@ -228,9 +228,7 @@ function renderPlannerRows(payload) {
 
   const countLabel = totalOwnedCount > 0 ? `${totalOwnedCount}` : "";
   const eraLabel = era ? `${era.charAt(0).toUpperCase()}${era.slice(1)} era` : "";
-  const headerTitle = countLabel
-    ? `\u{1F48E} ${countLabel}`
-    : "◆ Relic Planner";
+  const headerTitle = countLabel ? `\u{1F48E} ${countLabel}` : "◆ Relic Planner";
   const subTitle = eraLabel ? `${eraLabel} recommendations` : "Recommended relics";
   setHeader(headerTitle, subTitle);
   showBestFooter(false);
@@ -333,6 +331,21 @@ function applyThemeVars(rawVars) {
   }
 }
 
+const SAFE_COLOR_FUNCTION_RE = /^(?:rgb|rgba|hsl|hsla|oklch)\(\s*[-+0-9.%\s,/]+\)$/i;
+const SAFE_HEX_COLOR_RE = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+
+function safeThemeColor(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 96 || /[;{}]/.test(trimmed)) return null;
+  return SAFE_HEX_COLOR_RE.test(trimmed) || SAFE_COLOR_FUNCTION_RE.test(trimmed) ? trimmed : null;
+}
+
+function setThemeColor(map, key, value) {
+  const color = safeThemeColor(value);
+  if (color) map[key] = color;
+}
+
 function hexToAccentGlow(hex) {
   const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || "").trim());
   if (!match) return null;
@@ -353,26 +366,27 @@ function loadThemeFromStorageFallback() {
     if (!colors || typeof colors !== "object") return;
 
     const map = {
-      "--bg-deep": colors.bgDeep,
-      "--bg-base": colors.bgBase,
-      "--bg-surface": colors.bgSurface,
-      "--bg-raised": colors.bgRaised,
-      "--bg-hover": colors.bgHover,
-      "--accent": colors.accent,
-      "--accent-dim": colors.accentDim,
-      "--accent-bright": colors.accentBright,
-      "--text-primary": colors.textPrimary,
-      "--text-secondary": colors.textSecondary,
-      "--text-muted": colors.textMuted,
-      "--success": colors.success,
-      "--warning": colors.warning,
-      "--danger": colors.danger,
-      "--info": colors.info,
-      "--border": colors.border,
-      "--border-strong": colors.borderStrong,
       "--font-display": '"Rajdhani", sans-serif',
       "--font-body": '"Barlow", sans-serif',
     };
+
+    setThemeColor(map, "--bg-deep", colors.bgDeep);
+    setThemeColor(map, "--bg-base", colors.bgBase);
+    setThemeColor(map, "--bg-surface", colors.bgSurface);
+    setThemeColor(map, "--bg-raised", colors.bgRaised);
+    setThemeColor(map, "--bg-hover", colors.bgHover);
+    setThemeColor(map, "--accent", colors.accent);
+    setThemeColor(map, "--accent-dim", colors.accentDim);
+    setThemeColor(map, "--accent-bright", colors.accentBright);
+    setThemeColor(map, "--text-primary", colors.textPrimary);
+    setThemeColor(map, "--text-secondary", colors.textSecondary);
+    setThemeColor(map, "--text-muted", colors.textMuted);
+    setThemeColor(map, "--success", colors.success);
+    setThemeColor(map, "--warning", colors.warning);
+    setThemeColor(map, "--danger", colors.danger);
+    setThemeColor(map, "--info", colors.info);
+    setThemeColor(map, "--border", colors.border);
+    setThemeColor(map, "--border-strong", colors.borderStrong);
 
     const glow = hexToAccentGlow(colors.accent);
     if (glow) {
@@ -433,6 +447,8 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   window.overlay.onInteractionMode((payload) => {
     setOverlayInteractiveMode(Boolean(payload?.interactive));
-    showPlannerHint(!overlayInteractiveMode && !plannerGridElement().classList.contains("is-hidden"));
+    showPlannerHint(
+      !overlayInteractiveMode && !plannerGridElement().classList.contains("is-hidden"),
+    );
   });
 });

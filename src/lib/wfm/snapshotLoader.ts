@@ -8,9 +8,9 @@ import { fetchBackendRaw, isBackendLiteConfigured } from "./backendLite.js";
 import { schedulePriceCacheRevision } from "../../stores/pricing.js";
 import { log } from "../log.js";
 import { invoke } from "../ipc.js";
+import { isValidSnapshotBlob } from "../../../config/shared/wfmSnapshotValidation.js";
 
 const SNAPSHOT_FRESH_MS = 2 * 60 * 60 * 1000; // 2 hours
-const SNAPSHOT_VERSION = 1;
 const SNAPSHOT_FETCH_TIMEOUT_MS = 20_000;
 
 // In-memory ETag for the snapshot. Persisted across re-fetches within the same
@@ -28,18 +28,7 @@ interface SnapshotBlob {
 }
 
 function isValidSnapshot(d: unknown): d is SnapshotBlob {
-  return (
-    typeof d === "object" &&
-    d !== null &&
-    (d as SnapshotBlob).version === SNAPSHOT_VERSION &&
-    typeof (d as SnapshotBlob).generatedAt === "number" &&
-    typeof (d as SnapshotBlob).prices === "object" &&
-    (d as SnapshotBlob).prices !== null &&
-    typeof (d as SnapshotBlob).meta === "object" &&
-    (d as SnapshotBlob).meta !== null &&
-    typeof (d as SnapshotBlob).orderSummaries === "object" &&
-    (d as SnapshotBlob).orderSummaries !== null
-  );
+  return isValidSnapshotBlob(d);
 }
 
 /**

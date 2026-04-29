@@ -43,7 +43,7 @@ function parseHotsetEntries(value: unknown): Array<{ slug: string; maxRank: numb
 async function guardAdmin(req: Request, env: Env): Promise<Response | null> {
 	const rateLimited = await checkAdminRateLimit(req, env);
 	if (rateLimited) return rateLimited;
-	if (!isAdminAuthorized(req, env)) {
+	if (!(await isAdminAuthorized(req, env))) {
 		return jsonResponse({ ok: false, error: 'unauthorized' }, req, env, 401);
 	}
 	return null;

@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
 
+export const MAX_WFM_WS_FRAME_BYTES = 1024 * 1024;
+
 export interface ParsedWfmWsFrame {
   opcode: number;
   text: string;
@@ -48,8 +50,14 @@ export function parseWfmWsFrame(buf: Buffer): ParsedWfmWsFrame | null {
     offset = 4;
   } else if (payLen === 127) {
     if (buf.length < 10) return null;
+    const highBits = buf.readUInt32BE(2);
     payLen = buf.readUInt32BE(6);
+    if (highBits !== 0) throw new Error("WS frame payload too large");
     offset = 10;
+  }
+
+  if (payLen > MAX_WFM_WS_FRAME_BYTES) {
+    throw new Error("WS frame payload too large");
   }
 
   const maskBytes = masked ? 4 : 0;

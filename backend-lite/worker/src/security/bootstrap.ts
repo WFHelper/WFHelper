@@ -1,5 +1,6 @@
 import type { Env } from '../types';
 import { clamp, clientIp, parsePositiveInt } from '../utils';
+import { timingSafeEqual } from './constantTime';
 
 const BOOTSTRAP_HEADER = 'x-wfhelper-bootstrap';
 
@@ -103,7 +104,7 @@ export async function verifyBootstrapToken(req: Request, env: Env): Promise<bool
 	if (!payloadBase64 || !signature) return false;
 
 	const expectedSignature = await signPayload(payloadBase64, secret);
-	if (signature !== expectedSignature) return false;
+	if (!(await timingSafeEqual(signature, expectedSignature))) return false;
 
 	const payloadBytes = fromBase64Url(payloadBase64);
 	if (!payloadBytes) return false;

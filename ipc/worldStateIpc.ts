@@ -7,6 +7,7 @@ import { DB_GET_WORLD_STATE, WORLD_STATE_FETCH_ERROR } from "../config/shared/ip
 import { execFile } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
+import os from "node:os";
 
 const log = withScope("worldStateIpc");
 
@@ -23,6 +24,7 @@ function getElectronModule(): Partial<typeof import("electron")> {
 
 const electronModule = getElectronModule();
 let notificationCtor = electronModule.Notification;
+let desktopNotificationSender: ((title: string, body: string) => void) | null = null;
 
 const WORLD_STATE_TTL_MS = 90_000;
 
@@ -195,7 +197,12 @@ function canSendNotifications(): boolean {
 }
 
 function escapeXml(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 /**
@@ -207,9 +214,19 @@ function ensureStartMenuShortcut(): void {
   if (process.platform !== "win32") return;
   try {
     const { shell } = require("electron") as typeof import("electron");
+    if (
+      !shell ||
+      typeof shell.readShortcutLink !== "function" ||
+      typeof shell.writeShortcutLink !== "function"
+    ) {
+      return;
+    }
     const startMenuDir = path.join(
       process.env.APPDATA || "",
-      "Microsoft", "Windows", "Start Menu", "Programs",
+      "Microsoft",
+      "Windows",
+      "Start Menu",
+      "Programs",
     );
     const lnkPath = path.join(startMenuDir, "WFHelper.lnk");
 
@@ -221,7 +238,9 @@ function ensureStartMenuShortcut(): void {
         if (existing.target === process.execPath && existing.appUserModelId === APP_USER_MODEL_ID) {
           needWrite = false;
         }
-      } catch { /* corrupt / unreadable — recreate */ }
+      } catch {
+        /* corrupt / unreadable — recreate */
+      }
     }
 
     if (needWrite) {
@@ -243,6 +262,10 @@ let _toastTagCounter = 0;
 /** Duration in ms before auto-dismissing an incomingCall toast banner. */
 const TOAST_DISMISS_MS = 5_000;
 
+function quotePowerShellString(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
 /** Send a Windows toast via PowerShell WinRT. Uses scenario="incomingCall" to
  *  bypass Focus Assist "Priority only" filtering, then auto-dismisses the
  *  toast after TOAST_DISMISS_MS so it behaves like a normal notification. */
@@ -250,29 +273,51 @@ function sendWindowsToast(title: string, body: string): void {
   const tag = `wfc-${++_toastTagCounter}`;
   const group = "wfc";
   const xml = `<toast scenario="incomingCall"><visual><binding template="ToastGeneric"><text>${escapeXml(title)}</text><text>${escapeXml(body)}</text></binding></visual><audio silent="true"/></toast>`;
+  const xmlPath = path.join(os.tmpdir(), `wfc-toast-${process.pid}-${Date.now()}-${tag}.xml`);
+  try {
+    fs.writeFileSync(xmlPath, xml, "utf8");
+  } catch (err) {
+    log.warn("[WorldState] toast temp file error:", normalizeErrorMessage(err));
+    return;
+  }
+
   const showScript = [
     "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null",
     "[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null",
+    `$xmlPath = ${quotePowerShellString(xmlPath)}`,
     "$x = New-Object Windows.Data.Xml.Dom.XmlDocument",
-    `$x.LoadXml('${xml}')`,
+    "$x.LoadXml((Get-Content -LiteralPath $xmlPath -Raw))",
     "$t = [Windows.UI.Notifications.ToastNotification]::new($x)",
-    `$t.Tag = '${tag}'`,
-    `$t.Group = '${group}'`,
-    `[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('${APP_USER_MODEL_ID}').Show($t)`,
+    `$t.Tag = ${quotePowerShellString(tag)}`,
+    `$t.Group = ${quotePowerShellString(group)}`,
+    `[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier(${quotePowerShellString(APP_USER_MODEL_ID)}).Show($t)`,
     "[System.Media.SystemSounds]::Asterisk.Play()",
   ].join("; ");
-  execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", showScript], { windowsHide: true, timeout: 8000 }, (err) => {
-    if (err) log.warn("[WorldState] toast error:", normalizeErrorMessage(err));
-  });
+  execFile(
+    "powershell.exe",
+    ["-NoProfile", "-NonInteractive", "-Command", showScript],
+    { windowsHide: true, timeout: 8000 },
+    (err) => {
+      if (err) log.warn("[WorldState] toast error:", normalizeErrorMessage(err));
+      fs.unlink(xmlPath, () => {});
+    },
+  );
 
   // Auto-dismiss: remove the toast from the notification center after the
   // banner display time so it doesn't stick around like a phone call.
   setTimeout(() => {
     const removeScript = [
       "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null",
-      `[Windows.UI.Notifications.ToastNotificationManager]::History.Remove('${tag}', '${group}', '${APP_USER_MODEL_ID}')`,
+      `[Windows.UI.Notifications.ToastNotificationManager]::History.Remove(${quotePowerShellString(tag)}, ${quotePowerShellString(group)}, ${quotePowerShellString(APP_USER_MODEL_ID)})`,
     ].join("; ");
-    execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", removeScript], { windowsHide: true, timeout: 5000 }, () => { /* best-effort */ });
+    execFile(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-Command", removeScript],
+      { windowsHide: true, timeout: 5000 },
+      () => {
+        /* best-effort */
+      },
+    );
   }, TOAST_DISMISS_MS);
 }
 
@@ -283,19 +328,28 @@ function sendDesktopNotification(title: string, body: string): void {
   try {
     if (!canSendNotifications()) return;
     log.log("[WorldState] sending notification:", title, "-", body);
+    if (desktopNotificationSender) {
+      desktopNotificationSender(title, body);
+      return;
+    }
     if (process.platform === "win32") {
       sendWindowsToast(title, body);
       return;
     }
-    const { Notification: ElectronNotification } = require("electron") as { Notification: typeof import("electron").Notification };
+    const ElectronNotification = notificationCtor || getElectronModule().Notification;
+    if (typeof ElectronNotification !== "function") return;
     const notification = new ElectronNotification({ title, body, silent: false });
     _activeNotifications.add(notification);
-    const release = () => { _activeNotifications.delete(notification); };
+    const release = () => {
+      _activeNotifications.delete(notification);
+    };
     notification.on("failed", (_event: unknown, error: string) => {
       log.warn("[WorldState] notification FAILED:", title, error);
       release();
     });
-    notification.on("close", () => { release(); });
+    notification.on("close", () => {
+      release();
+    });
     setTimeout(release, 30_000);
     notification.show();
   } catch (err) {
@@ -338,7 +392,13 @@ function maybeNotifyWorldEvents(state: unknown): void {
   }
 
   // Per-cycle transition notifications (opt-in via cycleAlerts settings)
-  const cycleAlerts = ctx.overlaySettings?.cycleAlerts ?? { earth: false, cetus: false, vallis: false, cambion: false, duviri: false };
+  const cycleAlerts = ctx.overlaySettings?.cycleAlerts ?? {
+    earth: false,
+    cetus: false,
+    vallis: false,
+    cambion: false,
+    duviri: false,
+  };
 
   // --- Transition notifications (fire when cycle actually changes) ---
   if (
@@ -387,14 +447,15 @@ function maybeNotifyWorldEvents(state: unknown): void {
     next.duviriState !== null &&
     prev.duviriState !== next.duviriState
   ) {
-    const label = next.duviriState ? next.duviriState.charAt(0).toUpperCase() + next.duviriState.slice(1) : "Unknown";
+    const label = next.duviriState
+      ? next.duviriState.charAt(0).toUpperCase() + next.duviriState.slice(1)
+      : "Unknown";
     sendDesktopNotification("Duviri Cycle", `${label} mood has begun.`);
   }
 
   // Fissure appearance alerts (opt-in per configured alert rules)
   const fissureAlertRules = ctx.overlaySettings?.fissureAlerts;
   if (Array.isArray(fissureAlertRules) && fissureAlertRules.length > 0) {
-
     const rawFissures = Array.isArray(stateRecord.fissures)
       ? (stateRecord.fissures as unknown[])
       : [];
@@ -417,8 +478,7 @@ function maybeNotifyWorldEvents(state: unknown): void {
       const missionType = typeof fr.missionType === "string" ? fr.missionType : "";
 
       const matches = fissureAlertRules.some((rule) => {
-        const tierOk =
-          rule.tier === "any" || rule.tier.toLowerCase() === tier.toLowerCase();
+        const tierOk = rule.tier === "any" || rule.tier.toLowerCase() === tier.toLowerCase();
         const missionOk =
           rule.missionType === "any" ||
           rule.missionType.toLowerCase() === missionType.toLowerCase();
@@ -427,7 +487,8 @@ function maybeNotifyWorldEvents(state: unknown): void {
           (rule.steelPath === "steel" && isHard) ||
           (rule.steelPath === "normal" && !isHard);
         const planetOk =
-          !rule.planet || rule.planet === "any" ||
+          !rule.planet ||
+          rule.planet === "any" ||
           node.toLowerCase().includes(`(${rule.planet.toLowerCase()})`);
         return tierOk && missionOk && spOk && planetOk;
       });
@@ -435,10 +496,7 @@ function maybeNotifyWorldEvents(state: unknown): void {
       if (matches) {
         const spLabel = isHard ? " (Steel Path)" : "";
         const nodeLabel = node || "Unknown Node";
-        sendDesktopNotification(
-          "Fissure Alert",
-          `${tier} ${missionType}${spLabel} — ${nodeLabel}`,
-        );
+        sendDesktopNotification("Fissure Alert", `${tier} ${missionType}${spLabel} — ${nodeLabel}`);
       }
     }
   }
@@ -452,7 +510,13 @@ function maybeNotifyWorldEvents(state: unknown): void {
 function checkPreCycleNotifications(state: unknown): void {
   if (!canSendNotifications()) return;
 
-  const cycleAlerts = ctx.overlaySettings?.cycleAlerts ?? { earth: false, cetus: false, vallis: false, cambion: false, duviri: false };
+  const cycleAlerts = ctx.overlaySettings?.cycleAlerts ?? {
+    earth: false,
+    cetus: false,
+    vallis: false,
+    cambion: false,
+    duviri: false,
+  };
   const leadMinutes = ctx.overlaySettings?.cycleAlertMinutesBefore ?? 3;
   if (leadMinutes <= 0) return;
 
@@ -461,13 +525,41 @@ function checkPreCycleNotifications(state: unknown): void {
 
   const snap = _worldNotificationSnapshot ?? buildNotificationSnapshot(state);
 
-  const upcomingCycles: { key: string; enabled: boolean; expiry: string | null; label: string }[] = [
-    { key: "earth", enabled: !!cycleAlerts.earth, expiry: snap.earthExpiry, label: snap.earthIsDay ? "Night" : "Day" },
-    { key: "cetus", enabled: !!cycleAlerts.cetus, expiry: snap.cetusExpiry, label: snap.cetusIsDay ? "Night" : "Day" },
-    { key: "vallis", enabled: !!cycleAlerts.vallis, expiry: snap.vallisExpiry, label: snap.vallisIsWarm ? "Cold" : "Warm" },
-    { key: "cambion", enabled: !!cycleAlerts.cambion, expiry: snap.cambionExpiry, label: snap.cambionActive === "fass" ? "VOME" : "FASS" },
-    { key: "duviri", enabled: !!cycleAlerts.duviri, expiry: snap.duviriExpiry, label: snap.duviriState ? snap.duviriState.charAt(0).toUpperCase() + snap.duviriState.slice(1) : "Unknown" },
-  ];
+  const upcomingCycles: { key: string; enabled: boolean; expiry: string | null; label: string }[] =
+    [
+      {
+        key: "earth",
+        enabled: !!cycleAlerts.earth,
+        expiry: snap.earthExpiry,
+        label: snap.earthIsDay ? "Night" : "Day",
+      },
+      {
+        key: "cetus",
+        enabled: !!cycleAlerts.cetus,
+        expiry: snap.cetusExpiry,
+        label: snap.cetusIsDay ? "Night" : "Day",
+      },
+      {
+        key: "vallis",
+        enabled: !!cycleAlerts.vallis,
+        expiry: snap.vallisExpiry,
+        label: snap.vallisIsWarm ? "Cold" : "Warm",
+      },
+      {
+        key: "cambion",
+        enabled: !!cycleAlerts.cambion,
+        expiry: snap.cambionExpiry,
+        label: snap.cambionActive === "fass" ? "VOME" : "FASS",
+      },
+      {
+        key: "duviri",
+        enabled: !!cycleAlerts.duviri,
+        expiry: snap.duviriExpiry,
+        label: snap.duviriState
+          ? snap.duviriState.charAt(0).toUpperCase() + snap.duviriState.slice(1)
+          : "Unknown",
+      },
+    ];
 
   for (const c of upcomingCycles) {
     if (!c.enabled || !c.expiry) continue;
@@ -512,6 +604,17 @@ function resetForTest(): void {
   _worldNotificationSnapshot = null;
   _cyclePreNotified.clear();
   notificationCtor = electronModule.Notification;
+  desktopNotificationSender = null;
+}
+
+function setDesktopNotificationSenderForTest(
+  sender: ((title: string, body: string) => void) | null,
+): void {
+  desktopNotificationSender = sender;
+}
+
+function expireWorldStateCacheForTest(): void {
+  _worldStateCacheTime = 0;
 }
 
 function register(
@@ -593,12 +696,16 @@ function register(
       _worldStateCacheTime = Date.now();
       maybeNotifyWorldEvents(fresh);
       checkPreCycleNotifications(fresh);
-    } catch { /* logged at fetch layer */ }
+    } catch {
+      /* logged at fetch layer */
+    }
   }, 60_000);
 }
 
 const __test__ = {
   reset: resetForTest,
+  setDesktopNotificationSender: setDesktopNotificationSenderForTest,
+  expireCache: expireWorldStateCacheForTest,
 };
 
 export { register, __test__ };

@@ -72,8 +72,17 @@ function migrateAndNormalize(raw: Record<string, unknown>): ThemeSettings {
   };
 }
 
-function asString(value: unknown, fallback: string): string {
-  return typeof value === "string" && value.length > 0 ? value : fallback;
+const SAFE_COLOR_FUNCTION_RE = /^(?:rgb|rgba|hsl|hsla|oklch)\(\s*[-+0-9.%\s,/]+\)$/i;
+const SAFE_HEX_COLOR_RE = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+
+function asColorString(value: unknown, fallback: string): string {
+  if (typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 96 || /[;{}]/.test(trimmed)) return fallback;
+  if (SAFE_HEX_COLOR_RE.test(trimmed) || SAFE_COLOR_FUNCTION_RE.test(trimmed)) {
+    return trimmed;
+  }
+  return fallback;
 }
 
 function asNumber(value: unknown, fallback: number, min: number, max: number): number {
@@ -91,30 +100,30 @@ function asOptionalNumber(value: unknown, min: number, max: number): number | un
 
 function normalizeColors(rawColors: Record<string, unknown>): ThemeColors {
   return {
-    bgDeep: asString(rawColors.bgDeep, DEFAULT_COLORS.bgDeep),
-    bgBase: asString(rawColors.bgBase, DEFAULT_COLORS.bgBase),
-    bgSurface: asString(rawColors.bgSurface, DEFAULT_COLORS.bgSurface),
-    bgRaised: asString(rawColors.bgRaised, DEFAULT_COLORS.bgRaised),
-    bgHover: asString(rawColors.bgHover, DEFAULT_COLORS.bgHover),
-    accent: asString(rawColors.accent, DEFAULT_COLORS.accent),
-    accentDim: asString(rawColors.accentDim, DEFAULT_COLORS.accentDim),
-    accentBright: asString(rawColors.accentBright, DEFAULT_COLORS.accentBright),
-    textPrimary: asString(rawColors.textPrimary, DEFAULT_COLORS.textPrimary),
-    textSecondary: asString(rawColors.textSecondary, DEFAULT_COLORS.textSecondary),
-    textMuted: asString(rawColors.textMuted, DEFAULT_COLORS.textMuted),
-    success: asString(rawColors.success, DEFAULT_COLORS.success),
-    warning: asString(rawColors.warning, DEFAULT_COLORS.warning),
-    danger: asString(rawColors.danger, DEFAULT_COLORS.danger),
-    info: asString(rawColors.info, DEFAULT_COLORS.info),
-    border: asString(rawColors.border, DEFAULT_COLORS.border),
-    borderStrong: asString(rawColors.borderStrong, DEFAULT_COLORS.borderStrong),
-    gradeS: asString(rawColors.gradeS, DEFAULT_COLORS.gradeS),
-    gradeA: asString(rawColors.gradeA, DEFAULT_COLORS.gradeA),
-    gradeB: asString(rawColors.gradeB, DEFAULT_COLORS.gradeB),
-    gradeC: asString(rawColors.gradeC, DEFAULT_COLORS.gradeC),
-    gradeD: asString(rawColors.gradeD, DEFAULT_COLORS.gradeD),
-    gradeF: asString(rawColors.gradeF, DEFAULT_COLORS.gradeF),
-    gradeDefault: asString(rawColors.gradeDefault, DEFAULT_COLORS.gradeDefault),
+    bgDeep: asColorString(rawColors.bgDeep, DEFAULT_COLORS.bgDeep),
+    bgBase: asColorString(rawColors.bgBase, DEFAULT_COLORS.bgBase),
+    bgSurface: asColorString(rawColors.bgSurface, DEFAULT_COLORS.bgSurface),
+    bgRaised: asColorString(rawColors.bgRaised, DEFAULT_COLORS.bgRaised),
+    bgHover: asColorString(rawColors.bgHover, DEFAULT_COLORS.bgHover),
+    accent: asColorString(rawColors.accent, DEFAULT_COLORS.accent),
+    accentDim: asColorString(rawColors.accentDim, DEFAULT_COLORS.accentDim),
+    accentBright: asColorString(rawColors.accentBright, DEFAULT_COLORS.accentBright),
+    textPrimary: asColorString(rawColors.textPrimary, DEFAULT_COLORS.textPrimary),
+    textSecondary: asColorString(rawColors.textSecondary, DEFAULT_COLORS.textSecondary),
+    textMuted: asColorString(rawColors.textMuted, DEFAULT_COLORS.textMuted),
+    success: asColorString(rawColors.success, DEFAULT_COLORS.success),
+    warning: asColorString(rawColors.warning, DEFAULT_COLORS.warning),
+    danger: asColorString(rawColors.danger, DEFAULT_COLORS.danger),
+    info: asColorString(rawColors.info, DEFAULT_COLORS.info),
+    border: asColorString(rawColors.border, DEFAULT_COLORS.border),
+    borderStrong: asColorString(rawColors.borderStrong, DEFAULT_COLORS.borderStrong),
+    gradeS: asColorString(rawColors.gradeS, DEFAULT_COLORS.gradeS),
+    gradeA: asColorString(rawColors.gradeA, DEFAULT_COLORS.gradeA),
+    gradeB: asColorString(rawColors.gradeB, DEFAULT_COLORS.gradeB),
+    gradeC: asColorString(rawColors.gradeC, DEFAULT_COLORS.gradeC),
+    gradeD: asColorString(rawColors.gradeD, DEFAULT_COLORS.gradeD),
+    gradeF: asColorString(rawColors.gradeF, DEFAULT_COLORS.gradeF),
+    gradeDefault: asColorString(rawColors.gradeDefault, DEFAULT_COLORS.gradeDefault),
   };
 }
 

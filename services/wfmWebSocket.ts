@@ -1,7 +1,12 @@
 import tls from "node:tls";
 import crypto from "node:crypto";
 import { withScope } from "./logger";
-import { encodeWfmWsFrame, generateWfmWsId, parseWfmWsFrame } from "./wfmWsProtocol";
+import {
+  MAX_WFM_WS_FRAME_BYTES,
+  encodeWfmWsFrame,
+  generateWfmWsId,
+  parseWfmWsFrame,
+} from "./wfmWsProtocol";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import type { WfmStatus } from "../config/shared/wfm";
 
@@ -30,6 +35,7 @@ const WS_PATH = "/socket";
 const WS_PROTOCOL = "wfm";
 const WS_TIMEOUT = 15000;
 const WS_ACCEPT_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+const MAX_WFM_WS_BUFFER_BYTES = 4 * MAX_WFM_WS_FRAME_BYTES;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -40,10 +46,7 @@ const WS_ACCEPT_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
  * @param status
  * @returns Resolves when status is confirmed set by server
  */
-export function setStatusViaWebSocket(
-  token: string,
-  status: WfmStatus,
-): Promise<void> {
+export function setStatusViaWebSocket(token: string, status: WfmStatus): Promise<void> {
   return new Promise((resolve, reject) => {
     let settled = false;
     let upgraded = false;
@@ -141,51 +144,63 @@ export function setStatusViaWebSocket(
         upgraded = true;
         wsBuf = Buffer.from(httpAccum.slice(hdrEnd + 4), "binary");
         httpAccum = "";
+        if (wsBuf.length > MAX_WFM_WS_BUFFER_BYTES) {
+          done(new Error("WS buffer exceeded maximum size during upgrade"));
+          return;
+        }
 
         sendWs({ route: "@wfm|cmd/auth/signIn", payload: { token }, id: generateWfmWsId() });
       } else {
         wsBuf = Buffer.concat([wsBuf, chunk]);
+        if (wsBuf.length > MAX_WFM_WS_BUFFER_BYTES) {
+          done(new Error("WS buffer exceeded maximum size"));
+          return;
+        }
       }
 
-      for (;;) {
-        const frame = parseWfmWsFrame(wsBuf);
-        if (!frame) break;
-        wsBuf = frame.rest;
+      try {
+        for (;;) {
+          const frame = parseWfmWsFrame(wsBuf);
+          if (!frame) break;
+          wsBuf = frame.rest;
 
-        const { opcode, text } = frame;
+          const { opcode, text } = frame;
 
-        if (opcode === 8) {
-          done(statusOk ? null : new Error("Server closed WS before status was set"));
-          return;
+          if (opcode === 8) {
+            done(statusOk ? null : new Error("Server closed WS before status was set"));
+            return;
+          }
+          if (opcode === 9) {
+            socket.write(Buffer.from([0x8a, 0x80, 0x00, 0x00, 0x00, 0x00]));
+            continue;
+          }
+          if (opcode !== 1) continue;
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped WFM websocket message
+          let msg: any;
+          try {
+            msg = JSON.parse(text);
+          } catch {
+            continue;
+          }
+
+          const route: string = msg.route || "";
+          log.log("[WFMWebSocket] ←", route);
+
+          if (route.endsWith(":error")) {
+            done(new Error(`WFM WS error: ${route} — ${JSON.stringify(msg.payload)}`));
+            return;
+          }
+
+          if (route.includes("auth/signIn:ok")) {
+            sendWs({ route: "@wfm|cmd/status/set", payload: { status }, id: generateWfmWsId() });
+          } else if (route.includes("status/set:ok")) {
+            statusOk = true;
+            socket.write(Buffer.from([0x88, 0x80, 0x00, 0x00, 0x00, 0x00]));
+          }
         }
-        if (opcode === 9) {
-          socket.write(Buffer.from([0x8a, 0x80, 0x00, 0x00, 0x00, 0x00]));
-          continue;
-        }
-        if (opcode !== 1) continue;
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped WFM websocket message
-        let msg: any;
-        try {
-          msg = JSON.parse(text);
-        } catch {
-          continue;
-        }
-
-        const route: string = msg.route || "";
-        log.log("[WFMWebSocket] ←", route);
-
-        if (route.endsWith(":error")) {
-          done(new Error(`WFM WS error: ${route} — ${JSON.stringify(msg.payload)}`));
-          return;
-        }
-
-        if (route.includes("auth/signIn:ok")) {
-          sendWs({ route: "@wfm|cmd/status/set", payload: { status }, id: generateWfmWsId() });
-        } else if (route.includes("status/set:ok")) {
-          statusOk = true;
-          socket.write(Buffer.from([0x88, 0x80, 0x00, 0x00, 0x00, 0x00]));
-        }
+      } catch (err) {
+        done(err instanceof Error ? err : new Error(String(err)));
       }
     });
 

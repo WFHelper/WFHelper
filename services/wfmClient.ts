@@ -143,7 +143,7 @@ async function _ensureCsrfToken(): Promise<string | null> {
         _csrfToken = payload.csrf_token;
         log.log("[WFMClient] CSRF token acquired from JWT payload");
       } else {
-        log.warn("[WFMClient] JWT payload has no csrf_token:", JSON.stringify(payload));
+        log.warn("[WFMClient] JWT payload has no csrf_token");
       }
     } else {
       log.warn("[WFMClient] No JWT cookie in set-cookie:", sc.slice(0, 300));
@@ -418,10 +418,9 @@ export function requestRaw(
 
     if (!res.ok) {
       let detail = `HTTP ${res.status}`;
-      /* eslint-disable @typescript-eslint/no-explicit-any -- untyped WFM error response */
-      let rawBody: Record<string, any> | null = null;
       try {
-        rawBody = (await res.json()) as Record<string, any>;
+        /* eslint-disable @typescript-eslint/no-explicit-any -- untyped WFM error response */
+        const rawBody = (await res.json()) as Record<string, any>;
         /* eslint-enable @typescript-eslint/no-explicit-any */
         if (typeof rawBody?.error === "string") {
           detail = rawBody.error;
@@ -436,7 +435,7 @@ export function requestRaw(
       } catch {
         /* ignore parse error */
       }
-      log.error(`[WFMClient] sign-in ${res.status} body:`, JSON.stringify(rawBody));
+      log.error(`[WFMClient] sign-in failed: status=${res.status}, detail=${detail}`);
       throw new WfmApiError(
         `WFM sign-in error: ${detail}`,
         res.status === 401 ? "WFM_UNAUTHORIZED" : "WFM_API_ERROR",
