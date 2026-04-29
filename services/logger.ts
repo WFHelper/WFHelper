@@ -13,7 +13,7 @@ export interface ScopedLogger {
 }
 
 const level: string = process.env.LOG_LEVEL || "info";
-const resetLogOnStart: boolean = String(process.env.LOG_RESET_ON_START ?? "1") !== "0";
+const resetLogOnStart: boolean = String(process.env.LOG_RESET_ON_START ?? "0") !== "0";
 
 function resetLogFileOnAppStart(): void {
   if (!resetLogOnStart) return;

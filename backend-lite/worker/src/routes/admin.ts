@@ -40,14 +40,19 @@ function parseHotsetEntries(value: unknown): Array<{ slug: string; maxRank: numb
 		.filter((entry): entry is { slug: string; maxRank: number; lastSeenAt: number } => entry != null);
 }
 
+async function guardAdmin(req: Request, env: Env): Promise<Response | null> {
+	const rateLimited = await checkAdminRateLimit(req, env);
+	if (rateLimited) return rateLimited;
+	if (!isAdminAuthorized(req, env)) {
+		return jsonResponse({ ok: false, error: 'unauthorized' }, req, env, 401);
+	}
+	return null;
+}
+
 export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promise<Response | null> {
 	if (req.method === 'POST' && url.pathname === '/admin/prewarm') {
-		if (!isAdminAuthorized(req, env)) {
-			return jsonResponse({ ok: false, error: 'unauthorized' }, req, env, 401);
-		}
-
-		const rateLimited = await checkAdminRateLimit(req, env);
-		if (rateLimited) return rateLimited;
+		const guardResponse = await guardAdmin(req, env);
+		if (guardResponse) return guardResponse;
 
 		const body = parseJsonBody(await req.text());
 		const result = await prewarmBatch(env, {
@@ -61,21 +66,16 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 	}
 
 	if (req.method === 'GET' && url.pathname === '/admin/prewarm/status') {
-		if (!isAdminAuthorized(req, env)) {
-			return jsonResponse({ ok: false, error: 'unauthorized' }, req, env, 401);
-		}
+		const guardResponse = await guardAdmin(req, env);
+		if (guardResponse) return guardResponse;
 
 		const result = await getJsonFromKv(env.PRICE_CACHE, PREWARM_LAST_RUN_KEY);
 		return jsonResponse({ ok: true, result }, req, env, 200);
 	}
 
 	if (req.method === 'POST' && url.pathname === '/admin/order-summary-hotset') {
-		if (!isAdminAuthorized(req, env)) {
-			return jsonResponse({ ok: false, error: 'unauthorized' }, req, env, 401);
-		}
-
-		const rateLimited = await checkAdminRateLimit(req, env);
-		if (rateLimited) return rateLimited;
+		const guardResponse = await guardAdmin(req, env);
+		if (guardResponse) return guardResponse;
 
 		const body = parseJsonBody(await req.text());
 		const nextEntries = parseHotsetEntries(body.entries);
@@ -87,18 +87,16 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 	}
 
 	if (req.method === 'GET' && url.pathname === '/admin/order-summary-hotset') {
-		if (!isAdminAuthorized(req, env)) {
-			return jsonResponse({ ok: false, error: 'unauthorized' }, req, env, 401);
-		}
+		const guardResponse = await guardAdmin(req, env);
+		if (guardResponse) return guardResponse;
 
 		const hotset = await getJsonFromKv(env.PRICE_CACHE, ORDER_SUMMARY_HOTSET_KEY);
 		return jsonResponse({ ok: true, result: hotset }, req, env, 200);
 	}
 
 	if (req.method === 'GET' && url.pathname === '/admin/order-summary-catalog') {
-		if (!isAdminAuthorized(req, env)) {
-			return jsonResponse({ ok: false, error: 'unauthorized' }, req, env, 401);
-		}
+		const guardResponse = await guardAdmin(req, env);
+		if (guardResponse) return guardResponse;
 
 		const refreshCatalog = url.searchParams.get('refresh') === '1';
 		const entries = await fetchRankedSummaryCatalog(env, refreshCatalog);
@@ -112,12 +110,8 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 	}
 
 	if (req.method === 'POST' && url.pathname === '/admin/prewarm/order-summaries') {
-		if (!isAdminAuthorized(req, env)) {
-			return jsonResponse({ ok: false, error: 'unauthorized' }, req, env, 401);
-		}
-
-		const rateLimited = await checkAdminRateLimit(req, env);
-		if (rateLimited) return rateLimited;
+		const guardResponse = await guardAdmin(req, env);
+		if (guardResponse) return guardResponse;
 
 		const body = parseJsonBody(await req.text());
 		const source = body.source === 'hotset' ? 'hotset' : 'catalog';
@@ -141,9 +135,8 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 	}
 
 	if (req.method === 'GET' && url.pathname === '/admin/prewarm/order-summaries/status') {
-		if (!isAdminAuthorized(req, env)) {
-			return jsonResponse({ ok: false, error: 'unauthorized' }, req, env, 401);
-		}
+		const guardResponse = await guardAdmin(req, env);
+		if (guardResponse) return guardResponse;
 
 		const source = url.searchParams.get('source') === 'hotset' ? 'hotset' : 'catalog';
 		const result =
@@ -154,9 +147,8 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 	}
 
 	if (req.method === 'GET' && url.pathname === '/admin/snapshot/status') {
-		if (!isAdminAuthorized(req, env)) {
-			return jsonResponse({ ok: false, error: 'unauthorized' }, req, env, 401);
-		}
+		const guardResponse = await guardAdmin(req, env);
+		if (guardResponse) return guardResponse;
 
 		const lastGenRaw = await env.PRICE_CACHE.get(SNAPSHOT_LAST_GEN_KEY);
 		const generatedAt = lastGenRaw ? parseInt(lastGenRaw, 10) : null;

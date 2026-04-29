@@ -1,5 +1,6 @@
 import { toFiniteNumber } from "../../../config/shared/numeric.js";
 import { BACKEND_BOOTSTRAP_FAILURE_COOLDOWN_MS } from "../../../config/runtime/cacheConfig.js";
+import { BACKEND_URL } from "../../../config/shared/backendConfig.js";
 import { normalizeWfmSlug as _normalizeWfmSlug } from "../../../config/shared/wfm.js";
 import type { RequestPriority } from "./wfmPrice.js";
 
@@ -10,7 +11,7 @@ export type BackendRequestPriority = RequestPriority;
 
 type FallbackMode = "always" | "high" | "never";
 
-const RAW_BACKEND_URL = (import.meta.env.VITE_WFM_BACKEND_URL || "").trim();
+const RAW_BACKEND_URL = (import.meta.env.VITE_WFM_BACKEND_URL || BACKEND_URL).trim();
 const BACKEND_BASE_URL = RAW_BACKEND_URL.replace(/\/+$/, "");
 const REQUEST_TIMEOUT_MS = 3500;
 

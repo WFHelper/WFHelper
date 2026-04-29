@@ -113,6 +113,8 @@
       "node_modules/**/*",
       "!node_modules/**/{test,tests,__tests__,example,examples,docs,doc}/**",
       "!node_modules/**/*.map",
+      "!renderer/dist/**/*.map",
+      "!renderer/dist/**/*.js.map",
       "!node_modules/**/*.md",
       "!node_modules/**/electron/**",
       "!node_modules/**/electron-builder/**",

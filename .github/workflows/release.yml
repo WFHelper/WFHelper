@@ -9,7 +9,11 @@ permissions:
   contents: write
 
 jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   release-windows:
+    needs: ci
     runs-on: windows-latest
 
     steps:
@@ -25,16 +29,24 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Test
-        run: npm run test
+      - name: Validate release secrets
+        shell: pwsh
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          $missing = @()
+          if (-not $env:CSC_LINK) { $missing += "CSC_LINK" }
+          if (-not $env:CSC_KEY_PASSWORD) { $missing += "CSC_KEY_PASSWORD" }
+          if (-not $env:GH_TOKEN) { $missing += "GH_TOKEN" }
+          if ($missing.Count -gt 0) {
+            throw "Missing required release secret(s): $($missing -join ', ')"
+          }
 
       - name: Build and publish Windows installer
         run: npm run dist:win:publish
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}

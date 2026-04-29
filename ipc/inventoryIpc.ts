@@ -1,10 +1,13 @@
 import ctx from "./context";
 import { assertMainRendererSender, handleAuthorized } from "./ipcSecurity";
-import { unwrapInventoryPayload } from "../config/shared/inventoryPayload";
+import { hasInventoryShape, unwrapInventoryPayload } from "../config/shared/inventoryPayload";
 import { withScope } from "../services/logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import {
-  INVENTORY_GET, INVENTORY_OPEN_FILE, INVENTORY_GET_STATUS, INVENTORY_UPDATED,
+  INVENTORY_GET,
+  INVENTORY_OPEN_FILE,
+  INVENTORY_GET_STATUS,
+  INVENTORY_UPDATED,
 } from "../config/shared/ipcChannels";
 import { dialog, app } from "electron";
 import path from "node:path";
@@ -13,6 +16,8 @@ import chokidar from "chokidar";
 import crypto from "node:crypto";
 
 const log = withScope("inventoryIpc");
+
+const HELPER_INVENTORY_DIRECTORIES = [path.join(app.getPath("userData"), "api-helper")];
 
 const USER_INVENTORY_DIRECTORIES = [
   app.getPath("downloads"),
@@ -31,6 +36,7 @@ const INVENTORY_FILENAME_RE = /^inventory(?:_[^\\/:*?"<>|]+)?\.json$/i;
 
 const INVENTORY_WATCH_STABILITY_MS = 500;
 const MIN_RELOAD_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+const MAX_INVENTORY_BYTES = 50 * 1024 * 1024;
 const JSON_ENCODING = "utf-8";
 
 let _lastInventoryHash: string | null = null;
@@ -114,6 +120,10 @@ function newestExistingInventoryPath(paths: string[]): string | null {
     try {
       const stats = fs.statSync(filePath);
       if (!stats.isFile()) continue;
+      if (stats.size > MAX_INVENTORY_BYTES) {
+        log.warn(`Ignoring inventory candidate over 50 MB: ${filePath}`);
+        continue;
+      }
       if (stats.mtimeMs > bestMtimeMs) {
         bestMtimeMs = stats.mtimeMs;
         bestPath = filePath;
@@ -151,6 +161,11 @@ function collectInventoryCandidates(directories: string[]): string[] {
 }
 
 function findInventoryFile(): string | null {
+  const helperCandidate = newestExistingInventoryPath(
+    collectInventoryCandidates(HELPER_INVENTORY_DIRECTORIES),
+  );
+  if (helperCandidate) return helperCandidate;
+
   const userCandidate = newestExistingInventoryPath(
     collectInventoryCandidates(USER_INVENTORY_DIRECTORIES),
   );
@@ -168,16 +183,47 @@ function findInventoryFile(): string | null {
   return devCandidate;
 }
 
-function readInventory(filePath: string): unknown {
-  let raw: string;
+function readInventoryRaw(filePath: string): string | null {
   try {
-    raw = fs.readFileSync(filePath, JSON_ENCODING);
+    const stats = fs.statSync(filePath);
+    if (!stats.isFile()) {
+      _lastReadError = {
+        kind: "read",
+        message: "Inventory path is not a file",
+        path: filePath,
+        at: Date.now(),
+      };
+      return null;
+    }
+    if (stats.size > MAX_INVENTORY_BYTES) {
+      const message = `Inventory file exceeds ${MAX_INVENTORY_BYTES} byte limit`;
+      log.warn(`Refusing inventory at ${filePath}: ${message}`);
+      _lastReadError = { kind: "read", message, path: filePath, at: Date.now() };
+      return null;
+    }
+    return fs.readFileSync(filePath, JSON_ENCODING);
   } catch (err) {
     const message = normalizeErrorMessage(err);
     log.error(`Failed to read inventory at ${filePath}:`, message);
     _lastReadError = { kind: "read", message, path: filePath, at: Date.now() };
     return null;
   }
+}
+
+function parseInventoryRaw(raw: string): unknown {
+  const data = unwrapInventoryPayload(JSON.parse(raw), {
+    onParseError: (err: unknown) =>
+      log.warn("Failed to parse nested inventory payload string:", normalizeErrorMessage(err)),
+  });
+  if (!hasInventoryShape(data)) {
+    throw new Error("Inventory JSON does not contain expected inventory arrays");
+  }
+  return data;
+}
+
+function readInventory(filePath: string): unknown {
+  const raw = readInventoryRaw(filePath);
+  if (raw == null) return null;
 
   let data: unknown;
   try {
@@ -187,10 +233,7 @@ function readInventory(filePath: string): unknown {
     const contentUnchanged = hash === _lastInventoryHash;
 
     // Always parse so ctx.currentInventoryData is populated for the UI
-    data = unwrapInventoryPayload(JSON.parse(raw), {
-      onParseError: (err: unknown) =>
-        log.warn("Failed to parse nested inventory payload string:", normalizeErrorMessage(err)),
-    });
+    data = parseInventoryRaw(raw);
     ctx.currentInventoryData = data as Record<string, unknown> | null;
     _lastReadError = null;
 
@@ -231,15 +274,8 @@ function watchInventoryFile(filePath: string): void {
       return;
     }
 
-    let raw: string;
-    try {
-      raw = fs.readFileSync(filePath, JSON_ENCODING);
-    } catch (err) {
-      const message = normalizeErrorMessage(err);
-      log.error("Failed to read inventory file:", message);
-      _lastReadError = { kind: "read", message, path: filePath, at: Date.now() };
-      return;
-    }
+    const raw = readInventoryRaw(filePath);
+    if (raw == null) return;
 
     const hash = crypto.createHash("sha256").update(raw).digest("hex");
     if (hash === _lastInventoryHash) {
@@ -253,10 +289,7 @@ function watchInventoryFile(filePath: string): void {
     log.log("Inventory file changed, reloading...");
 
     try {
-      const data = unwrapInventoryPayload(JSON.parse(raw), {
-        onParseError: (err: unknown) =>
-          log.warn("Failed to parse nested inventory payload string:", normalizeErrorMessage(err)),
-      });
+      const data = parseInventoryRaw(raw);
       ctx.currentInventoryData = data as Record<string, unknown> | null;
       _lastReadError = null;
       _notifyListenersOncePerProcessHash(hash, data);

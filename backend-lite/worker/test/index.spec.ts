@@ -181,16 +181,15 @@ describe('backend-lite worker', () => {
 		await waitOnExecutionContext(ctxB);
 		await waitOnExecutionContext(ctxC);
 
-		// Auth must be checked before rate limit so anonymous floods can't burn KV
-		// writes or lock out operators. First two authed calls succeed (202),
-		// third one is rejected by the rate limiter.
+		// The first two authed calls succeed (202), then the shared admin bucket
+		// rejects the third request.
 		expect(first.status).toBe(202);
 		expect(second.status).toBe(202);
 		expect(third.status).toBe(429);
 		expect(await third.json()).toEqual({ ok: false, error: 'rate_limited' });
 	});
 
-	it('rejects unauthenticated admin requests before rate limit', async () => {
+	it('rate limits repeated unauthenticated admin requests', async () => {
 		const testEnv = {
 			...env,
 			ADMIN_API_KEY: 'test-key',
@@ -208,16 +207,20 @@ describe('backend-lite worker', () => {
 				body: JSON.stringify({ batchSize: 1 }),
 			});
 
-		// Five unauthenticated requests in a row — all must return 401, never 429.
-		// Rate limit threshold is 2, so if auth were checked second we'd see 429
-		// on the third request. The point of this test is to prove that does not
-		// happen: anonymous floods don't consume rate-limit slots.
-		for (let i = 0; i < 5; i += 1) {
+		// The shared admin bucket is consumed before auth, so repeated failed
+		// bearer attempts are rate-limited instead of getting unlimited 401s.
+		for (let i = 0; i < 2; i += 1) {
 			const ctx = createExecutionContext();
 			const res = await worker.fetch(makeRequest(), testEnv as unknown as Env, ctx);
 			await waitOnExecutionContext(ctx);
 			expect(res.status).toBe(401);
 		}
+
+		const ctx = createExecutionContext();
+		const res = await worker.fetch(makeRequest(), testEnv as unknown as Env, ctx);
+		await waitOnExecutionContext(ctx);
+		expect(res.status).toBe(429);
+		expect(await res.json()).toEqual({ ok: false, error: 'rate_limited' });
 	});
 
 	it('rate limits repeated public health requests from same IP', async () => {
