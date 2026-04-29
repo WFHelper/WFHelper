@@ -3,15 +3,27 @@
   import { worldData, worldLoading, worldLastFetch, worldFissureMode } from "../stores/world.js";
   import { inventoryData, itemDb, componentOwnership, wfmItems } from "../stores/data.js";
   import {
-    parseIsoDate, timeTo, timeToStrict, cycleTimeDisplay,
-    nextDailyResetUtc, nextWeeklyResetUtc,
-  } from "../lib/format.js";
-  import { PLANET_ICON_PATHS, RELIC_ICON_PATHS, fissureTierClass, buildFeaturedPrimes, buildBaroOwnedSet, resolveCircuitChoices } from "../lib/world.js";
+    activeWindow,
+    buildBountyGroups,
+    buildBountyTimers,
+    buildCycleRows,
+    buildFissureRows,
+    buildWorldTimes,
+    buildResetUrgency,
+    COARSE_CLOCK_MS,
+    FISSURE_MODE_OPTIONS,
+    loadCollapsedSections,
+    toggleCollapsedSection,
+    WORLD_POLL_MS,
+    WORLD_REFRESH_MS,
+  } from "../lib/world/useWorldView.js";
+  import { parseIsoDate } from "../lib/format.js";
+  import { RELIC_ICON_PATHS, buildFeaturedPrimes, buildBaroOwnedSet, resolveCircuitChoices } from "../lib/world.js";
   import { invoke, on } from "../lib/ipc.js";
   import { addToast } from "../stores/toasts.js";
   import { overlaySettings, overlaySettingsLoaded, applyOverlaySettingsResponse } from "../stores/overlaySettings.js";
   import { activeItem } from "../stores/modals.js";
-  import type { Invasion, SyndicateBounty, SteelPathHonors } from "../types/world.js";
+  import type { SteelPathHonors } from "../types/world.js";
   import FissureAlerts from "../components/settings/FissureAlerts.svelte";
   import CollapsibleSection from "../components/CollapsibleSection.svelte";
   import InvasionItem from "../components/world/InvasionItem.svelte";
@@ -23,41 +35,16 @@
   import { getBountyRewards, resolveRewardIcon, resolveRewardUniqueName } from "../lib/bountyRewards.js";
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
 
-  const WORLD_REFRESH_MS = 120_000;
-  const WORLD_POLL_MS = 30_000;
-  const FISSURE_EXPIRY_GUARD_MS = 1_500;
-  const FISSURE_TIER_ORDER: Record<string, number> = { lith: 0, meso: 1, neo: 2, axi: 3, requiem: 4, omnia: 5 };
-  type FissureMode = "normal" | "steel";
-  const FISSURE_MODE_OPTIONS: Array<{ value: FissureMode; label: string }> = [
-    { value: "normal", label: "Normal" },
-    { value: "steel", label: "Steel Path" },
-  ];
-
   // Collapse state per section — persisted to localStorage
-  const COLLAPSE_KEY = "world-collapsed-sections";
-  function loadCollapsed(): Record<string, boolean> {
-    try {
-      const raw = localStorage.getItem(COLLAPSE_KEY);
-      return raw ? JSON.parse(raw) : {};
-    } catch { return {}; }
-  }
-  let collapsed: Record<string, boolean> = loadCollapsed();
+  let collapsed: Record<string, boolean> = loadCollapsedSections();
   function toggleSection(key: string) {
-    collapsed[key] = !collapsed[key];
-    collapsed = collapsed; // trigger reactivity
-    // Only persist section-level toggle, not per-bounty reward expansion
-    const toSave: Record<string, boolean> = {};
-    for (const [k, v] of Object.entries(collapsed)) {
-      if (!/^bounty-.+-\d+$/.test(k)) toSave[k] = v;
-    }
-    try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(toSave)); } catch { /* best effort */ }
+    collapsed = toggleCollapsedSection(collapsed, key);
   }
 
   // Two clocks: nowMs (1 s) drives display countdown labels; nowCoarseMs (5 s)
   // drives urgency flags and active-window booleans, which flip once per
   // hours/days and don't need second-level precision. Splitting these roughly
   // halves the per-second reactive re-fire count on this view.
-  const COARSE_CLOCK_MS = 5_000;
   let nowMs = Date.now();
   let nowCoarseMs = Date.now();
   let clockInterval: ReturnType<typeof setInterval> | null = null;
@@ -163,18 +150,6 @@
   // Urgency threshold: remaining < 20% of total duration → urgent.
   // Callers pass `clock` (typically nowCoarseMs) so urgency flags don't
   // re-evaluate on every 1 s tick.
-  const URGENCY_RATIO = 0.20;
-  function isUrgent(expiryIso: string | null | undefined, activationIso: string | null | undefined, fallbackTotalMs?: number, clock?: number): boolean {
-    const exp = parseIsoDate(expiryIso ?? null);
-    if (!exp) return false;
-    const ref = clock ?? nowCoarseMs;
-    const remainMs = exp.getTime() - ref;
-    if (remainMs <= 0) return false;
-    const act = parseIsoDate(activationIso ?? null);
-    const totalMs = act ? exp.getTime() - act.getTime() : (fallbackTotalMs ?? 0);
-    if (totalMs <= 0) return false;
-    return remainMs / totalMs < URGENCY_RATIO;
-  }
 
   // Reactive derived values — recalculated on every tick
   $: wd = $worldData;
@@ -189,18 +164,14 @@
   $: sortie    = wd?.sortie       || {};
   $: steelPath = wd?.steelPath    || null;
 
-  $: varziaAct    = parseIsoDate(varzia?.activation);
-  $: varziaExpiry = parseIsoDate(varzia?.expiry);
-  $: varziaActive = !!(varziaAct && varziaExpiry && nowCoarseMs >= +varziaAct && nowCoarseMs < +varziaExpiry);
+  $: varziaActive = activeWindow(varzia?.activation, varzia?.expiry, nowCoarseMs);
 
-  $: baroAct    = parseIsoDate(baro?.activation);
-  $: baroExpiry = parseIsoDate(baro?.expiry);
-  $: baroActive = !!(baroAct && baroExpiry && nowCoarseMs >= +baroAct && nowCoarseMs < +baroExpiry);
+  $: baroAct = parseIsoDate(baro?.activation);
+  $: baroActive = activeWindow(baro?.activation, baro?.expiry, nowCoarseMs);
 
   $: featuredPrimes = wd ? buildFeaturedPrimes(varzia, $inventoryData, $itemDb) : [];
 
   $: duviriState = (duviri.state || "unknown").toString();
-  $: duviriExpiry = parseIsoDate(duviri.expiry);
   $: duviriNormal = (duviri.choices || []).find((c) => c.category === "normal")?.choices || [];
   $: duviriHard = (duviri.choices || []).find((c) => c.category === "hard")?.choices || [];
   $: circuitNormalItems = resolveCircuitChoices(duviriNormal, $itemDb, $inventoryData);
@@ -208,62 +179,11 @@
 
   // Recompute all countdowns from a single clock source.
   // This keeps seconds moving while staying on the World tab.
-  $: times = {
-    baro: baroActive ? timeTo(baroExpiry, nowMs) : timeTo(baroAct, nowMs),
-    varzia: varziaActive ? timeTo(varziaExpiry, nowMs) : timeTo(varziaAct, nowMs),
-    daily: timeTo(nextDailyResetUtc(), nowMs),
-    weekly: timeTo(nextWeeklyResetUtc(), nowMs),
-    sortie: timeTo(parseIsoDate(sortie?.expiry) || nextDailyResetUtc(), nowMs),
-    steelPath: timeTo(parseIsoDate(steelPath?.expiry ?? undefined) || nextWeeklyResetUtc(), nowMs),
-    duviri: timeTo(duviriExpiry, nowMs),
-    earth: cycleTimeDisplay(earth.timeLeft, earth.expiry, nowMs),
-    cetus: cycleTimeDisplay(cetus.timeLeft, cetus.expiry, nowMs),
-    vallis: cycleTimeDisplay(vallis.timeLeft, vallis.expiry, nowMs),
-    cambion: cycleTimeDisplay(cambion.timeLeft, cambion.expiry, nowMs),
-  };
+  $: times = buildWorldTimes({ baro, baroActive, varzia, varziaActive, sortie, steelPath, duviri, earth, cetus, vallis, cambion, nowMs });
 
-  $: fissuresAll = (wd?.fissures || [])
-    .filter(
-      (f) =>
-        !f.expired &&
-        ((parseIsoDate(f.expiry)?.getTime() || 0) > (nowCoarseMs + FISSURE_EXPIRY_GUARD_MS)),
-    )
-    .sort((a, b) => (parseIsoDate(a.expiry)?.getTime() || 0) - (parseIsoDate(b.expiry)?.getTime() || 0));
+  $: fissureFlat = buildFissureRows(wd?.fissures, $worldFissureMode, nowMs, nowCoarseMs);
 
-  $: fissures = fissuresAll.filter(f =>
-    $worldFissureMode === 'steel' ? f.isHard === true : f.isHard !== true
-  );
-
-  $: fissureFlat = fissures
-    .slice()
-    .sort((a, b) => {
-      const oa = FISSURE_TIER_ORDER[(a.tier || '').toLowerCase()] ?? 99;
-      const ob = FISSURE_TIER_ORDER[(b.tier || '').toLowerCase()] ?? 99;
-      if (oa !== ob) return oa - ob;
-      return (parseIsoDate(a.expiry)?.getTime() || 0) - (parseIsoDate(b.expiry)?.getTime() || 0);
-    })
-    .map(f => ({
-      ...f,
-      timeStr: timeToStrict(parseIsoDate(f.expiry), nowMs),
-      tierCls: fissureTierClass(f.tier || ''),
-    }));
-
-  $: cycleRows = [
-    { key: 'earth' as const, src: PLANET_ICON_PATHS.earth, t: earth, time: times.earth, stateLabel: earthLabel, stateClass: earth.isDay ? 'day' : 'night', nextLabel: earth.isDay ? 'Night' : 'Day', urgent: isUrgent(earth.expiry, earth.activation) },
-    { key: 'cetus' as const, src: PLANET_ICON_PATHS.cetus, t: cetus, time: times.cetus, stateLabel: cetusLabel, stateClass: cetus.isDay ? 'day' : 'night', nextLabel: cetus.isDay ? 'Night' : 'Day', urgent: isUrgent(cetus.expiry, cetus.activation) },
-    { key: 'vallis' as const, src: PLANET_ICON_PATHS.vallis, t: vallis, time: times.vallis, stateLabel: vallisLabel, stateClass: vallis.isWarm ? 'warm' : 'cold', nextLabel: vallis.isWarm ? 'Cold' : 'Warm', urgent: isUrgent(vallis.expiry, vallis.activation) },
-    { key: 'cambion' as const, src: PLANET_ICON_PATHS.cambion, t: cambion, time: times.cambion, stateLabel: cambionLabel, stateClass: (cambion.active || '').toString().toLowerCase() || 'fass', nextLabel: (cambion.active || '').toString().toLowerCase() === 'fass' ? 'VOME' : 'FASS', urgent: isUrgent(cambion.expiry, cambion.activation) },
-    ...(duviriExpiry ? [{ key: 'duviri' as const, src: PLANET_ICON_PATHS.duviri, t: { expiry: duviri.expiry }, time: times.duviri, stateLabel: duviriState, stateClass: duviriState.toLowerCase(), nextLabel: (duviri.nextState || 'Unknown').toString(), urgent: isUrgent(duviri.expiry, null) }] : []),
-  ].filter(row => row.t.expiry);
-
-  // eslint-disable-next-line no-useless-assignment -- Svelte $: reactive
-  $: earthLabel   = earth.isDay    ? 'Day'     : 'Night';
-  // eslint-disable-next-line no-useless-assignment -- Svelte $: reactive
-  $: cetusLabel   = cetus.isDay    ? 'Day'     : 'Night';
-  // eslint-disable-next-line no-useless-assignment -- Svelte $: reactive
-  $: vallisLabel  = vallis.isWarm  ? 'Warm'    : 'Cold';
-  // eslint-disable-next-line no-useless-assignment -- Svelte $: reactive
-  $: cambionLabel = (cambion.active || '').toString().toUpperCase() || 'Unknown';
+  $: cycleRows = buildCycleRows({ earth, cetus, vallis, cambion, duviri, duviriState, times, nowCoarseMs });
 
   // Invasions from raw DE world state (or warframestat fallback)
   $: invasions = ((wd?.invasions || []) as Invasion[]).filter(inv => !inv.completed);
@@ -276,40 +196,11 @@
     ? wd.steelPath as SteelPathHonors
     : null;
 
-  // Bounties from parsed + warframestat + bounty-cycle — sorted to canonical order
-  const BOUNTY_ORDER: Record<string, number> = {
-    CetusSyndicate: 0, Ostrons: 0,
-    SolarisSyndicate: 1, "Solaris United": 1,
-    EntratiSyndicate: 2, Entrati: 2,
-    ZarimanSyndicate: 3, "The Holdfasts": 3,
-    EntratiLabSyndicate: 4, Cavia: 4,
-    HexSyndicate: 5, "The Hex": 5,
-  };
-  $: bounties = ((wd?.bounties || []) as SyndicateBounty[])
-    .filter(b => b.jobs.length > 0)
-    .sort((a, b) => (BOUNTY_ORDER[a.syndicateKey] ?? (BOUNTY_ORDER[a.syndicate] ?? 99)) - (BOUNTY_ORDER[b.syndicateKey] ?? (BOUNTY_ORDER[b.syndicate] ?? 99)));
+  $: bounties = buildBountyGroups(wd?.bounties);
 
-  // Reset timer urgency (fixed known durations)
-  const MS_24H = 86_400_000;
-  const MS_7D = 604_800_000;
-  $: resetUrgency = {
-    sortie: isUrgent(sortie?.expiry, null, MS_24H, nowCoarseMs),
-    daily: (() => { const r = nextDailyResetUtc().getTime() - nowCoarseMs; return r > 0 && r / MS_24H < URGENCY_RATIO; })(),
-    weekly: (() => { const r = nextWeeklyResetUtc().getTime() - nowCoarseMs; return r > 0 && r / MS_7D < URGENCY_RATIO; })(),
-    steelPath: isUrgent(steelPath?.expiry ?? undefined, null, MS_7D, nowCoarseMs),
-  };
+  $: resetUrgency = buildResetUrgency(sortie, steelPath, nowCoarseMs);
 
-  // Bounty expiry timers (keyed by syndicateKey).
-  // timeStr needs 1 s precision for the countdown display; urgent only flips
-  // at the 20 %-remaining boundary, so nowCoarseMs is fine.
-  $: bountyTimers = Object.fromEntries(
-    bounties.map(b => {
-      const exp = b.expiry ? parseIsoDate(b.expiry) : null;
-      const timeStr = exp ? timeTo(exp, nowMs) : '';
-      const urgent = isUrgent(b.expiry, null, 9_000_000, nowCoarseMs); // ~2.5h fallback
-      return [b.syndicateKey, { timeStr, urgent }];
-    })
-  );
+  $: bountyTimers = buildBountyTimers(bounties, nowMs, nowCoarseMs);
 
   // Baro relay location for countdown display
   $: baroLocation = typeof baro?.location === "string" && baro.location ? baro.location : null;
