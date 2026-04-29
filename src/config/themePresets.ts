@@ -8,49 +8,42 @@ export interface ThemePreset {
   effects: ThemeEffects;
 }
 
+function definePreset(
+  label: string,
+  colors: Partial<ThemeColors> = {},
+  effects: Partial<ThemeEffects> = {},
+): ThemePreset {
+  return {
+    label,
+    colors: { ...DEFAULT_COLORS, ...colors },
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+    effects: { ...DEFAULT_EFFECTS, ...effects },
+  };
+}
+
 export const THEME_PRESETS: Record<string, ThemePreset> = {
-  default: {
-    label: "VS Code Dark+",
-    colors: { ...DEFAULT_COLORS },
-    fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { ...DEFAULT_EFFECTS },
-  },
+  default: definePreset("VS Code Dark+"),
 
-  midnight: {
-    label: "GitHub Dark",
-    colors: {
-      bgDeep: "#020816",
-      bgBase: "#050d1a",
-      bgSurface: "#0b1628",
-      bgRaised: "#101f38",
-      bgHover: "#162a48",
-      accent: "#5b9bd5",
-      accentDim: "#3d7ab8",
-      accentBright: "#8ec0ee",
-      textPrimary: "#dce4f0",
-      textSecondary: "#7b8ca8",
-      textMuted: "#5e6f8c",
-      success: "#4ade80",
-      warning: "#fbbf24",
-      danger: "#f87171",
-      info: "#60a5fa",
-      border: "rgba(91, 155, 213, 0.12)",
-      borderStrong: "rgba(91, 155, 213, 0.28)",
-      gradeS: "#4ade80",
-      gradeA: "#6aab7a",
-      gradeB: "#facc15",
-      gradeC: "#f97316",
-      gradeD: "#f97316",
-      gradeF: "#ef4444",
-      gradeDefault: "#8b93a5",
-    },
-    fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { ...DEFAULT_EFFECTS },
-  },
+  midnight: definePreset("GitHub Dark", {
+    bgDeep: "#020816",
+    bgBase: "#050d1a",
+    bgSurface: "#0b1628",
+    bgRaised: "#101f38",
+    bgHover: "#162a48",
+    accent: "#5b9bd5",
+    accentDim: "#3d7ab8",
+    accentBright: "#8ec0ee",
+    textPrimary: "#dce4f0",
+    textSecondary: "#7b8ca8",
+    textMuted: "#5e6f8c",
+    info: "#60a5fa",
+    border: "rgba(91, 155, 213, 0.12)",
+    borderStrong: "rgba(91, 155, 213, 0.28)",
+  }),
 
-  highContrast: {
-    label: "High Contrast Dark",
-    colors: {
+  highContrast: definePreset(
+    "High Contrast Dark",
+    {
       bgDeep: "#000000",
       bgBase: "#0a0a0a",
       bgSurface: "#1a1a1a",
@@ -76,13 +69,12 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeF: "#ff4444",
       gradeDefault: "#a0a0a0",
     },
-    fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { ...DEFAULT_EFFECTS, cornerStyle: "sharp" },
-  },
+    { cornerStyle: "sharp" },
+  ),
 
-  lotus: {
-    label: "Tokyo Night",
-    colors: {
+  lotus: definePreset(
+    "Tokyo Night",
+    {
       bgDeep: "#080614",
       bgBase: "#0e0a1e",
       bgSurface: "#17122e",
@@ -94,27 +86,16 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       textPrimary: "#e8e0f0",
       textSecondary: "#9888b5",
       textMuted: "#7b6a9e",
-      success: "#4ade80",
-      warning: "#fbbf24",
-      danger: "#f87171",
       info: "#a78bfa",
       border: "rgba(176, 127, 212, 0.12)",
       borderStrong: "rgba(176, 127, 212, 0.28)",
-      gradeS: "#4ade80",
-      gradeA: "#6aab7a",
-      gradeB: "#facc15",
-      gradeC: "#f97316",
-      gradeD: "#f97316",
-      gradeF: "#ef4444",
-      gradeDefault: "#8b93a5",
     },
-    fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { ...DEFAULT_EFFECTS, glass: true },
-  },
+    { glass: true },
+  ),
 
-  light: {
-    label: "VS Code Light+",
-    colors: {
+  light: definePreset(
+    "VS Code Light+",
+    {
       bgDeep: "#f0f0f0",
       bgBase: "#f8f8f8",
       bgSurface: "#ffffff",
@@ -140,13 +121,12 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeF: "#dc2626",
       gradeDefault: "#555555",
     },
-    fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { ...DEFAULT_EFFECTS, surfaceStyle: "border" },
-  },
+    { surfaceStyle: "border" },
+  ),
 
-  corpusGlass: {
-    label: "Acrylic Dark",
-    colors: {
+  corpusGlass: definePreset(
+    "Acrylic Dark",
+    {
       bgDeep: "#041016",
       bgBase: "#071922",
       bgSurface: "rgba(13, 38, 51, 0.72)",
@@ -172,13 +152,12 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeF: "#ff6f8d",
       gradeDefault: "#9dc5d1",
     },
-    fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { ...DEFAULT_EFFECTS, cornerStyle: "round", surfaceStyle: "full", glass: true },
-  },
+    { cornerStyle: "round", glass: true },
+  ),
 
-  zarimanMist: {
-    label: "Rose Pine",
-    colors: {
+  zarimanMist: definePreset(
+    "Rose Pine",
+    {
       bgDeep: "#050806",
       bgBase: "#08110d",
       bgSurface: "rgba(18, 34, 27, 0.72)",
@@ -204,13 +183,12 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeF: "#f77678",
       gradeDefault: "#9fc7b8",
     },
-    fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { ...DEFAULT_EFFECTS, cornerStyle: "soft", surfaceStyle: "full", glass: true },
-  },
+    { glass: true },
+  ),
 
-  grineerForge: {
-    label: "Gruvbox Dark",
-    colors: {
+  grineerForge: definePreset(
+    "Gruvbox Dark",
+    {
       bgDeep: "#0d0906",
       bgBase: "#15100b",
       bgSurface: "#201711",
@@ -236,13 +214,12 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeF: "#e0644f",
       gradeDefault: "#b29478",
     },
-    fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { ...DEFAULT_EFFECTS, cornerStyle: "sharp", surfaceStyle: "full", glass: false },
-  },
+    { cornerStyle: "sharp" },
+  ),
 
-  tennoMinimal: {
-    label: "Minimal Dark",
-    colors: {
+  tennoMinimal: definePreset(
+    "Minimal Dark",
+    {
       bgDeep: "#020304",
       bgBase: "#060708",
       bgSurface: "#0c0d0e",
@@ -268,13 +245,12 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeF: "#ef6464",
       gradeDefault: "#a4adb2",
     },
-    fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { ...DEFAULT_EFFECTS, cornerStyle: "sharp", surfaceStyle: "minimal", glass: false },
-  },
+    { cornerStyle: "sharp", surfaceStyle: "minimal" },
+  ),
 
-  glassyDark: {
-    label: "Glassy Dark",
-    colors: {
+  glassyDark: definePreset(
+    "Glassy Dark",
+    {
       bgDeep: "#05070b",
       bgBase: "#0a0d13",
       bgSurface: "rgba(19, 24, 34, 0.74)",
@@ -300,13 +276,12 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeF: "#ef6f78",
       gradeDefault: "#a8b3c4",
     },
-    fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { ...DEFAULT_EFFECTS, cornerStyle: "round", surfaceStyle: "full", glass: true },
-  },
+    { cornerStyle: "round", glass: true },
+  ),
 
-  gruvboxLight: {
-    label: "Gruvbox Light",
-    colors: {
+  gruvboxLight: definePreset(
+    "Gruvbox Light",
+    {
       bgDeep: "#e8dcc2",
       bgBase: "#fbf1c7",
       bgSurface: "#f2e5bc",
@@ -332,13 +307,12 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeF: "#9d0006",
       gradeDefault: "#7c6f64",
     },
-    fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { ...DEFAULT_EFFECTS, surfaceStyle: "border", glass: false },
-  },
+    { surfaceStyle: "border" },
+  ),
 
-  solarizedLight: {
-    label: "Solarized Light",
-    colors: {
+  solarizedLight: definePreset(
+    "Solarized Light",
+    {
       bgDeep: "#eee8d5",
       bgBase: "#fdf6e3",
       bgSurface: "#eee8d5",
@@ -364,45 +338,39 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeF: "#dc322f",
       gradeDefault: "#586e75",
     },
-    fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { ...DEFAULT_EFFECTS, surfaceStyle: "border", glass: false },
-  },
+    { surfaceStyle: "border" },
+  ),
 
-  materialLight: {
-    label: "Material Light",
-    colors: {
-      bgDeep: "#e8eaed",
-      bgBase: "#f8fafd",
-      bgSurface: "#ffffff",
-      bgRaised: "#eef2f7",
-      bgHover: "#e3e8ef",
-      accent: "#1a73e8",
-      accentDim: "#1558b0",
-      accentBright: "#4285f4",
-      textPrimary: "#202124",
-      textSecondary: "#5f6368",
-      textMuted: "#80868b",
-      success: "#188038",
-      warning: "#f29900",
-      danger: "#d93025",
-      info: "#1a73e8",
-      border: "rgba(95, 99, 104, 0.18)",
-      borderStrong: "rgba(95, 99, 104, 0.36)",
-      gradeS: "#188038",
-      gradeA: "#2e7d32",
-      gradeB: "#f29900",
-      gradeC: "#e8710a",
-      gradeD: "#e8710a",
-      gradeF: "#d93025",
-      gradeDefault: "#5f6368",
-    },
-    fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { ...DEFAULT_EFFECTS, cornerStyle: "soft", surfaceStyle: "full", glass: false },
-  },
+  materialLight: definePreset("Material Light", {
+    bgDeep: "#e8eaed",
+    bgBase: "#f8fafd",
+    bgSurface: "#ffffff",
+    bgRaised: "#eef2f7",
+    bgHover: "#e3e8ef",
+    accent: "#1a73e8",
+    accentDim: "#1558b0",
+    accentBright: "#4285f4",
+    textPrimary: "#202124",
+    textSecondary: "#5f6368",
+    textMuted: "#80868b",
+    success: "#188038",
+    warning: "#f29900",
+    danger: "#d93025",
+    info: "#1a73e8",
+    border: "rgba(95, 99, 104, 0.18)",
+    borderStrong: "rgba(95, 99, 104, 0.36)",
+    gradeS: "#188038",
+    gradeA: "#2e7d32",
+    gradeB: "#f29900",
+    gradeC: "#e8710a",
+    gradeD: "#e8710a",
+    gradeF: "#d93025",
+    gradeDefault: "#5f6368",
+  }),
 
-  highContrastLight: {
-    label: "High Contrast Light",
-    colors: {
+  highContrastLight: definePreset(
+    "High Contrast Light",
+    {
       bgDeep: "#ffffff",
       bgBase: "#ffffff",
       bgSurface: "#f4f4f4",
@@ -428,41 +396,35 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
       gradeF: "#c00000",
       gradeDefault: "#202020",
     },
-    fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { ...DEFAULT_EFFECTS, cornerStyle: "sharp", surfaceStyle: "border", glass: false },
-  },
+    { cornerStyle: "sharp", surfaceStyle: "border" },
+  ),
 
-  nord: {
-    label: "Nord",
-    colors: {
-      bgDeep: "#1f2530",
-      bgBase: "#2e3440",
-      bgSurface: "#3b4252",
-      bgRaised: "#434c5e",
-      bgHover: "#4c566a",
-      accent: "#88c0d0",
-      accentDim: "#6aa2b2",
-      accentBright: "#8fbcbb",
-      textPrimary: "#eceff4",
-      textSecondary: "#d8dee9",
-      textMuted: "#aeb7c5",
-      success: "#a3be8c",
-      warning: "#ebcb8b",
-      danger: "#bf616a",
-      info: "#81a1c1",
-      border: "rgba(136, 192, 208, 0.16)",
-      borderStrong: "rgba(136, 192, 208, 0.36)",
-      gradeS: "#a3be8c",
-      gradeA: "#8fbcbb",
-      gradeB: "#ebcb8b",
-      gradeC: "#d08770",
-      gradeD: "#d08770",
-      gradeF: "#bf616a",
-      gradeDefault: "#d8dee9",
-    },
-    fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { ...DEFAULT_EFFECTS, cornerStyle: "soft", surfaceStyle: "full", glass: false },
-  },
+  nord: definePreset("Nord", {
+    bgDeep: "#1f2530",
+    bgBase: "#2e3440",
+    bgSurface: "#3b4252",
+    bgRaised: "#434c5e",
+    bgHover: "#4c566a",
+    accent: "#88c0d0",
+    accentDim: "#6aa2b2",
+    accentBright: "#8fbcbb",
+    textPrimary: "#eceff4",
+    textSecondary: "#d8dee9",
+    textMuted: "#aeb7c5",
+    success: "#a3be8c",
+    warning: "#ebcb8b",
+    danger: "#bf616a",
+    info: "#81a1c1",
+    border: "rgba(136, 192, 208, 0.16)",
+    borderStrong: "rgba(136, 192, 208, 0.36)",
+    gradeS: "#a3be8c",
+    gradeA: "#8fbcbb",
+    gradeB: "#ebcb8b",
+    gradeC: "#d08770",
+    gradeD: "#d08770",
+    gradeF: "#bf616a",
+    gradeDefault: "#d8dee9",
+  }),
 };
 
 export const PRESET_KEYS = Object.keys(THEME_PRESETS) as ReadonlyArray<string>;

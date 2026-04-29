@@ -11,6 +11,7 @@ function defaultFilters(): SharedFiltersState {
     sortBy: "name",
     sortDirection: "asc",
     orderPlaced: "all",
+    vaulted: "all",
     partType: "all",
     favorite: "all",
     minimumPlatinum: 0,
@@ -104,5 +105,19 @@ describe("shared filters", () => {
 
     expect(filtered).toHaveLength(1);
     expect(filtered[0].name).toBe("Normal Item");
+  });
+
+  it("filters vaulted items", () => {
+    const items = [
+      { name: "Vaulted Relic", vaulted: true },
+      { name: "Available Relic", vaulted: false },
+    ];
+
+    const filtered = applySharedFiltersAndSort(items, {
+      ...defaultFilters(),
+      vaulted: "yes",
+    });
+
+    expect(filtered.map((row) => row.name)).toEqual(["Vaulted Relic"]);
   });
 });

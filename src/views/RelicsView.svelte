@@ -36,7 +36,7 @@
   import SortArrow from "../components/SortArrow.svelte";
   import type { ParsedItem } from "../types/inventory.js";
   import type { RelicGroup, RelicQuality, RelicReward } from "../types/relics.js";
-  import type { RelicQualityMode, RelicSortMode } from "../stores/relics.js";
+  import type { RelicQualityMode, RelicSortMode, RelicVaultedMode } from "../stores/relics.js";
 
   type RelicQualityModeView = RelicQualityMode;
 
@@ -71,6 +71,11 @@
     [2, "2P"],
     [3, "3P"],
     [4, "4P"],
+  ];
+  const VAULTED_OPTIONS: Array<[RelicVaultedMode, string]> = [
+    ["all", "All"],
+    ["vaulted", "Vaulted"],
+    ["unvaulted", "Unvaulted"],
   ];
 
   const RELIC_QUALITY_COLUMNS: RelicQuality[] = ["intact", "exceptional", "flawless", "radiant"];
@@ -125,6 +130,10 @@
     if (Number.isFinite(squadSize)) {
       setRelicFilter({ squadSize });
     }
+  }
+
+  function setRelicVaultedMode(event: Event): void {
+    setRelicFilter({ vaultedMode: (event.currentTarget as HTMLSelectElement).value as RelicVaultedMode });
   }
 
   function openRelic(group: RelicGroup): void {
@@ -357,6 +366,11 @@
 
     if ($relicViewState.tierFilter !== "all") {
       relicGroups = relicGroups.filter((group) => group.tier === $relicViewState.tierFilter);
+    }
+
+    if ($relicViewState.vaultedMode !== "all") {
+      const wantVaulted = $relicViewState.vaultedMode === "vaulted";
+      relicGroups = relicGroups.filter((group) => Boolean(group.vaulted) === wantVaulted);
     }
 
     if ($relicViewState.search) {
@@ -714,6 +728,19 @@
           </select>
         </label>
 
+        <label class="shared-filter-sort" title="Vaulted status">
+          <span>Vault</span>
+          <select
+            class="shared-filter-select min-w-[6.2rem]"
+            value={$relicViewState.vaultedMode}
+            on:change={setRelicVaultedMode}
+          >
+            {#each VAULTED_OPTIONS as [key, label]}
+              <option value={key}>{label}</option>
+            {/each}
+          </select>
+        </label>
+
         <label class="shared-filter-sort" title="Squad size for EV">
           <span>Squad</span>
           <select
@@ -774,6 +801,7 @@
 
             <span class="flex min-w-0 flex-col gap-[0.24rem]">
               <span class="relic-row-name overflow-hidden text-ellipsis whitespace-nowrap font-display text-[1.24rem] font-semibold tracking-[0.01em]">{group.name}</span>
+              <span class="relic-status-tag" class:vaulted={group.vaulted}>{group.vaulted ? "Vaulted" : "Unvaulted"}</span>
             </span>
 
             <span class="min-w-0 flex flex-col items-end gap-[0.16rem]">
@@ -855,6 +883,26 @@
   }
   .relic-compact-card :global(.relic-icon) { width: 1.85rem; height: 1.85rem; }
   .relic-compact-card :global(.relic-icon-img) { transform: scale(1.06); }
+
+  .relic-status-tag {
+    width: fit-content;
+    border: 1px solid color-mix(in oklab, var(--success) 35%, transparent);
+    border-radius: var(--radius-sm);
+    background: color-mix(in oklab, var(--success) 12%, transparent);
+    color: color-mix(in oklab, var(--success) 78%, white);
+    padding: 0.08rem 0.32rem;
+    font-family: var(--font-display);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1.2;
+  }
+  .relic-status-tag.vaulted {
+    border-color: color-mix(in oklab, var(--danger) 38%, transparent);
+    background: color-mix(in oklab, var(--danger) 13%, transparent);
+    color: color-mix(in oklab, var(--danger) 82%, white);
+  }
 
   .relic-reward-preview-icon {
     display: inline-flex; align-items: center; justify-content: center;

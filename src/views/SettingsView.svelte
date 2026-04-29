@@ -7,7 +7,7 @@
   import { tr } from "../lib/i18n.js";
   import type { OverlaySettings } from "../types/ipc.js";
 
-  let settingsTab: "appearance" | "overlay" = "appearance";
+  let settingsTab: "general" | "appearance" | "overlay" = "general";
   let statusMsg = "";
   let statusError = false;
 
@@ -103,6 +103,9 @@
   </div>
 
   <div class="tab-bar">
+    <button class="tab-item" class:active={settingsTab === "general"} on:click={() => (settingsTab = "general")}>
+      <span>General</span>
+    </button>
     <button class="tab-item" class:active={settingsTab === "appearance"} on:click={() => (settingsTab = "appearance")}>
       <span>Appearance</span>
     </button>
@@ -111,12 +114,54 @@
     </button>
   </div>
 
-  {#if settingsTab === "appearance"}
-    <div class="mx-auto max-w-[660px] py-3">
+  {#if settingsTab === "general"}
+    <div class="settings-tab-grid py-3">
+      <article class="settings-card w-full">
+        <div class="settings-card-head">
+          <h3>Trade</h3>
+          <p>Notifications and order handling for market-assisted trades.</p>
+        </div>
+
+        <div class="mt-2.5 grid gap-2">
+          <label class="settings-control-row">
+            <span>WFM DM notifications</span>
+            <input type="checkbox" bind:checked={wfmNotificationsEnabled} class="accent-accent" />
+          </label>
+
+          <label class="settings-control-row">
+            <span>Auto-close WFM orders on trade</span>
+            <input type="checkbox" bind:checked={autoCloseWfmOrders} class="accent-accent" />
+          </label>
+
+          <label class="settings-control-row">
+            <span>Trade finished notification</span>
+            <input type="checkbox" bind:checked={showTradeNotification} class="accent-accent" />
+          </label>
+        </div>
+      </article>
+
+      <article class="settings-card w-full">
+        <div class="settings-card-head">
+          <h3>Actions</h3>
+          <p>Save app behavior changes or restore default settings.</p>
+        </div>
+
+        <div class="settings-actions mt-2.5">
+          <button class="btn-primary btn-sm" on:click={save}>{$tr("settings.save")}</button>
+          <button class="btn-secondary btn-sm" on:click={resetDefaults}>{$tr("settings.resetDefaults")}</button>
+        </div>
+
+        {#if statusMsg}
+          <p class="mt-2 min-h-4 text-sm text-text-secondary" class:text-danger={statusError}>{statusMsg}</p>
+        {/if}
+      </article>
+    </div>
+  {:else if settingsTab === "appearance"}
+    <div class="settings-tab-grid py-3">
       <AppearanceCard />
     </div>
   {:else if settingsTab === "overlay"}
-    <div class="mx-auto max-w-[660px] py-3">
+    <div class="settings-tab-grid py-3">
       <article class="settings-card w-full">
         <div class="settings-card-head">
           <h3>{$tr("settings.overlayTitle")}</h3>
@@ -124,108 +169,171 @@
           <p class="mt-1 text-xs leading-tight text-text-muted">{$tr("settings.overlayRequirements")}</p>
         </div>
 
-        <div class="mt-2.5">
-          <label class="mb-2 flex cursor-pointer items-center justify-between gap-2.5 rounded-lg border border-border bg-bg-raised px-2.5 py-2">
-            <span class="text-sm font-medium text-text-secondary">{$tr("settings.autoTrigger")}</span>
+        <div class="mt-2.5 grid gap-2">
+          <label class="settings-control-row">
+            <span>{$tr("settings.autoTrigger")}</span>
             <input type="checkbox" bind:checked={autoTrigger} class="accent-accent" />
           </label>
 
-          <label class="mb-2 flex cursor-pointer items-center justify-between gap-2.5 rounded-lg border border-border bg-bg-raised px-2.5 py-2">
-            <span class="text-sm font-medium text-text-secondary">WFM DM notifications</span>
-            <input type="checkbox" bind:checked={wfmNotificationsEnabled} class="accent-accent" />
-          </label>
-
-          <label class="mb-2 flex cursor-pointer items-center justify-between gap-2.5 rounded-lg border border-border bg-bg-raised px-2.5 py-2">
-            <span class="text-sm font-medium text-text-secondary">Auto-close WFM orders on trade</span>
-            <input type="checkbox" bind:checked={autoCloseWfmOrders} class="accent-accent" />
-          </label>
-
-          <label class="mb-2 flex cursor-pointer items-center justify-between gap-2.5 rounded-lg border border-border bg-bg-raised px-2.5 py-2">
-            <span class="text-sm font-medium text-text-secondary">Trade finished notification</span>
-            <input type="checkbox" bind:checked={showTradeNotification} class="accent-accent" />
-          </label>
-
-          <label class="mb-2 flex cursor-pointer items-center justify-between gap-2.5 rounded-lg border border-border bg-bg-raised px-2.5 py-2">
-            <span class="text-sm font-medium text-text-secondary">{$tr("settings.hotkeyFallback")}</span>
+          <label class="settings-control-row">
+            <span>{$tr("settings.hotkeyFallback")}</span>
             <input type="checkbox" bind:checked={hotkeyEnabled} class="accent-accent" />
           </label>
 
-          <label class="mb-2 flex items-center justify-between gap-2.5 rounded-lg border border-border bg-bg-raised px-2.5 py-2">
-            <span class="text-sm font-medium text-text-secondary">{$tr("settings.hotkey")}</span>
+          <label class="settings-control-row settings-control-row-input">
+            <span>{$tr("settings.hotkey")}</span>
             <input
               type="text"
               bind:value={hotkey}
               disabled={!hotkeyEnabled}
               placeholder={$tr("settings.hotkeyPlaceholder")}
-              class="rounded border border-border bg-bg-base px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
+              class="settings-input"
             />
           </label>
 
-          <label class="mb-2 flex cursor-pointer items-center justify-between gap-2.5 rounded-lg border border-border bg-bg-raised px-2.5 py-2">
-            <span class="text-sm font-medium text-text-secondary">{$tr("settings.interactionHotkeyEnabled")}</span>
+          <label class="settings-control-row">
+            <span>{$tr("settings.interactionHotkeyEnabled")}</span>
             <input type="checkbox" bind:checked={interactionHotkeyEnabled} class="accent-accent" />
           </label>
 
-          <label class="mb-2 flex items-center justify-between gap-2.5 rounded-lg border border-border bg-bg-raised px-2.5 py-2">
-            <span class="text-sm font-medium text-text-secondary">{$tr("settings.interactionHotkey")}</span>
+          <label class="settings-control-row settings-control-row-input">
+            <span>{$tr("settings.interactionHotkey")}</span>
             <input
               type="text"
               bind:value={interactionHotkey}
               disabled={!interactionHotkeyEnabled}
               placeholder={$tr("settings.interactionHotkeyPlaceholder")}
-              class="rounded border border-border bg-bg-base px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
+              class="settings-input"
             />
           </label>
+        </div>
+      </article>
 
-          <label class="mb-2 flex items-center justify-between gap-2.5 rounded-lg border border-border bg-bg-raised px-2.5 py-2">
-            <span class="text-sm font-medium text-text-secondary">{$tr("settings.ocrPasses")}</span>
+      <article class="settings-card w-full">
+        <div class="settings-card-head">
+          <h3>Scanner</h3>
+          <p>OCR tuning for reward detection and overlay matching.</p>
+        </div>
+
+        <div class="mt-2.5 grid gap-2">
+          <label class="settings-control-row settings-control-row-input">
+            <span>{$tr("settings.ocrPasses")}</span>
             <input
               type="number"
               min={OVERLAY_SETTINGS_LIMITS.ocrPassesMin}
               max={OVERLAY_SETTINGS_LIMITS.ocrPassesMax}
               step="1"
               bind:value={ocrPasses}
-              class="rounded border border-border bg-bg-base px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
+              class="settings-input settings-input-number"
             />
           </label>
 
-          <label class="mb-2 flex items-center justify-between gap-2.5 rounded-lg border border-border bg-bg-raised px-2.5 py-2">
-            <span class="text-sm font-medium text-text-secondary">{$tr("settings.matchThreshold")}</span>
+          <label class="settings-control-row settings-control-row-input">
+            <span>{$tr("settings.matchThreshold")}</span>
             <input
               type="number"
               min={OVERLAY_SETTINGS_LIMITS.matchThresholdMin}
               max={OVERLAY_SETTINGS_LIMITS.matchThresholdMax}
               step="0.01"
               bind:value={matchThreshold}
-              class="rounded border border-border bg-bg-base px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
+              class="settings-input settings-input-number"
             />
           </label>
 
-          <label class="mb-2 flex items-center justify-between gap-2.5 rounded-lg border border-border bg-bg-raised px-2.5 py-2">
-            <span class="text-sm font-medium text-text-secondary">{$tr("settings.ocrTimeout")}</span>
+          <label class="settings-control-row settings-control-row-input">
+            <span>{$tr("settings.ocrTimeout")}</span>
             <input
               type="number"
               min={OVERLAY_SETTINGS_LIMITS.ocrTimeoutMsMin}
               max={OVERLAY_SETTINGS_LIMITS.ocrTimeoutMsMax}
               step="500"
               bind:value={ocrTimeoutMs}
-              class="rounded border border-border bg-bg-base px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
+              class="settings-input settings-input-number"
             />
           </label>
-
-          <div class="settings-actions">
-            <button class="btn-primary btn-sm" on:click={save}>{$tr("settings.save")}</button>
-            <button class="btn-secondary btn-sm" on:click={resetDefaults}>{$tr("settings.resetDefaults")}</button>
-            <button class="btn-secondary btn-sm" on:click={testTrigger}>{$tr("settings.testTrigger")}</button>
-          </div>
-
-          {#if statusMsg}
-            <p class="min-h-4 text-sm text-text-secondary" class:text-danger={statusError}>{statusMsg}</p>
-          {/if}
         </div>
       </article>
+
+      <div class="settings-wide-actions">
+        <div class="settings-actions">
+          <button class="btn-primary btn-sm" on:click={save}>{$tr("settings.save")}</button>
+          <button class="btn-secondary btn-sm" on:click={resetDefaults}>{$tr("settings.resetDefaults")}</button>
+          <button class="btn-secondary btn-sm" on:click={testTrigger}>{$tr("settings.testTrigger")}</button>
+        </div>
+
+        {#if statusMsg}
+          <p class="min-h-4 text-sm text-text-secondary" class:text-danger={statusError}>{statusMsg}</p>
+        {/if}
+      </div>
     </div>
   {/if}
 </section>
+
+<style>
+  .settings-tab-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: 0.85rem;
+    max-width: 1040px;
+    margin-inline: auto;
+    align-items: start;
+  }
+
+  .settings-control-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-raised);
+    padding: 0.55rem 0.7rem;
+    cursor: pointer;
+  }
+
+  .settings-control-row span {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .settings-control-row-input {
+    cursor: default;
+  }
+
+  .settings-input {
+    min-width: 9rem;
+    max-width: 12rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-base);
+    color: var(--text-primary);
+    padding: 0.38rem 0.6rem;
+    font-size: 0.875rem;
+    outline: none;
+  }
+
+  .settings-input:focus {
+    border-color: var(--accent-dim);
+    box-shadow: 0 0 0 2px rgba(212, 168, 67, 0.12);
+  }
+
+  .settings-input:disabled {
+    opacity: 0.55;
+  }
+
+  .settings-input-number {
+    max-width: 7.5rem;
+  }
+
+  .settings-wide-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+</style>
 
 

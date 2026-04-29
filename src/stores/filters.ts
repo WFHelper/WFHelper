@@ -9,6 +9,7 @@ function createDefaultSharedFiltersState(): SharedFiltersState {
     sortBy: "name",
     sortDirection: "asc",
     orderPlaced: "all",
+    vaulted: "all",
     partType: "all",
     favorite: "all",
     minimumPlatinum: 0,

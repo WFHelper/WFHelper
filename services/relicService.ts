@@ -40,6 +40,7 @@ interface RelicGroup {
   name: string;
   tier: string;
   code: string;
+  vaulted: boolean;
   imageUrl: string | null;
   qualities: Record<string, RelicQuality>;
 }
@@ -86,12 +87,14 @@ function buildRelicDatabase(): RelicDatabase {
         name: baseName,
         tier,
         code,
+        vaulted: Boolean(relic.vaulted),
         imageUrl: null,
         qualities: {},
       });
     }
 
     const group = groupsMap.get(baseName)!;
+    group.vaulted = Boolean(group.vaulted && relic.vaulted);
 
     if (relic.imageName) {
       if (quality === "Intact" || !group.imageUrl) {

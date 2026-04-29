@@ -3,6 +3,7 @@ import type { OwnedCounts, RelicDatabase } from "../types/relics.js";
 
 export type RelicSortMode = "tier" | "name" | "ev" | "ducat" | "ducatonator";
 export type RelicQualityMode = "owned" | "intact" | "exceptional" | "flawless" | "radiant";
+export type RelicVaultedMode = "all" | "vaulted" | "unvaulted";
 
 export interface RelicViewState {
   tierFilter: string;
@@ -11,6 +12,7 @@ export interface RelicViewState {
   sortDirection: "asc" | "desc";
   qualityMode: RelicQualityMode;
   squadSize: number;
+  vaultedMode: RelicVaultedMode;
 }
 
 export const DEFAULT_RELIC_VIEW_STATE: RelicViewState = {
@@ -20,6 +22,7 @@ export const DEFAULT_RELIC_VIEW_STATE: RelicViewState = {
   sortDirection: "asc",
   qualityMode: "owned",
   squadSize: 1,
+  vaultedMode: "all",
 };
 
 export const relicDb = writable<RelicDatabase | null>(null);

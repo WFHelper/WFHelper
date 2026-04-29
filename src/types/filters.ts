@@ -23,6 +23,7 @@ export interface SharedFiltersState {
   sortBy: SharedSortKey;
   sortDirection: SortDirection;
   orderPlaced: YesNoFilterMode;
+  vaulted: YesNoFilterMode;
   partType: PartTypeFilterMode;
   favorite: YesNoFilterMode;
   minimumPlatinum: 0 | 5 | 10 | 15;

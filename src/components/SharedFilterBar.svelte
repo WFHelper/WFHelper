@@ -89,7 +89,7 @@
   }
 
   function setYesNoFilter(
-    key: "orderPlaced" | "favorite" | "setComplete" | "equipped" | "leveledUp",
+    key: "orderPlaced" | "vaulted" | "favorite" | "setComplete" | "equipped" | "leveledUp",
     value: Exclude<YesNoFilterMode, "all">,
   ): void {
     const next = state[key] === value ? "all" : value;
@@ -174,6 +174,19 @@
               class="filter-tab"
               class:active={state.orderPlaced === mode}
               on:click={() => setYesNoFilter("orderPlaced", mode)}
+            >{label}</button>
+          {/each}
+        </div>
+      </div>
+
+      <div class="shared-chip-group" title="Vaulted relics and prime parts">
+        <span class="shared-chip-label">Vaulted</span>
+        <div class="filter-tabs">
+          {#each YES_NO_OPTIONS as [mode, label]}
+            <button
+              class="filter-tab"
+              class:active={state.vaulted === mode}
+              on:click={() => setYesNoFilter("vaulted", mode)}
             >{label}</button>
           {/each}
         </div>

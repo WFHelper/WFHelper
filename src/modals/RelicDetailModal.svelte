@@ -250,6 +250,7 @@ import DetailModalBase from "./DetailModalBase.svelte";
           <div class="relic-detail-title-area">
             <h2>{group.name}</h2>
             <div class="relic-detail-owned flex flex-wrap gap-[0.26rem]">
+              <span class="detail-tag" class:vaulted={group.vaulted} class:mastered={!group.vaulted}>{group.vaulted ? "VAULTED" : "UNVAULTED"}</span>
               {#each QUAL_ENTRIES as [quality, label]}
                 {#if (owned[quality] || 0) > 0}
                   <span class="relic-owned-pill">{label}: x{owned[quality]}</span>

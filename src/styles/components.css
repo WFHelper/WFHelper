@@ -16,6 +16,14 @@
     background: var(--bg-base);
     padding: 1.5rem 1.75rem;
   }
+  #app:has(#content.setup-active) {
+    height: calc(100vh - var(--titlebar-height));
+  }
+  #content.setup-active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
   .view {
     display: block;
     animation: fade-in 0.18s ease;

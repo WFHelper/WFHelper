@@ -205,9 +205,15 @@
   <Titlebar />
 
   <div id="app">
-    <Sidebar />
+    {#if $currentView !== "setup"}
+      <Sidebar />
+    {/if}
 
-    <main id="content" class:stats-active={$currentView === "stats"}>
+    <main
+      id="content"
+      class:stats-active={$currentView === "stats"}
+      class:setup-active={$currentView === "setup"}
+    >
       {#if $currentView === "setup"}
         <SetupView />
       {:else if $currentView === "welcome"}
@@ -246,7 +252,9 @@
     </main>
   </div>
 
-  <StatusBar />
+  {#if $currentView !== "setup"}
+    <StatusBar />
+  {/if}
 
   <ItemDetailModal />
   <ComponentDetailModal />

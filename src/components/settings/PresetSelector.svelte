@@ -1,19 +1,15 @@
 <script lang="ts">
-  import { THEME_PRESETS, PRESET_KEYS } from "../../config/themePresets.js";
   import { themeSettings } from "../../stores/theme.js";
   import { tr } from "../../lib/i18n.js";
   import SortArrow from "../SortArrow.svelte";
+  import BuiltInThemeDropdown from "./BuiltInThemeDropdown.svelte";
 
   let customName = "";
-  let builtInOpen = false;
   let customOpen = false;
 
   $: activePreset = $themeSettings.activePreset;
   $: customThemes = $themeSettings.customThemes;
   $: activeCustomTheme = customThemes.find((theme) => theme.id === activePreset);
-  $: activeBuiltInPreset = THEME_PRESETS[activePreset];
-  $: builtInLabel =
-    activeBuiltInPreset?.label ?? activeCustomTheme?.label ?? $tr("appearance.customPreset");
   $: customLabel =
     activeCustomTheme?.label ??
     (customThemes.length > 0
@@ -22,7 +18,6 @@
 
   function selectPreset(key: string): void {
     themeSettings.applyPreset(key);
-    builtInOpen = false;
     customOpen = false;
   }
 
@@ -42,46 +37,19 @@
 <div class="appearance-section">
   <h4 class="appearance-section-label">{$tr("appearance.presets")}</h4>
   <div class="grid gap-[0.55rem]">
-    <div class="theme-dropdown">
-      <button
-        type="button"
-        class="theme-dropdown-trigger"
-        on:click={() => { builtInOpen = !builtInOpen; customOpen = false; }}
-      >
-        <span>{$tr("appearance.builtinThemes")}</span>
-        <strong>{builtInLabel}</strong>
-        <span class="theme-dropdown-chevron"><SortArrow asc={builtInOpen} /></span>
-      </button>
-
-      {#if builtInOpen}
-        <div class="theme-dropdown-menu">
-          {#each PRESET_KEYS as key}
-            {@const preset = THEME_PRESETS[key]}
-            <button
-              type="button"
-              class="theme-option"
-              class:active={activePreset === key}
-              on:click={() => selectPreset(key)}
-            >
-              <span class="theme-swatches">
-                <span style="background: {preset.colors.bgBase};"></span>
-                <span style="background: {preset.colors.bgRaised};"></span>
-                <span style="background: {preset.colors.textPrimary};"></span>
-                <span style="background: {preset.colors.accent};"></span>
-              </span>
-              <span>{preset.label}</span>
-            </button>
-          {/each}
-        </div>
-      {/if}
-    </div>
+    <BuiltInThemeDropdown
+      activePreset={activePreset}
+      label={$tr("appearance.builtinThemes")}
+      fallbackLabel={activeCustomTheme?.label ?? $tr("appearance.customPreset")}
+      onSelect={selectPreset}
+    />
 
     <div class="theme-dropdown">
       <button
         type="button"
         class="theme-dropdown-trigger"
         disabled={customThemes.length === 0}
-        on:click={() => { customOpen = !customOpen; builtInOpen = false; }}
+        on:click={() => { customOpen = !customOpen; }}
       >
         <span>{$tr("appearance.customThemes")}</span>
         <strong>{customLabel}</strong>

@@ -17,6 +17,7 @@ export interface FilterableItem {
   ducatonator?: number | null;
   completeSets?: number | boolean | null;
   orderPlaced?: boolean;
+  vaulted?: boolean;
   owned?: boolean;
   currentlyOwned?: boolean;
   partType?: PartType;
@@ -115,6 +116,7 @@ export function matchesSharedFilters(item: FilterableItem, filters: SharedFilter
   if (filters.masteredMode === "not_mastered" && isMastered(item)) return false;
 
   if (!matchesYesNo(filters.orderPlaced, item.orderPlaced)) return false;
+  if (!matchesYesNo(filters.vaulted, item.vaulted)) return false;
   if (!matchesPartType(item, filters.partType)) return false;
   if (!matchesYesNo(filters.favorite, item.favorite)) return false;
   if (

@@ -1,12 +1,19 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { onInventoryLoaded } from "../lib/actions.js";
+  import { PRESET_KEYS, THEME_PRESETS } from "../config/themePresets.js";
   import { currentView } from "../stores/app.js";
   import { themeSettings } from "../stores/theme.js";
   import { invoke, on } from "../lib/ipc.js";
+  import {
+    hasInventoryShape,
+    unwrapInventoryPayload as unwrapSharedInventoryPayload,
+  } from "../../config/shared/inventoryPayload.js";
   import type { ThemeCornerStyle, ThemeSurfaceStyle } from "../types/theme.js";
+  import type { RawInventoryData } from "../types/inventory.js";
   import type { HelperDownloadProgress } from "../types/ipc.js";
   import SegmentedControl from "../components/SegmentedControl.svelte";
+  import BuiltInThemeDropdown from "../components/settings/BuiltInThemeDropdown.svelte";
 
   type Step = "configure" | "downloading" | "done" | "error";
   type InventorySource = "helper" | "import";
@@ -18,7 +25,7 @@
 
   const sourceOptions: Array<{ value: InventorySource; label: string }> = [
     { value: "helper", label: "Install API helper" },
-    { value: "import", label: "Import AlecaFrame JSON" },
+    { value: "import", label: "Import inventory JSON" },
   ];
   const surfaceOptions: Array<{ value: ThemeSurfaceStyle; label: string }> = [
     { value: "full", label: "Full" },
@@ -64,7 +71,15 @@
         return;
       }
 
-      await onInventoryLoaded(data);
+      const unwrapped = unwrapSharedInventoryPayload(data, { returnInputOnFailure: false });
+      if (!hasInventoryShape(unwrapped)) {
+        errorMessage =
+          "That file does not look like an inventory JSON export. AlecaFrame stats/trade exports are not inventory imports.";
+        step = "error";
+        return;
+      }
+
+      await onInventoryLoaded(unwrapped as RawInventoryData);
       completeSetup("inventory");
     } catch (error) {
       errorMessage = `Inventory import failed: ${(error as Error).message}`;
@@ -101,6 +116,10 @@
   }
 
   $: effects = $themeSettings.effects;
+  $: activePresetKey = PRESET_KEYS.includes($themeSettings.activePreset)
+    ? $themeSettings.activePreset
+    : "default";
+  $: activePreset = THEME_PRESETS[activePresetKey] ?? THEME_PRESETS.default;
 
   $: progressPercent = progress?.percent ?? 0;
   $: bytesLabel = progress
@@ -145,8 +164,26 @@
                 {#if inventorySource === "helper"}
                   Downloads warframe-api-helper and uses its inventory JSON on startup.
                 {:else}
-                  Opens an existing AlecaFrame or inventory JSON export now.
+                  Opens an existing inventory JSON export now. AlecaFrame stats/trade exports belong in Stats.
                 {/if}
+              </div>
+            </div>
+
+            <div class="rounded-lg border border-border bg-bg-raised px-3 py-3">
+              <div class="mb-2 flex items-start justify-between gap-3">
+                <div>
+                  <h3 class="m-0 font-display text-[0.92rem] font-semibold text-text-primary">Default theme</h3>
+                  <p class="mt-0.5 text-[0.76rem] leading-snug text-text-muted">Choose one of the built-in themes.</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <BuiltInThemeDropdown
+                  activePreset={activePresetKey}
+                  label="Built-in themes"
+                  fallbackLabel={activePreset.label}
+                  className="w-full"
+                  onSelect={(presetKey) => themeSettings.applyPreset(presetKey)}
+                />
               </div>
             </div>
 

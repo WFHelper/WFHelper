@@ -132,6 +132,7 @@ describe("inventoryMarket view mapping", () => {
         sortBy: "name",
         sortDirection: "asc",
         orderPlaced: "all",
+        vaulted: "all",
         partType: "all",
         favorite: "all",
         minimumPlatinum: 0,

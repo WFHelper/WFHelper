@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
   import type { DecodedRiven, RivenBestAttributes, WfmRivenListing } from "../types/ipc.js";
+  import { itemDb } from "../stores/data.js";
   import { PLATINUM_ICON_URL } from "../lib/assetUrls.js";
   import { invoke } from "../lib/ipc.js";
   import { gradeColor, attrGradeColor, dispoStars } from "../lib/rivenGradeColors.js";
@@ -136,6 +137,7 @@
   }
 
   const myStatNamesLc = $derived(new Set(riven.stats.map(s => s.name.toLowerCase())));
+  const weaponDbEntry = $derived($itemDb[riven.weaponUniqueName]);
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -157,6 +159,9 @@
       </div>
       <div class="flex gap-[0.85rem] flex-wrap mt-2 font-display text-[0.875rem] text-text-muted">
         <span class="uppercase tracking-[0.04em] text-accent-dim">{riven.rivenType}</span>
+        {#if typeof weaponDbEntry?.vaulted === "boolean"}
+          <span class="detail-tag" class:vaulted={weaponDbEntry.vaulted} class:mastered={!weaponDbEntry.vaulted}>{weaponDbEntry.vaulted ? "VAULTED" : "UNVAULTED"}</span>
+        {/if}
         <span class="tracking-[-0.3px]" title="Disposition: {riven.disposition.toFixed(3)}">{dispoStars(riven.disposition)} {riven.disposition.toFixed(2)}</span>
         <span>{riven.rerolls} rolls</span>
         <span>Rank {riven.currentRank}/{riven.maxRank}</span>

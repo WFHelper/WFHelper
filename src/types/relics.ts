@@ -21,6 +21,7 @@ export interface RelicGroup {
   name: string;
   tier: string;
   code: string;
+  vaulted?: boolean;
   imageUrl: string | null;
   qualities: Partial<Record<RelicQuality, RelicQualityData>>;
   [key: string]: unknown;

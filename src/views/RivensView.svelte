@@ -53,21 +53,21 @@
     rerolls: (a, b) => a.rerolls - b.rerolls,
     grade: (a, b) => (GRADE_ORDER[a.overallGrade] ?? 0) - (GRADE_ORDER[b.overallGrade] ?? 0),
   };
-  const POLARITY_LABELS: Record<string, string> = {
-    AP_ATTACK: "Madurai",
-    AP_TACTIC: "Naramon",
-    AP_DEFENSE: "Vazarin",
-    AP_POWER: "Zenurik",
-    AP_WARD: "Unairu",
-    AP_PRECEPT: "Penjaga",
-    AP_UMBRA: "Umbra",
-    madurai: "Madurai",
-    naramon: "Naramon",
-    vazarin: "Vazarin",
-    zenurik: "Zenurik",
-    unairu: "Unairu",
-    penjaga: "Penjaga",
-    umbra: "Umbra",
+  const POLARITIES: Record<string, { label: string; symbol: string }> = {
+    AP_ATTACK: { label: "Madurai", symbol: "V" },
+    AP_TACTIC: { label: "Naramon", symbol: "−" },
+    AP_DEFENSE: { label: "Vazarin", symbol: "D" },
+    AP_POWER: { label: "Zenurik", symbol: "=" },
+    AP_WARD: { label: "Unairu", symbol: "R" },
+    AP_PRECEPT: { label: "Penjaga", symbol: "Y" },
+    AP_UMBRA: { label: "Umbra", symbol: "U" },
+    madurai: { label: "Madurai", symbol: "V" },
+    naramon: { label: "Naramon", symbol: "−" },
+    vazarin: { label: "Vazarin", symbol: "D" },
+    zenurik: { label: "Zenurik", symbol: "=" },
+    unairu: { label: "Unairu", symbol: "R" },
+    penjaga: { label: "Penjaga", symbol: "Y" },
+    umbra: { label: "Umbra", symbol: "U" },
   };
 
   const filteredRivens = $derived.by(() => {
@@ -141,11 +141,11 @@
     return riven.rivenName.slice(riven.weaponName.length).trim();
   }
 
-  function polarityLabel(polarity: string): string {
+  function polarityInfo(polarity: string): { label: string; symbol: string } {
     const value = polarity.trim();
-    if (!value) return "No polarity";
+    if (!value) return { label: "No polarity", symbol: "−" };
     const normalized = value.toLowerCase();
-    return POLARITY_LABELS[value] ?? POLARITY_LABELS[normalized] ?? value.replace(/^AP_/, "");
+    return POLARITIES[value] ?? POLARITIES[normalized] ?? { label: value.replace(/^AP_/, ""), symbol: "?" };
   }
 
   onMount(() => {
@@ -218,7 +218,7 @@
     {:else}
       <div class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5 justify-items-center">
         {#each filteredRivens as riven (riven.itemId)}
-          {@const polarity = polarityLabel(riven.polarity)}
+          {@const polarity = polarityInfo(riven.polarity)}
           <button
             class="relative block mx-auto p-0 border-0 outline-none bg-transparent appearance-none cursor-pointer w-[min(100%,18rem)] max-[700px]:w-[min(100%,16rem)] aspect-[316/400] overflow-visible transition-transform duration-[0.18s] ease hover:-translate-y-1 hover:z-[2] focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
             onclick={() => (selectedRiven = riven)}
@@ -255,7 +255,11 @@
 
               <div class="absolute z-[1] left-[22%] right-[22%] top-[83.5%] flex items-center justify-between text-[0.75rem] font-display leading-none [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_6px_rgba(0,0,0,1)]">
                 <span class="text-[rgba(255,255,255,0.85)] font-bold">MR {riven.masteryReq}</span>
-                <span class="max-w-[5.2rem] truncate px-1 text-[rgba(214,198,255,0.92)] font-bold" title={`Polarity: ${polarity}`}>{polarity}</span>
+                <span
+                  class="inline-flex min-w-5 items-center justify-center text-[1.18rem] text-[rgba(226,217,255,0.96)] font-black leading-none [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_7px_rgba(146,104,255,0.85),0_0_12px_rgba(104,72,220,0.55)]"
+                  title={`Polarity: ${polarity.label}`}
+                  aria-label={`Polarity: ${polarity.label}`}
+                >{polarity.symbol}</span>
                 <span class="text-[#f06dff] font-bold">⟳ {riven.rerolls}</span>
               </div>
             </div>
