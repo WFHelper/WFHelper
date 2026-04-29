@@ -149,7 +149,7 @@
     <div class="flex-1 flex flex-col pt-7 px-6 pb-5">
       <div class="setup-content flex-1">
         {#if step === "configure"}
-          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Welcome to Warframe Companion</h2>
+          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Welcome to WFhelper</h2>
 
           <div class="grid gap-3">
             <div class="rounded-lg border border-border bg-bg-raised px-3 py-3">
@@ -237,7 +237,7 @@
               <polyline points="20 6 9 17 4 12"/>
             </svg>
           </div>
-          <p class="!text-text-muted !text-[0.78rem] !mt-4">Click <strong>Finish</strong> to start using Warframe Companion.</p>
+          <p class="!text-text-muted !text-[0.78rem] !mt-4">Click <strong>Finish</strong> to start using WFHelper.</p>
         {:else if step === "error"}
           <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Setup Needs Attention</h2>
           <p class="!text-danger !font-semibold mb-[0.65rem] text-[0.84rem] leading-[1.55]">{errorMessage}</p>
