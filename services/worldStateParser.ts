@@ -6,6 +6,8 @@ import fs from "fs";
 import path from "path";
 
 import { WORLD_STATE_CONFIG } from "../config/runtime/worldState";
+import { fetchJsonWithTimeout, fetchWithTimeout } from "./worldStateFetch";
+import { computeSteelPathHonors } from "./worldStateSteelPath";
 
 const log = withScope("worldStateParser");
 
@@ -28,64 +30,6 @@ const POE_NIGHT_MS = WORLD_STATE_CONFIG.poeNightMs;
 
 const DUVIRI_MOOD_PERIOD_MS = WORLD_STATE_CONFIG.duviriMoodPeriodMs;
 const DUVIRI_MOODS = WORLD_STATE_CONFIG.duviriMoods;
-
-// Steel Path Honors - weekly rotating offer (epoch + rotation from WFCD warframe-worldstate-data)
-const STEEL_PATH_EPOCH_MS = new Date("2020-11-16T00:00:00.000Z").getTime();
-const STEEL_PATH_EIGHT_WEEKS_S = 4838400; // 8 * 7 * 86400
-const STEEL_PATH_SEVEN_DAYS_S = 604800;   // 7 * 86400
-const STEEL_PATH_ROTATION: { name: string; cost: number }[] = [
-  { name: "Umbra Forma Blueprint", cost: 150 },
-  { name: "50,000 Kuva", cost: 55 },
-  { name: "Kitgun Riven Mod", cost: 75 },
-  { name: "3x Forma", cost: 75 },
-  { name: "Zaw Riven Mod", cost: 75 },
-  { name: "30,000 Endo", cost: 150 },
-  { name: "Rifle Riven Mod", cost: 75 },
-  { name: "Shotgun Riven Mod", cost: 75 },
-];
-const STEEL_PATH_EVERGREENS: { name: string; cost: number }[] = [
-  { name: "Veiled Riven Cipher", cost: 20 },
-  { name: "Bishamo Pauldrons Blueprint", cost: 15 },
-  { name: "Bishamo Cuirass Blueprint", cost: 25 },
-  { name: "Bishamo Helmet Blueprint", cost: 20 },
-  { name: "Bishamo Greaves Blueprint", cost: 25 },
-  { name: "10k Kuva", cost: 15 },
-  { name: "Primary Arcane Adapter", cost: 15 },
-  { name: "Secondary Arcane Adapter", cost: 15 },
-  { name: "Relic Pack", cost: 15 },
-  { name: "Stance Forma Blueprint", cost: 10 },
-];
-
-function computeSteelPathHonors(): {
-  currentReward: { name: string; cost: number };
-  activation: string;
-  expiry: string;
-  rotation: { name: string; cost: number }[];
-  evergreens: { name: string; cost: number }[];
-} {
-  const nowMs = Date.now();
-  const sSinceStart = (nowMs - STEEL_PATH_EPOCH_MS) / 1000;
-  const ind = Math.floor((sSinceStart % STEEL_PATH_EIGHT_WEEKS_S) / STEEL_PATH_SEVEN_DAYS_S);
-
-  // Compute week boundaries (Monday 0:00 UTC)
-  const now = new Date(nowMs);
-  const dayOfWeek = now.getUTCDay(); // 0=Sun, 1=Mon
-  const offset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const activation = new Date(nowMs);
-  activation.setUTCDate(activation.getUTCDate() - offset);
-  activation.setUTCHours(0, 0, 0, 0);
-  const expiry = new Date(activation);
-  expiry.setUTCDate(expiry.getUTCDate() + 6);
-  expiry.setUTCHours(23, 59, 59, 0);
-
-  return {
-    currentReward: STEEL_PATH_ROTATION[ind],
-    activation: activation.toISOString(),
-    expiry: expiry.toISOString(),
-    rotation: STEEL_PATH_ROTATION,
-    evergreens: STEEL_PATH_EVERGREENS,
-  };
-}
 
 const EMPTY_LOOKUP: Record<string, string> = Object.freeze({});
 
@@ -228,20 +172,6 @@ const FACTION_LABEL: Record<string, string> = {
   FC_SENTIENT: "Sentient",
 };
 
-async function fetchWithTimeout(
-  url: string,
-  timeoutMs: number,
-  options: Parameters<typeof fetch>[1] = {},
-): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new Error("timeout")), timeoutMs);
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 export function emptyWorldState(): Record<string, unknown> {
   return {
     fissures: [],
@@ -325,15 +255,6 @@ const HUB_NODE: Record<string, string> = {
   "Relay Node 17": "Orcus Relay (Pluto)",
   "Relay Node 20": "Leonov Relay (Europa)",
 };
-
-async function fetchJsonWithTimeout(
-  url: string,
-  timeoutMs: number = CYCLE_FETCH_TIMEOUT_MS,
-): Promise<unknown> {
-  const resp = await fetchWithTimeout(url, timeoutMs, { headers: { Accept: "application/json" } });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status} for ${url}`);
-  return resp.json();
-}
 
 function resolveDictValue(value: unknown): string | null {
   if (typeof value !== "string" || value.length === 0) {
