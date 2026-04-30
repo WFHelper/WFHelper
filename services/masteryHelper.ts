@@ -383,7 +383,7 @@ export function getAllMasterableItems(): MasterableItem[] {
       name: displayName,
       uniqueName,
       category: display.category,
-      imageUrl: item.imageUrl || item.browseWfUrl || null,
+      imageUrl: item.imageUrl || null,
       isPrime: item.isPrime || false,
       masteryReq: item.masteryReq || 0,
       vaulted: item.vaulted || false,
