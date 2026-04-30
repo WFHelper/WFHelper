@@ -8,6 +8,7 @@ release/
 *.log
 .tmp/
 docs/ilspy-decompiled/
+.icon-mirror/
 
 main.js
 preload.js
