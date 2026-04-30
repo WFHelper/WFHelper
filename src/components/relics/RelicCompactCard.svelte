@@ -120,7 +120,7 @@
   <span class="relic-reward-preview-row grid grid-cols-6 gap-[0.3rem]">
     {#each rewardIcons as reward}
       <span
-        class="relic-reward-preview-icon"
+        class="relic-reward-preview-icon inline-flex min-h-[2.05rem] items-center justify-center rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-[color-mix(in_oklab,var(--bg-raised)_86%,var(--bg-base))] p-[0.2rem]"
         class:owned={isOwnedReward(reward)}
         title={rewardTooltip(reward)}
       >
@@ -134,7 +134,7 @@
       {@const count = ownedCount(group, quality)}
       <button
         type="button"
-        class="relic-quality-inline-pill"
+        class="relic-quality-inline-pill inline-flex w-full min-w-0 cursor-pointer appearance-none flex-row items-center justify-center gap-[0.2rem] whitespace-nowrap rounded-[var(--radius-md)] border border-[color-mix(in_oklab,var(--info)_36%,transparent)] bg-[color-mix(in_oklab,var(--info)_14%,var(--bg-base))] px-[0.3rem] py-[0.18rem] font-display text-[0.78rem] font-bold tracking-[0.02em] text-[color-mix(in_oklab,var(--text-secondary)_88%,white)]"
         class:emptyCount={count === 0}
         class:notSelectable={qualityMode !== "owned" || count === 0}
         class:active={qualityMode === "owned" && selectedOwned === quality}
@@ -145,7 +145,10 @@
         }}
       >
         <span class="leading-none normal-case opacity-[0.96]">{RELIC_QUALITY_SHORT[quality]}:</span>
-        <span class="relic-quality-inline-value" class:emptyCount={count === 0}>{count}</span>
+        <span
+          class="relic-quality-inline-value text-[0.78rem] leading-none tracking-[0.02em] text-[color-mix(in_oklab,var(--info)_76%,white)]"
+          class:emptyCount={count === 0}
+        >{count}</span>
       </button>
     {/each}
   </span>
@@ -211,43 +214,12 @@
     color: color-mix(in oklab, var(--danger) 82%, white);
   }
 
-  .relic-reward-preview-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--ui-control-border);
-    background: color-mix(in oklab, var(--bg-raised) 86%, var(--bg-base));
-    padding: 0.2rem;
-    min-height: 2.05rem;
-  }
   .relic-reward-preview-icon.owned {
     border-color: color-mix(in oklab, var(--success) 56%, transparent);
     background: color-mix(in oklab, var(--success) 18%, var(--bg-raised));
     box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--success) 24%, transparent);
   }
 
-  .relic-quality-inline-pill {
-    appearance: none;
-    min-width: 0;
-    width: 100%;
-    display: inline-flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-md);
-    border: 1px solid color-mix(in oklab, var(--info) 36%, transparent);
-    background: color-mix(in oklab, var(--info) 14%, var(--bg-base));
-    gap: 0.2rem;
-    padding: 0.18rem 0.3rem;
-    font-family: var(--font-display);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: color-mix(in oklab, var(--text-secondary) 88%, white);
-    white-space: nowrap;
-    cursor: pointer;
-  }
   .relic-quality-inline-pill.active {
     border-color: color-mix(in oklab, var(--accent) 62%, transparent);
     background: color-mix(in oklab, var(--accent) 22%, var(--bg-base));
@@ -260,12 +232,6 @@
   .relic-quality-inline-pill.notSelectable {
     cursor: default;
     opacity: 0.86;
-  }
-  .relic-quality-inline-value {
-    line-height: 1;
-    font-size: 0.78rem;
-    letter-spacing: 0.02em;
-    color: color-mix(in oklab, var(--info) 76%, white);
   }
   .relic-quality-inline-value.emptyCount {
     color: var(--text-muted);

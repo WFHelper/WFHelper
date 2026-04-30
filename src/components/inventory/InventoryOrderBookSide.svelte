@@ -25,21 +25,23 @@
 </script>
 
 <section
-  class="inventory-orderbook-side"
-  class:inventory-orderbook-side-sell={side === "sell"}
-  class:inventory-orderbook-side-buy={side === "buy"}
+  class="overflow-hidden rounded-lg border border-border bg-[color-mix(in_oklab,var(--bg-surface)_82%,var(--bg-raised))]"
 >
-  <header>
+  <header
+    class="flex items-center justify-center px-[0.4rem] py-[0.32rem] font-display text-[0.75rem] font-bold tracking-[0.03em]"
+    class:inventory-orderbook-side-sell={side === "sell"}
+    class:inventory-orderbook-side-buy={side === "buy"}
+  >
     <span>{title}</span>
   </header>
   {#if rows.length === 0}
-    <div class="inventory-orderbook-side-empty">{emptyLabel}</div>
+    <div class="rounded-[0.45rem] border border-dashed border-border bg-bg-soft px-[0.55rem] py-2 text-[0.78rem] text-text-secondary">{emptyLabel}</div>
   {:else}
-    <div class="inventory-orderbook-rows">
+    <div class="grid">
       {#each rows as entry, index (rowKey(entry, index))}
-        <div class="inventory-orderbook-row">
+        <div class="grid gap-[0.32rem] border-t border-t-[color-mix(in_oklab,var(--border)_72%,transparent)] px-[0.45rem] py-[0.35rem] first:border-t-0">
           <div class="inventory-orderbook-row-head">
-            <div class="inventory-orderbook-user-block">
+            <div class="inventory-orderbook-user-block grid min-w-0 gap-[0.08rem]">
               <span
                 class="overflow-hidden text-ellipsis whitespace-nowrap text-[0.76rem] text-text-primary"
                 title={entry.userName}
@@ -63,18 +65,18 @@
             >
               {statusLabel(entry.status)}
             </span>
-            <span class="inventory-orderbook-qty">x{entry.quantity}</span>
-            <span class="inventory-orderbook-plat">{entry.platinum}p</span>
+            <span class="inventory-orderbook-qty font-display text-[0.74rem] text-text-secondary">x{entry.quantity}</span>
+            <span class="inventory-orderbook-plat text-right font-display text-[0.74rem] font-bold text-accent-bright">{entry.platinum}p</span>
           </div>
           <div class="flex gap-[0.32rem]">
             <button
-              class="btn-secondary btn-sm inventory-orderbook-row-btn"
+              class="btn-secondary btn-sm flex-1 min-h-[1.7rem] px-[0.46rem] py-[0.24rem] text-[0.66rem]"
               on:click={() => void copyWhisper(entry, side)}
             >
               Whisper
             </button>
             <button
-              class="btn-secondary btn-sm inventory-orderbook-row-btn"
+              class="btn-secondary btn-sm flex-1 min-h-[1.7rem] px-[0.46rem] py-[0.24rem] text-[0.66rem]"
               on:click={() => openSellerProfile(entry)}
             >
               Profile
@@ -87,60 +89,21 @@
 </section>
 
 <style>
-  .inventory-orderbook-side {
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    overflow: hidden;
-    background: color-mix(in oklab, var(--bg-surface) 82%, var(--bg-raised));
-  }
-  .inventory-orderbook-side header {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 0.32rem 0.4rem;
-    font-family: var(--font-display);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-  }
-  .inventory-orderbook-side-sell header {
+  .inventory-orderbook-side-sell {
     background: rgba(185, 28, 28, 0.2);
     color: #fda4af;
     border-bottom: 1px solid rgba(251, 113, 133, 0.25);
   }
-  .inventory-orderbook-side-buy header {
+  .inventory-orderbook-side-buy {
     background: rgba(6, 95, 70, 0.2);
     color: #86efac;
     border-bottom: 1px solid rgba(52, 211, 153, 0.24);
-  }
-  .inventory-orderbook-rows {
-    display: grid;
-  }
-  .inventory-orderbook-row {
-    display: grid;
-    gap: 0.32rem;
-    padding: 0.35rem 0.45rem;
-    border-top: 1px solid color-mix(in oklab, var(--border) 72%, transparent);
-  }
-  .inventory-orderbook-row:first-child {
-    border-top: 0;
   }
   .inventory-orderbook-row-head {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto auto;
     gap: 0.3rem;
     align-items: center;
-  }
-  .inventory-orderbook-user-block {
-    display: grid;
-    gap: 0.08rem;
-    min-width: 0;
-  }
-  .inventory-orderbook-row-btn {
-    flex: 1;
-    min-height: 1.7rem;
-    padding: 0.24rem 0.46rem;
-    font-size: 0.66rem;
   }
   .inventory-orderbook-status {
     border-radius: 999px;
@@ -176,25 +139,6 @@
     border-color: rgba(148, 163, 184, 0.45);
     background: rgba(71, 85, 105, 0.24);
     color: #cbd5e1;
-  }
-  .inventory-orderbook-qty,
-  .inventory-orderbook-plat {
-    font-family: var(--font-display);
-    font-size: 0.74rem;
-    color: var(--text-secondary);
-  }
-  .inventory-orderbook-plat {
-    text-align: right;
-    color: var(--accent-bright);
-    font-weight: 700;
-  }
-  .inventory-orderbook-side-empty {
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-    border: 1px dashed var(--border);
-    border-radius: 0.45rem;
-    background: var(--bg-soft);
-    padding: 0.5rem 0.55rem;
   }
 
   @media (max-width: 800px) {

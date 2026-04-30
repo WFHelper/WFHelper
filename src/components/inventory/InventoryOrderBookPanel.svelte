@@ -369,9 +369,9 @@
   }
 </script>
 
-<aside class="inventory-orderbook-panel">
+<aside class="sticky top-[0.65rem] flex flex-col gap-[0.58rem] rounded-[0.625rem] border border-border bg-bg-surface p-[0.62rem] max-[1100px]:static">
   <div class="flex justify-between items-center gap-[0.4rem]">
-    <h3 class="inventory-orderbook-head-title">Market Listings</h3>
+    <h3 class="m-0 font-display text-[0.94rem] text-text-primary">Market Listings</h3>
     {#if currentSlug}
       <div class="flex gap-[0.32rem]">
         <button class="btn-secondary btn-sm" on:click={refresh}>Refresh</button>
@@ -384,7 +384,7 @@
   {/if}
 
   {#if !item}
-    <div class="inventory-orderbook-empty">Select an item to view WTS/WTB listings.</div>
+    <div class="rounded-[0.45rem] border border-dashed border-border bg-bg-soft px-[0.55rem] py-2 text-[0.78rem] text-text-secondary">Select an item to view WTS/WTB listings.</div>
   {:else}
     <div class="grid grid-cols-[52px_minmax(0,1fr)] gap-[0.55rem] items-center">
       <div class="h-[52px] w-[52px] flex items-center justify-center rounded-[0.45rem] border border-border bg-bg-raised overflow-hidden">
@@ -399,60 +399,60 @@
     </div>
 
     {#if !currentSlug}
-      <div class="inventory-orderbook-empty">No market slug available for this item.</div>
+      <div class="rounded-[0.45rem] border border-dashed border-border bg-bg-soft px-[0.55rem] py-2 text-[0.78rem] text-text-secondary">No market slug available for this item.</div>
     {:else if loading}
-      <div class="inventory-orderbook-loading">Loading listings...</div>
+      <div class="rounded-[0.45rem] border border-dashed border-border bg-bg-soft px-[0.55rem] py-2 text-[0.78rem] text-text-secondary">Loading listings...</div>
     {:else if errorMessage}
-      <div class="inventory-orderbook-error">{errorMessage}</div>
+      <div class="rounded-[0.45rem] border border-dashed border-[rgba(248,113,113,0.4)] bg-bg-soft px-[0.55rem] py-2 text-[0.78rem] text-danger">{errorMessage}</div>
     {:else if noData || !orderBook}
-      <div class="inventory-orderbook-empty">No active listings found.</div>
+      <div class="rounded-[0.45rem] border border-dashed border-border bg-bg-soft px-[0.55rem] py-2 text-[0.78rem] text-text-secondary">No active listings found.</div>
     {:else}
-      <div class="inventory-orderbook-summary">
-        <div class="inventory-orderbook-stat">
-          <span>Best WTS</span>
-          <strong>{bestSell != null ? `${bestSell}p` : "-"}</strong>
+      <div class="grid grid-cols-3 gap-[0.36rem] max-[800px]:grid-cols-2">
+        <div class="grid gap-[0.16rem] rounded-[0.45rem] border border-border bg-bg-soft px-[0.45rem] py-[0.35rem]">
+          <span class="text-[0.66rem] uppercase tracking-[0.05em] text-text-muted">Best WTS</span>
+          <strong class="font-display text-[0.8rem] text-text-primary">{bestSell != null ? `${bestSell}p` : "-"}</strong>
         </div>
-        <div class="inventory-orderbook-stat">
-          <span>Best WTB</span>
-          <strong>{bestBuy != null ? `${bestBuy}p` : "-"}</strong>
+        <div class="grid gap-[0.16rem] rounded-[0.45rem] border border-border bg-bg-soft px-[0.45rem] py-[0.35rem]">
+          <span class="text-[0.66rem] uppercase tracking-[0.05em] text-text-muted">Best WTB</span>
+          <strong class="font-display text-[0.8rem] text-text-primary">{bestBuy != null ? `${bestBuy}p` : "-"}</strong>
         </div>
-        <div class="inventory-orderbook-stat">
-          <span>Spread</span>
-          <strong>{spread != null ? `${spread}p` : "-"}</strong>
+        <div class="grid gap-[0.16rem] rounded-[0.45rem] border border-border bg-bg-soft px-[0.45rem] py-[0.35rem]">
+          <span class="text-[0.66rem] uppercase tracking-[0.05em] text-text-muted">Spread</span>
+          <strong class="font-display text-[0.8rem] text-text-primary">{spread != null ? `${spread}p` : "-"}</strong>
         </div>
-        <div class="inventory-orderbook-updated">
+        <div class="col-span-full text-right text-[0.72rem] text-text-muted max-[800px]:text-left">
           {formatUpdatedLabel(orderBook?.timestamp ?? null, nowTimestamp)}
         </div>
       </div>
 
-      <div class="inventory-orderbook-controls">
+      <div class="grid gap-[0.42rem] rounded-lg border border-border bg-[color-mix(in_oklab,var(--bg-surface)_84%,var(--bg-raised))] p-[0.45rem]">
         <label class="inline-flex items-center gap-[0.4rem] text-[0.74rem] text-text-secondary select-none">
           <input type="checkbox" class="accent-accent" bind:checked={onlineIngameOnly} />
           <span>Online/In-game only</span>
         </label>
         <div class="grid gap-[0.4rem]">
           {#if isRankedListingItem}
-            <label class="inventory-orderbook-sort">
-              <span>Rank view</span>
-              <select bind:value={selectedRank}>
+            <label class="grid gap-[0.2rem]">
+              <span class="text-[0.65rem] uppercase tracking-[0.05em] text-text-muted">Rank view</span>
+              <select class="inventory-orderbook-select" bind:value={selectedRank}>
                 {#each rankOptions as rankOption (rankOption)}
                   <option value={rankOption}>R{rankOption}</option>
                 {/each}
               </select>
             </label>
           {/if}
-          <div class="inventory-orderbook-side-sorters">
-            <label class="inventory-orderbook-sort">
-              <span>WTS sort</span>
-              <select bind:value={sellSort}>
+          <div class="grid grid-cols-2 gap-[0.4rem]">
+            <label class="grid gap-[0.2rem]">
+              <span class="text-[0.65rem] uppercase tracking-[0.05em] text-text-muted">WTS sort</span>
+              <select class="inventory-orderbook-select" bind:value={sellSort}>
                 {#each SELL_SORT_OPTIONS as option (option.value)}
                   <option value={option.value}>{option.label}</option>
                 {/each}
               </select>
             </label>
-            <label class="inventory-orderbook-sort">
-              <span>WTB sort</span>
-              <select bind:value={buySort}>
+            <label class="grid gap-[0.2rem]">
+              <span class="text-[0.65rem] uppercase tracking-[0.05em] text-text-muted">WTB sort</span>
+              <select class="inventory-orderbook-select" bind:value={buySort}>
                 {#each BUY_SORT_OPTIONS as option (option.value)}
                   <option value={option.value}>{option.label}</option>
                 {/each}
@@ -462,12 +462,12 @@
         </div>
       </div>
 
-      <div class="inventory-orderbook-post-actions">
+      <div class="grid grid-cols-2 gap-[0.38rem] max-[800px]:grid-cols-1">
         <button class="btn-secondary btn-sm" on:click={() => void openPostOrder("sell")}>Post WTS</button>
         <button class="btn-secondary btn-sm" on:click={() => void openPostOrder("buy")}>Post WTB</button>
       </div>
 
-      <div class="inventory-orderbook-columns">
+      <div class="grid grid-cols-2 gap-2 max-[800px]:grid-cols-1">
         <InventoryOrderBookSide
           side="sell"
           rows={sellRows}
@@ -488,21 +488,6 @@
 </aside>
 
 <style>
-  .inventory-orderbook-panel {
-    position: sticky; top: 0.65rem; border: 1px solid var(--border);
-    border-radius: 0.625rem; background: var(--bg-surface); padding: 0.62rem;
-    display: flex; flex-direction: column; gap: 0.58rem;
-  }
-  .inventory-orderbook-head-title {
-    margin: 0; font-family: var(--font-display); font-size: 0.94rem; color: var(--text-primary);
-  }
-  .inventory-orderbook-loading,
-  .inventory-orderbook-empty,
-  .inventory-orderbook-error {
-    font-size: 0.78rem; color: var(--text-secondary);
-    border: 1px dashed var(--border); border-radius: 0.45rem;
-    background: var(--bg-soft); padding: 0.5rem 0.55rem;
-  }
   .inventory-orderbook-feedback {
     font-size: 0.76rem; color: var(--accent-bright);
     border: 1px solid color-mix(in oklab, var(--accent) 42%, transparent);
@@ -510,40 +495,12 @@
     background: color-mix(in oklab, var(--accent) 14%, var(--bg-soft));
     padding: 0.44rem 0.55rem;
   }
-  .inventory-orderbook-error { color: var(--danger); border-color: rgba(248, 113, 113, 0.4); }
-  .inventory-orderbook-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.36rem; }
-  .inventory-orderbook-stat {
-    border: 1px solid var(--border); border-radius: 0.45rem;
-    background: var(--bg-soft); padding: 0.35rem 0.45rem; display: grid; gap: 0.16rem;
-  }
-  .inventory-orderbook-stat span { font-size: 0.66rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-  .inventory-orderbook-stat strong { font-family: var(--font-display); font-size: 0.8rem; color: var(--text-primary); }
-  .inventory-orderbook-updated { grid-column: 1 / -1; font-size: 0.72rem; color: var(--text-muted); text-align: right; }
-  .inventory-orderbook-controls {
-    border: 1px solid var(--border); border-radius: 0.5rem;
-    background: color-mix(in oklab, var(--bg-surface) 84%, var(--bg-raised));
-    padding: 0.45rem; display: grid; gap: 0.42rem;
-  }
-  .inventory-orderbook-side-sorters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; }
-  .inventory-orderbook-sort { display: grid; gap: 0.2rem; }
-  .inventory-orderbook-sort span { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-  .inventory-orderbook-sort select {
+  .inventory-orderbook-select {
     width: 100%; border: 1px solid var(--border); border-radius: 0.38rem;
     background: var(--bg-raised); color: var(--text-primary); padding: 0.26rem 0.34rem; font-size: 0.72rem;
   }
-  .inventory-orderbook-sort select:focus {
+  .inventory-orderbook-select:focus {
     outline: none; border-color: var(--accent);
     box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 30%, transparent);
-  }
-  .inventory-orderbook-post-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.38rem; }
-  .inventory-orderbook-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
-
-  @media (max-width: 1100px) { .inventory-orderbook-panel { position: static; } }
-  @media (max-width: 800px) {
-    .inventory-orderbook-columns { grid-template-columns: 1fr; }
-    .inventory-orderbook-side-sorters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .inventory-orderbook-post-actions { grid-template-columns: 1fr; }
-    .inventory-orderbook-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .inventory-orderbook-updated { text-align: left; }
   }
 </style>

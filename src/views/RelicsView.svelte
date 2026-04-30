@@ -712,7 +712,7 @@
         </label>
 
         <button
-          class="push-overlay-btn"
+          class="inline-flex min-h-[2.1rem] cursor-pointer items-center gap-[0.35rem] rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] px-[0.7rem] py-0 font-display text-[0.7rem] font-medium tracking-[0.03em] text-text-secondary transition-[border-color,background-color,color] duration-150 hover:border-accent hover:bg-bg-hover hover:text-accent [&_svg]:shrink-0"
           title="Push current tier & squad filters to the in-game relic overlay"
           on:click={pushFiltersToOverlay}
         >

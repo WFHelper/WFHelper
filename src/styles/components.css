@@ -262,36 +262,6 @@
     color: var(--accent);
   }
 
-  /* ── push-to-overlay button ──────────────────────────────────── */
-  .push-overlay-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    min-height: 2.1rem;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--ui-control-border);
-    background: var(--ui-control-bg);
-    padding: 0 0.7rem;
-    font-family: var(--font-display);
-    font-size: 0.7rem;
-    font-weight: 500;
-    letter-spacing: 0.03em;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition:
-      border-color 0.15s ease,
-      background-color 0.15s ease,
-      color 0.15s ease;
-  }
-  .push-overlay-btn:hover {
-    border-color: var(--accent);
-    background: var(--bg-hover);
-    color: var(--accent);
-  }
-  .push-overlay-btn svg {
-    flex-shrink: 0;
-  }
-
   /* ── buttons ─────────────────────────────────────────────────── */
   .btn-primary,
   .btn-secondary,
