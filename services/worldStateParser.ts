@@ -6,7 +6,7 @@ import fs from "fs";
 import path from "path";
 
 import { WORLD_STATE_CONFIG } from "../config/runtime/worldState";
-import { toIconMirrorUrl } from "./iconMirror";
+import { toIconMirrorUrl } from "./itemDatabase";
 import { fetchJsonWithTimeout, fetchWithTimeout } from "./worldStateFetch";
 import { computeSteelPathHonors } from "./worldStateSteelPath";
 

@@ -4,8 +4,12 @@
  * Fallback: @wfcd/items (WFCD) — curated community data with proven image CDN
  */
 
-import { withScope } from "./logger";
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { withScope } from "./logger";
 import type {
   PepExportItem,
   DropEntry,
@@ -13,45 +17,41 @@ import type {
   RecipeData,
   RendererItemEntry,
 } from "./types/gameData";
-import path from "path";
-import fs from "fs";
-
-import { toIconMirrorUrl } from "./iconMirror";
 
 const log = withScope("itemDatabase");
 
 // Source image URLs are rewritten to the WFHelper icon mirror before they reach the renderer.
 const WFCD_CDN = "https://cdn.warframestat.us/img/";
 const BROWSE_WF = "https://browse.wf";
+const ICON_MIRROR_BASE_URL = (
+  process.env.WFHELPER_ICON_MIRROR_URL || "https://assets.wfhelper.com"
+).replace(/\/+$/, "");
+
+export function toIconMirrorUrl(sourceUrl: string | null | undefined): string | null {
+  const trimmed = typeof sourceUrl === "string" ? sourceUrl.trim() : "";
+  if (!trimmed) return null;
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    if (process.env.WFHELPER_ICON_MIRROR_DISABLED === "1") return trimmed;
+    if (parsed.hostname === new URL(ICON_MIRROR_BASE_URL).hostname) return trimmed;
+
+    const ext = path.extname(parsed.pathname).toLowerCase();
+    const hash = crypto.createHash("sha256").update(trimmed).digest("hex").slice(0, 24);
+    return `${ICON_MIRROR_BASE_URL}/icons/${hash}${ext && ext.length <= 8 ? ext : ".png"}`;
+  } catch {
+    return null;
+  }
+}
 
 function buildWfcdImageUrl(imageName: string | null | undefined): string | null {
   const trimmed = typeof imageName === "string" ? imageName.trim() : "";
   return trimmed ? WFCD_CDN + trimmed : null;
 }
 
-function cleanImageUrl(url: string | null | undefined): string | null {
-  const trimmed = typeof url === "string" ? url.trim() : "";
-  return trimmed ? trimmed : null;
-}
-
-function chooseImageUrl({
-  browseWfUrl,
-  wikiImageUrl,
-  wfcdImageUrl,
-  fallbackImageUrl,
-}: {
-  browseWfUrl?: string | null;
-  wikiImageUrl?: string | null;
-  wfcdImageUrl?: string | null;
-  fallbackImageUrl?: string | null;
-}): string | null {
-  const sourceUrl =
-    cleanImageUrl(browseWfUrl) ||
-    cleanImageUrl(wikiImageUrl) ||
-    cleanImageUrl(wfcdImageUrl) ||
-    cleanImageUrl(fallbackImageUrl);
-
-  return toIconMirrorUrl(sourceUrl);
+function chooseImageUrl(...urls: Array<string | null | undefined>): string | null {
+  return toIconMirrorUrl(urls.find((url) => typeof url === "string" && url.trim()));
 }
 
 function sanitizeDisplayName(name: string): string {
@@ -377,10 +377,7 @@ function loadWfcdItems(): number {
       const wfcdEntry: ItemEntry = {
         name: sanitizeDisplayName(item.name || "Unknown"),
         category: item.category || "Misc",
-        imageUrl: chooseImageUrl({
-          wikiImageUrl: item.wikiaThumbnail,
-          wfcdImageUrl,
-        }),
+        imageUrl: chooseImageUrl(item.wikiaThumbnail, wfcdImageUrl),
         isPrime: sanitizeDisplayName(item.name || "").includes("Prime"),
         masteryReq: item.masteryReq || 0,
         masterable: typeof item.masterable === "boolean" ? item.masterable : undefined,
@@ -423,11 +420,11 @@ function loadWfcdItems(): number {
               comp.imageName && comp.imageName !== "blueprint.png"
                 ? buildWfcdImageUrl(comp.imageName)
                 : null;
-            const compImageUrl = chooseImageUrl({
-              browseWfUrl: existingComponent?.browseWfUrl,
-              wikiImageUrl: wfcdEntry.imageUrl,
-              wfcdImageUrl: compWfcdImageUrl,
-            });
+            const compImageUrl = chooseImageUrl(
+              existingComponent?.browseWfUrl,
+              wfcdEntry.imageUrl,
+              compWfcdImageUrl,
+            );
 
             const componentEntry: ItemEntry = {
               ...wfcdEntry,
@@ -503,11 +500,11 @@ function loadWfcdItems(): number {
                 }
 
                 const aliasWfcdImageUrl = buildWfcdImageUrl(comp.imageName) || wfcdImageUrl;
-                const aliasImage = chooseImageUrl({
-                  browseWfUrl: existingBlueprint.browseWfUrl,
-                  wikiImageUrl: wfcdEntry.imageUrl,
-                  wfcdImageUrl: aliasWfcdImageUrl,
-                });
+                const aliasImage = chooseImageUrl(
+                  existingBlueprint.browseWfUrl,
+                  wfcdEntry.imageUrl,
+                  aliasWfcdImageUrl,
+                );
                 if (!existingBlueprint.imageUrl && aliasImage) {
                   existingBlueprint.imageUrl = aliasImage;
                 }
@@ -539,11 +536,7 @@ function loadWfcdItems(): number {
       } else {
         const existing = itemsByUniqueName[item.uniqueName];
 
-        existing.imageUrl = chooseImageUrl({
-          browseWfUrl: existing.browseWfUrl,
-          wikiImageUrl: item.wikiaThumbnail,
-          wfcdImageUrl,
-        });
+        existing.imageUrl = chooseImageUrl(existing.browseWfUrl, item.wikiaThumbnail, wfcdImageUrl);
 
         if (existing.name.startsWith("/Lotus/") && item.name) {
           const cleanedName = sanitizeDisplayName(item.name);

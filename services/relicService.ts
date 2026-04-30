@@ -1,7 +1,7 @@
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { normalizeWfmSlug } from "../config/shared/wfm";
-import { toIconMirrorUrl } from "./iconMirror";
+import { toIconMirrorUrl } from "./itemDatabase";
 
 const log = withScope("relicService");
 

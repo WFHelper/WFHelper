@@ -1,6 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { toIconMirrorUrl } from "../../services/iconMirror";
 import * as itemDb from "../../services/itemDatabase";
 
 describe("itemDatabase WFCD alias enrichment", () => {
@@ -45,12 +44,12 @@ describe("itemDatabase WFCD alias enrichment", () => {
     );
 
     expect(boarPrime?.imageUrl).toBe(
-      toIconMirrorUrl(
+      itemDb.toIconMirrorUrl(
         "https://browse.wf/Lotus/Interface/Icons/StoreIcons/Weapons/PrimaryWeapons/Weapons/BoarPrime.png",
       ),
     );
     expect(boarBarrel?.imageUrl).toBe(
-      toIconMirrorUrl(
+      itemDb.toIconMirrorUrl(
         "https://browse.wf/Lotus/Interface/Icons/StoreIcons/Resources/CraftingComponents/GenericGunPrimeBarrel.png",
       ),
     );
