@@ -25,8 +25,15 @@ It defaults to 6 concurrent requests. Override with:
 ICON_MIRROR_CONCURRENCY=3 npm run icons:download
 ```
 
-`icons:deploy` deploys `.icon-mirror/public` to a Cloudflare Pages project named
-`wfhelper-icons` using the Wrangler dependency already installed for the Worker.
+`icons:deploy` deploys the already-generated `.icon-mirror/public` directory to a
+Cloudflare Pages project named `wfhelper-icons` using the Wrangler dependency
+already installed for the Worker.
+
+If upstream sources have missing icons, `icons:download` writes them to
+`.icon-mirror/download-failures.json`. Real 404s are expected when an upstream
+package references image names that no longer exist. Deploying the successfully
+downloaded icons is still useful; the app can keep its normal placeholder for
+the missing ones.
 
 Before the first deploy, log in once:
 
