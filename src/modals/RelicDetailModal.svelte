@@ -286,8 +286,10 @@ import DetailModalBase from "./DetailModalBase.svelte";
             <span class="text-[0.8rem] text-text-secondary">Squad:</span>
             {#each SQUAD_OPTIONS as [size, label]}
               <button
-                class="relic-squad-btn"
-                class:active={localSquadSize === size}
+                class="rounded-[0.36rem] border border-border bg-bg-surface px-[0.56rem] py-[0.3rem] font-display text-[0.75rem] font-semibold text-text-secondary transition-all duration-[0.14s] hover:border-text-secondary hover:text-text-primary"
+                class:border-accent={localSquadSize === size}
+                class:bg-accent-glow={localSquadSize === size}
+                class:text-accent={localSquadSize === size}
                 on:click={() => (localSquadSize = size)}
               >{label}</button>
             {/each}

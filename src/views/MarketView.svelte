@@ -471,12 +471,14 @@
             <span class="rounded-full border border-border bg-white/5 px-2 py-1 font-display text-xs font-bold text-text-primary">@{$marketSession.userName}</span>
           {/if}
 
-          <div class="market-status-group">
+          <div class="flex flex-wrap gap-[0.35rem]">
             {#each STATUS_OPTIONS as [statusKey, label]}
               <button
-                class="status-btn"
-                data-status={statusKey}
-                class:status-active={$marketViewState.status === statusKey}
+                class="rounded-[0.36rem] border border-border bg-bg-surface px-[0.56rem] py-[0.3rem] font-display text-[0.75rem] font-semibold text-text-secondary transition-all duration-[0.14s] hover:border-text-secondary hover:text-text-primary"
+                class:statusOnlineActive={statusKey === "online" && $marketViewState.status === statusKey}
+                class:statusIngameActive={statusKey === "ingame" && $marketViewState.status === statusKey}
+                class:statusInvisibleActive={statusKey === "invisible" && $marketViewState.status === statusKey}
+                class:statusOtherActive={!["online", "ingame", "invisible"].includes(statusKey) && $marketViewState.status === statusKey}
                 on:click={() => setStatus(statusKey)}
               >{label}</button>
             {/each}
@@ -587,4 +589,27 @@
     </div>
   {/if}
 </section>
+
+<style>
+  .statusOnlineActive {
+    border-color: rgba(74, 222, 128, 0.4);
+    background: var(--accent-glow);
+    color: var(--success);
+  }
+  .statusIngameActive {
+    border-color: rgba(96, 165, 250, 0.4);
+    background: var(--accent-glow);
+    color: var(--info);
+  }
+  .statusInvisibleActive {
+    border-color: rgba(139, 147, 165, 0.4);
+    background: var(--accent-glow);
+    color: var(--text-secondary);
+  }
+  .statusOtherActive {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+    color: var(--accent);
+  }
+</style>
 

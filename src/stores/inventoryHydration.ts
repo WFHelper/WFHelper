@@ -103,61 +103,49 @@ export function createInventoryHydrationController(): InventoryHydrationControll
   let pendingMetricPatches: Record<string, ItemMetrics> = {};
   let metricFlushTimer: ReturnType<typeof setTimeout> | null = null;
 
-  let pendingMetricKeys: Record<string, true> = {};
-  let queuedMetricKeys: Record<string, true> = {};
+  const pendingMetricKeys = new Set<string>();
+  const queuedMetricKeys = new Set<string>();
   let hydrationQueue: HydrationTask[] = [];
   let hydrationRunning = false;
   let isMounted = true;
-  let missingDucatRetryCountByKey: Record<string, number> = {};
-  let priceTransientRetryAtByKey: Record<string, number> = {};
-  let orderTransientRetryAtByKey: Record<string, number> = {};
+  const missingDucatRetryCountByKey = new Map<string, number>();
+  const priceTransientRetryAtByKey = new Map<string, number>();
+  const orderTransientRetryAtByKey = new Map<string, number>();
 
   // ---- Context that bridges closure state to hydrateItemMetrics ----
   const ctx: HydrationContext = {
     getMetric: (key) => metricsByKey[key],
 
     hasPriceRetryCooldown(key) {
-      const retryAt = priceTransientRetryAtByKey[key];
+      const retryAt = priceTransientRetryAtByKey.get(key);
       return typeof retryAt === "number" && retryAt > Date.now();
     },
     setPriceRetryCooldown(key, delayMs) {
-      priceTransientRetryAtByKey = { ...priceTransientRetryAtByKey, [key]: Date.now() + delayMs };
+      priceTransientRetryAtByKey.set(key, Date.now() + delayMs);
     },
     clearPriceRetryCooldown(key) {
-      if (!priceTransientRetryAtByKey[key]) return;
-      const next = { ...priceTransientRetryAtByKey };
-      delete next[key];
-      priceTransientRetryAtByKey = next;
+      priceTransientRetryAtByKey.delete(key);
     },
 
     hasOrderRetryCooldown(key) {
-      const retryAt = orderTransientRetryAtByKey[key];
+      const retryAt = orderTransientRetryAtByKey.get(key);
       return typeof retryAt === "number" && retryAt > Date.now();
     },
     setOrderRetryCooldown(key, delayMs) {
-      orderTransientRetryAtByKey = { ...orderTransientRetryAtByKey, [key]: Date.now() + delayMs };
+      orderTransientRetryAtByKey.set(key, Date.now() + delayMs);
     },
     clearOrderRetryCooldown(key) {
-      if (!orderTransientRetryAtByKey[key]) return;
-      const next = { ...orderTransientRetryAtByKey };
-      delete next[key];
-      orderTransientRetryAtByKey = next;
+      orderTransientRetryAtByKey.delete(key);
     },
 
     getMissingDucatRetryCount(key) {
-      return missingDucatRetryCountByKey[key] || 0;
+      return missingDucatRetryCountByKey.get(key) || 0;
     },
     incrementMissingDucatRetryCount(key) {
-      missingDucatRetryCountByKey = {
-        ...missingDucatRetryCountByKey,
-        [key]: (missingDucatRetryCountByKey[key] || 0) + 1,
-      };
+      missingDucatRetryCountByKey.set(key, (missingDucatRetryCountByKey.get(key) || 0) + 1);
     },
     clearMissingDucatRetryCount(key) {
-      if (!missingDucatRetryCountByKey[key]) return;
-      const rest = { ...missingDucatRetryCountByKey };
-      delete rest[key];
-      missingDucatRetryCountByKey = rest;
+      missingDucatRetryCountByKey.delete(key);
     },
 
     queueMetricPatch(key, metric) {
@@ -176,12 +164,10 @@ export function createInventoryHydrationController(): InventoryHydrationControll
     },
 
     markPending(key) {
-      pendingMetricKeys = { ...pendingMetricKeys, [key]: true };
+      pendingMetricKeys.add(key);
     },
     clearPending(key) {
-      const rest = { ...pendingMetricKeys };
-      delete rest[key];
-      pendingMetricKeys = rest;
+      pendingMetricKeys.delete(key);
     },
   };
 
@@ -192,8 +178,8 @@ export function createInventoryHydrationController(): InventoryHydrationControll
       priceDebugCounters: normalizeCounters(getPriceDebugCounters()),
       orderSummaryDebugCounters: cloneOrderSummaryCounters(getOrderSummaryDebugCounters()),
       orderBookDebugCounters: cloneOrderBookCounters(getOrderBookDebugCounters()),
-      queued: Object.keys(queuedMetricKeys).length,
-      pending: Object.keys(pendingMetricKeys).length,
+      queued: queuedMetricKeys.size,
+      pending: pendingMetricKeys.size,
     });
   }
 
@@ -208,9 +194,7 @@ export function createInventoryHydrationController(): InventoryHydrationControll
 
         const pendingTasks: Promise<void>[] = [];
         for (const task of batch) {
-          const nextQueued = { ...queuedMetricKeys };
-          delete nextQueued[task.key];
-          queuedMetricKeys = nextQueued;
+          queuedMetricKeys.delete(task.key);
 
           if (!isMounted) break;
           pendingTasks.push(hydrateItemMetrics(ctx, task.item, task.lookup, task.needs));
@@ -242,7 +226,7 @@ export function createInventoryHydrationController(): InventoryHydrationControll
 
     for (const item of items) {
       const key = item.internalName;
-      if (pendingMetricKeys[key] || queuedMetricKeys[key]) continue;
+      if (pendingMetricKeys.has(key) || queuedMetricKeys.has(key)) continue;
 
       const existing = metricsByKey[key];
       const retryMissingDucats = canRetryMissingDucats(key, item, existing);
@@ -333,7 +317,7 @@ export function createInventoryHydrationController(): InventoryHydrationControll
         continue;
       }
 
-      queuedMetricKeys = { ...queuedMetricKeys, [key]: true };
+      queuedMetricKeys.add(key);
       hydrationQueue = [...hydrationQueue, { key, item, lookup, needs }];
       appended = true;
     }
@@ -385,10 +369,11 @@ export function createInventoryHydrationController(): InventoryHydrationControll
     destroy() {
       isMounted = false;
       hydrationQueue = [];
-      queuedMetricKeys = {};
-      missingDucatRetryCountByKey = {};
-      priceTransientRetryAtByKey = {};
-      orderTransientRetryAtByKey = {};
+      queuedMetricKeys.clear();
+      pendingMetricKeys.clear();
+      missingDucatRetryCountByKey.clear();
+      priceTransientRetryAtByKey.clear();
+      orderTransientRetryAtByKey.clear();
       if (metricFlushTimer) {
         clearTimeout(metricFlushTimer);
         metricFlushTimer = null;

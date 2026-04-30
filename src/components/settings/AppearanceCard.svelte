@@ -10,10 +10,10 @@
   $: contrastSafe = $themeSettings.contrastSafeMode;
 </script>
 
-<article class="settings-card appearance-card w-[min(620px,100%)]">
-  <div class="settings-card-head">
-    <h3>{$tr("appearance.title")}</h3>
-    <p>{$tr("appearance.description")}</p>
+<article class="appearance-card w-[min(620px,100%)] rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+  <div>
+    <h3 class="m-0 mb-[0.42rem] font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">{$tr("appearance.title")}</h3>
+    <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">{$tr("appearance.description")}</p>
   </div>
 
   <div class="settings-form">
@@ -39,7 +39,7 @@
     </div>
 
     <!-- Global Actions -->
-    <div class="settings-actions">
+    <div class="flex flex-wrap gap-[0.35rem]">
       <button class="btn-danger btn-sm" on:click={() => themeSettings.resetAll()}>
         {$tr("appearance.restoreAll")}
       </button>

@@ -68,7 +68,3 @@ export const foundryData = derived(
     return _foundryCache;
   },
 );
-
-// Eagerly subscribe so the parse runs once as soon as inventory + itemDb are
-// loaded \u2014 the first Foundry tab visit then just reads the cached result.
-foundryData.subscribe(() => {});

@@ -116,10 +116,10 @@
 
   {#if settingsTab === "general"}
     <div class="settings-tab-grid py-3">
-      <article class="settings-card w-full">
-        <div class="settings-card-head">
-          <h3>Trade</h3>
-          <p>Notifications and order handling for market-assisted trades.</p>
+      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+        <div>
+          <h3 class="m-0 mb-[0.42rem] font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Trade</h3>
+          <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">Notifications and order handling for market-assisted trades.</p>
         </div>
 
         <div class="mt-2.5 grid gap-2">
@@ -140,13 +140,13 @@
         </div>
       </article>
 
-      <article class="settings-card w-full">
-        <div class="settings-card-head">
-          <h3>Actions</h3>
-          <p>Save app behavior changes or restore default settings.</p>
+      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+        <div>
+          <h3 class="m-0 mb-[0.42rem] font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Actions</h3>
+          <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">Save app behavior changes or restore default settings.</p>
         </div>
 
-        <div class="settings-actions mt-2.5">
+        <div class="mt-2.5 flex flex-wrap gap-[0.35rem]">
           <button class="btn-primary btn-sm" on:click={save}>{$tr("settings.save")}</button>
           <button class="btn-secondary btn-sm" on:click={resetDefaults}>{$tr("settings.resetDefaults")}</button>
         </div>
@@ -162,10 +162,10 @@
     </div>
   {:else if settingsTab === "overlay"}
     <div class="settings-tab-grid py-3">
-      <article class="settings-card w-full">
-        <div class="settings-card-head">
-          <h3>{$tr("settings.overlayTitle")}</h3>
-          <p>{$tr("settings.overlayDescription")}</p>
+      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+        <div>
+          <h3 class="m-0 mb-[0.42rem] font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">{$tr("settings.overlayTitle")}</h3>
+          <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">{$tr("settings.overlayDescription")}</p>
           <p class="mt-1 text-xs leading-tight text-text-muted">{$tr("settings.overlayRequirements")}</p>
         </div>
 
@@ -209,10 +209,10 @@
         </div>
       </article>
 
-      <article class="settings-card w-full">
-        <div class="settings-card-head">
-          <h3>Scanner</h3>
-          <p>OCR tuning for reward detection and overlay matching.</p>
+      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+        <div>
+          <h3 class="m-0 mb-[0.42rem] font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Scanner</h3>
+          <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">OCR tuning for reward detection and overlay matching.</p>
         </div>
 
         <div class="mt-2.5 grid gap-2">
@@ -255,7 +255,7 @@
       </article>
 
       <div class="settings-wide-actions">
-        <div class="settings-actions">
+        <div class="flex flex-wrap gap-[0.35rem]">
           <button class="btn-primary btn-sm" on:click={save}>{$tr("settings.save")}</button>
           <button class="btn-secondary btn-sm" on:click={resetDefaults}>{$tr("settings.resetDefaults")}</button>
           <button class="btn-secondary btn-sm" on:click={testTrigger}>{$tr("settings.testTrigger")}</button>

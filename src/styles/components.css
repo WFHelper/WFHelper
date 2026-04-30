@@ -545,53 +545,6 @@
   }
 
   /* ── cross-component toggle button groups ────────────────────── */
-  .market-status-group,
-  .market-radio-group,
-  .settings-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-  }
-  .status-btn,
-  .relic-squad-btn {
-    border-radius: 0.36rem;
-    border: 1px solid var(--border);
-    background: var(--bg-surface);
-    padding: 0.3rem 0.56rem;
-    font-family: var(--font-display);
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    transition: all 0.14s ease;
-  }
-  .status-btn:hover,
-  .relic-squad-btn:hover {
-    border-color: var(--text-secondary);
-    color: var(--text-primary);
-  }
-  .relic-squad-btn.active {
-    border-color: var(--accent);
-    background: var(--accent-glow);
-    color: var(--accent);
-  }
-  .status-btn.status-active {
-    border-color: var(--accent);
-    background: var(--accent-glow);
-    color: var(--accent);
-  }
-  .status-btn[data-status="online"].status-active {
-    border-color: rgba(74, 222, 128, 0.4);
-    color: var(--success);
-  }
-  .status-btn[data-status="ingame"].status-active {
-    border-color: rgba(96, 165, 250, 0.4);
-    color: var(--info);
-  }
-  .status-btn[data-status="invisible"].status-active {
-    border-color: rgba(139, 147, 165, 0.4);
-    color: var(--text-secondary);
-  }
-
   /* ── tab bar (underline style, used by rivens / settings) ───── */
   .tab-bar {
     display: flex;
@@ -822,19 +775,10 @@
     background: rgba(251, 191, 36, 0.15);
     color: var(--warning);
   }
-  .settings-card {
-    border: 1px solid var(--ui-panel-border);
-    border-radius: var(--radius-xl);
-    background: var(--ui-panel-bg);
-    box-shadow: var(--ui-panel-shadow);
-    backdrop-filter: var(--ui-backdrop-blur);
-    padding: 1rem;
-  }
   .detail-meta,
   .detail-desc,
   .detail-market-body,
   .drop-entry,
-  .settings-card-head p,
   .settings-status,
   .detail-muted {
     font-size: var(--font-small-size, 0.82rem);
@@ -847,8 +791,7 @@
     margin-top: 0.7rem;
   }
   .detail-section h3,
-  .relic-rewards-header,
-  .settings-card-head h3 {
+  .relic-rewards-header {
     margin: 0 0 0.42rem;
     font-family: var(--font-display);
     font-size: var(--font-heading-size, 0.95rem);
