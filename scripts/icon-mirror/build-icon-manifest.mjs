@@ -14,6 +14,10 @@ const manifestPath = path.join(publicRoot, "manifest.json");
 const sourceListPath = path.join(outputRoot, "source-urls.txt");
 const headersPath = path.join(publicRoot, "_headers");
 
+// The app rewrites icons to the mirror at runtime. Manifest generation needs
+// the original upstream URLs so the hash paths match the downloaded files.
+process.env.WFHELPER_ICON_MIRROR_DISABLED = "1";
+
 function requireCompiled(relativePath) {
   const modulePath = path.join(compiledRoot, relativePath);
   if (!fs.existsSync(modulePath)) {

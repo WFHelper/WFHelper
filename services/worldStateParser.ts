@@ -6,6 +6,7 @@ import fs from "fs";
 import path from "path";
 
 import { WORLD_STATE_CONFIG } from "../config/runtime/worldState";
+import { toIconMirrorUrl } from "./iconMirror";
 import { fetchJsonWithTimeout, fetchWithTimeout } from "./worldStateFetch";
 import { computeSteelPathHonors } from "./worldStateSteelPath";
 
@@ -99,12 +100,18 @@ const BARO_ICON_OVERRIDES: Record<string, string> = {
     BROWSE_WF + "/Lotus/Interface/Icons/StoreIcons/ShipDecos/Decorations/NecraloidFloof.png",
 };
 
+function toBrowseMirrorUrl(iconPath: string | null | undefined): string | null {
+  const trimmed = typeof iconPath === "string" ? iconPath.trim() : "";
+  if (!trimmed) return null;
+  return toIconMirrorUrl(trimmed.startsWith("http") ? trimmed : BROWSE_WF + trimmed);
+}
+
 /** Resolve a browse.wf icon for an item path, checking exports then overrides */
 function resolveBaroIcon(itemPath: string): string | null {
-  if (BARO_ICON_OVERRIDES[itemPath]) return BARO_ICON_OVERRIDES[itemPath];
+  if (BARO_ICON_OVERRIDES[itemPath]) return toBrowseMirrorUrl(BARO_ICON_OVERRIDES[itemPath]);
   const entry = getItemLookup()[itemPath];
   if (entry && typeof (entry as Record<string, unknown>).icon === "string") {
-    return BROWSE_WF + (entry as Record<string, unknown>).icon;
+    return toBrowseMirrorUrl((entry as Record<string, unknown>).icon as string);
   }
   return null;
 }

@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { toIconMirrorUrl } from "../../services/iconMirror";
 import * as itemDb from "../../services/itemDatabase";
 
 describe("itemDatabase WFCD alias enrichment", () => {
@@ -37,17 +38,21 @@ describe("itemDatabase WFCD alias enrichment", () => {
     expect(corufellHandle?.tradable).toBeUndefined();
   });
 
-  it("prefers browse.wf icons over WFCD CDN redirects when export icons exist", () => {
+  it("mirrors browse.wf icons instead of exposing upstream URLs", () => {
     const boarPrime = itemDb.lookupItem("/Lotus/Weapons/Tenno/Shotgun/PrimeBoar");
     const boarBarrel = itemDb.lookupItem(
       "/Lotus/Types/Recipes/Weapons/WeaponParts/BoarPrimeBarrel",
     );
 
     expect(boarPrime?.imageUrl).toBe(
-      "https://browse.wf/Lotus/Interface/Icons/StoreIcons/Weapons/PrimaryWeapons/Weapons/BoarPrime.png",
+      toIconMirrorUrl(
+        "https://browse.wf/Lotus/Interface/Icons/StoreIcons/Weapons/PrimaryWeapons/Weapons/BoarPrime.png",
+      ),
     );
     expect(boarBarrel?.imageUrl).toBe(
-      "https://browse.wf/Lotus/Interface/Icons/StoreIcons/Resources/CraftingComponents/GenericGunPrimeBarrel.png",
+      toIconMirrorUrl(
+        "https://browse.wf/Lotus/Interface/Icons/StoreIcons/Resources/CraftingComponents/GenericGunPrimeBarrel.png",
+      ),
     );
   });
 });

@@ -16,9 +16,11 @@ import type {
 import path from "path";
 import fs from "fs";
 
+import { toIconMirrorUrl } from "./iconMirror";
+
 const log = withScope("itemDatabase");
 
-// Image CDNs — wfcd CDN is more reliable for direct <img> usage
+// Source image URLs are rewritten to the WFHelper icon mirror before they reach the renderer.
 const WFCD_CDN = "https://cdn.warframestat.us/img/";
 const BROWSE_WF = "https://browse.wf";
 
@@ -43,12 +45,13 @@ function chooseImageUrl({
   wfcdImageUrl?: string | null;
   fallbackImageUrl?: string | null;
 }): string | null {
-  return (
+  const sourceUrl =
     cleanImageUrl(browseWfUrl) ||
     cleanImageUrl(wikiImageUrl) ||
     cleanImageUrl(wfcdImageUrl) ||
-    cleanImageUrl(fallbackImageUrl)
-  );
+    cleanImageUrl(fallbackImageUrl);
+
+  return toIconMirrorUrl(sourceUrl);
 }
 
 function sanitizeDisplayName(name: string): string {
@@ -599,7 +602,7 @@ function resolveAllImages(): void {
     }
 
     if (item.browseWfUrl) {
-      item.imageUrl = item.browseWfUrl;
+      item.imageUrl = toIconMirrorUrl(item.browseWfUrl);
       browseWfFallback++;
       continue;
     }

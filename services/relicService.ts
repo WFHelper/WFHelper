@@ -1,6 +1,7 @@
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { normalizeWfmSlug } from "../config/shared/wfm";
+import { toIconMirrorUrl } from "./iconMirror";
 
 const log = withScope("relicService");
 
@@ -52,6 +53,11 @@ interface RelicDatabase {
 
 let _db: RelicDatabase | null = null;
 
+function buildWfcdImageUrl(imageName: string | null | undefined): string | null {
+  const trimmed = typeof imageName === "string" ? imageName.trim() : "";
+  return trimmed ? toIconMirrorUrl(WFCD_CDN + trimmed) : null;
+}
+
 function buildRelicDatabase(): RelicDatabase {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped @wfcd/items constructor
   let Items: any;
@@ -98,7 +104,7 @@ function buildRelicDatabase(): RelicDatabase {
 
     if (relic.imageName) {
       if (quality === "Intact" || !group.imageUrl) {
-        group.imageUrl = WFCD_CDN + relic.imageName;
+        group.imageUrl = buildWfcdImageUrl(relic.imageName);
       }
     }
 
@@ -110,7 +116,7 @@ function buildRelicDatabase(): RelicDatabase {
         return {
           name: r.item?.name || "Unknown",
           uniqueName: r.item?.uniqueName || null,
-          imageUrl: r.item?.imageName ? WFCD_CDN + r.item.imageName : null,
+          imageUrl: buildWfcdImageUrl(r.item?.imageName),
           rarity: r.rarity || "Common",
           chance: r.chance || 0,
           urlName: normalizeWfmSlug(rawSlug),
