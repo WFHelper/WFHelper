@@ -26,6 +26,12 @@ const BROWSE_WF = "https://browse.wf";
 const ICON_MIRROR_BASE_URL = (
   process.env.WFHELPER_ICON_MIRROR_URL || "https://assets.wfhelper.com"
 ).replace(/\/+$/, "");
+const IMAGE_LOG_CATEGORY_LIMIT = 5;
+const IMAGE_LOG_SAMPLE_LIMIT = 5;
+
+export function getIconMirrorBaseUrl(): string {
+  return ICON_MIRROR_BASE_URL;
+}
 
 export function toIconMirrorUrl(sourceUrl: string | null | undefined): string | null {
   const trimmed = typeof sourceUrl === "string" ? sourceUrl.trim() : "";
@@ -34,7 +40,7 @@ export function toIconMirrorUrl(sourceUrl: string | null | undefined): string | 
   try {
     const parsed = new URL(trimmed);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
-    if (process.env.WFHELPER_ICON_MIRROR_DISABLED === "1") return trimmed;
+    if (isIconMirrorDisabled()) return trimmed;
     if (parsed.hostname === new URL(ICON_MIRROR_BASE_URL).hostname) return trimmed;
 
     const ext = path.extname(parsed.pathname).toLowerCase();
@@ -43,6 +49,10 @@ export function toIconMirrorUrl(sourceUrl: string | null | undefined): string | 
   } catch {
     return null;
   }
+}
+
+function isIconMirrorDisabled(): boolean {
+  return process.env.WFHELPER_ICON_MIRROR_DISABLED === "1";
 }
 
 function buildWfcdImageUrl(imageName: string | null | undefined): string | null {
@@ -587,6 +597,8 @@ function resolveAllImages(): void {
   let preResolved = 0;
   let browseWfSourced = 0;
   let noImage = 0;
+  const noImageCategories = new Map<string, number>();
+  const noImageSamples: string[] = [];
 
   for (const [uniqueName, item] of Object.entries(itemsByUniqueName)) {
     if (item.imageUrl) {
@@ -608,11 +620,26 @@ function resolveAllImages(): void {
     }
 
     noImage++;
+    const category = item.category || "Unknown";
+    noImageCategories.set(category, (noImageCategories.get(category) || 0) + 1);
+    if (noImageSamples.length < IMAGE_LOG_SAMPLE_LIMIT) {
+      noImageSamples.push(`${item.name || extractFallbackName(uniqueName)} (${category})`);
+    }
   }
 
   log.log(
-    `[ItemDB] Images: ${preResolved} pre-resolved, ${browseWfSourced} browse.wf sourced, ${noImage} none`,
+    `[ItemDB] Images: mirror=${getIconMirrorBaseUrl()} (${isIconMirrorDisabled() ? "disabled" : "enabled"}), ${preResolved} mirrored from resolved sources, ${browseWfSourced} mirrored from browse.wf source paths, ${noImage} unresolved`,
   );
+  if (noImage > 0) {
+    const categorySummary = [...noImageCategories.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, IMAGE_LOG_CATEGORY_LIMIT)
+      .map(([category, count]) => `${category} ${count}`)
+      .join(", ");
+    log.log(
+      `[ItemDB] Images unresolved: no upstream icon URL in PEP/WFCD/browse.wf; top categories: ${categorySummary}; samples: ${noImageSamples.join(", ")}`,
+    );
+  }
 }
 
 // ─── Fallback name extraction ──────────────────────────────────────────────
