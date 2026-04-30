@@ -585,7 +585,7 @@ function loadWfcdItems(): number {
 
 function resolveAllImages(): void {
   let preResolved = 0;
-  let browseWfFallback = 0;
+  let browseWfSourced = 0;
   let noImage = 0;
 
   for (const [uniqueName, item] of Object.entries(itemsByUniqueName)) {
@@ -596,7 +596,7 @@ function resolveAllImages(): void {
 
     if (item.browseWfUrl) {
       item.imageUrl = toIconMirrorUrl(item.browseWfUrl);
-      browseWfFallback++;
+      browseWfSourced++;
       continue;
     }
 
@@ -611,7 +611,7 @@ function resolveAllImages(): void {
   }
 
   log.log(
-    `[ItemDB] Images: ${preResolved} pre-resolved, ${browseWfFallback} browse.wf fallback, ${noImage} none`,
+    `[ItemDB] Images: ${preResolved} pre-resolved, ${browseWfSourced} browse.wf sourced, ${noImage} none`,
   );
 }
 
