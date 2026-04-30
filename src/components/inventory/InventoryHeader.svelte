@@ -41,7 +41,7 @@
         basicVariant="quick"
       />
       <button
-        class="filter-tab inventory-filter-toggle"
+        class="filter-tab inline-flex min-h-[2.1rem] items-center gap-[0.35rem] pt-0 pb-0 [&_svg]:h-[0.88rem] [&_svg]:w-[0.88rem]"
         class:active={showFilterPanel}
         on:click={toggleFilters}
       >

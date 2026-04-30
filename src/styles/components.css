@@ -189,61 +189,6 @@
     min-width: 8rem;
   }
 
-  /* Inventory-specific filter bar variants */
-  .inventory-controls {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    min-width: 0;
-    padding-bottom: 0.1rem;
-  }
-  .inventory-controls .filter-tabs {
-    flex-wrap: nowrap;
-  }
-  .inventory-controls .filter-tab {
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .inventory-filter-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    min-height: 2.1rem;
-    padding-top: 0;
-    padding-bottom: 0;
-  }
-  .inventory-filter-toggle svg {
-    width: 0.88rem;
-    height: 0.88rem;
-  }
-  .inventory-filter-popover {
-    margin-bottom: 0.85rem;
-    border: 1px solid var(--ui-panel-border);
-    border-radius: var(--radius-lg);
-    background: var(--ui-panel-bg);
-    box-shadow: var(--ui-panel-shadow);
-    backdrop-filter: var(--ui-backdrop-blur);
-    padding: 0.65rem;
-    max-height: 67vh;
-    overflow-y: auto;
-  }
-  .inventory-filter-popover .shared-filter-bar {
-    margin-bottom: 0;
-  }
-  .inventory-filter-popover .shared-filter-controls {
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-  .inventory-filter-popover .shared-chip-group {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.3rem;
-  }
-  .inventory-filter-popover .shared-chip-group .filter-tabs {
-    width: 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-
   /* ── search box ──────────────────────────────────────────────── */
   .search-box {
     position: relative;

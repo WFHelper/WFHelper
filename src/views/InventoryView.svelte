@@ -241,7 +241,7 @@
     <ResourcesView resources={filteredResources} />
   {:else}
     {#if showFilterPanel}
-      <div class="inventory-filter-popover">
+      <div class="inventory-filter-popover mb-[0.85rem] max-h-[67vh] overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-[0.65rem] shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
         <SharedFilterBar scope="inventory" showBasic={false} showAdvanced={true} />
       </div>
     {/if}
@@ -260,3 +260,23 @@
     </div>
   {/if}
 </section>
+
+<style>
+  .inventory-filter-popover :global(.shared-filter-bar) {
+    margin-bottom: 0;
+  }
+  .inventory-filter-popover :global(.shared-filter-controls) {
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .inventory-filter-popover :global(.shared-chip-group) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.3rem;
+  }
+  .inventory-filter-popover :global(.shared-chip-group .filter-tabs) {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+</style>
