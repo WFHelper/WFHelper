@@ -22,6 +22,35 @@ const log = withScope("itemDatabase");
 const WFCD_CDN = "https://cdn.warframestat.us/img/";
 const BROWSE_WF = "https://browse.wf";
 
+function buildWfcdImageUrl(imageName: string | null | undefined): string | null {
+  const trimmed = typeof imageName === "string" ? imageName.trim() : "";
+  return trimmed ? WFCD_CDN + trimmed : null;
+}
+
+function cleanImageUrl(url: string | null | undefined): string | null {
+  const trimmed = typeof url === "string" ? url.trim() : "";
+  return trimmed ? trimmed : null;
+}
+
+function chooseImageUrl({
+  browseWfUrl,
+  wikiImageUrl,
+  wfcdImageUrl,
+  fallbackImageUrl,
+}: {
+  browseWfUrl?: string | null;
+  wikiImageUrl?: string | null;
+  wfcdImageUrl?: string | null;
+  fallbackImageUrl?: string | null;
+}): string | null {
+  return (
+    cleanImageUrl(browseWfUrl) ||
+    cleanImageUrl(wikiImageUrl) ||
+    cleanImageUrl(wfcdImageUrl) ||
+    cleanImageUrl(fallbackImageUrl)
+  );
+}
+
 function sanitizeDisplayName(name: string): string {
   return String(name || "")
     .replace(/^<ARCHWING>\s*/i, "")
@@ -206,7 +235,12 @@ function loadPublicExportPlus(): number {
     function resolveName(nameKey: string | null | undefined): string | null {
       if (!nameKey) return null;
       if (!nameKey.startsWith("/")) return nameKey;
-      if ((dict as Record<string, unknown>).__getString) return ((dict as Record<string, unknown>).__getString as (k: string) => string | null)(nameKey) || null;
+      if ((dict as Record<string, unknown>).__getString)
+        return (
+          ((dict as Record<string, unknown>).__getString as (k: string) => string | null)(
+            nameKey,
+          ) || null
+        );
       return dict[nameKey] || null;
     }
 
@@ -266,9 +300,10 @@ function loadPublicExportPlus(): number {
             : null;
 
         // For recipes without an icon, inherit from the result item
-        const recipeIcon = !item.icon && item.resultType
-          ? itemsByUniqueName[item.resultType]?.browseWfUrl ?? null
-          : null;
+        const recipeIcon =
+          !item.icon && item.resultType
+            ? (itemsByUniqueName[item.resultType]?.browseWfUrl ?? null)
+            : null;
 
         itemsByUniqueName[uniqueName] = {
           name: resolvedName,
@@ -329,7 +364,7 @@ function loadWfcdItems(): number {
     for (const item of items) {
       if (!item.uniqueName) continue;
 
-      const wfcdImageUrl = item.imageName ? WFCD_CDN + item.imageName : null;
+      const wfcdImageUrl = buildWfcdImageUrl(item.imageName);
 
       const wfcdRootDucats =
         typeof item.ducats === "number" && Number.isFinite(item.ducats)
@@ -339,7 +374,10 @@ function loadWfcdItems(): number {
       const wfcdEntry: ItemEntry = {
         name: sanitizeDisplayName(item.name || "Unknown"),
         category: item.category || "Misc",
-        imageUrl: wfcdImageUrl,
+        imageUrl: chooseImageUrl({
+          wikiImageUrl: item.wikiaThumbnail,
+          wfcdImageUrl,
+        }),
         isPrime: sanitizeDisplayName(item.name || "").includes("Prime"),
         masteryReq: item.masteryReq || 0,
         masterable: typeof item.masterable === "boolean" ? item.masterable : undefined,
@@ -377,10 +415,16 @@ function loadWfcdItems(): number {
 
             // "blueprint.png" is a generic placeholder that 404s on the WFCD CDN —
             // fall back to the parent item's image for blueprint components.
-            const compImageUrl =
+            const existingComponent = itemsByUniqueName[comp.uniqueName];
+            const compWfcdImageUrl =
               comp.imageName && comp.imageName !== "blueprint.png"
-                ? WFCD_CDN + comp.imageName
-                : wfcdImageUrl;
+                ? buildWfcdImageUrl(comp.imageName)
+                : null;
+            const compImageUrl = chooseImageUrl({
+              browseWfUrl: existingComponent?.browseWfUrl,
+              wikiImageUrl: wfcdEntry.imageUrl,
+              wfcdImageUrl: compWfcdImageUrl,
+            });
 
             const componentEntry: ItemEntry = {
               ...wfcdEntry,
@@ -398,12 +442,10 @@ function loadWfcdItems(): number {
 
             wfcdItemsByUniqueName[comp.uniqueName] = componentEntry;
 
-            if (!itemsByUniqueName[comp.uniqueName]) {
+            if (!existingComponent) {
               itemsByUniqueName[comp.uniqueName] = componentEntry;
               wfcdComponentNewCount++;
             } else {
-              const existingComponent = itemsByUniqueName[comp.uniqueName];
-
               if (
                 componentEntry.name &&
                 (!existingComponent.name ||
@@ -457,7 +499,12 @@ function loadWfcdItems(): number {
                   existingBlueprint.name = aliasName;
                 }
 
-                const aliasImage = comp.imageName ? WFCD_CDN + comp.imageName : wfcdImageUrl;
+                const aliasWfcdImageUrl = buildWfcdImageUrl(comp.imageName) || wfcdImageUrl;
+                const aliasImage = chooseImageUrl({
+                  browseWfUrl: existingBlueprint.browseWfUrl,
+                  wikiImageUrl: wfcdEntry.imageUrl,
+                  wfcdImageUrl: aliasWfcdImageUrl,
+                });
                 if (!existingBlueprint.imageUrl && aliasImage) {
                   existingBlueprint.imageUrl = aliasImage;
                 }
@@ -489,7 +536,11 @@ function loadWfcdItems(): number {
       } else {
         const existing = itemsByUniqueName[item.uniqueName];
 
-        existing.imageUrl = wfcdImageUrl || existing.browseWfUrl || null;
+        existing.imageUrl = chooseImageUrl({
+          browseWfUrl: existing.browseWfUrl,
+          wikiImageUrl: item.wikiaThumbnail,
+          wfcdImageUrl,
+        });
 
         if (existing.name.startsWith("/Lotus/") && item.name) {
           const cleanedName = sanitizeDisplayName(item.name);
@@ -537,13 +588,13 @@ function loadWfcdItems(): number {
 // ─── Post-process: ensure all items have best possible image ───────────────
 
 function resolveAllImages(): void {
-  let resolved = 0;
+  let preResolved = 0;
   let browseWfFallback = 0;
   let noImage = 0;
 
   for (const [uniqueName, item] of Object.entries(itemsByUniqueName)) {
     if (item.imageUrl) {
-      resolved++;
+      preResolved++;
       continue;
     }
 
@@ -556,7 +607,7 @@ function resolveAllImages(): void {
     const wfcd = wfcdItemsByUniqueName[uniqueName];
     if (wfcd?.imageUrl) {
       item.imageUrl = wfcd.imageUrl;
-      resolved++;
+      preResolved++;
       continue;
     }
 
@@ -564,7 +615,7 @@ function resolveAllImages(): void {
   }
 
   log.log(
-    `[ItemDB] Images: ${resolved} wfcd, ${browseWfFallback} browse.wf fallback, ${noImage} none`,
+    `[ItemDB] Images: ${preResolved} pre-resolved, ${browseWfFallback} browse.wf fallback, ${noImage} none`,
   );
 }
 

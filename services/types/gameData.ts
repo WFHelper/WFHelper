@@ -67,6 +67,7 @@ export interface WfcdItem {
   description?: string;
   productCategory?: string;
   type?: string;
+  wikiaThumbnail?: string;
   wikiaUrl?: string;
   components?: WfcdComponent[];
   drops?: WfcdDrop[];

@@ -36,4 +36,18 @@ describe("itemDatabase WFCD alias enrichment", () => {
     expect(corufellHandle?.name).toBe("Corufell Handle");
     expect(corufellHandle?.tradable).toBeUndefined();
   });
+
+  it("prefers browse.wf icons over WFCD CDN redirects when export icons exist", () => {
+    const boarPrime = itemDb.lookupItem("/Lotus/Weapons/Tenno/Shotgun/PrimeBoar");
+    const boarBarrel = itemDb.lookupItem(
+      "/Lotus/Types/Recipes/Weapons/WeaponParts/BoarPrimeBarrel",
+    );
+
+    expect(boarPrime?.imageUrl).toBe(
+      "https://browse.wf/Lotus/Interface/Icons/StoreIcons/Weapons/PrimaryWeapons/Weapons/BoarPrime.png",
+    );
+    expect(boarBarrel?.imageUrl).toBe(
+      "https://browse.wf/Lotus/Interface/Icons/StoreIcons/Resources/CraftingComponents/GenericGunPrimeBarrel.png",
+    );
+  });
 });
