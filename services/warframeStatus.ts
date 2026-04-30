@@ -1,14 +1,23 @@
-import { execFile } from "node:child_process";
+import path from "node:path";
+
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { WARFRAME_STATUS_CACHE_TTL_MS } from "../config/runtime/cacheConfig";
 
 const log = withScope("warframeStatus");
 
-/** Kill tasklist.exe if it hangs longer than this — prevents zombie processes on locked PCs. */
-const TASKLIST_TIMEOUT_MS = 1200;
-/** Kill the foreground-window check after this long to avoid blocking the overlay loop. */
-const FOCUS_TIMEOUT_MS = 1200;
+const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+const MAX_PATH = 260;
+const PROCESS_SCAN_BUFFER_BYTES = 16_384;
+const PROCESS_NAME_CACHE_TTL_MS = 10_000;
+const MAX_PROCESS_NAME_CACHE_SIZE = 512;
+
+let _koffi: typeof import("koffi") | null = null;
+
+function koffi(): typeof import("koffi") {
+  if (!_koffi) _koffi = require("koffi") as typeof import("koffi");
+  return _koffi;
+}
 
 function getElectronScreen(): Electron.Screen | null {
   try {
@@ -40,35 +49,127 @@ let lastStatus: WarframeStatus | null = null;
 let lastStatusAt = 0;
 let inFlight: Promise<WarframeStatus> | null = null;
 
-function execFileText(command: string, args: string[], timeoutMs: number): Promise<string> {
-  return new Promise((resolve, reject) => {
-    execFile(command, args, { encoding: "utf8", timeout: timeoutMs }, (err, stdout, stderr) => {
-      if (err) {
-        reject(new Error(`${err.message}${stderr ? ` | ${String(stderr).trim()}` : ""}`));
-        return;
-      }
-      resolve(String(stdout || ""));
-    });
-  });
+/* eslint-disable @typescript-eslint/no-explicit-any -- native FFI bindings are untyped at compile time */
+let _win32: {
+  GetForegroundWindow: (...args: any[]) => any;
+  GetWindowThreadProcessId: (...args: any[]) => any;
+  GetWindowRect: (...args: any[]) => any;
+  OpenProcess: (...args: any[]) => any;
+  CloseHandle: (...args: any[]) => any;
+  QueryFullProcessImageNameW: (...args: any[]) => any;
+  EnumProcesses: (...args: any[]) => any;
+} | null = null;
+/* eslint-enable @typescript-eslint/no-explicit-any */
+let _win32InitFailed = false;
+
+function ensureWin32(): boolean {
+  if (_win32) return true;
+  if (_win32InitFailed || process.platform !== "win32") return false;
+
+  try {
+    const k = koffi();
+    const user32 = k.load("user32.dll");
+    const kernel32 = k.load("kernel32.dll");
+    const psapi = k.load("psapi.dll");
+    _win32 = {
+      GetForegroundWindow: user32.func("__stdcall", "GetForegroundWindow", "void *", []),
+      GetWindowThreadProcessId: user32.func("__stdcall", "GetWindowThreadProcessId", "uint32", [
+        "void *",
+        "void *",
+      ]),
+      GetWindowRect: user32.func("__stdcall", "GetWindowRect", "bool", ["void *", "void *"]),
+      OpenProcess: kernel32.func("OpenProcess", "void *", ["uint32", "bool", "uint32"]),
+      CloseHandle: kernel32.func("CloseHandle", "bool", ["void *"]),
+      QueryFullProcessImageNameW: kernel32.func("QueryFullProcessImageNameW", "bool", [
+        "void *",
+        "uint32",
+        "void *",
+        "void *",
+      ]),
+      EnumProcesses: psapi.func("EnumProcesses", "bool", ["void *", "uint32", "void *"]),
+    };
+    return true;
+  } catch (err) {
+    _win32InitFailed = true;
+    log.warn("[WarframeStatus] native Win32 init failed:", normalizeErrorMessage(err));
+    return false;
+  }
+}
+
+const exeNameBuffer = Buffer.alloc(MAX_PATH * 2);
+const exeNameSizeBuffer = Buffer.alloc(4);
+const pidsBuffer = Buffer.alloc(PROCESS_SCAN_BUFFER_BYTES);
+const pidsUsedBuffer = Buffer.alloc(4);
+const foregroundPidBuffer = Buffer.alloc(4);
+const foregroundRectBuffer = Buffer.alloc(16);
+const processNameCache = new Map<number, { name: string | null; checkedAt: number }>();
+
+function getProcessName(pid: number): string | null {
+  if (!ensureWin32() || pid <= 0) return null;
+  const now = Date.now();
+  const cached = processNameCache.get(pid);
+  if (cached && now - cached.checkedAt < PROCESS_NAME_CACHE_TTL_MS) {
+    return cached.name;
+  }
+
+  const win32 = _win32!;
+
+  const handle = win32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+  if (!handle) {
+    rememberProcessName(pid, null, now);
+    return null;
+  }
+
+  try {
+    exeNameBuffer.fill(0);
+    exeNameSizeBuffer.writeUInt32LE(MAX_PATH, 0);
+    const ok = win32.QueryFullProcessImageNameW(handle, 0, exeNameBuffer, exeNameSizeBuffer);
+    if (!ok) {
+      rememberProcessName(pid, null, now);
+      return null;
+    }
+
+    const charCount = exeNameSizeBuffer.readUInt32LE(0);
+    const exePath = exeNameBuffer.subarray(0, charCount * 2).toString("utf16le");
+    const baseName = path.win32.basename(exePath).replace(/\.exe$/i, "");
+    const processName = baseName || null;
+    rememberProcessName(pid, processName, now);
+    return processName;
+  } finally {
+    win32.CloseHandle(handle);
+  }
+}
+
+function rememberProcessName(pid: number, name: string | null, checkedAt: number): void {
+  if (processNameCache.size >= MAX_PROCESS_NAME_CACHE_SIZE) {
+    processNameCache.clear();
+  }
+  processNameCache.set(pid, { name, checkedAt });
+}
+
+function isWarframeProcessName(processName: string | null): boolean {
+  return String(processName || "")
+    .toLowerCase()
+    .includes("warframe");
 }
 
 async function isWarframeProcessRunning(): Promise<boolean> {
-  if (process.platform !== "win32") return false;
-
   try {
-    const out = await execFileText(
-      "tasklist",
-      ["/FO", "CSV", "/NH", "/FI", "IMAGENAME eq Warframe.x64.exe"],
-      TASKLIST_TIMEOUT_MS,
-    );
+    if (!ensureWin32()) return false;
+    const win32 = _win32!;
 
-    const rows = out
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    return rows.some((row) => row.toLowerCase().includes("warframe.x64.exe"));
+    pidsUsedBuffer.fill(0);
+    const ok = win32.EnumProcesses(pidsBuffer, pidsBuffer.length, pidsUsedBuffer);
+    if (!ok) return false;
+
+    const pidCount = pidsUsedBuffer.readUInt32LE(0) >>> 2;
+    for (let i = 0; i < pidCount; i++) {
+      const pid = pidsBuffer.readUInt32LE(i * 4);
+      if (pid > 0 && isWarframeProcessName(getProcessName(pid))) return true;
+    }
+    return false;
   } catch (err) {
-    log.warn("[WarframeStatus] tasklist check failed:", normalizeErrorMessage(err));
+    log.warn("[WarframeStatus] process scan failed:", normalizeErrorMessage(err));
     return false;
   }
 }
@@ -77,65 +178,34 @@ async function getForegroundWindowInfo(): Promise<{
   processName: string | null;
   bounds: WindowBounds | null;
 } | null> {
-  if (process.platform !== "win32") return null;
-
-  const script = [
-    "$ErrorActionPreference='Stop'",
-    'Add-Type -TypeDefinition @"',
-    "using System;",
-    "using System.Runtime.InteropServices;",
-    "public static class WFNative {",
-    "  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }",
-    '  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();',
-    '  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);',
-    '  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);',
-    "}",
-    '"@',
-    "$h=[WFNative]::GetForegroundWindow()",
-    "if ($h -eq [IntPtr]::Zero) { exit 0 }",
-    "$procId=0",
-    "[WFNative]::GetWindowThreadProcessId($h, [ref]$procId) | Out-Null",
-    "if ($procId -le 0) { exit 0 }",
-    "$name=''",
-    "try { $name=(Get-Process -Id $procId).ProcessName } catch { $name='' }",
-    "$rect=New-Object WFNative+RECT",
-    "$bounds=$null",
-    "if ([WFNative]::GetWindowRect($h, [ref]$rect)) {",
-    "  $bounds=@{ x=[int]$rect.Left; y=[int]$rect.Top; width=[int]($rect.Right-$rect.Left); height=[int]($rect.Bottom-$rect.Top) }",
-    "}",
-    "$result=@{ processName=$name; bounds=$bounds }",
-    "$result | ConvertTo-Json -Compress",
-  ].join("\n");
-
   try {
-    const out = await execFileText(
-      "powershell",
-      ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
-      FOCUS_TIMEOUT_MS,
-    );
-    const trimmed = out.trim();
-    if (!trimmed) return null;
+    if (!ensureWin32()) return null;
+    const win32 = _win32!;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped PowerShell JSON output
-    const parsed = JSON.parse(trimmed) as Record<string, any>;
-    const processName = typeof parsed?.processName === "string" ? parsed.processName.trim() : "";
-    const bounds = parsed?.bounds;
+    const windowHandle = win32.GetForegroundWindow();
+    if (!windowHandle) return null;
 
+    foregroundPidBuffer.fill(0);
+    win32.GetWindowThreadProcessId(windowHandle, foregroundPidBuffer);
+    const pid = foregroundPidBuffer.readUInt32LE(0);
+    if (pid <= 0) return null;
+
+    foregroundRectBuffer.fill(0);
+    const hasRect = win32.GetWindowRect(windowHandle, foregroundRectBuffer);
+    const left = hasRect ? foregroundRectBuffer.readInt32LE(0) : 0;
+    const top = hasRect ? foregroundRectBuffer.readInt32LE(4) : 0;
+    const right = hasRect ? foregroundRectBuffer.readInt32LE(8) : 0;
+    const bottom = hasRect ? foregroundRectBuffer.readInt32LE(12) : 0;
     return {
-      processName: processName || null,
-      bounds:
-        bounds &&
-        Number.isFinite(bounds.x) &&
-        Number.isFinite(bounds.y) &&
-        Number.isFinite(bounds.width) &&
-        Number.isFinite(bounds.height)
-          ? {
-              x: Math.round(bounds.x),
-              y: Math.round(bounds.y),
-              width: Math.max(0, Math.round(bounds.width)),
-              height: Math.max(0, Math.round(bounds.height)),
-            }
-          : null,
+      processName: getProcessName(pid),
+      bounds: hasRect
+        ? {
+            x: left,
+            y: top,
+            width: Math.max(0, right - left),
+            height: Math.max(0, bottom - top),
+          }
+        : null,
     };
   } catch (err) {
     log.warn("[WarframeStatus] focused process check failed:", normalizeErrorMessage(err));
@@ -165,8 +235,7 @@ async function collectStatus(): Promise<WarframeStatus> {
   ]);
 
   const focusedProcessName = foregroundWindow?.processName || null;
-  const focusedLow = String(focusedProcessName || "").toLowerCase();
-  const isFocused = focusedLow.includes("warframe");
+  const isFocused = isWarframeProcessName(focusedProcessName);
   const isOpen = processRunning;
   const focusedWindowBounds = foregroundWindow?.bounds || null;
   const focusedDisplayId = getDisplayIdForBounds(focusedWindowBounds);
@@ -189,7 +258,7 @@ export async function getStatus(options: { force?: boolean } = {}): Promise<Warf
     return lastStatus;
   }
 
-  if (!force && inFlight) {
+  if (inFlight) {
     return inFlight;
   }
 
