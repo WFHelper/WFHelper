@@ -372,7 +372,15 @@
             {:else}
               {#each fissureFlat as f}
                 <div class="fissure-row">
-                  <span class="world-badge-{f.tierCls} inline-flex min-w-20 items-center gap-[0.2rem] rounded-[var(--radius-md)] px-[0.45rem] py-[0.18rem] text-[0.66rem] font-bold uppercase tracking-[0.06em]">
+                  <span
+                    class="inline-flex min-w-20 items-center gap-[0.2rem] rounded-[var(--radius-md)] px-[0.45rem] py-[0.18rem] text-[0.66rem] font-bold uppercase tracking-[0.06em]"
+                    class:world-badge-lith={f.tierCls === "lith"}
+                    class:world-badge-meso={f.tierCls === "meso"}
+                    class:world-badge-neo={f.tierCls === "neo"}
+                    class:world-badge-axi={f.tierCls === "axi"}
+                    class:world-badge-requiem={f.tierCls === "requiem"}
+                    class:world-badge-omnia={f.tierCls === "omnia"}
+                  >
                     <img class="h-3.5 w-3.5 shrink-0" src={RELIC_ICON_PATHS[f.tierCls] || RELIC_ICON_PATHS.default} alt="" />
                     {f.tier}
                   </span>
@@ -588,13 +596,13 @@
   :global(.world-state-sorrow) { color: var(--world-state-sorrow-text); background: color-mix(in srgb, var(--world-state-sorrow-text) 10%, transparent); }
   :global(.world-state-fear)   { color: var(--world-state-fear-text); background: color-mix(in srgb, var(--world-state-fear-text) 10%, transparent); }
 
-  /* Fissure badge colors — :global() dynamic class */
-  :global(.world-badge-lith)    { background: color-mix(in srgb, var(--world-badge-lith-text) 12%, transparent); color: var(--world-badge-lith-text); }
-  :global(.world-badge-meso)    { background: color-mix(in srgb, var(--world-badge-meso-text) 18%, transparent); color: var(--world-badge-meso-text); }
-  :global(.world-badge-neo)     { background: color-mix(in srgb, var(--world-badge-neo-text) 12%, transparent); color: var(--world-badge-neo-text); }
-  :global(.world-badge-axi)     { background: color-mix(in srgb, var(--world-badge-axi-text) 12%, transparent); color: var(--world-badge-axi-text); }
-  :global(.world-badge-requiem) { background: color-mix(in srgb, var(--world-badge-requiem-text) 14%, transparent); color: var(--world-badge-requiem-text); }
-  :global(.world-badge-omnia)   { background: color-mix(in srgb, var(--world-badge-omnia-text) 12%, transparent); color: var(--world-badge-omnia-text); }
+  /* Fissure badge colors */
+  .world-badge-lith    { background: color-mix(in srgb, var(--world-badge-lith-text) 12%, transparent); color: var(--world-badge-lith-text); }
+  .world-badge-meso    { background: color-mix(in srgb, var(--world-badge-meso-text) 18%, transparent); color: var(--world-badge-meso-text); }
+  .world-badge-neo     { background: color-mix(in srgb, var(--world-badge-neo-text) 12%, transparent); color: var(--world-badge-neo-text); }
+  .world-badge-axi     { background: color-mix(in srgb, var(--world-badge-axi-text) 12%, transparent); color: var(--world-badge-axi-text); }
+  .world-badge-requiem { background: color-mix(in srgb, var(--world-badge-requiem-text) 14%, transparent); color: var(--world-badge-requiem-text); }
+  .world-badge-omnia   { background: color-mix(in srgb, var(--world-badge-omnia-text) 12%, transparent); color: var(--world-badge-omnia-text); }
 
   /* Faction colors — :global() dynamic class */
   :global(.world-faction-grineer)    { color: var(--world-faction-grineer); }

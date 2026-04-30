@@ -142,7 +142,7 @@
     <svelte:fragment slot="fullActions">
       <div class="flex shrink-0 items-center gap-2">
         <span class="order-qty" title="Listed quantity">Qty {order.quantity}</span>
-        <span class="order-vis {order.visible ? 'border-[rgba(74,222,128,0.35)] bg-[rgba(74,222,128,0.13)] text-success' : 'border-[rgba(251,191,36,0.35)] bg-[rgba(251,191,36,0.13)] text-warning'}">
+        <span class="order-vis" class:orderVisible={order.visible} class:orderHidden={!order.visible}>
           {order.visible ? "Visible" : "Hidden"}
         </span>
         <span class="flex min-w-[3.9rem] items-center justify-end gap-1 font-display text-[1.12rem] font-bold text-accent">
@@ -155,3 +155,16 @@
     </svelte:fragment>
   </MarketRowBase>
 {/if}
+
+<style>
+  .orderVisible {
+    border-color: rgba(74, 222, 128, 0.35);
+    background: rgba(74, 222, 128, 0.13);
+    color: var(--success);
+  }
+  .orderHidden {
+    border-color: rgba(251, 191, 36, 0.35);
+    background: rgba(251, 191, 36, 0.13);
+    color: var(--warning);
+  }
+</style>

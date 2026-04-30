@@ -71,7 +71,14 @@
     on:click={() => openRelic(group)}
   >
     <span class="inline-flex items-center justify-center w-[2.4rem] shrink-0">
-      <span class="relic-icon {tierClass}">
+      <span
+        class="relic-icon"
+        class:lith={tierClass === "lith"}
+        class:meso={tierClass === "meso"}
+        class:neo={tierClass === "neo"}
+        class:axi={tierClass === "axi"}
+        class:requiem={tierClass === "requiem"}
+      >
         <img
           class="relic-icon-img"
           src={iconSrc}
@@ -127,7 +134,9 @@
       {@const count = ownedCount(group, quality)}
       <button
         type="button"
-        class="relic-quality-inline-pill {count === 0 ? 'text-text-muted opacity-90' : ''} {qualityMode !== 'owned' || count === 0 ? 'cursor-default opacity-[0.86]' : ''}"
+        class="relic-quality-inline-pill"
+        class:emptyCount={count === 0}
+        class:notSelectable={qualityMode !== "owned" || count === 0}
         class:active={qualityMode === "owned" && selectedOwned === quality}
         on:click|stopPropagation={() => {
           if (qualityMode === "owned" && count > 0) {
@@ -136,7 +145,7 @@
         }}
       >
         <span class="leading-none normal-case opacity-[0.96]">{RELIC_QUALITY_SHORT[quality]}:</span>
-        <span class="relic-quality-inline-value {count === 0 ? '!text-text-muted' : ''}">{count}</span>
+        <span class="relic-quality-inline-value" class:emptyCount={count === 0}>{count}</span>
       </button>
     {/each}
   </span>
@@ -244,11 +253,22 @@
     background: color-mix(in oklab, var(--accent) 22%, var(--bg-base));
     box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 28%, transparent);
   }
+  .relic-quality-inline-pill.emptyCount {
+    color: var(--text-muted);
+    opacity: 0.9;
+  }
+  .relic-quality-inline-pill.notSelectable {
+    cursor: default;
+    opacity: 0.86;
+  }
   .relic-quality-inline-value {
     line-height: 1;
     font-size: 0.78rem;
     letter-spacing: 0.02em;
     color: color-mix(in oklab, var(--info) 76%, white);
+  }
+  .relic-quality-inline-value.emptyCount {
+    color: var(--text-muted);
   }
 
   @media (max-width: 800px) {

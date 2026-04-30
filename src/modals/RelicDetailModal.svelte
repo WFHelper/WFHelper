@@ -243,7 +243,14 @@ import DetailModalBase from "./DetailModalBase.svelte";
 
         <div class="detail-header relic-detail-header items-center">
           <div class="relic-detail-icon">
-            <span class="relic-icon w-[var(--size-relic-detail-icon)] h-[var(--size-relic-detail-icon)] {tierCls}">
+            <span
+              class="relic-icon w-[var(--size-relic-detail-icon)] h-[var(--size-relic-detail-icon)]"
+              class:lith={tierCls === "lith"}
+              class:meso={tierCls === "meso"}
+              class:neo={tierCls === "neo"}
+              class:axi={tierCls === "axi"}
+              class:requiem={tierCls === "requiem"}
+            >
               <img class="relic-icon-img w-[var(--size-relic-detail-icon)] h-[var(--size-relic-detail-icon)]" src={iconSrc} alt={group.name} />
             </span>
           </div>
