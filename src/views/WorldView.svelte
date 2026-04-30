@@ -23,7 +23,7 @@
   import { addToast } from "../stores/toasts.js";
   import { overlaySettings, overlaySettingsLoaded, applyOverlaySettingsResponse } from "../stores/overlaySettings.js";
   import { activeItem } from "../stores/modals.js";
-  import type { SteelPathHonors } from "../types/world.js";
+  import type { Invasion, SteelPathHonors } from "../types/world.js";
   import FissureAlerts from "../components/settings/FissureAlerts.svelte";
   import CollapsibleSection from "../components/CollapsibleSection.svelte";
   import InvasionItem from "../components/world/InvasionItem.svelte";

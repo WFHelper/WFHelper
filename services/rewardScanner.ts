@@ -6,59 +6,69 @@
  *   - rewardScannerUtils.ts      (pure math/string utilities)
  *   - rewardScannerCapture.ts    (Electron screen capture)
  *   - rewardScannerImage.ts      (image cropping / enhancement)
- *   - rewardScannerMatch.ts      (OCR text → item matching)
+ *   - rewardScannerMatch.ts      (OCR text -> item matching)
  *   - rewardScannerReadiness.ts  (UI readiness detection)
+ *   - rewardScannerSupport.ts    (tuning, fallback heuristics, slot expectations)
  */
-
-import { withScope } from "./logger";
-import { normalizeErrorMessage } from "../config/shared/errors";
 
 import fs from "fs";
 import crypto from "node:crypto";
 import path from "path";
-import { createRewardOcrRunner } from "./rewardScannerOcr";
-import { OVERLAY_SETTINGS_DEFAULTS, OVERLAY_SETTINGS_LIMITS, type OverlaySettings } from "../config/runtime/overlaySettings";
-import { REWARD_FRAME_DEDUP_TTL_MS } from "../config/runtime/cacheConfig";
 import type { NativeImage } from "electron";
 
-import { clampNumber, round4 } from "./rewardScannerUtils";
-import { captureScreenFast, captureDebugFrame, captureSourceMeta, type CaptureResult } from "./rewardScannerCapture";
+import { REWARD_FRAME_DEDUP_TTL_MS } from "../config/runtime/cacheConfig";
 import {
-  cropRewardBand,
+  OVERLAY_SETTINGS_DEFAULTS,
+  OVERLAY_SETTINGS_LIMITS,
+  type OverlaySettings,
+} from "../config/runtime/overlaySettings";
+import { normalizeErrorMessage } from "../config/shared/errors";
+import { withScope } from "./logger";
+import {
+  captureDebugFrame,
+  captureScreenFast,
+  captureSourceMeta,
+  type CaptureResult,
+} from "./rewardScannerCapture";
+import {
+  buildOcrVariants,
   cropBand,
   cropRect,
-  buildOcrVariants,
-  detectRewardSlotLayout,
+  cropRewardBand,
   detectConsoleOpen,
+  detectRewardSlotLayout,
 } from "./rewardScannerImage";
 import {
-  matchItemsDetailed,
-  rankRewardCandidatesDetailed,
+  MAX_REWARD_SLOTS,
+  buildConsensusSelection,
   chooseBetterOcrPass,
   detectRelicEraFromText,
   detectRelicEraFromTileLabelText,
-  buildConsensusSelection,
-  MAX_REWARD_SLOTS,
-  type SortedItem,
+  matchItemsDetailed,
   type PassResult,
+  rankRewardCandidatesDetailed,
+  type SortedItem,
 } from "./rewardScannerMatch";
+import { createRewardOcrRunner } from "./rewardScannerOcr";
 import { waitForRewardUiReady as _waitForRewardUiReady } from "./rewardScannerReadiness";
-import { recordStrategyWin, getAdaptiveStrategyHint } from "./rewardScannerAdaptiveStrategy";
-import { hasSufficientTextureForOcr } from "./rewardScannerLowInfoCrop";
-import {
-  expectedRewardItemCount,
-  hasConfidentSlotLayout,
-  shouldAcceptPartialSlotResult,
-} from "./rewardScannerSlotExpectations";
-import { findTemporalFallback, recordTemporalEntry } from "./rewardScannerTemporal";
 import {
   CROP_PRESETS,
+  expectedRewardItemCount,
+  findTemporalFallback,
+  getAdaptiveStrategyHint,
+  hasConfidentSlotLayout,
+  hasSufficientTextureForOcr,
   RELIC_ERA_BANDS,
   RELIC_ROW_TILE_LABEL_RECTS,
+  recordStrategyWin,
+  recordTemporalEntry,
   SCANNER_TUNING,
-} from "./rewardScannerTuning";
+  shouldAcceptPartialSlotResult,
+} from "./rewardScannerSupport";
+import { clampNumber, round4 } from "./rewardScannerUtils";
 
 export { captureDebugFrame, captureSourceMeta };
+export { getAdaptiveStrategyHint } from "./rewardScannerSupport";
 
 const log = withScope("rewardScanner");
 
@@ -220,8 +230,21 @@ function buildScanMeta({
   elapsedMs,
   hadOcrSuccess,
 }: {
-  screenshot: { image?: NativeImage; sourceType?: string | null; sourceName?: string | null; sourceId?: string | null; sourceDisplayId?: string | null } | null;
-  selectedPass: { band?: { top: number; height: number } | null; passIndex?: number; score?: number; exactCount?: number; ocrVariant?: string; text?: string } | null;
+  screenshot: {
+    image?: NativeImage;
+    sourceType?: string | null;
+    sourceName?: string | null;
+    sourceId?: string | null;
+    sourceDisplayId?: string | null;
+  } | null;
+  selectedPass: {
+    band?: { top: number; height: number } | null;
+    passIndex?: number;
+    score?: number;
+    exactCount?: number;
+    ocrVariant?: string;
+    text?: string;
+  } | null;
   passCount: number;
   strategy: string;
   elapsedMs: number;
@@ -269,7 +292,11 @@ function computeRewardScanBudgetMs(): number {
   );
 }
 
-async function runVariantOcr(variantImage: NativeImage, timeoutMs: number, label: string): Promise<string> {
+async function runVariantOcr(
+  variantImage: NativeImage,
+  timeoutMs: number,
+  label: string,
+): Promise<string> {
   const pngBuffer: Buffer = variantImage.toPNG();
   try {
     return await runOCRBuffer(pngBuffer, timeoutMs);
@@ -303,9 +330,7 @@ function extractRewardTitleTexts(structured: StructuredOcrResult | null): string
   const text = String(structured?.text || "").trim();
   if (lines.length === 0) return text ? [text] : [];
 
-  const bottoms = lines.map(
-    (line) => Number(line?.box?.top || 0) + Number(line?.box?.height || 0),
-  );
+  const bottoms = lines.map((line) => Number(line?.box?.top || 0) + Number(line?.box?.height || 0));
   const maxBottom = Math.max(...bottoms, 1);
   const bottomLines = lines
     .filter((line) => Number(line?.box?.top || 0) >= maxBottom * 0.45)
@@ -333,8 +358,7 @@ function chooseUniqueRewardAssignments(
   slotCandidates: Array<Array<SlotCandidate>>,
 ): Array<SlotCandidate | null> {
   let bestScore = -Infinity;
-  let best: Array<SlotCandidate | null> =
-    new Array(slotCandidates.length).fill(null);
+  let best: Array<SlotCandidate | null> = new Array(slotCandidates.length).fill(null);
 
   function visit(
     index: number,
@@ -374,7 +398,13 @@ function chooseUniqueRewardAssignments(
 }
 
 async function scanRewardSlotsFallback(
-  screenshot: { image: NativeImage; sourceType?: string | null; sourceName?: string | null; sourceId?: string | null; sourceDisplayId?: string | null },
+  screenshot: {
+    image: NativeImage;
+    sourceType?: string | null;
+    sourceName?: string | null;
+    sourceId?: string | null;
+    sourceDisplayId?: string | null;
+  },
   expectedCount: number,
   totalBudgetMs: number,
   startedAt: number,
@@ -415,7 +445,12 @@ async function scanRewardSlotsFallback(
           const candidateTexts = extractRewardTitleTexts(structured);
           for (const candidateText of candidateTexts) {
             const ranked = rankRewardCandidatesDetailed(candidateText, sortedItems, 4)
-              .filter((candidate): candidate is typeof candidate & { item: NonNullable<typeof candidate.item> } => !!candidate.item)
+              .filter(
+                (
+                  candidate,
+                ): candidate is typeof candidate & { item: NonNullable<typeof candidate.item> } =>
+                  !!candidate.item,
+              )
               .map((candidate) => ({
                 item: candidate.item!,
                 confidence: candidate.confidence,
@@ -486,7 +521,9 @@ async function scanRewardSlotsFallback(
 
 // --- Relic era detection ----------------------------------------------------
 
-export async function detectRelicSelectionEra(options: { timeoutMs?: number; preferredDisplayId?: string | null } = {}): Promise<{
+export async function detectRelicSelectionEra(
+  options: { timeoutMs?: number; preferredDisplayId?: string | null } = {},
+): Promise<{
   era: string | null;
   confidence: number;
   elapsedMs: number;
@@ -665,9 +702,7 @@ export interface PreCaptureResult {
   sourceDisplayId: string | null;
 }
 
-export async function scanRewardsDetailed(
-  preCapture?: PreCaptureResult | null,
-): Promise<{
+export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null): Promise<{
   items: SortedItem[];
   meta: Record<string, unknown>;
 } | null> {
@@ -700,13 +735,29 @@ export async function scanRewardsDetailed(
       screenshot = await captureScreenFast();
     } catch (err) {
       log.error("[RewardScanner] captureScreen error:", normalizeErrorMessage(err));
-      _lastTriggerStats = { captureCount: captureCountStat, captureMs: Date.now() - captureStart, ocrCallCount: 0, ocrTotalMs: 0, slotDetectMs: 0, strategy: "failed", failureReason: "capture-error" };
+      _lastTriggerStats = {
+        captureCount: captureCountStat,
+        captureMs: Date.now() - captureStart,
+        ocrCallCount: 0,
+        ocrTotalMs: 0,
+        slotDetectMs: 0,
+        strategy: "failed",
+        failureReason: "capture-error",
+      };
       return null;
     }
     captureMs = Date.now() - captureStart;
     if (!screenshot) {
       log.warn("[RewardScanner] Could not capture screen");
-      _lastTriggerStats = { captureCount: captureCountStat, captureMs, ocrCallCount: 0, ocrTotalMs: 0, slotDetectMs: 0, strategy: "failed", failureReason: "capture-null" };
+      _lastTriggerStats = {
+        captureCount: captureCountStat,
+        captureMs,
+        ocrCallCount: 0,
+        ocrTotalMs: 0,
+        slotDetectMs: 0,
+        strategy: "failed",
+        failureReason: "capture-null",
+      };
       return null;
     }
     log.log(
@@ -734,7 +785,10 @@ export async function scanRewardsDetailed(
   }
 
   const threshold = scanSettings.matchThreshold;
-  const bands = getBandsForPasses(String(scanSettings.cropPreset || "balanced"), scanSettings.ocrPasses);
+  const bands = getBandsForPasses(
+    String(scanSettings.cropPreset || "balanced"),
+    scanSettings.ocrPasses,
+  );
 
   // Adaptive strategy: reorder bands so the historically-winning band is tried first
   const adaptiveHint = getAdaptiveStrategyHint();
@@ -766,10 +820,7 @@ export async function scanRewardsDetailed(
       scanStartedAt,
     );
     const slotFirst = slotFirstResult;
-    if (
-      slotFirst &&
-      slotFirst.items.length >= expectedItemCount
-    ) {
+    if (slotFirst && slotFirst.items.length >= expectedItemCount) {
       // exactCount is intentionally NOT required here — fuzzy word-overlap matches
       // for Prime item names are reliable enough and slot geometry already validated.
       log.log(
@@ -798,7 +849,15 @@ export async function scanRewardsDetailed(
         _lastFrameHashTs = Date.now();
       }
       recordTemporalEntry(slotFirst.items, expectedItemCount);
-      _lastTriggerStats = { captureCount: captureCountStat, captureMs, ocrCallCount, ocrTotalMs, slotDetectMs, strategy: slotFirst.strategy, failureReason: null };
+      _lastTriggerStats = {
+        captureCount: captureCountStat,
+        captureMs,
+        ocrCallCount,
+        ocrTotalMs,
+        slotDetectMs,
+        strategy: slotFirst.strategy,
+        failureReason: null,
+      };
       return result;
     }
 
@@ -942,7 +1001,10 @@ export async function scanRewardsDetailed(
 
   const consensus = buildConsensusSelection(passResults);
   const selectedPass = consensus?.selectedPass || bestPass || passResults[0] || null;
-  let items: SortedItem[] = (consensus?.items || selectedPass?.items || []).slice(0, expectedItemCount);
+  let items: SortedItem[] = (consensus?.items || selectedPass?.items || []).slice(
+    0,
+    expectedItemCount,
+  );
   let finalStrategy = consensus?.strategy || "best-pass";
 
   if (
@@ -960,7 +1022,12 @@ export async function scanRewardsDetailed(
     const slotFallback =
       slotFirstResult && slotFirstResult.items.length > 0
         ? slotFirstResult
-        : await scanRewardSlotsFallback(screenshot, expectedItemCount, totalBudgetMs, scanStartedAt);
+        : await scanRewardSlotsFallback(
+            screenshot,
+            expectedItemCount,
+            totalBudgetMs,
+            scanStartedAt,
+          );
     if (slotFallback && slotFallback.items.length > items.length) {
       items = slotFallback.items;
       finalStrategy = slotFallback.strategy;
@@ -1055,6 +1122,12 @@ export async function scanRewards(): Promise<SortedItem[] | null> {
   return detailed.items;
 }
 
-export function waitForRewardUiReady(options?: { timeoutMs?: number; pollMs?: number; requiredHits?: number; scoreThreshold?: number; band?: { top: number; height: number } }): ReturnType<typeof _waitForRewardUiReady> {
+export function waitForRewardUiReady(options?: {
+  timeoutMs?: number;
+  pollMs?: number;
+  requiredHits?: number;
+  scoreThreshold?: number;
+  band?: { top: number; height: number };
+}): ReturnType<typeof _waitForRewardUiReady> {
   return _waitForRewardUiReady(options, getPrimaryBand);
 }
