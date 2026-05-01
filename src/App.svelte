@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import type { ComponentType } from "svelte";
+  import type { Component } from "svelte";
 
   import Titlebar from "./components/Titlebar.svelte";
   import Sidebar from "./components/Sidebar.svelte";
@@ -49,20 +49,25 @@
     | "settings";
 
   type LazyViewName = Extract<ViewName, "world" | "market" | "relics">;
-  type LazyViewModule = { default: ComponentType };
+  type LazyViewComponent = Component<Record<string, never>>;
+  type LazyViewModule = { default: LazyViewComponent };
 
   interface LazyViewEntry {
     loader: () => Promise<LazyViewModule>;
-    component: ComponentType | null;
+    component: LazyViewComponent | null;
+  }
+
+  function lazyViewLoader(loader: () => Promise<LazyViewModule>): () => Promise<LazyViewModule> {
+    return loader;
   }
 
   const lazyViews = new Map<LazyViewName, LazyViewEntry>([
-    ["world", { loader: () => import("./views/WorldView.svelte") as unknown as Promise<LazyViewModule>, component: null }],
-    ["market", { loader: () => import("./views/MarketView.svelte") as unknown as Promise<LazyViewModule>, component: null }],
-    ["relics", { loader: () => import("./views/RelicsView.svelte") as unknown as Promise<LazyViewModule>, component: null }],
+    ["world", { loader: lazyViewLoader(() => import("./views/WorldView.svelte")), component: null }],
+    ["market", { loader: lazyViewLoader(() => import("./views/MarketView.svelte")), component: null }],
+    ["relics", { loader: lazyViewLoader(() => import("./views/RelicsView.svelte")), component: null }],
   ]);
 
-  let lazyViewComponent: ComponentType | null = null;
+  let lazyViewComponent: LazyViewComponent | null = null;
   let lazyViewLoading = false;
   let lazyViewError = "";
   let activeLazyView: LazyViewName | null = null;

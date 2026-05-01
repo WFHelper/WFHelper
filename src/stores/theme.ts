@@ -1,17 +1,12 @@
 import { writable } from "svelte/store";
 import type { ThemeColors, ThemeEffects, ThemeFontSizes, ThemeSettings } from "../types/theme.js";
-import {
-  DEFAULT_BRANDING,
-  DEFAULT_COLORS,
-  DEFAULT_EFFECTS,
-  DEFAULT_FONT_SIZES,
-  DEFAULT_THEME,
-} from "../config/themeDefaults.js";
+import { DEFAULT_FONT_SIZES } from "../config/themeDefaults.js";
 import { THEME_PRESETS } from "../config/themePresets.js";
 import {
   loadThemeSettings,
   saveThemeSettings,
   clearThemeSettings,
+  cloneDefaultTheme,
 } from "../lib/theme/themeStorage.js";
 import { applyTheme } from "../lib/theme/applyTheme.js";
 
@@ -29,17 +24,6 @@ function createCustomThemeId(): string {
 function sanitizeCustomThemeName(name: string): string {
   const trimmed = name.trim();
   return trimmed ? trimmed.slice(0, 40) : "Custom Theme";
-}
-
-function cloneDefaultSettings(): ThemeSettings {
-  return {
-    ...DEFAULT_THEME,
-    colors: { ...DEFAULT_COLORS },
-    fontSizes: { ...DEFAULT_FONT_SIZES },
-    effects: { ...DEFAULT_EFFECTS },
-    customThemes: [],
-    branding: { ...DEFAULT_BRANDING },
-  };
 }
 
 function applyMutableThemeEdits(
@@ -204,7 +188,7 @@ function createThemeStore() {
     /** Reset everything to default. */
     resetAll(): void {
       clearThemeSettings();
-      set(cloneDefaultSettings());
+      set(cloneDefaultTheme());
     },
 
     /** Reset only colours to the current preset (or default). */

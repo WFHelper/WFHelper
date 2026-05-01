@@ -107,6 +107,7 @@ export function captureGdi(displayId?: string | null): GdiCaptureResult | null {
 
   const wantedId = displayId?.trim() || null;
   if (wantedId) {
+    if (!/^\d+$/.test(wantedId)) return null;
     const hMon = parseInt(wantedId, 10);
     // Must be a finite positive integer. parseInt accepts "123abc" → 123 and
     // "abc" → NaN; only the former is a real HMONITOR-shaped value.
