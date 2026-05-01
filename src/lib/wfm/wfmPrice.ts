@@ -38,6 +38,7 @@ interface FetchPriceOptions {
   allowSetFallback?: boolean;
   rank?: number | null;
   ignoreNoDataCache?: boolean;
+  cacheOnly?: boolean;
 }
 
 function priceCacheKey(slug: string, rank: number | null): string {
@@ -360,6 +361,7 @@ export async function fetchPriceBySlug(
   const priority = options?.priority || "normal";
   const rank = normalizePriceRank(options?.rank ?? null);
   const ignoreNoDataCache = options?.ignoreNoDataCache === true;
+  const cacheOnly = options?.cacheOnly === true;
   const cacheKey = priceCacheKey(normalizedSlug, rank);
 
   const cached = getCachedPriceState(cacheKey);
@@ -380,6 +382,11 @@ export async function fetchPriceBySlug(
       bumpCounter("resultNoData");
       return { status: "no_data", slug: normalizedSlug, median: null };
     }
+  }
+
+  if (cacheOnly) {
+    bumpCounter("resultNoData");
+    return { status: "no_data", slug: normalizedSlug, median: null };
   }
 
   const cooldownExpiry = backendErrorCooldown.get(cacheKey);
@@ -420,6 +427,7 @@ export async function fetchPriceByName(
   const allowSetFallback = options?.allowSetFallback === true;
   const rank = normalizePriceRank(options?.rank ?? null);
   const ignoreNoDataCache = options?.ignoreNoDataCache === true;
+  const cacheOnly = options?.cacheOnly === true;
 
   const key = itemName.toLowerCase();
   const mapping = wfmItems[key] || null;
@@ -442,6 +450,7 @@ export async function fetchPriceByName(
       priority,
       rank,
       ignoreNoDataCache,
+      cacheOnly,
     });
     if (result.status === "ok" && result.median != null) {
       if (trySlug !== slug) {

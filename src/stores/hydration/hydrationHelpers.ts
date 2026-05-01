@@ -43,6 +43,10 @@ export function itemPriceRank(metric: ItemMetrics | undefined): number | null {
 }
 
 export function hasResolvedPrice(metric: ItemMetrics | undefined): boolean {
+  if (metric?.hasPrice === true) {
+    return true;
+  }
+
   if (typeof metric?.platinum === "number" && Number.isFinite(metric.platinum)) {
     return true;
   }

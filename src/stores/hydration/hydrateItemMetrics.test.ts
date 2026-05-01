@@ -1,0 +1,106 @@
+import { describe, expect, it, vi } from "vitest";
+
+import type { InventoryBaseItem, ItemMetrics, MetricNeeds } from "../../lib/inventoryMarket.js";
+import type { WfmItemsLookup } from "../../types/ipc.js";
+import type { HydrationContext } from "./hydrateItemMetrics.js";
+
+const fetchPriceBySlugMock = vi.hoisted(() => vi.fn());
+const fetchPriceByNameMock = vi.hoisted(() => vi.fn());
+const fetchOrderSummaryBySlugMock = vi.hoisted(() => vi.fn());
+const fetchWfmItemMetaBySlugMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../../lib/wfm/wfmPrice.js", () => ({
+  fetchPriceBySlug: fetchPriceBySlugMock,
+  fetchPriceByName: fetchPriceByNameMock,
+}));
+
+vi.mock("../../lib/wfm/orderSummaryRemote.js", () => ({
+  fetchOrderSummaryBySlug: fetchOrderSummaryBySlugMock,
+}));
+
+vi.mock("../../lib/wfm/orderSummaryCache.js", () => ({
+  getCachedOrderSummaryState: () => null,
+  setCachedOrderSummary: vi.fn(),
+  setCachedOrderSummaryNoData: vi.fn(),
+}));
+
+vi.mock("../../lib/wfm/wfmItemMeta.js", () => ({
+  fetchWfmItemMetaBySlug: fetchWfmItemMetaBySlugMock,
+}));
+
+vi.mock("../../lib/wfm/priceCache.js", () => ({
+  getCachedPriceState: () => null,
+}));
+
+function makeItem(): InventoryBaseItem {
+  return {
+    name: "High Noon",
+    internalName: "/Lotus/Upgrades/Mods/Melee/HighNoon",
+    category: "Mods",
+    categoryLabel: "Mods",
+    rank: 0,
+    maxRank: 3,
+    imageUrl: null,
+    isPrime: false,
+    masteryReq: 0,
+    vaulted: false,
+    tradable: true,
+    description: "",
+    components: [],
+    drops: [],
+    wikiaUrl: null,
+    inventoryGroup: "mods",
+    partType: "normal",
+    amount: 1,
+    favorite: false,
+    equipped: false,
+    orderPlaced: false,
+    completeSets: null,
+    marketSlug: "high_noon",
+    marketThumb: null,
+  };
+}
+
+function makeContext(onPatch: (metric: ItemMetrics) => void): HydrationContext {
+  return {
+    getMetric: () => undefined,
+    hasPriceRetryCooldown: () => false,
+    setPriceRetryCooldown: vi.fn(),
+    clearPriceRetryCooldown: vi.fn(),
+    hasOrderRetryCooldown: () => false,
+    setOrderRetryCooldown: vi.fn(),
+    clearOrderRetryCooldown: vi.fn(),
+    getMissingDucatRetryCount: () => 0,
+    incrementMissingDucatRetryCount: vi.fn(),
+    clearMissingDucatRetryCount: vi.fn(),
+    queueMetricPatch: (_key, metric) => onPatch(metric),
+    markPending: vi.fn(),
+    clearPending: vi.fn(),
+  };
+}
+
+describe("hydrateItemMetrics", () => {
+  it("does not call per-slug worker routes unless network hydration is explicitly enabled", async () => {
+    vi.clearAllMocks();
+    const { hydrateItemMetrics } = await import("./hydrateItemMetrics.js");
+    let patched: ItemMetrics | null = null;
+    const needs: MetricNeeds = { price: true, ducats: true, orders: true };
+    const lookup: WfmItemsLookup = {};
+
+    await hydrateItemMetrics(makeContext((metric) => { patched = metric; }), makeItem(), lookup, needs);
+
+    expect(fetchPriceBySlugMock).not.toHaveBeenCalled();
+    expect(fetchPriceByNameMock).not.toHaveBeenCalled();
+    expect(fetchOrderSummaryBySlugMock).not.toHaveBeenCalled();
+    expect(fetchWfmItemMetaBySlugMock).not.toHaveBeenCalled();
+    expect(patched).toMatchObject({
+      hasPrice: true,
+      hasPriceR0: true,
+      hasPriceRmax: true,
+      hasOrdersR0: true,
+      hasOrdersRmax: true,
+      hasDucats: true,
+      hasMeta: true,
+    });
+  });
+});

@@ -235,13 +235,15 @@ export function createInventoryHydrationController(): InventoryHydrationControll
         rankedMaxRank != null &&
         existingSlug != null &&
         !hasFreshOrderSummaryPair(existingSlug, rankedMaxRank);
+      const allowNetworkFetch = needs.network === true;
       const ordersRetryBlocked =
         needs.orders &&
         isRankedGroup(item.inventoryGroup) &&
         item.tradable === true &&
         rankedMaxRank != null &&
-        ctx.hasOrderRetryCooldown(orderRetryKey(key, 0)) &&
-        ctx.hasOrderRetryCooldown(orderRetryKey(key, rankedMaxRank));
+        (!allowNetworkFetch ||
+          (ctx.hasOrderRetryCooldown(orderRetryKey(key, 0)) &&
+            ctx.hasOrderRetryCooldown(orderRetryKey(key, rankedMaxRank))));
 
       if (needs.price && !rankMismatch && ctx.hasPriceRetryCooldown(retryKey)) {
         continue;
@@ -278,8 +280,8 @@ export function createInventoryHydrationController(): InventoryHydrationControll
             wtbR0: ordersR0?.wtb ?? null,
             wtsRmax: ordersRmax?.wts ?? null,
             wtbRmax: ordersRmax?.wtb ?? null,
-            hasOrdersR0: ordersR0 != null,
-            hasOrdersRmax: ordersRmax != null,
+            hasOrdersR0: !needs.orders || ordersR0 != null || !allowNetworkFetch,
+            hasOrdersRmax: !needs.orders || ordersRmax != null || !allowNetworkFetch,
             priceRank: requestedRank,
             ducats: null,
             slug,
@@ -300,7 +302,7 @@ export function createInventoryHydrationController(): InventoryHydrationControll
         (!needsIcon || iconReady) &&
         !retryMissingDucats &&
         !rankMismatch &&
-        !staleOrderSummaryPair
+        (!staleOrderSummaryPair || !allowNetworkFetch)
       ) {
         continue;
       }

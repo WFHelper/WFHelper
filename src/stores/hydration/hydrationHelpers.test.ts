@@ -179,6 +179,10 @@ describe("hasResolvedPrice", () => {
     expect(hasResolvedPrice(makeMetrics({ platinumRmax: 20 }))).toBe(true);
   });
 
+  it("returns true when price was attempted without data", () => {
+    expect(hasResolvedPrice(makeMetrics({ hasPrice: true }))).toBe(true);
+  });
+
   it("returns false when no price fields are present", () => {
     expect(hasResolvedPrice(makeMetrics())).toBe(false);
   });

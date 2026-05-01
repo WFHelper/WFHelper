@@ -23,6 +23,7 @@ export interface WfmItemMeta {
 
 interface FetchMetaOptions {
   priority?: BackendRequestPriority;
+  cacheOnly?: boolean;
 }
 
 const metaCache = new Map<string, WfmItemMeta>();
@@ -147,6 +148,10 @@ export async function fetchWfmItemMetaBySlug(
   const cached = metaCache.get(normalizedSlug);
   if (cached && isFresh(cached)) {
     return cached;
+  }
+
+  if (options?.cacheOnly === true) {
+    return null;
   }
 
   const existing = inFlight.get(normalizedSlug);

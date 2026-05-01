@@ -157,6 +157,7 @@ export async function hydrateItemMetrics(
             : "normal"
           : "normal";
     const isRankedListingItem = isRankedGroup(item.inventoryGroup);
+    const allowNetworkFetch = needs.network === true;
     const rankedMaxRank = resolveRankedMaxRank(item);
     const excludedRankedItem =
       isRankedListingItem && isExcludedRankedMarketItem(item.name, item.marketSlug);
@@ -189,7 +190,8 @@ export async function hydrateItemMetrics(
       }
     }
 
-    const needsPriceFetch = needs.price && (!hasPrice || platinum == null || rankMismatch);
+    const needsPriceFetch =
+      allowNetworkFetch && needs.price && (!hasPrice || platinum == null || rankMismatch);
     if (needsPriceFetch) {
       let priceResult: Awaited<ReturnType<typeof fetchPriceByName>> = null;
       let bySlugStatus: Awaited<ReturnType<typeof fetchPriceBySlug>>["status"] | null = null;
@@ -285,6 +287,15 @@ export async function hydrateItemMetrics(
       }
     }
 
+    if (!allowNetworkFetch && needs.price && !hasPrice) {
+      hasPrice = true;
+      priceRank = requestedRank;
+      if (isRankedListingItem) {
+        hasPriceR0 = true;
+        hasPriceRmax = true;
+      }
+    }
+
     if (needs.price && isRankedListingItem && rankedMaxRank != null) {
       const fetchRankPrice = async (rank: number): Promise<number | null> => {
         let rankResult: Awaited<ReturnType<typeof fetchPriceByName>> = null;
@@ -328,13 +339,18 @@ export async function hydrateItemMetrics(
         return null;
       };
 
-      if (!hasPriceR0) {
+      if (!hasPriceR0 && allowNetworkFetch) {
         platinumR0 = await fetchRankPrice(0);
         hasPriceR0 = true;
       }
 
-      if (!hasPriceRmax) {
+      if (!hasPriceRmax && allowNetworkFetch) {
         platinumRmax = await fetchRankPrice(rankedMaxRank);
+        hasPriceRmax = true;
+      }
+
+      if (!allowNetworkFetch) {
+        hasPriceR0 = true;
         hasPriceRmax = true;
       }
 
@@ -382,9 +398,10 @@ export async function hydrateItemMetrics(
         }
       }
 
-      const shouldFetchRank0 = shouldRefreshRank0 && !ctx.hasOrderRetryCooldown(rank0RetryKey);
+      const shouldFetchRank0 =
+        allowNetworkFetch && shouldRefreshRank0 && !ctx.hasOrderRetryCooldown(rank0RetryKey);
       const shouldFetchRankMax =
-        shouldRefreshRankMax && !ctx.hasOrderRetryCooldown(rankMaxRetryKey);
+        allowNetworkFetch && shouldRefreshRankMax && !ctx.hasOrderRetryCooldown(rankMaxRetryKey);
 
       const refreshSummaryForRank = async (
         targetRank: number,
@@ -472,6 +489,11 @@ export async function hydrateItemMetrics(
           hasOrdersRmax = refreshed.hasOrders;
         }
       }
+
+      if (!allowNetworkFetch) {
+        hasOrdersR0 = true;
+        hasOrdersRmax = true;
+      }
     }
 
     // If the item already has ducats from the local database (WFCD/PEP), use them
@@ -483,6 +505,7 @@ export async function hydrateItemMetrics(
 
     const needsMetaFetch = needs.ducats && (!hasDucats || ducats == null) && Boolean(slug);
     const shouldFetchMeta =
+      allowNetworkFetch &&
       Boolean(slug) &&
       (needsMetaFetch || (needsIcon && !lookupHasIcon && !thumb && !icon && !hasMeta));
 
@@ -516,6 +539,10 @@ export async function hydrateItemMetrics(
       }
       if (needsIcon && !lookupHasIcon && !hasMeta && !slug) {
         hasMeta = true;
+      }
+      if (!allowNetworkFetch) {
+        if (needsMetaFetch) hasDucats = true;
+        if (needsIcon && !lookupHasIcon && !hasMeta) hasMeta = true;
       }
     }
 

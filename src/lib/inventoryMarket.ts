@@ -69,6 +69,7 @@ export interface MetricNeeds {
   price: boolean;
   ducats: boolean;
   orders: boolean;
+  network?: boolean;
 }
 
 export const INVENTORY_FILTERS: Array<{ key: InventoryFilterTab; label: string }> = [

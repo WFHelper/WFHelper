@@ -289,7 +289,7 @@ async function prefetchRelicCardPrice(
 
   relicCardPricePending.add(groupKey);
   try {
-    const result = await fetchPriceBySlug(relicGroupSlug(groupKey), { priority });
+    const result = await fetchPriceBySlug(relicGroupSlug(groupKey), { priority, cacheOnly: true });
     if (result.status === "ok" && result.median != null) {
       relicCardPriceCache.set(groupKey, result.median);
       relicCardNoDataCache.delete(groupKey);
@@ -416,7 +416,7 @@ export async function warmupPrimeRewardPriceCache(
             if (token !== primeWarmupToken) return;
             const slug = batch.shift();
             if (!slug) return;
-            const result = await fetchPriceBySlug(slug, { priority: "low" });
+            const result = await fetchPriceBySlug(slug, { priority: "low", cacheOnly: true });
             if (result.status !== "transient") {
               primeRewardWarmupComplete.add(slug);
             }
@@ -446,7 +446,7 @@ async function prefetchRewardDucats(
 
   rewardDucatPending.add(slug);
   try {
-    const meta = await fetchWfmItemMetaBySlug(slug, { priority });
+    const meta = await fetchWfmItemMetaBySlug(slug, { priority, cacheOnly: true });
     const ducats =
       typeof meta?.ducats === "number" && Number.isFinite(meta.ducats)
         ? Math.max(0, Math.round(meta.ducats))
@@ -549,7 +549,7 @@ async function buildPriceSnapshot(
       for (;;) {
         const slug = slugQueue.shift();
         if (!slug) return;
-        priceMap.set(slug, await fetchPriceBySlug(slug, { priority }));
+        priceMap.set(slug, await fetchPriceBySlug(slug, { priority, cacheOnly: true }));
       }
     }),
   );
