@@ -22,6 +22,16 @@ import {
   WORLD_STATE_FETCH_ERROR,
 } from "./config/shared/ipcChannels";
 
+const eventBridge =
+  <T>(channel: string) =>
+  (callback: (data: T) => void): (() => void) => {
+    const listener = (_event: unknown, data: T) => callback(data);
+    ipcRenderer.on(channel, listener);
+    return () => {
+      ipcRenderer.removeListener(channel, listener);
+    };
+  };
+
 try {
 contextBridge.exposeInMainWorld("api", {
   getInventory: () => ipcRenderer.invoke(INVENTORY_GET),
@@ -49,45 +59,11 @@ contextBridge.exposeInMainWorld("api", {
   getAppUpdateState: () => ipcRenderer.invoke(APP_UPDATE_STATE),
   installDownloadedUpdate: () => ipcRenderer.invoke(APP_UPDATE_INSTALL),
 
-  onInventoryUpdated: (callback: (data: unknown) => void) => {
-    const listener = (_event: unknown, data: unknown) => callback(data);
-    ipcRenderer.on(INVENTORY_UPDATED, listener);
-    return () => {
-      ipcRenderer.removeListener(INVENTORY_UPDATED, listener);
-    };
-  },
-
-  onAppUpdateStatus: (callback: (state: unknown) => void) => {
-    const listener = (_event: unknown, state: unknown) => callback(state);
-    ipcRenderer.on(APP_UPDATE_STATUS, listener);
-    return () => {
-      ipcRenderer.removeListener(APP_UPDATE_STATUS, listener);
-    };
-  },
-
-  onWfmNotification: (callback: (notification: unknown) => void) => {
-    const listener = (_event: unknown, notification: unknown) => callback(notification);
-    ipcRenderer.on(WFM_NOTIFICATION, listener);
-    return () => {
-      ipcRenderer.removeListener(WFM_NOTIFICATION, listener);
-    };
-  },
-
-  onTradeRecorded: (callback: (data: unknown) => void) => {
-    const listener = (_event: unknown, data: unknown) => callback(data);
-    ipcRenderer.on(TRADE_RECORDED, listener);
-    return () => {
-      ipcRenderer.removeListener(TRADE_RECORDED, listener);
-    };
-  },
-
-  onWorldStateFetchError: (callback: (message: unknown) => void) => {
-    const listener = (_event: unknown, message: unknown) => callback(message);
-    ipcRenderer.on(WORLD_STATE_FETCH_ERROR, listener);
-    return () => {
-      ipcRenderer.removeListener(WORLD_STATE_FETCH_ERROR, listener);
-    };
-  },
+  onInventoryUpdated: eventBridge<unknown>(INVENTORY_UPDATED),
+  onAppUpdateStatus: eventBridge<unknown>(APP_UPDATE_STATUS),
+  onWfmNotification: eventBridge<unknown>(WFM_NOTIFICATION),
+  onTradeRecorded: eventBridge<unknown>(TRADE_RECORDED),
+  onWorldStateFetchError: eventBridge<unknown>(WORLD_STATE_FETCH_ERROR),
 
   minimizeWindow: () => ipcRenderer.send(WINDOW_MINIMIZE),
   maximizeWindow: () => ipcRenderer.send(WINDOW_MAXIMIZE),
@@ -126,13 +102,7 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke(RIVENS_GET_WEAPON_TYPE, weaponName),
   getRivenBestAttributes: (weaponName: string) =>
     ipcRenderer.invoke(RIVENS_GET_BEST_ATTRIBUTES, weaponName),
-  onHelperDownloadProgress: (callback: (progress: unknown) => void) => {
-    const listener = (_event: unknown, progress: unknown) => callback(progress);
-    ipcRenderer.on(HELPER_DOWNLOAD_PROGRESS, listener);
-    return () => {
-      ipcRenderer.removeListener(HELPER_DOWNLOAD_PROGRESS, listener);
-    };
-  },
+  onHelperDownloadProgress: eventBridge<unknown>(HELPER_DOWNLOAD_PROGRESS),
 });
 
 contextBridge.exposeInMainWorld("tradeApi", {
