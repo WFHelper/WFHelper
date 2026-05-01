@@ -12,8 +12,13 @@ import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 
 import * as relicService from "../services/relicService";
-import * as rewardScanner from "../services/rewardScanner";
-import * as wfmStatsPrice from "../services/wfmStatsPrice";
+import {
+  captureSourceMeta,
+  detectRelicSelectionEra,
+  scanRewardsDetailed,
+  waitForRewardUiReady,
+} from "../services/rewardScanner";
+import { fetchPriceBySlug, getCachedPriceBySlug } from "../services/wfmStatsPrice";
 import * as warframeStatus from "../services/warframeStatus";
 import {
   OVERLAY_CLOSE, OVERLAY_GET_RELIC_ITEMS, OVERLAY_GET_PRICE,
@@ -21,6 +26,18 @@ import {
 } from "../config/shared/ipcChannels";
 
 const log = withScope("rewardOverlayIpc");
+
+const rewardScanner = {
+  captureSourceMeta,
+  detectRelicSelectionEra,
+  scanRewardsDetailed,
+  waitForRewardUiReady,
+};
+
+const wfmStatsPrice = {
+  fetchPriceBySlug,
+  getCachedPriceBySlug,
+};
 
 import { BrowserWindow, screen, app } from "electron";
 import path from "node:path";
@@ -124,17 +141,6 @@ export function getPlannerWindowsController() {
   return plannerWindowsController;
 }
 
-export function getScanController() {
-  return scanController;
-}
-
-export function setScanController(ctrl: ReturnType<typeof createOverlayScanController>): void {
-  scanController = ctrl;
-}
-
-export function getRelicSelectionController() {
-  return relicSelectionController;
-}
 
 // ── Trigger callbacks (wired from main.ts via eeLogMonitor) ──────────────────
 

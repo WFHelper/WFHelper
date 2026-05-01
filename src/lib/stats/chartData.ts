@@ -43,13 +43,13 @@ export interface ChartResult {
 
 export const BAR_H = 64;
 export const BAR_H_EXPAND = 300;
-export const BAR_GAP = 2;
+const BAR_GAP = 2;
 export const SVG_W = 800;
 
 export const TIMEFRAME_OPTIONS = [7, 14, 30, 90] as const;
 
 /** Map chart keys to the stored absolute value field on DailyStatEntry. */
-export const ABS_FIELD_MAP: Partial<Record<ChartKey, keyof DailyStatEntry>> = {
+const ABS_FIELD_MAP: Partial<Record<ChartKey, keyof DailyStatEntry>> = {
   platDelta: "absPlat",
   creditsDelta: "absCredits",
   endoDelta: "absEndo",
@@ -64,20 +64,20 @@ export function formatDelta(n: number, fmt: (abs: number) => string): string {
   return `${sign}${fmt(Math.abs(n))}`;
 }
 
-export function fmtPlat(abs: number): string { return abs.toLocaleString(); }
+function fmtPlat(abs: number): string { return abs.toLocaleString(); }
 
-export function fmtCredits(abs: number): string {
+function fmtCredits(abs: number): string {
   if (abs >= 1_000_000) return `${(abs / 1_000_000).toFixed(2)}M`;
   if (abs >= 1_000) return `${(abs / 1_000).toFixed(1)}k`;
   return abs.toLocaleString();
 }
 
-export function fmtEndo(abs: number): string {
+function fmtEndo(abs: number): string {
   if (abs >= 1_000) return `${(abs / 1_000).toFixed(1)}k`;
   return abs.toLocaleString();
 }
 
-export function fmtCount(abs: number): string { return abs.toLocaleString(); }
+function fmtCount(abs: number): string { return abs.toLocaleString(); }
 
 export const formatters: Record<ChartKey, (abs: number) => string> = {
   platDelta:    fmtPlat,
@@ -95,12 +95,6 @@ export function formatAbsolute(n: number | null): string {
   if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
   if (abs >= 100_000) return `${(n / 1_000).toFixed(1)}k`;
   return n.toLocaleString();
-}
-
-export function deltaClass(n: number): string {
-  if (n > 0) return "text-success";
-  if (n < 0) return "text-danger";
-  return "text-text-secondary";
 }
 
 export function shortDate(iso: string): string {

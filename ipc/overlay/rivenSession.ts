@@ -34,10 +34,6 @@ function sendToWindows(wins: WindowRef[], channel: string, ...args: unknown[]): 
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
-export function isActive(): boolean {
-  return _active;
-}
-
 /**
  * Called when the OmegaRerollSelection screen is detected and weapon/cost
  * info is available from the cycle dialog.

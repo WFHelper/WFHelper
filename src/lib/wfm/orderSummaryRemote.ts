@@ -75,7 +75,7 @@ export function getOrderSummaryDebugCounters(): OrderSummaryDebugCounters {
   return { ...debugCounters };
 }
 
-export function getOrderSummaryCircuitState(): { open: boolean; retryAfterMs: number } {
+function getOrderSummaryCircuitState(): { open: boolean; retryAfterMs: number } {
   const retryAfterMs = Math.max(0, breakerOpenUntil - Date.now());
   return {
     open: retryAfterMs > 0,

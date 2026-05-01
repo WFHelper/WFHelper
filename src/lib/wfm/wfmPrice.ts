@@ -152,16 +152,6 @@ export function getPriceDebugCounters(): PriceDebugCounters {
   return { ...priceDebugCounters };
 }
 
-export function resetPriceDebugCounters(): void {
-  for (const key of Object.keys(priceDebugCounters) as Array<keyof PriceDebugCounters>) {
-    priceDebugCounters[key] = 0;
-  }
-}
-
-export function clearBackendErrorCooldowns(): void {
-  backendErrorCooldown.clear();
-}
-
 export function onPriceCacheUpdate(listener: PriceCacheUpdateListener): () => void {
   priceCacheUpdateListeners.add(listener);
   return () => {

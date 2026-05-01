@@ -46,14 +46,6 @@ interface GroupPriceSnapshot {
   qualities: Partial<Record<RelicQuality, QualityPriceData>>;
 }
 
-export interface RelicRuntimeCacheStats {
-  evEntries: number;
-  cardPriceEntries: number;
-  evNoDataEntries: number;
-  cardNoDataEntries: number;
-  fingerprint: string | null;
-}
-
 // ---------------------------------------------------------------------------
 // Module-level mutable state
 // ---------------------------------------------------------------------------
@@ -138,24 +130,10 @@ export function configureRelicRuntimeCacheFingerprint(db: RelicDatabase | null |
 }
 
 // ---------------------------------------------------------------------------
-// Cache stats
-// ---------------------------------------------------------------------------
-
-export function getRelicRuntimeCacheStats(): RelicRuntimeCacheStats {
-  return {
-    evEntries: evCache.size,
-    cardPriceEntries: relicCardPriceCache.size,
-    evNoDataEntries: evNoDataCache.size,
-    cardNoDataEntries: relicCardNoDataCache.size,
-    fingerprint: activeRuntimeFingerprint,
-  };
-}
-
-// ---------------------------------------------------------------------------
 // EV cache key helpers
 // ---------------------------------------------------------------------------
 
-export function evCacheKey(groupKey: string, squadSize: number, qualityMode: string): string {
+function evCacheKey(groupKey: string, squadSize: number, qualityMode: string): string {
   return `${groupKey}|${squadSize}|${qualityMode}`;
 }
 
@@ -179,29 +157,6 @@ export function evHasFreshNoData(
 // ---------------------------------------------------------------------------
 // Cache reset / cancellation
 // ---------------------------------------------------------------------------
-
-export function resetEvCaches(): void {
-  evCache.clear();
-  evNoDataCache.clear();
-  evPending.clear();
-  groupPriceCache.clear();
-  groupPricePending.clear();
-  relicCardPriceCache.clear();
-  relicCardPricePending.clear();
-  relicCardNoDataCache.clear();
-  rewardDucatCache.clear();
-  rewardDucatPending.clear();
-  primeRewardWarmupComplete.clear();
-  rewardSlugToGroups.clear();
-  warmupToken += 1;
-  warmupRunning = false;
-  cardWarmupToken += 1;
-  cardWarmupRunning = false;
-  primeWarmupToken += 1;
-  primeWarmupRunning = false;
-  ducatWarmupToken += 1;
-  ducatWarmupRunning = false;
-}
 
 export function cancelWarmup(): void {
   warmupToken += 1;
@@ -337,11 +292,7 @@ function relicGroupSlug(groupKey: string): string {
   return `${normalized}_relic`;
 }
 
-export function getCachedRelicCardPrice(groupKey: string): number | null {
-  return relicCardPriceCache.get(groupKey) ?? null;
-}
-
-export async function prefetchRelicCardPrice(
+async function prefetchRelicCardPrice(
   groupKey: string,
   priority: RequestPriority = "normal",
 ): Promise<boolean> {
@@ -508,7 +459,7 @@ export async function warmupPrimeRewardPriceCache(
 // Ducat prefetch / warmup
 // ---------------------------------------------------------------------------
 
-export async function prefetchRewardDucats(
+async function prefetchRewardDucats(
   slug: string | null | undefined,
   priority: RequestPriority = "low",
 ): Promise<boolean> {
@@ -655,7 +606,7 @@ async function buildPriceSnapshot(
   return snapshot;
 }
 
-export async function computeGroupEv(
+async function computeGroupEv(
   group: RelicGroup,
   priority: RequestPriority = "normal",
 ): Promise<void> {

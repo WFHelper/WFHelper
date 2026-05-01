@@ -9,7 +9,6 @@
 export {
   RELIC_ICON_PATHS,
   RELIC_TIER_ORDER,
-  QUALITY_MODES,
   fissureTierClass,
 } from "./relic/relicConstants.js";
 
@@ -27,20 +26,11 @@ export {
   computeGroupDucatEv,
   computeGroupDucatonator,
   configureRelicRuntimeCacheFingerprint,
-  getRelicRuntimeCacheStats,
-  evCacheKey,
   getCachedEv,
   evHasFreshNoData,
-  resetEvCaches,
   cancelWarmup,
-  getCachedRelicCardPrice,
-  prefetchRelicCardPrice,
   warmupRelicCardPrices,
   warmupPrimeRewardPriceCache,
-  prefetchRewardDucats,
   warmupRewardDucats,
-  computeGroupEv,
   warmupRelicEvs,
 } from "./relic/relicPriceCache.js";
-
-export type { RelicRuntimeCacheStats } from "./relic/relicPriceCache.js";

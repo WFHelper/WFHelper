@@ -571,7 +571,7 @@ export function onRivenChoiceConfirmed(): void {
 
 // ── Shared helpers (used by overlayIpc orchestrator) ─────────────────────────
 
-export { toggleRivenInteractiveMode, forEachRivenWindow, getRivenWindows };
+export { toggleRivenInteractiveMode, forEachRivenWindow,  };
 
 // ── IPC registration ─────────────────────────────────────────────────────────
 

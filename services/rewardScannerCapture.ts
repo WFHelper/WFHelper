@@ -60,33 +60,8 @@ export async function captureScreenFast(
   return null;
 }
 
-export async function captureScreen(options: CaptureOptions = {}): Promise<CaptureResult | null> {
+async function captureScreen(options: CaptureOptions = {}): Promise<CaptureResult | null> {
   return captureScreenFast(options.preferredDisplayId || null);
-}
-
-export async function captureDebugFrame(options: CaptureOptions = {}): Promise<{
-  imageDataUrl: string;
-  width: number;
-  height: number;
-  sourceLabel: string;
-} | null> {
-  const screenshot = await captureScreen(options);
-  if (!screenshot) return null;
-  const size = screenshot.image.getSize();
-
-  const sourceLabel =
-    screenshot.sourceType === "window"
-      ? `window: ${screenshot.sourceName || screenshot.sourceId || "unknown"}`
-      : `screen: ${screenshot.sourceName || screenshot.sourceDisplayId || screenshot.sourceId || "unknown"}`;
-
-  log.log(`[RewardScanner] Debug capture source -> ${sourceLabel}`);
-
-  return {
-    imageDataUrl: screenshot.image.toDataURL(),
-    width: size.width,
-    height: size.height,
-    sourceLabel,
-  };
 }
 
 export async function captureSourceMeta(options: CaptureOptions = {}): Promise<{

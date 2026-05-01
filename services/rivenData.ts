@@ -338,16 +338,6 @@ export function getWeaponCategory(weaponName: string): string | null {
 }
 
 /**
- * Check if a weapon is a shotgun (LongGuns with SHOTGUN compat tag).
- */
-export function isWeaponShotgun(weaponName: string): boolean {
-  ensureBuilt();
-  const info = _weaponByNameLc.get(weaponName.toLowerCase());
-  if (!info) return false;
-  return info.productCategory === "LongGuns" && info.compatibilityTags.includes("SHOTGUN");
-}
-
-/**
  * Resolve which riven mod type applies to a weapon.
  * Returns the riven mod uniqueName or null.
  */
@@ -377,7 +367,7 @@ export function resolveRivenType(weaponName: string): string | null {
 /**
  * Get the upgrade entries for a riven mod type.
  */
-export function getRivenTypeEntries(rivenTypeKey: string): UpgradeEntry[] {
+function getRivenTypeEntries(rivenTypeKey: string): UpgradeEntry[] {
   ensureBuilt();
   return _rivenModByKey.get(rivenTypeKey)?.entries || [];
 }

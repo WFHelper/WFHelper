@@ -31,7 +31,7 @@ export function toAllowedConnectOrigin(value: unknown): string | null {
   }
 }
 
-export function buildConnectSrcAllowlist(): string {
+function buildConnectSrcAllowlist(): string {
   const entries = new Set<string>(BASE_CONNECT_SRC_ALLOWLIST);
 
   // Allow localhost connections only during development
@@ -91,4 +91,4 @@ export const MAIN_WINDOW_CSP = [
 
 export const PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(), usb=()";
 
-export { OPEN_EXTERNAL_ALLOWED_HOSTS, BASE_CONNECT_SRC_ALLOWLIST };
+;

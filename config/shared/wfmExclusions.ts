@@ -16,12 +16,12 @@ function normalizeName(value: unknown): string {
   return typeof value === "string" ? normalizeForSearch(value) : "";
 }
 
-export function isVeiledRivenSlug(slug: unknown): boolean {
+function isVeiledRivenSlug(slug: unknown): boolean {
   const normalized = normalizeSlug(slug);
   return /(^|_)riven_mod_veiled$/.test(normalized);
 }
 
-export function isVeiledRivenName(name: unknown): boolean {
+function isVeiledRivenName(name: unknown): boolean {
   const normalized = normalizeName(name);
   return /riven mod\s*\(veiled\)$/.test(normalized);
 }
@@ -50,4 +50,4 @@ export function isWfmExcludedSlug(slug: unknown): boolean {
   return WFM_EXCLUDED_SLUGS.has(slug);
 }
 
-export { BLOOD_FOR_SLUGS, WFM_EXCLUDED_SLUGS };
+;

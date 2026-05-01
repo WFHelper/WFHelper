@@ -36,7 +36,7 @@ function isValidCacheKey(key: string): boolean {
   return key.length > 0 && key.length <= 160;
 }
 
-export function isValidCachedPriceEntry(value: unknown, now = Date.now()): boolean {
+function isValidCachedPriceEntry(value: unknown, now = Date.now()): boolean {
   if (!isRecord(value)) return false;
   const status = value.status;
   if (status !== "ok" && status !== "no_data") return false;
@@ -45,7 +45,7 @@ export function isValidCachedPriceEntry(value: unknown, now = Date.now()): boole
   return value.median == null;
 }
 
-export function isValidSnapshotMetaEntry(value: unknown, now = Date.now()): boolean {
+function isValidSnapshotMetaEntry(value: unknown, now = Date.now()): boolean {
   if (!isRecord(value)) return false;
   if (typeof value.slug !== "string" || !value.slug) return false;
   if (!isReasonableTimestamp(value.timestamp, now)) return false;
@@ -56,7 +56,7 @@ export function isValidSnapshotMetaEntry(value: unknown, now = Date.now()): bool
   return true;
 }
 
-export function isValidCachedOrderSummaryEntry(value: unknown, now = Date.now()): boolean {
+function isValidCachedOrderSummaryEntry(value: unknown, now = Date.now()): boolean {
   if (!isRecord(value)) return false;
   const status = value.status;
   if (status !== "ok" && status !== "no_data") return false;

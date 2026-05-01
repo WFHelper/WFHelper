@@ -27,7 +27,7 @@ function createDefaultFiltersByScope(): Record<FilterScope, SharedFiltersState> 
   };
 }
 
-export const sharedFiltersByScope = writable<Record<FilterScope, SharedFiltersState>>(
+const sharedFiltersByScope = writable<Record<FilterScope, SharedFiltersState>>(
   createDefaultFiltersByScope(),
 );
 

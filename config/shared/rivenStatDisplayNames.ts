@@ -8,7 +8,7 @@
  * weapons we want to show "Attack Speed". Pass `melee=true` to flip the label.
  */
 
-export const STAT_TAG_TO_DISPLAY_NAME: Record<string, string> = {
+const STAT_TAG_TO_DISPLAY_NAME: Record<string, string> = {
   WeaponCritChanceMod: "Critical Chance",
   WeaponCritDamageMod: "Critical Damage",
   WeaponFireIterationsMod: "Multishot",

@@ -70,7 +70,7 @@ export function levenshteinDistance(a: string, b: string): number {
   return dp[a.length][b.length];
 }
 
-export const LUMINANCE_WEIGHTS = Object.freeze({
+const LUMINANCE_WEIGHTS = Object.freeze({
   red: 77,
   green: 150,
   blue: 29,

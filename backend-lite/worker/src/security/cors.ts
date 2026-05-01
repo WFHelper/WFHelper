@@ -1,6 +1,6 @@
 import type { Env } from '../types';
 
-export function requestOrigin(req: Request): string {
+function requestOrigin(req: Request): string {
 	return req.headers.get('origin') || '';
 }
 

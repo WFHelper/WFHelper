@@ -12,7 +12,7 @@ import type { BountyJob, CycleData, Fissure, SyndicateBounty, WorldState } from 
 export const WORLD_REFRESH_MS = 120_000;
 export const WORLD_POLL_MS = 30_000;
 export const COARSE_CLOCK_MS = 5_000;
-export const URGENCY_RATIO = 0.2;
+const URGENCY_RATIO = 0.2;
 
 const FISSURE_EXPIRY_GUARD_MS = 1_500;
 const FISSURE_TIER_ORDER: Record<string, number> = {
@@ -74,7 +74,7 @@ export function toggleCollapsedSection(
   return next;
 }
 
-export function isUrgent(
+function isUrgent(
   expiryIso: string | null | undefined,
   activationIso: string | null | undefined,
   fallbackTotalMs?: number,
@@ -245,10 +245,6 @@ export function buildBountyTimers(
       return [b.syndicateKey, { timeStr, urgent }];
     }),
   );
-}
-
-export function titleCase(value: string): string {
-  return value.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export type { BountyJob };

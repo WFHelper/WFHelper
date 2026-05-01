@@ -93,7 +93,3 @@ export function importRankedHotset(data: Record<string, unknown>): number {
   pruneHotset();
   return imported;
 }
-
-export function clearRankedHotset(): void {
-  hotsetBySlug.clear();
-}

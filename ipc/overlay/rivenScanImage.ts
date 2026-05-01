@@ -2,22 +2,12 @@ import { captureScreenFast, type CaptureResult } from "../../services/rewardScan
 import type { NativeImage } from "electron";
 import { cropRectContent, detectGameContentRect } from "../../services/rewardScannerImage";
 import { clamp01, computeMeanAndStd, sleep } from "../../services/rewardScannerUtils";
-import { enhanceForRivenOcrVgb, isVioletPixel } from "./rivenScanImageVgb";
-
-export type { VgbRowRegion, VgbResult } from "./rivenScanImageVgb";
-export { enhanceForRivenOcrVgb, isVioletPixel } from "./rivenScanImageVgb";
 
 interface TextBounds {
   left: number;
   top: number;
   width: number;
   height: number;
-}
-
-interface RivenDerivedRegions {
-  title: TextBounds;
-  stats: TextBounds;
-  footer: TextBounds;
 }
 
 interface RivenTextMetrics {
@@ -28,34 +18,6 @@ interface RivenTextMetrics {
   rowGroups: number;
   bounds: TextBounds | null;
 }
-
-export interface OriginalMode {
-  kind: "original";
-}
-
-export interface FilteredMode {
-  kind: "bright";
-  threshold: number;
-  dilate?: boolean;
-}
-
-export interface VioletMode {
-  kind: "violet";
-  dilate?: boolean;
-}
-
-/**
- * Hybrid mode: uses violet filter to locate text rows, then applies brightness
- * threshold within those rows to capture ALL text — including element icons
- * (Heat🔥, Electricity⚡, Cold❄) that the pure violet filter strips.  This
- * preserves value-name association across icon gaps.
- */
-export interface VioletGuidedBrightMode {
-  kind: "violet-guided-bright";
-  brightThreshold?: number; // default 140
-}
-
-export type EnhanceMode = OriginalMode | FilteredMode | VioletMode | VioletGuidedBrightMode;
 
 export interface RivenUiReadyResult {
   ready: boolean;
@@ -83,8 +45,6 @@ const RIVEN_READY_TIMEOUTS_MS = Object.freeze({
 const RIVEN_READY_POLL_MS = 40;
 const RIVEN_READY_REQUIRED_HITS = 3;
 const RIVEN_READY_SCORE_THRESHOLD = 0.2;
-const MIN_OCR_WIDTH = 1800;
-
 let _rivenScanAborted = false;
 
 export function abortRivenScanWaits(): void {
@@ -141,7 +101,7 @@ function findBounds(values: number[], threshold: number): { start: number; end: 
 }
 
 /** Extract BGRA bitmap once; reuse across analyzeRivenTextMetrics / detectRivenCardFrame / computeRivenFrameHash. */
-export function getRivenBitmap(nativeImage: NativeImage): { bitmap: Buffer; width: number; height: number } | null {
+function getRivenBitmap(nativeImage: NativeImage): { bitmap: Buffer; width: number; height: number } | null {
   if (!nativeImage || typeof nativeImage.getSize !== "function") return null;
   const { width, height } = nativeImage.getSize();
   if (width < 24 || height < 24) return null;
@@ -271,189 +231,6 @@ export function computeRivenFrameHash(nativeImage: NativeImage, shared?: { bitma
   return hash;
 }
 
-function findPeakIndex(values: number[], start: number, end: number): number {
-  let bestIndex = -1;
-  let bestValue = -Infinity;
-  for (let index = start; index <= end && index < values.length; index += 1) {
-    if (index < 0) continue;
-    if (values[index] > bestValue) {
-      bestValue = values[index];
-      bestIndex = index;
-    }
-  }
-  return bestIndex;
-}
-
-function detectRivenCardFrame(nativeImage: NativeImage, shared?: { bitmap: Buffer; width: number; height: number } | null): TextBounds | null {
-  const data = shared || getRivenBitmap(nativeImage);
-  if (!data) return null;
-  const { width, height, bitmap } = data;
-  if (width < 160 || height < 120) return null;
-  const sampleCols = Math.max(80, Math.min(width, 220));
-  const sampleRows = Math.max(70, Math.min(height, 180));
-  const stepX = Math.max(1, Math.floor(width / sampleCols));
-  const stepY = Math.max(1, Math.floor(height / sampleRows));
-  const lumaGrid: number[][] = Array.from({ length: sampleRows }, () =>
-    new Array<number>(sampleCols).fill(0),
-  );
-  const borderColScore = new Array<number>(sampleCols).fill(0);
-  const borderRowScore = new Array<number>(sampleRows).fill(0);
-
-  for (let sampleY = 0; sampleY < sampleRows; sampleY += 1) {
-    const y = Math.min(height - 1, sampleY * stepY);
-    for (let sampleX = 0; sampleX < sampleCols; sampleX += 1) {
-      const x = Math.min(width - 1, sampleX * stepX);
-      const idx = (y * width + x) * 4;
-      const blue = bitmap[idx];
-      const green = bitmap[idx + 1];
-      const red = bitmap[idx + 2];
-      lumaGrid[sampleY][sampleX] = (blue + green + red) / 3;
-
-      const isGolden = red > 180 && green > 140 && blue < 120 && red - blue > 80;
-      const isBlueCyan = blue > 160 && green > 120 && red < 100 && blue - red > 80;
-      if (isGolden || isBlueCyan) {
-        borderColScore[sampleX] += 1;
-        borderRowScore[sampleY] += 1;
-      }
-    }
-  }
-
-  const colEdges = new Array<number>(sampleCols).fill(0);
-  const rowEdges = new Array<number>(sampleRows).fill(0);
-  for (let sampleY = 1; sampleY < sampleRows - 1; sampleY += 1) {
-    for (let sampleX = 1; sampleX < sampleCols - 1; sampleX += 1) {
-      const gx =
-        -lumaGrid[sampleY - 1][sampleX - 1] + lumaGrid[sampleY - 1][sampleX + 1] +
-        -2 * lumaGrid[sampleY][sampleX - 1] + 2 * lumaGrid[sampleY][sampleX + 1] +
-        -lumaGrid[sampleY + 1][sampleX - 1] + lumaGrid[sampleY + 1][sampleX + 1];
-      const gy =
-        -lumaGrid[sampleY - 1][sampleX - 1] -
-        2 * lumaGrid[sampleY - 1][sampleX] -
-        lumaGrid[sampleY - 1][sampleX + 1] +
-        lumaGrid[sampleY + 1][sampleX - 1] +
-        2 * lumaGrid[sampleY + 1][sampleX] +
-        lumaGrid[sampleY + 1][sampleX + 1];
-      colEdges[sampleX] += Math.abs(gx);
-      rowEdges[sampleY] += Math.abs(gy);
-    }
-  }
-
-  const combinedCols = colEdges.map((edge, index) => edge + borderColScore[index] * 12);
-  const combinedRows = rowEdges.map((edge, index) => edge + borderRowScore[index] * 12);
-  const smoothCols = smoothSeries(combinedCols);
-  const smoothRows = smoothSeries(combinedRows);
-  const leftPeak = findPeakIndex(
-    smoothCols,
-    Math.floor(sampleCols * 0.08),
-    Math.floor(sampleCols * 0.42),
-  );
-  const rightPeak = findPeakIndex(
-    smoothCols,
-    Math.floor(sampleCols * 0.58),
-    Math.floor(sampleCols * 0.94),
-  );
-  const topPeak = findPeakIndex(
-    smoothRows,
-    Math.floor(sampleRows * 0.02),
-    Math.floor(sampleRows * 0.3),
-  );
-  const bottomPeak = findPeakIndex(
-    smoothRows,
-    Math.floor(sampleRows * 0.68),
-    Math.floor(sampleRows * 0.98),
-  );
-  if (leftPeak < 0 || rightPeak < 0 || topPeak < 0 || bottomPeak < 0 || rightPeak <= leftPeak) {
-    return null;
-  }
-
-  const frame = {
-    left: Math.max(0, leftPeak * stepX),
-    top: Math.max(0, topPeak * stepY),
-    width: Math.max(1, (rightPeak - leftPeak) * stepX),
-    height: Math.max(1, (bottomPeak - topPeak) * stepY),
-  };
-  if (frame.width < width * 0.28 || frame.height < height * 0.35) return null;
-  return frame;
-}
-
-export function cropAbsolute(nativeImage: NativeImage, bounds: TextBounds): NativeImage {
-  return nativeImage.crop({
-    x: Math.max(0, Math.floor(bounds.left)),
-    y: Math.max(0, Math.floor(bounds.top)),
-    width: Math.max(1, Math.floor(bounds.width)),
-    height: Math.max(1, Math.floor(bounds.height)),
-  });
-}
-
-function makeBoundsWithinImage(nativeImage: NativeImage, bounds: TextBounds): TextBounds {
-  const size = nativeImage.getSize?.() ?? { width: 0, height: 0 };
-  const left = Math.max(0, Math.floor(bounds.left));
-  const top = Math.max(0, Math.floor(bounds.top));
-  const right = Math.min(size.width - 1, Math.floor(bounds.left + bounds.width));
-  const bottom = Math.min(size.height - 1, Math.floor(bounds.top + bounds.height));
-  return {
-    left,
-    top,
-    width: Math.max(1, right - left),
-    height: Math.max(1, bottom - top),
-  };
-}
-
-export function deriveRivenRegions(nativeImage: NativeImage, textBounds: TextBounds): RivenDerivedRegions {
-  const title = makeBoundsWithinImage(nativeImage, {
-    left: textBounds.left - textBounds.width * 0.06,
-    top: textBounds.top - textBounds.height * 0.62,
-    width: textBounds.width * 1.12,
-    height: textBounds.height * 0.34,
-  });
-  const stats = makeBoundsWithinImage(nativeImage, {
-    left: textBounds.left - textBounds.width * 0.04,
-    top: textBounds.top - textBounds.height * 0.02,
-    width: textBounds.width * 1.08,
-    height: textBounds.height * 0.84,
-  });
-  const footer = makeBoundsWithinImage(nativeImage, {
-    left: textBounds.left - textBounds.width * 0.04,
-    top: textBounds.top + textBounds.height * 0.8,
-    width: textBounds.width * 1.08,
-    height: textBounds.height * 0.24,
-  });
-  return { title, stats, footer };
-}
-
-export function refineRivenTextCrop(nativeImage: NativeImage): {
-  image: NativeImage;
-  metrics: RivenTextMetrics;
-  refined: boolean;
-} {
-  const shared = getRivenBitmap(nativeImage);
-  const metrics = analyzeRivenTextMetrics(nativeImage, shared);
-  const cardFrame = detectRivenCardFrame(nativeImage, shared);
-  let targetBounds = metrics.bounds;
-
-  if (cardFrame) {
-    targetBounds = makeBoundsWithinImage(nativeImage, {
-      left: cardFrame.left + cardFrame.width * 0.08,
-      top: cardFrame.top + cardFrame.height * 0.34,
-      width: cardFrame.width * 0.84,
-      height: cardFrame.height * 0.5,
-    });
-  }
-
-  if (!targetBounds || metrics.score < 0.12) {
-    return { image: nativeImage, metrics, refined: false };
-  }
-
-  try {
-    return {
-      image: cropAbsolute(nativeImage, targetBounds),
-      metrics,
-      refined: true,
-    };
-  } catch {
-    return { image: nativeImage, metrics, refined: false };
-  }
-}
 
 export async function waitForRivenUiReady(
   rect: { x: number; y: number; width: number; height: number },
@@ -556,133 +333,3 @@ export async function waitForRivenUiReady(
   };
 }
 
-export async function enhanceForRivenOcr(croppedImage: NativeImage, mode: EnhanceMode): Promise<Buffer> {
-  const sharp = require("sharp") as typeof import("sharp");
-  const { width, height } = croppedImage.getSize();
-
-  if (mode.kind === "original") {
-    const scale = width >= MIN_OCR_WIDTH ? 1 : Math.min(3, Math.ceil(MIN_OCR_WIDTH / width));
-    const pngBuffer: Buffer = croppedImage.toPNG();
-    if (scale <= 1) return pngBuffer;
-    const scaledWidth = Math.min(6000, width * scale);
-    const scaledHeight = Math.min(6000, height * scale);
-    return sharp(pngBuffer)
-      .resize(scaledWidth, scaledHeight, { kernel: "lanczos3" })
-      .png()
-      .toBuffer();
-  }
-
-  // ── Violet-guided-bright: hybrid two-pass approach ─────────────────────────
-  // Delegate to enhanceForRivenOcrVgb which returns both PNG and row regions.
-  if (mode.kind === "violet-guided-bright") {
-    const result = await enhanceForRivenOcrVgb(croppedImage, mode.brightThreshold);
-    return result.png;
-  }
-
-  const scale = width >= MIN_OCR_WIDTH ? 1 : Math.ceil(MIN_OCR_WIDTH / width);
-  const scaledWidth = Math.min(6000, width * scale);
-  const scaledHeight = Math.min(6000, height * scale);
-  const pngBuffer: Buffer = croppedImage.toPNG();
-  const rawBuffer = await sharp(pngBuffer)
-    .resize(scaledWidth, scaledHeight, { kernel: "linear" })
-    .ensureAlpha()
-    .raw()
-    .toBuffer();
-
-  const pixelCount = scaledWidth * scaledHeight;
-  const mask = Buffer.alloc(pixelCount);
-
-  if (mode.kind === "violet") {
-    // HSV-based violet text isolation — targets the purple/violet hue of
-    // Warframe riven card text while rejecting Kuva animation noise.
-    for (let bufferIndex = 0, pixelIndex = 0; bufferIndex < rawBuffer.length; bufferIndex += 4, pixelIndex++) {
-      const red = rawBuffer[bufferIndex];
-      const green = rawBuffer[bufferIndex + 1];
-      const blue = rawBuffer[bufferIndex + 2];
-      mask[pixelIndex] = isVioletPixel(red, green, blue) ? 1 : 0;
-    }
-  } else {
-    // Brightness-based threshold (existing logic)
-    for (let bufferIndex = 0, pixelIndex = 0; bufferIndex < rawBuffer.length; bufferIndex += 4, pixelIndex++) {
-      const red = rawBuffer[bufferIndex];
-      const green = rawBuffer[bufferIndex + 1];
-      const blue = rawBuffer[bufferIndex + 2];
-      const maxChannel = Math.max(red, green, blue);
-      mask[pixelIndex] = maxChannel >= mode.threshold ? 1 : 0;
-    }
-  }
-
-  // Violet mode cleanup: morphological close (fill 1px gaps in thin strokes)
-  // then remove isolated noise pixels.  Intentionally gentler than the
-  // brightness-mode erode — the violet filter already rejects most non-text
-  // pixels by hue, so only tiny scattered dots remain.
-  if (mode.kind === "violet") {
-    // Close: dilate then erode — fills 1px gaps in text strokes
-    const dilated = Buffer.alloc(pixelCount);
-    for (let y = 0; y < scaledHeight; y++) {
-      for (let x = 0; x < scaledWidth; x++) {
-        const i = y * scaledWidth + x;
-        if (mask[i]) {
-          dilated[i] = 1;
-          if (x > 0) dilated[i - 1] = 1;
-          if (x < scaledWidth - 1) dilated[i + 1] = 1;
-          if (y > 0) dilated[i - scaledWidth] = 1;
-          if (y < scaledHeight - 1) dilated[i + scaledWidth] = 1;
-        }
-      }
-    }
-    // Erode back to original size
-    for (let y = 0; y < scaledHeight; y++) {
-      for (let x = 0; x < scaledWidth; x++) {
-        const i = y * scaledWidth + x;
-        if (dilated[i]) {
-          // Keep pixel only if all 4-connected neighbours survived dilation
-          const hasAll =
-            (x === 0 || dilated[i - 1]) &&
-            (x === scaledWidth - 1 || dilated[i + 1]) &&
-            (y === 0 || dilated[i - scaledWidth]) &&
-            (y === scaledHeight - 1 || dilated[i + scaledWidth]);
-          mask[i] = hasAll ? 1 : 0;
-        } else {
-          mask[i] = 0;
-        }
-      }
-    }
-  }
-
-  const output = Buffer.alloc(pixelCount);
-  const shouldDilate = "dilate" in mode && mode.dilate;
-  if (shouldDilate) {
-    for (let y = 0; y < scaledHeight; y++) {
-      for (let x = 0; x < scaledWidth; x++) {
-        let found = false;
-        for (let dy = -1; dy <= 1 && !found; dy++) {
-          for (let dx = -1; dx <= 1 && !found; dx++) {
-            const nx = x + dx;
-            const ny = y + dy;
-            if (
-              nx >= 0 &&
-              nx < scaledWidth &&
-              ny >= 0 &&
-              ny < scaledHeight &&
-              mask[ny * scaledWidth + nx]
-            ) {
-              found = true;
-            }
-          }
-        }
-        output[y * scaledWidth + x] = found ? 0 : 255;
-      }
-    }
-  } else {
-    for (let index = 0; index < pixelCount; index++) {
-      output[index] = mask[index] ? 0 : 255;
-    }
-  }
-
-  return sharp(output, {
-    raw: { width: scaledWidth, height: scaledHeight, channels: 1 },
-  })
-    .png()
-    .toBuffer();
-}

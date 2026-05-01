@@ -3,7 +3,7 @@
  * All functions are pure (except `matchItemsDetailed` which reads a `sortedItems` array parameter).
  */
 
-import { levenshteinDistance } from "./rewardScannerUtils";
+import { levenshteinDistance, medianNumber } from "./rewardScannerUtils";
 import { normalizeForOcr, normalizeForSearch } from "../config/shared/textNormalize";
 
 export const MAX_REWARD_SLOTS = 4;
@@ -11,7 +11,7 @@ const EXACT_MATCH_SKIP_OVERLAP_COUNT = 3;
 const MIN_MATCHED_WORDS_FOR_OVERLAP = 2;
 const OVERLAP_CONFIDENCE_FLOOR = 0.86;
 
-export const RELIC_ERA_TOKENS: ReadonlyArray<{ token: string; text: string }> = Object.freeze([
+const RELIC_ERA_TOKENS: ReadonlyArray<{ token: string; text: string }> = Object.freeze([
   { token: "lith", text: "LITH" },
   { token: "meso", text: "MESO" },
   { token: "neo", text: "NEO" },
@@ -19,7 +19,7 @@ export const RELIC_ERA_TOKENS: ReadonlyArray<{ token: string; text: string }> = 
   { token: "requiem", text: "REQUIEM" },
 ]);
 
-export const CONSENSUS_TUNING: Readonly<{
+const CONSENSUS_TUNING: Readonly<{
   minScoreWeight: number;
   minConfidenceWeight: number;
   confidenceDecimals: number;
@@ -29,15 +29,15 @@ export const CONSENSUS_TUNING: Readonly<{
   confidenceDecimals: 3,
 });
 
-export function normalizeOcrToken(token: unknown): string {
+function normalizeOcrToken(token: unknown): string {
   return normalizeForOcr(token);
 }
 
-export function norm(text: unknown): string {
+function norm(text: unknown): string {
   return normalizeForSearch(text);
 }
 
-export function buildWordSet(text: string): Set<string> {
+function buildWordSet(text: string): Set<string> {
   return new Set(
     text
       .split(" ")
@@ -459,10 +459,6 @@ interface ConsensusResult {
 }
 
 export function buildConsensusSelection(passResults: PassResult[]): ConsensusResult | null {
-  const { medianNumber } = require("./rewardScannerUtils") as {
-    medianNumber: (arr: number[], fallback: number) => number;
-  };
-
   const successful = passResults.filter((result) => result.items.length > 0);
   if (successful.length === 0) return null;
 

@@ -83,7 +83,7 @@ export function unwrapInventoryPayload(
   return current;
 }
 
-export const __test__ = {
+const __test__ = {
   DEFAULT_MAX_UNWRAP_DEPTH,
   MAX_SAFE_UNWRAP_DEPTH,
   INVENTORY_ARRAY_KEYS,

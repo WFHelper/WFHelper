@@ -16,7 +16,7 @@ import type { TradeType, TradeDirection } from "../config/shared/statsTypes";
 
 const log = withScope("eeLogMonitor");
 
-export const EE_LOG_PATH: string | null = process.env.LOCALAPPDATA
+const EE_LOG_PATH: string | null = process.env.LOCALAPPDATA
   ? path.join(process.env.LOCALAPPDATA, "Warframe", "EE.log")
   : null;
 

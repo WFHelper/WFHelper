@@ -233,7 +233,7 @@ export {
   onAuthorized,
 };
 
-export const __test__ = {
+const __test__ = {
   MAIN_RENDERER_SUFFIX,
   OVERLAY_RENDERER_SUFFIX,
   RIVEN_OVERLAY_RENDERER_SUFFIX,

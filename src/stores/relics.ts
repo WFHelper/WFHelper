@@ -15,7 +15,7 @@ export interface RelicViewState {
   vaultedMode: RelicVaultedMode;
 }
 
-export const DEFAULT_RELIC_VIEW_STATE: RelicViewState = {
+const DEFAULT_RELIC_VIEW_STATE: RelicViewState = {
   tierFilter: "all",
   search: "",
   sortMode: "tier",
@@ -34,6 +34,3 @@ export function setRelicFilter(patch: Partial<RelicViewState>): void {
   relicViewState.update((state) => ({ ...state, ...patch }));
 }
 
-export function resetRelicFilters(): void {
-  relicViewState.set({ ...DEFAULT_RELIC_VIEW_STATE });
-}

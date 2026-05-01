@@ -253,7 +253,3 @@ export async function lookupBySlug(slug: string): Promise<CatalogItem | null> {
   await _load();
   return _bySlug.get(slug) || null;
 }
-
-export function prefetch(): void {
-  _load().catch((err) => log.error("[WFMCatalog] prefetch failed:", normalizeErrorMessage(err)));
-}

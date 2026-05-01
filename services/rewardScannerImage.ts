@@ -82,7 +82,7 @@ export function detectGameContentRect(nativeImage: NativeImage): GameContentRect
   return { x: left, y: top, width: contentW, height: contentH };
 }
 
-export const OCR_ENHANCE: Readonly<{
+const OCR_ENHANCE: Readonly<{
   upscaleFactor: number;
   maxWidth: number;
   maxHeight: number;
@@ -170,7 +170,7 @@ export function cropRectContent(
   return nativeImage.crop({ x, y, width: cropWidth, height: cropHeight });
 }
 
-export function enhanceForOcr(nativeImage: NativeImage): NativeImage {
+function enhanceForOcr(nativeImage: NativeImage): NativeImage {
   const { width, height } = nativeImage.getSize();
   const scaledWidth = Math.min(
     OCR_ENHANCE.maxWidth,

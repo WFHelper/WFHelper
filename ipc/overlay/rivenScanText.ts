@@ -1,4 +1,3 @@
-import type { StructuredOcrLine, StructuredOcrResult } from "../../services/ocrServer";
 import { levenshteinDistance } from "../../services/rewardScannerUtils";
 import * as rivenData from "../../services/rivenData";
 import * as rivenGrading from "../../services/rivenGrading";
@@ -294,95 +293,9 @@ export function parseRivenStats(text: string): RivenStat[] {
   return blobScore > lineScore ? blobResults : lineResults;
 }
 
-function normalizeStructuredLines(
-  result: StructuredOcrResult | null | undefined,
-): StructuredOcrLine[] {
-  if (!result?.lines?.length) return [];
-  return result.lines
-    .map((line, index) => ({ ...line, _index: index }))
-    .filter((line) => String(line.text || "").trim().length > 0)
-    .sort((a, b) => {
-      const topDelta = Math.abs((a.box?.top || 0) - (b.box?.top || 0));
-      if (topDelta > 6) return (a.box?.top || 0) - (b.box?.top || 0);
-      return (a.box?.left || 0) - (b.box?.left || 0);
-    });
-}
-
 function lineContainsKnownStat(line: string): boolean {
   const lineLower = line.toLowerCase();
   return KNOWN_RIVEN_STATS.some((stat) => lineLower.includes(stat.toLowerCase()));
-}
-
-function isStructuredStatLine(line: string): boolean {
-  const cleaned = preprocessOcrText(line);
-  if (lineContainsKnownStat(cleaned)) return true;
-  const extracted = extractSignAndValue(cleaned);
-  return !!(extracted && (extracted.value !== null || /x\s*\d/i.test(cleaned)));
-}
-
-function isStructuredFooterLine(line: string): boolean {
-  return /\b(?:MR\s*\d+|FITS\s+IN|Remaining\s+Kuva|ROLL\s*\d+)\b/i.test(line);
-}
-
-export function splitRivenStructuredText(result: StructuredOcrResult | null | undefined): {
-  titleText: string;
-  statsText: string;
-  footerText: string;
-  mergedText: string;
-} {
-  const lines = normalizeStructuredLines(result);
-  if (lines.length === 0) {
-    const text = result?.text || "";
-    return { titleText: text, statsText: text, footerText: "", mergedText: text };
-  }
-
-  const statEntries = lines.filter((line) => isStructuredStatLine(line.text));
-  const firstStatTop = statEntries.length > 0 ? Number(statEntries[0].box?.top || 0) : null;
-  const lastStatTop =
-    statEntries.length > 0 ? Number(statEntries[statEntries.length - 1].box?.top || 0) : null;
-  const sortedHeights = lines
-    .map((line) => Math.max(1, Number(line.box?.height || 0)))
-    .sort((a, b) => a - b);
-  const medianHeight = sortedHeights[Math.floor(sortedHeights.length / 2)] || 12;
-
-  const titleLines: string[] = [];
-  const statLines: string[] = [];
-  const footerLines: string[] = [];
-
-  for (const line of lines) {
-    const text = String(line.text || "").trim();
-    if (!text) continue;
-    const top = Number(line.box?.top || 0);
-
-    if (isStructuredFooterLine(text)) {
-      footerLines.push(text);
-      continue;
-    }
-
-    if (firstStatTop != null) {
-      if (top + medianHeight < firstStatTop && !isStructuredStatLine(text)) {
-        titleLines.push(text);
-        continue;
-      }
-      if (lastStatTop != null && top > lastStatTop + medianHeight * 1.5) {
-        footerLines.push(text);
-        continue;
-      }
-    }
-
-    if (isStructuredStatLine(text) || titleLines.length > 0 || firstStatTop == null) {
-      statLines.push(text);
-    } else {
-      titleLines.push(text);
-    }
-  }
-
-  const titleText = titleLines.join("\n").trim();
-  const statsText = statLines.join("\n").trim() || result?.text || "";
-  const footerText = footerLines.join("\n").trim();
-  const mergedText = [titleText, statsText, footerText].filter(Boolean).join("\n");
-
-  return { titleText, statsText, footerText, mergedText };
 }
 
 function collapseOrphanValueLines(lines: string[]): string[] {
@@ -762,7 +675,7 @@ export function scoreStatsCandidate(
  * This rejects OCR noise that produces plausible-looking stat names that don't
  * actually exist on the weapon (e.g. "Reload Speed" on a melee riven).
  */
-export function validateRivenStats(
+function validateRivenStats(
   weaponName: string,
   stats: RivenStat[],
 ): { validCount: number; invalidNames: string[] } {

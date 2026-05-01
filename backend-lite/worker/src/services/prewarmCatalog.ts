@@ -55,7 +55,7 @@ function normalizeCatalogMaxRank(item: Record<string, unknown>): number | null {
 	return Number.isFinite(rawMaxRank) && rawMaxRank > 0 ? Math.floor(rawMaxRank) : null;
 }
 
-export function sanitizeOrderSummaryCatalogEntries(value: unknown): OrderSummaryCatalogEntry[] {
+function sanitizeOrderSummaryCatalogEntries(value: unknown): OrderSummaryCatalogEntry[] {
 	if (!Array.isArray(value)) return [];
 	const entries = value
 		.map((entry) => {

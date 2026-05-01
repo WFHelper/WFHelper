@@ -7,7 +7,7 @@ import {
 } from "./ipcSecurity";
 import { createOverlaySettingsController } from "./overlay/settings";
 import { withScope } from "../services/logger";
-import * as rewardScanner from "../services/rewardScanner";
+import { setSettings } from "../services/rewardScanner";
 import * as warframeStatus from "../services/warframeStatus";
 import * as rivenOverlayIpc from "./rivenOverlayIpc";
 import * as rewardOverlayIpc from "./rewardOverlayIpc";
@@ -180,7 +180,7 @@ const settingsController = createOverlaySettingsController({
   settingsFile: OVERLAY_SETTINGS_FILE,
   defaults: OVERLAY_SETTINGS_DEFAULTS,
   limits: OVERLAY_SETTINGS_LIMITS,
-  rewardScanner,
+  rewardScanner: { setSettings },
   onRelicRewardTrigger,
   onToggleOverlayInteractionMode: toggleOverlayInteractionMode,
 });
@@ -248,7 +248,7 @@ export const unregisterOverlayHotkey = settingsController.unregisterOverlayHotke
 
 export {
   register,
-  settingsController,
+  
   onRelicRewardTrigger,
   onRelicSelectionTrigger,
   onRelicSelectionClose,

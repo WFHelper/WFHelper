@@ -78,4 +78,3 @@ export function withScope(scopeName: string): ScopedLogger {
   };
 }
 
-export const base = electronLog;

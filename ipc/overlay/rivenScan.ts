@@ -55,10 +55,6 @@ interface RivenScanTiming {
 
 let _lastScanTiming: RivenScanTiming | null = null;
 
-export function getLastRivenScanTiming(): RivenScanTiming | null {
-  return _lastScanTiming;
-}
-
 function logScanTiming(label: string, t: RivenScanTiming): void {
   log.log(
     `[RivenScan] timing ${label}: capture=${t.captureMs}ms crop=${t.cropRefineMs}ms ` +

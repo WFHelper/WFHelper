@@ -76,8 +76,6 @@ export function contrastRatio(color1: string, color2: string): number {
 
 /** WCAG AA minimum for normal text (≥ 4.5:1). */
 export const WCAG_AA_NORMAL = 4.5;
-/** WCAG AA minimum for large text (≥ 3:1). */
-export const WCAG_AA_LARGE = 3.0;
 
 /**
  * Auto-adjust a foreground colour to meet a minimum contrast ratio against

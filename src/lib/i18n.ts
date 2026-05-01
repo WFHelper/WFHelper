@@ -1,4 +1,4 @@
-import { derived, get, writable } from "svelte/store";
+import { derived, writable } from "svelte/store";
 import { en, type MessageKey } from "../i18n/en.js";
 
 type MessageParamValue = string | number;
@@ -11,7 +11,7 @@ const dictionaries: Record<LocaleCode, LocaleDictionary> = {
   en,
 };
 
-export const locale = writable<LocaleCode>("en");
+const locale = writable<LocaleCode>("en");
 
 function interpolate(template: string, params: MessageParams): string {
   return template.replace(/\{(\w+)\}/g, (_match, key: string) => {
@@ -31,9 +31,5 @@ export const tr = derived(locale, ($locale) => {
   const dict = dictionaries[$locale] || dictionaries.en;
   return createTranslator(dict);
 });
-
-export function t(key: MessageKey, params: MessageParams = {}): string {
-  return get(tr)(key, params);
-}
 
 export type { MessageKey, LocaleCode, MessageParams, Translator };

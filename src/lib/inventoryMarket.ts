@@ -182,7 +182,7 @@ function resolveCachedRankOrderSummary(
   return { wts, wtb };
 }
 
-export function itemGroupFallback(item: ParsedItem): InventoryFilterTab {
+function itemGroupFallback(item: ParsedItem): InventoryFilterTab {
   const label = item.categoryLabel.toLowerCase();
   if (label.includes("relic")) return "relics";
   if (label.includes("mod")) return "mods";
@@ -190,7 +190,7 @@ export function itemGroupFallback(item: ParsedItem): InventoryFilterTab {
   return "misc";
 }
 
-export function matchesFilterTab(item: ParsedItem, tab: InventoryFilterTab): boolean {
+function matchesFilterTab(item: ParsedItem, tab: InventoryFilterTab): boolean {
   const group = item.inventoryGroup || itemGroupFallback(item);
   return group === tab;
 }
@@ -232,7 +232,7 @@ function getLookupByGameRef(
   return direct;
 }
 
-export function resolveSlug(item: ParsedItem, lookup: WfmItemsLookup): string | null {
+function resolveSlug(item: ParsedItem, lookup: WfmItemsLookup): string | null {
   const lookupByGameRef = getLookupByGameRef(item.internalName, lookup);
   if (lookupByGameRef?.url_name) return toMarketSlug(lookupByGameRef.url_name);
 

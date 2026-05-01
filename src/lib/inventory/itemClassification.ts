@@ -35,7 +35,7 @@ export const CATEGORIES: CategoryDef[] = [
   { key: "MechSuits", cat: "necramech", label: "Necramech" },
 ];
 
-export const PRODUCT_TO_FILTER: Record<string, string> = {
+const PRODUCT_TO_FILTER: Record<string, string> = {
   Suits: "warframes",
   LongGuns: "primary",
   Pistols: "secondary",
@@ -49,7 +49,7 @@ export const PRODUCT_TO_FILTER: Record<string, string> = {
   MechSuits: "necramech",
 };
 
-export const EQUIPMENT_COLLECTION_KEYS = new Set(CATEGORIES.map((entry) => String(entry.key)));
+const EQUIPMENT_COLLECTION_KEYS = new Set(CATEGORIES.map((entry) => String(entry.key)));
 
 interface SupplementalCollectionDef {
   key: string;
@@ -66,15 +66,6 @@ export const SUPPLEMENTAL_COLLECTIONS: SupplementalCollectionDef[] = [
   { key: "Upgrades", cat: "mods", label: "Mod" },
   { key: "Arcanes", cat: "arcanes", label: "Arcane" },
 ];
-
-export const GROUP_PRIORITY: Record<InventoryGroup, number> = {
-  misc: 1,
-  all_parts: 2,
-  arcanes: 3,
-  mods: 4,
-  relics: 5,
-  full_sets: 6,
-};
 
 // --- Item resolution --------------------------------------------------------
 

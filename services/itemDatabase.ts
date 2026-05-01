@@ -29,7 +29,7 @@ const ICON_MIRROR_BASE_URL = (
 const IMAGE_LOG_CATEGORY_LIMIT = 5;
 const IMAGE_LOG_SAMPLE_LIMIT = 5;
 
-export function getIconMirrorBaseUrl(): string {
+function getIconMirrorBaseUrl(): string {
   return ICON_MIRROR_BASE_URL;
 }
 
@@ -711,17 +711,6 @@ export function buildDatabase(): void {
 
 export function lookupItem(uniqueName: string): ItemEntry | null {
   return itemsByUniqueName[uniqueName] || null;
-}
-
-export function lookupName(uniqueName: string): string {
-  const item = itemsByUniqueName[uniqueName];
-  if (item) return item.name;
-  return extractFallbackName(uniqueName);
-}
-
-export function lookupImage(uniqueName: string): string | null {
-  const item = itemsByUniqueName[uniqueName];
-  return item?.imageUrl || null;
 }
 
 export function getRendererLookup(): Record<string, RendererItemEntry> {

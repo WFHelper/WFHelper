@@ -14,7 +14,7 @@
  */
 
 /** Color tokens (mirror of THEME_COLOR_CSS_MAP values + derived --accent-glow). */
-export const OVERLAY_FORWARDED_COLOR_VARS = [
+const OVERLAY_FORWARDED_COLOR_VARS = [
   "--bg-deep",
   "--bg-base",
   "--bg-surface",

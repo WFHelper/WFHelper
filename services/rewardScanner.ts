@@ -25,9 +25,7 @@ import {
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { withScope } from "./logger";
 import {
-  captureDebugFrame,
   captureScreenFast,
-  captureSourceMeta,
   type CaptureResult,
 } from "./rewardScannerCapture";
 import {
@@ -67,7 +65,7 @@ import {
 } from "./rewardScannerSupport";
 import { clampNumber, round4 } from "./rewardScannerUtils";
 
-export { captureDebugFrame, captureSourceMeta };
+export { captureSourceMeta } from "./rewardScannerCapture";
 export { getAdaptiveStrategyHint } from "./rewardScannerSupport";
 
 const log = withScope("rewardScanner");
@@ -85,10 +83,6 @@ export interface TriggerStats {
 }
 
 let _lastTriggerStats: TriggerStats | null = null;
-
-export function getLastTriggerStats(): TriggerStats | null {
-  return _lastTriggerStats ? { ..._lastTriggerStats } : null;
-}
 
 // --- Frame dedup state ------------------------------------------------------
 
@@ -131,7 +125,7 @@ export function resetFrameDedup(): void {
 
 // --- State ------------------------------------------------------------------
 
-export const DEFAULT_SCAN_SETTINGS: OverlaySettings = OVERLAY_SETTINGS_DEFAULTS as OverlaySettings;
+const DEFAULT_SCAN_SETTINGS: OverlaySettings = OVERLAY_SETTINGS_DEFAULTS as OverlaySettings;
 
 let relicItems: SortedItem[] = [];
 let sortedItems: SortedItem[] = [];
@@ -189,7 +183,7 @@ export function setSettings(nextSettings: unknown): OverlaySettings {
   return getSettings();
 }
 
-export function getSettings(): OverlaySettings {
+function getSettings(): OverlaySettings {
   return { ...scanSettings };
 }
 
@@ -1114,12 +1108,6 @@ export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null):
   }
 
   return result;
-}
-
-export async function scanRewards(): Promise<SortedItem[] | null> {
-  const detailed = await scanRewardsDetailed();
-  if (!detailed) return null;
-  return detailed.items;
 }
 
 export function waitForRewardUiReady(options?: {

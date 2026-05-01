@@ -77,11 +77,6 @@ function errorCode(err: unknown): string | undefined {
   return (err as { code?: string }).code;
 }
 
-function errorStatus(err: unknown): number | undefined {
-  if (!err || typeof err !== "object") return undefined;
-  return (err as { status?: number }).status;
-}
-
 function parseCredentials(payload: unknown): ParsedCredentials | null {
   if (!isObject(payload)) return null;
 
@@ -253,5 +248,5 @@ export {
   parseContractsPayload,
   normalizeErrorMessage,
   errorCode,
-  errorStatus,
+  
 };

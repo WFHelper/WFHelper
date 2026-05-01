@@ -22,7 +22,7 @@ function pickStatsWindowRows(
   return [];
 }
 
-export function extractSellRows(
+function extractSellRows(
   jsonPayload: unknown,
 ): Array<Record<string, unknown>> {
   const payload =
@@ -77,7 +77,7 @@ export function extractMedianFromStatsPayload(
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
-export const __test__ = {
+const __test__ = {
   SELL_ORDER_TYPE,
   STATS_WINDOW_KEYS,
   MEDIAN_CANDIDATE_FIELDS,

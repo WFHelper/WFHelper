@@ -193,4 +193,4 @@ export function installDownloadedUpdate(): { ok: boolean; message?: string } {
   return { ok: true };
 }
 
-export { UPDATE_STATUS_CHANNEL };
+;

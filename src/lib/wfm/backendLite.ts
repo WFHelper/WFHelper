@@ -113,10 +113,6 @@ export function isBackendLiteConfigured(): boolean {
   return BACKEND_BASE_URL.length > 0;
 }
 
-export function getBackendBaseUrl(): string {
-  return BACKEND_BASE_URL;
-}
-
 export function shouldDirectFallback(priority: BackendRequestPriority): boolean {
   if (!isBackendLiteConfigured()) return true;
   if (FALLBACK_MODE === "always") return true;
@@ -140,21 +136,6 @@ export interface BackendMetaPayload {
   timestamp: number | null;
 }
 
-export interface BackendOrderBookEntry {
-  userName: string;
-  status: string | null;
-  platinum: number;
-  quantity: number;
-  rank: number | null;
-}
-
-export interface BackendOrdersPayload {
-  slug: string;
-  sell: BackendOrderBookEntry[];
-  buy: BackendOrderBookEntry[];
-  timestamp: number | null;
-}
-
 export interface BackendOrderSummaryPayload {
   slug: string;
   rank: number | null;
@@ -168,37 +149,6 @@ export type BackendFetchResult<T> =
   | { status: "not_found" }
   | { status: "unavailable" }
   | { status: "error" };
-
-function parseOrderBookSide(value: unknown): BackendOrderBookEntry[] {
-  if (!Array.isArray(value)) return [];
-
-  return value
-    .map((entry) => {
-      if (!entry || typeof entry !== "object") return null;
-      const row = entry as Record<string, unknown>;
-
-      const userName = typeof row.userName === "string" ? row.userName.trim() : "";
-      if (!userName) return null;
-
-      const platinumRaw = toFiniteNumber(row.platinum);
-      if (platinumRaw == null || platinumRaw <= 0) return null;
-
-      const quantityRaw = toFiniteNumber(row.quantity);
-      const quantity = quantityRaw != null && quantityRaw > 0 ? Math.floor(quantityRaw) : 1;
-
-      const rankRaw = toFiniteNumber(row.rank);
-      const rank = rankRaw != null && rankRaw >= 0 ? Math.floor(rankRaw) : null;
-
-      return {
-        userName,
-        status: typeof row.status === "string" ? row.status : null,
-        platinum: Math.round(platinumRaw),
-        quantity,
-        rank,
-      };
-    })
-    .filter((entry): entry is BackendOrderBookEntry => entry != null);
-}
 
 interface BackendRequestOptions {
   timeoutMs?: number;
@@ -330,38 +280,6 @@ export async function fetchBackendMetaBySlug(
       setRoot: Boolean(result.data.setRoot),
       thumb: typeof result.data.thumb === "string" ? result.data.thumb : null,
       icon: typeof result.data.icon === "string" ? result.data.icon : null,
-      timestamp: timestamp != null ? Math.floor(timestamp) : null,
-    },
-  };
-}
-
-export async function fetchBackendOrdersBySlug(
-  slug: string,
-  options?: { rank?: number | null },
-): Promise<BackendFetchResult<BackendOrdersPayload>> {
-  const normalizedSlug = normalizeWfmSlug(slug);
-  if (!normalizedSlug) return { status: "not_found" };
-
-  const rankRaw = toFiniteNumber(options?.rank ?? null);
-  const rank = rankRaw != null && rankRaw >= 0 ? Math.floor(rankRaw) : null;
-  const path =
-    rank != null
-      ? `/v1/orders/${encodeURIComponent(normalizedSlug)}?rank=${encodeURIComponent(String(rank))}`
-      : `/v1/orders/${encodeURIComponent(normalizedSlug)}`;
-
-  const result = await fetchBackendJson(path);
-  if (result.status !== "ok") return result;
-
-  const timestamp = toFiniteNumber(result.data.timestamp);
-  const responseSlug =
-    typeof result.data.slug === "string" ? normalizeWfmSlug(result.data.slug) : normalizedSlug;
-
-  return {
-    status: "ok",
-    data: {
-      slug: responseSlug || normalizedSlug,
-      sell: parseOrderBookSide(result.data.sell),
-      buy: parseOrderBookSide(result.data.buy),
       timestamp: timestamp != null ? Math.floor(timestamp) : null,
     },
   };

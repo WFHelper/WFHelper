@@ -29,7 +29,7 @@ export interface MarketViewState {
   contractsLastFetch: number;
 }
 
-export const DEFAULT_MARKET_VIEW_STATE: MarketViewState = {
+const DEFAULT_MARKET_VIEW_STATE: MarketViewState = {
   typeTab: "sell",
   status: null,
   ordersLastFetch: 0,

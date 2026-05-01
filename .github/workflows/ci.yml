@@ -32,6 +32,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Dead code export audit
+        run: npm run audit:deadcode:exports
+
       - name: Test
         run: npm run test
 

@@ -14,12 +14,6 @@ export interface CachedOrderSummaryEntry {
   sourceTimestamp?: number | null;
 }
 
-export interface OrderSummaryCacheStats {
-  total: number;
-  ok: number;
-  noData: number;
-}
-
 const cache = new Map<string, CachedOrderSummaryEntry>();
 
 function cacheKey(slugInput: string, rankInput: number | null): string | null {
@@ -35,13 +29,6 @@ export function isOrderSummaryFresh(entry: CachedOrderSummaryEntry): boolean {
 
 function isOrderSummaryExpired(entry: CachedOrderSummaryEntry): boolean {
   return Date.now() - entry.timestamp >= ORDER_SUMMARY_STALE_TTL_MS;
-}
-
-function pruneExpiredEntries(): void {
-  for (const [key, entry] of cache.entries()) {
-    if (!isOrderSummaryExpired(entry)) continue;
-    cache.delete(key);
-  }
 }
 
 export function getCachedOrderSummaryState(
@@ -102,34 +89,8 @@ export function setCachedOrderSummaryNoData(
   });
 }
 
-export function getOrderSummaryCacheStats(): OrderSummaryCacheStats {
-  pruneExpiredEntries();
-
-  let ok = 0;
-  let noData = 0;
-  for (const entry of cache.values()) {
-    if (entry.status === "ok") ok += 1;
-    else noData += 1;
-  }
-
-  return {
-    total: ok + noData,
-    ok,
-    noData,
-  };
-}
-
 export function clearOrderSummaryCache(): void {
   cache.clear();
-}
-
-export function exportOrderSummaryCache(): Record<string, CachedOrderSummaryEntry> {
-  pruneExpiredEntries();
-  const out: Record<string, CachedOrderSummaryEntry> = {};
-  for (const [key, entry] of cache.entries()) {
-    out[key] = entry;
-  }
-  return out;
 }
 
 export function importOrderSummaryCache(data: Record<string, CachedOrderSummaryEntry>): number {

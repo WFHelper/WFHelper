@@ -11,25 +11,6 @@ uIOhook.on("keydown", (e) => {
     escCallback();
   }
 });
-
-/**
- * Activate the ESC observer and register a callback.
- * Starts the low-level keyboard hook if it isn't already running.
- * The hook observes keypresses without consuming them — the focused
- * application (e.g. Warframe) still receives the key normally.
- */
-export function startEscMonitor(callback: () => void): void {
-  escCallback = callback;
-  if (isRunning) return;
-  try {
-    uIOhook.start();
-    isRunning = true;
-    log.log("[KeyboardMonitor] hook started");
-  } catch (err) {
-    log.warn("[KeyboardMonitor] start failed:", String(err));
-  }
-}
-
 /**
  * Deactivate the ESC observer and stop the low-level keyboard hook.
  * The callback is disarmed immediately so no further ESC events fire.

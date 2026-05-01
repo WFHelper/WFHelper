@@ -60,11 +60,3 @@ export function removeToast(id: number): void {
   }
   toasts.update((current) => current.filter((toast) => toast.id !== id));
 }
-
-export function clearToasts(): void {
-  for (const timer of toastTimers.values()) {
-    clearTimeout(timer);
-  }
-  toastTimers.clear();
-  toasts.set([]);
-}

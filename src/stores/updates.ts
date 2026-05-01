@@ -2,7 +2,7 @@ import { writable } from "svelte/store";
 import type { AppUpdateState } from "../types/ipc.js";
 import { addToast } from "./toasts.js";
 
-export const DEFAULT_APP_UPDATE_STATE: AppUpdateState = {
+const DEFAULT_APP_UPDATE_STATE: AppUpdateState = {
   status: "idle",
   timestamp: Date.now(),
 };

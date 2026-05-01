@@ -37,7 +37,7 @@ const PRIME_PRODUCTS = new Set([
   "sentinelweapons",
 ]);
 
-export function isResurgenceCandidate(entry: ItemDbEntry = {}): boolean {
+function isResurgenceCandidate(entry: ItemDbEntry = {}): boolean {
   if (!isLikelyPrimeGear(entry.name || "")) return false;
   const category = (entry.category || "").toLowerCase();
   const product = (entry.productCategory || "").toLowerCase();

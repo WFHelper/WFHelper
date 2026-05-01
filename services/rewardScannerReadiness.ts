@@ -15,14 +15,14 @@ import { cropRewardBand, detectRewardSlotLayout } from "./rewardScannerImage";
 import { captureScreenFast, type CaptureResult } from "./rewardScannerCapture";
 import type { NativeImage } from "electron";
 
-export const UI_READY_DEFAULT_TIMEOUT_MS = 2_200;
-export const UI_READY_DEFAULT_POLL_MS = 120;
-export const UI_READY_DEFAULT_REQUIRED_HITS = 2;
-export const UI_READY_DEFAULT_SCORE_THRESHOLD = 0.58;
-export const UI_READY_MIN_PEAK_COUNT = 3;
-export const UI_READY_MIN_TEXTURE_SCORE = 0.18;
+const UI_READY_DEFAULT_TIMEOUT_MS = 2_200;
+const UI_READY_DEFAULT_POLL_MS = 120;
+const UI_READY_DEFAULT_REQUIRED_HITS = 2;
+const UI_READY_DEFAULT_SCORE_THRESHOLD = 0.58;
+const UI_READY_MIN_PEAK_COUNT = 3;
+const UI_READY_MIN_TEXTURE_SCORE = 0.18;
 
-export const READINESS_ANALYSIS: Readonly<{
+const READINESS_ANALYSIS: Readonly<{
   minCropWidth: number;
   minCropHeight: number;
   targetSampleCols: number;
@@ -58,7 +58,7 @@ export const READINESS_ANALYSIS: Readonly<{
   }),
 });
 
-export const UI_READY_OPTION_LIMITS: Readonly<{
+const UI_READY_OPTION_LIMITS: Readonly<{
   timeoutMinMs: number;
   timeoutMaxMs: number;
   pollMinMs: number;
@@ -111,7 +111,7 @@ function emptyReadinessResult(band: Band | null | undefined): ReadinessResult {
   };
 }
 
-export function analyzeRewardBandReadiness(
+function analyzeRewardBandReadiness(
   nativeImage: NativeImage,
   band: Band | null | undefined,
 ): ReadinessResult {
