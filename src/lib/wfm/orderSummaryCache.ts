@@ -1,7 +1,7 @@
 import { normalizeWfmSlug } from "./backendLite.js";
 import { normalizeRankFilter, toFiniteNonNegativeInt } from "../../../config/shared/numeric.js";
 
-const ORDER_SUMMARY_FRESH_TTL_MS = 12 * 60 * 60 * 1000;
+const ORDER_SUMMARY_FRESH_TTL_MS = 24 * 60 * 60 * 1000;
 const ORDER_SUMMARY_STALE_TTL_MS = 48 * 60 * 60 * 1000;
 
 type CachedOrderSummaryStatus = "ok" | "no_data";

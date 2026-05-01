@@ -10,7 +10,7 @@ import { log } from "../log.js";
 import { invoke } from "../ipc.js";
 import { isValidSnapshotBlob } from "../../../config/shared/wfmSnapshotValidation.js";
 
-const SNAPSHOT_FRESH_MS = 2 * 60 * 60 * 1000; // 2 hours
+const SNAPSHOT_FRESH_MS = 24 * 60 * 60 * 1000;
 const SNAPSHOT_FETCH_TIMEOUT_MS = 20_000;
 
 // In-memory ETag for the snapshot. Persisted across re-fetches within the same

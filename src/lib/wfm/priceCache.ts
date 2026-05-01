@@ -1,5 +1,5 @@
-const PRICE_TTL_MS = 12 * 60 * 60 * 1000;
-const NO_DATA_TTL_MS = 6 * 60 * 60 * 1000;
+const PRICE_TTL_MS = 24 * 60 * 60 * 1000;
+const NO_DATA_TTL_MS = 12 * 60 * 60 * 1000;
 
 type CachedPriceStatus = "ok" | "no_data";
 
@@ -37,7 +37,11 @@ export function setCachedNoData(slug: string): void {
   _prices.set(slug, { status: "no_data", median: null, timestamp: Date.now() });
 }
 
-/** Bulk-import entries (e.g. loaded from disk). Only fresh entries are kept. */
+export function clearPriceCache(): void {
+  _prices.clear();
+}
+
+/** Bulk-import entries from the snapshot cache. Only fresh entries are kept. */
 export function importCache(data: Record<string, CachedPriceEntry>): number {
   let imported = 0;
   for (const [slug, entry] of Object.entries(data)) {
@@ -45,9 +49,13 @@ export function importCache(data: Record<string, CachedPriceEntry>): number {
       entry &&
       typeof entry.timestamp === "number" &&
       typeof entry.status === "string" &&
-      isFresh(entry) &&
-      !_prices.has(slug)
+      isFresh(entry)
     ) {
+      const existing = _prices.get(slug);
+      if (existing && existing.timestamp >= entry.timestamp) {
+        continue;
+      }
+
       _prices.set(slug, entry);
       imported++;
     }

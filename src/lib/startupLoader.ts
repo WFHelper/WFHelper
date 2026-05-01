@@ -56,8 +56,6 @@ export function initStartup(): StartupHandle {
       profileStage("ranked-hotset:load", stageStart);
     } catch (e) {
       log.warn("[Startup] loadRankedHotset failed:", e);
-    } finally {
-      startupPriceCacheReady.set(true);
     }
 
     // Bulk snapshot — populates all three caches in one network request (best-effort)
@@ -67,6 +65,8 @@ export function initStartup(): StartupHandle {
       log.info(`[StartupProfile] snapshot:load: ${Date.now() - stageStart}ms`);
     } catch {
       // tryLoadSnapshot never throws, this is just a safety net
+    } finally {
+      startupPriceCacheReady.set(true);
     }
 
     try {

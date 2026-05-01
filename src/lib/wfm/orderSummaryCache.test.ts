@@ -22,7 +22,7 @@ describe("orderSummaryCache", () => {
     vi.useRealTimers();
   });
 
-  it("returns fresh order summaries within 12 hours", () => {
+  it("returns fresh order summaries within 24 hours", () => {
     setCachedOrderSummary("primed_bane_of_corrupted", 0, { wts: 40, wtb: 24 });
 
     const entry = getCachedOrderSummaryState("primed_bane_of_corrupted", 0);
@@ -35,7 +35,7 @@ describe("orderSummaryCache", () => {
   it("returns stale summaries only when allowStale is enabled", () => {
     setCachedOrderSummary("primed_flow", 5, { wts: 85, wtb: 60 });
 
-    vi.advanceTimersByTime(12 * 60 * 60 * 1000 + 1);
+    vi.advanceTimersByTime(24 * 60 * 60 * 1000 + 1);
 
     expect(getCachedOrderSummaryState("primed_flow", 5)).toBeNull();
 
