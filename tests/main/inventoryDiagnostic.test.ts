@@ -51,6 +51,67 @@ const INVENTORY_ITEM_KEYS = [
 ] as const;
 
 type InventoryRecord = Record<string, unknown[] | undefined>;
+type UnresolvedInventoryItem = { key: string; uniqueName: string };
+
+const EXPECTED_UNINDEXED_INVENTORY: Array<{
+  key?: (typeof INVENTORY_ITEM_KEYS)[number];
+  pattern: RegExp;
+  reason: string;
+}> = [
+  {
+    pattern: /^\/Lotus\/Weapons\/SolarisUnited\/Primary\/LotusModularPrimary(?:Shotgun|Beam)?$/,
+    reason: "Kitgun modular primary instances are player-built variants.",
+  },
+  {
+    pattern: /^\/Lotus\/Weapons\/Ostron\/Melee\/LotusModularWeapon$/,
+    reason: "Zaw modular melee instances are player-built variants.",
+  },
+  {
+    key: "OperatorAmps",
+    pattern: /^\/Lotus\/Weapons\/Sentients\/OperatorAmplifiers\/(?:SentTrainingAmplifier\/OperatorTrainingAmpWeapon|OperatorAmpWeapon)$/,
+    reason: "Amp rows are modular/operator equipment shells.",
+  },
+  {
+    key: "Hoverboards",
+    pattern: /^\/Lotus\/Types\/Vehicles\/Hoverboard\/HoverboardSuit$/,
+    reason: "K-Drive rows are modular vehicle shells.",
+  },
+  {
+    key: "DataKnives",
+    pattern: /^\/Lotus\/Weapons\/Tenno\/HackingDevices\/TnHackingDevice\/TnHackingDeviceWeapon$/,
+    reason: "Parazon rows are special equipment shells.",
+  },
+  {
+    key: "SpecialItems",
+    pattern: /^\/Lotus\/Types\/Friendly\/Pets\/BeastWeapons\/.+PetWeapon$/,
+    reason: "Companion natural weapons are attached pet equipment.",
+  },
+  {
+    key: "SpecialItems",
+    pattern: /^\/Lotus\/Powersuits\/(?:Wraith\/SevagothShadowPrime|Yareli\/Board(?:Prime)?Suit)$/,
+    reason: "Special exalted or rideable suit rows are attached equipment.",
+  },
+  {
+    key: "RawUpgrades",
+    pattern: /^\/Lotus\/Upgrades\/Stickers\/(?:.+Sticker|Sticker.+)$/,
+    reason: "Sticker upgrades are generated modifiers outside the itemDb catalog.",
+  },
+  {
+    key: "MiscItems",
+    pattern: /^\/Lotus\/Types\/Game\/Projections\/T5VoidProjectionImmortalOmniA$/,
+    reason: "Immortal Omni fissure projection is a synthetic account inventory row.",
+  },
+  {
+    key: "MiscItems",
+    pattern: /^\/Lotus\/Types\/Items\/MiscItems\/NoraIntermissionFifteenCreds$/,
+    reason: "Legacy Nora credit rows are not catalogued as normal inventory items.",
+  },
+  {
+    key: "Consumables",
+    pattern: /^\/Lotus\/Types\/Restoratives\/Consumable\/GuildGlyphConsumableNoCharges$/,
+    reason: "Clan glyph consumable placeholder rows have no normal catalog item.",
+  },
+];
 
 /** Resolve the inventory.json path from warframe-api-helper's default location. */
 function findInventoryPath(): string {
@@ -63,6 +124,13 @@ function findInventoryPath(): string {
     if (fs.existsSync(p)) return p;
   }
   return "";
+}
+
+function isExpectedUnindexedItem(item: UnresolvedInventoryItem): boolean {
+  return EXPECTED_UNINDEXED_INVENTORY.some((entry) => {
+    if (entry.key && entry.key !== item.key) return false;
+    return entry.pattern.test(item.uniqueName);
+  });
 }
 
 // ─── Setup ───────────────────────────────────────────────────────────────────
@@ -107,7 +175,7 @@ describe.skipIf(!!skipReason)("inventory diagnostic", () => {
   });
 
   it("reports per-category resolution stats and unindexed items", () => {
-    const unresolved: Array<{ key: string; uniqueName: string }> = [];
+    const unresolved: UnresolvedInventoryItem[] = [];
     const summary: Record<string, { total: number; resolved: number }> = {};
 
     for (const key of INVENTORY_ITEM_KEYS) {
@@ -164,7 +232,19 @@ describe.skipIf(!!skipReason)("inventory diagnostic", () => {
 
     // The test always passes — it's a diagnostic. Fail only if we got zero items
     // (indicates the inventory file is empty or couldn't be parsed).
+    const unexpectedUnresolved = unresolved.filter((item) => !isExpectedUnindexedItem(item));
+    if (unexpectedUnresolved.length > 0) {
+      console.log("\n  Unexpected unindexed items:");
+      for (const { key, uniqueName } of unexpectedUnresolved.slice(0, 50)) {
+        console.log(`    [${key}] ${uniqueName}`);
+      }
+      if (unexpectedUnresolved.length > 50) {
+        console.log(`    â€¦ and ${unexpectedUnresolved.length - 50} more`);
+      }
+    }
+
     expect(totalItems).toBeGreaterThan(0);
+    expect(unexpectedUnresolved).toEqual([]);
   });
 });
 
