@@ -1,0 +1,43 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "main.ts",
+    "preload.ts",
+    "preload-overlay.ts",
+    "preload-riven.ts",
+    "preload-trade-notification.ts",
+    "src/App.svelte",
+    "src/main.ts",
+    "src/modals/**/*.svelte",
+    "src/views/**/*.svelte",
+    "renderer/**/*.js",
+    "backend-lite/worker/src/index.ts",
+    "backend-lite/worker/test/**/*.ts",
+    "src/**/*.test.ts",
+    "tests/**/*.test.ts",
+    "e2e/**/*.ts",
+    "playwright.config.ts",
+    "vitest.config.ts",
+    "vite.config.mjs",
+    "eslint.config.js",
+    "scripts/**/*.js",
+    "scripts/**/*.mjs"
+  ],
+  "project": ["**/*.{ts,js,mjs,cjs,svelte}"],
+  "ignoreBinaries": ["knip", "powershell", "wrangler"],
+  "ignoreDependencies": ["cloudflare", "esbuild", "svelte-eslint-parser", "tailwindcss"],
+  "ignore": [
+    ".electron-build/**",
+    ".tmp/**",
+    ".venv/**",
+    "api-inventory-data/**",
+    "backend-lite/worker/worker-configuration.d.ts",
+    "dist/**",
+    "docs/**",
+    "node_modules/**",
+    "release/**",
+    "renderer/dist/**",
+    "scripts/dev/**",
+    "scripts/train-paddleocr/**"
+  ]
+}
