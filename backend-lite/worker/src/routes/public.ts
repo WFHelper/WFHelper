@@ -1,4 +1,10 @@
-import { ORDER_SUMMARY_CATALOG_KEY, ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY, PREWARM_LAST_RUN_KEY, SNAPSHOT_ETAG_KEY, SNAPSHOT_KEY } from '../constants';
+import {
+	ORDER_SUMMARY_CATALOG_KEY,
+	ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY,
+	PREWARM_LAST_RUN_KEY,
+	SNAPSHOT_ETAG_KEY,
+	SNAPSHOT_KEY,
+} from '../constants';
 import { jsonResponse, rawJsonResponse } from '../security/cors';
 import { isAdminAuthorized } from '../security/adminAuth';
 import { bootstrapEnabled, bootstrapHeaderName, bootstrapRequired, issueBootstrapToken, verifyBootstrapToken } from '../security/bootstrap';
@@ -11,6 +17,7 @@ import {
 	getOrHydrateOrders,
 	getOrHydratePrice,
 } from '../services/readThrough';
+import { sanitizeSnapshotForClient } from '../services/prewarm';
 import type { Env } from '../types';
 import { getJsonFromKv, getSlug } from '../utils';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
@@ -32,12 +39,10 @@ const routeStats = {
 
 const PUBLIC_JSON_CACHE_HEADERS = { 'cache-control': 'public, max-age=60' };
 const SNAPSHOT_CACHE_CONTROL = 'public, max-age=7200';
+const SNAPSHOT_BODY_VERSION = 'inactive-v2';
 
 type PublicRateLimitRoute = Parameters<typeof checkPublicRateLimit>[2];
-type HydrateResult<T> =
-	| { status: 'ok'; data: T }
-	| { status: 'unavailable' }
-	| { status: 'not_found' };
+type HydrateResult<T> = { status: 'ok'; data: T } | { status: 'unavailable' } | { status: 'not_found' };
 type RankedValidation = { ok: true; maxRank: number | null } | { ok: false; error?: 'catalog_unavailable' };
 
 function parseRankFilter(url: URL): number | null {
@@ -148,8 +153,14 @@ function publicOrdersRouteEnabled(env: Env): boolean {
 function snapshotNotModifiedResponse(etag: string, cacheControl: string): Response {
 	return new Response(null, {
 		status: 304,
-		headers: { 'etag': etag, 'cache-control': cacheControl },
+		headers: { etag: etag, 'cache-control': cacheControl },
 	});
+}
+
+function snapshotClientEtag(storedEtag: string | null): string | null {
+	if (!storedEtag) return null;
+	if (storedEtag.endsWith('"')) return `${storedEtag.slice(0, -1)}-${SNAPSHOT_BODY_VERSION}"`;
+	return `"${storedEtag}-${SNAPSHOT_BODY_VERSION}"`;
 }
 
 function requestHasMatchingEtag(req: Request, etag: string | null): etag is string {
@@ -243,16 +254,13 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		// each PoP after the first request. Subsequent users in the same region are
 		// served directly from the edge — zero Worker execution, zero KV reads.
 		// The rate limiter only runs on genuine cache misses (first request per PoP).
-		const cacheKey = new Request(`${url.origin}/v1/snapshot`, { method: 'GET' });
+		const cacheKey = new Request(`${url.origin}/v1/snapshot?body=${SNAPSHOT_BODY_VERSION}`, { method: 'GET' });
 		const edgeCache = caches.default;
 		const cachedResponse = await edgeCache.match(cacheKey);
 		if (cachedResponse) {
 			const cachedEtag = cachedResponse.headers.get('etag');
 			if (requestHasMatchingEtag(req, cachedEtag)) {
-				return snapshotNotModifiedResponse(
-					cachedEtag,
-					cachedResponse.headers.get('cache-control') || SNAPSHOT_CACHE_CONTROL,
-				);
+				return snapshotNotModifiedResponse(cachedEtag, cachedResponse.headers.get('cache-control') || SNAPSHOT_CACHE_CONTROL);
 			}
 			return cachedResponse;
 		}
@@ -261,13 +269,11 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		if (guardResponse) return guardResponse;
 
 		routeStats.snapshotRequests += 1;
-		const [raw, etag] = await Promise.all([
-			env.PRICE_CACHE.get(SNAPSHOT_KEY),
-			env.PRICE_CACHE.get(SNAPSHOT_ETAG_KEY),
-		]);
+		const [raw, storedEtag] = await Promise.all([env.PRICE_CACHE.get(SNAPSHOT_KEY), env.PRICE_CACHE.get(SNAPSHOT_ETAG_KEY)]);
 		if (!raw) {
 			return jsonResponse({ ok: false, error: 'snapshot_not_ready' }, req, env, 503);
 		}
+		const etag = snapshotClientEtag(storedEtag);
 
 		// Return 304 if the client already has this snapshot version.
 		if (requestHasMatchingEtag(req, etag)) {
@@ -277,7 +283,14 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		const responseHeaders: Record<string, string> = { 'cache-control': SNAPSHOT_CACHE_CONTROL };
 		if (etag) responseHeaders['etag'] = etag;
 
-		const response = rawJsonResponse(raw, req, env, 200, responseHeaders);
+		let body = raw;
+		try {
+			body = JSON.stringify(sanitizeSnapshotForClient(JSON.parse(raw)));
+		} catch {
+			body = raw;
+		}
+
+		const response = rawJsonResponse(body, req, env, 200, responseHeaders);
 
 		if (ctx) {
 			ctx.waitUntil(edgeCache.put(cacheKey, response.clone()));

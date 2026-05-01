@@ -10,9 +10,7 @@ const MEDIAN_CANDIDATE_FIELDS: readonly string[] = Object.freeze([
   "min_price",
 ]);
 
-function pickStatsWindowRows(
-  statsSection: unknown,
-): Array<Record<string, unknown>> {
+function pickStatsWindowRows(statsSection: unknown): Array<Record<string, unknown>> {
   if (!statsSection || typeof statsSection !== "object") return [];
   const section = statsSection as Record<string, unknown>;
   for (const key of STATS_WINDOW_KEYS) {
@@ -22,9 +20,7 @@ function pickStatsWindowRows(
   return [];
 }
 
-function extractSellRows(
-  jsonPayload: unknown,
-): Array<Record<string, unknown>> {
+function extractSellRows(jsonPayload: unknown): Array<Record<string, unknown>> {
   const payload =
     jsonPayload && typeof jsonPayload === "object"
       ? (jsonPayload as Record<string, unknown>).payload
@@ -55,6 +51,13 @@ export function extractMedianFromStatsPayload(
   jsonPayload: unknown,
   options?: { rank?: unknown },
 ): number | null {
+  return extractLatestMedianFromStatsPayload(jsonPayload, options)?.median ?? null;
+}
+
+export function extractLatestMedianFromStatsPayload(
+  jsonPayload: unknown,
+  options?: { rank?: unknown },
+): { median: number; timestamp: number | null } | null {
   const targetRank = resolveTargetRank(options);
   const rows = extractSellRows(jsonPayload).filter((entry) => {
     if (targetRank == null) return true;
@@ -74,7 +77,13 @@ export function extractMedianFromStatsPayload(
 
   if (raw == null) return null;
   const value = Math.round(Math.abs(Number(raw)));
-  return Number.isFinite(value) && value > 0 ? value : null;
+  if (!Number.isFinite(value) || value <= 0) return null;
+
+  const sourceTime = new Date(String(latest.datetime || 0)).getTime();
+  return {
+    median: value,
+    timestamp: Number.isFinite(sourceTime) && sourceTime > 0 ? sourceTime : null,
+  };
 }
 
 const __test__ = {

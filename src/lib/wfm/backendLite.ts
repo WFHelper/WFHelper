@@ -10,6 +10,18 @@ export const normalizeWfmSlug = _normalizeWfmSlug;
 export type BackendRequestPriority = RequestPriority;
 
 type FallbackMode = "always" | "high" | "never";
+type BackendRequestCache =
+  | "default"
+  | "force-cache"
+  | "no-cache"
+  | "no-store"
+  | "only-if-cached"
+  | "reload";
+interface BackendFetchInit {
+  signal: AbortSignal;
+  headers: Record<string, string>;
+  cache?: BackendRequestCache;
+}
 
 const RAW_BACKEND_URL = (import.meta.env.VITE_WFM_BACKEND_URL || BACKEND_URL).trim();
 const BACKEND_BASE_URL = RAW_BACKEND_URL.replace(/\/+$/, "");
@@ -25,8 +37,7 @@ const REQUEST_TIMEOUT_MS = 3500;
 //   2. Deploy app with VITE_WFM_BACKEND_BOOTSTRAP_ENABLED=1
 //   3. Set PUBLIC_BOOTSTRAP_REQUIRED=1 in wrangler.jsonc and redeploy worker
 
-const BOOTSTRAP_ENABLED =
-  (import.meta.env.VITE_WFM_BACKEND_BOOTSTRAP_ENABLED || "").trim() === "1";
+const BOOTSTRAP_ENABLED = (import.meta.env.VITE_WFM_BACKEND_BOOTSTRAP_ENABLED || "").trim() === "1";
 const BOOTSTRAP_HEADER = "x-wfhelper-bootstrap";
 const BOOTSTRAP_REFRESH_MARGIN_MS = 60_000; // re-fetch 1 min before expiry
 
@@ -152,6 +163,7 @@ export type BackendFetchResult<T> =
 interface BackendRequestOptions {
   timeoutMs?: number;
   headers?: Record<string, string>;
+  cache?: BackendRequestCache;
   allowStatuses?: number[];
 }
 
@@ -171,10 +183,13 @@ async function requestBackend(
     if (bootstrapToken) headers[BOOTSTRAP_HEADER] = bootstrapToken;
     if (options.headers) Object.assign(headers, options.headers);
 
-    const response = await fetch(`${BACKEND_BASE_URL}${pathname}`, {
+    const requestInit: BackendFetchInit = {
       signal: controller.signal,
       headers,
-    });
+    };
+    if (options.cache) requestInit.cache = options.cache;
+
+    const response = await fetch(`${BACKEND_BASE_URL}${pathname}`, requestInit);
 
     if (response.status === 401) {
       invalidateBootstrapToken();
@@ -196,7 +211,7 @@ async function requestBackend(
  */
 export async function fetchBackendRaw(
   pathname: string,
-  options?: { timeoutMs?: number; headers?: Record<string, string> },
+  options?: { timeoutMs?: number; headers?: Record<string, string>; cache?: BackendRequestCache },
 ): Promise<Response | null> {
   return requestBackend(pathname, { ...options, allowStatuses: [304] });
 }

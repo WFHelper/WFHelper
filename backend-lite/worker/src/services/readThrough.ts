@@ -6,6 +6,7 @@ import {
 	fetchMetaPayload,
 	fetchOrdersPayload,
 	fetchPricePayload,
+	markPriceNoData,
 	markUntradable,
 	putMetaPayload,
 	putOrderSummaryPayload,
@@ -183,7 +184,11 @@ async function hydratePrice(env: Env, slug: string, markNoData: boolean, rank: n
 		if (!result.data) {
 			// Only negatively cache confirmed "no data" — never cache transient errors (429/5xx).
 			if (markNoData && !result.transient) {
-				await setNegativeMarker(env.PRICE_CACHE, missKey, env);
+				if (result.inactive) {
+					await markPriceNoData(env, slug, rank);
+				} else {
+					await setNegativeMarker(env.PRICE_CACHE, missKey, env);
+				}
 			}
 			return { data: null, transient: result.transient };
 		}

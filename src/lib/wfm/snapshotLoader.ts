@@ -12,6 +12,7 @@ import { isValidSnapshotBlob } from "../../../config/shared/wfmSnapshotValidatio
 
 const SNAPSHOT_FRESH_MS = 24 * 60 * 60 * 1000;
 const SNAPSHOT_FETCH_TIMEOUT_MS = 20_000;
+const SNAPSHOT_CLIENT_CACHE_VERSION = "inactive-v2";
 
 // In-memory ETag for the snapshot. Persisted across re-fetches within the same
 // session. On startup the disk cache path skips the network entirely if fresh,
@@ -60,10 +61,18 @@ export async function tryLoadSnapshot(): Promise<void> {
       const fetchHeaders: Record<string, string> = {};
       if (_cachedEtag) fetchHeaders["If-None-Match"] = _cachedEtag;
 
-      const response = await fetchBackendRaw("/v1/snapshot", {
-        timeoutMs: SNAPSHOT_FETCH_TIMEOUT_MS,
-        headers: fetchHeaders,
-      });
+      const response = await fetchBackendRaw(
+        `/v1/snapshot?client=${SNAPSHOT_CLIENT_CACHE_VERSION}`,
+        {
+          timeoutMs: SNAPSHOT_FETCH_TIMEOUT_MS,
+          headers: {
+            ...fetchHeaders,
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+          },
+          cache: "no-store",
+        },
+      );
       if (!response) {
         log.warn("[Snapshot] Fetch failed — skipping snapshot");
         return;

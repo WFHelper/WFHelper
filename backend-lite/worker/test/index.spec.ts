@@ -15,10 +15,7 @@ afterEach(() => {
 	globalThis.fetch = originalFetch;
 });
 
-async function seedRankedCatalog(
-	targetEnv: Pick<Env, 'ITEM_META'>,
-	entries: Array<{ slug: string; maxRank: number }>,
-): Promise<void> {
+async function seedRankedCatalog(targetEnv: Pick<Env, 'ITEM_META'>, entries: Array<{ slug: string; maxRank: number }>): Promise<void> {
 	await targetEnv.ITEM_META.put(
 		'order-summary:catalog:v1',
 		JSON.stringify({
@@ -26,6 +23,13 @@ async function seedRankedCatalog(
 			entries,
 		}),
 	);
+}
+
+async function clearSnapshotEdgeCache(): Promise<void> {
+	await Promise.all([
+		caches.default.delete(new Request('https://example.com/v1/snapshot')),
+		caches.default.delete(new Request('https://example.com/v1/snapshot?body=inactive-v2')),
+	]);
 }
 
 describe('backend-lite worker', () => {
@@ -99,7 +103,7 @@ describe('backend-lite worker', () => {
 		const response = await worker.fetch(request, env, ctx);
 		await waitOnExecutionContext(ctx);
 		expect(response.status).toBe(200);
-		expect((await response.json() as Record<string, unknown>).ok).toBe(true);
+		expect(((await response.json()) as Record<string, unknown>).ok).toBe(true);
 	});
 
 	it('allows requests with no Origin header (Electron / curl)', async () => {
@@ -352,7 +356,7 @@ describe('backend-lite worker', () => {
 		const statsPayload = {
 			payload: {
 				statistics_closed: {
-					'48hours': [{ order_type: 'sell', datetime: '2026-03-01T00:00:00.000Z', median: 42 }],
+					'48hours': [{ order_type: 'sell', datetime: new Date().toISOString(), median: 42 }],
 				},
 			},
 		};
@@ -379,6 +383,47 @@ describe('backend-lite worker', () => {
 		expect(cached).toBeTruthy();
 	});
 
+	it('treats old market stats as no-data instead of caching stale prices', async () => {
+		const slug = 'wf_test_inactive_price_slug';
+		await env.PRICE_CACHE.delete(`price:${slug}`);
+		await env.PRICE_CACHE.delete(`miss:price:v2:${slug}`);
+
+		const oldDate = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
+		const statsPayload = {
+			payload: {
+				statistics_closed: {
+					'48hours': [{ order_type: 'sell', datetime: oldDate, median: 99 }],
+				},
+			},
+		};
+
+		const mockFetch = vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input instanceof URL ? input : typeof input === 'string' ? input : input.url);
+			if (url === `https://api.warframe.market/v1/items/${slug}/statistics`) {
+				return new Response(JSON.stringify(statsPayload), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				});
+			}
+			throw new Error(`Unexpected url: ${url}`);
+		});
+		globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+		const ctxA = createExecutionContext();
+		const first = await worker.fetch(new IncomingRequest(`https://example.com/v1/prices/${slug}`), env, ctxA);
+		await waitOnExecutionContext(ctxA);
+
+		const ctxB = createExecutionContext();
+		const second = await worker.fetch(new IncomingRequest(`https://example.com/v1/prices/${slug}`), env, ctxB);
+		await waitOnExecutionContext(ctxB);
+
+		expect(first.status).toBe(404);
+		expect(second.status).toBe(404);
+		expect(mockFetch).toHaveBeenCalledTimes(1);
+		expect(await env.PRICE_CACHE.get(`price:${slug}`)).toBeNull();
+		expect(await env.PRICE_CACHE.get(`miss:price:v2:${slug}`)).toBe('1');
+	});
+
 	it('supports ranked price lookups for mod and arcane stats', async () => {
 		const slug = 'wf_test_ranked_price_slug';
 		await seedRankedCatalog(env, [{ slug, maxRank: 10 }]);
@@ -391,8 +436,8 @@ describe('backend-lite worker', () => {
 			payload: {
 				statistics_closed: {
 					'48hours': [
-						{ order_type: 'sell', datetime: '2026-03-01T00:00:00.000Z', median: 50, mod_rank: 0 },
-						{ order_type: 'sell', datetime: '2026-03-01T01:00:00.000Z', median: 175, mod_rank: 10 },
+						{ order_type: 'sell', datetime: new Date().toISOString(), median: 50, mod_rank: 0 },
+						{ order_type: 'sell', datetime: new Date().toISOString(), median: 175, mod_rank: 10 },
 					],
 				},
 			},
@@ -1118,7 +1163,7 @@ describe('backend-lite worker', () => {
 			orderSummaries: {},
 		};
 		await env.PRICE_CACHE.put('snapshot:full:v1', JSON.stringify(snapshot));
-		await caches.default.delete(new Request('https://example.com/v1/snapshot'));
+		await clearSnapshotEdgeCache();
 
 		try {
 			const ctx = createExecutionContext();
@@ -1143,7 +1188,57 @@ describe('backend-lite worker', () => {
 			expect(body.prices['ash_prime']).toMatchObject({ status: 'ok', median: 45 });
 		} finally {
 			await env.PRICE_CACHE.delete('snapshot:full:v1');
-			await caches.default.delete(new Request('https://example.com/v1/snapshot'));
+			await clearSnapshotEdgeCache();
+		}
+	});
+
+	it('serves inactive snapshot prices as no-data markers', async () => {
+		const generatedAt = Date.now();
+		const snapshot = {
+			version: 1,
+			generatedAt,
+			prices: {
+				inactive_scene: {
+					status: 'ok',
+					median: 12,
+					timestamp: generatedAt - 31 * 24 * 60 * 60 * 1000,
+				},
+			},
+			meta: {},
+			orderSummaries: {},
+		};
+		await env.PRICE_CACHE.put('snapshot:full:v1', JSON.stringify(snapshot));
+		await env.PRICE_CACHE.put('snapshot:etag:v1', '"inactive-snapshot-test"');
+		await clearSnapshotEdgeCache();
+
+		try {
+			const ctx = createExecutionContext();
+			const response = await worker.fetch(new IncomingRequest('https://example.com/v1/snapshot'), env, ctx);
+			await waitOnExecutionContext(ctx);
+
+			expect(response.status).toBe(200);
+			expect(response.headers.get('etag')).toBe('"inactive-snapshot-test-inactive-v2"');
+			const body = (await response.json()) as typeof snapshot;
+			expect(body.prices.inactive_scene).toEqual({
+				status: 'no_data',
+				median: null,
+				timestamp: generatedAt,
+			});
+
+			const oldEtagCtx = createExecutionContext();
+			const oldEtagResponse = await worker.fetch(
+				new IncomingRequest('https://example.com/v1/snapshot', {
+					headers: { 'if-none-match': '"inactive-snapshot-test"' },
+				}),
+				env,
+				oldEtagCtx,
+			);
+			await waitOnExecutionContext(oldEtagCtx);
+			expect(oldEtagResponse.status).toBe(200);
+		} finally {
+			await env.PRICE_CACHE.delete('snapshot:full:v1');
+			await env.PRICE_CACHE.delete('snapshot:etag:v1');
+			await clearSnapshotEdgeCache();
 		}
 	});
 
@@ -1151,19 +1246,19 @@ describe('backend-lite worker', () => {
 		const snapshot = { version: 1, generatedAt: Date.now(), prices: {}, meta: {}, orderSummaries: {} };
 		await env.PRICE_CACHE.put('snapshot:full:v1', JSON.stringify(snapshot));
 		await env.PRICE_CACHE.put('snapshot:etag:v1', '"snapshot-test-etag"');
-		await caches.default.delete(new Request('https://example.com/v1/snapshot'));
+		await clearSnapshotEdgeCache();
 
 		try {
 			const primeCtx = createExecutionContext();
 			const primeResponse = await worker.fetch(new IncomingRequest('https://example.com/v1/snapshot'), env, primeCtx);
 			await waitOnExecutionContext(primeCtx);
 			expect(primeResponse.status).toBe(200);
-			expect(primeResponse.headers.get('etag')).toBe('"snapshot-test-etag"');
+			expect(primeResponse.headers.get('etag')).toBe('"snapshot-test-etag-inactive-v2"');
 
 			const matchingCtx = createExecutionContext();
 			const matchingResponse = await worker.fetch(
 				new IncomingRequest('https://example.com/v1/snapshot', {
-					headers: { 'if-none-match': '"snapshot-test-etag"' },
+					headers: { 'if-none-match': '"snapshot-test-etag-inactive-v2"' },
 				}),
 				env,
 				matchingCtx,
@@ -1181,7 +1276,7 @@ describe('backend-lite worker', () => {
 			await waitOnExecutionContext(nonMatchingCtx);
 
 			expect(matchingResponse.status).toBe(304);
-			expect(matchingResponse.headers.get('etag')).toBe('"snapshot-test-etag"');
+			expect(matchingResponse.headers.get('etag')).toBe('"snapshot-test-etag-inactive-v2"');
 			expect(matchingResponse.headers.get('cache-control')).toBe('public, max-age=7200');
 			expect(await matchingResponse.text()).toBe('');
 			expect(nonMatchingResponse.status).toBe(200);
@@ -1189,7 +1284,7 @@ describe('backend-lite worker', () => {
 		} finally {
 			await env.PRICE_CACHE.delete('snapshot:full:v1');
 			await env.PRICE_CACHE.delete('snapshot:etag:v1');
-			await caches.default.delete(new Request('https://example.com/v1/snapshot'));
+			await clearSnapshotEdgeCache();
 		}
 	});
 
@@ -1199,7 +1294,7 @@ describe('backend-lite worker', () => {
 
 		// Clear any edge-cached snapshot from prior tests so every request goes
 		// through the Worker and hits the rate limiter.
-		await caches.default.delete(new Request('https://example.com/v1/snapshot'));
+		await clearSnapshotEdgeCache();
 
 		const testEnv = { ...env, PUBLIC_RATE_LIMIT_ENABLED: '1' };
 		const makeRequest = () =>
@@ -1211,7 +1306,7 @@ describe('backend-lite worker', () => {
 		try {
 			for (let i = 0; i < 11; i++) {
 				// Clear edge cache before each request so every iteration hits the Worker.
-				await caches.default.delete(new Request('https://example.com/v1/snapshot'));
+				await clearSnapshotEdgeCache();
 				const ctx = createExecutionContext();
 				responses.push(await worker.fetch(makeRequest(), testEnv as unknown as Env, ctx));
 				await waitOnExecutionContext(ctx);
@@ -1221,7 +1316,7 @@ describe('backend-lite worker', () => {
 			expect(await responses[10].json()).toEqual({ ok: false, error: 'rate_limited' });
 		} finally {
 			await env.PRICE_CACHE.delete('snapshot:full:v1');
-			await caches.default.delete(new Request('https://example.com/v1/snapshot'));
+			await clearSnapshotEdgeCache();
 		}
 	});
 

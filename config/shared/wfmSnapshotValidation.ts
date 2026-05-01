@@ -1,6 +1,6 @@
 const SNAPSHOT_VERSION = 1;
 const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
-const MAX_SNAPSHOT_AGE_MS = 45 * 24 * 60 * 60 * 1000;
+const MAX_SNAPSHOT_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 interface ValidSnapshotBlob {
   version: number;
@@ -61,8 +61,10 @@ function isValidCachedOrderSummaryEntry(value: unknown, now = Date.now()): boole
   const status = value.status;
   if (status !== "ok" && status !== "no_data") return false;
   if (!isReasonableTimestamp(value.timestamp, now)) return false;
-  if (!isNullableFiniteNonNegative(value.wts) || !isNullableFiniteNonNegative(value.wtb)) return false;
-  if (value.sourceTimestamp != null && !isReasonableTimestamp(value.sourceTimestamp, now)) return false;
+  if (!isNullableFiniteNonNegative(value.wts) || !isNullableFiniteNonNegative(value.wtb))
+    return false;
+  if (value.sourceTimestamp != null && !isReasonableTimestamp(value.sourceTimestamp, now))
+    return false;
   return true;
 }
 

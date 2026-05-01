@@ -4,6 +4,7 @@ import {
 	ORDER_SUMMARY_HOTSET_KEY,
 	ORDER_SUMMARY_PREWARM_CURSOR_KEY,
 	ORDER_SUMMARY_PREWARM_LAST_RUN_KEY,
+	MISS_PRICE_PREFIX,
 	PREWARM_CURSOR_KEY,
 	PREWARM_LAST_RUN_KEY,
 	SKIP_UNTRADABLE_PREFIX,
@@ -13,16 +14,9 @@ import {
 	SNAPSHOT_LAST_GEN_KEY,
 	WFM_HEADERS,
 } from '../constants';
-import type {
-	Env,
-	MetaPayload,
-	OrdersPayload,
-	OrderSummaryHotsetEntry,
-	OrderSummaryPrewarmResult,
-	PrewarmResult,
-} from '../types';
+import type { Env, MetaPayload, OrdersPayload, OrderSummaryHotsetEntry, OrderSummaryPrewarmResult, PrewarmResult } from '../types';
 import { clamp, getJsonFromKv, parsePositiveInt } from '../utils';
-import { extractMedianFromStatsPayload } from '../../../../config/shared/wfmStats';
+import { extractLatestMedianFromStatsPayload, extractMedianFromStatsPayload } from '../../../../config/shared/wfmStats';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
 import {
 	buildOrderSummaryPayload,
@@ -36,11 +30,56 @@ import {
 export { buildOrderSummaryPayload, fetchRankedSummaryCatalog } from './prewarmCatalog';
 
 const UNTRADABLE_SKIP_TTL_SEC = 30 * 24 * 60 * 60;
+const MAX_PRICE_SOURCE_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 interface FetchResult<T> {
 	data: T | null;
 	/** true when the failure is transient (429/5xx) — do NOT negatively cache. */
 	transient: boolean;
+	inactive?: boolean;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function inactivePriceSnapshotEntry(timestamp = Date.now()): Record<string, unknown> {
+	return {
+		status: 'no_data',
+		median: null,
+		timestamp,
+	};
+}
+
+function isInactivePriceSource(sourceTimestamp: number | null, now = Date.now()): boolean {
+	return sourceTimestamp != null && now - sourceTimestamp > MAX_PRICE_SOURCE_AGE_MS;
+}
+
+function sanitizeSnapshotPriceEntries(prices: Record<string, unknown>, timestamp: number): Record<string, unknown> {
+	const sanitized: Record<string, unknown> = {};
+	for (const [key, value] of Object.entries(prices)) {
+		if (!isRecord(value)) {
+			sanitized[key] = value;
+			continue;
+		}
+
+		if (value.status === 'ok' && isInactivePriceSource(Number(value.timestamp) || null, timestamp)) {
+			sanitized[key] = inactivePriceSnapshotEntry(timestamp);
+			continue;
+		}
+
+		sanitized[key] = value;
+	}
+	return sanitized;
+}
+
+export function sanitizeSnapshotForClient<T extends { generatedAt?: unknown; prices?: unknown }>(snapshot: T, now = Date.now()): T {
+	if (!isRecord(snapshot.prices)) return snapshot;
+	const generatedAt = typeof snapshot.generatedAt === 'number' && Number.isFinite(snapshot.generatedAt) ? snapshot.generatedAt : now;
+	return {
+		...snapshot,
+		prices: sanitizeSnapshotPriceEntries(snapshot.prices, generatedAt),
+	};
 }
 
 export async function fetchPricePayload(
@@ -64,11 +103,12 @@ export async function fetchPricePayload(
 	if (!response.ok) return { data: null, transient: false };
 
 	const payload = await response.json();
-	const median = extractMedianFromStatsPayload(payload, targetRank != null ? { rank: targetRank } : undefined);
-	if (median == null) return { data: null, transient: false };
+	const latest = extractLatestMedianFromStatsPayload(payload, targetRank != null ? { rank: targetRank } : undefined);
+	if (!latest) return { data: null, transient: false };
+	if (isInactivePriceSource(latest.timestamp)) return { data: null, transient: false, inactive: true };
 
 	return {
-		data: { median, timestamp: Date.now() },
+		data: { median: latest.median, timestamp: Date.now() },
 		transient: false,
 	};
 }
@@ -298,6 +338,13 @@ export async function putPricePayload(
 	return data;
 }
 
+export async function markPriceNoData(env: Env, slug: string, rank?: number | null): Promise<void> {
+	const normalizedRank = normalizeRankFilter(rank);
+	const cacheKey = normalizedRank == null ? `price:${slug}` : `price:${slug}:r${normalizedRank}`;
+	const missKey = normalizedRank == null ? `${MISS_PRICE_PREFIX}${slug}` : `${MISS_PRICE_PREFIX}${slug}:r${normalizedRank}`;
+	await Promise.all([env.PRICE_CACHE.delete(cacheKey), env.PRICE_CACHE.put(missKey, '1', { expirationTtl: cacheTtlSec(env) })]);
+}
+
 export async function putMetaPayload(env: Env, payload: MetaPayload): Promise<Record<string, unknown>> {
 	await env.ITEM_META.put(`meta:${payload.slug}`, JSON.stringify(payload), {
 		expirationTtl: cacheTtlSec(env),
@@ -494,7 +541,12 @@ export async function prewarmOrderSummaryCatalog(
 							timestamp: Date.now(),
 						};
 						await putOrderSummaryPayload(env, entry.slug, emptyPayload, rank);
-						snapshotOrderSummaries[`${entry.slug}:r${rank}`] = { status: 'no_data', wts: null, wtb: null, timestamp: emptyPayload.timestamp };
+						snapshotOrderSummaries[`${entry.slug}:r${rank}`] = {
+							status: 'no_data',
+							wts: null,
+							wtb: null,
+							timestamp: emptyPayload.timestamp,
+						};
 						result.updated += 1;
 					} else {
 						result.failures += 1;
@@ -529,6 +581,9 @@ export async function prewarmOrderSummaryCatalog(
 						median: priceResult.data.median,
 						timestamp: priceResult.data.timestamp,
 					};
+				} else if (priceResult.inactive) {
+					await markPriceNoData(env, entry.slug, rank);
+					snapshotPrices[`${entry.slug}:rank-v3:r${rank}`] = inactivePriceSnapshotEntry();
 				}
 			} catch {
 				// Price fetch failure is non-fatal; order summary was already processed above.
@@ -636,6 +691,9 @@ export async function prewarmBatch(
 				result.priceUpdated += 1;
 				snapshotPrices[slug] = { status: 'ok', median: priceResult.data.median, timestamp: priceResult.data.timestamp };
 				void written;
+			} else if (priceResult.inactive) {
+				await markPriceNoData(env, slug);
+				snapshotPrices[slug] = inactivePriceSnapshotEntry();
 			}
 
 			result.processed += 1;
@@ -682,9 +740,7 @@ async function patchSnapshot(
 		orderSummaries: Record<string, unknown>;
 	};
 	try {
-		snapshot = raw
-			? JSON.parse(raw)
-			: { version: 1, generatedAt: 0, prices: {}, meta: {}, orderSummaries: {} };
+		snapshot = raw ? JSON.parse(raw) : { version: 1, generatedAt: 0, prices: {}, meta: {}, orderSummaries: {} };
 	} catch {
 		snapshot = { version: 1, generatedAt: 0, prices: {}, meta: {}, orderSummaries: {} };
 	}
@@ -693,6 +749,7 @@ async function patchSnapshot(
 	if (patches.meta) Object.assign(snapshot.meta, patches.meta);
 	if (patches.orderSummaries) Object.assign(snapshot.orderSummaries, patches.orderSummaries);
 	snapshot.generatedAt = Date.now();
+	snapshot = sanitizeSnapshotForClient(snapshot);
 	const etag = `"${snapshot.generatedAt}"`;
 
 	await env.PRICE_CACHE.put(SNAPSHOT_KEY, JSON.stringify(snapshot), { expirationTtl: ttlSec });

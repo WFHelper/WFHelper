@@ -31,7 +31,7 @@ const MIN_PRICES = 5_000;
 const MIN_META = 2_500;
 const MIN_ORDER_SUMMARIES = 2_000;
 const MAX_SNAPSHOT_AGE_MS = 4 * HOUR; // cron runs every 5 min; >4h means cron is dead
-const MAX_ENTRY_AGE_MS = 45 * DAY; // no entry should be older than 45 days
+const MAX_OK_PRICE_AGE_MS = 30 * DAY;
 const FRESH_WINDOW_MS = 24 * HOUR;
 const FRESH_PCT_MIN = 0.95; // 95% of prices updated in last 24h
 const P95_AGE_BAR_MS = 24 * HOUR;
@@ -128,20 +128,18 @@ describe(`worker smoke @ ${BASE_URL}`, () => {
 			const withTs = prices.filter((p) => typeof p.timestamp === 'number');
 			const fresh = withTs.filter((p) => now - (p.timestamp as number) < FRESH_WINDOW_MS).length;
 			const pct = fresh / withTs.length;
-			expect(pct, `only ${(pct * 100).toFixed(1)}% of ${withTs.length} prices fresh within 24h`).toBeGreaterThanOrEqual(
-				FRESH_PCT_MIN,
-			);
+			expect(pct, `only ${(pct * 100).toFixed(1)}% of ${withTs.length} prices fresh within 24h`).toBeGreaterThanOrEqual(FRESH_PCT_MIN);
 		});
 
-		it('no price entry older than 45 days', () => {
+		it('no ok price entry is older than the inactive-market cutoff', () => {
 			const now = Date.now();
 			const oldest = Object.entries(snapshot.prices)
-				.filter(([, p]) => typeof p.timestamp === 'number')
+				.filter(([, p]) => p.status === 'ok' && typeof p.timestamp === 'number')
 				.map(([slug, p]) => ({ slug, age: now - (p.timestamp as number) }))
 				.sort((a, b) => b.age - a.age)[0];
 			if (!oldest) return;
 			expect(oldest.age, `${oldest.slug} is ${(oldest.age / DAY).toFixed(1)}d old — prewarm cursor may be stuck`).toBeLessThan(
-				MAX_ENTRY_AGE_MS,
+				MAX_OK_PRICE_AGE_MS,
 			);
 		});
 
