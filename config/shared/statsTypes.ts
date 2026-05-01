@@ -13,7 +13,6 @@ export type DownloadStage = "resolving" | "downloading" | "done" | "error";
 /** Direction of an item in a trade. */
 export type TradeDirection = "given" | "received";
 
-// ── Trade types ───────────────────────────────────────────────────────────────
 
 export interface TradeItem {
   internalName: string;
@@ -34,7 +33,6 @@ export interface TradeEvent {
   wfmClosed?: boolean;     // true when a WFM order was auto-closed for this trade
 }
 
-// ── Stat history types ────────────────────────────────────────────────────────
 
 export interface DailyStatEntry {
   date: string;           // "YYYY-MM-DD"

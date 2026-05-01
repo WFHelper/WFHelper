@@ -8,7 +8,6 @@
  * `unwrapWfmResponse()` normalises both into a plain T.
  */
 
-// ── V1 response envelopes ────────────────────────────────────────────────────
 
 /** v1 auction search: `GET /v1/auctions/search` */
 export interface WfmAuctionSearchPayload {
@@ -30,7 +29,7 @@ export interface WfmRawAuction {
   };
 }
 
-export interface WfmRawAuctionAttribute {
+interface WfmRawAuctionAttribute {
   url_name: string;
   value: number;
   positive: boolean;
@@ -41,7 +40,6 @@ export interface WfmAuctionCreatePayload {
   auction: { id: string };
 }
 
-// ── V2 response envelopes ────────────────────────────────────────────────────
 
 /** v2 order response: the `data` field of a v2 order mutation response. */
 export interface WfmRawOrder {
@@ -84,7 +82,6 @@ export interface WfmCloseOrderResult {
   remainingQuantity: number;
 }
 
-// ── Envelope unwrapper ───────────────────────────────────────────────────────
 
 /**
  * Unwrap a WFM API response from its envelope.

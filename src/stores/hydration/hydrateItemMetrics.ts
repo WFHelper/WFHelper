@@ -31,9 +31,7 @@ import { getCachedMedian, getCachedRankOrderSummary } from "./hydrationCacheHelp
 import { isRankedGroup } from "../../../config/shared/numeric.js";
 import { isExcludedRankedMarketItem } from "../../../config/shared/wfmExclusions.js";
 
-// ---------------------------------------------------------------------------
 // Hydration context — provides controlled access to controller closure state
-// ---------------------------------------------------------------------------
 
 export interface HydrationContext {
   getMetric: (key: string) => ItemMetrics | undefined;
@@ -51,9 +49,7 @@ export interface HydrationContext {
   clearPending: (key: string) => void;
 }
 
-// ---------------------------------------------------------------------------
 // Helpers using context
-// ---------------------------------------------------------------------------
 
 function canRetryMissingDucats(
   ctx: HydrationContext,
@@ -68,9 +64,7 @@ function canRetryMissingDucats(
   return ctx.getMissingDucatRetryCount(key) < MAX_DUCAT_RETRY_PER_ITEM;
 }
 
-// ---------------------------------------------------------------------------
 // Core hydration logic
-// ---------------------------------------------------------------------------
 
 export async function hydrateItemMetrics(
   ctx: HydrationContext,

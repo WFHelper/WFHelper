@@ -16,7 +16,6 @@ import { unwrapWfmResponse } from "./wfmTypes";
 
 import { WFM_ASSET_BASE as WFM_THUMB_BASE } from "../config/shared/wfm";
 
-// ── Interfaces ────────────────────────────────────────────────────────────────
 
 export interface NormalisedOrder {
   id: string;
@@ -31,7 +30,6 @@ export interface NormalisedOrder {
   itemThumb: string | null;
 }
 
-// ── Normaliser ────────────────────────────────────────────────────────────────
 
 function normalise(raw: WfmRawOrder, forcedType?: string): NormalisedOrder {
   // v2: item details come from catalog enrichment (raw._catalogItem), not embedded object
@@ -100,7 +98,6 @@ function _extractOrders(data: unknown): { sell: NormalisedOrder[]; buy: Normalis
   return { sell, buy };
 }
 
-// ── API wrappers ──────────────────────────────────────────────────────────────
 
 /**
  * Fetch the current user's orders.

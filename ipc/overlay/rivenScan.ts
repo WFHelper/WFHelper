@@ -42,7 +42,6 @@ import type { NativeImage } from "electron";
 
 const MIN_ACCEPTABLE_RIVEN_STATS = 2;
 
-// ── Per-stage timing instrumentation ─────────────────────────────────────────
 interface RivenScanTiming {
   captureMs: number;
   cropRefineMs: number;
@@ -100,7 +99,7 @@ export interface RollPanelResult {
   right: RivenStat[];
 }
 
-export interface InitialScanResult {
+interface InitialScanResult {
   stats: RivenStat[];
   rawText: string;
   titleText: string;
@@ -128,9 +127,8 @@ async function retrySparseRivenScan<T>(
   return null;
 }
 
-// ── Fixed-percentage stat area crop (matches Python trim_to_card_aspect + refine_crop) ──
 // The Python benchmark achieves 98% accuracy with this simple approach.
-// Sobel edge detection (refineRivenTextCrop) is unreliable with Kuva portal animation.
+// Edge-based crop refinement is unreliable with Kuva portal animation.
 const CARD_ASPECT_RATIO = 287 / 433; // ≈ 0.663 (riven card width/height)
 
 function _cropStatAreaForVgb(roughCrop: NativeImage): NativeImage {
@@ -179,7 +177,6 @@ async function ocrCropMultiStrategy(
   const roughCrop = cropRectContent(image, rect, detectGameContentRect(image));
   const cropRefineMs = Date.now() - cropStart;
 
-  // ── YOLO + PaddleOCR fast path ─────────────────────────────────────────────
   // YOLO stat-line detector + PaddleOCR CH v3 recognition pipeline.
   // No VGB preprocessing needed — YOLO detects lines directly from raw image.
   if (rivenOcrOnnxAvailable()) {

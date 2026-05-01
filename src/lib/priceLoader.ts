@@ -1,7 +1,7 @@
 import { fetchPriceByName } from "./wfm/wfmPrice.js";
 import { send } from "./ipc.js";
 
-export interface PriceState {
+interface PriceState {
   text: string;
   slug: string | null;
 }

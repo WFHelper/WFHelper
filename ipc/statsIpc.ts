@@ -1,6 +1,7 @@
 import { assertMainRendererSender, handleAuthorized } from "./ipcSecurity";
 import * as statsTracker from "../services/statsTracker";
 import * as tradeTracker from "../services/tradeTracker";
+import type { TradeEvent } from "../config/shared/statsTypes";
 import {
   STATS_GET_HISTORY, STATS_GET_CURRENT, STATS_IMPORT,
   STATS_GET_TRADES, STATS_IMPORT_TRADES,
@@ -27,7 +28,7 @@ function register(): void {
 
   handleAuthorized(STATS_IMPORT_TRADES, assertMainRendererSender, (_event, raw: unknown) => {
     if (!Array.isArray(raw)) return { ok: false, count: 0 };
-    const count = tradeTracker.importTradeLog(raw as import("../services/tradeTracker").TradeEvent[]);
+    const count = tradeTracker.importTradeLog(raw as TradeEvent[]);
     return { ok: true, count };
   });
 }

@@ -39,7 +39,7 @@ function firstEnvelopeValue(record: Record<string, unknown>): unknown {
   return undefined;
 }
 
-export interface UnwrapInventoryOptions {
+interface UnwrapInventoryOptions {
   returnInputOnFailure?: boolean;
   onParseError?: (error: unknown) => void;
   maxDepth?: number;

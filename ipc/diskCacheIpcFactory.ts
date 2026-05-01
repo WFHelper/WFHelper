@@ -15,7 +15,7 @@ import { app } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 
-export interface DiskCacheIpcConfig {
+interface DiskCacheIpcConfig {
   /** Logger scope name, e.g. `"priceCacheIpc"`. */
   scope: string;
   /** File stored in `app.getPath("userData")`, e.g. `"price-cache.json"`. */

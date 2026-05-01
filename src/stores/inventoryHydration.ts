@@ -52,14 +52,8 @@ import { hydrateItemMetrics, type HydrationContext } from "./hydration/hydrateIt
 import { isRankedGroup } from "../../config/shared/numeric.js";
 
 // Re-export types that consumers reference.
-export type {
-  InventoryPriceDebugCounters,
-  InventoryHydrationDebugState,
-} from "./hydration/hydrationTypes.js";
 
-// ---------------------------------------------------------------------------
 // Controller factory
-// ---------------------------------------------------------------------------
 
 export function createInventoryHydrationController(): InventoryHydrationController {
   const normalizeCounters = (value: PriceDebugCounters): InventoryPriceDebugCounters => {
@@ -87,7 +81,6 @@ export function createInventoryHydrationController(): InventoryHydrationControll
     return { ...value };
   };
 
-  // ---- Svelte stores ----
   const metricsByKeyStore = writable<Record<string, ItemMetrics>>({});
   const debugStateStore = writable<InventoryHydrationDebugState>({
     priceQueueStats: getPriceQueueStats(),
@@ -98,7 +91,6 @@ export function createInventoryHydrationController(): InventoryHydrationControll
     pending: 0,
   });
 
-  // ---- Closure state ----
   let metricsByKey: Record<string, ItemMetrics> = {};
   let pendingMetricPatches: Record<string, ItemMetrics> = {};
   let metricFlushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -112,7 +104,6 @@ export function createInventoryHydrationController(): InventoryHydrationControll
   const priceTransientRetryAtByKey = new Map<string, number>();
   const orderTransientRetryAtByKey = new Map<string, number>();
 
-  // ---- Context that bridges closure state to hydrateItemMetrics ----
   const ctx: HydrationContext = {
     getMetric: (key) => metricsByKey[key],
 
@@ -171,7 +162,6 @@ export function createInventoryHydrationController(): InventoryHydrationControll
     },
   };
 
-  // ---- Debug state flusher ----
   function pushDebugState(): void {
     debugStateStore.set({
       priceQueueStats: getPriceQueueStats(),
@@ -183,7 +173,6 @@ export function createInventoryHydrationController(): InventoryHydrationControll
     });
   }
 
-  // ---- Hydration pump ----
   async function runHydrationPump(): Promise<void> {
     if (hydrationRunning) return;
     hydrationRunning = true;
@@ -216,7 +205,6 @@ export function createInventoryHydrationController(): InventoryHydrationControll
     }
   }
 
-  // ---- Enqueue logic ----
   function queueTasks(
     items: InventoryBaseItem[],
     lookup: WfmItemsLookup,
@@ -340,7 +328,6 @@ export function createInventoryHydrationController(): InventoryHydrationControll
     return ctx.getMissingDucatRetryCount(key) < 2;
   }
 
-  // ---- Public API ----
   return {
     metricsByKey: {
       subscribe: metricsByKeyStore.subscribe,
@@ -383,9 +370,7 @@ export function createInventoryHydrationController(): InventoryHydrationControll
   };
 }
 
-// ---------------------------------------------------------------------------
 // Singleton
-// ---------------------------------------------------------------------------
 
 let _singleton: InventoryHydrationController | null = null;
 

@@ -400,7 +400,6 @@ function maybeNotifyWorldEvents(state: unknown): void {
     duviri: false,
   };
 
-  // --- Transition notifications (fire when cycle actually changes) ---
   if (
     cycleAlerts.earth &&
     prev.earthIsDay !== null &&

@@ -78,7 +78,6 @@ function _persistState(): void {
 
 _loadPersistedState();
 
-// ── Inventory data listeners ───────────────────────────────────────────────────
 
 type InventoryDataListener = (data: Record<string, unknown>) => void;
 const _inventoryListeners: InventoryDataListener[] = [];

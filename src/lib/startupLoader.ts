@@ -16,7 +16,7 @@ const PRICE_CACHE_FLUSH_INTERVAL_MS = 30_000;
 /** Becomes true after startup attempts to restore the persisted price cache. */
 export const startupPriceCacheReady = writable(false);
 
-export interface StartupHandle {
+interface StartupHandle {
   /** Call to cancel the startup warmup timer and price-cache flush interval. */
   dispose: () => void;
 }

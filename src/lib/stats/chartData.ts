@@ -4,12 +4,11 @@
  */
 import type { DailyStatEntry } from "../../types/ipc.js";
 
-// ── Types ──────────────────────────────────────────────────────────────────────
 
 export type SessionStatKey = "platDelta" | "creditsDelta" | "endoDelta" | "ducatsDelta" | "ayaDelta";
 export type ChartKey = SessionStatKey | "relicsOpened" | "dailyTrades";
 
-export interface BarData {
+interface BarData {
   x: number;
   y: number;
   h: number;
@@ -18,7 +17,7 @@ export interface BarData {
   positive: boolean;
 }
 
-export interface YTick {
+interface YTick {
   label: string;
   value: number;
   /** Fraction 0 = top of SVG, 1 = bottom */
@@ -39,7 +38,6 @@ export interface ChartResult {
   niceMax: number;
 }
 
-// ── Constants ──────────────────────────────────────────────────────────────────
 
 export const BAR_H = 64;
 export const BAR_H_EXPAND = 300;
@@ -57,7 +55,6 @@ const ABS_FIELD_MAP: Partial<Record<ChartKey, keyof DailyStatEntry>> = {
   ayaDelta: "absAya",
 };
 
-// ── Formatters ─────────────────────────────────────────────────────────────────
 
 export function formatDelta(n: number, fmt: (abs: number) => string): string {
   const sign = n >= 0 ? "+" : "−";
@@ -113,7 +110,6 @@ function fmtTickSI(value: number): string {
   return String(value);
 }
 
-// ── Nice-number Y-axis computation ─────────────────────────────────────────────
 
 /** Round up to a "nice" number for axis scaling (1, 2, 5 multiples of powers of 10). */
 function niceRoundUp(val: number): number {
@@ -146,7 +142,6 @@ function computeNiceTicks(maxVal: number, _key: ChartKey, _barH: number, targetC
   return { ticks, niceMax };
 }
 
-// ── Bar chart computation ──────────────────────────────────────────────────────
 
 /** Typed accessor for chart-keyed numeric fields on DailyStatEntry. */
 function pickNumericField(entry: DailyStatEntry, key: ChartKey): number {
@@ -315,7 +310,6 @@ export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, 
   return { bars, hasBaseline, bw, absLine, absValues, hasAbsData, realData, yTicks, niceMax };
 }
 
-// ── Expanded-view helpers ──────────────────────────────────────────────────────
 
 export function labelStep(days: number): number {
   if (days <= 7) return 1;

@@ -22,8 +22,8 @@ const MAX_QUANTITY = 99_999;
 const MIN_MOD_RANK = 0;
 const MAX_MOD_RANK = 20;
 
-export type ParsedCredentials = { email: string; password: string };
-export type ParsedCreateOrderParams = {
+type ParsedCredentials = { email: string; password: string };
+type ParsedCreateOrderParams = {
   itemId: string;
   orderType: string;
   platinum: number;
@@ -31,7 +31,7 @@ export type ParsedCreateOrderParams = {
   visible: boolean;
   modRank?: number;
 };
-export type ParsedUpdateOrderPayload = {
+type ParsedUpdateOrderPayload = {
   orderId: string;
   updates: {
     platinum?: number;
@@ -40,12 +40,12 @@ export type ParsedUpdateOrderPayload = {
     modRank?: number;
   };
 };
-export type ParsedDeleteOrderPayload = { orderId: string };
-export type ParsedCloseOrderPayload = { orderId: string; quantity: number };
-export type ParsedSetVisiblePayload = { orderIds: string[]; visible: boolean };
-export type ParsedSearchPayload = { query: string; limit: number };
-export type ParsedStatusPayload = { status: string };
-export type ParsedContractsPayload = { page: number; limit: number };
+type ParsedDeleteOrderPayload = { orderId: string };
+type ParsedCloseOrderPayload = { orderId: string; quantity: number };
+type ParsedSetVisiblePayload = { orderIds: string[]; visible: boolean };
+type ParsedSearchPayload = { query: string; limit: number };
+type ParsedStatusPayload = { status: string };
+type ParsedContractsPayload = { page: number; limit: number };
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);

@@ -15,9 +15,8 @@ import { levenshteinDistance } from "./rewardScannerUtils";
 
 const log = withScope("rivenData");
 
-// ── Types ────────────────────────────────────────────────────────────────────
 
-export interface UpgradeEntry {
+interface UpgradeEntry {
   tag: string;
   canBeBuff: boolean;
   canBeCurse: boolean;
@@ -43,7 +42,6 @@ interface RivenModInfo {
   entries: UpgradeEntry[];
 }
 
-// ── State ────────────────────────────────────────────────────────────────────
 
 let _built = false;
 
@@ -68,7 +66,6 @@ const _rivenModByKey = new Map<string, RivenModInfo>();
 /** Upgrade tag → cleaned display name (from locTags) */
 const _tagToDisplayName = new Map<string, string>();
 
-// ── OCR stat name → upgrade tag mapping ──────────────────────────────────────
 // Maps the stat names as they appear in OCR output (and in-game) to the
 // internal upgrade tag identifiers. This table is manually maintained because
 // the game's locTags include formatting placeholders and color tags.
@@ -130,7 +127,6 @@ for (const [name, tag] of Object.entries(STAT_NAME_TO_TAG)) {
   }
 }
 
-// ── Game tag → WFM riven auction attribute url_name ──────────────────────────
 // WFM uses its own attribute identifiers for the /auctions/search endpoint.
 // These do NOT match a simple lowercase+underscore of the display name.
 // Source: https://api.warframe.market/v1/riven/attributes
@@ -174,7 +170,6 @@ const TAG_TO_WFM_URL_NAME: Record<string, string> = {
   WeaponMeleeFactionDamageInfested: "damage_vs_infested",
 };
 
-// ── Weapon category → riven mod uniqueName mapping ───────────────────────────
 
 const RIVEN_MODS_BY_CATEGORY: Record<string, string> = {
   LongGuns: "/Lotus/Upgrades/Mods/Randomized/LotusRifleRandomModRare",
@@ -190,7 +185,6 @@ const SHOTGUN_RIVEN_KEY = "/Lotus/Upgrades/Mods/Randomized/LotusShotgunRandomMod
 const KITGUN_RIVEN_KEY = "/Lotus/Upgrades/Mods/Randomized/LotusModularPistolRandomModRare";
 const ZAW_RIVEN_KEY = "/Lotus/Upgrades/Mods/Randomized/LotusModularMeleeRandomModRare";
 
-// ── Build logic ──────────────────────────────────────────────────────────────
 
 function stripColorTags(text: string): string {
   // Remove <DT_*_COLOR> tags from localized strings
@@ -233,7 +227,6 @@ function ensureBuilt(): void {
     const upgrades: Record<string, Record<string, any>> = pep.ExportUpgrades || {};
     /* eslint-enable @typescript-eslint/no-explicit-any */
 
-    // ── Index weapons ──────────────────────────────────────────────────────
     let weaponCount = 0;
     for (const [uniqueName, w] of Object.entries(weapons)) {
       if (!uniqueName || uniqueName === "default") continue;
@@ -256,7 +249,6 @@ function ensureBuilt(): void {
       weaponCount++;
     }
 
-    // ── Index riven mods ───────────────────────────────────────────────────
     for (const [key, mod] of Object.entries(upgrades)) {
       if (
         !mod.upgradeEntries ||
@@ -307,7 +299,6 @@ function ensureBuilt(): void {
   }
 }
 
-// ── Public API ───────────────────────────────────────────────────────────────
 
 /**
  * Reverse-lookup weapon display name from uniqueName (e.g. /Lotus/Weapons/...).

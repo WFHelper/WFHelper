@@ -25,7 +25,7 @@ const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 let goodRolls: GoodRollMap | null = null;
 let loadPromise: Promise<void> | null = null;
 
-export interface BestAttributes {
+interface BestAttributes {
   positives: string[];
   negatives: string[];
 }

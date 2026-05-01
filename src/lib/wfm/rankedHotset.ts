@@ -4,13 +4,13 @@ import { normalizeRankFilter } from "../../../config/shared/numeric.js";
 const HOTSET_SCHEMA_VERSION = 1;
 const HOTSET_MAX_ENTRIES = 64;
 
-export interface RankedHotsetEntry {
+interface RankedHotsetEntry {
   slug: string;
   maxRank: number;
   lastSeenAt: number;
 }
 
-export interface PersistedRankedHotset {
+interface PersistedRankedHotset {
   version: number;
   entries: RankedHotsetEntry[];
 }

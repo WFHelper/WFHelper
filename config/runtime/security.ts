@@ -91,4 +91,3 @@ export const MAIN_WINDOW_CSP = [
 
 export const PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(), usb=()";
 
-;

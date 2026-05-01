@@ -29,7 +29,6 @@ import {
 
 const log = withScope("wfmIpc");
 
-// ── Shared WFM error handler ──────────────────────────────────────────────────
 
 async function withWfmError<T>(
   label: string,
@@ -46,7 +45,6 @@ async function withWfmError<T>(
   }
 }
 
-// ── WFM DM notification helper ────────────────────────────────────────────────
 
 function _handleWfmEvent(route: string, payload: unknown): void {
   if (!ctx.overlaySettings?.wfmNotificationsEnabled) return;

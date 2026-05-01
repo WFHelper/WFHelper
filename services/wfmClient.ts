@@ -19,9 +19,8 @@ const log = withScope("wfmClient");
  *     alone satisfies the CSRF check (no X-CSRFToken header needed).
  */
 
-// ── Interfaces ────────────────────────────────────────────────────────────────
 
-export interface WfmRequestOptions {
+interface WfmRequestOptions {
   json?: unknown;
   headers?: Record<string, string>;
 }
@@ -37,7 +36,7 @@ export class WfmApiError extends Error {
   }
 }
 
-export interface WfmResponseLike {
+interface WfmResponseLike {
   ok: boolean;
   status: number;
   headers: { get(name: string): string | null };
@@ -45,12 +44,11 @@ export interface WfmResponseLike {
   text(): Promise<string>;
 }
 
-export interface WfmRawResponse {
+interface WfmRawResponse {
   res: WfmResponseLike;
   body: unknown;
 }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
 
 const BASE_URL = "https://api.warframe.market/v1";
 const BASE_URL_V2 = "https://api.warframe.market/v2";
@@ -70,7 +68,6 @@ const WFM_BASE_HEADERS: Readonly<Record<string, string>> = {
   Language: "en",
 };
 
-// ── Rate-limit queue ──────────────────────────────────────────────────────────
 
 let _queue: Promise<void> = Promise.resolve();
 let _lastRequestAt = 0;
@@ -108,7 +105,6 @@ function enqueue<T>(fn: () => Promise<T>): Promise<T> {
   return result;
 }
 
-// ── CSRF token ────────────────────────────────────────────────────────────────
 
 let _csrfToken: string | null = null;
 let _cookieJwt: string | null = null;
@@ -168,7 +164,6 @@ export function clearCsrfToken(): void {
   _cookieJwt = null;
 }
 
-// ── Low-level HTTPS helper ────────────────────────────────────────────────────
 
 function _nodeRequest(
   method: string,
@@ -257,7 +252,6 @@ function _nodeRequest(
   });
 }
 
-// ── Token accessor (injected by wfmSession) ───────────────────────────────────
 
 let _getToken: () => string | null = () => null;
 
@@ -265,7 +259,6 @@ export function setTokenProvider(fn: () => string | null): void {
   _getToken = fn;
 }
 
-// ── Core request ──────────────────────────────────────────────────────────────
 
 interface CoreRequestOptions {
   json?: unknown;

@@ -26,7 +26,6 @@ const RECONNECT_CAP_MS = 60_000;
 const RECONNECT_JITTER_MS = 500;
 const PING_INTERVAL_MS = 30_000;
 
-// ── State ─────────────────────────────────────────────────────────────────────
 
 let _active = false;
 let _token: string | null = null;
@@ -36,7 +35,6 @@ let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let _socket: ReturnType<typeof tls.connect> | null = null;
 let _pingTimer: ReturnType<typeof setInterval> | null = null;
 
-// ── Internal helpers ──────────────────────────────────────────────────────────
 
 function _clearTimers(): void {
   if (_reconnectTimer) {
@@ -237,7 +235,6 @@ function _connect(token: string): void {
   });
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
 
 /**
  * Start the persistent WFM WebSocket listener.

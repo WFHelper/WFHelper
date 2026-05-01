@@ -21,16 +21,15 @@ import type { TradeMatchPayload } from "../config/shared/tradeMatch";
 
 const log = withScope("tradeWfmMatcher");
 
-export interface ParsedTradeForMatching {
+interface ParsedTradeForMatching {
   partner: string;
   platChange: number;
   type: TradeType;
   items: Array<{ displayName: string; count: number; direction: TradeDirection }>;
 }
 
-export type WfmTradeMatch = TradeMatchPayload;
+type WfmTradeMatch = TradeMatchPayload;
 
-// ── Constants ─────────────────────────────────────────────────────────────────
 
 /** AlecaFrame caps quantity at 6 per close */
 const MAX_CLOSE_QUANTITY = 6;
@@ -39,7 +38,6 @@ const MAX_CLOSE_QUANTITY = 6;
 const _recentlyClosedOrders = new Map<string, number>();
 const CLOSE_DEDUP_MS = 30_000;
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function normalizeName(name: string): string {
   return normalizeForSearch(name.replace(/ Blueprint$/i, ""));
@@ -52,7 +50,6 @@ function cleanupRecentlyClosed(): void {
   }
 }
 
-// ── Core matcher ──────────────────────────────────────────────────────────────
 
 /**
  * Attempt to match a completed trade against the user's active WFM orders.

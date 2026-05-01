@@ -13,7 +13,6 @@ const log = withScope("wfmCatalog");
  * Exposes lookups used by order forms and the renderer item-link mapping IPC.
  */
 
-// ── Constants ─────────────────────────────────────────────────────────────────
 
 const WFM_ITEM_URL_BASE = "https://warframe.market/items/";
 const ITEM_PATH_CANDIDATES: ReadonlyArray<string> = Object.freeze([
@@ -25,7 +24,6 @@ const SLUG_SET_SUFFIX_RE = /_set$/;
 const SEARCH_MIN_QUERY_LENGTH = 2;
 const SEARCH_SCAN_MULTIPLIER = 2;
 
-// ── State ─────────────────────────────────────────────────────────────────────
 
 interface CatalogItem {
   id: string | null;
@@ -45,7 +43,6 @@ let _byGameRefLc = new Map<string, CatalogItem>();
 let _loaded = false;
 let _loading: Promise<void> | null = null;
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function _unwrap(obj: unknown): unknown {
   if (!obj || typeof obj !== "object") return null;
@@ -88,7 +85,6 @@ function _normalise(raw: unknown): CatalogItem {
   };
 }
 
-// ── Loader ────────────────────────────────────────────────────────────────────
 
 async function _load(): Promise<void> {
   if (_loaded) return;
@@ -160,7 +156,6 @@ async function _load(): Promise<void> {
   return _loading;
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
 
 export async function searchItems(
   query: string,

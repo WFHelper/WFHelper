@@ -37,7 +37,7 @@ export { buildOrderSummaryPayload, fetchRankedSummaryCatalog } from './prewarmCa
 
 const UNTRADABLE_SKIP_TTL_SEC = 30 * 24 * 60 * 60;
 
-export interface FetchResult<T> {
+interface FetchResult<T> {
 	data: T | null;
 	/** true when the failure is transient (429/5xx) — do NOT negatively cache. */
 	transient: boolean;

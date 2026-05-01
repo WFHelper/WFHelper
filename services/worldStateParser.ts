@@ -378,7 +378,6 @@ async function fetchEarthCycle(): Promise<{ isDay: boolean; timeLeft: string; ex
   }
 }
 
-// ─── Bounty syndicates worth showing (have open-world jobs) ────────────────
 const BOUNTY_SYNDICATES = new Set([
   "Ostrons",         // CetusSyndicate
   "Solaris United",  // SolarisSyndicate
@@ -388,14 +387,12 @@ const BOUNTY_SYNDICATES = new Set([
   "The Hex",         // HexSyndicate
 ]);
 
-// ─── Raw-world-state bounty syndicates (have explicit Jobs array) ──────────
 const RAW_BOUNTY_SYNDICATES: Record<string, string> = {
   CetusSyndicate: "Ostrons",
   SolarisSyndicate: "Solaris United",
   EntratiSyndicate: "Entrati",
 };
 
-// ─── Seed-generated bounty syndicates (from oracle bounty-cycle) ───────────
 // These syndicates don't have Jobs in the raw world state — they're procedurally
 // generated from a seed. oracle.browse.wf/bounty-cycle pre-computes the node
 // assignments. Standing tiers are static per syndicate tier index.
@@ -519,7 +516,6 @@ async function fetchWarframestatExtras(): Promise<{
   return result;
 }
 
-// ─── Parse seed-generated bounties from oracle bounty-cycle ────────────────
 
 // Dict key prefixes for challenge description lookup (tried in order)
 const CHALLENGE_DESC_PREFIXES = [
@@ -892,7 +888,6 @@ export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> {
     ],
   };
 
-  // ─── Bounties from raw SyndicateMissions (Ostrons, Solaris, Entrati) ───
   const rawBounties = (raw.SyndicateMissions || [])
     .filter((sm) => {
       const displayName = RAW_BOUNTY_SYNDICATES[sm.Tag];
@@ -920,7 +915,6 @@ export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> {
       }),
     }));
 
-  // ─── Invasions from raw world state ───────────────────────────────────
   const rawInvasions = (raw.Invasions || [])
     .filter((inv) => !inv.Completed)
     .map((inv) => {

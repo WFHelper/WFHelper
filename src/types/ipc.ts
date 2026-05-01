@@ -18,7 +18,7 @@ import type {
 import type { RelicDatabase } from "./relics.js";
 import type { WorldState } from "./world.js";
 
-export interface CycleAlerts {
+interface CycleAlerts {
   earth: boolean;
   cetus: boolean;
   vallis: boolean;
@@ -52,7 +52,7 @@ export interface OverlaySettings {
   showTradeNotification: boolean;
 }
 
-export type AppUpdateStatus =
+type AppUpdateStatus =
   | "idle"
   | "disabled"
   | "checking"
@@ -76,26 +76,26 @@ export interface AppUpdateState {
   timestamp: number;
 }
 
-export interface AppUpdateCheckResult {
+interface AppUpdateCheckResult {
   ok: boolean;
   source?: string;
   message?: string;
   state: AppUpdateState;
 }
 
-export interface AppUpdateInstallResult {
+interface AppUpdateInstallResult {
   ok: boolean;
   message?: string;
 }
 
-export interface InventoryReadError {
+interface InventoryReadError {
   kind: "parse" | "read";
   message: string;
   path: string;
   at: number;
 }
 
-export interface InventoryStatus {
+interface InventoryStatus {
   path: string | null;
   found: boolean;
   /**
@@ -136,26 +136,25 @@ export type WfmItemsLookup = Record<
 >;
 export type ItemDbLookup = Record<string, ItemDbEntry>;
 
-export type WfmOrderResult = WfmOrder | WfmMutationError;
-export type WfmDeleteOrderResult = WfmDeleteResult | WfmMutationError;
-export type WfmSetVisibleResult = Array<WfmOrder | WfmMutationError>;
-export type WfmOrdersResponse = WfmOrdersResult | WfmMutationError;
-export type WfmContractsResponse = WfmContractsResult | WfmMutationError;
-export type WfmSearchResponse = WfmSearchItem[] | WfmMutationError;
-export type WfmLookupItemResponse = WfmLookupItem | WfmMutationError;
-export type WfmStatusResponse = WfmStatusResult | WfmMutationError;
-export type WfmSessionResponse = WfmSession;
-export type WfmSignInResponse = WfmSession;
-export type WfmMeResponse = WfmUserProfile | WfmMutationError | null;
+type WfmOrderResult = WfmOrder | WfmMutationError;
+type WfmDeleteOrderResult = WfmDeleteResult | WfmMutationError;
+type WfmSetVisibleResult = Array<WfmOrder | WfmMutationError>;
+type WfmOrdersResponse = WfmOrdersResult | WfmMutationError;
+type WfmContractsResponse = WfmContractsResult | WfmMutationError;
+type WfmSearchResponse = WfmSearchItem[] | WfmMutationError;
+type WfmLookupItemResponse = WfmLookupItem | WfmMutationError;
+type WfmStatusResponse = WfmStatusResult | WfmMutationError;
+type WfmSessionResponse = WfmSession;
+type WfmSignInResponse = WfmSession;
+type WfmMeResponse = WfmUserProfile | WfmMutationError | null;
 
 import type {
   CreateRivenAuctionPayload,
   DecodedRiven,
-  DecodedRivenStat,
   VeiledRivenEntry,
   VeiledRivenGroup,
 } from "../../config/shared/rivenTypes.js";
-export type { CreateRivenAuctionPayload, DecodedRiven, DecodedRivenStat, VeiledRivenEntry, VeiledRivenGroup };
+export type { CreateRivenAuctionPayload, DecodedRiven, VeiledRivenEntry, VeiledRivenGroup };
 
 export interface IpcInvokeMap {
   getInventory: {
@@ -356,7 +355,7 @@ export interface RivenBestAttributes {
 }
 
 
-export interface RivenResult {
+interface RivenResult {
   unveiled: DecodedRiven[];
   veiled: VeiledRivenEntry[];
   veiledUnseen: VeiledRivenGroup[];
@@ -373,7 +372,7 @@ export interface WfmRivenListing {
   isDirectSell: boolean;
 }
 
-export interface WfmNotification {
+interface WfmNotification {
   type: "whisper" | "trade";
   from: string;
   content: string;
@@ -384,17 +383,16 @@ import type {
   DailyStatEntry,
   DownloadStage,
   SessionStats,
-  TradeDirection,
   TradeEvent,
   TradeItem,
   TradeType,
 } from "../../config/shared/statsTypes.js";
 import type { TradeMatchPayload } from "../../config/shared/tradeMatch.js";
-export type { DailyStatEntry, DownloadStage, SessionStats, TradeDirection, TradeEvent, TradeItem, TradeType };
+export type { DailyStatEntry,  SessionStats,  TradeEvent, TradeItem, TradeType };
 
-export type WfmTradeMatchEvent = TradeMatchPayload;
+type WfmTradeMatchEvent = TradeMatchPayload;
 
-export interface TradeRecordedEvent {
+interface TradeRecordedEvent {
   trade: TradeEvent;
   wfmMatch: WfmTradeMatchEvent | null;
 }

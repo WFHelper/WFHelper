@@ -12,7 +12,6 @@ import {
   RIVEN_ROLL_RESULT, RIVEN_CHOICE_MADE, RIVEN_SESSION_END,
 } from "../../config/shared/ipcChannels";
 
-// ── Session state ──────────────────────────────────────────────────────────
 
 let _weaponName = "";
 let _kuvaPerRoll = 0;
@@ -21,7 +20,6 @@ let _totalKuvaSpent = 0;
 
 let _active = false;
 
-// ── Helpers ────────────────────────────────────────────────────────────────
 
 type WindowRef = BrowserWindow | null;
 
@@ -32,7 +30,6 @@ function sendToWindows(wins: WindowRef[], channel: string, ...args: unknown[]): 
   }
 }
 
-// ── Public API ─────────────────────────────────────────────────────────────
 
 /**
  * Called when the OmegaRerollSelection screen is detected and weapon/cost

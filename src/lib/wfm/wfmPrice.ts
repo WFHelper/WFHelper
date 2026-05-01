@@ -33,7 +33,7 @@ type PriceStatus = "ok" | "no_data" | "no_slug" | "transient";
 type PriceCacheUpdateStatus = "ok" | "no_data";
 type PriceCacheUpdateListener = (slug: string, status: PriceCacheUpdateStatus) => void;
 export type RequestPriority = "high" | "normal" | "low";
-export interface FetchPriceOptions {
+interface FetchPriceOptions {
   priority?: RequestPriority;
   allowSetFallback?: boolean;
   rank?: number | null;
@@ -169,14 +169,14 @@ export function getPriceQueueStats(): PriceQueueStats {
   };
 }
 
-export interface PriceBySlugResult {
+interface PriceBySlugResult {
   status: PriceStatus;
   slug: string | null;
   median: number | null;
   timestamp?: number;
 }
 
-export interface PriceByNameResult {
+interface PriceByNameResult {
   median: number;
   slug: string;
   timestamp: number;

@@ -1,4 +1,4 @@
-export interface CycleAlerts {
+interface CycleAlerts {
   earth: boolean;
   cetus: boolean;
   vallis: boolean;
@@ -6,7 +6,7 @@ export interface CycleAlerts {
   duviri: boolean;
 }
 
-export interface FissureAlert {
+interface FissureAlert {
   id: string;
   tier: string;
   missionType: string;

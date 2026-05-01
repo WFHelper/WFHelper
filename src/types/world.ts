@@ -34,20 +34,20 @@ export interface VaultTrader {
   [key: string]: unknown;
 }
 
-export interface DuviriChoiceSet {
+interface DuviriChoiceSet {
   category: string;
   choices: string[];
   [key: string]: unknown;
 }
 
-export interface DuviriCycle {
+interface DuviriCycle {
   state?: string;
   expiry?: string;
   choices?: DuviriChoiceSet[];
   [key: string]: unknown;
 }
 
-export interface InvasionReward {
+interface InvasionReward {
   items: string[];
   countedItems: { count: number; type: string }[];
   credits: number;
@@ -64,7 +64,7 @@ export interface Invasion {
   completed: boolean;
 }
 
-export interface BountyJob {
+interface BountyJob {
   type: string;
   enemyLevels: [number, number];
   standingStages: number[];
@@ -79,7 +79,7 @@ export interface SyndicateBounty {
   jobs: BountyJob[];
 }
 
-export interface SteelPathReward {
+interface SteelPathReward {
   name: string;
   cost: number;
 }

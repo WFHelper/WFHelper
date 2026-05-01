@@ -21,7 +21,7 @@ export interface WfmItemMeta {
   timestamp: number;
 }
 
-export interface FetchMetaOptions {
+interface FetchMetaOptions {
   priority?: BackendRequestPriority;
 }
 

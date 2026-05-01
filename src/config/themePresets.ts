@@ -1,7 +1,7 @@
 import type { ThemeColors, ThemeEffects, ThemeFontSizes } from "../types/theme.js";
 import { DEFAULT_COLORS, DEFAULT_EFFECTS, DEFAULT_FONT_SIZES } from "./themeDefaults.js";
 
-export interface ThemePreset {
+interface ThemePreset {
   label: string;
   colors: ThemeColors;
   fontSizes: ThemeFontSizes;

@@ -17,7 +17,7 @@ export interface ItemOrderBook {
   timestamp: number;
 }
 
-export type ItemOrderBookResult =
+type ItemOrderBookResult =
   | { status: "ok"; data: ItemOrderBook }
   | { status: "not_found"; slug: string }
   | { status: "error"; slug: string };

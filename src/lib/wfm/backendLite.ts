@@ -15,7 +15,6 @@ const RAW_BACKEND_URL = (import.meta.env.VITE_WFM_BACKEND_URL || BACKEND_URL).tr
 const BACKEND_BASE_URL = RAW_BACKEND_URL.replace(/\/+$/, "");
 const REQUEST_TIMEOUT_MS = 3500;
 
-// ── Bootstrap token ─────────────────────────────────────────────────────────
 // When VITE_WFM_BACKEND_BOOTSTRAP_ENABLED=1 the client fetches a short-lived
 // HMAC-signed token from /v1/bootstrap and attaches it to every subsequent
 // backend request via x-wfhelper-bootstrap.  The server binds the token to the
@@ -120,14 +119,14 @@ export function shouldDirectFallback(priority: BackendRequestPriority): boolean 
   return priority === "high";
 }
 
-export interface BackendPricePayload {
+interface BackendPricePayload {
   slug: string;
   median: number;
   rank: number | null;
   timestamp: number | null;
 }
 
-export interface BackendMetaPayload {
+interface BackendMetaPayload {
   slug: string;
   ducats: number | null;
   setRoot: boolean;

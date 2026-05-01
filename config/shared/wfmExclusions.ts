@@ -50,4 +50,3 @@ export function isWfmExcludedSlug(slug: unknown): boolean {
   return WFM_EXCLUDED_SLUGS.has(slug);
 }
 
-;

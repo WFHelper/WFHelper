@@ -1,8 +1,8 @@
 import { writable } from "svelte/store";
 
-export type ToastLevel = "info" | "success" | "warning" | "error";
+type ToastLevel = "info" | "success" | "warning" | "error";
 
-export interface ToastInput {
+interface ToastInput {
   level?: ToastLevel;
   title?: string;
   message: string;
@@ -10,7 +10,7 @@ export interface ToastInput {
   sticky?: boolean;
 }
 
-export interface Toast {
+interface Toast {
   id: number;
   level: ToastLevel;
   title: string;

@@ -25,7 +25,6 @@ import { withScope } from "./logger";
 
 const log = withScope("rivenOcrOnnx");
 
-// ── Model path resolution ─────────────────────────────────────────────────────
 
 function resolveYoloModelPath(): string {
   const candidates = [
@@ -54,7 +53,6 @@ function resolveChDictPath(): string {
   return candidates.find(existsSync) ?? candidates[0];
 }
 
-// ── ONNX session type (lazy-loaded via require, cannot import directly) ──────
 
 /** Minimal interface matching onnxruntime-node InferenceSession */
 interface OrtInferenceSession {
@@ -63,7 +61,6 @@ interface OrtInferenceSession {
   run(feeds: Record<string, unknown>): Promise<Record<string, { data: Float32Array; dims: number[] }>>;
 }
 
-// ── Lazy ONNX sessions ───────────────────────────────────────────────────────
 
 let _yoloSessionPromise: Promise<OrtInferenceSession> | null = null;
 let _yoloInputName = "";
@@ -165,7 +162,6 @@ export function rivenOcrOnnxAvailable(): boolean {
   return existsSync(resolveYoloModelPath()) && existsSync(resolveChRecModelPath());
 }
 
-// ── YOLO stat-line detection ──────────────────────────────────────────────────
 
 interface YoloBox {
   y1: number;
@@ -308,7 +304,6 @@ async function yoloDetectStatLines(
   }));
 }
 
-// ── Crop extraction + upscaling ───────────────────────────────────────────────
 
 const MAX_STAT_CROP_HEIGHT = 80;
 const MIN_OCR_WIDTH = 1200;
@@ -379,10 +374,9 @@ async function extractAndUpscaleCrops(
   return upscaled;
 }
 
-// ── PaddleOCR CH v3 recognition ───────────────────────────────────────────────
 
 /** Per-line OCR result with confidence score. */
-export interface OcrLineResult {
+interface OcrLineResult {
   text: string;
   confidence: number;
 }
@@ -498,7 +492,6 @@ async function recognizeCropsBatch(crops: RgbCrop[]): Promise<OcrLineResult[]> {
   return results;
 }
 
-// ── Postprocessing ────────────────────────────────────────────────────────────
 
 /**
  * Deterministic corrections for known PaddleOCR CH misreads.
@@ -549,7 +542,6 @@ function postprocessOcrText(text: string): string {
   return text;
 }
 
-// ── Split-line merging ────────────────────────────────────────────────────────
 
 const SPLIT_STAT_TAILS: Record<string, string> = {
   "slide attack":           "Critical Chance for Slide Attack",
@@ -625,7 +617,6 @@ function mergeSplitLines(lines: string[]): string[] {
   return merged;
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
 
 /** Full result from the YOLO + PaddleOCR pipeline. */
 export interface RivenOcrResult {

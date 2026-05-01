@@ -32,9 +32,8 @@ import {
 
 const log = withScope("rivenGrading");
 
-// ── Types ────────────────────────────────────────────────────────────────────
 
-export interface GradedStat {
+interface GradedStat {
   name: string;
   positive: boolean;
   value: number | null;
@@ -50,7 +49,6 @@ export interface RivenGradeResult {
   attributeGrade: string;
 }
 
-// ── Constants ────────────────────────────────────────────────────────────────
 
 /** Default riven max rank. Most rivens are rank 8 (lvl 0..8). */
 const DEFAULT_LVL = 8;
@@ -73,7 +71,6 @@ const GRADE_THRESHOLDS: { min: number; grade: string }[] = [
   { min: -9.5, grade: "C-" },
 ];
 
-// ── Math helpers ─────────────────────────────────────────────────────────────
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
@@ -88,7 +85,6 @@ function clamp01(v: number): number {
   return Math.max(0, Math.min(1, v));
 }
 
-// ── Grading functions ────────────────────────────────────────────────────────
 
 /**
  * Convert a 0–1 roll float to a letter grade.
@@ -208,7 +204,6 @@ export function unparseCurse(
   return clamp01(rollFloat);
 }
 
-// ── Attribute-based grading ─────────────────────────────────────────────────
 
 /**
  * Per-attribute grade. Mirrors AlecaFrame's `AlecaFrameAttributeGrade`:

@@ -10,9 +10,7 @@ import { withScope } from "./logger";
 
 const log = withScope("gdiCapture");
 
-// ---------------------------------------------------------------------------
 // koffi imports — resolved lazily so module loads even if koffi is missing
-// ---------------------------------------------------------------------------
 let _koffi: typeof import("koffi") | null = null;
 
 function koffi(): typeof import("koffi") {
@@ -20,10 +18,8 @@ function koffi(): typeof import("koffi") {
   return _koffi;
 }
 
-// ---------------------------------------------------------------------------
 // Public capture result interface
-// ---------------------------------------------------------------------------
-export interface GdiCaptureResult {
+interface GdiCaptureResult {
   /** BGRA pixel buffer (compatible with Electron nativeImage.createFromBitmap) */
   buffer: Buffer;
   width: number;
@@ -32,9 +28,7 @@ export interface GdiCaptureResult {
   displayId: string;
 }
 
-// ---------------------------------------------------------------------------
 // GDI screen capture via BitBlt — guaranteed fresh frame
-// ---------------------------------------------------------------------------
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- native FFI bindings, return types unknown at compile time */
 let _gdiFns: {

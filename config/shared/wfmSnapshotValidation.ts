@@ -2,7 +2,7 @@ const SNAPSHOT_VERSION = 1;
 const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
 const MAX_SNAPSHOT_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
-export interface ValidSnapshotBlob {
+interface ValidSnapshotBlob {
   version: number;
   generatedAt: number;
   prices: Record<string, unknown>;

@@ -217,7 +217,7 @@ export function buildFeaturedPrimes(
   return featured;
 }
 
-export interface CircuitChoice {
+interface CircuitChoice {
   name: string;
   imageUrl: string;
   owned: boolean;

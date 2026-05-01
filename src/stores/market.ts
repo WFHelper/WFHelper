@@ -22,7 +22,7 @@ export const marketContracts = writable<WfmContractsResult>({
   hasMore: false,
 });
 
-export interface MarketViewState {
+interface MarketViewState {
   typeTab: MarketTab;
   status: WfmStatus | null;
   ordersLastFetch: number;

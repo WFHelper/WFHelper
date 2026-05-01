@@ -2,7 +2,7 @@ import { writable } from "svelte/store";
 import type { ComponentInfo, ParsedItem } from "../types/inventory.js";
 import type { RelicGroup } from "../types/relics.js";
 
-export interface ActiveComponentState {
+interface ActiveComponentState {
   comp: ComponentInfo;
   parentName: string;
 }

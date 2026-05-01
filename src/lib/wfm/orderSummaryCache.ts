@@ -4,7 +4,7 @@ import { normalizeRankFilter, toFiniteNonNegativeInt } from "../../../config/sha
 const ORDER_SUMMARY_FRESH_TTL_MS = 12 * 60 * 60 * 1000;
 const ORDER_SUMMARY_STALE_TTL_MS = 48 * 60 * 60 * 1000;
 
-export type CachedOrderSummaryStatus = "ok" | "no_data";
+type CachedOrderSummaryStatus = "ok" | "no_data";
 
 export interface CachedOrderSummaryEntry {
   status: CachedOrderSummaryStatus;

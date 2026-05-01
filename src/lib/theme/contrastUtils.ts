@@ -3,7 +3,7 @@
  * All colour inputs are CSS hex strings (#rgb or #rrggbb) or rgb()/rgba() strings.
  */
 
-export interface Rgb {
+interface Rgb {
   r: number;
   g: number;
   b: number;

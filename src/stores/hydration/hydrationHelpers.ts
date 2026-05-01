@@ -1,9 +1,7 @@
 import type { InventoryBaseItem, ItemMetrics } from "../../lib/inventoryMarket.js";
 import { normalizeRank, isRankedGroup } from "../../../config/shared/numeric.js";
 
-// ---------------------------------------------------------------------------
 // Rank resolution
-// ---------------------------------------------------------------------------
 
 export function resolvePriceRank(item: InventoryBaseItem): number | null {
   if (!isRankedGroup(item.inventoryGroup)) return null;
@@ -28,9 +26,7 @@ export function resolveRankedMaxRank(item: InventoryBaseItem): number | null {
   return fallbackMaxRank;
 }
 
-// ---------------------------------------------------------------------------
 // Key builders
-// ---------------------------------------------------------------------------
 
 export function priceRetryKey(itemKey: string, rank: number | null): string {
   return rank == null ? itemKey : `${itemKey}:r${rank}`;
@@ -40,9 +36,7 @@ export function orderRetryKey(itemKey: string, rank: number): string {
   return `${itemKey}:order:r${rank}`;
 }
 
-// ---------------------------------------------------------------------------
 // Metric inspection
-// ---------------------------------------------------------------------------
 
 export function itemPriceRank(metric: ItemMetrics | undefined): number | null {
   return normalizeRank(metric?.priceRank) ?? null;
@@ -79,9 +73,7 @@ export function hasRankPairCoverage(
   return metric?.hasOrdersR0 === true && metric?.hasOrdersRmax === true;
 }
 
-// ---------------------------------------------------------------------------
 // Order helpers
-// ---------------------------------------------------------------------------
 
 export function isActiveOrderStatus(status: string | null): boolean {
   return status === "ingame" || status === "online";

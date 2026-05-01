@@ -12,9 +12,8 @@ import * as wfmClient from "./wfmClient";
 
 const log = withScope("wfmRivenSearch");
 
-// ── Types ────────────────────────────────────────────────────────────────────
 
-export interface WfmRivenListing {
+interface WfmRivenListing {
   id: string;
   seller: string;
   platinum: number;
@@ -25,7 +24,6 @@ export interface WfmRivenListing {
   isDirectSell: boolean;
 }
 
-// ── Cache ────────────────────────────────────────────────────────────────────
 
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const MAX_CACHE_ENTRIES = 50;
@@ -47,7 +45,6 @@ function pruneCache(): void {
   }
 }
 
-// ── Search ───────────────────────────────────────────────────────────────────
 
 let _loggedWfmName = false;
 
@@ -177,7 +174,6 @@ export async function searchSimilarRivens(
   }
 }
 
-// ── Auction creation ─────────────────────────────────────────────────────────
 
 interface CreateAuctionOpts {
   weaponSlug: string;

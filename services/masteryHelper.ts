@@ -21,7 +21,6 @@ function debugLog(_message: string, _payload?: unknown): void {
   if (!debugMode) return;
 }
 
-// ─── Category classification ─────────────────────────────────────────────
 
 const MASTERABLE_DB_CATEGORIES = new Set(["Warframe", "Weapon", "Companion", "Railjack"]);
 
@@ -65,7 +64,6 @@ const PATH_CATEGORY_RULES: Array<{ pattern: RegExp; category: string }> = [
   { pattern: /\/Melee\//i, category: "Melee" },
 ];
 
-// ─── Keyword tagging for search ──────────────────────────────────────────
 
 const KEYWORD_RULES: Array<{ pattern: RegExp; keywords: string[] }> = [
   { pattern: /\/ModularMelee\b|\/Ostron.*Melee|\/InfZaw|\/Zaw/i, keywords: ["zaw", "modular"] },
@@ -215,7 +213,6 @@ function extractProfileMastery(
   return { rank, percentToNext };
 }
 
-// ─── Exclusion filter ────────────────────────────────────────────────────
 
 function getExcludeReason(uniqueName: string, name: string | null, item: { exalted?: boolean; productCategory?: string | null; type?: string }): string | null {
   if (uniqueName.includes("/Recipes/")) return "recipe";
@@ -257,7 +254,6 @@ function getExcludeReason(uniqueName: string, name: string | null, item: { exalt
   return null;
 }
 
-// ─── Category resolver ───────────────────────────────────────────────────
 
 function resolveDisplayCategoryInfo(
   item: { productCategory?: string | null; category?: string; type?: string },
@@ -304,7 +300,6 @@ function isAmpPrismMasterableOverride(item: { name?: string }, uniqueName: strin
   return n.includes(" prism");
 }
 
-// ─── Interfaces ───────────────────────────────────────────────────────────
 
 interface MasterableItem {
   name: string;
@@ -327,7 +322,6 @@ interface MasteryProgressItem extends MasterableItem {
   currentlyOwned: boolean;
 }
 
-// ─── Build masterable items list ─────────────────────────────────────────
 
 export function getAllMasterableItems(): MasterableItem[] {
   const allItems = itemDb.getAllItems();
@@ -399,7 +393,6 @@ export function getAllMasterableItems(): MasterableItem[] {
   return items;
 }
 
-// ─── Compare vs inventory ────────────────────────────────────────────────
 
 export function computeMasteryProgress(inventoryData: Record<string, unknown>): {
   items: MasteryProgressItem[];

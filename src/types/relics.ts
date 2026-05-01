@@ -27,7 +27,7 @@ export interface RelicGroup {
   [key: string]: unknown;
 }
 
-export interface RelicGroupLookup {
+interface RelicGroupLookup {
   groupKey: string;
   quality: RelicQuality;
 }
@@ -46,4 +46,3 @@ export interface OwnedQualityCounts {
 
 export type OwnedCounts = Record<string, OwnedQualityCounts>;
 
-export type EvCache = Map<string, number>;

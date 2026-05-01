@@ -23,37 +23,34 @@ import { app, safeStorage } from "electron";
 
 const log = withScope("wfmSession");
 
-// ── Interfaces ────────────────────────────────────────────────────────────────
 
-export interface SessionSummary {
+interface SessionSummary {
   loggedIn: boolean;
   userName: string | null;
   platform: string;
 }
 
-export interface SignInResult extends SessionSummary {
+interface SignInResult extends SessionSummary {
   loggedIn: true;
 }
 
-export interface SignOutResult {
+interface SignOutResult {
   loggedIn: false;
 }
 
-export interface SetStatusResult {
+interface SetStatusResult {
   status: WfmStatus;
 }
 
-export interface WfmUserProfile {
+interface WfmUserProfile {
   id: string;
   ingame_name: string;
   status: string;
   [key: string]: unknown;
 }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
 
 const SESSION_FILE = (): string => path.join(app.getPath("userData"), "wfm.session");
-// ── In-memory state ───────────────────────────────────────────────────────────
 
 let _token: string | null = null;
 let _userName: string | null = null;
@@ -62,7 +59,6 @@ let _platform = "pc";
 // Register the token provider so wfmClient can inject the JWT into requests
 setTokenProvider(() => _token);
 
-// ── Persistence helpers ───────────────────────────────────────────────────────
 
 function _saveSession(token: string, userName: string): void {
   try {
@@ -114,7 +110,6 @@ function _loadSession(): { token: string; userName: string; platform: string } |
   }
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
 
 /** Safely extract a nested value from an untyped WFM auth response (v1/v2 envelope). */
 function _authField<T>(body: unknown, key: string): T | undefined {

@@ -2,7 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BrowserWindow } from "electron";
 
-export interface HardenOptions {
+interface HardenOptions {
   label?: string;
   allowedFilePaths?: string[];
   log?: { warn: (...args: unknown[]) => void };

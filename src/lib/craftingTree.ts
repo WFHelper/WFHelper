@@ -17,7 +17,7 @@ export interface CraftingTreeNode {
   children: CraftingTreeNode[];
 }
 
-export interface CraftingTreeSummary {
+interface CraftingTreeSummary {
   totalCredits: number;
   minBuildTime: number;
   maxBuildTime: number;

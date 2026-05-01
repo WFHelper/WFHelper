@@ -31,7 +31,6 @@ import path from "node:path";
 const APP_ROOT = app.getAppPath();
 const RIVEN_WINDOW_FILE = path.join(APP_ROOT, "renderer", "riven-overlay.html");
 
-// ── Riven overlay windows (left = current, right = new roll) ─────────────────
 
 let _rivenInteractive = false;
 
@@ -199,7 +198,6 @@ let _rivenNewRollStats: rivenScan.RivenStat[] = [];
 // Weapon name — starts as "Riven" placeholder, updated when cycle dialog reveals it
 let _rivenWeaponName = "";
 
-// ── Riven grading + enrichment ──────────────────────────────────────────────
 
 /**
  * Try to grade stats using the current weapon name.
@@ -385,7 +383,6 @@ function triggerRollScan(delayMs = ROLL_SCAN_DELAY_MS, skipGate = true): void {
   }, delayMs);
 }
 
-// ── Exported riven callbacks (wired from main.ts via eeLogMonitor) ─────────────
 
 export function onRivenSessionClose(): void {
   log.log("[OverlayRoute] trigger=riven-session-close");
@@ -569,11 +566,9 @@ export function onRivenChoiceConfirmed(): void {
   }, CHOICE_RESCAN_DELAY_MS);
 }
 
-// ── Shared helpers (used by overlayIpc orchestrator) ─────────────────────────
 
 export { toggleRivenInteractiveMode, forEachRivenWindow,  };
 
-// ── IPC registration ─────────────────────────────────────────────────────────
 
 export function register(): void {
   onAuthorized(RIVEN_OVERLAY_CLOSE, assertRivenOverlayRendererSender, () => {

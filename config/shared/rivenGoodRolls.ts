@@ -1,6 +1,6 @@
-export type RivenGoodRollClass = "primary" | "secondary" | "melee" | "archgun" | "robotic";
+type RivenGoodRollClass = "primary" | "secondary" | "melee" | "archgun" | "robotic";
 
-export interface GoodRoll {
+interface GoodRoll {
   mandatory: string[];
   optional: string[];
 }
@@ -10,7 +10,7 @@ export interface GoodRollData {
   acceptedBadAttrs: string[];
 }
 
-export interface RivenGoodRollEntry extends GoodRollData {
+interface RivenGoodRollEntry extends GoodRollData {
   name: string;
 }
 

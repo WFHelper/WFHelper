@@ -109,15 +109,14 @@ let tradeConfirmedCallback: ((trade: ParsedLogTrade) => void) | null = null;
 export const RIVEN_PATTERNS = _RIVEN_PATTERNS;
 export const forceEndRivenSession = _forceEndRivenSession;
 
-// ── Trade dialog multi-line buffer ────────────────────────────────────────────
 
-export interface ParsedLogTradeItem {
+interface ParsedLogTradeItem {
   displayName: string;
   count: number;
   direction: TradeDirection;
 }
 
-export interface ParsedLogTrade {
+interface ParsedLogTrade {
   partner: string;
   platChange: number;
   type: TradeType;
@@ -267,7 +266,6 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
     }
   }
 
-  // ── Trade dialog buffering ─────────────────────────────────────────────────
   // AlecaFrame behavior: start buffering on the dialog description line.
   // Stop buffering when a new log-framework prefix appears ([Info]/[Error]/[Warning]).
   // Single-line dialogs (ending with leftItem=/Menu/Confirm_Item_Ok) are handled immediately.
@@ -298,11 +296,9 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
     }
   }
 
-  // ── Riven rolling session ──────────────────────────────────────────────────
   // Delegate to the riven state machine — returns whether SendResult was consumed.
   processRivenPatterns(line, source, isDbwinActive());
 
-  // ── Relic picker close detection ────────────────────────────────────────────
   // InitMapping fires when the game returns to gameplay from any full-screen UI.
   // Guard against riven session (SendResult during riven belongs to the riven flow)
   // and against file-poll duplicates when DBWIN is active.

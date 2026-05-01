@@ -17,14 +17,11 @@ import { withScope } from "./logger";
 
 const log = withScope("statsTracker");
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 
 // Single source of truth for DailyStatEntry and SessionStats.
 // Re-exported so existing consumers importing from this module keep working.
 import type { DailyStatEntry, SessionStats } from "../config/shared/statsTypes";
-export type { DailyStatEntry, SessionStats };
 
-// ── State ─────────────────────────────────────────────────────────────────────
 
 // Session baselines (set on first inventory update)
 let _baselinePlat: number | null = null;
@@ -65,7 +62,6 @@ const HISTORY_MAX_DAYS = 90;
 const HISTORY_SCHEMA_VERSION = 2;
 let _historySchemaVersion = HISTORY_SCHEMA_VERSION;
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function _historyPath(): string {
   return path.join(app.getPath("userData"), "stats-history.json");
@@ -156,7 +152,6 @@ function _upsertToday(): void {
   _saveHistory();
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
 
 /**
  * Load persisted history from disk. Call once on app startup before registering IPC.
@@ -245,7 +240,6 @@ export function onInventoryData(data: Record<string, unknown>): void {
   // PrimeTokens is the raw field name for Aya in the Warframe inventory JSON
   const aya     = typeof data.PrimeTokens    === "number" ? data.PrimeTokens    : null;
 
-  // ── Relics opened tracking ───────────────────────────────────────────────
   // Relics (VoidProjection items) appear in LevelKeys for some inventory
   // export formats, but in modern Warframe exports they live in MiscItems.
   // We scan both arrays, counting only items whose ItemType path contains
@@ -294,7 +288,6 @@ export function onInventoryData(data: Record<string, unknown>): void {
   }
   _lastRelicTotal = relicTotal;
 
-  // ── Session baselines (set only once, at first inventory load) ───────────
   if (_baselinePlat    === null && plat    !== null) _baselinePlat    = plat;
   if (_baselineCredits === null && credits !== null) _baselineCredits = credits;
   if (_baselineEndo    === null && endo    !== null) _baselineEndo    = endo;

@@ -10,7 +10,6 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("rewardScanner");
 
-// ── 16:9 letterbox / pillarbox detection ─────────────────────────────────────
 // Warframe renders at 16:9.  On non-16:9 displays, black bars appear.
 // Detect them so crop ratios align to game content, not the full frame.
 
@@ -235,7 +234,7 @@ interface OcrVariant {
   image: NativeImage;
 }
 
-export interface RewardSlotRect {
+interface RewardSlotRect {
   index: number;
   x: number;
   y: number;
@@ -244,7 +243,7 @@ export interface RewardSlotRect {
   titleRect: { x: number; y: number; width: number; height: number };
 }
 
-export interface RewardSlotLayout {
+interface RewardSlotLayout {
   count: number;
   confidence: number;
   slots: RewardSlotRect[];

@@ -1,7 +1,6 @@
 import type { InventoryGroup, RawInventoryEntry } from "../../types/inventory.js";
 import { pickNumeric, deepFindNumericByKeys } from "./rankExtraction.js";
 
-// --- Equip context keys -----------------------------------------------------
 
 const EQUIP_CONTEXT_KEYS = new Set([
   "equippedon",
@@ -13,7 +12,6 @@ const EQUIP_CONTEXT_KEYS = new Set([
   "companionname",
 ]);
 
-// --- Boolean / amount helpers -----------------------------------------------
 
 export function pickBoolean(entry: RawInventoryEntry, keys: string[]): boolean | undefined {
   for (const key of keys) {
@@ -37,7 +35,6 @@ export function parseAmount(entry: RawInventoryEntry): number {
   return raw > 0 ? Math.floor(raw) : 1;
 }
 
-// --- Equip context extraction -----------------------------------------------
 
 function isDisplayableEquipContext(value: string): boolean {
   const trimmed = value.trim();
@@ -103,7 +100,6 @@ export function extractEquipContexts(entry: RawInventoryEntry): string[] {
   return [...contexts].slice(0, 4);
 }
 
-// --- Collection normalization -----------------------------------------------
 
 export function normalizeCollectionEntries(
   value: unknown,
@@ -134,7 +130,6 @@ export function normalizeCollectionEntries(
   return flattened;
 }
 
-// --- Group / merge helpers --------------------------------------------------
 
 export function preferGroup(
   current: InventoryGroup | undefined,

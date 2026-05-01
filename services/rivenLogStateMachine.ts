@@ -2,7 +2,6 @@ import { withScope } from "./logger";
 
 const log = withScope("rivenStateMachine");
 
-// ── Riven log patterns ────────────────────────────────────────────────────────
 
 export const RIVEN_PATTERNS = {
   sessionOpen: /Sys \[Info\]: Created \/Lotus\/Interface\/OmegaRerollSelection\.swf/,
@@ -22,9 +21,8 @@ export const RIVEN_PATTERNS = {
   recycledEffects: /ytes of recycled effects/,
 } as const;
 
-// ── Callbacks ─────────────────────────────────────────────────────────────────
 
-export interface RivenCallbacks {
+interface RivenCallbacks {
   onRivenSessionOpen: (() => void) | null;
   onRivenSessionClose: (() => void) | null;
   onRivenChatView: (() => void) | null;
@@ -48,7 +46,6 @@ export function setRivenCallbacks(cbs: Partial<RivenCallbacks>): void {
   _callbacks = { ..._callbacks, ...cbs };
 }
 
-// ── State ─────────────────────────────────────────────────────────────────────
 
 let _rivenPendingDialog: "roll_confirm" | "choice" | null = null;
 let _rivenSessionActive = false;
@@ -95,7 +92,6 @@ let _lastHudVis = 0;
 let _lastHudVisIncreaseAt = 0;
 const CHAT_RIVEN_POPULATE_WINDOW_MS = 2_000;
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function resetRivenIdleTimer(): void {
   if (_rivenSessionIdleTimer) clearTimeout(_rivenSessionIdleTimer);
@@ -136,7 +132,6 @@ function forceEndRivenSessionIfExpired(): boolean {
   return true;
 }
 
-// ── Core processing ───────────────────────────────────────────────────────────
 
 /**
  * Process a single EE.log line for riven-related patterns.
@@ -206,7 +201,6 @@ export function processRivenPatterns(
     if (typeof _callbacks.onRivenSessionClose === "function") _callbacks.onRivenSessionClose();
   }
 
-  // ── Riven chat-link view (two-step AlecaFrame-style detection) ──────────
   // Step 1: Track HudVis changes. On increment, record timestamp.
   // Step 2: If PopulateInfo with Randomized mod path appears within 2s, it's a riven.
   // On decrement, close the chat riven view.
@@ -239,7 +233,6 @@ export function processRivenPatterns(
     if (typeof _callbacks.onRivenChatView === "function") _callbacks.onRivenChatView();
   }
 
-  // ── Dialog detection (two layers) ─────────────────────────────────────────
   let rivenDialogHandled = skipRivenFromFilePoll;
 
   const rivenCycleMatch = !skipRivenFromFilePoll ? line.match(RIVEN_PATTERNS.cycleConfirmEn) : null;
@@ -288,7 +281,6 @@ export function processRivenPatterns(
     }
   }
 
-  // ── SendResult handling ───────────────────────────────────────────────────
   let sendResultConsumedByRiven = false;
 
   const sendResultMatch = line.match(RIVEN_PATTERNS.sendResult);
@@ -327,7 +319,6 @@ export function processRivenPatterns(
   return sendResultConsumedByRiven;
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
 
 export function isRivenSessionActive(): boolean {
   return _rivenSessionActive;

@@ -185,7 +185,6 @@ let wfcdItemsByUniqueName: Record<string, ItemEntry> = {};
 /** Maps resultType (the produced item's uniqueName) → recipe data. */
 let recipesByResultType: Record<string, RecipeData> = {};
 
-// ─── Load English dictionary from public-export-plus ───────────────────────
 
 function loadDict(): Record<string, string> {
   const attempts: string[] = [];
@@ -238,7 +237,6 @@ function loadDict(): Record<string, string> {
   return {};
 }
 
-// ─── Load warframe-public-export-plus ──────────────────────────────────────
 
 function loadPublicExportPlus(): number {
   try {
@@ -344,7 +342,6 @@ function loadPublicExportPlus(): number {
   }
 }
 
-// ─── Load @wfcd/items ──────────────────────────────────────────────────────
 
 function loadWfcdItems(): number {
   try {
@@ -591,7 +588,6 @@ function loadWfcdItems(): number {
   }
 }
 
-// ─── Post-process: ensure all items have best possible image ───────────────
 
 function resolveAllImages(): void {
   let preResolved = 0;
@@ -642,7 +638,6 @@ function resolveAllImages(): void {
   }
 }
 
-// ─── Fallback name extraction ──────────────────────────────────────────────
 
 function extractFallbackName(uniqueName: string): string {
   if (!uniqueName) return "Unknown";
@@ -653,7 +648,6 @@ function extractFallbackName(uniqueName: string): string {
   return sanitizeDisplayName(name);
 }
 
-// ─── Build recipe index from ExportRecipes ─────────────────────────────────
 
 interface PepRecipeItem {
   resultType?: string;
@@ -691,7 +685,6 @@ function buildRecipeIndex(): void {
   }
 }
 
-// ─── Public API ────────────────────────────────────────────────────────────
 
 export function buildDatabase(): void {
   log.time("[ItemDB] Total build time");

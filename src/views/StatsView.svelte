@@ -30,7 +30,6 @@
     labelStep,
   } from "../lib/stats/chartData.js";
 
-  // ── Data state ───────────────────────────────────────────────────────────────
 
   let session: SessionStats | null = null;
   let history: DailyStatEntry[] = [];
@@ -100,7 +99,6 @@
     unsubTrade?.();
   });
 
-  // ── AlecaFrame import ────────────────────────────────────────────────────────
 
   async function handleImportFile(e: Event): Promise<void> {
     const input = e.target as HTMLInputElement;
@@ -162,7 +160,6 @@
     }
   }
 
-  // ── Chart config ─────────────────────────────────────────────────────────────
 
   interface SessionSection {
     key: SessionStatKey;
@@ -224,7 +221,6 @@
       }))
     : [];
 
-  // ── Hover tooltip ─────────────────────────────────────────────────────────────
 
   let tooltip: { text: string; x: number; y: number } | null = null;
 
@@ -242,7 +238,6 @@
     tooltip = { text, x: e.clientX, y: e.clientY };
   }
 
-  // ── Expand modal ──────────────────────────────────────────────────────────────
 
   let showChange = true;
   let showValue = true;

@@ -6,13 +6,11 @@
  * TypeScript can narrow each channel to its exact string-literal type.
  */
 
-// ── Inventory ──────────────────────────────────────────────────────────────
 export const INVENTORY_GET = "get-inventory";
 export const INVENTORY_OPEN_FILE = "open-inventory-file";
 export const INVENTORY_GET_STATUS = "get-inventory-status";
 export const INVENTORY_UPDATED = "inventory-updated";
 
-// ── Database / catalog ─────────────────────────────────────────────────────
 export const DB_GET_ITEM_DATABASE = "get-item-database";
 export const DB_GET_WORLD_STATE = "get-world-state";
 export const WORLD_STATE_FETCH_ERROR = "world-state-fetch-error";
@@ -21,7 +19,6 @@ export const DB_GET_WFM_ITEMS = "get-wfm-items";
 export const DB_GET_MASTERY = "get-mastery-progress";
 export const DB_SET_DEBUG_MODE = "set-debug-mode";
 
-// ── WFM (Warframe Market) ─────────────────────────────────────────────────
 export const WFM_SIGNIN = "wfm:signin";
 export const WFM_SIGNOUT = "wfm:signout";
 export const WFM_SESSION = "wfm:session";
@@ -38,22 +35,18 @@ export const WFM_SET_STATUS = "wfm:set-status";
 export const WFM_CLOSE_ORDER = "wfm:close-order";
 export const WFM_NOTIFICATION = "wfm:notification";
 
-// ── App updates ────────────────────────────────────────────────────────────
 export const APP_UPDATE_CHECK = "app:update-check";
 export const APP_UPDATE_STATE = "app:update-state";
 export const APP_UPDATE_INSTALL = "app:update-install";
 export const APP_UPDATE_STATUS = "app-update-status";
 
-// ── Window controls ────────────────────────────────────────────────────────
 export const WINDOW_MINIMIZE = "window-minimize";
 export const WINDOW_MAXIMIZE = "window-maximize";
 export const WINDOW_CLOSE = "window-close";
 
-// ── System ─────────────────────────────────────────────────────────────────
 export const OPEN_EXTERNAL = "open-external";
 export const LOG_WARN = "log:warn";
 
-// ── Stats ──────────────────────────────────────────────────────────────────
 export const STATS_GET_HISTORY = "stats:get-history";
 export const STATS_GET_CURRENT = "stats:get-current";
 export const STATS_IMPORT = "stats:import";
@@ -61,19 +54,16 @@ export const STATS_GET_TRADES = "stats:get-trades";
 export const STATS_IMPORT_TRADES = "stats:import-trades";
 export const TRADE_RECORDED = "trade-recorded";
 
-// ── Helper ─────────────────────────────────────────────────────────────────
 export const HELPER_GET_STATUS = "helper:get-status";
 export const HELPER_RUN_NOW = "helper:run-now";
 export const HELPER_DOWNLOAD = "helper:download";
 export const HELPER_DOWNLOAD_PROGRESS = "helper-download-progress";
 
-// ── Disk-cache persistence ─────────────────────────────────────────────────
 export const RANKED_HOTSET_LOAD = "ranked-hotset:load";
 export const RANKED_HOTSET_SAVE = "ranked-hotset:save";
 export const SNAPSHOT_CACHE_LOAD = "snapshot-cache:load";
 export const SNAPSHOT_CACHE_SAVE = "snapshot-cache:save";
 
-// ── Rivens (main app) ──────────────────────────────────────────────────────
 export const RIVENS_GET = "get-rivens";
 export const RIVENS_GET_WEAPON_NAMES = "get-riven-weapon-names";
 export const RIVENS_GET_STAT_OPTIONS = "get-riven-stat-options";
@@ -82,7 +72,6 @@ export const RIVENS_GET_WEAPON_TYPE = "get-weapon-riven-type";
 export const RIVENS_GET_BEST_ATTRIBUTES = "get-riven-best-attributes";
 export const RIVENS_CREATE_AUCTION = "create-riven-auction";
 
-// ── Overlay (settings / theme) ─────────────────────────────────────────────
 export const OVERLAY_GET_SETTINGS = "overlay:get-settings";
 export const OVERLAY_SET_SETTINGS = "overlay:set-settings";
 export const OVERLAY_GET_THEME_VARS = "overlay:get-theme-vars";
@@ -92,7 +81,6 @@ export const OVERLAY_THEME_UPDATED = "overlay-theme-updated";
 export const OVERLAY_THEME_VARS = "overlay-theme-vars";
 export const OVERLAY_INTERACTION_MODE = "overlay-interaction-mode";
 
-// ── Reward overlay ─────────────────────────────────────────────────────────
 export const OVERLAY_CLOSE = "overlay-close";
 export const OVERLAY_GET_RELIC_ITEMS = "overlay-get-relic-items";
 export const TOGGLE_OVERLAY = "toggle-overlay";
@@ -102,7 +90,6 @@ export const RELIC_PLANNER_TRIGGER = "relic-planner-trigger";
 export const RELIC_REWARD_ITEMS = "relic-reward-items";
 export const RELIC_RECOMMENDATIONS = "relic-recommendations";
 
-// ── Riven overlay ──────────────────────────────────────────────────────────
 export const RIVEN_OVERLAY_CLOSE = "riven-overlay-close";
 export const RIVEN_OPEN_AUCTION = "riven-open-auction";
 export const RIVEN_SESSION_START = "riven-session-start";
@@ -117,6 +104,5 @@ export const RIVEN_GRADING_ROLL = "riven-grading-roll";
 export const RIVEN_BEST_ATTRIBUTES = "riven-best-attributes";
 export const RIVEN_SIMILAR_LISTINGS = "riven-similar-listings";
 
-// ── Trade notification ─────────────────────────────────────────────────────
 export const TRADE_NOTIFICATION_SHOW = "trade-notification-show";
 export const TRADE_NOTIFICATION_DISMISS = "trade-notification-dismiss";

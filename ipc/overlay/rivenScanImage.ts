@@ -19,7 +19,7 @@ interface RivenTextMetrics {
   bounds: TextBounds | null;
 }
 
-export interface RivenUiReadyResult {
+interface RivenUiReadyResult {
   ready: boolean;
   attempts: number;
   elapsedMs: number;

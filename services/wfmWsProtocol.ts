@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 
 export const MAX_WFM_WS_FRAME_BYTES = 1024 * 1024;
 
-export interface ParsedWfmWsFrame {
+interface ParsedWfmWsFrame {
   opcode: number;
   text: string;
   rest: Buffer<ArrayBufferLike>;

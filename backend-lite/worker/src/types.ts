@@ -74,7 +74,7 @@ export interface MetaPayload {
 	timestamp: number;
 }
 
-export interface OrderBookEntry {
+interface OrderBookEntry {
 	userName: string;
 	status: string | null;
 	platinum: number;

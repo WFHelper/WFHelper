@@ -20,8 +20,6 @@ import * as statsTracker from "./statsTracker";
 import * as wfmCatalog from "./wfmCatalog";
 import type { TradeType, TradeDirection, TradeItem, TradeEvent } from "../config/shared/statsTypes";
 
-export type { TradeItem, TradeEvent };
-
 const log = withScope("tradeTracker");
 
 const MAX_EVENTS = 2000;
@@ -30,7 +28,6 @@ const MIN_COOLDOWN_MS = 10_000; // 10 s — suppresses duplicate events
 let _lastEventTime = 0;
 let _tradeLog: TradeEvent[] = [];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function _logPath(): string {
   return path.join(app.getPath("userData"), "trade-log.json");
@@ -44,7 +41,6 @@ function _saveLog(): void {
   }
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
 
 /**
  * Load persisted trade log from disk. Call once on startup.

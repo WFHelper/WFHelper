@@ -16,14 +16,14 @@ interface RawBountyLevel {
   rewards: Record<string, RawBountyReward[]>;
 }
 
-export interface BountyRewardItem {
+interface BountyRewardItem {
   itemName: string;
   chance: number;
   rarity: string;
   iconPath?: string;
 }
 
-export interface BountyStageRewards {
+interface BountyStageRewards {
   label: string;
   sortOrder: number;
   items: BountyRewardItem[];

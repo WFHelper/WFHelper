@@ -19,7 +19,6 @@ const log = withScope("tradeNotificationIpc");
 import path from "node:path";
 import { app, BrowserWindow, screen } from "electron";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
 
 const WIN_W = 370;
 const WIN_H = 80;
@@ -44,11 +43,9 @@ export interface TradeNotificationShowPayload {
   };
 }
 
-// ── State ─────────────────────────────────────────────────────────────────────
 
 let _hideTimer: ReturnType<typeof setTimeout> | null = null;
 
-// ── Window lifecycle ──────────────────────────────────────────────────────────
 
 function _getOrCreateWindow(): InstanceType<typeof BrowserWindow> {
   const existing = ctx.tradeNotificationWindow;
@@ -107,7 +104,6 @@ function _getOrCreateWindow(): InstanceType<typeof BrowserWindow> {
   return win;
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
 
 /**
  * Show a trade-finished notification for a matched WFM order.

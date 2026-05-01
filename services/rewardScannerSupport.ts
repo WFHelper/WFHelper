@@ -6,7 +6,7 @@ import { REWARD_STRATEGY_HISTORY_TTL_MS } from "../config/runtime/cacheConfig";
 import { MAX_REWARD_SLOTS, type SortedItem } from "./rewardScannerMatch";
 import { luminanceFromBgr } from "./rewardScannerUtils";
 
-export type RewardBand = { top: number; height: number };
+type RewardBand = { top: number; height: number };
 
 export const SCANNER_TUNING = Object.freeze({
   paths: Object.freeze({
@@ -173,7 +173,7 @@ export function hasSufficientTextureForOcr(nativeImage: NativeImage): boolean {
   }
 }
 
-export interface RewardSlotLayoutSummary {
+interface RewardSlotLayoutSummary {
   count: number;
   confidence: number;
 }

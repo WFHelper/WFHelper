@@ -20,7 +20,6 @@
   >([]);
   let loadingListings = $state(true);
 
-  // ── WFM listing state ──────────────────────────────────────────────────────
   let listingType = $state<"direct" | "auction">("direct");
   let listingVisibility = $state<"public" | "private">("public");
   let listingDescription = $state("");

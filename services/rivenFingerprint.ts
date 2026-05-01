@@ -23,7 +23,6 @@ import type {
   VeiledRivenGroup,
 } from "../config/shared/rivenTypes";
 
-export type { DecodedRivenStat, DecodedRiven, VeiledRivenEntry, VeiledRivenGroup };
 
 const log = withScope("rivenFingerprint");
 
@@ -39,7 +38,6 @@ interface RawFingerprint {
   challenge?: unknown;
 }
 
-// ── Riven mod type labels ────────────────────────────────────────────────────
 
 const RIVEN_TYPE_LABELS: Record<string, string> = {
   // Lotus (unveiled / individual-veiled in Upgrades)
@@ -60,7 +58,6 @@ const RIVEN_TYPE_LABELS: Record<string, string> = {
   RawModularMeleeRandomMod: "Zaw",
 };
 
-// ── Riven challenge name → human-readable description ────────────────────────
 // Uses exact inventory path segment names from warframe-items / AlecaFrame data.
 // Keys match the last path component of "/Lotus/Types/Challenges/<Name>".
 // Use {n} as placeholder for the Required count.
@@ -177,7 +174,6 @@ function getRivenTypeLabel(itemType: string): string {
   return "Riven";
 }
 
-// ── Riven int → 0–1 float conversion ─────────────────────────────────────────
 // Riven fingerprint Values are NOT IEEE 754 floats. They are integers that
 // encode a 0–1 roll float as `Math.round(f * 0x3FFFFFFF)`. To decode:
 //   rollFloat = intValue / 0x3FFFFFFF
@@ -188,7 +184,6 @@ function rivenIntToFloat(i: number): number {
   return (f >= 0.0 && f <= 1.0) ? f : 0.0;
 }
 
-// ── Forward formula: rollFloat → displayed stat value ────────────────────────
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
@@ -224,7 +219,6 @@ function computeCurseValue(
   return Math.abs(baseValue) * attenuation * rollMul * buffsInCurseTable * cursesInBuffTable * (lvl + 1);
 }
 
-// ── Fingerprint parsing ──────────────────────────────────────────────────────
 
 function parseFingerprint(raw: string): RawFingerprint | null {
   try {
@@ -245,7 +239,6 @@ function isVeiledFingerprint(fp: RawFingerprint): boolean {
   return !!fp.challenge || !fp.compat;
 }
 
-// ── Main decode function ─────────────────────────────────────────────────────
 
 function decodeSingleRiven(
   entry: { UpgradeFingerprint?: string; ItemType: string; ItemId?: { $oid: string } },
@@ -388,7 +381,6 @@ function decodeSingleRiven(
   };
 }
 
-// ── Batch decode ─────────────────────────────────────────────────────────────
 
 export function decodeAllRivens(
   inventory: Record<string, unknown>,

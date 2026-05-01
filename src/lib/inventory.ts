@@ -45,11 +45,9 @@ import {
 
 import { buildFullSetItems } from "./inventory/fullSets.js";
 
-// --- Re-exports for external consumers --------------------------------------
 
 export { parseFoundry, parseResources } from "./inventory/foundryResources.js";
 
-// --- parseInventory orchestrator --------------------------------------------
 
 export function parseInventory(
   data: RawInventoryData,

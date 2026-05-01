@@ -1,4 +1,4 @@
-export interface InventoryItemWithType {
+interface InventoryItemWithType {
   ItemType?: unknown;
   ItemCount?: unknown;
 }

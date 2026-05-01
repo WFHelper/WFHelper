@@ -7,7 +7,7 @@ import type { InventoryGroup, ParsedItem } from "../types/inventory.js";
 import type { WfmItemsLookup } from "../types/ipc.js";
 import type { WfmOrder } from "../types/market.js";
 
-export type MarketOrderInventoryItem = InventoryBaseItem & { sourceOrderId: string };
+type MarketOrderInventoryItem = InventoryBaseItem & { sourceOrderId: string };
 
 function parsedItemForOrder(order: WfmOrder, parsedItems: ParsedItem[]): ParsedItem | null {
   const orderName = normalizeMarketName(order.itemName);

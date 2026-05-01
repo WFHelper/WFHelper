@@ -48,7 +48,6 @@ const OVERLAY_WINDOW_FILE = path.join(APP_ROOT, "renderer", "overlay.html");
 // Prices (and ducat meta) now live in the snapshot cache — price-cache.json is no longer written.
 const PRICE_CACHE_FILE = path.join(app.getPath("userData"), "snapshot-cache.json");
 
-// ── Overlay window controllers ───────────────────────────────────────────────
 
 const rewardWindowsController = createOverlayWindowsController({
   app,
@@ -131,7 +130,6 @@ const relicSelectionController = createRelicSelectionController({
   cacheFilePath: PRICE_CACHE_FILE,
 });
 
-// ── Shared helpers needed by overlayIpc orchestrator ─────────────────────────
 
 export function getRewardWindowsController() {
   return rewardWindowsController;
@@ -142,7 +140,6 @@ export function getPlannerWindowsController() {
 }
 
 
-// ── Trigger callbacks (wired from main.ts via eeLogMonitor) ──────────────────
 
 export function onRelicRewardTrigger(
   source: string,
@@ -185,7 +182,6 @@ export function onRelicSelectionClose(pushOverlayInteractionMode: () => void): v
   log.log("[OverlayClose] planner closed via Dialog::SendResult");
 }
 
-// ── IPC registration ─────────────────────────────────────────────────────────
 
 export function register(pushOverlayInteractionMode: () => void, pushOverlayThemeVars: () => void): void {
   onAuthorized(OVERLAY_CLOSE, assertOverlayRendererSender, (event) => {

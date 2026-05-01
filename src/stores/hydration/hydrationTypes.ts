@@ -5,9 +5,7 @@ import type { InventoryBaseItem, ItemMetrics, MetricNeeds } from "../../lib/inve
 import type { WfmItemsLookup } from "../../types/ipc.js";
 import type { Readable } from "svelte/store";
 
-// ---------------------------------------------------------------------------
 // Tuning constants
-// ---------------------------------------------------------------------------
 
 export const HYDRATION_BATCH_SIZE = 12;
 export const HYDRATION_TICK_MS = 45;
@@ -17,9 +15,7 @@ export const PRICE_TRANSIENT_RETRY_MS = 20_000;
 export const PRICE_NO_DATA_RETRY_MS = 120_000;
 export const ORDER_TRANSIENT_RETRY_MS = 20_000;
 
-// ---------------------------------------------------------------------------
 // Interfaces
-// ---------------------------------------------------------------------------
 
 export interface HydrationTask {
   key: string;

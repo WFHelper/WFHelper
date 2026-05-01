@@ -177,12 +177,12 @@ export interface MasteryCategoryStats {
   missing: number;
 }
 
-export interface ProfileMastery {
+interface ProfileMastery {
   rank: number;
   percentToNext: number | null;
 }
 
-export interface MasteryStats {
+interface MasteryStats {
   total: number;
   mastered: number;
   inProgress: number;

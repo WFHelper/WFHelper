@@ -131,7 +131,6 @@
     }
   }
 
-  // ── Open shared ItemDetailModal for any world item ──────────
   function openItemDetail(uniqueName: string, extraDrops?: import("../types/inventory.js").DropInfo[]) {
     if (!uniqueName) return;
     const db = $itemDb[uniqueName];

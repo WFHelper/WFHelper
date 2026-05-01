@@ -7,9 +7,7 @@ import type { InventoryBaseItem } from "../../lib/inventoryMarket.js";
 import { resolveRankedMaxRank } from "./hydrationHelpers.js";
 import { isRankedGroup } from "../../../config/shared/numeric.js";
 
-// ---------------------------------------------------------------------------
 // Price cache lookups
-// ---------------------------------------------------------------------------
 
 export function getCachedMedian(cacheKey: string): number | null {
   const entry = getCachedPriceState(cacheKey);
@@ -30,9 +28,7 @@ export function hasCachedRankPair(item: InventoryBaseItem): boolean {
   return r0 != null && rmax != null;
 }
 
-// ---------------------------------------------------------------------------
 // Order summary lookups
-// ---------------------------------------------------------------------------
 
 export function getCachedRankOrderSummary(
   slugInput: string | null | undefined,

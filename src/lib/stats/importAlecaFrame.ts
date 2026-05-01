@@ -1,6 +1,6 @@
 import type { TradeEvent, TradeItem, TradeType } from "../../types/ipc.js";
 
-export interface NormalizedStatEntry {
+interface NormalizedStatEntry {
   date: string;
   platDelta: number;
   creditsDelta: number;

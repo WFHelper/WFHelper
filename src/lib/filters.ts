@@ -1,7 +1,7 @@
 import type { SharedFiltersState } from "../types/filters.js";
 import type { MasteryStatus, PartType } from "../types/inventory.js";
 
-export interface FilterableItem {
+interface FilterableItem {
   name: string;
   category?: string;
   categoryLabel?: string;

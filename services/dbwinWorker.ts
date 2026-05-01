@@ -59,9 +59,7 @@
 import { workerData, parentPort } from "worker_threads";
 import koffi from "koffi";
 
-// ---------------------------------------------------------------------------
 // Win32 API declarations
-// ---------------------------------------------------------------------------
 const kernel32 = koffi.load("kernel32.dll");
 const psapi = koffi.load("psapi.dll");
 
@@ -125,9 +123,7 @@ const EnumProcesses = psapi.func("EnumProcesses", "bool", [
   "void *", // lpcbNeeded  — output: bytes written
 ]);
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 const PAGE_READWRITE = 0x04;
 const FILE_MAP_READ = 0x0004;
 const WAIT_OBJECT_0 = 0;
@@ -175,9 +171,7 @@ const FILTER_SUBSTRINGS_LOWER = [
   "the trade was successful",  // trade dialog success
 ] as const;
 
-// ---------------------------------------------------------------------------
 // isWarframePid — check (and cache) whether a PID belongs to Warframe.x64.exe
-// ---------------------------------------------------------------------------
 // Caches pid → boolean so that QueryFullProcessImageNameW is called once per
 // newly-seen PID, not once per DBWIN message.  Caller is responsible for
 // clearing the cache when re-entering Phase 1 after a Warframe restart.
@@ -228,9 +222,7 @@ function isWarframePid(pid: number): boolean {
   return result;
 }
 
-// ---------------------------------------------------------------------------
 // isWarframeRunning — scan the process list for Warframe.x64.exe
-// ---------------------------------------------------------------------------
 // Uses EnumProcesses (psapi) + isWarframePid (kernel32).  The whole scan is
 // cheap: for most PIDs isWarframePid is a single Map.get() after caching.
 
@@ -254,9 +246,7 @@ function isWarframeRunning(): boolean {
   return false;
 }
 
-// ---------------------------------------------------------------------------
 // Entry point
-// ---------------------------------------------------------------------------
 const stopFlag = new Int32Array((workerData as { stopBuffer: SharedArrayBuffer }).stopBuffer);
 
 function runDbwinLoop(): void {
@@ -318,7 +308,6 @@ function runDbwinLoop(): void {
 
       const now = Date.now();
 
-      // ── Periodic Warframe exit check ────────────────────────────────────
       // Check both on timeout AND on message receipt (so that if noisy
       // non-Warframe processes keep the loop busy, we still detect exit).
       if (now > warframeRecheckAt) {
@@ -328,7 +317,6 @@ function runDbwinLoop(): void {
       }
 
       if (waitResult === WAIT_OBJECT_0) {
-        // ── Phase 1 inner: read 4-byte PID cheaply ────────────────────────
         const pid = koffi.decode(pBuf, "uint32") as number;
 
         if (!isWarframePid(pid)) {
@@ -338,7 +326,6 @@ function runDbwinLoop(): void {
           continue;
         }
 
-        // ── Warframe PID: full 4096-byte copy ────────────────────────────
         const bytes = koffi.decode(pBuf, uint8ArrayType) as number[];
 
         // *** CRITICAL: Re-signal BUFFER_READY immediately after the copy. ***
@@ -347,7 +334,6 @@ function runDbwinLoop(): void {
         // in microseconds; all subsequent JS work runs concurrently.
         SetEvent(hReady);
 
-        // --- Process the now-local copy (Warframe is unblocked above) ---
         const buf = Buffer.from(bytes);
 
         // Find null terminator for the message string (starts at offset 4)
@@ -388,14 +374,12 @@ function runDbwinLoop(): void {
 }
 
 function run(): void {
-  // ── Outer loop: Phase 0 → Phase 1 → Phase 0 → … ──────────────────────────
   //
   // Phase 0: DBWIN objects do NOT exist → all other processes' OutputDebugString
   //          calls are no-ops → worker sleeps; CPU cost ≈ 0.
   // Phase 1: Warframe detected → DBWIN active → message loop (runDbwinLoop).
 
   while (Atomics.load(stopFlag, 0) === 0) {
-    // ── Phase 0: Sleep until Warframe.x64.exe appears ──────────────────────
     while (Atomics.load(stopFlag, 0) === 0) {
       if (isWarframeRunning()) break;
       // Atomics.wait sleeps up to WARFRAME_POLL_MS but wakes immediately
@@ -405,7 +389,6 @@ function run(): void {
 
     if (Atomics.load(stopFlag, 0) !== 0) break;
 
-    // ── Phase 1: Warframe is running — activate DBWIN ──────────────────────
     // runDbwinLoop() returns when Warframe exits or stopFlag is set.
     runDbwinLoop();
   }

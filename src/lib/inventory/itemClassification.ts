@@ -1,6 +1,5 @@
 import type { InventoryGroup, ItemDbEntry, RawInventoryData } from "../../types/inventory.js";
 
-// --- Internal type shared across inventory sub-modules ----------------------
 
 export interface ResolvedItem extends ItemDbEntry {
   name: string;
@@ -13,7 +12,6 @@ function sanitizeDisplayName(name: string): string {
     .trim();
 }
 
-// --- Category / classification constants ------------------------------------
 
 interface CategoryDef {
   key: keyof RawInventoryData;
@@ -67,7 +65,6 @@ export const SUPPLEMENTAL_COLLECTIONS: SupplementalCollectionDef[] = [
   { key: "Arcanes", cat: "arcanes", label: "Arcane" },
 ];
 
-// --- Item resolution --------------------------------------------------------
 
 export function resolveItem(
   internalName: string,
@@ -90,7 +87,6 @@ export function resolveItem(
   return { name: sanitizeDisplayName(name), imageUrl: null, category: "Unknown" };
 }
 
-// --- Classification predicates ----------------------------------------------
 
 export function isArcaneUpgrade(
   internalName: string,
@@ -277,7 +273,6 @@ export function canonicalBuildPartName(internalName: string, name: string): stri
   return name;
 }
 
-// --- Visibility / group inference -------------------------------------------
 
 export function shouldHide(
   internalName: string,

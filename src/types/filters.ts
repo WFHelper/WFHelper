@@ -3,7 +3,7 @@ export type FilterScope = "inventory" | "mastery" | "market";
 export type PrimeFilterMode = "all" | "prime" | "non_prime";
 export type MasteredFilterMode = "all" | "mastered" | "not_mastered";
 export type YesNoFilterMode = "all" | "yes" | "no";
-export type PartTypeFilterMode = "all" | "normal" | "prime";
+type PartTypeFilterMode = "all" | "normal" | "prime";
 
 export type SharedSortKey =
   | "name"

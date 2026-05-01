@@ -19,20 +19,11 @@
     "scripts/**/*.mjs"
   ],
   "project": ["**/*.{ts,js,mjs,cjs,svelte}"],
-  "ignoreBinaries": ["knip", "powershell", "wrangler"],
+  "ignoreBinaries": ["powershell", "wrangler"],
   "ignoreDependencies": ["cloudflare", "esbuild", "svelte-eslint-parser", "tailwindcss"],
   "ignore": [
-    ".electron-build/**",
-    ".tmp/**",
     ".venv/**",
-    "api-inventory-data/**",
     "backend-lite/worker/worker-configuration.d.ts",
-    "dist/**",
-    "docs/**",
-    "node_modules/**",
-    "release/**",
-    "renderer/dist/**",
-    "scripts/dev/**",
-    "scripts/train-paddleocr/**"
+    "scripts/dev/**"
   ]
 }

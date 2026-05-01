@@ -49,19 +49,19 @@ function resolveOcrServerScriptPath(): string {
 
 const OCR_SERVER_SCRIPT = resolveOcrServerScriptPath();
 
-export interface StructuredOcrBox {
+interface StructuredOcrBox {
   left: number;
   top: number;
   width: number;
   height: number;
 }
 
-export interface StructuredOcrWord {
+interface StructuredOcrWord {
   text: string;
   box: StructuredOcrBox;
 }
 
-export interface StructuredOcrLine {
+interface StructuredOcrLine {
   text: string;
   box: StructuredOcrBox;
   words: StructuredOcrWord[];
@@ -430,7 +430,6 @@ class OcrServerPool {
 
 export const ocrServer = new OcrServerPool(OCR_SERVER_POOL_SIZE);
 
-// --- Native OCR engine (Step 5) -------------------------------------------
 // Uses @napi-rs/system-ocr which calls Windows Media.Ocr directly from native
 // code, eliminating the PowerShell process pool IPC overhead.
 // Falls back to the PowerShell pool if the native module fails to load.

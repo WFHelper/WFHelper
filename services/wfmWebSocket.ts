@@ -37,7 +37,6 @@ const WS_TIMEOUT = 15000;
 const WS_ACCEPT_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const MAX_WFM_WS_BUFFER_BYTES = 4 * MAX_WFM_WS_FRAME_BYTES;
 
-// ── Public API ────────────────────────────────────────────────────────────────
 
 /**
  * Connect to WFM WebSocket, authenticate, and set user status.

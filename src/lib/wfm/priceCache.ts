@@ -1,7 +1,7 @@
 const PRICE_TTL_MS = 12 * 60 * 60 * 1000;
 const NO_DATA_TTL_MS = 6 * 60 * 60 * 1000;
 
-export type CachedPriceStatus = "ok" | "no_data";
+type CachedPriceStatus = "ok" | "no_data";
 
 export interface CachedPriceEntry {
   status: CachedPriceStatus;

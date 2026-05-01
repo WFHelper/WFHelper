@@ -48,7 +48,7 @@ let _lastRunAt: number | null = null;
 let _lastRunOk: boolean | null = null;
 let _exePath: string | null = null;
 
-export interface HelperStatus {
+interface HelperStatus {
   exeFound: boolean;
   running: boolean;
   lastRunAt: number | null; // unix ms
@@ -56,9 +56,8 @@ export interface HelperStatus {
   inventoryLastModified: number | null; // unix ms
 }
 
-export type { DownloadStage };
 
-export interface DownloadProgress {
+interface DownloadProgress {
   stage: DownloadStage;
   percent: number; // 0-100
   bytesReceived: number;
@@ -287,7 +286,6 @@ export function stopPolling(): void {
   }
 }
 
-// ── Download from GitHub Releases ──────────────────────────────────────────────
 
 function assertHttps(url: string): void {
   if (!url.startsWith("https://")) {

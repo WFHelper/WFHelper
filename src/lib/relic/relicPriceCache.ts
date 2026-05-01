@@ -11,9 +11,7 @@ import type {
 import { QUALITY_MODES } from "./relicConstants.js";
 import { computeSquadDucatEV, computeSquadEV } from "./relicMath.js";
 
-// ---------------------------------------------------------------------------
 // Tuning constants
-// ---------------------------------------------------------------------------
 
 const EV_NODATA_TTL_MS = 2 * 60 * 1000;
 const EV_TRANSIENT_MS = 30_000;
@@ -29,9 +27,7 @@ const DUCAT_WARMUP_WORKERS = 4;
 const WARMUP_LOOP_PAUSE_MS = 50;
 const GROUP_PRICE_FETCH_WORKERS = 4;
 
-// ---------------------------------------------------------------------------
 // Internal types
-// ---------------------------------------------------------------------------
 
 type RelicQualityMode = "best" | RelicQuality;
 
@@ -46,9 +42,7 @@ interface GroupPriceSnapshot {
   qualities: Partial<Record<RelicQuality, QualityPriceData>>;
 }
 
-// ---------------------------------------------------------------------------
 // Module-level mutable state
-// ---------------------------------------------------------------------------
 
 const evCache = new Map<string, number>();
 const evNoDataCache = new Map<string, number>();
@@ -74,9 +68,7 @@ let primeWarmupToken = 0;
 let ducatWarmupRunning = false;
 let ducatWarmupToken = 0;
 
-// ---------------------------------------------------------------------------
 // Fingerprinting
-// ---------------------------------------------------------------------------
 
 function fnv1aStep(hash: number, text: string): number {
   let h = hash >>> 0;
@@ -129,9 +121,7 @@ export function configureRelicRuntimeCacheFingerprint(db: RelicDatabase | null |
   }
 }
 
-// ---------------------------------------------------------------------------
 // EV cache key helpers
-// ---------------------------------------------------------------------------
 
 function evCacheKey(groupKey: string, squadSize: number, qualityMode: string): string {
   return `${groupKey}|${squadSize}|${qualityMode}`;
@@ -154,9 +144,7 @@ export function evHasFreshNoData(
   return Boolean(ts && Date.now() - ts < EV_NODATA_TTL_MS);
 }
 
-// ---------------------------------------------------------------------------
 // Cache reset / cancellation
-// ---------------------------------------------------------------------------
 
 export function cancelWarmup(): void {
   warmupToken += 1;
@@ -167,9 +155,7 @@ export function cancelWarmup(): void {
   ducatWarmupRunning = false;
 }
 
-// ---------------------------------------------------------------------------
 // Price invalidation index
-// ---------------------------------------------------------------------------
 
 function clearGroupEvCaches(groupKey: string): void {
   groupPriceCache.delete(groupKey);
@@ -216,9 +202,7 @@ onPriceCacheUpdate((slug, status) => {
   }
 });
 
-// ---------------------------------------------------------------------------
 // Ducat helpers
-// ---------------------------------------------------------------------------
 
 function cachedRewardDucats(reward: RelicReward): number | null {
   if (typeof reward.ducats === "number" && Number.isFinite(reward.ducats)) {
@@ -280,9 +264,7 @@ export function computeGroupDucatonator(
   return ducatEv / platEv;
 }
 
-// ---------------------------------------------------------------------------
 // Relic card price
-// ---------------------------------------------------------------------------
 
 function relicGroupSlug(groupKey: string): string {
   const normalized = groupKey
@@ -322,9 +304,7 @@ async function prefetchRelicCardPrice(
   }
 }
 
-// ---------------------------------------------------------------------------
 // Warmup: relic card prices
-// ---------------------------------------------------------------------------
 
 export async function warmupRelicCardPrices(
   groups: RelicGroup[],
@@ -378,9 +358,7 @@ export async function warmupRelicCardPrices(
   }
 }
 
-// ---------------------------------------------------------------------------
 // Warmup: prime reward prices
-// ---------------------------------------------------------------------------
 
 function collectPrimeRewardSlugs(groups: RelicGroup[]): string[] {
   const unique = new Set<string>();
@@ -455,9 +433,7 @@ export async function warmupPrimeRewardPriceCache(
   }
 }
 
-// ---------------------------------------------------------------------------
 // Ducat prefetch / warmup
-// ---------------------------------------------------------------------------
 
 async function prefetchRewardDucats(
   slug: string | null | undefined,
@@ -544,9 +520,7 @@ export async function warmupRewardDucats(
   }
 }
 
-// ---------------------------------------------------------------------------
 // Group EV computation
-// ---------------------------------------------------------------------------
 
 async function buildPriceSnapshot(
   group: RelicGroup,
@@ -672,9 +646,7 @@ async function computeGroupEv(
   }
 }
 
-// ---------------------------------------------------------------------------
 // Warmup: relic EVs
-// ---------------------------------------------------------------------------
 
 export async function warmupRelicEvs(
   groups: RelicGroup[],

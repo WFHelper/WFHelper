@@ -28,7 +28,6 @@ import { globalShortcut, app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 
-// ── Cross-overlay helpers ────────────────────────────────────────────────────
 
 function pushOverlayInteractionMode(): void {
   const payload = {
@@ -118,7 +117,6 @@ function toggleOverlayInteractionMode(source = "unknown"): void {
   setOverlayInteractionMode(!ctx.overlayInteractiveMode, source);
 }
 
-// ── Theme management ─────────────────────────────────────────────────────────
 
 // Allowlist is derived from the shared list in config/shared/themeCssVars.ts so
 // renderer (sender) and main (gate) cannot drift. Update that file to add a new
@@ -159,7 +157,6 @@ function ensureOverlayWindowPrimed(): void {
   pushOverlayThemeVars();
 }
 
-// ── Settings controller ──────────────────────────────────────────────────────
 
 function onRelicRewardTrigger(source = "manual"): void {
   rewardOverlayIpc.onRelicRewardTrigger(
@@ -185,7 +182,6 @@ const settingsController = createOverlaySettingsController({
   onToggleOverlayInteractionMode: toggleOverlayInteractionMode,
 });
 
-// ── Relay callbacks (exposed to main.ts) ─────────────────────────────────────
 
 function onRelicSelectionTrigger(source: string): void {
   rewardOverlayIpc.onRelicSelectionTrigger(
@@ -200,7 +196,6 @@ function onRelicSelectionClose(): void {
   rewardOverlayIpc.onRelicSelectionClose(pushOverlayInteractionMode);
 }
 
-// ── IPC registration ─────────────────────────────────────────────────────────
 
 function register(): void {
   ensureOverlayWindowPrimed();

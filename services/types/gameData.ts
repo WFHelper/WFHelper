@@ -7,7 +7,6 @@
  * worldStateParser.ts, and masteryHelper.ts.
  */
 
-// ── warframe-public-export-plus item fields ─────────────────────────────────
 
 /** A single item from any PEP Export* record. */
 export interface PepExportItem {
@@ -25,57 +24,13 @@ export interface PepExportItem {
 }
 
 /** Region entry from ExportRegions. */
-export interface PepRegionEntry {
-  name?: string;
-  systemIndex?: number;
-  systemName?: string;
-  nodeType?: number;
-  missionType?: string;
-  factionIndex?: number;
-}
 
-// ── @wfcd/items fields ──────────────────────────────────────────────────────
 
-export interface WfcdDrop {
-  location: string;
-  type: string;
-  chance: number;
-  rarity: string;
-}
 
-export interface WfcdComponent {
-  uniqueName: string;
-  name: string;
-  imageName?: string;
-  tradable?: boolean;
-  ducats?: number;
-  itemCount?: number;
-  drops?: WfcdDrop[];
-}
 
-export interface WfcdItem {
-  uniqueName: string;
-  name: string;
-  imageName?: string;
-  category: string;
-  masteryReq?: number;
-  masterable?: boolean;
-  tradable?: boolean;
-  vaulted?: boolean;
-  exalted?: boolean;
-  ducats?: number;
-  description?: string;
-  productCategory?: string;
-  type?: string;
-  wikiaThumbnail?: string;
-  wikiaUrl?: string;
-  components?: WfcdComponent[];
-  drops?: WfcdDrop[];
-}
 
-// ── Recipe / crafting types ──────────────────────────────────────────────────
 
-export interface RecipeIngredient {
+interface RecipeIngredient {
   uniqueName: string;
   count: number;
 }
@@ -88,7 +43,6 @@ export interface RecipeData {
   ingredients: RecipeIngredient[];
 }
 
-// ── Item database output types ──────────────────────────────────────────────
 
 export interface DropEntry {
   location: string;
@@ -136,13 +90,12 @@ export interface RendererItemEntry {
   recipe?: RecipeData;
 }
 
-// ── World state raw API types ───────────────────────────────────────────────
 
 export interface WorldStateDate {
   $date: { $numberLong: string };
 }
 
-export interface ActiveMissionRaw {
+interface ActiveMissionRaw {
   Modifier: string;
   MissionType: string;
   Node: string;
@@ -150,25 +103,28 @@ export interface ActiveMissionRaw {
   Expiry: WorldStateDate;
 }
 
-export interface VoidTraderRaw {
+interface VoidTraderRaw {
   Activation: WorldStateDate;
   Expiry: WorldStateDate;
   Node: string;
   Manifest?: { ItemType: string; PrimePrice?: number; RegularPrice?: number }[];
 }
 
-export interface VaultTraderRaw {
+interface VaultTraderRaw {
   Activation: WorldStateDate;
   Expiry: WorldStateDate;
   Node: string;
   Manifest?: { ItemType: string }[];
 }
 
-export interface SortieRaw {
+interface SortieRaw {
   Expiry: WorldStateDate;
 }
 
-export interface SyndicateMissionJobRaw {
+
+
+
+interface SyndicateMissionJobRaw {
   jobType: string;
   rewards: string;
   masteryReq: number;
@@ -177,7 +133,7 @@ export interface SyndicateMissionJobRaw {
   xpAmounts: number[];
 }
 
-export interface SyndicateMissionRaw {
+interface SyndicateMissionRaw {
   Activation: WorldStateDate;
   Expiry: WorldStateDate;
   Tag: string;
@@ -186,17 +142,17 @@ export interface SyndicateMissionRaw {
   Jobs?: SyndicateMissionJobRaw[];
 }
 
-export interface InvasionCountedItemRaw {
+interface InvasionCountedItemRaw {
   ItemType: string;
   ItemCount: number;
 }
 
-export interface InvasionRewardRaw {
+interface InvasionRewardRaw {
   countedItems?: InvasionCountedItemRaw[];
   credits?: number;
 }
 
-export interface InvasionRaw {
+interface InvasionRaw {
   _id: { $oid: string };
   Faction: string;
   DefenderFaction: string;
@@ -221,64 +177,19 @@ export interface WorldStateRaw {
   Invasions?: InvasionRaw[];
 }
 
-export interface DescentRaw {
+interface DescentRaw {
   Activation: WorldStateDate;
   Expiry: WorldStateDate;
 }
 
-export interface EndlessXpChoice {
+interface EndlessXpChoice {
   Category: string;
   Choices: string[];
 }
 
-// ── World state parsed output types ─────────────────────────────────────────
 
-export interface Fissure {
-  tier: string;
-  tierNum: number;
-  missionType: string;
-  node: string;
-  nodeLabel: string;
-  isHard: boolean;
-  expiry: string;
-}
 
-export interface VoidTrader {
-  active: boolean;
-  node: string;
-  nodeLabel: string;
-  activation: string;
-  expiry: string;
-}
 
-export interface VaultTrader {
-  active: boolean;
-  node: string;
-  nodeLabel: string;
-  activation: string;
-  expiry: string;
-  itemCount: number;
-}
 
-export interface Sortie {
-  expiry: string;
-}
 
-export interface CycleInfo {
-  state: string;
-  timeLeft: string;
-  expiry: string;
-}
 
-export interface ParsedWorldState {
-  fissures: Fissure[];
-  voidTrader: VoidTrader | null;
-  vaultTrader: VaultTrader | null;
-  sortie: Sortie | null;
-  steelPath: Fissure[];
-  duviriCycle: CycleInfo | null;
-  earthCycle: CycleInfo | null;
-  cetusCycle: CycleInfo | null;
-  vallisCycle: CycleInfo | null;
-  cambionCycle: CycleInfo | null;
-}

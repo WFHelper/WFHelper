@@ -56,7 +56,6 @@ import DetailModalBase from "./DetailModalBase.svelte";
   let localSquadSize = 1;
   let currentQuality: RelicQuality | null = null;
 
-  // ── inline reward detail (side panel) ──
   let selectedReward: RelicReward | null = null;
   let rewardComp: ComponentInfo | null = null;
   let rewardParentName = "";

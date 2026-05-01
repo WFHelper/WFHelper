@@ -17,7 +17,6 @@ const SKIPPABLE_HTTP_STATUSES = new Set([301, 302, 303, 400, 404, 405]);
 
 let _resolvedEndpointName: string | null = null;
 
-// ── Interfaces ────────────────────────────────────────────────────────────────
 
 interface NormalisedAttribute {
   urlName: string;
@@ -67,7 +66,6 @@ interface EndpointCandidate {
   path: string;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function toNonEmptyString(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -363,7 +361,6 @@ function isSkippableError(err: unknown): boolean {
   return SKIPPABLE_HTTP_STATUSES.has(status);
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
 
 export async function getMyContracts({
   page = DEFAULT_PAGE,

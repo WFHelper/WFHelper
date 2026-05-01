@@ -70,9 +70,8 @@ export { getAdaptiveStrategyHint } from "./rewardScannerSupport";
 
 const log = withScope("rewardScanner");
 
-// --- Per-scan instrumentation ----------------------------------------------
 
-export interface TriggerStats {
+interface TriggerStats {
   captureCount: number;
   captureMs: number;
   ocrCallCount: number;
@@ -84,7 +83,6 @@ export interface TriggerStats {
 
 let _lastTriggerStats: TriggerStats | null = null;
 
-// --- Frame dedup state ------------------------------------------------------
 
 let _lastFrameHash: string | null = null;
 let _lastFrameResult: { items: SortedItem[]; meta: Record<string, unknown> } | null = null;
@@ -121,9 +119,7 @@ export function resetFrameDedup(): void {
   _lastFrameHashTs = 0;
 }
 
-// --- Paths ------------------------------------------------------------------
 
-// --- State ------------------------------------------------------------------
 
 const DEFAULT_SCAN_SETTINGS: OverlaySettings = OVERLAY_SETTINGS_DEFAULTS as OverlaySettings;
 
@@ -131,7 +127,6 @@ let relicItems: SortedItem[] = [];
 let sortedItems: SortedItem[] = [];
 let scanSettings: OverlaySettings = sanitizeSettings(DEFAULT_SCAN_SETTINGS);
 
-// --- Settings helpers -------------------------------------------------------
 
 function sanitizeSettings(raw: unknown): OverlaySettings {
   const candidate = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
@@ -187,7 +182,6 @@ function getSettings(): OverlaySettings {
   return { ...scanSettings };
 }
 
-// --- OCR runner setup -------------------------------------------------------
 
 const { runOCR, runOCRBuffer, runOCRStructuredBuffer } = createRewardOcrRunner({
   log,
@@ -196,7 +190,6 @@ const { runOCR, runOCRBuffer, runOCRStructuredBuffer } = createRewardOcrRunner({
   engineWindows: "windows",
 });
 
-// --- Band helpers -----------------------------------------------------------
 
 function getBandsForPasses(
   presetName: string,
@@ -214,7 +207,6 @@ function getPrimaryBand(): { top: number; height: number } {
   return getBandsForPasses(String(scanSettings.cropPreset || "balanced"), 1)[0];
 }
 
-// --- Scan meta builder ------------------------------------------------------
 
 function buildScanMeta({
   screenshot,
@@ -513,7 +505,6 @@ async function scanRewardSlotsFallback(
   };
 }
 
-// --- Relic era detection ----------------------------------------------------
 
 export async function detectRelicSelectionEra(
   options: { timeoutMs?: number; preferredDisplayId?: string | null } = {},
@@ -685,10 +676,9 @@ export async function detectRelicSelectionEra(
   };
 }
 
-// --- Main scan orchestrator -------------------------------------------------
 
 /** Accepted pre-captured screenshot shape — same as CaptureResult from rewardScannerCapture. */
-export interface PreCaptureResult {
+interface PreCaptureResult {
   image: NativeImage;
   sourceType: string | null;
   sourceName: string | null;

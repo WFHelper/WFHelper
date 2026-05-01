@@ -7,7 +7,7 @@ import {
   timeToStrict,
 } from "../format.js";
 import { PLANET_ICON_PATHS, fissureTierClass } from "../world.js";
-import type { BountyJob, CycleData, Fissure, SyndicateBounty, WorldState } from "../../types/world.js";
+import type { CycleData, Fissure, SyndicateBounty, WorldState } from "../../types/world.js";
 
 export const WORLD_REFRESH_MS = 120_000;
 export const WORLD_POLL_MS = 30_000;
@@ -41,7 +41,7 @@ const BOUNTY_ORDER: Record<string, number> = {
   "The Hex": 5,
 };
 
-export type FissureMode = "normal" | "steel";
+type FissureMode = "normal" | "steel";
 
 export const FISSURE_MODE_OPTIONS: Array<{ value: FissureMode; label: string }> = [
   { value: "normal", label: "Normal" },
@@ -246,5 +246,3 @@ export function buildBountyTimers(
     }),
   );
 }
-
-export type { BountyJob };
