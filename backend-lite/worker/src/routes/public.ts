@@ -118,6 +118,19 @@ async function guardRateLimit(req: Request, env: Env, route: PublicRateLimitRout
 	return rateLimited;
 }
 
+async function guardPublicRequest(
+	req: Request,
+	env: Env,
+	route: PublicRateLimitRoute,
+	options?: { bootstrap?: boolean },
+): Promise<Response | null> {
+	const rateLimited = await guardRateLimit(req, env, route);
+	if (rateLimited) return rateLimited;
+
+	if (options?.bootstrap !== true) return null;
+	return guardBootstrap(req, env);
+}
+
 function respondWithStatus<T>(result: HydrateResult<T>, req: Request, env: Env): Response {
 	if (result.status === 'ok') {
 		return jsonResponse({ ok: true, data: result.data }, req, env, 200, PUBLIC_JSON_CACHE_HEADERS);
@@ -151,8 +164,8 @@ function requestHasMatchingEtag(req: Request, etag: string | null): etag is stri
 
 export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response | null> {
 	if (url.pathname === '/healthz' && req.method === 'GET') {
-		const rateLimited = await guardRateLimit(req, env, 'healthz');
-		if (rateLimited) return rateLimited;
+		const guardResponse = await guardPublicRequest(req, env, 'healthz');
+		if (guardResponse) return guardResponse;
 
 		routeStats.healthzRequests += 1;
 		if (!(await isAdminAuthorized(req, env))) {
@@ -192,8 +205,8 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 	}
 
 	if (req.method === 'GET' && url.pathname === '/v1/bootstrap') {
-		const rateLimited = await guardRateLimit(req, env, 'bootstrap');
-		if (rateLimited) return rateLimited;
+		const guardResponse = await guardPublicRequest(req, env, 'bootstrap');
+		if (guardResponse) return guardResponse;
 
 		routeStats.bootstrapRequests += 1;
 		if (!bootstrapEnabled(env)) {
@@ -244,8 +257,8 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 			return cachedResponse;
 		}
 
-		const rateLimited = await guardRateLimit(req, env, 'snapshot');
-		if (rateLimited) return rateLimited;
+		const guardResponse = await guardPublicRequest(req, env, 'snapshot');
+		if (guardResponse) return guardResponse;
 
 		routeStats.snapshotRequests += 1;
 		const [raw, etag] = await Promise.all([
@@ -275,11 +288,8 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 
 	const priceSlug = getSlug(url.pathname, '/v1/prices/');
 	if (req.method === 'GET' && priceSlug) {
-		const rateLimited = await guardRateLimit(req, env, 'prices');
-		if (rateLimited) return rateLimited;
-
-		const bootstrapResponse = await guardBootstrap(req, env);
-		if (bootstrapResponse) return bootstrapResponse;
+		const guardResponse = await guardPublicRequest(req, env, 'prices', { bootstrap: true });
+		if (guardResponse) return guardResponse;
 
 		routeStats.priceRequests += 1;
 		const rank = parseRankFilter(url);
@@ -295,11 +305,8 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 
 	const metaSlug = getSlug(url.pathname, '/v1/meta/');
 	if (req.method === 'GET' && metaSlug) {
-		const rateLimited = await guardRateLimit(req, env, 'meta');
-		if (rateLimited) return rateLimited;
-
-		const bootstrapResponse = await guardBootstrap(req, env);
-		if (bootstrapResponse) return bootstrapResponse;
+		const guardResponse = await guardPublicRequest(req, env, 'meta', { bootstrap: true });
+		if (guardResponse) return guardResponse;
 
 		routeStats.metaRequests += 1;
 		const data = await getOrHydrateMeta(env, metaSlug, ctx);
@@ -309,11 +316,8 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 
 	const orderSummarySlug = getSlug(url.pathname, '/v1/order-summary/');
 	if (req.method === 'GET' && orderSummarySlug) {
-		const rateLimited = await guardRateLimit(req, env, 'order-summary');
-		if (rateLimited) return rateLimited;
-
-		const bootstrapResponse = await guardBootstrap(req, env);
-		if (bootstrapResponse) return bootstrapResponse;
+		const guardResponse = await guardPublicRequest(req, env, 'order-summary', { bootstrap: true });
+		if (guardResponse) return guardResponse;
 
 		routeStats.orderSummaryRequests += 1;
 		const rank = parseRankFilter(url);
@@ -334,11 +338,8 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 			return jsonResponse({ ok: false, error: 'deprecated' }, req, env, 410);
 		}
 
-		const rateLimited = await guardRateLimit(req, env, 'orders');
-		if (rateLimited) return rateLimited;
-
-		const bootstrapResponse = await guardBootstrap(req, env);
-		if (bootstrapResponse) return bootstrapResponse;
+		const guardResponse = await guardPublicRequest(req, env, 'orders', { bootstrap: true });
+		if (guardResponse) return guardResponse;
 
 		routeStats.ordersRequests += 1;
 		const rank = parseRankFilter(url);
