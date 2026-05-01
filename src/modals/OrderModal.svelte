@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { orderModalState, marketOrders } from "../stores/market.js";
-  import { invoke } from "../lib/ipc.js";
+  import { invoke, tradeInvoke } from "../lib/ipc.js";
   import ThemedButton from "../components/ThemedButton.svelte";
   import ThemedInput from "../components/ThemedInput.svelte";
   import SegmentedControl from "../components/SegmentedControl.svelte";
@@ -133,7 +133,7 @@
         if (showRankField && !Number.isNaN(Number(modRank))) {
           updates.modRank = Number(modRank);
         }
-        result = await invoke("wfmUpdateOrder", order.id, updates);
+        result = await tradeInvoke("wfmUpdateOrder", order.id, updates);
       } else {
         if (!itemSelected) {
           errorMsg = "Please select an item.";
@@ -157,7 +157,7 @@
         if (showRankField && !Number.isNaN(Number(modRank))) {
           payload.modRank = Number(modRank);
         }
-        result = await invoke("wfmCreateOrder", payload);
+        result = await tradeInvoke("wfmCreateOrder", payload);
       }
 
       if (result && "error" in result && typeof result.error === "string") {

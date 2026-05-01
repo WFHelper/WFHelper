@@ -28,7 +28,7 @@
     buildInventoryViewItems,
   } from "../lib/inventoryMarket.js";
   import { buildMarketOrderInventoryItem } from "../lib/marketOrderInventory.js";
-  import { invoke, send } from "../lib/ipc.js";
+  import { invoke, send, tradeInvoke } from "../lib/ipc.js";
   import { startupPriceCacheReady } from "../lib/startupLoader.js";
   import { marketDensity } from "../stores/uiDensity.js";
   import { getInventoryHydrationController } from "../stores/inventoryHydration.js";
@@ -297,7 +297,7 @@
   async function setStatus(status: WfmStatus): Promise<void> {
     if (status === $marketViewState.status) return;
     try {
-      await invoke("wfmSetStatus", status);
+      await tradeInvoke("wfmSetStatus", status);
       setMarketViewState({ status });
     } catch (error) {
       console.error("[Market] setStatus failed:", error);
@@ -306,7 +306,7 @@
 
   async function deleteOrder(orderId: string): Promise<void> {
     if (!confirm("Delete this order?")) return;
-    const result = await invoke("wfmDeleteOrder", orderId);
+    const result = await tradeInvoke("wfmDeleteOrder", orderId);
     if (hasError(result)) {
       alert(`Delete failed: ${result.error}`);
       return;
@@ -324,7 +324,7 @@
     if (!isOrdersTab($marketViewState.typeTab)) return;
     const ids = [...$marketSelected];
     if (!ids.length) return;
-    await invoke("wfmSetVisible", ids, visible);
+    await tradeInvoke("wfmSetVisible", ids, visible);
     await fetchOrders();
   }
 
@@ -334,7 +334,7 @@
     if (!ids.length) return;
     if (!confirm(`Delete ${ids.length} order(s)?`)) return;
     for (const id of ids) {
-      await invoke("wfmDeleteOrder", id);
+      await tradeInvoke("wfmDeleteOrder", id);
     }
     await fetchOrders();
   }

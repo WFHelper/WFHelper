@@ -1,6 +1,14 @@
 import type { IpcEventMap, IpcInvokeMap, IpcSendMap } from "../types/ipc.js";
 
 type InvokeKey = keyof IpcInvokeMap;
+type TradeInvokeKey =
+  | "wfmCreateOrder"
+  | "wfmUpdateOrder"
+  | "wfmDeleteOrder"
+  | "wfmSetVisible"
+  | "wfmSetStatus"
+  | "createRivenAuction";
+type ReadOnlyInvokeKey = Exclude<InvokeKey, TradeInvokeKey>;
 type EventChannel = keyof IpcEventMap;
 type SendChannel = keyof IpcSendMap;
 
@@ -13,12 +21,32 @@ function assertApi(): void {
   }
 }
 
-export function invoke<K extends InvokeKey>(
+function assertTradeApi(): void {
+  if (!window.tradeApi) {
+    throw new Error(
+      "window.tradeApi is undefined — trade preload bridge failed to initialize. " +
+        "Check the DevTools console for '[Preload] FATAL' errors.",
+    );
+  }
+}
+
+export function invoke<K extends ReadOnlyInvokeKey>(
   channel: K,
   ...args: IpcInvokeMap[K]["args"]
 ): Promise<IpcInvokeMap[K]["return"]> {
   assertApi();
   const fn = window.api[channel] as (
+    ...a: IpcInvokeMap[K]["args"]
+  ) => Promise<IpcInvokeMap[K]["return"]>;
+  return fn(...args);
+}
+
+export function tradeInvoke<K extends TradeInvokeKey>(
+  channel: K,
+  ...args: IpcInvokeMap[K]["args"]
+): Promise<IpcInvokeMap[K]["return"]> {
+  assertTradeApi();
+  const fn = window.tradeApi[channel] as (
     ...a: IpcInvokeMap[K]["args"]
   ) => Promise<IpcInvokeMap[K]["return"]>;
   return fn(...args);

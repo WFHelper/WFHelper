@@ -4,7 +4,7 @@
   import type { DecodedRiven, RivenBestAttributes, WfmRivenListing } from "../types/ipc.js";
   import { itemDb } from "../stores/data.js";
   import { PLATINUM_ICON_URL } from "../lib/assetUrls.js";
-  import { invoke } from "../lib/ipc.js";
+  import { invoke, tradeInvoke } from "../lib/ipc.js";
   import { gradeColor, attrGradeColor, dispoStars } from "../lib/rivenGradeColors.js";
   import DetailModalBase from "./DetailModalBase.svelte";
 
@@ -110,7 +110,7 @@
     const buyoutPrice = listingType === "direct" ? listingPrice : null;
     const startingPrice = listingPrice;
 
-    const result = await invoke("createRivenAuction", {
+    const result = await tradeInvoke("createRivenAuction", {
       weaponName: riven.weaponName,
       rivenName: riven.rivenName,
       stats,

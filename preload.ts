@@ -38,17 +38,10 @@ contextBridge.exposeInMainWorld("api", {
   wfmGetSession: () => ipcRenderer.invoke(WFM_SESSION),
   wfmGetOrders: () => ipcRenderer.invoke(WFM_GET_ORDERS),
   wfmGetContracts: (query?: unknown) => ipcRenderer.invoke(WFM_GET_CONTRACTS, query),
-  wfmCreateOrder: (params: unknown) => ipcRenderer.invoke(WFM_CREATE_ORDER, params),
-  wfmUpdateOrder: (orderId: string, updates: unknown) =>
-    ipcRenderer.invoke(WFM_UPDATE_ORDER, { orderId, updates }),
-  wfmDeleteOrder: (orderId: string) => ipcRenderer.invoke(WFM_DELETE_ORDER, { orderId }),
-  wfmSetVisible: (orderIds: string[], visible: boolean) =>
-    ipcRenderer.invoke(WFM_SET_VISIBLE, { orderIds, visible }),
   wfmSearchItems: (query: string, limit?: number) =>
     ipcRenderer.invoke(WFM_SEARCH_ITEMS, { query, limit }),
   wfmLookupItemBySlug: (slug: string) => ipcRenderer.invoke(WFM_LOOKUP_ITEM, { slug }),
   wfmGetMe: () => ipcRenderer.invoke(WFM_GET_ME),
-  wfmSetStatus: (status: string) => ipcRenderer.invoke(WFM_SET_STATUS, { status }),
 
   getMasteryProgress: () => ipcRenderer.invoke(DB_GET_MASTERY),
   setDebugMode: (enabled: boolean) => ipcRenderer.invoke(DB_SET_DEBUG_MODE, !!enabled),
@@ -133,8 +126,6 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke(RIVENS_GET_WEAPON_TYPE, weaponName),
   getRivenBestAttributes: (weaponName: string) =>
     ipcRenderer.invoke(RIVENS_GET_BEST_ATTRIBUTES, weaponName),
-  createRivenAuction: (payload: CreateRivenAuctionPayload) =>
-    ipcRenderer.invoke(RIVENS_CREATE_AUCTION, payload),
   onHelperDownloadProgress: (callback: (progress: unknown) => void) => {
     const listener = (_event: unknown, progress: unknown) => callback(progress);
     ipcRenderer.on(HELPER_DOWNLOAD_PROGRESS, listener);
@@ -142,6 +133,18 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.removeListener(HELPER_DOWNLOAD_PROGRESS, listener);
     };
   },
+});
+
+contextBridge.exposeInMainWorld("tradeApi", {
+  wfmCreateOrder: (params: unknown) => ipcRenderer.invoke(WFM_CREATE_ORDER, params),
+  wfmUpdateOrder: (orderId: string, updates: unknown) =>
+    ipcRenderer.invoke(WFM_UPDATE_ORDER, { orderId, updates }),
+  wfmDeleteOrder: (orderId: string) => ipcRenderer.invoke(WFM_DELETE_ORDER, { orderId }),
+  wfmSetVisible: (orderIds: string[], visible: boolean) =>
+    ipcRenderer.invoke(WFM_SET_VISIBLE, { orderIds, visible }),
+  wfmSetStatus: (status: string) => ipcRenderer.invoke(WFM_SET_STATUS, { status }),
+  createRivenAuction: (payload: CreateRivenAuctionPayload) =>
+    ipcRenderer.invoke(RIVENS_CREATE_AUCTION, payload),
 });
 } catch (err) {
   console.error("[Preload] FATAL: contextBridge.exposeInMainWorld failed:", err);

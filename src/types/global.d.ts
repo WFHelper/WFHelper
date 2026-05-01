@@ -1,8 +1,9 @@
-import type { PreloadAPI } from "./preload.js";
+import type { PreloadAPI, TradePreloadAPI } from "./preload.js";
 
 declare global {
   interface Window {
     api: PreloadAPI;
+    tradeApi: TradePreloadAPI;
   }
 
   interface ImportMetaEnv {

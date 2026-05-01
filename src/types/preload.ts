@@ -18,20 +18,6 @@ export interface PreloadAPI {
   wfmGetContracts: (
     query?: IpcInvokeMap["wfmGetContracts"]["args"][0],
   ) => Promise<IpcInvokeMap["wfmGetContracts"]["return"]>;
-  wfmCreateOrder: (
-    params: IpcInvokeMap["wfmCreateOrder"]["args"][0],
-  ) => Promise<IpcInvokeMap["wfmCreateOrder"]["return"]>;
-  wfmUpdateOrder: (
-    orderId: IpcInvokeMap["wfmUpdateOrder"]["args"][0],
-    updates: IpcInvokeMap["wfmUpdateOrder"]["args"][1],
-  ) => Promise<IpcInvokeMap["wfmUpdateOrder"]["return"]>;
-  wfmDeleteOrder: (
-    orderId: IpcInvokeMap["wfmDeleteOrder"]["args"][0],
-  ) => Promise<IpcInvokeMap["wfmDeleteOrder"]["return"]>;
-  wfmSetVisible: (
-    orderIds: IpcInvokeMap["wfmSetVisible"]["args"][0],
-    visible: IpcInvokeMap["wfmSetVisible"]["args"][1],
-  ) => Promise<IpcInvokeMap["wfmSetVisible"]["return"]>;
   wfmSearchItems: (
     query: IpcInvokeMap["wfmSearchItems"]["args"][0],
     limit?: IpcInvokeMap["wfmSearchItems"]["args"][1],
@@ -40,7 +26,6 @@ export interface PreloadAPI {
     slug: IpcInvokeMap["wfmLookupItemBySlug"]["args"][0],
   ) => Promise<IpcInvokeMap["wfmLookupItemBySlug"]["return"]>;
   wfmGetMe: () => Promise<IpcInvokeMap["wfmGetMe"]["return"]>;
-  wfmSetStatus: (status: WfmStatus) => Promise<IpcInvokeMap["wfmSetStatus"]["return"]>;
   getMasteryProgress: () => Promise<IpcInvokeMap["getMasteryProgress"]["return"]>;
   setDebugMode: (
     enabled: IpcInvokeMap["setDebugMode"]["args"][0],
@@ -102,8 +87,26 @@ export interface PreloadAPI {
   getRivenBestAttributes: (
     weaponName: string,
   ) => Promise<IpcInvokeMap["getRivenBestAttributes"]["return"]>;
+  onHelperDownloadProgress: (callback: (progress: IpcEventMap["helper-download-progress"]) => void) => () => void;
+}
+
+export interface TradePreloadAPI {
+  wfmCreateOrder: (
+    params: IpcInvokeMap["wfmCreateOrder"]["args"][0],
+  ) => Promise<IpcInvokeMap["wfmCreateOrder"]["return"]>;
+  wfmUpdateOrder: (
+    orderId: IpcInvokeMap["wfmUpdateOrder"]["args"][0],
+    updates: IpcInvokeMap["wfmUpdateOrder"]["args"][1],
+  ) => Promise<IpcInvokeMap["wfmUpdateOrder"]["return"]>;
+  wfmDeleteOrder: (
+    orderId: IpcInvokeMap["wfmDeleteOrder"]["args"][0],
+  ) => Promise<IpcInvokeMap["wfmDeleteOrder"]["return"]>;
+  wfmSetVisible: (
+    orderIds: IpcInvokeMap["wfmSetVisible"]["args"][0],
+    visible: IpcInvokeMap["wfmSetVisible"]["args"][1],
+  ) => Promise<IpcInvokeMap["wfmSetVisible"]["return"]>;
+  wfmSetStatus: (status: WfmStatus) => Promise<IpcInvokeMap["wfmSetStatus"]["return"]>;
   createRivenAuction: (
     payload: CreateRivenAuctionPayload,
   ) => Promise<IpcInvokeMap["createRivenAuction"]["return"]>;
-  onHelperDownloadProgress: (callback: (progress: IpcEventMap["helper-download-progress"]) => void) => () => void;
 }
