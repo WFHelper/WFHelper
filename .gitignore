@@ -16,7 +16,8 @@ preload-overlay.js
 .electron-build/
 api-inventory-data/
 
-docs/
+.notes/
+scratch/
 
 # Cloudflare worker local secrets / state
 .dev.vars*
