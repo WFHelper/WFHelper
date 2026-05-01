@@ -32,7 +32,7 @@ function isValidSnapshot(d: unknown): d is SnapshotBlob {
 }
 
 /**
- * Called once during app startup. Loads the bulk snapshot from disk (if < 2 h
+ * Called once during app startup. Loads the bulk snapshot from disk (if < 24 h
  * old) or fetches it from the backend. Imports into all three in-memory caches
  * (prices, meta, order summaries). Never throws — falls back gracefully.
  */
