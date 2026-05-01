@@ -17,7 +17,7 @@ export const RIVEN_PATTERNS = {
   genericDialogNonInteractive: /leftItem=nil/,
   sendResult: /Dialog\.lua:\s*Dialog::SendResult\((\d+)\)/,
   diaoramaSetup: /OmegaRerollSelection\.lua.*Diorama setup/i,
-  /** Extra close signal used by AlecaFrame: recycled effects line. */
+  /** Extra close signal emitted by the recycled effects line. */
   recycledEffects: /ytes of recycled effects/,
 } as const;
 
@@ -79,7 +79,7 @@ const RIVEN_SESSION_OPEN_COOLDOWN_MS = 15_000;
 let _lastRivenDioramaAt = 0;
 const RIVEN_DIORAMA_DEDUP_MS = 2_000;
 
-/** True once the diorama-setup line fires — mirrors AlecaFrame's `isRerollUIOpen`.
+/** True once the diorama-setup line fires.
  * Close patterns (ClearAgents / recycled effects) are gated on this so that
  * lines emitted during the loading transition TO the riven screen are ignored. */
 let _rivenDioramaReady = false;
@@ -87,7 +87,7 @@ let _rivenDioramaReady = false;
 let _rivenForceEndedAt = 0;
 const RIVEN_FORCE_END_COOLDOWN_MS = 5_000;
 
-/** Track HudVis for two-step chat riven detection (AlecaFrame-style). */
+/** Track HudVis for two-step chat riven detection. */
 let _lastHudVis = 0;
 let _lastHudVisIncreaseAt = 0;
 const CHAT_RIVEN_POPULATE_WINDOW_MS = 2_000;
@@ -185,8 +185,8 @@ export function processRivenPatterns(
   }
 
   // Session close: NpcManager::ClearAgents or recycled effects.
-  // Gated on _rivenDioramaReady (mirrors AlecaFrame's isRerollUIOpen) — these lines
-  // fire during the loading transition TO the riven screen, before the diorama is set up.
+  // Gated on _rivenDioramaReady because these lines can fire during the loading
+  // transition TO the riven screen, before the diorama is set up.
   if (!skipRivenFromFilePoll && _rivenSessionActive && _rivenDioramaReady && (RIVEN_PATTERNS.sessionClose.test(line) || RIVEN_PATTERNS.recycledEffects.test(line))) {
     log.log("[EELog] Riven session close detected -> dispatching overlay close");
     _rivenSessionActive = false;

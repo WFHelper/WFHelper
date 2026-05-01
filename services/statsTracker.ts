@@ -324,10 +324,10 @@ export function getHistory(): DailyStatEntry[] {
 }
 
 /**
- * Import daily history entries from an external source (e.g. the AlecaFrame JSON export).
+ * Import daily history entries from an external stats JSON export.
  *
  * Expects entries that are already normalised to deltas (the StatsView renderer
- * pre-processes AlecaFrame's absolute values into deltas before calling this).
+ * pre-processes absolute values into deltas before calling this).
  * Existing local entries for the same date are **overwritten** by the imported data,
  * except for today's live-tracked entry which is always preserved.
  * Returns the count of newly added or updated entries.
@@ -371,7 +371,7 @@ export function importHistory(raw: unknown[]): number {
     let ayaDelta = 0;
     if (typeof r.ayaDelta === "number") ayaDelta = r.ayaDelta;
 
-    // Relics opened (already a count per day in AlecaFrame; also stored as relicsOpened)
+    // Relics opened may arrive under either legacy or current field names.
     let relicsOpened = 0;
     if (typeof r.relicsOpened === "number") relicsOpened = r.relicsOpened;
     else if (typeof r.relicOpened === "number") relicsOpened = r.relicOpened;
@@ -384,7 +384,7 @@ export function importHistory(raw: unknown[]): number {
 
     const entry: DailyStatEntry = { date, platDelta, creditsDelta, endoDelta, ducatsDelta, ayaDelta, relicsOpened, daysPlayed, dailyTrades };
 
-    // Store absolute values if provided (from AlecaFrame import)
+    // Store absolute values if provided by the import.
     if (typeof r.absPlat    === "number") entry.absPlat    = r.absPlat;
     if (typeof r.absCredits === "number") entry.absCredits = r.absCredits;
     if (typeof r.absEndo    === "number") entry.absEndo    = r.absEndo;

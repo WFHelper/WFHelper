@@ -206,7 +206,7 @@ export function unparseCurse(
 
 
 /**
- * Per-attribute grade. Mirrors AlecaFrame's `AlecaFrameAttributeGrade`:
+ * Per-attribute grade:
  *   Decisive  — positive listed in some `goodAttrs[*].mandatory`
  *   Good      — positive in some `goodAttrs[*].optional`,
  *               or a negative listed in `acceptedBadAttrs`
@@ -263,8 +263,7 @@ function gradeFromGoodRolls(
   const hasNotHelpingNeg = negative.some((n) => n === "NotHelping");
   const hasAnyNeg = negative.length > 0;
 
-  // Overall grade — mirror AlecaFrame's AlecaFrameRivenGrade returns, then
-  // flatten to the 4-level UI scale already in use (Great/Good/OK/Bad).
+  // Flatten the detailed result to the 4-level UI scale already in use.
   let overall: string;
   if (hasBadNeg) {
     overall = (flag && num >= 2) || num >= 3 ? "OK" /* HasPotential */ : "Bad";
@@ -287,8 +286,8 @@ function gradeFromGoodRolls(
 /**
  * Compute an attribute-quality grade for a riven.
  *
- * Uses AlecaFrame-style scoring against the per-weapon `GoodRollData` sourced
- * from 44bananas' "good rolls for selling" sheet (see
+ * Uses scoring against the per-weapon `GoodRollData` sourced from
+ * 44bananas' "good rolls for selling" sheet (see
  * `config/shared/rivenGoodRolls.ts`). Returns "?" when the weapon
  * isn't in the dataset.
  */

@@ -100,8 +100,7 @@ export function shortDate(iso: string): string {
 }
 
 /**
- * AlecaFrame-style SI tick label: ≥1M → "X.XM", ≥1K → "X.XK", else raw number.
- * Matches AlecaFrame's ConvertToSI() exactly.
+ * Compact SI tick label: >=1M -> "X.XM", >=1K -> "X.XK", else raw number.
  */
 function fmtTickSI(value: number): string {
   const abs = Math.abs(value);

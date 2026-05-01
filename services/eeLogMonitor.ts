@@ -25,7 +25,7 @@ const REWARD_TRIGGER_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
   /\bGot rewards\b/i,
 ]);
 // Primary: LoadingCompleteEnd fires when the relic-selection screen is fully rendered
-// and interactive — confirmed by AlecaFrame as the correct trigger point.
+// and interactive.
 // Fallback: PopulateInventoryGrid fires earlier in the load sequence; kept so that
 // if DE renames the lua file the trigger still works (it re-fires after cooldown if
 // LoadingCompleteEnd never arrives).
@@ -36,12 +36,10 @@ const RELIC_PICKER_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
   /\bProjectionManager\.lua:\s*PopulateInventoryGrid\b/i,
   /\bProjection[A-Za-z_]*\.lua:\s*PopulateInventoryGrid\b/i,
 ]);
-// AlecaFrame uses "InitMapping for all devices with bindings" to detect when the player
-// leaves the relic-selection screen (back, cancel, or relic chosen). This line fires when
-// the game re-initialises input bindings on returning to gameplay from any full-screen UI.
+// InitMapping marks returning to gameplay from the relic-selection screen (back, cancel,
+// or relic chosen) because the game re-initialises input bindings after full-screen UI.
 // RELIC_PICKER_CLOSE_MIN_GAP_MS guards against the InitMapping that fires when navigating
-// TO the relic screen (same guard as AlecaFrame: "Skipped relic close because it was too
-// close to the recommendation start!").
+// TO the relic screen.
 const RELIC_PICKER_CLOSE_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
   /\bInitMapping for all devices with bindings\b/i,
 ]);
@@ -54,36 +52,18 @@ const TRADE_PARTNER_PATTERN = /TradingPost\.lua.*?[Tt]rade.*?[Ww]ith[: ]+([A-Za-
 const TRIGGER_DELAY_MS = 450;
 /** Debounce for relic-picker — gives the in-game UI time to finish rendering. */
 const RELIC_TRIGGER_DELAY_MS = 300;
-/**
- * Cooldown between consecutive reward scans to avoid re-triggering on
- * duplicate log lines.
- *
- * 2500 ms is tuned to exceed the typical gap between DBWIN and file-poll
- * re-delivery of the same event (usually < 1 s observed, < 2 s worst case)
- * while staying well below the minimum time between two legitimate
- * reward screens (successive mission completions are always separated by
- * loading + navigation flow, > 10 s in practice). Lower values re-fire
- * the overlay; higher values risk dropping a legitimate rapid-retry.
- */
+/** Cooldown between consecutive reward scans to avoid duplicate log-line triggers. */
 const REWARD_TRIGGER_COOLDOWN_MS = 2500;
-// DBWIN fires at T=0 (instant); EE.log file flush can lag 0–5 s behind.
-// With both sources active the file-based read would re-trigger the overlay
-// seconds later unless the cooldown covers the full flush window.
-// 8 s is safely larger than any observed EE.log flush delay, yet far smaller
-// than the minimum realistic time between two consecutive fissure mission entries.
-// 3 s is enough to absorb any DBWIN→file-poll re-deliver after DBWIN becomes inactive.
-// skipRelicFromFilePoll handles the common case while DBWIN is active.
+// Covers delayed EE.log flushes after the DBWIN trigger has already fired.
 const RELIC_PICKER_COOLDOWN_MS = 3000;
 /** Grace period after close before another close can fire — debounces rapid log flushes. */
 const RELIC_PICKER_CLOSE_COOLDOWN_MS = 500;
 // Minimum gap between the last open trigger and a close trigger being honoured.
 // Prevents InitMapping from closing the overlay when it fires as part of
 // the navigation flow that leads TO the relic selection screen.
-// AlecaFrame uses 3.5 s when a relic was just opened, 500 ms otherwise;
-// we use 3.5 s as a safe unified guard.
+// Use a longer unified guard so the open navigation flow cannot immediately close the overlay.
 const RELIC_PICKER_CLOSE_MIN_GAP_MS = 3500;
-// File-based poll is a safety net — DBWIN delivers lines with zero-latency.
-// 500 ms keeps the backup responsive while cutting CPU wake-ups by 5×.
+// File polling is a backup path when DBWIN is inactive.
 const POLL_INTERVAL_MS = 500;
 const MAX_READ_BYTES = 256 * 1024;
 const MAX_READ_LOOPS_PER_TICK = 8;
@@ -266,7 +246,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
     }
   }
 
-  // AlecaFrame behavior: start buffering on the dialog description line.
+  // Start buffering on the dialog description line.
   // Stop buffering when a new log-framework prefix appears ([Info]/[Error]/[Warning]).
   // Single-line dialogs (ending with leftItem=/Menu/Confirm_Item_Ok) are handled immediately.
   if (line.includes(TRADE_DIALOG_START)) {
@@ -277,7 +257,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
       // Single-line: buffer is complete, wait for trade success confirmation
     }
   } else if (_tradeDialogBuffer !== null) {
-    // Stop buffering when a log framework line appears (matches AlecaFrame behavior)
+    // Stop buffering when a log framework line appears.
     if (/\[(Info|Error|Warning)\]/.test(line)) {
       // Buffer is complete — don't add this line, just stop buffering and wait for success
     } else if (Date.now() - _tradeDialogStartAt > TRADE_DIALOG_TIMEOUT_MS) {

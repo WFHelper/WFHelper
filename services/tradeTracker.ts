@@ -120,7 +120,7 @@ export function markTradeWfmClosed(tradeId: string): void {
 }
 
 /**
- * Import trade events from an external source (e.g. AlecaFrame export).
+ * Import trade events from an external trade export.
  * Deduplicates by id. Returns the number of newly added events.
  */
 export function importTradeLog(events: TradeEvent[]): number {

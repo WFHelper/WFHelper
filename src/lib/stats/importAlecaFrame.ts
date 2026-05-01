@@ -17,7 +17,7 @@ interface NormalizedStatEntry {
 }
 
 /**
- * Normalize AlecaFrame / generic stats JSON into a flat array of daily entries.
+ * Normalize stats JSON into a flat array of daily entries.
  * Handles both delta-style exports (platDelta) and absolute-style (plat with
  * prev-row differencing).
  */
@@ -103,7 +103,7 @@ export function normalizeAlecaFrameStats(parsed: unknown): NormalizedStatEntry[]
 }
 
 /**
- * Parse AlecaFrame trade array from a stats JSON export.
+ * Parse the trade array from a stats JSON export.
  * Returns trade events ready for import via IPC.
  */
 export function parseAlecaFrameTrades(parsed: unknown): TradeEvent[] {

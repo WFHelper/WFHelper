@@ -177,16 +177,7 @@ let _rollScanSerial = 0;
 let _rivenInitialScanTimer: ReturnType<typeof setTimeout> | null = null;
 let _rivenRollScanTimer: ReturnType<typeof setTimeout> | null = null;
 
-// Delay before OCR scan (ms).
-// AlecaFrame uses Thread.Sleep(2750) in RivenRerollDetected — that is how long
-// the roll animation takes.  Our DBWIN worker delivers messages with near-zero
-// latency (vs AlecaFrame's ~200-500ms C# thread scheduling), so we add a small
-// buffer: 2850ms = 2750ms animation + 100ms safety margin.
-//
-// INITIAL: AlecaFrame Thread.Sleep(200) in RivenSelectedForRerollDetected.
-// ROLL:    2850ms (AlecaFrame 2750ms animation + 100ms buffer).
-// CHOICE:  AlecaFrame RivenRerollCycleComplete: Thread.Sleep(1000) then calls
-//          RivenSelectedForRerollDetected (another Sleep(200)) = 1200 ms total.
+// Riven OCR delays in ms; roll and choice waits allow animation text to settle.
 const INITIAL_SCAN_DELAY_MS = 200;
 const ROLL_SCAN_DELAY_MS = 2850;
 const CHOICE_RESCAN_DELAY_MS = 1200;
@@ -486,11 +477,8 @@ export function onRivenRollConfirmed(): void {
   triggerRollScan();
 }
 
-// Fired when the 3-D two-card diorama finishes loading (EE.log:
-// "OmegaRerollSelection.lua: Diorama setup").
-// AlecaFrame does NOT use the diorama event for roll scans; it uses a fixed
-// 2750 ms sleep from the roll-confirm event.  We match that model exactly.
-// The diorama event is intentionally a no-op to prevent duplicate scans.
+// Fired when the two-card diorama finishes loading. Roll scans are scheduled from
+// the roll-confirm event instead, so this remains a no-op to prevent duplicate scans.
 export function onRivenDioramaSetup(): void {
   log.log("[OverlayRoute] diorama setup event (no-op, roll uses fixed delay)");
 }
@@ -522,9 +510,7 @@ export function onRivenChoiceConfirmed(): void {
   // Tell the renderer: choice made, side unknown until rescan completes.
   rivenSession.onChoiceMade(getRivenWindows(), "unknown");
 
-  // Rescan the single card shown after the choice.
-  // AlecaFrame: Thread.Sleep(1000) then RivenSelectedForRerollDetected (Sleep(200)) = 1200 ms.
-  // We match that exactly: CHOICE_RESCAN_DELAY_MS = 1200, then immediate capture (no gate).
+  // Rescan the single card shown after the choice once the post-choice animation settles.
   if (_rivenInitialScanTimer) clearTimeout(_rivenInitialScanTimer);
   _rivenInitialScanTimer = setTimeout(async () => {
     _rivenInitialScanTimer = null;

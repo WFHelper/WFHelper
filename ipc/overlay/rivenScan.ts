@@ -3,14 +3,11 @@
  *
  * Scanning strategy:
  *  1. Session opens -> scanInitialCard() - OCR the centered single card
- *  2. Roll confirmed -> scanNewRoll() - centered crop matching AlecaFrame's
- *     CutBitmapToRoughSize, with edge detection to isolate the card.
+ *  2. Roll confirmed -> scanNewRoll() - centered crop with edge detection to isolate the card.
  *
  * At 2750ms after roll confirm, the game may still be transitioning from the
- * single new-card display to the two-panel diorama layout.  The CENTERED crop
- * (matching AlecaFrame exactly) captures whatever card is visible in the center
- * at that moment, and our Sobel edge detection (detectRivenCardFrame) narrows
- * to the actual text area.
+ * single new-card display to the two-panel diorama layout. The centered crop captures
+ * whatever card is visible at that moment, and edge detection narrows to the text area.
  */
 
 import { withScope } from "../../services/logger";
@@ -78,11 +75,8 @@ let _scanGeneration = 0;
 // Initial / choice scan: single centred card covers x 0.22–0.78.
 const SINGLE_CARD_CROP = { x: 0.22, y: 0.43, width: 0.56, height: 0.45 };
 
-// Roll scan: AlecaFrame-matching centered crop.  AlecaFrame's CutBitmapToRoughSize
-// for RivenReroll crops a CENTER strip (not offset to right) and relies on edge
-// detection (DetailedRivenCrop) to isolate the card within.  At 2750ms after roll
-// confirm the new card may still be centered on screen before the two-panel diorama
-// layout settles.  Exact AlecaFrame math at 1920×1080:
+// Roll scan: centered crop. At 2750ms after roll confirm the new card may still be
+// centered on screen before the two-panel diorama layout settles. For 1920x1080:
 //   roughHeight = H*0.7 = 756, roughWidth = roughHeight*0.45 = 340
 //   x = W/2 - roughWidth/2 = 790 (41.1%), topCut = 0.38*roughHeight = 287
 //   y = H/2 - roughHeight/2 + topCut = 449 (41.6%), h = roughHeight - topCut = 469
@@ -456,9 +450,8 @@ export async function scanNewRoll(expectedWeaponName = "", skipGate = true): Pro
 }
 
 export async function scanChoiceRescan(expectedWeaponName = ""): Promise<RivenStat[]> {
-  // AlecaFrame model: CHOICE_RESCAN_DELAY_MS (1200 ms) already elapsed.
-  // Capture immediately — no readiness gate polling.
-  // Use non-zero DXGI timeout to force a fresh frame after the choice animation.
+  // CHOICE_RESCAN_DELAY_MS has already elapsed, so capture immediately without
+  // readiness polling. Use a non-zero DXGI timeout to force a fresh frame.
   const capture = await captureScreenFast(_rivenDisplayId, DXGI_FRESH_TIMEOUT_MS);
   if (!capture) {
     log.warn("[RivenScan] scanChoiceRescan: captureScreen returned null");

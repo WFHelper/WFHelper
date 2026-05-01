@@ -2,12 +2,12 @@
  * tradeWfmMatcher.ts — Matches completed in-game trades to the user's
  * active WFM orders and closes the best match.
  *
- * Algorithm modeled after AlecaFrame's WFMarketHelper.ItemsWereJustTraded():
- *   1. Fetch user's active orders
- *   2. Filter by direction (sell orders for sales, buy orders for purchases)
- *   3. Match by item name (Blueprint-insensitive, case-insensitive)
- *   4. Tiebreak: plat proximity → mod rank proximity → quantity
- *   5. Close the best match via POST /v2/order/{id}/close
+ * Matches a completed in-game trade to the user's active WFM orders:
+ *   1. Fetch active orders.
+ *   2. Filter by direction.
+ *   3. Match by item name.
+ *   4. Tiebreak by platinum proximity, mod rank proximity, then quantity.
+ *   5. Close the best matching order.
  */
 
 import { withScope } from "./logger";
@@ -31,7 +31,7 @@ interface ParsedTradeForMatching {
 type WfmTradeMatch = TradeMatchPayload;
 
 
-/** AlecaFrame caps quantity at 6 per close */
+/** Cap quantity closed from a single trade match. */
 const MAX_CLOSE_QUANTITY = 6;
 
 /** Prevent double-close on the same order within a short window */
@@ -93,8 +93,7 @@ export async function matchTradeToOrder(
 
   cleanupRecentlyClosed();
 
-  // Try to match each traded item against an order
-  // For simplicity, match the first item that resolves (like AlecaFrame's single-item path)
+  // Match the first traded item that resolves to an active order.
   for (const item of relevantItems) {
     const normalizedItem = normalizeName(item.displayName);
     if (!normalizedItem) continue;
@@ -118,7 +117,7 @@ export async function matchTradeToOrder(
 
     if (matching.length === 0) continue;
 
-    // Sort by AlecaFrame's tiebreaker: plat proximity → rank proximity → quantity
+    // Sort by platinum proximity, rank proximity, then quantity.
     matching.sort((a: NormalisedOrder, b: NormalisedOrder) => {
       const platDiffA = Math.abs((a.platinum || 0) - trade.platChange);
       const platDiffB = Math.abs((b.platinum || 0) - trade.platChange);

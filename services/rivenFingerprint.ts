@@ -58,7 +58,7 @@ const RIVEN_TYPE_LABELS: Record<string, string> = {
   RawModularMeleeRandomMod: "Zaw",
 };
 
-// Uses exact inventory path segment names from warframe-items / AlecaFrame data.
+// Uses exact inventory path segment names from external riven challenge data.
 // Keys match the last path component of "/Lotus/Types/Challenges/<Name>".
 // Use {n} as placeholder for the Required count.
 
@@ -346,7 +346,7 @@ function decodeSingleRiven(
   const avgRollFloat = scoredCount > 0 ? rollFloatSum / scoredCount : 0.5;
   const overallGrade = rivenGrading.floatToGrade(avgRollFloat, false);
 
-  // Attribute grade (Great/Good/OK/Bad) — uses AlecaFrame-style per-weapon dataset.
+  // Attribute grade (Great/Good/OK/Bad) using the per-weapon good-roll dataset.
   const positives = decodedStats.filter((s) => s.positive);
   const negatives = decodedStats.filter((s) => !s.positive);
   const attributeGrade = rivenGrading.computeAttributeGrade(

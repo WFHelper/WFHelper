@@ -30,18 +30,13 @@ interface RivenUiReadyResult {
 
 const RIVEN_READY_TIMEOUTS_MS = Object.freeze({
   initial: 1800,
-  // Roll and choice gates removed — AlecaFrame uses fixed delays (2750 ms / 1200 ms)
-  // with immediate capture, no visual readiness polling.  These remain for type
-  // compatibility but are no longer called from production code paths.
+  // Roll and choice gates are not used in production; fixed post-event delays
+  // are more stable for those screens.
   roll: 500,
   choice: 1800,
 });
-// With DXGI capture at ~10 ms/frame (non-blocking AcquireNextFrame), each poll
-// cycle is ~10 ms capture + ~5 ms analysis + 40 ms sleep ≈ 55 ms.  Reducing
-// from 140 ms allows 3× more samples in the same window, so we increase
-// REQUIRED_HITS from 2 → 3 for better stability confidence at no latency cost:
-//   old: 2 hits × 140 ms = 280 ms minimum detection
-//   new: 3 hits × 40 ms  = 120 ms minimum detection  (~2.3× faster + more accurate)
+// Fast polling with three stable hits catches the initial card promptly without
+// accepting transient animation frames.
 const RIVEN_READY_POLL_MS = 40;
 const RIVEN_READY_REQUIRED_HITS = 3;
 const RIVEN_READY_SCORE_THRESHOLD = 0.2;
