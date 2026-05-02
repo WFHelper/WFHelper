@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { onDestroy, onMount } from "svelte";
+  import { onMount } from "svelte";
 
   import { invoke, send } from "../lib/ipc.js";
+  import { useInterval } from "../lib/timers.js";
   import { themeSettings } from "../stores/theme.js";
   import { DEFAULT_APP_NAME } from "../config/themeDefaults.js";
   import type { HelperStatus } from "../types/ipc.js";
@@ -12,7 +13,6 @@
   $: appName = $themeSettings.branding.appName || DEFAULT_APP_NAME;
 
   let helperStatus: HelperStatus | null = null;
-  let pollTimer: ReturnType<typeof setInterval> | null = null;
 
   function formatHelperTime(ms: number | null): string {
     if (!ms) return "";
@@ -47,15 +47,7 @@
         .catch(() => {});
     };
 
-    refreshHelperStatus();
-    pollTimer = setInterval(refreshHelperStatus, HELPER_STATUS_POLL_MS);
-  });
-
-  onDestroy(() => {
-    if (pollTimer) {
-      clearInterval(pollTimer);
-      pollTimer = null;
-    }
+    return useInterval(refreshHelperStatus, HELPER_STATUS_POLL_MS, { immediate: true });
   });
 </script>
 

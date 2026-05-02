@@ -1,4 +1,4 @@
-export type FilterScope = "inventory" | "mastery" | "market";
+export type FilterScope = "inventory" | "mastery" | "market" | "foundry" | "rivens";
 
 export type PrimeFilterMode = "all" | "prime" | "non_prime";
 export type MasteredFilterMode = "all" | "mastered" | "not_mastered";
@@ -11,6 +11,11 @@ export type SharedSortKey =
   | "platinum"
   | "ducats"
   | "amount"
+  | "count"
+  | "time"
+  | "disposition"
+  | "rerolls"
+  | "grade"
   | "ducatonator"
   | "complete_sets";
 

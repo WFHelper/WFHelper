@@ -1,5 +1,4 @@
 ﻿<script lang="ts">
-  import { onMount, onDestroy } from "svelte";
   import { SvelteMap } from "svelte/reactivity";
   import {
     itemDb,
@@ -11,18 +10,19 @@
   import { activeItem } from "../stores/modals.js";
   import { formatTimeRemaining, formatNumber } from "../lib/format.js";
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
+  import { CREDITS_ICON_URL } from "../lib/assetUrls.js";
+  import { clockStore } from "../lib/timers.js";
+  import { persistedString } from "../lib/persistence.js";
+  import { sharedFilters } from "../stores/filters.js";
   import ItemImage from "../components/ItemImage.svelte";
   import HeaderTabs from "../components/HeaderTabs.svelte";
-  import SearchBox from "../components/SearchBox.svelte";
-  import SortArrow from "../components/SortArrow.svelte";
+  import SharedFilterBar from "../components/SharedFilterBar.svelte";
   import type {
     FoundryBuildingItem,
     FoundryRecipeItem,
     MasteryStatus,
     RecipeIngredient,
   } from "../types/inventory.js";
-
-  const CREDITS_ICON = new URL("../../assets/Bounties/Credits.png", import.meta.url).href;
 
   type SortMode = "name" | "time" | "count";
   /** Unified status for sorting + badges. Order here defines default sort. */
@@ -54,36 +54,7 @@
     isIngredient: boolean;
   }
 
-  const SORT_KEY = "foundryView.sort";
-  const SORT_DIR_KEY = "foundryView.sortDir";
   const FILTER_KEY = "foundryView.filter";
-
-  type SortDir = "asc" | "desc";
-
-  function loadString<T extends string>(key: string, allowed: T[], fallback: T): T {
-    const raw = (typeof localStorage !== "undefined" && localStorage.getItem(key)) || "";
-    return (allowed as string[]).includes(raw) ? (raw as T) : fallback;
-  }
-
-  let sortMode: SortMode = loadString<SortMode>(SORT_KEY, ["name", "time", "count"], "count");
-  let sortDir: SortDir = loadString<SortDir>(SORT_DIR_KEY, ["asc", "desc"], "desc");
-  let activeFilter: FilterKey =
-    ((typeof localStorage !== "undefined" && localStorage.getItem(FILTER_KEY)) as FilterKey) || "all";
-  let query = "";
-
-  $: try { localStorage.setItem(SORT_KEY, sortMode); } catch { /* best effort */ }
-  $: try { localStorage.setItem(SORT_DIR_KEY, sortDir); } catch { /* best effort */ }
-  $: try { localStorage.setItem(FILTER_KEY, activeFilter); } catch { /* best effort */ }
-
-  function toggleSortDir(): void {
-    sortDir = sortDir === "asc" ? "desc" : "asc";
-  }
-
-  // 1 s tick so the "claimable" flip and countdown labels update live.
-  let nowMs = Date.now();
-  let tick: ReturnType<typeof setInterval> | null = null;
-  onMount(() => { tick = setInterval(() => { nowMs = Date.now(); }, 1000); });
-  onDestroy(() => { if (tick) clearInterval(tick); });
 
   $: foundry = $foundryData;
 
@@ -115,6 +86,19 @@
     { key: "status:ready", label: "Ready to Build" },
     ...CATEGORY_ORDER.map((cat) => ({ key: `cat:${cat}`, label: cat })),
   ];
+  const activeFilter = persistedString<FilterKey>(
+    FILTER_KEY,
+    foundryFilterTabs.map((tab) => tab.key as FilterKey),
+    "all",
+  );
+  const foundryFilters = sharedFilters("foundry");
+  const foundrySortOptions: Array<[SortMode, string]> = [
+    ["count", "Count"],
+    ["time", "Time"],
+    ["name", "Name"],
+  ];
+  const nowClock = clockStore(1000);
+  $: nowMs = $nowClock;
 
   function toEntryFromBuilding(b: FoundryBuildingItem): FoundryEntry {
     return {
@@ -240,15 +224,15 @@
     }
   }
 
-  $: q = query.trim().toLowerCase();
+  $: q = $foundryFilters.search.trim().toLowerCase();
 
   $: decorated = allEntries.map((e) => ({ e, status: statusOf(e, nowMs) }));
 
   function passesActiveFilter(e: FoundryEntry, s: ItemStatus): boolean {
-    if (activeFilter === "all") return true;
-    if (activeFilter === "status:in-progress") return s === "in-progress" || s === "claimable";
-    if (activeFilter === "status:ready") return s === "ready-to-build";
-    if (activeFilter.startsWith("cat:")) return e.category === activeFilter.slice(4);
+    if ($activeFilter === "all") return true;
+    if ($activeFilter === "status:in-progress") return s === "in-progress" || s === "claimable";
+    if ($activeFilter === "status:ready") return s === "ready-to-build";
+    if ($activeFilter.startsWith("cat:")) return e.category === $activeFilter.slice(4);
     return true;
   }
 
@@ -268,7 +252,8 @@
 
   $: sorted = (() => {
     const copy = [...filtered];
-    const dirMul = sortDir === "asc" ? 1 : -1;
+    const sortMode = $foundryFilters.sortBy as SortMode;
+    const dirMul = $foundryFilters.sortDirection === "asc" ? 1 : -1;
     copy.sort((a, b) => {
       const rankDiff = STATUS_RANK[a.status] - STATUS_RANK[b.status];
       if (rankDiff !== 0) return rankDiff;
@@ -303,7 +288,7 @@
   }
 
   function setActiveFilter(key: string): void {
-    activeFilter = key as FilterKey;
+    activeFilter.set(key as FilterKey);
   }
 
   function ingredientName(un: string): string {
@@ -341,34 +326,19 @@
   </div>
 
   <!-- Search + sort toolbar -->
-  <div class="shared-filter-bar shared-filter-bar-inline mb-3">
-    <div class="view-controls shared-filter-controls">
-      <SearchBox bind:value={query} placeholder="Search..." class="shared-filter-search" />
-      <div class="shared-sort-controls">
-        <button
-          type="button"
-          class="shared-sort-direction"
-          on:click={toggleSortDir}
-          title="Sort direction"
-          aria-label={sortDir === "asc" ? "Sort ascending" : "Sort descending"}
-        >
-          <SortArrow asc={sortDir === "asc"} />
-        </button>
-        <label class="shared-filter-sort">
-          <span>Sort</span>
-          <select class="shared-filter-select" bind:value={sortMode}>
-            <option value="count">Count</option>
-            <option value="time">Time</option>
-            <option value="name">Name</option>
-          </select>
-        </label>
-      </div>
-    </div>
+  <div class="mb-3">
+    <SharedFilterBar
+      scope="foundry"
+      singleLine
+      showAdvanced={false}
+      basicVariant="quick"
+      sortOptions={foundrySortOptions}
+    />
   </div>
 
   <!-- Unified filter row: All / status / categories -->
   <div class="mb-3 flex items-end border-b border-white/[0.09]">
-    <HeaderTabs options={foundryFilterTabs} activeKey={activeFilter} onSelect={setActiveFilter} />
+    <HeaderTabs options={foundryFilterTabs} activeKey={$activeFilter} onSelect={setActiveFilter} />
   </div>
 
   <!-- Unified grid -->
@@ -468,7 +438,7 @@
             <div class="flex items-center gap-3">
               {#if item.buildPrice > 0}
                 <span class="flex items-center gap-1.5 font-display font-semibold tracking-wide text-accent">
-                  <img src={CREDITS_ICON} alt="Credits" class="h-5 w-5 object-contain" />
+                  <img src={CREDITS_ICON_URL} alt="Credits" class="h-5 w-5 object-contain" />
                   {formatNumber(item.buildPrice)}
                 </span>
               {/if}

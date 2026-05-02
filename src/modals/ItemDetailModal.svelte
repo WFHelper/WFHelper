@@ -1,7 +1,7 @@
 <script lang="ts">
   import { activeItem } from "../stores/modals.js";
   import { itemDb, wfmItems, componentOwnership } from "../stores/data.js";
-  import { loadItemPrice } from "../lib/priceLoader.js";
+  import { createPriceLoader } from "../lib/priceState.js";
   import { buildCraftingTree } from "../lib/craftingTree.js";
   import ItemImage from "../components/ItemImage.svelte";
   import DropsList from "../components/DropsList.svelte";
@@ -14,8 +14,10 @@
 
   let priceText = "";
   let priceSlug: string | null = null;
-  // Stale-response guard: see ComponentPanel priceToken comment.
-  let priceToken = 0;
+  const priceLoader = createPriceLoader((state) => {
+    priceText = state.text;
+    priceSlug = state.slug;
+  });
 
   // Inline component panel state
   let selectedComp: ComponentInfo | null = null;
@@ -39,16 +41,10 @@
   }
 
   async function loadPrice(name: string): Promise<void> {
-    const token = ++priceToken;
-    priceText = 'Loading price…';
-    priceSlug = null;
     const isTradable = item?.tradable || item?.isPrime ||
       !!(($wfmItems || {})[name?.toLowerCase()]) ||
       !!(($wfmItems || {})[`${name} Set`.toLowerCase()]);
-    const result = await loadItemPrice(name, $wfmItems || {}, isTradable);
-    if (token !== priceToken) return; // user switched items; discard stale result
-    priceText = result.text;
-    priceSlug = result.slug;
+    await priceLoader.load(name, $wfmItems || {}, isTradable);
   }
 
   function selectComponent(comp: ComponentInfo) {
@@ -60,9 +56,7 @@
   }
 
   function close() {
-    // Bump token so an in-flight price fetch discards its result rather than
-    // briefly flashing on the modal when it reopens.
-    priceToken++;
+    priceLoader.clear();
     selectedComp = null;
     activeItem.set(null);
   }

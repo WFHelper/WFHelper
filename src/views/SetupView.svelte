@@ -5,6 +5,8 @@
   import { currentView } from "../stores/app.js";
   import { themeSettings } from "../stores/theme.js";
   import { invoke, on } from "../lib/ipc.js";
+  import { APP_LOGO_URL } from "../lib/assetUrls.js";
+  import { writeStorage } from "../lib/persistence.js";
   import {
     hasInventoryShape,
     unwrapInventoryPayload as unwrapSharedInventoryPayload,
@@ -97,7 +99,7 @@
   }
 
   function completeSetup(nextView: "welcome" | "inventory" = "welcome") {
-    localStorage.setItem("setup-completed", "1");
+    writeStorage("setup-completed", "1");
     currentView.set(nextView);
   }
 
@@ -131,7 +133,7 @@
   <div class="flex max-w-[760px] mx-auto my-8 border border-border rounded-xl bg-bg-surface overflow-hidden min-h-[430px]">
     <div class="setup-left w-[190px] shrink-0 flex flex-col items-center pt-7 px-4 pb-6 bg-gradient-to-b from-bg-deep to-bg-raised border-r border-border">
       <div class="setup-logo">
-        <img src={new URL("../../assets/logo.png", import.meta.url).href} alt="App Logo" class="w-14 h-14 object-contain" />
+        <img src={APP_LOGO_URL} alt="App Logo" class="w-14 h-14 object-contain" />
       </div>
       <div class="mt-8 flex flex-col gap-4 w-full">
         <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {step === 'configure' ? 'text-accent font-semibold' : step === 'error' ? 'text-danger' : 'text-success'}">

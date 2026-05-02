@@ -1,34 +1,15 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { currentView } from "../stores/app.js";
   import { invoke, send } from "../lib/ipc.js";
   import { tr } from "../lib/i18n.js";
+  import { NAV_ICON_URLS } from "../lib/assetUrls.js";
+  import { persistedBoolean } from "../lib/persistence.js";
   import type { MessageKey } from "../lib/i18n.js";
 
-  const inventoryIcon = new URL("../../assets/icons/IconWarframe_256.png", import.meta.url).href;
-  const foundryIcon = new URL("../../assets/icons/Foundry.png", import.meta.url).href;
-  const masteryIcon = new URL("../../assets/icons/Mastery_bw2.png", import.meta.url).href;
-  const worldIcon = new URL("../../assets/icons/Navigation.png", import.meta.url).href;
-  const relicsIcon = new URL("../../assets/icons/IconRelic256.png", import.meta.url).href;
-  const rivensIcon = new URL("../../assets/icons/Rivens.png", import.meta.url).href;
-  const marketIcon = new URL("../../assets/icons/Market.png", import.meta.url).href;
-  const settingsIcon = new URL("../../assets/icons/Settings.png", import.meta.url).href;
-  const statsIcon = new URL("../../assets/icons/Stats.png", import.meta.url).href;
-
-  const COLLAPSED_STORAGE_KEY = "sidebar.collapsed";
-  let collapsed = false;
-
-  onMount(() => {
-    try {
-      collapsed = localStorage.getItem(COLLAPSED_STORAGE_KEY) === "1";
-    } catch { /* ignore */ }
-  });
+  const collapsed = persistedBoolean("sidebar.collapsed", false);
 
   function toggleCollapsed(): void {
-    collapsed = !collapsed;
-    try {
-      localStorage.setItem(COLLAPSED_STORAGE_KEY, collapsed ? "1" : "0");
-    } catch { /* ignore */ }
+    collapsed.update((value) => !value);
   }
 
   interface NavItem {
@@ -41,47 +22,47 @@
     {
       view: "inventory",
       labelKey: "nav.inventory",
-      icon: inventoryIcon,
+      icon: NAV_ICON_URLS.inventory,
     },
     {
       view: "foundry",
       labelKey: "nav.foundry",
-      icon: foundryIcon,
+      icon: NAV_ICON_URLS.foundry,
     },
     {
       view: "mastery",
       labelKey: "nav.mastery",
-      icon: masteryIcon,
+      icon: NAV_ICON_URLS.mastery,
     },
     {
       view: "stats",
       labelKey: "nav.stats",
-      icon: statsIcon,
+      icon: NAV_ICON_URLS.stats,
     },
     {
       view: "world",
       labelKey: "nav.world",
-      icon: worldIcon,
+      icon: NAV_ICON_URLS.world,
     },
     {
       view: "market",
       labelKey: "nav.market",
-      icon: marketIcon,
+      icon: NAV_ICON_URLS.market,
     },
     {
       view: "relics",
       labelKey: "nav.relics",
-      icon: relicsIcon,
+      icon: NAV_ICON_URLS.relics,
     },
     {
       view: "rivens",
       labelKey: "nav.rivens",
-      icon: rivensIcon,
+      icon: NAV_ICON_URLS.rivens,
     },
     {
       view: "settings",
       labelKey: "nav.settings",
-      icon: settingsIcon,
+      icon: NAV_ICON_URLS.settings,
     },
   ];
 
@@ -99,15 +80,15 @@
   }
 </script>
 
-<nav id="sidebar" class="sidebar-shell flex shrink-0 flex-col justify-between border-r border-border bg-bg-base px-2.5 py-3.5" class:sidebar-collapsed={collapsed} style:width={collapsed ? "3.75rem" : "var(--sidebar-width)"}>
+<nav id="sidebar" class="sidebar-shell flex shrink-0 flex-col justify-between border-r border-border bg-bg-base px-2.5 py-3.5" class:sidebar-collapsed={$collapsed} style:width={$collapsed ? "3.75rem" : "var(--sidebar-width)"}>
   <div class="flex flex-col gap-0.5">
     <button
       class="nav-btn nav-btn-collapse relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-muted transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary"
-      title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      title={$collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      aria-label={$collapsed ? "Expand sidebar" : "Collapse sidebar"}
       on:click={toggleCollapsed}
     >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0 transition-transform duration-150" style:transform={collapsed ? "rotate(180deg)" : "none"}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0 transition-transform duration-150" style:transform={$collapsed ? "rotate(180deg)" : "none"}>
         <polyline points="15 18 9 12 15 6" />
       </svg>
       <span>Collapse</span>

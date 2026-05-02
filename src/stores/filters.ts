@@ -24,6 +24,12 @@ function createDefaultFiltersByScope(): Record<FilterScope, SharedFiltersState> 
     inventory: createDefaultSharedFiltersState(),
     mastery: createDefaultSharedFiltersState(),
     market: createDefaultSharedFiltersState(),
+    foundry: {
+      ...createDefaultSharedFiltersState(),
+      sortBy: "count",
+      sortDirection: "desc",
+    },
+    rivens: createDefaultSharedFiltersState(),
   };
 }
 

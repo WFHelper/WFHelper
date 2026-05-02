@@ -3,13 +3,14 @@
   import { onInventoryLoaded } from "../lib/actions.js";
   import { currentView, statusText } from "../stores/app.js";
   import { invoke, on, send } from "../lib/ipc.js";
+  import { APP_LOGO_URL } from "../lib/assetUrls.js";
+  import { useInterval } from "../lib/timers.js";
   import type { HelperStatus } from "../types/ipc.js";
 
   let helperStatus: "checking" | "found" | "not_found" | "error" = "checking";
   let helperPath: string | null = null;
   let loadingApi = false;
   let runnerStatus: HelperStatus | null = null;
-  let pollingTimer: ReturnType<typeof setInterval> | null = null;
   let destroyed = false;
 
   onMount(async () => {
@@ -35,10 +36,8 @@
 
     if (destroyed) return;
 
-    // Poll for inventory appearing (helper runs in background)
-    pollingTimer = setInterval(async () => {
+    const stopPolling = useInterval(async () => {
       await refreshHelperStatus();
-      // If inventory appeared, auto-load it
       if (helperStatus === "found" && !loadingApi) {
         await loadApiHelper(false);
       }
@@ -46,13 +45,15 @@
 
     // Store cleanup ref
     _removeInventoryListener = removeInventoryListener;
+    _stopPolling = stopPolling;
   });
 
   let _removeInventoryListener: (() => void) | null = null;
+  let _stopPolling: (() => void) | null = null;
 
   onDestroy(() => {
     destroyed = true;
-    if (pollingTimer) clearInterval(pollingTimer);
+    _stopPolling?.();
     _removeInventoryListener?.();
   });
 
@@ -129,7 +130,7 @@
 <section class="view active">
   <div class="mx-auto max-w-[740px] text-center">
     <div class="mb-4">
-      <img src={new URL("../../assets/logo.png", import.meta.url).href} alt="App Logo" class="mx-auto h-20 w-20 object-contain" />
+      <img src={APP_LOGO_URL} alt="App Logo" class="mx-auto h-20 w-20 object-contain" />
     </div>
     <h1 class="mb-2 font-display text-[2rem] font-bold tracking-wide">Welcome, Tenno</h1>
     <p class="mb-6 text-text-secondary">Choose how to load your Warframe inventory data.</p>

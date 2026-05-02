@@ -3,10 +3,9 @@
 
   import type { CraftingTreeNode } from "../lib/craftingTree.js";
   import { computeCraftingSummary, formatBuildTime } from "../lib/craftingTree.js";
+  import { CREDITS_ICON_URL } from "../lib/assetUrls.js";
   import CraftingTreeNodeCard from "./CraftingTreeNode.svelte";
   import ItemImage from "./ItemImage.svelte";
-
-  const creditsIconUrl = new URL("../../assets/Bounties/Credits.png", import.meta.url).href;
 
   export let tree: CraftingTreeNode;
 
@@ -197,7 +196,7 @@
       </div>
       <div class="flex flex-col items-end justify-end">
         <div class="px-3 py-1.5 text-[0.72rem] text-text-secondary">
-          <div class="flex items-center gap-1">Total <img src={creditsIconUrl} alt="credits" class="h-4 w-4 inline-block" />: <strong class="text-text-primary">{creditsLabel}</strong></div>
+          <div class="flex items-center gap-1">Total <img src={CREDITS_ICON_URL} alt="credits" class="h-4 w-4 inline-block" />: <strong class="text-text-primary">{creditsLabel}</strong></div>
           <div>Min. time: <strong class="text-text-primary">{formatBuildTime(summary.minBuildTime)}</strong></div>
           <div>Max. time: <strong class="text-text-primary">{formatBuildTime(summary.maxBuildTime)}</strong></div>
         </div>

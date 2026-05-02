@@ -1,9 +1,9 @@
 <script lang="ts">
+  import { FORMA_ICON_URL } from "../lib/assetUrls.js";
+
   export let src: string | null = null;
   export let alt = "";
   export let cls = "item-img";
-
-  const FORMA_ICON_SRC = new URL("../../assets/Forma.webp", import.meta.url).href;
 
   let lastSrc: string | null = null;
   let failed = false;
@@ -23,8 +23,8 @@
     useFormaFallback = false;
   }
   $: effectiveSrc = useFormaFallback
-    ? FORMA_ICON_SRC
-    : src || (isFormaIcon ? FORMA_ICON_SRC : null);
+    ? FORMA_ICON_URL
+    : src || (isFormaIcon ? FORMA_ICON_URL : null);
 
   $: mergedImageClass = `${imageBase} ${cls}`.trim();
   $: mergedPlaceholderClass = `${placeholderBase} ${cls}`.trim();

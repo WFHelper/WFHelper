@@ -8,6 +8,7 @@ import {
 } from "../format.js";
 import { PLANET_ICON_PATHS, fissureTierClass } from "../world.js";
 import type { CycleData, Fissure, SyndicateBounty, WorldState } from "../../types/world.js";
+import { readStorage, writeStorage } from "../persistence.js";
 
 export const WORLD_REFRESH_MS = 120_000;
 export const WORLD_POLL_MS = 30_000;
@@ -49,9 +50,14 @@ export const FISSURE_MODE_OPTIONS: Array<{ value: FissureMode; label: string }> 
 ];
 
 export function loadCollapsedSections(): Record<string, boolean> {
+  const raw = readStorage(COLLAPSE_KEY);
+  if (!raw) return {};
   try {
-    const raw = localStorage.getItem(COLLAPSE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, boolean] => typeof entry[1] === "boolean"),
+    );
   } catch {
     return {};
   }
@@ -66,11 +72,7 @@ export function toggleCollapsedSection(
   for (const [sectionKey, value] of Object.entries(next)) {
     if (!/^bounty-.+-\d+$/.test(sectionKey)) toSave[sectionKey] = value;
   }
-  try {
-    localStorage.setItem(COLLAPSE_KEY, JSON.stringify(toSave));
-  } catch {
-    /* best effort */
-  }
+  writeStorage(COLLAPSE_KEY, JSON.stringify(toSave));
   return next;
 }
 

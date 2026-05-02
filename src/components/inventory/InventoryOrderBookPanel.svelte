@@ -4,6 +4,7 @@
   import ItemImage from "../ItemImage.svelte";
   import InventoryOrderBookSide from "./InventoryOrderBookSide.svelte";
   import { invoke, send } from "../../lib/ipc.js";
+  import { useInterval } from "../../lib/timers.js";
   import { orderModalState } from "../../stores/market.js";
   import {
     clearOrderBookCache,
@@ -48,7 +49,7 @@
   let requestToken = 0;
   let autoRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   let feedbackTimer: ReturnType<typeof setTimeout> | null = null;
-  let ageTickTimer: ReturnType<typeof setInterval> | null = null;
+  let stopAgeTick: (() => void) | null = null;
   let nowTimestamp = Date.now();
   let onlineIngameOnly = true;
   let sellSort: SideSort = "best";
@@ -135,16 +136,14 @@
   onDestroy(() => {
     if (autoRefreshTimer) clearTimeout(autoRefreshTimer);
     if (feedbackTimer) clearTimeout(feedbackTimer);
-    if (ageTickTimer) clearInterval(ageTickTimer);
+    stopAgeTick?.();
   });
 
   function setAgeTick(enabled: boolean): void {
-    if (ageTickTimer) {
-      clearInterval(ageTickTimer);
-      ageTickTimer = null;
-    }
+    stopAgeTick?.();
+    stopAgeTick = null;
     if (!enabled) return;
-    ageTickTimer = setInterval(() => {
+    stopAgeTick = useInterval(() => {
       nowTimestamp = Date.now();
     }, 1_000);
   }
@@ -392,8 +391,13 @@
       </div>
       <div class="inventory-orderbook-item-meta">
         <div class="font-display text-[0.9rem] font-semibold text-text-primary overflow-hidden text-ellipsis whitespace-nowrap">{item.name}</div>
-        <div class="text-[0.76rem] text-text-secondary">
-          x{item.amount} · {item.categoryLabel}{#if requestRank != null} · Viewing R{requestRank}{/if}
+        <div class="flex items-center justify-between gap-2 text-[0.76rem] text-text-secondary">
+          <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+            x{item.amount} · {item.categoryLabel}{#if requestRank != null} · Viewing R{requestRank}{/if}
+          </span>
+          {#if orderBook && !loading && !errorMessage && !noData}
+            <span class="shrink-0 text-text-muted">{formatUpdatedLabel(orderBook.timestamp ?? null, nowTimestamp)}</span>
+          {/if}
         </div>
       </div>
     </div>
@@ -419,9 +423,6 @@
         <div class="grid gap-[0.16rem] rounded-[0.45rem] border border-border bg-bg-soft px-[0.45rem] py-[0.35rem]">
           <span class="text-[0.66rem] uppercase tracking-[0.05em] text-text-muted">Spread</span>
           <strong class="font-display text-[0.8rem] text-text-primary">{spread != null ? `${spread}p` : "-"}</strong>
-        </div>
-        <div class="col-span-full text-right text-[0.72rem] text-text-muted max-[800px]:text-left">
-          {formatUpdatedLabel(orderBook?.timestamp ?? null, nowTimestamp)}
         </div>
       </div>
 

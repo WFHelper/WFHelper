@@ -7,9 +7,10 @@
   import RivenDetailModal from "../modals/RivenDetailModal.svelte";
   import RivenFinder from "../components/RivenFinder.svelte";
   import HeaderTabs from "../components/HeaderTabs.svelte";
-  import SearchBox from "../components/SearchBox.svelte";
   import SegmentedControl from "../components/SegmentedControl.svelte";
-  import SortArrow from "../components/SortArrow.svelte";
+  import SharedFilterBar from "../components/SharedFilterBar.svelte";
+  import RivenPolarityIcon from "../components/RivenPolarityIcon.svelte";
+  import { sharedFilters } from "../stores/filters.js";
   import { tr } from "../lib/i18n.js";
 
   type RivenSortKey = "name" | "disposition" | "rerolls" | "grade";
@@ -18,11 +19,8 @@
   let veiledRivens: VeiledRivenEntry[] = $state([]);
   let veiledUnseen: VeiledRivenGroup[] = $state([]);
   let loading = $state(true);
-  let searchQuery = $state("");
   let typeFilter = $state("all");
   let gradeFilter = $state("all");
-  let sortBy = $state<RivenSortKey>("name");
-  let sortDir = $state<"asc" | "desc">("asc");
   let selectedRiven = $state<DecodedRiven | null>(null);
   let viewTab = $state<"unveiled" | "veiled" | "finder">("unveiled");
 
@@ -39,6 +37,7 @@
     ["rerolls", "Rerolls"],
     ["grade", "Grade"],
   ];
+  const rivenFilters = sharedFilters("rivens");
   const GRADE_ORDER: Record<string, number> = {
     S: 6,
     A: 5,
@@ -53,27 +52,11 @@
     rerolls: (a, b) => a.rerolls - b.rerolls,
     grade: (a, b) => (GRADE_ORDER[a.overallGrade] ?? 0) - (GRADE_ORDER[b.overallGrade] ?? 0),
   };
-  const POLARITIES: Record<string, { label: string; symbol: string }> = {
-    AP_ATTACK: { label: "Madurai", symbol: "V" },
-    AP_TACTIC: { label: "Naramon", symbol: "−" },
-    AP_DEFENSE: { label: "Vazarin", symbol: "D" },
-    AP_POWER: { label: "Zenurik", symbol: "=" },
-    AP_WARD: { label: "Unairu", symbol: "R" },
-    AP_PRECEPT: { label: "Penjaga", symbol: "Y" },
-    AP_UMBRA: { label: "Umbra", symbol: "U" },
-    madurai: { label: "Madurai", symbol: "V" },
-    naramon: { label: "Naramon", symbol: "−" },
-    vazarin: { label: "Vazarin", symbol: "D" },
-    zenurik: { label: "Zenurik", symbol: "=" },
-    unairu: { label: "Unairu", symbol: "R" },
-    penjaga: { label: "Penjaga", symbol: "Y" },
-    umbra: { label: "Umbra", symbol: "U" },
-  };
 
   const filteredRivens = $derived.by(() => {
     let list = rivens;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
+    if ($rivenFilters.search) {
+      const q = $rivenFilters.search.toLowerCase();
       list = list.filter(
         (r) =>
           r.weaponName.toLowerCase().includes(q) ||
@@ -86,10 +69,11 @@
     if (gradeFilter !== "all") {
       list = list.filter((r) => r.overallGrade === gradeFilter);
     }
-    const compare = SORT_COMPARATORS[sortBy];
+    const sortBy = $rivenFilters.sortBy as RivenSortKey;
+    const compare = SORT_COMPARATORS[sortBy] ?? SORT_COMPARATORS.name;
     list = [...list].sort((a, b) => {
       const cmp = compare(a, b);
-      return sortDir === "desc" ? -cmp : cmp;
+      return $rivenFilters.sortDirection === "desc" ? -cmp : cmp;
     });
     return list;
   });
@@ -114,14 +98,6 @@
     }
   }
 
-  function toggleSortDir() {
-    sortDir = sortDir === "asc" ? "desc" : "asc";
-  }
-
-  function onSortByChange(event: Event): void {
-    sortBy = (event.currentTarget as HTMLSelectElement).value as RivenSortKey;
-  }
-
   function setViewTab(key: string): void {
     viewTab = key as typeof viewTab;
   }
@@ -141,12 +117,6 @@
     return riven.rivenName.slice(riven.weaponName.length).trim();
   }
 
-  function polarityInfo(polarity: string): { label: string; symbol: string } {
-    const value = polarity.trim();
-    if (!value) return { label: "No polarity", symbol: "−" };
-    const normalized = value.toLowerCase();
-    return POLARITIES[value] ?? POLARITIES[normalized] ?? { label: value.replace(/^AP_/, ""), symbol: "?" };
-  }
 
   onMount(() => {
     loadRivens();
@@ -186,29 +156,16 @@
 
   {#if viewTab === "unveiled"}
     <div class="flex items-center gap-3 flex-wrap mb-4">
-      <SearchBox bind:value={searchQuery} placeholder="Search weapons or stats…" class="min-w-[14rem]" />
+      <SharedFilterBar
+        scope="rivens"
+        singleLine
+        showAdvanced={false}
+        basicVariant="quick"
+        sortOptions={SORT_OPTIONS}
+      />
 
       <SegmentedControl value={typeFilter} options={TYPE_OPTIONS} onChange={(value) => (typeFilter = value)} />
 
-      <div class="shared-sort-controls ml-auto">
-        <button
-          type="button"
-          class="shared-sort-direction"
-          onclick={toggleSortDir}
-          title="Sort direction"
-          aria-label={sortDir === "asc" ? "Sort ascending" : "Sort descending"}
-        >
-          <SortArrow asc={sortDir === "asc"} />
-        </button>
-        <label class="shared-filter-sort" title="Sort rivens">
-          <span>Sort</span>
-          <select class="shared-filter-select" value={sortBy} onchange={onSortByChange}>
-            {#each SORT_OPTIONS as [value, label]}
-              <option value={value}>{label}</option>
-            {/each}
-          </select>
-        </label>
-      </div>
     </div>
 
     {#if loading}
@@ -218,7 +175,6 @@
     {:else}
       <div class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5 justify-items-center">
         {#each filteredRivens as riven (riven.itemId)}
-          {@const polarity = polarityInfo(riven.polarity)}
           <button
             class="relative block mx-auto p-0 border-0 outline-none bg-transparent appearance-none cursor-pointer w-[min(100%,18rem)] max-[700px]:w-[min(100%,16rem)] aspect-[316/400] overflow-visible transition-transform duration-[0.18s] ease hover:-translate-y-1 hover:z-[2] focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
             onclick={() => (selectedRiven = riven)}
@@ -255,11 +211,11 @@
 
               <div class="absolute z-[1] left-[22%] right-[22%] top-[83.5%] flex items-center justify-between text-[0.75rem] font-display leading-none [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_6px_rgba(0,0,0,1)]">
                 <span class="text-[rgba(255,255,255,0.85)] font-bold">MR {riven.masteryReq}</span>
-                <span
-                  class="inline-flex min-w-5 items-center justify-center text-[1.18rem] text-[rgba(226,217,255,0.96)] font-black leading-none [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_7px_rgba(146,104,255,0.85),0_0_12px_rgba(104,72,220,0.55)]"
-                  title={`Polarity: ${polarity.label}`}
-                  aria-label={`Polarity: ${polarity.label}`}
-                >{polarity.symbol}</span>
+                <RivenPolarityIcon
+                  polarity={riven.polarity}
+                  size={14}
+                  className="inline-flex min-w-3.5 -translate-y-0.5 object-contain"
+                />
                 <span class="text-[#f06dff] font-bold">⟳ {riven.rerolls}</span>
               </div>
             </div>

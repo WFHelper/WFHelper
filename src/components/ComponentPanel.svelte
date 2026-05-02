@@ -1,6 +1,6 @@
 <script lang="ts">
   import { itemDb, wfmItems } from "../stores/data.js";
-  import { loadItemPrice } from "../lib/priceLoader.js";
+  import { createPriceLoader } from "../lib/priceState.js";
   import { resolveDrops } from "../lib/resolveDrops.js";
   import DropsList from "./DropsList.svelte";
   import MarketPrice from "./MarketPrice.svelte";
@@ -16,10 +16,12 @@
   /** Extra class for the outer .detail-panel element (e.g. "comp-inline-panel", "comp-panel"). */
   export let panelClass: string = "";
 
-  // Stale-response guard: see ItemDetailModal's priceToken comment.
   let priceText = "";
   let priceSlug: string | null = null;
-  let priceToken = 0;
+  const priceLoader = createPriceLoader((state) => {
+    priceText = state.text;
+    priceSlug = state.slug;
+  });
 
   $: compDrops = resolveDrops(comp, $itemDb);
   $: compImageUrl = comp?.uniqueName ? ($itemDb[comp.uniqueName]?.imageUrl || null) : null;
@@ -37,9 +39,6 @@
   }
 
   async function loadPrice(c: ComponentInfo, parent: string): Promise<void> {
-    const token = ++priceToken;
-    priceText = "Loading price…";
-    priceSlug = null;
     const fullName = parent ? `${parent} ${c.name}` : c.name;
     const lookup = $wfmItems || {};
     const nameKey = fullName?.toLowerCase() || "";
@@ -52,16 +51,14 @@
     const dbEntry = c.uniqueName ? $itemDb[c.uniqueName] : null;
     const isBuildComp =
       dbEntry?.isBuildComponent && parent && !nameKey.endsWith(" blueprint") && !directMatch;
-    let result: { text: string; slug: string | null };
     if (isBuildComp) {
-      result = await loadItemPrice(`${fullName} Blueprint`, lookup, true);
-      if (!result.slug) result = await loadItemPrice(fullName, lookup, isTradable);
+      await priceLoader.load(`${fullName} Blueprint`, lookup, true, {
+        fallbackName: fullName,
+        fallbackTradable: isTradable,
+      });
     } else {
-      result = await loadItemPrice(fullName, lookup, isTradable);
+      await priceLoader.load(fullName, lookup, isTradable);
     }
-    if (token !== priceToken) return; // user switched components; discard stale result
-    priceText = result.text;
-    priceSlug = result.slug;
   }
 
   // Only use parent wiki for build components (Chassis, Systems, etc.) that lack

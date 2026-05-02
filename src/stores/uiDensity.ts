@@ -1,4 +1,4 @@
-import { writable } from "svelte/store";
+import { persistedString } from "../lib/persistence.js";
 
 /**
  * UI density preference for list-style views (currently just Market orders).
@@ -8,31 +8,4 @@ import { writable } from "svelte/store";
 export type UiDensity = "compact" | "row";
 
 const STORAGE_KEY = "ui.marketDensity";
-
-function loadInitial(): UiDensity {
-  try {
-    if (typeof localStorage === "undefined") return "compact";
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw === "row" ? "row" : "compact";
-  } catch {
-    return "compact";
-  }
-}
-
-function createMarketDensityStore() {
-  const { subscribe, set } = writable<UiDensity>(loadInitial());
-
-  return {
-    subscribe,
-    set(value: UiDensity): void {
-      try {
-        if (typeof localStorage !== "undefined") localStorage.setItem(STORAGE_KEY, value);
-      } catch {
-        /* best effort */
-      }
-      set(value);
-    },
-  };
-}
-
-export const marketDensity = createMarketDensityStore();
+export const marketDensity = persistedString<UiDensity>(STORAGE_KEY, ["compact", "row"], "compact");

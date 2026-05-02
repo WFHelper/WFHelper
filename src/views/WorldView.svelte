@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
+  import { onMount } from "svelte";
   import { worldData, worldLoading, worldLastFetch, worldFissureMode } from "../stores/world.js";
   import { inventoryData, itemDb, componentOwnership, wfmItems } from "../stores/data.js";
   import {
@@ -34,6 +34,7 @@
   import SegmentedControl from "../components/SegmentedControl.svelte";
   import { getBountyRewards, resolveRewardIcon, resolveRewardUniqueName } from "../lib/bountyRewards.js";
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
+  import { clockStore, useInterval } from "../lib/timers.js";
 
   // Collapse state per section — persisted to localStorage
   let collapsed: Record<string, boolean> = loadCollapsedSections();
@@ -41,21 +42,15 @@
     collapsed = toggleCollapsedSection(collapsed, key);
   }
 
-  // Two clocks: nowMs (1 s) drives display countdown labels; nowCoarseMs (5 s)
-  // drives urgency flags and active-window booleans, which flip once per
-  // hours/days and don't need second-level precision. Splitting these roughly
-  // halves the per-second reactive re-fire count on this view.
-  let nowMs = Date.now();
-  let nowCoarseMs = Date.now();
-  let clockInterval: ReturnType<typeof setInterval> | null = null;
-  let coarseClockInterval: ReturnType<typeof setInterval> | null = null;
-  let worldPollInterval: ReturnType<typeof setInterval> | null = null;
-  let unsubFetchError: (() => void) | null = null;
+  const nowClock = clockStore(1000);
+  const coarseClock = clockStore(COARSE_CLOCK_MS);
+  $: nowMs = $nowClock;
+  $: nowCoarseMs = $coarseClock;
 
   onMount(() => {
     void fetchWorldData(true);
 
-    unsubFetchError = on("world-state-fetch-error", (message) => {
+    const unsubFetchError = on("world-state-fetch-error", (message) => {
       addToast({
         level: "warning",
         title: "World State",
@@ -71,24 +66,11 @@
       }).catch((e: unknown) => console.error("[World] getOverlaySettings failed:", e));
     }
 
-    clockInterval = setInterval(() => {
-      nowMs = Date.now();
-    }, 1000);
-
-    coarseClockInterval = setInterval(() => {
-      nowCoarseMs = Date.now();
-    }, COARSE_CLOCK_MS);
-
-    worldPollInterval = setInterval(() => {
-      void fetchWorldData();
-    }, WORLD_POLL_MS);
-  });
-
-  onDestroy(() => {
-    if (clockInterval) clearInterval(clockInterval);
-    if (coarseClockInterval) clearInterval(coarseClockInterval);
-    if (worldPollInterval) clearInterval(worldPollInterval);
-    unsubFetchError?.();
+    const stopPolling = useInterval(() => void fetchWorldData(), WORLD_POLL_MS);
+    return () => {
+      stopPolling();
+      unsubFetchError();
+    };
   });
 
   async function toggleCycleAlert(key: "earth" | "cetus" | "vallis" | "cambion" | "duviri") {
