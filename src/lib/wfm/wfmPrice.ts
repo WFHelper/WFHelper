@@ -13,6 +13,8 @@ import { isWfmExcludedSlug } from "../../../config/shared/wfmExclusions.js";
 import { WFM_BACKEND_ERROR_COOLDOWN_MS } from "../../../config/runtime/cacheConfig.js";
 import { log } from "../log.js";
 import { WFM_HEADERS } from "../../../config/shared/wfm.js";
+import { rendererPriceCacheKey } from "../../../config/shared/wfmCacheKeys.js";
+import { createPriorityRequestQueue } from "./requestPolicy.js";
 
 const BASE_DELAY_MS = 350;
 const MAX_DYNAMIC_DELAY_MS = 1200;
@@ -26,7 +28,6 @@ const PRICE_QUEUE_FULL_ERROR = "WFM_PRICE_QUEUE_FULL";
 // retries for this duration so a cold/erroring worker doesn't get hammered.
 
 let _lastRequestAt = 0;
-let _runnerActive = false;
 let _dynamicDelayMs = BASE_DELAY_MS;
 
 type PriceStatus = "ok" | "no_data" | "no_slug" | "transient";
@@ -42,7 +43,7 @@ interface FetchPriceOptions {
 }
 
 function priceCacheKey(slug: string, rank: number | null): string {
-  return rank == null ? slug : `${slug}:rank-v3:r${rank}`;
+  return rendererPriceCacheKey(slug, rank);
 }
 
 export interface PriceDebugCounters {
@@ -67,12 +68,6 @@ export interface PriceQueueStats {
   low: number;
   running: boolean;
   delayMs: number;
-}
-
-interface QueueTask<T> {
-  fn: () => Promise<T>;
-  resolve: (value: T) => void;
-  reject: (reason?: unknown) => void;
 }
 
 const priceDebugCounters: PriceDebugCounters = {
@@ -107,20 +102,28 @@ function pruneBackendErrorCooldown(): void {
 }
 
 const priceCacheUpdateListeners = new Set<PriceCacheUpdateListener>();
-const laneQueues: Record<RequestPriority, QueueTask<unknown>[]> = {
-  high: [],
-  normal: [],
-  low: [],
-};
 const inFlightBySlug = new Map<string, Promise<PriceBySlugResult>>();
 
 function bumpCounter(counter: keyof PriceDebugCounters): void {
   priceDebugCounters[counter] += 1;
 }
 
-function queuedTaskCount(): number {
-  return laneQueues.high.length + laneQueues.normal.length + laneQueues.low.length;
+async function waitForPriceQueueTurn(): Promise<void> {
+  const now = Date.now();
+  const elapsed = now - _lastRequestAt;
+  if (elapsed < _dynamicDelayMs) {
+    await new Promise((resolve) => setTimeout(resolve, _dynamicDelayMs - elapsed));
+  }
+  _lastRequestAt = Date.now();
 }
+
+const priceQueue = createPriorityRequestQueue<RequestPriority>({
+  priorities: ["high", "normal", "low"],
+  maxDepth: MAX_PRICE_QUEUE_DEPTH,
+  beforeTask: waitForPriceQueueTurn,
+  onDrop: () => bumpCounter("queueDropped"),
+  dropError: () => new Error(PRICE_QUEUE_FULL_ERROR),
+});
 
 function emitPriceCacheUpdate(slug: string, status: PriceCacheUpdateStatus): void {
   schedulePriceCacheRevision();
@@ -161,11 +164,12 @@ export function onPriceCacheUpdate(listener: PriceCacheUpdateListener): () => vo
 }
 
 export function getPriceQueueStats(): PriceQueueStats {
+  const lengths = priceQueue.lengths();
   return {
-    high: laneQueues.high.length,
-    normal: laneQueues.normal.length,
-    low: laneQueues.low.length,
-    running: _runnerActive,
+    high: lengths.high,
+    normal: lengths.normal,
+    low: lengths.low,
+    running: priceQueue.isRunning(),
     delayMs: _dynamicDelayMs,
   };
 }
@@ -189,58 +193,8 @@ interface StatsResponse {
   json?: unknown;
 }
 
-function popNextTask(): QueueTask<unknown> | null {
-  if (laneQueues.high.length > 0) return laneQueues.high.shift() || null;
-  if (laneQueues.normal.length > 0) return laneQueues.normal.shift() || null;
-  if (laneQueues.low.length > 0) return laneQueues.low.shift() || null;
-  return null;
-}
-
-async function runQueueRunner(): Promise<void> {
-  if (_runnerActive) return;
-  _runnerActive = true;
-
-  try {
-    for (;;) {
-      const task = popNextTask();
-      if (!task) break;
-
-      const now = Date.now();
-      const elapsed = now - _lastRequestAt;
-      if (elapsed < _dynamicDelayMs) {
-        await new Promise((resolve) => setTimeout(resolve, _dynamicDelayMs - elapsed));
-      }
-      _lastRequestAt = Date.now();
-
-      try {
-        const result = await task.fn();
-        task.resolve(result);
-      } catch (error) {
-        task.reject(error);
-      }
-    }
-  } finally {
-    _runnerActive = false;
-    if (laneQueues.high.length > 0 || laneQueues.normal.length > 0 || laneQueues.low.length > 0) {
-      void runQueueRunner();
-    }
-  }
-}
-
 function enqueue<T>(fn: () => Promise<T>, priority: RequestPriority = "normal"): Promise<T> {
-  if (queuedTaskCount() >= MAX_PRICE_QUEUE_DEPTH) {
-    bumpCounter("queueDropped");
-    return Promise.reject(new Error(PRICE_QUEUE_FULL_ERROR));
-  }
-
-  return new Promise<T>((resolve, reject) => {
-    laneQueues[priority].push({
-      fn: fn as () => Promise<unknown>,
-      resolve: resolve as (value: unknown) => void,
-      reject,
-    });
-    void runQueueRunner();
-  });
+  return priceQueue.enqueue(fn, priority);
 }
 
 async function fetchStatsJson(slug: string, priority: RequestPriority): Promise<StatsResponse> {
@@ -309,7 +263,9 @@ async function fetchPriceBySlugInternal(
     cacheNoData(cacheKey, slug);
     if (!_warnedNoDataSlugs.has(slug)) {
       _warnedNoDataSlugs.add(slug);
-      log.warn(`[WFM price] No data for "${slug}" — if non-tradable, add to WFM_EXCLUDED_SLUGS in config/shared/wfmExclusions.ts`);
+      log.warn(
+        `[WFM price] No data for "${slug}" — if non-tradable, add to WFM_EXCLUDED_SLUGS in config/shared/wfmExclusions.ts`,
+      );
     }
     bumpCounter("resultNoData");
     return { status: "no_data", slug, median: null };

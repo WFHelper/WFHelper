@@ -8,6 +8,7 @@ import { log } from "../log.js";
 import { toFiniteNumber } from "../../../config/shared/numeric.js";
 import { formatWfmAssetUrl, WFM_HEADERS } from "../../../config/shared/wfm.js";
 import { isWfmExcludedSlug } from "../../../config/shared/wfmExclusions.js";
+import { createSingleFlightMap } from "./requestPolicy.js";
 
 const META_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const META_NO_DATA_TTL_MS = 6 * 60 * 60 * 1000;
@@ -28,7 +29,7 @@ interface FetchMetaOptions {
 
 const metaCache = new Map<string, WfmItemMeta>();
 const metaNoDataCache = new Map<string, number>();
-const inFlight = new Map<string, Promise<WfmItemMeta | null>>();
+const inFlight = createSingleFlightMap<string, WfmItemMeta | null>();
 // One-time-per-session warning set — avoids log spam on repeated hydration.
 const _warnedNoMetaSlugs = new Set<string>();
 
@@ -93,9 +94,7 @@ async function fetchDirectMetaBySlug(slug: string): Promise<DirectMetaResult> {
  * Only imports entries that are fresher than what's already in memory (or absent).
  * Never throws.
  */
-export function importMetaFromSnapshot(
-  data: Record<string, WfmItemMeta>,
-): number {
+export function importMetaFromSnapshot(data: Record<string, WfmItemMeta>): number {
   let count = 0;
   for (const [slug, entry] of Object.entries(data)) {
     if (!entry || typeof entry !== "object") continue;
@@ -116,9 +115,7 @@ export function importMetaFromSnapshot(
   return count;
 }
 
-export function getCachedWfmItemMeta(
-  slug: string | null | undefined,
-): WfmItemMeta | null {
+export function getCachedWfmItemMeta(slug: string | null | undefined): WfmItemMeta | null {
   const normalizedSlug = normalizeWfmSlug(slug);
   if (!normalizedSlug) return null;
 
@@ -159,7 +156,7 @@ export async function fetchWfmItemMetaBySlug(
 
   const fallbackAllowed = shouldDirectFallback(priority);
 
-  const task = (async () => {
+  return inFlight.run(normalizedSlug, async () => {
     try {
       const backendResult = await fetchBackendMetaBySlug(normalizedSlug);
       if (backendResult.status === "ok") {
@@ -196,7 +193,9 @@ export async function fetchWfmItemMetaBySlug(
         rememberNoData(normalizedSlug);
         if (!_warnedNoMetaSlugs.has(normalizedSlug)) {
           _warnedNoMetaSlugs.add(normalizedSlug);
-          log.warn(`[WFM meta] No listing for "${normalizedSlug}" — item may not exist on warframe.market. If non-tradable, add to WFM_EXCLUDED_SLUGS in config/shared/wfmExclusions.ts`);
+          log.warn(
+            `[WFM meta] No listing for "${normalizedSlug}" — item may not exist on warframe.market. If non-tradable, add to WFM_EXCLUDED_SLUGS in config/shared/wfmExclusions.ts`,
+          );
         }
         return null;
       }
@@ -216,7 +215,9 @@ export async function fetchWfmItemMetaBySlug(
         rememberNoData(normalizedSlug);
         if (!_warnedNoMetaSlugs.has(normalizedSlug)) {
           _warnedNoMetaSlugs.add(normalizedSlug);
-          log.warn(`[WFM meta] No listing for "${normalizedSlug}" — item may not exist on warframe.market. If non-tradable, add to WFM_EXCLUDED_SLUGS in config/shared/wfmExclusions.ts`);
+          log.warn(
+            `[WFM meta] No listing for "${normalizedSlug}" — item may not exist on warframe.market. If non-tradable, add to WFM_EXCLUDED_SLUGS in config/shared/wfmExclusions.ts`,
+          );
         }
         return null;
       }
@@ -225,11 +226,6 @@ export async function fetchWfmItemMetaBySlug(
     } catch (error) {
       log.warn(`[WFM] item meta fetch failed for ${normalizedSlug}:`, error);
       return null;
-    } finally {
-      inFlight.delete(normalizedSlug);
     }
-  })();
-
-  inFlight.set(normalizedSlug, task);
-  return task;
+  });
 }

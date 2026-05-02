@@ -5,6 +5,11 @@ import {
   type BackendOrderSummaryPayload,
 } from "./backendLite.js";
 import { normalizeRankFilter } from "../../../config/shared/numeric.js";
+import {
+  createCircuitBreaker,
+  createConcurrencyLimiter,
+  createSingleFlightMap,
+} from "./requestPolicy.js";
 
 const CIRCUIT_BREAKER_THRESHOLD = 6;
 const CIRCUIT_BREAKER_COOLDOWN_MS = 90_000;
@@ -12,28 +17,11 @@ const CIRCUIT_BREAKER_COOLDOWN_MS = 90_000;
 // thousands of mods doesn't slam the worker with hundreds of parallel requests.
 const MAX_CONCURRENT_FETCHES = 30;
 
-const inFlightByKey = new Map<string, Promise<BackendFetchResult<BackendOrderSummaryPayload>>>();
-let _activeFetches = 0;
-const _fetchQueue: Array<() => void> = [];
-
-function acquireFetchSlot(): Promise<void> {
-  if (_activeFetches < MAX_CONCURRENT_FETCHES) {
-    _activeFetches++;
-    return Promise.resolve();
-  }
-  return new Promise<void>((resolve) => {
-    _fetchQueue.push(resolve);
-  });
-}
-
-function releaseFetchSlot(): void {
-  const next = _fetchQueue.shift();
-  if (next) {
-    next(); // transfer slot directly — _activeFetches stays the same
-  } else {
-    _activeFetches--;
-  }
-}
+const fetchLimiter = createConcurrencyLimiter(MAX_CONCURRENT_FETCHES);
+const inFlightByKey = createSingleFlightMap<
+  string,
+  BackendFetchResult<BackendOrderSummaryPayload>
+>();
 
 export interface OrderSummaryDebugCounters {
   requests: number;
@@ -42,9 +30,6 @@ export interface OrderSummaryDebugCounters {
   backendError: number;
   breakerOpen: number;
 }
-
-let transientStreak = 0;
-let breakerOpenUntil = 0;
 
 const debugCounters: OrderSummaryDebugCounters = {
   requests: 0,
@@ -58,34 +43,22 @@ function bumpCounter(counter: keyof OrderSummaryDebugCounters): void {
   debugCounters[counter] += 1;
 }
 
-function noteTransientFailure(): void {
-  transientStreak += 1;
-  if (transientStreak >= CIRCUIT_BREAKER_THRESHOLD) {
-    breakerOpenUntil = Date.now() + CIRCUIT_BREAKER_COOLDOWN_MS;
-    bumpCounter("breakerOpen");
-  }
-}
-
-function noteRecovery(): void {
-  transientStreak = 0;
-  breakerOpenUntil = 0;
-}
+const breaker = createCircuitBreaker({
+  threshold: CIRCUIT_BREAKER_THRESHOLD,
+  cooldownMs: CIRCUIT_BREAKER_COOLDOWN_MS,
+  onOpen: () => bumpCounter("breakerOpen"),
+});
 
 export function getOrderSummaryDebugCounters(): OrderSummaryDebugCounters {
   return { ...debugCounters };
 }
 
 function getOrderSummaryCircuitState(): { open: boolean; retryAfterMs: number } {
-  const retryAfterMs = Math.max(0, breakerOpenUntil - Date.now());
-  return {
-    open: retryAfterMs > 0,
-    retryAfterMs,
-  };
+  return breaker.state();
 }
 
 export function resetOrderSummaryDebugState(): void {
-  transientStreak = 0;
-  breakerOpenUntil = 0;
+  breaker.reset();
   for (const key of Object.keys(debugCounters) as Array<keyof OrderSummaryDebugCounters>) {
     debugCounters[key] = 0;
   }
@@ -111,31 +84,27 @@ export async function fetchOrderSummaryBySlug(
     return { status: "unavailable" } as const;
   }
 
-  const request = (async () => {
-    await acquireFetchSlot();
+  return inFlightByKey.run(requestKey, async () => {
+    await fetchLimiter.acquire();
     try {
       const result = await fetchBackendOrderSummaryBySlug(slug, { rank });
       if (result.status === "ok") {
-        noteRecovery();
+        breaker.noteSuccess();
         bumpCounter("backendHitOk");
         return result;
       }
 
       if (result.status === "not_found") {
-        noteRecovery();
+        breaker.noteSuccess();
         bumpCounter("backendHitNoData");
         return result;
       }
 
-      noteTransientFailure();
+      breaker.noteFailure();
       bumpCounter("backendError");
       return result.status === "error" ? ({ status: "unavailable" } as const) : result;
     } finally {
-      releaseFetchSlot();
-      inFlightByKey.delete(requestKey);
+      fetchLimiter.release();
     }
-  })();
-
-  inFlightByKey.set(requestKey, request);
-  return request;
+  });
 }
