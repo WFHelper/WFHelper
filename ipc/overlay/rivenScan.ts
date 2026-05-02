@@ -12,8 +12,17 @@
 
 import { withScope } from "../../services/logger";
 import { captureScreenFast } from "../../services/rewardScannerCapture";
-import { cropRect, cropRectContent, detectGameContentRect } from "../../services/rewardScannerImage";
-import { rivenOcrOnnxAvailable, recognizeStatArea, hasLowConfidenceLine, LOW_CONFIDENCE_THRESHOLD } from "../../services/rivenOcrOnnx";
+import {
+  cropRect,
+  cropRectContent,
+  detectGameContentRect,
+} from "../../services/rewardScannerImage";
+import {
+  rivenOcrOnnxAvailable,
+  recognizeStatArea,
+  hasLowConfidenceLine,
+  LOW_CONFIDENCE_THRESHOLD,
+} from "../../services/rivenOcrOnnx";
 import type { RivenOcrResult } from "../../services/rivenOcrOnnx";
 import { sleep } from "../../services/rewardScannerUtils";
 import {
@@ -121,37 +130,43 @@ async function retrySparseRivenScan<T>(
   return null;
 }
 
-// The Python benchmark achieves 98% accuracy with this simple approach.
-// Edge-based crop refinement is unreliable with Kuva portal animation.
-const CARD_ASPECT_RATIO = 287 / 433; // ≈ 0.663 (riven card width/height)
+const RIVEN_CARD_CROP_TUNING = {
+  cardAspectRatio: 287 / 433,
+  maxAspectOverflow: 1.1,
+  statTop: 0.34,
+  statBottom: 0.84,
+  statLeft: 0.08,
+  statRight: 0.92,
+  minCropWidth: 30,
+  minCropHeight: 30,
+} as const;
 
-function _cropStatAreaForVgb(roughCrop: NativeImage): NativeImage {
+function cropRivenStatArea(roughCrop: NativeImage): NativeImage {
   const { width: w, height: h } = roughCrop.getSize();
   if (w < 50 || h < 50) return roughCrop;
 
-  // Step 1: Trim to card aspect ratio (matches Python trim_to_card_aspect)
-  // SINGLE_CARD_CROP is ~2.2:1 aspect, card is 0.663:1, so this centers on the card.
-  const expectedW = Math.floor(h * CARD_ASPECT_RATIO);
+  // The card crop starts as a wide single-card region. Center-trim to the known
+  // in-game riven card aspect, then crop the stat text band by fixed ratios.
+  const expectedW = Math.floor(h * RIVEN_CARD_CROP_TUNING.cardAspectRatio);
   let trimmed = roughCrop;
   let tw = w;
   const th = h;
-  if (w > expectedW * 1.10) {
+  if (w > expectedW * RIVEN_CARD_CROP_TUNING.maxAspectOverflow) {
     const excess = w - expectedW;
     const x1 = Math.floor(excess / 2);
     tw = expectedW;
     trimmed = roughCrop.crop({ x: x1, y: 0, width: expectedW, height: h });
   }
 
-  // Step 2: Fixed stat area crop (matches Python refine_crop)
-  // Stat text occupies ~34-84% of card height, 8-92% of card width.
-  const sy0 = Math.floor(th * 0.34);
-  const sy1 = Math.floor(th * 0.84);
-  const sx0 = Math.floor(tw * 0.08);
-  const sx1 = Math.floor(tw * 0.92);
+  const sy0 = Math.floor(th * RIVEN_CARD_CROP_TUNING.statTop);
+  const sy1 = Math.floor(th * RIVEN_CARD_CROP_TUNING.statBottom);
+  const sx0 = Math.floor(tw * RIVEN_CARD_CROP_TUNING.statLeft);
+  const sx1 = Math.floor(tw * RIVEN_CARD_CROP_TUNING.statRight);
   const cropW = sx1 - sx0;
   const cropH = sy1 - sy0;
 
-  if (cropW < 30 || cropH < 30) return roughCrop;
+  if (cropW < RIVEN_CARD_CROP_TUNING.minCropWidth || cropH < RIVEN_CARD_CROP_TUNING.minCropHeight)
+    return roughCrop;
 
   return trimmed.crop({ x: sx0, y: sy0, width: cropW, height: cropH });
 }
@@ -191,8 +206,7 @@ async function ocrCropMultiStrategy(
       }
 
       try {
-        // Fixed-percentage crop matching the Python benchmark exactly.
-        const statAreaCrop = _cropStatAreaForVgb(roughCrop);
+        const statAreaCrop = cropRivenStatArea(roughCrop);
         const statAreaSize = statAreaCrop.getSize();
 
         // Convert NativeImage to raw RGBA buffer for the ONNX pipeline
@@ -213,9 +227,14 @@ async function ocrCropMultiStrategy(
         if (label) {
           log.log(
             `[RivenScan] YOLO+PaddleOCR ${label} attempt=${attempt}: ${stats.length} stats, ` +
-            `${ocrResult.yoloBoxCount} YOLO boxes, minConf=${ocrResult.minConfidence.toFixed(3)} ` +
-            `(source ${statAreaSize.width}×${statAreaSize.height}) — ` +
-            stats.map((s) => `${s.positive ? "+" : "-"}${s.value ?? "?"}${s.multiplier ? "x" : "%"} ${s.name}`).join(", "),
+              `${ocrResult.yoloBoxCount} YOLO boxes, minConf=${ocrResult.minConfidence.toFixed(3)} ` +
+              `(source ${statAreaSize.width}×${statAreaSize.height}) — ` +
+              stats
+                .map(
+                  (s) =>
+                    `${s.positive ? "+" : "-"}${s.value ?? "?"}${s.multiplier ? "x" : "%"} ${s.name}`,
+                )
+                .join(", "),
           );
           for (const line of ocrResult.lines) {
             log.log(`  [OCR] "${line.text}" conf=${line.confidence.toFixed(3)}`);
@@ -237,9 +256,11 @@ async function ocrCropMultiStrategy(
           if (label) {
             log.log(
               `[RivenScan] YOLO+PaddleOCR ${label}: ` +
-              (lowConf ? `low confidence (min=${ocrResult.minConfidence.toFixed(3)} < ${LOW_CONFIDENCE_THRESHOLD}), ` : "") +
-              (hasNullValues ? "null values, " : "") +
-              "retrying...",
+                (lowConf
+                  ? `low confidence (min=${ocrResult.minConfidence.toFixed(3)} < ${LOW_CONFIDENCE_THRESHOLD}), `
+                  : "") +
+                (hasNullValues ? "null values, " : "") +
+                "retrying...",
             );
           }
         }
@@ -253,11 +274,15 @@ async function ocrCropMultiStrategy(
     }
 
     // If best result has low confidence on any stat, return empty (show error, not wrong stats)
-    if (bestResult && bestStats.length >= MIN_ACCEPTABLE_RIVEN_STATS && hasLowConfidenceLine(bestResult)) {
+    if (
+      bestResult &&
+      bestStats.length >= MIN_ACCEPTABLE_RIVEN_STATS &&
+      hasLowConfidenceLine(bestResult)
+    ) {
       if (label) {
         log.warn(
           `[RivenScan] YOLO+PaddleOCR ${label}: low confidence after all retries ` +
-          `(min=${bestResult.minConfidence.toFixed(3)}), returning error instead of wrong stats`,
+            `(min=${bestResult.minConfidence.toFixed(3)}), returning error instead of wrong stats`,
         );
       }
       return { text: "", titleText: "", footerText: "", stats: [] };
@@ -366,7 +391,9 @@ export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialS
     if (_lastScanTiming) _lastScanTiming.captureMs = captureMs;
     log.log(
       `[RivenScan] initial card scan: ${stats.length} stats found`,
-      stats.map((stat) => `${stat.positive ? "+" : "-"}${stat.value ?? "?"}% ${stat.name}`).join(", "),
+      stats
+        .map((stat) => `${stat.positive ? "+" : "-"}${stat.value ?? "?"}% ${stat.name}`)
+        .join(", "),
     );
     return { stats, rawText: text, titleText, footerText };
   } catch (err) {
@@ -375,8 +402,13 @@ export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialS
   }
 }
 
-export async function scanNewRoll(expectedWeaponName = "", skipGate = true): Promise<RollPanelResult> {
-  log.log(`[RivenScan] >>> scanNewRoll ENTERED (weapon="${expectedWeaponName}", skipGate=${skipGate})`);
+export async function scanNewRoll(
+  expectedWeaponName = "",
+  skipGate = true,
+): Promise<RollPanelResult> {
+  log.log(
+    `[RivenScan] >>> scanNewRoll ENTERED (weapon="${expectedWeaponName}", skipGate=${skipGate})`,
+  );
   ++_scanGeneration;
   const startAt = Date.now();
   const captureStart = Date.now();
@@ -403,8 +435,8 @@ export async function scanNewRoll(expectedWeaponName = "", skipGate = true): Pro
       ROLL_CARD_CROP,
       "roll-right",
       expectedWeaponName,
-      true,  // statsOnly
-      true,  // isMultipanel
+      true, // statsOnly
+      true, // isMultipanel
     );
     log.log(
       `[RivenScan] roll scan: right=${rightResult.stats.length} stats, elapsed=${Date.now() - startAt}ms`,
@@ -430,8 +462,8 @@ export async function scanNewRoll(expectedWeaponName = "", skipGate = true): Pro
           ROLL_CARD_CROP,
           "roll-right-retry",
           expectedWeaponName,
-          true,  // statsOnly
-          true,  // isMultipanel
+          true, // statsOnly
+          true, // isMultipanel
         );
         log.log(
           `[RivenScan] roll-retry: right=${retryResult.stats.length} stats, elapsed=${Date.now() - startAt}ms`,
@@ -504,7 +536,9 @@ export async function scanChoiceRescan(expectedWeaponName = ""): Promise<RivenSt
     const { stats } = result;
     log.log(
       `[RivenScan] choice rescan: ${stats.length} stats found`,
-      stats.map((stat) => `${stat.positive ? "+" : "-"}${stat.value ?? "?"}% ${stat.name}`).join(", "),
+      stats
+        .map((stat) => `${stat.positive ? "+" : "-"}${stat.value ?? "?"}% ${stat.name}`)
+        .join(", "),
     );
     return stats;
   } catch (err) {

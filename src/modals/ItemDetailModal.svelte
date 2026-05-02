@@ -2,6 +2,7 @@
   import { activeItem } from "../stores/modals.js";
   import { itemDb, wfmItems, componentOwnership } from "../stores/data.js";
   import { createPriceLoader } from "../lib/priceState.js";
+  import { resolveItemPriceLookup } from "../lib/componentResolution.js";
   import { buildCraftingTree } from "../lib/craftingTree.js";
   import ItemImage from "../components/ItemImage.svelte";
   import DropsList from "../components/DropsList.svelte";
@@ -41,10 +42,10 @@
   }
 
   async function loadPrice(name: string): Promise<void> {
-    const isTradable = item?.tradable || item?.isPrime ||
-      !!(($wfmItems || {})[name?.toLowerCase()]) ||
-      !!(($wfmItems || {})[`${name} Set`.toLowerCase()]);
-    await priceLoader.load(name, $wfmItems || {}, isTradable);
+    if (!item) return;
+    const lookup = $wfmItems || {};
+    const plan = resolveItemPriceLookup(item, lookup);
+    await priceLoader.load(name || plan.name, lookup, plan.isTradable);
   }
 
   function selectComponent(comp: ComponentInfo) {

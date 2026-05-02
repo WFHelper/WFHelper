@@ -8,7 +8,7 @@
   } from "../stores/data.js";
   import { masteryData } from "../stores/mastery.js";
   import { activeItem } from "../stores/modals.js";
-  import { formatTimeRemaining, formatNumber } from "../lib/format.js";
+  import { formatBuildTime, formatTimeRemaining, formatNumber } from "../lib/format.js";
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
   import { CREDITS_ICON_URL } from "../lib/assetUrls.js";
   import { clockStore } from "../lib/timers.js";
@@ -296,18 +296,6 @@
   }
   function ingredientImage(un: string): string | null {
     return ($itemDb[un]?.imageUrl as string | null) ?? null;
-  }
-
-  /** Format a build time in seconds into a compact d/h/m label. */
-  function formatBuildTime(seconds: number): string {
-    if (!seconds || seconds <= 0) return "";
-    const totalMinutes = Math.round(seconds / 60);
-    const days = Math.floor(totalMinutes / (60 * 24));
-    const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
-    const mins = totalMinutes % 60;
-    if (days > 0) return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
-    if (hours > 0) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-    return `${mins}m`;
   }
 
   function statusLabel(s: ItemStatus): string {

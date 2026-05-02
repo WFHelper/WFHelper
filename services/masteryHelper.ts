@@ -7,6 +7,7 @@ import * as itemDb from "./itemDatabase";
 import type { ComponentEntry } from "./types/gameData";
 import { MAX_ITEM_RANK, XP_PER_RANK } from "../config/game/constants";
 import { aggregateComponentOwnership } from "../config/shared/componentOwnership";
+import { sanitizeDisplayName } from "../config/shared/displayName";
 import { toFiniteNumber } from "../config/shared/numeric";
 import type { MasteryStatus } from "../config/shared/masteryTypes";
 
@@ -20,7 +21,6 @@ function debugLog(_message: string, _payload?: unknown): void {
   // Debug reasons are now surfaced in the UI; avoid terminal spam.
   if (!debugMode) return;
 }
-
 
 const MASTERABLE_DB_CATEGORIES = new Set(["Warframe", "Weapon", "Companion", "Railjack"]);
 
@@ -63,7 +63,6 @@ const PATH_CATEGORY_RULES: Array<{ pattern: RegExp; category: string }> = [
   { pattern: /\/Pistols\//i, category: "Secondary" },
   { pattern: /\/Melee\//i, category: "Melee" },
 ];
-
 
 const KEYWORD_RULES: Array<{ pattern: RegExp; keywords: string[] }> = [
   { pattern: /\/ModularMelee\b|\/Ostron.*Melee|\/InfZaw|\/Zaw/i, keywords: ["zaw", "modular"] },
@@ -136,12 +135,6 @@ const INV_CATEGORIES: Record<string, number> = {
   MechSuits: MAX_ITEM_RANK,
 };
 
-function sanitizeDisplayName(name: string): string {
-  return String(name || "")
-    .replace(/^<ARCHWING>\s*/i, "")
-    .trim();
-}
-
 function xpToRank(xp: number, maxRank: number = MAX_ITEM_RANK): number {
   if (!xp || xp <= 0) return 0;
   return Math.min(maxRank, Math.floor(xp / XP_PER_RANK));
@@ -213,8 +206,11 @@ function extractProfileMastery(
   return { rank, percentToNext };
 }
 
-
-function getExcludeReason(uniqueName: string, name: string | null, item: { exalted?: boolean; productCategory?: string | null; type?: string }): string | null {
+function getExcludeReason(
+  uniqueName: string,
+  name: string | null,
+  item: { exalted?: boolean; productCategory?: string | null; type?: string },
+): string | null {
   if (uniqueName.includes("/Recipes/")) return "recipe";
   if (uniqueName.includes("/StoreItems/")) return "store-item";
   if (uniqueName.includes("/OperatorLoadOuts/")) return "operator-loadout";
@@ -253,7 +249,6 @@ function getExcludeReason(uniqueName: string, name: string | null, item: { exalt
 
   return null;
 }
-
 
 function resolveDisplayCategoryInfo(
   item: { productCategory?: string | null; category?: string; type?: string },
@@ -300,7 +295,6 @@ function isAmpPrismMasterableOverride(item: { name?: string }, uniqueName: strin
   return n.includes(" prism");
 }
 
-
 interface MasterableItem {
   name: string;
   uniqueName: string;
@@ -321,7 +315,6 @@ interface MasteryProgressItem extends MasterableItem {
   maxRank: number;
   currentlyOwned: boolean;
 }
-
 
 export function getAllMasterableItems(): MasterableItem[] {
   const allItems = itemDb.getAllItems();
@@ -393,7 +386,6 @@ export function getAllMasterableItems(): MasterableItem[] {
   return items;
 }
 
-
 export function computeMasteryProgress(inventoryData: Record<string, unknown>): {
   items: MasteryProgressItem[];
   stats: {
@@ -408,7 +400,18 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
     profileMastery: { rank: number | null; percentToNext: number | null } | null;
   };
 } {
-  if (!inventoryData) return { items: [], stats: { total: 0, mastered: 0, inProgress: 0, missing: 0, byCategory: {}, profileMastery: null } };
+  if (!inventoryData)
+    return {
+      items: [],
+      stats: {
+        total: 0,
+        mastered: 0,
+        inProgress: 0,
+        missing: 0,
+        byCategory: {},
+        profileMastery: null,
+      },
+    };
 
   const allMasterable = getAllMasterableItems();
   const componentOwnership = aggregateComponentOwnership(

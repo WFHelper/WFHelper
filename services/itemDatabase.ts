@@ -8,6 +8,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { sanitizeDisplayName } from "../config/shared/displayName";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { withScope } from "./logger";
 import type {
@@ -62,12 +63,6 @@ function buildWfcdImageUrl(imageName: string | null | undefined): string | null 
 
 function chooseImageUrl(...urls: Array<string | null | undefined>): string | null {
   return toIconMirrorUrl(urls.find((url) => typeof url === "string" && url.trim()));
-}
-
-function sanitizeDisplayName(name: string): string {
-  return String(name || "")
-    .replace(/^<ARCHWING>\s*/i, "")
-    .trim();
 }
 
 function isLikelyBuildComponent(uniqueName: string, componentName: string = ""): boolean {
@@ -185,7 +180,6 @@ let wfcdItemsByUniqueName: Record<string, ItemEntry> = {};
 /** Maps resultType (the produced item's uniqueName) → recipe data. */
 let recipesByResultType: Record<string, RecipeData> = {};
 
-
 function loadDict(): Record<string, string> {
   const attempts: string[] = [];
 
@@ -236,7 +230,6 @@ function loadDict(): Record<string, string> {
   );
   return {};
 }
-
 
 function loadPublicExportPlus(): number {
   try {
@@ -341,7 +334,6 @@ function loadPublicExportPlus(): number {
     return 0;
   }
 }
-
 
 function loadWfcdItems(): number {
   try {
@@ -588,7 +580,6 @@ function loadWfcdItems(): number {
   }
 }
 
-
 function resolveAllImages(): void {
   let preResolved = 0;
   let browseWfSourced = 0;
@@ -638,7 +629,6 @@ function resolveAllImages(): void {
   }
 }
 
-
 function extractFallbackName(uniqueName: string): string {
   if (!uniqueName) return "Unknown";
   const segments = uniqueName.split("/");
@@ -647,7 +637,6 @@ function extractFallbackName(uniqueName: string): string {
   name = name.replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
   return sanitizeDisplayName(name);
 }
-
 
 interface PepRecipeItem {
   resultType?: string;
@@ -684,7 +673,6 @@ function buildRecipeIndex(): void {
     log.warn("[ItemDB] Could not build recipe index");
   }
 }
-
 
 export function buildDatabase(): void {
   log.time("[ItemDB] Total build time");

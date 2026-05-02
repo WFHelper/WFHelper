@@ -1,17 +1,10 @@
+import { sanitizeDisplayName } from "../../../config/shared/displayName.js";
 import type { InventoryGroup, ItemDbEntry, RawInventoryData } from "../../types/inventory.js";
-
 
 export interface ResolvedItem extends ItemDbEntry {
   name: string;
   imageUrl: string | null;
 }
-
-function sanitizeDisplayName(name: string): string {
-  return String(name || "")
-    .replace(/^<ARCHWING>\s*/i, "")
-    .trim();
-}
-
 
 interface CategoryDef {
   key: keyof RawInventoryData;
@@ -65,7 +58,6 @@ export const SUPPLEMENTAL_COLLECTIONS: SupplementalCollectionDef[] = [
   { key: "Arcanes", cat: "arcanes", label: "Arcane" },
 ];
 
-
 export function resolveItem(
   internalName: string,
   itemDb: Record<string, ItemDbEntry>,
@@ -86,7 +78,6 @@ export function resolveItem(
   name = name.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
   return { name: sanitizeDisplayName(name), imageUrl: null, category: "Unknown" };
 }
-
 
 export function isArcaneUpgrade(
   internalName: string,
@@ -272,7 +263,6 @@ export function canonicalBuildPartName(internalName: string, name: string): stri
 
   return name;
 }
-
 
 export function shouldHide(
   internalName: string,

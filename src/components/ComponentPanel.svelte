@@ -1,7 +1,12 @@
 <script lang="ts">
   import { itemDb, wfmItems } from "../stores/data.js";
   import { createPriceLoader } from "../lib/priceState.js";
-  import { resolveDrops } from "../lib/resolveDrops.js";
+  import {
+    resolveComponentDrops,
+    resolveComponentLocation,
+    resolveComponentPriceLookup,
+    resolveComponentWikiFallback,
+  } from "../lib/componentResolution.js";
   import DropsList from "./DropsList.svelte";
   import MarketPrice from "./MarketPrice.svelte";
   import WikiButton from "./WikiButton.svelte";
@@ -23,14 +28,10 @@
     priceSlug = state.slug;
   });
 
-  $: compDrops = resolveDrops(comp, $itemDb);
+  $: compDrops = resolveComponentDrops(comp, $itemDb);
   $: compImageUrl = comp?.uniqueName ? ($itemDb[comp.uniqueName]?.imageUrl || null) : null;
-  $: compDescription = comp?.uniqueName ? ($itemDb[comp.uniqueName]?.description || "") : "";
-  $: compLocation = (() => {
-    if (!compDescription) return "";
-    const locMatch = compDescription.match(/Location:\s*(.+)/i);
-    return locMatch ? locMatch[0] : "";
-  })();
+  $: compDbEntry = comp?.uniqueName ? $itemDb[comp.uniqueName] : null;
+  $: compLocation = resolveComponentLocation(compDbEntry);
   $: compWikiUrl = comp?.uniqueName ? ($itemDb[comp.uniqueName]?.wikiaUrl || null) : null;
 
   // Reload price whenever the component (identity) changes.
@@ -39,34 +40,18 @@
   }
 
   async function loadPrice(c: ComponentInfo, parent: string): Promise<void> {
-    const fullName = parent ? `${parent} ${c.name}` : c.name;
     const lookup = $wfmItems || {};
-    const nameKey = fullName?.toLowerCase() || "";
-    const directMatch = lookup[nameKey] || lookup[c.name?.toLowerCase() || ""];
-    const isTradable = !!c.tradable || !!directMatch;
-
-    // WFM lists warframe PARTS (Chassis/Systems/Neuroptics) as "Blueprint" suffix.
-    // Only try Blueprint-first when the direct name isn't already in the WFM catalog —
-    // prime weapon parts (receiver/barrel/link/stock) are listed without Blueprint suffix.
-    const dbEntry = c.uniqueName ? $itemDb[c.uniqueName] : null;
-    const isBuildComp =
-      dbEntry?.isBuildComponent && parent && !nameKey.endsWith(" blueprint") && !directMatch;
-    if (isBuildComp) {
-      await priceLoader.load(`${fullName} Blueprint`, lookup, true, {
-        fallbackName: fullName,
-        fallbackTradable: isTradable,
-      });
-    } else {
-      await priceLoader.load(fullName, lookup, isTradable);
-    }
+    const plan = resolveComponentPriceLookup(c, parent, c.uniqueName ? $itemDb[c.uniqueName] : null, lookup);
+    await priceLoader.load(plan.name, lookup, plan.isTradable, {
+      ...(plan.fallbackName ? { fallbackName: plan.fallbackName } : {}),
+      ...(plan.fallbackTradable != null ? { fallbackTradable: plan.fallbackTradable } : {}),
+    });
   }
 
   // Only use parent wiki for build components (Chassis, Systems, etc.) that lack
   // their own wiki page. Resources (Orokin Cell, Neurodes) have standalone pages.
   $: wikiFallback = (() => {
-    const dbEntry = comp?.uniqueName ? $itemDb[comp.uniqueName] : null;
-    if (dbEntry?.isBuildComponent && parentName) return parentName;
-    return dbEntry?.name || comp.name;
+    return resolveComponentWikiFallback(comp, parentName, compDbEntry);
   })();
 </script>
 

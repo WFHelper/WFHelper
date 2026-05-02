@@ -1,10 +1,10 @@
 <script lang="ts">
 import { activeRelic } from "../stores/modals.js";
-import { itemDb, componentOwnership, enrichComponents } from "../stores/data.js";
+import { itemDb, componentOwnership } from "../stores/data.js";
 import { relicOwnedCounts } from "../stores/relics.js";
 import { fetchPriceBySlug } from "../lib/wfm/wfmPrice.js";
 import { fetchWfmItemMetaBySlug } from "../lib/wfm/wfmItemMeta.js";
-import { SvelteMap } from "svelte/reactivity";
+import { buildItemNameIndex, resolveRewardComponent } from "../lib/componentResolution.js";
 import WikiButton from "../components/WikiButton.svelte";
 import ComponentPanel from "../components/ComponentPanel.svelte";
 import DetailModalBase from "./DetailModalBase.svelte";
@@ -20,7 +20,7 @@ import DetailModalBase from "./DetailModalBase.svelte";
     RelicQuality,
     RelicReward,
   } from "../types/relics.js";
-  import type { ComponentInfo, ItemDbEntry } from "../types/inventory.js";
+  import type { ComponentInfo } from "../types/inventory.js";
 
   const QUAL_LABELS: Record<RelicQuality, string> = {
     intact: "Intact",
@@ -149,27 +149,7 @@ import DetailModalBase from "./DetailModalBase.svelte";
     ? group.imageUrl || RELIC_ICON_PATHS[tierCls] || RELIC_ICON_PATHS.default
     : "";
 
-  // Reverse index: item name → uniqueName key (rebuilt when itemDb changes)
-  $: itemNameIndex = (() => {
-    const db = $itemDb;
-    const map = new SvelteMap<string, string>();
-    for (const key of Object.keys(db)) {
-      const name = db[key].name;
-      if (name) map.set(name, key);
-    }
-    return map;
-  })();
-
-  function buildFallbackReward(uniqueName: string, reward: RelicReward, db: ItemDbEntry): ComponentInfo {
-    return {
-      name: db.name || reward.name,
-      uniqueName,
-      ...(db.tradable != null ? { tradable: db.tradable } : {}),
-      ownedCount: $componentOwnership.get(uniqueName) || 0,
-      itemCount: 1,
-      drops: db.drops || [],
-    };
-  }
+  $: itemNameIndex = buildItemNameIndex($itemDb);
 
   function selectReward(reward: RelicReward): void {
     if (selectedReward === reward) {
@@ -177,39 +157,12 @@ import DetailModalBase from "./DetailModalBase.svelte";
       return;
     }
 
-    // WFCD sets reward.uniqueName to the relic's own uniqueName, not the item's.
-    // Look up the actual item by name instead.
-    const un = itemNameIndex.get(reward.name);
-    if (!un) return;
-    const db = $itemDb[un];
-    if (!db) return;
+    const resolved = resolveRewardComponent(reward.name, itemNameIndex, $itemDb, $componentOwnership);
+    if (!resolved) return;
 
     selectedReward = reward;
-
-    // Resolve the component from the parent item's components array, which has
-    // drops and correct itemCount. The standalone itemDb entry lacks both.
-    if (db.isBuildComponent && db.componentOf) {
-      const parent = $itemDb[db.componentOf];
-      rewardParentName = parent?.name || "";
-      const enriched = enrichComponents(parent?.components || [], $componentOwnership);
-      // PEP uses ...Blueprint uniqueNames, WFCD uses ...Component — try both
-      const parentComp = enriched.find(c => c.uniqueName === un)
-        || enriched.find(c =>
-          c.uniqueName === un.replace(/Blueprint$/i, "Component")
-          || c.uniqueName === un.replace(/Component$/i, "Blueprint"));
-      if (parentComp) {
-        rewardComp = parentComp;
-      } else {
-        // Fallback: component not found in parent's list.
-        // db.name is already the full name (e.g. "Gauss Prime Chassis"),
-        // so clear parentName to avoid double-prefixing in ComponentPanel.
-        rewardParentName = "";
-        rewardComp = buildFallbackReward(un, reward, db);
-      }
-    } else {
-      rewardParentName = "";
-      rewardComp = buildFallbackReward(un, reward, db);
-    }
+    rewardParentName = resolved.parentName;
+    rewardComp = resolved.comp;
   }
 
   function closeRewardPanel(): void {

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   cycleTimeDisplay,
+  formatBuildTime,
   formatNumber,
   formatTimeRemaining,
   nextDailyResetUtc,
@@ -45,6 +46,12 @@ describe("format helpers", () => {
   it("formats remaining duration for foundry cards", () => {
     const end = new Date(Date.now() + (49 * 3600 + 10 * 60) * 1000);
     expect(formatTimeRemaining(end)).toBe("2d 1h");
+  });
+
+  it("formats build durations consistently", () => {
+    expect(formatBuildTime(45)).toBe("45s");
+    expect(formatBuildTime(3600)).toBe("1h");
+    expect(formatBuildTime(49 * 3600 + 10 * 60)).toBe("2d 1h 10m");
   });
 
   it("computes daily and weekly UTC reset boundaries", () => {

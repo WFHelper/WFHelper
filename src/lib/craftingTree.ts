@@ -28,10 +28,7 @@ interface CraftingTreeSummary {
 const MAX_DEPTH = 5;
 
 /** Common resource path prefixes — never recurse into these sub-trees. */
-const LEAF_RESOURCE_PREFIXES = [
-  "/Lotus/Types/Items/MiscItems/",
-  "/Lotus/Types/Items/Research/",
-];
+const LEAF_RESOURCE_PREFIXES = ["/Lotus/Types/Items/MiscItems/", "/Lotus/Types/Items/Research/"];
 
 /**
  * Build a crafting tree for the given item uniqueName.
@@ -45,7 +42,15 @@ export function buildCraftingTree(
   const item = itemDb[uniqueName];
   if (!item?.recipe) return null;
 
-  return buildNode(uniqueName, 1, item.recipe, itemDb, ownership, 0, findUsedFor(uniqueName, itemDb));
+  return buildNode(
+    uniqueName,
+    1,
+    item.recipe,
+    itemDb,
+    ownership,
+    0,
+    findUsedFor(uniqueName, itemDb),
+  );
 }
 
 function isLeafResource(uniqueName: string): boolean {
@@ -139,9 +144,7 @@ function findUsedFor(
 }
 
 /** Compute a summary of all leaf resources needed. */
-export function computeCraftingSummary(
-  tree: CraftingTreeNode,
-): CraftingTreeSummary {
+export function computeCraftingSummary(tree: CraftingTreeNode): CraftingTreeSummary {
   let totalCredits = 0;
   let minBuildTime = 0;
   let maxBuildTime = 0;
@@ -223,21 +226,4 @@ function extractFallbackName(uniqueName: string): string {
   let name = segments[segments.length - 1] || "Unknown";
   name = name.replace(/([a-z])([A-Z])/g, "$1 $2");
   return name;
-}
-
-/** Format seconds into a human-readable duration string. */
-export function formatBuildTime(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (days > 0) {
-    if (hours === 0 && minutes === 0) return `${days}d`;
-    if (minutes === 0) return `${days}d ${hours}h`;
-    if (hours === 0) return `${days}d ${minutes}m`;
-    return `${days}d ${hours}h ${minutes}m`;
-  }
-  if (hours === 0) return `${minutes}m`;
-  if (minutes === 0) return `${hours}h`;
-  return `${hours}h ${minutes}m`;
 }

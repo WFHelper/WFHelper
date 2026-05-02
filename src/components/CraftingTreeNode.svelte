@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { CraftingTreeNode } from "../lib/craftingTree.js";
-  import { formatBuildTime } from "../lib/craftingTree.js";
+  import { formatBuildTime } from "../lib/format.js";
   import ItemImage from "./ItemImage.svelte";
 
   export let node: CraftingTreeNode;
