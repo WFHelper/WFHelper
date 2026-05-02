@@ -1,6 +1,7 @@
 import { jsonResponse } from './cors';
 import type { Env } from '../types';
-import { clamp, clientIp, parsePositiveInt } from '../utils';
+import { getWorkerConfig } from '../config';
+import { clientIp } from '../utils';
 
 type PublicRateLimitRoute = 'healthz' | 'bootstrap' | 'prices' | 'meta' | 'order-summary' | 'orders' | 'snapshot';
 
@@ -30,7 +31,7 @@ const PUBLIC_ROUTE_LIMITS: Record<PublicRateLimitRoute, { maxRequests: number; w
 };
 
 export async function checkPublicRateLimit(req: Request, env: Env, route: PublicRateLimitRoute): Promise<Response | null> {
-	if ((env.PUBLIC_RATE_LIMIT_ENABLED || '1').trim() === '0') return null;
+	if (!getWorkerConfig(env).publicRateLimitEnabled) return null;
 
 	const config = PUBLIC_ROUTE_LIMITS[route];
 	const windowSec = config.windowSec;
@@ -50,8 +51,9 @@ export async function checkPublicRateLimit(req: Request, env: Env, route: Public
 }
 
 export async function checkAdminRateLimit(req: Request, env: Env): Promise<Response | null> {
-	const windowSec = clamp(parsePositiveInt(env.ADMIN_RATE_LIMIT_WINDOW_SEC, 60), 10, 3600);
-	const maxRequests = clamp(parsePositiveInt(env.ADMIN_RATE_LIMIT_MAX, 12), 1, 500);
+	const config = getWorkerConfig(env);
+	const windowSec = config.adminRateLimitWindowSec;
+	const maxRequests = config.adminRateLimitMax;
 	const bucket = Math.floor(Date.now() / 1000 / windowSec);
 	const key = `rl:admin:${clientIp(req)}:${bucket}`;
 

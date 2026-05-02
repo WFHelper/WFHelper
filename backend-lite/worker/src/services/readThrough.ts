@@ -1,6 +1,7 @@
 import { MISS_META_PREFIX, MISS_ORDERS_PREFIX, MISS_ORDER_SUMMARY_PREFIX, MISS_PRICE_PREFIX, SKIP_UNTRADABLE_PREFIX } from '../constants';
 import type { Env } from '../types';
-import { clamp, getJsonFromKv, parsePositiveInt } from '../utils';
+import { getWorkerConfig } from '../config';
+import { getJsonFromKv } from '../utils';
 import {
 	buildOrderSummaryPayload,
 	fetchMetaPayload,
@@ -99,30 +100,10 @@ const autoStats = {
 	orderSummaryCircuitOpen: 0,
 };
 
-function noDataTtlSec(env: Env): number {
-	return clamp(parsePositiveInt(env.NO_DATA_TTL_SEC, 900), 60, 604800);
-}
-
-function staleRefreshSec(env: Env): number {
-	return clamp(parsePositiveInt(env.STALE_REFRESH_SEC, 1800), 120, 604800);
-}
-
 function ordersCacheTtlSec(env: Env): number {
 	// KV hard-eviction TTL — must be well above ORDERS_STALE_REFRESH_SEC so that
 	// stale-if-error works: stale data stays available in KV when upstream is degraded.
-	return clamp(parsePositiveInt(env.ORDERS_CACHE_TTL_SEC, 86400), 120, 86400);
-}
-
-function ordersStaleRefreshSec(env: Env): number {
-	return clamp(parsePositiveInt(env.ORDERS_STALE_REFRESH_SEC, 21600), 15, 86400);
-}
-
-function orderSummaryCacheTtlSec(env: Env): number {
-	return clamp(parsePositiveInt(env.ORDERS_SUMMARY_CACHE_TTL_SEC, 172800), 300, 604800);
-}
-
-function orderSummaryStaleRefreshSec(env: Env): number {
-	return clamp(parsePositiveInt(env.ORDERS_SUMMARY_STALE_REFRESH_SEC, 21600), 60, 604800);
+	return getWorkerConfig(env).ordersCacheTtlSec;
 }
 
 function timestampFromRecord(data: Record<string, unknown> | null): number {
@@ -134,19 +115,19 @@ function timestampFromRecord(data: Record<string, unknown> | null): number {
 function isStale(data: Record<string, unknown> | null, env: Env): boolean {
 	const ts = timestampFromRecord(data);
 	if (ts <= 0) return true;
-	return Date.now() - ts > staleRefreshSec(env) * 1000;
+	return Date.now() - ts > getWorkerConfig(env).staleRefreshSec * 1000;
 }
 
 function isOrdersStale(data: Record<string, unknown> | null, env: Env): boolean {
 	const ts = timestampFromRecord(data);
 	if (ts <= 0) return true;
-	return Date.now() - ts > ordersStaleRefreshSec(env) * 1000;
+	return Date.now() - ts > getWorkerConfig(env).ordersStaleRefreshSec * 1000;
 }
 
 function isOrderSummaryStale(data: Record<string, unknown> | null, env: Env): boolean {
 	const ts = timestampFromRecord(data);
 	if (ts <= 0) return true;
-	return Date.now() - ts > orderSummaryStaleRefreshSec(env) * 1000;
+	return Date.now() - ts > getWorkerConfig(env).orderSummaryStaleRefreshSec * 1000;
 }
 
 function noteOrderSummaryTransient(): void {
@@ -168,7 +149,7 @@ function orderSummaryCircuitOpen(): boolean {
 
 async function setNegativeMarker(namespace: KVNamespace, key: string, env: Env): Promise<void> {
 	await namespace.put(key, '1', {
-		expirationTtl: noDataTtlSec(env),
+		expirationTtl: getWorkerConfig(env).noDataTtlSec,
 	});
 }
 
@@ -484,13 +465,14 @@ export function getAutoCacheStats(): Record<string, number> {
 }
 
 export function getAutoCacheConfig(env: Env): Record<string, number> {
+	const config = getWorkerConfig(env);
 	return {
-		cacheTtlSec: clamp(parsePositiveInt(env.CACHE_TTL_SEC, 43200), 60, 604800),
-		noDataTtlSec: noDataTtlSec(env),
-		staleRefreshSec: staleRefreshSec(env),
+		cacheTtlSec: config.cacheTtlSec,
+		noDataTtlSec: config.noDataTtlSec,
+		staleRefreshSec: config.staleRefreshSec,
 		ordersCacheTtlSec: ordersCacheTtlSec(env),
-		ordersStaleRefreshSec: ordersStaleRefreshSec(env),
-		orderSummaryCacheTtlSec: orderSummaryCacheTtlSec(env),
-		orderSummaryStaleRefreshSec: orderSummaryStaleRefreshSec(env),
+		ordersStaleRefreshSec: config.ordersStaleRefreshSec,
+		orderSummaryCacheTtlSec: config.orderSummaryCacheTtlSec,
+		orderSummaryStaleRefreshSec: config.orderSummaryStaleRefreshSec,
 	};
 }

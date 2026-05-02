@@ -5,18 +5,19 @@ import {
 	WFM_HEADERS,
 } from '../constants';
 import type { Env, OrdersPayload, OrderSummaryCatalogEntry, OrderSummaryHotsetEntry } from '../types';
-import { clamp, getJsonFromKv, parsePositiveInt } from '../utils';
+import { getWorkerConfig } from '../config';
+import { getJsonFromKv } from '../utils';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
 import { isExcludedRankedMarketItem } from '../../../../config/shared/wfmExclusions';
 
 const ORDER_SUMMARY_HOTSET_MAX_ENTRIES = 96;
 
 export function cacheTtlSec(env: Env): number {
-	return clamp(parsePositiveInt(env.CACHE_TTL_SEC, 43200), 60, 604800);
+	return getWorkerConfig(env).cacheTtlSec;
 }
 
 export function orderSummaryCacheTtlSec(env: Env): number {
-	return clamp(parsePositiveInt(env.ORDERS_SUMMARY_CACHE_TTL_SEC, 172800), 300, 604800);
+	return getWorkerConfig(env).orderSummaryCacheTtlSec;
 }
 
 function sanitizeSlugList(value: unknown): string[] {
@@ -147,7 +148,7 @@ export function buildOrderSummaryPayload(slug: string, rank: number | null, payl
 }
 
 export async function fetchCatalogSlugs(env: Env, forceRefresh: boolean): Promise<string[]> {
-	const refreshHours = clamp(parsePositiveInt(env.CATALOG_REFRESH_HOURS, 24), 1, 168);
+	const refreshHours = getWorkerConfig(env).catalogRefreshHours;
 	const refreshMs = refreshHours * 60 * 60 * 1000;
 
 	if (!forceRefresh) {
@@ -222,7 +223,7 @@ export async function fetchCatalogSlugs(env: Env, forceRefresh: boolean): Promis
 }
 
 export async function fetchRankedSummaryCatalog(env: Env, forceRefresh: boolean): Promise<OrderSummaryCatalogEntry[]> {
-	const refreshHours = clamp(parsePositiveInt(env.CATALOG_REFRESH_HOURS, 24), 1, 168);
+	const refreshHours = getWorkerConfig(env).catalogRefreshHours;
 	const refreshMs = refreshHours * 60 * 60 * 1000;
 
 	if (!forceRefresh) {

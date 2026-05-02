@@ -3,7 +3,7 @@ import { handlePublicRoutes } from './routes/public';
 import { prewarmBatch, prewarmOrderSummaryCatalog } from './services/prewarm';
 import { jsonResponse, originIsAllowed } from './security/cors';
 import type { Env } from './types';
-import { parsePositiveInt } from './utils';
+import { getWorkerConfig } from './config';
 
 async function handleFetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 	const url = new URL(req.url);
@@ -36,15 +36,16 @@ export default {
 	},
 
 	async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext): Promise<void> {
+		const config = getWorkerConfig(env);
 		await prewarmBatch(env, {
 			reason: 'cron',
-			batchSize: parsePositiveInt(env.PREWARM_BATCH_SIZE, 8),
+			batchSize: config.prewarmBatchSize,
 			refreshCatalog: false,
 			resetCursor: false,
 		});
 		await prewarmOrderSummaryCatalog(env, {
 			reason: 'cron',
-			batchSize: parsePositiveInt(env.ORDER_SUMMARY_PREWARM_BATCH_SIZE, 12),
+			batchSize: config.orderSummaryPrewarmBatchSize,
 			refreshCatalog: false,
 		});
 		// The snapshot is maintained incrementally: patchSnapshot() is called at the end of every

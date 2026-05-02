@@ -2,6 +2,7 @@ import { SELF, createExecutionContext, env, waitOnExecutionContext } from 'cloud
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import worker from '../src/index';
 import type { Env } from '../src/types';
+import { WFM_SNAPSHOT_CLIENT_CACHE_VERSION } from '../../../config/shared/wfmSnapshotValidation';
 
 const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
 const originalFetch = globalThis.fetch;
@@ -28,7 +29,7 @@ async function seedRankedCatalog(targetEnv: Pick<Env, 'ITEM_META'>, entries: Arr
 async function clearSnapshotEdgeCache(): Promise<void> {
 	await Promise.all([
 		caches.default.delete(new Request('https://example.com/v1/snapshot')),
-		caches.default.delete(new Request('https://example.com/v1/snapshot?body=inactive-v2')),
+		caches.default.delete(new Request(`https://example.com/v1/snapshot?body=${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}`)),
 	]);
 }
 
@@ -1217,7 +1218,7 @@ describe('backend-lite worker', () => {
 			await waitOnExecutionContext(ctx);
 
 			expect(response.status).toBe(200);
-			expect(response.headers.get('etag')).toBe('"inactive-snapshot-test-inactive-v2"');
+			expect(response.headers.get('etag')).toBe(`"inactive-snapshot-test-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"`);
 			const body = (await response.json()) as typeof snapshot;
 			expect(body.prices.inactive_scene).toEqual({
 				status: 'no_data',
@@ -1253,12 +1254,12 @@ describe('backend-lite worker', () => {
 			const primeResponse = await worker.fetch(new IncomingRequest('https://example.com/v1/snapshot'), env, primeCtx);
 			await waitOnExecutionContext(primeCtx);
 			expect(primeResponse.status).toBe(200);
-			expect(primeResponse.headers.get('etag')).toBe('"snapshot-test-etag-inactive-v2"');
+			expect(primeResponse.headers.get('etag')).toBe(`"snapshot-test-etag-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"`);
 
 			const matchingCtx = createExecutionContext();
 			const matchingResponse = await worker.fetch(
 				new IncomingRequest('https://example.com/v1/snapshot', {
-					headers: { 'if-none-match': '"snapshot-test-etag-inactive-v2"' },
+					headers: { 'if-none-match': `"snapshot-test-etag-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"` },
 				}),
 				env,
 				matchingCtx,
@@ -1276,7 +1277,7 @@ describe('backend-lite worker', () => {
 			await waitOnExecutionContext(nonMatchingCtx);
 
 			expect(matchingResponse.status).toBe(304);
-			expect(matchingResponse.headers.get('etag')).toBe('"snapshot-test-etag-inactive-v2"');
+			expect(matchingResponse.headers.get('etag')).toBe(`"snapshot-test-etag-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"`);
 			expect(matchingResponse.headers.get('cache-control')).toBe('public, max-age=7200');
 			expect(await matchingResponse.text()).toBe('');
 			expect(nonMatchingResponse.status).toBe(200);

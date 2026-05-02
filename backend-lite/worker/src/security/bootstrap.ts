@@ -1,5 +1,6 @@
 import type { Env } from '../types';
-import { clamp, clientIp, parsePositiveInt } from '../utils';
+import { getWorkerConfig } from '../config';
+import { clientIp } from '../utils';
 import { timingSafeEqual } from './constantTime';
 
 const BOOTSTRAP_HEADER = 'x-wfhelper-bootstrap';
@@ -68,7 +69,7 @@ export function bootstrapEnabled(env: Env): boolean {
 }
 
 function bootstrapTtlSec(env: Env): number {
-	return clamp(parsePositiveInt(env.BOOTSTRAP_TOKEN_TTL_SEC, 900), 60, 3600);
+	return getWorkerConfig(env).bootstrapTokenTtlSec;
 }
 
 export async function issueBootstrapToken(req: Request, env: Env): Promise<{ token: string; expiresAt: number } | null> {

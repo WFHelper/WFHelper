@@ -1,6 +1,7 @@
 const SNAPSHOT_VERSION = 1;
 const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
-const MAX_SNAPSHOT_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+export const WFM_SNAPSHOT_CLIENT_CACHE_VERSION = "inactive-v2";
+export const WFM_SNAPSHOT_MAX_ENTRY_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 interface ValidSnapshotBlob {
   version: number;
@@ -28,7 +29,7 @@ function isReasonableTimestamp(value: unknown, now = Date.now()): value is numbe
     Number.isFinite(value) &&
     value > 0 &&
     value <= now + MAX_FUTURE_SKEW_MS &&
-    now - value <= MAX_SNAPSHOT_AGE_MS
+    now - value <= WFM_SNAPSHOT_MAX_ENTRY_AGE_MS
   );
 }
 

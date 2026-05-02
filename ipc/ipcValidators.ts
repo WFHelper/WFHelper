@@ -1,0 +1,36 @@
+import { toFiniteNumber } from "../config/shared/numeric";
+
+export function isObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+export function trimmedString(value: unknown, maxLength = 512): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > maxLength) return null;
+  return trimmed;
+}
+
+export function finiteNumber(value: unknown): number | null {
+  return toFiniteNumber(value);
+}
+
+function boundedNumber(value: unknown, min: number, max: number): number | null {
+  const parsed = toFiniteNumber(value);
+  if (parsed == null || parsed < min || parsed > max) return null;
+  return parsed;
+}
+
+export function boundedInt(value: unknown, min: number, max: number): number | null {
+  const parsed = boundedNumber(value, min, max);
+  if (parsed == null) return null;
+  return Math.round(parsed);
+}
+
+export function stringArray(value: unknown, maxLength = 100): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => trimmedString(entry))
+    .filter((entry): entry is string => Boolean(entry))
+    .slice(0, maxLength);
+}

@@ -15,9 +15,11 @@ import {
 	WFM_HEADERS,
 } from '../constants';
 import type { Env, MetaPayload, OrdersPayload, OrderSummaryHotsetEntry, OrderSummaryPrewarmResult, PrewarmResult } from '../types';
-import { clamp, getJsonFromKv, parsePositiveInt } from '../utils';
+import { getWorkerConfig } from '../config';
+import { clamp, getJsonFromKv } from '../utils';
 import { extractLatestMedianFromStatsPayload, extractMedianFromStatsPayload } from '../../../../config/shared/wfmStats';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
+import { WFM_SNAPSHOT_MAX_ENTRY_AGE_MS } from '../../../../config/shared/wfmSnapshotValidation';
 import {
 	buildOrderSummaryPayload,
 	cacheTtlSec,
@@ -30,7 +32,6 @@ import {
 export { buildOrderSummaryPayload, fetchRankedSummaryCatalog } from './prewarmCatalog';
 
 const UNTRADABLE_SKIP_TTL_SEC = 30 * 24 * 60 * 60;
-const MAX_PRICE_SOURCE_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 interface FetchResult<T> {
 	data: T | null;
@@ -52,7 +53,7 @@ function inactivePriceSnapshotEntry(timestamp = Date.now()): Record<string, unkn
 }
 
 function isInactivePriceSource(sourceTimestamp: number | null, now = Date.now()): boolean {
-	return sourceTimestamp != null && now - sourceTimestamp > MAX_PRICE_SOURCE_AGE_MS;
+	return sourceTimestamp != null && now - sourceTimestamp > WFM_SNAPSHOT_MAX_ENTRY_AGE_MS;
 }
 
 function sanitizeSnapshotPriceEntries(prices: Record<string, unknown>, timestamp: number): Record<string, unknown> {
@@ -422,8 +423,9 @@ export async function prewarmOrderSummaryHotset(
 		resetCursor?: boolean;
 	},
 ): Promise<OrderSummaryPrewarmResult> {
-	const adminMaxBatch = clamp(parsePositiveInt(env.ADMIN_PREWARM_MAX_BATCH, 30), 1, 100);
-	const defaultBatch = parsePositiveInt(env.ORDER_SUMMARY_PREWARM_BATCH_SIZE, 12);
+	const config = getWorkerConfig(env);
+	const adminMaxBatch = config.adminPrewarmMaxBatch;
+	const defaultBatch = config.orderSummaryPrewarmBatchSize;
 	const batchSize = clamp(options.batchSize ?? defaultBatch, 1, adminMaxBatch);
 	const providedEntries = sanitizeOrderSummaryHotsetEntries(options.entries);
 	const hotset = providedEntries.length > 0 ? providedEntries : await getOrderSummaryHotset(env);
@@ -497,8 +499,9 @@ export async function prewarmOrderSummaryCatalog(
 		resetCursor?: boolean;
 	},
 ): Promise<OrderSummaryPrewarmResult> {
-	const adminMaxBatch = clamp(parsePositiveInt(env.ADMIN_PREWARM_MAX_BATCH, 30), 1, 100);
-	const defaultBatch = parsePositiveInt(env.ORDER_SUMMARY_PREWARM_BATCH_SIZE, 12);
+	const config = getWorkerConfig(env);
+	const adminMaxBatch = config.adminPrewarmMaxBatch;
+	const defaultBatch = config.orderSummaryPrewarmBatchSize;
 	const batchSize = clamp(options.batchSize ?? defaultBatch, 1, adminMaxBatch);
 	const entries = await fetchRankedSummaryCatalog(env, Boolean(options.refreshCatalog));
 
@@ -615,7 +618,7 @@ export async function prewarmBatch(
 		resetCursor?: boolean;
 	},
 ): Promise<PrewarmResult> {
-	const adminMaxBatch = clamp(parsePositiveInt(env.ADMIN_PREWARM_MAX_BATCH, 30), 1, 100);
+	const adminMaxBatch = getWorkerConfig(env).adminPrewarmMaxBatch;
 	const batchSize = clamp(options.batchSize, 1, adminMaxBatch);
 	const slugs = await fetchCatalogSlugs(env, Boolean(options.refreshCatalog));
 

@@ -14,6 +14,7 @@ import {
 	prewarmOrderSummaryHotset,
 	saveOrderSummaryHotset,
 } from '../services/prewarm';
+import { getWorkerConfig } from '../config';
 import { jsonResponse } from '../security/cors';
 import { isAdminAuthorized } from '../security/adminAuth';
 import { checkAdminRateLimit } from '../security/rateLimit';
@@ -55,9 +56,10 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 		if (guardResponse) return guardResponse;
 
 		const body = parseJsonBody(await req.text());
+		const config = getWorkerConfig(env);
 		const result = await prewarmBatch(env, {
 			reason: 'manual',
-			batchSize: parsePositiveInt(String(body.batchSize || ''), parsePositiveInt(env.PREWARM_BATCH_SIZE, 8)),
+			batchSize: parsePositiveInt(String(body.batchSize || ''), config.prewarmBatchSize),
 			resetCursor: Boolean(body.resetCursor),
 			refreshCatalog: Boolean(body.refreshCatalog),
 		});
@@ -114,8 +116,9 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 		if (guardResponse) return guardResponse;
 
 		const body = parseJsonBody(await req.text());
+		const config = getWorkerConfig(env);
 		const source = body.source === 'hotset' ? 'hotset' : 'catalog';
-		const batchSize = parsePositiveInt(String(body.batchSize || ''), parsePositiveInt(env.ORDER_SUMMARY_PREWARM_BATCH_SIZE, 12));
+		const batchSize = parsePositiveInt(String(body.batchSize || ''), config.orderSummaryPrewarmBatchSize);
 		const result =
 			source === 'hotset'
 				? await prewarmOrderSummaryHotset(env, {

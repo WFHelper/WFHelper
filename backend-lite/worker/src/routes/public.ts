@@ -17,10 +17,12 @@ import {
 	getOrHydrateOrders,
 	getOrHydratePrice,
 } from '../services/readThrough';
+import { getWorkerConfig } from '../config';
 import { sanitizeSnapshotForClient } from '../services/prewarm';
 import type { Env } from '../types';
 import { getJsonFromKv, getSlug } from '../utils';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
+import { WFM_SNAPSHOT_CLIENT_CACHE_VERSION } from '../../../../config/shared/wfmSnapshotValidation';
 
 const routeStats = {
 	healthzRequests: 0,
@@ -39,7 +41,6 @@ const routeStats = {
 
 const PUBLIC_JSON_CACHE_HEADERS = { 'cache-control': 'public, max-age=60' };
 const SNAPSHOT_CACHE_CONTROL = 'public, max-age=7200';
-const SNAPSHOT_BODY_VERSION = 'inactive-v2';
 
 type PublicRateLimitRoute = Parameters<typeof checkPublicRateLimit>[2];
 type HydrateResult<T> = { status: 'ok'; data: T } | { status: 'unavailable' } | { status: 'not_found' };
@@ -147,7 +148,7 @@ function respondWithStatus<T>(result: HydrateResult<T>, req: Request, env: Env):
 }
 
 function publicOrdersRouteEnabled(env: Env): boolean {
-	return (env.ENABLE_PUBLIC_ORDERS_ROUTE || '').trim() === '1';
+	return getWorkerConfig(env).publicOrdersRouteEnabled;
 }
 
 function snapshotNotModifiedResponse(etag: string, cacheControl: string): Response {
@@ -159,8 +160,8 @@ function snapshotNotModifiedResponse(etag: string, cacheControl: string): Respon
 
 function snapshotClientEtag(storedEtag: string | null): string | null {
 	if (!storedEtag) return null;
-	if (storedEtag.endsWith('"')) return `${storedEtag.slice(0, -1)}-${SNAPSHOT_BODY_VERSION}"`;
-	return `"${storedEtag}-${SNAPSHOT_BODY_VERSION}"`;
+	if (storedEtag.endsWith('"')) return `${storedEtag.slice(0, -1)}-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"`;
+	return `"${storedEtag}-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"`;
 }
 
 function requestHasMatchingEtag(req: Request, etag: string | null): etag is string {
@@ -254,7 +255,7 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		// each PoP after the first request. Subsequent users in the same region are
 		// served directly from the edge — zero Worker execution, zero KV reads.
 		// The rate limiter only runs on genuine cache misses (first request per PoP).
-		const cacheKey = new Request(`${url.origin}/v1/snapshot?body=${SNAPSHOT_BODY_VERSION}`, { method: 'GET' });
+		const cacheKey = new Request(`${url.origin}/v1/snapshot?body=${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}`, { method: 'GET' });
 		const edgeCache = caches.default;
 		const cachedResponse = await edgeCache.match(cacheKey);
 		if (cachedResponse) {
