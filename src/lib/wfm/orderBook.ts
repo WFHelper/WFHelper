@@ -1,6 +1,7 @@
 import { normalizeWfmSlug } from "./backendLite.js";
 import { normalizeRank } from "../../../config/shared/numeric.js";
 import { WFM_HEADERS } from "../../../config/shared/wfm.js";
+import { rendererOrderBookCacheKey } from "../../../config/shared/wfmCacheKeys.js";
 import {
   extractWfmOrderList,
   normalizeWfmOrderBookSide,
@@ -55,10 +56,6 @@ const orderBookDebugCounters: OrderBookDebugCounters = {
 
 function bumpCounter(counter: keyof OrderBookDebugCounters): void {
   orderBookDebugCounters[counter] += 1;
-}
-
-function orderBookCacheKey(slug: string, rank: number | null): string {
-  return rank == null ? slug : `${slug}:r${rank}`;
 }
 
 function nowMs(): number {
@@ -160,7 +157,7 @@ export function clearOrderBookCache(slug?: string | null, rank?: number | null):
   }
 
   const normalizedRank = normalizeRank(rank);
-  const key = orderBookCacheKey(normalizedSlug, normalizedRank);
+  const key = rendererOrderBookCacheKey(normalizedSlug, normalizedRank);
   cacheBySlug.delete(key);
   inFlightBySlug.delete(key);
 }
@@ -177,7 +174,7 @@ export async function fetchItemOrderBookBySlug(
   }
 
   const normalizedRank = normalizeRank(options?.rank ?? null);
-  const key = orderBookCacheKey(normalizedSlug, normalizedRank);
+  const key = rendererOrderBookCacheKey(normalizedSlug, normalizedRank);
 
   const cached = cacheBySlug.get(key);
   if (cached && isFresh(cached)) {

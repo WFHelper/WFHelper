@@ -16,14 +16,11 @@
     computeGroupDucatonator,
     computeGroupDucatEv,
     configureRelicRuntimeCacheFingerprint,
+    createRelicWarmupController,
     RELIC_TIER_ORDER,
-    cancelWarmup,
     evHasFreshNoData,
     getCachedEv,
     parseOwnedRelics,
-    warmupRelicCardPrices,
-    warmupRewardDucats,
-    warmupRelicEvs,
     relicGroupMatchesSearch,
   } from "../lib/relic.js";
   import { invoke, send } from "../lib/ipc.js";
@@ -125,23 +122,9 @@
     activeRelic.set(group);
   }
 
-  const EV_WARMUP_UI_DEBOUNCE_MS = 800;
-  const CARD_WARMUP_UI_DEBOUNCE_MS = 450;
-  const EV_WARMUP_START_DELAY_MS = 2000;
-  const PRICE_UPDATE_EV_REFRESH_DEBOUNCE_MS = 400;
-  const WARMUP_COALESCE_MS = 150;
-  const RELIC_CARD_VISIBLE_WARMUP_LIMIT = 120;
-
   let loading = false;
   let error = "";
-  let groups: RelicGroup[] = [];
-  let warmupCoalesceTimer: ReturnType<typeof setTimeout> | null = null;
-  let evWarmupStartTimer: ReturnType<typeof setTimeout> | null = null;
-  let evUiDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  let cardUiDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  let ducatUiDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  let priceUpdateEvRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-  let relicViewMounted = true;
+  let groups: RelicGroup[];
   let ownedModeSelectedQualityByGroup: Record<string, RelicQuality> = {};
   let ownedRewardInternalNames: Record<string, true> = {};
   let ownedRewardNames: Record<string, true> = {};
@@ -149,32 +132,11 @@
   let rewardIconBySlug: Record<string, string> = {};
   let rewardIconByName: Record<string, string> = {};
 
-  const onEvBatchDone = () => {
-    if (evUiDebounceTimer) clearTimeout(evUiDebounceTimer);
-    evUiDebounceTimer = setTimeout(
-      () => relicEvRevision.update((value) => value + 1),
-      EV_WARMUP_UI_DEBOUNCE_MS,
-    );
-  };
-
-  const onCardBatchDone = () => {
-    if (cardUiDebounceTimer) clearTimeout(cardUiDebounceTimer);
-    cardUiDebounceTimer = setTimeout(
-      () => relicEvRevision.update((value) => value + 1),
-      CARD_WARMUP_UI_DEBOUNCE_MS,
-    );
-  };
-
-  const onDucatBatchDone = () => {
-    if (ducatUiDebounceTimer) clearTimeout(ducatUiDebounceTimer);
-    ducatUiDebounceTimer = setTimeout(
-      () => relicEvRevision.update((value) => value + 1),
-      CARD_WARMUP_UI_DEBOUNCE_MS,
-    );
-  };
+  const warmupController = createRelicWarmupController(() => {
+    relicEvRevision.update((value) => value + 1);
+  });
 
   onMount(async () => {
-    relicViewMounted = true;
     if (!$relicDb) {
       loading = true;
       try {
@@ -192,20 +154,13 @@
     }
 
     if ($relicDb) {
-      scheduleWarmup();
+      warmupController.scheduleWarmup();
     }
   });
 
   // Stop this view's background warmups after navigation.
   onDestroy(() => {
-    relicViewMounted = false;
-    cancelWarmup();
-    if (warmupCoalesceTimer) clearTimeout(warmupCoalesceTimer);
-    if (evWarmupStartTimer) clearTimeout(evWarmupStartTimer);
-    if (evUiDebounceTimer) clearTimeout(evUiDebounceTimer);
-    if (cardUiDebounceTimer) clearTimeout(cardUiDebounceTimer);
-    if (ducatUiDebounceTimer) clearTimeout(ducatUiDebounceTimer);
-    if (priceUpdateEvRefreshTimer) clearTimeout(priceUpdateEvRefreshTimer);
+    warmupController.destroy();
   });
 
   // Keep owned relic counts in sync regardless of whether relic DB was loaded
@@ -220,113 +175,6 @@
 
   $: if (!$inventoryData) {
     relicOwnedCounts.set({});
-  }
-
-  // Re-run warmup for the currently selected squad/quality. Debounced so that
-  // simultaneous squad+quality store updates collapse into one startWarmup call.
-  $: if ($relicViewState.squadSize || $relicViewState.qualityMode) {
-    if ($relicDb) scheduleWarmup();
-  }
-
-  // When any background or modal fetch writes fresh prices into cache,
-  // rebuild EV snapshots from the updated reward prices.
-  $: if ($priceCacheRevision && $relicDb) {
-    scheduleEvRefreshFromPriceUpdate();
-  }
-
-  function isOwnedRelicGroup(groupKey: string): boolean {
-    const owned = $relicOwnedCounts[groupKey];
-    return Boolean(owned && Object.values(owned).some((count) => count > 0));
-  }
-
-  function splitWarmupGroups(allGroups: RelicGroup[]): {
-    ownedGroups: RelicGroup[];
-    unownedGroups: RelicGroup[];
-  } {
-    const ownedGroups: RelicGroup[] = [];
-    const unownedGroups: RelicGroup[] = [];
-
-    for (const group of allGroups) {
-      if (isOwnedRelicGroup(group.key)) {
-        ownedGroups.push(group);
-      } else {
-        unownedGroups.push(group);
-      }
-    }
-
-    return { ownedGroups, unownedGroups };
-  }
-
-  function buildCardWarmupPriority(
-    allGroups: RelicGroup[],
-    ownedGroups: RelicGroup[],
-  ): RelicGroup[] {
-    if (ownedGroups.length > 0) {
-      return ownedGroups;
-    }
-
-    const visible = groups.slice(0, RELIC_CARD_VISIBLE_WARMUP_LIMIT);
-    if (visible.length > 0) {
-      return visible;
-    }
-
-    return allGroups.slice(0, RELIC_CARD_VISIBLE_WARMUP_LIMIT);
-  }
-
-  function scheduleEvRefreshFromPriceUpdate(): void {
-    if (priceUpdateEvRefreshTimer) return;
-
-    priceUpdateEvRefreshTimer = setTimeout(() => {
-      priceUpdateEvRefreshTimer = null;
-      if (!$relicDb || !groups.length) return;
-      void warmupRelicEvs(groups, onEvBatchDone);
-    }, PRICE_UPDATE_EV_REFRESH_DEBOUNCE_MS);
-  }
-
-  /**
-   * Debounced entry point for startWarmup(). Multiple reactive triggers
-   * (onMount, squad-size change, quality-mode change) can fire in the same
-   * tick; this coalesces them into a single warmup run so card/ducat warmups
-   * don't double-enqueue.
-   */
-  function scheduleWarmup(): void {
-    if (warmupCoalesceTimer) clearTimeout(warmupCoalesceTimer);
-    warmupCoalesceTimer = setTimeout(() => {
-      warmupCoalesceTimer = null;
-      if (!relicViewMounted) return;
-      startWarmup();
-    }, WARMUP_COALESCE_MS);
-  }
-
-  function startWarmup(): void {
-    const allGroups = Object.values($relicDb?.groups || {});
-    if (!allGroups.length) return;
-
-    const { ownedGroups, unownedGroups } = splitWarmupGroups(allGroups);
-    const cardPriorityGroups = buildCardWarmupPriority(allGroups, ownedGroups);
-
-    // Card-price warmup is intentionally constrained to owned/visible relics.
-    // The relic endpoint returns many 404s for untradable relics; EV warmup still
-    // covers full value computation via reward prices in the background.
-      void warmupRelicCardPrices(cardPriorityGroups, onCardBatchDone);
-
-      const ducatPriorityGroups = [...ownedGroups, ...unownedGroups];
-      void warmupRewardDucats(
-        ducatPriorityGroups,
-        onDucatBatchDone,
-        ownedGroups.length > 0 ? "high" : "low",
-      );
-
-    if (evWarmupStartTimer) return;
-
-    evWarmupStartTimer = setTimeout(() => {
-      evWarmupStartTimer = null;
-      void (async () => {
-        await warmupRelicEvs(ownedGroups, onEvBatchDone, "high");
-        await warmupRelicEvs(unownedGroups, onEvBatchDone, "low");
-
-      })();
-    }, EV_WARMUP_START_DELAY_MS);
   }
 
   $: groups = (() => {
@@ -424,6 +272,24 @@
 
     return relicGroups;
   })();
+
+  $: warmupController.updateContext({
+    db: $relicDb,
+    visibleGroups: groups,
+    ownedCounts: $relicOwnedCounts,
+  });
+
+  // Re-run warmup for the currently selected squad/quality. Debounced inside
+  // the controller so simultaneous store updates collapse into one warmup run.
+  $: if ($relicViewState.squadSize || $relicViewState.qualityMode) {
+    if ($relicDb) warmupController.scheduleWarmup();
+  }
+
+  // When any background or modal fetch writes fresh prices into cache,
+  // rebuild EV snapshots from the updated reward prices.
+  $: if ($priceCacheRevision && $relicDb) {
+    warmupController.scheduleEvRefreshFromPriceUpdate();
+  }
 
   $: visibleRelicEntryCount = groups.reduce(
     (sum, group) =>

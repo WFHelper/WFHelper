@@ -4,7 +4,7 @@ import { itemDb, componentOwnership } from "../stores/data.js";
 import { relicOwnedCounts } from "../stores/relics.js";
 import { fetchPriceBySlug } from "../lib/wfm/wfmPrice.js";
 import { fetchWfmItemMetaBySlug } from "../lib/wfm/wfmItemMeta.js";
-import { buildItemNameIndex, resolveRewardComponent } from "../lib/componentResolution.js";
+import { buildItemNameIndex, resolveComponentByName } from "../lib/componentResolution.js";
 import WikiButton from "../components/WikiButton.svelte";
 import ComponentPanel from "../components/ComponentPanel.svelte";
 import DetailModalBase from "./DetailModalBase.svelte";
@@ -157,7 +157,7 @@ import DetailModalBase from "./DetailModalBase.svelte";
       return;
     }
 
-    const resolved = resolveRewardComponent(reward.name, itemNameIndex, $itemDb, $componentOwnership);
+    const resolved = resolveComponentByName(reward.name, $itemDb, $componentOwnership, itemNameIndex);
     if (!resolved) return;
 
     selectedReward = reward;

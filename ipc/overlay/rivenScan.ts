@@ -10,27 +10,21 @@
  * whatever card is visible at that moment, and edge detection narrows to the text area.
  */
 
+import type { NativeImage } from "electron";
+
 import { withScope } from "../../services/logger";
 import { captureScreenFast } from "../../services/rewardScannerCapture";
-import {
-  cropRect,
-  cropRectContent,
-  detectGameContentRect,
-} from "../../services/rewardScannerImage";
-import {
-  rivenOcrOnnxAvailable,
-  recognizeStatArea,
-  hasLowConfidenceLine,
-  LOW_CONFIDENCE_THRESHOLD,
-} from "../../services/rivenOcrOnnx";
-import type { RivenOcrResult } from "../../services/rivenOcrOnnx";
+import { cropRect } from "../../services/rewardScannerImage";
 import { sleep } from "../../services/rewardScannerUtils";
 import {
   abortRivenScanWaits,
   computeRivenFrameHash,
+  RIVEN_SCAN_CROPS,
   resetRivenScanWaits,
+  type RivenScanCropRect,
   waitForRivenUiReady,
 } from "./rivenScanImage";
+import { recognizeRivenCardStats } from "./rivenScanOcr";
 import {
   extractSignAndValue,
   parseRivenStats,
@@ -44,29 +38,8 @@ export { parseRivenStats };
 export type { RivenStat } from "./rivenScanText";
 
 const log = withScope("rivenScan");
-import type { NativeImage } from "electron";
 
 const MIN_ACCEPTABLE_RIVEN_STATS = 2;
-
-interface RivenScanTiming {
-  captureMs: number;
-  cropRefineMs: number;
-  enhanceMs: number;
-  ocrMs: number;
-  ocrCalls: number;
-  parseMs: number;
-  totalMs: number;
-}
-
-let _lastScanTiming: RivenScanTiming | null = null;
-
-function logScanTiming(label: string, t: RivenScanTiming): void {
-  log.log(
-    `[RivenScan] timing ${label}: capture=${t.captureMs}ms crop=${t.cropRefineMs}ms ` +
-      `enhance=${t.enhanceMs}ms ocr=${t.ocrMs}ms(${t.ocrCalls}calls) ` +
-      `parse=${t.parseMs}ms total=${t.totalMs}ms`,
-  );
-}
 
 // Display ID pinning: set from the initial card scan so all subsequent
 // captures (roll, choice) use the same monitor as the initial capture.
@@ -81,16 +54,8 @@ let _ocrAborted = false;
 // stale results after a new scan has already started.
 let _scanGeneration = 0;
 
-// Initial / choice scan: single centred card covers x 0.22–0.78.
-const SINGLE_CARD_CROP = { x: 0.22, y: 0.43, width: 0.56, height: 0.45 };
-
-// Roll scan: centered crop. At 2750ms after roll confirm the new card may still be
-// centered on screen before the two-panel diorama layout settles. For 1920x1080:
-//   roughHeight = H*0.7 = 756, roughWidth = roughHeight*0.45 = 340
-//   x = W/2 - roughWidth/2 = 790 (41.1%), topCut = 0.38*roughHeight = 287
-//   y = H/2 - roughHeight/2 + topCut = 449 (41.6%), h = roughHeight - topCut = 469
-// As fractions: { x: 0.411, y: 0.416, width: 0.177, height: 0.434 }
-const ROLL_CARD_CROP = { x: 0.411, y: 0.416, width: 0.177, height: 0.434 };
+const SINGLE_CARD_CROP = RIVEN_SCAN_CROPS.singleCard;
+const ROLL_CARD_CROP = RIVEN_SCAN_CROPS.rollCard;
 
 // GDI timeout hint for captures that MUST return a fresh frame (roll scans,
 // choice re-scans). GDI BitBlt always returns the current framebuffer, so this
@@ -107,6 +72,10 @@ interface InitialScanResult {
   rawText: string;
   titleText: string;
   footerText: string;
+}
+
+function isRivenScanStale(generation: number): boolean {
+  return _ocrAborted || _scanGeneration !== generation;
 }
 
 async function retrySparseRivenScan<T>(
@@ -130,181 +99,18 @@ async function retrySparseRivenScan<T>(
   return null;
 }
 
-const RIVEN_CARD_CROP_TUNING = {
-  cardAspectRatio: 287 / 433,
-  maxAspectOverflow: 1.1,
-  statTop: 0.34,
-  statBottom: 0.84,
-  statLeft: 0.08,
-  statRight: 0.92,
-  minCropWidth: 30,
-  minCropHeight: 30,
-} as const;
-
-function cropRivenStatArea(roughCrop: NativeImage): NativeImage {
-  const { width: w, height: h } = roughCrop.getSize();
-  if (w < 50 || h < 50) return roughCrop;
-
-  // The card crop starts as a wide single-card region. Center-trim to the known
-  // in-game riven card aspect, then crop the stat text band by fixed ratios.
-  const expectedW = Math.floor(h * RIVEN_CARD_CROP_TUNING.cardAspectRatio);
-  let trimmed = roughCrop;
-  let tw = w;
-  const th = h;
-  if (w > expectedW * RIVEN_CARD_CROP_TUNING.maxAspectOverflow) {
-    const excess = w - expectedW;
-    const x1 = Math.floor(excess / 2);
-    tw = expectedW;
-    trimmed = roughCrop.crop({ x: x1, y: 0, width: expectedW, height: h });
-  }
-
-  const sy0 = Math.floor(th * RIVEN_CARD_CROP_TUNING.statTop);
-  const sy1 = Math.floor(th * RIVEN_CARD_CROP_TUNING.statBottom);
-  const sx0 = Math.floor(tw * RIVEN_CARD_CROP_TUNING.statLeft);
-  const sx1 = Math.floor(tw * RIVEN_CARD_CROP_TUNING.statRight);
-  const cropW = sx1 - sx0;
-  const cropH = sy1 - sy0;
-
-  if (cropW < RIVEN_CARD_CROP_TUNING.minCropWidth || cropH < RIVEN_CARD_CROP_TUNING.minCropHeight)
-    return roughCrop;
-
-  return trimmed.crop({ x: sx0, y: sy0, width: cropW, height: cropH });
-}
-
-async function ocrCropMultiStrategy(
+async function scanRivenStatsFromImage(
   image: NativeImage,
-  rect: { x: number; y: number; width: number; height: number },
+  rect: RivenScanCropRect,
   label = "",
-  _expectedWeaponName = "",
-  _statsOnly = false,
-  _isMultipanel = false,
+  captureMs = 0,
 ): Promise<{ text: string; titleText: string; footerText: string; stats: RivenStat[] }> {
-  const myGeneration = _scanGeneration; // snapshot; stale if a new scan started
-  const totalStart = Date.now();
-
-  const cropStart = Date.now();
-  const roughCrop = cropRectContent(image, rect, detectGameContentRect(image));
-  const cropRefineMs = Date.now() - cropStart;
-
-  // YOLO stat-line detector + PaddleOCR CH v3 recognition pipeline.
-  // No VGB preprocessing needed — YOLO detects lines directly from raw image.
-  if (rivenOcrOnnxAvailable()) {
-    /** Retry up to 2× on low-confidence scans — riven card animation may still be settling. */
-    const MAX_RETRIES = 2;
-    /** Short delay between retries to let the on-screen card fully render. */
-    const RETRY_DELAY_MS = 300;
-
-    const sharp = require("sharp") as typeof import("sharp");
-
-    let bestResult: RivenOcrResult | null = null;
-    let bestStats: RivenStat[] = [];
-    let bestText = "";
-
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      if (_ocrAborted || _scanGeneration !== myGeneration) {
-        return { text: "", titleText: "", footerText: "", stats: [] };
-      }
-
-      try {
-        const statAreaCrop = cropRivenStatArea(roughCrop);
-        const statAreaSize = statAreaCrop.getSize();
-
-        // Convert NativeImage to raw RGBA buffer for the ONNX pipeline
-        const statAreaPng = statAreaCrop.toPNG();
-        const { data: rgbaBuf, info: rgbaInfo } = await sharp(statAreaPng)
-          .ensureAlpha()
-          .raw()
-          .toBuffer({ resolveWithObject: true });
-
-        const ocrResult = await recognizeStatArea(
-          rgbaBuf as Buffer,
-          rgbaInfo.width as number,
-          rgbaInfo.height as number,
-        );
-
-        const stats = parseRivenStats(ocrResult.text);
-
-        if (label) {
-          log.log(
-            `[RivenScan] YOLO+PaddleOCR ${label} attempt=${attempt}: ${stats.length} stats, ` +
-              `${ocrResult.yoloBoxCount} YOLO boxes, minConf=${ocrResult.minConfidence.toFixed(3)} ` +
-              `(source ${statAreaSize.width}×${statAreaSize.height}) — ` +
-              stats
-                .map(
-                  (s) =>
-                    `${s.positive ? "+" : "-"}${s.value ?? "?"}${s.multiplier ? "x" : "%"} ${s.name}`,
-                )
-                .join(", "),
-          );
-          for (const line of ocrResult.lines) {
-            log.log(`  [OCR] "${line.text}" conf=${line.confidence.toFixed(3)}`);
-          }
-        }
-
-        // Keep the best result across retries (most stats wins)
-        if (stats.length > bestStats.length) {
-          bestResult = ocrResult;
-          bestStats = stats;
-          bestText = ocrResult.text;
-        }
-
-        // Good enough: ≥2 stats and all lines have sufficient confidence
-        if (stats.length >= MIN_ACCEPTABLE_RIVEN_STATS) {
-          const lowConf = hasLowConfidenceLine(ocrResult);
-          const hasNullValues = stats.some((s) => s.value === null);
-          if (!lowConf && !hasNullValues) break;
-          if (label) {
-            log.log(
-              `[RivenScan] YOLO+PaddleOCR ${label}: ` +
-                (lowConf
-                  ? `low confidence (min=${ocrResult.minConfidence.toFixed(3)} < ${LOW_CONFIDENCE_THRESHOLD}), `
-                  : "") +
-                (hasNullValues ? "null values, " : "") +
-                "retrying...",
-            );
-          }
-        }
-      } catch (err) {
-        log.warn(`[RivenScan] YOLO+PaddleOCR attempt=${attempt} failed:`, String(err));
-      }
-
-      if (attempt < MAX_RETRIES) {
-        await sleep(RETRY_DELAY_MS);
-      }
-    }
-
-    // If best result has low confidence on any stat, return empty (show error, not wrong stats)
-    if (
-      bestResult &&
-      bestStats.length >= MIN_ACCEPTABLE_RIVEN_STATS &&
-      hasLowConfidenceLine(bestResult)
-    ) {
-      if (label) {
-        log.warn(
-          `[RivenScan] YOLO+PaddleOCR ${label}: low confidence after all retries ` +
-            `(min=${bestResult.minConfidence.toFixed(3)}), returning error instead of wrong stats`,
-        );
-      }
-      return { text: "", titleText: "", footerText: "", stats: [] };
-    }
-
-    _lastScanTiming = {
-      captureMs: 0,
-      cropRefineMs,
-      enhanceMs: 0,
-      ocrMs: 0,
-      ocrCalls: 0,
-      parseMs: 0,
-      totalMs: Date.now() - totalStart,
-    };
-    logScanTiming(label || "yolo-paddle", _lastScanTiming);
-
-    return { text: bestText, titleText: "", footerText: "", stats: bestStats };
-  }
-
-  // YOLO + PaddleOCR pipeline is the only supported riven OCR path.
-  log.warn("[RivenScan] ONNX models not found — riven OCR unavailable.");
-  return { text: "", titleText: "", footerText: "", stats: [] };
+  return recognizeRivenCardStats(image, rect, {
+    label,
+    captureMs,
+    generation: _scanGeneration,
+    isStale: isRivenScanStale,
+  });
 }
 
 export function abortRivenScans(): void {
@@ -318,7 +124,7 @@ export function resetRivenScanAbort(): void {
   // OCR runner warms up on first call; no explicit warmup needed.
 }
 
-export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialScanResult> {
+export async function scanInitialCard(_expectedWeaponName = ""): Promise<InitialScanResult> {
   ++_scanGeneration;
   const entryStart = Date.now();
   const ready = await waitForRivenUiReady(SINGLE_CARD_CROP, "initial");
@@ -354,11 +160,11 @@ export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialS
   );
 
   try {
-    let result = await ocrCropMultiStrategy(
+    let result = await scanRivenStatsFromImage(
       capture.image,
       SINGLE_CARD_CROP,
       "initial-card",
-      expectedWeaponName,
+      captureMs,
     );
     const retry = await retrySparseRivenScan(
       "initial-card",
@@ -376,19 +182,13 @@ export async function scanInitialCard(expectedWeaponName = ""): Promise<InitialS
         } catch {
           // Ignore hash errors.
         }
-        return ocrCropMultiStrategy(
-          retryCapture.image,
-          SINGLE_CARD_CROP,
-          "initial-card-retry",
-          expectedWeaponName,
-        );
+        return scanRivenStatsFromImage(retryCapture.image, SINGLE_CARD_CROP, "initial-card-retry");
       },
       (value) => value.stats,
     );
     if (retry) result = retry;
 
     const { stats, text, titleText, footerText } = result;
-    if (_lastScanTiming) _lastScanTiming.captureMs = captureMs;
     log.log(
       `[RivenScan] initial card scan: ${stats.length} stats found`,
       stats
@@ -430,19 +230,15 @@ export async function scanNewRoll(
   );
 
   try {
-    let rightResult = await ocrCropMultiStrategy(
+    let rightResult = await scanRivenStatsFromImage(
       capture.image,
       ROLL_CARD_CROP,
       "roll-right",
-      expectedWeaponName,
-      true, // statsOnly
-      true, // isMultipanel
+      rollCaptureMs,
     );
     log.log(
       `[RivenScan] roll scan: right=${rightResult.stats.length} stats, elapsed=${Date.now() - startAt}ms`,
     );
-    if (_lastScanTiming) _lastScanTiming.captureMs = rollCaptureMs;
-
     if (rightResult.stats.length < MIN_ACCEPTABLE_RIVEN_STATS) {
       await sleep(800);
       const retryCapture = await captureScreenFast(_rivenDisplayId, DXGI_FRESH_TIMEOUT_MS);
@@ -457,13 +253,10 @@ export async function scanNewRoll(
           // Ignore hash errors.
         }
 
-        const retryResult = await ocrCropMultiStrategy(
+        const retryResult = await scanRivenStatsFromImage(
           retryCapture.image,
           ROLL_CARD_CROP,
           "roll-right-retry",
-          expectedWeaponName,
-          true, // statsOnly
-          true, // isMultipanel
         );
         log.log(
           `[RivenScan] roll-retry: right=${retryResult.stats.length} stats, elapsed=${Date.now() - startAt}ms`,
@@ -481,7 +274,7 @@ export async function scanNewRoll(
   }
 }
 
-export async function scanChoiceRescan(expectedWeaponName = ""): Promise<RivenStat[]> {
+export async function scanChoiceRescan(_expectedWeaponName = ""): Promise<RivenStat[]> {
   // CHOICE_RESCAN_DELAY_MS has already elapsed, so capture immediately without
   // readiness polling. Use a non-zero DXGI timeout to force a fresh frame.
   const capture = await captureScreenFast(_rivenDisplayId, DXGI_FRESH_TIMEOUT_MS);
@@ -498,13 +291,7 @@ export async function scanChoiceRescan(expectedWeaponName = ""): Promise<RivenSt
   }
 
   try {
-    let result = await ocrCropMultiStrategy(
-      capture.image,
-      SINGLE_CARD_CROP,
-      "choice-rescan",
-      expectedWeaponName,
-      true,
-    );
+    let result = await scanRivenStatsFromImage(capture.image, SINGLE_CARD_CROP, "choice-rescan");
     const retry = await retrySparseRivenScan(
       "choice-rescan",
       result.stats,
@@ -521,13 +308,7 @@ export async function scanChoiceRescan(expectedWeaponName = ""): Promise<RivenSt
         } catch {
           // Ignore hash errors.
         }
-        return ocrCropMultiStrategy(
-          retryCapture.image,
-          SINGLE_CARD_CROP,
-          "choice-rescan-retry",
-          expectedWeaponName,
-          true,
-        );
+        return scanRivenStatsFromImage(retryCapture.image, SINGLE_CARD_CROP, "choice-rescan-retry");
       },
       (value) => value.stats,
     );

@@ -6,6 +6,14 @@ export function rendererOrderSummaryCacheKey(slug: string, rank: number | null):
   return rank == null ? null : `${slug}:r${rank}`;
 }
 
+export function rendererOrderBookCacheKey(slug: string, rank: number | null): string {
+  return rank == null ? slug : `${slug}:r${rank}`;
+}
+
+export function rendererRankedRequestKey(slug: string, rank: number | null): string {
+  return rank == null ? slug : `${slug}:r${rank}`;
+}
+
 export function workerPriceCacheKey(slug: string, rank: number | null): string {
   return rank == null ? `price:${slug}` : `price:${slug}:r${rank}`;
 }

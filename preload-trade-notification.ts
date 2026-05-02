@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { TradeNotificationShowPayload } from "./ipc/tradeNotificationIpc";
-import { onIpc } from "./ipc/preloadListeners";
+import { onIpcData } from "./ipc/preloadListeners";
 import {
   TRADE_NOTIFICATION_SHOW,
   TRADE_NOTIFICATION_DISMISS,
@@ -11,9 +11,7 @@ export type { TradeNotificationShowPayload };
 
 contextBridge.exposeInMainWorld("tradeNotificationApi", {
   onShow: (callback: (payload: TradeNotificationShowPayload) => void) => {
-    return onIpc(ipcRenderer, TRADE_NOTIFICATION_SHOW, (_event, payload) =>
-      callback(payload as TradeNotificationShowPayload),
-    );
+    return onIpcData(ipcRenderer, TRADE_NOTIFICATION_SHOW, callback);
   },
 
   dismiss: () => {
@@ -21,8 +19,6 @@ contextBridge.exposeInMainWorld("tradeNotificationApi", {
   },
 
   onThemeVars: (callback: (vars: Record<string, string>) => void) => {
-    return onIpc(ipcRenderer, OVERLAY_THEME_VARS, (_event, vars) =>
-      callback(vars as Record<string, string>),
-    );
+    return onIpcData(ipcRenderer, OVERLAY_THEME_VARS, callback);
   },
 });

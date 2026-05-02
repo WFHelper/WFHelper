@@ -14,7 +14,7 @@ import { WFM_BACKEND_ERROR_COOLDOWN_MS } from "../../../config/runtime/cacheConf
 import { log } from "../log.js";
 import { WFM_HEADERS } from "../../../config/shared/wfm.js";
 import { rendererPriceCacheKey } from "../../../config/shared/wfmCacheKeys.js";
-import { createPriorityRequestQueue } from "./requestPolicy.js";
+import { createAdaptiveDelayController, createPriorityRequestQueue } from "./requestPolicy.js";
 
 const BASE_DELAY_MS = 350;
 const MAX_DYNAMIC_DELAY_MS = 1200;
@@ -27,8 +27,13 @@ const PRICE_QUEUE_FULL_ERROR = "WFM_PRICE_QUEUE_FULL";
 // When the backend returns an error and direct fallback is not allowed, suppress
 // retries for this duration so a cold/erroring worker doesn't get hammered.
 
-let _lastRequestAt = 0;
-let _dynamicDelayMs = BASE_DELAY_MS;
+const priceDelay = createAdaptiveDelayController({
+  baseDelayMs: BASE_DELAY_MS,
+  maxDelayMs: MAX_DYNAMIC_DELAY_MS,
+  decayStepMs: DELAY_DECAY_STEP_MS,
+  backoffStepMs: DELAY_BACKOFF_STEP_MS,
+  minRateLimitCooldownMs: MIN_429_COOLDOWN_MS,
+});
 
 type PriceStatus = "ok" | "no_data" | "no_slug" | "transient";
 type PriceCacheUpdateStatus = "ok" | "no_data";
@@ -108,19 +113,10 @@ function bumpCounter(counter: keyof PriceDebugCounters): void {
   priceDebugCounters[counter] += 1;
 }
 
-async function waitForPriceQueueTurn(): Promise<void> {
-  const now = Date.now();
-  const elapsed = now - _lastRequestAt;
-  if (elapsed < _dynamicDelayMs) {
-    await new Promise((resolve) => setTimeout(resolve, _dynamicDelayMs - elapsed));
-  }
-  _lastRequestAt = Date.now();
-}
-
 const priceQueue = createPriorityRequestQueue<RequestPriority>({
   priorities: ["high", "normal", "low"],
   maxDepth: MAX_PRICE_QUEUE_DEPTH,
-  beforeTask: waitForPriceQueueTurn,
+  beforeTask: priceDelay.waitForTurn,
   onDrop: () => bumpCounter("queueDropped"),
   dropError: () => new Error(PRICE_QUEUE_FULL_ERROR),
 });
@@ -170,7 +166,7 @@ export function getPriceQueueStats(): PriceQueueStats {
     normal: lengths.normal,
     low: lengths.low,
     running: priceQueue.isRunning(),
-    delayMs: _dynamicDelayMs,
+    delayMs: priceDelay.getDelayMs(),
   };
 }
 
@@ -206,20 +202,16 @@ async function fetchStatsJson(slug: string, priority: RequestPriority): Promise<
 
     if (resp.status === 429) {
       bumpCounter("rateLimited");
-      _dynamicDelayMs = Math.min(MAX_DYNAMIC_DELAY_MS, _dynamicDelayMs + DELAY_BACKOFF_STEP_MS);
       const retryAfter = parseInt(
         resp.headers.get("retry-after") || `${DEFAULT_RETRY_AFTER_SECONDS}`,
         10,
       );
-      _lastRequestAt =
-        Date.now() + Math.max(retryAfter * 1000, MIN_429_COOLDOWN_MS) - _dynamicDelayMs;
+      priceDelay.noteRateLimited(retryAfter);
       log.warn(`[WFM] Rate limited (429). Cooling down for ${retryAfter}s.`);
       return { ok: false, transient: true };
     }
 
-    if (_dynamicDelayMs > BASE_DELAY_MS) {
-      _dynamicDelayMs = Math.max(BASE_DELAY_MS, _dynamicDelayMs - DELAY_DECAY_STEP_MS);
-    }
+    priceDelay.noteSuccess();
 
     if (!resp.ok) {
       return {

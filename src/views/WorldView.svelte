@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { worldData, worldLoading, worldLastFetch, worldFissureMode } from "../stores/world.js";
+  import { worldData, worldLoading, worldFissureMode } from "../stores/world.js";
   import { inventoryData, itemDb, componentOwnership, wfmItems } from "../stores/data.js";
   import {
     activeWindow,
@@ -13,15 +13,14 @@
     COARSE_CLOCK_MS,
     FISSURE_MODE_OPTIONS,
     loadCollapsedSections,
+    mountWorldView,
+    setCycleAlertMinutes,
     toggleCollapsedSection,
-    WORLD_POLL_MS,
-    WORLD_REFRESH_MS,
+    toggleCycleAlert,
   } from "../lib/world/useWorldView.js";
   import { parseIsoDate } from "../lib/format.js";
   import { RELIC_ICON_PATHS, buildFeaturedPrimes, buildBaroOwnedSet, resolveCircuitChoices } from "../lib/world.js";
-  import { invoke, on } from "../lib/ipc.js";
-  import { addToast } from "../stores/toasts.js";
-  import { overlaySettings, overlaySettingsLoaded, applyOverlaySettingsResponse } from "../stores/overlaySettings.js";
+  import { overlaySettings } from "../stores/overlaySettings.js";
   import { activeItem } from "../stores/modals.js";
   import type { Invasion, SteelPathHonors } from "../types/world.js";
   import FissureAlerts from "../components/settings/FissureAlerts.svelte";
@@ -34,7 +33,7 @@
   import SegmentedControl from "../components/SegmentedControl.svelte";
   import { getBountyRewards, resolveRewardIcon, resolveRewardUniqueName } from "../lib/bountyRewards.js";
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
-  import { clockStore, useInterval } from "../lib/timers.js";
+  import { clockStore } from "../lib/timers.js";
 
   // Collapse state per section — persisted to localStorage
   let collapsed: Record<string, boolean> = loadCollapsedSections();
@@ -47,71 +46,7 @@
   $: nowMs = $nowClock;
   $: nowCoarseMs = $coarseClock;
 
-  onMount(() => {
-    void fetchWorldData(true);
-
-    const unsubFetchError = on("world-state-fetch-error", (message) => {
-      addToast({
-        level: "warning",
-        title: "World State",
-        message: `Failed to fetch world state: ${message}`,
-        durationMs: 8000,
-      });
-    });
-
-    // Ensure overlay settings are loaded so cycle-alert toggles reflect persisted state
-    if (!$overlaySettingsLoaded) {
-      void invoke("getOverlaySettings").then((loaded) => {
-        if (loaded) applyOverlaySettingsResponse(loaded);
-      }).catch((e: unknown) => console.error("[World] getOverlaySettings failed:", e));
-    }
-
-    const stopPolling = useInterval(() => void fetchWorldData(), WORLD_POLL_MS);
-    return () => {
-      stopPolling();
-      unsubFetchError();
-    };
-  });
-
-  async function toggleCycleAlert(key: "earth" | "cetus" | "vallis" | "cambion" | "duviri") {
-    const current = $overlaySettings.cycleAlerts?.[key] ?? false;
-    const newAlerts = { ...$overlaySettings.cycleAlerts, [key]: !current };
-    try {
-      const saved = await invoke("setOverlaySettings", { cycleAlerts: newAlerts });
-      if (saved) applyOverlaySettingsResponse(saved);
-    } catch (e: unknown) {
-      console.error("[World] toggleCycleAlert failed:", e);
-    }
-  }
-
-  async function setCycleAlertMinutes(minutes: number) {
-    const clamped = Math.max(0, Math.min(120, Math.round(minutes)));
-    try {
-      const saved = await invoke("setOverlaySettings", { cycleAlertMinutesBefore: clamped });
-      if (saved) applyOverlaySettingsResponse(saved);
-    } catch (e: unknown) {
-      console.error("[World] setCycleAlertMinutes failed:", e);
-    }
-  }
-
-  async function fetchWorldData(force: boolean = false) {
-    if ($worldLoading) return;
-    const now = Date.now();
-    if (!force && $worldData && (now - $worldLastFetch) < WORLD_REFRESH_MS) return;
-
-    worldLoading.set(true);
-    try {
-      const data = await invoke("getWorldState");
-      if (data) {
-        worldData.set(data);
-        worldLastFetch.set(Date.now());
-      }
-    } catch (e) {
-      console.error('[World] getWorldState failed:', e);
-    } finally {
-      worldLoading.set(false);
-    }
-  }
+  onMount(mountWorldView);
 
   function openItemDetail(uniqueName: string, extraDrops?: import("../types/inventory.js").DropInfo[]) {
     if (!uniqueName) return;

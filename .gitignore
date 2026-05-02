@@ -36,7 +36,11 @@ temp_*.png
 # PaddleOCR / YOLO training artifacts (generated, reproducible)
 scripts/train-paddleocr/train_data/
 scripts/train-paddleocr/checkpoint/
-scripts/train-paddleocr/output/
+scripts/train-paddleocr/output/**
+!scripts/train-paddleocr/output/yolo_detector/
+!scripts/train-paddleocr/output/yolo_detector/stat_line_detector.onnx
+!scripts/train-paddleocr/output/paddle_ocr/
+!scripts/train-paddleocr/output/paddle_ocr/ch_PP-OCRv3_rec_infer.onnx
 scripts/train-paddleocr/models/tmp_wheels/
 scripts/train-paddleocr/models/*/
 scripts/train-paddleocr/_*
@@ -57,6 +61,8 @@ scripts/train-paddleocr/diag_output/
 *.pt
 *.pth
 *.onnx
+!scripts/train-paddleocr/output/yolo_detector/stat_line_detector.onnx
+!scripts/train-paddleocr/output/paddle_ocr/ch_PP-OCRv3_rec_infer.onnx
 *.tar
 
 # Python bytecode

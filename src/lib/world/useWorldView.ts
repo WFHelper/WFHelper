@@ -1,3 +1,5 @@
+import { get } from "svelte/store";
+
 import {
   cycleTimeDisplay,
   nextDailyResetUtc,
@@ -6,7 +8,16 @@ import {
   timeTo,
   timeToStrict,
 } from "../format.js";
+import { invoke, on } from "../ipc.js";
+import { useInterval } from "../timers.js";
 import { PLANET_ICON_PATHS, fissureTierClass } from "../world.js";
+import {
+  applyOverlaySettingsResponse,
+  overlaySettings,
+  overlaySettingsLoaded,
+} from "../../stores/overlaySettings.js";
+import { addToast } from "../../stores/toasts.js";
+import { worldData, worldLastFetch, worldLoading } from "../../stores/world.js";
 import type { CycleData, Fissure, SyndicateBounty, WorldState } from "../../types/world.js";
 import { readStorage, writeStorage } from "../persistence.js";
 
@@ -43,11 +54,81 @@ const BOUNTY_ORDER: Record<string, number> = {
 };
 
 type FissureMode = "normal" | "steel";
+export type CycleAlertKey = "earth" | "cetus" | "vallis" | "cambion" | "duviri";
 
 export const FISSURE_MODE_OPTIONS: Array<{ value: FissureMode; label: string }> = [
   { value: "normal", label: "Normal" },
   { value: "steel", label: "Steel Path" },
 ];
+
+export async function fetchWorldData(force: boolean = false): Promise<void> {
+  if (get(worldLoading)) return;
+
+  const now = Date.now();
+  if (!force && get(worldData) && now - get(worldLastFetch) < WORLD_REFRESH_MS) return;
+
+  worldLoading.set(true);
+  try {
+    const data = await invoke("getWorldState");
+    if (data) {
+      worldData.set(data);
+      worldLastFetch.set(Date.now());
+    }
+  } catch (error) {
+    console.error("[World] getWorldState failed:", error);
+  } finally {
+    worldLoading.set(false);
+  }
+}
+
+export function mountWorldView(): () => void {
+  void fetchWorldData(true);
+
+  const stopFetchErrorListener = on("world-state-fetch-error", (message) => {
+    addToast({
+      level: "warning",
+      title: "World State",
+      message: `Failed to fetch world state: ${message}`,
+      durationMs: 8000,
+    });
+  });
+
+  if (!get(overlaySettingsLoaded)) {
+    void invoke("getOverlaySettings")
+      .then((loaded) => {
+        if (loaded) applyOverlaySettingsResponse(loaded);
+      })
+      .catch((error: unknown) => console.error("[World] getOverlaySettings failed:", error));
+  }
+
+  const stopPolling = useInterval(() => void fetchWorldData(), WORLD_POLL_MS);
+
+  return () => {
+    stopPolling();
+    stopFetchErrorListener();
+  };
+}
+
+export async function toggleCycleAlert(key: CycleAlertKey): Promise<void> {
+  const current = get(overlaySettings).cycleAlerts?.[key] ?? false;
+  const newAlerts = { ...get(overlaySettings).cycleAlerts, [key]: !current };
+  try {
+    const saved = await invoke("setOverlaySettings", { cycleAlerts: newAlerts });
+    if (saved) applyOverlaySettingsResponse(saved);
+  } catch (error: unknown) {
+    console.error("[World] toggleCycleAlert failed:", error);
+  }
+}
+
+export async function setCycleAlertMinutes(minutes: number): Promise<void> {
+  const clamped = Math.max(0, Math.min(120, Math.round(minutes)));
+  try {
+    const saved = await invoke("setOverlaySettings", { cycleAlertMinutesBefore: clamped });
+    if (saved) applyOverlaySettingsResponse(saved);
+  } catch (error: unknown) {
+    console.error("[World] setCycleAlertMinutes failed:", error);
+  }
+}
 
 export function loadCollapsedSections(): Record<string, boolean> {
   const raw = readStorage(COLLAPSE_KEY);
@@ -56,7 +137,9 @@ export function loadCollapsedSections(): Record<string, boolean> {
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
     return Object.fromEntries(
-      Object.entries(parsed).filter((entry): entry is [string, boolean] => typeof entry[1] === "boolean"),
+      Object.entries(parsed).filter(
+        (entry): entry is [string, boolean] => typeof entry[1] === "boolean",
+      ),
     );
   } catch {
     return {};
@@ -200,11 +283,60 @@ export function buildCycleRows({
   const vallisLabel = vallis.isWarm ? "Warm" : "Cold";
   const cambionLabel = (cambion.active || "").toString().toUpperCase() || "Unknown";
   const rows = [
-    { key: "earth" as const, src: PLANET_ICON_PATHS.earth, t: earth, time: times.earth, stateLabel: earthLabel, stateClass: earth.isDay ? "day" : "night", nextLabel: earth.isDay ? "Night" : "Day", urgent: isUrgent(earth.expiry, earth.activation, undefined, nowCoarseMs) },
-    { key: "cetus" as const, src: PLANET_ICON_PATHS.cetus, t: cetus, time: times.cetus, stateLabel: cetusLabel, stateClass: cetus.isDay ? "day" : "night", nextLabel: cetus.isDay ? "Night" : "Day", urgent: isUrgent(cetus.expiry, cetus.activation, undefined, nowCoarseMs) },
-    { key: "vallis" as const, src: PLANET_ICON_PATHS.vallis, t: vallis, time: times.vallis, stateLabel: vallisLabel, stateClass: vallis.isWarm ? "warm" : "cold", nextLabel: vallis.isWarm ? "Cold" : "Warm", urgent: isUrgent(vallis.expiry, vallis.activation, undefined, nowCoarseMs) },
-    { key: "cambion" as const, src: PLANET_ICON_PATHS.cambion, t: cambion, time: times.cambion, stateLabel: cambionLabel, stateClass: (cambion.active || "").toString().toLowerCase() || "fass", nextLabel: (cambion.active || "").toString().toLowerCase() === "fass" ? "VOME" : "FASS", urgent: isUrgent(cambion.expiry, cambion.activation, undefined, nowCoarseMs) },
-    ...(duviri?.expiry ? [{ key: "duviri" as const, src: PLANET_ICON_PATHS.duviri, t: { expiry: duviri.expiry }, time: times.duviri, stateLabel: duviriState, stateClass: duviriState.toLowerCase(), nextLabel: (duviri.nextState || "Unknown").toString(), urgent: isUrgent(duviri.expiry, null, undefined, nowCoarseMs) }] : []),
+    {
+      key: "earth" as const,
+      src: PLANET_ICON_PATHS.earth,
+      t: earth,
+      time: times.earth,
+      stateLabel: earthLabel,
+      stateClass: earth.isDay ? "day" : "night",
+      nextLabel: earth.isDay ? "Night" : "Day",
+      urgent: isUrgent(earth.expiry, earth.activation, undefined, nowCoarseMs),
+    },
+    {
+      key: "cetus" as const,
+      src: PLANET_ICON_PATHS.cetus,
+      t: cetus,
+      time: times.cetus,
+      stateLabel: cetusLabel,
+      stateClass: cetus.isDay ? "day" : "night",
+      nextLabel: cetus.isDay ? "Night" : "Day",
+      urgent: isUrgent(cetus.expiry, cetus.activation, undefined, nowCoarseMs),
+    },
+    {
+      key: "vallis" as const,
+      src: PLANET_ICON_PATHS.vallis,
+      t: vallis,
+      time: times.vallis,
+      stateLabel: vallisLabel,
+      stateClass: vallis.isWarm ? "warm" : "cold",
+      nextLabel: vallis.isWarm ? "Cold" : "Warm",
+      urgent: isUrgent(vallis.expiry, vallis.activation, undefined, nowCoarseMs),
+    },
+    {
+      key: "cambion" as const,
+      src: PLANET_ICON_PATHS.cambion,
+      t: cambion,
+      time: times.cambion,
+      stateLabel: cambionLabel,
+      stateClass: (cambion.active || "").toString().toLowerCase() || "fass",
+      nextLabel: (cambion.active || "").toString().toLowerCase() === "fass" ? "VOME" : "FASS",
+      urgent: isUrgent(cambion.expiry, cambion.activation, undefined, nowCoarseMs),
+    },
+    ...(duviri?.expiry
+      ? [
+          {
+            key: "duviri" as const,
+            src: PLANET_ICON_PATHS.duviri,
+            t: { expiry: duviri.expiry },
+            time: times.duviri,
+            stateLabel: duviriState,
+            stateClass: duviriState.toLowerCase(),
+            nextLabel: (duviri.nextState || "Unknown").toString(),
+            urgent: isUrgent(duviri.expiry, null, undefined, nowCoarseMs),
+          },
+        ]
+      : []),
   ];
   return rows.filter((row) => row.t.expiry);
 }
@@ -214,8 +346,8 @@ export function buildBountyGroups(bounties: SyndicateBounty[] | undefined): Synd
     .filter((b) => b.jobs.length > 0)
     .sort(
       (a, b) =>
-        (BOUNTY_ORDER[a.syndicateKey] ?? (BOUNTY_ORDER[a.syndicate] ?? 99)) -
-        (BOUNTY_ORDER[b.syndicateKey] ?? (BOUNTY_ORDER[b.syndicate] ?? 99)),
+        (BOUNTY_ORDER[a.syndicateKey] ?? BOUNTY_ORDER[a.syndicate] ?? 99) -
+        (BOUNTY_ORDER[b.syndicateKey] ?? BOUNTY_ORDER[b.syndicate] ?? 99),
     );
 }
 

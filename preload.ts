@@ -3,7 +3,7 @@ import type {
   CreateRivenAuctionPayload,
   UpdateRivenAuctionPayload,
 } from "./config/shared/rivenTypes";
-import { onIpc } from "./ipc/preloadListeners";
+import { ipcDataBridge } from "./ipc/preloadListeners";
 import {
   INVENTORY_GET,
   INVENTORY_OPEN_FILE,
@@ -69,12 +69,6 @@ import {
   WORLD_STATE_FETCH_ERROR,
 } from "./config/shared/ipcChannels";
 
-const eventBridge =
-  <T>(channel: string) =>
-  (callback: (data: T) => void): (() => void) => {
-    return onIpc(ipcRenderer, channel, (_event: unknown, data: unknown) => callback(data as T));
-  };
-
 try {
   contextBridge.exposeInMainWorld("api", {
     getInventory: () => ipcRenderer.invoke(INVENTORY_GET),
@@ -102,11 +96,11 @@ try {
     getAppUpdateState: () => ipcRenderer.invoke(APP_UPDATE_STATE),
     installDownloadedUpdate: () => ipcRenderer.invoke(APP_UPDATE_INSTALL),
 
-    onInventoryUpdated: eventBridge<unknown>(INVENTORY_UPDATED),
-    onAppUpdateStatus: eventBridge<unknown>(APP_UPDATE_STATUS),
-    onWfmNotification: eventBridge<unknown>(WFM_NOTIFICATION),
-    onTradeRecorded: eventBridge<unknown>(TRADE_RECORDED),
-    onWorldStateFetchError: eventBridge<unknown>(WORLD_STATE_FETCH_ERROR),
+    onInventoryUpdated: ipcDataBridge<unknown>(ipcRenderer, INVENTORY_UPDATED),
+    onAppUpdateStatus: ipcDataBridge<unknown>(ipcRenderer, APP_UPDATE_STATUS),
+    onWfmNotification: ipcDataBridge<unknown>(ipcRenderer, WFM_NOTIFICATION),
+    onTradeRecorded: ipcDataBridge<unknown>(ipcRenderer, TRADE_RECORDED),
+    onWorldStateFetchError: ipcDataBridge<unknown>(ipcRenderer, WORLD_STATE_FETCH_ERROR),
 
     minimizeWindow: () => ipcRenderer.send(WINDOW_MINIMIZE),
     maximizeWindow: () => ipcRenderer.send(WINDOW_MAXIMIZE),
@@ -148,7 +142,7 @@ try {
       ipcRenderer.invoke(RIVENS_GET_WEAPON_TYPE, weaponName),
     getRivenBestAttributes: (weaponName: string) =>
       ipcRenderer.invoke(RIVENS_GET_BEST_ATTRIBUTES, weaponName),
-    onHelperDownloadProgress: eventBridge<unknown>(HELPER_DOWNLOAD_PROGRESS),
+    onHelperDownloadProgress: ipcDataBridge<unknown>(ipcRenderer, HELPER_DOWNLOAD_PROGRESS),
   });
 
   contextBridge.exposeInMainWorld("tradeApi", {

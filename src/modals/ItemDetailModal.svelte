@@ -38,14 +38,14 @@
   $: if (item) {
     selectedComp = null;
     showCraftingTree = false;
-    loadPrice(item.name);
+    loadPrice();
   }
 
-  async function loadPrice(name: string): Promise<void> {
+  async function loadPrice(): Promise<void> {
     if (!item) return;
     const lookup = $wfmItems || {};
     const plan = resolveItemPriceLookup(item, lookup);
-    await priceLoader.load(name || plan.name, lookup, plan.isTradable);
+    await priceLoader.load(plan.name, lookup, plan.isTradable);
   }
 
   function selectComponent(comp: ComponentInfo) {

@@ -46,6 +46,8 @@ interface ReadThroughDescriptor {
 		staleRefreshQueued: AutoStatsKey;
 	};
 	canQueueRefresh?: () => boolean;
+	beforeMissCheck?: () => Promise<boolean>;
+	onBeforeMissHit?: () => void;
 }
 
 function priceCacheKey(slug: string, rank: number | null): string {
@@ -350,6 +352,11 @@ async function withReadThrough(env: Env, ctx: ExecutionContext | undefined, desc
 		return { status: 'ok', data: cached };
 	}
 
+	if (descriptor.beforeMissCheck && (await descriptor.beforeMissCheck())) {
+		descriptor.onBeforeMissHit?.();
+		return { status: 'not_found', data: null };
+	}
+
 	const missMarker = await descriptor.namespace.get(descriptor.missKey);
 	if (missMarker) {
 		autoStats[descriptor.stats.negativeHit] += 1;
@@ -388,29 +395,27 @@ export async function getOrHydratePrice(
 }
 
 export async function getOrHydrateMeta(env: Env, slug: string, ctx?: ExecutionContext): Promise<Record<string, unknown> | null> {
-	const cached = await getJsonFromKv(env.ITEM_META, `meta:${slug}`);
-	if (cached) {
-		autoStats.metaCacheHits += 1;
-		if (ctx && isStale(cached, env)) {
-			autoStats.metaStaleRefreshQueued += 1;
-			ctx.waitUntil(hydrateMeta(env, slug, false));
-		}
-		return cached;
-	}
+	const result = await withReadThrough(env, ctx, {
+		namespace: env.ITEM_META,
+		cacheKey: `meta:${slug}`,
+		missKey: `${MISS_META_PREFIX}${slug}`,
+		isStale,
+		hydrate: async (markNoData) => {
+			const data = await hydrateMeta(env, slug, markNoData);
+			return { data, transient: false };
+		},
+		stats: {
+			cacheHit: 'metaCacheHits',
+			negativeHit: 'metaNegativeHits',
+			staleRefreshQueued: 'metaStaleRefreshQueued',
+		},
+		beforeMissCheck: async () => Boolean(await env.ITEM_META.get(`${SKIP_UNTRADABLE_PREFIX}${slug}`)),
+		onBeforeMissHit: () => {
+			autoStats.metaUntradableSkips += 1;
+		},
+	});
 
-	const untradableMarker = await env.ITEM_META.get(`${SKIP_UNTRADABLE_PREFIX}${slug}`);
-	if (untradableMarker) {
-		autoStats.metaUntradableSkips += 1;
-		return null;
-	}
-
-	const missMarker = await env.ITEM_META.get(`${MISS_META_PREFIX}${slug}`);
-	if (missMarker) {
-		autoStats.metaNegativeHits += 1;
-		return null;
-	}
-
-	return hydrateMeta(env, slug, true);
+	return result.status === 'ok' ? result.data : null;
 }
 
 export async function getOrHydrateOrders(

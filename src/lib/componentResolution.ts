@@ -84,6 +84,16 @@ export function resolveRewardComponent(
   return uniqueName ? resolveComponentByUniqueName(uniqueName, itemDb, ownership) : null;
 }
 
+export function resolveComponentByName(
+  name: string,
+  itemDb: Record<string, ItemDbEntry>,
+  ownership: Map<string, number>,
+  nameIndex: Map<string, string> = buildItemNameIndex(itemDb),
+): ResolvedComponentPanel | null {
+  const uniqueName = nameIndex.get(name);
+  return uniqueName ? resolveComponentByUniqueName(uniqueName, itemDb, ownership) : null;
+}
+
 export function resolveComponentDrops(
   comp: ComponentInfo | null | undefined,
   itemDb: Record<string, ItemDbEntry>,
@@ -134,11 +144,10 @@ export function resolveComponentPriceLookup(
 
 export function resolveItemPriceLookup(item: ParsedItem, lookup: WfmItemsLookup): PriceLookupPlan {
   const name = item.name;
+  const nameKey = name.toLowerCase();
+  const setName = `${name} Set`;
   const isTradable = Boolean(
-    item.tradable ||
-    item.isPrime ||
-    lookup[name?.toLowerCase()] ||
-    lookup[`${name} Set`.toLowerCase()],
+    item.tradable || item.isPrime || lookup[nameKey] || lookup[setName.toLowerCase()],
   );
   return { name, isTradable };
 }

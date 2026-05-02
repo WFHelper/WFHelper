@@ -3,6 +3,61 @@ import type { NativeImage } from "electron";
 import { cropRectContent, detectGameContentRect } from "../../services/rewardScannerImage";
 import { clamp01, computeMeanAndStd, sleep } from "../../services/rewardScannerUtils";
 
+export interface RivenScanCropRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export const RIVEN_SCAN_CROPS = Object.freeze({
+  // Initial and choice scans use the centered single-card view.
+  singleCard: { x: 0.22, y: 0.43, width: 0.56, height: 0.45 },
+  // Roll scans target the card while it is still centered during the post-roll transition.
+  rollCard: { x: 0.411, y: 0.416, width: 0.177, height: 0.434 },
+} satisfies Record<string, RivenScanCropRect>);
+
+const RIVEN_CARD_CROP_TUNING = {
+  cardAspectRatio: 287 / 433,
+  maxAspectOverflow: 1.1,
+  statTop: 0.34,
+  statBottom: 0.84,
+  statLeft: 0.08,
+  statRight: 0.92,
+  minCropWidth: 30,
+  minCropHeight: 30,
+} as const;
+
+export function cropRivenStatArea(roughCrop: NativeImage): NativeImage {
+  const { width: w, height: h } = roughCrop.getSize();
+  if (w < 50 || h < 50) return roughCrop;
+
+  // Center-trim to the in-game riven card aspect, then crop the stat text band.
+  const expectedW = Math.floor(h * RIVEN_CARD_CROP_TUNING.cardAspectRatio);
+  let trimmed = roughCrop;
+  let tw = w;
+  const th = h;
+  if (w > expectedW * RIVEN_CARD_CROP_TUNING.maxAspectOverflow) {
+    const excess = w - expectedW;
+    const x1 = Math.floor(excess / 2);
+    tw = expectedW;
+    trimmed = roughCrop.crop({ x: x1, y: 0, width: expectedW, height: h });
+  }
+
+  const sy0 = Math.floor(th * RIVEN_CARD_CROP_TUNING.statTop);
+  const sy1 = Math.floor(th * RIVEN_CARD_CROP_TUNING.statBottom);
+  const sx0 = Math.floor(tw * RIVEN_CARD_CROP_TUNING.statLeft);
+  const sx1 = Math.floor(tw * RIVEN_CARD_CROP_TUNING.statRight);
+  const cropW = sx1 - sx0;
+  const cropH = sy1 - sy0;
+
+  if (cropW < RIVEN_CARD_CROP_TUNING.minCropWidth || cropH < RIVEN_CARD_CROP_TUNING.minCropHeight) {
+    return roughCrop;
+  }
+
+  return trimmed.crop({ x: sx0, y: sy0, width: cropW, height: cropH });
+}
+
 interface TextBounds {
   left: number;
   top: number;
@@ -96,14 +151,19 @@ function findBounds(values: number[], threshold: number): { start: number; end: 
 }
 
 /** Extract BGRA bitmap once; reuse across analyzeRivenTextMetrics / detectRivenCardFrame / computeRivenFrameHash. */
-function getRivenBitmap(nativeImage: NativeImage): { bitmap: Buffer; width: number; height: number } | null {
+function getRivenBitmap(
+  nativeImage: NativeImage,
+): { bitmap: Buffer; width: number; height: number } | null {
   if (!nativeImage || typeof nativeImage.getSize !== "function") return null;
   const { width, height } = nativeImage.getSize();
   if (width < 24 || height < 24) return null;
   return { bitmap: nativeImage.toBitmap(), width, height };
 }
 
-function analyzeRivenTextMetrics(nativeImage: NativeImage, shared?: { bitmap: Buffer; width: number; height: number } | null): RivenTextMetrics {
+function analyzeRivenTextMetrics(
+  nativeImage: NativeImage,
+  shared?: { bitmap: Buffer; width: number; height: number } | null,
+): RivenTextMetrics {
   const data = shared || getRivenBitmap(nativeImage);
   if (!data) {
     return {
@@ -203,7 +263,10 @@ function analyzeRivenTextMetrics(nativeImage: NativeImage, shared?: { bitmap: Bu
   };
 }
 
-export function computeRivenFrameHash(nativeImage: NativeImage, shared?: { bitmap: Buffer; width: number; height: number } | null): string {
+export function computeRivenFrameHash(
+  nativeImage: NativeImage,
+  shared?: { bitmap: Buffer; width: number; height: number } | null,
+): string {
   const data = shared || getRivenBitmap(nativeImage);
   if (!data) return "";
   const { width, height, bitmap } = data;
@@ -225,7 +288,6 @@ export function computeRivenFrameHash(nativeImage: NativeImage, shared?: { bitma
 
   return hash;
 }
-
 
 export async function waitForRivenUiReady(
   rect: { x: number; y: number; width: number; height: number },
@@ -327,4 +389,3 @@ export async function waitForRivenUiReady(
     frameHash: lastFrameHash || bestFrameHash,
   };
 }
-
