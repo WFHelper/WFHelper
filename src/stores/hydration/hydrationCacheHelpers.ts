@@ -6,6 +6,7 @@ import {
 import type { InventoryBaseItem } from "../../lib/inventoryMarket.js";
 import { resolveRankedMaxRank } from "./hydrationHelpers.js";
 import { isRankedGroup } from "../../../config/shared/numeric.js";
+import { rendererPriceCacheKey } from "../../../config/shared/wfmCacheKeys.js";
 
 // Price cache lookups
 
@@ -23,8 +24,8 @@ export function hasCachedRankPair(item: InventoryBaseItem): boolean {
   const maxRank = resolveRankedMaxRank(item);
   if (maxRank == null) return false;
 
-  const r0 = getCachedMedian(`${item.marketSlug}:rank-v3:r0`);
-  const rmax = getCachedMedian(`${item.marketSlug}:rank-v3:r${maxRank}`);
+  const r0 = getCachedMedian(rendererPriceCacheKey(item.marketSlug, 0));
+  const rmax = getCachedMedian(rendererPriceCacheKey(item.marketSlug, maxRank));
   return r0 != null && rmax != null;
 }
 

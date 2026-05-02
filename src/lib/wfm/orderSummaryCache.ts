@@ -1,5 +1,6 @@
 import { normalizeWfmSlug } from "./backendLite.js";
 import { normalizeRankFilter, toFiniteNonNegativeInt } from "../../../config/shared/numeric.js";
+import { rendererOrderSummaryCacheKey } from "../../../config/shared/wfmCacheKeys.js";
 
 const ORDER_SUMMARY_FRESH_TTL_MS = 24 * 60 * 60 * 1000;
 const ORDER_SUMMARY_STALE_TTL_MS = 48 * 60 * 60 * 1000;
@@ -19,8 +20,7 @@ const cache = new Map<string, CachedOrderSummaryEntry>();
 function cacheKey(slugInput: string, rankInput: number | null): string | null {
   const slug = normalizeWfmSlug(slugInput);
   const rank = normalizeRankFilter(rankInput);
-  if (!slug || rank == null) return null;
-  return `${slug}:r${rank}`;
+  return slug ? rendererOrderSummaryCacheKey(slug, rank) : null;
 }
 
 export function isOrderSummaryFresh(entry: CachedOrderSummaryEntry): boolean {

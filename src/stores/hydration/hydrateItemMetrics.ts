@@ -29,6 +29,7 @@ import {
 } from "./hydrationHelpers.js";
 import { getCachedMedian, getCachedRankOrderSummary } from "./hydrationCacheHelpers.js";
 import { isRankedGroup } from "../../../config/shared/numeric.js";
+import { rendererPriceCacheKey } from "../../../config/shared/wfmCacheKeys.js";
 import { isExcludedRankedMarketItem } from "../../../config/shared/wfmExclusions.js";
 
 // Hydration context — provides controlled access to controller closure state
@@ -166,8 +167,8 @@ export async function hydrateItemMetrics(
     const bypassNoDataCache = isRankedGroup(item.inventoryGroup);
 
     if (isRankedListingItem && !excludedRankedItem && rankedMaxRank != null && item.marketSlug) {
-      const cachedR0 = getCachedMedian(`${item.marketSlug}:rank-v3:r0`);
-      const cachedRmax = getCachedMedian(`${item.marketSlug}:rank-v3:r${rankedMaxRank}`);
+      const cachedR0 = getCachedMedian(rendererPriceCacheKey(item.marketSlug, 0));
+      const cachedRmax = getCachedMedian(rendererPriceCacheKey(item.marketSlug, rankedMaxRank));
 
       if (cachedR0 != null) {
         platinumR0 = cachedR0;

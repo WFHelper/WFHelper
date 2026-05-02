@@ -17,7 +17,6 @@ interface WorkerConfig {
 	publicRateLimitEnabled: boolean;
 	adminRateLimitWindowSec: number;
 	adminRateLimitMax: number;
-	publicOrdersRouteEnabled: boolean;
 }
 
 export function getWorkerConfig(env: Env): WorkerConfig {
@@ -37,6 +36,5 @@ export function getWorkerConfig(env: Env): WorkerConfig {
 		publicRateLimitEnabled: (env.PUBLIC_RATE_LIMIT_ENABLED || '1').trim() !== '0',
 		adminRateLimitWindowSec: clamp(parsePositiveInt(env.ADMIN_RATE_LIMIT_WINDOW_SEC, 60), 10, 3600),
 		adminRateLimitMax: clamp(parsePositiveInt(env.ADMIN_RATE_LIMIT_MAX, 12), 1, 500),
-		publicOrdersRouteEnabled: (env.ENABLE_PUBLIC_ORDERS_ROUTE || '').trim() === '1',
 	};
 }

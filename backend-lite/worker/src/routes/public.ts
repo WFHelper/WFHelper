@@ -14,10 +14,8 @@ import {
 	getAutoCacheStats,
 	getOrHydrateMeta,
 	getOrHydrateOrderSummary,
-	getOrHydrateOrders,
 	getOrHydratePrice,
 } from '../services/readThrough';
-import { getWorkerConfig } from '../config';
 import { sanitizeSnapshotForClient } from '../services/prewarm';
 import type { Env } from '../types';
 import { getJsonFromKv, getSlug } from '../utils';
@@ -31,12 +29,10 @@ const routeStats = {
 	publicRateLimitedRequests: 0,
 	bootstrapRejectedRequests: 0,
 	invalidRankRequests: 0,
-	deprecatedOrdersRequests: 0,
 	snapshotRequests: 0,
 	priceRequests: 0,
 	metaRequests: 0,
 	orderSummaryRequests: 0,
-	ordersRequests: 0,
 };
 
 const PUBLIC_JSON_CACHE_HEADERS = { 'cache-control': 'public, max-age=60' };
@@ -145,10 +141,6 @@ function respondWithStatus<T>(result: HydrateResult<T>, req: Request, env: Env):
 		return jsonResponse({ ok: false, error: 'unavailable' }, req, env, 503);
 	}
 	return jsonResponse({ ok: false, error: 'not_found' }, req, env, 404);
-}
-
-function publicOrdersRouteEnabled(env: Env): boolean {
-	return getWorkerConfig(env).publicOrdersRouteEnabled;
 }
 
 function snapshotNotModifiedResponse(etag: string, cacheControl: string): Response {
@@ -347,24 +339,7 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 
 	const ordersSlug = getSlug(url.pathname, '/v1/orders/');
 	if (req.method === 'GET' && ordersSlug) {
-		if (!publicOrdersRouteEnabled(env)) {
-			routeStats.deprecatedOrdersRequests += 1;
-			return jsonResponse({ ok: false, error: 'deprecated' }, req, env, 410);
-		}
-
-		const guardResponse = await guardPublicRequest(req, env, 'orders', { bootstrap: true });
-		if (guardResponse) return guardResponse;
-
-		routeStats.ordersRequests += 1;
-		const rank = parseRankFilter(url);
-		const validation = await validateRankedSlugAndRank(env, ordersSlug, rank);
-		if (!validation.ok) {
-			routeStats.invalidRankRequests += 1;
-			return rankedValidationFailureResponse(validation, req, env);
-		}
-
-		const result = await getOrHydrateOrders(env, ordersSlug, ctx, rank);
-		return respondWithStatus(result, req, env);
+		return jsonResponse({ ok: false, error: 'deprecated' }, req, env, 410);
 	}
 
 	return null;

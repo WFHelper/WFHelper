@@ -15,6 +15,12 @@ import {
 } from './prewarm';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
 import { isExcludedRankedMarketItem } from '../../../../config/shared/wfmExclusions';
+import {
+	workerMissCacheKey,
+	workerOrderSummaryCacheKey,
+	workerOrdersCacheKey,
+	workerPriceCacheKey,
+} from '../../../../config/shared/wfmCacheKeys';
 
 type AutoReadResult =
 	| { status: 'ok'; data: Record<string, unknown> }
@@ -26,28 +32,44 @@ interface HydrateResult {
 	transient: boolean;
 }
 
+type AutoStatsKey = keyof typeof autoStats;
+
+interface ReadThroughDescriptor {
+	namespace: KVNamespace;
+	cacheKey: string;
+	missKey: string;
+	isStale: (data: Record<string, unknown> | null, env: Env) => boolean;
+	hydrate: (markNoData: boolean) => Promise<HydrateResult>;
+	stats: {
+		cacheHit: AutoStatsKey;
+		negativeHit: AutoStatsKey;
+		staleRefreshQueued: AutoStatsKey;
+	};
+	canQueueRefresh?: () => boolean;
+}
+
 function priceCacheKey(slug: string, rank: number | null): string {
-	return rank == null ? `price:${slug}` : `price:${slug}:r${rank}`;
+	return workerPriceCacheKey(slug, rank);
 }
 
 function priceMissKey(slug: string, rank: number | null): string {
-	return rank == null ? `${MISS_PRICE_PREFIX}${slug}` : `${MISS_PRICE_PREFIX}${slug}:r${rank}`;
+	return workerMissCacheKey(MISS_PRICE_PREFIX, slug, rank);
 }
 
 function ordersCacheKey(slug: string, rank: number | null): string {
-	return rank == null ? `orders:${slug}` : `orders:${slug}:r${rank}`;
+	return workerOrdersCacheKey(slug, rank);
 }
 
 function ordersMissKey(slug: string, rank: number | null): string {
-	return rank == null ? `${MISS_ORDERS_PREFIX}${slug}` : `${MISS_ORDERS_PREFIX}${slug}:r${rank}`;
+	return workerMissCacheKey(MISS_ORDERS_PREFIX, slug, rank);
 }
 
 function orderSummaryCacheKey(slug: string, rank: number | null): string {
-	return rank == null ? `orders-summary:${slug}` : `orders-summary:${slug}:r${rank}`;
+	return workerOrderSummaryCacheKey(slug, rank);
 }
 
 function orderSummaryMissKey(slug: string, rank: number | null): string {
-	return rank == null ? `${MISS_ORDER_SUMMARY_PREFIX}${slug}` : `${MISS_ORDER_SUMMARY_PREFIX}${slug}:r${rank}`;
+	return workerMissCacheKey(MISS_ORDER_SUMMARY_PREFIX, slug, rank);
 }
 
 const priceInFlight = new Map<string, Promise<HydrateResult>>();
@@ -312,6 +334,36 @@ async function hydrateOrderSummary(env: Env, slug: string, markNoData: boolean, 
 	return task;
 }
 
+async function withReadThrough(env: Env, ctx: ExecutionContext | undefined, descriptor: ReadThroughDescriptor): Promise<AutoReadResult> {
+	const cached = await getJsonFromKv(descriptor.namespace, descriptor.cacheKey);
+	if (cached) {
+		autoStats[descriptor.stats.cacheHit] += 1;
+		const canQueueRefresh = descriptor.canQueueRefresh ? descriptor.canQueueRefresh() : true;
+		if (ctx && canQueueRefresh && descriptor.isStale(cached, env)) {
+			autoStats[descriptor.stats.staleRefreshQueued] += 1;
+			ctx.waitUntil(
+				descriptor.hydrate(false).then(() => {
+					return;
+				}),
+			);
+		}
+		return { status: 'ok', data: cached };
+	}
+
+	const missMarker = await descriptor.namespace.get(descriptor.missKey);
+	if (missMarker) {
+		autoStats[descriptor.stats.negativeHit] += 1;
+		return { status: 'not_found', data: null };
+	}
+
+	const hydrated = await descriptor.hydrate(true);
+	if (hydrated.data) {
+		return { status: 'ok', data: hydrated.data };
+	}
+
+	return hydrated.transient ? { status: 'unavailable', data: null } : { status: 'not_found', data: null };
+}
+
 export async function getOrHydratePrice(
 	env: Env,
 	slug: string,
@@ -321,33 +373,18 @@ export async function getOrHydratePrice(
 	const rank = normalizeRankFilter(rankInput);
 	const cacheKey = priceCacheKey(slug, rank);
 	const missKey = priceMissKey(slug, rank);
-
-	const cached = await getJsonFromKv(env.PRICE_CACHE, cacheKey);
-	if (cached) {
-		autoStats.priceCacheHits += 1;
-		if (ctx && isStale(cached, env)) {
-			autoStats.priceStaleRefreshQueued += 1;
-			ctx.waitUntil(
-				hydratePrice(env, slug, false, rank).then(() => {
-					return;
-				}),
-			);
-		}
-		return { status: 'ok', data: cached };
-	}
-
-	const missMarker = await env.PRICE_CACHE.get(missKey);
-	if (missMarker) {
-		autoStats.priceNegativeHits += 1;
-		return { status: 'not_found', data: null };
-	}
-
-	const hydrated = await hydratePrice(env, slug, true, rank);
-	if (hydrated.data) {
-		return { status: 'ok', data: hydrated.data };
-	}
-
-	return hydrated.transient ? { status: 'unavailable', data: null } : { status: 'not_found', data: null };
+	return withReadThrough(env, ctx, {
+		namespace: env.PRICE_CACHE,
+		cacheKey,
+		missKey,
+		isStale,
+		hydrate: (markNoData) => hydratePrice(env, slug, markNoData, rank),
+		stats: {
+			cacheHit: 'priceCacheHits',
+			negativeHit: 'priceNegativeHits',
+			staleRefreshQueued: 'priceStaleRefreshQueued',
+		},
+	});
 }
 
 export async function getOrHydrateMeta(env: Env, slug: string, ctx?: ExecutionContext): Promise<Record<string, unknown> | null> {
@@ -385,33 +422,18 @@ export async function getOrHydrateOrders(
 	const rank = normalizeRankFilter(rankInput);
 	const cacheKey = ordersCacheKey(slug, rank);
 	const missKey = ordersMissKey(slug, rank);
-
-	const cached = await getJsonFromKv(env.PRICE_CACHE, cacheKey);
-	if (cached) {
-		autoStats.ordersCacheHits += 1;
-		if (ctx && isOrdersStale(cached, env)) {
-			autoStats.ordersStaleRefreshQueued += 1;
-			ctx.waitUntil(
-				hydrateOrders(env, slug, false, rank).then(() => {
-					return;
-				}),
-			);
-		}
-		return { status: 'ok', data: cached };
-	}
-
-	const missMarker = await env.PRICE_CACHE.get(missKey);
-	if (missMarker) {
-		autoStats.ordersNegativeHits += 1;
-		return { status: 'not_found', data: null };
-	}
-
-	const hydrated = await hydrateOrders(env, slug, true, rank);
-	if (hydrated.data) {
-		return { status: 'ok', data: hydrated.data };
-	}
-
-	return hydrated.transient ? { status: 'unavailable', data: null } : { status: 'not_found', data: null };
+	return withReadThrough(env, ctx, {
+		namespace: env.PRICE_CACHE,
+		cacheKey,
+		missKey,
+		isStale: isOrdersStale,
+		hydrate: (markNoData) => hydrateOrders(env, slug, markNoData, rank),
+		stats: {
+			cacheHit: 'ordersCacheHits',
+			negativeHit: 'ordersNegativeHits',
+			staleRefreshQueued: 'ordersStaleRefreshQueued',
+		},
+	});
 }
 
 export async function getOrHydrateOrderSummary(
@@ -427,33 +449,19 @@ export async function getOrHydrateOrderSummary(
 	const rank = normalizeRankFilter(rankInput);
 	const cacheKey = orderSummaryCacheKey(slug, rank);
 	const missKey = orderSummaryMissKey(slug, rank);
-
-	const cached = await getJsonFromKv(env.PRICE_CACHE, cacheKey);
-	if (cached) {
-		autoStats.orderSummaryCacheHits += 1;
-		if (ctx && isOrderSummaryStale(cached, env) && !orderSummaryCircuitOpen()) {
-			autoStats.orderSummaryStaleRefreshQueued += 1;
-			ctx.waitUntil(
-				hydrateOrderSummary(env, slug, false, rank).then(() => {
-					return;
-				}),
-			);
-		}
-		return { status: 'ok', data: cached };
-	}
-
-	const missMarker = await env.PRICE_CACHE.get(missKey);
-	if (missMarker) {
-		autoStats.orderSummaryNegativeHits += 1;
-		return { status: 'not_found', data: null };
-	}
-
-	const hydrated = await hydrateOrderSummary(env, slug, true, rank);
-	if (hydrated.data) {
-		return { status: 'ok', data: hydrated.data };
-	}
-
-	return hydrated.transient ? { status: 'unavailable', data: null } : { status: 'not_found', data: null };
+	return withReadThrough(env, ctx, {
+		namespace: env.PRICE_CACHE,
+		cacheKey,
+		missKey,
+		isStale: isOrderSummaryStale,
+		hydrate: (markNoData) => hydrateOrderSummary(env, slug, markNoData, rank),
+		stats: {
+			cacheHit: 'orderSummaryCacheHits',
+			negativeHit: 'orderSummaryNegativeHits',
+			staleRefreshQueued: 'orderSummaryStaleRefreshQueued',
+		},
+		canQueueRefresh: () => !orderSummaryCircuitOpen(),
+	});
 }
 
 export function getAutoCacheStats(): Record<string, number> {

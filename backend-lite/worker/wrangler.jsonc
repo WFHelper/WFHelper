@@ -34,7 +34,6 @@
 		"ADMIN_RATE_LIMIT_WINDOW_SEC": "60",
 		"ADMIN_RATE_LIMIT_MAX": "60",
 		"PUBLIC_RATE_LIMIT_ENABLED": "1",
-		"ENABLE_PUBLIC_ORDERS_ROUTE": "0",
 		// DEPLOYMENT ORDER: set to "1" only AFTER:
 		//   1. Running: wrangler secret put BOOTSTRAP_TOKEN_SECRET
 		//   2. Deploying the app update that sends the x-wfhelper-bootstrap header.

@@ -549,72 +549,7 @@ describe('backend-lite worker', () => {
 		expect(cached).toBeTruthy();
 	});
 
-	it('auto-hydrates orders endpoint on cache miss', async () => {
-		const slug = 'wf_test_orders_slug';
-		await env.PRICE_CACHE.delete(`orders:${slug}`);
-		await env.PRICE_CACHE.delete(`miss:orders:v2:${slug}`);
-
-		const ordersPayload = {
-			data: [
-				{
-					type: 'sell',
-					platinum: 4,
-					quantity: 2,
-					rank: 10,
-					visible: true,
-					user: { ingameName: 'SellerA', status: 'ingame' },
-				},
-				{
-					type: 'buy',
-					platinum: 3,
-					quantity: 1,
-					rank: 10,
-					visible: true,
-					user: { ingameName: 'BuyerA', status: 'online' },
-				},
-			],
-		};
-
-		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-			const url = String(input instanceof URL ? input : typeof input === 'string' ? input : input.url);
-			if (url === `https://api.warframe.market/v2/orders/item/${slug}`) {
-				return new Response(JSON.stringify(ordersPayload), {
-					status: 200,
-					headers: { 'content-type': 'application/json' },
-				});
-			}
-			throw new Error(`Unexpected url: ${url}`);
-		});
-		globalThis.fetch = fetchMock as unknown as typeof fetch;
-
-		const enabledOrdersEnv = {
-			...env,
-			ENABLE_PUBLIC_ORDERS_ROUTE: '1',
-		};
-		const ctx = createExecutionContext();
-		const response = await worker.fetch(
-			new IncomingRequest(`https://example.com/v1/orders/${slug}`),
-			enabledOrdersEnv as unknown as Env,
-			ctx,
-		);
-		await waitOnExecutionContext(ctx);
-		expect(response.status).toBe(200);
-		expect(await response.json()).toMatchObject({
-			ok: true,
-			data: {
-				slug,
-				sell: [{ userName: 'SellerA', platinum: 4, quantity: 2, rank: 10 }],
-				buy: [{ userName: 'BuyerA', platinum: 3, quantity: 1, rank: 10 }],
-			},
-		});
-
-		const cached = await env.PRICE_CACHE.get(`orders:${slug}`);
-		expect(cached).toBeTruthy();
-		expect(fetchMock).toHaveBeenCalledTimes(1);
-		expect(fetchMock.mock.calls[0]?.[0]).toBe(`https://api.warframe.market/v2/orders/item/${slug}`);
-	});
-
-	it('deprecates public full orderbook route by default', async () => {
+	it('keeps public full orderbook route deprecated', async () => {
 		const ctx = createExecutionContext();
 		const response = await worker.fetch(new IncomingRequest('https://example.com/v1/orders/wf_test_orders_disabled_slug'), env, ctx);
 		await waitOnExecutionContext(ctx);
@@ -945,11 +880,11 @@ describe('backend-lite worker', () => {
 		});
 	});
 
-	it('filters orders by rank and preserves offline statuses', async () => {
+	it('filters order summaries by rank and preserves offline fallback prices', async () => {
 		const slug = 'wf_test_ranked_orders_slug';
 		await seedRankedCatalog(env, [{ slug, maxRank: 10 }]);
-		await env.PRICE_CACHE.delete(`orders:${slug}:r10`);
-		await env.PRICE_CACHE.delete(`miss:orders:v2:${slug}:r10`);
+		await env.PRICE_CACHE.delete(`orders-summary:${slug}:r10`);
+		await env.PRICE_CACHE.delete(`miss:orders-summary:v1:${slug}:r10`);
 
 		const ordersPayload = {
 			data: [
@@ -991,16 +926,8 @@ describe('backend-lite worker', () => {
 			throw new Error(`Unexpected url: ${url}`);
 		}) as unknown as typeof fetch;
 
-		const enabledOrdersEnv = {
-			...env,
-			ENABLE_PUBLIC_ORDERS_ROUTE: '1',
-		};
 		const ctx = createExecutionContext();
-		const response = await worker.fetch(
-			new IncomingRequest(`https://example.com/v1/orders/${slug}?rank=10`),
-			enabledOrdersEnv as unknown as Env,
-			ctx,
-		);
+		const response = await worker.fetch(new IncomingRequest(`https://example.com/v1/order-summary/${slug}?rank=10`), env, ctx);
 		await waitOnExecutionContext(ctx);
 
 		expect(response.status).toBe(200);
@@ -1009,15 +936,15 @@ describe('backend-lite worker', () => {
 			data: {
 				slug,
 				rank: 10,
-				sell: [{ userName: 'SellerR10', platinum: 140, rank: 10, status: 'offline' }],
-				buy: [{ userName: 'BuyerR10', platinum: 100, rank: 10, status: 'invisible' }],
+				wts: 140,
+				wtb: 100,
 			},
 		});
 
-		expect(await env.PRICE_CACHE.get(`orders:${slug}:r10`)).toBeTruthy();
+		expect(await env.PRICE_CACHE.get(`orders-summary:${slug}:r10`)).toBeTruthy();
 	});
 
-	it('keeps active rank orders even when many cheaper offline rows exist', async () => {
+	it('keeps active rank order summaries even when many cheaper offline rows exist', async () => {
 		const slug = 'wf_test_rank_activity_window_slug';
 		await seedRankedCatalog(env, [{ slug, maxRank: 10 }]);
 		await env.PRICE_CACHE.delete(`orders:${slug}:r0`);
@@ -1057,30 +984,24 @@ describe('backend-lite worker', () => {
 			throw new Error(`Unexpected url: ${url}`);
 		}) as unknown as typeof fetch;
 
-		const enabledOrdersEnv = {
-			...env,
-			ENABLE_PUBLIC_ORDERS_ROUTE: '1',
-		};
 		const ctx = createExecutionContext();
-		const response = await worker.fetch(
-			new IncomingRequest(`https://example.com/v1/orders/${slug}?rank=0`),
-			enabledOrdersEnv as unknown as Env,
-			ctx,
-		);
+		const response = await worker.fetch(new IncomingRequest(`https://example.com/v1/order-summary/${slug}?rank=0`), env, ctx);
 		await waitOnExecutionContext(ctx);
 
 		expect(response.status).toBe(200);
 		const json = (await response.json()) as {
-			data?: { sell?: Array<{ userName?: string; status?: string }> };
+			data?: { wts?: number | null };
 		};
-		const sellRows = Array.isArray(json?.data?.sell) ? json.data.sell : [];
-		expect(sellRows.some((row) => row.userName === 'ActiveSellerR0' && row.status === 'ingame')).toBe(true);
+		expect(json.data?.wts).toBe(85);
 	});
 
 	it('falls back to v1 orders endpoint when v2 endpoint is unavailable', async () => {
 		const slug = 'wf_test_orders_fallback_slug';
+		await seedRankedCatalog(env, [{ slug, maxRank: 10 }]);
 		await env.PRICE_CACHE.delete(`orders:${slug}`);
 		await env.PRICE_CACHE.delete(`miss:orders:v2:${slug}`);
+		await env.PRICE_CACHE.delete(`orders-summary:${slug}:r0`);
+		await env.PRICE_CACHE.delete(`miss:orders-summary:v1:${slug}:r0`);
 
 		const v1OrdersPayload = {
 			payload: {
@@ -1089,6 +1010,7 @@ describe('backend-lite worker', () => {
 						order_type: 'sell',
 						platinum: 9,
 						quantity: 1,
+						mod_rank: 0,
 						visible: true,
 						user: { ingame_name: 'SellerFallback', status: 'ingame' },
 					},
@@ -1096,6 +1018,7 @@ describe('backend-lite worker', () => {
 						order_type: 'buy',
 						platinum: 8,
 						quantity: 1,
+						mod_rank: 0,
 						visible: true,
 						user: { ingame_name: 'BuyerFallback', status: 'online' },
 					},
@@ -1118,16 +1041,8 @@ describe('backend-lite worker', () => {
 		});
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-		const enabledOrdersEnv = {
-			...env,
-			ENABLE_PUBLIC_ORDERS_ROUTE: '1',
-		};
 		const ctx = createExecutionContext();
-		const response = await worker.fetch(
-			new IncomingRequest(`https://example.com/v1/orders/${slug}`),
-			enabledOrdersEnv as unknown as Env,
-			ctx,
-		);
+		const response = await worker.fetch(new IncomingRequest(`https://example.com/v1/order-summary/${slug}?rank=0`), env, ctx);
 		await waitOnExecutionContext(ctx);
 
 		expect(response.status).toBe(200);
@@ -1135,8 +1050,8 @@ describe('backend-lite worker', () => {
 			ok: true,
 			data: {
 				slug,
-				sell: [{ userName: 'SellerFallback', platinum: 9, quantity: 1 }],
-				buy: [{ userName: 'BuyerFallback', platinum: 8, quantity: 1 }],
+				wts: 9,
+				wtb: 8,
 			},
 		});
 		expect(fetchMock).toHaveBeenCalledTimes(2);

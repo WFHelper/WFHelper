@@ -17,7 +17,6 @@ export interface Env {
 	NO_DATA_TTL_SEC?: string;
 	STALE_REFRESH_SEC?: string;
 	PUBLIC_RATE_LIMIT_ENABLED?: string;
-	ENABLE_PUBLIC_ORDERS_ROUTE?: string;
 	BOOTSTRAP_TOKEN_SECRET?: string;
 	BOOTSTRAP_TOKEN_TTL_SEC?: string;
 	PUBLIC_BOOTSTRAP_REQUIRED?: string;

@@ -6,12 +6,9 @@ import type { RelicDatabase } from "../types/relics.js";
 import { getCachedPriceState } from "./wfm/priceCache.js";
 import { getCachedOrderSummaryState } from "./wfm/orderSummaryCache.js";
 import { getCachedWfmItemMeta } from "./wfm/wfmItemMeta.js";
-import {
-  normalizeLooseMarketName,
-  normalizeMarketName,
-  toMarketSlug,
-} from "./marketNaming.js";
+import { normalizeLooseMarketName, normalizeMarketName, toMarketSlug } from "./marketNaming.js";
 import { toFinitePositiveInt, toFiniteNumber, isRankedGroup } from "../../config/shared/numeric.js";
+import { rendererPriceCacheKey } from "../../config/shared/wfmCacheKeys.js";
 import { isExcludedRankedMarketItem } from "../../config/shared/wfmExclusions.js";
 
 export type InventoryFilterTab = InventoryGroup | "resources";
@@ -155,7 +152,7 @@ function resolveCachedPlatinum(item: InventoryBaseItem): number | null {
   if (!item.marketSlug) return null;
 
   const rank = resolvePriceRankForView(item);
-  const cacheKey = rank == null ? item.marketSlug : `${item.marketSlug}:rank-v3:r${rank}`;
+  const cacheKey = rendererPriceCacheKey(item.marketSlug, rank);
   const entry = getCachedPriceState(cacheKey);
   if (!entry || entry.status !== "ok") return null;
   return toFiniteNumber(entry.median);
@@ -163,7 +160,7 @@ function resolveCachedPlatinum(item: InventoryBaseItem): number | null {
 
 function resolveCachedRankPlatinum(slug: string | null | undefined, rank: number): number | null {
   if (!slug) return null;
-  const entry = getCachedPriceState(`${slug}:rank-v3:r${rank}`);
+  const entry = getCachedPriceState(rendererPriceCacheKey(slug, rank));
   if (!entry || entry.status !== "ok") return null;
   return toFiniteNumber(entry.median);
 }
@@ -206,7 +203,10 @@ export function getLookupByName(
     if (!direct) continue;
 
     const mappedName = typeof direct.item_name === "string" ? direct.item_name : null;
-    if (mappedName && normalizeLooseMarketName(mappedName) !== normalizeLooseMarketName(candidate)) {
+    if (
+      mappedName &&
+      normalizeLooseMarketName(mappedName) !== normalizeLooseMarketName(candidate)
+    ) {
       continue;
     }
 

@@ -12,13 +12,21 @@ import {
 	SNAPSHOT_ETAG_KEY,
 	SNAPSHOT_KEY,
 	SNAPSHOT_LAST_GEN_KEY,
-	WFM_HEADERS,
 } from '../constants';
 import type { Env, MetaPayload, OrdersPayload, OrderSummaryHotsetEntry, OrderSummaryPrewarmResult, PrewarmResult } from '../types';
 import { getWorkerConfig } from '../config';
 import { clamp, getJsonFromKv } from '../utils';
 import { extractLatestMedianFromStatsPayload, extractMedianFromStatsPayload } from '../../../../config/shared/wfmStats';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
+import { WFM_HEADERS } from '../../../../config/shared/wfm';
+import {
+	snapshotOrderSummaryCacheKey,
+	snapshotPriceCacheKey,
+	workerMissCacheKey,
+	workerOrderSummaryCacheKey,
+	workerPriceCacheKey,
+} from '../../../../config/shared/wfmCacheKeys';
+import { extractWfmOrderList, normalizeWfmOrderBookSide } from '../../../../config/shared/wfmOrders';
 import { WFM_SNAPSHOT_MAX_ENTRY_AGE_MS } from '../../../../config/shared/wfmSnapshotValidation';
 import {
 	buildOrderSummaryPayload,
@@ -156,56 +164,6 @@ export async function fetchMetaPayload(slug: string): Promise<FetchResult<MetaPa
 	};
 }
 
-const ORDERBOOK_MAX_ENTRIES_PER_SIDE = 500;
-
-function parseOrderType(order: Record<string, unknown>): 'sell' | 'buy' | null {
-	const typeV1 = typeof order.order_type === 'string' ? order.order_type.toLowerCase() : '';
-	if (typeV1 === 'sell' || typeV1 === 'buy') return typeV1;
-	const typeV2 = typeof order.type === 'string' ? order.type.toLowerCase() : '';
-	if (typeV2 === 'sell' || typeV2 === 'buy') return typeV2;
-	return null;
-}
-
-function parseOrderUserName(order: Record<string, unknown>): string {
-	const user = order.user as Record<string, unknown> | undefined;
-	if (!user) return '';
-	const nameV1 = typeof user.ingame_name === 'string' ? user.ingame_name.trim() : '';
-	if (nameV1) return nameV1;
-	const nameV2 = typeof user.ingameName === 'string' ? user.ingameName.trim() : '';
-	if (nameV2) return nameV2;
-	return '';
-}
-
-function parseOrderStatus(order: Record<string, unknown>): string | null {
-	const user = order.user as Record<string, unknown> | undefined;
-	const statusRaw = typeof user?.status === 'string' ? user.status.toLowerCase() : null;
-	return statusRaw;
-}
-
-function parseOrderRank(order: Record<string, unknown>): number | null {
-	const rankRaw = typeof order.rank === 'number' ? order.rank : typeof order.mod_rank === 'number' ? order.mod_rank : null;
-	if (rankRaw == null || !Number.isFinite(rankRaw) || rankRaw < 0) return null;
-	return Math.floor(rankRaw);
-}
-
-function extractOrderList(payload: unknown): unknown[] | null {
-	if (!payload || typeof payload !== 'object') return null;
-	const jsonPayload = payload as {
-		payload?: { orders?: unknown };
-		data?: { orders?: unknown } | unknown[];
-		orders?: unknown;
-	};
-
-	if (Array.isArray(jsonPayload.data)) return jsonPayload.data;
-	if (Array.isArray(jsonPayload.payload?.orders)) return jsonPayload.payload.orders;
-	if (jsonPayload.data && typeof jsonPayload.data === 'object') {
-		const maybeData = jsonPayload.data as { orders?: unknown };
-		if (Array.isArray(maybeData.orders)) return maybeData.orders;
-	}
-	if (Array.isArray(jsonPayload.orders)) return jsonPayload.orders;
-	return null;
-}
-
 async function fetchRawOrdersFromEndpoint(url: string): Promise<FetchResult<unknown[]>> {
 	let response: Response;
 	try {
@@ -222,63 +180,10 @@ async function fetchRawOrdersFromEndpoint(url: string): Promise<FetchResult<unkn
 	if (!response.ok) return { data: null, transient: false };
 
 	const jsonPayload = await response.json();
-	const rawOrders = extractOrderList(jsonPayload);
+	const rawOrders = extractWfmOrderList(jsonPayload);
 	if (!rawOrders) return { data: null, transient: false };
 
 	return { data: rawOrders, transient: false };
-}
-
-function toOrderBookSide(rawOrders: unknown, orderType: 'sell' | 'buy', rankFilter: number | null) {
-	if (!Array.isArray(rawOrders)) return [];
-
-	const entries = rawOrders
-		.map((raw) => {
-			if (!raw || typeof raw !== 'object') return null;
-			const order = raw as Record<string, unknown>;
-
-			const side = parseOrderType(order);
-			if (side !== orderType) return null;
-
-			if (order.visible === false) return null;
-
-			const rank = parseOrderRank(order);
-			if (rankFilter != null && rank !== rankFilter) return null;
-
-			const userName = parseOrderUserName(order);
-			if (!userName) return null;
-
-			const statusRaw = parseOrderStatus(order);
-
-			const platinumRaw = Number(order.platinum);
-			if (!Number.isFinite(platinumRaw) || platinumRaw <= 0) return null;
-
-			const quantityRaw = Number(order.quantity);
-			const quantity = Number.isFinite(quantityRaw) && quantityRaw > 0 ? Math.floor(quantityRaw) : 1;
-
-			return {
-				userName,
-				status: statusRaw,
-				platinum: Math.round(platinumRaw),
-				quantity,
-				rank,
-			};
-		})
-		.filter(
-			(entry): entry is { userName: string; status: string | null; platinum: number; quantity: number; rank: number | null } =>
-				entry != null,
-		);
-
-	entries.sort((a, b) => {
-		if (a.platinum !== b.platinum) {
-			return orderType === 'sell' ? a.platinum - b.platinum : b.platinum - a.platinum;
-		}
-		if (a.quantity !== b.quantity) {
-			return b.quantity - a.quantity;
-		}
-		return a.userName.localeCompare(b.userName);
-	});
-
-	return entries.slice(0, ORDERBOOK_MAX_ENTRIES_PER_SIDE);
 }
 
 export async function fetchOrdersPayload(slug: string, options?: { rank?: number | null }): Promise<FetchResult<OrdersPayload>> {
@@ -289,8 +194,8 @@ export async function fetchOrdersPayload(slug: string, options?: { rank?: number
 		return {
 			data: {
 				slug,
-				sell: toOrderBookSide(v2Attempt.data, 'sell', targetRank),
-				buy: toOrderBookSide(v2Attempt.data, 'buy', targetRank),
+				sell: normalizeWfmOrderBookSide(v2Attempt.data, 'sell', targetRank),
+				buy: normalizeWfmOrderBookSide(v2Attempt.data, 'buy', targetRank),
 				timestamp: Date.now(),
 			},
 			transient: false,
@@ -308,8 +213,8 @@ export async function fetchOrdersPayload(slug: string, options?: { rank?: number
 	return {
 		data: {
 			slug,
-			sell: toOrderBookSide(v1Attempt.data, 'sell', targetRank),
-			buy: toOrderBookSide(v1Attempt.data, 'buy', targetRank),
+			sell: normalizeWfmOrderBookSide(v1Attempt.data, 'sell', targetRank),
+			buy: normalizeWfmOrderBookSide(v1Attempt.data, 'buy', targetRank),
 			timestamp: Date.now(),
 		},
 		transient: false,
@@ -330,7 +235,7 @@ export async function putPricePayload(
 		rank: normalizedRank,
 	};
 
-	const cacheKey = normalizedRank == null ? `price:${slug}` : `price:${slug}:r${normalizedRank}`;
+	const cacheKey = workerPriceCacheKey(slug, normalizedRank);
 
 	await env.PRICE_CACHE.put(cacheKey, JSON.stringify(data), {
 		expirationTtl: cacheTtlSec(env),
@@ -341,8 +246,8 @@ export async function putPricePayload(
 
 export async function markPriceNoData(env: Env, slug: string, rank?: number | null): Promise<void> {
 	const normalizedRank = normalizeRankFilter(rank);
-	const cacheKey = normalizedRank == null ? `price:${slug}` : `price:${slug}:r${normalizedRank}`;
-	const missKey = normalizedRank == null ? `${MISS_PRICE_PREFIX}${slug}` : `${MISS_PRICE_PREFIX}${slug}:r${normalizedRank}`;
+	const cacheKey = workerPriceCacheKey(slug, normalizedRank);
+	const missKey = workerMissCacheKey(MISS_PRICE_PREFIX, slug, normalizedRank);
 	await Promise.all([env.PRICE_CACHE.delete(cacheKey), env.PRICE_CACHE.put(missKey, '1', { expirationTtl: cacheTtlSec(env) })]);
 }
 
@@ -361,7 +266,7 @@ export async function putOrderSummaryPayload(
 	rank?: number | null,
 ): Promise<Record<string, unknown>> {
 	const normalizedRank = normalizeRankFilter(rank);
-	const cacheKey = normalizedRank == null ? `orders-summary:${slug}` : `orders-summary:${slug}:r${normalizedRank}`;
+	const cacheKey = workerOrderSummaryCacheKey(slug, normalizedRank);
 
 	await env.PRICE_CACHE.put(cacheKey, JSON.stringify(payload), {
 		expirationTtl: orderSummaryCacheTtlSec(env),
@@ -544,12 +449,14 @@ export async function prewarmOrderSummaryCatalog(
 							timestamp: Date.now(),
 						};
 						await putOrderSummaryPayload(env, entry.slug, emptyPayload, rank);
-						snapshotOrderSummaries[`${entry.slug}:r${rank}`] = {
-							status: 'no_data',
-							wts: null,
-							wtb: null,
-							timestamp: emptyPayload.timestamp,
-						};
+						const snapshotKey = snapshotOrderSummaryCacheKey(entry.slug, rank);
+						if (snapshotKey)
+							snapshotOrderSummaries[snapshotKey] = {
+								status: 'no_data',
+								wts: null,
+								wtb: null,
+								timestamp: emptyPayload.timestamp,
+							};
 						result.updated += 1;
 					} else {
 						result.failures += 1;
@@ -560,12 +467,14 @@ export async function prewarmOrderSummaryCatalog(
 
 				const payload = buildOrderSummaryPayload(entry.slug, rank, ordersResult.data);
 				await putOrderSummaryPayload(env, entry.slug, payload, rank);
-				snapshotOrderSummaries[`${entry.slug}:r${rank}`] = {
-					status: payload.wts != null || payload.wtb != null ? 'ok' : 'no_data',
-					wts: payload.wts ?? null,
-					wtb: payload.wtb ?? null,
-					timestamp: payload.timestamp,
-				};
+				const snapshotKey = snapshotOrderSummaryCacheKey(entry.slug, rank);
+				if (snapshotKey)
+					snapshotOrderSummaries[snapshotKey] = {
+						status: payload.wts != null || payload.wtb != null ? 'ok' : 'no_data',
+						wts: payload.wts ?? null,
+						wtb: payload.wtb ?? null,
+						timestamp: payload.timestamp,
+					};
 				result.updated += 1;
 				result.processed += 1;
 			} catch {
@@ -574,19 +483,19 @@ export async function prewarmOrderSummaryCatalog(
 			}
 
 			// Also fetch and snapshot the ranked price (median) for this slug + rank.
-			// The client needs these as `{slug}:rank-v3:r{rank}` keys in snapshot.prices.
 			try {
+				const snapshotPriceKey = snapshotPriceCacheKey(entry.slug, rank);
 				const priceResult = await fetchPricePayload(entry.slug, { rank });
 				if (priceResult.data) {
 					await putPricePayload(env, entry.slug, priceResult.data, rank);
-					snapshotPrices[`${entry.slug}:rank-v3:r${rank}`] = {
+					snapshotPrices[snapshotPriceKey] = {
 						status: 'ok',
 						median: priceResult.data.median,
 						timestamp: priceResult.data.timestamp,
 					};
 				} else if (priceResult.inactive) {
 					await markPriceNoData(env, entry.slug, rank);
-					snapshotPrices[`${entry.slug}:rank-v3:r${rank}`] = inactivePriceSnapshotEntry();
+					snapshotPrices[snapshotPriceKey] = inactivePriceSnapshotEntry();
 				}
 			} catch {
 				// Price fetch failure is non-fatal; order summary was already processed above.

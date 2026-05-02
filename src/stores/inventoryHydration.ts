@@ -50,6 +50,7 @@ import {
 } from "./hydration/hydrationCacheHelpers.js";
 import { hydrateItemMetrics, type HydrationContext } from "./hydration/hydrateItemMetrics.js";
 import { isRankedGroup } from "../../config/shared/numeric.js";
+import { rendererPriceCacheKey } from "../../config/shared/wfmCacheKeys.js";
 
 // Re-export types that consumers reference.
 
@@ -265,8 +266,8 @@ export function createInventoryHydrationController(): InventoryHydrationControll
         // snapshot data immediately without a full hydrateItemMetrics pass.
         if (isRankedGroup(item.inventoryGroup) && item.marketSlug && rankedMaxRank != null) {
           const slug = item.marketSlug;
-          const r0 = getCachedMedian(`${slug}:rank-v3:r0`);
-          const rmax = getCachedMedian(`${slug}:rank-v3:r${rankedMaxRank}`);
+          const r0 = getCachedMedian(rendererPriceCacheKey(slug, 0));
+          const rmax = getCachedMedian(rendererPriceCacheKey(slug, rankedMaxRank));
           const ordersR0 = needs.orders ? getCachedRankOrderSummary(slug, 0) : null;
           const ordersRmax = needs.orders ? getCachedRankOrderSummary(slug, rankedMaxRank) : null;
           const platinum = requestedRank === rankedMaxRank ? rmax : r0;
