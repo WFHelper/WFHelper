@@ -355,7 +355,7 @@
                 </div>
               </div>
               <button class="font-display text-[0.8rem] font-bold py-[0.45rem] px-5 rounded-[0.4rem] border-0 bg-accent-bright text-bg-base cursor-pointer transition-all duration-150 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed hover:enabled:brightness-[1.15]" onclick={handleListOnWfm} disabled={listingBusy}>
-                {isContractListing ? "Edit contract" : listingBusy ? "Listing…" : "List on WFMarket"}
+                {listingBusy ? (isContractListing ? "Saving..." : "Listing...") : isContractListing ? "Edit contract" : "List on WFMarket"}
               </button>
             </div>
             {#if listingError}

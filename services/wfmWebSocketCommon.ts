@@ -1,15 +1,33 @@
 import crypto from "node:crypto";
-import type { RawData } from "ws";
+import WebSocket, { type RawData } from "ws";
 
-export const WFM_WS_URL = "wss://ws.warframe.market/socket";
-export const WFM_WS_PROTOCOL = "wfm";
-export const WFM_WS_ORIGIN = "https://warframe.market";
+const WFM_WS_URL = "wss://ws.warframe.market/socket";
+const WFM_WS_PROTOCOL = "wfm";
+const WFM_WS_ORIGIN = "https://warframe.market";
 export const WFM_WS_TIMEOUT_MS = 15_000;
-export const WFM_WS_MAX_PAYLOAD_BYTES = 1024 * 1024;
+const WFM_WS_MAX_PAYLOAD_BYTES = 1024 * 1024;
 
-export function generateWfmWsId(): string {
+function generateWfmWsId(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   return Array.from(crypto.randomBytes(11), (b) => chars[b % chars.length]).join("");
+}
+
+export function createWfmWebSocket(options: { handshakeTimeout?: number } = {}): WebSocket {
+  return new WebSocket(WFM_WS_URL, WFM_WS_PROTOCOL, {
+    origin: WFM_WS_ORIGIN,
+    handshakeTimeout: options.handshakeTimeout,
+    maxPayload: WFM_WS_MAX_PAYLOAD_BYTES,
+    perMessageDeflate: false,
+  });
+}
+
+export function sendWfmWsMessage(
+  socket: WebSocket,
+  route: string,
+  payload: Record<string, unknown>,
+): void {
+  if (socket.readyState !== WebSocket.OPEN) return;
+  socket.send(JSON.stringify({ route, payload, id: generateWfmWsId() }));
 }
 
 function rawDataToString(data: RawData): string {

@@ -4,35 +4,19 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 import type { WfmStatus } from "../config/shared/wfm";
 import { withScope } from "./logger";
 import {
-  WFM_WS_MAX_PAYLOAD_BYTES,
-  WFM_WS_ORIGIN,
-  WFM_WS_PROTOCOL,
   WFM_WS_TIMEOUT_MS,
-  WFM_WS_URL,
-  generateWfmWsId,
+  createWfmWebSocket,
   parseWfmWsMessage,
+  sendWfmWsMessage,
 } from "./wfmWebSocketCommon";
 
 const log = withScope("wfmWebSocket");
-
-function createWfmSocket(): WebSocket {
-  return new WebSocket(WFM_WS_URL, WFM_WS_PROTOCOL, {
-    origin: WFM_WS_ORIGIN,
-    handshakeTimeout: WFM_WS_TIMEOUT_MS,
-    maxPayload: WFM_WS_MAX_PAYLOAD_BYTES,
-    perMessageDeflate: false,
-  });
-}
-
-function sendWfm(socket: WebSocket, route: string, payload: Record<string, unknown>): void {
-  socket.send(JSON.stringify({ route, payload, id: generateWfmWsId() }));
-}
 
 export function setStatusViaWebSocket(token: string, status: WfmStatus): Promise<void> {
   return new Promise((resolve, reject) => {
     let settled = false;
     let statusOk = false;
-    const socket = createWfmSocket();
+    const socket = createWfmWebSocket({ handshakeTimeout: WFM_WS_TIMEOUT_MS });
 
     const timer = setTimeout(() => {
       done(new Error("WFM WebSocket timeout"));
@@ -61,7 +45,7 @@ export function setStatusViaWebSocket(token: string, status: WfmStatus): Promise
     }
 
     socket.on("open", () => {
-      sendWfm(socket, "@wfm|cmd/auth/signIn", { token });
+      sendWfmWsMessage(socket, "@wfm|cmd/auth/signIn", { token });
     });
 
     socket.on("message", (data) => {
@@ -77,7 +61,7 @@ export function setStatusViaWebSocket(token: string, status: WfmStatus): Promise
       }
 
       if (route.includes("auth/signIn:ok")) {
-        sendWfm(socket, "@wfm|cmd/status/set", { status });
+        sendWfmWsMessage(socket, "@wfm|cmd/status/set", { status });
         return;
       }
 

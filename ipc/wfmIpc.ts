@@ -1,4 +1,5 @@
 import { assertMainRendererSender, handleAuthorized } from "./ipcSecurity";
+import { isObject, trimmedString } from "./ipcValidators";
 import type { WfmStatus } from "../config/shared/wfm";
 import {
   errorCode,
@@ -53,7 +54,7 @@ function _handleWfmEvent(route: string, payload: unknown): void {
 
   // Whisper / direct message
   if (route.includes("message/new") || route.includes("message/create")) {
-    const p = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+    const p = isObject(payload) ? payload : {};
     const from =
       typeof p.from === "string"
         ? p.from
@@ -171,11 +172,8 @@ function register(): void {
   });
 
   handleAuthorized(WFM_LOOKUP_ITEM, assertMainRendererSender, async (_event, payload) => {
-    const slugRaw =
-      payload && typeof payload === "object" && "slug" in payload
-        ? (payload as { slug?: unknown }).slug
-        : null;
-    const slug = typeof slugRaw === "string" ? slugRaw.trim().toLowerCase() : "";
+    const slugRaw = isObject(payload) ? payload.slug : null;
+    const slug = trimmedString(slugRaw, 120)?.toLowerCase() ?? "";
 
     if (!slug || !WFM_SLUG_RE.test(slug)) {
       log.warn("[Security] wfm:lookup-item-by-slug blocked due to invalid payload");

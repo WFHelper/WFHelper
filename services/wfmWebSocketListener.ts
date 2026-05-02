@@ -3,12 +3,9 @@ import WebSocket from "ws";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { withScope } from "./logger";
 import {
-  WFM_WS_MAX_PAYLOAD_BYTES,
-  WFM_WS_ORIGIN,
-  WFM_WS_PROTOCOL,
-  WFM_WS_URL,
-  generateWfmWsId,
+  createWfmWebSocket,
   parseWfmWsMessage,
+  sendWfmWsMessage,
 } from "./wfmWebSocketCommon";
 
 const log = withScope("wfmWebSocketListener");
@@ -69,21 +66,12 @@ function _scheduleReconnect(): void {
   }, delay);
 }
 
-function _sendWfm(socket: WebSocket, route: string, payload: Record<string, unknown>): void {
-  if (socket.readyState !== WebSocket.OPEN) return;
-  socket.send(JSON.stringify({ route, payload, id: generateWfmWsId() }));
-}
-
 function _connect(token: string): void {
   if (!_active) return;
 
   _destroySocket();
   let reconnecting = false;
-  const socket = new WebSocket(WFM_WS_URL, WFM_WS_PROTOCOL, {
-    origin: WFM_WS_ORIGIN,
-    maxPayload: WFM_WS_MAX_PAYLOAD_BYTES,
-    perMessageDeflate: false,
-  });
+  const socket = createWfmWebSocket();
 
   _socket = socket;
 
@@ -94,7 +82,7 @@ function _connect(token: string): void {
   };
 
   socket.on("open", () => {
-    _sendWfm(socket, "@wfm|cmd/auth/signIn", { token });
+    sendWfmWsMessage(socket, "@wfm|cmd/auth/signIn", { token });
     _pingTimer = setInterval(() => {
       if (socket.readyState === WebSocket.OPEN) socket.ping();
     }, PING_INTERVAL_MS);
