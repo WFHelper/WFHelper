@@ -1,5 +1,5 @@
 ﻿import { contextBridge, ipcRenderer } from "electron";
-import type { CreateRivenAuctionPayload } from "./config/shared/rivenTypes";
+import type { CreateRivenAuctionPayload, UpdateRivenAuctionPayload } from "./config/shared/rivenTypes";
 import {
   INVENTORY_GET, INVENTORY_OPEN_FILE, INVENTORY_GET_STATUS, INVENTORY_UPDATED,
   DB_GET_ITEM_DATABASE, DB_GET_WORLD_STATE, DB_GET_RELIC_DATABASE, DB_GET_WFM_ITEMS,
@@ -18,7 +18,7 @@ import {
   HELPER_GET_STATUS, HELPER_RUN_NOW, HELPER_DOWNLOAD, HELPER_DOWNLOAD_PROGRESS,
   RIVENS_GET, RIVENS_GET_WEAPON_NAMES, RIVENS_GET_STAT_OPTIONS,
   RIVENS_SEARCH_AUCTIONS, RIVENS_GET_WEAPON_TYPE, RIVENS_GET_BEST_ATTRIBUTES,
-  RIVENS_CREATE_AUCTION,
+  RIVENS_CREATE_AUCTION, RIVENS_UPDATE_AUCTION,
   WORLD_STATE_FETCH_ERROR,
 } from "./config/shared/ipcChannels";
 
@@ -115,6 +115,8 @@ contextBridge.exposeInMainWorld("tradeApi", {
   wfmSetStatus: (status: string) => ipcRenderer.invoke(WFM_SET_STATUS, { status }),
   createRivenAuction: (payload: CreateRivenAuctionPayload) =>
     ipcRenderer.invoke(RIVENS_CREATE_AUCTION, payload),
+  updateRivenAuction: (payload: UpdateRivenAuctionPayload) =>
+    ipcRenderer.invoke(RIVENS_UPDATE_AUCTION, payload),
 });
 } catch (err) {
   console.error("[Preload] FATAL: contextBridge.exposeInMainWorld failed:", err);

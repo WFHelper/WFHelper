@@ -1,4 +1,9 @@
-import type { CreateRivenAuctionPayload, IpcEventMap, IpcInvokeMap } from "./ipc.js";
+import type {
+  CreateRivenAuctionPayload,
+  IpcEventMap,
+  IpcInvokeMap,
+  UpdateRivenAuctionPayload,
+} from "./ipc.js";
 import type { WfmStatus } from "./market.js";
 
 export interface PreloadAPI {
@@ -109,4 +114,7 @@ export interface TradePreloadAPI {
   createRivenAuction: (
     payload: CreateRivenAuctionPayload,
   ) => Promise<IpcInvokeMap["createRivenAuction"]["return"]>;
+  updateRivenAuction: (
+    payload: UpdateRivenAuctionPayload,
+  ) => Promise<IpcInvokeMap["updateRivenAuction"]["return"]>;
 }

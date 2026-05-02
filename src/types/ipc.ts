@@ -151,10 +151,17 @@ type WfmMeResponse = WfmUserProfile | WfmMutationError | null;
 import type {
   CreateRivenAuctionPayload,
   DecodedRiven,
+  UpdateRivenAuctionPayload,
   VeiledRivenEntry,
   VeiledRivenGroup,
 } from "../../config/shared/rivenTypes.js";
-export type { CreateRivenAuctionPayload, DecodedRiven, VeiledRivenEntry, VeiledRivenGroup };
+export type {
+  CreateRivenAuctionPayload,
+  DecodedRiven,
+  UpdateRivenAuctionPayload,
+  VeiledRivenEntry,
+  VeiledRivenGroup,
+};
 
 export interface IpcInvokeMap {
   getInventory: {
@@ -339,6 +346,10 @@ export interface IpcInvokeMap {
   };
   createRivenAuction: {
     args: [payload: CreateRivenAuctionPayload];
+    return: { ok: boolean; auctionId?: string; error?: string };
+  };
+  updateRivenAuction: {
+    args: [payload: UpdateRivenAuctionPayload];
     return: { ok: boolean; auctionId?: string; error?: string };
   };
 }

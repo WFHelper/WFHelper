@@ -68,7 +68,7 @@ describe("wfmContracts normalization", () => {
       quantity: 2,
       visible: true,
       isDirectSell: false,
-      listingUrl: "https://warframe.market/auctions/65f6d1f9f8f87e16d88c7a11",
+      listingUrl: "https://warframe.market/auction/65f6d1f9f8f87e16d88c7a11",
       stats: [
         {
           urlName: "critical_chance",
@@ -153,5 +153,21 @@ describe("wfmContracts normalization", () => {
       totalPages: null,
       hasMore: false,
     });
+  });
+
+  it("tries the known auction endpoints before dead contract probes", () => {
+    const candidates = __test__.endpointCandidates("MrZockerator", 1, 40);
+    expect(candidates.slice(0, 2)).toEqual([
+      {
+        name: "v1_my_profile_auctions",
+        api: "v1",
+        path: "/profile/auctions?limit=40",
+      },
+      {
+        name: "v1_profile_auctions",
+        api: "v1",
+        path: "/profile/mrzockerator/auctions?limit=40",
+      },
+    ]);
   });
 });

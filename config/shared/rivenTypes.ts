@@ -64,3 +64,11 @@ export interface CreateRivenAuctionPayload {
   isPrivate: boolean;
   description: string;
 }
+
+export interface UpdateRivenAuctionPayload {
+  auctionId: string;
+  buyoutPrice: number | null;
+  startingPrice: number;
+  isPrivate: boolean;
+  description: string;
+}

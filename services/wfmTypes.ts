@@ -40,6 +40,11 @@ export interface WfmAuctionCreatePayload {
   auction: { id: string };
 }
 
+export interface WfmAuctionUpdatePayload {
+  auction?: { id: string };
+  [key: string]: unknown;
+}
+
 
 /** v2 order response: the `data` field of a v2 order mutation response. */
 export interface WfmRawOrder {

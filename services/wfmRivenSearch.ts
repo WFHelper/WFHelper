@@ -6,7 +6,12 @@
  */
 
 import { withScope } from "./logger";
-import type { WfmRawAuction, WfmAuctionSearchPayload, WfmAuctionCreatePayload } from "./wfmTypes";
+import type {
+  WfmRawAuction,
+  WfmAuctionSearchPayload,
+  WfmAuctionCreatePayload,
+  WfmAuctionUpdatePayload,
+} from "./wfmTypes";
 import { unwrapWfmResponse } from "./wfmTypes";
 import * as wfmClient from "./wfmClient";
 
@@ -189,6 +194,14 @@ interface CreateAuctionOpts {
   description: string;
 }
 
+interface UpdateAuctionOpts {
+  auctionId: string;
+  buyoutPrice: number | null;
+  startingPrice: number;
+  isPrivate: boolean;
+  description: string;
+}
+
 /**
  * Create a riven auction on warframe.market.
  * Requires the user to be logged in (JWT token set in wfmClient).
@@ -230,6 +243,40 @@ export async function createRivenAuction(
     const msg = err instanceof Error ? err.message : String(err);
     log.warn(`[WfmRivenSearch] Create auction failed for "${opts.weaponSlug}":`, msg);
     log.warn(`[WfmRivenSearch] Request body:`, JSON.stringify(body));
+    return { ok: false, error: msg };
+  }
+}
+
+export async function updateRivenAuction(
+  opts: UpdateAuctionOpts,
+): Promise<{ ok: boolean; auctionId?: string; error?: string }> {
+  const body: Record<string, unknown> = {
+    starting_price: opts.startingPrice,
+    minimal_reputation: 0,
+    visible: !opts.isPrivate,
+    note: opts.description.trim(),
+  };
+
+  if (opts.buyoutPrice != null && opts.buyoutPrice > 0) {
+    body.buyout_price = opts.buyoutPrice;
+  } else {
+    body.buyout_price = null;
+  }
+
+  try {
+    log.log(`[WfmRivenSearch] Updating auction ${opts.auctionId}`);
+    const data = await wfmClient.request(
+      "PUT",
+      `/auctions/entry/${encodeURIComponent(opts.auctionId)}`,
+      { json: body },
+    );
+    const payload = unwrapWfmResponse<WfmAuctionUpdatePayload>(data);
+    const auctionId = payload?.auction?.id || opts.auctionId;
+    log.log(`[WfmRivenSearch] Updated auction ${auctionId}`);
+    return { ok: true, auctionId };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.warn(`[WfmRivenSearch] Update auction failed for ${opts.auctionId}:`, msg);
     return { ok: false, error: msg };
   }
 }

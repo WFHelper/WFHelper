@@ -71,6 +71,7 @@ export const RIVENS_SEARCH_AUCTIONS = "search-riven-auctions";
 export const RIVENS_GET_WEAPON_TYPE = "get-weapon-riven-type";
 export const RIVENS_GET_BEST_ATTRIBUTES = "get-riven-best-attributes";
 export const RIVENS_CREATE_AUCTION = "create-riven-auction";
+export const RIVENS_UPDATE_AUCTION = "update-riven-auction";
 
 export const OVERLAY_GET_SETTINGS = "overlay:get-settings";
 export const OVERLAY_SET_SETTINGS = "overlay:set-settings";

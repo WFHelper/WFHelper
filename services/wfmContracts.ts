@@ -216,7 +216,7 @@ function normalizeContract(raw: unknown): NormalisedContract | null {
     updatedAt: toIsoTimestamp(r.updated_at ?? r.updatedAt),
     note: toNonEmptyString(r.note) || null,
     stats: (attributesRaw.map(normalizeAttribute).filter(Boolean) as NormalisedAttribute[]),
-    listingUrl: `https://warframe.market/auctions/${encodeURIComponent(id)}`,
+    listingUrl: `https://warframe.market/auction/${encodeURIComponent(id)}`,
     sourceType:
       toNonEmptyString(r.type) ||
       toNonEmptyString(r.contract_type) ||
@@ -307,7 +307,23 @@ function endpointCandidates(
   const query = buildQuery(page, limit);
   const encodedUser = encodeURIComponent((userName || "").toLowerCase());
 
-  const candidates: EndpointCandidate[] = [
+  const candidates: EndpointCandidate[] = [];
+
+  candidates.push({
+    name: "v1_my_profile_auctions",
+    api: "v1",
+    path: `/profile/auctions${query}`,
+  });
+
+  if (encodedUser) {
+    candidates.push({
+      name: "v1_profile_auctions",
+      api: "v1",
+      path: `/profile/${encodedUser}/auctions${query}`,
+    });
+  }
+
+  candidates.push(
     {
       name: "v2_contracts_my",
       api: "v2",
@@ -318,7 +334,7 @@ function endpointCandidates(
       api: "v2",
       path: `/auctions/my${query}`,
     },
-  ];
+  );
 
   if (encodedUser) {
     candidates.push(
@@ -336,11 +352,6 @@ function endpointCandidates(
         name: "v1_profile_contracts",
         api: "v1",
         path: `/profile/${encodedUser}/contracts${query}`,
-      },
-      {
-        name: "v1_profile_auctions",
-        api: "v1",
-        path: `/profile/${encodedUser}/auctions${query}`,
       },
     );
   }

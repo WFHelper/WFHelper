@@ -21,6 +21,7 @@
   import MarketContractRow from "../components/market/MarketContractRow.svelte";
   import MarketOrderRow from "../components/market/MarketOrderRow.svelte";
   import InventoryOrderBookPanel from "../components/inventory/InventoryOrderBookPanel.svelte";
+  import RivenDetailModal from "../modals/RivenDetailModal.svelte";
   import ThemedInput from "../components/ThemedInput.svelte";
   import { sharedFilters } from "../stores/filters.js";
   import { applySharedFiltersAndSort } from "../lib/filters.js";
@@ -39,6 +40,7 @@
     WfmOrder,
     WfmStatus,
   } from "../types/market.js";
+  import type { DecodedRiven } from "../types/ipc.js";
 
   const ORDERS_STALE_MS = 30_000;
   const CONTRACTS_STALE_MS = 60_000;
@@ -100,6 +102,54 @@
     return "";
   }
 
+  function titleFromSlug(slug: string): string {
+    return slug.replace(/_/g, " ").replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+  }
+
+  function contractWeaponName(contract: WfmContract): string {
+    if (contract.weaponUrlName) return titleFromSlug(contract.weaponUrlName);
+    const withoutRiven = contract.itemName.replace(/\s+riven$/i, "").trim();
+    if (withoutRiven && withoutRiven !== contract.itemName) return withoutRiven;
+    if (contract.itemUrlName) return titleFromSlug(contract.itemUrlName.replace(/_riven$/i, ""));
+    return contract.itemName || "Riven";
+  }
+
+  function toRivenStat(attribute: WfmContractAttribute): DecodedRiven["stats"][number] {
+    const numericValue =
+      typeof attribute.value === "number" ? attribute.value : Number(attribute.value ?? 0);
+    const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
+    return {
+      tag: attribute.urlName || attribute.label,
+      name: attributeKeyword(attribute) || "Unknown",
+      displayValue: Math.abs(safeValue),
+      rollFloat: 0.5,
+      grade: "",
+      positive: attribute.positive ?? (safeValue >= 0),
+      multiplier: false,
+    };
+  }
+
+  function rivenFromContract(contract: WfmContract): DecodedRiven {
+    const weaponName = contractWeaponName(contract);
+    return {
+      itemId: contract.id,
+      weaponName,
+      weaponUniqueName: contract.weaponUrlName || contract.itemUrlName || "",
+      rivenName: contract.itemName || `${weaponName} Riven`,
+      masteryReq: contract.masteryLevel ?? 0,
+      currentRank: contract.modRank ?? 0,
+      maxRank: 8,
+      rerolls: contract.rerolls ?? 0,
+      polarity: contract.polarity ?? "",
+      disposition: 1,
+      stats: contract.stats.map(toRivenStat),
+      overallGrade: "",
+      attributeGrade: "",
+      statPerfectness: 0,
+      rivenType: "Riven Contract",
+    };
+  }
+
   function normalizeContractForFilter(
     contract: WfmContract,
   ): WfmContract & {
@@ -134,6 +184,7 @@
   let contractsLoading = false;
   let contractsError = "";
   let selectedOrderItemKey: string | null = null;
+  let selectedContract: { contract: WfmContract; riven: DecodedRiven } | null = null;
 
   onMount(async () => {
     hydration.resume();
@@ -368,6 +419,10 @@
     send("open-external", contract.listingUrl);
   }
 
+  function editContractListing(contract: WfmContract): void {
+    selectedContract = { contract, riven: rivenFromContract(contract) };
+  }
+
   $: isRivensTab = $marketViewState.typeTab === "rivens";
   $: activeOrders = isOrdersTab($marketViewState.typeTab)
     ? ($marketOrders[$marketViewState.typeTab] || [])
@@ -549,6 +604,7 @@
                 {contract}
                 compact={$marketDensity === "compact"}
                 onOpen={openContractListing}
+                onEdit={editContractListing}
               />
             {/each}
 
@@ -589,6 +645,15 @@
     </div>
   {/if}
 </section>
+
+{#if selectedContract}
+  <RivenDetailModal
+    riven={selectedContract.riven}
+    contract={selectedContract.contract}
+    oncontractupdated={() => void fetchContracts()}
+    onclose={() => (selectedContract = null)}
+  />
+{/if}
 
 <style>
   .statusOnlineActive {

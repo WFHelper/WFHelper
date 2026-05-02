@@ -7,13 +7,16 @@
   import { invoke, tradeInvoke } from "../lib/ipc.js";
   import { gradeColor, attrGradeColor, dispoStars } from "../lib/rivenGradeColors.js";
   import DetailModalBase from "./DetailModalBase.svelte";
+  import type { WfmContract } from "../types/market.js";
 
   interface Props {
     riven: DecodedRiven;
     onclose: () => void;
+    contract?: WfmContract | null;
+    oncontractupdated?: () => void;
   }
 
-  let { riven, onclose }: Props = $props();
+  let { riven, onclose, contract = null, oncontractupdated }: Props = $props();
 
   let similarListings = $state<
     { listing: WfmRivenListing; pct: number; matchedNames: Set<string> }[]
@@ -31,6 +34,23 @@
   let bestAttrs = $state<RivenBestAttributes | null>(null);
   let showAllListings = $state(false);
   const DEFAULT_LISTING_COUNT = 20;
+  const isContractListing = $derived(contract != null);
+
+  function plainNote(note: string | null | undefined): string {
+    return String(note ?? "")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .trim();
+  }
+
+  $effect(() => {
+    if (!contract) return;
+    listingType = contract.isDirectSell === false ? "auction" : "direct";
+    listingVisibility = contract.visible === false ? "private" : "public";
+    listingDescription = plainNote(contract.note);
+    listingPrice = contract.platinum;
+  });
 
   function computeSimilarity(
     myStatNames: string[],
@@ -109,25 +129,34 @@
     const buyoutPrice = listingType === "direct" ? listingPrice : null;
     const startingPrice = listingPrice;
 
-    const result = await tradeInvoke("createRivenAuction", {
-      weaponName: riven.weaponName,
-      rivenName: riven.rivenName,
-      stats,
-      rerolls: riven.rerolls,
-      masteryReq: riven.masteryReq,
-      polarity: riven.polarity,
-      modRank: riven.currentRank,
-      buyoutPrice,
-      startingPrice,
-      isPrivate: listingVisibility === "private",
-      description: listingDescription,
-    });
+    const result = contract
+      ? await tradeInvoke("updateRivenAuction", {
+          auctionId: contract.id,
+          buyoutPrice,
+          startingPrice,
+          isPrivate: listingVisibility === "private",
+          description: listingDescription,
+        })
+      : await tradeInvoke("createRivenAuction", {
+          weaponName: riven.weaponName,
+          rivenName: riven.rivenName,
+          stats,
+          rerolls: riven.rerolls,
+          masteryReq: riven.masteryReq,
+          polarity: riven.polarity,
+          modRank: riven.currentRank,
+          buyoutPrice,
+          startingPrice,
+          isPrivate: listingVisibility === "private",
+          description: listingDescription,
+        });
 
     listingBusy = false;
     if (result.ok) {
-      listingSuccess = "Listed on WFMarket!";
+      listingSuccess = contract ? "Contract updated." : "Listed on WFMarket!";
+      oncontractupdated?.();
     } else {
-      listingError = result.error || "Failed to create auction";
+      listingError = result.error || (contract ? "Failed to update auction" : "Failed to create auction");
     }
   }
 
@@ -154,14 +183,18 @@
     <div class="mb-5">
       <div class="flex items-center gap-3">
         <h2 class="font-display text-[2.1rem] font-bold text-white m-0">{riven.rivenName || riven.weaponName}</h2>
-        <span class="font-display text-[2.1rem] font-extrabold shrink-0" style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span>
+        {#if !isContractListing}
+          <span class="font-display text-[2.1rem] font-extrabold shrink-0" style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span>
+        {/if}
       </div>
       <div class="flex gap-[0.85rem] flex-wrap mt-2 font-display text-[0.875rem] text-text-muted">
-        <span class="uppercase tracking-[0.04em] text-accent-dim">{riven.rivenType}</span>
+        <span class="uppercase tracking-[0.04em] text-accent-dim">{isContractListing ? (contract?.isDirectSell ? "Direct sale" : "Auction") : riven.rivenType}</span>
         {#if typeof weaponDbEntry?.vaulted === "boolean"}
           <span class="detail-tag" class:vaulted={weaponDbEntry.vaulted} class:mastered={!weaponDbEntry.vaulted}>{weaponDbEntry.vaulted ? "VAULTED" : "UNVAULTED"}</span>
         {/if}
-        <span class="tracking-[-0.3px]" title="Disposition: {riven.disposition.toFixed(3)}">{dispoStars(riven.disposition)} {riven.disposition.toFixed(2)}</span>
+        {#if !isContractListing}
+          <span class="tracking-[-0.3px]" title="Disposition: {riven.disposition.toFixed(3)}">{dispoStars(riven.disposition)} {riven.disposition.toFixed(2)}</span>
+        {/if}
         <span>{riven.rerolls} rolls</span>
         <span>Rank {riven.currentRank}/{riven.maxRank}</span>
         {#if riven.masteryReq > 0}
@@ -171,6 +204,7 @@
     </div>
 
     <div>
+      {#if !isContractListing}
       <div class="grid grid-cols-2 gap-4 mb-5">
         <div class="flex flex-col items-center p-4 bg-bg-surface border border-border rounded-[0.625rem] gap-[0.3rem]">
           <span class="font-display text-[0.75rem] uppercase tracking-[0.08em] text-text-muted">Roll Quality</span>
@@ -186,6 +220,7 @@
           </span>
         </div>
       </div>
+      {/if}
 
       <div>
         <h3 class="font-display text-[0.8rem] uppercase tracking-[0.08em] text-text-muted m-0 mb-[0.625rem]">Attributes</h3>
@@ -198,13 +233,15 @@
                 </span>
                 <span class="text-[1.05rem] text-text-primary overflow-hidden text-ellipsis whitespace-nowrap">{stat.name}</span>
               </div>
-              <div class="w-[100px] h-[6px] bg-bg-raised rounded-[3px] shrink-0 overflow-hidden">
-                <div
-                  class="h-full rounded-sm transition-[width] duration-300 {stat.positive ? 'bg-success' : 'bg-danger'}"
-                  style="width: {Math.min((stat.positive ? stat.rollFloat : 1 - stat.rollFloat) * 100, 100)}%"
-                ></div>
-              </div>
-              <span class="font-display font-bold text-[1.05rem] min-w-[1.5rem] text-center shrink-0" style="color: {gradeColor(stat.grade)}">{stat.grade}</span>
+              {#if !isContractListing}
+                <div class="w-[100px] h-[6px] bg-bg-raised rounded-[3px] shrink-0 overflow-hidden">
+                  <div
+                    class="h-full rounded-sm transition-[width] duration-300 {stat.positive ? 'bg-success' : 'bg-danger'}"
+                    style="width: {Math.min((stat.positive ? stat.rollFloat : 1 - stat.rollFloat) * 100, 100)}%"
+                  ></div>
+                </div>
+                <span class="font-display font-bold text-[1.05rem] min-w-[1.5rem] text-center shrink-0" style="color: {gradeColor(stat.grade)}">{stat.grade}</span>
+              {/if}
             </div>
           {/each}
         </div>
@@ -284,7 +321,7 @@
       </div>
 
       <div class="mt-6 border-t border-border pt-4">
-        <h3 class="font-display text-[0.8rem] uppercase tracking-[0.08em] text-text-muted m-0 mb-[0.625rem]">List on WFMarket:</h3>
+        <h3 class="font-display text-[0.8rem] uppercase tracking-[0.08em] text-text-muted m-0 mb-[0.625rem]">{isContractListing ? "WFMarket contract:" : "List on WFMarket:"}</h3>
         {#if !isLoggedIn}
           <div class="text-[0.85rem] text-text-muted text-center py-3">Log in to WFMarket to list this riven.</div>
         {:else}
@@ -318,7 +355,7 @@
                 </div>
               </div>
               <button class="font-display text-[0.8rem] font-bold py-[0.45rem] px-5 rounded-[0.4rem] border-0 bg-accent-bright text-bg-base cursor-pointer transition-all duration-150 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed hover:enabled:brightness-[1.15]" onclick={handleListOnWfm} disabled={listingBusy}>
-                {listingBusy ? "Listing…" : "List on WFMarket"}
+                {isContractListing ? "Edit contract" : listingBusy ? "Listing…" : "List on WFMarket"}
               </button>
             </div>
             {#if listingError}
