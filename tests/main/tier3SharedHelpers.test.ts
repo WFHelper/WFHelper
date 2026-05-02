@@ -2,29 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { aggregateComponentOwnership } from "../../config/shared/componentOwnership";
 import { formatWfmAssetUrl } from "../../config/shared/wfm";
-import { encodeWfmWsFrame, parseWfmWsFrame } from "../../services/wfmWsProtocol";
 import {
   getBestAttributes as getMainBestAttributes,
   setRivenGoodRollsForTest,
 } from "../../services/rivenBestAttributes";
 
 describe("Tier 3 shared helpers", () => {
-  it("round-trips WFM websocket text frames", () => {
-    const messages = [
-      { route: "@wfm|cmd/auth/signIn", payload: { token: "test" }, id: "login" },
-      { route: "@wfm|cmd/subscriptions/add", payload: { channel: "orders" }, id: "subscribe" },
-      { route: "@wfm|cmd/ping", payload: {}, id: "ping" },
-    ];
-
-    for (const message of messages) {
-      const encoded = encodeWfmWsFrame(JSON.stringify(message));
-      const parsed = parseWfmWsFrame(encoded);
-      expect(parsed?.opcode).toBe(1);
-      expect(JSON.parse(parsed?.text || "{}")).toEqual(message);
-      expect(parsed?.rest.length).toBe(0);
-    }
-  });
-
   it("aggregates component ownership across inventory slices", () => {
     const owned = aggregateComponentOwnership(
       [{ ItemType: "/A", ItemCount: 2 }, { ItemType: "/B" }],

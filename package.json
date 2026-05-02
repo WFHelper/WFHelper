@@ -93,6 +93,7 @@
     "@napi-rs/system-ocr": "^1.0.2",
     "@sentry/browser": "^10.40.0",
     "@sentry/electron": "^7.9.0",
+    "@types/ws": "^8.18.1",
     "@wfcd/items": "^1.1272.0",
     "chokidar": "^4.0.0",
     "electron-log": "^5.4.3",
@@ -100,7 +101,8 @@
     "koffi": "^2.15.1",
     "onnxruntime-node": "^1.24.3",
     "uiohook-napi": "^1.5.4",
-    "warframe-public-export-plus": "^0.5.101"
+    "warframe-public-export-plus": "^0.5.101",
+    "ws": "^8.20.0"
   },
   "build": {
     "appId": "com.warframe.companion",
