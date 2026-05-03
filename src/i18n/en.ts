@@ -45,7 +45,8 @@ export const en = {
 
   "settings.title": "Settings",
   "settings.overlayTitle": "Relic Overlay",
-  "settings.overlayDescription": "Configure OCR trigger, world notifications, and scan behavior.",
+  "settings.overlayDescription":
+    "Configure OCR trigger, world notifications, and overlay behavior.",
   "settings.overlayRequirements":
     "For best OCR reliability, use Warframe Borderless Windowed mode and set in-game UI scale to 99%.",
   "settings.autoTrigger": "Auto trigger from EE.log",
@@ -56,10 +57,6 @@ export const en = {
   "settings.interactionHotkeyEnabled": "Enable overlay interaction toggle",
   "settings.interactionHotkey": "Overlay interaction toggle",
   "settings.interactionHotkeyPlaceholder": "Control+Tab",
-
-  "settings.ocrPasses": "OCR passes",
-  "settings.matchThreshold": "Match threshold",
-  "settings.ocrTimeout": "OCR timeout (ms)",
   "settings.save": "Save",
   "settings.resetDefaults": "Reset Defaults",
   "settings.testTrigger": "Test Trigger",

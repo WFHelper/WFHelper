@@ -40,9 +40,6 @@ export interface OverlaySettings {
   hotkey: string;
   interactionHotkeyEnabled: boolean;
   interactionHotkey: string;
-  ocrPasses: number;
-  matchThreshold: number;
-  ocrTimeoutMs: number;
   worldNotificationsEnabled: boolean;
   cycleAlerts: CycleAlerts;
   cycleAlertMinutesBefore: number;
@@ -365,7 +362,6 @@ export interface RivenBestAttributes {
   negatives: string[];
 }
 
-
 interface RivenResult {
   unveiled: DecodedRiven[];
   veiled: VeiledRivenEntry[];
@@ -399,7 +395,7 @@ import type {
   TradeType,
 } from "../../config/shared/statsTypes.js";
 import type { TradeMatchPayload } from "../../config/shared/tradeMatch.js";
-export type { DailyStatEntry,  SessionStats,  TradeEvent, TradeItem, TradeType };
+export type { DailyStatEntry, SessionStats, TradeEvent, TradeItem, TradeType };
 
 type WfmTradeMatchEvent = TradeMatchPayload;
 
@@ -427,4 +423,3 @@ export interface IpcSendMap {
   "overlay:push-relic-filters": [filters: { squadSize: number; tierFilter: string | null }];
   "open-external": [url: string];
 }
-

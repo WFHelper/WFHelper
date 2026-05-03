@@ -1,4 +1,3 @@
-
 import { normalizeErrorMessage } from "../../config/shared/errors";
 import { clampNumber } from "../../config/shared/numeric";
 import type { OverlaySettings } from "../../config/runtime/overlaySettings";
@@ -30,8 +29,6 @@ type OverlaySettingsControllerOptions = {
   ctx: OverlayCtx;
   settingsFile: string;
   defaults: OverlaySettingsDict;
-  limits: Record<string, number>;
-  rewardScanner: { setSettings: (settings: OverlaySettingsDict) => unknown };
   onRelicRewardTrigger: (source?: string) => void;
   onToggleOverlayInteractionMode: (source?: string) => void;
 };
@@ -82,8 +79,6 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     ctx,
     settingsFile,
     defaults,
-    limits,
-    rewardScanner,
     onRelicRewardTrigger,
     onToggleOverlayInteractionMode,
   } = options;
@@ -98,16 +93,11 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       .map((item) => {
         const r = item as Record<string, unknown>;
         return {
-          id:
-            typeof r.id === "string" && r.id
-              ? r.id
-              : Math.random().toString(36).slice(2, 10),
+          id: typeof r.id === "string" && r.id ? r.id : Math.random().toString(36).slice(2, 10),
           tier: typeof r.tier === "string" ? r.tier : "any",
           missionType: typeof r.missionType === "string" ? r.missionType : "any",
           steelPath:
-            r.steelPath === "normal" || r.steelPath === "steel"
-              ? (r.steelPath as string)
-              : "any",
+            r.steelPath === "normal" || r.steelPath === "steel" ? (r.steelPath as string) : "any",
           planet: typeof r.planet === "string" ? r.planet : "any",
         };
       });
@@ -150,35 +140,18 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
         candidate.interactionHotkey ?? defaults.interactionHotkey,
         String(defaults.interactionHotkey),
       ),
-      ocrPasses: Math.floor(
-        clampNumber(
-          candidate.ocrPasses,
-          limits.ocrPassesMin,
-          limits.ocrPassesMax,
-          Number(defaults.ocrPasses),
-        ),
-      ),
-      matchThreshold: clampNumber(
-        candidate.matchThreshold,
-        limits.matchThresholdMin,
-        limits.matchThresholdMax,
-        Number(defaults.matchThreshold),
-      ),
-      ocrTimeoutMs: Math.floor(
-        clampNumber(
-          candidate.ocrTimeoutMs,
-          limits.ocrTimeoutMsMin,
-          limits.ocrTimeoutMsMax,
-          Number(defaults.ocrTimeoutMs),
-        ),
-      ),
       worldNotificationsEnabled:
         candidate.worldNotificationsEnabled !== undefined
           ? !!candidate.worldNotificationsEnabled
           : !!defaults.worldNotificationsEnabled,
       cycleAlerts: normalizeCycleAlerts(candidate.cycleAlerts, defaults.cycleAlerts),
       cycleAlertMinutesBefore: Math.floor(
-        clampNumber(candidate.cycleAlertMinutesBefore, 0, 120, Number((defaults as Record<string, unknown>).cycleAlertMinutesBefore ?? 3)),
+        clampNumber(
+          candidate.cycleAlertMinutesBefore,
+          0,
+          120,
+          Number((defaults as Record<string, unknown>).cycleAlertMinutesBefore ?? 3),
+        ),
       ),
       fissureAlerts: normalizeFissureAlerts(candidate.fissureAlerts, defaults.fissureAlerts),
       wfmNotificationsEnabled:
@@ -201,7 +174,10 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       if (fs.existsSync(settingsFile)) {
         const raw = fs.readFileSync(settingsFile, "utf8");
         const parsed = JSON.parse(raw);
-        ctx.overlaySettings = normalizeOverlaySettings({ ...defaults, ...parsed }) as OverlaySettings;
+        ctx.overlaySettings = normalizeOverlaySettings({
+          ...defaults,
+          ...parsed,
+        }) as OverlaySettings;
       } else {
         ctx.overlaySettings = { ...defaults } as OverlaySettings;
       }
@@ -212,7 +188,6 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       );
       ctx.overlaySettings = { ...defaults } as OverlaySettings;
     }
-    rewardScanner.setSettings(ctx.overlaySettings);
     return ctx.overlaySettings;
   }
 
@@ -323,7 +298,6 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
         : {}),
     }) as OverlaySettings;
 
-    rewardScanner.setSettings(ctx.overlaySettings);
     saveOverlaySettings();
     return { ...ctx.overlaySettings };
   }

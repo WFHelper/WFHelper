@@ -7,17 +7,16 @@ import {
 } from "./ipcSecurity";
 import { createOverlaySettingsController } from "./overlay/settings";
 import { withScope } from "../services/logger";
-import { setSettings } from "../services/rewardScanner";
 import * as warframeStatus from "../services/warframeStatus";
 import * as rivenOverlayIpc from "./rivenOverlayIpc";
 import * as rewardOverlayIpc from "./rewardOverlayIpc";
+import { OVERLAY_SETTINGS_DEFAULTS } from "../config/runtime/overlaySettings";
 import {
-  OVERLAY_SETTINGS_DEFAULTS,
-  OVERLAY_SETTINGS_LIMITS,
-} from "../config/runtime/overlaySettings";
-import {
-  OVERLAY_INTERACTION_MODE, OVERLAY_THEME_VARS,
-  OVERLAY_GET_SETTINGS, OVERLAY_GET_THEME_VARS, OVERLAY_SET_SETTINGS,
+  OVERLAY_INTERACTION_MODE,
+  OVERLAY_THEME_VARS,
+  OVERLAY_GET_SETTINGS,
+  OVERLAY_GET_THEME_VARS,
+  OVERLAY_SET_SETTINGS,
   OVERLAY_THEME_UPDATED,
 } from "../config/shared/ipcChannels";
 import { OVERLAY_FORWARDED_CSS_VARS } from "../config/shared/themeCssVars";
@@ -28,13 +27,14 @@ import { globalShortcut, app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 
-
 function pushOverlayInteractionMode(): void {
   const payload = {
     interactive: !!ctx.overlayInteractiveMode,
   };
   rewardOverlayIpc.getRewardWindowsController().sendOverlayEvent(OVERLAY_INTERACTION_MODE, payload);
-  rewardOverlayIpc.getPlannerWindowsController().sendOverlayEvent(OVERLAY_INTERACTION_MODE, payload);
+  rewardOverlayIpc
+    .getPlannerWindowsController()
+    .sendOverlayEvent(OVERLAY_INTERACTION_MODE, payload);
 }
 
 async function bringOverlayToWarframeDisplayIfAvailable(): Promise<void> {
@@ -117,7 +117,6 @@ function toggleOverlayInteractionMode(source = "unknown"): void {
   setOverlayInteractionMode(!ctx.overlayInteractiveMode, source);
 }
 
-
 // Allowlist is derived from the shared list in config/shared/themeCssVars.ts so
 // renderer (sender) and main (gate) cannot drift. Update that file to add a new
 // themed variable.
@@ -157,7 +156,6 @@ function ensureOverlayWindowPrimed(): void {
   pushOverlayThemeVars();
 }
 
-
 function onRelicRewardTrigger(source = "manual"): void {
   rewardOverlayIpc.onRelicRewardTrigger(
     source,
@@ -176,12 +174,9 @@ const settingsController = createOverlaySettingsController({
   ctx,
   settingsFile: OVERLAY_SETTINGS_FILE,
   defaults: OVERLAY_SETTINGS_DEFAULTS,
-  limits: OVERLAY_SETTINGS_LIMITS,
-  rewardScanner: { setSettings },
   onRelicRewardTrigger,
   onToggleOverlayInteractionMode: toggleOverlayInteractionMode,
 });
-
 
 function onRelicSelectionTrigger(source: string): void {
   rewardOverlayIpc.onRelicSelectionTrigger(
@@ -195,7 +190,6 @@ function onRelicSelectionTrigger(source: string): void {
 function onRelicSelectionClose(): void {
   rewardOverlayIpc.onRelicSelectionClose(pushOverlayInteractionMode);
 }
-
 
 function register(): void {
   ensureOverlayWindowPrimed();
@@ -221,11 +215,15 @@ function register(): void {
     return { ...(ctx.overlayThemeVars || {}) };
   });
 
-  handleAuthorized(OVERLAY_SET_SETTINGS, assertMainRendererSender, async (_event, nextSettings: unknown) => {
-    const settings = settingsController.setOverlaySettings(nextSettings);
-    settingsController.registerOverlayHotkey();
-    return settings;
-  });
+  handleAuthorized(
+    OVERLAY_SET_SETTINGS,
+    assertMainRendererSender,
+    async (_event, nextSettings: unknown) => {
+      const settings = settingsController.setOverlaySettings(nextSettings);
+      settingsController.registerOverlayHotkey();
+      return settings;
+    },
+  );
 
   onAuthorized(OVERLAY_THEME_UPDATED, assertMainRendererSender, (_event, rawVars: unknown) => {
     const sanitized = sanitizeOverlayThemeVars(rawVars);
@@ -241,13 +239,7 @@ export const loadOverlaySettings = settingsController.loadOverlaySettings;
 export const registerOverlayHotkey = settingsController.registerOverlayHotkey;
 export const unregisterOverlayHotkey = settingsController.unregisterOverlayHotkey;
 
-export {
-  register,
-  
-  onRelicRewardTrigger,
-  onRelicSelectionTrigger,
-  onRelicSelectionClose,
-};
+export { register, onRelicRewardTrigger, onRelicSelectionTrigger, onRelicSelectionClose };
 
 // Re-export riven callbacks for main.ts wiring
 export {

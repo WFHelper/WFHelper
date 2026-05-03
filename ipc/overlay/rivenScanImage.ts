@@ -58,6 +58,27 @@ export function cropRivenStatArea(roughCrop: NativeImage): NativeImage {
   return trimmed.crop({ x: sx0, y: sy0, width: cropW, height: cropH });
 }
 
+export interface RivenStatImageCrop {
+  cardCrop: NativeImage;
+  statCrop: NativeImage;
+}
+
+export function cropRivenCardImage(image: NativeImage, rect: RivenScanCropRect): NativeImage {
+  return cropRectContent(image, rect, detectGameContentRect(image));
+}
+
+export function cropRivenStatImage(
+  image: NativeImage,
+  rect: RivenScanCropRect,
+): RivenStatImageCrop {
+  const cardCrop = cropRivenCardImage(image, rect);
+  return { cardCrop, statCrop: cropRivenStatArea(cardCrop) };
+}
+
+export function computeRivenFrameHashForCrop(image: NativeImage, rect: RivenScanCropRect): string {
+  return computeRivenFrameHash(cropRivenCardImage(image, rect));
+}
+
 interface TextBounds {
   left: number;
   top: number;

@@ -17,17 +17,9 @@ import path from "path";
 import type { NativeImage } from "electron";
 
 import { REWARD_FRAME_DEDUP_TTL_MS } from "../config/runtime/cacheConfig";
-import {
-  OVERLAY_SETTINGS_DEFAULTS,
-  OVERLAY_SETTINGS_LIMITS,
-  type OverlaySettings,
-} from "../config/runtime/overlaySettings";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { withScope } from "./logger";
-import {
-  captureScreenFast,
-  type CaptureResult,
-} from "./rewardScannerCapture";
+import { captureScreenFast, type CaptureResult } from "./rewardScannerCapture";
 import {
   buildOcrVariants,
   cropBand,
@@ -70,7 +62,6 @@ export { getAdaptiveStrategyHint } from "./rewardScannerSupport";
 
 const log = withScope("rewardScanner");
 
-
 interface TriggerStats {
   captureCount: number;
   captureMs: number;
@@ -82,7 +73,6 @@ interface TriggerStats {
 }
 
 let _lastTriggerStats: TriggerStats | null = null;
-
 
 let _lastFrameHash: string | null = null;
 let _lastFrameResult: { items: SortedItem[]; meta: Record<string, unknown> } | null = null;
@@ -119,77 +109,27 @@ export function resetFrameDedup(): void {
   _lastFrameHashTs = 0;
 }
 
-
-
-const DEFAULT_SCAN_SETTINGS: OverlaySettings = OVERLAY_SETTINGS_DEFAULTS as OverlaySettings;
+const REWARD_SCAN_SETTINGS = Object.freeze({
+  cropPreset: "balanced",
+  ocrPasses: 2,
+  matchThreshold: 0.74,
+  ocrTimeoutMs: 15_000,
+});
 
 let relicItems: SortedItem[] = [];
 let sortedItems: SortedItem[] = [];
-let scanSettings: OverlaySettings = sanitizeSettings(DEFAULT_SCAN_SETTINGS);
-
-
-function sanitizeSettings(raw: unknown): OverlaySettings {
-  const candidate = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-
-  return {
-    ...DEFAULT_SCAN_SETTINGS,
-    cropPreset: "balanced",
-    ocrPasses: Math.floor(
-      clampNumber(
-        candidate.ocrPasses,
-        OVERLAY_SETTINGS_LIMITS.ocrPassesMin,
-        OVERLAY_SETTINGS_LIMITS.ocrPassesMax,
-        DEFAULT_SCAN_SETTINGS.ocrPasses,
-      ),
-    ),
-    matchThreshold: clampNumber(
-      candidate.matchThreshold,
-      OVERLAY_SETTINGS_LIMITS.matchThresholdMin,
-      OVERLAY_SETTINGS_LIMITS.matchThresholdMax,
-      DEFAULT_SCAN_SETTINGS.matchThreshold,
-    ),
-    ocrTimeoutMs: Math.floor(
-      clampNumber(
-        candidate.ocrTimeoutMs,
-        OVERLAY_SETTINGS_LIMITS.ocrTimeoutMsMin,
-        OVERLAY_SETTINGS_LIMITS.ocrTimeoutMsMax,
-        DEFAULT_SCAN_SETTINGS.ocrTimeoutMs,
-      ),
-    ),
-  } as OverlaySettings;
-}
 
 export function setRelicItems(items: SortedItem[]): void {
   relicItems = Array.isArray(items) ? items : [];
   sortedItems = [...relicItems].sort((a, b) => b.name.length - a.name.length);
   log.log(`[RewardScanner] Item list updated: ${relicItems.length} items`);
 }
-
-export function setSettings(nextSettings: unknown): OverlaySettings {
-  const prev = scanSettings;
-  scanSettings = sanitizeSettings({ ...scanSettings, ...(nextSettings || {}) });
-
-  // Invalidate frame dedup when user changes matching threshold,
-  // so a cached result from the old settings doesn't persist.
-  if (prev.matchThreshold !== scanSettings.matchThreshold) {
-    resetFrameDedup();
-  }
-
-  return getSettings();
-}
-
-function getSettings(): OverlaySettings {
-  return { ...scanSettings };
-}
-
-
 const { runOCR, runOCRBuffer, runOCRStructuredBuffer } = createRewardOcrRunner({
   log,
   getRequestedEngine: () => "windows",
   ocrScriptPath: SCANNER_TUNING.paths.ocrScript,
   engineWindows: "windows",
 });
-
 
 function getBandsForPasses(
   presetName: string,
@@ -204,9 +144,8 @@ function getBandsForPasses(
 }
 
 function getPrimaryBand(): { top: number; height: number } {
-  return getBandsForPasses(String(scanSettings.cropPreset || "balanced"), 1)[0];
+  return getBandsForPasses(REWARD_SCAN_SETTINGS.cropPreset, 1)[0];
 }
-
 
 function buildScanMeta({
   screenshot,
@@ -270,8 +209,8 @@ function buildTempImagePath(basePath: string, label: string): string {
 }
 
 function computeRewardScanBudgetMs(): number {
-  const passes = Math.max(1, Math.floor(scanSettings.ocrPasses || 1));
-  const perAttempt = Math.max(500, Math.min(Number(scanSettings.ocrTimeoutMs) || 0, 2000));
+  const passes = Math.max(1, Math.floor(REWARD_SCAN_SETTINGS.ocrPasses || 1));
+  const perAttempt = Math.max(500, Math.min(Number(REWARD_SCAN_SETTINGS.ocrTimeoutMs) || 0, 2000));
   return Math.max(
     SCANNER_TUNING.budget.minMs,
     Math.min(SCANNER_TUNING.budget.maxMs, 800 + passes * 500 + perAttempt),
@@ -426,7 +365,7 @@ async function scanRewardSlotsFallback(
           const pngBuffer: Buffer = variant.image.toPNG();
           const structured = await runOCRStructuredBuffer(
             pngBuffer,
-            Math.max(500, Math.min(scanSettings.ocrTimeoutMs, remainingBudgetMs)),
+            Math.max(500, Math.min(REWARD_SCAN_SETTINGS.ocrTimeoutMs, remainingBudgetMs)),
           );
           const candidateTexts = extractRewardTitleTexts(structured);
           for (const candidateText of candidateTexts) {
@@ -505,7 +444,6 @@ async function scanRewardSlotsFallback(
   };
 }
 
-
 export async function detectRelicSelectionEra(
   options: { timeoutMs?: number; preferredDisplayId?: string | null } = {},
 ): Promise<{
@@ -547,7 +485,7 @@ export async function detectRelicSelectionEra(
     };
   }
 
-  const perAttemptTimeoutMs = Math.max(900, Math.min(scanSettings.ocrTimeoutMs, timeoutMs));
+  const perAttemptTimeoutMs = Math.max(900, Math.min(REWARD_SCAN_SETTINGS.ocrTimeoutMs, timeoutMs));
   let best: {
     era: string | null;
     confidence: number;
@@ -676,7 +614,6 @@ export async function detectRelicSelectionEra(
   };
 }
 
-
 /** Accepted pre-captured screenshot shape — same as CaptureResult from rewardScannerCapture. */
 interface PreCaptureResult {
   image: NativeImage;
@@ -768,11 +705,8 @@ export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null):
     return _lastFrameResult;
   }
 
-  const threshold = scanSettings.matchThreshold;
-  const bands = getBandsForPasses(
-    String(scanSettings.cropPreset || "balanced"),
-    scanSettings.ocrPasses,
-  );
+  const threshold = REWARD_SCAN_SETTINGS.matchThreshold;
+  const bands = getBandsForPasses(REWARD_SCAN_SETTINGS.cropPreset, REWARD_SCAN_SETTINGS.ocrPasses);
 
   // Adaptive strategy: reorder bands so the historically-winning band is tried first
   const adaptiveHint = getAdaptiveStrategyHint();
@@ -926,7 +860,7 @@ export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null):
         const ocrStart = Date.now();
         const structured = await runOCRStructuredBuffer(
           pngBuf,
-          Math.max(700, Math.min(scanSettings.ocrTimeoutMs, remainingBudgetMs)),
+          Math.max(700, Math.min(REWARD_SCAN_SETTINGS.ocrTimeoutMs, remainingBudgetMs)),
         );
         ocrTotalMs += Date.now() - ocrStart;
         ocrCallCount++;

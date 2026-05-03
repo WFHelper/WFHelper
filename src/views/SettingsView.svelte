@@ -2,7 +2,6 @@
   import { onMount } from "svelte";
   import { overlaySettings, overlaySettingsLoaded, OVERLAY_DEFAULTS, applyOverlaySettingsResponse } from "../stores/overlaySettings.js";
   import AppearanceCard from "../components/settings/AppearanceCard.svelte";
-  import { OVERLAY_SETTINGS_LIMITS } from "../config/overlay.js";
   import { invoke, send } from "../lib/ipc.js";
   import { tr } from "../lib/i18n.js";
   import type { OverlaySettings } from "../types/ipc.js";
@@ -19,9 +18,6 @@
   let hotkey = OVERLAY_DEFAULTS.hotkey;
   let interactionHotkeyEnabled = OVERLAY_DEFAULTS.interactionHotkeyEnabled;
   let interactionHotkey = OVERLAY_DEFAULTS.interactionHotkey;
-  let ocrPasses = OVERLAY_DEFAULTS.ocrPasses;
-  let matchThreshold = OVERLAY_DEFAULTS.matchThreshold;
-  let ocrTimeoutMs = OVERLAY_DEFAULTS.ocrTimeoutMs;
 
   function applyToForm(s: Partial<OverlaySettings>): void {
     autoTrigger = !!s.autoTriggerEnabled;
@@ -32,9 +28,6 @@
     hotkey = s.hotkey || OVERLAY_DEFAULTS.hotkey;
     interactionHotkeyEnabled = !!s.interactionHotkeyEnabled;
     interactionHotkey = s.interactionHotkey || OVERLAY_DEFAULTS.interactionHotkey;
-    ocrPasses = s.ocrPasses ?? OVERLAY_DEFAULTS.ocrPasses;
-    matchThreshold = s.matchThreshold ?? OVERLAY_DEFAULTS.matchThreshold;
-    ocrTimeoutMs = s.ocrTimeoutMs ?? OVERLAY_DEFAULTS.ocrTimeoutMs;
   }
 
   onMount(async () => {
@@ -60,9 +53,6 @@
       hotkey,
       interactionHotkeyEnabled,
       interactionHotkey,
-      ocrPasses: Math.floor(Number(ocrPasses)),
-      matchThreshold: Number(matchThreshold),
-      ocrTimeoutMs: Math.floor(Number(ocrTimeoutMs)),
     };
 
     try {
@@ -209,51 +199,6 @@
         </div>
       </article>
 
-      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
-        <div>
-          <h3 class="m-0 mb-[0.42rem] font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Scanner</h3>
-          <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">OCR tuning for reward detection and overlay matching.</p>
-        </div>
-
-        <div class="mt-2.5 grid gap-2">
-          <label class="settings-control-row settings-control-row-input">
-            <span>{$tr("settings.ocrPasses")}</span>
-            <input
-              type="number"
-              min={OVERLAY_SETTINGS_LIMITS.ocrPassesMin}
-              max={OVERLAY_SETTINGS_LIMITS.ocrPassesMax}
-              step="1"
-              bind:value={ocrPasses}
-              class="settings-input settings-input-number"
-            />
-          </label>
-
-          <label class="settings-control-row settings-control-row-input">
-            <span>{$tr("settings.matchThreshold")}</span>
-            <input
-              type="number"
-              min={OVERLAY_SETTINGS_LIMITS.matchThresholdMin}
-              max={OVERLAY_SETTINGS_LIMITS.matchThresholdMax}
-              step="0.01"
-              bind:value={matchThreshold}
-              class="settings-input settings-input-number"
-            />
-          </label>
-
-          <label class="settings-control-row settings-control-row-input">
-            <span>{$tr("settings.ocrTimeout")}</span>
-            <input
-              type="number"
-              min={OVERLAY_SETTINGS_LIMITS.ocrTimeoutMsMin}
-              max={OVERLAY_SETTINGS_LIMITS.ocrTimeoutMsMax}
-              step="500"
-              bind:value={ocrTimeoutMs}
-              class="settings-input settings-input-number"
-            />
-          </label>
-        </div>
-      </article>
-
       <div class="settings-wide-actions">
         <div class="flex flex-wrap gap-[0.35rem]">
           <button class="btn-primary btn-sm" on:click={save}>{$tr("settings.save")}</button>
@@ -320,10 +265,6 @@
 
   .settings-input:disabled {
     opacity: 0.55;
-  }
-
-  .settings-input-number {
-    max-width: 7.5rem;
   }
 
   .settings-wide-actions {

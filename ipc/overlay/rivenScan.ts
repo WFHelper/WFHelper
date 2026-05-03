@@ -1,65 +1,29 @@
 /**
  * OCR scanning for the riven rolling screen.
  *
- * Scanning strategy:
- *  1. Session opens -> scanInitialCard() - OCR the centered single card
- *  2. Roll confirmed -> scanNewRoll() - centered crop with edge detection to isolate the card.
- *
- * At 2750ms after roll confirm, the game may still be transitioning from the
- * single new-card display to the two-panel diorama layout. The centered crop captures
- * whatever card is visible at that moment, and edge detection narrows to the text area.
+ * Overlay/session timing stays in rivenOverlayIpc. This module owns scan state,
+ * the three public scan entrypoints, and one shared capture/hash/retry runner.
  */
 
-import type { NativeImage } from "electron";
-
 import { withScope } from "../../services/logger";
-import { captureScreenFast } from "../../services/rewardScannerCapture";
-import { cropRect } from "../../services/rewardScannerImage";
+import { captureScreenFast, type CaptureResult } from "../../services/rewardScannerCapture";
 import { sleep } from "../../services/rewardScannerUtils";
 import {
   abortRivenScanWaits,
-  computeRivenFrameHash,
+  computeRivenFrameHashForCrop,
   RIVEN_SCAN_CROPS,
   resetRivenScanWaits,
   type RivenScanCropRect,
   waitForRivenUiReady,
 } from "./rivenScanImage";
-import { recognizeRivenCardStats } from "./rivenScanOcr";
-import {
-  extractSignAndValue,
-  parseRivenStats,
-  preprocessOcrText,
-  sanitiseValue,
-  scoreStatsCandidate,
-  type RivenStat,
-} from "./rivenScanText";
+import { recognizeRivenCardStats, type RivenCardRecognitionResult } from "./rivenScanOcr";
+import type { RivenStat } from "./rivenScanText";
 
-export { parseRivenStats };
 export type { RivenStat } from "./rivenScanText";
 
 const log = withScope("rivenScan");
 
 const MIN_ACCEPTABLE_RIVEN_STATS = 2;
-
-// Display ID pinning: set from the initial card scan so all subsequent
-// captures (roll, choice) use the same monitor as the initial capture.
-let _rivenDisplayId: string | null = null;
-
-// Abort flag: set by abortRivenScans() to cancel between-iteration OCR work.
-let _ocrAborted = false;
-
-// Scan generation counter: incremented at the start of every public scan entry
-// (scanInitialCard / scanNewRoll). Inner loops capture their generation and abort
-// early when the counter has moved on, preventing a slow scan from publishing
-// stale results after a new scan has already started.
-let _scanGeneration = 0;
-
-const SINGLE_CARD_CROP = RIVEN_SCAN_CROPS.singleCard;
-const ROLL_CARD_CROP = RIVEN_SCAN_CROPS.rollCard;
-
-// GDI timeout hint for captures that MUST return a fresh frame (roll scans,
-// choice re-scans). GDI BitBlt always returns the current framebuffer, so this
-// is mainly a semantic marker passed through `captureScreenFast`.
 const DXGI_FRESH_TIMEOUT_MS = 100;
 
 export interface RollPanelResult {
@@ -74,43 +38,187 @@ interface InitialScanResult {
   footerText: string;
 }
 
+interface RivenScanProfile {
+  label: string;
+  crop: RivenScanCropRect;
+  readyMode?: "initial" | "roll" | "choice";
+  captureTimeoutMs?: number;
+  retryDelayMs: number;
+  acceptEqualRetry?: boolean;
+}
+
+interface RivenScanAttemptResult extends RivenCardRecognitionResult {
+  capture: CaptureResult | null;
+  elapsedMs: number;
+}
+
+const RIVEN_SCAN_PROFILES = Object.freeze({
+  initial: {
+    label: "initial-card",
+    crop: RIVEN_SCAN_CROPS.singleCard,
+    readyMode: "initial",
+    retryDelayMs: 650,
+  },
+  roll: {
+    label: "roll-right",
+    crop: RIVEN_SCAN_CROPS.rollCard,
+    captureTimeoutMs: DXGI_FRESH_TIMEOUT_MS,
+    retryDelayMs: 800,
+    acceptEqualRetry: true,
+  },
+  choice: {
+    label: "choice-rescan",
+    crop: RIVEN_SCAN_CROPS.singleCard,
+    captureTimeoutMs: DXGI_FRESH_TIMEOUT_MS,
+    retryDelayMs: 500,
+  },
+} satisfies Record<string, RivenScanProfile>);
+
+// Display ID pinning: set from the initial card scan so all subsequent
+// captures (roll, choice) use the same monitor as the initial capture.
+let _rivenDisplayId: string | null = null;
+
+// Abort flag: set by abortRivenScans() to cancel between-iteration OCR work.
+let _ocrAborted = false;
+
+// Incremented at each public scan entry so slow OCR cannot publish stale output.
+let _scanGeneration = 0;
+
 function isRivenScanStale(generation: number): boolean {
   return _ocrAborted || _scanGeneration !== generation;
 }
 
-async function retrySparseRivenScan<T>(
-  attemptLabel: string,
-  currentStats: RivenStat[],
-  retryDelayMs: number,
-  runRetry: () => Promise<T>,
-  getStats: (value: T) => RivenStat[],
-): Promise<T | null> {
-  if (currentStats.length >= MIN_ACCEPTABLE_RIVEN_STATS) return null;
-  log.log(
-    `[RivenScan] ${attemptLabel}: sparse result (${currentStats.length} stats), retrying in ${retryDelayMs}ms`,
-  );
-  await sleep(retryDelayMs);
-  const retried = await runRetry();
-  const retriedStats = getStats(retried);
-  if (retriedStats.length > currentStats.length) {
-    log.log(`[RivenScan] ${attemptLabel}: retry improved to ${retriedStats.length} stats`);
-    return retried;
-  }
-  return null;
+function emptyRecognitionResult(): RivenCardRecognitionResult {
+  return { text: "", titleText: "", footerText: "", stats: [] };
 }
 
-async function scanRivenStatsFromImage(
-  image: NativeImage,
-  rect: RivenScanCropRect,
-  label = "",
-  captureMs = 0,
-): Promise<{ text: string; titleText: string; footerText: string; stats: RivenStat[] }> {
-  return recognizeRivenCardStats(image, rect, {
+function pinCaptureDisplay(capture: CaptureResult): void {
+  if (capture.sourceDisplayId && capture.sourceDisplayId !== _rivenDisplayId) {
+    _rivenDisplayId = capture.sourceDisplayId;
+    log.log(`[RivenScan] pinned to display id=${_rivenDisplayId}`);
+  }
+}
+
+function logCapture(profile: RivenScanProfile, capture: CaptureResult): void {
+  const imgSize = capture.image.getSize?.() ?? { width: "?", height: "?" };
+  log.log(
+    `[RivenScan] ${profile.label} capture: source=${capture.sourceType} ` +
+      `name="${capture.sourceName}" size=${imgSize.width}x${imgSize.height}`,
+  );
+}
+
+function frameHashForCapture(capture: CaptureResult, profile: RivenScanProfile): string {
+  try {
+    return computeRivenFrameHashForCrop(capture.image, profile.crop);
+  } catch {
+    return "";
+  }
+}
+
+async function captureForProfile(
+  profile: RivenScanProfile,
+): Promise<{ capture: CaptureResult | null; captureMs: number; frameHash: string }> {
+  const startedAt = Date.now();
+
+  if (profile.readyMode) {
+    const ready = await waitForRivenUiReady(profile.crop, profile.readyMode, _rivenDisplayId);
+    if (!ready.ready) {
+      log.log(
+        `[RivenScan] ${profile.label} UI gate timed out after ${ready.elapsedMs}ms ` +
+          `(${ready.attempts} samples, best=${ready.bestScore.toFixed(3)})`,
+      );
+    }
+
+    const capture = ready.screenshot || (await captureScreenFast(_rivenDisplayId));
+    return { capture, captureMs: Date.now() - startedAt, frameHash: ready.frameHash };
+  }
+
+  const capture = await captureScreenFast(_rivenDisplayId, profile.captureTimeoutMs);
+  return { capture, captureMs: Date.now() - startedAt, frameHash: "" };
+}
+
+async function recognizeCapture(
+  capture: CaptureResult,
+  profile: RivenScanProfile,
+  generation: number,
+  captureMs: number,
+  label = profile.label,
+): Promise<RivenCardRecognitionResult> {
+  return recognizeRivenCardStats(capture.image, profile.crop, {
     label,
     captureMs,
-    generation: _scanGeneration,
+    generation,
     isStale: isRivenScanStale,
   });
+}
+
+async function runRivenScanAttempt(
+  profile: RivenScanProfile,
+  generation: number,
+): Promise<RivenScanAttemptResult> {
+  const attemptStart = Date.now();
+  const { capture, captureMs, frameHash: readyFrameHash } = await captureForProfile(profile);
+  if (!capture) {
+    log.warn(`[RivenScan] ${profile.label}: captureScreen returned null`);
+    return { ...emptyRecognitionResult(), capture: null, elapsedMs: Date.now() - attemptStart };
+  }
+
+  pinCaptureDisplay(capture);
+  logCapture(profile, capture);
+
+  const frameHash = readyFrameHash || frameHashForCapture(capture, profile);
+  let result = await recognizeCapture(capture, profile, generation, captureMs);
+  log.log(
+    `[RivenScan] ${profile.label}: ${result.stats.length} stats, elapsed=${Date.now() - attemptStart}ms`,
+  );
+
+  if (result.stats.length >= MIN_ACCEPTABLE_RIVEN_STATS || isRivenScanStale(generation)) {
+    return { ...result, capture, elapsedMs: Date.now() - attemptStart };
+  }
+
+  log.log(
+    `[RivenScan] ${profile.label}: sparse result (${result.stats.length} stats), ` +
+      `retrying in ${profile.retryDelayMs}ms`,
+  );
+  await sleep(profile.retryDelayMs);
+  if (isRivenScanStale(generation)) {
+    return { ...result, capture, elapsedMs: Date.now() - attemptStart };
+  }
+
+  const retryStart = Date.now();
+  const retryCapture = await captureScreenFast(_rivenDisplayId, profile.captureTimeoutMs);
+  if (!retryCapture) {
+    return { ...result, capture, elapsedMs: Date.now() - attemptStart };
+  }
+
+  const retryHash = frameHashForCapture(retryCapture, profile);
+  if (retryHash && retryHash === frameHash) {
+    log.log(`[RivenScan] ${profile.label}-retry skipped identical frame hash`);
+    return { ...result, capture, elapsedMs: Date.now() - attemptStart };
+  }
+
+  const retryResult = await recognizeCapture(
+    retryCapture,
+    profile,
+    generation,
+    Date.now() - retryStart,
+    `${profile.label}-retry`,
+  );
+  const retryIsBetter = profile.acceptEqualRetry
+    ? retryResult.stats.length >= result.stats.length
+    : retryResult.stats.length > result.stats.length;
+  if (retryIsBetter) {
+    log.log(`[RivenScan] ${profile.label}: retry improved to ${retryResult.stats.length} stats`);
+    result = retryResult;
+  }
+
+  return { ...result, capture, elapsedMs: Date.now() - attemptStart };
+}
+
+function formatStatsForLog(stats: RivenStat[]): string {
+  return stats
+    .map((stat) => `${stat.positive ? "+" : "-"}${stat.value ?? "?"}% ${stat.name}`)
+    .join(", ");
 }
 
 export function abortRivenScans(): void {
@@ -121,81 +229,22 @@ export function abortRivenScans(): void {
 export function resetRivenScanAbort(): void {
   _ocrAborted = false;
   resetRivenScanWaits();
-  // OCR runner warms up on first call; no explicit warmup needed.
 }
 
 export async function scanInitialCard(_expectedWeaponName = ""): Promise<InitialScanResult> {
-  ++_scanGeneration;
-  const entryStart = Date.now();
-  const ready = await waitForRivenUiReady(SINGLE_CARD_CROP, "initial");
-  if (!ready.ready) {
-    log.log(
-      `[RivenScan] initial UI gate timed out after ${ready.elapsedMs}ms (${ready.attempts} samples, best=${ready.bestScore.toFixed(3)})`,
-    );
-  }
-
-  const capture = ready.screenshot || (await captureScreenFast());
-  const captureMs = Date.now() - entryStart;
-  if (!capture) {
-    log.warn("[RivenScan] scanInitialCard: captureScreen returned null");
-    return { stats: [], rawText: "", titleText: "", footerText: "" };
-  }
-
-  if (capture.sourceDisplayId && capture.sourceDisplayId !== _rivenDisplayId) {
-    _rivenDisplayId = capture.sourceDisplayId;
-    log.log(`[RivenScan] pinned to display id=${_rivenDisplayId}`);
-  }
-
-  const imgSize = capture.image.getSize?.() ?? { width: "?", height: "?" };
-  let frameHash = ready.frameHash;
-  if (!frameHash) {
-    try {
-      frameHash = computeRivenFrameHash(cropRect(capture.image, SINGLE_CARD_CROP));
-    } catch {
-      frameHash = "";
-    }
-  }
-  log.log(
-    `[RivenScan] initial capture: source=${capture.sourceType} name="${capture.sourceName}" size=${imgSize.width}x${imgSize.height}`,
-  );
-
+  const generation = ++_scanGeneration;
   try {
-    let result = await scanRivenStatsFromImage(
-      capture.image,
-      SINGLE_CARD_CROP,
-      "initial-card",
-      captureMs,
-    );
-    const retry = await retrySparseRivenScan(
-      "initial-card",
-      result.stats,
-      650,
-      async () => {
-        const retryCapture = await captureScreenFast(_rivenDisplayId);
-        if (!retryCapture) return result;
-        try {
-          const retryHash = computeRivenFrameHash(cropRect(retryCapture.image, SINGLE_CARD_CROP));
-          if (retryHash && retryHash === frameHash) {
-            log.log("[RivenScan] initial-card-retry skipped identical frame hash");
-            return result;
-          }
-        } catch {
-          // Ignore hash errors.
-        }
-        return scanRivenStatsFromImage(retryCapture.image, SINGLE_CARD_CROP, "initial-card-retry");
-      },
-      (value) => value.stats,
-    );
-    if (retry) result = retry;
-
-    const { stats, text, titleText, footerText } = result;
+    const result = await runRivenScanAttempt(RIVEN_SCAN_PROFILES.initial, generation);
     log.log(
-      `[RivenScan] initial card scan: ${stats.length} stats found`,
-      stats
-        .map((stat) => `${stat.positive ? "+" : "-"}${stat.value ?? "?"}% ${stat.name}`)
-        .join(", "),
+      `[RivenScan] initial card scan: ${result.stats.length} stats found`,
+      formatStatsForLog(result.stats),
     );
-    return { stats, rawText: text, titleText, footerText };
+    return {
+      stats: result.stats,
+      rawText: result.text,
+      titleText: result.titleText,
+      footerText: result.footerText,
+    };
   } catch (err) {
     log.warn("[RivenScan] initial card OCR failed:", String(err));
     return { stats: [], rawText: "", titleText: "", footerText: "" };
@@ -209,65 +258,10 @@ export async function scanNewRoll(
   log.log(
     `[RivenScan] >>> scanNewRoll ENTERED (weapon="${expectedWeaponName}", skipGate=${skipGate})`,
   );
-  ++_scanGeneration;
-  const startAt = Date.now();
-  const captureStart = Date.now();
-  const capture = await captureScreenFast(_rivenDisplayId, DXGI_FRESH_TIMEOUT_MS);
-  const rollCaptureMs = Date.now() - captureStart;
-  if (!capture) {
-    log.warn("[RivenScan] scanNewRoll: captureScreen returned null");
-    return { left: [], right: [] };
-  }
-  let frameHash: string;
+  const generation = ++_scanGeneration;
   try {
-    frameHash = computeRivenFrameHash(cropRect(capture.image, ROLL_CARD_CROP));
-  } catch {
-    frameHash = "";
-  }
-  const imgSize = capture.image.getSize?.() ?? { width: "?", height: "?" };
-  log.log(
-    `[RivenScan] roll capture: source=${capture.sourceType} name="${capture.sourceName}" size=${imgSize.width}x${imgSize.height}`,
-  );
-
-  try {
-    let rightResult = await scanRivenStatsFromImage(
-      capture.image,
-      ROLL_CARD_CROP,
-      "roll-right",
-      rollCaptureMs,
-    );
-    log.log(
-      `[RivenScan] roll scan: right=${rightResult.stats.length} stats, elapsed=${Date.now() - startAt}ms`,
-    );
-    if (rightResult.stats.length < MIN_ACCEPTABLE_RIVEN_STATS) {
-      await sleep(800);
-      const retryCapture = await captureScreenFast(_rivenDisplayId, DXGI_FRESH_TIMEOUT_MS);
-      if (retryCapture) {
-        try {
-          const retryHash = computeRivenFrameHash(cropRect(retryCapture.image, ROLL_CARD_CROP));
-          if (retryHash && retryHash === frameHash) {
-            log.log("[RivenScan] roll-right-retry skipped identical frame hash");
-            return { left: [], right: rightResult.stats };
-          }
-        } catch {
-          // Ignore hash errors.
-        }
-
-        const retryResult = await scanRivenStatsFromImage(
-          retryCapture.image,
-          ROLL_CARD_CROP,
-          "roll-right-retry",
-        );
-        log.log(
-          `[RivenScan] roll-retry: right=${retryResult.stats.length} stats, elapsed=${Date.now() - startAt}ms`,
-        );
-        if (retryResult.stats.length >= rightResult.stats.length) {
-          rightResult = retryResult;
-        }
-      }
-    }
-
-    return { left: [], right: rightResult.stats };
+    const result = await runRivenScanAttempt(RIVEN_SCAN_PROFILES.roll, generation);
+    return { left: [], right: result.stats };
   } catch (err) {
     log.warn("[RivenScan] roll scan OCR failed:", String(err));
     return { left: [], right: [] };
@@ -275,62 +269,16 @@ export async function scanNewRoll(
 }
 
 export async function scanChoiceRescan(_expectedWeaponName = ""): Promise<RivenStat[]> {
-  // CHOICE_RESCAN_DELAY_MS has already elapsed, so capture immediately without
-  // readiness polling. Use a non-zero DXGI timeout to force a fresh frame.
-  const capture = await captureScreenFast(_rivenDisplayId, DXGI_FRESH_TIMEOUT_MS);
-  if (!capture) {
-    log.warn("[RivenScan] scanChoiceRescan: captureScreen returned null");
-    return [];
-  }
-
-  let frameHash = "";
+  const generation = ++_scanGeneration;
   try {
-    frameHash = computeRivenFrameHash(cropRect(capture.image, SINGLE_CARD_CROP));
-  } catch {
-    frameHash = "";
-  }
-
-  try {
-    let result = await scanRivenStatsFromImage(capture.image, SINGLE_CARD_CROP, "choice-rescan");
-    const retry = await retrySparseRivenScan(
-      "choice-rescan",
-      result.stats,
-      500,
-      async () => {
-        const retryCapture = await captureScreenFast(_rivenDisplayId, DXGI_FRESH_TIMEOUT_MS);
-        if (!retryCapture) return result;
-        try {
-          const retryHash = computeRivenFrameHash(cropRect(retryCapture.image, SINGLE_CARD_CROP));
-          if (retryHash && retryHash === frameHash) {
-            log.log("[RivenScan] choice-rescan-retry skipped identical frame hash");
-            return result;
-          }
-        } catch {
-          // Ignore hash errors.
-        }
-        return scanRivenStatsFromImage(retryCapture.image, SINGLE_CARD_CROP, "choice-rescan-retry");
-      },
-      (value) => value.stats,
-    );
-    if (retry) result = retry;
-
-    const { stats } = result;
+    const result = await runRivenScanAttempt(RIVEN_SCAN_PROFILES.choice, generation);
     log.log(
-      `[RivenScan] choice rescan: ${stats.length} stats found`,
-      stats
-        .map((stat) => `${stat.positive ? "+" : "-"}${stat.value ?? "?"}% ${stat.name}`)
-        .join(", "),
+      `[RivenScan] choice rescan: ${result.stats.length} stats found`,
+      formatStatsForLog(result.stats),
     );
-    return stats;
+    return result.stats;
   } catch (err) {
     log.warn("[RivenScan] choice rescan OCR failed:", String(err));
     return [];
   }
 }
-
-export const __test__ = Object.freeze({
-  preprocessOcrText,
-  sanitiseValue,
-  extractSignAndValue,
-  scoreStatsCandidate,
-});

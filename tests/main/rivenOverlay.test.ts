@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RIVEN_PATTERNS } from "../../services/eeLogMonitor";
-import { __test__ as rivenScanTest, parseRivenStats } from "../../ipc/overlay/rivenScan";
+import { parseRivenStats, scoreStatsCandidate } from "../../ipc/overlay/rivenScanText";
 import { findWeaponInText } from "../../services/rivenData";
 
 // ── EE.log riven pattern tests ────────────────────────────────────────────────
@@ -161,13 +161,16 @@ describe("RIVEN_PATTERNS", () => {
 
   describe("populateRiven", () => {
     it("matches PopulateInfo with Randomized mod path", () => {
-      const line = "ThemedDetailedPurchaseDialog.lua: PopulateInfo->/Lotus/StoreItems/Upgrades/Mods/Randomized/LotusArchgunRandomMod";
+      const line =
+        "ThemedDetailedPurchaseDialog.lua: PopulateInfo->/Lotus/StoreItems/Upgrades/Mods/Randomized/LotusArchgunRandomMod";
       expect(RIVEN_PATTERNS.populateRiven.test(line)).toBe(true);
     });
 
     it("does not match PopulateInfo with non-riven path", () => {
       expect(
-        RIVEN_PATTERNS.populateRiven.test("ThemedDetailedPurchaseDialog.lua: PopulateInfo->/Lotus/StoreItems/Weapons/Tenno/Melee"),
+        RIVEN_PATTERNS.populateRiven.test(
+          "ThemedDetailedPurchaseDialog.lua: PopulateInfo->/Lotus/StoreItems/Weapons/Tenno/Melee",
+        ),
       ).toBe(false);
     });
   });
@@ -515,8 +518,8 @@ describe("parseRivenStats", () => {
     // The FIFO queue in collapseOrphanValueLines must skip over that noise and pair
     // "+95.5%" with "Cold", not with "Gelimantiton".
     const text = [
-      "+95,50/0",        // Cold value (+95.5%) — 0/0 is WinRT misread of %
-      "Gelimantiton",    // riven-name suffix injected as a stats-area line by WinRT
+      "+95,50/0", // Cold value (+95.5%) — 0/0 is WinRT misread of %
+      "Gelimantiton", // riven-name suffix injected as a stats-area line by WinRT
       "Cold",
       "+122,4% Impact",
       "x1,46 Damage to Corpus",
@@ -632,8 +635,7 @@ describe("parseRivenStats", () => {
 
   it("fixes OCR misread xl→x1 in multiplier values (xl,56 Damage to Corpus)", () => {
     // WinRT OCR reads digit 1 as lowercase l: "xl,56" instead of "x1,56"
-    const text =
-      "+136,2% Impact +9,7s Combo Duration xl,56 Damage to Corpus -52,5% Attack Speed";
+    const text = "+136,2% Impact +9,7s Combo Duration xl,56 Damage to Corpus -52,5% Attack Speed";
     const result = parseRivenStats(text);
     const dmg = result.find((s) => s.name === "Damage to Corpus");
     expect(dmg).toBeDefined();
@@ -699,7 +701,9 @@ describe("parseRivenStats", () => {
   it("carries value to combined damage-type stat on same line (e.g. Electricity + Impact)", () => {
     // WinRT OCR reads "+112,3% 4 Electricity *Impact" — after icon stripping
     // "Impact" appears on the same sub-line as "Electricity" with no preceding value.
-    const result = parseRivenStats("+112,3% 4 Electricity *Impact +117,2% Critical Damage -53% Attack Speed");
+    const result = parseRivenStats(
+      "+112,3% 4 Electricity *Impact +117,2% Critical Damage -53% Attack Speed",
+    );
     const elec = result.find((s) => s.name === "Electricity");
     const imp = result.find((s) => s.name === "Impact");
     expect(elec).toBeDefined();
@@ -710,7 +714,9 @@ describe("parseRivenStats", () => {
   });
 
   it("carries value to Impact when appearing after Impact on same line", () => {
-    const result = parseRivenStats("+134,6% *Impact v Slash +119,2% Status Chance -106,2% Chance to Gain Combo Count");
+    const result = parseRivenStats(
+      "+134,6% *Impact v Slash +119,2% Status Chance -106,2% Chance to Gain Combo Count",
+    );
     const imp = result.find((s) => s.name === "Impact");
     const slash = result.find((s) => s.name === "Slash");
     expect(imp).toBeDefined();
@@ -755,8 +761,7 @@ describe("parseRivenStats", () => {
     // WinRT OCR sometimes outputs "+62.2%" as "+62, 2%" when the decimal separator
     // (comma) is followed by a space.  The preprocessing fix must recover the full
     // value before parsing so Heat gets 62.2, not 2 or carry-forward.
-    const text =
-      "x1.3 Damage to Corpus\nx1.36 Damage to Grineer\n+62, 2% Heat\n-68.4% Impact";
+    const text = "x1.3 Damage to Corpus\nx1.36 Damage to Grineer\n+62, 2% Heat\n-68.4% Impact";
     const result = parseRivenStats(text);
     const heat = result.find((s) => s.name === "Heat");
     expect(heat).toBeDefined();
@@ -823,7 +828,7 @@ describe("findWeaponInText", () => {
 
 describe("scoreStatsCandidate", () => {
   it("prefers plausible mapped stat sets over absurd OCR output", () => {
-    const plausible = rivenScanTest.scoreStatsCandidate(
+    const plausible = scoreStatsCandidate(
       [
         { name: "Critical Chance", positive: true, value: 185.5 },
         { name: "Melee Damage", positive: true, value: 186.7 },
@@ -834,7 +839,7 @@ describe("scoreStatsCandidate", () => {
       "Nikana",
     );
 
-    const implausible = rivenScanTest.scoreStatsCandidate(
+    const implausible = scoreStatsCandidate(
       [
         { name: "Critical Chance", positive: true, value: 1855 },
         { name: "Melee Damage", positive: true, value: 1867 },

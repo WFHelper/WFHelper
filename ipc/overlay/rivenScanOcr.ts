@@ -1,7 +1,6 @@
 import type { NativeImage } from "electron";
 
 import { withScope } from "../../services/logger";
-import { cropRectContent, detectGameContentRect } from "../../services/rewardScannerImage";
 import { sleep } from "../../services/rewardScannerUtils";
 import {
   hasLowConfidenceLine,
@@ -10,7 +9,7 @@ import {
   rivenOcrOnnxAvailable,
   type RivenOcrResult,
 } from "../../services/rivenOcrOnnx";
-import { cropRivenStatArea, type RivenScanCropRect } from "./rivenScanImage";
+import { cropRivenStatImage, type RivenScanCropRect } from "./rivenScanImage";
 import { parseRivenStats, type RivenStat } from "./rivenScanText";
 
 const log = withScope("rivenScan");
@@ -59,7 +58,7 @@ export async function recognizeRivenCardStats(
   const totalStart = Date.now();
 
   const cropStart = Date.now();
-  const roughCrop = cropRectContent(image, rect, detectGameContentRect(image));
+  const { statCrop } = cropRivenStatImage(image, rect);
   const cropRefineMs = Date.now() - cropStart;
 
   if (!rivenOcrOnnxAvailable()) {
@@ -81,9 +80,8 @@ export async function recognizeRivenCardStats(
     }
 
     try {
-      const statAreaCrop = cropRivenStatArea(roughCrop);
-      const statAreaSize = statAreaCrop.getSize();
-      const statAreaPng = statAreaCrop.toPNG();
+      const statAreaSize = statCrop.getSize();
+      const statAreaPng = statCrop.toPNG();
       const { data: rgbaBuf, info: rgbaInfo } = await sharp(statAreaPng)
         .ensureAlpha()
         .raw()

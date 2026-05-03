@@ -37,22 +37,9 @@ function buildController() {
     defaults: {
       ...OVERLAY_SETTINGS_DEFAULTS,
       hotkey: "Control+Alt+R",
-      ocrPasses: 3,
-      matchThreshold: 0.72,
-      ocrTimeoutMs: 1800,
-    },
-    limits: {
-      ocrPassesMin: 1,
-      ocrPassesMax: 6,
-      matchThresholdMin: 0.4,
-      matchThresholdMax: 0.95,
-      ocrTimeoutMsMin: 400,
-      ocrTimeoutMsMax: 6000,
-    },
-    rewardScanner: {
-      setSettings: vi.fn(),
     },
     onRelicRewardTrigger: vi.fn(),
+    onToggleOverlayInteractionMode: vi.fn(),
   };
 
   const controller = createOverlaySettingsController(deps);
@@ -60,20 +47,14 @@ function buildController() {
 }
 
 describe("overlay settings controller", () => {
-  it("normalizes hotkeys and clamps settings values", () => {
+  it("normalizes hotkeys", () => {
     const { controller } = buildController();
 
     const normalized = controller.normalizeOverlaySettings({
       hotkey: "ctrl + k",
-      ocrPasses: 999,
-      matchThreshold: 0.1,
-      ocrTimeoutMs: 10,
     });
 
     expect(normalized.hotkey).toBe("Control+K");
-    expect(normalized.ocrPasses).toBe(6);
-    expect(normalized.matchThreshold).toBe(0.4);
-    expect(normalized.ocrTimeoutMs).toBe(400);
   });
 
   it("normalizes the full overlay settings schema", () => {
@@ -81,9 +62,7 @@ describe("overlay settings controller", () => {
 
     const normalized = controller.normalizeOverlaySettings({});
 
-    expect(Object.keys(normalized).sort()).toEqual(
-      Object.keys(OVERLAY_SETTINGS_DEFAULTS).sort(),
-    );
+    expect(Object.keys(normalized).sort()).toEqual(Object.keys(OVERLAY_SETTINGS_DEFAULTS).sort());
   });
 
   it("preserves WFM order automation settings", () => {
@@ -98,7 +77,7 @@ describe("overlay settings controller", () => {
     expect(normalized.showTradeNotification).toBe(false);
   });
 
-  it("persists settings and updates scanner state", () => {
+  it("persists settings", () => {
     const { controller, deps } = buildController();
 
     const next = controller.setOverlaySettings({
@@ -108,7 +87,6 @@ describe("overlay settings controller", () => {
 
     expect(next.hotkey).toBe("Alt+P");
     expect(next.worldNotificationsEnabled).toBe(false);
-    expect(deps.rewardScanner.setSettings).toHaveBeenCalledWith(next);
     expect(deps.fs.writeFileSync).toHaveBeenCalledTimes(1);
   });
 
