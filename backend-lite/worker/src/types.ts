@@ -3,8 +3,6 @@ export interface Env {
 	ITEM_META: KVNamespace;
 	ADMIN_API_KEY?: string;
 	CACHE_TTL_SEC: string;
-	ORDERS_CACHE_TTL_SEC?: string;
-	ORDERS_STALE_REFRESH_SEC?: string;
 	ORDERS_SUMMARY_CACHE_TTL_SEC?: string;
 	ORDERS_SUMMARY_STALE_REFRESH_SEC?: string;
 	ALLOW_ORIGIN: string;

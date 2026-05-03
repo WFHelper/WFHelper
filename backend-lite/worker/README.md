@@ -55,8 +55,6 @@ The backend now runs in fully automatic mode. Manual prewarm still exists as an 
 - `CACHE_TTL_SEC` TTL for `price:*` and `meta:*` records.
 - `ORDERS_SUMMARY_CACHE_TTL_SEC` TTL for `orders-summary:*` card summary records.
 - `ORDERS_SUMMARY_STALE_REFRESH_SEC` stale threshold for `orders-summary:*` background refresh.
-- `ORDERS_CACHE_TTL_SEC` TTL for full `orders:*` detail-panel records.
-- `ORDERS_STALE_REFRESH_SEC` stale threshold for full `orders:*` background refresh.
 - `NO_DATA_TTL_SEC` TTL for negative cache markers.
 - `STALE_REFRESH_SEC` age threshold for background stale refresh.
 - `ALLOW_ORIGIN` comma-separated origin allowlist (include `null` for Electron).

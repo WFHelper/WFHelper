@@ -5,8 +5,6 @@ interface WorkerConfig {
 	cacheTtlSec: number;
 	noDataTtlSec: number;
 	staleRefreshSec: number;
-	ordersCacheTtlSec: number;
-	ordersStaleRefreshSec: number;
 	orderSummaryCacheTtlSec: number;
 	orderSummaryStaleRefreshSec: number;
 	catalogRefreshHours: number;
@@ -24,8 +22,6 @@ export function getWorkerConfig(env: Env): WorkerConfig {
 		cacheTtlSec: clamp(parsePositiveInt(env.CACHE_TTL_SEC, 43200), 60, 604800),
 		noDataTtlSec: clamp(parsePositiveInt(env.NO_DATA_TTL_SEC, 900), 60, 604800),
 		staleRefreshSec: clamp(parsePositiveInt(env.STALE_REFRESH_SEC, 1800), 120, 604800),
-		ordersCacheTtlSec: clamp(parsePositiveInt(env.ORDERS_CACHE_TTL_SEC, 86400), 120, 86400),
-		ordersStaleRefreshSec: clamp(parsePositiveInt(env.ORDERS_STALE_REFRESH_SEC, 21600), 15, 86400),
 		orderSummaryCacheTtlSec: clamp(parsePositiveInt(env.ORDERS_SUMMARY_CACHE_TTL_SEC, 172800), 300, 604800),
 		orderSummaryStaleRefreshSec: clamp(parsePositiveInt(env.ORDERS_SUMMARY_STALE_REFRESH_SEC, 21600), 60, 604800),
 		catalogRefreshHours: clamp(parsePositiveInt(env.CATALOG_REFRESH_HOURS, 24), 1, 168),

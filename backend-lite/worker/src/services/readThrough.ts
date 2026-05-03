@@ -85,10 +85,6 @@ const autoStats = {
 	metaNegativeHits: 0,
 	metaUntradableSkips: 0,
 	metaStaleRefreshQueued: 0,
-	ordersCacheHits: 0,
-	ordersHydrated: 0,
-	ordersNegativeHits: 0,
-	ordersStaleRefreshQueued: 0,
 	orderSummaryCacheHits: 0,
 	orderSummaryHydrated: 0,
 	orderSummaryNegativeHits: 0,
@@ -96,12 +92,6 @@ const autoStats = {
 	orderSummaryUnavailable: 0,
 	orderSummaryCircuitOpen: 0,
 };
-
-function ordersCacheTtlSec(env: Env): number {
-	// KV hard-eviction TTL — must be well above ORDERS_STALE_REFRESH_SEC so that
-	// stale-if-error works: stale data stays available in KV when upstream is degraded.
-	return getWorkerConfig(env).ordersCacheTtlSec;
-}
 
 function timestampFromRecord(data: Record<string, unknown> | null): number {
 	if (!data) return 0;
@@ -386,8 +376,6 @@ export function getAutoCacheConfig(env: Env): Record<string, number> {
 		cacheTtlSec: config.cacheTtlSec,
 		noDataTtlSec: config.noDataTtlSec,
 		staleRefreshSec: config.staleRefreshSec,
-		ordersCacheTtlSec: ordersCacheTtlSec(env),
-		ordersStaleRefreshSec: config.ordersStaleRefreshSec,
 		orderSummaryCacheTtlSec: config.orderSummaryCacheTtlSec,
 		orderSummaryStaleRefreshSec: config.orderSummaryStaleRefreshSec,
 	};
