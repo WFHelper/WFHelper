@@ -28,7 +28,7 @@ const RIVEN_CARD_CROP_TUNING = {
   minCropHeight: 30,
 } as const;
 
-export function cropRivenStatArea(roughCrop: NativeImage): NativeImage {
+function cropRivenStatArea(roughCrop: NativeImage): NativeImage {
   const { width: w, height: h } = roughCrop.getSize();
   if (w < 50 || h < 50) return roughCrop;
 
@@ -58,12 +58,12 @@ export function cropRivenStatArea(roughCrop: NativeImage): NativeImage {
   return trimmed.crop({ x: sx0, y: sy0, width: cropW, height: cropH });
 }
 
-export interface RivenStatImageCrop {
+interface RivenStatImageCrop {
   cardCrop: NativeImage;
   statCrop: NativeImage;
 }
 
-export function cropRivenCardImage(image: NativeImage, rect: RivenScanCropRect): NativeImage {
+function cropRivenCardImage(image: NativeImage, rect: RivenScanCropRect): NativeImage {
   return cropRectContent(image, rect, detectGameContentRect(image));
 }
 
@@ -284,7 +284,7 @@ function analyzeRivenTextMetrics(
   };
 }
 
-export function computeRivenFrameHash(
+function computeRivenFrameHash(
   nativeImage: NativeImage,
   shared?: { bitmap: Buffer; width: number; height: number } | null,
 ): string {

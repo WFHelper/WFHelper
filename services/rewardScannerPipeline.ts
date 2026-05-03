@@ -48,7 +48,7 @@ export interface RewardScanSettings {
   ocrTimeoutMs: number;
 }
 
-export interface RewardScanPipelineOptions {
+interface RewardScanPipelineOptions {
   preCapture?: PreCaptureResult | null;
   sortedItems: SortedItem[];
   settings: RewardScanSettings;

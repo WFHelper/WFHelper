@@ -12,7 +12,7 @@ import { clampNumber, round4 } from "./rewardScannerUtils";
 
 const log = withScope("rewardScanner");
 
-export interface RelicEraDetectionResult {
+interface RelicEraDetectionResult {
   era: string | null;
   confidence: number;
   elapsedMs: number;

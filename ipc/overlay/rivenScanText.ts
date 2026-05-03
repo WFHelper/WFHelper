@@ -109,7 +109,7 @@ const INVERTED_POLARITY_STATS = new Set([
   "zoom",
 ]);
 
-export function preprocessOcrText(raw: string): string {
+function preprocessOcrText(raw: string): string {
   let text = raw;
 
   // Re-join two-word stat names that WinRT OCR splits across lines.
@@ -225,7 +225,7 @@ export function preprocessOcrText(raw: string): string {
   return text;
 }
 
-export function sanitiseValue(value: number): number {
+function sanitiseValue(value: number): number {
   if (value > MAX_REASONABLE_VALUE && Number.isInteger(value) && value >= 100) {
     const str = String(value);
     const corrected = parseFloat(str.slice(0, -1) + "." + str.slice(-1));
@@ -248,7 +248,7 @@ export function sanitiseValue(value: number): number {
   return value;
 }
 
-export function extractSignAndValue(
+function extractSignAndValue(
   fragment: string,
 ): { positive: boolean; value: number | null; multiplier?: boolean } | null {
   const signMatches = [...fragment.matchAll(/[+\-\u2013](?=\s*\d)/g)];

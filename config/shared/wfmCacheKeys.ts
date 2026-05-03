@@ -38,14 +38,14 @@ export function snapshotOrderSummaryCacheKey(slug: string, rank: number | null):
   return rendererOrderSummaryCacheKey(slug, rank);
 }
 
-export type WfmCacheKeyNamespace =
+type WfmCacheKeyNamespace =
   | "renderer-price"
   | "renderer-ranked"
   | "worker-price"
   | "worker-orders"
   | "worker-order-summary";
 
-export interface ParsedWfmCacheKey {
+interface ParsedWfmCacheKey {
   namespace: WfmCacheKeyNamespace;
   slug: string;
   rank: number | null;

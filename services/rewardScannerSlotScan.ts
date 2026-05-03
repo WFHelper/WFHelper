@@ -13,7 +13,7 @@ interface OcrLine {
   box?: { top?: number; height?: number };
 }
 
-export interface StructuredOcrResult {
+interface StructuredOcrResult {
   text?: string;
   lines?: OcrLine[];
 }
@@ -25,7 +25,7 @@ interface SlotCandidate {
   mode: string;
 }
 
-export interface SlotScanResult {
+interface SlotScanResult {
   items: SortedItem[];
   score: number;
   exactCount: number;

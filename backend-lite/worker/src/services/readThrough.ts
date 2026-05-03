@@ -1,4 +1,4 @@
-import { MISS_META_PREFIX, MISS_ORDERS_PREFIX, MISS_ORDER_SUMMARY_PREFIX, MISS_PRICE_PREFIX, SKIP_UNTRADABLE_PREFIX } from '../constants';
+import { MISS_META_PREFIX, MISS_ORDER_SUMMARY_PREFIX, MISS_PRICE_PREFIX, SKIP_UNTRADABLE_PREFIX } from '../constants';
 import type { Env } from '../types';
 import { getWorkerConfig } from '../config';
 import { getJsonFromKv } from '../utils';
@@ -18,7 +18,6 @@ import { isExcludedRankedMarketItem } from '../../../../config/shared/wfmExclusi
 import {
 	workerMissCacheKey,
 	workerOrderSummaryCacheKey,
-	workerOrdersCacheKey,
 	workerPriceCacheKey,
 } from '../../../../config/shared/wfmCacheKeys';
 
@@ -26,7 +25,6 @@ type AutoReadResult =
 	| { status: 'ok'; data: Record<string, unknown> }
 	| { status: 'not_found'; data: null }
 	| { status: 'unavailable'; data: null };
-
 interface HydrateResult {
 	data: Record<string, unknown> | null;
 	transient: boolean;
@@ -50,33 +48,8 @@ interface ReadThroughDescriptor {
 	onBeforeMissHit?: () => void;
 }
 
-function priceCacheKey(slug: string, rank: number | null): string {
-	return workerPriceCacheKey(slug, rank);
-}
-
-function priceMissKey(slug: string, rank: number | null): string {
-	return workerMissCacheKey(MISS_PRICE_PREFIX, slug, rank);
-}
-
-function ordersCacheKey(slug: string, rank: number | null): string {
-	return workerOrdersCacheKey(slug, rank);
-}
-
-function ordersMissKey(slug: string, rank: number | null): string {
-	return workerMissCacheKey(MISS_ORDERS_PREFIX, slug, rank);
-}
-
-function orderSummaryCacheKey(slug: string, rank: number | null): string {
-	return workerOrderSummaryCacheKey(slug, rank);
-}
-
-function orderSummaryMissKey(slug: string, rank: number | null): string {
-	return workerMissCacheKey(MISS_ORDER_SUMMARY_PREFIX, slug, rank);
-}
-
 const priceInFlight = new Map<string, Promise<HydrateResult>>();
 const metaInFlight = new Map<string, Promise<Record<string, unknown> | null>>();
-const ordersInFlight = new Map<string, Promise<HydrateResult>>();
 const orderSummaryInFlight = new Map<string, Promise<HydrateResult>>();
 
 const ORDER_SUMMARY_BREAKER_THRESHOLD = 6;
@@ -142,12 +115,6 @@ function isStale(data: Record<string, unknown> | null, env: Env): boolean {
 	return Date.now() - ts > getWorkerConfig(env).staleRefreshSec * 1000;
 }
 
-function isOrdersStale(data: Record<string, unknown> | null, env: Env): boolean {
-	const ts = timestampFromRecord(data);
-	if (ts <= 0) return true;
-	return Date.now() - ts > getWorkerConfig(env).ordersStaleRefreshSec * 1000;
-}
-
 function isOrderSummaryStale(data: Record<string, unknown> | null, env: Env): boolean {
 	const ts = timestampFromRecord(data);
 	if (ts <= 0) return true;
@@ -178,8 +145,8 @@ async function setNegativeMarker(namespace: KVNamespace, key: string, env: Env):
 }
 
 async function hydratePrice(env: Env, slug: string, markNoData: boolean, rank: number | null): Promise<HydrateResult> {
-	const requestKey = priceCacheKey(slug, rank);
-	const missKey = priceMissKey(slug, rank);
+	const requestKey = workerPriceCacheKey(slug, rank);
+	const missKey = workerMissCacheKey(MISS_PRICE_PREFIX, slug, rank);
 
 	const inFlight = priceInFlight.get(requestKey);
 	if (inFlight) return inFlight;
@@ -246,50 +213,9 @@ async function hydrateMeta(env: Env, slug: string, markNoData: boolean): Promise
 	return task;
 }
 
-async function hydrateOrders(env: Env, slug: string, markNoData: boolean, rank: number | null): Promise<HydrateResult> {
-	const requestKey = ordersCacheKey(slug, rank);
-	const missKey = ordersMissKey(slug, rank);
-
-	const inFlight = ordersInFlight.get(requestKey);
-	if (inFlight) return inFlight;
-
-	const task = (async () => {
-		const result = await fetchOrdersPayload(slug, rank != null ? { rank } : undefined);
-		if (!result.data) {
-			if (markNoData && !result.transient) {
-				await setNegativeMarker(env.PRICE_CACHE, missKey, env);
-			}
-			return { data: null, transient: result.transient };
-		}
-
-		const data = {
-			slug: result.data.slug,
-			sell: result.data.sell,
-			buy: result.data.buy,
-			timestamp: result.data.timestamp,
-			rank,
-		};
-
-		await env.PRICE_CACHE.delete(missKey);
-		await env.PRICE_CACHE.put(requestKey, JSON.stringify(data), {
-			expirationTtl: ordersCacheTtlSec(env),
-		});
-
-		autoStats.ordersHydrated += 1;
-		return { data: data as Record<string, unknown>, transient: false };
-	})()
-		.catch(() => ({ data: null, transient: true }))
-		.finally(() => {
-			ordersInFlight.delete(requestKey);
-		});
-
-	ordersInFlight.set(requestKey, task);
-	return task;
-}
-
 async function hydrateOrderSummary(env: Env, slug: string, markNoData: boolean, rank: number | null): Promise<HydrateResult> {
-	const requestKey = orderSummaryCacheKey(slug, rank);
-	const missKey = orderSummaryMissKey(slug, rank);
+	const requestKey = workerOrderSummaryCacheKey(slug, rank);
+	const missKey = workerMissCacheKey(MISS_ORDER_SUMMARY_PREFIX, slug, rank);
 
 	if (orderSummaryCircuitOpen()) {
 		autoStats.orderSummaryUnavailable += 1;
@@ -378,8 +304,8 @@ export async function getOrHydratePrice(
 	rankInput?: number | null,
 ): Promise<AutoReadResult> {
 	const rank = normalizeRankFilter(rankInput);
-	const cacheKey = priceCacheKey(slug, rank);
-	const missKey = priceMissKey(slug, rank);
+	const cacheKey = workerPriceCacheKey(slug, rank);
+	const missKey = workerMissCacheKey(MISS_PRICE_PREFIX, slug, rank);
 	return withReadThrough(env, ctx, {
 		namespace: env.PRICE_CACHE,
 		cacheKey,
@@ -418,29 +344,6 @@ export async function getOrHydrateMeta(env: Env, slug: string, ctx?: ExecutionCo
 	return result.status === 'ok' ? result.data : null;
 }
 
-export async function getOrHydrateOrders(
-	env: Env,
-	slug: string,
-	ctx?: ExecutionContext,
-	rankInput?: number | null,
-): Promise<AutoReadResult> {
-	const rank = normalizeRankFilter(rankInput);
-	const cacheKey = ordersCacheKey(slug, rank);
-	const missKey = ordersMissKey(slug, rank);
-	return withReadThrough(env, ctx, {
-		namespace: env.PRICE_CACHE,
-		cacheKey,
-		missKey,
-		isStale: isOrdersStale,
-		hydrate: (markNoData) => hydrateOrders(env, slug, markNoData, rank),
-		stats: {
-			cacheHit: 'ordersCacheHits',
-			negativeHit: 'ordersNegativeHits',
-			staleRefreshQueued: 'ordersStaleRefreshQueued',
-		},
-	});
-}
-
 export async function getOrHydrateOrderSummary(
 	env: Env,
 	slug: string,
@@ -452,8 +355,8 @@ export async function getOrHydrateOrderSummary(
 	}
 
 	const rank = normalizeRankFilter(rankInput);
-	const cacheKey = orderSummaryCacheKey(slug, rank);
-	const missKey = orderSummaryMissKey(slug, rank);
+	const cacheKey = workerOrderSummaryCacheKey(slug, rank);
+	const missKey = workerMissCacheKey(MISS_ORDER_SUMMARY_PREFIX, slug, rank);
 	return withReadThrough(env, ctx, {
 		namespace: env.PRICE_CACHE,
 		cacheKey,

@@ -34,7 +34,7 @@ export interface RivenCardRecognitionResult {
   stats: RivenStat[];
 }
 
-export interface RivenCardRecognitionOptions {
+interface RivenCardRecognitionOptions {
   label?: string;
   captureMs?: number;
   generation: number;
