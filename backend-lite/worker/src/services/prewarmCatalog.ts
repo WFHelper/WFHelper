@@ -9,6 +9,7 @@ import { getWorkerConfig } from '../config';
 import { getJsonFromKv } from '../utils';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
 import { isExcludedRankedMarketItem } from '../../../../config/shared/wfmExclusions';
+import { cheapestOrderPrice } from '../../../../config/shared/wfmOrders';
 
 const ORDER_SUMMARY_HOTSET_MAX_ENTRIES = 96;
 
@@ -124,12 +125,6 @@ export function sanitizeOrderSummaryHotsetEntries(value: unknown): OrderSummaryH
 	}
 
 	return deduped;
-}
-
-function cheapestOrderPrice(entries: Array<{ platinum: number; status: string | null }>, activeOnly: boolean): number | null {
-	const filtered = activeOnly ? entries.filter((entry) => entry.status === 'ingame' || entry.status === 'online') : entries;
-	if (filtered.length === 0) return null;
-	return Math.min(...filtered.map((entry) => entry.platinum));
 }
 
 export function buildOrderSummaryPayload(slug: string, rank: number | null, payload: OrdersPayload): Record<string, unknown> {

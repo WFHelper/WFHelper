@@ -47,6 +47,30 @@ export function toFiniteNumber(value: unknown): number | null {
   return null;
 }
 
+export function isTimestampFresh(
+  timestamp: unknown,
+  ttlMs: number,
+  nowMs: number = Date.now(),
+): boolean {
+  const parsed = toFiniteNumber(timestamp);
+  return parsed != null && parsed > 0 && nowMs - parsed < ttlMs;
+}
+
+export function isCacheEntryFresh(
+  entry: unknown,
+  okTtlMs: number,
+  noDataTtlMs: number,
+  options: { timestampKey?: string } = {},
+): boolean {
+  if (!entry || typeof entry !== "object") return false;
+  const record = entry as Record<string, unknown>;
+  const status = String(record.status || "").toLowerCase();
+  if (!status) return false;
+
+  const timestampKey = options.timestampKey || "timestamp";
+  return isTimestampFresh(record[timestampKey], status === "ok" ? okTtlMs : noDataTtlMs);
+}
+
 /**
  * Like {@link toFiniteNumber} but returns a configurable fallback instead
  * of `null`.
@@ -144,4 +168,10 @@ export function toFiniteNonNegativeInt(value: unknown): number | null {
  */
 export function isRankedGroup(group: string | null | undefined): boolean {
   return group === "mods" || group === "arcanes";
+}
+
+export function resolveRankedMaxRank(group: string | null | undefined): number {
+  if (group === "mods") return 10;
+  if (group === "arcanes") return 5;
+  return 0;
 }

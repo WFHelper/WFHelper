@@ -37,6 +37,12 @@ export function formatWfmAssetUrl(path: unknown): string | null {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `${WFM_ASSET_BASE}${trimmed}`;
 }
 
+export function titleFromSlug(slug: string): string {
+  return String(slug)
+    .replace(/_/g, " ")
+    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+}
+
 import { normalizeForSlug } from "./textNormalize";
 
 // Slug normalization

@@ -104,3 +104,10 @@ export function unwrapWfmResponse<T = unknown>(raw: unknown): T {
   if ("payload" in obj) return obj.payload as T;
   return raw as T;
 }
+
+export function toNonEmptyWfmString(value: unknown, maxLength = 512): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > maxLength) return null;
+  return trimmed;
+}

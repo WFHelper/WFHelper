@@ -1,12 +1,17 @@
 import type { InventoryBaseItem, ItemMetrics } from "../../lib/inventoryMarket.js";
-import { normalizeRank, isRankedGroup } from "../../../config/shared/numeric.js";
+import {
+  normalizeRank,
+  isRankedGroup,
+  resolveRankedMaxRank as resolveRankedMaxRankForGroup,
+} from "../../../config/shared/numeric.js";
+export { cheapestOrderPrice, isActiveOrderStatus } from "../../../config/shared/wfmOrders.js";
 
 // Rank resolution
 
 export function resolvePriceRank(item: InventoryBaseItem): number | null {
   if (!isRankedGroup(item.inventoryGroup)) return null;
 
-  const fallbackMaxRank = item.inventoryGroup === "mods" ? 10 : 5;
+  const fallbackMaxRank = resolveRankedMaxRankForGroup(item.inventoryGroup);
   const parsedMaxRank = normalizeRank((item as { maxRank?: unknown }).maxRank);
   const maxRank = parsedMaxRank != null && parsedMaxRank > 0 ? parsedMaxRank : fallbackMaxRank;
   const parsedCurrentRank = normalizeRank((item as { rank?: unknown }).rank);
@@ -18,7 +23,7 @@ export function resolvePriceRank(item: InventoryBaseItem): number | null {
 export function resolveRankedMaxRank(item: InventoryBaseItem): number | null {
   if (!isRankedGroup(item.inventoryGroup)) return null;
 
-  const fallbackMaxRank = item.inventoryGroup === "mods" ? 10 : 5;
+  const fallbackMaxRank = resolveRankedMaxRankForGroup(item.inventoryGroup);
   const parsedMaxRank = normalizeRank((item as { maxRank?: unknown }).maxRank);
   if (parsedMaxRank != null && parsedMaxRank > 0) {
     return parsedMaxRank;
@@ -75,19 +80,4 @@ export function hasRankPairCoverage(
   if (item.tradable !== true) return true;
 
   return metric?.hasOrdersR0 === true && metric?.hasOrdersRmax === true;
-}
-
-// Order helpers
-
-export function isActiveOrderStatus(status: string | null): boolean {
-  return status === "ingame" || status === "online";
-}
-
-export function cheapestOrderPrice(
-  entries: Array<{ platinum: number; status: string | null }>,
-  activeOnly: boolean,
-): number | null {
-  const list = activeOnly ? entries.filter((entry) => isActiveOrderStatus(entry.status)) : entries;
-  if (list.length === 0) return null;
-  return Math.min(...list.map((entry) => entry.platinum));
 }

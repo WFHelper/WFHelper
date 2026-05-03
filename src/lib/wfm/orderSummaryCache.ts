@@ -1,5 +1,9 @@
 import { normalizeWfmSlug } from "./backendLite.js";
-import { normalizeRankFilter, toFiniteNonNegativeInt } from "../../../config/shared/numeric.js";
+import {
+  isTimestampFresh,
+  normalizeRankFilter,
+  toFiniteNonNegativeInt,
+} from "../../../config/shared/numeric.js";
 import { rendererOrderSummaryCacheKey } from "../../../config/shared/wfmCacheKeys.js";
 
 const ORDER_SUMMARY_FRESH_TTL_MS = 24 * 60 * 60 * 1000;
@@ -24,11 +28,11 @@ function cacheKey(slugInput: string, rankInput: number | null): string | null {
 }
 
 export function isOrderSummaryFresh(entry: CachedOrderSummaryEntry): boolean {
-  return Date.now() - entry.timestamp < ORDER_SUMMARY_FRESH_TTL_MS;
+  return isTimestampFresh(entry.timestamp, ORDER_SUMMARY_FRESH_TTL_MS);
 }
 
 function isOrderSummaryExpired(entry: CachedOrderSummaryEntry): boolean {
-  return Date.now() - entry.timestamp >= ORDER_SUMMARY_STALE_TTL_MS;
+  return !isTimestampFresh(entry.timestamp, ORDER_SUMMARY_STALE_TTL_MS);
 }
 
 export function getCachedOrderSummaryState(

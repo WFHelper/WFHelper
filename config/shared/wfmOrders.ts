@@ -6,7 +6,12 @@ export interface WfmOrderBookEntry {
   rank: number | null;
 }
 
-export type WfmOrderType = "sell" | "buy";
+type WfmOrderType = "sell" | "buy";
+
+interface WfmOrderPriceEntry {
+  platinum: number;
+  status: string | null;
+}
 
 const MAX_ORDER_BOOK_ENTRIES_PER_SIDE = 500;
 
@@ -30,6 +35,16 @@ function parseOrderUserName(order: Record<string, unknown>): string {
 function parseOrderStatus(order: Record<string, unknown>): string | null {
   const user = order.user as Record<string, unknown> | undefined;
   return typeof user?.status === "string" ? user.status.toLowerCase() : null;
+}
+
+export function isActiveOrderStatus(status: string | null): boolean {
+  return status === "ingame" || status === "online";
+}
+
+export function cheapestOrderPrice(entries: WfmOrderPriceEntry[], activeOnly: boolean): number | null {
+  const list = activeOnly ? entries.filter((entry) => isActiveOrderStatus(entry.status)) : entries;
+  if (list.length === 0) return null;
+  return Math.min(...list.map((entry) => entry.platinum));
 }
 
 function parseOrderRank(order: Record<string, unknown>): number | null {

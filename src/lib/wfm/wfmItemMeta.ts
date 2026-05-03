@@ -5,7 +5,7 @@ import {
   type BackendRequestPriority,
 } from "./backendLite.js";
 import { log } from "../log.js";
-import { toFiniteNumber } from "../../../config/shared/numeric.js";
+import { isTimestampFresh, toFiniteNumber } from "../../../config/shared/numeric.js";
 import { formatWfmAssetUrl, WFM_HEADERS } from "../../../config/shared/wfm.js";
 import { isWfmExcludedSlug } from "../../../config/shared/wfmExclusions.js";
 import { createSingleFlightMap } from "./requestPolicy.js";
@@ -34,8 +34,7 @@ const inFlight = createSingleFlightMap<string, WfmItemMeta | null>();
 const _warnedNoMetaSlugs = new Set<string>();
 
 function isNoDataCacheFresh(cachedAt: number | null | undefined): boolean {
-  if (typeof cachedAt !== "number" || !Number.isFinite(cachedAt)) return false;
-  return Date.now() - cachedAt < META_NO_DATA_TTL_MS;
+  return isTimestampFresh(cachedAt, META_NO_DATA_TTL_MS);
 }
 
 function rememberNoData(slug: string): void {
@@ -43,7 +42,7 @@ function rememberNoData(slug: string): void {
 }
 
 function isFresh(entry: WfmItemMeta): boolean {
-  return Date.now() - entry.timestamp < META_TTL_MS;
+  return isTimestampFresh(entry.timestamp, META_TTL_MS);
 }
 
 function toMeta(slug: string, json: unknown): WfmItemMeta | null {

@@ -1,4 +1,5 @@
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { isObject, trimmedString } from "./ipcValidators";
 
 const WFM_ID_RE = /^[a-f0-9]{24}$/i;
 const VALID_ORDER_TYPES = new Set(["sell", "buy"]);
@@ -47,16 +48,8 @@ type ParsedSearchPayload = { query: string; limit: number };
 type ParsedStatusPayload = { status: string };
 type ParsedContractsPayload = { page: number; limit: number };
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function toTrimmedString(value: unknown, maxLength: number): string {
-  if (typeof value !== "string") return "";
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  if (trimmed.length > maxLength) return "";
-  return trimmed;
+function toTrimmedString(value: unknown, maxLength: number): string | null {
+  return trimmedString(value, maxLength);
 }
 
 function toFiniteNumber(value: unknown): number | null {
@@ -91,12 +84,12 @@ function parseCreateOrderParams(payload: unknown): ParsedCreateOrderParams | nul
   if (!isObject(payload)) return null;
 
   const itemId = toTrimmedString(payload.itemId, 64);
-  const orderType = toTrimmedString(payload.orderType, 10).toLowerCase();
+  const orderType = toTrimmedString(payload.orderType, 10)?.toLowerCase() ?? null;
   const platinum = toClampedInteger(payload.platinum, 1, MAX_PLATINUM);
   const quantity = toClampedInteger(payload.quantity, 1, MAX_QUANTITY);
 
   if (!itemId || !WFM_ID_RE.test(itemId)) return null;
-  if (!VALID_ORDER_TYPES.has(orderType)) return null;
+  if (!orderType || !VALID_ORDER_TYPES.has(orderType)) return null;
   if (platinum == null || quantity == null) return null;
 
   const parsed: ParsedCreateOrderParams = {
@@ -173,7 +166,7 @@ function parseSetVisiblePayload(payload: unknown): ParsedSetVisiblePayload | nul
 
   const orderIds = payload.orderIds
     .map((value: unknown) => toTrimmedString(value, 64))
-    .filter((value: string) => value && WFM_ID_RE.test(value))
+    .filter((value): value is string => Boolean(value && WFM_ID_RE.test(value)))
     .slice(0, MAX_BULK_ORDER_IDS);
 
   if (orderIds.length === 0) return null;
@@ -205,8 +198,8 @@ function parseSearchPayload(payload: unknown): ParsedSearchPayload | null {
 function parseStatusPayload(payload: unknown): ParsedStatusPayload | null {
   if (!isObject(payload)) return null;
 
-  const status = toTrimmedString(payload.status, 24).toLowerCase();
-  if (!VALID_STATUSES.has(status)) return null;
+  const status = toTrimmedString(payload.status, 24)?.toLowerCase() ?? null;
+  if (!status || !VALID_STATUSES.has(status)) return null;
 
   return { status };
 }

@@ -1,3 +1,5 @@
+import { isCacheEntryFresh } from "../../../config/shared/numeric.js";
+
 const PRICE_TTL_MS = 24 * 60 * 60 * 1000;
 const NO_DATA_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -11,12 +13,8 @@ export interface CachedPriceEntry {
 
 const _prices = new Map<string, CachedPriceEntry>();
 
-function ttlFor(status: CachedPriceStatus): number {
-  return status === "ok" ? PRICE_TTL_MS : NO_DATA_TTL_MS;
-}
-
 function isFresh(entry: CachedPriceEntry): boolean {
-  return Date.now() - entry.timestamp < ttlFor(entry.status);
+  return isCacheEntryFresh(entry, PRICE_TTL_MS, NO_DATA_TTL_MS);
 }
 
 export function getCachedPriceState(slug: string): CachedPriceEntry | null {

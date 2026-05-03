@@ -33,6 +33,7 @@
   import { startupPriceCacheReady } from "../lib/startupLoader.js";
   import { marketDensity } from "../stores/uiDensity.js";
   import { getInventoryHydrationController } from "../stores/inventoryHydration.js";
+  import { titleFromSlug } from "../../config/shared/wfm.js";
   import type {
     MarketTab,
     WfmContract,
@@ -100,10 +101,6 @@
       return attribute.urlName.replace(/_/g, " ");
     }
     return "";
-  }
-
-  function titleFromSlug(slug: string): string {
-    return slug.replace(/_/g, " ").replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
   }
 
   function contractWeaponName(contract: WfmContract): string {

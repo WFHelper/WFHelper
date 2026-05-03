@@ -3,8 +3,7 @@
   import ThemedInput from "../ThemedInput.svelte";
   import ThemedPanel from "../ThemedPanel.svelte";
   import type { TradeEvent } from "../../types/ipc.js";
-
-  const WFM_ASSET_BASE = "https://warframe.market/static/assets/";
+  import { formatWfmAssetUrl } from "../../../config/shared/wfm.js";
 
   export let trades: TradeEvent[] = [];
 
@@ -33,8 +32,7 @@
   }
 
   function thumbUrl(thumb: string | undefined | null): string | null {
-    if (!thumb) return null;
-    return thumb.startsWith("http") ? thumb : WFM_ASSET_BASE + thumb;
+    return formatWfmAssetUrl(thumb);
   }
 </script>
 

@@ -7,7 +7,12 @@ import { getCachedPriceState } from "./wfm/priceCache.js";
 import { getCachedOrderSummaryState } from "./wfm/orderSummaryCache.js";
 import { getCachedWfmItemMeta } from "./wfm/wfmItemMeta.js";
 import { normalizeLooseMarketName, normalizeMarketName, toMarketSlug } from "./marketNaming.js";
-import { toFinitePositiveInt, toFiniteNumber, isRankedGroup } from "../../config/shared/numeric.js";
+import {
+  toFinitePositiveInt,
+  toFiniteNumber,
+  isRankedGroup,
+  resolveRankedMaxRank,
+} from "../../config/shared/numeric.js";
 import { rendererPriceCacheKey } from "../../config/shared/wfmCacheKeys.js";
 import { isExcludedRankedMarketItem } from "../../config/shared/wfmExclusions.js";
 
@@ -143,7 +148,7 @@ function isSetSlug(slug: string | null | undefined): boolean {
 function resolvePriceRankForView(item: InventoryBaseItem): number | null {
   if (!isRankedGroup(item.inventoryGroup)) return null;
 
-  const maxRank = toFinitePositiveInt(item.maxRank) ?? (item.inventoryGroup === "mods" ? 10 : 5);
+  const maxRank = toFinitePositiveInt(item.maxRank) ?? resolveRankedMaxRank(item.inventoryGroup);
   const currentRank = toFinitePositiveInt(item.rank) ?? 0;
   return currentRank >= maxRank ? maxRank : 0;
 }
@@ -413,8 +418,7 @@ export function buildInventoryViewItems(
   return baseItems.map<InventoryViewItem>((item) => {
     const metric = metricsByKey[item.internalName] || null;
     const isRankedListingItem = isRankedGroup(item.inventoryGroup);
-    const itemMaxRank =
-      toFinitePositiveInt(item.maxRank) ?? (item.inventoryGroup === "mods" ? 10 : 5);
+    const itemMaxRank = toFinitePositiveInt(item.maxRank) ?? resolveRankedMaxRank(item.inventoryGroup);
     const itemCurrentRank = toFinitePositiveInt(item.rank) ?? 0;
 
     const metricPlatinumR0Raw = metric?.platinumR0 ?? null;

@@ -14,7 +14,7 @@ import * as wfmCatalog from "./wfmCatalog";
 import type { WfmRawOrder, WfmRawOrderItem, WfmOrderMutationData, WfmCloseOrderResult } from "./wfmTypes";
 import { unwrapWfmResponse } from "./wfmTypes";
 
-import { WFM_ASSET_BASE as WFM_THUMB_BASE } from "../config/shared/wfm";
+import { formatWfmAssetUrl } from "../config/shared/wfm";
 
 
 export interface NormalisedOrder {
@@ -35,7 +35,7 @@ function normalise(raw: WfmRawOrder, forcedType?: string): NormalisedOrder {
   // v2: item details come from catalog enrichment (raw._catalogItem), not embedded object
   const item: WfmRawOrderItem = raw._catalogItem || raw.item || {};
   const thumb = item.thumb || item.icon || "";
-  const imageUrl = thumb ? (thumb.startsWith("http") ? thumb : WFM_THUMB_BASE + thumb) : null;
+  const imageUrl = formatWfmAssetUrl(thumb);
 
   return {
     id: raw.id,

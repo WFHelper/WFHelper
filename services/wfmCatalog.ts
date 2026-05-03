@@ -1,7 +1,7 @@
 import { withScope } from "./logger";
 import * as wfmClient from "./wfmClient";
 import { normalizeErrorMessage } from "../config/shared/errors";
-import { formatWfmAssetUrl } from "../config/shared/wfm";
+import { formatWfmAssetUrl, titleFromSlug } from "../config/shared/wfm";
 
 const log = withScope("wfmCatalog");
 
@@ -63,7 +63,7 @@ function _normalise(raw: unknown): CatalogItem {
     source?.item_name ||
     source?.itemName ||
     source?.name ||
-    slug.replace(/_/g, " ").replace(/\b[a-z]/g, (c: string) => c.toUpperCase());
+    titleFromSlug(slug);
   const thumb: string | null = source?.i18n?.en?.thumb || source.thumb || null;
   const icon: string | null = source?.i18n?.en?.icon || source.icon || null;
   const rawMaxRank = Number(source.maxRank ?? source.max_rank ?? null);

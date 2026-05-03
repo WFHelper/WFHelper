@@ -1,5 +1,5 @@
 import { normalizeWfmSlug } from "./backendLite.js";
-import { normalizeRank } from "../../../config/shared/numeric.js";
+import { isCacheEntryFresh, normalizeRank } from "../../../config/shared/numeric.js";
 import { WFM_HEADERS } from "../../../config/shared/wfm.js";
 import { rendererOrderBookCacheKey } from "../../../config/shared/wfmCacheKeys.js";
 import {
@@ -58,13 +58,10 @@ function bumpCounter(counter: keyof OrderBookDebugCounters): void {
   orderBookDebugCounters[counter] += 1;
 }
 
-function nowMs(): number {
-  return Date.now();
-}
-
 function isFresh(entry: CacheEntry): boolean {
-  const ttl = entry.status === "ok" ? ORDERBOOK_TTL_MS : ORDERBOOK_NO_DATA_TTL_MS;
-  return nowMs() - entry.cachedAt < ttl;
+  return isCacheEntryFresh(entry, ORDERBOOK_TTL_MS, ORDERBOOK_NO_DATA_TTL_MS, {
+    timestampKey: "cachedAt",
+  });
 }
 
 async function fetchRawOrdersFromEndpoint(
@@ -108,7 +105,7 @@ async function fetchDirectOrderBook(
         slug,
         sell: normalizeWfmOrderBookSide(v2Attempt.data, "sell", rank),
         buy: normalizeWfmOrderBookSide(v2Attempt.data, "buy", rank),
-        timestamp: nowMs(),
+        timestamp: Date.now(),
       },
     };
   }
@@ -129,7 +126,7 @@ async function fetchDirectOrderBook(
         slug,
         sell: normalizeWfmOrderBookSide(v1Attempt.data, "sell", rank),
         buy: normalizeWfmOrderBookSide(v1Attempt.data, "buy", rank),
-        timestamp: nowMs(),
+        timestamp: Date.now(),
       },
     };
   }
@@ -194,12 +191,12 @@ export async function fetchItemOrderBookBySlug(
       const result = await fetchDirectOrderBook(normalizedSlug, normalizedRank);
       if (result.status === "ok") {
         const data: ItemOrderBook = result.data;
-        cacheBySlug.set(key, { status: "ok", data, cachedAt: nowMs() });
+        cacheBySlug.set(key, { status: "ok", data, cachedAt: Date.now() });
         return { status: "ok", data };
       }
 
       if (result.status === "not_found") {
-        cacheBySlug.set(key, { status: "not_found", cachedAt: nowMs() });
+        cacheBySlug.set(key, { status: "not_found", cachedAt: Date.now() });
         return { status: "not_found", slug: normalizedSlug };
       }
 

@@ -18,7 +18,7 @@ import { getWorkerConfig } from '../config';
 import { clamp, getJsonFromKv } from '../utils';
 import { extractLatestMedianFromStatsPayload, extractMedianFromStatsPayload } from '../../../../config/shared/wfmStats';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
-import { WFM_HEADERS } from '../../../../config/shared/wfm';
+import { formatWfmAssetUrl, WFM_HEADERS } from '../../../../config/shared/wfm';
 import {
 	snapshotCacheKeyFromWorkerKey,
 	workerMissCacheKey,
@@ -122,8 +122,7 @@ export async function fetchPricePayload(
 }
 
 function normalizeAssetPath(pathValue: unknown): string | null {
-	if (typeof pathValue !== 'string' || !pathValue.trim()) return null;
-	return pathValue.startsWith('http') ? pathValue : `https://warframe.market/static/assets/${pathValue}`;
+	return formatWfmAssetUrl(pathValue);
 }
 
 export async function fetchMetaPayload(slug: string): Promise<FetchResult<MetaPayload>> {

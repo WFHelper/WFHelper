@@ -1,4 +1,4 @@
-import { toFiniteOr, clampNumber } from "../../config/shared/numeric";
+import { isCacheEntryFresh, toFiniteOr, clampNumber } from "../../config/shared/numeric";
 import { normalizeErrorMessage } from "../../config/shared/errors";
 import { RELIC_RECOMMENDATIONS, RELIC_PLANNER_TRIGGER } from "../../config/shared/ipcChannels";
 import { normalizeWfmSlug } from "../../config/shared/wfm";
@@ -249,13 +249,7 @@ function computeSquadExpected(
 }
 
 function isPriceEntryFresh(entry: unknown): boolean {
-  if (!entry || typeof entry !== "object") return false;
-  const raw = entry as { status?: unknown; timestamp?: unknown };
-  const status = String(raw.status || "").toLowerCase();
-  const timestamp = toFiniteOr(raw.timestamp, 0);
-  if (!timestamp || !status) return false;
-  const ttl = status === "ok" ? PRICE_OK_TTL_MS : PRICE_NODATA_TTL_MS;
-  return Date.now() - timestamp < ttl;
+  return isCacheEntryFresh(entry, PRICE_OK_TTL_MS, PRICE_NODATA_TTL_MS);
 }
 
 function loadPersistedCacheMaps(

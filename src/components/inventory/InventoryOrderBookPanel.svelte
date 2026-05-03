@@ -14,7 +14,13 @@
   } from "../../lib/wfm/orderBook.js";
   import type { InventoryViewItem } from "../../lib/inventoryMarket.js";
   import type { WfmLookupItem, OrderType } from "../../types/market.js";
-  import { normalizeRank, isRankedGroup, MAX_SUPPORTED_RANK } from "../../../config/shared/numeric.js";
+  import {
+    normalizeRank,
+    isRankedGroup,
+    MAX_SUPPORTED_RANK,
+    resolveRankedMaxRank,
+  } from "../../../config/shared/numeric.js";
+  import { isActiveOrderStatus } from "../../../config/shared/wfmOrders.js";
 
   export let item: InventoryViewItem | null = null;
 
@@ -61,9 +67,7 @@
   }
 
   function defaultMaxRankForGroup(group: InventoryViewItem["inventoryGroup"] | null | undefined): number {
-    if (group === "mods") return 10;
-    if (group === "arcanes") return 5;
-    return 0;
+    return resolveRankedMaxRank(group);
   }
 
   const didItemKeyChange = (() => {
@@ -227,13 +231,9 @@
     send("open-external", `https://warframe.market/items/${currentSlug}`);
   }
 
-  function isActiveStatus(status: string | null): boolean {
-    return status === "ingame" || status === "online";
-  }
-
   function filterStatus(entries: OrderBookEntry[], activeOnly: boolean): OrderBookEntry[] {
     if (!activeOnly) return [...entries];
-    return entries.filter((entry) => isActiveStatus(entry.status));
+    return entries.filter((entry) => isActiveOrderStatus(entry.status));
   }
 
   function compareBestSide(a: OrderBookEntry, b: OrderBookEntry, side: OrderSide): number {

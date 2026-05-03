@@ -3,8 +3,9 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 
 import { request, requestV2 } from "./wfmClient";
 import { getInGameName } from "./wfmSession";
+import { toNonEmptyWfmString } from "./wfmTypes";
 import { toFiniteNumber } from "../config/shared/numeric";
-import { WFM_ASSET_BASE as WFM_THUMB_BASE } from "../config/shared/wfm";
+import { formatWfmAssetUrl, titleFromSlug } from "../config/shared/wfm";
 
 const log = withScope("wfmContracts");
 
@@ -67,22 +68,9 @@ interface EndpointCandidate {
 }
 
 
-function toNonEmptyString(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
 function normalizeAssetUrl(value: unknown): string | null {
-  const p = toNonEmptyString(value);
-  if (!p) return null;
-  return p.startsWith("http") ? p : `${WFM_THUMB_BASE}${p}`;
-}
-
-function titleFromSlug(slug: string): string {
-  return String(slug)
-    .replace(/_/g, " ")
-    .replace(/\b[a-z]/g, (m) => m.toUpperCase());
+  const p = toNonEmptyWfmString(value);
+  return formatWfmAssetUrl(p);
 }
 
 function normalizeAttribute(rawAttribute: unknown): NormalisedAttribute | null {
@@ -90,19 +78,19 @@ function normalizeAttribute(rawAttribute: unknown): NormalisedAttribute | null {
   const attr = rawAttribute as Record<string, unknown>;
 
   const urlName =
-    toNonEmptyString(attr.url_name) ||
-    toNonEmptyString(attr.urlName) ||
-    toNonEmptyString(attr.name) ||
+    toNonEmptyWfmString(attr.url_name) ||
+    toNonEmptyWfmString(attr.urlName) ||
+    toNonEmptyWfmString(attr.name) ||
     "unknown";
 
   const label =
-    toNonEmptyString(attr.display_name) ||
-    toNonEmptyString(attr.displayName) ||
+    toNonEmptyWfmString(attr.display_name) ||
+    toNonEmptyWfmString(attr.displayName) ||
     titleFromSlug(urlName);
 
   const numericValue = toFiniteNumber(attr.value);
   const value: number | string | null =
-    numericValue != null ? numericValue : toNonEmptyString(attr.value);
+    numericValue != null ? numericValue : toNonEmptyWfmString(attr.value);
 
   const positive: boolean | null =
     typeof attr.positive === "boolean"
@@ -120,7 +108,7 @@ function normalizeAttribute(rawAttribute: unknown): NormalisedAttribute | null {
 }
 
 function toIsoTimestamp(value: unknown): string | null {
-  const s = toNonEmptyString(value);
+  const s = toNonEmptyWfmString(value);
   if (!s) return null;
   const parsed = Date.parse(s);
   return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
@@ -135,22 +123,22 @@ function normalizeContract(raw: unknown): NormalisedContract | null {
     string,
     unknown
   >;
-  const itemSlug = toNonEmptyString(item.url_name) || toNonEmptyString(r.item_url_name);
+    const itemSlug = toNonEmptyWfmString(item.url_name) || toNonEmptyWfmString(r.item_url_name);
   const weaponSlug =
-    toNonEmptyString(item.weapon_url_name) ||
-    toNonEmptyString(item.weaponUrlName) ||
-    toNonEmptyString(r.weapon_url_name) ||
-    toNonEmptyString(r.weaponUrlName);
+    toNonEmptyWfmString(item.weapon_url_name) ||
+    toNonEmptyWfmString(item.weaponUrlName) ||
+    toNonEmptyWfmString(r.weapon_url_name) ||
+    toNonEmptyWfmString(r.weaponUrlName);
 
   const itemName =
-    toNonEmptyString(i18nEn.item_name) ||
-    toNonEmptyString(i18nEn.itemName) ||
-    toNonEmptyString(item.item_name) ||
-    toNonEmptyString(item.itemName) ||
-    toNonEmptyString(item.weapon_name) ||
-    toNonEmptyString(item.weaponName) ||
-    toNonEmptyString(r.item_name) ||
-    toNonEmptyString(r.itemName) ||
+    toNonEmptyWfmString(i18nEn.item_name) ||
+    toNonEmptyWfmString(i18nEn.itemName) ||
+    toNonEmptyWfmString(item.item_name) ||
+    toNonEmptyWfmString(item.itemName) ||
+    toNonEmptyWfmString(item.weapon_name) ||
+    toNonEmptyWfmString(item.weaponName) ||
+    toNonEmptyWfmString(r.item_name) ||
+    toNonEmptyWfmString(r.itemName) ||
     (weaponSlug ? `${titleFromSlug(weaponSlug)} Riven` : "Riven Contract");
 
   const itemThumb = normalizeAssetUrl(
@@ -173,10 +161,10 @@ function normalizeContract(raw: unknown): NormalisedContract | null {
       : [];
 
   const id =
-    toNonEmptyString(r.id) ||
-    toNonEmptyString(r._id) ||
-    toNonEmptyString(r.contract_id) ||
-    toNonEmptyString(r.contractId);
+    toNonEmptyWfmString(r.id) ||
+    toNonEmptyWfmString(r._id) ||
+    toNonEmptyWfmString(r.contract_id) ||
+    toNonEmptyWfmString(r.contractId);
 
   if (!id) return null;
 
@@ -190,7 +178,7 @@ function normalizeContract(raw: unknown): NormalisedContract | null {
   return {
     id,
     itemName: itemName || "Riven Contract",
-    itemId: toNonEmptyString(item.id) || toNonEmptyString(r.itemId) || null,
+    itemId: toNonEmptyWfmString(item.id) || toNonEmptyWfmString(r.itemId) || null,
     itemUrlName: itemSlug || weaponSlug || null,
     weaponUrlName: weaponSlug || null,
     itemThumb,
@@ -207,20 +195,20 @@ function normalizeContract(raw: unknown): NormalisedContract | null {
       item.mastery_level ?? item.masteryLevel ?? r.mastery_level ?? r.masteryLevel,
     ),
     polarity:
-      toNonEmptyString(item.polarity) ||
-      toNonEmptyString(r.polarity) ||
-      toNonEmptyString(item.mod_polarity) ||
+      toNonEmptyWfmString(item.polarity) ||
+      toNonEmptyWfmString(r.polarity) ||
+      toNonEmptyWfmString(item.mod_polarity) ||
       null,
     isDirectSell: directSell,
     listedAt: toIsoTimestamp(r.created_at ?? r.createdAt),
     updatedAt: toIsoTimestamp(r.updated_at ?? r.updatedAt),
-    note: toNonEmptyString(r.note) || null,
+    note: toNonEmptyWfmString(r.note) || null,
     stats: (attributesRaw.map(normalizeAttribute).filter(Boolean) as NormalisedAttribute[]),
     listingUrl: `https://warframe.market/auction/${encodeURIComponent(id)}`,
     sourceType:
-      toNonEmptyString(r.type) ||
-      toNonEmptyString(r.contract_type) ||
-      toNonEmptyString(r.contractType) ||
+      toNonEmptyWfmString(r.type) ||
+      toNonEmptyWfmString(r.contract_type) ||
+      toNonEmptyWfmString(r.contractType) ||
       null,
   };
 }
