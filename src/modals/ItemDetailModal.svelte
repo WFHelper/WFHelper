@@ -143,12 +143,10 @@
                   {#each item.components as comp}
                   {@const ownedCount = comp.ownedCount ?? 0}
                   {@const needed = comp.itemCount || 1}
-                  {@const stateClass = ownedCount >= needed ? 'owned' : ownedCount > 0 ? 'partial' : 'not-owned'}
-                  {@const countClass = ownedCount >= needed ? 'has-enough' : ownedCount > 0 ? 'has-some' : 'has-none'}
+                  {@const countClass = ownedCount >= needed ? 'text-success' : ownedCount > 0 ? 'text-warning' : 'text-danger'}
                   <button
                     type="button"
-                    class="detail-comp-row {stateClass}"
-                    class:active={selectedComp === comp}
+                    class="-mx-[0.3rem] flex w-full cursor-pointer appearance-none items-center justify-between gap-[0.48rem] border-0 border-b border-dashed border-white/[0.08] bg-transparent px-[0.3rem] py-[0.36rem] text-left font-inherit text-inherit last:border-b-0 hover:rounded-[var(--radius-sm)] hover:bg-white/[0.06] hover:text-text-primary {selectedComp === comp ? 'rounded-[var(--radius-sm)] bg-white/10' : ''}"
                     aria-pressed={selectedComp === comp}
                     on:click={() => selectComponent(comp)}
                   >

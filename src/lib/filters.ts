@@ -24,7 +24,22 @@ interface FilterableItem {
   favorite?: boolean;
   equipped?: boolean;
   leveledUp?: boolean;
+  count?: number | null;
+  time?: number | null;
+  disposition?: number | null;
+  rerolls?: number | null;
+  grade?: string | number | null;
+  gradeRank?: number | null;
 }
+
+const GRADE_ORDER: Record<string, number> = {
+  S: 6,
+  A: 5,
+  B: 4,
+  C: 3,
+  D: 2,
+  F: 1,
+};
 
 function isMastered(item: FilterableItem): boolean {
   if (item.status) return item.status === "mastered";
@@ -76,6 +91,24 @@ function toMetric(item: FilterableItem, sortBy: SharedFiltersState["sortBy"]): n
   }
   if (sortBy === "amount") {
     return typeof item.amount === "number" ? item.amount : null;
+  }
+  if (sortBy === "count") {
+    return typeof item.count === "number" ? item.count : null;
+  }
+  if (sortBy === "time") {
+    return typeof item.time === "number" ? item.time : null;
+  }
+  if (sortBy === "disposition") {
+    return typeof item.disposition === "number" ? item.disposition : null;
+  }
+  if (sortBy === "rerolls") {
+    return typeof item.rerolls === "number" ? item.rerolls : null;
+  }
+  if (sortBy === "grade") {
+    if (typeof item.gradeRank === "number") return item.gradeRank;
+    if (typeof item.grade === "number") return item.grade;
+    if (typeof item.grade === "string") return GRADE_ORDER[item.grade.toUpperCase()] ?? null;
+    return null;
   }
   if (sortBy === "owned") {
     if (typeof item.owned === "boolean") return item.owned ? 1 : 0;
@@ -140,23 +173,29 @@ export function matchesSharedFilters(item: FilterableItem, filters: SharedFilter
   return true;
 }
 
+export function compareSharedFilterSort<T extends FilterableItem>(
+  a: T,
+  b: T,
+  filters: SharedFiltersState,
+): number {
+  const direction = filters.sortDirection === "asc" ? 1 : -1;
+
+  if (filters.sortBy === "name") {
+    return direction * a.name.localeCompare(b.name);
+  }
+
+  const aMetric = toMetric(a, filters.sortBy);
+  const bMetric = toMetric(b, filters.sortBy);
+  const numeric = compareNullableNumber(aMetric, bMetric, direction);
+  if (numeric !== 0) return numeric;
+  return a.name.localeCompare(b.name);
+}
+
 export function applySharedFiltersAndSort<T extends FilterableItem>(
   items: T[],
   filters: SharedFiltersState,
 ): T[] {
-  const direction = filters.sortDirection === "asc" ? 1 : -1;
-
   return items
     .filter((item) => matchesSharedFilters(item, filters))
-    .sort((a, b) => {
-      if (filters.sortBy === "name") {
-        return direction * a.name.localeCompare(b.name);
-      }
-
-      const aMetric = toMetric(a, filters.sortBy);
-      const bMetric = toMetric(b, filters.sortBy);
-      const numeric = compareNullableNumber(aMetric, bMetric, direction);
-      if (numeric !== 0) return numeric;
-      return a.name.localeCompare(b.name);
-    });
+    .sort((a, b) => compareSharedFilterSort(a, b, filters));
 }

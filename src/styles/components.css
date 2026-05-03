@@ -460,8 +460,7 @@
 
   /* ── cross-component badges ──────────────────────────────────── */
   .vault-badge,
-  .count-badge,
-  .relic-owned-badge {
+  .count-badge {
     position: absolute;
     border-radius: 999px;
     padding: 0.12rem 0.42rem;
@@ -490,8 +489,6 @@
   }
 
   /* ── cross-component pills / icons / tier colours ────────────── */
-  .relic-card-tier,
-  .relic-owned-pill,
   .order-vis {
     display: inline-flex;
     align-items: center;
@@ -650,10 +647,6 @@
     border: none;
     animation: compSlideIn 0.18s ease;
   }
-  .detail-comp-row.active {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: var(--radius-sm);
-  }
   @keyframes compSlideIn {
     from {
       opacity: 0;
@@ -778,8 +771,6 @@
   .detail-meta,
   .detail-desc,
   .detail-market-body,
-  .drop-entry,
-  .settings-status,
   .detail-muted {
     font-size: var(--font-small-size, 0.82rem);
     color: var(--text-secondary);
@@ -790,78 +781,13 @@
   .detail-section {
     margin-top: 0.7rem;
   }
-  .detail-section h3,
-  .relic-rewards-header {
+  .detail-section h3 {
     margin: 0 0 0.42rem;
     font-family: var(--font-display);
     font-size: var(--font-heading-size, 0.95rem);
     font-weight: 600;
     letter-spacing: 0.03em;
     color: var(--text-primary);
-  }
-  .detail-comp-row,
-  .drop-entry,
-  .relic-reward-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.48rem;
-    padding: 0.36rem 0;
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
-  }
-  .detail-comp-row:last-child,
-  .drop-entry:last-child,
-  .relic-reward-row:last-child {
-    border-bottom: 0;
-  }
-  .detail-comp-row {
-    cursor: pointer;
-    padding-left: 0.3rem;
-    padding-right: 0.3rem;
-    margin-left: -0.3rem;
-    margin-right: -0.3rem;
-    /* Reset <button> user-agent styles so row retains its original div-like look. */
-    background: transparent;
-    border: 0;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    width: 100%;
-    appearance: none;
-  }
-  .detail-comp-row:hover {
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.06);
-    border-radius: var(--radius-sm);
-  }
-  .detail-comp-row.owned .comp-count,
-  .comp-count.has-enough {
-    color: var(--success);
-  }
-  .detail-comp-row.partial .comp-count,
-  .comp-count.has-some {
-    color: var(--warning);
-  }
-  .detail-comp-row.not-owned .comp-count,
-  .comp-count.has-none {
-    color: var(--danger);
-  }
-  .drop-entry {
-    justify-content: flex-start;
-  }
-  .drop-location {
-    color: var(--text-primary);
-  }
-  .drop-rarity {
-    color: var(--text-muted);
-  }
-  .drop-chance {
-    color: var(--accent, #d4a843);
-    font-size: 0.78rem;
-    flex-shrink: 0;
-  }
-  .drop-entry-more {
-    opacity: 0.5;
   }
   .detail-meta-inline {
     font-size: 0.64rem;
@@ -878,22 +804,5 @@
     display: flex;
     flex-direction: column;
     gap: 0.1rem;
-  }
-  .drop-view-all {
-    display: block;
-    width: 100%;
-    padding: 0.35rem 0;
-    border: none;
-    background: none;
-    color: var(--accent, #d4a843);
-    font-family: var(--font-display);
-    font-size: 0.78rem;
-    cursor: pointer;
-    text-align: left;
-    opacity: 0.85;
-  }
-  .drop-view-all:hover {
-    opacity: 1;
-    text-decoration: underline;
   }
 }

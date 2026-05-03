@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { invoke, on } from "../lib/ipc.js";
   import { ELEMENT_ICON_URLS, RIVEN_TEMPLATE_URL } from "../lib/assetUrls.js";
+  import { compareSharedFilterSort, matchesSharedFilters } from "../lib/filters.js";
   import { gradeColor } from "../lib/rivenGradeColors.js";
   import type { DecodedRiven, VeiledRivenEntry, VeiledRivenGroup } from "../types/ipc.js";
   import RivenDetailModal from "../modals/RivenDetailModal.svelte";
@@ -38,43 +39,34 @@
     ["grade", "Grade"],
   ];
   const rivenFilters = sharedFilters("rivens");
-  const GRADE_ORDER: Record<string, number> = {
-    S: 6,
-    A: 5,
-    B: 4,
-    C: 3,
-    D: 2,
-    F: 1,
-  };
-  const SORT_COMPARATORS: Record<RivenSortKey, (a: DecodedRiven, b: DecodedRiven) => number> = {
-    name: (a, b) => a.weaponName.localeCompare(b.weaponName),
-    disposition: (a, b) => a.disposition - b.disposition,
-    rerolls: (a, b) => a.rerolls - b.rerolls,
-    grade: (a, b) => (GRADE_ORDER[a.overallGrade] ?? 0) - (GRADE_ORDER[b.overallGrade] ?? 0),
-  };
+  function filterableRiven(riven: DecodedRiven): {
+    name: string;
+    keywords: string[];
+    disposition: number;
+    rerolls: number;
+    grade: string;
+  } {
+    return {
+      name: riven.weaponName,
+      keywords: riven.stats.map((stat) => stat.name),
+      disposition: riven.disposition,
+      rerolls: riven.rerolls,
+      grade: riven.overallGrade,
+    };
+  }
 
   const filteredRivens = $derived.by(() => {
     let list = rivens;
-    if ($rivenFilters.search) {
-      const q = $rivenFilters.search.toLowerCase();
-      list = list.filter(
-        (r) =>
-          r.weaponName.toLowerCase().includes(q) ||
-          r.stats.some((s) => s.name.toLowerCase().includes(q)),
-      );
-    }
+    list = list.filter((riven) => matchesSharedFilters(filterableRiven(riven), $rivenFilters));
     if (typeFilter !== "all") {
       list = list.filter((r) => r.rivenType === typeFilter);
     }
     if (gradeFilter !== "all") {
       list = list.filter((r) => r.overallGrade === gradeFilter);
     }
-    const sortBy = $rivenFilters.sortBy as RivenSortKey;
-    const compare = SORT_COMPARATORS[sortBy] ?? SORT_COMPARATORS.name;
-    list = [...list].sort((a, b) => {
-      const cmp = compare(a, b);
-      return $rivenFilters.sortDirection === "desc" ? -cmp : cmp;
-    });
+    list = [...list].sort((a, b) =>
+      compareSharedFilterSort(filterableRiven(a), filterableRiven(b), $rivenFilters),
+    );
     return list;
   });
 

@@ -212,7 +212,7 @@ import DetailModalBase from "./DetailModalBase.svelte";
               <span class="detail-tag" class:vaulted={group.vaulted} class:mastered={!group.vaulted}>{group.vaulted ? "VAULTED" : "UNVAULTED"}</span>
               {#each QUAL_ENTRIES as [quality, label]}
                 {#if (owned[quality] || 0) > 0}
-                  <span class="relic-owned-pill">{label}: x{owned[quality]}</span>
+                  <span class="inline-flex items-center gap-[0.26rem] rounded-full border border-border bg-white/[0.04] px-2 py-[0.14rem] font-display text-[0.66rem] font-bold tracking-[0.03em] text-text-secondary">{label}: x{owned[quality]}</span>
                 {/if}
               {:else}
                 <span class="detail-muted">None owned</span>
@@ -327,7 +327,6 @@ import DetailModalBase from "./DetailModalBase.svelte";
 {/if}
 
 <style>
-  .relic-detail-owned :global(.relic-owned-pill) { font-size: 0.66rem; }
   :global(.rarity-rare) {
     background: color-mix(in srgb, var(--rarity-rare) 20%, transparent);
     color: var(--rarity-rare);

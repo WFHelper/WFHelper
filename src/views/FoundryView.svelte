@@ -9,6 +9,7 @@
   import { masteryData } from "../stores/mastery.js";
   import { activeItem } from "../stores/modals.js";
   import { formatBuildTime, formatTimeRemaining, formatNumber } from "../lib/format.js";
+  import { compareSharedFilterSort, matchesSharedFilters } from "../lib/filters.js";
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
   import { CREDITS_ICON_URL } from "../lib/assetUrls.js";
   import { clockStore } from "../lib/timers.js";
@@ -224,9 +225,24 @@
     }
   }
 
-  $: q = $foundryFilters.search.trim().toLowerCase();
-
   $: decorated = allEntries.map((e) => ({ e, status: statusOf(e, nowMs) }));
+
+  function filterableFoundryEntry(row: { e: FoundryEntry; status: ItemStatus }): {
+    name: string;
+    category: string;
+    count: number | null;
+    time: number | null;
+  } {
+    return {
+      name: row.e.name,
+      category: row.e.category,
+      count: row.e.source === "blueprint" ? row.e.count : null,
+      time:
+        row.e.source === "building" && row.e.endDate
+          ? Math.max(row.e.endDate.getTime() - nowMs, 0)
+          : null,
+    };
+  }
 
   function passesActiveFilter(e: FoundryEntry, s: ItemStatus): boolean {
     if ($activeFilter === "all") return true;
@@ -238,8 +254,7 @@
 
   $: filtered = decorated.filter(({ e, status }) => {
     if (!passesActiveFilter(e, status)) return false;
-    if (q && !e.name.toLowerCase().includes(q)) return false;
-    return true;
+    return matchesSharedFilters(filterableFoundryEntry({ e, status }), $foundryFilters);
   });
 
   /** Default ordering across statuses: claimable → in-progress → ready → not-ready. */
@@ -252,25 +267,14 @@
 
   $: sorted = (() => {
     const copy = [...filtered];
-    const sortMode = $foundryFilters.sortBy as SortMode;
-    const dirMul = $foundryFilters.sortDirection === "asc" ? 1 : -1;
     copy.sort((a, b) => {
       const rankDiff = STATUS_RANK[a.status] - STATUS_RANK[b.status];
       if (rankDiff !== 0) return rankDiff;
-      if (sortMode === "name") return a.e.name.localeCompare(b.e.name) * dirMul;
-      if (sortMode === "count") {
-        if (a.e.source === "blueprint" && b.e.source === "blueprint") {
-          return (b.e.count - a.e.count || a.e.name.localeCompare(b.e.name)) * dirMul;
-        }
-      }
-      if (sortMode === "time" || sortMode === "count") {
-        if (a.e.source === "building" && b.e.source === "building") {
-          const ta = a.e.endDate ? Math.max(a.e.endDate.getTime() - nowMs, 0) : Infinity;
-          const tb = b.e.endDate ? Math.max(b.e.endDate.getTime() - nowMs, 0) : Infinity;
-          return (ta - tb) * dirMul;
-        }
-      }
-      return a.e.name.localeCompare(b.e.name) * dirMul;
+      return compareSharedFilterSort(
+        filterableFoundryEntry(a),
+        filterableFoundryEntry(b),
+        $foundryFilters,
+      );
     });
     return copy;
   })();
