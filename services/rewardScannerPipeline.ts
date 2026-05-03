@@ -1,64 +1,25 @@
-/**
- * Reward scanner orchestrator.
- *
- * State management, settings, OCR runner setup, and high-level scan orchestration.
- * Implementation details are split across:
- *   - rewardScannerUtils.ts      (pure math/string utilities)
- *   - rewardScannerCapture.ts    (Electron screen capture)
- *   - rewardScannerImage.ts      (image cropping / enhancement)
- *   - rewardScannerMatch.ts      (OCR text -> item matching)
- *   - rewardScannerReadiness.ts  (UI readiness detection)
- *   - rewardScannerSupport.ts    (tuning, fallback heuristics, slot expectations)
- */
-
-import fs from "fs";
 import crypto from "node:crypto";
-import path from "path";
 import type { NativeImage } from "electron";
 
 import { REWARD_FRAME_DEDUP_TTL_MS } from "../config/runtime/cacheConfig";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { withScope } from "./logger";
 import { captureScreenFast, type CaptureResult } from "./rewardScannerCapture";
+import { detectConsoleOpen, detectRewardSlotLayout } from "./rewardScannerImage";
+import { buildConsensusSelection, type PassResult, type SortedItem } from "./rewardScannerMatch";
+import { scanRewardBandPasses } from "./rewardScannerBandScan";
+import { scanRewardSlotsFallback, type StructuredOcrBufferRunner } from "./rewardScannerSlotScan";
 import {
-  buildOcrVariants,
-  cropBand,
-  cropRect,
-  cropRewardBand,
-  detectConsoleOpen,
-  detectRewardSlotLayout,
-} from "./rewardScannerImage";
-import {
-  MAX_REWARD_SLOTS,
-  buildConsensusSelection,
-  chooseBetterOcrPass,
-  detectRelicEraFromText,
-  detectRelicEraFromTileLabelText,
-  matchItemsDetailed,
-  type PassResult,
-  rankRewardCandidatesDetailed,
-  type SortedItem,
-} from "./rewardScannerMatch";
-import { createRewardOcrRunner } from "./rewardScannerOcr";
-import { waitForRewardUiReady as _waitForRewardUiReady } from "./rewardScannerReadiness";
-import {
-  CROP_PRESETS,
   expectedRewardItemCount,
   findTemporalFallback,
   getAdaptiveStrategyHint,
   hasConfidentSlotLayout,
-  hasSufficientTextureForOcr,
-  RELIC_ERA_BANDS,
-  RELIC_ROW_TILE_LABEL_RECTS,
   recordStrategyWin,
   recordTemporalEntry,
   SCANNER_TUNING,
   shouldAcceptPartialSlotResult,
 } from "./rewardScannerSupport";
-import { clampNumber, round4 } from "./rewardScannerUtils";
-
-export { captureSourceMeta } from "./rewardScannerCapture";
-export { getAdaptiveStrategyHint } from "./rewardScannerSupport";
+import { round4 } from "./rewardScannerUtils";
 
 const log = withScope("rewardScanner");
 
@@ -72,27 +33,37 @@ interface TriggerStats {
   failureReason: string | null;
 }
 
-let _lastTriggerStats: TriggerStats | null = null;
+export interface PreCaptureResult {
+  image: NativeImage;
+  sourceType: string | null;
+  sourceName: string | null;
+  sourceId: string | null;
+  sourceDisplayId: string | null;
+}
 
+export interface RewardScanSettings {
+  cropPreset: string;
+  ocrPasses: number;
+  matchThreshold: number;
+  ocrTimeoutMs: number;
+}
+
+export interface RewardScanPipelineOptions {
+  preCapture?: PreCaptureResult | null;
+  sortedItems: SortedItem[];
+  settings: RewardScanSettings;
+  getBandsForPasses: (presetName: string, passes: number) => Array<{ top: number; height: number }>;
+  runOCRStructuredBuffer: StructuredOcrBufferRunner;
+}
+
+let _lastTriggerStats: TriggerStats | null = null;
 let _lastFrameHash: string | null = null;
 let _lastFrameResult: { items: SortedItem[]; meta: Record<string, unknown> } | null = null;
-/**
- * Window during which an identical frame hash short-circuits back to the
- * cached result instead of re-running template matching.
- *
- * 5 s is picked to comfortably span a single reward-screen dwell (the
- * rewards are on-screen ~8 s typically, but the scanner only fires after
- * the screen settles — so the interesting window is ~2–4 s) while still
- * expiring fast enough that a follow-up mission with the same backdrop
- * doesn't serve stale items. Shorter TTLs cause needless re-scans during
- * the same mission's end-screen; longer TTLs risk cross-mission bleed.
- */
 let _lastFrameHashTs = 0;
 
 function computeFrameHash(nativeImage: NativeImage): string | null {
   try {
     const bitmap: Buffer = nativeImage.toBitmap();
-    // Sample every 256th byte for speed — still unique enough for dedup
     const sample = Buffer.alloc(Math.ceil(bitmap.length / 256));
     for (let i = 0; i < sample.length; i++) {
       sample[i] = bitmap[i * 256];
@@ -109,42 +80,13 @@ export function resetFrameDedup(): void {
   _lastFrameHashTs = 0;
 }
 
-const REWARD_SCAN_SETTINGS = Object.freeze({
-  cropPreset: "balanced",
-  ocrPasses: 2,
-  matchThreshold: 0.74,
-  ocrTimeoutMs: 15_000,
-});
-
-let relicItems: SortedItem[] = [];
-let sortedItems: SortedItem[] = [];
-
-export function setRelicItems(items: SortedItem[]): void {
-  relicItems = Array.isArray(items) ? items : [];
-  sortedItems = [...relicItems].sort((a, b) => b.name.length - a.name.length);
-  log.log(`[RewardScanner] Item list updated: ${relicItems.length} items`);
-}
-const { runOCR, runOCRBuffer, runOCRStructuredBuffer } = createRewardOcrRunner({
-  log,
-  getRequestedEngine: () => "windows",
-  ocrScriptPath: SCANNER_TUNING.paths.ocrScript,
-  engineWindows: "windows",
-});
-
-function getBandsForPasses(
-  presetName: string,
-  passes: number,
-): Array<{ top: number; height: number }> {
-  const preset = CROP_PRESETS[presetName] || CROP_PRESETS.balanced;
-  const bands: Array<{ top: number; height: number }> = [];
-  for (let i = 0; i < passes; i += 1) {
-    bands.push(preset[i % preset.length]);
-  }
-  return bands;
-}
-
-function getPrimaryBand(): { top: number; height: number } {
-  return getBandsForPasses(REWARD_SCAN_SETTINGS.cropPreset, 1)[0];
+function computeRewardScanBudgetMs(settings: RewardScanSettings): number {
+  const passes = Math.max(1, Math.floor(settings.ocrPasses || 1));
+  const perAttempt = Math.max(500, Math.min(Number(settings.ocrTimeoutMs) || 0, 2000));
+  return Math.max(
+    SCANNER_TUNING.budget.minMs,
+    Math.min(SCANNER_TUNING.budget.maxMs, 800 + passes * 500 + perAttempt),
+  );
 }
 
 function buildScanMeta({
@@ -201,608 +143,89 @@ function buildScanMeta({
   };
 }
 
-function buildTempImagePath(basePath: string, label: string): string {
-  const ext = path.extname(basePath) || ".png";
-  const stem = ext ? basePath.slice(0, -ext.length) : basePath;
-  const safeLabel = String(label || "scan").replace(/[^a-z0-9_-]+/gi, "-");
-  return `${stem}-${safeLabel}-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+function cacheFrameResult(
+  frameHash: string | null,
+  result: { items: SortedItem[]; meta: Record<string, unknown> },
+): void {
+  if (!frameHash) return;
+  _lastFrameHash = frameHash;
+  _lastFrameResult = result;
+  _lastFrameHashTs = Date.now();
 }
 
-function computeRewardScanBudgetMs(): number {
-  const passes = Math.max(1, Math.floor(REWARD_SCAN_SETTINGS.ocrPasses || 1));
-  const perAttempt = Math.max(500, Math.min(Number(REWARD_SCAN_SETTINGS.ocrTimeoutMs) || 0, 2000));
-  return Math.max(
-    SCANNER_TUNING.budget.minMs,
-    Math.min(SCANNER_TUNING.budget.maxMs, 800 + passes * 500 + perAttempt),
-  );
+function rememberStats(stats: TriggerStats): void {
+  _lastTriggerStats = stats;
 }
 
-async function runVariantOcr(
-  variantImage: NativeImage,
-  timeoutMs: number,
-  label: string,
-): Promise<string> {
-  const pngBuffer: Buffer = variantImage.toPNG();
-  try {
-    return await runOCRBuffer(pngBuffer, timeoutMs);
-  } catch {
-    const tempPath = buildTempImagePath(SCANNER_TUNING.paths.tempImage, label);
-    fs.writeFileSync(tempPath, pngBuffer);
-    try {
-      return await runOCR(tempPath, timeoutMs);
-    } finally {
-      try {
-        fs.unlinkSync(tempPath);
-      } catch {
-        // best effort temp cleanup
-      }
-    }
-  }
-}
-
-interface OcrLine {
-  text?: string;
-  box?: { top?: number; height?: number };
-}
-
-interface StructuredOcrResult {
-  text?: string;
-  lines?: OcrLine[];
-}
-
-function extractRewardTitleTexts(structured: StructuredOcrResult | null): string[] {
-  const lines: OcrLine[] = Array.isArray(structured?.lines) ? structured!.lines! : [];
-  const text = String(structured?.text || "").trim();
-  if (lines.length === 0) return text ? [text] : [];
-
-  const bottoms = lines.map((line) => Number(line?.box?.top || 0) + Number(line?.box?.height || 0));
-  const maxBottom = Math.max(...bottoms, 1);
-  const bottomLines = lines
-    .filter((line) => Number(line?.box?.top || 0) >= maxBottom * 0.45)
-    .map((line) => String(line?.text || "").trim())
-    .filter(Boolean);
-  const lastTwo = lines
-    .slice(-2)
-    .map((line) => String(line?.text || "").trim())
-    .filter(Boolean);
-  const candidates = new Set<string>();
-  if (bottomLines.length) candidates.add(bottomLines.join(" "));
-  if (lastTwo.length) candidates.add(lastTwo.join(" "));
-  if (text) candidates.add(text);
-  return [...candidates].filter((candidate) => candidate.length > 0);
-}
-
-interface SlotCandidate {
-  item: SortedItem;
-  confidence: number;
-  score: number;
-  mode: string;
-}
-
-function chooseUniqueRewardAssignments(
-  slotCandidates: Array<Array<SlotCandidate>>,
-): Array<SlotCandidate | null> {
-  let bestScore = -Infinity;
-  let best: Array<SlotCandidate | null> = new Array(slotCandidates.length).fill(null);
-
-  function visit(
-    index: number,
-    usedNames: Set<string>,
-    current: Array<SlotCandidate | null>,
-    score: number,
-  ): void {
-    if (index >= slotCandidates.length) {
-      if (score > bestScore) {
-        bestScore = score;
-        best = current.slice();
-      }
-      return;
-    }
-
-    const candidates = slotCandidates[index] || [];
-    let visited = false;
-    for (const candidate of candidates.slice(0, 5)) {
-      const name = candidate.item?.name;
-      if (!name || usedNames.has(name)) continue;
-      visited = true;
-      usedNames.add(name);
-      current[index] = candidate;
-      visit(index + 1, usedNames, current, score + Number(candidate.score || 0));
-      usedNames.delete(name);
-      current[index] = null;
-    }
-
-    if (!visited) {
-      current[index] = null;
-      visit(index + 1, usedNames, current, score - 25);
-    }
-  }
-
-  visit(0, new Set<string>(), new Array(slotCandidates.length).fill(null), 0);
-  return best;
-}
-
-async function scanRewardSlotsFallback(
-  screenshot: {
-    image: NativeImage;
-    sourceType?: string | null;
-    sourceName?: string | null;
-    sourceId?: string | null;
-    sourceDisplayId?: string | null;
-  },
-  expectedCount: number,
-  totalBudgetMs: number,
-  startedAt: number,
+async function captureRewardScreen(
+  preCapture: PreCaptureResult | null | undefined,
 ): Promise<{
-  items: SortedItem[];
-  score: number;
-  exactCount: number;
-  slotCount: number;
-  strategy: string;
-  slotConfidence: number;
-} | null> {
-  const layout = detectRewardSlotLayout(screenshot?.image);
-  if (!hasConfidentSlotLayout(layout)) return null;
-
-  const slotLimit = Math.min(expectedCount || layout.count, layout.count, MAX_REWARD_SLOTS);
-  const slotResults = await Promise.all(
-    layout.slots.slice(0, slotLimit).map(async (slot, i) => {
-      const elapsed = Date.now() - startedAt;
-      const remainingBudgetMs = totalBudgetMs - elapsed;
-      if (remainingBudgetMs <= 0) return null;
-
-      let crop: NativeImage;
-      try {
-        crop = cropRect(screenshot.image, slot.titleRect);
-      } catch {
-        return null;
-      }
-
-      const rankedCandidates: SlotCandidate[] = [];
-      const variants = buildOcrVariants(crop);
-      for (const variant of variants) {
-        try {
-          const pngBuffer: Buffer = variant.image.toPNG();
-          const structured = await runOCRStructuredBuffer(
-            pngBuffer,
-            Math.max(500, Math.min(REWARD_SCAN_SETTINGS.ocrTimeoutMs, remainingBudgetMs)),
-          );
-          const candidateTexts = extractRewardTitleTexts(structured);
-          for (const candidateText of candidateTexts) {
-            const ranked = rankRewardCandidatesDetailed(candidateText, sortedItems, 4)
-              .filter(
-                (
-                  candidate,
-                ): candidate is typeof candidate & { item: NonNullable<typeof candidate.item> } =>
-                  !!candidate.item,
-              )
-              .map((candidate) => ({
-                item: candidate.item!,
-                confidence: candidate.confidence,
-                score: candidate.score + (variant.id === "raw" ? 2 : 0),
-                mode: candidate.mode,
-              }));
-            rankedCandidates.push(...ranked);
-          }
-        } catch {
-          continue;
-        }
-      }
-
-      if (rankedCandidates.length === 0) return null;
-      rankedCandidates.sort((a, b) => b.score - a.score || b.confidence - a.confidence);
-      return {
-        index: i,
-        candidates: rankedCandidates,
-      };
-    }),
-  );
-
-  const orderedCandidates = slotResults
-    .filter(
-      (
-        entry,
-      ): entry is {
-        index: number;
-        candidates: SlotCandidate[];
-      } => !!entry,
-    )
-    .sort((a, b) => a.index - b.index);
-
-  const assigned = chooseUniqueRewardAssignments(
-    orderedCandidates.map((entry) => entry.candidates),
-  );
-  const collected = orderedCandidates
-    .map((entry, idx) => ({
-      index: entry.index,
-      candidate: assigned[idx] || entry.candidates[0] || null,
-    }))
-    .filter(
-      (
-        entry,
-      ): entry is {
-        index: number;
-        candidate: SlotCandidate;
-      } => !!entry.candidate,
-    );
-
-  const score = collected.reduce((sum, entry) => sum + Number(entry.candidate.score || 0), 0);
-  const exactCount = collected.reduce(
-    (sum, entry) => sum + (entry.candidate.mode === "exact" ? 1 : 0),
-    0,
-  );
-
-  if (!collected.length) return null;
-
-  return {
-    items: collected.map((entry) => entry.candidate.item).slice(0, slotLimit),
-    score,
-    exactCount,
-    slotCount: slotLimit,
-    strategy: "slot-fallback",
-    slotConfidence: layout.confidence,
-  };
-}
-
-export async function detectRelicSelectionEra(
-  options: { timeoutMs?: number; preferredDisplayId?: string | null } = {},
-): Promise<{
-  era: string | null;
-  confidence: number;
-  elapsedMs: number;
-  textPreview: string;
-  candidateId?: string | null;
-  bandTopRatio?: number | null;
-  bandHeightRatio?: number | null;
-  ocrVariant?: string | null;
-  sourceType?: string | null;
-  sourceName?: string | null;
-  sourceId?: string | null;
-  sourceDisplayId?: string | null;
+  screenshot: CaptureResult | PreCaptureResult | null;
+  captureCount: number;
+  captureMs: number;
+  failureReason: "capture-error" | "capture-null" | null;
 }> {
-  const timeoutMs = Math.floor(clampNumber(options.timeoutMs, 600, 12000, 4500));
-  const startedAt = Date.now();
-
-  let screenshot: CaptureResult | null;
-  try {
-    screenshot = await captureScreenFast(options.preferredDisplayId || null);
-  } catch (err) {
-    log.warn("[RewardScanner] Relic era capture failed:", normalizeErrorMessage(err));
-    return {
-      era: null,
-      confidence: 0,
-      elapsedMs: Date.now() - startedAt,
-      textPreview: "",
-    };
-  }
-
-  if (!screenshot?.image) {
-    return {
-      era: null,
-      confidence: 0,
-      elapsedMs: Date.now() - startedAt,
-      textPreview: "",
-    };
-  }
-
-  const perAttemptTimeoutMs = Math.max(900, Math.min(REWARD_SCAN_SETTINGS.ocrTimeoutMs, timeoutMs));
-  let best: {
-    era: string | null;
-    confidence: number;
-    textPreview: string;
-    candidateId: string | null;
-    bandTopRatio: number | null;
-    bandHeightRatio: number | null;
-    ocrVariant: string | null;
-  } = {
-    era: null,
-    confidence: 0,
-    textPreview: "",
-    candidateId: null,
-    bandTopRatio: null,
-    bandHeightRatio: null,
-    ocrVariant: null,
-  };
-
-  for (const rect of RELIC_ROW_TILE_LABEL_RECTS) {
-    let cropped: NativeImage;
-    try {
-      cropped = cropRect(screenshot.image, rect);
-    } catch {
-      continue;
-    }
-
-    const variants = buildOcrVariants(cropped);
-    for (const variant of variants) {
-      if (Date.now() - startedAt >= timeoutMs) break;
-
-      let ocrText: string;
-      try {
-        ocrText = await runVariantOcr(
-          variant.image,
-          perAttemptTimeoutMs,
-          `era-${rect.id}-${variant.id}`,
-        );
-      } catch {
-        continue;
-      }
-
-      const hit = detectRelicEraFromTileLabelText(ocrText);
-      if (hit.confidence > best.confidence) {
-        best = {
-          era: hit.era,
-          confidence: hit.confidence,
-          textPreview: String(ocrText || "")
-            .replace(/\s+/g, " ")
-            .trim()
-            .slice(0, SCANNER_TUNING.ocr.textPreviewMaxChars),
-          candidateId: `tile-${rect.id}`,
-          bandTopRatio: round4(rect.y, null),
-          bandHeightRatio: round4(rect.height, null),
-          ocrVariant: variant.id,
-        };
-      }
-
-      if (best.confidence >= 0.99) {
-        break;
-      }
-    }
-
-    if (best.confidence >= 0.99) {
-      break;
-    }
-  }
-
-  if (best.confidence < 0.9) {
-    for (const band of RELIC_ERA_BANDS) {
-      let cropped: NativeImage;
-      try {
-        cropped = cropBand(screenshot.image, band);
-      } catch {
-        continue;
-      }
-
-      const variants = buildOcrVariants(cropped);
-      for (const variant of variants) {
-        if (Date.now() - startedAt >= timeoutMs) break;
-
-        let ocrText: string;
-        try {
-          ocrText = await runVariantOcr(
-            variant.image,
-            perAttemptTimeoutMs,
-            `era-band-${variant.id}`,
-          );
-        } catch {
-          continue;
-        }
-
-        const hit = detectRelicEraFromText(ocrText);
-        if (hit.confidence > best.confidence) {
-          best = {
-            era: hit.era,
-            confidence: hit.confidence,
-            textPreview: String(ocrText || "")
-              .replace(/\s+/g, " ")
-              .trim()
-              .slice(0, SCANNER_TUNING.ocr.textPreviewMaxChars),
-            candidateId: "header-band",
-            bandTopRatio: round4(band.top, null),
-            bandHeightRatio: round4(band.height, null),
-            ocrVariant: variant.id,
-          };
-        }
-
-        if (best.confidence >= 0.99) {
-          break;
-        }
-      }
-
-      if (best.confidence >= 0.99) {
-        break;
-      }
-    }
-  }
-
-  return {
-    ...best,
-    sourceType: screenshot.sourceType || null,
-    sourceName: screenshot.sourceName || null,
-    sourceId: screenshot.sourceId || null,
-    sourceDisplayId: screenshot.sourceDisplayId || null,
-    elapsedMs: Date.now() - startedAt,
-  };
-}
-
-/** Accepted pre-captured screenshot shape — same as CaptureResult from rewardScannerCapture. */
-interface PreCaptureResult {
-  image: NativeImage;
-  sourceType: string | null;
-  sourceName: string | null;
-  sourceId: string | null;
-  sourceDisplayId: string | null;
-}
-
-async function scanRewardBandPasses({
-  screenshot,
-  bands,
-  expectedItemCount,
-  totalBudgetMs,
-  scanStartedAt,
-  threshold,
-}: {
-  screenshot: CaptureResult | PreCaptureResult;
-  bands: Array<{ top: number; height: number }>;
-  expectedItemCount: number;
-  totalBudgetMs: number;
-  scanStartedAt: number;
-  threshold: number;
-}): Promise<{
-  hadOcrSuccess: boolean;
-  passResults: PassResult[];
-  bestPass: PassResult | null;
-  ocrCallCount: number;
-  ocrTotalMs: number;
-}> {
-  let hadOcrSuccess = false;
-  let passResults: PassResult[] = [];
-  let bestPass: PassResult | null = null;
-  let ocrCallCount = 0;
-  let ocrTotalMs = 0;
-
-  for (let i = 0; i < bands.length; i += 1) {
-    if (Date.now() - scanStartedAt >= totalBudgetMs) {
-      log.log(`[RewardScanner] scan budget exhausted before pass ${i + 1}/${bands.length}`);
-      break;
-    }
-
-    let cropped: NativeImage;
-    try {
-      cropped = cropRewardBand(screenshot.image, bands[i]);
-    } catch (err) {
-      log.error(`[RewardScanner] crop/write failed on pass ${i + 1}:`, normalizeErrorMessage(err));
-      continue;
-    }
-
-    let passResult: PassResult | null = null;
-    const variants = buildOcrVariants(cropped);
-
-    for (const variant of variants) {
-      const elapsed = Date.now() - scanStartedAt;
-      const remainingBudgetMs = totalBudgetMs - elapsed;
-      if (remainingBudgetMs <= 0) {
-        log.log(`[RewardScanner] scan budget exhausted before OCR on pass ${i + 1}`);
-        break;
-      }
-
-      if (!hasSufficientTextureForOcr(variant.image)) {
-        log.log(`[RewardScanner] Skipping low-texture crop (pass ${i + 1} ${variant.id})`);
-        continue;
-      }
-
-      let matched: ReturnType<typeof matchItemsDetailed> | null = null;
-      let ocrTextForLog: string;
-      try {
-        const pngBuf = variant.image.toPNG();
-        const ocrStart = Date.now();
-        const structured = await runOCRStructuredBuffer(
-          pngBuf,
-          Math.max(700, Math.min(REWARD_SCAN_SETTINGS.ocrTimeoutMs, remainingBudgetMs)),
-        );
-        ocrTotalMs += Date.now() - ocrStart;
-        ocrCallCount++;
-        hadOcrSuccess = true;
-        const candidateTexts = extractRewardTitleTexts(structured);
-        ocrTextForLog = structured.text || "";
-        for (const ctext of candidateTexts) {
-          const m = matchItemsDetailed(ctext, threshold, sortedItems);
-          if (!matched || m.score > matched.score) matched = m;
-        }
-        if (!matched) matched = matchItemsDetailed(structured.text || "", threshold, sortedItems);
-      } catch (err) {
-        log.error(
-          `[RewardScanner] OCR failed on pass ${i + 1} (${variant.id}):`,
-          normalizeErrorMessage(err),
-        );
-        continue;
-      }
-
-      const candidate = {
-        ...matched,
-        passIndex: i + 1,
-        band: bands[i],
-        text: ocrTextForLog,
-        ocrVariant: variant.id,
-      };
-
-      passResult = chooseBetterOcrPass(passResult, candidate);
-
-      if (matched.items.length >= expectedItemCount && matched.exactCount >= expectedItemCount) {
-        break;
-      }
-    }
-
-    if (!passResult) continue;
-
-    passResults.push(passResult);
-    if (!bestPass || passResult.score > bestPass.score) {
-      bestPass = passResult;
-    }
-
-    if (
-      passResult.items.length >= expectedItemCount &&
-      passResult.exactCount >= expectedItemCount
-    ) {
-      break;
-    }
-  }
-
-  return { hadOcrSuccess, passResults, bestPass, ocrCallCount, ocrTotalMs };
-}
-
-export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null): Promise<{
-  items: SortedItem[];
-  meta: Record<string, unknown>;
-} | null> {
-  if (sortedItems.length === 0) {
-    log.warn("[RewardScanner] No relic items loaded - call setRelicItems() first");
-    return null;
-  }
-
-  const scanStartedAt = Date.now();
-  const totalBudgetMs = computeRewardScanBudgetMs();
-
-  // Per-scan instrumentation counters.
-  let captureCountStat = 0;
-  let captureMs = 0;
-  let ocrCallCount = 0;
-  let ocrTotalMs = 0;
-
-  let screenshot: CaptureResult | PreCaptureResult | null;
   if (preCapture?.image) {
-    // Caller supplied a pre-captured screenshot; skip capture entirely.
-    screenshot = preCapture;
     log.log(
       "[RewardScanner] Using pre-captured screenshot" +
         ` (${preCapture.sourceType || "file"}:${preCapture.sourceName || preCapture.sourceId || "injected"})`,
     );
-  } else {
-    const captureStart = Date.now();
-    captureCountStat = 1;
-    try {
-      screenshot = await captureScreenFast();
-    } catch (err) {
-      log.error("[RewardScanner] captureScreen error:", normalizeErrorMessage(err));
-      _lastTriggerStats = {
-        captureCount: captureCountStat,
-        captureMs: Date.now() - captureStart,
-        ocrCallCount: 0,
-        ocrTotalMs: 0,
-        slotDetectMs: 0,
-        strategy: "failed",
-        failureReason: "capture-error",
-      };
-      return null;
-    }
-    captureMs = Date.now() - captureStart;
+    return { screenshot: preCapture, captureCount: 0, captureMs: 0, failureReason: null };
+  }
+
+  const captureStart = Date.now();
+  try {
+    const screenshot = await captureScreenFast();
+    const captureMs = Date.now() - captureStart;
     if (!screenshot) {
       log.warn("[RewardScanner] Could not capture screen");
-      _lastTriggerStats = {
-        captureCount: captureCountStat,
-        captureMs,
-        ocrCallCount: 0,
-        ocrTotalMs: 0,
-        slotDetectMs: 0,
-        strategy: "failed",
-        failureReason: "capture-null",
-      };
-      return null;
+      return { screenshot: null, captureCount: 1, captureMs, failureReason: "capture-null" };
     }
     log.log(
       "[RewardScanner] Scan capture source -> " +
         `${screenshot.sourceType}: ${screenshot.sourceName || screenshot.sourceId || "unknown"} ` +
         `(display:${screenshot.sourceDisplayId || "n/a"})`,
     );
+    return { screenshot, captureCount: 1, captureMs, failureReason: null };
+  } catch (err) {
+    log.error("[RewardScanner] captureScreen error:", normalizeErrorMessage(err));
+    return {
+      screenshot: null,
+      captureCount: 1,
+      captureMs: Date.now() - captureStart,
+      failureReason: "capture-error",
+    };
+  }
+}
+
+export async function runRewardScanPipeline({
+  preCapture,
+  sortedItems,
+  settings,
+  getBandsForPasses,
+  runOCRStructuredBuffer,
+}: RewardScanPipelineOptions): Promise<{
+  items: SortedItem[];
+  meta: Record<string, unknown>;
+} | null> {
+  const scanStartedAt = Date.now();
+  const totalBudgetMs = computeRewardScanBudgetMs(settings);
+  let ocrCallCount = 0;
+  let ocrTotalMs = 0;
+
+  const capture = await captureRewardScreen(preCapture);
+  const { screenshot, captureCount, captureMs } = capture;
+  if (!screenshot) {
+    rememberStats({
+      captureCount,
+      captureMs,
+      ocrCallCount: 0,
+      ocrTotalMs: 0,
+      slotDetectMs: 0,
+      strategy: "failed",
+      failureReason: capture.failureReason,
+    });
+    return null;
   }
 
   if (detectConsoleOpen(screenshot.image)) {
@@ -810,7 +233,6 @@ export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null):
     return null;
   }
 
-  // Frame dedup: skip OCR if the captured frame is identical to the previous one
   const frameHash = computeFrameHash(screenshot.image);
   if (
     frameHash &&
@@ -822,10 +244,7 @@ export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null):
     return _lastFrameResult;
   }
 
-  const threshold = REWARD_SCAN_SETTINGS.matchThreshold;
-  const bands = getBandsForPasses(REWARD_SCAN_SETTINGS.cropPreset, REWARD_SCAN_SETTINGS.ocrPasses);
-
-  // Adaptive strategy: reorder bands so the historically-winning band is tried first
+  const bands = getBandsForPasses(settings.cropPreset, settings.ocrPasses);
   const adaptiveHint = getAdaptiveStrategyHint();
   if (adaptiveHint && adaptiveHint.bandIndex > 0 && adaptiveHint.bandIndex < bands.length) {
     const hintBand = bands[adaptiveHint.bandIndex];
@@ -850,87 +269,76 @@ export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null):
       expectedItemCount,
       totalBudgetMs,
       scanStartedAt,
+      { sortedItems, ocrTimeoutMs: settings.ocrTimeoutMs, runOCRStructuredBuffer },
     );
-    const slotFirst = slotFirstResult;
-    if (slotFirst && slotFirst.items.length >= expectedItemCount) {
-      // exactCount is intentionally NOT required here — fuzzy word-overlap matches
-      // for Prime item names are reliable enough and slot geometry already validated.
-      log.log(
-        `[RewardScanner] Early slot-primary hit: ${slotFirst.items.length}/${expectedItemCount} items ` +
-          `(exact=${slotFirst.exactCount}, confidence=${slotFirst.slotConfidence.toFixed(3)})`,
-      );
-      const meta = buildScanMeta({
-        screenshot,
-        selectedPass: {
-          passIndex: 0,
-          score: slotFirst.score,
-          ocrVariant: "slot-primary",
-          band: null,
-          exactCount: slotFirst.exactCount,
-        },
-        passCount: bands.length,
-        strategy: slotFirst.strategy,
-        elapsedMs: Date.now() - scanStartedAt,
-        hadOcrSuccess: true,
-      });
 
-      const result = { items: slotFirst.items, meta };
-      if (frameHash) {
-        _lastFrameHash = frameHash;
-        _lastFrameResult = result;
-        _lastFrameHashTs = Date.now();
-      }
-      recordTemporalEntry(slotFirst.items, expectedItemCount);
-      _lastTriggerStats = {
-        captureCount: captureCountStat,
+    if (slotFirstResult && slotFirstResult.items.length >= expectedItemCount) {
+      log.log(
+        `[RewardScanner] Early slot-primary hit: ${slotFirstResult.items.length}/${expectedItemCount} items ` +
+          `(exact=${slotFirstResult.exactCount}, confidence=${slotFirstResult.slotConfidence.toFixed(3)})`,
+      );
+      const result = {
+        items: slotFirstResult.items,
+        meta: buildScanMeta({
+          screenshot,
+          selectedPass: {
+            passIndex: 0,
+            score: slotFirstResult.score,
+            ocrVariant: "slot-primary",
+            band: null,
+            exactCount: slotFirstResult.exactCount,
+          },
+          passCount: bands.length,
+          strategy: slotFirstResult.strategy,
+          elapsedMs: Date.now() - scanStartedAt,
+          hadOcrSuccess: true,
+        }),
+      };
+      cacheFrameResult(frameHash, result);
+      recordTemporalEntry(slotFirstResult.items, expectedItemCount);
+      rememberStats({
+        captureCount,
         captureMs,
         ocrCallCount,
         ocrTotalMs,
         slotDetectMs,
-        strategy: slotFirst.strategy,
+        strategy: slotFirstResult.strategy,
         failureReason: null,
-      };
+      });
       return result;
     }
 
-    // Partial slot-first success: only skip band-OCR when we matched ≥75% of
-    // expected items AND we're already deep into the time budget (>70% elapsed) OR
-    // when we have 100% fill but with only fuzzy/low-confidence matches.
-    // This prevents prematurely skipping a Prime item in the last slot.
     const elapsedRatio = (Date.now() - scanStartedAt) / totalBudgetMs;
     if (
-      slotFirst &&
+      slotFirstResult &&
       shouldAcceptPartialSlotResult({
-        itemCount: slotFirst.items.length,
+        itemCount: slotFirstResult.items.length,
         expectedCount: expectedItemCount,
         elapsedRatio,
       })
     ) {
       log.log(
-        `[RewardScanner] Partial slot-primary hit: ${slotFirst.items.length}/${expectedItemCount} items ` +
-          `(exact=${slotFirst.exactCount}, confidence=${slotFirst.slotConfidence.toFixed(3)}) — skipping band OCR`,
+        `[RewardScanner] Partial slot-primary hit: ${slotFirstResult.items.length}/${expectedItemCount} items ` +
+          `(exact=${slotFirstResult.exactCount}, confidence=${slotFirstResult.slotConfidence.toFixed(3)}) — skipping band OCR`,
       );
-      const meta = buildScanMeta({
-        screenshot,
-        selectedPass: {
-          passIndex: 0,
-          score: slotFirst.score,
-          ocrVariant: "slot-primary-partial",
-          band: null,
-          exactCount: slotFirst.exactCount,
-        },
-        passCount: bands.length,
-        strategy: "slot-partial",
-        elapsedMs: Date.now() - scanStartedAt,
-        hadOcrSuccess: true,
-      });
-
-      const result = { items: slotFirst.items, meta };
-      if (frameHash) {
-        _lastFrameHash = frameHash;
-        _lastFrameResult = result;
-        _lastFrameHashTs = Date.now();
-      }
+      const result = {
+        items: slotFirstResult.items,
+        meta: buildScanMeta({
+          screenshot,
+          selectedPass: {
+            passIndex: 0,
+            score: slotFirstResult.score,
+            ocrVariant: "slot-primary-partial",
+            band: null,
+            exactCount: slotFirstResult.exactCount,
+          },
+          passCount: bands.length,
+          strategy: "slot-partial",
+          elapsedMs: Date.now() - scanStartedAt,
+          hadOcrSuccess: true,
+        }),
+      };
+      cacheFrameResult(frameHash, result);
       return result;
     }
   }
@@ -941,7 +349,10 @@ export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null):
     expectedItemCount,
     totalBudgetMs,
     scanStartedAt,
-    threshold,
+    threshold: settings.matchThreshold,
+    sortedItems,
+    ocrTimeoutMs: settings.ocrTimeoutMs,
+    runOCRStructuredBuffer,
   });
   const hadOcrSuccess = bandScan.hadOcrSuccess;
   const passResults = bandScan.passResults;
@@ -954,7 +365,7 @@ export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null):
   }
 
   const consensus = buildConsensusSelection(passResults);
-  const selectedPass = consensus?.selectedPass || bestPass || passResults[0] || null;
+  const selectedPass: PassResult | null = consensus?.selectedPass || bestPass || passResults[0] || null;
   let items: SortedItem[] = (consensus?.items || selectedPass?.items || []).slice(
     0,
     expectedItemCount,
@@ -971,8 +382,6 @@ export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null):
   }
 
   if (items.length < expectedItemCount) {
-    // Reuse the already-computed slotFirstResult if available; avoids a second
-    // scanRewardSlotsFallback call which would duplicate all the OCR work.
     const slotFallback =
       slotFirstResult && slotFirstResult.items.length > 0
         ? slotFirstResult
@@ -981,6 +390,7 @@ export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null):
             expectedItemCount,
             totalBudgetMs,
             scanStartedAt,
+            { sortedItems, ocrTimeoutMs: settings.ocrTimeoutMs, runOCRStructuredBuffer },
           );
     if (slotFallback && slotFallback.items.length > items.length) {
       items = slotFallback.items;
@@ -992,9 +402,6 @@ export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null):
     }
   }
 
-  // Temporal consistency: if current result is sparse but recent full results
-  // confirm there should be more items, use the last confirmed full result instead
-  // of showing a partially-detected overlay.
   const temporalFallback = findTemporalFallback(items, expectedItemCount);
   if (temporalFallback) {
     log.log(
@@ -1015,43 +422,36 @@ export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null):
     const textPreview = selectedPass?.text
       ? selectedPass.text.slice(0, SCANNER_TUNING.ocr.textPreviewMaxChars).replace(/\s+/g, " ")
       : "";
-    if (textPreview) {
-      log.log("[RewardScanner] No items matched OCR text:", textPreview);
-    } else {
-      log.log("[RewardScanner] No items matched OCR text");
-    }
+    log.log(textPreview ? "[RewardScanner] No items matched OCR text:" : "[RewardScanner] No items matched OCR text", textPreview);
   }
 
-  // Record result for temporal smoothing.
   recordTemporalEntry(items, expectedItemCount);
-
-  // slotDetectMs is captured at layout detection above
-  _lastTriggerStats = {
-    captureCount: captureCountStat,
+  rememberStats({
+    captureCount,
     captureMs,
     ocrCallCount,
     ocrTotalMs,
     slotDetectMs,
     strategy: finalStrategy,
     failureReason: items.length === 0 ? "no-items" : null,
-  };
+  });
   log.log(
-    `[RewardScanner] Stats: captures=${captureCountStat} captureMs=${captureMs} ` +
+    `[RewardScanner] Stats: captures=${captureCount} captureMs=${captureMs} ` +
       `ocrCalls=${ocrCallCount} ocrMs=${ocrTotalMs} strategy=${finalStrategy}`,
   );
 
-  const meta = buildScanMeta({
-    screenshot,
-    selectedPass,
-    passCount: bands.length,
-    strategy: finalStrategy,
-    elapsedMs: Date.now() - scanStartedAt,
-    hadOcrSuccess,
-  });
+  const result = {
+    items,
+    meta: buildScanMeta({
+      screenshot,
+      selectedPass,
+      passCount: bands.length,
+      strategy: finalStrategy,
+      elapsedMs: Date.now() - scanStartedAt,
+      hadOcrSuccess,
+    }),
+  };
 
-  const result = { items, meta };
-
-  // Record winning strategy for adaptive reordering
   if (selectedPass && items.length > 0) {
     recordStrategyWin(
       selectedPass.passIndex != null ? selectedPass.passIndex - 1 : 0,
@@ -1060,22 +460,6 @@ export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null):
     );
   }
 
-  // Cache frame hash for dedup on next retry
-  if (frameHash) {
-    _lastFrameHash = frameHash;
-    _lastFrameResult = result;
-    _lastFrameHashTs = Date.now();
-  }
-
+  cacheFrameResult(frameHash, result);
   return result;
-}
-
-export function waitForRewardUiReady(options?: {
-  timeoutMs?: number;
-  pollMs?: number;
-  requiredHits?: number;
-  scoreThreshold?: number;
-  band?: { top: number; height: number };
-}): ReturnType<typeof _waitForRewardUiReady> {
-  return _waitForRewardUiReady(options, getPrimaryBand);
 }

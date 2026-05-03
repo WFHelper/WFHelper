@@ -20,8 +20,7 @@ import { extractLatestMedianFromStatsPayload, extractMedianFromStatsPayload } fr
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
 import { WFM_HEADERS } from '../../../../config/shared/wfm';
 import {
-	snapshotOrderSummaryCacheKey,
-	snapshotPriceCacheKey,
+	snapshotCacheKeyFromWorkerKey,
 	workerMissCacheKey,
 	workerOrderSummaryCacheKey,
 	workerPriceCacheKey,
@@ -449,7 +448,9 @@ export async function prewarmOrderSummaryCatalog(
 							timestamp: Date.now(),
 						};
 						await putOrderSummaryPayload(env, entry.slug, emptyPayload, rank);
-						const snapshotKey = snapshotOrderSummaryCacheKey(entry.slug, rank);
+						const snapshotKey = snapshotCacheKeyFromWorkerKey(
+							workerOrderSummaryCacheKey(entry.slug, rank),
+						);
 						if (snapshotKey)
 							snapshotOrderSummaries[snapshotKey] = {
 								status: 'no_data',
@@ -467,7 +468,9 @@ export async function prewarmOrderSummaryCatalog(
 
 				const payload = buildOrderSummaryPayload(entry.slug, rank, ordersResult.data);
 				await putOrderSummaryPayload(env, entry.slug, payload, rank);
-				const snapshotKey = snapshotOrderSummaryCacheKey(entry.slug, rank);
+				const snapshotKey = snapshotCacheKeyFromWorkerKey(
+					workerOrderSummaryCacheKey(entry.slug, rank),
+				);
 				if (snapshotKey)
 					snapshotOrderSummaries[snapshotKey] = {
 						status: payload.wts != null || payload.wtb != null ? 'ok' : 'no_data',
@@ -484,7 +487,8 @@ export async function prewarmOrderSummaryCatalog(
 
 			// Also fetch and snapshot the ranked price (median) for this slug + rank.
 			try {
-				const snapshotPriceKey = snapshotPriceCacheKey(entry.slug, rank);
+				const snapshotPriceKey = snapshotCacheKeyFromWorkerKey(workerPriceCacheKey(entry.slug, rank));
+				if (!snapshotPriceKey) continue;
 				const priceResult = await fetchPricePayload(entry.slug, { rank });
 				if (priceResult.data) {
 					await putPricePayload(env, entry.slug, priceResult.data, rank);
