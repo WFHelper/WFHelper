@@ -93,7 +93,7 @@ export function createInventoryHydrationController(): InventoryHydrationControll
   });
 
   let metricsByKey: Record<string, ItemMetrics> = {};
-  let pendingMetricPatches: Record<string, ItemMetrics> = {};
+  const pendingMetricPatches = new Map<string, ItemMetrics>();
   let metricFlushTimer: ReturnType<typeof setTimeout> | null = null;
 
   const pendingMetricKeys = new Set<string>();
@@ -141,16 +141,20 @@ export function createInventoryHydrationController(): InventoryHydrationControll
     },
 
     queueMetricPatch(key, metric) {
-      pendingMetricPatches = { ...pendingMetricPatches, [key]: metric };
+      pendingMetricPatches.set(key, metric);
 
       if (metricFlushTimer) return;
 
       metricFlushTimer = setTimeout(() => {
         metricFlushTimer = null;
-        if (Object.keys(pendingMetricPatches).length === 0) return;
+        if (pendingMetricPatches.size === 0) return;
 
-        metricsByKey = { ...metricsByKey, ...pendingMetricPatches };
-        pendingMetricPatches = {};
+        const nextMetrics = { ...metricsByKey };
+        for (const [patchKey, patchMetric] of pendingMetricPatches) {
+          nextMetrics[patchKey] = patchMetric;
+        }
+        pendingMetricPatches.clear();
+        metricsByKey = nextMetrics;
         metricsByKeyStore.set(metricsByKey);
       }, METRIC_FLUSH_MS);
     },
@@ -368,6 +372,7 @@ export function createInventoryHydrationController(): InventoryHydrationControll
         clearTimeout(metricFlushTimer);
         metricFlushTimer = null;
       }
+      pendingMetricPatches.clear();
       pushDebugState();
     },
   };

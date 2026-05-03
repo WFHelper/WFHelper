@@ -21,8 +21,8 @@ import { worldData, worldLastFetch, worldLoading } from "../../stores/world.js";
 import type { CycleData, Fissure, SyndicateBounty, WorldState } from "../../types/world.js";
 import { readStorage, writeStorage } from "../persistence.js";
 
-export const WORLD_REFRESH_MS = 120_000;
-export const WORLD_POLL_MS = 30_000;
+const WORLD_REFRESH_MS = 120_000;
+const WORLD_POLL_MS = 30_000;
 export const COARSE_CLOCK_MS = 5_000;
 const URGENCY_RATIO = 0.2;
 
@@ -54,14 +54,14 @@ const BOUNTY_ORDER: Record<string, number> = {
 };
 
 type FissureMode = "normal" | "steel";
-export type CycleAlertKey = "earth" | "cetus" | "vallis" | "cambion" | "duviri";
+type CycleAlertKey = "earth" | "cetus" | "vallis" | "cambion" | "duviri";
 
 export const FISSURE_MODE_OPTIONS: Array<{ value: FissureMode; label: string }> = [
   { value: "normal", label: "Normal" },
   { value: "steel", label: "Steel Path" },
 ];
 
-export async function fetchWorldData(force: boolean = false): Promise<void> {
+async function fetchWorldData(force: boolean = false): Promise<void> {
   if (get(worldLoading)) return;
 
   const now = Date.now();

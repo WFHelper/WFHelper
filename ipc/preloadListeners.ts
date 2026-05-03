@@ -1,6 +1,6 @@
 import type { IpcRenderer, IpcRendererEvent } from "electron";
 
-export type PreloadIpcListener = (event: IpcRendererEvent, ...args: unknown[]) => void;
+type PreloadIpcListener = (event: IpcRendererEvent, ...args: unknown[]) => void;
 
 export function onIpc(
   ipcRenderer: IpcRenderer,

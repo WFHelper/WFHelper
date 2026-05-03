@@ -75,6 +75,50 @@
   const RELIC_QUALITY_COLUMNS: RelicQuality[] = ["intact", "exceptional", "flawless", "radiant"];
   const RELIC_PREVIEW_REWARD_LIMIT = 6;
 
+  function compareRelicTierThenName(a: RelicGroup, b: RelicGroup): number {
+    const tierA = RELIC_TIER_ORDER[a.tier] ?? 99;
+    const tierB = RELIC_TIER_ORDER[b.tier] ?? 99;
+    return tierA !== tierB ? tierA - tierB : a.name.localeCompare(b.name);
+  }
+
+  function compareNullableRelicMetric(
+    a: RelicGroup,
+    b: RelicGroup,
+    direction: number,
+    getMetric: (group: RelicGroup) => number | null,
+  ): number {
+    const aValue = getMetric(a);
+    const bValue = getMetric(b);
+
+    if ((aValue == null) !== (bValue == null)) return aValue == null ? 1 : -1;
+    if (aValue != null && bValue != null && aValue !== bValue) {
+      return direction * (aValue - bValue);
+    }
+
+    return compareRelicTierThenName(a, b);
+  }
+
+  function compareRelicGroupForSort(
+    a: RelicGroup,
+    b: RelicGroup,
+    sortMode: RelicSortMode,
+    sortDirection: "asc" | "desc",
+    qualityMode: RelicQualityMode,
+  ): number {
+    const direction = sortDirection === "desc" ? -1 : 1;
+
+    if (sortMode === "name") return direction * a.name.localeCompare(b.name);
+    if (sortMode === "tier") return direction * compareRelicTierThenName(a, b);
+
+    const metricKey = sortMode === "ducatonator" ? "ratio" : sortMode === "ducat" ? "ducat" : "plat";
+    return compareNullableRelicMetric(
+      a,
+      b,
+      direction,
+      (group) => selectedEvDataForMode(group, qualityMode)[metricKey],
+    );
+  }
+
   function normalizeOwnedRewardName(value: string): string {
     return value
       .toLowerCase()
@@ -212,63 +256,15 @@
       );
     }
 
-    if ($relicViewState.sortMode === "ev") {
-      const direction = $relicViewState.sortDirection === "desc" ? -1 : 1;
-      relicGroups = [...relicGroups].sort((a, b) => {
-        const aEv = selectedEvDataForMode(a, $relicViewState.qualityMode).plat;
-        const bEv = selectedEvDataForMode(b, $relicViewState.qualityMode).plat;
-
-        if ((aEv == null) !== (bEv == null)) return aEv == null ? 1 : -1;
-        if (aEv != null && bEv != null && aEv !== bEv) {
-          return direction * (aEv - bEv);
-        }
-
-        const tierA = RELIC_TIER_ORDER[a.tier] ?? 99;
-        const tierB = RELIC_TIER_ORDER[b.tier] ?? 99;
-        return tierA !== tierB ? tierA - tierB : a.name.localeCompare(b.name);
-      });
-    } else if ($relicViewState.sortMode === "ducat") {
-      const direction = $relicViewState.sortDirection === "desc" ? -1 : 1;
-      relicGroups = [...relicGroups].sort((a, b) => {
-        const aEv = selectedEvDataForMode(a, $relicViewState.qualityMode).ducat;
-        const bEv = selectedEvDataForMode(b, $relicViewState.qualityMode).ducat;
-
-        if ((aEv == null) !== (bEv == null)) return aEv == null ? 1 : -1;
-        if (aEv != null && bEv != null && aEv !== bEv) {
-          return direction * (aEv - bEv);
-        }
-
-        const tierA = RELIC_TIER_ORDER[a.tier] ?? 99;
-        const tierB = RELIC_TIER_ORDER[b.tier] ?? 99;
-        return tierA !== tierB ? tierA - tierB : a.name.localeCompare(b.name);
-      });
-    } else if ($relicViewState.sortMode === "ducatonator") {
-      const direction = $relicViewState.sortDirection === "desc" ? -1 : 1;
-      relicGroups = [...relicGroups].sort((a, b) => {
-        const aRatio = selectedEvDataForMode(a, $relicViewState.qualityMode).ratio;
-        const bRatio = selectedEvDataForMode(b, $relicViewState.qualityMode).ratio;
-
-        if ((aRatio == null) !== (bRatio == null)) return aRatio == null ? 1 : -1;
-        if (aRatio != null && bRatio != null && aRatio !== bRatio) {
-          return direction * (aRatio - bRatio);
-        }
-
-        const tierA = RELIC_TIER_ORDER[a.tier] ?? 99;
-        const tierB = RELIC_TIER_ORDER[b.tier] ?? 99;
-        return tierA !== tierB ? tierA - tierB : a.name.localeCompare(b.name);
-      });
-    } else if ($relicViewState.sortMode === "name") {
-      const direction = $relicViewState.sortDirection === "desc" ? -1 : 1;
-      relicGroups = [...relicGroups].sort((a, b) => direction * a.name.localeCompare(b.name));
-    } else {
-      const direction = $relicViewState.sortDirection === "desc" ? -1 : 1;
-      relicGroups = [...relicGroups].sort((a, b) => {
-        const tierA = RELIC_TIER_ORDER[a.tier] ?? 99;
-        const tierB = RELIC_TIER_ORDER[b.tier] ?? 99;
-        const tierOrder = tierA !== tierB ? tierA - tierB : a.name.localeCompare(b.name);
-        return tierOrder * direction;
-      });
-    }
+    relicGroups = [...relicGroups].sort((a, b) =>
+      compareRelicGroupForSort(
+        a,
+        b,
+        $relicViewState.sortMode,
+        $relicViewState.sortDirection,
+        $relicViewState.qualityMode,
+      ),
+    );
 
     return relicGroups;
   })();

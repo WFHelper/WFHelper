@@ -47,6 +47,7 @@ module.exports = [
       "main.ts",
       "preload.ts",
       "preload-overlay.ts",
+      "preload-riven.ts",
       "preload-trade-notification.ts",
       "ipc/**/*.ts",
       "services/**/*.ts",

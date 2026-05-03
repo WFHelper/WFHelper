@@ -23,7 +23,7 @@
     "test:diagnostic:wfm-backend": "vitest run src/lib/wfm/backendFallback.test.ts",
     "dist:win:publish": "npm run verify:onnx-models && npm run build && electron-builder --win nsis --publish always",
     "lint:renderer": "eslint src --ext .ts,.svelte",
-    "lint:main": "eslint main.ts preload.ts preload-overlay.ts config ipc services --ext .js,.ts",
+    "lint:main": "eslint main.ts preload.ts preload-overlay.ts preload-riven.ts preload-trade-notification.ts config ipc services --ext .js,.ts",
     "audit:prod": "npm audit --omit=dev",
     "audit:all": "npm audit",
     "audit:deadcode": "knip",

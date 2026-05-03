@@ -19,12 +19,7 @@ export {
   configureRelicRuntimeCacheFingerprint,
   getCachedEv,
   evHasFreshNoData,
-  cancelWarmup,
-  warmupRelicCardPrices,
   warmupPrimeRewardPriceCache,
-  warmupRewardDucats,
-  warmupRelicEvs,
 } from "./relic/relicPriceCache.js";
 
 export { createRelicWarmupController } from "./relic/relicWarmupController.js";
-export type { RelicWarmupContext, RelicWarmupController } from "./relic/relicWarmupController.js";

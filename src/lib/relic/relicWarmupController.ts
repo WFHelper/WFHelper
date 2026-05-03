@@ -13,13 +13,13 @@ const PRICE_UPDATE_EV_REFRESH_DEBOUNCE_MS = 400;
 const WARMUP_COALESCE_MS = 150;
 const RELIC_CARD_VISIBLE_WARMUP_LIMIT = 120;
 
-export interface RelicWarmupContext {
+interface RelicWarmupContext {
   db: RelicDatabase | null;
   visibleGroups: RelicGroup[];
   ownedCounts: OwnedCounts;
 }
 
-export interface RelicWarmupController {
+interface RelicWarmupController {
   updateContext(context: RelicWarmupContext): void;
   scheduleWarmup(): void;
   scheduleEvRefreshFromPriceUpdate(): void;

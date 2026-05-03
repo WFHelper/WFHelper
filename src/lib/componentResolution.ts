@@ -2,12 +2,12 @@ import { resolveDrops } from "./resolveDrops.js";
 import type { ComponentInfo, DropInfo, ItemDbEntry, ParsedItem } from "../types/inventory.js";
 import type { WfmItemsLookup } from "../types/ipc.js";
 
-export interface ResolvedComponentPanel {
+interface ResolvedComponentPanel {
   comp: ComponentInfo;
   parentName: string;
 }
 
-export interface PriceLookupPlan {
+interface PriceLookupPlan {
   name: string;
   isTradable: boolean;
   fallbackName?: string;
@@ -51,7 +51,7 @@ function fallbackComponent(
   );
 }
 
-export function resolveComponentByUniqueName(
+function resolveComponentByUniqueName(
   uniqueName: string,
   itemDb: Record<string, ItemDbEntry>,
   ownership: Map<string, number>,
@@ -72,16 +72,6 @@ export function resolveComponentByUniqueName(
   }
 
   return { comp: fallbackComponent(uniqueName, db, ownership), parentName: "" };
-}
-
-export function resolveRewardComponent(
-  rewardName: string,
-  itemNameIndex: Map<string, string>,
-  itemDb: Record<string, ItemDbEntry>,
-  ownership: Map<string, number>,
-): ResolvedComponentPanel | null {
-  const uniqueName = itemNameIndex.get(rewardName);
-  return uniqueName ? resolveComponentByUniqueName(uniqueName, itemDb, ownership) : null;
 }
 
 export function resolveComponentByName(
