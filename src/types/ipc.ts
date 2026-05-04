@@ -110,6 +110,7 @@ export interface HelperStatus {
   lastRunAt: number | null;
   lastRunOk: boolean | null;
   inventoryLastModified: number | null;
+  installerAutoInstallHelper: boolean | null;
 }
 
 export interface HelperDownloadProgress {
@@ -166,6 +167,10 @@ export interface IpcInvokeMap {
     return: RawInventoryData | null;
   };
   openInventoryFile: {
+    args: [];
+    return: RawInventoryData | null;
+  };
+  openAlecaFrameInventoryFile: {
     args: [];
     return: RawInventoryData | null;
   };

@@ -181,6 +181,7 @@
   let contractsLoading = false;
   let contractsError = "";
   let selectedOrderItemKey: string | null = null;
+  let orderBookPanelOpen = true;
   let selectedContract: { contract: WfmContract; riven: DecodedRiven } | null = null;
 
   onMount(async () => {
@@ -409,6 +410,12 @@
   function selectOrder(order: WfmOrder): void {
     const item = marketOrderViewItems.find((entry) => entry.sourceOrderId === order.id);
     selectedOrderItemKey = item?.internalName ?? null;
+    orderBookPanelOpen = true;
+  }
+
+  function closeOrderBookPanel(): void {
+    selectedOrderItemKey = null;
+    orderBookPanelOpen = false;
   }
 
   function openContractListing(contract: WfmContract): void {
@@ -583,7 +590,7 @@
       {/if}
 
       <div
-        class="mt-4 grid items-start gap-3 {!isRivensTab
+        class="mt-4 grid items-start gap-3 {!isRivensTab && orderBookPanelOpen
           ? 'min-[1101px]:grid-cols-[minmax(0,1fr)_360px]'
           : ''}"
       >
@@ -635,8 +642,8 @@
           {/each}
         {/if}
         </div>
-        {#if !isRivensTab}
-          <InventoryOrderBookPanel item={selectedOrderItem} />
+        {#if !isRivensTab && orderBookPanelOpen}
+          <InventoryOrderBookPanel item={selectedOrderItem} onClose={closeOrderBookPanel} />
         {/if}
       </div>
     </div>

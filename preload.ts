@@ -7,6 +7,7 @@ import { ipcDataBridge } from "./ipc/preloadListeners";
 import {
   INVENTORY_GET,
   INVENTORY_OPEN_FILE,
+  INVENTORY_OPEN_ALECA_FRAME_FILE,
   INVENTORY_GET_STATUS,
   INVENTORY_UPDATED,
   DB_GET_ITEM_DATABASE,
@@ -73,6 +74,7 @@ try {
   contextBridge.exposeInMainWorld("api", {
     getInventory: () => ipcRenderer.invoke(INVENTORY_GET),
     openInventoryFile: () => ipcRenderer.invoke(INVENTORY_OPEN_FILE),
+    openAlecaFrameInventoryFile: () => ipcRenderer.invoke(INVENTORY_OPEN_ALECA_FRAME_FILE),
     getInventoryStatus: () => ipcRenderer.invoke(INVENTORY_GET_STATUS),
 
     getItemDatabase: () => ipcRenderer.invoke(DB_GET_ITEM_DATABASE),

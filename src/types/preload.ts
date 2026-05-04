@@ -9,6 +9,7 @@ import type { WfmStatus } from "./market.js";
 export interface PreloadAPI {
   getInventory: () => Promise<IpcInvokeMap["getInventory"]["return"]>;
   openInventoryFile: () => Promise<IpcInvokeMap["openInventoryFile"]["return"]>;
+  openAlecaFrameInventoryFile: () => Promise<IpcInvokeMap["openAlecaFrameInventoryFile"]["return"]>;
   getInventoryStatus: () => Promise<IpcInvokeMap["getInventoryStatus"]["return"]>;
   getItemDatabase: () => Promise<IpcInvokeMap["getItemDatabase"]["return"]>;
   getWorldState: () => Promise<IpcInvokeMap["getWorldState"]["return"]>;
@@ -43,9 +44,7 @@ export interface PreloadAPI {
   onWfmNotification: (
     callback: (notification: IpcEventMap["wfm:notification"]) => void,
   ) => () => void;
-  onTradeRecorded: (
-    callback: (data: IpcEventMap["trade-recorded"]) => void,
-  ) => () => void;
+  onTradeRecorded: (callback: (data: IpcEventMap["trade-recorded"]) => void) => () => void;
   onWorldStateFetchError: (
     callback: (message: IpcEventMap["world-state-fetch-error"]) => void,
   ) => () => void;
@@ -92,7 +91,9 @@ export interface PreloadAPI {
   getRivenBestAttributes: (
     weaponName: string,
   ) => Promise<IpcInvokeMap["getRivenBestAttributes"]["return"]>;
-  onHelperDownloadProgress: (callback: (progress: IpcEventMap["helper-download-progress"]) => void) => () => void;
+  onHelperDownloadProgress: (
+    callback: (progress: IpcEventMap["helper-download-progress"]) => void,
+  ) => () => void;
 }
 
 export interface TradePreloadAPI {

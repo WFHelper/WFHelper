@@ -44,6 +44,7 @@
   let filter: InventoryFilterTab = "all_parts";
   let showFilterPanel = false;
   let selectedInternalName: string | null = null;
+  let orderBookPanelOpen = true;
   const FILTERS = INVENTORY_FILTERS;
   const inventoryFilters = sharedFilters("inventory");
 
@@ -80,12 +81,18 @@
 
   function handleItemSelect(event: CustomEvent<InventoryViewItem>): void {
     selectedInternalName = event.detail.internalName;
+    orderBookPanelOpen = true;
 
     const selectedBaseItem = tabBaseItems.find((entry) => entry.internalName === event.detail.internalName);
     if (selectedBaseItem && shouldHydrateMetrics(selectedBaseItem)) {
       trackRankedHotset(selectedBaseItem);
       hydration.enqueue([selectedBaseItem], $wfmItems, { price: true, ducats: false, orders: true });
     }
+  }
+
+  function closeOrderBookPanel(): void {
+    selectedInternalName = null;
+    orderBookPanelOpen = false;
   }
 
   function handleItemVisible(event: CustomEvent<InventoryViewItem>): void {
@@ -246,7 +253,7 @@
       </div>
     {/if}
 
-    <div class="grid grid-cols-1 min-[1101px]:grid-cols-[minmax(0,1fr)_360px] items-start gap-3">
+    <div class="grid grid-cols-1 items-start gap-3 {orderBookPanelOpen ? 'min-[1101px]:grid-cols-[minmax(0,1fr)_360px]' : ''}">
       <div class="min-w-0">
         <InventoryGrid
           items={filtered}
@@ -256,7 +263,9 @@
         />
       </div>
 
-      <InventoryOrderBookPanel item={selectedItem} />
+      {#if orderBookPanelOpen}
+        <InventoryOrderBookPanel item={selectedItem} onClose={closeOrderBookPanel} />
+      {/if}
     </div>
   {/if}
 </section>

@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
+  import { onDestroy, onMount } from "svelte";
+
   import { onInventoryLoaded } from "../lib/actions.js";
   import { PRESET_KEYS, THEME_PRESETS } from "../config/themePresets.js";
-  import { currentView } from "../stores/app.js";
+  import { currentView, statusText } from "../stores/app.js";
   import { themeSettings } from "../stores/theme.js";
   import { invoke, on } from "../lib/ipc.js";
   import { APP_LOGO_URL } from "../lib/assetUrls.js";
@@ -13,22 +14,26 @@
   } from "../../config/shared/inventoryPayload.js";
   import type { ThemeCornerStyle, ThemeSurfaceStyle } from "../types/theme.js";
   import type { RawInventoryData } from "../types/inventory.js";
-  import type { HelperDownloadProgress } from "../types/ipc.js";
+  import type { HelperDownloadProgress, HelperStatus } from "../types/ipc.js";
   import SegmentedControl from "../components/SegmentedControl.svelte";
   import BuiltInThemeDropdown from "../components/settings/BuiltInThemeDropdown.svelte";
 
-  type Step = "configure" | "downloading" | "done" | "error";
-  type InventorySource = "helper" | "import";
+  type Step = "configure" | "inventory" | "downloading" | "done" | "error";
+  type InventorySource = "helper" | "json" | "aleca";
+  type HelperInventoryStatus = "checking" | "found" | "not_found" | "error";
 
   let step: Step = "configure";
   let inventorySource: InventorySource = "helper";
   let progress: HelperDownloadProgress | null = null;
   let errorMessage = "";
+  let helperStatus: HelperInventoryStatus = "checking";
+  let helperPath: string | null = null;
+  let loadingApi = false;
+  let runnerStatus: HelperStatus | null = null;
+  let destroyed = false;
+  let removeProgressListener: (() => void) | null = null;
+  let removeInventoryListener: (() => void) | null = null;
 
-  const sourceOptions: Array<{ value: InventorySource; label: string }> = [
-    { value: "helper", label: "Install API helper" },
-    { value: "import", label: "Import inventory JSON" },
-  ];
   const surfaceOptions: Array<{ value: ThemeSurfaceStyle; label: string }> = [
     { value: "full", label: "Full" },
     { value: "border", label: "Border" },
@@ -40,81 +45,250 @@
     { value: "round", label: "Round" },
   ];
 
-  const unsubProgress = on("helper-download-progress", (p) => {
-    progress = p;
-    if (p.stage === "done") {
-      step = "done";
-    } else if (p.stage === "error") {
-      step = "error";
-      errorMessage = p.error || "Download failed";
+  onMount(async () => {
+    removeProgressListener = on("helper-download-progress", (p) => {
+      progress = p;
+      if (p.stage === "done") {
+        step = "done";
+      } else if (p.stage === "error") {
+        step = "error";
+        errorMessage = p.error || "Download failed";
+      }
+    });
+
+    removeInventoryListener = on("inventory-updated", async (data) => {
+      if (destroyed || loadingApi) return;
+      try {
+        await acceptInventoryData(data, "Live inventory update failed");
+      } catch {
+        // The user can still choose a file import source on this screen.
+      }
+    });
+
+    await refreshRunnerStatus();
+    if (destroyed) return;
+
+    if (runnerStatus?.installerAutoInstallHelper === false) {
+      inventorySource = "json";
     }
+
+    await refreshHelperStatus();
+    if (destroyed) return;
   });
 
   onDestroy(() => {
-    unsubProgress();
+    destroyed = true;
+    removeInventoryListener?.();
+    removeProgressListener?.();
   });
 
-  async function startDownload() {
+  async function refreshRunnerStatus(): Promise<void> {
+    try {
+      runnerStatus = await invoke("getHelperStatus");
+    } catch {
+      runnerStatus = null;
+    }
+  }
+
+  async function refreshHelperStatus(): Promise<void> {
+    try {
+      const status = await invoke("getInventoryStatus");
+      if (status?.found) {
+        helperStatus = "found";
+        helperPath = status.path || null;
+      } else {
+        helperStatus = "not_found";
+        helperPath = null;
+      }
+    } catch (error) {
+      if (helperStatus === "checking") {
+        helperStatus = "error";
+      }
+      helperPath = null;
+      console.error("[Setup] getInventoryStatus failed:", error);
+    }
+  }
+
+  function getLoadErrorMessage(data: unknown): string | null {
+    if (!data || typeof data !== "object" || !("error" in data)) return null;
+    const error = (data as { error?: unknown }).error;
+    return typeof error === "string" ? error : null;
+  }
+
+  async function acceptInventoryData(data: unknown, failureMessage: string): Promise<void> {
+    const loadError = getLoadErrorMessage(data);
+    if (!data || loadError) {
+      throw new Error(loadError || failureMessage);
+    }
+
+    const unwrapped = unwrapSharedInventoryPayload(data, { returnInputOnFailure: false });
+    if (!hasInventoryShape(unwrapped)) {
+      throw new Error(failureMessage);
+    }
+
+    await onInventoryLoaded(unwrapped as RawInventoryData);
+    if (!destroyed) {
+      completeSetup("inventory");
+    }
+  }
+
+  async function startDownload(): Promise<void> {
     step = "downloading";
     progress = null;
     const result = await invoke("downloadHelper");
-    if (!result.ok && step === "downloading") {
+    if (destroyed) return;
+    if (result.ok) {
+      step = "done";
+      await refreshRunnerStatus();
+      return;
+    }
+    if (step === "downloading") {
       step = "error";
-      errorMessage = "Download failed — check your internet connection.";
+      errorMessage = result.error || "Download failed. Check your internet connection.";
     }
   }
 
-  async function importInventory() {
+  async function importInventory(): Promise<void> {
+    loadingApi = true;
     try {
       const data = await invoke("openInventoryFile");
-      if (!data || (typeof data === "object" && data !== null && "error" in data)) {
-        errorMessage = "Inventory import failed. Choose an inventory JSON export and try again.";
-        step = "error";
-        return;
-      }
-
-      const unwrapped = unwrapSharedInventoryPayload(data, { returnInputOnFailure: false });
-      if (!hasInventoryShape(unwrapped)) {
-        errorMessage =
-          "That file does not look like an inventory JSON export. AlecaFrame stats/trade exports are not inventory imports.";
-        step = "error";
-        return;
-      }
-
-      await onInventoryLoaded(unwrapped as RawInventoryData);
-      completeSetup("inventory");
+      await acceptInventoryData(
+        data,
+        "That file does not look like an inventory JSON export. AlecaFrame stats/trade exports are not inventory imports.",
+      );
     } catch (error) {
       errorMessage = `Inventory import failed: ${(error as Error).message}`;
       step = "error";
+    } finally {
+      loadingApi = false;
     }
   }
 
-  async function continueSetup() {
+  async function importAlecaFrameInventory(): Promise<void> {
+    loadingApi = true;
+    try {
+      const data = await invoke("openAlecaFrameInventoryFile");
+      await acceptInventoryData(data, "Choose AlecaFrame lastData.dat from %LOCALAPPDATA%\\AlecaFrame.");
+    } catch (error) {
+      errorMessage = `AlecaFrame import failed: ${(error as Error).message}`;
+      step = "error";
+    } finally {
+      loadingApi = false;
+    }
+  }
+
+  async function loadApiHelper(preferPicker = false): Promise<void> {
+    loadingApi = true;
+    statusText.set("Loading inventory.json from warframe-api-helper...");
+    try {
+      let data: unknown = null;
+      let loadError: string | null = null;
+
+      if (!preferPicker) {
+        data = await invoke("getInventory");
+        loadError = getLoadErrorMessage(data);
+      }
+
+      if (!data || loadError) {
+        data = await invoke("openInventoryFile");
+        loadError = getLoadErrorMessage(data);
+      }
+
+      await acceptInventoryData(data, loadError || "Failed to load inventory JSON");
+      await refreshHelperStatus();
+    } catch (error) {
+      if (!destroyed) {
+        statusText.set(`Inventory load error: ${(error as Error).message}`);
+        errorMessage = (error as Error).message;
+      }
+    } finally {
+      loadingApi = false;
+    }
+  }
+
+  async function triggerHelperRun(): Promise<void> {
+    try {
+      statusText.set("Running warframe-api-helper...");
+      await invoke("runHelperNow");
+      await refreshRunnerStatus();
+      statusText.set("Helper finished - waiting for inventory...");
+    } catch {
+      statusText.set("Failed to run helper");
+    }
+  }
+
+  async function useSelectedInventorySource(): Promise<void> {
     if (inventorySource === "helper") {
+      if (runnerStatus?.exeFound) {
+        await loadApiHelper(false);
+        return;
+      }
       await startDownload();
       return;
     }
 
-    await importInventory();
+    if (inventorySource === "json") {
+      await importInventory();
+      return;
+    }
+
+    if (inventorySource === "aleca") {
+      await importAlecaFrameInventory();
+      return;
+    }
   }
 
-  function completeSetup(nextView: "welcome" | "inventory" = "welcome") {
+  function completeSetup(nextView: "inventory" = "inventory"): void {
     writeStorage("setup-completed", "1");
     currentView.set(nextView);
   }
 
-  function finish() {
-    completeSetup("welcome");
+  function continueFromConfigure(): void {
+    step = "inventory";
   }
 
-  function skip() {
-    completeSetup("welcome");
+  function finish(): void {
+    completeSetup("inventory");
   }
 
-  function retry() {
+  function skip(): void {
+    completeSetup("inventory");
+  }
+
+  function retry(): void {
     step = "configure";
     errorMessage = "";
     progress = null;
+  }
+
+  function sourceButtonClass(source: InventorySource): string {
+    const selected = inventorySource === source;
+    return [
+      "w-full cursor-pointer rounded-lg border px-3 py-3 text-left transition-colors duration-150",
+      selected
+        ? "border-accent bg-accent/10 text-text-primary"
+        : "border-border bg-bg-raised text-text-secondary hover:border-border-strong hover:text-text-primary",
+    ].join(" ");
+  }
+
+  function stepTextClass(target: "configure" | "inventory" | "done"): string {
+    const active = step === target || (target === "inventory" && step === "downloading");
+    const complete =
+      (target === "configure" && step !== "configure") || (target === "inventory" && step === "done");
+    if (step === "error" && target === "inventory") return "text-danger";
+    if (active) return "text-accent font-semibold";
+    if (complete) return "text-success";
+    return "text-text-muted";
+  }
+
+  function stepDotClass(target: "configure" | "inventory" | "done"): string {
+    const active = step === target || (target === "inventory" && step === "downloading");
+    const complete =
+      (target === "configure" && step !== "configure") || (target === "inventory" && step === "done");
+    if (step === "error" && target === "inventory") return "bg-danger";
+    if (active) return "bg-accent shadow-[0_0_6px_var(--accent)]";
+    if (complete) return "bg-success";
+    return "bg-text-muted";
   }
 
   $: effects = $themeSettings.effects;
@@ -122,55 +296,37 @@
     ? $themeSettings.activePreset
     : "default";
   $: activePreset = THEME_PRESETS[activePresetKey] ?? THEME_PRESETS.default;
-
   $: progressPercent = progress?.percent ?? 0;
-  $: bytesLabel = progress
+  $: bytesLabel = progress?.bytesTotal
     ? `${(progress.bytesReceived / 1024 / 1024).toFixed(1)} / ${(progress.bytesTotal / 1024 / 1024).toFixed(1)} MB`
     : "";
 </script>
 
 <section class="view active">
-  <div class="flex max-w-[760px] mx-auto my-8 border border-border rounded-xl bg-bg-surface overflow-hidden min-h-[430px]">
-    <div class="setup-left w-[190px] shrink-0 flex flex-col items-center pt-7 px-4 pb-6 bg-gradient-to-b from-bg-deep to-bg-raised border-r border-border">
+  <div class="mx-auto my-8 flex min-h-[430px] max-w-[760px] overflow-hidden rounded-xl border border-border bg-bg-surface">
+    <div class="setup-left flex w-[190px] shrink-0 flex-col items-center border-r border-border bg-gradient-to-b from-bg-deep to-bg-raised px-4 pb-6 pt-7">
       <div class="setup-logo">
-        <img src={APP_LOGO_URL} alt="App Logo" class="w-14 h-14 object-contain" />
+        <img src={APP_LOGO_URL} alt="App Logo" class="h-14 w-14 object-contain" />
       </div>
-      <div class="mt-8 flex flex-col gap-4 w-full">
-        <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {step === 'configure' ? 'text-accent font-semibold' : step === 'error' ? 'text-danger' : 'text-success'}">
-          <span class="w-2 h-2 rounded-full shrink-0 transition-[background] duration-200 {step === 'configure' ? 'bg-accent shadow-[0_0_6px_var(--accent)]' : step === 'error' ? 'bg-danger' : 'bg-success'}"></span> Configure
+      <div class="mt-8 flex w-full flex-col gap-4">
+        <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {stepTextClass('configure')}">
+          <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('configure')}"></span> Configure
         </div>
-        <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {step === 'downloading' ? 'text-accent font-semibold' : step === 'done' ? 'text-success' : 'text-text-muted'}">
-          <span class="w-2 h-2 rounded-full shrink-0 transition-[background] duration-200 {step === 'downloading' ? 'bg-accent shadow-[0_0_6px_var(--accent)]' : step === 'done' ? 'bg-success' : 'bg-text-muted'}"></span> Inventory Source
+        <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {stepTextClass('inventory')}">
+          <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('inventory')}"></span> Inventory Source
         </div>
-        <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {step === 'done' ? 'text-accent font-semibold' : 'text-text-muted'}">
-          <span class="w-2 h-2 rounded-full shrink-0 transition-[background] duration-200 {step === 'done' ? 'bg-accent shadow-[0_0_6px_var(--accent)]' : 'bg-text-muted'}"></span> Finish
+        <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {stepTextClass('done')}">
+          <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('done')}"></span> Finish
         </div>
       </div>
     </div>
 
-    <div class="flex-1 flex flex-col pt-7 px-6 pb-5">
+    <div class="flex flex-1 flex-col px-6 pb-5 pt-7">
       <div class="setup-content flex-1">
         {#if step === "configure"}
-          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Welcome to WFhelper</h2>
+          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Welcome to WFHelper</h2>
 
           <div class="grid gap-3">
-            <div class="rounded-lg border border-border bg-bg-raised px-3 py-3">
-              <div class="mb-2 flex items-start justify-between gap-3">
-                <div>
-                  <h3 class="m-0 font-display text-[0.92rem] font-semibold text-text-primary">Inventory source</h3>
-                  <p class="mt-0.5 text-[0.76rem] leading-snug text-text-muted">Choose the first data path for this install.</p>
-                </div>
-              </div>
-              <SegmentedControl value={inventorySource} options={sourceOptions} onChange={(value) => (inventorySource = value)} />
-              <div class="mt-2 text-[0.78rem] leading-snug text-text-secondary">
-                {#if inventorySource === "helper"}
-                  Downloads warframe-api-helper and uses its inventory JSON on startup.
-                {:else}
-                  Opens an existing inventory JSON export now. AlecaFrame stats/trade exports belong in Stats.
-                {/if}
-              </div>
-            </div>
-
             <div class="rounded-lg border border-border bg-bg-raised px-3 py-3">
               <div class="mb-2 flex items-start justify-between gap-3">
                 <div>
@@ -178,15 +334,13 @@
                   <p class="mt-0.5 text-[0.76rem] leading-snug text-text-muted">Choose one of the built-in themes.</p>
                 </div>
               </div>
-              <div class="flex items-center gap-3">
-                <BuiltInThemeDropdown
-                  activePreset={activePresetKey}
-                  label="Built-in themes"
-                  fallbackLabel={activePreset.label}
-                  className="w-full"
-                  onSelect={(presetKey) => themeSettings.applyPreset(presetKey)}
-                />
-              </div>
+              <BuiltInThemeDropdown
+                activePreset={activePresetKey}
+                label="Built-in themes"
+                fallbackLabel={activePreset.label}
+                className="w-full"
+                onSelect={(presetKey) => themeSettings.applyPreset(presetKey)}
+              />
             </div>
 
             <div class="rounded-lg border border-border bg-bg-raised px-3 py-3">
@@ -217,44 +371,106 @@
               />
             </div>
           </div>
-        {:else if step === "downloading"}
-          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Downloading…</h2>
-          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">Fetching warframe-api-helper from GitHub Releases.</p>
-          <div class="my-4">
-            <div class="h-2 rounded bg-bg-raised overflow-hidden border border-border">
-              <div class="h-full bg-accent rounded transition-[width] duration-300 ease-in-out" style="width: {progressPercent}%"></div>
+        {:else if step === "inventory"}
+          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">
+            Choose Inventory Source
+          </h2>
+          <p class="mb-[0.65rem] text-[0.84rem] leading-[1.55] text-text-secondary">
+            Load your account inventory from the helper, an existing JSON export, or AlecaFrame's encrypted cache.
+          </p>
+
+          {#if helperStatus === "not_found" && runnerStatus?.exeFound}
+            <div class="mb-3 rounded-lg border border-warning bg-warning/10 px-3 py-3">
+              <span class="mb-1 inline-block rounded bg-warning px-2 py-0.5 font-display text-[0.65rem] font-bold tracking-widest text-black">WAITING FOR DATA</span>
+              <h3 class="font-display text-[0.92rem] font-semibold text-text-primary">Go in-game to generate inventory data</h3>
+              <p class="mt-0.5 text-[0.76rem] leading-snug text-text-secondary">The helper is installed. Log into Warframe, then run the helper to create inventory.json.</p>
+              <div class="mt-2 flex gap-2">
+                <button class="btn-primary btn-sm" disabled={loadingApi} on:click={triggerHelperRun}>Run helper now</button>
+                <button class="btn-secondary btn-sm" disabled={loadingApi} on:click={() => loadApiHelper(true)}>Browse for JSON</button>
+              </div>
             </div>
-            <div class="flex justify-between mt-[0.35rem] text-xs text-text-muted">
+          {/if}
+
+          <div class="grid gap-2">
+            <button type="button" class={sourceButtonClass("helper")} aria-pressed={inventorySource === "helper"} on:click={() => (inventorySource = "helper")}>
+              <div class="flex items-center justify-between gap-3">
+                <span class="font-display text-[0.92rem] font-semibold">warframe-api-helper</span>
+                <span class="rounded bg-success/15 px-2 py-0.5 font-display text-[0.62rem] font-bold tracking-widest text-success">RECOMMENDED</span>
+              </div>
+              <div class="mt-1 text-[0.76rem] leading-snug">Use the pinned helper executable and load its inventory.json snapshot.</div>
+              <div class="mt-2 text-[0.72rem] text-text-muted">
+                {#if helperStatus === "checking"}
+                  Checking for inventory.json...
+                {:else if helperStatus === "found"}
+                  Found: {helperPath}
+                {:else if runnerStatus?.exeFound}
+                  Helper is installed and ready to run.
+                {:else}
+                  Helper is not installed yet.
+                {/if}
+              </div>
+            </button>
+
+            <button type="button" class={sourceButtonClass("json")} aria-pressed={inventorySource === "json"} on:click={() => (inventorySource = "json")}>
+              <span class="font-display text-[0.92rem] font-semibold">Import inventory JSON</span>
+              <div class="mt-1 text-[0.76rem] leading-snug">Open an existing inventory.json created by warframe-api-helper.</div>
+            </button>
+
+            <button type="button" class={sourceButtonClass("aleca")} aria-pressed={inventorySource === "aleca"} on:click={() => (inventorySource = "aleca")}>
+              <span class="font-display text-[0.92rem] font-semibold">Import AlecaFrame cache</span>
+              <div class="mt-1 text-[0.76rem] leading-snug">Decrypt lastData.dat from %LOCALAPPDATA%\AlecaFrame and load its embedded inventory payload.</div>
+            </button>
+          </div>
+        {:else if step === "downloading"}
+          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Downloading...</h2>
+          <p class="mb-[0.65rem] text-[0.84rem] leading-[1.55] text-text-secondary">Fetching warframe-api-helper from GitHub Releases.</p>
+          <div class="my-4">
+            <div class="h-2 overflow-hidden rounded border border-border bg-bg-raised">
+              <div class="h-full rounded bg-accent transition-[width] duration-300 ease-in-out" style="width: {progressPercent}%"></div>
+            </div>
+            <div class="mt-[0.35rem] flex justify-between text-xs text-text-muted">
               <span>{progressPercent}%</span>
               <span>{bytesLabel}</span>
             </div>
           </div>
-          <p class="!text-text-muted !text-[0.78rem] !mt-4">Please wait — this should only take a moment.</p>
+          <p class="!mt-4 !text-[0.78rem] !text-text-muted">Please wait - this should only take a moment.</p>
         {:else if step === "done"}
           <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Setup Complete</h2>
-          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">warframe-api-helper has been downloaded and is ready to use.</p>
-          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">The helper will run automatically in the background every 10 minutes to keep your inventory data fresh. Make sure Warframe is running for it to work.</p>
-          <div class="flex justify-center my-4">
-            <svg class="w-10 h-10 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"/>
+          <p class="mb-[0.65rem] text-[0.84rem] leading-[1.55] text-text-secondary">warframe-api-helper is ready to use.</p>
+          <p class="mb-[0.65rem] text-[0.84rem] leading-[1.55] text-text-secondary">Run Warframe, then the helper can refresh inventory data in the background every 10 minutes.</p>
+          <div class="my-4 flex justify-center text-success">
+            <svg class="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
-          <p class="!text-text-muted !text-[0.78rem] !mt-4">Click <strong>Finish</strong> to start using WFHelper.</p>
+          <p class="!mt-4 !text-[0.78rem] !text-text-muted">Click <strong>Finish</strong> to continue.</p>
         {:else if step === "error"}
           <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Setup Needs Attention</h2>
-          <p class="!text-danger !font-semibold mb-[0.65rem] text-[0.84rem] leading-[1.55]">{errorMessage}</p>
-          <p class="mb-[0.65rem] text-[0.84rem] text-text-secondary leading-[1.55]">You can retry this setup path or skip and configure inventory loading later.</p>
+          <p class="mb-[0.65rem] text-[0.84rem] font-semibold leading-[1.55] text-danger">{errorMessage}</p>
+          <p class="mb-[0.65rem] text-[0.84rem] leading-[1.55] text-text-secondary">You can retry this setup path or skip and configure inventory loading later.</p>
         {/if}
       </div>
 
-      <div class="flex justify-end gap-2 pt-4 border-t border-border mt-2">
+      <div class="mt-2 flex justify-end gap-2 border-t border-border pt-4">
         {#if step === "configure"}
           <button class="btn-secondary btn-sm" on:click={skip}>Skip</button>
-          <button class="btn-primary btn-sm" on:click={continueSetup}>{inventorySource === "helper" ? "Install" : "Import"}</button>
+          <button class="btn-primary btn-sm" on:click={continueFromConfigure}>Next</button>
+        {:else if step === "inventory"}
+          <button class="btn-secondary btn-sm" on:click={skip}>Skip</button>
+          <button class="btn-primary btn-sm" disabled={loadingApi} on:click={useSelectedInventorySource}>
+            {#if loadingApi}
+              Loading...
+            {:else if inventorySource === "helper"}
+              {runnerStatus?.exeFound ? "Load Helper Data" : "Install Helper"}
+            {:else if inventorySource === "json"}
+              Import JSON
+            {:else if inventorySource === "aleca"}
+              Import AlecaFrame
+            {/if}
+          </button>
         {:else if step === "downloading"}
           <span></span>
         {:else if step === "done"}
-          <span></span>
           <button class="btn-primary btn-sm" on:click={finish}>Finish</button>
         {:else if step === "error"}
           <button class="btn-secondary btn-sm" on:click={skip}>Skip</button>
@@ -264,4 +480,3 @@
     </div>
   </div>
 </section>
-

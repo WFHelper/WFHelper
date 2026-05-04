@@ -23,6 +23,7 @@
   import { isActiveOrderStatus } from "../../../config/shared/wfmOrders.js";
 
   export let item: InventoryViewItem | null = null;
+  export let onClose: (() => void) | null = null;
 
   type OrderSide = OrderType;
   type SideSort = "best" | "price_low" | "price_high" | "quantity_high" | "name_asc";
@@ -371,12 +372,15 @@
 <aside class="sticky top-[0.65rem] flex flex-col gap-[0.58rem] rounded-[0.625rem] border border-border bg-bg-surface p-[0.62rem] max-[1100px]:static">
   <div class="flex justify-between items-center gap-[0.4rem]">
     <h3 class="m-0 font-display text-[0.94rem] text-text-primary">Market Listings</h3>
-    {#if currentSlug}
-      <div class="flex gap-[0.32rem]">
+    <div class="flex gap-[0.32rem]">
+      {#if currentSlug}
         <button class="btn-secondary btn-sm" on:click={refresh}>Refresh</button>
         <button class="btn-secondary btn-sm" on:click={openOnWarframeMarket}>Open WFM</button>
-      </div>
-    {/if}
+      {/if}
+      {#if onClose}
+        <button class="btn-secondary btn-sm !px-2" aria-label="Close market listings" title="Close" on:click={onClose}>&times;</button>
+      {/if}
+    </div>
   </div>
   {#if feedbackMessage}
     <div class="inventory-orderbook-feedback">{feedbackMessage}</div>

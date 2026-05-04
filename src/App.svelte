@@ -10,7 +10,6 @@
 
   import { normalizeErrorMessage } from "../config/shared/errors.js";
 
-  import WelcomeView from "./views/WelcomeView.svelte";
   import SetupView from "./views/SetupView.svelte";
   import InventoryView from "./views/InventoryView.svelte";
   import FoundryView from "./views/FoundryView.svelte";
@@ -37,7 +36,6 @@
 
   type ViewName =
     | "setup"
-    | "welcome"
     | "inventory"
     | "foundry"
     | "mastery"
@@ -84,8 +82,8 @@
     const unsubscribeInventoryUpdated = on("inventory-updated", async (data) => {
       if (data && !(data as { error?: unknown }).error) {
         await onInventoryLoaded(data);
-        // Auto-navigate to inventory only on initial load (from welcome/setup screens)
-        if ($currentView === "welcome" || $currentView === "setup") {
+        // Auto-navigate to inventory only on initial load from setup.
+        if ($currentView === "setup") {
           currentView.set("inventory");
         }
         statusText.set(`Live update - ${$parsedItems.length} items loaded`);
@@ -221,8 +219,6 @@
     >
       {#if $currentView === "setup"}
         <SetupView />
-      {:else if $currentView === "welcome"}
-        <WelcomeView />
       {:else if $currentView === "inventory"}
         <InventoryView />
       {:else if $currentView === "foundry"}

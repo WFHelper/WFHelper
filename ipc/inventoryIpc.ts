@@ -5,10 +5,12 @@ import { withScope } from "../services/logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import {
   INVENTORY_GET,
+  INVENTORY_OPEN_ALECA_FRAME_FILE,
   INVENTORY_OPEN_FILE,
   INVENTORY_GET_STATUS,
   INVENTORY_UPDATED,
 } from "../config/shared/ipcChannels";
+import { readAlecaFrameInventoryFile } from "../services/alecaFrameInventory";
 import { dialog, app } from "electron";
 import path from "node:path";
 import fs from "node:fs";
@@ -262,6 +264,26 @@ function readInventory(filePath: string): unknown {
   }
 }
 
+function readAlecaFrameInventory(filePath: string): unknown {
+  try {
+    const data = readAlecaFrameInventoryFile(filePath);
+    const fileBuffer = fs.readFileSync(filePath);
+    const hash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
+    ctx.currentInventoryData = data as Record<string, unknown> | null;
+    _lastReadError = null;
+    _lastInventoryHash = hash;
+    _lastReloadAt = Date.now();
+    _persistState();
+    _notifyListenersOncePerProcessHash(hash, data);
+    return data;
+  } catch (err) {
+    const message = normalizeErrorMessage(err);
+    log.error(`Failed to decrypt AlecaFrame inventory at ${filePath}:`, message);
+    _lastReadError = { kind: "parse", message, path: filePath, at: Date.now() };
+    return null;
+  }
+}
+
 function watchInventoryFile(filePath: string): void {
   if (ctx.watcher) {
     void ctx.watcher.close();
@@ -349,6 +371,29 @@ function register(): void {
       return data;
     }
     return null;
+  });
+
+  handleAuthorized(INVENTORY_OPEN_ALECA_FRAME_FILE, assertMainRendererSender, async () => {
+    const alecaDefaultPath = path.join(
+      process.env.LOCALAPPDATA || app.getPath("home"),
+      "AlecaFrame",
+      "lastData.dat",
+    );
+    const openOptions: import("electron").OpenDialogOptions = {
+      title: "Select AlecaFrame lastData.dat",
+      defaultPath: alecaDefaultPath,
+      filters: [
+        { name: "AlecaFrame inventory", extensions: ["dat"] },
+        { name: "All Files", extensions: ["*"] },
+      ],
+      properties: ["openFile"],
+    };
+    const result = ctx.mainWindow
+      ? await dialog.showOpenDialog(ctx.mainWindow, openOptions)
+      : await dialog.showOpenDialog(openOptions);
+
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return readAlecaFrameInventory(result.filePaths[0]);
   });
 
   handleAuthorized(INVENTORY_GET_STATUS, assertMainRendererSender, async () => ({

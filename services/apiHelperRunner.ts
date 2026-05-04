@@ -54,8 +54,8 @@ interface HelperStatus {
   lastRunAt: number | null; // unix ms
   lastRunOk: boolean | null;
   inventoryLastModified: number | null; // unix ms
+  installerAutoInstallHelper: boolean | null;
 }
-
 
 interface DownloadProgress {
   stage: DownloadStage;
@@ -68,6 +68,27 @@ interface DownloadProgress {
 /** Directory where we store the downloaded helper. */
 function getHelperDir(): string {
   return path.join(app.getPath("userData"), "api-helper");
+}
+
+function getSetupPreferencesPath(): string {
+  return path.join(app.getPath("userData"), "setup-preferences.json");
+}
+
+function getInstallerAutoInstallHelperPreference(): boolean | null {
+  try {
+    const raw = fs.readFileSync(getSetupPreferencesPath(), "utf-8");
+    const parsed = JSON.parse(raw) as { autoInstallHelper?: unknown };
+    return typeof parsed.autoInstallHelper === "boolean" ? parsed.autoInstallHelper : null;
+  } catch (err) {
+    const code = err && typeof err === "object" ? (err as { code?: unknown }).code : null;
+    if (code !== "ENOENT") {
+      log.warn(
+        "Could not read setup preferences:",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+    return null;
+  }
 }
 
 function findExePath(): string | null {
@@ -116,6 +137,7 @@ export function getStatus(): HelperStatus {
     lastRunAt: _lastRunAt,
     lastRunOk: _lastRunOk,
     inventoryLastModified: getInventoryMtime(),
+    installerAutoInstallHelper: getInstallerAutoInstallHelperPreference(),
   };
 }
 
@@ -165,7 +187,10 @@ export function runOnce(): Promise<boolean> {
         return;
       }
     } catch (err) {
-      log.error("Helper pre-spawn hash check failed:", err instanceof Error ? err.message : String(err));
+      log.error(
+        "Helper pre-spawn hash check failed:",
+        err instanceof Error ? err.message : String(err),
+      );
       _lastRunOk = false;
       _lastRunAt = Date.now();
       resolve(false);
@@ -286,7 +311,6 @@ export function stopPolling(): void {
   }
 }
 
-
 function assertHttps(url: string): void {
   if (!url.startsWith("https://")) {
     throw new Error(`Refusing non-HTTPS URL: ${url}`);
@@ -297,7 +321,11 @@ function assertHttps(url: string): void {
 function httpsGetBuffer(
   url: string,
   headers: Record<string, string>,
-): Promise<{ statusCode: number; headers: Record<string, string | string[] | undefined>; body: Buffer }> {
+): Promise<{
+  statusCode: number;
+  headers: Record<string, string | string[] | undefined>;
+  body: Buffer;
+}> {
   return new Promise((resolve, reject) => {
     assertHttps(url);
     https
@@ -424,9 +452,7 @@ export async function downloadHelper(
     const release: GitHubRelease = JSON.parse(releaseRes.body.toString("utf-8"));
 
     // 2. Find the .exe asset
-    const exeAsset = release.assets.find(
-      (a) => a.name.toLowerCase().endsWith(".exe"),
-    );
+    const exeAsset = release.assets.find((a) => a.name.toLowerCase().endsWith(".exe"));
     if (!exeAsset) {
       throw new Error("No .exe asset found in latest release");
     }
@@ -460,7 +486,7 @@ export async function downloadHelper(
 
     // 5. Verify downloaded file: PE header + SHA-256 against pin set
     const downloadedBytes = fs.readFileSync(tempPath);
-    if (downloadedBytes.length < 2 || downloadedBytes[0] !== 0x4D || downloadedBytes[1] !== 0x5A) {
+    if (downloadedBytes.length < 2 || downloadedBytes[0] !== 0x4d || downloadedBytes[1] !== 0x5a) {
       fs.unlinkSync(tempPath);
       throw new Error("Downloaded file is not a valid PE executable (missing MZ header)");
     }
@@ -485,7 +511,12 @@ export async function downloadHelper(
     _exePath = destPath;
 
     log.log("Helper downloaded to:", destPath);
-    onProgress({ stage: "done", percent: 100, bytesReceived: exeAsset.size, bytesTotal: exeAsset.size });
+    onProgress({
+      stage: "done",
+      percent: 100,
+      bytesReceived: exeAsset.size,
+      bytesTotal: exeAsset.size,
+    });
     return true;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

@@ -8,6 +8,7 @@
 
 export const INVENTORY_GET = "get-inventory";
 export const INVENTORY_OPEN_FILE = "open-inventory-file";
+export const INVENTORY_OPEN_ALECA_FRAME_FILE = "open-alecaframe-inventory-file";
 export const INVENTORY_GET_STATUS = "get-inventory-status";
 export const INVENTORY_UPDATED = "inventory-updated";
 

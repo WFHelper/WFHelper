@@ -153,6 +153,7 @@
       "installerIcon": "assets/logo.ico",
       "uninstallerIcon": "assets/logo.ico",
       "installerHeaderIcon": "assets/logo.ico",
+      "include": "build/installer.nsh",
       "uninstallDisplayName": "WFHelper",
       "shortcutName": "WFHelper",
       "createDesktopShortcut": true,
