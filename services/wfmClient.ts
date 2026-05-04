@@ -267,6 +267,37 @@ interface CoreRequestOptions {
   label?: string;
 }
 
+function flattenErrorMessages(value: unknown): string[] {
+  const values = Array.isArray(value)
+    ? value
+    : value && typeof value === "object"
+      ? Object.values(value as Record<string, unknown>)
+      : [];
+  return values
+    .flatMap((entry) => (Array.isArray(entry) ? entry : [entry]))
+    .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+    .slice(0, 2);
+}
+
+function extractWfmErrorDetail(body: unknown, objectErrorFallback?: string): string | null {
+  if (!body || typeof body !== "object") return null;
+
+  const record = body as Record<string, unknown>;
+  const error = record.error;
+  if (typeof error === "string" && error.trim()) return error;
+  if (error && typeof error === "object" && !Array.isArray(error)) {
+    const message = (error as Record<string, unknown>).message;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  if (typeof record.message === "string" && record.message.trim()) return record.message;
+  if (error && typeof error === "object") {
+    const messages = flattenErrorMessages(error);
+    if (messages.length > 0) return messages.join("; ");
+    return objectErrorFallback ?? null;
+  }
+  return null;
+}
+
 function _coreRequest(
   baseUrl: string,
   method: string,
@@ -334,11 +365,8 @@ function _coreRequest(
         const text = await res.text();
         log.log(`[${label}] ${method} ${path} → ${res.status} body:`, text.slice(0, 500));
         try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped WFM error response
-          const rb = JSON.parse(text) as Record<string, any>;
-          if (rb?.error?.message) detail = rb.error.message;
-          else if (typeof rb?.error === "string") detail = rb.error;
-          else if (rb?.message) detail = rb.message;
+          const parsed = JSON.parse(text) as unknown;
+          detail = extractWfmErrorDetail(parsed) ?? detail;
         } catch {
           // ignore – detail already has a fallback value
         }
@@ -412,19 +440,8 @@ export function requestRaw(
     if (!res.ok) {
       let detail = `HTTP ${res.status}`;
       try {
-        /* eslint-disable @typescript-eslint/no-explicit-any -- untyped WFM error response */
-        const rawBody = (await res.json()) as Record<string, any>;
-        /* eslint-enable @typescript-eslint/no-explicit-any */
-        if (typeof rawBody?.error === "string") {
-          detail = rawBody.error;
-        } else if (typeof rawBody?.error?.message === "string") {
-          detail = rawBody.error.message;
-        } else if (rawBody?.message) {
-          detail = rawBody.message;
-        } else if (rawBody?.error && typeof rawBody.error === "object") {
-          const msgs = (Object.values(rawBody.error) as unknown[]).flat().slice(0, 2) as string[];
-          detail = msgs.length ? msgs.join("; ") : "Invalid credentials.";
-        }
+        const rawBody = await res.json();
+        detail = extractWfmErrorDetail(rawBody, "Invalid credentials.") ?? detail;
       } catch {
         /* ignore parse error */
       }

@@ -49,29 +49,4 @@ describe("wfmIpc payload validators", () => {
     expect(__test__.parseContractsPayload({ page: 2, limit: 1000 })).toBeNull();
   });
 
-  it("accepts valid close-order payload", () => {
-    const parsed = __test__.parseCloseOrderPayload({
-      orderId: "54a74454e779892d5e5155d0",
-      quantity: 1,
-    });
-    expect(parsed).toEqual({ orderId: "54a74454e779892d5e5155d0", quantity: 1 });
-  });
-
-  it("rejects close-order with bad orderId", () => {
-    expect(__test__.parseCloseOrderPayload({ orderId: "bad-id", quantity: 1 })).toBeNull();
-    expect(__test__.parseCloseOrderPayload({ orderId: "", quantity: 1 })).toBeNull();
-    expect(__test__.parseCloseOrderPayload({ orderId: 12345, quantity: 1 })).toBeNull();
-  });
-
-  it("rejects close-order with invalid quantity", () => {
-    expect(
-      __test__.parseCloseOrderPayload({ orderId: "54a74454e779892d5e5155d0", quantity: 0 }),
-    ).toBeNull();
-    expect(
-      __test__.parseCloseOrderPayload({ orderId: "54a74454e779892d5e5155d0", quantity: -1 }),
-    ).toBeNull();
-    expect(
-      __test__.parseCloseOrderPayload({ orderId: "54a74454e779892d5e5155d0", quantity: "abc" }),
-    ).toBeNull();
-  });
 });

@@ -4,7 +4,6 @@ import type { WfmStatus } from "../config/shared/wfm";
 import {
   errorCode,
   normalizeErrorMessage,
-  parseCloseOrderPayload,
   parseContractsPayload,
   parseCreateOrderParams,
   parseCredentials,
@@ -23,7 +22,7 @@ import { startListening, stopListening } from "../services/wfmWebSocketListener"
 import ctx from "./context";
 import {
   WFM_SIGNIN, WFM_SIGNOUT, WFM_SESSION, WFM_GET_ORDERS, WFM_GET_CONTRACTS,
-  WFM_CREATE_ORDER, WFM_UPDATE_ORDER, WFM_DELETE_ORDER, WFM_CLOSE_ORDER,
+  WFM_CREATE_ORDER, WFM_UPDATE_ORDER, WFM_DELETE_ORDER,
   WFM_SET_VISIBLE, WFM_SEARCH_ITEMS, WFM_LOOKUP_ITEM, WFM_GET_ME, WFM_SET_STATUS,
   WFM_NOTIFICATION,
 } from "../config/shared/ipcChannels";
@@ -144,15 +143,6 @@ function register(): void {
     return withWfmError("delete-order", () => wfmOrders.deleteOrder(parsed.orderId), "Failed to delete order.");
   });
 
-  handleAuthorized(WFM_CLOSE_ORDER, assertMainRendererSender, async (_event, payload) => {
-    const parsed = parseCloseOrderPayload(payload);
-    if (!parsed) {
-      log.warn("[Security] wfm:close-order blocked due to invalid payload");
-      return { error: "Invalid close-order payload." };
-    }
-    return withWfmError("close-order", () => wfmOrders.closeOrder(parsed.orderId, parsed.quantity), "Failed to close order.");
-  });
-
   handleAuthorized(WFM_SET_VISIBLE, assertMainRendererSender, async (_event, payload) => {
     const parsed = parseSetVisiblePayload(payload);
     if (!parsed) {
@@ -229,7 +219,6 @@ const testExports = {
   parseSearchPayload,
   parseStatusPayload,
   parseContractsPayload,
-  parseCloseOrderPayload,
   normalizeErrorMessage,
 };
 

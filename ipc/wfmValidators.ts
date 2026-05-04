@@ -1,4 +1,5 @@
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { toFiniteNumber } from "../config/shared/numeric";
 import { isObject, trimmedString } from "./ipcValidators";
 
 const WFM_ID_RE = /^[a-f0-9]{24}$/i;
@@ -42,20 +43,10 @@ type ParsedUpdateOrderPayload = {
   };
 };
 type ParsedDeleteOrderPayload = { orderId: string };
-type ParsedCloseOrderPayload = { orderId: string; quantity: number };
 type ParsedSetVisiblePayload = { orderIds: string[]; visible: boolean };
 type ParsedSearchPayload = { query: string; limit: number };
 type ParsedStatusPayload = { status: string };
 type ParsedContractsPayload = { page: number; limit: number };
-
-function toTrimmedString(value: unknown, maxLength: number): string | null {
-  return trimmedString(value, maxLength);
-}
-
-function toFiniteNumber(value: unknown): number | null {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
 
 function toClampedInteger(value: unknown, min: number, max: number): number | null {
   const n = toFiniteNumber(value);
@@ -73,8 +64,8 @@ function errorCode(err: unknown): string | undefined {
 function parseCredentials(payload: unknown): ParsedCredentials | null {
   if (!isObject(payload)) return null;
 
-  const email = toTrimmedString(payload.email, EMAIL_MAX_LENGTH);
-  const password = toTrimmedString(payload.password, PASSWORD_MAX_LENGTH);
+  const email = trimmedString(payload.email, EMAIL_MAX_LENGTH);
+  const password = trimmedString(payload.password, PASSWORD_MAX_LENGTH);
   if (!email || !password) return null;
 
   return { email, password };
@@ -83,8 +74,8 @@ function parseCredentials(payload: unknown): ParsedCredentials | null {
 function parseCreateOrderParams(payload: unknown): ParsedCreateOrderParams | null {
   if (!isObject(payload)) return null;
 
-  const itemId = toTrimmedString(payload.itemId, 64);
-  const orderType = toTrimmedString(payload.orderType, 10)?.toLowerCase() ?? null;
+  const itemId = trimmedString(payload.itemId, 64);
+  const orderType = trimmedString(payload.orderType, 10)?.toLowerCase() ?? null;
   const platinum = toClampedInteger(payload.platinum, 1, MAX_PLATINUM);
   const quantity = toClampedInteger(payload.quantity, 1, MAX_QUANTITY);
 
@@ -112,7 +103,7 @@ function parseCreateOrderParams(payload: unknown): ParsedCreateOrderParams | nul
 function parseUpdateOrderPayload(payload: unknown): ParsedUpdateOrderPayload | null {
   if (!isObject(payload)) return null;
 
-  const orderId = toTrimmedString(payload.orderId, 64);
+  const orderId = trimmedString(payload.orderId, 64);
   if (!orderId || !WFM_ID_RE.test(orderId)) return null;
 
   const updates = isObject(payload.updates) ? payload.updates : {};
@@ -145,18 +136,9 @@ function parseUpdateOrderPayload(payload: unknown): ParsedUpdateOrderPayload | n
 
 function parseDeleteOrderPayload(payload: unknown): ParsedDeleteOrderPayload | null {
   if (!isObject(payload)) return null;
-  const orderId = toTrimmedString(payload.orderId, 64);
+  const orderId = trimmedString(payload.orderId, 64);
   if (!orderId || !WFM_ID_RE.test(orderId)) return null;
   return { orderId };
-}
-
-function parseCloseOrderPayload(payload: unknown): ParsedCloseOrderPayload | null {
-  if (!isObject(payload)) return null;
-  const orderId = toTrimmedString(payload.orderId, 64);
-  if (!orderId || !WFM_ID_RE.test(orderId)) return null;
-  const quantity = toClampedInteger(payload.quantity, 1, MAX_QUANTITY);
-  if (quantity == null) return null;
-  return { orderId, quantity };
 }
 
 function parseSetVisiblePayload(payload: unknown): ParsedSetVisiblePayload | null {
@@ -165,7 +147,7 @@ function parseSetVisiblePayload(payload: unknown): ParsedSetVisiblePayload | nul
   if (!Array.isArray(payload.orderIds)) return null;
 
   const orderIds = payload.orderIds
-    .map((value: unknown) => toTrimmedString(value, 64))
+    .map((value: unknown) => trimmedString(value, 64))
     .filter((value): value is string => Boolean(value && WFM_ID_RE.test(value)))
     .slice(0, MAX_BULK_ORDER_IDS);
 
@@ -179,7 +161,7 @@ function parseSetVisiblePayload(payload: unknown): ParsedSetVisiblePayload | nul
 function parseSearchPayload(payload: unknown): ParsedSearchPayload | null {
   if (!isObject(payload)) return null;
 
-  const query = toTrimmedString(payload.query, SEARCH_QUERY_MAX_LENGTH);
+  const query = trimmedString(payload.query, SEARCH_QUERY_MAX_LENGTH);
   if (!query) return null;
 
   const rawLimit =
@@ -198,7 +180,7 @@ function parseSearchPayload(payload: unknown): ParsedSearchPayload | null {
 function parseStatusPayload(payload: unknown): ParsedStatusPayload | null {
   if (!isObject(payload)) return null;
 
-  const status = toTrimmedString(payload.status, 24)?.toLowerCase() ?? null;
+  const status = trimmedString(payload.status, 24)?.toLowerCase() ?? null;
   if (!status || !VALID_STATUSES.has(status)) return null;
 
   return { status };
@@ -234,12 +216,10 @@ export {
   parseCreateOrderParams,
   parseUpdateOrderPayload,
   parseDeleteOrderPayload,
-  parseCloseOrderPayload,
   parseSetVisiblePayload,
   parseSearchPayload,
   parseStatusPayload,
   parseContractsPayload,
   normalizeErrorMessage,
   errorCode,
-  
 };

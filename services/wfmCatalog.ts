@@ -1,5 +1,6 @@
 import { withScope } from "./logger";
 import * as wfmClient from "./wfmClient";
+import { unwrapWfmResponse } from "./wfmTypes";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { formatWfmAssetUrl, titleFromSlug } from "../config/shared/wfm";
 
@@ -43,14 +44,6 @@ let _byGameRefLc = new Map<string, CatalogItem>();
 let _loaded = false;
 let _loading: Promise<void> | null = null;
 
-
-function _unwrap(obj: unknown): unknown {
-  if (!obj || typeof obj !== "object") return null;
-  const o = obj as Record<string, unknown>;
-  if (o.data !== undefined) return o.data;
-  if (o.payload !== undefined) return o.payload;
-  return obj;
-}
 
 function _normalise(raw: unknown): CatalogItem {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- deeply nested untyped WFM API response
@@ -102,7 +95,7 @@ async function _load(): Promise<void> {
           // Route through the shared wfmClient queue so the catalog load
           // shares the 350 ms rate-limit budget with every other WFM call.
           const json = await wfmClient.requestV2("GET", path);
-          const data = _unwrap(json);
+          const data = unwrapWfmResponse(json);
           if (!data) continue;
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- deeply nested untyped WFM catalog

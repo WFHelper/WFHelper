@@ -32,7 +32,6 @@ export const WFM_SEARCH_ITEMS = "wfm:search-items";
 export const WFM_LOOKUP_ITEM = "wfm:lookup-item-by-slug";
 export const WFM_GET_ME = "wfm:get-me";
 export const WFM_SET_STATUS = "wfm:set-status";
-export const WFM_CLOSE_ORDER = "wfm:close-order";
 export const WFM_NOTIFICATION = "wfm:notification";
 
 export const APP_UPDATE_CHECK = "app:update-check";
