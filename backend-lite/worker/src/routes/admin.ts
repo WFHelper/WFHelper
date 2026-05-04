@@ -13,6 +13,7 @@ import {
 	prewarmOrderSummaryCatalog,
 	prewarmOrderSummaryHotset,
 	saveOrderSummaryHotset,
+	sanitizeOrderSummaryHotsetEntries,
 } from '../services/prewarm';
 import { getWorkerConfig } from '../config';
 import { jsonResponse } from '../security/cors';
@@ -20,26 +21,6 @@ import { isAdminAuthorized } from '../security/adminAuth';
 import { checkAdminRateLimit } from '../security/rateLimit';
 import type { Env } from '../types';
 import { getJsonFromKv, parseJsonBody, parsePositiveInt } from '../utils';
-import { normalizeRankFilter } from '../../../../config/shared/numeric';
-
-function parseHotsetEntries(value: unknown): Array<{ slug: string; maxRank: number; lastSeenAt: number }> {
-	if (!Array.isArray(value)) return [];
-	return value
-		.map((entry) => {
-			if (!entry || typeof entry !== 'object') return null;
-			const row = entry as Record<string, unknown>;
-			const slug = typeof row.slug === 'string' ? row.slug.trim().toLowerCase() : '';
-			const maxRank = normalizeRankFilter(row.maxRank);
-			const lastSeenAt = Number(row.lastSeenAt || Date.now());
-			if (!slug || maxRank == null || maxRank <= 0) return null;
-			return {
-				slug,
-				maxRank,
-				lastSeenAt: Number.isFinite(lastSeenAt) && lastSeenAt > 0 ? Math.round(lastSeenAt) : Date.now(),
-			};
-		})
-		.filter((entry): entry is { slug: string; maxRank: number; lastSeenAt: number } => entry != null);
-}
 
 async function guardAdmin(req: Request, env: Env): Promise<Response | null> {
 	const rateLimited = await checkAdminRateLimit(req, env);
@@ -80,7 +61,7 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 		if (guardResponse) return guardResponse;
 
 		const body = parseJsonBody(await req.text());
-		const nextEntries = parseHotsetEntries(body.entries);
+		const nextEntries = sanitizeOrderSummaryHotsetEntries(body.entries);
 		const replace = body.replace === true;
 		const current = replace ? [] : await getOrderSummaryHotset(env);
 		const saved = await saveOrderSummaryHotset(env, [...current, ...nextEntries]);
@@ -124,7 +105,7 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 				? await prewarmOrderSummaryHotset(env, {
 						reason: 'manual',
 						batchSize,
-						entries: parseHotsetEntries(body.entries),
+						entries: sanitizeOrderSummaryHotsetEntries(body.entries),
 						resetCursor: body.resetCursor === true,
 					})
 				: await prewarmOrderSummaryCatalog(env, {

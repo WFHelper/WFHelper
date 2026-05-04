@@ -36,7 +36,7 @@ import {
 	sanitizeOrderSummaryHotsetEntries,
 } from './prewarmCatalog';
 
-export { buildOrderSummaryPayload, fetchRankedSummaryCatalog } from './prewarmCatalog';
+export { buildOrderSummaryPayload, fetchRankedSummaryCatalog, sanitizeOrderSummaryHotsetEntries } from './prewarmCatalog';
 
 const UNTRADABLE_SKIP_TTL_SEC = 30 * 24 * 60 * 60;
 
@@ -602,10 +602,9 @@ export async function prewarmBatch(
 
 			const priceResult = await fetchPricePayload(slug);
 			if (priceResult.data) {
-				const written = await putPricePayload(env, slug, priceResult.data);
+				await putPricePayload(env, slug, priceResult.data);
 				result.priceUpdated += 1;
 				snapshotPrices[slug] = { status: 'ok', median: priceResult.data.median, timestamp: priceResult.data.timestamp };
-				void written;
 			} else if (priceResult.inactive) {
 				await markPriceNoData(env, slug);
 				snapshotPrices[slug] = inactivePriceSnapshotEntry();
