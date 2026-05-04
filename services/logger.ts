@@ -25,7 +25,7 @@ function resetLogFileOnAppStart(): void {
       return;
     }
   } catch {
-    // fall through to manual truncate
+    // Intentional: reset is optional, so fall through to manual truncate.
   }
 
   try {
@@ -36,7 +36,7 @@ function resetLogFileOnAppStart(): void {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, "", "utf8");
   } catch {
-    // non-fatal, keep logging as usual
+    // Intentional: never break app startup because optional log reset failed.
   }
 }
 
@@ -77,4 +77,3 @@ export function withScope(scopeName: string): ScopedLogger {
     },
   };
 }
-

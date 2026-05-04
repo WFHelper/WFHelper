@@ -59,7 +59,14 @@ function _loadPersistedState(): void {
     const data = JSON.parse(raw) as { hash?: string; reloadAt?: number };
     if (typeof data.hash === "string") _lastInventoryHash = data.hash;
     if (typeof data.reloadAt === "number") _lastReloadAt = data.reloadAt;
-  } catch {
+  } catch (err) {
+    const code = err && typeof err === "object" ? (err as { code?: unknown }).code : null;
+    if (code !== "ENOENT") {
+      log.debug(
+        "[Inventory] persisted reload state missing or corrupt; starting fresh:",
+        normalizeErrorMessage(err),
+      );
+    }
     // missing or corrupt — start fresh
   }
 }
@@ -71,13 +78,13 @@ function _persistState(): void {
       JSON.stringify({ hash: _lastInventoryHash, reloadAt: _lastReloadAt }),
       JSON_ENCODING,
     );
-  } catch {
+  } catch (err) {
+    log.debug("[Inventory] failed to persist reload state:", normalizeErrorMessage(err));
     // best-effort
   }
 }
 
 _loadPersistedState();
-
 
 type InventoryDataListener = (data: Record<string, unknown>) => void;
 const _inventoryListeners: InventoryDataListener[] = [];

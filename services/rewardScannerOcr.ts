@@ -151,10 +151,6 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
       return nativeOcrFile(imagePath, timeoutMs);
     }
 
-    if (engine === engineWindows || engine === "auto") {
-      return runPowerShellOCR(imagePath, timeoutMs);
-    }
-
     return runPowerShellOCR(imagePath, timeoutMs);
   }
 
