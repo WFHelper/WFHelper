@@ -10,6 +10,7 @@ import path from "node:path";
 
 import { sanitizeDisplayName } from "../config/shared/displayName";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { normalizeDucats } from "../config/shared/numeric";
 import { withScope } from "./logger";
 import type {
   PepExportItem,
@@ -368,10 +369,7 @@ function loadWfcdItems(): number {
 
       const wfcdImageUrl = buildWfcdImageUrl(item.imageName);
 
-      const wfcdRootDucats =
-        typeof item.ducats === "number" && Number.isFinite(item.ducats)
-          ? Math.max(0, Math.round(item.ducats))
-          : null;
+      const wfcdRootDucats = normalizeDucats(item.ducats);
 
       const wfcdEntry: ItemEntry = {
         name: sanitizeDisplayName(item.name || "Unknown"),
@@ -402,10 +400,7 @@ function loadWfcdItems(): number {
             const componentAliasUniqueNames = buildComponentAliasUniqueNames(comp.uniqueName);
             const componentUsesBlueprintAlias = componentAliasUniqueNames.length > 0;
             const forceComponentBlueprintName = /Component$/i.test(comp.uniqueName);
-            const compDucats =
-              typeof comp.ducats === "number" && Number.isFinite(comp.ducats)
-                ? Math.max(0, Math.round(comp.ducats))
-                : null;
+            const compDucats = normalizeDucats(comp.ducats);
             const componentName = buildComponentDisplayName(
               item.name,
               comp.name,

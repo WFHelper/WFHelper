@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { extractMedianFromStatsPayload } from '../../../config/shared/wfmStats';
-import { __test__ as prewarmTest } from '../src/services/prewarm';
 
 const canonicalStatsPayload = {
 	payload: {
@@ -18,7 +17,6 @@ const canonicalStatsPayload = {
 
 describe('prewarm stats parser parity', () => {
 	it('matches the canonical stats median parser', () => {
-		expect(prewarmTest.extractMedianFromStatsPayload(canonicalStatsPayload)).toBe(33);
 		expect(extractMedianFromStatsPayload(canonicalStatsPayload)).toBe(33);
 	});
 });

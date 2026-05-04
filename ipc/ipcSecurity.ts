@@ -27,6 +27,11 @@ type IpcEventLike = {
   };
 };
 
+type BrowserWindowCandidate = {
+  win: import("electron").BrowserWindow | null;
+  suffix: string;
+};
+
 function normalizePathForCompare(filePath: unknown): string {
   return path
     .normalize(String(filePath || ""))
@@ -78,6 +83,38 @@ function assertWindowSender(
   }
 }
 
+function assertCandidateWindowSender(event: IpcEventLike, candidate: BrowserWindowCandidate): void {
+  const win = candidate.win;
+  assertWindowSender(
+    event,
+    win
+      ? {
+          isDestroyed: () => win?.isDestroyed() ?? true,
+          webContents: { id: win.webContents.id },
+        }
+      : null,
+    candidate.suffix,
+  );
+}
+
+function assertAnyCandidateWindowSender(
+  event: IpcEventLike,
+  candidates: BrowserWindowCandidate[],
+  options: { fallbackMessage?: string; throwLastError?: boolean } = {},
+): void {
+  let lastError: unknown = null;
+  for (const candidate of candidates) {
+    try {
+      assertCandidateWindowSender(event, candidate);
+      return;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  if (options.throwLastError && lastError instanceof Error) throw lastError;
+  throw new Error(options.fallbackMessage || "No matching BrowserWindow for sender");
+}
+
 function assertMainRendererSender(event: IpcEventLike, _channel: string): void {
   assertWindowSender(
     event,
@@ -92,31 +129,15 @@ function assertMainRendererSender(event: IpcEventLike, _channel: string): void {
 }
 
 function assertOverlayRendererSender(event: IpcEventLike, _channel: string): void {
-  const candidates: Array<{ win: import("electron").BrowserWindow | null; suffix: string }> = [
+  const candidates: BrowserWindowCandidate[] = [
     { win: ctx.overlayWindow, suffix: OVERLAY_RENDERER_SUFFIX },
     { win: ctx.plannerOverlayWindow, suffix: OVERLAY_RENDERER_SUFFIX },
     { win: ctx.rivenOverlayLeftWindow, suffix: RIVEN_OVERLAY_RENDERER_SUFFIX },
     { win: ctx.rivenOverlayRightWindow, suffix: RIVEN_OVERLAY_RENDERER_SUFFIX },
   ];
-
-  for (const { win, suffix } of candidates) {
-    try {
-      assertWindowSender(
-        event,
-        win
-          ? {
-              isDestroyed: () => win?.isDestroyed() ?? true,
-              webContents: { id: win.webContents.id },
-            }
-          : null,
-        suffix,
-      );
-      return;
-    } catch {
-      // try next candidate
-    }
-  }
-  throw new Error("No matching overlay window for sender");
+  assertAnyCandidateWindowSender(event, candidates, {
+    fallbackMessage: "No matching overlay window for sender",
+  });
 }
 
 function assertTradeNotificationSender(event: IpcEventLike, _channel: string): void {
@@ -133,30 +154,15 @@ function assertTradeNotificationSender(event: IpcEventLike, _channel: string): v
 }
 
 function assertRivenOverlayRendererSender(event: IpcEventLike, _channel: string): void {
-  const leftWin = ctx.rivenOverlayLeftWindow
-    ? {
-        isDestroyed: () => ctx.rivenOverlayLeftWindow?.isDestroyed() ?? true,
-        webContents: { id: ctx.rivenOverlayLeftWindow.webContents.id },
-      }
-    : null;
-
-  const rightWin = ctx.rivenOverlayRightWindow
-    ? {
-        isDestroyed: () => ctx.rivenOverlayRightWindow?.isDestroyed() ?? true,
-        webContents: { id: ctx.rivenOverlayRightWindow.webContents.id },
-      }
-    : null;
-
-  // Accept either riven window as a valid sender
-  try {
-    assertWindowSender(event, leftWin, RIVEN_OVERLAY_RENDERER_SUFFIX);
-    return;
-  } catch {
-    // try right window
-  }
-  assertWindowSender(event, rightWin, RIVEN_OVERLAY_RENDERER_SUFFIX);
+  assertAnyCandidateWindowSender(
+    event,
+    [
+      { win: ctx.rivenOverlayLeftWindow, suffix: RIVEN_OVERLAY_RENDERER_SUFFIX },
+      { win: ctx.rivenOverlayRightWindow, suffix: RIVEN_OVERLAY_RENDERER_SUFFIX },
+    ],
+    { throwLastError: true },
+  );
 }
-
 
 type AssertSenderFn = (event: IpcEventLike, channel: string) => void;
 

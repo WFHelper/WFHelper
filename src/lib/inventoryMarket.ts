@@ -4,8 +4,9 @@ import type { WfmItemsLookup } from "../types/ipc.js";
 import type { WfmOrdersResult } from "../types/market.js";
 import type { RelicDatabase } from "../types/relics.js";
 import { getCachedPriceState } from "./wfm/priceCache.js";
-import { getCachedOrderSummaryState } from "./wfm/orderSummaryCache.js";
 import { getCachedWfmItemMeta } from "./wfm/wfmItemMeta.js";
+import { getCachedRankOrderSummary } from "../stores/hydration/hydrationCacheHelpers.js";
+import { resolvePriceRank } from "../stores/hydration/hydrationHelpers.js";
 import { normalizeLooseMarketName, normalizeMarketName, toMarketSlug } from "./marketNaming.js";
 import {
   toFinitePositiveInt,
@@ -145,18 +146,10 @@ function isSetSlug(slug: string | null | undefined): boolean {
   return typeof slug === "string" && slug.endsWith("_set");
 }
 
-function resolvePriceRankForView(item: InventoryBaseItem): number | null {
-  if (!isRankedGroup(item.inventoryGroup)) return null;
-
-  const maxRank = toFinitePositiveInt(item.maxRank) ?? resolveRankedMaxRank(item.inventoryGroup);
-  const currentRank = toFinitePositiveInt(item.rank) ?? 0;
-  return currentRank >= maxRank ? maxRank : 0;
-}
-
 function resolveCachedPlatinum(item: InventoryBaseItem): number | null {
   if (!item.marketSlug) return null;
 
-  const rank = resolvePriceRankForView(item);
+  const rank = resolvePriceRank(item);
   const cacheKey = rendererPriceCacheKey(item.marketSlug, rank);
   const entry = getCachedPriceState(cacheKey);
   if (!entry || entry.status !== "ok") return null;
@@ -168,21 +161,6 @@ function resolveCachedRankPlatinum(slug: string | null | undefined, rank: number
   const entry = getCachedPriceState(rendererPriceCacheKey(slug, rank));
   if (!entry || entry.status !== "ok") return null;
   return toFiniteNumber(entry.median);
-}
-
-function resolveCachedRankOrderSummary(
-  slug: string | null | undefined,
-  rank: number,
-): { wts: number | null; wtb: number | null } | null {
-  if (!slug) return null;
-  const entry = getCachedOrderSummaryState(slug, rank, { allowStale: true });
-  if (!entry) return null;
-
-  const wts =
-    typeof entry.wts === "number" && Number.isFinite(entry.wts) ? Math.round(entry.wts) : null;
-  const wtb =
-    typeof entry.wtb === "number" && Number.isFinite(entry.wtb) ? Math.round(entry.wtb) : null;
-  return { wts, wtb };
 }
 
 function itemGroupFallback(item: ParsedItem): InventoryFilterTab {
@@ -418,7 +396,8 @@ export function buildInventoryViewItems(
   return baseItems.map<InventoryViewItem>((item) => {
     const metric = metricsByKey[item.internalName] || null;
     const isRankedListingItem = isRankedGroup(item.inventoryGroup);
-    const itemMaxRank = toFinitePositiveInt(item.maxRank) ?? resolveRankedMaxRank(item.inventoryGroup);
+    const itemMaxRank =
+      toFinitePositiveInt(item.maxRank) ?? resolveRankedMaxRank(item.inventoryGroup);
     const itemCurrentRank = toFinitePositiveInt(item.rank) ?? 0;
 
     const metricPlatinumR0Raw = metric?.platinumR0 ?? null;
@@ -446,10 +425,10 @@ export function buildInventoryViewItems(
     const metricWtbRmax = toFiniteNumber(metricWtbRmaxRaw);
 
     const cachedOrdersR0 = isRankedListingItem
-      ? resolveCachedRankOrderSummary(item.marketSlug, 0)
+      ? getCachedRankOrderSummary(item.marketSlug, 0)
       : null;
     const cachedOrdersRmax = isRankedListingItem
-      ? resolveCachedRankOrderSummary(item.marketSlug, itemMaxRank)
+      ? getCachedRankOrderSummary(item.marketSlug, itemMaxRank)
       : null;
 
     const selectedRankPlatinum =

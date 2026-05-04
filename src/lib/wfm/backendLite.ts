@@ -1,4 +1,4 @@
-import { toFiniteNumber } from "../../../config/shared/numeric.js";
+import { normalizeDucats, toFiniteNumber } from "../../../config/shared/numeric.js";
 import { BACKEND_BOOTSTRAP_FAILURE_COOLDOWN_MS } from "../../../config/runtime/cacheConfig.js";
 import { BACKEND_URL } from "../../../config/shared/backendConfig.js";
 import { normalizeWfmSlug as _normalizeWfmSlug } from "../../../config/shared/wfm.js";
@@ -281,7 +281,6 @@ export async function fetchBackendMetaBySlug(
   const result = await fetchBackendJson(`/v1/meta/${encodeURIComponent(normalizedSlug)}`);
   if (result.status !== "ok") return result;
 
-  const ducatsRaw = toFiniteNumber(result.data.ducats);
   const timestamp = toFiniteNumber(result.data.timestamp);
   const responseSlug =
     typeof result.data.slug === "string" ? normalizeWfmSlug(result.data.slug) : normalizedSlug;
@@ -290,7 +289,7 @@ export async function fetchBackendMetaBySlug(
     status: "ok",
     data: {
       slug: responseSlug || normalizedSlug,
-      ducats: ducatsRaw != null ? Math.max(0, Math.round(ducatsRaw)) : null,
+      ducats: normalizeDucats(result.data.ducats),
       setRoot: Boolean(result.data.setRoot),
       thumb: typeof result.data.thumb === "string" ? result.data.thumb : null,
       icon: typeof result.data.icon === "string" ? result.data.icon : null,

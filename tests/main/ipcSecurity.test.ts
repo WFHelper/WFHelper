@@ -18,10 +18,14 @@ function makeEvent(webContentsId: number, url: string) {
 describe("ipc sender guards", () => {
   const originalMainWindow = ctx.mainWindow;
   const originalOverlayWindow = ctx.overlayWindow;
+  const originalRivenOverlayLeftWindow = ctx.rivenOverlayLeftWindow;
+  const originalRivenOverlayRightWindow = ctx.rivenOverlayRightWindow;
 
   afterEach(() => {
     ctx.mainWindow = originalMainWindow;
     ctx.overlayWindow = originalOverlayWindow;
+    ctx.rivenOverlayLeftWindow = originalRivenOverlayLeftWindow;
+    ctx.rivenOverlayRightWindow = originalRivenOverlayRightWindow;
   });
 
   it("accepts the expected main renderer sender", () => {
@@ -60,5 +64,32 @@ describe("ipc sender guards", () => {
     expect(() =>
       ipcSecurity.assertOverlayRendererSender(event, "overlay-get-relic-items"),
     ).toThrow();
+  });
+
+  it("accepts either riven overlay sender", () => {
+    ctx.rivenOverlayLeftWindow = {
+      isDestroyed: () => false,
+      webContents: { id: 41 },
+    } as any;
+    ctx.rivenOverlayRightWindow = {
+      isDestroyed: () => false,
+      webContents: { id: 42 },
+    } as any;
+
+    const leftEvent = makeEvent(
+      41,
+      "file:///D:/Github/warframe-companion/renderer/riven-overlay.html",
+    );
+    const rightEvent = makeEvent(
+      42,
+      "file:///D:/Github/warframe-companion/renderer/riven-overlay.html",
+    );
+
+    expect(() =>
+      ipcSecurity.assertRivenOverlayRendererSender(leftEvent, "riven-ready"),
+    ).not.toThrow();
+    expect(() =>
+      ipcSecurity.assertRivenOverlayRendererSender(rightEvent, "riven-ready"),
+    ).not.toThrow();
   });
 });

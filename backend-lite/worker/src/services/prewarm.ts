@@ -16,8 +16,8 @@ import {
 import type { Env, MetaPayload, OrdersPayload, OrderSummaryHotsetEntry, OrderSummaryPrewarmResult, PrewarmResult } from '../types';
 import { getWorkerConfig } from '../config';
 import { clamp, getJsonFromKv } from '../utils';
-import { extractLatestMedianFromStatsPayload, extractMedianFromStatsPayload } from '../../../../config/shared/wfmStats';
-import { normalizeRankFilter } from '../../../../config/shared/numeric';
+import { extractLatestMedianFromStatsPayload } from '../../../../config/shared/wfmStats';
+import { normalizeDucats, normalizeRankFilter } from '../../../../config/shared/numeric';
 import { formatWfmAssetUrl, WFM_HEADERS } from '../../../../config/shared/wfm';
 import {
 	snapshotCacheKeyFromWorkerKey,
@@ -36,7 +36,12 @@ import {
 	sanitizeOrderSummaryHotsetEntries,
 } from './prewarmCatalog';
 
-export { buildOrderSummaryPayload, fetchRankedSummaryCatalog, sanitizeOrderSummaryHotsetEntries } from './prewarmCatalog';
+export {
+	buildOrderSummaryPayload,
+	fetchRankedSummaryCatalog,
+	readRankedSummaryCatalogFromKv,
+	sanitizeOrderSummaryHotsetEntries,
+} from './prewarmCatalog';
 
 const UNTRADABLE_SKIP_TTL_SEC = 30 * 24 * 60 * 60;
 
@@ -145,8 +150,7 @@ export async function fetchMetaPayload(slug: string): Promise<FetchResult<MetaPa
 	if (!data || typeof data !== 'object') return { data: null, transient: false };
 
 	const i18nEn = (data.i18n as { en?: Record<string, unknown> } | undefined)?.en || {};
-	const ducatsRaw = data.ducats;
-	const ducats = typeof ducatsRaw === 'number' && Number.isFinite(ducatsRaw) ? Math.max(0, Math.round(ducatsRaw)) : null;
+	const ducats = normalizeDucats(data.ducats);
 
 	return {
 		data: {
@@ -447,9 +451,7 @@ export async function prewarmOrderSummaryCatalog(
 							timestamp: Date.now(),
 						};
 						await putOrderSummaryPayload(env, entry.slug, emptyPayload, rank);
-						const snapshotKey = snapshotCacheKeyFromWorkerKey(
-							workerOrderSummaryCacheKey(entry.slug, rank),
-						);
+						const snapshotKey = snapshotCacheKeyFromWorkerKey(workerOrderSummaryCacheKey(entry.slug, rank));
 						if (snapshotKey)
 							snapshotOrderSummaries[snapshotKey] = {
 								status: 'no_data',
@@ -467,9 +469,7 @@ export async function prewarmOrderSummaryCatalog(
 
 				const payload = buildOrderSummaryPayload(entry.slug, rank, ordersResult.data);
 				await putOrderSummaryPayload(env, entry.slug, payload, rank);
-				const snapshotKey = snapshotCacheKeyFromWorkerKey(
-					workerOrderSummaryCacheKey(entry.slug, rank),
-				);
+				const snapshotKey = snapshotCacheKeyFromWorkerKey(workerOrderSummaryCacheKey(entry.slug, rank));
 				if (snapshotKey)
 					snapshotOrderSummaries[snapshotKey] = {
 						status: payload.wts != null || payload.wtb != null ? 'ok' : 'no_data',
@@ -670,7 +670,3 @@ async function patchSnapshot(
 	await env.PRICE_CACHE.put(SNAPSHOT_LAST_GEN_KEY, String(snapshot.generatedAt));
 	await env.PRICE_CACHE.put(SNAPSHOT_ETAG_KEY, etag);
 }
-
-export const __test__ = {
-	extractMedianFromStatsPayload,
-} as const;

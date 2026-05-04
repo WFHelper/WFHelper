@@ -10,6 +10,7 @@ import type {
 } from "../../types/relics.js";
 import { QUALITY_MODES } from "./relicConstants.js";
 import { computeSquadDucatEV, computeSquadEV } from "./relicMath.js";
+import { normalizeDucats } from "../../../config/shared/numeric.js";
 
 // Tuning constants
 
@@ -205,9 +206,8 @@ onPriceCacheUpdate((slug, status) => {
 // Ducat helpers
 
 function cachedRewardDucats(reward: RelicReward): number | null {
-  if (typeof reward.ducats === "number" && Number.isFinite(reward.ducats)) {
-    return Math.max(0, Math.round(reward.ducats));
-  }
+  const rewardDucats = normalizeDucats(reward.ducats);
+  if (rewardDucats != null) return rewardDucats;
 
   if (!reward.urlName) return null;
   if (!rewardDucatCache.has(reward.urlName)) return null;
@@ -447,10 +447,7 @@ async function prefetchRewardDucats(
   rewardDucatPending.add(slug);
   try {
     const meta = await fetchWfmItemMetaBySlug(slug, { priority, cacheOnly: true });
-    const ducats =
-      typeof meta?.ducats === "number" && Number.isFinite(meta.ducats)
-        ? Math.max(0, Math.round(meta.ducats))
-        : null;
+    const ducats = normalizeDucats(meta?.ducats);
 
     rewardDucatCache.set(slug, ducats);
     return ducats != null;
@@ -468,8 +465,9 @@ function collectRewardSlugsForDucatWarmup(groups: RelicGroup[]): string[] {
       for (const reward of quality?.rewards || []) {
         const slug = reward?.urlName;
         if (!slug) continue;
-        if (typeof reward.ducats === "number" && Number.isFinite(reward.ducats)) {
-          rewardDucatCache.set(slug, Math.max(0, Math.round(reward.ducats)));
+        const rewardDucats = normalizeDucats(reward.ducats);
+        if (rewardDucats != null) {
+          rewardDucatCache.set(slug, rewardDucats);
           continue;
         }
         if (rewardDucatCache.has(slug) || rewardDucatPending.has(slug)) continue;

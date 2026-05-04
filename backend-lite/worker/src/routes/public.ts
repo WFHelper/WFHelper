@@ -1,10 +1,4 @@
-import {
-	ORDER_SUMMARY_CATALOG_KEY,
-	ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY,
-	PREWARM_LAST_RUN_KEY,
-	SNAPSHOT_ETAG_KEY,
-	SNAPSHOT_KEY,
-} from '../constants';
+import { ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY, PREWARM_LAST_RUN_KEY, SNAPSHOT_ETAG_KEY, SNAPSHOT_KEY } from '../constants';
 import { jsonResponse, rawJsonResponse } from '../security/cors';
 import { isAdminAuthorized } from '../security/adminAuth';
 import { bootstrapEnabled, bootstrapHeaderName, bootstrapRequired, issueBootstrapToken, verifyBootstrapToken } from '../security/bootstrap';
@@ -16,7 +10,7 @@ import {
 	getOrHydrateOrderSummary,
 	getOrHydratePrice,
 } from '../services/readThrough';
-import { sanitizeSnapshotForClient } from '../services/prewarm';
+import { readRankedSummaryCatalogFromKv, sanitizeSnapshotForClient } from '../services/prewarm';
 import type { Env } from '../types';
 import { getJsonFromKv, getSlug } from '../utils';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
@@ -49,16 +43,10 @@ function parseRankFilter(url: URL): number | null {
 }
 
 async function getRankedCatalogBySlug(env: Env): Promise<Map<string, number>> {
-	const cached = await getJsonFromKv(env.ITEM_META, ORDER_SUMMARY_CATALOG_KEY);
+	const entries = await readRankedSummaryCatalogFromKv(env);
 	const next = new Map<string, number>();
-	const entries = Array.isArray(cached?.entries) ? cached.entries : [];
 	for (const entry of entries) {
-		if (!entry || typeof entry !== 'object') continue;
-		const row = entry as Record<string, unknown>;
-		const slug = typeof row.slug === 'string' ? row.slug.trim().toLowerCase() : '';
-		const maxRank = normalizeRankFilter(row.maxRank);
-		if (!slug || maxRank == null || maxRank <= 0) continue;
-		next.set(slug, maxRank);
+		next.set(entry.slug, entry.maxRank);
 	}
 
 	return next;

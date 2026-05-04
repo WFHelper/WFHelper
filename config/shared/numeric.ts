@@ -90,12 +90,7 @@ export function toFiniteOr(value: unknown, fallback: number = 0): number {
  * via `Number()` and, if the result is not finite, `fallback` is
  * returned instead of clamping.
  */
-export function clampNumber(
-  value: unknown,
-  min: number,
-  max: number,
-  fallback?: number,
-): number {
+export function clampNumber(value: unknown, min: number, max: number, fallback?: number): number {
   const n = fallback !== undefined ? Number(value) : (value as number);
   if (!Number.isFinite(n)) return fallback as number;
   return Math.max(min, Math.min(max, n));
@@ -158,6 +153,11 @@ export function toFiniteNonNegativeInt(value: unknown): number | null {
     if (Number.isFinite(parsed) && parsed >= 0) return Math.round(parsed);
   }
   return null;
+}
+
+export function normalizeDucats(value: unknown): number | null {
+  const parsed = toFiniteNumber(value);
+  return parsed != null && parsed >= 0 ? Math.round(parsed) : null;
 }
 
 // Ranked-group predicate

@@ -1,5 +1,6 @@
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { normalizeDucats } from "../config/shared/numeric";
 import { normalizeWfmSlug } from "../config/shared/wfm";
 import { toIconMirrorUrl } from "./itemDatabase";
 
@@ -121,9 +122,7 @@ function buildRelicDatabase(): RelicDatabase {
           chance: r.chance || 0,
           urlName: normalizeWfmSlug(rawSlug),
           wfmId: r.item?.warframeMarket?.id || null,
-          ducats: Number.isFinite(Number(r.item?.ducats))
-            ? Math.max(0, Math.round(Number(r.item?.ducats)))
-            : null,
+          ducats: normalizeDucats(r.item?.ducats),
         };
       }),
     };

@@ -5,7 +5,11 @@ import {
   type BackendRequestPriority,
 } from "./backendLite.js";
 import { log } from "../log.js";
-import { isTimestampFresh, toFiniteNumber } from "../../../config/shared/numeric.js";
+import {
+  isTimestampFresh,
+  normalizeDucats,
+  toFiniteNumber,
+} from "../../../config/shared/numeric.js";
 import { formatWfmAssetUrl, WFM_HEADERS } from "../../../config/shared/wfm.js";
 import { isWfmExcludedSlug } from "../../../config/shared/wfmExclusions.js";
 import { createSingleFlightMap } from "./requestPolicy.js";
@@ -49,8 +53,7 @@ function toMeta(slug: string, json: unknown): WfmItemMeta | null {
   const data = (json as { data?: Record<string, unknown> })?.data;
   if (!data || typeof data !== "object") return null;
 
-  const ducatsRaw = toFiniteNumber(data.ducats);
-  const ducats = ducatsRaw != null ? Math.max(0, Math.round(ducatsRaw)) : null;
+  const ducats = normalizeDucats(data.ducats);
 
   const i18nEn = (data.i18n as { en?: Record<string, unknown> } | undefined)?.en || {};
   const thumb = formatWfmAssetUrl(i18nEn.thumb || data.thumb || null);
@@ -103,7 +106,7 @@ export function importMetaFromSnapshot(data: Record<string, WfmItemMeta>): numbe
     if (existing && existing.timestamp >= entry.timestamp) continue;
     metaCache.set(slug, {
       slug: entry.slug,
-      ducats: entry.ducats != null ? Math.max(0, Math.round(entry.ducats)) : null,
+      ducats: normalizeDucats(entry.ducats),
       setRoot: Boolean(entry.setRoot),
       thumb: typeof entry.thumb === "string" ? entry.thumb : null,
       icon: typeof entry.icon === "string" ? entry.icon : null,
@@ -159,11 +162,10 @@ export async function fetchWfmItemMetaBySlug(
     try {
       const backendResult = await fetchBackendMetaBySlug(normalizedSlug);
       if (backendResult.status === "ok") {
-        const backendDucats = toFiniteNumber(backendResult.data.ducats);
         const backendTimestamp = toFiniteNumber(backendResult.data.timestamp);
         const backendMeta: WfmItemMeta = {
           slug: normalizeWfmSlug(backendResult.data.slug) || normalizedSlug,
-          ducats: backendDucats != null ? Math.max(0, Math.round(backendDucats)) : null,
+          ducats: normalizeDucats(backendResult.data.ducats),
           setRoot: backendResult.data.setRoot,
           thumb: formatWfmAssetUrl(backendResult.data.thumb),
           icon: formatWfmAssetUrl(backendResult.data.icon),

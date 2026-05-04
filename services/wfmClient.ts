@@ -19,7 +19,6 @@ const log = withScope("wfmClient");
  *     alone satisfies the CSRF check (no X-CSRFToken header needed).
  */
 
-
 interface WfmRequestOptions {
   json?: unknown;
   headers?: Record<string, string>;
@@ -49,7 +48,6 @@ interface WfmRawResponse {
   body: unknown;
 }
 
-
 const BASE_URL = "https://api.warframe.market/v1";
 const BASE_URL_V2 = "https://api.warframe.market/v2";
 const MIN_DELAY_MS = 350;
@@ -67,7 +65,6 @@ const WFM_BASE_HEADERS: Readonly<Record<string, string>> = {
   Platform: "pc",
   Language: "en",
 };
-
 
 let _queue: Promise<void> = Promise.resolve();
 let _lastRequestAt = 0;
@@ -104,7 +101,6 @@ function enqueue<T>(fn: () => Promise<T>): Promise<T> {
   _queue = result.catch(() => {}) as Promise<void>;
   return result;
 }
-
 
 let _csrfToken: string | null = null;
 let _cookieJwt: string | null = null;
@@ -163,7 +159,6 @@ export function clearCsrfToken(): void {
   _csrfToken = null;
   _cookieJwt = null;
 }
-
 
 function _nodeRequest(
   method: string,
@@ -238,7 +233,10 @@ function _nodeRequest(
     });
 
     timeoutId = setTimeout(() => {
-      const err = new WfmApiError(`WFM request timeout after ${REQUEST_TIMEOUT_MS}ms`, "WFM_TIMEOUT");
+      const err = new WfmApiError(
+        `WFM request timeout after ${REQUEST_TIMEOUT_MS}ms`,
+        "WFM_TIMEOUT",
+      );
       req.destroy(err);
     }, REQUEST_TIMEOUT_MS);
 
@@ -252,13 +250,11 @@ function _nodeRequest(
   });
 }
 
-
 let _getToken: () => string | null = () => null;
 
 export function setTokenProvider(fn: () => string | null): void {
   _getToken = fn;
 }
-
 
 interface CoreRequestOptions {
   json?: unknown;
@@ -298,6 +294,18 @@ function extractWfmErrorDetail(body: unknown, objectErrorFallback?: string): str
   return null;
 }
 
+async function applyMutationHeaders(
+  headers: Record<string, string>,
+  jwtForCookie: string | null,
+  jwtForAuthorization: string | null = null,
+): Promise<void> {
+  await _ensureCsrfToken();
+  if (jwtForCookie && !headers["Cookie"]) headers["Cookie"] = `JWT=${jwtForCookie}`;
+  if (jwtForAuthorization) headers["Authorization"] = `JWT ${jwtForAuthorization}`;
+  headers["Origin"] = "https://warframe.market";
+  headers["Referer"] = "https://warframe.market/";
+}
+
 function _coreRequest(
   baseUrl: string,
   method: string,
@@ -320,11 +328,7 @@ function _coreRequest(
     }
 
     if (method !== "GET") {
-      await _ensureCsrfToken();
-      const jwtForCookie = token || _cookieJwt;
-      if (jwtForCookie && !headers["Cookie"]) headers["Cookie"] = `JWT=${jwtForCookie}`;
-      headers["Origin"] = "https://warframe.market";
-      headers["Referer"] = "https://warframe.market/";
+      await applyMutationHeaders(headers, token || _cookieJwt);
     }
 
     const body = json !== undefined ? JSON.stringify(json) : null;
@@ -340,11 +344,7 @@ function _coreRequest(
     }
 
     if (res.status === 401) {
-      throw new WfmApiError(
-        "Warframe.market session expired or invalid.",
-        "WFM_UNAUTHORIZED",
-        401,
-      );
+      throw new WfmApiError("Warframe.market session expired or invalid.", "WFM_UNAUTHORIZED", 401);
     }
 
     if (res.status === 429) {
@@ -416,13 +416,7 @@ export function requestRaw(
     };
 
     if (method !== "GET") {
-      await _ensureCsrfToken();
-      if (_cookieJwt) {
-        headers["Cookie"] = `JWT=${_cookieJwt}`;
-        headers["Authorization"] = `JWT ${_cookieJwt}`;
-      }
-      headers["Origin"] = "https://warframe.market";
-      headers["Referer"] = "https://warframe.market/";
+      await applyMutationHeaders(headers, _cookieJwt, _cookieJwt);
     }
 
     const body = json !== undefined ? JSON.stringify(json) : null;

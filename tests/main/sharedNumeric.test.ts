@@ -7,6 +7,7 @@ import {
   clampNumber,
   normalizeRank,
   normalizeRankFilter,
+  normalizeDucats,
   toFinitePositiveInt,
   toFiniteNonNegativeInt,
   isRankedGroup,
@@ -217,6 +218,29 @@ describe("toFiniteNonNegativeInt", () => {
 
   it("rejects negative", () => {
     expect(toFiniteNonNegativeInt(-0.1)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// normalizeDucats
+// ---------------------------------------------------------------------------
+describe("normalizeDucats", () => {
+  it("rounds finite non-negative values", () => {
+    expect(normalizeDucats(15.4)).toBe(15);
+    expect(normalizeDucats(15.5)).toBe(16);
+    expect(normalizeDucats(0)).toBe(0);
+  });
+
+  it("parses numeric strings and boxed numbers", () => {
+    expect(normalizeDucats("45.6")).toBe(46);
+    expect(normalizeDucats({ $numberInt: "100" })).toBe(100);
+  });
+
+  it("rejects negative and non-finite values", () => {
+    expect(normalizeDucats(-1)).toBeNull();
+    expect(normalizeDucats(NaN)).toBeNull();
+    expect(normalizeDucats("ducats")).toBeNull();
+    expect(normalizeDucats(null)).toBeNull();
   });
 });
 

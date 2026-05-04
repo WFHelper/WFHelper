@@ -1,4 +1,9 @@
-import { isCacheEntryFresh, toFiniteOr, clampNumber } from "../../config/shared/numeric";
+import {
+  isCacheEntryFresh,
+  normalizeDucats,
+  toFiniteOr,
+  clampNumber,
+} from "../../config/shared/numeric";
 import { normalizeErrorMessage } from "../../config/shared/errors";
 import { RELIC_RECOMMENDATIONS, RELIC_PLANNER_TRIGGER } from "../../config/shared/ipcChannels";
 import { normalizeWfmSlug } from "../../config/shared/wfm";
@@ -22,7 +27,12 @@ const OVERLAY_AUTO_HIDE_FAILURE_MS = 4_500;
 /** Hard ceiling for the detecting phase before giving up and hiding. */
 const OVERLAY_AUTO_HIDE_DETECTING_MAX_MS = 20_000;
 
-const QUALITY_ORDER: readonly (keyof OwnedCountRow)[] = Object.freeze(["radiant", "flawless", "exceptional", "intact"]);
+const QUALITY_ORDER: readonly (keyof OwnedCountRow)[] = Object.freeze([
+  "radiant",
+  "flawless",
+  "exceptional",
+  "intact",
+]);
 const QUALITY_LABEL: Readonly<Record<keyof OwnedCountRow, string>> = Object.freeze({
   intact: "Intact",
   exceptional: "Exceptional",
@@ -285,9 +295,9 @@ function loadPersistedCacheMaps(
     if (meta !== null && typeof meta === "object" && !Array.isArray(meta)) {
       for (const [slug, entry] of Object.entries(meta as Record<string, unknown>)) {
         if (!entry || typeof entry !== "object") continue;
-        const d = toFiniteOr((entry as { ducats?: unknown }).ducats, NaN);
-        if (!Number.isFinite(d) || d <= 0) continue;
-        ducats.set(normalizeSlug(slug), Math.max(0, Math.round(d)));
+        const ducatValue = normalizeDucats((entry as { ducats?: unknown }).ducats);
+        if (ducatValue == null || ducatValue <= 0) continue;
+        ducats.set(normalizeSlug(slug), ducatValue);
       }
     }
   } catch {
@@ -337,8 +347,8 @@ function pickBestOwnedQuality(
     });
     const ducatValues = normalizedRewards.map((reward) => {
       // @wfcd/items rarely ships ducat values; fall back to snapshot meta ducats.
-      const n = toFiniteOr(reward?.ducats, NaN);
-      if (Number.isFinite(n) && n > 0) return Math.max(0, Math.round(n));
+      const rewardDucats = normalizeDucats(reward?.ducats);
+      if (rewardDucats != null && rewardDucats > 0) return rewardDucats;
       const slug = normalizeSlug(reward?.urlName);
       return slug ? getDucats(slug) : null;
     });

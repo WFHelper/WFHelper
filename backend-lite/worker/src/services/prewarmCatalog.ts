@@ -1,9 +1,4 @@
-import {
-	CATALOG_CACHE_KEY,
-	ORDER_SUMMARY_CATALOG_KEY,
-	SLUG_RE,
-	WFM_HEADERS,
-} from '../constants';
+import { CATALOG_CACHE_KEY, ORDER_SUMMARY_CATALOG_KEY, SLUG_RE, WFM_HEADERS } from '../constants';
 import type { Env, OrdersPayload, OrderSummaryCatalogEntry, OrderSummaryHotsetEntry } from '../types';
 import { getWorkerConfig } from '../config';
 import { getJsonFromKv } from '../utils';
@@ -233,4 +228,9 @@ export async function fetchRankedSummaryCatalog(env: Env, forceRefresh: boolean)
 	await fetchCatalogSlugs(env, true);
 	const refreshed = await getJsonFromKv(env.ITEM_META, ORDER_SUMMARY_CATALOG_KEY);
 	return sanitizeOrderSummaryCatalogEntries(refreshed?.entries);
+}
+
+export async function readRankedSummaryCatalogFromKv(env: Env): Promise<OrderSummaryCatalogEntry[]> {
+	const cached = await getJsonFromKv(env.ITEM_META, ORDER_SUMMARY_CATALOG_KEY);
+	return sanitizeOrderSummaryCatalogEntries(cached?.entries);
 }

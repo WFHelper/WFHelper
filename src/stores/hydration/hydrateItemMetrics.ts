@@ -28,7 +28,7 @@ import {
   hasRankPairCoverage,
 } from "./hydrationHelpers.js";
 import { getCachedMedian, getCachedRankOrderSummary } from "./hydrationCacheHelpers.js";
-import { isRankedGroup } from "../../../config/shared/numeric.js";
+import { isRankedGroup, normalizeDucats } from "../../../config/shared/numeric.js";
 import { rendererPriceCacheKey } from "../../../config/shared/wfmCacheKeys.js";
 import { isExcludedRankedMarketItem } from "../../../config/shared/wfmExclusions.js";
 
@@ -63,6 +63,38 @@ function canRetryMissingDucats(
   if (!metric.slug) return false;
   if (item.inventoryGroup !== "all_parts" && item.inventoryGroup !== "full_sets") return false;
   return ctx.getMissingDucatRetryCount(key) < MAX_DUCAT_RETRY_PER_ITEM;
+}
+
+function finiteMetricNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function sanitizeExistingMetrics(
+  existing: ItemMetrics | undefined,
+  item: InventoryBaseItem,
+  existingPriceRank: number | null,
+): ItemMetrics {
+  return {
+    platinum: finiteMetricNumber(existing?.platinum),
+    platinumR0: finiteMetricNumber(existing?.platinumR0),
+    platinumRmax: finiteMetricNumber(existing?.platinumRmax),
+    hasPriceR0: existing?.hasPriceR0 === true,
+    hasPriceRmax: existing?.hasPriceRmax === true,
+    wtsR0: finiteMetricNumber(existing?.wtsR0),
+    wtbR0: finiteMetricNumber(existing?.wtbR0),
+    wtsRmax: finiteMetricNumber(existing?.wtsRmax),
+    wtbRmax: finiteMetricNumber(existing?.wtbRmax),
+    hasOrdersR0: existing?.hasOrdersR0 === true,
+    hasOrdersRmax: existing?.hasOrdersRmax === true,
+    priceRank: existingPriceRank,
+    ducats: finiteMetricNumber(existing?.ducats),
+    slug: existing?.slug || item.marketSlug,
+    thumb: existing?.thumb || null,
+    icon: existing?.icon || null,
+    hasPrice: existing?.hasPrice || false,
+    hasDucats: existing?.hasDucats || false,
+    hasMeta: existing?.hasMeta || false,
+  };
 }
 
 // Core hydration logic
@@ -105,49 +137,26 @@ export async function hydrateItemMetrics(
   ctx.markPending(key);
 
   try {
-    let platinum =
-      typeof existing?.platinum === "number" && Number.isFinite(existing.platinum)
-        ? existing.platinum
-        : null;
-    let ducats =
-      typeof existing?.ducats === "number" && Number.isFinite(existing.ducats)
-        ? existing.ducats
-        : null;
-    let slug = existing?.slug || item.marketSlug;
-    let thumb = existing?.thumb || null;
-    let icon = existing?.icon || null;
-    let hasPrice = existing?.hasPrice || false;
-    let hasDucats = existing?.hasDucats || false;
-    let hasMeta = existing?.hasMeta || false;
-    let priceRank = existingPriceRank;
-    let platinumR0 =
-      typeof existing?.platinumR0 === "number" && Number.isFinite(existing.platinumR0)
-        ? existing.platinumR0
-        : null;
-    let platinumRmax =
-      typeof existing?.platinumRmax === "number" && Number.isFinite(existing.platinumRmax)
-        ? existing.platinumRmax
-        : null;
-    let hasPriceR0 = existing?.hasPriceR0 === true;
-    let hasPriceRmax = existing?.hasPriceRmax === true;
-    let wtsR0 =
-      typeof existing?.wtsR0 === "number" && Number.isFinite(existing.wtsR0)
-        ? existing.wtsR0
-        : null;
-    let wtbR0 =
-      typeof existing?.wtbR0 === "number" && Number.isFinite(existing.wtbR0)
-        ? existing.wtbR0
-        : null;
-    let wtsRmax =
-      typeof existing?.wtsRmax === "number" && Number.isFinite(existing.wtsRmax)
-        ? existing.wtsRmax
-        : null;
-    let wtbRmax =
-      typeof existing?.wtbRmax === "number" && Number.isFinite(existing.wtbRmax)
-        ? existing.wtbRmax
-        : null;
-    let hasOrdersR0 = existing?.hasOrdersR0 === true;
-    let hasOrdersRmax = existing?.hasOrdersRmax === true;
+    const sanitizedExisting = sanitizeExistingMetrics(existing, item, existingPriceRank);
+    let platinum = sanitizedExisting.platinum;
+    let ducats = sanitizedExisting.ducats;
+    let slug = sanitizedExisting.slug;
+    let thumb = sanitizedExisting.thumb;
+    let icon = sanitizedExisting.icon;
+    let hasPrice = sanitizedExisting.hasPrice;
+    let hasDucats = sanitizedExisting.hasDucats;
+    let hasMeta = sanitizedExisting.hasMeta;
+    let priceRank: number | null = sanitizedExisting.priceRank ?? null;
+    let platinumR0 = sanitizedExisting.platinumR0 ?? null;
+    let platinumRmax = sanitizedExisting.platinumRmax ?? null;
+    let hasPriceR0 = sanitizedExisting.hasPriceR0 === true;
+    let hasPriceRmax = sanitizedExisting.hasPriceRmax === true;
+    let wtsR0 = sanitizedExisting.wtsR0 ?? null;
+    let wtbR0 = sanitizedExisting.wtbR0 ?? null;
+    let wtsRmax = sanitizedExisting.wtsRmax ?? null;
+    let wtbRmax = sanitizedExisting.wtbRmax ?? null;
+    let hasOrdersR0 = sanitizedExisting.hasOrdersR0 === true;
+    let hasOrdersRmax = sanitizedExisting.hasOrdersRmax === true;
 
     const fetchPriority: RequestPriority =
       item.inventoryGroup === "all_parts" || item.inventoryGroup === "full_sets"
@@ -499,8 +508,9 @@ export async function hydrateItemMetrics(
 
     // If the item already has ducats from the local database (WFCD/PEP), use them
     // and skip the per-item WFM meta fetch for ducat data.
-    if (typeof item.ducats === "number" && Number.isFinite(item.ducats) && ducats == null) {
-      ducats = Math.max(0, Math.round(item.ducats));
+    const itemDucats = normalizeDucats(item.ducats);
+    if (itemDucats != null && ducats == null) {
+      ducats = itemDucats;
       hasDucats = true;
     }
 
@@ -515,10 +525,7 @@ export async function hydrateItemMetrics(
       hasMeta = true;
       if (meta) {
         if (needsMetaFetch) {
-          ducats =
-            typeof meta.ducats === "number" && Number.isFinite(meta.ducats)
-              ? Math.max(0, Math.round(meta.ducats))
-              : null;
+          ducats = normalizeDucats(meta.ducats);
           if (ducats == null) {
             ctx.incrementMissingDucatRetryCount(key);
           } else {
