@@ -6,6 +6,8 @@ const RIVEN_STAT_ALIAS_REPLACEMENTS: ReadonlyArray<[RegExp, string]> = Object.fr
   [/Dannage/gi, "Damage"],
   [/Darnage/gi, "Damage"],
   [/Darnoge/gi, "Damage"],
+  [/\bDamage\s+to\s+Corpu\b/gi, "Damage to Corpus"],
+  [/\bDamage\s+to\s+Infeste\b/gi, "Damage to Infested"],
   [/Crit\s*ical/gi, "Critical"],
   [/Cri tical/gi, "Critical"],
   [/Critica\b/gi, "Critical"],
@@ -91,6 +93,7 @@ const KNOWN_RIVEN_STATS: ReadonlyArray<string> = Object.freeze([
 export interface RivenStat {
   name: string;
   positive: boolean;
+  displayPositive?: boolean;
   value: number | null;
   multiplier?: boolean;
 }
@@ -140,6 +143,9 @@ function preprocessOcrText(raw: string): string {
   text = text.replace(/O\/O/gi, "%");
   text = text.replace(/o\/o/g, "%");
   text = text.replace(/(\d)\s*Z\b/g, "$1%");
+  // PaddleOCR can read the x multiplier glyph as a leading angle bracket:
+  // "<1,32 Damage to Infeste" -> "x1.32 Damage to Infested".
+  text = text.replace(/[<‹]\s*(\d+[.,]\d+)\s+(?=Damage\s+to\s+)/gi, "x$1 ");
   text = text.replace(/\bx\s*O([.,]\d)/gi, "x0$1");
   // Fix xl/xI misread: WinRT OCR reads "x1" as "xl" (lowercase L) or "xI" (capital i).
   // e.g. "xl,56 Damage to Corpus" → "x1,56 Damage to Corpus" before comma→dot pass.
@@ -454,6 +460,7 @@ function parseStatsFromLines(text: string): RivenStat[] {
       const positive = extracted?.positive ?? true;
       let value = extracted?.value ?? null;
       let effectivePositive = positive;
+      const displayPositive = positive;
       const multiplier = extracted?.multiplier ?? false;
 
       if (seen.has(key)) {
@@ -476,6 +483,7 @@ function parseStatsFromLines(text: string): RivenStat[] {
               results[existingIdx] = {
                 name: stat,
                 positive: effectivePositive,
+                ...(displayPositive !== effectivePositive && { displayPositive }),
                 value,
                 ...(multiplier && { multiplier: true }),
               };
@@ -520,7 +528,13 @@ function parseStatsFromLines(text: string): RivenStat[] {
         effectivePositive = !effectivePositive;
       }
 
-      results.push({ name: stat, positive: effectivePositive, value, ...(multiplier && { multiplier: true }) });
+      results.push({
+        name: stat,
+        positive: effectivePositive,
+        ...(displayPositive !== effectivePositive && { displayPositive }),
+        value,
+        ...(multiplier && { multiplier: true }),
+      });
     }
   }
 

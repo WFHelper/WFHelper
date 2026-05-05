@@ -36,6 +36,7 @@ const log = withScope("rivenGrading");
 interface GradedStat {
   name: string;
   positive: boolean;
+  displayPositive?: boolean;
   value: number | null;
   multiplier?: boolean;
   grade: string;
@@ -313,7 +314,13 @@ export function computeAttributeGrade(
  */
 export function gradeRiven(
   weaponName: string,
-  stats: { name: string; positive: boolean; value: number | null; multiplier?: boolean }[],
+  stats: {
+    name: string;
+    positive: boolean;
+    displayPositive?: boolean;
+    value: number | null;
+    multiplier?: boolean;
+  }[],
 ): RivenGradeResult | null {
   if (!stats || stats.length === 0) return null;
 

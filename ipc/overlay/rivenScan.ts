@@ -217,7 +217,15 @@ async function runRivenScanAttempt(
 
 function formatStatsForLog(stats: RivenStat[]): string {
   return stats
-    .map((stat) => `${stat.positive ? "+" : "-"}${stat.value ?? "?"}% ${stat.name}`)
+    .map((stat) => {
+      const displayPositive =
+        typeof stat.displayPositive === "boolean" ? stat.displayPositive : stat.positive;
+      const valueText =
+        stat.multiplier && stat.value != null
+          ? `x${stat.value}`
+          : `${displayPositive ? "+" : "-"}${stat.value ?? "?"}%`;
+      return `${valueText} ${stat.name}`;
+    })
     .join(", ");
 }
 

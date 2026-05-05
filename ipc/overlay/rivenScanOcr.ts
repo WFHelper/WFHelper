@@ -17,6 +17,16 @@ const MIN_ACCEPTABLE_RIVEN_STATS = 2;
 const MAX_LOW_CONFIDENCE_RETRIES = 2;
 const LOW_CONFIDENCE_RETRY_DELAY_MS = 300;
 
+function formatStatForLog(stat: RivenStat): string {
+  const displayPositive =
+    typeof stat.displayPositive === "boolean" ? stat.displayPositive : stat.positive;
+  const valueText =
+    stat.multiplier && stat.value != null
+      ? `x${stat.value}`
+      : `${displayPositive ? "+" : "-"}${stat.value ?? "?"}%`;
+  return `${valueText} ${stat.name}`;
+}
+
 interface RivenScanTiming {
   captureMs: number;
   cropRefineMs: number;
@@ -105,12 +115,7 @@ export async function recognizeRivenCardStats(
           `[RivenScan] YOLO+PaddleOCR ${options.label} attempt=${attempt}: ${stats.length} stats, ` +
             `${ocrResult.yoloBoxCount} YOLO boxes, minConf=${ocrResult.minConfidence.toFixed(3)} ` +
             `(source ${statAreaSize.width}×${statAreaSize.height}) — ` +
-            stats
-              .map(
-                (stat) =>
-                  `${stat.positive ? "+" : "-"}${stat.value ?? "?"}${stat.multiplier ? "x" : "%"} ${stat.name}`,
-              )
-              .join(", "),
+            stats.map(formatStatForLog).join(", "),
         );
         for (const line of ocrResult.lines) {
           log.log(`  [OCR] "${line.text}" conf=${line.confidence.toFixed(3)}`);

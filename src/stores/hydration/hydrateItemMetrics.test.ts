@@ -87,7 +87,14 @@ describe("hydrateItemMetrics", () => {
     const needs: MetricNeeds = { price: true, ducats: true, orders: true };
     const lookup: WfmItemsLookup = {};
 
-    await hydrateItemMetrics(makeContext((metric) => { patched = metric; }), makeItem(), lookup, needs);
+    await hydrateItemMetrics(
+      makeContext((metric) => {
+        patched = metric;
+      }),
+      makeItem(),
+      lookup,
+      needs,
+    );
 
     expect(fetchPriceBySlugMock).not.toHaveBeenCalled();
     expect(fetchPriceByNameMock).not.toHaveBeenCalled();
@@ -101,6 +108,47 @@ describe("hydrateItemMetrics", () => {
       hasOrdersRmax: true,
       hasDucats: true,
       hasMeta: true,
+    });
+  });
+
+  it("fetches ranked median prices when foreground hydration enables network access", async () => {
+    vi.clearAllMocks();
+    const { hydrateItemMetrics } = await import("./hydrateItemMetrics.js");
+    let patched: ItemMetrics | null = null;
+    const needs: MetricNeeds = { price: true, ducats: false, orders: false, network: true };
+    const lookup: WfmItemsLookup = {};
+
+    fetchPriceBySlugMock.mockImplementation(async (slug: string, options: { rank?: number }) => ({
+      status: "ok",
+      slug,
+      median: options.rank === 3 ? 45 : 12,
+      timestamp: Date.now(),
+    }));
+
+    await hydrateItemMetrics(
+      makeContext((metric) => {
+        patched = metric;
+      }),
+      makeItem(),
+      lookup,
+      needs,
+    );
+
+    expect(fetchPriceBySlugMock).toHaveBeenCalledWith(
+      "high_noon",
+      expect.objectContaining({ rank: 0 }),
+    );
+    expect(fetchPriceBySlugMock).toHaveBeenCalledWith(
+      "high_noon",
+      expect.objectContaining({ rank: 3 }),
+    );
+    expect(patched).toMatchObject({
+      platinum: 12,
+      platinumR0: 12,
+      platinumRmax: 45,
+      hasPrice: true,
+      hasPriceR0: true,
+      hasPriceRmax: true,
     });
   });
 });

@@ -147,9 +147,11 @@ function buildStatRow(stat) {
   const valueEl = document.createElement("span");
   if (stat.multiplier && stat.value != null) {
     valueEl.textContent = "x" + stat.value;
-    valueEl.className = "stat-value pos";
+    valueEl.className = "stat-value " + (stat.positive ? "pos" : "neg");
   } else {
-    const sign = stat.positive ? "+" : "\u2212";
+    const displayPositive =
+      typeof stat.displayPositive === "boolean" ? stat.displayPositive : stat.positive;
+    const sign = displayPositive ? "+" : "\u2212";
     if (stat.value != null) {
       valueEl.textContent = sign + stat.value + "%";
     } else {

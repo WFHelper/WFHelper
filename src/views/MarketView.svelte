@@ -462,7 +462,7 @@
     hydration.enqueue(
       marketOrderBaseItems.slice(0, MARKET_METRIC_PREFETCH_LIMIT),
       $wfmItems,
-      { price: true, ducats: false, orders: true },
+      { price: true, ducats: false, orders: true, network: true },
     );
   }
 </script>

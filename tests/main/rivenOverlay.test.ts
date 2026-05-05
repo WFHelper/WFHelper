@@ -198,6 +198,7 @@ describe("parseRivenStats", () => {
     expect(result[0].name).toBe("Recoil");
     // Recoil is an inverted-polarity stat: minus on screen = beneficial
     expect(result[0].positive).toBe(true);
+    expect(result[0].displayPositive).toBe(false);
     expect(result[0].value).toBe(94.5);
   });
 
@@ -207,7 +208,19 @@ describe("parseRivenStats", () => {
     expect(result[0].name).toBe("Zoom");
     // Zoom is an inverted-polarity stat: minus on screen = beneficial
     expect(result[0].positive).toBe(true);
+    expect(result[0].displayPositive).toBe(false);
     expect(result[0].value).toBe(27.3);
+  });
+
+  it("keeps inverted-polarity stat display signs from OCR while preserving beneficial semantics", () => {
+    const result = parseRivenStats("-66,2% Weapon Recoil");
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      name: "Weapon Recoil",
+      positive: true,
+      displayPositive: false,
+      value: 66.2,
+    });
   });
 
   it("normalises locale comma decimal separator", () => {
@@ -662,6 +675,31 @@ describe("parseRivenStats", () => {
     expect(dmg).toBeDefined();
     expect(dmg!.value).toBe(1.44);
     expect(dmg!.multiplier).toBe(true);
+  });
+
+  it("repairs PaddleOCR truncated faction multipliers from roll-choice cards", () => {
+    const text = [
+      "+115,9% Damage",
+      "+74,1% 3:Toxin",
+      "<1,32 Damage to Infeste",
+      "x0,75 Damage to Corpu",
+    ].join("\n");
+    const result = parseRivenStats(text);
+
+    expect(result.map((s) => s.name)).toEqual([
+      "Damage",
+      "Toxin",
+      "Damage to Infested",
+      "Damage to Corpus",
+    ]);
+    expect(result.find((s) => s.name === "Damage")?.value).toBe(115.9);
+    expect(result.find((s) => s.name === "Toxin")?.value).toBe(74.1);
+
+    const infested = result.find((s) => s.name === "Damage to Infested");
+    expect(infested).toMatchObject({ value: 1.32, positive: true, multiplier: true });
+
+    const corpus = result.find((s) => s.name === "Damage to Corpus");
+    expect(corpus).toMatchObject({ value: 0.75, positive: false, multiplier: true });
   });
 
   it("rejoins Finisher\\nDamage split across lines (WinRT icon line-break)", () => {

@@ -67,7 +67,7 @@
       METRIC_VISIBLE_PREFETCH_LIMIT + METRIC_BACKGROUND_PREFETCH_LIMIT,
     );
 
-    hydration.enqueue(visible, $wfmItems, needs);
+    hydration.enqueue(visible, $wfmItems, needs.orders ? { ...needs, network: true } : needs);
     hydration.enqueue(background, $wfmItems, { ...needs, ducats: false, orders: false });
   }
 
@@ -86,7 +86,12 @@
     const selectedBaseItem = tabBaseItems.find((entry) => entry.internalName === event.detail.internalName);
     if (selectedBaseItem && shouldHydrateMetrics(selectedBaseItem)) {
       trackRankedHotset(selectedBaseItem);
-      hydration.enqueue([selectedBaseItem], $wfmItems, { price: true, ducats: false, orders: true });
+      hydration.enqueue([selectedBaseItem], $wfmItems, {
+        price: true,
+        ducats: false,
+        orders: true,
+        network: true,
+      });
     }
   }
 
@@ -105,6 +110,7 @@
       price: true,
       ducats: false,
       orders: isRankedTab,
+      network: isRankedTab,
     });
   }
 
@@ -148,7 +154,12 @@
         .slice(0, HOTSET_REFRESH_LIMIT);
 
       if (queue.length > 0) {
-        hydration.enqueue(queue, $wfmItems, { price: true, ducats: false, orders: true });
+        hydration.enqueue(queue, $wfmItems, {
+          price: true,
+          ducats: false,
+          orders: true,
+          network: true,
+        });
         log.info(`[Inventory] queued ranked hotset refresh (${queue.length} items)`);
       }
 
