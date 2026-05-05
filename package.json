@@ -38,7 +38,7 @@
     "test:main": "vitest run tests/main",
     "test:e2e": "npm run build && playwright test --config playwright.config.ts",
     "backend:dev": "npm --prefix backend-lite/worker run dev",
-    "backend:deploy": "npm --prefix backend-lite/worker run deploy",
+    "backend:deploy": "npm --prefix backend-lite/worker run deploy --",
     "backend:test": "npm --prefix backend-lite/worker run test -- --run",
     "backend:typegen": "npm --prefix backend-lite/worker run cf-typegen",
     "backend:prewarm:order-summaries": "powershell -ExecutionPolicy Bypass -File ./scripts/prewarm-order-summaries.ps1",

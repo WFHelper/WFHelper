@@ -1,5 +1,5 @@
 import { ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY, PREWARM_LAST_RUN_KEY, SNAPSHOT_ETAG_KEY, SNAPSHOT_KEY } from '../constants';
-import { jsonResponse, rawJsonResponse } from '../security/cors';
+import { emptyResponse, jsonResponse, rawJsonResponse } from '../security/cors';
 import { isAdminAuthorized } from '../security/adminAuth';
 import { bootstrapEnabled, bootstrapHeaderName, bootstrapRequired, issueBootstrapToken, verifyBootstrapToken } from '../security/bootstrap';
 import { checkPublicRateLimit } from '../security/rateLimit';
@@ -131,11 +131,8 @@ function respondWithStatus<T>(result: HydrateResult<T>, req: Request, env: Env):
 	return jsonResponse({ ok: false, error: 'not_found' }, req, env, 404);
 }
 
-function snapshotNotModifiedResponse(etag: string, cacheControl: string): Response {
-	return new Response(null, {
-		status: 304,
-		headers: { etag: etag, 'cache-control': cacheControl },
-	});
+function snapshotNotModifiedResponse(etag: string, cacheControl: string, req: Request, env: Env): Response {
+	return emptyResponse(req, env, 304, { etag: etag, 'cache-control': cacheControl });
 }
 
 function snapshotClientEtag(storedEtag: string | null): string | null {
@@ -241,7 +238,7 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		if (cachedResponse) {
 			const cachedEtag = cachedResponse.headers.get('etag');
 			if (requestHasMatchingEtag(req, cachedEtag)) {
-				return snapshotNotModifiedResponse(cachedEtag, cachedResponse.headers.get('cache-control') || SNAPSHOT_CACHE_CONTROL);
+				return snapshotNotModifiedResponse(cachedEtag, cachedResponse.headers.get('cache-control') || SNAPSHOT_CACHE_CONTROL, req, env);
 			}
 			return cachedResponse;
 		}
@@ -258,7 +255,7 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 
 		// Return 304 if the client already has this snapshot version.
 		if (requestHasMatchingEtag(req, etag)) {
-			return snapshotNotModifiedResponse(etag, SNAPSHOT_CACHE_CONTROL);
+			return snapshotNotModifiedResponse(etag, SNAPSHOT_CACHE_CONTROL, req, env);
 		}
 
 		const responseHeaders: Record<string, string> = { 'cache-control': SNAPSHOT_CACHE_CONTROL };

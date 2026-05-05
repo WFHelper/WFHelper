@@ -64,34 +64,62 @@ function inactivePriceSnapshotEntry(timestamp = Date.now()): Record<string, unkn
 	};
 }
 
+function snapshotEntryTimestamp(value: Record<string, unknown>): number | null {
+	const timestamp = Number(value.timestamp || 0);
+	return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : null;
+}
+
+function isDueForRefresh(value: Record<string, unknown> | null, refreshAgeSec: number, now = Date.now()): boolean {
+	const timestamp = value ? snapshotEntryTimestamp(value) : null;
+	if (timestamp == null) return true;
+	return now - timestamp >= refreshAgeSec * 1000;
+}
+
 function isInactivePriceSource(sourceTimestamp: number | null, now = Date.now()): boolean {
 	return sourceTimestamp != null && now - sourceTimestamp > WFM_SNAPSHOT_MAX_ENTRY_AGE_MS;
 }
 
-function sanitizeSnapshotPriceEntries(prices: Record<string, unknown>, timestamp: number): Record<string, unknown> {
+function sanitizeSnapshotEntries(
+ entries: Record<string, unknown>,
+ timestamp: number,
+ options?: { prices?: boolean; preserveSourceTimestamp?: boolean },
+): Record<string, unknown> {
 	const sanitized: Record<string, unknown> = {};
-	for (const [key, value] of Object.entries(prices)) {
+	for (const [key, value] of Object.entries(entries)) {
 		if (!isRecord(value)) {
 			sanitized[key] = value;
 			continue;
 		}
 
-		if (value.status === 'ok' && isInactivePriceSource(Number(value.timestamp) || null, timestamp)) {
+		const sourceTimestamp = snapshotEntryTimestamp(value);
+		if (options?.prices && value.status === 'ok' && isInactivePriceSource(sourceTimestamp, timestamp)) {
 			sanitized[key] = inactivePriceSnapshotEntry(timestamp);
 			continue;
 		}
 
-		sanitized[key] = value;
+		const next: Record<string, unknown> = { ...value, timestamp };
+		if (options?.preserveSourceTimestamp && sourceTimestamp != null && !isInactivePriceSource(sourceTimestamp, timestamp)) {
+			next.sourceTimestamp = sourceTimestamp;
+		} else if (options?.preserveSourceTimestamp) {
+			delete next.sourceTimestamp;
+		}
+		sanitized[key] = next;
 	}
 	return sanitized;
 }
 
-export function sanitizeSnapshotForClient<T extends { generatedAt?: unknown; prices?: unknown }>(snapshot: T, now = Date.now()): T {
-	if (!isRecord(snapshot.prices)) return snapshot;
+export function sanitizeSnapshotForClient<T extends { generatedAt?: unknown; prices?: unknown; meta?: unknown; orderSummaries?: unknown }>(
+	snapshot: T,
+	now = Date.now(),
+): T {
 	const generatedAt = typeof snapshot.generatedAt === 'number' && Number.isFinite(snapshot.generatedAt) ? snapshot.generatedAt : now;
 	return {
 		...snapshot,
-		prices: sanitizeSnapshotPriceEntries(snapshot.prices, generatedAt),
+		...(isRecord(snapshot.prices) ? { prices: sanitizeSnapshotEntries(snapshot.prices, generatedAt, { prices: true }) } : {}),
+		...(isRecord(snapshot.meta) ? { meta: sanitizeSnapshotEntries(snapshot.meta, generatedAt) } : {}),
+		...(isRecord(snapshot.orderSummaries)
+			? { orderSummaries: sanitizeSnapshotEntries(snapshot.orderSummaries, generatedAt, { preserveSourceTimestamp: true }) }
+			: {}),
 	};
 }
 
@@ -407,6 +435,7 @@ export async function prewarmOrderSummaryCatalog(
 	},
 ): Promise<OrderSummaryPrewarmResult> {
 	const config = getWorkerConfig(env);
+	const cronRefresh = options.reason === 'cron';
 	const adminMaxBatch = config.adminPrewarmMaxBatch;
 	const defaultBatch = config.orderSummaryPrewarmBatchSize;
 	const batchSize = clamp(options.batchSize ?? defaultBatch, 1, adminMaxBatch);
@@ -439,69 +468,92 @@ export async function prewarmOrderSummaryCatalog(
 	for (let i = 0; i < Math.min(batchSize, entries.length); i += 1) {
 		const entry = entries[(cursor + i) % entries.length];
 		for (const rank of [0, entry.maxRank]) {
-			try {
-				const ordersResult = await fetchOrdersPayload(entry.slug, { rank });
-				if (!ordersResult.data) {
-					if (!ordersResult.transient) {
-						const emptyPayload = {
-							slug: entry.slug,
-							rank,
-							wts: null,
-							wtb: null,
-							timestamp: Date.now(),
-						};
-						await putOrderSummaryPayload(env, entry.slug, emptyPayload, rank);
-						const snapshotKey = snapshotCacheKeyFromWorkerKey(workerOrderSummaryCacheKey(entry.slug, rank));
-						if (snapshotKey)
-							snapshotOrderSummaries[snapshotKey] = {
-								status: 'no_data',
-								wts: null,
-								wtb: null,
-								timestamp: emptyPayload.timestamp,
-							};
-						result.updated += 1;
-					} else {
-						result.failures += 1;
-					}
+			const orderSummaryKey = workerOrderSummaryCacheKey(entry.slug, rank);
+			const priceKey = workerPriceCacheKey(entry.slug, rank);
+			let shouldRefreshOrderSummary = true;
+			let shouldRefreshPrice = true;
+
+			if (cronRefresh) {
+				const [cachedOrderSummary, cachedPrice] = await Promise.all([
+					getJsonFromKv(env.PRICE_CACHE, orderSummaryKey),
+					getJsonFromKv(env.PRICE_CACHE, priceKey),
+				]);
+				shouldRefreshOrderSummary = isDueForRefresh(cachedOrderSummary, config.orderSummaryStaleRefreshSec);
+				shouldRefreshPrice = isDueForRefresh(cachedPrice, config.staleRefreshSec);
+				if (!shouldRefreshOrderSummary && !shouldRefreshPrice) {
 					result.processed += 1;
 					continue;
 				}
+			}
 
-				const payload = buildOrderSummaryPayload(entry.slug, rank, ordersResult.data);
-				await putOrderSummaryPayload(env, entry.slug, payload, rank);
-				const snapshotKey = snapshotCacheKeyFromWorkerKey(workerOrderSummaryCacheKey(entry.slug, rank));
-				if (snapshotKey)
-					snapshotOrderSummaries[snapshotKey] = {
-						status: payload.wts != null || payload.wtb != null ? 'ok' : 'no_data',
-						wts: payload.wts ?? null,
-						wtb: payload.wtb ?? null,
-						timestamp: payload.timestamp,
-					};
-				result.updated += 1;
-				result.processed += 1;
+			try {
+				if (shouldRefreshOrderSummary) {
+					const ordersResult = await fetchOrdersPayload(entry.slug, { rank });
+					if (!ordersResult.data) {
+						if (!ordersResult.transient) {
+							const emptyPayload = {
+								slug: entry.slug,
+								rank,
+								wts: null,
+								wtb: null,
+								timestamp: Date.now(),
+							};
+							await putOrderSummaryPayload(env, entry.slug, emptyPayload, rank);
+							const snapshotKey = snapshotCacheKeyFromWorkerKey(orderSummaryKey);
+							if (snapshotKey)
+								snapshotOrderSummaries[snapshotKey] = {
+									status: 'no_data',
+									wts: null,
+									wtb: null,
+									timestamp: emptyPayload.timestamp,
+								};
+							result.updated += 1;
+						} else {
+							result.failures += 1;
+						}
+						result.processed += 1;
+					} else {
+						const payload = buildOrderSummaryPayload(entry.slug, rank, ordersResult.data);
+						await putOrderSummaryPayload(env, entry.slug, payload, rank);
+						const snapshotKey = snapshotCacheKeyFromWorkerKey(orderSummaryKey);
+						if (snapshotKey)
+							snapshotOrderSummaries[snapshotKey] = {
+								status: payload.wts != null || payload.wtb != null ? 'ok' : 'no_data',
+								wts: payload.wts ?? null,
+								wtb: payload.wtb ?? null,
+								timestamp: payload.timestamp,
+							};
+						result.updated += 1;
+						result.processed += 1;
+					}
+				} else {
+					result.processed += 1;
+				}
 			} catch {
 				result.failures += 1;
 				result.processed += 1;
 			}
 
 			// Also fetch and snapshot the ranked price (median) for this slug + rank.
-			try {
-				const snapshotPriceKey = snapshotCacheKeyFromWorkerKey(workerPriceCacheKey(entry.slug, rank));
-				if (!snapshotPriceKey) continue;
-				const priceResult = await fetchPricePayload(entry.slug, { rank });
-				if (priceResult.data) {
-					await putPricePayload(env, entry.slug, priceResult.data, rank);
-					snapshotPrices[snapshotPriceKey] = {
-						status: 'ok',
-						median: priceResult.data.median,
-						timestamp: priceResult.data.timestamp,
-					};
-				} else if (priceResult.inactive) {
-					await markPriceNoData(env, entry.slug, rank);
-					snapshotPrices[snapshotPriceKey] = inactivePriceSnapshotEntry();
+			if (shouldRefreshPrice) {
+				try {
+					const snapshotPriceKey = snapshotCacheKeyFromWorkerKey(priceKey);
+					if (!snapshotPriceKey) continue;
+					const priceResult = await fetchPricePayload(entry.slug, { rank });
+					if (priceResult.data) {
+						await putPricePayload(env, entry.slug, priceResult.data, rank);
+						snapshotPrices[snapshotPriceKey] = {
+							status: 'ok',
+							median: priceResult.data.median,
+							timestamp: priceResult.data.timestamp,
+						};
+					} else if (priceResult.inactive) {
+						await markPriceNoData(env, entry.slug, rank);
+						snapshotPrices[snapshotPriceKey] = inactivePriceSnapshotEntry();
+					}
+				} catch {
+					// Price fetch failure is non-fatal; order summary was already processed above.
 				}
-			} catch {
-				// Price fetch failure is non-fatal; order summary was already processed above.
 			}
 		}
 	}
@@ -530,7 +582,9 @@ export async function prewarmBatch(
 		resetCursor?: boolean;
 	},
 ): Promise<PrewarmResult> {
-	const adminMaxBatch = getWorkerConfig(env).adminPrewarmMaxBatch;
+	const config = getWorkerConfig(env);
+	const cronRefresh = options.reason === 'cron';
+	const adminMaxBatch = config.adminPrewarmMaxBatch;
 	const batchSize = clamp(options.batchSize, 1, adminMaxBatch);
 	const slugs = await fetchCatalogSlugs(env, Boolean(options.refreshCatalog));
 
@@ -583,31 +637,50 @@ export async function prewarmBatch(
 				continue;
 			}
 
-			const metaResult = await fetchMetaPayload(slug);
-			if (!metaResult.data) {
-				result.failures += 1;
-				continue;
+			let shouldRefreshMeta = true;
+			let shouldRefreshPrice = true;
+			if (cronRefresh) {
+				const [cachedMeta, cachedPrice] = await Promise.all([
+					getJsonFromKv(env.ITEM_META, `meta:${slug}`),
+					getJsonFromKv(env.PRICE_CACHE, workerPriceCacheKey(slug, null)),
+				]);
+				shouldRefreshMeta = isDueForRefresh(cachedMeta, config.staleRefreshSec);
+				shouldRefreshPrice = isDueForRefresh(cachedPrice, config.staleRefreshSec);
+				if (!shouldRefreshMeta && !shouldRefreshPrice) {
+					result.processed += 1;
+					continue;
+				}
 			}
 
-			if (!metaResult.data.tradable) {
-				await markUntradable(env, slug);
-				result.skippedUntradable += 1;
-				result.processed += 1;
-				continue;
+			if (shouldRefreshMeta) {
+				const metaResult = await fetchMetaPayload(slug);
+				if (!metaResult.data) {
+					result.failures += 1;
+					continue;
+				}
+
+				if (!metaResult.data.tradable) {
+					await markUntradable(env, slug);
+					result.skippedUntradable += 1;
+					result.processed += 1;
+					continue;
+				}
+
+				await putMetaPayload(env, metaResult.data);
+				result.metaUpdated += 1;
+				snapshotMeta[slug] = metaResult.data;
 			}
 
-			await putMetaPayload(env, metaResult.data);
-			result.metaUpdated += 1;
-			snapshotMeta[slug] = metaResult.data;
-
-			const priceResult = await fetchPricePayload(slug);
-			if (priceResult.data) {
-				await putPricePayload(env, slug, priceResult.data);
-				result.priceUpdated += 1;
-				snapshotPrices[slug] = { status: 'ok', median: priceResult.data.median, timestamp: priceResult.data.timestamp };
-			} else if (priceResult.inactive) {
-				await markPriceNoData(env, slug);
-				snapshotPrices[slug] = inactivePriceSnapshotEntry();
+			if (shouldRefreshPrice) {
+				const priceResult = await fetchPricePayload(slug);
+				if (priceResult.data) {
+					await putPricePayload(env, slug, priceResult.data);
+					result.priceUpdated += 1;
+					snapshotPrices[slug] = { status: 'ok', median: priceResult.data.median, timestamp: priceResult.data.timestamp };
+				} else if (priceResult.inactive) {
+					await markPriceNoData(env, slug);
+					snapshotPrices[slug] = inactivePriceSnapshotEntry();
+				}
 			}
 
 			result.processed += 1;

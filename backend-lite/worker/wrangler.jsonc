@@ -5,6 +5,9 @@
 	"compatibility_date": "2026-03-01",
 	"workers_dev": false,
 	"preview_urls": false,
+	"limits": {
+		"cpu_ms": 1000,
+	},
 
 	"kv_namespaces": [
 		{
@@ -22,8 +25,8 @@
 	"vars": {
 		"CACHE_TTL_SEC": "86400",
 		"ORDERS_SUMMARY_CACHE_TTL_SEC": "172800",
-		"ORDERS_SUMMARY_STALE_REFRESH_SEC": "21600",
-		"ORDER_SUMMARY_PREWARM_BATCH_SIZE": "24",
+		"ORDERS_SUMMARY_STALE_REFRESH_SEC": "75600",
+		"ORDER_SUMMARY_PREWARM_BATCH_SIZE": "18",
 		// Restrict browser-context CORS to the production domain only.
 		// Requests without an Origin header (Electron app, curl) are always
 		// allowed regardless of this value — it only blocks cross-site browser
@@ -31,27 +34,32 @@
 		"ALLOW_ORIGIN": "https://wfhelper.com",
 		"ADMIN_RATE_LIMIT_WINDOW_SEC": "60",
 		"ADMIN_RATE_LIMIT_MAX": "60",
+		"CATALOG_SLUG_GUARD_ENABLED": "1",
+		"DAILY_BUDGET_ENABLED": "1",
+		"DAILY_BUDGET_MAX_REQUESTS": "300000",
+		"DAILY_BUDGET_SAMPLE_RATE": "100",
+		"DAILY_BUDGET_SYNC_INTERVAL_SEC": "60",
 		"PUBLIC_RATE_LIMIT_ENABLED": "1",
 		// DEPLOYMENT ORDER: set to "1" only AFTER:
 		//   1. Running: wrangler secret put BOOTSTRAP_TOKEN_SECRET
 		//   2. Deploying the app update that sends the x-wfhelper-bootstrap header.
 		// Setting this to "1" without BOOTSTRAP_TOKEN_SECRET will block ALL public routes.
 		"PUBLIC_BOOTSTRAP_REQUIRED": "1",
-		"PREWARM_BATCH_SIZE": "60",
+		"PREWARM_BATCH_SIZE": "100",
 		"CATALOG_REFRESH_HOURS": "24",
 		"ADMIN_PREWARM_MAX_BATCH": "100",
 		"NO_DATA_TTL_SEC": "900",
-		"STALE_REFRESH_SEC": "21600",
+		"STALE_REFRESH_SEC": "75600",
 	},
 
 	"triggers": {
-		"crons": ["*/5 * * * *"],
+		"crons": ["*/15 * * * *"],
 	},
 
 	// Local development override. `npm run dev` runs `wrangler dev --env dev`
 	// so local browser clients (vite on :5173) pass the CORS check without
 	// needing anyone to edit the top-level ALLOW_ORIGIN. Production deploys
-	// use `wrangler deploy` with no --env flag, which keeps the top-level
+	// use `wrangler deploy --env=""`, which explicitly keeps the top-level
 	// vars (https://wfhelper.com) untouched.
 	"env": {
 		"dev": {

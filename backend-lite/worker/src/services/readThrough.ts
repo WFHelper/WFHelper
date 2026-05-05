@@ -13,6 +13,7 @@ import {
 	putOrderSummaryPayload,
 	putPricePayload,
 } from './prewarm';
+import { fetchCatalogSlugs } from './prewarmCatalog';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
 import { isExcludedRankedMarketItem } from '../../../../config/shared/wfmExclusions';
 import {
@@ -54,6 +55,9 @@ const orderSummaryInFlight = new Map<string, Promise<HydrateResult>>();
 
 const ORDER_SUMMARY_BREAKER_THRESHOLD = 6;
 const ORDER_SUMMARY_BREAKER_COOLDOWN_MS = 90_000;
+const CATALOG_SLUG_SET_TTL_MS = 5 * 60 * 1000;
+
+let catalogSlugSetCache: { expiresAt: number; slugs: Set<string> } | null = null;
 
 /**
  * Circuit-breaker state is per-V8-isolate, not global.
@@ -132,6 +136,22 @@ async function setNegativeMarker(namespace: KVNamespace, key: string, env: Env):
 	await namespace.put(key, '1', {
 		expirationTtl: getWorkerConfig(env).noDataTtlSec,
 	});
+}
+
+async function slugMissingFromCatalog(env: Env, slug: string): Promise<boolean> {
+	if (!getWorkerConfig(env).catalogSlugGuardEnabled) return false;
+
+	const now = Date.now();
+	if (!catalogSlugSetCache || catalogSlugSetCache.expiresAt <= now) {
+		const slugs = await fetchCatalogSlugs(env, false);
+		catalogSlugSetCache = {
+			expiresAt: now + CATALOG_SLUG_SET_TTL_MS,
+			slugs: new Set(slugs),
+		};
+	}
+
+	if (catalogSlugSetCache.slugs.size === 0) return false;
+	return !catalogSlugSetCache.slugs.has(slug);
 }
 
 async function hydratePrice(env: Env, slug: string, markNoData: boolean, rank: number | null): Promise<HydrateResult> {
@@ -307,6 +327,7 @@ export async function getOrHydratePrice(
 			negativeHit: 'priceNegativeHits',
 			staleRefreshQueued: 'priceStaleRefreshQueued',
 		},
+		beforeMissCheck: () => slugMissingFromCatalog(env, slug),
 	});
 }
 
@@ -325,7 +346,7 @@ export async function getOrHydrateMeta(env: Env, slug: string, ctx?: ExecutionCo
 			negativeHit: 'metaNegativeHits',
 			staleRefreshQueued: 'metaStaleRefreshQueued',
 		},
-		beforeMissCheck: async () => Boolean(await env.ITEM_META.get(`${SKIP_UNTRADABLE_PREFIX}${slug}`)),
+		beforeMissCheck: async () => (await slugMissingFromCatalog(env, slug)) || Boolean(await env.ITEM_META.get(`${SKIP_UNTRADABLE_PREFIX}${slug}`)),
 		onBeforeMissHit: () => {
 			autoStats.metaUntradableSkips += 1;
 		},

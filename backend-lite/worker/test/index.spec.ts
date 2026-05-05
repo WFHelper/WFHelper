@@ -2,6 +2,7 @@ import { SELF, createExecutionContext, env, waitOnExecutionContext } from 'cloud
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import worker from '../src/index';
 import type { Env } from '../src/types';
+import { prewarmBatch, prewarmOrderSummaryCatalog } from '../src/services/prewarm';
 import { WFM_SNAPSHOT_CLIENT_CACHE_VERSION } from '../../../config/shared/wfmSnapshotValidation';
 
 const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
@@ -9,6 +10,8 @@ const originalFetch = globalThis.fetch;
 
 beforeEach(() => {
 	(env as unknown as Record<string, string>).PUBLIC_BOOTSTRAP_REQUIRED = '0';
+	(env as unknown as Record<string, string>).DAILY_BUDGET_ENABLED = '0';
+	(env as unknown as Record<string, string>).CATALOG_SLUG_GUARD_ENABLED = '0';
 });
 
 afterEach(() => {
@@ -259,6 +262,72 @@ describe('backend-lite worker', () => {
 		expect(responses[4].status).toBe(200);
 		expect(responses[5].status).toBe(429);
 		expect(await responses[5].json()).toEqual({ ok: false, error: 'rate_limited' });
+	});
+
+	it('fails closed when the daily budget circuit breaker trips', async () => {
+		const testEnv = {
+			...env,
+			DAILY_BUDGET_ENABLED: '1',
+			DAILY_BUDGET_MAX_REQUESTS: '2',
+			DAILY_BUDGET_SAMPLE_RATE: '1',
+			DAILY_BUDGET_SYNC_INTERVAL_SEC: '5',
+		};
+		const makeRequest = () =>
+			new IncomingRequest('http://example.com/healthz', {
+				headers: {
+					'cf-connecting-ip': '10.0.0.56',
+				},
+			});
+
+		const ctxA = createExecutionContext();
+		const ctxB = createExecutionContext();
+		const first = await worker.fetch(makeRequest(), testEnv as unknown as Env, ctxA);
+		const second = await worker.fetch(makeRequest(), testEnv as unknown as Env, ctxB);
+		await waitOnExecutionContext(ctxA);
+		await waitOnExecutionContext(ctxB);
+
+		expect(first.status).toBe(200);
+		expect(second.status).toBe(503);
+		expect(second.headers.get('retry-after')).toBeTruthy();
+		expect(await second.json()).toEqual({ ok: false, error: 'daily_budget_exceeded' });
+	});
+
+	it('skips scheduled prewarm when the daily budget is already exceeded', async () => {
+		const today = new Date().toISOString().slice(0, 10);
+		const testEnv = {
+			...env,
+			DAILY_BUDGET_ENABLED: '1',
+			DAILY_BUDGET_MAX_REQUESTS: '2',
+			DAILY_BUDGET_SAMPLE_RATE: '1',
+			DAILY_BUDGET_SYNC_INTERVAL_SEC: '5',
+		};
+		await testEnv.PRICE_CACHE.put(`budget:requests:v1:${today}`, '2');
+		const fetchMock = vi.fn(async () => new Response('{}')) as unknown as typeof fetch;
+		globalThis.fetch = fetchMock;
+
+		await worker.scheduled({} as ScheduledController, testEnv as unknown as Env, createExecutionContext());
+
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it('rejects unknown catalog slugs before WFM read-through', async () => {
+		await env.ITEM_META.put(
+			'catalog:slugs:v1',
+			JSON.stringify({
+				updatedAt: Date.now(),
+				slugs: ['forma'],
+			}),
+		);
+		(env as unknown as Record<string, string>).CATALOG_SLUG_GUARD_ENABLED = '1';
+		const fetchMock = vi.fn(async () => new Response('{}')) as unknown as typeof fetch;
+		globalThis.fetch = fetchMock;
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(new IncomingRequest('http://example.com/v1/prices/fake_slug_for_dos'), env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(404);
+		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
 	it('issues bootstrap tokens and accepts them when bootstrap is required', async () => {
@@ -842,6 +911,63 @@ describe('backend-lite worker', () => {
 		expect(await testEnv.PRICE_CACHE.get('orders-summary:arcane_energize:r5')).toBeTruthy();
 	});
 
+	it('cron prewarm skips fresh cached price and meta entries', async () => {
+		const slug = 'wf_test_fresh_cron_slug';
+		const now = Date.now();
+		await env.ITEM_META.put(
+			'catalog:slugs:v1',
+			JSON.stringify({
+				updatedAt: now,
+				slugs: [slug],
+				rankedSummaryCatalog: [],
+			}),
+		);
+		await env.ITEM_META.put(
+			`meta:${slug}`,
+			JSON.stringify({ slug, tradable: true, ducats: 45, setRoot: false, thumb: null, icon: null, timestamp: now }),
+		);
+		await env.PRICE_CACHE.put(`price:${slug}`, JSON.stringify({ slug, median: 42, rank: null, timestamp: now }));
+
+		const fetchMock = vi.fn(async () => {
+			throw new Error('fresh cron entries should not hit WFM');
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const result = await prewarmBatch(env, { reason: 'cron', batchSize: 1, resetCursor: true });
+
+		expect(result.processed).toBe(1);
+		expect(result.metaUpdated).toBe(0);
+		expect(result.priceUpdated).toBe(0);
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it('cron ranked summary prewarm skips fresh cached summaries and prices', async () => {
+		const slug = 'wf_test_fresh_summary_cron_slug';
+		const now = Date.now();
+		await seedRankedCatalog(env, [{ slug, maxRank: 10 }]);
+		for (const rank of [0, 10]) {
+			await env.PRICE_CACHE.put(
+				`orders-summary:${slug}:r${rank}`,
+				JSON.stringify({ slug, rank, wts: 10 + rank, wtb: 5 + rank, timestamp: now }),
+			);
+			await env.PRICE_CACHE.put(
+				`price:${slug}:r${rank}`,
+				JSON.stringify({ slug, rank, median: 20 + rank, timestamp: now }),
+			);
+		}
+
+		const fetchMock = vi.fn(async () => {
+			throw new Error('fresh ranked cron entries should not hit WFM');
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const result = await prewarmOrderSummaryCatalog(env, { reason: 'cron', batchSize: 1, resetCursor: true });
+
+		expect(result.processed).toBe(2);
+		expect(result.updated).toBe(0);
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
 	it('serves stale cached order summary during transient upstream failure', async () => {
 		const slug = 'wf_test_stale_order_summary_slug';
 		await seedRankedCatalog(env, [{ slug, maxRank: 10 }]);
@@ -1071,12 +1197,14 @@ describe('backend-lite worker', () => {
 	});
 
 	it('returns snapshot JSON with correct cache-control when KV key is present', async () => {
+		const generatedAt = Date.now();
+		const staleEntryTimestamp = generatedAt - 25 * 60 * 60 * 1000;
 		const snapshot = {
 			version: 1,
-			generatedAt: Date.now(),
-			prices: { ash_prime: { status: 'ok', median: 45, timestamp: Date.now() } },
-			meta: { ash_prime: { slug: 'ash_prime', ducats: 45, setRoot: true, thumb: null, icon: null, timestamp: Date.now() } },
-			orderSummaries: {},
+			generatedAt,
+			prices: { ash_prime: { status: 'ok', median: 45, timestamp: staleEntryTimestamp } },
+			meta: { ash_prime: { slug: 'ash_prime', ducats: 45, setRoot: true, thumb: null, icon: null, timestamp: staleEntryTimestamp } },
+			orderSummaries: { 'ordersummary-v1:ash_prime:r0': { status: 'ok', wts: 10, wtb: 8, timestamp: staleEntryTimestamp } },
 		};
 		await env.PRICE_CACHE.put('snapshot:full:v1', JSON.stringify(snapshot));
 		await clearSnapshotEdgeCache();
@@ -1101,7 +1229,15 @@ describe('backend-lite worker', () => {
 
 			const body = (await response.json()) as typeof snapshot;
 			expect(body.version).toBe(1);
-			expect(body.prices['ash_prime']).toMatchObject({ status: 'ok', median: 45 });
+			expect(body.prices['ash_prime']).toMatchObject({ status: 'ok', median: 45, timestamp: generatedAt });
+			expect(body.meta['ash_prime']).toMatchObject({ slug: 'ash_prime', timestamp: generatedAt });
+			expect(body.orderSummaries['ordersummary-v1:ash_prime:r0']).toMatchObject({
+				status: 'ok',
+				wts: 10,
+				wtb: 8,
+				timestamp: generatedAt,
+				sourceTimestamp: staleEntryTimestamp,
+			});
 		} finally {
 			await env.PRICE_CACHE.delete('snapshot:full:v1');
 			await clearSnapshotEdgeCache();

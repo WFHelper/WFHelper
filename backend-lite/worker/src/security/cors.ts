@@ -29,7 +29,12 @@ function responseHeaders(req: Request, env: Env, extraHeaders?: Record<string, s
 	const headers: Record<string, string> = {
 		'content-type': 'application/json; charset=utf-8',
 		'cache-control': 'no-store',
+		'content-security-policy': "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+		'permissions-policy': 'camera=(), geolocation=(), microphone=(), payment=(), usb=()',
+		'referrer-policy': 'no-referrer',
+		'strict-transport-security': 'max-age=31536000; includeSubDomains',
 		'x-content-type-options': 'nosniff',
+		'x-frame-options': 'DENY',
 		'access-control-allow-methods': 'GET,POST,OPTIONS',
 		'access-control-allow-headers': 'content-type,authorization,x-wfhelper-bootstrap',
 		vary: 'Origin',
@@ -55,5 +60,14 @@ export function rawJsonResponse(raw: string, req: Request, env: Env, status = 20
 	return new Response(raw, {
 		status,
 		headers: responseHeaders(req, env, extraHeaders),
+	});
+}
+
+export function emptyResponse(req: Request, env: Env, status = 204, extraHeaders?: Record<string, string>): Response {
+	const headers = responseHeaders(req, env, extraHeaders);
+	delete headers['content-type'];
+	return new Response(null, {
+		status,
+		headers,
 	});
 }

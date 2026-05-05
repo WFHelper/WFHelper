@@ -1,8 +1,9 @@
-import { CATALOG_CACHE_KEY, ORDER_SUMMARY_CATALOG_KEY, SLUG_RE, WFM_HEADERS } from '../constants';
+import { CATALOG_CACHE_KEY, ORDER_SUMMARY_CATALOG_KEY, SLUG_RE } from '../constants';
 import type { Env, OrdersPayload, OrderSummaryCatalogEntry, OrderSummaryHotsetEntry } from '../types';
 import { getWorkerConfig } from '../config';
 import { getJsonFromKv } from '../utils';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
+import { WFM_HEADERS } from '../../../../config/shared/wfm';
 import { isExcludedRankedMarketItem } from '../../../../config/shared/wfmExclusions';
 import { cheapestOrderPrice } from '../../../../config/shared/wfmOrders';
 

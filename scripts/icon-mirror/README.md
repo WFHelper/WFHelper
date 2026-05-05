@@ -29,6 +29,14 @@ ICON_MIRROR_CONCURRENCY=3 npm run icons:download
 Cloudflare Pages project named `wfhelper-icons` using the Wrangler dependency
 already installed for the Worker.
 
+The mirror root is informational only. The app uses file URLs under the mirror,
+for example:
+
+```text
+https://assets.wfhelper.com/manifest.json
+https://assets.wfhelper.com/icons/<hash>.<ext>
+```
+
 If upstream sources have missing icons, `icons:download` writes them to
 `.icon-mirror/download-failures.json`. Real 404s are expected when an upstream
 package references image names that no longer exist. Deploying the successfully

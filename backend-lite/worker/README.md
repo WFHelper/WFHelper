@@ -29,8 +29,28 @@ The backend now runs in fully automatic mode. Manual prewarm still exists as an 
 4. If cached payload is stale, Worker serves cached data and queues background refresh (`waitUntil`).
 5. On cache miss, Worker read-through fetches from Warframe Market and writes to KV.
 6. Miss and untradable markers are cached to avoid repeated upstream hits.
-7. Cron prewarm continuously advances through the catalog to keep hot data warmed.
+7. Cron prewarm continuously advances through the catalog, but cron skips entries whose cache
+  timestamps are still inside the stale-refresh window.
 8. Ranked-card summary prewarm can walk either the full ranked catalog or an optional hotset.
+
+Cron is intentionally a rolling backstop, not a full refresh every tick. Production defaults run
+every 15 minutes with daily-pass batches (`PREWARM_BATCH_SIZE=100`,
+`ORDER_SUMMARY_PREWARM_BATCH_SIZE=18`) and a 21h stale-refresh window so the full catalog is
+spread across the day instead of rewriting thousands of KV keys repeatedly.
+
+The Worker also has two cost guardrails:
+
+- `limits.cpu_ms=1000` caps runaway CPU per invocation. This is intentionally lower than the
+  default 30 seconds but high enough for snapshot JSON handling and cron batches.
+- `DAILY_BUDGET_ENABLED=1` counts sampled fetch requests in KV and returns
+  `503 daily_budget_exceeded` until midnight UTC after `DAILY_BUDGET_MAX_REQUESTS` is reached.
+  The default cap is `300000` requests/day with `DAILY_BUDGET_SAMPLE_RATE=100`, keeping counter
+  writes small while providing a practical fail-closed budget breaker. Scheduled prewarm checks the
+  same cap and skips cron work after the breaker trips.
+
+Cloudflare billing alerts still need to be configured in the dashboard; this repository cannot
+create account-level billing notifications. Recommended alerts: base plan, low overage, and hard
+attention thresholds (for example $5, $7, and $10).
 
 ## Security model
 
@@ -57,9 +77,16 @@ The backend now runs in fully automatic mode. Manual prewarm still exists as an 
 - `ORDERS_SUMMARY_STALE_REFRESH_SEC` stale threshold for `orders-summary:*` background refresh.
 - `NO_DATA_TTL_SEC` TTL for negative cache markers.
 - `STALE_REFRESH_SEC` age threshold for background stale refresh.
-- `ALLOW_ORIGIN` comma-separated origin allowlist (include `null` for Electron).
+- `ALLOW_ORIGIN` comma-separated browser-origin allowlist. Do not include `null`; Electron/curl
+  requests should omit the `Origin` header, which is already allowed separately.
 - `ADMIN_RATE_LIMIT_WINDOW_SEC` admin rate-limit window.
 - `ADMIN_RATE_LIMIT_MAX` admin request cap per IP and window.
+- `CATALOG_SLUG_GUARD_ENABLED` rejects cache misses for slugs absent from the cached WFM catalog
+  before making upstream WFM requests.
+- `DAILY_BUDGET_ENABLED` enables/disables the sampled daily request budget circuit breaker.
+- `DAILY_BUDGET_MAX_REQUESTS` daily sampled request cap before the Worker returns 503.
+- `DAILY_BUDGET_SAMPLE_RATE` sampled counter increment size; higher values mean fewer KV writes.
+- `DAILY_BUDGET_SYNC_INTERVAL_SEC` per-isolate KV sync interval for learning that the cap tripped.
 - `PREWARM_BATCH_SIZE` cron batch size.
 - `ORDER_SUMMARY_PREWARM_BATCH_SIZE` cron batch size for ranked summary prewarm.
 - `CATALOG_REFRESH_HOURS` item catalog refresh interval.
@@ -91,6 +118,18 @@ npm run dev
 ```bash
 npm run deploy
 ```
+
+The deploy script passes `--env=""` so Wrangler targets the top-level production config explicitly
+even though a named `dev` environment exists for local development.
+
+Recommended Cloudflare dashboard rules, which run before Worker billing:
+
+- WAF rate limit: `http.host eq "api.wfhelper.com"`, 60 requests per 60 seconds per IP,
+  block for 10 minutes.
+- WAF rate limit: `http.host eq "api.wfhelper.com" and starts_with(http.request.uri.path, "/admin")`,
+  5 requests per 60 seconds per IP, block for 10 minutes.
+- WAF custom rule for stable management IPs:
+  `http.host eq "api.wfhelper.com" and starts_with(http.request.uri.path, "/admin") and not ip.src in {YOUR_IP}` → block.
 
 ## Manual prewarm (optional)
 

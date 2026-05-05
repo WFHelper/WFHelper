@@ -2,6 +2,7 @@ import { handleAdminRoutes } from './routes/admin';
 import { handlePublicRoutes } from './routes/public';
 import { prewarmBatch, prewarmOrderSummaryCatalog } from './services/prewarm';
 import { jsonResponse, originIsAllowed } from './security/cors';
+import { checkDailyBudget, isDailyBudgetExceeded } from './security/dailyBudget';
 import type { Env } from './types';
 import { getWorkerConfig } from './config';
 
@@ -15,6 +16,9 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext): Promi
 	if (req.method === 'OPTIONS') {
 		return jsonResponse({ ok: true }, req, env, 200);
 	}
+
+	const budgetResponse = await checkDailyBudget(req, env);
+	if (budgetResponse) return budgetResponse;
 
 	const publicRouteResponse = await handlePublicRoutes(req, url, env, ctx);
 	if (publicRouteResponse) return publicRouteResponse;
@@ -36,6 +40,8 @@ export default {
 	},
 
 	async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext): Promise<void> {
+		if (await isDailyBudgetExceeded(env)) return;
+
 		const config = getWorkerConfig(env);
 		await prewarmBatch(env, {
 			reason: 'cron',

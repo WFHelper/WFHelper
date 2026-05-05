@@ -11,6 +11,7 @@ const compiledRoot = path.join(repoRoot, ".electron-build");
 const outputRoot = path.join(repoRoot, ".icon-mirror");
 const publicRoot = path.join(outputRoot, "public");
 const manifestPath = path.join(publicRoot, "manifest.json");
+const indexPath = path.join(publicRoot, "index.html");
 const sourceListPath = path.join(outputRoot, "source-urls.txt");
 const headersPath = path.join(publicRoot, "_headers");
 
@@ -76,13 +77,53 @@ function writeHeaders() {
   fs.writeFileSync(
     headersPath,
     [
+      "/*",
+      "  Access-Control-Allow-Origin: *",
+      "  Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      "  Permissions-Policy: camera=(), geolocation=(), microphone=(), payment=(), usb=()",
+      "  Referrer-Policy: no-referrer",
+      "  Strict-Transport-Security: max-age=31536000; includeSubDomains",
+      "  X-Content-Type-Options: nosniff",
+      "  X-Frame-Options: DENY",
+      "",
       "/icons/*",
       "  Cache-Control: public, max-age=31536000, immutable",
-      "  X-Content-Type-Options: nosniff",
       "",
       "/manifest.json",
       "  Cache-Control: public, max-age=300",
-      "  X-Content-Type-Options: nosniff",
+      "",
+    ].join("\n"),
+  );
+}
+
+function writeIndex(manifest) {
+  fs.writeFileSync(
+    indexPath,
+    [
+      "<!doctype html>",
+      '<html lang="en">',
+      "<head>",
+      '  <meta charset="utf-8">',
+      '  <meta name="viewport" content="width=device-width, initial-scale=1">',
+      "  <title>WFHelper Icon Mirror</title>",
+      "  <style>",
+      "    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: system-ui, sans-serif; background: #101418; color: #e8eef5; }",
+      "    main { width: min(560px, calc(100vw - 32px)); }",
+      "    h1 { margin: 0 0 12px; font-size: 28px; font-weight: 650; }",
+      "    p { margin: 0 0 16px; color: #aeb9c6; line-height: 1.5; }",
+      "    a { color: #7cc7ff; }",
+      "    code { color: #e8eef5; }",
+      "  </style>",
+      "</head>",
+      "<body>",
+      "  <main>",
+      "    <h1>WFHelper Icon Mirror</h1>",
+      `    <p>This static mirror currently serves ${manifest.count} generated icon files for the WFHelper desktop app.</p>`,
+      '    <p><a href="/manifest.json">Open manifest.json</a></p>',
+      "    <p>Icon files live under <code>/icons/&lt;hash&gt;.&lt;ext&gt;</code>.</p>",
+      "  </main>",
+      "</body>",
+      "</html>",
       "",
     ].join("\n"),
   );
@@ -117,6 +158,7 @@ const manifest = {
 
 fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 fs.writeFileSync(sourceListPath, `${entries.map((entry) => entry.sourceUrl).join("\n")}\n`);
+writeIndex(manifest);
 writeHeaders();
 
 console.log(`[icon-mirror] wrote ${entries.length} icon entries to ${manifestPath}`);
