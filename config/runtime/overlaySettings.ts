@@ -25,9 +25,14 @@ export interface OverlaySettings {
   cycleAlerts: CycleAlerts;
   cycleAlertMinutesBefore: number;
   fissureAlerts: FissureAlert[];
+  notificationSoundEnabled: boolean;
   wfmNotificationsEnabled: boolean;
   autoCloseWfmOrders: boolean;
   showTradeNotification: boolean;
+  relicRewardsOverlayEnabled: boolean;
+  relicRecommendationOverlayEnabled: boolean;
+  tradeNotificationOverlayEnabled: boolean;
+  rivenOverlayEnabled: boolean;
 }
 
 export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
@@ -46,7 +51,49 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   }),
   cycleAlertMinutesBefore: 3,
   fissureAlerts: Object.freeze([] as FissureAlert[]),
+  notificationSoundEnabled: true,
   wfmNotificationsEnabled: false,
   autoCloseWfmOrders: true,
   showTradeNotification: true,
+  relicRewardsOverlayEnabled: true,
+  relicRecommendationOverlayEnabled: true,
+  tradeNotificationOverlayEnabled: true,
+  rivenOverlayEnabled: true,
 });
+
+type OverlayToggleKey =
+  | "relicRewardsOverlayEnabled"
+  | "relicRecommendationOverlayEnabled"
+  | "tradeNotificationOverlayEnabled"
+  | "rivenOverlayEnabled";
+
+function isOverlayToggleEnabled(
+  settings: Partial<Pick<OverlaySettings, OverlayToggleKey>> | null | undefined,
+  key: OverlayToggleKey,
+): boolean {
+  return settings?.[key] !== false;
+}
+
+export function isRelicRewardsOverlayEnabled(
+  settings: Pick<OverlaySettings, "relicRewardsOverlayEnabled"> | null | undefined,
+): boolean {
+  return isOverlayToggleEnabled(settings, "relicRewardsOverlayEnabled");
+}
+
+export function isRelicRecommendationOverlayEnabled(
+  settings: Pick<OverlaySettings, "relicRecommendationOverlayEnabled"> | null | undefined,
+): boolean {
+  return isOverlayToggleEnabled(settings, "relicRecommendationOverlayEnabled");
+}
+
+export function isTradeNotificationOverlayEnabled(
+  settings: Pick<OverlaySettings, "tradeNotificationOverlayEnabled"> | null | undefined,
+): boolean {
+  return isOverlayToggleEnabled(settings, "tradeNotificationOverlayEnabled");
+}
+
+export function isRivenOverlayEnabled(
+  settings: Pick<OverlaySettings, "rivenOverlayEnabled"> | null | undefined,
+): boolean {
+  return isOverlayToggleEnabled(settings, "rivenOverlayEnabled");
+}

@@ -1,6 +1,4 @@
 const SLOTS = 4;
-const RECOMMENDATION_ROWS = 6;
-
 const slotState = Array.from({ length: SLOTS }, () => ({ item: null, price: null }));
 let overlayInteractiveMode = false;
 
@@ -143,22 +141,6 @@ function resetSlots() {
 function resetPlannerRows() {
   const container = plannerGridElement();
   container.innerHTML = "";
-  for (let i = 0; i < RECOMMENDATION_ROWS; i += 1) {
-    const card = document.createElement("div");
-    card.className = "plan-card empty";
-
-    const title = document.createElement("div");
-    title.className = "plan-title";
-    title.textContent = "-";
-
-    const profit = document.createElement("div");
-    profit.className = "plan-profit";
-    profit.textContent = "E. profits: -";
-
-    card.appendChild(title);
-    card.appendChild(profit);
-    container.appendChild(card);
-  }
 }
 
 function showRewardModeScanning() {
@@ -213,7 +195,7 @@ function renderPlannerRows(payload) {
   const confidence = Number(payload?.detection?.confidence || 0);
   const detectionElapsedMs = Number(payload?.detection?.elapsedMs || 0);
   const totalOwnedCount = Number(payload?.totalOwnedCount || 0);
-  const rows = Array.isArray(payload?.rows) ? payload.rows.slice(0, RECOMMENDATION_ROWS) : [];
+  const rows = Array.isArray(payload?.rows) ? payload.rows.filter(Boolean) : [];
 
   hideScanning();
   document.getElementById("slots-grid").classList.add("is-hidden");
@@ -228,9 +210,7 @@ function renderPlannerRows(payload) {
 
   const countLabel = totalOwnedCount > 0 ? `${totalOwnedCount}` : "";
   const eraLabel = era ? `${era.charAt(0).toUpperCase()}${era.slice(1)} era` : "";
-  const headerTitle = countLabel ? `\u{1F48E} ${countLabel}` : "◆ Relic Planner";
-  const subTitle = eraLabel ? `${eraLabel} recommendations` : "Recommended relics";
-  setHeader(headerTitle, subTitle);
+  setHeader(countLabel || "", eraLabel ? `${eraLabel} recommendations` : "Recommended relics");
   showBestFooter(false);
   showPlannerHint(!overlayInteractiveMode);
 

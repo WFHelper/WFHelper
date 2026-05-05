@@ -269,10 +269,20 @@ function quotePowerShellString(value: string): string {
 /** Send a Windows toast via PowerShell WinRT. Uses scenario="incomingCall" to
  *  bypass Focus Assist "Priority only" filtering, then auto-dismisses the
  *  toast after TOAST_DISMISS_MS so it behaves like a normal notification. */
+function notificationSoundEnabled(): boolean {
+  return ctx.overlaySettings.notificationSoundEnabled !== false;
+}
+
 function sendWindowsToast(title: string, body: string): void {
   const tag = `wfc-${++_toastTagCounter}`;
   const group = "wfc";
-  const xml = `<toast scenario="incomingCall"><visual><binding template="ToastGeneric"><text>${escapeXml(title)}</text><text>${escapeXml(body)}</text></binding></visual><audio silent="true"/></toast>`;
+  const audioXml = notificationSoundEnabled()
+    ? '<audio src="ms-winsoundevent:Notification.Default"/>'
+    : '<audio silent="true"/>';
+  const xml =
+    `<toast scenario="incomingCall"><visual><binding template="ToastGeneric"><text>${escapeXml(
+      title,
+    )}</text><text>${escapeXml(body)}</text></binding></visual>${audioXml}</toast>`;
   const xmlPath = path.join(os.tmpdir(), `wfc-toast-${process.pid}-${Date.now()}-${tag}.xml`);
   try {
     fs.writeFileSync(xmlPath, xml, "utf8");
@@ -291,7 +301,6 @@ function sendWindowsToast(title: string, body: string): void {
     `$t.Tag = ${quotePowerShellString(tag)}`,
     `$t.Group = ${quotePowerShellString(group)}`,
     `[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier(${quotePowerShellString(APP_USER_MODEL_ID)}).Show($t)`,
-    "[System.Media.SystemSounds]::Asterisk.Play()",
   ].join("; ");
   execFile(
     "powershell.exe",
@@ -326,6 +335,7 @@ const _activeNotifications = new Set<{ close: () => void }>();
 
 function sendDesktopNotification(title: string, body: string): void {
   try {
+    if (ctx.overlaySettings.worldNotificationsEnabled === false) return;
     if (!canSendNotifications()) return;
     log.log("[WorldState] sending notification:", title, "-", body);
     if (desktopNotificationSender) {
@@ -338,7 +348,11 @@ function sendDesktopNotification(title: string, body: string): void {
     }
     const ElectronNotification = notificationCtor || getElectronModule().Notification;
     if (typeof ElectronNotification !== "function") return;
-    const notification = new ElectronNotification({ title, body, silent: false });
+    const notification = new ElectronNotification({
+      title,
+      body,
+      silent: !notificationSoundEnabled(),
+    });
     _activeNotifications.add(notification);
     const release = () => {
       _activeNotifications.delete(notification);

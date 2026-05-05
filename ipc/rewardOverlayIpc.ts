@@ -21,6 +21,10 @@ import {
 import { fetchPriceBySlug, getCachedPriceBySlug } from "../services/wfmStatsPrice";
 import * as warframeStatus from "../services/warframeStatus";
 import {
+  isRelicRecommendationOverlayEnabled,
+  isRelicRewardsOverlayEnabled,
+} from "../config/runtime/overlaySettings";
+import {
   OVERLAY_CLOSE, OVERLAY_GET_RELIC_ITEMS, OVERLAY_GET_PRICE,
   TOGGLE_OVERLAY, SIMULATE_RELIC_TRIGGER, OVERLAY_PUSH_RELIC_FILTERS,
 } from "../config/shared/ipcChannels";
@@ -147,6 +151,10 @@ export function onRelicRewardTrigger(
   pushOverlayThemeVars: () => void,
   bringOverlayToWarframeDisplayIfAvailable: () => Promise<void>,
 ): void {
+  if (!isRelicRewardsOverlayEnabled(ctx.overlaySettings)) {
+    log.log(`[OverlayRoute] reward overlay disabled; source=${source}`);
+    return;
+  }
   log.log(`[OverlayRoute] trigger=reward source=${source}`);
   void bringOverlayToWarframeDisplayIfAvailable();
   rewardWindowsController.createOverlayWindow();
@@ -162,6 +170,10 @@ export function onRelicSelectionTrigger(
   pushOverlayThemeVars: () => void,
   bringOverlayToWarframeDisplayIfAvailable: () => Promise<void>,
 ): void {
+  if (!isRelicRecommendationOverlayEnabled(ctx.overlaySettings)) {
+    log.log(`[OverlayRoute] planner overlay disabled; source=${source}`);
+    return;
+  }
   log.log(`[OverlayRoute] trigger=planner source=${source}`);
   void bringOverlayToWarframeDisplayIfAvailable();
   plannerWindowsController.createOverlayWindow();
@@ -234,6 +246,7 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
   });
 
   onAuthorized(TOGGLE_OVERLAY, assertMainRendererSender, () => {
+    if (!isRelicRewardsOverlayEnabled(ctx.overlaySettings)) return;
     rewardWindowsController.clearOverlayAutoHideTimer();
     if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) {
       rewardWindowsController.createOverlayWindow();

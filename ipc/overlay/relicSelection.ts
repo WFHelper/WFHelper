@@ -9,7 +9,6 @@ import { RELIC_RECOMMENDATIONS, RELIC_PLANNER_TRIGGER } from "../../config/share
 import { normalizeWfmSlug } from "../../config/shared/wfm";
 import { RELIC_MISSION_TIER_CACHE_TTL_MS } from "../../config/runtime/cacheConfig";
 
-const RECOMMENDATION_ROW_LIMIT = 6;
 const RECOMMENDATION_SQUAD_SIZE = 4;
 /** How long computed recommendations stay cached before a full recompute. */
 const RECOMMENDATION_CACHE_TTL_MS = 10_000;
@@ -517,16 +516,15 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       return a.label.localeCompare(b.label);
     });
 
-    const sliced = rows.slice(0, RECOMMENDATION_ROW_LIMIT);
     cache = {
       key: cacheKey,
-      rows: sliced,
+      rows,
       era,
       totalOwnedCount,
       ts: Date.now(),
     };
 
-    return { rows: sliced, totalOwnedCount };
+    return { rows, totalOwnedCount };
   }
 
   function sendFallbackRows(scanToken: number, source: string, era: string | null): void {

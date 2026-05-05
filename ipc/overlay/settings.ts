@@ -121,29 +121,25 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
 
   function normalizeOverlaySettings(raw: unknown): OverlaySettingsDict {
     const candidate = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+    const booleanSetting = (key: keyof OverlaySettings): boolean =>
+      candidate[key] !== undefined ? !!candidate[key] : !!defaults[key];
+    const tradeNotificationOverlayEnabled =
+      candidate.tradeNotificationOverlayEnabled !== undefined
+        ? !!candidate.tradeNotificationOverlayEnabled
+        : candidate.showTradeNotification !== undefined
+          ? !!candidate.showTradeNotification
+          : !!defaults.tradeNotificationOverlayEnabled;
 
     return {
-      autoTriggerEnabled:
-        candidate.autoTriggerEnabled !== undefined
-          ? !!candidate.autoTriggerEnabled
-          : !!defaults.autoTriggerEnabled,
-      hotkeyEnabled:
-        candidate.hotkeyEnabled !== undefined
-          ? !!candidate.hotkeyEnabled
-          : !!defaults.hotkeyEnabled,
+      autoTriggerEnabled: booleanSetting("autoTriggerEnabled"),
+      hotkeyEnabled: booleanSetting("hotkeyEnabled"),
       hotkey: normalizeHotkey(candidate.hotkey ?? defaults.hotkey, String(defaults.hotkey)),
-      interactionHotkeyEnabled:
-        candidate.interactionHotkeyEnabled !== undefined
-          ? !!candidate.interactionHotkeyEnabled
-          : !!defaults.interactionHotkeyEnabled,
+      interactionHotkeyEnabled: booleanSetting("interactionHotkeyEnabled"),
       interactionHotkey: normalizeHotkey(
         candidate.interactionHotkey ?? defaults.interactionHotkey,
         String(defaults.interactionHotkey),
       ),
-      worldNotificationsEnabled:
-        candidate.worldNotificationsEnabled !== undefined
-          ? !!candidate.worldNotificationsEnabled
-          : !!defaults.worldNotificationsEnabled,
+      worldNotificationsEnabled: booleanSetting("worldNotificationsEnabled"),
       cycleAlerts: normalizeCycleAlerts(candidate.cycleAlerts, defaults.cycleAlerts),
       cycleAlertMinutesBefore: Math.floor(
         clampNumber(
@@ -154,18 +150,17 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
         ),
       ),
       fissureAlerts: normalizeFissureAlerts(candidate.fissureAlerts, defaults.fissureAlerts),
-      wfmNotificationsEnabled:
-        candidate.wfmNotificationsEnabled !== undefined
-          ? !!candidate.wfmNotificationsEnabled
-          : !!defaults.wfmNotificationsEnabled,
-      autoCloseWfmOrders:
-        candidate.autoCloseWfmOrders !== undefined
-          ? !!candidate.autoCloseWfmOrders
-          : !!defaults.autoCloseWfmOrders,
+      notificationSoundEnabled: booleanSetting("notificationSoundEnabled"),
+      wfmNotificationsEnabled: booleanSetting("wfmNotificationsEnabled"),
+      autoCloseWfmOrders: booleanSetting("autoCloseWfmOrders"),
       showTradeNotification:
         candidate.showTradeNotification !== undefined
           ? !!candidate.showTradeNotification
-          : !!defaults.showTradeNotification,
+          : tradeNotificationOverlayEnabled,
+      relicRewardsOverlayEnabled: booleanSetting("relicRewardsOverlayEnabled"),
+      relicRecommendationOverlayEnabled: booleanSetting("relicRecommendationOverlayEnabled"),
+      tradeNotificationOverlayEnabled,
+      rivenOverlayEnabled: booleanSetting("rivenOverlayEnabled"),
     };
   }
 

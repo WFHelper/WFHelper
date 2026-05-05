@@ -10,7 +10,13 @@ import { withScope } from "../services/logger";
 import * as warframeStatus from "../services/warframeStatus";
 import * as rivenOverlayIpc from "./rivenOverlayIpc";
 import * as rewardOverlayIpc from "./rewardOverlayIpc";
-import { OVERLAY_SETTINGS_DEFAULTS } from "../config/runtime/overlaySettings";
+import {
+  isRelicRecommendationOverlayEnabled,
+  isRelicRewardsOverlayEnabled,
+  isRivenOverlayEnabled,
+  isTradeNotificationOverlayEnabled,
+  OVERLAY_SETTINGS_DEFAULTS,
+} from "../config/runtime/overlaySettings";
 import {
   OVERLAY_INTERACTION_MODE,
   OVERLAY_THEME_VARS,
@@ -191,6 +197,30 @@ function onRelicSelectionClose(): void {
   rewardOverlayIpc.onRelicSelectionClose(pushOverlayInteractionMode);
 }
 
+function applyOverlayAvailabilitySettings(): void {
+  if (!isRelicRewardsOverlayEnabled(ctx.overlaySettings)) {
+    rewardOverlayIpc.getRewardWindowsController().clearOverlayAutoHideTimer();
+    if (ctx.overlayWindow && !ctx.overlayWindow.isDestroyed()) ctx.overlayWindow.hide();
+  }
+
+  if (!isRelicRecommendationOverlayEnabled(ctx.overlaySettings)) {
+    rewardOverlayIpc.getPlannerWindowsController().clearOverlayAutoHideTimer();
+    if (ctx.plannerOverlayWindow && !ctx.plannerOverlayWindow.isDestroyed()) {
+      ctx.plannerOverlayWindow.hide();
+    }
+  }
+
+  if (!isTradeNotificationOverlayEnabled(ctx.overlaySettings)) {
+    if (ctx.tradeNotificationWindow && !ctx.tradeNotificationWindow.isDestroyed()) {
+      ctx.tradeNotificationWindow.hide();
+    }
+  }
+
+  if (!isRivenOverlayEnabled(ctx.overlaySettings)) {
+    rivenOverlayIpc.onRivenSessionClose();
+  }
+}
+
 function register(): void {
   ensureOverlayWindowPrimed();
   setTimeout(() => {
@@ -221,6 +251,7 @@ function register(): void {
     async (_event, nextSettings: unknown) => {
       const settings = settingsController.setOverlaySettings(nextSettings);
       settingsController.registerOverlayHotkey();
+      applyOverlayAvailabilitySettings();
       return settings;
     },
   );

@@ -1,6 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { overlaySettings, overlaySettingsLoaded, OVERLAY_DEFAULTS, applyOverlaySettingsResponse } from "../stores/overlaySettings.js";
+  import {
+    overlaySettings,
+    overlaySettingsLoaded,
+    OVERLAY_DEFAULTS,
+    applyOverlaySettingsResponse,
+  } from "../stores/overlaySettings.js";
   import AppearanceCard from "../components/settings/AppearanceCard.svelte";
   import { invoke, send } from "../lib/ipc.js";
   import { tr } from "../lib/i18n.js";
@@ -11,9 +16,13 @@
   let statusError = false;
 
   let autoTrigger = OVERLAY_DEFAULTS.autoTriggerEnabled;
+  let notificationSoundEnabled = OVERLAY_DEFAULTS.notificationSoundEnabled;
   let wfmNotificationsEnabled = OVERLAY_DEFAULTS.wfmNotificationsEnabled;
   let autoCloseWfmOrders = OVERLAY_DEFAULTS.autoCloseWfmOrders;
-  let showTradeNotification = OVERLAY_DEFAULTS.showTradeNotification;
+  let tradeNotificationOverlayEnabled = OVERLAY_DEFAULTS.tradeNotificationOverlayEnabled;
+  let relicRewardsOverlayEnabled = OVERLAY_DEFAULTS.relicRewardsOverlayEnabled;
+  let relicRecommendationOverlayEnabled = OVERLAY_DEFAULTS.relicRecommendationOverlayEnabled;
+  let rivenOverlayEnabled = OVERLAY_DEFAULTS.rivenOverlayEnabled;
   let hotkeyEnabled = OVERLAY_DEFAULTS.hotkeyEnabled;
   let hotkey = OVERLAY_DEFAULTS.hotkey;
   let interactionHotkeyEnabled = OVERLAY_DEFAULTS.interactionHotkeyEnabled;
@@ -21,9 +30,19 @@
 
   function applyToForm(s: Partial<OverlaySettings>): void {
     autoTrigger = !!s.autoTriggerEnabled;
+    notificationSoundEnabled =
+      s.notificationSoundEnabled ?? OVERLAY_DEFAULTS.notificationSoundEnabled;
     wfmNotificationsEnabled = !!s.wfmNotificationsEnabled;
     autoCloseWfmOrders = s.autoCloseWfmOrders ?? OVERLAY_DEFAULTS.autoCloseWfmOrders;
-    showTradeNotification = s.showTradeNotification ?? OVERLAY_DEFAULTS.showTradeNotification;
+    tradeNotificationOverlayEnabled =
+      s.tradeNotificationOverlayEnabled ??
+      s.showTradeNotification ??
+      OVERLAY_DEFAULTS.tradeNotificationOverlayEnabled;
+    relicRewardsOverlayEnabled =
+      s.relicRewardsOverlayEnabled ?? OVERLAY_DEFAULTS.relicRewardsOverlayEnabled;
+    relicRecommendationOverlayEnabled =
+      s.relicRecommendationOverlayEnabled ?? OVERLAY_DEFAULTS.relicRecommendationOverlayEnabled;
+    rivenOverlayEnabled = s.rivenOverlayEnabled ?? OVERLAY_DEFAULTS.rivenOverlayEnabled;
     hotkeyEnabled = !!s.hotkeyEnabled;
     hotkey = s.hotkey || OVERLAY_DEFAULTS.hotkey;
     interactionHotkeyEnabled = !!s.interactionHotkeyEnabled;
@@ -46,9 +65,14 @@
   async function save() {
     const payload = {
       autoTriggerEnabled: autoTrigger,
+      notificationSoundEnabled,
       wfmNotificationsEnabled,
       autoCloseWfmOrders,
-      showTradeNotification,
+      showTradeNotification: tradeNotificationOverlayEnabled,
+      tradeNotificationOverlayEnabled,
+      relicRewardsOverlayEnabled,
+      relicRecommendationOverlayEnabled,
+      rivenOverlayEnabled,
       hotkeyEnabled,
       hotkey,
       interactionHotkeyEnabled,
@@ -93,14 +117,26 @@
   </div>
 
   <div class="tab-bar">
-    <button class="tab-item" class:active={settingsTab === "general"} on:click={() => (settingsTab = "general")}>
+    <button
+      class="tab-item"
+      class:active={settingsTab === "general"}
+      on:click={() => (settingsTab = "general")}
+    >
       <span>General</span>
     </button>
-    <button class="tab-item" class:active={settingsTab === "appearance"} on:click={() => (settingsTab = "appearance")}>
+    <button
+      class="tab-item"
+      class:active={settingsTab === "appearance"}
+      on:click={() => (settingsTab = "appearance")}
+    >
       <span>Appearance</span>
     </button>
-    <button class="tab-item" class:active={settingsTab === "overlay"} on:click={() => (settingsTab = "overlay")}>
-      <span>Relic Overlay</span>
+    <button
+      class="tab-item"
+      class:active={settingsTab === "overlay"}
+      on:click={() => (settingsTab = "overlay")}
+    >
+      <span>Overlays</span>
     </button>
   </div>
 
@@ -108,11 +144,18 @@
     <div class="settings-tab-grid py-3">
       <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
         <div>
-          <h3 class="m-0 mb-[0.42rem] font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Trade</h3>
-          <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">Notifications and order handling for market-assisted trades.</p>
+          <h3 class="m-0 mb-[0.42rem] font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Notifications</h3>
+          <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
+            Desktop and market notification behavior.
+          </p>
         </div>
 
         <div class="mt-2.5 grid gap-2">
+          <label class="settings-control-row">
+            <span>Windows notification sound</span>
+            <input type="checkbox" bind:checked={notificationSoundEnabled} class="accent-accent" />
+          </label>
+
           <label class="settings-control-row">
             <span>WFM DM notifications</span>
             <input type="checkbox" bind:checked={wfmNotificationsEnabled} class="accent-accent" />
@@ -121,11 +164,6 @@
           <label class="settings-control-row">
             <span>Auto-close WFM orders on trade</span>
             <input type="checkbox" bind:checked={autoCloseWfmOrders} class="accent-accent" />
-          </label>
-
-          <label class="settings-control-row">
-            <span>Trade finished notification</span>
-            <input type="checkbox" bind:checked={showTradeNotification} class="accent-accent" />
           </label>
         </div>
       </article>
@@ -152,6 +190,45 @@
     </div>
   {:else if settingsTab === "overlay"}
     <div class="settings-tab-grid py-3">
+      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+        <div>
+          <h3 class="m-0 mb-[0.42rem] font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Overlay availability</h3>
+          <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
+            Enable or disable each in-game overlay window.
+          </p>
+        </div>
+
+        <div class="mt-2.5 grid gap-2">
+          <label class="settings-control-row">
+            <span>Relic rewards overlay</span>
+            <input type="checkbox" bind:checked={relicRewardsOverlayEnabled} class="accent-accent" />
+          </label>
+
+          <label class="settings-control-row">
+            <span>Relic recommendation overlay</span>
+            <input
+              type="checkbox"
+              bind:checked={relicRecommendationOverlayEnabled}
+              class="accent-accent"
+            />
+          </label>
+
+          <label class="settings-control-row">
+            <span>Trade detected overlay</span>
+            <input
+              type="checkbox"
+              bind:checked={tradeNotificationOverlayEnabled}
+              class="accent-accent"
+            />
+          </label>
+
+          <label class="settings-control-row">
+            <span>Riven overlay</span>
+            <input type="checkbox" bind:checked={rivenOverlayEnabled} class="accent-accent" />
+          </label>
+        </div>
+      </article>
+
       <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
         <div>
           <h3 class="m-0 mb-[0.42rem] font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">{$tr("settings.overlayTitle")}</h3>

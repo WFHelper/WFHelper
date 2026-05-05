@@ -77,6 +77,36 @@ describe("overlay settings controller", () => {
     expect(normalized.showTradeNotification).toBe(false);
   });
 
+  it("normalizes notification sound and overlay availability settings", () => {
+    const { controller } = buildController();
+
+    const normalized = controller.normalizeOverlaySettings({
+      notificationSoundEnabled: false,
+      relicRewardsOverlayEnabled: false,
+      relicRecommendationOverlayEnabled: false,
+      tradeNotificationOverlayEnabled: false,
+      rivenOverlayEnabled: false,
+    });
+
+    expect(normalized.notificationSoundEnabled).toBe(false);
+    expect(normalized.relicRewardsOverlayEnabled).toBe(false);
+    expect(normalized.relicRecommendationOverlayEnabled).toBe(false);
+    expect(normalized.tradeNotificationOverlayEnabled).toBe(false);
+    expect(normalized.showTradeNotification).toBe(false);
+    expect(normalized.rivenOverlayEnabled).toBe(false);
+  });
+
+  it("migrates the legacy trade notification setting to the overlay toggle", () => {
+    const { controller } = buildController();
+
+    const normalized = controller.normalizeOverlaySettings({
+      showTradeNotification: false,
+    });
+
+    expect(normalized.tradeNotificationOverlayEnabled).toBe(false);
+    expect(normalized.showTradeNotification).toBe(false);
+  });
+
   it("persists settings", () => {
     const { controller, deps } = buildController();
 

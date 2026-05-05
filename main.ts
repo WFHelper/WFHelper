@@ -44,6 +44,7 @@ import * as statsTracker from "./services/statsTracker";
 import * as tradeTracker from "./services/tradeTracker";
 import * as tradeWfmMatcher from "./services/tradeWfmMatcher";
 import * as apiHelperRunner from "./services/apiHelperRunner";
+import { isTradeNotificationOverlayEnabled } from "./config/runtime/overlaySettings";
 
 // Suppress noisy Chromium/DevTools internal logging in terminal.
 app.commandLine.appendSwitch("disable-logging");
@@ -334,7 +335,10 @@ app.whenReady().then(async () => {
           }
 
           // Show trade notification overlay (if enabled)
-          if (ctx.overlaySettings.showTradeNotification !== false) {
+          if (
+            isTradeNotificationOverlayEnabled(ctx.overlaySettings) &&
+            ctx.overlaySettings.showTradeNotification !== false
+          ) {
             tradeNotificationIpc.showTradeNotification(match);
           }
         } catch (err) {

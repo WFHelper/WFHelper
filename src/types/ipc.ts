@@ -44,9 +44,14 @@ export interface OverlaySettings {
   cycleAlerts: CycleAlerts;
   cycleAlertMinutesBefore: number;
   fissureAlerts: FissureAlert[];
+  notificationSoundEnabled: boolean;
   wfmNotificationsEnabled: boolean;
   autoCloseWfmOrders: boolean;
   showTradeNotification: boolean;
+  relicRewardsOverlayEnabled: boolean;
+  relicRecommendationOverlayEnabled: boolean;
+  tradeNotificationOverlayEnabled: boolean;
+  rivenOverlayEnabled: boolean;
 }
 
 type AppUpdateStatus =

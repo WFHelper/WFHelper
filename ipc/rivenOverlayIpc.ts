@@ -13,6 +13,7 @@ import * as wfmRivenSearch from "../services/wfmRivenSearch";
 import * as warframeStatus from "../services/warframeStatus";
 import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
+import { isRivenOverlayEnabled as isRivenOverlaySettingEnabled } from "../config/runtime/overlaySettings";
 
 import { forceEndRivenSession } from "../services/eeLogMonitor";
 import { isAllowedExternalHost } from "../config/runtime/security";
@@ -188,6 +189,10 @@ let _rivenNewRollStats: rivenScan.RivenStat[] = [];
 
 // Weapon name — starts as "Riven" placeholder, updated when cycle dialog reveals it
 let _rivenWeaponName = "";
+
+function isRivenOverlayEnabled(): boolean {
+  return isRivenOverlaySettingEnabled(ctx.overlaySettings);
+}
 
 
 /**
@@ -394,6 +399,7 @@ export function onRivenSessionClose(): void {
 }
 
 export function onRivenChatView(): void {
+  if (!isRivenOverlayEnabled()) return;
   log.log("[OverlayRoute] trigger=riven-chat-view (left panel only)");
   // Don't interrupt an active rolling session
   if (_rivenHasRollResult) return;
@@ -432,6 +438,7 @@ export function onRivenChatView(): void {
 }
 
 export function onRivenSessionOpen(): void {
+  if (!isRivenOverlayEnabled()) return;
   log.log("[OverlayRoute] trigger=riven-session");
   _rivenHasRollResult = false;
   _rollScanSerial++;
@@ -451,6 +458,7 @@ export function onRivenSessionOpen(): void {
 }
 
 export function onRivenRollPending(weapon: string, kuvaPerRoll: number): void {
+  if (!isRivenOverlayEnabled()) return;
   _rivenHasRollResult = false;
   log.log(`[OverlayRoute] onRivenRollPending: weapon="${weapon}", kuva=${kuvaPerRoll}, current="${_rivenWeaponName}"`);
   // Update weapon name from the cycle dialog text (first time we learn it).
@@ -472,6 +480,7 @@ export function onRivenRollPending(weapon: string, kuvaPerRoll: number): void {
 }
 
 export function onRivenRollConfirmed(): void {
+  if (!isRivenOverlayEnabled()) return;
   log.log("[OverlayRoute] onRivenRollConfirmed -> scheduling roll scan");
   rivenSession.onRollConfirmed(getRivenWindows());
   triggerRollScan();
@@ -480,10 +489,12 @@ export function onRivenRollConfirmed(): void {
 // Fired when the two-card diorama finishes loading. Roll scans are scheduled from
 // the roll-confirm event instead, so this remains a no-op to prevent duplicate scans.
 export function onRivenDioramaSetup(): void {
+  if (!isRivenOverlayEnabled()) return;
   log.log("[OverlayRoute] diorama setup event (no-op, roll uses fixed delay)");
 }
 
 export function onRivenChoiceConfirmed(): void {
+  if (!isRivenOverlayEnabled()) return;
   // If the overlay was already closed (e.g. user pressed ESC before the EE.log
   // file poll delivered the choice-confirm line), bail out immediately.  Scanning
   // against a hidden/non-existent window captures the desktop and can crash the
