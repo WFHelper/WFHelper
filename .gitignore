@@ -3,7 +3,16 @@ dist/
 out/
 release/
 release-test/
+.venv/
+venv/
+env/
+.python-version
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 .env
+.env*
+!.env.example
 .env.local
 .env.*.local
 *.log
@@ -34,36 +43,15 @@ riven-ocr-debug/
 OCR-debug/
 temp_*.png
 
-# PaddleOCR / YOLO training artifacts (generated, reproducible)
-scripts/train-paddleocr/train_data/
-scripts/train-paddleocr/checkpoint/
-scripts/train-paddleocr/output/**
-!scripts/train-paddleocr/output/yolo_detector/
-!scripts/train-paddleocr/output/yolo_detector/stat_line_detector.onnx
-!scripts/train-paddleocr/output/paddle_ocr/
-!scripts/train-paddleocr/output/paddle_ocr/ch_PP-OCRv3_rec_infer.onnx
-scripts/train-paddleocr/models/tmp_wheels/
-scripts/train-paddleocr/models/*/
-scripts/train-paddleocr/_*
-scripts/train-paddleocr/*.txt
-scripts/train-paddleocr/*.png
-scripts/train-paddleocr/*.jpg
-scripts/train-paddleocr/*yolo*/
-scripts/train-paddleocr/yolo_*/
-scripts/train-paddleocr/real_*/
-scripts/train-paddleocr/debug_*/
-scripts/train-paddleocr/backups/
-scripts/train-paddleocr/benchmark_results/
-scripts/train-paddleocr/crop_*/
-scripts/train-paddleocr/fonts/
-scripts/train-paddleocr/diag_output/
+# OCR training artifacts are generated and no longer part of the runtime tree.
+# Runtime Riven OCR models/dictionaries live in assets/riven-ocr/.
+scripts/train-paddleocr/
 
-# PyTorch / ONNX / PaddlePaddle model weights (too large for git)
+# Generated model/checkpoint artifacts. Runtime ONNX files are explicitly kept.
 *.pt
 *.pth
 *.onnx
-!scripts/train-paddleocr/output/yolo_detector/stat_line_detector.onnx
-!scripts/train-paddleocr/output/paddle_ocr/ch_PP-OCRv3_rec_infer.onnx
+!assets/riven-ocr/**/*.onnx
 *.tar
 
 # Python bytecode

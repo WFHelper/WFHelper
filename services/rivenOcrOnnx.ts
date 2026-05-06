@@ -14,9 +14,9 @@
  *   5. Split-line merging — merges multi-word stat names split across YOLO boxes.
  *
  * Model files:
- *   - scripts/train-paddleocr/output/yolo_detector/stat_line_detector.onnx  (11.7 MB)
- *   - scripts/train-paddleocr/output/paddle_ocr/ch_PP-OCRv3_rec_infer.onnx (10.2 MB)
- *   - scripts/train-paddleocr/models/ch_dict.txt                           (32 KB)
+ *   - assets/riven-ocr/yolo/stat_line_detector.onnx              (11.7 MB)
+ *   - assets/riven-ocr/paddle/ch_PP-OCRv3_rec_infer.onnx         (10.2 MB)
+ *   - assets/riven-ocr/paddle/ch_dict.txt                        (32 KB)
  */
 
 import path from "node:path";
@@ -25,32 +25,25 @@ import { withScope } from "./logger";
 
 const log = withScope("rivenOcrOnnx");
 
-
-function resolveYoloModelPath(): string {
+function resolveRivenOcrAssetPath(...parts: string[]): string {
   const candidates = [
-    path.join(__dirname, "..", "scripts", "train-paddleocr", "output", "yolo_detector", "stat_line_detector.onnx"),
-    path.join(__dirname, "..", "..", "scripts", "train-paddleocr", "output", "yolo_detector", "stat_line_detector.onnx"),
-    path.join(process.cwd(), "scripts", "train-paddleocr", "output", "yolo_detector", "stat_line_detector.onnx"),
+    path.join(__dirname, "..", "assets", "riven-ocr", ...parts),
+    path.join(__dirname, "..", "..", "assets", "riven-ocr", ...parts),
+    path.join(process.cwd(), "assets", "riven-ocr", ...parts),
   ];
   return candidates.find(existsSync) ?? candidates[0];
+}
+
+function resolveYoloModelPath(): string {
+  return resolveRivenOcrAssetPath("yolo", "stat_line_detector.onnx");
 }
 
 function resolveChRecModelPath(): string {
-  const candidates = [
-    path.join(__dirname, "..", "scripts", "train-paddleocr", "output", "paddle_ocr", "ch_PP-OCRv3_rec_infer.onnx"),
-    path.join(__dirname, "..", "..", "scripts", "train-paddleocr", "output", "paddle_ocr", "ch_PP-OCRv3_rec_infer.onnx"),
-    path.join(process.cwd(), "scripts", "train-paddleocr", "output", "paddle_ocr", "ch_PP-OCRv3_rec_infer.onnx"),
-  ];
-  return candidates.find(existsSync) ?? candidates[0];
+  return resolveRivenOcrAssetPath("paddle", "ch_PP-OCRv3_rec_infer.onnx");
 }
 
 function resolveChDictPath(): string {
-  const candidates = [
-    path.join(__dirname, "..", "scripts", "train-paddleocr", "models", "ch_dict.txt"),
-    path.join(__dirname, "..", "..", "scripts", "train-paddleocr", "models", "ch_dict.txt"),
-    path.join(process.cwd(), "scripts", "train-paddleocr", "models", "ch_dict.txt"),
-  ];
-  return candidates.find(existsSync) ?? candidates[0];
+  return resolveRivenOcrAssetPath("paddle", "ch_dict.txt");
 }
 
 
