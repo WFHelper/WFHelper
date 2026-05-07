@@ -26,7 +26,7 @@
 		"CACHE_TTL_SEC": "86400",
 		"ORDERS_SUMMARY_CACHE_TTL_SEC": "172800",
 		"ORDERS_SUMMARY_STALE_REFRESH_SEC": "75600",
-		"ORDER_SUMMARY_PREWARM_BATCH_SIZE": "18",
+		"ORDER_SUMMARY_PREWARM_BATCH_SIZE": "36",
 		// Restrict browser-context CORS to the production domain only.
 		// Requests without an Origin header (Electron app, curl) are always
 		// allowed regardless of this value — it only blocks cross-site browser
@@ -38,14 +38,14 @@
 		"DAILY_BUDGET_ENABLED": "1",
 		"DAILY_BUDGET_MAX_REQUESTS": "300000",
 		"DAILY_BUDGET_SAMPLE_RATE": "100",
-		"DAILY_BUDGET_SYNC_INTERVAL_SEC": "60",
+		"DAILY_BUDGET_SYNC_INTERVAL_SEC": "180",
 		"PUBLIC_RATE_LIMIT_ENABLED": "1",
 		// DEPLOYMENT ORDER: set to "1" only AFTER:
 		//   1. Running: wrangler secret put BOOTSTRAP_TOKEN_SECRET
 		//   2. Deploying the app update that sends the x-wfhelper-bootstrap header.
 		// Setting this to "1" without BOOTSTRAP_TOKEN_SECRET will block ALL public routes.
 		"PUBLIC_BOOTSTRAP_REQUIRED": "1",
-		"PREWARM_BATCH_SIZE": "100",
+		"PREWARM_BATCH_SIZE": "125",
 		"CATALOG_REFRESH_HOURS": "24",
 		"ADMIN_PREWARM_MAX_BATCH": "100",
 		"NO_DATA_TTL_SEC": "900",
@@ -63,9 +63,38 @@
 	// vars (https://wfhelper.com) untouched.
 	"env": {
 		"dev": {
+			"kv_namespaces": [
+				{
+					"binding": "PRICE_CACHE",
+					"id": "93e17278beee46b48e7666da5146f8e2",
+					"preview_id": "f50302722fd345bfb1c2109e89b6ca9d",
+				},
+				{
+					"binding": "ITEM_META",
+					"id": "e4990d24455b4b648a8c24d908b63813",
+					"preview_id": "b332ce4ec0b043d89e07b526244e31d8",
+				},
+			],
 			"vars": {
+				"CACHE_TTL_SEC": "86400",
+				"ORDERS_SUMMARY_CACHE_TTL_SEC": "172800",
+				"ORDERS_SUMMARY_STALE_REFRESH_SEC": "75600",
+				"ORDER_SUMMARY_PREWARM_BATCH_SIZE": "36",
 				"ALLOW_ORIGIN": "http://localhost:5173",
+				"ADMIN_RATE_LIMIT_WINDOW_SEC": "60",
+				"ADMIN_RATE_LIMIT_MAX": "60",
+				"CATALOG_SLUG_GUARD_ENABLED": "1",
+				"DAILY_BUDGET_ENABLED": "1",
+				"DAILY_BUDGET_MAX_REQUESTS": "300000",
+				"DAILY_BUDGET_SAMPLE_RATE": "100",
+				"DAILY_BUDGET_SYNC_INTERVAL_SEC": "180",
+				"PUBLIC_RATE_LIMIT_ENABLED": "1",
 				"PUBLIC_BOOTSTRAP_REQUIRED": "0",
+				"PREWARM_BATCH_SIZE": "125",
+				"CATALOG_REFRESH_HOURS": "24",
+				"ADMIN_PREWARM_MAX_BATCH": "100",
+				"NO_DATA_TTL_SEC": "900",
+				"STALE_REFRESH_SEC": "75600",
 			},
 		},
 	},

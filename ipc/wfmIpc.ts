@@ -21,14 +21,24 @@ import * as wfmCatalog from "../services/wfmCatalog";
 import { startListening, stopListening } from "../services/wfmWebSocketListener";
 import ctx from "./context";
 import {
-  WFM_SIGNIN, WFM_SIGNOUT, WFM_SESSION, WFM_GET_ORDERS, WFM_GET_CONTRACTS,
-  WFM_CREATE_ORDER, WFM_UPDATE_ORDER, WFM_DELETE_ORDER,
-  WFM_SET_VISIBLE, WFM_SEARCH_ITEMS, WFM_LOOKUP_ITEM, WFM_GET_ME, WFM_SET_STATUS,
+  WFM_SIGNIN,
+  WFM_SIGNOUT,
+  WFM_SESSION,
+  WFM_GET_ORDERS,
+  WFM_GET_CONTRACTS,
+  WFM_CREATE_ORDER,
+  WFM_UPDATE_ORDER,
+  WFM_DELETE_ORDER,
+  WFM_SET_VISIBLE,
+  WFM_SEARCH_ITEMS,
+  WFM_LOOKUP_ITEM,
+  WFM_GET_ME,
+  WFM_SET_STATUS,
   WFM_NOTIFICATION,
 } from "../config/shared/ipcChannels";
+import { confirmTradeMutation, tradeMutationDenied } from "./tradeMutationGate";
 
 const log = withScope("wfmIpc");
-
 
 async function withWfmError<T>(
   label: string,
@@ -44,7 +54,6 @@ async function withWfmError<T>(
     return { error: message };
   }
 }
-
 
 function _handleWfmEvent(route: string, payload: unknown): void {
   if (!ctx.overlaySettings?.wfmNotificationsEnabled) return;
@@ -113,43 +122,87 @@ function register(): void {
       log.warn("[Security] wfm:get-contracts blocked due to invalid payload");
       return { error: "Invalid contracts payload." };
     }
-    return withWfmError("get-contracts", () => wfmContracts.getMyContracts(parsed), "Failed to fetch contracts.");
+    return withWfmError(
+      "get-contracts",
+      () => wfmContracts.getMyContracts(parsed),
+      "Failed to fetch contracts.",
+    );
   });
 
-  handleAuthorized(WFM_CREATE_ORDER, assertMainRendererSender, async (_event, payload) => {
+  handleAuthorized(WFM_CREATE_ORDER, assertMainRendererSender, async (event, payload) => {
     const params = parseCreateOrderParams(payload);
     if (!params) {
       log.warn("[Security] wfm:create-order blocked due to invalid payload");
       return { error: "Invalid create-order payload." };
     }
-    return withWfmError("create-order", () => wfmOrders.createOrder(params), "Failed to create order.");
+    const confirmed = await confirmTradeMutation(event, {
+      title: "Confirm Warframe Market order",
+      message: "Create this Warframe Market order?",
+      detail: `${params.orderType} ${params.quantity} x ${params.itemId} for ${params.platinum} platinum.`,
+    });
+    if (!confirmed) return tradeMutationDenied();
+    return withWfmError(
+      "create-order",
+      () => wfmOrders.createOrder(params),
+      "Failed to create order.",
+    );
   });
 
-  handleAuthorized(WFM_UPDATE_ORDER, assertMainRendererSender, async (_event, payload) => {
+  handleAuthorized(WFM_UPDATE_ORDER, assertMainRendererSender, async (event, payload) => {
     const parsed = parseUpdateOrderPayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:update-order blocked due to invalid payload");
       return { error: "Invalid update-order payload." };
     }
-    return withWfmError("update-order", () => wfmOrders.updateOrder(parsed.orderId, parsed.updates), "Failed to update order.");
+    const confirmed = await confirmTradeMutation(event, {
+      title: "Confirm Warframe Market update",
+      message: "Update this Warframe Market order?",
+      detail: `Order ${parsed.orderId}`,
+    });
+    if (!confirmed) return tradeMutationDenied();
+    return withWfmError(
+      "update-order",
+      () => wfmOrders.updateOrder(parsed.orderId, parsed.updates),
+      "Failed to update order.",
+    );
   });
 
-  handleAuthorized(WFM_DELETE_ORDER, assertMainRendererSender, async (_event, payload) => {
+  handleAuthorized(WFM_DELETE_ORDER, assertMainRendererSender, async (event, payload) => {
     const parsed = parseDeleteOrderPayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:delete-order blocked due to invalid payload");
       return { error: "Invalid delete-order payload." };
     }
-    return withWfmError("delete-order", () => wfmOrders.deleteOrder(parsed.orderId), "Failed to delete order.");
+    const confirmed = await confirmTradeMutation(event, {
+      title: "Confirm Warframe Market deletion",
+      message: "Delete this Warframe Market order?",
+      detail: `Order ${parsed.orderId}`,
+    });
+    if (!confirmed) return tradeMutationDenied();
+    return withWfmError(
+      "delete-order",
+      () => wfmOrders.deleteOrder(parsed.orderId),
+      "Failed to delete order.",
+    );
   });
 
-  handleAuthorized(WFM_SET_VISIBLE, assertMainRendererSender, async (_event, payload) => {
+  handleAuthorized(WFM_SET_VISIBLE, assertMainRendererSender, async (event, payload) => {
     const parsed = parseSetVisiblePayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:set-visible blocked due to invalid payload");
       return { error: "Invalid set-visible payload." };
     }
-    return withWfmError("set-visible", () => wfmOrders.setOrdersVisible(parsed.orderIds, parsed.visible), "Failed to update order visibility.");
+    const confirmed = await confirmTradeMutation(event, {
+      title: "Confirm Warframe Market visibility",
+      message: `${parsed.visible ? "Show" : "Hide"} ${parsed.orderIds.length} Warframe Market order(s)?`,
+      detail: parsed.orderIds.join(", "),
+    });
+    if (!confirmed) return tradeMutationDenied();
+    return withWfmError(
+      "set-visible",
+      () => wfmOrders.setOrdersVisible(parsed.orderIds, parsed.visible),
+      "Failed to update order visibility.",
+    );
   });
 
   handleAuthorized(WFM_SEARCH_ITEMS, assertMainRendererSender, async (_event, payload) => {
@@ -158,7 +211,11 @@ function register(): void {
       log.warn("[Security] wfm:search-items blocked due to invalid payload");
       return { error: "Invalid search payload." };
     }
-    return withWfmError("search-items", () => wfmCatalog.searchItems(parsed.query, parsed.limit), "Failed to search items.");
+    return withWfmError(
+      "search-items",
+      () => wfmCatalog.searchItems(parsed.query, parsed.limit),
+      "Failed to search items.",
+    );
   });
 
   handleAuthorized(WFM_LOOKUP_ITEM, assertMainRendererSender, async (_event, payload) => {
@@ -199,14 +256,23 @@ function register(): void {
     withWfmError("get-me", () => wfmSession.getMe(), "Failed to get user profile."),
   );
 
-  handleAuthorized(WFM_SET_STATUS, assertMainRendererSender, async (_event, payload) => {
+  handleAuthorized(WFM_SET_STATUS, assertMainRendererSender, async (event, payload) => {
     const parsed = parseStatusPayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:set-status blocked due to invalid payload");
       return { error: "Invalid status. Must be one of: online, ingame, invisible." };
     }
 
-    return withWfmError("set-status", () => wfmSession.setStatus(parsed.status as WfmStatus), "Failed to set status.");
+    const confirmed = await confirmTradeMutation(event, {
+      title: "Confirm Warframe Market status",
+      message: `Set your Warframe Market status to ${parsed.status}?`,
+    });
+    if (!confirmed) return tradeMutationDenied();
+    return withWfmError(
+      "set-status",
+      () => wfmSession.setStatus(parsed.status as WfmStatus),
+      "Failed to set status.",
+    );
   });
 }
 

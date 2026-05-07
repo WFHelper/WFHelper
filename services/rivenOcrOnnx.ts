@@ -14,24 +14,19 @@
  *   5. Split-line merging — merges multi-word stat names split across YOLO boxes.
  *
  * Model files:
- *   - assets/riven-ocr/yolo/stat_line_detector.onnx              (11.7 MB)
- *   - assets/riven-ocr/paddle/ch_PP-OCRv3_rec_infer.onnx         (10.2 MB)
- *   - assets/riven-ocr/paddle/ch_dict.txt                        (32 KB)
+ *   - resources/riven-ocr/yolo/stat_line_detector.onnx              (11.7 MB)
+ *   - resources/riven-ocr/paddle/ch_PP-OCRv3_rec_infer.onnx         (10.2 MB)
+ *   - resources/riven-ocr/paddle/ch_dict.txt                        (32 KB)
  */
 
-import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { withScope } from "./logger";
+import { resolveRuntimeResourcePath } from "./runtimeResources";
 
 const log = withScope("rivenOcrOnnx");
 
 function resolveRivenOcrAssetPath(...parts: string[]): string {
-  const candidates = [
-    path.join(__dirname, "..", "assets", "riven-ocr", ...parts),
-    path.join(__dirname, "..", "..", "assets", "riven-ocr", ...parts),
-    path.join(process.cwd(), "assets", "riven-ocr", ...parts),
-  ];
-  return candidates.find(existsSync) ?? candidates[0];
+  return resolveRuntimeResourcePath("riven-ocr", ...parts);
 }
 
 function resolveYoloModelPath(): string {
@@ -46,14 +41,14 @@ function resolveChDictPath(): string {
   return resolveRivenOcrAssetPath("paddle", "ch_dict.txt");
 }
 
-
 /** Minimal interface matching onnxruntime-node InferenceSession */
 interface OrtInferenceSession {
   inputNames: readonly string[];
   outputNames: readonly string[];
-  run(feeds: Record<string, unknown>): Promise<Record<string, { data: Float32Array; dims: number[] }>>;
+  run(
+    feeds: Record<string, unknown>,
+  ): Promise<Record<string, { data: Float32Array; dims: number[] }>>;
 }
-
 
 let _yoloSessionPromise: Promise<OrtInferenceSession> | null = null;
 let _yoloInputName = "";
@@ -80,7 +75,6 @@ async function getYoloSession(): Promise<OrtInferenceSession> {
       _yoloSessionPermanentError = err;
       throw err;
     }
-
 
     const ort: typeof import("onnxruntime-node") = require("onnxruntime-node");
 
@@ -155,7 +149,6 @@ export function rivenOcrOnnxAvailable(): boolean {
   return existsSync(resolveYoloModelPath()) && existsSync(resolveChRecModelPath());
 }
 
-
 interface YoloBox {
   y1: number;
   y2: number;
@@ -181,7 +174,6 @@ async function yoloDetectStatLines(
   iouThresh = 0.5,
 ): Promise<YoloBox[]> {
   const session = await getYoloSession();
-
 
   const ort: typeof import("onnxruntime-node") = require("onnxruntime-node");
 
@@ -214,7 +206,7 @@ async function yoloDetectStatLines(
       const srcIdx = (y * newW + x) * 3;
       const dstY = y + padTop;
       const dstX = x + padLeft;
-      blob[0 * imgsz * imgsz + dstY * imgsz + dstX] = resizedBuf[srcIdx] / 255;     // R
+      blob[0 * imgsz * imgsz + dstY * imgsz + dstX] = resizedBuf[srcIdx] / 255; // R
       blob[1 * imgsz * imgsz + dstY * imgsz + dstX] = resizedBuf[srcIdx + 1] / 255; // G
       blob[2 * imgsz * imgsz + dstY * imgsz + dstX] = resizedBuf[srcIdx + 2] / 255; // B
     }
@@ -297,7 +289,6 @@ async function yoloDetectStatLines(
   }));
 }
 
-
 const MAX_STAT_CROP_HEIGHT = 80;
 const MIN_OCR_WIDTH = 1200;
 
@@ -320,7 +311,6 @@ async function extractAndUpscaleCrops(
   padX = 8,
 ): Promise<RgbCrop[]> {
   if (boxes.length === 0) return [];
-
 
   const sharp: typeof import("sharp") = require("sharp");
 
@@ -367,7 +357,6 @@ async function extractAndUpscaleCrops(
   return upscaled;
 }
 
-
 /** Per-line OCR result with confidence score. */
 interface OcrLineResult {
   text: string;
@@ -411,9 +400,8 @@ function ctcGreedyDecode(
   }
 
   const text = textParts.join("");
-  const confidence = confParts.length > 0
-    ? confParts.reduce((a, b) => a + b, 0) / confParts.length
-    : 0;
+  const confidence =
+    confParts.length > 0 ? confParts.reduce((a, b) => a + b, 0) / confParts.length : 0;
 
   return { text, confidence };
 }
@@ -425,7 +413,6 @@ function ctcGreedyDecode(
 async function recognizeCropsBatch(crops: RgbCrop[]): Promise<OcrLineResult[]> {
   if (crops.length === 0) return [];
   const session = await getChRecSession();
-
 
   const ort: typeof import("onnxruntime-node") = require("onnxruntime-node");
 
@@ -460,8 +447,10 @@ async function recognizeCropsBatch(crops: RgbCrop[]): Promise<OcrLineResult[]> {
       for (let x = 0; x < resizedW; x++) {
         const srcIdx = (y * resizedW + x) * 3;
         batchData[batchOffset + 0 * imgH * imgW + y * imgW + x] = resizedBuf[srcIdx] / 127.5 - 1.0;
-        batchData[batchOffset + 1 * imgH * imgW + y * imgW + x] = resizedBuf[srcIdx + 1] / 127.5 - 1.0;
-        batchData[batchOffset + 2 * imgH * imgW + y * imgW + x] = resizedBuf[srcIdx + 2] / 127.5 - 1.0;
+        batchData[batchOffset + 1 * imgH * imgW + y * imgW + x] =
+          resizedBuf[srcIdx + 1] / 127.5 - 1.0;
+        batchData[batchOffset + 2 * imgH * imgW + y * imgW + x] =
+          resizedBuf[srcIdx + 2] / 127.5 - 1.0;
       }
     }
   }
@@ -485,7 +474,6 @@ async function recognizeCropsBatch(crops: RgbCrop[]): Promise<OcrLineResult[]> {
   return results;
 }
 
-
 /**
  * Deterministic corrections for known PaddleOCR CH misreads.
  * Ported 1:1 from benchmark_yolo_ocr.py postprocess_ocr_text().
@@ -506,8 +494,10 @@ function postprocessOcrText(text: string): string {
   text = text.replace(/(\d)for\b/g, "$1 for");
 
   // Recover dropped 'x' prefix on multiplier lines
-  text = text.replace(/(?:^|\n)(\*?)[A-Za-z]?(\d[,.]?\d*)\s*Damage\s+to\b/gm,
-    (_, _star, num) => `x${num} Damage to`);
+  text = text.replace(
+    /(?:^|\n)(\*?)[A-Za-z]?(\d[,.]?\d*)\s*Damage\s+to\b/gm,
+    (_, _star, num) => `x${num} Damage to`,
+  );
 
   // Common letter misreads
   text = text.replace(/Mmpact/g, "Impact");
@@ -535,42 +525,53 @@ function postprocessOcrText(text: string): string {
   return text;
 }
 
-
 const SPLIT_STAT_TAILS: Record<string, string> = {
-  "slide attack":           "Critical Chance for Slide Attack",
-  "for slide attack":       "Critical Chance for Slide Attack",
-  "for slide":              "Critical Chance for Slide Attack",
-  "count chance":           "Additional Combo Count Chance",
-  "combo count chance":     "Additional Combo Count Chance",
-  "combo count":            "Chance to Gain Combo Count",
-  "gain combo count":       "Chance to Gain Combo Count",
-  "damage":                 "Finisher Damage",
-  "efficiency":             "Heavy Attack Efficiency",
-  "attack efficiency":      "Heavy Attack Efficiency",
-  "capacity":               "Magazine Capacity",
-  "heavy attacks":          "Critical Chance",
-  "for heavy attacks":      "Critical Chance",
-  "x2 for heavy attacks":   "Critical Chance",
-  "for bows":               "Fire Rate",
-  "x2 for bows":            "Fire Rate",
-  "duration":               "Status Duration",
-  "speed":                  "Reload Speed",
-  "maximum":                "Ammo Maximum",
-  "recoil":                 "Weapon Recoil",
-  "chance":                 "Status Chance",
+  "slide attack": "Critical Chance for Slide Attack",
+  "for slide attack": "Critical Chance for Slide Attack",
+  "for slide": "Critical Chance for Slide Attack",
+  "count chance": "Additional Combo Count Chance",
+  "combo count chance": "Additional Combo Count Chance",
+  "combo count": "Chance to Gain Combo Count",
+  "gain combo count": "Chance to Gain Combo Count",
+  damage: "Finisher Damage",
+  efficiency: "Heavy Attack Efficiency",
+  "attack efficiency": "Heavy Attack Efficiency",
+  capacity: "Magazine Capacity",
+  "heavy attacks": "Critical Chance",
+  "for heavy attacks": "Critical Chance",
+  "x2 for heavy attacks": "Critical Chance",
+  "for bows": "Fire Rate",
+  "x2 for bows": "Fire Rate",
+  duration: "Status Duration",
+  speed: "Reload Speed",
+  maximum: "Ammo Maximum",
+  recoil: "Weapon Recoil",
+  chance: "Status Chance",
 };
 
 const SPLIT_STAT_HEADS = new Set([
-  "critical chance", "critical chance for",
-  "additional combo", "additional combo count",
-  "aditional combo", "aditional combo count",
-  "chance to gain", "chance to gain combo",
-  "finisher", "melee",
-  "heavy attack", "heavy",
+  "critical chance",
+  "critical chance for",
+  "additional combo",
+  "additional combo count",
+  "aditional combo",
+  "aditional combo count",
+  "chance to gain",
+  "chance to gain combo",
+  "finisher",
+  "melee",
+  "heavy attack",
+  "heavy",
   "magazine",
-  "fire rate", "fire rate x2", "fire rate x2 for",
-  "critical chance x2", "critical chance x2 for",
-  "status", "reload", "ammo", "weapon",
+  "fire rate",
+  "fire rate x2",
+  "fire rate x2 for",
+  "critical chance x2",
+  "critical chance x2 for",
+  "status",
+  "reload",
+  "ammo",
+  "weapon",
 ]);
 
 function normForMerge(s: string): string {
@@ -610,7 +611,6 @@ function mergeSplitLines(lines: string[]): string[] {
   return merged;
 }
 
-
 /** Full result from the YOLO + PaddleOCR pipeline. */
 export interface RivenOcrResult {
   /** Recognized text lines (post-processed, merged), one per stat. */
@@ -624,7 +624,7 @@ export interface RivenOcrResult {
 }
 
 /** Confidence threshold below which a stat line is considered unreliable. */
-export const LOW_CONFIDENCE_THRESHOLD = 0.80;
+export const LOW_CONFIDENCE_THRESHOLD = 0.8;
 
 /**
  * Run the full YOLO + PaddleOCR pipeline on a stat area image.
@@ -705,10 +705,15 @@ export async function recognizeStatArea(
   // Only stat-relevant lines (starting with +/-/x/×) count for minConfidence;
   // title, MR footer, and continuation fragments are excluded.
   const statLineRe = /^[+\-x×]/i;
-  const statConfs = mergedLines.filter((l) => statLineRe.test(l.text.trim())).map((l) => l.confidence);
-  const minConfidence = statConfs.length > 0
-    ? Math.min(...statConfs)
-    : (mergedLines.length > 0 ? Math.min(...mergedLines.map((l) => l.confidence)) : -1);
+  const statConfs = mergedLines
+    .filter((l) => statLineRe.test(l.text.trim()))
+    .map((l) => l.confidence);
+  const minConfidence =
+    statConfs.length > 0
+      ? Math.min(...statConfs)
+      : mergedLines.length > 0
+        ? Math.min(...mergedLines.map((l) => l.confidence))
+        : -1;
 
   return {
     lines: mergedLines,
@@ -730,4 +735,3 @@ export function hasLowConfidenceLine(result: RivenOcrResult): boolean {
   if (statLines.length === 0) return false;
   return statLines.some((l) => l.confidence < LOW_CONFIDENCE_THRESHOLD);
 }
-

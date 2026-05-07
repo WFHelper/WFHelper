@@ -14,7 +14,7 @@ import { readRankedSummaryCatalogFromKv, sanitizeSnapshotForClient } from '../se
 import type { Env } from '../types';
 import { getJsonFromKv, getSlug } from '../utils';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
-import { WFM_SNAPSHOT_CLIENT_CACHE_VERSION } from '../../../../config/shared/wfmSnapshotValidation';
+import { isValidSnapshotBlob, WFM_SNAPSHOT_CLIENT_CACHE_VERSION } from '../../../../config/shared/wfmSnapshotValidation';
 
 const routeStats = {
 	healthzRequests: 0,
@@ -74,7 +74,7 @@ async function validateRankedSlugAndRank(
 }
 
 function rankedValidationFailureResponse(validation: RankedValidation, req: Request, env: Env): Response {
-	if (validation.error === 'catalog_unavailable') {
+	if (!validation.ok && validation.error === 'catalog_unavailable') {
 		return jsonResponse({ ok: false, error: 'catalog_unavailable' }, req, env, 503);
 	}
 	return jsonResponse({ ok: false, error: 'not_found' }, req, env, 404);
@@ -229,9 +229,15 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		// bootstrap would create a chicken-and-egg failure.
 		//
 		// Edge caching: we use the Cloudflare Cache API so the response is stored at
-		// each PoP after the first request. Subsequent users in the same region are
-		// served directly from the edge — zero Worker execution, zero KV reads.
-		// The rate limiter only runs on genuine cache misses (first request per PoP).
+		// each PoP after the first request. Cache hits are rewrapped below so CORS
+		// is computed for the current request instead of replaying the priming
+		// request's Origin.
+		// The guard intentionally runs before Cache API lookup because these hits
+		// still execute the Worker in tests and deployed runtime.
+		const guardResponse = await guardPublicRequest(req, env, 'snapshot');
+		if (guardResponse) return guardResponse;
+
+		routeStats.snapshotRequests += 1;
 		const cacheKey = new Request(`${url.origin}/v1/snapshot?body=${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}`, { method: 'GET' });
 		const edgeCache = caches.default;
 		const cachedResponse = await edgeCache.match(cacheKey);
@@ -240,13 +246,12 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 			if (requestHasMatchingEtag(req, cachedEtag)) {
 				return snapshotNotModifiedResponse(cachedEtag, cachedResponse.headers.get('cache-control') || SNAPSHOT_CACHE_CONTROL, req, env);
 			}
-			return cachedResponse;
+			const cachedHeaders: Record<string, string> = {
+				'cache-control': cachedResponse.headers.get('cache-control') || SNAPSHOT_CACHE_CONTROL,
+			};
+			if (cachedEtag) cachedHeaders.etag = cachedEtag;
+			return rawJsonResponse(await cachedResponse.text(), req, env, 200, cachedHeaders);
 		}
-
-		const guardResponse = await guardPublicRequest(req, env, 'snapshot');
-		if (guardResponse) return guardResponse;
-
-		routeStats.snapshotRequests += 1;
 		const [raw, storedEtag] = await Promise.all([env.PRICE_CACHE.get(SNAPSHOT_KEY), env.PRICE_CACHE.get(SNAPSHOT_ETAG_KEY)]);
 		if (!raw) {
 			return jsonResponse({ ok: false, error: 'snapshot_not_ready' }, req, env, 503);
@@ -261,17 +266,21 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		const responseHeaders: Record<string, string> = { 'cache-control': SNAPSHOT_CACHE_CONTROL };
 		if (etag) responseHeaders['etag'] = etag;
 
-		let body = raw;
+		let body: string;
 		try {
-			body = JSON.stringify(sanitizeSnapshotForClient(JSON.parse(raw)));
+			const sanitized = sanitizeSnapshotForClient(JSON.parse(raw));
+			if (!isValidSnapshotBlob(sanitized)) {
+				return jsonResponse({ ok: false, error: 'snapshot_invalid' }, req, env, 503);
+			}
+			body = JSON.stringify(sanitized);
 		} catch {
-			body = raw;
+			return jsonResponse({ ok: false, error: 'snapshot_invalid' }, req, env, 503);
 		}
 
 		const response = rawJsonResponse(body, req, env, 200, responseHeaders);
 
 		if (ctx) {
-			ctx.waitUntil(edgeCache.put(cacheKey, response.clone()));
+			ctx.waitUntil(edgeCache.put(cacheKey, new Response(body, { status: 200, headers: responseHeaders })));
 		}
 
 		return response;
@@ -300,9 +309,8 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		if (guardResponse) return guardResponse;
 
 		routeStats.metaRequests += 1;
-		const data = await getOrHydrateMeta(env, metaSlug, ctx);
-		if (!data) return jsonResponse({ ok: false, error: 'not_found' }, req, env, 404);
-		return jsonResponse({ ok: true, data }, req, env, 200, PUBLIC_JSON_CACHE_HEADERS);
+		const result = await getOrHydrateMeta(env, metaSlug, ctx);
+		return respondWithStatus(result, req, env);
 	}
 
 	const orderSummarySlug = getSlug(url.pathname, '/v1/order-summary/');

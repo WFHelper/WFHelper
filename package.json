@@ -135,6 +135,21 @@
       "!node_modules/**/svelte-check/**"
     ],
     "asar": true,
+    "extraResources": [
+      {
+        "from": "resources/riven-ocr",
+        "to": "riven-ocr"
+      },
+      {
+        "from": "scripts/ocr-server.ps1",
+        "to": "scripts/ocr-server.ps1"
+      },
+      {
+        "from": "scripts/ocr.ps1",
+        "to": "scripts/ocr.ps1"
+      }
+    ],
+    "afterPack": "scripts/verify-packaged-runtime-assets.cjs",
     "win": {
       "icon": "assets/logo.ico",
       "target": [

@@ -15,6 +15,7 @@ import {
   RIVENS_CREATE_AUCTION,
   RIVENS_UPDATE_AUCTION,
 } from "../config/shared/ipcChannels";
+import { confirmTradeMutation, tradeMutationDenied } from "./tradeMutationGate";
 
 /** Map game polarity internal names to WFM API names. */
 const POLARITY_TO_WFM: Record<string, string> = {
@@ -104,7 +105,7 @@ function register(): void {
   handleAuthorized(
     RIVENS_CREATE_AUCTION,
     assertMainRendererSender,
-    async (_event, payload: unknown) => {
+    async (event, payload: unknown) => {
       if (!isObject(payload)) return { ok: false, error: "Invalid payload" };
       const {
         weaponName,
@@ -120,14 +121,12 @@ function register(): void {
         description,
       } = payload;
       const weapon = trimmedString(weaponName, 120);
-      if (!weapon)
-        return { ok: false, error: "Invalid weapon name" };
+      if (!weapon) return { ok: false, error: "Invalid weapon name" };
       if (!Array.isArray(stats) || stats.length === 0)
         return { ok: false, error: "No stats provided" };
       if (!stats.every(isCreateAuctionStat)) return { ok: false, error: "Invalid stats payload" };
       const price = boundedInt(startingPrice, 1, 10_000_000);
-      if (price == null)
-        return { ok: false, error: "Invalid price" };
+      if (price == null) return { ok: false, error: "Invalid price" };
 
       const slug = rivenData.getRivenFamilySlug(weapon);
       if (!slug) return { ok: false, error: "Unknown weapon" };
@@ -160,6 +159,13 @@ function register(): void {
         return suffix.toLowerCase();
       })();
 
+      const confirmed = await confirmTradeMutation(event, {
+        title: "Confirm Riven auction",
+        message: `Create a Warframe Market Riven auction for ${weapon}?`,
+        detail: `Starting price: ${price} platinum`,
+      });
+      if (!confirmed) return { ok: false, ...tradeMutationDenied() };
+
       return wfmRivenSearch.createRivenAuction({
         weaponSlug: slug,
         rivenName: rivenSuffix,
@@ -179,10 +185,9 @@ function register(): void {
   handleAuthorized(
     RIVENS_UPDATE_AUCTION,
     assertMainRendererSender,
-    async (_event, payload: unknown) => {
+    async (event, payload: unknown) => {
       if (!isObject(payload)) return { ok: false, error: "Invalid payload" };
-      const { auctionId, buyoutPrice, startingPrice, isPrivate, description } =
-        payload;
+      const { auctionId, buyoutPrice, startingPrice, isPrivate, description } = payload;
       const id = trimmedString(auctionId, 64);
       if (!id || !/^[a-zA-Z0-9]+$/.test(id)) {
         return { ok: false, error: "Invalid auction id" };
@@ -195,6 +200,13 @@ function register(): void {
       if (buyoutPrice != null && buyout == null) {
         return { ok: false, error: "Invalid buyout price" };
       }
+
+      const confirmed = await confirmTradeMutation(event, {
+        title: "Confirm Riven auction update",
+        message: "Update this Warframe Market Riven auction?",
+        detail: `Auction ${id}`,
+      });
+      if (!confirmed) return { ok: false, ...tradeMutationDenied() };
 
       return wfmRivenSearch.updateRivenAuction({
         auctionId: id,

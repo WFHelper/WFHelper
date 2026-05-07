@@ -16,11 +16,7 @@ import {
 import { fetchCatalogSlugs } from './prewarmCatalog';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
 import { isExcludedRankedMarketItem } from '../../../../config/shared/wfmExclusions';
-import {
-	workerMissCacheKey,
-	workerOrderSummaryCacheKey,
-	workerPriceCacheKey,
-} from '../../../../config/shared/wfmCacheKeys';
+import { workerMissCacheKey, workerOrderSummaryCacheKey, workerPriceCacheKey } from '../../../../config/shared/wfmCacheKeys';
 
 type AutoReadResult =
 	| { status: 'ok'; data: Record<string, unknown> }
@@ -50,7 +46,7 @@ interface ReadThroughDescriptor {
 }
 
 const priceInFlight = new Map<string, Promise<HydrateResult>>();
-const metaInFlight = new Map<string, Promise<Record<string, unknown> | null>>();
+const metaInFlight = new Map<string, Promise<HydrateResult>>();
 const orderSummaryInFlight = new Map<string, Promise<HydrateResult>>();
 
 const ORDER_SUMMARY_BREAKER_THRESHOLD = 6;
@@ -189,7 +185,7 @@ async function hydratePrice(env: Env, slug: string, markNoData: boolean, rank: n
 	return task;
 }
 
-async function hydrateMeta(env: Env, slug: string, markNoData: boolean): Promise<Record<string, unknown> | null> {
+async function hydrateMeta(env: Env, slug: string, markNoData: boolean): Promise<HydrateResult> {
 	const inFlight = metaInFlight.get(slug);
 	if (inFlight) return inFlight;
 
@@ -200,21 +196,22 @@ async function hydrateMeta(env: Env, slug: string, markNoData: boolean): Promise
 			if (markNoData && !result.transient) {
 				await setNegativeMarker(env.ITEM_META, `${MISS_META_PREFIX}${slug}`, env);
 			}
-			return null;
+			return { data: null, transient: result.transient };
 		}
 
 		if (!result.data.tradable) {
 			autoStats.metaUntradableSkips += 1;
 			await markUntradable(env, slug);
-			return null;
+			return { data: null, transient: false };
 		}
 
 		await env.ITEM_META.delete(`${MISS_META_PREFIX}${slug}`);
 		await env.ITEM_META.delete(`${SKIP_UNTRADABLE_PREFIX}${slug}`);
 		autoStats.metaHydrated += 1;
-		return putMetaPayload(env, result.data);
+		const data = await putMetaPayload(env, result.data);
+		return { data, transient: false };
 	})()
-		.catch(() => null)
+		.catch(() => ({ data: null, transient: true }))
 		.finally(() => {
 			metaInFlight.delete(slug);
 		});
@@ -331,28 +328,24 @@ export async function getOrHydratePrice(
 	});
 }
 
-export async function getOrHydrateMeta(env: Env, slug: string, ctx?: ExecutionContext): Promise<Record<string, unknown> | null> {
-	const result = await withReadThrough(env, ctx, {
+export async function getOrHydrateMeta(env: Env, slug: string, ctx?: ExecutionContext): Promise<AutoReadResult> {
+	return withReadThrough(env, ctx, {
 		namespace: env.ITEM_META,
 		cacheKey: `meta:${slug}`,
 		missKey: `${MISS_META_PREFIX}${slug}`,
 		isStale,
-		hydrate: async (markNoData) => {
-			const data = await hydrateMeta(env, slug, markNoData);
-			return { data, transient: false };
-		},
+		hydrate: (markNoData) => hydrateMeta(env, slug, markNoData),
 		stats: {
 			cacheHit: 'metaCacheHits',
 			negativeHit: 'metaNegativeHits',
 			staleRefreshQueued: 'metaStaleRefreshQueued',
 		},
-		beforeMissCheck: async () => (await slugMissingFromCatalog(env, slug)) || Boolean(await env.ITEM_META.get(`${SKIP_UNTRADABLE_PREFIX}${slug}`)),
+		beforeMissCheck: async () =>
+			(await slugMissingFromCatalog(env, slug)) || Boolean(await env.ITEM_META.get(`${SKIP_UNTRADABLE_PREFIX}${slug}`)),
 		onBeforeMissHit: () => {
 			autoStats.metaUntradableSkips += 1;
 		},
 	});
-
-	return result.status === 'ok' ? result.data : null;
 }
 
 export async function getOrHydrateOrderSummary(

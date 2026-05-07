@@ -3,6 +3,7 @@ import path from "path";
 import type { NativeImage } from "electron";
 
 import { REWARD_STRATEGY_HISTORY_TTL_MS } from "../config/runtime/cacheConfig";
+import { resolveRuntimeResourcePath } from "./runtimeResources";
 import { MAX_REWARD_SLOTS, type SortedItem } from "./rewardScannerMatch";
 import { luminanceFromBgr } from "./rewardScannerUtils";
 
@@ -10,7 +11,7 @@ type RewardBand = { top: number; height: number };
 
 export const SCANNER_TUNING = Object.freeze({
   paths: Object.freeze({
-    ocrScript: path.join(__dirname, "..", "scripts", "ocr.ps1"),
+    ocrScript: resolveRuntimeResourcePath("scripts", "ocr.ps1"),
     tempImage: path.join(os.tmpdir(), "wf-companion-reward-ocr.png"),
   }),
   budget: Object.freeze({

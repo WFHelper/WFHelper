@@ -1,7 +1,7 @@
-import path from "node:path";
 import { spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { withScope } from "./logger";
+import { resolveRuntimeResourcePath } from "./runtimeResources";
 
 const log = withScope("ocrServer");
 
@@ -31,20 +31,7 @@ const OCR_SERVER_POOL_SIZE = Math.max(
 );
 
 function resolveOcrServerScriptPath(): string {
-  const candidates = [
-    path.join(__dirname, "..", "scripts", "ocr-server.ps1"),
-    path.join(__dirname, "..", "..", "scripts", "ocr-server.ps1"),
-    path.join(process.cwd(), "scripts", "ocr-server.ps1"),
-  ];
-  for (const candidate of candidates) {
-    try {
-      const fs = require("node:fs") as typeof import("node:fs");
-      if (fs.existsSync(candidate)) return candidate;
-    } catch {
-      // ignore and try next
-    }
-  }
-  return candidates[0];
+  return resolveRuntimeResourcePath("scripts", "ocr-server.ps1");
 }
 
 const OCR_SERVER_SCRIPT = resolveOcrServerScriptPath();
@@ -434,7 +421,9 @@ export const ocrServer = new OcrServerPool(OCR_SERVER_POOL_SIZE);
 // code, eliminating the PowerShell process pool IPC overhead.
 // Falls back to the PowerShell pool if the native module fails to load.
 
-let _nativeRecognize: ((input: Buffer | string) => Promise<{ text: string; confidence: number }>) | null = null;
+let _nativeRecognize:
+  | ((input: Buffer | string) => Promise<{ text: string; confidence: number }>)
+  | null = null;
 
 try {
   const mod = require("@napi-rs/system-ocr") as {
@@ -459,5 +448,3 @@ export async function nativeOcrFile(imagePath: string, _timeoutMs?: number): Pro
   const result = await _nativeRecognize(imagePath);
   return result.text || "";
 }
-
-

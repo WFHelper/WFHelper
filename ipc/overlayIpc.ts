@@ -25,7 +25,12 @@ import {
   OVERLAY_SET_SETTINGS,
   OVERLAY_THEME_UPDATED,
 } from "../config/shared/ipcChannels";
-import { OVERLAY_FORWARDED_CSS_VARS } from "../config/shared/themeCssVars";
+import {
+  OVERLAY_FORWARDED_COLOR_VARS,
+  OVERLAY_FORWARDED_CSS_VARS,
+  OVERLAY_FORWARDED_EFFECT_VARS,
+  OVERLAY_FORWARDED_FONT_VARS,
+} from "../config/shared/themeCssVars";
 
 const log = withScope("overlayIpc");
 
@@ -127,6 +132,70 @@ function toggleOverlayInteractionMode(source = "unknown"): void {
 // renderer (sender) and main (gate) cannot drift. Update that file to add a new
 // themed variable.
 const OVERLAY_THEME_VAR_ALLOWLIST: ReadonlySet<string> = new Set(OVERLAY_FORWARDED_CSS_VARS);
+const OVERLAY_COLOR_VAR_SET: ReadonlySet<string> = new Set(OVERLAY_FORWARDED_COLOR_VARS);
+const OVERLAY_FONT_VAR_SET: ReadonlySet<string> = new Set(OVERLAY_FORWARDED_FONT_VARS);
+const OVERLAY_EFFECT_VAR_SET: ReadonlySet<string> = new Set(OVERLAY_FORWARDED_EFFECT_VARS);
+const SAFE_COLOR_FUNCTION_RE = /^(?:rgb|rgba|hsl|hsla|oklch)\(\s*[-+0-9.%\s,/]+\)$/i;
+const SAFE_HEX_COLOR_RE = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+const SAFE_FONT_STACK_RE = /^[a-z0-9\s"',-]{1,120}$/i;
+const SAFE_COLOR_REF_RE =
+  /^var\(--(?:bg-(?:deep|base|surface|raised|hover)|accent(?:-dim|-bright|-glow)?|text-(?:primary|secondary|muted)|success|warning|danger|info|border(?:-strong)?)\)$/;
+const SAFE_COLOR_MIX_RE =
+  /^color-mix\(in srgb, var\(--(?:bg-(?:deep|base|surface|raised|hover)|border(?:-strong)?)\) (?:[1-9]\d?|100)%, transparent\)$/;
+
+function boundedCssLength(value: string, min: number, max: number): boolean {
+  const match = /^(\d+(?:\.\d+)?)(px|rem)$/.exec(value);
+  if (!match) return false;
+  const n = Number(match[1]);
+  return Number.isFinite(n) && n >= min && n <= max;
+}
+
+function isSafeOverlayColor(value: string): boolean {
+  return (
+    value.length <= 96 && (SAFE_HEX_COLOR_RE.test(value) || SAFE_COLOR_FUNCTION_RE.test(value))
+  );
+}
+
+function isSafeOverlayFontValue(value: string): boolean {
+  if (!SAFE_FONT_STACK_RE.test(value)) return false;
+  return !/url|expression/i.test(value);
+}
+
+function isSafeOverlayEffectValue(key: string, value: string): boolean {
+  if (key.startsWith("--radius-")) return boundedCssLength(value, 0, 3);
+  if (key === "--ui-backdrop-blur") {
+    return value === "none" || /^blur\((?:[1-9]|1\d|2[0-4])px\)$/.test(value);
+  }
+  if (key === "--ui-panel-shadow") return value === "none";
+  if (
+    key === "--ui-panel-bg" ||
+    key === "--ui-panel-border" ||
+    key === "--ui-control-bg" ||
+    key === "--ui-control-border"
+  ) {
+    return (
+      value === "transparent" || SAFE_COLOR_REF_RE.test(value) || SAFE_COLOR_MIX_RE.test(value)
+    );
+  }
+  return false;
+}
+
+function isSafeOverlayThemeValue(key: string, value: string): boolean {
+  if (/[;{}]/.test(value)) return false;
+  if (OVERLAY_COLOR_VAR_SET.has(key)) return isSafeOverlayColor(value);
+  if (OVERLAY_FONT_VAR_SET.has(key)) {
+    if (
+      key === "--font-heading-size" ||
+      key === "--font-body-size" ||
+      key === "--font-small-size"
+    ) {
+      return boundedCssLength(value, 0.3, 5);
+    }
+    return isSafeOverlayFontValue(value);
+  }
+  if (OVERLAY_EFFECT_VAR_SET.has(key)) return isSafeOverlayEffectValue(key, value);
+  return false;
+}
 
 function sanitizeOverlayThemeVars(raw: unknown): Record<string, string> {
   if (!raw || typeof raw !== "object") return {};
@@ -138,6 +207,7 @@ function sanitizeOverlayThemeVars(raw: unknown): Record<string, string> {
     if (typeof value !== "string") continue;
     const trimmed = value.trim();
     if (!trimmed) continue;
+    if (!isSafeOverlayThemeValue(key, trimmed)) continue;
     sanitized[key] = trimmed;
   }
   return sanitized;
@@ -271,6 +341,8 @@ export const registerOverlayHotkey = settingsController.registerOverlayHotkey;
 export const unregisterOverlayHotkey = settingsController.unregisterOverlayHotkey;
 
 export { register, onRelicRewardTrigger, onRelicSelectionTrigger, onRelicSelectionClose };
+
+export const __test__ = { sanitizeOverlayThemeVars };
 
 // Re-export riven callbacks for main.ts wiring
 export {

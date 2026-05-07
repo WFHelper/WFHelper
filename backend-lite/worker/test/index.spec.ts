@@ -2,6 +2,7 @@ import { SELF, createExecutionContext, env, waitOnExecutionContext } from 'cloud
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import worker from '../src/index';
 import type { Env } from '../src/types';
+import { getWorkerConfig } from '../src/config';
 import { prewarmBatch, prewarmOrderSummaryCatalog } from '../src/services/prewarm';
 import { WFM_SNAPSHOT_CLIENT_CACHE_VERSION } from '../../../config/shared/wfmSnapshotValidation';
 
@@ -73,6 +74,19 @@ describe('backend-lite worker', () => {
 			automation: {
 				enabled: true,
 			},
+		});
+	});
+
+	it('keeps Worker fallback defaults aligned with deployment vars', () => {
+		const config = getWorkerConfig({} as Env);
+		expect(config).toMatchObject({
+			cacheTtlSec: 86400,
+			orderSummaryCacheTtlSec: 172800,
+			orderSummaryStaleRefreshSec: 75600,
+			prewarmBatchSize: 125,
+			orderSummaryPrewarmBatchSize: 36,
+			dailyBudgetSyncIntervalSec: 180,
+			staleRefreshSec: 75600,
 		});
 	});
 
@@ -618,6 +632,34 @@ describe('backend-lite worker', () => {
 		expect(cached).toBeTruthy();
 	});
 
+	it('returns unavailable when live meta hydration is transient', async () => {
+		const slug = 'wf_test_transient_meta_slug';
+		await env.ITEM_META.delete(`meta:${slug}`);
+		await env.ITEM_META.delete(`miss:meta:${slug}`);
+
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input instanceof URL ? input : typeof input === 'string' ? input : input.url);
+			if (url === `https://api.warframe.market/v2/items/${slug}`) {
+				return new Response('', { status: 503 });
+			}
+			throw new Error(`Unexpected url: ${url}`);
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const ctxA = createExecutionContext();
+		const first = await worker.fetch(new IncomingRequest(`https://example.com/v1/meta/${slug}`), env, ctxA);
+		await waitOnExecutionContext(ctxA);
+		expect(first.status).toBe(503);
+		expect(await first.json()).toEqual({ ok: false, error: 'unavailable' });
+
+		const ctxB = createExecutionContext();
+		const second = await worker.fetch(new IncomingRequest(`https://example.com/v1/meta/${slug}`), env, ctxB);
+		await waitOnExecutionContext(ctxB);
+		expect(second.status).toBe(503);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(await env.ITEM_META.get(`miss:meta:${slug}`)).toBeNull();
+	});
+
 	it('keeps public full orderbook route deprecated', async () => {
 		const ctx = createExecutionContext();
 		const response = await worker.fetch(new IncomingRequest('https://example.com/v1/orders/wf_test_orders_disabled_slug'), env, ctx);
@@ -950,10 +992,7 @@ describe('backend-lite worker', () => {
 				`orders-summary:${slug}:r${rank}`,
 				JSON.stringify({ slug, rank, wts: 10 + rank, wtb: 5 + rank, timestamp: now }),
 			);
-			await env.PRICE_CACHE.put(
-				`price:${slug}:r${rank}`,
-				JSON.stringify({ slug, rank, median: 20 + rank, timestamp: now }),
-			);
+			await env.PRICE_CACHE.put(`price:${slug}:r${rank}`, JSON.stringify({ slug, rank, median: 20 + rank, timestamp: now }));
 		}
 
 		const fetchMock = vi.fn(async () => {
@@ -1238,6 +1277,72 @@ describe('backend-lite worker', () => {
 				timestamp: generatedAt,
 				sourceTimestamp: staleEntryTimestamp,
 			});
+		} finally {
+			await env.PRICE_CACHE.delete('snapshot:full:v1');
+			await clearSnapshotEdgeCache();
+		}
+	});
+
+	it('rewraps edge-cached snapshot responses with per-request CORS', async () => {
+		const snapshot = { version: 1, generatedAt: Date.now(), prices: {}, meta: {}, orderSummaries: {} };
+		await env.PRICE_CACHE.put('snapshot:full:v1', JSON.stringify(snapshot));
+		await env.PRICE_CACHE.put('snapshot:etag:v1', '"snapshot-cors-test"');
+		await clearSnapshotEdgeCache();
+
+		try {
+			const primeCtx = createExecutionContext();
+			const primeResponse = await worker.fetch(
+				new IncomingRequest('https://example.com/v1/snapshot', {
+					headers: { 'cf-connecting-ip': '10.0.1.201' },
+				}),
+				env,
+				primeCtx,
+			);
+			await waitOnExecutionContext(primeCtx);
+			expect(primeResponse.status).toBe(200);
+			expect(primeResponse.headers.get('access-control-allow-origin')).toBeNull();
+
+			const browserCtx = createExecutionContext();
+			const browserResponse = await worker.fetch(
+				new IncomingRequest('https://example.com/v1/snapshot', {
+					headers: {
+						Origin: 'https://wfhelper.com',
+						'cf-connecting-ip': '10.0.1.202',
+					},
+				}),
+				env,
+				browserCtx,
+			);
+			await waitOnExecutionContext(browserCtx);
+
+			expect(browserResponse.status).toBe(200);
+			expect(browserResponse.headers.get('access-control-allow-origin')).toBe('https://wfhelper.com');
+			expect(browserResponse.headers.get('etag')).toBe(`"snapshot-cors-test-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"`);
+		} finally {
+			await env.PRICE_CACHE.delete('snapshot:full:v1');
+			await env.PRICE_CACHE.delete('snapshot:etag:v1');
+			await clearSnapshotEdgeCache();
+		}
+	});
+
+	it('returns snapshot_invalid for malformed snapshot KV data', async () => {
+		await env.PRICE_CACHE.put('snapshot:full:v1', '{"version":1,"prices":[]}');
+		await clearSnapshotEdgeCache();
+
+		try {
+			const ctx = createExecutionContext();
+			const response = await worker.fetch(
+				new IncomingRequest('https://example.com/v1/snapshot', {
+					headers: { 'cf-connecting-ip': '10.0.1.203' },
+				}),
+				env,
+				ctx,
+			);
+			await waitOnExecutionContext(ctx);
+
+			expect(response.status).toBe(503);
+			expect(response.headers.get('cache-control')).toBe('no-store');
+			expect(await response.json()).toEqual({ ok: false, error: 'snapshot_invalid' });
 		} finally {
 			await env.PRICE_CACHE.delete('snapshot:full:v1');
 			await clearSnapshotEdgeCache();
