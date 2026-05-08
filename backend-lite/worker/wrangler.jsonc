@@ -5,6 +5,10 @@
 	"compatibility_date": "2026-03-01",
 	"workers_dev": false,
 	"preview_urls": false,
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1,
+	},
 	"limits": {
 		"cpu_ms": 1000,
 	},
@@ -98,4 +102,16 @@
 			},
 		},
 	},
+	"observability": {
+		"traces": {
+		"enabled": true,
+		// Must match the destination name in the Cloudflare dashboard
+		"destinations": ["grafana-traces"]
+		},
+		"logs": {
+		"enabled": true,
+		// Must match the destination name in the Cloudflare dashboard
+		"destinations": ["grafana-logs"]
+		}
+	}
 }

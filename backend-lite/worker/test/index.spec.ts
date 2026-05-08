@@ -53,6 +53,48 @@ describe('backend-lite worker', () => {
 		expect(json.automation).toBeUndefined();
 	});
 
+	it('logs structured request events', async () => {
+		const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+		const request = new IncomingRequest('http://example.com/healthz');
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(request, env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(200);
+		expect(logSpy).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: 'request',
+				route: '/healthz',
+				method: 'GET',
+				status: 200,
+				latencyMs: expect.any(Number),
+			}),
+		);
+	});
+
+	it('logs slug and cache hit metadata for read-through routes', async () => {
+		const slug = 'wf_test_logged_cache_slug';
+		await env.PRICE_CACHE.put(`price:${slug}`, JSON.stringify({ slug, median: 42, rank: null, timestamp: Date.now() }));
+		const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(new IncomingRequest(`https://example.com/v1/prices/${slug}`), env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(200);
+		expect(logSpy).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: 'request',
+				route: '/v1/prices/:slug',
+				method: 'GET',
+				status: 200,
+				slug,
+				cacheHit: true,
+				latencyMs: expect.any(Number),
+			}),
+		);
+	});
+
 	it('returns detailed health status for authorized admin requests', async () => {
 		const testEnv = {
 			...env,
@@ -428,6 +470,48 @@ describe('backend-lite worker', () => {
 		expect(response.status).toBe(503);
 		expect(response.headers.get('cache-control')).toBe('no-store');
 		expect(await response.json()).toEqual({ ok: false, error: 'bootstrap_misconfigured' });
+	});
+
+	it('short-circuits known non-market scene slugs before rate-limit and marker KV reads', async () => {
+		const priceGetSpy = vi.spyOn(env.PRICE_CACHE, 'get');
+		const pricePutSpy = vi.spyOn(env.PRICE_CACHE, 'put');
+		const metaGetSpy = vi.spyOn(env.ITEM_META, 'get');
+		const fetchMock = vi.fn(async () => new Response('{}')) as unknown as typeof fetch;
+		globalThis.fetch = fetchMock;
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(new IncomingRequest('https://example.com/v1/meta/gas_city_regulators_scene'), env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(404);
+		expect(response.headers.get('cache-control')).toBe('public, max-age=3600');
+		expect(await response.json()).toEqual({ ok: false, error: 'not_found' });
+		expect(priceGetSpy).not.toHaveBeenCalled();
+		expect(pricePutSpy).not.toHaveBeenCalled();
+		expect(metaGetSpy).not.toHaveBeenCalled();
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it('reuses local untradable marker hits without repeated ITEM_META reads', async () => {
+		const slug = 'wf_test_untradable_marker_slug';
+		await env.ITEM_META.delete(`meta:${slug}`);
+		await env.ITEM_META.put(`skip:untradable:${slug}`, '1');
+		const metaGetSpy = vi.spyOn(env.ITEM_META, 'get');
+		const fetchMock = vi.fn(async () => new Response('{}')) as unknown as typeof fetch;
+		globalThis.fetch = fetchMock;
+
+		const firstCtx = createExecutionContext();
+		const first = await worker.fetch(new IncomingRequest(`https://example.com/v1/meta/${slug}`), env, firstCtx);
+		await waitOnExecutionContext(firstCtx);
+
+		const secondCtx = createExecutionContext();
+		const second = await worker.fetch(new IncomingRequest(`https://example.com/v1/meta/${slug}`), env, secondCtx);
+		await waitOnExecutionContext(secondCtx);
+
+		expect(first.status).toBe(404);
+		expect(second.status).toBe(404);
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(metaGetSpy.mock.calls.map((call) => call[0])).toEqual([`meta:${slug}`, `skip:untradable:${slug}`]);
 	});
 
 	it('auto-hydrates price endpoint on cache miss', async () => {
@@ -983,10 +1067,14 @@ describe('backend-lite worker', () => {
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
-	it('cron ranked summary prewarm skips fresh cached summaries and prices', async () => {
+	it('cron ranked summary prewarm patches fresh cached summaries and prices into snapshot', async () => {
 		const slug = 'wf_test_fresh_summary_cron_slug';
 		const now = Date.now();
 		await seedRankedCatalog(env, [{ slug, maxRank: 10 }]);
+		await env.PRICE_CACHE.put(
+			'snapshot:full:v1',
+			JSON.stringify({ version: 1, generatedAt: now - 1000, prices: {}, meta: {}, orderSummaries: {} }),
+		);
 		for (const rank of [0, 10]) {
 			await env.PRICE_CACHE.put(
 				`orders-summary:${slug}:r${rank}`,
@@ -1005,6 +1093,15 @@ describe('backend-lite worker', () => {
 		expect(result.processed).toBe(2);
 		expect(result.updated).toBe(0);
 		expect(fetchMock).not.toHaveBeenCalled();
+
+		const snapshot = JSON.parse(String(await env.PRICE_CACHE.get('snapshot:full:v1'))) as {
+			prices?: Record<string, { status?: string; median?: number }>;
+			orderSummaries?: Record<string, { status?: string; wts?: number; wtb?: number }>;
+		};
+		expect(snapshot.prices?.[`${slug}:rank-v3:r0`]).toMatchObject({ status: 'ok', median: 20 });
+		expect(snapshot.prices?.[`${slug}:rank-v3:r10`]).toMatchObject({ status: 'ok', median: 30 });
+		expect(snapshot.orderSummaries?.[`${slug}:r0`]).toMatchObject({ status: 'ok', wts: 10, wtb: 5 });
+		expect(snapshot.orderSummaries?.[`${slug}:r10`]).toMatchObject({ status: 'ok', wts: 20, wtb: 15 });
 	});
 
 	it('serves stale cached order summary during transient upstream failure', async () => {

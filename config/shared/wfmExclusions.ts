@@ -6,7 +6,12 @@ const BLOOD_FOR_SLUGS = new Set(["blood_for_ammo", "blood_for_energy", "blood_fo
 // Slugs that exist in the Warframe inventory but have no WFM listing at all.
 // Excluded from every price AND meta lookup. Add entries here when an item
 // produces repeated 404s (e.g. vendor packs, internal placeholder items).
-const WFM_EXCLUDED_SLUGS = new Set(["vendor-relic"]);
+const WFM_EXCLUDED_SLUGS = new Set(["vendor_relic"]);
+
+function isKnownUnlistedSlugPattern(slug: string): boolean {
+  // Captura scenes exist in inventory/world reward data but are not listed on WFM.
+  return slug.endsWith("_scene");
+}
 
 function normalizeSlug(value: unknown): string {
   return normalizeWfmSlug(typeof value === "string" ? value : null) ?? "";
@@ -46,7 +51,8 @@ export function isExcludedRankedMarketItem(name: unknown, slug: unknown): boolea
  * are not tradable and have no WFM listing.
  */
 export function isWfmExcludedSlug(slug: unknown): boolean {
-  if (typeof slug !== "string" || !slug) return false;
-  return WFM_EXCLUDED_SLUGS.has(slug);
+  const normalizedSlug = normalizeSlug(slug);
+  if (!normalizedSlug) return false;
+  return WFM_EXCLUDED_SLUGS.has(normalizedSlug) || isKnownUnlistedSlugPattern(normalizedSlug);
 }
 

@@ -11,9 +11,11 @@ import {
 	getOrHydratePrice,
 } from '../services/readThrough';
 import { readRankedSummaryCatalogFromKv, sanitizeSnapshotForClient } from '../services/prewarm';
+import { annotateResponse } from '../services/logging';
 import type { Env } from '../types';
 import { getJsonFromKv, getSlug } from '../utils';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
+import { isWfmExcludedSlug } from '../../../../config/shared/wfmExclusions';
 import { isValidSnapshotBlob, WFM_SNAPSHOT_CLIENT_CACHE_VERSION } from '../../../../config/shared/wfmSnapshotValidation';
 
 const routeStats = {
@@ -30,10 +32,14 @@ const routeStats = {
 };
 
 const PUBLIC_JSON_CACHE_HEADERS = { 'cache-control': 'public, max-age=60' };
+const EXCLUDED_MARKET_HEADERS = { 'cache-control': 'public, max-age=3600' };
 const SNAPSHOT_CACHE_CONTROL = 'public, max-age=7200';
 
 type PublicRateLimitRoute = Parameters<typeof checkPublicRateLimit>[2];
-type HydrateResult<T> = { status: 'ok'; data: T } | { status: 'unavailable' } | { status: 'not_found' };
+type HydrateResult<T> =
+	| { status: 'ok'; data: T; cacheHit: boolean }
+	| { status: 'unavailable'; cacheHit: false }
+	| { status: 'not_found'; cacheHit: boolean };
 type RankedValidation = { ok: true; maxRank: number | null } | { ok: false; error?: 'catalog_unavailable' };
 
 function parseRankFilter(url: URL): number | null {
@@ -123,12 +129,24 @@ async function guardPublicRequest(
 
 function respondWithStatus<T>(result: HydrateResult<T>, req: Request, env: Env): Response {
 	if (result.status === 'ok') {
-		return jsonResponse({ ok: true, data: result.data }, req, env, 200, PUBLIC_JSON_CACHE_HEADERS);
+		return annotateResponse(jsonResponse({ ok: true, data: result.data }, req, env, 200, PUBLIC_JSON_CACHE_HEADERS), {
+			cacheHit: result.cacheHit,
+		});
 	}
 	if (result.status === 'unavailable') {
-		return jsonResponse({ ok: false, error: 'unavailable' }, req, env, 503);
+		return annotateResponse(jsonResponse({ ok: false, error: 'unavailable' }, req, env, 503), {
+			cacheHit: result.cacheHit,
+		});
 	}
-	return jsonResponse({ ok: false, error: 'not_found' }, req, env, 404);
+	return annotateResponse(jsonResponse({ ok: false, error: 'not_found' }, req, env, 404), {
+		cacheHit: result.cacheHit,
+	});
+}
+
+function excludedMarketResponse(req: Request, env: Env): Response {
+	return annotateResponse(jsonResponse({ ok: false, error: 'not_found' }, req, env, 404, EXCLUDED_MARKET_HEADERS), {
+		cacheHit: true,
+	});
 }
 
 function snapshotNotModifiedResponse(etag: string, cacheControl: string, req: Request, env: Env): Response {
@@ -244,13 +262,16 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		if (cachedResponse) {
 			const cachedEtag = cachedResponse.headers.get('etag');
 			if (requestHasMatchingEtag(req, cachedEtag)) {
-				return snapshotNotModifiedResponse(cachedEtag, cachedResponse.headers.get('cache-control') || SNAPSHOT_CACHE_CONTROL, req, env);
+				return annotateResponse(
+					snapshotNotModifiedResponse(cachedEtag, cachedResponse.headers.get('cache-control') || SNAPSHOT_CACHE_CONTROL, req, env),
+					{ cacheHit: true },
+				);
 			}
 			const cachedHeaders: Record<string, string> = {
 				'cache-control': cachedResponse.headers.get('cache-control') || SNAPSHOT_CACHE_CONTROL,
 			};
 			if (cachedEtag) cachedHeaders.etag = cachedEtag;
-			return rawJsonResponse(await cachedResponse.text(), req, env, 200, cachedHeaders);
+			return annotateResponse(rawJsonResponse(await cachedResponse.text(), req, env, 200, cachedHeaders), { cacheHit: true });
 		}
 		const [raw, storedEtag] = await Promise.all([env.PRICE_CACHE.get(SNAPSHOT_KEY), env.PRICE_CACHE.get(SNAPSHOT_ETAG_KEY)]);
 		if (!raw) {
@@ -260,7 +281,7 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 
 		// Return 304 if the client already has this snapshot version.
 		if (requestHasMatchingEtag(req, etag)) {
-			return snapshotNotModifiedResponse(etag, SNAPSHOT_CACHE_CONTROL, req, env);
+			return annotateResponse(snapshotNotModifiedResponse(etag, SNAPSHOT_CACHE_CONTROL, req, env), { cacheHit: true });
 		}
 
 		const responseHeaders: Record<string, string> = { 'cache-control': SNAPSHOT_CACHE_CONTROL };
@@ -283,11 +304,13 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 			ctx.waitUntil(edgeCache.put(cacheKey, new Response(body, { status: 200, headers: responseHeaders })));
 		}
 
-		return response;
+		return annotateResponse(response, { cacheHit: false });
 	}
 
 	const priceSlug = getSlug(url.pathname, '/v1/prices/');
 	if (req.method === 'GET' && priceSlug) {
+		if (isWfmExcludedSlug(priceSlug)) return excludedMarketResponse(req, env);
+
 		const guardResponse = await guardPublicRequest(req, env, 'prices', { bootstrap: true });
 		if (guardResponse) return guardResponse;
 
@@ -305,6 +328,8 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 
 	const metaSlug = getSlug(url.pathname, '/v1/meta/');
 	if (req.method === 'GET' && metaSlug) {
+		if (isWfmExcludedSlug(metaSlug)) return excludedMarketResponse(req, env);
+
 		const guardResponse = await guardPublicRequest(req, env, 'meta', { bootstrap: true });
 		if (guardResponse) return guardResponse;
 
@@ -315,6 +340,8 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 
 	const orderSummarySlug = getSlug(url.pathname, '/v1/order-summary/');
 	if (req.method === 'GET' && orderSummarySlug) {
+		if (isWfmExcludedSlug(orderSummarySlug)) return excludedMarketResponse(req, env);
+
 		const guardResponse = await guardPublicRequest(req, env, 'order-summary', { bootstrap: true });
 		if (guardResponse) return guardResponse;
 

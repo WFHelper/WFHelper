@@ -64,6 +64,29 @@ function inactivePriceSnapshotEntry(timestamp = Date.now()): Record<string, unkn
 	};
 }
 
+function snapshotOrderSummaryEntryFromPayload(payload: Record<string, unknown>): Record<string, unknown> {
+	const wts = typeof payload.wts === 'number' && Number.isFinite(payload.wts) ? payload.wts : null;
+	const wtb = typeof payload.wtb === 'number' && Number.isFinite(payload.wtb) ? payload.wtb : null;
+	const timestamp = snapshotEntryTimestamp(payload) ?? Date.now();
+	return {
+		status: wts != null || wtb != null ? 'ok' : 'no_data',
+		wts,
+		wtb,
+		timestamp,
+	};
+}
+
+function snapshotPriceEntryFromPayload(payload: Record<string, unknown>): Record<string, unknown> | null {
+	const median = typeof payload.median === 'number' && Number.isFinite(payload.median) ? payload.median : null;
+	if (median == null) return null;
+	const timestamp = snapshotEntryTimestamp(payload) ?? Date.now();
+	return {
+		status: 'ok',
+		median,
+		timestamp,
+	};
+}
+
 function snapshotEntryTimestamp(value: Record<string, unknown>): number | null {
 	const timestamp = Number(value.timestamp || 0);
 	return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : null;
@@ -481,6 +504,15 @@ export async function prewarmOrderSummaryCatalog(
 				shouldRefreshOrderSummary = isDueForRefresh(cachedOrderSummary, config.orderSummaryStaleRefreshSec);
 				shouldRefreshPrice = isDueForRefresh(cachedPrice, config.staleRefreshSec);
 				if (!shouldRefreshOrderSummary && !shouldRefreshPrice) {
+					const snapshotOrderSummaryKey = snapshotCacheKeyFromWorkerKey(orderSummaryKey);
+					if (snapshotOrderSummaryKey && cachedOrderSummary) {
+						snapshotOrderSummaries[snapshotOrderSummaryKey] = snapshotOrderSummaryEntryFromPayload(cachedOrderSummary);
+					}
+					const snapshotPriceKey = snapshotCacheKeyFromWorkerKey(priceKey);
+					const snapshotPrice = cachedPrice ? snapshotPriceEntryFromPayload(cachedPrice) : null;
+					if (snapshotPriceKey && snapshotPrice) {
+						snapshotPrices[snapshotPriceKey] = snapshotPrice;
+					}
 					result.processed += 1;
 					continue;
 				}

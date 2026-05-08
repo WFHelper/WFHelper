@@ -15,13 +15,13 @@ import {
 } from './prewarm';
 import { fetchCatalogSlugs } from './prewarmCatalog';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
-import { isExcludedRankedMarketItem } from '../../../../config/shared/wfmExclusions';
+import { isExcludedRankedMarketItem, isWfmExcludedSlug } from '../../../../config/shared/wfmExclusions';
 import { workerMissCacheKey, workerOrderSummaryCacheKey, workerPriceCacheKey } from '../../../../config/shared/wfmCacheKeys';
 
 type AutoReadResult =
-	| { status: 'ok'; data: Record<string, unknown> }
-	| { status: 'not_found'; data: null }
-	| { status: 'unavailable'; data: null };
+	| { status: 'ok'; data: Record<string, unknown>; cacheHit: boolean }
+	| { status: 'not_found'; data: null; cacheHit: boolean }
+	| { status: 'unavailable'; data: null; cacheHit: false };
 interface HydrateResult {
 	data: Record<string, unknown> | null;
 	transient: boolean;
@@ -52,8 +52,10 @@ const orderSummaryInFlight = new Map<string, Promise<HydrateResult>>();
 const ORDER_SUMMARY_BREAKER_THRESHOLD = 6;
 const ORDER_SUMMARY_BREAKER_COOLDOWN_MS = 90_000;
 const CATALOG_SLUG_SET_TTL_MS = 5 * 60 * 1000;
+const LOCAL_UNTRADABLE_SKIP_TTL_MS = 6 * 60 * 60 * 1000;
 
 let catalogSlugSetCache: { expiresAt: number; slugs: Set<string> } | null = null;
+const localUntradableSkipCache = new Map<string, number>();
 
 /**
  * Circuit-breaker state is per-V8-isolate, not global.
@@ -134,6 +136,31 @@ async function setNegativeMarker(namespace: KVNamespace, key: string, env: Env):
 	});
 }
 
+function noteLocalUntradableSkip(slug: string): void {
+	localUntradableSkipCache.set(slug, Date.now() + LOCAL_UNTRADABLE_SKIP_TTL_MS);
+}
+
+function clearLocalUntradableSkip(slug: string): void {
+	localUntradableSkipCache.delete(slug);
+}
+
+function hasLocalUntradableSkip(slug: string): boolean {
+	const cachedUntil = localUntradableSkipCache.get(slug) || 0;
+	if (cachedUntil > Date.now()) return true;
+	if (cachedUntil > 0) localUntradableSkipCache.delete(slug);
+	return false;
+}
+
+async function hasUntradableSkipMarker(env: Env, slug: string): Promise<boolean> {
+	if (hasLocalUntradableSkip(slug)) return true;
+
+	const marker = await env.ITEM_META.get(`${SKIP_UNTRADABLE_PREFIX}${slug}`);
+	if (!marker) return false;
+
+	noteLocalUntradableSkip(slug);
+	return true;
+}
+
 async function slugMissingFromCatalog(env: Env, slug: string): Promise<boolean> {
 	if (!getWorkerConfig(env).catalogSlugGuardEnabled) return false;
 
@@ -202,11 +229,13 @@ async function hydrateMeta(env: Env, slug: string, markNoData: boolean): Promise
 		if (!result.data.tradable) {
 			autoStats.metaUntradableSkips += 1;
 			await markUntradable(env, slug);
+			noteLocalUntradableSkip(slug);
 			return { data: null, transient: false };
 		}
 
 		await env.ITEM_META.delete(`${MISS_META_PREFIX}${slug}`);
 		await env.ITEM_META.delete(`${SKIP_UNTRADABLE_PREFIX}${slug}`);
+		clearLocalUntradableSkip(slug);
 		autoStats.metaHydrated += 1;
 		const data = await putMetaPayload(env, result.data);
 		return { data, transient: false };
@@ -282,26 +311,28 @@ async function withReadThrough(env: Env, ctx: ExecutionContext | undefined, desc
 				}),
 			);
 		}
-		return { status: 'ok', data: cached };
+		return { status: 'ok', data: cached, cacheHit: true };
 	}
 
 	if (descriptor.beforeMissCheck && (await descriptor.beforeMissCheck())) {
 		descriptor.onBeforeMissHit?.();
-		return { status: 'not_found', data: null };
+		return { status: 'not_found', data: null, cacheHit: false };
 	}
 
 	const missMarker = await descriptor.namespace.get(descriptor.missKey);
 	if (missMarker) {
 		autoStats[descriptor.stats.negativeHit] += 1;
-		return { status: 'not_found', data: null };
+		return { status: 'not_found', data: null, cacheHit: true };
 	}
 
 	const hydrated = await descriptor.hydrate(true);
 	if (hydrated.data) {
-		return { status: 'ok', data: hydrated.data };
+		return { status: 'ok', data: hydrated.data, cacheHit: false };
 	}
 
-	return hydrated.transient ? { status: 'unavailable', data: null } : { status: 'not_found', data: null };
+	return hydrated.transient
+		? { status: 'unavailable', data: null, cacheHit: false }
+		: { status: 'not_found', data: null, cacheHit: false };
 }
 
 export async function getOrHydratePrice(
@@ -310,6 +341,10 @@ export async function getOrHydratePrice(
 	ctx?: ExecutionContext,
 	rankInput?: number | null,
 ): Promise<AutoReadResult> {
+	if (isWfmExcludedSlug(slug)) {
+		return { status: 'not_found', data: null, cacheHit: true };
+	}
+
 	const rank = normalizeRankFilter(rankInput);
 	const cacheKey = workerPriceCacheKey(slug, rank);
 	const missKey = workerMissCacheKey(MISS_PRICE_PREFIX, slug, rank);
@@ -329,6 +364,14 @@ export async function getOrHydratePrice(
 }
 
 export async function getOrHydrateMeta(env: Env, slug: string, ctx?: ExecutionContext): Promise<AutoReadResult> {
+	if (isWfmExcludedSlug(slug)) {
+		return { status: 'not_found', data: null, cacheHit: true };
+	}
+	if (hasLocalUntradableSkip(slug)) {
+		autoStats.metaUntradableSkips += 1;
+		return { status: 'not_found', data: null, cacheHit: true };
+	}
+
 	return withReadThrough(env, ctx, {
 		namespace: env.ITEM_META,
 		cacheKey: `meta:${slug}`,
@@ -341,7 +384,7 @@ export async function getOrHydrateMeta(env: Env, slug: string, ctx?: ExecutionCo
 			staleRefreshQueued: 'metaStaleRefreshQueued',
 		},
 		beforeMissCheck: async () =>
-			(await slugMissingFromCatalog(env, slug)) || Boolean(await env.ITEM_META.get(`${SKIP_UNTRADABLE_PREFIX}${slug}`)),
+			(await slugMissingFromCatalog(env, slug)) || (await hasUntradableSkipMarker(env, slug)),
 		onBeforeMissHit: () => {
 			autoStats.metaUntradableSkips += 1;
 		},
@@ -354,8 +397,8 @@ export async function getOrHydrateOrderSummary(
 	ctx?: ExecutionContext,
 	rankInput?: number | null,
 ): Promise<AutoReadResult> {
-	if (isExcludedRankedMarketItem(null, slug)) {
-		return { status: 'not_found', data: null };
+	if (isWfmExcludedSlug(slug) || isExcludedRankedMarketItem(null, slug)) {
+		return { status: 'not_found', data: null, cacheHit: true };
 	}
 
 	const rank = normalizeRankFilter(rankInput);
