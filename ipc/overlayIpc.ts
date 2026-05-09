@@ -221,17 +221,6 @@ function pushOverlayThemeVars(): void {
   rivenOverlayIpc.forEachRivenWindow((win) => win.webContents.send(OVERLAY_THEME_VARS, vars));
 }
 
-function ensureOverlayWindowPrimed(): void {
-  const rwc = rewardOverlayIpc.getRewardWindowsController();
-  const pwc = rewardOverlayIpc.getPlannerWindowsController();
-  rwc.createOverlayWindow({ show: false });
-  pwc.createOverlayWindow({ show: false });
-  rwc.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
-  pwc.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
-  pushOverlayInteractionMode();
-  pushOverlayThemeVars();
-}
-
 function onRelicRewardTrigger(source = "manual"): void {
   rewardOverlayIpc.onRelicRewardTrigger(
     source,
@@ -253,6 +242,9 @@ const settingsController = createOverlaySettingsController({
   onRelicRewardTrigger,
   onToggleOverlayInteractionMode: toggleOverlayInteractionMode,
 });
+
+rewardOverlayIpc.configureOverlaySettingsPersistence(settingsController.saveOverlaySettings);
+rivenOverlayIpc.configureOverlaySettingsPersistence(settingsController.saveOverlaySettings);
 
 function onRelicSelectionTrigger(source: string): void {
   rewardOverlayIpc.onRelicSelectionTrigger(
@@ -292,16 +284,6 @@ function applyOverlayAvailabilitySettings(): void {
 }
 
 function register(): void {
-  ensureOverlayWindowPrimed();
-  setTimeout(() => {
-    if (ctx.overlayWindow && !ctx.overlayWindow.isDestroyed()) {
-      ctx.overlayWindow.hide();
-    }
-    if (ctx.plannerOverlayWindow && !ctx.plannerOverlayWindow.isDestroyed()) {
-      ctx.plannerOverlayWindow.hide();
-    }
-  }, 150);
-
   // Delegate domain-specific IPC to sub-modules
   rivenOverlayIpc.register();
   rewardOverlayIpc.register(pushOverlayInteractionMode, pushOverlayThemeVars);
@@ -322,6 +304,13 @@ function register(): void {
       const settings = settingsController.setOverlaySettings(nextSettings);
       settingsController.registerOverlayHotkey();
       applyOverlayAvailabilitySettings();
+      rewardOverlayIpc
+        .getRewardWindowsController()
+        .positionOverlayWindow(rewardOverlayIpc.getRewardWindowsController().getAnchorMeta());
+      rewardOverlayIpc
+        .getPlannerWindowsController()
+        .positionOverlayWindow(rewardOverlayIpc.getPlannerWindowsController().getAnchorMeta());
+      rivenOverlayIpc.positionRivenOverlayWindows();
       return settings;
     },
   );

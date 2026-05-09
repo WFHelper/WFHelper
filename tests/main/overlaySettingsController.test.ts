@@ -96,6 +96,24 @@ describe("overlay settings controller", () => {
     expect(normalized.rivenOverlayEnabled).toBe(false);
   });
 
+  it("normalizes overlay sizing and remembered bounds", () => {
+    const { controller } = buildController();
+
+    const normalized = controller.normalizeOverlaySettings({
+      overlayScale: 2,
+      overlayWindowBounds: {
+        reward: { x: 120, y: 240, displayId: "7" },
+        nope: { x: 1, y: 2 },
+        planner: { x: "bad", y: 10 },
+      },
+    });
+
+    expect(normalized.overlayScale).toBe(1.5);
+    expect(normalized.overlayWindowBounds).toEqual({
+      reward: { x: 120, y: 240, displayId: "7" },
+    });
+  });
+
   it("migrates the legacy trade notification setting to the overlay toggle", () => {
     const { controller } = buildController();
 

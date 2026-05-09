@@ -34,6 +34,14 @@ export interface FissureAlert {
   planet: string; // planet name or "any"
 }
 
+export type OverlayWindowKey = "reward" | "planner" | "rivenLeft" | "rivenRight";
+
+export interface OverlaySavedWindowBounds {
+  x: number;
+  y: number;
+  displayId?: string | null;
+}
+
 export interface OverlaySettings {
   autoTriggerEnabled: boolean;
   hotkeyEnabled: boolean;
@@ -52,6 +60,8 @@ export interface OverlaySettings {
   relicRecommendationOverlayEnabled: boolean;
   tradeNotificationOverlayEnabled: boolean;
   rivenOverlayEnabled: boolean;
+  overlayScale: number;
+  overlayWindowBounds: Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>>;
 }
 
 type AppUpdateStatus =

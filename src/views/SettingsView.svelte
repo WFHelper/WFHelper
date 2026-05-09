@@ -23,6 +23,7 @@
   let relicRewardsOverlayEnabled = OVERLAY_DEFAULTS.relicRewardsOverlayEnabled;
   let relicRecommendationOverlayEnabled = OVERLAY_DEFAULTS.relicRecommendationOverlayEnabled;
   let rivenOverlayEnabled = OVERLAY_DEFAULTS.rivenOverlayEnabled;
+  let overlayScale = OVERLAY_DEFAULTS.overlayScale;
   let hotkeyEnabled = OVERLAY_DEFAULTS.hotkeyEnabled;
   let hotkey = OVERLAY_DEFAULTS.hotkey;
   let interactionHotkeyEnabled = OVERLAY_DEFAULTS.interactionHotkeyEnabled;
@@ -43,6 +44,7 @@
     relicRecommendationOverlayEnabled =
       s.relicRecommendationOverlayEnabled ?? OVERLAY_DEFAULTS.relicRecommendationOverlayEnabled;
     rivenOverlayEnabled = s.rivenOverlayEnabled ?? OVERLAY_DEFAULTS.rivenOverlayEnabled;
+    overlayScale = s.overlayScale ?? OVERLAY_DEFAULTS.overlayScale;
     hotkeyEnabled = !!s.hotkeyEnabled;
     hotkey = s.hotkey || OVERLAY_DEFAULTS.hotkey;
     interactionHotkeyEnabled = !!s.interactionHotkeyEnabled;
@@ -73,6 +75,7 @@
       relicRewardsOverlayEnabled,
       relicRecommendationOverlayEnabled,
       rivenOverlayEnabled,
+      overlayScale: Number(overlayScale),
       hotkeyEnabled,
       hotkey,
       interactionHotkeyEnabled,
@@ -232,7 +235,6 @@
       <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
         <div>
           <h3 class="m-0 mb-[0.42rem] font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">{$tr("settings.overlayTitle")}</h3>
-          <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">{$tr("settings.overlayDescription")}</p>
           <p class="mt-1 text-xs leading-tight text-text-muted">{$tr("settings.overlayRequirements")}</p>
         </div>
 
@@ -240,6 +242,21 @@
           <label class="settings-control-row">
             <span>{$tr("settings.autoTrigger")}</span>
             <input type="checkbox" bind:checked={autoTrigger} class="accent-accent" />
+          </label>
+
+          <label class="settings-control-row settings-control-row-input">
+            <span>Overlay size</span>
+            <div class="settings-range-control">
+              <input
+                type="range"
+                min="0.75"
+                max="1.5"
+                step="0.05"
+                bind:value={overlayScale}
+                class="settings-range"
+              />
+              <span class="settings-range-value">{Math.round(Number(overlayScale) * 100)}%</span>
+            </div>
           </label>
 
           <label class="settings-control-row">
@@ -342,6 +359,27 @@
 
   .settings-input:disabled {
     opacity: 0.55;
+  }
+
+  .settings-range-control {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    min-width: 12rem;
+  }
+
+  .settings-range {
+    width: 8rem;
+    accent-color: var(--accent);
+  }
+
+  .settings-range-control .settings-range-value {
+    min-width: 3.7rem;
+    text-align: right;
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
   }
 
   .settings-wide-actions {

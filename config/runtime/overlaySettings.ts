@@ -14,6 +14,14 @@ interface FissureAlert {
   planet: string;
 }
 
+export type OverlayWindowKey = "reward" | "planner" | "rivenLeft" | "rivenRight";
+
+export interface OverlaySavedWindowBounds {
+  x: number;
+  y: number;
+  displayId?: string | null;
+}
+
 export interface OverlaySettings {
   [key: string]: unknown;
   autoTriggerEnabled: boolean;
@@ -33,6 +41,8 @@ export interface OverlaySettings {
   relicRecommendationOverlayEnabled: boolean;
   tradeNotificationOverlayEnabled: boolean;
   rivenOverlayEnabled: boolean;
+  overlayScale: number;
+  overlayWindowBounds: Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>>;
 }
 
 export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
@@ -59,6 +69,8 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   relicRecommendationOverlayEnabled: true,
   tradeNotificationOverlayEnabled: true,
   rivenOverlayEnabled: true,
+  overlayScale: 1,
+  overlayWindowBounds: Object.freeze({}),
 });
 
 type OverlayToggleKey =

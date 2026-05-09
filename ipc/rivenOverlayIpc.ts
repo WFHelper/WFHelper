@@ -3,7 +3,10 @@ import {
   assertRivenOverlayRendererSender,
   onAuthorized,
 } from "./ipcSecurity";
-import { createOverlayWindowsController } from "./overlay/windows";
+import {
+  createOverlayWindowBoundsChangeHandler,
+  createOverlayWindowsController,
+} from "./overlay/windows";
 import * as rivenSession from "./overlay/rivenSession";
 import * as rivenScan from "./overlay/rivenScan";
 import * as rivenGrading from "../services/rivenGrading";
@@ -34,6 +37,13 @@ const RIVEN_WINDOW_FILE = path.join(APP_ROOT, "renderer", "riven-overlay.html");
 
 
 let _rivenInteractive = false;
+let persistOverlaySettings: (() => void) | null = null;
+const rememberOverlayWindowBounds = createOverlayWindowBoundsChangeHandler({
+  ctx,
+  save: () => {
+    persistOverlaySettings?.();
+  },
+});
 
 const RIVEN_WIN_W = 420;
 const RIVEN_WIN_H = 640;
@@ -73,6 +83,8 @@ const rivenLeftWindowsController = createOverlayWindowsController({
   windowLabel: "riven overlay left window",
   fileSearch: "side=left",
   placement: "top-left",
+  windowStateKey: "rivenLeft",
+  onWindowBoundsChanged: rememberOverlayWindowBounds,
 });
 
 const rivenRightWindowsController = createOverlayWindowsController({
@@ -88,6 +100,8 @@ const rivenRightWindowsController = createOverlayWindowsController({
   windowLabel: "riven overlay right window",
   fileSearch: "side=right",
   placement: "top-right",
+  windowStateKey: "rivenRight",
+  onWindowBoundsChanged: rememberOverlayWindowBounds,
 });
 
 /** Returns both riven windows as an array for broadcasting IPC events. */
@@ -106,9 +120,10 @@ function syncRivenWindowZOrder(warframeFocused: boolean): void {
   forEachRivenWindow((win) => {
     if (!win.isVisible()) return;
     if (warframeFocused) {
+      win.setSkipTaskbar(true);
+      win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
       win.setAlwaysOnTop(true, "screen-saver");
-    } else {
-      win.setAlwaysOnTop(false);
+      win.moveTop();
     }
   });
 }
@@ -128,19 +143,31 @@ function createRivenWindow(side: "left" | "right", options: { show?: boolean }):
   controller.setOverlayInteractiveMode(_rivenInteractive);
 }
 
+export function positionRivenOverlayWindows(): void {
+  rivenLeftWindowsController.positionOverlayWindow(rivenLeftWindowsController.getAnchorMeta());
+  rivenRightWindowsController.positionOverlayWindow(rivenRightWindowsController.getAnchorMeta());
+}
+
 function createRivenOverlayWindows(options: { show?: boolean } = {}): void {
   // If both already exist, just bring them to front
   const existLeft = ctx.rivenOverlayLeftWindow;
   const existRight = ctx.rivenOverlayRightWindow;
   if (existLeft && !existLeft.isDestroyed() && existRight && !existRight.isDestroyed()) {
-    forEachRivenWindow((win) => {
-      win.setAlwaysOnTop(true, "screen-saver");
-      win.moveTop();
-      if (options.show !== false) win.showInactive();
-    });
-    rivenLeftWindowsController.setOverlayInteractiveMode(_rivenInteractive);
-    rivenRightWindowsController.setOverlayInteractiveMode(_rivenInteractive);
-    return;
+    if (options.show !== false && (!existLeft.isVisible() || !existRight.isVisible())) {
+      existLeft.destroy();
+      existRight.destroy();
+    } else {
+      forEachRivenWindow((win) => {
+        win.setSkipTaskbar(true);
+        win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+        win.setAlwaysOnTop(true, "screen-saver");
+        win.moveTop();
+        if (options.show !== false) win.showInactive();
+      });
+      rivenLeftWindowsController.setOverlayInteractiveMode(_rivenInteractive);
+      rivenRightWindowsController.setOverlayInteractiveMode(_rivenInteractive);
+      return;
+    }
   }
 
   // Destroy stale windows
@@ -416,6 +443,8 @@ export function onRivenChatView(): void {
     _rivenInteractive = false;
     createRivenWindow("left", { show: true });
   } else {
+    existLeft.setSkipTaskbar(true);
+    existLeft.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     existLeft.setAlwaysOnTop(true, "screen-saver");
     existLeft.moveTop();
     existLeft.showInactive();
@@ -565,6 +594,10 @@ export function onRivenChoiceConfirmed(): void {
 
 
 export { toggleRivenInteractiveMode, forEachRivenWindow,  };
+
+export function configureOverlaySettingsPersistence(persist: () => void): void {
+  persistOverlaySettings = persist;
+}
 
 
 export function register(): void {

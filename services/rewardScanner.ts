@@ -10,7 +10,6 @@
 
 import { withScope } from "./logger";
 import { createRewardOcrRunner } from "./rewardScannerOcr";
-import { waitForRewardUiReady as _waitForRewardUiReady } from "./rewardScannerReadiness";
 import { CROP_PRESETS, SCANNER_TUNING } from "./rewardScannerSupport";
 import { detectRelicSelectionEra as detectRelicSelectionEraWithOcr } from "./rewardScannerEra";
 import {
@@ -56,10 +55,6 @@ function getBandsForPasses(
   return bands;
 }
 
-function getPrimaryBand(): { top: number; height: number } {
-  return getBandsForPasses(REWARD_SCAN_SETTINGS.cropPreset, 1)[0];
-}
-
 export function setRelicItems(items: SortedItem[]): void {
   relicItems = Array.isArray(items) ? items : [];
   sortedItems = [...relicItems].sort((a, b) => b.name.length - a.name.length);
@@ -88,14 +83,4 @@ export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null):
     getBandsForPasses,
     runOCRStructuredBuffer,
   });
-}
-
-export function waitForRewardUiReady(options?: {
-  timeoutMs?: number;
-  pollMs?: number;
-  requiredHits?: number;
-  scoreThreshold?: number;
-  band?: { top: number; height: number };
-}): ReturnType<typeof _waitForRewardUiReady> {
-  return _waitForRewardUiReady(options, getPrimaryBand);
 }

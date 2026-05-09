@@ -115,6 +115,7 @@ let pendingRelicPickerTimer: ReturnType<typeof setTimeout> | null = null;
 let lastRewardAt = 0;
 let lastRelicPickerAt = 0;
 let lastRelicPickerCloseAt = 0;
+let relicPickerSessionOpen = false;
 
 function clearPendingTimers(): void {
   if (pendingRewardTimer) {
@@ -214,6 +215,7 @@ function scheduleTrigger(type: "reward" | "relic_picker"): void {
   pendingRelicPickerTimer = setTimeout(() => {
     pendingRelicPickerTimer = null;
     lastRelicPickerAt = Date.now();
+    relicPickerSessionOpen = true;
     if (typeof relicPickerCallback === "function") {
       log.log("[EELog] Relic picker trigger detected -> dispatching recommendation overlay");
       relicPickerCallback();
@@ -284,7 +286,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   // and against file-poll duplicates when DBWIN is active.
   if (!isRivenSessionActive() && !skipRelicFromFilePoll && RELIC_PICKER_CLOSE_PATTERNS.some((pattern) => pattern.test(line))) {
     const now = Date.now();
-    if (now - lastRelicPickerCloseAt >= RELIC_PICKER_CLOSE_COOLDOWN_MS) {
+    if (relicPickerSessionOpen && now - lastRelicPickerCloseAt >= RELIC_PICKER_CLOSE_COOLDOWN_MS) {
       lastRelicPickerCloseAt = now;
       if (now - lastRelicPickerAt < RELIC_PICKER_CLOSE_MIN_GAP_MS) {
         // Too close to the last open trigger — this InitMapping is from navigating
@@ -292,6 +294,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
         // immediately after it opens.
         log.log("[EELog] Relic picker close skipped — too close to last open trigger");
       } else if (typeof relicPickerCloseCallback === "function") {
+        relicPickerSessionOpen = false;
         log.log("[EELog] Relic picker close detected -> dispatching overlay close");
         relicPickerCloseCallback();
       }
@@ -495,6 +498,7 @@ export function startWatching(
   rewardCallback = normalized.onRewardTrigger;
   relicPickerCallback = normalized.onRelicSelectionOpen;
   relicPickerCloseCallback = normalized.onRelicSelectionClose;
+  relicPickerSessionOpen = false;
   tradePartnerCallback = normalized.onTradingPartner;
   tradeConfirmedCallback = normalized.onTradeConfirmed;
   setRivenCallbacks({
@@ -574,4 +578,5 @@ export function stopWatching(): void {
   relicPickerCloseCallback = null;
   resetRivenState();
   lineRemainder = "";
+  relicPickerSessionOpen = false;
 }

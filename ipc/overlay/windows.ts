@@ -1,5 +1,9 @@
 import path from "node:path";
 import { clampNumber } from "../../config/shared/numeric";
+import type {
+  OverlaySavedWindowBounds,
+  OverlayWindowKey,
+} from "../../config/runtime/overlaySettings";
 
 const OVERLAY_WINDOW_BOUNDS = Object.freeze({
   width: 980,
@@ -15,13 +19,19 @@ const OVERLAY_WINDOW_BOUNDS = Object.freeze({
 
 type OverlayAnchorMeta = {
   sourceDisplayId?: string | null;
-  bandBottomRatio?: number;
+  bandTopRatio?: number | null;
+  bandBottomRatio?: number | null;
 };
 
 type OverlayContext = {
   overlayWindow: import("electron").BrowserWindow | null;
   overlaySettings: import("../../config/runtime/overlaySettings").OverlaySettings;
   overlayInteractiveMode: boolean;
+};
+
+type OverlaySettingsPersistenceOptions = {
+  ctx: Pick<OverlayContext, "overlaySettings">;
+  save: () => void;
 };
 
 type OverlayWindowsControllerOptions = {
@@ -59,7 +69,27 @@ type OverlayWindowsControllerOptions = {
   transparent?: boolean;
   /** Background colour used when transparent=false (default: '#060a12'). */
   backgroundColor?: string;
+  windowStateKey?: OverlayWindowKey;
+  onWindowBoundsChanged?: (
+    key: OverlayWindowKey,
+    bounds: OverlaySavedWindowBounds,
+  ) => void;
 };
+
+export function createOverlayWindowBoundsChangeHandler(
+  options: OverlaySettingsPersistenceOptions,
+): (key: OverlayWindowKey, bounds: OverlaySavedWindowBounds) => void {
+  return (key, bounds) => {
+    options.ctx.overlaySettings = {
+      ...options.ctx.overlaySettings,
+      overlayWindowBounds: {
+        ...(options.ctx.overlaySettings.overlayWindowBounds || {}),
+        [key]: bounds,
+      },
+    };
+    options.save();
+  };
+}
 
 export function createOverlayWindowsController(options: OverlayWindowsControllerOptions) {
   const {
@@ -88,10 +118,14 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     ignoreMouseEventsForward = true,
     transparent = true,
     backgroundColor = "#060a12",
+    windowStateKey,
+    onWindowBoundsChanged,
   } = options;
 
   let lastOverlayAnchorMeta: OverlayAnchorMeta | null = null;
   let overlayAutoHideTimer: ReturnType<typeof setTimeout> | null = null;
+  let suppressMoveSave = false;
+  let moveSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
   const readOverlayWindow =
     getOverlayWindow ||
@@ -127,6 +161,14 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     return screen.getAllDisplays().find((display) => String(display.id) === wanted) || null;
   }
 
+  function readSavedBounds(): OverlaySavedWindowBounds | null {
+    if (!windowStateKey) return null;
+    const saved = ctx.overlaySettings?.overlayWindowBounds?.[windowStateKey];
+    if (!saved || typeof saved !== "object") return null;
+    if (!Number.isFinite(saved.x) || !Number.isFinite(saved.y)) return null;
+    return saved;
+  }
+
   function getDisplayForOverlay(anchorMeta: OverlayAnchorMeta | null): import("electron").Display {
     if (displayMode === "primary") {
       return screen.getPrimaryDisplay();
@@ -151,8 +193,24 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       return OVERLAY_WINDOW_BOUNDS.defaultYRatio;
     }
 
-    const bandBottom = Number(anchorMeta.bandBottomRatio);
-    if (!Number.isFinite(bandBottom)) {
+    const bandTop =
+      typeof anchorMeta.bandTopRatio === "number" && Number.isFinite(anchorMeta.bandTopRatio)
+        ? anchorMeta.bandTopRatio
+        : null;
+    if (bandTop != null) {
+      return clampNumber(
+        bandTop + OVERLAY_WINDOW_BOUNDS.anchorGapRatio,
+        OVERLAY_WINDOW_BOUNDS.anchorMinRatio,
+        OVERLAY_WINDOW_BOUNDS.anchorMaxRatio,
+        OVERLAY_WINDOW_BOUNDS.defaultYRatio,
+      );
+    }
+
+    const bandBottom =
+      typeof anchorMeta.bandBottomRatio === "number" && Number.isFinite(anchorMeta.bandBottomRatio)
+        ? anchorMeta.bandBottomRatio
+        : null;
+    if (bandBottom == null) {
       return OVERLAY_WINDOW_BOUNDS.defaultYRatio;
     }
 
@@ -167,17 +225,22 @@ export function createOverlayWindowsController(options: OverlayWindowsController
 
   function computeOverlayZoomFactor(display: import("electron").Display): number {
     const h = display.workArea.height;
-    if (h <= 720) return 0.8;
-    if (h <= 900) return 0.9;
-    if (h <= 1200) return 1.0;
-    if (h <= 1600) return 1.15;
-    return 1.3;
+    let base = 1.3;
+    if (h <= 720) base = 0.8;
+    else if (h <= 900) base = 0.9;
+    else if (h <= 1200) base = 1.0;
+    else if (h <= 1600) base = 1.15;
+    const userScale = clampNumber(ctx.overlaySettings?.overlayScale, 0.75, 1.5, 1);
+    return Number((base * userScale).toFixed(3));
   }
 
   function getOverlayBoundsForActiveDisplay(
     anchorMeta: OverlayAnchorMeta | null = lastOverlayAnchorMeta,
   ) {
-    const display = getDisplayForOverlay(anchorMeta);
+    const savedBounds = readSavedBounds();
+    const display =
+      (savedBounds ? findDisplayById(savedBounds.displayId) : null) ||
+      getDisplayForOverlay(anchorMeta);
     const zoomFactor = computeOverlayZoomFactor(display);
     const scaledWidth = Math.round(windowWidth * zoomFactor);
     const scaledHeight = Math.round(windowHeight * zoomFactor);
@@ -203,7 +266,10 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     let x = Math.round(area.x + (area.width - width) / 2);
     let y = Math.round(area.y + area.height * getAnchorRatio(anchorMeta));
 
-    if (placement === "top-left") {
+    if (savedBounds) {
+      x = savedBounds.x;
+      y = savedBounds.y;
+    } else if (placement === "top-left") {
       x = minX;
       y = area.y + Math.max(0, topOffset);
     } else if (placement === "top-right") {
@@ -223,22 +289,67 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     const overlayWindow = readOverlayWindow();
     if (!overlayWindow || overlayWindow.isDestroyed()) return;
     const { zoomFactor, ...rect } = getOverlayBoundsForActiveDisplay(anchorMeta);
+    suppressMoveSave = true;
     overlayWindow.setBounds(rect, false);
     overlayWindow.webContents.setZoomFactor(zoomFactor);
+    setTimeout(() => {
+      suppressMoveSave = false;
+    }, 0);
+  }
+
+  function saveCurrentWindowBounds(overlayWindow: import("electron").BrowserWindow): void {
+    if (!windowStateKey || !onWindowBoundsChanged) return;
+    if (suppressMoveSave || overlayWindow.isDestroyed()) return;
+    if (!readInteractiveMode()) return;
+    const bounds = overlayWindow.getBounds();
+    let displayId: string | null = null;
+    try {
+      const display = screen.getDisplayMatching(bounds);
+      displayId = display ? String(display.id) : null;
+    } catch {
+      // best effort
+    }
+    onWindowBoundsChanged(windowStateKey, {
+      x: bounds.x,
+      y: bounds.y,
+      ...(displayId ? { displayId } : {}),
+    });
+  }
+
+  function attachBoundsPersistence(overlayWindow: import("electron").BrowserWindow): void {
+    if (!windowStateKey || !onWindowBoundsChanged) return;
+    overlayWindow.on("move", () => {
+      if (moveSaveTimer) clearTimeout(moveSaveTimer);
+      moveSaveTimer = setTimeout(() => {
+        moveSaveTimer = null;
+        saveCurrentWindowBounds(overlayWindow);
+      }, 250);
+    });
+  }
+
+  function keepOverlayAboveGame(overlayWindow: import("electron").BrowserWindow): void {
+    overlayWindow.setSkipTaskbar(true);
+    overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    overlayWindow.setAlwaysOnTop(true, "screen-saver");
   }
 
   function createOverlayWindow(options: { show?: boolean } = {}): void {
     const shouldShow = options.show !== false;
-    const existingWindow = readOverlayWindow();
+    let existingWindow = readOverlayWindow();
+    if (shouldShow && existingWindow && !existingWindow.isDestroyed() && !existingWindow.isVisible()) {
+      existingWindow.destroy();
+      existingWindow = null;
+    }
+
     if (existingWindow && !existingWindow.isDestroyed()) {
       positionOverlayWindow(lastOverlayAnchorMeta);
-      existingWindow.setAlwaysOnTop(true, "screen-saver");
+      keepOverlayAboveGame(existingWindow);
       if (shouldShow) {
         existingWindow.showInactive();
         // moveTop + alwaysOnTop confirmed AFTER showInactive so the window
         // is definitely in the visible stack before we raise it.
         existingWindow.moveTop();
-        existingWindow.setAlwaysOnTop(true, "screen-saver");
+        keepOverlayAboveGame(existingWindow);
         const bounds = existingWindow.getBounds();
         const visible = existingWindow.isVisible();
         log.warn(
@@ -285,18 +396,24 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       overlayWindowFile,
       fileSearch ? { search: fileSearch } : undefined,
     );
-    createdWindow.setAlwaysOnTop(true, "screen-saver");
+    keepOverlayAboveGame(createdWindow);
     createdWindow.moveTop();
-    createdWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     setOverlayInteractiveMode(readInteractiveMode());
     positionOverlayWindow(lastOverlayAnchorMeta);
     if (shouldShow) {
       createdWindow.showInactive();
+      keepOverlayAboveGame(createdWindow);
+      setOverlayInteractiveMode(readInteractiveMode());
     }
     createdWindow.on("closed", () => {
       clearOverlayAutoHideTimer();
+      if (moveSaveTimer) {
+        clearTimeout(moveSaveTimer);
+        moveSaveTimer = null;
+      }
       writeOverlayWindow(null);
     });
+    attachBoundsPersistence(createdWindow);
   }
 
   function clearOverlayAutoHideTimer(): void {
@@ -357,7 +474,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     if (readInteractiveMode()) {
       overlayWindow.setIgnoreMouseEvents(false);
       overlayWindow.setFocusable(true);
-      overlayWindow.setAlwaysOnTop(true, "screen-saver");
+      keepOverlayAboveGame(overlayWindow);
       overlayWindow.moveTop();
       overlayWindow.focus();
     } else {
@@ -368,7 +485,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       }
       overlayWindow.setFocusable(true);
       overlayWindow.blur();
-      overlayWindow.setAlwaysOnTop(true, "screen-saver");
+      keepOverlayAboveGame(overlayWindow);
       overlayWindow.moveTop();
       overlayWindow.showInactive();
     }

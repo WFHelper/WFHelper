@@ -6,6 +6,7 @@ export const OVERLAY_DEFAULTS: OverlaySettings = {
   ...OVERLAY_SETTINGS_DEFAULTS,
   cycleAlerts: { ...OVERLAY_SETTINGS_DEFAULTS.cycleAlerts },
   fissureAlerts: [...OVERLAY_SETTINGS_DEFAULTS.fissureAlerts],
+  overlayWindowBounds: { ...OVERLAY_SETTINGS_DEFAULTS.overlayWindowBounds },
 };
 
 export const overlaySettings = writable<OverlaySettings>({
@@ -16,6 +17,13 @@ export const overlaySettingsLoaded = writable<boolean>(false);
 
 /** Apply a saved settings response to the stores. Call after ipc.setOverlaySettings / getOverlaySettings. */
 export function applyOverlaySettingsResponse(saved: OverlaySettings): void {
-  overlaySettings.set({ ...OVERLAY_DEFAULTS, ...saved });
+  overlaySettings.set({
+    ...OVERLAY_DEFAULTS,
+    ...saved,
+    overlayWindowBounds: {
+      ...OVERLAY_DEFAULTS.overlayWindowBounds,
+      ...(saved.overlayWindowBounds || {}),
+    },
+  });
   overlaySettingsLoaded.set(true);
 }

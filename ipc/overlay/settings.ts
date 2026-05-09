@@ -1,6 +1,10 @@
 import { normalizeErrorMessage } from "../../config/shared/errors";
 import { clampNumber } from "../../config/shared/numeric";
-import type { OverlaySettings } from "../../config/runtime/overlaySettings";
+import type {
+  OverlaySavedWindowBounds,
+  OverlaySettings,
+  OverlayWindowKey,
+} from "../../config/runtime/overlaySettings";
 
 /** Internal dict for validation before assigning to typed ctx.overlaySettings. */
 type OverlaySettingsDict = Record<string, unknown>;
@@ -119,6 +123,33 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     };
   }
 
+  function normalizeOverlayScale(value: unknown, fallback: unknown): number {
+    return Number(clampNumber(value, 0.75, 1.5, Number(fallback ?? 1)).toFixed(2));
+  }
+
+  function normalizeSavedBounds(
+    value: unknown,
+  ): Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>> {
+    if (!value || typeof value !== "object") return {};
+    const input = value as Record<string, unknown>;
+    const keys: OverlayWindowKey[] = ["reward", "planner", "rivenLeft", "rivenRight"];
+    const out: Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>> = {};
+    for (const key of keys) {
+      const raw = input[key];
+      if (!raw || typeof raw !== "object") continue;
+      const record = raw as Record<string, unknown>;
+      const x = Math.round(clampNumber(record.x, -20000, 20000, NaN));
+      const y = Math.round(clampNumber(record.y, -20000, 20000, NaN));
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      const displayId =
+        typeof record.displayId === "string" && record.displayId.trim()
+          ? record.displayId.trim()
+          : null;
+      out[key] = displayId ? { x, y, displayId } : { x, y };
+    }
+    return out;
+  }
+
   function normalizeOverlaySettings(raw: unknown): OverlaySettingsDict {
     const candidate = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
     const booleanSetting = (key: keyof OverlaySettings): boolean =>
@@ -161,6 +192,8 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       relicRecommendationOverlayEnabled: booleanSetting("relicRecommendationOverlayEnabled"),
       tradeNotificationOverlayEnabled,
       rivenOverlayEnabled: booleanSetting("rivenOverlayEnabled"),
+      overlayScale: normalizeOverlayScale(candidate.overlayScale, defaults.overlayScale),
+      overlayWindowBounds: normalizeSavedBounds(candidate.overlayWindowBounds),
     };
   }
 

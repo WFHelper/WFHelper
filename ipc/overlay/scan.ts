@@ -2,27 +2,15 @@ import type { NativeImage } from "electron";
 import { normalizeErrorMessage } from "../../config/shared/errors";
 import { RELIC_REWARD_ITEMS, RELIC_REWARD_TRIGGER } from "../../config/shared/ipcChannels";
 
-type GatePreCapture = {
-  image: NativeImage;
-  sourceType: string | null;
-  sourceName: string | null;
-  sourceId: string | null;
-  sourceDisplayId: string | null;
-};
-
 const SCAN_RETRY_WINDOW_MS = 5_000;
 const SCAN_RETRY_INTERVAL_MS = 450;
 const SCAN_MAX_ATTEMPTS = 10;
 const MAX_REWARD_ITEMS = 4;
+const EELOG_REWARD_SCAN_DELAY_MS = 1_200;
 
 const OVERLAY_AUTO_HIDE_SUCCESS_MS = 12_000;
 const OVERLAY_AUTO_HIDE_FAILURE_MS = 3_500;
 const OVERLAY_AUTO_HIDE_DETECTING_MAX_MS = 20_000;
-
-const UI_READY_GATE_TIMEOUT_MS = 2_200;
-const UI_READY_GATE_POLL_MS = 120;
-const UI_READY_GATE_REQUIRED_HITS = 2;
-const UI_READY_GATE_SCORE_THRESHOLD = 0.58;
 
 type RewardScanResult = {
   items?: unknown[];
@@ -40,26 +28,13 @@ type OverlayScanControllerOptions = {
     error: (...args: unknown[]) => void;
   };
   rewardScanner: {
-    scanRewardsDetailed: (preCapture?: { image: NativeImage; sourceType: string | null; sourceName: string | null; sourceId: string | null; sourceDisplayId: string | null } | null) => Promise<RewardScanResult | null>;
-    waitForRewardUiReady?: (options: {
-      timeoutMs: number;
-      pollMs: number;
-      requiredHits: number;
-      scoreThreshold: number;
-    }) => Promise<
-      | {
-          ready?: boolean;
-          elapsedMs?: number;
-          attempts?: number;
-          lastScreenshot?: unknown;
-          best?: {
-            sourceDisplayId?: string | null;
-            bandBottomRatio?: number | null;
-            score?: number;
-          } | null;
-        }
-      | undefined
-    >;
+    scanRewardsDetailed: (preCapture?: {
+      image: NativeImage;
+      sourceType: string | null;
+      sourceName: string | null;
+      sourceId: string | null;
+      sourceDisplayId: string | null;
+    } | null) => Promise<RewardScanResult | null>;
   };
   ctx: {
     overlaySettings: Record<string, unknown>;
@@ -111,22 +86,17 @@ export function createOverlayScanController(options: OverlayScanControllerOption
 
   let rewardScanInFlight = false;
 
-  async function runRewardScanWithRetries(triggerSource: string, gatePre?: GatePreCapture | null): Promise<RewardScanResult> {
+  async function runRewardScanWithRetries(triggerSource: string): Promise<RewardScanResult> {
     const startedAt = Date.now();
     let attempts = 0;
     let bestResult: RewardScanResult | null = null;
-    let gatePreUsed = false;
 
     while (attempts < SCAN_MAX_ATTEMPTS && Date.now() - startedAt < SCAN_RETRY_WINDOW_MS) {
       attempts += 1;
 
-      // F2: use gate pre-captured screenshot on first attempt only; fresh capture on retries
-      const preCapture = !gatePreUsed && gatePre ? gatePre : undefined;
-      if (preCapture) gatePreUsed = true;
-
       let result: RewardScanResult | null | undefined;
       try {
-        result = await rewardScanner.scanRewardsDetailed(preCapture);
+        result = await rewardScanner.scanRewardsDetailed();
       } catch (err) {
         log.error(`[Trigger] scan attempt ${attempts} failed:`, normalizeErrorMessage(err));
       }
@@ -192,48 +162,12 @@ export function createOverlayScanController(options: OverlayScanControllerOption
         }
       }
 
-      // F2: store the gate's last screenshot so we can pass it as preCapture
-      let gatePre: GatePreCapture | undefined = undefined;
-      if (typeof rewardScanner.waitForRewardUiReady === "function") {
-        const gate = await rewardScanner.waitForRewardUiReady({
-          timeoutMs: UI_READY_GATE_TIMEOUT_MS,
-          pollMs: UI_READY_GATE_POLL_MS,
-          requiredHits: UI_READY_GATE_REQUIRED_HITS,
-          scoreThreshold: UI_READY_GATE_SCORE_THRESHOLD,
-        });
-
-        gatePre = (gate?.lastScreenshot ?? undefined) as typeof gatePre;
-
-        if (gate?.best && Number.isFinite(gate.best.bandBottomRatio)) {
-          windows.setAnchorMeta({
-            sourceDisplayId: gate.best.sourceDisplayId || null,
-            bandBottomRatio: gate.best.bandBottomRatio,
-          });
-          windows.positionOverlayWindow(windows.getAnchorMeta());
-        }
-
-        if (gate?.ready) {
-          log.log(
-            "[Trigger] UI-ready gate passed in " +
-              gate.elapsedMs +
-              "ms (" +
-              gate.attempts +
-              " samples, score " +
-              Number(gate.best?.score || 0).toFixed(3) +
-              ")",
-          );
-        } else {
-          log.log(
-            "[Trigger] UI-ready gate timed out after " +
-              (gate?.elapsedMs ?? 0) +
-              "ms; continuing scan pipeline (best score " +
-              Number(gate?.best?.score || 0).toFixed(3) +
-              ")",
-          );
-        }
+      if (source === "eelog") {
+        log.log(`[Trigger] waiting ${EELOG_REWARD_SCAN_DELAY_MS}ms before reward scan`);
+        await sleep(EELOG_REWARD_SCAN_DELAY_MS);
       }
 
-      const result = await runRewardScanWithRetries(source, gatePre);
+      const result = await runRewardScanWithRetries(source);
       const items = Array.isArray(result?.items) ? result.items.slice(0, MAX_REWARD_ITEMS) : [];
 
       if (source === "eelog" && items.length > 0) {

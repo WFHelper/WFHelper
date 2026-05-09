@@ -7,7 +7,10 @@ import {
 } from "./ipcSecurity";
 import { createOverlayScanController } from "./overlay/scan";
 import { createRelicSelectionController } from "./overlay/relicSelection";
-import { createOverlayWindowsController } from "./overlay/windows";
+import {
+  createOverlayWindowBoundsChangeHandler,
+  createOverlayWindowsController,
+} from "./overlay/windows";
 import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 
@@ -16,7 +19,6 @@ import {
   captureSourceMeta,
   detectRelicSelectionEra,
   scanRewardsDetailed,
-  waitForRewardUiReady,
 } from "../services/rewardScanner";
 import { fetchPriceBySlug, getCachedPriceBySlug } from "../services/wfmStatsPrice";
 import * as warframeStatus from "../services/warframeStatus";
@@ -31,11 +33,18 @@ import {
 
 const log = withScope("rewardOverlayIpc");
 
+let persistOverlaySettings: (() => void) | null = null;
+const rememberOverlayWindowBounds = createOverlayWindowBoundsChangeHandler({
+  ctx,
+  save: () => {
+    persistOverlaySettings?.();
+  },
+});
+
 const rewardScanner = {
   captureSourceMeta,
   detectRelicSelectionEra,
   scanRewardsDetailed,
-  waitForRewardUiReady,
 };
 
 const wfmStatsPrice = {
@@ -61,6 +70,8 @@ const rewardWindowsController = createOverlayWindowsController({
   log,
   hardenBrowserWindowNavigation,
   overlayWindowFile: OVERLAY_WINDOW_FILE,
+  windowStateKey: "reward",
+  onWindowBoundsChanged: rememberOverlayWindowBounds,
 });
 
 const plannerWindowsController = createOverlayWindowsController({
@@ -84,6 +95,8 @@ const plannerWindowsController = createOverlayWindowsController({
   windowHeight: 320,
   transparent: false,
   backgroundColor: "#060a12",
+  windowStateKey: "planner",
+  onWindowBoundsChanged: rememberOverlayWindowBounds,
 });
 
 function syncOverlayWindowZOrder(
@@ -93,9 +106,10 @@ function syncOverlayWindowZOrder(
   if (!win || win.isDestroyed() || !win.isVisible()) return;
 
   if (warframeFocused) {
+    win.setSkipTaskbar(true);
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     win.setAlwaysOnTop(true, "screen-saver");
-  } else {
-    win.setAlwaysOnTop(false);
+    win.moveTop();
   }
 }
 
@@ -141,6 +155,10 @@ export function getRewardWindowsController() {
 
 export function getPlannerWindowsController() {
   return plannerWindowsController;
+}
+
+export function configureOverlaySettingsPersistence(persist: () => void): void {
+  persistOverlaySettings = persist;
 }
 
 
