@@ -13,7 +13,7 @@ import {
   isValidSnapshotBlob,
 } from "../../../config/shared/wfmSnapshotValidation.js";
 
-const SNAPSHOT_FRESH_MS = 24 * 60 * 60 * 1000;
+const SNAPSHOT_FRESH_MS = 2 * 60 * 60 * 1000;
 const SNAPSHOT_FETCH_TIMEOUT_MS = 20_000;
 
 // In-memory ETag for the snapshot. Persisted across re-fetches within the same
@@ -34,32 +34,8 @@ function isValidSnapshot(d: unknown): d is SnapshotBlob {
   return isValidSnapshotBlob(d);
 }
 
-function rebaseSnapshotEntries<T extends { timestamp: number }>(
-  entries: Record<string, T>,
-  timestamp: number,
-): Record<string, T> {
-  return Object.fromEntries(
-    Object.entries(entries).map(([key, entry]) => [key, { ...entry, timestamp }]),
-  ) as Record<string, T>;
-}
-
-function withSnapshotFreshness(snapshot: SnapshotBlob): SnapshotBlob {
-  const timestamp = Math.round(snapshot.generatedAt);
-  return {
-    ...snapshot,
-    prices: rebaseSnapshotEntries(snapshot.prices, timestamp),
-    meta: rebaseSnapshotEntries(snapshot.meta, timestamp),
-    orderSummaries: Object.fromEntries(
-      Object.entries(snapshot.orderSummaries).map(([key, entry]) => [
-        key,
-        { ...entry, sourceTimestamp: entry.sourceTimestamp ?? entry.timestamp, timestamp },
-      ]),
-    ) as SnapshotBlob["orderSummaries"],
-  };
-}
-
 /**
- * Called once during app startup. Loads the bulk snapshot from disk (if < 24 h
+ * Called once during app startup. Loads the bulk snapshot from disk (if < 2 h
  * old) or fetches it from the backend. Imports into all three in-memory caches
  * (prices, meta, order summaries). Never throws — falls back gracefully.
  */
@@ -138,10 +114,9 @@ export async function tryLoadSnapshot(): Promise<void> {
     }
 
     // 3. Import into all three in-memory caches
-    const clientFreshSnapshot = withSnapshotFreshness(snapshot);
-    const pCount = importCache(clientFreshSnapshot.prices);
-    const mCount = importMetaFromSnapshot(clientFreshSnapshot.meta);
-    const oCount = importOrderSummaryCache(clientFreshSnapshot.orderSummaries);
+    const pCount = importCache(snapshot.prices);
+    const mCount = importMetaFromSnapshot(snapshot.meta);
+    const oCount = importOrderSummaryCache(snapshot.orderSummaries);
     const ageMins = Math.round((Date.now() - snapshot.generatedAt) / 60_000);
 
     log.info(

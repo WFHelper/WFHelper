@@ -8,6 +8,18 @@
 	"observability": {
 		"enabled": true,
 		"head_sampling_rate": 1,
+		"traces": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			// Must match the destination name in the Cloudflare dashboard
+			"destinations": ["grafana-traces"],
+		},
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			// Must match the destination name in the Cloudflare dashboard
+			"destinations": ["grafana-logs"],
+		},
 	},
 	"limits": {
 		"cpu_ms": 1000,
@@ -101,17 +113,5 @@
 				"STALE_REFRESH_SEC": "75600",
 			},
 		},
-	},
-	"observability": {
-		"traces": {
-		"enabled": true,
-		// Must match the destination name in the Cloudflare dashboard
-		"destinations": ["grafana-traces"]
-		},
-		"logs": {
-		"enabled": true,
-		// Must match the destination name in the Cloudflare dashboard
-		"destinations": ["grafana-logs"]
-		}
 	}
 }

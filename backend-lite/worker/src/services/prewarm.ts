@@ -98,7 +98,7 @@ function isDueForRefresh(value: Record<string, unknown> | null, refreshAgeSec: n
 	return now - timestamp >= refreshAgeSec * 1000;
 }
 
-function isInactivePriceSource(sourceTimestamp: number | null, now = Date.now()): boolean {
+function isSnapshotEntryTooOld(sourceTimestamp: number | null, now = Date.now()): boolean {
 	return sourceTimestamp != null && now - sourceTimestamp > WFM_SNAPSHOT_MAX_ENTRY_AGE_MS;
 }
 
@@ -115,13 +115,17 @@ function sanitizeSnapshotEntries(
 		}
 
 		const sourceTimestamp = snapshotEntryTimestamp(value);
-		if (options?.prices && value.status === 'ok' && isInactivePriceSource(sourceTimestamp, timestamp)) {
+		if (options?.prices && isSnapshotEntryTooOld(sourceTimestamp, timestamp)) {
 			sanitized[key] = inactivePriceSnapshotEntry(timestamp);
 			continue;
 		}
+		if (!options?.prices && isSnapshotEntryTooOld(sourceTimestamp, timestamp)) {
+			continue;
+		}
 
-		const next: Record<string, unknown> = { ...value, timestamp };
-		if (options?.preserveSourceTimestamp && sourceTimestamp != null && !isInactivePriceSource(sourceTimestamp, timestamp)) {
+		const entryTimestamp = sourceTimestamp ?? timestamp;
+		const next: Record<string, unknown> = { ...value, timestamp: entryTimestamp };
+		if (options?.preserveSourceTimestamp && sourceTimestamp != null) {
 			next.sourceTimestamp = sourceTimestamp;
 		} else if (options?.preserveSourceTimestamp) {
 			delete next.sourceTimestamp;
@@ -169,7 +173,7 @@ export async function fetchPricePayload(
 	const payload = await response.json();
 	const latest = extractLatestMedianFromStatsPayload(payload, targetRank != null ? { rank: targetRank } : undefined);
 	if (!latest) return { data: null, transient: false };
-	if (isInactivePriceSource(latest.timestamp)) return { data: null, transient: false, inactive: true };
+	if (isSnapshotEntryTooOld(latest.timestamp)) return { data: null, transient: false, inactive: true };
 
 	return {
 		data: { median: latest.median, timestamp: Date.now() },
@@ -495,24 +499,30 @@ export async function prewarmOrderSummaryCatalog(
 			const priceKey = workerPriceCacheKey(entry.slug, rank);
 			let shouldRefreshOrderSummary = true;
 			let shouldRefreshPrice = true;
+			let cachedOrderSummary: Record<string, unknown> | null = null;
+			let cachedPrice: Record<string, unknown> | null = null;
 
 			if (cronRefresh) {
-				const [cachedOrderSummary, cachedPrice] = await Promise.all([
+				[cachedOrderSummary, cachedPrice] = await Promise.all([
 					getJsonFromKv(env.PRICE_CACHE, orderSummaryKey),
 					getJsonFromKv(env.PRICE_CACHE, priceKey),
 				]);
 				shouldRefreshOrderSummary = isDueForRefresh(cachedOrderSummary, config.orderSummaryStaleRefreshSec);
 				shouldRefreshPrice = isDueForRefresh(cachedPrice, config.staleRefreshSec);
-				if (!shouldRefreshOrderSummary && !shouldRefreshPrice) {
+				if (!shouldRefreshOrderSummary && cachedOrderSummary) {
 					const snapshotOrderSummaryKey = snapshotCacheKeyFromWorkerKey(orderSummaryKey);
-					if (snapshotOrderSummaryKey && cachedOrderSummary) {
+					if (snapshotOrderSummaryKey) {
 						snapshotOrderSummaries[snapshotOrderSummaryKey] = snapshotOrderSummaryEntryFromPayload(cachedOrderSummary);
 					}
+				}
+				if (!shouldRefreshPrice && cachedPrice) {
 					const snapshotPriceKey = snapshotCacheKeyFromWorkerKey(priceKey);
-					const snapshotPrice = cachedPrice ? snapshotPriceEntryFromPayload(cachedPrice) : null;
+					const snapshotPrice = snapshotPriceEntryFromPayload(cachedPrice);
 					if (snapshotPriceKey && snapshotPrice) {
 						snapshotPrices[snapshotPriceKey] = snapshotPrice;
 					}
+				}
+				if (!shouldRefreshOrderSummary && !shouldRefreshPrice) {
 					result.processed += 1;
 					continue;
 				}
@@ -671,13 +681,24 @@ export async function prewarmBatch(
 
 			let shouldRefreshMeta = true;
 			let shouldRefreshPrice = true;
+			let cachedMeta: Record<string, unknown> | null = null;
+			let cachedPrice: Record<string, unknown> | null = null;
 			if (cronRefresh) {
-				const [cachedMeta, cachedPrice] = await Promise.all([
+				[cachedMeta, cachedPrice] = await Promise.all([
 					getJsonFromKv(env.ITEM_META, `meta:${slug}`),
 					getJsonFromKv(env.PRICE_CACHE, workerPriceCacheKey(slug, null)),
 				]);
 				shouldRefreshMeta = isDueForRefresh(cachedMeta, config.staleRefreshSec);
 				shouldRefreshPrice = isDueForRefresh(cachedPrice, config.staleRefreshSec);
+				if (!shouldRefreshMeta && cachedMeta) {
+					snapshotMeta[slug] = cachedMeta;
+				}
+				if (!shouldRefreshPrice && cachedPrice) {
+					const snapshotPrice = snapshotPriceEntryFromPayload(cachedPrice);
+					if (snapshotPrice) {
+						snapshotPrices[slug] = snapshotPrice;
+					}
+				}
 				if (!shouldRefreshMeta && !shouldRefreshPrice) {
 					result.processed += 1;
 					continue;

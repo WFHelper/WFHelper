@@ -1053,6 +1053,10 @@ describe('backend-lite worker', () => {
 			JSON.stringify({ slug, tradable: true, ducats: 45, setRoot: false, thumb: null, icon: null, timestamp: now }),
 		);
 		await env.PRICE_CACHE.put(`price:${slug}`, JSON.stringify({ slug, median: 42, rank: null, timestamp: now }));
+		await env.PRICE_CACHE.put(
+			'snapshot:full:v1',
+			JSON.stringify({ version: 1, generatedAt: now - 1000, prices: {}, meta: {}, orderSummaries: {} }),
+		);
 
 		const fetchMock = vi.fn(async () => {
 			throw new Error('fresh cron entries should not hit WFM');
@@ -1065,6 +1069,13 @@ describe('backend-lite worker', () => {
 		expect(result.metaUpdated).toBe(0);
 		expect(result.priceUpdated).toBe(0);
 		expect(fetchMock).not.toHaveBeenCalled();
+
+		const snapshot = JSON.parse(String(await env.PRICE_CACHE.get('snapshot:full:v1'))) as {
+			prices?: Record<string, { status?: string; median?: number; timestamp?: number }>;
+			meta?: Record<string, { slug?: string; timestamp?: number }>;
+		};
+		expect(snapshot.prices?.[slug]).toMatchObject({ status: 'ok', median: 42, timestamp: now });
+		expect(snapshot.meta?.[slug]).toMatchObject({ slug, timestamp: now });
 	});
 
 	it('cron ranked summary prewarm patches fresh cached summaries and prices into snapshot', async () => {
@@ -1102,6 +1113,83 @@ describe('backend-lite worker', () => {
 		expect(snapshot.prices?.[`${slug}:rank-v3:r10`]).toMatchObject({ status: 'ok', median: 30 });
 		expect(snapshot.orderSummaries?.[`${slug}:r0`]).toMatchObject({ status: 'ok', wts: 10, wtb: 5 });
 		expect(snapshot.orderSummaries?.[`${slug}:r10`]).toMatchObject({ status: 'ok', wts: 20, wtb: 15 });
+	});
+
+	it('cron ranked summary prewarm patches fresh cached prices while refreshing missing summaries', async () => {
+		const slug = 'wf_test_mixed_summary_cron_slug';
+		const now = Date.now();
+		await seedRankedCatalog(env, [{ slug, maxRank: 10 }]);
+		await env.PRICE_CACHE.put(
+			'snapshot:full:v1',
+			JSON.stringify({ version: 1, generatedAt: now - 1000, prices: {}, meta: {}, orderSummaries: {} }),
+		);
+		for (const rank of [0, 10]) {
+			await env.PRICE_CACHE.put(`price:${slug}:r${rank}`, JSON.stringify({ slug, rank, median: 20 + rank, timestamp: now }));
+		}
+
+		const ordersPayload = {
+			data: [
+				{
+					type: 'sell',
+					platinum: 40,
+					quantity: 1,
+					rank: 0,
+					visible: true,
+					user: { ingameName: 'SellerR0', status: 'ingame' },
+				},
+				{
+					type: 'buy',
+					platinum: 30,
+					quantity: 1,
+					rank: 0,
+					visible: true,
+					user: { ingameName: 'BuyerR0', status: 'online' },
+				},
+				{
+					type: 'sell',
+					platinum: 90,
+					quantity: 1,
+					rank: 10,
+					visible: true,
+					user: { ingameName: 'SellerR10', status: 'ingame' },
+				},
+				{
+					type: 'buy',
+					platinum: 70,
+					quantity: 1,
+					rank: 10,
+					visible: true,
+					user: { ingameName: 'BuyerR10', status: 'online' },
+				},
+			],
+		};
+
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input instanceof URL ? input : typeof input === 'string' ? input : input.url);
+			if (url === `https://api.warframe.market/v2/orders/item/${slug}`) {
+				return new Response(JSON.stringify(ordersPayload), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				});
+			}
+			throw new Error(`Unexpected url: ${url}`);
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const result = await prewarmOrderSummaryCatalog(env, { reason: 'cron', batchSize: 1, resetCursor: true });
+
+		expect(result.processed).toBe(2);
+		expect(result.updated).toBe(2);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+
+		const snapshot = JSON.parse(String(await env.PRICE_CACHE.get('snapshot:full:v1'))) as {
+			prices?: Record<string, { status?: string; median?: number; timestamp?: number }>;
+			orderSummaries?: Record<string, { status?: string; wts?: number; wtb?: number }>;
+		};
+		expect(snapshot.prices?.[`${slug}:rank-v3:r0`]).toMatchObject({ status: 'ok', median: 20, timestamp: now });
+		expect(snapshot.prices?.[`${slug}:rank-v3:r10`]).toMatchObject({ status: 'ok', median: 30, timestamp: now });
+		expect(snapshot.orderSummaries?.[`${slug}:r0`]).toMatchObject({ status: 'ok', wts: 40, wtb: 30 });
+		expect(snapshot.orderSummaries?.[`${slug}:r10`]).toMatchObject({ status: 'ok', wts: 90, wtb: 70 });
 	});
 
 	it('serves stale cached order summary during transient upstream failure', async () => {
@@ -1365,13 +1453,13 @@ describe('backend-lite worker', () => {
 
 			const body = (await response.json()) as typeof snapshot;
 			expect(body.version).toBe(1);
-			expect(body.prices['ash_prime']).toMatchObject({ status: 'ok', median: 45, timestamp: generatedAt });
-			expect(body.meta['ash_prime']).toMatchObject({ slug: 'ash_prime', timestamp: generatedAt });
+			expect(body.prices['ash_prime']).toMatchObject({ status: 'ok', median: 45, timestamp: staleEntryTimestamp });
+			expect(body.meta['ash_prime']).toMatchObject({ slug: 'ash_prime', timestamp: staleEntryTimestamp });
 			expect(body.orderSummaries['ordersummary-v1:ash_prime:r0']).toMatchObject({
 				status: 'ok',
 				wts: 10,
 				wtb: 8,
-				timestamp: generatedAt,
+				timestamp: staleEntryTimestamp,
 				sourceTimestamp: staleEntryTimestamp,
 			});
 		} finally {
