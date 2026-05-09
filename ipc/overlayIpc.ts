@@ -24,6 +24,7 @@ import {
   OVERLAY_GET_THEME_VARS,
   OVERLAY_SET_SETTINGS,
   OVERLAY_THEME_UPDATED,
+  OVERLAY_DRAG_MOVE,
 } from "../config/shared/ipcChannels";
 import {
   OVERLAY_FORWARDED_COLOR_VARS,
@@ -34,7 +35,7 @@ import {
 
 const log = withScope("overlayIpc");
 
-import { globalShortcut, app } from "electron";
+import { BrowserWindow, globalShortcut, app, type WebContents } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -283,6 +284,36 @@ function applyOverlayAvailabilitySettings(): void {
   }
 }
 
+function isRivenOverlayWindow(win: BrowserWindow | null): boolean {
+  return !!(
+    win &&
+    ((ctx.rivenOverlayLeftWindow &&
+      !ctx.rivenOverlayLeftWindow.isDestroyed() &&
+      win.webContents.id === ctx.rivenOverlayLeftWindow.webContents.id) ||
+      (ctx.rivenOverlayRightWindow &&
+        !ctx.rivenOverlayRightWindow.isDestroyed() &&
+        win.webContents.id === ctx.rivenOverlayRightWindow.webContents.id))
+  );
+}
+
+function moveInteractiveOverlayWindow(sender: WebContents, rawDelta: unknown): void {
+  const win = BrowserWindow.fromWebContents(sender);
+  if (!win || win.isDestroyed()) return;
+
+  const isRiven = isRivenOverlayWindow(win);
+  if (isRiven ? !rivenOverlayIpc.isRivenInteractiveMode() : !ctx.overlayInteractiveMode) return;
+
+  const delta = rawDelta && typeof rawDelta === "object" ? (rawDelta as Record<string, unknown>) : {};
+  const dx = Math.round(Number(delta.dx));
+  const dy = Math.round(Number(delta.dy));
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
+  if (Math.abs(dx) > 200 || Math.abs(dy) > 200) return;
+  if (dx === 0 && dy === 0) return;
+
+  const bounds = win.getBounds();
+  win.setBounds({ ...bounds, x: bounds.x + dx, y: bounds.y + dy }, false);
+}
+
 function register(): void {
   // Delegate domain-specific IPC to sub-modules
   rivenOverlayIpc.register();
@@ -295,6 +326,10 @@ function register(): void {
 
   handleAuthorized(OVERLAY_GET_THEME_VARS, assertOverlayRendererSender, async () => {
     return { ...(ctx.overlayThemeVars || {}) };
+  });
+
+  onAuthorized(OVERLAY_DRAG_MOVE, assertOverlayRendererSender, (event, rawDelta: unknown) => {
+    moveInteractiveOverlayWindow(event.sender, rawDelta);
   });
 
   handleAuthorized(

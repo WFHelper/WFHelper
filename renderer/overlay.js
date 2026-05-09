@@ -4,9 +4,13 @@ let overlayInteractiveMode = false;
 
 function setOverlayInteractiveMode(interactive) {
   overlayInteractiveMode = !!interactive;
+  document.documentElement.classList.toggle("is-overlay-interactive", overlayInteractiveMode);
   const closeButton = document.getElementById("btn-close");
   if (!closeButton) return;
   closeButton.classList.toggle("is-hidden", !overlayInteractiveMode);
+  if (!overlayInteractiveMode) {
+    document.documentElement.classList.remove("is-overlay-dragging");
+  }
 }
 
 function rarityClass(rarity) {
@@ -400,9 +404,13 @@ document.addEventListener("DOMContentLoaded", () => {
     })
     .catch(() => {
       // best effort, storage fallback already applied
-    });
+  });
 
   document.getElementById("btn-close").addEventListener("click", () => window.overlay.close());
+  window.installOverlayRightButtonDrag({
+    isInteractive: () => overlayInteractiveMode,
+    moveBy: (dx, dy) => window.overlay.moveBy(dx, dy),
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       window.overlay.close();

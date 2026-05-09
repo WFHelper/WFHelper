@@ -68,6 +68,16 @@ body {
   gap: 8px;
 }
 
+.is-overlay-interactive #header {
+  -webkit-app-region: no-drag;
+}
+
+.is-overlay-dragging,
+.is-overlay-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
 #header-left {
   display: flex;
   flex-direction: column;

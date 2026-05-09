@@ -137,6 +137,10 @@ function toggleRivenInteractiveMode(): void {
   });
 }
 
+export function isRivenInteractiveMode(): boolean {
+  return _rivenInteractive;
+}
+
 function createRivenWindow(side: "left" | "right", options: { show?: boolean }): void {
   const controller = side === "left" ? rivenLeftWindowsController : rivenRightWindowsController;
   controller.createOverlayWindow(options);

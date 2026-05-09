@@ -22,10 +22,14 @@ function el(id) {
 
 function setOverlayInteractiveMode(interactive) {
   _overlayInteractiveMode = !!interactive;
+  document.documentElement.classList.toggle("is-overlay-interactive", _overlayInteractiveMode);
   const closeButton = el("btn-close");
   if (closeButton) closeButton.classList.toggle("is-hidden", !_overlayInteractiveMode);
   const hint = el("interaction-hint");
   if (hint) hint.classList.toggle("is-hidden", _overlayInteractiveMode);
+  if (!_overlayInteractiveMode) {
+    document.documentElement.classList.remove("is-overlay-dragging");
+  }
 }
 
 // ── Theme ────────────────────────────────────────────────────────────────────
@@ -676,6 +680,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Close button + keyboard
   el("btn-close").addEventListener("click", () => window.rivenOverlay.close());
+  window.installOverlayRightButtonDrag({
+    isInteractive: () => _overlayInteractiveMode,
+    moveBy: (dx, dy) => window.rivenOverlay.moveBy(dx, dy),
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       window.rivenOverlay.close();

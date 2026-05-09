@@ -57,6 +57,16 @@ body {
   -webkit-app-region: drag;
 }
 
+.is-overlay-interactive #header {
+  -webkit-app-region: no-drag;
+}
+
+.is-overlay-dragging,
+.is-overlay-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
 #btn-close {
   -webkit-app-region: no-drag;
   background: none;
