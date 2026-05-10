@@ -34,9 +34,9 @@ export interface FissureAlert {
   planet: string; // planet name or "any"
 }
 
-export type OverlayWindowKey = "reward" | "planner" | "rivenLeft" | "rivenRight";
+type OverlayWindowKey = "reward" | "planner" | "rivenLeft" | "rivenRight";
 
-export interface OverlaySavedWindowBounds {
+interface OverlaySavedWindowBounds {
   x: number;
   y: number;
   displayId?: string | null;

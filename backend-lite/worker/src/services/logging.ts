@@ -1,4 +1,4 @@
-export type WorkerLogEntry = {
+type WorkerLogEntry = {
 	type: 'request' | 'cron' | 'error' | 'admin';
 	route?: string;
 	method?: string;

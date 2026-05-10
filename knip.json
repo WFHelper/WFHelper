@@ -15,15 +15,12 @@
     "src/**/*.test.ts",
     "tests/**/*.test.ts",
     "e2e/**/*.ts",
+    "scripts/**/*.cjs",
     "scripts/**/*.js",
     "scripts/**/*.mjs"
   ],
   "project": ["**/*.{ts,js,mjs,cjs,svelte}"],
   "ignoreBinaries": ["powershell", "wrangler"],
   "ignoreDependencies": ["cloudflare", "esbuild", "svelte-eslint-parser", "tailwindcss"],
-  "ignore": [
-    ".venv/**",
-    "backend-lite/worker/worker-configuration.d.ts",
-    "scripts/dev/**"
-  ]
+  "ignore": ["backend-lite/worker/worker-configuration.d.ts", "scripts/dev/**"]
 }

@@ -366,8 +366,6 @@ export const unregisterOverlayHotkey = settingsController.unregisterOverlayHotke
 
 export { register, onRelicRewardTrigger, onRelicSelectionTrigger, onRelicSelectionClose };
 
-export const __test__ = { sanitizeOverlayThemeVars };
-
 // Re-export riven callbacks for main.ts wiring
 export {
   onRivenSessionClose,
