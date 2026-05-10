@@ -72,3 +72,7 @@ jobs:
 
       - name: E2E smoke tests
         run: xvfb-run --auto-servernum npx playwright test --config playwright.config.ts
+        env:
+          DEBUG: pw:browser*
+          ELECTRON_ENABLE_LOGGING: "1"
+          ELECTRON_ENABLE_STACK_DUMPING: "1"
