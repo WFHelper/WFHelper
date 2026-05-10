@@ -177,7 +177,8 @@
       {
         "provider": "github",
         "owner": "MrZockertator",
-        "repo": "warframe_companion"
+        "repo": "warframe_companion",
+        "releaseType": "release"
       }
     ]
   },

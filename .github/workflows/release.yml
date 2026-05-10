@@ -50,6 +50,30 @@ jobs:
             Write-Warning "CSC_LINK/CSC_KEY_PASSWORD are not configured; building an unsigned Windows installer."
           }
 
+      - name: Remove existing release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          $pkg = Get-Content package.json | ConvertFrom-Json
+          $productName = $pkg.build.productName
+          $version = $pkg.version
+          $assets = @(
+            "latest.yml",
+            "$productName-$version-Setup.exe",
+            "$productName-$version-Setup.exe.blockmap"
+          )
+
+          foreach ($asset in $assets) {
+            gh release delete-asset "$env:GITHUB_REF_NAME" "$asset" --yes --repo "$env:GITHUB_REPOSITORY"
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "Deleted existing release asset: $asset"
+            } else {
+              Write-Host "Release asset not present or could not be deleted: $asset"
+              $global:LASTEXITCODE = 0
+            }
+          }
+
       - name: Build and publish Windows installer
         run: npm run dist:win:publish
         env:
