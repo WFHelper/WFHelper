@@ -9,7 +9,7 @@ test.describe("Electron Smoke", () => {
     delete env.ELECTRON_RUN_AS_NODE;
     env.WFHELPER_DISABLE_KEYBOARD_HOOK = "1";
 
-    app = await electron.launch({ args: ["."], env });
+    app = await electron.launch({ args: ["--no-sandbox", "."], env });
     page = await app.firstWindow();
   });
 
