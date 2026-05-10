@@ -74,9 +74,30 @@ jobs:
             }
           }
 
-      - name: Build and publish Windows installer
-        run: npm run dist:win:publish
+      - name: Build Windows installer
+        run: npm run dist:win
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      - name: Upload release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          $pkg = Get-Content package.json | ConvertFrom-Json
+          $productName = $pkg.build.productName
+          $version = $pkg.version
+          $paths = @(
+            "release/latest.yml",
+            "release/$productName-$version-Setup.exe",
+            "release/$productName-$version-Setup.exe.blockmap"
+          )
+
+          foreach ($path in $paths) {
+            if (-not (Test-Path $path)) {
+              throw "Missing release asset: $path"
+            }
+          }
+
+          gh release upload "$env:GITHUB_REF_NAME" $paths --clobber --repo "$env:GITHUB_REPOSITORY"
