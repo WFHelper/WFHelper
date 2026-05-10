@@ -1,19 +1,26 @@
-import { withScope } from "./logger";
-import { normalizeErrorMessage } from "../config/shared/errors";
-import { APP_UPDATE_STATUS } from "../config/shared/ipcChannels";
+import fs from "node:fs";
+import https from "node:https";
+import path from "node:path";
+
 import { app } from "electron";
 import { autoUpdater } from "electron-updater";
 import type { UpdateInfo, ProgressInfo, UpdateDownloadedEvent } from "electron-updater";
+
+import { withScope } from "./logger";
+import { normalizeErrorMessage } from "../config/shared/errors";
+import { APP_UPDATE_STATUS } from "../config/shared/ipcChannels";
 
 const log = withScope("autoUpdater");
 
 const UPDATE_STATUS_CHANNEL = APP_UPDATE_STATUS;
 const STARTUP_CHECK_DELAY_MS = 12_000;
+const UPDATE_FEED_PROBE_TIMEOUT_MS = 5_000;
 
 let mainWindow: import("electron").BrowserWindow | null = null;
 let initialized = false;
 let checkPromise: Promise<{ ok: boolean; source: string; state: UpdateState }> | null = null;
 let startupTimer: ReturnType<typeof setTimeout> | null = null;
+let disabledReason: string | null = null;
 
 interface UpdateState {
   status: string;
@@ -26,6 +33,18 @@ interface UpdateState {
   bytesPerSecond?: number;
   transferred?: number;
   total?: number;
+}
+
+interface UpdateConfig {
+  provider?: string;
+  owner?: string;
+  repo?: string;
+  host?: string;
+}
+
+interface FeedProbeResult {
+  ok: boolean;
+  statusCode: number;
 }
 
 let updateState: UpdateState = {
@@ -59,8 +78,86 @@ function toInfoPatch(info: UpdateInfo): Partial<UpdateState> {
 function shouldEnableAutoUpdater(): boolean {
   if (process.env.WF_DISABLE_AUTO_UPDATE === "1") return false;
   if (!app.isPackaged) return false;
-  const ymlPath = require("node:path").join(process.resourcesPath, "app-update.yml");
-  return require("node:fs").existsSync(ymlPath);
+  const ymlPath = path.join(process.resourcesPath, "app-update.yml");
+  return fs.existsSync(ymlPath);
+}
+
+function readUpdateConfig(): UpdateConfig | null {
+  const ymlPath = path.join(process.resourcesPath, "app-update.yml");
+  if (!fs.existsSync(ymlPath)) return null;
+
+  try {
+    const raw = fs.readFileSync(ymlPath, "utf-8");
+    const config: UpdateConfig = {};
+    for (const line of raw.split(/\r?\n/)) {
+      const match = /^([A-Za-z0-9_-]+):\s*(.+?)\s*$/.exec(line);
+      if (!match) continue;
+      const value = match[2].replace(/^['"]|['"]$/g, "");
+      if (match[1] === "provider") config.provider = value;
+      if (match[1] === "owner") config.owner = value;
+      if (match[1] === "repo") config.repo = value;
+      if (match[1] === "host") config.host = value;
+    }
+    return config;
+  } catch (err) {
+    log.warn("Unable to read update config:", normalizeErrorMessage(err, "unknown error"));
+    return null;
+  }
+}
+
+function getPublicGithubFeedUrl(): string | null {
+  const config = readUpdateConfig();
+  if (!config || config.provider !== "github" || !config.owner || !config.repo) return null;
+
+  const host = config.host || "github.com";
+  if (host !== "github.com") return null;
+  return `https://github.com/${config.owner}/${config.repo}/releases.atom`;
+}
+
+function probeFeed(url: string): Promise<FeedProbeResult> {
+  return new Promise((resolve) => {
+    const request = https.request(
+      url,
+      {
+        method: "GET",
+        headers: { Accept: "application/atom+xml, application/xml, text/xml, */*" },
+      },
+      (response) => {
+        response.resume();
+        const statusCode = response.statusCode ?? 0;
+        response.on("end", () => {
+          resolve({ ok: statusCode >= 200 && statusCode < 400, statusCode });
+        });
+      },
+    );
+
+    request.setTimeout(UPDATE_FEED_PROBE_TIMEOUT_MS, () => {
+      request.destroy();
+      resolve({ ok: false, statusCode: 0 });
+    });
+    request.on("error", () => resolve({ ok: false, statusCode: 0 }));
+    request.end();
+  });
+}
+
+async function ensureUpdateFeedReachable(): Promise<boolean> {
+  if (disabledReason) return false;
+
+  const feedUrl = getPublicGithubFeedUrl();
+  if (!feedUrl) return true;
+
+  const result = await probeFeed(feedUrl);
+  if (result.ok || result.statusCode === 0) return true;
+
+  if (result.statusCode === 401 || result.statusCode === 403 || result.statusCode === 404) {
+    disabledReason =
+      "Auto-update feed is not publicly accessible. Publish updates from a public repository or configure a public update host.";
+    log.warn(`${disabledReason} (${feedUrl} returned ${result.statusCode})`);
+    setUpdateState("disabled", { message: disabledReason });
+    return false;
+  }
+
+  return true;
 }
 
 function clearStartupCheck(): void {
@@ -150,6 +247,9 @@ export async function checkForUpdates(
   }
   if (!shouldEnableAutoUpdater()) {
     return { ok: false, message: "Auto-updater disabled.", state: updateState };
+  }
+  if (!(await ensureUpdateFeedReachable())) {
+    return { ok: false, source, message: disabledReason || "Auto-updater disabled.", state: updateState };
   }
   if (checkPromise) {
     return checkPromise;

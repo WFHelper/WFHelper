@@ -7,6 +7,7 @@
   import type { MessageKey } from "../lib/i18n.js";
 
   const collapsed = persistedBoolean("sidebar.collapsed", false);
+  const showDevTools = import.meta.env.DEV;
 
   function toggleCollapsed(): void {
     collapsed.update((value) => !value);
@@ -105,37 +106,39 @@
     {/each}
   </div>
 
-  <div class="mt-2 flex flex-col gap-0.5">
-    <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-muted transition-colors duration-150 hover:bg-bg-hover hover:text-text-secondary" title="Preview setup wizard" on:click={() => currentView.set("setup")}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
-        <rect x="4" y="5" width="16" height="14" rx="2" />
-        <path d="M8 9h8M8 13h5M16 13h1" />
-      </svg>
-      <span>Setup</span>
-    </button>
-    <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-muted transition-colors duration-150 hover:bg-bg-hover hover:text-text-secondary" title={$tr("nav.testTitle")} on:click={testOverlay}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
-        <path d="M9 3h6l1 6-3.5 2L16 21H8l3.5-10L8 9l1-6z"/>
-      </svg>
-      <span>{$tr("nav.test")}</span>
-    </button>
-    <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary" title={$tr("nav.overlayTitle")} on:click={toggleOverlay}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
-        <polygon points="12,2 22,12 12,22 2,12"/>
-        <line x1="12" y1="8" x2="12" y2="16"/>
-        <line x1="8" y1="12" x2="16" y2="12"/>
-      </svg>
-      <span>{$tr("nav.overlay")}</span>
-    </button>
-    <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary" on:click={loadInventoryFile}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
-        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-        <polyline points="17 8 12 3 7 8"/>
-        <line x1="12" y1="3" x2="12" y2="15"/>
-      </svg>
-      <span>{$tr("nav.loadJson")}</span>
-    </button>
-  </div>
+  {#if showDevTools}
+    <div class="mt-2 flex flex-col gap-0.5">
+      <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-muted transition-colors duration-150 hover:bg-bg-hover hover:text-text-secondary" title="Preview setup wizard" on:click={() => currentView.set("setup")}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
+          <rect x="4" y="5" width="16" height="14" rx="2" />
+          <path d="M8 9h8M8 13h5M16 13h1" />
+        </svg>
+        <span>Setup</span>
+      </button>
+      <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-muted transition-colors duration-150 hover:bg-bg-hover hover:text-text-secondary" title={$tr("nav.testTitle")} on:click={testOverlay}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
+          <path d="M9 3h6l1 6-3.5 2L16 21H8l3.5-10L8 9l1-6z"/>
+        </svg>
+        <span>{$tr("nav.test")}</span>
+      </button>
+      <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary" title={$tr("nav.overlayTitle")} on:click={toggleOverlay}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
+          <polygon points="12,2 22,12 12,22 2,12"/>
+          <line x1="12" y1="8" x2="12" y2="16"/>
+          <line x1="8" y1="12" x2="16" y2="12"/>
+        </svg>
+        <span>{$tr("nav.overlay")}</span>
+      </button>
+      <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary" on:click={loadInventoryFile}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <span>{$tr("nav.loadJson")}</span>
+      </button>
+    </div>
+  {/if}
 </nav>
 
 <style>
