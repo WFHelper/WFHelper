@@ -5,7 +5,7 @@
 
 import * as itemDb from "./itemDatabase";
 import type { ComponentEntry } from "./types/gameData";
-import { MAX_ITEM_RANK, XP_PER_RANK } from "../config/game/constants";
+import { MAX_ITEM_RANK } from "../config/game/constants";
 import { aggregateComponentOwnership } from "../config/shared/componentOwnership";
 import { sanitizeDisplayName } from "../config/shared/displayName";
 import { toFiniteNumber } from "../config/shared/numeric";
@@ -133,9 +133,23 @@ const INV_CATEGORIES: Record<string, number> = {
   SpaceMelee: MAX_ITEM_RANK,
   OperatorAmps: MAX_ITEM_RANK,
   MechSuits: MAX_ITEM_RANK,
+  KubrowPets: MAX_ITEM_RANK,
+  MoaPets: MAX_ITEM_RANK,
+  Hoverboards: MAX_ITEM_RANK,
 };
 
 const VENARI_UNIQUE_NAME_PATTERN = /\/Powersuits\/Khora\/Kavat\/Khora(?:Prime)?KavatPowerSuit$/i;
+const WEAPON_AFFINITY_PER_RANK_SQUARED = 500;
+const SUIT_AFFINITY_PER_RANK_SQUARED = 1_000;
+const SUIT_INVENTORY_KEYS = new Set([
+  "Suits",
+  "Sentinels",
+  "SpaceSuits",
+  "MechSuits",
+  "KubrowPets",
+  "MoaPets",
+  "Hoverboards",
+]);
 const MASTERED_FLAG_KEYS = [
   "Mastered",
   "mastered",
@@ -177,9 +191,19 @@ const SYNTHETIC_MASTERABLE_ITEMS: MasterableItem[] = [
   },
 ];
 
-function xpToRank(xp: number, maxRank: number = MAX_ITEM_RANK): number {
+const MASTERABLE_UNIQUE_NAME_ALIASES: Record<string, string[]> = {
+  "/Lotus/Types/Game/CrewShip/RailjackHarness": [
+    "/Lotus/Types/Game/CrewShip/RailJack/DefaultHarness",
+  ],
+};
+
+function xpToRank(
+  xp: number,
+  maxRank: number = MAX_ITEM_RANK,
+  affinityPerRankSquared: number = WEAPON_AFFINITY_PER_RANK_SQUARED,
+): number {
   if (!xp || xp <= 0) return 0;
-  return Math.min(maxRank, Math.floor(xp / XP_PER_RANK));
+  return Math.min(maxRank, Math.floor(Math.sqrt(xp / affinityPerRankSquared)));
 }
 
 function pickBoolean(obj: Record<string, unknown>, keys: string[]): boolean | null {
@@ -209,6 +233,8 @@ function getMasteryMaxRank(itemType: string, fallbackMaxRank: number): number {
     fallbackMaxRank > MAX_ITEM_RANK ||
     /(?:^|[\s/])kuva(?:[\s/]|$)/i.test(`${itemType} ${dbItem?.name || ""}`) ||
     /(?:^|[\s/])tenet(?:[\s/]|$)/i.test(`${itemType} ${dbItem?.name || ""}`) ||
+    /(?:^|[\s/])coda(?:[\s/]|$)/i.test(`${itemType} ${dbItem?.name || ""}`) ||
+    path.includes("infestedlich") ||
     name === "paracesis" ||
     path.includes("ballassword") ||
     path.includes("mechsuits") ||
@@ -218,6 +244,12 @@ function getMasteryMaxRank(itemType: string, fallbackMaxRank: number): number {
   }
 
   return fallbackMaxRank;
+}
+
+function getInventoryAffinityPerRankSquared(invKey: string): number {
+  return SUIT_INVENTORY_KEYS.has(invKey)
+    ? SUIT_AFFINITY_PER_RANK_SQUARED
+    : WEAPON_AFFINITY_PER_RANK_SQUARED;
 }
 
 function getValueAtPath(obj: Record<string, unknown>, path: string[]): unknown {
@@ -385,7 +417,11 @@ function isVenariMasterableOverride(uniqueName: string): boolean {
   return VENARI_UNIQUE_NAME_PATTERN.test(uniqueName);
 }
 
-type InventoryMasteryEntry = Record<string, unknown> & { ItemType?: string; XP?: number };
+type InventoryMasteryEntry = Record<string, unknown> & {
+  ItemType?: string;
+  XP?: number;
+  Features?: number;
+};
 
 interface OwnedMasteryRecord {
   rank: number;
@@ -399,11 +435,14 @@ function readOwnedMasteryRecord(
   entry: InventoryMasteryEntry,
   fallbackMaxRank: number,
   owned: boolean,
+  affinityPerRankSquared: number,
 ): OwnedMasteryRecord | null {
   if (!entry.ItemType) return null;
 
   const maxRank = getMasteryMaxRank(entry.ItemType, fallbackMaxRank);
-  const rank = xpToRank(entry.XP || 0, maxRank);
+  const xpRank = xpToRank(entry.XP || 0, maxRank, affinityPerRankSquared);
+  const featuresRank = extractOvercapFeatureRank(entry, maxRank);
+  const rank = Math.max(xpRank, featuresRank ?? 0);
   const masteredFlag = extractMasteredFlag(entry);
   const record: OwnedMasteryRecord = {
     rank,
@@ -413,6 +452,16 @@ function readOwnedMasteryRecord(
   };
   if (!owned) record.fromXPInfo = true;
   return record;
+}
+
+function extractOvercapFeatureRank(entry: InventoryMasteryEntry, maxRank: number): number | null {
+  if (maxRank <= MAX_ITEM_RANK) return null;
+  const features = toFiniteNumber(entry.Features);
+  if (features == null) return null;
+
+  const rank = Math.floor(features) + 1;
+  if (rank <= MAX_ITEM_RANK || rank > maxRank) return null;
+  return rank;
 }
 
 interface MasterableItem {
@@ -555,8 +604,9 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
   for (const [invKey, maxRank] of Object.entries(INV_CATEGORIES)) {
     const arr = inventoryData[invKey];
     if (!Array.isArray(arr)) continue;
+    const affinityPerRankSquared = getInventoryAffinityPerRankSquared(invKey);
     for (const entry of arr as InventoryMasteryEntry[]) {
-      const record = readOwnedMasteryRecord(entry, maxRank as number, true);
+      const record = readOwnedMasteryRecord(entry, maxRank as number, true, affinityPerRankSquared);
       if (record && entry.ItemType) {
         ownedMap.set(entry.ItemType, record);
       }
@@ -569,7 +619,15 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
     for (const entry of xpInfo as InventoryMasteryEntry[]) {
       if (!entry.ItemType) continue;
       const existing = ownedMap.get(entry.ItemType);
-      const record = readOwnedMasteryRecord(entry, existing?.maxRank ?? MAX_ITEM_RANK, false);
+      const dbItem = itemDb.lookupItem(entry.ItemType);
+      const record = readOwnedMasteryRecord(
+        entry,
+        existing?.maxRank ?? MAX_ITEM_RANK,
+        false,
+        dbItem?.category === "Warframe" || dbItem?.category === "Companion"
+          ? SUIT_AFFINITY_PER_RANK_SQUARED
+          : WEAPON_AFFINITY_PER_RANK_SQUARED,
+      );
       if (!record) continue;
 
       if (existing) {
@@ -598,6 +656,12 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
   const items: MasteryProgressItem[] = allMasterable.map((item) => {
     let owned = ownedMap.get(item.uniqueName);
     if (!owned) owned = ownedByName.get(item.name.toLowerCase()) ?? undefined;
+    if (!owned) {
+      for (const alias of MASTERABLE_UNIQUE_NAME_ALIASES[item.uniqueName] ?? []) {
+        owned = ownedMap.get(alias);
+        if (owned) break;
+      }
+    }
 
     let status: MasteryStatus = "missing";
     let rank = 0;
