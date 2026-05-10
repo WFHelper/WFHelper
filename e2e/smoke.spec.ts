@@ -7,6 +7,7 @@ test.describe("Electron Smoke", () => {
   test.beforeAll(async () => {
     const env = { ...process.env };
     delete env.ELECTRON_RUN_AS_NODE;
+    env.WFHELPER_DISABLE_KEYBOARD_HOOK = "1";
 
     app = await electron.launch({ args: ["."], env });
     page = await app.firstWindow();
