@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount } from "svelte";
+
   import { currentView } from "../stores/app.js";
   import { invoke, send } from "../lib/ipc.js";
   import { tr } from "../lib/i18n.js";
@@ -7,7 +9,17 @@
   import type { MessageKey } from "../lib/i18n.js";
 
   const collapsed = persistedBoolean("sidebar.collapsed", false);
-  const showDevTools = import.meta.env.DEV;
+  let showDevTools = import.meta.env.DEV;
+
+  onMount(() => {
+    invoke("getAppRuntimeInfo")
+      .then((info) => {
+        showDevTools = !info.isPackaged;
+      })
+      .catch(() => {
+        showDevTools = import.meta.env.DEV;
+      });
+  });
 
   function toggleCollapsed(): void {
     collapsed.update((value) => !value);

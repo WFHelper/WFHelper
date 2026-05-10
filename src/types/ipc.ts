@@ -100,6 +100,10 @@ interface AppUpdateInstallResult {
   message?: string;
 }
 
+interface AppRuntimeInfo {
+  isPackaged: boolean;
+}
+
 interface InventoryReadError {
   kind: "parse" | "read";
   message: string;
@@ -288,6 +292,10 @@ export interface IpcInvokeMap {
   installDownloadedUpdate: {
     args: [];
     return: AppUpdateInstallResult;
+  };
+  getAppRuntimeInfo: {
+    args: [];
+    return: AppRuntimeInfo;
   };
   loadRankedHotset: {
     args: [];

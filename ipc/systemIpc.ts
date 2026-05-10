@@ -13,11 +13,11 @@ import * as relicService from "../services/relicService";
 import * as autoUpdater from "../services/autoUpdater";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { isAllowedExternalHost } from "../config/runtime/security";
-import { shell } from "electron";
+import { app, shell } from "electron";
 import {
   DB_GET_ITEM_DATABASE, DB_GET_WFM_ITEMS, DB_GET_MASTERY, DB_SET_DEBUG_MODE,
   DB_GET_RELIC_DATABASE,
-  APP_UPDATE_CHECK, APP_UPDATE_STATE, APP_UPDATE_INSTALL,
+  APP_UPDATE_CHECK, APP_UPDATE_STATE, APP_UPDATE_INSTALL, APP_RUNTIME_INFO,
   WINDOW_MINIMIZE, WINDOW_MAXIMIZE, WINDOW_CLOSE,
   LOG_WARN, OPEN_EXTERNAL,
 } from "../config/shared/ipcChannels";
@@ -67,6 +67,9 @@ function register(): void {
   handleAuthorized(APP_UPDATE_INSTALL, assertMainRendererSender, () =>
     autoUpdater.installDownloadedUpdate(),
   );
+  handleAuthorized(APP_RUNTIME_INFO, assertMainRendererSender, () => ({
+    isPackaged: app.isPackaged,
+  }));
 
   handleAuthorized(DB_GET_RELIC_DATABASE, assertMainRendererSender, () =>
     relicService.getRelicDatabase(),

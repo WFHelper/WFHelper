@@ -39,6 +39,7 @@ export const APP_UPDATE_CHECK = "app:update-check";
 export const APP_UPDATE_STATE = "app:update-state";
 export const APP_UPDATE_INSTALL = "app:update-install";
 export const APP_UPDATE_STATUS = "app-update-status";
+export const APP_RUNTIME_INFO = "app:runtime-info";
 
 export const WINDOW_MINIMIZE = "window-minimize";
 export const WINDOW_MAXIMIZE = "window-maximize";

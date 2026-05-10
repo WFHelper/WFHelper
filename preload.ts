@@ -34,6 +34,7 @@ import {
   APP_UPDATE_STATE,
   APP_UPDATE_INSTALL,
   APP_UPDATE_STATUS,
+  APP_RUNTIME_INFO,
   WINDOW_MINIMIZE,
   WINDOW_MAXIMIZE,
   WINDOW_CLOSE,
@@ -97,6 +98,7 @@ try {
     checkForAppUpdates: () => ipcRenderer.invoke(APP_UPDATE_CHECK),
     getAppUpdateState: () => ipcRenderer.invoke(APP_UPDATE_STATE),
     installDownloadedUpdate: () => ipcRenderer.invoke(APP_UPDATE_INSTALL),
+    getAppRuntimeInfo: () => ipcRenderer.invoke(APP_RUNTIME_INFO),
 
     onInventoryUpdated: ipcDataBridge<unknown>(ipcRenderer, INVENTORY_UPDATED),
     onAppUpdateStatus: ipcDataBridge<unknown>(ipcRenderer, APP_UPDATE_STATUS),

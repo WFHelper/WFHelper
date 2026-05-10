@@ -3,6 +3,7 @@
 
   import { invoke, send } from "../lib/ipc.js";
   import { useInterval } from "../lib/timers.js";
+  import { APP_LOGO_URL } from "../lib/assetUrls.js";
   import { themeSettings } from "../stores/theme.js";
   import { DEFAULT_APP_NAME } from "../config/themeDefaults.js";
   import type { HelperStatus } from "../types/ipc.js";
@@ -53,7 +54,7 @@
 
 <header class="z-50 flex h-[var(--titlebar-height)] select-none items-center justify-between border-b border-border bg-bg-deep app-region-drag">
   <div class="flex min-w-0 items-center gap-2 pl-[0.875rem]">
-    <img src={logoUrl || "logo.png"} alt="Logo" class="h-4 w-4 object-contain" />
+    <img src={logoUrl || APP_LOGO_URL} alt="Logo" class="h-4 w-4 object-contain" />
     <span class="font-display text-xs font-semibold tracking-wide text-text-secondary">
       {appName}
     </span>
