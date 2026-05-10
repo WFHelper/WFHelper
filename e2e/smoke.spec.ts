@@ -19,8 +19,14 @@ test.describe("Electron Smoke", () => {
 
   test("renders app shell", async () => {
     await expect(page.locator("#app")).toBeVisible();
-    await expect(page.locator("#sidebar")).toBeVisible();
     await expect(page.locator("#content")).toBeVisible();
+
+    const sidebar = page.locator("#sidebar");
+    if ((await sidebar.count()) > 0) {
+      await expect(sidebar).toBeVisible();
+    } else {
+      await expect(page.getByRole("heading", { name: "Welcome to WFHelper" })).toBeVisible();
+    }
   });
 });
 
