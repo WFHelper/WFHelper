@@ -135,9 +135,86 @@ const INV_CATEGORIES: Record<string, number> = {
   MechSuits: MAX_ITEM_RANK,
 };
 
+const SYNTHETIC_MASTERABLE_ITEMS: MasterableItem[] = [
+  {
+    name: "Mote Amp",
+    uniqueName:
+      "/Lotus/Weapons/Sentients/OperatorAmplifiers/SentTrainingAmplifier/OperatorTrainingAmpWeapon",
+    category: "Amps",
+    imageUrl: null,
+    isPrime: false,
+    masteryReq: 0,
+    vaulted: false,
+    tradable: false,
+    keywords: ["amp", "operator"],
+    debugReason: "show:synthetic; cat:profile-amp; dbCat:?; product:OperatorAmps; type:Amp",
+    components: [],
+  },
+  {
+    name: "Plexus",
+    uniqueName: "/Lotus/Types/Game/CrewShip/RailjackHarness",
+    category: "Companions",
+    imageUrl: null,
+    isPrime: false,
+    masteryReq: 0,
+    vaulted: false,
+    tradable: false,
+    keywords: ["plexus", "railjack"],
+    debugReason: "show:synthetic; cat:profile-companions; dbCat:?; product:CrewShip; type:Plexus",
+    components: [],
+  },
+];
+
 function xpToRank(xp: number, maxRank: number = MAX_ITEM_RANK): number {
   if (!xp || xp <= 0) return 0;
   return Math.min(maxRank, Math.floor(xp / XP_PER_RANK));
+}
+
+function pickBoolean(obj: Record<string, unknown>, keys: string[]): boolean | null {
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") return value !== 0;
+    if (typeof value === "string") {
+      const lower = value.trim().toLowerCase();
+      if (lower === "true" || lower === "yes" || lower === "1") return true;
+      if (lower === "false" || lower === "no" || lower === "0") return false;
+    }
+  }
+  return null;
+}
+
+function extractMasteredFlag(entry: Record<string, unknown>): boolean | null {
+  return pickBoolean(entry, [
+    "Mastered",
+    "mastered",
+    "IsMastered",
+    "isMastered",
+    "Completed",
+    "completed",
+    "IsComplete",
+    "isComplete",
+  ]);
+}
+
+function getMasteryMaxRank(itemType: string, fallbackMaxRank: number): number {
+  const dbItem = itemDb.lookupItem(itemType);
+  const name = (dbItem?.name || "").toLowerCase();
+  const path = itemType.toLowerCase();
+
+  if (
+    fallbackMaxRank > MAX_ITEM_RANK ||
+    /(?:^|[\s/])kuva(?:[\s/]|$)/i.test(`${itemType} ${dbItem?.name || ""}`) ||
+    /(?:^|[\s/])tenet(?:[\s/]|$)/i.test(`${itemType} ${dbItem?.name || ""}`) ||
+    name === "paracesis" ||
+    path.includes("ballassword") ||
+    path.includes("mechsuits") ||
+    path.includes("entrati")
+  ) {
+    return 40;
+  }
+
+  return fallbackMaxRank;
 }
 
 function getValueAtPath(obj: Record<string, unknown>, path: string[]): unknown {
@@ -221,7 +298,13 @@ function getExcludeReason(
   // WFCD can provide exalted as an array on warframes (linked exalted weapons).
   // Exclude only when the item itself is explicitly flagged as exalted.
   if (item && item.exalted === true) return "wfcd-exalted-flag";
-  if (item && item.productCategory === "SpecialItems") return "specialitems-product-category";
+  if (
+    item &&
+    item.productCategory === "SpecialItems" &&
+    !/\/Powersuits\/Khora\/Kavat\/Khora(?:Prime)?KavatPowerSuit$/i.test(uniqueName)
+  ) {
+    return "specialitems-product-category";
+  }
   if (item && typeof item.type === "string" && /exalted/i.test(item.type)) return "type-exalted";
   if (/\/ExaltedWeapons?\//i.test(uniqueName)) return "path-exaltedweapons";
   if (/\/SpecialItems\//i.test(uniqueName)) return "path-specialitems";
@@ -295,6 +378,10 @@ function isAmpPrismMasterableOverride(item: { name?: string }, uniqueName: strin
   return n.includes(" prism");
 }
 
+function isVenariMasterableOverride(uniqueName: string): boolean {
+  return /\/Powersuits\/Khora\/Kavat\/Khora(?:Prime)?KavatPowerSuit$/i.test(uniqueName);
+}
+
 interface MasterableItem {
   name: string;
   uniqueName: string;
@@ -331,7 +418,8 @@ export function getAllMasterableItems(): MasterableItem[] {
       continue;
     }
     const ampPrismOverride = isAmpPrismMasterableOverride(item, uniqueName);
-    if (item.masterable === false && !ampPrismOverride) {
+    const venariOverride = isVenariMasterableOverride(uniqueName);
+    if (item.masterable === false && !ampPrismOverride && !venariOverride) {
       debugLog(`[MasteryDebug][Exclude] ${displayName} | ${uniqueName} | reason=masterable:false`);
       continue;
     }
@@ -359,9 +447,11 @@ export function getAllMasterableItems(): MasterableItem[] {
     }
     const masterableSource = ampPrismOverride
       ? "amp-prism-override"
-      : item.masterable === true
-        ? "wfcd-masterable:true"
-        : "default";
+      : venariOverride
+        ? "venari-override"
+        : item.masterable === true
+          ? "wfcd-masterable:true"
+          : "default";
     debugLog(
       `[MasteryDebug][Include] ${displayName} | ${uniqueName} | category=${display.category} | masterableSource=${masterableSource} | categorySource=${display.source}`,
     );
@@ -380,6 +470,12 @@ export function getAllMasterableItems(): MasterableItem[] {
       // Components from wfcd (blueprints, barrels, etc.)
       components: item.components || [],
     });
+  }
+
+  for (const item of SYNTHETIC_MASTERABLE_ITEMS) {
+    if (!seenNames.has(item.name.toLowerCase())) {
+      items.push(item);
+    }
   }
 
   items.sort((a, b) => a.name.localeCompare(b.name));
@@ -423,30 +519,55 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
   // Build owned map: uniqueName → { rank, maxRank, owned }
   const ownedMap = new Map<
     string,
-    { rank: number; maxRank: number; owned: boolean; fromXPInfo?: boolean }
+    { rank: number; maxRank: number; owned: boolean; mastered: boolean; fromXPInfo?: boolean }
   >();
 
   for (const [invKey, maxRank] of Object.entries(INV_CATEGORIES)) {
     const arr = inventoryData[invKey];
     if (!Array.isArray(arr)) continue;
-    for (const entry of arr as { ItemType?: string; XP?: number }[]) {
+    for (const entry of arr as Array<
+      Record<string, unknown> & { ItemType?: string; XP?: number }
+    >) {
       if (!entry.ItemType) continue;
-      const rank = xpToRank(entry.XP || 0, maxRank as number);
-      ownedMap.set(entry.ItemType, { rank, maxRank: maxRank as number, owned: true });
+      const itemMaxRank = getMasteryMaxRank(entry.ItemType, maxRank as number);
+      const rank = xpToRank(entry.XP || 0, itemMaxRank);
+      const masteredFlag = extractMasteredFlag(entry);
+      ownedMap.set(entry.ItemType, {
+        rank,
+        maxRank: itemMaxRank,
+        owned: true,
+        mastered: masteredFlag === true || rank >= itemMaxRank,
+      });
     }
   }
 
   // XPInfo: items sold but XP still counts
   const xpInfo = inventoryData.XPInfo;
   if (Array.isArray(xpInfo)) {
-    for (const entry of xpInfo as { ItemType?: string; XP?: number }[]) {
+    for (const entry of xpInfo as Array<
+      Record<string, unknown> & { ItemType?: string; XP?: number }
+    >) {
       if (!entry.ItemType) continue;
-      if (ownedMap.has(entry.ItemType)) continue;
-      const rank = xpToRank(entry.XP || 0, MAX_ITEM_RANK);
+      const existing = ownedMap.get(entry.ItemType);
+      const itemMaxRank = getMasteryMaxRank(entry.ItemType, existing?.maxRank ?? MAX_ITEM_RANK);
+      const rank = xpToRank(entry.XP || 0, itemMaxRank);
+      const masteredFlag = extractMasteredFlag(entry);
+      const mastered = masteredFlag === true || rank >= itemMaxRank;
+
+      if (existing) {
+        ownedMap.set(entry.ItemType, {
+          ...existing,
+          maxRank: Math.max(existing.maxRank, itemMaxRank),
+          mastered: existing.mastered || mastered,
+        });
+        continue;
+      }
+
       ownedMap.set(entry.ItemType, {
         rank,
-        maxRank: MAX_ITEM_RANK,
+        maxRank: itemMaxRank,
         owned: false,
+        mastered,
         fromXPInfo: true,
       });
     }
@@ -455,7 +576,7 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
   // Name-based fallback matching
   const ownedByName = new Map<
     string,
-    { rank: number; maxRank: number; owned: boolean; uniqueName: string }
+    { rank: number; maxRank: number; owned: boolean; mastered: boolean; uniqueName: string }
   >();
   for (const [uname, data] of ownedMap) {
     const dbItem = itemDb.lookupItem(uname);
@@ -478,7 +599,7 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
       rank = owned.rank;
       maxRank = owned.maxRank;
       currentlyOwned = owned.owned !== false;
-      status = rank >= maxRank ? "mastered" : "progress";
+      status = owned.mastered || rank >= maxRank ? "mastered" : "progress";
     }
 
     // Annotate components with ownership

@@ -63,12 +63,17 @@ const EXPECTED_UNINDEXED_INVENTORY: Array<{
     reason: "Kitgun modular primary instances are player-built variants.",
   },
   {
+    pattern: /^\/Lotus\/Weapons\/SolarisUnited\/Secondary\/LotusModularSecondary(?:Shotgun|Beam)?$/,
+    reason: "Kitgun modular secondary instances are player-built variants.",
+  },
+  {
     pattern: /^\/Lotus\/Weapons\/Ostron\/Melee\/LotusModularWeapon$/,
     reason: "Zaw modular melee instances are player-built variants.",
   },
   {
     key: "OperatorAmps",
-    pattern: /^\/Lotus\/Weapons\/Sentients\/OperatorAmplifiers\/(?:SentTrainingAmplifier\/OperatorTrainingAmpWeapon|OperatorAmpWeapon)$/,
+    pattern:
+      /^\/Lotus\/Weapons\/Sentients\/OperatorAmplifiers\/(?:SentTrainingAmplifier\/OperatorTrainingAmpWeapon|OperatorAmpWeapon)$/,
     reason: "Amp rows are modular/operator equipment shells.",
   },
   {
@@ -92,14 +97,35 @@ const EXPECTED_UNINDEXED_INVENTORY: Array<{
     reason: "Special exalted or rideable suit rows are attached equipment.",
   },
   {
+    key: "SpecialItems",
+    pattern: /^\/Lotus\/Powersuits\/(?:Wraith\/Reaper|Temple\/ExaltedGuitar)$/,
+    reason: "Special form and instrument rows are attached equipment.",
+  },
+  {
     key: "RawUpgrades",
     pattern: /^\/Lotus\/Upgrades\/Stickers\/(?:.+Sticker|Sticker.+)$/,
     reason: "Sticker upgrades are generated modifiers outside the itemDb catalog.",
   },
   {
+    pattern:
+      /^\/Lotus\/Types\/Sentinels\/SentinelPrecepts\/(?:BoomStick|SwiftDeth|TnCrossAttack|Warrior)$/,
+    reason: "Sentinel precept rows are inventory upgrade records, not itemDb equipment.",
+  },
+  {
+    key: "RawUpgrades",
+    pattern: /^\/Lotus\/Upgrades\/Mods\/Fusers\/(?:LegendaryModFuser|LegacyUncommonLvl10ModFuser)$/,
+    reason: "Fusion core rows are upgrade resources outside the normal itemDb catalog.",
+  },
+  {
     key: "MiscItems",
     pattern: /^\/Lotus\/Types\/Game\/Projections\/T5VoidProjectionImmortalOmniA$/,
     reason: "Immortal Omni fissure projection is a synthetic account inventory row.",
+  },
+  {
+    key: "MiscItems",
+    pattern:
+      /^\/Lotus\/Types\/(?:Recipes\/CosmeticUnenhancerItem|Gameplay\/InfestedMicroplanet\/EncounterObjects\/TestPartItem)$/,
+    reason: "Legacy cosmetic and test rows are not catalogued as normal inventory items.",
   },
   {
     key: "MiscItems",
@@ -116,7 +142,14 @@ const EXPECTED_UNINDEXED_INVENTORY: Array<{
 /** Resolve the inventory.json path from warframe-api-helper's default location. */
 function findInventoryPath(): string {
   const candidates = [
-    path.join(os.homedir(), "AppData", "Roaming", "warframe-companion", "api-helper", "inventory.json"),
+    path.join(
+      os.homedir(),
+      "AppData",
+      "Roaming",
+      "warframe-companion",
+      "api-helper",
+      "inventory.json",
+    ),
     // Also check next to the exe in api-inventory-data/ (dev layout)
     path.resolve("api-inventory-data", "inventory.json"),
   ];
@@ -136,7 +169,9 @@ function isExpectedUnindexedItem(item: UnresolvedInventoryItem): boolean {
 // ─── Setup ───────────────────────────────────────────────────────────────────
 
 const inventoryPath = findInventoryPath();
-const skipReason = inventoryPath ? "" : "inventory.json not found — install warframe-api-helper and run it once";
+const skipReason = inventoryPath
+  ? ""
+  : "inventory.json not found — install warframe-api-helper and run it once";
 
 let db: ReturnType<typeof itemDb.getRendererLookup>;
 let rawInventory: InventoryRecord;
@@ -161,7 +196,9 @@ describe.skipIf(!!skipReason)("inventory diagnostic", () => {
   });
 
   it("item database builds in reasonable time", () => {
-    console.log(`\n  ✓ DB build: ${dbBuildMs.toFixed(0)} ms — ${Object.keys(db).length.toLocaleString()} entries`);
+    console.log(
+      `\n  ✓ DB build: ${dbBuildMs.toFixed(0)} ms — ${Object.keys(db).length.toLocaleString()} entries`,
+    );
     expect(Object.keys(db).length).toBeGreaterThan(1000);
     // Soft budget: warn if > 5 s but don't fail (depends on machine speed)
     if (dbBuildMs > 5000) {
@@ -201,7 +238,9 @@ describe.skipIf(!!skipReason)("inventory diagnostic", () => {
     // Print a nicely-formatted table
     const colW = 24;
     console.log("\n  Category breakdown:");
-    console.log(`  ${"Key".padEnd(colW)} ${"Total".padStart(6)} ${"Found".padStart(6)} ${"Missing".padStart(8)}`);
+    console.log(
+      `  ${"Key".padEnd(colW)} ${"Total".padStart(6)} ${"Found".padStart(6)} ${"Missing".padStart(8)}`,
+    );
     console.log(`  ${"-".repeat(colW + 24)}`);
     let totalItems = 0;
     let totalResolved = 0;
@@ -210,13 +249,19 @@ describe.skipIf(!!skipReason)("inventory diagnostic", () => {
       totalItems += total;
       totalResolved += resolved;
       if (missing > 0) {
-        console.log(`  ${key.padEnd(colW)} ${String(total).padStart(6)} ${String(resolved).padStart(6)} ${String(missing).padStart(8)} ← UNRESOLVED`);
+        console.log(
+          `  ${key.padEnd(colW)} ${String(total).padStart(6)} ${String(resolved).padStart(6)} ${String(missing).padStart(8)} ← UNRESOLVED`,
+        );
       } else {
-        console.log(`  ${key.padEnd(colW)} ${String(total).padStart(6)} ${String(resolved).padStart(6)} ${String(0).padStart(8)}`);
+        console.log(
+          `  ${key.padEnd(colW)} ${String(total).padStart(6)} ${String(resolved).padStart(6)} ${String(0).padStart(8)}`,
+        );
       }
     }
     console.log(`  ${"-".repeat(colW + 24)}`);
-    console.log(`  ${"TOTAL".padEnd(colW)} ${String(totalItems).padStart(6)} ${String(totalResolved).padStart(6)} ${String(totalItems - totalResolved).padStart(8)}`);
+    console.log(
+      `  ${"TOTAL".padEnd(colW)} ${String(totalItems).padStart(6)} ${String(totalResolved).padStart(6)} ${String(totalItems - totalResolved).padStart(8)}`,
+    );
 
     if (unresolved.length > 0) {
       console.log("\n  Unindexed items (not in itemDb):");
