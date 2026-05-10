@@ -17,6 +17,7 @@ env/
 .env.*.local
 *.log
 .tmp/
+docs/
 docs/ilspy-decompiled/
 .icon-mirror/
 
