@@ -126,6 +126,8 @@ export function createOverlayWindowsController(options: OverlayWindowsController
   let overlayAutoHideTimer: ReturnType<typeof setTimeout> | null = null;
   let suppressMoveSave = false;
   let moveSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  let rendererReady = false;
+  const pendingOverlayEvents: Array<{ channel: string; payload?: unknown }> = [];
 
   const readOverlayWindow =
     getOverlayWindow ||
@@ -333,12 +335,58 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     overlayWindow.setAlwaysOnTop(true, "screen-saver");
   }
 
+  function isWebContentsCrashed(webContents: import("electron").WebContents): boolean {
+    const maybeCrashed = webContents as import("electron").WebContents & {
+      isCrashed?: () => boolean;
+    };
+    return typeof maybeCrashed.isCrashed === "function" && maybeCrashed.isCrashed();
+  }
+
+  function destroyIfRendererCrashed(
+    overlayWindow: import("electron").BrowserWindow | null,
+  ): boolean {
+    if (!overlayWindow || overlayWindow.isDestroyed()) return false;
+    if (!isWebContentsCrashed(overlayWindow.webContents)) return false;
+    log.warn(`[OverlayWindow] rebuilding ${windowLabel}; renderer process was crashed`);
+    overlayWindow.destroy();
+    rendererReady = false;
+    pendingOverlayEvents.length = 0;
+    return true;
+  }
+
+  function attachRendererDiagnostics(overlayWindow: import("electron").BrowserWindow): void {
+    overlayWindow.webContents.on("did-fail-load", (_event, code, description, url) => {
+      log.warn(
+        `[OverlayWindow] ${windowLabel} failed to load ${url}: ${code} ${description}`,
+      );
+    });
+    overlayWindow.webContents.on("render-process-gone", (_event, details) => {
+      rendererReady = false;
+      pendingOverlayEvents.length = 0;
+      log.warn(
+        `[OverlayWindow] ${windowLabel} renderer gone reason=${details.reason} exitCode=${details.exitCode}`,
+      );
+      if (!overlayWindow.isDestroyed()) {
+        overlayWindow.destroy();
+      }
+    });
+    overlayWindow.webContents.on("console-message", (_event, level, message) => {
+      if (level < 2) return;
+      log.warn(`[OverlayWindow] ${windowLabel} console: ${message}`);
+    });
+  }
+
   function createOverlayWindow(options: { show?: boolean } = {}): void {
     const shouldShow = options.show !== false;
     let existingWindow = readOverlayWindow();
+    if (destroyIfRendererCrashed(existingWindow)) {
+      existingWindow = null;
+    }
     if (shouldShow && existingWindow && !existingWindow.isDestroyed() && !existingWindow.isVisible()) {
       existingWindow.destroy();
       existingWindow = null;
+      rendererReady = false;
+      pendingOverlayEvents.length = 0;
     }
 
     if (existingWindow && !existingWindow.isDestroyed()) {
@@ -384,7 +432,10 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       },
     });
 
+    rendererReady = false;
+    pendingOverlayEvents.length = 0;
     writeOverlayWindow(createdWindow);
+    attachRendererDiagnostics(createdWindow);
 
     hardenBrowserWindowNavigation(createdWindow, {
       label: windowLabel,
@@ -412,6 +463,8 @@ export function createOverlayWindowsController(options: OverlayWindowsController
         moveSaveTimer = null;
       }
       writeOverlayWindow(null);
+      rendererReady = false;
+      pendingOverlayEvents.length = 0;
     });
     attachBoundsPersistence(createdWindow);
   }
@@ -447,12 +500,25 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       targetWindow.webContents.send(channel, payload);
     };
 
-    if (targetWindow.webContents.isLoadingMainFrame()) {
-      targetWindow.webContents.once("did-finish-load", sendNow);
+    if (targetWindow.webContents.isLoadingMainFrame() || !rendererReady) {
+      pendingOverlayEvents.push({ channel, payload });
       return;
     }
 
     sendNow();
+  }
+
+  function markRendererReady(senderId: number): boolean {
+    const targetWindow = readOverlayWindow();
+    if (!targetWindow || targetWindow.isDestroyed()) return false;
+    if (targetWindow.webContents.id !== senderId) return false;
+
+    rendererReady = true;
+    const pending = pendingOverlayEvents.splice(0);
+    for (const event of pending) {
+      targetWindow.webContents.send(event.channel, event.payload);
+    }
+    return true;
   }
 
   function setAnchorMeta(anchorMeta: OverlayAnchorMeta | null): void {
@@ -498,6 +564,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     clearOverlayAutoHideTimer,
     scheduleOverlayAutoHide,
     sendOverlayEvent,
+    markRendererReady,
     setAnchorMeta,
     getAnchorMeta,
     setOverlayInteractiveMode,

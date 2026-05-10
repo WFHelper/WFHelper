@@ -12,6 +12,7 @@ import {
   OVERLAY_THEME_VARS,
   OVERLAY_INTERACTION_MODE,
   OVERLAY_DRAG_MOVE,
+  OVERLAY_READY,
 } from "./config/shared/ipcChannels";
 
 const onOverlayIpc = (channel: string, listener: Parameters<typeof onIpc>[2]): (() => void) =>
@@ -23,6 +24,7 @@ contextBridge.exposeInMainWorld("overlay", {
   getPrice: (slug: string) => ipcRenderer.invoke(OVERLAY_GET_PRICE, slug),
   getThemeVars: () => ipcRenderer.invoke(OVERLAY_GET_THEME_VARS),
   moveBy: (dx: number, dy: number) => ipcRenderer.send(OVERLAY_DRAG_MOVE, { dx, dy }),
+  ready: () => ipcRenderer.send(OVERLAY_READY),
   onTrigger: (cb: () => void) => onOverlayIpc(RELIC_REWARD_TRIGGER, () => cb()),
   onPlannerTrigger: (cb: (payload: unknown) => void) =>
     onOverlayIpc(RELIC_PLANNER_TRIGGER, (_event: unknown, payload: unknown) => cb(payload)),

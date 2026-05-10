@@ -439,4 +439,5 @@ document.addEventListener("DOMContentLoaded", () => {
       !overlayInteractiveMode && !plannerGridElement().classList.contains("is-hidden"),
     );
   });
+  window.overlay.ready();
 });

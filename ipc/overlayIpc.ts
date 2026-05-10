@@ -25,6 +25,7 @@ import {
   OVERLAY_SET_SETTINGS,
   OVERLAY_THEME_UPDATED,
   OVERLAY_DRAG_MOVE,
+  OVERLAY_READY,
 } from "../config/shared/ipcChannels";
 import {
   OVERLAY_FORWARDED_COLOR_VARS,
@@ -330,6 +331,15 @@ function register(): void {
 
   onAuthorized(OVERLAY_DRAG_MOVE, assertOverlayRendererSender, (event, rawDelta: unknown) => {
     moveInteractiveOverlayWindow(event.sender, rawDelta);
+  });
+
+  onAuthorized(OVERLAY_READY, assertOverlayRendererSender, (event) => {
+    const senderId = event.sender.id;
+    const rewardReady = rewardOverlayIpc.getRewardWindowsController().markRendererReady(senderId);
+    const plannerReady = rewardOverlayIpc.getPlannerWindowsController().markRendererReady(senderId);
+    if (!rewardReady && !plannerReady) {
+      log.warn(`[OverlayWindow] ready signal from unknown overlay sender ${senderId}`);
+    }
   });
 
   handleAuthorized(

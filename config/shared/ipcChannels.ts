@@ -82,6 +82,7 @@ export const OVERLAY_THEME_UPDATED = "overlay-theme-updated";
 export const OVERLAY_THEME_VARS = "overlay-theme-vars";
 export const OVERLAY_INTERACTION_MODE = "overlay-interaction-mode";
 export const OVERLAY_DRAG_MOVE = "overlay-drag-move";
+export const OVERLAY_READY = "overlay-ready";
 
 export const OVERLAY_CLOSE = "overlay-close";
 export const OVERLAY_GET_RELIC_ITEMS = "overlay-get-relic-items";
