@@ -50,6 +50,7 @@ export function buildCraftingTree(
     ownership,
     0,
     findUsedFor(uniqueName, itemDb),
+    new Set([uniqueName]),
   );
 }
 
@@ -65,6 +66,7 @@ function buildNode(
   ownership: Map<string, number>,
   depth: number,
   usedFor: CraftingTreeNode["usedFor"] = [],
+  ancestors: Set<string> = new Set(),
 ): CraftingTreeNode {
   const item = itemDb[uniqueName];
   const name = item?.name || extractFallbackName(uniqueName);
@@ -96,11 +98,27 @@ function buildNode(
       });
     }
 
-    for (const ing of effectiveRecipe.ingredients) {
+    for (const ing of aggregateIngredients(effectiveRecipe.ingredients)) {
       const ingItem = itemDb[ing.uniqueName];
       const ingRecipe = ingItem?.recipe || null;
+      const nextCount = ing.count * count;
+      if (ancestors.has(ing.uniqueName)) {
+        children.push(buildNode(ing.uniqueName, nextCount, null, itemDb, ownership, depth + 1));
+        continue;
+      }
+      const nextAncestors = new Set(ancestors);
+      nextAncestors.add(ing.uniqueName);
       children.push(
-        buildNode(ing.uniqueName, ing.count * count, ingRecipe, itemDb, ownership, depth + 1),
+        buildNode(
+          ing.uniqueName,
+          nextCount,
+          ingRecipe,
+          itemDb,
+          ownership,
+          depth + 1,
+          [],
+          nextAncestors,
+        ),
       );
     }
   }
@@ -117,6 +135,19 @@ function buildNode(
     usedFor,
     children,
   };
+}
+
+function aggregateIngredients(ingredients: RecipeData["ingredients"]): RecipeData["ingredients"] {
+  const byUniqueName = new Map<string, RecipeData["ingredients"][number]>();
+  for (const ingredient of ingredients) {
+    const existing = byUniqueName.get(ingredient.uniqueName);
+    if (existing) {
+      existing.count += ingredient.count;
+    } else {
+      byUniqueName.set(ingredient.uniqueName, { ...ingredient });
+    }
+  }
+  return [...byUniqueName.values()];
 }
 
 function findUsedFor(
