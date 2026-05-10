@@ -75,7 +75,10 @@ jobs:
           }
 
       - name: Build Windows installer
-        run: npm run dist:win
+        run: |
+          npm run verify:onnx-models
+          npm run build
+          npx electron-builder --win nsis --publish never
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
