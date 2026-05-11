@@ -240,7 +240,16 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
 
   handleAuthorized(OVERLAY_GET_RELIC_ITEMS, assertOverlayRendererSender, async () => {
     const db = relicService.getRelicDatabase();
-    const seen = new Map<string, { name: string; urlName: string | null; rarity: string }>();
+    const seen = new Map<
+      string,
+      {
+        name: string;
+        uniqueName: string | null;
+        urlName: string | null;
+        rarity: string;
+        ducats: number | null;
+      }
+    >();
     for (const group of Object.values(db.groups)) {
       if (!group.qualities) continue;
       for (const qualData of Object.values(group.qualities)) {
@@ -249,8 +258,10 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
           if (reward.name && !seen.has(reward.name)) {
             seen.set(reward.name, {
               name: reward.name,
+              uniqueName: reward.uniqueName || null,
               urlName: reward.urlName || null,
               rarity: reward.rarity || "Common",
+              ducats: reward.ducats ?? null,
             });
           }
         }

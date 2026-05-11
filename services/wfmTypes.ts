@@ -17,7 +17,7 @@ export interface WfmAuctionSearchPayload {
 /** Single auction from the v1 auction search endpoint. */
 export interface WfmRawAuction {
   id: string;
-  owner: { ingame_name: string };
+  owner: { ingame_name: string; status?: string | null };
   buyout_price: number | null;
   starting_price: number | null;
   is_direct_sell: boolean;

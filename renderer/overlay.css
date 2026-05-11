@@ -238,7 +238,7 @@ body {
   transition:
     border-color 0.2s,
     background 0.2s;
-  min-height: 84px;
+  min-height: 112px;
 }
 
 .reward-slot.has-item {
@@ -327,6 +327,41 @@ body {
   color: var(--muted);
   font-size: 11px;
   font-weight: 400;
+}
+
+.slot-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  min-height: 17px;
+}
+
+.slot-meta-chip {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 1px 4px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.slot-meta-chip.ducats {
+  color: color-mix(in oklab, var(--accent) 76%, #f7d47a 24%);
+}
+
+.slot-meta-chip.owned {
+  color: var(--text-secondary);
+}
+
+.slot-meta-chip.set,
+.slot-meta-chip.set-price {
+  color: var(--accent-bright);
 }
 
 #error-banner {

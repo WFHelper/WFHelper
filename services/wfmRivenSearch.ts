@@ -21,6 +21,7 @@ const log = withScope("wfmRivenSearch");
 interface WfmRivenListing {
   id: string;
   seller: string;
+  sellerStatus: string | null;
   platinum: number;
   stats: { name: string; value: number; positive: boolean }[];
   rerolls: number;
@@ -73,6 +74,7 @@ function parseAuctions(auctions: WfmRawAuction[]): WfmRivenListing[] {
     listings.push({
       id: a.id || "",
       seller: a.owner?.ingame_name || "Unknown",
+      sellerStatus: typeof a.owner?.status === "string" ? a.owner.status.toLowerCase() : null,
       platinum: a.buyout_price ?? a.starting_price ?? 0,
       stats,
       rerolls: a.item?.re_rolls ?? 0,

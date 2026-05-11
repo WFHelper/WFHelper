@@ -5,6 +5,7 @@
   import ThemedInput from "./ThemedInput.svelte";
   import ThemedPanel from "./ThemedPanel.svelte";
   import ThemedSelect from "./ThemedSelect.svelte";
+  import { isActiveOrderStatus } from "../../config/shared/wfmOrders.js";
   import type { RivenBestAttributes, WfmRivenListing, RivenStatOption } from "../types/ipc.js";
 
   interface AttrSlot {
@@ -29,6 +30,8 @@
   let rerollsMin = $state("");
   let rerollsMax = $state("");
   let minSimilarity = $state("");
+  let onlineIngameOnly = $state(true);
+  let hideOnePlat = $state(false);
 
   let attrSlots: AttrSlot[] = $state([
     { positive: true, selectedStat: "", required: false },
@@ -81,6 +84,8 @@
       if (price < pMin || price > pMax) continue;
       if (r.rerolls < rMin || r.rerolls > rMax) continue;
       if (requireNegative && !r.stats.some((s) => !s.positive)) continue;
+      if (onlineIngameOnly && !isActiveOrderStatus(r.sellerStatus)) continue;
+      if (hideOnePlat && price <= 1) continue;
 
       const listingPosNames = r.stats.filter((s) => s.positive).map((s) => s.name.toLowerCase());
       const listingNegNames = r.stats.filter((s) => !s.positive).map((s) => s.name.toLowerCase());
@@ -263,6 +268,14 @@
           <input type="checkbox" class="w-[14px] h-[14px] accent-accent cursor-pointer" bind:checked={requireNegative} />
           <span>Require negative stat</span>
         </label>
+        <label class="flex items-center gap-[0.35rem] font-display text-[0.75rem] text-text-secondary cursor-pointer select-none mt-[0.15rem]">
+          <input type="checkbox" class="w-[14px] h-[14px] accent-accent cursor-pointer" bind:checked={onlineIngameOnly} />
+          <span>Online/In-game only</span>
+        </label>
+        <label class="flex items-center gap-[0.35rem] font-display text-[0.75rem] text-text-secondary cursor-pointer select-none mt-[0.15rem]">
+          <input type="checkbox" class="w-[14px] h-[14px] accent-accent cursor-pointer" bind:checked={hideOnePlat} />
+          <span>Hide 1p listings</span>
+        </label>
       </div>
     </div>
 
@@ -288,6 +301,9 @@
           <span class="font-bold text-accent-bright">{listing.buyoutPrice ?? listing.startingPrice ?? listing.platinum}p</span>
           <span class="ml-auto text-text-muted text-[0.65rem] overflow-hidden text-ellipsis whitespace-nowrap max-w-[6rem]">{listing.seller}</span>
         </div>
+        {#if listing.sellerStatus}
+          <span class="font-display text-[0.62rem] uppercase tracking-[0.04em] text-text-muted">{listing.sellerStatus === "ingame" ? "In game" : listing.sellerStatus}</span>
+        {/if}
         <div class="flex flex-col gap-[0.05rem]">
           {#each listing.stats as s}
             <span class="font-display text-[0.8rem] whitespace-nowrap overflow-hidden text-ellipsis {s.positive ? 'text-[#4ade80]' : 'text-[#ef4444]'}">

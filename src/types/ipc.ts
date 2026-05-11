@@ -399,6 +399,7 @@ interface RivenResult {
 export interface WfmRivenListing {
   id: string;
   seller: string;
+  sellerStatus: string | null;
   platinum: number;
   stats: { name: string; value: number; positive: boolean }[];
   rerolls: number;

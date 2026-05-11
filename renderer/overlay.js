@@ -1,5 +1,9 @@
 const SLOTS = 4;
-const slotState = Array.from({ length: SLOTS }, () => ({ item: null, price: null }));
+const slotState = Array.from({ length: SLOTS }, () => ({
+  item: null,
+  price: null,
+  setPrice: null,
+}));
 let overlayInteractiveMode = false;
 
 function setOverlayInteractiveMode(interactive) {
@@ -40,6 +44,19 @@ function slotElement(index) {
   return document.querySelector(`.reward-slot[data-slot="${index}"]`);
 }
 
+function formatCount(value) {
+  const count = Number(value);
+  return Number.isFinite(count) && count >= 0 ? String(Math.floor(count)) : "0";
+}
+
+function appendMetaChip(container, text, tone) {
+  if (!text) return;
+  const chip = document.createElement("span");
+  chip.className = `slot-meta-chip ${tone || ""}`.trim();
+  chip.textContent = text;
+  container.appendChild(chip);
+}
+
 function plannerGridElement() {
   return document.getElementById("planner-grid");
 }
@@ -78,9 +95,11 @@ function renderSlot(index) {
   const nameEl = slotEl.querySelector(".slot-name");
   const priceEl = slotEl.querySelector(".slot-price");
   const rarityEl = slotEl.querySelector(".slot-rarity");
-  const { item, price } = slotState[index];
+  const metaEl = slotEl.querySelector(".slot-meta");
+  const { item, price, setPrice } = slotState[index];
 
   slotEl.classList.remove("has-item", "best-slot", "empty-slot");
+  metaEl.innerHTML = "";
 
   if (!item) {
     slotEl.classList.add("empty-slot");
@@ -111,6 +130,34 @@ function renderSlot(index) {
     priceEl.textContent = `${price}p`;
     priceEl.className = "slot-price";
   }
+
+  const ducats = Number(item.ducats);
+  if (Number.isFinite(ducats) && ducats > 0) {
+    appendMetaChip(metaEl, `${Math.floor(ducats)}d`, "ducats");
+  }
+
+  const partRequired = Number(item.partRequiredCount);
+  if (Number.isFinite(partRequired) && partRequired > 0) {
+    appendMetaChip(
+      metaEl,
+      `Own ${formatCount(item.partOwnedCount)}/${formatCount(partRequired)}`,
+      "owned",
+    );
+  }
+
+  const setRequired = Number(item.setRequiredCount);
+  if (Number.isFinite(setRequired) && setRequired > 0) {
+    appendMetaChip(
+      metaEl,
+      `Set ${formatCount(item.setOwnedCount)}/${formatCount(setRequired)}`,
+      "set",
+    );
+  }
+
+  if (item.setUrlName) {
+    const setText = setPrice == null ? "Set ..." : setPrice > 0 ? `Set ${setPrice}p` : "Set N/A";
+    appendMetaChip(metaEl, setText, "set-price");
+  }
 }
 
 function updateBestPick() {
@@ -136,7 +183,7 @@ function updateBestPick() {
 
 function resetSlots() {
   for (let i = 0; i < SLOTS; i += 1) {
-    slotState[i] = { item: null, price: null };
+    slotState[i] = { item: null, price: null, setPrice: null };
     renderSlot(i);
   }
   updateBestPick();
@@ -282,6 +329,7 @@ async function applyRewardItems(items) {
     const item = detectedItems[i] || null;
     slotState[i].item = item;
     slotState[i].price = null;
+    slotState[i].setPrice = null;
     renderSlot(i);
   }
 
@@ -291,13 +339,18 @@ async function applyRewardItems(items) {
     detectedItems.map(async (item, index) => {
       if (!item?.urlName) {
         slotState[index].price = 0;
+        slotState[index].setPrice = item?.setUrlName ? await fetchPrice(item.setUrlName) : 0;
         renderSlot(index);
         updateBestPick();
         return;
       }
 
-      const price = await fetchPrice(item.urlName);
+      const [price, setPrice] = await Promise.all([
+        fetchPrice(item.urlName),
+        fetchPrice(item.setUrlName),
+      ]);
       slotState[index].price = price ?? 0;
+      slotState[index].setPrice = setPrice ?? 0;
       renderSlot(index);
       updateBestPick();
     }),
@@ -404,7 +457,7 @@ document.addEventListener("DOMContentLoaded", () => {
     })
     .catch(() => {
       // best effort, storage fallback already applied
-  });
+    });
 
   document.getElementById("btn-close").addEventListener("click", () => window.overlay.close());
   window.installOverlayRightButtonDrag({

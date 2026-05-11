@@ -369,8 +369,10 @@ app.whenReady().then(async () => {
           if (reward.name && !seen.has(reward.name)) {
             seen.set(reward.name, {
               name: reward.name,
+              uniqueName: reward.uniqueName || null,
               urlName: reward.urlName || null,
               rarity: reward.rarity || "Common",
+              ducats: reward.ducats ?? null,
             });
           }
         }

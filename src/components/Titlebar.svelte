@@ -9,6 +9,7 @@
   import type { HelperStatus } from "../types/ipc.js";
 
   const HELPER_STATUS_POLL_MS = 5_000;
+  const INVENTORY_OLD_MS = 60 * 60 * 1000;
 
   $: logoUrl = $themeSettings.branding.logoDataUrl;
   $: appName = $themeSettings.branding.appName || DEFAULT_APP_NAME;
@@ -21,11 +22,15 @@
     return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   }
 
+  $: helperInventoryIsOld =
+    Boolean(helperStatus?.inventoryLastModified) &&
+    Date.now() - Number(helperStatus?.inventoryLastModified) > INVENTORY_OLD_MS;
+
   $: helperStatusText = (() => {
     if (!helperStatus) return "WF data unknown";
     if (helperStatus.running) return "WF data refreshing...";
     if (helperStatus.inventoryLastModified) {
-      return `WF data OK - ${formatHelperTime(helperStatus.inventoryLastModified)}`;
+      return `WF data ${helperInventoryIsOld ? "old" : "OK"} - ${formatHelperTime(helperStatus.inventoryLastModified)}`;
     }
     if (!helperStatus.exeFound) return "WF helper not found";
     return "WF data missing";
@@ -34,7 +39,7 @@
   $: helperDotColor = (() => {
     if (!helperStatus) return "#6b7280";
     if (helperStatus.running) return "#facc15";
-    if (helperStatus.inventoryLastModified) return "#34d399";
+    if (helperStatus.inventoryLastModified) return helperInventoryIsOld ? "#f59e0b" : "#34d399";
     return "#f87171";
   })();
   $: helperDotPulse = helperStatus?.running ?? false;

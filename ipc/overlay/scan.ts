@@ -1,6 +1,9 @@
 import type { NativeImage } from "electron";
+import { aggregateComponentOwnership } from "../../config/shared/componentOwnership";
 import { normalizeErrorMessage } from "../../config/shared/errors";
 import { RELIC_REWARD_ITEMS, RELIC_REWARD_TRIGGER } from "../../config/shared/ipcChannels";
+import { normalizeWfmSlug } from "../../config/shared/wfm";
+import * as itemDatabase from "../../services/itemDatabase";
 
 const SCAN_RETRY_WINDOW_MS = 5_000;
 const SCAN_RETRY_INTERVAL_MS = 450;
@@ -21,6 +24,18 @@ type RewardScanResult = {
   triggerSource?: string;
 };
 
+type RewardItem = {
+  name?: unknown;
+  uniqueName?: unknown;
+  urlName?: unknown;
+  ducats?: unknown;
+  [key: string]: unknown;
+};
+
+type InventoryData = Record<string, unknown> | null;
+
+type ItemEntry = NonNullable<ReturnType<typeof itemDatabase.lookupItem>>;
+
 type OverlayScanControllerOptions = {
   log: {
     log: (...args: unknown[]) => void;
@@ -28,17 +43,20 @@ type OverlayScanControllerOptions = {
     error: (...args: unknown[]) => void;
   };
   rewardScanner: {
-    scanRewardsDetailed: (preCapture?: {
-      image: NativeImage;
-      sourceType: string | null;
-      sourceName: string | null;
-      sourceId: string | null;
-      sourceDisplayId: string | null;
-    } | null) => Promise<RewardScanResult | null>;
+    scanRewardsDetailed: (
+      preCapture?: {
+        image: NativeImage;
+        sourceType: string | null;
+        sourceName: string | null;
+        sourceId: string | null;
+        sourceDisplayId: string | null;
+      } | null,
+    ) => Promise<RewardScanResult | null>;
   };
   ctx: {
     overlaySettings: Record<string, unknown>;
     overlayWindow: import("electron").BrowserWindow | null;
+    currentInventoryData?: InventoryData;
   };
   windows: {
     setAnchorMeta: (meta: Record<string, unknown> | null) => void;
@@ -61,6 +79,141 @@ type OverlayScanControllerOptions = {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function finitePositiveInteger(value: unknown): number | null {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue) || numberValue <= 0) return null;
+  return Math.floor(numberValue);
+}
+
+function buildItemIndexes(): {
+  byName: Map<string, string>;
+  bySlug: Map<string, string>;
+} {
+  const byName = new Map<string, string>();
+  const bySlug = new Map<string, string>();
+  for (const [uniqueName, entry] of Object.entries(itemDatabase.getAllItems())) {
+    const name = typeof entry.name === "string" ? entry.name.trim() : "";
+    if (!name) continue;
+    byName.set(name.toLowerCase(), uniqueName);
+    const slug = normalizeWfmSlug(name);
+    if (slug) bySlug.set(slug, uniqueName);
+  }
+  return { byName, bySlug };
+}
+
+function resolveRewardUniqueName(item: RewardItem): string | null {
+  if (typeof item.uniqueName === "string" && itemDatabase.lookupItem(item.uniqueName)) {
+    return item.uniqueName;
+  }
+
+  const { byName, bySlug } = buildItemIndexes();
+  const name = typeof item.name === "string" ? item.name.trim().toLowerCase() : "";
+  if (name) {
+    const byExactName = byName.get(name);
+    if (byExactName) return byExactName;
+  }
+
+  const slug = typeof item.urlName === "string" ? normalizeWfmSlug(item.urlName) : null;
+  if (slug) {
+    const byExactSlug = bySlug.get(slug);
+    if (byExactSlug) return byExactSlug;
+  }
+
+  return null;
+}
+
+function componentUniqueNameAliases(uniqueName: string): string[] {
+  const aliases = [uniqueName];
+  if (/Blueprint$/i.test(uniqueName)) aliases.push(uniqueName.replace(/Blueprint$/i, "Component"));
+  if (/Component$/i.test(uniqueName)) aliases.push(uniqueName.replace(/Component$/i, "Blueprint"));
+  return aliases;
+}
+
+function componentRequiredCount(parent: ItemEntry | null, uniqueName: string | null): number {
+  if (!parent || !uniqueName) return 1;
+  const aliases = componentUniqueNameAliases(uniqueName);
+  const component = (parent.components || []).find((entry) =>
+    Boolean(entry.uniqueName && aliases.includes(entry.uniqueName)),
+  );
+  return finitePositiveInteger(component?.itemCount) ?? 1;
+}
+
+function setProgress(
+  parent: ItemEntry | null,
+  ownedCounts: Map<string, number>,
+): { owned: number; required: number; completeSets: number } | null {
+  if (!parent || !Array.isArray(parent.components) || parent.components.length === 0) return null;
+
+  let owned = 0;
+  let required = 0;
+  let completeSets = Number.POSITIVE_INFINITY;
+
+  for (const component of parent.components) {
+    if (!component.uniqueName || component.tradable === false) continue;
+    const needed = finitePositiveInteger(component.itemCount) ?? 1;
+    const count = ownedCounts.get(component.uniqueName) || 0;
+    required += needed;
+    owned += Math.min(count, needed);
+    completeSets = Math.min(completeSets, Math.floor(count / needed));
+  }
+
+  if (required <= 0) return null;
+  return {
+    owned,
+    required,
+    completeSets: Number.isFinite(completeSets) ? completeSets : 0,
+  };
+}
+
+function buildOwnedCounts(inventoryData: InventoryData): Map<string, number> {
+  if (!inventoryData) return new Map();
+  return aggregateComponentOwnership(
+    inventoryData.MiscItems,
+    inventoryData.Recipes,
+    inventoryData.PendingRecipes,
+  );
+}
+
+function enrichRewardItems(items: unknown[], inventoryData: InventoryData): unknown[] {
+  const ownedCounts = buildOwnedCounts(inventoryData);
+
+  return items.map((rawItem) => {
+    if (!rawItem || typeof rawItem !== "object") return rawItem;
+    const item = rawItem as RewardItem;
+    const uniqueName = resolveRewardUniqueName(item);
+    const entry = uniqueName ? itemDatabase.lookupItem(uniqueName) : null;
+    const parentUniqueName = entry?.componentOf || null;
+    const parent = parentUniqueName ? itemDatabase.lookupItem(parentUniqueName) : null;
+    const parentName = parent?.name || null;
+    const setName = parentName ? `${parentName} Set` : null;
+    const partRequiredCount = componentRequiredCount(parent, uniqueName);
+    const partOwnedCount = uniqueName ? ownedCounts.get(uniqueName) || 0 : 0;
+    const progress = setProgress(parent, ownedCounts);
+    const ducats = finitePositiveInteger(item.ducats) ?? entry?.ducats ?? null;
+
+    return {
+      ...item,
+      ...(uniqueName ? { uniqueName } : {}),
+      ducats,
+      partOwnedCount,
+      partRequiredCount,
+      ...(progress
+        ? {
+            setOwnedCount: progress.owned,
+            setRequiredCount: progress.required,
+            completeSetCount: progress.completeSets,
+          }
+        : {}),
+      ...(setName
+        ? {
+            setName,
+            setUrlName: normalizeWfmSlug(setName),
+          }
+        : {}),
+    };
+  });
 }
 
 function chooseBetterScanResult(
@@ -168,7 +321,12 @@ export function createOverlayScanController(options: OverlayScanControllerOption
       }
 
       const result = await runRewardScanWithRetries(source);
-      const items = Array.isArray(result?.items) ? result.items.slice(0, MAX_REWARD_ITEMS) : [];
+      const items = Array.isArray(result?.items)
+        ? enrichRewardItems(
+            result.items.slice(0, MAX_REWARD_ITEMS),
+            ctx.currentInventoryData ?? null,
+          )
+        : [];
 
       if (source === "eelog" && items.length > 0) {
         windows.createOverlayWindow({ show: true });
