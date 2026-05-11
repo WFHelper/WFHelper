@@ -33,6 +33,20 @@ describe("mastery progress", () => {
     expect(progress.stats.inProgress).toBe(0);
   });
 
+  it("merges bayonet primary and melee mastery evidence after a Forma reset", () => {
+    const vinquibus = "/Lotus/Weapons/Tenno/Bayonet/TnBayonetRifleWeapon";
+    const vinquibusMelee = "/Lotus/Weapons/Tenno/Bayonet/TnBayonetMeleeWeapon";
+    const progress = masteryHelper.computeMasteryProgress({
+      Melee: [{ ItemType: vinquibusMelee, XP: 0 }],
+      XPInfo: [{ ItemType: vinquibus, XP: weaponXpForRank(30) }],
+    });
+
+    const melee = progress.items.find((entry) => entry.uniqueName === vinquibusMelee);
+
+    expect(melee?.rank).toBe(30);
+    expect(melee?.status).toBe("mastered");
+  });
+
   it("only marks unmastered owned gear below its max rank as in progress", () => {
     const acceltraPrime = "/Lotus/Weapons/Tenno/LongGuns/PrimeAcceltra/PrimeAcceltraWeapon";
     const progress = masteryHelper.computeMasteryProgress({

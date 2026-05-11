@@ -195,6 +195,12 @@ const MASTERABLE_UNIQUE_NAME_ALIASES: Record<string, string[]> = {
   "/Lotus/Types/Game/CrewShip/RailjackHarness": [
     "/Lotus/Types/Game/CrewShip/RailJack/DefaultHarness",
   ],
+  "/Lotus/Weapons/Tenno/Bayonet/TnBayonetRifleWeapon": [
+    "/Lotus/Weapons/Tenno/Bayonet/TnBayonetMeleeWeapon",
+  ],
+  "/Lotus/Weapons/Tenno/Bayonet/TnBayonetMeleeWeapon": [
+    "/Lotus/Weapons/Tenno/Bayonet/TnBayonetRifleWeapon",
+  ],
 };
 
 function xpToRank(
@@ -485,6 +491,32 @@ interface MasteryProgressItem extends MasterableItem {
   currentlyOwned: boolean;
 }
 
+function betterMasteryRecord(
+  current: OwnedMasteryRecord | undefined,
+  candidate: OwnedMasteryRecord | undefined,
+): OwnedMasteryRecord | undefined {
+  if (!candidate) return current;
+  if (!current) return candidate;
+
+  if (candidate.mastered !== current.mastered) {
+    return candidate.mastered ? candidate : current;
+  }
+
+  if (candidate.rank !== current.rank) {
+    return candidate.rank > current.rank ? candidate : current;
+  }
+
+  if (candidate.maxRank !== current.maxRank) {
+    return candidate.maxRank > current.maxRank ? candidate : current;
+  }
+
+  if (candidate.owned !== current.owned) {
+    return candidate.owned ? candidate : current;
+  }
+
+  return current;
+}
+
 export function getAllMasterableItems(): MasterableItem[] {
   const allItems = itemDb.getAllItems();
   const items: MasterableItem[] = [];
@@ -655,12 +687,9 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
   // Annotate each masterable item with ownership + component status
   const items: MasteryProgressItem[] = allMasterable.map((item) => {
     let owned = ownedMap.get(item.uniqueName);
-    if (!owned) owned = ownedByName.get(item.name.toLowerCase()) ?? undefined;
-    if (!owned) {
-      for (const alias of MASTERABLE_UNIQUE_NAME_ALIASES[item.uniqueName] ?? []) {
-        owned = ownedMap.get(alias);
-        if (owned) break;
-      }
+    owned = betterMasteryRecord(owned, ownedByName.get(item.name.toLowerCase()));
+    for (const alias of MASTERABLE_UNIQUE_NAME_ALIASES[item.uniqueName] ?? []) {
+      owned = betterMasteryRecord(owned, ownedMap.get(alias));
     }
 
     let status: MasteryStatus = "missing";
