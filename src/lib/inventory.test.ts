@@ -84,12 +84,53 @@ describe("inventory parsing", () => {
       "/Lotus/Types/Items/AlloyPlate": { name: "Alloy Plate" },
       "/Lotus/Types/Items/OrokinCell": { name: "Orokin Cell" },
       "/Lotus/Types/Items/Ferrite": { name: "Ferrite" },
+      "/Lotus/Types/Recipes/Weapons/AcceltraPrimeBlueprint": {
+        name: "Acceltra Prime Blueprint",
+        category: "Resource",
+        type: "Blueprint",
+        tradable: true,
+      },
+      "/Lotus/Types/Recipes/Weapons/WeaponParts/AcceltraPrimeBarrel": {
+        name: "Acceltra Prime Barrel",
+        category: "Resource",
+        type: "Prime Part",
+        tradable: true,
+      },
+      "/Lotus/Types/Recipes/WarframeRecipes/AtlasNeuropticsBlueprint": {
+        name: "Atlas Neuroptics",
+        category: "Resource",
+        tradable: false,
+      },
+      "/Lotus/Types/Recipes/Weapons/WeaponParts/ArumSpinosaRivet": {
+        name: "Arum Spinosa Rivet",
+        category: "Resource",
+        tradable: true,
+      },
+      "/Lotus/Types/Items/MiscItems/PhotoboothTileDeepminesCave": {
+        name: "Deepmines Cave Scene",
+        category: "Resource",
+      },
+      "/Lotus/Types/Items/ShipFeatureItems/ArsenalFeatureItem": {
+        name: "Arsenal",
+        category: "Resource",
+      },
+      "/Lotus/Types/Items/SongItems/OnlyneArsenalSongItem": {
+        name: "Arsenal",
+        category: "Resource",
+      },
     };
     const data: RawInventoryData = {
       MiscItems: [
         { ItemType: "/Lotus/Types/Items/OrokinCell", ItemCount: 3 },
         { ItemType: "/Lotus/Types/Items/AlloyPlate", ItemCount: 40_000 },
         { ItemType: "/Lotus/Types/Items/Ferrite", ItemCount: 1_000 },
+        { ItemType: "/Lotus/Types/Recipes/Weapons/AcceltraPrimeBlueprint", ItemCount: 1 },
+        { ItemType: "/Lotus/Types/Recipes/Weapons/WeaponParts/AcceltraPrimeBarrel", ItemCount: 1 },
+        { ItemType: "/Lotus/Types/Recipes/WarframeRecipes/AtlasNeuropticsBlueprint", ItemCount: 1 },
+        { ItemType: "/Lotus/Types/Recipes/Weapons/WeaponParts/ArumSpinosaRivet", ItemCount: 1 },
+        { ItemType: "/Lotus/Types/Items/MiscItems/PhotoboothTileDeepminesCave", ItemCount: 1 },
+        { ItemType: "/Lotus/Types/Items/ShipFeatureItems/ArsenalFeatureItem", ItemCount: 1 },
+        { ItemType: "/Lotus/Types/Items/SongItems/OnlyneArsenalSongItem", ItemCount: 1 },
       ],
     };
 
@@ -520,7 +561,7 @@ describe("inventory parsing", () => {
     expect(accelerated.some((item) => item.rank === 3 && item.amount === 1)).toBe(true);
   });
 
-  it("keeps RawUpgrades resources out of mods tab", () => {
+  it("keeps RawUpgrades resources out of inventory tabs", () => {
     const db: Record<string, ItemDbEntry> = {
       "/Lotus/Types/Items/MiscItems/ControlModule": {
         name: "Control Module",
@@ -552,9 +593,7 @@ describe("inventory parsing", () => {
       (item) => item.internalName === "/Lotus/Powersuits/Infestation/InfestPassiveAugmentCard",
     );
 
-    expect(controlModule?.inventoryGroup).toBe("misc");
-    expect(controlModule?.category).toBe("misc");
-    expect(controlModule?.categoryLabel).toBe("Misc");
+    expect(controlModule).toBeUndefined();
     expect(abundant?.inventoryGroup).toBe("mods");
   });
 
@@ -653,9 +692,19 @@ describe("inventory parsing", () => {
       },
       "/Lotus/Types/Items/MiscItems/PhotoboothTileCetusTown": {
         name: "Cetus Scene",
-        category: "Misc",
+        category: "Resource",
         type: "Captura",
         tradable: true,
+      },
+      "/Lotus/Types/Items/ShipFeatureItems/ArsenalFeatureItem": {
+        name: "Arsenal",
+        category: "Resource",
+      },
+      "/Lotus/Types/Items/MiscItems/ControlModule": {
+        name: "Control Module",
+        category: "Resource",
+        type: "Resource",
+        tradable: false,
       },
       "/Lotus/Types/Items/FusionTreasures/OroFusexOrnamentB": {
         name: "Ayatan Amber Star",
@@ -670,6 +719,8 @@ describe("inventory parsing", () => {
       MiscItems: [
         { ItemType: "/Lotus/Types/Recipes/Weapons/LatronPrimeBlueprint", ItemCount: 2 },
         { ItemType: "/Lotus/Types/Items/MiscItems/PhotoboothTileCetusTown", ItemCount: 1 },
+        { ItemType: "/Lotus/Types/Items/ShipFeatureItems/ArsenalFeatureItem", ItemCount: 1 },
+        { ItemType: "/Lotus/Types/Items/MiscItems/ControlModule", ItemCount: 4617 },
       ],
       Recipes: [
         { ItemType: "/Lotus/Types/Recipes/Weapons/BurstonPrimeBlueprint", ItemCount: 1 },
@@ -715,8 +766,16 @@ describe("inventory parsing", () => {
     expect(
       items.find(
         (item) => item.internalName === "/Lotus/Types/Items/MiscItems/PhotoboothTileCetusTown",
-      )?.inventoryGroup,
-    ).toBe("misc");
+      ),
+    ).toBeUndefined();
+    expect(
+      items.find(
+        (item) => item.internalName === "/Lotus/Types/Items/ShipFeatureItems/ArsenalFeatureItem",
+      ),
+    ).toBeUndefined();
+    expect(
+      items.find((item) => item.internalName === "/Lotus/Types/Items/MiscItems/ControlModule"),
+    ).toBeUndefined();
     expect(
       items.find(
         (item) => item.internalName === "/Lotus/Types/Items/FusionTreasures/OroFusexOrnamentB",

@@ -120,12 +120,47 @@
   }
 
   function normalizeOwnedRewardName(value: string): string {
-    return value
+    const keys = rewardLookupNameKeys(value);
+    return keys[keys.length - 1] ?? "";
+  }
+
+  function stripRewardQuantityPrefix(value: string): string {
+    return value.replace(/^(?:x\s*\d+|\d+\s*x)\s*/i, "").trim();
+  }
+
+  function normalizeRewardLookupName(value: string): string {
+    const normalized = stripRewardQuantityPrefix(value)
       .toLowerCase()
       .replace(/[’']/g, "")
-      .replace(/ blueprint$/i, "")
       .replace(/[^a-z0-9]+/g, " ")
       .trim();
+
+    if (normalized === "riven silver") return "riven sliver";
+    return normalized;
+  }
+
+  function rewardLookupNameKeys(value: string): string[] {
+    const nameKey = normalizeRewardLookupName(value);
+    if (!nameKey) return [];
+
+    const withoutBlueprint = nameKey.replace(/ blueprint$/i, "");
+    return withoutBlueprint !== nameKey ? [nameKey, withoutBlueprint] : [nameKey];
+  }
+
+  function addRewardIconName(
+    iconsByName: Record<string, string>,
+    name: unknown,
+    src: unknown,
+  ): void {
+    if (typeof name !== "string" || typeof src !== "string") return;
+    const trimmedSrc = src.trim();
+    if (!trimmedSrc) return;
+
+    for (const nameKey of rewardLookupNameKeys(name)) {
+      if (!iconsByName[nameKey]) {
+        iconsByName[nameKey] = trimmedSrc;
+      }
+    }
   }
 
   function pushFiltersToOverlay(): void {
@@ -416,13 +451,10 @@
       }
     }
 
-    const rewardNameKey = reward.name
-      .toLowerCase()
-      .replace(/[’']/g, "")
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim();
-    if (rewardNameKey && rewardIconByName[rewardNameKey]) {
-      return rewardIconByName[rewardNameKey];
+    for (const rewardNameKey of rewardLookupNameKeys(reward.name)) {
+      if (rewardIconByName[rewardNameKey]) {
+        return rewardIconByName[rewardNameKey];
+      }
     }
 
     return reward.imageUrl || null;
@@ -455,6 +487,11 @@
     const nextGameRefBySlug: Record<string, string> = {};
     const nextBySlug: Record<string, string> = {};
     const nextByName: Record<string, string> = {};
+
+    for (const entry of Object.values($itemDb || {})) {
+      addRewardIconName(nextByName, entry?.name, entry?.imageUrl);
+    }
+
     for (const entry of Object.values($wfmItems || {})) {
       if (!entry || typeof entry !== "object") continue;
       const slug = typeof entry.url_name === "string" ? entry.url_name.trim().toLowerCase() : "";
@@ -475,15 +512,7 @@
         nextBySlug[slug] = src;
       }
 
-      const rawName = typeof entry.item_name === "string" ? entry.item_name : "";
-      const nameKey = rawName
-        .toLowerCase()
-        .replace(/[’']/g, "")
-        .replace(/[^a-z0-9]+/g, " ")
-        .trim();
-      if (src && nameKey && !nextByName[nameKey]) {
-        nextByName[nameKey] = src;
-      }
+      addRewardIconName(nextByName, entry.item_name, src);
     }
     rewardGameRefBySlug = nextGameRefBySlug;
     rewardIconBySlug = nextBySlug;

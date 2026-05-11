@@ -7,7 +7,9 @@ import {
   isLikelyModUpgrade,
   isRelicLikeItem,
   isSceneLikeItem,
+  isAuxiliaryInventoryItem,
   isAyatanLikeItem,
+  isResourceItem,
   isBuildPartItem,
   canonicalBuildPartName,
   shouldHide,
@@ -136,6 +138,55 @@ describe("isLikelyModUpgrade", () => {
   });
 });
 
+describe("isResourceItem", () => {
+  it("matches resource metadata", () => {
+    expect(
+      isResourceItem(
+        "/Lotus/Types/Items/MiscItems/ControlModule",
+        { category: "Resource", type: "Resource" },
+        resolved("Control Module"),
+      ),
+    ).toBe(true);
+  });
+
+  it("does not treat prime blueprints as resources", () => {
+    expect(
+      isResourceItem(
+        "/Lotus/Types/Recipes/Weapons/AcceltraPrimeBlueprint",
+        { category: "Recipe", type: "Blueprint", tradable: true },
+        resolved("Acceltra Prime Blueprint"),
+      ),
+    ).toBe(false);
+  });
+
+  it("does not treat build components marked as resources as resources", () => {
+    expect(
+      isResourceItem(
+        "/Lotus/Types/Recipes/Weapons/WeaponParts/AcceltraPrimeBarrel",
+        { category: "Resource", type: "Prime Part", tradable: true },
+        resolved("Acceltra Prime Barrel"),
+      ),
+    ).toBe(false);
+    expect(
+      isResourceItem(
+        "/Lotus/Types/Recipes/WarframeRecipes/AtlasNeuropticsBlueprint",
+        { category: "Resource", tradable: false },
+        resolved("Atlas Neuroptics"),
+      ),
+    ).toBe(false);
+  });
+
+  it("keeps Ayatan items out of resources", () => {
+    expect(
+      isResourceItem(
+        "/Lotus/Types/Items/FusionTreasures/OroFusexOrnamentB",
+        { type: "Ayatan Star" },
+        resolved("Ayatan Amber Star"),
+      ),
+    ).toBe(false);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // isRelicLikeItem
 // ---------------------------------------------------------------------------
@@ -169,6 +220,9 @@ describe("isRelicLikeItem", () => {
 describe("isSceneLikeItem", () => {
   it("matches by /PhotoBooth/ path", () => {
     expect(isSceneLikeItem("/Lotus/PhotoBooth/CapturaScene", {})).toBe(true);
+    expect(isSceneLikeItem("/Lotus/Types/Items/MiscItems/PhotoboothTileCetusTown", {})).toBe(
+      true,
+    );
   });
 
   it("matches by type containing 'scene'", () => {
@@ -177,6 +231,35 @@ describe("isSceneLikeItem", () => {
 
   it("matches by name ending with ' scene'", () => {
     expect(isSceneLikeItem("/Lotus/X", {}, resolved("Grineer Galleon Scene"))).toBe(true);
+  });
+});
+
+describe("isAuxiliaryInventoryItem", () => {
+  it("matches ship feature and song unlocks from resource exports", () => {
+    expect(
+      isAuxiliaryInventoryItem(
+        "/Lotus/Types/Items/ShipFeatureItems/ArsenalFeatureItem",
+        { category: "Resource" },
+        resolved("Arsenal"),
+      ),
+    ).toBe(true);
+    expect(
+      isAuxiliaryInventoryItem(
+        "/Lotus/Types/Items/SongItems/OnlyneArsenalSongItem",
+        { category: "Resource" },
+        resolved("Arsenal"),
+      ),
+    ).toBe(true);
+  });
+
+  it("matches quest keys", () => {
+    expect(
+      isAuxiliaryInventoryItem(
+        "/Lotus/Types/Keys/VorsPrize/VorsPrizeQuestKeyChain",
+        { category: "Resource" },
+        resolved("Vor's Prize"),
+      ),
+    ).toBe(true);
   });
 });
 

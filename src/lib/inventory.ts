@@ -29,6 +29,7 @@ import {
   inferCategory,
   isFocusUpgrade,
   canonicalBuildPartName,
+  isResourceItem,
 } from "./inventory/itemClassification.js";
 
 import { normalizeRank, hasAnyRankSignal } from "./inventory/rankExtraction.js";
@@ -45,9 +46,7 @@ import {
 
 import { buildFullSetItems } from "./inventory/fullSets.js";
 
-
 export { parseFoundry, parseResources } from "./inventory/foundryResources.js";
-
 
 export function parseInventory(
   data: RawInventoryData,
@@ -81,6 +80,7 @@ export function parseInventory(
     const dbEntry = itemDb[internalName] || {};
 
     if (shouldHide(internalName, dbEntry, resolved)) return;
+    if (isResourceItem(internalName, dbEntry, resolved)) return;
 
     const group = deriveGroup(sourceKey, internalName, dbEntry, resolved);
     let finalCat = inferCategory(internalName, defaultCat, dbEntry);

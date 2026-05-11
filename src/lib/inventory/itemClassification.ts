@@ -164,13 +164,33 @@ export function isSceneLikeItem(
   dbEntry: ItemDbEntry = {},
   resolved?: ResolvedItem,
 ): boolean {
-  if (/\/PhotoBooth\//i.test(internalName)) return true;
+  if (/photobooth/i.test(internalName)) return true;
 
   const type = String(dbEntry.type || "").toLowerCase();
   const name = String(resolved?.name || dbEntry.name || "").toLowerCase();
 
   if (type.includes("captura") || type.includes("scene")) return true;
   if (name.endsWith(" scene")) return true;
+
+  return false;
+}
+
+export function isAuxiliaryInventoryItem(
+  internalName: string,
+  dbEntry: ItemDbEntry = {},
+  resolved?: ResolvedItem,
+): boolean {
+  if (isSceneLikeItem(internalName, dbEntry, resolved)) return true;
+  if (/\/Types\/Items\/ShipFeatureItems\//i.test(internalName)) return true;
+  if (/\/Types\/Items\/SongItems\//i.test(internalName)) return true;
+  if (/\/Types\/Keys\/.*Quest/i.test(internalName)) return true;
+  if (/QuestKeyChain/i.test(internalName)) return true;
+
+  const category = String(dbEntry.category || "").toLowerCase();
+  const type = String(dbEntry.type || "").toLowerCase();
+
+  if (category.includes("quest") || type.includes("quest")) return true;
+  if (type.includes("song") || type.includes("fragment")) return true;
 
   return false;
 }
@@ -191,6 +211,43 @@ export function isAyatanLikeItem(
   }
 
   return false;
+}
+
+function hasBuildPartPath(internalName: string): boolean {
+  return (
+    /\/Types\/Recipes\//i.test(internalName) ||
+    /\/WeaponParts?\//i.test(internalName) ||
+    /\/WarframeParts?\//i.test(internalName) ||
+    /\/LandingCraftRecipes\//i.test(internalName)
+  );
+}
+
+function hasBuildPartName(name: string): boolean {
+  return /\b(blueprint|barrel|receiver|stock|blade|handle|hilt|chassis|systems|neuroptics|fuselage|engines|avionics|carapace|cerebrum|pod|wings|harness|link|disc|gauntlet|grip|ornament|rivet)\b/i.test(
+    name,
+  );
+}
+
+export function isResourceItem(
+  internalName: string,
+  dbEntry: ItemDbEntry = {},
+  resolved?: ResolvedItem,
+): boolean {
+  if (isAuxiliaryInventoryItem(internalName, dbEntry, resolved)) return false;
+  if (isAyatanLikeItem(internalName, dbEntry, resolved)) return false;
+  if (isRelicLikeItem(internalName, dbEntry, resolved)) return false;
+
+  const name = String(resolved?.name || dbEntry.name || "").toLowerCase();
+  if (hasBuildPartPath(internalName) || hasBuildPartName(name)) return false;
+
+  const category = String(dbEntry.category || "").toLowerCase();
+  const type = String(dbEntry.type || "").toLowerCase();
+
+  if (category.includes("resource")) return true;
+  if (type.includes("resource")) return true;
+
+  // Legacy/test data can have classic resource paths without category metadata.
+  return /^\/Lotus\/Types\/Items\/(?!MiscItems\/)[^/]+$/i.test(internalName);
 }
 
 export function isBuildPartItem(
@@ -227,18 +284,11 @@ export function isBuildPartItem(
   // as a build part regardless of name heuristics.
   if (dbEntry.tradable === false) return false;
 
-  const pathLooksLikePart =
-    /\/Types\/Recipes\//i.test(internalName) ||
-    /\/WeaponParts?\//i.test(internalName) ||
-    /\/WarframeParts?\//i.test(internalName) ||
-    /\/LandingCraftRecipes\//i.test(internalName);
+  const pathLooksLikePart = hasBuildPartPath(internalName);
 
   const weaponPartRecipePath = /\/Types\/Recipes\/Weapons\/WeaponParts?\//i.test(internalName);
 
-  const nameLooksLikePart =
-    /\b(blueprint|barrel|receiver|stock|blade|handle|hilt|chassis|systems|neuroptics|fuselage|engines|avionics|carapace|cerebrum|pod|wings|harness|link|disc|gauntlet|grip|ornament)\b/i.test(
-      name,
-    );
+  const nameLooksLikePart = hasBuildPartName(name);
 
   const flaggedBuildComponent = dbEntry.isBuildComponent === true;
   if (!pathLooksLikePart && !nameLooksLikePart && !flaggedBuildComponent) return false;
@@ -269,6 +319,7 @@ export function shouldHide(
   dbEntry: ItemDbEntry = {},
   resolved: ResolvedItem,
 ): boolean {
+  if (isAuxiliaryInventoryItem(internalName, dbEntry, resolved)) return true;
   if (/\/Upgrades\/Focus\//i.test(internalName)) return true;
   if (/\/Types\/Boosters?\//i.test(internalName)) return true;
   if (/\/Types\/Keys\//i.test(internalName) && !isRelicLikeItem(internalName, dbEntry, resolved)) {

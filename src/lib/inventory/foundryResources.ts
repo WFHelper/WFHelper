@@ -5,7 +5,7 @@ import type {
   RecipeIngredient,
   Resource,
 } from "../../types/inventory.js";
-import { resolveItem } from "./itemClassification.js";
+import { isResourceItem, resolveItem } from "./itemClassification.js";
 
 function parseCompletionDate(value: unknown): Date | null {
   if (!value) return null;
@@ -233,16 +233,21 @@ export function parseResources(
   data: RawInventoryData,
   itemDb: Record<string, ItemDbEntry>,
 ): Resource[] {
-  const resources = (data.MiscItems || []).map((item) => {
-    const internalName = item.ItemType || "";
-    const resolved = resolveItem(internalName, itemDb);
-    return {
-      name: resolved.name,
-      imageUrl: resolved.imageUrl ?? null,
-      internalName,
-      count: typeof item.ItemCount === "number" ? item.ItemCount : 0,
-    };
-  });
+  const resources = (data.MiscItems || [])
+    .map((item) => {
+      const internalName = item.ItemType || "";
+      const resolved = resolveItem(internalName, itemDb);
+      const dbEntry = itemDb[internalName] || {};
+      if (!isResourceItem(internalName, dbEntry, resolved)) return null;
+
+      return {
+        name: resolved.name,
+        imageUrl: resolved.imageUrl ?? null,
+        internalName,
+        count: typeof item.ItemCount === "number" ? item.ItemCount : 0,
+      };
+    })
+    .filter((item): item is Resource => item != null);
 
   return resources.sort((a, b) => b.count - a.count);
 }
