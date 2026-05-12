@@ -1,13 +1,13 @@
 <script lang="ts">
-import { activeRelic } from "../stores/modals.js";
-import { itemDb, componentOwnership } from "../stores/data.js";
-import { relicOwnedCounts } from "../stores/relics.js";
-import { fetchPriceBySlug } from "../lib/wfm/wfmPrice.js";
-import { fetchWfmItemMetaBySlug } from "../lib/wfm/wfmItemMeta.js";
-import { buildItemNameIndex, resolveComponentByName } from "../lib/componentResolution.js";
-import WikiButton from "../components/WikiButton.svelte";
-import ComponentPanel from "../components/ComponentPanel.svelte";
-import DetailModalBase from "./DetailModalBase.svelte";
+  import { activeRelic } from "../stores/modals.js";
+  import { itemDb, componentOwnership } from "../stores/data.js";
+  import { relicOwnedCounts } from "../stores/relics.js";
+  import { fetchPriceBySlug } from "../lib/wfm/wfmPrice.js";
+  import { fetchWfmItemMetaBySlug } from "../lib/wfm/wfmItemMeta.js";
+  import { buildItemNameIndex, resolveComponentByName } from "../lib/componentResolution.js";
+  import WikiButton from "../components/WikiButton.svelte";
+  import ComponentPanel from "../components/ComponentPanel.svelte";
+  import DetailModalBase from "./DetailModalBase.svelte";
   import {
     computeSquadDucatEV,
     computeSquadEV,
@@ -84,10 +84,10 @@ import DetailModalBase from "./DetailModalBase.svelte";
     prices = null;
     ducats = null;
     loadingPrices = true;
+    const tokenGroup = g;
+    const tokenQuality = quality;
 
     try {
-      const tokenGroup = g;
-      const tokenQuality = quality;
       const fetched = await Promise.all(
         rewards.map(async (reward) => {
           const price = reward?.urlName
@@ -119,7 +119,9 @@ import DetailModalBase from "./DetailModalBase.svelte";
     } catch (error) {
       console.warn("[RelicDetail] price fetch failed:", error);
     } finally {
-      loadingPrices = false;
+      if ($activeRelic === tokenGroup && activeQuality === tokenQuality) {
+        loadingPrices = false;
+      }
     }
   }
 
