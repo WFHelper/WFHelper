@@ -1,5 +1,5 @@
 import type { InventoryGroup, ItemDbEntry, RawInventoryEntry } from "../../types/inventory.js";
-import { MAX_ITEM_RANK, XP_PER_RANK } from "../../config/game.js";
+import { MAX_ITEM_RANK, XP_PER_RANK } from "../../../config/game/constants.js";
 import { toFiniteNumber } from "../../../config/shared/numeric.js";
 
 
