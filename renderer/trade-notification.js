@@ -26,7 +26,6 @@
     const fadeMs = typeof timing.fadeMs === "number" ? timing.fadeMs : FALLBACK_FADE_MS;
     if (!match) return;
 
-    // Set thumbnail
     if (match.itemThumb) {
       const src = match.itemThumb.startsWith("http")
         ? match.itemThumb

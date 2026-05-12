@@ -177,7 +177,6 @@ function allCalendarDays(startIso: string): string[] {
 }
 
 export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, barH: number = BAR_H): ChartResult {
-  // Build a full calendar grid from cutoff to today
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
   const cutoffStr = localDateStr(cutoff);
@@ -190,7 +189,6 @@ export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, 
     if (e.date >= cutoffStr) entryMap.set(e.date, e);
   }
 
-  // Build per-day values, abs values, and track which days have real data
   const realData: boolean[] = [];
   let values: number[] = [];
   const absField = ABS_FIELD_MAP[key];
@@ -256,12 +254,10 @@ export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, 
     return { x, y, h, value: val, date: day, positive: val >= 0 };
   });
 
-  // Build absolute-value line from stored per-day absolute values
   let absLine: Array<{ x: number; y: number; idx: number }> | null = null;
   let absValues: number[] = [];
   let hasAbsData = false;
 
-  // Compute nice Y-axis ticks from absolute values
   let yTicks: YTick[] = [];
   let niceMax = 0;
 

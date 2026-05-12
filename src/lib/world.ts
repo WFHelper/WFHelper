@@ -250,7 +250,6 @@ export function resolveCircuitChoices(
     }
   }
 
-  // Build ownership sets
   const ownedSuits = new Set<string>();
   const ownedWeapons = new Set<string>();
   if (inventoryData) {

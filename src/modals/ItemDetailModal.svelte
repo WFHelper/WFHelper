@@ -26,7 +26,6 @@
 
   $: item = $activeItem;
 
-  // Build crafting tree reactively when item changes
   $: itemKey = item?.uniqueName || item?.internalName || "";
   $: dbEntry = itemKey ? ($itemDb || {})[itemKey] : null;
   $: hasCraftingTree = !!dbEntry?.recipe;

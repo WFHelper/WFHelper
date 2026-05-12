@@ -67,7 +67,6 @@ const RELIC_PICKER_CLOSE_MIN_GAP_MS = 3500;
 const POLL_INTERVAL_MS = 500;
 const MAX_READ_BYTES = 256 * 1024;
 const MAX_READ_LOOPS_PER_TICK = 8;
-/** How often we check whether EE.log was truncated/rotated (game restart detection). */
 const TRUNCATION_CHECK_INTERVAL_MS = 2000;
 
 let watcher: ReturnType<typeof chokidar.watch> | null = null;
@@ -365,7 +364,6 @@ function _parseTradeDialog(lines: string[]): ParsedLogTrade | null {
   const type = isSale ? "sale" : isPurchase ? "purchase" : "trade";
   const platChange = Math.max(platGained, platSpent);
 
-  // Set directions
   for (const item of offered.items) item.direction = "given";
   for (const item of received.items) item.direction = "received";
 
