@@ -48,12 +48,8 @@ resetLogFileOnAppStart();
 
 const timers = new Map<string, number>();
 
-function getScoped(scopeName: string) {
-  return electronLog.scope(scopeName);
-}
-
 export function withScope(scopeName: string): ScopedLogger {
-  const scoped = getScoped(scopeName);
+  const scoped = electronLog.scope(scopeName);
 
   return {
     log: (...args: unknown[]) => scoped.info(...args),

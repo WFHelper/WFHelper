@@ -63,11 +63,6 @@
     );
   }
 
-  // Urgency threshold: remaining < 20% of total duration → urgent.
-  // Callers pass `clock` (typically nowCoarseMs) so urgency flags don't
-  // re-evaluate on every 1 s tick.
-
-  // Reactive derived values — recalculated on every tick
   $: wd = $worldData;
 
   $: varzia    = wd?.vaultTrader || null;
