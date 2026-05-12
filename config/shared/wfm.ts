@@ -6,12 +6,8 @@
  * previously duplicated across 8+ files.
  */
 
-// Types
-
 /** Warframe.market user presence status. */
 export type WfmStatus = "online" | "ingame" | "invisible";
-
-// API headers
 
 /**
  * Standard request headers for the warframe.market v1 API.
@@ -24,8 +20,6 @@ export const WFM_HEADERS: Readonly<Record<string, string>> = Object.freeze({
   Crossplay: "true",
   Accept: "application/json",
 });
-
-// Asset URLs
 
 /** Base URL for warframe.market static assets (icons, thumbnails). */
 export const WFM_ASSET_BASE = "https://warframe.market/static/assets/";
@@ -44,8 +38,6 @@ export function titleFromSlug(slug: string): string {
 }
 
 import { normalizeForSlug } from "./textNormalize";
-
-// Slug normalization
 
 /**
  * Normalize a warframe.market item slug.

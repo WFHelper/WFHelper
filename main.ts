@@ -11,7 +11,6 @@ const log = withScope("Main");
 
 const MAIN_WINDOW_ENTRY_FILE = path.join(app.getAppPath(), "renderer", "dist", "index.html");
 
-// Services
 import * as itemDb from "./services/itemDatabase";
 import * as wfmCatalog from "./services/wfmCatalog";
 import * as wfmSession from "./services/wfmSession";
@@ -23,7 +22,6 @@ import * as crashReporter from "./services/crashReporter";
 import * as autoUpdater from "./services/autoUpdater";
 import * as rivenBestAttributes from "./services/rivenBestAttributes";
 
-// IPC modules
 import ctx from "./ipc/context";
 import * as inventoryIpc from "./ipc/inventoryIpc";
 import * as wfmIpc from "./ipc/wfmIpc";
