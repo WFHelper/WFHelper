@@ -1,7 +1,7 @@
 import { ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY, PREWARM_LAST_RUN_KEY, SNAPSHOT_ETAG_KEY, SNAPSHOT_KEY } from '../constants';
 import { emptyResponse, jsonResponse, rawJsonResponse } from '../security/cors';
 import { isAdminAuthorized } from '../security/adminAuth';
-import { bootstrapEnabled, bootstrapHeaderName, bootstrapRequired, issueBootstrapToken, verifyBootstrapToken } from '../security/bootstrap';
+import { BOOTSTRAP_HEADER, bootstrapEnabled, bootstrapRequired, issueBootstrapToken, verifyBootstrapToken } from '../security/bootstrap';
 import { checkPublicRateLimit } from '../security/rateLimit';
 import {
 	getAutoCacheConfig,
@@ -230,7 +230,7 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 				ok: true,
 				data: {
 					token: issued.token,
-					header: bootstrapHeaderName(),
+					header: BOOTSTRAP_HEADER,
 					expiresAt: issued.expiresAt,
 				},
 			},

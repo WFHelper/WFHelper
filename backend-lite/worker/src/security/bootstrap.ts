@@ -3,7 +3,7 @@ import { getWorkerConfig } from '../config';
 import { clientIp } from '../utils';
 import { timingSafeEqual } from './constantTime';
 
-const BOOTSTRAP_HEADER = 'x-wfhelper-bootstrap';
+export const BOOTSTRAP_HEADER = 'x-wfhelper-bootstrap';
 
 function textEncoder(): TextEncoder {
 	return new TextEncoder();
@@ -54,10 +54,6 @@ function userAgent(req: Request): string {
 
 function bootstrapSecret(env: Env): string {
 	return (env.BOOTSTRAP_TOKEN_SECRET || '').trim();
-}
-
-export function bootstrapHeaderName(): string {
-	return BOOTSTRAP_HEADER;
 }
 
 export function bootstrapRequired(env: Env): boolean {
