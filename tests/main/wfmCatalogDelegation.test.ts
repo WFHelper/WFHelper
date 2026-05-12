@@ -42,7 +42,7 @@ describe("wfmCatalog item lookups", () => {
       url_name: "ash_prime_set",
     });
 
-    expect(wfmCatalog.getMarketUrl("Ash Prime Set")).toBe(
+    expect(wfmCatalog.__test__.getMarketUrl("Ash Prime Set")).toBe(
       "https://warframe.market/items/ash_prime_set",
     );
 

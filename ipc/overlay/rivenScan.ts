@@ -259,13 +259,7 @@ export async function scanInitialCard(_expectedWeaponName = ""): Promise<Initial
   }
 }
 
-export async function scanNewRoll(
-  expectedWeaponName = "",
-  skipGate = true,
-): Promise<RollPanelResult> {
-  log.log(
-    `[RivenScan] >>> scanNewRoll ENTERED (weapon="${expectedWeaponName}", skipGate=${skipGate})`,
-  );
+export async function scanNewRoll(): Promise<RollPanelResult> {
   const generation = ++_scanGeneration;
   try {
     const result = await runRivenScanAttempt(RIVEN_SCAN_PROFILES.roll, generation);

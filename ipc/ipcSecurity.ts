@@ -238,13 +238,3 @@ export {
   handleAuthorized,
   onAuthorized,
 };
-
-const __test__ = {
-  MAIN_RENDERER_SUFFIX,
-  OVERLAY_RENDERER_SUFFIX,
-  RIVEN_OVERLAY_RENDERER_SUFFIX,
-  TRADE_NOTIFICATION_RENDERER_SUFFIX,
-  getSenderUrl,
-  senderHasAllowedFileSuffix,
-  normalizePathForCompare,
-};

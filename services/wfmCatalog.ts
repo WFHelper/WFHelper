@@ -200,7 +200,7 @@ export function lookupByName(itemName: string): CatalogItem | null {
   return null;
 }
 
-export function getMarketUrl(itemName: string): string | null {
+function getMarketUrl(itemName: string): string | null {
   const item = lookupByName(itemName);
   if (!item?.url_name) return null;
   return `${WFM_ITEM_URL_BASE}${item.url_name}`;
@@ -231,6 +231,10 @@ export function getRendererLookup(): Record<string, Record<string, unknown>> {
   }
   return lookup;
 }
+
+export const __test__ = {
+  getMarketUrl,
+};
 
 export async function lookupById(id: string): Promise<CatalogItem | null> {
   await _load();

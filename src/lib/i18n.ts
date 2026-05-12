@@ -32,4 +32,4 @@ export const tr = derived(locale, ($locale) => {
   return createTranslator(dict);
 });
 
-export type { MessageKey,    };
+export type { MessageKey };

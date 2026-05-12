@@ -5,6 +5,7 @@ import { normalizeErrorMessage } from "../../config/shared/errors";
 import { RELIC_REWARD_ITEMS, RELIC_REWARD_TRIGGER } from "../../config/shared/ipcChannels";
 import { normalizeWfmSlug } from "../../config/shared/wfm";
 import * as itemDatabase from "../../services/itemDatabase";
+import { sleep } from "../../services/rewardScannerUtils";
 
 const SCAN_RETRY_WINDOW_MS = 5_000;
 const SCAN_RETRY_INTERVAL_MS = 450;
@@ -77,10 +78,6 @@ type OverlayScanControllerOptions = {
     }>;
   };
 };
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function finitePositiveInteger(value: unknown): number | null {
   const numberValue = Number(value);

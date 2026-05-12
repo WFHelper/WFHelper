@@ -16,7 +16,6 @@ import * as wfmCatalog from "./services/wfmCatalog";
 import * as wfmSession from "./services/wfmSession";
 import * as relicService from "./services/relicService";
 import * as eeLogMonitor from "./services/eeLogMonitor";
-import * as keyboardMonitor from "./services/keyboardMonitor";
 import * as rewardScanner from "./services/rewardScanner";
 import * as crashReporter from "./services/crashReporter";
 import * as autoUpdater from "./services/autoUpdater";
@@ -393,7 +392,6 @@ app.on("window-all-closed", () => {
   if (ctx.watcher) ctx.watcher.close();
   apiHelperRunner.stopPolling();
   eeLogMonitor.stopWatching();
-  keyboardMonitor.stopEscMonitor();
   overlayIpc.unregisterOverlayHotkey();
   if (process.platform !== "darwin") app.quit();
 });

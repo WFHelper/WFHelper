@@ -363,7 +363,7 @@ function triggerInitialScan(): void {
   }, INITIAL_SCAN_DELAY_MS);
 }
 
-function triggerRollScan(delayMs = ROLL_SCAN_DELAY_MS, skipGate = true): void {
+function triggerRollScan(delayMs = ROLL_SCAN_DELAY_MS): void {
   if (_rivenRollScanTimer) clearTimeout(_rivenRollScanTimer);
   // Increment serial so any already-running scan knows it has been superseded.
   const mySerial = ++_rollScanSerial;
@@ -375,7 +375,7 @@ function triggerRollScan(delayMs = ROLL_SCAN_DELAY_MS, skipGate = true): void {
     // Clear any abort flag left by the previous scan before starting fresh.
     rivenScan.resetRivenScanAbort();
     try {
-      const panels = await rivenScan.scanNewRoll(_rivenWeaponName, skipGate);
+      const panels = await rivenScan.scanNewRoll();
       if (mySerial !== _rollScanSerial) return; // superseded while awaiting OCR
       // If the OCR produced per-panel results, use them directly.  Otherwise
       // fall back to the initial stats we already have for the left panel.

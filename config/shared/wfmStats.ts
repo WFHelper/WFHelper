@@ -85,12 +85,3 @@ export function extractLatestMedianFromStatsPayload(
     timestamp: Number.isFinite(sourceTime) && sourceTime > 0 ? sourceTime : null,
   };
 }
-
-const __test__ = {
-  SELL_ORDER_TYPE,
-  STATS_WINDOW_KEYS,
-  MEDIAN_CANDIDATE_FIELDS,
-  pickStatsWindowRows,
-  normalizeRankValue: normalizeRank,
-  resolveTargetRank,
-};

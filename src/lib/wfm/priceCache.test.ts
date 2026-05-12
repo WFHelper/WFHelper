@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  clearPriceCache,
+  __test__,
   getCachedPriceState,
   importCache,
   setCachedPrice,
@@ -11,13 +11,13 @@ const BASE_TIME = new Date("2026-01-01T00:00:00.000Z");
 
 describe("priceCache", () => {
   beforeEach(() => {
-    clearPriceCache();
+    __test__.clearPriceCache();
     vi.useFakeTimers();
     vi.setSystemTime(BASE_TIME);
   });
 
   afterEach(() => {
-    clearPriceCache();
+    __test__.clearPriceCache();
     vi.useRealTimers();
   });
 

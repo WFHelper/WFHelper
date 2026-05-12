@@ -46,7 +46,7 @@
     "icons:manifest": "npm run build:main && node scripts/icon-mirror/build-icon-manifest.mjs",
     "icons:download": "npm run icons:manifest && node scripts/icon-mirror/download-icon-mirror.mjs",
     "icons:deploy": "npm --prefix backend-lite/worker exec -- wrangler pages deploy .icon-mirror/public --project-name wfhelper-icons --branch pre-production --commit-dirty=true",
-    "rebuild": "electron-rebuild -f -w uiohook-napi"
+    "rebuild": "electron-rebuild -f"
   },
   "keywords": [
     "warframe",
@@ -100,7 +100,6 @@
     "koffi": "^2.15.1",
     "onnxruntime-node": "^1.24.3",
     "sharp": "^0.34.5",
-    "uiohook-napi": "^1.5.4",
     "warframe-public-export-plus": "^0.6.0",
     "ws": "^8.20.0"
   },

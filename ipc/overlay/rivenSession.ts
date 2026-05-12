@@ -13,12 +13,9 @@ import {
 } from "../../config/shared/ipcChannels";
 
 
-let _weaponName = "";
 let _kuvaPerRoll = 0;
 let _rollCount = 0;
 let _totalKuvaSpent = 0;
-
-let _active = false;
 
 
 type WindowRef = BrowserWindow | null;
@@ -40,11 +37,9 @@ export function startSession(
   weapon: string,
   kuvaPerRoll: number,
 ): void {
-  _weaponName = weapon;
   _kuvaPerRoll = kuvaPerRoll;
   _rollCount = 0;
   _totalKuvaSpent = 0;
-  _active = true;
 
   sendToWindows(wins, RIVEN_SESSION_START, weapon, kuvaPerRoll);
 }
@@ -92,8 +87,6 @@ export function onChoiceMade(wins: WindowRef[], side: "left" | "right" | "unknow
  * Resets session state and hides the overlay.
  */
 export function endSession(wins: WindowRef[]): void {
-  _active = false;
-  _weaponName = "";
   _kuvaPerRoll = 0;
   _rollCount = 0;
   _totalKuvaSpent = 0;

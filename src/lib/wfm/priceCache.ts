@@ -35,7 +35,7 @@ export function setCachedNoData(slug: string): void {
   _prices.set(slug, { status: "no_data", median: null, timestamp: Date.now() });
 }
 
-export function clearPriceCache(): void {
+function clearPriceCache(): void {
   _prices.clear();
 }
 
@@ -60,3 +60,7 @@ export function importCache(data: Record<string, CachedPriceEntry>): number {
   }
   return imported;
 }
+
+export const __test__ = {
+  clearPriceCache,
+};

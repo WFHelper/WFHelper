@@ -549,17 +549,6 @@ export function startWatching(
   return EE_LOG_PATH;
 }
 
-/**
- * Force-ends the riven rolling session.  Call when the overlay is dismissed by
- * ESC or any external trigger that does NOT produce a NpcManager::ClearAgents()
- * EE.log pattern.  Without this, `_rivenSessionActive` stays true and subsequent
- * EE.log events (e.g. a choice dialog line arriving after the user dismissed the
- * overlay) re-trigger scans against already-closed windows.
- *
- * Safe to call when no session is active — returns early in that case.
- */
-// forceEndRivenSession is re-exported from rivenLogStateMachine at the top of this file.
-
 export function stopWatching(): void {
   stopDbwinWorker();
   clearPendingTimers();
