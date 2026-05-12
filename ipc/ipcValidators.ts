@@ -11,10 +11,6 @@ export function trimmedString(value: unknown, maxLength = 512): string | null {
   return trimmed;
 }
 
-export function finiteNumber(value: unknown): number | null {
-  return toFiniteNumber(value);
-}
-
 function boundedNumber(value: unknown, min: number, max: number): number | null {
   const parsed = toFiniteNumber(value);
   if (parsed == null || parsed < min || parsed > max) return null;

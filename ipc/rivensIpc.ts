@@ -4,7 +4,8 @@ import * as rivenFingerprint from "../services/rivenFingerprint";
 import * as wfmRivenSearch from "../services/wfmRivenSearch";
 import * as rivenData from "../services/rivenData";
 import * as rivenBestAttributes from "../services/rivenBestAttributes";
-import { boundedInt, finiteNumber, isObject, stringArray, trimmedString } from "./ipcValidators";
+import { boundedInt, isObject, stringArray, trimmedString } from "./ipcValidators";
+import { toFiniteNumber } from "../config/shared/numeric";
 import {
   RIVENS_GET,
   RIVENS_GET_WEAPON_NAMES,
@@ -35,7 +36,7 @@ function isCreateAuctionStat(value: unknown): value is CreateAuctionStat {
   if (!isObject(value)) return false;
   return (
     trimmedString(value.tag) != null &&
-    finiteNumber(value.value) != null &&
+    toFiniteNumber(value.value) != null &&
     typeof value.positive === "boolean" &&
     (value.multiplier == null || typeof value.multiplier === "boolean")
   );
@@ -133,7 +134,7 @@ function register(): void {
 
       const attributes = stats.map((s) => {
         const urlName = rivenData.tagToWfmUrlName(String(s.tag));
-        const rawVal = finiteNumber(s.value) ?? 0;
+        const rawVal = toFiniteNumber(s.value) ?? 0;
         // WFM expects negative values for non-multiplier curse stats.
         // Multiplier curses (e.g. damage_vs_faction) use values < 1 (e.g. 0.97) and stay as-is.
         // Our displayValue for non-multiplier curses is always positive (absolute), so negate it.

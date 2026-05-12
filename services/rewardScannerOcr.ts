@@ -56,7 +56,7 @@ function textToStructuredResult(text: string): StructuredOcrResult {
 
 export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
   const log = options?.log;
-  const getRequestedEngine = options?.getRequestedEngine;
+  const getRequestedEngine = options?.getRequestedEngine ?? (() => "auto");
   const ocrScriptPath = String(options?.ocrScriptPath || "");
   const engineWindows = String(options?.engineWindows || "windows");
   const engineNative = "native";
@@ -144,7 +144,7 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
   }
 
   async function runOCR(imagePath: string, timeoutMs: number): Promise<string> {
-    const engine = typeof getRequestedEngine === "function" ? getRequestedEngine() : "auto";
+    const engine = getRequestedEngine();
 
     if (engine === engineNative) {
       if (!nativeOcrAvailable) throw new Error("Native OCR not available");
@@ -155,7 +155,7 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
   }
 
   async function runOCRBuffer(imageBuffer: Buffer, timeoutMs: number): Promise<string> {
-    const engine = typeof getRequestedEngine === "function" ? getRequestedEngine() : "auto";
+    const engine = getRequestedEngine();
 
     if (engine === engineNative) {
       if (!nativeOcrAvailable) throw new Error("Native OCR not available");
@@ -181,7 +181,7 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
     imagePath: string,
     timeoutMs: number,
   ): Promise<StructuredOcrResult> {
-    const engine = typeof getRequestedEngine === "function" ? getRequestedEngine() : "auto";
+    const engine = getRequestedEngine();
 
     // Native: call binding directly, no PS server round-trip
     if (engine === engineNative) {
@@ -204,7 +204,7 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
     imageBuffer: Buffer,
     timeoutMs: number,
   ): Promise<StructuredOcrResult> {
-    const engine = typeof getRequestedEngine === "function" ? getRequestedEngine() : "auto";
+    const engine = getRequestedEngine();
 
     // Native: call binding directly — no PS server, no temp file, no disk I/O
     if (engine === engineNative) {

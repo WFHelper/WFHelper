@@ -44,16 +44,14 @@ function pushOverlayInteractionMode(): void {
   const payload = {
     interactive: !!ctx.overlayInteractiveMode,
   };
-  rewardOverlayIpc.getRewardWindowsController().sendOverlayEvent(OVERLAY_INTERACTION_MODE, payload);
-  rewardOverlayIpc
-    .getPlannerWindowsController()
-    .sendOverlayEvent(OVERLAY_INTERACTION_MODE, payload);
+  rewardOverlayIpc.rewardWindowsController.sendOverlayEvent(OVERLAY_INTERACTION_MODE, payload);
+  rewardOverlayIpc.plannerWindowsController.sendOverlayEvent(OVERLAY_INTERACTION_MODE, payload);
 }
 
 async function bringOverlayToWarframeDisplayIfAvailable(): Promise<void> {
   try {
-    const rwc = rewardOverlayIpc.getRewardWindowsController();
-    const pwc = rewardOverlayIpc.getPlannerWindowsController();
+    const rwc = rewardOverlayIpc.rewardWindowsController;
+    const pwc = rewardOverlayIpc.plannerWindowsController;
     const status = await warframeStatus.getStatus({ force: true });
     if (status?.focusedDisplayId) {
       const anchor = { sourceDisplayId: String(status.focusedDisplayId) };
@@ -68,8 +66,8 @@ async function bringOverlayToWarframeDisplayIfAvailable(): Promise<void> {
 }
 
 function setOverlayInteractionMode(enabled: boolean, source = "unknown"): void {
-  const rwc = rewardOverlayIpc.getRewardWindowsController();
-  const pwc = rewardOverlayIpc.getPlannerWindowsController();
+  const rwc = rewardOverlayIpc.rewardWindowsController;
+  const pwc = rewardOverlayIpc.plannerWindowsController;
   const next = !!enabled;
   const rewardExists = !!(ctx.overlayWindow && !ctx.overlayWindow.isDestroyed());
   const plannerExists = !!(ctx.plannerOverlayWindow && !ctx.plannerOverlayWindow.isDestroyed());
@@ -218,8 +216,8 @@ function sanitizeOverlayThemeVars(raw: unknown): Record<string, string> {
 function pushOverlayThemeVars(): void {
   if (!ctx.overlayThemeVars || Object.keys(ctx.overlayThemeVars).length === 0) return;
   const vars = { ...ctx.overlayThemeVars };
-  rewardOverlayIpc.getRewardWindowsController().sendOverlayEvent(OVERLAY_THEME_VARS, vars);
-  rewardOverlayIpc.getPlannerWindowsController().sendOverlayEvent(OVERLAY_THEME_VARS, vars);
+  rewardOverlayIpc.rewardWindowsController.sendOverlayEvent(OVERLAY_THEME_VARS, vars);
+  rewardOverlayIpc.plannerWindowsController.sendOverlayEvent(OVERLAY_THEME_VARS, vars);
   rivenOverlayIpc.forEachRivenWindow((win) => win.webContents.send(OVERLAY_THEME_VARS, vars));
 }
 
@@ -263,12 +261,12 @@ function onRelicSelectionClose(): void {
 
 function applyOverlayAvailabilitySettings(): void {
   if (!isRelicRewardsOverlayEnabled(ctx.overlaySettings)) {
-    rewardOverlayIpc.getRewardWindowsController().clearOverlayAutoHideTimer();
+    rewardOverlayIpc.rewardWindowsController.clearOverlayAutoHideTimer();
     if (ctx.overlayWindow && !ctx.overlayWindow.isDestroyed()) ctx.overlayWindow.hide();
   }
 
   if (!isRelicRecommendationOverlayEnabled(ctx.overlaySettings)) {
-    rewardOverlayIpc.getPlannerWindowsController().clearOverlayAutoHideTimer();
+    rewardOverlayIpc.plannerWindowsController.clearOverlayAutoHideTimer();
     if (ctx.plannerOverlayWindow && !ctx.plannerOverlayWindow.isDestroyed()) {
       ctx.plannerOverlayWindow.hide();
     }
@@ -335,8 +333,8 @@ function register(): void {
 
   onAuthorized(OVERLAY_READY, assertOverlayRendererSender, (event) => {
     const senderId = event.sender.id;
-    const rewardReady = rewardOverlayIpc.getRewardWindowsController().markRendererReady(senderId);
-    const plannerReady = rewardOverlayIpc.getPlannerWindowsController().markRendererReady(senderId);
+    const rewardReady = rewardOverlayIpc.rewardWindowsController.markRendererReady(senderId);
+    const plannerReady = rewardOverlayIpc.plannerWindowsController.markRendererReady(senderId);
     if (!rewardReady && !plannerReady) {
       log.warn(`[OverlayWindow] ready signal from unknown overlay sender ${senderId}`);
     }
@@ -349,12 +347,12 @@ function register(): void {
       const settings = settingsController.setOverlaySettings(nextSettings);
       settingsController.registerOverlayHotkey();
       applyOverlayAvailabilitySettings();
-      rewardOverlayIpc
-        .getRewardWindowsController()
-        .positionOverlayWindow(rewardOverlayIpc.getRewardWindowsController().getAnchorMeta());
-      rewardOverlayIpc
-        .getPlannerWindowsController()
-        .positionOverlayWindow(rewardOverlayIpc.getPlannerWindowsController().getAnchorMeta());
+      rewardOverlayIpc.rewardWindowsController.positionOverlayWindow(
+        rewardOverlayIpc.rewardWindowsController.getAnchorMeta(),
+      );
+      rewardOverlayIpc.plannerWindowsController.positionOverlayWindow(
+        rewardOverlayIpc.plannerWindowsController.getAnchorMeta(),
+      );
       rivenOverlayIpc.positionRivenOverlayWindows();
       return settings;
     },

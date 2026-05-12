@@ -62,7 +62,7 @@ const OVERLAY_WINDOW_FILE = path.join(APP_ROOT, "renderer", "overlay.html");
 const PRICE_CACHE_FILE = path.join(app.getPath("userData"), "snapshot-cache.json");
 
 
-const rewardWindowsController = createOverlayWindowsController({
+export const rewardWindowsController = createOverlayWindowsController({
   app,
   BrowserWindow,
   screen,
@@ -74,7 +74,7 @@ const rewardWindowsController = createOverlayWindowsController({
   onWindowBoundsChanged: rememberOverlayWindowBounds,
 });
 
-const plannerWindowsController = createOverlayWindowsController({
+export const plannerWindowsController = createOverlayWindowsController({
   app,
   BrowserWindow,
   screen,
@@ -147,15 +147,6 @@ const relicSelectionController = createRelicSelectionController({
   fs,
   cacheFilePath: PRICE_CACHE_FILE,
 });
-
-
-export function getRewardWindowsController() {
-  return rewardWindowsController;
-}
-
-export function getPlannerWindowsController() {
-  return plannerWindowsController;
-}
 
 export function configureOverlaySettingsPersistence(persist: () => void): void {
   persistOverlaySettings = persist;
