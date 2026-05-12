@@ -6,8 +6,6 @@ import {
 } from "../../../config/shared/numeric.js";
 export { cheapestOrderPrice, isActiveOrderStatus } from "../../../config/shared/wfmOrders.js";
 
-// Rank resolution
-
 export function resolvePriceRank(item: InventoryBaseItem): number | null {
   if (!isRankedGroup(item.inventoryGroup)) return null;
 
@@ -31,8 +29,6 @@ export function resolveRankedMaxRank(item: InventoryBaseItem): number | null {
   return fallbackMaxRank;
 }
 
-// Key builders
-
 export function priceRetryKey(itemKey: string, rank: number | null): string {
   return rank == null ? itemKey : `${itemKey}:r${rank}`;
 }
@@ -40,8 +36,6 @@ export function priceRetryKey(itemKey: string, rank: number | null): string {
 export function orderRetryKey(itemKey: string, rank: number): string {
   return `${itemKey}:order:r${rank}`;
 }
-
-// Metric inspection
 
 export function itemPriceRank(metric: ItemMetrics | undefined): number | null {
   return normalizeRank(metric?.priceRank) ?? null;

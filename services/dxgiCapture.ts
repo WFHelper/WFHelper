@@ -18,7 +18,6 @@ function koffi(): typeof import("koffi") {
   return _koffi;
 }
 
-// Public capture result interface
 interface GdiCaptureResult {
   /** BGRA pixel buffer (compatible with Electron nativeImage.createFromBitmap) */
   buffer: Buffer;
@@ -27,8 +26,6 @@ interface GdiCaptureResult {
   /** Electron display.id for the captured output, or "" if unknown */
   displayId: string;
 }
-
-// GDI screen capture via BitBlt — guaranteed fresh frame
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- native FFI bindings, return types unknown at compile time */
 let _gdiFns: {

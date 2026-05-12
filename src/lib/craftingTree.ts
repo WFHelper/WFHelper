@@ -190,7 +190,6 @@ export function computeCraftingSummary(tree: CraftingTreeNode): CraftingTreeSumm
     }
 
     if (node.children.length === 0 && !node.isCraftable) {
-      // Leaf resource
       const existing = resourceMap.get(node.uniqueName);
       if (existing) {
         existing.count += node.count;

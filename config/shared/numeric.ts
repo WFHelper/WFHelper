@@ -6,15 +6,11 @@
  * call with arbitrary untrusted input.
  */
 
-// Constants
-
 /** Highest mod/arcane rank the app supports for cache keys and API queries. */
 export const MAX_SUPPORTED_RANK = 20;
 
 /** Inventory groups whose items carry a rank (mods, arcanes). */
 export const RANKED_GROUPS: readonly string[] = Object.freeze(["mods", "arcanes"]);
-
-// Core numeric coercion
 
 /**
  * Coerce an unknown value to a finite number or `null`.
@@ -80,8 +76,6 @@ export function toFiniteOr(value: unknown, fallback: number = 0): number {
   return n !== null ? n : fallback;
 }
 
-// Clamping
-
 /**
  * Clamp a value between `min` and `max` (inclusive).
  *
@@ -95,8 +89,6 @@ export function clampNumber(value: unknown, min: number, max: number, fallback?:
   if (!Number.isFinite(n)) return fallback as number;
   return Math.max(min, Math.min(max, n));
 }
-
-// Rank normalisation
 
 /**
  * Parse an unknown value into a non-negative integer rank, optionally
@@ -159,8 +151,6 @@ export function normalizeDucats(value: unknown): number | null {
   const parsed = toFiniteNumber(value);
   return parsed != null && parsed >= 0 ? Math.round(parsed) : null;
 }
-
-// Ranked-group predicate
 
 /**
  * Return `true` when the given inventory group is rank-bearing

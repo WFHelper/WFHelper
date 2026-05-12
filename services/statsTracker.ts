@@ -17,11 +17,7 @@ import { withScope } from "./logger";
 
 const log = withScope("statsTracker");
 
-
-// Single source of truth for DailyStatEntry and SessionStats.
-// Re-exported so existing consumers importing from this module keep working.
 import type { DailyStatEntry, SessionStats } from "../config/shared/statsTypes";
-
 
 // Session baselines (set on first inventory update)
 let _baselinePlat: number | null = null;
@@ -30,7 +26,6 @@ let _baselineEndo: number | null = null;
 let _baselineDucats: number | null = null;
 let _baselineAya: number | null = null;
 
-// Latest absolute values
 let _currentPlat: number | null = null;
 let _currentCredits: number | null = null;
 let _currentEndo: number | null = null;

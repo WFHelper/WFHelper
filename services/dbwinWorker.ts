@@ -123,7 +123,6 @@ const EnumProcesses = psapi.func("EnumProcesses", "bool", [
   "void *", // lpcbNeeded  — output: bytes written
 ]);
 
-// Constants
 const PAGE_READWRITE = 0x04;
 const FILE_MAP_READ = 0x0004;
 const WAIT_OBJECT_0 = 0;
@@ -246,7 +245,6 @@ function isWarframeRunning(): boolean {
   return false;
 }
 
-// Entry point
 const stopFlag = new Int32Array((workerData as { stopBuffer: SharedArrayBuffer }).stopBuffer);
 
 function runDbwinLoop(): void {

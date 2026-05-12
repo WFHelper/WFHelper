@@ -8,8 +8,6 @@ import { resolveRankedMaxRank } from "./hydrationHelpers.js";
 import { isRankedGroup } from "../../../config/shared/numeric.js";
 import { rendererPriceCacheKey } from "../../../config/shared/wfmCacheKeys.js";
 
-// Price cache lookups
-
 export function getCachedMedian(cacheKey: string): number | null {
   const entry = getCachedPriceState(cacheKey);
   if (!entry || entry.status !== "ok") return null;
@@ -28,8 +26,6 @@ export function hasCachedRankPair(item: InventoryBaseItem): boolean {
   const rmax = getCachedMedian(rendererPriceCacheKey(item.marketSlug, maxRank));
   return r0 != null && rmax != null;
 }
-
-// Order summary lookups
 
 export function getCachedRankOrderSummary(
   slugInput: string | null | undefined,
