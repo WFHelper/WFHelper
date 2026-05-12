@@ -104,12 +104,10 @@ const rivenRightWindowsController = createOverlayWindowsController({
   onWindowBoundsChanged: rememberOverlayWindowBounds,
 });
 
-/** Returns both riven windows as an array for broadcasting IPC events. */
 function getRivenWindows(): (InstanceType<typeof BrowserWindow> | null)[] {
   return [ctx.rivenOverlayLeftWindow, ctx.rivenOverlayRightWindow];
 }
 
-/** Run a callback on each live riven window. */
 function forEachRivenWindow(fn: (win: InstanceType<typeof BrowserWindow>) => void): void {
   for (const win of getRivenWindows()) {
     if (win && !win.isDestroyed()) fn(win);

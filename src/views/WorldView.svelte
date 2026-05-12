@@ -515,7 +515,7 @@
   .world-badge-requiem { background: color-mix(in srgb, var(--world-badge-requiem-text) 14%, transparent); color: var(--world-badge-requiem-text); }
   .world-badge-omnia   { background: color-mix(in srgb, var(--world-badge-omnia-text) 12%, transparent); color: var(--world-badge-omnia-text); }
 
-  /* Faction colors — :global() dynamic class */
+  /* Faction colors shared with child world components. */
   :global(.world-faction-grineer)    { color: var(--world-faction-grineer); }
   :global(.world-faction-corpus)     { color: var(--world-faction-corpus); }
   :global(.world-faction-infested)   { color: var(--world-faction-infested); }
