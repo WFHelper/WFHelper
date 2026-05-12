@@ -15,7 +15,6 @@ import {
   DB_GET_RELIC_DATABASE,
   DB_GET_WFM_ITEMS,
   DB_GET_MASTERY,
-  DB_SET_DEBUG_MODE,
   WFM_SIGNIN,
   WFM_SIGNOUT,
   WFM_SESSION,
@@ -94,7 +93,6 @@ try {
     wfmGetMe: () => ipcRenderer.invoke(WFM_GET_ME),
 
     getMasteryProgress: () => ipcRenderer.invoke(DB_GET_MASTERY),
-    setDebugMode: (enabled: boolean) => ipcRenderer.invoke(DB_SET_DEBUG_MODE, !!enabled),
     checkForAppUpdates: () => ipcRenderer.invoke(APP_UPDATE_CHECK),
     getAppUpdateState: () => ipcRenderer.invoke(APP_UPDATE_STATE),
     installDownloadedUpdate: () => ipcRenderer.invoke(APP_UPDATE_INSTALL),

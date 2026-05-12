@@ -269,10 +269,6 @@ export interface IpcInvokeMap {
     args: [];
     return: MasteryData | null;
   };
-  setDebugMode: {
-    args: [enabled: boolean];
-    return: { enabled: boolean };
-  };
   getOverlaySettings: {
     args: [];
     return: OverlaySettings;

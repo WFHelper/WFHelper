@@ -1,7 +1,6 @@
 import { invoke } from "./ipc.js";
 import { itemDb, wfmItems } from "../stores/data.js";
 import { relicDb } from "../stores/relics.js";
-import { debugMode } from "../stores/app.js";
 import { applyUpdateState } from "../stores/updates.js";
 import { configureRelicRuntimeCacheFingerprint, warmupPrimeRewardPriceCache } from "./relic.js";
 import { exportRankedHotset, importRankedHotset } from "./wfm/rankedHotset.js";
@@ -23,10 +22,9 @@ interface StartupHandle {
 
 /**
  * Performs the initial data loading sequence on app startup:
- * 1. Sends current debug mode to the main process
- * 2. Fetches the item database and WFM items
- * 3. Fetches current update state
- * 4. Schedules a relic price warmup after a short delay
+ * 1. Fetches the item database and WFM items
+ * 2. Fetches current update state
+ * 3. Schedules a relic price warmup after a short delay
  */
 export function initStartup(): StartupHandle {
   let warmupTimer: ReturnType<typeof setTimeout> | null = null;
@@ -40,12 +38,6 @@ export function initStartup(): StartupHandle {
   startupPriceCacheReady.set(false);
 
   void (async () => {
-    try {
-      await invoke("setDebugMode", get(debugMode));
-    } catch {
-      // not critical
-    }
-
     try {
       const stageStart = Date.now();
       const rankedHotset = await invoke("loadRankedHotset");

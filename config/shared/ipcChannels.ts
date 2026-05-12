@@ -18,7 +18,6 @@ export const WORLD_STATE_FETCH_ERROR = "world-state-fetch-error";
 export const DB_GET_RELIC_DATABASE = "get-relic-database";
 export const DB_GET_WFM_ITEMS = "get-wfm-items";
 export const DB_GET_MASTERY = "get-mastery-progress";
-export const DB_SET_DEBUG_MODE = "set-debug-mode";
 
 export const WFM_SIGNIN = "wfm:signin";
 export const WFM_SIGNOUT = "wfm:signout";

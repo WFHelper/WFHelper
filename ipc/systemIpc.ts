@@ -15,7 +15,7 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 import { isAllowedExternalHost } from "../config/runtime/security";
 import { app, shell } from "electron";
 import {
-  DB_GET_ITEM_DATABASE, DB_GET_WFM_ITEMS, DB_GET_MASTERY, DB_SET_DEBUG_MODE,
+  DB_GET_ITEM_DATABASE, DB_GET_WFM_ITEMS, DB_GET_MASTERY,
   DB_GET_RELIC_DATABASE,
   APP_UPDATE_CHECK, APP_UPDATE_STATE, APP_UPDATE_INSTALL, APP_RUNTIME_INFO,
   WINDOW_MINIMIZE, WINDOW_MAXIMIZE, WINDOW_CLOSE,
@@ -51,11 +51,6 @@ function register(): void {
         ),
     });
     return masteryHelper.computeMasteryProgress(data as Record<string, unknown>);
-  });
-
-  handleAuthorized(DB_SET_DEBUG_MODE, assertMainRendererSender, (_event, enabled: unknown) => {
-    masteryHelper.setDebugMode(Boolean(enabled));
-    return { enabled: Boolean(enabled) };
   });
 
   handleAuthorized(APP_UPDATE_CHECK, assertMainRendererSender, () =>

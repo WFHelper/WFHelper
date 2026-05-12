@@ -11,17 +11,6 @@ import { sanitizeDisplayName } from "../config/shared/displayName";
 import { toFiniteNumber } from "../config/shared/numeric";
 import type { MasteryStatus } from "../config/shared/masteryTypes";
 
-let debugMode = false;
-
-export function setDebugMode(enabled: boolean): void {
-  debugMode = !!enabled;
-}
-
-function debugLog(_message: string, _payload?: unknown): void {
-  // Debug reasons are now surfaced in the UI; avoid terminal spam.
-  if (!debugMode) return;
-}
-
 const MASTERABLE_DB_CATEGORIES = new Set(["Warframe", "Weapon", "Companion", "Railjack"]);
 
 // productCategory → display label
@@ -526,27 +515,21 @@ export function getAllMasterableItems(): MasterableItem[] {
     const displayName = sanitizeDisplayName(item.name || "Unknown");
 
     if (!MASTERABLE_DB_CATEGORIES.has(item.category)) {
-      debugLog(
-        `[MasteryDebug][Exclude] ${displayName} | ${uniqueName} | reason=db-category:${item.category}`,
-      );
       continue;
     }
     const ampPrismOverride = isAmpPrismMasterableOverride(item, uniqueName);
     const venariOverride = isVenariMasterableOverride(uniqueName);
     if (item.masterable === false && !ampPrismOverride && !venariOverride) {
-      debugLog(`[MasteryDebug][Exclude] ${displayName} | ${uniqueName} | reason=masterable:false`);
       continue;
     }
 
     const excludeReason = getExcludeReason(uniqueName, displayName, item);
     if (excludeReason) {
-      debugLog(`[MasteryDebug][Exclude] ${displayName} | ${uniqueName} | reason=${excludeReason}`);
       continue;
     }
 
     const nameKey = displayName.toLowerCase();
     if (seenNames.has(nameKey)) {
-      debugLog(`[MasteryDebug][Exclude] ${displayName} | ${uniqueName} | reason=duplicate-name`);
       continue;
     }
     seenNames.add(nameKey);
@@ -554,9 +537,6 @@ export function getAllMasterableItems(): MasterableItem[] {
     const display = resolveDisplayCategoryInfo(item, uniqueName);
     const keywords = getKeywords(uniqueName, displayName);
     if (display.category === "Railjack") {
-      debugLog(
-        `[MasteryDebug][Exclude] ${displayName} | ${uniqueName} | reason=category-railjack-hidden`,
-      );
       continue;
     }
     const masterableSource = ampPrismOverride
@@ -566,9 +546,6 @@ export function getAllMasterableItems(): MasterableItem[] {
         : item.masterable === true
           ? "wfcd-masterable:true"
           : "default";
-    debugLog(
-      `[MasteryDebug][Include] ${displayName} | ${uniqueName} | category=${display.category} | masterableSource=${masterableSource} | categorySource=${display.source}`,
-    );
 
     items.push({
       name: displayName,
