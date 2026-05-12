@@ -8,11 +8,7 @@
 
 import { writable } from "svelte/store";
 
-import {
-  getPriceDebugCounters,
-  getPriceQueueStats,
-  type PriceDebugCounters,
-} from "../lib/wfm/wfmPrice.js";
+import { getPriceDebugCounters, getPriceQueueStats } from "../lib/wfm/wfmPrice.js";
 import { getOrderBookDebugCounters } from "../lib/wfm/orderBook.js";
 import { getOrderSummaryDebugCounters } from "../lib/wfm/orderSummaryRemote.js";
 import { normalizeWfmSlug } from "../lib/wfm/backendLite.js";
@@ -21,7 +17,6 @@ import type { WfmItemsLookup } from "../types/ipc.js";
 
 import type {
   HydrationTask,
-  InventoryPriceDebugCounters,
   InventoryHydrationDebugState,
   InventoryHydrationController,
 } from "./hydration/hydrationTypes.js";
@@ -54,25 +49,10 @@ import { isRankedGroup } from "../../config/shared/numeric.js";
 import { rendererPriceCacheKey } from "../../config/shared/wfmCacheKeys.js";
 
 export function createInventoryHydrationController(): InventoryHydrationController {
-  const normalizeCounters = (value: PriceDebugCounters): InventoryPriceDebugCounters => {
-    const candidate = value as PriceDebugCounters & {
-      backendHitOk?: number;
-      backendHitNoData?: number;
-      backendError?: number;
-    };
-
-    return {
-      ...candidate,
-      backendHitOk: candidate.backendHitOk ?? 0,
-      backendHitNoData: candidate.backendHitNoData ?? 0,
-      backendError: candidate.backendError ?? 0,
-    };
-  };
-
   const metricsByKeyStore = writable<Record<string, ItemMetrics>>({});
   const debugStateStore = writable<InventoryHydrationDebugState>({
     priceQueueStats: getPriceQueueStats(),
-    priceDebugCounters: normalizeCounters(getPriceDebugCounters()),
+    priceDebugCounters: { ...getPriceDebugCounters() },
     orderSummaryDebugCounters: { ...getOrderSummaryDebugCounters() },
     orderBookDebugCounters: { ...getOrderBookDebugCounters() },
     queued: 0,
@@ -157,7 +137,7 @@ export function createInventoryHydrationController(): InventoryHydrationControll
   function pushDebugState(): void {
     debugStateStore.set({
       priceQueueStats: getPriceQueueStats(),
-      priceDebugCounters: normalizeCounters(getPriceDebugCounters()),
+      priceDebugCounters: { ...getPriceDebugCounters() },
       orderSummaryDebugCounters: { ...getOrderSummaryDebugCounters() },
       orderBookDebugCounters: { ...getOrderBookDebugCounters() },
       queued: queuedMetricKeys.size,

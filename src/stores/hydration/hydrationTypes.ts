@@ -20,15 +20,9 @@ export interface HydrationTask {
   needs: MetricNeeds;
 }
 
-export interface InventoryPriceDebugCounters extends PriceDebugCounters {
-  backendHitOk: number;
-  backendHitNoData: number;
-  backendError: number;
-}
-
 export interface InventoryHydrationDebugState {
   priceQueueStats: PriceQueueStats;
-  priceDebugCounters: InventoryPriceDebugCounters;
+  priceDebugCounters: PriceDebugCounters;
   orderSummaryDebugCounters: OrderSummaryDebugCounters;
   orderBookDebugCounters: OrderBookDebugCounters;
   queued: number;
