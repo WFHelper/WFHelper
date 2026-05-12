@@ -20,8 +20,18 @@
     <img class="h-[33px] w-[33px] shrink-0 rounded-full object-cover" src={iconSrc} alt="" />
     <span class="whitespace-nowrap text-[0.88rem] font-semibold text-text-primary">{name}</span>
     <span
-      class="rounded-[var(--radius-sm)] px-[0.35rem] py-[0.08rem] text-[0.72rem] font-bold whitespace-nowrap
-             world-state-{stateClass}"
+      class="rounded-[var(--radius-sm)] px-[0.35rem] py-[0.08rem] text-[0.72rem] font-bold whitespace-nowrap"
+      class:world-state-day={stateClass === "day"}
+      class:world-state-night={stateClass === "night"}
+      class:world-state-warm={stateClass === "warm"}
+      class:world-state-cold={stateClass === "cold"}
+      class:world-state-fass={stateClass === "fass"}
+      class:world-state-vome={stateClass === "vome"}
+      class:world-state-anger={stateClass === "anger"}
+      class:world-state-joy={stateClass === "joy"}
+      class:world-state-envy={stateClass === "envy"}
+      class:world-state-sorrow={stateClass === "sorrow"}
+      class:world-state-fear={stateClass === "fear"}
     >{stateLabel}</span>
   </div>
 
