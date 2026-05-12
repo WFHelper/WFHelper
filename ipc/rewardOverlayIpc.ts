@@ -261,7 +261,7 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
     return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
   });
 
-  handleAuthorized(OVERLAY_GET_PRICE, assertOverlayRendererSender, async (_event, slug: string) => {
+  handleAuthorized(OVERLAY_GET_PRICE, assertOverlayRendererSender, async (_event, slug: unknown) => {
     return wfmStatsPrice.fetchPriceBySlug(slug);
   });
 

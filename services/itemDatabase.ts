@@ -726,6 +726,6 @@ export function getRendererLookup(): Record<string, RendererItemEntry> {
   return lookup;
 }
 
-export function getAllItems(): Record<string, ItemEntry> {
-  return itemsByUniqueName;
+export function getAllItems(): Readonly<Record<string, Readonly<ItemEntry>>> {
+  return { ...itemsByUniqueName };
 }

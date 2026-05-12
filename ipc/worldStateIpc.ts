@@ -291,6 +291,8 @@ function sendWindowsToast(title: string, body: string): void {
     return;
   }
 
+  // Only internally generated values go into this command string. External
+  // title/body text is escaped into the XML file above and loaded by path.
   const showScript = [
     "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null",
     "[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null",

@@ -44,6 +44,7 @@ const JSON_ENCODING = "utf-8";
 let _lastInventoryHash: string | null = null;
 let _lastReloadAt = 0;
 let _lastListenerInventoryHash: string | null = null;
+let _trustedInventoryPath: string | null = null;
 
 interface InventoryReadError {
   kind: "parse" | "read";
@@ -58,9 +59,10 @@ const _inventoryStatePath = path.join(app.getPath("userData"), "inventory-reload
 function _loadPersistedState(): void {
   try {
     const raw = fs.readFileSync(_inventoryStatePath, JSON_ENCODING);
-    const data = JSON.parse(raw) as { hash?: string; reloadAt?: number };
+    const data = JSON.parse(raw) as { hash?: string; reloadAt?: number; inventoryPath?: string };
     if (typeof data.hash === "string") _lastInventoryHash = data.hash;
     if (typeof data.reloadAt === "number") _lastReloadAt = data.reloadAt;
+    if (typeof data.inventoryPath === "string") _trustedInventoryPath = data.inventoryPath;
   } catch (err) {
     const code = err && typeof err === "object" ? (err as { code?: unknown }).code : null;
     if (code !== "ENOENT") {
@@ -77,7 +79,11 @@ function _persistState(): void {
   try {
     fs.writeFileSync(
       _inventoryStatePath,
-      JSON.stringify({ hash: _lastInventoryHash, reloadAt: _lastReloadAt }),
+      JSON.stringify({
+        hash: _lastInventoryHash,
+        reloadAt: _lastReloadAt,
+        inventoryPath: _trustedInventoryPath,
+      }),
       JSON_ENCODING,
     );
   } catch (err) {
@@ -144,6 +150,17 @@ function newestExistingInventoryPath(paths: string[]): string | null {
   return bestPath;
 }
 
+function existingInventoryPath(filePath: string | null): string | null {
+  if (!filePath) return null;
+  return newestExistingInventoryPath([filePath]);
+}
+
+function rememberInventoryPath(filePath: string): void {
+  if (_trustedInventoryPath === filePath) return;
+  _trustedInventoryPath = filePath;
+  _persistState();
+}
+
 function listInventoryJsonFiles(directoryPath: string): string[] {
   try {
     const entries = fs.readdirSync(directoryPath, { withFileTypes: true });
@@ -174,10 +191,16 @@ function findInventoryFile(): string | null {
   );
   if (helperCandidate) return helperCandidate;
 
+  const trustedCandidate = existingInventoryPath(_trustedInventoryPath);
+  if (trustedCandidate) return trustedCandidate;
+
   const userCandidate = newestExistingInventoryPath(
     collectInventoryCandidates(USER_INVENTORY_DIRECTORIES),
   );
-  if (userCandidate) return userCandidate;
+  if (userCandidate) {
+    log.warn("Using inventory file discovered from user-writable folders:", userCandidate);
+    return userCandidate;
+  }
 
   const allowDevFallback = process.env.NODE_ENV !== "production";
   if (!allowDevFallback) return null;
@@ -244,6 +267,7 @@ function readInventory(filePath: string): unknown {
     data = parseInventoryRaw(raw);
     ctx.currentInventoryData = data as Record<string, unknown> | null;
     _lastReadError = null;
+    rememberInventoryPath(filePath);
 
     _notifyListenersOncePerProcessHash(hash, data);
 
@@ -320,6 +344,7 @@ function watchInventoryFile(filePath: string): void {
       const data = parseInventoryRaw(raw);
       ctx.currentInventoryData = data as Record<string, unknown> | null;
       _lastReadError = null;
+      rememberInventoryPath(filePath);
       _notifyListenersOncePerProcessHash(hash, data);
       if (data && ctx.mainWindow) {
         ctx.mainWindow.webContents.send(INVENTORY_UPDATED, data);

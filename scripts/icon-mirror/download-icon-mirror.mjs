@@ -11,6 +11,7 @@ const failuresPath = path.join(outputRoot, "download-failures.json");
 
 const concurrency = Math.max(1, Math.min(24, Number(process.env.ICON_MIRROR_CONCURRENCY) || 6));
 const timeoutMs = Math.max(5000, Number(process.env.ICON_MIRROR_TIMEOUT_MS) || 30000);
+const allowedSourceHosts = new Set(["browse.wf", "cdn.warframestat.us"]);
 
 function readManifest() {
   if (!fs.existsSync(manifestPath)) {
@@ -41,13 +42,35 @@ async function fetchWithTimeout(url) {
   }
 }
 
+function validateSourceUrl(value) {
+  let parsed;
+  try {
+    parsed = new URL(String(value || ""));
+  } catch {
+    return { ok: false, reason: "invalid source URL" };
+  }
+
+  if (parsed.protocol !== "https:") {
+    return { ok: false, reason: `unsupported source protocol ${parsed.protocol || "(none)"}` };
+  }
+  if (!allowedSourceHosts.has(parsed.hostname)) {
+    return { ok: false, reason: `unapproved source host ${parsed.hostname || "(none)"}` };
+  }
+  return { ok: true, url: parsed.href };
+}
+
 async function downloadEntry(entry) {
   const targetPath = path.join(publicRoot, entry.mirrorPath);
   if (fs.existsSync(targetPath) && fs.statSync(targetPath).size > 0) {
     return { status: "skipped" };
   }
 
-  const response = await fetchWithTimeout(entry.sourceUrl);
+  const source = validateSourceUrl(entry.sourceUrl);
+  if (!source.ok) {
+    return { status: "failed", reason: source.reason };
+  }
+
+  const response = await fetchWithTimeout(source.url);
   if (!response.ok) {
     return { status: "failed", reason: `HTTP ${response.status}` };
   }
