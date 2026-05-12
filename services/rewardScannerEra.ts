@@ -8,7 +8,8 @@ import { captureScreenFast, type CaptureResult } from "./rewardScannerCapture";
 import { buildOcrVariants, cropBand, cropRect } from "./rewardScannerImage";
 import { detectRelicEraFromText, detectRelicEraFromTileLabelText } from "./rewardScannerMatch";
 import { RELIC_ERA_BANDS, RELIC_ROW_TILE_LABEL_RECTS, SCANNER_TUNING } from "./rewardScannerSupport";
-import { clampNumber, round4 } from "./rewardScannerUtils";
+import { round4 } from "./rewardScannerUtils";
+import { clampNumber } from "../config/shared/numeric";
 
 const log = withScope("rewardScanner");
 

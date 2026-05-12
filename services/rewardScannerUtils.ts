@@ -85,5 +85,3 @@ export function luminanceFromBgr(blue: number, green: number, red: number): numb
     LUMINANCE_WEIGHTS.shift
   );
 }
-
-export { clampNumber };

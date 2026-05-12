@@ -5,7 +5,8 @@
 
 import { withScope } from "./logger";
 import type { NativeImage } from "electron";
-import { clampNumber, clamp01, computeMeanAndStd, luminanceFromBgr } from "./rewardScannerUtils";
+import { clamp01, computeMeanAndStd, luminanceFromBgr } from "./rewardScannerUtils";
+import { clampNumber } from "../config/shared/numeric";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("rewardScanner");
