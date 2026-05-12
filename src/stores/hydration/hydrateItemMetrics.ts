@@ -32,8 +32,7 @@ import { isRankedGroup, normalizeDucats } from "../../../config/shared/numeric.j
 import { rendererPriceCacheKey } from "../../../config/shared/wfmCacheKeys.js";
 import { isExcludedRankedMarketItem } from "../../../config/shared/wfmExclusions.js";
 
-// Hydration context — provides controlled access to controller closure state
-
+/** Controlled access to controller closure state, passed to pure hydration helpers. */
 export interface HydrationContext {
   getMetric: (key: string) => ItemMetrics | undefined;
   hasPriceRetryCooldown: (key: string) => boolean;
@@ -50,9 +49,7 @@ export interface HydrationContext {
   clearPending: (key: string) => void;
 }
 
-// Helpers using context
-
-function canRetryMissingDucats(
+export function canRetryMissingDucats(
   ctx: HydrationContext,
   key: string,
   item: InventoryBaseItem,
@@ -96,8 +93,6 @@ function sanitizeExistingMetrics(
     hasMeta: existing?.hasMeta || false,
   };
 }
-
-// Core hydration logic
 
 export async function hydrateItemMetrics(
   ctx: HydrationContext,

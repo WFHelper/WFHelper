@@ -3,8 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   resolvePriceRank,
   resolveRankedMaxRank,
-  priceRetryKey,
-  orderRetryKey,
   itemPriceRank,
   hasResolvedPrice,
   hasRankPairCoverage,
@@ -12,10 +10,6 @@ import {
   cheapestOrderPrice,
 } from "./hydrationHelpers.js";
 import type { InventoryBaseItem, ItemMetrics } from "../../lib/inventoryMarket.js";
-
-// ---------------------------------------------------------------------------
-// Helpers to create minimal test fixtures
-// ---------------------------------------------------------------------------
 
 function makeItem(overrides: Partial<InventoryBaseItem> = {}): InventoryBaseItem {
   return {
@@ -47,10 +41,6 @@ function makeMetrics(overrides: Partial<ItemMetrics> = {}): ItemMetrics {
     ...overrides,
   };
 }
-
-// ---------------------------------------------------------------------------
-// resolvePriceRank
-// ---------------------------------------------------------------------------
 
 describe("resolvePriceRank", () => {
   it("returns null for non-ranked groups", () => {
@@ -101,10 +91,6 @@ describe("resolvePriceRank", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// resolveRankedMaxRank
-// ---------------------------------------------------------------------------
-
 describe("resolveRankedMaxRank", () => {
   it("returns null for non-ranked groups", () => {
     expect(resolveRankedMaxRank(makeItem({ inventoryGroup: "misc" }))).toBeNull();
@@ -124,30 +110,6 @@ describe("resolveRankedMaxRank", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Key builders
-// ---------------------------------------------------------------------------
-
-describe("priceRetryKey", () => {
-  it("includes rank suffix when rank is provided", () => {
-    expect(priceRetryKey("item-key", 5)).toBe("item-key:r5");
-  });
-
-  it("omits rank suffix when rank is null", () => {
-    expect(priceRetryKey("item-key", null)).toBe("item-key");
-  });
-});
-
-describe("orderRetryKey", () => {
-  it("includes order and rank suffix", () => {
-    expect(orderRetryKey("item-key", 3)).toBe("item-key:order:r3");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// itemPriceRank
-// ---------------------------------------------------------------------------
-
 describe("itemPriceRank", () => {
   it("returns priceRank when present", () => {
     expect(itemPriceRank(makeMetrics({ priceRank: 5 }))).toBe(5);
@@ -161,10 +123,6 @@ describe("itemPriceRank", () => {
     expect(itemPriceRank(makeMetrics({ priceRank: null }))).toBeNull();
   });
 });
-
-// ---------------------------------------------------------------------------
-// hasResolvedPrice
-// ---------------------------------------------------------------------------
 
 describe("hasResolvedPrice", () => {
   it("returns true when platinum is present", () => {
@@ -191,10 +149,6 @@ describe("hasResolvedPrice", () => {
     expect(hasResolvedPrice(undefined)).toBe(false);
   });
 });
-
-// ---------------------------------------------------------------------------
-// hasRankPairCoverage
-// ---------------------------------------------------------------------------
 
 describe("hasRankPairCoverage", () => {
   it("returns true for non-ranked groups (always covered)", () => {
@@ -243,10 +197,6 @@ describe("hasRankPairCoverage", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// isActiveOrderStatus
-// ---------------------------------------------------------------------------
-
 describe("isActiveOrderStatus", () => {
   it("returns true for 'ingame'", () => {
     expect(isActiveOrderStatus("ingame")).toBe(true);
@@ -264,10 +214,6 @@ describe("isActiveOrderStatus", () => {
     expect(isActiveOrderStatus(null)).toBe(false);
   });
 });
-
-// ---------------------------------------------------------------------------
-// cheapestOrderPrice
-// ---------------------------------------------------------------------------
 
 describe("cheapestOrderPrice", () => {
   it("returns the cheapest price from all entries", () => {

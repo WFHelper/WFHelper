@@ -6,9 +6,13 @@ import type { HydrationContext } from "./hydration/hydrateItemMetrics.js";
 
 const hydrateItemMetricsMock = vi.hoisted(() => vi.fn());
 
-vi.mock("./hydration/hydrateItemMetrics.js", () => ({
-  hydrateItemMetrics: hydrateItemMetricsMock,
-}));
+vi.mock("./hydration/hydrateItemMetrics.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./hydration/hydrateItemMetrics.js")>();
+  return {
+    ...actual,
+    hydrateItemMetrics: hydrateItemMetricsMock,
+  };
+});
 
 vi.mock("../lib/wfm/wfmPrice.js", () => ({
   getPriceDebugCounters: () => ({
@@ -133,7 +137,5 @@ describe("createInventoryHydrationController", () => {
 
     expect(hydratedKeys).toHaveLength(items.length);
     expect(new Set(hydratedKeys).size).toBe(items.length);
-
-    controller.destroy();
   });
 });

@@ -13,11 +13,8 @@ import {
   getPriceQueueStats,
   type PriceDebugCounters,
 } from "../lib/wfm/wfmPrice.js";
-import { getOrderBookDebugCounters, type OrderBookDebugCounters } from "../lib/wfm/orderBook.js";
-import {
-  getOrderSummaryDebugCounters,
-  type OrderSummaryDebugCounters,
-} from "../lib/wfm/orderSummaryRemote.js";
+import { getOrderBookDebugCounters } from "../lib/wfm/orderBook.js";
+import { getOrderSummaryDebugCounters } from "../lib/wfm/orderSummaryRemote.js";
 import { normalizeWfmSlug } from "../lib/wfm/backendLite.js";
 import type { InventoryBaseItem, ItemMetrics, MetricNeeds } from "../lib/inventoryMarket.js";
 import type { WfmItemsLookup } from "../types/ipc.js";
@@ -48,13 +45,13 @@ import {
   getCachedMedian,
   getCachedRankOrderSummary,
 } from "./hydration/hydrationCacheHelpers.js";
-import { hydrateItemMetrics, type HydrationContext } from "./hydration/hydrateItemMetrics.js";
+import {
+  canRetryMissingDucats,
+  hydrateItemMetrics,
+  type HydrationContext,
+} from "./hydration/hydrateItemMetrics.js";
 import { isRankedGroup } from "../../config/shared/numeric.js";
 import { rendererPriceCacheKey } from "../../config/shared/wfmCacheKeys.js";
-
-// Re-export types that consumers reference.
-
-// Controller factory
 
 export function createInventoryHydrationController(): InventoryHydrationController {
   const normalizeCounters = (value: PriceDebugCounters): InventoryPriceDebugCounters => {
@@ -72,22 +69,12 @@ export function createInventoryHydrationController(): InventoryHydrationControll
     };
   };
 
-  const cloneOrderSummaryCounters = (
-    value: OrderSummaryDebugCounters,
-  ): OrderSummaryDebugCounters => {
-    return { ...value };
-  };
-
-  const cloneOrderBookCounters = (value: OrderBookDebugCounters): OrderBookDebugCounters => {
-    return { ...value };
-  };
-
   const metricsByKeyStore = writable<Record<string, ItemMetrics>>({});
   const debugStateStore = writable<InventoryHydrationDebugState>({
     priceQueueStats: getPriceQueueStats(),
     priceDebugCounters: normalizeCounters(getPriceDebugCounters()),
-    orderSummaryDebugCounters: cloneOrderSummaryCounters(getOrderSummaryDebugCounters()),
-    orderBookDebugCounters: cloneOrderBookCounters(getOrderBookDebugCounters()),
+    orderSummaryDebugCounters: { ...getOrderSummaryDebugCounters() },
+    orderBookDebugCounters: { ...getOrderBookDebugCounters() },
     queued: 0,
     pending: 0,
   });
@@ -171,8 +158,8 @@ export function createInventoryHydrationController(): InventoryHydrationControll
     debugStateStore.set({
       priceQueueStats: getPriceQueueStats(),
       priceDebugCounters: normalizeCounters(getPriceDebugCounters()),
-      orderSummaryDebugCounters: cloneOrderSummaryCounters(getOrderSummaryDebugCounters()),
-      orderBookDebugCounters: cloneOrderBookCounters(getOrderBookDebugCounters()),
+      orderSummaryDebugCounters: { ...getOrderSummaryDebugCounters() },
+      orderBookDebugCounters: { ...getOrderBookDebugCounters() },
       queued: queuedMetricKeys.size,
       pending: pendingMetricKeys.size,
     });
@@ -222,7 +209,7 @@ export function createInventoryHydrationController(): InventoryHydrationControll
       if (pendingMetricKeys.has(key) || queuedMetricKeys.has(key)) continue;
 
       const existing = metricsByKey[key];
-      const retryMissingDucats = canRetryMissingDucats(key, item, existing);
+      const retryMissingDucats = canRetryMissingDucats(ctx, key, item, existing);
       const requestedRank = resolvePriceRank(item);
       const retryKey = priceRetryKey(key, requestedRank);
       const existingPriceRank = itemPriceRank(existing);
@@ -323,18 +310,6 @@ export function createInventoryHydrationController(): InventoryHydrationControll
     }
   }
 
-  function canRetryMissingDucats(
-    key: string,
-    item: InventoryBaseItem,
-    metric: ItemMetrics | undefined,
-  ): boolean {
-    if (!metric) return false;
-    if (!metric.hasDucats || metric.ducats != null) return false;
-    if (!metric.slug) return false;
-    if (item.inventoryGroup !== "all_parts" && item.inventoryGroup !== "full_sets") return false;
-    return ctx.getMissingDucatRetryCount(key) < 2;
-  }
-
   return {
     metricsByKey: {
       subscribe: metricsByKeyStore.subscribe,
@@ -342,12 +317,8 @@ export function createInventoryHydrationController(): InventoryHydrationControll
     debugState: {
       subscribe: debugStateStore.subscribe,
     },
-    enqueue(items, lookup, needs) {
-      queueTasks(items, lookup, needs);
-    },
-    refreshDebugStats() {
-      pushDebugState();
-    },
+    enqueue: queueTasks,
+    refreshDebugStats: pushDebugState,
     pause() {
       isMounted = false;
       pushDebugState();
@@ -360,25 +331,8 @@ export function createInventoryHydrationController(): InventoryHydrationControll
         }
       }
     },
-    destroy() {
-      isMounted = false;
-      hydrationQueue = [];
-      queuedMetricKeys.clear();
-      pendingMetricKeys.clear();
-      missingDucatRetryCountByKey.clear();
-      priceTransientRetryAtByKey.clear();
-      orderTransientRetryAtByKey.clear();
-      if (metricFlushTimer) {
-        clearTimeout(metricFlushTimer);
-        metricFlushTimer = null;
-      }
-      pendingMetricPatches.clear();
-      pushDebugState();
-    },
   };
 }
-
-// Singleton
 
 let _singleton: InventoryHydrationController | null = null;
 
