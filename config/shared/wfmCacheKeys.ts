@@ -30,14 +30,6 @@ export function workerMissCacheKey(prefix: string, slug: string, rank: number | 
   return rank == null ? `${prefix}${slug}` : `${prefix}${slug}:r${rank}`;
 }
 
-export function snapshotPriceCacheKey(slug: string, rank: number | null): string {
-  return rendererPriceCacheKey(slug, rank);
-}
-
-export function snapshotOrderSummaryCacheKey(slug: string, rank: number | null): string | null {
-  return rendererOrderSummaryCacheKey(slug, rank);
-}
-
 type WfmCacheKeyNamespace =
   | "renderer-price"
   | "renderer-ranked"
@@ -93,9 +85,9 @@ export function parseWfmCacheKey(key: string): ParsedWfmCacheKey | null {
 export function snapshotCacheKeyFromWorkerKey(workerKey: string): string | null {
   const parsed = parseWfmCacheKey(workerKey);
   if (!parsed) return null;
-  if (parsed.namespace === "worker-price") return snapshotPriceCacheKey(parsed.slug, parsed.rank);
+  if (parsed.namespace === "worker-price") return rendererPriceCacheKey(parsed.slug, parsed.rank);
   if (parsed.namespace === "worker-order-summary") {
-    return snapshotOrderSummaryCacheKey(parsed.slug, parsed.rank);
+    return rendererOrderSummaryCacheKey(parsed.slug, parsed.rank);
   }
   return null;
 }

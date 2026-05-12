@@ -181,10 +181,6 @@ export async function fetchPricePayload(
 	};
 }
 
-function normalizeAssetPath(pathValue: unknown): string | null {
-	return formatWfmAssetUrl(pathValue);
-}
-
 export async function fetchMetaPayload(slug: string): Promise<FetchResult<MetaPayload>> {
 	let response: Response;
 	try {
@@ -211,8 +207,8 @@ export async function fetchMetaPayload(slug: string): Promise<FetchResult<MetaPa
 		data: {
 			slug,
 			tradable: data.tradable === true,
-			thumb: normalizeAssetPath(i18nEn.thumb || data.thumb || null),
-			icon: normalizeAssetPath(i18nEn.icon || data.icon || null),
+			thumb: formatWfmAssetUrl(i18nEn.thumb || data.thumb || null),
+			icon: formatWfmAssetUrl(i18nEn.icon || data.icon || null),
 			ducats,
 			setRoot: Boolean(data.setRoot),
 			timestamp: Date.now(),

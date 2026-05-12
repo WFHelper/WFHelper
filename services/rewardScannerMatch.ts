@@ -29,14 +29,6 @@ const CONSENSUS_TUNING: Readonly<{
   confidenceDecimals: 3,
 });
 
-function normalizeOcrToken(token: unknown): string {
-  return normalizeForOcr(token);
-}
-
-function norm(text: unknown): string {
-  return normalizeForSearch(text);
-}
-
 function buildWordSet(text: string): Set<string> {
   return new Set(
     text
@@ -152,7 +144,7 @@ export function matchItemsDetailed(
   threshold: number,
   sortedItems: SortedItem[],
 ): MatchResult {
-  const text = norm(ocrText);
+  const text = normalizeForSearch(ocrText);
   if (!text) {
     return { items: [], score: 0, matches: [], exactCount: 0 };
   }
@@ -164,7 +156,7 @@ export function matchItemsDetailed(
 
   for (const item of sortedItems) {
     if (found.length >= MAX_REWARD_SLOTS) break;
-    const normalizedName = norm(item.name);
+    const normalizedName = normalizeForSearch(item.name);
     if (!normalizedName || usedNames.has(normalizedName)) continue;
 
     const idx = text.indexOf(normalizedName);
@@ -181,7 +173,7 @@ export function matchItemsDetailed(
   if (shouldRunOverlapPass) {
     for (const item of sortedItems) {
       if (found.length >= MAX_REWARD_SLOTS) break;
-      const normalizedName = norm(item.name);
+      const normalizedName = normalizeForSearch(item.name);
       if (!normalizedName || usedNames.has(normalizedName)) continue;
 
       const itemWords = normalizedName.split(" ").filter((w) => w.length > 2);
@@ -224,7 +216,7 @@ function similarityScore(a: string, b: string): number {
 }
 
 function normalizeRewardWord(word: string): string {
-  const normalized = norm(word).replace(/[^a-z0-9]/g, "");
+  const normalized = normalizeForSearch(word).replace(/[^a-z0-9]/g, "");
   if (!normalized) return "";
   return REWARD_TOKEN_ALIASES[normalized] || normalized;
 }
@@ -372,7 +364,7 @@ export function detectRelicEraFromText(text: string): { era: string | null; conf
 
   const words = normalized
     .split(" ")
-    .map((word) => normalizeOcrToken(word))
+    .map((word) => normalizeForOcr(word))
     .filter((word) => word.length >= 2);
 
   let best: { era: string | null; confidence: number } = { era: null, confidence: 0 };

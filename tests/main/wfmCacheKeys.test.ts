@@ -7,8 +7,6 @@ import {
   rendererPriceCacheKey,
   rendererRankedRequestKey,
   snapshotCacheKeyFromWorkerKey,
-  snapshotOrderSummaryCacheKey,
-  snapshotPriceCacheKey,
   workerMissCacheKey,
   workerOrderSummaryCacheKey,
   workerOrdersCacheKey,
@@ -19,11 +17,7 @@ describe("shared WFM cache keys", () => {
   it("preserves renderer snapshot key formats", () => {
     expect(rendererPriceCacheKey("serration", null)).toBe("serration");
     expect(rendererPriceCacheKey("serration", 10)).toBe("serration:rank-v3:r10");
-    expect(snapshotPriceCacheKey("serration", 10)).toBe(rendererPriceCacheKey("serration", 10));
     expect(rendererOrderSummaryCacheKey("serration", 10)).toBe("serration:r10");
-    expect(snapshotOrderSummaryCacheKey("serration", 10)).toBe(
-      rendererOrderSummaryCacheKey("serration", 10),
-    );
   });
 
   it("round-trips renderer ranked cache keys through the shared parser", () => {
@@ -65,9 +59,11 @@ describe("shared WFM cache keys", () => {
       slug: "serration",
       rank: 10,
     });
-    expect(snapshotCacheKeyFromWorkerKey(workerPrice)).toBe(snapshotPriceCacheKey("serration", 10));
+    expect(snapshotCacheKeyFromWorkerKey(workerPrice)).toBe(
+      rendererPriceCacheKey("serration", 10),
+    );
     expect(snapshotCacheKeyFromWorkerKey(workerSummary)).toBe(
-      snapshotOrderSummaryCacheKey("serration", 10),
+      rendererOrderSummaryCacheKey("serration", 10),
     );
     expect(snapshotCacheKeyFromWorkerKey(workerOrdersCacheKey("serration", 10))).toBeNull();
   });

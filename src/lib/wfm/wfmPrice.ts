@@ -47,10 +47,6 @@ interface FetchPriceOptions {
   cacheOnly?: boolean;
 }
 
-function priceCacheKey(slug: string, rank: number | null): string {
-  return rendererPriceCacheKey(slug, rank);
-}
-
 export interface PriceDebugCounters {
   requests: number;
   cacheHitOk: number;
@@ -233,7 +229,7 @@ async function fetchPriceBySlugInternal(
   priority: RequestPriority,
   rank: number | null,
 ): Promise<PriceBySlugResult> {
-  const cacheKey = priceCacheKey(slug, rank);
+  const cacheKey = rendererPriceCacheKey(slug, rank);
   const backendResult = await fetchBackendPriceBySlug(slug, { rank });
   if (backendResult.status === "ok") {
     cachePrice(cacheKey, slug, backendResult.data.median);
@@ -310,7 +306,7 @@ export async function fetchPriceBySlug(
   const rank = normalizePriceRank(options?.rank ?? null);
   const ignoreNoDataCache = options?.ignoreNoDataCache === true;
   const cacheOnly = options?.cacheOnly === true;
-  const cacheKey = priceCacheKey(normalizedSlug, rank);
+  const cacheKey = rendererPriceCacheKey(normalizedSlug, rank);
 
   const cached = getCachedPriceState(cacheKey);
   if (cached) {
@@ -402,7 +398,7 @@ export async function fetchPriceByName(
     });
     if (result.status === "ok" && result.median != null) {
       if (trySlug !== slug) {
-        cachePrice(priceCacheKey(slug, rank), slug, result.median);
+        cachePrice(rendererPriceCacheKey(slug, rank), slug, result.median);
       }
       return {
         median: result.median,
