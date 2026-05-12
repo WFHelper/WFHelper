@@ -2,10 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { computeSquadEV, computeSquadDucatEV } from "./relicMath.js";
 
-// ---------------------------------------------------------------------------
-// computeSquadEV
-// ---------------------------------------------------------------------------
-
 describe("computeSquadEV", () => {
   it("computes solo EV as weighted average", () => {
     const rewards = [{ chance: 50 }, { chance: 50 }];
@@ -51,10 +47,6 @@ describe("computeSquadEV", () => {
     expect(computeSquadEV(rewards, prices, 4)).toBeCloseTo(42, 6);
   });
 });
-
-// ---------------------------------------------------------------------------
-// computeSquadDucatEV
-// ---------------------------------------------------------------------------
 
 describe("computeSquadDucatEV", () => {
   it("delegates to computeSquadEV with ducat values", () => {

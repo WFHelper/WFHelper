@@ -1,9 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { WFM_HEADERS, WFM_ASSET_BASE, normalizeWfmSlug } from "../../config/shared/wfm";
 
-// ---------------------------------------------------------------------------
-// WFM_HEADERS
-// ---------------------------------------------------------------------------
 describe("WFM_HEADERS", () => {
   it("contains the expected keys", () => {
     expect(WFM_HEADERS).toEqual({
@@ -19,9 +16,6 @@ describe("WFM_HEADERS", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// WFM_ASSET_BASE
-// ---------------------------------------------------------------------------
 describe("WFM_ASSET_BASE", () => {
   it("is the warframe.market static assets URL", () => {
     expect(WFM_ASSET_BASE).toBe("https://warframe.market/static/assets/");
@@ -32,9 +26,6 @@ describe("WFM_ASSET_BASE", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// normalizeWfmSlug
-// ---------------------------------------------------------------------------
 describe("normalizeWfmSlug", () => {
   it("lowercases and trims", () => {
     expect(normalizeWfmSlug("  Frost Prime  ")).toBe("frost_prime");

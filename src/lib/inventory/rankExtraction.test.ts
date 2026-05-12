@@ -10,10 +10,6 @@ import {
 } from "./rankExtraction.js";
 import type { RawInventoryEntry, ItemDbEntry } from "../../types/inventory.js";
 
-// ---------------------------------------------------------------------------
-// pickNumeric
-// ---------------------------------------------------------------------------
-
 describe("pickNumeric", () => {
   it("returns the first matching numeric value", () => {
     const entry = { Rank: 5, Level: 10 } as RawInventoryEntry;
@@ -40,10 +36,6 @@ describe("pickNumeric", () => {
     expect(pickNumeric(entry, ["Rank"])).toBe(0);
   });
 });
-
-// ---------------------------------------------------------------------------
-// deepFindNumericByKeys
-// ---------------------------------------------------------------------------
 
 describe("deepFindNumericByKeys", () => {
   const rankKeys = new Set(["rank", "level"]);
@@ -81,10 +73,6 @@ describe("deepFindNumericByKeys", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// hasAnyRankSignal
-// ---------------------------------------------------------------------------
-
 describe("hasAnyRankSignal", () => {
   it("returns true for a positive rank value", () => {
     expect(hasAnyRankSignal({ Rank: 3 })).toBe(true);
@@ -121,10 +109,6 @@ describe("hasAnyRankSignal", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// parseFingerprintPayload
-// ---------------------------------------------------------------------------
-
 describe("parseFingerprintPayload", () => {
   it("parses a JSON string into an object", () => {
     expect(parseFingerprintPayload('{"lvl":3}')).toEqual({ lvl: 3 });
@@ -160,10 +144,6 @@ describe("parseFingerprintPayload", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// extractFingerprintRank
-// ---------------------------------------------------------------------------
-
 describe("extractFingerprintRank", () => {
   it("extracts rank from UpgradeFingerprint with lvl key", () => {
     const entry = { UpgradeFingerprint: '{"lvl":7}' } as RawInventoryEntry;
@@ -195,10 +175,6 @@ describe("extractFingerprintRank", () => {
     expect(extractFingerprintRank(entry)).toBe(4);
   });
 });
-
-// ---------------------------------------------------------------------------
-// normalizeRank
-// ---------------------------------------------------------------------------
 
 describe("normalizeRank", () => {
   it("uses explicit Rank from entry", () => {

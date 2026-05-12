@@ -13,9 +13,6 @@ import {
   isRankedGroup,
 } from "../../config/shared/numeric";
 
-// ---------------------------------------------------------------------------
-// toFiniteNumber
-// ---------------------------------------------------------------------------
 describe("toFiniteNumber", () => {
   it("returns finite numbers as-is", () => {
     expect(toFiniteNumber(42)).toBe(42);
@@ -68,9 +65,6 @@ describe("toFiniteNumber", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// toFiniteOr
-// ---------------------------------------------------------------------------
 describe("toFiniteOr", () => {
   it("returns valid number directly", () => {
     expect(toFiniteOr(5, 0)).toBe(5);
@@ -86,9 +80,6 @@ describe("toFiniteOr", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// clampNumber
-// ---------------------------------------------------------------------------
 describe("clampNumber", () => {
   it("clamps below min", () => {
     expect(clampNumber(-5, 0, 10)).toBe(0);
@@ -120,9 +111,6 @@ describe("clampNumber", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// normalizeRank
-// ---------------------------------------------------------------------------
 describe("normalizeRank", () => {
   it("floors valid positive numbers", () => {
     expect(normalizeRank(3.7)).toBe(3);
@@ -158,9 +146,6 @@ describe("normalizeRank", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// normalizeRankFilter
-// ---------------------------------------------------------------------------
 describe("normalizeRankFilter", () => {
   it("clamps to MAX_SUPPORTED_RANK", () => {
     expect(normalizeRankFilter(20)).toBe(20);
@@ -176,9 +161,6 @@ describe("normalizeRankFilter", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// toFinitePositiveInt
-// ---------------------------------------------------------------------------
 describe("toFinitePositiveInt", () => {
   it("accepts positive numbers and floors them", () => {
     expect(toFinitePositiveInt(3.9)).toBe(3);
@@ -203,9 +185,6 @@ describe("toFinitePositiveInt", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// toFiniteNonNegativeInt
-// ---------------------------------------------------------------------------
 describe("toFiniteNonNegativeInt", () => {
   it("accepts zero", () => {
     expect(toFiniteNonNegativeInt(0)).toBe(0);
@@ -221,9 +200,6 @@ describe("toFiniteNonNegativeInt", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// normalizeDucats
-// ---------------------------------------------------------------------------
 describe("normalizeDucats", () => {
   it("rounds finite non-negative values", () => {
     expect(normalizeDucats(15.4)).toBe(15);
@@ -244,9 +220,6 @@ describe("normalizeDucats", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// isRankedGroup
-// ---------------------------------------------------------------------------
 describe("isRankedGroup", () => {
   it("returns true for mods and arcanes", () => {
     expect(isRankedGroup("mods")).toBe(true);
@@ -266,9 +239,6 @@ describe("isRankedGroup", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
 describe("constants", () => {
   it("MAX_SUPPORTED_RANK is 20", () => {
     expect(MAX_SUPPORTED_RANK).toBe(20);

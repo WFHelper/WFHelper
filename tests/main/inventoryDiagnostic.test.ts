@@ -21,8 +21,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 import * as itemDb from "../../services/itemDatabase";
 import { unwrapInventoryPayload } from "../../config/shared/inventoryPayload";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 /** All inventory array keys that contain items we care about. */
 const INVENTORY_ITEM_KEYS = [
   "Suits",
@@ -166,8 +164,6 @@ function isExpectedUnindexedItem(item: UnresolvedInventoryItem): boolean {
   });
 }
 
-// ─── Setup ───────────────────────────────────────────────────────────────────
-
 const inventoryPath = findInventoryPath();
 const skipReason = inventoryPath
   ? ""
@@ -177,8 +173,6 @@ let db: ReturnType<typeof itemDb.getRendererLookup>;
 let rawInventory: InventoryRecord;
 let dbBuildMs: number;
 let parseMs: number;
-
-// ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe.skipIf(!!skipReason)("inventory diagnostic", () => {
   beforeAll(() => {

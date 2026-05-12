@@ -73,8 +73,6 @@ beforeAll(() => {
   });
 });
 
-// ── floatToGrade ──────────────────────────────────────────────────────────────
-
 describe("floatToGrade", () => {
   it("returns S for perfect roll (1.0)", () => {
     expect(floatToGrade(1.0, false)).toBe("S");
@@ -134,8 +132,6 @@ describe("floatToGrade", () => {
   });
 });
 
-// ── unparseBuff ───────────────────────────────────────────────────────────────
-
 describe("unparseBuff", () => {
   // Forward formula reference: displayed% = baseValue * 15 * disp * pow(1.25,numCurses)
   //   * lerp(0.9,1.1,roll) * buffsAtten[numBuffs] * (lvl+1) * 100
@@ -186,8 +182,6 @@ describe("unparseBuff", () => {
   });
 });
 
-// ── unparseCurse ──────────────────────────────────────────────────────────────
-
 describe("unparseCurse", () => {
   it("returns a value between 0 and 1 for typical curse values", () => {
     // Recoil curse (negative baseValue), 3 buffs + 1 curse
@@ -221,8 +215,6 @@ describe("unparseCurse", () => {
     expect(unparseCurse(-25, 0, 1.0, 1, 1)).toBe(0.5);
   });
 });
-
-// ── rivenData ─────────────────────────────────────────────────────────────────
 
 describe("rivenData", () => {
   describe("getWeaponDisposition", () => {
@@ -334,8 +326,6 @@ describe("rivenData", () => {
   });
 });
 
-// ── gradeRiven (end-to-end) ──────────────────────────────────────────────────
-
 describe("gradeRiven", () => {
   it("returns null for empty stats", () => {
     expect(gradeRiven("Rubico Prime", [])).toBeNull();
@@ -403,8 +393,6 @@ describe("gradeRiven", () => {
     expect(result!.stats[0].rollFloat).toBeLessThanOrEqual(1);
   });
 });
-
-// ── rivenBestAttributes ──────────────────────────────────────────────────────
 
 describe("rivenBestAttributes", () => {
   let getBestAttributes: typeof import("../../services/rivenBestAttributes").getBestAttributes;

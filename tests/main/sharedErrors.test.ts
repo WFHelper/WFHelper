@@ -1,9 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { normalizeErrorMessage } from "../../config/shared/errors";
 
-// ---------------------------------------------------------------------------
-// normalizeErrorMessage
-// ---------------------------------------------------------------------------
 describe("normalizeErrorMessage", () => {
   it("extracts .message from Error instances", () => {
     expect(normalizeErrorMessage(new Error("boom"))).toBe("boom");

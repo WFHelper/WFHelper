@@ -3,10 +3,6 @@ import { describe, expect, it } from "vitest";
 import { relicGroupMatchesSearch, buildRelicSearchKeywordIndex } from "./relicSearch.js";
 import type { RelicDatabase, RelicGroup } from "../../types/relics.js";
 
-// ---------------------------------------------------------------------------
-// Test fixtures
-// ---------------------------------------------------------------------------
-
 function makeGroup(overrides: Partial<RelicGroup> = {}): RelicGroup {
   return {
     key: "Neo Z9",
@@ -38,10 +34,6 @@ function makeGroup(overrides: Partial<RelicGroup> = {}): RelicGroup {
     ...overrides,
   };
 }
-
-// ---------------------------------------------------------------------------
-// relicGroupMatchesSearch
-// ---------------------------------------------------------------------------
 
 describe("relicGroupMatchesSearch", () => {
   it("returns true for empty query (matches everything)", () => {
@@ -85,10 +77,6 @@ describe("relicGroupMatchesSearch", () => {
     expect(relicGroupMatchesSearch(makeGroup(), "braton barrel")).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// buildRelicSearchKeywordIndex
-// ---------------------------------------------------------------------------
 
 describe("buildRelicSearchKeywordIndex", () => {
   it("returns empty for null/undefined db", () => {

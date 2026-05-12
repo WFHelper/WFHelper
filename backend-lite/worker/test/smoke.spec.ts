@@ -36,7 +36,6 @@ const FRESH_WINDOW_MS = 24 * HOUR;
 const FRESH_PCT_MIN = 0.95; // 95% of prices updated in last 24h
 const P95_AGE_BAR_MS = 24 * HOUR;
 const P99_AGE_BAR_MS = 36 * HOUR;
-// -----------------------------------------------------------------------------
 
 interface PriceEntry {
 	status?: string;

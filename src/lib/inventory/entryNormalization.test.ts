@@ -11,10 +11,6 @@ import {
 } from "./entryNormalization.js";
 import type { RawInventoryEntry, InventoryGroup } from "../../types/inventory.js";
 
-// ---------------------------------------------------------------------------
-// pickBoolean
-// ---------------------------------------------------------------------------
-
 describe("pickBoolean", () => {
   it("returns true for boolean true", () => {
     const entry = { mastered: true } as RawInventoryEntry;
@@ -67,10 +63,6 @@ describe("pickBoolean", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// parseAmount
-// ---------------------------------------------------------------------------
-
 describe("parseAmount", () => {
   it("parses ItemCount", () => {
     const entry = { ItemCount: 5 } as RawInventoryEntry;
@@ -107,10 +99,6 @@ describe("parseAmount", () => {
     expect(parseAmount(entry)).toBe(3);
   });
 });
-
-// ---------------------------------------------------------------------------
-// extractEquipContexts
-// ---------------------------------------------------------------------------
 
 describe("extractEquipContexts", () => {
   it("extracts equip names from known context keys", () => {
@@ -153,10 +141,6 @@ describe("extractEquipContexts", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// normalizeCollectionEntries
-// ---------------------------------------------------------------------------
-
 describe("normalizeCollectionEntries", () => {
   it("returns entries from a flat array with ItemType", () => {
     const input = [
@@ -196,10 +180,6 @@ describe("normalizeCollectionEntries", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// preferGroup
-// ---------------------------------------------------------------------------
-
 describe("preferGroup", () => {
   it("returns next when current is undefined", () => {
     expect(preferGroup(undefined, "mods")).toBe("mods");
@@ -218,10 +198,6 @@ describe("preferGroup", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// mergeOptionalBoolean
-// ---------------------------------------------------------------------------
-
 describe("mergeOptionalBoolean", () => {
   it("returns true when either value is true", () => {
     expect(mergeOptionalBoolean(true, false)).toBe(true);
@@ -238,10 +214,6 @@ describe("mergeOptionalBoolean", () => {
     expect(mergeOptionalBoolean(undefined, undefined)).toBeUndefined();
   });
 });
-
-// ---------------------------------------------------------------------------
-// mergeEquipContexts
-// ---------------------------------------------------------------------------
 
 describe("mergeEquipContexts", () => {
   it("merges and deduplicates contexts", () => {

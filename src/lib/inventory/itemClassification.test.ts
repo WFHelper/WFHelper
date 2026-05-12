@@ -19,17 +19,9 @@ import {
 import type { ResolvedItem } from "./itemClassification.js";
 import type { ItemDbEntry } from "../../types/inventory.js";
 
-// ---------------------------------------------------------------------------
-// Helpers to create test fixtures
-// ---------------------------------------------------------------------------
-
 function resolved(name: string, extra: Partial<ResolvedItem> = {}): ResolvedItem {
   return { name, imageUrl: null, ...extra };
 }
-
-// ---------------------------------------------------------------------------
-// resolveItem
-// ---------------------------------------------------------------------------
 
 describe("resolveItem", () => {
   it("returns the db entry name when present", () => {
@@ -55,10 +47,6 @@ describe("resolveItem", () => {
     expect(result.name).toBe("Braton Barrel");
   });
 });
-
-// ---------------------------------------------------------------------------
-// isArcaneUpgrade
-// ---------------------------------------------------------------------------
 
 describe("isArcaneUpgrade", () => {
   it("matches by /Arcanes/ path", () => {
@@ -88,10 +76,6 @@ describe("isArcaneUpgrade", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// isFocusUpgrade
-// ---------------------------------------------------------------------------
-
 describe("isFocusUpgrade", () => {
   it("matches by /Upgrades/Focus/ path", () => {
     expect(isFocusUpgrade("/Lotus/Upgrades/Focus/FooWaybound", {}, resolved("Foo Waybound"))).toBe(
@@ -111,10 +95,6 @@ describe("isFocusUpgrade", () => {
     expect(isFocusUpgrade("/Lotus/Mods/Rifle/Serration", {}, resolved("Serration"))).toBe(false);
   });
 });
-
-// ---------------------------------------------------------------------------
-// isLikelyModUpgrade
-// ---------------------------------------------------------------------------
 
 describe("isLikelyModUpgrade", () => {
   it("matches by /Upgrades/Mods/ path", () => {
@@ -187,10 +167,6 @@ describe("isResourceItem", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// isRelicLikeItem
-// ---------------------------------------------------------------------------
-
 describe("isRelicLikeItem", () => {
   it("matches by /Relics/ path", () => {
     expect(isRelicLikeItem("/Lotus/Relics/NeoN1Intact", {})).toBe(true);
@@ -212,10 +188,6 @@ describe("isRelicLikeItem", () => {
     expect(isRelicLikeItem("/Lotus/Types/Items/Foo", {})).toBe(false);
   });
 });
-
-// ---------------------------------------------------------------------------
-// isSceneLikeItem
-// ---------------------------------------------------------------------------
 
 describe("isSceneLikeItem", () => {
   it("matches by /PhotoBooth/ path", () => {
@@ -263,10 +235,6 @@ describe("isAuxiliaryInventoryItem", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// isAyatanLikeItem
-// ---------------------------------------------------------------------------
-
 describe("isAyatanLikeItem", () => {
   it("matches by /FusionTreasures/ path", () => {
     expect(isAyatanLikeItem("/Lotus/FusionTreasures/Anasa", {})).toBe(true);
@@ -280,10 +248,6 @@ describe("isAyatanLikeItem", () => {
     expect(isAyatanLikeItem("/Lotus/X", { type: "Sculpture" })).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// isBuildPartItem
-// ---------------------------------------------------------------------------
 
 describe("isBuildPartItem", () => {
   it("identifies a prime tradable recipe as a build part", () => {
@@ -316,10 +280,6 @@ describe("isBuildPartItem", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// canonicalBuildPartName
-// ---------------------------------------------------------------------------
-
 describe("canonicalBuildPartName", () => {
   it("renames Helmet Blueprint to Neuroptics Blueprint for warframe recipes", () => {
     const result = canonicalBuildPartName(
@@ -337,10 +297,6 @@ describe("canonicalBuildPartName", () => {
     expect(result).toBe("Something Helmet Blueprint");
   });
 });
-
-// ---------------------------------------------------------------------------
-// shouldHide
-// ---------------------------------------------------------------------------
 
 describe("shouldHide", () => {
   it("hides focus upgrades", () => {
@@ -382,10 +338,6 @@ describe("shouldHide", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// inferCategory
-// ---------------------------------------------------------------------------
-
 describe("inferCategory", () => {
   it("maps OperatorAmplifiers path to amps", () => {
     expect(inferCategory("/Lotus/OperatorAmplifiers/Foo", "misc")).toBe("amps");
@@ -399,10 +351,6 @@ describe("inferCategory", () => {
     expect(inferCategory("/Lotus/X", "misc", {})).toBe("misc");
   });
 });
-
-// ---------------------------------------------------------------------------
-// deriveGroup
-// ---------------------------------------------------------------------------
 
 describe("deriveGroup", () => {
   it("classifies equipment collection keys as misc", () => {

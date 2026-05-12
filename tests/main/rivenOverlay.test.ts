@@ -3,8 +3,6 @@ import { RIVEN_PATTERNS } from "../../services/eeLogMonitor";
 import { parseRivenStats, scoreStatsCandidate } from "../../ipc/overlay/rivenScanText";
 import { findWeaponInText } from "../../services/rivenData";
 
-// ── EE.log riven pattern tests ────────────────────────────────────────────────
-
 describe("RIVEN_PATTERNS", () => {
   describe("sessionOpen", () => {
     it("matches OmegaRerollSelection.swf creation line", () => {
@@ -175,8 +173,6 @@ describe("RIVEN_PATTERNS", () => {
     });
   });
 });
-
-// ── parseRivenStats tests ─────────────────────────────────────────────────────
 
 describe("parseRivenStats", () => {
   it("returns empty array for empty input", () => {
