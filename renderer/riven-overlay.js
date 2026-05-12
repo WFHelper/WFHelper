@@ -1,10 +1,7 @@
-// ── Determine which side this window represents ─────────────────────────────
 // Passed via URL search param: riven-overlay.html?side=left or ?side=right
 
 const _side = new URLSearchParams(window.location.search).get("side") || "left";
 const _isLeft = _side === "left";
-
-// ── State ────────────────────────────────────────────────────────────────────
 
 let _rollCount = 0;
 let _overlayInteractiveMode = false;
@@ -13,8 +10,6 @@ let _hasDisplayedStats = false;
 /** Buffered enrichment data — rendered when panel gets stats. */
 let _pendingBestAttrs = null;
 let _pendingListings = null;
-
-// ── DOM helpers ──────────────────────────────────────────────────────────────
 
 function el(id) {
   return document.getElementById(id);
@@ -32,8 +27,6 @@ function setOverlayInteractiveMode(interactive) {
   }
 }
 
-// ── Theme ────────────────────────────────────────────────────────────────────
-
 function applyThemeVars(rawVars) {
   if (!rawVars || typeof rawVars !== "object") return;
   const root = document.documentElement;
@@ -43,67 +36,6 @@ function applyThemeVars(rawVars) {
     root.style.setProperty(key, value.trim());
   }
 }
-
-function hexToAccentGlow(hex) {
-  const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || "").trim());
-  if (!match) return null;
-  const r = parseInt(match[1], 16);
-  const g = parseInt(match[2], 16);
-  const b = parseInt(match[3], 16);
-  if (![r, g, b].every(Number.isFinite)) return null;
-  return `rgba(${r}, ${g}, ${b}, 0.15)`;
-}
-
-function loadThemeFromStorageFallback() {
-  try {
-    const raw = localStorage.getItem("wf_theme_settings");
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    const colors = parsed?.colors;
-    const fontSizes = parsed?.fontSizes;
-    if (!colors || typeof colors !== "object") return;
-
-    const map = {
-      "--bg-deep": colors.bgDeep,
-      "--bg-base": colors.bgBase,
-      "--bg-surface": colors.bgSurface,
-      "--bg-raised": colors.bgRaised,
-      "--bg-hover": colors.bgHover,
-      "--accent": colors.accent,
-      "--accent-dim": colors.accentDim,
-      "--accent-bright": colors.accentBright,
-      "--text-primary": colors.textPrimary,
-      "--text-secondary": colors.textSecondary,
-      "--text-muted": colors.textMuted,
-      "--success": colors.success,
-      "--warning": colors.warning,
-      "--danger": colors.danger,
-      "--info": colors.info,
-      "--border": colors.border,
-      "--border-strong": colors.borderStrong,
-      "--font-display": '"Rajdhani", sans-serif',
-      "--font-body": '"Barlow", sans-serif',
-    };
-
-    const glow = hexToAccentGlow(colors.accent);
-    if (glow) map["--accent-glow"] = glow;
-
-    if (fontSizes && typeof fontSizes === "object") {
-      if (typeof fontSizes.headingSize === "number" && Number.isFinite(fontSizes.headingSize))
-        map["--font-heading-size"] = `${fontSizes.headingSize}rem`;
-      if (typeof fontSizes.bodySize === "number" && Number.isFinite(fontSizes.bodySize))
-        map["--font-body-size"] = `${fontSizes.bodySize}rem`;
-      if (typeof fontSizes.smallSize === "number" && Number.isFinite(fontSizes.smallSize))
-        map["--font-small-size"] = `${fontSizes.smallSize}rem`;
-    }
-
-    applyThemeVars(map);
-  } catch {
-    // ignore malformed local storage
-  }
-}
-
-// ── Grading helpers ──────────────────────────────────────────────────────────
 
 /** Map a letter grade string to its CSS class suffix. */
 function gradeClass(grade) {
@@ -123,8 +55,6 @@ function buildGradeBadge(grade, large) {
   badge.textContent = grade || "?";
   return badge;
 }
-
-// ── Stat rendering ──────────────────────────────────────────────────────────
 
 /** Map roll float (0–1) to a colour for the progress bar. */
 function rollBarColor(rollFloat, isCurse) {
@@ -227,10 +157,6 @@ function renderStats(stats) {
   if (_pendingBestAttrs) renderBestAttributes(_pendingBestAttrs);
   if (_pendingListings) renderSimilarListings(_pendingListings);
 }
-
-// ── IPC event handlers ───────────────────────────────────────────────────────
-
-// ── Grading display ──────────────────────────────────────────────────────────
 
 /** State: current stat names (lowercase) for best-attribute matching. */
 let _currentStatNamesLc = [];
@@ -670,7 +596,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Theme: local storage fallback first, then IPC
-  loadThemeFromStorageFallback();
+  window.overlayTheme.loadThemeFromStorageFallback(applyThemeVars);
   void window.rivenOverlay
     .getThemeVars()
     .then((vars) => applyThemeVars(vars))

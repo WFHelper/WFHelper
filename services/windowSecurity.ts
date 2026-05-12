@@ -1,18 +1,12 @@
-import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BrowserWindow } from "electron";
+
+import { normalizePathForCompare } from "../config/shared/pathCompare";
 
 interface HardenOptions {
   label?: string;
   allowedFilePaths?: string[];
   log?: { warn: (...args: unknown[]) => void };
-}
-
-function normalizePathForCompare(filePath: string | unknown): string {
-  return path
-    .normalize(String(filePath || ""))
-    .replace(/\\+/g, "/")
-    .toLowerCase();
 }
 
 function normalizeAllowedFiles(files: unknown): Set<string> {
@@ -62,7 +56,10 @@ export function hardenBrowserWindowNavigation(
   /* eslint-disable @typescript-eslint/no-explicit-any -- Electron event listener overloads */
   browserWindow.webContents.on("will-navigate", blockUnexpectedNavigation as any);
 
-  browserWindow.webContents.on("will-frame-navigate", ((event: Electron.Event, details: Record<string, unknown>) => {
+  browserWindow.webContents.on("will-frame-navigate", ((
+    event: Electron.Event,
+    details: Record<string, unknown>,
+  ) => {
     const targetUrl =
       details && typeof details === "object" && typeof details.url === "string" ? details.url : "";
     blockUnexpectedNavigation(event, targetUrl);

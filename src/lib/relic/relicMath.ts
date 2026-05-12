@@ -29,11 +29,3 @@ export function computeSquadEV(
   }
   return ev;
 }
-
-export function computeSquadDucatEV(
-  rewards: Array<{ chance: number }>,
-  ducats: Array<number | null>,
-  squadSize: number,
-): number {
-  return computeSquadEV(rewards, ducats, squadSize);
-}

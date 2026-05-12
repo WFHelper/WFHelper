@@ -1,6 +1,5 @@
 import { componentUniqueNameAliases } from "../../config/shared/componentNames.js";
-import { resolveDrops } from "./resolveDrops.js";
-import type { ComponentInfo, DropInfo, ItemDbEntry, ParsedItem } from "../types/inventory.js";
+import type { ComponentInfo, ItemDbEntry, ParsedItem } from "../types/inventory.js";
 import type { WfmItemsLookup } from "../types/ipc.js";
 
 interface ResolvedComponentPanel {
@@ -76,13 +75,6 @@ export function resolveComponentByName(
 ): ResolvedComponentPanel | null {
   const uniqueName = nameIndex.get(name);
   return uniqueName ? resolveComponentByUniqueName(uniqueName, itemDb, ownership) : null;
-}
-
-export function resolveComponentDrops(
-  comp: ComponentInfo | null | undefined,
-  itemDb: Record<string, ItemDbEntry>,
-): DropInfo[] {
-  return resolveDrops(comp, itemDb);
 }
 
 export function resolveComponentLocation(dbEntry: ItemDbEntry | null | undefined): string {

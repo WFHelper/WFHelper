@@ -1,3 +1,5 @@
+import { toNonEmptyString } from "../config/shared/stringValidation";
+
 /**
  * wfmTypes.ts — Shared Warframe.market API response types (main-process only)
  *
@@ -7,7 +9,6 @@
  *
  * `unwrapWfmResponse()` normalises both into a plain T.
  */
-
 
 /** v1 auction search: `GET /v1/auctions/search` */
 export interface WfmAuctionSearchPayload {
@@ -44,7 +45,6 @@ export interface WfmAuctionUpdatePayload {
   auction?: { id: string };
   [key: string]: unknown;
 }
-
 
 /** v2 order response: the `data` field of a v2 order mutation response. */
 export interface WfmRawOrder {
@@ -87,7 +87,6 @@ export interface WfmCloseOrderResult {
   remainingQuantity: number;
 }
 
-
 /**
  * Unwrap a WFM API response from its envelope.
  *
@@ -105,9 +104,4 @@ export function unwrapWfmResponse<T = unknown>(raw: unknown): T {
   return raw as T;
 }
 
-export function toNonEmptyWfmString(value: unknown, maxLength = 512): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed || trimmed.length > maxLength) return null;
-  return trimmed;
-}
+export const toNonEmptyWfmString = toNonEmptyString;

@@ -3,7 +3,6 @@ import type { WfmItemsLookup } from "../../types/ipc.js";
 import { schedulePriceCacheRevision } from "../../stores/pricing.js";
 import {
   fetchBackendPriceBySlug,
-  normalizeWfmSlug,
   shouldDirectFallback,
   type BackendRequestPriority,
 } from "./backendLite.js";
@@ -12,7 +11,7 @@ import { normalizeRankFilter as normalizePriceRank } from "../../../config/share
 import { isWfmExcludedSlug } from "../../../config/shared/wfmExclusions.js";
 import { WFM_BACKEND_ERROR_COOLDOWN_MS } from "../../../config/runtime/cacheConfig.js";
 import { log } from "../log.js";
-import { WFM_HEADERS } from "../../../config/shared/wfm.js";
+import { normalizeWfmSlug, WFM_HEADERS } from "../../../config/shared/wfm.js";
 import { rendererPriceCacheKey } from "../../../config/shared/wfmCacheKeys.js";
 import { createAdaptiveDelayController, createPriorityRequestQueue } from "./requestPolicy.js";
 

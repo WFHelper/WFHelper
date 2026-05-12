@@ -1,15 +1,11 @@
 import { toFiniteNumber } from "../config/shared/numeric";
+import { toNonEmptyString } from "../config/shared/stringValidation";
 
 export function isObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export function trimmedString(value: unknown, maxLength = 512): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed || trimmed.length > maxLength) return null;
-  return trimmed;
-}
+export const trimmedString = toNonEmptyString;
 
 function boundedNumber(value: unknown, min: number, max: number): number | null {
   const parsed = toFiniteNumber(value);

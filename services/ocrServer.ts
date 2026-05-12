@@ -30,11 +30,11 @@ const OCR_SERVER_POOL_SIZE = Math.max(
   Math.min(4, Number.parseInt(String(process.env.WF_OCR_SERVER_POOL || "2"), 10) || 2),
 );
 
-function resolveOcrServerScriptPath(): string {
-  return resolveRuntimeResourcePath("scripts", "ocr-server.ps1");
-}
-
-const OCR_SERVER_SCRIPT = resolveOcrServerScriptPath();
+const OCR_SERVER_SCRIPT = resolveRuntimeResourcePath("scripts", "ocr-server.ps1");
+const OCR_HELPER_COMMAND: { command: string; args: string[] } = {
+  command: "powershell",
+  args: ["-ExecutionPolicy", "Bypass", "-NonInteractive", "-NoProfile", "-File", OCR_SERVER_SCRIPT],
+};
 
 interface StructuredOcrBox {
   left: number;
@@ -77,20 +77,6 @@ interface QueuedRequest {
   resolve: (result: StructuredOcrResult) => void;
   reject: (err: Error) => void;
   timeoutHandle: ReturnType<typeof setTimeout>;
-}
-
-function resolveHelperCommand(): { command: string; args: string[] } | null {
-  return {
-    command: "powershell",
-    args: [
-      "-ExecutionPolicy",
-      "Bypass",
-      "-NonInteractive",
-      "-NoProfile",
-      "-File",
-      OCR_SERVER_SCRIPT,
-    ],
-  };
 }
 
 // Throttle for malformed-stdout warnings: log the first occurrence immediately,
@@ -168,14 +154,10 @@ class OcrServerWorker {
     this._ready = false;
     this._stdoutBuf = "";
 
-    const helper = resolveHelperCommand();
-    if (!helper) {
-      this._starting = false;
-      return Promise.reject(new Error("OCR server command unavailable"));
-    }
-
     return new Promise<void>((resolve, reject) => {
-      const proc = spawn(helper.command, helper.args, { stdio: ["pipe", "pipe", "pipe"] });
+      const proc = spawn(OCR_HELPER_COMMAND.command, OCR_HELPER_COMMAND.args, {
+        stdio: ["pipe", "pipe", "pipe"],
+      });
 
       let startupTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
         startupTimer = null;

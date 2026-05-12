@@ -1,4 +1,4 @@
-import { normalizeWfmSlug } from "./backendLite.js";
+import { normalizeWfmSlug } from "../../../config/shared/wfm.js";
 import {
   isTimestampFresh,
   normalizeRankFilter,

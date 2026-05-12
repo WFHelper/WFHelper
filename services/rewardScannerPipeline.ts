@@ -153,13 +153,7 @@ function cacheFrameResult(
   _lastFrameHashTs = Date.now();
 }
 
-function rememberStats(stats: TriggerStats): void {
-  _lastTriggerStats = stats;
-}
-
-async function captureRewardScreen(
-  preCapture: PreCaptureResult | null | undefined,
-): Promise<{
+async function captureRewardScreen(preCapture: PreCaptureResult | null | undefined): Promise<{
   screenshot: CaptureResult | PreCaptureResult | null;
   captureCount: number;
   captureMs: number;
@@ -216,7 +210,7 @@ export async function runRewardScanPipeline({
   const capture = await captureRewardScreen(preCapture);
   const { screenshot, captureCount, captureMs } = capture;
   if (!screenshot) {
-    rememberStats({
+    _lastTriggerStats = {
       captureCount,
       captureMs,
       ocrCallCount: 0,
@@ -224,7 +218,7 @@ export async function runRewardScanPipeline({
       slotDetectMs: 0,
       strategy: "failed",
       failureReason: capture.failureReason,
-    });
+    };
     return null;
   }
 
@@ -296,7 +290,7 @@ export async function runRewardScanPipeline({
       };
       cacheFrameResult(frameHash, result);
       recordTemporalEntry(slotFirstResult.items, expectedItemCount);
-      rememberStats({
+      _lastTriggerStats = {
         captureCount,
         captureMs,
         ocrCallCount,
@@ -304,7 +298,7 @@ export async function runRewardScanPipeline({
         slotDetectMs,
         strategy: slotFirstResult.strategy,
         failureReason: null,
-      });
+      };
       return result;
     }
 
@@ -365,7 +359,8 @@ export async function runRewardScanPipeline({
   }
 
   const consensus = buildConsensusSelection(passResults);
-  const selectedPass: PassResult | null = consensus?.selectedPass || bestPass || passResults[0] || null;
+  const selectedPass: PassResult | null =
+    consensus?.selectedPass || bestPass || passResults[0] || null;
   let items: SortedItem[] = (consensus?.items || selectedPass?.items || []).slice(
     0,
     expectedItemCount,
@@ -422,11 +417,16 @@ export async function runRewardScanPipeline({
     const textPreview = selectedPass?.text
       ? selectedPass.text.slice(0, SCANNER_TUNING.ocr.textPreviewMaxChars).replace(/\s+/g, " ")
       : "";
-    log.log(textPreview ? "[RewardScanner] No items matched OCR text:" : "[RewardScanner] No items matched OCR text", textPreview);
+    log.log(
+      textPreview
+        ? "[RewardScanner] No items matched OCR text:"
+        : "[RewardScanner] No items matched OCR text",
+      textPreview,
+    );
   }
 
   recordTemporalEntry(items, expectedItemCount);
-  rememberStats({
+  _lastTriggerStats = {
     captureCount,
     captureMs,
     ocrCallCount,
@@ -434,7 +434,7 @@ export async function runRewardScanPipeline({
     slotDetectMs,
     strategy: finalStrategy,
     failureReason: items.length === 0 ? "no-items" : null,
-  });
+  };
   log.log(
     `[RewardScanner] Stats: captures=${captureCount} captureMs=${captureMs} ` +
       `ocrCalls=${ocrCallCount} ocrMs=${ocrTotalMs} strategy=${finalStrategy}`,

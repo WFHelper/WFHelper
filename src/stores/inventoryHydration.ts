@@ -11,7 +11,7 @@ import { writable } from "svelte/store";
 import { getPriceDebugCounters, getPriceQueueStats } from "../lib/wfm/wfmPrice.js";
 import { getOrderBookDebugCounters } from "../lib/wfm/orderBook.js";
 import { getOrderSummaryDebugCounters } from "../lib/wfm/orderSummaryRemote.js";
-import { normalizeWfmSlug } from "../lib/wfm/backendLite.js";
+import { normalizeWfmSlug } from "../../config/shared/wfm.js";
 import type { InventoryBaseItem, ItemMetrics, MetricNeeds } from "../lib/inventoryMarket.js";
 import type { WfmItemsLookup } from "../types/ipc.js";
 

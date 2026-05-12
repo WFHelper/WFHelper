@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildBaseInventoryItems,
   buildInventoryViewItems,
-  computeFilteredTotalCount,
   getLookupByName,
   metricNeedsFromFilters,
   shouldHydrateMetrics,
@@ -402,7 +401,7 @@ describe("inventoryMarket view mapping", () => {
     expect(mapped.platinum).toBe(7);
   });
 
-  it("keeps header total as card count, not stack amount sum", () => {
+  it("builds one header card per mapped inventory item", () => {
     const viewItems = buildInventoryViewItems(
       [
         makeBaseItem({ internalName: "/Lotus/Upgrades/Mods/Test/A", amount: 250 }),
@@ -411,9 +410,7 @@ describe("inventoryMarket view mapping", () => {
       {},
       "mods",
     );
-    const count = computeFilteredTotalCount(viewItems);
-
-    expect(count).toBe(2);
+    expect(viewItems).toHaveLength(2);
   });
 
   it("resolves mod slug by gameRef mapping when name differs", () => {

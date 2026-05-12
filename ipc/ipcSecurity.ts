@@ -1,4 +1,3 @@
-import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ipcMain } from "electron";
@@ -7,14 +6,15 @@ import type { IpcMainEvent, IpcMainInvokeEvent } from "electron";
 import ctx from "./context";
 import { withScope } from "../services/logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { normalizePathForCompare } from "../config/shared/pathCompare";
 
 const log = withScope("ipcSecurity");
 
-const MAIN_RENDERER_SUFFIX = path.normalize(path.join("renderer", "dist", "index.html"));
-const OVERLAY_RENDERER_SUFFIX = path.normalize(path.join("renderer", "overlay.html"));
-const RIVEN_OVERLAY_RENDERER_SUFFIX = path.normalize(path.join("renderer", "riven-overlay.html"));
-const TRADE_NOTIFICATION_RENDERER_SUFFIX = path.normalize(
-  path.join("renderer", "trade-notification.html"),
+const MAIN_RENDERER_SUFFIX = normalizePathForCompare("renderer/dist/index.html");
+const OVERLAY_RENDERER_SUFFIX = normalizePathForCompare("renderer/overlay.html");
+const RIVEN_OVERLAY_RENDERER_SUFFIX = normalizePathForCompare("renderer/riven-overlay.html");
+const TRADE_NOTIFICATION_RENDERER_SUFFIX = normalizePathForCompare(
+  "renderer/trade-notification.html",
 );
 
 type IpcEventLike = {
@@ -31,13 +31,6 @@ type BrowserWindowCandidate = {
   win: import("electron").BrowserWindow | null;
   suffix: string;
 };
-
-function normalizePathForCompare(filePath: unknown): string {
-  return path
-    .normalize(String(filePath || ""))
-    .replace(/\\+/g, "/")
-    .toLowerCase();
-}
 
 function getSenderUrl(event: IpcEventLike): string {
   if (event?.senderFrame?.url) return String(event.senderFrame.url);

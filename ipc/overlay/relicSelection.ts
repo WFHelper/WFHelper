@@ -6,7 +6,7 @@ import {
 } from "../../config/shared/numeric";
 import { normalizeErrorMessage } from "../../config/shared/errors";
 import { RELIC_RECOMMENDATIONS, RELIC_PLANNER_TRIGGER } from "../../config/shared/ipcChannels";
-import { normalizeWfmSlug } from "../../config/shared/wfm";
+import { normalizeWfmSlugKey } from "../../config/shared/wfm";
 import { RELIC_MISSION_TIER_CACHE_TTL_MS } from "../../config/runtime/cacheConfig";
 
 const RECOMMENDATION_SQUAD_SIZE = 4;
@@ -140,10 +140,6 @@ type OverlayRecommendationControllerOptions = {
   fs: typeof import("node:fs");
   cacheFilePath: string;
 };
-
-function normalizeSlug(value: unknown): string {
-  return normalizeWfmSlug(typeof value === "string" ? value : null) ?? "";
-}
 
 function normalizeEra(value: unknown): string | null {
   const low = String(value || "")
@@ -286,7 +282,7 @@ function loadPersistedCacheMaps(
       if (!isPriceEntryFresh(entry)) continue;
       const median = toFiniteOr((entry as { median?: unknown }).median, NaN);
       if (!Number.isFinite(median) || median <= 0) continue;
-      prices.set(normalizeSlug(slug), median);
+      prices.set(normalizeWfmSlugKey(slug), median);
     }
 
     // Extract ducat values from snapshot meta (only available in snapshot format).
@@ -296,7 +292,7 @@ function loadPersistedCacheMaps(
         if (!entry || typeof entry !== "object") continue;
         const ducatValue = normalizeDucats((entry as { ducats?: unknown }).ducats);
         if (ducatValue == null || ducatValue <= 0) continue;
-        ducats.set(normalizeSlug(slug), ducatValue);
+        ducats.set(normalizeWfmSlugKey(slug), ducatValue);
       }
     }
   } catch {
@@ -341,14 +337,14 @@ function pickBestOwnedQuality(
     }));
 
     const platValues = normalizedRewards.map((reward) => {
-      const slug = normalizeSlug(reward?.urlName);
+      const slug = normalizeWfmSlugKey(reward?.urlName);
       return slug ? priceLookup(slug) : null;
     });
     const ducatValues = normalizedRewards.map((reward) => {
       // @wfcd/items rarely ships ducat values; fall back to snapshot meta ducats.
       const rewardDucats = normalizeDucats(reward?.ducats);
       if (rewardDucats != null && rewardDucats > 0) return rewardDucats;
-      const slug = normalizeSlug(reward?.urlName);
+      const slug = normalizeWfmSlugKey(reward?.urlName);
       return slug ? getDucats(slug) : null;
     });
 
@@ -461,7 +457,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     const { prices: persistedPrices, ducats: persistedDucats } = getPersistedCacheMaps();
 
     const getPrice = (slug: string): number | null => {
-      const normalized = normalizeSlug(slug);
+      const normalized = normalizeWfmSlugKey(slug);
       if (!normalized) return null;
 
       if (persistedPrices.has(normalized)) {
@@ -479,7 +475,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     };
 
     const getDucats = (slug: string): number | null => {
-      const normalized = normalizeSlug(slug);
+      const normalized = normalizeWfmSlugKey(slug);
       if (!normalized) return null;
       return persistedDucats.get(normalized) ?? null;
     };

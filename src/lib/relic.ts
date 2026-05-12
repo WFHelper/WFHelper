@@ -11,7 +11,7 @@ export { relicGroupMatchesSearch, buildRelicSearchKeywordIndex } from "./relic/r
 
 export { parseOwnedRelics } from "./relic/relicInventory.js";
 
-export { computeSquadEV, computeSquadDucatEV } from "./relic/relicMath.js";
+export { computeSquadEV } from "./relic/relicMath.js";
 
 export {
   computeGroupDucatEv,

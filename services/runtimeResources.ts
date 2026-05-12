@@ -1,14 +1,10 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-function appResourcesPath(): string | null {
-  const resourcesPath = process.resourcesPath;
-  return resourcesPath ? resourcesPath : null;
-}
-
 export function resolveRuntimeResourcePath(...parts: string[]): string {
+  const resourcesPath = process.resourcesPath;
   const candidates = [
-    ...(appResourcesPath() ? [path.join(appResourcesPath()!, ...parts)] : []),
+    ...(resourcesPath ? [path.join(resourcesPath, ...parts)] : []),
     path.join(__dirname, "..", "resources", ...parts),
     path.join(__dirname, "..", "..", "resources", ...parts),
     path.join(process.cwd(), "resources", ...parts),

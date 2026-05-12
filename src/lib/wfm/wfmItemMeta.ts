@@ -1,6 +1,5 @@
 import {
   fetchBackendMetaBySlug,
-  normalizeWfmSlug,
   shouldDirectFallback,
   type BackendRequestPriority,
 } from "./backendLite.js";
@@ -10,7 +9,7 @@ import {
   normalizeDucats,
   toFiniteNumber,
 } from "../../../config/shared/numeric.js";
-import { formatWfmAssetUrl, WFM_HEADERS } from "../../../config/shared/wfm.js";
+import { formatWfmAssetUrl, normalizeWfmSlug, WFM_HEADERS } from "../../../config/shared/wfm.js";
 import { isWfmExcludedSlug } from "../../../config/shared/wfmExclusions.js";
 import { createSingleFlightMap } from "./requestPolicy.js";
 

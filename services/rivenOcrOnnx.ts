@@ -25,21 +25,10 @@ import { resolveRuntimeResourcePath } from "./runtimeResources";
 
 const log = withScope("rivenOcrOnnx");
 
-function resolveRivenOcrAssetPath(...parts: string[]): string {
-  return resolveRuntimeResourcePath("riven-ocr", ...parts);
-}
-
-function resolveYoloModelPath(): string {
-  return resolveRivenOcrAssetPath("yolo", "stat_line_detector.onnx");
-}
-
-function resolveChRecModelPath(): string {
-  return resolveRivenOcrAssetPath("paddle", "ch_PP-OCRv3_rec_infer.onnx");
-}
-
-function resolveChDictPath(): string {
-  return resolveRivenOcrAssetPath("paddle", "ch_dict.txt");
-}
+const RIVEN_OCR_ASSET_DIR = "riven-ocr";
+const YOLO_MODEL_PARTS = [RIVEN_OCR_ASSET_DIR, "yolo", "stat_line_detector.onnx"] as const;
+const CH_REC_MODEL_PARTS = [RIVEN_OCR_ASSET_DIR, "paddle", "ch_PP-OCRv3_rec_infer.onnx"] as const;
+const CH_DICT_PARTS = [RIVEN_OCR_ASSET_DIR, "paddle", "ch_dict.txt"] as const;
 
 /** Minimal interface matching onnxruntime-node InferenceSession */
 interface OrtInferenceSession {
@@ -69,7 +58,7 @@ async function getYoloSession(): Promise<OrtInferenceSession> {
   if (_yoloSessionPromise) return _yoloSessionPromise;
 
   _yoloSessionPromise = (async () => {
-    const modelPath = resolveYoloModelPath();
+    const modelPath = resolveRuntimeResourcePath(...YOLO_MODEL_PARTS);
     if (!existsSync(modelPath)) {
       const err = new Error(`YOLO model not found at ${modelPath}`);
       _yoloSessionPermanentError = err;
@@ -94,8 +83,7 @@ async function getYoloSession(): Promise<OrtInferenceSession> {
     throw err;
   });
 
-  const pending = _yoloSessionPromise;
-  return pending;
+  return _yoloSessionPromise;
 }
 
 async function getChRecSession(): Promise<OrtInferenceSession> {
@@ -103,8 +91,8 @@ async function getChRecSession(): Promise<OrtInferenceSession> {
   if (_chRecSessionPromise) return _chRecSessionPromise;
 
   _chRecSessionPromise = (async () => {
-    const modelPath = resolveChRecModelPath();
-    const dictPath = resolveChDictPath();
+    const modelPath = resolveRuntimeResourcePath(...CH_REC_MODEL_PARTS);
+    const dictPath = resolveRuntimeResourcePath(...CH_DICT_PARTS);
     if (!existsSync(modelPath)) {
       const err = new Error(`PaddleOCR CH model not found at ${modelPath}`);
       _chRecSessionPermanentError = err;
@@ -137,8 +125,7 @@ async function getChRecSession(): Promise<OrtInferenceSession> {
     throw err;
   });
 
-  const pending = _chRecSessionPromise;
-  return pending;
+  return _chRecSessionPromise;
 }
 
 /**
@@ -146,7 +133,10 @@ async function getChRecSession(): Promise<OrtInferenceSession> {
  * Does NOT load the models — just checks file paths.
  */
 export function rivenOcrOnnxAvailable(): boolean {
-  return existsSync(resolveYoloModelPath()) && existsSync(resolveChRecModelPath());
+  return (
+    existsSync(resolveRuntimeResourcePath(...YOLO_MODEL_PARTS)) &&
+    existsSync(resolveRuntimeResourcePath(...CH_REC_MODEL_PARTS))
+  );
 }
 
 interface YoloBox {

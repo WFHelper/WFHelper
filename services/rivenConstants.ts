@@ -3,16 +3,12 @@
  * Values sourced from the game's riven mod formulae (via RivenParser.js).
  */
 
-/** Buff attenuation indexed by number of buffs. Raw C float values. */
 export const NUM_BUFFS_ATTEN = [0, 1, 0.66000003, 0.5, 0.40000001, 0.34999999];
 
 /** Curse-specific attenuation indexed by number of buffs (NOT curses). */
 export const NUM_BUFFS_CURSE_ATTEN = [0, 1, 0.33000001, 0.5, 1.25, 1.5];
 
-/** SPECIFIC_FIT_ATTENUATION constant from game code. */
 export const SPECIFIC_FIT_ATTEN = 1.5;
-
-/** getBaseDrain(RIVEN_BASE_DRAIN) */
 export const BASE_DRAIN = 10;
 
 /**

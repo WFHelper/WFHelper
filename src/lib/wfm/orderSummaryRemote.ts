@@ -1,9 +1,9 @@
 import {
   fetchBackendOrderSummaryBySlug,
-  normalizeWfmSlug,
   type BackendFetchResult,
   type BackendOrderSummaryPayload,
 } from "./backendLite.js";
+import { normalizeWfmSlug } from "../../../config/shared/wfm.js";
 import { normalizeRankFilter } from "../../../config/shared/numeric.js";
 import { rendererOrderBookCacheKey } from "../../../config/shared/wfmCacheKeys.js";
 import {

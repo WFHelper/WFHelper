@@ -1,11 +1,8 @@
 import { normalizeDucats, toFiniteNumber } from "../../../config/shared/numeric.js";
 import { BACKEND_BOOTSTRAP_FAILURE_COOLDOWN_MS } from "../../../config/runtime/cacheConfig.js";
 import { BACKEND_URL } from "../../../config/shared/backendConfig.js";
-import { normalizeWfmSlug as _normalizeWfmSlug } from "../../../config/shared/wfm.js";
+import { normalizeWfmSlug } from "../../../config/shared/wfm.js";
 import type { RequestPriority } from "./wfmPrice.js";
-
-/** Re-export from shared module for existing renderer consumers. */
-export const normalizeWfmSlug = _normalizeWfmSlug;
 
 export type BackendRequestPriority = RequestPriority;
 

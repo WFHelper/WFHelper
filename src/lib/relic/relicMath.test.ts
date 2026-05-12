@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeSquadEV, computeSquadDucatEV } from "./relicMath.js";
+import { computeSquadEV } from "./relicMath.js";
 
 describe("computeSquadEV", () => {
   it("computes solo EV as weighted average", () => {
@@ -48,19 +48,19 @@ describe("computeSquadEV", () => {
   });
 });
 
-describe("computeSquadDucatEV", () => {
-  it("delegates to computeSquadEV with ducat values", () => {
+describe("ducat EV", () => {
+  it("uses computeSquadEV with ducat values", () => {
     const rewards = [{ chance: 50 }, { chance: 50 }];
     const ducats = [15, 100];
-    const solo = computeSquadDucatEV(rewards, ducats, 1);
+    const solo = computeSquadEV(rewards, ducats, 1);
     expect(solo).toBeCloseTo(57.5, 6);
   });
 
   it("computes higher EV for larger squads", () => {
     const rewards = [{ chance: 50 }, { chance: 50 }];
     const ducats = [15, 100];
-    const solo = computeSquadDucatEV(rewards, ducats, 1);
-    const squad4 = computeSquadDucatEV(rewards, ducats, 4);
+    const solo = computeSquadEV(rewards, ducats, 1);
+    const squad4 = computeSquadEV(rewards, ducats, 4);
     expect(squad4).toBeGreaterThan(solo);
   });
 });

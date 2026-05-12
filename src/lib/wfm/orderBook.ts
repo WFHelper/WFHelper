@@ -1,4 +1,4 @@
-import { normalizeWfmSlug } from "./backendLite.js";
+import { normalizeWfmSlug } from "../../../config/shared/wfm.js";
 import { isCacheEntryFresh, normalizeRank } from "../../../config/shared/numeric.js";
 import { WFM_HEADERS } from "../../../config/shared/wfm.js";
 import { rendererOrderBookCacheKey } from "../../../config/shared/wfmCacheKeys.js";

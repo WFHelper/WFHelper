@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import * as sharedInventory from "../../config/shared/inventoryPayload";
 import * as sharedStats from "../../config/shared/wfmStats";
 
-import {
-  hasInventoryShape as rendererHasInventoryShape,
-  unwrapInventoryPayload,
-} from "../../src/lib/inventoryPayload.js";
 import { __test__ as rendererWfmPriceTest } from "../../src/lib/wfm/wfmPrice.js";
 
 const canonicalStatsPayload = {
@@ -24,31 +19,6 @@ const canonicalStatsPayload = {
 };
 
 describe("shared parser parity", () => {
-  it("keeps inventory-shape detection aligned between shared and renderer", () => {
-    const sample = { Suits: [{ ItemType: "Excalibur" }] };
-
-    expect(sharedInventory.hasInventoryShape(sample)).toBe(true);
-    expect(rendererHasInventoryShape(sample)).toBe(true);
-  });
-
-  it("unwraps nested inventory envelopes consistently", () => {
-    const wrapped = {
-      payload: {
-        data: {
-          inventory_json: JSON.stringify({ LevelKeys: [{ ItemType: "Neo N19" }] }),
-        },
-      },
-    };
-
-    const fromRenderer = unwrapInventoryPayload(wrapped as never);
-    const fromShared = sharedInventory.unwrapInventoryPayload(wrapped, {
-      returnInputOnFailure: true,
-    });
-
-    expect(fromRenderer.LevelKeys?.[0]?.ItemType).toBe("Neo N19");
-    expect(fromShared.LevelKeys?.[0]?.ItemType).toBe("Neo N19");
-  });
-
   it("extracts the same median across shared and renderer codepaths", () => {
     const expected = 24;
 

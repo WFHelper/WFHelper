@@ -9,7 +9,6 @@
   import ComponentPanel from "../components/ComponentPanel.svelte";
   import DetailModalBase from "./DetailModalBase.svelte";
   import {
-    computeSquadDucatEV,
     computeSquadEV,
     fissureTierClass,
     RELIC_ICON_PATHS,
@@ -134,7 +133,7 @@
 
   $: squadEV = prices && rewards.length ? computeSquadEV(rewards, prices, localSquadSize) : null;
   $: squadDucatEV =
-    ducats && rewards.length ? computeSquadDucatEV(rewards, ducats, localSquadSize) : null;
+    ducats && rewards.length ? computeSquadEV(rewards, ducats, localSquadSize) : null;
   $: hasAnyPrice = prices?.some((price) => price != null);
   $: hasAnyDucats = ducats?.some((value) => value != null);
   $: ducatonator =

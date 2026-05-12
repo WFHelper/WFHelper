@@ -1,3 +1,5 @@
+import { normalizeForSlug } from "./textNormalize";
+
 /**
  * Shared Warframe Market constants and helpers used by main-process,
  * renderer, and (optionally) the worker.
@@ -37,8 +39,6 @@ export function titleFromSlug(slug: string): string {
     .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }
 
-import { normalizeForSlug } from "./textNormalize";
-
 /**
  * Normalize a warframe.market item slug.
  *
@@ -53,4 +53,8 @@ import { normalizeForSlug } from "./textNormalize";
  */
 export function normalizeWfmSlug(value: string | null | undefined): string | null {
   return normalizeForSlug(value);
+}
+
+export function normalizeWfmSlugKey(value: unknown): string {
+  return normalizeWfmSlug(typeof value === "string" ? value : null) ?? "";
 }

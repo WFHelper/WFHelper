@@ -2,11 +2,11 @@
   import { itemDb, wfmItems } from "../stores/data.js";
   import { createPriceLoader } from "../lib/priceState.js";
   import {
-    resolveComponentDrops,
     resolveComponentLocation,
     resolveComponentPriceLookup,
     resolveComponentWikiFallback,
   } from "../lib/componentResolution.js";
+  import { resolveDrops } from "../lib/resolveDrops.js";
   import DropsList from "./DropsList.svelte";
   import MarketPrice from "./MarketPrice.svelte";
   import WikiButton from "./WikiButton.svelte";
@@ -28,7 +28,7 @@
     priceSlug = state.slug;
   });
 
-  $: compDrops = resolveComponentDrops(comp, $itemDb);
+  $: compDrops = resolveDrops(comp, $itemDb);
   $: compImageUrl = comp?.uniqueName ? ($itemDb[comp.uniqueName]?.imageUrl || null) : null;
   $: compDbEntry = comp?.uniqueName ? $itemDb[comp.uniqueName] : null;
   $: compLocation = resolveComponentLocation(compDbEntry);

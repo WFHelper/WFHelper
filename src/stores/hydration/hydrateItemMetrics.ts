@@ -8,7 +8,7 @@ import {
   setCachedOrderSummary,
   setCachedOrderSummaryNoData,
 } from "../../lib/wfm/orderSummaryCache.js";
-import { normalizeWfmSlug } from "../../lib/wfm/backendLite.js";
+import { normalizeWfmSlug } from "../../../config/shared/wfm.js";
 import { fetchWfmItemMetaBySlug } from "../../lib/wfm/wfmItemMeta.js";
 import type { InventoryBaseItem, ItemMetrics, MetricNeeds } from "../../lib/inventoryMarket.js";
 import type { WfmItemsLookup } from "../../types/ipc.js";

@@ -9,7 +9,7 @@ import type {
   RelicReward,
 } from "../../types/relics.js";
 import { QUALITY_MODES } from "./relicConstants.js";
-import { computeSquadDucatEV, computeSquadEV } from "./relicMath.js";
+import { computeSquadEV } from "./relicMath.js";
 import { normalizeDucats } from "../../../config/shared/numeric.js";
 
 const EV_NODATA_TTL_MS = 2 * 60 * 1000;
@@ -217,7 +217,7 @@ function qualityDucatEV(
   const hasAny = ducats.some((value) => value != null);
   if (!hasAny) return null;
 
-  return computeSquadDucatEV(rewards, ducats, squadSize);
+  return computeSquadEV(rewards, ducats, squadSize);
 }
 
 export function computeGroupDucatEv(

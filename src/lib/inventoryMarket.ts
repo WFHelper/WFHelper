@@ -472,7 +472,3 @@ export function buildInventoryViewItems(
     };
   });
 }
-
-export function computeFilteredTotalCount(items: InventoryViewItem[]): number {
-  return items.length;
-}

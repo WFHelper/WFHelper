@@ -16,7 +16,6 @@
     buildBaseInventoryItems,
     buildInventoryViewItems,
     buildOrderLookups,
-    computeFilteredTotalCount,
     metricNeedsFromFilters,
     shouldHydrateMetrics,
     type InventoryBaseItem,
@@ -236,7 +235,7 @@
         : a.name.localeCompare(b.name) * dir
     );
   })();
-  $: filteredTotalCount = filter === "resources" ? filteredResources.length : computeFilteredTotalCount(filtered);
+  $: filteredTotalCount = filter === "resources" ? filteredResources.length : filtered.length;
   $: showDucats = filter === "all_parts" || filter === "full_sets";
   $: metricNeeds = metricNeedsFromFilters($inventoryFilters, filter);
   $: if ($startupPriceCacheReady && Object.keys($wfmItems).length > 0) {

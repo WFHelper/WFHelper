@@ -1,154 +1,116 @@
-/**
- * Shared mutable state for the main process.
- * All IPC modules import from here so they share the same references.
- */
-
 import type { BrowserWindow } from "electron";
 import type { FSWatcher } from "chokidar";
 import { withScope } from "../services/logger";
 import type { OverlaySettings } from "../config/runtime/overlaySettings";
 import { OVERLAY_SETTINGS_DEFAULTS } from "../config/runtime/overlaySettings";
 
-const log = withScope("ctx");
-
 type InventoryData = Record<string, unknown> | null;
 type OverlayThemeVars = Record<string, string>;
 
-let mainWindow: BrowserWindow | null = null;
-let overlayWindow: BrowserWindow | null = null;
-let plannerOverlayWindow: BrowserWindow | null = null;
-let rivenOverlayLeftWindow: BrowserWindow | null = null;
-let rivenOverlayRightWindow: BrowserWindow | null = null;
-let tradeNotificationWindow: BrowserWindow | null = null;
-let currentInventoryPath: string | null = null;
-let currentInventoryData: InventoryData = null;
-let watcher: FSWatcher | null = null;
-let overlaySettings = { ...OVERLAY_SETTINGS_DEFAULTS } as OverlaySettings;
-let overlayThemeVars: OverlayThemeVars = {};
-let overlayHotkeyRegistered: string | null = null;
-let overlayInteractionHotkeyRegistered: string | null = null;
-let overlayInteractiveMode = false;
-let overlayDismissedUntilMs = 0;
+interface MainProcessContext {
+  mainWindow: BrowserWindow | null;
+  overlayWindow: BrowserWindow | null;
+  plannerOverlayWindow: BrowserWindow | null;
+  rivenOverlayLeftWindow: BrowserWindow | null;
+  rivenOverlayRightWindow: BrowserWindow | null;
+  tradeNotificationWindow: BrowserWindow | null;
+  currentInventoryPath: string | null;
+  currentInventoryData: InventoryData;
+  watcher: FSWatcher | null;
+  overlaySettings: OverlaySettings;
+  overlayThemeVars: OverlayThemeVars;
+  overlayHotkeyRegistered: string | null;
+  overlayInteractionHotkeyRegistered: string | null;
+  overlayInteractiveMode: boolean;
+  overlayDismissedUntilMs: number;
+}
 
-const ctx = {
-  get mainWindow() {
-    return mainWindow;
-  },
-  set mainWindow(v: BrowserWindow | null) {
-    log.log(`mainWindow ${mainWindow ? "set" : "null"} -> ${v ? "set" : "null"}`);
-    mainWindow = v;
-  },
+type ContextKey = keyof MainProcessContext;
+type PresenceKey =
+  | "mainWindow"
+  | "overlayWindow"
+  | "plannerOverlayWindow"
+  | "rivenOverlayLeftWindow"
+  | "rivenOverlayRightWindow"
+  | "tradeNotificationWindow"
+  | "currentInventoryPath"
+  | "watcher";
+type QuotedKey = "overlayHotkeyRegistered" | "overlayInteractionHotkeyRegistered";
 
-  get overlayWindow() {
-    return overlayWindow;
-  },
-  set overlayWindow(v: BrowserWindow | null) {
-    log.log(`overlayWindow ${overlayWindow ? "set" : "null"} -> ${v ? "set" : "null"}`);
-    overlayWindow = v;
-  },
+const log = withScope("ctx");
+const presenceKeys: ReadonlySet<ContextKey> = new Set<PresenceKey>([
+  "mainWindow",
+  "overlayWindow",
+  "plannerOverlayWindow",
+  "rivenOverlayLeftWindow",
+  "rivenOverlayRightWindow",
+  "tradeNotificationWindow",
+  "currentInventoryPath",
+  "watcher",
+]);
+const quotedKeys: ReadonlySet<ContextKey> = new Set<QuotedKey>([
+  "overlayHotkeyRegistered",
+  "overlayInteractionHotkeyRegistered",
+]);
 
-  get plannerOverlayWindow() {
-    return plannerOverlayWindow;
-  },
-  set plannerOverlayWindow(v: BrowserWindow | null) {
-    log.log(`plannerOverlayWindow ${plannerOverlayWindow ? "set" : "null"} -> ${v ? "set" : "null"}`);
-    plannerOverlayWindow = v;
-  },
-
-  get rivenOverlayLeftWindow() {
-    return rivenOverlayLeftWindow;
-  },
-  set rivenOverlayLeftWindow(v: BrowserWindow | null) {
-    log.log(`rivenOverlayLeftWindow ${rivenOverlayLeftWindow ? "set" : "null"} -> ${v ? "set" : "null"}`);
-    rivenOverlayLeftWindow = v;
-  },
-
-  get rivenOverlayRightWindow() {
-    return rivenOverlayRightWindow;
-  },
-  set rivenOverlayRightWindow(v: BrowserWindow | null) {
-    log.log(`rivenOverlayRightWindow ${rivenOverlayRightWindow ? "set" : "null"} -> ${v ? "set" : "null"}`);
-    rivenOverlayRightWindow = v;
-  },
-
-  get tradeNotificationWindow() {
-    return tradeNotificationWindow;
-  },
-  set tradeNotificationWindow(v: BrowserWindow | null) {
-    log.log(`tradeNotificationWindow ${tradeNotificationWindow ? "set" : "null"} -> ${v ? "set" : "null"}`);
-    tradeNotificationWindow = v;
-  },
-
-  get currentInventoryPath() {
-    return currentInventoryPath;
-  },
-  set currentInventoryPath(v: string | null) {
-    log.log(`currentInventoryPath ${currentInventoryPath ? "set" : "null"} -> ${v ? "set" : "null"}`);
-    currentInventoryPath = v;
-  },
-
-  get currentInventoryData() {
-    return currentInventoryData;
-  },
-  set currentInventoryData(v: InventoryData) {
-    currentInventoryData = v;
-  },
-
-  get watcher() {
-    return watcher;
-  },
-  set watcher(v: FSWatcher | null) {
-    log.log(`watcher ${watcher ? "set" : "null"} -> ${v ? "set" : "null"}`);
-    watcher = v;
-  },
-
-  get overlaySettings() {
-    return overlaySettings;
-  },
-  set overlaySettings(v: OverlaySettings) {
-    overlaySettings = v;
-  },
-
-  get overlayThemeVars() {
-    return overlayThemeVars;
-  },
-  set overlayThemeVars(v: OverlayThemeVars) {
-    overlayThemeVars = v;
-  },
-
-  get overlayHotkeyRegistered() {
-    return overlayHotkeyRegistered;
-  },
-  set overlayHotkeyRegistered(v: string | null) {
-    log.log(`overlayHotkeyRegistered "${overlayHotkeyRegistered}" -> "${v}"`);
-    overlayHotkeyRegistered = v;
-  },
-
-  get overlayInteractionHotkeyRegistered() {
-    return overlayInteractionHotkeyRegistered;
-  },
-  set overlayInteractionHotkeyRegistered(v: string | null) {
-    log.log(`overlayInteractionHotkeyRegistered "${overlayInteractionHotkeyRegistered}" -> "${v}"`);
-    overlayInteractionHotkeyRegistered = v;
-  },
-
-  get overlayInteractiveMode() {
-    return overlayInteractiveMode;
-  },
-  set overlayInteractiveMode(v: boolean) {
-    const next = !!v;
-    if (next !== overlayInteractiveMode) {
-      log.log(`overlayInteractiveMode ${overlayInteractiveMode} -> ${next}`);
-    }
-    overlayInteractiveMode = next;
-  },
-
-  get overlayDismissedUntilMs() {
-    return overlayDismissedUntilMs;
-  },
-  set overlayDismissedUntilMs(v: number) {
-    overlayDismissedUntilMs = Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 0;
-  },
+const state: MainProcessContext = {
+  mainWindow: null,
+  overlayWindow: null,
+  plannerOverlayWindow: null,
+  rivenOverlayLeftWindow: null,
+  rivenOverlayRightWindow: null,
+  tradeNotificationWindow: null,
+  currentInventoryPath: null,
+  currentInventoryData: null,
+  watcher: null,
+  overlaySettings: { ...OVERLAY_SETTINGS_DEFAULTS } as OverlaySettings,
+  overlayThemeVars: {},
+  overlayHotkeyRegistered: null,
+  overlayInteractionHotkeyRegistered: null,
+  overlayInteractiveMode: false,
+  overlayDismissedUntilMs: 0,
 };
+
+function normalizeValue(key: ContextKey, value: unknown): unknown {
+  if (key === "overlayInteractiveMode") return Boolean(value);
+  if (key === "overlayDismissedUntilMs") {
+    return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  }
+  return value;
+}
+
+function describePresence(value: unknown): string {
+  return value ? "set" : "null";
+}
+
+function logAssignment(key: ContextKey, previous: unknown, next: unknown): void {
+  if (presenceKeys.has(key)) {
+    log.log(`${key} ${describePresence(previous)} -> ${describePresence(next)}`);
+    return;
+  }
+
+  if (quotedKeys.has(key)) {
+    log.log(`${key} "${previous}" -> "${next}"`);
+    return;
+  }
+
+  if (key === "overlayInteractiveMode" && previous !== next) {
+    log.log(`${key} ${previous} -> ${next}`);
+  }
+}
+
+const ctx = new Proxy(state, {
+  set(target, property, value) {
+    if (typeof property !== "string" || !Object.prototype.hasOwnProperty.call(target, property)) {
+      return false;
+    }
+
+    const key = property as ContextKey;
+    const previous = target[key];
+    const next = normalizeValue(key, value);
+    logAssignment(key, previous, next);
+    return Reflect.set(target, key, next);
+  },
+}) as MainProcessContext;
 
 export default ctx;

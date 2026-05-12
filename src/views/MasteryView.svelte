@@ -88,14 +88,12 @@
     return applySharedFiltersAndSort(hydrated, $masteryFilters);
   })();
 
-  function pct(n: number, total: number): string {
+  function formatPercent(n: number, total: number): string {
     return total > 0 ? ((n / total) * 100).toFixed(1) : "0.0";
   }
-  function pctRaw(n: number, total: number): number {
-    return total > 0 ? (n / total) * 100 : 0;
-  }
-  function clampPct(n: number, total: number): number {
-    return Math.max(0, Math.min(100, pctRaw(n, total)));
+  function boundedPercent(n: number, total: number): number {
+    const percent = total > 0 ? (n / total) * 100 : 0;
+    return Math.max(0, Math.min(100, percent));
   }
   const RING_R = 52;
   const RING_C = 2 * Math.PI * RING_R;
@@ -115,7 +113,7 @@
 
   {#if $masteryData}
     {@const stats = $masteryData.stats}
-    {@const masteredPct = pct(stats.mastered, stats.total)}
+    {@const masteredPct = formatPercent(stats.mastered, stats.total)}
 
     <!-- Stats overview -->
     <div class="grid gap-3 mb-3.5">
@@ -141,8 +139,8 @@
       <ThemedPanel className="grid gap-[0.46rem] p-2.5">
         {#each categories as cat}
           {@const cs = stats.byCategory[cat]}
-          {@const masteredWidth = clampPct(cs.mastered, cs.total)}
-          {@const progressWidth = clampPct(cs.inProgress, cs.total)}
+          {@const masteredWidth = boundedPercent(cs.mastered, cs.total)}
+          {@const progressWidth = boundedPercent(cs.inProgress, cs.total)}
           <div class="grid items-center gap-2 grid-cols-[minmax(72px,110px)_1fr_auto]">
             <span class="text-[0.8rem] text-text-secondary">{cat}</span>
             <svg class="block h-[0.36rem] w-full overflow-hidden rounded-full bg-white/[0.07]" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
@@ -155,7 +153,7 @@
                 height="1"
               ></rect>
             </svg>
-            <span class="whitespace-nowrap text-[0.77rem] text-text-secondary">{cs.mastered}/{cs.total} <small class="text-text-muted">({pct(cs.mastered, cs.total)}%)</small></span>
+            <span class="whitespace-nowrap text-[0.77rem] text-text-secondary">{cs.mastered}/{cs.total} <small class="text-text-muted">({formatPercent(cs.mastered, cs.total)}%)</small></span>
           </div>
         {/each}
       </ThemedPanel>

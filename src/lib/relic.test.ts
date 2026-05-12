@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildRelicSearchKeywordIndex,
   computeGroupDucatEv,
-  computeSquadDucatEV,
   computeSquadEV,
   parseOwnedRelics,
   relicGroupMatchesSearch,
@@ -28,8 +27,8 @@ describe("relic helpers", () => {
     const rewards = [{ chance: 50 }, { chance: 50 }];
     const ducats = [15, 100];
 
-    const solo = computeSquadDucatEV(rewards, ducats, 1);
-    const squad4 = computeSquadDucatEV(rewards, ducats, 4);
+    const solo = computeSquadEV(rewards, ducats, 1);
+    const squad4 = computeSquadEV(rewards, ducats, 4);
 
     expect(solo).toBeCloseTo(57.5, 6);
     expect(squad4).toBeCloseTo(94.6875, 6);

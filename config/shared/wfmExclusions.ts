@@ -1,4 +1,4 @@
-import { normalizeWfmSlug } from "./wfm";
+import { normalizeWfmSlugKey } from "./wfm";
 import { normalizeForSearch } from "./textNormalize";
 
 const BLOOD_FOR_SLUGS = new Set(["blood_for_ammo", "blood_for_energy", "blood_for_life"]);
@@ -13,16 +13,12 @@ function isKnownUnlistedSlugPattern(slug: string): boolean {
   return slug.endsWith("_scene");
 }
 
-function normalizeSlug(value: unknown): string {
-  return normalizeWfmSlug(typeof value === "string" ? value : null) ?? "";
-}
-
 function normalizeName(value: unknown): string {
   return typeof value === "string" ? normalizeForSearch(value) : "";
 }
 
 function isVeiledRivenSlug(slug: unknown): boolean {
-  const normalized = normalizeSlug(slug);
+  const normalized = normalizeWfmSlugKey(slug);
   return /(^|_)riven_mod_veiled$/.test(normalized);
 }
 
@@ -32,7 +28,7 @@ function isVeiledRivenName(name: unknown): boolean {
 }
 
 export function isExcludedRankedMarketItem(name: unknown, slug: unknown): boolean {
-  const normalizedSlug = normalizeSlug(slug);
+  const normalizedSlug = normalizeWfmSlugKey(slug);
   if (BLOOD_FOR_SLUGS.has(normalizedSlug)) return true;
   if (isVeiledRivenSlug(normalizedSlug)) return true;
 
@@ -51,8 +47,7 @@ export function isExcludedRankedMarketItem(name: unknown, slug: unknown): boolea
  * are not tradable and have no WFM listing.
  */
 export function isWfmExcludedSlug(slug: unknown): boolean {
-  const normalizedSlug = normalizeSlug(slug);
+  const normalizedSlug = normalizeWfmSlugKey(slug);
   if (!normalizedSlug) return false;
   return WFM_EXCLUDED_SLUGS.has(normalizedSlug) || isKnownUnlistedSlugPattern(normalizedSlug);
 }
-

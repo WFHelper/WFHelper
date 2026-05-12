@@ -59,14 +59,6 @@
 
   $: foundry = $foundryData;
 
-  /**
-   * parseFoundry output is already normalised to our 10 foundry categories,
-   * so just pass the value through — no local remapping needed.
-   */
-  function normaliseCategory(cat: string): string {
-    return (cat || "").trim() || "Misc";
-  }
-
   /** Canonical display order for the category chips in the single filter row. */
   const CATEGORY_ORDER = [
     "Warframe",
@@ -108,7 +100,7 @@
       imageUrl: b.imageUrl,
       uniqueName: b.uniqueName,
       productUniqueName: b.productUniqueName,
-      category: normaliseCategory(b.category),
+      category: (b.category || "").trim() || "Misc",
       ingredients: b.ingredients,
       buildPrice: b.buildPrice,
       buildTime: 0,
@@ -124,7 +116,7 @@
       imageUrl: r.imageUrl,
       uniqueName: r.uniqueName,
       productUniqueName: r.productUniqueName,
-      category: normaliseCategory(r.category),
+      category: (r.category || "").trim() || "Misc",
       ingredients: r.ingredients,
       buildPrice: r.buildPrice,
       buildTime: r.buildTime,
