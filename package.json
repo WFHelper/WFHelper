@@ -43,7 +43,6 @@
     "backend:typegen": "npm --prefix backend-lite/worker run cf-typegen",
     "backend:prewarm:order-summaries": "powershell -ExecutionPolicy Bypass -File ./scripts/prewarm-order-summaries.ps1",
     "backend:prewarm:order-summaries:hotset": "powershell -ExecutionPolicy Bypass -File ./scripts/prewarm-order-summaries.ps1 -Source hotset",
-    "backend:build-snapshot": "powershell -ExecutionPolicy Bypass -File ./scripts/build-snapshot.ps1",
     "icons:manifest": "npm run build:main && node scripts/icon-mirror/build-icon-manifest.mjs",
     "icons:download": "npm run icons:manifest && node scripts/icon-mirror/download-icon-mirror.mjs",
     "icons:deploy": "npm --prefix backend-lite/worker exec -- wrangler pages deploy .icon-mirror/public --project-name wfhelper-icons --branch pre-production --commit-dirty=true",
