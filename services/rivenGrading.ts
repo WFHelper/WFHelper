@@ -29,6 +29,7 @@ import {
   getGoodRolls,
   type GoodRollData,
 } from "./rivenBestAttributes";
+import { clamp01 } from "./rewardScannerUtils";
 
 const log = withScope("rivenGrading");
 
@@ -80,10 +81,6 @@ function lerp(a: number, b: number, t: number): number {
 function inverseLerp(a: number, b: number, v: number): number {
   if (b === a) return 0;
   return (v - a) / (b - a);
-}
-
-function clamp01(v: number): number {
-  return Math.max(0, Math.min(1, v));
 }
 
 

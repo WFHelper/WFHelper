@@ -31,10 +31,6 @@ const ICON_MIRROR_BASE_URL = (
 const IMAGE_LOG_CATEGORY_LIMIT = 5;
 const IMAGE_LOG_SAMPLE_LIMIT = 5;
 
-function getIconMirrorBaseUrl(): string {
-  return ICON_MIRROR_BASE_URL;
-}
-
 export function toIconMirrorUrl(sourceUrl: string | null | undefined): string | null {
   const trimmed = typeof sourceUrl === "string" ? sourceUrl.trim() : "";
   if (!trimmed) return null;
@@ -42,7 +38,7 @@ export function toIconMirrorUrl(sourceUrl: string | null | undefined): string | 
   try {
     const parsed = new URL(trimmed);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
-    if (isIconMirrorDisabled()) return trimmed;
+    if (process.env.WFHELPER_ICON_MIRROR_DISABLED === "1") return trimmed;
     if (parsed.hostname === new URL(ICON_MIRROR_BASE_URL).hostname) return trimmed;
 
     const ext = path.extname(parsed.pathname).toLowerCase();
@@ -51,10 +47,6 @@ export function toIconMirrorUrl(sourceUrl: string | null | undefined): string | 
   } catch {
     return null;
   }
-}
-
-function isIconMirrorDisabled(): boolean {
-  return process.env.WFHELPER_ICON_MIRROR_DISABLED === "1";
 }
 
 function buildWfcdImageUrl(imageName: string | null | undefined): string | null {
@@ -609,8 +601,9 @@ function resolveAllImages(): void {
     }
   }
 
+  const mirrorEnabled = process.env.WFHELPER_ICON_MIRROR_DISABLED !== "1";
   log.log(
-    `[ItemDB] Images: mirror=${getIconMirrorBaseUrl()} (${isIconMirrorDisabled() ? "disabled" : "enabled"}), ${preResolved} mirrored from resolved sources, ${browseWfSourced} mirrored from browse.wf source paths, ${noImage} unresolved`,
+    `[ItemDB] Images: mirror=${ICON_MIRROR_BASE_URL} (${mirrorEnabled ? "enabled" : "disabled"}), ${preResolved} mirrored from resolved sources, ${browseWfSourced} mirrored from browse.wf source paths, ${noImage} unresolved`,
   );
   if (noImage > 0) {
     const categorySummary = [...noImageCategories.entries()]
