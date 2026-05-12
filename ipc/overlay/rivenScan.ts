@@ -239,7 +239,7 @@ export function resetRivenScanAbort(): void {
   resetRivenScanWaits();
 }
 
-export async function scanInitialCard(_expectedWeaponName = ""): Promise<InitialScanResult> {
+export async function scanInitialCard(): Promise<InitialScanResult> {
   const generation = ++_scanGeneration;
   try {
     const result = await runRivenScanAttempt(RIVEN_SCAN_PROFILES.initial, generation);
@@ -270,7 +270,7 @@ export async function scanNewRoll(): Promise<RollPanelResult> {
   }
 }
 
-export async function scanChoiceRescan(_expectedWeaponName = ""): Promise<RivenStat[]> {
+export async function scanChoiceRescan(): Promise<RivenStat[]> {
   const generation = ++_scanGeneration;
   try {
     const result = await runRivenScanAttempt(RIVEN_SCAN_PROFILES.choice, generation);

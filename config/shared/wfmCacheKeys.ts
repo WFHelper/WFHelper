@@ -6,18 +6,8 @@ export function rendererOrderSummaryCacheKey(slug: string, rank: number | null):
   return rank == null ? null : `${slug}:r${rank}`;
 }
 
-function rendererRankedCacheKey(slug: string, rank: number | null): string {
-  return rank == null ? slug : `${slug}:r${rank}`;
-}
-
-// Order-book cache lookups and ranked request de-dupe intentionally share the
-// same renderer key encoding.
 export function rendererOrderBookCacheKey(slug: string, rank: number | null): string {
-  return rendererRankedCacheKey(slug, rank);
-}
-
-export function rendererRankedRequestKey(slug: string, rank: number | null): string {
-  return rendererRankedCacheKey(slug, rank);
+  return rank == null ? slug : `${slug}:r${rank}`;
 }
 
 export function workerPriceCacheKey(slug: string, rank: number | null): string {

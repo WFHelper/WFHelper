@@ -1,8 +1,5 @@
 import ctx from "./context";
-import {
-  assertRivenOverlayRendererSender,
-  onAuthorized,
-} from "./ipcSecurity";
+import { assertRivenOverlayRendererSender, onAuthorized } from "./ipcSecurity";
 import {
   createOverlayWindowBoundsChangeHandler,
   createOverlayWindowsController,
@@ -22,9 +19,13 @@ import { forceEndRivenSession } from "../services/eeLogMonitor";
 import { isAllowedExternalHost } from "../config/runtime/security";
 import {
   OVERLAY_INTERACTION_MODE,
-  RIVEN_OVERLAY_CLOSE, RIVEN_OPEN_AUCTION,
-  RIVEN_GRADING_INITIAL, RIVEN_GRADING_ROLL,
-  RIVEN_BEST_ATTRIBUTES, RIVEN_SIMILAR_LISTINGS, RIVEN_WEAPON_UPDATE,
+  RIVEN_OVERLAY_CLOSE,
+  RIVEN_OPEN_AUCTION,
+  RIVEN_GRADING_INITIAL,
+  RIVEN_GRADING_ROLL,
+  RIVEN_BEST_ATTRIBUTES,
+  RIVEN_SIMILAR_LISTINGS,
+  RIVEN_WEAPON_UPDATE,
 } from "../config/shared/ipcChannels";
 
 const log = withScope("rivenOverlayIpc");
@@ -34,7 +35,6 @@ import path from "node:path";
 
 const APP_ROOT = app.getAppPath();
 const RIVEN_WINDOW_FILE = path.join(APP_ROOT, "renderer", "riven-overlay.html");
-
 
 let _rivenInteractive = false;
 let persistOverlaySettings: (() => void) | null = null;
@@ -223,7 +223,6 @@ function isRivenOverlayEnabled(): boolean {
   return isRivenOverlaySettingEnabled(ctx.overlaySettings);
 }
 
-
 /**
  * Try to grade stats using the current weapon name.
  * Returns the grading result or null if weapon is unknown/unresolvable.
@@ -332,7 +331,7 @@ function triggerInitialScan(): void {
   _rivenInitialScanTimer = setTimeout(async () => {
     _rivenInitialScanTimer = null;
     try {
-      const { stats, rawText, titleText } = await rivenScan.scanInitialCard(_rivenWeaponName);
+      const { stats, rawText, titleText } = await rivenScan.scanInitialCard();
       _rivenInitialStats = stats;
 
       // Try to extract weapon name from OCR text if not already known
@@ -370,7 +369,9 @@ function triggerRollScan(delayMs = ROLL_SCAN_DELAY_MS): void {
   log.log(`[RivenScan] triggerRollScan: serial=${mySerial}, delay=${delayMs}ms`);
   _rivenRollScanTimer = setTimeout(async () => {
     _rivenRollScanTimer = null;
-    log.log(`[RivenScan] roll timer fired: serial=${mySerial}, current=${_rollScanSerial}, weapon="${_rivenWeaponName}"`);
+    log.log(
+      `[RivenScan] roll timer fired: serial=${mySerial}, current=${_rollScanSerial}, weapon="${_rivenWeaponName}"`,
+    );
     if (mySerial !== _rollScanSerial) return; // superseded by a later scan
     // Clear any abort flag left by the previous scan before starting fresh.
     rivenScan.resetRivenScanAbort();
@@ -407,7 +408,6 @@ function triggerRollScan(delayMs = ROLL_SCAN_DELAY_MS): void {
     }
   }, delayMs);
 }
-
 
 export function onRivenSessionClose(): void {
   log.log("[OverlayRoute] trigger=riven-session-close");
@@ -491,7 +491,9 @@ export function onRivenSessionOpen(): void {
 export function onRivenRollPending(weapon: string, kuvaPerRoll: number): void {
   if (!isRivenOverlayEnabled()) return;
   _rivenHasRollResult = false;
-  log.log(`[OverlayRoute] onRivenRollPending: weapon="${weapon}", kuva=${kuvaPerRoll}, current="${_rivenWeaponName}"`);
+  log.log(
+    `[OverlayRoute] onRivenRollPending: weapon="${weapon}", kuva=${kuvaPerRoll}, current="${_rivenWeaponName}"`,
+  );
   // Update weapon name from the cycle dialog text (first time we learn it).
   // Don't call startSession — that would reset the roll count and wipe
   // the stats that the initial scan already populated.
@@ -557,7 +559,7 @@ export function onRivenChoiceConfirmed(): void {
   _rivenInitialScanTimer = setTimeout(async () => {
     _rivenInitialScanTimer = null;
     try {
-      const stats = await rivenScan.scanChoiceRescan(_rivenWeaponName);
+      const stats = await rivenScan.scanChoiceRescan();
 
       // Determine which side was chosen by comparing OCR result to both known stat sets.
       let chosenSide: "left" | "right" | "unknown" = "unknown";
@@ -594,13 +596,11 @@ export function onRivenChoiceConfirmed(): void {
   }, CHOICE_RESCAN_DELAY_MS);
 }
 
-
-export { toggleRivenInteractiveMode, forEachRivenWindow,  };
+export { toggleRivenInteractiveMode, forEachRivenWindow };
 
 export function configureOverlaySettingsPersistence(persist: () => void): void {
   persistOverlaySettings = persist;
 }
-
 
 export function register(): void {
   onAuthorized(RIVEN_OVERLAY_CLOSE, assertRivenOverlayRendererSender, () => {
@@ -613,13 +613,17 @@ export function register(): void {
     forEachRivenWindow((win) => win.hide());
   });
 
-  onAuthorized(RIVEN_OPEN_AUCTION, assertRivenOverlayRendererSender, (_event, auctionId: unknown) => {
-    const id = String(auctionId || "").replace(/[^a-zA-Z0-9]/g, "");
-    if (id) {
-      const url = new URL(`https://warframe.market/auction/${id}`);
-      if (url.protocol === "https:" && isAllowedExternalHost(url.hostname)) {
-        void shell.openExternal(url.toString());
+  onAuthorized(
+    RIVEN_OPEN_AUCTION,
+    assertRivenOverlayRendererSender,
+    (_event, auctionId: unknown) => {
+      const id = String(auctionId || "").replace(/[^a-zA-Z0-9]/g, "");
+      if (id) {
+        const url = new URL(`https://warframe.market/auction/${id}`);
+        if (url.protocol === "https:" && isAllowedExternalHost(url.hostname)) {
+          void shell.openExternal(url.toString());
+        }
       }
-    }
-  });
+    },
+  );
 }

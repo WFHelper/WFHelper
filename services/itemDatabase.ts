@@ -726,6 +726,30 @@ export function getRendererLookup(): Record<string, RendererItemEntry> {
   return lookup;
 }
 
+function cloneDropEntry(drop: DropEntry): DropEntry {
+  return { ...drop };
+}
+
+function cloneComponentEntry(component: ComponentEntry): ComponentEntry {
+  return {
+    ...component,
+    ...(component.drops ? { drops: component.drops.map(cloneDropEntry) } : {}),
+  };
+}
+
+function cloneItemEntry(item: ItemEntry): ItemEntry {
+  return {
+    ...item,
+    ...(item.components ? { components: item.components.map(cloneComponentEntry) } : {}),
+    ...(item.drops ? { drops: item.drops.map(cloneDropEntry) } : {}),
+  };
+}
+
 export function getAllItems(): Readonly<Record<string, Readonly<ItemEntry>>> {
-  return { ...itemsByUniqueName };
+  return Object.fromEntries(
+    Object.entries(itemsByUniqueName).map(([uniqueName, item]) => [
+      uniqueName,
+      cloneItemEntry(item),
+    ]),
+  );
 }

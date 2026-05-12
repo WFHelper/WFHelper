@@ -5,7 +5,7 @@ import {
   type BackendOrderSummaryPayload,
 } from "./backendLite.js";
 import { normalizeRankFilter } from "../../../config/shared/numeric.js";
-import { rendererRankedRequestKey } from "../../../config/shared/wfmCacheKeys.js";
+import { rendererOrderBookCacheKey } from "../../../config/shared/wfmCacheKeys.js";
 import {
   createCircuitBreaker,
   createConcurrencyLimiter,
@@ -74,7 +74,7 @@ export async function fetchOrderSummaryBySlug(
 
   bumpCounter("requests");
   const rank = normalizeRankFilter(options?.rank ?? null);
-  const requestKey = rendererRankedRequestKey(slug, rank);
+  const requestKey = rendererOrderBookCacheKey(slug, rank);
 
   const inFlight = inFlightByKey.get(requestKey);
   if (inFlight) return inFlight;

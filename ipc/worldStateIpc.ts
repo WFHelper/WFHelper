@@ -262,8 +262,38 @@ let _toastTagCounter = 0;
 /** Duration in ms before auto-dismissing an incomingCall toast banner. */
 const TOAST_DISMISS_MS = 5_000;
 
-function quotePowerShellString(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
+const SHOW_TOAST_SCRIPT = [
+  "param([string]$XmlPath, [string]$Tag, [string]$Group, [string]$AppId)",
+  "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null",
+  "[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null",
+  "$x = New-Object Windows.Data.Xml.Dom.XmlDocument",
+  "$x.LoadXml((Get-Content -LiteralPath $XmlPath -Raw))",
+  "$t = [Windows.UI.Notifications.ToastNotification]::new($x)",
+  "$t.Tag = $Tag",
+  "$t.Group = $Group",
+  "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($AppId).Show($t)",
+  "",
+].join("\n");
+
+const REMOVE_TOAST_SCRIPT = [
+  "param([string]$Tag, [string]$Group, [string]$AppId)",
+  "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null",
+  "[Windows.UI.Notifications.ToastNotificationManager]::History.Remove($Tag, $Group, $AppId)",
+  "",
+].join("\n");
+
+function writeToastScript(kind: "show" | "remove", tag: string): string | null {
+  const scriptPath = path.join(
+    os.tmpdir(),
+    `wfc-toast-${kind}-${process.pid}-${Date.now()}-${tag}.ps1`,
+  );
+  try {
+    fs.writeFileSync(scriptPath, kind === "show" ? SHOW_TOAST_SCRIPT : REMOVE_TOAST_SCRIPT, "utf8");
+    return scriptPath;
+  } catch (err) {
+    log.warn("[WorldState] toast script temp file error:", normalizeErrorMessage(err));
+    return null;
+  }
 }
 
 /** Send a Windows toast via PowerShell WinRT. Uses scenario="incomingCall" to
@@ -279,10 +309,9 @@ function sendWindowsToast(title: string, body: string): void {
   const audioXml = notificationSoundEnabled()
     ? '<audio src="ms-winsoundevent:Notification.Default"/>'
     : '<audio silent="true"/>';
-  const xml =
-    `<toast scenario="incomingCall"><visual><binding template="ToastGeneric"><text>${escapeXml(
-      title,
-    )}</text><text>${escapeXml(body)}</text></binding></visual>${audioXml}</toast>`;
+  const xml = `<toast scenario="incomingCall"><visual><binding template="ToastGeneric"><text>${escapeXml(
+    title,
+  )}</text><text>${escapeXml(body)}</text></binding></visual>${audioXml}</toast>`;
   const xmlPath = path.join(os.tmpdir(), `wfc-toast-${process.pid}-${Date.now()}-${tag}.xml`);
   try {
     fs.writeFileSync(xmlPath, xml, "utf8");
@@ -291,42 +320,54 @@ function sendWindowsToast(title: string, body: string): void {
     return;
   }
 
-  // Only internally generated values go into this command string. External
-  // title/body text is escaped into the XML file above and loaded by path.
-  const showScript = [
-    "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null",
-    "[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null",
-    `$xmlPath = ${quotePowerShellString(xmlPath)}`,
-    "$x = New-Object Windows.Data.Xml.Dom.XmlDocument",
-    "$x.LoadXml((Get-Content -LiteralPath $xmlPath -Raw))",
-    "$t = [Windows.UI.Notifications.ToastNotification]::new($x)",
-    `$t.Tag = ${quotePowerShellString(tag)}`,
-    `$t.Group = ${quotePowerShellString(group)}`,
-    `[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier(${quotePowerShellString(APP_USER_MODEL_ID)}).Show($t)`,
-  ].join("; ");
+  const showScriptPath = writeToastScript("show", tag);
+  if (!showScriptPath) {
+    fs.unlink(xmlPath, () => {});
+    return;
+  }
   execFile(
     "powershell.exe",
-    ["-NoProfile", "-NonInteractive", "-Command", showScript],
+    [
+      "-ExecutionPolicy",
+      "Bypass",
+      "-NoProfile",
+      "-NonInteractive",
+      "-File",
+      showScriptPath,
+      xmlPath,
+      tag,
+      group,
+      APP_USER_MODEL_ID,
+    ],
     { windowsHide: true, timeout: 8000 },
     (err) => {
       if (err) log.warn("[WorldState] toast error:", normalizeErrorMessage(err));
       fs.unlink(xmlPath, () => {});
+      fs.unlink(showScriptPath, () => {});
     },
   );
 
   // Auto-dismiss: remove the toast from the notification center after the
   // banner display time so it doesn't stick around like a phone call.
   setTimeout(() => {
-    const removeScript = [
-      "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null",
-      `[Windows.UI.Notifications.ToastNotificationManager]::History.Remove(${quotePowerShellString(tag)}, ${quotePowerShellString(group)}, ${quotePowerShellString(APP_USER_MODEL_ID)})`,
-    ].join("; ");
+    const removeScriptPath = writeToastScript("remove", tag);
+    if (!removeScriptPath) return;
     execFile(
       "powershell.exe",
-      ["-NoProfile", "-NonInteractive", "-Command", removeScript],
+      [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-NoProfile",
+        "-NonInteractive",
+        "-File",
+        removeScriptPath,
+        tag,
+        group,
+        APP_USER_MODEL_ID,
+      ],
       { windowsHide: true, timeout: 5000 },
       () => {
-        /* best-effort */
+        fs.unlink(removeScriptPath, () => {});
       },
     );
   }, TOAST_DISMISS_MS);

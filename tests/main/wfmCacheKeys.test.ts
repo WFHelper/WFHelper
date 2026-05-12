@@ -5,7 +5,6 @@ import {
   rendererOrderBookCacheKey,
   rendererOrderSummaryCacheKey,
   rendererPriceCacheKey,
-  rendererRankedRequestKey,
   snapshotCacheKeyFromWorkerKey,
   workerMissCacheKey,
   workerOrderSummaryCacheKey,
@@ -25,14 +24,9 @@ describe("shared WFM cache keys", () => {
     expect(price).toEqual({ namespace: "renderer-price", slug: "serration", rank: 10 });
     expect(rendererPriceCacheKey(price!.slug, price!.rank)).toBe("serration:rank-v3:r10");
 
-    for (const key of [
-      rendererOrderBookCacheKey("serration", 10),
-      rendererRankedRequestKey("serration", 10),
-    ]) {
-      const parsed = parseWfmCacheKey(key);
-      expect(parsed).toEqual({ namespace: "renderer-ranked", slug: "serration", rank: 10 });
-      expect(rendererOrderBookCacheKey(parsed!.slug, parsed!.rank)).toBe("serration:r10");
-    }
+    const parsed = parseWfmCacheKey(rendererOrderBookCacheKey("serration", 10));
+    expect(parsed).toEqual({ namespace: "renderer-ranked", slug: "serration", rank: 10 });
+    expect(rendererOrderBookCacheKey(parsed!.slug, parsed!.rank)).toBe("serration:r10");
   });
 
   it("preserves Worker cache and miss key formats", () => {
@@ -59,9 +53,7 @@ describe("shared WFM cache keys", () => {
       slug: "serration",
       rank: 10,
     });
-    expect(snapshotCacheKeyFromWorkerKey(workerPrice)).toBe(
-      rendererPriceCacheKey("serration", 10),
-    );
+    expect(snapshotCacheKeyFromWorkerKey(workerPrice)).toBe(rendererPriceCacheKey("serration", 10));
     expect(snapshotCacheKeyFromWorkerKey(workerSummary)).toBe(
       rendererOrderSummaryCacheKey("serration", 10),
     );
