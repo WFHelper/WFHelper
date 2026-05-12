@@ -1,3 +1,4 @@
+import { componentUniqueNameAliases } from "../../config/shared/componentNames.js";
 import { resolveDrops } from "./resolveDrops.js";
 import type { ComponentInfo, DropInfo, ItemDbEntry, ParsedItem } from "../types/inventory.js";
 import type { WfmItemsLookup } from "../types/ipc.js";
@@ -25,13 +26,6 @@ export function buildItemNameIndex(itemDb: Record<string, ItemDbEntry>): Map<str
 function withOwnership(comp: ComponentInfo, ownership: Map<string, number>): ComponentInfo {
   const count = comp.uniqueName ? ownership.get(comp.uniqueName) || 0 : 0;
   return { ...comp, ownedCount: count, owned: count >= (comp.itemCount || 1) };
-}
-
-function componentAliases(uniqueName: string): string[] {
-  const aliases = [uniqueName];
-  if (/Blueprint$/i.test(uniqueName)) aliases.push(uniqueName.replace(/Blueprint$/i, "Component"));
-  if (/Component$/i.test(uniqueName)) aliases.push(uniqueName.replace(/Component$/i, "Blueprint"));
-  return aliases;
 }
 
 function fallbackComponent(
@@ -62,7 +56,7 @@ function resolveComponentByUniqueName(
   if (db.isBuildComponent && db.componentOf) {
     const parent = itemDb[db.componentOf];
     const enriched = (parent?.components || []).map((comp) => withOwnership(comp, ownership));
-    const aliases = componentAliases(uniqueName);
+    const aliases = componentUniqueNameAliases(uniqueName);
     const parentComp = enriched.find((comp) =>
       Boolean(comp.uniqueName && aliases.includes(comp.uniqueName)),
     );

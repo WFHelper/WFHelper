@@ -1,5 +1,6 @@
 import type { NativeImage } from "electron";
 import { aggregateComponentOwnership } from "../../config/shared/componentOwnership";
+import { componentUniqueNameAliases } from "../../config/shared/componentNames";
 import { normalizeErrorMessage } from "../../config/shared/errors";
 import { RELIC_REWARD_ITEMS, RELIC_REWARD_TRIGGER } from "../../config/shared/ipcChannels";
 import { normalizeWfmSlug } from "../../config/shared/wfm";
@@ -122,13 +123,6 @@ function resolveRewardUniqueName(item: RewardItem): string | null {
   }
 
   return null;
-}
-
-function componentUniqueNameAliases(uniqueName: string): string[] {
-  const aliases = [uniqueName];
-  if (/Blueprint$/i.test(uniqueName)) aliases.push(uniqueName.replace(/Blueprint$/i, "Component"));
-  if (/Component$/i.test(uniqueName)) aliases.push(uniqueName.replace(/Component$/i, "Blueprint"));
-  return aliases;
 }
 
 function componentRequiredCount(parent: ItemEntry | null, uniqueName: string | null): number {
