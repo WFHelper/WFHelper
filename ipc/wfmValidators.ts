@@ -1,4 +1,3 @@
-import { normalizeErrorMessage } from "../config/shared/errors";
 import { toFiniteNumber } from "../config/shared/numeric";
 import { isObject, trimmedString } from "./ipcValidators";
 
@@ -220,6 +219,5 @@ export {
   parseSearchPayload,
   parseStatusPayload,
   parseContractsPayload,
-  normalizeErrorMessage,
   errorCode,
 };

@@ -3,7 +3,6 @@ import { isObject, trimmedString } from "./ipcValidators";
 import type { WfmStatus } from "../config/shared/wfm";
 import {
   errorCode,
-  normalizeErrorMessage,
   parseContractsPayload,
   parseCreateOrderParams,
   parseCredentials,
@@ -13,6 +12,7 @@ import {
   parseStatusPayload,
   parseUpdateOrderPayload,
 } from "./wfmValidators";
+import { normalizeErrorMessage } from "../config/shared/errors";
 import { withScope } from "../services/logger";
 import * as wfmSession from "../services/wfmSession";
 import * as wfmOrders from "../services/wfmOrders";
@@ -276,17 +276,6 @@ function register(): void {
   });
 }
 
-const testExports = {
-  parseCredentials,
-  parseCreateOrderParams,
-  parseUpdateOrderPayload,
-  parseDeleteOrderPayload,
-  parseSetVisiblePayload,
-  parseSearchPayload,
-  parseStatusPayload,
-  parseContractsPayload,
-  normalizeErrorMessage,
-};
 
 /**
  * Called after session restore on startup — starts the WS listener if a
@@ -301,4 +290,14 @@ function startListenerIfLoggedIn(): void {
 }
 
 export { register, startListenerIfLoggedIn };
-export const __test__ = testExports;
+export const __test__ = {
+  parseCredentials,
+  parseCreateOrderParams,
+  parseUpdateOrderPayload,
+  parseDeleteOrderPayload,
+  parseSetVisiblePayload,
+  parseSearchPayload,
+  parseStatusPayload,
+  parseContractsPayload,
+  normalizeErrorMessage,
+};
