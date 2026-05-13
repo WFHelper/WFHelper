@@ -68,25 +68,20 @@ interface EndpointCandidate {
 }
 
 
-function normalizeAssetUrl(value: unknown): string | null {
-  const p = toNonEmptyWfmString(value);
-  return formatWfmAssetUrl(p);
+function firstNonEmpty(...values: unknown[]): string | null {
+  for (const value of values) {
+    const s = toNonEmptyWfmString(value);
+    if (s) return s;
+  }
+  return null;
 }
 
 function normalizeAttribute(rawAttribute: unknown): NormalisedAttribute | null {
   if (!rawAttribute || typeof rawAttribute !== "object") return null;
   const attr = rawAttribute as Record<string, unknown>;
 
-  const urlName =
-    toNonEmptyWfmString(attr.url_name) ||
-    toNonEmptyWfmString(attr.urlName) ||
-    toNonEmptyWfmString(attr.name) ||
-    "unknown";
-
-  const label =
-    toNonEmptyWfmString(attr.display_name) ||
-    toNonEmptyWfmString(attr.displayName) ||
-    titleFromSlug(urlName);
+  const urlName = firstNonEmpty(attr.url_name, attr.urlName, attr.name) ?? "unknown";
+  const label = firstNonEmpty(attr.display_name, attr.displayName) ?? titleFromSlug(urlName);
 
   const numericValue = toFiniteNumber(attr.value);
   const value: number | string | null =
@@ -123,26 +118,28 @@ function normalizeContract(raw: unknown): NormalisedContract | null {
     string,
     unknown
   >;
-    const itemSlug = toNonEmptyWfmString(item.url_name) || toNonEmptyWfmString(r.item_url_name);
-  const weaponSlug =
-    toNonEmptyWfmString(item.weapon_url_name) ||
-    toNonEmptyWfmString(item.weaponUrlName) ||
-    toNonEmptyWfmString(r.weapon_url_name) ||
-    toNonEmptyWfmString(r.weaponUrlName);
+  const itemSlug = firstNonEmpty(item.url_name, r.item_url_name);
+  const weaponSlug = firstNonEmpty(
+    item.weapon_url_name,
+    item.weaponUrlName,
+    r.weapon_url_name,
+    r.weaponUrlName,
+  );
 
   const itemName =
-    toNonEmptyWfmString(i18nEn.item_name) ||
-    toNonEmptyWfmString(i18nEn.itemName) ||
-    toNonEmptyWfmString(item.item_name) ||
-    toNonEmptyWfmString(item.itemName) ||
-    toNonEmptyWfmString(item.weapon_name) ||
-    toNonEmptyWfmString(item.weaponName) ||
-    toNonEmptyWfmString(r.item_name) ||
-    toNonEmptyWfmString(r.itemName) ||
-    (weaponSlug ? `${titleFromSlug(weaponSlug)} Riven` : "Riven Contract");
+    firstNonEmpty(
+      i18nEn.item_name,
+      i18nEn.itemName,
+      item.item_name,
+      item.itemName,
+      item.weapon_name,
+      item.weaponName,
+      r.item_name,
+      r.itemName,
+    ) ?? (weaponSlug ? `${titleFromSlug(weaponSlug)} Riven` : "Riven Contract");
 
-  const itemThumb = normalizeAssetUrl(
-    item.thumb || item.icon || item.image || r.thumb || r.icon || null,
+  const itemThumb = formatWfmAssetUrl(
+    firstNonEmpty(item.thumb, item.icon, item.image, r.thumb, r.icon),
   );
 
   const buyoutPlatinum = toFiniteNumber(r.buyout_price ?? r.buyoutPrice);
@@ -160,11 +157,7 @@ function normalizeContract(raw: unknown): NormalisedContract | null {
       ? r.attributes
       : [];
 
-  const id =
-    toNonEmptyWfmString(r.id) ||
-    toNonEmptyWfmString(r._id) ||
-    toNonEmptyWfmString(r.contract_id) ||
-    toNonEmptyWfmString(r.contractId);
+  const id = firstNonEmpty(r.id, r._id, r.contract_id, r.contractId);
 
   if (!id) return null;
 
@@ -178,7 +171,7 @@ function normalizeContract(raw: unknown): NormalisedContract | null {
   return {
     id,
     itemName: itemName || "Riven Contract",
-    itemId: toNonEmptyWfmString(item.id) || toNonEmptyWfmString(r.itemId) || null,
+    itemId: firstNonEmpty(item.id, r.itemId),
     itemUrlName: itemSlug || weaponSlug || null,
     weaponUrlName: weaponSlug || null,
     itemThumb,
@@ -194,22 +187,14 @@ function normalizeContract(raw: unknown): NormalisedContract | null {
     masteryLevel: toFiniteNumber(
       item.mastery_level ?? item.masteryLevel ?? r.mastery_level ?? r.masteryLevel,
     ),
-    polarity:
-      toNonEmptyWfmString(item.polarity) ||
-      toNonEmptyWfmString(r.polarity) ||
-      toNonEmptyWfmString(item.mod_polarity) ||
-      null,
+    polarity: firstNonEmpty(item.polarity, r.polarity, item.mod_polarity),
     isDirectSell: directSell,
     listedAt: toIsoTimestamp(r.created_at ?? r.createdAt),
     updatedAt: toIsoTimestamp(r.updated_at ?? r.updatedAt),
-    note: toNonEmptyWfmString(r.note) || null,
+    note: firstNonEmpty(r.note),
     stats: (attributesRaw.map(normalizeAttribute).filter(Boolean) as NormalisedAttribute[]),
     listingUrl: `https://warframe.market/auction/${encodeURIComponent(id)}`,
-    sourceType:
-      toNonEmptyWfmString(r.type) ||
-      toNonEmptyWfmString(r.contract_type) ||
-      toNonEmptyWfmString(r.contractType) ||
-      null,
+    sourceType: firstNonEmpty(r.type, r.contract_type, r.contractType),
   };
 }
 
