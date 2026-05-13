@@ -75,7 +75,6 @@ export function hardenBrowserWindowNavigation(
 }
 
 export const __test__ = {
-  normalizePathForCompare,
   normalizeAllowedFiles,
   isAllowedFileNavigation,
 };

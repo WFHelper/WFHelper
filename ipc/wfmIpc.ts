@@ -293,11 +293,7 @@ export { register, startListenerIfLoggedIn };
 export const __test__ = {
   parseCredentials,
   parseCreateOrderParams,
-  parseUpdateOrderPayload,
-  parseDeleteOrderPayload,
-  parseSetVisiblePayload,
   parseSearchPayload,
   parseStatusPayload,
   parseContractsPayload,
-  normalizeErrorMessage,
 };

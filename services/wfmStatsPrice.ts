@@ -86,6 +86,4 @@ function clearCache(): void {
 
 export const __test__ = {
   clearCache,
-  getCachedPrice,
-  setCachedPrice,
 };

@@ -435,10 +435,7 @@ export async function getMyContracts({
 }
 
 export const __test__ = {
-  normalizeAttribute,
   normalizeContract,
-  parsePageInfo,
   extractContracts,
-  buildQuery,
   endpointCandidates,
 };
