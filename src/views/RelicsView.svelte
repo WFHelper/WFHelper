@@ -260,6 +260,8 @@
     hasInventory: boolean,
     ownedCounts: typeof $relicOwnedCounts,
     viewState: typeof $relicViewState,
+    _evRevision: number,
+    _priceRevision: number,
   ): RelicGroup[] {
     if (!db) return [];
 
@@ -304,19 +306,16 @@
     );
   }
 
-  let groups: RelicGroup[] = [];
-  // Revision stores are referenced so Svelte re-runs this block when EV/price
-  // caches invalidate, even though the actual values aren't read.
-  $: {
-    void $relicEvRevision;
-    void $priceCacheRevision;
-    groups = computeFilteredRelicGroups(
-      $relicDb,
-      Boolean($inventoryData),
-      $relicOwnedCounts,
-      $relicViewState,
-    );
-  }
+  // $relicEvRevision / $priceCacheRevision are listed as args (and ignored by
+  // the function) only so Svelte re-runs this when EV/price caches invalidate.
+  $: groups = computeFilteredRelicGroups(
+    $relicDb,
+    Boolean($inventoryData),
+    $relicOwnedCounts,
+    $relicViewState,
+    $relicEvRevision,
+    $priceCacheRevision,
+  );
 
   $: warmupController.updateContext({
     db: $relicDb,

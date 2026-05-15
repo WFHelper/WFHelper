@@ -795,8 +795,7 @@ export async function fetchAndParse(): Promise<Record<string, unknown>> {
   };
 }
 
-export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> {
-  if (!raw) return null as unknown as Record<string, unknown>;
+export function parseRaw(raw: WorldStateRaw): Record<string, unknown> {
   const nowMs = Date.now();
 
   const fissures = (raw.ActiveMissions || [])
