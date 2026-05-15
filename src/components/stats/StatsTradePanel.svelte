@@ -75,13 +75,13 @@
     {:else}
       <div class="flex flex-col gap-2">
         {#each filteredTrades as trade (trade.id)}
-          <ThemedPanel className="py-3 px-4 transition-[border-color,background] duration-150 hover:border-border-strong hover:bg-bg-raised {trade.wfmClosed ? 'border-[rgba(212,168,67,0.2)]' : ''}">
+          <ThemedPanel className="py-3 px-4 transition-[border-color,background] duration-150 hover:border-border-strong hover:bg-bg-raised {trade.wfmClosed ? 'border-accent/20' : ''}">
             <div class="flex items-center gap-2 mb-[6px]">
-              <span class="text-xs py-[2px] px-[6px] rounded-[3px] uppercase tracking-[0.05em] font-bold shrink-0 border {trade.type === 'sale' ? 'bg-[rgba(74,222,128,0.15)] text-success border-[rgba(74,222,128,0.3)]' : trade.type === 'purchase' ? 'bg-[rgba(96,165,250,0.15)] text-info border-[rgba(96,165,250,0.3)]' : 'bg-[rgba(168,162,186,0.15)] text-text-secondary border-[rgba(168,162,186,0.3)]'}">
+              <span class="text-xs py-[2px] px-[6px] rounded-[3px] uppercase tracking-[0.05em] font-bold shrink-0 border {trade.type === 'sale' ? 'bg-success/15 text-success border-success/30' : trade.type === 'purchase' ? 'bg-info/15 text-info border-info/30' : 'bg-[rgba(168,162,186,0.15)] text-text-secondary border-[rgba(168,162,186,0.3)]'}">
                 {trade.type === "sale" ? "Sale" : trade.type === "purchase" ? "Purchase" : "Trade"}
               </span>
               {#if trade.wfmClosed}
-                <span class="text-xs font-bold uppercase tracking-[0.04em] py-[1px] px-1 rounded-[3px] bg-[rgba(212,168,67,0.15)] text-accent border border-[rgba(212,168,67,0.3)] shrink-0" title="WFM order auto-closed">WFM</span>
+                <span class="text-xs font-bold uppercase tracking-[0.04em] py-[1px] px-1 rounded-[3px] bg-accent/15 text-accent border border-accent/30 shrink-0" title="WFM order auto-closed">WFM</span>
               {/if}
               {#if trade.platChange > 0}
                 <span class="text-sm font-bold tracking-tight shrink-0 {trade.type === 'sale' ? 'text-success' : trade.type === 'purchase' ? 'text-danger' : 'text-text-secondary'}">
@@ -97,7 +97,7 @@
             {#if trade.items.length > 0}
               <div class="flex flex-wrap gap-1 mt-1">
                 {#each trade.items as item}
-                  <span class="inline-flex items-center gap-[3px] text-xs text-text-secondary bg-bg-deep rounded-[3px] py-[2px] px-[6px] border max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap {item.direction === 'received' ? 'border-[rgba(74,222,128,0.15)]' : item.direction === 'given' ? 'border-[rgba(248,113,113,0.15)]' : 'border-transparent'}">
+                  <span class="inline-flex items-center gap-[3px] text-xs text-text-secondary bg-bg-deep rounded-[3px] py-[2px] px-[6px] border max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap {item.direction === 'received' ? 'border-success/15' : item.direction === 'given' ? 'border-danger/15' : 'border-transparent'}">
                     {#if item.wfmThumb}
                       <img class="w-4 h-4 object-contain shrink-0 rounded-sm" src={thumbUrl(item.wfmThumb)} alt="" />
                     {/if}

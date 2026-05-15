@@ -72,7 +72,7 @@
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <!-- svelte-ignore a11y-no-static-element-interactions -->
-<div class="item-card relative {mastered ? 'border-[rgba(74,222,128,0.25)]' : ''} {item.isPrime ? 'border-[rgba(212,168,67,0.28)]' : ''}" on:click={selectCard} bind:this={cardEl}>
+<div class="item-card relative {mastered ? 'border-success/25' : ''} {item.isPrime ? 'border-accent/30' : ''}" on:click={selectCard} bind:this={cardEl}>
   <div class="item-img-wrap">
     <ItemImage src={item.displayImageUrl} alt={item.name} />
     {#if item.vaulted}<span class="vault-badge">V</span>{/if}
@@ -97,19 +97,19 @@
 
     {#if showRankOrderSummary}
       <div class="grid grid-cols-2 gap-1">
-        <span class="inventory-rank-order-box grid gap-0.5 min-h-8 content-center border border-[rgba(240,201,92,0.48)] bg-[rgba(212,168,67,0.2)] rounded-md py-1 px-1.5">
+        <span class="inventory-rank-order-box grid gap-0.5 min-h-8 content-center border border-accent-bright/50 bg-accent/20 rounded-md py-1 px-1.5">
           <span class="inventory-rank-order-label text-xs uppercase tracking-[0.04em] font-display">WTS R{rankCapLabel}</span>
           <strong>{wtsRankMaxLabel}</strong>
         </span>
-        <span class="inventory-rank-order-box grid gap-0.5 min-h-8 content-center border border-[rgba(240,201,92,0.48)] bg-[rgba(212,168,67,0.2)] rounded-md py-1 px-1.5">
+        <span class="inventory-rank-order-box grid gap-0.5 min-h-8 content-center border border-accent-bright/50 bg-accent/20 rounded-md py-1 px-1.5">
           <span class="inventory-rank-order-label text-xs uppercase tracking-[0.04em] font-display">WTB R{rankCapLabel}</span>
           <strong>{wtbRankMaxLabel}</strong>
         </span>
-        <span class="inventory-rank-order-box grid gap-0.5 min-h-8 content-center border border-[rgba(240,201,92,0.48)] bg-[rgba(212,168,67,0.2)] rounded-md py-1 px-1.5">
+        <span class="inventory-rank-order-box grid gap-0.5 min-h-8 content-center border border-accent-bright/50 bg-accent/20 rounded-md py-1 px-1.5">
           <span class="inventory-rank-order-label text-xs uppercase tracking-[0.04em] font-display">WTS R0</span>
           <strong>{wtsRank0Label}</strong>
         </span>
-        <span class="inventory-rank-order-box grid gap-0.5 min-h-8 content-center border border-[rgba(240,201,92,0.48)] bg-[rgba(212,168,67,0.2)] rounded-md py-1 px-1.5">
+        <span class="inventory-rank-order-box grid gap-0.5 min-h-8 content-center border border-accent-bright/50 bg-accent/20 rounded-md py-1 px-1.5">
           <span class="inventory-rank-order-label text-xs uppercase tracking-[0.04em] font-display">WTB R0</span>
           <strong>{wtbRank0Label}</strong>
         </span>

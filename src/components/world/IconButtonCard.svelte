@@ -21,8 +21,8 @@
   $: borderCls = borderWidth === "2" ? "border-2" : "border-[1.5px]";
   $: glowCls = owned
     ? size === 100
-      ? "border-[rgba(74,222,128,0.5)] shadow-[0_0_6px_rgba(74,222,128,0.15)]"
-      : "border-[rgba(74,222,128,0.5)] shadow-[0_0_5px_rgba(74,222,128,0.15)]"
+      ? "border-success/50 shadow-[0_0_6px_rgba(74,222,128,0.15)]"
+      : "border-success/50 shadow-[0_0_5px_rgba(74,222,128,0.15)]"
     : "border-border";
   $: labelGap = size === 100 ? "gap-1" : "gap-0.5";
   $: labelSize = size === 100 ? "text-xs" : "text-xs";
@@ -36,7 +36,7 @@
   title="View {name} details"
 >
   <div
-    class="flex items-center justify-center overflow-hidden bg-[rgba(0,0,0,0.3)]
+    class="flex items-center justify-center overflow-hidden bg-black/30
            {radiusCls} {sizeCls} {borderCls} {glowCls}"
   >
     {#if imageUrl}

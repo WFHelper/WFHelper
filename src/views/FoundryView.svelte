@@ -338,7 +338,7 @@
         {@const statusBorder =
           status === "claimable" ? "border-accent/70" :
           status === "in-progress" ? "border-[rgba(80,160,255,0.35)]" :
-          status === "ready-to-build" ? "border-[rgba(74,222,128,0.35)]" :
+          status === "ready-to-build" ? "border-success/35" :
           "border-border"}
         {@const statusText =
           status === "claimable" ? "text-accent" :
@@ -438,7 +438,7 @@
             <div class="flex items-center justify-end gap-1.5 flex-wrap">
               <span
                 class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] {ownedCount > 0
-                  ? 'border-[rgba(74,222,128,0.3)] bg-[rgba(16,185,129,0.12)] text-success'
+                  ? 'border-success/30 bg-emerald-500/10 text-success'
                   : 'border-border bg-white/[0.04] text-text-muted'}"
                 title={`Owned copies: ${ownedCount}`}
               >
@@ -451,9 +451,9 @@
               </span>
               <span
                 class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] {masteryState === 'mastered'
-                  ? 'border-[rgba(74,222,128,0.3)] bg-[rgba(16,185,129,0.12)] text-success'
+                  ? 'border-success/30 bg-emerald-500/10 text-success'
                   : masteryState === 'progress'
-                    ? 'border-[rgba(251,191,36,0.28)] bg-[rgba(251,191,36,0.12)] text-warning'
+                    ? 'border-warning/30 bg-warning/10 text-warning'
                     : 'border-border bg-white/[0.04] text-text-muted'}"
                 title={masteryLabelFor(masteryState)}
               >

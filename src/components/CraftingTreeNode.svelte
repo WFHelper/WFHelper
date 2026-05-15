@@ -18,7 +18,7 @@
   <!-- Node card + label -->
   <div class="flex flex-col items-center px-1">
     <div
-      class="node-card group/node relative flex h-16 w-16 items-center justify-center rounded-lg border-2 {gotEnough ? 'border-[rgba(74,222,128,0.5)] bg-[rgba(74,222,128,0.12)]' : 'border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.04)]'}"
+      class="node-card group/node relative flex h-16 w-16 items-center justify-center rounded-lg border-2 {gotEnough ? 'border-success/50 bg-success/10' : 'border-white/15 bg-white/5'}"
     >
       {#if qtyLabel}
         <span class="node-qty absolute -left-1 -top-1.5 z-[2] rounded bg-bg-raised px-[3px] text-xs font-bold leading-snug text-text-primary border border-border font-display">

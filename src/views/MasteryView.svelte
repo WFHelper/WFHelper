@@ -182,7 +182,7 @@
           <!-- svelte-ignore a11y-click-events-have-key-events -->
           <!-- svelte-ignore a11y-no-static-element-interactions -->
           <div
-            class="item-card group {item.status === 'missing' ? 'opacity-60' : item.status === 'mastered' ? 'border-[rgba(74,222,128,0.24)]' : item.status === 'progress' ? 'border-[rgba(251,191,36,0.24)]' : ''}"
+            class="item-card group {item.status === 'missing' ? 'opacity-60' : item.status === 'mastered' ? 'border-success/25' : item.status === 'progress' ? 'border-warning/25' : ''}"
             on:click={() => activeItem.set(item)}
           >
             <div class="item-img-wrap">

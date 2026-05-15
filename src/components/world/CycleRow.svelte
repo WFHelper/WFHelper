@@ -49,7 +49,7 @@
                transition-[opacity,background,color,border-color] duration-150
                hover:opacity-80 hover:bg-white/[0.06]
                data-[active]:opacity-100 data-[active]:text-warning
-               data-[active]:border-[rgba(251,191,36,0.4)] data-[active]:bg-[rgba(251,191,36,0.1)]"
+               data-[active]:border-warning/40 data-[active]:bg-warning/10"
         data-active={alertOn || undefined}
         title={alertOn ? `Disable ${alertKey} notification` : `Enable ${alertKey} notification`}
         on:click={() => onToggleAlert?.(alertKey)}

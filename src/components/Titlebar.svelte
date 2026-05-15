@@ -64,7 +64,7 @@
       {appName}
     </span>
     <span
-      class="hidden lg:inline-flex items-center gap-1 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] px-2 py-0.5 text-[10px] text-text-muted"
+      class="hidden lg:inline-flex items-center gap-1 rounded border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] text-text-muted"
       title={helperStatus?.exeFound ? "warframe-api-helper active" : "warframe-api-helper not found"}
     >
       <span class="inline-block h-1.5 w-1.5 rounded-full {helperDotPulse ? 'animate-pulse' : ''}" style="background:{helperDotColor}"></span>

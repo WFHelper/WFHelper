@@ -72,20 +72,20 @@
 </script>
 
 {#if hasError}
-  <section class="m-6 rounded-xl border border-[rgba(252,165,165,0.35)] bg-[rgba(239,68,68,0.1)] p-5 text-[#fee2e2]">
+  <section class="m-6 rounded-xl border border-red-300/35 bg-danger/10 p-5 text-[#fee2e2]">
     <h2 class="font-display text-2xl tracking-wide">Renderer crashed</h2>
-    <p class="mt-2 text-sm leading-relaxed text-[rgba(254,226,226,0.9)]">
+    <p class="mt-2 text-sm leading-relaxed text-red-100/90">
       {errorMessage}
     </p>
     <div class="mt-4 flex flex-wrap gap-2">
       <button
-        class="cursor-pointer rounded border border-[rgba(254,202,202,0.45)] bg-[rgba(239,68,68,0.2)] px-3 py-1.5 text-sm transition-[border-color,background] duration-150 hover:border-[rgba(254,226,226,0.7)] hover:bg-[rgba(239,68,68,0.3)]"
+        class="cursor-pointer rounded border border-red-200/40 bg-danger/20 px-3 py-1.5 text-sm transition-[border-color,background] duration-150 hover:border-red-100/70 hover:bg-danger/30"
         on:click={resetBoundary}
       >
         Try recover
       </button>
       <button
-        class="cursor-pointer rounded border border-[rgba(255,255,255,0.25)] bg-[rgba(255,255,255,0.1)] px-3 py-1.5 text-sm transition-[border-color,background] duration-150 hover:border-[rgba(255,255,255,0.45)] hover:bg-[rgba(255,255,255,0.15)]"
+        class="cursor-pointer rounded border border-white/25 bg-white/10 px-3 py-1.5 text-sm transition-[border-color,background] duration-150 hover:border-white/40 hover:bg-white/15"
         on:click={reloadApp}
       >
         Reload app

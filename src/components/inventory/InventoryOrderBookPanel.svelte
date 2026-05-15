@@ -411,7 +411,7 @@
     {:else if loading}
       <div class="rounded-lg border border-dashed border-border bg-bg-soft px-2 py-2 text-xs text-text-secondary">Loading listings...</div>
     {:else if errorMessage}
-      <div class="rounded-lg border border-dashed border-[rgba(248,113,113,0.4)] bg-bg-soft px-2 py-2 text-xs text-danger">{errorMessage}</div>
+      <div class="rounded-lg border border-dashed border-danger/40 bg-bg-soft px-2 py-2 text-xs text-danger">{errorMessage}</div>
     {:else if noData || !orderBook}
       <div class="rounded-lg border border-dashed border-border bg-bg-soft px-2 py-2 text-xs text-text-secondary">No active listings found.</div>
     {:else}

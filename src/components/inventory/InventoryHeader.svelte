@@ -30,7 +30,7 @@
 
 <div class="mb-4">
   <h2 class="m-0 mb-2 font-display text-4xl leading-none font-semibold tracking-[0.03em] text-text-primary">Inventory ({totalCount})</h2>
-  <div class="flex items-end border-b border-[rgba(255,255,255,0.09)]">
+  <div class="flex items-end border-b border-white/10">
     <HeaderTabs options={filters} activeKey={activeFilter} onSelect={handleTabSelect} />
     <div class="ml-auto flex items-center gap-2 pb-2 shrink-0 flex-nowrap">
       <SharedFilterBar

@@ -190,7 +190,7 @@
                     {#if elementIcon(stat.name)}
                       <img class="w-4 h-4 align-middle shrink-0 self-center [filter:drop-shadow(0_1px_3px_rgba(0,0,0,0.8))]" src={elementIcon(stat.name)} alt="" />
                     {/if}
-                    <span class="overflow-hidden text-ellipsis text-[rgba(255,255,255,0.88)] font-medium min-w-0">{stat.name}</span>
+                    <span class="overflow-hidden text-ellipsis text-white/90 font-medium min-w-0">{stat.name}</span>
                   </div>
                 {/each}
               </div>
@@ -202,7 +202,7 @@
               </div>
 
               <div class="absolute z-[1] left-[22%] right-[22%] top-[83.5%] flex items-center justify-between text-xs font-display leading-none [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_6px_rgba(0,0,0,1)]">
-                <span class="text-[rgba(255,255,255,0.85)] font-bold">MR {riven.masteryReq}</span>
+                <span class="text-white/80 font-bold">MR {riven.masteryReq}</span>
                 <RivenPolarityIcon
                   polarity={riven.polarity}
                   size={14}

@@ -64,7 +64,7 @@
     <span>{$statusText}</span>
   </span>
   <button
-    class="ml-auto mr-2 cursor-pointer rounded-full border border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.05)] px-2.5 py-0.5 font-body text-xs tracking-wide text-text-muted transition-[color,border-color] duration-150 hover:border-[rgba(255,255,255,0.3)] hover:text-text-primary disabled:cursor-default disabled:opacity-60"
+    class="ml-auto mr-2 cursor-pointer rounded-full border border-white/20 bg-white/5 px-2.5 py-0.5 font-body text-xs tracking-wide text-text-muted transition-[color,border-color] duration-150 hover:border-white/30 hover:text-text-primary disabled:cursor-default disabled:opacity-60"
     title={$appUpdateState.message || "Check for app updates"}
     on:click={onUpdateAction}
     disabled={updateButtonDisabled}

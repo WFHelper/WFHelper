@@ -563,7 +563,7 @@
         </div>
       </div>
 
-      <div class="mb-2.5 flex items-end border-b border-[rgba(255,255,255,0.09)]">
+      <div class="mb-2.5 flex items-end border-b border-white/10">
         <HeaderTabs
           options={ORDER_TYPE_TABS}
           activeKey={$marketViewState.typeTab}

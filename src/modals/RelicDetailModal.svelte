@@ -259,7 +259,7 @@
               {@const platEv = price != null ? (reward.chance / 100) * price : null}
               {@const ducatEv = ducatValue != null ? (reward.chance / 100) * ducatValue : null}
               {@const canClick = itemNameIndex.has(reward.name)}
-              <button class="grid grid-cols-[30px_minmax(0,1fr)_72px_78px_78px_120px] max-[800px]:grid-cols-[24px_minmax(0,1fr)_56px_60px_60px_94px] max-[800px]:gap-1.5 gap-1.5 items-center px-1.5 py-1.5 border-0 border-b border-[rgba(255,255,255,0.06)] rounded bg-transparent text-inherit text-left w-full last:border-b-0 {canClick ? 'cursor-pointer hover:enabled:bg-white/[0.06]' : ''} {selectedReward === reward ? 'bg-white/10' : ''}" disabled={!canClick} on:click={() => selectReward(reward)}>
+              <button class="grid grid-cols-[30px_minmax(0,1fr)_72px_78px_78px_120px] max-[800px]:grid-cols-[24px_minmax(0,1fr)_56px_60px_60px_94px] max-[800px]:gap-1.5 gap-1.5 items-center px-1.5 py-1.5 border-0 border-b border-white/5 rounded bg-transparent text-inherit text-left w-full last:border-b-0 {canClick ? 'cursor-pointer hover:enabled:bg-white/[0.06]' : ''} {selectedReward === reward ? 'bg-white/10' : ''}" disabled={!canClick} on:click={() => selectReward(reward)}>
                 <span class="relic-reward-rarity inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold {rarityClass(reward.rarity)}" title={reward.rarity}
                   >{reward.rarity?.charAt(0) || "?"}</span
                 >

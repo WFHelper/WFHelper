@@ -172,7 +172,7 @@
               <span class="flex items-center gap-1">
                 <input
                   type="number"
-                  class="cycle-lead-input w-10 rounded-[var(--radius-md)] border border-border bg-[rgba(0,0,0,0.25)] px-1 py-0.5 text-center text-xs text-text-primary outline-none"
+                  class="cycle-lead-input w-10 rounded-[var(--radius-md)] border border-border bg-black/25 px-1 py-0.5 text-center text-xs text-text-primary outline-none"
                   min="0"
                   max="120"
                   value={$overlaySettings.cycleAlertMinutesBefore ?? 3}

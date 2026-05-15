@@ -265,7 +265,7 @@
             <label for="order-visible" class="text-sm font-medium text-text-secondary">Visible on site</label>
             <label class="relative inline-block w-[42px] h-[22px]">
               <input id="order-visible" type="checkbox" class="peer opacity-0 w-0 h-0" bind:checked={visible} />
-              <span class="absolute inset-0 border border-border rounded-full bg-white/[0.08] transition-all duration-150 peer-checked:border-[rgba(74,222,128,0.4)] peer-checked:bg-[rgba(74,222,128,0.2)] before:content-[''] before:absolute before:left-0.5 before:top-0.5 before:w-4 before:h-4 before:rounded-full before:bg-white before:transition-transform before:duration-150 peer-checked:before:translate-x-[18px]"></span>
+              <span class="absolute inset-0 border border-border rounded-full bg-white/[0.08] transition-all duration-150 peer-checked:border-success/40 peer-checked:bg-success/20 before:content-[''] before:absolute before:left-0.5 before:top-0.5 before:w-4 before:h-4 before:rounded-full before:bg-white before:transition-transform before:duration-150 peer-checked:before:translate-x-[18px]"></span>
             </label>
           </div>
 

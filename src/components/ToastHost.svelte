@@ -2,10 +2,10 @@
   import { toasts, removeToast } from "../stores/toasts.js";
 
   const LEVEL_CLASSES: Record<string, string> = {
-    info: "border-[rgba(147,197,253,0.35)] bg-[rgba(59,130,246,0.15)] text-[#dbeafe]",
-    success: "border-[rgba(110,231,183,0.35)] bg-[rgba(16,185,129,0.15)] text-[#d1fae5]",
-    warning: "border-[rgba(252,211,77,0.35)] bg-[rgba(245,158,11,0.15)] text-[#fef3c7]",
-    error: "border-[rgba(252,165,165,0.4)] bg-[rgba(239,68,68,0.2)] text-[#fee2e2]",
+    info: "border-blue-300/35 bg-blue-500/15 text-[#dbeafe]",
+    success: "border-emerald-300/35 bg-emerald-500/15 text-[#d1fae5]",
+    warning: "border-yellow-300/35 bg-warning/15 text-[#fef3c7]",
+    error: "border-red-300/40 bg-danger/20 text-[#fee2e2]",
   };
   const TITLE_CLASSES: Record<string, string> = {
     info: "text-[#bfdbfe]",
@@ -23,7 +23,7 @@
           {toast.title || toast.level}
         </strong>
         <button
-          class="cursor-pointer rounded border border-[rgba(255,255,255,0.15)] bg-transparent px-1.5 py-0.5 text-xs text-[rgba(255,255,255,0.8)] transition-[border-color,color] duration-150 hover:border-[rgba(255,255,255,0.35)] hover:text-white"
+          class="cursor-pointer rounded border border-white/15 bg-transparent px-1.5 py-0.5 text-xs text-white/80 transition-[border-color,color] duration-150 hover:border-white/35 hover:text-white"
           on:click={() => removeToast(toast.id)}
           aria-label="Dismiss notification"
           title="Dismiss"
@@ -31,7 +31,7 @@
           x
         </button>
       </header>
-      <p class="text-sm leading-[1.375] text-[rgba(255,255,255,0.9)]">{toast.message}</p>
+      <p class="text-sm leading-[1.375] text-white/90">{toast.message}</p>
     </article>
   {/each}
 </div>

@@ -143,9 +143,9 @@
       <div class="flex shrink-0 items-center gap-2">
         <span class="order-qty" title="Listed quantity">Qty {order.quantity}</span>
         {#if order.visible}
-          <span class="order-vis border-[rgba(74,222,128,0.35)] bg-[rgba(74,222,128,0.13)] text-success">Visible</span>
+          <span class="order-vis border-success/35 bg-success/15 text-success">Visible</span>
         {:else}
-          <span class="order-vis border-[rgba(251,191,36,0.35)] bg-[rgba(251,191,36,0.13)] text-warning">Hidden</span>
+          <span class="order-vis border-warning/35 bg-warning/15 text-warning">Hidden</span>
         {/if}
         <span class="flex min-w-16 items-center justify-end gap-1 font-display text-lg font-bold text-accent">
           <img src={PLATINUM_ICON_URL} alt="" width="14" height="14" class="shrink-0" />
