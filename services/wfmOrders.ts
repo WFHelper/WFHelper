@@ -1,13 +1,6 @@
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
-/**
- * wfmOrders.ts — Warframe.market order management (main-process only)
- *
- * Provides read and CRUD operations for the authenticated user's orders.
- * All data is normalised into a renderer-friendly shape before being returned.
- */
-
 import { requestV2 } from "./wfmClient";
 import { getInGameName } from "./wfmSession";
 import * as wfmCatalog from "./wfmCatalog";
@@ -98,11 +91,6 @@ function _extractOrders(data: unknown): { sell: NormalisedOrder[]; buy: Normalis
   return { sell, buy };
 }
 
-
-/**
- * Fetch the current user's orders.
- * Returns { sell: Order[], buy: Order[] }
- */
 export async function getMyOrders(): Promise<{ sell: NormalisedOrder[]; buy: NormalisedOrder[] }> {
   if (!getInGameName()) throw new Error("Not logged in to Warframe.market.");
 
@@ -196,11 +184,6 @@ export async function deleteOrder(orderId: string): Promise<{ deleted: boolean; 
   return { deleted: true, id: orderId };
 }
 
-/**
- * Close (mark as sold/bought) an order by decrementing its quantity.
- * Uses `POST /v2/order/{id}/close` with `{ quantity }`.
- * When the remaining quantity reaches 0, WFM removes the listing automatically.
- */
 export async function closeOrder(
   orderId: string,
   quantity: number,

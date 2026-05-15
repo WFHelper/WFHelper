@@ -1,15 +1,3 @@
-/**
- * statsTracker.ts — Tracks per-session and daily inventory stat deltas.
- *
- * Tracked fields per day:
- *   platDelta     — net PremiumCredits change (platinum)
- *   creditsDelta  — net RegularCredits change
- *   endoDelta     — net FusionPoints change (endo)
- *   ducatsDelta   — net Void Ducats change (MiscItems/PrimeBucks)
- *   relicsOpened  — number of relics consumed (LevelKeys total decrease)
- *   daysPlayed    — 1 if inventory data was received today, else 0
- */
-
 import path from "node:path";
 import fs from "node:fs";
 import { app } from "electron";
@@ -62,14 +50,6 @@ function _historyPath(): string {
   return path.join(app.getPath("userData"), "stats-history.json");
 }
 
-/**
- * Returns today's date as YYYY-MM-DD in the user's LOCAL timezone.
- * Previously used UTC (`toISOString().slice(0, 10)`), which meant users in
- * negative UTC offsets saw their evening play attributed to "tomorrow."
- * Schema v2 keys are local; legacy v1/unversioned entries remain keyed in UTC
- * and are left untouched — per-event timestamps aren't available, so the
- * migration can't faithfully re-attribute old aggregates.
- */
 function _todayStr(): string {
   const d = new Date();
   const y = d.getFullYear();
@@ -78,7 +58,6 @@ function _todayStr(): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Look up an item's count inside the MiscItems inventory array. */
 function _findMiscItemCount(data: Record<string, unknown>, itemType: string): number | null {
   const misc = Array.isArray(data.MiscItems) ? data.MiscItems as Array<Record<string, unknown>> : [];
   const entry = misc.find((e) => e.ItemType === itemType);
@@ -127,12 +106,12 @@ function _upsertToday(): void {
     relicsOpened: _todayRelicsOpened,
     daysPlayed: 1,
     dailyTrades: _todayDailyTrades,
-    ...((_currentPlat    !== null) ? { absPlat: _currentPlat } : {}),
-    ...((_currentCredits !== null) ? { absCredits: _currentCredits } : {}),
-    ...((_currentEndo    !== null) ? { absEndo: _currentEndo } : {}),
-    ...((_currentDucats  !== null) ? { absDucats: _currentDucats } : {}),
-    ...((_currentAya     !== null) ? { absAya: _currentAya } : {}),
   };
+  if (_currentPlat !== null) entry.absPlat = _currentPlat;
+  if (_currentCredits !== null) entry.absCredits = _currentCredits;
+  if (_currentEndo !== null) entry.absEndo = _currentEndo;
+  if (_currentDucats !== null) entry.absDucats = _currentDucats;
+  if (_currentAya !== null) entry.absAya = _currentAya;
 
   const idx = _history.findIndex((e) => e.date === today);
   if (idx >= 0) {
@@ -147,10 +126,6 @@ function _upsertToday(): void {
   _saveHistory();
 }
 
-
-/**
- * Load persisted history from disk. Call once on app startup before registering IPC.
- */
 export function loadHistory(): void {
   try {
     const raw = fs.readFileSync(_historyPath(), "utf-8");
@@ -222,10 +197,6 @@ export function loadHistory(): void {
   }
 }
 
-/**
- * Call this whenever a new inventory payload is received (from file watch or initial load).
- * data is the raw (unwrapped) Warframe inventory JSON object.
- */
 export function onInventoryData(data: Record<string, unknown>): void {
   const plat    = typeof data.PremiumCredits === "number" ? data.PremiumCredits : null;
   const credits = typeof data.RegularCredits === "number" ? data.RegularCredits : null;
@@ -298,9 +269,6 @@ export function onInventoryData(data: Record<string, unknown>): void {
   _upsertToday();
 }
 
-/**
- * Increment today's trade counter by 1. Called by tradeTracker when a trade is detected.
- */
 export function incrementTodayTrades(): void {
   const today = _todayStr();
   if (_todayDateForTrades !== today) {
@@ -311,22 +279,10 @@ export function incrementTodayTrades(): void {
   _upsertToday();
 }
 
-/**
- * Returns the full daily history array (last HISTORY_MAX_DAYS entries).
- */
 export function getHistory(): DailyStatEntry[] {
   return _history;
 }
 
-/**
- * Import daily history entries from an external stats JSON export.
- *
- * Expects entries that are already normalised to deltas (the StatsView renderer
- * pre-processes absolute values into deltas before calling this).
- * Existing local entries for the same date are **overwritten** by the imported data,
- * except for today's live-tracked entry which is always preserved.
- * Returns the count of newly added or updated entries.
- */
 export function importHistory(raw: unknown[]): number {
   let imported = 0;
   const today = _todayStr();
@@ -405,9 +361,6 @@ export function importHistory(raw: unknown[]): number {
   return imported;
 }
 
-/**
- * Returns current session delta stats.
- */
 export function getCurrentSession(): SessionStats {
   const hasData =
     _currentPlat !== null ||
