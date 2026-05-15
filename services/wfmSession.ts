@@ -1,15 +1,9 @@
 import path from "path";
 import fs from "fs";
+import { randomUUID } from "crypto";
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import type { WfmStatus } from "../config/shared/wfm";
-
-/**
- * wfmSession.ts — Warframe.market session management (main-process only)
- *
- * Handles sign-in, sign-out, and JWT persistence using Electron safeStorage.
- * The raw token NEVER leaves the main process.
- */
 
 import {
   requestRaw,
@@ -51,6 +45,7 @@ interface WfmUserProfile {
 
 
 const SESSION_FILE = (): string => path.join(app.getPath("userData"), "wfm.session");
+const DEVICE_ID_FILE = (): string => path.join(app.getPath("userData"), "wfm.device-id");
 
 let _token: string | null = null;
 let _userName: string | null = null;
@@ -59,6 +54,23 @@ let _platform = "pc";
 // Register the token provider so wfmClient can inject the JWT into requests
 setTokenProvider(() => _token);
 
+
+function _getDeviceId(): string {
+  try {
+    const file = DEVICE_ID_FILE();
+    if (fs.existsSync(file)) {
+      const saved = fs.readFileSync(file, "utf-8").trim();
+      if (saved) return saved;
+    }
+
+    const id = randomUUID();
+    fs.writeFileSync(file, id, "utf-8");
+    return id;
+  } catch (err) {
+    log.warn("[WFMSession] Failed to persist device id:", normalizeErrorMessage(err));
+    return "warframe-companion";
+  }
+}
 
 function _saveSession(token: string, userName: string): void {
   try {
@@ -110,19 +122,12 @@ function _loadSession(): { token: string; userName: string; platform: string } |
   }
 }
 
-
-/** Safely extract a nested value from an untyped WFM auth response (v1/v2 envelope). */
 function _authField<T>(body: unknown, key: string): T | undefined {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped WFM auth envelope
   const b = body as any;
   return b?.payload?.[key] ?? b?.[key] ?? undefined;
 }
 
-/**
- * Sign in with email + password.
- * Returns a safe summary (no token) on success.
- * Throws on failure.
- */
 export async function signIn(email: string, password: string): Promise<SignInResult> {
   if (!email || !password) {
     throw new Error("Email and password are required.");
@@ -130,7 +135,7 @@ export async function signIn(email: string, password: string): Promise<SignInRes
 
   const atIdx = (email || "").indexOf("@");
   log.log(
-    "[WFMSession] signIn email shape — length:",
+    "[WFMSession] signIn email shape - length:",
     email.length,
     "hasAt:",
     atIdx > 0,
@@ -143,7 +148,7 @@ export async function signIn(email: string, password: string): Promise<SignInRes
   );
 
   const { res, body } = await requestRaw("POST", "/auth/signin", {
-    json: { email, password },
+    json: { email, password, device_id: _getDeviceId() },
   });
 
   let token: string | null = null;
@@ -184,19 +189,12 @@ export async function signIn(email: string, password: string): Promise<SignInRes
   return { loggedIn: true, userName: _userName, platform: _platform };
 }
 
-/**
- * Sign out and remove persisted session.
- */
 export function signOut(): SignOutResult {
   log.log("[WFMSession] Signing out");
   _clearSession();
   return { loggedIn: false };
 }
 
-/**
- * Restore session from disk (called on app startup).
- * Silently ignores missing/corrupt files.
- */
 export async function restoreSession(): Promise<void> {
   const saved = _loadSession();
   if (!saved || !saved.token) {
@@ -211,10 +209,6 @@ export async function restoreSession(): Promise<void> {
   log.log(`[WFMSession] Restored session for: ${_userName}`);
 }
 
-/**
- * Return a safe session summary for the renderer.
- * Never includes the token.
- */
 export function getSession(): SessionSummary {
   return {
     loggedIn: !!_token,
@@ -223,26 +217,14 @@ export function getSession(): SessionSummary {
   };
 }
 
-/**
- * Returns the current JWT for main-process use only (e.g. WS listener).
- * Never expose this token to the renderer.
- */
 export function getToken(): string | null {
   return _token;
 }
 
-/**
- * Return the in-game name (used by wfmOrders to build the profile URL).
- * Internal use only.
- */
 export function getInGameName(): string | null {
   return _userName;
 }
 
-/**
- * Fetch current user profile from the v2 API.
- * Returns { id, ingame_name, status, ... } or null.
- */
 export async function getMe(): Promise<WfmUserProfile | null> {
   if (!_token) return null;
   try {
@@ -255,10 +237,6 @@ export async function getMe(): Promise<WfmUserProfile | null> {
   }
 }
 
-/**
- * Set the authenticated user's online status via WebSocket.
- * @param status
- */
 export async function setStatus(
   status: WfmStatus,
 ): Promise<SetStatusResult> {

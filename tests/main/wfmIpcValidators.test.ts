@@ -6,12 +6,12 @@ describe("wfmIpc payload validators", () => {
   it("accepts valid sign-in payload", () => {
     const parsed = __test__.parseCredentials({
       email: " user@example.com ",
-      password: "secret",
+      password: " secret ",
     });
 
     expect(parsed).toEqual({
       email: "user@example.com",
-      password: "secret",
+      password: " secret ",
     });
   });
 

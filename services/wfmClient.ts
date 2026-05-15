@@ -15,8 +15,8 @@ const log = withScope("wfmClient");
  * WFM CSRF protection uses a double-submit pattern:
  *   - The anonymous JWT from warframe.market/ is sent in both Cookie: and
  *     Authorization: headers on the sign-in POST.
- *   - For subsequent authenticated requests, Authorization: JWT <auth_token>
- *     alone satisfies the CSRF check (no X-CSRFToken header needed).
+ *   - Mutating requests also send the page <meta name="csrf-token"> value as
+ *     X-CSRFToken.
  */
 
 interface WfmRequestOptions {
@@ -114,28 +114,48 @@ function _decodeJwtPayload(jwt: string): Record<string, unknown> | null {
   }
 }
 
+function _extractCsrfMeta(html: string): string | null {
+  const nameFirst = html.match(
+    /<meta\b(?=[^>]*\bname=["']csrf-token["'])(?=[^>]*\bcontent=["']([^"']+)["'])[^>]*>/i,
+  );
+  if (nameFirst?.[1]) return nameFirst[1];
+
+  const contentFirst = html.match(
+    /<meta\b(?=[^>]*\bcontent=["']([^"']+)["'])(?=[^>]*\bname=["']csrf-token["'])[^>]*>/i,
+  );
+  return contentFirst?.[1] ?? null;
+}
+
 async function _ensureCsrfToken(): Promise<string | null> {
   if (_csrfToken) return _csrfToken;
   try {
+    const headers: Record<string, string> = {
+      Accept: "text/html,application/xhtml+xml",
+      "User-Agent": "Mozilla/5.0 WarframeCompanion/1.0",
+    };
+    if (_cookieJwt) headers["Cookie"] = `JWT=${_cookieJwt}`;
+
     const resp = await _nodeRequest(
       "GET",
       "https://warframe.market/",
-      {
-        Accept: "text/html,application/xhtml+xml",
-        "User-Agent": "Mozilla/5.0 WarframeCompanion/1.0",
-      },
+      headers,
       null,
     );
+    const html = await resp.text();
     const sc = resp.headers.get("set-cookie") || "";
     const jwtMatch = sc.match(/\bJWT=([^;,\s]+)/i);
+    const metaCsrf = _extractCsrfMeta(html);
     if (jwtMatch) {
       _cookieJwt = jwtMatch[1];
       const payload = _decodeJwtPayload(_cookieJwt);
-      if (typeof payload?.csrf_token === "string") {
+      if (typeof metaCsrf === "string" && metaCsrf) {
+        _csrfToken = metaCsrf;
+        log.log("[WFMClient] CSRF token acquired from page meta");
+      } else if (typeof payload?.csrf_token === "string") {
         _csrfToken = payload.csrf_token;
-        log.log("[WFMClient] CSRF token acquired from JWT payload");
+        log.log("[WFMClient] CSRF token acquired from JWT payload fallback");
       } else {
-        log.warn("[WFMClient] JWT payload has no csrf_token");
+        log.warn("[WFMClient] Page and JWT payload have no csrf token");
       }
     } else {
       log.warn("[WFMClient] No JWT cookie in set-cookie:", sc.slice(0, 300));
@@ -147,11 +167,11 @@ async function _ensureCsrfToken(): Promise<string | null> {
 }
 
 export function updateCsrfFromToken(token: string): void {
+  _cookieJwt = token;
   const payload = _decodeJwtPayload(token);
-  if (typeof payload?.csrf_token === "string") {
+  if (!_csrfToken && typeof payload?.csrf_token === "string") {
     _csrfToken = payload.csrf_token;
-    _cookieJwt = token;
-    log.log("[WFMClient] CSRF token updated from authenticated JWT");
+    log.log("[WFMClient] CSRF token updated from authenticated JWT fallback");
   }
 }
 
@@ -294,14 +314,29 @@ function extractWfmErrorDetail(body: unknown, objectErrorFallback?: string): str
   return null;
 }
 
+function throwRateLimitError(label: string, res: WfmResponseLike): never {
+  const retryAfterSec = parseInt(res.headers.get("retry-after") || "30", 10);
+  const cooldownMs = Math.max(retryAfterSec * 1000, 30_000);
+  _lastRequestAt = Date.now() + cooldownMs - MIN_DELAY_MS;
+  log.warn(`[${label}] Rate limited (429). Cooling down for ${Math.ceil(cooldownMs / 1000)}s.`);
+  throw new WfmApiError(
+    `Warframe.market rate limit hit. Please wait ${Math.ceil(cooldownMs / 1_000)}s before trying again.`,
+    "WFM_RATE_LIMITED",
+    429,
+  );
+}
+
 async function applyMutationHeaders(
   headers: Record<string, string>,
   jwtForCookie: string | null,
-  jwtForAuthorization: string | null = null,
+  jwtForAuthorization: string | null | undefined = undefined,
 ): Promise<void> {
-  await _ensureCsrfToken();
-  if (jwtForCookie && !headers["Cookie"]) headers["Cookie"] = `JWT=${jwtForCookie}`;
-  if (jwtForAuthorization) headers["Authorization"] = `JWT ${jwtForAuthorization}`;
+  const csrfToken = await _ensureCsrfToken();
+  const cookieJwt = jwtForCookie ?? _cookieJwt;
+  const authorizationJwt = jwtForAuthorization === undefined ? cookieJwt : jwtForAuthorization;
+  if (csrfToken && !headers["X-CSRFToken"]) headers["X-CSRFToken"] = csrfToken;
+  if (cookieJwt && !headers["Cookie"]) headers["Cookie"] = `JWT=${cookieJwt}`;
+  if (authorizationJwt) headers["Authorization"] = `JWT ${authorizationJwt}`;
   headers["Origin"] = "https://warframe.market";
   headers["Referer"] = "https://warframe.market/";
 }
@@ -328,7 +363,7 @@ function _coreRequest(
     }
 
     if (method !== "GET") {
-      await applyMutationHeaders(headers, token || _cookieJwt);
+      await applyMutationHeaders(headers, token || _cookieJwt, null);
     }
 
     const body = json !== undefined ? JSON.stringify(json) : null;
@@ -347,17 +382,7 @@ function _coreRequest(
       throw new WfmApiError("Warframe.market session expired or invalid.", "WFM_UNAUTHORIZED", 401);
     }
 
-    if (res.status === 429) {
-      const retryAfterSec = parseInt(res.headers.get("retry-after") || "30", 10);
-      const cooldownMs = Math.max(retryAfterSec * 1000, 30_000);
-      _lastRequestAt = Date.now() + cooldownMs - MIN_DELAY_MS;
-      log.warn(`[${label}] Rate limited (429). Cooling down for ${Math.ceil(cooldownMs / 1000)}s.`);
-      throw new WfmApiError(
-        `Warframe.market rate limit hit. Please wait ${Math.ceil(cooldownMs / 1_000)}s.`,
-        "WFM_RATE_LIMITED",
-        429,
-      );
-    }
+    if (res.status === 429) throwRateLimitError(label, res);
 
     if (!res.ok) {
       let detail = `HTTP ${res.status}`;
@@ -416,7 +441,7 @@ export function requestRaw(
     };
 
     if (method !== "GET") {
-      await applyMutationHeaders(headers, _cookieJwt, _cookieJwt);
+      await applyMutationHeaders(headers, null);
     }
 
     const body = json !== undefined ? JSON.stringify(json) : null;
@@ -430,6 +455,8 @@ export function requestRaw(
         "WFM_NETWORK_ERROR",
       );
     }
+
+    if (res.status === 429) throwRateLimitError("WFMClient", res);
 
     if (!res.ok) {
       let detail = `HTTP ${res.status}`;

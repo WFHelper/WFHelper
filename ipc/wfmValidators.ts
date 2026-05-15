@@ -64,8 +64,8 @@ function parseCredentials(payload: unknown): ParsedCredentials | null {
   if (!isObject(payload)) return null;
 
   const email = trimmedString(payload.email, EMAIL_MAX_LENGTH);
-  const password = trimmedString(payload.password, PASSWORD_MAX_LENGTH);
-  if (!email || !password) return null;
+  const password = typeof payload.password === "string" ? payload.password : null;
+  if (!email || !password || password.length > PASSWORD_MAX_LENGTH) return null;
 
   return { email, password };
 }
