@@ -50,9 +50,7 @@
 
   // Only use parent wiki for build components (Chassis, Systems, etc.) that lack
   // their own wiki page. Resources (Orokin Cell, Neurodes) have standalone pages.
-  $: wikiFallback = (() => {
-    return resolveComponentWikiFallback(comp, parentName, compDbEntry);
-  })();
+  $: wikiFallback = resolveComponentWikiFallback(comp, parentName, compDbEntry);
 </script>
 
 <div class="detail-panel {panelClass}">

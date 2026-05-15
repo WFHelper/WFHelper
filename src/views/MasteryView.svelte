@@ -36,9 +36,10 @@
   }
 
   $: categories = $masteryData ? orderedCategories($masteryData.stats.byCategory) : [];
-  $: masterySummaryItems = (() => {
-    if (!$masteryData) return [];
-    const stats = $masteryData.stats;
+
+  function buildMasterySummary(data: typeof $masteryData): SummaryStripItem[] {
+    if (!data) return [];
+    const stats = data.stats;
     const profileMastery = stats.profileMastery || null;
     const rows: SummaryStripItem[] = [
       { key: "mastered", value: stats.mastered, label: "Mastered", tone: "success" },
@@ -56,37 +57,53 @@
       });
     }
     return rows;
-  })();
+  }
 
-  $: filtered = (() => {
-    if (!$masteryData) return [];
-    let items = $masteryData.items;
-    if (catFilter !== 'all')    items = items.filter(i => i.category === catFilter);
-    if (statusFilter !== 'all') items = items.filter(i => i.status === statusFilter);
-    // Pre-compute per-item derived values here so {#each} never reads
-    // $wfmItems directly — a wfmItems store update won't trigger a full
-    // template re-render; Svelte will patch only changed items via the key.
+  $: masterySummaryItems = buildMasterySummary($masteryData);
+
+  // Pre-compute per-item derived values here so {#each} never reads
+  // $wfmItems directly — a wfmItems store update won't trigger a full
+  // template re-render; Svelte will patch only changed items via the key.
+  function hydrateAndFilterMastery(
+    data: typeof $masteryData,
+    wfmLookup: typeof $wfmItems,
+    sharedFilters: typeof $masteryFilters,
+    cat: string,
+    status: string,
+  ) {
+    if (!data) return [];
+    let items = data.items;
+    if (cat !== 'all') items = items.filter(i => i.category === cat);
+    if (status !== 'all') items = items.filter(i => i.status === status);
     const hydrated = items.map(item => {
-        const mastered = item.status === 'mastered';
-        const missing  = item.status === 'missing';
-        const nextPct  = missing ? 0 : Math.max(0, Math.min(100,
-          Math.floor((item.rank / Math.max(item.maxRank, 1)) * 100)));
-        const wfm = $wfmItems[item.name.toLowerCase()] || null;
-        return {
-          ...item,
-          mastered,
-          missing,
-          nextPct,
-          wfm,
-          partType: item.isPrime ? ("prime" as const) : ("normal" as const),
-          leveledUp: item.rank > 0,
-          amount: item.status !== "missing" || item.currentlyOwned ? 1 : 0,
-          owned: item.status !== "missing" || item.currentlyOwned === true,
-        };
-      });
+      const mastered = item.status === 'mastered';
+      const missing  = item.status === 'missing';
+      const nextPct  = missing ? 0 : Math.max(0, Math.min(100,
+        Math.floor((item.rank / Math.max(item.maxRank, 1)) * 100)));
+      const wfm = wfmLookup[item.name.toLowerCase()] || null;
+      return {
+        ...item,
+        mastered,
+        missing,
+        nextPct,
+        wfm,
+        partType: item.isPrime ? ("prime" as const) : ("normal" as const),
+        leveledUp: item.rank > 0,
+        amount: item.status !== "missing" || item.currentlyOwned ? 1 : 0,
+        owned: item.status !== "missing" || item.currentlyOwned === true,
+      };
+    });
 
-    return applySharedFiltersAndSort(hydrated, $masteryFilters);
-  })();
+    return applySharedFiltersAndSort(hydrated, sharedFilters);
+  }
+
+  $: filtered = hydrateAndFilterMastery(
+    $masteryData,
+    $wfmItems,
+    $masteryFilters,
+    catFilter,
+    statusFilter,
+  );
 
   function formatPercent(n: number, total: number): string {
     return total > 0 ? ((n / total) * 100).toFixed(1) : "0.0";

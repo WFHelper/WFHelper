@@ -220,21 +220,26 @@
   $: resourceList = ($inventoryData && Object.keys($itemDb).length > 0)
     ? parseResources($inventoryData, $itemDb)
     : [];
-  $: filteredResources = (() => {
-    const search = $inventoryFilters.search.trim().toLowerCase();
+  function filterAndSortResources(
+    list: typeof resourceList,
+    filters: typeof $inventoryFilters,
+  ): typeof resourceList {
+    const search = filters.search.trim().toLowerCase();
     const searched = search
-      ? resourceList.filter(r =>
+      ? list.filter(r =>
           r.name.toLowerCase().includes(search) ||
           r.internalName.toLowerCase().includes(search)
         )
-      : resourceList;
-    const dir = $inventoryFilters.sortDirection === "asc" ? 1 : -1;
+      : list;
+    const dir = filters.sortDirection === "asc" ? 1 : -1;
     return [...searched].sort((a, b) =>
-      $inventoryFilters.sortBy === "amount"
+      filters.sortBy === "amount"
         ? (a.count - b.count) * dir
         : a.name.localeCompare(b.name) * dir
     );
-  })();
+  }
+
+  $: filteredResources = filterAndSortResources(resourceList, $inventoryFilters);
   $: filteredTotalCount = filter === "resources" ? filteredResources.length : filtered.length;
   $: showDucats = filter === "all_parts" || filter === "full_sets";
   $: metricNeeds = metricNeedsFromFilters($inventoryFilters, filter);

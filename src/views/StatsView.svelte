@@ -198,14 +198,18 @@
 
   let chartDays = 30;
 
-  // Reactive derived chart data — recomputes when history or chartDays changes
-  $: chartDataMap = (() => {
+  function computeChartDataMap(
+    historyArg: typeof history,
+    daysArg: number,
+  ): Record<ChartKey, ChartResult> {
     const m: Partial<Record<ChartKey, ChartResult>> = {};
     for (const { key } of CHART_SECTIONS) {
-      m[key] = barsForKey(key, history, chartDays, BAR_H);
+      m[key] = barsForKey(key, historyArg, daysArg, BAR_H);
     }
     return m as Record<ChartKey, ChartResult>;
-  })();
+  }
+
+  $: chartDataMap = computeChartDataMap(history, chartDays);
 
   // Expanded modal chart data — recomputes when expandedKey or chartDays changes
   $: expandedChartData = expandedKey

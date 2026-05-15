@@ -203,7 +203,6 @@
 
   let loading = false;
   let error = "";
-  let groups: RelicGroup[];
   let ownedModeSelectedQualityByGroup: Record<string, RelicQuality> = {};
   let ownedRewardInternalNames: Record<string, true> = {};
   let ownedRewardNames: Record<string, true> = {};
@@ -256,53 +255,68 @@
     relicOwnedCounts.set({});
   }
 
-  $: groups = (() => {
-    void $relicEvRevision;
-    void $priceCacheRevision;
-    if (!$relicDb) return [];
+  function computeFilteredRelicGroups(
+    db: typeof $relicDb,
+    hasInventory: boolean,
+    ownedCounts: typeof $relicOwnedCounts,
+    viewState: typeof $relicViewState,
+  ): RelicGroup[] {
+    if (!db) return [];
 
-    let relicGroups = Object.values($relicDb.groups);
+    let relicGroups = Object.values(db.groups);
 
-    if ($inventoryData) {
-      const hasOwnedRelics = Object.values($relicOwnedCounts).some((counts) =>
+    if (hasInventory) {
+      const hasOwnedRelics = Object.values(ownedCounts).some((counts) =>
         Object.values(counts || {}).some((count) => count > 0),
       );
 
       if (hasOwnedRelics) {
         relicGroups = relicGroups.filter((group) => {
-          const owned = $relicOwnedCounts[group.key];
+          const owned = ownedCounts[group.key];
           return owned && Object.values(owned).some((count) => count > 0);
         });
       }
     }
 
-    if ($relicViewState.tierFilter !== "all") {
-      relicGroups = relicGroups.filter((group) => group.tier === $relicViewState.tierFilter);
+    if (viewState.tierFilter !== "all") {
+      relicGroups = relicGroups.filter((group) => group.tier === viewState.tierFilter);
     }
 
-    if ($relicViewState.vaultedMode !== "all") {
-      const wantVaulted = $relicViewState.vaultedMode === "vaulted";
+    if (viewState.vaultedMode !== "all") {
+      const wantVaulted = viewState.vaultedMode === "vaulted";
       relicGroups = relicGroups.filter((group) => Boolean(group.vaulted) === wantVaulted);
     }
 
-    if ($relicViewState.search) {
+    if (viewState.search) {
       relicGroups = relicGroups.filter((group) =>
-        relicGroupMatchesSearch(group, $relicViewState.search),
+        relicGroupMatchesSearch(group, viewState.search),
       );
     }
 
-    relicGroups = [...relicGroups].sort((a, b) =>
+    return [...relicGroups].sort((a, b) =>
       compareRelicGroupForSort(
         a,
         b,
-        $relicViewState.sortMode,
-        $relicViewState.sortDirection,
-        $relicViewState.qualityMode,
+        viewState.sortMode,
+        viewState.sortDirection,
+        viewState.qualityMode,
       ),
     );
+  }
 
-    return relicGroups;
-  })();
+  let groups: RelicGroup[] = [];
+  // Revision stores are referenced so Svelte re-runs this block when EV/price
+  // caches invalidate, even though the actual values aren't read.
+  $: {
+    void $relicEvRevision;
+    void $priceCacheRevision;
+    groups = computeFilteredRelicGroups(
+      $relicDb,
+      Boolean($inventoryData),
+      $relicOwnedCounts,
+      $relicViewState,
+    );
+  }
 
   $: warmupController.updateContext({
     db: $relicDb,

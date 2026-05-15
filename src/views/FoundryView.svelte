@@ -136,10 +136,10 @@
    *  the full bar. */
   /** Lookup: ingredient uniqueName → owned count (tracks componentOwnership store). */
   $: ownedMap = $componentOwnership;
-  $: productOwnedLookup = (() => {
+  function buildProductOwnedLookup(items: typeof $parsedItems): SvelteMap<string, number> {
     const byUniqueName = new SvelteMap<string, number>();
 
-    for (const item of $parsedItems) {
+    for (const item of items) {
       const amount = item.amount ?? 0;
       if (amount <= 0) continue;
 
@@ -149,12 +149,16 @@
     }
 
     return byUniqueName;
-  })();
-  $: masteryLookup = (() => {
+  }
+
+  function buildMasteryLookup(data: typeof $masteryData): {
+    byUniqueName: SvelteMap<string, MasteryStatus>;
+    byName: SvelteMap<string, MasteryStatus>;
+  } {
     const byUniqueName = new SvelteMap<string, MasteryStatus>();
     const byName = new SvelteMap<string, MasteryStatus>();
 
-    for (const item of $masteryData?.items ?? []) {
+    for (const item of data?.items ?? []) {
       const status = item.status;
       if (!status) continue;
 
@@ -170,7 +174,10 @@
     }
 
     return { byUniqueName, byName };
-  })();
+  }
+
+  $: productOwnedLookup = buildProductOwnedLookup($parsedItems);
+  $: masteryLookup = buildMasteryLookup($masteryData);
 
   function statusOf(entry: FoundryEntry, now: number): ItemStatus {
     if (entry.source === "building") {
@@ -257,19 +264,22 @@
     "not-ready": 3,
   };
 
-  $: sorted = (() => {
-    const copy = [...filtered];
-    copy.sort((a, b) => {
+  function sortFoundryRows(
+    rows: typeof filtered,
+    sharedFilters: typeof $foundryFilters,
+  ): typeof filtered {
+    return [...rows].sort((a, b) => {
       const rankDiff = STATUS_RANK[a.status] - STATUS_RANK[b.status];
       if (rankDiff !== 0) return rankDiff;
       return compareSharedFilterSort(
         filterableFoundryEntry(a),
         filterableFoundryEntry(b),
-        $foundryFilters,
+        sharedFilters,
       );
     });
-    return copy;
-  })();
+  }
+
+  $: sorted = sortFoundryRows(filtered, $foundryFilters);
 
   /** Build a ParsedItem from an itemDb uniqueName and open the ItemDetailModal. */
   function openItem(uniqueName: string | null): void {

@@ -15,11 +15,11 @@
   let showAll = false;
   let openRelicKey: string | null = null;
 
-  $: dedupedDrops = (() => {
+  function computeDedupedDrops(drops: DropInfo[]): DropInfo[] {
     const out: DropInfo[] = [];
     const seenRelicKeys = new SvelteSet<string>();
 
-    for (const d of drops || []) {
+    for (const d of drops) {
       const rg = resolveRelicGroup(d.location);
       if (!rg) {
         out.push(d);
@@ -34,7 +34,7 @@
       out.push(d);
     }
 
-    for (const d of drops || []) {
+    for (const d of drops) {
       const rg = resolveRelicGroup(d.location);
       if (rg && !seenRelicKeys.has(rg.key)) {
         seenRelicKeys.add(rg.key);
@@ -43,7 +43,9 @@
     }
 
     return out;
-  })();
+  }
+
+  $: dedupedDrops = computeDedupedDrops(drops || []);
 
   let lastDropsKey = "";
   $: {

@@ -26,22 +26,25 @@
     Boolean(helperStatus?.inventoryLastModified) &&
     Date.now() - Number(helperStatus?.inventoryLastModified) > INVENTORY_OLD_MS;
 
-  $: helperStatusText = (() => {
-    if (!helperStatus) return "WF data unknown";
-    if (helperStatus.running) return "WF data refreshing...";
-    if (helperStatus.inventoryLastModified) {
-      return `WF data ${helperInventoryIsOld ? "old" : "OK"} - ${formatHelperTime(helperStatus.inventoryLastModified)}`;
+  function computeHelperStatusText(status: HelperStatus | null, isOld: boolean): string {
+    if (!status) return "WF data unknown";
+    if (status.running) return "WF data refreshing...";
+    if (status.inventoryLastModified) {
+      return `WF data ${isOld ? "old" : "OK"} - ${formatHelperTime(status.inventoryLastModified)}`;
     }
-    if (!helperStatus.exeFound) return "WF helper not found";
+    if (!status.exeFound) return "WF helper not found";
     return "WF data missing";
-  })();
+  }
 
-  $: helperDotColor = (() => {
-    if (!helperStatus) return "#6b7280";
-    if (helperStatus.running) return "#facc15";
-    if (helperStatus.inventoryLastModified) return helperInventoryIsOld ? "#f59e0b" : "#34d399";
+  function computeHelperDotColor(status: HelperStatus | null, isOld: boolean): string {
+    if (!status) return "#6b7280";
+    if (status.running) return "#facc15";
+    if (status.inventoryLastModified) return isOld ? "#f59e0b" : "#34d399";
     return "#f87171";
-  })();
+  }
+
+  $: helperStatusText = computeHelperStatusText(helperStatus, helperInventoryIsOld);
+  $: helperDotColor = computeHelperDotColor(helperStatus, helperInventoryIsOld);
   $: helperDotPulse = helperStatus?.running ?? false;
 
   onMount(() => {
