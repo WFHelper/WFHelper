@@ -440,18 +440,16 @@
 </section>
 
 <style>
-  /* Sections — border-top with :first-child exception */
   .world-section { padding: 0.85rem 0; border-top: 1px solid var(--border); }
   .world-section:first-child { border-top: none; }
 
-  /* Shared row with dashed bottom border + :last-child exception */
   .world-row {
     display: flex; align-items: center; justify-content: space-between;
     padding: 0.32rem 0; border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
   }
   .world-row:last-child { border-bottom: none; }
 
-  /* Toggle button — :global() for CollapsibleSection */
+  /* :global() because CollapsibleSection renders the actual header element. */
   :global(.world-section-header) {
     display: flex;
     align-items: center;
@@ -494,7 +492,7 @@
     transform: rotate(-90deg);
   }
 
-  /* Cycle state colors — :global() dynamic class */
+  /* :global() because state classes are applied via class: directive in CycleRow. */
   :global(.world-state-day)    { color: var(--world-state-day-text); background: color-mix(in srgb, var(--world-state-day-text) 10%, transparent); }
   :global(.world-state-night)  { color: var(--world-state-night-text); background: color-mix(in srgb, var(--world-state-night-text) 10%, transparent); }
   :global(.world-state-warm)   { color: var(--world-state-warm-text); background: color-mix(in srgb, var(--world-state-warm-text) 10%, transparent); }
@@ -507,7 +505,6 @@
   :global(.world-state-sorrow) { color: var(--world-state-sorrow-text); background: color-mix(in srgb, var(--world-state-sorrow-text) 10%, transparent); }
   :global(.world-state-fear)   { color: var(--world-state-fear-text); background: color-mix(in srgb, var(--world-state-fear-text) 10%, transparent); }
 
-  /* Fissure badge colors */
   .world-badge-lith    { background: color-mix(in srgb, var(--world-badge-lith-text) 12%, transparent); color: var(--world-badge-lith-text); }
   .world-badge-meso    { background: color-mix(in srgb, var(--world-badge-meso-text) 18%, transparent); color: var(--world-badge-meso-text); }
   .world-badge-neo     { background: color-mix(in srgb, var(--world-badge-neo-text) 12%, transparent); color: var(--world-badge-neo-text); }
@@ -523,18 +520,18 @@
   :global(.world-faction-bg-corpus)  { background: var(--world-faction-corpus); }
   :global(.world-faction-bg-infested){ background: var(--world-faction-infested); }
 
-  /* Urgent timer — :global() used by class: directive */
+  /* :global() because the class is applied via class: directive in child
+     CycleRow; !important wins over the sibling text-text-primary utility. */
   :global(.world-timer-urgent) { color: var(--world-timer-urgent-text) !important; }
 
-  /* Fissure row — gap-based layout instead of space-between */
   .fissure-row {
     display: flex; align-items: center; gap: 0.55rem;
     padding: 0.35rem 0; border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
   }
   .fissure-row:last-child { border-bottom: none; }
 
-  /* Spin button removal — vendor prefix */
-  .cycle-lead-input { appearance: textfield; -moz-appearance: textfield; }
+  /* Suppress number-input spin buttons (still needs -webkit- for Chromium). */
+  .cycle-lead-input { appearance: textfield; }
   .cycle-lead-input::-webkit-inner-spin-button,
   .cycle-lead-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 </style>

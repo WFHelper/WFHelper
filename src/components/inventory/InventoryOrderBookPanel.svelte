@@ -496,12 +496,12 @@
   .inventory-orderbook-feedback {
     font-size: 0.76rem; color: var(--accent-bright);
     border: 1px solid color-mix(in oklab, var(--accent) 42%, transparent);
-    border-radius: 0.45rem;
-    background: color-mix(in oklab, var(--accent) 14%, var(--bg-soft));
+    border-radius: var(--radius-md);
+    background: color-mix(in oklab, var(--accent) 14%, var(--bg-surface));
     padding: 0.44rem 0.55rem;
   }
   .inventory-orderbook-select {
-    width: 100%; border: 1px solid var(--border); border-radius: 0.38rem;
+    width: 100%; border: 1px solid var(--border); border-radius: var(--radius-md);
     background: var(--bg-raised); color: var(--text-primary); padding: 0.26rem 0.34rem; font-size: 0.72rem;
   }
   .inventory-orderbook-select:focus {

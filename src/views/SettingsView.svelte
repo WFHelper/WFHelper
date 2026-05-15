@@ -354,7 +354,7 @@
 
   .settings-input:focus {
     border-color: var(--accent-dim);
-    box-shadow: 0 0 0 2px rgba(212, 168, 67, 0.12);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 12%, transparent);
   }
 
   .settings-input:disabled {
