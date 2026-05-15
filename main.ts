@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, ipcMain } from "electron";
+import { app, BrowserWindow, globalShortcut } from "electron";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -32,7 +32,7 @@ import * as rankedHotsetIpc from "./ipc/rankedHotsetIpc";
 import * as statsIpc from "./ipc/statsIpc";
 import * as rivensIpc from "./ipc/rivensIpc";
 import * as tradeNotificationIpc from "./ipc/tradeNotificationIpc";
-import { assertAuthorizedSender, assertMainRendererSender } from "./ipc/ipcSecurity";
+import { assertMainRendererSender, handleAuthorized } from "./ipc/ipcSecurity";
 import {
   HELPER_GET_STATUS, HELPER_RUN_NOW, HELPER_DOWNLOAD, HELPER_DOWNLOAD_PROGRESS,
   INVENTORY_UPDATED, TRADE_RECORDED,
@@ -191,29 +191,14 @@ app.whenReady().then(async () => {
   tradeNotificationIpc.register();
 
   // Helper runner IPC
-  ipcMain.handle(HELPER_GET_STATUS, (event: unknown) => {
-    assertAuthorizedSender(
-      assertMainRendererSender,
-      event as never,
-      HELPER_GET_STATUS,
-    );
-    return apiHelperRunner.getStatus();
-  });
-  ipcMain.handle(HELPER_RUN_NOW, async (event: unknown) => {
-    assertAuthorizedSender(
-      assertMainRendererSender,
-      event as never,
-      HELPER_RUN_NOW,
-    );
+  handleAuthorized(HELPER_GET_STATUS, assertMainRendererSender, () =>
+    apiHelperRunner.getStatus(),
+  );
+  handleAuthorized(HELPER_RUN_NOW, assertMainRendererSender, async () => {
     const ok = await apiHelperRunner.runOnce();
     return { ok };
   });
-  ipcMain.handle(HELPER_DOWNLOAD, async (event: unknown) => {
-    assertAuthorizedSender(
-      assertMainRendererSender,
-      event as never,
-      HELPER_DOWNLOAD,
-    );
+  handleAuthorized(HELPER_DOWNLOAD, assertMainRendererSender, async () => {
     const ok = await apiHelperRunner.downloadHelper((progress) => {
       if (ctx.mainWindow) {
         ctx.mainWindow.webContents.send(HELPER_DOWNLOAD_PROGRESS, progress);
@@ -251,7 +236,7 @@ app.whenReady().then(async () => {
       wfmIpc.startListenerIfLoggedIn();
     })
     .catch((err: Error) => {
-      log.warn("[WFMSession] restore failed:", err?.message || String(err));
+      log.warn("[WFMSession] restore failed:", err.message);
     });
   profileStage("wfm-session:restore-dispatch", sessionRestoreStart);
 

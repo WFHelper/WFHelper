@@ -133,20 +133,6 @@ export async function signIn(email: string, password: string): Promise<SignInRes
     throw new Error("Email and password are required.");
   }
 
-  const atIdx = (email || "").indexOf("@");
-  log.log(
-    "[WFMSession] signIn email shape - length:",
-    email.length,
-    "hasAt:",
-    atIdx > 0,
-    "localLen:",
-    atIdx,
-    "domainLen:",
-    atIdx > 0 ? email.length - atIdx - 1 : 0,
-    "isString:",
-    typeof email === "string",
-  );
-
   const { res, body } = await requestRaw("POST", "/auth/signin", {
     json: { email, password, device_id: _getDeviceId() },
   });
