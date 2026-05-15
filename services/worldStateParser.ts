@@ -729,6 +729,7 @@ export async function fetchAndParse(): Promise<Record<string, unknown>> {
   }
 
   const parsed = parseRaw(raw);
+  if (!parsed) return emptyWorldState();
 
   // Fetch cycles and warframestat extras in parallel
   const [cyclesResult, extrasResult] = await Promise.allSettled([
@@ -795,7 +796,8 @@ export async function fetchAndParse(): Promise<Record<string, unknown>> {
   };
 }
 
-export function parseRaw(raw: WorldStateRaw): Record<string, unknown> {
+export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> | null {
+  if (!raw) return null;
   const nowMs = Date.now();
 
   const fissures = (raw.ActiveMissions || [])
