@@ -285,6 +285,10 @@ export interface IpcInvokeMap {
     args: [];
     return: AppUpdateState;
   };
+  downloadAppUpdate: {
+    args: [];
+    return: AppUpdateCheckResult;
+  };
   installDownloadedUpdate: {
     args: [];
     return: AppUpdateInstallResult;

@@ -12,11 +12,13 @@
   $: updateButtonText =
     $appUpdateState.status === "checking"
       ? "Checking..."
-      : $appUpdateState.status === "downloading"
-        ? `Downloading ${Math.round($appUpdateState.percent || 0)}%`
-        : $appUpdateState.status === "downloaded"
-          ? "Install update"
-          : "Check updates";
+      : $appUpdateState.status === "available"
+        ? `Download ${$appUpdateState.version || "update"}`
+        : $appUpdateState.status === "downloading"
+          ? `Downloading ${Math.round($appUpdateState.percent || 0)}%`
+          : $appUpdateState.status === "downloaded"
+            ? "Install update"
+            : "Check updates";
 
   async function onUpdateAction(): Promise<void> {
     updateActionPending = true;
@@ -28,6 +30,18 @@
             level: "warning",
             title: "Update Install",
             message: result.message || "No downloaded update is ready.",
+          });
+        }
+        return;
+      }
+
+      if ($appUpdateState.status === "available") {
+        const result = await invoke("downloadAppUpdate");
+        if (!result.ok && result.message) {
+          addToast({
+            level: "warning",
+            title: "Update Download",
+            message: result.message,
           });
         }
         return;

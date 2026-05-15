@@ -13,13 +13,11 @@ import { APP_UPDATE_STATUS } from "../config/shared/ipcChannels";
 const log = withScope("autoUpdater");
 
 const UPDATE_STATUS_CHANNEL = APP_UPDATE_STATUS;
-const STARTUP_CHECK_DELAY_MS = 12_000;
 const UPDATE_FEED_PROBE_TIMEOUT_MS = 5_000;
 
 let mainWindow: import("electron").BrowserWindow | null = null;
 let initialized = false;
 let checkPromise: Promise<{ ok: boolean; source: string; state: UpdateState }> | null = null;
-let startupTimer: ReturnType<typeof setTimeout> | null = null;
 let disabledReason: string | null = null;
 
 interface UpdateState {
@@ -160,12 +158,6 @@ async function ensureUpdateFeedReachable(): Promise<boolean> {
   return true;
 }
 
-function clearStartupCheck(): void {
-  if (startupTimer) {
-    clearTimeout(startupTimer);
-    startupTimer = null;
-  }
-}
 
 export function initialize(windowRef: import("electron").BrowserWindow): void {
   mainWindow = windowRef;
@@ -184,8 +176,12 @@ export function initialize(windowRef: import("electron").BrowserWindow): void {
     return;
   }
 
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  // Manual-only update policy: never download or install without an explicit
+  // user action. Mitigates blind exposure to a compromised release/feed.
+  // Updates are detected and surfaced in the UI; checkForUpdates() and
+  // installDownloadedUpdate() are driven by the user, not on a timer.
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.allowPrerelease = false;
   autoUpdater.logger = require("electron-log/main");
 
@@ -198,7 +194,7 @@ export function initialize(windowRef: import("electron").BrowserWindow): void {
     log.info("Update available:", info?.version);
     setUpdateState("available", {
       ...toInfoPatch(info),
-      message: `Update ${info?.version || ""} found. Downloading...`.trim(),
+      message: `Update ${info?.version || ""} available. Download when ready.`.trim(),
     });
   });
 
@@ -234,9 +230,8 @@ export function initialize(windowRef: import("electron").BrowserWindow): void {
     setUpdateState("error", { message });
   });
 
-  startupTimer = setTimeout(() => {
-    void checkForUpdates("startup");
-  }, STARTUP_CHECK_DELAY_MS);
+  // No startup auto-check: the renderer triggers checkForUpdates() on user
+  // action so nothing contacts the update feed without intent.
 }
 
 export async function checkForUpdates(
@@ -256,7 +251,6 @@ export async function checkForUpdates(
   }
 
   checkPromise = (async () => {
-    clearStartupCheck();
     try {
       await autoUpdater.checkForUpdates();
       return { ok: true, source, state: updateState };
@@ -274,6 +268,31 @@ export async function checkForUpdates(
 
 export function getUpdateState(): UpdateState {
   return { ...updateState };
+}
+
+export async function downloadUpdate(): Promise<{ ok: boolean; message?: string; state: UpdateState }> {
+  if (!initialized) {
+    return { ok: false, message: "Auto-updater not initialized.", state: updateState };
+  }
+  if (!shouldEnableAutoUpdater()) {
+    return { ok: false, message: "Auto-updater disabled.", state: updateState };
+  }
+  if (updateState.status === "downloading") {
+    return { ok: true, state: updateState };
+  }
+  if (updateState.status !== "available") {
+    return { ok: false, message: "No update available to download.", state: updateState };
+  }
+
+  try {
+    setUpdateState("downloading", { percent: 0, message: "Downloading update..." });
+    await autoUpdater.downloadUpdate();
+    return { ok: true, state: updateState };
+  } catch (err) {
+    const message = normalizeErrorMessage(err, "Unknown updater error");
+    setUpdateState("error", { message });
+    return { ok: false, message, state: updateState };
+  }
 }
 
 export function installDownloadedUpdate(): { ok: boolean; message?: string } {

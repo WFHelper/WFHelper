@@ -17,7 +17,7 @@ import { app, shell } from "electron";
 import {
   DB_GET_ITEM_DATABASE, DB_GET_WFM_ITEMS, DB_GET_MASTERY,
   DB_GET_RELIC_DATABASE,
-  APP_UPDATE_CHECK, APP_UPDATE_STATE, APP_UPDATE_INSTALL, APP_RUNTIME_INFO,
+  APP_UPDATE_CHECK, APP_UPDATE_STATE, APP_UPDATE_DOWNLOAD, APP_UPDATE_INSTALL, APP_RUNTIME_INFO,
   WINDOW_MINIMIZE, WINDOW_MAXIMIZE, WINDOW_CLOSE,
   LOG_WARN, OPEN_EXTERNAL,
 } from "../config/shared/ipcChannels";
@@ -58,6 +58,9 @@ function register(): void {
   );
   handleAuthorized(APP_UPDATE_STATE, assertMainRendererSender, () =>
     autoUpdater.getUpdateState(),
+  );
+  handleAuthorized(APP_UPDATE_DOWNLOAD, assertMainRendererSender, () =>
+    autoUpdater.downloadUpdate(),
   );
   handleAuthorized(APP_UPDATE_INSTALL, assertMainRendererSender, () =>
     autoUpdater.installDownloadedUpdate(),

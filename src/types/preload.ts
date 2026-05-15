@@ -35,6 +35,7 @@ export interface PreloadAPI {
   getMasteryProgress: () => Promise<IpcInvokeMap["getMasteryProgress"]["return"]>;
   checkForAppUpdates: () => Promise<IpcInvokeMap["checkForAppUpdates"]["return"]>;
   getAppUpdateState: () => Promise<IpcInvokeMap["getAppUpdateState"]["return"]>;
+  downloadAppUpdate: () => Promise<IpcInvokeMap["downloadAppUpdate"]["return"]>;
   installDownloadedUpdate: () => Promise<IpcInvokeMap["installDownloadedUpdate"]["return"]>;
   getAppRuntimeInfo: () => Promise<IpcInvokeMap["getAppRuntimeInfo"]["return"]>;
   onInventoryUpdated: (callback: (data: IpcEventMap["inventory-updated"]) => void) => () => void;

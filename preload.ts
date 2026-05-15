@@ -31,6 +31,7 @@ import {
   WFM_NOTIFICATION,
   APP_UPDATE_CHECK,
   APP_UPDATE_STATE,
+  APP_UPDATE_DOWNLOAD,
   APP_UPDATE_INSTALL,
   APP_UPDATE_STATUS,
   APP_RUNTIME_INFO,
@@ -95,6 +96,7 @@ try {
     getMasteryProgress: () => ipcRenderer.invoke(DB_GET_MASTERY),
     checkForAppUpdates: () => ipcRenderer.invoke(APP_UPDATE_CHECK),
     getAppUpdateState: () => ipcRenderer.invoke(APP_UPDATE_STATE),
+    downloadAppUpdate: () => ipcRenderer.invoke(APP_UPDATE_DOWNLOAD),
     installDownloadedUpdate: () => ipcRenderer.invoke(APP_UPDATE_INSTALL),
     getAppRuntimeInfo: () => ipcRenderer.invoke(APP_RUNTIME_INFO),
 
