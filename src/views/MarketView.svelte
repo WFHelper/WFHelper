@@ -525,15 +525,15 @@
     <div>
       <div class="view-header">
         <h2>{isRivensTab ? "My Rivens" : "My Orders"}</h2>
-        <div class="view-controls gap-[0.45rem]">
+        <div class="view-controls gap-2">
           {#if $marketSession.userName}
             <span class="rounded-full border border-border bg-white/5 px-2 py-1 font-display text-xs font-bold text-text-primary">@{$marketSession.userName}</span>
           {/if}
 
-          <div class="flex flex-wrap gap-[0.35rem]">
+          <div class="flex flex-wrap gap-1.5">
             {#each STATUS_OPTIONS as [statusKey, label]}
               <button
-                class="rounded-[0.36rem] border border-border bg-bg-surface px-[0.56rem] py-[0.3rem] font-display text-xs font-semibold text-text-secondary transition-all duration-[0.14s] hover:border-text-secondary hover:text-text-primary"
+                class="rounded-md border border-border bg-bg-surface px-2 py-1 font-display text-xs font-semibold text-text-secondary transition-all duration-[0.14s] hover:border-text-secondary hover:text-text-primary"
                 class:statusOnlineActive={statusKey === "online" && $marketViewState.status === statusKey}
                 class:statusIngameActive={statusKey === "ingame" && $marketViewState.status === statusKey}
                 class:statusInvisibleActive={statusKey === "invisible" && $marketViewState.status === statusKey}
@@ -594,7 +594,7 @@
           ? 'min-[1101px]:grid-cols-[minmax(0,1fr)_360px]'
           : ''}"
       >
-        <div class="grid gap-[0.65rem] {$marketDensity === 'compact' ? 'grid-cols-[repeat(auto-fill,minmax(336px,1fr))] [&_.order-row]:[zoom:1.2]' : ''}">
+        <div class="grid gap-2.5 {$marketDensity === 'compact' ? 'grid-cols-[repeat(auto-fill,minmax(336px,1fr))] [&_.order-row]:[zoom:1.2]' : ''}">
         {#if isRivensTab}
           {#if contractsLoading}
             <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">Loading riven contracts...</div>

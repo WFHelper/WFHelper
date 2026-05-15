@@ -147,7 +147,7 @@
         {:else}
           <span class="order-vis border-[rgba(251,191,36,0.35)] bg-[rgba(251,191,36,0.13)] text-warning">Hidden</span>
         {/if}
-        <span class="flex min-w-[3.9rem] items-center justify-end gap-1 font-display text-lg font-bold text-accent">
+        <span class="flex min-w-16 items-center justify-end gap-1 font-display text-lg font-bold text-accent">
           <img src={PLATINUM_ICON_URL} alt="" width="14" height="14" class="shrink-0" />
           {order.platinum}
         </span>

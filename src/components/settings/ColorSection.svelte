@@ -98,11 +98,11 @@
   </div>
 
   {#each groups as group}
-    <div class="mb-[0.6rem]">
-      <span class="block mb-[0.3rem] font-display text-xs font-semibold tracking-[0.04em] text-text-muted uppercase">{$tr(group.labelKey)}</span>
+    <div class="mb-2.5">
+      <span class="block mb-1 font-display text-xs font-semibold tracking-[0.04em] text-text-muted uppercase">{$tr(group.labelKey)}</span>
       <div class="flex flex-wrap gap-2">
         {#each group.keys as item}
-          <label class="flex flex-col items-center gap-[0.2rem] cursor-pointer">
+          <label class="flex flex-col items-center gap-1 cursor-pointer">
             <input
               type="color"
               class="w-8 h-8 border border-[var(--ui-control-border)] rounded-[var(--radius-md)] p-0 cursor-pointer bg-transparent [&::-webkit-color-swatch-wrapper]:p-0.5 [&::-webkit-color-swatch]:border-none [&::-webkit-color-swatch]:rounded-[var(--radius-sm)]"

@@ -28,20 +28,20 @@
   class="overflow-hidden rounded-lg border border-border bg-[color-mix(in_oklab,var(--bg-surface)_82%,var(--bg-raised))]"
 >
   <header
-    class="flex items-center justify-center px-[0.4rem] py-[0.32rem] font-display text-xs font-bold tracking-[0.03em]"
+    class="flex items-center justify-center px-1.5 py-1.5 font-display text-xs font-bold tracking-[0.03em]"
     class:inventory-orderbook-side-sell={side === "sell"}
     class:inventory-orderbook-side-buy={side === "buy"}
   >
     <span>{title}</span>
   </header>
   {#if rows.length === 0}
-    <div class="rounded-[0.45rem] border border-dashed border-border bg-bg-soft px-[0.55rem] py-2 text-xs text-text-secondary">{emptyLabel}</div>
+    <div class="rounded-lg border border-dashed border-border bg-bg-soft px-2 py-2 text-xs text-text-secondary">{emptyLabel}</div>
   {:else}
     <div class="grid">
       {#each rows as entry, index (rowKey(entry, index))}
-        <div class="grid gap-[0.32rem] border-t border-t-[color-mix(in_oklab,var(--border)_72%,transparent)] px-[0.45rem] py-[0.35rem] first:border-t-0">
+        <div class="grid gap-1.5 border-t border-t-[color-mix(in_oklab,var(--border)_72%,transparent)] px-2 py-1.5 first:border-t-0">
           <div class="inventory-orderbook-row-head">
-            <div class="inventory-orderbook-user-block grid min-w-0 gap-[0.08rem]">
+            <div class="inventory-orderbook-user-block grid min-w-0 gap-0.5">
               <span
                 class="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-text-primary"
                 title={entry.userName}
@@ -68,15 +68,15 @@
             <span class="inventory-orderbook-qty font-display text-xs text-text-secondary">x{entry.quantity}</span>
             <span class="inventory-orderbook-plat text-right font-display text-xs font-bold text-accent-bright">{entry.platinum}p</span>
           </div>
-          <div class="flex gap-[0.32rem]">
+          <div class="flex gap-1.5">
             <button
-              class="btn-secondary btn-sm flex-1 min-h-[1.7rem] px-[0.46rem] py-[0.24rem] text-xs"
+              class="btn-secondary btn-sm flex-1 min-h-7 px-2 py-1 text-xs"
               on:click={() => void copyWhisper(entry, side)}
             >
               Whisper
             </button>
             <button
-              class="btn-secondary btn-sm flex-1 min-h-[1.7rem] px-[0.46rem] py-[0.24rem] text-xs"
+              class="btn-secondary btn-sm flex-1 min-h-7 px-2 py-1 text-xs"
               on:click={() => openSellerProfile(entry)}
             >
               Profile

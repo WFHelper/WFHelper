@@ -15,12 +15,12 @@
   export let onToggleAlert: ((key: CycleAlertKey) => void) | null = null;
 </script>
 
-<div class="flex items-center justify-between border-b border-dashed border-white/[0.06] py-[0.38rem]">
-  <div class="flex min-w-0 items-center gap-[0.35rem]">
+<div class="flex items-center justify-between border-b border-dashed border-white/[0.06] py-1.5">
+  <div class="flex min-w-0 items-center gap-1.5">
     <img class="h-[33px] w-[33px] shrink-0 rounded-full object-cover" src={iconSrc} alt="" />
     <span class="whitespace-nowrap text-sm font-semibold text-text-primary">{name}</span>
     <span
-      class="rounded-[var(--radius-sm)] px-[0.35rem] py-[0.08rem] text-xs font-bold whitespace-nowrap"
+      class="rounded-[var(--radius-sm)] px-1.5 py-0.5 text-xs font-bold whitespace-nowrap"
       class:world-state-day={stateClass === "day"}
       class:world-state-night={stateClass === "night"}
       class:world-state-warm={stateClass === "warm"}
@@ -35,7 +35,7 @@
     >{stateLabel}</span>
   </div>
 
-  <span class="flex shrink-0 items-center gap-[0.3rem]">
+  <span class="flex shrink-0 items-center gap-1">
     <span class="whitespace-nowrap text-xs text-text-secondary">{nextLabel} in</span>
     <span
       class="font-display text-sm tracking-[0.02em] whitespace-nowrap text-text-primary"

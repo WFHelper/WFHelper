@@ -191,7 +191,7 @@
             </div>
           {/if}
         {:else}
-          <div class="flex items-center justify-start gap-[0.48rem] border-b border-dashed border-white/[0.08] py-[0.36rem] last:border-b-0">
+          <div class="flex items-center justify-start gap-2 border-b border-dashed border-white/[0.08] py-1.5 last:border-b-0">
             <span class="text-text-primary">{d.location}</span>
             {#if d.chance}<span class="shrink-0 text-xs text-accent">{(d.chance * 100).toFixed(1)}%</span>{/if}
             {#if d.rarity}<span class="text-text-muted">({d.rarity})</span>{/if}
@@ -199,9 +199,9 @@
         {/if}
       {/each}
       {#if !showAll && dedupedDrops.length > initialLimit}
-        <button class="block w-full cursor-pointer border-0 bg-transparent py-[0.35rem] text-left font-display text-xs text-accent opacity-85 hover:opacity-100 hover:underline" on:click={() => showAll = true}>View all {dedupedDrops.length} sources</button>
+        <button class="block w-full cursor-pointer border-0 bg-transparent py-1.5 text-left font-display text-xs text-accent opacity-85 hover:opacity-100 hover:underline" on:click={() => showAll = true}>View all {dedupedDrops.length} sources</button>
       {:else if showAll && dedupedDrops.length > initialLimit}
-        <button class="block w-full cursor-pointer border-0 bg-transparent py-[0.35rem] text-left font-display text-xs text-accent opacity-85 hover:opacity-100 hover:underline" on:click={() => showAll = false}>Show fewer</button>
+        <button class="block w-full cursor-pointer border-0 bg-transparent py-1.5 text-left font-display text-xs text-accent opacity-85 hover:opacity-100 hover:underline" on:click={() => showAll = false}>Show fewer</button>
       {/if}
     </div>
   </div>

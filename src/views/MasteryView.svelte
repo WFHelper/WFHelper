@@ -136,14 +136,14 @@
         <SummaryStrip items={masterySummaryItems} variant="mastery" />
       </div>
 
-      <ThemedPanel className="grid gap-[0.46rem] p-2.5">
+      <ThemedPanel className="grid gap-2 p-2.5">
         {#each categories as cat}
           {@const cs = stats.byCategory[cat]}
           {@const masteredWidth = boundedPercent(cs.mastered, cs.total)}
           {@const progressWidth = boundedPercent(cs.inProgress, cs.total)}
           <div class="grid items-center gap-2 grid-cols-[minmax(72px,110px)_1fr_auto]">
             <span class="text-xs text-text-secondary">{cat}</span>
-            <svg class="block h-[0.36rem] w-full overflow-hidden rounded-full bg-white/[0.07]" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
+            <svg class="block h-1.5 w-full overflow-hidden rounded-full bg-white/[0.07]" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
               <rect class="fill-success" x="0" y="0" width={masteredWidth} height="1"></rect>
               <rect
                 class="fill-warning opacity-60"
@@ -182,13 +182,13 @@
           <!-- svelte-ignore a11y-click-events-have-key-events -->
           <!-- svelte-ignore a11y-no-static-element-interactions -->
           <div
-            class="item-card group {item.status === 'missing' ? 'opacity-[0.62]' : item.status === 'mastered' ? 'border-[rgba(74,222,128,0.24)]' : item.status === 'progress' ? 'border-[rgba(251,191,36,0.24)]' : ''}"
+            class="item-card group {item.status === 'missing' ? 'opacity-60' : item.status === 'mastered' ? 'border-[rgba(74,222,128,0.24)]' : item.status === 'progress' ? 'border-[rgba(251,191,36,0.24)]' : ''}"
             on:click={() => activeItem.set(item)}
           >
             <div class="item-img-wrap">
               <ItemImage src={item.imageUrl} alt={item.name} />
               {#if item.vaulted}<span class="vault-badge">V</span>{/if}
-              <span class="absolute right-1.5 bottom-1.5 w-[0.42rem] h-[0.42rem] rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.38)] {item.status === 'mastered' ? 'bg-success' : item.status === 'progress' ? 'bg-warning' : 'bg-danger opacity-70'}"></span>
+              <span class="absolute right-1.5 bottom-1.5 w-1.5 h-1.5 rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.38)] {item.status === 'mastered' ? 'bg-success' : item.status === 'progress' ? 'bg-warning' : 'bg-danger opacity-70'}"></span>
             </div>
             <div class="item-body">
               <span class="item-name">{item.name}</span>
@@ -221,7 +221,7 @@
                     <!-- svelte-ignore a11y-click-events-have-key-events -->
                     <!-- svelte-ignore a11y-no-static-element-interactions -->
                     <span
-                      class="comp-dot h-[0.42rem] w-[0.42rem] rounded-full border border-transparent {isOwned ? 'owned' : 'missing'}"
+                      class="comp-dot h-1.5 w-1.5 rounded-full border border-transparent {isOwned ? 'owned' : 'missing'}"
                       title="{comp.name || '?'}: {isOwned ? 'owned' : 'missing'}"
                       on:click|stopPropagation={() => activeComponent.set({ comp, parentName: item.name })}
                     ></span>
@@ -231,12 +231,12 @@
               {#if item.wfm}
                 <button
                   type="button"
-                  class="wfm-link absolute top-1.5 right-1.5 inline-flex h-[1.45rem] w-[1.45rem] items-center justify-center rounded-[0.3rem] border border-border bg-black/25 text-text-muted opacity-0 transition-[opacity,color,border-color] duration-[120ms] group-hover:opacity-100 hover:text-accent hover:border-accent-dim"
+                  class="wfm-link absolute top-1.5 right-1.5 inline-flex h-6 w-6 items-center justify-center rounded border border-border bg-black/25 text-text-muted opacity-0 transition-[opacity,color,border-color] duration-100 group-hover:opacity-100 hover:text-accent hover:border-accent-dim"
                   title="View on warframe.market"
                   aria-label="View {item.name} on warframe.market"
                   on:click|stopPropagation={() => send('open-external', `https://warframe.market/items/${item.wfm.url_name}`)}
                 >
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" class="h-[0.86rem] w-[0.86rem]">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5">
                     <path d="M6 3H3v10h10v-3"/>
                     <path d="M9 2h5v5"/>
                     <path d="M14 2L7 9"/>

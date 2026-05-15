@@ -67,10 +67,10 @@
 <div class="relic-compact-card" class:plain>
   <button
     type="button"
-    class="relic-compact-head grid grid-cols-[auto_minmax(0,1fr)_auto] min-w-0 items-center gap-[0.36rem] w-full border-0 p-0 m-0 bg-transparent text-inherit text-left cursor-pointer"
+    class="relic-compact-head grid grid-cols-[auto_minmax(0,1fr)_auto] min-w-0 items-center gap-1.5 w-full border-0 p-0 m-0 bg-transparent text-inherit text-left cursor-pointer"
     on:click={() => openRelic(group)}
   >
-    <span class="inline-flex items-center justify-center w-[2.4rem] shrink-0">
+    <span class="inline-flex items-center justify-center w-10 shrink-0">
       <span
         class="relic-icon"
         class:lith={tierClass === "lith"}
@@ -89,7 +89,7 @@
       </span>
     </span>
 
-    <span class="flex min-w-0 flex-col gap-[0.24rem]">
+    <span class="flex min-w-0 flex-col gap-1">
       <span
         class="relic-row-name overflow-hidden text-ellipsis whitespace-nowrap font-display text-xl font-semibold tracking-[0.01em]"
         >{group.name}</span
@@ -99,7 +99,7 @@
       </span>
     </span>
 
-    <span class="min-w-0 flex flex-col items-end gap-[0.16rem]">
+    <span class="min-w-0 flex flex-col items-end gap-0.5">
       <span
         class="relic-compact-block-label text-right font-display text-xs tracking-[0.06em] uppercase text-text-secondary"
         >{selectedQualityHeader()}</span
@@ -117,10 +117,10 @@
     </span>
   </button>
 
-  <span class="relic-reward-preview-row grid grid-cols-6 gap-[0.3rem]">
+  <span class="relic-reward-preview-row grid grid-cols-6 gap-1">
     {#each rewardIcons as reward}
       <span
-        class="relic-reward-preview-icon inline-flex min-h-[2.05rem] items-center justify-center rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-[color-mix(in_oklab,var(--bg-raised)_86%,var(--bg-base))] p-[0.2rem]"
+        class="relic-reward-preview-icon inline-flex min-h-8 items-center justify-center rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-[color-mix(in_oklab,var(--bg-raised)_86%,var(--bg-base))] p-1"
         class:owned={isOwnedReward(reward)}
         title={rewardTooltip(reward)}
       >
@@ -129,12 +129,12 @@
     {/each}
   </span>
 
-  <span class="relic-quality-inline-counts ml-0 inline-grid grid-cols-4 w-full min-w-0 justify-stretch gap-[0.14rem]">
+  <span class="relic-quality-inline-counts ml-0 inline-grid grid-cols-4 w-full min-w-0 justify-stretch gap-0.5">
     {#each RELIC_QUALITY_COLUMNS as quality}
       {@const count = ownedCount(group, quality)}
       <button
         type="button"
-        class="relic-quality-inline-pill inline-flex w-full min-w-0 cursor-pointer appearance-none flex-row items-center justify-center gap-[0.2rem] whitespace-nowrap rounded-[var(--radius-md)] border border-[color-mix(in_oklab,var(--info)_36%,transparent)] bg-[color-mix(in_oklab,var(--info)_14%,var(--bg-base))] px-[0.3rem] py-[0.18rem] font-display text-xs font-bold tracking-[0.02em] text-[color-mix(in_oklab,var(--text-secondary)_88%,white)]"
+        class="relic-quality-inline-pill inline-flex w-full min-w-0 cursor-pointer appearance-none flex-row items-center justify-center gap-1 whitespace-nowrap rounded-[var(--radius-md)] border border-[color-mix(in_oklab,var(--info)_36%,transparent)] bg-[color-mix(in_oklab,var(--info)_14%,var(--bg-base))] px-1 py-0.5 font-display text-xs font-bold tracking-[0.02em] text-[color-mix(in_oklab,var(--text-secondary)_88%,white)]"
         class:emptyCount={count === 0}
         class:notSelectable={qualityMode !== "owned" || count === 0}
         class:active={qualityMode === "owned" && selectedOwned === quality}
@@ -144,7 +144,7 @@
           }
         }}
       >
-        <span class="leading-none normal-case opacity-[0.96]">{RELIC_QUALITY_SHORT[quality]}:</span>
+        <span class="leading-none normal-case opacity-95">{RELIC_QUALITY_SHORT[quality]}:</span>
         <span
           class="relic-quality-inline-value text-xs leading-none tracking-[0.02em] text-[color-mix(in_oklab,var(--info)_76%,white)]"
           class:emptyCount={count === 0}

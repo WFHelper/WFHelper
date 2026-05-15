@@ -36,7 +36,7 @@
 
 <div class="appearance-section">
   <h4 class="appearance-section-label">{$tr("appearance.presets")}</h4>
-  <div class="grid gap-[0.55rem]">
+  <div class="grid gap-2">
     <BuiltInThemeDropdown
       activePreset={activePreset}
       label={$tr("appearance.builtinThemes")}
@@ -69,10 +69,10 @@
     </ThemeDropdown>
   </div>
 
-  <div class="mt-[0.55rem] flex flex-wrap items-center gap-2">
+  <div class="mt-2 flex flex-wrap items-center gap-2">
     <input
       type="text"
-      class="min-w-0 flex-1 border border-[var(--ui-control-border)] rounded-[var(--radius-md)] bg-[var(--ui-control-bg)] text-text-primary text-xs py-[0.38rem] px-2 outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
+      class="min-w-0 flex-1 border border-[var(--ui-control-border)] rounded-[var(--radius-md)] bg-[var(--ui-control-bg)] text-text-primary text-xs py-1.5 px-2 outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
       maxlength="40"
       placeholder={$tr("appearance.customThemeName")}
       bind:value={customName}

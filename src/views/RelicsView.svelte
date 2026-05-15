@@ -529,12 +529,12 @@
         activeKey={$relicViewState.tierFilter}
         onSelect={(tierFilter) => setRelicFilter({ tierFilter })}
       />
-      <div class="ml-auto flex items-center gap-2 pb-[0.45rem] shrink-0 flex-nowrap">
+      <div class="ml-auto flex items-center gap-2 pb-2 shrink-0 flex-nowrap">
         <SearchBox
           value={$relicViewState.search}
           onValueChange={(search) => setRelicFilter({ search })}
           placeholder="Search relics..."
-          class="min-w-[11rem]"
+          class="min-w-16"
         />
 
         <div class="shared-sort-controls">
@@ -579,7 +579,7 @@
         <label class="shared-filter-sort" title="Vaulted status">
           <span>Vault</span>
           <select
-            class="shared-filter-select min-w-[6.2rem]"
+            class="shared-filter-select min-w-16"
             value={$relicViewState.vaultedMode}
             on:change={setRelicVaultedMode}
           >
@@ -592,7 +592,7 @@
         <label class="shared-filter-sort" title="Squad size for EV">
           <span>Squad</span>
           <select
-            class="shared-filter-select min-w-[4rem]"
+            class="shared-filter-select min-w-16"
             value={$relicViewState.squadSize}
             on:change={setRelicSquadSize}
           >
@@ -603,7 +603,7 @@
         </label>
 
         <button
-          class="inline-flex min-h-[2.1rem] cursor-pointer items-center gap-[0.35rem] rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] px-[0.7rem] py-0 font-display text-xs font-medium tracking-[0.03em] text-text-secondary transition-[border-color,background-color,color] duration-150 hover:border-accent hover:bg-bg-hover hover:text-accent [&_svg]:shrink-0"
+          class="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] px-3 py-0 font-display text-xs font-medium tracking-[0.03em] text-text-secondary transition-[border-color,background-color,color] duration-150 hover:border-accent hover:bg-bg-hover hover:text-accent [&_svg]:shrink-0"
           title="Push current tier & squad filters to the in-game relic overlay"
           on:click={pushFiltersToOverlay}
         >

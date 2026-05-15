@@ -147,7 +147,7 @@
     <div class="settings-tab-grid py-3">
       <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
         <div>
-          <h3 class="m-0 mb-[0.42rem] font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Notifications</h3>
+          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Notifications</h3>
           <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
             Desktop and market notification behavior.
           </p>
@@ -173,11 +173,11 @@
 
       <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
         <div>
-          <h3 class="m-0 mb-[0.42rem] font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Actions</h3>
+          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Actions</h3>
           <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">Save app behavior changes or restore default settings.</p>
         </div>
 
-        <div class="mt-2.5 flex flex-wrap gap-[0.35rem]">
+        <div class="mt-2.5 flex flex-wrap gap-1.5">
           <button class="btn-primary btn-sm" on:click={save}>{$tr("settings.save")}</button>
           <button class="btn-secondary btn-sm" on:click={resetDefaults}>{$tr("settings.resetDefaults")}</button>
         </div>
@@ -195,7 +195,7 @@
     <div class="settings-tab-grid py-3">
       <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
         <div>
-          <h3 class="m-0 mb-[0.42rem] font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Overlay availability</h3>
+          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Overlay availability</h3>
           <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
             Enable or disable each in-game overlay window.
           </p>
@@ -234,7 +234,7 @@
 
       <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
         <div>
-          <h3 class="m-0 mb-[0.42rem] font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">{$tr("settings.overlayTitle")}</h3>
+          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">{$tr("settings.overlayTitle")}</h3>
           <p class="mt-1 text-xs leading-tight text-text-muted">{$tr("settings.overlayRequirements")}</p>
         </div>
 
@@ -294,7 +294,7 @@
       </article>
 
       <div class="settings-wide-actions">
-        <div class="flex flex-wrap gap-[0.35rem]">
+        <div class="flex flex-wrap gap-1.5">
           <button class="btn-primary btn-sm" on:click={save}>{$tr("settings.save")}</button>
           <button class="btn-secondary btn-sm" on:click={resetDefaults}>{$tr("settings.resetDefaults")}</button>
           <button class="btn-secondary btn-sm" on:click={testTrigger}>{$tr("settings.testTrigger")}</button>

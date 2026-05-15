@@ -31,14 +31,14 @@
 </script>
 
 <div
-  class="flex flex-col gap-[0.2rem] py-[0.35rem]
+  class="flex flex-col gap-1 py-1.5
          border-b border-dashed border-white/[0.06] last:border-b-0"
 >
-  <div class="flex items-center gap-[0.35rem]">
+  <div class="flex items-center gap-1.5">
     <span class="text-base font-semibold text-text-primary">{inv.node}</span>
   </div>
 
-  <div class="flex items-center gap-[0.35rem] text-base">
+  <div class="flex items-center gap-1.5 text-base">
     <span
       class="shrink-0 text-sm font-bold uppercase tracking-[0.05em] opacity-90"
       class:world-faction-grineer={attackerCls === "grineer"}
@@ -83,7 +83,7 @@
     ></div>
   </div>
 
-  <span class="flex items-center gap-[0.3rem] font-display text-sm text-text-secondary">
+  <span class="flex items-center gap-1 font-display text-sm text-text-secondary">
     <span
       class:world-faction-grineer={attackerCls === "grineer"}
       class:world-faction-corpus={attackerCls === "corpus"}

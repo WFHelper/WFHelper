@@ -24,7 +24,7 @@
       ? "border-[rgba(74,222,128,0.5)] shadow-[0_0_6px_rgba(74,222,128,0.15)]"
       : "border-[rgba(74,222,128,0.5)] shadow-[0_0_5px_rgba(74,222,128,0.15)]"
     : "border-border";
-  $: labelGap = size === 100 ? "gap-[0.2rem]" : "gap-[0.15rem]";
+  $: labelGap = size === 100 ? "gap-1" : "gap-0.5";
   $: labelSize = size === 100 ? "text-xs" : "text-xs";
 </script>
 

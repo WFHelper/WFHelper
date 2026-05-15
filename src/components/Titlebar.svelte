@@ -58,7 +58,7 @@
 </script>
 
 <header class="z-50 flex h-[var(--titlebar-height)] select-none items-center justify-between border-b border-border bg-bg-deep app-region-drag">
-  <div class="flex min-w-0 items-center gap-2 pl-[0.875rem]">
+  <div class="flex min-w-0 items-center gap-2 pl-3.5">
     <img src={logoUrl || APP_LOGO_URL} alt="Logo" class="h-4 w-4 object-contain" />
     <span class="font-display text-xs font-semibold tracking-wide text-text-secondary">
       {appName}
@@ -68,7 +68,7 @@
       title={helperStatus?.exeFound ? "warframe-api-helper active" : "warframe-api-helper not found"}
     >
       <span class="inline-block h-1.5 w-1.5 rounded-full {helperDotPulse ? 'animate-pulse' : ''}" style="background:{helperDotColor}"></span>
-      <span class="overflow-hidden text-ellipsis whitespace-nowrap max-w-[18rem]">{helperStatusText}</span>
+      <span class="overflow-hidden text-ellipsis whitespace-nowrap max-w-16">{helperStatusText}</span>
     </span>
   </div>
   <div class="app-region-no-drag flex">

@@ -12,7 +12,7 @@
     {text || '…'}
     {#if slug}
       <br/>
-      <button class="mt-1.5 rounded-[0.34rem] border border-accent-dim bg-accent-glow px-2 py-1 font-display text-xs font-semibold text-accent" on:click={() => openOnWfm(slug)}>Open on warframe.market</button>
+      <button class="mt-1.5 rounded-md border border-accent-dim bg-accent-glow px-2 py-1 font-display text-xs font-semibold text-accent" on:click={() => openOnWfm(slug)}>Open on warframe.market</button>
     {/if}
   </div>
 </div>

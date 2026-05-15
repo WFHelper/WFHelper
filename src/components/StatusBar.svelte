@@ -59,12 +59,12 @@
   }
 </script>
 
-<footer class="flex h-[var(--statusbar-height)] select-none items-center justify-between border-t border-border bg-bg-deep px-[0.875rem] text-[12px] text-text-muted">
+<footer class="flex h-[var(--statusbar-height)] select-none items-center justify-between border-t border-border bg-bg-deep px-3.5 text-[12px] text-text-muted">
   <span class="flex items-center gap-2">
     <span>{$statusText}</span>
   </span>
   <button
-    class="ml-auto mr-2 cursor-pointer rounded-full border border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.05)] px-[0.625rem] py-0.5 font-body text-xs tracking-wide text-text-muted transition-[color,border-color] duration-150 hover:border-[rgba(255,255,255,0.3)] hover:text-text-primary disabled:cursor-default disabled:opacity-60"
+    class="ml-auto mr-2 cursor-pointer rounded-full border border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.05)] px-2.5 py-0.5 font-body text-xs tracking-wide text-text-muted transition-[color,border-color] duration-150 hover:border-[rgba(255,255,255,0.3)] hover:text-text-primary disabled:cursor-default disabled:opacity-60"
     title={$appUpdateState.message || "Check for app updates"}
     on:click={onUpdateAction}
     disabled={updateButtonDisabled}

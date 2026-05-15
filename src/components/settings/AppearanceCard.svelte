@@ -12,7 +12,7 @@
 
 <article class="appearance-card w-[min(620px,100%)] rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
   <div>
-    <h3 class="m-0 mb-[0.42rem] font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">{$tr("appearance.title")}</h3>
+    <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">{$tr("appearance.title")}</h3>
     <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">{$tr("appearance.description")}</p>
   </div>
 
@@ -27,7 +27,7 @@
       <ThemedControlCard as="label">
         <span class="text-text-secondary text-xs font-medium">
           {$tr("appearance.contrastSafeMode")}
-          <span class="block text-xs text-text-muted font-normal mt-[0.1rem]">{$tr("appearance.contrastSafeModeHint")}</span>
+          <span class="block text-xs text-text-muted font-normal mt-0.5">{$tr("appearance.contrastSafeModeHint")}</span>
         </span>
         <input
           class="accent-accent"
@@ -39,7 +39,7 @@
     </div>
 
     <!-- Global Actions -->
-    <div class="flex flex-wrap gap-[0.35rem]">
+    <div class="flex flex-wrap gap-1.5">
       <button class="btn-danger btn-sm" on:click={() => themeSettings.resetAll()}>
         {$tr("appearance.restoreAll")}
       </button>

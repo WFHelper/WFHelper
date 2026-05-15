@@ -39,7 +39,7 @@
 <div class="appearance-section">
   <h4 class="appearance-section-label">{$tr("appearance.style")}</h4>
 
-  <div class="grid gap-[0.55rem]">
+  <div class="grid gap-2">
     <ThemedControlCard>
       <div class="flex items-center justify-between gap-3">
         <span class="text-text-secondary text-xs font-medium">{$tr("appearance.cornerStyle")}</span>
@@ -65,7 +65,7 @@
     <ThemedControlCard as="label">
       <span class="text-text-secondary text-xs font-medium">
         {$tr("appearance.glass")}
-        <span class="block text-xs text-text-muted font-normal mt-[0.1rem]">{$tr("appearance.glassHint")}</span>
+        <span class="block text-xs text-text-muted font-normal mt-0.5">{$tr("appearance.glassHint")}</span>
       </span>
       <input
         class="accent-accent"
@@ -90,7 +90,7 @@
       <div class="flex items-center justify-between gap-3">
         <span class="text-text-secondary text-xs font-medium">
           Market list density
-          <span class="block text-xs text-text-muted font-normal mt-[0.1rem]">
+          <span class="block text-xs text-text-muted font-normal mt-0.5">
             How Warframe.market orders and riven contracts are displayed.
           </span>
         </span>

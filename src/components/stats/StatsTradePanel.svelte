@@ -38,7 +38,7 @@
 
 <div class="w-[300px] shrink-0 border-l border-[color:var(--ui-panel-border)] flex flex-col min-h-0 overflow-hidden">
   <div class="px-3 pt-2 shrink-0">
-    <span class="block text-xs font-semibold uppercase tracking-[0.06em] text-text-muted mb-[0.4rem]">{$tr("stats.trades")}</span>
+    <span class="block text-xs font-semibold uppercase tracking-[0.06em] text-text-muted mb-1.5">{$tr("stats.trades")}</span>
     <div class="flex flex-col gap-2">
       <div class="flex gap-1">
         {#each (["all", "sale", "purchase", "trade"] as const) as f}
@@ -53,7 +53,7 @@
           </button>
         {/each}
       </div>
-      <ThemedInput type="text" placeholder="Search items..." bind:value={tradeSearch} className="w-full py-[0.3rem] px-[0.6rem] text-xs" />
+      <ThemedInput type="text" placeholder="Search items..." bind:value={tradeSearch} className="w-full py-1 px-2.5 text-xs" />
     </div>
   </div>
 

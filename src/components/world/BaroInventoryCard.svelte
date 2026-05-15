@@ -48,7 +48,7 @@
 
 <button
   type="button"
-  class="flex shrink-0 flex-col items-center gap-[0.2rem] border-0 bg-transparent p-0 text-inherit
+  class="flex shrink-0 flex-col items-center gap-1 border-0 bg-transparent p-0 text-inherit
          transition-transform duration-100 disabled:cursor-default disabled:opacity-85 {interactCls}"
   disabled={!hasDb}
   on:click={() => hasDb && onOpen(entry.uniqueName || "")}

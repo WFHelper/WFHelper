@@ -129,9 +129,9 @@
     <div class="flex items-center gap-3">
       <h2>World</h2>
       {#if baroActive}
-        <span class="rounded-[0.3rem] border border-warning/30 bg-warning/10 px-2 py-[0.15rem] text-xs font-semibold whitespace-nowrap text-warning">Baro leaves in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
+        <span class="rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-warning">Baro leaves in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
       {:else if baroAct}
-        <span class="rounded-[0.3rem] border border-warning/30 bg-warning/10 px-2 py-[0.15rem] text-xs font-semibold whitespace-nowrap text-warning">Baro arrives in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
+        <span class="rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-warning">Baro arrives in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
       {/if}
     </div>
   </div>
@@ -167,12 +167,12 @@
                 />
               {/each}
             </div>
-            <div class="mt-[0.15rem] flex items-center gap-2 pt-[0.35rem] text-xs text-text-secondary">
+            <div class="mt-0.5 flex items-center gap-2 pt-1.5 text-xs text-text-secondary">
               <span>Notify before cycle change</span>
               <span class="flex items-center gap-1">
                 <input
                   type="number"
-                  class="cycle-lead-input w-[2.6rem] rounded-[var(--radius-md)] border border-border bg-[rgba(0,0,0,0.25)] px-[0.3rem] py-[0.15rem] text-center text-xs text-text-primary outline-none"
+                  class="cycle-lead-input w-10 rounded-[var(--radius-md)] border border-border bg-[rgba(0,0,0,0.25)] px-1 py-0.5 text-center text-xs text-text-primary outline-none"
                   min="0"
                   max="120"
                   value={$overlaySettings.cycleAlertMinutesBefore ?? 3}
@@ -200,11 +200,11 @@
         <!-- PRIME RESURGENCE -->
         <div class="world-section">
           <CollapsibleSection title="Prime Resurgence" collapsed={collapsed.resurgence} onToggle={() => toggleSection('resurgence')}>
-          <div class="text-sm text-text-secondary mb-[0.55rem]">
+          <div class="text-sm text-text-secondary mb-2">
             Rotation ends in <strong>{times.varzia}</strong>
           </div>
           {#if featuredPrimes.length > 0}
-            <div class="flex gap-[0.6rem] overflow-x-auto overflow-y-visible px-1 py-[0.3rem]">
+            <div class="flex gap-2.5 overflow-x-auto overflow-y-visible px-1 py-1">
               {#each featuredPrimes as p}
                 <IconButtonCard
                   name={p.name}
@@ -227,8 +227,8 @@
         <div class="world-section">
           <CollapsibleSection title="The Circuit" collapsed={collapsed.circuit} onToggle={() => toggleSection('circuit')}>
           {#each [{ label: 'Normal rotation', items: circuitNormalItems, isSteelPath: false }, { label: 'Steel Path rotation', items: circuitHardItems, isSteelPath: true }] as rot}
-          <div class="mb-[0.3rem] text-xs font-bold uppercase tracking-[0.06em] {rot.isSteelPath ? 'text-warning' : 'text-text-secondary'}">{rot.label}</div>
-          <div class="mb-2 flex gap-2 overflow-x-auto overflow-y-visible px-[0.15rem] py-[0.3rem]">
+          <div class="mb-1 text-xs font-bold uppercase tracking-[0.06em] {rot.isSteelPath ? 'text-warning' : 'text-text-secondary'}">{rot.label}</div>
+          <div class="mb-2 flex gap-2 overflow-x-auto overflow-y-visible px-0.5 py-1">
             {#each rot.items as item}
               <IconButtonCard
                 name={item.name}
@@ -254,7 +254,7 @@
             <svelte:fragment slot="actions">
             <span class="font-display text-sm tracking-[0.02em] whitespace-nowrap text-text-primary">{times.steelPath}</span>
             </svelte:fragment>
-          <div class="flex items-center gap-2 py-[0.35rem]">
+          <div class="flex items-center gap-2 py-1.5">
             <span class="text-xs font-bold text-text-secondary uppercase tracking-[0.06em] shrink-0">This week</span>
             <span class="text-sm font-semibold text-warning flex-1 min-w-0">{steelPathHonors.currentReward.name}</span>
             <span class="text-xs text-text-secondary whitespace-nowrap shrink-0">{steelPathHonors.currentReward.cost} Steel Essence</span>
@@ -284,7 +284,7 @@
               {#each fissureFlat as f}
                 <div class="fissure-row">
                   <span
-                    class="inline-flex min-w-20 items-center gap-[0.2rem] rounded-[var(--radius-md)] px-[0.45rem] py-[0.18rem] text-xs font-bold uppercase tracking-[0.06em]"
+                    class="inline-flex min-w-20 items-center gap-1 rounded-[var(--radius-md)] px-2 py-0.5 text-xs font-bold uppercase tracking-[0.06em]"
                     class:world-badge-lith={f.tierCls === "lith"}
                     class:world-badge-meso={f.tierCls === "meso"}
                     class:world-badge-neo={f.tierCls === "neo"}
@@ -297,7 +297,7 @@
                   </span>
                   <span class="min-w-0 flex-1 text-sm">
                     <strong class="text-text-primary">{f.missionType || 'Mission'}</strong>
-                    <span class="ml-[0.35rem] text-xs text-text-secondary opacity-75">{f.node || 'Unknown'}</span>
+                    <span class="ml-1.5 text-xs text-text-secondary opacity-75">{f.node || 'Unknown'}</span>
                   </span>
                   <span class="shrink-0 font-display text-sm tracking-[0.02em] whitespace-nowrap text-text-primary">{f.timeStr}</span>
                 </div>
@@ -328,9 +328,9 @@
         <!-- BARO KI'TEER (inactive — under invasions) -->
         {#if !baroActive && baroAct}
         <div class="world-section">
-          <div class="flex items-center gap-[0.55rem] py-[0.35rem]">
+          <div class="flex items-center gap-2 py-1.5">
             <span class="text-sm font-semibold text-text-primary">Baro Ki'Teer</span>
-            <span class="text-xs font-bold py-[0.1rem] px-[0.4rem] rounded-[0.2rem] uppercase tracking-[0.06em] bg-white/[0.06] text-text-secondary opacity-70">Inactive</span>
+            <span class="text-xs font-bold py-0.5 px-1.5 rounded uppercase tracking-[0.06em] bg-white/[0.06] text-text-secondary opacity-70">Inactive</span>
             <span class="text-sm font-display text-text-secondary ml-auto">{times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
           </div>
         </div>
@@ -343,11 +343,11 @@
     {#if baroActive && baro?.inventory && baro.inventory.length > 0}
     <div class="world-section mt-2">
       <CollapsibleSection title="Baro Ki'Teer" collapsed={collapsed.baro} onToggle={() => toggleSection('baro')}>
-      <div class="flex items-center justify-between py-[0.35rem] text-sm text-text-secondary">
+      <div class="flex items-center justify-between py-1.5 text-sm text-text-secondary">
         <span>{baroLocation}</span>
         <span class="text-text-secondary text-xs">Leaves in <strong>{times.baro}</strong></span>
       </div>
-      <div class="flex flex-wrap gap-[0.6rem] px-1 py-[0.3rem]">
+      <div class="flex flex-wrap gap-2.5 px-1 py-1">
         {#each baro.inventory as inv}
           <BaroInventoryCard
             entry={inv}
@@ -369,7 +369,7 @@
       <div class="grid grid-cols-2 items-start gap-x-5 gap-y-1">
         {#each bounties as group}
           <div class="border-b border-border py-1 last:border-b-0">
-            <button class="flex w-full items-center gap-[0.3rem] border-0 bg-transparent py-[0.2rem] text-left text-inherit cursor-pointer" on:click={() => toggleSection(`bounty-${group.syndicateKey}`)} aria-expanded={!collapsed[`bounty-${group.syndicateKey}`]}>
+            <button class="flex w-full items-center gap-1 border-0 bg-transparent py-1 text-left text-inherit cursor-pointer" on:click={() => toggleSection(`bounty-${group.syndicateKey}`)} aria-expanded={!collapsed[`bounty-${group.syndicateKey}`]}>
               <WorldToggleIcon collapsed={collapsed[`bounty-${group.syndicateKey}`]} />
               <span class="text-lg font-semibold text-text-primary">{group.syndicate}</span>
               {#if bountyTimers[group.syndicateKey]?.timeStr}
@@ -380,7 +380,7 @@
             {#if !collapsed[`bounty-${group.syndicateKey}`]}
             <div class="flex flex-col pl-4">
               {#each group.jobs as job, ji}
-                <button class="flex w-full items-center gap-2 border-0 bg-transparent px-0 py-[0.22rem] text-left text-sm text-inherit cursor-pointer hover:bg-white/[0.03]" on:click={() => toggleSection(`bounty-${group.syndicateKey}-${ji}`)}>
+                <button class="flex w-full items-center gap-2 border-0 bg-transparent px-0 py-1 text-left text-sm text-inherit cursor-pointer hover:bg-white/[0.03]" on:click={() => toggleSection(`bounty-${group.syndicateKey}-${ji}`)}>
                   <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-text-primary">
                     {titleCase(job.type)}
                     {#if job.challengeDesc}
@@ -391,27 +391,27 @@
                   <WorldToggleIcon collapsed={!collapsed[`bounty-${group.syndicateKey}-${ji}`]} />
                 </button>
                 {#if collapsed[`bounty-${group.syndicateKey}-${ji}`]}
-                <div class="mb-[0.2rem] ml-[0.3rem] border-l-2 border-accent py-[0.2rem] pl-[1.2rem]">
+                <div class="mb-1 ml-1 border-l-2 border-accent py-1 pl-5">
                   {#await getBountyRewards(group.syndicateKey, job.enemyLevels, job.standingStages.length, bountyRotation)}
-                    <span class="text-xs text-text-secondary py-[0.2rem]">Loading rewards…</span>
+                    <span class="text-xs text-text-secondary py-1">Loading rewards…</span>
                   {:then rewards}
                     {#if rewards.length > 0}
-                    <div class="mt-[0.35rem]">
+                    <div class="mt-1.5">
                       {#each rewards as sr}
-                        <div class="mb-[0.3rem]">
-                          <span class="text-base font-semibold text-text-secondary block mb-[0.1rem]">{sr.label}</span>
-                          <div class="flex flex-col gap-[0.1rem]">
+                        <div class="mb-1">
+                          <span class="text-base font-semibold text-text-secondary block mb-0.5">{sr.label}</span>
+                          <div class="flex flex-col gap-0.5">
                             {#each sr.items as item}
                               {@const rewardUniqueName = resolveRewardUniqueName(item.itemName, $itemDb)}
                               {@const rewardIcon = resolveRewardIcon(item.itemName, $itemDb)}
                               <button
                                 type="button"
-                                class="flex w-full items-center justify-between gap-[0.3rem] border-0 bg-transparent px-0 py-[0.05rem] text-left text-sm appearance-none disabled:text-text-primary disabled:opacity-100 disabled:cursor-default {rewardUniqueName ? 'cursor-pointer rounded-[0.2rem] px-[0.2rem] -mx-[0.2rem] transition-[background] duration-150 hover:bg-white/[0.06]' : ''} {item.rarity === 'Rare' || item.rarity === 'Legendary' ? 'text-accent' : 'text-text-primary'}"
+                                class="flex w-full items-center justify-between gap-1 border-0 bg-transparent px-0 py-0 text-left text-sm appearance-none disabled:text-text-primary disabled:opacity-100 disabled:cursor-default {rewardUniqueName ? 'cursor-pointer rounded px-1 -mx-1 transition-[background] duration-150 hover:bg-white/[0.06]' : ''} {item.rarity === 'Rare' || item.rarity === 'Legendary' ? 'text-accent' : 'text-text-primary'}"
                                 disabled={!rewardUniqueName}
                                 on:click={() => rewardUniqueName && openItemDetail(rewardUniqueName, [{location: `${group.syndicate} Bounty (${job.enemyLevels[0]}\u2013${job.enemyLevels[1]}) \u2014 ${sr.label}`, rarity: item.rarity, chance: item.chance / 100}])}
                               >
                                 {#if rewardIcon}
-                                  <img class="h-[1.1rem] w-[1.1rem] shrink-0 object-contain" src={rewardIcon} alt="" />
+                                  <img class="h-4 w-4 shrink-0 object-contain" src={rewardIcon} alt="" />
                                 {/if}
                                 <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{item.itemName}</span>
                                 <span class="ml-2 shrink-0 whitespace-nowrap text-xs font-semibold">{item.chance.toFixed(2)}%</span>

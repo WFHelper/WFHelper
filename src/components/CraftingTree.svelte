@@ -157,7 +157,7 @@
             </span>
             <div class="flex flex-wrap items-start justify-center gap-3 max-w-[680px]">
               {#each usedFor as usage (usage.uniqueName)}
-                <div class="flex w-[6rem] flex-col items-center gap-1 rounded-lg border border-border bg-bg-raised/80 px-3 py-2">
+                <div class="flex w-16 flex-col items-center gap-1 rounded-lg border border-border bg-bg-raised/80 px-3 py-2">
                   <ItemImage src={usage.imageUrl} alt={usage.name} cls="h-14 w-14 object-contain" />
                   <span class="max-w-full break-words text-center font-display text-xs font-semibold leading-tight text-text-primary">
                     {usage.name}

@@ -258,7 +258,7 @@
     <ResourcesView resources={filteredResources} />
   {:else}
     {#if showFilterPanel}
-      <div class="inventory-filter-popover mb-[0.85rem] max-h-[67vh] overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-[0.65rem] shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+      <div class="inventory-filter-popover mb-3.5 max-h-[67vh] overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-2.5 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
         <SharedFilterBar scope="inventory" showBasic={false} showAdvanced={true} />
       </div>
     {/if}

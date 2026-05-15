@@ -39,7 +39,7 @@
         <span class="text-2xl font-semibold text-text-secondary">{item.label}</span>
       </div>
     {:else}
-      <div class="flex flex-1 items-center gap-3 px-5 min-w-[11rem]">
+      <div class="flex flex-1 items-center gap-3 px-5 min-w-16">
         {#if item.icon}
           <img src={item.icon} alt="" class="w-9 h-9 object-contain opacity-90 shrink-0" />
         {/if}

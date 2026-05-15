@@ -203,9 +203,9 @@
             <div class="grid gap-1 mb-2">
               <label for="order-item-search" class="text-sm font-medium text-text-secondary">Item</label>
               {#if itemSelected}
-                <div class="flex items-center gap-2 mt-1 rounded-[0.4rem] border border-accent-dim bg-accent-glow px-2 py-1.5 text-sm">
+                <div class="flex items-center gap-2 mt-1 rounded-md border border-accent-dim bg-accent-glow px-2 py-1.5 text-sm">
                   {#if itemSelected.thumb}
-                    <img src={itemSelected.thumb} alt="" width="28" height="28" loading="lazy" class="rounded-[0.32rem] object-contain" />
+                    <img src={itemSelected.thumb} alt="" width="28" height="28" loading="lazy" class="rounded-md object-contain" />
                   {/if}
                   <span>{itemSelected.item_name}</span>
                   <button type="button" class="ml-auto border-0 bg-transparent text-base leading-none text-text-muted hover:text-text-primary" on:click={clearItem}>&times;</button>

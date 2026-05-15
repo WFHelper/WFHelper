@@ -32,7 +32,7 @@
   <h2 class="m-0 mb-2 font-display text-4xl leading-none font-semibold tracking-[0.03em] text-text-primary">Inventory ({totalCount})</h2>
   <div class="flex items-end border-b border-[rgba(255,255,255,0.09)]">
     <HeaderTabs options={filters} activeKey={activeFilter} onSelect={handleTabSelect} />
-    <div class="ml-auto flex items-center gap-2 pb-[0.45rem] shrink-0 flex-nowrap">
+    <div class="ml-auto flex items-center gap-2 pb-2 shrink-0 flex-nowrap">
       <SharedFilterBar
         scope="inventory"
         singleLine={true}
@@ -41,7 +41,7 @@
         basicVariant="quick"
       />
       <button
-        class="filter-tab inline-flex min-h-[2.1rem] items-center gap-[0.35rem] pt-0 pb-0 [&_svg]:h-[0.88rem] [&_svg]:w-[0.88rem]"
+        class="filter-tab inline-flex min-h-8 items-center gap-1.5 pt-0 pb-0 [&_svg]:h-3.5 [&_svg]:w-3.5"
         class:active={showFilterPanel}
         on:click={toggleFilters}
       >

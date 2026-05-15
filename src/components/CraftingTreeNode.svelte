@@ -18,7 +18,7 @@
   <!-- Node card + label -->
   <div class="flex flex-col items-center px-1">
     <div
-      class="node-card group/node relative flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-lg border-2 {gotEnough ? 'border-[rgba(74,222,128,0.5)] bg-[rgba(74,222,128,0.12)]' : 'border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.04)]'}"
+      class="node-card group/node relative flex h-16 w-16 items-center justify-center rounded-lg border-2 {gotEnough ? 'border-[rgba(74,222,128,0.5)] bg-[rgba(74,222,128,0.12)]' : 'border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.04)]'}"
     >
       {#if qtyLabel}
         <span class="node-qty absolute -left-1 -top-1.5 z-[2] rounded bg-bg-raised px-[3px] text-xs font-bold leading-snug text-text-primary border border-border font-display">
@@ -34,7 +34,7 @@
       {/if}
       <ItemImage src={node.imageUrl} alt={node.name} cls="h-12 w-12 object-contain" />
       {#if node.recipe}
-        <div class="node-tooltip pointer-events-none absolute -bottom-[2.2rem] left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-black/90 px-1.5 py-0.5 text-xs text-text-primary opacity-0 transition-opacity duration-100 group-hover/node:opacity-100">
+        <div class="node-tooltip pointer-events-none absolute -bottom-9 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-black/90 px-1.5 py-0.5 text-xs text-text-primary opacity-0 transition-opacity duration-100 group-hover/node:opacity-100">
           {#if node.recipe.buildPrice > 0}{node.recipe.buildPrice.toLocaleString()} cr{/if}
           {#if node.recipe.buildPrice > 0 && node.recipe.buildTime > 0} · {/if}
           {#if node.recipe.buildTime > 0}{formatBuildTime(node.recipe.buildTime)}{/if}

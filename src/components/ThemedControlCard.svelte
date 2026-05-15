@@ -21,13 +21,13 @@
   export let density: "default" | "tight" = "default";
 
   $: padClass =
-    density === "tight" ? "py-[0.45rem] px-[0.55rem]" : "py-[0.52rem] px-[0.6rem]";
+    density === "tight" ? "py-2 px-2" : "py-2 px-2.5";
   $: baseClass =
     `border border-[var(--ui-control-border)] rounded-[var(--radius-lg)] bg-[var(--ui-control-bg)] ${padClass}`;
 </script>
 
 {#if as === "label"}
-  <label class="flex items-center justify-between gap-[0.6rem] cursor-pointer {baseClass}">
+  <label class="flex items-center justify-between gap-2.5 cursor-pointer {baseClass}">
     <slot />
   </label>
 {:else}

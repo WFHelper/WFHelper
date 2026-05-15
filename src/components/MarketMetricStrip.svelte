@@ -34,7 +34,7 @@
   $: textSizeClass = size === "compact" ? "text-sm" : "text-base";
   $: iconSizeClass = size === "compact" ? "h-3.5 w-3.5" : "h-4 w-4";
   $: rootGapClass = size === "compact" ? "gap-x-2 gap-y-0.5" : "gap-x-3 gap-y-1";
-  $: rootHeightClass = size === "compact" ? "min-h-0" : "min-h-[1.7rem]";
+  $: rootHeightClass = size === "compact" ? "min-h-0" : "min-h-7";
   $: rootWrapClass = wrap ? "flex-wrap" : "flex-nowrap";
   $: rootJustifyClass = justify === "end" ? "justify-end" : "justify-start";
 </script>

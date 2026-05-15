@@ -226,8 +226,8 @@
         <div class="mb-5">
           <div class="flex flex-col gap-2">
             {#each veiledRivens as entry}
-              <div class="flex items-center justify-between py-[0.65rem] px-4 bg-bg-surface border border-border rounded-[0.5rem] transition-[border-color] duration-150 hover:border-border-strong">
-                <div class="font-display text-sm font-semibold text-text-primary min-w-[10rem] shrink-0">{entry.label} Riven Mod</div>
+              <div class="flex items-center justify-between py-2.5 px-4 bg-bg-surface border border-border rounded-lg transition-[border-color] duration-150 hover:border-border-strong">
+                <div class="font-display text-sm font-semibold text-text-primary min-w-16 shrink-0">{entry.label} Riven Mod</div>
                 {#if entry.challengeDesc}
                   <div class="flex items-center gap-3 flex-1 min-w-0">
                     <span class="text-xs text-text-secondary">{entry.challengeDesc}</span>
@@ -259,7 +259,7 @@
           <h3 class="font-display text-sm font-semibold text-text-secondary m-0 mb-2">Unseen (???) rivens</h3>
           <div class="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-3">
             {#each veiledUnseen as group}
-              <div class="flex flex-col items-center text-center py-4 px-3 bg-[linear-gradient(135deg,rgba(60,45,90,0.45),rgba(40,30,70,0.5))] border border-[rgba(100,70,160,0.3)] rounded-[0.5rem] gap-2 transition-[border-color] duration-150 hover:border-[rgba(100,70,160,0.55)]">
+              <div class="flex flex-col items-center text-center py-4 px-3 bg-[linear-gradient(135deg,rgba(60,45,90,0.45),rgba(40,30,70,0.5))] border border-[rgba(100,70,160,0.3)] rounded-lg gap-2 transition-[border-color] duration-150 hover:border-[rgba(100,70,160,0.55)]">
                 <div class="font-display text-base font-bold text-text-primary">{group.label}</div>
                 <div class="text-xs text-text-muted leading-[1.3]">Equip these rivens to reveal their challenge</div>
                 <div class="flex items-center gap-2 mt-auto">

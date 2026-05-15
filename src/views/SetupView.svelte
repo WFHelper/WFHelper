@@ -375,7 +375,7 @@
           <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">
             Choose Inventory Source
           </h2>
-          <p class="mb-[0.65rem] text-sm leading-[1.55] text-text-secondary">
+          <p class="mb-2.5 text-sm leading-[1.55] text-text-secondary">
             Load your account inventory from the helper, an existing JSON export, or AlecaFrame's encrypted cache.
           </p>
 
@@ -423,12 +423,12 @@
           </div>
         {:else if step === "downloading"}
           <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">Downloading...</h2>
-          <p class="mb-[0.65rem] text-sm leading-[1.55] text-text-secondary">Fetching warframe-api-helper from GitHub Releases.</p>
+          <p class="mb-2.5 text-sm leading-[1.55] text-text-secondary">Fetching warframe-api-helper from GitHub Releases.</p>
           <div class="my-4">
             <div class="h-2 overflow-hidden rounded border border-border bg-bg-raised">
               <div class="h-full rounded bg-accent transition-[width] duration-300 ease-in-out" style="width: {progressPercent}%"></div>
             </div>
-            <div class="mt-[0.35rem] flex justify-between text-xs text-text-muted">
+            <div class="mt-1.5 flex justify-between text-xs text-text-muted">
               <span>{progressPercent}%</span>
               <span>{bytesLabel}</span>
             </div>
@@ -436,8 +436,8 @@
           <p class="!mt-4 !text-xs !text-text-muted">Please wait - this should only take a moment.</p>
         {:else if step === "done"}
           <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">Setup Complete</h2>
-          <p class="mb-[0.65rem] text-sm leading-[1.55] text-text-secondary">warframe-api-helper is ready to use.</p>
-          <p class="mb-[0.65rem] text-sm leading-[1.55] text-text-secondary">Run Warframe, then the helper can refresh inventory data in the background every 10 minutes.</p>
+          <p class="mb-2.5 text-sm leading-[1.55] text-text-secondary">warframe-api-helper is ready to use.</p>
+          <p class="mb-2.5 text-sm leading-[1.55] text-text-secondary">Run Warframe, then the helper can refresh inventory data in the background every 10 minutes.</p>
           <div class="my-4 flex justify-center text-success">
             <svg class="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="20 6 9 17 4 12" />
@@ -446,8 +446,8 @@
           <p class="!mt-4 !text-xs !text-text-muted">Click <strong>Finish</strong> to continue.</p>
         {:else if step === "error"}
           <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">Setup Needs Attention</h2>
-          <p class="mb-[0.65rem] text-sm font-semibold leading-[1.55] text-danger">{errorMessage}</p>
-          <p class="mb-[0.65rem] text-sm leading-[1.55] text-text-secondary">You can retry this setup path or skip and configure inventory loading later.</p>
+          <p class="mb-2.5 text-sm font-semibold leading-[1.55] text-danger">{errorMessage}</p>
+          <p class="mb-2.5 text-sm leading-[1.55] text-text-secondary">You can retry this setup path or skip and configure inventory loading later.</p>
         {/if}
       </div>
 
