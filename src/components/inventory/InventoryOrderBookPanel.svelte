@@ -371,7 +371,7 @@
 
 <aside class="sticky top-[0.65rem] flex flex-col gap-[0.58rem] rounded-[0.625rem] border border-border bg-bg-surface p-[0.62rem] max-[1100px]:static">
   <div class="flex justify-between items-center gap-[0.4rem]">
-    <h3 class="m-0 font-display text-[0.94rem] text-text-primary">Market Listings</h3>
+    <h3 class="m-0 font-display text-base text-text-primary">Market Listings</h3>
     <div class="flex gap-[0.32rem]">
       {#if currentSlug}
         <button class="btn-secondary btn-sm" on:click={refresh}>Refresh</button>
@@ -387,15 +387,15 @@
   {/if}
 
   {#if !item}
-    <div class="rounded-[0.45rem] border border-dashed border-border bg-bg-soft px-[0.55rem] py-2 text-[0.78rem] text-text-secondary">Select an item to view WTS/WTB listings.</div>
+    <div class="rounded-[0.45rem] border border-dashed border-border bg-bg-soft px-[0.55rem] py-2 text-xs text-text-secondary">Select an item to view WTS/WTB listings.</div>
   {:else}
     <div class="grid grid-cols-[52px_minmax(0,1fr)] gap-[0.55rem] items-center">
       <div class="h-[52px] w-[52px] flex items-center justify-center rounded-[0.45rem] border border-border bg-bg-raised overflow-hidden">
         <ItemImage src={item.displayImageUrl} alt={item.name} />
       </div>
       <div class="inventory-orderbook-item-meta">
-        <div class="font-display text-[0.9rem] font-semibold text-text-primary overflow-hidden text-ellipsis whitespace-nowrap">{item.name}</div>
-        <div class="flex items-center justify-between gap-2 text-[0.76rem] text-text-secondary">
+        <div class="font-display text-sm font-semibold text-text-primary overflow-hidden text-ellipsis whitespace-nowrap">{item.name}</div>
+        <div class="flex items-center justify-between gap-2 text-xs text-text-secondary">
           <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
             x{item.amount} · {item.categoryLabel}{#if requestRank != null} · Viewing R{requestRank}{/if}
           </span>
@@ -407,38 +407,38 @@
     </div>
 
     {#if !currentSlug}
-      <div class="rounded-[0.45rem] border border-dashed border-border bg-bg-soft px-[0.55rem] py-2 text-[0.78rem] text-text-secondary">No market slug available for this item.</div>
+      <div class="rounded-[0.45rem] border border-dashed border-border bg-bg-soft px-[0.55rem] py-2 text-xs text-text-secondary">No market slug available for this item.</div>
     {:else if loading}
-      <div class="rounded-[0.45rem] border border-dashed border-border bg-bg-soft px-[0.55rem] py-2 text-[0.78rem] text-text-secondary">Loading listings...</div>
+      <div class="rounded-[0.45rem] border border-dashed border-border bg-bg-soft px-[0.55rem] py-2 text-xs text-text-secondary">Loading listings...</div>
     {:else if errorMessage}
-      <div class="rounded-[0.45rem] border border-dashed border-[rgba(248,113,113,0.4)] bg-bg-soft px-[0.55rem] py-2 text-[0.78rem] text-danger">{errorMessage}</div>
+      <div class="rounded-[0.45rem] border border-dashed border-[rgba(248,113,113,0.4)] bg-bg-soft px-[0.55rem] py-2 text-xs text-danger">{errorMessage}</div>
     {:else if noData || !orderBook}
-      <div class="rounded-[0.45rem] border border-dashed border-border bg-bg-soft px-[0.55rem] py-2 text-[0.78rem] text-text-secondary">No active listings found.</div>
+      <div class="rounded-[0.45rem] border border-dashed border-border bg-bg-soft px-[0.55rem] py-2 text-xs text-text-secondary">No active listings found.</div>
     {:else}
       <div class="grid grid-cols-3 gap-[0.36rem] max-[800px]:grid-cols-2">
         <div class="grid gap-[0.16rem] rounded-[0.45rem] border border-border bg-bg-soft px-[0.45rem] py-[0.35rem]">
-          <span class="text-[0.66rem] uppercase tracking-[0.05em] text-text-muted">Best WTS</span>
-          <strong class="font-display text-[0.8rem] text-text-primary">{bestSell != null ? `${bestSell}p` : "-"}</strong>
+          <span class="text-xs uppercase tracking-[0.05em] text-text-muted">Best WTS</span>
+          <strong class="font-display text-xs text-text-primary">{bestSell != null ? `${bestSell}p` : "-"}</strong>
         </div>
         <div class="grid gap-[0.16rem] rounded-[0.45rem] border border-border bg-bg-soft px-[0.45rem] py-[0.35rem]">
-          <span class="text-[0.66rem] uppercase tracking-[0.05em] text-text-muted">Best WTB</span>
-          <strong class="font-display text-[0.8rem] text-text-primary">{bestBuy != null ? `${bestBuy}p` : "-"}</strong>
+          <span class="text-xs uppercase tracking-[0.05em] text-text-muted">Best WTB</span>
+          <strong class="font-display text-xs text-text-primary">{bestBuy != null ? `${bestBuy}p` : "-"}</strong>
         </div>
         <div class="grid gap-[0.16rem] rounded-[0.45rem] border border-border bg-bg-soft px-[0.45rem] py-[0.35rem]">
-          <span class="text-[0.66rem] uppercase tracking-[0.05em] text-text-muted">Spread</span>
-          <strong class="font-display text-[0.8rem] text-text-primary">{spread != null ? `${spread}p` : "-"}</strong>
+          <span class="text-xs uppercase tracking-[0.05em] text-text-muted">Spread</span>
+          <strong class="font-display text-xs text-text-primary">{spread != null ? `${spread}p` : "-"}</strong>
         </div>
       </div>
 
       <div class="grid gap-[0.42rem] rounded-lg border border-border bg-[color-mix(in_oklab,var(--bg-surface)_84%,var(--bg-raised))] p-[0.45rem]">
-        <label class="inline-flex items-center gap-[0.4rem] text-[0.74rem] text-text-secondary select-none">
+        <label class="inline-flex items-center gap-[0.4rem] text-xs text-text-secondary select-none">
           <input type="checkbox" class="accent-accent" bind:checked={onlineIngameOnly} />
           <span>Online/In-game only</span>
         </label>
         <div class="grid gap-[0.4rem]">
           {#if isRankedListingItem}
             <label class="grid gap-[0.2rem]">
-              <span class="text-[0.65rem] uppercase tracking-[0.05em] text-text-muted">Rank view</span>
+              <span class="text-xs uppercase tracking-[0.05em] text-text-muted">Rank view</span>
               <select class="inventory-orderbook-select" bind:value={selectedRank}>
                 {#each rankOptions as rankOption (rankOption)}
                   <option value={rankOption}>R{rankOption}</option>
@@ -448,7 +448,7 @@
           {/if}
           <div class="grid grid-cols-2 gap-[0.4rem]">
             <label class="grid gap-[0.2rem]">
-              <span class="text-[0.65rem] uppercase tracking-[0.05em] text-text-muted">WTS sort</span>
+              <span class="text-xs uppercase tracking-[0.05em] text-text-muted">WTS sort</span>
               <select class="inventory-orderbook-select" bind:value={sellSort}>
                 {#each SELL_SORT_OPTIONS as option (option.value)}
                   <option value={option.value}>{option.label}</option>
@@ -456,7 +456,7 @@
               </select>
             </label>
             <label class="grid gap-[0.2rem]">
-              <span class="text-[0.65rem] uppercase tracking-[0.05em] text-text-muted">WTB sort</span>
+              <span class="text-xs uppercase tracking-[0.05em] text-text-muted">WTB sort</span>
               <select class="inventory-orderbook-select" bind:value={buySort}>
                 {#each BUY_SORT_OPTIONS as option (option.value)}
                   <option value={option.value}>{option.label}</option>

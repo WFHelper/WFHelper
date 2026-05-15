@@ -35,12 +35,12 @@
          border-b border-dashed border-white/[0.06] last:border-b-0"
 >
   <div class="flex items-center gap-[0.35rem]">
-    <span class="text-[1.06rem] font-semibold text-text-primary">{inv.node}</span>
+    <span class="text-base font-semibold text-text-primary">{inv.node}</span>
   </div>
 
-  <div class="flex items-center gap-[0.35rem] text-[0.98rem]">
+  <div class="flex items-center gap-[0.35rem] text-base">
     <span
-      class="shrink-0 text-[0.82rem] font-bold uppercase tracking-[0.05em] opacity-90"
+      class="shrink-0 text-sm font-bold uppercase tracking-[0.05em] opacity-90"
       class:world-faction-grineer={attackerCls === "grineer"}
       class:world-faction-corpus={attackerCls === "corpus"}
       class:world-faction-infested={attackerCls === "infested"}
@@ -51,7 +51,7 @@
              text-right text-accent"
     >{rewardLabel(inv.attacker)}</span>
 
-    <span class="shrink-0 text-[0.94rem] font-bold uppercase text-text-muted opacity-45">VS</span>
+    <span class="shrink-0 text-base font-bold uppercase text-text-muted opacity-45">VS</span>
 
     <span
       class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap
@@ -59,7 +59,7 @@
     >{rewardLabel(inv.defender)}</span>
 
     <span
-      class="shrink-0 text-[0.82rem] font-bold uppercase tracking-[0.05em] opacity-90"
+      class="shrink-0 text-sm font-bold uppercase tracking-[0.05em] opacity-90"
       class:world-faction-grineer={defenderCls === "grineer"}
       class:world-faction-corpus={defenderCls === "corpus"}
       class:world-faction-infested={defenderCls === "infested"}
@@ -83,7 +83,7 @@
     ></div>
   </div>
 
-  <span class="flex items-center gap-[0.3rem] font-display text-[0.86rem] text-text-secondary">
+  <span class="flex items-center gap-[0.3rem] font-display text-sm text-text-secondary">
     <span
       class:world-faction-grineer={attackerCls === "grineer"}
       class:world-faction-corpus={attackerCls === "corpus"}

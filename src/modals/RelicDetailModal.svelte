@@ -213,7 +213,7 @@
               <span class="detail-tag" class:vaulted={group.vaulted} class:mastered={!group.vaulted}>{group.vaulted ? "VAULTED" : "UNVAULTED"}</span>
               {#each QUAL_ENTRIES as [quality, label]}
                 {#if (owned[quality] || 0) > 0}
-                  <span class="inline-flex items-center gap-[0.26rem] rounded-full border border-border bg-white/[0.04] px-2 py-[0.14rem] font-display text-[0.66rem] font-bold tracking-[0.03em] text-text-secondary">{label}: x{owned[quality]}</span>
+                  <span class="inline-flex items-center gap-[0.26rem] rounded-full border border-border bg-white/[0.04] px-2 py-[0.14rem] font-display text-xs font-bold tracking-[0.03em] text-text-secondary">{label}: x{owned[quality]}</span>
                 {/if}
               {:else}
                 <span class="detail-muted">None owned</span>
@@ -236,10 +236,10 @@
           </div>
 
           <div class="mt-[0.56rem] flex items-center gap-[0.38rem]">
-            <span class="text-[0.8rem] text-text-secondary">Squad:</span>
+            <span class="text-xs text-text-secondary">Squad:</span>
             {#each SQUAD_OPTIONS as [size, label]}
               <button
-                class="rounded-[0.36rem] border border-border bg-bg-surface px-[0.56rem] py-[0.3rem] font-display text-[0.75rem] font-semibold text-text-secondary transition-all duration-[0.14s] hover:border-text-secondary hover:text-text-primary"
+                class="rounded-[0.36rem] border border-border bg-bg-surface px-[0.56rem] py-[0.3rem] font-display text-xs font-semibold text-text-secondary transition-all duration-[0.14s] hover:border-text-secondary hover:text-text-primary"
                 class:border-accent={localSquadSize === size}
                 class:bg-accent-glow={localSquadSize === size}
                 class:text-accent={localSquadSize === size}
@@ -249,7 +249,7 @@
           </div>
 
           <div class="relic-rewards-list mt-[0.65rem] grid gap-0">
-            <div class="grid grid-cols-[30px_minmax(0,1fr)_72px_78px_78px_120px] max-[800px]:grid-cols-[24px_minmax(0,1fr)_56px_60px_60px_94px] max-[800px]:gap-[0.32rem] gap-[0.42rem] text-[0.72rem] text-text-muted px-[0.4rem]">
+            <div class="grid grid-cols-[30px_minmax(0,1fr)_72px_78px_78px_120px] max-[800px]:grid-cols-[24px_minmax(0,1fr)_56px_60px_60px_94px] max-[800px]:gap-[0.32rem] gap-[0.42rem] text-xs text-text-muted px-[0.4rem]">
               <span></span><span>Item</span><span class="text-right">Chance</span>
               <span class="text-right">Price</span><span class="text-right">Ducats</span><span class="text-right">E.V.</span>
             </div>
@@ -260,26 +260,26 @@
               {@const ducatEv = ducatValue != null ? (reward.chance / 100) * ducatValue : null}
               {@const canClick = itemNameIndex.has(reward.name)}
               <button class="grid grid-cols-[30px_minmax(0,1fr)_72px_78px_78px_120px] max-[800px]:grid-cols-[24px_minmax(0,1fr)_56px_60px_60px_94px] max-[800px]:gap-[0.32rem] gap-[0.42rem] items-center px-[0.4rem] py-[0.42rem] border-0 border-b border-[rgba(255,255,255,0.06)] rounded-[0.25rem] bg-transparent text-inherit text-left w-full last:border-b-0 {canClick ? 'cursor-pointer hover:enabled:bg-white/[0.06]' : ''} {selectedReward === reward ? 'bg-white/10' : ''}" disabled={!canClick} on:click={() => selectReward(reward)}>
-                <span class="relic-reward-rarity inline-flex items-center justify-center w-5 h-5 rounded-full text-[0.67rem] font-bold {rarityClass(reward.rarity)}" title={reward.rarity}
+                <span class="relic-reward-rarity inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold {rarityClass(reward.rarity)}" title={reward.rarity}
                   >{reward.rarity?.charAt(0) || "?"}</span
                 >
-                <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text-primary text-[0.82rem]" title={reward.name}>{reward.name}</span>
-                <span class="text-right text-[0.8rem] text-text-secondary">{reward.chance}%</span>
-                <span class="text-right text-[0.8rem] text-text-secondary">
+                <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text-primary text-sm" title={reward.name}>{reward.name}</span>
+                <span class="text-right text-xs text-text-secondary">{reward.chance}%</span>
+                <span class="text-right text-xs text-text-secondary">
                   {#if price != null}
-                    <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">{price}p</span>
+                    <span class="inline-flex items-center gap-1 font-display text-sm font-bold text-accent">{price}p</span>
                   {:else}
                     <span class="detail-muted">-</span>
                   {/if}
                 </span>
-                <span class="text-right text-[0.8rem] text-text-secondary">
+                <span class="text-right text-xs text-text-secondary">
                   {#if ducatValue != null}
                     <span>{ducatValue}d</span>
                   {:else}
                     <span class="detail-muted">-</span>
                   {/if}
                 </span>
-                <span class="text-right text-[0.8rem] text-text-secondary">
+                <span class="text-right text-xs text-text-secondary">
                   {#if platEv != null && ducatEv != null}
                     {`~${platEv.toFixed(1)}p | ${ducatEv.toFixed(1)}d`}
                   {:else if platEv != null}
@@ -292,7 +292,7 @@
             {/each}
           </div>
 
-          <div class="relic-ev-total mt-[0.66rem] border-t border-border pt-[0.52rem] text-[0.84rem] text-text-secondary">
+          <div class="relic-ev-total mt-[0.66rem] border-t border-border pt-[0.52rem] text-sm text-text-secondary">
             {#if loadingPrices}
               Loading prices and ducats...
             {:else if !hasAnyPrice && !hasAnyDucats}

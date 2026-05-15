@@ -25,9 +25,9 @@
     <!-- Contrast-Safe Mode -->
     <div class="appearance-section">
       <ThemedControlCard as="label">
-        <span class="text-text-secondary text-[0.8rem] font-medium">
+        <span class="text-text-secondary text-xs font-medium">
           {$tr("appearance.contrastSafeMode")}
-          <span class="block text-[0.68rem] text-text-muted font-normal mt-[0.1rem]">{$tr("appearance.contrastSafeModeHint")}</span>
+          <span class="block text-xs text-text-muted font-normal mt-[0.1rem]">{$tr("appearance.contrastSafeModeHint")}</span>
         </span>
         <input
           class="accent-accent"

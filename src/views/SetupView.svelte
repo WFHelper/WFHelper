@@ -309,13 +309,13 @@
         <img src={APP_LOGO_URL} alt="App Logo" class="h-14 w-14 object-contain" />
       </div>
       <div class="mt-8 flex w-full flex-col gap-4">
-        <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {stepTextClass('configure')}">
+        <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('configure')}">
           <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('configure')}"></span> Configure
         </div>
-        <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {stepTextClass('inventory')}">
+        <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('inventory')}">
           <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('inventory')}"></span> Inventory Source
         </div>
-        <div class="flex items-center gap-2 text-[0.78rem] transition-colors duration-200 {stepTextClass('done')}">
+        <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('done')}">
           <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('done')}"></span> Finish
         </div>
       </div>
@@ -324,14 +324,14 @@
     <div class="flex flex-1 flex-col px-6 pb-5 pt-7">
       <div class="setup-content flex-1">
         {#if step === "configure"}
-          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Welcome to WFHelper</h2>
+          <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">Welcome to WFHelper</h2>
 
           <div class="grid gap-3">
             <div class="rounded-lg border border-border bg-bg-raised px-3 py-3">
               <div class="mb-2 flex items-start justify-between gap-3">
                 <div>
-                  <h3 class="m-0 font-display text-[0.92rem] font-semibold text-text-primary">Default theme</h3>
-                  <p class="mt-0.5 text-[0.76rem] leading-snug text-text-muted">Choose one of the built-in themes.</p>
+                  <h3 class="m-0 font-display text-sm font-semibold text-text-primary">Default theme</h3>
+                  <p class="mt-0.5 text-xs leading-snug text-text-muted">Choose one of the built-in themes.</p>
                 </div>
               </div>
               <BuiltInThemeDropdown
@@ -346,8 +346,8 @@
             <div class="rounded-lg border border-border bg-bg-raised px-3 py-3">
               <div class="mb-2 flex items-start justify-between gap-3">
                 <div>
-                  <h3 class="m-0 font-display text-[0.92rem] font-semibold text-text-primary">UI style</h3>
-                  <p class="mt-0.5 text-[0.76rem] leading-snug text-text-muted">Uses the same setting as Appearance.</p>
+                  <h3 class="m-0 font-display text-sm font-semibold text-text-primary">UI style</h3>
+                  <p class="mt-0.5 text-xs leading-snug text-text-muted">Uses the same setting as Appearance.</p>
                 </div>
               </div>
               <SegmentedControl
@@ -360,8 +360,8 @@
             <div class="rounded-lg border border-border bg-bg-raised px-3 py-3">
               <div class="mb-2 flex items-start justify-between gap-3">
                 <div>
-                  <h3 class="m-0 font-display text-[0.92rem] font-semibold text-text-primary">Border style</h3>
-                  <p class="mt-0.5 text-[0.76rem] leading-snug text-text-muted">Choose how sharp or rounded app controls should feel.</p>
+                  <h3 class="m-0 font-display text-sm font-semibold text-text-primary">Border style</h3>
+                  <p class="mt-0.5 text-xs leading-snug text-text-muted">Choose how sharp or rounded app controls should feel.</p>
                 </div>
               </div>
               <SegmentedControl
@@ -372,18 +372,18 @@
             </div>
           </div>
         {:else if step === "inventory"}
-          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">
+          <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">
             Choose Inventory Source
           </h2>
-          <p class="mb-[0.65rem] text-[0.84rem] leading-[1.55] text-text-secondary">
+          <p class="mb-[0.65rem] text-sm leading-[1.55] text-text-secondary">
             Load your account inventory from the helper, an existing JSON export, or AlecaFrame's encrypted cache.
           </p>
 
           {#if helperStatus === "not_found" && runnerStatus?.exeFound}
             <div class="mb-3 rounded-lg border border-warning bg-warning/10 px-3 py-3">
-              <span class="mb-1 inline-block rounded bg-warning px-2 py-0.5 font-display text-[0.65rem] font-bold tracking-widest text-black">WAITING FOR DATA</span>
-              <h3 class="font-display text-[0.92rem] font-semibold text-text-primary">Go in-game to generate inventory data</h3>
-              <p class="mt-0.5 text-[0.76rem] leading-snug text-text-secondary">The helper is installed. Log into Warframe, then run the helper to create inventory.json.</p>
+              <span class="mb-1 inline-block rounded bg-warning px-2 py-0.5 font-display text-xs font-bold tracking-widest text-black">WAITING FOR DATA</span>
+              <h3 class="font-display text-sm font-semibold text-text-primary">Go in-game to generate inventory data</h3>
+              <p class="mt-0.5 text-xs leading-snug text-text-secondary">The helper is installed. Log into Warframe, then run the helper to create inventory.json.</p>
               <div class="mt-2 flex gap-2">
                 <button class="btn-primary btn-sm" disabled={loadingApi} on:click={triggerHelperRun}>Run helper now</button>
                 <button class="btn-secondary btn-sm" disabled={loadingApi} on:click={() => loadApiHelper(true)}>Browse for JSON</button>
@@ -394,11 +394,11 @@
           <div class="grid gap-2">
             <button type="button" class={sourceButtonClass("helper")} aria-pressed={inventorySource === "helper"} on:click={() => (inventorySource = "helper")}>
               <div class="flex items-center justify-between gap-3">
-                <span class="font-display text-[0.92rem] font-semibold">warframe-api-helper</span>
-                <span class="rounded bg-success/15 px-2 py-0.5 font-display text-[0.62rem] font-bold tracking-widest text-success">RECOMMENDED</span>
+                <span class="font-display text-sm font-semibold">warframe-api-helper</span>
+                <span class="rounded bg-success/15 px-2 py-0.5 font-display text-xs font-bold tracking-widest text-success">RECOMMENDED</span>
               </div>
-              <div class="mt-1 text-[0.76rem] leading-snug">Use the pinned helper executable and load its inventory.json snapshot.</div>
-              <div class="mt-2 text-[0.72rem] text-text-muted">
+              <div class="mt-1 text-xs leading-snug">Use the pinned helper executable and load its inventory.json snapshot.</div>
+              <div class="mt-2 text-xs text-text-muted">
                 {#if helperStatus === "checking"}
                   Checking for inventory.json...
                 {:else if helperStatus === "found"}
@@ -412,18 +412,18 @@
             </button>
 
             <button type="button" class={sourceButtonClass("json")} aria-pressed={inventorySource === "json"} on:click={() => (inventorySource = "json")}>
-              <span class="font-display text-[0.92rem] font-semibold">Import inventory JSON</span>
-              <div class="mt-1 text-[0.76rem] leading-snug">Open an existing inventory.json created by warframe-api-helper.</div>
+              <span class="font-display text-sm font-semibold">Import inventory JSON</span>
+              <div class="mt-1 text-xs leading-snug">Open an existing inventory.json created by warframe-api-helper.</div>
             </button>
 
             <button type="button" class={sourceButtonClass("aleca")} aria-pressed={inventorySource === "aleca"} on:click={() => (inventorySource = "aleca")}>
-              <span class="font-display text-[0.92rem] font-semibold">Import AlecaFrame cache</span>
-              <div class="mt-1 text-[0.76rem] leading-snug">Decrypt lastData.dat from %LOCALAPPDATA%\AlecaFrame and load its embedded inventory payload.</div>
+              <span class="font-display text-sm font-semibold">Import AlecaFrame cache</span>
+              <div class="mt-1 text-xs leading-snug">Decrypt lastData.dat from %LOCALAPPDATA%\AlecaFrame and load its embedded inventory payload.</div>
             </button>
           </div>
         {:else if step === "downloading"}
-          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Downloading...</h2>
-          <p class="mb-[0.65rem] text-[0.84rem] leading-[1.55] text-text-secondary">Fetching warframe-api-helper from GitHub Releases.</p>
+          <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">Downloading...</h2>
+          <p class="mb-[0.65rem] text-sm leading-[1.55] text-text-secondary">Fetching warframe-api-helper from GitHub Releases.</p>
           <div class="my-4">
             <div class="h-2 overflow-hidden rounded border border-border bg-bg-raised">
               <div class="h-full rounded bg-accent transition-[width] duration-300 ease-in-out" style="width: {progressPercent}%"></div>
@@ -433,21 +433,21 @@
               <span>{bytesLabel}</span>
             </div>
           </div>
-          <p class="!mt-4 !text-[0.78rem] !text-text-muted">Please wait - this should only take a moment.</p>
+          <p class="!mt-4 !text-xs !text-text-muted">Please wait - this should only take a moment.</p>
         {:else if step === "done"}
-          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Setup Complete</h2>
-          <p class="mb-[0.65rem] text-[0.84rem] leading-[1.55] text-text-secondary">warframe-api-helper is ready to use.</p>
-          <p class="mb-[0.65rem] text-[0.84rem] leading-[1.55] text-text-secondary">Run Warframe, then the helper can refresh inventory data in the background every 10 minutes.</p>
+          <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">Setup Complete</h2>
+          <p class="mb-[0.65rem] text-sm leading-[1.55] text-text-secondary">warframe-api-helper is ready to use.</p>
+          <p class="mb-[0.65rem] text-sm leading-[1.55] text-text-secondary">Run Warframe, then the helper can refresh inventory data in the background every 10 minutes.</p>
           <div class="my-4 flex justify-center text-success">
             <svg class="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
-          <p class="!mt-4 !text-[0.78rem] !text-text-muted">Click <strong>Finish</strong> to continue.</p>
+          <p class="!mt-4 !text-xs !text-text-muted">Click <strong>Finish</strong> to continue.</p>
         {:else if step === "error"}
-          <h2 class="mb-3 font-display text-[1.2rem] font-bold tracking-[0.02em]">Setup Needs Attention</h2>
-          <p class="mb-[0.65rem] text-[0.84rem] font-semibold leading-[1.55] text-danger">{errorMessage}</p>
-          <p class="mb-[0.65rem] text-[0.84rem] leading-[1.55] text-text-secondary">You can retry this setup path or skip and configure inventory loading later.</p>
+          <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">Setup Needs Attention</h2>
+          <p class="mb-[0.65rem] text-sm font-semibold leading-[1.55] text-danger">{errorMessage}</p>
+          <p class="mb-[0.65rem] text-sm leading-[1.55] text-text-secondary">You can retry this setup path or skip and configure inventory loading later.</p>
         {/if}
       </div>
 

@@ -82,11 +82,11 @@
       />
     </svelte:fragment>
     <svelte:fragment slot="titleMeta">
-      <span class="ml-1.5 text-[0.68rem] font-semibold text-text-muted">Owned {ownedCount}</span>
+      <span class="ml-1.5 text-xs font-semibold text-text-muted">Owned {ownedCount}</span>
     </svelte:fragment>
     <svelte:fragment slot="headerEnd">
       <span
-        class="shrink-0 text-[0.68rem] font-semibold {order.visible ? 'text-success' : 'text-warning'}"
+        class="shrink-0 text-xs font-semibold {order.visible ? 'text-success' : 'text-warning'}"
         title={order.visible ? "Visible on WFM" : "Hidden on WFM"}
       >
         {liveLabel}
@@ -95,7 +95,7 @@
     <svelte:fragment slot="compactBody">
       <div class="flex min-w-0 flex-1 flex-col gap-1.5">
         <span class="flex items-baseline gap-1 font-display leading-none" title="Listed quantity">
-          <span class="text-[0.68rem] uppercase tracking-[0.04em] text-text-muted">Qty</span>
+          <span class="text-xs uppercase tracking-[0.04em] text-text-muted">Qty</span>
           <span class="text-lg font-bold leading-none text-text-primary">{order.quantity}</span>
         </span>
         <MarketOrderSummary {isRankedListing} {summaryRank} {wtsLabel} {wtbLabel} {medianLabel} />
@@ -134,7 +134,7 @@
       />
     </svelte:fragment>
     <svelte:fragment slot="titleMeta">
-      <span class="ml-2 text-[0.7rem] font-semibold text-text-muted">Owned {ownedCount}</span>
+      <span class="ml-2 text-xs font-semibold text-text-muted">Owned {ownedCount}</span>
     </svelte:fragment>
     <svelte:fragment slot="fullBody">
       <MarketOrderSummary {isRankedListing} {summaryRank} {wtsLabel} {wtbLabel} {medianLabel} />
@@ -147,7 +147,7 @@
         {:else}
           <span class="order-vis border-[rgba(251,191,36,0.35)] bg-[rgba(251,191,36,0.13)] text-warning">Hidden</span>
         {/if}
-        <span class="flex min-w-[3.9rem] items-center justify-end gap-1 font-display text-[1.12rem] font-bold text-accent">
+        <span class="flex min-w-[3.9rem] items-center justify-end gap-1 font-display text-lg font-bold text-accent">
           <img src={PLATINUM_ICON_URL} alt="" width="14" height="14" class="shrink-0" />
           {order.platinum}
         </span>

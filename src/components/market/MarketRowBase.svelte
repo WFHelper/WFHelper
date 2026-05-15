@@ -24,16 +24,16 @@
     <div class="flex items-center gap-2 border-b border-border bg-bg-raised px-2.5 py-1.5">
       <slot name="headerStart" />
       {#if badgeLabel}
-        <span class="shrink-0 rounded px-1.5 py-0.5 text-[0.62rem] font-bold tracking-wide {badgeClass}">
+        <span class="shrink-0 rounded px-1.5 py-0.5 text-xs font-bold tracking-wide {badgeClass}">
           {badgeLabel}
         </span>
       {/if}
-      <span class="min-w-0 flex-1 truncate font-display text-[0.88rem] font-bold text-text-primary" title={title}>
+      <span class="min-w-0 flex-1 truncate font-display text-sm font-bold text-text-primary" title={title}>
         {title}
         <slot name="titleMeta" />
       </span>
       {#each rankBadges as label}
-        <span class="shrink-0 rounded-sm bg-accent/20 px-1 py-0.5 text-[0.62rem] font-bold text-accent">
+        <span class="shrink-0 rounded-sm bg-accent/20 px-1 py-0.5 text-xs font-bold text-accent">
           {label}
         </span>
       {/each}
@@ -65,7 +65,7 @@
         <span class="order-item-name">
           {title}
           {#each rankBadges as label}
-            <span class="ml-1 rounded-sm bg-accent/20 px-1 py-0.5 text-[0.62rem] font-bold text-accent">
+            <span class="ml-1 rounded-sm bg-accent/20 px-1 py-0.5 text-xs font-bold text-accent">
               {label}
             </span>
           {/each}

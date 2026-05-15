@@ -35,8 +35,8 @@
 
     {#if variant === "mastery"}
       <div class="flex items-center gap-4 px-6">
-        <span class="font-display text-[2.9rem] font-bold leading-none {toneClass(item.tone)}">{item.value}</span>
-        <span class="text-[1.6rem] font-semibold text-text-secondary">{item.label}</span>
+        <span class="font-display text-5xl font-bold leading-none {toneClass(item.tone)}">{item.value}</span>
+        <span class="text-2xl font-semibold text-text-secondary">{item.label}</span>
       </div>
     {:else}
       <div class="flex flex-1 items-center gap-3 px-5 min-w-[11rem]">
@@ -45,15 +45,15 @@
         {/if}
         <div class="flex flex-col gap-1 min-w-0 flex-1">
           <div class="flex items-baseline gap-2 flex-wrap">
-            <span class="text-[0.95rem] font-semibold uppercase tracking-wide text-text-primary">
+            <span class="text-base font-semibold uppercase tracking-wide text-text-primary">
               {item.label}
             </span>
-            <span class="text-[1.4rem] font-bold leading-none tracking-tight {toneClass(item.tone)}">
+            <span class="text-2xl font-bold leading-none tracking-tight {toneClass(item.tone)}">
               {item.value}
             </span>
           </div>
           {#if item.subtext}
-            <span class="text-[0.72rem] font-semibold text-text-secondary">{item.subtext}</span>
+            <span class="text-xs font-semibold text-text-secondary">{item.subtext}</span>
           {/if}
         </div>
       </div>

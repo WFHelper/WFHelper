@@ -28,14 +28,14 @@
   class="overflow-hidden rounded-lg border border-border bg-[color-mix(in_oklab,var(--bg-surface)_82%,var(--bg-raised))]"
 >
   <header
-    class="flex items-center justify-center px-[0.4rem] py-[0.32rem] font-display text-[0.75rem] font-bold tracking-[0.03em]"
+    class="flex items-center justify-center px-[0.4rem] py-[0.32rem] font-display text-xs font-bold tracking-[0.03em]"
     class:inventory-orderbook-side-sell={side === "sell"}
     class:inventory-orderbook-side-buy={side === "buy"}
   >
     <span>{title}</span>
   </header>
   {#if rows.length === 0}
-    <div class="rounded-[0.45rem] border border-dashed border-border bg-bg-soft px-[0.55rem] py-2 text-[0.78rem] text-text-secondary">{emptyLabel}</div>
+    <div class="rounded-[0.45rem] border border-dashed border-border bg-bg-soft px-[0.55rem] py-2 text-xs text-text-secondary">{emptyLabel}</div>
   {:else}
     <div class="grid">
       {#each rows as entry, index (rowKey(entry, index))}
@@ -43,14 +43,14 @@
           <div class="inventory-orderbook-row-head">
             <div class="inventory-orderbook-user-block grid min-w-0 gap-[0.08rem]">
               <span
-                class="overflow-hidden text-ellipsis whitespace-nowrap text-[0.76rem] text-text-primary"
+                class="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-text-primary"
                 title={entry.userName}
               >
                 {entry.userName}
               </span>
               {#if isRankedListingItem}
                 <span
-                  class="inventory-orderbook-rank-sub text-[0.62rem] text-text-muted font-display tracking-[0.03em] uppercase"
+                  class="inventory-orderbook-rank-sub text-xs text-text-muted font-display tracking-[0.03em] uppercase"
                   >{entry.rank != null ? `R${entry.rank}` : "R?"}</span
                 >
               {/if}
@@ -65,18 +65,18 @@
             >
               {statusLabel(entry.status)}
             </span>
-            <span class="inventory-orderbook-qty font-display text-[0.74rem] text-text-secondary">x{entry.quantity}</span>
-            <span class="inventory-orderbook-plat text-right font-display text-[0.74rem] font-bold text-accent-bright">{entry.platinum}p</span>
+            <span class="inventory-orderbook-qty font-display text-xs text-text-secondary">x{entry.quantity}</span>
+            <span class="inventory-orderbook-plat text-right font-display text-xs font-bold text-accent-bright">{entry.platinum}p</span>
           </div>
           <div class="flex gap-[0.32rem]">
             <button
-              class="btn-secondary btn-sm flex-1 min-h-[1.7rem] px-[0.46rem] py-[0.24rem] text-[0.66rem]"
+              class="btn-secondary btn-sm flex-1 min-h-[1.7rem] px-[0.46rem] py-[0.24rem] text-xs"
               on:click={() => void copyWhisper(entry, side)}
             >
               Whisper
             </button>
             <button
-              class="btn-secondary btn-sm flex-1 min-h-[1.7rem] px-[0.46rem] py-[0.24rem] text-[0.66rem]"
+              class="btn-secondary btn-sm flex-1 min-h-[1.7rem] px-[0.46rem] py-[0.24rem] text-xs"
               on:click={() => openSellerProfile(entry)}
             >
               Profile

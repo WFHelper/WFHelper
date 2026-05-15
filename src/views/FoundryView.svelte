@@ -361,7 +361,7 @@
                 {item.name}{#if item.source === "blueprint"}<span class="ml-2 text-accent font-bold">×{item.count}</span>{/if}
               </span>
               <div class="flex items-center gap-2 flex-wrap">
-                <span class="font-display text-[0.7rem] font-bold tracking-wider {statusText}">
+                <span class="font-display text-xs font-bold tracking-wider {statusText}">
                   {#if status === "in-progress" && item.endDate}
                     {formatTimeRemaining(item.endDate)}
                   {:else}
@@ -369,7 +369,7 @@
                   {/if}
                 </span>
                 {#if item.source === "blueprint" && item.isIngredient}
-                  <span class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.62rem] font-display font-bold uppercase tracking-[0.08em] border-border bg-white/[0.04] text-text-muted">
+                  <span class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] border-border bg-white/[0.04] text-text-muted">
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" class="h-3.5 w-3.5 shrink-0">
                       <path d="M3 4.5h4.5v4.5H3z" />
                       <path d="M8.5 2h4.5v4.5H8.5z" />
@@ -390,7 +390,7 @@
               {#each item.ingredients as ing, ingIdx (`${ing.uniqueName}:${ingIdx}`)}
                 {@const owned = ownedMap.get(ing.uniqueName) ?? 0}
                 {@const ok = owned >= ing.count}
-                <div class="flex items-center gap-2 min-w-0 {fewIng ? 'text-[1.1rem]' : 'text-[0.95rem]'}" title={ingredientName(ing.uniqueName)}>
+                <div class="flex items-center gap-2 min-w-0 {fewIng ? 'text-lg' : 'text-base'}" title={ingredientName(ing.uniqueName)}>
                   <div class="shrink-0 flex items-center justify-center {fewIng ? 'h-14 w-14' : 'h-10 w-10'}">
                     <ItemImage src={ingredientImage(ing.uniqueName)} alt={ingredientName(ing.uniqueName)} cls={fewIng ? 'max-h-14 max-w-14 object-contain' : 'max-h-10 max-w-10 object-contain'} />
                   </div>
@@ -418,7 +418,7 @@
             </div>
           {/if}
 
-          <div class="mt-auto flex items-center justify-between gap-3 pt-2 border-t border-border text-[0.9rem] text-text-secondary">
+          <div class="mt-auto flex items-center justify-between gap-3 pt-2 border-t border-border text-sm text-text-secondary">
             <div class="flex items-center gap-3">
               {#if item.buildPrice > 0}
                 <span class="flex items-center gap-1.5 font-display font-semibold tracking-wide text-accent">
@@ -437,7 +437,7 @@
             </div>
             <div class="flex items-center justify-end gap-1.5 flex-wrap">
               <span
-                class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.62rem] font-display font-bold uppercase tracking-[0.08em] {ownedCount > 0
+                class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] {ownedCount > 0
                   ? 'border-[rgba(74,222,128,0.3)] bg-[rgba(16,185,129,0.12)] text-success'
                   : 'border-border bg-white/[0.04] text-text-muted'}"
                 title={`Owned copies: ${ownedCount}`}
@@ -450,7 +450,7 @@
                 <span>{ownedCount} Owned</span>
               </span>
               <span
-                class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.62rem] font-display font-bold uppercase tracking-[0.08em] {masteryState === 'mastered'
+                class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] {masteryState === 'mastered'
                   ? 'border-[rgba(74,222,128,0.3)] bg-[rgba(16,185,129,0.12)] text-success'
                   : masteryState === 'progress'
                     ? 'border-[rgba(251,191,36,0.28)] bg-[rgba(251,191,36,0.12)] text-warning'

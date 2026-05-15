@@ -96,7 +96,7 @@
 <nav id="sidebar" class="sidebar-shell flex shrink-0 flex-col justify-between border-r border-border bg-bg-base px-2.5 py-3.5" class:sidebar-collapsed={$collapsed} style:width={$collapsed ? "3.75rem" : "var(--sidebar-width)"}>
   <div class="flex flex-col gap-0.5">
     <button
-      class="nav-btn nav-btn-collapse relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-muted transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary"
+      class="nav-btn nav-btn-collapse relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-base font-medium tracking-wide text-text-muted transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary"
       title={$collapsed ? "Expand sidebar" : "Collapse sidebar"}
       aria-label={$collapsed ? "Expand sidebar" : "Collapse sidebar"}
       on:click={toggleCollapsed}
@@ -108,7 +108,7 @@
     </button>
     {#each navItems as item}
       <button
-        class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide transition-colors duration-150 {$currentView === item.view ? 'bg-accent-glow text-accent before:content-[\'\'] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:rounded-r before:bg-accent max-[800px]:before:hidden' : 'bg-transparent text-text-secondary hover:bg-bg-hover hover:text-text-primary'}"
+        class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 px-3.5 py-2.5 font-display text-base font-medium tracking-wide transition-colors duration-150 {$currentView === item.view ? 'bg-accent-glow text-accent before:content-[\'\'] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:rounded-r before:bg-accent max-[800px]:before:hidden' : 'bg-transparent text-text-secondary hover:bg-bg-hover hover:text-text-primary'}"
         aria-current={$currentView === item.view ? "page" : undefined}
         on:click={() => currentView.set(item.view)}
       >
@@ -120,20 +120,20 @@
 
   {#if showDevTools}
     <div class="mt-2 flex flex-col gap-0.5">
-      <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-muted transition-colors duration-150 hover:bg-bg-hover hover:text-text-secondary" title="Preview setup wizard" on:click={() => currentView.set("setup")}>
+      <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-base font-medium tracking-wide text-text-muted transition-colors duration-150 hover:bg-bg-hover hover:text-text-secondary" title="Preview setup wizard" on:click={() => currentView.set("setup")}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
           <rect x="4" y="5" width="16" height="14" rx="2" />
           <path d="M8 9h8M8 13h5M16 13h1" />
         </svg>
         <span>Setup</span>
       </button>
-      <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-muted transition-colors duration-150 hover:bg-bg-hover hover:text-text-secondary" title={$tr("nav.testTitle")} on:click={testOverlay}>
+      <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-base font-medium tracking-wide text-text-muted transition-colors duration-150 hover:bg-bg-hover hover:text-text-secondary" title={$tr("nav.testTitle")} on:click={testOverlay}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
           <path d="M9 3h6l1 6-3.5 2L16 21H8l3.5-10L8 9l1-6z"/>
         </svg>
         <span>{$tr("nav.test")}</span>
       </button>
-      <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary" title={$tr("nav.overlayTitle")} on:click={toggleOverlay}>
+      <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-base font-medium tracking-wide text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary" title={$tr("nav.overlayTitle")} on:click={toggleOverlay}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
           <polygon points="12,2 22,12 12,22 2,12"/>
           <line x1="12" y1="8" x2="12" y2="16"/>
@@ -141,7 +141,7 @@
         </svg>
         <span>{$tr("nav.overlay")}</span>
       </button>
-      <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-[0.975rem] font-medium tracking-wide text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary" on:click={loadInventoryFile}>
+      <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-base font-medium tracking-wide text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary" on:click={loadInventoryFile}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
           <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
           <polyline points="17 8 12 3 7 8"/>

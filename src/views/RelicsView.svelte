@@ -522,7 +522,7 @@
 
 <section class="view active">
   <div class="mb-4">
-    <h2 class="m-0 mb-2 font-display text-[1.875rem] font-semibold tracking-[0.03em] text-text-primary">Relic Planner ({groups.length} groups / {visibleRelicEntryCount} entries)</h2>
+    <h2 class="m-0 mb-2 font-display text-3xl font-semibold tracking-[0.03em] text-text-primary">Relic Planner ({groups.length} groups / {visibleRelicEntryCount} entries)</h2>
     <div class="flex items-end border-b border-white/[0.09]">
       <HeaderTabs
         options={TIER_TABS}
@@ -603,7 +603,7 @@
         </label>
 
         <button
-          class="inline-flex min-h-[2.1rem] cursor-pointer items-center gap-[0.35rem] rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] px-[0.7rem] py-0 font-display text-[0.7rem] font-medium tracking-[0.03em] text-text-secondary transition-[border-color,background-color,color] duration-150 hover:border-accent hover:bg-bg-hover hover:text-accent [&_svg]:shrink-0"
+          class="inline-flex min-h-[2.1rem] cursor-pointer items-center gap-[0.35rem] rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] px-[0.7rem] py-0 font-display text-xs font-medium tracking-[0.03em] text-text-secondary transition-[border-color,background-color,color] duration-150 hover:border-accent hover:bg-bg-hover hover:text-accent [&_svg]:shrink-0"
           title="Push current tier & squad filters to the in-game relic overlay"
           on:click={pushFiltersToOverlay}
         >

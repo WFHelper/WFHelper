@@ -72,7 +72,7 @@
   <div class="mt-[0.55rem] flex flex-wrap items-center gap-2">
     <input
       type="text"
-      class="min-w-0 flex-1 border border-[var(--ui-control-border)] rounded-[var(--radius-md)] bg-[var(--ui-control-bg)] text-text-primary text-[0.8rem] py-[0.38rem] px-2 outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
+      class="min-w-0 flex-1 border border-[var(--ui-control-border)] rounded-[var(--radius-md)] bg-[var(--ui-control-bg)] text-text-primary text-xs py-[0.38rem] px-2 outline-none focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
       maxlength="40"
       placeholder={$tr("appearance.customThemeName")}
       bind:value={customName}

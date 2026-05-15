@@ -61,7 +61,7 @@
             <img src={PLATINUM_ICON_URL} alt="" width="16" height="16" class="shrink-0" />
             <span class="text-lg font-bold leading-none text-accent">{contract.platinum}</span>
           </span>
-          <span class="text-[0.72rem] font-semibold text-text-secondary">{masteryLabel}</span>
+          <span class="text-xs font-semibold text-text-secondary">{masteryLabel}</span>
           <RivenPolarityIcon
             polarity={contract.polarity}
             size={16}
@@ -71,7 +71,7 @@
         {#if statsPreview.length > 0}
           <div class="grid gap-0.5">
             {#each statsPreview as stat}
-              <span class="truncate text-[0.68rem] leading-tight text-text-muted" title={stat}>{stat}</span>
+              <span class="truncate text-xs leading-tight text-text-muted" title={stat}>{stat}</span>
             {/each}
           </div>
         {/if}
@@ -79,8 +79,8 @@
     </svelte:fragment>
     <svelte:fragment slot="compactActions">
       <div class="grid shrink-0 gap-1">
-        <button class="btn-sm btn-secondary px-2 py-1 text-[0.66rem]" on:click|stopPropagation={() => onEdit(contract)}>Edit</button>
-        <button class="btn-sm btn-secondary px-2 py-1 text-[0.66rem]" on:click|stopPropagation={() => onOpen(contract)}>Open</button>
+        <button class="btn-sm btn-secondary px-2 py-1 text-xs" on:click|stopPropagation={() => onEdit(contract)}>Edit</button>
+        <button class="btn-sm btn-secondary px-2 py-1 text-xs" on:click|stopPropagation={() => onOpen(contract)}>Open</button>
       </div>
     </svelte:fragment>
   </MarketRowBase>
@@ -93,14 +93,14 @@
       {#if statsPreview.length > 0}
         <div class="grid gap-0.5">
           {#each statsPreview as stat}
-            <span class="truncate text-[0.72rem] leading-tight text-text-muted" title={stat}>{stat}</span>
+            <span class="truncate text-xs leading-tight text-text-muted" title={stat}>{stat}</span>
           {/each}
         </div>
       {/if}
     </svelte:fragment>
     <svelte:fragment slot="fullActions">
       <div class="flex shrink-0 items-center gap-2">
-        <span class="inline-flex items-center gap-1 font-display text-[0.9rem] font-bold text-accent">
+        <span class="inline-flex items-center gap-1 font-display text-sm font-bold text-accent">
           <img src={PLATINUM_ICON_URL} alt="" width="14" height="14" class="shrink-0" />
           {contract.platinum}
         </span>
@@ -115,8 +115,8 @@
         </span>
       </div>
       <div class="grid shrink-0 gap-1">
-        <button class="btn-sm btn-secondary px-2 py-1 text-[0.66rem]" on:click|stopPropagation={() => onEdit(contract)}>Edit</button>
-        <button class="btn-sm btn-secondary px-2 py-1 text-[0.66rem]" on:click|stopPropagation={() => onOpen(contract)}>Open</button>
+        <button class="btn-sm btn-secondary px-2 py-1 text-xs" on:click|stopPropagation={() => onEdit(contract)}>Edit</button>
+        <button class="btn-sm btn-secondary px-2 py-1 text-xs" on:click|stopPropagation={() => onOpen(contract)}>Open</button>
       </div>
     </svelte:fragment>
   </MarketRowBase>

@@ -129,9 +129,9 @@
     <div class="flex items-center gap-3">
       <h2>World</h2>
       {#if baroActive}
-        <span class="rounded-[0.3rem] border border-warning/30 bg-warning/10 px-2 py-[0.15rem] text-[0.72rem] font-semibold whitespace-nowrap text-warning">Baro leaves in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
+        <span class="rounded-[0.3rem] border border-warning/30 bg-warning/10 px-2 py-[0.15rem] text-xs font-semibold whitespace-nowrap text-warning">Baro leaves in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
       {:else if baroAct}
-        <span class="rounded-[0.3rem] border border-warning/30 bg-warning/10 px-2 py-[0.15rem] text-[0.72rem] font-semibold whitespace-nowrap text-warning">Baro arrives in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
+        <span class="rounded-[0.3rem] border border-warning/30 bg-warning/10 px-2 py-[0.15rem] text-xs font-semibold whitespace-nowrap text-warning">Baro arrives in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
       {/if}
     </div>
   </div>
@@ -167,12 +167,12 @@
                 />
               {/each}
             </div>
-            <div class="mt-[0.15rem] flex items-center gap-2 pt-[0.35rem] text-[0.78rem] text-text-secondary">
+            <div class="mt-[0.15rem] flex items-center gap-2 pt-[0.35rem] text-xs text-text-secondary">
               <span>Notify before cycle change</span>
               <span class="flex items-center gap-1">
                 <input
                   type="number"
-                  class="cycle-lead-input w-[2.6rem] rounded-[var(--radius-md)] border border-border bg-[rgba(0,0,0,0.25)] px-[0.3rem] py-[0.15rem] text-center text-[0.78rem] text-text-primary outline-none"
+                  class="cycle-lead-input w-[2.6rem] rounded-[var(--radius-md)] border border-border bg-[rgba(0,0,0,0.25)] px-[0.3rem] py-[0.15rem] text-center text-xs text-text-primary outline-none"
                   min="0"
                   max="120"
                   value={$overlaySettings.cycleAlertMinutesBefore ?? 3}
@@ -182,7 +182,7 @@
               </span>
             </div>
           {:else}
-            <span class="text-[0.82rem] text-text-secondary opacity-70">Cycle data unavailable</span>
+            <span class="text-sm text-text-secondary opacity-70">Cycle data unavailable</span>
           {/if}
           </CollapsibleSection>
         </div>
@@ -190,17 +190,17 @@
         <!-- RESET TIMERS -->
         <div class="world-section">
           <CollapsibleSection title="Reset Timers" collapsed={collapsed.timers} onToggle={() => toggleSection('timers')}>
-          <div class="world-row"><span class="text-[0.88rem] text-text-secondary">Daily sortie</span><span class="font-display text-[0.88rem] tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={resetUrgency.sortie}>{times.sortie}</span></div>
-          <div class="world-row"><span class="text-[0.88rem] text-text-secondary">Daily reset</span><span class="font-display text-[0.88rem] tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={resetUrgency.daily}>{times.daily}</span></div>
-          <div class="world-row"><span class="text-[0.88rem] text-text-secondary">Weekly resets</span><span class="font-display text-[0.88rem] tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={resetUrgency.weekly}>{times.weekly}</span></div>
-          <div class="world-row"><span class="text-[0.88rem] text-text-secondary">Steel Path honours</span><span class="font-display text-[0.88rem] tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={resetUrgency.steelPath}>{times.steelPath}</span></div>
+          <div class="world-row"><span class="text-sm text-text-secondary">Daily sortie</span><span class="font-display text-sm tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={resetUrgency.sortie}>{times.sortie}</span></div>
+          <div class="world-row"><span class="text-sm text-text-secondary">Daily reset</span><span class="font-display text-sm tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={resetUrgency.daily}>{times.daily}</span></div>
+          <div class="world-row"><span class="text-sm text-text-secondary">Weekly resets</span><span class="font-display text-sm tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={resetUrgency.weekly}>{times.weekly}</span></div>
+          <div class="world-row"><span class="text-sm text-text-secondary">Steel Path honours</span><span class="font-display text-sm tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={resetUrgency.steelPath}>{times.steelPath}</span></div>
           </CollapsibleSection>
         </div>
 
         <!-- PRIME RESURGENCE -->
         <div class="world-section">
           <CollapsibleSection title="Prime Resurgence" collapsed={collapsed.resurgence} onToggle={() => toggleSection('resurgence')}>
-          <div class="text-[0.82rem] text-text-secondary mb-[0.55rem]">
+          <div class="text-sm text-text-secondary mb-[0.55rem]">
             Rotation ends in <strong>{times.varzia}</strong>
           </div>
           {#if featuredPrimes.length > 0}
@@ -218,7 +218,7 @@
               {/each}
             </div>
           {:else}
-            <span class="text-[0.82rem] text-text-secondary opacity-70">No featured prime items found</span>
+            <span class="text-sm text-text-secondary opacity-70">No featured prime items found</span>
           {/if}
           </CollapsibleSection>
         </div>
@@ -227,7 +227,7 @@
         <div class="world-section">
           <CollapsibleSection title="The Circuit" collapsed={collapsed.circuit} onToggle={() => toggleSection('circuit')}>
           {#each [{ label: 'Normal rotation', items: circuitNormalItems, isSteelPath: false }, { label: 'Steel Path rotation', items: circuitHardItems, isSteelPath: true }] as rot}
-          <div class="mb-[0.3rem] text-[0.7rem] font-bold uppercase tracking-[0.06em] {rot.isSteelPath ? 'text-warning' : 'text-text-secondary'}">{rot.label}</div>
+          <div class="mb-[0.3rem] text-xs font-bold uppercase tracking-[0.06em] {rot.isSteelPath ? 'text-warning' : 'text-text-secondary'}">{rot.label}</div>
           <div class="mb-2 flex gap-2 overflow-x-auto overflow-y-visible px-[0.15rem] py-[0.3rem]">
             {#each rot.items as item}
               <IconButtonCard
@@ -240,7 +240,7 @@
                 borderWidth="1.5"
               />
             {:else}
-              <span class="text-[0.82rem] text-text-secondary opacity-70">No data</span>
+              <span class="text-sm text-text-secondary opacity-70">No data</span>
             {/each}
           </div>
           {/each}
@@ -252,12 +252,12 @@
         <div class="world-section">
           <CollapsibleSection title="Steel Path Honors" collapsed={collapsed.steelpath} onToggle={() => toggleSection('steelpath')}>
             <svelte:fragment slot="actions">
-            <span class="font-display text-[0.88rem] tracking-[0.02em] whitespace-nowrap text-text-primary">{times.steelPath}</span>
+            <span class="font-display text-sm tracking-[0.02em] whitespace-nowrap text-text-primary">{times.steelPath}</span>
             </svelte:fragment>
           <div class="flex items-center gap-2 py-[0.35rem]">
-            <span class="text-[0.72rem] font-bold text-text-secondary uppercase tracking-[0.06em] shrink-0">This week</span>
-            <span class="text-[0.88rem] font-semibold text-warning flex-1 min-w-0">{steelPathHonors.currentReward.name}</span>
-            <span class="text-[0.72rem] text-text-secondary whitespace-nowrap shrink-0">{steelPathHonors.currentReward.cost} Steel Essence</span>
+            <span class="text-xs font-bold text-text-secondary uppercase tracking-[0.06em] shrink-0">This week</span>
+            <span class="text-sm font-semibold text-warning flex-1 min-w-0">{steelPathHonors.currentReward.name}</span>
+            <span class="text-xs text-text-secondary whitespace-nowrap shrink-0">{steelPathHonors.currentReward.cost} Steel Essence</span>
           </div>
           </CollapsibleSection>
         </div>
@@ -279,12 +279,12 @@
             </svelte:fragment>
           <div class="flex flex-col">
             {#if fissureFlat.length === 0}
-              <span class="text-[0.82rem] text-text-secondary opacity-70">No active {$worldFissureMode === 'steel' ? 'Steel Path' : 'Normal'} fissures</span>
+              <span class="text-sm text-text-secondary opacity-70">No active {$worldFissureMode === 'steel' ? 'Steel Path' : 'Normal'} fissures</span>
             {:else}
               {#each fissureFlat as f}
                 <div class="fissure-row">
                   <span
-                    class="inline-flex min-w-20 items-center gap-[0.2rem] rounded-[var(--radius-md)] px-[0.45rem] py-[0.18rem] text-[0.66rem] font-bold uppercase tracking-[0.06em]"
+                    class="inline-flex min-w-20 items-center gap-[0.2rem] rounded-[var(--radius-md)] px-[0.45rem] py-[0.18rem] text-xs font-bold uppercase tracking-[0.06em]"
                     class:world-badge-lith={f.tierCls === "lith"}
                     class:world-badge-meso={f.tierCls === "meso"}
                     class:world-badge-neo={f.tierCls === "neo"}
@@ -295,11 +295,11 @@
                     <img class="h-3.5 w-3.5 shrink-0" src={RELIC_ICON_PATHS[f.tierCls] || RELIC_ICON_PATHS.default} alt="" />
                     {f.tier}
                   </span>
-                  <span class="min-w-0 flex-1 text-[0.84rem]">
+                  <span class="min-w-0 flex-1 text-sm">
                     <strong class="text-text-primary">{f.missionType || 'Mission'}</strong>
-                    <span class="ml-[0.35rem] text-[0.78rem] text-text-secondary opacity-75">{f.node || 'Unknown'}</span>
+                    <span class="ml-[0.35rem] text-xs text-text-secondary opacity-75">{f.node || 'Unknown'}</span>
                   </span>
-                  <span class="shrink-0 font-display text-[0.84rem] tracking-[0.02em] whitespace-nowrap text-text-primary">{f.timeStr}</span>
+                  <span class="shrink-0 font-display text-sm tracking-[0.02em] whitespace-nowrap text-text-primary">{f.timeStr}</span>
                 </div>
               {/each}
             {/if}
@@ -329,9 +329,9 @@
         {#if !baroActive && baroAct}
         <div class="world-section">
           <div class="flex items-center gap-[0.55rem] py-[0.35rem]">
-            <span class="text-[0.88rem] font-semibold text-text-primary">Baro Ki'Teer</span>
-            <span class="text-[0.62rem] font-bold py-[0.1rem] px-[0.4rem] rounded-[0.2rem] uppercase tracking-[0.06em] bg-white/[0.06] text-text-secondary opacity-70">Inactive</span>
-            <span class="text-[0.82rem] font-display text-text-secondary ml-auto">{times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
+            <span class="text-sm font-semibold text-text-primary">Baro Ki'Teer</span>
+            <span class="text-xs font-bold py-[0.1rem] px-[0.4rem] rounded-[0.2rem] uppercase tracking-[0.06em] bg-white/[0.06] text-text-secondary opacity-70">Inactive</span>
+            <span class="text-sm font-display text-text-secondary ml-auto">{times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
           </div>
         </div>
         {/if}
@@ -343,9 +343,9 @@
     {#if baroActive && baro?.inventory && baro.inventory.length > 0}
     <div class="world-section mt-2">
       <CollapsibleSection title="Baro Ki'Teer" collapsed={collapsed.baro} onToggle={() => toggleSection('baro')}>
-      <div class="flex items-center justify-between py-[0.35rem] text-[0.82rem] text-text-secondary">
+      <div class="flex items-center justify-between py-[0.35rem] text-sm text-text-secondary">
         <span>{baroLocation}</span>
-        <span class="text-text-secondary text-[0.78rem]">Leaves in <strong>{times.baro}</strong></span>
+        <span class="text-text-secondary text-xs">Leaves in <strong>{times.baro}</strong></span>
       </div>
       <div class="flex flex-wrap gap-[0.6rem] px-1 py-[0.3rem]">
         {#each baro.inventory as inv}
@@ -371,42 +371,42 @@
           <div class="border-b border-border py-1 last:border-b-0">
             <button class="flex w-full items-center gap-[0.3rem] border-0 bg-transparent py-[0.2rem] text-left text-inherit cursor-pointer" on:click={() => toggleSection(`bounty-${group.syndicateKey}`)} aria-expanded={!collapsed[`bounty-${group.syndicateKey}`]}>
               <WorldToggleIcon collapsed={collapsed[`bounty-${group.syndicateKey}`]} />
-              <span class="text-[1.15rem] font-semibold text-text-primary">{group.syndicate}</span>
+              <span class="text-lg font-semibold text-text-primary">{group.syndicate}</span>
               {#if bountyTimers[group.syndicateKey]?.timeStr}
-                <span class="font-display text-[0.88rem] tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={bountyTimers[group.syndicateKey]?.urgent}>{bountyTimers[group.syndicateKey].timeStr}</span>
+                <span class="font-display text-sm tracking-[0.02em] whitespace-nowrap text-text-primary" class:world-timer-urgent={bountyTimers[group.syndicateKey]?.urgent}>{bountyTimers[group.syndicateKey].timeStr}</span>
               {/if}
-              <span class="ml-auto text-[0.75rem] text-text-secondary">{group.jobs.length} bounties</span>
+              <span class="ml-auto text-xs text-text-secondary">{group.jobs.length} bounties</span>
             </button>
             {#if !collapsed[`bounty-${group.syndicateKey}`]}
             <div class="flex flex-col pl-4">
               {#each group.jobs as job, ji}
-                <button class="flex w-full items-center gap-2 border-0 bg-transparent px-0 py-[0.22rem] text-left text-[0.88rem] text-inherit cursor-pointer hover:bg-white/[0.03]" on:click={() => toggleSection(`bounty-${group.syndicateKey}-${ji}`)}>
+                <button class="flex w-full items-center gap-2 border-0 bg-transparent px-0 py-[0.22rem] text-left text-sm text-inherit cursor-pointer hover:bg-white/[0.03]" on:click={() => toggleSection(`bounty-${group.syndicateKey}-${ji}`)}>
                   <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-text-primary">
                     {titleCase(job.type)}
                     {#if job.challengeDesc}
                       <span class="text-text-secondary text-[0.92em]"> — {job.challengeDesc}</span>
                     {/if}
                   </span>
-                  <span class="shrink-0 font-display whitespace-nowrap text-accent text-[1rem]">{job.enemyLevels[0]}–{job.enemyLevels[1]}</span>
+                  <span class="shrink-0 font-display whitespace-nowrap text-accent text-base">{job.enemyLevels[0]}–{job.enemyLevels[1]}</span>
                   <WorldToggleIcon collapsed={!collapsed[`bounty-${group.syndicateKey}-${ji}`]} />
                 </button>
                 {#if collapsed[`bounty-${group.syndicateKey}-${ji}`]}
                 <div class="mb-[0.2rem] ml-[0.3rem] border-l-2 border-accent py-[0.2rem] pl-[1.2rem]">
                   {#await getBountyRewards(group.syndicateKey, job.enemyLevels, job.standingStages.length, bountyRotation)}
-                    <span class="text-[0.7rem] text-text-secondary py-[0.2rem]">Loading rewards…</span>
+                    <span class="text-xs text-text-secondary py-[0.2rem]">Loading rewards…</span>
                   {:then rewards}
                     {#if rewards.length > 0}
                     <div class="mt-[0.35rem]">
                       {#each rewards as sr}
                         <div class="mb-[0.3rem]">
-                          <span class="text-[1.05rem] font-semibold text-text-secondary block mb-[0.1rem]">{sr.label}</span>
+                          <span class="text-base font-semibold text-text-secondary block mb-[0.1rem]">{sr.label}</span>
                           <div class="flex flex-col gap-[0.1rem]">
                             {#each sr.items as item}
                               {@const rewardUniqueName = resolveRewardUniqueName(item.itemName, $itemDb)}
                               {@const rewardIcon = resolveRewardIcon(item.itemName, $itemDb)}
                               <button
                                 type="button"
-                                class="flex w-full items-center justify-between gap-[0.3rem] border-0 bg-transparent px-0 py-[0.05rem] text-left text-[0.82rem] appearance-none disabled:text-text-primary disabled:opacity-100 disabled:cursor-default {rewardUniqueName ? 'cursor-pointer rounded-[0.2rem] px-[0.2rem] -mx-[0.2rem] transition-[background] duration-150 hover:bg-white/[0.06]' : ''} {item.rarity === 'Rare' || item.rarity === 'Legendary' ? 'text-accent' : 'text-text-primary'}"
+                                class="flex w-full items-center justify-between gap-[0.3rem] border-0 bg-transparent px-0 py-[0.05rem] text-left text-sm appearance-none disabled:text-text-primary disabled:opacity-100 disabled:cursor-default {rewardUniqueName ? 'cursor-pointer rounded-[0.2rem] px-[0.2rem] -mx-[0.2rem] transition-[background] duration-150 hover:bg-white/[0.06]' : ''} {item.rarity === 'Rare' || item.rarity === 'Legendary' ? 'text-accent' : 'text-text-primary'}"
                                 disabled={!rewardUniqueName}
                                 on:click={() => rewardUniqueName && openItemDetail(rewardUniqueName, [{location: `${group.syndicate} Bounty (${job.enemyLevels[0]}\u2013${job.enemyLevels[1]}) \u2014 ${sr.label}`, rarity: item.rarity, chance: item.chance / 100}])}
                               >
@@ -414,7 +414,7 @@
                                   <img class="h-[1.1rem] w-[1.1rem] shrink-0 object-contain" src={rewardIcon} alt="" />
                                 {/if}
                                 <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{item.itemName}</span>
-                                <span class="ml-2 shrink-0 whitespace-nowrap text-[0.78rem] font-semibold">{item.chance.toFixed(2)}%</span>
+                                <span class="ml-2 shrink-0 whitespace-nowrap text-xs font-semibold">{item.chance.toFixed(2)}%</span>
                               </button>
                             {/each}
                           </div>

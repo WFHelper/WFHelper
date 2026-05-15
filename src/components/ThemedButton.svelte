@@ -12,7 +12,7 @@
     ? "border-accent bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] font-semibold text-accent"
     : "border-[color:var(--ui-control-border)] bg-bg-surface text-text-secondary";
   $: sizeClass =
-    size === "compact" ? "h-[1.6rem] px-[0.55rem] py-0 text-[0.74rem]" : "px-[0.6rem] py-1 text-[0.7rem]";
+    size === "compact" ? "h-[1.6rem] px-[0.55rem] py-0 text-xs" : "px-[0.6rem] py-1 text-xs";
 </script>
 
 {#if as === "label"}

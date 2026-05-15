@@ -88,21 +88,21 @@
 </script>
 
 <div class="mt-0 pt-0 border-t-0">
-  <h4 class="m-0 mb-1 text-[0.82rem] font-bold text-text-primary">Fissure Alerts</h4>
-  <p class="text-[0.74rem] text-text-secondary m-0 mb-[0.6rem]">Get a desktop notification when a matching fissure appears.</p>
+  <h4 class="m-0 mb-1 text-sm font-bold text-text-primary">Fissure Alerts</h4>
+  <p class="text-xs text-text-secondary m-0 mb-[0.6rem]">Get a desktop notification when a matching fissure appears.</p>
 
   {#if alerts.length === 0}
-    <p class="text-[0.74rem] text-text-secondary italic m-0 mb-2">No alert rules configured.</p>
+    <p class="text-xs text-text-secondary italic m-0 mb-2">No alert rules configured.</p>
   {:else}
     <ul class="list-none m-0 mb-2 p-0 flex flex-col gap-[0.3rem]">
       {#each alerts as alert (alert.id)}
         <li class="flex items-center gap-[0.35rem] flex-wrap">
-          <span class="inline-flex items-center rounded-full py-[0.12rem] px-2 text-[0.68rem] font-semibold border border-border bg-[rgba(255,255,255,0.05)] text-text-secondary">{tierLabel(alert.tier)}</span>
-          <span class="inline-flex items-center rounded-full py-[0.12rem] px-2 text-[0.68rem] font-semibold border border-border bg-[rgba(255,255,255,0.05)] text-text-secondary">{missionLabel(alert.missionType)}</span>
-          <span class="inline-flex items-center rounded-full py-[0.12rem] px-2 text-[0.68rem] font-semibold border border-border bg-[rgba(255,255,255,0.05)] text-text-secondary">{spLabel(alert.steelPath)}</span>
-          <span class="inline-flex items-center rounded-full py-[0.12rem] px-2 text-[0.68rem] font-semibold border border-border bg-[rgba(255,255,255,0.05)] text-text-secondary">{planetLabel(alert.planet)}</span>
+          <span class="inline-flex items-center rounded-full py-[0.12rem] px-2 text-xs font-semibold border border-border bg-[rgba(255,255,255,0.05)] text-text-secondary">{tierLabel(alert.tier)}</span>
+          <span class="inline-flex items-center rounded-full py-[0.12rem] px-2 text-xs font-semibold border border-border bg-[rgba(255,255,255,0.05)] text-text-secondary">{missionLabel(alert.missionType)}</span>
+          <span class="inline-flex items-center rounded-full py-[0.12rem] px-2 text-xs font-semibold border border-border bg-[rgba(255,255,255,0.05)] text-text-secondary">{spLabel(alert.steelPath)}</span>
+          <span class="inline-flex items-center rounded-full py-[0.12rem] px-2 text-xs font-semibold border border-border bg-[rgba(255,255,255,0.05)] text-text-secondary">{planetLabel(alert.planet)}</span>
           <button
-            class="ml-auto inline-flex items-center justify-center w-[1.3rem] h-[1.3rem] rounded-[var(--radius-md)] border border-border bg-transparent text-text-secondary cursor-pointer text-[0.9rem] p-0 transition-[color,border-color,background] duration-150 hover:text-danger hover:border-[rgba(248,113,113,0.4)] hover:bg-[rgba(248,113,113,0.1)] disabled:opacity-40 disabled:cursor-not-allowed"
+            class="ml-auto inline-flex items-center justify-center w-[1.3rem] h-[1.3rem] rounded-[var(--radius-md)] border border-border bg-transparent text-text-secondary cursor-pointer text-sm p-0 transition-[color,border-color,background] duration-150 hover:text-danger hover:border-[rgba(248,113,113,0.4)] hover:bg-[rgba(248,113,113,0.1)] disabled:opacity-40 disabled:cursor-not-allowed"
             title="Remove alert"
             disabled={saving}
             on:click={() => removeAlert(alert.id)}
@@ -137,6 +137,6 @@
   </div>
 
   {#if error}
-    <p class="text-[0.74rem] text-danger mt-[0.3rem] mb-0">{error}</p>
+    <p class="text-xs text-danger mt-[0.3rem] mb-0">{error}</p>
   {/if}
 </div>

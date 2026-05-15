@@ -76,7 +76,7 @@
   <div class="item-img-wrap">
     <ItemImage src={item.displayImageUrl} alt={item.name} />
     {#if item.vaulted}<span class="vault-badge">V</span>{/if}
-    <span class="absolute right-[0.5rem] bottom-[0.34rem] font-display text-[0.95rem] font-bold text-success drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">x{item.amount}</span>
+    <span class="absolute right-[0.5rem] bottom-[0.34rem] font-display text-base font-bold text-success drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">x{item.amount}</span>
   </div>
   <div class="item-body">
     <span class="item-name">{item.name}</span>
@@ -98,19 +98,19 @@
     {#if showRankOrderSummary}
       <div class="grid grid-cols-2 gap-[0.24rem]">
         <span class="inventory-rank-order-box grid gap-[0.08rem] min-h-[2.05rem] content-center border border-[rgba(240,201,92,0.48)] bg-[rgba(212,168,67,0.2)] rounded-[0.42rem] py-[0.22rem] px-[0.34rem]">
-          <span class="inventory-rank-order-label text-[0.57rem] uppercase tracking-[0.04em] font-display">WTS R{rankCapLabel}</span>
+          <span class="inventory-rank-order-label text-xs uppercase tracking-[0.04em] font-display">WTS R{rankCapLabel}</span>
           <strong>{wtsRankMaxLabel}</strong>
         </span>
         <span class="inventory-rank-order-box grid gap-[0.08rem] min-h-[2.05rem] content-center border border-[rgba(240,201,92,0.48)] bg-[rgba(212,168,67,0.2)] rounded-[0.42rem] py-[0.22rem] px-[0.34rem]">
-          <span class="inventory-rank-order-label text-[0.57rem] uppercase tracking-[0.04em] font-display">WTB R{rankCapLabel}</span>
+          <span class="inventory-rank-order-label text-xs uppercase tracking-[0.04em] font-display">WTB R{rankCapLabel}</span>
           <strong>{wtbRankMaxLabel}</strong>
         </span>
         <span class="inventory-rank-order-box grid gap-[0.08rem] min-h-[2.05rem] content-center border border-[rgba(240,201,92,0.48)] bg-[rgba(212,168,67,0.2)] rounded-[0.42rem] py-[0.22rem] px-[0.34rem]">
-          <span class="inventory-rank-order-label text-[0.57rem] uppercase tracking-[0.04em] font-display">WTS R0</span>
+          <span class="inventory-rank-order-label text-xs uppercase tracking-[0.04em] font-display">WTS R0</span>
           <strong>{wtsRank0Label}</strong>
         </span>
         <span class="inventory-rank-order-box grid gap-[0.08rem] min-h-[2.05rem] content-center border border-[rgba(240,201,92,0.48)] bg-[rgba(212,168,67,0.2)] rounded-[0.42rem] py-[0.22rem] px-[0.34rem]">
-          <span class="inventory-rank-order-label text-[0.57rem] uppercase tracking-[0.04em] font-display">WTB R0</span>
+          <span class="inventory-rank-order-label text-xs uppercase tracking-[0.04em] font-display">WTB R0</span>
           <strong>{wtbRank0Label}</strong>
         </span>
       </div>
@@ -136,7 +136,7 @@
     {/if}
 
     {#if item.equippedSummary}
-      <span class="text-[0.74rem] text-success whitespace-nowrap overflow-hidden text-ellipsis">{item.equippedSummary}</span>
+      <span class="text-xs text-success whitespace-nowrap overflow-hidden text-ellipsis">{item.equippedSummary}</span>
     {/if}
   </div>
 </div>

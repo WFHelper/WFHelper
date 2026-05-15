@@ -66,7 +66,7 @@
 
   <div class="grid gap-[0.45rem]">
     <ThemedControlCard as="label" density="tight">
-      <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.globalScale")}</span>
+      <span class="text-text-secondary text-xs font-medium">{$tr("appearance.globalScale")}</span>
       <div class="flex items-center gap-[0.4rem]">
         <input
           type="range"
@@ -79,22 +79,22 @@
         />
         <input
           type="number"
-          class="w-[4.3rem] border border-[var(--ui-control-border)] rounded-[var(--radius-md)] bg-bg-base text-text-primary text-[0.78rem] py-[0.24rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
+          class="w-[4.3rem] border border-[var(--ui-control-border)] rounded-[var(--radius-md)] bg-bg-base text-text-primary text-xs py-[0.24rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
           min={Math.round(FONT_SCALE_MIN * 100)}
           max={Math.round(FONT_SCALE_MAX * 100)}
           step={Math.round(FONT_SCALE_STEP * 100)}
           value={scalePercent}
           on:input={onScalePercentChange}
         />
-        <span class="font-display text-[0.78rem] font-bold text-accent">%</span>
+        <span class="font-display text-xs font-bold text-accent">%</span>
       </div>
     </ThemedControlCard>
 
     <ThemedControlCard as="label" density="tight">
-      <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.headingSize")}</span>
+      <span class="text-text-secondary text-xs font-medium">{$tr("appearance.headingSize")}</span>
       <input
         type="number"
-        class="w-20 border border-[var(--ui-control-border)] rounded-[var(--radius-md)] bg-bg-base text-text-primary text-[0.84rem] py-[0.3rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
+        class="w-20 border border-[var(--ui-control-border)] rounded-[var(--radius-md)] bg-bg-base text-text-primary text-sm py-[0.3rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
         min="0.5"
         max="5"
         step="0.05"
@@ -105,10 +105,10 @@
     </ThemedControlCard>
 
     <ThemedControlCard as="label" density="tight">
-      <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.bodySize")}</span>
+      <span class="text-text-secondary text-xs font-medium">{$tr("appearance.bodySize")}</span>
       <input
         type="number"
-        class="w-20 border border-[var(--ui-control-border)] rounded-[var(--radius-md)] bg-bg-base text-text-primary text-[0.84rem] py-[0.3rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
+        class="w-20 border border-[var(--ui-control-border)] rounded-[var(--radius-md)] bg-bg-base text-text-primary text-sm py-[0.3rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
         min="0.5"
         max="5"
         step="0.05"
@@ -119,10 +119,10 @@
     </ThemedControlCard>
 
     <ThemedControlCard as="label" density="tight">
-      <span class="text-text-secondary text-[0.8rem] font-medium">{$tr("appearance.smallSize")}</span>
+      <span class="text-text-secondary text-xs font-medium">{$tr("appearance.smallSize")}</span>
       <input
         type="number"
-        class="w-20 border border-[var(--ui-control-border)] rounded-[var(--radius-md)] bg-bg-base text-text-primary text-[0.84rem] py-[0.3rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
+        class="w-20 border border-[var(--ui-control-border)] rounded-[var(--radius-md)] bg-bg-base text-text-primary text-sm py-[0.3rem] px-2 outline-none text-right focus:border-accent-dim focus:shadow-[0_0_0_2px_rgba(212,168,67,0.12)]"
         min="0.3"
         max="3"
         step="0.05"

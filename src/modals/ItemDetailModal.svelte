@@ -103,7 +103,7 @@
             </div>
             <div>
               <h2 class="m-0 font-display text-base font-bold text-text-primary">{item.name}</h2>
-              <span class="text-[0.72rem] text-text-muted">Crafting Tree</span>
+              <span class="text-xs text-text-muted">Crafting Tree</span>
             </div>
           </div>
 

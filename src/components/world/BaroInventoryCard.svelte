@@ -60,7 +60,7 @@
     {#if imgUrl}
       <img class="h-full w-full object-contain" src={imgUrl} alt={entry.item || ""} loading="lazy" />
     {:else}
-      <span class="text-[1.8rem] font-bold text-text-secondary opacity-40">
+      <span class="text-3xl font-bold text-text-secondary opacity-40">
         {(entry.item || "?")[0]}
       </span>
     {/if}
@@ -68,20 +68,20 @@
     {#if entry.ducats}
       <span
         class="absolute top-[3px] left-[3px] rounded bg-[rgba(0,0,0,0.78)] px-[6px] py-[2px]
-               text-[1.1rem] font-bold leading-[1.2] text-accent pointer-events-none"
+               text-lg font-bold leading-[1.2] text-accent pointer-events-none"
       >{entry.ducats}</span>
     {/if}
 
     {#if owned}
       <span
         class="absolute bottom-[3px] right-[3px] flex h-6 w-6 items-center justify-center rounded-full
-               bg-[rgba(34,139,34,0.85)] text-[1rem] font-bold leading-none text-white pointer-events-none"
+               bg-[rgba(34,139,34,0.85)] text-base font-bold leading-none text-white pointer-events-none"
       >✓</span>
     {/if}
   </div>
 
   <span
-    class="overflow-hidden text-ellipsis whitespace-nowrap text-center text-[0.65rem]
+    class="overflow-hidden text-ellipsis whitespace-nowrap text-center text-xs
            text-text-secondary {labelMaxW}"
   >{entry.item || "Unknown"}</span>
 </button>

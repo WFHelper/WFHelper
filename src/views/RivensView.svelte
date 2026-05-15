@@ -120,7 +120,7 @@
 </script>
 
 {#snippet emptyState(message: string)}
-  <div class="empty-state flex flex-col items-center justify-center min-h-[40vh] text-text-muted text-[0.9rem]">
+  <div class="empty-state flex flex-col items-center justify-center min-h-[40vh] text-text-muted text-sm">
     <p>{message}</p>
   </div>
 {/snippet}
@@ -172,18 +172,18 @@
             onclick={() => (selectedRiven = riven)}
           >
             <div class="relative w-full h-full bg-center bg-[length:100%_100%] bg-no-repeat" style:background-image={`url("${RIVEN_TEMPLATE_URL}")`}>
-              <span class="absolute top-[10%] right-[15%] z-[2] font-display font-extrabold text-[1rem] leading-none [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,0.9)]" style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span>
+              <span class="absolute top-[10%] right-[15%] z-[2] font-display font-extrabold text-base leading-none [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,0.9)]" style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span>
 
               <div class="absolute z-[1] left-[13%] right-[11%] top-[51%] text-center">
-                <span class="font-display text-[1.3rem] max-[700px]:text-[1.25rem] font-bold text-white leading-[1.1] [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,1),0_2px_12px_rgba(0,0,0,0.95),0_0_20px_rgba(80,40,160,0.3)]">{riven.weaponName}</span>
+                <span class="font-display text-xl max-[700px]:text-xl font-bold text-white leading-[1.1] [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,1),0_2px_12px_rgba(0,0,0,0.95),0_0_20px_rgba(80,40,160,0.3)]">{riven.weaponName}</span>
                 {#if rivenSuffix(riven)}
-                  <span class="font-display text-[0.85rem] font-semibold text-[rgba(200,180,255,0.9)] leading-[1.1] [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,0.95)]"> {rivenSuffix(riven)}</span>
+                  <span class="font-display text-sm font-semibold text-[rgba(200,180,255,0.9)] leading-[1.1] [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,0.95)]"> {rivenSuffix(riven)}</span>
                 {/if}
               </div>
 
               <div class="absolute z-[1] left-[13%] right-[11%] top-[59%] flex flex-col gap-0 items-center text-center">
                 {#each riven.stats as stat}
-                  <div class="flex items-baseline justify-center gap-[0.25em] w-full text-[1.05rem] max-[700px]:text-[0.9rem] font-display leading-[1.05] whitespace-nowrap overflow-hidden text-ellipsis [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_6px_rgba(0,0,0,1),0_2px_8px_rgba(0,0,0,0.95)]">
+                  <div class="flex items-baseline justify-center gap-[0.25em] w-full text-base max-[700px]:text-sm font-display leading-[1.05] whitespace-nowrap overflow-hidden text-ellipsis [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_6px_rgba(0,0,0,1),0_2px_8px_rgba(0,0,0,0.95)]">
                     <span class="font-bold shrink-0 {stat.positive ? 'text-[#8ee4a8]' : 'text-[#ff7a7a]'}">
                       {stat.positive ? "+" : "-"}{stat.multiplier ? `x${stat.displayValue}` : `${stat.displayValue}%`}
                     </span>
@@ -201,7 +201,7 @@
                 {/each}
               </div>
 
-              <div class="absolute z-[1] left-[22%] right-[22%] top-[83.5%] flex items-center justify-between text-[0.75rem] font-display leading-none [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_6px_rgba(0,0,0,1)]">
+              <div class="absolute z-[1] left-[22%] right-[22%] top-[83.5%] flex items-center justify-between text-xs font-display leading-none [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_6px_rgba(0,0,0,1)]">
                 <span class="text-[rgba(255,255,255,0.85)] font-bold">MR {riven.masteryReq}</span>
                 <RivenPolarityIcon
                   polarity={riven.polarity}
@@ -227,10 +227,10 @@
           <div class="flex flex-col gap-2">
             {#each veiledRivens as entry}
               <div class="flex items-center justify-between py-[0.65rem] px-4 bg-bg-surface border border-border rounded-[0.5rem] transition-[border-color] duration-150 hover:border-border-strong">
-                <div class="font-display text-[0.9rem] font-semibold text-text-primary min-w-[10rem] shrink-0">{entry.label} Riven Mod</div>
+                <div class="font-display text-sm font-semibold text-text-primary min-w-[10rem] shrink-0">{entry.label} Riven Mod</div>
                 {#if entry.challengeDesc}
                   <div class="flex items-center gap-3 flex-1 min-w-0">
-                    <span class="text-[0.8rem] text-text-secondary">{entry.challengeDesc}</span>
+                    <span class="text-xs text-text-secondary">{entry.challengeDesc}</span>
                     {#if entry.challengeProgress != null && entry.challengeRequired != null}
                       <div class="w-20 h-[6px] bg-white/[0.08] rounded-[3px] overflow-hidden shrink-0">
                         <div
@@ -238,14 +238,14 @@
                           style="width: {Math.min(100, (entry.challengeProgress / Math.max(entry.challengeRequired, 1)) * 100)}%"
                         ></div>
                       </div>
-                      <span class="font-display text-[0.7rem] text-text-muted shrink-0">
+                      <span class="font-display text-xs text-text-muted shrink-0">
                         {entry.challengeProgress} / {entry.challengeRequired}
                       </span>
                     {/if}
                   </div>
                 {:else}
                   <div class="flex items-center gap-3 flex-1 min-w-0">
-                    <span class="text-[0.8rem] text-text-muted italic">Challenge not yet assigned</span>
+                    <span class="text-xs text-text-muted italic">Challenge not yet assigned</span>
                   </div>
                 {/if}
               </div>
@@ -256,14 +256,14 @@
 
       {#if veiledUnseen.length > 0}
         <div class="mb-5">
-          <h3 class="font-display text-[0.9rem] font-semibold text-text-secondary m-0 mb-2">Unseen (???) rivens</h3>
+          <h3 class="font-display text-sm font-semibold text-text-secondary m-0 mb-2">Unseen (???) rivens</h3>
           <div class="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-3">
             {#each veiledUnseen as group}
               <div class="flex flex-col items-center text-center py-4 px-3 bg-[linear-gradient(135deg,rgba(60,45,90,0.45),rgba(40,30,70,0.5))] border border-[rgba(100,70,160,0.3)] rounded-[0.5rem] gap-2 transition-[border-color] duration-150 hover:border-[rgba(100,70,160,0.55)]">
-                <div class="font-display text-[0.95rem] font-bold text-text-primary">{group.label}</div>
-                <div class="text-[0.72rem] text-text-muted leading-[1.3]">Equip these rivens to reveal their challenge</div>
+                <div class="font-display text-base font-bold text-text-primary">{group.label}</div>
+                <div class="text-xs text-text-muted leading-[1.3]">Equip these rivens to reveal their challenge</div>
                 <div class="flex items-center gap-2 mt-auto">
-                  <span class="font-display text-[0.85rem] font-bold text-text-secondary">x{group.count}</span>
+                  <span class="font-display text-sm font-bold text-text-secondary">x{group.count}</span>
                 </div>
               </div>
             {/each}

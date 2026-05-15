@@ -533,7 +533,7 @@
           <div class="flex flex-wrap gap-[0.35rem]">
             {#each STATUS_OPTIONS as [statusKey, label]}
               <button
-                class="rounded-[0.36rem] border border-border bg-bg-surface px-[0.56rem] py-[0.3rem] font-display text-[0.75rem] font-semibold text-text-secondary transition-all duration-[0.14s] hover:border-text-secondary hover:text-text-primary"
+                class="rounded-[0.36rem] border border-border bg-bg-surface px-[0.56rem] py-[0.3rem] font-display text-xs font-semibold text-text-secondary transition-all duration-[0.14s] hover:border-text-secondary hover:text-text-primary"
                 class:statusOnlineActive={statusKey === "online" && $marketViewState.status === statusKey}
                 class:statusIngameActive={statusKey === "ingame" && $marketViewState.status === statusKey}
                 class:statusInvisibleActive={statusKey === "invisible" && $marketViewState.status === statusKey}

@@ -16,7 +16,7 @@
   export let disabled = false;
 </script>
 
-<div class="inline-flex overflow-hidden rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-bg-surface text-[0.72rem]">
+<div class="inline-flex overflow-hidden rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-bg-surface text-xs">
   {#each options as option, index (option.value)}
     <button
       type="button"

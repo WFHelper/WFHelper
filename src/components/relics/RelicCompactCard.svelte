@@ -91,7 +91,7 @@
 
     <span class="flex min-w-0 flex-col gap-[0.24rem]">
       <span
-        class="relic-row-name overflow-hidden text-ellipsis whitespace-nowrap font-display text-[1.24rem] font-semibold tracking-[0.01em]"
+        class="relic-row-name overflow-hidden text-ellipsis whitespace-nowrap font-display text-xl font-semibold tracking-[0.01em]"
         >{group.name}</span
       >
       <span class="relic-status-tag" class:vaulted={group.vaulted}>
@@ -101,7 +101,7 @@
 
     <span class="min-w-0 flex flex-col items-end gap-[0.16rem]">
       <span
-        class="relic-compact-block-label text-right font-display text-[0.72rem] tracking-[0.06em] uppercase text-text-secondary"
+        class="relic-compact-block-label text-right font-display text-xs tracking-[0.06em] uppercase text-text-secondary"
         >{selectedQualityHeader()}</span
       >
       <MarketMetricStrip
@@ -134,7 +134,7 @@
       {@const count = ownedCount(group, quality)}
       <button
         type="button"
-        class="relic-quality-inline-pill inline-flex w-full min-w-0 cursor-pointer appearance-none flex-row items-center justify-center gap-[0.2rem] whitespace-nowrap rounded-[var(--radius-md)] border border-[color-mix(in_oklab,var(--info)_36%,transparent)] bg-[color-mix(in_oklab,var(--info)_14%,var(--bg-base))] px-[0.3rem] py-[0.18rem] font-display text-[0.78rem] font-bold tracking-[0.02em] text-[color-mix(in_oklab,var(--text-secondary)_88%,white)]"
+        class="relic-quality-inline-pill inline-flex w-full min-w-0 cursor-pointer appearance-none flex-row items-center justify-center gap-[0.2rem] whitespace-nowrap rounded-[var(--radius-md)] border border-[color-mix(in_oklab,var(--info)_36%,transparent)] bg-[color-mix(in_oklab,var(--info)_14%,var(--bg-base))] px-[0.3rem] py-[0.18rem] font-display text-xs font-bold tracking-[0.02em] text-[color-mix(in_oklab,var(--text-secondary)_88%,white)]"
         class:emptyCount={count === 0}
         class:notSelectable={qualityMode !== "owned" || count === 0}
         class:active={qualityMode === "owned" && selectedOwned === quality}
@@ -146,7 +146,7 @@
       >
         <span class="leading-none normal-case opacity-[0.96]">{RELIC_QUALITY_SHORT[quality]}:</span>
         <span
-          class="relic-quality-inline-value text-[0.78rem] leading-none tracking-[0.02em] text-[color-mix(in_oklab,var(--info)_76%,white)]"
+          class="relic-quality-inline-value text-xs leading-none tracking-[0.02em] text-[color-mix(in_oklab,var(--info)_76%,white)]"
           class:emptyCount={count === 0}
         >{count}</span>
       </button>

@@ -110,7 +110,7 @@
 <div class="flex flex-col h-full min-h-0">
   <!-- Toolbar -->
   <div class="flex items-center justify-between px-2 py-1.5 border-b border-white/[0.08] shrink-0">
-    <label class="flex items-center gap-2 text-[0.72rem] text-text-secondary cursor-pointer select-none">
+    <label class="flex items-center gap-2 text-xs text-text-secondary cursor-pointer select-none">
       Hide completed:
       <button
         type="button"
@@ -130,7 +130,7 @@
         on:click={resetView}
         title="Reset zoom"
       >↺</button>
-      <span class="w-10 text-center text-[0.65rem] tabular-nums text-text-muted">{Math.round(scale * 100)}%</span>
+      <span class="w-10 text-center text-xs tabular-nums text-text-muted">{Math.round(scale * 100)}%</span>
     </div>
   </div>
 
@@ -152,14 +152,14 @@
       <div bind:this={zoomEl} class="inline-flex flex-col items-center gap-8 p-8 origin-top-left" style="zoom: {scale}">
         {#if usedFor.length > 0}
           <div class="flex flex-col items-center gap-2">
-            <span class="font-display text-[0.8rem] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+            <span class="font-display text-xs font-semibold uppercase tracking-[0.08em] text-text-secondary">
               Used for crafting:
             </span>
             <div class="flex flex-wrap items-start justify-center gap-3 max-w-[680px]">
               {#each usedFor as usage (usage.uniqueName)}
                 <div class="flex w-[6rem] flex-col items-center gap-1 rounded-lg border border-border bg-bg-raised/80 px-3 py-2">
                   <ItemImage src={usage.imageUrl} alt={usage.name} cls="h-14 w-14 object-contain" />
-                  <span class="max-w-full break-words text-center font-display text-[0.72rem] font-semibold leading-tight text-text-primary">
+                  <span class="max-w-full break-words text-center font-display text-xs font-semibold leading-tight text-text-primary">
                     {usage.name}
                   </span>
                 </div>
@@ -175,7 +175,7 @@
   </div>
 
   <!-- Summary panel -->
-  <div class="shrink-0 border-t border-white/[0.08] px-3 py-2 text-[0.72rem]">
+  <div class="shrink-0 border-t border-white/[0.08] px-3 py-2 text-xs">
     <div class="grid gap-x-6 gap-y-1" style="grid-template-columns: 1fr auto;">
       <div>
         <div class="font-display font-semibold text-text-secondary uppercase tracking-wider mb-0.5">Blueprints needed:</div>
@@ -196,7 +196,7 @@
         {/if}
       </div>
       <div class="flex flex-col items-end justify-end">
-        <div class="px-3 py-1.5 text-[0.72rem] text-text-secondary">
+        <div class="px-3 py-1.5 text-xs text-text-secondary">
           <div class="flex items-center gap-1">Total <img src={CREDITS_ICON_URL} alt="credits" class="h-4 w-4 inline-block" />: <strong class="text-text-primary">{creditsLabel}</strong></div>
           <div>Min. time: <strong class="text-text-primary">{formatBuildTime(summary.minBuildTime)}</strong></div>
           <div>Max. time: <strong class="text-text-primary">{formatBuildTime(summary.maxBuildTime)}</strong></div>

@@ -123,15 +123,15 @@
         {#if rg}
           <button
             type="button"
-            class="flex w-full items-center justify-between gap-2 px-2 -mx-2 py-1.5 rounded-md cursor-pointer text-left text-[0.82rem] text-text-secondary border-b border-dashed border-white/10 last:border-b-0 hover:bg-white/10 hover:text-text-primary transition-colors {openRelicKey === rg.key ? 'bg-white/10 text-text-primary' : ''}"
+            class="flex w-full items-center justify-between gap-2 px-2 -mx-2 py-1.5 rounded-md cursor-pointer text-left text-sm text-text-secondary border-b border-dashed border-white/10 last:border-b-0 hover:bg-white/10 hover:text-text-primary transition-colors {openRelicKey === rg.key ? 'bg-white/10 text-text-primary' : ''}"
             on:click={(e) => toggleRelic(e, rg.key)}
             on:keydown={(e) => handleKeydown(e, rg.key)}
           >
             <span class="text-text-primary">{rg.name} Relic</span>
             <span class="flex items-center gap-2 shrink-0">
-              {#if d.chance}<span class="text-accent text-[0.78rem]">{(d.chance * 100).toFixed(1)}%</span>{/if}
+              {#if d.chance}<span class="text-accent text-xs">{(d.chance * 100).toFixed(1)}%</span>{/if}
               {#if d.rarity}<span class="text-text-muted">({d.rarity})</span>{/if}
-              <span class="text-[0.65rem] text-text-muted leading-none" aria-hidden="true">
+              <span class="text-xs text-text-muted leading-none" aria-hidden="true">
                 {openRelicKey === rg.key ? "v" : ">"}
               </span>
             </span>
@@ -149,8 +149,8 @@
                   <img src={iconPath} alt={rg.tier} class="w-8 h-8 object-contain shrink-0" />
                 {/if}
                 <div class="flex-1 min-w-0 flex flex-col gap-0.5">
-                  <span class="font-display text-[0.82rem] font-semibold text-text-primary truncate">{rg.name}</span>
-                  <span class="font-display text-[0.58rem] font-bold tracking-wider px-1.5 py-0.5 rounded w-fit {owned ? 'bg-success/15 text-success' : 'bg-danger/20 text-danger'}">
+                  <span class="font-display text-sm font-semibold text-text-primary truncate">{rg.name}</span>
+                  <span class="font-display text-xs font-bold tracking-wider px-1.5 py-0.5 rounded w-fit {owned ? 'bg-success/15 text-success' : 'bg-danger/20 text-danger'}">
                     {owned ? "OWNED" : "VAULTED"}
                   </span>
                 </div>
@@ -165,12 +165,12 @@
               <div class="flex items-center gap-1.5 mb-2">
                 <button
                   type="button"
-                  class="flex-1 px-2 py-1 text-[0.7rem] font-display font-semibold tracking-wider rounded border border-accent/50 text-accent hover:bg-accent/10 hover:border-accent cursor-pointer transition-colors"
+                  class="flex-1 px-2 py-1 text-xs font-display font-semibold tracking-wider rounded border border-accent/50 text-accent hover:bg-accent/10 hover:border-accent cursor-pointer transition-colors"
                   on:click|stopPropagation={() => openDetailedRelic(rg)}
                 >Detailed</button>
                 <button
                   type="button"
-                  class="flex-1 px-2 py-1 text-[0.7rem] font-display font-semibold tracking-wider rounded border border-border-strong text-text-secondary hover:bg-white/5 hover:text-text-primary cursor-pointer transition-colors"
+                  class="flex-1 px-2 py-1 text-xs font-display font-semibold tracking-wider rounded border border-border-strong text-text-secondary hover:bg-white/5 hover:text-text-primary cursor-pointer transition-colors"
                   on:click={(e) => openRelicWiki(rg, e)}
                 >Wiki</button>
               </div>
@@ -181,8 +181,8 @@
                     {#if r.imageUrl}
                       <img src={r.imageUrl} alt={r.name} class="w-[22px] h-[22px] object-contain shrink-0 opacity-90" />
                     {/if}
-                    <span class="flex-1 min-w-0 text-[0.76rem] text-text-primary truncate">{r.name}</span>
-                    <span class="text-[0.68rem] font-semibold shrink-0" style="color:{RARITY_COLOUR[r.rarity] ?? 'var(--text-muted)'}">
+                    <span class="flex-1 min-w-0 text-xs text-text-primary truncate">{r.name}</span>
+                    <span class="text-xs font-semibold shrink-0" style="color:{RARITY_COLOUR[r.rarity] ?? 'var(--text-muted)'}">
                       {r.rarity}
                     </span>
                   </div>
@@ -193,15 +193,15 @@
         {:else}
           <div class="flex items-center justify-start gap-[0.48rem] border-b border-dashed border-white/[0.08] py-[0.36rem] last:border-b-0">
             <span class="text-text-primary">{d.location}</span>
-            {#if d.chance}<span class="shrink-0 text-[0.78rem] text-accent">{(d.chance * 100).toFixed(1)}%</span>{/if}
+            {#if d.chance}<span class="shrink-0 text-xs text-accent">{(d.chance * 100).toFixed(1)}%</span>{/if}
             {#if d.rarity}<span class="text-text-muted">({d.rarity})</span>{/if}
           </div>
         {/if}
       {/each}
       {#if !showAll && dedupedDrops.length > initialLimit}
-        <button class="block w-full cursor-pointer border-0 bg-transparent py-[0.35rem] text-left font-display text-[0.78rem] text-accent opacity-85 hover:opacity-100 hover:underline" on:click={() => showAll = true}>View all {dedupedDrops.length} sources</button>
+        <button class="block w-full cursor-pointer border-0 bg-transparent py-[0.35rem] text-left font-display text-xs text-accent opacity-85 hover:opacity-100 hover:underline" on:click={() => showAll = true}>View all {dedupedDrops.length} sources</button>
       {:else if showAll && dedupedDrops.length > initialLimit}
-        <button class="block w-full cursor-pointer border-0 bg-transparent py-[0.35rem] text-left font-display text-[0.78rem] text-accent opacity-85 hover:opacity-100 hover:underline" on:click={() => showAll = false}>Show fewer</button>
+        <button class="block w-full cursor-pointer border-0 bg-transparent py-[0.35rem] text-left font-display text-xs text-accent opacity-85 hover:opacity-100 hover:underline" on:click={() => showAll = false}>Show fewer</button>
       {/if}
     </div>
   </div>

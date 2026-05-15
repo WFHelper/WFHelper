@@ -142,7 +142,7 @@
           {@const masteredWidth = boundedPercent(cs.mastered, cs.total)}
           {@const progressWidth = boundedPercent(cs.inProgress, cs.total)}
           <div class="grid items-center gap-2 grid-cols-[minmax(72px,110px)_1fr_auto]">
-            <span class="text-[0.8rem] text-text-secondary">{cat}</span>
+            <span class="text-xs text-text-secondary">{cat}</span>
             <svg class="block h-[0.36rem] w-full overflow-hidden rounded-full bg-white/[0.07]" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
               <rect class="fill-success" x="0" y="0" width={masteredWidth} height="1"></rect>
               <rect
@@ -153,7 +153,7 @@
                 height="1"
               ></rect>
             </svg>
-            <span class="whitespace-nowrap text-[0.77rem] text-text-secondary">{cs.mastered}/{cs.total} <small class="text-text-muted">({formatPercent(cs.mastered, cs.total)}%)</small></span>
+            <span class="whitespace-nowrap text-xs text-text-secondary">{cs.mastered}/{cs.total} <small class="text-text-muted">({formatPercent(cs.mastered, cs.total)}%)</small></span>
           </div>
         {/each}
       </ThemedPanel>
@@ -212,7 +212,7 @@
                 </div>
                 <span class="item-rank-text">Lv {item.rank}/{item.maxRank} · {item.nextPct}%</span>
               {:else}
-                <span class="text-[0.72rem] text-text-muted">Not owned</span>
+                <span class="text-xs text-text-muted">Not owned</span>
               {/if}
               {#if (item.components || []).length > 0}
                 <div class="mt-1.5 flex flex-wrap gap-1">

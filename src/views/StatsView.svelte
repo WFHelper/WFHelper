@@ -262,7 +262,7 @@
 <!-- Global tooltip (position: fixed, follows mouse) -->
 {#if tooltip}
   <div
-    class="fixed pointer-events-none rounded-[var(--radius-sm)] border border-border-strong bg-bg-raised px-[10px] py-1 text-[0.7rem] text-text-primary whitespace-nowrap z-[500] shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
+    class="fixed pointer-events-none rounded-[var(--radius-sm)] border border-border-strong bg-bg-raised px-[10px] py-1 text-xs text-text-primary whitespace-nowrap z-[500] shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
     style="left:{tooltip.x + 14}px; top:{tooltip.y - 38}px"
     aria-hidden="true"
   >
@@ -294,13 +294,13 @@
         </div>
       </div>
       <div class="flex-1 min-h-0 flex flex-col">
-        <button class="absolute top-1/2 -translate-y-1/2 z-10 bg-bg-raised border border-border rounded-[var(--radius-md)] text-text-muted text-[1.6rem] py-1 px-[10px] cursor-pointer transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-surface left-2" on:click={() => navigateExpanded(-1)} title="Previous">‹</button>
-        <button class="absolute top-1/2 -translate-y-1/2 z-10 bg-bg-raised border border-border rounded-[var(--radius-md)] text-text-muted text-[1.6rem] py-1 px-[10px] cursor-pointer transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-surface right-2" on:click={() => navigateExpanded(1)} title="Next">›</button>
+        <button class="absolute top-1/2 -translate-y-1/2 z-10 bg-bg-raised border border-border rounded-[var(--radius-md)] text-text-muted text-2xl py-1 px-[10px] cursor-pointer transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-surface left-2" on:click={() => navigateExpanded(-1)} title="Previous">‹</button>
+        <button class="absolute top-1/2 -translate-y-1/2 z-10 bg-bg-raised border border-border rounded-[var(--radius-md)] text-text-muted text-2xl py-1 px-[10px] cursor-pointer transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-surface right-2" on:click={() => navigateExpanded(1)} title="Next">›</button>
         <div class="flex-1 min-h-0 flex relative">
           {#if exYTicks.length > 0}
             <div class="relative w-[60px] shrink-0">
               {#each exYTicks as tick}
-                <span class="absolute right-[6px] text-[0.72rem] text-text-muted -translate-y-1/2 whitespace-nowrap" style="top:{tick.yFrac * 100}%">{tick.label}</span>
+                <span class="absolute right-[6px] text-xs text-text-muted -translate-y-1/2 whitespace-nowrap" style="top:{tick.yFrac * 100}%">{tick.label}</span>
               {/each}
             </div>
           {/if}
@@ -376,7 +376,7 @@
         {#if exBars.length > 0}
           <div class="flex shrink-0 h-[22px] mt-1" style={exYTicks.length > 0 ? 'margin-left:60px' : ''}>
             {#each exBars as bar, i}
-              <span class="text-center text-[0.68rem] text-text-muted whitespace-nowrap overflow-visible" style="width:{100 / exBars.length}%">
+              <span class="text-center text-xs text-text-muted whitespace-nowrap overflow-visible" style="width:{100 / exBars.length}%">
                 {i % step === 0 ? shortDate(bar.date) : ""}
               </span>
             {/each}
@@ -402,7 +402,7 @@
         onClick={() => { showChange = !showChange; }}
         title="Toggle daily change bars on charts"
       >Change</ThemedButton>
-      <label class="flex items-center gap-1.5 whitespace-nowrap text-[0.7rem] text-text-muted">
+      <label class="flex items-center gap-1.5 whitespace-nowrap text-xs text-text-muted">
         {$tr("stats.timeframe")}:
         <ThemedSelect bind:value={chartDays}>
           {#each TIMEFRAME_OPTIONS as days}
@@ -427,7 +427,7 @@
       <div class="flex flex-1 min-w-0 flex-col gap-4 overflow-y-auto overflow-x-hidden p-4">
 
         {#if importStatus}
-          <p class="mb-3 text-[0.7rem] {importError ? 'text-danger' : 'text-success'}">{importStatus}</p>
+          <p class="mb-3 text-xs {importError ? 'text-danger' : 'text-success'}">{importStatus}</p>
         {/if}
 
         <!-- Session card -->
@@ -447,12 +447,12 @@
               {@const icon = ICON_MAP[key]}
               <ThemedPanel className="relative flex h-[240px] min-w-0 flex-col overflow-hidden px-[13px] py-[6px] pb-2 group/chart">
                 <div class="flex items-center justify-between mb-1">
-                  <span class="flex items-center gap-1.5 text-[0.85rem] text-text-secondary">
+                  <span class="flex items-center gap-1.5 text-sm text-text-secondary">
                     {#if icon}<img src={icon} alt="" class="w-5 h-5 object-contain align-middle opacity-85" />{/if}
                     {$tr(labelKey)}
                   </span>
                   <button
-                    class="bg-transparent border-0 text-text-muted cursor-pointer text-[1.15rem] py-1 px-2 leading-none opacity-50 transition-[opacity,color] duration-150 rounded-[var(--radius-md)] hover:!opacity-100 hover:text-accent hover:bg-bg-raised group-hover/chart:opacity-70"
+                    class="bg-transparent border-0 text-text-muted cursor-pointer text-lg py-1 px-2 leading-none opacity-50 transition-[opacity,color] duration-150 rounded-[var(--radius-md)] hover:!opacity-100 hover:text-accent hover:bg-bg-raised group-hover/chart:opacity-70"
                     title="Expand chart"
                     on:click={() => { expandedKey = key; tooltip = null; }}
                     aria-label="Expand {$tr(labelKey)} chart"
@@ -462,7 +462,7 @@
                   {#if cd.yTicks.length > 0}
                     <div class="relative w-[55px] shrink-0">
                       {#each cd.yTicks as tick}
-                        <span class="absolute right-1 text-[0.7rem] text-text-muted -translate-y-1/2 whitespace-nowrap" style="top:{tick.yFrac * 100}%">{tick.label}</span>
+                        <span class="absolute right-1 text-xs text-text-muted -translate-y-1/2 whitespace-nowrap" style="top:{tick.yFrac * 100}%">{tick.label}</span>
                       {/each}
                     </div>
                   {/if}
@@ -530,9 +530,9 @@
                 </div><!-- /chart-body-row -->
                 {#if cd.bars.length > 0}
                   {@const dateStep = labelStep(chartDays)}
-                  <div class="flex text-[0.7rem] text-text-muted mt-0.5 overflow-visible shrink-0 h-[18px]" style={cd.yTicks.length > 0 ? 'margin-left:55px' : ''}>
+                  <div class="flex text-xs text-text-muted mt-0.5 overflow-visible shrink-0 h-[18px]" style={cd.yTicks.length > 0 ? 'margin-left:55px' : ''}>
                     {#each cd.bars as bar, i}
-                      <span class="text-center overflow-visible whitespace-nowrap shrink-0 text-[0.65rem]" style="width:{100 / cd.bars.length}%">
+                      <span class="text-center overflow-visible whitespace-nowrap shrink-0 text-xs" style="width:{100 / cd.bars.length}%">
                         {i % dateStep === 0 ? shortDate(bar.date) : ''}
                       </span>
                     {/each}
