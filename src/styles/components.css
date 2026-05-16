@@ -355,7 +355,6 @@
   /* ── cross-component card surface ────────────────────────────── */
   .item-card,
   .resource-card,
-  .foundry-item,
   .order-row {
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
@@ -374,7 +373,6 @@
   }
   .item-card:hover,
   .resource-card:hover,
-  .foundry-item:hover,
   .order-row:hover {
     border-color: var(--border-strong);
     background: var(--bg-raised);
@@ -391,8 +389,7 @@
   }
   .item-name,
   .resource-name,
-  .order-item-name,
-  .foundry-item-name {
+  .order-item-name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

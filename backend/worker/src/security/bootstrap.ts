@@ -72,11 +72,16 @@ export async function issueBootstrapToken(req: Request, env: Env): Promise<{ tok
 	const secret = bootstrapSecret(env);
 	if (!secret) return null;
 
+	// Don't bind a token to the non-identifying 'unknown' sentinel: every
+	// IP-less client would share it, enabling cross-client token replay.
+	const ip = clientIp(req);
+	if (ip === 'unknown') return null;
+
 	const now = Date.now();
 	const expiresAt = now + bootstrapTtlSec(env) * 1000;
 	const payload = {
 		v: 1,
-		ip: clientIp(req),
+		ip,
 		ua: await sha256Text(userAgent(req)),
 		iat: now,
 		exp: expiresAt,
@@ -115,7 +120,8 @@ export async function verifyBootstrapToken(req: Request, env: Env): Promise<bool
 
 	if (payload.v !== 1) return false;
 	if (typeof payload.exp !== 'number' || !Number.isFinite(payload.exp) || payload.exp <= Date.now()) return false;
-	if (payload.ip !== clientIp(req)) return false;
+	const ip = clientIp(req);
+	if (ip === 'unknown' || payload.ip !== ip) return false;
 	if (payload.ua !== (await sha256Text(userAgent(req)))) return false;
 
 	return true;

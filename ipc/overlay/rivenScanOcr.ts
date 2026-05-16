@@ -13,7 +13,7 @@ import { cropRivenStatImage, type RivenScanCropRect } from "./rivenScanImage";
 import { parseRivenStats, type RivenStat } from "./rivenScanText";
 
 const log = withScope("rivenScan");
-const MIN_ACCEPTABLE_RIVEN_STATS = 2;
+export const MIN_ACCEPTABLE_RIVEN_STATS = 2;
 const MAX_LOW_CONFIDENCE_RETRIES = 2;
 const LOW_CONFIDENCE_RETRY_DELAY_MS = 300;
 

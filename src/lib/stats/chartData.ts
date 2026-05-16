@@ -123,7 +123,7 @@ function niceRoundUp(val: number): number {
 }
 
 /** Compute nice Y-axis ticks from 0 to a nice ceiling above maxVal. */
-function computeNiceTicks(maxVal: number, _key: ChartKey, _barH: number, targetCount: number = 5): { ticks: YTick[]; niceMax: number } {
+function computeNiceTicks(maxVal: number, targetCount: number = 5): { ticks: YTick[]; niceMax: number } {
   if (maxVal <= 0) {
     return { ticks: [{ label: "0", value: 0, yFrac: 1 }], niceMax: 1 };
   }
@@ -225,7 +225,7 @@ export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, 
     const maxV = Math.max(...values);
     if (maxV > 0) {
       const targetTicks = barH >= BAR_H_EXPAND ? 8 : 5;
-      earlyNiceMax = computeNiceTicks(maxV, key, barH, targetTicks).niceMax;
+      earlyNiceMax = computeNiceTicks(maxV, targetTicks).niceMax;
     }
   }
 
@@ -274,7 +274,7 @@ export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, 
     if (validAbs.length >= 2) {
       const maxV = Math.max(...validAbs);
       const targetTicks = barH >= BAR_H_EXPAND ? 8 : 5;
-      const nice = computeNiceTicks(maxV, key, barH, targetTicks);
+      const nice = computeNiceTicks(maxV, targetTicks);
       yTicks = nice.ticks;
       niceMax = nice.niceMax;
 
@@ -296,7 +296,7 @@ export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, 
     // Bar-only charts (relicsOpened, dailyTrades): Y-axis from bar values
     if (earlyNiceMax > 0) {
       const targetTicks = barH >= BAR_H_EXPAND ? 8 : 5;
-      const nice = computeNiceTicks(Math.max(...values), key, barH, targetTicks);
+      const nice = computeNiceTicks(Math.max(...values), targetTicks);
       yTicks = nice.ticks;
       niceMax = nice.niceMax;
     }

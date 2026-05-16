@@ -308,6 +308,9 @@ export async function putMetaPayload(env: Env, payload: MetaPayload): Promise<Re
 		expirationTtl: cacheTtlSec(env),
 	});
 
+	// MetaPayload is an interface; TS won't implicitly widen interfaces to
+	// Record<string, unknown> (no index signature). The double-cast is the
+	// standard workaround, not a loose return type.
 	return payload as unknown as Record<string, unknown>;
 }
 

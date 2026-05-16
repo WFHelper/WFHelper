@@ -20,7 +20,6 @@ interface BountyRewardItem {
   itemName: string;
   chance: number;
   rarity: string;
-  iconPath?: string;
 }
 
 interface BountyStageRewards {
@@ -230,12 +229,12 @@ function buildStageRewards(level: RawBountyLevel, stageCount: number, rotation?:
 
       const existing = items.get(r.itemName);
       if (!existing || r.chance > existing.chance) {
-        const icon = resolveRewardIconPath(r.itemName);
+        // Icons are resolved at render time via resolveRewardIcon(itemName,
+        // itemDb) — not baked here (this result is cached and has no itemDb).
         items.set(r.itemName, {
           itemName: r.itemName,
           chance: r.chance,
           rarity: r.rarity,
-          ...(icon ? { iconPath: icon } : {}),
         });
       }
     }

@@ -55,14 +55,10 @@
     component: LazyViewComponent | null;
   }
 
-  function lazyViewLoader(loader: () => Promise<LazyViewModule>): () => Promise<LazyViewModule> {
-    return loader;
-  }
-
   const lazyViews = new Map<LazyViewName, LazyViewEntry>([
-    ["world", { loader: lazyViewLoader(() => import("./views/WorldView.svelte")), component: null }],
-    ["market", { loader: lazyViewLoader(() => import("./views/MarketView.svelte")), component: null }],
-    ["relics", { loader: lazyViewLoader(() => import("./views/RelicsView.svelte")), component: null }],
+    ["world", { loader: () => import("./views/WorldView.svelte"), component: null }],
+    ["market", { loader: () => import("./views/MarketView.svelte"), component: null }],
+    ["relics", { loader: () => import("./views/RelicsView.svelte"), component: null }],
   ]);
 
   let lazyViewComponent: LazyViewComponent | null = null;

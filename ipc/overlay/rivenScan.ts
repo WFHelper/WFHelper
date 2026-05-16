@@ -16,14 +16,16 @@ import {
   type RivenScanCropRect,
   waitForRivenUiReady,
 } from "./rivenScanImage";
-import { recognizeRivenCardStats, type RivenCardRecognitionResult } from "./rivenScanOcr";
+import {
+  recognizeRivenCardStats,
+  MIN_ACCEPTABLE_RIVEN_STATS,
+  type RivenCardRecognitionResult,
+} from "./rivenScanOcr";
 import type { RivenStat } from "./rivenScanText";
 
 export type { RivenStat } from "./rivenScanText";
 
 const log = withScope("rivenScan");
-
-const MIN_ACCEPTABLE_RIVEN_STATS = 2;
 const DXGI_FRESH_TIMEOUT_MS = 100;
 
 export interface RollPanelResult {
