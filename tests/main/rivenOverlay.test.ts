@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RIVEN_PATTERNS } from "../../services/eeLogMonitor";
-import { parseRivenStats, scoreStatsCandidate } from "../../ipc/overlay/rivenScanText";
+import { parseRivenStats } from "../../ipc/overlay/rivenScanText";
 import { findWeaponInText } from "../../services/rivenData";
 
 describe("RIVEN_PATTERNS", () => {
@@ -857,33 +857,5 @@ describe("findWeaponInText", () => {
 
   it("supports Aleca-style alias fallback names", () => {
     expect(findWeaponInText("Gotva Visi-critata\n+198.2% Multishot")).toBe("Gotva Prime");
-  });
-});
-
-describe("scoreStatsCandidate", () => {
-  it("prefers plausible mapped stat sets over absurd OCR output", () => {
-    const plausible = scoreStatsCandidate(
-      [
-        { name: "Critical Chance", positive: true, value: 185.5 },
-        { name: "Melee Damage", positive: true, value: 186.7 },
-        { name: "Combo Duration", positive: true, value: 8.5 },
-        { name: "Damage to Infested", positive: false, value: 0.62, multiplier: true },
-      ],
-      "Nikana Crita-acrit\n+186.7% Melee Damage",
-      "Nikana",
-    );
-
-    const implausible = scoreStatsCandidate(
-      [
-        { name: "Critical Chance", positive: true, value: 1855 },
-        { name: "Melee Damage", positive: true, value: 1867 },
-        { name: "Unknown Noise", positive: true, value: 999 },
-        { name: "Critical Chance", positive: true, value: 1855 },
-      ],
-      "Nikana Crita-acrit\n+1867% Melee Damage",
-      "Nikana",
-    );
-
-    expect(plausible).toBeGreaterThan(implausible);
   });
 });

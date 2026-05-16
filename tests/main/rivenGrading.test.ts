@@ -313,17 +313,6 @@ describe("rivenData", () => {
       expect(rivenData.findUpgradeEntry(rivenType, "NonexistentTag")).toBeNull();
     });
   });
-
-  describe("getWeaponWfmSlug", () => {
-    it("converts weapon name to slug format", () => {
-      expect(rivenData.getWeaponWfmSlug("Rubico Prime")).toBe("rubico_prime");
-      expect(rivenData.getWeaponWfmSlug("Arca Plasmor")).toBe("arca_plasmor");
-    });
-
-    it("handles special characters", () => {
-      expect(rivenData.getWeaponWfmSlug("Dread's Edge")).toBe("dread_s_edge");
-    });
-  });
 });
 
 describe("gradeRiven", () => {

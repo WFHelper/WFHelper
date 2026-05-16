@@ -588,18 +588,6 @@ export function findWeaponInText(text: string): string | null {
   return bestExact ?? bestCandidate?.name ?? null;
 }
 
-/**
- * Get weapon URL slug for warframe.market API.
- * E.g. "Rubico Prime" → "rubico_prime"
- */
-export function getWeaponWfmSlug(weaponName: string): string {
-  return weaponName
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_|_$/g, "");
-}
-
 /** Variant suffixes to strip when deriving the riven weapon family name. */
 const VARIANT_SUFFIXES = [" Prime", " Wraith", " Vandal", " Prisma", " Dex"];
 const VARIANT_PREFIXES = ["MK1-", "Mk1-", "Kuva ", "Tenet "];
