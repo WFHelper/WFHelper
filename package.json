@@ -39,15 +39,15 @@
     "typecheck:main": "tsc -p tsconfig.main.json --noEmit",
     "test:main": "vitest run tests/main",
     "test:e2e": "pnpm run build && playwright test --config playwright.config.ts",
-    "backend:dev": "npm --prefix backend-lite/worker run dev",
-    "backend:deploy": "npm --prefix backend-lite/worker run deploy --",
-    "backend:test": "npm --prefix backend-lite/worker run test -- --run",
-    "backend:typegen": "npm --prefix backend-lite/worker run cf-typegen",
+    "backend:dev": "npm --prefix backend/worker run dev",
+    "backend:deploy": "npm --prefix backend/worker run deploy --",
+    "backend:test": "npm --prefix backend/worker run test -- --run",
+    "backend:typegen": "npm --prefix backend/worker run cf-typegen",
     "backend:prewarm:order-summaries": "powershell -ExecutionPolicy Bypass -File ./scripts/prewarm-order-summaries.ps1",
     "backend:prewarm:order-summaries:hotset": "powershell -ExecutionPolicy Bypass -File ./scripts/prewarm-order-summaries.ps1 -Source hotset",
     "icons:manifest": "pnpm run build:main && node scripts/icon-mirror/build-icon-manifest.mjs",
     "icons:download": "pnpm run icons:manifest && node scripts/icon-mirror/download-icon-mirror.mjs",
-    "icons:deploy": "npm --prefix backend-lite/worker exec -- wrangler pages deploy .icon-mirror/public --project-name wfhelper-icons --branch pre-production --commit-dirty=true",
+    "icons:deploy": "npm --prefix backend/worker exec -- wrangler pages deploy .icon-mirror/public --project-name wfhelper-icons --branch pre-production --commit-dirty=true",
     "rebuild": "electron-rebuild -f"
   },
   "keywords": [
@@ -55,7 +55,7 @@
     "companion",
     "inventory"
   ],
-  "author": "",
+  "author": "WFHelper",
   "license": "MIT",
   "devDependencies": {
     "@electron/rebuild": "^4.0.3",
@@ -176,18 +176,18 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "MrZockertator",
-        "repo": "warframe_companion",
+        "owner": "WFHelper",
+        "repo": "WFHelper",
         "releaseType": "release"
       }
     ]
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/MrZockertator/warframe_companion.git"
+    "url": "https://github.com/WFHelper/WFHelper.git"
   },
   "bugs": {
-    "url": "https://github.com/MrZockertator/warframe_companion/issues"
+    "url": "https://github.com/WFHelper/WFHelper/issues"
   },
-  "homepage": "https://github.com/MrZockertator/warframe_companion#readme"
+  "homepage": "https://github.com/WFHelper/WFHelper#readme"
 }

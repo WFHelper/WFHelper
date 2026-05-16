@@ -27,7 +27,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Worker dependencies
-        run: npm ci --prefix backend-lite/worker
+        run: npm ci --prefix backend/worker
 
       - name: Verify ONNX models
         run: pnpm run verify:onnx-models

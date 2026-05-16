@@ -10,8 +10,8 @@
     "src/modals/**/*.svelte",
     "src/views/**/*.svelte",
     "renderer/**/*.js",
-    "backend-lite/worker/src/index.ts",
-    "backend-lite/worker/test/**/*.ts",
+    "backend/worker/src/index.ts",
+    "backend/worker/test/**/*.ts",
     "src/**/*.test.ts",
     "tests/**/*.test.ts",
     "e2e/**/*.ts",
@@ -22,5 +22,5 @@
   "project": ["**/*.{ts,js,mjs,cjs,svelte}"],
   "ignoreBinaries": ["powershell", "wrangler"],
   "ignoreDependencies": ["cloudflare", "esbuild", "svelte-eslint-parser", "tailwindcss"],
-  "ignore": ["backend-lite/worker/worker-configuration.d.ts", "scripts/dev/**"]
+  "ignore": ["backend/worker/worker-configuration.d.ts", "scripts/dev/**"]
 }

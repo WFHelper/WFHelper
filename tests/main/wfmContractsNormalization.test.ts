@@ -156,7 +156,7 @@ describe("wfmContracts normalization", () => {
   });
 
   it("tries the known auction endpoints before dead contract probes", () => {
-    const candidates = __test__.endpointCandidates("MrZockerator", 1, 40);
+    const candidates = __test__.endpointCandidates("TestUser", 1, 40);
     expect(candidates.slice(0, 2)).toEqual([
       {
         name: "v1_my_profile_auctions",
@@ -166,7 +166,7 @@ describe("wfmContracts normalization", () => {
       {
         name: "v1_profile_auctions",
         api: "v1",
-        path: "/profile/mrzockerator/auctions?limit=40",
+        path: "/profile/testuser/auctions?limit=40",
       },
     ]);
   });

@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Removed localStorage persistence for price, item-meta, and relic runtime caches (now in-memory only per session; backend-lite Worker is source of truth)
+- Removed localStorage persistence for price, item-meta, and relic runtime caches (now in-memory only per session; backend Worker is source of truth)
 - Extracted `cloneDefaultTheme()` helper to eliminate 4x duplicate deep-clone expressions
 - Collapsed `request()`/`requestV2()` duplication into shared `_coreRequest()` (~100 lines removed)
 - Removed duplicate `$: ipc.setDebugMode($debugMode)` reactive statement

@@ -1,5 +1,5 @@
 /**
- * Single source of truth for the backend-lite Worker URL.
+ * Single source of truth for the backend Worker URL.
  *
  * Used by:
  *   - config/runtime/security.ts  → CSP connect-src allowlist (main process)

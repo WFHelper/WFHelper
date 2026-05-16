@@ -37,7 +37,7 @@ async function clearSnapshotEdgeCache(): Promise<void> {
 	]);
 }
 
-describe('backend-lite worker', () => {
+describe('backend worker', () => {
 	it('returns health status (unit style)', async () => {
 		const request = new IncomingRequest('http://example.com/healthz');
 		const ctx = createExecutionContext();

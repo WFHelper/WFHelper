@@ -46,7 +46,7 @@ the missing ones.
 Before the first deploy, log in once:
 
 ```bash
-npm --prefix backend-lite/worker exec -- wrangler login
+npm --prefix backend/worker exec -- wrangler login
 ```
 
 Then create/attach the custom domain in Cloudflare Pages, for example:

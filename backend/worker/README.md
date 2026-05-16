@@ -1,4 +1,4 @@
-# Backend Lite (Cloudflare Worker)
+# Backend (Cloudflare Worker)
 
 This Worker is the shared cache layer for Warframe Market price and meta data used by the desktop app.
 
@@ -19,7 +19,7 @@ This Worker is the shared cache layer for Warframe Market price and meta data us
 
 ## Fully automatic mode (no manual prewarm required)
 
-The backend now runs in fully automatic mode. Manual prewarm still exists as an optional maintenance endpoint, but it is no longer required for normal operation.
+The backend runs in fully automatic mode. Manual prewarm still exists as an optional maintenance endpoint, but it is not required for normal operation.
 
 ### 7-step automatic flow
 
@@ -49,8 +49,8 @@ The Worker also has two cost guardrails:
   same cap and skips cron work after the breaker trips.
 
 Cloudflare billing alerts still need to be configured in the dashboard; this repository cannot
-create account-level billing notifications. Recommended alerts: base plan, low overage, and hard
-attention thresholds (for example $5, $7, and $10).
+create account-level billing notifications. Configure alert thresholds appropriate to your own
+budget (e.g. a base-plan alert, a low-overage alert, and a hard attention threshold).
 
 ## Security model
 
@@ -124,12 +124,12 @@ even though a named `dev` environment exists for local development.
 
 Recommended Cloudflare dashboard rules, which run before Worker billing:
 
-- WAF rate limit: `http.host eq "api.wfhelper.com"`, 60 requests per 60 seconds per IP,
+- WAF rate limit: `http.host eq "<your-worker-domain>"`, 60 requests per 60 seconds per IP,
   block for 10 minutes.
-- WAF rate limit: `http.host eq "api.wfhelper.com" and starts_with(http.request.uri.path, "/admin")`,
+- WAF rate limit: `http.host eq "<your-worker-domain>" and starts_with(http.request.uri.path, "/admin")`,
   5 requests per 60 seconds per IP, block for 10 minutes.
 - WAF custom rule for stable management IPs:
-  `http.host eq "api.wfhelper.com" and starts_with(http.request.uri.path, "/admin") and not ip.src in {YOUR_IP}` → block.
+  `http.host eq "<your-worker-domain>" and starts_with(http.request.uri.path, "/admin") and not ip.src in {YOUR_IP}` → block.
 
 ## Manual prewarm (optional)
 
@@ -138,14 +138,14 @@ curl -X POST \
   -H "Authorization: Bearer <ADMIN_API_KEY>" \
   -H "Content-Type: application/json" \
   -d '{"batchSize":20,"refreshCatalog":false,"resetCursor":false}' \
-  https://worker.wfcompanion-cache.workers.dev/admin/prewarm
+  https://<your-worker>.workers.dev/admin/prewarm
 ```
 
 ## Prewarm status (optional)
 
 ```bash
 curl -H "Authorization: Bearer <ADMIN_API_KEY>" \
-  https://worker.wfcompanion-cache.workers.dev/admin/prewarm/status
+  https://<your-worker>.workers.dev/admin/prewarm/status
 ```
 
 ## Ranked summary catalog (recommended)
@@ -163,7 +163,7 @@ Inspect the generated ranked summary catalog:
 
 ```bash
 curl -H "Authorization: Bearer <ADMIN_API_KEY>" \
-  "https://worker.wfcompanion-cache.workers.dev/admin/order-summary-catalog?refresh=1"
+  "https://<your-worker>.workers.dev/admin/order-summary-catalog?refresh=1"
 ```
 
 ## Ranked summary hotset (optional override)
@@ -175,7 +175,7 @@ curl -X POST \
   -H "Authorization: Bearer <ADMIN_API_KEY>" \
   -H "Content-Type: application/json" \
   -d '{"replace":true,"entries":[{"slug":"primed_flow","maxRank":10,"lastSeenAt":1735776000000}]}' \
-  https://worker.wfcompanion-cache.workers.dev/admin/order-summary-hotset
+  https://<your-worker>.workers.dev/admin/order-summary-hotset
 ```
 
 Then trigger a manual hotset prewarm:
@@ -185,7 +185,7 @@ curl -X POST \
   -H "Authorization: Bearer <ADMIN_API_KEY>" \
   -H "Content-Type: application/json" \
   -d '{"batchSize":12}' \
-  https://worker.wfcompanion-cache.workers.dev/admin/prewarm/order-summaries
+  https://<your-worker>.workers.dev/admin/prewarm/order-summaries
 ```
 
 Or use the PowerShell helper from repo root:
