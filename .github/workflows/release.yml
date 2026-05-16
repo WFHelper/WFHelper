@@ -20,14 +20,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Validate release credentials
         shell: pwsh
@@ -76,9 +79,9 @@ jobs:
 
       - name: Build Windows installer
         run: |
-          npm run verify:onnx-models
-          npm run build
-          npx electron-builder --win nsis --publish never
+          pnpm run verify:onnx-models
+          pnpm run build
+          pnpm exec electron-builder --win nsis --publish never
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}

@@ -14,41 +14,44 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Install Worker dependencies
         run: npm ci --prefix backend-lite/worker
 
       - name: Verify ONNX models
-        run: npm run verify:onnx-models
+        run: pnpm run verify:onnx-models
 
       - name: Typecheck
-        run: npm run typecheck
+        run: pnpm run typecheck
 
       - name: Svelte check
-        run: npm run check
+        run: pnpm run check
 
       - name: Lint
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Dead code audit
-        run: npm run audit:deadcode
+        run: pnpm run audit:deadcode
 
       - name: Test
-        run: npm run test
+        run: pnpm run test
 
       - name: Backend tests
-        run: npm run backend:test
+        run: pnpm run backend:test
 
       - name: Build
-        run: npm run build
+        run: pnpm run build
 
   e2e:
     needs: validate
@@ -58,20 +61,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: npm run build
+        run: pnpm run build
 
       - name: E2E smoke tests
-        run: xvfb-run --auto-servernum npx playwright test --config playwright.config.ts
+        run: xvfb-run --auto-servernum pnpm exec playwright test --config playwright.config.ts
         env:
           DEBUG: pw:browser*
           ELECTRON_ENABLE_LOGGING: "1"
