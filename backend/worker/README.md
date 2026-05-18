@@ -60,6 +60,9 @@ budget (e.g. a base-plan alert, a low-overage alert, and a hard attention thresh
 - Slug validation on public routes (`^[a-z0-9_]+$`).
 - Generic error payloads, no secret logging.
 
+The full layered model, implementation notes, and edit rules are in
+[`ARCHITECTURE.md`](ARCHITECTURE.md) (read it before changing security-relevant code).
+
 ## Worker layout
 
 - `src/index.ts` thin router (`fetch` + `scheduled`)
@@ -91,6 +94,14 @@ budget (e.g. a base-plan alert, a low-overage alert, and a hard attention thresh
 - `ORDER_SUMMARY_PREWARM_BATCH_SIZE` cron batch size for ranked summary prewarm.
 - `CATALOG_REFRESH_HOURS` item catalog refresh interval.
 - `ADMIN_PREWARM_MAX_BATCH` cap for manual prewarm batch size.
+- `PUBLIC_RATE_LIMIT_ENABLED` toggles worker-side public-route IP rate limiting.
+- `ADMIN_API_KEY` (secret) bearer token required by all `/admin/*` routes.
+- `BOOTSTRAP_TOKEN_SECRET` (secret) signing key for optional short-lived public bootstrap tokens.
+- `BOOTSTRAP_TOKEN_TTL_SEC` lifetime of issued bootstrap tokens.
+- `PUBLIC_BOOTSTRAP_REQUIRED` when `1`, public routes require a valid bootstrap token.
+
+Current default values live in `wrangler.jsonc`. This catalog is the single source of
+truth for env vars; `ARCHITECTURE.md` references it rather than restating it.
 
 ## Required setup
 
