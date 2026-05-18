@@ -11,12 +11,24 @@
  * ONLY references live in test files. Intentional test seams are excluded by
  * the `…ForTest` / `…ForTesting` naming convention or the ALLOWLIST below.
  *
+ * Limitations (intentional — this is a textual identifier-token heuristic,
+ * not an AST/type analysis):
+ *  - A name appearing in a comment or string in a production file counts as a
+ *    prod reference, so the gate UNDER-reports rather than over-reports — it
+ *    never tells you to delete something that is actually live.
+ *  - A symbol surfaced only through a multi-line `export { … } from` re-export
+ *    block is treated as prod-used (the inner line is not recognised as a
+ *    re-export). Same safe direction: a false negative, never a false delete.
+ *
  * Exit 1 (fails CI) if any unexpected production-dead test-only export exists.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, sep } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = process.cwd();
+// Repo root, derived from this file's location (robust to invocation cwd —
+// matches the convention used by the other scripts/*.mjs).
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 // Intentional test-only exports kept on purpose. Add with a one-line reason.
 const ALLOWLIST = new Set([
@@ -60,7 +72,7 @@ function walk(dir, out = []) {
     return out;
   }
   for (const e of entries) {
-    if (e.name.startsWith(".") && e.name !== ".") continue;
+    if (e.name.startsWith(".")) continue;
     const full = join(dir, e.name);
     if (e.isDirectory()) {
       if (SKIP_DIR.has(e.name)) continue;
@@ -96,39 +108,45 @@ function collectFiles(dirs, rootFiles = []) {
 const EXPORT_RE =
   /^\s*export\s+(?:async\s+)?(?:function|const|class|let|var)\s+([A-Za-z_$][\w$]*)/;
 const REEXPORT_LINE_RE = /^\s*export\s+(?:type\s+)?\{/;
+const IDENT_RE = /[A-Za-z_$][\w$]*/g;
 
-// 1. Map every exported symbol → its defining file (production tree only).
-const defs = new Map(); // name -> {file, line}
+// 1. Map every exported symbol → its defining file (production tree only),
+//    and index def locations by "file\0line" so the single scan below can
+//    cheaply skip the definition's own occurrence.
+const defs = new Map(); // name -> { file, line }
+const defAtLine = new Map(); // `${file}\0${line}` -> name
 for (const file of collectFiles(DEF_DIRS, DEF_ROOT_FILES)) {
   if (isTestPath(file)) continue;
   const lines = readFileSync(file, "utf8").split("\n");
-  lines.forEach((ln, i) => {
-    const m = ln.match(EXPORT_RE);
-    if (m && !defs.has(m[1])) defs.set(m[1], { file, line: i + 1 });
-  });
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(EXPORT_RE);
+    if (m && !defs.has(m[1])) {
+      defs.set(m[1], { file, line: i + 1 });
+      defAtLine.set(`${file}\0${i + 1}`, m[1]);
+    }
+  }
 }
 
-// 2. Scan the full surface; per symbol track prod vs test references.
-const usageFiles = collectFiles(USE_DIRS, DEF_ROOT_FILES);
+// 2. Single pass over the full surface: tokenize each line once, tally each
+//    exported identifier into the prod or test bucket (O(total tokens), no
+//    per-symbol regex).
 const prodRefs = new Map();
 const testRefs = new Map();
-for (const file of usageFiles) {
-  const test = isTestPath(file);
-  const content = readFileSync(file, "utf8");
-  const lines = content.split("\n");
-  for (const [name, def] of defs) {
-    const re = new RegExp(`\\b${name}\\b`);
-    let count = 0;
-    for (let i = 0; i < lines.length; i++) {
-      if (!re.test(lines[i])) continue;
-      // Skip the definition line itself and pure re-export aggregation lines.
-      if (file === def.file && i + 1 === def.line) continue;
-      if (REEXPORT_LINE_RE.test(lines[i]) && lines[i].includes("from")) continue;
-      count++;
+for (const file of collectFiles(USE_DIRS, DEF_ROOT_FILES)) {
+  const bucket = isTestPath(file) ? testRefs : prodRefs;
+  const lines = readFileSync(file, "utf8").split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // Skip pure re-export aggregation lines (`export { X } from "..."`).
+    if (REEXPORT_LINE_RE.test(line) && line.includes("from")) continue;
+    const idents = line.match(IDENT_RE);
+    if (!idents) continue;
+    const definedHere = defAtLine.get(`${file}\0${i + 1}`);
+    for (const tok of idents) {
+      if (!defs.has(tok)) continue; // only track exported symbols
+      if (tok === definedHere) continue; // skip the definition itself
+      bucket.set(tok, (bucket.get(tok) || 0) + 1);
     }
-    if (count === 0) continue;
-    const bucket = test ? testRefs : prodRefs;
-    bucket.set(name, (bucket.get(name) || 0) + count);
   }
 }
 
@@ -137,10 +155,13 @@ const findings = [];
 for (const [name, def] of defs) {
   if (/(ForTest|ForTesting)$/.test(name)) continue;
   if (ALLOWLIST.has(name)) continue;
-  const t = testRefs.get(name) || 0;
-  const p = prodRefs.get(name) || 0;
-  if (t > 0 && p === 0) {
-    findings.push({ name, file: def.file.replace(ROOT + sep, ""), line: def.line, testRefs: t });
+  if ((testRefs.get(name) || 0) > 0 && (prodRefs.get(name) || 0) === 0) {
+    findings.push({
+      name,
+      file: def.file.replace(ROOT + sep, ""),
+      line: def.line,
+      testRefs: testRefs.get(name),
+    });
   }
 }
 
