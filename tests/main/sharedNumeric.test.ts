@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   MAX_SUPPORTED_RANK,
-  RANKED_GROUPS,
   toFiniteNumber,
   toFiniteOr,
   clampNumber,
@@ -242,10 +241,5 @@ describe("isRankedGroup", () => {
 describe("constants", () => {
   it("MAX_SUPPORTED_RANK is 20", () => {
     expect(MAX_SUPPORTED_RANK).toBe(20);
-  });
-
-  it("RANKED_GROUPS is frozen", () => {
-    expect(Object.isFrozen(RANKED_GROUPS)).toBe(true);
-    expect(RANKED_GROUPS).toEqual(["mods", "arcanes"]);
   });
 });

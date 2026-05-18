@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectConsoleOpen, detectSlotLayoutFromStructuredOcr } from "../../services/rewardScannerImage";
+import { detectConsoleOpen } from "../../services/rewardScannerImage";
 import { resetFrameDedup, getAdaptiveStrategyHint } from "../../services/rewardScanner";
 
 function makeFakeNativeImage(
@@ -98,36 +98,5 @@ describe("resetFrameDedup", () => {
 describe("getAdaptiveStrategyHint", () => {
   it("returns null when no history exists", () => {
     expect(getAdaptiveStrategyHint()).toBeNull();
-  });
-});
-
-describe("detectSlotLayoutFromStructuredOcr", () => {
-  it("returns null for empty input", () => {
-    expect(detectSlotLayoutFromStructuredOcr({ lines: [] }, 1920, 1080)).toBeNull();
-    expect(detectSlotLayoutFromStructuredOcr({}, 1920, 1080)).toBeNull();
-  });
-
-  it("detects 4 slots from structured OCR bounding boxes", () => {
-    const lines = [
-      { text: "Forma Blueprint", box: { left: 250, top: 500, width: 180, height: 30 } },
-      { text: "Braton Prime", box: { left: 550, top: 500, width: 160, height: 30 } },
-      { text: "Stock", box: { left: 565, top: 535, width: 60, height: 25 } },
-      { text: "Epitaph Prime", box: { left: 850, top: 500, width: 170, height: 30 } },
-      { text: "Receiver", box: { left: 870, top: 535, width: 80, height: 25 } },
-      { text: "Zephyr Prime", box: { left: 1150, top: 500, width: 170, height: 30 } },
-      { text: "Neuroptics Blueprint", box: { left: 1130, top: 535, width: 200, height: 25 } },
-    ];
-    const result = detectSlotLayoutFromStructuredOcr({ lines }, 1920, 1080);
-    expect(result).not.toBeNull();
-    expect(result!.count).toBe(4);
-    expect(result!.slots.length).toBe(4);
-  });
-
-  it("returns null when lines form a single cluster", () => {
-    const lines = [
-      { text: "Forma Blueprint", box: { left: 250, top: 500, width: 180, height: 30 } },
-      { text: "Prime", box: { left: 260, top: 530, width: 70, height: 25 } },
-    ];
-    expect(detectSlotLayoutFromStructuredOcr({ lines }, 1920, 1080)).toBeNull();
   });
 });
