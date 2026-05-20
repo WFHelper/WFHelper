@@ -29,7 +29,7 @@ const REQUEST_TIMEOUT_MS = 3500;
 // backend request via x-wfhelper-bootstrap.  The server binds the token to the
 // caller's IP + User-Agent hash, so it cannot be replayed from other machines.
 //
-// Deployment sequence (see worker ARCHITECTURE.md):
+// Deployment sequence (see backend/worker/ARCHITECTURE.md):
 //   1. wrangler secret put BOOTSTRAP_TOKEN_SECRET
 //   2. Deploy app with VITE_WFM_BACKEND_BOOTSTRAP_ENABLED=1
 //   3. Set PUBLIC_BOOTSTRAP_REQUIRED=1 in wrangler.jsonc and redeploy worker
