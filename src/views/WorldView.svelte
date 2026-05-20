@@ -406,7 +406,7 @@
                               {@const rewardIcon = resolveRewardIcon(item.itemName, $itemDb)}
                               <button
                                 type="button"
-                                class="flex w-full items-center justify-between gap-1 border-0 bg-transparent px-0 py-0 text-left text-sm appearance-none disabled:text-text-primary disabled:opacity-100 disabled:cursor-default {rewardUniqueName ? 'cursor-pointer rounded px-1 -mx-1 transition-[background] duration-150 hover:bg-white/[0.06]' : ''} {item.rarity === 'Rare' || item.rarity === 'Legendary' ? 'text-accent' : 'text-text-primary'}"
+                                class="flex w-full items-center justify-between gap-1 border-0 bg-transparent px-1 -mx-1 py-0 text-left text-sm appearance-none disabled:text-text-primary disabled:opacity-100 disabled:cursor-default {rewardUniqueName ? 'cursor-pointer rounded transition-[background] duration-150 hover:bg-white/[0.06]' : ''} {item.rarity === 'Rare' || item.rarity === 'Legendary' ? 'text-accent' : 'text-text-primary'}"
                                 disabled={!rewardUniqueName}
                                 on:click={() => rewardUniqueName && openItemDetail(rewardUniqueName, [{location: `${group.syndicate} Bounty (${job.enemyLevels[0]}\u2013${job.enemyLevels[1]}) \u2014 ${sr.label}`, rarity: item.rarity, chance: item.chance / 100}])}
                               >
