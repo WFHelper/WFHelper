@@ -414,7 +414,7 @@
                                   <img class="h-4 w-4 shrink-0 object-contain" src={rewardIcon} alt="" />
                                 {/if}
                                 <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{item.itemName}</span>
-                                <span class="ml-2 shrink-0 whitespace-nowrap text-xs font-semibold">{item.chance.toFixed(2)}%</span>
+                                <span class="ml-2 w-14 shrink-0 whitespace-nowrap text-right text-xs font-semibold tabular-nums">{item.chance.toFixed(2)}%</span>
                               </button>
                             {/each}
                           </div>
