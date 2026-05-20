@@ -275,8 +275,22 @@ app.whenReady().then(async () => {
     }
   }
 
-  // Start helper polling (runs exe every 10 min; chokidar picks up changes)
-  apiHelperRunner.startPolling();
+  // Start helper polling (runs exe every 10 min; chokidar picks up changes).
+  // On a first-ever install there's no inventory.json yet, so the watcher
+  // above was never installed. After each helper run, if we still have no
+  // path, try discovering the freshly-written file and attach to it.
+  apiHelperRunner.startPolling(undefined, (ok) => {
+    if (!ok || ctx.currentInventoryPath) return;
+    const discovered = inventoryIpc.findInventoryFile();
+    if (!discovered) return;
+    ctx.currentInventoryPath = discovered;
+    inventoryIpc.watchInventoryFile(discovered);
+    log.log("First inventory load detected at:", discovered);
+    const data = inventoryIpc.readInventory(discovered);
+    if (data && ctx.mainWindow && !ctx.mainWindow.isDestroyed()) {
+      ctx.mainWindow.webContents.send(INVENTORY_UPDATED, data);
+    }
+  });
 
   profileStage("inventory:auto-detect", inventoryDetectStart);
 

@@ -257,8 +257,18 @@ export function runOnce(): Promise<boolean> {
  * happened less than `intervalMs` ago, we defer the first run until
  * `mtime + intervalMs`. This keeps the 10-minute rate-limit stable even when
  * the app is relaunched repeatedly.
+ *
+ * `onRunComplete` fires after each polling-driven run settles. The first run
+ * on a brand-new install is where this matters: there is no inventory.json at
+ * startup, so the file watcher in inventoryIpc is never installed, and the
+ * helper's first successful run produces a file nothing is listening for.
+ * Main wires this callback to discover + watch + push the file to the renderer
+ * the moment it appears.
  */
-export function startPolling(intervalMs = DEFAULT_POLL_INTERVAL_MS): void {
+export function startPolling(
+  intervalMs = DEFAULT_POLL_INTERVAL_MS,
+  onRunComplete?: (ok: boolean) => void,
+): void {
   if (_pollTimer || _startupTimer) return; // already started
 
   _exePath = findExePath();
@@ -273,15 +283,27 @@ export function startPolling(intervalMs = DEFAULT_POLL_INTERVAL_MS): void {
   const ageMs = mtime !== null ? Date.now() - mtime : Infinity;
   const initialDelay = ageMs >= intervalMs ? 0 : intervalMs - ageMs;
 
+  const runAndNotify = () => {
+    void runOnce().then((ok) => {
+      if (!onRunComplete) return;
+      try {
+        onRunComplete(ok);
+      } catch (err) {
+        log.warn(
+          "onRunComplete handler threw:",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    });
+  };
+
   const scheduleInterval = () => {
     if (_pollTimer) return;
-    _pollTimer = setInterval(() => {
-      void runOnce();
-    }, intervalMs);
+    _pollTimer = setInterval(runAndNotify, intervalMs);
   };
 
   if (initialDelay === 0) {
-    void runOnce();
+    runAndNotify();
     scheduleInterval();
   } else {
     log.log(
@@ -294,7 +316,7 @@ export function startPolling(intervalMs = DEFAULT_POLL_INTERVAL_MS): void {
     _lastRunOk = true;
     _startupTimer = setTimeout(() => {
       _startupTimer = null;
-      void runOnce();
+      runAndNotify();
       scheduleInterval();
     }, initialDelay);
   }
