@@ -13,7 +13,7 @@ Before changing Worker runtime, KV, cron, bindings, or limits behavior, check th
 
 Cloudflare runtime limits and binding capabilities change; don't rely on cached assumptions.
 
-## Current Architecture
+## Current architecture
 
 - `src/index.ts`
   - Thin router only.
@@ -78,7 +78,7 @@ Cloudflare runtime limits and binding capabilities change; don't rely on cached 
 - `test/index.spec.ts`
   - Main Worker coverage file; update it when behavior changes.
 
-## Security Model
+## Security model
 
 Public protection is layered:
 
@@ -129,7 +129,7 @@ secret is a server misconfiguration, not a deployment grace path. Keep tests exp
 both `PUBLIC_BOOTSTRAP_REQUIRED=1` and a test secret when bootstrap-protected public routes should
 be reachable.
 
-## Testing Pattern
+## Testing pattern
 
 - `test/index.spec.ts` mixes two useful styles:
   - direct `worker.fetch(...)` calls for unit-style route/service assertions
@@ -137,7 +137,7 @@ be reachable.
 - Prefer targeted additions to `test/index.spec.ts` over creating parallel one-off files unless the
   test surface becomes large enough to justify a split.
 
-## Automatic Backend Behavior
+## Automatic backend behavior
 
 The end-to-end automatic flow (cache-first → live read-through → write-back → background
 stale refresh → cron prewarm → incremental `patchSnapshot()`) is described in `README.md`
@@ -149,7 +149,7 @@ stale refresh → cron prewarm → incremental `patchSnapshot()`) is described i
 - The untradable marker `skip:untradable:*` prevents repeated meta fetches.
 - Manual admin prewarm is optional maintenance, never required for app correctness.
 
-## Important Data Model Notes
+## Data model notes
 
 - `/v1/order-summary/:slug` returns the cached summary payload used by ranked inventory cards.
 - `/v1/orders/:slug` is disabled by default and should stay deprecated unless explicitly re-enabled.
@@ -159,7 +159,7 @@ stale refresh → cron prewarm → incremental `patchSnapshot()`) is described i
   - failure: `{ ok: false, error }`
 - `GET /healthz` is public-minimal by default; detailed automation/prewarm data only returns for authorized admin requests.
 
-## Env Vars
+## Env vars
 
 The full env-var catalog with descriptions is the **Key vars** section of
 `README.md` (single source of truth — do not restate it here). Key
@@ -240,7 +240,7 @@ npm run backend:prewarm:order-summaries -- -ApiKey "<ADMIN_API_KEY>" -RefreshCat
 npm run backend:prewarm:order-summaries:hotset -- -ApiKey "<ADMIN_API_KEY>"
 ```
 
-## Type And Style Expectations
+## Type and style expectations
 
 - Worker TS is strict.
 - Preserve existing subtree style; avoid unrelated reformatting.
@@ -248,7 +248,7 @@ npm run backend:prewarm:order-summaries:hotset -- -ApiKey "<ADMIN_API_KEY>"
 - Prefer explicit types at request, env, and payload boundaries.
 - Use shared helpers from `config/shared/*.ts` carefully; they are cross-runtime.
 
-## Safety And Edit Rules
+## Safety and edit rules
 
 - Preserve slug validation.
 - Preserve CORS, admin bearer auth, and rate limiting.
@@ -261,7 +261,7 @@ npm run backend:prewarm:order-summaries:hotset -- -ApiKey "<ADMIN_API_KEY>"
   including stale data, is available.
 - Add or update tests in `test/index.spec.ts` for any behavior change.
 
-## Cache Invariants
+## Cache invariants
 
 - KV TTLs must stay meaningfully higher than stale-refresh thresholds.
 - If KV TTL approaches the stale threshold, stale-if-error collapses and transient upstream failures
