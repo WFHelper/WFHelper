@@ -14,7 +14,7 @@ interface RivenGoodRollEntry extends GoodRollData {
   name: string;
 }
 
-export const RIVEN_GOOD_ROLLS_SHEET_ID = "1zbaeJBuBn44cbVKzJins_E3hTDpnmvOk8heYN-G8yy8";
+export const RIVEN_GOOD_ROLLS_SHEET_ID = "1LJ83e4x_xIVgjZg049PKrDgTex2MIuaiX0FFZi9mH-Q";
 
 export const RIVEN_GOOD_ROLL_TABS: { gid: number; klass: RivenGoodRollClass }[] = [
   { gid: 0, klass: "primary" },
