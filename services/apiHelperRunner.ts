@@ -208,9 +208,20 @@ export function runOnce(): Promise<boolean> {
 
     const child = spawn(_exePath, [], {
       cwd: path.dirname(_exePath),
-      stdio: "ignore",
+      stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
       detached: false,
+    });
+
+    // Helper prints `?accountId=...&nonce=...` to stdout/stderr; capture both.
+    let outputBuf = "";
+    child.stdout?.setEncoding("utf-8");
+    child.stdout?.on("data", (chunk: string) => {
+      outputBuf += chunk;
+    });
+    child.stderr?.setEncoding("utf-8");
+    child.stderr?.on("data", (chunk: string) => {
+      outputBuf += chunk;
     });
 
     let settled = false;
@@ -240,14 +251,53 @@ export function runOnce(): Promise<boolean> {
     });
 
     child.on("exit", (code: number | null) => {
-      if (code !== 0) {
-        log.warn(`Helper exited with code ${code}`);
-      } else {
-        log.log("Helper finished successfully");
+      // Don't gate on exit code: helper's own HTTP request to mobile.warframe.com
+      // returns empty 200s, but the authz it prints is still valid against
+      // api.warframe.com, so we fetch ourselves.
+      if (code !== 0) log.warn(`Helper exited with code ${code}`);
+      const m = outputBuf.match(/\?accountId=[a-f0-9]+&nonce=\d+/i);
+      if (!m) {
+        log.error("Helper output did not contain auth params");
+        finish(false);
+        return;
       }
-      finish(code === 0);
+      const destPath = path.join(path.dirname(_exePath!), "inventory.json");
+      void fetchInventoryWithAuthz(m[0], destPath).then(
+        () => finish(true),
+        (err) => {
+          log.error("Inventory fetch failed:", err instanceof Error ? err.message : String(err));
+          finish(false);
+        },
+      );
     });
   });
+}
+
+/** GET inventory.php with the helper-extracted authz. Tries api.warframe.com first. */
+async function fetchInventoryWithAuthz(authz: string, destPath: string): Promise<void> {
+  const hosts = ["api.warframe.com", "mobile.warframe.com"];
+  const headers: Record<string, string> = {
+    "User-Agent": "Mozilla/5.0",
+    Accept: "application/json,*/*",
+  };
+  let lastErr: unknown = null;
+  for (const host of hosts) {
+    const url = `https://${host}/api/inventory.php${authz}`;
+    try {
+      const res = await httpsGetBuffer(url, headers);
+      if (res.statusCode === 200 && res.body.length > 0) {
+        fs.writeFileSync(destPath, res.body);
+        log.log(`Inventory fetched from ${host} (${res.body.length} bytes)`);
+        return;
+      }
+      lastErr = new Error(`${host} returned HTTP ${res.statusCode} (${res.body.length} bytes)`);
+      log.warn(String(lastErr));
+    } catch (err) {
+      lastErr = err;
+      log.warn(`${host} request error:`, err instanceof Error ? err.message : String(err));
+    }
+  }
+  throw lastErr ?? new Error("All inventory hosts failed");
 }
 
 /**

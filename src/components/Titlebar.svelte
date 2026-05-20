@@ -71,7 +71,7 @@
       title={helperStatus?.exeFound ? "warframe-api-helper active" : "warframe-api-helper not found"}
     >
       <span class="inline-block h-1.5 w-1.5 rounded-full {helperDotPulse ? 'animate-pulse' : ''}" style="background:{helperDotColor}"></span>
-      <span class="overflow-hidden text-ellipsis whitespace-nowrap max-w-16">{helperStatusText}</span>
+      <span class="overflow-hidden text-ellipsis whitespace-nowrap max-w-48">{helperStatusText}</span>
     </span>
   </div>
   <div class="app-region-no-drag flex">
