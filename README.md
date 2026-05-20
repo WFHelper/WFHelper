@@ -1,31 +1,27 @@
 # Warframe Companion
 
-A desktop companion app for Warframe (Windows-first). Inventory viewer,
-relic reward scanner, market integration, mastery and foundry tracking,
-and a live world-state panel.
+A Windows desktop app for Warframe players: inventory browsing, an
+on-screen relic reward scanner, warframe.market price lookups, riven
+tools, and mastery/foundry tracking.
 
 ## Features
 
-- **Inventory** — browse owned items, sets, and components with market values.
-- **Relic scanner** — on-screen overlay that OCRs reward screens and ranks
-  drops by warframe.market price.
-- **Riven tools** — riven roll overlay with ONNX-based stat OCR, grading,
-  and auction lookup.
-- **Market** — warframe.market prices and order books, backed by a cache layer.
-- **Mastery & Foundry** — track mastery progress and in-progress builds.
-- **World state** — fissures, invasions, Baro, and cycle timers with alerts.
+The inventory view lists owned items, sets, and components with their
+current market value. The relic scanner runs as an overlay that OCRs the
+reward screen and sorts the drops by warframe.market price, and there's a
+separate riven overlay that reads stats with an ONNX model, grades the
+roll, and looks up comparable auctions.
 
-## Tech stack
-
-Electron 35 · TypeScript · Svelte 5 · Vite · TailwindCSS · Vitest · Playwright.
-An optional Cloudflare Worker (`backend/worker`) provides a shared price cache.
+Prices and order books come from warframe.market behind a cache layer.
+There's also a mastery tracker, a foundry build tracker, and a world-state
+panel (fissures, invasions, Baro, cycle timers) with alerts.
 
 ## Requirements
 
-- Node.js >= 22
-- pnpm >= 11
-- Windows (the reward/riven OCR uses Windows-only APIs; other features are
-  cross-platform)
+- Node.js 22+
+- pnpm 11+
+- Windows. The reward and riven OCR rely on Windows-only APIs; the rest is
+  cross-platform if you want to hack on it elsewhere.
 
 ## Development
 
@@ -37,8 +33,8 @@ pnpm dev          # build main + run renderer/electron with watch
 ## Build
 
 ```bash
-pnpm build        # build main process + renderer
-pnpm dist:win     # package a Windows installer (electron-builder, NSIS)
+pnpm build        # main process + renderer
+pnpm dist:win     # Windows installer (electron-builder, NSIS)
 ```
 
 ## Tests
@@ -51,16 +47,17 @@ pnpm backend:test # Cloudflare Worker tests
 
 ## Backend (optional)
 
-The app reads prices through a Cloudflare Worker cache. The worker source
-lives in `backend/worker`; see `backend/worker/README.md` for deploy steps.
-The app works without deploying your own — it points at a hosted URL by
-default (override with `VITE_WFM_BACKEND_URL`).
+Prices are read through a small Cloudflare Worker that caches
+warframe.market responses. You don't need to deploy it — the app points at
+a hosted instance by default, overridable via `VITE_WFM_BACKEND_URL`. If
+you do want your own, the source and deploy steps are in
+`backend/worker/`.
 
 ## Disclaimer
 
-This is an unofficial fan project and is not affiliated with or endorsed by
-Digital Extremes. "Warframe" and related assets are property of Digital
-Extremes Ltd.
+Unofficial fan project, not affiliated with or endorsed by Digital
+Extremes. "Warframe" and related assets are property of Digital Extremes
+Ltd.
 
 ## License
 
