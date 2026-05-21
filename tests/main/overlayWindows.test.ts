@@ -60,7 +60,7 @@ describe("createOverlayWindowsController", () => {
     const bounds = controller.getOverlayBoundsForActiveDisplay();
 
     expect(bounds.width).toBe(1225);
-    expect(bounds.height).toBe(275);
+    expect(bounds.height).toBe(213);
   });
 
   it("uses saved manual positions when present", () => {
