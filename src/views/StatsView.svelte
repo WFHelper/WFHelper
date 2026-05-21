@@ -160,6 +160,28 @@
     }
   }
 
+  function handleSaveStats(): void {
+    const exportedAt = new Date();
+    const payload = {
+      exportedAt: exportedAt.toISOString(),
+      currentSession: session,
+      history,
+      trades,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const datePart = exportedAt.toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `wfhelper-stats-${datePart}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
 
   interface SessionSection {
     key: SessionStatKey;
@@ -414,6 +436,9 @@
           {/each}
         </ThemedSelect>
       </label>
+      <ThemedButton onClick={handleSaveStats} title="Save current stats, history, and trade log as JSON">
+        Save Stats JSON
+      </ThemedButton>
       <ThemedButton as="label" title="Import AlecaFrame stats JSON export">
         Import AlecaFrame JSON
         <input type="file" accept=".json" style="display:none" on:change={handleImportFile} />

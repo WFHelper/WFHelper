@@ -255,14 +255,14 @@
             <span class="font-display text-xs uppercase tracking-[0.06em] font-bold mb-1 text-[#4ade80]">Desired Positives</span>
             {#each bestAttrs.positives as attr}
               {@const matched = myStatNamesLc.has(attr.toLowerCase())}
-              <span class="font-display text-xs py-0.5 px-1.5 rounded {matched ? 'text-[#4ade80] bg-success/10 font-semibold' : 'text-text-muted'}">{attr}{#if matched} ✓{/if}</span>
+              <span class="font-display text-xs py-0.5 px-1.5 rounded {matched ? 'text-[#4ade80] bg-success/10 font-semibold' : 'text-text-muted'}">{attr}</span>
             {/each}
           </div>
           <div class="flex flex-col gap-1">
             <span class="font-display text-xs uppercase tracking-[0.06em] font-bold mb-1 text-[#ef4444]">Desired Negatives</span>
             {#each bestAttrs.negatives as attr}
               {@const matched = riven.stats.some(s => !s.positive && s.name.toLowerCase() === attr.toLowerCase())}
-              <span class="font-display text-xs py-0.5 px-1.5 rounded {matched ? 'text-[#4ade80] bg-success/10 font-semibold' : 'text-text-muted'}">{attr}{#if matched} ✓{/if}</span>
+              <span class="font-display text-xs py-0.5 px-1.5 rounded {matched ? 'text-[#4ade80] bg-success/10 font-semibold' : 'text-text-muted'}">{attr}</span>
             {/each}
           </div>
         </div>

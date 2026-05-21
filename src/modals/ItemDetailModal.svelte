@@ -4,6 +4,7 @@
   import { createPriceLoader } from "../lib/priceState.js";
   import { resolveItemPriceLookup } from "../lib/componentResolution.js";
   import { buildCraftingTree } from "../lib/craftingTree.js";
+  import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
   import ItemImage from "../components/ItemImage.svelte";
   import DropsList from "../components/DropsList.svelte";
   import MarketPrice from "../components/MarketPrice.svelte";
@@ -11,7 +12,7 @@
   import DetailModalBase from "./DetailModalBase.svelte";
   import ComponentPanel from "../components/ComponentPanel.svelte";
   import CraftingTree from "../components/CraftingTree.svelte";
-  import type { ComponentInfo } from "../types/inventory.js";
+  import type { ComponentInfo, ParsedItem } from "../types/inventory.js";
 
   let priceText = "";
   let priceSlug: string | null = null;
@@ -23,6 +24,10 @@
   // Inline component panel state
   let selectedComp: ComponentInfo | null = null;
   let showCraftingTree = false;
+  let lastItemKey = "";
+  let pendingShowCraftingTree: boolean | null = null;
+  let internalNavigation = false;
+  let navigationStack: Array<{ item: ParsedItem; showCraftingTree: boolean }> = [];
 
   $: item = $activeItem;
 
@@ -33,10 +38,16 @@
     ? buildCraftingTree(itemKey, $itemDb || {}, $componentOwnership)
     : null;
 
-  // Reset selected component when item changes
-  $: if (item) {
+  // Reset selected component when the active item changes.
+  $: if (item && itemKey !== lastItemKey) {
+    if (!internalNavigation) {
+      navigationStack = [];
+    }
     selectedComp = null;
-    showCraftingTree = false;
+    showCraftingTree = pendingShowCraftingTree ?? false;
+    pendingShowCraftingTree = null;
+    internalNavigation = false;
+    lastItemKey = itemKey;
     loadPrice();
   }
 
@@ -58,6 +69,10 @@
   function close() {
     priceLoader.clear();
     selectedComp = null;
+    lastItemKey = "";
+    navigationStack = [];
+    pendingShowCraftingTree = null;
+    internalNavigation = false;
     activeItem.set(null);
   }
 
@@ -71,6 +86,27 @@
     else if (showCraftingTree) showCraftingTree = false;
     else close();
   }
+
+  function openCraftingTreeItem(uniqueName: string) {
+    if (!item) return;
+    const db = $itemDb[uniqueName];
+    if (!db) return;
+
+    navigationStack = [...navigationStack, { item, showCraftingTree }];
+    pendingShowCraftingTree = !!db.recipe;
+    internalNavigation = true;
+    activeItem.set(buildParsedItemFromDb(uniqueName, db, $componentOwnership));
+  }
+
+  function goBack() {
+    const previous = navigationStack[navigationStack.length - 1];
+    if (!previous) return;
+
+    navigationStack = navigationStack.slice(0, -1);
+    pendingShowCraftingTree = previous.showCraftingTree;
+    internalNavigation = true;
+    activeItem.set(previous.item);
+  }
 </script>
 
 {#if item}
@@ -81,6 +117,15 @@
     panelClass={showCraftingTree ? "w-[90vw] max-w-[1100px]" : ""}
   >
         <div class="detail-panel-top-actions">
+          {#if navigationStack.length > 0}
+            <button
+              type="button"
+              class="rounded border border-border-subtle bg-transparent px-2.5 py-0.5 text-xs text-text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-text-primary"
+              on:click={goBack}
+            >
+              ← Back
+            </button>
+          {/if}
           {#if hasCraftingTree}
             <button
               type="button"
@@ -108,7 +153,7 @@
           </div>
 
           <div class="h-[60vh] min-h-[300px] flex flex-col">
-            <CraftingTree tree={craftingTree} />
+            <CraftingTree tree={craftingTree} onOpenItem={openCraftingTreeItem} />
           </div>
         {:else}
           <!-- Normal detail mode -->

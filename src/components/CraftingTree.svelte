@@ -9,6 +9,7 @@
   import ItemImage from "./ItemImage.svelte";
 
   export let tree: CraftingTreeNode;
+  export let onOpenItem: ((uniqueName: string) => void) | null = null;
 
   let hideCompleted = false;
   let scale = 1;
@@ -99,6 +100,10 @@
     applyPan();
   }
 
+  function openUsedFor(uniqueName: string) {
+    onOpenItem?.(uniqueName);
+  }
+
   onDestroy(() => {
     if (panFrame) {
       cancelAnimationFrame(panFrame);
@@ -157,12 +162,18 @@
             </span>
             <div class="flex flex-wrap items-start justify-center gap-3 max-w-[680px]">
               {#each usedFor as usage (usage.uniqueName)}
-                <div class="flex w-16 flex-col items-center gap-1 rounded-lg border border-border bg-bg-raised/80 px-3 py-2">
+                <button
+                  type="button"
+                  class="flex w-16 cursor-pointer flex-col items-center gap-1 rounded-lg border border-border bg-bg-raised/80 px-3 py-2 text-inherit transition-colors duration-150 hover:border-accent-dim hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                  title="Open {usage.name}"
+                  on:pointerdown|stopPropagation
+                  on:click={() => openUsedFor(usage.uniqueName)}
+                >
                   <ItemImage src={usage.imageUrl} alt={usage.name} cls="h-14 w-14 object-contain" />
                   <span class="max-w-full break-words text-center font-display text-xs font-semibold leading-tight text-text-primary">
                     {usage.name}
                   </span>
-                </div>
+                </button>
               {/each}
             </div>
           </div>
