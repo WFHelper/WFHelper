@@ -18,9 +18,11 @@ const MIN_EELOG_TRIGGER_GAP_MS = 900;
 const ERA_DETECTION_TIMEOUT_MS = 1500;
 /** Suppress overlay reopen for this long after an explicit close to prevent flicker. */
 const REOPEN_SUPPRESS_AFTER_CLOSE_MS = 3_000;
+const MAX_PRICE_FETCHES_PER_REFINEMENT = 60;
 
 /** Auto-hide the overlay after a successful recommendation push (covers one full relic cycle). */
 const OVERLAY_AUTO_HIDE_SUCCESS_MS = 18_000;
+const OVERLAY_AUTO_HIDE_PRICING_MS = 45_000;
 /** Auto-hide after a detection failure — keep visible briefly so the user sees the state. */
 const OVERLAY_AUTO_HIDE_FAILURE_MS = 4_500;
 /** Hard ceiling for the detecting phase before giving up and hiding. */
@@ -76,6 +78,8 @@ type RecommendationRow = {
   count: number;
   platEv: number | null;
   ducatEv: number | null;
+  priceSlugs?: string[];
+  missingPriceSlugs?: string[];
 };
 
 type OverlayRecommendationControllerOptions = {
@@ -128,6 +132,7 @@ type OverlayRecommendationControllerOptions = {
   };
   wfmStatsPrice: {
     getCachedPriceBySlug?: (slug: string) => number | null;
+    fetchPriceBySlug?: (slug: string) => Promise<number | null>;
   };
   warframeStatus?: {
     getStatus: (options?: { force?: boolean }) => Promise<{
@@ -336,10 +341,22 @@ function pickBestOwnedQuality(
       rarity: reward?.rarity,
     }));
 
+    const priceSlugs = normalizedRewards
+      .map((reward) => normalizeWfmSlugKey(reward?.urlName))
+      .filter((slug): slug is string => Boolean(slug));
     const platValues = normalizedRewards.map((reward) => {
       const slug = normalizeWfmSlugKey(reward?.urlName);
       return slug ? priceLookup(slug) : null;
     });
+    const missingPriceSlugs = normalizedRewards
+      .map((reward, index) => ({
+        slug: normalizeWfmSlugKey(reward?.urlName),
+        value: platValues[index],
+      }))
+      .filter((entry): entry is { slug: string; value: null } =>
+        Boolean(entry.slug && entry.value == null),
+      )
+      .map((entry) => entry.slug);
     const ducatValues = normalizedRewards.map((reward) => {
       // @wfcd/items rarely ships ducat values; fall back to snapshot meta ducats.
       const rewardDucats = normalizeDucats(reward?.ducats);
@@ -354,7 +371,7 @@ function pickBestOwnedQuality(
     // (@wfcd/items ships no ducat values; prices only populate after fetches).
     // Null EVs display as "-p / -d" in the overlay until data arrives.
 
-    const platEv = hasAnyPlat
+    const platEv = hasAnyPlat && missingPriceSlugs.length === 0
       ? computeSquadExpected(normalizedRewards, platValues, squadSize)
       : null;
     const ducatEv = hasAnyDucat
@@ -368,6 +385,8 @@ function pickBestOwnedQuality(
       count,
       platEv,
       ducatEv,
+      priceSlugs,
+      missingPriceSlugs,
     };
 
     if (!best) {
@@ -523,6 +542,47 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     return { rows, totalOwnedCount };
   }
 
+  function missingPriceSlugsForRows(rows: RecommendationRow[]): string[] {
+    const seen = new Set<string>();
+    const slugs: string[] = [];
+    for (const row of rows) {
+      const candidates = Array.isArray(row.missingPriceSlugs) ? row.missingPriceSlugs : [];
+      for (const slug of candidates) {
+        const normalized = normalizeWfmSlugKey(slug);
+        if (!normalized || seen.has(normalized)) continue;
+        seen.add(normalized);
+        slugs.push(normalized);
+        if (slugs.length >= MAX_PRICE_FETCHES_PER_REFINEMENT) return slugs;
+      }
+    }
+    return slugs;
+  }
+
+  async function hydrateMissingPrices(rows: RecommendationRow[], scanToken: number): Promise<number> {
+    if (typeof wfmStatsPrice.fetchPriceBySlug !== "function") return 0;
+    const missingSlugs = missingPriceSlugsForRows(rows);
+    if (missingSlugs.length === 0) return 0;
+
+    log.log(`[RelicSelection] fetching ${missingSlugs.length} missing reward price(s)`);
+    let fetched = 0;
+    for (const slug of missingSlugs) {
+      if (scanToken !== activeScanToken) return fetched;
+      try {
+        const price = await wfmStatsPrice.fetchPriceBySlug(slug);
+        if (typeof price === "number" && Number.isFinite(price) && price > 0) {
+          fetched += 1;
+        }
+      } catch {
+        // Individual price misses are non-fatal; the next trigger can retry.
+      }
+    }
+
+    if (fetched > 0) {
+      cache = null;
+    }
+    return fetched;
+  }
+
   function sendFallbackRows(scanToken: number, source: string, era: string | null): void {
     const startedAt = Date.now();
     try {
@@ -661,8 +721,13 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         },
       });
 
+      const missingPriceCount = missingPriceSlugsForRows(rows).length;
       windows.scheduleOverlayAutoHide(
-        rows.length > 0 ? OVERLAY_AUTO_HIDE_SUCCESS_MS : OVERLAY_AUTO_HIDE_FAILURE_MS,
+        rows.length > 0
+          ? missingPriceCount > 0
+            ? OVERLAY_AUTO_HIDE_PRICING_MS
+            : OVERLAY_AUTO_HIDE_SUCCESS_MS
+          : OVERLAY_AUTO_HIDE_FAILURE_MS,
       );
 
       log.log(
@@ -670,6 +735,31 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
           effectiveEra || "none"
         } conf=${eraConfidence.toFixed(3)} elapsed=${Date.now() - refineStartedAt}ms token=${scanToken}`,
       );
+
+      const fetchedPrices = await hydrateMissingPrices(rows, scanToken);
+      if (scanToken !== activeScanToken) return;
+      if (fetchedPrices > 0) {
+        const updated = buildRecommendations(effectiveEra);
+        if (scanToken !== activeScanToken) return;
+        windows.sendOverlayEvent(RELIC_RECOMMENDATIONS, {
+          source,
+          era: effectiveEra,
+          rows: updated.rows,
+          totalOwnedCount: updated.totalOwnedCount,
+          detection: {
+            confidence: eraConfidence,
+            textPreview: "",
+            elapsedMs: toFiniteOr(Date.now() - eraDetectStartedAt, 0),
+          },
+        });
+        windows.scheduleOverlayAutoHide(
+          updated.rows.length > 0 ? OVERLAY_AUTO_HIDE_SUCCESS_MS : OVERLAY_AUTO_HIDE_FAILURE_MS,
+        );
+        log.log(
+          `[RelicSelection] pricing refresh sent count=${updated.rows.length} fetched=${fetchedPrices} ` +
+            `elapsed=${Date.now() - refineStartedAt}ms token=${scanToken}`,
+        );
+      }
     } catch (err) {
       if (scanToken !== activeScanToken) return;
       log.error("[RelicSelection] recommendation refinement failed:", normalizeErrorMessage(err));
