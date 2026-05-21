@@ -249,7 +249,7 @@ export async function runRewardScanPipeline({
   const slotDetectStart = Date.now();
   const detectedLayout = detectRewardSlotLayout(screenshot.image);
   const slotDetectMs = Date.now() - slotDetectStart;
-  const expectedItemCount = expectedRewardItemCount(detectedLayout);
+  let expectedItemCount = expectedRewardItemCount(detectedLayout);
 
   log.log(
     `[RewardScanner] Slot layout estimate: count=${detectedLayout.count} confidence=${detectedLayout.confidence.toFixed(3)} expected=${expectedItemCount}`,
@@ -266,10 +266,15 @@ export async function runRewardScanPipeline({
       { sortedItems, ocrTimeoutMs: settings.ocrTimeoutMs, runOCRStructuredBuffer },
     );
 
-    if (slotFirstResult && slotFirstResult.items.length >= expectedItemCount) {
+    if (
+      slotFirstResult &&
+      slotFirstResult.items.length >= expectedItemCount &&
+      slotFirstResult.exactCount > 0 &&
+      slotFirstResult.avgConfidence >= 0.84
+    ) {
       log.log(
         `[RewardScanner] Early slot-primary hit: ${slotFirstResult.items.length}/${expectedItemCount} items ` +
-          `(exact=${slotFirstResult.exactCount}, confidence=${slotFirstResult.slotConfidence.toFixed(3)})`,
+          `(exact=${slotFirstResult.exactCount}, confidence=${slotFirstResult.slotConfidence.toFixed(3)}, avg=${slotFirstResult.avgConfidence.toFixed(3)})`,
       );
       const result = {
         items: slotFirstResult.items,
@@ -302,9 +307,23 @@ export async function runRewardScanPipeline({
       return result;
     }
 
+    if (
+      slotFirstResult &&
+      slotFirstResult.items.length >= 2 &&
+      slotFirstResult.items.length < expectedItemCount &&
+      slotFirstResult.avgConfidence >= 0.84
+    ) {
+      log.log(
+        `[RewardScanner] Revising expected reward count from ${expectedItemCount} to ` +
+          `${slotFirstResult.items.length} based on slot OCR confidence ${slotFirstResult.avgConfidence.toFixed(3)}`,
+      );
+      expectedItemCount = slotFirstResult.items.length;
+    }
+
     const elapsedRatio = (Date.now() - scanStartedAt) / totalBudgetMs;
     if (
       slotFirstResult &&
+      (slotFirstResult.exactCount > 0 || slotFirstResult.avgConfidence >= 0.96) &&
       shouldAcceptPartialSlotResult({
         itemCount: slotFirstResult.items.length,
         expectedCount: expectedItemCount,
@@ -369,6 +388,7 @@ export async function runRewardScanPipeline({
 
   if (
     slotFirstResult &&
+    (slotFirstResult.exactCount > 0 || slotFirstResult.avgConfidence >= 0.96) &&
     (slotFirstResult.items.length > items.length ||
       (slotFirstResult.items.length === items.length && slotFirstResult.exactCount > 0))
   ) {
@@ -387,12 +407,16 @@ export async function runRewardScanPipeline({
             scanStartedAt,
             { sortedItems, ocrTimeoutMs: settings.ocrTimeoutMs, runOCRStructuredBuffer },
           );
-    if (slotFallback && slotFallback.items.length > items.length) {
+    if (
+      slotFallback &&
+      (slotFallback.exactCount > 0 || slotFallback.avgConfidence >= 0.96) &&
+      slotFallback.items.length > items.length
+    ) {
       items = slotFallback.items;
       finalStrategy = slotFallback.strategy;
       log.log(
         `[RewardScanner] Slot fallback improved result: ${slotFallback.items.length}/${expectedItemCount} items ` +
-          `(exact=${slotFallback.exactCount}, confidence=${slotFallback.slotConfidence.toFixed(3)})`,
+          `(exact=${slotFallback.exactCount}, confidence=${slotFallback.slotConfidence.toFixed(3)}, avg=${slotFallback.avgConfidence.toFixed(3)})`,
       );
     }
   }

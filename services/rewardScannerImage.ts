@@ -272,18 +272,6 @@ const FIXED_REWARD_LAYOUTS: Readonly<
   ],
 });
 
-const HEADER_SQUAD_ICON_RECTS: ReadonlyArray<{
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}> = Object.freeze([
-  { x: 0.049, y: 0.037, width: 0.023, height: 0.043 },
-  { x: 0.074, y: 0.037, width: 0.023, height: 0.043 },
-  { x: 0.099, y: 0.037, width: 0.023, height: 0.043 },
-  { x: 0.124, y: 0.037, width: 0.023, height: 0.043 },
-]);
-
 function smoothColumns(values: number[]): number[] {
   if (values.length <= 2) return values.slice();
   return values.map((value, index) => {
@@ -363,47 +351,8 @@ function computeSlotActivity(
   return Number((brightScore * 0.45 + textureScore * 0.55).toFixed(3));
 }
 
-function detectRewardSquadCount(nativeImage: NativeImage): number {
-  let count = 0;
-  for (const rect of HEADER_SQUAD_ICON_RECTS) {
-    let region: NativeImage;
-    try {
-      region = cropRect(nativeImage, rect);
-    } catch {
-      break;
-    }
-
-    const { width, height } = region.getSize();
-    const bitmap: Buffer = region.toBitmap();
-    let bright = 0;
-    let texture = 0;
-    let total = 0;
-    for (let y = 1; y < height; y += 2) {
-      for (let x = 1; x < width; x += 2) {
-        const idx = (y * width + x) * 4;
-        const prevIdx = (y * width + (x - 1)) * 4;
-        const lum = luminanceFromBgr(bitmap[idx], bitmap[idx + 1], bitmap[idx + 2]);
-        const prevLum = luminanceFromBgr(bitmap[prevIdx], bitmap[prevIdx + 1], bitmap[prevIdx + 2]);
-        if (lum >= 48) bright += 1;
-        texture += Math.abs(lum - prevLum);
-        total += 1;
-      }
-    }
-    const brightRatio = bright / Math.max(1, total);
-    const textureAvg = texture / Math.max(1, total);
-    if (brightRatio >= 0.25 || textureAvg >= 22) {
-      count += 1;
-      continue;
-    }
-    break;
-  }
-  return count;
-}
-
-function detectFixedRewardSlotLayout(nativeImage: NativeImage): RewardSlotLayout | null {
-  let best: RewardSlotLayout | null = null;
-  const squadCount = detectRewardSquadCount(nativeImage);
-
+function detectFixedRewardSlotLayouts(nativeImage: NativeImage): RewardSlotLayout[] {
+  const candidates: RewardSlotLayout[] = [];
   function buildFixedSlots(
     layout: Array<{ x: number; y: number; width: number; height: number }>,
   ): RewardSlotRect[] {
@@ -422,17 +371,6 @@ function detectFixedRewardSlotLayout(nativeImage: NativeImage): RewardSlotLayout
     }));
   }
 
-  if (squadCount >= 2 && squadCount <= 4) {
-    const forcedLayout = FIXED_REWARD_LAYOUTS[squadCount];
-    if (forcedLayout) {
-      return {
-        count: squadCount,
-        confidence: 0.92,
-        slots: buildFixedSlots(forcedLayout),
-      };
-    }
-  }
-
   for (const [countKey, layout] of Object.entries(FIXED_REWARD_LAYOUTS)) {
     const count = Number(countKey);
     const activities = layout.map((slot) => computeSlotActivity(nativeImage, slot));
@@ -441,21 +379,46 @@ function detectFixedRewardSlotLayout(nativeImage: NativeImage): RewardSlotLayout
       activities.reduce((sum, score) => sum + score, 0) / Math.max(1, activities.length);
     const confidence = Number(
       (
-        clamp01(activeCount / count) * 0.45 +
-        clamp01(avgScore / 0.7) * 0.35 +
-        clamp01(count / 4) * 0.2
+        clamp01(activeCount / count) * 0.58 +
+        clamp01(avgScore / 0.7) * 0.42
       ).toFixed(3),
     );
     if (activeCount < count) continue;
 
     const slots: RewardSlotRect[] = buildFixedSlots(layout);
 
-    if (!best || confidence > best.confidence) {
-      best = { count, confidence, slots };
+    if (confidence >= 0.5) {
+      candidates.push({ count, confidence, slots });
     }
   }
 
-  return best && best.confidence >= 0.5 ? best : null;
+  candidates.sort((a, b) => {
+    const confidenceDiff = b.confidence - a.confidence;
+    if (Math.abs(confidenceDiff) < 0.08) return a.count - b.count;
+    return confidenceDiff || a.count - b.count;
+  });
+  return candidates;
+}
+
+function detectFixedRewardSlotLayout(nativeImage: NativeImage): RewardSlotLayout | null {
+  return detectFixedRewardSlotLayouts(nativeImage)[0] || null;
+}
+
+export function detectRewardSlotLayoutCandidates(nativeImage: NativeImage): RewardSlotLayout[] {
+  const fixed = detectFixedRewardSlotLayouts(nativeImage);
+  const primary = detectRewardSlotLayout(nativeImage);
+  const byKey = new Map<string, RewardSlotLayout>();
+  for (const layout of [...fixed, primary]) {
+    if (!layout || layout.count <= 0) continue;
+    const key = `${layout.count}:${layout.slots.map((slot) => slot.x.toFixed(3)).join(",")}`;
+    const existing = byKey.get(key);
+    if (!existing || layout.confidence > existing.confidence) byKey.set(key, layout);
+  }
+  return [...byKey.values()].sort((a, b) => {
+    const confidenceDiff = b.confidence - a.confidence;
+    if (Math.abs(confidenceDiff) < 0.08) return a.count - b.count;
+    return confidenceDiff || a.count - b.count;
+  });
 }
 
 export function detectRewardSlotLayout(nativeImage: NativeImage): RewardSlotLayout {

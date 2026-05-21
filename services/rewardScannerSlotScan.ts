@@ -1,6 +1,6 @@
 import type { NativeImage } from "electron";
 
-import { buildOcrVariants, cropRect, detectRewardSlotLayout } from "./rewardScannerImage";
+import { buildOcrVariants, cropRect, detectRewardSlotLayoutCandidates } from "./rewardScannerImage";
 import {
   MAX_REWARD_SLOTS,
   rankRewardCandidatesDetailed,
@@ -32,6 +32,7 @@ interface SlotScanResult {
   slotCount: number;
   strategy: string;
   slotConfidence: number;
+  avgConfidence: number;
 }
 
 export type StructuredOcrBufferRunner = (
@@ -104,6 +105,35 @@ function chooseUniqueRewardAssignments(
   return best;
 }
 
+function isUsableSlotCandidate(candidate: SlotCandidate): boolean {
+  if (!candidate?.item?.name) return false;
+  if (candidate.mode === "exact") return candidate.confidence >= 0.98;
+  if (candidate.mode === "substring") return candidate.confidence >= 0.9;
+  return candidate.confidence >= 0.82;
+}
+
+function baseRewardName(name: string): string {
+  return name
+    .replace(/\s+(Blueprint|Systems|Chassis|Neuroptics|Harness|Carapace|Cerebrum|Barrel|Receiver|Stock|Handle|Blade|String|Grip|Link|Pouch|Stars|Disc|Upper Limb|Lower Limb)$/i, "")
+    .trim()
+    .toLowerCase();
+}
+
+function duplicateBasePenalty(items: SortedItem[]): number {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const base = baseRewardName(item.name);
+    if (!base) continue;
+    counts.set(base, (counts.get(base) || 0) + 1);
+  }
+
+  let penalty = 0;
+  for (const count of counts.values()) {
+    if (count > 1) penalty += (count - 1) * 45;
+  }
+  return penalty;
+}
+
 export async function scanRewardSlotsFallback(
   screenshot: {
     image: NativeImage;
@@ -121,105 +151,135 @@ export async function scanRewardSlotsFallback(
     runOCRStructuredBuffer: StructuredOcrBufferRunner;
   },
 ): Promise<SlotScanResult | null> {
-  const layout = detectRewardSlotLayout(screenshot?.image);
-  if (!hasConfidentSlotLayout(layout)) return null;
+  const layouts = detectRewardSlotLayoutCandidates(screenshot?.image)
+    .filter((layout) => hasConfidentSlotLayout(layout))
+    .slice(0, 3);
+  if (layouts.length === 0) return null;
 
-  const slotLimit = Math.min(expectedCount || layout.count, layout.count, MAX_REWARD_SLOTS);
-  const slotResults = await Promise.all(
-    layout.slots.slice(0, slotLimit).map(async (slot, i) => {
-      const elapsed = Date.now() - startedAt;
-      const remainingBudgetMs = totalBudgetMs - elapsed;
-      if (remainingBudgetMs <= 0) return null;
+  let bestResult: SlotScanResult | null = null;
 
-      let crop: NativeImage;
-      try {
-        crop = cropRect(screenshot.image, slot.titleRect);
-      } catch {
-        return null;
-      }
+  for (const layout of layouts) {
+    const slotLimit = Math.min(expectedCount || layout.count, layout.count, MAX_REWARD_SLOTS);
+    const slotResults = await Promise.all(
+      layout.slots.slice(0, slotLimit).map(async (slot, i) => {
+        const elapsed = Date.now() - startedAt;
+        const remainingBudgetMs = totalBudgetMs - elapsed;
+        if (remainingBudgetMs <= 0) return null;
 
-      const rankedCandidates: SlotCandidate[] = [];
-      const variants = buildOcrVariants(crop);
-      for (const variant of variants) {
+        let crop: NativeImage;
         try {
-          const pngBuffer: Buffer = variant.image.toPNG();
-          const structured = await options.runOCRStructuredBuffer(
-            pngBuffer,
-            Math.max(500, Math.min(options.ocrTimeoutMs, remainingBudgetMs)),
-          );
-          const candidateTexts = extractRewardTitleTexts(structured);
-          for (const candidateText of candidateTexts) {
-            const ranked = rankRewardCandidatesDetailed(candidateText, options.sortedItems, 4)
-              .filter(
-                (
-                  candidate,
-                ): candidate is typeof candidate & { item: NonNullable<typeof candidate.item> } =>
-                  !!candidate.item,
-              )
-              .map((candidate) => ({
-                item: candidate.item!,
-                confidence: candidate.confidence,
-                score: candidate.score + (variant.id === "raw" ? 2 : 0),
-                mode: candidate.mode,
-              }));
-            rankedCandidates.push(...ranked);
-          }
+          crop = cropRect(screenshot.image, slot.titleRect);
         } catch {
-          continue;
+          return null;
         }
-      }
 
-      if (rankedCandidates.length === 0) return null;
-      rankedCandidates.sort((a, b) => b.score - a.score || b.confidence - a.confidence);
-      return {
-        index: i,
-        candidates: rankedCandidates,
-      };
-    }),
-  );
+        const rankedCandidates: SlotCandidate[] = [];
+        const variants = buildOcrVariants(crop);
+        for (const variant of variants) {
+          try {
+            const pngBuffer: Buffer = variant.image.toPNG();
+            const structured = await options.runOCRStructuredBuffer(
+              pngBuffer,
+              Math.max(500, Math.min(options.ocrTimeoutMs, remainingBudgetMs)),
+            );
+            const candidateTexts = extractRewardTitleTexts(structured);
+            for (const candidateText of candidateTexts) {
+              const ranked = rankRewardCandidatesDetailed(candidateText, options.sortedItems, 4)
+                .filter(
+                  (
+                    candidate,
+                  ): candidate is typeof candidate & { item: NonNullable<typeof candidate.item> } =>
+                    !!candidate.item,
+                )
+                .map((candidate) => ({
+                  item: candidate.item!,
+                  confidence: candidate.confidence,
+                  score: candidate.score + (variant.id === "raw" ? 2 : 0),
+                  mode: candidate.mode,
+                }))
+                .filter(isUsableSlotCandidate);
+              rankedCandidates.push(...ranked);
+            }
+          } catch {
+            continue;
+          }
+        }
 
-  const orderedCandidates = slotResults
-    .filter(
-      (
-        entry,
-      ): entry is {
-        index: number;
-        candidates: SlotCandidate[];
-      } => !!entry,
-    )
-    .sort((a, b) => a.index - b.index);
-
-  const assigned = chooseUniqueRewardAssignments(
-    orderedCandidates.map((entry) => entry.candidates),
-  );
-  const collected = orderedCandidates
-    .map((entry, idx) => ({
-      index: entry.index,
-      candidate: assigned[idx] || entry.candidates[0] || null,
-    }))
-    .filter(
-      (
-        entry,
-      ): entry is {
-        index: number;
-        candidate: SlotCandidate;
-      } => !!entry.candidate,
+        if (rankedCandidates.length === 0) return null;
+        rankedCandidates.sort((a, b) => b.score - a.score || b.confidence - a.confidence);
+        return {
+          index: i,
+          candidates: rankedCandidates,
+        };
+      }),
     );
 
-  const score = collected.reduce((sum, entry) => sum + Number(entry.candidate.score || 0), 0);
-  const exactCount = collected.reduce(
-    (sum, entry) => sum + (entry.candidate.mode === "exact" ? 1 : 0),
-    0,
-  );
+    const orderedCandidates = slotResults
+      .filter(
+        (
+          entry,
+        ): entry is {
+          index: number;
+          candidates: SlotCandidate[];
+        } => !!entry,
+      )
+      .sort((a, b) => a.index - b.index);
 
-  if (!collected.length) return null;
+    const assigned = chooseUniqueRewardAssignments(
+      orderedCandidates.map((entry) => entry.candidates),
+    );
+    const collected = orderedCandidates
+      .map((entry, idx) => ({
+        index: entry.index,
+        candidate: assigned[idx] || null,
+      }))
+      .filter(
+        (
+          entry,
+        ): entry is {
+          index: number;
+          candidate: SlotCandidate;
+        } => !!entry.candidate,
+      );
 
-  return {
-    items: collected.map((entry) => entry.candidate.item).slice(0, slotLimit),
-    score,
-    exactCount,
-    slotCount: slotLimit,
-    strategy: "slot-fallback",
-    slotConfidence: layout.confidence,
-  };
+    if (!collected.length) continue;
+
+    const items = collected.map((entry) => entry.candidate.item).slice(0, slotLimit);
+    const exactCount = collected.reduce(
+      (sum, entry) => sum + (entry.candidate.mode === "exact" ? 1 : 0),
+      0,
+    );
+    const avgConfidence =
+      collected.reduce((sum, entry) => sum + Number(entry.candidate.confidence || 0), 0) /
+      Math.max(1, collected.length);
+    const avgCandidateScore =
+      collected.reduce((sum, entry) => sum + Number(entry.candidate.score || 0), 0) /
+      Math.max(1, collected.length);
+    const score =
+      avgCandidateScore +
+      collected.length * 12 +
+      exactCount * 35 +
+      avgConfidence * 20 -
+      duplicateBasePenalty(items);
+
+    const result: SlotScanResult = {
+      items,
+      score,
+      exactCount,
+      slotCount: layout.count,
+      strategy: "slot-fallback",
+      slotConfidence: layout.confidence,
+      avgConfidence,
+    };
+
+    if (
+      !bestResult ||
+      result.score > bestResult.score ||
+      (result.score === bestResult.score && result.items.length > bestResult.items.length)
+    ) {
+      bestResult = result;
+    }
+  }
+
+  return bestResult;
 }

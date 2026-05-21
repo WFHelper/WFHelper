@@ -155,20 +155,25 @@ function renderSlot(index) {
     .toUpperCase();
   rarityEl.className = `slot-rarity ${rarityClass(item.rarity)}`;
 
+  const ducats = Number(item.ducats);
+  const hasDucats = Number.isFinite(ducats) && ducats > 0;
+  const ducatText = hasDucats ? `${Math.floor(ducats)}d` : "";
+
   if (price == null) {
     priceEl.textContent = "...";
     priceEl.className = "slot-price muted";
+  } else if (price <= 0 && hasDucats) {
+    priceEl.textContent = ducatText;
+    priceEl.className = "slot-price ducats-only";
   } else if (price <= 0) {
     priceEl.textContent = "N/A";
     priceEl.className = "slot-price muted";
+  } else if (hasDucats) {
+    priceEl.textContent = `${price}p / ${ducatText}`;
+    priceEl.className = "slot-price";
   } else {
     priceEl.textContent = `${price}p`;
     priceEl.className = "slot-price";
-  }
-
-  const ducats = Number(item.ducats);
-  if (Number.isFinite(ducats) && ducats > 0) {
-    appendMetaChip(metaEl, `${Math.floor(ducats)}d`, "ducats");
   }
 
   const partRequired = Number(item.partRequiredCount);

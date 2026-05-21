@@ -231,14 +231,14 @@ body {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  padding: 6px 8px;
+  padding: 5px 7px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   transition:
     border-color 0.2s,
     background 0.2s;
-  min-height: 100px;
+  min-height: 92px;
 }
 
 .reward-slot.has-item {
@@ -318,9 +318,10 @@ body {
 }
 
 .slot-price {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--accent-bright);
+  white-space: nowrap;
 }
 
 .slot-price.muted {
@@ -329,10 +330,14 @@ body {
   font-weight: 400;
 }
 
+.slot-price.ducats-only {
+  color: color-mix(in oklab, var(--accent) 76%, #f7d47a 24%);
+}
+
 .slot-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 2px;
   min-height: 0;
 }
 
@@ -367,7 +372,7 @@ body {
 .slot-set-parts {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 2px;
   width: 100%;
 }
 
@@ -375,13 +380,13 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  max-width: 48px;
+  max-width: 52px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 4px;
   padding: 1px 3px;
   background: rgba(255, 255, 255, 0.045);
   color: var(--muted);
-  font-size: 8.5px;
+  font-size: 8px;
   line-height: 1.2;
   font-weight: 700;
 }

@@ -7,7 +7,7 @@ import type {
 
 const OVERLAY_WINDOW_BOUNDS = Object.freeze({
   width: 980,
-  height: 170,
+  height: 140,
   horizontalMargin: 16,
   bottomMargin: 18,
   topMargin: 8,
