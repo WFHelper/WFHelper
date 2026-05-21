@@ -2,6 +2,7 @@
   import { masteryData } from "../stores/mastery.js";
   import { wfmItems } from "../stores/data.js";
   import { activeItem, activeComponent } from "../stores/modals.js";
+  import { hideFounderMasteryItems } from "../stores/preferences.js";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
   import HeaderTabs from "../components/HeaderTabs.svelte";
   import SummaryStrip, { type SummaryStripItem } from "../components/SummaryStrip.svelte";
@@ -17,6 +18,7 @@
     ["name", "Name"],
     ["owned", "Owned"],
   ] satisfies Array<["name" | "owned", string]>;
+  const FOUNDER_ITEM_NAMES = new Set(["Excalibur Prime", "Lato Prime", "Skana Prime"]);
 
   let catFilter    = 'all';
   let statusFilter = 'all';
@@ -35,7 +37,55 @@
     return [...ordered, ...extras];
   }
 
-  $: categories = $masteryData ? orderedCategories($masteryData.stats.byCategory) : [];
+  function isFounderItem(name: string): boolean {
+    return FOUNDER_ITEM_NAMES.has(name);
+  }
+
+  function masteryStatsForItems(
+    items: NonNullable<typeof $masteryData>["items"],
+    data: NonNullable<typeof $masteryData>,
+  ): NonNullable<typeof $masteryData>["stats"] {
+    const stats: NonNullable<typeof $masteryData>["stats"] = {
+      total: items.length,
+      mastered: 0,
+      inProgress: 0,
+      missing: 0,
+      byCategory: {},
+      profileMastery: data.stats.profileMastery ?? null,
+    };
+
+    for (const item of items) {
+      if (!stats.byCategory[item.category]) {
+        stats.byCategory[item.category] = { total: 0, mastered: 0, inProgress: 0, missing: 0 };
+      }
+      stats.byCategory[item.category].total++;
+      if (item.status === "mastered") {
+        stats.mastered++;
+        stats.byCategory[item.category].mastered++;
+      } else if (item.status === "progress") {
+        stats.inProgress++;
+        stats.byCategory[item.category].inProgress++;
+      } else {
+        stats.missing++;
+        stats.byCategory[item.category].missing++;
+      }
+    }
+
+    return stats;
+  }
+
+  function masteryViewData(data: typeof $masteryData, hideFounder: boolean): typeof $masteryData {
+    if (!data || !hideFounder) return data;
+    const items = data.items.filter((item) => !isFounderItem(item.name));
+    return {
+      ...data,
+      items,
+      stats: masteryStatsForItems(items, data),
+    };
+  }
+
+  $: displayMasteryData = masteryViewData($masteryData, $hideFounderMasteryItems);
+  $: categories = displayMasteryData ? orderedCategories(displayMasteryData.stats.byCategory) : [];
 
   function buildMasterySummary(data: typeof $masteryData): SummaryStripItem[] {
     if (!data) return [];
@@ -59,7 +109,7 @@
     return rows;
   }
 
-  $: masterySummaryItems = buildMasterySummary($masteryData);
+  $: masterySummaryItems = buildMasterySummary(displayMasteryData);
 
   // Pre-compute per-item derived values here so {#each} never reads
   // $wfmItems directly — a wfmItems store update won't trigger a full
@@ -98,7 +148,7 @@
   }
 
   $: filtered = hydrateAndFilterMastery(
-    $masteryData,
+    displayMasteryData,
     $wfmItems,
     $masteryFilters,
     catFilter,
@@ -128,8 +178,8 @@
 
   <SharedFilterBar scope="mastery" sortOptions={MASTERY_SORT_OPTIONS} />
 
-  {#if $masteryData}
-    {@const stats = $masteryData.stats}
+  {#if displayMasteryData}
+    {@const stats = displayMasteryData.stats}
     {@const masteredPct = formatPercent(stats.mastered, stats.total)}
 
     <!-- Stats overview -->

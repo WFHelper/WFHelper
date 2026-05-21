@@ -63,6 +63,7 @@ describe("overlay settings controller", () => {
     const normalized = controller.normalizeOverlaySettings({});
 
     expect(Object.keys(normalized).sort()).toEqual(Object.keys(OVERLAY_SETTINGS_DEFAULTS).sort());
+    expect(normalized.autoCloseWfmOrders).toBe(true);
   });
 
   it("preserves WFM order automation settings", () => {

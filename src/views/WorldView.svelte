@@ -122,6 +122,13 @@
   function titleCase(s: string): string {
     return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
   }
+
+  function daysUntilLabel(iso: string | undefined): string {
+    const ms = iso ? Date.parse(iso) - nowCoarseMs : Number.NaN;
+    if (!Number.isFinite(ms)) return "Soon";
+    const days = Math.max(1, Math.ceil(ms / 86_400_000));
+    return `In ${days} day${days === 1 ? "" : "s"}`;
+  }
 </script>
 
 <section class="view active">
@@ -259,6 +266,13 @@
             <span class="text-sm font-semibold text-warning flex-1 min-w-0">{steelPathHonors.currentReward.name}</span>
             <span class="text-xs text-text-secondary whitespace-nowrap shrink-0">{steelPathHonors.currentReward.cost} Steel Essence</span>
           </div>
+          {#each steelPathHonors.upcoming || [] as reward}
+            <div class="flex items-center gap-2 py-0.5">
+              <span class="text-sm text-text-secondary shrink-0">{daysUntilLabel(reward.activation)}:</span>
+              <span class="text-sm text-text-primary flex-1 min-w-0">{reward.name}</span>
+              <span class="text-xs text-text-secondary whitespace-nowrap shrink-0">{reward.cost} Steel Essence</span>
+            </div>
+          {/each}
           </CollapsibleSection>
         </div>
         {/if}

@@ -89,6 +89,11 @@ export interface SteelPathHonors {
   activation?: string;
   expiry?: string;
   rotation: SteelPathReward[];
+  upcoming?: Array<SteelPathReward & {
+    activation: string;
+    expiry: string;
+    weekOffset: number;
+  }>;
   evergreens: SteelPathReward[];
 }
 

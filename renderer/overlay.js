@@ -57,6 +57,41 @@ function appendMetaChip(container, text, tone) {
   container.appendChild(chip);
 }
 
+function appendSetParts(container, parts) {
+  const visibleParts = Array.isArray(parts) ? parts.filter(Boolean).slice(0, 6) : [];
+  if (visibleParts.length === 0) return;
+
+  const row = document.createElement("div");
+  row.className = "slot-set-parts";
+
+  for (const part of visibleParts) {
+    const required = Number(part.requiredCount);
+    const owned = Number(part.ownedCount);
+    const ok =
+      Number.isFinite(required) &&
+      required > 0 &&
+      Number.isFinite(owned) &&
+      owned >= required;
+    const chip = document.createElement("span");
+    chip.className = `slot-set-part ${ok ? "owned" : "missing"}`;
+    chip.title = `${part.name || "Part"}: ${formatCount(part.ownedCount)}/${formatCount(part.requiredCount)}`;
+
+    if (part.imageUrl) {
+      const img = document.createElement("img");
+      img.src = part.imageUrl;
+      img.alt = "";
+      chip.appendChild(img);
+    }
+
+    const count = document.createElement("span");
+    count.textContent = `${formatCount(part.ownedCount)}/${formatCount(part.requiredCount)}`;
+    chip.appendChild(count);
+    row.appendChild(chip);
+  }
+
+  container.appendChild(row);
+}
+
 function plannerGridElement() {
   return document.getElementById("planner-grid");
 }
@@ -153,6 +188,8 @@ function renderSlot(index) {
       "set",
     );
   }
+
+  appendSetParts(metaEl, item.setParts);
 
   if (item.setUrlName) {
     const setText = setPrice == null ? "Set ..." : setPrice > 0 ? `Set ${setPrice}p` : "Set N/A";

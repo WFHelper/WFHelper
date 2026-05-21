@@ -9,6 +9,7 @@
   import AppearanceCard from "../components/settings/AppearanceCard.svelte";
   import { invoke, send } from "../lib/ipc.js";
   import { tr } from "../lib/i18n.js";
+  import { hideFounderMasteryItems } from "../stores/preferences.js";
   import type { OverlaySettings } from "../types/ipc.js";
 
   let settingsTab: "general" | "appearance" | "overlay" = "general";
@@ -165,8 +166,24 @@
           </label>
 
           <label class="settings-control-row">
-            <span>Auto-close WFM orders on trade</span>
+            <span>Unlist WFMarket orders when sold/bought</span>
             <input type="checkbox" bind:checked={autoCloseWfmOrders} class="accent-accent" />
+          </label>
+        </div>
+      </article>
+
+      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+        <div>
+          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Mastery</h3>
+          <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
+            Control which items appear in the mastery helper.
+          </p>
+        </div>
+
+        <div class="mt-2.5 grid gap-2">
+          <label class="settings-control-row">
+            <span>Hide Founder items</span>
+            <input type="checkbox" bind:checked={$hideFounderMasteryItems} class="accent-accent" />
           </label>
         </div>
       </article>

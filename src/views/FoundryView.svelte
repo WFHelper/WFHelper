@@ -231,7 +231,11 @@
     category: string;
     count: number | null;
     time: number | null;
+    isPrime: boolean;
+    status: MasteryStatus | "unknown";
+    vaulted: boolean;
   } {
+    const db = row.e.productUniqueName ? $itemDb[row.e.productUniqueName] : null;
     return {
       name: row.e.name,
       category: row.e.category,
@@ -240,6 +244,9 @@
         row.e.source === "building" && row.e.endDate
           ? Math.max(row.e.endDate.getTime() - nowMs, 0)
           : null,
+      isPrime: db?.isPrime === true || /\bprime\b/i.test(row.e.name),
+      status: masteryStateFor(row.e),
+      vaulted: db?.vaulted === true,
     };
   }
 
@@ -325,7 +332,7 @@
       scope="foundry"
       singleLine
       showAdvanced={false}
-      basicVariant="quick"
+      basicVariant="full"
       sortOptions={foundrySortOptions}
     />
   </div>

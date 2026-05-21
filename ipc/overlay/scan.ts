@@ -34,6 +34,13 @@ type RewardItem = {
   [key: string]: unknown;
 };
 
+type SetPartProgress = {
+  name: string;
+  imageUrl: string | null;
+  ownedCount: number;
+  requiredCount: number;
+};
+
 type InventoryData = Record<string, unknown> | null;
 
 type ItemEntry = NonNullable<ReturnType<typeof itemDatabase.lookupItem>>;
@@ -134,12 +141,13 @@ function componentRequiredCount(parent: ItemEntry | null, uniqueName: string | n
 function setProgress(
   parent: ItemEntry | null,
   ownedCounts: Map<string, number>,
-): { owned: number; required: number; completeSets: number } | null {
+): { owned: number; required: number; completeSets: number; parts: SetPartProgress[] } | null {
   if (!parent || !Array.isArray(parent.components) || parent.components.length === 0) return null;
 
   let owned = 0;
   let required = 0;
   let completeSets = Number.POSITIVE_INFINITY;
+  const parts: SetPartProgress[] = [];
 
   for (const component of parent.components) {
     if (!component.uniqueName || component.tradable === false) continue;
@@ -148,6 +156,13 @@ function setProgress(
     required += needed;
     owned += Math.min(count, needed);
     completeSets = Math.min(completeSets, Math.floor(count / needed));
+    const componentEntry = itemDatabase.lookupItem(component.uniqueName);
+    parts.push({
+      name: component.name || componentEntry?.name || "Part",
+      imageUrl: componentEntry?.imageUrl || null,
+      ownedCount: count,
+      requiredCount: needed,
+    });
   }
 
   if (required <= 0) return null;
@@ -155,6 +170,7 @@ function setProgress(
     owned,
     required,
     completeSets: Number.isFinite(completeSets) ? completeSets : 0,
+    parts,
   };
 }
 
@@ -195,6 +211,7 @@ function enrichRewardItems(items: unknown[], inventoryData: InventoryData): unkn
             setOwnedCount: progress.owned,
             setRequiredCount: progress.required,
             completeSetCount: progress.completeSets,
+            setParts: progress.parts,
           }
         : {}),
       ...(setName

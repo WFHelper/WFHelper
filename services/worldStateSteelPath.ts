@@ -31,6 +31,13 @@ export function computeSteelPathHonors(): {
   activation: string;
   expiry: string;
   rotation: { name: string; cost: number }[];
+  upcoming: Array<{
+    name: string;
+    cost: number;
+    activation: string;
+    expiry: string;
+    weekOffset: number;
+  }>;
   evergreens: { name: string; cost: number }[];
 } {
   const nowMs = Date.now();
@@ -47,11 +54,27 @@ export function computeSteelPathHonors(): {
   expiry.setUTCDate(expiry.getUTCDate() + 6);
   expiry.setUTCHours(23, 59, 59, 0);
 
+  const upcoming = [1, 2].map((weekOffset) => {
+    const reward = STEEL_PATH_ROTATION[(ind + weekOffset) % STEEL_PATH_ROTATION.length];
+    const weekActivation = new Date(activation);
+    weekActivation.setUTCDate(weekActivation.getUTCDate() + weekOffset * 7);
+    const weekExpiry = new Date(weekActivation);
+    weekExpiry.setUTCDate(weekExpiry.getUTCDate() + 6);
+    weekExpiry.setUTCHours(23, 59, 59, 0);
+    return {
+      ...reward,
+      activation: weekActivation.toISOString(),
+      expiry: weekExpiry.toISOString(),
+      weekOffset,
+    };
+  });
+
   return {
     currentReward: STEEL_PATH_ROTATION[ind],
     activation: activation.toISOString(),
     expiry: expiry.toISOString(),
     rotation: STEEL_PATH_ROTATION,
+    upcoming,
     evergreens: STEEL_PATH_EVERGREENS,
   };
 }

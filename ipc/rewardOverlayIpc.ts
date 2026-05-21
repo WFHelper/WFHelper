@@ -15,6 +15,7 @@ import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 
 import * as relicService from "../services/relicService";
+import * as itemDatabase from "../services/itemDatabase";
 import {
   captureSourceMeta,
   detectRelicSelectionEra,
@@ -247,12 +248,13 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
         if (!qualData?.rewards) continue;
         for (const reward of qualData.rewards) {
           if (reward.name && !seen.has(reward.name)) {
+            const dbEntry = reward.uniqueName ? itemDatabase.lookupItem(reward.uniqueName) : null;
             seen.set(reward.name, {
               name: reward.name,
               uniqueName: reward.uniqueName || null,
               urlName: reward.urlName || null,
               rarity: reward.rarity || "Common",
-              ducats: reward.ducats ?? null,
+              ducats: reward.ducats ?? dbEntry?.ducats ?? null,
             });
           }
         }
