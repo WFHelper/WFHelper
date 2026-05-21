@@ -1,0 +1,6 @@
+# Gatekeeper before pushing to the remote.
+# Runs typecheck + unit tests for the main app and the worker.
+# Bypass with `git push --no-verify` if you really need to (don't make a habit).
+pnpm typecheck
+pnpm test
+pnpm backend:test

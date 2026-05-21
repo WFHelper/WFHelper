@@ -49,7 +49,8 @@
     "icons:manifest": "pnpm run build:main && node scripts/icon-mirror/build-icon-manifest.mjs",
     "icons:download": "pnpm run icons:manifest && node scripts/icon-mirror/download-icon-mirror.mjs",
     "icons:deploy": "npm --prefix backend/worker exec -- wrangler pages deploy .icon-mirror/public --project-name wfhelper-icons --branch pre-production --commit-dirty=true",
-    "rebuild": "electron-rebuild -f"
+    "rebuild": "electron-rebuild -f",
+    "prepare": "husky"
   },
   "keywords": [
     "warframe",
@@ -75,6 +76,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-svelte": "^3.15.0",
     "globals": "^17.4.0",
+    "husky": "^9.1.7",
     "knip": "^6.9.0",
     "nodemon": "^3.1.14",
     "prettier": "^3.8.1",
