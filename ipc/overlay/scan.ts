@@ -92,38 +92,14 @@ function finitePositiveInteger(value: unknown): number | null {
   return Math.floor(numberValue);
 }
 
-function buildItemIndexes(): {
-  byName: Map<string, string>;
-  bySlug: Map<string, string>;
-} {
-  const byName = new Map<string, string>();
-  const bySlug = new Map<string, string>();
-  for (const [uniqueName, entry] of Object.entries(itemDatabase.getAllItems())) {
-    const name = typeof entry.name === "string" ? entry.name.trim() : "";
-    if (!name) continue;
-    byName.set(name.toLowerCase(), uniqueName);
-    const slug = normalizeWfmSlug(name);
-    if (slug) bySlug.set(slug, uniqueName);
-  }
-  return { byName, bySlug };
-}
-
 function resolveRewardUniqueName(item: RewardItem): string | null {
+  const name = typeof item.name === "string" ? item.name.trim() : "";
+  const slug = typeof item.urlName === "string" ? normalizeWfmSlug(item.urlName) : null;
+  const byDisplayName = itemDatabase.lookupItemByNameOrSlug(name, slug);
+  if (byDisplayName) return byDisplayName.uniqueName;
+
   if (typeof item.uniqueName === "string" && itemDatabase.lookupItem(item.uniqueName)) {
     return item.uniqueName;
-  }
-
-  const { byName, bySlug } = buildItemIndexes();
-  const name = typeof item.name === "string" ? item.name.trim().toLowerCase() : "";
-  if (name) {
-    const byExactName = byName.get(name);
-    if (byExactName) return byExactName;
-  }
-
-  const slug = typeof item.urlName === "string" ? normalizeWfmSlug(item.urlName) : null;
-  if (slug) {
-    const byExactSlug = bySlug.get(slug);
-    if (byExactSlug) return byExactSlug;
   }
 
   return null;

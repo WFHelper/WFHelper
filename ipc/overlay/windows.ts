@@ -11,9 +11,9 @@ const OVERLAY_WINDOW_BOUNDS = Object.freeze({
   horizontalMargin: 16,
   bottomMargin: 18,
   topMargin: 8,
-  defaultYRatio: 0.47,
-  anchorGapRatio: 0.018,
-  anchorMinRatio: 0.22,
+  defaultYRatio: 0.56,
+  anchorGapRatio: 0.04,
+  anchorMinRatio: 0.32,
   anchorMaxRatio: 0.82,
 });
 
@@ -195,30 +195,30 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       return OVERLAY_WINDOW_BOUNDS.defaultYRatio;
     }
 
-    const bandTop =
-      typeof anchorMeta.bandTopRatio === "number" && Number.isFinite(anchorMeta.bandTopRatio)
-        ? anchorMeta.bandTopRatio
+    const bandBottom =
+      typeof anchorMeta.bandBottomRatio === "number" && Number.isFinite(anchorMeta.bandBottomRatio)
+        ? anchorMeta.bandBottomRatio
         : null;
-    if (bandTop != null) {
+    if (bandBottom != null) {
+      const anchoredRatio = bandBottom + OVERLAY_WINDOW_BOUNDS.anchorGapRatio;
       return clampNumber(
-        bandTop + OVERLAY_WINDOW_BOUNDS.anchorGapRatio,
+        anchoredRatio,
         OVERLAY_WINDOW_BOUNDS.anchorMinRatio,
         OVERLAY_WINDOW_BOUNDS.anchorMaxRatio,
         OVERLAY_WINDOW_BOUNDS.defaultYRatio,
       );
     }
 
-    const bandBottom =
-      typeof anchorMeta.bandBottomRatio === "number" && Number.isFinite(anchorMeta.bandBottomRatio)
-        ? anchorMeta.bandBottomRatio
+    const bandTop =
+      typeof anchorMeta.bandTopRatio === "number" && Number.isFinite(anchorMeta.bandTopRatio)
+        ? anchorMeta.bandTopRatio
         : null;
-    if (bandBottom == null) {
+    if (bandTop == null) {
       return OVERLAY_WINDOW_BOUNDS.defaultYRatio;
     }
 
-    const anchoredRatio = bandBottom + OVERLAY_WINDOW_BOUNDS.anchorGapRatio;
     return clampNumber(
-      anchoredRatio,
+      bandTop + OVERLAY_WINDOW_BOUNDS.anchorGapRatio,
       OVERLAY_WINDOW_BOUNDS.anchorMinRatio,
       OVERLAY_WINDOW_BOUNDS.anchorMaxRatio,
       OVERLAY_WINDOW_BOUNDS.defaultYRatio,

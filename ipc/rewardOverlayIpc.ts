@@ -248,10 +248,13 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
         if (!qualData?.rewards) continue;
         for (const reward of qualData.rewards) {
           if (reward.name && !seen.has(reward.name)) {
-            const dbEntry = reward.uniqueName ? itemDatabase.lookupItem(reward.uniqueName) : null;
+            const resolved = itemDatabase.lookupItemByNameOrSlug(reward.name, reward.urlName);
+            const dbEntry =
+              resolved?.item ||
+              (reward.uniqueName ? itemDatabase.lookupItem(reward.uniqueName) : null);
             seen.set(reward.name, {
               name: reward.name,
-              uniqueName: reward.uniqueName || null,
+              uniqueName: resolved?.uniqueName || reward.uniqueName || null,
               urlName: reward.urlName || null,
               rarity: reward.rarity || "Common",
               ducats: reward.ducats ?? dbEntry?.ducats ?? null,

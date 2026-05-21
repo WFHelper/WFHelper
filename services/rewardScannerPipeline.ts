@@ -6,7 +6,12 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 import { withScope } from "./logger";
 import { captureScreenFast, type CaptureResult } from "./rewardScannerCapture";
 import { detectConsoleOpen, detectRewardSlotLayout } from "./rewardScannerImage";
-import { buildConsensusSelection, type PassResult, type SortedItem } from "./rewardScannerMatch";
+import {
+  buildConsensusSelection,
+  MAX_REWARD_SLOTS,
+  type PassResult,
+  type SortedItem,
+} from "./rewardScannerMatch";
 import { scanRewardBandPasses } from "./rewardScannerBandScan";
 import { scanRewardSlotsFallback, type StructuredOcrBufferRunner } from "./rewardScannerSlotScan";
 import {
@@ -311,6 +316,7 @@ export async function runRewardScanPipeline({
       slotFirstResult &&
       slotFirstResult.items.length >= 2 &&
       slotFirstResult.items.length < expectedItemCount &&
+      slotFirstResult.exactCount > 0 &&
       slotFirstResult.avgConfidence >= 0.84
     ) {
       log.log(
@@ -353,6 +359,13 @@ export async function runRewardScanPipeline({
       };
       cacheFrameResult(frameHash, result);
       return result;
+    }
+
+    if (expectedItemCount < MAX_REWARD_SLOTS) {
+      log.log(
+        `[RewardScanner] Expanding OCR target from ${expectedItemCount} to ${MAX_REWARD_SLOTS} after slot-primary was not conclusive`,
+      );
+      expectedItemCount = MAX_REWARD_SLOTS;
     }
   }
 

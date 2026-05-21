@@ -363,10 +363,12 @@ app.whenReady().then(async () => {
       for (const qualData of Object.values(group.qualities)) {
         for (const reward of qualData.rewards || []) {
           if (reward.name && !seen.has(reward.name)) {
-            const dbEntry = reward.uniqueName ? itemDb.lookupItem(reward.uniqueName) : null;
+            const resolved = itemDb.lookupItemByNameOrSlug(reward.name, reward.urlName);
+            const dbEntry =
+              resolved?.item || (reward.uniqueName ? itemDb.lookupItem(reward.uniqueName) : null);
             seen.set(reward.name, {
               name: reward.name,
-              uniqueName: reward.uniqueName || null,
+              uniqueName: resolved?.uniqueName || reward.uniqueName || null,
               urlName: reward.urlName || null,
               rarity: reward.rarity || "Common",
               ducats: reward.ducats ?? dbEntry?.ducats ?? null,

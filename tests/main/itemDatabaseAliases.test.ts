@@ -28,6 +28,19 @@ describe("itemDatabase WFCD alias enrichment", () => {
     expect(innodemBlueprint?.tradable).toBe(true);
   });
 
+  it("resolves relic reward display names to the actual prime part entry", () => {
+    const resolved = itemDb.lookupItemByNameOrSlug(
+      "Akarius Prime Blueprint",
+      "akarius_prime_blueprint",
+    );
+
+    expect(resolved?.uniqueName).toBe("/Lotus/Types/Recipes/Weapons/AkariusPrimeBlueprint");
+    expect(resolved?.item.ducats).toBe(100);
+    expect(resolved?.item.componentOf).toBe(
+      "/Lotus/Weapons/Tenno/Pistols/PrimeAkarius/PrimeAkariusWeapon",
+    );
+  });
+
   it("preserves unresolved weapon-part tradability as unknown for renderer heuristics", () => {
     const corufellHandle = itemDb.lookupItem(
       "/Lotus/Types/Recipes/Weapons/WeaponParts/GunScytheHandle",

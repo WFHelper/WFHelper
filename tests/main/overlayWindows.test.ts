@@ -30,7 +30,7 @@ function createController(overlaySettings: Record<string, unknown> = {}) {
 }
 
 describe("createOverlayWindowsController", () => {
-  it("anchors reward overlays near the top of the detected reward band", () => {
+  it("anchors reward overlays below the detected reward band", () => {
     const controller = createController();
 
     const bounds = controller.getOverlayBoundsForActiveDisplay({
@@ -39,7 +39,7 @@ describe("createOverlayWindowsController", () => {
       bandBottomRatio: 0.74,
     });
 
-    expect(bounds.y).toBe(430);
+    expect(bounds.y).toBe(842);
   });
 
   it("treats null band ratios as missing anchor metadata", () => {
@@ -51,7 +51,7 @@ describe("createOverlayWindowsController", () => {
       bandBottomRatio: null,
     });
 
-    expect(bounds.y).toBe(508);
+    expect(bounds.y).toBe(605);
   });
 
   it("applies the user overlay scale to window dimensions", () => {

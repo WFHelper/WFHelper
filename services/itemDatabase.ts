@@ -11,6 +11,7 @@ import path from "node:path";
 import { sanitizeDisplayName } from "../config/shared/displayName";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { normalizeDucats } from "../config/shared/numeric";
+import { normalizeWfmSlug } from "../config/shared/wfm";
 import { withScope } from "./logger";
 import type {
   PepExportItem,
@@ -680,6 +681,30 @@ export function buildDatabase(): void {
 
 export function lookupItem(uniqueName: string): ItemEntry | null {
   return itemsByUniqueName[uniqueName] || null;
+}
+
+export function lookupItemByNameOrSlug(
+  name: string | null | undefined,
+  slug: string | null | undefined,
+): { uniqueName: string; item: ItemEntry } | null {
+  const normalizedName = typeof name === "string" ? name.trim().toLowerCase() : "";
+  const normalizedSlug = typeof slug === "string" ? normalizeWfmSlug(slug) : null;
+  if (!normalizedName && !normalizedSlug) return null;
+
+  let fallback: { uniqueName: string; item: ItemEntry } | null = null;
+  for (const [uniqueName, item] of Object.entries(itemsByUniqueName)) {
+    const itemName = typeof item.name === "string" ? item.name.trim().toLowerCase() : "";
+    const itemSlug = normalizeWfmSlug(item.name || "");
+    const matchesName = normalizedName && itemName === normalizedName;
+    const matchesSlug = normalizedSlug && itemSlug === normalizedSlug;
+    if (!matchesName && !matchesSlug) continue;
+
+    const resolved = { uniqueName, item };
+    if (item.componentOf || item.ducats != null || item.isBuildComponent) return resolved;
+    fallback = fallback || resolved;
+  }
+
+  return fallback;
 }
 
 export function getRendererLookup(): Record<string, RendererItemEntry> {

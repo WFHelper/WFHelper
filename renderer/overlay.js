@@ -57,6 +57,41 @@ function appendMetaChip(container, text, tone) {
   container.appendChild(chip);
 }
 
+function renderSlotValues(container, price, ducats) {
+  container.innerHTML = "";
+  container.className = "slot-values";
+
+  const hasPrice = Number.isFinite(Number(price)) && Number(price) > 0;
+  const ducatCount = Number(ducats);
+  const hasDucats = Number.isFinite(ducatCount) && ducatCount > 0;
+
+  if (!hasPrice && !hasDucats) {
+    container.textContent = price == null ? "..." : "N/A";
+    container.classList.add("muted");
+    return;
+  }
+
+  if (hasPrice) {
+    const plat = document.createElement("span");
+    plat.className = "slot-plat-value";
+    plat.textContent = `${Math.round(Number(price))}p`;
+    container.appendChild(plat);
+  }
+
+  if (hasDucats) {
+    const ducat = document.createElement("span");
+    ducat.className = "slot-ducat-value";
+    const icon = document.createElement("img");
+    icon.src = "../assets/OrokinDucats.png";
+    icon.alt = "";
+    ducat.appendChild(icon);
+    const value = document.createElement("span");
+    value.textContent = String(Math.floor(ducatCount));
+    ducat.appendChild(value);
+    container.appendChild(ducat);
+  }
+}
+
 function appendSetParts(container, parts) {
   const visibleParts = Array.isArray(parts) ? parts.filter(Boolean).slice(0, 6) : [];
   if (visibleParts.length === 0) return;
@@ -81,9 +116,15 @@ function appendSetParts(container, parts) {
       img.src = part.imageUrl;
       img.alt = "";
       chip.appendChild(img);
+    } else {
+      const fallback = document.createElement("span");
+      fallback.className = "slot-set-part-fallback";
+      fallback.textContent = String(part.name || "?").charAt(0).toUpperCase();
+      chip.appendChild(fallback);
     }
 
     const count = document.createElement("span");
+    count.className = "slot-set-part-count";
     count.textContent = `${formatCount(part.ownedCount)}/${formatCount(part.requiredCount)}`;
     chip.appendChild(count);
     row.appendChild(chip);
@@ -141,7 +182,7 @@ function renderSlot(index) {
     nameEl.textContent = "-";
     nameEl.className = "slot-name empty";
     priceEl.textContent = "-";
-    priceEl.className = "slot-price muted";
+    priceEl.className = "slot-values muted";
     rarityEl.textContent = "";
     rarityEl.className = "slot-rarity";
     return;
@@ -155,26 +196,7 @@ function renderSlot(index) {
     .toUpperCase();
   rarityEl.className = `slot-rarity ${rarityClass(item.rarity)}`;
 
-  const ducats = Number(item.ducats);
-  const hasDucats = Number.isFinite(ducats) && ducats > 0;
-  const ducatText = hasDucats ? `${Math.floor(ducats)}d` : "";
-
-  if (price == null) {
-    priceEl.textContent = "...";
-    priceEl.className = "slot-price muted";
-  } else if (price <= 0 && hasDucats) {
-    priceEl.textContent = ducatText;
-    priceEl.className = "slot-price ducats-only";
-  } else if (price <= 0) {
-    priceEl.textContent = "N/A";
-    priceEl.className = "slot-price muted";
-  } else if (hasDucats) {
-    priceEl.textContent = `${price}p / ${ducatText}`;
-    priceEl.className = "slot-price";
-  } else {
-    priceEl.textContent = `${price}p`;
-    priceEl.className = "slot-price";
-  }
+  renderSlotValues(priceEl, price, item.ducats);
 
   const partRequired = Number(item.partRequiredCount);
   if (Number.isFinite(partRequired) && partRequired > 0) {
