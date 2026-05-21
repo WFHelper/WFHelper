@@ -330,8 +330,16 @@ function showDetectionError(message) {
 }
 
 function formatProfit(value) {
-  if (!Number.isFinite(Number(value))) return "-";
-  return Number(value).toFixed(1);
+  if (value == null || value === "") return "-";
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return "-";
+  return numberValue.toFixed(1);
+}
+
+function finiteMetric(value) {
+  if (value == null || value === "") return null;
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
 }
 
 function renderPlannerRows(payload) {
@@ -361,16 +369,16 @@ function renderPlannerRows(payload) {
   const container = plannerGridElement();
   container.innerHTML = "";
 
-  const bestPlat = Math.max(...rows.map((row) => Number(row?.platEv || -1)), -1);
+  const bestPlat = Math.max(...rows.map((row) => finiteMetric(row?.platEv) ?? -1), -1);
 
   for (const row of rows) {
     if (!row) continue;
     const card = document.createElement("div");
     card.className = "plan-card";
 
-    const platEv = Number(row.platEv);
-    const ducatEv = Number(row.ducatEv);
-    if (Number.isFinite(platEv) && platEv === bestPlat && bestPlat >= 0) {
+    const platEv = finiteMetric(row.platEv);
+    const ducatEv = finiteMetric(row.ducatEv);
+    if (platEv != null && platEv === bestPlat && bestPlat >= 0) {
       card.classList.add("best");
     }
 
