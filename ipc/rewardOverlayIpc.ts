@@ -94,6 +94,7 @@ export const plannerWindowsController = createOverlayWindowsController({
   placement: "top-right",
   windowWidth: 460,
   windowHeight: 320,
+  fileSearch: "mode=planner",
   transparent: false,
   backgroundColor: "#060a12",
   windowStateKey: "planner",
@@ -194,28 +195,14 @@ export function onRelicSelectionTrigger(
 }
 
 export function onRelicSelectionClose(pushOverlayInteractionMode: () => void): void {
-  void (async () => {
-    try {
-      const status = await warframeStatus.getStatus({ force: true });
-      if (status.isOpen && !status.isFocused) {
-        log.log(
-          `[OverlayClose] planner close ignored because Warframe is not focused (${status.focusedProcessName || "unknown"})`,
-        );
-        return;
-      }
-    } catch {
-      // Best effort; if focus detection fails, keep the previous close behavior.
-    }
-
-    relicSelectionController.resetMissionTier?.();
-    const win = ctx.plannerOverlayWindow;
-    if (!win || win.isDestroyed() || !win.isVisible()) return;
-    plannerWindowsController.clearOverlayAutoHideTimer();
-    ctx.overlayInteractiveMode = false;
-    pushOverlayInteractionMode();
-    win.hide();
-    log.log("[OverlayClose] planner closed via Dialog::SendResult");
-  })();
+  relicSelectionController.resetMissionTier?.();
+  const win = ctx.plannerOverlayWindow;
+  if (!win || win.isDestroyed() || !win.isVisible()) return;
+  plannerWindowsController.clearOverlayAutoHideTimer();
+  ctx.overlayInteractiveMode = false;
+  pushOverlayInteractionMode();
+  win.hide();
+  log.log("[OverlayClose] planner closed via Dialog::SendResult");
 }
 
 

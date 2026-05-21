@@ -489,7 +489,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   resetSlots();
   resetPlannerRows();
-  showRewardModeScanning();
+  const mode = new URLSearchParams(window.location.search).get("mode");
+  if (mode === "planner") {
+    showPlannerModeScanning();
+  } else {
+    showRewardModeScanning();
+  }
   setOverlayInteractiveMode(false);
 
   window.overlay.onTrigger(showRewardModeScanning);
