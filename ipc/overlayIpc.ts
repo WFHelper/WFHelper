@@ -71,6 +71,10 @@ function setOverlayInteractionMode(enabled: boolean, source = "unknown"): void {
   const next = !!enabled;
   const rewardExists = !!(ctx.overlayWindow && !ctx.overlayWindow.isDestroyed());
   const plannerExists = !!(ctx.plannerOverlayWindow && !ctx.plannerOverlayWindow.isDestroyed());
+  if (next) {
+    rwc.clearOverlayAutoHideTimer();
+    pwc.clearOverlayAutoHideTimer();
+  }
   if (ctx.overlayInteractiveMode === next && (rewardExists || plannerExists)) {
     if (rewardExists) rwc.setOverlayInteractiveMode(next);
     if (plannerExists) pwc.setOverlayInteractiveMode(next);

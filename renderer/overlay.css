@@ -206,6 +206,24 @@ body {
   min-width: 0;
 }
 
+.plan-currency-value,
+.slot-currency-value,
+.footer-currency-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.plan-currency-value img,
+.slot-currency-value img,
+.footer-currency-value img {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .plan-profit-label {
   color: var(--muted);
   flex-shrink: 0;
@@ -339,16 +357,7 @@ body {
 }
 
 .slot-ducat-value {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
   color: color-mix(in oklab, var(--accent) 76%, #f7d47a 24%);
-}
-
-.slot-ducat-value img {
-  width: 14px;
-  height: 14px;
-  object-fit: contain;
 }
 
 .slot-meta {
@@ -479,6 +488,9 @@ body {
 }
 
 #best-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   flex: 1;
   color: var(--accent-bright);
   font-weight: 600;

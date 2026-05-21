@@ -5,6 +5,8 @@ const slotState = Array.from({ length: SLOTS }, () => ({
   setPrice: null,
 }));
 let overlayInteractiveMode = false;
+const PLATINUM_ICON = "../assets/Platinum.png";
+const DUCAT_ICON = "../assets/OrokinDucats.png";
 
 function setOverlayInteractiveMode(interactive) {
   overlayInteractiveMode = !!interactive;
@@ -57,6 +59,23 @@ function appendMetaChip(container, text, tone) {
   container.appendChild(chip);
 }
 
+function appendCurrencyValue(container, className, iconSrc, value, label) {
+  const wrapper = document.createElement("span");
+  wrapper.className = className;
+  wrapper.title = label;
+
+  const icon = document.createElement("img");
+  icon.src = iconSrc;
+  icon.alt = "";
+  wrapper.appendChild(icon);
+
+  const text = document.createElement("span");
+  text.textContent = value;
+  wrapper.appendChild(text);
+
+  container.appendChild(wrapper);
+}
+
 function renderSlotValues(container, price, ducats) {
   container.innerHTML = "";
   container.className = "slot-values";
@@ -72,23 +91,23 @@ function renderSlotValues(container, price, ducats) {
   }
 
   if (hasPrice) {
-    const plat = document.createElement("span");
-    plat.className = "slot-plat-value";
-    plat.textContent = `${Math.round(Number(price))}p`;
-    container.appendChild(plat);
+    appendCurrencyValue(
+      container,
+      "slot-currency-value slot-plat-value",
+      PLATINUM_ICON,
+      String(Math.round(Number(price))),
+      "Platinum",
+    );
   }
 
   if (hasDucats) {
-    const ducat = document.createElement("span");
-    ducat.className = "slot-ducat-value";
-    const icon = document.createElement("img");
-    icon.src = "../assets/OrokinDucats.png";
-    icon.alt = "";
-    ducat.appendChild(icon);
-    const value = document.createElement("span");
-    value.textContent = String(Math.floor(ducatCount));
-    ducat.appendChild(value);
-    container.appendChild(ducat);
+    appendCurrencyValue(
+      container,
+      "slot-currency-value slot-ducat-value",
+      DUCAT_ICON,
+      String(Math.floor(ducatCount)),
+      "Ducats",
+    );
   }
 }
 
@@ -237,9 +256,19 @@ function updateBestPick() {
   }
 
   const bestEl = document.getElementById("best-value");
+  bestEl.innerHTML = "";
   if (bestIndex >= 0) {
     slotElement(bestIndex).classList.add("best-slot");
-    bestEl.textContent = `${slotState[bestIndex].item.name} - ${bestPrice}p`;
+    const name = document.createElement("span");
+    name.textContent = `${slotState[bestIndex].item.name} - `;
+    bestEl.appendChild(name);
+    appendCurrencyValue(
+      bestEl,
+      "footer-currency-value footer-plat-value",
+      PLATINUM_ICON,
+      String(bestPrice),
+      "Platinum",
+    );
   } else {
     bestEl.textContent = "No priced rewards yet";
   }
@@ -300,9 +329,9 @@ function showDetectionError(message) {
   showBestFooter(true);
 }
 
-function formatProfit(value, suffix) {
-  if (!Number.isFinite(Number(value))) return `-${suffix}`;
-  return `${Number(value).toFixed(1)}${suffix}`;
+function formatProfit(value) {
+  if (!Number.isFinite(Number(value))) return "-";
+  return Number(value).toFixed(1);
 }
 
 function renderPlannerRows(payload) {
@@ -356,17 +385,21 @@ function renderPlannerRows(payload) {
     label.className = "plan-profit-label";
     label.textContent = "E. profits:";
 
-    const plat = document.createElement("span");
-    plat.className = "plan-profit-plat";
-    plat.textContent = `${formatProfit(platEv, "p")} ◉`;
-
-    const ducat = document.createElement("span");
-    ducat.className = "plan-profit-ducat";
-    ducat.textContent = `${formatProfit(ducatEv, "d")} ❦`;
-
     profit.appendChild(label);
-    profit.appendChild(plat);
-    profit.appendChild(ducat);
+    appendCurrencyValue(
+      profit,
+      "plan-currency-value plan-profit-plat",
+      PLATINUM_ICON,
+      formatProfit(platEv),
+      "Expected platinum",
+    );
+    appendCurrencyValue(
+      profit,
+      "plan-currency-value plan-profit-ducat",
+      DUCAT_ICON,
+      formatProfit(ducatEv),
+      "Expected ducats",
+    );
 
     card.appendChild(title);
     card.appendChild(profit);
