@@ -73,18 +73,11 @@
     await persistAlerts(alerts.filter((a) => a.id !== id));
   }
 
-  function tierLabel(tier: string): string {
-    return tier === "any" ? "Any tier" : tier;
-  }
-  function missionLabel(m: string): string {
-    return m === "any" ? "Any mission" : m;
-  }
-  function spLabel(sp: string): string {
-    return sp === "any" ? "Any" : sp === "steel" ? "Steel Path" : "Normal";
-  }
-  function planetLabel(p: string): string {
-    return p === "any" ? "Any planet" : p;
-  }
+  const tierLabel = (tier: string) => (tier === "any" ? "Any tier" : tier);
+  const missionLabel = (m: string) => (m === "any" ? "Any mission" : m);
+  const planetLabel = (p: string) => (p === "any" ? "Any planet" : p);
+  const spLabel = (sp: string) =>
+    sp === "any" ? "Any" : sp === "steel" ? "Steel Path" : "Normal";
 </script>
 
 <div class="mt-0 pt-0 border-t-0">

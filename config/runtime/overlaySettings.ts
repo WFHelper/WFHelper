@@ -71,39 +71,25 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   overlayWindowBounds: Object.freeze({}),
 });
 
-type OverlayToggleKey =
+export type OverlayToggleKey =
   | "relicRewardsOverlayEnabled"
   | "relicRecommendationOverlayEnabled"
   | "tradeNotificationOverlayEnabled"
   | "rivenOverlayEnabled";
 
-function isOverlayToggleEnabled(
+/** Unset → on; only an explicit `false` disables the overlay. */
+export function isOverlayToggleEnabled(
   settings: Partial<Pick<OverlaySettings, OverlayToggleKey>> | null | undefined,
   key: OverlayToggleKey,
 ): boolean {
   return settings?.[key] !== false;
 }
 
-export function isRelicRewardsOverlayEnabled(
-  settings: Pick<OverlaySettings, "relicRewardsOverlayEnabled"> | null | undefined,
-): boolean {
-  return isOverlayToggleEnabled(settings, "relicRewardsOverlayEnabled");
-}
-
-export function isRelicRecommendationOverlayEnabled(
-  settings: Pick<OverlaySettings, "relicRecommendationOverlayEnabled"> | null | undefined,
-): boolean {
-  return isOverlayToggleEnabled(settings, "relicRecommendationOverlayEnabled");
-}
-
-export function isTradeNotificationOverlayEnabled(
-  settings: Pick<OverlaySettings, "tradeNotificationOverlayEnabled"> | null | undefined,
-): boolean {
-  return isOverlayToggleEnabled(settings, "tradeNotificationOverlayEnabled");
-}
-
-export function isRivenOverlayEnabled(
-  settings: Pick<OverlaySettings, "rivenOverlayEnabled"> | null | undefined,
-): boolean {
-  return isOverlayToggleEnabled(settings, "rivenOverlayEnabled");
-}
+export const isRelicRewardsOverlayEnabled = (s: Parameters<typeof isOverlayToggleEnabled>[0]) =>
+  isOverlayToggleEnabled(s, "relicRewardsOverlayEnabled");
+export const isRelicRecommendationOverlayEnabled = (s: Parameters<typeof isOverlayToggleEnabled>[0]) =>
+  isOverlayToggleEnabled(s, "relicRecommendationOverlayEnabled");
+export const isTradeNotificationOverlayEnabled = (s: Parameters<typeof isOverlayToggleEnabled>[0]) =>
+  isOverlayToggleEnabled(s, "tradeNotificationOverlayEnabled");
+export const isRivenOverlayEnabled = (s: Parameters<typeof isOverlayToggleEnabled>[0]) =>
+  isOverlayToggleEnabled(s, "rivenOverlayEnabled");

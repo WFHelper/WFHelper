@@ -247,13 +247,8 @@
     step = "inventory";
   }
 
-  function finish(): void {
-    completeSetup("inventory");
-  }
-
-  function skip(): void {
-    completeSetup("inventory");
-  }
+  const finish = (): void => completeSetup("inventory");
+  const skip = finish;
 
   function retry(): void {
     step = "configure";

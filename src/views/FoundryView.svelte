@@ -93,16 +93,21 @@
   const nowClock = clockStore(1000);
   $: nowMs = $nowClock;
 
+  function commonEntryFields(item: FoundryBuildingItem | FoundryRecipeItem) {
+    return {
+      name: item.name,
+      imageUrl: item.imageUrl,
+      uniqueName: item.uniqueName,
+      productUniqueName: item.productUniqueName,
+      category: (item.category || "").trim() || "Misc",
+      ingredients: item.ingredients,
+      buildPrice: item.buildPrice,
+    };
+  }
   function toEntryFromBuilding(b: FoundryBuildingItem): FoundryEntry {
     return {
+      ...commonEntryFields(b),
       source: "building",
-      name: b.name,
-      imageUrl: b.imageUrl,
-      uniqueName: b.uniqueName,
-      productUniqueName: b.productUniqueName,
-      category: (b.category || "").trim() || "Misc",
-      ingredients: b.ingredients,
-      buildPrice: b.buildPrice,
       buildTime: 0,
       count: 0,
       endDate: b.endDate,
@@ -111,14 +116,8 @@
   }
   function toEntryFromRecipe(r: FoundryRecipeItem): FoundryEntry {
     return {
+      ...commonEntryFields(r),
       source: "blueprint",
-      name: r.name,
-      imageUrl: r.imageUrl,
-      uniqueName: r.uniqueName,
-      productUniqueName: r.productUniqueName,
-      category: (r.category || "").trim() || "Misc",
-      ingredients: r.ingredients,
-      buildPrice: r.buildPrice,
       buildTime: r.buildTime,
       count: r.count,
       endDate: null,

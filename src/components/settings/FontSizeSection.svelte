@@ -23,21 +23,6 @@
     themeSettings.setGlobalScale(value);
   }
 
-  function onHeadingChange(event: Event): void {
-    const value = parseOptionalRem(event);
-    updateOptionalFontSize("headingSize", value);
-  }
-
-  function onBodyChange(event: Event): void {
-    const value = parseOptionalRem(event);
-    updateOptionalFontSize("bodySize", value);
-  }
-
-  function onSmallChange(event: Event): void {
-    const value = parseOptionalRem(event);
-    updateOptionalFontSize("smallSize", value);
-  }
-
   function parseOptionalRem(event: Event): number | undefined {
     const input = event.target as HTMLInputElement;
     const raw = input.value.trim();
@@ -47,13 +32,11 @@
     return Math.max(0.3, Math.min(5, n));
   }
 
-  /** Update an optional font size, removing the key entirely when clearing. */
-  function updateOptionalFontSize(
-    key: "headingSize" | "bodySize" | "smallSize",
-    value: number | undefined,
-  ): void {
-    themeSettings.setOptionalFontSize(key, value);
-  }
+  const onFontSizeChange =
+    (key: "headingSize" | "bodySize" | "smallSize") =>
+    (event: Event): void => {
+      themeSettings.setOptionalFontSize(key, parseOptionalRem(event));
+    };
 </script>
 
 <div class="appearance-section">
@@ -100,7 +83,7 @@
         step="0.05"
         placeholder="auto"
         value={fontSizes.headingSize ?? ""}
-        on:input={onHeadingChange}
+        on:input={onFontSizeChange("headingSize")}
       />
     </ThemedControlCard>
 
@@ -114,7 +97,7 @@
         step="0.05"
         placeholder="auto"
         value={fontSizes.bodySize ?? ""}
-        on:input={onBodyChange}
+        on:input={onFontSizeChange("bodySize")}
       />
     </ThemedControlCard>
 
@@ -128,7 +111,7 @@
         step="0.05"
         placeholder="auto"
         value={fontSizes.smallSize ?? ""}
-        on:input={onSmallChange}
+        on:input={onFontSizeChange("smallSize")}
       />
     </ThemedControlCard>
   </div>

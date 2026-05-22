@@ -39,22 +39,9 @@ export function titleFromSlug(slug: string): string {
     .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }
 
-/**
- * Normalize a warframe.market item slug.
- *
- * - Trims and lowercases.
- * - Strips ASCII and Unicode apostrophes (U+0027, U+2019, U+2018) so
- *   `"Loki's Decoy"` and `"Loki\u2019s Decoy"` both map to `lokis_decoy`
- *   (matching WFM canonical slugs).
- * - Collapses non-alphanumeric runs to underscores.
- * - Strips leading/trailing underscores.
- *
- * Returns `null` for non-string or empty input.
- */
-export function normalizeWfmSlug(value: string | null | undefined): string | null {
-  return normalizeForSlug(value);
-}
+// Slug normalizer for WFM URLs — see normalizeForSlug for the semantics.
+export { normalizeForSlug as normalizeWfmSlug } from "./textNormalize";
 
 export function normalizeWfmSlugKey(value: unknown): string {
-  return normalizeWfmSlug(typeof value === "string" ? value : null) ?? "";
+  return normalizeForSlug(typeof value === "string" ? value : null) ?? "";
 }
