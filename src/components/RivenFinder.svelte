@@ -162,8 +162,9 @@
     try {
       // Fetch ALL auctions for this weapon — filtering + similarity is client-side
       rawResults = await invoke("searchRivenAuctions", selectedWeapon, [], []);
-    } catch {
+    } catch (err) {
       rawResults = [];
+      console.warn("[RivenFinder] WFM auction search failed:", err);
     } finally {
       searching = false;
     }

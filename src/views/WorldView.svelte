@@ -436,8 +436,10 @@
                       {/each}
                     </div>
                     {/if}
-                  {:catch}
-                    <!-- silent fail -->
+                  {:catch err}
+                    <div class="text-xs text-text-muted opacity-50">
+                      {(err as Error)?.message ?? "Reward unavailable"}
+                    </div>
                   {/await}
                 </div>
                 {/if}
