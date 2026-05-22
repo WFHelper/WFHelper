@@ -111,8 +111,7 @@
     ev.stopPropagation();
     const url = buildWikiUrl(rg.name);
     const api = (window as unknown as { api?: { openExternal?: (u: string) => void } }).api;
-    if (api?.openExternal) api.openExternal(url);
-    else window.open(url, "_blank");
+    api?.openExternal?.(url);
   }
 </script>
 
