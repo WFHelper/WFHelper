@@ -71,14 +71,14 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   overlayWindowBounds: Object.freeze({}),
 });
 
-export type OverlayToggleKey =
+type OverlayToggleKey =
   | "relicRewardsOverlayEnabled"
   | "relicRecommendationOverlayEnabled"
   | "tradeNotificationOverlayEnabled"
   | "rivenOverlayEnabled";
 
 /** Unset → on; only an explicit `false` disables the overlay. */
-export function isOverlayToggleEnabled(
+function isOverlayToggleEnabled(
   settings: Partial<Pick<OverlaySettings, OverlayToggleKey>> | null | undefined,
   key: OverlayToggleKey,
 ): boolean {
