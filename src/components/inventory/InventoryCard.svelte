@@ -38,7 +38,6 @@
   }
 
   onMount(() => {
-    if (typeof IntersectionObserver !== "function") return;
     if (!cardEl) return;
 
     visibilityObserver = new IntersectionObserver(

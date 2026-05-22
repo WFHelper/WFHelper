@@ -3,10 +3,14 @@ import type { BrowserWindow } from "electron";
 
 import { normalizePathForCompare } from "../config/shared/pathCompare";
 
+interface SecurityLogger {
+  warn: (...args: unknown[]) => void;
+}
+
 interface HardenOptions {
   label?: string;
   allowedFilePaths?: string[];
-  log?: { warn: (...args: unknown[]) => void };
+  log?: SecurityLogger;
 }
 
 function normalizeAllowedFiles(files: unknown): Set<string> {
@@ -38,18 +42,14 @@ export function hardenBrowserWindowNavigation(
   const logger = options.log;
 
   browserWindow.webContents.setWindowOpenHandler(({ url }: { url: string }) => {
-    if (logger && typeof logger.warn === "function") {
-      logger.warn(`[Security] Blocked ${label} window.open to: ${url}`);
-    }
+    logger?.warn(`[Security] Blocked ${label} window.open to: ${url}`);
     return { action: "deny" as const };
   });
 
   const blockUnexpectedNavigation = (event: { preventDefault: () => void }, url: unknown): void => {
     if (!isAllowedFileNavigation(url, allowedFiles)) {
       event.preventDefault();
-      if (logger && typeof logger.warn === "function") {
-        logger.warn(`[Security] Blocked ${label} navigation to: ${url}`);
-      }
+      logger?.warn(`[Security] Blocked ${label} navigation to: ${url}`);
     }
   };
 
@@ -67,9 +67,7 @@ export function hardenBrowserWindowNavigation(
 
   browserWindow.webContents.on("will-attach-webview", ((event: Electron.Event) => {
     event.preventDefault();
-    if (logger && typeof logger.warn === "function") {
-      logger.warn(`[Security] Blocked ${label} webview attach attempt`);
-    }
+    logger?.warn(`[Security] Blocked ${label} webview attach attempt`);
   }) as any);
   /* eslint-enable @typescript-eslint/no-explicit-any */
 }

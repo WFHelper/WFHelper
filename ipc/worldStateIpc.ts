@@ -14,15 +14,7 @@ const log = withScope("worldStateIpc");
 /** Must match the value set in main.ts via app.setAppUserModelId(). */
 const APP_USER_MODEL_ID = "com.warframe.companion";
 
-function getElectronModule(): Partial<typeof import("electron")> {
-  const loaded = require("electron") as unknown;
-  if (loaded && typeof loaded === "object") {
-    return loaded as Partial<typeof import("electron")>;
-  }
-  return {};
-}
-
-const electronModule = getElectronModule();
+const electronModule = require("electron") as Partial<typeof import("electron")>;
 let notificationCtor = electronModule.Notification;
 let desktopNotificationSender: ((title: string, body: string) => void) | null = null;
 
@@ -187,7 +179,7 @@ function buildNotificationSnapshot(state: unknown) {
 function canSendNotifications(): boolean {
   if (process.platform === "win32") return true;
   if (!notificationCtor) {
-    notificationCtor = getElectronModule().Notification;
+    notificationCtor = electronModule.Notification;
   }
   if (typeof notificationCtor !== "function") return false;
   if (typeof (notificationCtor as { isSupported?: () => boolean }).isSupported === "function") {
@@ -389,7 +381,7 @@ function sendDesktopNotification(title: string, body: string): void {
       sendWindowsToast(title, body);
       return;
     }
-    const ElectronNotification = notificationCtor || getElectronModule().Notification;
+    const ElectronNotification = notificationCtor || electronModule.Notification;
     if (typeof ElectronNotification !== "function") return;
     const notification = new ElectronNotification({
       title,

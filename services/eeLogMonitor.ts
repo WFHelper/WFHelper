@@ -200,7 +200,7 @@ function scheduleTrigger(type: "reward" | "relic_picker"): void {
     pendingRewardTimer = setTimeout(() => {
       pendingRewardTimer = null;
       lastRewardAt = Date.now();
-      if (typeof rewardCallback === "function") {
+      if (rewardCallback) {
         log.info("[EELog] Reward trigger detected -> dispatching reward scan");
         rewardCallback();
       }
@@ -213,7 +213,7 @@ function scheduleTrigger(type: "reward" | "relic_picker"): void {
     pendingRelicPickerTimer = null;
     lastRelicPickerAt = Date.now();
     relicPickerSessionOpen = true;
-    if (typeof relicPickerCallback === "function") {
+    if (relicPickerCallback) {
       log.info("[EELog] Relic picker trigger detected -> dispatching recommendation overlay");
       relicPickerCallback();
     }
@@ -239,7 +239,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   const tradeMatch = TRADE_PARTNER_PATTERN.exec(line);
   if (tradeMatch && tradeMatch[1]) {
     const username = tradeMatch[1].replace(/\.$/, "").trim();
-    if (username && typeof tradePartnerCallback === "function") {
+    if (username && tradePartnerCallback) {
       log.info("[EELog] Trade partner detected:", username);
       tradePartnerCallback(username);
     }
@@ -269,7 +269,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   if (line.includes(TRADE_SUCCESS) && _tradeDialogBuffer !== null) {
     const parsed = _parseTradeDialog(_tradeDialogBuffer);
     _tradeDialogBuffer = null;
-    if (parsed && typeof tradeConfirmedCallback === "function") {
+    if (parsed && tradeConfirmedCallback) {
       log.info(`[EELog] Trade confirmed: ${parsed.type} ${parsed.platChange}p with ${parsed.partner}, ${parsed.items.length} item(s)`);
       tradeConfirmedCallback(parsed);
     }
@@ -290,7 +290,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
         // TO the relic screen, not FROM it. Skip to avoid closing the overlay
         // immediately after it opens.
         log.info("[EELog] Relic picker close skipped — too close to last open trigger");
-      } else if (typeof relicPickerCloseCallback === "function") {
+      } else if (relicPickerCloseCallback) {
         relicPickerSessionOpen = false;
         log.info("[EELog] Relic picker close detected -> dispatching overlay close");
         relicPickerCloseCallback();

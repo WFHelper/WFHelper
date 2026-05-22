@@ -226,10 +226,6 @@ function cloneCustomTheme(theme: CustomThemePreset): CustomThemePreset {
 
 /** Load theme settings from localStorage. Returns DEFAULT_THEME on failure. */
 export function loadThemeSettings(): ThemeSettings {
-  if (typeof localStorage === "undefined") {
-    return cloneDefaultTheme();
-  }
-
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return cloneDefaultTheme();
@@ -243,17 +239,15 @@ export function loadThemeSettings(): ThemeSettings {
 
 /** Save theme settings to localStorage. */
 export function saveThemeSettings(settings: ThemeSettings): void {
-  if (typeof localStorage === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   } catch {
-    // localStorage quota exceeded or unavailable; silently fail.
+    // localStorage quota exceeded or serialize failure; silently fail.
   }
 }
 
 /** Remove theme settings from localStorage (reset). */
 export function clearThemeSettings(): void {
-  if (typeof localStorage === "undefined") return;
   try {
     localStorage.removeItem(STORAGE_KEY);
   } catch {

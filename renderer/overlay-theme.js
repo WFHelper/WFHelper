@@ -50,8 +50,6 @@
   }
 
   function loadThemeFromStorageFallback(applyThemeVars) {
-    if (typeof applyThemeVars !== "function") return;
-
     try {
       const raw = localStorage.getItem("wf_theme_settings");
       if (!raw) return;

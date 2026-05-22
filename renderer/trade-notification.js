@@ -19,8 +19,7 @@
 
   function showNotification(payload) {
     if (!payload) return;
-    // Accept both the new { match, timing } shape and the legacy bare match.
-    const match = payload.match || payload;
+    const match = payload.match;
     const timing = payload.timing || {};
     const visibleMs = typeof timing.visibleMs === "number" ? timing.visibleMs : FALLBACK_VISIBLE_MS;
     const fadeMs = typeof timing.fadeMs === "number" ? timing.fadeMs : FALLBACK_FADE_MS;
@@ -63,18 +62,15 @@
       notification.classList.add("fade-out");
       setTimeout(function () {
         notification.classList.add("hidden");
-        // Notify main process we're done
-        if (window.tradeNotificationApi && window.tradeNotificationApi.dismiss) {
-          window.tradeNotificationApi.dismiss();
-        }
+        // Notify main process we're done; preload always exposes this.
+        window.tradeNotificationApi.dismiss();
       }, fadeMs);
     }, visibleMs);
   }
 
-  // Listen for IPC events from main
-  if (window.tradeNotificationApi) {
-    window.tradeNotificationApi.onShow(function (payload) {
-      showNotification(payload);
-    });
-  }
+  // Listen for IPC events from main. The preload script is the only loader
+  // that produces this window, so the bridge is always installed.
+  window.tradeNotificationApi.onShow(function (payload) {
+    showNotification(payload);
+  });
 })();

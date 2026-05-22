@@ -68,10 +68,7 @@
   });
 
   onDestroy(() => {
-    // Restore focus to whatever was focused before the modal opened.
-    if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
-      try { previouslyFocused.focus(); } catch { /* element may be gone */ }
-    }
+    try { previouslyFocused?.focus(); } catch { /* element may be gone */ }
   });
 </script>
 
