@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 dist/
 out/
 release/
@@ -13,12 +13,10 @@ env/
 .env
 .env*
 !.env.example
-.env.local
-.env.*.local
 *.log
 .tmp/
 docs/
-docs/ilspy-decompiled/
+docs/
 .icon-mirror/
 
 main.js
@@ -29,6 +27,7 @@ api-inventory-data/
 
 .notes/
 scratch/
+.codex/
 
 # Cloudflare worker local secrets / state
 .dev.vars*
