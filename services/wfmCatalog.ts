@@ -15,7 +15,6 @@ const log = withScope("wfmCatalog");
  */
 
 
-const WFM_ITEM_URL_BASE = "https://warframe.market/items/";
 const ITEM_PATH_CANDIDATES: ReadonlyArray<string> = Object.freeze([
   "/items",
   "/collections/items",
@@ -200,12 +199,6 @@ export function lookupByName(itemName: string): CatalogItem | null {
   return null;
 }
 
-function getMarketUrl(itemName: string): string | null {
-  const item = lookupByName(itemName);
-  if (!item?.url_name) return null;
-  return `${WFM_ITEM_URL_BASE}${item.url_name}`;
-}
-
 export function getRendererLookup(): Record<string, Record<string, unknown>> {
   const lookup: Record<string, Record<string, unknown>> = {};
   for (const [name, item] of _byNameLc.entries()) {
@@ -231,10 +224,6 @@ export function getRendererLookup(): Record<string, Record<string, unknown>> {
   }
   return lookup;
 }
-
-export const __test__ = {
-  getMarketUrl,
-};
 
 export async function lookupById(id: string): Promise<CatalogItem | null> {
   await _load();
