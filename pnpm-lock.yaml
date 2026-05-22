@@ -35,6 +35,9 @@ importers:
       koffi:
         specifier: ^2.15.1
         version: 2.15.1
+      ms:
+        specifier: 2.1.3
+        version: 2.1.3
       onnxruntime-node:
         specifier: ^1.24.3
         version: 1.24.3
