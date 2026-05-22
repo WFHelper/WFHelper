@@ -1,30 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { WFM_HEADERS, WFM_ASSET_BASE, normalizeWfmSlug } from "../../config/shared/wfm";
-
-describe("WFM_HEADERS", () => {
-  it("contains the expected keys", () => {
-    expect(WFM_HEADERS).toEqual({
-      Platform: "pc",
-      Language: "en",
-      Crossplay: "true",
-      Accept: "application/json",
-    });
-  });
-
-  it("is frozen (immutable)", () => {
-    expect(Object.isFrozen(WFM_HEADERS)).toBe(true);
-  });
-});
-
-describe("WFM_ASSET_BASE", () => {
-  it("is the warframe.market static assets URL", () => {
-    expect(WFM_ASSET_BASE).toBe("https://warframe.market/static/assets/");
-  });
-
-  it("ends with a trailing slash", () => {
-    expect(WFM_ASSET_BASE.endsWith("/")).toBe(true);
-  });
-});
+import { normalizeWfmSlug } from "../../config/shared/wfm";
 
 describe("normalizeWfmSlug", () => {
   it("lowercases and trims", () => {

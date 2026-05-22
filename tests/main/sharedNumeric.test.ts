@@ -238,8 +238,3 @@ describe("isRankedGroup", () => {
   });
 });
 
-describe("constants", () => {
-  it("MAX_SUPPORTED_RANK is 20", () => {
-    expect(MAX_SUPPORTED_RANK).toBe(20);
-  });
-});

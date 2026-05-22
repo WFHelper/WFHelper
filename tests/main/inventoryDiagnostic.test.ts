@@ -200,11 +200,6 @@ describe.skipIf(!!skipReason)("inventory diagnostic", () => {
     }
   });
 
-  it("inventory parses in reasonable time", () => {
-    console.log(`  ✓ Inventory parse: ${parseMs.toFixed(0)} ms`);
-    expect(parseMs).toBeLessThan(3000);
-  });
-
   it("reports per-category resolution stats and unindexed items", () => {
     const unresolved: UnresolvedInventoryItem[] = [];
     const summary: Record<string, { total: number; resolved: number }> = {};

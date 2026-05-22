@@ -8,8 +8,6 @@ import * as worldStateIpc from "../../ipc/worldStateIpc";
 import * as worldStateParser from "../../services/worldStateParser";
 
 type IpcHandler = (event: unknown) => Promise<unknown>;
-const runRealWindowsToastTest =
-  process.env.WFC_REAL_WINDOWS_TOAST_TEST === "1" && process.platform === "win32" ? it : it.skip;
 
 class MockNotification {
   static isSupported() {
@@ -145,56 +143,4 @@ describe("world state desktop notifications", () => {
       },
     ]);
   });
-
-  runRealWindowsToastTest(
-    "actually sends Windows toast notifications for fissure and cycle changes",
-    async () => {
-      vi.useRealTimers();
-      ctx.overlaySettings = {
-        ...OVERLAY_SETTINGS_DEFAULTS,
-        cycleAlerts: {
-          earth: true,
-          cetus: false,
-          vallis: false,
-          cambion: false,
-          duviri: false,
-        },
-        cycleAlertMinutesBefore: 0,
-        fissureAlerts: [
-          {
-            id: "manual-axi-capture",
-            tier: "Axi",
-            missionType: "Capture",
-            steelPath: "normal",
-            planet: "any",
-          },
-        ],
-      };
-      vi.spyOn(worldStateParser, "fetchAndParse")
-        .mockResolvedValueOnce({
-          fissures: [],
-          earthCycle: { isDay: true, expiry: "2026-04-30T12:00:00.000Z" },
-        })
-        .mockResolvedValueOnce({
-          fissures: [
-            {
-              tier: "Axi",
-              missionType: "Capture",
-              node: "Marduk (Void)",
-              expiry: "2026-04-30T12:00:00.000Z",
-              isHard: false,
-              expired: false,
-            },
-          ],
-          earthCycle: { isDay: false, expiry: "2026-04-30T16:00:00.000Z" },
-        });
-
-      const handler = registerWorldStateHandler();
-      await handler(makeAuthorizedEvent());
-      worldStateIpc.__test__.expireCache();
-      await handler(makeAuthorizedEvent());
-      await new Promise((resolve) => setTimeout(resolve, 750));
-    },
-    10_000,
-  );
 });

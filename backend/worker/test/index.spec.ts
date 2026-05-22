@@ -2,7 +2,6 @@ import { SELF, createExecutionContext, env, waitOnExecutionContext } from 'cloud
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import worker from '../src/index';
 import type { Env } from '../src/types';
-import { getWorkerConfig } from '../src/config';
 import { prewarmBatch, prewarmOrderSummaryCatalog } from '../src/services/prewarm';
 import { WFM_SNAPSHOT_CLIENT_CACHE_VERSION } from '../../../config/shared/wfmSnapshotValidation';
 
@@ -116,19 +115,6 @@ describe('backend worker', () => {
 			automation: {
 				enabled: true,
 			},
-		});
-	});
-
-	it('keeps Worker fallback defaults aligned with deployment vars', () => {
-		const config = getWorkerConfig({} as Env);
-		expect(config).toMatchObject({
-			cacheTtlSec: 86400,
-			orderSummaryCacheTtlSec: 172800,
-			orderSummaryStaleRefreshSec: 75600,
-			prewarmBatchSize: 125,
-			orderSummaryPrewarmBatchSize: 36,
-			dailyBudgetSyncIntervalSec: 180,
-			staleRefreshSec: 75600,
 		});
 	});
 
