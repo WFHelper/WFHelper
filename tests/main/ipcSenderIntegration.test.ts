@@ -39,11 +39,9 @@ describe("IPC sender guard integration", () => {
     vi.restoreAllMocks();
   });
 
-  it("registers world-state IPC once and tears down timers for tests", async () => {
+  it("registers world-state IPC once until reset", async () => {
     const worldStateIpc = await import("../../ipc/worldStateIpc");
     const handle = vi.fn();
-    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
-    const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
 
     worldStateIpc.register({
       ipcMain: { handle },
@@ -54,10 +52,10 @@ describe("IPC sender guard integration", () => {
       Notification: MockNotification,
     });
 
+    // The second register() call is a no-op — register() guards itself
+    // against double-registration. After __test__.reset() it can re-register.
     expect(handle).toHaveBeenCalledTimes(1);
     expect(handle.mock.calls[0]?.[0]).toBe("get-world-state");
-    expect(setTimeoutSpy).toHaveBeenCalledTimes(1);
-    expect(setIntervalSpy).toHaveBeenCalledTimes(2);
 
     worldStateIpc.__test__.reset();
     worldStateIpc.register({

@@ -2,53 +2,38 @@ import { describe, it, expect } from "vitest";
 import { normalizeErrorMessage } from "../../config/shared/errors";
 
 describe("normalizeErrorMessage", () => {
-  it("extracts .message from Error instances", () => {
-    expect(normalizeErrorMessage(new Error("boom"))).toBe("boom");
-    expect(normalizeErrorMessage(new TypeError("bad type"))).toBe("bad type");
+  it.each([
+    [new Error("boom"), "boom"],
+    [new TypeError("bad type"), "bad type"],
+    [{ message: "duck" }, "duck"],
+    [{ message: "  trimmed  " }, "trimmed"],
+    ["something broke", "something broke"],
+    ["  spaced  ", "spaced"],
+    // Prefer .message over toString()
+    [{ message: "from message", toString: () => "from toString" }, "from message"],
+  ])("extracts a usable message from %o", (input, expected) => {
+    expect(normalizeErrorMessage(input)).toBe(expected);
   });
 
-  it("extracts .message from duck-typed error objects", () => {
-    expect(normalizeErrorMessage({ message: "duck" })).toBe("duck");
-    expect(normalizeErrorMessage({ message: "  trimmed  " })).toBe("trimmed");
+  it.each([
+    null,
+    undefined,
+    42,
+    true,
+    {},
+    new Error(""),
+    { message: "" },
+    { message: "   " },
+    { message: 123 },
+    { message: null },
+    "",
+    "   ",
+  ])("falls back to 'Unknown error' for %o", (input) => {
+    expect(normalizeErrorMessage(input)).toBe("Unknown error");
   });
 
-  it("handles plain string errors", () => {
-    expect(normalizeErrorMessage("something broke")).toBe("something broke");
-    expect(normalizeErrorMessage("  spaced  ")).toBe("spaced");
-  });
-
-  it("returns fallback for non-error values", () => {
-    expect(normalizeErrorMessage(null)).toBe("Unknown error");
-    expect(normalizeErrorMessage(undefined)).toBe("Unknown error");
-    expect(normalizeErrorMessage(42)).toBe("Unknown error");
-    expect(normalizeErrorMessage(true)).toBe("Unknown error");
-    expect(normalizeErrorMessage({})).toBe("Unknown error");
-  });
-
-  it("returns fallback for empty .message", () => {
-    expect(normalizeErrorMessage(new Error(""))).toBe("Unknown error");
-    expect(normalizeErrorMessage({ message: "" })).toBe("Unknown error");
-    expect(normalizeErrorMessage({ message: "   " })).toBe("Unknown error");
-  });
-
-  it("returns fallback for empty string errors", () => {
-    expect(normalizeErrorMessage("")).toBe("Unknown error");
-    expect(normalizeErrorMessage("   ")).toBe("Unknown error");
-  });
-
-  it("uses custom fallback when provided", () => {
+  it("uses the caller-supplied fallback when provided", () => {
     expect(normalizeErrorMessage(null, "Custom fallback")).toBe("Custom fallback");
     expect(normalizeErrorMessage(undefined, "Oops")).toBe("Oops");
-  });
-
-  it("ignores non-string .message properties", () => {
-    expect(normalizeErrorMessage({ message: 123 })).toBe("Unknown error");
-    expect(normalizeErrorMessage({ message: null })).toBe("Unknown error");
-    expect(normalizeErrorMessage({ message: undefined })).toBe("Unknown error");
-  });
-
-  it("prefers .message over String() representation", () => {
-    const err = { message: "from message", toString: () => "from toString" };
-    expect(normalizeErrorMessage(err)).toBe("from message");
   });
 });
