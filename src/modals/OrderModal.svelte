@@ -2,6 +2,7 @@
   import { onDestroy } from "svelte";
   import { orderModalState, marketOrders } from "../stores/market.js";
   import { invoke, tradeInvoke } from "../lib/ipc.js";
+  import { isIpcError } from "../lib/ipcGuards.js";
   import ThemedButton from "../components/ThemedButton.svelte";
   import ThemedInput from "../components/ThemedInput.svelte";
   import SegmentedControl from "../components/SegmentedControl.svelte";
@@ -160,7 +161,7 @@
         result = await tradeInvoke("wfmCreateOrder", payload);
       }
 
-      if (result && "error" in result && typeof result.error === "string") {
+      if (isIpcError(result)) {
         errorMsg = result.error;
         return;
       }

@@ -4,6 +4,7 @@
   import ItemImage from "../ItemImage.svelte";
   import InventoryOrderBookSide from "./InventoryOrderBookSide.svelte";
   import { invoke, send } from "../../lib/ipc.js";
+  import { isIpcError as isLookupError } from "../../lib/ipcGuards.js";
   import { useInterval } from "../../lib/timers.js";
   import { orderModalState } from "../../stores/market.js";
   import {
@@ -15,9 +16,8 @@
   import type { InventoryViewItem } from "../../lib/inventoryMarket.js";
   import type { WfmLookupItem, OrderType } from "../../types/market.js";
   import {
-    normalizeRank,
+    normalizeRankFilter,
     isRankedGroup,
-    MAX_SUPPORTED_RANK,
     resolveRankedMaxRank,
   } from "../../../config/shared/numeric.js";
   import { isActiveOrderStatus } from "../../../config/shared/wfmOrders.js";
@@ -63,14 +63,6 @@
   let buySort: SideSort = "best";
   let selectedRank = 0;
 
-  function normalizeRankValue(value: unknown): number | null {
-    return normalizeRank(value, MAX_SUPPORTED_RANK);
-  }
-
-  function defaultMaxRankForGroup(group: InventoryViewItem["inventoryGroup"] | null | undefined): number {
-    return resolveRankedMaxRank(group);
-  }
-
   const didItemKeyChange = (() => {
     let previous = "";
     return (next: string): boolean => {
@@ -90,10 +82,10 @@
   })();
 
   $: isRankedListingItem = isRankedGroup(item?.inventoryGroup);
-  $: itemRankValue = normalizeRankValue(item?.rank);
-  $: itemMaxRankValue = normalizeRankValue(item?.maxRank);
+  $: itemRankValue = normalizeRankFilter(item?.rank);
+  $: itemMaxRankValue = normalizeRankFilter(item?.maxRank);
   $: maxSelectableRank = isRankedListingItem
-    ? Math.max(0, itemMaxRankValue ?? defaultMaxRankForGroup(item?.inventoryGroup))
+    ? Math.max(0, itemMaxRankValue ?? resolveRankedMaxRank(item?.inventoryGroup))
     : 0;
   $: rankOptions = isRankedListingItem
     ? Array.from({ length: Math.max(1, maxSelectableRank + 1) }, (_, idx) => idx)
@@ -112,14 +104,14 @@
   }
 
   $: {
-    const normalized = normalizeRankValue(selectedRank);
+    const normalized = normalizeRankFilter(selectedRank);
     const bounded = Math.max(0, Math.min(normalized ?? 0, maxSelectableRank));
     if (bounded !== selectedRank) {
       selectedRank = bounded;
     }
   }
 
-  $: requestRank = isRankedListingItem ? normalizeRankValue(selectedRank) ?? 0 : null;
+  $: requestRank = isRankedListingItem ? normalizeRankFilter(selectedRank) ?? 0 : null;
 
   $: filteredSellBase = filterStatus(orderBook?.sell ?? [], onlineIngameOnly);
   $: filteredBuyBase = filterStatus(orderBook?.buy ?? [], onlineIngameOnly);
@@ -314,15 +306,6 @@
 
   function openSellerProfile(entry: OrderBookEntry): void {
     send("open-external", `https://warframe.market/profile/${encodeURIComponent(entry.userName)}`);
-  }
-
-  function isLookupError(value: unknown): value is { error: string } {
-    return (
-      typeof value === "object" &&
-      value != null &&
-      "error" in value &&
-      typeof (value as { error?: unknown }).error === "string"
-    );
   }
 
   function isLookupItem(value: unknown): value is WfmLookupItem {

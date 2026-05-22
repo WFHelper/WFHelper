@@ -1,5 +1,6 @@
 <script lang="ts">
   import { PLATINUM_ICON_URL, RIVEN_TEMPLATE_URL } from "../../lib/assetUrls.js";
+  import { attributeKeyword } from "../../lib/marketContract.js";
   import MarketRowBase from "./MarketRowBase.svelte";
   import RivenPolarityIcon from "../RivenPolarityIcon.svelte";
   import type { WfmContract, WfmContractAttribute } from "../../types/market.js";
@@ -8,14 +9,6 @@
   export let compact = false;
   export let onEdit: (contract: WfmContract) => void;
   export let onOpen: (contract: WfmContract) => void;
-
-  function attributeKeyword(attribute: WfmContractAttribute): string {
-    if (typeof attribute.label === "string" && attribute.label.trim()) return attribute.label;
-    if (typeof attribute.urlName === "string" && attribute.urlName.trim()) {
-      return attribute.urlName.replace(/_/g, " ");
-    }
-    return "";
-  }
 
   function contractStatsPreview(contractRow: WfmContract): string[] {
     if (!Array.isArray(contractRow.stats) || contractRow.stats.length === 0) return [];

@@ -20,6 +20,8 @@
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
   import MarketContractRow from "../components/market/MarketContractRow.svelte";
   import MarketOrderRow from "../components/market/MarketOrderRow.svelte";
+  import { attributeKeyword } from "../lib/marketContract.js";
+  import { isIpcError as hasError } from "../lib/ipcGuards.js";
   import InventoryOrderBookPanel from "../components/inventory/InventoryOrderBookPanel.svelte";
   import RivenDetailModal from "../modals/RivenDetailModal.svelte";
   import ThemedInput from "../components/ThemedInput.svelte";
@@ -65,15 +67,6 @@
   const hydration = getInventoryHydrationController();
   const hydrationMetrics = hydration.metricsByKey;
 
-  function hasError(value: unknown): value is { error: string } {
-    return (
-      typeof value === "object" &&
-      value !== null &&
-      "error" in value &&
-      typeof (value as { error?: unknown }).error === "string"
-    );
-  }
-
   function isOrdersTab(tab: MarketTab): tab is "sell" | "buy" {
     return tab === "sell" || tab === "buy";
   }
@@ -93,14 +86,6 @@
       internalName: order.itemUrlName || "",
       keywords: [order.orderType || "", order.visible ? "visible" : "hidden"],
     };
-  }
-
-  function attributeKeyword(attribute: WfmContractAttribute): string {
-    if (typeof attribute.label === "string" && attribute.label.trim()) return attribute.label;
-    if (typeof attribute.urlName === "string" && attribute.urlName.trim()) {
-      return attribute.urlName.replace(/_/g, " ");
-    }
-    return "";
   }
 
   function contractWeaponName(contract: WfmContract): string {
