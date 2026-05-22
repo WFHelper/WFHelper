@@ -19,6 +19,7 @@ import { forceEndRivenSession } from "../services/eeLogMonitor";
 import { isAllowedExternalHost } from "../config/runtime/security";
 import {
   OVERLAY_INTERACTION_MODE,
+  OVERLAY_THEME_VARS,
   RIVEN_OVERLAY_CLOSE,
   RIVEN_OPEN_AUCTION,
   RIVEN_GRADING_INITIAL,
@@ -463,7 +464,7 @@ export function onRivenChatView(): void {
   if (ctx.overlayThemeVars && Object.keys(ctx.overlayThemeVars).length > 0) {
     const vars = { ...ctx.overlayThemeVars };
     const lw = ctx.rivenOverlayLeftWindow;
-    if (lw && !lw.isDestroyed()) lw.webContents.send("overlay-theme-vars", vars);
+    if (lw && !lw.isDestroyed()) lw.webContents.send(OVERLAY_THEME_VARS, vars);
   }
   triggerInitialScan();
 }
@@ -483,7 +484,7 @@ export function onRivenSessionOpen(): void {
   rivenSession.startSession(getRivenWindows(), "Riven", 0);
   if (ctx.overlayThemeVars && Object.keys(ctx.overlayThemeVars).length > 0) {
     const vars = { ...ctx.overlayThemeVars };
-    forEachRivenWindow((win) => win.webContents.send("overlay-theme-vars", vars));
+    forEachRivenWindow((win) => win.webContents.send(OVERLAY_THEME_VARS, vars));
   }
   triggerInitialScan();
 }
