@@ -184,10 +184,6 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       notificationSoundEnabled: booleanSetting("notificationSoundEnabled"),
       wfmNotificationsEnabled: booleanSetting("wfmNotificationsEnabled"),
       autoCloseWfmOrders: booleanSetting("autoCloseWfmOrders"),
-      showTradeNotification:
-        candidate.showTradeNotification !== undefined
-          ? !!candidate.showTradeNotification
-          : tradeNotificationOverlayEnabled,
       relicRewardsOverlayEnabled: booleanSetting("relicRewardsOverlayEnabled"),
       relicRecommendationOverlayEnabled: booleanSetting("relicRecommendationOverlayEnabled"),
       tradeNotificationOverlayEnabled,

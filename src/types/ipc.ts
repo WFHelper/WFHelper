@@ -55,7 +55,6 @@ export interface OverlaySettings {
   notificationSoundEnabled: boolean;
   wfmNotificationsEnabled: boolean;
   autoCloseWfmOrders: boolean;
-  showTradeNotification: boolean;
   relicRewardsOverlayEnabled: boolean;
   relicRecommendationOverlayEnabled: boolean;
   tradeNotificationOverlayEnabled: boolean;

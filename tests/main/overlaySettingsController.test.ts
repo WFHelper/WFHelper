@@ -71,11 +71,9 @@ describe("overlay settings controller", () => {
 
     const normalized = controller.normalizeOverlaySettings({
       autoCloseWfmOrders: false,
-      showTradeNotification: false,
     });
 
     expect(normalized.autoCloseWfmOrders).toBe(false);
-    expect(normalized.showTradeNotification).toBe(false);
   });
 
   it("normalizes notification sound and overlay availability settings", () => {
@@ -93,7 +91,6 @@ describe("overlay settings controller", () => {
     expect(normalized.relicRewardsOverlayEnabled).toBe(false);
     expect(normalized.relicRecommendationOverlayEnabled).toBe(false);
     expect(normalized.tradeNotificationOverlayEnabled).toBe(false);
-    expect(normalized.showTradeNotification).toBe(false);
     expect(normalized.rivenOverlayEnabled).toBe(false);
   });
 
@@ -123,7 +120,6 @@ describe("overlay settings controller", () => {
     });
 
     expect(normalized.tradeNotificationOverlayEnabled).toBe(false);
-    expect(normalized.showTradeNotification).toBe(false);
   });
 
   it("persists settings", () => {

@@ -331,10 +331,7 @@ app.whenReady().then(async () => {
           }
 
           // Show trade notification overlay (if enabled)
-          if (
-            isTradeNotificationOverlayEnabled(ctx.overlaySettings) &&
-            ctx.overlaySettings.showTradeNotification !== false
-          ) {
+          if (isTradeNotificationOverlayEnabled(ctx.overlaySettings)) {
             tradeNotificationIpc.showTradeNotification(match);
           }
         } catch (err) {

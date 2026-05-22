@@ -71,7 +71,6 @@
       notificationSoundEnabled,
       wfmNotificationsEnabled,
       autoCloseWfmOrders,
-      showTradeNotification: tradeNotificationOverlayEnabled,
       tradeNotificationOverlayEnabled,
       relicRewardsOverlayEnabled,
       relicRecommendationOverlayEnabled,
