@@ -192,8 +192,11 @@ export function loadHistory(): void {
       }
       log.info(`[StatsTracker] Loaded ${_history.length} history entries`);
     }
-  } catch {
+  } catch (err) {
     _history = [];
+    if ((err as NodeJS.ErrnoException)?.code !== "ENOENT") {
+      log.warn(`[StatsTracker] Failed to load history:`, err);
+    }
   }
 }
 

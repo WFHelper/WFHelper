@@ -53,8 +53,11 @@ export function loadTradeLog(): void {
       _tradeLog = parsed as TradeEvent[];
       log.info(`[TradeTracker] Loaded ${_tradeLog.length} trade events`);
     }
-  } catch {
+  } catch (err) {
     _tradeLog = [];
+    if ((err as NodeJS.ErrnoException)?.code !== "ENOENT") {
+      log.warn(`[TradeTracker] Failed to load trade log:`, err);
+    }
   }
 }
 

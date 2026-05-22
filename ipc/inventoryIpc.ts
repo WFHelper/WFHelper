@@ -113,8 +113,8 @@ function _notifyListeners(data: Record<string, unknown>): void {
   for (const fn of _inventoryListeners) {
     try {
       fn(data);
-    } catch {
-      // ignore
+    } catch (err) {
+      log.warn(`[InventoryIpc] Inventory listener threw:`, err);
     }
   }
 }
@@ -150,10 +150,6 @@ function newestExistingInventoryPath(paths: string[]): string | null {
   return bestPath;
 }
 
-function existingInventoryPath(filePath: string | null): string | null {
-  if (!filePath) return null;
-  return newestExistingInventoryPath([filePath]);
-}
 
 function rememberInventoryPath(filePath: string): void {
   if (_trustedInventoryPath === filePath) return;
@@ -191,7 +187,9 @@ function findInventoryFile(): string | null {
   );
   if (helperCandidate) return helperCandidate;
 
-  const trustedCandidate = existingInventoryPath(_trustedInventoryPath);
+  const trustedCandidate = _trustedInventoryPath
+    ? newestExistingInventoryPath([_trustedInventoryPath])
+    : null;
   if (trustedCandidate) return trustedCandidate;
 
   const userCandidate = newestExistingInventoryPath(
