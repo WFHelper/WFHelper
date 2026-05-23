@@ -419,14 +419,25 @@ try {
 
 export const nativeOcrAvailable = !!_nativeRecognize;
 
-export async function nativeOcrBuffer(imageBuffer: Buffer, _timeoutMs?: number): Promise<string> {
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number | undefined, label: string): Promise<T> {
+  if (!timeoutMs || timeoutMs <= 0) return promise;
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timeout after ${timeoutMs}ms`)), timeoutMs);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
+
+export async function nativeOcrBuffer(imageBuffer: Buffer, timeoutMs?: number): Promise<string> {
   if (!_nativeRecognize) throw new Error("Native OCR not available");
-  const result = await _nativeRecognize(imageBuffer);
+  const result = await withTimeout(_nativeRecognize(imageBuffer), timeoutMs, "nativeOcrBuffer");
   return result.text || "";
 }
 
-export async function nativeOcrFile(imagePath: string, _timeoutMs?: number): Promise<string> {
+export async function nativeOcrFile(imagePath: string, timeoutMs?: number): Promise<string> {
   if (!_nativeRecognize) throw new Error("Native OCR not available");
-  const result = await _nativeRecognize(imagePath);
+  const result = await withTimeout(_nativeRecognize(imagePath), timeoutMs, "nativeOcrFile");
   return result.text || "";
 }
