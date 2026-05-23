@@ -1,15 +1,22 @@
 # Trigger a full snapshot build on the backend worker.
 #
 # Usage:
+#   $env:WFC_API_KEY = "your-admin-api-key"
+#   .\scripts\build-snapshot.ps1
+#
+# Or (less secure — key ends up in process args / history):
 #   .\scripts\build-snapshot.ps1 -ApiKey "your-admin-api-key"
-#   .\scripts\build-snapshot.ps1 -ApiKey "your-admin-api-key" -WorkerUrl "https://api.wfhelper.com"
 
 param(
-    [Parameter(Mandatory=$true)]
-    [string]$ApiKey,
+    [string]$ApiKey = $env:WFC_API_KEY,
 
     [string]$WorkerUrl = "https://api.wfhelper.com"
 )
+
+if ([string]::IsNullOrWhiteSpace($ApiKey)) {
+    Write-Host "ERROR: No API key provided. Set `$env:WFC_API_KEY or pass -ApiKey." -ForegroundColor Red
+    exit 1
+}
 
 $resolvedWorkerUrl = $WorkerUrl.TrimEnd('/')
 $headers = @{ "Authorization" = "Bearer $ApiKey" }

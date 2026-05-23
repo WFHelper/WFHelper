@@ -183,6 +183,17 @@ const FILTER_SUBSTRINGS_LOWER = [
 // clearing the cache when re-entering Phase 1 after a Warframe restart.
 
 const _pidIsWarframe = new Map<number, boolean>();
+// Upper bound on the cache between WARFRAME_RECHECK_MS resets. On a noisy
+// system with many chatty debug-emitting processes, this prevents the Map
+// from growing without limit within a single recheck window.
+const MAX_PID_CACHE_SIZE = 256;
+
+function rememberPid(pid: number, value: boolean): void {
+  if (_pidIsWarframe.size >= MAX_PID_CACHE_SIZE) {
+    _pidIsWarframe.clear();
+  }
+  _pidIsWarframe.set(pid, value);
+}
 
 // Pre-allocated output buffers (reused every call — no per-call heap alloc)
 const _exeNameBuf    = Buffer.alloc(MAX_PATH * 2); // WCHAR[MAX_PATH] = UTF-16LE path
@@ -206,14 +217,14 @@ function isWarframePid(pid: number): boolean {
   CloseHandle(hProc);
 
   if (!ok) {
-    _pidIsWarframe.set(pid, false);
+    rememberPid(pid, false);
     return false;
   }
 
   const charCount = _exeNameSizeBuf.readUInt32LE(0);
   const exePath = _exeNameBuf.subarray(0, charCount * 2).toString("utf16le").toLowerCase();
   const result = exePath.endsWith("\\warframe.x64.exe");
-  _pidIsWarframe.set(pid, result);
+  rememberPid(pid, result);
   return result;
 }
 

@@ -1,18 +1,27 @@
 # Prewarm the backend cache for all WFM items.
-# Usage: .\scripts\prewarm.ps1 -ApiKey "your-admin-api-key"
+# Usage:
+#   $env:WFC_API_KEY = "your-admin-api-key"
+#   .\scripts\prewarm.ps1
+#
+# Or (less secure — key ends up in process args / history):
+#   .\scripts\prewarm.ps1 -ApiKey "your-admin-api-key"
 #
 # This calls /admin/prewarm in a loop until the cursor wraps around,
 # meaning the entire catalog has been processed. With batchSize=100
 # and ~3750 items, this takes ~30-60 minutes depending on WFM rate limits.
 
 param(
-    [Parameter(Mandatory=$true)]
-    [string]$ApiKey,
+    [string]$ApiKey = $env:WFC_API_KEY,
 
     [string]$WorkerUrl = "https://api.wfhelper.com",
     [int]$BatchSize = 100,
     [int]$PauseSec = 8
 )
+
+if ([string]::IsNullOrWhiteSpace($ApiKey)) {
+    Write-Host "ERROR: No API key provided. Set `$env:WFC_API_KEY or pass -ApiKey." -ForegroundColor Red
+    exit 1
+}
 
 $headers = @{
     "Authorization" = "Bearer $ApiKey"

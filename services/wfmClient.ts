@@ -56,17 +56,29 @@ const BASE_URL = "https://api.warframe.market/v1";
 const BASE_URL_V2 = "https://api.warframe.market/v2";
 const MIN_DELAY_MS = 350;
 const REQUEST_TIMEOUT_MS = 20000;
+const MAX_QUEUE_DEPTH = 64;
 
 // ── Rate-limit queue ──────────────────────────────────────────────────────────
 
 let _queue: Promise<void> = Promise.resolve();
 let _lastRequestAt = 0;
+let _queueDepth = 0;
 
 /**
  * Enqueue a function that returns a promise, ensuring at least MIN_DELAY_MS
- * between consecutive requests.
+ * between consecutive requests. Rejects synchronously when the pending-request
+ * backlog exceeds MAX_QUEUE_DEPTH — prevents unbounded growth during WFM outages.
  */
 function enqueue<T>(fn: () => Promise<T>): Promise<T> {
+  if (_queueDepth >= MAX_QUEUE_DEPTH) {
+    return Promise.reject(
+      new WfmApiError(
+        `WFM request queue full (${_queueDepth}/${MAX_QUEUE_DEPTH}) — backend likely unavailable.`,
+        "WFM_QUEUE_FULL",
+      ),
+    );
+  }
+  _queueDepth++;
   const result = _queue.then(async () => {
     const now = Date.now();
     const elapsed = now - _lastRequestAt;
@@ -76,6 +88,10 @@ function enqueue<T>(fn: () => Promise<T>): Promise<T> {
     _lastRequestAt = Date.now();
     return fn();
   });
+  const decrement = () => {
+    _queueDepth--;
+  };
+  result.then(decrement, decrement);
   _queue = result.catch(() => {}) as Promise<void>;
   return result;
 }

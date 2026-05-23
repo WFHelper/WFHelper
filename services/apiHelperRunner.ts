@@ -7,7 +7,6 @@ import { withScope } from "./logger";
 import path from "node:path";
 import fs from "node:fs";
 import https from "node:https";
-import http from "node:http";
 import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { app } from "electron";
@@ -19,6 +18,26 @@ const EXE_NAME = "warframe-api-helper.exe";
 const DEFAULT_POLL_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 const GITHUB_RELEASES_URL =
   "https://api.github.com/repos/Sainan/warframe-api-helper/releases/latest";
+
+/**
+ * Pinned SHA-256 hashes of accepted warframe-api-helper.exe builds.
+ * Any exe whose hash is not in this set will be refused — both on fresh download
+ * and before spawning any locally-found copy. Bump when the upstream repo
+ * (Sainan/warframe-api-helper) cuts a new release and you've audited it.
+ */
+const PINNED_HELPER_SHA256: ReadonlySet<string> = new Set([
+  // 1.1.1 (tag on 'senpai' branch) — verified 2026-04-18
+  "3f883abb1226c9da6d6cb9c2d6675d3daa6b321a192583c646ef8c45cbd5b8f6",
+]);
+
+function sha256OfFile(filePath: string): string {
+  const buf = fs.readFileSync(filePath);
+  return crypto.createHash("sha256").update(buf).digest("hex");
+}
+
+function isPinnedHash(hash: string): boolean {
+  return PINNED_HELPER_SHA256.has(hash.toLowerCase());
+}
 
 let _pollTimer: ReturnType<typeof setInterval> | null = null;
 let _running = false;
@@ -63,9 +82,14 @@ function findExePath(): string | null {
 
   for (const p of candidates) {
     try {
-      if (fs.existsSync(p)) return p;
-    } catch {
-      // ignore
+      if (!fs.existsSync(p)) continue;
+      const hash = sha256OfFile(p);
+      if (isPinnedHash(hash)) return p;
+      log.warn(
+        `Refusing helper at ${p}: SHA-256 ${hash} not in pin set (possibly outdated or tampered).`,
+      );
+    } catch (err) {
+      log.warn(`Could not hash helper at ${p}:`, err instanceof Error ? err.message : String(err));
     }
   }
   return null;
@@ -105,6 +129,26 @@ export function runOnce(): Promise<boolean> {
     if (!_exePath) {
       log.warn("warframe-api-helper.exe not found — skipping run");
       _lastRunOk = false;
+      resolve(false);
+      return;
+    }
+
+    // Re-verify hash immediately before spawn (defends against swap between
+    // discovery and execution).
+    try {
+      const hashNow = sha256OfFile(_exePath);
+      if (!isPinnedHash(hashNow)) {
+        log.error(`Helper hash changed since discovery (${hashNow}) — refusing to spawn`);
+        _exePath = null;
+        _lastRunOk = false;
+        _lastRunAt = Date.now();
+        resolve(false);
+        return;
+      }
+    } catch (err) {
+      log.error("Helper pre-spawn hash check failed:", err instanceof Error ? err.message : String(err));
+      _lastRunOk = false;
+      _lastRunAt = Date.now();
       resolve(false);
       return;
     }
@@ -179,14 +223,20 @@ export function stopPolling(): void {
 
 // ── Download from GitHub Releases ──────────────────────────────────────────────
 
-/** Simple wrapper around https.get that follows redirects and returns a Buffer. */
+function assertHttps(url: string): void {
+  if (!url.startsWith("https://")) {
+    throw new Error(`Refusing non-HTTPS URL: ${url}`);
+  }
+}
+
+/** Simple wrapper around https.get that returns a Buffer. HTTPS-only. */
 function httpsGetBuffer(
   url: string,
   headers: Record<string, string>,
 ): Promise<{ statusCode: number; headers: Record<string, string | string[] | undefined>; body: Buffer }> {
   return new Promise((resolve, reject) => {
-    const mod = url.startsWith("https") ? https : http;
-    mod
+    assertHttps(url);
+    https
       .get(url, { headers }, (res) => {
         const chunks: Buffer[] = [];
         res.on("data", (chunk: Buffer) => chunks.push(chunk));
@@ -214,17 +264,33 @@ function httpsDownloadToFile(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const doRequest = (reqUrl: string, redirectsLeft: number) => {
-      const mod = reqUrl.startsWith("https") ? https : http;
-      mod
-        .get(reqUrl, { headers: { "User-Agent": "warframe-companion" } }, (res) => {
-          // Follow redirect
+      let absUrl: string;
+      try {
+        assertHttps(reqUrl);
+        absUrl = reqUrl;
+      } catch (err) {
+        reject(err);
+        return;
+      }
+      https
+        .get(absUrl, { headers: { "User-Agent": "warframe-companion" } }, (res) => {
+          // Follow redirect — but only to https:// targets. Resolve relative
+          // locations against the current URL before re-validating.
           if (
             (res.statusCode === 301 || res.statusCode === 302) &&
             res.headers.location &&
             redirectsLeft > 0
           ) {
             res.resume(); // drain
-            doRequest(res.headers.location, redirectsLeft - 1);
+            let next: string;
+            try {
+              next = new URL(res.headers.location, absUrl).toString();
+              assertHttps(next);
+            } catch (err) {
+              reject(err instanceof Error ? err : new Error(String(err)));
+              return;
+            }
+            doRequest(next, redirectsLeft - 1);
             return;
           }
           if (res.statusCode !== 200) {
@@ -328,14 +394,20 @@ export async function downloadHelper(
       });
     });
 
-    // 5. Verify downloaded file is a valid PE executable (MZ magic bytes)
+    // 5. Verify downloaded file: PE header + SHA-256 against pin set
     const downloadedBytes = fs.readFileSync(tempPath);
     if (downloadedBytes.length < 2 || downloadedBytes[0] !== 0x4D || downloadedBytes[1] !== 0x5A) {
       fs.unlinkSync(tempPath);
       throw new Error("Downloaded file is not a valid PE executable (missing MZ header)");
     }
     const sha256 = crypto.createHash("sha256").update(downloadedBytes).digest("hex");
-    log.log(`Helper PE verified, SHA-256: ${sha256}`);
+    if (!isPinnedHash(sha256)) {
+      fs.unlinkSync(tempPath);
+      throw new Error(
+        `Refusing helper: SHA-256 ${sha256} not in pin set. Upstream release may have changed — bump PINNED_HELPER_SHA256 after audit.`,
+      );
+    }
+    log.log(`Helper SHA-256 pin verified: ${sha256}`);
 
     // 6. Atomically rename temp → final
     try {

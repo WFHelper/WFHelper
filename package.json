@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "A Warframe companion app - inventory viewer, foundry tracker, and more.",
   "main": ".electron-build/main.js",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "npm run build:main && vite build",
     "start": "npm run build && electron .",

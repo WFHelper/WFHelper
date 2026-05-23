@@ -60,14 +60,31 @@ let _resumedAyaDelta = 0;
 let _history: DailyStatEntry[] = [];
 const HISTORY_MAX_DAYS = 90;
 
+// Schema marker for the persisted history file. v2 = day keys are in the
+// user's LOCAL timezone. v1 (and unversioned legacy files) used UTC.
+const HISTORY_SCHEMA_VERSION = 2;
+let _historySchemaVersion = HISTORY_SCHEMA_VERSION;
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function _historyPath(): string {
   return path.join(app.getPath("userData"), "stats-history.json");
 }
 
+/**
+ * Returns today's date as YYYY-MM-DD in the user's LOCAL timezone.
+ * Previously used UTC (`toISOString().slice(0, 10)`), which meant users in
+ * negative UTC offsets saw their evening play attributed to "tomorrow."
+ * Schema v2 keys are local; legacy v1/unversioned entries remain keyed in UTC
+ * and are left untouched — per-event timestamps aren't available, so the
+ * migration can't faithfully re-attribute old aggregates.
+ */
 function _todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 /** Look up an item's count inside the MiscItems inventory array. */
@@ -79,7 +96,13 @@ function _findMiscItemCount(data: Record<string, unknown>, itemType: string): nu
 
 function _saveHistory(): void {
   try {
-    fs.writeFileSync(_historyPath(), JSON.stringify(_history, null, 2), "utf-8");
+    // Wrap entries in a small envelope so the schema version travels with the
+    // data. On load we still accept a bare-array legacy format for v1/untagged.
+    const payload = {
+      schemaVersion: HISTORY_SCHEMA_VERSION,
+      entries: _history,
+    };
+    fs.writeFileSync(_historyPath(), JSON.stringify(payload, null, 2), "utf-8");
   } catch (err: unknown) {
     log.warn("[StatsTracker] Failed to save history:", String(err));
   }
@@ -142,7 +165,22 @@ export function loadHistory(): void {
   try {
     const raw = fs.readFileSync(_historyPath(), "utf-8");
     const parsed: unknown = JSON.parse(raw);
+    // Accept both the v1 legacy format (bare array) and the v2 envelope
+    // ({ schemaVersion, entries }). Tag loaded data with whichever version
+    // was on disk so we know whether to log a migration notice.
+    let entries: unknown = null;
+    let loadedVersion = 1;
     if (Array.isArray(parsed)) {
+      entries = parsed;
+      loadedVersion = 1;
+    } else if (parsed && typeof parsed === "object") {
+      const env = parsed as { schemaVersion?: unknown; entries?: unknown };
+      if (Array.isArray(env.entries)) {
+        entries = env.entries;
+        loadedVersion = typeof env.schemaVersion === "number" ? env.schemaVersion : 1;
+      }
+    }
+    if (Array.isArray(entries)) {
       // Back-fill any fields missing from older schema so the shape is always complete
       const backFillDefaults: Pick<DailyStatEntry, "ducatsDelta" | "ayaDelta" | "relicsOpened" | "daysPlayed" | "dailyTrades"> = {
         ducatsDelta: 0,
@@ -151,10 +189,22 @@ export function loadHistory(): void {
         daysPlayed: 1,
         dailyTrades: 0,
       };
-      _history = (parsed as DailyStatEntry[]).map((e) => ({
+      _history = (entries as DailyStatEntry[]).map((e) => ({
         ...backFillDefaults,
         ...e,
       }));
+      _historySchemaVersion = loadedVersion;
+      if (loadedVersion < HISTORY_SCHEMA_VERSION) {
+        log.log(
+          `[StatsTracker] Migrating history schema v${loadedVersion} -> v${HISTORY_SCHEMA_VERSION} ` +
+            `(day boundaries now local timezone; legacy UTC-keyed entries retained as-is).`,
+        );
+        // Persist the envelope + version so future loads don't re-log. Existing
+        // entry date keys are intentionally preserved — without per-event
+        // timestamps, re-attributing old aggregates is not possible.
+        _saveHistory();
+        _historySchemaVersion = HISTORY_SCHEMA_VERSION;
+      }
       // Restore today's relic accumulator so app restarts don't reset the daily count to 0
       const today = _todayStr();
       const todayEntry = _history.find((e) => e.date === today);
