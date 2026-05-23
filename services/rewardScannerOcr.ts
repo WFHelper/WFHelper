@@ -247,6 +247,3 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
   };
 }
 
-export const __test__ = {
-  timeoutWrap,
-};
