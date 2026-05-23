@@ -16,7 +16,7 @@ export const RIVEN_PATTERNS = {
   genericDialog: /Dialog::CreateOkCancel\(/,
   genericDialogNonInteractive: /leftItem=nil/,
   sendResult: /Dialog\.lua:\s*Dialog::SendResult\((\d+)\)/,
-  diaoramaSetup: /OmegaRerollSelection\.lua.*Diorama setup/i,
+  dioramaSetup: /OmegaRerollSelection\.lua.*Diorama setup/i,
   /** Extra close signal emitted by the recycled effects line. */
   recycledEffects: /ytes of recycled effects/,
 } as const;
@@ -172,7 +172,7 @@ export function processRivenPatterns(
   // so it works regardless of which source delivers first.
   if (
     _rivenSessionActive &&
-    RIVEN_PATTERNS.diaoramaSetup.test(line)
+    RIVEN_PATTERNS.dioramaSetup.test(line)
   ) {
     const now = Date.now();
     if (now - _lastRivenDioramaAt >= RIVEN_DIORAMA_DEDUP_MS) {
