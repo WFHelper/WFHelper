@@ -160,7 +160,7 @@ export function loadHistory(): void {
       }));
       _historySchemaVersion = loadedVersion;
       if (loadedVersion < HISTORY_SCHEMA_VERSION) {
-        log.log(
+        log.info(
           `[StatsTracker] Migrating history schema v${loadedVersion} -> v${HISTORY_SCHEMA_VERSION} ` +
             `(day boundaries now local timezone; legacy UTC-keyed entries retained as-is).`,
         );
@@ -190,7 +190,7 @@ export function loadHistory(): void {
         _resumedDucatsDelta = todayEntry.ducatsDelta;
         _resumedAyaDelta = todayEntry.ayaDelta;
       }
-      log.log(`[StatsTracker] Loaded ${_history.length} history entries`);
+      log.info(`[StatsTracker] Loaded ${_history.length} history entries`);
     }
   } catch {
     _history = [];

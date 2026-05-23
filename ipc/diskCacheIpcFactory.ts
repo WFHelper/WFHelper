@@ -70,7 +70,7 @@ function createDiskCacheIpc(config: DiskCacheIpcConfig): { register: () => void 
           return null;
         }
 
-        log.log(`Loaded ${noun} from disk (${Object.keys(parsed as object).length} entries)`);
+        log.info(`Loaded ${noun} from disk (${Object.keys(parsed as object).length} entries)`);
         return parsed as Record<string, unknown>;
       } catch (err) {
         log.warn(`Failed to load ${noun}:`, normalizeErrorMessage(err));

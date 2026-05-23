@@ -198,13 +198,13 @@ export function runOnce(): Promise<boolean> {
     }
 
     if (_running) {
-      log.log("Helper already running — skipping");
+      log.info("Helper already running — skipping");
       resolve(false);
       return;
     }
 
     _running = true;
-    log.log("Running warframe-api-helper…");
+    log.info("Running warframe-api-helper…");
 
     const child = spawn(_exePath, [], {
       cwd: path.dirname(_exePath),
@@ -287,7 +287,7 @@ async function fetchInventoryWithAuthz(authz: string, destPath: string): Promise
       const res = await httpsGetBuffer(url, headers);
       if (res.statusCode === 200 && res.body.length > 0) {
         fs.writeFileSync(destPath, res.body);
-        log.log(`Inventory fetched from ${host} (${res.body.length} bytes)`);
+        log.info(`Inventory fetched from ${host} (${res.body.length} bytes)`);
         return;
       }
       lastErr = new Error(`${host} returned HTTP ${res.statusCode} (${res.body.length} bytes)`);
@@ -327,7 +327,7 @@ export function startPolling(
     return;
   }
 
-  log.log(`Starting helper polling every ${(intervalMs / 60_000).toFixed(0)} min`);
+  log.info(`Starting helper polling every ${(intervalMs / 60_000).toFixed(0)} min`);
 
   const mtime = getInventoryMtime();
   const ageMs = mtime !== null ? Date.now() - mtime : Infinity;
@@ -356,7 +356,7 @@ export function startPolling(
     runAndNotify();
     scheduleInterval();
   } else {
-    log.log(
+    log.info(
       `inventory.json was refreshed ${(ageMs / 60_000).toFixed(1)} min ago — ` +
         `deferring first run by ${(initialDelay / 60_000).toFixed(1)} min`,
     );
@@ -529,7 +529,7 @@ export async function downloadHelper(
       throw new Error("No .exe asset found in latest release");
     }
 
-    log.log(`Downloading ${exeAsset.name} (${release.tag_name}, ${exeAsset.size} bytes)…`);
+    log.info(`Downloading ${exeAsset.name} (${release.tag_name}, ${exeAsset.size} bytes)…`);
 
     // 3. Ensure target directory exists
     const helperDir = getHelperDir();
@@ -569,7 +569,7 @@ export async function downloadHelper(
         `Refusing helper: SHA-256 ${sha256} not in pin set. Upstream release may have changed — bump PINNED_HELPER_SHA256 after audit.`,
       );
     }
-    log.log(`Helper SHA-256 pin verified: ${sha256}`);
+    log.info(`Helper SHA-256 pin verified: ${sha256}`);
 
     // 6. Atomically rename temp → final
     try {
@@ -582,7 +582,7 @@ export async function downloadHelper(
     // 7. Refresh cached exe path
     _exePath = destPath;
 
-    log.log("Helper downloaded to:", destPath);
+    log.info("Helper downloaded to:", destPath);
     onProgress({
       stage: "done",
       percent: 100,
@@ -605,7 +605,7 @@ export async function downloadHelper(
 export function init(): boolean {
   _exePath = findExePath();
   if (_exePath) {
-    log.log("Found warframe-api-helper at:", _exePath);
+    log.info("Found warframe-api-helper at:", _exePath);
   }
   return _exePath !== null;
 }

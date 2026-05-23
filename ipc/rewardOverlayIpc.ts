@@ -163,10 +163,10 @@ export function onRelicRewardTrigger(
   bringOverlayToWarframeDisplayIfAvailable: () => Promise<void>,
 ): void {
   if (!isRelicRewardsOverlayEnabled(ctx.overlaySettings)) {
-    log.log(`[OverlayRoute] reward overlay disabled; source=${source}`);
+    log.info(`[OverlayRoute] reward overlay disabled; source=${source}`);
     return;
   }
-  log.log(`[OverlayRoute] trigger=reward source=${source}`);
+  log.info(`[OverlayRoute] trigger=reward source=${source}`);
   void bringOverlayToWarframeDisplayIfAvailable();
   rewardWindowsController.createOverlayWindow();
   rewardWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
@@ -182,10 +182,10 @@ export function onRelicSelectionTrigger(
   bringOverlayToWarframeDisplayIfAvailable: () => Promise<void>,
 ): void {
   if (!isRelicRecommendationOverlayEnabled(ctx.overlaySettings)) {
-    log.log(`[OverlayRoute] planner overlay disabled; source=${source}`);
+    log.info(`[OverlayRoute] planner overlay disabled; source=${source}`);
     return;
   }
-  log.log(`[OverlayRoute] trigger=planner source=${source}`);
+  log.info(`[OverlayRoute] trigger=planner source=${source}`);
   void bringOverlayToWarframeDisplayIfAvailable();
   plannerWindowsController.createOverlayWindow();
   plannerWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
@@ -202,7 +202,7 @@ export function onRelicSelectionClose(pushOverlayInteractionMode: () => void): v
   ctx.overlayInteractiveMode = false;
   pushOverlayInteractionMode();
   win.hide();
-  log.log("[OverlayClose] planner closed via Dialog::SendResult");
+  log.info("[OverlayClose] planner closed via Dialog::SendResult");
 }
 
 

@@ -395,7 +395,7 @@ export async function getMyContracts({
       }
 
       if (isSkippableError(err)) {
-        log.log(
+        log.info(
           `[WFMContracts] ${candidate.api.toUpperCase()} ${candidate.path} unavailable (${(err as Record<string, unknown>).status})`,
         );
         if (_resolvedEndpointName === candidate.name) {

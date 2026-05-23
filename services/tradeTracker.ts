@@ -51,7 +51,7 @@ export function loadTradeLog(): void {
     const parsed: unknown = JSON.parse(raw);
     if (Array.isArray(parsed)) {
       _tradeLog = parsed as TradeEvent[];
-      log.log(`[TradeTracker] Loaded ${_tradeLog.length} trade events`);
+      log.info(`[TradeTracker] Loaded ${_tradeLog.length} trade events`);
     }
   } catch {
     _tradeLog = [];
@@ -101,7 +101,7 @@ export function recordTradeFromLog(parsed: {
   _saveLog();
   statsTracker.incrementTodayTrades();
 
-  log.log(
+  log.info(
     `[TradeTracker] EE.log trade: ${event.type} ${event.platChange}p with ${parsed.partner}, ${items.length} item(s)`,
   );
 
@@ -137,7 +137,7 @@ export function importTradeLog(events: TradeEvent[]): number {
     _tradeLog.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
     if (_tradeLog.length > MAX_EVENTS) _tradeLog = _tradeLog.slice(0, MAX_EVENTS);
     _saveLog();
-    log.log(`[TradeTracker] Imported ${added} trade events`);
+    log.info(`[TradeTracker] Imported ${added} trade events`);
   }
   return added;
 }

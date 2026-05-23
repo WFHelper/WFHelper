@@ -696,7 +696,7 @@ async function fetchPrimaryWorldState(): Promise<WorldStateRaw> {
   if (!raw || typeof raw !== "object" || Object.keys(raw).length === 0) {
     throw new Error("oracle returned empty object");
   }
-  log.log("[WorldState] fetched oracle world-state OK");
+  log.info("[WorldState] fetched oracle world-state OK");
   return raw;
 }
 
@@ -710,7 +710,7 @@ async function fetchFallbackWorldState(): Promise<WorldStateRaw | null> {
       return null;
     }
     const raw = await resp.json() as WorldStateRaw;
-    log.log("[WorldState] fetched DE world-state OK");
+    log.info("[WorldState] fetched DE world-state OK");
     return raw;
   } catch (deErr) {
     log.warn("[WorldState] DE world-state also failed:", normalizeErrorMessage(deErr));

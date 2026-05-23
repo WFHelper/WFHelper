@@ -47,7 +47,7 @@ describe("relic selection planner", () => {
     const sentEvents: Array<{ channel: string; payload: unknown }> = [];
     const controller = createRelicSelectionController({
       log: {
-        log: vi.fn(),
+        info: vi.fn(),
         warn: vi.fn(),
         error: vi.fn(),
       },

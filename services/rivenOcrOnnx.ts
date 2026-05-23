@@ -76,7 +76,7 @@ async function getYoloSession(): Promise<OrtInferenceSession> {
 
     _yoloInputName = session.inputNames[0];
 
-    log.log(`[RivenOcrOnnx] YOLO detector loaded — input=${_yoloInputName} size=${_yoloInputSize}`);
+    log.info(`[RivenOcrOnnx] YOLO detector loaded — input=${_yoloInputName} size=${_yoloInputSize}`);
     return session as unknown as OrtInferenceSession;
   })().catch((err) => {
     _yoloSessionPromise = null;
@@ -118,7 +118,7 @@ async function getChRecSession(): Promise<OrtInferenceSession> {
       intraOpNumThreads: 4,
     });
 
-    log.log(`[RivenOcrOnnx] PaddleOCR CH v3 loaded — ${_chDict.length} chars (incl. blank)`);
+    log.info(`[RivenOcrOnnx] PaddleOCR CH v3 loaded — ${_chDict.length} chars (incl. blank)`);
     return session as unknown as OrtInferenceSession;
   })().catch((err) => {
     _chRecSessionPromise = null;

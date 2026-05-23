@@ -60,7 +60,7 @@ export async function matchTradeToOrder(
 ): Promise<WfmTradeMatch | null> {
   // Guard: must be logged in to WFM
   if (!wfmSession.getToken()) {
-    log.log("[Matcher] Skipping — not logged in to WFM");
+    log.info("[Matcher] Skipping — not logged in to WFM");
     return null;
   }
 
@@ -72,7 +72,7 @@ export async function matchTradeToOrder(
   );
 
   if (relevantItems.length === 0) {
-    log.log("[Matcher] No relevant items to match");
+    log.info("[Matcher] No relevant items to match");
     return null;
   }
 
@@ -87,7 +87,7 @@ export async function matchTradeToOrder(
 
   const candidateOrders = trade.type === "sale" ? orders.sell : orders.buy;
   if (candidateOrders.length === 0) {
-    log.log(`[Matcher] No ${trade.type === "sale" ? "sell" : "buy"} orders to match against`);
+    log.info(`[Matcher] No ${trade.type === "sale" ? "sell" : "buy"} orders to match against`);
     return null;
   }
 
@@ -147,7 +147,7 @@ export async function matchTradeToOrder(
     };
   }
 
-  log.log("[Matcher] No matching WFM orders found for traded items");
+  log.info("[Matcher] No matching WFM orders found for traded items");
   return null;
 }
 
@@ -156,12 +156,12 @@ export async function matchTradeToOrder(
  */
 export async function closeMatchedOrder(match: WfmTradeMatch): Promise<boolean> {
   try {
-    log.log(
+    log.info(
       `[Matcher] Closing order ${match.orderId} (${match.itemName}) qty=${match.quantity}`,
     );
     await wfmOrders.closeOrder(match.orderId, match.quantity);
     _recentlyClosedOrders.set(match.orderId, Date.now());
-    log.log(`[Matcher] ✓ Order ${match.orderId} closed successfully`);
+    log.info(`[Matcher] ✓ Order ${match.orderId} closed successfully`);
     return true;
   } catch (err) {
     log.warn(`[Matcher] Failed to close order ${match.orderId}:`, String(err));

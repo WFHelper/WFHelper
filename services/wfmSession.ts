@@ -171,12 +171,12 @@ export async function signIn(email: string, password: string): Promise<SignInRes
 
   _saveSession(token, userName);
 
-  log.log(`[WFMSession] Signed in as: ${_userName}`);
+  log.info(`[WFMSession] Signed in as: ${_userName}`);
   return { loggedIn: true, userName: _userName, platform: _platform };
 }
 
 export function signOut(): SignOutResult {
-  log.log("[WFMSession] Signing out");
+  log.info("[WFMSession] Signing out");
   _clearSession();
   return { loggedIn: false };
 }
@@ -184,7 +184,7 @@ export function signOut(): SignOutResult {
 export async function restoreSession(): Promise<void> {
   const saved = _loadSession();
   if (!saved || !saved.token) {
-    log.log("[WFMSession] No persisted session found.");
+    log.info("[WFMSession] No persisted session found.");
     return;
   }
 
@@ -192,7 +192,7 @@ export async function restoreSession(): Promise<void> {
   _userName = saved.userName || null;
   _platform = saved.platform || "pc";
   updateCsrfFromToken(saved.token);
-  log.log(`[WFMSession] Restored session for: ${_userName}`);
+  log.info(`[WFMSession] Restored session for: ${_userName}`);
 }
 
 export function getSession(): SessionSummary {

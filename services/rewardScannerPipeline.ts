@@ -165,7 +165,7 @@ async function captureRewardScreen(preCapture: PreCaptureResult | null | undefin
   failureReason: "capture-error" | "capture-null" | null;
 }> {
   if (preCapture?.image) {
-    log.log(
+    log.info(
       "[RewardScanner] Using pre-captured screenshot" +
         ` (${preCapture.sourceType || "file"}:${preCapture.sourceName || preCapture.sourceId || "injected"})`,
     );
@@ -180,7 +180,7 @@ async function captureRewardScreen(preCapture: PreCaptureResult | null | undefin
       log.warn("[RewardScanner] Could not capture screen");
       return { screenshot: null, captureCount: 1, captureMs, failureReason: "capture-null" };
     }
-    log.log(
+    log.info(
       "[RewardScanner] Scan capture source -> " +
         `${screenshot.sourceType}: ${screenshot.sourceName || screenshot.sourceId || "unknown"} ` +
         `(display:${screenshot.sourceDisplayId || "n/a"})`,
@@ -228,7 +228,7 @@ export async function runRewardScanPipeline({
   }
 
   if (detectConsoleOpen(screenshot.image)) {
-    log.log("[RewardScanner] Chat console detected — skipping scan");
+    log.info("[RewardScanner] Chat console detected — skipping scan");
     return null;
   }
 
@@ -239,7 +239,7 @@ export async function runRewardScanPipeline({
     _lastFrameResult &&
     Date.now() - _lastFrameHashTs < REWARD_FRAME_DEDUP_TTL_MS
   ) {
-    log.log("[RewardScanner] Frame unchanged — returning cached result");
+    log.info("[RewardScanner] Frame unchanged — returning cached result");
     return _lastFrameResult;
   }
 
@@ -256,7 +256,7 @@ export async function runRewardScanPipeline({
   const slotDetectMs = Date.now() - slotDetectStart;
   let expectedItemCount = expectedRewardItemCount(detectedLayout);
 
-  log.log(
+  log.info(
     `[RewardScanner] Slot layout estimate: count=${detectedLayout.count} confidence=${detectedLayout.confidence.toFixed(3)} expected=${expectedItemCount}`,
   );
 
@@ -277,7 +277,7 @@ export async function runRewardScanPipeline({
       slotFirstResult.exactCount > 0 &&
       slotFirstResult.avgConfidence >= 0.84
     ) {
-      log.log(
+      log.info(
         `[RewardScanner] Early slot-primary hit: ${slotFirstResult.items.length}/${expectedItemCount} items ` +
           `(exact=${slotFirstResult.exactCount}, confidence=${slotFirstResult.slotConfidence.toFixed(3)}, avg=${slotFirstResult.avgConfidence.toFixed(3)})`,
       );
@@ -319,7 +319,7 @@ export async function runRewardScanPipeline({
       slotFirstResult.exactCount > 0 &&
       slotFirstResult.avgConfidence >= 0.84
     ) {
-      log.log(
+      log.info(
         `[RewardScanner] Revising expected reward count from ${expectedItemCount} to ` +
           `${slotFirstResult.items.length} based on slot OCR confidence ${slotFirstResult.avgConfidence.toFixed(3)}`,
       );
@@ -336,7 +336,7 @@ export async function runRewardScanPipeline({
         elapsedRatio,
       })
     ) {
-      log.log(
+      log.info(
         `[RewardScanner] Partial slot-primary hit: ${slotFirstResult.items.length}/${expectedItemCount} items ` +
           `(exact=${slotFirstResult.exactCount}, confidence=${slotFirstResult.slotConfidence.toFixed(3)}) — skipping band OCR`,
       );
@@ -362,7 +362,7 @@ export async function runRewardScanPipeline({
     }
 
     if (expectedItemCount < MAX_REWARD_SLOTS) {
-      log.log(
+      log.info(
         `[RewardScanner] Expanding OCR target from ${expectedItemCount} to ${MAX_REWARD_SLOTS} after slot-primary was not conclusive`,
       );
       expectedItemCount = MAX_REWARD_SLOTS;
@@ -427,7 +427,7 @@ export async function runRewardScanPipeline({
     ) {
       items = slotFallback.items;
       finalStrategy = slotFallback.strategy;
-      log.log(
+      log.info(
         `[RewardScanner] Slot fallback improved result: ${slotFallback.items.length}/${expectedItemCount} items ` +
           `(exact=${slotFallback.exactCount}, confidence=${slotFallback.slotConfidence.toFixed(3)}, avg=${slotFallback.avgConfidence.toFixed(3)})`,
       );
@@ -436,7 +436,7 @@ export async function runRewardScanPipeline({
 
   const temporalFallback = findTemporalFallback(items, expectedItemCount);
   if (temporalFallback) {
-    log.log(
+    log.info(
       `[RewardScanner] Temporal consistency: sparse result (${items.length}/${expectedItemCount}), ` +
         `using recent full result (${temporalFallback.length} items)`,
     );
@@ -445,7 +445,7 @@ export async function runRewardScanPipeline({
   }
 
   if (items.length > 0) {
-    log.log(
+    log.info(
       `[RewardScanner] Detected (${finalStrategy} pass ${selectedPass?.passIndex ?? "?"}, ` +
         `score ${Number(selectedPass?.score || 0).toFixed(2)}, variant ${selectedPass?.ocrVariant || "raw"}):`,
       items.map((item: SortedItem) => item.name).join(" | "),
@@ -454,7 +454,7 @@ export async function runRewardScanPipeline({
     const textPreview = selectedPass?.text
       ? selectedPass.text.slice(0, SCANNER_TUNING.ocr.textPreviewMaxChars).replace(/\s+/g, " ")
       : "";
-    log.log(
+    log.info(
       textPreview
         ? "[RewardScanner] No items matched OCR text:"
         : "[RewardScanner] No items matched OCR text",
@@ -472,7 +472,7 @@ export async function runRewardScanPipeline({
     strategy: finalStrategy,
     failureReason: items.length === 0 ? "no-items" : null,
   };
-  log.log(
+  log.info(
     `[RewardScanner] Stats: captures=${captureCount} captureMs=${captureMs} ` +
       `ocrCalls=${ocrCallCount} ocrMs=${ocrTotalMs} strategy=${finalStrategy}`,
   );

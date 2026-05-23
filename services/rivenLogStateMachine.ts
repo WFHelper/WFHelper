@@ -102,7 +102,7 @@ function resetRivenIdleTimer(): void {
     _rivenSessionActive = false;
     _rivenSessionStartedAt = 0;
     _rivenDioramaReady = false;
-    log.log("[EELog] Riven session idle timeout — resetting");
+    log.info("[EELog] Riven session idle timeout — resetting");
   }, RIVEN_SESSION_IDLE_TIMEOUT_MS);
 }
 
@@ -117,7 +117,7 @@ function forceEndRivenSessionIfExpired(): boolean {
   if (!_rivenSessionActive || _rivenSessionStartedAt === 0) return false;
   if (Date.now() - _rivenSessionStartedAt < RIVEN_SESSION_MAX_MS) return false;
 
-  log.log(`[EELog] Riven session exceeded ${RIVEN_SESSION_MAX_MS / 60_000}min cap — force closing`);
+  log.info(`[EELog] Riven session exceeded ${RIVEN_SESSION_MAX_MS / 60_000}min cap — force closing`);
   _rivenSessionActive = false;
   _rivenSessionStartedAt = 0;
   _rivenDioramaReady = false;
@@ -160,10 +160,10 @@ export function processRivenPatterns(
       _rivenNextDialog = "cycle";
       _rivenPendingDialog = null;
       resetRivenIdleTimer();
-      log.log("[EELog] Riven rolling screen opened -> dispatching session open");
+      log.info("[EELog] Riven rolling screen opened -> dispatching session open");
       if (typeof _callbacks.onRivenSessionOpen === "function") _callbacks.onRivenSessionOpen();
     } else {
-      log.log("[EELog] Riven session open suppressed (cooldown)");
+      log.info("[EELog] Riven session open suppressed (cooldown)");
     }
   }
 
@@ -179,7 +179,7 @@ export function processRivenPatterns(
       _lastRivenDioramaAt = now;
       _rivenDioramaReady = true;
       resetRivenIdleTimer();
-      log.log("[EELog] Riven diorama ready -> dispatching diorama OCR trigger");
+      log.info("[EELog] Riven diorama ready -> dispatching diorama OCR trigger");
       if (typeof _callbacks.onRivenDioramaSetup === "function") _callbacks.onRivenDioramaSetup();
     }
   }
@@ -188,7 +188,7 @@ export function processRivenPatterns(
   // Gated on _rivenDioramaReady because these lines can fire during the loading
   // transition TO the riven screen, before the diorama is set up.
   if (!skipRivenFromFilePoll && _rivenSessionActive && _rivenDioramaReady && (RIVEN_PATTERNS.sessionClose.test(line) || RIVEN_PATTERNS.recycledEffects.test(line))) {
-    log.log("[EELog] Riven session close detected -> dispatching overlay close");
+    log.info("[EELog] Riven session close detected -> dispatching overlay close");
     _rivenSessionActive = false;
     _rivenSessionStartedAt = 0;
     _rivenDioramaReady = false;
@@ -211,7 +211,7 @@ export function processRivenPatterns(
       // HudVis decreased → chat item view closed
       if (_rivenChatViewActive) {
         _rivenChatViewActive = false;
-        log.log("[EELog] Riven chat-link view closed (HudVis decreased) -> dispatching session close");
+        log.info("[EELog] Riven chat-link view closed (HudVis decreased) -> dispatching session close");
         if (typeof _callbacks.onRivenSessionClose === "function") _callbacks.onRivenSessionClose();
       }
     } else if (newVis > _lastHudVis) {
@@ -229,7 +229,7 @@ export function processRivenPatterns(
     Date.now() - _lastHudVisIncreaseAt < CHAT_RIVEN_POPULATE_WINDOW_MS
   ) {
     _rivenChatViewActive = true;
-    log.log("[EELog] Riven chat-link view confirmed (PopulateInfo within HudVis window) -> dispatching chat view");
+    log.info("[EELog] Riven chat-link view confirmed (PopulateInfo within HudVis window) -> dispatching chat view");
     if (typeof _callbacks.onRivenChatView === "function") _callbacks.onRivenChatView();
   }
 
@@ -243,7 +243,7 @@ export function processRivenPatterns(
     _rivenPendingDialog = "roll_confirm";
     const weapon = rivenCycleMatch[1].trim();
     const cost = parseInt(rivenCycleMatch[2].replace(/[,. ]/g, ""), 10) || 0;
-    log.log(`[EELog] Riven roll pending: weapon=${weapon}, cost=${cost}`);
+    log.info(`[EELog] Riven roll pending: weapon=${weapon}, cost=${cost}`);
     if (typeof _callbacks.onRivenRollPending === "function") _callbacks.onRivenRollPending(weapon, cost);
   }
 
@@ -256,7 +256,7 @@ export function processRivenPatterns(
     const now = Date.now();
     if (now - _lastRivenChoiceDialogAt >= RIVEN_CHOICE_DIALOG_COOLDOWN_MS) {
       _lastRivenChoiceDialogAt = now;
-      log.log("[EELog] Riven choice dialog detected (English)");
+      log.info("[EELog] Riven choice dialog detected (English)");
     }
   }
 
@@ -273,11 +273,11 @@ export function processRivenPatterns(
     _lastRivenGenericDialogAt = Date.now();
     if (_rivenNextDialog === "cycle") {
       _rivenPendingDialog = "roll_confirm";
-      log.log("[EELog] Riven roll pending (generic dialog)");
+      log.info("[EELog] Riven roll pending (generic dialog)");
       if (typeof _callbacks.onRivenRollPending === "function") _callbacks.onRivenRollPending("", 0);
     } else {
       _rivenPendingDialog = "choice";
-      log.log("[EELog] Riven choice dialog detected (generic)");
+      log.info("[EELog] Riven choice dialog detected (generic)");
     }
   }
 
@@ -301,16 +301,16 @@ export function processRivenPatterns(
           _lastRivenSendResultAt = now;
           if (_rivenPendingDialog === "roll_confirm") {
             _rivenNextDialog = "choice";
-            log.log("[EELog] Riven roll confirmed -> dispatching OCR trigger");
+            log.info("[EELog] Riven roll confirmed -> dispatching OCR trigger");
             if (typeof _callbacks.onRivenRollConfirmed === "function") _callbacks.onRivenRollConfirmed();
           } else if (_rivenPendingDialog === "choice") {
             _rivenNextDialog = "cycle";
-            log.log("[EELog] Riven choice confirmed -> dispatching choice scan");
+            log.info("[EELog] Riven choice confirmed -> dispatching choice scan");
             if (typeof _callbacks.onRivenChoiceConfirmed === "function") _callbacks.onRivenChoiceConfirmed();
           }
         }
       } else {
-        log.log(`[EELog] Riven dialog cancelled (SendResult ${resultCode})`);
+        log.info(`[EELog] Riven dialog cancelled (SendResult ${resultCode})`);
       }
       _rivenPendingDialog = null;
     }
@@ -339,7 +339,7 @@ export function forceEndRivenSession(): void {
     clearTimeout(_rivenSessionIdleTimer);
     _rivenSessionIdleTimer = null;
   }
-  log.log("[EELog] Riven session force-ended (overlay dismissed externally)");
+  log.info("[EELog] Riven session force-ended (overlay dismissed externally)");
 }
 
 export function resetRivenState(): void {

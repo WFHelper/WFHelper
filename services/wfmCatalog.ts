@@ -84,7 +84,7 @@ async function _load(): Promise<void> {
 
   _loading = (async () => {
     try {
-      log.log("[WFMCatalog] Fetching item catalog (v2)…");
+      log.info("[WFMCatalog] Fetching item catalog (v2)…");
 
       let rawItems: unknown[] = [];
 
@@ -139,7 +139,7 @@ async function _load(): Promise<void> {
       }
 
       _loaded = true;
-      log.log(`[WFMCatalog] Loaded ${_items.length} items.`);
+      log.info(`[WFMCatalog] Loaded ${_items.length} items.`);
     } finally {
       _loading = null;
     }

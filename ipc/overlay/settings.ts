@@ -10,7 +10,7 @@ import type {
 type OverlaySettingsDict = Record<string, unknown>;
 
 type Logger = {
-  log: (...args: unknown[]) => void;
+  info: (...args: unknown[]) => void;
   warn: (...args: unknown[]) => void;
   error: (...args: unknown[]) => void;
 };
@@ -254,7 +254,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     unregisterOverlayTriggerHotkey();
 
     if (!ctx.overlaySettings.hotkeyEnabled) {
-      log.log("[OverlayHotkey] disabled");
+      log.info("[OverlayHotkey] disabled");
       return false;
     }
 
@@ -268,7 +268,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
         return false;
       }
       ctx.overlayHotkeyRegistered = accelerator;
-      log.log("[OverlayHotkey] registered:", accelerator);
+      log.info("[OverlayHotkey] registered:", accelerator);
       return true;
     } catch (err) {
       log.warn("[OverlayHotkey] invalid shortcut:", accelerator, normalizeErrorMessage(err));
@@ -280,7 +280,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     unregisterOverlayInteractionHotkey();
 
     if (!ctx.overlaySettings.interactionHotkeyEnabled) {
-      log.log("[OverlayInteractionHotkey] disabled");
+      log.info("[OverlayInteractionHotkey] disabled");
       return false;
     }
 
@@ -296,7 +296,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
         return false;
       }
       ctx.overlayInteractionHotkeyRegistered = accelerator;
-      log.log("[OverlayInteractionHotkey] registered:", accelerator);
+      log.info("[OverlayInteractionHotkey] registered:", accelerator);
       return true;
     } catch (err) {
       log.warn(

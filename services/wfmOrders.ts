@@ -81,9 +81,9 @@ function _extractOrders(data: unknown): { sell: NormalisedOrder[]; buy: Normalis
     sell = arr.filter((o) => getType(o) === "sell").map((o) => normalise(o));
     buy = arr.filter((o) => getType(o) === "buy").map((o) => normalise(o));
   } else {
-    log.log("[WFMOrders] Unknown response shape. Top-level keys:", Object.keys((data as object) || {}));
+    log.info("[WFMOrders] Unknown response shape. Top-level keys:", Object.keys((data as object) || {}));
     if (payload && typeof payload === "object") {
-      log.log("[WFMOrders] Payload keys:", Object.keys(payload as object));
+      log.info("[WFMOrders] Payload keys:", Object.keys(payload as object));
     }
     sell = [];
     buy = [];
@@ -95,11 +95,11 @@ export async function getMyOrders(): Promise<{ sell: NormalisedOrder[]; buy: Nor
   if (!getInGameName()) throw new Error("Not logged in to Warframe.market.");
 
   // GET /v2/orders/my — documented WFM v2 endpoint for the authenticated user's own orders.
-  log.log("[WFMOrders] \u2192 GET /v2/orders/my (auth)");
+  log.info("[WFMOrders] \u2192 GET /v2/orders/my (auth)");
   const data = await requestV2("GET", "/orders/my");
   const unwrapped = unwrapWfmResponse<WfmRawOrder[]>(data);
   const rawOrders: WfmRawOrder[] = Array.isArray(unwrapped) ? unwrapped : [];
-  log.log(`[WFMOrders] raw order count: ${rawOrders.length}`);
+  log.info(`[WFMOrders] raw order count: ${rawOrders.length}`);
 
   // v2 orders have only itemId (string). Enrich each order with catalog item details
   // so normalise() has access to item name, url_name, and thumb.
@@ -114,7 +114,7 @@ export async function getMyOrders(): Promise<{ sell: NormalisedOrder[]; buy: Nor
   );
 
   const { sell, buy } = _extractOrders({ data: enriched });
-  log.log(`[WFMOrders] \u2713 sell: ${sell.length}, buy: ${buy.length}`);
+  log.info(`[WFMOrders] \u2713 sell: ${sell.length}, buy: ${buy.length}`);
   return { sell, buy };
 }
 
@@ -193,7 +193,7 @@ export async function closeOrder(
     throw new Error("closeOrder: quantity must be a positive integer.");
   }
 
-  log.log(`[WFMOrders] → POST /v2/order/${orderId}/close  qty=${quantity}`);
+  log.info(`[WFMOrders] → POST /v2/order/${orderId}/close  qty=${quantity}`);
   await requestV2("POST", `/order/${encodeURIComponent(orderId)}/close`, {
     json: { quantity },
   });

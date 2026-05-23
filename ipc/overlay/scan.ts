@@ -47,7 +47,7 @@ type ItemEntry = NonNullable<ReturnType<typeof itemDatabase.lookupItem>>;
 
 type OverlayScanControllerOptions = {
   log: {
-    log: (...args: unknown[]) => void;
+    info: (...args: unknown[]) => void;
     warn: (...args: unknown[]) => void;
     error: (...args: unknown[]) => void;
   };
@@ -271,7 +271,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
 
   async function dispatchRewardScan(source: string): Promise<void> {
     if (rewardScanInFlight) {
-      log.log(`[Trigger] scan already running, ignored duplicate trigger (${source})`);
+      log.info(`[Trigger] scan already running, ignored duplicate trigger (${source})`);
       return;
     }
 
@@ -281,13 +281,13 @@ export function createOverlayScanController(options: OverlayScanControllerOption
       if (source === "eelog" && warframeStatus?.getStatus) {
         const status = await warframeStatus.getStatus();
         if (!status.isOpen) {
-          log.log("[Trigger] skipped reward scan: Warframe is not open");
+          log.info("[Trigger] skipped reward scan: Warframe is not open");
           windows.sendOverlayEvent(RELIC_REWARD_ITEMS, []);
           windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_FAILURE_MS);
           return;
         }
         if (!status.isFocused) {
-          log.log(
+          log.info(
             `[Trigger] skipped reward scan: Warframe is not focused (${status.focusedProcessName || "unknown"})`,
           );
           if (!status.focusedDisplayId) {
@@ -300,7 +300,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
       }
 
       if (source === "eelog") {
-        log.log(`[Trigger] waiting ${EELOG_REWARD_SCAN_DELAY_MS}ms before reward scan`);
+        log.info(`[Trigger] waiting ${EELOG_REWARD_SCAN_DELAY_MS}ms before reward scan`);
         await sleep(EELOG_REWARD_SCAN_DELAY_MS);
       }
 
@@ -326,7 +326,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
           `[Trigger] no reward items found after ${result.attempts} attempt(s) in ${result.elapsedMs}ms`,
         );
       } else {
-        log.log(
+        log.info(
           `[Trigger] reward scan resolved in ${result.elapsedMs}ms after ${result.attempts} attempt(s); ` +
             `${items.length} item(s)`,
         );

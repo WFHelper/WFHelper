@@ -4,10 +4,10 @@ import chokidar from "chokidar";
 import { withScope } from "./logger";
 import { startDbwinWorker, stopDbwinWorker, isDbwinActive } from "./dbwinMonitor";
 import {
-  RIVEN_PATTERNS as _RIVEN_PATTERNS,
+  RIVEN_PATTERNS,
   processRivenPatterns,
   setRivenCallbacks,
-  forceEndRivenSession as _forceEndRivenSession,
+  forceEndRivenSession,
   isRivenSessionActive,
   resetRivenState,
 } from "./rivenLogStateMachine";
@@ -84,9 +84,7 @@ let relicPickerCloseCallback: (() => void) | null = null;
 let tradePartnerCallback: ((username: string) => void) | null = null;
 let tradeConfirmedCallback: ((trade: ParsedLogTrade) => void) | null = null;
 
-// Re-export from extracted modules for backward compatibility
-export const RIVEN_PATTERNS = _RIVEN_PATTERNS;
-export const forceEndRivenSession = _forceEndRivenSession;
+export { RIVEN_PATTERNS, forceEndRivenSession };
 
 
 interface ParsedLogTradeItem {
@@ -203,7 +201,7 @@ function scheduleTrigger(type: "reward" | "relic_picker"): void {
       pendingRewardTimer = null;
       lastRewardAt = Date.now();
       if (typeof rewardCallback === "function") {
-        log.log("[EELog] Reward trigger detected -> dispatching reward scan");
+        log.info("[EELog] Reward trigger detected -> dispatching reward scan");
         rewardCallback();
       }
     }, TRIGGER_DELAY_MS);
@@ -216,7 +214,7 @@ function scheduleTrigger(type: "reward" | "relic_picker"): void {
     lastRelicPickerAt = Date.now();
     relicPickerSessionOpen = true;
     if (typeof relicPickerCallback === "function") {
-      log.log("[EELog] Relic picker trigger detected -> dispatching recommendation overlay");
+      log.info("[EELog] Relic picker trigger detected -> dispatching recommendation overlay");
       relicPickerCallback();
     }
   }, RELIC_TRIGGER_DELAY_MS);
@@ -242,7 +240,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   if (tradeMatch && tradeMatch[1]) {
     const username = tradeMatch[1].replace(/\.$/, "").trim();
     if (username && typeof tradePartnerCallback === "function") {
-      log.log("[EELog] Trade partner detected:", username);
+      log.info("[EELog] Trade partner detected:", username);
       tradePartnerCallback(username);
     }
   }
@@ -272,7 +270,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
     const parsed = _parseTradeDialog(_tradeDialogBuffer);
     _tradeDialogBuffer = null;
     if (parsed && typeof tradeConfirmedCallback === "function") {
-      log.log(`[EELog] Trade confirmed: ${parsed.type} ${parsed.platChange}p with ${parsed.partner}, ${parsed.items.length} item(s)`);
+      log.info(`[EELog] Trade confirmed: ${parsed.type} ${parsed.platChange}p with ${parsed.partner}, ${parsed.items.length} item(s)`);
       tradeConfirmedCallback(parsed);
     }
   }
@@ -291,10 +289,10 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
         // Too close to the last open trigger — this InitMapping is from navigating
         // TO the relic screen, not FROM it. Skip to avoid closing the overlay
         // immediately after it opens.
-        log.log("[EELog] Relic picker close skipped — too close to last open trigger");
+        log.info("[EELog] Relic picker close skipped — too close to last open trigger");
       } else if (typeof relicPickerCloseCallback === "function") {
         relicPickerSessionOpen = false;
-        log.log("[EELog] Relic picker close detected -> dispatching overlay close");
+        log.info("[EELog] Relic picker close detected -> dispatching overlay close");
         relicPickerCloseCallback();
       }
     }
@@ -545,7 +543,7 @@ export function startWatching(
 
   startDbwinWorker((line) => handleLine(line, "dbwin"));
 
-  log.log("[EELog] Watching:", EE_LOG_PATH);
+  log.info("[EELog] Watching:", EE_LOG_PATH);
   return EE_LOG_PATH;
 }
 

@@ -85,17 +85,17 @@ function describePresence(value: unknown): string {
 
 function logAssignment(key: ContextKey, previous: unknown, next: unknown): void {
   if (presenceKeys.has(key)) {
-    log.log(`${key} ${describePresence(previous)} -> ${describePresence(next)}`);
+    log.info(`${key} ${describePresence(previous)} -> ${describePresence(next)}`);
     return;
   }
 
   if (quotedKeys.has(key)) {
-    log.log(`${key} "${previous}" -> "${next}"`);
+    log.info(`${key} "${previous}" -> "${next}"`);
     return;
   }
 
   if (key === "overlayInteractiveMode" && previous !== next) {
-    log.log(`${key} ${previous} -> ${next}`);
+    log.info(`${key} ${previous} -> ${next}`);
   }
 }
 

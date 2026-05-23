@@ -3,7 +3,7 @@ import { describe, expect, it, vi, beforeEach, beforeAll } from "vitest";
 // Mock logger before importing rivenGrading (which imports logger via rivenData)
 vi.mock("../../services/logger", () => ({
   withScope: () => ({
-    log: vi.fn(),
+    info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
     debug: vi.fn(),

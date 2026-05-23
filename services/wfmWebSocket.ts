@@ -53,7 +53,7 @@ export function setStatusViaWebSocket(token: string, status: WfmStatus): Promise
       if (!msg) return;
 
       const route = typeof msg.route === "string" ? msg.route : "";
-      log.log("[WFMWebSocket] <-", route);
+      log.info("[WFMWebSocket] <-", route);
 
       if (route.endsWith(":error")) {
         done(new Error(`WFM WS error: ${route} - ${JSON.stringify(msg.payload)}`));

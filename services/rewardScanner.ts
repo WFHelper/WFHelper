@@ -58,7 +58,7 @@ function getBandsForPasses(
 export function setRelicItems(items: SortedItem[]): void {
   relicItems = Array.isArray(items) ? items : [];
   sortedItems = [...relicItems].sort((a, b) => b.name.length - a.name.length);
-  log.log(`[RewardScanner] Item list updated: ${relicItems.length} items`);
+  log.info(`[RewardScanner] Item list updated: ${relicItems.length} items`);
 }
 
 export function detectRelicSelectionEra(

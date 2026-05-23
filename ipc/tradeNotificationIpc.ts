@@ -126,7 +126,7 @@ export function showTradeNotification(match: TradeNotificationShowPayload["match
     _hideTimer = null;
   }, AUTO_HIDE_MS);
 
-  log.log(
+  log.info(
     `[TradeNotification] Showing: ${match.type} ${match.itemName} ${match.platinum}p with ${match.partner}`,
   );
 }

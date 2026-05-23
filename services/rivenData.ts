@@ -293,7 +293,7 @@ function ensureBuilt(): void {
       }
     }
 
-    log.log(`[RivenData] Indexed ${weaponCount} weapons, ${_rivenModByKey.size} riven mod types`);
+    log.info(`[RivenData] Indexed ${weaponCount} weapons, ${_rivenModByKey.size} riven mod types`);
   } catch (err) {
     log.error("[RivenData] Failed to build indexes:", err);
   }

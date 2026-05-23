@@ -59,7 +59,7 @@ function _scheduleReconnect(): void {
 
   const delay = _reconnectDelay();
   _reconnectAttempt++;
-  log.log(`[WFMListener] Reconnecting in ${delay}ms (attempt ${_reconnectAttempt})`);
+  log.info(`[WFMListener] Reconnecting in ${delay}ms (attempt ${_reconnectAttempt})`);
   _reconnectTimer = setTimeout(() => {
     _reconnectTimer = null;
     if (_active && _token) _connect(_token);
@@ -95,7 +95,7 @@ function _connect(token: string): void {
     if (!msg) return;
 
     const route = typeof msg.route === "string" ? msg.route : "";
-    log.log("[WFMListener] <-", route);
+    log.info("[WFMListener] <-", route);
 
     if (route.endsWith(":error")) {
       log.warn("[WFMListener] Server error:", route, JSON.stringify(msg.payload));
@@ -104,7 +104,7 @@ function _connect(token: string): void {
 
     if (route.includes("auth/signIn:ok")) {
       _reconnectAttempt = 0;
-      log.log("[WFMListener] Authenticated, listening for events");
+      log.info("[WFMListener] Authenticated, listening for events");
       return;
     }
 
@@ -124,7 +124,7 @@ function _connect(token: string): void {
 
   socket.on("close", () => {
     if (_active) {
-      log.log("[WFMListener] Socket closed, will reconnect");
+      log.info("[WFMListener] Socket closed, will reconnect");
       reconnect();
     }
   });
@@ -136,7 +136,7 @@ export function startListening(token: string, onEvent: (type: string, payload: u
   _token = token;
   _onEvent = onEvent;
   _reconnectAttempt = 0;
-  log.log("[WFMListener] Starting");
+  log.info("[WFMListener] Starting");
   _connect(token);
 }
 
@@ -147,5 +147,5 @@ export function stopListening(): void {
   _clearTimers();
   _destroySocket();
   _reconnectAttempt = 0;
-  log.log("[WFMListener] Stopped");
+  log.info("[WFMListener] Stopped");
 }

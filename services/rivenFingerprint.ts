@@ -458,6 +458,6 @@ export function decodeAllRivens(
     });
   }
 
-  log.log(`[Fingerprint] Decoded ${unveiled.length} unveiled, ${veiled.length} veiled with challenge, ${veiledUnseen.length} unseen groups`);
+  log.info(`[Fingerprint] Decoded ${unveiled.length} unveiled, ${veiled.length} veiled with challenge, ${veiledUnseen.length} unseen groups`);
   return { unveiled, veiled, veiledUnseen };
 }

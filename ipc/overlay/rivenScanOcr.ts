@@ -52,7 +52,7 @@ interface RivenCardRecognitionOptions {
 }
 
 function logScanTiming(label: string, t: RivenScanTiming): void {
-  log.log(
+  log.info(
     `[RivenScan] timing ${label}: capture=${t.captureMs}ms crop=${t.cropRefineMs}ms ` +
       `enhance=${t.enhanceMs}ms ocr=${t.ocrMs}ms(${t.ocrCalls}calls) ` +
       `parse=${t.parseMs}ms total=${t.totalMs}ms`,
@@ -111,14 +111,14 @@ export async function recognizeRivenCardStats(
       parseMs += Date.now() - parseStart;
 
       if (options.label) {
-        log.log(
+        log.info(
           `[RivenScan] YOLO+PaddleOCR ${options.label} attempt=${attempt}: ${stats.length} stats, ` +
             `${ocrResult.yoloBoxCount} YOLO boxes, minConf=${ocrResult.minConfidence.toFixed(3)} ` +
             `(source ${statAreaSize.width}×${statAreaSize.height}) — ` +
             stats.map(formatStatForLog).join(", "),
         );
         for (const line of ocrResult.lines) {
-          log.log(`  [OCR] "${line.text}" conf=${line.confidence.toFixed(3)}`);
+          log.info(`  [OCR] "${line.text}" conf=${line.confidence.toFixed(3)}`);
         }
       }
 
@@ -133,7 +133,7 @@ export async function recognizeRivenCardStats(
         const hasNullValues = stats.some((stat) => stat.value === null);
         if (!lowConf && !hasNullValues) break;
         if (options.label) {
-          log.log(
+          log.info(
             `[RivenScan] YOLO+PaddleOCR ${options.label}: ` +
               (lowConf
                 ? `low confidence (min=${ocrResult.minConfidence.toFixed(3)} < ${LOW_CONFIDENCE_THRESHOLD}), `

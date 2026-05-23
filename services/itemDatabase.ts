@@ -180,7 +180,7 @@ function loadDict(): Record<string, string> {
   try {
     const d = require("warframe-public-export-plus/dict.en.json");
     if (d && typeof d === "object" && Object.keys(d).length > 0) {
-      log.log(`[ItemDB] dict.en.json loaded via require (${Object.keys(d).length} strings)`);
+      log.info(`[ItemDB] dict.en.json loaded via require (${Object.keys(d).length} strings)`);
       return d;
     }
   } catch (e) {
@@ -193,7 +193,7 @@ function loadDict(): Record<string, string> {
     const dictPath = path.join(modDir, "dict.en.json");
     if (fs.existsSync(dictPath)) {
       const d = JSON.parse(fs.readFileSync(dictPath, "utf-8"));
-      log.log(`[ItemDB] dict.en.json loaded from disk (${Object.keys(d).length} strings)`);
+      log.info(`[ItemDB] dict.en.json loaded from disk (${Object.keys(d).length} strings)`);
       return d;
     } else {
       attempts.push(`disk: file not found at ${dictPath}`);
@@ -205,12 +205,12 @@ function loadDict(): Record<string, string> {
   try {
     const pep = require("warframe-public-export-plus");
     if (pep.getString && typeof pep.getString === "function") {
-      log.log("[ItemDB] Using pep.getString() for name resolution");
+      log.info("[ItemDB] Using pep.getString() for name resolution");
       return { __getString: pep.getString };
     }
     for (const key of ["dict", "dictEn", "dict_en", "strings"]) {
       if (pep[key] && typeof pep[key] === "object") {
-        log.log(`[ItemDB] dict found via pep.${key}`);
+        log.info(`[ItemDB] dict found via pep.${key}`);
         return pep[key];
       }
     }
@@ -321,7 +321,7 @@ function loadPublicExportPlus(): number {
       }
     }
 
-    log.log(`[ItemDB] public-export-plus: ${pepCount} items indexed`);
+    log.info(`[ItemDB] public-export-plus: ${pepCount} items indexed`);
     return pepCount;
   } catch (err) {
     log.warn("[ItemDB] warframe-public-export-plus not available:", normalizeErrorMessage(err));
@@ -558,7 +558,7 @@ function loadWfcdItems(): number {
       }
     }
 
-    log.log(
+    log.info(
       `[ItemDB] @wfcd/items: ${wfcdNewCount} new + ${wfcdSupplementCount} supplemented + ${wfcdComponentNewCount} component entries + ${wfcdComponentSupplementCount} component supplements`,
     );
     return wfcdNewCount;
@@ -603,7 +603,7 @@ function resolveAllImages(): void {
   }
 
   const mirrorEnabled = process.env.WFHELPER_ICON_MIRROR_DISABLED !== "1";
-  log.log(
+  log.info(
     `[ItemDB] Images: mirror=${ICON_MIRROR_BASE_URL} (${mirrorEnabled ? "enabled" : "disabled"}), ${preResolved} mirrored from resolved sources, ${browseWfSourced} mirrored from browse.wf source paths, ${noImage} unresolved`,
   );
   if (noImage > 0) {
@@ -612,7 +612,7 @@ function resolveAllImages(): void {
       .slice(0, IMAGE_LOG_CATEGORY_LIMIT)
       .map(([category, count]) => `${category} ${count}`)
       .join(", ");
-    log.log(
+    log.info(
       `[ItemDB] Images unresolved: no upstream icon URL in PEP/WFCD/browse.wf; top categories: ${categorySummary}; samples: ${noImageSamples.join(", ")}`,
     );
   }
@@ -657,7 +657,7 @@ function buildRecipeIndex(): void {
       };
       count++;
     }
-    log.log(`[ItemDB] Recipe index: ${count} recipes by resultType`);
+    log.info(`[ItemDB] Recipe index: ${count} recipes by resultType`);
   } catch {
     log.warn("[ItemDB] Could not build recipe index");
   }
@@ -671,7 +671,7 @@ export function buildDatabase(): void {
   const wfcdCount = loadWfcdItems();
   resolveAllImages();
 
-  log.log(`[ItemDB] Total: ${Object.keys(itemsByUniqueName).length} items`);
+  log.info(`[ItemDB] Total: ${Object.keys(itemsByUniqueName).length} items`);
   log.timeEnd("[ItemDB] Total build time");
 
   if (pepCount === 0 && wfcdCount === 0) {

@@ -82,7 +82,7 @@ function setOverlayInteractionMode(enabled: boolean, source = "unknown"): void {
   if (rewardExists) rwc.setOverlayInteractiveMode(next);
   if (plannerExists) pwc.setOverlayInteractiveMode(next);
   pushOverlayInteractionMode();
-  log.log(`[OverlayInteraction] mode=${next ? "interactive" : "passive"} source=${source}`);
+  log.info(`[OverlayInteraction] mode=${next ? "interactive" : "passive"} source=${source}`);
 }
 
 function toggleOverlayInteractionMode(source = "unknown"): void {
@@ -361,7 +361,7 @@ function register(): void {
   onAuthorized(OVERLAY_THEME_UPDATED, assertMainRendererSender, (_event, rawVars: unknown) => {
     const sanitized = sanitizeOverlayThemeVars(rawVars);
     ctx.overlayThemeVars = sanitized;
-    log.log(`[OverlayTheme] updated vars=${Object.keys(sanitized).length}`);
+    log.info(`[OverlayTheme] updated vars=${Object.keys(sanitized).length}`);
     if (Object.keys(sanitized).length > 0) {
       pushOverlayThemeVars();
     }

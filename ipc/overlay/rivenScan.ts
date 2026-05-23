@@ -97,13 +97,13 @@ function emptyRecognitionResult(): RivenCardRecognitionResult {
 function pinCaptureDisplay(capture: CaptureResult): void {
   if (capture.sourceDisplayId && capture.sourceDisplayId !== _rivenDisplayId) {
     _rivenDisplayId = capture.sourceDisplayId;
-    log.log(`[RivenScan] pinned to display id=${_rivenDisplayId}`);
+    log.info(`[RivenScan] pinned to display id=${_rivenDisplayId}`);
   }
 }
 
 function logCapture(profile: RivenScanProfile, capture: CaptureResult): void {
   const imgSize = capture.image.getSize?.() ?? { width: "?", height: "?" };
-  log.log(
+  log.info(
     `[RivenScan] ${profile.label} capture: source=${capture.sourceType} ` +
       `name="${capture.sourceName}" size=${imgSize.width}x${imgSize.height}`,
   );
@@ -125,7 +125,7 @@ async function captureForProfile(
   if (profile.readyMode) {
     const ready = await waitForRivenUiReady(profile.crop, profile.readyMode, _rivenDisplayId);
     if (!ready.ready) {
-      log.log(
+      log.info(
         `[RivenScan] ${profile.label} UI gate timed out after ${ready.elapsedMs}ms ` +
           `(${ready.attempts} samples, best=${ready.bestScore.toFixed(3)})`,
       );
@@ -170,7 +170,7 @@ async function runRivenScanAttempt(
 
   const frameHash = readyFrameHash || frameHashForCapture(capture, profile);
   let result = await recognizeCapture(capture, profile, generation, captureMs);
-  log.log(
+  log.info(
     `[RivenScan] ${profile.label}: ${result.stats.length} stats, elapsed=${Date.now() - attemptStart}ms`,
   );
 
@@ -178,7 +178,7 @@ async function runRivenScanAttempt(
     return { ...result, capture, elapsedMs: Date.now() - attemptStart };
   }
 
-  log.log(
+  log.info(
     `[RivenScan] ${profile.label}: sparse result (${result.stats.length} stats), ` +
       `retrying in ${profile.retryDelayMs}ms`,
   );
@@ -195,7 +195,7 @@ async function runRivenScanAttempt(
 
   const retryHash = frameHashForCapture(retryCapture, profile);
   if (retryHash && retryHash === frameHash) {
-    log.log(`[RivenScan] ${profile.label}-retry skipped identical frame hash`);
+    log.info(`[RivenScan] ${profile.label}-retry skipped identical frame hash`);
     return { ...result, capture, elapsedMs: Date.now() - attemptStart };
   }
 
@@ -210,7 +210,7 @@ async function runRivenScanAttempt(
     ? retryResult.stats.length >= result.stats.length
     : retryResult.stats.length > result.stats.length;
   if (retryIsBetter) {
-    log.log(`[RivenScan] ${profile.label}: retry improved to ${retryResult.stats.length} stats`);
+    log.info(`[RivenScan] ${profile.label}: retry improved to ${retryResult.stats.length} stats`);
     result = retryResult;
   }
 
@@ -245,7 +245,7 @@ export async function scanInitialCard(): Promise<InitialScanResult> {
   const generation = ++_scanGeneration;
   try {
     const result = await runRivenScanAttempt(RIVEN_SCAN_PROFILES.initial, generation);
-    log.log(
+    log.info(
       `[RivenScan] initial card scan: ${result.stats.length} stats found`,
       formatStatsForLog(result.stats),
     );
@@ -276,7 +276,7 @@ export async function scanChoiceRescan(): Promise<RivenStat[]> {
   const generation = ++_scanGeneration;
   try {
     const result = await runRivenScanAttempt(RIVEN_SCAN_PROFILES.choice, generation);
-    log.log(
+    log.info(
       `[RivenScan] choice rescan: ${result.stats.length} stats found`,
       formatStatsForLog(result.stats),
     );

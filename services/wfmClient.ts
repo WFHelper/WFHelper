@@ -150,10 +150,10 @@ async function _ensureCsrfToken(): Promise<string | null> {
       const payload = _decodeJwtPayload(_cookieJwt);
       if (typeof metaCsrf === "string" && metaCsrf) {
         _csrfToken = metaCsrf;
-        log.log("[WFMClient] CSRF token acquired from page meta");
+        log.info("[WFMClient] CSRF token acquired from page meta");
       } else if (typeof payload?.csrf_token === "string") {
         _csrfToken = payload.csrf_token;
-        log.log("[WFMClient] CSRF token acquired from JWT payload fallback");
+        log.info("[WFMClient] CSRF token acquired from JWT payload fallback");
       } else {
         log.warn("[WFMClient] Page and JWT payload have no csrf token");
       }
@@ -171,7 +171,7 @@ export function updateCsrfFromToken(token: string): void {
   const payload = _decodeJwtPayload(token);
   if (!_csrfToken && typeof payload?.csrf_token === "string") {
     _csrfToken = payload.csrf_token;
-    log.log("[WFMClient] CSRF token updated from authenticated JWT fallback");
+    log.info("[WFMClient] CSRF token updated from authenticated JWT fallback");
   }
 }
 
@@ -388,7 +388,7 @@ function _coreRequest(
       let detail = `HTTP ${res.status}`;
       try {
         const text = await res.text();
-        log.log(`[${label}] ${method} ${path} → ${res.status} body:`, text.slice(0, 500));
+        log.info(`[${label}] ${method} ${path} → ${res.status} body:`, text.slice(0, 500));
         try {
           const parsed = JSON.parse(text) as unknown;
           detail = extractWfmErrorDetail(parsed) ?? detail;

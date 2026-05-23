@@ -163,7 +163,7 @@ function createWindow(): void {
 app.whenReady().then(async () => {
   const startupStartedAt = Date.now();
   const profileStage = (label: string, startedAt: number): void => {
-    log.log(`[StartupProfile][main] ${label}: ${Date.now() - startedAt}ms`);
+    log.info(`[StartupProfile][main] ${label}: ${Date.now() - startedAt}ms`);
   };
 
   const settingsStart = Date.now();
@@ -254,7 +254,7 @@ app.whenReady().then(async () => {
   if (found) {
     ctx.currentInventoryPath = found;
     inventoryIpc.watchInventoryFile(found);
-    log.log("Auto-detected inventory at:", found);
+    log.info("Auto-detected inventory at:", found);
 
     // Auto-load inventory and send to renderer once the page is ready.
     // Guard against a race where did-finish-load fires before this point
@@ -285,7 +285,7 @@ app.whenReady().then(async () => {
     if (!discovered) return;
     ctx.currentInventoryPath = discovered;
     inventoryIpc.watchInventoryFile(discovered);
-    log.log("First inventory load detected at:", discovered);
+    log.info("First inventory load detected at:", discovered);
     const data = inventoryIpc.readInventory(discovered);
     if (data && ctx.mainWindow && !ctx.mainWindow.isDestroyed()) {
       ctx.mainWindow.webContents.send(INVENTORY_UPDATED, data);
@@ -348,8 +348,8 @@ app.whenReady().then(async () => {
     onRivenChoiceConfirmed: () => overlayIpc.onRivenChoiceConfirmed(),
     onRivenChatView: () => overlayIpc.onRivenChatView(),
   });
-  if (eeLogPath) log.log("[EELog] Monitoring:", eeLogPath);
-  else log.log("[EELog] EE.log not found - relic overlay trigger disabled");
+  if (eeLogPath) log.info("[EELog] Monitoring:", eeLogPath);
+  else log.info("[EELog] EE.log not found - relic overlay trigger disabled");
   profileStage("ee-log:watch-start", eeLogStart);
 
   const rewardItemsStart = Date.now();

@@ -3,7 +3,6 @@ import fs from "node:fs";
 import path from "node:path";
 
 export interface ScopedLogger {
-  log: (...args: unknown[]) => void;
   info: (...args: unknown[]) => void;
   warn: (...args: unknown[]) => void;
   error: (...args: unknown[]) => void;
@@ -52,7 +51,6 @@ export function withScope(scopeName: string): ScopedLogger {
   const scoped = electronLog.scope(scopeName);
 
   return {
-    log: (...args: unknown[]) => scoped.info(...args),
     info: (...args: unknown[]) => scoped.info(...args),
     warn: (...args: unknown[]) => scoped.warn(...args),
     error: (...args: unknown[]) => scoped.error(...args),

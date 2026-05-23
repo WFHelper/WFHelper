@@ -76,7 +76,7 @@ function _handleWfmEvent(route: string, payload: unknown): void {
           ? p.raw_message
           : route;
 
-    log.log("[WFMListener] Dispatching whisper notification from:", from);
+    log.info("[WFMListener] Dispatching whisper notification from:", from);
     win.webContents.send(WFM_NOTIFICATION, { type: "whisper", from, content });
   }
 }
@@ -284,7 +284,7 @@ function register(): void {
 function startListenerIfLoggedIn(): void {
   const token = wfmSession.getToken();
   if (token) {
-    log.log("[WFMIpc] Resuming WS listener after session restore");
+    log.info("[WFMIpc] Resuming WS listener after session restore");
     startListening(token, _handleWfmEvent);
   }
 }

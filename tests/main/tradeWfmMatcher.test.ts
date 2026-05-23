@@ -3,7 +3,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 // Mock dependencies before importing the module under test
 vi.mock("../../services/logger", () => ({
   withScope: () => ({
-    log: vi.fn(),
+    info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
   }),

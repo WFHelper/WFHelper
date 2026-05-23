@@ -149,7 +149,7 @@ export function getRelicDatabase(): RelicDatabase {
     log.time("[RelicDB] build");
     _db = buildRelicDatabase();
     const n = Object.keys(_db.groups).length;
-    log.log(`[RelicDB] ${n} relic groups indexed`);
+    log.info(`[RelicDB] ${n} relic groups indexed`);
     log.timeEnd("[RelicDB] build");
   }
   return _db;

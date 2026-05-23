@@ -113,7 +113,7 @@ export async function ensureRivenGoodRollsLoaded(force = false): Promise<void> {
       const fresh = await fetchSheet();
       goodRolls = fresh;
       writeCache(fresh);
-      log.log(`Loaded ${Object.keys(fresh).length} riven good-roll rows from Google Sheet`);
+      log.info(`Loaded ${Object.keys(fresh).length} riven good-roll rows from Google Sheet`);
     } catch (err) {
       const cached = readCache();
       if (cached) {

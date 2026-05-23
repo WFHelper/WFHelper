@@ -75,7 +75,7 @@ type RecommendationRow = {
 
 type OverlayRecommendationControllerOptions = {
   log: {
-    log: (...args: unknown[]) => void;
+    info: (...args: unknown[]) => void;
     warn: (...args: unknown[]) => void;
     error: (...args: unknown[]) => void;
   };
@@ -569,7 +569,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_SUCCESS_MS);
       }
 
-      log.log(
+      log.info(
         `[RelicSelection] fallback rows sent count=${rows.length} elapsed=${Date.now() - startedAt}ms token=${scanToken}`,
       );
     } catch (err) {
@@ -601,7 +601,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
 
       if (era) {
         activeMissionTierSetAt = Date.now(); // refresh TTL
-        log.log(
+        log.info(
           `[RelicSelection] activeMissionTier cache hit: ${era} (age ${Math.round(cacheAge / 1000)}s)`,
         );
         if (typeof rewardScanner.captureSourceMeta === "function") {
@@ -609,7 +609,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
           try {
             const sourceMeta = await rewardScanner.captureSourceMeta({ preferredDisplayId });
             if (scanToken !== activeScanToken) return;
-            log.log(
+            log.info(
               `[RelicSelection] source meta elapsed=${Date.now() - captureMetaStartedAt}ms source=${String(
                 sourceMeta?.sourceType || "unknown",
               )}:${String(sourceMeta?.sourceName || sourceMeta?.sourceId || "unknown")} display=${String(
@@ -629,7 +629,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       } else if (desktopTierHint) {
         era = desktopTierHint;
         eraConfidence = 0.75;
-        log.log(`[RelicSelection] using desktop tier hint without OCR: ${desktopTierHint}`);
+        log.info(`[RelicSelection] using desktop tier hint without OCR: ${desktopTierHint}`);
       } else {
         const eraDetection =
           typeof rewardScanner.detectRelicSelectionEra === "function"
@@ -650,7 +650,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         era = normalizeEra(eraDetection?.era || null);
         eraConfidence = toFiniteOr(eraDetection?.confidence, 0);
 
-        log.log(
+        log.info(
           `[RelicSelection] era detection: era=${era || "none"} conf=${eraConfidence.toFixed(3)} ` +
             `source=${String(eraDetection?.sourceType || "unknown")}:${String(eraDetection?.sourceName || eraDetection?.sourceId || "unknown")} ` +
             `display=${String(eraDetection?.sourceDisplayId || "unknown")} ` +
@@ -661,11 +661,11 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         if (era && eraConfidence >= 0.9) {
           activeMissionTier = era;
           activeMissionTierSetAt = Date.now();
-          log.log(`[RelicSelection] activeMissionTier set: ${era}`);
+          log.info(`[RelicSelection] activeMissionTier set: ${era}`);
         }
       }
 
-      log.log(`[RelicSelection] era detection elapsed=${Date.now() - eraDetectStartedAt}ms`);
+      log.info(`[RelicSelection] era detection elapsed=${Date.now() - eraDetectStartedAt}ms`);
 
       const shouldApplyEra = Boolean(era && eraConfidence >= 0.9);
       const effectiveEra = shouldApplyEra ? era : desktopTierHint;
@@ -689,7 +689,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         rows.length > 0 ? OVERLAY_AUTO_HIDE_SUCCESS_MS : OVERLAY_AUTO_HIDE_FAILURE_MS,
       );
 
-      log.log(
+      log.info(
         `[RelicSelection] refinement rows sent count=${rows.length} era=${
           effectiveEra || "none"
         } conf=${eraConfidence.toFixed(3)} elapsed=${Date.now() - refineStartedAt}ms token=${scanToken}`,
@@ -727,7 +727,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     activeScanToken = scanToken;
 
     if (inFlight) {
-      log.log(`[RelicSelection] replacing in-flight planner scan (${source})`);
+      log.info(`[RelicSelection] replacing in-flight planner scan (${source})`);
     }
 
     inFlight = true;
@@ -747,7 +747,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       windows.clearOverlayAutoHideTimer();
       windows.createOverlayWindow();
       windows.positionOverlayWindow(windows.getAnchorMeta());
-      log.log(
+      log.info(
         `[RelicSelection] overlay show request source=${source} anchorDisplay=${String(
           windows.getAnchorMeta()?.sourceDisplayId || "unknown",
         )} token=${scanToken}`,
@@ -794,14 +794,14 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       desktopTierHint = normalizeEra(filters.tierFilter);
     }
     cache = null;
-    log.log(
+    log.info(
       `[RelicSelection] desktop filters updated: squadSize=${desktopSquadSize} tierHint=${desktopTierHint || "all"}`,
     );
   }
 
   function resetMissionTier(): void {
     if (activeMissionTier) {
-      log.log(`[RelicSelection] activeMissionTier cleared (menu closed)`);
+      log.info(`[RelicSelection] activeMissionTier cleared (menu closed)`);
     }
     activeMissionTier = null;
     activeMissionTierSetAt = 0;

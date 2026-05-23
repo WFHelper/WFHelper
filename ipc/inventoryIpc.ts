@@ -272,7 +272,7 @@ function readInventory(filePath: string): unknown {
     _notifyListenersOncePerProcessHash(hash, data);
 
     if (withinCooldown && contentUnchanged) {
-      log.log("Inventory read skipped broadcast (unchanged within 10 min cooldown).");
+      log.info("Inventory read skipped broadcast (unchanged within 10 min cooldown).");
       return data;
     }
 
@@ -322,7 +322,7 @@ function watchInventoryFile(filePath: string): void {
     const now = Date.now();
     if (now - _lastReloadAt < MIN_RELOAD_INTERVAL_MS) {
       // Intentional 10m cooldown
-      log.log("Inventory file changed, skipping (too soon after last reload).");
+      log.info("Inventory file changed, skipping (too soon after last reload).");
       return;
     }
 
@@ -331,14 +331,14 @@ function watchInventoryFile(filePath: string): void {
 
     const hash = crypto.createHash("sha256").update(raw).digest("hex");
     if (hash === _lastInventoryHash) {
-      log.log("Inventory file touched but content unchanged, skipping reload.");
+      log.info("Inventory file touched but content unchanged, skipping reload.");
       return;
     }
 
     _lastReloadAt = now;
     _lastInventoryHash = hash;
     _persistState();
-    log.log("Inventory file changed, reloading...");
+    log.info("Inventory file changed, reloading...");
 
     try {
       const data = parseInventoryRaw(raw);

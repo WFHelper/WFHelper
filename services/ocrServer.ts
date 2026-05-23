@@ -187,7 +187,7 @@ class OcrServerWorker {
             this._starting = false;
             this._proc = proc;
             this._restartCount = 0;
-            log.log("[OcrServer] Server ready");
+            log.info("[OcrServer] Server ready");
             resolve();
           }
           return;
@@ -239,7 +239,7 @@ class OcrServerWorker {
 
     this._restartCount += 1;
     const delay = RESTART_BASE_DELAY_MS * this._restartCount;
-    log.log(`[OcrServer] Restarting in ${delay}ms (attempt ${this._restartCount}/${MAX_RESTARTS})`);
+    log.info(`[OcrServer] Restarting in ${delay}ms (attempt ${this._restartCount}/${MAX_RESTARTS})`);
     setTimeout(() => {
       if (this._disposed) return;
       this._spawn().catch((err) => {
@@ -412,9 +412,9 @@ try {
     recognize: (input: Buffer | string) => Promise<{ text: string; confidence: number }>;
   };
   _nativeRecognize = mod.recognize;
-  log.log("[OcrServer] Native OCR engine loaded (@napi-rs/system-ocr)");
+  log.info("[OcrServer] Native OCR engine loaded (@napi-rs/system-ocr)");
 } catch {
-  log.log("[OcrServer] Native OCR engine not available, using PowerShell pool");
+  log.info("[OcrServer] Native OCR engine not available, using PowerShell pool");
 }
 
 export const nativeOcrAvailable = !!_nativeRecognize;

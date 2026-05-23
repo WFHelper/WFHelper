@@ -49,7 +49,7 @@ export async function scanRewardBandPasses({
 
   for (let i = 0; i < bands.length; i += 1) {
     if (Date.now() - scanStartedAt >= totalBudgetMs) {
-      log.log(`[RewardScanner] scan budget exhausted before pass ${i + 1}/${bands.length}`);
+      log.info(`[RewardScanner] scan budget exhausted before pass ${i + 1}/${bands.length}`);
       break;
     }
 
@@ -68,12 +68,12 @@ export async function scanRewardBandPasses({
       const elapsed = Date.now() - scanStartedAt;
       const remainingBudgetMs = totalBudgetMs - elapsed;
       if (remainingBudgetMs <= 0) {
-        log.log(`[RewardScanner] scan budget exhausted before OCR on pass ${i + 1}`);
+        log.info(`[RewardScanner] scan budget exhausted before OCR on pass ${i + 1}`);
         break;
       }
 
       if (!hasSufficientTextureForOcr(variant.image)) {
-        log.log(`[RewardScanner] Skipping low-texture crop (pass ${i + 1} ${variant.id})`);
+        log.info(`[RewardScanner] Skipping low-texture crop (pass ${i + 1} ${variant.id})`);
         continue;
       }
 

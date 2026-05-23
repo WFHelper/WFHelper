@@ -249,7 +249,7 @@ function ensureStartMenuShortcut(): void {
         appUserModelId: APP_USER_MODEL_ID,
         description: "WFHelper",
       });
-      log.log("[WorldState] created/updated Start Menu shortcut for notifications");
+      log.info("[WorldState] created/updated Start Menu shortcut for notifications");
     }
   } catch (err) {
     log.warn("[WorldState] Start Menu shortcut error:", normalizeErrorMessage(err));
@@ -380,7 +380,7 @@ function sendDesktopNotification(title: string, body: string): void {
   try {
     if (ctx.overlaySettings.worldNotificationsEnabled === false) return;
     if (!canSendNotifications()) return;
-    log.log("[WorldState] sending notification:", title, "-", body);
+    log.info("[WorldState] sending notification:", title, "-", body);
     if (desktopNotificationSender) {
       desktopNotificationSender(title, body);
       return;
@@ -704,7 +704,7 @@ function register(
       _worldStateCacheTime = Date.now();
       maybeNotifyWorldEvents(_worldStateCache);
       checkPreCycleNotifications(_worldStateCache);
-      log.log("[WorldState] Fetched and parsed DE world state");
+      log.info("[WorldState] Fetched and parsed DE world state");
       return _worldStateCache;
     } catch (err) {
       const msg = normalizeErrorMessage(err);
@@ -731,7 +731,7 @@ function register(
       _worldStateCacheTime = Date.now();
       _worldNotificationSnapshot = buildNotificationSnapshot(_worldStateCache);
       checkPreCycleNotifications(_worldStateCache);
-      log.log("[WorldState] startup seed complete");
+      log.info("[WorldState] startup seed complete");
     } catch (err) {
       log.warn("[WorldState] startup seed failed:", normalizeErrorMessage(err));
     }

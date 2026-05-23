@@ -36,7 +36,7 @@ export function startDbwinWorker(onLine: (line: string) => void): void {
     switch (m.type) {
       case "ready":
         _dbwinActive = true;
-        log.log("[DBWIN] OutputDebugString listener ready (alreadyExists:", m.alreadyExists, ")");
+        log.info("[DBWIN] OutputDebugString listener ready (alreadyExists:", m.alreadyExists, ")");
         break;
       case "line":
         if (m.msg) onLine(m.msg);
@@ -45,7 +45,7 @@ export function startDbwinWorker(onLine: (line: string) => void): void {
         log.warn("[DBWIN] Worker error:", m.message);
         break;
       case "stopped":
-        log.log("[DBWIN] Worker stopped cleanly");
+        log.info("[DBWIN] Worker stopped cleanly");
         break;
     }
   });

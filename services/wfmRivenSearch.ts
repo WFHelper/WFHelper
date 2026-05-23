@@ -59,7 +59,7 @@ function parseAuctions(auctions: WfmRawAuction[]): WfmRivenListing[] {
   for (const a of auctions) {
     if (!a.item?.attributes) continue;
     if (!_loggedWfmName && a.item?.name) {
-      log.log(`[WfmRivenSearch] WFM auction item.name format example: "${a.item.name}"`);
+      log.info(`[WfmRivenSearch] WFM auction item.name format example: "${a.item.name}"`);
       _loggedWfmName = true;
     }
 
@@ -172,7 +172,7 @@ export async function searchSimilarRivens(
     _cache.set(cacheKey, { listings: allListings, timestamp: Date.now() });
     pruneCache();
 
-    log.log(`[WfmRivenSearch] Found ${allListings.length} auctions for "${weaponSlug}"`);
+    log.info(`[WfmRivenSearch] Found ${allListings.length} auctions for "${weaponSlug}"`);
     return allListings.slice(0, limit);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -235,11 +235,11 @@ export async function createRivenAuction(
   }
 
   try {
-    log.log(`[WfmRivenSearch] Creating auction for "${opts.weaponSlug}" polarity=${opts.polarity} rank=${opts.modRank} attrs=${opts.attributes.length}`);
+    log.info(`[WfmRivenSearch] Creating auction for "${opts.weaponSlug}" polarity=${opts.polarity} rank=${opts.modRank} attrs=${opts.attributes.length}`);
     const data = await wfmClient.request("POST", "/auctions/create", { json: body });
     const payload = unwrapWfmResponse<WfmAuctionCreatePayload>(data);
     const auctionId = payload?.auction?.id;
-    log.log(`[WfmRivenSearch] Created auction ${auctionId || "(no id)"} for "${opts.weaponSlug}"`);
+    log.info(`[WfmRivenSearch] Created auction ${auctionId || "(no id)"} for "${opts.weaponSlug}"`);
     return { ok: true, auctionId: auctionId || undefined };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -266,7 +266,7 @@ export async function updateRivenAuction(
   }
 
   try {
-    log.log(`[WfmRivenSearch] Updating auction ${opts.auctionId}`);
+    log.info(`[WfmRivenSearch] Updating auction ${opts.auctionId}`);
     const data = await wfmClient.request(
       "PUT",
       `/auctions/entry/${encodeURIComponent(opts.auctionId)}`,
@@ -274,7 +274,7 @@ export async function updateRivenAuction(
     );
     const payload = unwrapWfmResponse<WfmAuctionUpdatePayload>(data);
     const auctionId = payload?.auction?.id || opts.auctionId;
-    log.log(`[WfmRivenSearch] Updated auction ${auctionId}`);
+    log.info(`[WfmRivenSearch] Updated auction ${auctionId}`);
     return { ok: true, auctionId };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

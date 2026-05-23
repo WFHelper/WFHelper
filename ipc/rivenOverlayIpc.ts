@@ -339,7 +339,7 @@ function triggerInitialScan(): void {
       if (weaponSourceText && (!_rivenWeaponName || _rivenWeaponName === "Riven")) {
         const detected = rivenDataSvc.findWeaponInText(weaponSourceText);
         if (detected) {
-          log.log(`[RivenScan] weapon detected from OCR: "${detected}"`);
+          log.info(`[RivenScan] weapon detected from OCR: "${detected}"`);
           _rivenWeaponName = detected;
           forEachRivenWindow((win) => {
             if (!win.isDestroyed()) win.webContents.send(RIVEN_WEAPON_UPDATE, detected);
@@ -366,10 +366,10 @@ function triggerRollScan(delayMs = ROLL_SCAN_DELAY_MS): void {
   if (_rivenRollScanTimer) clearTimeout(_rivenRollScanTimer);
   // Increment serial so any already-running scan knows it has been superseded.
   const mySerial = ++_rollScanSerial;
-  log.log(`[RivenScan] triggerRollScan: serial=${mySerial}, delay=${delayMs}ms`);
+  log.info(`[RivenScan] triggerRollScan: serial=${mySerial}, delay=${delayMs}ms`);
   _rivenRollScanTimer = setTimeout(async () => {
     _rivenRollScanTimer = null;
-    log.log(
+    log.info(
       `[RivenScan] roll timer fired: serial=${mySerial}, current=${_rollScanSerial}, weapon="${_rivenWeaponName}"`,
     );
     if (mySerial !== _rollScanSerial) return; // superseded by a later scan
@@ -410,7 +410,7 @@ function triggerRollScan(delayMs = ROLL_SCAN_DELAY_MS): void {
 }
 
 export function onRivenSessionClose(): void {
-  log.log("[OverlayRoute] trigger=riven-session-close");
+  log.info("[OverlayRoute] trigger=riven-session-close");
   rivenScan.abortRivenScans();
   // Reset the eeLogMonitor session state so subsequent EE.log events (e.g. a
   // "Cycle Riven into current selection?" dialog arriving after the user pressed
@@ -429,7 +429,7 @@ export function onRivenSessionClose(): void {
 
 export function onRivenChatView(): void {
   if (!isRivenOverlayEnabled()) return;
-  log.log("[OverlayRoute] trigger=riven-chat-view (left panel only)");
+  log.info("[OverlayRoute] trigger=riven-chat-view (left panel only)");
   // Don't interrupt an active rolling session
   if (_rivenHasRollResult) return;
 
@@ -470,7 +470,7 @@ export function onRivenChatView(): void {
 
 export function onRivenSessionOpen(): void {
   if (!isRivenOverlayEnabled()) return;
-  log.log("[OverlayRoute] trigger=riven-session");
+  log.info("[OverlayRoute] trigger=riven-session");
   _rivenHasRollResult = false;
   _rollScanSerial++;
   _rivenInitialStats = [];
@@ -491,7 +491,7 @@ export function onRivenSessionOpen(): void {
 export function onRivenRollPending(weapon: string, kuvaPerRoll: number): void {
   if (!isRivenOverlayEnabled()) return;
   _rivenHasRollResult = false;
-  log.log(
+  log.info(
     `[OverlayRoute] onRivenRollPending: weapon="${weapon}", kuva=${kuvaPerRoll}, current="${_rivenWeaponName}"`,
   );
   // Update weapon name from the cycle dialog text (first time we learn it).
@@ -514,7 +514,7 @@ export function onRivenRollPending(weapon: string, kuvaPerRoll: number): void {
 
 export function onRivenRollConfirmed(): void {
   if (!isRivenOverlayEnabled()) return;
-  log.log("[OverlayRoute] onRivenRollConfirmed -> scheduling roll scan");
+  log.info("[OverlayRoute] onRivenRollConfirmed -> scheduling roll scan");
   rivenSession.onRollConfirmed(getRivenWindows());
   triggerRollScan();
 }
@@ -523,7 +523,7 @@ export function onRivenRollConfirmed(): void {
 // the roll-confirm event instead, so this remains a no-op to prevent duplicate scans.
 export function onRivenDioramaSetup(): void {
   if (!isRivenOverlayEnabled()) return;
-  log.log("[OverlayRoute] diorama setup event (no-op, roll uses fixed delay)");
+  log.info("[OverlayRoute] diorama setup event (no-op, roll uses fixed delay)");
 }
 
 export function onRivenChoiceConfirmed(): void {
@@ -534,7 +534,7 @@ export function onRivenChoiceConfirmed(): void {
   // native OCR binding with FATAL ERROR: ThrowAsJavaScriptException.
   const anyVisible = getRivenWindows().some((w) => w && !w.isDestroyed() && w.isVisible());
   if (!anyVisible) {
-    log.log("[RivenScan] choice confirmed but overlay is not visible — skipping");
+    log.info("[RivenScan] choice confirmed but overlay is not visible — skipping");
     return;
   }
 
@@ -566,7 +566,7 @@ export function onRivenChoiceConfirmed(): void {
       if (stats.length > 0 && preChoiceStats.length > 0 && newRollStats.length > 0) {
         const leftScore = scoreRivenStatSimilarity(stats, preChoiceStats);
         const rightScore = scoreRivenStatSimilarity(stats, newRollStats);
-        log.log(
+        log.info(
           `[RivenScan] choice similarity: left=${leftScore.toFixed(2)} right=${rightScore.toFixed(2)}`,
         );
         const best = Math.max(leftScore, rightScore);
