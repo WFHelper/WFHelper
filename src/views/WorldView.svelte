@@ -102,10 +102,15 @@
   // Current bounty rotation (A/B/C) from oracle bounty-cycle
   $: bountyRotation = (wd?.bountyRotation as string | undefined) || undefined;
 
-  // Steel Path Honors from warframestat.us
-  $: steelPathHonors = (wd?.steelPath && typeof (wd.steelPath as unknown as { currentReward?: unknown }).currentReward === 'object')
-    ? wd.steelPath as SteelPathHonors
-    : null;
+  // warframestat.us sometimes omits currentReward even when the wrapper exists.
+  function hasSteelPathReward(value: unknown): value is SteelPathHonors {
+    return (
+      !!value &&
+      typeof value === "object" &&
+      typeof (value as { currentReward?: unknown }).currentReward === "object"
+    );
+  }
+  $: steelPathHonors = hasSteelPathReward(wd?.steelPath) ? wd.steelPath : null;
 
   $: bounties = buildBountyGroups(wd?.bounties);
 

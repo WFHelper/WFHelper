@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { addToast } from "../stores/toasts.js";
   import { captureRendererException } from "../lib/crashReporting.js";
+  import { normalizeErrorMessage } from "../../config/shared/errors.js";
 
   const DUPLICATE_SUPPRESSION_MS = 2000;
 
@@ -10,20 +11,8 @@
   let lastNotifiedMessage = "";
   let lastNotificationAt = 0;
 
-  function toMessage(reason: unknown): string {
-    if (reason instanceof Error) return reason.message;
-    if (typeof reason === "string" && reason.trim()) return reason.trim();
-    if (reason && typeof reason === "object") {
-      const maybeMessage = (reason as { message?: unknown }).message;
-      if (typeof maybeMessage === "string" && maybeMessage.trim()) {
-        return maybeMessage.trim();
-      }
-    }
-    return "Unknown renderer error";
-  }
-
   function setBoundaryError(reason: unknown): void {
-    const message = toMessage(reason);
+    const message = normalizeErrorMessage(reason, "Unknown renderer error");
     hasError = true;
     errorMessage = message;
     captureRendererException(reason, { source: "ErrorBoundary" });

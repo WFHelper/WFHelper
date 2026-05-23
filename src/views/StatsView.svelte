@@ -78,9 +78,8 @@
         // Check if we already have this trade (from initial push before WFM match)
         const idx = trades.findIndex((t) => t.id === data.trade.id);
         if (idx >= 0) {
-          // Update in place (e.g., wfmClosed flag added)
-          trades[idx] = data.trade;
-          trades = trades;
+          // Replace in place (e.g. wfmClosed flag added later).
+          trades = [...trades.slice(0, idx), data.trade, ...trades.slice(idx + 1)];
         } else {
           trades = [data.trade, ...trades];
         }

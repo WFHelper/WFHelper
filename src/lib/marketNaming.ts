@@ -7,5 +7,5 @@ export function normalizeLooseMarketName(value: string): string {
 }
 
 export function toMarketSlug(name: string): string {
-  return normalizeForSlug(name) || "";
+  return normalizeForSlug(name) ?? "";
 }
