@@ -5,6 +5,7 @@ import { fetchPriceBySlug } from "../lib/wfm/wfmPrice.js";
 import { fetchWfmItemMetaBySlug } from "../lib/wfm/wfmItemMeta.js";
 import { send } from "../lib/ipc.js";
 import { buildWikiUrl } from "../lib/wikiUrl.js";
+import ModalShell from "../components/ModalShell.svelte";
   import {
     computeSquadDucatEV,
     computeSquadEV,
@@ -150,12 +151,9 @@ import { buildWikiUrl } from "../lib/wikiUrl.js";
 </script>
 
 {#if group}
-  <!-- svelte-ignore a11y-click-events-have-key-events -->
-  <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="detail-overlay" on:click|self={close}>
-    <div class="detail-backdrop" on:click={close}></div>
+  <ModalShell ariaLabel={group.name} onClose={close}>
     <div class="detail-panel relic-detail-panel">
-      <button class="detail-close" on:click={close}>&times;</button>
+      <button class="detail-close" aria-label="Close" on:click={close}>&times;</button>
 
       <div class="detail-header relic-detail-header">
         <div class="relic-detail-icon">
@@ -269,5 +267,5 @@ import { buildWikiUrl } from "../lib/wikiUrl.js";
         </div>
       </div>
     </div>
-  </div>
+  </ModalShell>
 {/if}

@@ -688,6 +688,13 @@
     inset: 0;
     background: rgba(0, 0, 0, 0.45);
     backdrop-filter: blur(3px);
+    /* Backdrop is a real <button> for a11y (click-to-dismiss); reset UA styles. */
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    appearance: none;
   }
   .detail-panel {
     position: relative;
@@ -899,6 +906,14 @@
     padding-right: 0.3rem;
     margin-left: -0.3rem;
     margin-right: -0.3rem;
+    /* Reset <button> user-agent styles so row retains its original div-like look. */
+    background: transparent;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    width: 100%;
+    appearance: none;
   }
   .detail-comp-row:hover {
     color: var(--text-primary);

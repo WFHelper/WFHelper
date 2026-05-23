@@ -89,6 +89,7 @@
       <button
         class="nav-btn"
         class:active={$currentView === item.view}
+        aria-current={$currentView === item.view ? "page" : undefined}
         on:click={() => currentView.set(item.view)}
       >
         {#if item.icon}

@@ -161,10 +161,6 @@
     return "●○○○○";
   }
 
-  function handleBackdropClick(e: MouseEvent) {
-    if (e.target === e.currentTarget) onclose();
-  }
-
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") onclose();
   }
@@ -175,9 +171,14 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="modal-backdrop" onclick={handleBackdropClick}>
+<div
+  class="modal-backdrop"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Riven details: {riven.rivenName || riven.weaponName}"
+  tabindex="-1"
+>
+  <button type="button" class="modal-backdrop-dismiss" aria-label="Close dialog" onclick={onclose}></button>
   <div class="modal-content">
     <button class="modal-close" onclick={onclose} aria-label="Close">✕</button>
 
@@ -366,7 +367,17 @@
     z-index: 1000;
     animation: fadeIn 0.15s ease;
   }
-
+  /* Invisible full-bleed button sitting behind .modal-content; provides a proper
+     interactive element for click-to-dismiss without breaking the visual layout. */
+  .modal-backdrop-dismiss {
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    appearance: none;
+  }
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -378,6 +389,7 @@
 
   .modal-content {
     position: relative;
+    z-index: 1;
     width: 92vw;
     max-width: 850px;
     max-height: 90vh;
