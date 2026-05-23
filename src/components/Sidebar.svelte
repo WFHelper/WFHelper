@@ -34,8 +34,7 @@
   interface NavItem {
     view: string;
     labelKey: MessageKey;
-    svg?: string;
-    icon?: string;
+    icon: string;
   }
 
   const navItems: NavItem[] = [
@@ -119,14 +118,7 @@
         aria-current={$currentView === item.view ? "page" : undefined}
         on:click={() => currentView.set(item.view)}
       >
-        {#if item.icon}
-          <img src={item.icon} alt="" class="h-6 w-6 shrink-0 object-contain brightness-[0.85]" />
-        {:else}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
-            <!-- @html safe: item.svg is a hardcoded string literal, never user-supplied -->
-            {@html item.svg}
-          </svg>
-        {/if}
+        <img src={item.icon} alt="" class="h-6 w-6 shrink-0 object-contain brightness-[0.85]" />
         <span>{$tr(item.labelKey)}</span>
       </button>
     {/each}

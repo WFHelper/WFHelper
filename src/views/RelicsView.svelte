@@ -42,6 +42,7 @@
   import { debugMode } from "../stores/app.js";
   import ItemImage from "../components/ItemImage.svelte";
   import SearchBox from "../components/SearchBox.svelte";
+  import SortArrow from "../components/SortArrow.svelte";
   import type { ParsedItem } from "../types/inventory.js";
   import type { RelicGroup, RelicQuality, RelicReward } from "../types/relics.js";
 
@@ -687,17 +688,7 @@
               ? "Sort direction ascending"
               : "Sort direction descending"}
           >
-            {#if $relicSortDirection === "asc"}
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path d="M8 3v10" />
-                <path d="M5.5 5.5L8 3l2.5 2.5" />
-              </svg>
-            {:else}
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path d="M8 3v10" />
-                <path d="M5.5 10.5L8 13l2.5-2.5" />
-              </svg>
-            {/if}
+            <SortArrow asc={$relicSortDirection === "asc"} />
           </button>
 
           <label class="shared-filter-sort" title="Sort relics">

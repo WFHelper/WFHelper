@@ -7,6 +7,7 @@
   import RivenDetailModal from "../components/RivenDetailModal.svelte";
   import RivenFinder from "../components/RivenFinder.svelte";
   import SearchBox from "../components/SearchBox.svelte";
+  import EmptyState from "../components/EmptyState.svelte";
   import { tr } from "../lib/i18n.js";
 
   let rivens: DecodedRiven[] = $state([]);
@@ -174,13 +175,9 @@
     </div>
 
     {#if loading}
-      <div class="flex flex-col items-center justify-center min-h-[40vh] text-text-muted text-[0.9rem]">
-        <p>Loading rivens…</p>
-      </div>
+      <EmptyState message="Loading rivens…" />
     {:else if filteredRivens.length === 0}
-      <div class="flex flex-col items-center justify-center min-h-[40vh] text-text-muted text-[0.9rem]">
-        <p>{rivens.length === 0 ? $tr("rivens.noData") : $tr("rivens.noResults")}</p>
-      </div>
+      <EmptyState message={rivens.length === 0 ? $tr("rivens.noData") : $tr("rivens.noResults")} />
     {:else}
       <div class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5 justify-items-center">
         {#each filteredRivens as riven (riven.itemId)}
@@ -230,13 +227,9 @@
 
   {:else if viewTab === "veiled"}
     {#if loading}
-      <div class="flex flex-col items-center justify-center min-h-[40vh] text-text-muted text-[0.9rem]">
-        <p>Loading rivens…</p>
-      </div>
+      <EmptyState message="Loading rivens…" />
     {:else if veiledRivens.length === 0 && veiledUnseen.length === 0}
-      <div class="flex flex-col items-center justify-center min-h-[40vh] text-text-muted text-[0.9rem]">
-        <p>No veiled rivens found</p>
-      </div>
+      <EmptyState message="No veiled rivens found" />
     {:else}
       {#if veiledRivens.length > 0}
         <div class="mb-5">

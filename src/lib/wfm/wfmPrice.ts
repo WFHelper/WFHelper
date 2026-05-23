@@ -426,7 +426,6 @@ export async function fetchPriceByName(
   options?: FetchPriceOptions,
 ): Promise<PriceByNameResult | null> {
   if (!itemName) return null;
-  bumpCounter("requests");
   const priority = options?.priority || "normal";
   const allowSetFallback = options?.allowSetFallback === true;
   const rank = normalizePriceRank(options?.rank ?? null);

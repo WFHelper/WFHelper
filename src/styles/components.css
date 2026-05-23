@@ -417,7 +417,6 @@
 
   /* ── cross-component card grids ──────────────────────────────── */
   .item-grid,
-  .resource-grid,
   #relic-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -428,8 +427,7 @@
   .item-card,
   .resource-card,
   .foundry-item,
-  .order-row,
-  .relic-card {
+  .order-row {
     border: 1px solid var(--border);
     border-radius: 0.625rem;
     background: var(--bg-surface);
@@ -447,16 +445,14 @@
   .item-card:hover,
   .resource-card:hover,
   .foundry-item:hover,
-  .order-row:hover,
-  .relic-card:hover {
+  .order-row:hover {
     border-color: var(--border-strong);
     background: var(--bg-raised);
   }
 
   /* ── cross-component card body / name / type ─────────────────── */
   .item-body,
-  .resource-info,
-  .relic-card-body {
+  .resource-info {
     display: flex;
     min-width: 0;
     flex-direction: column;
@@ -465,7 +461,6 @@
   }
   .item-name,
   .resource-name,
-  .relic-card-name,
   .order-item-name,
   .foundry-item-name {
     overflow: hidden;
@@ -483,9 +478,7 @@
   }
 
   /* ── cross-component image wrapper base ──────────────────────── */
-  .foundry-img-wrap,
-  .resource-img-wrap,
-  .order-item-thumb {
+  .resource-img-wrap {
     display: flex;
     align-items: center;
     justify-content: center;

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { resetSharedFilters, sharedFilters, updateSharedFilters } from "../stores/filters.js";
+  import SortArrow from "./SortArrow.svelte";
   import type {
     FilterScope,
     MasteredFilterMode,
@@ -141,17 +142,7 @@
           title="Sort direction"
           aria-label={state.sortDirection === "asc" ? "Sort direction ascending" : "Sort direction descending"}
         >
-          {#if state.sortDirection === "asc"}
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path d="M8 3v10" />
-              <path d="M5.5 5.5L8 3l2.5 2.5" />
-            </svg>
-          {:else}
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path d="M8 3v10" />
-              <path d="M5.5 10.5L8 13l2.5-2.5" />
-            </svg>
-          {/if}
+          <SortArrow asc={state.sortDirection === "asc"} />
         </button>
 
         <label class="shared-filter-sort">

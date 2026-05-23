@@ -20,7 +20,7 @@ import ModalShell from "../components/ModalShell.svelte";
     RelicQuality,
     RelicReward,
   } from "../types/relics.js";
-  import type { ComponentInfo } from "../types/inventory.js";
+  import type { ComponentInfo, ItemDbEntry } from "../types/inventory.js";
 
   const QUAL_LABELS: Record<RelicQuality, string> = {
     intact: "Intact",
@@ -161,6 +161,17 @@ import ModalShell from "../components/ModalShell.svelte";
     return map;
   })();
 
+  function buildFallbackReward(uniqueName: string, reward: RelicReward, db: ItemDbEntry): ComponentInfo {
+    return {
+      name: db.name || reward.name,
+      uniqueName,
+      ...(db.tradable != null ? { tradable: db.tradable } : {}),
+      ownedCount: $componentOwnership.get(uniqueName) || 0,
+      itemCount: 1,
+      drops: db.drops || [],
+    };
+  }
+
   function selectReward(reward: RelicReward): void {
     if (selectedReward === reward) {
       closeRewardPanel();
@@ -194,25 +205,11 @@ import ModalShell from "../components/ModalShell.svelte";
         // db.name is already the full name (e.g. "Gauss Prime Chassis"),
         // so clear parentName to avoid double-prefixing in ComponentPanel.
         rewardParentName = "";
-        rewardComp = {
-          name: db.name || reward.name,
-          uniqueName: un,
-          ...(db.tradable != null ? { tradable: db.tradable } : {}),
-          ownedCount: $componentOwnership.get(un) || 0,
-          itemCount: 1,
-          drops: db.drops || [],
-        };
+        rewardComp = buildFallbackReward(un, reward, db);
       }
     } else {
       rewardParentName = "";
-      rewardComp = {
-        name: db.name || reward.name,
-        uniqueName: un,
-        ...(db.tradable != null ? { tradable: db.tradable } : {}),
-        ownedCount: $componentOwnership.get(un) || 0,
-        itemCount: 1,
-        drops: db.drops || [],
-      };
+      rewardComp = buildFallbackReward(un, reward, db);
     }
   }
 

@@ -13,6 +13,7 @@
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
   import ItemImage from "../components/ItemImage.svelte";
   import SearchBox from "../components/SearchBox.svelte";
+  import SortArrow from "../components/SortArrow.svelte";
   import type {
     FoundryBuildingItem,
     FoundryRecipeItem,
@@ -342,17 +343,7 @@
           title="Sort direction"
           aria-label={sortDir === "asc" ? "Sort ascending" : "Sort descending"}
         >
-          {#if sortDir === "asc"}
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path d="M8 3v10" />
-              <path d="M5.5 5.5L8 3l2.5 2.5" />
-            </svg>
-          {:else}
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path d="M8 3v10" />
-              <path d="M5.5 10.5L8 13l2.5-2.5" />
-            </svg>
-          {/if}
+          <SortArrow asc={sortDir === "asc"} />
         </button>
         <label class="shared-filter-sort">
           <span>Sort</span>

@@ -19,7 +19,6 @@
     font-size: 1.5rem;
   }
   .item-grid,
-  .resource-grid,
   #relic-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
