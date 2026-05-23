@@ -76,14 +76,21 @@ export function toFiniteOr(value: unknown, fallback: number = 0): number {
 /**
  * Clamp a value between `min` and `max` (inclusive).
  *
- * When called with 3 args the value must already be a number.
- * When a 4th `fallback` arg is provided the value is first coerced
- * via `Number()` and, if the result is not finite, `fallback` is
- * returned instead of clamping.
+ * - 3-arg form: `value` must already be a finite number; returns the clamped
+ *   number. Passing a non-finite `value` is a programmer error and throws.
+ * - 4-arg form: `value` is coerced via `Number()`; if the result is not
+ *   finite, `fallback` is returned instead of clamping.
  */
+export function clampNumber(value: number, min: number, max: number): number;
+export function clampNumber(value: unknown, min: number, max: number, fallback: number): number;
 export function clampNumber(value: unknown, min: number, max: number, fallback?: number): number {
   const n = fallback !== undefined ? Number(value) : (value as number);
-  if (!Number.isFinite(n)) return fallback as number;
+  if (!Number.isFinite(n)) {
+    if (fallback === undefined) {
+      throw new TypeError(`clampNumber: value must be finite, got ${String(value)}`);
+    }
+    return fallback;
+  }
   return Math.max(min, Math.min(max, n));
 }
 
