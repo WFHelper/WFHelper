@@ -43,8 +43,15 @@
     try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(toSave)); } catch { /* best effort */ }
   }
 
+  // Two clocks: nowMs (1 s) drives display countdown labels; nowCoarseMs (5 s)
+  // drives urgency flags and active-window booleans, which flip once per
+  // hours/days and don't need second-level precision. Splitting these roughly
+  // halves the per-second reactive re-fire count on this view.
+  const COARSE_CLOCK_MS = 5_000;
   let nowMs = Date.now();
+  let nowCoarseMs = Date.now();
   let clockInterval: ReturnType<typeof setInterval> | null = null;
+  let coarseClockInterval: ReturnType<typeof setInterval> | null = null;
   let worldPollInterval: ReturnType<typeof setInterval> | null = null;
   let unsubFetchError: (() => void) | null = null;
 
@@ -71,6 +78,10 @@
       nowMs = Date.now();
     }, 1000);
 
+    coarseClockInterval = setInterval(() => {
+      nowCoarseMs = Date.now();
+    }, COARSE_CLOCK_MS);
+
     worldPollInterval = setInterval(() => {
       void fetchWorldData();
     }, WORLD_POLL_MS);
@@ -78,6 +89,7 @@
 
   onDestroy(() => {
     if (clockInterval) clearInterval(clockInterval);
+    if (coarseClockInterval) clearInterval(coarseClockInterval);
     if (worldPollInterval) clearInterval(worldPollInterval);
     unsubFetchError?.();
   });
@@ -149,12 +161,15 @@
     activeItem.set(item);
   }
 
-  // Urgency threshold: remaining < 20% of total duration → urgent
+  // Urgency threshold: remaining < 20% of total duration → urgent.
+  // Callers pass `clock` (typically nowCoarseMs) so urgency flags don't
+  // re-evaluate on every 1 s tick.
   const URGENCY_RATIO = 0.20;
-  function isUrgent(expiryIso: string | null | undefined, activationIso: string | null | undefined, fallbackTotalMs?: number): boolean {
+  function isUrgent(expiryIso: string | null | undefined, activationIso: string | null | undefined, fallbackTotalMs?: number, clock?: number): boolean {
     const exp = parseIsoDate(expiryIso ?? null);
     if (!exp) return false;
-    const remainMs = exp.getTime() - nowMs;
+    const ref = clock ?? nowCoarseMs;
+    const remainMs = exp.getTime() - ref;
     if (remainMs <= 0) return false;
     const act = parseIsoDate(activationIso ?? null);
     const totalMs = act ? exp.getTime() - act.getTime() : (fallbackTotalMs ?? 0);
@@ -177,11 +192,11 @@
 
   $: varziaAct    = parseIsoDate(varzia?.activation);
   $: varziaExpiry = parseIsoDate(varzia?.expiry);
-  $: varziaActive = !!(varziaAct && varziaExpiry && nowMs >= +varziaAct && nowMs < +varziaExpiry);
+  $: varziaActive = !!(varziaAct && varziaExpiry && nowCoarseMs >= +varziaAct && nowCoarseMs < +varziaExpiry);
 
   $: baroAct    = parseIsoDate(baro?.activation);
   $: baroExpiry = parseIsoDate(baro?.expiry);
-  $: baroActive = !!(baroAct && baroExpiry && nowMs >= +baroAct && nowMs < +baroExpiry);
+  $: baroActive = !!(baroAct && baroExpiry && nowCoarseMs >= +baroAct && nowCoarseMs < +baroExpiry);
 
   $: featuredPrimes = wd ? buildFeaturedPrimes(varzia, $inventoryData, $itemDb) : [];
 
@@ -212,7 +227,7 @@
     .filter(
       (f) =>
         !f.expired &&
-        ((parseIsoDate(f.expiry)?.getTime() || 0) > (nowMs + FISSURE_EXPIRY_GUARD_MS)),
+        ((parseIsoDate(f.expiry)?.getTime() || 0) > (nowCoarseMs + FISSURE_EXPIRY_GUARD_MS)),
     )
     .sort((a, b) => (parseIsoDate(a.expiry)?.getTime() || 0) - (parseIsoDate(b.expiry)?.getTime() || 0));
 
@@ -279,18 +294,20 @@
   const MS_24H = 86_400_000;
   const MS_7D = 604_800_000;
   $: resetUrgency = {
-    sortie: isUrgent(sortie?.expiry, null, MS_24H),
-    daily: (() => { const r = nextDailyResetUtc().getTime() - nowMs; return r > 0 && r / MS_24H < URGENCY_RATIO; })(),
-    weekly: (() => { const r = nextWeeklyResetUtc().getTime() - nowMs; return r > 0 && r / MS_7D < URGENCY_RATIO; })(),
-    steelPath: isUrgent(steelPath?.expiry ?? undefined, null, MS_7D),
+    sortie: isUrgent(sortie?.expiry, null, MS_24H, nowCoarseMs),
+    daily: (() => { const r = nextDailyResetUtc().getTime() - nowCoarseMs; return r > 0 && r / MS_24H < URGENCY_RATIO; })(),
+    weekly: (() => { const r = nextWeeklyResetUtc().getTime() - nowCoarseMs; return r > 0 && r / MS_7D < URGENCY_RATIO; })(),
+    steelPath: isUrgent(steelPath?.expiry ?? undefined, null, MS_7D, nowCoarseMs),
   };
 
-  // Bounty expiry timers (keyed by syndicateKey)
+  // Bounty expiry timers (keyed by syndicateKey).
+  // timeStr needs 1 s precision for the countdown display; urgent only flips
+  // at the 20 %-remaining boundary, so nowCoarseMs is fine.
   $: bountyTimers = Object.fromEntries(
     bounties.map(b => {
       const exp = b.expiry ? parseIsoDate(b.expiry) : null;
       const timeStr = exp ? timeTo(exp, nowMs) : '';
-      const urgent = isUrgent(b.expiry, null, 9_000_000); // ~2.5h fallback
+      const urgent = isUrgent(b.expiry, null, 9_000_000, nowCoarseMs); // ~2.5h fallback
       return [b.syndicateKey, { timeStr, urgent }];
     })
   );
@@ -672,13 +689,20 @@
                             {#each sr.items as item}
                               {@const rewardUniqueName = resolveRewardUniqueName(item.itemName, $itemDb)}
                               {@const rewardIcon = resolveRewardIcon(item.itemName, $itemDb)}
-                              <div class="world-bounty-reward-item" class:reward-rare={item.rarity === 'Rare' || item.rarity === 'Legendary'} class:world-bounty-reward-clickable={!!rewardUniqueName} role="button" tabindex="0" on:click={() => rewardUniqueName && openItemDetail(rewardUniqueName, [{location: `${group.syndicate} Bounty (${job.enemyLevels[0]}\u2013${job.enemyLevels[1]}) \u2014 ${sr.label}`, rarity: item.rarity, chance: item.chance / 100}])} on:keydown={(e) => e.key === 'Enter' && rewardUniqueName && openItemDetail(rewardUniqueName, [{location: `${group.syndicate} Bounty (${job.enemyLevels[0]}\u2013${job.enemyLevels[1]}) \u2014 ${sr.label}`, rarity: item.rarity, chance: item.chance / 100}])}>
+                              <button
+                                type="button"
+                                class="world-bounty-reward-item"
+                                class:reward-rare={item.rarity === 'Rare' || item.rarity === 'Legendary'}
+                                class:world-bounty-reward-clickable={!!rewardUniqueName}
+                                disabled={!rewardUniqueName}
+                                on:click={() => rewardUniqueName && openItemDetail(rewardUniqueName, [{location: `${group.syndicate} Bounty (${job.enemyLevels[0]}\u2013${job.enemyLevels[1]}) \u2014 ${sr.label}`, rarity: item.rarity, chance: item.chance / 100}])}
+                              >
                                 {#if rewardIcon}
                                   <img class="world-bounty-reward-icon" src={rewardIcon} alt="" />
                                 {/if}
                                 <span class="world-bounty-reward-name">{item.itemName}</span>
                                 <span class="world-bounty-reward-chance">{item.chance.toFixed(2)}%</span>
-                              </div>
+                              </button>
                             {/each}
                           </div>
                         </div>

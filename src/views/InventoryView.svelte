@@ -29,7 +29,6 @@
   import { buildRelicSearchKeywordIndex } from "../lib/relic.js";
   import { startupPriceCacheReady } from "../lib/startupLoader.js";
   import { log } from "../lib/log.js";
-  import { getOrderSummaryCircuitState } from "../lib/wfm/orderSummaryRemote.js";
   import {
     getRankedHotsetEntries,
     getRankedHotsetSeenAt,
@@ -44,12 +43,6 @@
   const DEBUG_REFRESH_MS = 900;
   const HOTSET_REFRESH_DELAY_MS = 4_000;
   const HOTSET_REFRESH_LIMIT = 12;
-  const RANKED_CARD_SWEEP_ENABLED = false;
-  const RANKED_CARD_SWEEP_MAX_ITEMS = 24;
-  const RANKED_CARD_SWEEP_BATCH_SIZE = 4;
-  const RANKED_CARD_SWEEP_INTERVAL_MS = 2_500;
-  const RANKED_CARD_SWEEP_START_DELAY_MS = 12_000;
-  const RANKED_CARD_SWEEP_MAX_RUNTIME_MS = 2 * 60 * 1000;
 
   let filter: InventoryFilterTab = "all_parts";
   let showFilterPanel = false;
@@ -61,15 +54,7 @@
   const hydrationMetrics = hydration.metricsByKey;
   const hydrationDebug = hydration.debugState;
   let debugStatsTimer: ReturnType<typeof setInterval> | null = null;
-  let rankedCardSweepTimer: ReturnType<typeof setTimeout> | null = null;
-  let rankedCardSweepStartTimer: ReturnType<typeof setTimeout> | null = null;
   let hotsetRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-  let rankedCardSweepQueue: InventoryBaseItem[] = [];
-  let rankedCardSweepCursor = 0;
-  let rankedCardSweepActive = false;
-  let rankedCardSweepDeadline = 0;
-  let rankedCardSweepSignature = "";
-  let rankedCardSweepCompletedSignature = "";
   let hotsetRefreshSignature = "";
   let hotsetRefreshCompletedSignature = "";
 
@@ -121,165 +106,10 @@
     });
   }
 
-  function clearRankedCardSweepTimer(): void {
-    if (!rankedCardSweepTimer) return;
-    clearTimeout(rankedCardSweepTimer);
-    rankedCardSweepTimer = null;
-  }
-
-  function clearRankedCardSweepStartTimer(): void {
-    if (!rankedCardSweepStartTimer) return;
-    clearTimeout(rankedCardSweepStartTimer);
-    rankedCardSweepStartTimer = null;
-  }
-
   function clearHotsetRefreshTimer(): void {
     if (!hotsetRefreshTimer) return;
     clearTimeout(hotsetRefreshTimer);
     hotsetRefreshTimer = null;
-  }
-
-  function stopRankedCardSweep(markCompleted: boolean): void {
-    clearRankedCardSweepTimer();
-    clearRankedCardSweepStartTimer();
-    rankedCardSweepActive = false;
-    rankedCardSweepQueue = [];
-    rankedCardSweepCursor = 0;
-    rankedCardSweepDeadline = 0;
-
-    if (markCompleted && rankedCardSweepSignature) {
-      rankedCardSweepCompletedSignature = rankedCardSweepSignature;
-    }
-  }
-
-  function buildRankedCardSweepSignature(items: InventoryViewItem[]): string {
-    const keys = items.map((item) => item.internalName).sort();
-    return `${filter}:${keys.join("|")}`;
-  }
-
-  function buildRankedCardSweepQueue(items: InventoryViewItem[]): InventoryBaseItem[] {
-    const baseByKey = Object.create(null) as Record<string, InventoryBaseItem>;
-    for (const item of tabBaseItems) {
-      baseByKey[item.internalName] = item;
-    }
-
-    const uniqueByInternalName = Object.create(null) as Record<string, InventoryBaseItem>;
-    for (const viewItem of items) {
-      const base = baseByKey[viewItem.internalName];
-      if (!base) continue;
-      if (!shouldHydrateMetrics(base)) continue;
-      if (!isRankedGroup(base.inventoryGroup)) continue;
-      if (base.tradable !== true) continue;
-      uniqueByInternalName[base.internalName] = base;
-    }
-
-    return Object.values(uniqueByInternalName).sort((a, b) => {
-      const seenDiff = getRankedHotsetSeenAt(b.marketSlug) - getRankedHotsetSeenAt(a.marketSlug);
-      if (seenDiff !== 0) return seenDiff;
-      return a.name.localeCompare(b.name);
-    }).slice(0, RANKED_CARD_SWEEP_MAX_ITEMS);
-  }
-
-  function scheduleRankedCardSweepTick(delayMs = RANKED_CARD_SWEEP_INTERVAL_MS): void {
-    clearRankedCardSweepTimer();
-    rankedCardSweepTimer = setTimeout(() => {
-      runRankedCardSweepTick();
-    }, delayMs);
-  }
-
-  function scheduleRankedCardSweepStart(): void {
-    clearRankedCardSweepStartTimer();
-    rankedCardSweepStartTimer = setTimeout(() => {
-      rankedCardSweepStartTimer = null;
-      runRankedCardSweepTick();
-    }, RANKED_CARD_SWEEP_START_DELAY_MS);
-  }
-
-  function runRankedCardSweepTick(): void {
-    if (!rankedCardSweepActive) return;
-    const circuit = getOrderSummaryCircuitState();
-    if (circuit.open) {
-      scheduleRankedCardSweepTick(Math.max(circuit.retryAfterMs, RANKED_CARD_SWEEP_INTERVAL_MS));
-      return;
-    }
-    if (Date.now() >= rankedCardSweepDeadline) {
-      log.warn("[Inventory] ranked card sweep timed out before completion");
-      stopRankedCardSweep(false);
-      return;
-    }
-
-    const batch: InventoryBaseItem[] = [];
-    while (
-      rankedCardSweepCursor < rankedCardSweepQueue.length &&
-      batch.length < RANKED_CARD_SWEEP_BATCH_SIZE
-    ) {
-      const candidate = rankedCardSweepQueue[rankedCardSweepCursor];
-      rankedCardSweepCursor += 1;
-      batch.push(candidate);
-    }
-
-    if (batch.length > 0) {
-      hydration.enqueue(batch, $wfmItems, { price: true, ducats: false, orders: true });
-    }
-
-    if (rankedCardSweepCursor >= rankedCardSweepQueue.length) {
-      log.info(`[Inventory] ranked card sweep completed (${rankedCardSweepQueue.length} items)`);
-      stopRankedCardSweep(true);
-      return;
-    }
-
-    scheduleRankedCardSweepTick();
-  }
-
-  function maybeStartRankedCardSweep(items: InventoryViewItem[]): void {
-    if (!RANKED_CARD_SWEEP_ENABLED) {
-      stopRankedCardSweep(false);
-      rankedCardSweepSignature = "";
-      rankedCardSweepCompletedSignature = "";
-      return;
-    }
-
-    if (!$startupPriceCacheReady) return;
-    if (!isRankedGroup(filter)) {
-      stopRankedCardSweep(false);
-      rankedCardSweepSignature = "";
-      rankedCardSweepCompletedSignature = "";
-      return;
-    }
-    if (!Array.isArray($parsedItems) || $parsedItems.length === 0) return;
-    if (!$wfmItems || Object.keys($wfmItems).length === 0) return;
-
-    const signature = buildRankedCardSweepSignature(items);
-    if (rankedCardSweepActive && signature === rankedCardSweepSignature) {
-      return;
-    }
-    if (!rankedCardSweepActive && signature === rankedCardSweepCompletedSignature) {
-      return;
-    }
-
-    const queue = buildRankedCardSweepQueue(items);
-    if (queue.length === 0) {
-      stopRankedCardSweep(true);
-      rankedCardSweepSignature = signature;
-      rankedCardSweepCompletedSignature = signature;
-      return;
-    }
-
-    if (rankedCardSweepActive) {
-      clearRankedCardSweepTimer();
-    }
-
-    rankedCardSweepSignature = signature;
-    rankedCardSweepQueue = queue;
-    rankedCardSweepCursor = 0;
-    rankedCardSweepDeadline = Date.now() + RANKED_CARD_SWEEP_MAX_RUNTIME_MS;
-    rankedCardSweepActive = true;
-
-    log.info(
-      `[Inventory] starting ranked card sweep (${queue.length} items max, batch=${RANKED_CARD_SWEEP_BATCH_SIZE}, interval=${RANKED_CARD_SWEEP_INTERVAL_MS}ms)`,
-    );
-
-    scheduleRankedCardSweepStart();
   }
 
   function buildHotsetRefreshSignature(items: InventoryBaseItem[]): string {
@@ -346,10 +176,7 @@
   });
 
   onDestroy(() => {
-    clearRankedCardSweepTimer();
-    clearRankedCardSweepStartTimer();
     clearHotsetRefreshTimer();
-    rankedCardSweepActive = false;
 
     hydration.pause();
     if (debugStatsTimer) {
@@ -413,7 +240,6 @@
   $: if ($startupPriceCacheReady && Object.keys($wfmItems).length > 0) {
     prefetchVisibleMetrics(filtered, metricNeeds);
     maybeScheduleRankedHotsetRefresh(allRankedBaseItems);
-    maybeStartRankedCardSweep(filtered);
   }
   $: if ($debugMode) {
     hydration.refreshDebugStats();

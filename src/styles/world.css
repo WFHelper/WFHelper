@@ -914,6 +914,19 @@
     color: var(--text-primary);
     padding: 0.05rem 0;
     gap: 0.3rem;
+    /* Rendered as a <button> (disabled when the reward has no detail page) — reset UA styles. */
+    background: transparent;
+    border: 0;
+    text-align: left;
+    font-family: inherit;
+    width: 100%;
+    appearance: none;
+  }
+  .world-bounty-reward-item:disabled {
+    /* Override UA grayed-out look; reward rows stay legible even when not clickable. */
+    color: var(--text-primary);
+    opacity: 1;
+    cursor: default;
   }
   .world-bounty-reward-clickable {
     cursor: pointer;

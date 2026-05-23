@@ -120,11 +120,13 @@
   const CARD_WARMUP_UI_DEBOUNCE_MS = 450;
   const EV_WARMUP_START_DELAY_MS = 2000;
   const PRICE_UPDATE_EV_REFRESH_DEBOUNCE_MS = 400;
+  const WARMUP_COALESCE_MS = 150;
   const RELIC_CARD_VISIBLE_WARMUP_LIMIT = 120;
 
   let loading = false;
   let error = "";
   let groups: RelicGroup[] = [];
+  let warmupCoalesceTimer: ReturnType<typeof setTimeout> | null = null;
   let evWarmupStartTimer: ReturnType<typeof setTimeout> | null = null;
   let evUiDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   let cardUiDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -181,7 +183,7 @@
     }
 
     if ($relicDb) {
-      startWarmup();
+      scheduleWarmup();
     }
   });
 
@@ -189,6 +191,7 @@
   onDestroy(() => {
     relicViewMounted = false;
     cancelWarmup();
+    if (warmupCoalesceTimer) clearTimeout(warmupCoalesceTimer);
     if (evWarmupStartTimer) clearTimeout(evWarmupStartTimer);
     if (evUiDebounceTimer) clearTimeout(evUiDebounceTimer);
     if (cardUiDebounceTimer) clearTimeout(cardUiDebounceTimer);
@@ -210,9 +213,10 @@
     relicOwnedCounts.set({});
   }
 
-  // Re-run EV warmup for the currently selected squad/quality.
+  // Re-run warmup for the currently selected squad/quality. Debounced so that
+  // simultaneous squad+quality store updates collapse into one startWarmup call.
   $: if ($relicSquadSize || $relicQualityMode) {
-    if ($relicDb) startWarmup();
+    if ($relicDb) scheduleWarmup();
   }
 
   // When any background or modal fetch writes fresh prices into cache,
@@ -268,6 +272,21 @@
       if (!$relicDb || !groups.length) return;
       void warmupRelicEvs(groups, onEvBatchDone);
     }, PRICE_UPDATE_EV_REFRESH_DEBOUNCE_MS);
+  }
+
+  /**
+   * Debounced entry point for startWarmup(). Multiple reactive triggers
+   * (onMount, squad-size change, quality-mode change) can fire in the same
+   * tick; this coalesces them into a single warmup run so card/ducat warmups
+   * don't double-enqueue.
+   */
+  function scheduleWarmup(): void {
+    if (warmupCoalesceTimer) clearTimeout(warmupCoalesceTimer);
+    warmupCoalesceTimer = setTimeout(() => {
+      warmupCoalesceTimer = null;
+      if (!relicViewMounted) return;
+      startWarmup();
+    }, WARMUP_COALESCE_MS);
   }
 
   function startWarmup(): void {
