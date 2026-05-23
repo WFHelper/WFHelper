@@ -4,7 +4,7 @@
   import type { DecodedRiven, RivenBestAttributes, WfmRivenListing } from "../types/ipc.js";
   import { itemDb } from "../stores/data.js";
   import { PLATINUM_ICON_URL } from "../lib/assetUrls.js";
-  import { invoke, tradeInvoke } from "../lib/ipc.js";
+  import { invoke, send, tradeInvoke } from "../lib/ipc.js";
   import { gradeColor, attrGradeColor, dispoStars } from "../lib/rivenGradeColors.js";
   import DetailModalBase from "./DetailModalBase.svelte";
   import type { WfmContract } from "../types/market.js";
@@ -298,7 +298,7 @@
                 </div>
                 <div class="flex items-center justify-between mt-0.5">
                   <span class="text-xs text-text-muted">{listing.seller}</span>
-                  <button class="font-display text-xs font-bold py-0.5 px-1.5 rounded border border-border bg-bg-raised text-accent-bright cursor-pointer uppercase tracking-[0.03em] transition-all duration-150 hover:bg-accent-bright hover:text-bg-base hover:border-accent-bright" title="Open on warframe.market" onclick={() => window.api.openExternal(`https://warframe.market/auction/${listing.id}`)}>WFM ↗</button>
+                  <button class="font-display text-xs font-bold py-0.5 px-1.5 rounded border border-border bg-bg-raised text-accent-bright cursor-pointer uppercase tracking-[0.03em] transition-all duration-150 hover:bg-accent-bright hover:text-bg-base hover:border-accent-bright" title="Open on warframe.market" onclick={() => send("open-external", `https://warframe.market/auction/${listing.id}`)}>WFM ↗</button>
                 </div>
               </div>
             {/each}
