@@ -41,6 +41,11 @@ const ALLOWLIST = new Set([
   "clearOrderSummaryCache",
   // API parity with the worker-consumed worker*CacheKey / snapshot siblings.
   "workerOrdersCacheKey",
+  // Test-isolation resets for in-process caches (parallel to clearOrderSummaryCache).
+  "clearCache",
+  "clearPriceCache",
+  // Alias name inside `__test__` bag (the underlying constant is consumed in prod).
+  "priceQueueFullError",
 ]);
 
 // Where exports are *defined* (main production tree).
@@ -109,12 +114,15 @@ const EXPORT_RE =
   /^\s*export\s+(?:async\s+)?(?:function|const|class|let|var)\s+([A-Za-z_$][\w$]*)/;
 const REEXPORT_LINE_RE = /^\s*export\s+(?:type\s+)?\{/;
 const IDENT_RE = /[A-Za-z_$][\w$]*/g;
+const TEST_BAG_OPEN_RE = /^\s*export\s+const\s+__test__\s*=\s*\{/;
 
-// 1. Map every exported symbol → its defining file (production tree only),
-//    and index def locations by "file\0line" so the single scan below can
-//    cheaply skip the definition's own occurrence.
+// 1. Map every exported symbol → its defining file. Also pull members out of
+//    `export const __test__ = { … }` bags so they get tracked individually,
+//    and remember each bag's line range so refs inside it don't count as
+//    prod use of the wrapped helper.
 const defs = new Map(); // name -> { file, line }
 const defAtLine = new Map(); // `${file}\0${line}` -> name
+const testBagRanges = new Map(); // file -> Array<[startLine, endLine]>
 for (const file of collectFiles(DEF_DIRS, DEF_ROOT_FILES)) {
   if (isTestPath(file)) continue;
   const lines = readFileSync(file, "utf8").split("\n");
@@ -125,6 +133,43 @@ for (const file of collectFiles(DEF_DIRS, DEF_ROOT_FILES)) {
       defAtLine.set(`${file}\0${i + 1}`, m[1]);
     }
   }
+  // Find `export const __test__ = { ... }` bag bodies via brace counting.
+  for (let i = 0; i < lines.length; i++) {
+    if (!TEST_BAG_OPEN_RE.test(lines[i])) continue;
+    let depth = 0;
+    let started = false;
+    let j = i;
+    for (; j < lines.length; j++) {
+      for (const ch of lines[j]) {
+        if (ch === "{") { depth++; started = true; }
+        else if (ch === "}") depth--;
+      }
+      if (started && depth === 0) break;
+    }
+    if (!testBagRanges.has(file)) testBagRanges.set(file, []);
+    testBagRanges.get(file).push([i, j]);
+    // Pull member names. Bags use shorthand (`{ foo, bar }`) or `key: value`
+    // — accept identifier tokens, ignore literal values (kept simple: any
+    // identifier that resolves to a local declaration in this file counts).
+    const body = lines.slice(i, j + 1).join("\n");
+    const inner = body.slice(body.indexOf("{") + 1, body.lastIndexOf("}"));
+    const memberNames = new Set(inner.match(IDENT_RE) || []);
+    for (const name of memberNames) {
+      if (defs.has(name)) continue;
+      // Locate the actual declaration line in this same file so the gate
+      // can later skip the def occurrence the same way it does for normal
+      // exports. Falls back to the bag line if no declaration is found.
+      const declRe = new RegExp(
+        `^\\s*(?:async\\s+)?(?:function|const|let|var|class)\\s+${name}\\b`,
+      );
+      let declLine = i;
+      for (let k = 0; k < lines.length; k++) {
+        if (declRe.test(lines[k])) { declLine = k; break; }
+      }
+      defs.set(name, { file, line: declLine + 1 });
+      defAtLine.set(`${file}\0${declLine + 1}`, name);
+    }
+  }
 }
 
 // 2. Single pass over the full surface: tokenize each line once, tally each
@@ -133,9 +178,14 @@ for (const file of collectFiles(DEF_DIRS, DEF_ROOT_FILES)) {
 const prodRefs = new Map();
 const testRefs = new Map();
 for (const file of collectFiles(USE_DIRS, DEF_ROOT_FILES)) {
-  const bucket = isTestPath(file) ? testRefs : prodRefs;
+  const isTest = isTestPath(file);
+  const bucket = isTest ? testRefs : prodRefs;
+  // In prod files, occurrences inside `__test__ = { … }` bags don't count as
+  // real production use — they exist solely to expose the helper to tests.
+  const skipRanges = !isTest ? testBagRanges.get(file) : null;
   const lines = readFileSync(file, "utf8").split("\n");
   for (let i = 0; i < lines.length; i++) {
+    if (skipRanges && skipRanges.some(([a, b]) => i >= a && i <= b)) continue;
     const line = lines[i];
     // Skip pure re-export aggregation lines (`export { X } from "..."`).
     if (REEXPORT_LINE_RE.test(line) && line.includes("from")) continue;
