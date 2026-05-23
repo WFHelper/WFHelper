@@ -54,6 +54,7 @@ const orderCacheIpc = fromAppRoot("ipc/orderCacheIpc");
 const rankedHotsetIpc = fromAppRoot("ipc/rankedHotsetIpc");
 const statsIpc = fromAppRoot("ipc/statsIpc");
 const statsTracker = fromAppRoot("services/statsTracker");
+const tradeTracker = fromAppRoot("services/tradeTracker");
 
 // Suppress noisy Chromium/DevTools internal logging in terminal.
 app.commandLine.appendSwitch("disable-logging");
@@ -150,9 +151,11 @@ app.whenReady().then(async () => {
 
   const statsLoadStart = Date.now();
   statsTracker.loadHistory();
-  inventoryIpc.addInventoryListener((data: Record<string, unknown>) =>
-    statsTracker.onInventoryData(data),
-  );
+  tradeTracker.loadTradeLog();
+  inventoryIpc.addInventoryListener((data: Record<string, unknown>) => {
+    statsTracker.onInventoryData(data);
+    tradeTracker.onInventoryData(data);
+  });
   profileStage("stats:load-history", statsLoadStart);
 
   const ipcRegisterStart = Date.now();

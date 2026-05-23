@@ -116,4 +116,5 @@ export const ipc = {
   getStatsHistory: () => window.api.getStatsHistory(),
   getStatsCurrentSession: () => window.api.getStatsCurrentSession(),
   importStatsHistory: (raw: unknown[]) => window.api.importStatsHistory(raw),
+  getTradeLog: () => window.api.getTradeLog(),
 } as const;

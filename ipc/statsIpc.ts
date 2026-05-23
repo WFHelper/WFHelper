@@ -5,6 +5,9 @@ const requireRuntime = createRuntimeRequire(__dirname, 1);
 const statsTracker = requireRuntime<typeof import("../services/statsTracker")>(
   "services/statsTracker",
 );
+const tradeTracker = requireRuntime<typeof import("../services/tradeTracker")>(
+  "services/tradeTracker",
+);
 
 const { ipcMain } = require("electron") as typeof import("electron");
 
@@ -24,6 +27,11 @@ function register(): void {
     if (!Array.isArray(raw)) return { ok: false, count: 0 };
     const count = statsTracker.importHistory(raw as unknown[]);
     return { ok: true, count };
+  });
+
+  ipcMain.handle("stats:get-trades", (event: unknown) => {
+    assertAuthorizedSender(assertMainRendererSender, event as never, "stats:get-trades");
+    return tradeTracker.getTradeLog();
   });
 }
 

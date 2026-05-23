@@ -80,4 +80,5 @@ contextBridge.exposeInMainWorld("api", {
   getStatsHistory: () => ipcRenderer.invoke("stats:get-history"),
   getStatsCurrentSession: () => ipcRenderer.invoke("stats:get-current"),
   importStatsHistory: (raw: unknown[]) => ipcRenderer.invoke("stats:import", raw),
+  getTradeLog: () => ipcRenderer.invoke("stats:get-trades"),
 });

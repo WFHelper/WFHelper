@@ -269,6 +269,25 @@ export interface IpcInvokeMap {
     args: [raw: unknown[]];
     return: { ok: boolean; count: number };
   };
+  getTradeLog: {
+    args: [];
+    return: TradeEvent[];
+  };
+}
+
+export interface TradeItem {
+  internalName: string;
+  displayName: string;
+  count: number;
+  direction: "received" | "given";
+}
+
+export interface TradeEvent {
+  id: string;
+  date: string;                    // ISO datetime
+  type: "sale" | "purchase";
+  platChange: number;              // always positive
+  items: TradeItem[];
 }
 
 export interface WfmNotification {

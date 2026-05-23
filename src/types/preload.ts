@@ -80,4 +80,5 @@ export interface PreloadAPI {
   getStatsHistory: () => Promise<IpcInvokeMap["getStatsHistory"]["return"]>;
   getStatsCurrentSession: () => Promise<IpcInvokeMap["getStatsCurrentSession"]["return"]>;
   importStatsHistory: (raw: unknown[]) => Promise<IpcInvokeMap["importStatsHistory"]["return"]>;
+  getTradeLog: () => Promise<IpcInvokeMap["getTradeLog"]["return"]>;
 }
