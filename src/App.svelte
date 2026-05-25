@@ -30,7 +30,7 @@
   import { addToast } from "./stores/toasts.js";
   import { onInventoryLoaded, setInventoryStatus } from "./lib/actions.js";
   import { initStartup } from "./lib/startupLoader.js";
-  import { on } from "./lib/ipc.js";
+  import { invoke, on } from "./lib/ipc.js";
   import { tr } from "./lib/i18n.js";
   import type { MessageKey } from "./lib/i18n.js";
 
@@ -105,6 +105,8 @@
     // non-"1" leftover value is treated consistently.
     if (localStorage.getItem("setup-completed") !== "1") {
       currentView.set("setup");
+    } else {
+      void reopenSetupWhenInventoryIsUnavailable();
     }
 
     window.addEventListener("keydown", onKeyDown);
@@ -182,6 +184,21 @@
   function retryLazyViewLoad(): void {
     if (!activeLazyView) return;
     void loadLazyView(activeLazyView);
+  }
+
+  async function reopenSetupWhenInventoryIsUnavailable(): Promise<void> {
+    try {
+      const [inventoryStatus, helperStatus] = await Promise.all([
+        invoke("getInventoryStatus"),
+        invoke("getHelperStatus"),
+      ]);
+      if (inventoryStatus?.found || helperStatus?.inventoryLastModified) return;
+
+      currentView.set("setup");
+      statusText.set("Inventory setup required");
+    } catch {
+      // Keep the persisted view if startup status checks are unavailable.
+    }
   }
 
   function onKeyDown(e: KeyboardEvent): void {

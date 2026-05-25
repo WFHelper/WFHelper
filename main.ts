@@ -190,12 +190,26 @@ app.whenReady().then(async () => {
   rivensIpc.register();
   tradeNotificationIpc.register();
 
+  const attachInventoryAfterHelperRun = (ok: boolean) => {
+    if (!ok || ctx.currentInventoryPath) return;
+    const discovered = inventoryIpc.findInventoryFile();
+    if (!discovered) return;
+    ctx.currentInventoryPath = discovered;
+    inventoryIpc.watchInventoryFile(discovered);
+    log.info("First inventory load detected at:", discovered);
+    const data = inventoryIpc.readInventory(discovered);
+    if (data && ctx.mainWindow && !ctx.mainWindow.isDestroyed()) {
+      ctx.mainWindow.webContents.send(INVENTORY_UPDATED, data);
+    }
+  };
+
   // Helper runner IPC
   handleAuthorized(HELPER_GET_STATUS, assertMainRendererSender, () =>
     apiHelperRunner.getStatus(),
   );
   handleAuthorized(HELPER_RUN_NOW, assertMainRendererSender, async () => {
     const ok = await apiHelperRunner.runOnce();
+    attachInventoryAfterHelperRun(ok);
     return { ok };
   });
   handleAuthorized(HELPER_DOWNLOAD, assertMainRendererSender, async () => {
@@ -204,6 +218,9 @@ app.whenReady().then(async () => {
         ctx.mainWindow.webContents.send(HELPER_DOWNLOAD_PROGRESS, progress);
       }
     });
+    if (ok) {
+      apiHelperRunner.startPolling(undefined, attachInventoryAfterHelperRun);
+    }
     return { ok };
   });
 
@@ -279,18 +296,7 @@ app.whenReady().then(async () => {
   // On a first-ever install there's no inventory.json yet, so the watcher
   // above was never installed. After each helper run, if we still have no
   // path, try discovering the freshly-written file and attach to it.
-  apiHelperRunner.startPolling(undefined, (ok) => {
-    if (!ok || ctx.currentInventoryPath) return;
-    const discovered = inventoryIpc.findInventoryFile();
-    if (!discovered) return;
-    ctx.currentInventoryPath = discovered;
-    inventoryIpc.watchInventoryFile(discovered);
-    log.info("First inventory load detected at:", discovered);
-    const data = inventoryIpc.readInventory(discovered);
-    if (data && ctx.mainWindow && !ctx.mainWindow.isDestroyed()) {
-      ctx.mainWindow.webContents.send(INVENTORY_UPDATED, data);
-    }
-  });
+  apiHelperRunner.startPolling(undefined, attachInventoryAfterHelperRun);
 
   profileStage("inventory:auto-detect", inventoryDetectStart);
 

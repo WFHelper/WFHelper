@@ -78,7 +78,7 @@ function appendCurrencyValue(container, className, iconSrc, value, label) {
 
 function renderSlotValues(container, price, ducats) {
   container.innerHTML = "";
-  container.className = "slot-values";
+  container.className = "slot-price slot-values";
 
   const hasPrice = Number.isFinite(Number(price)) && Number(price) > 0;
   const ducatCount = Number(ducats);
@@ -201,7 +201,7 @@ function renderSlot(index) {
     nameEl.textContent = "-";
     nameEl.className = "slot-name empty";
     priceEl.textContent = "-";
-    priceEl.className = "slot-values muted";
+    priceEl.className = "slot-price slot-values muted";
     rarityEl.textContent = "";
     rarityEl.className = "slot-rarity";
     return;
