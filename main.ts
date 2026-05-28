@@ -1,3 +1,5 @@
+import "./config/runtime/appIdentity";
+
 import { app, BrowserWindow, globalShortcut } from "electron";
 import fs from "node:fs";
 import os from "node:os";
@@ -62,7 +64,7 @@ const WIN_APP_USER_MODEL_ID = "com.warframe.companion";
 if (process.platform === "win32") {
   app.setAppUserModelId(WIN_APP_USER_MODEL_ID);
 }
-app.name = "WFHelper";
+app.setName("WFHelper");
 
 crashReporter.initCrashReporting();
 

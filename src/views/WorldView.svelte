@@ -113,6 +113,10 @@
   $: steelPathHonors = hasSteelPathReward(wd?.steelPath) ? wd.steelPath : null;
 
   $: bounties = buildBountyGroups(wd?.bounties);
+  $: bountyColumns = [
+    bounties.filter((_, index) => index % 2 === 0),
+    bounties.filter((_, index) => index % 2 === 1),
+  ];
 
   $: resetUrgency = buildResetUrgency(sortie, steelPath, nowCoarseMs);
 
@@ -385,9 +389,11 @@
     {#if bounties.length > 0}
     <div class="world-section mt-2">
       <CollapsibleSection title="Bounties" collapsed={collapsed.bounties} onToggle={() => toggleSection('bounties')}>
-      <div class="grid grid-cols-2 items-start gap-x-5 gap-y-1">
-        {#each bounties as group}
-          <div class="border-b border-border py-1 last:border-b-0">
+      <div class="grid grid-cols-1 gap-x-5 gap-y-1 lg:grid-cols-2">
+        {#each bountyColumns as column}
+        <div class="flex min-w-0 flex-col">
+          {#each column as group}
+          <div class="border-b border-border py-1">
             <button class="flex w-full items-center gap-1 border-0 bg-transparent py-1 text-left text-inherit cursor-pointer" on:click={() => toggleSection(`bounty-${group.syndicateKey}`)} aria-expanded={!collapsed[`bounty-${group.syndicateKey}`]}>
               <WorldToggleIcon collapsed={collapsed[`bounty-${group.syndicateKey}`]} />
               <span class="text-lg font-semibold text-text-primary">{group.syndicate}</span>
@@ -452,6 +458,8 @@
             </div>
             {/if}
           </div>
+          {/each}
+        </div>
         {/each}
       </div>
       </CollapsibleSection>

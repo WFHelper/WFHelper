@@ -12,6 +12,10 @@
   import { hideFounderMasteryItems } from "../stores/preferences.js";
   import type { OverlaySettings } from "../types/ipc.js";
 
+  type OverlaySettingsFormInput = Partial<OverlaySettings> & {
+    showTradeNotification?: boolean;
+  };
+
   let settingsTab: "general" | "appearance" | "overlay" = "general";
   let statusMsg = "";
   let statusError = false;
@@ -30,7 +34,7 @@
   let interactionHotkeyEnabled = OVERLAY_DEFAULTS.interactionHotkeyEnabled;
   let interactionHotkey = OVERLAY_DEFAULTS.interactionHotkey;
 
-  function applyToForm(s: Partial<OverlaySettings>): void {
+  function applyToForm(s: OverlaySettingsFormInput): void {
     autoTrigger = !!s.autoTriggerEnabled;
     notificationSoundEnabled =
       s.notificationSoundEnabled ?? OVERLAY_DEFAULTS.notificationSoundEnabled;
