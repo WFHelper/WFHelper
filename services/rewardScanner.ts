@@ -3,7 +3,7 @@
  *
  * The heavy scan steps are split into cohesive stage modules:
  *   - rewardScannerPipeline.ts  (capture, guard, dedup, stage orchestration, telemetry)
- *   - rewardScannerSlotScan.ts  (slot-first OCR and unique reward assignment)
+ *   - rewardScannerSlotScan.ts  (slot-first OCR and reward assignment)
  *   - rewardScannerBandScan.ts  (band OCR passes and pass scoring)
  *   - rewardScannerEra.ts       (relic selection era OCR)
  */

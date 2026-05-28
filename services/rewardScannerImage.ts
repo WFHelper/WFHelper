@@ -383,19 +383,17 @@ function detectFixedRewardSlotLayouts(nativeImage: NativeImage): RewardSlotLayou
         clamp01(avgScore / 0.7) * 0.42
       ).toFixed(3),
     );
-    if (activeCount < count) continue;
-
     const slots: RewardSlotRect[] = buildFixedSlots(layout);
 
-    if (confidence >= 0.5) {
+    if (activeCount >= Math.min(2, count) || avgScore >= 0.28) {
       candidates.push({ count, confidence, slots });
     }
   }
 
   candidates.sort((a, b) => {
     const confidenceDiff = b.confidence - a.confidence;
-    if (Math.abs(confidenceDiff) < 0.08) return a.count - b.count;
-    return confidenceDiff || a.count - b.count;
+    if (Math.abs(confidenceDiff) < 0.08) return b.count - a.count;
+    return confidenceDiff || b.count - a.count;
   });
   return candidates;
 }
@@ -416,8 +414,8 @@ export function detectRewardSlotLayoutCandidates(nativeImage: NativeImage): Rewa
   }
   return [...byKey.values()].sort((a, b) => {
     const confidenceDiff = b.confidence - a.confidence;
-    if (Math.abs(confidenceDiff) < 0.08) return a.count - b.count;
-    return confidenceDiff || a.count - b.count;
+    if (Math.abs(confidenceDiff) < 0.08) return b.count - a.count;
+    return confidenceDiff || b.count - a.count;
   });
 }
 

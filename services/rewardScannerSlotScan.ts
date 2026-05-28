@@ -7,6 +7,9 @@ import {
   type SortedItem,
 } from "./rewardScannerMatch";
 import { hasConfidentSlotLayout } from "./rewardScannerSupport";
+import { withScope } from "./logger";
+
+const log = withScope("rewardScanner");
 
 interface OcrLine {
   text?: string;
@@ -33,6 +36,8 @@ interface SlotScanResult {
   strategy: string;
   slotConfidence: number;
   avgConfidence: number;
+  matchedSlots: number;
+  emptySlots: number;
 }
 
 export type StructuredOcrBufferRunner = (
@@ -62,76 +67,16 @@ export function extractRewardTitleTexts(structured: StructuredOcrResult | null):
   return [...candidates].filter((candidate) => candidate.length > 0);
 }
 
-function chooseUniqueRewardAssignments(
-  slotCandidates: Array<Array<SlotCandidate>>,
-): Array<SlotCandidate | null> {
-  let bestScore = -Infinity;
-  let best: Array<SlotCandidate | null> = new Array(slotCandidates.length).fill(null);
-
-  function visit(
-    index: number,
-    usedNames: Set<string>,
-    current: Array<SlotCandidate | null>,
-    score: number,
-  ): void {
-    if (index >= slotCandidates.length) {
-      if (score > bestScore) {
-        bestScore = score;
-        best = current.slice();
-      }
-      return;
-    }
-
-    const candidates = slotCandidates[index] || [];
-    let visited = false;
-    for (const candidate of candidates.slice(0, 5)) {
-      const name = candidate.item?.name;
-      if (!name || usedNames.has(name)) continue;
-      visited = true;
-      usedNames.add(name);
-      current[index] = candidate;
-      visit(index + 1, usedNames, current, score + Number(candidate.score || 0));
-      usedNames.delete(name);
-      current[index] = null;
-    }
-
-    if (!visited) {
-      current[index] = null;
-      visit(index + 1, usedNames, current, score - 25);
-    }
-  }
-
-  visit(0, new Set<string>(), new Array(slotCandidates.length).fill(null), 0);
-  return best;
-}
-
 function isUsableSlotCandidate(candidate: SlotCandidate): boolean {
   if (!candidate?.item?.name) return false;
+  const normalizedName = String(candidate.item.name || "").trim();
+  const nameWords = normalizedName.split(/\s+/).filter(Boolean);
+  if (nameWords.length <= 1 && normalizedName.length < 5) {
+    return candidate.mode === "exact" && candidate.confidence >= 0.99;
+  }
   if (candidate.mode === "exact") return candidate.confidence >= 0.98;
-  if (candidate.mode === "substring") return candidate.confidence >= 0.9;
-  return candidate.confidence >= 0.82;
-}
-
-function baseRewardName(name: string): string {
-  return name
-    .replace(/\s+(Blueprint|Systems|Chassis|Neuroptics|Harness|Carapace|Cerebrum|Barrel|Receiver|Stock|Handle|Blade|String|Grip|Link|Pouch|Stars|Disc|Upper Limb|Lower Limb)$/i, "")
-    .trim()
-    .toLowerCase();
-}
-
-function duplicateBasePenalty(items: SortedItem[]): number {
-  const counts = new Map<string, number>();
-  for (const item of items) {
-    const base = baseRewardName(item.name);
-    if (!base) continue;
-    counts.set(base, (counts.get(base) || 0) + 1);
-  }
-
-  let penalty = 0;
-  for (const count of counts.values()) {
-    if (count > 1) penalty += (count - 1) * 45;
-  }
-  return penalty;
+  if (candidate.mode === "substring") return candidate.confidence >= 0.92;
+  return candidate.confidence >= 0.86;
 }
 
 export async function scanRewardSlotsFallback(
@@ -153,13 +98,13 @@ export async function scanRewardSlotsFallback(
 ): Promise<SlotScanResult | null> {
   const layouts = detectRewardSlotLayoutCandidates(screenshot?.image)
     .filter((layout) => hasConfidentSlotLayout(layout))
-    .slice(0, 3);
+    .slice(0, 6);
   if (layouts.length === 0) return null;
 
   let bestResult: SlotScanResult | null = null;
 
   for (const layout of layouts) {
-    const slotLimit = Math.min(expectedCount || layout.count, layout.count, MAX_REWARD_SLOTS);
+    const slotLimit = Math.min(layout.count, MAX_REWARD_SLOTS);
     const slotResults = await Promise.all(
       layout.slots.slice(0, slotLimit).map(async (slot, i) => {
         const elapsed = Date.now() - startedAt;
@@ -214,24 +159,10 @@ export async function scanRewardSlotsFallback(
       }),
     );
 
-    const orderedCandidates = slotResults
-      .filter(
-        (
-          entry,
-        ): entry is {
-          index: number;
-          candidates: SlotCandidate[];
-        } => !!entry,
-      )
-      .sort((a, b) => a.index - b.index);
-
-    const assigned = chooseUniqueRewardAssignments(
-      orderedCandidates.map((entry) => entry.candidates),
-    );
-    const collected = orderedCandidates
-      .map((entry, idx) => ({
-        index: entry.index,
-        candidate: assigned[idx] || null,
+    const collected = slotResults
+      .map((entry, index) => ({
+        index,
+        candidate: entry?.candidates?.[0] || null,
       }))
       .filter(
         (
@@ -255,26 +186,43 @@ export async function scanRewardSlotsFallback(
     const avgCandidateScore =
       collected.reduce((sum, entry) => sum + Number(entry.candidate.score || 0), 0) /
       Math.max(1, collected.length);
+    const emptySlots = slotLimit - collected.length;
+    const expectedFillBonus =
+      expectedCount > 0 ? Math.min(collected.length, expectedCount) / expectedCount : 0;
     const score =
       avgCandidateScore +
-      collected.length * 12 +
+      collected.length * 44 +
       exactCount * 35 +
-      avgConfidence * 20 -
-      duplicateBasePenalty(items);
+      avgConfidence * 20 +
+      layout.confidence * 12 +
+      expectedFillBonus * 18 -
+      emptySlots * 30;
 
     const result: SlotScanResult = {
       items,
       score,
       exactCount,
       slotCount: layout.count,
-      strategy: "slot-fallback",
+      strategy: "slot-primary",
       slotConfidence: layout.confidence,
       avgConfidence,
+      matchedSlots: collected.length,
+      emptySlots,
     };
+
+    log.info(
+      `[RewardScanner] Slot layout candidate ${layout.count}: ` +
+        `hits=${collected.length}/${slotLimit} exact=${exactCount} ` +
+        `avg=${avgConfidence.toFixed(3)} score=${score.toFixed(2)} ` +
+        `items=${items.map((item) => item.name).join(" | ")}`,
+    );
 
     if (
       !bestResult ||
       result.score > bestResult.score ||
+      (Math.abs(result.score - bestResult.score) < 12 &&
+        result.items.length === bestResult.items.length &&
+        result.emptySlots < bestResult.emptySlots) ||
       (result.score === bestResult.score && result.items.length > bestResult.items.length)
     ) {
       bestResult = result;

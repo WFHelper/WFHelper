@@ -37,6 +37,29 @@ describe("matchSingleRewardTextDetailed", () => {
     ).toBe(true);
   });
 
+  it("does not extract short reward names from inside longer titles", () => {
+    const ranked = rankRewardCandidatesDetailed(
+      "Paris Prime Upper Limb",
+      [{ name: "Paris Prime Upper Limb" }, { name: "Ris" }],
+      3,
+    );
+    expect(ranked[0].item?.name).toBe("Paris Prime Upper Limb");
+    expect(ranked.some((candidate) => candidate.item?.name === "Ris")).toBe(false);
+  });
+
+  it("still matches exact short Requiem mod names", () => {
+    const requiemMods = ["Fass", "Jahu", "Khra", "Lohk", "Netra", "Ris", "Vome", "Xata", "Oull"];
+    for (const name of requiemMods) {
+      const ranked = rankRewardCandidatesDetailed(
+        name.toUpperCase(),
+        [{ name: "Paris Prime Upper Limb" }, ...requiemMods.map((modName) => ({ name: modName }))],
+        3,
+      );
+      expect(ranked[0].item?.name).toBe(name);
+      expect(ranked[0].mode).toBe("exact");
+    }
+  });
+
   it("corrects common OCR misreads via expanded token aliases", () => {
     // "prlme" → "prime", "bluedrint" → "blueprint"
     const r1 = matchSingleRewardTextDetailed("Rhino Prlme BlueDrint", ITEMS);

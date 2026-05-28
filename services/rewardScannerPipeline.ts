@@ -60,6 +60,8 @@ interface RewardScanPipelineOptions {
   runOCRStructuredBuffer: StructuredOcrBufferRunner;
 }
 
+type SlotScanResult = Awaited<ReturnType<typeof scanRewardSlotsFallback>>;
+
 let _lastTriggerStats: TriggerStats | null = null;
 let _lastFrameHash: string | null = null;
 let _lastFrameResult: { items: SortedItem[]; meta: Record<string, unknown> } | null = null;
@@ -155,6 +157,14 @@ function cacheFrameResult(
   _lastFrameHash = frameHash;
   _lastFrameResult = result;
   _lastFrameHashTs = Date.now();
+}
+
+function isReliableSlotResult(result: SlotScanResult | null): boolean {
+  if (!result || result.items.length === 0) return false;
+  if (result.items.length === result.slotCount && result.avgConfidence >= 0.82) return true;
+  if (result.items.length >= 3 && result.avgConfidence >= 0.84) return true;
+  if (result.items.length >= 2 && result.emptySlots === 0 && result.exactCount > 0) return true;
+  return result.items.length >= 2 && result.avgConfidence >= 0.92;
 }
 
 async function captureRewardScreen(preCapture: PreCaptureResult | null | undefined): Promise<{
@@ -259,7 +269,7 @@ export async function runRewardScanPipeline({
     `[RewardScanner] Slot layout estimate: count=${detectedLayout.count} confidence=${detectedLayout.confidence.toFixed(3)} expected=${expectedItemCount}`,
   );
 
-  let slotFirstResult: Awaited<ReturnType<typeof scanRewardSlotsFallback>> | null = null;
+  let slotFirstResult: SlotScanResult | null = null;
 
   if (hasConfidentSlotLayout(detectedLayout)) {
     slotFirstResult = await scanRewardSlotsFallback(
@@ -270,14 +280,9 @@ export async function runRewardScanPipeline({
       { sortedItems, ocrTimeoutMs: settings.ocrTimeoutMs, runOCRStructuredBuffer },
     );
 
-    if (
-      slotFirstResult &&
-      slotFirstResult.items.length >= expectedItemCount &&
-      slotFirstResult.exactCount > 0 &&
-      slotFirstResult.avgConfidence >= 0.84
-    ) {
+    if (slotFirstResult && isReliableSlotResult(slotFirstResult)) {
       log.info(
-        `[RewardScanner] Early slot-primary hit: ${slotFirstResult.items.length}/${expectedItemCount} items ` +
+        `[RewardScanner] Slot-primary hit: ${slotFirstResult.items.length}/${slotFirstResult.slotCount} slots ` +
           `(exact=${slotFirstResult.exactCount}, confidence=${slotFirstResult.slotConfidence.toFixed(3)}, avg=${slotFirstResult.avgConfidence.toFixed(3)})`,
       );
       const result = {
@@ -298,7 +303,7 @@ export async function runRewardScanPipeline({
         }),
       };
       cacheFrameResult(frameHash, result);
-      recordTemporalEntry(slotFirstResult.items, expectedItemCount);
+      recordTemporalEntry(slotFirstResult.items, slotFirstResult.items.length);
       _lastTriggerStats = {
         captureCount,
         captureMs,
@@ -373,23 +378,24 @@ export async function runRewardScanPipeline({
   const consensus = buildConsensusSelection(passResults);
   const selectedPass: PassResult | null =
     consensus?.selectedPass || bestPass || passResults[0] || null;
-  let items: SortedItem[] = (consensus?.items || selectedPass?.items || []).slice(
-    0,
-    expectedItemCount,
-  );
+  const bandItemCap =
+    slotFirstResult && slotFirstResult.items.length > 0
+      ? slotFirstResult.items.length
+      : expectedItemCount;
+  let items: SortedItem[] = (consensus?.items || selectedPass?.items || []).slice(0, bandItemCap);
   let finalStrategy = consensus?.strategy || "best-pass";
 
   if (
     slotFirstResult &&
-    (slotFirstResult.exactCount > 0 || slotFirstResult.avgConfidence >= 0.96) &&
+    isReliableSlotResult(slotFirstResult) &&
     (slotFirstResult.items.length > items.length ||
       (slotFirstResult.items.length === items.length && slotFirstResult.exactCount > 0))
   ) {
-    items = slotFirstResult.items.slice(0, expectedItemCount);
+    items = slotFirstResult.items.slice();
     finalStrategy = slotFirstResult.strategy;
   }
 
-  if (items.length < expectedItemCount) {
+  if (items.length === 0) {
     const slotFallback =
       slotFirstResult && slotFirstResult.items.length > 0
         ? slotFirstResult
@@ -402,7 +408,7 @@ export async function runRewardScanPipeline({
           );
     if (
       slotFallback &&
-      (slotFallback.exactCount > 0 || slotFallback.avgConfidence >= 0.96) &&
+      isReliableSlotResult(slotFallback) &&
       slotFallback.items.length > items.length
     ) {
       items = slotFallback.items;
@@ -414,10 +420,14 @@ export async function runRewardScanPipeline({
     }
   }
 
-  const temporalFallback = findTemporalFallback(items, expectedItemCount);
+  const temporalTargetCount =
+    slotFirstResult && slotFirstResult.items.length > 0
+      ? slotFirstResult.items.length
+      : expectedItemCount;
+  const temporalFallback = findTemporalFallback(items, temporalTargetCount);
   if (temporalFallback) {
     log.info(
-      `[RewardScanner] Temporal consistency: sparse result (${items.length}/${expectedItemCount}), ` +
+      `[RewardScanner] Temporal consistency: sparse result (${items.length}/${temporalTargetCount}), ` +
         `using recent full result (${temporalFallback.length} items)`,
     );
     items = temporalFallback;
@@ -442,7 +452,7 @@ export async function runRewardScanPipeline({
     );
   }
 
-  recordTemporalEntry(items, expectedItemCount);
+  recordTemporalEntry(items, temporalTargetCount);
   _lastTriggerStats = {
     captureCount,
     captureMs,

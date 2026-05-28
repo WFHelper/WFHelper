@@ -184,9 +184,8 @@ export function hasConfidentSlotLayout(layout: RewardSlotLayoutSummary): boolean
 }
 
 export function expectedRewardItemCount(_layout: RewardSlotLayoutSummary): number {
-  // A two-slot layout is ambiguous: on four-player reward screens, the middle
-  // reward cards overlap the fixed two-player positions and can make edge slots
-  // look inactive. Keep the OCR target at four so band OCR can recover them.
+  // Layout activity is deliberately not trusted as the reward count because
+  // centered 2/3/4 reward cards overlap. Slot OCR infers the actual count.
   return MAX_REWARD_SLOTS;
 }
 
