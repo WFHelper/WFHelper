@@ -183,10 +183,11 @@ export function hasConfidentSlotLayout(layout: RewardSlotLayoutSummary): boolean
   return layout.count >= 2 && layout.confidence >= SCANNER_TUNING.slot.minLayoutConfidence;
 }
 
-export function expectedRewardItemCount(layout: RewardSlotLayoutSummary): number {
-  return hasConfidentSlotLayout(layout)
-    ? Math.min(layout.count, MAX_REWARD_SLOTS)
-    : MAX_REWARD_SLOTS;
+export function expectedRewardItemCount(_layout: RewardSlotLayoutSummary): number {
+  // A two-slot layout is ambiguous: on four-player reward screens, the middle
+  // reward cards overlap the fixed two-player positions and can make edge slots
+  // look inactive. Keep the OCR target at four so band OCR can recover them.
+  return MAX_REWARD_SLOTS;
 }
 
 export function shouldAcceptPartialSlotResult({

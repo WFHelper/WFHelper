@@ -38,6 +38,26 @@ function buildWordSet(text: string): Set<string> {
   );
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function findRewardPhrasePosition(text: string, phrase: string): number {
+  if (!text || !phrase) return -1;
+  const match = new RegExp(`(^|[^a-z0-9])${escapeRegExp(phrase)}(?=$|[^a-z0-9])`).exec(text);
+  if (!match) return -1;
+  return match.index + (match[1]?.length || 0);
+}
+
+function containsRewardPhrase(text: string, phrase: string): boolean {
+  return findRewardPhrasePosition(text, phrase) >= 0;
+}
+
+function isUsefulPartialRewardText(text: string): boolean {
+  const words = text.split(" ").filter((word) => word.length > 1);
+  return words.length >= 2 || text.length >= 5;
+}
+
 export interface SortedItem {
   name: string;
   [key: string]: unknown;
@@ -159,7 +179,7 @@ export function matchItemsDetailed(
     const normalizedName = normalizeForSearch(item.name);
     if (!normalizedName || usedNames.has(normalizedName)) continue;
 
-    const idx = text.indexOf(normalizedName);
+    const idx = findRewardPhrasePosition(text, normalizedName);
     if (idx >= 0) {
       found.push({ item, pos: idx, confidence: 1, mode: "exact" });
       usedNames.add(normalizedName);
@@ -257,7 +277,10 @@ export function rankRewardCandidatesDetailed(
       continue;
     }
 
-    if (text.includes(normalizedName) || normalizedName.includes(text)) {
+    if (
+      containsRewardPhrase(text, normalizedName) ||
+      (isUsefulPartialRewardText(text) && containsRewardPhrase(normalizedName, text))
+    ) {
       const confidence = Math.max(0.88, similarityScore(text, normalizedName));
       ranked.push({
         item: { ...item, confidence: Number(confidence.toFixed(3)) },

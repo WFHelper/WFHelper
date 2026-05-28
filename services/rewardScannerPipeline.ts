@@ -22,7 +22,6 @@ import {
   recordStrategyWin,
   recordTemporalEntry,
   SCANNER_TUNING,
-  shouldAcceptPartialSlotResult,
 } from "./rewardScannerSupport";
 import { round4 } from "./rewardScannerUtils";
 
@@ -314,27 +313,8 @@ export async function runRewardScanPipeline({
 
     if (
       slotFirstResult &&
-      slotFirstResult.items.length >= 2 &&
-      slotFirstResult.items.length < expectedItemCount &&
-      slotFirstResult.exactCount > 0 &&
-      slotFirstResult.avgConfidence >= 0.84
-    ) {
-      log.info(
-        `[RewardScanner] Revising expected reward count from ${expectedItemCount} to ` +
-          `${slotFirstResult.items.length} based on slot OCR confidence ${slotFirstResult.avgConfidence.toFixed(3)}`,
-      );
-      expectedItemCount = slotFirstResult.items.length;
-    }
-
-    const elapsedRatio = (Date.now() - scanStartedAt) / totalBudgetMs;
-    if (
-      slotFirstResult &&
       (slotFirstResult.exactCount > 0 || slotFirstResult.avgConfidence >= 0.96) &&
-      shouldAcceptPartialSlotResult({
-        itemCount: slotFirstResult.items.length,
-        expectedCount: expectedItemCount,
-        elapsedRatio,
-      })
+      slotFirstResult.items.length >= expectedItemCount
     ) {
       log.info(
         `[RewardScanner] Partial slot-primary hit: ${slotFirstResult.items.length}/${expectedItemCount} items ` +
