@@ -18,8 +18,9 @@ const EXE_NAME = "warframe-api-helper.exe";
 const DEFAULT_POLL_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 // Hard kill the helper if it hasn't exited after this long. Normal runs are <5s.
 const HELPER_SPAWN_TIMEOUT_MS = 60 * 1000;
+const HELPER_RELEASE_TAG = "1.1.1";
 const GITHUB_RELEASES_URL =
-  "https://api.github.com/repos/Sainan/warframe-api-helper/releases/latest";
+  `https://api.github.com/repos/Sainan/warframe-api-helper/releases/tags/${HELPER_RELEASE_TAG}`;
 
 /**
  * Pinned SHA-256 hashes of accepted warframe-api-helper.exe builds.
@@ -501,7 +502,7 @@ interface GitHubRelease {
 }
 
 /**
- * Download the latest warframe-api-helper.exe from GitHub Releases.
+ * Download the pinned warframe-api-helper.exe from GitHub Releases.
  * Saves to `userData/api-helper/warframe-api-helper.exe`.
  * Calls `onProgress` with download progress updates.
  */
@@ -511,7 +512,7 @@ export async function downloadHelper(
   try {
     onProgress({ stage: "resolving", percent: 0, bytesReceived: 0, bytesTotal: 0 });
 
-    // 1. Fetch latest release metadata
+    // 1. Fetch pinned release metadata
     const releaseRes = await httpsGetBuffer(GITHUB_RELEASES_URL, {
       "User-Agent": "warframe-companion",
       Accept: "application/vnd.github+json",
