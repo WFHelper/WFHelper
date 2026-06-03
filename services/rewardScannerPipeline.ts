@@ -263,7 +263,7 @@ export async function runRewardScanPipeline({
   const slotDetectStart = Date.now();
   const detectedLayout = detectRewardSlotLayout(screenshot.image);
   const slotDetectMs = Date.now() - slotDetectStart;
-  let expectedItemCount = expectedRewardItemCount(detectedLayout);
+  let expectedItemCount = expectedRewardItemCount();
 
   log.info(
     `[RewardScanner] Slot layout estimate: count=${detectedLayout.count} confidence=${detectedLayout.confidence.toFixed(3)} expected=${expectedItemCount}`,

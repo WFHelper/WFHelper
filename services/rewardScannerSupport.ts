@@ -35,8 +35,6 @@ export const SCANNER_TUNING = Object.freeze({
   }),
   slot: Object.freeze({
     minLayoutConfidence: 0.38,
-    partialAcceptFillRatio: 0.75,
-    partialAcceptElapsedRatio: 0.7,
   }),
   ocr: Object.freeze({
     textPreviewMaxChars: 240,
@@ -183,23 +181,9 @@ export function hasConfidentSlotLayout(layout: RewardSlotLayoutSummary): boolean
   return layout.count >= 2 && layout.confidence >= SCANNER_TUNING.slot.minLayoutConfidence;
 }
 
-export function expectedRewardItemCount(_layout: RewardSlotLayoutSummary): number {
+export function expectedRewardItemCount(): number {
   // Layout activity is deliberately not trusted as the reward count because
   // centered 2/3/4 reward cards overlap. Slot OCR infers the actual count.
   return MAX_REWARD_SLOTS;
 }
 
-export function shouldAcceptPartialSlotResult({
-  itemCount,
-  expectedCount,
-  elapsedRatio,
-}: {
-  itemCount: number;
-  expectedCount: number;
-  elapsedRatio: number;
-}): boolean {
-  return (
-    itemCount >= Math.ceil(expectedCount * SCANNER_TUNING.slot.partialAcceptFillRatio) &&
-    (elapsedRatio >= SCANNER_TUNING.slot.partialAcceptElapsedRatio || itemCount === expectedCount)
-  );
-}

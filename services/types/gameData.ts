@@ -23,13 +23,6 @@ export interface PepExportItem {
   category?: string;
 }
 
-/** Region entry from ExportRegions. */
-
-
-
-
-
-
 interface RecipeIngredient {
   uniqueName: string;
   count: number;
@@ -42,7 +35,6 @@ export interface RecipeData {
   blueprintUniqueName?: string;
   ingredients: RecipeIngredient[];
 }
-
 
 export interface DropEntry {
   location: string;
@@ -90,7 +82,6 @@ export interface RendererItemEntry {
   recipe?: RecipeData;
 }
 
-
 export interface WorldStateDate {
   $date: { $numberLong: string };
 }
@@ -120,9 +111,6 @@ interface VaultTraderRaw {
 interface SortieRaw {
   Expiry: WorldStateDate;
 }
-
-
-
 
 interface SyndicateMissionJobRaw {
   jobType: string;
@@ -186,10 +174,4 @@ interface EndlessXpChoice {
   Category: string;
   Choices: string[];
 }
-
-
-
-
-
-
 

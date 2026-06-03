@@ -43,7 +43,6 @@ const HISTORY_MAX_DAYS = 90;
 // Schema marker for the persisted history file. v2 = day keys are in the
 // user's LOCAL timezone. v1 (and unversioned legacy files) used UTC.
 const HISTORY_SCHEMA_VERSION = 2;
-let _historySchemaVersion = HISTORY_SCHEMA_VERSION;
 
 
 function _historyPath(): string {
@@ -158,7 +157,6 @@ export function loadHistory(): void {
         ...backFillDefaults,
         ...e,
       }));
-      _historySchemaVersion = loadedVersion;
       if (loadedVersion < HISTORY_SCHEMA_VERSION) {
         log.info(
           `[StatsTracker] Migrating history schema v${loadedVersion} -> v${HISTORY_SCHEMA_VERSION} ` +
@@ -168,7 +166,6 @@ export function loadHistory(): void {
         // entry date keys are intentionally preserved — without per-event
         // timestamps, re-attributing old aggregates is not possible.
         _saveHistory();
-        _historySchemaVersion = HISTORY_SCHEMA_VERSION;
       }
       // Restore today's relic accumulator so app restarts don't reset the daily count to 0
       const today = _todayStr();

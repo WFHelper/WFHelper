@@ -35,9 +35,6 @@ importers:
       koffi:
         specifier: ^2.15.1
         version: 2.15.1
-      ms:
-        specifier: 2.1.3
-        version: 2.1.3
       onnxruntime-node:
         specifier: ^1.24.3
         version: 1.24.3
@@ -51,6 +48,9 @@ importers:
         specifier: ^8.20.0
         version: 8.20.0
     devDependencies:
+      '@electron/asar':
+        specifier: ^3.4.1
+        version: 3.4.1
       '@electron/rebuild':
         specifier: ^4.0.3
         version: 4.0.3
