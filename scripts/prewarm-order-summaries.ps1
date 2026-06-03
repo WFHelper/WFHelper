@@ -28,6 +28,10 @@ param(
 function Get-HotsetCandidates {
     return @(
         $HotsetFile,
+        # Current userData dir (see config/runtime/appIdentity.ts: app.setName("WFHelper"))
+        (Join-Path $env:APPDATA "WFHelper\ranked-hotset.json"),
+        (Join-Path $env:LOCALAPPDATA "WFHelper\ranked-hotset.json"),
+        # Legacy locations retained for installs that have not migrated yet
         (Join-Path $env:APPDATA "warframe-companion\ranked-hotset.json"),
         (Join-Path $env:APPDATA "Warframe Companion\ranked-hotset.json"),
         (Join-Path $env:LOCALAPPDATA "warframe-companion\ranked-hotset.json"),

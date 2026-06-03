@@ -34,7 +34,7 @@ Function HelperOptionsPage
     ${NSD_Check} $HelperAutoInstallCheckbox
   ${EndIf}
 
-  ${NSD_CreateLabel} 0 58u 100% 42u "Manual install path: $APPDATA\warframe-companion\api-helper\warframe-api-helper.exe$\r$\nIf you skip automatic install, download the helper yourself and place it at that path."
+  ${NSD_CreateLabel} 0 58u 100% 42u "Manual install path: $APPDATA\WFHelper\api-helper\warframe-api-helper.exe$\r$\nIf you skip automatic install, download the helper yourself and place it at that path."
   Pop $0
 
   nsDialogs::Show
@@ -50,8 +50,8 @@ Function HelperOptionsLeave
 FunctionEnd
 
 !macro customInstall
-  CreateDirectory "$APPDATA\warframe-companion"
-  FileOpen $0 "$APPDATA\warframe-companion\setup-preferences.json" w
+  CreateDirectory "$APPDATA\WFHelper"
+  FileOpen $0 "$APPDATA\WFHelper\setup-preferences.json" w
   ${If} $HelperAutoInstall == "1"
     FileWrite $0 '{"autoInstallHelper":true}'
   ${Else}
