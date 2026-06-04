@@ -90,8 +90,13 @@ describe("detectConsoleOpen", () => {
 });
 
 describe("resetFrameDedup", () => {
-  it("can be called without error", () => {
-    expect(() => resetFrameDedup()).not.toThrow();
+  it("returns undefined and is a safe, idempotent reset", () => {
+    // dedup cache is private; just pin that reset is a safe, repeatable no-op
+    expect(resetFrameDedup()).toBeUndefined();
+    expect(() => {
+      resetFrameDedup();
+      resetFrameDedup();
+    }).not.toThrow();
   });
 });
 

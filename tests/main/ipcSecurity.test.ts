@@ -2,18 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import ctx from "../../ipc/context";
 import * as ipcSecurity from "../../ipc/ipcSecurity";
-
-function makeEvent(webContentsId: number, url: string) {
-  return {
-    sender: {
-      id: webContentsId,
-      getURL: () => url,
-    },
-    senderFrame: {
-      url,
-    },
-  };
-}
+import { makeEvent, makeWindowStub } from "./senderGuardHelpers";
 
 describe("ipc sender guards", () => {
   const originalMainWindow = ctx.mainWindow;
@@ -29,10 +18,7 @@ describe("ipc sender guards", () => {
   });
 
   it("accepts the expected main renderer sender", () => {
-    ctx.mainWindow = {
-      isDestroyed: () => false,
-      webContents: { id: 11 },
-    } as any;
+    ctx.mainWindow = makeWindowStub(11);
 
     const event = makeEvent(11, "file:///D:/Github/warframe-companion/renderer/dist/index.html");
 
@@ -40,10 +26,7 @@ describe("ipc sender guards", () => {
   });
 
   it("rejects sender id mismatch", () => {
-    ctx.mainWindow = {
-      isDestroyed: () => false,
-      webContents: { id: 22 },
-    } as any;
+    ctx.mainWindow = makeWindowStub(22);
 
     const event = makeEvent(19, "file:///D:/Github/warframe-companion/renderer/dist/index.html");
 
@@ -54,10 +37,7 @@ describe("ipc sender guards", () => {
   });
 
   it("rejects wrong renderer URL even when sender id matches", () => {
-    ctx.overlayWindow = {
-      isDestroyed: () => false,
-      webContents: { id: 33 },
-    } as any;
+    ctx.overlayWindow = makeWindowStub(33);
 
     const event = makeEvent(33, "file:///D:/Github/warframe-companion/renderer/dist/index.html");
 
@@ -67,14 +47,8 @@ describe("ipc sender guards", () => {
   });
 
   it("accepts either riven overlay sender", () => {
-    ctx.rivenOverlayLeftWindow = {
-      isDestroyed: () => false,
-      webContents: { id: 41 },
-    } as any;
-    ctx.rivenOverlayRightWindow = {
-      isDestroyed: () => false,
-      webContents: { id: 42 },
-    } as any;
+    ctx.rivenOverlayLeftWindow = makeWindowStub(41);
+    ctx.rivenOverlayRightWindow = makeWindowStub(42);
 
     const leftEvent = makeEvent(
       41,

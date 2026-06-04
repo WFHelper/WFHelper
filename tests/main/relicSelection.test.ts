@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { RELIC_RECOMMENDATIONS } from "../../config/shared/ipcChannels";
+import type { OverlaySettings } from "../../config/runtime/overlaySettings";
 import { createRelicSelectionController } from "../../ipc/overlay/relicSelection";
 
 const tempDirs: string[] = [];
@@ -52,9 +53,8 @@ describe("relic selection planner", () => {
         error: vi.fn(),
       },
       ctx: {
-        overlaySettings: {
-          autoTriggerEnabled: true,
-        } as never,
+        // controller only reads autoTriggerEnabled
+        overlaySettings: { autoTriggerEnabled: true } as OverlaySettings,
         currentInventoryData: {
           LevelKeys: [{ ItemType: "/Lotus/Types/Game/Projections/NeoTestIntact", ItemCount: 1 }],
         },

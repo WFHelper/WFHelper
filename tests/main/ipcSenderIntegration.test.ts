@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ctx from "../../ipc/context";
+import { makeEvent, makeWindowStub } from "./senderGuardHelpers";
 
 async function resetWorldStateIpc() {
   const worldStateIpc = await import("../../ipc/worldStateIpc");
@@ -13,18 +14,6 @@ class MockNotification {
   }
 
   show() {}
-}
-
-function makeEvent(webContentsId: number, url: string) {
-  return {
-    sender: {
-      id: webContentsId,
-      getURL: () => url,
-    },
-    senderFrame: {
-      url,
-    },
-  };
 }
 
 describe("IPC sender guard integration", () => {
@@ -52,8 +41,7 @@ describe("IPC sender guard integration", () => {
       Notification: MockNotification,
     });
 
-    // The second register() call is a no-op — register() guards itself
-    // against double-registration. After __test__.reset() it can re-register.
+    // register() guards against double-registration; only __test__.reset() re-arms it.
     expect(handle).toHaveBeenCalledTimes(1);
     expect(handle.mock.calls[0]?.[0]).toBe("get-world-state");
 
@@ -67,22 +55,19 @@ describe("IPC sender guard integration", () => {
   });
 
   it("blocks unauthorized sender through registered world-state handler", async () => {
-    const handlers = new Map<string, (event: any) => Promise<unknown>>();
+    const handlers = new Map<string, (event: unknown) => Promise<unknown>>();
 
     const worldStateIpc = await import("../../ipc/worldStateIpc");
     worldStateIpc.register({
       ipcMain: {
-        handle: (channel: string, handler: (event: any) => Promise<unknown>) => {
+        handle: (channel: string, handler: (event: unknown) => Promise<unknown>) => {
           handlers.set(channel, handler);
         },
       },
       Notification: MockNotification,
     });
 
-    ctx.mainWindow = {
-      isDestroyed: () => false,
-      webContents: { id: 44 },
-    } as any;
+    ctx.mainWindow = makeWindowStub(44);
 
     const handler = handlers.get("get-world-state");
     expect(handler).toBeTypeOf("function");
