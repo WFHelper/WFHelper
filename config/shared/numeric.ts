@@ -1,9 +1,6 @@
 /**
  * Shared numeric utilities used by main-process, renderer, and worker.
- *
- * Central definitions that replace ~30 file-local duplicates scattered
- * across the codebase.  Every function is side-effect-free and safe to
- * call with arbitrary untrusted input.
+ * Every function is side-effect-free and safe to call with arbitrary input.
  */
 
 /** Highest mod/arcane rank the app supports for cache keys and API queries. */

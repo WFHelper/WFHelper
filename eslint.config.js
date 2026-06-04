@@ -85,6 +85,10 @@ module.exports = [
       "no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-require-imports": "off",
+      // Core no-redeclare flags TS function overload signatures as redeclarations;
+      // defer to the type-aware rule which understands overloads.
+      "no-redeclare": "off",
+      "@typescript-eslint/no-redeclare": "error",
       "@typescript-eslint/no-unused-vars": [
         "warn",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
@@ -110,6 +114,8 @@ module.exports = [
     rules: {
       ...tsPlugin.configs.recommended.rules,
       "no-unused-vars": "off",
+      "no-redeclare": "off",
+      "@typescript-eslint/no-redeclare": "error",
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": [
         "warn",
