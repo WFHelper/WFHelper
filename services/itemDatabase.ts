@@ -8,7 +8,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { sanitizeDisplayName } from "../config/shared/displayName";
+import { fallbackNameFromUniqueName, sanitizeDisplayName } from "../config/shared/displayName";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { normalizeDucats } from "../config/shared/numeric";
 import { normalizeWfmSlug } from "../config/shared/wfm";
@@ -289,7 +289,7 @@ function loadPublicExportPlus(): number {
         }
 
         const resolvedName = sanitizeDisplayName(
-          relicName || recipeName || resolveName(item.name) || extractFallbackName(uniqueName),
+          relicName || recipeName || resolveName(item.name) || fallbackNameFromUniqueName(uniqueName),
         );
 
         const pepDucats =
@@ -598,7 +598,7 @@ function resolveAllImages(): void {
     const category = item.category || "Unknown";
     noImageCategories.set(category, (noImageCategories.get(category) || 0) + 1);
     if (noImageSamples.length < IMAGE_LOG_SAMPLE_LIMIT) {
-      noImageSamples.push(`${item.name || extractFallbackName(uniqueName)} (${category})`);
+      noImageSamples.push(`${item.name || fallbackNameFromUniqueName(uniqueName)} (${category})`);
     }
   }
 
@@ -616,15 +616,6 @@ function resolveAllImages(): void {
       `[ItemDB] Images unresolved: no upstream icon URL in PEP/WFCD/browse.wf; top categories: ${categorySummary}; samples: ${noImageSamples.join(", ")}`,
     );
   }
-}
-
-function extractFallbackName(uniqueName: string): string {
-  if (!uniqueName) return "Unknown";
-  const segments = uniqueName.split("/");
-  let name = segments[segments.length - 1] || "Unknown";
-  name = name.replace(/([a-z])([A-Z])/g, "$1 $2");
-  name = name.replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
-  return sanitizeDisplayName(name);
 }
 
 interface PepRecipeItem {

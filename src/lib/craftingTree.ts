@@ -1,3 +1,4 @@
+import { fallbackNameFromUniqueName } from "../../config/shared/displayName.js";
 import type { ItemDbEntry, RecipeData } from "../types/inventory.js";
 
 export interface CraftingTreeNode {
@@ -69,7 +70,7 @@ function buildNode(
   ancestors: Set<string> = new Set(),
 ): CraftingTreeNode {
   const item = itemDb[uniqueName];
-  const name = item?.name || extractFallbackName(uniqueName);
+  const name = item?.name || fallbackNameFromUniqueName(uniqueName);
   const imageUrl = item?.imageUrl || null;
   const owned = ownership.get(uniqueName) || 0;
   const missing = Math.max(0, count - owned);
@@ -165,7 +166,7 @@ function findUsedFor(
     seen.add(productUniqueName);
     matches.push({
       uniqueName: productUniqueName,
-      name: entry.name || extractFallbackName(productUniqueName),
+      name: entry.name || fallbackNameFromUniqueName(productUniqueName),
       imageUrl: entry.imageUrl || null,
     });
   }
@@ -249,11 +250,4 @@ export function computeCraftingSummary(tree: CraftingTreeNode): CraftingTreeSumm
       ...r,
     })),
   };
-}
-
-function extractFallbackName(uniqueName: string): string {
-  const segments = uniqueName.split("/");
-  let name = segments[segments.length - 1] || "Unknown";
-  name = name.replace(/([a-z])([A-Z])/g, "$1 $2");
-  return name;
 }

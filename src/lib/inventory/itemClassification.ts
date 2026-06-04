@@ -1,4 +1,4 @@
-import { sanitizeDisplayName } from "../../../config/shared/displayName.js";
+import { fallbackNameFromUniqueName, sanitizeDisplayName } from "../../../config/shared/displayName.js";
 import type { InventoryGroup, ItemDbEntry, RawInventoryData } from "../../types/inventory.js";
 
 export interface ResolvedItem extends ItemDbEntry {
@@ -73,10 +73,7 @@ export function resolveItem(
   }
   if (!internalName) return { name: "Unknown", imageUrl: null };
 
-  const segments = internalName.split("/");
-  let name = segments[segments.length - 1] || "Unknown";
-  name = name.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
-  return { name: sanitizeDisplayName(name), imageUrl: null, category: "Unknown" };
+  return { name: fallbackNameFromUniqueName(internalName), imageUrl: null, category: "Unknown" };
 }
 
 export function isArcaneUpgrade(
