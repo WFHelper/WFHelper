@@ -321,6 +321,7 @@ function loadPersistedCacheMaps(
       }
     }
   } catch {
+    // Corrupt/unreadable price-cache file — return whatever parsed so far.
     return { prices, ducats };
   }
 
@@ -334,6 +335,7 @@ function getCacheFileMtimeMs(fs: typeof import("node:fs"), cacheFilePath: string
     const mtimeMs = toFiniteOr((stat as { mtimeMs?: number }).mtimeMs, 0);
     return Number.isFinite(mtimeMs) && mtimeMs > 0 ? mtimeMs : 0;
   } catch {
+    // Missing/unstattable cache file — treat as mtime 0 (forces a refresh).
     return 0;
   }
 }

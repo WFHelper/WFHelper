@@ -227,6 +227,7 @@ function parseFingerprint(raw: string): RawFingerprint | null {
     if (typeof parsed === "string") parsed = JSON.parse(parsed);
     return parsed as RawFingerprint;
   } catch {
+    // Malformed JSON fingerprint — treat as absent.
     return null;
   }
 }

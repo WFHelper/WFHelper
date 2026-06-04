@@ -186,6 +186,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       const point = screen.getCursorScreenPoint();
       return screen.getDisplayNearestPoint(point);
     } catch {
+      // Cursor position unavailable (e.g. headless/locked session) — fall back to primary.
       return screen.getPrimaryDisplay();
     }
   }
@@ -309,7 +310,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       const display = screen.getDisplayMatching(bounds);
       displayId = display ? String(display.id) : null;
     } catch {
-      // best effort
+      // No display matched the bounds — persist without a displayId.
     }
     onWindowBoundsChanged(windowStateKey, {
       x: bounds.x,

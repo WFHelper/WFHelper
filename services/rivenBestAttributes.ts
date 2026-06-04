@@ -53,6 +53,7 @@ function readCache(): CachePayload | null {
     }
     return Object.keys(data).length > 0 ? { updatedAt: parsed.updatedAt, data } : null;
   } catch {
+    // Corrupt/unparseable cache payload — ignore and rebuild from source.
     return null;
   }
 }
