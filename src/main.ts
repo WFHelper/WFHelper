@@ -25,6 +25,20 @@ if (!root) {
 
 initRendererCrashReporting();
 
+const DEFAULT_ACCENT_GLOW = "rgba(212, 168, 67, 0.15)";
+
+/** Convert a `#rrggbb` accent colour to a translucent glow, or fall back. */
+function accentGlow(accent: string): string {
+  if (!accent.startsWith("#")) return DEFAULT_ACCENT_GLOW;
+  const clean = accent.slice(1);
+  if (clean.length !== 6) return DEFAULT_ACCENT_GLOW;
+  const r = Number.parseInt(clean.slice(0, 2), 16);
+  const g = Number.parseInt(clean.slice(2, 4), 16);
+  const b = Number.parseInt(clean.slice(4, 6), 16);
+  if (![r, g, b].every(Number.isFinite)) return DEFAULT_ACCENT_GLOW;
+  return `rgba(${r}, ${g}, ${b}, 0.15)`;
+}
+
 themeSettings.subscribe((settings) => {
   if (typeof window.api?.updateOverlayTheme !== "function") {
     return;
@@ -43,17 +57,7 @@ themeSettings.subscribe((settings) => {
   }
 
   if (vars["--accent"]) {
-    vars["--accent-glow"] = vars["--accent"].startsWith("#")
-      ? (() => {
-          const clean = vars["--accent"].slice(1);
-          if (clean.length !== 6) return "rgba(212, 168, 67, 0.15)";
-          const r = Number.parseInt(clean.slice(0, 2), 16);
-          const g = Number.parseInt(clean.slice(2, 4), 16);
-          const b = Number.parseInt(clean.slice(4, 6), 16);
-          if (![r, g, b].every(Number.isFinite)) return "rgba(212, 168, 67, 0.15)";
-          return `rgba(${r}, ${g}, ${b}, 0.15)`;
-        })()
-      : "rgba(212, 168, 67, 0.15)";
+    vars["--accent-glow"] = accentGlow(vars["--accent"]);
   }
 
   const rootStyle = window.document?.documentElement

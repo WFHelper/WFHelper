@@ -282,33 +282,34 @@ function renderBestAttributes(attrs) {
   refreshBestAttributeHighlights();
 }
 
+var STAT_ABBREVIATIONS = {
+  "critical chance": "CritCh",
+  "critical damage": "CritDmg",
+  multishot: "Multi",
+  damage: "Dmg",
+  "melee damage": "Dmg",
+  "status chance": "Status",
+  "attack speed": "AtkSpd",
+  electricity: "Elec",
+  toxin: "Toxin",
+  heat: "Heat",
+  cold: "Cold",
+  range: "Range",
+  zoom: "Zoom",
+  "ammo maximum": "Ammo",
+  "weapon recoil": "Recoil",
+  "projectile speed": "ProjSpd",
+  "finisher damage": "Finisher",
+  "heavy attack efficiency": "HvyAtk",
+  "combo duration": "Combo",
+  "slide attack": "Slide",
+  "reload speed": "Reload",
+  "fire rate": "FireRate",
+};
+
 /** Abbreviate long stat names for compact chip display. */
 function abbreviateStat(name) {
-  var abbrevs = {
-    "critical chance": "CritCh",
-    "critical damage": "CritDmg",
-    multishot: "Multi",
-    damage: "Dmg",
-    "melee damage": "Dmg",
-    "status chance": "Status",
-    "attack speed": "AtkSpd",
-    electricity: "Elec",
-    toxin: "Toxin",
-    heat: "Heat",
-    cold: "Cold",
-    range: "Range",
-    zoom: "Zoom",
-    "ammo maximum": "Ammo",
-    "weapon recoil": "Recoil",
-    "projectile speed": "ProjSpd",
-    "finisher damage": "Finisher",
-    "heavy attack efficiency": "HvyAtk",
-    "combo duration": "Combo",
-    "slide attack": "Slide",
-    "reload speed": "Reload",
-    "fire rate": "FireRate",
-  };
-  return abbrevs[name.toLowerCase()] || name;
+  return STAT_ABBREVIATIONS[name.toLowerCase()] || name;
 }
 
 /** Highlight best-attribute chips that match currently displayed stats. */

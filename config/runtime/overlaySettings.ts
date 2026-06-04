@@ -77,19 +77,18 @@ type OverlayToggleKey =
   | "tradeNotificationOverlayEnabled"
   | "rivenOverlayEnabled";
 
+type OverlayToggleSettings = Partial<Pick<OverlaySettings, OverlayToggleKey>> | null | undefined;
+
 /** Unset → on; only an explicit `false` disables the overlay. */
-function isOverlayToggleEnabled(
-  settings: Partial<Pick<OverlaySettings, OverlayToggleKey>> | null | undefined,
-  key: OverlayToggleKey,
-): boolean {
+function isOverlayToggleEnabled(settings: OverlayToggleSettings, key: OverlayToggleKey): boolean {
   return settings?.[key] !== false;
 }
 
-export const isRelicRewardsOverlayEnabled = (s: Parameters<typeof isOverlayToggleEnabled>[0]) =>
+export const isRelicRewardsOverlayEnabled = (s: OverlayToggleSettings) =>
   isOverlayToggleEnabled(s, "relicRewardsOverlayEnabled");
-export const isRelicRecommendationOverlayEnabled = (s: Parameters<typeof isOverlayToggleEnabled>[0]) =>
+export const isRelicRecommendationOverlayEnabled = (s: OverlayToggleSettings) =>
   isOverlayToggleEnabled(s, "relicRecommendationOverlayEnabled");
-export const isTradeNotificationOverlayEnabled = (s: Parameters<typeof isOverlayToggleEnabled>[0]) =>
+export const isTradeNotificationOverlayEnabled = (s: OverlayToggleSettings) =>
   isOverlayToggleEnabled(s, "tradeNotificationOverlayEnabled");
-export const isRivenOverlayEnabled = (s: Parameters<typeof isOverlayToggleEnabled>[0]) =>
+export const isRivenOverlayEnabled = (s: OverlayToggleSettings) =>
   isOverlayToggleEnabled(s, "rivenOverlayEnabled");
