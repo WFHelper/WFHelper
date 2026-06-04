@@ -42,7 +42,7 @@ export function initStartup(): StartupHandle {
       const stageStart = Date.now();
       const rankedHotset = await invoke("loadRankedHotset");
       if (rankedHotset) {
-        const count = importRankedHotset(rankedHotset as Record<string, unknown>);
+        const count = importRankedHotset(rankedHotset);
         log.info(`[Startup] Restored ${count} ranked hotset entries from disk cache`);
       }
       profileStage("ranked-hotset:load", stageStart);
@@ -126,7 +126,7 @@ async function flushPriceCacheToDisk(): Promise<void> {
   try {
     const hotsetData = exportRankedHotset();
     if (Array.isArray(hotsetData.entries) && hotsetData.entries.length > 0) {
-      await invoke("saveRankedHotset", hotsetData as unknown as Record<string, unknown>);
+      await invoke("saveRankedHotset", hotsetData);
     }
   } catch {
     // best-effort, don't log every periodic failure

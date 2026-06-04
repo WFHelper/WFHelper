@@ -3,7 +3,7 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 
 import { request, requestV2 } from "./wfmClient";
 import { getInGameName } from "./wfmSession";
-import { toNonEmptyWfmString } from "./wfmTypes";
+import { toNonEmptyString } from "../config/shared/stringValidation";
 import { toFiniteNumber } from "../config/shared/numeric";
 import { formatWfmAssetUrl, titleFromSlug } from "../config/shared/wfm";
 
@@ -70,7 +70,7 @@ interface EndpointCandidate {
 
 function firstNonEmpty(...values: unknown[]): string | null {
   for (const value of values) {
-    const s = toNonEmptyWfmString(value);
+    const s = toNonEmptyString(value);
     if (s) return s;
   }
   return null;
@@ -85,7 +85,7 @@ function normalizeAttribute(rawAttribute: unknown): NormalisedAttribute | null {
 
   const numericValue = toFiniteNumber(attr.value);
   const value: number | string | null =
-    numericValue != null ? numericValue : toNonEmptyWfmString(attr.value);
+    numericValue != null ? numericValue : toNonEmptyString(attr.value);
 
   const positive: boolean | null =
     typeof attr.positive === "boolean"
@@ -103,7 +103,7 @@ function normalizeAttribute(rawAttribute: unknown): NormalisedAttribute | null {
 }
 
 function toIsoTimestamp(value: unknown): string | null {
-  const s = toNonEmptyWfmString(value);
+  const s = toNonEmptyString(value);
   if (!s) return null;
   const parsed = Date.parse(s);
   return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;

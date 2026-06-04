@@ -26,7 +26,7 @@ if (!root) {
 initRendererCrashReporting();
 
 themeSettings.subscribe((settings) => {
-  if (typeof window === "undefined" || typeof window.api?.updateOverlayTheme !== "function") {
+  if (typeof window.api?.updateOverlayTheme !== "function") {
     return;
   }
 
@@ -56,10 +56,9 @@ themeSettings.subscribe((settings) => {
       : "rgba(212, 168, 67, 0.15)";
   }
 
-  const rootStyle =
-    typeof window !== "undefined" && window.document?.documentElement
-      ? window.document.documentElement.style
-      : null;
+  const rootStyle = window.document?.documentElement
+    ? window.document.documentElement.style
+    : null;
 
   const copyRootVar = (name: string): void => {
     if (!rootStyle) return;

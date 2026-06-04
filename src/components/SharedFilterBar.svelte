@@ -1,6 +1,7 @@
 <script lang="ts">
   import { resetSharedFilters, sharedFilters, updateSharedFilters } from "../stores/filters.js";
   import SortArrow from "./SortArrow.svelte";
+  import SearchBox from "./SearchBox.svelte";
   import type {
     FilterScope,
     MasteredFilterMode,
@@ -84,10 +85,6 @@
     setSortBy((event.currentTarget as HTMLSelectElement).value as SharedSortKey);
   }
 
-  function onSearchInput(event: Event): void {
-    setSearch((event.currentTarget as HTMLInputElement).value);
-  }
-
   function setYesNoFilter(
     key: "orderPlaced" | "vaulted" | "favorite" | "setComplete" | "equipped" | "leveledUp",
     value: Exclude<YesNoFilterMode, "all">,
@@ -105,18 +102,11 @@
 <div class="shared-filter-bar" class:shared-filter-bar-inline={singleLine}>
   <div class="view-controls shared-filter-controls">
     {#if showBasic}
-      <div class="search-box shared-filter-search">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="7" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        <input
-          type="text"
-          value={state.search}
-          on:input={onSearchInput}
-          placeholder="Search..."
-        />
-      </div>
+      <SearchBox
+        class="shared-filter-search"
+        value={state.search}
+        onValueChange={setSearch}
+      />
 
       {#if basicVariant === "full"}
         <div class="filter-tabs" title="Prime filter">

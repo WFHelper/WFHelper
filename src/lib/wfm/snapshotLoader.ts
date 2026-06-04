@@ -22,13 +22,15 @@ const SNAPSHOT_FETCH_TIMEOUT_MS = 20_000;
 // but wiring it now keeps the door open at zero extra cost.
 let _cachedEtag: string | null = null;
 
-interface SnapshotBlob {
+// Object type alias (not interface) so it carries an implicit index signature
+// and is assignable to the Record<string, unknown> IPC payload type without a cast.
+type SnapshotBlob = {
   version: number;
   generatedAt: number;
   prices: Record<string, CachedPriceEntry>;
   meta: Record<string, WfmItemMeta>;
   orderSummaries: Record<string, CachedOrderSummaryEntry>;
-}
+};
 
 function isValidSnapshot(d: unknown): d is SnapshotBlob {
   return isValidSnapshotBlob(d);
@@ -107,7 +109,7 @@ export async function tryLoadSnapshot(): Promise<void> {
 
       // Persist to disk for next startup
       try {
-        await invoke("saveSnapshotCache", snapshot as unknown as Record<string, unknown>);
+        await invoke("saveSnapshotCache", snapshot);
       } catch {
         // non-fatal
       }

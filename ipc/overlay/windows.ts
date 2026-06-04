@@ -336,10 +336,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
   }
 
   function isWebContentsCrashed(webContents: import("electron").WebContents): boolean {
-    const maybeCrashed = webContents as import("electron").WebContents & {
-      isCrashed?: () => boolean;
-    };
-    return typeof maybeCrashed.isCrashed === "function" && maybeCrashed.isCrashed();
+    return webContents.isCrashed();
   }
 
   function destroyIfRendererCrashed(

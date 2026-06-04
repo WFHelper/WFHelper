@@ -19,15 +19,6 @@ function koffi(): typeof import("koffi") {
   return _koffi;
 }
 
-function getElectronScreen(): Electron.Screen | null {
-  try {
-    const { screen } = require("electron") as typeof import("electron");
-    return screen || null;
-  } catch {
-    return null;
-  }
-}
-
 interface WindowBounds {
   x: number;
   y: number;
@@ -216,11 +207,10 @@ async function getForegroundWindowInfo(): Promise<{
 function getDisplayIdForBounds(bounds: WindowBounds | null): string | null {
   if (!bounds || bounds.width <= 0 || bounds.height <= 0) return null;
 
-  const screenApi = getElectronScreen();
-  if (!screenApi) return null;
-
   try {
-    const display = screenApi.getDisplayMatching(bounds);
+    const { screen } = require("electron") as typeof import("electron");
+    if (!screen) return null;
+    const display = screen.getDisplayMatching(bounds);
     return display ? String(display.id) : null;
   } catch (err) {
     log.warn("[WarframeStatus] display lookup failed:", normalizeErrorMessage(err));

@@ -18,17 +18,11 @@ function resetLogFileOnAppStart(): void {
   if (!resetLogOnStart) return;
 
   try {
-    const transport = electronLog.transports.file as unknown as { clear?: () => void };
-    if (typeof transport.clear === "function") {
-      transport.clear();
-      return;
-    }
-  } catch {
-    // Intentional: reset is optional, so fall through to manual truncate.
-  }
-
-  try {
     const file = electronLog.transports.file.getFile();
+    // Prefer the transport's own clear(); fall back to manual truncate if it
+    // is unavailable or fails. Either way, never break startup on failure.
+    if (file?.clear()) return;
+
     const filePath = file?.path;
     if (!filePath) return;
 

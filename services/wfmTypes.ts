@@ -1,5 +1,3 @@
-import { toNonEmptyString } from "../config/shared/stringValidation";
-
 /**
  * wfmTypes.ts — Shared Warframe.market API response types (main-process only)
  *
@@ -103,5 +101,3 @@ export function unwrapWfmResponse<T = unknown>(raw: unknown): T {
   if ("payload" in obj) return obj.payload as T;
   return raw as T;
 }
-
-export const toNonEmptyWfmString = toNonEmptyString;

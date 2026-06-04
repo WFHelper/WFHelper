@@ -10,10 +10,12 @@ interface RankedHotsetEntry {
   lastSeenAt: number;
 }
 
-interface PersistedRankedHotset {
+// Object type alias (not interface) so it carries an implicit index signature
+// and is assignable to the Record<string, unknown> IPC payload type without a cast.
+type PersistedRankedHotset = {
   version: number;
   entries: RankedHotsetEntry[];
-}
+};
 
 const hotsetBySlug = new Map<string, RankedHotsetEntry>();
 

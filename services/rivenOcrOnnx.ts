@@ -30,13 +30,18 @@ const YOLO_MODEL_PARTS = [RIVEN_OCR_ASSET_DIR, "yolo", "stat_line_detector.onnx"
 const CH_REC_MODEL_PARTS = [RIVEN_OCR_ASSET_DIR, "paddle", "ch_PP-OCRv3_rec_infer.onnx"] as const;
 const CH_DICT_PARTS = [RIVEN_OCR_ASSET_DIR, "paddle", "ch_dict.txt"] as const;
 
-/** Minimal interface matching onnxruntime-node InferenceSession */
+/**
+ * Minimal structural interface that onnxruntime-node's InferenceSession
+ * satisfies directly (so no cast is needed when assigning a real session).
+ * Tensor `data` is left as `unknown` and narrowed to the concrete element
+ * type at each call site where the output kind is actually known.
+ */
 interface OrtInferenceSession {
   inputNames: readonly string[];
   outputNames: readonly string[];
   run(
     feeds: Record<string, unknown>,
-  ): Promise<Record<string, { data: Float32Array; dims: number[] }>>;
+  ): Promise<Record<string, { data: unknown; dims: readonly number[] }>>;
 }
 
 let _yoloSessionPromise: Promise<OrtInferenceSession> | null = null;
@@ -77,7 +82,7 @@ async function getYoloSession(): Promise<OrtInferenceSession> {
     _yoloInputName = session.inputNames[0];
 
     log.info(`[RivenOcrOnnx] YOLO detector loaded — input=${_yoloInputName} size=${_yoloInputSize}`);
-    return session as unknown as OrtInferenceSession;
+    return session;
   })().catch((err) => {
     _yoloSessionPromise = null;
     throw err;
@@ -119,7 +124,7 @@ async function getChRecSession(): Promise<OrtInferenceSession> {
     });
 
     log.info(`[RivenOcrOnnx] PaddleOCR CH v3 loaded — ${_chDict.length} chars (incl. blank)`);
-    return session as unknown as OrtInferenceSession;
+    return session;
   })().catch((err) => {
     _chRecSessionPromise = null;
     throw err;
@@ -206,8 +211,8 @@ async function yoloDetectStatLines(
   const output = await session.run({ [_yoloInputName]: tensor });
 
   const outputName = session.outputNames[0];
-  const preds: Float32Array = output[outputName].data;
-  const predDims: number[] = output[outputName].dims;
+  const preds = output[outputName].data as Float32Array;
+  const predDims = output[outputName].dims;
 
   const boxes: Array<{ conf: number; y1: number; y2: number; x1: number; x2: number }> = [];
 
@@ -449,8 +454,8 @@ async function recognizeCropsBatch(crops: RgbCrop[]): Promise<OcrLineResult[]> {
   const inputName = session.inputNames[0];
   const output = await session.run({ [inputName]: tensor });
   const outputName = session.outputNames[0];
-  const preds: Float32Array = output[outputName].data;
-  const dims: number[] = output[outputName].dims;
+  const preds = output[outputName].data as Float32Array;
+  const dims = output[outputName].dims;
 
   // dims: [batch, seq_len, num_classes]
   const seqLen = dims[1];
