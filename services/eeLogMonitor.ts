@@ -251,10 +251,8 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   if (line.includes(TRADE_DIALOG_START)) {
     _tradeDialogBuffer = [line];
     _tradeDialogStartAt = Date.now();
-    // Check if single-line dialog (all content on one line)
-    if (line.includes(", leftItem=/Menu/Confirm_Item_Ok")) {
-      // Single-line: buffer is complete, wait for trade success confirmation
-    }
+    // Single-line dialogs (…, leftItem=/Menu/Confirm_Item_Ok) are already complete
+    // at this point — the buffered line stands; we just wait for the success line.
   } else if (_tradeDialogBuffer !== null) {
     // Stop buffering when a log framework line appears.
     if (/\[(Info|Error|Warning)\]/.test(line)) {
@@ -398,83 +396,54 @@ interface EeLogHandlers {
   onRivenChatView?: (() => void) | null;
 }
 
+type NormalizedEeLogHandlers = {
+  [K in keyof EeLogHandlers]-?: NonNullable<EeLogHandlers[K]> | null;
+};
+
+const NULL_EE_LOG_HANDLERS: NormalizedEeLogHandlers = {
+  onRewardTrigger: null,
+  onRelicSelectionOpen: null,
+  onRelicSelectionClose: null,
+  onTradingPartner: null,
+  onTradeConfirmed: null,
+  onRivenSessionOpen: null,
+  onRivenSessionClose: null,
+  onRivenRollPending: null,
+  onRivenRollConfirmed: null,
+  onRivenDioramaSetup: null,
+  onRivenChoiceConfirmed: null,
+  onRivenChatView: null,
+};
+
+/** Keep a value only when it is a function, else null. */
+function asFunction<T>(value: T | null | undefined): T | null {
+  return typeof value === "function" ? value : null;
+}
+
 function normalizeHandlers(
   handlers: (() => void) | EeLogHandlers | null | undefined,
-): {
-  onRewardTrigger: (() => void) | null;
-  onRelicSelectionOpen: (() => void) | null;
-  onRelicSelectionClose: (() => void) | null;
-  onTradingPartner: ((username: string) => void) | null;
-  onTradeConfirmed: ((trade: ParsedLogTrade) => void) | null;
-  onRivenSessionOpen: (() => void) | null;
-  onRivenSessionClose: (() => void) | null;
-  onRivenRollPending: ((weapon: string, kuvaPerRoll: number) => void) | null;
-  onRivenRollConfirmed: (() => void) | null;
-  onRivenDioramaSetup: (() => void) | null;
-  onRivenChoiceConfirmed: (() => void) | null;
-  onRivenChatView: (() => void) | null;
-} {
+): NormalizedEeLogHandlers {
   if (typeof handlers === "function") {
-    return {
-      onRewardTrigger: handlers,
-      onRelicSelectionOpen: null,
-      onRelicSelectionClose: null,
-      onTradingPartner: null,
-      onTradeConfirmed: null,
-      onRivenSessionOpen: null,
-      onRivenSessionClose: null,
-      onRivenRollPending: null,
-      onRivenRollConfirmed: null,
-      onRivenDioramaSetup: null,
-      onRivenChoiceConfirmed: null,
-      onRivenChatView: null,
-    };
+    return { ...NULL_EE_LOG_HANDLERS, onRewardTrigger: handlers };
   }
 
   if (!handlers || typeof handlers !== "object") {
-    return {
-      onRewardTrigger: null,
-      onRelicSelectionOpen: null,
-      onRelicSelectionClose: null,
-      onTradingPartner: null,
-      onTradeConfirmed: null,
-      onRivenSessionOpen: null,
-      onRivenSessionClose: null,
-      onRivenRollPending: null,
-      onRivenRollConfirmed: null,
-      onRivenDioramaSetup: null,
-      onRivenChoiceConfirmed: null,
-      onRivenChatView: null,
-    };
+    return { ...NULL_EE_LOG_HANDLERS };
   }
 
   return {
-    onRewardTrigger:
-      typeof handlers.onRewardTrigger === "function" ? handlers.onRewardTrigger : null,
-    onRelicSelectionOpen:
-      typeof handlers.onRelicSelectionOpen === "function" ? handlers.onRelicSelectionOpen : null,
-    onRelicSelectionClose:
-      typeof handlers.onRelicSelectionClose === "function" ? handlers.onRelicSelectionClose : null,
-    onTradingPartner:
-      typeof handlers.onTradingPartner === "function" ? handlers.onTradingPartner : null,
-    onTradeConfirmed:
-      typeof handlers.onTradeConfirmed === "function" ? handlers.onTradeConfirmed : null,
-    onRivenSessionOpen:
-      typeof handlers.onRivenSessionOpen === "function" ? handlers.onRivenSessionOpen : null,
-    onRivenSessionClose:
-      typeof handlers.onRivenSessionClose === "function" ? handlers.onRivenSessionClose : null,
-    onRivenRollPending:
-      typeof handlers.onRivenRollPending === "function" ? handlers.onRivenRollPending : null,
-    onRivenRollConfirmed:
-      typeof handlers.onRivenRollConfirmed === "function" ? handlers.onRivenRollConfirmed : null,
-    onRivenDioramaSetup:
-      typeof handlers.onRivenDioramaSetup === "function" ? handlers.onRivenDioramaSetup : null,
-    onRivenChoiceConfirmed:
-      typeof handlers.onRivenChoiceConfirmed === "function"
-        ? handlers.onRivenChoiceConfirmed
-        : null,
-    onRivenChatView:
-      typeof handlers.onRivenChatView === "function" ? handlers.onRivenChatView : null,
+    onRewardTrigger: asFunction(handlers.onRewardTrigger),
+    onRelicSelectionOpen: asFunction(handlers.onRelicSelectionOpen),
+    onRelicSelectionClose: asFunction(handlers.onRelicSelectionClose),
+    onTradingPartner: asFunction(handlers.onTradingPartner),
+    onTradeConfirmed: asFunction(handlers.onTradeConfirmed),
+    onRivenSessionOpen: asFunction(handlers.onRivenSessionOpen),
+    onRivenSessionClose: asFunction(handlers.onRivenSessionClose),
+    onRivenRollPending: asFunction(handlers.onRivenRollPending),
+    onRivenRollConfirmed: asFunction(handlers.onRivenRollConfirmed),
+    onRivenDioramaSetup: asFunction(handlers.onRivenDioramaSetup),
+    onRivenChoiceConfirmed: asFunction(handlers.onRivenChoiceConfirmed),
+    onRivenChatView: asFunction(handlers.onRivenChatView),
   };
 }
 

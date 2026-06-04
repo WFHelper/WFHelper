@@ -128,7 +128,7 @@ function forceEndRivenSessionIfExpired(): boolean {
     _rivenSessionIdleTimer = null;
   }
   _rivenForceEndedAt = Date.now();
-  if (typeof _callbacks.onRivenSessionClose === "function") _callbacks.onRivenSessionClose();
+  _callbacks.onRivenSessionClose?.();
   return true;
 }
 
@@ -161,7 +161,7 @@ export function processRivenPatterns(
       _rivenPendingDialog = null;
       resetRivenIdleTimer();
       log.info("[EELog] Riven rolling screen opened -> dispatching session open");
-      if (typeof _callbacks.onRivenSessionOpen === "function") _callbacks.onRivenSessionOpen();
+      _callbacks.onRivenSessionOpen?.();
     } else {
       log.info("[EELog] Riven session open suppressed (cooldown)");
     }
@@ -180,7 +180,7 @@ export function processRivenPatterns(
       _rivenDioramaReady = true;
       resetRivenIdleTimer();
       log.info("[EELog] Riven diorama ready -> dispatching diorama OCR trigger");
-      if (typeof _callbacks.onRivenDioramaSetup === "function") _callbacks.onRivenDioramaSetup();
+      _callbacks.onRivenDioramaSetup?.();
     }
   }
 
@@ -198,7 +198,7 @@ export function processRivenPatterns(
       clearTimeout(_rivenSessionIdleTimer);
       _rivenSessionIdleTimer = null;
     }
-    if (typeof _callbacks.onRivenSessionClose === "function") _callbacks.onRivenSessionClose();
+    _callbacks.onRivenSessionClose?.();
   }
 
   // Step 1: Track HudVis changes. On increment, record timestamp.
@@ -212,7 +212,7 @@ export function processRivenPatterns(
       if (_rivenChatViewActive) {
         _rivenChatViewActive = false;
         log.info("[EELog] Riven chat-link view closed (HudVis decreased) -> dispatching session close");
-        if (typeof _callbacks.onRivenSessionClose === "function") _callbacks.onRivenSessionClose();
+        _callbacks.onRivenSessionClose?.();
       }
     } else if (newVis > _lastHudVis) {
       // HudVis increased → record timestamp, wait for PopulateInfo confirmation
@@ -230,7 +230,7 @@ export function processRivenPatterns(
   ) {
     _rivenChatViewActive = true;
     log.info("[EELog] Riven chat-link view confirmed (PopulateInfo within HudVis window) -> dispatching chat view");
-    if (typeof _callbacks.onRivenChatView === "function") _callbacks.onRivenChatView();
+    _callbacks.onRivenChatView?.();
   }
 
   let rivenDialogHandled = skipRivenFromFilePoll;
@@ -244,7 +244,7 @@ export function processRivenPatterns(
     const weapon = rivenCycleMatch[1].trim();
     const cost = parseInt(rivenCycleMatch[2].replace(/[,. ]/g, ""), 10) || 0;
     log.info(`[EELog] Riven roll pending: weapon=${weapon}, cost=${cost}`);
-    if (typeof _callbacks.onRivenRollPending === "function") _callbacks.onRivenRollPending(weapon, cost);
+    _callbacks.onRivenRollPending?.(weapon, cost);
   }
 
   if (!rivenDialogHandled && !skipRivenFromFilePoll && RIVEN_PATTERNS.choiceConfirmEn.test(line) &&
@@ -274,7 +274,7 @@ export function processRivenPatterns(
     if (_rivenNextDialog === "cycle") {
       _rivenPendingDialog = "roll_confirm";
       log.info("[EELog] Riven roll pending (generic dialog)");
-      if (typeof _callbacks.onRivenRollPending === "function") _callbacks.onRivenRollPending("", 0);
+      _callbacks.onRivenRollPending?.("", 0);
     } else {
       _rivenPendingDialog = "choice";
       log.info("[EELog] Riven choice dialog detected (generic)");
@@ -302,11 +302,11 @@ export function processRivenPatterns(
           if (_rivenPendingDialog === "roll_confirm") {
             _rivenNextDialog = "choice";
             log.info("[EELog] Riven roll confirmed -> dispatching OCR trigger");
-            if (typeof _callbacks.onRivenRollConfirmed === "function") _callbacks.onRivenRollConfirmed();
+            _callbacks.onRivenRollConfirmed?.();
           } else if (_rivenPendingDialog === "choice") {
             _rivenNextDialog = "cycle";
             log.info("[EELog] Riven choice confirmed -> dispatching choice scan");
-            if (typeof _callbacks.onRivenChoiceConfirmed === "function") _callbacks.onRivenChoiceConfirmed();
+            _callbacks.onRivenChoiceConfirmed?.();
           }
         }
       } else {
