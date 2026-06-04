@@ -1,13 +1,5 @@
 /**
- * Single source of truth for the backend Worker URL.
- *
- * Used by:
- *   - config/runtime/security.ts  → CSP connect-src allowlist (main process)
- *   - .env.local / .env           → VITE_WFM_BACKEND_URL (renderer, via Vite)
- *
- * The renderer gets the URL from Vite's import.meta.env at build time.
- * The main process reads this file directly since it doesn't use Vite.
- *
- * Set VITE_WFM_BACKEND_URL in the environment to override at runtime.
+ * Default backend Worker URL. The main process reads this directly; the
+ * renderer overrides it via `VITE_WFM_BACKEND_URL` (Vite `import.meta.env`).
  */
 export const BACKEND_URL = "https://api.wfhelper.com";

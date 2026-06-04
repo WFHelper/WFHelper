@@ -1,11 +1,8 @@
 import { normalizeForSlug } from "./textNormalize";
 
 /**
- * Shared Warframe Market constants and helpers used by main-process,
- * renderer, and (optionally) the worker.
- *
- * Centralizes headers, asset URLs, and slug normalization that were
- * previously duplicated across 8+ files.
+ * Shared Warframe Market constants and helpers (headers, asset URLs, slug
+ * normalization) used by main-process, renderer, and the worker.
  */
 
 /** Warframe.market user presence status. */
