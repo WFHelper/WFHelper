@@ -99,14 +99,14 @@
     "@sentry/browser": "^10.40.0",
     "@sentry/electron": "^7.9.0",
     "@types/ws": "^8.18.1",
-    "@wfcd/items": "^1.1274.25",
+    "@wfcd/items": "^1.1274.61",
     "chokidar": "^4.0.0",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.8.3",
     "koffi": "^2.15.1",
     "onnxruntime-node": "^1.24.3",
     "sharp": "^0.34.5",
-    "warframe-public-export-plus": "^0.6.0",
+    "warframe-public-export-plus": "^0.6.2",
     "ws": "^8.20.0"
   },
   "build": {

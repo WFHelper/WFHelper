@@ -21,8 +21,8 @@ importers:
         specifier: ^8.18.1
         version: 8.18.1
       '@wfcd/items':
-        specifier: ^1.1274.25
-        version: 1.1274.25(warframe-worldstate-data@3.7.1)
+        specifier: ^1.1274.61
+        version: 1.1274.61(warframe-worldstate-data@3.7.1)
       chokidar:
         specifier: ^4.0.0
         version: 4.0.3
@@ -42,8 +42,8 @@ importers:
         specifier: ^0.34.5
         version: 0.34.5
       warframe-public-export-plus:
-        specifier: ^0.6.0
-        version: 0.6.0
+        specifier: ^0.6.2
+        version: 0.6.2
       ws:
         specifier: ^8.20.0
         version: 8.20.0
@@ -1896,8 +1896,8 @@ packages:
   '@vitest/utils@4.0.18':
     resolution: {integrity: sha512-msMRKLMVLWygpK3u2Hybgi4MNjcYJvwTb0Ru09+fOyCXIgT5raYP041DRRdiJiI3k/2U6SEbAETB3YtBrUkCFA==}
 
-  '@wfcd/items@1.1274.25':
-    resolution: {integrity: sha512-cNTW+S7WnD6YxMhI0fXATNp08Xhqv/C8HGG1mXzeR7jmsYuEQLYz0c+b+vRbWk/X3t0PS3b2KeHnAvfUqXmdJg==}
+  '@wfcd/items@1.1274.61':
+    resolution: {integrity: sha512-tGJIjoHS2+50uzt1dMD2KUooSqXWksPrYG7uUfvXWrHW7whNwyGgYIBiK8fhlDLac0lJsQDDsOGMta2ekdJsDg==}
     peerDependencies:
       warframe-worldstate-data: ^3.0.0
 
@@ -3919,8 +3919,8 @@ packages:
     resolution: {integrity: sha512-3hu+tD8YzSLGuFYtPRb48vdhKMi0KQV5sn+uWr8+7dMEq/2G/dtLrdDinkLjqq5TIbIBjYJ4Ax/n3YiaW7QM8A==}
     engines: {node: 20 || >=22}
 
-  warframe-public-export-plus@0.6.0:
-    resolution: {integrity: sha512-Qps98xsKMzpB1NDol+IRkqZP3X87OtNetd2SO2h+t/+eKY3SkXC47qj8pkQjmfepavXZbECzq2WWoqMbIJh5sA==}
+  warframe-public-export-plus@0.6.2:
+    resolution: {integrity: sha512-eyfJJ4H9dtN03vGTvHwDBJh5Gr6lC/OCN7K8GdSjT0MlyuwwglyYw8gvQU9lwkS3kNY2eClhG86Xe3Y625KbYg==}
 
   warframe-worldstate-data@3.7.1:
     resolution: {integrity: sha512-Jz65/kbChucG+WpPolEhSVGr4US9s1EgrInADYG++B/daEND0wo1Q9YCaZIcXim+0OIuszPH/uQpONsqyqUk3Q==}
@@ -5642,7 +5642,7 @@ snapshots:
       '@vitest/pretty-format': 4.0.18
       tinyrainbow: 3.0.3
 
-  '@wfcd/items@1.1274.25(warframe-worldstate-data@3.7.1)':
+  '@wfcd/items@1.1274.61(warframe-worldstate-data@3.7.1)':
     dependencies:
       warframe-worldstate-data: 3.7.1
 
@@ -7777,7 +7777,7 @@ snapshots:
 
   walk-up-path@4.0.0: {}
 
-  warframe-public-export-plus@0.6.0: {}
+  warframe-public-export-plus@0.6.2: {}
 
   warframe-worldstate-data@3.7.1: {}
 
