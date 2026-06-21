@@ -106,14 +106,28 @@ const RIVEN_POLARITIES = ["madurai", "naramon", "vazarin"] as const;
  */
 export async function searchSimilarRivens(
   weaponSlug: string,
-  opts?: { limit?: number; positiveStats?: string[]; negativeStats?: string[] },
+  opts?: {
+    limit?: number;
+    positiveStats?: string[];
+    negativeStats?: string[];
+    fullCoverage?: boolean;
+  },
 ): Promise<WfmRivenListing[]> {
   const limit = opts?.limit ?? 6;
   const posStats = opts?.positiveStats ?? [];
   const negStats = opts?.negativeStats ?? [];
+  // Full coverage fans out into polarity × sort queries (up to 7 serialized WFM
+  // requests); display callers only need the cheapest few hundred, so default off.
+  const fullCoverage = opts?.fullCoverage === true;
 
-  // Build a cache key that includes stat filters
-  const cacheKey = [weaponSlug, ...posStats.sort(), "|", ...negStats.sort()].join(",");
+  // Coverage is part of the cache key so a quick result can't satisfy a full one.
+  const cacheKey = [
+    weaponSlug,
+    fullCoverage ? "full" : "quick",
+    ...posStats.sort(),
+    "|",
+    ...negStats.sort(),
+  ].join(",");
 
   // Check cache
   const cached = _cache.get(cacheKey);
@@ -149,7 +163,7 @@ export async function searchSimilarRivens(
     const quickAuctions = quickPayload?.auctions || [];
     addAuctions(quickAuctions);
 
-    if (quickAuctions.length >= 490) {
+    if (fullCoverage && quickAuctions.length >= 490) {
       // Likely more than 500 total — use polarity × sort split for full coverage.
       for (const pol of RIVEN_POLARITIES) {
         for (const sort of ["price_asc", "price_desc"] as const) {
