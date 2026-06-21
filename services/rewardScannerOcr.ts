@@ -3,24 +3,6 @@ import { ocrServer, nativeOcrAvailable, nativeOcrBuffer, nativeOcrFile } from ".
 import type { StructuredOcrResult } from "./ocrServer";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
-function timeoutWrap<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error(`${label} timeout after ${timeoutMs}ms`));
-    }, timeoutMs);
-
-    promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-  });
-}
-
 interface OcrRunnerOptions {
   log?: { warn?: (...args: unknown[]) => void };
   getRequestedEngine?: () => string;

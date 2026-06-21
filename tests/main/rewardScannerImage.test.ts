@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { detectConsoleOpen } from "../../services/rewardScannerImage";
-import { resetFrameDedup, getAdaptiveStrategyHint } from "../../services/rewardScanner";
+import { resetFrameDedup } from "../../services/rewardScanner";
 
 function makeFakeNativeImage(
   width: number,
@@ -97,11 +97,5 @@ describe("resetFrameDedup", () => {
       resetFrameDedup();
       resetFrameDedup();
     }).not.toThrow();
-  });
-});
-
-describe("getAdaptiveStrategyHint", () => {
-  it("returns null when no history exists", () => {
-    expect(getAdaptiveStrategyHint()).toBeNull();
   });
 });

@@ -3,7 +3,7 @@
  * All functions are pure (except `matchItemsDetailed` which reads a `sortedItems` array parameter).
  */
 
-import { levenshteinDistance, medianNumber } from "./rewardScannerUtils";
+import { levenshteinDistance } from "./rewardScannerUtils";
 import { normalizeForOcr, normalizeForSearch } from "../config/shared/textNormalize";
 
 export const MAX_REWARD_SLOTS = 4;
@@ -18,16 +18,6 @@ const RELIC_ERA_TOKENS: ReadonlyArray<{ token: string; text: string }> = Object.
   { token: "axi", text: "AXI" },
   { token: "requiem", text: "REQUIEM" },
 ]);
-
-const CONSENSUS_TUNING: Readonly<{
-  minScoreWeight: number;
-  minConfidenceWeight: number;
-  confidenceDecimals: number;
-}> = Object.freeze({
-  minScoreWeight: 0.1,
-  minConfidenceWeight: 0.1,
-  confidenceDecimals: 3,
-});
 
 function buildWordSet(text: string): Set<string> {
   return new Set(
@@ -352,28 +342,6 @@ export function matchSingleRewardTextDetailed(
   );
 }
 
-export function chooseBetterOcrPass(
-  currentBest: MatchResult | null,
-  candidate: MatchResult | null,
-): MatchResult | null {
-  if (!candidate) return currentBest;
-  if (!currentBest) return candidate;
-
-  const currentItemCount = Array.isArray(currentBest.items) ? currentBest.items.length : 0;
-  const candidateItemCount = Array.isArray(candidate.items) ? candidate.items.length : 0;
-  if (candidateItemCount !== currentItemCount) {
-    return candidateItemCount > currentItemCount ? candidate : currentBest;
-  }
-
-  const currentExact = Number(currentBest.exactCount || 0);
-  const candidateExact = Number(candidate.exactCount || 0);
-  if (candidateExact !== currentExact) {
-    return candidateExact > currentExact ? candidate : currentBest;
-  }
-
-  return Number(candidate.score || 0) > Number(currentBest.score || 0) ? candidate : currentBest;
-}
-
 export function detectRelicEraFromText(text: string): { era: string | null; confidence: number } {
   const normalized = String(text || "")
     .toUpperCase()
@@ -452,128 +420,5 @@ export function detectRelicEraFromTileLabelText(text: string): {
   return {
     era: base.era,
     confidence: Math.min(1, confidence),
-  };
-}
-
-export interface PassResult {
-  items: Array<SortedItem & { confidence: number }>;
-  score: number;
-  matches: MatchEntry[];
-  exactCount: number;
-  passIndex?: number;
-  band?: { top: number; height: number };
-  text?: string;
-  ocrVariant?: string;
-}
-
-interface ConsensusResult {
-  items: Array<SortedItem & { confidence: number }>;
-  selectedPass: PassResult;
-  strategy: string;
-  targetCount: number;
-}
-
-export function buildConsensusSelection(passResults: PassResult[]): ConsensusResult | null {
-  const successful = passResults.filter((result) => result.items.length > 0);
-  if (successful.length === 0) return null;
-
-  if (successful.length === 1) {
-    return {
-      items: successful[0].items.slice(0, MAX_REWARD_SLOTS),
-      selectedPass: successful[0],
-      strategy: "single-pass",
-      targetCount: successful[0].items.length,
-    };
-  }
-
-  const estimatedCount = Math.max(
-    1,
-    Math.min(
-      MAX_REWARD_SLOTS,
-      Math.round(
-        medianNumber(
-          successful.map((result) => result.items.length),
-          successful[0].items.length,
-        ),
-      ),
-    ),
-  );
-
-  interface VoteEntry {
-    item: SortedItem & { confidence: number };
-    hits: number;
-    weightedScore: number;
-    bestConfidence: number;
-    avgPosAccumulator: number;
-    avgPosCount: number;
-  }
-
-  const votes = new Map<string, VoteEntry>();
-
-  for (const result of successful) {
-    const scoreWeight = Math.max(CONSENSUS_TUNING.minScoreWeight, result.score);
-    for (const match of result.matches) {
-      const key = match.item.name;
-      const existing = votes.get(key) || {
-        item: match.item as SortedItem & { confidence: number },
-        hits: 0,
-        weightedScore: 0,
-        bestConfidence: 0,
-        avgPosAccumulator: 0,
-        avgPosCount: 0,
-      };
-
-      existing.hits += 1;
-      existing.weightedScore +=
-        scoreWeight * Math.max(CONSENSUS_TUNING.minConfidenceWeight, Number(match.confidence) || 0);
-      existing.bestConfidence = Math.max(existing.bestConfidence, Number(match.confidence) || 0);
-
-      if (Number.isFinite(match.pos) && match.pos >= 0) {
-        existing.avgPosAccumulator += match.pos;
-        existing.avgPosCount += 1;
-      }
-
-      votes.set(key, existing);
-    }
-  }
-
-  const ranked = [...votes.values()].sort((a, b) => {
-    if (b.hits !== a.hits) return b.hits - a.hits;
-    if (b.weightedScore !== a.weightedScore) return b.weightedScore - a.weightedScore;
-    if (b.bestConfidence !== a.bestConfidence) return b.bestConfidence - a.bestConfidence;
-    return a.item.name.localeCompare(b.item.name);
-  });
-
-  const selectedWithPos = ranked
-    .slice(0, estimatedCount)
-    .map((entry) => {
-      const avgPos =
-        entry.avgPosCount > 0
-          ? entry.avgPosAccumulator / entry.avgPosCount
-          : Number.MAX_SAFE_INTEGER;
-      return {
-        avgPos,
-        item: {
-          ...entry.item,
-          confidence: Number(entry.bestConfidence.toFixed(CONSENSUS_TUNING.confidenceDecimals)),
-        },
-      };
-    })
-    .sort((a, b) => a.avgPos - b.avgPos);
-
-  const chosenItems = selectedWithPos.map((entry) => entry.item);
-
-  const selectedPass = [...successful].sort((a, b) => {
-    const aDelta = Math.abs(a.items.length - estimatedCount);
-    const bDelta = Math.abs(b.items.length - estimatedCount);
-    if (aDelta !== bDelta) return aDelta - bDelta;
-    return b.score - a.score;
-  })[0];
-
-  return {
-    items: chosenItems,
-    selectedPass,
-    strategy: "consensus",
-    targetCount: estimatedCount,
   };
 }

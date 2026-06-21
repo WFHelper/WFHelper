@@ -1,9 +1,6 @@
 /** Identical reward frames only need to be skipped during one settled reward-screen dwell. */
 export const REWARD_FRAME_DEDUP_TTL_MS = 5_000;
 
-/** OCR strategy hints should survive a mission flow but not bias a later play session. */
-export const REWARD_STRATEGY_HISTORY_TTL_MS = 5 * 60 * 1000;
-
 /** WFM statistics change slowly, but five minutes keeps overlay pricing responsive. */
 export const WFM_STATS_CACHE_TTL_MS = 5 * 60 * 1000;
 
