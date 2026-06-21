@@ -64,7 +64,10 @@ export function buildFullSetItems(
 
   for (const [uniqueName, dbEntry] of Object.entries(itemDb)) {
     const components = Array.isArray(dbEntry.components) ? dbEntry.components : [];
-    if (dbEntry.tradable !== true || components.length === 0) continue;
+    // Don't gate on the root's `tradable` flag: assembled Warframes are
+    // tradable:false even though their parts and the set are tradable. The
+    // tradable-component count below + isEligibleFullSetRoot handle eligibility.
+    if (components.length === 0) continue;
 
     const resolved = resolveItem(uniqueName, itemDb);
 
