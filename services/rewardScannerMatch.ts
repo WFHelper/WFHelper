@@ -257,11 +257,13 @@ export function rankRewardCandidatesDetailed(
     const normalizedName = normalizeRewardText(item.name);
     if (!normalizedName) continue;
 
+    // Disjoint score bands: exact > substring > fuzzy, so a fuzzy near-miss on a
+    // longer name can't outrank a perfect hit (e.g. Burston vs Braton Prime Stock).
     if (text === normalizedName) {
       ranked.push({
         item: { ...item, confidence: 1 },
         confidence: 1,
-        score: 100,
+        score: 1000,
         mode: "exact",
       });
       continue;
@@ -275,7 +277,7 @@ export function rankRewardCandidatesDetailed(
       ranked.push({
         item: { ...item, confidence: Number(confidence.toFixed(3)) },
         confidence,
-        score: confidence * 92 + Math.min(8, normalizedName.length / 4),
+        score: 400 + confidence * 92 + Math.min(8, normalizedName.length / 4),
         mode: "substring",
       });
       continue;
