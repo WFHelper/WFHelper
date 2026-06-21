@@ -53,12 +53,13 @@ const BOUNTY_ORDER: Record<string, number> = {
   "The Hex": 5,
 };
 
-type FissureMode = "normal" | "steel";
+type FissureMode = "normal" | "steel" | "railjack";
 type CycleAlertKey = "earth" | "cetus" | "vallis" | "cambion" | "duviri";
 
 export const FISSURE_MODE_OPTIONS: Array<{ value: FissureMode; label: string }> = [
   { value: "normal", label: "Normal" },
   { value: "steel", label: "Steel Path" },
+  { value: "railjack", label: "Railjack" },
 ];
 
 async function fetchWorldData(force: boolean = false): Promise<void> {
@@ -240,12 +241,17 @@ export function buildFissureRows(
   nowCoarseMs: number,
 ) {
   return (fissures || [])
-    .filter(
-      (f) =>
-        !f.expired &&
-        (parseIsoDate(f.expiry)?.getTime() || 0) > nowCoarseMs + FISSURE_EXPIRY_GUARD_MS &&
-        (mode === "steel" ? f.isHard === true : f.isHard !== true),
-    )
+    .filter((f) => {
+      if (f.expired) return false;
+      if ((parseIsoDate(f.expiry)?.getTime() || 0) <= nowCoarseMs + FISSURE_EXPIRY_GUARD_MS) {
+        return false;
+      }
+      // Railjack mode = all Void Storm fissures (both normal and Steel Path railjack).
+      // Normal/Steel modes show only standard fissures, split by isHard.
+      if (mode === "railjack") return f.isStorm === true;
+      if (f.isStorm === true) return false;
+      return mode === "steel" ? f.isHard === true : f.isHard !== true;
+    })
     .sort((a, b) => {
       const oa = FISSURE_TIER_ORDER[(a.tier || "").toLowerCase()] ?? 99;
       const ob = FISSURE_TIER_ORDER[(b.tier || "").toLowerCase()] ?? 99;

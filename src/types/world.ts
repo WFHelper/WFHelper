@@ -13,6 +13,7 @@ export interface Fissure {
   expiry?: string;
   tier?: string;
   isHard?: boolean;
+  isStorm?: boolean;
   missionType?: string;
   node?: string;
   [key: string]: unknown;

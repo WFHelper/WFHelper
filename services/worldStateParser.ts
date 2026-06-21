@@ -823,6 +823,30 @@ export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> | n
     })
     .filter((f) => !f.expired);
 
+  // Void Storms (Railjack) use a separate array with `ActiveMissionTier`
+  // ("VoidT3", or "...Hard" for Steel Path) instead of a Modifier.
+  const voidStorms = (raw.VoidStorms || [])
+    .map((vs) => {
+      const tierRaw = vs.ActiveMissionTier || "";
+      const isHard = tierRaw.endsWith("Hard");
+      const baseTier = isHard ? tierRaw.slice(0, -4) : tierRaw;
+      const nodeId = vs.Node || "Unknown";
+      const expMs = Number(vs.Expiry?.["$date"]?.["$numberLong"] || 0);
+      return {
+        expiry: expMs ? new Date(expMs).toISOString() : null,
+        tier: VOID_TIER[baseTier] || "Unknown",
+        missionType: "Railjack",
+        node: formatNodeLabel(nodeId),
+        nodeId,
+        isHard,
+        isStorm: true,
+        expired: expMs < nowMs,
+      };
+    })
+    .filter((f) => f.tier !== "Unknown" && !f.expired);
+
+  const allFissures = [...fissures, ...voidStorms];
+
   const baroRaw = Array.isArray(raw.VoidTraders) ? raw.VoidTraders[0] : raw.VoidTraders;
   const voidTrader = baroRaw
     ? {
@@ -950,7 +974,7 @@ export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> | n
     });
 
   return {
-    fissures,
+    fissures: allFissures,
     voidTrader,
     vaultTrader,
     sortie,

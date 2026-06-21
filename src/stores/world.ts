@@ -5,8 +5,8 @@ import type { WorldState } from "../types/world.js";
 export const worldData = writable<WorldState | null>(null);
 export const worldLastFetch = writable<number>(0);
 export const worldLoading = writable<boolean>(false);
-export const worldFissureMode = persistedString<"normal" | "steel">(
+export const worldFissureMode = persistedString<"normal" | "steel" | "railjack">(
   "wf_fissure_mode",
-  ["normal", "steel"],
+  ["normal", "steel", "railjack"],
   "normal",
 );

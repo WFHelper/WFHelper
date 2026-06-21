@@ -302,7 +302,7 @@
             </svelte:fragment>
           <div class="flex flex-col">
             {#if fissureFlat.length === 0}
-              <span class="text-sm text-text-secondary opacity-70">No active {$worldFissureMode === 'steel' ? 'Steel Path' : 'Normal'} fissures</span>
+              <span class="text-sm text-text-secondary opacity-70">No active {$worldFissureMode === 'steel' ? 'Steel Path' : $worldFissureMode === 'railjack' ? 'Railjack' : 'Normal'} fissures</span>
             {:else}
               {#each fissureFlat as f}
                 <div class="fissure-row">
@@ -320,6 +320,9 @@
                   </span>
                   <span class="min-w-0 flex-1 text-sm">
                     <strong class="text-text-primary">{f.missionType || 'Mission'}</strong>
+                    {#if f.isStorm && f.isHard}
+                      <span class="ml-1.5 rounded-sm bg-warning/20 px-1 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.06em] text-warning">SP</span>
+                    {/if}
                     <span class="ml-1.5 text-xs text-text-secondary opacity-75">{f.node || 'Unknown'}</span>
                   </span>
                   <span class="shrink-0 font-display text-sm tracking-[0.02em] whitespace-nowrap text-text-primary">{f.timeStr}</span>

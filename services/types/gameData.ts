@@ -154,8 +154,16 @@ interface InvasionRaw {
   Activation?: WorldStateDate;
 }
 
+interface VoidStormRaw {
+  Node: string;
+  ActiveMissionTier: string;
+  Activation?: WorldStateDate;
+  Expiry: WorldStateDate;
+}
+
 export interface WorldStateRaw {
   ActiveMissions?: ActiveMissionRaw[];
+  VoidStorms?: VoidStormRaw[];
   VoidTraders?: VoidTraderRaw | VoidTraderRaw[];
   PrimeVaultTraders?: VaultTraderRaw | VaultTraderRaw[];
   Sorties?: SortieRaw | SortieRaw[];
