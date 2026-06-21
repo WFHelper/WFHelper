@@ -571,6 +571,64 @@ export function detectConsoleOpen(nativeImage: NativeImage): boolean {
   return total > 0 && bright / total >= 0.55;
 }
 
+// Otsu threshold: adapts to the crop's brightness instead of a fixed cutoff.
+function otsuThreshold(gray: Buffer | Uint8Array): number {
+  const hist = new Array<number>(256).fill(0);
+  for (let i = 0; i < gray.length; i++) hist[gray[i]] += 1;
+  const total = gray.length;
+  let sum = 0;
+  for (let t = 0; t < 256; t++) sum += t * hist[t];
+  let sumB = 0;
+  let wB = 0;
+  let maxBetween = 0;
+  let threshold = 127;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t];
+    if (wB === 0) continue;
+    const wF = total - wB;
+    if (wF === 0) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB;
+    const mF = (sum - sumB) / wF;
+    const between = wB * wF * (mB - mF) * (mB - mF);
+    if (between > maxBetween) {
+      maxBetween = between;
+      threshold = t;
+    }
+  }
+  return threshold;
+}
+
+// Extract a vertical band (topFrac/heightFrac of the crop height), upscale,
+// grayscale and Otsu-binarize to dark-on-white for Windows OCR. Returns a PNG,
+// or null if the region is too small.
+export async function binarizeRewardRegion(
+  pngBuffer: Buffer,
+  topFrac: number,
+  heightFrac: number,
+): Promise<Buffer | null> {
+  try {
+    const sharp: typeof import("sharp") = require("sharp");
+    const meta = await sharp(pngBuffer).metadata();
+    const srcW = meta.width ?? 0;
+    const srcH = meta.height ?? 0;
+    if (srcW < 8 || srcH < 8) return null;
+    const top = Math.max(0, Math.min(srcH - 1, Math.round(srcH * topFrac)));
+    const height = Math.max(1, Math.min(srcH - top, Math.round(srcH * heightFrac)));
+    const region = sharp(pngBuffer)
+      .extract({ left: 0, top, width: srcW, height })
+      .resize({ width: srcW * 3, kernel: "lanczos3" })
+      .grayscale()
+      .normalise();
+    const { data } = await region.clone().raw().toBuffer({ resolveWithObject: true });
+    const threshold = otsuThreshold(data);
+    return await region.threshold(threshold).negate().png().toBuffer();
+  } catch (err) {
+    log.warn("[RewardScanner] binarizeRewardRegion failed:", normalizeErrorMessage(err));
+    return null;
+  }
+}
+
 export function buildOcrVariants(nativeImage: NativeImage): OcrVariant[] {
   const variants: OcrVariant[] = [{ id: "raw", image: nativeImage }];
 

@@ -1,6 +1,6 @@
 import type { NativeImage } from "electron";
 
-import { buildOcrVariants, cropRect, detectRewardSlotLayoutCandidates } from "./rewardScannerImage";
+import { binarizeRewardRegion, cropRect, detectRewardSlotLayoutCandidates } from "./rewardScannerImage";
 import {
   MAX_REWARD_SLOTS,
   rankRewardCandidatesDetailed,
@@ -45,28 +45,6 @@ export type StructuredOcrBufferRunner = (
   timeoutMs: number,
 ) => Promise<StructuredOcrResult>;
 
-export function extractRewardTitleTexts(structured: StructuredOcrResult | null): string[] {
-  const lines: OcrLine[] = Array.isArray(structured?.lines) ? structured!.lines! : [];
-  const text = String(structured?.text || "").trim();
-  if (lines.length === 0) return text ? [text] : [];
-
-  const bottoms = lines.map((line) => Number(line?.box?.top || 0) + Number(line?.box?.height || 0));
-  const maxBottom = Math.max(...bottoms, 1);
-  const bottomLines = lines
-    .filter((line) => Number(line?.box?.top || 0) >= maxBottom * 0.45)
-    .map((line) => String(line?.text || "").trim())
-    .filter(Boolean);
-  const lastTwo = lines
-    .slice(-2)
-    .map((line) => String(line?.text || "").trim())
-    .filter(Boolean);
-  const candidates = new Set<string>();
-  if (bottomLines.length) candidates.add(bottomLines.join(" "));
-  if (lastTwo.length) candidates.add(lastTwo.join(" "));
-  if (text) candidates.add(text);
-  return [...candidates].filter((candidate) => candidate.length > 0);
-}
-
 function isUsableSlotCandidate(candidate: SlotCandidate): boolean {
   if (!candidate?.item?.name) return false;
   const normalizedName = String(candidate.item.name || "").trim();
@@ -77,6 +55,40 @@ function isUsableSlotCandidate(candidate: SlotCandidate): boolean {
   if (candidate.mode === "exact") return candidate.confidence >= 0.98;
   if (candidate.mode === "substring") return candidate.confidence >= 0.92;
   return candidate.confidence >= 0.86;
+}
+
+async function ocrRewardRegion(
+  cropPng: Buffer,
+  topFrac: number,
+  heightFrac: number,
+  options: { runOCRStructuredBuffer: StructuredOcrBufferRunner },
+  timeoutMs: number,
+): Promise<string> {
+  try {
+    const buf = await binarizeRewardRegion(cropPng, topFrac, heightFrac);
+    if (!buf) return "";
+    const structured = await options.runOCRStructuredBuffer(buf, timeoutMs);
+    return String(structured?.text || "").replace(/\s+/g, " ").trim();
+  } catch {
+    return "";
+  }
+}
+
+/** Drop 1-char OCR noise tokens but keep "&" (for "Cobra & Crane Prime …"). */
+function cleanRewardOcrText(text: string): string {
+  return String(text || "")
+    .split(/\s+/)
+    .filter((w) => w === "&" || w.replace(/[^a-z0-9]/gi, "").length > 1)
+    .join(" ")
+    .trim();
+}
+
+function joinRewardLines(top: string, bottom: string): string {
+  return [cleanRewardOcrText(top), cleanRewardOcrText(bottom)]
+    .filter((s) => s.length > 0)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export async function scanRewardSlotsFallback(
@@ -118,36 +130,39 @@ export async function scanRewardSlotsFallback(
           return null;
         }
 
+        const cropPng: Buffer = crop.toPNG();
+        const timeout = Math.max(500, Math.min(options.ocrTimeoutMs, remainingBudgetMs));
+
+        // Names wrap to two lines in 3/4-player layouts, so OCR each line band
+        // separately and join; also try the whole crop for single-line names.
+        // Bands overlap a little so the wrap point doesn't cut a glyph.
+        const topText = await ocrRewardRegion(cropPng, 0, 0.58, options, timeout);
+        const bottomText = await ocrRewardRegion(cropPng, 0.42, 0.58, options, timeout);
+        const wholeText = await ocrRewardRegion(cropPng, 0, 1, options, timeout);
+
+        const candidateTexts = new Set<string>();
+        const joined = joinRewardLines(topText, bottomText);
+        if (joined) candidateTexts.add(joined);
+        const wholeClean = cleanRewardOcrText(wholeText);
+        if (wholeClean) candidateTexts.add(wholeClean);
+
         const rankedCandidates: SlotCandidate[] = [];
-        const variants = buildOcrVariants(crop);
-        for (const variant of variants) {
-          try {
-            const pngBuffer: Buffer = variant.image.toPNG();
-            const structured = await options.runOCRStructuredBuffer(
-              pngBuffer,
-              Math.max(500, Math.min(options.ocrTimeoutMs, remainingBudgetMs)),
-            );
-            const candidateTexts = extractRewardTitleTexts(structured);
-            for (const candidateText of candidateTexts) {
-              const ranked = rankRewardCandidatesDetailed(candidateText, options.sortedItems, 4)
-                .filter(
-                  (
-                    candidate,
-                  ): candidate is typeof candidate & { item: NonNullable<typeof candidate.item> } =>
-                    !!candidate.item,
-                )
-                .map((candidate) => ({
-                  item: candidate.item!,
-                  confidence: candidate.confidence,
-                  score: candidate.score + (variant.id === "raw" ? 2 : 0),
-                  mode: candidate.mode,
-                }))
-                .filter(isUsableSlotCandidate);
-              rankedCandidates.push(...ranked);
-            }
-          } catch {
-            continue;
-          }
+        for (const candidateText of candidateTexts) {
+          const ranked = rankRewardCandidatesDetailed(candidateText, options.sortedItems, 4)
+            .filter(
+              (
+                candidate,
+              ): candidate is typeof candidate & { item: NonNullable<typeof candidate.item> } =>
+                !!candidate.item,
+            )
+            .map((candidate) => ({
+              item: candidate.item!,
+              confidence: candidate.confidence,
+              score: candidate.score,
+              mode: candidate.mode,
+            }))
+            .filter(isUsableSlotCandidate);
+          rankedCandidates.push(...ranked);
         }
 
         if (rankedCandidates.length === 0) return null;
