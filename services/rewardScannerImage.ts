@@ -146,9 +146,8 @@ export function cropRect(nativeImage: NativeImage, rect: Rect | null | undefined
 }
 
 /**
- * Letterbox-aware crop: applies ratio-based rect relative to the detected
- * 16:9 game content area instead of the full frame.  On standard 16:9
- * displays, contentRect matches the full frame = zero overhead.
+ * Letterbox-aware crop: ratios apply relative to the detected 16:9 content
+ * area, not the full frame. On 16:9 displays contentRect is the whole frame.
  */
 export function cropRectContent(
   nativeImage: NativeImage,
@@ -183,8 +182,7 @@ function enhanceForOcr(nativeImage: NativeImage): NativeImage {
 
   const range = Math.max(1, OCR_ENHANCE.whitePoint - OCR_ENHANCE.blackPoint);
 
-  // Precomputed 256-entry LUT: input luminance → output value.
-  // Replaces per-pixel Math.pow / normalize / clamp with a single table lookup.
+  // 256-entry LUT (luminance → output) so the pixel loop is one table lookup.
   const lut = new Uint8Array(256);
   for (let i = 0; i < 256; i++) {
     let normalized = (i - OCR_ENHANCE.blackPoint) / range;
@@ -518,16 +516,10 @@ export function detectRewardSlotLayout(nativeImage: NativeImage): RewardSlotLayo
 }
 
 /**
- * Detect whether the Warframe in-game chat console is open.
- *
- * When the player presses `/` (or `T`), a bright text-input bar appears across
- * the bottom ~4% of the screen.  This corrupts reward-band OCR because the chat
- * text overlaps the reward names.
- *
- * Heuristic: sample the bottom 4% strip of the frame.  If >55% of sampled
- * pixels are bright (luminance ≥ 140) AND exhibit low saturation (≤ 0.3),
- * the console is very likely open.  Warframe's chat bar is a near-white
- * semi-transparent overlay, so this is a reliable signal.
+ * Detect whether the in-game chat console is open. Pressing `/` or `T` shows a
+ * bright text bar over the bottom ~4%, whose text would corrupt reward OCR.
+ * Heuristic: in that strip, >55% of pixels bright (luminance ≥ 140) and
+ * low-saturation (≤ 0.3) — Warframe's near-white chat overlay.
  */
 export function detectConsoleOpen(nativeImage: NativeImage): boolean {
   if (!nativeImage || typeof nativeImage.getSize !== "function") return false;

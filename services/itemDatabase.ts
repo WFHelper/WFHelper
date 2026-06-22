@@ -269,8 +269,8 @@ function loadPublicExportPlus(): number {
 
     let pepCount = 0;
 
-    // DE's live export gap-fills masterable items the bundled package lacks yet.
-    // Bundled data wins on shared uniqueNames; DE-only items get added.
+    // Gap-fill from DE's export: bundled wins on shared uniqueNames, DE-only
+    // items get added (covers frames/weapons newer than the bundled package).
     const overlayExports = publicExportSource.getOverlay()?.exports as
       | Record<string, Record<string, PepExportItem>>
       | undefined;

@@ -234,8 +234,7 @@ app.whenReady().then(async () => {
   itemDb.buildDatabase();
   profileStage("item-db:build", itemDbStart);
 
-  // Pull DE's live export in the background; rebuild in place if it added items
-  // so new frames/weapons show up without waiting for a package bump.
+  // Refresh from DE in the background; rebuild if it added anything.
   void publicExportSource
     .refreshOverlayFromDE()
     .then(({ changed }) => {

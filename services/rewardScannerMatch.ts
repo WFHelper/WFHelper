@@ -1,6 +1,5 @@
 /**
  * OCR text → item matching helpers for reward scanning.
- * All functions are pure (except `matchItemsDetailed` which reads a `sortedItems` array parameter).
  */
 
 import { levenshteinDistance } from "./rewardScannerUtils";

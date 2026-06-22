@@ -1,12 +1,8 @@
 /**
- * publicExportSource.ts — Pulls DE's official Public Export directly so the
- * masterable item list keeps up with live game patches, instead of waiting for
- * the bundled npm packages (@wfcd/items, public-export-plus) to republish.
- *
- * It only overlays the masterable categories (warframes, weapons, sentinels):
- * any item DE ships that the bundled package doesn't have yet is gap-filled.
- * The bundled package still owns everything else (relics, mods, images, …) and
- * acts as the offline fallback when DE is unreachable.
+ * Fetches DE's official Public Export so masterable items track live patches,
+ * instead of waiting on the bundled npm packages to republish. Overlays only
+ * warframes/weapons/sentinels; the bundled package owns everything else and is
+ * the offline fallback.
  */
 
 import { app } from "electron";
@@ -134,9 +130,8 @@ export function getOverlay(): PublicExportOverlay | null {
 }
 
 /**
- * Fetches DE's export and updates the on-disk overlay. Only downloads manifests
- * whose hash changed since last time. Returns whether anything changed so the
- * caller can rebuild the item DB in place.
+ * Refreshes the on-disk overlay from DE, re-downloading only manifests whose
+ * hash changed. Returns whether anything changed so the caller can rebuild.
  */
 export async function refreshOverlayFromDE(): Promise<{ changed: boolean }> {
   if (refreshPromise) return refreshPromise;
