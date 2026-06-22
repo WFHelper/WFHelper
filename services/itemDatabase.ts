@@ -12,6 +12,7 @@ import { fallbackNameFromUniqueName, sanitizeDisplayName } from "../config/share
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { normalizeDucats } from "../config/shared/numeric";
 import { normalizeWfmSlug } from "../config/shared/wfm";
+import * as publicExportSource from "./publicExportSource";
 import { withScope } from "./logger";
 import type {
   PepExportItem,
@@ -268,8 +269,16 @@ function loadPublicExportPlus(): number {
 
     let pepCount = 0;
 
+    // DE's live export gap-fills masterable items the bundled package lacks yet.
+    // Bundled data wins on shared uniqueNames; DE-only items get added.
+    const overlayExports = publicExportSource.getOverlay()?.exports as
+      | Record<string, Record<string, PepExportItem>>
+      | undefined;
+
     for (const { exportKey, category } of exportMappings) {
-      const exportData = pep[exportKey];
+      const baseData = pep[exportKey];
+      const overlayData = overlayExports?.[exportKey];
+      const exportData = overlayData ? { ...overlayData, ...(baseData || {}) } : baseData;
       if (!exportData || typeof exportData !== "object") continue;
 
       for (const [uniqueName, item] of Object.entries(exportData) as [string, PepExportItem][]) {
@@ -656,6 +665,11 @@ function buildRecipeIndex(): void {
 
 export function buildDatabase(): void {
   log.time("[ItemDB] Total build time");
+
+  // Reset so a rebuild (e.g. after the DE export refresh) starts clean.
+  itemsByUniqueName = {};
+  wfcdItemsByUniqueName = {};
+  recipesByResultType = {};
 
   const pepCount = loadPublicExportPlus();
   buildRecipeIndex();

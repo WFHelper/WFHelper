@@ -14,6 +14,7 @@ const log = withScope("Main");
 const MAIN_WINDOW_ENTRY_FILE = path.join(app.getAppPath(), "renderer", "dist", "index.html");
 
 import * as itemDb from "./services/itemDatabase";
+import * as publicExportSource from "./services/publicExportSource";
 import * as wfmCatalog from "./services/wfmCatalog";
 import * as wfmSession from "./services/wfmSession";
 import * as relicService from "./services/relicService";
@@ -229,8 +230,21 @@ app.whenReady().then(async () => {
   profileStage("ipc:register", ipcRegisterStart);
 
   const itemDbStart = Date.now();
+  publicExportSource.loadOverlayFromDisk();
   itemDb.buildDatabase();
   profileStage("item-db:build", itemDbStart);
+
+  // Pull DE's live export in the background; rebuild in place if it added items
+  // so new frames/weapons show up without waiting for a package bump.
+  void publicExportSource
+    .refreshOverlayFromDE()
+    .then(({ changed }) => {
+      if (changed) {
+        itemDb.buildDatabase();
+        log.info("[ItemDB] Rebuilt with refreshed DE public export");
+      }
+    })
+    .catch((err: Error) => log.error("[ItemDB] DE public export refresh failed:", err));
 
   const catalogStart = Date.now();
   wfmCatalog
