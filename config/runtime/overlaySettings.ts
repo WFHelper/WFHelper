@@ -35,6 +35,8 @@ export interface OverlaySettings {
   fissureAlerts: FissureAlert[];
   notificationSoundEnabled: boolean;
   wfmNotificationsEnabled: boolean;
+  messageNotificationsEnabled: boolean;
+  messageNotificationsBackgroundOnly: boolean;
   autoCloseWfmOrders: boolean;
   relicRewardsOverlayEnabled: boolean;
   relicRecommendationOverlayEnabled: boolean;
@@ -62,6 +64,8 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   fissureAlerts: Object.freeze([] as FissureAlert[]),
   notificationSoundEnabled: true,
   wfmNotificationsEnabled: false,
+  messageNotificationsEnabled: true,
+  messageNotificationsBackgroundOnly: false,
   autoCloseWfmOrders: true,
   relicRewardsOverlayEnabled: true,
   relicRecommendationOverlayEnabled: true,

@@ -183,6 +183,8 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       fissureAlerts: normalizeFissureAlerts(candidate.fissureAlerts, defaults.fissureAlerts),
       notificationSoundEnabled: booleanSetting("notificationSoundEnabled"),
       wfmNotificationsEnabled: booleanSetting("wfmNotificationsEnabled"),
+      messageNotificationsEnabled: booleanSetting("messageNotificationsEnabled"),
+      messageNotificationsBackgroundOnly: booleanSetting("messageNotificationsBackgroundOnly"),
       autoCloseWfmOrders: booleanSetting("autoCloseWfmOrders"),
       relicRewardsOverlayEnabled: booleanSetting("relicRewardsOverlayEnabled"),
       relicRecommendationOverlayEnabled: booleanSetting("relicRecommendationOverlayEnabled"),

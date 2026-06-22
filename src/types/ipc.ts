@@ -55,6 +55,8 @@ export interface OverlaySettings {
   fissureAlerts: FissureAlert[];
   notificationSoundEnabled: boolean;
   wfmNotificationsEnabled: boolean;
+  messageNotificationsEnabled: boolean;
+  messageNotificationsBackgroundOnly: boolean;
   autoCloseWfmOrders: boolean;
   relicRewardsOverlayEnabled: boolean;
   relicRecommendationOverlayEnabled: boolean;

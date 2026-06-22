@@ -23,6 +23,8 @@
   let autoTrigger = OVERLAY_DEFAULTS.autoTriggerEnabled;
   let notificationSoundEnabled = OVERLAY_DEFAULTS.notificationSoundEnabled;
   let wfmNotificationsEnabled = OVERLAY_DEFAULTS.wfmNotificationsEnabled;
+  let messageNotificationsEnabled = OVERLAY_DEFAULTS.messageNotificationsEnabled;
+  let messageNotificationsBackgroundOnly = OVERLAY_DEFAULTS.messageNotificationsBackgroundOnly;
   let autoCloseWfmOrders = OVERLAY_DEFAULTS.autoCloseWfmOrders;
   let tradeNotificationOverlayEnabled = OVERLAY_DEFAULTS.tradeNotificationOverlayEnabled;
   let relicRewardsOverlayEnabled = OVERLAY_DEFAULTS.relicRewardsOverlayEnabled;
@@ -39,6 +41,9 @@
     notificationSoundEnabled =
       s.notificationSoundEnabled ?? OVERLAY_DEFAULTS.notificationSoundEnabled;
     wfmNotificationsEnabled = !!s.wfmNotificationsEnabled;
+    messageNotificationsEnabled =
+      s.messageNotificationsEnabled ?? OVERLAY_DEFAULTS.messageNotificationsEnabled;
+    messageNotificationsBackgroundOnly = !!s.messageNotificationsBackgroundOnly;
     autoCloseWfmOrders = s.autoCloseWfmOrders ?? OVERLAY_DEFAULTS.autoCloseWfmOrders;
     tradeNotificationOverlayEnabled =
       s.tradeNotificationOverlayEnabled ??
@@ -74,6 +79,8 @@
       autoTriggerEnabled: autoTrigger,
       notificationSoundEnabled,
       wfmNotificationsEnabled,
+      messageNotificationsEnabled,
+      messageNotificationsBackgroundOnly,
       autoCloseWfmOrders,
       tradeNotificationOverlayEnabled,
       relicRewardsOverlayEnabled,
@@ -166,6 +173,21 @@
           <label class="settings-control-row">
             <span>WFM DM notifications</span>
             <input type="checkbox" bind:checked={wfmNotificationsEnabled} class="accent-accent" />
+          </label>
+
+          <label class="settings-control-row">
+            <span>In-game message notifications</span>
+            <input type="checkbox" bind:checked={messageNotificationsEnabled} class="accent-accent" />
+          </label>
+
+          <label class="settings-control-row" class:opacity-50={!messageNotificationsEnabled}>
+            <span>Only when Warframe is in the background</span>
+            <input
+              type="checkbox"
+              bind:checked={messageNotificationsBackgroundOnly}
+              disabled={!messageNotificationsEnabled}
+              class="accent-accent"
+            />
           </label>
 
           <label class="settings-control-row">
