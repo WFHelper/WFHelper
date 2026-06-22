@@ -13,6 +13,7 @@ import {
   DB_GET_ITEM_DATABASE,
   DB_GET_WORLD_STATE,
   DB_GET_RELIC_DATABASE,
+  DROP_SEARCH,
   DB_GET_WFM_ITEMS,
   DB_GET_MASTERY,
   WFM_SIGNIN,
@@ -94,6 +95,8 @@ try {
     wfmGetMe: () => ipcRenderer.invoke(WFM_GET_ME),
 
     getMasteryProgress: () => ipcRenderer.invoke(DB_GET_MASTERY),
+    searchDrops: (query: string, mode: string) =>
+      ipcRenderer.invoke(DROP_SEARCH, { query, mode }),
     checkForAppUpdates: () => ipcRenderer.invoke(APP_UPDATE_CHECK),
     getAppUpdateState: () => ipcRenderer.invoke(APP_UPDATE_STATE),
     downloadAppUpdate: () => ipcRenderer.invoke(APP_UPDATE_DOWNLOAD),

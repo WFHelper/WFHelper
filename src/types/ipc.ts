@@ -15,6 +15,7 @@ import type {
   WfmUpdateOrderInput,
   WfmUserProfile,
 } from "./market.js";
+import type { DropSearchMode, DropSearchResult } from "./drops.js";
 import type { RelicDatabase } from "./relics.js";
 import type { WorldState } from "./world.js";
 
@@ -267,6 +268,10 @@ export interface IpcInvokeMap {
   getMasteryProgress: {
     args: [];
     return: MasteryData | null;
+  };
+  searchDrops: {
+    args: [query: string, mode: DropSearchMode];
+    return: DropSearchResult;
   };
   getOverlaySettings: {
     args: [];

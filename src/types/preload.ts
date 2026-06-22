@@ -33,6 +33,10 @@ export interface PreloadAPI {
   ) => Promise<IpcInvokeMap["wfmLookupItemBySlug"]["return"]>;
   wfmGetMe: () => Promise<IpcInvokeMap["wfmGetMe"]["return"]>;
   getMasteryProgress: () => Promise<IpcInvokeMap["getMasteryProgress"]["return"]>;
+  searchDrops: (
+    query: IpcInvokeMap["searchDrops"]["args"][0],
+    mode: IpcInvokeMap["searchDrops"]["args"][1],
+  ) => Promise<IpcInvokeMap["searchDrops"]["return"]>;
   checkForAppUpdates: () => Promise<IpcInvokeMap["checkForAppUpdates"]["return"]>;
   getAppUpdateState: () => Promise<IpcInvokeMap["getAppUpdateState"]["return"]>;
   downloadAppUpdate: () => Promise<IpcInvokeMap["downloadAppUpdate"]["return"]>;

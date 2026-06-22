@@ -10,13 +10,14 @@ import * as itemDb from "../services/itemDatabase";
 import * as wfmCatalog from "../services/wfmCatalog";
 import * as masteryHelper from "../services/masteryHelper";
 import * as relicService from "../services/relicService";
+import * as dropData from "../services/dropData";
 import * as autoUpdater from "../services/autoUpdater";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { isAllowedExternalHost } from "../config/runtime/security";
 import { app, shell } from "electron";
 import {
   DB_GET_ITEM_DATABASE, DB_GET_WFM_ITEMS, DB_GET_MASTERY,
-  DB_GET_RELIC_DATABASE,
+  DB_GET_RELIC_DATABASE, DROP_SEARCH,
   APP_UPDATE_CHECK, APP_UPDATE_STATE, APP_UPDATE_DOWNLOAD, APP_UPDATE_INSTALL, APP_RUNTIME_INFO,
   WINDOW_MINIMIZE, WINDOW_MAXIMIZE, WINDOW_CLOSE,
   LOG_WARN, OPEN_EXTERNAL,
@@ -52,6 +53,19 @@ function register(): void {
     });
     return masteryHelper.computeMasteryProgress(data as Record<string, unknown>);
   });
+
+  handleAuthorized(
+    DROP_SEARCH,
+    assertMainRendererSender,
+    async (_event, payload: { query: string; mode: "item" | "place" }) => {
+      try {
+        await dropData.ensureLoaded();
+      } catch (error) {
+        log.warn("[Drops] ensureLoaded failed:", normalizeErrorMessage(error));
+      }
+      return dropData.searchDrops(payload.query, payload.mode);
+    },
+  );
 
   handleAuthorized(APP_UPDATE_CHECK, assertMainRendererSender, () =>
     autoUpdater.checkForUpdates("manual"),

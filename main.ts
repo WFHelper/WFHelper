@@ -15,6 +15,7 @@ const MAIN_WINDOW_ENTRY_FILE = path.join(app.getAppPath(), "renderer", "dist", "
 
 import * as itemDb from "./services/itemDatabase";
 import * as publicExportSource from "./services/publicExportSource";
+import * as dropData from "./services/dropData";
 import * as wfmCatalog from "./services/wfmCatalog";
 import * as wfmSession from "./services/wfmSession";
 import * as relicService from "./services/relicService";
@@ -244,6 +245,12 @@ app.whenReady().then(async () => {
       }
     })
     .catch((err: Error) => log.error("[ItemDB] DE public export refresh failed:", err));
+
+  // Drop tables for the wiki tab: disk cache first, then refresh in background.
+  dropData.loadFromDisk();
+  void dropData
+    .refreshFromUpstream()
+    .catch((err: Error) => log.error("[Drops] refresh failed:", err));
 
   const catalogStart = Date.now();
   wfmCatalog
