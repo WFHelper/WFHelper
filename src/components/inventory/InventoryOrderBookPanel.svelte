@@ -401,11 +401,11 @@
       <div class="grid grid-cols-3 gap-1.5 max-[800px]:grid-cols-2">
         <div class="grid gap-0.5 rounded-lg border border-border bg-bg-soft px-2 py-1.5">
           <span class="text-xs uppercase tracking-[0.05em] text-text-muted">Best WTS</span>
-          <strong class="font-display text-xs text-text-primary">{bestSell != null ? `${bestSell}p` : "-"}</strong>
+          <strong class="font-display text-xs text-success">{bestSell != null ? `${bestSell}p` : "-"}</strong>
         </div>
         <div class="grid gap-0.5 rounded-lg border border-border bg-bg-soft px-2 py-1.5">
           <span class="text-xs uppercase tracking-[0.05em] text-text-muted">Best WTB</span>
-          <strong class="font-display text-xs text-text-primary">{bestBuy != null ? `${bestBuy}p` : "-"}</strong>
+          <strong class="font-display text-xs text-danger">{bestBuy != null ? `${bestBuy}p` : "-"}</strong>
         </div>
         <div class="grid gap-0.5 rounded-lg border border-border bg-bg-soft px-2 py-1.5">
           <span class="text-xs uppercase tracking-[0.05em] text-text-muted">Spread</span>
@@ -451,8 +451,8 @@
       </div>
 
       <div class="grid grid-cols-2 gap-1.5 max-[800px]:grid-cols-1">
-        <button class="btn-secondary btn-sm" on:click={() => void openPostOrder("sell")}>Post WTS</button>
-        <button class="btn-secondary btn-sm" on:click={() => void openPostOrder("buy")}>Post WTB</button>
+        <button class="btn-success btn-sm" on:click={() => void openPostOrder("sell")}>Post WTS</button>
+        <button class="btn-danger btn-sm" on:click={() => void openPostOrder("buy")}>Post WTB</button>
       </div>
 
       <div class="grid grid-cols-2 gap-2 max-[800px]:grid-cols-1">

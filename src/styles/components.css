@@ -265,7 +265,8 @@
   /* ── buttons ─────────────────────────────────────────────────── */
   .btn-primary,
   .btn-secondary,
-  .btn-danger {
+  .btn-danger,
+  .btn-success {
     display: inline-flex;
     cursor: pointer;
     align-items: center;
@@ -307,6 +308,14 @@
   }
   .btn-danger:hover {
     background: color-mix(in oklab, var(--danger) 28%, transparent);
+  }
+  .btn-success {
+    border-color: var(--success);
+    color: var(--success);
+    background: color-mix(in oklab, var(--success) 18%, transparent);
+  }
+  .btn-success:hover {
+    background: color-mix(in oklab, var(--success) 28%, transparent);
   }
   .btn-sm {
     padding: 0.375rem 0.625rem;
