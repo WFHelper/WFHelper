@@ -283,19 +283,24 @@ interface CoreRequestOptions {
   label?: string;
 }
 
-function flattenErrorMessages(value: unknown): string[] {
-  const values = Array.isArray(value)
-    ? value
-    : value && typeof value === "object"
-      ? Object.values(value as Record<string, unknown>)
-      : [];
-  return values
-    .flatMap((entry) => (Array.isArray(entry) ? entry : [entry]))
-    .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
-    .slice(0, 2);
+function flattenErrorMessages(value: unknown, depth = 0): string[] {
+  if (typeof value === "string") return value.trim() ? [value.trim()] : [];
+  if (depth > 4 || !value || typeof value !== "object") return [];
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => flattenErrorMessages(entry, depth + 1)).slice(0, 4);
+  }
+  // Object: recurse, prefixing a bare leaf with its field name (e.g.
+  // {inputs:{perTrade:"app.field.required"}} → "perTrade: app.field.required").
+  const out: string[] = [];
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    for (const msg of flattenErrorMessages(entry, depth + 1)) {
+      out.push(/[:\s]/.test(msg) ? msg : `${key}: ${msg}`);
+    }
+  }
+  return out.slice(0, 4);
 }
 
-function extractWfmErrorDetail(body: unknown, objectErrorFallback?: string): string | null {
+export function extractWfmErrorDetail(body: unknown, objectErrorFallback?: string): string | null {
   if (!body || typeof body !== "object") return null;
 
   const record = body as Record<string, unknown>;
