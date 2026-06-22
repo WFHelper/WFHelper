@@ -35,6 +35,9 @@ importers:
       koffi:
         specifier: ^2.15.1
         version: 2.15.1
+      lzma:
+        specifier: ^2.3.2
+        version: 2.3.2
       onnxruntime-node:
         specifier: ^1.24.3
         version: 1.24.3
@@ -2993,6 +2996,10 @@ packages:
   lru-cache@6.0.0:
     resolution: {integrity: sha512-Jo6dJ04CmSjuznwJSS3pUeWmd/H0ffTlkXXgwZi+eq1UCmqQwCh+eLsYOYCwY991i2Fah4h1BEMCx4qThGbsiA==}
     engines: {node: '>=10'}
+
+  lzma@2.3.2:
+    resolution: {integrity: sha512-DcfiawQ1avYbW+hsILhF38IKAlnguc/fjHrychs9hdxe4qLykvhT5VTGNs5YRWgaNePh7NTxGD4uv4gKsRomCQ==}
+    hasBin: true
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -6880,6 +6887,8 @@ snapshots:
   lru-cache@6.0.0:
     dependencies:
       yallist: 4.0.0
+
+  lzma@2.3.2: {}
 
   magic-string@0.30.21:
     dependencies:
