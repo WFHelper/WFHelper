@@ -48,6 +48,25 @@ const RELIC_PICKER_CLOSE_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
 // We capture the username at the end, stripping a trailing period if present.
 const TRADE_PARTNER_PATTERN = /TradingPost\.lua.*?[Tt]rade.*?[Ww]ith[: ]+([A-Za-z0-9_\-.]+)\.?\s*$/i;
 
+// An incoming whisper opens a private chat tab, logged as:
+//   ChatRedux::AddTab: Adding tab with channel name: F<User> to index <N>
+// The message text is never logged — only that a conversation opened and from
+// whom. The "F" prefix marks a private/whisper tab; strip it for the username.
+const CHAT_TAB_MARKER = "ChatRedux::AddTab: Adding tab with channel name: ";
+
+export function parseWhisperUsername(line: string): string | null {
+  const start = line.indexOf(CHAT_TAB_MARKER);
+  if (start < 0) return null;
+  let name = line.slice(start + CHAT_TAB_MARKER.length);
+  const end = name.indexOf(" to index");
+  if (end < 0) return null;
+  name = name.slice(0, end);
+  if (!name.startsWith("F")) return null; // only private/whisper tabs
+  // Warframe may append a non-ASCII platform glyph; drop it like AlecaFrame does.
+  if (name.length > 1 && name.charCodeAt(name.length - 1) > 127) name = name.slice(0, -1);
+  return name.slice(1).trim() || null;
+}
+
 /** Debounce before firing the reward-screen overlay after a log pattern match. */
 const TRIGGER_DELAY_MS = 450;
 /** Debounce for relic-picker — gives the in-game UI time to finish rendering. */
@@ -83,6 +102,7 @@ let relicPickerCallback: (() => void) | null = null;
 let relicPickerCloseCallback: (() => void) | null = null;
 let tradePartnerCallback: ((username: string) => void) | null = null;
 let tradeConfirmedCallback: ((trade: ParsedLogTrade) => void) | null = null;
+let messageCallback: ((playerName: string) => void) | null = null;
 
 export { RIVEN_PATTERNS, forceEndRivenSession };
 
@@ -245,6 +265,14 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
     }
   }
 
+  if (messageCallback) {
+    const whisperUser = parseWhisperUsername(line);
+    if (whisperUser) {
+      log.info("[EELog] In-game conversation from:", whisperUser);
+      messageCallback(whisperUser);
+    }
+  }
+
   // Start buffering on the dialog description line.
   // Stop buffering when a new log-framework prefix appears ([Info]/[Error]/[Warning]).
   // Single-line dialogs (ending with leftItem=/Menu/Confirm_Item_Ok) are handled immediately.
@@ -387,6 +415,7 @@ interface EeLogHandlers {
   onRelicSelectionClose?: (() => void) | null;
   onTradingPartner?: ((username: string) => void) | null;
   onTradeConfirmed?: ((trade: ParsedLogTrade) => void) | null;
+  onInGameMessage?: ((playerName: string) => void) | null;
   onRivenSessionOpen?: (() => void) | null;
   onRivenSessionClose?: (() => void) | null;
   onRivenRollPending?: ((weapon: string, kuvaPerRoll: number) => void) | null;
@@ -406,6 +435,7 @@ const NULL_EE_LOG_HANDLERS: NormalizedEeLogHandlers = {
   onRelicSelectionClose: null,
   onTradingPartner: null,
   onTradeConfirmed: null,
+  onInGameMessage: null,
   onRivenSessionOpen: null,
   onRivenSessionClose: null,
   onRivenRollPending: null,
@@ -437,6 +467,7 @@ function normalizeHandlers(
     onRelicSelectionClose: asFunction(handlers.onRelicSelectionClose),
     onTradingPartner: asFunction(handlers.onTradingPartner),
     onTradeConfirmed: asFunction(handlers.onTradeConfirmed),
+    onInGameMessage: asFunction(handlers.onInGameMessage),
     onRivenSessionOpen: asFunction(handlers.onRivenSessionOpen),
     onRivenSessionClose: asFunction(handlers.onRivenSessionClose),
     onRivenRollPending: asFunction(handlers.onRivenRollPending),
@@ -466,6 +497,7 @@ export function startWatching(
   relicPickerSessionOpen = false;
   tradePartnerCallback = normalized.onTradingPartner;
   tradeConfirmedCallback = normalized.onTradeConfirmed;
+  messageCallback = normalized.onInGameMessage;
   setRivenCallbacks({
     onRivenSessionOpen: normalized.onRivenSessionOpen,
     onRivenSessionClose: normalized.onRivenSessionClose,

@@ -30,6 +30,7 @@ import * as inventoryIpc from "./ipc/inventoryIpc";
 import * as wfmIpc from "./ipc/wfmIpc";
 import * as overlayIpc from "./ipc/overlayIpc";
 import * as worldStateIpc from "./ipc/worldStateIpc";
+import * as messageNotificationIpc from "./ipc/messageNotificationIpc";
 import * as systemIpc from "./ipc/systemIpc";
 import * as snapshotCacheIpc from "./ipc/snapshotCacheIpc";
 import * as rankedHotsetIpc from "./ipc/rankedHotsetIpc";
@@ -327,6 +328,7 @@ app.whenReady().then(async () => {
     onRewardTrigger: () => overlayIpc.onRelicRewardTrigger("eelog"),
     onRelicSelectionOpen: () => overlayIpc.onRelicSelectionTrigger("eelog"),
     onRelicSelectionClose: () => overlayIpc.onRelicSelectionClose(),
+    onInGameMessage: (playerName) => void messageNotificationIpc.notifyInGameMessage(playerName),
     onTradeConfirmed: (trade) => {
       const event = tradeTracker.recordTradeFromLog(trade);
       if (!event) return;

@@ -369,8 +369,16 @@ function sendWindowsToast(title: string, body: string): void {
 const _activeNotifications = new Set<{ close: () => void }>();
 
 function sendDesktopNotification(title: string, body: string): void {
+  if (ctx.overlaySettings.worldNotificationsEnabled === false) return;
+  sendDesktopNotificationRaw(title, body);
+}
+
+/**
+ * Ungated desktop toast, reused by in-game message notifications which apply
+ * their own settings gate. Respects platform + canSendNotifications().
+ */
+export function sendDesktopNotificationRaw(title: string, body: string): void {
   try {
-    if (ctx.overlaySettings.worldNotificationsEnabled === false) return;
     if (!canSendNotifications()) return;
     log.info("[WorldState] sending notification:", title, "-", body);
     if (desktopNotificationSender) {

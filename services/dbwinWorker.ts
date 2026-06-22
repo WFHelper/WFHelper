@@ -168,6 +168,7 @@ const FILTER_SUBSTRINGS_LOWER = [
   "tradingpost.lua",           // trade partner detection
   "you are offering",          // trade dialog buffering start
   "the trade was successful",  // trade dialog success
+  "chatredux::addtab",         // incoming whisper opens a private chat tab
 ] as const;
 
 // isWarframePid — check (and cache) whether a PID belongs to Warframe.x64.exe
