@@ -125,6 +125,7 @@ export async function createOrder({
   quantity,
   visible = true,
   modRank,
+  perTrade,
 }: {
   itemId: string;
   orderType: string;
@@ -132,16 +133,20 @@ export async function createOrder({
   quantity: number;
   visible?: boolean;
   modRank?: number | null;
+  perTrade?: number | null;
 }): Promise<NormalisedOrder> {
   if (!itemId || !orderType || platinum == null || quantity == null) {
     throw new Error("createOrder: itemId, orderType, platinum, and quantity are required.");
   }
+  const qty = Number(quantity);
   const body: Record<string, unknown> = {
     // v2 field names (camelCase, not snake_case like v1)
     itemId,
     type: orderType,
     platinum: Number(platinum),
-    quantity: Number(quantity),
+    quantity: qty,
+    // v2 rejects orders without perTrade (max units per in-game trade).
+    perTrade: Math.min(Math.max(1, Math.floor(Number(perTrade) || 1)), Math.max(1, qty)),
     visible: !!visible,
   };
   if (modRank != null) body.rank = Number(modRank); // v2: 'rank' not 'mod_rank'
