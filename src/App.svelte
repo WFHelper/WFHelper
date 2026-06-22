@@ -43,10 +43,11 @@
     | "world"
     | "market"
     | "relics"
+    | "wiki"
     | "rivens"
     | "settings";
 
-  type LazyViewName = Extract<ViewName, "world" | "market" | "relics">;
+  type LazyViewName = Extract<ViewName, "world" | "market" | "relics" | "wiki">;
   type LazyViewComponent = Component<Record<string, never>>;
   type LazyViewModule = { default: LazyViewComponent };
 
@@ -59,6 +60,7 @@
     ["world", { loader: () => import("./views/WorldView.svelte"), component: null }],
     ["market", { loader: () => import("./views/MarketView.svelte"), component: null }],
     ["relics", { loader: () => import("./views/RelicsView.svelte"), component: null }],
+    ["wiki", { loader: () => import("./views/WikiView.svelte"), component: null }],
   ]);
 
   let lazyViewComponent: LazyViewComponent | null = null;
@@ -123,12 +125,13 @@
   });
 
   function isLazyView(view: string): view is LazyViewName {
-    return view === "world" || view === "market" || view === "relics";
+    return view === "world" || view === "market" || view === "relics" || view === "wiki";
   }
 
   function lazyViewLabelKey(view: LazyViewName): MessageKey {
     if (view === "world") return "view.world";
     if (view === "market") return "view.market";
+    if (view === "wiki") return "view.wiki";
     return "view.relics";
   }
 

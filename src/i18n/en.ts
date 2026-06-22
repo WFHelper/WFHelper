@@ -9,6 +9,7 @@ export const en = {
   "nav.relics": "Relics",
   "nav.settings": "Settings",
   "nav.rivens": "Rivens",
+  "nav.wiki": "Wiki",
   "nav.test": "Test",
   "nav.overlay": "Overlay",
   "nav.loadJson": "Load JSON",
@@ -18,6 +19,7 @@ export const en = {
   "view.world": "World",
   "view.market": "Market",
   "view.relics": "Relics",
+  "view.wiki": "Wiki",
 
   "stats.title": "Stats",
   "stats.sessionTitle": "Today",

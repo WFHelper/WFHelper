@@ -68,6 +68,11 @@
       icon: NAV_ICON_URLS.relics,
     },
     {
+      view: "wiki",
+      labelKey: "nav.wiki",
+      icon: NAV_ICON_URLS.wiki,
+    },
+    {
       view: "rivens",
       labelKey: "nav.rivens",
       icon: NAV_ICON_URLS.rivens,
