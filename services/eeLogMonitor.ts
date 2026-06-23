@@ -330,7 +330,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
  * Format:
  *   "You are offering:\n\n<items>\n\nand will receive from <partner> the following:\n\n<items>"
  */
-function _parseTradeDialog(lines: string[]): ParsedLogTrade | null {
+export function _parseTradeDialog(lines: string[]): ParsedLogTrade | null {
   const text = lines.join("\n");
 
   // Extract the description between the trigger text and the leftItem suffix
@@ -363,12 +363,21 @@ function _parseTradeDialog(lines: string[]): ParsedLogTrade | null {
       const cleaned = line.replace(/,\s*leftItem=.*$/i, "").replace(/\r/g, "").trim();
       if (!cleaned) continue;
 
-      const platMatch = cleaned.match(/^Platinum\s+x\s+(\d+)$/i);
+      const platMatch = cleaned.match(/^Platinum(?:\s+x\s+(\d+))?$/i);
       if (platMatch) {
-        plat += parseInt(platMatch[1], 10);
+        plat += platMatch[1] ? parseInt(platMatch[1], 10) : 1;
         continue;
       }
-      counts.set(cleaned, (counts.get(cleaned) || 0) + 1);
+      // Stacked items log as "Name x N" (one slot); non-stacking items repeat
+      // one line each. Handle both so partial-quantity closes are accurate.
+      let name = cleaned;
+      let qty = 1;
+      const stackMatch = cleaned.match(/^(.+?)\s+x\s+(\d+)$/i);
+      if (stackMatch) {
+        name = stackMatch[1].trim();
+        qty = parseInt(stackMatch[2], 10) || 1;
+      }
+      counts.set(name, (counts.get(name) || 0) + qty);
     }
     const items: ParsedLogTradeItem[] = [];
     for (const [name, cnt] of counts) {
