@@ -1,13 +1,6 @@
 /**
- * tradeWfmMatcher.ts — Matches completed in-game trades to the user's
- * active WFM orders and closes the best match.
- *
- * Matches a completed in-game trade to the user's active WFM orders:
- *   1. Fetch active orders.
- *   2. Filter by direction.
- *   3. Match by item name.
- *   4. Tiebreak by platinum proximity, mod rank proximity, then quantity.
- *   5. Close the best matching order.
+ * Matches a completed in-game trade to the user's active WFM orders and closes
+ * the best match — by item name, tiebroken on platinum then rank proximity.
  */
 
 import { withScope } from "./logger";
