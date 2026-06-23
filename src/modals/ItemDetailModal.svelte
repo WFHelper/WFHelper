@@ -45,8 +45,11 @@
     }
     selectedComp = null;
     showCraftingTree = pendingShowCraftingTree ?? false;
+    // eslint-disable-next-line no-useless-assignment -- persists between reactive runs
     pendingShowCraftingTree = null;
+    // eslint-disable-next-line no-useless-assignment -- persists between reactive runs
     internalNavigation = false;
+    // eslint-disable-next-line no-useless-assignment -- persists between reactive runs
     lastItemKey = itemKey;
     loadPrice();
   }
