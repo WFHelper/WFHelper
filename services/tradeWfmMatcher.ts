@@ -31,9 +31,6 @@ interface ParsedTradeForMatching {
 type WfmTradeMatch = TradeMatchPayload;
 
 
-/** Cap quantity closed from a single trade match. */
-const MAX_CLOSE_QUANTITY = 6;
-
 /** Prevent double-close on the same order within a short window */
 const _recentlyClosedOrders = new Map<string, number>();
 const CLOSE_DEDUP_MS = 30_000;
@@ -133,7 +130,9 @@ export async function matchTradeToOrder(
     });
 
     const bestMatch = matching[0];
-    const closeQty = Math.min(item.count, bestMatch.quantity || 1, MAX_CLOSE_QUANTITY);
+    // A single trade slot can hold a stack, so the only real bound is the
+    // order's own quantity — you can't close more than you listed.
+    const closeQty = Math.min(item.count, bestMatch.quantity || 1);
 
     return {
       orderId: bestMatch.id,

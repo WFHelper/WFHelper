@@ -231,7 +231,7 @@ describe("tradeWfmMatcher", () => {
       expect(result).toBeNull();
     });
 
-    it("caps close quantity at 6", async () => {
+    it("closes the full stack traded (a slot can hold > 6), bounded by order qty", async () => {
       mockGetMyOrders.mockResolvedValue({
         sell: [
           {
@@ -258,7 +258,37 @@ describe("tradeWfmMatcher", () => {
       });
 
       expect(result).not.toBeNull();
-      expect(result!.quantity).toBeLessThanOrEqual(6);
+      expect(result!.quantity).toBe(10); // no artificial 6-cap
+    });
+
+    it("never closes more than the order's listed quantity", async () => {
+      mockGetMyOrders.mockResolvedValue({
+        sell: [
+          {
+            id: "order_small",
+            orderType: "sell",
+            platinum: 5,
+            quantity: 3,
+            visible: true,
+            modRank: null,
+            itemId: null,
+            itemName: "Forma Blueprint",
+            itemUrlName: "forma_blueprint",
+            itemThumb: null,
+          },
+        ],
+        buy: [],
+      });
+
+      const result = await matchTradeToOrder({
+        partner: "Buyer",
+        platChange: 50,
+        type: "sale",
+        items: [{ displayName: "Forma Blueprint", count: 5, direction: "given" }],
+      });
+
+      expect(result).not.toBeNull();
+      expect(result!.quantity).toBe(3); // traded 5 but only 3 listed
     });
 
     it("ignores items with wrong direction for sale trades", async () => {
