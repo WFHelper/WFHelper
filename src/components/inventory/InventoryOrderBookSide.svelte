@@ -90,14 +90,14 @@
 
 <style>
   .inventory-orderbook-side-sell {
-    background: rgba(185, 28, 28, 0.2);
-    color: #fda4af;
-    border-bottom: 1px solid rgba(251, 113, 133, 0.25);
-  }
-  .inventory-orderbook-side-buy {
     background: rgba(6, 95, 70, 0.2);
     color: #86efac;
     border-bottom: 1px solid rgba(52, 211, 153, 0.24);
+  }
+  .inventory-orderbook-side-buy {
+    background: rgba(185, 28, 28, 0.2);
+    color: #fda4af;
+    border-bottom: 1px solid rgba(251, 113, 133, 0.25);
   }
   .inventory-orderbook-row-head {
     display: grid;

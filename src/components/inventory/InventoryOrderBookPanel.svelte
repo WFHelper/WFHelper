@@ -374,7 +374,7 @@
   {:else}
     <div class="grid grid-cols-[52px_minmax(0,1fr)] gap-2 items-center">
       <div class="h-[52px] w-[52px] flex items-center justify-center rounded-lg border border-border bg-bg-raised overflow-hidden">
-        <ItemImage src={item.displayImageUrl} alt={item.name} />
+        <ItemImage src={item.displayImageUrl} alt={item.name} cls="max-h-full max-w-full" />
       </div>
       <div class="inventory-orderbook-item-meta">
         <div class="font-display text-sm font-semibold text-text-primary overflow-hidden text-ellipsis whitespace-nowrap">{item.name}</div>
