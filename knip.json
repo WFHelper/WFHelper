@@ -21,6 +21,6 @@
   ],
   "project": ["**/*.{ts,js,mjs,cjs,svelte}"],
   "ignoreBinaries": ["powershell", "wrangler"],
-  "ignoreDependencies": ["cloudflare", "esbuild", "svelte-eslint-parser", "tailwindcss"],
+  "ignoreDependencies": ["cloudflare", "esbuild", "ms", "svelte-eslint-parser", "tailwindcss"],
   "ignore": ["backend/worker/worker-configuration.d.ts", "scripts/dev/**"]
 }
