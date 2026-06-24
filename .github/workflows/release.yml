@@ -53,6 +53,22 @@ jobs:
             Write-Warning "CSC_LINK/CSC_KEY_PASSWORD are not configured; building an unsigned Windows installer."
           }
 
+      - name: Ensure release exists
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          gh release view "$env:GITHUB_REF_NAME" --repo "$env:GITHUB_REPOSITORY" *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create "$env:GITHUB_REF_NAME" `
+              --repo "$env:GITHUB_REPOSITORY" `
+              --title "$env:GITHUB_REF_NAME" `
+              --generate-notes
+            Write-Host "Created release $env:GITHUB_REF_NAME"
+          } else {
+            Write-Host "Release $env:GITHUB_REF_NAME already exists"
+          }
+
       - name: Remove existing release assets
         shell: pwsh
         env:
