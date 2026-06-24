@@ -129,7 +129,7 @@
           >
             <span class="text-text-primary">{rg.name} Relic</span>
             <span class="flex items-center gap-2 shrink-0">
-              {#if d.chance}<span class="text-accent text-xs">{(d.chance * 100).toFixed(1)}%</span>{/if}
+              {#if d.chance}<span class="text-accent text-xs">{d.chance.toFixed(1)}%</span>{/if}
               {#if d.rarity}<span class="text-text-muted">({d.rarity})</span>{/if}
               <span class="text-xs text-text-muted leading-none" aria-hidden="true">
                 {openRelicKey === rg.key ? "v" : ">"}
@@ -193,7 +193,7 @@
         {:else}
           <div class="flex items-center justify-start gap-2 border-b border-dashed border-white/[0.08] py-1.5 last:border-b-0">
             <span class="text-text-primary">{d.location}</span>
-            {#if d.chance}<span class="shrink-0 text-xs text-accent">{(d.chance * 100).toFixed(1)}%</span>{/if}
+            {#if d.chance}<span class="shrink-0 text-xs text-accent">{d.chance.toFixed(1)}%</span>{/if}
             {#if d.rarity}<span class="text-text-muted">({d.rarity})</span>{/if}
           </div>
         {/if}
