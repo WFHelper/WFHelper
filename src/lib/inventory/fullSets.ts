@@ -8,16 +8,27 @@ import {
   isRelicLikeItem,
 } from "./itemClassification.js";
 
-// Warframe parts are held as blueprints (...Blueprint) but the set lists them as
-// the crafted result (...Component); count either spelling. Weapon parts have no
-// such split, so their alias list is just the name itself.
+// Special non-prime weapons (Ghoulsaw, Orvius, ...) get every component flagged
+// tradable:false by @wfcd, even the parts that the set is actually sold as. Their
+// real parts always live under .../Recipes/Weapons/WeaponParts/, so treat those as
+// set parts regardless of the flag. This deliberately leaves out a non-tradeable
+// standalone main blueprint (not part of the WFM set) and build resources.
+function isWeaponPart(uniqueName: string): boolean {
+  return /\/Recipes\/Weapons\/WeaponParts?\//i.test(uniqueName);
+}
+
+// A set component can be owned under a different name than the set lists it:
+//   - warframe parts: set says ...Component, inventory holds ...Blueprint
+//   - weapon parts:   set says ...Blade,     inventory holds ...BladeBlueprint
+// Try every spelling and take the largest; they're the same part, not separate
+// piles, so max (not sum) is the real owned count.
 function ownedAcrossAliases(uniqueName: string, ownedCounts: Map<string, number>): number {
   if (!uniqueName) return 0;
-  let total = 0;
-  for (const alias of componentUniqueNameAliases(uniqueName)) {
-    total += ownedCounts.get(alias) || 0;
-  }
-  return total;
+  const candidates = componentUniqueNameAliases(uniqueName);
+  if (!/Blueprint$/i.test(uniqueName)) candidates.push(`${uniqueName}Blueprint`);
+  let owned = 0;
+  for (const key of candidates) owned = Math.max(owned, ownedCounts.get(key) || 0);
+  return owned;
 }
 
 function isEligibleFullSetRoot(
@@ -84,18 +95,20 @@ export function buildFullSetItems(
 
     const resolved = resolveItem(uniqueName, itemDb);
 
-    const tradableComponents = components.filter(
-      (component) => component.uniqueName && component.tradable !== false,
+    const setComponents = components.filter(
+      (component) =>
+        component.uniqueName &&
+        (component.tradable !== false || isWeaponPart(component.uniqueName)),
     );
-    if (tradableComponents.length === 0) continue;
+    if (setComponents.length === 0) continue;
 
-    if (!isEligibleFullSetRoot(uniqueName, dbEntry, resolved, tradableComponents.length)) {
+    if (!isEligibleFullSetRoot(uniqueName, dbEntry, resolved, setComponents.length)) {
       continue;
     }
 
     let completeSets = Number.POSITIVE_INFINITY;
 
-    const hydratedComponents = tradableComponents.map((component) => {
+    const hydratedComponents = setComponents.map((component) => {
       const unique = component.uniqueName || "";
       const required =
         typeof component.itemCount === "number" && component.itemCount > 0

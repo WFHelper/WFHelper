@@ -226,6 +226,36 @@ describe("inventory parsing", () => {
     expect(mag?.completeSets).toBe(1);
   });
 
+  // Regression: special non-prime weapons (Ghoulsaw, Orvius) get every component
+  // flagged tradable:false by @wfcd, and their parts are owned as ...Blueprint.
+  // Real parts under /WeaponParts/ must still count; the non-tradeable main
+  // blueprint and build resources must not.
+  it("counts non-prime weapon sets from WeaponParts ownership, ignoring resources", () => {
+    const root = "/Lotus/Weapons/Tenno/Melee/Glaives/TeshinGlaive/TnTeshinGlaiveWep";
+    const itemDb: Record<string, ItemDbEntry> = {
+      [root]: {
+        name: "Orvius",
+        category: "Melee",
+        type: "Melee",
+        components: [
+          { uniqueName: "/Lotus/Types/Recipes/Weapons/WeaponParts/TeshinGlaiveBlade", itemCount: 2, tradable: false, name: "Blade" },
+          { uniqueName: "/Lotus/Types/Recipes/Weapons/WeaponParts/TeshinGlaiveDisc", itemCount: 1, tradable: false, name: "Disc" },
+          { uniqueName: "/Lotus/Types/Recipes/Weapons/TeshinGlaiveBlueprint", itemCount: 1, tradable: false, name: "Blueprint" },
+          { uniqueName: "/Lotus/Types/Items/MiscItems/OrokinCell", itemCount: 10, tradable: false, name: "Orokin Cell" },
+        ],
+      },
+    };
+    // Owns spare parts (no main blueprint), exactly the WFM-sellable set.
+    const owned = new Map<string, number>([
+      ["/Lotus/Types/Recipes/Weapons/WeaponParts/TeshinGlaiveBlade", 2],
+      ["/Lotus/Types/Recipes/Weapons/WeaponParts/TeshinGlaiveDisc", 13],
+    ]);
+
+    const orvius = buildFullSetItems(itemDb, owned).find((s) => s.name === "Orvius Set");
+    expect(orvius?.completeSets).toBe(1);
+    expect(orvius?.components).toHaveLength(2);
+  });
+
   it("parses nested object collections and leveled rank signals", () => {
     const db: Record<string, ItemDbEntry> = {
       "/Lotus/Upgrades/Mods/HornetStrike": {
