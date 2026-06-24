@@ -2,6 +2,10 @@
   import { onMount } from "svelte";
 
   import { invoke } from "../lib/ipc.js";
+  import { itemDb, componentOwnership } from "../stores/data.js";
+  import { activeItem } from "../stores/modals.js";
+  import { buildItemNameIndex } from "../lib/componentResolution.js";
+  import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
   import type { DropRow, DropSearchMode } from "../types/drops.js";
 
   let query = "";
@@ -59,6 +63,19 @@
     void runSearch();
   }
 
+  // Drop rows carry only a display name; map it back to a db entry so the row
+  // can open the same detail modal the rest of the app uses. Items without an
+  // entry (mods, arcanes, raw blueprints) stay non-clickable.
+  $: nameIndex = buildItemNameIndex($itemDb);
+
+  function openItem(name: string): void {
+    const uniqueName = nameIndex.get(name);
+    if (!uniqueName) return;
+    const entry = $itemDb[uniqueName];
+    if (!entry) return;
+    activeItem.set(buildParsedItemFromDb(uniqueName, entry, $componentOwnership));
+  }
+
   onMount(() => () => {
     if (debounceTimer) clearTimeout(debounceTimer);
   });
@@ -69,7 +86,7 @@
     <header class="flex flex-col gap-1">
       <h2 class="m-0 font-display text-2xl font-bold text-text-primary">Drop Data</h2>
       <p class="m-0 text-sm text-text-secondary">
-        Search the full Warframe drop tables - every item's drop locations and rates.
+        Search the full Warframe drop tables for any item's drop locations and rates.
       </p>
     </header>
 
@@ -120,7 +137,17 @@
           <tbody>
             {#each rows as row (row.item + "|" + row.place + "|" + row.rarity + "|" + row.chance)}
               <tr class="border-t border-border/60 hover:bg-bg-hover">
-                <td class="px-3 py-1.5 text-text-primary">{row.item}</td>
+                <td class="px-3 py-1.5">
+                  {#if nameIndex.has(row.item)}
+                    <button
+                      type="button"
+                      class="cursor-pointer border-0 bg-transparent p-0 text-left text-text-primary hover:text-accent hover:underline"
+                      on:click={() => openItem(row.item)}
+                    >{row.item}</button>
+                  {:else}
+                    <span class="text-text-primary">{row.item}</span>
+                  {/if}
+                </td>
                 <td class="px-3 py-1.5 text-text-secondary">{row.place}</td>
                 <td class="px-3 py-1.5 text-right whitespace-nowrap">
                   <span class="font-semibold" style="color:{RARITY_COLOUR[row.rarity] ?? 'var(--text-muted)'}">{row.rarity}</span>
@@ -133,7 +160,7 @@
       </div>
       {#if total > rows.length}
         <p class="m-0 text-center text-xs text-text-muted">
-          Showing {rows.length} of {total} results - refine your search to narrow it down.
+          Showing {rows.length} of {total} results. Refine your search to narrow it down.
         </p>
       {/if}
     {/if}
