@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { parseFoundry, parseInventory, parseResources } from "./inventory.js";
+import { buildFullSetItems } from "./inventory/fullSets.js";
 import type { ItemDbEntry, RawInventoryData, RawInventoryEntry } from "../types/inventory.js";
 
 describe("inventory parsing", () => {
@@ -197,6 +198,32 @@ describe("inventory parsing", () => {
     expect(setItem?.inventoryGroup).toBe("full_sets");
     expect(setItem?.completeSets).toBe(2);
     expect(setItem?.amount).toBe(2);
+  });
+
+  // Regression: warframe parts are owned as ...Blueprint but the set lists them
+  // as the crafted ...Component, so a complete set was counted as zero.
+  it("counts warframe sets from blueprint ownership despite the component-name split", () => {
+    const root = "/Lotus/Powersuits/Mag/MagPrime";
+    const itemDb: Record<string, ItemDbEntry> = {
+      [root]: {
+        name: "Mag Prime",
+        category: "Warframes",
+        isPrime: true,
+        components: [
+          { uniqueName: "/Lotus/Types/Recipes/WarframeRecipes/MagPrimeBlueprint", itemCount: 1, tradable: true, name: "Blueprint" },
+          { uniqueName: "/Lotus/Types/Recipes/WarframeRecipes/MagPrimeChassisComponent", itemCount: 1, tradable: true, name: "Chassis" },
+          { uniqueName: "/Lotus/Types/Recipes/WarframeRecipes/MagPrimeSystemsComponent", itemCount: 1, tradable: true, name: "Systems" },
+        ],
+      },
+    };
+    const owned = new Map<string, number>([
+      ["/Lotus/Types/Recipes/WarframeRecipes/MagPrimeBlueprint", 1],
+      ["/Lotus/Types/Recipes/WarframeRecipes/MagPrimeChassisBlueprint", 4],
+      ["/Lotus/Types/Recipes/WarframeRecipes/MagPrimeSystemsBlueprint", 2],
+    ]);
+
+    const mag = buildFullSetItems(itemDb, owned).find((s) => s.name === "Mag Prime Set");
+    expect(mag?.completeSets).toBe(1);
   });
 
   it("parses nested object collections and leveled rank signals", () => {

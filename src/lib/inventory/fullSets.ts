@@ -1,3 +1,4 @@
+import { componentUniqueNameAliases } from "../../../config/shared/componentNames.js";
 import type { ItemDbEntry, ParsedItem } from "../../types/inventory.js";
 import {
   type ResolvedItem,
@@ -6,6 +7,18 @@ import {
   isSceneLikeItem,
   isRelicLikeItem,
 } from "./itemClassification.js";
+
+// Warframe parts are held as blueprints (...Blueprint) but the set lists them as
+// the crafted result (...Component); count either spelling. Weapon parts have no
+// such split, so their alias list is just the name itself.
+function ownedAcrossAliases(uniqueName: string, ownedCounts: Map<string, number>): number {
+  if (!uniqueName) return 0;
+  let total = 0;
+  for (const alias of componentUniqueNameAliases(uniqueName)) {
+    total += ownedCounts.get(alias) || 0;
+  }
+  return total;
+}
 
 function isEligibleFullSetRoot(
   uniqueName: string,
@@ -88,7 +101,7 @@ export function buildFullSetItems(
         typeof component.itemCount === "number" && component.itemCount > 0
           ? component.itemCount
           : 1;
-      const ownedCount = ownedCounts.get(unique) || 0;
+      const ownedCount = ownedAcrossAliases(unique, ownedCounts);
       completeSets = Math.min(completeSets, Math.floor(ownedCount / required));
 
       return {
