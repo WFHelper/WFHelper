@@ -180,6 +180,15 @@
     if (selectedReward) closeRewardPanel();
     else close();
   }
+
+  // group.imageUrl can 404 (mirror gap / dead upstream); fall back to the bundled
+  // tier icon, same as the compact card does in the normal view.
+  function onRelicIconError(event: Event): void {
+    const img = event.currentTarget as HTMLImageElement | null;
+    if (!img) return;
+    const fallback = RELIC_ICON_PATHS[tierCls] || RELIC_ICON_PATHS.default;
+    if (!img.src.endsWith(fallback)) img.src = fallback;
+  }
 </script>
 
 {#if group}
@@ -204,7 +213,7 @@
               class:axi={tierCls === "axi"}
               class:requiem={tierCls === "requiem"}
             >
-              <img class="relic-icon-img w-[var(--size-relic-detail-icon)] h-[var(--size-relic-detail-icon)]" src={iconSrc} alt={group.name} />
+              <img class="relic-icon-img w-[var(--size-relic-detail-icon)] h-[var(--size-relic-detail-icon)]" src={iconSrc} alt={group.name} on:error={onRelicIconError} />
             </span>
           </div>
           <div class="relic-detail-title-area">
