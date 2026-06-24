@@ -36,7 +36,7 @@ interface DeItem {
 
 type KeyedExport = Record<string, DeItem>;
 
-export interface PublicExportOverlay {
+interface PublicExportOverlay {
   /** Per-export item maps keyed by uniqueName, ready to merge into itemDatabase. */
   exports: Partial<Record<OverlayKey, KeyedExport>>;
 }
@@ -179,9 +179,4 @@ export async function refreshOverlayFromDE(): Promise<{ changed: boolean }> {
   })();
 
   return refreshPromise;
-}
-
-export function setOverlayForTest(value: PublicExportOverlay | null): void {
-  overlay = value;
-  refreshPromise = null;
 }

@@ -10,7 +10,7 @@ interface Rgb {
 }
 
 /** Parse a CSS colour string into {r, g, b} in 0-255 range. */
-export function parseColor(color: string): Rgb | null {
+function parseColor(color: string): Rgb | null {
   const trimmed = color.trim();
 
   // #rgb or #rrggbb
@@ -53,7 +53,7 @@ function srgbToLinear(channel: number): number {
 }
 
 /** Compute WCAG relative luminance from an Rgb value. */
-export function relativeLuminance(rgb: Rgb): number {
+function relativeLuminance(rgb: Rgb): number {
   return 0.2126 * srgbToLinear(rgb.r) + 0.7152 * srgbToLinear(rgb.g) + 0.0722 * srgbToLinear(rgb.b);
 }
 
@@ -123,7 +123,7 @@ export function autoAdjustTextColor(
 }
 
 /** Convert RGB components (0-255) to a hex string. */
-export function rgbToHex(r: number, g: number, b: number): string {
+function rgbToHex(r: number, g: number, b: number): string {
   const toHex = (n: number) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, "0");
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }

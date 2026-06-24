@@ -250,13 +250,9 @@ export async function ensureLoaded(): Promise<void> {
   await refreshFromUpstream();
 }
 
-export function isLoaded(): boolean {
-  return loadedHash !== null;
-}
+type DropSearchMode = "item" | "place";
 
-export type DropSearchMode = "item" | "place";
-
-export interface DropSearchResult {
+interface DropSearchResult {
   rows: DropRow[];
   total: number;
 }

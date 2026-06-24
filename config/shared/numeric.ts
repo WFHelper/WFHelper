@@ -4,7 +4,7 @@
  */
 
 /** Highest mod/arcane rank the app supports for cache keys and API queries. */
-export const MAX_SUPPORTED_RANK = 20;
+const MAX_SUPPORTED_RANK = 20;
 
 /**
  * Coerce an unknown value to a finite number or `null`.

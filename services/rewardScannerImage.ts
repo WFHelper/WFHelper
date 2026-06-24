@@ -417,7 +417,7 @@ export function detectRewardSlotLayoutCandidates(nativeImage: NativeImage): Rewa
   });
 }
 
-export function detectRewardSlotLayout(nativeImage: NativeImage): RewardSlotLayout {
+function detectRewardSlotLayout(nativeImage: NativeImage): RewardSlotLayout {
   if (!nativeImage || typeof nativeImage.getSize !== "function") {
     return { count: 0, confidence: 0, slots: [] };
   }

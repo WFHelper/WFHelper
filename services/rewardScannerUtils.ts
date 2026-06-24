@@ -15,15 +15,6 @@ export function round4(value: unknown, fallback: number | null = null): number |
   return Number(n.toFixed(4));
 }
 
-export function medianNumber(values: unknown[], fallback: number): number {
-  if (!Array.isArray(values) || values.length === 0) return fallback;
-  const nums = values.filter((v): v is number => Number.isFinite(v as number)).sort((a, b) => a - b);
-  if (nums.length === 0) return fallback;
-  const mid = Math.floor(nums.length / 2);
-  if (nums.length % 2 === 1) return nums[mid];
-  return (nums[mid - 1] + nums[mid]) / 2;
-}
-
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
