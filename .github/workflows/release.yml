@@ -37,7 +37,7 @@ jobs:
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if (-not $env:GH_TOKEN) {
             throw "Missing required release secret: GH_TOKEN"
@@ -56,23 +56,24 @@ jobs:
       - name: Ensure release exists
         shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release view "$env:GITHUB_REF_NAME" --repo "$env:GITHUB_REPOSITORY" *> $null
-          if ($LASTEXITCODE -ne 0) {
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release $env:GITHUB_REF_NAME already exists"
+          } else {
             gh release create "$env:GITHUB_REF_NAME" `
               --repo "$env:GITHUB_REPOSITORY" `
               --title "$env:GITHUB_REF_NAME" `
               --generate-notes
+            if ($LASTEXITCODE -ne 0) { throw "Failed to create release $env:GITHUB_REF_NAME" }
             Write-Host "Created release $env:GITHUB_REF_NAME"
-          } else {
-            Write-Host "Release $env:GITHUB_REF_NAME already exists"
           }
 
       - name: Remove existing release assets
         shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $pkg = Get-Content package.json | ConvertFrom-Json
           $productName = $pkg.build.productName
@@ -105,7 +106,7 @@ jobs:
       - name: Upload release assets
         shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $pkg = Get-Content package.json | ConvertFrom-Json
           $productName = $pkg.build.productName
