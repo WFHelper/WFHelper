@@ -1,5 +1,5 @@
 /**
- * messageNotificationIpc.ts - Desktop notification when an in-game whisper
+ * Desktop notification when an in-game whisper
  * arrives. eeLogMonitor detects the new chat tab and the sender's name; this
  * applies the user's settings and reuses the world-cycle desktop notifier.
  */

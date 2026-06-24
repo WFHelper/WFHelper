@@ -1,5 +1,5 @@
 /**
- * tradeTracker.ts - Persists trade events detected from EE.log trade
+ * Persists trade events detected from EE.log trade
  * confirmation dialogs.
  *
  * Trade detection is driven exclusively by EE.log parsing in eeLogMonitor.ts:

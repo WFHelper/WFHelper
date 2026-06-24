@@ -1,5 +1,5 @@
 /**
- * rivenData.ts - Riven mod data service (main-process only)
+ * Riven mod data service (main-process only)
  *
  * Loads and indexes riven-related data from warframe-public-export-plus:
  *  - Weapon disposition (omegaAttenuation)

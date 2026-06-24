@@ -7,7 +7,7 @@ import { toIconMirrorUrl } from "./itemDatabase";
 const log = withScope("relicService");
 
 /**
- * relicService.ts - Relic database built from @wfcd/items
+ * Relic database built from @wfcd/items
  *
  * Groups all Warframe relics by "Tier Code" (e.g. "Axi A1"), exposing all four
  * quality variants (Intact/Exceptional/Flawless/Radiant) with their per-item

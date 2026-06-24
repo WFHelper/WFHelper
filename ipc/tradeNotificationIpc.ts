@@ -1,5 +1,5 @@
 /**
- * tradeNotificationIpc.ts - Manages the trade notification overlay window.
+ * Manages the trade notification overlay window.
  *
  * Shows a small, transient, always-on-top toast when a WFM order is
  * auto-closed after an in-game trade completes.

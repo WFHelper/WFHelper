@@ -1,22 +1,10 @@
 /**
- * rivenOcrOnnx.ts
- * ---------------
- * YOLO + PaddleOCR CH v3 pipeline for riven stat OCR.
+ * YOLO + PaddleOCR CH v3 pipeline for riven stat OCR: a YOLO detector finds the
+ * stat-line boxes, crops are height-filtered and upscaled, PaddleOCR runs CTC
+ * recognition, then regex post-correction merges names split across boxes.
  *
- * Pipeline:
- *   1. YOLO stat-line detector (stat_line_detector.onnx) - detects bounding boxes
- *      around individual stat text lines in the riven card stat area.
- *   2. Crop extraction - extracts padded crops from detected boxes, filters by
- *      height (removes title/footer false positives), upscales uniformly.
- *   3. PaddleOCR CH v3 recognizer (ch_PP-OCRv3_rec_infer.onnx) - batch CTC text
- *      recognition with per-character confidence scores.
- *   4. Postprocessing - deterministic regex corrections for known misreads.
- *   5. Split-line merging - merges multi-word stat names split across YOLO boxes.
- *
- * Model files:
- *   - resources/riven-ocr/yolo/stat_line_detector.onnx              (11.7 MB)
- *   - resources/riven-ocr/paddle/ch_PP-OCRv3_rec_infer.onnx         (10.2 MB)
- *   - resources/riven-ocr/paddle/ch_dict.txt                        (32 KB)
+ * Models live in resources/riven-ocr/: yolo/stat_line_detector.onnx,
+ * paddle/ch_PP-OCRv3_rec_infer.onnx, paddle/ch_dict.txt.
  */
 
 import { existsSync, readFileSync } from "node:fs";

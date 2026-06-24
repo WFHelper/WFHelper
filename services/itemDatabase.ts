@@ -1,5 +1,5 @@
 /**
- * itemDatabase.ts - Item database service.
+ * Item database service.
  * Primary:  warframe-public-export-plus (Sainan/calamity-inc) - raw game data
  * Fallback: @wfcd/items (WFCD) - curated community data with proven image CDN
  */

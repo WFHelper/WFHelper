@@ -1,19 +1,10 @@
 /**
- * rivenGrading.ts - Riven stat grading service (main-process only)
- *
- * Ports the grading algorithm from browse.wf/calamity's RivenParser.js:
- *  - Reverse-calculates the 0-1 roll float from the displayed stat value
- *  - Maps roll float to a letter grade (S, A+, A, ..., F)
- *
- * The core forward formula (from RivenParser.js parseRiven):
- *   For buffs:
- *     value = baseValue * (1.5 * disposition * 10) * pow(1.25, numCurses)
- *           * lerp(0.9, 1.1, rollFloat) * numBuffsAtten[numBuffs] * (lvl + 1)
- *   For curses:
- *     value = baseValue * -1 * (1.5 * disposition * 10) * lerp(0.9, 1.1, rollFloat)
- *           * numBuffsCurseAtten[numBuffs] * numBuffsAtten[numCurses] * (lvl + 1)
- *
- * To reverse (unparse), we divide out all known factors to recover rollFloat.
+ * Riven stat grading (main-process only). Ports browse.wf/calamity's
+ * RivenParser.js: reverse the displayed stat value back to its 0-1 roll float,
+ * then map that to a letter grade. We unparse by dividing the known factors out
+ * of the forward formula:
+ *   buff:  value = base * (1.5*disp*10) * 1.25^curses * lerp(0.9,1.1,roll) * atten * (lvl+1)
+ *   curse: value = -base * (1.5*disp*10) * lerp(0.9,1.1,roll) * atten[buffs] * atten[curses] * (lvl+1)
  */
 
 import { withScope } from "./logger";

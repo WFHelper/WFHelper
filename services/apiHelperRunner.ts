@@ -22,12 +22,7 @@ const HELPER_RELEASE_TAG = "1.1.1";
 const GITHUB_RELEASES_URL =
   `https://api.github.com/repos/Sainan/warframe-api-helper/releases/tags/${HELPER_RELEASE_TAG}`;
 
-/**
- * Pinned SHA-256 hashes of accepted warframe-api-helper.exe builds.
- * Any exe whose hash is not in this set will be refused - both on fresh download
- * and before spawning any locally-found copy. Bump when the upstream repo
- * (Sainan/warframe-api-helper) cuts a new release and you've audited it.
- */
+// Accepted warframe-api-helper.exe SHA-256s; anything else is refused. Bump on a new audited release.
 const PINNED_HELPER_SHA256: ReadonlySet<string> = new Set([
   // 1.1.1 (tag on 'senpai' branch) - verified 2026-04-18
   "3f883abb1226c9da6d6cb9c2d6675d3daa6b321a192583c646ef8c45cbd5b8f6",
@@ -158,25 +153,9 @@ export function runOnce(): Promise<boolean> {
       return;
     }
 
-    /*
-     * TOCTOU HARDENING - DO NOT REMOVE.
-     *
-     * The helper path was verified (hash, location, quarantine attributes)
-     * when it was discovered, but that was some indeterminate time ago.
-     * Between discovery and this spawn, an attacker with filesystem write
-     * access could have swapped the binary at _exePath for a malicious
-     * one with the same filename. The discovery-time hash check would
-     * not protect us because it was performed on the old bytes.
-     *
-     * Re-hashing here, immediately before spawn, is the mitigation. It
-     * narrows the attack window from minutes/hours down to the few
-     * microseconds between this sha256 read and the spawn() call -
-     * small enough that racing it requires kernel-level primitives
-     * we can't defend against from userspace anyway.
-     *
-     * If you're tempted to "clean this up" as a duplicate check: the
-     * duplication is the point. Keep both.
-     */
+    // Re-hash right before spawn (not only at discovery): closes the TOCTOU
+    // window where the binary could be swapped after the discovery-time check.
+    // The duplicate check is intentional - don't remove it.
     try {
       const hashNow = sha256OfFile(_exePath);
       if (!isPinnedHash(hashNow)) {

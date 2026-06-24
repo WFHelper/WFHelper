@@ -1,5 +1,5 @@
 /**
- * wfmRivenSearch.ts - Warframe.market riven auction search (main-process only)
+ * Warframe.market riven auction search (main-process only)
  *
  * Searches the WFM v1 auction API for similar rivens by weapon name.
  * Results are cached in-memory with a 10-minute TTL.

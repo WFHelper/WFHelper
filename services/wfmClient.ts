@@ -5,7 +5,7 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 const log = withScope("wfmClient");
 
 /**
- * wfmClient.ts - Warframe.market HTTP client (main-process only)
+ * Warframe.market HTTP client (main-process only)
  *
  * - Serial request queue with 350 ms minimum spacing (≤ 3 req/s)
  * - Standard headers required by WFM API

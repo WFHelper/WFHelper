@@ -1,5 +1,5 @@
 /**
- * rivenFingerprint.ts - Decode riven stats from inventory UpgradeFingerprint
+ * Decode riven stats from inventory UpgradeFingerprint
  *
  * Converts the raw encoded fingerprint data (buffs/curses with IEEE 754 float32
  * encoded Values) into displayable stat values, grades, and attribute quality.

@@ -1,5 +1,5 @@
 /**
- * dropData.ts - WFCD drop tables (drops.warframestat.us) flattened into
+ * WFCD drop tables (drops.warframestat.us) flattened into
  * {item, place, rarity, chance} rows for the wiki search tab. Fetched once,
  * cached to disk by the upstream hash, refreshed in the background.
  */

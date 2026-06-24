@@ -1,59 +1,16 @@
 /**
- * Worker thread: listens on Windows OutputDebugString shared memory (DBWIN protocol)
- * and posts matching log lines to the parent thread with zero disk-flush latency.
+ * Worker thread that tails Warframe's OutputDebugString output via the Win32
+ * DBWIN shared-memory protocol and posts matching log lines to the parent.
  *
- * The DBWIN protocol (used by Win32 OutputDebugString):
- *   DBWIN_BUFFER      - pagefile-backed shared memory, 4096 bytes:
- *                         [0..3]  DWORD   pid  (process id of writer)
- *                         [4..4095] char  msg  (null-terminated debug string)
- *   DBWIN_BUFFER_READY - auto-reset event, initially signaled:
- *                         "reader is ready to accept the next message"
- *   DBWIN_DATA_READY   - auto-reset event, initially unsignaled:
- *                         "new data has been written to DBWIN_BUFFER"
+ * DBWIN requires the *reader* to create the named objects first; until they
+ * exist every OutputDebugString call (from any process) is a silent no-op. So
+ * we run two phases to keep CPU near zero:
+ *   - Phase 0 (Warframe not running): sleep on Atomics.wait, poll the process list.
+ *   - Phase 1 (Warframe running): create the DBWIN objects, run the message loop,
+ *     cheaply filter non-Warframe PIDs (read the 4-byte PID, cached image-name check).
+ * When Warframe exits we tear the objects down and drop back to Phase 0.
  *
- * Writer (Warframe / OutputDebugString internal):
- *   1. Opens pre-existing objects (they must already exist, or it no-ops)
- *   2. Waits briefly for DBWIN_BUFFER_READY (up to 10 ms)
- *   3. Writes own PID + message into DBWIN_BUFFER
- *   4. Signals DBWIN_DATA_READY
- *   5. Waits briefly for DBWIN_BUFFER_READY to be re-set (acknowledgement)
- *
- * Reader (this worker):
- *   1. Creates the three DBWIN objects so the writer can open them
- *   2. Signals DBWIN_BUFFER_READY immediately ("ready for first write")
- *   3. Blocks on WaitForSingleObject(DBWIN_DATA_READY, 500 ms)
- *   4. On WAIT_OBJECT_0: reads PID + message, posts to parent, re-signals DBWIN_BUFFER_READY
- *   5. On WAIT_TIMEOUT: re-checks the stop flag, loops
- *
- * Shutdown:
- *   Parent sets stopBuffer[0] = 1 via Atomics.  After at most WAIT_TIMEOUT_MS the
- *   worker exits its loop, closes all handles, and posts { type: "stopped" }.
- *
- * CPU-temperature mitigation - two-phase design:
- *
- *   PHASE 0  "Waiting for Warframe" (DBWIN objects do NOT exist)
- *
- *   The DBWIN protocol requires the READER to create the named shared-memory
- *   objects first.  If those objects do not exist, every OutputDebugString call
- *   from any process (Chrome, Discord, IDEs, GPU drivers …) is a silent no-op -
- *   the writer opens the named objects, finds nothing, and returns immediately.
- *
- *   While we are in Phase 0 the worker simply sleeps (Atomics.wait) and
- *   periodically calls isWarframeRunning() to scan the process list.  CPU cost:
- *   near zero.
- *
- *   PHASE 1  "Warframe running" (DBWIN objects exist)
- *
- *   Once Warframe.x64.exe is detected we create the three DBWIN objects and
- *   enter the message loop.  Non-Warframe PIDs are filtered cheaply:
- *     - koffi.decode(pBuf, "uint32")  - reads the 4-byte PID only
- *     - isWarframePid()               - OpenProcess + QueryFullProcessImageNameW,
- *                                       result cached per PID
- *     - SetEvent(hReady)              - release buffer without touching the message
- *
- *   Every WARFRAME_RECHECK_MS we call isWarframeRunning() again; when Warframe
- *   is gone we tear down the DBWIN objects and return to Phase 0.  Other
- *   processes' OutputDebugString calls immediately become no-ops again.
+ * Shutdown: parent sets stopBuffer[0]=1 via Atomics; worker exits within WAIT_TIMEOUT_MS.
  */
 
 import { workerData, parentPort } from "worker_threads";
