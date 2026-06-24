@@ -6,6 +6,7 @@
   import { tr } from "../lib/i18n.js";
   import { NAV_ICON_URLS } from "../lib/assetUrls.js";
   import { persistedBoolean } from "../lib/persistence.js";
+  import { hiddenTabs } from "../stores/sidebarTabs.js";
   import type { MessageKey } from "../lib/i18n.js";
 
   const collapsed = persistedBoolean("sidebar.collapsed", false);
@@ -84,6 +85,12 @@
     },
   ];
 
+  $: visibleNavItems = navItems.filter((item) => !$hiddenTabs.has(item.view));
+
+  // If the active tab gets hidden, fall back to inventory so we never strand
+  // the user on a view with no way back to it.
+  $: if ($hiddenTabs.has($currentView)) currentView.set("inventory");
+
   async function loadInventoryFile(): Promise<void> {
     const result = await invoke("openInventoryFile");
     if (result) currentView.set("inventory");
@@ -111,7 +118,7 @@
       </svg>
       <span>Collapse</span>
     </button>
-    {#each navItems as item}
+    {#each visibleNavItems as item}
       <button
         class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 px-3.5 py-2.5 font-display text-base font-medium tracking-wide transition-colors duration-150 {$currentView === item.view ? 'bg-accent-glow text-accent before:content-[\'\'] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:rounded-r before:bg-accent max-[800px]:before:hidden' : 'bg-transparent text-text-secondary hover:bg-bg-hover hover:text-text-primary'}"
         aria-current={$currentView === item.view ? "page" : undefined}

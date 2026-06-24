@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { get } from "svelte/store";
   import {
     overlaySettings,
     overlaySettingsLoaded,
@@ -10,6 +11,7 @@
   import { invoke, send } from "../lib/ipc.js";
   import { tr } from "../lib/i18n.js";
   import { hideFounderMasteryItems } from "../stores/preferences.js";
+  import { TOGGLEABLE_TABS, tabVisibility } from "../stores/sidebarTabs.js";
   import type { OverlaySettings } from "../types/ipc.js";
 
   type OverlaySettingsFormInput = Partial<OverlaySettings> & {
@@ -123,6 +125,16 @@
   function testTrigger() {
     send("simulate-relic-trigger");
   }
+
+  // Local mirror of the per-tab visibility stores so each checkbox can bind to a
+  // plain bool; the change handler pushes back to the persisted store.
+  const tabChecked: Record<string, boolean> = Object.fromEntries(
+    TOGGLEABLE_TABS.map((t) => [t.view, get(tabVisibility[t.view])]),
+  );
+
+  function setTabVisible(view: string): void {
+    tabVisibility[view].set(tabChecked[view]);
+  }
 </script>
 
 <section class="view active">
@@ -210,6 +222,29 @@
             <span>Hide Founder items</span>
             <input type="checkbox" bind:checked={$hideFounderMasteryItems} class="accent-accent" />
           </label>
+        </div>
+      </article>
+
+      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+        <div>
+          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Sidebar tabs</h3>
+          <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
+            Hide tabs you don't use. Inventory and Settings always stay.
+          </p>
+        </div>
+
+        <div class="mt-2.5 grid gap-2">
+          {#each TOGGLEABLE_TABS as tab (tab.view)}
+            <label class="settings-control-row">
+              <span>{$tr(tab.labelKey)}</span>
+              <input
+                type="checkbox"
+                bind:checked={tabChecked[tab.view]}
+                on:change={() => setTabVisible(tab.view)}
+                class="accent-accent"
+              />
+            </label>
+          {/each}
         </div>
       </article>
 
