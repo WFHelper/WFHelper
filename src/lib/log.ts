@@ -24,7 +24,7 @@ function sendToMain(message: string, ...args: unknown[]): void {
       ...args,
     );
   } catch {
-    // non-fatal — if IPC isn't ready, skip silently
+    // non-fatal - if IPC isn't ready, skip silently
   }
 }
 

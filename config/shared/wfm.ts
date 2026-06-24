@@ -36,7 +36,7 @@ export function titleFromSlug(slug: string): string {
     .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }
 
-// Slug normalizer for WFM URLs — see normalizeForSlug for the semantics.
+// Slug normalizer for WFM URLs - see normalizeForSlug for the semantics.
 export { normalizeForSlug as normalizeWfmSlug } from "./textNormalize";
 
 export function normalizeWfmSlugKey(value: unknown): string {

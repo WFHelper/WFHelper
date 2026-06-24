@@ -6,7 +6,7 @@ const log = withScope("rivenStateMachine");
 export const RIVEN_PATTERNS = {
   sessionOpen: /Sys \[Info\]: Created \/Lotus\/Interface\/OmegaRerollSelection\.swf/,
   sessionClose: /NpcManager::ClearAgents\(\) ReadyToCreateAgents = false/,
-  /** Matches any HudVis line — we extract the number to track increments/decrements. */
+  /** Matches any HudVis line - we extract the number to track increments/decrements. */
   hudVis: /ThemedDetailedPurchaseDialog\.lua: DBG: HudVis (\d+)/,
   /** Two-step riven detection: PopulateInfo with a Randomized mod path confirms it's a riven. */
   populateRiven: /ThemedDetailedPurchaseDialog\.lua: PopulateInfo->\/Lotus\/StoreItems\/Upgrades\/Mods\/Randomized\//,
@@ -102,7 +102,7 @@ function resetRivenIdleTimer(): void {
     _rivenSessionActive = false;
     _rivenSessionStartedAt = 0;
     _rivenDioramaReady = false;
-    log.info("[EELog] Riven session idle timeout — resetting");
+    log.info("[EELog] Riven session idle timeout - resetting");
   }, RIVEN_SESSION_IDLE_TIMEOUT_MS);
 }
 
@@ -117,7 +117,7 @@ function forceEndRivenSessionIfExpired(): boolean {
   if (!_rivenSessionActive || _rivenSessionStartedAt === 0) return false;
   if (Date.now() - _rivenSessionStartedAt < RIVEN_SESSION_MAX_MS) return false;
 
-  log.info(`[EELog] Riven session exceeded ${RIVEN_SESSION_MAX_MS / 60_000}min cap — force closing`);
+  log.info(`[EELog] Riven session exceeded ${RIVEN_SESSION_MAX_MS / 60_000}min cap - force closing`);
   _rivenSessionActive = false;
   _rivenSessionStartedAt = 0;
   _rivenDioramaReady = false;
@@ -167,7 +167,7 @@ export function processRivenPatterns(
     }
   }
 
-  // Diorama ready: both cards are now displayed — trigger roll OCR immediately.
+  // Diorama ready: both cards are now displayed - trigger roll OCR immediately.
   // Arrives via both DBWIN and file poll. Not gated by skipRivenFromFilePoll
   // so it works regardless of which source delivers first.
   if (

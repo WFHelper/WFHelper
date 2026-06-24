@@ -1,5 +1,5 @@
 /**
- * Live smoke tests — run against the deployed Worker, NOT Miniflare.
+ * Live smoke tests - run against the deployed Worker, NOT Miniflare.
  *
  * Purpose: catch failures that mocked tests fundamentally cannot.
  *   - cron stopped running (stale snapshot.generatedAt)
@@ -107,7 +107,7 @@ describe(`worker smoke @ ${BASE_URL}`, () => {
 
 		it('generatedAt is recent (cron alive)', () => {
 			const age = Date.now() - snapshot.generatedAt;
-			expect(age, `snapshot is ${(age / HOUR).toFixed(1)}h old — cron may be dead`).toBeLessThan(MAX_SNAPSHOT_AGE_MS);
+			expect(age, `snapshot is ${(age / HOUR).toFixed(1)}h old - cron may be dead`).toBeLessThan(MAX_SNAPSHOT_AGE_MS);
 		});
 
 		it('snapshot entry counts are above minimums', () => {
@@ -137,7 +137,7 @@ describe(`worker smoke @ ${BASE_URL}`, () => {
 				.map(([slug, p]) => ({ slug, age: now - (p.timestamp as number) }))
 				.sort((a, b) => b.age - a.age)[0];
 			if (!oldest) return;
-			expect(oldest.age, `${oldest.slug} is ${(oldest.age / DAY).toFixed(1)}d old — prewarm cursor may be stuck`).toBeLessThan(
+			expect(oldest.age, `${oldest.slug} is ${(oldest.age / DAY).toFixed(1)}d old - prewarm cursor may be stuck`).toBeLessThan(
 				MAX_OK_PRICE_AGE_MS,
 			);
 		});
@@ -171,7 +171,7 @@ describe(`worker smoke @ ${BASE_URL}`, () => {
 			const { status, body } = await fetchJson<{ ok: boolean; data?: { token: string; header: string; expiresAt: number } }>(
 				'/v1/bootstrap',
 			);
-			// When bootstrap is disabled in deployment, route returns 404 — skip the rest.
+			// When bootstrap is disabled in deployment, route returns 404 - skip the rest.
 			if (status === 404) {
 				console.warn('[smoke] bootstrap disabled in deployment; skipping per-slug checks');
 				return;

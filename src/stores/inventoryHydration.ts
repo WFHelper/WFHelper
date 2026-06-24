@@ -1,5 +1,5 @@
 /**
- * Inventory hydration controller — Svelte stores, queue pump, and singleton.
+ * Inventory hydration controller - Svelte stores, queue pump, and singleton.
  *
  * Core hydration logic lives in `src/stores/hydration/hydrateItemMetrics.ts`.
  * Pure helpers and types live in `hydrationHelpers.ts`, `hydrationCacheHelpers.ts`,

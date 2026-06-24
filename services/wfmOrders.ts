@@ -94,7 +94,7 @@ function _extractOrders(data: unknown): { sell: NormalisedOrder[]; buy: Normalis
 export async function getMyOrders(): Promise<{ sell: NormalisedOrder[]; buy: NormalisedOrder[] }> {
   if (!getInGameName()) throw new Error("Not logged in to Warframe.market.");
 
-  // GET /v2/orders/my — documented WFM v2 endpoint for the authenticated user's own orders.
+  // GET /v2/orders/my - documented WFM v2 endpoint for the authenticated user's own orders.
   log.info("[WFMOrders] \u2192 GET /v2/orders/my (auth)");
   const data = await requestV2("GET", "/orders/my");
   const unwrapped = unwrapWfmResponse<WfmRawOrder[]>(data);

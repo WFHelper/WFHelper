@@ -278,7 +278,7 @@ function register(): void {
 
 
 /**
- * Called after session restore on startup — starts the WS listener if a
+ * Called after session restore on startup - starts the WS listener if a
  * token is already present (i.e., the user was logged in before).
  */
 function startListenerIfLoggedIn(): void {

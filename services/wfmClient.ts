@@ -5,7 +5,7 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 const log = withScope("wfmClient");
 
 /**
- * wfmClient.ts — Warframe.market HTTP client (main-process only)
+ * wfmClient.ts - Warframe.market HTTP client (main-process only)
  *
  * - Serial request queue with 350 ms minimum spacing (≤ 3 req/s)
  * - Standard headers required by WFM API
@@ -56,7 +56,7 @@ const MAX_QUEUE_DEPTH = 64;
 
 // Shared by both _coreRequest and requestRaw. The auth (Authorization/Cookie)
 // and CSRF (Origin/Referer) headers are NOT here because the two callers have
-// different auth models — _coreRequest uses the user JWT via _getToken(),
+// different auth models - _coreRequest uses the user JWT via _getToken(),
 // requestRaw uses _cookieJwt. Keep those at the call sites where the
 // difference is visible.
 const WFM_BASE_HEADERS: Readonly<Record<string, string>> = {
@@ -73,13 +73,13 @@ let _queueDepth = 0;
 /**
  * Enqueue a function that returns a promise, ensuring at least MIN_DELAY_MS
  * between consecutive requests. Rejects synchronously when the pending-request
- * backlog exceeds MAX_QUEUE_DEPTH — prevents unbounded growth during WFM outages.
+ * backlog exceeds MAX_QUEUE_DEPTH - prevents unbounded growth during WFM outages.
  */
 function enqueue<T>(fn: () => Promise<T>): Promise<T> {
   if (_queueDepth >= MAX_QUEUE_DEPTH) {
     return Promise.reject(
       new WfmApiError(
-        `WFM request queue full (${_queueDepth}/${MAX_QUEUE_DEPTH}) — backend likely unavailable.`,
+        `WFM request queue full (${_queueDepth}/${MAX_QUEUE_DEPTH}) - backend likely unavailable.`,
         "WFM_QUEUE_FULL",
       ),
     );
@@ -240,7 +240,7 @@ function _nodeRequest(
               const preview = text.slice(0, 200);
               return Promise.reject(
                 new WfmApiError(
-                  `WFM returned non-JSON response (status ${res.statusCode ?? 0}): ${(err as Error).message} — preview: ${preview}`,
+                  `WFM returned non-JSON response (status ${res.statusCode ?? 0}): ${(err as Error).message} - preview: ${preview}`,
                   "WFM_INVALID_JSON",
                   res.statusCode ?? 0,
                 ),
@@ -398,7 +398,7 @@ function _coreRequest(
           const parsed = JSON.parse(text) as unknown;
           detail = extractWfmErrorDetail(parsed) ?? detail;
         } catch {
-          // ignore – detail already has a fallback value
+          // ignore - detail already has a fallback value
         }
       } catch (parseErr) {
         log.warn(`[${label}] Failed to read error response body:`, normalizeErrorMessage(parseErr));

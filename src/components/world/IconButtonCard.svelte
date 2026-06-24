@@ -9,9 +9,9 @@
   export let onClick: () => void;
   /** Image-frame size in px, applied to both width and height of the image box. */
   export let size: 80 | 100 = 100;
-  /** Hover scale factor — 1.05 for primes, 1.08 for circuit items. */
+  /** Hover scale factor - 1.05 for primes, 1.08 for circuit items. */
   export let hoverScale: 105 | 108 = 105;
-  /** Border thickness — 2 for primes, 1.5 for circuit items. */
+  /** Border thickness - 2 for primes, 1.5 for circuit items. */
   export let borderWidth: "1.5" | "2" = "2";
 
   $: sizeCls = size === 100 ? "h-[100px] w-[100px]" : "h-20 w-20";

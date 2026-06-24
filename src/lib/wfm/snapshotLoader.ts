@@ -39,7 +39,7 @@ function isValidSnapshot(d: unknown): d is SnapshotBlob {
 /**
  * Called once during app startup. Loads the bulk snapshot from disk (if < 2 h
  * old) or fetches it from the backend. Imports into all three in-memory caches
- * (prices, meta, order summaries). Never throws — falls back gracefully.
+ * (prices, meta, order summaries). Never throws; logs and returns on failure.
  */
 export async function tryLoadSnapshot(): Promise<void> {
   if (!isBackendLiteConfigured()) return;
@@ -57,7 +57,7 @@ export async function tryLoadSnapshot(): Promise<void> {
         }
       }
     } catch {
-      // disk load failure is non-fatal — proceed to fetch
+      // disk load failure is non-fatal - proceed to fetch
     }
 
     // 2. Fetch from backend if disk miss or stale
@@ -78,13 +78,13 @@ export async function tryLoadSnapshot(): Promise<void> {
         },
       );
       if (!response) {
-        log.warn("[Snapshot] Fetch failed — skipping snapshot");
+        log.warn("[Snapshot] Fetch failed - skipping snapshot");
         return;
       }
 
       // 304 Not Modified: snapshot hasn't changed since the last fetch this session.
       if (response.status === 304) {
-        log.info("[Snapshot] 304 Not Modified — snapshot unchanged, skipping re-import");
+        log.info("[Snapshot] 304 Not Modified - snapshot unchanged, skipping re-import");
         return;
       }
 
@@ -92,12 +92,12 @@ export async function tryLoadSnapshot(): Promise<void> {
       try {
         parsed = await response.json();
       } catch {
-        log.warn("[Snapshot] Failed to parse response JSON — skipping");
+        log.warn("[Snapshot] Failed to parse response JSON - skipping");
         return;
       }
 
       if (!isValidSnapshot(parsed)) {
-        log.warn("[Snapshot] Invalid snapshot shape — skipping");
+        log.warn("[Snapshot] Invalid snapshot shape - skipping");
         return;
       }
 
@@ -122,7 +122,7 @@ export async function tryLoadSnapshot(): Promise<void> {
     const ageMins = Math.round((Date.now() - snapshot.generatedAt) / 60_000);
 
     log.info(
-      `[Snapshot] Imported — prices: ${pCount}, meta: ${mCount}, ` +
+      `[Snapshot] Imported - prices: ${pCount}, meta: ${mCount}, ` +
         `orderSummaries: ${oCount} (age: ${ageMins} min)`,
     );
 
@@ -133,7 +133,7 @@ export async function tryLoadSnapshot(): Promise<void> {
     }
   } catch (err) {
     log.warn(
-      "[Snapshot] Load failed — continuing without snapshot",
+      "[Snapshot] Load failed - continuing without snapshot",
       err instanceof Error ? err : undefined,
     );
   }

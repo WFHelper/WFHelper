@@ -107,7 +107,7 @@ function getInventoryRows(inventoryData: RawInventoryData): Array<{ ItemType?: s
   );
 }
 
-/** Build a Set of uniqueNames the player owns — covers gear, mods, relics, cosmetics, misc */
+/** Build a Set of uniqueNames the player owns - covers gear, mods, relics, cosmetics, misc */
 export function buildBaroOwnedSet(inventoryData: RawInventoryData | null): Set<string> {
   if (!inventoryData) return new Set();
   const BARO_INV_KEYS: Array<keyof RawInventoryData> = [

@@ -43,7 +43,7 @@ export interface PublicExportOverlay {
 
 interface CachePayload {
   updatedAt: string;
-  /** Hashed manifest filename per export — lets us skip unchanged downloads. */
+  /** Hashed manifest filename per export - lets us skip unchanged downloads. */
   index: Partial<Record<OverlayKey, string>>;
   exports: Partial<Record<OverlayKey, KeyedExport>>;
 }
@@ -168,9 +168,9 @@ export async function refreshOverlayFromDE(): Promise<{ changed: boolean }> {
     } catch (err) {
       if (previous) {
         overlay = { exports: previous.exports };
-        log.warn("DE public export fetch failed — using cached overlay", err);
+        log.warn("DE public export fetch failed - using cached overlay", err);
       } else {
-        log.warn("DE public export fetch failed — no cache, using bundled package", err);
+        log.warn("DE public export fetch failed - no cache, using bundled package", err);
       }
       return { changed: false };
     } finally {

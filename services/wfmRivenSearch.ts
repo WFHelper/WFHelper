@@ -1,5 +1,5 @@
 /**
- * wfmRivenSearch.ts — Warframe.market riven auction search (main-process only)
+ * wfmRivenSearch.ts - Warframe.market riven auction search (main-process only)
  *
  * Searches the WFM v1 auction API for similar rivens by weapon name.
  * Results are cached in-memory with a 10-minute TTL.
@@ -94,15 +94,15 @@ const RIVEN_POLARITIES = ["madurai", "naramon", "vazarin"] as const;
  *
  * The WFM API caps results at ~500 per query. For popular weapons with >500
  * auctions, a single price_asc+price_desc pair leaves a price gap in the middle
- * (e.g. 550–1500p range). To close that gap we split by polarity
+ * (e.g. 550-1500p range). To close that gap we split by polarity
  * (madurai/naramon/vazarin) × sort direction, giving up to ~3000 unique results.
  * For weapons with few auctions (<500) the first query already returns everything
  * and the extra queries add negligible overhead.
  *
- * @param weaponSlug — WFM URL slug (e.g. "rubico_prime")
- * @param opts.limit — max results to return (default 6)
- * @param opts.positiveStats — positive stat url_names to filter by (e.g. ["multishot", "critical_chance"])
- * @param opts.negativeStats — negative stat url_names to filter by
+ * @param weaponSlug - WFM URL slug (e.g. "rubico_prime")
+ * @param opts.limit - max results to return (default 6)
+ * @param opts.positiveStats - positive stat url_names to filter by (e.g. ["multishot", "critical_chance"])
+ * @param opts.negativeStats - negative stat url_names to filter by
  */
 export async function searchSimilarRivens(
   weaponSlug: string,
@@ -164,7 +164,7 @@ export async function searchSimilarRivens(
     addAuctions(quickAuctions);
 
     if (fullCoverage && quickAuctions.length >= 490) {
-      // Likely more than 500 total — use polarity × sort split for full coverage.
+      // Likely more than 500 total - use polarity × sort split for full coverage.
       for (const pol of RIVEN_POLARITIES) {
         for (const sort of ["price_asc", "price_desc"] as const) {
           const path =
@@ -175,7 +175,7 @@ export async function searchSimilarRivens(
         }
       }
     } else if (quickAuctions.length > 0) {
-      // Small pool — also fetch price_desc just in case (cheap, already under 500).
+      // Small pool - also fetch price_desc just in case (cheap, already under 500).
       const descPath =
         `/auctions/search?type=riven&weapon_url_name=${encodeURIComponent(weaponSlug)}${statParams}&sort_by=price_desc`;
       const descPayload = unwrapWfmResponse<WfmAuctionSearchPayload>(await wfmClient.request("GET", descPath));

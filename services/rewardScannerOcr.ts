@@ -43,7 +43,7 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
   const engineWindows = String(options?.engineWindows || "windows");
   const engineNative = "native";
 
-  /** One-shot PowerShell OCR — used as fallback when the persistent server is unavailable. */
+  /** One-shot PowerShell OCR - used as fallback when the persistent server is unavailable. */
   function runPowerShellOcrOneShot(imagePath: string, timeoutMs: number): Promise<string> {
     return new Promise((resolve, reject) => {
       execFile(
@@ -188,13 +188,13 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
   ): Promise<StructuredOcrResult> {
     const engine = getRequestedEngine();
 
-    // Native: call binding directly — no PS server, no temp file, no disk I/O
+    // Native: call binding directly - no PS server, no temp file, no disk I/O
     if (engine === engineNative) {
       if (!nativeOcrAvailable) throw new Error("Native OCR not available for structured buffer");
       return textToStructuredResult(await nativeOcrBuffer(imageBuffer, timeoutMs));
     }
 
-    // If the native binding is available, prefer it — it's faster and avoids the
+    // If the native binding is available, prefer it - it's faster and avoids the
     // PowerShell server process entirely (no startup latency, no crash risk).
     if (nativeOcrAvailable) {
       try {

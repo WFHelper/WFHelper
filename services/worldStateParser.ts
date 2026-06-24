@@ -166,7 +166,7 @@ function resolveItemName(itemPath: string): string {
   // Fallback: extract readable name from path slug
   const slug = itemPath.split("/").pop() || itemPath;
   const readable = slug.replace(/([a-z])([A-Z])/g, "$1 $2").trim();
-  // Glyphs are stored as "AvatarImage..." in data — display as "Glyph ..."
+  // Glyphs are stored as "AvatarImage..." in data - display as "Glyph ..."
   if (readable.startsWith("Avatar Image")) return readable.replace("Avatar Image", "Glyph").trim();
   return readable;
 }
@@ -393,7 +393,7 @@ const RAW_BOUNTY_SYNDICATES: Record<string, string> = {
   EntratiSyndicate: "Entrati",
 };
 
-// These syndicates don't have Jobs in the raw world state — they're procedurally
+// These syndicates don't have Jobs in the raw world state - they're procedurally
 // generated from a seed. oracle.browse.wf/bounty-cycle pre-computes the node
 // assignments. Standing tiers are static per syndicate tier index.
 interface BountyCycleJob {
@@ -648,7 +648,7 @@ function parseBountyCycleBounties(data: BountyCycleResponse): unknown[] {
 async function fetchAndComputeCycles(): Promise<Record<string, unknown>> {
   const nowMs = Date.now();
 
-  // Vallis and Duviri are pure math — always available
+  // Vallis and Duviri are pure math - always available
   const vallisCycle = computeVallisCycle(nowMs);
   const duviriCycle = computeDuviriMoodCycle(nowMs);
 
@@ -753,11 +753,11 @@ export async function fetchAndParse(): Promise<Record<string, unknown>> {
     duviriCycle: computeDuviriMoodCycle(nowMs),
   };
 
-  // Steel Path is computed locally (epoch-based rotation) — no external API needed
+  // Steel Path is computed locally (epoch-based rotation) - no external API needed
   const steelPath = computeSteelPathHonors();
 
   // Merge bounties from three sources:
-  // 1. Raw world state (Ostrons/Solaris/Entrati — most reliable)
+  // 1. Raw world state (Ostrons/Solaris/Entrati - most reliable)
   // 2. Warframestat (same syndicates, fallback with nicer names)
   // 3. Bounty-cycle (seed-generated: Holdfasts/Cavia/Hex)
   const rawBounties = (parsed.bounties || []) as { syndicateKey?: string }[];
@@ -771,7 +771,7 @@ export async function fetchAndParse(): Promise<Record<string, unknown>> {
   for (const b of rawBounties) {
     if (b.syndicateKey) bountyMap.set(b.syndicateKey, b);
   }
-  // warframestat uses display names as syndicateKey — skip if raw already has this syndicate
+  // warframestat uses display names as syndicateKey - skip if raw already has this syndicate
   for (const b of warframestatBounties) {
     if (b.syndicateKey && !rawDisplayNames.has(b.syndicateKey) && !bountyMap.has(b.syndicateKey)) {
       bountyMap.set(b.syndicateKey, b);

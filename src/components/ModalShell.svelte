@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy, tick } from "svelte";
 
-  /** Accessible name for the dialog — typically the item/entity name. */
+  /** Accessible name for the dialog - typically the item/entity name. */
   export let ariaLabel: string;
   /** Called on Escape key, close button, or backdrop click. */
   export let onClose: () => void;
@@ -36,7 +36,7 @@
     if (e.key === 'Tab') {
       const focusables = getFocusable();
       if (focusables.length === 0) {
-        // Nothing focusable — keep focus on the overlay itself.
+        // Nothing focusable - keep focus on the overlay itself.
         e.preventDefault();
         overlayEl?.focus();
         return;

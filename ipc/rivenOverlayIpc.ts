@@ -204,7 +204,7 @@ let _rivenHasRollResult = false;
 // results, the old one discards its output rather than overwriting.
 let _rollScanSerial = 0;
 
-// OCR scan timers — scans run after a short delay to let the UI animate.
+// OCR scan timers - scans run after a short delay to let the UI animate.
 let _rivenInitialScanTimer: ReturnType<typeof setTimeout> | null = null;
 let _rivenRollScanTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -217,7 +217,7 @@ const CHOICE_RESCAN_DELAY_MS = 1200;
 let _rivenInitialStats: rivenScan.RivenStat[] = [];
 let _rivenNewRollStats: rivenScan.RivenStat[] = [];
 
-// Weapon name — starts as "Riven" placeholder, updated when cycle dialog reveals it
+// Weapon name - starts as "Riven" placeholder, updated when cycle dialog reveals it
 let _rivenWeaponName = "";
 
 function isRivenOverlayEnabled(): boolean {
@@ -299,7 +299,7 @@ function sendWeaponEnrichment(): void {
   });
 
   // Fetch ALL auctions for this weapon (no stat filtering) so the overlay
-  // renderer's computeSimilarity() can rank them client-side — same approach
+  // renderer's computeSimilarity() can rank them client-side - same approach
   // as RivenDetailModal.
   const slug = rivenDataSvc.getRivenFamilySlug(_rivenWeaponName);
   wfmRivenSearch
@@ -479,7 +479,7 @@ export function onRivenSessionOpen(): void {
   _rivenWeaponName = "";
   rivenScan.resetRivenScanAbort();
   createRivenOverlayWindows({ show: true });
-  // Start (or restart) the session — resets roll count, clears panels.
+  // Start (or restart) the session - resets roll count, clears panels.
   // Weapon name is "Riven" placeholder until the first cycle dialog reveals it.
   rivenSession.startSession(getRivenWindows(), "Riven", 0);
   if (ctx.overlayThemeVars && Object.keys(ctx.overlayThemeVars).length > 0) {
@@ -496,7 +496,7 @@ export function onRivenRollPending(weapon: string, kuvaPerRoll: number): void {
     `[OverlayRoute] onRivenRollPending: weapon="${weapon}", kuva=${kuvaPerRoll}, current="${_rivenWeaponName}"`,
   );
   // Update weapon name from the cycle dialog text (first time we learn it).
-  // Don't call startSession — that would reset the roll count and wipe
+  // Don't call startSession - that would reset the roll count and wipe
   // the stats that the initial scan already populated.
   const isFirstReveal = _rivenWeaponName === "" || _rivenWeaponName === "Riven";
   if (weapon) {
@@ -535,7 +535,7 @@ export function onRivenChoiceConfirmed(): void {
   // native OCR binding with FATAL ERROR: ThrowAsJavaScriptException.
   const anyVisible = getRivenWindows().some((w) => w && !w.isDestroyed() && w.isVisible());
   if (!anyVisible) {
-    log.info("[RivenScan] choice confirmed but overlay is not visible — skipping");
+    log.info("[RivenScan] choice confirmed but overlay is not visible - skipping");
     return;
   }
 
@@ -544,9 +544,9 @@ export function onRivenChoiceConfirmed(): void {
 
   // IMPORTANT: SendResult(4) fires for BOTH "accept new roll" (user clicked right card
   // then CONFIRM) AND "confirm keeping current" (user clicked left card then CONFIRM).
-  // There is NO way to determine the chosen side from EE.log alone — we MUST rescan.
+  // There is NO way to determine the chosen side from EE.log alone - we MUST rescan.
 
-  // Snapshot both stat sets NOW under local names — _rivenNewRollStats / _rivenInitialStats
+  // Snapshot both stat sets NOW under local names - _rivenNewRollStats / _rivenInitialStats
   // may be overwritten if the user immediately starts another roll before the timer fires.
   const preChoiceStats = _rivenInitialStats.slice();
   const newRollStats = _rivenNewRollStats.slice();

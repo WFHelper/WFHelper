@@ -1,5 +1,5 @@
 /**
- * dropData.ts — WFCD drop tables (drops.warframestat.us) flattened into
+ * dropData.ts - WFCD drop tables (drops.warframestat.us) flattened into
  * {item, place, rarity, chance} rows for the wiki search tab. Fetched once,
  * cached to disk by the upstream hash, refreshed in the background.
  */
@@ -44,7 +44,7 @@ async function fetchJson<T>(url: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-// ── flattening ──────────────────────────────────────────────────────────────
+// flattening
 
 type Reward = {
   itemName?: string;
@@ -185,7 +185,7 @@ function flatten(data: AllData): DropRow[] {
   });
 }
 
-// ── cache + load ──────────────────────────────────────────────────────────────
+// cache + load
 
 function readCache(): CachePayload | null {
   try {

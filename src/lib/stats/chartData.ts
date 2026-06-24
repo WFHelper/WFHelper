@@ -1,6 +1,6 @@
 /**
  * Pure chart-data computation extracted from StatsView.
- * No Svelte, i18n, or IPC dependencies — just types, constants, and functions.
+ * No Svelte, i18n, or IPC dependencies - just types, constants, and functions.
  */
 import type { DailyStatEntry } from "../../types/ipc.js";
 
@@ -87,7 +87,7 @@ export const formatters: Record<ChartKey, (abs: number) => string> = {
 };
 
 export function formatAbsolute(n: number | null): string {
-  if (n === null) return "—";
+  if (n === null) return "-";
   const abs = Math.abs(n);
   if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
   if (abs >= 100_000) return `${(n / 1_000).toFixed(1)}k`;

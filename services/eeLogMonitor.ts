@@ -50,7 +50,7 @@ const TRADE_PARTNER_PATTERN = /TradingPost\.lua.*?[Tt]rade.*?[Ww]ith[: ]+([A-Za-
 
 // An incoming whisper opens a private chat tab, logged as:
 //   ChatRedux::AddTab: Adding tab with channel name: F<User> to index <N>
-// The message text is never logged — only that a conversation opened and from
+// The message text is never logged - only that a conversation opened and from
 // whom. The "F" prefix marks a private/whisper tab; strip it for the username.
 const CHAT_TAB_MARKER = "ChatRedux::AddTab: Adding tab with channel name: ";
 
@@ -69,13 +69,13 @@ export function parseWhisperUsername(line: string): string | null {
 
 /** Debounce before firing the reward-screen overlay after a log pattern match. */
 const TRIGGER_DELAY_MS = 450;
-/** Debounce for relic-picker — gives the in-game UI time to finish rendering. */
+/** Debounce for relic-picker - gives the in-game UI time to finish rendering. */
 const RELIC_TRIGGER_DELAY_MS = 300;
 /** Cooldown between consecutive reward scans to avoid duplicate log-line triggers. */
 const REWARD_TRIGGER_COOLDOWN_MS = 2500;
 // Covers delayed EE.log flushes after the DBWIN trigger has already fired.
 const RELIC_PICKER_COOLDOWN_MS = 3000;
-/** Grace period after close before another close can fire — debounces rapid log flushes. */
+/** Grace period after close before another close can fire - debounces rapid log flushes. */
 const RELIC_PICKER_CLOSE_COOLDOWN_MS = 500;
 // Minimum gap between the last open trigger and a close trigger being honoured.
 // Prevents InitMapping from closing the overlay when it fires as part of
@@ -280,11 +280,11 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
     _tradeDialogBuffer = [line];
     _tradeDialogStartAt = Date.now();
     // Single-line dialogs (…, leftItem=/Menu/Confirm_Item_Ok) are already complete
-    // at this point — the buffered line stands; we just wait for the success line.
+    // at this point - the buffered line stands; we just wait for the success line.
   } else if (_tradeDialogBuffer !== null) {
     // Stop buffering when a log framework line appears.
     if (/\[(Info|Error|Warning)\]/.test(line)) {
-      // Buffer is complete — don't add this line, just stop buffering and wait for success
+      // Buffer is complete - don't add this line, just stop buffering and wait for success
     } else if (Date.now() - _tradeDialogStartAt > TRADE_DIALOG_TIMEOUT_MS) {
       _tradeDialogBuffer = null;
     } else {
@@ -301,7 +301,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
     }
   }
 
-  // Delegate to the riven state machine — returns whether SendResult was consumed.
+  // Delegate to the riven state machine - returns whether SendResult was consumed.
   processRivenPatterns(line, source, isDbwinActive());
 
   // InitMapping fires when the game returns to gameplay from any full-screen UI.
@@ -312,10 +312,10 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
     if (relicPickerSessionOpen && now - lastRelicPickerCloseAt >= RELIC_PICKER_CLOSE_COOLDOWN_MS) {
       lastRelicPickerCloseAt = now;
       if (now - lastRelicPickerAt < RELIC_PICKER_CLOSE_MIN_GAP_MS) {
-        // Too close to the last open trigger — this InitMapping is from navigating
+        // Too close to the last open trigger - this InitMapping is from navigating
         // TO the relic screen, not FROM it. Skip to avoid closing the overlay
         // immediately after it opens.
-        log.info("[EELog] Relic picker close skipped — too close to last open trigger");
+        log.info("[EELog] Relic picker close skipped - too close to last open trigger");
       } else if (relicPickerCloseCallback) {
         relicPickerSessionOpen = false;
         log.info("[EELog] Relic picker close detected -> dispatching overlay close");

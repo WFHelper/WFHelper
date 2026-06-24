@@ -5,7 +5,7 @@
  */
 
 @layer components {
-  /* ── app layout ──────────────────────────────────────────────── */
+  /* app layout */
   #app {
     display: flex;
     height: calc(100vh - var(--titlebar-height) - var(--statusbar-height));
@@ -42,7 +42,7 @@
     overflow: hidden;
   }
 
-  /* ── view header ─────────────────────────────────────────────── */
+  /* view header */
   .view-header {
     margin-bottom: 1rem;
     display: flex;
@@ -66,7 +66,7 @@
     gap: 0.625rem;
   }
 
-  /* ── shared filter bar ───────────────────────────────────────── */
+  /* shared filter bar */
   .shared-filter-bar {
     margin-bottom: 0.9rem;
     display: flex;
@@ -189,7 +189,7 @@
     min-width: 8rem;
   }
 
-  /* ── search box ──────────────────────────────────────────────── */
+  /* search box */
   .search-box {
     position: relative;
     min-width: 12rem;
@@ -229,7 +229,7 @@
     box-shadow: 0 0 0 3px rgba(212, 168, 67, 0.12);
   }
 
-  /* ── filter tabs (pill style, used by shared filter bars) ────── */
+  /* filter tabs (pill style, used by shared filter bars) */
   .filter-tabs {
     display: flex;
     flex-wrap: wrap;
@@ -262,7 +262,7 @@
     color: var(--accent);
   }
 
-  /* ── buttons ─────────────────────────────────────────────────── */
+  /* buttons */
   .btn-primary,
   .btn-secondary,
   .btn-danger,
@@ -322,7 +322,7 @@
     font-size: 0.75rem;
   }
 
-  /* ── empty state ─────────────────────────────────────────────── */
+  /* empty state */
   .empty-state {
     min-height: 15rem;
     display: flex;
@@ -353,7 +353,7 @@
     color: var(--accent-bright);
   }
 
-  /* ── cross-component card grids ──────────────────────────────── */
+  /* cross-component card grids */
   .item-grid,
   #relic-grid {
     display: grid;
@@ -361,7 +361,7 @@
     gap: 0.75rem;
   }
 
-  /* ── cross-component card surface ────────────────────────────── */
+  /* cross-component card surface */
   .item-card,
   .resource-card,
   .order-row {
@@ -387,7 +387,7 @@
     background: var(--bg-raised);
   }
 
-  /* ── cross-component card body / name / type ─────────────────── */
+  /* cross-component card body / name / type */
   .item-body,
   .resource-info {
     display: flex;
@@ -413,7 +413,7 @@
     color: var(--text-secondary);
   }
 
-  /* ── cross-component image wrapper base ──────────────────────── */
+  /* cross-component image wrapper base */
   .resource-img-wrap {
     display: flex;
     align-items: center;
@@ -439,7 +439,7 @@
     object-fit: contain;
   }
 
-  /* ── cross-component rank bar ────────────────────────────────── */
+  /* cross-component rank bar */
   .item-rank-bar {
     margin-top: 0.2rem;
     height: 0.28rem;
@@ -464,7 +464,7 @@
     color: var(--text-muted);
   }
 
-  /* ── cross-component badges ──────────────────────────────────── */
+  /* cross-component badges */
   .vault-badge,
   .count-badge {
     position: absolute;
@@ -494,7 +494,7 @@
     letter-spacing: 0.02em;
   }
 
-  /* ── cross-component pills / icons / tier colours ────────────── */
+  /* cross-component pills / icons / tier colours */
   .order-vis {
     display: inline-flex;
     align-items: center;
@@ -547,8 +547,8 @@
     color: #a855f7;
   }
 
-  /* ── cross-component toggle button groups ────────────────────── */
-  /* ── tab bar (underline style, used by rivens / settings) ───── */
+  /* cross-component toggle button groups */
+  /* tab bar (underline style, used by rivens / settings) */
   .tab-bar {
     display: flex;
     gap: 0;
@@ -585,7 +585,7 @@
     flex-shrink: 0;
   }
 
-  /* ── detail / modal framework ────────────────────────────────── */
+  /* detail / modal framework */
   .detail-overlay {
     position: fixed;
     inset: 0;

@@ -52,7 +52,7 @@
       session = nextSession;
       history = nextHistory;
     } catch {
-      // silently ignore — stats tracker may not have data yet
+      // silently ignore - stats tracker may not have data yet
     }
   }
 
@@ -72,7 +72,7 @@
       void refreshStats();
     });
 
-    // Live trade push — prepend new trades as they arrive
+    // Live trade push - prepend new trades as they arrive
     unsubTrade = on("trade-recorded", (data) => {
       if (data?.trade) {
         // Check if we already have this trade (from initial push before WFM match)
@@ -232,7 +232,7 @@
 
   $: chartDataMap = computeChartDataMap(history, chartDays);
 
-  // Expanded modal chart data — recomputes when expandedKey or chartDays changes
+  // Expanded modal chart data - recomputes when expandedKey or chartDays changes
   $: expandedChartData = expandedKey
     ? barsForKey(expandedKey, history, chartDays, BAR_H_EXPAND)
     : null;
@@ -371,7 +371,7 @@
                 />
               {/if}
             </svg>
-            <!-- Expanded dot overlay — tooltip only on dot hover, active days only -->
+            <!-- Expanded dot overlay - tooltip only on dot hover, active days only -->
             {#if showValue && expandedChartData?.absLine}
               <div class="absolute inset-0 pointer-events-none">
                 {#each expandedChartData.absLine as pt}
@@ -451,7 +451,7 @@
   {:else}
     <div class="flex flex-1 min-h-0 overflow-hidden">
 
-      <!-- ── LEFT: session stats + charts ────────────────────────────────── -->
+      <!-- LEFT: session stats + charts -->
       <div class="flex flex-1 min-w-0 flex-col gap-4 overflow-y-auto overflow-x-hidden p-4">
 
         {#if importStatus}

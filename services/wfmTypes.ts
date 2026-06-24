@@ -1,5 +1,5 @@
 /**
- * wfmTypes.ts — Shared Warframe.market API response types (main-process only)
+ * wfmTypes.ts - Shared Warframe.market API response types (main-process only)
  *
  * WFM has two response envelope shapes depending on API version:
  * - v1: `{ payload: T }`

@@ -46,7 +46,7 @@ const UNTRADABLE_SKIP_TTL_SEC = 30 * 24 * 60 * 60;
 
 interface FetchResult<T> {
 	data: T | null;
-	/** true when the failure is transient (429/5xx) — do NOT negatively cache. */
+	/** true when the failure is transient (429/5xx) - do NOT negatively cache. */
 	transient: boolean;
 	inactive?: boolean;
 }
@@ -746,7 +746,7 @@ export async function prewarmBatch(
 	await env.PRICE_CACHE.put(PREWARM_LAST_RUN_KEY, JSON.stringify(result));
 
 	// Incrementally patch the snapshot with items written this batch.
-	// This means after a full catalog walk the snapshot contains all items — no
+	// This means after a full catalog walk the snapshot contains all items - no
 	// per-invocation subrequest cap applies here since we only do 1 read + 1 write.
 	if (Object.keys(snapshotPrices).length > 0 || Object.keys(snapshotMeta).length > 0) {
 		await patchSnapshot(env, { prices: snapshotPrices, meta: snapshotMeta });

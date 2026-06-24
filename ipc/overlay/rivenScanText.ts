@@ -170,7 +170,7 @@ function preprocessOcrText(raw: string): string {
   // "x1 .3 Damage" → "x1.3 Damage" / "x1 .36 Damage" → "x1.36 Damage"
   text = text.replace(/\b(x\d+)\s+\.(\d+)/g, "$1.$2");
   // Rejoin x-multiplier where WinRT splits the decimal after the stat name:
-  // "x1 Damage to Corpus\n.3" or "x1\nDamage to Corpus .3" — capture the trailing
+  // "x1 Damage to Corpus\n.3" or "x1\nDamage to Corpus .3" - capture the trailing
   // orphan decimal and attach to the previous x-multiplier on the same or prior line.
   text = text.replace(/\b(x\d+)(\s+(?:Damage\s+to\s+\w+|[A-Z][a-z]+))\n\.(\d+)/g, "$1.$3$2");
   // Handle WinRT emitting an integer x-multiplier followed by isolated decimal on next line:
@@ -325,7 +325,7 @@ function collapseOrphanValueLines(lines: string[]): string[] {
       // Allow trailing comma so "+62," (integer part of a split "+62.2%") is
       // treated as a value-only orphan and paired with the following stat name.
       /^[+\-\u2013x\d\s.,% ]+$/i.test(current) &&
-      // Reject bare integers (1–4 digits, no sign, %, s, x, or .) — these are
+      // Reject bare integers (1-4 digits, no sign, %, s, x, or .) - these are
       // UI artefacts such as tier indicators ("7"), polarity+rank ("47") or MR
       // numbers that appear at the edges of the stats area and are not stat values.
       !/^\d{1,4}$/.test(current.trim());
@@ -338,7 +338,7 @@ function collapseOrphanValueLines(lines: string[]): string[] {
     if (pendingValues.length > 0 && lineContainsKnownStat(current)) {
       // Only pair the oldest pending value with this stat-name line if the line
       // does NOT already have its own extractable value. If it does (e.g.
-      // "-1.1 Range"), the orphan is irrelevant — the stat's value is right
+      // "-1.1 Range"), the orphan is irrelevant - the stat's value is right
       // there in the line and prepending would corrupt it.
       const lineOwnValue = extractSignAndValue(current);
       if (lineOwnValue === null || lineOwnValue.value === null) {
@@ -500,7 +500,7 @@ function parseStatsFromLines(text: string): RivenStat[] {
       // which means the two stats are on SEPARATE card rows, not a combined element.
       // A prefix of "+ " (sign + whitespace only, directly before the stat name)
       // IS the combined-element separator and SHOULD carry forward.
-      // Also require the PREVIOUS stat itself to be a damage type — combined
+      // Also require the PREVIOUS stat itself to be a damage type - combined
       // element combos only happen between two damage-type stats (e.g.
       // "Electricity Impact", "Cold Toxin").  Non-damage stats like
       // "Status Duration" or "Melee Damage" never combine with an element.
@@ -508,9 +508,9 @@ function parseStatsFromLines(text: string): RivenStat[] {
       if (value === null && index > 0 && DAMAGE_TYPE_STAT_NAMES.has(key) && !hasNoisySignInPrefix) {
         const prev = results[results.length - 1];
         // Do not carry-forward from multiplier stats (x1.3 Damage to Grineer is a
-        // different stat class — carry-forward is only for shared elemental combos
+        // different stat class - carry-forward is only for shared elemental combos
         // like "+112% Electricity Impact").
-        // Do not carry-forward from non-damage-type stats — those are separate
+        // Do not carry-forward from non-damage-type stats - those are separate
         // card rows that WinRT OCR merged onto one line.
         const prevIsDamageType = prev && DAMAGE_TYPE_STAT_NAMES.has(prev.name.toLowerCase());
         if (prev && prev.value !== null && !prev.multiplier && prevIsDamageType) {

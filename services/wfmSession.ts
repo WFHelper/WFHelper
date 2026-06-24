@@ -81,7 +81,7 @@ function _saveSession(token: string, userName: string): void {
       return;
     }
 
-    log.warn("[WFMSession] safeStorage unavailable — session will not be persisted to disk");
+    log.warn("[WFMSession] safeStorage unavailable - session will not be persisted to disk");
   } catch (err) {
     log.error("[WFMSession] Failed to persist session:", normalizeErrorMessage(err));
   }
@@ -111,7 +111,7 @@ function _loadSession(): { token: string; userName: string; platform: string } |
     if (safeStorage.isEncryptionAvailable()) {
       payload = safeStorage.decryptString(raw);
     } else {
-      log.warn("[WFMSession] safeStorage unavailable — skipping persisted session restore");
+      log.warn("[WFMSession] safeStorage unavailable - skipping persisted session restore");
       return null;
     }
 

@@ -1,8 +1,8 @@
 /**
- * rivenGrading.ts — Riven stat grading service (main-process only)
+ * rivenGrading.ts - Riven stat grading service (main-process only)
  *
  * Ports the grading algorithm from browse.wf/calamity's RivenParser.js:
- *  - Reverse-calculates the 0–1 roll float from the displayed stat value
+ *  - Reverse-calculates the 0-1 roll float from the displayed stat value
  *  - Maps roll float to a letter grade (S, A+, A, ..., F)
  *
  * The core forward formula (from RivenParser.js parseRiven):
@@ -85,7 +85,7 @@ function inverseLerp(a: number, b: number, v: number): number {
 
 
 /**
- * Convert a 0–1 roll float to a letter grade.
+ * Convert a 0-1 roll float to a letter grade.
  * For curses, pass isCurse=true: the grade is inverted (low absolute curse value = good).
  */
 export function floatToGrade(rollFloat: number, isCurse: boolean): string {
@@ -140,7 +140,7 @@ export function unparseBuff(
   value /= attenuation;
   // Use abs(baseValue) because our OCR input is always the absolute displayed
   // value. Some stats like recoil have negative baseValues even when appearing
-  // as buffs — the sign is already handled by the buff/curse classification.
+  // as buffs - the sign is already handled by the buff/curse classification.
   value /= Math.abs(baseValue);
 
   // value is now lerp(0.9, 1.1, rollFloat) → invert
@@ -205,11 +205,11 @@ export function unparseCurse(
 
 /**
  * Per-attribute grade:
- *   Decisive  — positive listed in some `goodAttrs[*].mandatory`
- *   Good      — positive in some `goodAttrs[*].optional`,
+ *   Decisive  - positive listed in some `goodAttrs[*].mandatory`
+ *   Good      - positive in some `goodAttrs[*].optional`,
  *               or a negative listed in `acceptedBadAttrs`
- *   Bad       — negative listed in some `goodAttrs[*].mandatory|optional`
- *   NotHelping — anything else
+ *   Bad       - negative listed in some `goodAttrs[*].mandatory|optional`
+ *   NotHelping - anything else
  */
 type AlecaAttrGrade = "Decisive" | "Good" | "NotHelping" | "Bad";
 
@@ -346,7 +346,7 @@ export function gradeRiven(
     // Map OCR name to upgrade tag
     const tag = rivenData.statNameToTag(stat.name);
     if (!tag) {
-      log.debug(`[RivenGrade] Unknown stat: "${stat.name}" — assigning B grade`);
+      log.debug(`[RivenGrade] Unknown stat: "${stat.name}" - assigning B grade`);
       gradedStats.push({
         ...stat,
         grade: "B",
@@ -416,7 +416,7 @@ export function gradeRiven(
       scoreSum += score;
       scoredCount++;
     } else {
-      // No value — can't grade, assign mid-range
+      // No value - can't grade, assign mid-range
       gradedStats.push({
         ...stat,
         grade: "?",

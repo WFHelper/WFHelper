@@ -89,7 +89,7 @@
       class:world-faction-corpus={attackerCls === "corpus"}
       class:world-faction-infested={attackerCls === "infested"}
     >{inv.completion.toFixed(1)}%</span>
-    <span class="opacity-40">–</span>
+    <span class="opacity-40">-</span>
     <span
       class:world-faction-grineer={defenderCls === "grineer"}
       class:world-faction-corpus={defenderCls === "corpus"}

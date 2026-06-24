@@ -90,7 +90,7 @@
       const listingPosNames = r.stats.filter((s) => s.positive).map((s) => s.name.toLowerCase());
       const listingNegNames = r.stats.filter((s) => !s.positive).map((s) => s.name.toLowerCase());
 
-      // Check required attributes — each required stat must be present
+      // Check required attributes - each required stat must be present
       let failsRequired = false;
       for (const sel of requiredPos) {
         if (!listingPosNames.some((n) => n.includes(sel.name) || sel.name.includes(n))) {
@@ -160,7 +160,7 @@
     searching = true;
     hasSearched = true;
     try {
-      // Fetch ALL auctions for this weapon — filtering + similarity is client-side
+      // Fetch ALL auctions for this weapon - filtering + similarity is client-side
       rawResults = await invoke("searchRivenAuctions", selectedWeapon, [], []);
     } catch (err) {
       rawResults = [];
@@ -185,7 +185,7 @@
 </script>
 
 <div class="grid grid-cols-[1fr_1.4fr] max-[650px]:grid-cols-1 gap-5 mb-4">
-  <!-- ── Left panel: Weapon info + best attributes ── -->
+  <!-- Left panel: Weapon info + best attributes -->
   <div class="flex flex-col gap-3">
     <div class="flex flex-col gap-1.5">
       <span class="font-display text-xs uppercase tracking-[0.06em] text-text-muted">Weapon</span>
@@ -222,7 +222,7 @@
     {/if}
   </div>
 
-  <!-- ── Right panel: Attribute filters + search ── -->
+  <!-- Right panel: Attribute filters + search -->
   <div class="flex flex-col gap-3">
     <div class="flex flex-col gap-1.5">
       <span class="font-display text-xs uppercase tracking-[0.06em] text-text-muted">Attributes</span>
@@ -251,13 +251,13 @@
         <div class="flex items-center gap-1.5">
           <span class="font-display text-xs text-text-secondary min-w-14 shrink-0">Price</span>
           <ThemedInput type="number" className="w-20 py-1 text-xs" placeholder="Min" bind:value={priceMin} min="0" />
-          <span class="text-text-muted text-xs">–</span>
+          <span class="text-text-muted text-xs">-</span>
           <ThemedInput type="number" className="w-20 py-1 text-xs" placeholder="Max" bind:value={priceMax} min="0" />
         </div>
         <div class="flex items-center gap-1.5">
           <span class="font-display text-xs text-text-secondary min-w-14 shrink-0">Rerolls</span>
           <ThemedInput type="number" className="w-20 py-1 text-xs" placeholder="Min" bind:value={rerollsMin} min="0" />
-          <span class="text-text-muted text-xs">–</span>
+          <span class="text-text-muted text-xs">-</span>
           <ThemedInput type="number" className="w-20 py-1 text-xs" placeholder="Max" bind:value={rerollsMax} min="0" />
         </div>
         <div class="flex items-center gap-1.5">
@@ -284,7 +284,7 @@
   </div>
 </div>
 
-<!-- ── Results ── -->
+<!-- Results -->
 {#if searching}
   <div class="text-center py-8 text-sm text-text-muted">Searching warframe.market auctions…</div>
 {:else if hasSearched && filteredResults.length === 0}

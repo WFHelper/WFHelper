@@ -23,7 +23,7 @@
 
   function valueLabel(value: MetricValue): string {
     if (hasValue(value)) return String(value);
-    return state === "loading" ? "..." : "—";
+    return state === "loading" ? "..." : "-";
   }
 
   function toneClass(value: MetricValue, tone: "plat" | "ducat"): string {

@@ -1,5 +1,5 @@
 /**
- * Barrel module — re-exports from relic sub-modules.
+ * Barrel module - re-exports from relic sub-modules.
  *
  * All relic-related logic lives in `src/lib/relic/`. This file exists so that
  * existing consumer imports (`from "./relic.js"`) continue to work unchanged.

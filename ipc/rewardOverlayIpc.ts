@@ -59,7 +59,7 @@ import fs from "node:fs";
 
 const APP_ROOT = app.getAppPath();
 const OVERLAY_WINDOW_FILE = path.join(APP_ROOT, "renderer", "overlay.html");
-// Prices (and ducat meta) now live in the snapshot cache — price-cache.json is no longer written.
+// Prices (and ducat meta) now live in the snapshot cache - price-cache.json is no longer written.
 const PRICE_CACHE_FILE = path.join(app.getPath("userData"), "snapshot-cache.json");
 
 

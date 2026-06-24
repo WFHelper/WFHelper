@@ -50,7 +50,7 @@ export function initStartup(): StartupHandle {
       log.warn("[Startup] loadRankedHotset failed:", e);
     }
 
-    // Bulk snapshot — populates all three caches in one network request (best-effort)
+    // Bulk snapshot - populates all three caches in one network request (best-effort)
     try {
       const stageStart = Date.now();
       await tryLoadSnapshot();

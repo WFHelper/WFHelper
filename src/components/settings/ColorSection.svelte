@@ -72,7 +72,7 @@
   /** Native color inputs only accept hex. Convert rgba to a displayable hex fallback. */
   function toHexInput(value: string): string {
     if (value.startsWith("#")) return value.length > 7 ? value.slice(0, 7) : value;
-    // For rgba values, we can't cleanly show in a color picker — show a neutral fallback
+    // For rgba values, we can't cleanly show in a color picker - show a neutral fallback
     const match = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(value);
     if (match) {
       const r = parseInt(match[1], 10).toString(16).padStart(2, "0");

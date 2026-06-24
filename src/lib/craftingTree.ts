@@ -28,7 +28,7 @@ interface CraftingTreeSummary {
 
 const MAX_DEPTH = 5;
 
-/** Common resource path prefixes — never recurse into these sub-trees. */
+/** Common resource path prefixes - never recurse into these sub-trees. */
 const LEAF_RESOURCE_PREFIXES = ["/Lotus/Types/Items/MiscItems/", "/Lotus/Types/Items/Research/"];
 
 /**

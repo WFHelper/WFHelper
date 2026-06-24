@@ -115,7 +115,7 @@ function toggleOverlayInteractionMode(source = "unknown"): void {
           : null;
 
   if (!activeWindow) {
-    // Nothing is visible — do nothing. This prevents the reward overlay from
+    // Nothing is visible - do nothing. This prevents the reward overlay from
     // appearing unexpectedly when Ctrl+Tab is pressed after closing the planner.
     return;
   }

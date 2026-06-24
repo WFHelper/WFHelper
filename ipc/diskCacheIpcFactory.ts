@@ -2,8 +2,8 @@
  * Factory for disk-backed JSON cache IPC handlers.
  *
  * Each cache pair exposes two IPC channels:
- *   - `<prefix>:load`  — reads a JSON file from `userData` and returns its contents
- *   - `<prefix>:save`  — writes a JSON blob to the same file
+ *   - `<prefix>:load`  - reads a JSON file from `userData` and returns its contents
+ *   - `<prefix>:save`  - writes a JSON blob to the same file
  *
  * All handlers enforce sender authorization via `assertMainRendererSender`.
  */

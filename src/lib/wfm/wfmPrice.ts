@@ -251,7 +251,7 @@ async function fetchPriceBySlugInternal(
     if (!_warnedNoDataSlugs.has(slug)) {
       _warnedNoDataSlugs.add(slug);
       log.warn(
-        `[WFM price] No data for "${slug}" — if non-tradable, add to WFM_EXCLUDED_SLUGS in config/shared/wfmExclusions.ts`,
+        `[WFM price] No data for "${slug}" - if non-tradable, add to WFM_EXCLUDED_SLUGS in config/shared/wfmExclusions.ts`,
       );
     }
     bumpCounter("resultNoData");

@@ -176,7 +176,7 @@ describe("unparseBuff", () => {
     expect(unparseBuff(50, 0, 1.0, 1, 0)).toBe(0.5);
   });
 
-  it("clamps result to 0–1 range", () => {
+  it("clamps result to 0-1 range", () => {
     expect(unparseBuff(9999, 0.016666, 0.7, 1, 0, "WeaponCritChanceMod")).toBe(1.0);
     expect(unparseBuff(0, 0.016666, 0.7, 1, 0, "WeaponCritChanceMod")).toBe(0.0);
   });

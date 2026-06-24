@@ -1,5 +1,5 @@
 /**
- * rivenData.ts — Riven mod data service (main-process only)
+ * rivenData.ts - Riven mod data service (main-process only)
  *
  * Loads and indexes riven-related data from warframe-public-export-plus:
  *  - Weapon disposition (omegaAttenuation)
@@ -23,9 +23,9 @@ interface UpgradeEntry {
   baseValue: number;
   /** Resolved English display name (e.g. "Critical Chance") */
   displayName: string;
-  /** Omega prefix syllable (e.g. "crita") — empty if stat has no name contribution */
+  /** Omega prefix syllable (e.g. "crita") - empty if stat has no name contribution */
   prefix: string;
-  /** Omega suffix syllable (e.g. "cron") — empty if stat has no name contribution */
+  /** Omega suffix syllable (e.g. "cron") - empty if stat has no name contribution */
   suffix: string;
 }
 
@@ -396,13 +396,13 @@ export function findUpgradeEntry(rivenTypeKey: string, tag: string): UpgradeEntr
   // Try exact match first, then fall back to suffix match
   let found = entries.find((e) => e.tag === tag);
   if (!found) {
-    // Try matching without the "Melee" prefix — e.g. "WeaponMeleeFactionDamageCorpus"
+    // Try matching without the "Melee" prefix - e.g. "WeaponMeleeFactionDamageCorpus"
     // when we looked up "WeaponFactionDamageCorpus"
     const meleeFallback = tag.replace("WeaponFaction", "WeaponMeleeFaction");
     found = entries.find((e) => e.tag === meleeFallback);
   }
   if (!found) {
-    // Try matching without the "Melee" prefix — e.g. "WeaponDamageAmountMod"
+    // Try matching without the "Melee" prefix - e.g. "WeaponDamageAmountMod"
     // when melee uses "WeaponMeleeDamageMod"
     if (tag === "WeaponDamageAmountMod") {
       found = entries.find((e) => e.tag === "WeaponMeleeDamageMod");
@@ -511,7 +511,7 @@ export function findWeaponInText(text: string): string | null {
     if (lc.includes(nameLc)) {
       // Return the display-cased version from the unique name
       // Since we only stored lowercase, reconstruct from the raw data.
-      // Actually the map value has uniqueName — but we need display name.
+      // Actually the map value has uniqueName - but we need display name.
       // We'll keep a second map, or just re-case.  For now return the
       // known key with proper casing via _weaponDisplayNames.
       bestExact = _weaponDisplayNames.get(nameLc) || nameLc;

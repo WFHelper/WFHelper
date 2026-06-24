@@ -1,5 +1,5 @@
 /**
- * tradeTracker.ts — Persists trade events detected from EE.log trade
+ * tradeTracker.ts - Persists trade events detected from EE.log trade
  * confirmation dialogs.
  *
  * Trade detection is driven exclusively by EE.log parsing in eeLogMonitor.ts:
@@ -23,7 +23,7 @@ import type { TradeType, TradeDirection, TradeItem, TradeEvent } from "../config
 const log = withScope("tradeTracker");
 
 const MAX_EVENTS = 2000;
-const MIN_COOLDOWN_MS = 10_000; // 10 s — suppresses duplicate events
+const MIN_COOLDOWN_MS = 10_000; // 10 s - suppresses duplicate events
 
 let _lastEventTime = 0;
 let _tradeLog: TradeEvent[] = [];

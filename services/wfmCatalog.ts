@@ -7,7 +7,7 @@ import { formatWfmAssetUrl, titleFromSlug } from "../config/shared/wfm";
 const log = withScope("wfmCatalog");
 
 /**
- * wfmCatalog.ts — Warframe.market item catalog (main-process only)
+ * wfmCatalog.ts - Warframe.market item catalog (main-process only)
  *
  * Loads the full WFM item list on first demand and keeps it cached in memory.
  * Uses the v2 API directly (v1 /items returns 404).

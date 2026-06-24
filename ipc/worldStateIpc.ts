@@ -200,7 +200,6 @@ function escapeXml(text: string): string {
 /**
  * Ensure a Start Menu shortcut exists with our AUMID so Windows treats us
  * as a properly registered app for toast notifications and Focus Assist.
- * This is what Overwolf / Squirrel installers do under the hood.
  */
 function ensureStartMenuShortcut(): void {
   if (process.platform !== "win32") return;
@@ -231,7 +230,7 @@ function ensureStartMenuShortcut(): void {
           needWrite = false;
         }
       } catch {
-        /* corrupt / unreadable — recreate */
+        /* corrupt / unreadable - recreate */
       }
     }
 
@@ -552,7 +551,7 @@ function maybeNotifyWorldEvents(state: unknown): void {
       if (matches) {
         const spLabel = isHard ? " (Steel Path)" : "";
         const nodeLabel = node || "Unknown Node";
-        sendDesktopNotification("Fissure Alert", `${tier} ${missionType}${spLabel} — ${nodeLabel}`);
+        sendDesktopNotification("Fissure Alert", `${tier} ${missionType}${spLabel} - ${nodeLabel}`);
       }
     }
   }

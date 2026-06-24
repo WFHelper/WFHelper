@@ -4,14 +4,14 @@
  * YOLO + PaddleOCR CH v3 pipeline for riven stat OCR.
  *
  * Pipeline:
- *   1. YOLO stat-line detector (stat_line_detector.onnx) — detects bounding boxes
+ *   1. YOLO stat-line detector (stat_line_detector.onnx) - detects bounding boxes
  *      around individual stat text lines in the riven card stat area.
- *   2. Crop extraction — extracts padded crops from detected boxes, filters by
+ *   2. Crop extraction - extracts padded crops from detected boxes, filters by
  *      height (removes title/footer false positives), upscales uniformly.
- *   3. PaddleOCR CH v3 recognizer (ch_PP-OCRv3_rec_infer.onnx) — batch CTC text
+ *   3. PaddleOCR CH v3 recognizer (ch_PP-OCRv3_rec_infer.onnx) - batch CTC text
  *      recognition with per-character confidence scores.
- *   4. Postprocessing — deterministic regex corrections for known misreads.
- *   5. Split-line merging — merges multi-word stat names split across YOLO boxes.
+ *   4. Postprocessing - deterministic regex corrections for known misreads.
+ *   5. Split-line merging - merges multi-word stat names split across YOLO boxes.
  *
  * Model files:
  *   - resources/riven-ocr/yolo/stat_line_detector.onnx              (11.7 MB)
@@ -81,7 +81,7 @@ async function getYoloSession(): Promise<OrtInferenceSession> {
 
     _yoloInputName = session.inputNames[0];
 
-    log.info(`[RivenOcrOnnx] YOLO detector loaded — input=${_yoloInputName} size=${_yoloInputSize}`);
+    log.info(`[RivenOcrOnnx] YOLO detector loaded - input=${_yoloInputName} size=${_yoloInputSize}`);
     return session;
   })().catch((err) => {
     _yoloSessionPromise = null;
@@ -107,7 +107,7 @@ async function getChRecSession(): Promise<OrtInferenceSession> {
     const ort: typeof import("onnxruntime-node") = require("onnxruntime-node");
 
     // Load dictionary: index 0 = blank (CTC), then one char per line.
-    // Use /\r?\n/ split to handle Windows CRLF line endings — plain \n split
+    // Use /\r?\n/ split to handle Windows CRLF line endings - plain \n split
     // leaves \r on each character, breaking all CTC decoded text.
     if (existsSync(dictPath)) {
       const dictContent = readFileSync(dictPath, "utf8");
@@ -123,7 +123,7 @@ async function getChRecSession(): Promise<OrtInferenceSession> {
       intraOpNumThreads: 4,
     });
 
-    log.info(`[RivenOcrOnnx] PaddleOCR CH v3 loaded — ${_chDict.length} chars (incl. blank)`);
+    log.info(`[RivenOcrOnnx] PaddleOCR CH v3 loaded - ${_chDict.length} chars (incl. blank)`);
     return session;
   })().catch((err) => {
     _chRecSessionPromise = null;
@@ -135,7 +135,7 @@ async function getChRecSession(): Promise<OrtInferenceSession> {
 
 /**
  * Returns true if both YOLO and PaddleOCR CH model files exist on disk.
- * Does NOT load the models — just checks file paths.
+ * Does NOT load the models - just checks file paths.
  */
 export function rivenOcrOnnxAvailable(): boolean {
   return (
@@ -217,7 +217,7 @@ async function yoloDetectStatLines(
   const boxes: Array<{ conf: number; y1: number; y2: number; x1: number; x2: number }> = [];
 
   if (predDims.length === 3) {
-    // Shape [1, 5, N] — transposed format
+    // Shape [1, 5, N] - transposed format
     const numBoxes = predDims[2];
 
     for (let i = 0; i < numBoxes; i++) {

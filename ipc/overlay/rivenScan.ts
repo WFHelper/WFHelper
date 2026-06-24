@@ -113,7 +113,7 @@ function frameHashForCapture(capture: CaptureResult, profile: RivenScanProfile):
   try {
     return computeRivenFrameHashForCrop(capture.image, profile.crop);
   } catch {
-    // Hashing failed (e.g. invalid crop region) — empty hash disables dedup for this frame.
+    // Hashing failed (e.g. invalid crop region) - empty hash disables dedup for this frame.
     return "";
   }
 }

@@ -35,7 +35,7 @@
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
   import { clockStore } from "../lib/timers.js";
 
-  // Collapse state per section — persisted to localStorage
+  // Collapse state per section - persisted to localStorage
   let collapsed: Record<string, boolean> = loadCollapsedSections();
   function toggleSection(key: string) {
     collapsed = toggleCollapsedSection(collapsed, key);
@@ -125,7 +125,7 @@
   // Baro relay location for countdown display
   $: baroLocation = typeof baro?.location === "string" && baro.location ? baro.location : null;
 
-  // Baro ownership set — covers mods, weapons, relics, cosmetics
+  // Baro ownership set - covers mods, weapons, relics, cosmetics
   $: baroOwnedSet = buildBaroOwnedSet($inventoryData);
 
   function titleCase(s: string): string {
@@ -351,7 +351,7 @@
         </div>
         {/if}
 
-        <!-- BARO KI'TEER (inactive — under invasions) -->
+        <!-- BARO KI'TEER (inactive - under invasions) -->
         {#if !baroActive && baroAct}
         <div class="world-section">
           <div class="flex items-center gap-2 py-1.5">
@@ -365,7 +365,7 @@
       </div>
     </div>
 
-    <!-- BARO KI'TEER (active — full-width with icon grid) -->
+    <!-- BARO KI'TEER (active - full-width with icon grid) -->
     {#if baroActive && baro?.inventory && baro.inventory.length > 0}
     <div class="world-section mt-2">
       <CollapsibleSection title="Baro Ki'Teer" collapsed={collapsed.baro} onToggle={() => toggleSection('baro')}>
@@ -412,10 +412,10 @@
                   <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-text-primary">
                     {titleCase(job.type)}
                     {#if job.challengeDesc}
-                      <span class="text-text-secondary text-[0.92em]"> — {job.challengeDesc}</span>
+                      <span class="text-text-secondary text-[0.92em]"> - {job.challengeDesc}</span>
                     {/if}
                   </span>
-                  <span class="shrink-0 font-display whitespace-nowrap text-accent text-base">{job.enemyLevels[0]}–{job.enemyLevels[1]}</span>
+                  <span class="shrink-0 font-display whitespace-nowrap text-accent text-base">{job.enemyLevels[0]}-{job.enemyLevels[1]}</span>
                   <WorldToggleIcon collapsed={!collapsed[`bounty-${group.syndicateKey}-${ji}`]} />
                 </button>
                 {#if collapsed[`bounty-${group.syndicateKey}-${ji}`]}

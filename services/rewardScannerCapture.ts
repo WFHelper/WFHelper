@@ -28,7 +28,7 @@ export interface CaptureResult {
  * Fast screen-only capture via GDI BitBlt (~15-50 ms).
  *
  * The `_dxgiTimeoutMs` parameter is accepted for API compatibility but
- * ignored — GDI always returns current screen content.
+ * ignored - GDI always returns current screen content.
  */
 export async function captureScreenFast(
   preferredDisplayId?: string | null,

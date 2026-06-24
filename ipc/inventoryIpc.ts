@@ -71,7 +71,7 @@ function _loadPersistedState(): void {
         normalizeErrorMessage(err),
       );
     }
-    // missing or corrupt — start fresh
+    // missing or corrupt - start fresh
   }
 }
 

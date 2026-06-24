@@ -3,12 +3,12 @@
  * and posts matching log lines to the parent thread with zero disk-flush latency.
  *
  * The DBWIN protocol (used by Win32 OutputDebugString):
- *   DBWIN_BUFFER      — pagefile-backed shared memory, 4096 bytes:
+ *   DBWIN_BUFFER      - pagefile-backed shared memory, 4096 bytes:
  *                         [0..3]  DWORD   pid  (process id of writer)
  *                         [4..4095] char  msg  (null-terminated debug string)
- *   DBWIN_BUFFER_READY — auto-reset event, initially signaled:
+ *   DBWIN_BUFFER_READY - auto-reset event, initially signaled:
  *                         "reader is ready to accept the next message"
- *   DBWIN_DATA_READY   — auto-reset event, initially unsignaled:
+ *   DBWIN_DATA_READY   - auto-reset event, initially unsignaled:
  *                         "new data has been written to DBWIN_BUFFER"
  *
  * Writer (Warframe / OutputDebugString internal):
@@ -29,13 +29,13 @@
  *   Parent sets stopBuffer[0] = 1 via Atomics.  After at most WAIT_TIMEOUT_MS the
  *   worker exits its loop, closes all handles, and posts { type: "stopped" }.
  *
- * CPU-temperature mitigation — two-phase design:
+ * CPU-temperature mitigation - two-phase design:
  *
  *   PHASE 0  "Waiting for Warframe" (DBWIN objects do NOT exist)
- *   ────────────────────────────────────────────────────────────
+ *
  *   The DBWIN protocol requires the READER to create the named shared-memory
  *   objects first.  If those objects do not exist, every OutputDebugString call
- *   from any process (Chrome, Discord, IDEs, GPU drivers …) is a silent no-op —
+ *   from any process (Chrome, Discord, IDEs, GPU drivers …) is a silent no-op -
  *   the writer opens the named objects, finds nothing, and returns immediately.
  *
  *   While we are in Phase 0 the worker simply sleeps (Atomics.wait) and
@@ -43,13 +43,13 @@
  *   near zero.
  *
  *   PHASE 1  "Warframe running" (DBWIN objects exist)
- *   ──────────────────────────────────────────────────
+ *
  *   Once Warframe.x64.exe is detected we create the three DBWIN objects and
  *   enter the message loop.  Non-Warframe PIDs are filtered cheaply:
- *     - koffi.decode(pBuf, "uint32")  — reads the 4-byte PID only
- *     - isWarframePid()               — OpenProcess + QueryFullProcessImageNameW,
+ *     - koffi.decode(pBuf, "uint32")  - reads the 4-byte PID only
+ *     - isWarframePid()               - OpenProcess + QueryFullProcessImageNameW,
  *                                       result cached per PID
- *     - SetEvent(hReady)              — release buffer without touching the message
+ *     - SetEvent(hReady)              - release buffer without touching the message
  *
  *   Every WARFRAME_RECHECK_MS we call isWarframeRunning() again; when Warframe
  *   is gone we tear down the DBWIN objects and return to Phase 0.  Other
@@ -64,9 +64,9 @@ const kernel32 = koffi.load("kernel32.dll");
 const psapi = koffi.load("psapi.dll");
 
 const CreateFileMappingW = kernel32.func("CreateFileMappingW", "void *", [
-  "void *", // hFile            — INVALID_HANDLE_VALUE (-1n) for pagefile-backed
-  "void *", // lpAttributes     — NULL
-  "uint32", // flProtect        — PAGE_READWRITE
+  "void *", // hFile            - INVALID_HANDLE_VALUE (-1n) for pagefile-backed
+  "void *", // lpAttributes     - NULL
+  "uint32", // flProtect        - PAGE_READWRITE
   "uint32", // dwMaximumSizeHigh
   "uint32", // dwMaximumSizeLow
   "str16",  // lpName
@@ -77,13 +77,13 @@ const MapViewOfFile = kernel32.func("MapViewOfFile", "void *", [
   "uint32", // dwDesiredAccess
   "uint32", // dwFileOffsetHigh
   "uint32", // dwFileOffsetLow
-  "size_t", // dwNumberOfBytesToMap — 0 = map the whole thing
+  "size_t", // dwNumberOfBytesToMap - 0 = map the whole thing
 ]);
 
 const UnmapViewOfFile = kernel32.func("UnmapViewOfFile", "bool", ["void *"]);
 
 const CreateEventW = kernel32.func("CreateEventW", "void *", [
-  "void *", // lpEventAttributes — NULL
+  "void *", // lpEventAttributes - NULL
   "bool",   // bManualReset
   "bool",   // bInitialState
   "str16",  // lpName
@@ -98,29 +98,29 @@ const SetEvent = kernel32.func("SetEvent", "bool", ["void *"]);
 const CloseHandle = kernel32.func("CloseHandle", "bool", ["void *"]);
 const GetLastError = kernel32.func("GetLastError", "uint32", []);
 
-// OpenProcess — used by isWarframePid() to query process image names
+// OpenProcess - used by isWarframePid() to query process image names
 const OpenProcess = kernel32.func("OpenProcess", "void *", [
-  "uint32", // dwDesiredAccess — PROCESS_QUERY_LIMITED_INFORMATION
-  "bool",   // bInheritHandle  — FALSE
+  "uint32", // dwDesiredAccess - PROCESS_QUERY_LIMITED_INFORMATION
+  "bool",   // bInheritHandle  - FALSE
   "uint32", // dwProcessId
 ]);
 
-// QueryFullProcessImageNameW — retrieves the full exe path for an open handle.
+// QueryFullProcessImageNameW - retrieves the full exe path for an open handle.
 // lpExeName: caller-allocated WCHAR buffer.  lpdwSize: in=capacity, out=char count.
 const QueryFullProcessImageNameW = kernel32.func(
   "QueryFullProcessImageNameW", "bool", [
   "void *", // hProcess
-  "uint32", // dwFlags — 0 = Win32 path format
+  "uint32", // dwFlags - 0 = Win32 path format
   "void *", // lpExeName  (PWSTR output buffer, raw pointer)
   "void *", // lpdwSize   (PDWORD in/out,        raw pointer)
 ]);
 
-// EnumProcesses — fills a DWORD array with the PID of every running process.
+// EnumProcesses - fills a DWORD array with the PID of every running process.
 // lpcbNeeded is set on return to the number of bytes written.
 const EnumProcesses = psapi.func("EnumProcesses", "bool", [
-  "void *", // lpidProcess — output: DWORD array of PIDs
-  "uint32", // cb          — size of array in bytes
-  "void *", // lpcbNeeded  — output: bytes written
+  "void *", // lpidProcess - output: DWORD array of PIDs
+  "uint32", // cb          - size of array in bytes
+  "void *", // lpcbNeeded  - output: bytes written
 ]);
 
 const PAGE_READWRITE = 0x04;
@@ -132,7 +132,7 @@ const DBWIN_BUFFER_SIZE = 4096;
 const INVALID_HANDLE_VALUE = -1n;
 // How long to block on WaitForSingleObject before re-checking the stop flag
 const WAIT_TIMEOUT_MS = 500;
-// PROCESS_QUERY_LIMITED_INFORMATION — minimum right for QueryFullProcessImageNameW
+// PROCESS_QUERY_LIMITED_INFORMATION - minimum right for QueryFullProcessImageNameW
 const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 // MAX_PATH in wide characters (WCHAR)
 const MAX_PATH = 260;
@@ -146,11 +146,11 @@ const WARFRAME_RECHECK_MS = 5000;
 const RELIC_PICKER_DBWIN_SUPPRESS_MS = 7500;
 let _relicPickerSuppressUntil = 0;
 
-// Pre-allocated koffi array type — avoid recreating it every tick
+// Pre-allocated koffi array type - avoid recreating it every tick
 const uint8ArrayType = koffi.array("uint8", DBWIN_BUFFER_SIZE);
 
 // Only forward lines that can possibly match a pattern in eeLogMonitor.
-// Everything else is discarded here in the Worker — no IPC overhead.
+// Everything else is discarded here in the Worker - no IPC overhead.
 // Lowercase to allow a single case-insensitive check without regex cost.
 const FILTER_SUBSTRINGS_LOWER = [
   "loadingcompleteend",        // relic selection screen ready (primary trigger)
@@ -171,7 +171,7 @@ const FILTER_SUBSTRINGS_LOWER = [
   "chatredux::addtab",         // incoming whisper opens a private chat tab
 ] as const;
 
-// isWarframePid — check (and cache) whether a PID belongs to Warframe.x64.exe
+// isWarframePid - check (and cache) whether a PID belongs to Warframe.x64.exe
 // Caches pid → boolean so that QueryFullProcessImageNameW is called once per
 // newly-seen PID, not once per DBWIN message.  Caller is responsible for
 // clearing the cache when re-entering Phase 1 after a Warframe restart.
@@ -189,7 +189,7 @@ function rememberPid(pid: number, value: boolean): void {
   _pidIsWarframe.set(pid, value);
 }
 
-// Pre-allocated output buffers (reused every call — no per-call heap alloc)
+// Pre-allocated output buffers (reused every call - no per-call heap alloc)
 const _exeNameBuf    = Buffer.alloc(MAX_PATH * 2); // WCHAR[MAX_PATH] = UTF-16LE path
 const _exeNameSizeBuf = Buffer.alloc(4);            // DWORD in/out
 
@@ -199,7 +199,7 @@ function isWarframePid(pid: number): boolean {
 
   const hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
   if (!hProc) {
-    // Process may have exited; treat as not Warframe and don't cache —
+    // Process may have exited; treat as not Warframe and don't cache -
     // if the PID reappears it may be Warframe next time.
     return false;
   }
@@ -222,7 +222,7 @@ function isWarframePid(pid: number): boolean {
   return result;
 }
 
-// isWarframeRunning — scan the process list for Warframe.x64.exe
+// isWarframeRunning - scan the process list for Warframe.x64.exe
 // Uses EnumProcesses (psapi) + isWarframePid (kernel32).  The whole scan is
 // cheap: for most PIDs isWarframePid is a single Map.get() after caching.
 
@@ -240,7 +240,7 @@ function isWarframeRunning(): boolean {
 
   for (let i = 0; i < count; i++) {
     const pid = _pidsBuf.readUInt32LE(i * 4);
-    if (pid === 0) continue; // System Idle Process — skip
+    if (pid === 0) continue; // System Idle Process - skip
     if (isWarframePid(pid)) return true;
   }
   return false;
@@ -269,7 +269,7 @@ function runDbwinLoop(): void {
 
   const alreadyExists = GetLastError() === ERROR_ALREADY_EXISTS;
 
-  // Map with read access only — the writer fills the buffer, we just read it
+  // Map with read access only - the writer fills the buffer, we just read it
   const pBuf = MapViewOfFile(hMap, FILE_MAP_READ, 0, 0, 0);
   if (!pBuf) {
     parentPort?.postMessage({
@@ -280,7 +280,7 @@ function runDbwinLoop(): void {
     return;
   }
 
-  // DBWIN_BUFFER_READY: auto-reset (false), initially signaled (true) — "ready to receive"
+  // DBWIN_BUFFER_READY: auto-reset (false), initially signaled (true) - "ready to receive"
   const hReady = CreateEventW(null, false, true, "DBWIN_BUFFER_READY");
   // DBWIN_DATA_READY:  auto-reset (false), initially unsignaled (false)
   const hData  = CreateEventW(null, false, false, "DBWIN_DATA_READY");
@@ -319,7 +319,7 @@ function runDbwinLoop(): void {
         const pid = koffi.decode(pBuf, "uint32") as number;
 
         if (!isWarframePid(pid)) {
-          // Not Warframe — release buffer immediately and skip message body.
+          // Not Warframe - release buffer immediately and skip message body.
           // DBWIN_BUFFER_READY MUST be signalled or the writing process blocks.
           SetEvent(hReady);
           continue;

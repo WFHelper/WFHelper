@@ -59,7 +59,7 @@ export function hasFreshOrderSummaryPair(
   maxRank: number,
 ): boolean {
   // getCachedOrderSummaryState defaults to allowStale:false, so it returns null
-  // for stale (or absent) entries — a non-null result here means a fresh entry.
+  // for stale (or absent) entries - a non-null result here means a fresh entry.
   const rank0 = getCachedOrderSummaryState(slugInput, 0);
   const rankMax = getCachedOrderSummaryState(slugInput, maxRank);
   return Boolean(rank0 && rankMax);

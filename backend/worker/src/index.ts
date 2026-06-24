@@ -126,7 +126,7 @@ export default {
 			// The snapshot is maintained incrementally: patchSnapshot() is called at the end of every
 			// prewarmBatch and prewarmOrderSummaryCatalog tick, so after one full cursor pass (~1-2 hours)
 			// the snapshot contains 100% of catalog items with no per-invocation subrequest cap.
-			// buildFullSnapshot() is kept only as an admin-triggered cold-boot seed — do NOT call it here.
+			// buildFullSnapshot() is kept only as an admin-triggered cold-boot seed - do NOT call it here.
 		} catch (err) {
 			logEvent({
 				type: 'error',

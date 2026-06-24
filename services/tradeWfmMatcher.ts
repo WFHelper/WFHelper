@@ -1,6 +1,6 @@
 /**
  * Matches a completed in-game trade to the user's active WFM orders and closes
- * the best match — by item name, tiebroken on platinum then rank proximity.
+ * the best match - by item name, tiebroken on platinum then rank proximity.
  */
 
 import { withScope } from "./logger";
@@ -50,7 +50,7 @@ export async function matchTradeToOrder(
 ): Promise<WfmTradeMatch | null> {
   // Guard: must be logged in to WFM
   if (!wfmSession.getToken()) {
-    log.info("[Matcher] Skipping — not logged in to WFM");
+    log.info("[Matcher] Skipping - not logged in to WFM");
     return null;
   }
 
@@ -124,7 +124,7 @@ export async function matchTradeToOrder(
 
     const bestMatch = matching[0];
     // A single trade slot can hold a stack, so the only real bound is the
-    // order's own quantity — you can't close more than you listed.
+    // order's own quantity - you can't close more than you listed.
     const closeQty = Math.min(item.count, bestMatch.quantity || 1);
 
     return {

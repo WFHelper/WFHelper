@@ -20,7 +20,7 @@ const REOPEN_SUPPRESS_AFTER_CLOSE_MS = 3_000;
 
 /** Auto-hide the overlay after a successful recommendation push (covers one full relic cycle). */
 const OVERLAY_AUTO_HIDE_SUCCESS_MS = 18_000;
-/** Auto-hide after a detection failure — keep visible briefly so the user sees the state. */
+/** Auto-hide after a detection failure - keep visible briefly so the user sees the state. */
 const OVERLAY_AUTO_HIDE_FAILURE_MS = 4_500;
 /** Hard ceiling for the detecting phase before giving up and hiding. */
 const OVERLAY_AUTO_HIDE_DETECTING_MAX_MS = 20_000;
@@ -321,7 +321,7 @@ function loadPersistedCacheMaps(
       }
     }
   } catch {
-    // Corrupt/unreadable price-cache file — return whatever parsed so far.
+    // Corrupt/unreadable price-cache file - return whatever parsed so far.
     return { prices, ducats };
   }
 
@@ -335,7 +335,7 @@ function getCacheFileMtimeMs(fs: typeof import("node:fs"), cacheFilePath: string
     const mtimeMs = toFiniteOr((stat as { mtimeMs?: number }).mtimeMs, 0);
     return Number.isFinite(mtimeMs) && mtimeMs > 0 ? mtimeMs : 0;
   } catch {
-    // Missing/unstattable cache file — treat as mtime 0 (forces a refresh).
+    // Missing/unstattable cache file - treat as mtime 0 (forces a refresh).
     return 0;
   }
 }
@@ -593,7 +593,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
 
       // Check era cache before deciding whether to capture the screen.
       // When era is cached, run captureSourceMeta to refresh the display anchor.
-      // When OCR is needed, skip captureSourceMeta entirely — detectRelicSelectionEra
+      // When OCR is needed, skip captureSourceMeta entirely - detectRelicSelectionEra
       // already performs its own screen capture and returns the same display metadata,
       // so running captureSourceMeta first would be a redundant ~600 ms capture.
       const cacheAge = Date.now() - activeMissionTierSetAt;

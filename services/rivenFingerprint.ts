@@ -1,9 +1,9 @@
 /**
- * rivenFingerprint.ts — Decode riven stats from inventory UpgradeFingerprint
+ * rivenFingerprint.ts - Decode riven stats from inventory UpgradeFingerprint
  *
  * Converts the raw encoded fingerprint data (buffs/curses with IEEE 754 float32
  * encoded Values) into displayable stat values, grades, and attribute quality.
- * No OCR needed — this reads directly from inventory JSON.
+ * No OCR needed - this reads directly from inventory JSON.
  */
 
 import { withScope } from "./logger";
@@ -175,7 +175,7 @@ function getRivenTypeLabel(itemType: string): string {
 }
 
 // Riven fingerprint Values are NOT IEEE 754 floats. They are integers that
-// encode a 0–1 roll float as `Math.round(f * 0x3FFFFFFF)`. To decode:
+// encode a 0-1 roll float as `Math.round(f * 0x3FFFFFFF)`. To decode:
 //   rollFloat = intValue / 0x3FFFFFFF
 // Source: browse.wf/rivencalc → RivenParser.js `rivenIntToFloat`.
 
@@ -227,7 +227,7 @@ function parseFingerprint(raw: string): RawFingerprint | null {
     if (typeof parsed === "string") parsed = JSON.parse(parsed);
     return parsed as RawFingerprint;
   } catch {
-    // Malformed JSON fingerprint — treat as absent.
+    // Malformed JSON fingerprint - treat as absent.
     return null;
   }
 }
@@ -437,7 +437,7 @@ export function decodeAllRivens(
     }
   }
 
-  // Process RawUpgrades array (stackable veiled rivens — no fingerprint, "unseen")
+  // Process RawUpgrades array (stackable veiled rivens - no fingerprint, "unseen")
   const rawUpgrades = inventory.RawUpgrades;
   if (Array.isArray(rawUpgrades)) {
     for (const raw of rawUpgrades) {

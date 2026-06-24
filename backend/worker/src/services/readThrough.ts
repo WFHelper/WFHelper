@@ -72,7 +72,7 @@ const localUntradableSkipCache = new Map<string, number>();
  *
  * This is acceptable: the goal is to stop *this* isolate from retry-storming
  * WFM, not to coordinate a global shutdown. A true global breaker would require
- * KV-backed state, which adds a KV read per request — not worth it.
+ * KV-backed state, which adds a KV read per request - not worth it.
  */
 let localOrderSummaryTransientStreak = 0;
 let localOrderSummaryCircuitOpenUntil = 0;
@@ -187,7 +187,7 @@ async function hydratePrice(env: Env, slug: string, markNoData: boolean, rank: n
 	const task = (async () => {
 		const result = await fetchPricePayload(slug, rank != null ? { rank } : undefined);
 		if (!result.data) {
-			// Only negatively cache confirmed "no data" — never cache transient errors (429/5xx).
+			// Only negatively cache confirmed "no data" - never cache transient errors (429/5xx).
 			if (markNoData && !result.transient) {
 				if (result.inactive) {
 					await markPriceNoData(env, slug, rank);
@@ -219,7 +219,7 @@ async function hydrateMeta(env: Env, slug: string, markNoData: boolean): Promise
 	const task = (async () => {
 		const result = await fetchMetaPayload(slug);
 		if (!result.data) {
-			// Only negatively cache confirmed "no data" — never cache transient errors (429/5xx).
+			// Only negatively cache confirmed "no data" - never cache transient errors (429/5xx).
 			if (markNoData && !result.transient) {
 				await setNegativeMarker(env.ITEM_META, `${MISS_META_PREFIX}${slug}`, env);
 			}

@@ -108,7 +108,7 @@ function getNameToEntryMap(itemDb?: Record<string, ItemDbEntry>): Map<string, Na
       const imageUrl = entry.imageUrl && typeof entry.imageUrl === "string" ? entry.imageUrl : undefined;
       const category = entry.category ?? undefined;
       if (existing) {
-        // Keep the best imageUrl — don't overwrite a good URL with nothing
+        // Keep the best imageUrl - don't overwrite a good URL with nothing
         if (!existing.imageUrl && imageUrl) existing.imageUrl = imageUrl;
         if (!existing.category && category) existing.category = category;
       } else {
@@ -230,7 +230,7 @@ function buildStageRewards(level: RawBountyLevel, stageCount: number, rotation?:
       const existing = items.get(r.itemName);
       if (!existing || r.chance > existing.chance) {
         // Icons are resolved at render time via resolveRewardIcon(itemName,
-        // itemDb) — not baked here (this result is cached and has no itemDb).
+        // itemDb) - not baked here (this result is cached and has no itemDb).
         items.set(r.itemName, {
           itemName: r.itemName,
           chance: r.chance,

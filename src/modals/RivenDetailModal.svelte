@@ -69,14 +69,14 @@
         }
       }
     }
-    // Jaccard similarity: intersection / union — penalises extra stats on either side
+    // Jaccard similarity: intersection / union - penalises extra stats on either side
     const union = myStatNames.length + listingNamesLc.length - matchedNames.size;
     const pct = union > 0 ? Math.round((matchedNames.size / union) * 100) : 0;
     return { pct, matchedNames };
   }
 
   onMount(() => {
-    // Fetch ALL auctions for this weapon — no stat filtering, similarity is client-side
+    // Fetch ALL auctions for this weapon - no stat filtering, similarity is client-side
     invoke("searchRivenAuctions", riven.weaponName, [], [])
       .then((listings) => {
         const myStatNames = riven.stats.map((s) => s.name.toLowerCase());

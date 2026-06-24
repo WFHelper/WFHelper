@@ -112,7 +112,7 @@
   $: masterySummaryItems = buildMasterySummary(displayMasteryData);
 
   // Pre-compute per-item derived values here so {#each} never reads
-  // $wfmItems directly — a wfmItems store update won't trigger a full
+  // $wfmItems directly - a wfmItems store update won't trigger a full
   // template re-render; Svelte will patch only changed items via the key.
   function hydrateAndFilterMastery(
     data: typeof $masteryData,

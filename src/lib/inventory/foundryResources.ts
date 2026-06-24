@@ -34,7 +34,7 @@ function parseCompletionDate(value: unknown): Date | null {
  * from PEP, and path-segment fallbacks in that order.
  *
  * Component blueprints (e.g. `HildrynPrimeChassisComponent`) have raw
- * category "Resource" but belong with their parent — we follow
+ * category "Resource" but belong with their parent - we follow
  * `componentOf` when present, and otherwise derive from the blueprint path
  * (`/WarframeRecipes/` → Warframe, `/Pistols/` → Secondary, …).
  */

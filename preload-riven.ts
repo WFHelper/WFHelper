@@ -47,7 +47,7 @@ contextBridge.exposeInMainWorld("rivenOverlay", {
     onRivenIpc(OVERLAY_THEME_VARS, (_event: unknown, vars: unknown) => cb(vars)),
   onInteractionMode: (cb: (payload: unknown) => void) =>
     onRivenIpc(OVERLAY_INTERACTION_MODE, (_event: unknown, payload: unknown) => cb(payload)),
-  // ── Grading + enrichment ─────────────────────────────────────────────────
+  // Grading + enrichment
   onGradingInitial: (cb: (grading: unknown) => void) =>
     onRivenIpc(RIVEN_GRADING_INITIAL, (_event: unknown, grading: unknown) => cb(grading)),
   onGradingRoll: (cb: (grading: unknown) => void) =>

@@ -519,7 +519,7 @@ export function detectRewardSlotLayout(nativeImage: NativeImage): RewardSlotLayo
  * Detect whether the in-game chat console is open. Pressing `/` or `T` shows a
  * bright text bar over the bottom ~4%, whose text would corrupt reward OCR.
  * Heuristic: in that strip, >55% of pixels bright (luminance ≥ 140) and
- * low-saturation (≤ 0.3) — Warframe's near-white chat overlay.
+ * low-saturation (≤ 0.3) - Warframe's near-white chat overlay.
  */
 export function detectConsoleOpen(nativeImage: NativeImage): boolean {
   if (!nativeImage || typeof nativeImage.getSize !== "function") return false;

@@ -1,5 +1,5 @@
 /**
- * messageNotificationIpc.ts — Desktop notification when an in-game whisper
+ * messageNotificationIpc.ts - Desktop notification when an in-game whisper
  * arrives. eeLogMonitor detects the new chat tab and the sender's name; this
  * applies the user's settings and reuses the world-cycle desktop notifier.
  */
@@ -19,7 +19,7 @@ export async function notifyInGameMessage(playerName: string): Promise<void> {
     if (ctx.overlaySettings.messageNotificationsBackgroundOnly) {
       const status = await warframeStatus.getStatus();
       if (status.isFocused) {
-        log.info("[Message] Warframe focused and background-only set — skipping");
+        log.info("[Message] Warframe focused and background-only set - skipping");
         return;
       }
     }

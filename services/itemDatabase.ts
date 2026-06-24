@@ -1,7 +1,7 @@
 /**
- * itemDatabase.ts — Item database service.
- * Primary:  warframe-public-export-plus (Sainan/calamity-inc) — raw game data
- * Fallback: @wfcd/items (WFCD) — curated community data with proven image CDN
+ * itemDatabase.ts - Item database service.
+ * Primary:  warframe-public-export-plus (Sainan/calamity-inc) - raw game data
+ * Fallback: @wfcd/items (WFCD) - curated community data with proven image CDN
  */
 
 import crypto from "node:crypto";
@@ -284,13 +284,13 @@ function loadPublicExportPlus(): number {
       for (const [uniqueName, item] of Object.entries(exportData) as [string, PepExportItem][]) {
         if (!uniqueName || uniqueName === "default") continue;
 
-        // Relics have no name field — build from era + category (e.g. "Axi A2 Relic")
+        // Relics have no name field - build from era + category (e.g. "Axi A2 Relic")
         const relicName =
           exportKey === "ExportRelics" && item.era && item.category
             ? `${item.era} ${item.category} Relic`
             : null;
 
-        // Recipes have no name — resolve via resultType (e.g. "Sands of Inaros Blueprint")
+        // Recipes have no name - resolve via resultType (e.g. "Sands of Inaros Blueprint")
         let recipeName: string | null = null;
         if (exportKey === "ExportRecipes" && !item.name && item.resultType) {
           const resultEntry = itemsByUniqueName[item.resultType];
@@ -409,7 +409,7 @@ function loadWfcdItems(): number {
               forceComponentBlueprintName,
             );
 
-            // "blueprint.png" is a generic placeholder that 404s on the WFCD CDN —
+            // "blueprint.png" is a generic placeholder that 404s on the WFCD CDN -
             // fall back to the parent item's image for blueprint components.
             const existingComponent = itemsByUniqueName[comp.uniqueName];
             const compWfcdImageUrl =

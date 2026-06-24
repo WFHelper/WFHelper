@@ -163,7 +163,7 @@ export function loadHistory(): void {
             `(day boundaries now local timezone; legacy UTC-keyed entries retained as-is).`,
         );
         // Persist the envelope + version so future loads don't re-log. Existing
-        // entry date keys are intentionally preserved — without per-event
+        // entry date keys are intentionally preserved - without per-event
         // timestamps, re-attributing old aggregates is not possible.
         _saveHistory();
       }

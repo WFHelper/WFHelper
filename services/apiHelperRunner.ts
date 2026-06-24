@@ -24,12 +24,12 @@ const GITHUB_RELEASES_URL =
 
 /**
  * Pinned SHA-256 hashes of accepted warframe-api-helper.exe builds.
- * Any exe whose hash is not in this set will be refused — both on fresh download
+ * Any exe whose hash is not in this set will be refused - both on fresh download
  * and before spawning any locally-found copy. Bump when the upstream repo
  * (Sainan/warframe-api-helper) cuts a new release and you've audited it.
  */
 const PINNED_HELPER_SHA256: ReadonlySet<string> = new Set([
-  // 1.1.1 (tag on 'senpai' branch) — verified 2026-04-18
+  // 1.1.1 (tag on 'senpai' branch) - verified 2026-04-18
   "3f883abb1226c9da6d6cb9c2d6675d3daa6b321a192583c646ef8c45cbd5b8f6",
 ]);
 
@@ -152,14 +152,14 @@ export function runOnce(): Promise<boolean> {
       _exePath = findExePath();
     }
     if (!_exePath) {
-      log.warn("warframe-api-helper.exe not found — skipping run");
+      log.warn("warframe-api-helper.exe not found - skipping run");
       _lastRunOk = false;
       resolve(false);
       return;
     }
 
     /*
-     * TOCTOU HARDENING — DO NOT REMOVE.
+     * TOCTOU HARDENING - DO NOT REMOVE.
      *
      * The helper path was verified (hash, location, quarantine attributes)
      * when it was discovered, but that was some indeterminate time ago.
@@ -170,7 +170,7 @@ export function runOnce(): Promise<boolean> {
      *
      * Re-hashing here, immediately before spawn, is the mitigation. It
      * narrows the attack window from minutes/hours down to the few
-     * microseconds between this sha256 read and the spawn() call —
+     * microseconds between this sha256 read and the spawn() call -
      * small enough that racing it requires kernel-level primitives
      * we can't defend against from userspace anyway.
      *
@@ -180,7 +180,7 @@ export function runOnce(): Promise<boolean> {
     try {
       const hashNow = sha256OfFile(_exePath);
       if (!isPinnedHash(hashNow)) {
-        log.error(`Helper hash changed since discovery (${hashNow}) — refusing to spawn`);
+        log.error(`Helper hash changed since discovery (${hashNow}) - refusing to spawn`);
         _exePath = null;
         _lastRunOk = false;
         _lastRunAt = Date.now();
@@ -199,7 +199,7 @@ export function runOnce(): Promise<boolean> {
     }
 
     if (_running) {
-      log.info("Helper already running — skipping");
+      log.info("Helper already running - skipping");
       resolve(false);
       return;
     }
@@ -237,7 +237,7 @@ export function runOnce(): Promise<boolean> {
     };
 
     const timeoutHandle = setTimeout(() => {
-      log.warn(`Helper did not exit within ${HELPER_SPAWN_TIMEOUT_MS / 1000}s — killing`);
+      log.warn(`Helper did not exit within ${HELPER_SPAWN_TIMEOUT_MS / 1000}s - killing`);
       try {
         child.kill("SIGKILL");
       } catch (err) {
@@ -324,7 +324,7 @@ export function startPolling(
 
   _exePath = findExePath();
   if (!_exePath) {
-    log.warn("warframe-api-helper.exe not found — polling disabled");
+    log.warn("warframe-api-helper.exe not found - polling disabled");
     return;
   }
 
@@ -358,7 +358,7 @@ export function startPolling(
     scheduleInterval();
   } else {
     log.info(
-      `inventory.json was refreshed ${(ageMs / 60_000).toFixed(1)} min ago — ` +
+      `inventory.json was refreshed ${(ageMs / 60_000).toFixed(1)} min ago - ` +
         `deferring first run by ${(initialDelay / 60_000).toFixed(1)} min`,
     );
     // Treat the existing inventory.json as our "last successful run" so the
@@ -439,7 +439,7 @@ function httpsDownloadToFile(
       }
       https
         .get(absUrl, { headers: { "User-Agent": "warframe-companion" } }, (res) => {
-          // Follow redirect — but only to https:// targets. Resolve relative
+          // Follow redirect - but only to https:// targets. Resolve relative
           // locations against the current URL before re-validating.
           if (
             (res.statusCode === 301 || res.statusCode === 302) &&
@@ -567,7 +567,7 @@ export async function downloadHelper(
     if (!isPinnedHash(sha256)) {
       fs.unlinkSync(tempPath);
       throw new Error(
-        `Refusing helper: SHA-256 ${sha256} not in pin set. Upstream release may have changed — bump PINNED_HELPER_SHA256 after audit.`,
+        `Refusing helper: SHA-256 ${sha256} not in pin set. Upstream release may have changed - bump PINNED_HELPER_SHA256 after audit.`,
       );
     }
     log.info(`Helper SHA-256 pin verified: ${sha256}`);
@@ -601,7 +601,7 @@ export async function downloadHelper(
 
 /**
  * Initialise the runner: find the exe, cache its path.
- * Does NOT start polling yet — call startPolling() separately.
+ * Does NOT start polling yet - call startPolling() separately.
  */
 export function init(): boolean {
   _exePath = findExePath();

@@ -32,7 +32,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── Panel container ──────────────────────────────────────────────────────── */
+/* Panel container */
 
 #panel {
   width: 100%;
@@ -54,7 +54,7 @@ body {
     0 0 0 1px color-mix(in oklab, var(--accent) 18%, transparent);
 }
 
-/* ── Header ───────────────────────────────────────────────────────────────── */
+/* Header */
 
 #header {
   display: flex;
@@ -151,7 +151,7 @@ body {
   background: rgba(255, 90, 90, 0.1);
 }
 
-/* ── Overall grade ────────────────────────────────────────────────────────── */
+/* Overall grade */
 
 #overall-grade {
   display: flex;
@@ -167,7 +167,7 @@ body {
   display: none;
 }
 
-/* ── Grade badges ─────────────────────────────────────────────────────────── */
+/* Grade badges */
 
 .grade-badge {
   display: inline-flex;
@@ -228,7 +228,7 @@ body {
 .attr-grade-ok    { background: #facc15; color: #1a1a0a; }
 .attr-grade-bad   { background: #ef4444; }
 
-/* ── Scanning spinner ─────────────────────────────────────────────────────── */
+/* Scanning spinner */
 
 #scanning-state {
   display: none;
@@ -262,7 +262,7 @@ body {
   color: var(--muted);
 }
 
-/* ── Stats list ───────────────────────────────────────────────────────────── */
+/* Stats list */
 
 #stats-container {
   flex: 1 1 auto;
@@ -372,7 +372,7 @@ body {
   text-align: center;
 }
 
-/* ── Error banner ─────────────────────────────────────────────────────────── */
+/* Error banner */
 
 #error-banner {
   display: none;
@@ -390,7 +390,7 @@ body {
   display: block;
 }
 
-/* ── Best attributes ──────────────────────────────────────────────────────── */
+/* Best attributes */
 
 #best-attributes {
   padding: 8px 12px;
@@ -439,7 +439,7 @@ body {
   background: rgba(39, 174, 96, 0.15);
 }
 
-/* ── Similar listings (card layout) ────────────────────────────────────────── */
+/* Similar listings (card layout) */
 
 #similar-listings {
   padding: 6px 10px 8px;
@@ -542,7 +542,7 @@ body {
   color: var(--bad);
 }
 
-/* ── Interaction hint ─────────────────────────────────────────────────────── */
+/* Interaction hint */
 
 #interaction-hint {
   text-align: center;
@@ -557,7 +557,7 @@ body {
   display: none;
 }
 
-/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+/* Scrollbar */
 
 ::-webkit-scrollbar {
   width: 4px;
@@ -572,7 +572,7 @@ body {
   border-radius: 2px;
 }
 
-/* ── Utility ──────────────────────────────────────────────────────────────── */
+/* Utility */
 
 .is-hidden {
   display: none !important;

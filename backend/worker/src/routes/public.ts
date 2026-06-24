@@ -243,7 +243,7 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 	if (req.method === 'GET' && url.pathname === '/v1/snapshot') {
 		// No bootstrap requirement: snapshot is a CDN-cached bulk read of data that
 		// is already publicly accessible via per-slug routes. It is fetched once at
-		// client startup — before the bootstrap token flow has completed — so adding
+		// client startup - before the bootstrap token flow has completed - so adding
 		// bootstrap would create a chicken-and-egg failure.
 		//
 		// Edge caching: we use the Cloudflare Cache API so the response is stored at

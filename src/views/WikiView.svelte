@@ -69,7 +69,7 @@
     <header class="flex flex-col gap-1">
       <h2 class="m-0 font-display text-2xl font-bold text-text-primary">Drop Data</h2>
       <p class="m-0 text-sm text-text-secondary">
-        Search the full Warframe drop tables — every item's drop locations and rates.
+        Search the full Warframe drop tables - every item's drop locations and rates.
       </p>
     </header>
 
@@ -133,7 +133,7 @@
       </div>
       {#if total > rows.length}
         <p class="m-0 text-center text-xs text-text-muted">
-          Showing {rows.length} of {total} results — refine your search to narrow it down.
+          Showing {rows.length} of {total} results - refine your search to narrow it down.
         </p>
       {/if}
     {/if}

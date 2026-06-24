@@ -52,7 +52,7 @@ async function analyze(file: string) {
     console.log(`    ${pct}% (${(bx0 + bx1) >> 1}px): ${avg.toFixed(0).padStart(4)} ${bar}`);
   }
 
-  // Find the darkest region > 150px wide — that's the card area
+  // Find the darkest region > 150px wide - that's the card area
   // Look specifically for the RIGHT card (new roll)
   // Darkness threshold: below 100 avg = likely card background
   const DARK_THRESH = 120;

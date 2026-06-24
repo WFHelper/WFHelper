@@ -1,7 +1,7 @@
 /**
  * Shared stats/trade types used by both main-process and renderer.
  *
- * Single source of truth — do not duplicate these types elsewhere.
+ * Single source of truth - do not duplicate these types elsewhere.
  */
 
 /** Classification of a trade event. */

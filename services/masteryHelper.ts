@@ -1,5 +1,5 @@
 /**
- * masteryHelper.ts — Builds a complete list of all masterable items in the game,
+ * masteryHelper.ts - Builds a complete list of all masterable items in the game,
  * then compares against the user's inventory to show owned / missing / mastered.
  */
 

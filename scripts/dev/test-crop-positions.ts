@@ -49,7 +49,7 @@ async function ocrCrop(
     rawRgba.copy(cropBuf, dstOff, srcOff, srcOff + cw * 4);
   }
 
-  // Use original (no preprocessing) — this is primary strategy for native OCR
+  // Use original (no preprocessing) - this is primary strategy for native OCR
   const pngBuf = await (sharp as any)(cropBuf, { raw: { width: cw, height: ch, channels: 4 } })
     .png()
     .toBuffer();

@@ -15,12 +15,12 @@ const SHUTDOWN_GRACE_MS = 1_000;
  * Pool size for the Windows OCR PowerShell workers.
  *
  * Each worker is a long-lived PowerShell process holding Windows.Media.Ocr
- * state, which costs ~80–120 MB RSS per worker. 4 is the ceiling because:
+ * state, which costs ~80-120 MB RSS per worker. 4 is the ceiling because:
  *   - the reward scanner is the only path that can issue concurrent OCR
  *     (one per reward slot, max 3 slots simultaneously in practice)
  *   - a 4th worker covers rivens + rewards overlapping in the worst case
  *   - beyond 4, per-worker memory starts to dominate gains from concurrency
- *     on typical user machines (8–16 GB RAM with the game already running)
+ *     on typical user machines (8-16 GB RAM with the game already running)
  * Default is 2 because the common case is serialized scans; env override
  * (WF_OCR_SERVER_POOL) lets power users or future features push higher
  * without recompiling.

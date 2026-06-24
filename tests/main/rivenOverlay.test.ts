@@ -422,7 +422,7 @@ describe("parseRivenStats", () => {
     expect(result[1].name).toBe("Critical Damage");
   });
 
-  it("strips (x2 for Heavy Attacks) qualifier — not a separate stat", () => {
+  it("strips (x2 for Heavy Attacks) qualifier - not a separate stat", () => {
     const text = "+185,5% Critical Chance\n(x2 for Heavy Attacks)\n+8,5s Combo Duration";
     const result = parseRivenStats(text);
     // Should have Critical Chance + Combo Duration, NOT Heavy Attack
@@ -527,7 +527,7 @@ describe("parseRivenStats", () => {
     // The FIFO queue in collapseOrphanValueLines must skip over that noise and pair
     // "+95.5%" with "Cold", not with "Gelimantiton".
     const text = [
-      "+95,50/0", // Cold value (+95.5%) — 0/0 is WinRT misread of %
+      "+95,50/0", // Cold value (+95.5%) - 0/0 is WinRT misread of %
       "Gelimantiton", // riven-name suffix injected as a stats-area line by WinRT
       "Cold",
       "+122,4% Impact",
@@ -570,14 +570,14 @@ describe("parseRivenStats", () => {
     expect(range).toBeDefined();
     expect(range!.value).toBe(1.1);
     expect(range!.positive).toBe(false);
-    // orphan values have no stat name — expect only Range
+    // orphan values have no stat name - expect only Range
     expect(result).toHaveLength(1);
   });
 
   it("does not carry-forward when icon-artifact dash present before element stat (Magnatox scenario)", () => {
     // WinRT reads element icons as "-ÔÇ×e" between Impact and Toxin.
     // The prefix " -ÔÇ×e " contains "-" followed by garbage chars, so carry-forward
-    // must NOT fire — Impact=180.7 must not bleed into Toxin (separate card rows).
+    // must NOT fire - Impact=180.7 must not bleed into Toxin (separate card rows).
     const text = "+180.7% Impact -ÔÇ×e Toxin -1.1 Range";
     const result = parseRivenStats(text);
     const impact = result.find((s) => s.name === "Impact");
@@ -595,7 +595,7 @@ describe("parseRivenStats", () => {
   it("does not carry-forward from non-damage-type stat (Status Duration + Electricity)", () => {
     // WinRT reads "+126.2% Status Duration + Electricity" as a single line.
     // Status Duration is NOT a damage-type stat, so the "+" before Electricity
-    // is the sign indicator for a separate stat — not a combined element.
+    // is the sign indicator for a separate stat - not a combined element.
     // Carry-forward must NOT fire; Electricity should have null value.
     const text = "+126.2% Status Duration + Electricity";
     const result = parseRivenStats(text);
@@ -609,7 +609,7 @@ describe("parseRivenStats", () => {
   });
 
   it("carries forward between damage-type stats (Electricity + Impact combined element)", () => {
-    // Combined element roll: "+112% Electricity Impact" — both are damage types.
+    // Combined element roll: "+112% Electricity Impact" - both are damage types.
     const text = "+112% Electricity Impact";
     const result = parseRivenStats(text);
     const elec = result.find((s) => s.name === "Electricity");
@@ -733,7 +733,7 @@ describe("parseRivenStats", () => {
   });
 
   it("carries value to combined damage-type stat on same line (e.g. Electricity + Impact)", () => {
-    // WinRT OCR reads "+112,3% 4 Electricity *Impact" — after icon stripping
+    // WinRT OCR reads "+112,3% 4 Electricity *Impact" - after icon stripping
     // "Impact" appears on the same sub-line as "Electricity" with no preceding value.
     const result = parseRivenStats(
       "+112,3% 4 Electricity *Impact +117,2% Critical Damage -53% Attack Speed",
@@ -812,7 +812,7 @@ describe("parseRivenStats", () => {
     const heat = result.find((s) => s.name === "Heat");
     expect(heat).toBeDefined();
     expect(heat!.positive).toBe(true);
-    // Value is 62 (integer part of +62.2) — the orphan pairs the fragment with Heat
+    // Value is 62 (integer part of +62.2) - the orphan pairs the fragment with Heat
     expect(heat!.value).toBe(62);
   });
 

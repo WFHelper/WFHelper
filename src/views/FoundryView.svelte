@@ -131,7 +131,7 @@
   ];
 
   /** All category tabs, always shown regardless of whether items exist in that
-   *  category right now — matches the in-game Foundry which always displays
+   *  category right now - matches the in-game Foundry which always displays
    *  the full bar. */
   /** Lookup: ingredient uniqueName → owned count (tracks componentOwnership store). */
   $: ownedMap = $componentOwnership;
@@ -399,7 +399,7 @@
             </div>
           </div>
 
-          <!-- Ingredient grid — slots stay the same (2 cols); icon/text inside scale up when few ingredients. -->
+          <!-- Ingredient grid - slots stay the same (2 cols); icon/text inside scale up when few ingredients. -->
           {#if item.ingredients.length > 0}
             {@const fewIng = item.ingredients.length <= 2}
             <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 pl-1">

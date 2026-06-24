@@ -131,7 +131,7 @@ function lookupNameCandidates(itemName: string): string[] {
 
   for (const candidate of [...candidates]) {
     const punctuationAlias = candidate
-      .replace(/[-–_]+/g, " ")
+      .replace(/[-_–]+/g, " ")
       .replace(/\s+/g, " ")
       .trim();
     if (punctuationAlias && punctuationAlias !== candidate) {

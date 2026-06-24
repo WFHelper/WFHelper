@@ -72,7 +72,7 @@ export async function recognizeRivenCardStats(
   const cropRefineMs = Date.now() - cropStart;
 
   if (!rivenOcrOnnxAvailable()) {
-    log.warn("[RivenScan] ONNX models not found — riven OCR unavailable.");
+    log.warn("[RivenScan] ONNX models not found - riven OCR unavailable.");
     return { text: "", titleText: "", footerText: "", stats: [] };
   }
 
@@ -114,7 +114,7 @@ export async function recognizeRivenCardStats(
         log.info(
           `[RivenScan] YOLO+PaddleOCR ${options.label} attempt=${attempt}: ${stats.length} stats, ` +
             `${ocrResult.yoloBoxCount} YOLO boxes, minConf=${ocrResult.minConfidence.toFixed(3)} ` +
-            `(source ${statAreaSize.width}×${statAreaSize.height}) — ` +
+            `(source ${statAreaSize.width}×${statAreaSize.height}) - ` +
             stats.map(formatStatForLog).join(", "),
         );
         for (const line of ocrResult.lines) {

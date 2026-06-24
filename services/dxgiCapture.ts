@@ -10,7 +10,7 @@ import { withScope } from "./logger";
 
 const log = withScope("gdiCapture");
 
-// koffi imports — resolved lazily so module loads even if koffi is missing
+// koffi imports - resolved lazily so module loads even if koffi is missing
 let _koffi: typeof import("koffi") | null = null;
 
 function koffi(): typeof import("koffi") {

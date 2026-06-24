@@ -259,7 +259,7 @@ export async function runRewardScanPipeline({
   }
 
   if (detectConsoleOpen(screenshot.image)) {
-    log.info("[RewardScanner] Chat console detected — skipping scan");
+    log.info("[RewardScanner] Chat console detected - skipping scan");
     return null;
   }
 
@@ -270,7 +270,7 @@ export async function runRewardScanPipeline({
     _lastFrameResult &&
     Date.now() - _lastFrameHashTs < REWARD_FRAME_DEDUP_TTL_MS
   ) {
-    log.info("[RewardScanner] Frame unchanged — returning cached result");
+    log.info("[RewardScanner] Frame unchanged - returning cached result");
     return _lastFrameResult;
   }
 

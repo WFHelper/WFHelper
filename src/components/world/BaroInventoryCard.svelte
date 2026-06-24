@@ -2,7 +2,7 @@
   import type { ItemDbLookup, WfmItemsLookup } from "../../types/ipc.js";
   import { getLookupByName } from "../../lib/inventoryMarket.js";
 
-  // Baro inventory entry — typed loosely to match the world-state shape.
+  // Baro inventory entry - typed loosely to match the world-state shape.
   type BaroEntry = {
     uniqueName?: string | undefined;
     item?: string | undefined;
@@ -27,11 +27,11 @@
     dbEntry?.imageUrl ||
     (typeof entry.imageOverride === "string" ? entry.imageOverride : null);
 
-  $: title = `${entry.item || "Unknown"}${entry.ducats ? ` — ${entry.ducats} duc` : ""}${
+  $: title = `${entry.item || "Unknown"}${entry.ducats ? ` - ${entry.ducats} duc` : ""}${
     entry.credits ? ` / ${entry.credits.toLocaleString()} cr` : ""
   }`;
 
-  // Variant classes — broken out for readability.
+  // Variant classes - broken out for readability.
   $: shapeCls = isMod
     ? "h-[140px] w-[100px] rounded-[var(--radius-md)] border-0 bg-transparent"
     : "h-[120px] w-[120px] rounded-[var(--radius-lg)] border-2 bg-black/30";

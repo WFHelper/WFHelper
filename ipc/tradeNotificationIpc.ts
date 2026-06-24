@@ -1,5 +1,5 @@
 /**
- * tradeNotificationIpc.ts — Manages the trade notification overlay window.
+ * tradeNotificationIpc.ts - Manages the trade notification overlay window.
  *
  * Shows a small, transient, always-on-top toast when a WFM order is
  * auto-closed after an in-game trade completes.
@@ -118,7 +118,7 @@ export function showTradeNotification(match: TradeNotificationShowPayload["match
   win.showInactive();
   win.moveTop();
 
-  // Auto-hide after delay — always slightly later than the renderer's
+  // Auto-hide after delay - always slightly later than the renderer's
   // visibleMs + fadeMs so the animation completes before visibility is revoked.
   if (_hideTimer) clearTimeout(_hideTimer);
   _hideTimer = setTimeout(() => {
