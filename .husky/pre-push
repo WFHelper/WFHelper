@@ -1,6 +1,9 @@
 # Gatekeeper before pushing to the remote.
-# Runs typecheck + unit tests for the main app and the worker.
+# typecheck + unit tests, which are deterministic. `set -e` so either one
+# actually blocks the push (without it only the last command's exit mattered).
+# Backend worker tests are CI-only: miniflare's timing tests flake locally and
+# CI runs them on every push anyway.
 # Bypass with `git push --no-verify` if you really need to (don't make a habit).
+set -e
 pnpm typecheck
 pnpm test
-pnpm backend:test
