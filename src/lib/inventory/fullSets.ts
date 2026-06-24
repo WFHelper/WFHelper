@@ -80,7 +80,6 @@ export function buildFullSetItems(
       continue;
     }
 
-    let hasAnyOwned = false;
     let completeSets = Number.POSITIVE_INFINITY;
 
     const hydratedComponents = tradableComponents.map((component) => {
@@ -90,7 +89,6 @@ export function buildFullSetItems(
           ? component.itemCount
           : 1;
       const ownedCount = ownedCounts.get(unique) || 0;
-      if (ownedCount > 0) hasAnyOwned = true;
       completeSets = Math.min(completeSets, Math.floor(ownedCount / required));
 
       return {
@@ -100,10 +98,10 @@ export function buildFullSetItems(
       };
     });
 
-    const rootOwned = ownedCounts.get(uniqueName) || 0;
-    if (!hasAnyOwned && rootOwned <= 0) continue;
-
     if (!Number.isFinite(completeSets)) completeSets = 0;
+    // Only surface sets the user can actually sell - at least one full set's
+    // worth of spare components. Partial progress lives in the parts tab.
+    if (completeSets < 1) continue;
 
     const setName = resolved.name.endsWith(" Set") ? resolved.name : `${resolved.name} Set`;
     const isPrime = resolved.isPrime === true || /\bPrime\b/.test(resolved.name);
