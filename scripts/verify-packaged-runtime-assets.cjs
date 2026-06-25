@@ -6,6 +6,7 @@ const requiredResources = [
   "riven-ocr/yolo/stat_line_detector.onnx",
   "riven-ocr/paddle/ch_PP-OCRv3_rec_infer.onnx",
   "riven-ocr/paddle/ch_dict.txt",
+  "notification.wav",
   "scripts/ocr-server.ps1",
   "scripts/ocr.ps1",
 ];

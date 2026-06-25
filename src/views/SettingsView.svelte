@@ -26,7 +26,7 @@
   let notificationSoundEnabled = OVERLAY_DEFAULTS.notificationSoundEnabled;
   let wfmNotificationsEnabled = OVERLAY_DEFAULTS.wfmNotificationsEnabled;
   let messageNotificationsEnabled = OVERLAY_DEFAULTS.messageNotificationsEnabled;
-  let messageNotificationsBackgroundOnly = OVERLAY_DEFAULTS.messageNotificationsBackgroundOnly;
+  let messageNotificationsWhileFocused = OVERLAY_DEFAULTS.messageNotificationsWhileFocused;
   let autoCloseWfmOrders = OVERLAY_DEFAULTS.autoCloseWfmOrders;
   let tradeNotificationOverlayEnabled = OVERLAY_DEFAULTS.tradeNotificationOverlayEnabled;
   let relicRewardsOverlayEnabled = OVERLAY_DEFAULTS.relicRewardsOverlayEnabled;
@@ -45,7 +45,7 @@
     wfmNotificationsEnabled = !!s.wfmNotificationsEnabled;
     messageNotificationsEnabled =
       s.messageNotificationsEnabled ?? OVERLAY_DEFAULTS.messageNotificationsEnabled;
-    messageNotificationsBackgroundOnly = !!s.messageNotificationsBackgroundOnly;
+    messageNotificationsWhileFocused = !!s.messageNotificationsWhileFocused;
     autoCloseWfmOrders = s.autoCloseWfmOrders ?? OVERLAY_DEFAULTS.autoCloseWfmOrders;
     tradeNotificationOverlayEnabled =
       s.tradeNotificationOverlayEnabled ??
@@ -82,7 +82,7 @@
       notificationSoundEnabled,
       wfmNotificationsEnabled,
       messageNotificationsEnabled,
-      messageNotificationsBackgroundOnly,
+      messageNotificationsWhileFocused,
       autoCloseWfmOrders,
       tradeNotificationOverlayEnabled,
       relicRewardsOverlayEnabled,
@@ -193,10 +193,10 @@
           </label>
 
           <label class="settings-control-row" class:opacity-50={!messageNotificationsEnabled}>
-            <span>Only when Warframe is in the background</span>
+            <span>Notify even while Warframe is focused (includes messages you send)</span>
             <input
               type="checkbox"
-              bind:checked={messageNotificationsBackgroundOnly}
+              bind:checked={messageNotificationsWhileFocused}
               disabled={!messageNotificationsEnabled}
               class="accent-accent"
             />

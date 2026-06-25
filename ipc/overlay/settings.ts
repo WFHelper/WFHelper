@@ -184,7 +184,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       notificationSoundEnabled: booleanSetting("notificationSoundEnabled"),
       wfmNotificationsEnabled: booleanSetting("wfmNotificationsEnabled"),
       messageNotificationsEnabled: booleanSetting("messageNotificationsEnabled"),
-      messageNotificationsBackgroundOnly: booleanSetting("messageNotificationsBackgroundOnly"),
+      messageNotificationsWhileFocused: booleanSetting("messageNotificationsWhileFocused"),
       autoCloseWfmOrders: booleanSetting("autoCloseWfmOrders"),
       relicRewardsOverlayEnabled: booleanSetting("relicRewardsOverlayEnabled"),
       relicRecommendationOverlayEnabled: booleanSetting("relicRecommendationOverlayEnabled"),

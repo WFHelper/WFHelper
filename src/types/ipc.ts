@@ -56,7 +56,7 @@ export interface OverlaySettings {
   notificationSoundEnabled: boolean;
   wfmNotificationsEnabled: boolean;
   messageNotificationsEnabled: boolean;
-  messageNotificationsBackgroundOnly: boolean;
+  messageNotificationsWhileFocused: boolean;
   autoCloseWfmOrders: boolean;
   relicRewardsOverlayEnabled: boolean;
   relicRecommendationOverlayEnabled: boolean;

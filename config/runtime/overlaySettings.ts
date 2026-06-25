@@ -36,7 +36,7 @@ export interface OverlaySettings {
   notificationSoundEnabled: boolean;
   wfmNotificationsEnabled: boolean;
   messageNotificationsEnabled: boolean;
-  messageNotificationsBackgroundOnly: boolean;
+  messageNotificationsWhileFocused: boolean;
   autoCloseWfmOrders: boolean;
   relicRewardsOverlayEnabled: boolean;
   relicRecommendationOverlayEnabled: boolean;
@@ -65,7 +65,9 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   notificationSoundEnabled: true,
   wfmNotificationsEnabled: false,
   messageNotificationsEnabled: true,
-  messageNotificationsBackgroundOnly: false,
+  // Off by default: a whisper tab opens while you're focused both when you SEND a
+  // message and when one arrives mid-game, so we stay quiet unless tabbed out.
+  messageNotificationsWhileFocused: false,
   autoCloseWfmOrders: true,
   relicRewardsOverlayEnabled: true,
   relicRecommendationOverlayEnabled: true,

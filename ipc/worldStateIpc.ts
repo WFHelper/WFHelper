@@ -2,6 +2,7 @@ import ctx from "./context";
 import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
 import { withScope } from "../services/logger";
 import * as worldStateParser from "../services/worldStateParser";
+import { resolveRuntimeResourcePath } from "../services/runtimeResources";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { DB_GET_WORLD_STATE, WORLD_STATE_FETCH_ERROR } from "../config/shared/ipcChannels";
 import { execFile } from "node:child_process";
@@ -287,22 +288,50 @@ function writeToastScript(kind: "show" | "remove", tag: string): string | null {
   }
 }
 
-/** Send a Windows toast via PowerShell WinRT. Uses scenario="incomingCall" to
- *  bypass Focus Assist "Priority only" filtering, then auto-dismisses the
- *  toast after TOAST_DISMISS_MS so it behaves like a normal notification. */
+/** Send a Windows toast via PowerShell WinRT. scenario="incomingCall" is REQUIRED:
+ *  it's the only way the toast reliably gets delivered while gaming (a plain toast
+ *  silently fails). incomingCall forces the looping call ringtone, so the toast is
+ *  kept silent and we play a normal notification .wav ourselves. Auto-dismissed
+ *  from the action center after TOAST_DISMISS_MS so alerts don't pile up. */
 function notificationSoundEnabled(): boolean {
   return ctx.overlaySettings.notificationSoundEnabled !== false;
+}
+
+// A custom .wav can't be a toast's own audio in an unpackaged Win32 app, so we play
+// it via SoundPlayer alongside the silent toast. notification.wav is a copy of the
+// soft, non-chime Windows Background sound, bundled so it works on any machine.
+const NOTIFICATION_SOUND_FILE = resolveRuntimeResourcePath("notification.wav");
+
+function playNotificationSound(): void {
+  if (process.platform !== "win32" || !notificationSoundEnabled()) return;
+  if (!fs.existsSync(NOTIFICATION_SOUND_FILE)) return;
+  try {
+    execFile(
+      "powershell.exe",
+      [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        `(New-Object Media.SoundPlayer '${NOTIFICATION_SOUND_FILE}').PlaySync()`,
+      ],
+      { windowsHide: true, timeout: 8000 },
+      (err) => {
+        if (err) log.warn("[WorldState] notification sound error:", normalizeErrorMessage(err));
+      },
+    );
+  } catch (err) {
+    log.warn("[WorldState] notification sound spawn failed:", normalizeErrorMessage(err));
+  }
 }
 
 function sendWindowsToast(title: string, body: string): void {
   const tag = `wfc-${++_toastTagCounter}`;
   const group = "wfc";
-  const audioXml = notificationSoundEnabled()
-    ? '<audio src="ms-winsoundevent:Notification.Default"/>'
-    : '<audio silent="true"/>';
   const xml = `<toast scenario="incomingCall"><visual><binding template="ToastGeneric"><text>${escapeXml(
     title,
-  )}</text><text>${escapeXml(body)}</text></binding></visual>${audioXml}</toast>`;
+  )}</text><text>${escapeXml(body)}</text></binding></visual><audio silent="true"/></toast>`;
   const xmlPath = path.join(os.tmpdir(), `wfc-toast-${process.pid}-${Date.now()}-${tag}.xml`);
   try {
     fs.writeFileSync(xmlPath, xml, "utf8");
@@ -337,6 +366,9 @@ function sendWindowsToast(title: string, body: string): void {
       fs.unlink(showScriptPath, () => {});
     },
   );
+
+  // The toast is silent (incomingCall would otherwise ring); play the sound here.
+  playNotificationSound();
 
   // Auto-dismiss: remove the toast from the notification center after the
   // banner display time so it doesn't stick around like a phone call.
