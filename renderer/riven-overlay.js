@@ -7,7 +7,7 @@ let _rollCount = 0;
 let _overlayInteractiveMode = false;
 /** Whether this panel currently has real stats displayed (not "Waiting for roll…"). */
 let _hasDisplayedStats = false;
-/** Buffered enrichment data — rendered when panel gets stats. */
+/** Buffered enrichment data - rendered when panel gets stats. */
 let _pendingBestAttrs = null;
 let _pendingListings = null;
 
@@ -208,7 +208,7 @@ function applyGradingToStats(gradingResult) {
 }
 
 /**
- * Handle initial grading (single panel — current stats).
+ * Handle initial grading (single panel - current stats).
  */
 function onGradingInitial(grading) {
   if (_isLeft) {
@@ -217,7 +217,7 @@ function onGradingInitial(grading) {
 }
 
 /**
- * Handle roll grading (both panels — left=current, right=new roll).
+ * Handle roll grading (both panels - left=current, right=new roll).
  */
 function onGradingRoll(payload) {
   if (!payload) return;
@@ -350,7 +350,7 @@ function computeSimilarity(myStatNames, listingStats) {
       }
     }
   }
-  // Jaccard similarity: intersection / union — penalises extra stats on either side
+  // Jaccard similarity: intersection / union - penalises extra stats on either side
   var union = myStatNames.length + listingNamesLc.length - matchedNames.size;
   var pct = union > 0 ? Math.round((matchedNames.size / union) * 100) : 0;
   return { pct: pct, matchedNames: matchedNames };
@@ -430,7 +430,7 @@ function renderSimilarListings(listings) {
 
     card.appendChild(topRow);
 
-    // Stat lines (vertical, one per line) — cross out non-matching stats
+    // Stat lines (vertical, one per line) - cross out non-matching stats
     if (Array.isArray(item.stats)) {
       var statsCol = document.createElement("div");
       statsCol.className = "listing-stats-col";
@@ -526,7 +526,7 @@ function onRollResult(payload) {
   if (hasStats) {
     renderStats(stats);
   } else {
-    // No stats detected for this side — show error
+    // No stats detected for this side - show error
     el("stats-container").classList.add("is-hidden");
     el("error-banner").classList.add("visible");
   }
@@ -538,13 +538,13 @@ function onChoiceMade(side) {
   if (!panel) return;
 
   if (side === "left" && _isLeft) {
-    // User kept old (this panel) — highlight briefly
+    // User kept old (this panel) - highlight briefly
     panel.style.borderColor = "var(--ok)";
     setTimeout(() => {
       panel.style.borderColor = "";
     }, 2000);
   } else if (side === "right" && !_isLeft) {
-    // User took new roll (this panel) — highlight briefly
+    // User took new roll (this panel) - highlight briefly
     panel.style.borderColor = "var(--ok)";
     setTimeout(() => {
       panel.style.borderColor = "";

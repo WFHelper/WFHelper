@@ -3,7 +3,7 @@
  * Production-dead export gate.
  *
  * knip can't catch exports that are only consumed by tests, because knip.json
- * lists the test globs as `entry` (required — its vitest plugin doesn't
+ * lists the test globs as `entry` (required - its vitest plugin doesn't
  * auto-detect the worker subpackage layout). So a function can rot in prod
  * while staying "reachable" through a test import and never get flagged.
  *
@@ -11,10 +11,10 @@
  * ONLY references live in test files. Intentional test seams are excluded by
  * the `…ForTest` / `…ForTesting` naming convention or the ALLOWLIST below.
  *
- * Limitations (intentional — this is a textual identifier-token heuristic,
+ * Limitations (intentional - this is a textual identifier-token heuristic,
  * not an AST/type analysis):
  *  - A name appearing in a comment or string in a production file counts as a
- *    prod reference, so the gate UNDER-reports rather than over-reports — it
+ *    prod reference, so the gate UNDER-reports rather than over-reports - it
  *    never tells you to delete something that is actually live.
  *  - A symbol surfaced only through a multi-line `export { … } from` re-export
  *    block is treated as prod-used (the inner line is not recognised as a
@@ -26,7 +26,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Repo root, derived from this file's location (robust to invocation cwd —
+// Repo root, derived from this file's location (robust to invocation cwd -
 // matches the convention used by the other scripts/*.mjs).
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -57,7 +57,7 @@ const DEF_ROOT_FILES = [
   "preload-riven.ts",
   "preload-trade-notification.ts",
 ];
-// Where a reference *counts* — full surface incl. worker package + renderer.
+// Where a reference *counts* - full surface incl. worker package + renderer.
 const USE_DIRS = ["services", "ipc", "config", "src", "renderer", "backend", "tests", "e2e"];
 
 const isTestPath = (p) =>
@@ -96,7 +96,7 @@ function collectFiles(dirs, rootFiles = []) {
     try {
       if (statSync(abs).isDirectory()) walk(abs, files);
     } catch {
-      /* dir absent — skip */
+      /* dir absent - skip */
     }
   }
   for (const f of rootFiles) {
@@ -149,7 +149,7 @@ for (const file of collectFiles(DEF_DIRS, DEF_ROOT_FILES)) {
     if (!testBagRanges.has(file)) testBagRanges.set(file, []);
     testBagRanges.get(file).push([i, j]);
     // Pull member names. Bags use shorthand (`{ foo, bar }`) or `key: value`
-    // — accept identifier tokens, ignore literal values (kept simple: any
+    // - accept identifier tokens, ignore literal values (kept simple: any
     // identifier that resolves to a local declaration in this file counts).
     const body = lines.slice(i, j + 1).join("\n");
     const inner = body.slice(body.indexOf("{") + 1, body.lastIndexOf("}"));
@@ -181,7 +181,7 @@ for (const file of collectFiles(USE_DIRS, DEF_ROOT_FILES)) {
   const isTest = isTestPath(file);
   const bucket = isTest ? testRefs : prodRefs;
   // In prod files, occurrences inside `__test__ = { … }` bags don't count as
-  // real production use — they exist solely to expose the helper to tests.
+  // real production use - they exist solely to expose the helper to tests.
   const skipRanges = !isTest ? testBagRanges.get(file) : null;
   const lines = readFileSync(file, "utf8").split("\n");
   for (let i = 0; i < lines.length; i++) {
@@ -224,7 +224,7 @@ console.error(
   `\ncheck-prod-dead-exports: ${findings.length} export(s) referenced ONLY by tests:\n`,
 );
 for (const f of findings.sort((a, b) => a.name.localeCompare(b.name))) {
-  console.error(`  ${f.name}  —  ${f.file}:${f.line}  (test refs: ${f.testRefs})`);
+  console.error(`  ${f.name}  -  ${f.file}:${f.line}  (test refs: ${f.testRefs})`);
 }
 console.error(
   "\nRemove the dead export (+ its orphaned test), or, if it is an intentional\n" +

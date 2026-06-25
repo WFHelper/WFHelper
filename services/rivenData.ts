@@ -509,11 +509,7 @@ export function findWeaponInText(text: string): string | null {
     if (nameLc.length <= bestExactLen) continue;
     if (nameLc.length < 3) continue; // skip very short names to avoid false positives
     if (lc.includes(nameLc)) {
-      // Return the display-cased version from the unique name
-      // Since we only stored lowercase, reconstruct from the raw data.
-      // Actually the map value has uniqueName - but we need display name.
-      // We'll keep a second map, or just re-case.  For now return the
-      // known key with proper casing via _weaponDisplayNames.
+      // Keys are lowercased; recover the display-cased name from the parallel map.
       bestExact = _weaponDisplayNames.get(nameLc) || nameLc;
       bestExactLen = nameLc.length;
     }
