@@ -21,7 +21,7 @@ Cloudflare runtime limits and binding capabilities change; don't rely on cached 
 - `src/routes/public.ts`
   - `GET /healthz`
   - `GET /v1/bootstrap`
-  - `GET /v1/snapshot` — serves the pre-built bulk snapshot blob (prices + meta + orderSummaries) from
+  - `GET /v1/snapshot` - serves the pre-built bulk snapshot blob (prices + meta + orderSummaries) from
     KV key `snapshot:full:v1`. Returns 503 `snapshot_not_ready` if the cron has not yet fired.
     `Cache-Control: public, max-age=7200` so Cloudflare edge absorbs nearly all real traffic.
     Rate limited at **10 req / 600 s per IP** (snapshot bucket).
@@ -29,7 +29,7 @@ Cloudflare runtime limits and binding capabilities change; don't rely on cached 
     `generatedAt` timestamp. Clients send `If-None-Match` on repeat fetches; if the snapshot has
     not changed the worker returns **304 Not Modified** with an empty body, so repeat app opens
     cost zero bandwidth. This is the same pattern AlecaFrame uses for its bulk data endpoints.
-    **Does NOT require bootstrap token** — the snapshot is fetched at client startup before the
+    **Does NOT require bootstrap token** - the snapshot is fetched at client startup before the
     bootstrap token flow has completed; requiring a token creates a chicken-and-egg failure. The
     data it contains is already publicly available via per-slug routes.
   - `GET /v1/prices/:slug`
@@ -58,7 +58,7 @@ Cloudflare runtime limits and binding capabilities change; don't rely on cached 
   - Builds ranked summary catalog entries from WFM item metadata.
   - Supports both global ranked catalog prewarm and optional ranked hotset prewarm.
   - Skips untradable items with `skip:untradable:*` markers.
-  - `patchSnapshot(env, patches)` — merges price/meta/orderSummary patches into the persisted
+  - `patchSnapshot(env, patches)` - merges price/meta/orderSummary patches into the persisted
     `snapshot:full:v1` blob (1 KV read + 1 KV write). Called at the end of every `prewarmBatch`
     and `prewarmOrderSummaryCatalog` tick. After one full cursor pass over the entire catalog
     (~1-2 h) the snapshot is 100% populated with no per-invocation subrequest cap.
@@ -84,7 +84,7 @@ Public protection is layered:
 
 1. Cloudflare custom domain with edge rate limiting.
 2. Worker-side public IP rate limiting (KV bucket per route).
-3. CORS origin allowlist — `ALLOW_ORIGIN` is the comma-separated browser-origin allowlist;
+3. CORS origin allowlist - `ALLOW_ORIGIN` is the comma-separated browser-origin allowlist;
    Electron/curl requests without an `Origin` header always pass through transparently.
 4. Public-minimal `/healthz`; detailed health requires admin auth.
 5. Early slug/rank validation against the ranked summary catalog.
@@ -96,7 +96,7 @@ Keep `workers_dev = false` when relying on custom-domain edge rate limiting.
 ### Security implementation notes
 
 - **`clientIp()`** lives in `src/utils.ts`. Do not add a local copy to `rateLimit.ts` or
-  `bootstrap.ts`. The function reads `cf-connecting-ip` only — never `x-forwarded-for` (which
+  `bootstrap.ts`. The function reads `cf-connecting-ip` only - never `x-forwarded-for` (which
   is spoofable and is dead code when `workers_dev=false`).
 - **Admin auth** uses an XOR-based constant-time comparison (`timingSafeEqual` in
   `src/security/adminAuth.ts`) to prevent timing side-channel attacks on the bearer token.
@@ -162,10 +162,10 @@ stale refresh → cron prewarm → incremental `patchSnapshot()`) is described i
 ## Env vars
 
 The full env-var catalog with descriptions is the **Key vars** section of
-`README.md` (single source of truth — do not restate it here). Key
+`README.md` (single source of truth - do not restate it here). Key
 invariants and the relationship constraints follow.
 
-`SNAPSHOT_REFRESH_INTERVAL_SEC` has been removed — the snapshot is no longer periodically rebuilt
+`SNAPSHOT_REFRESH_INTERVAL_SEC` has been removed - the snapshot is no longer periodically rebuilt
 from KV. It is maintained incrementally via `patchSnapshot()` after every prewarm batch. Do not
 re-add periodic snapshot rebuilds.
 
