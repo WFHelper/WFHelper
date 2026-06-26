@@ -1,4 +1,4 @@
-# ocr.ps1 — Windows built-in OCR (WinRT) for relic reward detection
+# ocr.ps1 - Windows built-in OCR (WinRT) for relic reward detection
 # Usage: powershell -ExecutionPolicy Bypass -File ocr.ps1 "C:\path\to\image.png"
 # Outputs: recognized text to stdout
 param([string]$ImagePath)
@@ -15,7 +15,7 @@ Add-Type -AssemblyName System.Runtime.WindowsRuntime
 
 # Helper: synchronously await a WinRT IAsyncOperation<T>.
 # Iterates all AsTask overloads with 1 parameter and tries MakeGenericMethod
-# on each — the first that succeeds is the correct generic overload.
+# on each - the first that succeeds is the correct generic overload.
 # This is robust across all .NET / PowerShell versions where
 # IsGenericMethodDefinition or GetGenericArguments() may behave unexpectedly.
 function Await {
@@ -44,10 +44,10 @@ function Await {
             $task.Wait()
             return $task.Result
         } catch [System.InvalidOperationException] {
-            # Not a generic method or wrong generic arity — try next overload
+            # Not a generic method or wrong generic arity - try next overload
             continue
         } catch [System.ArgumentException] {
-            # Type argument doesn't satisfy constraints — try next overload
+            # Type argument doesn't satisfy constraints - try next overload
             continue
         }
     }
@@ -64,7 +64,7 @@ try {
     $decoder     = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])
     $bitmap      = Await ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
 
-    # Try English first — Warframe's riven stats are always in English
+    # Try English first - Warframe's riven stats are always in English
     # regardless of the user's game language setting.  Using the English OCR
     # model gives the best recognition accuracy for stat names.
     $lang   = [Windows.Globalization.Language]::new("en")

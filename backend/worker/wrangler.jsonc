@@ -45,7 +45,7 @@
 		"ORDER_SUMMARY_PREWARM_BATCH_SIZE": "36",
 		// Restrict browser-context CORS to the production domain only.
 		// Requests without an Origin header (Electron app, curl) are always
-		// allowed regardless of this value — it only blocks cross-site browser
+		// allowed regardless of this value - it only blocks cross-site browser
 		// fetches.  Keep the current domain here; do NOT use "*" in production.
 		"ALLOW_ORIGIN": "https://wfhelper.com",
 		"ADMIN_RATE_LIMIT_WINDOW_SEC": "60",

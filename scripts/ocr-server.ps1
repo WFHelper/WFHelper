@@ -1,4 +1,4 @@
-# ocr-server.ps1 — Persistent Windows OCR (WinRT) server with JSON protocol
+# ocr-server.ps1 - Persistent Windows OCR (WinRT) server with JSON protocol
 
 param()
 
@@ -100,7 +100,7 @@ function Get-SoftwareBitmap {
                 $null = Await ($writer.StoreAsync()) ([uint32])
                 $null = Await ($writer.FlushAsync()) ([bool])
             } finally {
-                # DetachStream() must be called before Dispose() — DataWriter.Dispose()
+                # DetachStream() must be called before Dispose() - DataWriter.Dispose()
                 # closes the underlying stream, which would cause RO_E_CLOSED (0x80000013)
                 # on the subsequent Seek(0) call.
                 $null = $writer.DetachStream()

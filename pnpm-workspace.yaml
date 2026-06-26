@@ -7,7 +7,7 @@ nodeLinker: hoisted
 
 # Supply-chain cooldown. Rolling minimum age (in MINUTES) a published version
 # must have before pnpm will resolve/install it. 2880 = 48 hours. Quarantines
-# freshly-published (possibly compromised) releases automatically — no manual
+# freshly-published (possibly compromised) releases automatically - no manual
 # date to maintain. Already-locked versions installed via --frozen-lockfile are
 # unaffected.
 minimumReleaseAge: 2880
