@@ -305,6 +305,16 @@ function formatMissionTypeLabel(missionType: string, nodeId: string): string {
   return missionType || "Unknown";
 }
 
+// Railjack void storms carry no MissionType in world state; the real type lives on
+// the node's railjack mission (Survival, Volatile, Skirmish, ...). Dict labels are
+// uppercase, so normalise to Title Case to match normal fissures. Falls back to
+// "Railjack" for nodes we can't resolve.
+function railjackMissionLabel(nodeId: string): string {
+  const name = resolveDictValue(REGION_TRANSLATION.regions[nodeId]?.missionName);
+  if (!name) return "Railjack";
+  return name.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+}
+
 function computeVallisCycle(nowMs: number = Date.now()): { isWarm: boolean; timeLeft: string; expiry: string } {
   const elapsed = (nowMs - VALLIS_EPOCH_MS) % VALLIS_PERIOD_MS;
   const isWarm = elapsed < VALLIS_WARM_MS;
@@ -835,7 +845,7 @@ export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> | n
       return {
         expiry: expMs ? new Date(expMs).toISOString() : null,
         tier: VOID_TIER[baseTier] || "Unknown",
-        missionType: "Railjack",
+        missionType: railjackMissionLabel(nodeId),
         node: formatNodeLabel(nodeId),
         nodeId,
         isHard,

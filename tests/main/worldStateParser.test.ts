@@ -47,6 +47,20 @@ describe("worldStateParser.parseRaw", () => {
     expect(parsed.sortie?.expiry).toBeTruthy();
   });
 
+  it("derives the real mission type for railjack void storms", () => {
+    const now = Date.now();
+    const parsed = parser.parseRaw({
+      VoidStorms: [
+        { Node: "CrewBattleNode515", ActiveMissionTier: "VoidT3", Expiry: dateLong(now + 60_000) },
+      ],
+    });
+
+    const storm = parsed.fissures.find((f) => f.isStorm);
+    expect(storm?.tier).toBe("Neo");
+    // Was hardcoded "Railjack"; now resolves the node's railjack mission.
+    expect(storm?.missionType).toBe("Survival");
+  });
+
   it("returns null for empty input", () => {
     expect(parser.parseRaw(null)).toBeNull();
   });
