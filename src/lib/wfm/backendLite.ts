@@ -201,11 +201,7 @@ async function requestBackend(
   }
 }
 
-/**
- * Make a raw authenticated GET request to the backend.
- * Handles bootstrap token and timeout. Returns the raw Response on 2xx,
- * or null on any network/auth error. Callers are responsible for parsing the body.
- */
+/** Authenticated GET; raw Response on 2xx, null on any error. Caller parses. */
 export async function fetchBackendRaw(
   pathname: string,
   options?: { timeoutMs?: number; headers?: Record<string, string>; cache?: BackendRequestCache },

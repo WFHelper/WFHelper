@@ -1,9 +1,4 @@
-/**
- * Barrel module - re-exports from relic sub-modules.
- *
- * All relic-related logic lives in `src/lib/relic/`. This file exists so that
- * existing consumer imports (`from "./relic.js"`) continue to work unchanged.
- */
+/** Barrel re-exports for `src/lib/relic/` - keeps `./relic.js` imports working. */
 
 export { RELIC_ICON_PATHS, RELIC_TIER_ORDER, fissureTierClass } from "./relic/relicConstants.js";
 

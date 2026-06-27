@@ -542,9 +542,8 @@ export function onRivenChoiceConfirmed(): void {
   clearRivenScanTimers();
   _rivenHasRollResult = false;
 
-  // IMPORTANT: SendResult(4) fires for BOTH "accept new roll" (user clicked right card
-  // then CONFIRM) AND "confirm keeping current" (user clicked left card then CONFIRM).
-  // There is NO way to determine the chosen side from EE.log alone - we MUST rescan.
+  // SendResult(4) fires for BOTH "accept new roll" and "keep current" confirms;
+  // EE.log alone can't tell which side - always rescan.
 
   // Snapshot both stat sets NOW under local names - _rivenNewRollStats / _rivenInitialStats
   // may be overwritten if the user immediately starts another roll before the timer fires.

@@ -176,10 +176,9 @@ export function initialize(windowRef: import("electron").BrowserWindow): void {
     return;
   }
 
-  // Manual-only update policy: never download or install without an explicit
-  // user action. Mitigates blind exposure to a compromised release/feed.
-  // Updates are detected and surfaced in the UI; checkForUpdates() and
-  // installDownloadedUpdate() are driven by the user, not on a timer.
+  // Manual-only updates: never download/install without explicit user action -
+  // limits exposure to a compromised release feed. checkForUpdates() and
+  // installDownloadedUpdate() are user-driven, no timer.
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.allowPrerelease = false;

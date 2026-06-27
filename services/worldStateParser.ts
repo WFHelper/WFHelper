@@ -388,6 +388,33 @@ async function fetchEarthCycle(): Promise<{ isDay: boolean; timeLeft: string; ex
   }
 }
 
+// The weekly Circuit reward rotation (normal + Steel Path "hard" incarnons) is
+// not in DE's world state, and computeDuviriMoodCycle only derives the mood.
+// warframestat's /pc/duviriCycle carries it. Returns [] on any failure so the
+// Circuit panel just stays empty instead of breaking the world fetch.
+async function fetchDuviriChoices(): Promise<Array<{ category: string; choices: string[] }>> {
+  try {
+    const data = (await fetchJsonWithTimeout(
+      `${WARFRAMESTAT_BASE_URL}/duviriCycle`,
+      CYCLE_FETCH_TIMEOUT_MS,
+    )) as Record<string, unknown>;
+    const raw = Array.isArray(data?.choices) ? data.choices : [];
+    return raw
+      .map((entry) => {
+        const e = (entry || {}) as Record<string, unknown>;
+        const category = typeof e.category === "string" ? e.category : "";
+        const choices = Array.isArray(e.choices)
+          ? e.choices.filter((c): c is string => typeof c === "string")
+          : [];
+        return { category, choices };
+      })
+      .filter((e) => e.category && e.choices.length > 0);
+  } catch (err) {
+    log.warn("[WorldState] duviri choices fetch failed:", normalizeErrorMessage(err));
+    return [];
+  }
+}
+
 const BOUNTY_SYNDICATES = new Set([
   "Ostrons",         // CetusSyndicate
   "Solaris United",  // SolarisSyndicate
@@ -658,15 +685,21 @@ function parseBountyCycleBounties(data: BountyCycleResponse): unknown[] {
 async function fetchAndComputeCycles(): Promise<Record<string, unknown>> {
   const nowMs = Date.now();
 
-  // Vallis and Duviri are pure math - always available
+  // Vallis and Duviri mood are pure math - always available
   const vallisCycle = computeVallisCycle(nowMs);
-  const duviriCycle = computeDuviriMoodCycle(nowMs);
+  const duviriMood = computeDuviriMoodCycle(nowMs);
 
-  // Fetch oracle bounty-cycle and earth cycle in parallel (avoids 4s+4s sequential wait)
-  const [oracleResult, earthResult] = await Promise.allSettled([
+  // Fetch oracle bounty-cycle, earth cycle and Circuit choices in parallel
+  const [oracleResult, earthResult, duviriChoicesResult] = await Promise.allSettled([
     fetchJsonWithTimeout(ORACLE_BOUNTY_CYCLE_URL, CYCLE_FETCH_TIMEOUT_MS) as Promise<BountyCycleResponse>,
     fetchEarthCycle(),
+    fetchDuviriChoices(),
   ]);
+
+  const duviriCycle = {
+    ...duviriMood,
+    choices: duviriChoicesResult.status === "fulfilled" ? duviriChoicesResult.value : [],
+  };
 
   let cetusCycle: { isDay: boolean; timeLeft: string; expiry: string } | null = null;
   let cambionCycle: { active: string; timeLeft: string; expiry: string } | null = null;

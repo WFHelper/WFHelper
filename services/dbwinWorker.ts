@@ -284,10 +284,9 @@ function runDbwinLoop(): void {
 
         const bytes = koffi.decode(pBuf, uint8ArrayType) as number[];
 
-        // *** CRITICAL: Re-signal BUFFER_READY immediately after the copy. ***
-        // OutputDebugString() in Warframe's thread waits on BUFFER_READY with a
-        // short timeout (~10 ms). Signalling here returns the buffer to Warframe
-        // in microseconds; all subsequent JS work runs concurrently.
+        // Re-signal BUFFER_READY right after the copy: OutputDebugString() in the game
+        // thread waits on it (~10 ms timeout). The rest of the JS work runs after the
+        // buffer is back with Warframe.
         SetEvent(hReady);
 
         const buf = Buffer.from(bytes);

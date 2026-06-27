@@ -123,10 +123,8 @@ export default {
 				status: 200,
 				latencyMs: Math.round(performance.now() - start),
 			});
-			// The snapshot is maintained incrementally: patchSnapshot() is called at the end of every
-			// prewarmBatch and prewarmOrderSummaryCatalog tick, so after one full cursor pass (~1-2 hours)
-			// the snapshot contains 100% of catalog items with no per-invocation subrequest cap.
-			// buildFullSnapshot() is kept only as an admin-triggered cold-boot seed - do NOT call it here.
+			// patchSnapshot() at the end of each prewarm tick maintains the snapshot; one full
+			// cursor pass (~1-2h) covers the catalog. buildFullSnapshot() is an admin cold-boot seed only.
 		} catch (err) {
 			logEvent({
 				type: 'error',

@@ -92,7 +92,6 @@ export function initStartup(): StartupHandle {
       void startPrimePriceWarmup();
     }, STARTUP_RELIC_WARMUP_DELAY_MS);
 
-    // Periodically flush the in-memory price cache to disk
     flushInterval = setInterval(() => {
       void flushPriceCacheToDisk();
     }, PRICE_CACHE_FLUSH_INTERVAL_MS);

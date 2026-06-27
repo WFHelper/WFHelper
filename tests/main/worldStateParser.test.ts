@@ -57,7 +57,7 @@ describe("worldStateParser.parseRaw", () => {
 
     const storm = parsed.fissures.find((f) => f.isStorm);
     expect(storm?.tier).toBe("Neo");
-    // Was hardcoded "Railjack"; now resolves the node's railjack mission.
+    // Resolves the node's railjack mission instead of a hardcoded label.
     expect(storm?.missionType).toBe("Survival");
   });
 

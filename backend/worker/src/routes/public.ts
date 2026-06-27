@@ -88,8 +88,7 @@ function rankedValidationFailureResponse(validation: RankedValidation, req: Requ
 
 async function requireBootstrapIfNeeded(req: Request, env: Env): Promise<'ok' | 'missing_secret' | 'invalid'> {
 	if (!bootstrapRequired(env)) return 'ok';
-	// Required mode without a secret is a server misconfiguration; fail closed so
-	// token protection cannot be silently disabled in production.
+	// Fail closed: required mode without a secret is a misconfiguration.
 	if (!bootstrapEnabled(env)) return 'missing_secret';
 	return (await verifyBootstrapToken(req, env)) ? 'ok' : 'invalid';
 }
@@ -241,17 +240,9 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 	}
 
 	if (req.method === 'GET' && url.pathname === '/v1/snapshot') {
-		// No bootstrap requirement: snapshot is a CDN-cached bulk read of data that
-		// is already publicly accessible via per-slug routes. It is fetched once at
-		// client startup - before the bootstrap token flow has completed - so adding
-		// bootstrap would create a chicken-and-egg failure.
-		//
-		// Edge caching: we use the Cloudflare Cache API so the response is stored at
-		// each PoP after the first request. Cache hits are rewrapped below so CORS
-		// is computed for the current request instead of replaying the priming
-		// request's Origin.
-		// The guard intentionally runs before Cache API lookup because these hits
-		// still execute the Worker in tests and deployed runtime.
+		// Public bulk data, fetched at startup before the bootstrap token exists - no auth here.
+		// Cached per PoP via the Cache API; hits are rewrapped below so CORS matches the current
+		// request. Guard runs before cache lookup (cache hits still execute the Worker).
 		const guardResponse = await guardPublicRequest(req, env, 'snapshot');
 		if (guardResponse) return guardResponse;
 

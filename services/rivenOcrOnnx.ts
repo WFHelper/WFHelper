@@ -457,10 +457,7 @@ async function recognizeCropsBatch(crops: RgbCrop[]): Promise<OcrLineResult[]> {
   return results;
 }
 
-/**
- * Deterministic corrections for known PaddleOCR CH misreads.
- * Ported 1:1 from benchmark_yolo_ocr.py postprocess_ocr_text().
- */
+/** Deterministic corrections for known PaddleOCR CH misreads (ports postprocess_ocr_text). */
 function postprocessOcrText(text: string): string {
   // Strip asterisk-minus artifact: "*-74,2%" → "-74,2%"
   text = text.replace(/\*-/g, "-");

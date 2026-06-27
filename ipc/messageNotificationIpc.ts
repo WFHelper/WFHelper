@@ -13,11 +13,9 @@ import { withScope } from "../services/logger";
 const log = withScope("messageNotification");
 
 /**
- * Warframe re-emits `ChatRedux::AddTab` for open whisper tabs every frame while
- * the chat UI is rendering (~30x/s, sustained), and both DBWIN and the file poll
- * deliver each line. Debounce per sender: refresh the timestamp on every hit so a
- * continuous storm collapses to a single toast, and only re-notify after the
- * sender has been quiet for the full window (i.e. a genuinely new conversation).
+ * Warframe re-emits ChatRedux::AddTab ~30x/s while chat renders, on both DBWIN
+ * and the file poll. Debounce per sender: refresh the timestamp on every hit,
+ * re-notify only after the sender went quiet for the full window.
  */
 const NOTIFY_DEBOUNCE_MS = 10_000;
 const lastSeen = new Map<string, number>();
@@ -39,10 +37,9 @@ export async function notifyInGameMessage(playerName: string): Promise<void> {
 
     if (isDuplicate(playerName, Date.now())) return;
 
-    // EE.log can't tell a whisper you SENT from one you RECEIVED - both just open
-    // an "F" chat tab. You can only type a message while Warframe is focused, so a
-    // tab that appears with the game in the foreground is your own outgoing message
-    // (or an incoming one already on screen). Skip those unless the user opts in.
+    // EE.log can't tell a sent whisper from a received one - both open an "F" tab.
+    // Typing needs game focus, so a tab appearing while focused is our own outgoing
+    // message (or an incoming one already on screen). Skip those unless opted in.
     if (!ctx.overlaySettings.messageNotificationsWhileFocused) {
       const status = await warframeStatus.getStatus({ force: true });
       if (status.isFocused) {

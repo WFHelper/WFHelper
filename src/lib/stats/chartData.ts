@@ -1,7 +1,4 @@
-/**
- * Pure chart-data computation extracted from StatsView.
- * No Svelte, i18n, or IPC dependencies - just types, constants, and functions.
- */
+/** Pure chart-data computation - no Svelte, i18n, or IPC. */
 import type { DailyStatEntry } from "../../types/ipc.js";
 
 
@@ -99,9 +96,7 @@ export function shortDate(iso: string): string {
   return `${parseInt(parts[2])}.${parseInt(parts[1])}`;
 }
 
-/**
- * Compact SI tick label: >=1M -> "X.XM", >=1K -> "X.XK", else raw number.
- */
+/** Compact SI tick label: 1.2M / 3.4K / raw. */
 function fmtTickSI(value: number): string {
   const abs = Math.abs(value);
   if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
@@ -201,8 +196,7 @@ export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, 
     rawAbs.push(absField && entry ? ((entry[absField] as number | undefined) ?? undefined) : undefined);
   }
 
-  // Fallback: derive deltas from absolute values for entries where delta is 0
-  // but consecutive abs values show a change
+  // Derive deltas from consecutive abs values when the recorded delta is 0
   if (absField) {
     for (let i = 1; i < values.length; i++) {
       if (values[i] === 0 && rawAbs[i] !== undefined && rawAbs[i - 1] !== undefined) {

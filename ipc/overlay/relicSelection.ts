@@ -436,11 +436,9 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
   let lastKnownGameDisplayId: string | null = null;
   let desktopSquadSize: number = RECOMMENDATION_SQUAD_SIZE;
   let desktopTierHint: string | null = null;
-  // Cached era for the current mission session.  Set after the first confident era detection;
-  // reused for all subsequent relic picks within the same mission (e.g. endless fissure
-  // rotations) so OCR is skipped entirely.  TTL is refreshed on each cache hit so a long
-  // endless run never expires mid-session.  Once the player leaves for longer than the TTL
-  // the next open runs OCR afresh.
+  // Era cache for the current mission session: set on first confident detection,
+  // reused for later picks (endless rotations) so OCR is skipped. TTL refreshes
+  // on hit; expires only after leaving the mission for longer than the TTL.
   let activeMissionTier: string | null = null;
   let activeMissionTierSetAt = 0;
   let cache: {
@@ -591,11 +589,9 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     try {
       const eraDetectStartedAt = Date.now();
 
-      // Check era cache before deciding whether to capture the screen.
-      // When era is cached, run captureSourceMeta to refresh the display anchor.
-      // When OCR is needed, skip captureSourceMeta entirely - detectRelicSelectionEra
-      // already performs its own screen capture and returns the same display metadata,
-      // so running captureSourceMeta first would be a redundant ~600 ms capture.
+      // Era cached: just captureSourceMeta (display anchor refresh). Era needed:
+      // skip captureSourceMeta - detectRelicSelectionEra captures the screen itself,
+      // a second capture would waste ~600 ms.
       const cacheAge = Date.now() - activeMissionTierSetAt;
       let era: string | null =
         activeMissionTier && cacheAge < RELIC_MISSION_TIER_CACHE_TTL_MS ? activeMissionTier : null;

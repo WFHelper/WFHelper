@@ -16,11 +16,7 @@ interface NormalizedStatEntry {
   absAya?: number | undefined;
 }
 
-/**
- * Normalize stats JSON into a flat array of daily entries.
- * Handles both delta-style exports (platDelta) and absolute-style (plat with
- * prev-row differencing).
- */
+/** Normalize stats JSON to daily entries - delta-style or absolute-style rows. */
 export function normalizeAlecaFrameStats(parsed: unknown): NormalizedStatEntry[] {
   const p = parsed as Record<string, unknown>;
   const rawRows: unknown[] =
@@ -102,10 +98,7 @@ export function normalizeAlecaFrameStats(parsed: unknown): NormalizedStatEntry[]
   return normalized;
 }
 
-/**
- * Parse the trade array from a stats JSON export.
- * Returns trade events ready for import via IPC.
- */
+/** Parse the trade array from a stats JSON export. */
 export function parseAlecaFrameTrades(parsed: unknown): TradeEvent[] {
   if (!parsed || typeof parsed !== "object") return [];
   const p = parsed as Record<string, unknown>;

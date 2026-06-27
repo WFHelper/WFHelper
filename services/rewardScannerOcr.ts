@@ -194,8 +194,7 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
       return textToStructuredResult(await nativeOcrBuffer(imageBuffer, timeoutMs));
     }
 
-    // If the native binding is available, prefer it - it's faster and avoids the
-    // PowerShell server process entirely (no startup latency, no crash risk).
+    // Prefer the native binding - faster, no PowerShell server process.
     if (nativeOcrAvailable) {
       try {
         return textToStructuredResult(await nativeOcrBuffer(imageBuffer, timeoutMs));
