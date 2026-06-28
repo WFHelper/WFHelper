@@ -359,6 +359,8 @@ function triggerInitialScan(): void {
       }
     } catch (err) {
       log.warn("[RivenScan] initial scan failed:", String(err));
+      // Surface the failure in the overlay instead of leaving the spinner up.
+      rivenSession.onInitialStats(getRivenWindows(), []);
     }
   }, INITIAL_SCAN_DELAY_MS);
 }

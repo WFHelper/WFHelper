@@ -158,6 +158,20 @@ function renderStats(stats) {
   if (_pendingListings) renderSimilarListings(_pendingListings);
 }
 
+/** Show the error banner with a reason instead of an endless "Waiting" spinner. */
+function showScanError(message) {
+  hideScanning();
+  _hasDisplayedStats = false;
+  const banner = el("error-banner");
+  el("stats-container").classList.add("is-hidden");
+  el("best-attributes").classList.add("is-hidden");
+  el("similar-listings").classList.add("is-hidden");
+  if (banner) {
+    if (message) banner.textContent = message;
+    banner.classList.add("visible");
+  }
+}
+
 /** State: current stat names (lowercase) for best-attribute matching. */
 let _currentStatNamesLc = [];
 
@@ -499,8 +513,13 @@ function onSessionStart(weapon) {
 function onInitialStats(stats) {
   hideScanning();
   // Only the left (current) panel uses initial stats
-  if (_isLeft) {
+  if (!_isLeft) return;
+  if (Array.isArray(stats) && stats.length > 0) {
     renderStats(stats);
+  } else {
+    // Scan ran but read nothing - tell the user why instead of sitting on
+    // "Waiting for scan...". The usual cause is Warframe in windowed mode.
+    showScanError("Couldn't read the riven. Set Warframe to Fullscreen or Borderless (not Windowed).");
   }
 }
 
@@ -526,9 +545,7 @@ function onRollResult(payload) {
   if (hasStats) {
     renderStats(stats);
   } else {
-    // No stats detected for this side - show error
-    el("stats-container").classList.add("is-hidden");
-    el("error-banner").classList.add("visible");
+    showScanError("Couldn't read the new roll. Set Warframe to Fullscreen or Borderless (not Windowed).");
   }
 }
 
