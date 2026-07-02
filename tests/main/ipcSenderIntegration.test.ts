@@ -72,7 +72,7 @@ describe("IPC sender guard integration", () => {
     const handler = handlers.get("get-world-state");
     expect(handler).toBeTypeOf("function");
 
-    const badEvent = makeEvent(99, "file:///D:/Github/warframe-companion/renderer/dist/index.html");
+    const badEvent = makeEvent(99, "file:///D:/app/renderer/dist/index.html");
     await expect(handler?.(badEvent)).rejects.toThrow("Unauthorized IPC sender");
   });
 });

@@ -417,7 +417,7 @@ function httpsDownloadToFile(
         return;
       }
       https
-        .get(absUrl, { headers: { "User-Agent": "warframe-companion" } }, (res) => {
+        .get(absUrl, { headers: { "User-Agent": "WFHelper" } }, (res) => {
           // Follow redirect - but only to https:// targets. Resolve relative
           // locations against the current URL before re-validating.
           if (
@@ -492,7 +492,7 @@ export async function downloadHelper(
     onProgress({ stage: "resolving", percent: 0, bytesReceived: 0, bytesTotal: 0 });
 
     const releaseRes = await httpsGetBuffer(GITHUB_RELEASES_URL, {
-      "User-Agent": "warframe-companion",
+      "User-Agent": "WFHelper",
       Accept: "application/vnd.github+json",
     });
 

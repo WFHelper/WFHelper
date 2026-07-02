@@ -6,7 +6,7 @@
 # Usage examples:
 #   .\scripts\prewarm-order-summaries.ps1 -ApiKey "your-admin-api-key"
 #   .\scripts\prewarm-order-summaries.ps1 -ApiKey "your-admin-api-key" -Source hotset
-#   .\scripts\prewarm-order-summaries.ps1 -ApiKey "your-admin-api-key" -Source hotset -HotsetFile "$env:APPDATA\warframe-companion\ranked-hotset.json"
+#   .\scripts\prewarm-order-summaries.ps1 -ApiKey "your-admin-api-key" -Source hotset -HotsetFile "$env:APPDATA\WFHelper\ranked-hotset.json"
 #   .\scripts\prewarm-order-summaries.ps1 -ApiKey "your-admin-api-key" -Source catalog -RefreshCatalog
 
 param(

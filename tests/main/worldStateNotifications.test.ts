@@ -18,7 +18,7 @@ class MockNotification {
 }
 
 function makeAuthorizedEvent() {
-  const url = "file:///D:/Github/warframe-companion/renderer/dist/index.html";
+  const url = "file:///D:/app/renderer/dist/index.html";
   return {
     sender: {
       id: 101,

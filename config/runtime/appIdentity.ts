@@ -1,8 +1,9 @@
 import { app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
+import { APP_PRODUCT_NAME } from "../shared/appMeta";
 
-const APP_USER_DATA_DIR_NAME = "WFHelper";
+const APP_USER_DATA_DIR_NAME = APP_PRODUCT_NAME;
 const LEGACY_USER_DATA_DIR_NAMES = ["warframe-companion"];
 
 function directoryHasEntries(dir: string): boolean {
@@ -37,6 +38,6 @@ function copyLegacyUserData(appDataRoot: string, targetDir: string): void {
 const appDataRoot = app.getPath("appData");
 const userDataPath = path.join(appDataRoot, APP_USER_DATA_DIR_NAME);
 
-app.setName("WFHelper");
+app.setName(APP_PRODUCT_NAME);
 copyLegacyUserData(appDataRoot, userDataPath);
 app.setPath("userData", userDataPath);

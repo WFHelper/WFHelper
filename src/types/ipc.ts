@@ -367,10 +367,6 @@ export interface IpcInvokeMap {
     args: [weaponName: string, positiveWfmNames: string[], negativeWfmNames: string[]];
     return: WfmRivenListing[];
   };
-  getWeaponRivenType: {
-    args: [weaponName: string];
-    return: string | null;
-  };
   getRivenBestAttributes: {
     args: [weaponName: string];
     return: RivenBestAttributes | null;

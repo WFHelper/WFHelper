@@ -11,7 +11,6 @@ import {
   RIVENS_GET_WEAPON_NAMES,
   RIVENS_GET_STAT_OPTIONS,
   RIVENS_SEARCH_AUCTIONS,
-  RIVENS_GET_WEAPON_TYPE,
   RIVENS_GET_BEST_ATTRIBUTES,
   RIVENS_CREATE_AUCTION,
   RIVENS_UPDATE_AUCTION,
@@ -77,16 +76,6 @@ function register(): void {
         positiveStats: posArr.length > 0 ? posArr : undefined,
         negativeStats: negArr.length > 0 ? negArr : undefined,
       });
-    },
-  );
-
-  handleAuthorized(
-    RIVENS_GET_WEAPON_TYPE,
-    assertMainRendererSender,
-    (_event, weaponName: unknown) => {
-      const weapon = trimmedString(weaponName, 120);
-      if (!weapon) return null;
-      return rivenData.getWeaponRivenTypeLabel(weapon);
     },
   );
 

@@ -12,8 +12,7 @@ import os from "node:os";
 
 const log = withScope("worldStateIpc");
 
-/** Must match the value set in main.ts via app.setAppUserModelId(). */
-const APP_USER_MODEL_ID = "com.warframe.companion";
+import { WIN_APP_USER_MODEL_ID as APP_USER_MODEL_ID } from "../config/shared/appMeta";
 
 const electronModule = require("electron") as Partial<typeof import("electron")>;
 let notificationCtor = electronModule.Notification;
@@ -49,17 +48,27 @@ let _worldNotificationSnapshot: {
 // keyed by "{cycle}:{expiryIso}" so we don't repeat within the same cycle.
 const _cyclePreNotified = new Set<string>();
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function str(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function bool(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
 function parseIsoMs(value: unknown): number | null {
   if (!value || typeof value !== "string") return null;
   const ms = Date.parse(value);
   return Number.isFinite(ms) ? ms : null;
 }
 
-function isTraderActive(trader: unknown, nowMs: number): boolean {
-  if (!trader || typeof trader !== "object") return false;
-  const traderRecord = trader as Record<string, unknown>;
-  const activationMs = parseIsoMs(traderRecord.activation);
-  const expiryMs = parseIsoMs(traderRecord.expiry);
+function isTraderActive(trader: Record<string, unknown>, nowMs: number): boolean {
+  const activationMs = parseIsoMs(trader.activation);
+  const expiryMs = parseIsoMs(trader.expiry);
   if (!expiryMs) return false;
   if (activationMs && nowMs < activationMs) return false;
   return nowMs < expiryMs;
@@ -67,112 +76,43 @@ function isTraderActive(trader: unknown, nowMs: number): boolean {
 
 function buildNotificationSnapshot(state: unknown) {
   const nowMs = Date.now();
-  const stateRecord = state && typeof state === "object" ? (state as Record<string, unknown>) : {};
-  const voidTrader =
-    stateRecord.voidTrader && typeof stateRecord.voidTrader === "object"
-      ? (stateRecord.voidTrader as Record<string, unknown>)
-      : {};
-  const vaultTrader =
-    stateRecord.vaultTrader && typeof stateRecord.vaultTrader === "object"
-      ? (stateRecord.vaultTrader as Record<string, unknown>)
-      : {};
-
-  const earthCycle =
-    stateRecord.earthCycle && typeof stateRecord.earthCycle === "object"
-      ? (stateRecord.earthCycle as Record<string, unknown>)
-      : null;
-  const cetusCycle =
-    stateRecord.cetusCycle && typeof stateRecord.cetusCycle === "object"
-      ? (stateRecord.cetusCycle as Record<string, unknown>)
-      : null;
-  const vallisCycle =
-    stateRecord.vallisCycle && typeof stateRecord.vallisCycle === "object"
-      ? (stateRecord.vallisCycle as Record<string, unknown>)
-      : null;
-  const cambionCycle =
-    stateRecord.cambionCycle && typeof stateRecord.cambionCycle === "object"
-      ? (stateRecord.cambionCycle as Record<string, unknown>)
-      : null;
-  const duviriCycle =
-    stateRecord.duviriCycle && typeof stateRecord.duviriCycle === "object"
-      ? (stateRecord.duviriCycle as Record<string, unknown>)
-      : null;
+  const stateRecord = asRecord(state) ?? {};
+  const voidTrader = asRecord(stateRecord.voidTrader) ?? {};
+  const vaultTrader = asRecord(stateRecord.vaultTrader) ?? {};
+  const earthCycle = asRecord(stateRecord.earthCycle);
+  const cetusCycle = asRecord(stateRecord.cetusCycle);
+  const vallisCycle = asRecord(stateRecord.vallisCycle);
+  const cambionCycle = asRecord(stateRecord.cambionCycle);
+  const duviriCycle = asRecord(stateRecord.duviriCycle);
 
   const rawFissures = Array.isArray(stateRecord.fissures)
     ? (stateRecord.fissures as unknown[])
     : [];
   const fissureIds = new Set(
     rawFissures
-      .filter((f) => {
-        if (!f || typeof f !== "object") return false;
-        const fr = f as Record<string, unknown>;
-        return fr.expired !== true;
-      })
-      .map((f) => {
-        const fr = f as Record<string, unknown>;
-        const tier = typeof fr.tier === "string" ? fr.tier : "";
-        const node = typeof fr.node === "string" ? fr.node : "";
-        const expiry = typeof fr.expiry === "string" ? fr.expiry : "";
+      .map(asRecord)
+      .filter((fr): fr is Record<string, unknown> => fr !== null && fr.expired !== true)
+      .map((fr) => {
         const isHard = fr.isHard === true ? "1" : "0";
-        return `${tier}|${node}|${expiry}|${isHard}`;
+        return `${str(fr.tier) ?? ""}|${str(fr.node) ?? ""}|${str(fr.expiry) ?? ""}|${isHard}`;
       }),
   );
 
   return {
     baroActive: isTraderActive(voidTrader, nowMs),
-    baroExpiry: typeof voidTrader.expiry === "string" ? voidTrader.expiry : null,
-    varziaExpiry: typeof vaultTrader.expiry === "string" ? vaultTrader.expiry : null,
-    varziaLocation: typeof vaultTrader.location === "string" ? vaultTrader.location : "Varzia",
-    earthIsDay: earthCycle
-      ? typeof earthCycle.isDay === "boolean"
-        ? earthCycle.isDay
-        : null
-      : null,
-    earthExpiry: earthCycle
-      ? typeof earthCycle.expiry === "string"
-        ? earthCycle.expiry
-        : null
-      : null,
-    cetusIsDay: cetusCycle
-      ? typeof cetusCycle.isDay === "boolean"
-        ? cetusCycle.isDay
-        : null
-      : null,
-    cetusExpiry: cetusCycle
-      ? typeof cetusCycle.expiry === "string"
-        ? cetusCycle.expiry
-        : null
-      : null,
-    vallisIsWarm: vallisCycle
-      ? typeof vallisCycle.isWarm === "boolean"
-        ? vallisCycle.isWarm
-        : null
-      : null,
-    vallisExpiry: vallisCycle
-      ? typeof vallisCycle.expiry === "string"
-        ? vallisCycle.expiry
-        : null
-      : null,
-    cambionActive: cambionCycle
-      ? typeof cambionCycle.active === "string"
-        ? cambionCycle.active.toLowerCase()
-        : null
-      : null,
-    cambionExpiry: cambionCycle
-      ? typeof cambionCycle.expiry === "string"
-        ? cambionCycle.expiry
-        : null
-      : null,
-    duviriState: duviriCycle
-      ? typeof duviriCycle.state === "string"
-        ? duviriCycle.state.toLowerCase()
-        : null
-      : null,
-    duviriExpiry: duviriCycle
-      ? typeof duviriCycle.expiry === "string"
-        ? duviriCycle.expiry
-        : null
-      : null,
+    baroExpiry: str(voidTrader.expiry),
+    varziaExpiry: str(vaultTrader.expiry),
+    varziaLocation: str(vaultTrader.location) ?? "Varzia",
+    earthIsDay: bool(earthCycle?.isDay),
+    earthExpiry: str(earthCycle?.expiry),
+    cetusIsDay: bool(cetusCycle?.isDay),
+    cetusExpiry: str(cetusCycle?.expiry),
+    vallisIsWarm: bool(vallisCycle?.isWarm),
+    vallisExpiry: str(vallisCycle?.expiry),
+    cambionActive: str(cambionCycle?.active)?.toLowerCase() ?? null,
+    cambionExpiry: str(cambionCycle?.expiry),
+    duviriState: str(duviriCycle?.state)?.toLowerCase() ?? null,
+    duviriExpiry: str(duviriCycle?.expiry),
     fissureIds,
   };
 }

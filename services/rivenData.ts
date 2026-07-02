@@ -643,20 +643,3 @@ export function getRivenStatOptions(): { tag: string; wfmUrlName: string; displa
   return result;
 }
 
-const RIVEN_KEY_TO_LABEL: Record<string, string> = {
-  ["/Lotus/Upgrades/Mods/Randomized/LotusRifleRandomModRare"]: "Rifle",
-  [SHOTGUN_RIVEN_KEY]: "Shotgun",
-  ["/Lotus/Upgrades/Mods/Randomized/LotusPistolRandomModRare"]: "Pistol",
-  ["/Lotus/Upgrades/Mods/Randomized/PlayerMeleeWeaponRandomModRare"]: "Melee",
-  ["/Lotus/Upgrades/Mods/Randomized/LotusArchgunRandomModRare"]: "Archgun",
-  [KITGUN_RIVEN_KEY]: "Kitgun",
-  [ZAW_RIVEN_KEY]: "Zaw",
-};
-
-/**
- * Get the riven type label (Rifle / Shotgun / Pistol / Melee / etc.) for a weapon name.
- */
-export function getWeaponRivenTypeLabel(weaponName: string): string | null {
-  const key = resolveRivenType(weaponName);
-  return key ? (RIVEN_KEY_TO_LABEL[key] ?? null) : null;
-}

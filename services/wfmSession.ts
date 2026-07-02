@@ -68,7 +68,7 @@ function _getDeviceId(): string {
     return id;
   } catch (err) {
     log.warn("[WFMSession] Failed to persist device id:", normalizeErrorMessage(err));
-    return "warframe-companion";
+    return "wfhelper";
   }
 }
 

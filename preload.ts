@@ -65,7 +65,6 @@ import {
   RIVENS_GET_WEAPON_NAMES,
   RIVENS_GET_STAT_OPTIONS,
   RIVENS_SEARCH_AUCTIONS,
-  RIVENS_GET_WEAPON_TYPE,
   RIVENS_GET_BEST_ATTRIBUTES,
   RIVENS_CREATE_AUCTION,
   RIVENS_UPDATE_AUCTION,
@@ -145,8 +144,6 @@ try {
       positiveWfmNames: string[],
       negativeWfmNames: string[],
     ) => ipcRenderer.invoke(RIVENS_SEARCH_AUCTIONS, weaponName, positiveWfmNames, negativeWfmNames),
-    getWeaponRivenType: (weaponName: string) =>
-      ipcRenderer.invoke(RIVENS_GET_WEAPON_TYPE, weaponName),
     getRivenBestAttributes: (weaponName: string) =>
       ipcRenderer.invoke(RIVENS_GET_BEST_ATTRIBUTES, weaponName),
     onHelperDownloadProgress: ipcDataBridge<unknown>(ipcRenderer, HELPER_DOWNLOAD_PROGRESS),

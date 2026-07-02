@@ -131,7 +131,7 @@ async function _ensureCsrfToken(): Promise<string | null> {
   try {
     const headers: Record<string, string> = {
       Accept: "text/html,application/xhtml+xml",
-      "User-Agent": "Mozilla/5.0 WarframeCompanion/1.0",
+      "User-Agent": "Mozilla/5.0 WFHelper/1.0",
     };
     if (_cookieJwt) headers["Cookie"] = `JWT=${_cookieJwt}`;
 

@@ -47,6 +47,7 @@ import * as tradeTracker from "./services/tradeTracker";
 import * as tradeWfmMatcher from "./services/tradeWfmMatcher";
 import * as apiHelperRunner from "./services/apiHelperRunner";
 import { isTradeNotificationOverlayEnabled } from "./config/runtime/overlaySettings";
+import { WIN_APP_USER_MODEL_ID } from "./config/shared/appMeta";
 
 // Suppress noisy Chromium/DevTools internal logging in terminal.
 app.commandLine.appendSwitch("disable-logging");
@@ -63,11 +64,9 @@ app.disableHardwareAcceleration();
 // "Priority only" mode recognises us as a proper app.  A matching Start Menu
 // shortcut is created in worldStateIpc.register() so Windows has the full
 // AUMID -> shortcut mapping that desktop-app toasts require.
-const WIN_APP_USER_MODEL_ID = "com.warframe.companion";
 if (process.platform === "win32") {
   app.setAppUserModelId(WIN_APP_USER_MODEL_ID);
 }
-app.setName("WFHelper");
 
 crashReporter.initCrashReporting();
 

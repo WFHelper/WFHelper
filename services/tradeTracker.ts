@@ -9,7 +9,7 @@
  * Inventory-diff based detection was removed because it produced false
  * positives (mission rewards, Baro, store purchases all change items + plat).
  *
- * Stored in %APPDATA%/warframe-companion/trade-log.json.
+ * Stored in %APPDATA%/WFHelper/trade-log.json.
  */
 
 import path from "node:path";

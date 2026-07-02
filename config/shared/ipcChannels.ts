@@ -69,7 +69,6 @@ export const RIVENS_GET = "get-rivens";
 export const RIVENS_GET_WEAPON_NAMES = "get-riven-weapon-names";
 export const RIVENS_GET_STAT_OPTIONS = "get-riven-stat-options";
 export const RIVENS_SEARCH_AUCTIONS = "search-riven-auctions";
-export const RIVENS_GET_WEAPON_TYPE = "get-weapon-riven-type";
 export const RIVENS_GET_BEST_ATTRIBUTES = "get-riven-best-attributes";
 export const RIVENS_CREATE_AUCTION = "create-riven-auction";
 export const RIVENS_UPDATE_AUCTION = "update-riven-auction";
