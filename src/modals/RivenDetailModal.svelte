@@ -272,7 +272,7 @@
       <div class="mt-6">
         <h3 class="font-display text-xs uppercase tracking-[0.08em] text-text-muted m-0 mb-2.5">Similar on WFM</h3>
         {#if loadingListings}
-          <div class="text-sm text-text-muted text-center py-4">Searching auctions…</div>
+          <div class="text-sm text-text-muted text-center py-4">Searching auctions...</div>
         {:else if similarListings.length === 0}
           <div class="text-sm text-text-muted text-center py-4">No similar rivens found</div>
         {:else}

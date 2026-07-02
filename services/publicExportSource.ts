@@ -68,7 +68,7 @@ function lzmaDecompress(buffer: Buffer): Promise<string> {
   });
 }
 
-/** Map base export name (e.g. "ExportWarframes_en.json") → its hashed filename. */
+/** Map base export name (e.g. "ExportWarframes_en.json") -> its hashed filename. */
 async function fetchIndex(): Promise<Map<string, string>> {
   const res = await fetch(INDEX_URL, { redirect: "follow" });
   if (!res.ok) throw new Error(`index HTTP ${res.status}`);

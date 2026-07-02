@@ -13,7 +13,7 @@ import type { MasteryStatus } from "../config/shared/masteryTypes";
 
 const MASTERABLE_DB_CATEGORIES = new Set(["Warframe", "Weapon", "Companion", "Railjack"]);
 
-// productCategory → display label
+// productCategory -> display label
 const PRODUCT_DISPLAY: Record<string, string> = {
   Suits: "Warframes",
   LongGuns: "Primary",
@@ -29,7 +29,7 @@ const PRODUCT_DISPLAY: Record<string, string> = {
   CrewShipWeapons: "Railjack",
 };
 
-// Path patterns → display category (fallback when productCategory is missing)
+// Path patterns -> display category (fallback when productCategory is missing)
 const PATH_CATEGORY_RULES: Array<{ pattern: RegExp; category: string }> = [
   { pattern: /\/OperatorAmps?\//i, category: "Amps" },
   { pattern: /\/OperatorAmplifiers?\//i, category: "Amps" },
@@ -109,7 +109,7 @@ const EXALTED_NAMES = new Set([
   "shattered lash",
 ]);
 
-// Inventory JSON key → maxRank
+// Inventory JSON key -> maxRank
 const INV_CATEGORIES: Record<string, number> = {
   Suits: MAX_ITEM_RANK,
   LongGuns: MAX_ITEM_RANK,
@@ -607,7 +607,7 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
     inventoryData.PendingRecipes,
   );
 
-  // Build owned map: uniqueName → { rank, maxRank, owned }
+  // Build owned map: uniqueName -> { rank, maxRank, owned }
   const ownedMap = new Map<string, OwnedMasteryRecord>();
 
   for (const [invKey, maxRank] of Object.entries(INV_CATEGORIES)) {

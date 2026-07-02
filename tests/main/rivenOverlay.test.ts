@@ -265,7 +265,7 @@ describe("parseRivenStats", () => {
     const text = ["Cold", "Heat", "Electricity", "Toxin", "Radiation", "Viral"].join("\n");
     const result = parseRivenStats(text);
     expect(result).toHaveLength(6);
-    // No sign/value → positive=true, value=null
+    // No sign/value -> positive=true, value=null
     for (const stat of result) {
       expect(stat.positive).toBe(true);
       expect(stat.value).toBeNull();
@@ -287,7 +287,7 @@ describe("parseRivenStats", () => {
     expect(result[1].positive).toBe(true);
     expect(result[2].positive).toBe(true);
     expect(result[3].positive).toBe(false);
-    // Value for Critical Chance: prefix "+1 90,9%" → collapse spaces → "+190,9%" → 190.9
+    // Value for Critical Chance: prefix "+1 90,9%" -> collapse spaces -> "+190,9%" -> 190.9
     expect(result[0].value).toBe(190.9);
     expect(result[3].value).toBe(89.8);
   });
@@ -355,14 +355,14 @@ describe("parseRivenStats", () => {
     expect(result[0].value).toBeNull();
   });
 
-  it("sanitises unreasonably large values (dropped decimal: 1552 → 155.2)", () => {
+  it("sanitises unreasonably large values (dropped decimal: 1552 -> 155.2)", () => {
     const result = parseRivenStats("+1552% Critical Damage");
     expect(result).toHaveLength(1);
     expect(result[0].value).toBe(155.2);
     expect(result[0].positive).toBe(true);
   });
 
-  it("sanitises 739 → 73.9 (dropped comma)", () => {
+  it("sanitises 739 -> 73.9 (dropped comma)", () => {
     const result = parseRivenStats("-739% Slash");
     expect(result).toHaveLength(1);
     expect(result[0].value).toBe(73.9);
@@ -381,7 +381,7 @@ describe("parseRivenStats", () => {
     expect(result[0].value).toBe(73.9);
   });
 
-  it("recovers decimal in 165 4% → 165.4%", () => {
+  it("recovers decimal in 165 4% -> 165.4%", () => {
     const result = parseRivenStats("-165 4% Recoil");
     expect(result).toHaveLength(1);
     expect(result[0].value).toBe(165.4);
@@ -432,7 +432,7 @@ describe("parseRivenStats", () => {
     expect(names).not.toContain("Heavy Attack");
   });
 
-  it("strips seconds suffix from Combo Duration (8,5s → 8.5)", () => {
+  it("strips seconds suffix from Combo Duration (8,5s -> 8.5)", () => {
     const result = parseRivenStats("+8,5s Combo Duration");
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe("Combo Duration");
@@ -621,7 +621,7 @@ describe("parseRivenStats", () => {
     expect(imp!.positive).toBe(true);
   });
 
-  it("fixes spaced decimal point in OCR values (+151 .4% → +151.4%)", () => {
+  it("fixes spaced decimal point in OCR values (+151 .4% -> +151.4%)", () => {
     const text = "+2.5 Range\n+70.6% Attack Speed\n+151 .4% Impact\n-8.6 Combo Duration";
     const result = parseRivenStats(text);
     const impact = result.find((s) => s.name === "Impact");
@@ -630,7 +630,7 @@ describe("parseRivenStats", () => {
     expect(impact!.positive).toBe(true);
   });
 
-  it("fixes OCR misread xO→x0 in multiplier values (xO,58 Damage to Grineer)", () => {
+  it("fixes OCR misread xO->x0 in multiplier values (xO,58 Damage to Grineer)", () => {
     // OCR reads zero as letter O: "xO,58" instead of "x0,58"
     const text =
       "+126,2% Status Duration +122,2% f Electricity +112% Multishot xO,58 Damage to Grineer";
@@ -642,7 +642,7 @@ describe("parseRivenStats", () => {
     expect(dmg!.positive).toBe(false);
   });
 
-  it("fixes OCR misread xl→x1 in multiplier values (xl,56 Damage to Corpus)", () => {
+  it("fixes OCR misread xl->x1 in multiplier values (xl,56 Damage to Corpus)", () => {
     // WinRT OCR reads digit 1 as lowercase l: "xl,56" instead of "x1,56"
     const text = "+136,2% Impact +9,7s Combo Duration xl,56 Damage to Corpus -52,5% Attack Speed";
     const result = parseRivenStats(text);
@@ -653,7 +653,7 @@ describe("parseRivenStats", () => {
     expect(dmg!.positive).toBe(true);
   });
 
-  it("fixes spaced multiplier misread 'x I , 44 Damage to Grineer' → x1.44", () => {
+  it("fixes spaced multiplier misread 'x I , 44 Damage to Grineer' -> x1.44", () => {
     // WinRT OCR reads "x1,44" as "x I , 44" with spaces between each part
     const text = "+1,8 Range +109,1% Slash x I , 44 Damage to Grineer";
     const result = parseRivenStats(text);
@@ -762,7 +762,7 @@ describe("parseRivenStats", () => {
   it("rejoins split x-multiplier decimal: WinRT splits 'x 1,3 Damage' into 'x 1' + ',3 Damage to Corpus'", () => {
     // WinRT OCR splits the word group across two lines when the icon between
     // "x value" and "Stat Name" causes a layout break.
-    // After xl-fix "x 1" → "x1" and comma→dot ",3" → ".3", the preprocessor
+    // After xl-fix "x 1" -> "x1" and comma->dot ",3" -> ".3", the preprocessor
     // must join "x1\n.3 Damage to Corpus" into "x1.3 Damage to Corpus".
     const text = "x 1\n,3 Damage to Corpus\nx 1,36 Damage to Grineer\n-68,4% Impact";
     const result = parseRivenStats(text);
@@ -791,7 +791,7 @@ describe("parseRivenStats", () => {
     expect(heat!.value).toBeNull(); // must NOT inherit 1.36 from the multiplier stat
   });
 
-  it("normalises spaced decimal comma in percent value: '+62, 2% Heat' → 62.2", () => {
+  it("normalises spaced decimal comma in percent value: '+62, 2% Heat' -> 62.2", () => {
     // WinRT OCR sometimes outputs "+62.2%" as "+62, 2%" when the decimal separator
     // (comma) is followed by a space.  The preprocessing fix must recover the full
     // value before parsing so Heat gets 62.2, not 2 or carry-forward.
@@ -817,8 +817,8 @@ describe("parseRivenStats", () => {
   });
 
   it("deduplication prefers non-integer over integer value for same stat (xl vs x1.3)", () => {
-    // The duplicate stat panel typically OCRs "xl" → x1 (value=1) while the main
-    // panel shows "x 1,3" → x1.3 (value=1.3).  Bounding-box sort may put the
+    // The duplicate stat panel typically OCRs "xl" -> x1 (value=1) while the main
+    // panel shows "x 1,3" -> x1.3 (value=1.3).  Bounding-box sort may put the
     // duplicate first; the parser must keep the more precise value.
     const text = "xl Damage to Corpus\nx 1,3 Damage to Corpus";
     const result = parseRivenStats(text);

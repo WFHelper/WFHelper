@@ -1,33 +1,24 @@
 #!/usr/bin/env node
 /**
- * Production-dead export gate.
+ * Finds exports whose only references live in test files.
  *
- * knip can't catch exports that are only consumed by tests, because knip.json
- * lists the test globs as `entry` (required - its vitest plugin doesn't
- * auto-detect the worker subpackage layout). So a function can rot in prod
- * while staying "reachable" through a test import and never get flagged.
+ * knip can't catch these: knip.json lists the test globs as `entry` (its
+ * vitest plugin doesn't detect the worker subpackage layout), so a function
+ * can rot in prod while staying "reachable" through a test import.
  *
- * This gate finds every symbol exported from the main production tree whose
- * ONLY references live in test files. Intentional test seams are excluded by
- * the `…ForTest` / `…ForTesting` naming convention or the ALLOWLIST below.
+ * Dumb token matching, no AST. A name showing up in a comment or string of a
+ * prod file counts as a prod reference, and multi-line `export { ... } from`
+ * blocks count as prod-used - both make the gate under-report, so it never
+ * asks you to delete something that's actually live.
  *
- * Limitations (intentional - this is a textual identifier-token heuristic,
- * not an AST/type analysis):
- *  - A name appearing in a comment or string in a production file counts as a
- *    prod reference, so the gate UNDER-reports rather than over-reports - it
- *    never tells you to delete something that is actually live.
- *  - A symbol surfaced only through a multi-line `export { … } from` re-export
- *    block is treated as prod-used (the inner line is not recognised as a
- *    re-export). Same safe direction: a false negative, never a false delete.
- *
- * Exit 1 (fails CI) if any unexpected production-dead test-only export exists.
+ * Intentional test seams use the `...ForTest`/`...ForTesting` suffix or the
+ * ALLOWLIST below. Exits 1 if anything else is test-only.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Repo root, derived from this file's location (robust to invocation cwd -
-// matches the convention used by the other scripts/*.mjs).
+// repo root, independent of invocation cwd
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 // Intentional test-only exports kept on purpose. Add with a one-line reason.
@@ -116,10 +107,10 @@ const REEXPORT_LINE_RE = /^\s*export\s+(?:type\s+)?\{/;
 const IDENT_RE = /[A-Za-z_$][\w$]*/g;
 const TEST_BAG_OPEN_RE = /^\s*export\s+const\s+__test__\s*=\s*\{/;
 
-// 1. Map every exported symbol → its defining file. Also pull members out of
-//    `export const __test__ = { … }` bags so they get tracked individually,
-//    and remember each bag's line range so refs inside it don't count as
-//    prod use of the wrapped helper.
+// Map every exported symbol -> its defining file. Also pull members out of
+// `export const __test__ = { ... }` bags so they get tracked individually,
+// and remember each bag's line range so refs inside it don't count as
+// prod use of the wrapped helper.
 const defs = new Map(); // name -> { file, line }
 const defAtLine = new Map(); // `${file}\0${line}` -> name
 const testBagRanges = new Map(); // file -> Array<[startLine, endLine]>
@@ -172,15 +163,14 @@ for (const file of collectFiles(DEF_DIRS, DEF_ROOT_FILES)) {
   }
 }
 
-// 2. Single pass over the full surface: tokenize each line once, tally each
-//    exported identifier into the prod or test bucket (O(total tokens), no
-//    per-symbol regex).
+// Single pass over the full surface: tokenize each line once, tally each
+// exported identifier into the prod or test bucket.
 const prodRefs = new Map();
 const testRefs = new Map();
 for (const file of collectFiles(USE_DIRS, DEF_ROOT_FILES)) {
   const isTest = isTestPath(file);
   const bucket = isTest ? testRefs : prodRefs;
-  // In prod files, occurrences inside `__test__ = { … }` bags don't count as
+  // In prod files, occurrences inside `__test__ = { ... }` bags don't count as
   // real production use - they exist solely to expose the helper to tests.
   const skipRanges = !isTest ? testBagRanges.get(file) : null;
   const lines = readFileSync(file, "utf8").split("\n");
@@ -200,7 +190,7 @@ for (const file of collectFiles(USE_DIRS, DEF_ROOT_FILES)) {
   }
 }
 
-// 3. A finding = referenced by tests, never by production, not an allowed seam.
+// A finding = referenced by tests, never by production, not an allowed seam.
 const findings = [];
 for (const [name, def] of defs) {
   if (/(ForTest|ForTesting)$/.test(name)) continue;
@@ -228,6 +218,6 @@ for (const f of findings.sort((a, b) => a.name.localeCompare(b.name))) {
 }
 console.error(
   "\nRemove the dead export (+ its orphaned test), or, if it is an intentional\n" +
-    "test seam, rename it `…ForTest` or add it to ALLOWLIST with a reason.\n",
+    "test seam, rename it `...ForTest` or add it to ALLOWLIST with a reason.\n",
 );
 process.exit(1);

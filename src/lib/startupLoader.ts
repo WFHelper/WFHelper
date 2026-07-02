@@ -20,12 +20,7 @@ interface StartupHandle {
   dispose: () => void;
 }
 
-/**
- * Performs the initial data loading sequence on app startup:
- * 1. Fetches the item database and WFM items
- * 2. Fetches current update state
- * 3. Schedules a relic price warmup after a short delay
- */
+/** Startup load: item DB + WFM items, update state, delayed relic price warmup. */
 export function initStartup(): StartupHandle {
   let warmupTimer: ReturnType<typeof setTimeout> | null = null;
   let flushInterval: ReturnType<typeof setInterval> | null = null;

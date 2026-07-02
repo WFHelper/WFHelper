@@ -71,7 +71,7 @@ function loadRegionTranslationData(): { regions: Record<string, Record<string, u
 
 const REGION_TRANSLATION = loadRegionTranslationData();
 
-/** Lazy-loaded challenge lookup: maps Lotus challenge paths → { requiredCount } from ExportChallenges */
+/** Lazy-loaded challenge lookup: maps Lotus challenge paths -> { requiredCount } from ExportChallenges */
 let _challengeLookup: Record<string, { requiredCount?: number }> | null = null;
 function getChallengeLookup(): Record<string, { requiredCount?: number }> {
   if (_challengeLookup) return _challengeLookup;
@@ -116,7 +116,7 @@ function resolveBaroIcon(itemPath: string): string | null {
   return null;
 }
 
-/** Lazy-loaded item lookup: maps Lotus item paths → { name: string } from ExportResources + ExportRecipes */
+/** Lazy-loaded item lookup: maps Lotus item paths -> { name: string } from ExportResources + ExportRecipes */
 let _itemLookup: Record<string, { name?: string; era?: string; category?: string; resultType?: string }> | null = null;
 function getItemLookup(): Record<string, { name?: string; era?: string; category?: string; resultType?: string }> {
   if (_itemLookup) return _itemLookup;
@@ -153,7 +153,7 @@ function resolveItemName(itemPath: string): string {
     const resolved = resolveDictValue(entry.name);
     if (resolved) return resolved;
   }
-  // Recipe fallback: resolve name via resultType (e.g. MummyQuestKeyBlueprint → "Sands of Inaros Blueprint")
+  // Recipe fallback: resolve name via resultType (e.g. MummyQuestKeyBlueprint -> "Sands of Inaros Blueprint")
   if (entry?.resultType) {
     const result = items[entry.resultType];
     if (result?.name) {
@@ -628,7 +628,7 @@ function cleanChallengeText(text: string, allyName?: string, count?: number): st
   return cleaned;
 }
 
-/** Extract ally display name from oracle path (e.g. `.../QuincyAllyAgent` → `Quincy`). */
+/** Extract ally display name from oracle path (e.g. `.../QuincyAllyAgent` -> `Quincy`). */
 function resolveAllyName(allyPath: string | undefined): string | undefined {
   if (!allyPath) return undefined;
   const slug = allyPath.split("/").pop() || "";
@@ -968,7 +968,7 @@ export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> | n
       syndicateKey: sm.Tag,
       expiry: deDate(sm.Expiry),
       jobs: sm.Jobs!.filter((j) => j.jobType).map((j) => {
-        // Extract a short label from the Lotus path (e.g. "/Lotus/.../AttritionBountyExt" → "Attrition Bounty")
+        // Extract a short label from the Lotus path (e.g. "/Lotus/.../AttritionBountyExt" -> "Attrition Bounty")
         const slug = (j.jobType || "").split("/").pop() || "Unknown";
         const type = slug
           .replace(/Bounty.*/, " Bounty")

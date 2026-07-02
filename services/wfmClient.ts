@@ -7,7 +7,7 @@ const log = withScope("wfmClient");
 /**
  * Warframe.market HTTP client (main-process only)
  *
- * - Serial request queue with 350 ms minimum spacing (≤ 3 req/s)
+ * - Serial request queue with 350 ms minimum spacing (<= 3 req/s)
  * - Standard headers required by WFM API
  * - Auth token injected automatically when a session is active
  * - Centralised error normalisation; 401 throws with err.code = 'WFM_UNAUTHORIZED'
@@ -290,7 +290,7 @@ function flattenErrorMessages(value: unknown, depth = 0): string[] {
     return value.flatMap((entry) => flattenErrorMessages(entry, depth + 1)).slice(0, 4);
   }
   // Object: recurse, prefixing a bare leaf with its field name (e.g.
-  // {inputs:{perTrade:"app.field.required"}} → "perTrade: app.field.required").
+  // {inputs:{perTrade:"app.field.required"}} -> "perTrade: app.field.required").
   const out: string[] = [];
   for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
     for (const msg of flattenErrorMessages(entry, depth + 1)) {
@@ -393,7 +393,7 @@ function _coreRequest(
       let detail = `HTTP ${res.status}`;
       try {
         const text = await res.text();
-        log.info(`[${label}] ${method} ${path} → ${res.status} body:`, text.slice(0, 500));
+        log.info(`[${label}] ${method} ${path} -> ${res.status} body:`, text.slice(0, 500));
         try {
           const parsed = JSON.parse(text) as unknown;
           detail = extractWfmErrorDetail(parsed) ?? detail;

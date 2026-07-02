@@ -153,7 +153,7 @@
   </div>
 
   {#if !wd && $worldLoading}
-    <div class="empty-state"><p>Loading world data…</p></div>
+    <div class="empty-state"><p>Loading world data...</p></div>
   {:else if !wd}
     <div class="empty-state"><p>World data unavailable</p></div>
   {:else}
@@ -421,7 +421,7 @@
                 {#if collapsed[`bounty-${group.syndicateKey}-${ji}`]}
                 <div class="mb-1 ml-1 border-l-2 border-accent py-1 pl-5">
                   {#await getBountyRewards(group.syndicateKey, job.enemyLevels, job.standingStages.length, bountyRotation)}
-                    <span class="text-xs text-text-secondary py-1">Loading rewards…</span>
+                    <span class="text-xs text-text-secondary py-1">Loading rewards...</span>
                   {:then rewards}
                     {#if rewards.length > 0}
                     <div class="mt-1.5">

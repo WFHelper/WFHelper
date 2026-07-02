@@ -47,7 +47,7 @@ export async function tryLoadSnapshot(): Promise<void> {
   try {
     let snapshot: SnapshotBlob | null = null;
 
-    // 1. Try disk cache first
+    // disk cache first
     try {
       const disk = await invoke("loadSnapshotCache");
       if (disk && isValidSnapshot(disk)) {
@@ -60,7 +60,7 @@ export async function tryLoadSnapshot(): Promise<void> {
       // disk load failure is non-fatal - proceed to fetch
     }
 
-    // 2. Fetch from backend if disk miss or stale
+    // disk miss or stale -> fetch from backend
     if (!snapshot) {
       const fetchHeaders: Record<string, string> = {};
       if (_cachedEtag) fetchHeaders["If-None-Match"] = _cachedEtag;
@@ -115,7 +115,6 @@ export async function tryLoadSnapshot(): Promise<void> {
       }
     }
 
-    // 3. Import into all three in-memory caches
     const pCount = importCache(snapshot.prices);
     const mCount = importMetaFromSnapshot(snapshot.meta);
     const oCount = importOrderSummaryCache(snapshot.orderSummaries);

@@ -42,7 +42,7 @@
     imageUrl: string | null;
     uniqueName: string | null;
     productUniqueName: string | null;
-    /** Normalised category (Warframe, Primary, …, Misc). */
+    /** Normalised category (Warframe, Primary, ..., Misc). */
     category: string;
     ingredients: RecipeIngredient[];
     buildPrice: number;
@@ -133,7 +133,7 @@
   /** All category tabs, always shown regardless of whether items exist in that
    *  category right now - matches the in-game Foundry which always displays
    *  the full bar. */
-  /** Lookup: ingredient uniqueName → owned count (tracks componentOwnership store). */
+  /** Lookup: ingredient uniqueName -> owned count (tracks componentOwnership store). */
   $: ownedMap = $componentOwnership;
   function buildProductOwnedLookup(items: typeof $parsedItems): SvelteMap<string, number> {
     const byUniqueName = new SvelteMap<string, number>();
@@ -262,7 +262,7 @@
     return matchesSharedFilters(filterableFoundryEntry({ e, status }), $foundryFilters);
   });
 
-  /** Default ordering across statuses: claimable → in-progress → ready → not-ready. */
+  /** Default ordering across statuses: claimable -> in-progress -> ready -> not-ready. */
   const STATUS_RANK: Record<ItemStatus, number> = {
     "claimable": 0,
     "in-progress": 1,

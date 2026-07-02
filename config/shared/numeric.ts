@@ -12,11 +12,11 @@ const MAX_SUPPORTED_RANK = 20;
  * Handles:
  * - Already-a-number: returned if finite.
  * - Non-empty trimmed string: parsed via `Number()`, returned if finite.
- * - BSON-style boxed objects (`$numberInt`, `$numberLong`, …): recursively
+ * - BSON-style boxed objects (`$numberInt`, `$numberLong`, ...): recursively
  *   unwrapped.
  *
  * Returns `null` for anything else (`NaN`, `Infinity`, empty strings,
- * `null`, `undefined`, booleans, arrays, …).
+ * `null`, `undefined`, booleans, arrays, ...).
  */
 export function toFiniteNumber(value: unknown): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;

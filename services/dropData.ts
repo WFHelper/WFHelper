@@ -125,7 +125,7 @@ const BOUNTY_KEYS = [
 function flatten(data: AllData): DropRow[] {
   const out: DropRow[] = [];
 
-  // place → rewards (rotations)
+  // place -> rewards (rotations)
   for (const [planet, nodes] of Object.entries(data.missionRewards || {})) {
     for (const [node, info] of Object.entries(nodes || {})) {
       const place = `${node} (${planet})`;
@@ -149,7 +149,7 @@ function flatten(data: AllData): DropRow[] {
     for (const b of list || []) pushRewardContainer(out, b.bountyLevel || "Bounty", b.rewards || {});
   }
 
-  // item → enemies
+  // item -> enemies
   for (const m of data.modLocations || []) {
     for (const e of m.enemies || []) pushRow(out, m.modName || null, e.enemyName || "", e);
   }
@@ -157,7 +157,7 @@ function flatten(data: AllData): DropRow[] {
     for (const e of b.enemies || []) pushRow(out, b.itemName || null, e.enemyName || "", e);
   }
 
-  // enemy → items
+  // enemy -> items
   for (const e of data.enemyModTables || []) {
     for (const m of e.mods || []) pushRow(out, rewardName(m), e.enemyName || "", m);
   }

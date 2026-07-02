@@ -5,7 +5,7 @@ const _isLeft = _side === "left";
 
 let _rollCount = 0;
 let _overlayInteractiveMode = false;
-/** Whether this panel currently has real stats displayed (not "Waiting for roll…"). */
+/** Whether this panel currently has real stats displayed (not "Waiting for roll..."). */
 let _hasDisplayedStats = false;
 /** Buffered enrichment data - rendered when panel gets stats. */
 let _pendingBestAttrs = null;
@@ -40,7 +40,7 @@ function applyThemeVars(rawVars) {
 /** Map a letter grade string to its CSS class suffix. */
 function gradeClass(grade) {
   if (!grade || grade === "?") return "grade-unknown";
-  // "A+" → "grade-Ap", "A-" → "grade-Am", "B+" → "grade-Bp", etc.
+  // "A+" -> "grade-Ap", "A-" -> "grade-Am", "B+" -> "grade-Bp", etc.
   const sanitised = String(grade)
     .replace("+", "p")
     .replace("-", "m")
@@ -56,7 +56,7 @@ function buildGradeBadge(grade, large) {
   return badge;
 }
 
-/** Map roll float (0–1) to a colour for the progress bar. */
+/** Map roll float (0-1) to a colour for the progress bar. */
 function rollBarColor(rollFloat, isCurse) {
   // For curses, lower float = better (stat is less penalising)
   var pct = isCurse ? 1 - rollFloat : rollFloat;
@@ -569,13 +569,13 @@ function onChoiceMade(side) {
   }
 
   // After a choice the game returns to single-card view.
-  // Reset the right (new roll) panel back to "Waiting for roll…"
+  // Reset the right (new roll) panel back to "Waiting for roll..."
   // Use a short delay only when the right panel has a highlight to let it show
   // briefly; otherwise reset immediately so stale roll data doesn't linger.
   if (!_isLeft) {
     const delay = side === "right" ? 2000 : 0;
     setTimeout(() => {
-      renderStats([]); // shows "Waiting for roll…"
+      renderStats([]); // shows "Waiting for roll..."
     }, delay);
   }
 

@@ -74,7 +74,7 @@ async function ocrRewardRegion(
   }
 }
 
-/** Drop 1-char OCR noise tokens but keep "&" (for "Cobra & Crane Prime …"). */
+/** Drop 1-char OCR noise tokens but keep "&" (for "Cobra & Crane Prime ..."). */
 function cleanRewardOcrText(text: string): string {
   return String(text || "")
     .split(/\s+/)

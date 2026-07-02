@@ -48,7 +48,7 @@ const DEFAULT_LVL = 8;
 
 /**
  * Grade thresholds mapped from lerp(-10, 10, rollFloat).
- * Score ≥ threshold → grade. Evenly spaced at 2-point intervals.
+ * Score >= threshold -> grade. Evenly spaced at 2-point intervals.
  * Matches RivenParser.js floatToGrade exactly.
  */
 const GRADE_THRESHOLDS: { min: number; grade: string }[] = [
@@ -134,7 +134,7 @@ export function unparseBuff(
   // as buffs - the sign is already handled by the buff/curse classification.
   value /= Math.abs(baseValue);
 
-  // value is now lerp(0.9, 1.1, rollFloat) → invert
+  // value is now lerp(0.9, 1.1, rollFloat) -> invert
   const rollFloat = (value - 0.9) / 0.2;
   return clamp01(rollFloat);
 }
@@ -367,7 +367,7 @@ export function gradeRiven(
       let rollFloat: number;
       let displayedValue = stat.value;
 
-      // Handle x-multiplier format: x1.59 → convert to percentage-like
+      // Handle x-multiplier format: x1.59 -> convert to percentage-like
       // x-multiplier means the actual stat is (value - 1) * 100 for positive,
       // or (1 - value) * 100 for negative
       if (stat.multiplier) {

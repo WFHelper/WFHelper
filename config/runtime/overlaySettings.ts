@@ -84,7 +84,7 @@ type OverlayToggleKey =
 
 type OverlayToggleSettings = Partial<Pick<OverlaySettings, OverlayToggleKey>> | null | undefined;
 
-/** Unset → on; only an explicit `false` disables the overlay. */
+/** Unset -> on; only an explicit `false` disables the overlay. */
 function isOverlayToggleEnabled(settings: OverlayToggleSettings, key: OverlayToggleKey): boolean {
   return settings?.[key] !== false;
 }

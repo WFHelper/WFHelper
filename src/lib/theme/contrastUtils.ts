@@ -59,7 +59,7 @@ function relativeLuminance(rgb: Rgb): number {
 
 /**
  * Compute WCAG contrast ratio between two colours.
- * Returns a value ≥ 1 (higher = more contrast).
+ * Returns a value >= 1 (higher = more contrast).
  */
 export function contrastRatio(color1: string, color2: string): number {
   const rgb1 = parseColor(color1);
@@ -74,7 +74,7 @@ export function contrastRatio(color1: string, color2: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-/** WCAG AA minimum for normal text (≥ 4.5:1). */
+/** WCAG AA minimum for normal text (>= 4.5:1). */
 export const WCAG_AA_NORMAL = 4.5;
 
 /**

@@ -4,7 +4,7 @@
  * In development: passes through to console.*.
  * In production:
  *   - warn/error are forwarded to the main-process file transport via
- *     window.api.logWarn (IPC send → main process electron-log).
+ *     window.api.logWarn (IPC send -> main process electron-log).
  *   - error also captures to Sentry.
  *   - info/debug are suppressed to avoid log noise.
  */

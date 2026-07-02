@@ -43,7 +43,7 @@ describe("dropData.flatten", () => {
     expect(nikana[0].chance).toBe(2);
   });
 
-  it("maps item→enemy (modLocations) and enemy→item (enemyModTables)", () => {
+  it("maps item->enemy (modLocations) and enemy->item (enemyModTables)", () => {
     expect(find("Serration")?.place).toBe("Grineer Lancer");
     expect(find("Vitality")?.place).toBe("Screamer");
   });

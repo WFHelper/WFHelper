@@ -30,13 +30,13 @@ function parseCompletionDate(value: unknown): Date | null {
 /**
  * Normalise a foundry blueprint into one of the in-game Foundry filter
  * buckets. Uses productCategory (@wfcd/items' finer-grained label:
- * Suits/LongGuns/Pistols/Melee/SpaceSuits/Sentinels/…), the raw `category`
+ * Suits/LongGuns/Pistols/Melee/SpaceSuits/Sentinels/...), the raw `category`
  * from PEP, and path-segment fallbacks in that order.
  *
  * Component blueprints (e.g. `HildrynPrimeChassisComponent`) have raw
  * category "Resource" but belong with their parent - we follow
  * `componentOf` when present, and otherwise derive from the blueprint path
- * (`/WarframeRecipes/` → Warframe, `/Pistols/` → Secondary, …).
+ * (`/WarframeRecipes/` -> Warframe, `/Pistols/` -> Secondary, ...).
  */
 function classifyForFoundry(
   productUn: string | null,
@@ -123,7 +123,7 @@ export function parseFoundry(
   const recipes: FoundryData["recipes"] = [];
 
   // Build reverse maps once per call:
-  //   blueprintUniqueName → productUniqueName
+  //   blueprintUniqueName -> productUniqueName
   //   Set<ingredientUniqueName> across all recipes
   const blueprintToProduct = new Map<string, string>();
   const ingredientSet = new Set<string>();

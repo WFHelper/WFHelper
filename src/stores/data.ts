@@ -15,7 +15,7 @@ export const itemDb = writable<Record<string, ItemDbEntry>>({});
 export const wfmItems = writable<WfmItemsLookup>({});
 export const inventoryData = writable<RawInventoryData | null>(null);
 
-/** Reactive map of uniqueName → owned count, derived from MiscItems + Recipes + PendingRecipes. */
+/** Reactive map of uniqueName -> owned count, derived from MiscItems + Recipes + PendingRecipes. */
 export const componentOwnership = derived(
   inventoryData,
   ($inv): Map<string, number> =>

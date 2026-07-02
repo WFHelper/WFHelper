@@ -31,7 +31,7 @@ export interface ChartResult {
   /** Per-bar flag: true if this day had a real history entry (not gap-filled). */
   realData: boolean[];
   yTicks: YTick[];
-  /** The nice ceiling used for scaling (0 → niceMax). */
+  /** The nice ceiling used for scaling (0 -> niceMax). */
   niceMax: number;
 }
 
@@ -277,7 +277,7 @@ export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, 
       for (let i = 0; i < calendarDays.length; i++) {
         const v = rawAbs[i];
         if (v === undefined) continue;
-        // Scale: 0 → bottom (1-PAD), niceMax → top (PAD)
+        // Scale: 0 -> bottom (1-PAD), niceMax -> top (PAD)
         const yFrac = PAD + (1 - v / niceMax) * (1 - 2 * PAD);
         absLine.push({
           x: i * (bw + BAR_GAP) + bw / 2,

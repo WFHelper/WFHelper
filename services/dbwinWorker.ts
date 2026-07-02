@@ -129,7 +129,7 @@ const FILTER_SUBSTRINGS_LOWER = [
 ] as const;
 
 // isWarframePid - check (and cache) whether a PID belongs to Warframe.x64.exe
-// Caches pid → boolean so that QueryFullProcessImageNameW is called once per
+// Caches pid -> boolean so that QueryFullProcessImageNameW is called once per
 // newly-seen PID, not once per DBWIN message.  Caller is responsible for
 // clearing the cache when re-entering Phase 1 after a Warframe restart.
 
@@ -330,9 +330,9 @@ function runDbwinLoop(): void {
 
 function run(): void {
   //
-  // Phase 0: DBWIN objects do NOT exist → all other processes' OutputDebugString
-  //          calls are no-ops → worker sleeps; CPU cost ≈ 0.
-  // Phase 1: Warframe detected → DBWIN active → message loop (runDbwinLoop).
+  // Phase 0: DBWIN objects do NOT exist -> all other processes' OutputDebugString
+  //          calls are no-ops -> worker sleeps; CPU cost ~ 0.
+  // Phase 1: Warframe detected -> DBWIN active -> message loop (runDbwinLoop).
 
   while (Atomics.load(stopFlag, 0) === 0) {
     while (Atomics.load(stopFlag, 0) === 0) {

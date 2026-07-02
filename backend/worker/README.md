@@ -60,8 +60,7 @@ budget (e.g. a base-plan alert, a low-overage alert, and a hard attention thresh
 - Slug validation on public routes (`^[a-z0-9_]+$`).
 - Generic error payloads, no secret logging.
 
-The full layered model, implementation notes, and edit rules are in
-[`ARCHITECTURE.md`](ARCHITECTURE.md) (read it before changing security-relevant code).
+The full layered model and implementation notes are in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Worker layout
 
@@ -100,8 +99,7 @@ The full layered model, implementation notes, and edit rules are in
 - `BOOTSTRAP_TOKEN_TTL_SEC` lifetime of issued bootstrap tokens.
 - `PUBLIC_BOOTSTRAP_REQUIRED` when `1`, public routes require a valid bootstrap token.
 
-Current default values live in `wrangler.jsonc`. This catalog is the single source of
-truth for env vars; `ARCHITECTURE.md` references it rather than restating it.
+Current default values live in `wrangler.jsonc`.
 
 ## Required setup
 
@@ -140,7 +138,7 @@ Recommended Cloudflare dashboard rules, which run before Worker billing:
 - WAF rate limit: `http.host eq "<your-worker-domain>" and starts_with(http.request.uri.path, "/admin")`,
   5 requests per 60 seconds per IP, block for 10 minutes.
 - WAF custom rule for stable management IPs:
-  `http.host eq "<your-worker-domain>" and starts_with(http.request.uri.path, "/admin") and not ip.src in {YOUR_IP}` → block.
+  `http.host eq "<your-worker-domain>" and starts_with(http.request.uri.path, "/admin") and not ip.src in {YOUR_IP}` -> block.
 
 ## Manual prewarm (optional)
 

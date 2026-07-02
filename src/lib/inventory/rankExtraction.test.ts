@@ -58,7 +58,7 @@ describe("deepFindNumericByKeys", () => {
 
   it("respects maxDepth limit", () => {
     const deep = { a: { b: { c: { Rank: 5 } } } };
-    // depth 0 → a, depth 1 → b, depth 2 → c, depth 3 → Rank
+    // depth 0 -> a, depth 1 -> b, depth 2 -> c, depth 3 -> Rank
     expect(deepFindNumericByKeys(deep, rankKeys, 2)).toBeNull();
     expect(deepFindNumericByKeys(deep, rankKeys, 3)).toBe(5);
   });

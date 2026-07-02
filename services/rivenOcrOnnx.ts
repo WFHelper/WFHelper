@@ -39,10 +39,8 @@ let _yoloInputSize = 640;
 let _chRecSessionPromise: Promise<OrtInferenceSession> | null = null;
 let _chDict: string[] = [];
 
-// Permanent-failure sentinels: if a model file is missing on disk, the load
-// will never succeed until the user reinstalls/downloads. Retrying on every
-// caller hammers the filesystem for no reason. Transient errors (corrupt
-// model, ORT init crash) still clear the promise so the next call retries.
+// A missing model file won't fix itself, so don't retry the load on every
+// call. Transient errors still clear the promise so the next call retries.
 let _yoloSessionPermanentError: Error | null = null;
 let _chRecSessionPermanentError: Error | null = null;
 
@@ -459,9 +457,9 @@ async function recognizeCropsBatch(crops: RgbCrop[]): Promise<OcrLineResult[]> {
 
 /** Deterministic corrections for known PaddleOCR CH misreads (ports postprocess_ocr_text). */
 function postprocessOcrText(text: string): string {
-  // Strip asterisk-minus artifact: "*-74,2%" → "-74,2%"
+  // Strip asterisk-minus artifact: "*-74,2%" -> "-74,2%"
   text = text.replace(/\*-/g, "-");
-  // Strip > before uppercase: ">Impact" → "Impact"
+  // Strip > before uppercase: ">Impact" -> "Impact"
   text = text.replace(/>([A-Z])/g, "$1");
 
   // Insert spaces before CamelCase boundaries
@@ -483,20 +481,20 @@ function postprocessOcrText(text: string): string {
   text = text.replace(/Mmpact/g, "Impact");
   text = text.replace(/%\s*mpact/g, "% Impact");
 
-  // Sign + 'i' + digits → sign + '1' + digits: "+i29,1%" → "+129,1%"
+  // Sign + 'i' + digits -> sign + '1' + digits: "+i29,1%" -> "+129,1%"
   text = text.replace(/([+-])i(\d)/g, "$11$2");
 
-  // x-multiplier: xi/xl → x1
+  // x-multiplier: xi/xl -> x1
   text = text.replace(/\bx[il]([,.])/g, "x1$1");
 
   // Double-1: digit + i before separator
   text = text.replace(/(\d)i([,.])/g, "$11$2");
 
-  // Spurious dots: "197.,9%" → "197,9%"
+  // Spurious dots: "197.,9%" -> "197,9%"
   text = text.replace(/(\d)\.,(\d)/g, "$1,$2");
   text = text.replace(/(\d)\.\.(\d)/g, "$1.$2");
 
-  // Space between digits: "+1 56,2%" → "+156,2%"
+  // Space between digits: "+1 56,2%" -> "+156,2%"
   text = text.replace(/(\d) (\d)/g, "$1$2");
 
   // OCR misspelling
@@ -563,7 +561,7 @@ function normForMerge(s: string): string {
 
 /**
  * Merge consecutive OCR lines that are fragments of a known multi-word stat.
- * e.g. ["..Critical Chance", "for Slide Attack.."] → ["..Critical Chance for Slide Attack.."]
+ * e.g. ["..Critical Chance", "for Slide Attack.."] -> ["..Critical Chance for Slide Attack.."]
  */
 function mergeSplitLines(lines: string[]): string[] {
   if (lines.length <= 1) return lines;
@@ -619,22 +617,18 @@ export async function recognizeStatArea(
   W: number,
   H: number,
 ): Promise<RivenOcrResult> {
-  // Step 1: YOLO detection
   const boxes = await yoloDetectStatLines(rgbaBuf, W, H);
   if (boxes.length === 0) {
     return { lines: [], text: "", minConfidence: -1, yoloBoxCount: 0 };
   }
 
-  // Step 2: Extract + upscale crops
   const crops = await extractAndUpscaleCrops(rgbaBuf, W, H, boxes);
   if (crops.length === 0) {
     return { lines: [], text: "", minConfidence: -1, yoloBoxCount: boxes.length };
   }
 
-  // Step 3: Batch PaddleOCR recognition
   const ocrResults = await recognizeCropsBatch(crops);
 
-  // Step 4: Filter empty results and postprocess
   const validLines: OcrLineResult[] = [];
   for (const result of ocrResults) {
     const trimmed = result.text.trim();
@@ -645,7 +639,6 @@ export async function recognizeStatArea(
     }
   }
 
-  // Step 5: Merge split lines
   const mergedTexts = mergeSplitLines(validLines.map((l) => l.text));
 
   // Rebuild lines with merged texts, carrying minimum confidence of merged fragments

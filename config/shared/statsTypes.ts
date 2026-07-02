@@ -41,7 +41,7 @@ export interface DailyStatEntry {
   endoDelta: number;
   ducatsDelta: number;    // net Void Ducat change (MiscItems/PrimeBucks)
   ayaDelta: number;       // net Aya (PrimeTokens) change
-  relicsOpened: number;   // relics consumed (LevelKeys net decrease, ≥0)
+  relicsOpened: number;   // relics consumed (LevelKeys net decrease, >=0)
   daysPlayed: number;     // 1 = played; 0 = no inventory data (imported gap)
   dailyTrades: number;    // number of trades detected or imported for this day
   absPlat?: number;       // absolute platinum balance at end of day

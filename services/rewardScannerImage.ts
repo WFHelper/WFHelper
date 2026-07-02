@@ -21,7 +21,7 @@ interface GameContentRect {
   height: number;
 }
 
-const BAR_LUMA_THRESHOLD = 12; // pixel considered "black bar" if luma ≤ this
+const BAR_LUMA_THRESHOLD = 12; // pixel considered "black bar" if luma <= this
 const BAR_SAMPLE_COUNT = 32;   // number of samples per row/col test
 const BAR_BLACK_RATIO = 0.85;  // fraction of samples that must be black
 
@@ -182,7 +182,7 @@ function enhanceForOcr(nativeImage: NativeImage): NativeImage {
 
   const range = Math.max(1, OCR_ENHANCE.whitePoint - OCR_ENHANCE.blackPoint);
 
-  // 256-entry LUT (luminance → output) so the pixel loop is one table lookup.
+  // 256-entry LUT (luminance -> output) so the pixel loop is one table lookup.
   const lut = new Uint8Array(256);
   for (let i = 0; i < 256; i++) {
     let normalized = (i - OCR_ENHANCE.blackPoint) / range;
@@ -210,7 +210,7 @@ function enhanceForOcr(nativeImage: NativeImage): NativeImage {
     targetH = scaledHeight;
   }
 
-  // Apply LUT: BGRA bitmap → greyscale via integer luminance approximation.
+  // Apply LUT: BGRA bitmap -> greyscale via integer luminance approximation.
   for (let i = 0; i < targetBitmap.length; i += 4) {
     // BT.601 luminance: (114*B + 587*G + 299*R) / 1000
     const lum = ((targetBitmap[i] * 114 + targetBitmap[i + 1] * 587 + targetBitmap[i + 2] * 299 + 500) / 1000) | 0;
@@ -518,8 +518,8 @@ function detectRewardSlotLayout(nativeImage: NativeImage): RewardSlotLayout {
 /**
  * Detect whether the in-game chat console is open. Pressing `/` or `T` shows a
  * bright text bar over the bottom ~4%, whose text would corrupt reward OCR.
- * Heuristic: in that strip, >55% of pixels bright (luminance ≥ 140) and
- * low-saturation (≤ 0.3) - Warframe's near-white chat overlay.
+ * Heuristic: in that strip, >55% of pixels bright (luminance >= 140) and
+ * low-saturation (<= 0.3) - Warframe's near-white chat overlay.
  */
 export function detectConsoleOpen(nativeImage: NativeImage): boolean {
   if (!nativeImage || typeof nativeImage.getSize !== "function") return false;

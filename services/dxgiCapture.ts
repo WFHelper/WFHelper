@@ -100,8 +100,8 @@ export function captureGdi(displayId?: string | null): GdiCaptureResult | null {
   if (wantedId) {
     if (!/^\d+$/.test(wantedId)) return null;
     const hMon = parseInt(wantedId, 10);
-    // Must be a finite positive integer. parseInt accepts "123abc" → 123 and
-    // "abc" → NaN; only the former is a real HMONITOR-shaped value.
+    // Must be a finite positive integer. parseInt accepts "123abc" -> 123 and
+    // "abc" -> NaN; only the former is a real HMONITOR-shaped value.
     if (Number.isFinite(hMon) && hMon > 0) {
       // MONITORINFO: cbSize(4) + rcMonitor(16) + rcWork(16) + dwFlags(4) = 40
       const mi = Buffer.alloc(40);
@@ -151,7 +151,7 @@ export function captureGdi(displayId?: string | null): GdiCaptureResult | null {
     const bmi = Buffer.alloc(40);
     bmi.writeUInt32LE(40, 0);   // biSize
     bmi.writeInt32LE(cw, 4);    // biWidth
-    bmi.writeInt32LE(-ch, 8);   // biHeight (negative → top-down)
+    bmi.writeInt32LE(-ch, 8);   // biHeight (negative -> top-down)
     bmi.writeUInt16LE(1, 12);   // biPlanes
     bmi.writeUInt16LE(32, 14);  // biBitCount
     // biCompression = BI_RGB (0), rest zero

@@ -105,7 +105,7 @@
     if (!file) return;
     input.value = "";
 
-    importStatus = "Reading…";
+    importStatus = "Reading...";
     importError = false;
 
     try {
@@ -446,7 +446,7 @@
   </div>
 
   {#if loading}
-    <div class="empty-state"><p>Loading…</p></div>
+    <div class="empty-state"><p>Loading...</p></div>
 
   {:else}
     <div class="flex flex-1 min-h-0 overflow-hidden">

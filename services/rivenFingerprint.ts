@@ -109,7 +109,7 @@ const CHALLENGE_DESCS: Record<string, string> = {
   DJRandomizedFindCaches: "Find {n} Caches",
 };
 
-// Challenge complication path → appended text
+// Challenge complication path -> appended text
 const COMPLICATION_DESCS: Record<string, string> = {
   ResetOnDamageTaken: "without taking damage",
   ResetOnDowned: "without dying or becoming downed",
@@ -177,7 +177,7 @@ function getRivenTypeLabel(itemType: string): string {
 // Riven fingerprint Values are NOT IEEE 754 floats. They are integers that
 // encode a 0-1 roll float as `Math.round(f * 0x3FFFFFFF)`. To decode:
 //   rollFloat = intValue / 0x3FFFFFFF
-// Source: browse.wf/rivencalc → RivenParser.js `rivenIntToFloat`.
+// Source: browse.wf/rivencalc -> RivenParser.js `rivenIntToFloat`.
 
 function rivenIntToFloat(i: number): number {
   const f = i / 0x3FFFFFFF; // 1073741823

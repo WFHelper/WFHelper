@@ -1,5 +1,5 @@
 /**
- * OCR text → item matching helpers for reward scanning.
+ * OCR text -> item matching helpers for reward scanning.
  */
 
 import { levenshteinDistance } from "./rewardScannerUtils";

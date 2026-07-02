@@ -39,7 +39,7 @@ interface BountyStageRewards {
 function resolveRewardIconPath(itemName: string, nameToEntry?: Map<string, NameLookupEntry>): string | undefined {
   if (!itemName) return undefined;
 
-  // Strip leading count prefix: "100X Kuva" → "Kuva", "2X Orokin Cell" → "Orokin Cell"
+  // Strip leading count prefix: "100X Kuva" -> "Kuva", "2X Orokin Cell" -> "Orokin Cell"
   const stripped = itemName.replace(/^\d+x\s+/i, "").trim();
   const lowerStripped = stripped.toLowerCase();
 
@@ -56,7 +56,7 @@ function resolveRewardIconPath(itemName: string, nameToEntry?: Map<string, NameL
   return undefined;
 }
 
-/** Map syndicateKey → drops.warframestat.us file/rootKey (they share the same name) */
+/** Map syndicateKey -> drops.warframestat.us file/rootKey (they share the same name) */
 const SYNDICATE_FILE: Record<string, string> = {
   CetusSyndicate: "cetusBountyRewards",
   SolarisSyndicate: "solarisBountyRewards",
@@ -87,12 +87,12 @@ const RARITY_ORDER: Record<string, number> = {
   Common: 3,
 };
 
-// Promise-level cache: drops file name → parsed bounty level data
+// Promise-level cache: drops file name -> parsed bounty level data
 const fileCache = new Map<string, Promise<RawBountyLevel[]>>();
-// Result-level cache: "syndicateKey:minLevel-maxLevel:stageCount" → stage rewards
+// Result-level cache: "syndicateKey:minLevel-maxLevel:stageCount" -> stage rewards
 const jobCache = new Map<string, Promise<BountyStageRewards[]>>();
 
-// Cached name→entry map built from itemDb (includes category + imageUrl)
+// Cached name->entry map built from itemDb (includes category + imageUrl)
 interface NameLookupEntry { imageUrl?: string; category?: string; }
 let _nameToEntryMap: Map<string, NameLookupEntry> | undefined;
 let _lastItemDbRef: Record<string, ItemDbEntry> | undefined;
@@ -150,10 +150,10 @@ function getDropsData(file: string): Promise<RawBountyLevel[]> {
 /**
  * Classify raw stage labels into one of four drop table categories.
  * The drops data uses these raw labels regardless of actual bounty length:
- *   "Stage 1"                                      → FIRST
- *   "Stage 2, Stage 3 of 4, and Stage 3 of 5"      → MID
- *   "Stage 4 of 5"                                  → PREFINAL
- *   "Final Stage"                                   → FINAL
+ *   "Stage 1"                                      -> FIRST
+ *   "Stage 2, Stage 3 of 4, and Stage 3 of 5"      -> MID
+ *   "Stage 4 of 5"                                  -> PREFINAL
+ *   "Final Stage"                                   -> FINAL
  */
 type DropTable = "FIRST" | "MID" | "PREFINAL" | "FINAL";
 
@@ -164,7 +164,7 @@ function classifyRawStage(stage: string): DropTable {
   return "MID";
 }
 
-/** Build the stage→drop-table mapping based on actual bounty stage count. */
+/** Build the stage->drop-table mapping based on actual bounty stage count. */
 function stageSequence(stageCount: number): { label: string; table: DropTable }[] {
   if (stageCount <= 1) return [{ label: "Bounty", table: "FINAL" }];
   if (stageCount === 2) return [

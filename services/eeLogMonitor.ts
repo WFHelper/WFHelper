@@ -279,7 +279,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   if (line.includes(TRADE_DIALOG_START)) {
     _tradeDialogBuffer = [line];
     _tradeDialogStartAt = Date.now();
-    // Single-line dialogs (…, leftItem=/Menu/Confirm_Item_Ok) are already complete
+    // Single-line dialogs (..., leftItem=/Menu/Confirm_Item_Ok) are already complete
     // at this point - the buffered line stands; we just wait for the success line.
   } else if (_tradeDialogBuffer !== null) {
     // Stop buffering when a log framework line appears.

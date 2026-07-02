@@ -13,11 +13,9 @@ $null = [Windows.Storage.Streams.IRandomAccessStream, Windows.Storage.Streams, C
 $null = [Windows.Globalization.Language,      Windows.Globalization,    ContentType=WindowsRuntime]
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
 
-# Helper: synchronously await a WinRT IAsyncOperation<T>.
-# Iterates all AsTask overloads with 1 parameter and tries MakeGenericMethod
-# on each - the first that succeeds is the correct generic overload.
-# This is robust across all .NET / PowerShell versions where
-# IsGenericMethodDefinition or GetGenericArguments() may behave unexpectedly.
+# Synchronously await a WinRT IAsyncOperation<T>. Tries MakeGenericMethod on
+# every 1-arg AsTask overload and uses the first that works, since
+# IsGenericMethodDefinition/GetGenericArguments() differ across .NET versions.
 function Await {
     param([object]$WinRtTask, [type]$ResultType)
 

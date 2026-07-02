@@ -507,7 +507,7 @@ export function onRivenRollPending(weapon: string, kuvaPerRoll: number): void {
       if (!win.isDestroyed()) win.webContents.send(RIVEN_WEAPON_UPDATE, weapon);
     });
 
-    // First time weapon name is revealed → grade existing stats + send enrichment
+    // First time weapon name is revealed -> grade existing stats + send enrichment
     if (isFirstReveal) {
       sendGradedInitialStats();
       sendWeaponEnrichment();

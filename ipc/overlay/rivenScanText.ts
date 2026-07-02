@@ -146,37 +146,37 @@ function preprocessOcrText(raw: string): string {
   text = text.replace(/[<‹]\s*(\d+[.,]\d+)\s+(?=Damage\s+to\s+)/gi, "x$1 ");
   text = text.replace(/\bx\s*O([.,]\d)/gi, "x0$1");
   // Fix xl/xI misread: WinRT OCR reads "x1" as "xl" (lowercase L) or "xI" (capital i).
-  // e.g. "xl,56 Damage to Corpus" → "x1,56 Damage to Corpus" before comma→dot pass.
+  // e.g. "xl,56 Damage to Corpus" -> "x1,56 Damage to Corpus" before comma->dot pass.
   // Also handle spaced variants where WinRT separates the parts:
-  // "x I , 44 Damage to Grineer" → "x1.44 Damage to Grineer".
+  // "x I , 44 Damage to Grineer" -> "x1.44 Damage to Grineer".
   text = text.replace(/\bx\s+[lI1]\s*[,.]\s*(\d+)/gi, "x1.$1");
   text = text.replace(/\bx\s+[lI1]\b/gi, "x1");
   text = text.replace(/\bx[lI]([,.]?\d)/g, "x1$1");
   text = text.replace(/\bx[lI]\b/g, "x1");
-  // Collapse spaced decimal on multiplier: "x1 , 44" or "x1 ,44" → "x1.44".
+  // Collapse spaced decimal on multiplier: "x1 , 44" or "x1 ,44" -> "x1.44".
   text = text.replace(/\bx(\d)\s*,\s*(\d+)/g, "x$1.$2");
-  // Fix spaced decimal comma in percent values: "+62, 2%" → "+62.2%".
+  // Fix spaced decimal comma in percent values: "+62, 2%" -> "+62.2%".
   // WinRT OCR sometimes splits a value like "+62.2%" into "+62, 2%" when comma
-  // is the decimal separator and a space follows.  The general comma→period pass
+  // is the decimal separator and a space follows.  The general comma->period pass
   // below requires no intervening space; this handles the space-separated variant.
   text = text.replace(/([+\-\u2013]?\d+),\s+(\d+)\s*%/g, "$1.$2%");
   text = text.replace(/,(\d)/g, ".$1");
   // Rejoin split x-multiplier integer + decimal across a line boundary:
-  // "x1\n.3 Damage to Corpus" → "x1.3 Damage to Corpus"
+  // "x1\n.3 Damage to Corpus" -> "x1.3 Damage to Corpus"
   // WinRT OCR sometimes splits "x 1,3 Damage" into two lines: "x 1" and ",3 Damage".
-  // After xl-fix ("x 1" → "x1") and comma→dot (",3" → ".3"), we get "x1\n.3 Damage".
+  // After xl-fix ("x 1" -> "x1") and comma->dot (",3" -> ".3"), we get "x1\n.3 Damage".
   text = text.replace(/(x\d+)\n(\.\d+)/g, "$1$2");
   // Also rejoin when the decimal is on the same line with a space:
-  // "x1 .3 Damage" → "x1.3 Damage" / "x1 .36 Damage" → "x1.36 Damage"
+  // "x1 .3 Damage" -> "x1.3 Damage" / "x1 .36 Damage" -> "x1.36 Damage"
   text = text.replace(/\b(x\d+)\s+\.(\d+)/g, "$1.$2");
   // Rejoin x-multiplier where WinRT splits the decimal after the stat name:
   // "x1 Damage to Corpus\n.3" or "x1\nDamage to Corpus .3" - capture the trailing
   // orphan decimal and attach to the previous x-multiplier on the same or prior line.
   text = text.replace(/\b(x\d+)(\s+(?:Damage\s+to\s+\w+|[A-Z][a-z]+))\n\.(\d+)/g, "$1.$3$2");
   // Handle WinRT emitting an integer x-multiplier followed by isolated decimal on next line:
-  // "x1\n3 Damage" → "x1.3 Damage" (when digit after newline is 1-9 and followed by space+stat)
+  // "x1\n3 Damage" -> "x1.3 Damage" (when digit after newline is 1-9 and followed by space+stat)
   text = text.replace(/(x\d+)\n([1-9]\d?\s+(?:Damage|[A-Z]))/g, "$1.$2");
-  // Fix spaced decimal point: "+151 .4%" → "+151.4%".
+  // Fix spaced decimal point: "+151 .4%" -> "+151.4%".
   // WinRT OCR sometimes inserts a space before the decimal point.
   text = text.replace(/(\d)\s+\.(\d)/g, "$1.$2");
   text = text.replace(/(\d)\s([1-9])\s*%/g, "$1.$2%");
@@ -204,7 +204,7 @@ function preprocessOcrText(raw: string): string {
   text = text.replace(/\bx\d+\s*(?:for\s*)?Heavy\s*Attack[a-z]*\b/gi, "");
   text = text.replace(/%\s+[A-Z0-9]\s+(?=[A-Z])/g, "% ");
   // Strip isolated uppercase letter (element-icon artifact) between sign and digits.
-  // e.g. "+ A0,58 Damage to Grineer" → "+0,58 Damage to Grineer"
+  // e.g. "+ A0,58 Damage to Grineer" -> "+0,58 Damage to Grineer"
   text = text.replace(/([+\-\u2013]\s*)[A-Z]\s*(\d)/g, "$1$2");
   text = text.replace(
     /[0-9'"`]\s*(?=(?:Slash|Cold|Heat|Electricity|Toxin|Impact|Puncture|Radiation|Viral|Corrosive|Blast|Magnetic|Gas)\b)/gi,
@@ -237,7 +237,7 @@ function sanitiseValue(value: number): number {
   }
   // Non-integer values > 1000 (e.g. 1126.2) have a spurious leading digit from
   // an adjacent OCR strip that got merged in.  Strip the leading digit when the
-  // result would be ≤ MAX_REASONABLE_VALUE, e.g. 1126.2 → 126.2.
+  // result would be <= MAX_REASONABLE_VALUE, e.g. 1126.2 -> 126.2.
   if (value > 1000 && !Number.isInteger(value)) {
     const str = String(Math.round(value * 10) / 10);
     const dotIdx = str.indexOf(".");
@@ -398,7 +398,7 @@ function parseStatsFromLines(text: string): RivenStat[] {
 
     // Fuzzy fallback: if no exact match but the line looks like a stat line
     // (starts with +/-/x), try Levenshtein distance against known stat names.
-    // Handles single-character OCR misreads like "Maximur" → "Maximum".
+    // Handles single-character OCR misreads like "Maximur" -> "Maximum".
     if (hits.length === 0) {
       if (/^[+\-\u2013x\xd7]/i.test(line)) {
         // Strip sign+value prefix to isolate the stat name portion
@@ -464,10 +464,10 @@ function parseStatsFromLines(text: string): RivenStat[] {
       if (seen.has(key)) {
         // When the duplicate occurrence carries more precision than the first,
         // replace it.  The canonical case: the small duplicate stat panel shows
-        // "xl" (→ x1, value=1) while the main panel shows "x 1,3" (→ x1.3,
+        // "xl" (-> x1, value=1) while the main panel shows "x 1,3" (-> x1.3,
         // value=1.3).  Bounding-box sort may put the duplicate first in statsText.
         // Condition: existing value is an integer, new value has decimals and the
-        // same integer part (e.g. 1.0 → 1.3, but not 1.0 → 62.2).
+        // same integer part (e.g. 1.0 -> 1.3, but not 1.0 -> 62.2).
         if (value !== null) {
           const existingIdx = results.findIndex((r) => r.name.toLowerCase() === key);
           if (existingIdx >= 0) {
@@ -494,7 +494,7 @@ function parseStatsFromLines(text: string): RivenStat[] {
 
       // Carry-forward: when a damage-type stat has no value but the previous
       // stat in the SAME line segment does, they share a single combined roll
-      // (e.g. "+112% Electricity Impact" → Impact inherits 112% from Electricity).
+      // (e.g. "+112% Electricity Impact" -> Impact inherits 112% from Electricity).
       // Guard: block carry-forward when a sign char in the prefix is followed by
       // non-whitespace garbage (e.g. "-ÔÇ×e" from a WinRT element-icon misread),
       // which means the two stats are on SEPARATE card rows, not a combined element.

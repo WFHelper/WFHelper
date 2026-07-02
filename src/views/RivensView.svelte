@@ -161,7 +161,7 @@
     </div>
 
     {#if loading}
-      {@render emptyState("Loading rivens…")}
+      {@render emptyState("Loading rivens...")}
     {:else if filteredRivens.length === 0}
       {@render emptyState(rivens.length === 0 ? $tr("rivens.noData") : $tr("rivens.noResults"))}
     {:else}
@@ -218,7 +218,7 @@
 
   {:else if viewTab === "veiled"}
     {#if loading}
-      {@render emptyState("Loading rivens…")}
+      {@render emptyState("Loading rivens...")}
     {:else if veiledRivens.length === 0 && veiledUnseen.length === 0}
       {@render emptyState("No veiled rivens found")}
     {:else}

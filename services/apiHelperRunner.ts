@@ -184,7 +184,7 @@ export function runOnce(): Promise<boolean> {
     }
 
     _running = true;
-    log.info("Running warframe-api-helper…");
+    log.info("Running warframe-api-helper...");
 
     const child = spawn(_exePath, [], {
       cwd: path.dirname(_exePath),
@@ -491,7 +491,6 @@ export async function downloadHelper(
   try {
     onProgress({ stage: "resolving", percent: 0, bytesReceived: 0, bytesTotal: 0 });
 
-    // 1. Fetch pinned release metadata
     const releaseRes = await httpsGetBuffer(GITHUB_RELEASES_URL, {
       "User-Agent": "warframe-companion",
       Accept: "application/vnd.github+json",
@@ -503,22 +502,19 @@ export async function downloadHelper(
 
     const release: GitHubRelease = JSON.parse(releaseRes.body.toString("utf-8"));
 
-    // 2. Find the .exe asset
     const exeAsset = release.assets.find((a) => a.name.toLowerCase().endsWith(".exe"));
     if (!exeAsset) {
       throw new Error("No .exe asset found in latest release");
     }
 
-    log.info(`Downloading ${exeAsset.name} (${release.tag_name}, ${exeAsset.size} bytes)…`);
+    log.info(`Downloading ${exeAsset.name} (${release.tag_name}, ${exeAsset.size} bytes)...`);
 
-    // 3. Ensure target directory exists
     const helperDir = getHelperDir();
     fs.mkdirSync(helperDir, { recursive: true });
 
     const destPath = path.join(helperDir, EXE_NAME);
     const tempPath = destPath + ".tmp";
 
-    // 4. Download the asset with progress
     onProgress({
       stage: "downloading",
       percent: 0,
@@ -536,7 +532,7 @@ export async function downloadHelper(
       });
     });
 
-    // 5. Verify downloaded file: PE header + SHA-256 against pin set
+    // verify PE header + SHA-256 against the pin set before swapping in
     const downloadedBytes = fs.readFileSync(tempPath);
     if (downloadedBytes.length < 2 || downloadedBytes[0] !== 0x4d || downloadedBytes[1] !== 0x5a) {
       fs.unlinkSync(tempPath);
@@ -551,7 +547,7 @@ export async function downloadHelper(
     }
     log.info(`Helper SHA-256 pin verified: ${sha256}`);
 
-    // 6. Atomically rename temp → final
+    // atomic swap into place
     try {
       fs.unlinkSync(destPath);
     } catch {
@@ -559,7 +555,6 @@ export async function downloadHelper(
     }
     fs.renameSync(tempPath, destPath);
 
-    // 7. Refresh cached exe path
     _exePath = destPath;
 
     log.info("Helper downloaded to:", destPath);

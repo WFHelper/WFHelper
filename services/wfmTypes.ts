@@ -88,8 +88,8 @@ export interface WfmCloseOrderResult {
 /**
  * Unwrap a WFM API response from its envelope.
  *
- * - v2 responses: `{ data: T }` → returns `T`
- * - v1 responses: `{ payload: T }` → returns `T`
+ * - v2 responses: `{ data: T }` -> returns `T`
+ * - v1 responses: `{ payload: T }` -> returns `T`
  * - Already unwrapped: returns as-is
  *
  * The caller is responsible for asserting the inner type.

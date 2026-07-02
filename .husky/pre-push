@@ -1,8 +1,5 @@
-# Gatekeeper before pushing to the remote.
-# Mirrors CI's deterministic checks so failures surface here, not after a CI
-# round-trip. `set -e` so any one blocks the push. Backend worker tests and the
-# electron-builder packaging stay CI-only (flaky / heavy locally).
-# Bypass with `git push --no-verify` if you really need to (don't make a habit).
+# same checks as CI so failures show up before the push, not after.
+# worker tests + packaging stay CI-only (heavy). bypass: git push --no-verify
 set -e
 pnpm typecheck
 pnpm run check

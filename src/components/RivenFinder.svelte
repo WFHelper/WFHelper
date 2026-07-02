@@ -286,7 +286,7 @@
 
 <!-- Results -->
 {#if searching}
-  <div class="text-center py-8 text-sm text-text-muted">Searching warframe.market auctions…</div>
+  <div class="text-center py-8 text-sm text-text-muted">Searching warframe.market auctions...</div>
 {:else if hasSearched && filteredResults.length === 0}
   <div class="text-center py-8 text-sm text-text-muted">No auctions found{rawResults.length > 0 ? " matching filters" : ""}</div>
 {:else if filteredResults.length > 0}

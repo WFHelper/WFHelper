@@ -201,27 +201,27 @@ export function processRivenPatterns(
     _callbacks.onRivenSessionClose?.();
   }
 
-  // Step 1: Track HudVis changes. On increment, record timestamp.
-  // Step 2: If PopulateInfo with Randomized mod path appears within 2s, it's a riven.
-  // On decrement, close the chat riven view.
+  // Chat riven detection: a HudVis increment records a timestamp, and if a
+  // PopulateInfo with a Randomized mod path shows up within 2s it's a riven.
+  // A HudVis decrement means the chat item view closed.
   const hudVisMatch = line.match(RIVEN_PATTERNS.hudVis);
   if (hudVisMatch && !_rivenSessionActive) {
     const newVis = parseInt(hudVisMatch[1], 10);
     if (newVis < _lastHudVis) {
-      // HudVis decreased → chat item view closed
+      // HudVis decreased -> chat item view closed
       if (_rivenChatViewActive) {
         _rivenChatViewActive = false;
         log.info("[EELog] Riven chat-link view closed (HudVis decreased) -> dispatching session close");
         _callbacks.onRivenSessionClose?.();
       }
     } else if (newVis > _lastHudVis) {
-      // HudVis increased → record timestamp, wait for PopulateInfo confirmation
+      // HudVis increased -> record timestamp, wait for PopulateInfo confirmation
       _lastHudVisIncreaseAt = Date.now();
     }
     _lastHudVis = newVis;
   }
 
-  // Step 2: PopulateInfo with Randomized mod path within 2s of HudVis increase = riven
+  // PopulateInfo with Randomized mod path within 2s of HudVis increase = riven
   if (
     !_rivenSessionActive &&
     !_rivenChatViewActive &&

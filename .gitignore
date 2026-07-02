@@ -16,7 +16,6 @@ env/
 *.log
 .tmp/
 docs/
-docs/
 .icon-mirror/
 
 main.js
@@ -25,9 +24,9 @@ preload-overlay.js
 .electron-build/
 api-inventory-data/
 
+# local scratch
 .notes/
 scratch/
-.codex/
 
 # Cloudflare worker local secrets / state
 .dev.vars*
@@ -43,11 +42,8 @@ riven-ocr-debug/
 OCR-debug/
 temp_*.png
 
-# OCR training artifacts are generated and no longer part of the runtime tree.
-# Runtime Riven OCR models/dictionaries live in assets/riven-ocr/.
+# OCR training stuff (runtime models live in assets/riven-ocr/)
 scripts/train-paddleocr/
-
-# Generated model/checkpoint artifacts. Runtime ONNX files are explicitly kept.
 *.pt
 *.pth
 *.onnx

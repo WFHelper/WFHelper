@@ -317,7 +317,7 @@
     </div>
   {:else}
     <div class="empty-state">
-      <p>Loading mastery data…</p>
+      <p>Loading mastery data...</p>
     </div>
   {/if}
 </section>

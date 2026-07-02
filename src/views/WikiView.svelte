@@ -115,14 +115,14 @@
     </div>
 
     {#if loading && rows.length === 0}
-      <div class="rounded-lg border border-dashed border-border bg-bg-soft px-3 py-6 text-center text-sm text-text-secondary">Searching…</div>
+      <div class="rounded-lg border border-dashed border-border bg-bg-soft px-3 py-6 text-center text-sm text-text-secondary">Searching...</div>
     {:else if !searched}
       <div class="rounded-lg border border-dashed border-border bg-bg-soft px-3 py-6 text-center text-sm text-text-secondary">
         Type to search drop tables.
       </div>
     {:else if rows.length === 0}
       <div class="rounded-lg border border-dashed border-border bg-bg-soft px-3 py-6 text-center text-sm text-text-secondary">
-        No drops found for “{query.trim()}”.
+        No drops found for "{query.trim()}".
       </div>
     {:else}
       <div class="overflow-hidden rounded-lg border border-border">

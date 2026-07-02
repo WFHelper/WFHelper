@@ -13,7 +13,7 @@ function allowedOrigins(env: Env): string[] {
 
 export function originIsAllowed(req: Request, env: Env): boolean {
 	const origin = requestOrigin(req);
-	// No Origin header → non-browser client (Electron, curl, Worker-to-Worker).
+	// No Origin header -> non-browser client (Electron, curl, Worker-to-Worker).
 	// CORS only guards cross-site browser requests, so these are unaffected.
 	if (!origin) return true;
 

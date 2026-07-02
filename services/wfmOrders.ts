@@ -175,7 +175,7 @@ export async function updateOrder(
   if (modRank != null) body.rank = Number(modRank); // v2: 'rank' not 'mod_rank'
   if (Object.keys(body).length === 0) throw new Error("updateOrder: no fields to update.");
 
-  // v2: PATCH /order/{id}  (WFM changed PUT → PATCH)
+  // v2: PATCH /order/{id}
   const data = await requestV2("PATCH", `/order/${encodeURIComponent(orderId)}`, { json: body });
   const unwrapped = unwrapWfmResponse<WfmOrderMutationData>(data);
   const raw = (unwrapped?.order || unwrapped || data) as WfmRawOrder;
@@ -198,7 +198,7 @@ export async function closeOrder(
     throw new Error("closeOrder: quantity must be a positive integer.");
   }
 
-  log.info(`[WFMOrders] → POST /v2/order/${orderId}/close  qty=${quantity}`);
+  log.info(`[WFMOrders] -> POST /v2/order/${orderId}/close  qty=${quantity}`);
   await requestV2("POST", `/order/${encodeURIComponent(orderId)}/close`, {
     json: { quantity },
   });

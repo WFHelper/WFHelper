@@ -3,7 +3,7 @@
  *
  * Loads and indexes riven-related data from warframe-public-export-plus:
  *  - Weapon disposition (omegaAttenuation)
- *  - Riven type resolution (weapon → riven mod)
+ *  - Riven type resolution (weapon -> riven mod)
  *  - Upgrade entries (base stat values per riven type)
  *  - Stat tag ↔ display name mapping
  *
@@ -45,25 +45,25 @@ interface RivenModInfo {
 
 let _built = false;
 
-/** Lowercase weapon display name → weapon info */
+/** Lowercase weapon display name -> weapon info */
 const _weaponByNameLc = new Map<string, WeaponInfo>();
 
-/** Lowercase weapon name → display-cased name (for findWeaponInText) */
+/** Lowercase weapon name -> display-cased name (for findWeaponInText) */
 const _weaponDisplayNames = new Map<string, string>();
 
 /** Normalized weapon name -> display-cased name */
 const _weaponDisplayNamesNormalized = new Map<string, string>();
 
-/** Weapon uniqueName → display name (reverse lookup for fingerprint compat) */
+/** Weapon uniqueName -> display name (reverse lookup for fingerprint compat) */
 const _weaponByUniqueName = new Map<string, string>();
 
-/** Riven mod compat path → riven mod info */
+/** Riven mod compat path -> riven mod info */
 const _rivenModByCompat = new Map<string, RivenModInfo>();
 
-/** Riven mod uniqueName → riven mod info */
+/** Riven mod uniqueName -> riven mod info */
 const _rivenModByKey = new Map<string, RivenModInfo>();
 
-/** Upgrade tag → cleaned display name (from locTags) */
+/** Upgrade tag -> cleaned display name (from locTags) */
 const _tagToDisplayName = new Map<string, string>();
 
 // Maps the stat names as they appear in OCR output (and in-game) to the
@@ -114,7 +114,7 @@ const STAT_NAME_TO_TAG: Record<string, string> = {
   "additional combo count chance": "WeaponMeleeComboBonusOnHitMod",
 };
 
-// Reverse: tag → canonical display name (used for best-attributes display)
+// Reverse: tag -> canonical display name (used for best-attributes display)
 const TAG_TO_DISPLAY: Record<string, string> = {};
 for (const [name, tag] of Object.entries(STAT_NAME_TO_TAG)) {
   // Keep first (canonical) mapping per tag
@@ -178,7 +178,7 @@ const RIVEN_MODS_BY_CATEGORY: Record<string, string> = {
   SpaceGuns: "/Lotus/Upgrades/Mods/Randomized/LotusArchgunRandomModRare",
 };
 
-// Shotgun override: LongGuns with SHOTGUN compat tag → shotgun riven
+// Shotgun override: LongGuns with SHOTGUN compat tag -> shotgun riven
 const SHOTGUN_RIVEN_KEY = "/Lotus/Upgrades/Mods/Randomized/LotusShotgunRandomModRare";
 
 // Modular weapon overrides
@@ -276,7 +276,7 @@ function ensureBuilt(): void {
           suffix: (ue.suffixTag && dict[ue.suffixTag]) || "",
         });
 
-        // Populate tag → display name from resolved locTags
+        // Populate tag -> display name from resolved locTags
         if (displayName && !_tagToDisplayName.has(ue.tag)) {
           _tagToDisplayName.set(ue.tag, displayName);
         }
@@ -424,7 +424,7 @@ export function findUpgradeEntry(rivenTypeKey: string, tag: string): UpgradeEntr
  *
  * Examples: "Vexi-decican" (electricity + status duration + multishot),
  *           "Crita-tis" (crit chance + crit damage),
- *           "Sati-can" (multishot only → prefix + suffix)
+ *           "Sati-can" (multishot only -> prefix + suffix)
  */
 export function generateRivenSuffix(
   rivenTypeKey: string,
@@ -461,7 +461,7 @@ export function generateRivenSuffix(
     return ia - ib;
   });
 
-  // Collect syllables: all-except-last → prefix, last → suffix
+  // Collect syllables: all-except-last -> prefix, last -> suffix
   // Special: single buff uses both prefix + suffix
   const syllables: string[] = [];
 
@@ -591,7 +591,7 @@ const VARIANT_PREFIXES = ["MK1-", "Mk1-", "Kuva ", "Tenet "];
 /**
  * Derive the base weapon family slug for WFM riven auction search.
  * Rivens apply to the weapon family, not a specific variant.
- * E.g. "Boar Prime" → "boar", "Kuva Bramma" → "bramma"
+ * E.g. "Boar Prime" -> "boar", "Kuva Bramma" -> "bramma"
  */
 export function getRivenFamilySlug(weaponName: string): string {
   let name = weaponName.trim();

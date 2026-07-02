@@ -172,7 +172,7 @@ interface ItemEntry {
 
 let itemsByUniqueName: Record<string, ItemEntry> = {};
 let wfcdItemsByUniqueName: Record<string, ItemEntry> = {};
-/** Maps resultType (the produced item's uniqueName) → recipe data. */
+/** Maps resultType (the produced item's uniqueName) -> recipe data. */
 let recipesByResultType: Record<string, RecipeData> = {};
 
 function loadDict(): Record<string, string> {

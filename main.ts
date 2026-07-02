@@ -59,10 +59,10 @@ app.commandLine.appendSwitch("log-level", "3");
 app.disableHardwareAcceleration();
 
 // Set our AUMID in all modes so toast notifications are associated with
-// "WFHelper" in Windows Settings → Notifications, and Focus Assist
+// "WFHelper" in Windows Settings -> Notifications, and Focus Assist
 // "Priority only" mode recognises us as a proper app.  A matching Start Menu
 // shortcut is created in worldStateIpc.register() so Windows has the full
-// AUMID → shortcut mapping that desktop-app toasts require.
+// AUMID -> shortcut mapping that desktop-app toasts require.
 const WIN_APP_USER_MODEL_ID = "com.warframe.companion";
 if (process.platform === "win32") {
   app.setAppUserModelId(WIN_APP_USER_MODEL_ID);

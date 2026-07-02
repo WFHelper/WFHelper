@@ -1,21 +1,14 @@
-# pnpm settings (pnpm 11 reads pnpm-specific config from here, not .npmrc).
+# pnpm 11 reads its config from here, not .npmrc.
 
-# Flat, hoisted node_modules. REQUIRED: electron-builder + native modules
-# (@napi-rs/system-ocr, onnxruntime-node, sharp) do not package correctly from
-# pnpm's default symlinked/isolated store.
+# electron-builder + native modules (system-ocr, onnxruntime, sharp) don't
+# package correctly from pnpm's default symlinked store
 nodeLinker: hoisted
 
-# Supply-chain cooldown. Rolling minimum age (in MINUTES) a published version
-# must have before pnpm will resolve/install it. 2880 = 48 hours. Quarantines
-# freshly-published (possibly compromised) releases automatically - no manual
-# date to maintain. Already-locked versions installed via --frozen-lockfile are
-# unaffected.
+# min age (in minutes) before a new release may be installed; 2880 = 48h.
+# cheap protection against freshly-compromised package versions
 minimumReleaseAge: 2880
 
-# pnpm blocks dependency build/postinstall scripts by default (supply-chain
-# protection). Only these vetted, build-required native/binary packages are
-# allowed to run install scripts. Any new dependency that wants to run scripts
-# is blocked until deliberately added here.
+# only these packages may run postinstall/build scripts
 allowBuilds:
   '@sentry/cli': true
   electron: true

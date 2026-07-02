@@ -83,51 +83,51 @@ describe("floatToGrade", () => {
   });
 
   it("returns B for mid-roll (0.5)", () => {
-    // lerp(-10, 10, 0.5) = 0 → B (threshold -0.5)
+    // lerp(-10, 10, 0.5) = 0 -> B (threshold -0.5)
     expect(floatToGrade(0.5, false)).toBe("B");
   });
 
   it("respects grade boundaries (matches RivenParser.js exactly)", () => {
     // lerp(-10, 10, rollFloat) = -10 + 20*rollFloat
-    // score >= 9.5 → S: rollFloat >= 19.5/20 = 0.975
+    // score >= 9.5 -> S: rollFloat >= 19.5/20 = 0.975
     expect(floatToGrade(0.975, false)).toBe("S");
     expect(floatToGrade(0.974, false)).toBe("A+");
 
-    // score >= 7.5 → A+: rollFloat >= 17.5/20 = 0.875
+    // score >= 7.5 -> A+: rollFloat >= 17.5/20 = 0.875
     expect(floatToGrade(0.875, false)).toBe("A+");
     expect(floatToGrade(0.874, false)).toBe("A");
 
-    // score >= 5.5 → A: rollFloat >= 15.5/20 = 0.775
+    // score >= 5.5 -> A: rollFloat >= 15.5/20 = 0.775
     expect(floatToGrade(0.775, false)).toBe("A");
     expect(floatToGrade(0.774, false)).toBe("A-");
 
-    // score >= 3.5 → A-: rollFloat >= 13.5/20 = 0.675
+    // score >= 3.5 -> A-: rollFloat >= 13.5/20 = 0.675
     expect(floatToGrade(0.675, false)).toBe("A-");
     expect(floatToGrade(0.674, false)).toBe("B+");
 
-    // score >= 1.5 → B+: rollFloat >= 11.5/20 = 0.575
+    // score >= 1.5 -> B+: rollFloat >= 11.5/20 = 0.575
     expect(floatToGrade(0.575, false)).toBe("B+");
     expect(floatToGrade(0.574, false)).toBe("B");
 
-    // score >= -1.5 → B: rollFloat >= 8.5/20 = 0.425
+    // score >= -1.5 -> B: rollFloat >= 8.5/20 = 0.425
     expect(floatToGrade(0.425, false)).toBe("B");
     expect(floatToGrade(0.424, false)).toBe("B-");
 
-    // score >= -3.5 → B-: rollFloat >= 6.5/20 = 0.325
+    // score >= -3.5 -> B-: rollFloat >= 6.5/20 = 0.325
     expect(floatToGrade(0.325, false)).toBe("B-");
     expect(floatToGrade(0.324, false)).toBe("C+");
 
-    // score >= -9.5 → C-: rollFloat >= 0.5/20 = 0.025
+    // score >= -9.5 -> C-: rollFloat >= 0.5/20 = 0.025
     expect(floatToGrade(0.025, false)).toBe("C-");
     expect(floatToGrade(0.024, false)).toBe("F");
   });
 
   it("inverts for curses (low value = good curse)", () => {
-    // For curses, rollFloat 1.0 means full-strength curse → grade S uses (1 - 1.0) = 0.0 → F
+    // For curses, rollFloat 1.0 means full-strength curse -> grade S uses (1 - 1.0) = 0.0 -> F
     expect(floatToGrade(1.0, true)).toBe("F");
-    // rollFloat 0.0 for curse → (1 - 0.0) = 1.0 → S
+    // rollFloat 0.0 for curse -> (1 - 0.0) = 1.0 -> S
     expect(floatToGrade(0.0, true)).toBe("S");
-    // rollFloat 0.5 for curse → (1 - 0.5) = 0.5 → B
+    // rollFloat 0.5 for curse -> (1 - 0.5) = 0.5 -> B
     expect(floatToGrade(0.5, true)).toBe("B");
   });
 });
@@ -157,7 +157,7 @@ describe("unparseBuff", () => {
   });
 
   it("accounts for curse attenuation boost (pow(1.25, numCurses))", () => {
-    // With 1 curse: pow(1.25, 1) = 1.25 → buff values are ~25% higher at same roll
+    // With 1 curse: pow(1.25, 1) = 1.25 -> buff values are ~25% higher at same roll
     // 3 buffs, 0 curses, mid-roll: 0.016666 * 15 * 0.7 * 1 * 1.0 * 0.5 * 9 * 100 = 78.7
     const noCurse = unparseBuff(78.7, 0.016666, 0.7, 3, 0, "WeaponCritChanceMod");
     // 3 buffs, 1 curse, mid-roll: 0.016666 * 15 * 0.7 * 1.25 * 1.0 * 0.5 * 9 * 100 = 98.4
@@ -167,7 +167,7 @@ describe("unparseBuff", () => {
   });
 
   it("matches RivenParser.js reference (Rubico Prime crit, roll=0.95)", () => {
-    // Reference computed from RivenParser.js: displayed=107.3, rollFloat≈0.950
+    // Reference computed from RivenParser.js: displayed=107.3, rollFloat~0.950
     const result = unparseBuff(107.3, 0.016666, 0.7, 3, 1, "WeaponCritChanceMod");
     expect(result).toBeCloseTo(0.950, 1);
   });
@@ -191,7 +191,7 @@ describe("unparseCurse", () => {
   });
 
   it("matches RivenParser.js reference (Rubico Prime recoil, roll=0.7)", () => {
-    // Reference computed from RivenParser.js: displayed=49.1, rollFloat≈0.696
+    // Reference computed from RivenParser.js: displayed=49.1, rollFloat~0.696
     const result = unparseCurse(49.1, -0.01, 0.7, 3, 1, "WeaponRecoilReductionMod");
     expect(result).toBeCloseTo(0.696, 1);
   });

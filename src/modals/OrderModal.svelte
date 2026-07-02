@@ -277,7 +277,7 @@
           <div class="mt-3 flex justify-end gap-2">
             <ThemedButton type="button" onClick={close}>Cancel</ThemedButton>
             <button type="submit" class="btn-primary" disabled={submitting}>
-              {submitting ? (isEdit ? 'Saving…' : 'Creating…') : (isEdit ? 'Save Changes' : 'Create Order')}
+              {submitting ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save Changes' : 'Create Order')}
             </button>
           </div>
         </form>

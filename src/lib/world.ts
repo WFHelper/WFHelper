@@ -236,7 +236,7 @@ export function resolveCircuitChoices(
 ): CircuitChoice[] {
   if (!choices.length || !itemDb) return [];
 
-  // Build name → { uniqueName, imageUrl, category } lookup
+  // Build name -> { uniqueName, imageUrl, category } lookup
   const byName = new Map<string, { uniqueName: string; imageUrl: string; category: string }>();
   for (const [uniqueName, entry] of Object.entries(itemDb)) {
     if (!entry?.name || !entry.imageUrl) continue;
