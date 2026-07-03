@@ -19,7 +19,7 @@ describe("main inventory payload helper", () => {
       },
     };
 
-    const unwrapped = unwrapInventoryPayload(raw) as any;
+    const unwrapped = unwrapInventoryPayload(raw) as Record<string, Array<{ ItemType: string }>>;
     expect(Array.isArray(unwrapped.Suits)).toBe(true);
     expect(unwrapped.Suits[0].ItemType).toBe("A");
   });
@@ -31,7 +31,7 @@ describe("main inventory payload helper", () => {
       }),
     };
 
-    const unwrapped = unwrapInventoryPayload(raw) as any;
+    const unwrapped = unwrapInventoryPayload(raw) as Record<string, Array<{ ItemType: string }>>;
     expect(Array.isArray(unwrapped.LevelKeys)).toBe(true);
     expect(unwrapped.LevelKeys[0].ItemType).toBe("RelicX");
   });

@@ -82,27 +82,21 @@ function matchesPartType(item: FilterableItem, mode: SharedFiltersState["partTyp
   return partType === mode;
 }
 
+// sort modes that read a single numeric field directly
+const DIRECT_METRIC_FIELDS = [
+  "platinum",
+  "ducats",
+  "amount",
+  "count",
+  "time",
+  "disposition",
+  "rerolls",
+] as const;
+
 function toMetric(item: FilterableItem, sortBy: SharedFiltersState["sortBy"]): number | null {
-  if (sortBy === "platinum") {
-    return typeof item.platinum === "number" ? item.platinum : null;
-  }
-  if (sortBy === "ducats") {
-    return typeof item.ducats === "number" ? item.ducats : null;
-  }
-  if (sortBy === "amount") {
-    return typeof item.amount === "number" ? item.amount : null;
-  }
-  if (sortBy === "count") {
-    return typeof item.count === "number" ? item.count : null;
-  }
-  if (sortBy === "time") {
-    return typeof item.time === "number" ? item.time : null;
-  }
-  if (sortBy === "disposition") {
-    return typeof item.disposition === "number" ? item.disposition : null;
-  }
-  if (sortBy === "rerolls") {
-    return typeof item.rerolls === "number" ? item.rerolls : null;
+  if ((DIRECT_METRIC_FIELDS as readonly string[]).includes(sortBy)) {
+    const v = item[sortBy as (typeof DIRECT_METRIC_FIELDS)[number]];
+    return typeof v === "number" ? v : null;
   }
   if (sortBy === "grade") {
     if (typeof item.gradeRank === "number") return item.gradeRank;

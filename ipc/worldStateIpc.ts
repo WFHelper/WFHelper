@@ -399,17 +399,11 @@ function maybeNotifyWorldEvents(state: unknown): void {
 
   if (!canSendNotifications()) return;
 
-  const stateRecord = state && typeof state === "object" ? (state as Record<string, unknown>) : {};
-  const voidTrader =
-    stateRecord.voidTrader && typeof stateRecord.voidTrader === "object"
-      ? (stateRecord.voidTrader as Record<string, unknown>)
-      : {};
+  const stateRecord = asRecord(state) ?? {};
+  const voidTrader = asRecord(stateRecord.voidTrader) ?? {};
 
   if (!prev.baroActive && next.baroActive) {
-    const location =
-      typeof voidTrader.location === "string" && voidTrader.location
-        ? voidTrader.location
-        : "Relay";
+    const location = str(voidTrader.location) || "Relay";
     sendDesktopNotification("Baro Ki'Teer Arrived", `Now available at ${location}.`);
   }
 
@@ -429,54 +423,54 @@ function maybeNotifyWorldEvents(state: unknown): void {
     duviri: false,
   };
 
-  if (
-    cycleAlerts.earth &&
-    prev.earthIsDay !== null &&
-    next.earthIsDay !== null &&
-    prev.earthIsDay !== next.earthIsDay
-  ) {
-    sendDesktopNotification("Earth Cycle", next.earthIsDay ? "Day has begun." : "Night has begun.");
-  }
-
-  if (
-    cycleAlerts.cetus &&
-    prev.cetusIsDay !== null &&
-    next.cetusIsDay !== null &&
-    prev.cetusIsDay !== next.cetusIsDay
-  ) {
-    sendDesktopNotification("Cetus Cycle", next.cetusIsDay ? "Day has begun." : "Night has begun.");
-  }
-
-  if (
-    cycleAlerts.vallis &&
-    prev.vallisIsWarm !== null &&
-    next.vallisIsWarm !== null &&
-    prev.vallisIsWarm !== next.vallisIsWarm
-  ) {
-    sendDesktopNotification(
-      "Orb Vallis Cycle",
-      next.vallisIsWarm ? "Warm cycle has begun." : "Cold cycle has begun.",
-    );
-  }
-
-  if (
-    cycleAlerts.cambion &&
-    prev.cambionActive !== null &&
-    next.cambionActive !== null &&
-    prev.cambionActive !== next.cambionActive
-  ) {
-    const label = next.cambionActive ? next.cambionActive.toUpperCase() : "Unknown";
-    sendDesktopNotification("Cambion Drift Cycle", `${label} cycle has begun.`);
-  }
-
-  if (
-    cycleAlerts.duviri &&
-    prev.duviriState !== null &&
-    next.duviriState !== null &&
-    prev.duviriState !== next.duviriState
-  ) {
-    const label = next.duviriState ? capitalize(next.duviriState) : "Unknown";
-    sendDesktopNotification("Duviri Cycle", `${label} mood has begun.`);
+  type CycleValue = boolean | string | null;
+  const transitions: Array<{
+    enabled: boolean;
+    prevVal: CycleValue;
+    nextVal: CycleValue;
+    title: string;
+    body: (v: boolean | string) => string;
+  }> = [
+    {
+      enabled: !!cycleAlerts.earth,
+      prevVal: prev.earthIsDay,
+      nextVal: next.earthIsDay,
+      title: "Earth Cycle",
+      body: (v) => (v ? "Day has begun." : "Night has begun."),
+    },
+    {
+      enabled: !!cycleAlerts.cetus,
+      prevVal: prev.cetusIsDay,
+      nextVal: next.cetusIsDay,
+      title: "Cetus Cycle",
+      body: (v) => (v ? "Day has begun." : "Night has begun."),
+    },
+    {
+      enabled: !!cycleAlerts.vallis,
+      prevVal: prev.vallisIsWarm,
+      nextVal: next.vallisIsWarm,
+      title: "Orb Vallis Cycle",
+      body: (v) => (v ? "Warm cycle has begun." : "Cold cycle has begun."),
+    },
+    {
+      enabled: !!cycleAlerts.cambion,
+      prevVal: prev.cambionActive,
+      nextVal: next.cambionActive,
+      title: "Cambion Drift Cycle",
+      body: (v) => `${v ? String(v).toUpperCase() : "Unknown"} cycle has begun.`,
+    },
+    {
+      enabled: !!cycleAlerts.duviri,
+      prevVal: prev.duviriState,
+      nextVal: next.duviriState,
+      title: "Duviri Cycle",
+      body: (v) => `${v ? capitalize(String(v)) : "Unknown"} mood has begun.`,
+    },
+  ];
+  for (const t of transitions) {
+    if (t.enabled && t.prevVal !== null && t.nextVal !== null && t.prevVal !== t.nextVal) {
+      sendDesktopNotification(t.title, t.body(t.nextVal));
+    }
   }
 
   // Fissure appearance alerts (opt-in per configured alert rules)
@@ -487,21 +481,19 @@ function maybeNotifyWorldEvents(state: unknown): void {
       : [];
 
     for (const f of rawFissures) {
-      if (!f || typeof f !== "object") continue;
-      const fr = f as Record<string, unknown>;
-      if (fr.expired === true) continue;
+      const fr = asRecord(f);
+      if (!fr || fr.expired === true) continue;
 
-      const tier = typeof fr.tier === "string" ? fr.tier : "";
-      const node = typeof fr.node === "string" ? fr.node : "";
-      const expiry = typeof fr.expiry === "string" ? fr.expiry : "";
+      const tier = str(fr.tier) ?? "";
+      const node = str(fr.node) ?? "";
+      const expiry = str(fr.expiry) ?? "";
       const isHard = fr.isHard === true;
-      const isHardStr = isHard ? "1" : "0";
-      const fissureId = `${tier}|${node}|${expiry}|${isHardStr}`;
+      const fissureId = `${tier}|${node}|${expiry}|${isHard ? "1" : "0"}`;
 
       // Only notify for newly appeared fissures
       if (prev.fissureIds.has(fissureId)) continue;
 
-      const missionType = typeof fr.missionType === "string" ? fr.missionType : "";
+      const missionType = str(fr.missionType) ?? "";
 
       const matches = fissureAlertRules.some((rule) => {
         const tierOk = rule.tier === "any" || rule.tier.toLowerCase() === tier.toLowerCase();

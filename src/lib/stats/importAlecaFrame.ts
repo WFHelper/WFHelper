@@ -16,17 +16,35 @@ interface NormalizedStatEntry {
   absAya?: number | undefined;
 }
 
+const num = (v: unknown): number | null => (typeof v === "number" ? v : null);
+
+/** Explicit delta fields win; otherwise diff the absolute field against the previous row. */
+function readDelta(
+  r: Record<string, unknown>,
+  prev: Record<string, unknown> | null,
+  deltaKeys: string[],
+  absKey: string,
+): number {
+  for (const k of deltaKeys) {
+    const v = num(r[k]);
+    if (v !== null) return v;
+  }
+  const cur = num(r[absKey]);
+  const prevAbs = prev ? num(prev[absKey]) : null;
+  if (cur !== null && prevAbs !== null) return cur - prevAbs;
+  return 0;
+}
+
 /** Normalize stats JSON to daily entries - delta-style or absolute-style rows. */
 export function normalizeAlecaFrameStats(parsed: unknown): NormalizedStatEntry[] {
   const p = parsed as Record<string, unknown>;
-  const rawRows: unknown[] =
-    Array.isArray(parsed)
-      ? parsed
-      : Array.isArray(p?.generalDataPoints)
-        ? (p.generalDataPoints as unknown[])
-        : Array.isArray(p?.data)
-          ? (p.data as unknown[])
-          : [];
+  const rawRows: unknown[] = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(p?.generalDataPoints)
+      ? (p.generalDataPoints as unknown[])
+      : Array.isArray(p?.data)
+        ? (p.data as unknown[])
+        : [];
 
   const normalized: NormalizedStatEntry[] = [];
   for (let i = 0; i < rawRows.length; i++) {
@@ -39,59 +57,20 @@ export function normalizeAlecaFrameStats(parsed: unknown): NormalizedStatEntry[]
     const date = rawTs ? rawTs.slice(0, 10) : null;
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
 
-    let platDelta = 0;
-    if (typeof r.platGain === "number") platDelta = r.platGain;
-    else if (typeof r.platDelta === "number") platDelta = r.platDelta;
-    else if (typeof r.plat === "number" && prev && typeof prev.plat === "number")
-      platDelta = r.plat - prev.plat;
-
-    let creditsDelta = 0;
-    if (typeof r.creditsDelta === "number") creditsDelta = r.creditsDelta;
-    else if (typeof r.credits === "number" && prev && typeof prev.credits === "number")
-      creditsDelta = r.credits - prev.credits;
-
-    let endoDelta = 0;
-    if (typeof r.endoDelta === "number") endoDelta = r.endoDelta;
-    else if (typeof r.endo === "number" && prev && typeof prev.endo === "number")
-      endoDelta = r.endo - prev.endo;
-
-    let ducatsDelta = 0;
-    if (typeof r.ducatsDelta === "number") ducatsDelta = r.ducatsDelta;
-    else if (typeof r.ducats === "number" && prev && typeof prev.ducats === "number")
-      ducatsDelta = r.ducats - prev.ducats;
-
-    let ayaDelta = 0;
-    if (typeof r.ayaDelta === "number") ayaDelta = r.ayaDelta;
-    else if (typeof r.aya === "number" && prev && typeof prev.aya === "number")
-      ayaDelta = r.aya - prev.aya;
-
-    let relicsOpened = 0;
-    if (typeof r.relicsOpened === "number") relicsOpened = r.relicsOpened;
-    else if (typeof r.relicOpened === "number") relicsOpened = r.relicOpened;
-
-    const dailyTrades =
-      typeof r.trades === "number" ? r.trades : typeof r.dailyTrades === "number" ? r.dailyTrades : 0;
-
-    const absPlat = typeof r.plat === "number" ? r.plat : undefined;
-    const absCredits = typeof r.credits === "number" ? r.credits : undefined;
-    const absEndo = typeof r.endo === "number" ? r.endo : undefined;
-    const absDucats = typeof r.ducats === "number" ? r.ducats : undefined;
-    const absAya = typeof r.aya === "number" ? r.aya : undefined;
-
     normalized.push({
       date,
-      platDelta,
-      creditsDelta,
-      endoDelta,
-      ducatsDelta,
-      ayaDelta,
-      relicsOpened,
-      dailyTrades,
-      absPlat,
-      absCredits,
-      absEndo,
-      absDucats,
-      absAya,
+      platDelta: readDelta(r, prev, ["platGain", "platDelta"], "plat"),
+      creditsDelta: readDelta(r, prev, ["creditsDelta"], "credits"),
+      endoDelta: readDelta(r, prev, ["endoDelta"], "endo"),
+      ducatsDelta: readDelta(r, prev, ["ducatsDelta"], "ducats"),
+      ayaDelta: readDelta(r, prev, ["ayaDelta"], "aya"),
+      relicsOpened: num(r.relicsOpened) ?? num(r.relicOpened) ?? 0,
+      dailyTrades: num(r.trades) ?? num(r.dailyTrades) ?? 0,
+      absPlat: num(r.plat) ?? undefined,
+      absCredits: num(r.credits) ?? undefined,
+      absEndo: num(r.endo) ?? undefined,
+      absDucats: num(r.ducats) ?? undefined,
+      absAya: num(r.aya) ?? undefined,
     });
   }
 
@@ -118,38 +97,29 @@ export function parseAlecaFrameTrades(parsed: unknown): TradeEvent[] {
     // 0 = sale, 1 = purchase, 2 = trade (item swap / gift)
     if (afType < 0 || afType > 2) continue;
     const tradeType: TradeType = afType === 1 ? "purchase" : afType === 0 ? "sale" : "trade";
-    const totalPlat = typeof t.totalPlat === "number" ? t.totalPlat : 0;
+    const totalPlat = num(t.totalPlat) ?? 0;
 
     // Strip trailing non-printable / PUA unicode chars from partner name
     const rawUser = typeof t.user === "string" ? t.user : "";
     const partner = rawUser.replace(/[\u{E000}-\u{F8FF}\u{F0000}-\u{FFFFD}]+$/u, "").trim();
 
-    const txArr = Array.isArray(t.tx) ? (t.tx as Record<string, unknown>[]) : [];
-    const rxArr = Array.isArray(t.rx) ? (t.rx as Record<string, unknown>[]) : [];
-
     const items: TradeItem[] = [];
-    for (const item of txArr) {
-      const name = typeof item.name === "string" ? item.name : "";
-      if (name === "/AF_Special/Platinum") continue;
-      items.push({
-        internalName: name,
-        displayName:
-          typeof item.displayName === "string" ? item.displayName : (name.split("/").pop() ?? name),
-        count: typeof item.cnt === "number" ? item.cnt : 1,
-        direction: "given",
-      });
-    }
-    for (const item of rxArr) {
-      const name = typeof item.name === "string" ? item.name : "";
-      if (name === "/AF_Special/Platinum") continue;
-      items.push({
-        internalName: name,
-        displayName:
-          typeof item.displayName === "string" ? item.displayName : (name.split("/").pop() ?? name),
-        count: typeof item.cnt === "number" ? item.cnt : 1,
-        direction: "received",
-      });
-    }
+    const pushItems = (arr: unknown, direction: TradeItem["direction"]) => {
+      if (!Array.isArray(arr)) return;
+      for (const raw of arr as Record<string, unknown>[]) {
+        const name = typeof raw.name === "string" ? raw.name : "";
+        if (name === "/AF_Special/Platinum") continue;
+        items.push({
+          internalName: name,
+          displayName:
+            typeof raw.displayName === "string" ? raw.displayName : (name.split("/").pop() ?? name),
+          count: num(raw.cnt) ?? 1,
+          direction,
+        });
+      }
+    };
+    pushItems(t.tx, "given");
+    pushItems(t.rx, "received");
 
     const id = `af-${ts}-${totalPlat}-${partner}-${tradeIdx++}`;
     importedTrades.push({

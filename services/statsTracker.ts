@@ -198,13 +198,13 @@ export function loadHistory(): void {
 }
 
 export function onInventoryData(data: Record<string, unknown>): void {
-  const plat    = typeof data.PremiumCredits === "number" ? data.PremiumCredits : null;
-  const credits = typeof data.RegularCredits === "number" ? data.RegularCredits : null;
-  const endo    = typeof data.FusionPoints   === "number" ? data.FusionPoints   : null;
+  const plat    = _num(data.PremiumCredits);
+  const credits = _num(data.RegularCredits);
+  const endo    = _num(data.FusionPoints);
   // Ducats are stored as a MiscItem entry, not a top-level field
   const ducats  = _findMiscItemCount(data, "/Lotus/Types/Items/MiscItems/PrimeBucks");
   // PrimeTokens is the raw field name for Aya in the Warframe inventory JSON
-  const aya     = typeof data.PrimeTokens    === "number" ? data.PrimeTokens    : null;
+  const aya     = _num(data.PrimeTokens);
 
   // Relics (VoidProjection items) appear in LevelKeys for some inventory
   // export formats, but in modern Warframe exports they live in MiscItems.
@@ -283,6 +283,17 @@ export function getHistory(): DailyStatEntry[] {
   return _history;
 }
 
+const _num = (v: unknown): number | null => (typeof v === "number" ? v : null);
+
+// deltas are pre-processed by the renderer; alternate keys cover older exports
+function _firstNum(r: Record<string, unknown>, ...keys: string[]): number {
+  for (const k of keys) {
+    const v = _num(r[k]);
+    if (v !== null) return v;
+  }
+  return 0;
+}
+
 export function importHistory(raw: unknown[]): number {
   let imported = 0;
   const today = _todayStr();
@@ -300,47 +311,23 @@ export function importHistory(raw: unknown[]): number {
     // Never overwrite today's live-tracked entry
     if (date === today) continue;
 
-    // Platinum delta (pre-processed; fall back to common field names)
-    let platDelta = 0;
-    if (typeof r.platDelta === "number") platDelta = r.platDelta;
-    else if (typeof r.platinumDelta === "number") platDelta = r.platinumDelta;
-    else if (typeof r.platGain === "number") platDelta = r.platGain;
-
-    // Credits delta
-    let creditsDelta = 0;
-    if (typeof r.creditsDelta === "number") creditsDelta = r.creditsDelta;
-
-    // Endo delta
-    let endoDelta = 0;
-    if (typeof r.endoDelta === "number") endoDelta = r.endoDelta;
-
-    // Ducats delta (pre-processed from absolute by the renderer)
-    let ducatsDelta = 0;
-    if (typeof r.ducatsDelta === "number") ducatsDelta = r.ducatsDelta;
-
-    // Aya delta (pre-processed from absolute by the renderer)
-    let ayaDelta = 0;
-    if (typeof r.ayaDelta === "number") ayaDelta = r.ayaDelta;
-
-    // Relics opened may arrive under either legacy or current field names.
-    let relicsOpened = 0;
-    if (typeof r.relicsOpened === "number") relicsOpened = r.relicsOpened;
-    else if (typeof r.relicOpened === "number") relicsOpened = r.relicOpened;
-
-    // Daily trade count
-    let dailyTrades = 0;
-    if (typeof r.dailyTrades === "number") dailyTrades = r.dailyTrades;
-
-    const daysPlayed = typeof r.daysPlayed === "number" ? r.daysPlayed : 1;
-
-    const entry: DailyStatEntry = { date, platDelta, creditsDelta, endoDelta, ducatsDelta, ayaDelta, relicsOpened, daysPlayed, dailyTrades };
+    const entry: DailyStatEntry = {
+      date,
+      platDelta: _firstNum(r, "platDelta", "platinumDelta", "platGain"),
+      creditsDelta: _firstNum(r, "creditsDelta"),
+      endoDelta: _firstNum(r, "endoDelta"),
+      ducatsDelta: _firstNum(r, "ducatsDelta"),
+      ayaDelta: _firstNum(r, "ayaDelta"),
+      relicsOpened: _firstNum(r, "relicsOpened", "relicOpened"),
+      daysPlayed: _num(r.daysPlayed) ?? 1,
+      dailyTrades: _firstNum(r, "dailyTrades"),
+    };
 
     // Store absolute values if provided by the import.
-    if (typeof r.absPlat    === "number") entry.absPlat    = r.absPlat;
-    if (typeof r.absCredits === "number") entry.absCredits = r.absCredits;
-    if (typeof r.absEndo    === "number") entry.absEndo    = r.absEndo;
-    if (typeof r.absDucats  === "number") entry.absDucats  = r.absDucats;
-    if (typeof r.absAya     === "number") entry.absAya     = r.absAya;
+    for (const k of ["absPlat", "absCredits", "absEndo", "absDucats", "absAya"] as const) {
+      const v = _num(r[k]);
+      if (v !== null) entry[k] = v;
+    }
 
     const idx = _history.findIndex((e) => e.date === date);
     if (idx >= 0) {
