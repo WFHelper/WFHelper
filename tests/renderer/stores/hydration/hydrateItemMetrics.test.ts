@@ -1,34 +1,34 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { InventoryBaseItem, ItemMetrics, MetricNeeds } from "../../lib/inventoryMarket.js";
-import type { WfmItemsLookup } from "../../types/ipc.js";
-import type { HydrationContext } from "./hydrateItemMetrics.js";
+import type { InventoryBaseItem, ItemMetrics, MetricNeeds } from "../../../../src/lib/inventoryMarket.js";
+import type { WfmItemsLookup } from "../../../../src/types/ipc.js";
+import type { HydrationContext } from "../../../../src/stores/hydration/hydrateItemMetrics.js";
 
 const fetchPriceBySlugMock = vi.hoisted(() => vi.fn());
 const fetchPriceByNameMock = vi.hoisted(() => vi.fn());
 const fetchOrderSummaryBySlugMock = vi.hoisted(() => vi.fn());
 const fetchWfmItemMetaBySlugMock = vi.hoisted(() => vi.fn());
 
-vi.mock("../../lib/wfm/wfmPrice.js", () => ({
+vi.mock("../../../../src/lib/wfm/wfmPrice.js", () => ({
   fetchPriceBySlug: fetchPriceBySlugMock,
   fetchPriceByName: fetchPriceByNameMock,
 }));
 
-vi.mock("../../lib/wfm/orderSummaryRemote.js", () => ({
+vi.mock("../../../../src/lib/wfm/orderSummaryRemote.js", () => ({
   fetchOrderSummaryBySlug: fetchOrderSummaryBySlugMock,
 }));
 
-vi.mock("../../lib/wfm/orderSummaryCache.js", () => ({
+vi.mock("../../../../src/lib/wfm/orderSummaryCache.js", () => ({
   getCachedOrderSummaryState: () => null,
   setCachedOrderSummary: vi.fn(),
   setCachedOrderSummaryNoData: vi.fn(),
 }));
 
-vi.mock("../../lib/wfm/wfmItemMeta.js", () => ({
+vi.mock("../../../../src/lib/wfm/wfmItemMeta.js", () => ({
   fetchWfmItemMetaBySlug: fetchWfmItemMetaBySlugMock,
 }));
 
-vi.mock("../../lib/wfm/priceCache.js", () => ({
+vi.mock("../../../../src/lib/wfm/priceCache.js", () => ({
   getCachedPriceState: () => null,
 }));
 
@@ -82,7 +82,7 @@ function makeContext(onPatch: (metric: ItemMetrics) => void): HydrationContext {
 describe("hydrateItemMetrics", () => {
   it("does not call per-slug worker routes unless network hydration is explicitly enabled", async () => {
     vi.clearAllMocks();
-    const { hydrateItemMetrics } = await import("./hydrateItemMetrics.js");
+    const { hydrateItemMetrics } = await import("../../../../src/stores/hydration/hydrateItemMetrics.js");
     let patched: ItemMetrics | null = null;
     const needs: MetricNeeds = { price: true, ducats: true, orders: true };
     const lookup: WfmItemsLookup = {};
@@ -113,7 +113,7 @@ describe("hydrateItemMetrics", () => {
 
   it("fetches ranked median prices when foreground hydration enables network access", async () => {
     vi.clearAllMocks();
-    const { hydrateItemMetrics } = await import("./hydrateItemMetrics.js");
+    const { hydrateItemMetrics } = await import("../../../../src/stores/hydration/hydrateItemMetrics.js");
     let patched: ItemMetrics | null = null;
     const needs: MetricNeeds = { price: true, ducats: false, orders: false, network: true };
     const lookup: WfmItemsLookup = {};

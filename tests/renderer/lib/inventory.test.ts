@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { parseFoundry, parseInventory, parseResources } from "./inventory.js";
-import { buildFullSetItems } from "./inventory/fullSets.js";
-import type { ItemDbEntry, RawInventoryData, RawInventoryEntry } from "../types/inventory.js";
+import { parseFoundry, parseInventory, parseResources } from "../../../src/lib/inventory.js";
+import { buildFullSetItems } from "../../../src/lib/inventory/fullSets.js";
+import type { ItemDbEntry, RawInventoryData, RawInventoryEntry } from "../../../src/types/inventory.js";
 
 describe("inventory parsing", () => {
   it("parses inventory categories and hides exalted/special entries", () => {

@@ -2,6 +2,16 @@
 
 import * as parser from "../../services/worldStateParser";
 
+// parseRaw returns Record<string, unknown>; shape only what these tests read.
+interface ParsedWorldState {
+  fissures: Array<{ tier: string; missionType: string; isStorm?: boolean }>;
+  voidTrader?: { location?: string };
+  vaultTrader?: { location?: string };
+  sortie?: { expiry?: string };
+}
+const parseRaw = (raw: Parameters<typeof parser.parseRaw>[0]) =>
+  parser.parseRaw(raw) as unknown as ParsedWorldState;
+
 function dateLong(ms: number) {
   return { $date: { $numberLong: `${ms}` } };
 }
@@ -37,7 +47,7 @@ describe("worldStateParser.parseRaw", () => {
       Descents: [],
     };
 
-    const parsed = parser.parseRaw(raw);
+    const parsed = parseRaw(raw);
 
     expect(parsed.fissures).toHaveLength(1);
     expect(parsed.fissures[0].tier).toBe("Axi");
@@ -49,7 +59,7 @@ describe("worldStateParser.parseRaw", () => {
 
   it("derives the real mission type for railjack void storms", () => {
     const now = Date.now();
-    const parsed = parser.parseRaw({
+    const parsed = parseRaw({
       VoidStorms: [
         { Node: "CrewBattleNode515", ActiveMissionTier: "VoidT3", Expiry: dateLong(now + 60_000) },
       ],

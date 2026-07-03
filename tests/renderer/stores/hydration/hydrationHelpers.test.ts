@@ -8,8 +8,8 @@ import {
   hasRankPairCoverage,
   isActiveOrderStatus,
   cheapestOrderPrice,
-} from "./hydrationHelpers.js";
-import type { InventoryBaseItem, ItemMetrics } from "../../lib/inventoryMarket.js";
+} from "../../../../src/stores/hydration/hydrationHelpers.js";
+import type { InventoryBaseItem, ItemMetrics } from "../../../../src/lib/inventoryMarket.js";
 
 function makeItem(overrides: Partial<InventoryBaseItem> = {}): InventoryBaseItem {
   return {

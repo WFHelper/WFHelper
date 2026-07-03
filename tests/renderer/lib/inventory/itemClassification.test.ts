@@ -15,9 +15,9 @@ import {
   shouldHide,
   inferCategory,
   deriveGroup,
-} from "./itemClassification.js";
-import type { ResolvedItem } from "./itemClassification.js";
-import type { ItemDbEntry } from "../../types/inventory.js";
+} from "../../../../src/lib/inventory/itemClassification.js";
+import type { ResolvedItem } from "../../../../src/lib/inventory/itemClassification.js";
+import type { ItemDbEntry } from "../../../../src/types/inventory.js";
 
 function resolved(name: string, extra: Partial<ResolvedItem> = {}): ResolvedItem {
   return { name, imageUrl: null, ...extra };

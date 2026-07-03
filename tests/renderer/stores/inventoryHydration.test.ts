@@ -1,20 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { InventoryBaseItem, MetricNeeds } from "../lib/inventoryMarket.js";
-import type { WfmItemsLookup } from "../types/ipc.js";
-import type { HydrationContext } from "./hydration/hydrateItemMetrics.js";
+import type { InventoryBaseItem, MetricNeeds } from "../../../src/lib/inventoryMarket.js";
+import type { WfmItemsLookup } from "../../../src/types/ipc.js";
+import type { HydrationContext } from "../../../src/stores/hydration/hydrateItemMetrics.js";
 
 const hydrateItemMetricsMock = vi.hoisted(() => vi.fn());
 
-vi.mock("./hydration/hydrateItemMetrics.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./hydration/hydrateItemMetrics.js")>();
+vi.mock("../../../src/stores/hydration/hydrateItemMetrics.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../src/stores/hydration/hydrateItemMetrics.js")>();
   return {
     ...actual,
     hydrateItemMetrics: hydrateItemMetricsMock,
   };
 });
 
-vi.mock("../lib/wfm/wfmPrice.js", () => ({
+vi.mock("../../../src/lib/wfm/wfmPrice.js", () => ({
   getPriceDebugCounters: () => ({
     requests: 0,
     cacheHitOk: 0,
@@ -39,7 +39,7 @@ vi.mock("../lib/wfm/wfmPrice.js", () => ({
   }),
 }));
 
-vi.mock("../lib/wfm/orderBook.js", () => ({
+vi.mock("../../../src/lib/wfm/orderBook.js", () => ({
   getOrderBookDebugCounters: () => ({
     requests: 0,
     cacheHitOk: 0,
@@ -52,7 +52,7 @@ vi.mock("../lib/wfm/orderBook.js", () => ({
   }),
 }));
 
-vi.mock("../lib/wfm/orderSummaryRemote.js", () => ({
+vi.mock("../../../src/lib/wfm/orderSummaryRemote.js", () => ({
   getOrderSummaryDebugCounters: () => ({
     requests: 0,
     backendHitOk: 0,
@@ -102,9 +102,9 @@ describe("createInventoryHydrationController", () => {
   });
 
   it("hydrates queued items in fixed batches and ignores duplicate enqueue attempts", async () => {
-    const { createInventoryHydrationController } = await import("./inventoryHydration.js");
+    const { createInventoryHydrationController } = await import("../../../src/stores/inventoryHydration.js");
     const { HYDRATION_BATCH_SIZE, HYDRATION_TICK_MS } = await import(
-      "./hydration/hydrationTypes.js"
+      "../../../src/stores/hydration/hydrationTypes.js"
     );
     const hydratedKeys: string[] = [];
 

@@ -10,11 +10,11 @@ const loadItemPriceMock = vi.hoisted(() =>
   >(),
 );
 
-vi.mock("./priceLoader.js", () => ({
+vi.mock("../../../src/lib/priceLoader.js", () => ({
   loadItemPrice: loadItemPriceMock,
 }));
 
-import { createPriceLoader } from "./priceState.js";
+import { createPriceLoader } from "../../../src/lib/priceState.js";
 
 function deferred<T>(): {
   promise: Promise<T>;

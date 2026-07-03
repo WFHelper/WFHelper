@@ -12,7 +12,6 @@
     "renderer/**/*.js",
     "backend/worker/src/index.ts",
     "backend/worker/test/**/*.ts",
-    "src/**/*.test.ts",
     "tests/**/*.test.ts",
     "e2e/**/*.ts",
     "scripts/**/*.cjs",

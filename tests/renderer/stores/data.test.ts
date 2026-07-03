@@ -1,16 +1,16 @@
 import { get } from "svelte/store";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { FoundryData, ItemDbEntry, RawInventoryData } from "../types/inventory.js";
+import type { FoundryData, ItemDbEntry, RawInventoryData } from "../../../src/types/inventory.js";
 
 const parseFoundryMock = vi.hoisted(() => vi.fn<() => FoundryData>());
 const parseInventoryMock = vi.hoisted(() => vi.fn(() => []));
 
-vi.mock("../lib/inventory.js", () => ({
+vi.mock("../../../src/lib/inventory.js", () => ({
   parseInventory: parseInventoryMock,
 }));
 
-vi.mock("../lib/inventory/foundryResources.js", () => ({
+vi.mock("../../../src/lib/inventory/foundryResources.js", () => ({
   parseFoundry: parseFoundryMock,
 }));
 
@@ -25,7 +25,7 @@ describe("foundryData", () => {
     const foundryResult: FoundryData = { building: [], recipes: [] };
     parseFoundryMock.mockReturnValue(foundryResult);
 
-    const stores = await import("./data.js");
+    const stores = await import("../../../src/stores/data.js");
     const inventory: RawInventoryData = {
       Recipes: [{ ItemType: "/Lotus/Recipes/TestBlueprint", ItemCount: 1 }],
     };

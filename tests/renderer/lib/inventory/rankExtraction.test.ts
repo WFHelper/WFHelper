@@ -7,8 +7,8 @@ import {
   parseFingerprintPayload,
   extractFingerprintRank,
   normalizeRank,
-} from "./rankExtraction.js";
-import type { RawInventoryEntry, ItemDbEntry } from "../../types/inventory.js";
+} from "../../../../src/lib/inventory/rankExtraction.js";
+import type { RawInventoryEntry, ItemDbEntry } from "../../../../src/types/inventory.js";
 
 describe("pickNumeric", () => {
   it("returns the first matching numeric value", () => {

@@ -1,3 +1,4 @@
+import type { NativeImage } from "electron";
 import { describe, expect, it } from "vitest";
 import { detectConsoleOpen } from "../../services/rewardScannerImage";
 import { resetFrameDedup } from "../../services/rewardScanner";
@@ -42,14 +43,14 @@ function makeFakeNativeImage(
     },
     toBitmap: () => bitmap,
     isEmpty: () => false,
-  };
+  } as unknown as NativeImage;
 }
 
 describe("detectConsoleOpen", () => {
   it("returns false for null/invalid input", () => {
-    expect(detectConsoleOpen(null)).toBe(false);
-    expect(detectConsoleOpen(undefined)).toBe(false);
-    expect(detectConsoleOpen({})).toBe(false);
+    expect(detectConsoleOpen(null as never)).toBe(false);
+    expect(detectConsoleOpen(undefined as never)).toBe(false);
+    expect(detectConsoleOpen({} as never)).toBe(false);
   });
 
   it("returns true when bottom strip is bright and low saturation (console open)", () => {

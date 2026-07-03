@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createOverlayWindowsController } from "../../ipc/overlay/windows";
+import type { OverlaySettings } from "../../config/runtime/overlaySettings";
 
 function createController(overlaySettings: Record<string, unknown> = {}) {
   const display = {
@@ -19,7 +20,7 @@ function createController(overlaySettings: Record<string, unknown> = {}) {
     } as unknown as typeof import("electron").screen,
     ctx: {
       overlayWindow: null,
-      overlaySettings,
+      overlaySettings: overlaySettings as OverlaySettings,
       overlayInteractiveMode: false,
     },
     log: { warn: () => {} },

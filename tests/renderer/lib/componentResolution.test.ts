@@ -6,9 +6,9 @@ import {
   resolveComponentLocation,
   resolveComponentPriceLookup,
   resolveComponentWikiFallback,
-} from "./componentResolution.js";
-import type { ComponentInfo, ItemDbEntry } from "../types/inventory.js";
-import type { WfmItemsLookup } from "../types/ipc.js";
+} from "../../../src/lib/componentResolution.js";
+import type { ComponentInfo, ItemDbEntry } from "../../../src/types/inventory.js";
+import type { WfmItemsLookup } from "../../../src/types/ipc.js";
 
 const parentUniqueName = "/Lotus/Types/Recipes/WarframeRecipes/TrinityPrime";
 const blueprintUniqueName = "/Lotus/Types/Items/MiscItems/TrinityPrimeChassisBlueprint";

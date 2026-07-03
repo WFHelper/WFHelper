@@ -10,7 +10,7 @@ import {
   parseIsoDate,
   timeTo,
   timeToStrict,
-} from "./format.js";
+} from "../../../src/lib/format.js";
 
 describe("format helpers", () => {
   beforeEach(() => {

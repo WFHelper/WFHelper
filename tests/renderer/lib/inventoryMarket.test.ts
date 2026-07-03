@@ -8,11 +8,11 @@ import {
   shouldHydrateMetrics,
   type InventoryBaseItem,
   type ItemMetrics,
-} from "./inventoryMarket.js";
-import type { RelicDatabase } from "../types/relics.js";
-import { setCachedPrice } from "./wfm/priceCache.js";
-import { clearOrderSummaryCache, setCachedOrderSummary } from "./wfm/orderSummaryCache.js";
-import { importMetaFromSnapshot } from "./wfm/wfmItemMeta.js";
+} from "../../../src/lib/inventoryMarket.js";
+import type { RelicDatabase } from "../../../src/types/relics.js";
+import { setCachedPrice } from "../../../src/lib/wfm/priceCache.js";
+import { clearOrderSummaryCache, setCachedOrderSummary } from "../../../src/lib/wfm/orderSummaryCache.js";
+import { importMetaFromSnapshot } from "../../../src/lib/wfm/wfmItemMeta.js";
 
 function makeBaseItem(overrides: Partial<InventoryBaseItem> = {}): InventoryBaseItem {
   return {

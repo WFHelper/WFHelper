@@ -8,8 +8,8 @@ import {
   preferGroup,
   mergeOptionalBoolean,
   mergeEquipContexts,
-} from "./entryNormalization.js";
-import type { RawInventoryEntry, InventoryGroup } from "../../types/inventory.js";
+} from "../../../../src/lib/inventory/entryNormalization.js";
+import type { RawInventoryEntry, InventoryGroup } from "../../../../src/types/inventory.js";
 
 describe("pickBoolean", () => {
   it("returns true for boolean true", () => {

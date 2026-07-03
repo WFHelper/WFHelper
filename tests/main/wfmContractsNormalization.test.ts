@@ -84,11 +84,11 @@ describe("wfmContracts normalization", () => {
         },
       ],
     });
-    expect(normalized[0].itemThumb).toBe(
+    expect(normalized[0]!.itemThumb).toBe(
       "https://warframe.market/static/assets/items/images/en/thumbs/latron_prime_riven_mod.png",
     );
-    expect(normalized[0].listedAt).toBe("2026-03-04T10:00:00.000Z");
-    expect(normalized[0].updatedAt).toBe("2026-03-04T10:30:00.000Z");
+    expect(normalized[0]!.listedAt).toBe("2026-03-04T10:00:00.000Z");
+    expect(normalized[0]!.updatedAt).toBe("2026-03-04T10:30:00.000Z");
   });
 
   it("normalizes profile auctions shape with fallback page fields", () => {

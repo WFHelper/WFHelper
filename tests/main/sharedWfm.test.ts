@@ -34,8 +34,8 @@ describe("normalizeWfmSlug", () => {
   it("returns null for non-string input", () => {
     expect(normalizeWfmSlug(null)).toBeNull();
     expect(normalizeWfmSlug(undefined)).toBeNull();
-    expect(normalizeWfmSlug(42)).toBeNull();
-    expect(normalizeWfmSlug({})).toBeNull();
+    expect(normalizeWfmSlug(42 as never)).toBeNull();
+    expect(normalizeWfmSlug({} as never)).toBeNull();
   });
 
   it("returns null for empty or whitespace-only strings", () => {

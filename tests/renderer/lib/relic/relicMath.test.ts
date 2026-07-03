@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeSquadEV } from "./relicMath.js";
+import { computeSquadEV } from "../../../../src/lib/relic/relicMath.js";
 
 describe("computeSquadEV", () => {
   it("computes solo EV as weighted average", () => {

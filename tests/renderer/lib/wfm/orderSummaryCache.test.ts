@@ -6,7 +6,7 @@ import {
   importOrderSummaryCache,
   isOrderSummaryFresh,
   setCachedOrderSummary,
-} from "./orderSummaryCache.js";
+} from "../../../../src/lib/wfm/orderSummaryCache.js";
 
 const BASE_TIME = new Date("2026-01-01T00:00:00.000Z");
 

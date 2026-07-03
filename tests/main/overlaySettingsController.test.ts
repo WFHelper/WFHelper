@@ -42,7 +42,9 @@ function buildController() {
     onToggleOverlayInteractionMode: vi.fn(),
   };
 
-  const controller = createOverlaySettingsController(deps);
+  const controller = createOverlaySettingsController(
+    deps as unknown as Parameters<typeof createOverlaySettingsController>[0],
+  );
   return { controller, deps, ctx, registerCallbacks };
 }
 

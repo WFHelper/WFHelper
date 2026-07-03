@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCraftingTree } from "./craftingTree.js";
-import type { ItemDbEntry } from "../types/inventory.js";
+import { buildCraftingTree } from "../../../src/lib/craftingTree.js";
+import type { ItemDbEntry } from "../../../src/types/inventory.js";
 
 function item(name: string, recipe?: ItemDbEntry["recipe"]): ItemDbEntry {
   return {

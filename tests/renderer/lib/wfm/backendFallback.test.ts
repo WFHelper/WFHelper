@@ -89,7 +89,7 @@ describe("WFM backend fallback integration", () => {
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const { fetchPriceBySlug } = await import("./wfmPrice.js");
+    const { fetchPriceBySlug } = await import("../../../../src/lib/wfm/wfmPrice.js");
     const result = await fetchPriceBySlug("ash_prime_blueprint", { priority: "normal" });
 
     expect(result).toMatchObject({
@@ -112,7 +112,7 @@ describe("WFM backend fallback integration", () => {
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const { fetchPriceBySlug } = await import("./wfmPrice.js");
+    const { fetchPriceBySlug } = await import("../../../../src/lib/wfm/wfmPrice.js");
     const result = await fetchPriceBySlug("burston_prime_receiver", { priority: "normal" });
 
     expect(result).toMatchObject({
@@ -148,7 +148,7 @@ describe("WFM backend fallback integration", () => {
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const { fetchPriceBySlug } = await import("./wfmPrice.js");
+    const { fetchPriceBySlug } = await import("../../../../src/lib/wfm/wfmPrice.js");
     const first = await fetchPriceBySlug("quickdraw", { priority: "normal" });
     const second = await fetchPriceBySlug("quickdraw", {
       priority: "normal",
@@ -177,7 +177,7 @@ describe("WFM backend fallback integration", () => {
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const { fetchPriceBySlug } = await import("./wfmPrice.js");
+    const { fetchPriceBySlug } = await import("../../../../src/lib/wfm/wfmPrice.js");
     const result = await fetchPriceBySlug("burston_prime_receiver", { priority: "normal" });
 
     expect(result).toMatchObject({
@@ -213,7 +213,7 @@ describe("WFM backend fallback integration", () => {
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const { fetchPriceBySlug } = await import("./wfmPrice.js");
+    const { fetchPriceBySlug } = await import("../../../../src/lib/wfm/wfmPrice.js");
     const result = await fetchPriceBySlug("primed_flow", { priority: "normal", rank: 10 });
 
     expect(result).toMatchObject({ status: "ok", slug: "primed_flow", median: 150 });
@@ -240,7 +240,7 @@ describe("WFM backend fallback integration", () => {
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const { fetchPriceBySlug } = await import("./wfmPrice.js");
+    const { fetchPriceBySlug } = await import("../../../../src/lib/wfm/wfmPrice.js");
     const result = await fetchPriceBySlug("primed_flow", {
       priority: "normal",
       rank: "10" as unknown as number,
@@ -266,7 +266,7 @@ describe("WFM backend fallback integration", () => {
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const { fetchPriceBySlug } = await import("./wfmPrice.js");
+    const { fetchPriceBySlug } = await import("../../../../src/lib/wfm/wfmPrice.js");
     const result = await fetchPriceBySlug("primed_flow", { priority: "normal", rank: 10 });
 
     expect(result).toMatchObject({ status: "ok", slug: "primed_flow", median: 155 });
@@ -303,7 +303,7 @@ describe("WFM backend fallback integration", () => {
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const { fetchPriceBySlug } = await import("./wfmPrice.js");
+    const { fetchPriceBySlug } = await import("../../../../src/lib/wfm/wfmPrice.js");
     const results = await Promise.all(
       Array.from({ length: 10 }, (_, index) =>
         fetchPriceBySlug(`bootstrap_test_${index}`, { priority: "normal" }),
@@ -319,7 +319,7 @@ describe("WFM backend fallback integration", () => {
   it("drops renderer price fetches when the queue is full", async () => {
     vi.resetModules();
 
-    const { __test__, getPriceDebugCounters } = await import("./wfmPrice.js");
+    const { __test__, getPriceDebugCounters } = await import("../../../../src/lib/wfm/wfmPrice.js");
     for (let i = 0; i < 65; i += 1) {
       void __test__.enqueueForTest(() => new Promise(() => {}), "normal").catch(() => {});
     }
@@ -351,7 +351,7 @@ describe("WFM backend fallback integration", () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     const { fetchOrderSummaryBySlug, resetOrderSummaryDebugState } =
-      await import("./orderSummaryRemote.js");
+      await import("../../../../src/lib/wfm/orderSummaryRemote.js");
     resetOrderSummaryDebugState();
 
     const result = await fetchOrderSummaryBySlug("primed_flow", { rank: 10 });
@@ -392,7 +392,7 @@ describe("WFM backend fallback integration", () => {
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const { fetchWfmItemMetaBySlug } = await import("./wfmItemMeta.js");
+    const { fetchWfmItemMetaBySlug } = await import("../../../../src/lib/wfm/wfmItemMeta.js");
     const result = await fetchWfmItemMetaBySlug("ash_prime_set", { priority: "normal" });
 
     expect(result).toMatchObject({
@@ -417,7 +417,7 @@ describe("WFM backend fallback integration", () => {
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const { fetchWfmItemMetaBySlug } = await import("./wfmItemMeta.js");
+    const { fetchWfmItemMetaBySlug } = await import("../../../../src/lib/wfm/wfmItemMeta.js");
     const result = await fetchWfmItemMetaBySlug("soma_prime_receiver", { priority: "normal" });
 
     expect(result).toBeNull();
@@ -451,7 +451,7 @@ describe("WFM backend fallback integration", () => {
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const { fetchWfmItemMetaBySlug } = await import("./wfmItemMeta.js");
+    const { fetchWfmItemMetaBySlug } = await import("../../../../src/lib/wfm/wfmItemMeta.js");
     const result = await fetchWfmItemMetaBySlug("soma_prime_receiver", { priority: "normal" });
 
     expect(result).toMatchObject({

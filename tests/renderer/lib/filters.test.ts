@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { applySharedFiltersAndSort, matchesSharedFilters } from "./filters.js";
-import type { SharedFiltersState } from "../types/filters.js";
+import { applySharedFiltersAndSort, matchesSharedFilters } from "../../../src/lib/filters.js";
+import type { SharedFiltersState } from "../../../src/types/filters.js";
 
 function defaultFilters(): SharedFiltersState {
   return {

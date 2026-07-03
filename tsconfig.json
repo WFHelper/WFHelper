@@ -11,5 +11,5 @@
     "allowJs": true,
     "types": ["svelte"]
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "tests/renderer/**/*"]
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { relicGroupMatchesSearch, buildRelicSearchKeywordIndex } from "./relicSearch.js";
-import type { RelicDatabase, RelicGroup } from "../../types/relics.js";
+import { relicGroupMatchesSearch, buildRelicSearchKeywordIndex } from "../../../../src/lib/relic/relicSearch.js";
+import type { RelicDatabase, RelicGroup } from "../../../../src/types/relics.js";
 
 function makeGroup(overrides: Partial<RelicGroup> = {}): RelicGroup {
   return {

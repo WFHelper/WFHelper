@@ -1,7 +1,10 @@
 import type { BrowserWindow } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { OVERLAY_SETTINGS_DEFAULTS } from "../../config/runtime/overlaySettings";
+import {
+  OVERLAY_SETTINGS_DEFAULTS,
+  type OverlaySettings,
+} from "../../config/runtime/overlaySettings";
 import { DB_GET_WORLD_STATE } from "../../config/shared/ipcChannels";
 import ctx from "../../ipc/context";
 import * as worldStateIpc from "../../ipc/worldStateIpc";
@@ -56,7 +59,7 @@ describe("world state desktop notifications", () => {
   afterEach(() => {
     worldStateIpc.__test__.reset();
     ctx.mainWindow = null;
-    ctx.overlaySettings = { ...OVERLAY_SETTINGS_DEFAULTS };
+    ctx.overlaySettings = { ...OVERLAY_SETTINGS_DEFAULTS } as OverlaySettings;
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
@@ -116,7 +119,7 @@ describe("world state desktop notifications", () => {
         duviri: false,
       },
       cycleAlertMinutesBefore: 0,
-    };
+    } as OverlaySettings;
     const sent: Array<{ title: string; body: string }> = [];
     worldStateIpc.__test__.setDesktopNotificationSender((title, body) => {
       sent.push({ title, body });

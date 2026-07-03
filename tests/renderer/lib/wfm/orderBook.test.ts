@@ -4,7 +4,7 @@ import {
   clearOrderBookCache,
   fetchItemOrderBookBySlug,
   resetOrderBookDebugCounters,
-} from "./orderBook.js";
+} from "../../../../src/lib/wfm/orderBook.js";
 
 const originalFetch = globalThis.fetch;
 

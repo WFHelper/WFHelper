@@ -6,9 +6,9 @@ import {
   computeSquadEV,
   parseOwnedRelics,
   relicGroupMatchesSearch,
-} from "./relic.js";
-import type { RawInventoryData } from "../types/inventory.js";
-import type { RelicDatabase } from "../types/relics.js";
+} from "../../../src/lib/relic.js";
+import type { RawInventoryData } from "../../../src/types/inventory.js";
+import type { RelicDatabase } from "../../../src/types/relics.js";
 
 describe("relic helpers", () => {
   it("computes expected value for solo and squad openings", () => {
