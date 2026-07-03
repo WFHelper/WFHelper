@@ -6,6 +6,7 @@ import {
   onAuthorized,
 } from "./ipcSecurity";
 import { createOverlaySettingsController } from "./overlay/settings";
+import { asRecord } from "./ipcValidators";
 import { withScope } from "../services/logger";
 import * as warframeStatus from "../services/warframeStatus";
 import * as rivenOverlayIpc from "./rivenOverlayIpc";
@@ -302,7 +303,7 @@ function moveInteractiveOverlayWindow(sender: WebContents, rawDelta: unknown): v
   const isRiven = isRivenOverlayWindow(win);
   if (isRiven ? !rivenOverlayIpc.isRivenInteractiveMode() : !ctx.overlayInteractiveMode) return;
 
-  const delta = rawDelta && typeof rawDelta === "object" ? (rawDelta as Record<string, unknown>) : {};
+  const delta = asRecord(rawDelta) ?? {};
   const dx = Math.round(Number(delta.dx));
   const dy = Math.round(Number(delta.dy));
   if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;

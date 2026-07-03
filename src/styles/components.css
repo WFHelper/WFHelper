@@ -465,8 +465,7 @@
   }
 
   /* cross-component badges */
-  .vault-badge,
-  .count-badge {
+  .vault-badge {
     position: absolute;
     border-radius: 999px;
     padding: 0.12rem 0.42rem;
@@ -481,17 +480,6 @@
     background: rgba(248, 113, 113, 0.18);
     color: var(--danger);
     border: 1px solid rgba(248, 113, 113, 0.35);
-  }
-  .count-badge {
-    position: static;
-    padding: 0.16rem 0.5rem;
-    border: 1px solid rgba(74, 222, 128, 0.35);
-    background: rgba(74, 222, 128, 0.14);
-    color: var(--success);
-    font-size: 0.78rem;
-    font-family: var(--font-display);
-    font-weight: 700;
-    letter-spacing: 0.02em;
   }
 
   /* cross-component pills / icons / tier colours */
@@ -526,24 +514,19 @@
     height: 100%;
     object-fit: contain;
   }
-  .relic-icon.lith,
-  .tier-lith {
+  .relic-icon.lith {
     color: #9ca3af;
   }
-  .relic-icon.meso,
-  .tier-meso {
+  .relic-icon.meso {
     color: #f59e0b;
   }
-  .relic-icon.neo,
-  .tier-neo {
+  .relic-icon.neo {
     color: #60a5fa;
   }
-  .relic-icon.axi,
-  .tier-axi {
+  .relic-icon.axi {
     color: #ef4444;
   }
-  .relic-icon.requiem,
-  .tier-requiem {
+  .relic-icon.requiem {
     color: #a855f7;
   }
 
@@ -578,11 +561,6 @@
   .tab-item.active {
     color: #ffffff;
     border-bottom-color: #ffffff;
-  }
-  .tab-icon {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
   }
 
   /* detail / modal framework */

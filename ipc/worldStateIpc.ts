@@ -1,5 +1,6 @@
 import ctx from "./context";
 import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
+import { asRecord } from "./ipcValidators";
 import { withScope } from "../services/logger";
 import * as worldStateParser from "../services/worldStateParser";
 import { resolveRuntimeResourcePath } from "../services/runtimeResources";
@@ -48,16 +49,16 @@ let _worldNotificationSnapshot: {
 // keyed by "{cycle}:{expiryIso}" so we don't repeat within the same cycle.
 const _cyclePreNotified = new Set<string>();
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
-}
-
 function str(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
 function bool(value: unknown): boolean | null {
   return typeof value === "boolean" ? value : null;
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function parseIsoMs(value: unknown): number | null {
@@ -474,9 +475,7 @@ function maybeNotifyWorldEvents(state: unknown): void {
     next.duviriState !== null &&
     prev.duviriState !== next.duviriState
   ) {
-    const label = next.duviriState
-      ? next.duviriState.charAt(0).toUpperCase() + next.duviriState.slice(1)
-      : "Unknown";
+    const label = next.duviriState ? capitalize(next.duviriState) : "Unknown";
     sendDesktopNotification("Duviri Cycle", `${label} mood has begun.`);
   }
 
@@ -582,9 +581,7 @@ function checkPreCycleNotifications(state: unknown): void {
         key: "duviri",
         enabled: !!cycleAlerts.duviri,
         expiry: snap.duviriExpiry,
-        label: snap.duviriState
-          ? snap.duviriState.charAt(0).toUpperCase() + snap.duviriState.slice(1)
-          : "Unknown",
+        label: snap.duviriState ? capitalize(snap.duviriState) : "Unknown",
       },
     ];
 
@@ -597,7 +594,7 @@ function checkPreCycleNotifications(state: unknown): void {
     if (remaining > 0 && remaining <= leadMs && !_cyclePreNotified.has(preKey)) {
       _cyclePreNotified.add(preKey);
       const mins = Math.ceil(remaining / 60_000);
-      const cycleName = c.key.charAt(0).toUpperCase() + c.key.slice(1);
+      const cycleName = capitalize(c.key);
       sendDesktopNotification(
         `${cycleName} Cycle`,
         `${c.label} in ~${mins} min${mins !== 1 ? "s" : ""}.`,

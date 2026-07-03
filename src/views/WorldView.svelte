@@ -170,7 +170,7 @@
                 {@const isAlertable = row.key === 'earth' || row.key === 'cetus' || row.key === 'vallis' || row.key === 'cambion' || row.key === 'duviri'}
                 {@const alertOn = isAlertable && !!$overlaySettings.cycleAlerts?.[row.key]}
                 <CycleRow
-                  name={row.key.charAt(0).toUpperCase() + row.key.slice(1)}
+                  name={titleCase(row.key)}
                   iconSrc={row.src}
                   stateLabel={row.stateLabel}
                   stateClass={row.stateClass}

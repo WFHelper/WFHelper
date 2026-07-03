@@ -5,6 +5,10 @@ export function isObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+export function asRecord(value: unknown): Record<string, unknown> | null {
+  return isObject(value) ? value : null;
+}
+
 export const trimmedString = toNonEmptyString;
 
 function boundedNumber(value: unknown, min: number, max: number): number | null {

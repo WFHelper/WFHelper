@@ -1,5 +1,6 @@
 import { normalizeErrorMessage } from "../../config/shared/errors";
 import { clampNumber } from "../../config/shared/numeric";
+import { asRecord } from "../ipcValidators";
 import type {
   OverlaySavedWindowBounds,
   OverlaySettings,
@@ -93,9 +94,9 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
   ): Array<{ id: string; tier: string; missionType: string; steelPath: string; planet: string }> {
     const arr = Array.isArray(value) ? value : Array.isArray(fallback) ? fallback : [];
     return arr
-      .filter((item) => item && typeof item === "object")
-      .map((item) => {
-        const r = item as Record<string, unknown>;
+      .map(asRecord)
+      .filter((r): r is Record<string, unknown> => r !== null)
+      .map((r) => {
         return {
           id: typeof r.id === "string" && r.id ? r.id : Math.random().toString(36).slice(2, 10),
           tier: typeof r.tier === "string" ? r.tier : "any",
@@ -111,9 +112,8 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     value: unknown,
     fallback: unknown,
   ): { earth: boolean; cetus: boolean; vallis: boolean; cambion: boolean; duviri: boolean } {
-    const def =
-      fallback && typeof fallback === "object" ? (fallback as Record<string, unknown>) : {};
-    const v = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+    const def = asRecord(fallback) ?? {};
+    const v = asRecord(value) ?? {};
     return {
       earth: v.earth !== undefined ? !!v.earth : !!def.earth,
       cetus: v.cetus !== undefined ? !!v.cetus : !!def.cetus,
@@ -130,14 +130,13 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
   function normalizeSavedBounds(
     value: unknown,
   ): Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>> {
-    if (!value || typeof value !== "object") return {};
-    const input = value as Record<string, unknown>;
+    const input = asRecord(value);
+    if (!input) return {};
     const keys: OverlayWindowKey[] = ["reward", "planner", "rivenLeft", "rivenRight"];
     const out: Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>> = {};
     for (const key of keys) {
-      const raw = input[key];
-      if (!raw || typeof raw !== "object") continue;
-      const record = raw as Record<string, unknown>;
+      const record = asRecord(input[key]);
+      if (!record) continue;
       const x = Math.round(clampNumber(record.x, -20000, 20000, NaN));
       const y = Math.round(clampNumber(record.y, -20000, 20000, NaN));
       if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
@@ -151,7 +150,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
   }
 
   function normalizeOverlaySettings(raw: unknown): OverlaySettingsDict {
-    const candidate = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+    const candidate = asRecord(raw) ?? {};
     const booleanSetting = (key: keyof OverlaySettings): boolean =>
       candidate[key] !== undefined ? !!candidate[key] : !!defaults[key];
     const tradeNotificationOverlayEnabled =
@@ -319,9 +318,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
   function setOverlaySettings(nextSettings: unknown): OverlaySettings {
     ctx.overlaySettings = normalizeOverlaySettings({
       ...ctx.overlaySettings,
-      ...(nextSettings && typeof nextSettings === "object"
-        ? (nextSettings as Record<string, unknown>)
-        : {}),
+      ...(asRecord(nextSettings) ?? {}),
     }) as OverlaySettings;
 
     saveOverlaySettings();
