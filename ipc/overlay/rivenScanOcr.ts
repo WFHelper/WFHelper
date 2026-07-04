@@ -59,6 +59,36 @@ function logScanTiming(label: string, t: RivenScanTiming): void {
   );
 }
 
+// When a scan finds nothing, keep the card/stat crops on disk so users can
+// attach them to reports - misaligned crops are impossible to diagnose from
+// OCR fragments alone. Only the card region is saved, never the full screen.
+const DEBUG_DUMP_KEEP = 10;
+
+function dumpFailedScanCrops(label: string, cardCrop: NativeImage, statCrop: NativeImage): void {
+  try {
+    const { app } = require("electron") as typeof import("electron");
+    const fs = require("node:fs") as typeof import("node:fs");
+    const path = require("node:path") as typeof import("node:path");
+    const dir = path.join(app.getPath("userData"), "riven-scan-debug");
+    fs.mkdirSync(dir, { recursive: true });
+
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    fs.writeFileSync(path.join(dir, `${stamp}-${label}-card.png`), cardCrop.toPNG());
+    fs.writeFileSync(path.join(dir, `${stamp}-${label}-stats.png`), statCrop.toPNG());
+
+    const files = fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith(".png"))
+      .sort();
+    for (const f of files.slice(0, Math.max(0, files.length - DEBUG_DUMP_KEEP))) {
+      fs.unlinkSync(path.join(dir, f));
+    }
+    log.info(`[RivenScan] ${label}: saved failed-scan crops to ${dir}`);
+  } catch (err) {
+    log.warn("[RivenScan] failed-scan crop dump failed:", String(err));
+  }
+}
+
 export async function recognizeRivenCardStats(
   image: NativeImage,
   rect: RivenScanCropRect,
@@ -68,7 +98,7 @@ export async function recognizeRivenCardStats(
   const totalStart = Date.now();
 
   const cropStart = Date.now();
-  const { statCrop } = cropRivenStatImage(image, rect);
+  const { cardCrop, statCrop } = cropRivenStatImage(image, rect);
   const cropRefineMs = Date.now() - cropStart;
 
   if (!rivenOcrOnnxAvailable()) {
@@ -175,6 +205,10 @@ export async function recognizeRivenCardStats(
     parseMs,
     totalMs: Date.now() - totalStart,
   });
+
+  if (bestStats.length === 0) {
+    dumpFailedScanCrops(label, cardCrop, statCrop);
+  }
 
   return { text: bestText, titleText: "", footerText: "", stats: bestStats };
 }
