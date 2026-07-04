@@ -175,6 +175,10 @@ export function onRelicRewardTrigger(
   scanController.onRelicRewardTrigger(source);
 }
 
+export function notifyRewardUiReady(): void {
+  scanController.notifyRewardUiReady();
+}
+
 export function onRelicSelectionTrigger(
   source: string,
   pushOverlayInteractionMode: () => void,

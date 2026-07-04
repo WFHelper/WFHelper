@@ -24,6 +24,9 @@ const REWARD_TRIGGER_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
   /\bPause countdown done\b/i,
   /\bGot rewards\b/i,
 ]);
+// Fires while the reward choice cards render (one line per un-cached icon).
+// Lets the scan start early instead of waiting the full fixed delay.
+const REWARD_UI_READY_PATTERN = /ProjectionRewardChoice\.lua:\s*Missing icon data!/i;
 // Primary: LoadingCompleteEnd fires when the relic-selection screen is fully rendered
 // and interactive.
 // Fallback: PopulateInventoryGrid fires earlier in the load sequence; kept so that
@@ -98,6 +101,7 @@ let lastTruncationCheckAt = 0;
 const pollBuffer = Buffer.alloc(MAX_READ_BYTES);
 
 let rewardCallback: (() => void) | null = null;
+let rewardUiReadyCallback: (() => void) | null = null;
 let relicPickerCallback: (() => void) | null = null;
 let relicPickerCloseCallback: (() => void) | null = null;
 let tradePartnerCallback: ((username: string) => void) | null = null;
@@ -245,6 +249,10 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
 
   if (REWARD_TRIGGER_PATTERNS.some((pattern) => pattern.test(line))) {
     scheduleTrigger("reward");
+  }
+
+  if (rewardUiReadyCallback && REWARD_UI_READY_PATTERN.test(line)) {
+    rewardUiReadyCallback();
   }
 
   // When DBWIN is active, skip relic picker pattern processing from file-poll lines.
@@ -420,6 +428,7 @@ function consumeChunk(chunk: string): void {
 
 interface EeLogHandlers {
   onRewardTrigger?: (() => void) | null;
+  onRewardUiReady?: (() => void) | null;
   onRelicSelectionOpen?: (() => void) | null;
   onRelicSelectionClose?: (() => void) | null;
   onTradingPartner?: ((username: string) => void) | null;
@@ -440,6 +449,7 @@ type NormalizedEeLogHandlers = {
 
 const NULL_EE_LOG_HANDLERS: NormalizedEeLogHandlers = {
   onRewardTrigger: null,
+  onRewardUiReady: null,
   onRelicSelectionOpen: null,
   onRelicSelectionClose: null,
   onTradingPartner: null,
@@ -472,6 +482,7 @@ function normalizeHandlers(
 
   return {
     onRewardTrigger: asFunction(handlers.onRewardTrigger),
+    onRewardUiReady: asFunction(handlers.onRewardUiReady),
     onRelicSelectionOpen: asFunction(handlers.onRelicSelectionOpen),
     onRelicSelectionClose: asFunction(handlers.onRelicSelectionClose),
     onTradingPartner: asFunction(handlers.onTradingPartner),
@@ -501,6 +512,7 @@ export function startWatching(
 
   const normalized = normalizeHandlers(handlers);
   rewardCallback = normalized.onRewardTrigger;
+  rewardUiReadyCallback = normalized.onRewardUiReady;
   relicPickerCallback = normalized.onRelicSelectionOpen;
   relicPickerCloseCallback = normalized.onRelicSelectionClose;
   relicPickerSessionOpen = false;
@@ -569,6 +581,7 @@ export function stopWatching(): void {
   }
 
   rewardCallback = null;
+  rewardUiReadyCallback = null;
   relicPickerCallback = null;
   relicPickerCloseCallback = null;
   resetRivenState();

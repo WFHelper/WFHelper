@@ -231,6 +231,10 @@ function onRelicRewardTrigger(source = "manual"): void {
   );
 }
 
+function notifyRewardUiReady(): void {
+  rewardOverlayIpc.notifyRewardUiReady();
+}
+
 const OVERLAY_SETTINGS_FILE = path.join(app.getPath("userData"), "overlay-settings.json");
 
 const settingsController = createOverlaySettingsController({
@@ -373,7 +377,7 @@ export const loadOverlaySettings = settingsController.loadOverlaySettings;
 export const registerOverlayHotkey = settingsController.registerOverlayHotkey;
 export const unregisterOverlayHotkey = settingsController.unregisterOverlayHotkey;
 
-export { register, onRelicRewardTrigger, onRelicSelectionTrigger, onRelicSelectionClose };
+export { register, onRelicRewardTrigger, notifyRewardUiReady, onRelicSelectionTrigger, onRelicSelectionClose };
 
 // Re-export riven callbacks for main.ts wiring
 export {

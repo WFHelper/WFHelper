@@ -11,7 +11,13 @@ const SCAN_RETRY_WINDOW_MS = 5_000;
 const SCAN_RETRY_INTERVAL_MS = 450;
 const SCAN_MAX_ATTEMPTS = 10;
 const MAX_REWARD_ITEMS = 4;
+// Max wait for the reward-UI render signal before scanning anyway.
 const EELOG_REWARD_SCAN_DELAY_MS = 1_200;
+// Settle after the render signal so the card fade-in finishes.
+const EELOG_UI_READY_SETTLE_MS = 500;
+// Render signals this recent count for the current trigger (the line usually
+// lands in the same log chunk as "Got rewards", before the scan dispatches).
+const EELOG_UI_READY_FRESH_MS = 3_000;
 
 // The in-game relic reward vote runs ~15s from the "Got rewards" log line.
 // Hide just before it ends, anchored to the trigger timestamp (AlecaFrame
@@ -227,6 +233,32 @@ export function createOverlayScanController(options: OverlayScanControllerOption
 
   let rewardScanInFlight = false;
   let eelogTriggerAt = 0;
+  let rewardUiReadyAt = 0;
+  let uiReadyWaiter: (() => void) | null = null;
+
+  // "ProjectionRewardChoice.lua: Missing icon data!" fires while the reward
+  // cards render (AlecaFrame keys its screenshot off the same line).
+  function notifyRewardUiReady(): void {
+    rewardUiReadyAt = Date.now();
+    if (!uiReadyWaiter) return;
+    const resolve = uiReadyWaiter;
+    uiReadyWaiter = null;
+    resolve();
+  }
+
+  function waitForRewardUiReady(timeoutMs: number): Promise<boolean> {
+    if (Date.now() - rewardUiReadyAt <= EELOG_UI_READY_FRESH_MS) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        uiReadyWaiter = null;
+        resolve(false);
+      }, timeoutMs);
+      uiReadyWaiter = () => {
+        clearTimeout(timer);
+        resolve(true);
+      };
+    });
+  }
 
   function rewardSuccessAutoHideDelay(source: string): number {
     if (source !== "eelog" || !eelogTriggerAt) return OVERLAY_AUTO_HIDE_SUCCESS_MS;
@@ -311,8 +343,12 @@ export function createOverlayScanController(options: OverlayScanControllerOption
       }
 
       if (source === "eelog") {
-        log.info(`[Trigger] waiting ${EELOG_REWARD_SCAN_DELAY_MS}ms before reward scan`);
-        await sleep(EELOG_REWARD_SCAN_DELAY_MS);
+        if (await waitForRewardUiReady(EELOG_REWARD_SCAN_DELAY_MS)) {
+          log.info("[Trigger] reward UI render signal seen - scanning early");
+          await sleep(EELOG_UI_READY_SETTLE_MS);
+        } else {
+          log.info(`[Trigger] no render signal within ${EELOG_REWARD_SCAN_DELAY_MS}ms - scanning now`);
+        }
       }
 
       const result = await runRewardScanWithRetries(source);
@@ -376,5 +412,6 @@ export function createOverlayScanController(options: OverlayScanControllerOption
   return {
     dispatchRewardScan,
     onRelicRewardTrigger,
+    notifyRewardUiReady,
   };
 }
