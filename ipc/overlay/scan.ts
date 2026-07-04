@@ -13,9 +13,10 @@ const SCAN_MAX_ATTEMPTS = 10;
 const MAX_REWARD_ITEMS = 4;
 const EELOG_REWARD_SCAN_DELAY_MS = 1_200;
 
-// The in-game relic reward vote runs ~15s; the overlay hides when it ends.
-// Was 10s, which hid the overlay ~5s before the selection actually closed.
-const REWARD_VOTE_WINDOW_MS = 15_000;
+// The in-game relic reward vote runs ~15s from the "Got rewards" log line.
+// Hide just before it ends, anchored to the trigger timestamp (AlecaFrame
+// uses the same mechanism with the same 14.5s window).
+const REWARD_VOTE_WINDOW_MS = 14_500;
 const OVERLAY_AUTO_HIDE_SUCCESS_MS = 8_500;
 const OVERLAY_AUTO_HIDE_FAILURE_MS = 3_500;
 const OVERLAY_AUTO_HIDE_DETECTING_MAX_MS = 20_000;
@@ -221,18 +222,16 @@ function chooseBetterScanResult(
   return candidateScore > currentScore ? candidate : currentBest;
 }
 
-function rewardSuccessAutoHideDelay(source: string, result: RewardScanResult | null): number {
-  if (source !== "eelog") return OVERLAY_AUTO_HIDE_SUCCESS_MS;
-
-  const elapsedMs = Number(result?.elapsedMs || 0);
-  const elapsedSinceTrigger = EELOG_REWARD_SCAN_DELAY_MS + (Number.isFinite(elapsedMs) ? elapsedMs : 0);
-  return Math.max(2_500, REWARD_VOTE_WINDOW_MS - elapsedSinceTrigger);
-}
-
 export function createOverlayScanController(options: OverlayScanControllerOptions) {
   const { log, rewardScanner, ctx, windows, warframeStatus } = options;
 
   let rewardScanInFlight = false;
+  let eelogTriggerAt = 0;
+
+  function rewardSuccessAutoHideDelay(source: string): number {
+    if (source !== "eelog" || !eelogTriggerAt) return OVERLAY_AUTO_HIDE_SUCCESS_MS;
+    return Math.max(2_500, eelogTriggerAt + REWARD_VOTE_WINDOW_MS - Date.now());
+  }
 
   async function runRewardScanWithRetries(triggerSource: string): Promise<RewardScanResult> {
     const startedAt = Date.now();
@@ -287,6 +286,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
     }
 
     rewardScanInFlight = true;
+    if (source === "eelog") eelogTriggerAt = Date.now();
 
     try {
       if (source === "eelog" && warframeStatus?.getStatus) {
@@ -345,9 +345,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
 
       windows.sendOverlayEvent(RELIC_REWARD_ITEMS, items);
       windows.scheduleOverlayAutoHide(
-        items.length > 0
-          ? rewardSuccessAutoHideDelay(source, result)
-          : OVERLAY_AUTO_HIDE_FAILURE_MS,
+        items.length > 0 ? rewardSuccessAutoHideDelay(source) : OVERLAY_AUTO_HIDE_FAILURE_MS,
       );
     } catch (err) {
       log.error("[Trigger] scan pipeline error:", normalizeErrorMessage(err));
