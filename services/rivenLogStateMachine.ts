@@ -74,6 +74,9 @@ let _lastRivenChoiceDialogAt = 0;
 const RIVEN_CHOICE_DIALOG_COOLDOWN_MS = 2000;
 
 let _lastRivenSessionOpenAt = 0;
+// The game writes the rolling-screen marker dozens of times in one burst;
+// log the suppression once per window instead of once per line.
+let _lastSuppressedOpenLogAt = 0;
 const RIVEN_SESSION_OPEN_COOLDOWN_MS = 15_000;
 
 let _lastRivenDioramaAt = 0;
@@ -162,7 +165,8 @@ export function processRivenPatterns(
       resetRivenIdleTimer();
       log.info("[EELog] Riven rolling screen opened -> dispatching session open");
       _callbacks.onRivenSessionOpen?.();
-    } else {
+    } else if (now - _lastSuppressedOpenLogAt >= RIVEN_SESSION_OPEN_COOLDOWN_MS) {
+      _lastSuppressedOpenLogAt = now;
       log.info("[EELog] Riven session open suppressed (cooldown)");
     }
   }
@@ -353,6 +357,7 @@ export function resetRivenState(): void {
   _lastRivenGenericDialogAt = 0;
   _lastRivenChoiceDialogAt = 0;
   _lastRivenSessionOpenAt = 0;
+  _lastSuppressedOpenLogAt = 0;
   _lastHudVis = 0;
   _lastHudVisIncreaseAt = 0;
   if (_rivenSessionIdleTimer) {

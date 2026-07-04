@@ -368,9 +368,9 @@ export function createOverlayWindowsController(options: OverlayWindowsController
         overlayWindow.destroy();
       }
     });
-    overlayWindow.webContents.on("console-message", (_event, level, message) => {
-      if (level < 2) return;
-      log.warn(`[OverlayWindow] ${windowLabel} console: ${message}`);
+    overlayWindow.webContents.on("console-message", (event) => {
+      if (event.level !== "warning" && event.level !== "error") return;
+      log.warn(`[OverlayWindow] ${windowLabel} console: ${event.message}`);
     });
   }
 
