@@ -7,6 +7,7 @@
 
 import { withScope } from "../../services/logger";
 import { captureScreenFast, type CaptureResult } from "../../services/rewardScannerCapture";
+import { detectGameContentRect } from "../../services/rewardScannerImage";
 import { sleep } from "../../services/rewardScannerUtils";
 import {
   abortRivenScanWaits,
@@ -103,9 +104,25 @@ function pinCaptureDisplay(capture: CaptureResult): void {
 
 function logCapture(profile: RivenScanProfile, capture: CaptureResult): void {
   const imgSize = capture.image.getSize?.() ?? { width: "?", height: "?" };
+  // Note when letterbox detection trimmed the frame - a dark scene edge shaved
+  // here shifts every fraction-based crop and is invisible in the log otherwise.
+  let contentNote = "";
+  try {
+    const content = detectGameContentRect(capture.image);
+    if (
+      content.x !== 0 ||
+      content.y !== 0 ||
+      content.width !== imgSize.width ||
+      content.height !== imgSize.height
+    ) {
+      contentNote = ` content=${content.width}x${content.height}@${content.x},${content.y}`;
+    }
+  } catch {
+    /* diagnostic only */
+  }
   log.info(
     `[RivenScan] ${profile.label} capture: source=${capture.sourceType} ` +
-      `name="${capture.sourceName}" size=${imgSize.width}x${imgSize.height}`,
+      `name="${capture.sourceName}" size=${imgSize.width}x${imgSize.height}${contentNote}`,
   );
 }
 
