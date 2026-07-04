@@ -3,6 +3,9 @@
  * then compares against the user's inventory to show owned / missing / mastered.
  */
 
+import fs from "node:fs";
+import path from "node:path";
+
 import * as itemDb from "./itemDatabase";
 import type { ComponentEntry } from "./types/gameData";
 import { MAX_ITEM_RANK } from "../config/game/constants";
@@ -130,6 +133,16 @@ const INV_CATEGORIES: Record<string, number> = {
 const VENARI_UNIQUE_NAME_PATTERN = /\/Powersuits\/Khora\/Kavat\/Khora(?:Prime)?KavatPowerSuit$/i;
 const WEAPON_AFFINITY_PER_RANK_SQUARED = 500;
 const SUIT_AFFINITY_PER_RANK_SQUARED = 1_000;
+
+// Account mastery: each gear rank grants affinityPerRankSquared / 5 mastery
+// (weapons 100, suits 200). MR thresholds are 2500 * rank^2 up to MR 30, then
+// a flat 147,500 per legendary rank.
+const MASTERY_XP_PER_RANK_SQUARED = 2_500;
+const MASTERY_XP_AT_RANK_30 = MASTERY_XP_PER_RANK_SQUARED * 30 * 30;
+const LEGENDARY_RANK_XP = 147_500;
+const JUNCTION_MASTERY_XP = 1_000;
+const INTRINSIC_MASTERY_XP = 1_500;
+const MAX_INTRINSIC_RANK = 10;
 const SUIT_INVENTORY_KEYS = new Set([
   "Suits",
   "Sentinels",
@@ -265,18 +278,130 @@ function pickNumber(obj: Record<string, unknown>, paths: string[][]): number | n
   return null;
 }
 
+export interface ProfileMasteryInfo {
+  rank: number | null;
+  percentToNext: number | null;
+  totalXp: number | null;
+  xpIntoRank: number | null;
+  xpForNext: number | null;
+  testReady: boolean;
+}
+
+function masteryRankToXp(rank: number): number {
+  if (rank <= 30) return MASTERY_XP_PER_RANK_SQUARED * rank * rank;
+  return MASTERY_XP_AT_RANK_30 + (rank - 30) * LEGENDARY_RANK_XP;
+}
+
+function masteryXpToRank(xp: number): number {
+  if (xp >= MASTERY_XP_AT_RANK_30) {
+    return 30 + Math.floor((xp - MASTERY_XP_AT_RANK_30) / LEGENDARY_RANK_XP);
+  }
+  return Math.floor(Math.sqrt(xp / MASTERY_XP_PER_RANK_SQUARED));
+}
+
+// Node tag -> mastery grant. ExportRegions carries masteryExp per node; junctions
+// export 0 there but award a flat 1000 in game. Loaded once, empty on failure.
+let _regionMastery: Record<string, number> | null = null;
+function getRegionMastery(): Record<string, number> {
+  if (_regionMastery) return _regionMastery;
+  _regionMastery = {};
+
+  let regions: Record<string, Record<string, unknown>> | null = null;
+  try {
+    const pep = require("warframe-public-export-plus") as {
+      ExportRegions?: Record<string, Record<string, unknown>>;
+    };
+    if (pep?.ExportRegions) regions = pep.ExportRegions;
+  } catch {
+    /* package main export unavailable, try disk */
+  }
+  if (!regions) {
+    try {
+      const pkgDir = path.dirname(require.resolve("warframe-public-export-plus/package.json"));
+      regions = JSON.parse(
+        fs.readFileSync(path.join(pkgDir, "ExportRegions.json"), "utf8"),
+      ) as Record<string, Record<string, unknown>>;
+    } catch {
+      regions = null;
+    }
+  }
+
+  for (const [tag, node] of Object.entries(regions ?? {})) {
+    _regionMastery[tag] =
+      node.missionType === "MT_JUNCTION"
+        ? JUNCTION_MASTERY_XP
+        : (toFiniteNumber(node.masteryExp) ?? 0);
+  }
+  return _regionMastery;
+}
+
+// First completion of a node grants its mastery; Steel Path (Tier 1) grants it
+// once more. The Missions array has one entry per node with the total count and
+// the highest completed tier.
+function computeMissionMasteryXp(inventoryData: Record<string, unknown>): number {
+  const missions = inventoryData.Missions;
+  if (!Array.isArray(missions)) return 0;
+  const regions = getRegionMastery();
+
+  let xp = 0;
+  for (const entry of missions as Array<Record<string, unknown>>) {
+    const tag = typeof entry.Tag === "string" ? entry.Tag : null;
+    if (!tag || !(tag in regions)) continue;
+    const completes = toFiniteNumber(entry.Completes) ?? 0;
+    const steelPath = toFiniteNumber(entry.Tier) === 1;
+    if (completes <= 0 && !steelPath) continue;
+    xp += regions[tag];
+    if (steelPath) xp += regions[tag];
+  }
+  return xp;
+}
+
+// LPS_* entries are intrinsic ranks (railjack + drifter), 1500 mastery each.
+// LPP_* are unspent point pools and grant nothing.
+function computeIntrinsicMasteryXp(inventoryData: Record<string, unknown>): number {
+  const skills = inventoryData.PlayerSkills;
+  if (!skills || typeof skills !== "object") return 0;
+
+  let ranks = 0;
+  for (const [key, value] of Object.entries(skills as Record<string, unknown>)) {
+    if (!key.startsWith("LPS_")) continue;
+    const rank = toFiniteNumber(value);
+    if (rank != null && rank > 0) ranks += Math.min(rank, MAX_INTRINSIC_RANK);
+  }
+  return ranks * INTRINSIC_MASTERY_XP;
+}
+
 function extractProfileMastery(
   inventoryData: Record<string, unknown>,
-): { rank: number | null; percentToNext: number | null } | null {
-  const rank = pickNumber(inventoryData, [
-    ["MasteryRank"],
-    ["MasteryLevel"],
-    ["PlayerLevel"],
-    ["PlayerRank"],
-    ["LevelInfo", "MasteryRank"],
-    ["LevelInfo", "PlayerLevel"],
-  ]);
+  totalXp: number | null,
+): ProfileMasteryInfo | null {
+  const rank =
+    pickNumber(inventoryData, [
+      ["MasteryRank"],
+      ["MasteryLevel"],
+      ["PlayerLevel"],
+      ["PlayerRank"],
+      ["LevelInfo", "MasteryRank"],
+      ["LevelInfo", "PlayerLevel"],
+    ]) ?? (totalXp != null ? masteryXpToRank(totalXp) : null);
 
+  // Preferred: progress from the mastery XP we computed ourselves.
+  if (rank != null && totalXp != null) {
+    const currentThreshold = masteryRankToXp(rank);
+    const nextThreshold = masteryRankToXp(rank + 1);
+    const xpIntoRank = Math.max(0, totalXp - currentThreshold);
+    const xpForNext = nextThreshold - currentThreshold;
+    return {
+      rank,
+      percentToNext: Math.min(100, Number(((xpIntoRank / xpForNext) * 100).toFixed(1))),
+      totalXp,
+      xpIntoRank,
+      xpForNext,
+      testReady: totalXp >= nextThreshold,
+    };
+  }
+
+  // Fallback: percent fields some helper exports include.
   let percentToNext = pickNumber(inventoryData, [
     ["MasteryPercent"],
     ["MasteryProgressPercent"],
@@ -310,7 +435,14 @@ function extractProfileMastery(
   if (percentToNext != null) {
     percentToNext = Math.max(0, Math.min(100, Number(percentToNext.toFixed(1))));
   }
-  return { rank, percentToNext };
+  return {
+    rank,
+    percentToNext,
+    totalXp: null,
+    xpIntoRank: null,
+    xpForNext: null,
+    testReady: false,
+  };
 }
 
 function getExcludeReason(
@@ -423,6 +555,7 @@ interface OwnedMasteryRecord {
   maxRank: number;
   owned: boolean;
   mastered: boolean;
+  masteryPerRank: number;
   fromXPInfo?: boolean;
 }
 
@@ -444,6 +577,7 @@ function readOwnedMasteryRecord(
     maxRank,
     owned,
     mastered: masteredFlag === true || rank >= maxRank,
+    masteryPerRank: affinityPerRankSquared / 5,
   };
   if (!owned) record.fromXPInfo = true;
   return record;
@@ -478,6 +612,7 @@ interface MasteryProgressItem extends MasterableItem {
   rank: number;
   maxRank: number;
   currentlyOwned: boolean;
+  masteryXp: number;
 }
 
 function betterMasteryRecord(
@@ -584,7 +719,7 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
       string,
       { total: number; mastered: number; inProgress: number; missing: number }
     >;
-    profileMastery: { rank: number | null; percentToNext: number | null } | null;
+    profileMastery: ProfileMasteryInfo | null;
   };
 } {
   if (!inventoryData)
@@ -673,12 +808,14 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
     let rank = 0;
     let maxRank = MAX_ITEM_RANK;
     let currentlyOwned = false;
+    let masteryXp = 0;
 
     if (owned) {
       rank = owned.rank;
       maxRank = owned.maxRank;
       currentlyOwned = owned.owned !== false;
       status = owned.mastered || rank >= maxRank ? "mastered" : "progress";
+      masteryXp = Math.min(rank, maxRank) * owned.masteryPerRank;
     }
 
     // Annotate components with ownership
@@ -695,8 +832,17 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
       };
     });
 
-    return { ...item, status, rank, maxRank, currentlyOwned, components };
+    return { ...item, status, rank, maxRank, currentlyOwned, masteryXp, components };
   });
+
+  // Account mastery XP only makes sense when the inventory actually has XP data.
+  let totalMasteryXp: number | null = null;
+  if (Array.isArray(inventoryData.XPInfo) && inventoryData.XPInfo.length > 0) {
+    let gearXp = 0;
+    for (const item of items) gearXp += item.masteryXp;
+    totalMasteryXp =
+      gearXp + computeMissionMasteryXp(inventoryData) + computeIntrinsicMasteryXp(inventoryData);
+  }
 
   // Stats
   const total = items.length;
@@ -724,7 +870,7 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
       inProgress,
       missing,
       byCategory,
-      profileMastery: extractProfileMastery(inventoryData),
+      profileMastery: extractProfileMastery(inventoryData, totalMasteryXp),
     },
   };
 }

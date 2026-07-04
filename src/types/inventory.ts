@@ -180,6 +180,10 @@ export interface MasteryCategoryStats {
 interface ProfileMastery {
   rank: number;
   percentToNext: number | null;
+  totalXp?: number | null;
+  xpIntoRank?: number | null;
+  xpForNext?: number | null;
+  testReady?: boolean;
 }
 
 interface MasteryStats {

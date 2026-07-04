@@ -119,4 +119,45 @@ describe("mastery progress", () => {
       expect.arrayContaining(["Mote Amp", "Plexus", "Venari", "Venari Prime", "Sirocco"]),
     );
   });
+
+  it("computes account mastery XP from gear, nodes, junctions, and intrinsics", () => {
+    const excalibur = "/Lotus/Powersuits/Excalibur/Excalibur";
+    const progress = masteryHelper.computeMasteryProgress({
+      PlayerLevel: 2,
+      XPInfo: [{ ItemType: excalibur, XP: suitXpForRank(30) }],
+      Missions: [
+        // E Prime, masteryExp 24 in ExportRegions
+        { Tag: "SolNode27", Completes: 1 },
+        // Junctions export masteryExp 0 but grant 1000; Tier 1 = Steel Path grants again
+        { Tag: "EarthToVenusJunction", Completes: 2, Tier: 1 },
+        { Tag: "SolNode1", Completes: 0 },
+      ],
+      PlayerSkills: { LPS_GUNNERY: 3, LPP_SPACE: 99_999 },
+    });
+
+    const pm = progress.stats.profileMastery;
+    // 6000 gear + 24 node + 2000 junction + 4500 intrinsics
+    expect(pm?.totalXp).toBe(12_524);
+    expect(pm?.rank).toBe(2);
+    // MR2 -> MR3 spans 10000..22500
+    expect(pm?.xpIntoRank).toBe(2_524);
+    expect(pm?.xpForNext).toBe(12_500);
+    expect(pm?.percentToNext).toBe(20.2);
+    expect(pm?.testReady).toBe(false);
+  });
+
+  it("flags the next mastery test as ready once XP passes the threshold", () => {
+    const excalibur = "/Lotus/Powersuits/Excalibur/Excalibur";
+    const progress = masteryHelper.computeMasteryProgress({
+      PlayerLevel: 0,
+      XPInfo: [{ ItemType: excalibur, XP: suitXpForRank(30) }],
+    });
+
+    const pm = progress.stats.profileMastery;
+    // 6000 gear XP is past the MR1 threshold (2500), so the test is banked
+    expect(pm?.totalXp).toBe(6_000);
+    expect(pm?.rank).toBe(0);
+    expect(pm?.testReady).toBe(true);
+    expect(pm?.percentToNext).toBe(100);
+  });
 });

@@ -98,13 +98,16 @@
       { key: "total", value: stats.total, label: "Total" },
     ];
     if (profileMastery && profileMastery.rank != null) {
-      rows.push({
-        key: "mr",
-        value: `MR ${profileMastery.rank}`,
-        label: profileMastery.percentToNext != null
-          ? `${profileMastery.percentToNext}% to next`
-          : "Progress unavailable",
-      });
+      const nextRank = profileMastery.rank + 1;
+      let label = "Progress unavailable";
+      if (profileMastery.testReady) {
+        label = `MR ${nextRank} test ready`;
+      } else if (profileMastery.xpIntoRank != null && profileMastery.xpForNext != null) {
+        label = `${profileMastery.xpIntoRank.toLocaleString()} / ${profileMastery.xpForNext.toLocaleString()} XP to MR ${nextRank}`;
+      } else if (profileMastery.percentToNext != null) {
+        label = `${profileMastery.percentToNext}% to next`;
+      }
+      rows.push({ key: "mr", value: `MR ${profileMastery.rank}`, label });
     }
     return rows;
   }
