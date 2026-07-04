@@ -13,13 +13,20 @@ export interface RivenScanCropRect {
 export const RIVEN_SCAN_CROPS = Object.freeze({
   // Initial and choice scans use the centered single-card view.
   singleCard: { x: 0.22, y: 0.43, width: 0.56, height: 0.45 },
-  // Roll scans target the card while it is still centered during the post-roll transition.
-  rollCard: { x: 0.411, y: 0.416, width: 0.177, height: 0.434 },
+  // Roll scans target the card during the post-roll transition. Wide on purpose:
+  // the aspect trim below narrows it back down around the detected text column.
+  rollCard: { x: 0.36, y: 0.416, width: 0.28, height: 0.434 },
 } satisfies Record<string, RivenScanCropRect>);
 
 const RIVEN_CARD_CROP_TUNING = {
   cardAspectRatio: 287 / 433,
   maxAspectOverflow: 1.1,
+  // Kept width = card width * this margin, so a card sitting off-center still
+  // lands fully inside the trimmed window.
+  trimWidthMargin: 1.25,
+  // Distrust detected text centers further than this fraction of the rough
+  // crop from the middle - likely a bright diorama prop, not the card.
+  maxCenterShift: 0.2,
   statTop: 0.34,
   statBottom: 0.84,
   statLeft: 0.08,
@@ -32,16 +39,28 @@ function cropRivenStatArea(roughCrop: NativeImage): NativeImage {
   const { width: w, height: h } = roughCrop.getSize();
   if (w < 50 || h < 50) return roughCrop;
 
-  // Center-trim to the in-game riven card aspect, then crop the stat text band.
+  // Trim to the in-game riven card aspect, then crop the stat text band.
+  // The kept window is centered on the detected text column, not the geometric
+  // center: letterbox detection shaving a dark scene edge (or a game layout
+  // shift) moves the card sideways, which used to slice every stat line
+  // ("Critical Chance" OCR'd as "ical Chance") and match zero stats.
   const expectedW = Math.floor(h * RIVEN_CARD_CROP_TUNING.cardAspectRatio);
   let trimmed = roughCrop;
   let tw = w;
   const th = h;
   if (w > expectedW * RIVEN_CARD_CROP_TUNING.maxAspectOverflow) {
-    const excess = w - expectedW;
-    const x1 = Math.floor(excess / 2);
-    tw = expectedW;
-    trimmed = roughCrop.crop({ x: x1, y: 0, width: expectedW, height: h });
+    const keepW = Math.min(w, Math.floor(expectedW * RIVEN_CARD_CROP_TUNING.trimWidthMargin));
+    let centerX = w / 2;
+    const bounds = analyzeRivenTextMetrics(roughCrop).bounds;
+    if (bounds && bounds.width <= keepW) {
+      const boundsCenter = bounds.left + bounds.width / 2;
+      if (Math.abs(boundsCenter - w / 2) <= w * RIVEN_CARD_CROP_TUNING.maxCenterShift) {
+        centerX = boundsCenter;
+      }
+    }
+    const x1 = Math.min(Math.max(0, Math.round(centerX - keepW / 2)), Math.max(0, w - keepW));
+    tw = keepW;
+    trimmed = roughCrop.crop({ x: x1, y: 0, width: keepW, height: h });
   }
 
   const sy0 = Math.floor(th * RIVEN_CARD_CROP_TUNING.statTop);
