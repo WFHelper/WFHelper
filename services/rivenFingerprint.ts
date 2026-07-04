@@ -315,24 +315,30 @@ function decodeSingleRiven(
     const baseValue = entry2?.baseValue ?? 0;
     const displayName = rivenData.getStatDisplayName(c.Tag);
     const isNonPct = NON_PERCENTAGE_TAGS.has(c.Tag);
-
-    let displayValue: number;
-    if (baseValue !== 0) {
-      const raw = computeCurseValue(Math.abs(baseValue), disposition, rollFloat, numBuffs, numCurses, lvl);
-      displayValue = isNonPct ? Math.round(raw * 100) / 100 : Math.round(raw * 1000) / 10;
-    } else {
-      displayValue = 0;
-    }
-
-    const grade = rivenGrading.floatToGrade(rollFloat, true);
     const isMultiplier = isNonPct && (
       c.Tag.includes("FactionDamage") || c.Tag === "WeaponMeleeComboInitialBonusMod"
     );
 
+    // Curse direction is the opposite of the stat's buff direction: a damage
+    // curse shows -X%, but a recoil curse (negative baseValue) shows +X%.
+    // Multipliers stay unsigned - they render as the final factor (x0.55).
+    let displayValue = 0;
+    if (baseValue !== 0) {
+      const raw = computeCurseValue(Math.abs(baseValue), disposition, rollFloat, numBuffs, numCurses, lvl);
+      const magnitude = isNonPct ? Math.round(raw * 100) / 100 : Math.round(raw * 1000) / 10;
+      displayValue = isMultiplier
+        ? Math.round((1 - magnitude) * 100) / 100
+        : baseValue > 0
+          ? -magnitude
+          : magnitude;
+    }
+
+    const grade = rivenGrading.floatToGrade(rollFloat, true);
+
     decodedStats.push({
       tag: c.Tag,
       name: displayName,
-      displayValue: isMultiplier ? Math.round((1 - displayValue) * 100) / 100 : displayValue,
+      displayValue,
       rollFloat,
       grade,
       positive: false,

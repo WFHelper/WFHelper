@@ -185,7 +185,7 @@
                 {#each riven.stats as stat}
                   <div class="flex items-baseline justify-center gap-[0.25em] w-full text-base max-[700px]:text-sm font-display leading-[1.05] whitespace-nowrap overflow-hidden text-ellipsis [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_6px_rgba(0,0,0,1),0_2px_8px_rgba(0,0,0,0.95)]">
                     <span class="font-bold shrink-0 {stat.positive ? 'text-[#8ee4a8]' : 'text-[#ff7a7a]'}">
-                      {stat.positive ? "+" : "-"}{stat.multiplier ? `x${stat.displayValue}` : `${stat.displayValue}%`}
+                      {stat.multiplier ? `x${stat.displayValue}` : `${stat.displayValue >= 0 ? "+" : ""}${stat.displayValue}%`}
                     </span>
                     {#if elementIcon(stat.name)}
                       <img class="w-4 h-4 align-middle shrink-0 self-center [filter:drop-shadow(0_1px_3px_rgba(0,0,0,0.8))]" src={elementIcon(stat.name)} alt="" />

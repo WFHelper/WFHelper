@@ -229,7 +229,7 @@
             <div class="flex items-center gap-2.5 py-2 px-3 rounded-lg {stat.positive ? 'bg-success/5' : 'bg-danger/5'}">
               <div class="flex items-center gap-2 min-w-0 flex-1">
                 <span class="font-display font-semibold text-lg shrink-0 tabular-nums {stat.positive ? 'text-success' : 'text-danger'}">
-                  {stat.positive ? "+" : "-"}{stat.multiplier ? `x${stat.displayValue}` : `${stat.displayValue}%`}
+                  {stat.multiplier ? `x${stat.displayValue}` : `${stat.displayValue >= 0 ? "+" : ""}${stat.displayValue}%`}
                 </span>
                 <span class="text-base text-text-primary overflow-hidden text-ellipsis whitespace-nowrap">{stat.name}</span>
               </div>

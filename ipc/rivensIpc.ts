@@ -126,7 +126,7 @@ function register(): void {
         const rawVal = toFiniteNumber(s.value) ?? 0;
         // WFM expects negative values for non-multiplier curse stats.
         // Multiplier curses (e.g. damage_vs_faction) use values < 1 (e.g. 0.97) and stay as-is.
-        // Our displayValue for non-multiplier curses is always positive (absolute), so negate it.
+        // displayValue is signed for display (a recoil curse shows +X%), so force the curse sign here.
         const value = !s.positive && !s.multiplier ? -Math.abs(rawVal) : Math.abs(rawVal);
         return {
           url_name: urlName || String(s.tag),
