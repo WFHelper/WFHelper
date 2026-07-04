@@ -243,9 +243,15 @@ function notificationSoundEnabled(): boolean {
 // soft, non-chime Windows Background sound, bundled so it works on any machine.
 const NOTIFICATION_SOUND_FILE = resolveRuntimeResourcePath("notification.wav");
 
+// One sound per toast burst - overlapping SoundPlayers stack into a blare.
+const SOUND_MIN_GAP_MS = 3_000;
+let _lastSoundAt = 0;
+
 function playNotificationSound(): void {
   if (process.platform !== "win32" || !notificationSoundEnabled()) return;
+  if (Date.now() - _lastSoundAt < SOUND_MIN_GAP_MS) return;
   if (!fs.existsSync(NOTIFICATION_SOUND_FILE)) return;
+  _lastSoundAt = Date.now();
   try {
     execFile(
       "powershell.exe",
