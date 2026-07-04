@@ -13,7 +13,9 @@ const SCAN_MAX_ATTEMPTS = 10;
 const MAX_REWARD_ITEMS = 4;
 const EELOG_REWARD_SCAN_DELAY_MS = 1_200;
 
-const REWARD_VOTE_WINDOW_MS = 10_000;
+// The in-game relic reward vote runs ~15s; the overlay hides when it ends.
+// Was 10s, which hid the overlay ~5s before the selection actually closed.
+const REWARD_VOTE_WINDOW_MS = 15_000;
 const OVERLAY_AUTO_HIDE_SUCCESS_MS = 8_500;
 const OVERLAY_AUTO_HIDE_FAILURE_MS = 3_500;
 const OVERLAY_AUTO_HIDE_DETECTING_MAX_MS = 20_000;
