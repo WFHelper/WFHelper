@@ -21,6 +21,14 @@
   let settingsTab: "general" | "appearance" | "overlay" = "general";
   let statusMsg = "";
   let statusError = false;
+  let statusTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function flashStatus(msg: string, isError: boolean): void {
+    statusMsg = msg;
+    statusError = isError;
+    if (statusTimer) clearTimeout(statusTimer);
+    if (!isError) statusTimer = setTimeout(() => (statusMsg = ""), 2000);
+  }
 
   let autoTrigger = OVERLAY_DEFAULTS.autoTriggerEnabled;
   let notificationSoundEnabled = OVERLAY_DEFAULTS.notificationSoundEnabled;
@@ -101,12 +109,15 @@
         applyOverlaySettingsResponse(saved);
         applyToForm($overlaySettings);
       }
-      statusMsg = $tr("settings.saved");
-      statusError = false;
+      flashStatus($tr("settings.saved"), false);
     } catch {
-      statusMsg = $tr("settings.saveFailed");
-      statusError = true;
+      flashStatus($tr("settings.saveFailed"), true);
     }
+  }
+
+  // Every control saves on change; there is no separate save step.
+  function autoSave(): void {
+    void save();
   }
 
   async function resetDefaults() {
@@ -114,11 +125,9 @@
     try {
       const saved = await invoke("setOverlaySettings", { ...OVERLAY_DEFAULTS });
       if (saved) applyOverlaySettingsResponse(saved);
-      statusMsg = $tr("settings.defaultsRestored");
-      statusError = false;
+      flashStatus($tr("settings.defaultsRestored"), false);
     } catch {
-      statusMsg = $tr("settings.defaultsRestoreFormFailed");
-      statusError = true;
+      flashStatus($tr("settings.defaultsRestoreFormFailed"), true);
     }
   }
 
@@ -179,17 +188,17 @@
         <div class="mt-2.5 grid gap-2">
           <label class="settings-control-row">
             <span>Windows notification sound</span>
-            <input type="checkbox" bind:checked={notificationSoundEnabled} class="accent-accent" />
+            <input type="checkbox" bind:checked={notificationSoundEnabled} on:change={autoSave} class="accent-accent" />
           </label>
 
           <label class="settings-control-row">
             <span>WFM DM notifications</span>
-            <input type="checkbox" bind:checked={wfmNotificationsEnabled} class="accent-accent" />
+            <input type="checkbox" bind:checked={wfmNotificationsEnabled} on:change={autoSave} class="accent-accent" />
           </label>
 
           <label class="settings-control-row">
             <span>In-game message notifications</span>
-            <input type="checkbox" bind:checked={messageNotificationsEnabled} class="accent-accent" />
+            <input type="checkbox" bind:checked={messageNotificationsEnabled} on:change={autoSave} class="accent-accent" />
           </label>
 
           <label class="settings-control-row" class:opacity-50={!messageNotificationsEnabled}>
@@ -198,13 +207,14 @@
               type="checkbox"
               bind:checked={messageNotificationsWhileFocused}
               disabled={!messageNotificationsEnabled}
+              on:change={autoSave}
               class="accent-accent"
             />
           </label>
 
           <label class="settings-control-row">
             <span>Unlist WFMarket orders when sold/bought</span>
-            <input type="checkbox" bind:checked={autoCloseWfmOrders} class="accent-accent" />
+            <input type="checkbox" bind:checked={autoCloseWfmOrders} on:change={autoSave} class="accent-accent" />
           </label>
         </div>
       </article>
@@ -248,21 +258,16 @@
         </div>
       </article>
 
-      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
-        <div>
-          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Actions</h3>
-          <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">Save app behavior changes or restore default settings.</p>
-        </div>
-
-        <div class="mt-2.5 flex flex-wrap gap-1.5">
-          <button class="btn-primary btn-sm" on:click={save}>{$tr("settings.save")}</button>
+      <div class="settings-wide-actions">
+        <div class="flex flex-wrap items-center gap-2.5">
           <button class="btn-secondary btn-sm" on:click={resetDefaults}>{$tr("settings.resetDefaults")}</button>
+          <span class="text-xs text-text-muted">Changes apply automatically.</span>
         </div>
 
         {#if statusMsg}
-          <p class="mt-2 min-h-4 text-sm text-text-secondary" class:text-danger={statusError}>{statusMsg}</p>
+          <p class="m-0 min-h-4 text-sm text-text-secondary" class:text-danger={statusError}>{statusMsg}</p>
         {/if}
-      </article>
+      </div>
     </div>
   {:else if settingsTab === "appearance"}
     <div class="settings-tab-grid py-3">
@@ -281,7 +286,7 @@
         <div class="mt-2.5 grid gap-2">
           <label class="settings-control-row">
             <span>Relic rewards overlay</span>
-            <input type="checkbox" bind:checked={relicRewardsOverlayEnabled} class="accent-accent" />
+            <input type="checkbox" bind:checked={relicRewardsOverlayEnabled} on:change={autoSave} class="accent-accent" />
           </label>
 
           <label class="settings-control-row">
@@ -289,6 +294,7 @@
             <input
               type="checkbox"
               bind:checked={relicRecommendationOverlayEnabled}
+              on:change={autoSave}
               class="accent-accent"
             />
           </label>
@@ -298,13 +304,14 @@
             <input
               type="checkbox"
               bind:checked={tradeNotificationOverlayEnabled}
+              on:change={autoSave}
               class="accent-accent"
             />
           </label>
 
           <label class="settings-control-row">
             <span>Riven overlay</span>
-            <input type="checkbox" bind:checked={rivenOverlayEnabled} class="accent-accent" />
+            <input type="checkbox" bind:checked={rivenOverlayEnabled} on:change={autoSave} class="accent-accent" />
           </label>
         </div>
       </article>
@@ -318,7 +325,7 @@
         <div class="mt-2.5 grid gap-2">
           <label class="settings-control-row">
             <span>{$tr("settings.autoTrigger")}</span>
-            <input type="checkbox" bind:checked={autoTrigger} class="accent-accent" />
+            <input type="checkbox" bind:checked={autoTrigger} on:change={autoSave} class="accent-accent" />
           </label>
 
           <label class="settings-control-row settings-control-row-input">
@@ -330,6 +337,7 @@
                 max="1.5"
                 step="0.05"
                 bind:value={overlayScale}
+                on:change={autoSave}
                 class="settings-range"
               />
               <span class="settings-range-value">{Math.round(Number(overlayScale) * 100)}%</span>
@@ -338,7 +346,7 @@
 
           <label class="settings-control-row">
             <span>{$tr("settings.hotkeyFallback")}</span>
-            <input type="checkbox" bind:checked={hotkeyEnabled} class="accent-accent" />
+            <input type="checkbox" bind:checked={hotkeyEnabled} on:change={autoSave} class="accent-accent" />
           </label>
 
           <label class="settings-control-row settings-control-row-input">
@@ -348,13 +356,14 @@
               bind:value={hotkey}
               disabled={!hotkeyEnabled}
               placeholder={$tr("settings.hotkeyPlaceholder")}
+              on:change={autoSave}
               class="settings-input"
             />
           </label>
 
           <label class="settings-control-row">
             <span>{$tr("settings.interactionHotkeyEnabled")}</span>
-            <input type="checkbox" bind:checked={interactionHotkeyEnabled} class="accent-accent" />
+            <input type="checkbox" bind:checked={interactionHotkeyEnabled} on:change={autoSave} class="accent-accent" />
           </label>
 
           <label class="settings-control-row settings-control-row-input">
@@ -364,6 +373,7 @@
               bind:value={interactionHotkey}
               disabled={!interactionHotkeyEnabled}
               placeholder={$tr("settings.interactionHotkeyPlaceholder")}
+              on:change={autoSave}
               class="settings-input"
             />
           </label>
@@ -371,14 +381,14 @@
       </article>
 
       <div class="settings-wide-actions">
-        <div class="flex flex-wrap gap-1.5">
-          <button class="btn-primary btn-sm" on:click={save}>{$tr("settings.save")}</button>
+        <div class="flex flex-wrap items-center gap-2.5">
           <button class="btn-secondary btn-sm" on:click={resetDefaults}>{$tr("settings.resetDefaults")}</button>
           <button class="btn-secondary btn-sm" on:click={testTrigger}>{$tr("settings.testTrigger")}</button>
+          <span class="text-xs text-text-muted">Changes apply automatically.</span>
         </div>
 
         {#if statusMsg}
-          <p class="min-h-4 text-sm text-text-secondary" class:text-danger={statusError}>{statusMsg}</p>
+          <p class="m-0 min-h-4 text-sm text-text-secondary" class:text-danger={statusError}>{statusMsg}</p>
         {/if}
       </div>
     </div>
@@ -391,7 +401,6 @@
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
     gap: 0.85rem;
     max-width: 1040px;
-    margin-inline: auto;
     align-items: start;
   }
 
