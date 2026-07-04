@@ -49,11 +49,11 @@
 {#if effectiveSrc && !failed}
   <img class={mergedImageClass} src={effectiveSrc} {alt} loading="lazy" on:error={onError} />
 {:else}
-  <div class={mergedPlaceholderClass}>
+  <div class={mergedPlaceholderClass} title="No image available">
     <svg class={placeholderIconBase} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-      <rect x="4" y="4" width="16" height="16" rx="2"/>
-      <circle cx="9" cy="9" r="1.5"/>
-      <path d="M20 14l-4-4L6 20"/>
+      <rect x="4" y="4" width="16" height="16" rx="3" stroke-dasharray="3 2.5"/>
+      <path d="M9.6 9.9a2.4 2.4 0 1 1 3.3 2.2c-.6.25-.9.6-.9 1.2v.45"/>
+      <circle cx="12" cy="16.4" r="0.4" fill="currentColor"/>
     </svg>
   </div>
 {/if}

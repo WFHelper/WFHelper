@@ -232,6 +232,13 @@
 
   $: chartDataMap = computeChartDataMap(history, chartDays);
 
+  function chartIsEmpty(cd: ChartResult): boolean {
+    return (
+      cd.bars.every((b) => b.value === 0) &&
+      (!cd.hasAbsData || cd.absValues.every((v) => !v || Number.isNaN(v)))
+    );
+  }
+
   // Expanded modal chart data - recomputes when expandedKey or chartDays changes
   $: expandedChartData = expandedKey
     ? barsForKey(expandedKey, history, chartDays, BAR_H_EXPAND)
@@ -473,6 +480,7 @@
             {#each CHART_SECTIONS as { key, labelKey }}
               {@const cd = chartDataMap[key]}
               {@const icon = ICON_MAP[key]}
+              {@const empty = chartIsEmpty(cd)}
               <ThemedPanel className="relative flex h-[240px] min-w-0 flex-col overflow-hidden px-[13px] py-[6px] pb-2 group/chart">
                 <div class="flex items-center justify-between mb-1">
                   <span class="flex items-center gap-1.5 text-sm text-text-secondary">
@@ -486,6 +494,11 @@
                     aria-label="Expand {$tr(labelKey)} chart"
                   >⛶</button>
                 </div>
+                {#if empty}
+                  <div class="flex-1 min-h-0 flex items-center justify-center text-sm text-text-muted">
+                    No data in this timeframe
+                  </div>
+                {:else}
                 <div class="flex-1 min-h-0 flex">
                   {#if cd.yTicks.length > 0}
                     <div class="relative w-[55px] shrink-0">
@@ -565,6 +578,7 @@
                       </span>
                     {/each}
                   </div>
+                {/if}
                 {/if}
               </ThemedPanel>
             {/each}

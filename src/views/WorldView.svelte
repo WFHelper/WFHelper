@@ -145,9 +145,9 @@
     <div class="flex items-center gap-3">
       <h2>World</h2>
       {#if baroActive}
-        <span class="rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-warning">Baro leaves in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
+        <span class="rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-warning">Baro leaves in {times.baro}{#if baroLocation} - {baroLocation}{/if}</span>
       {:else if baroAct}
-        <span class="rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-warning">Baro arrives in {times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
+        <span class="rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-warning">Baro arrives in {times.baro}{#if baroLocation} - {baroLocation}{/if}</span>
       {/if}
     </div>
   </div>
@@ -357,7 +357,7 @@
           <div class="flex items-center gap-2 py-1.5">
             <span class="text-sm font-semibold text-text-primary">Baro Ki'Teer</span>
             <span class="text-xs font-bold py-0.5 px-1.5 rounded uppercase tracking-[0.06em] bg-white/[0.06] text-text-secondary opacity-70">Inactive</span>
-            <span class="text-sm font-display text-text-secondary ml-auto">{times.baro}{#if baroLocation} · {baroLocation}{/if}</span>
+            <span class="text-sm font-display text-text-secondary ml-auto">{times.baro}{#if baroLocation} - {baroLocation}{/if}</span>
           </div>
         </div>
         {/if}

@@ -287,7 +287,10 @@ export function buildCycleRows({
   const earthLabel = earth.isDay ? "Day" : "Night";
   const cetusLabel = cetus.isDay ? "Day" : "Night";
   const vallisLabel = vallis.isWarm ? "Warm" : "Cold";
-  const cambionLabel = (cambion.active || "").toString().toUpperCase() || "Unknown";
+  const cambionState = (cambion.active || "").toString().toLowerCase();
+  const cambionLabel = cambionState
+    ? cambionState.charAt(0).toUpperCase() + cambionState.slice(1)
+    : "Unknown";
   const rows = [
     {
       key: "earth" as const,
@@ -325,8 +328,8 @@ export function buildCycleRows({
       t: cambion,
       time: times.cambion,
       stateLabel: cambionLabel,
-      stateClass: (cambion.active || "").toString().toLowerCase() || "fass",
-      nextLabel: (cambion.active || "").toString().toLowerCase() === "fass" ? "VOME" : "FASS",
+      stateClass: cambionState || "fass",
+      nextLabel: cambionState === "fass" ? "Vome" : "Fass",
       urgent: isUrgent(cambion.expiry, cambion.activation, undefined, nowCoarseMs),
     },
     ...(duviri?.expiry

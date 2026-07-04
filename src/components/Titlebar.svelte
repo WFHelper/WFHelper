@@ -10,16 +10,22 @@
 
   const HELPER_STATUS_POLL_MS = 5_000;
   const INVENTORY_OLD_MS = 60 * 60 * 1000;
+  const DAY_MS = 24 * 60 * 60 * 1000;
 
   $: logoUrl = $themeSettings.branding.logoDataUrl;
   $: appName = $themeSettings.branding.appName || DEFAULT_APP_NAME;
 
   let helperStatus: HelperStatus | null = null;
 
+  // Show just the clock time, plus the date once the data is over a day old.
   function formatHelperTime(ms: number | null): string {
     if (!ms) return "";
     const d = new Date(ms);
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    if (Date.now() - ms > DAY_MS) {
+      return `${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}, ${time}`;
+    }
+    return time;
   }
 
   $: helperInventoryIsOld =

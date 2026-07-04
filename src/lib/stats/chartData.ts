@@ -303,6 +303,6 @@ export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, 
 export function labelStep(days: number): number {
   if (days <= 7) return 1;
   if (days <= 14) return 2;
-  if (days <= 30) return 2;
-  return 5;
+  if (days <= 30) return 5;
+  return 10;
 }

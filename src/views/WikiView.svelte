@@ -82,7 +82,7 @@
 </script>
 
 <section class="view active">
-  <div class="mx-auto flex w-full max-w-[920px] flex-col gap-4 p-4">
+  <div class="flex w-full max-w-[920px] flex-col gap-4 py-4">
     <header class="flex flex-col gap-1">
       <h2 class="m-0 font-display text-2xl font-bold text-text-primary">Drop Data</h2>
       <p class="m-0 text-sm text-text-secondary">

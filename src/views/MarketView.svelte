@@ -193,7 +193,12 @@
     if (!$marketViewState.status) {
       try {
         const me = await invoke("wfmGetMe");
-        if (me?.status) setMarketViewState({ status: me.status as WfmStatus });
+        // v2 /me reports "in_game"; our buttons use "ingame". Anything else
+        // (e.g. offline) leaves the status unset so no button highlights.
+        const status = String(me?.status ?? "").toLowerCase().replace("_", "");
+        if (status === "online" || status === "ingame" || status === "invisible") {
+          setMarketViewState({ status: status as WfmStatus });
+        }
       } catch (error) {
         console.warn("[Market] getMe failed:", error);
       }
@@ -522,7 +527,6 @@
                 class:statusOnlineActive={statusKey === "online" && $marketViewState.status === statusKey}
                 class:statusIngameActive={statusKey === "ingame" && $marketViewState.status === statusKey}
                 class:statusInvisibleActive={statusKey === "invisible" && $marketViewState.status === statusKey}
-                class:statusOtherActive={!["online", "ingame", "invisible"].includes(statusKey) && $marketViewState.status === statusKey}
                 on:click={() => setStatus(statusKey)}
               >{label}</button>
             {/each}
@@ -646,24 +650,19 @@
 
 <style>
   .statusOnlineActive {
-    border-color: rgba(74, 222, 128, 0.4);
-    background: var(--accent-glow);
+    border-color: rgba(74, 222, 128, 0.55);
+    background: rgba(74, 222, 128, 0.12);
     color: var(--success);
   }
   .statusIngameActive {
-    border-color: rgba(96, 165, 250, 0.4);
-    background: var(--accent-glow);
+    border-color: rgba(96, 165, 250, 0.55);
+    background: rgba(96, 165, 250, 0.12);
     color: var(--info);
   }
   .statusInvisibleActive {
-    border-color: rgba(139, 147, 165, 0.4);
-    background: var(--accent-glow);
-    color: var(--text-secondary);
-  }
-  .statusOtherActive {
-    border-color: var(--accent);
-    background: var(--accent-glow);
-    color: var(--accent);
+    border-color: rgba(226, 232, 240, 0.45);
+    background: rgba(226, 232, 240, 0.08);
+    color: var(--text-primary);
   }
 </style>
 

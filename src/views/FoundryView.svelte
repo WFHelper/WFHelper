@@ -373,7 +373,7 @@
               <ItemImage src={item.imageUrl} alt={item.name} cls="max-h-14 max-w-14 object-contain" />
             </div>
             <div class="flex-1 min-w-0 flex flex-col gap-1">
-              <span class="font-display font-semibold text-sm text-text-primary truncate uppercase tracking-wide">
+              <span class="font-display font-semibold text-sm text-text-primary truncate">
                 {item.name}{#if item.source === "blueprint"}<span class="ml-2 text-accent font-bold">×{item.count}</span>{/if}
               </span>
               <div class="flex items-center gap-2 flex-wrap">

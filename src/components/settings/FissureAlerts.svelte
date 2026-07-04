@@ -23,7 +23,7 @@
     "Assassination",
   ] as const;
   const STEEL_PATH_OPTIONS = [
-    { value: "any",    label: "Any" },
+    { value: "any",    label: "Any mode" },
     { value: "normal", label: "Normal" },
     { value: "steel",  label: "Steel Path" },
   ] as const;
@@ -77,7 +77,7 @@
   const missionLabel = (m: string) => (m === "any" ? "Any mission" : m);
   const planetLabel = (p: string) => (p === "any" ? "Any planet" : p);
   const spLabel = (sp: string) =>
-    sp === "any" ? "Any" : sp === "steel" ? "Steel Path" : "Normal";
+    sp === "any" ? "Any mode" : sp === "steel" ? "Steel Path" : "Normal";
 </script>
 
 <div class="mt-0 pt-0 border-t-0">
