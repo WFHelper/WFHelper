@@ -3,7 +3,12 @@
   import { tr as t } from "../../lib/i18n.js";
   import type { ArbiRunRecord } from "../../types/ipc.js";
   import { deleteArbiRun, deleteArbiRunLog } from "../../stores/arbiRuns.js";
-  import { formatBytes, formatDuration, formatRunDate } from "../../lib/arbi/arbiChartData.js";
+  import {
+    formatBytes,
+    formatDuration,
+    formatRunDate,
+    missionKindLabel,
+  } from "../../lib/arbi/arbiChartData.js";
 
   export let runs: ArbiRunRecord[] = [];
   export let onSelect: (id: string) => void;
@@ -17,7 +22,7 @@
   function typeLabel(run: ArbiRunRecord): string {
     if (run.missionType === "defense") return $t("arbi.type.defense");
     if (run.missionType === "interception") return $t("arbi.type.interception");
-    return $t("arbi.type.other");
+    return missionKindLabel(run) ?? $t("arbi.type.other");
   }
 
   async function onDeleteRun(e: MouseEvent, id: string): Promise<void> {

@@ -14,7 +14,7 @@
   import ArbiRotationList from "./ArbiRotationList.svelte";
   import type { ArbiRunRecord } from "../../types/ipc.js";
   import { deleteArbiRun } from "../../stores/arbiRuns.js";
-  import { formatDuration, formatRunDate } from "../../lib/arbi/arbiChartData.js";
+  import { formatDuration, formatRunDate, missionKindLabel } from "../../lib/arbi/arbiChartData.js";
   import type { MessageKey } from "../../lib/i18n.js";
 
   export let run: ArbiRunRecord;
@@ -27,11 +27,12 @@
   $: stats = run.stats;
 
   $: typeLabel =
-    run.missionType === "defense"
+    missionKindLabel(run) ??
+    (run.missionType === "defense"
       ? $tr("arbi.type.defense")
       : run.missionType === "interception"
         ? $tr("arbi.type.interception")
-        : $tr("arbi.type.other");
+        : $tr("arbi.type.other"));
 
   $: endReasonLabel = $tr(`arbi.end.${run.endReason}` as MessageKey);
 

@@ -51,6 +51,7 @@ export const en = {
   "arbi.back": "‹ All runs",
   "arbi.source.imported": "Imported",
   "arbi.end.mission-end": "Mission end",
+  "arbi.end.aborted": "Aborted",
   "arbi.end.new-mission": "Next mission",
   "arbi.end.log-truncated": "Game restart",
   "arbi.end.app-quit": "App closed",

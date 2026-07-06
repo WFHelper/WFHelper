@@ -5,6 +5,7 @@ import {
   dronesPerRotation,
   formatBytes,
   formatDuration,
+  missionKindLabel,
   relativePerformanceHue,
   saturationAboveThresholdPct,
   saturationHue,
@@ -101,5 +102,22 @@ describe("relativePerformanceHue", () => {
     expect(relativePerformanceHue(0, 0, 10)).toBe(0);
     expect(relativePerformanceHue(10, 0, 10)).toBe(120);
     expect(relativePerformanceHue(5, 5, 5)).toBe(0);
+  });
+});
+
+describe("missionKindLabel", () => {
+  it("names known other-type modes and strips the prefix from unknown ones", () => {
+    expect(missionKindLabel({ missionType: "other", missionTypeRaw: "MT_PURIFY" })).toBe(
+      "Infested Salvage",
+    );
+    expect(missionKindLabel({ missionType: "other", missionTypeRaw: "MT_FUTURE_MODE" })).toBe(
+      "FUTURE_MODE",
+    );
+  });
+
+  it("defers to the i18n label for full-stats types and missing raw types", () => {
+    expect(missionKindLabel({ missionType: "defense", missionTypeRaw: "MT_DEFENSE" })).toBeNull();
+    expect(missionKindLabel({ missionType: "other", missionTypeRaw: null })).toBeNull();
+    expect(missionKindLabel({ missionType: "other" })).toBeNull();
   });
 });

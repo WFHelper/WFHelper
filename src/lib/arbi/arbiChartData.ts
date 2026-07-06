@@ -2,7 +2,27 @@
  * Pure data/format helpers for the Arbi Analyze views.
  * No Svelte, i18n, or IPC dependencies (unit-tested directly).
  */
-import type { ArbiRunStats } from "../../types/ipc.js";
+import type { ArbiRunRecord, ArbiRunStats } from "../../types/ipc.js";
+
+/** Game-mode names for the engine MT_* types that show up as "other" arbis. */
+const MT_LABELS: Record<string, string> = {
+  MT_SURVIVAL: "Survival",
+  MT_EXCAVATE: "Excavation",
+  MT_EVACUATION: "Defection",
+  MT_PURIFY: "Infested Salvage",
+  MT_ALCHEMY: "Alchemy",
+};
+
+/**
+ * Specific game-mode label for "other"-type runs when the log carried the
+ * engine mission type; null means use the generic missionType i18n label.
+ */
+export function missionKindLabel(
+  run: Pick<ArbiRunRecord, "missionType" | "missionTypeRaw">,
+): string | null {
+  if (run.missionType !== "other" || !run.missionTypeRaw) return null;
+  return MT_LABELS[run.missionTypeRaw] ?? run.missionTypeRaw.replace(/^MT_/, "");
+}
 
 export function formatDuration(totalSeconds: number): string {
   const duration = Math.max(0, Math.floor(totalSeconds || 0));
