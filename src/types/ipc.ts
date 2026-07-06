@@ -379,6 +379,38 @@ export interface IpcInvokeMap {
     args: [payload: UpdateRivenAuctionPayload];
     return: { ok: boolean; auctionId?: string; error?: string };
   };
+  getArbiRuns: {
+    args: [];
+    return: ArbiRunsPayload;
+  };
+  setArbiRunVitus: {
+    args: [id: string, vitus: number | null];
+    return: ArbiRunRecord | null;
+  };
+  deleteArbiRun: {
+    args: [id: string];
+    return: { ok: boolean };
+  };
+  deleteArbiRunLog: {
+    args: [id: string];
+    return: ArbiRunRecord | null;
+  };
+  exportArbiRunLog: {
+    args: [id: string];
+    return: { ok: boolean };
+  };
+  importArbiLog: {
+    args: [];
+    return: ArbiImportResult;
+  };
+  saveArbiRunImage: {
+    args: [id: string, png: Uint8Array];
+    return: { ok: boolean };
+  };
+  showArbiRunLogInFolder: {
+    args: [id: string];
+    return: { ok: boolean };
+  };
 }
 
 export interface RivenStatOption {
@@ -428,6 +460,15 @@ import type {
 import type { TradeMatchPayload } from "../../config/shared/tradeMatch.js";
 export type { DailyStatEntry, SessionStats, TradeEvent, TradeItem, TradeType };
 
+// Single source of truth for arbitration types lives in config/shared/arbiTypes.ts.
+import type {
+  ArbiImportResult,
+  ArbiRunRecord,
+  ArbiRunStats,
+  ArbiRunsPayload,
+} from "../../config/shared/arbiTypes.js";
+export type { ArbiRunRecord, ArbiRunStats };
+
 type WfmTradeMatchEvent = TradeMatchPayload;
 
 interface TradeRecordedEvent {
@@ -442,6 +483,7 @@ export interface IpcEventMap {
   "helper-download-progress": HelperDownloadProgress;
   "trade-recorded": TradeRecordedEvent;
   "world-state-fetch-error": string;
+  "arbi-run-saved": ArbiRunRecord;
 }
 
 export interface IpcSendMap {

@@ -96,6 +96,29 @@ export interface PreloadAPI {
   onHelperDownloadProgress: (
     callback: (progress: IpcEventMap["helper-download-progress"]) => void,
   ) => () => void;
+  getArbiRuns: () => Promise<IpcInvokeMap["getArbiRuns"]["return"]>;
+  setArbiRunVitus: (
+    id: IpcInvokeMap["setArbiRunVitus"]["args"][0],
+    vitus: IpcInvokeMap["setArbiRunVitus"]["args"][1],
+  ) => Promise<IpcInvokeMap["setArbiRunVitus"]["return"]>;
+  deleteArbiRun: (
+    id: IpcInvokeMap["deleteArbiRun"]["args"][0],
+  ) => Promise<IpcInvokeMap["deleteArbiRun"]["return"]>;
+  deleteArbiRunLog: (
+    id: IpcInvokeMap["deleteArbiRunLog"]["args"][0],
+  ) => Promise<IpcInvokeMap["deleteArbiRunLog"]["return"]>;
+  exportArbiRunLog: (
+    id: IpcInvokeMap["exportArbiRunLog"]["args"][0],
+  ) => Promise<IpcInvokeMap["exportArbiRunLog"]["return"]>;
+  importArbiLog: () => Promise<IpcInvokeMap["importArbiLog"]["return"]>;
+  saveArbiRunImage: (
+    id: IpcInvokeMap["saveArbiRunImage"]["args"][0],
+    png: IpcInvokeMap["saveArbiRunImage"]["args"][1],
+  ) => Promise<IpcInvokeMap["saveArbiRunImage"]["return"]>;
+  showArbiRunLogInFolder: (
+    id: IpcInvokeMap["showArbiRunLogInFolder"]["args"][0],
+  ) => Promise<IpcInvokeMap["showArbiRunLogInFolder"]["return"]>;
+  onArbiRunSaved: (callback: (run: IpcEventMap["arbi-run-saved"]) => void) => () => void;
 }
 
 export interface TradePreloadAPI {

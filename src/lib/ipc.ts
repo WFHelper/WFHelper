@@ -69,6 +69,8 @@ const eventApiMap: Record<
     window.api.onTradeRecorded(cb as (e: IpcEventMap["trade-recorded"]) => void),
   "world-state-fetch-error": (cb) =>
     window.api.onWorldStateFetchError(cb as (m: IpcEventMap["world-state-fetch-error"]) => void),
+  "arbi-run-saved": (cb) =>
+    window.api.onArbiRunSaved(cb as (run: IpcEventMap["arbi-run-saved"]) => void),
 };
 
 export function on<K extends EventChannel>(

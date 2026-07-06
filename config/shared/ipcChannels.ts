@@ -109,3 +109,13 @@ export const RIVEN_SIMILAR_LISTINGS = "riven-similar-listings";
 
 export const TRADE_NOTIFICATION_SHOW = "trade-notification-show";
 export const TRADE_NOTIFICATION_DISMISS = "trade-notification-dismiss";
+
+export const ARBI_GET_RUNS = "arbi:get-runs";
+export const ARBI_SET_VITUS = "arbi:set-vitus";
+export const ARBI_DELETE_RUN = "arbi:delete-run";
+export const ARBI_DELETE_LOG = "arbi:delete-log";
+export const ARBI_EXPORT_LOG = "arbi:export-log";
+export const ARBI_IMPORT_LOG = "arbi:import-log";
+export const ARBI_SAVE_IMAGE = "arbi:save-image";
+export const ARBI_SHOW_LOG_IN_FOLDER = "arbi:show-log-in-folder";
+export const ARBI_RUN_SAVED = "arbi-run-saved";

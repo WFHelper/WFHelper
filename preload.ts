@@ -69,6 +69,15 @@ import {
   RIVENS_CREATE_AUCTION,
   RIVENS_UPDATE_AUCTION,
   WORLD_STATE_FETCH_ERROR,
+  ARBI_GET_RUNS,
+  ARBI_SET_VITUS,
+  ARBI_DELETE_RUN,
+  ARBI_DELETE_LOG,
+  ARBI_EXPORT_LOG,
+  ARBI_IMPORT_LOG,
+  ARBI_SAVE_IMAGE,
+  ARBI_SHOW_LOG_IN_FOLDER,
+  ARBI_RUN_SAVED,
 } from "./config/shared/ipcChannels";
 
 try {
@@ -147,6 +156,18 @@ try {
     getRivenBestAttributes: (weaponName: string) =>
       ipcRenderer.invoke(RIVENS_GET_BEST_ATTRIBUTES, weaponName),
     onHelperDownloadProgress: ipcDataBridge<unknown>(ipcRenderer, HELPER_DOWNLOAD_PROGRESS),
+
+    getArbiRuns: () => ipcRenderer.invoke(ARBI_GET_RUNS),
+    setArbiRunVitus: (id: string, vitus: number | null) =>
+      ipcRenderer.invoke(ARBI_SET_VITUS, id, vitus),
+    deleteArbiRun: (id: string) => ipcRenderer.invoke(ARBI_DELETE_RUN, id),
+    deleteArbiRunLog: (id: string) => ipcRenderer.invoke(ARBI_DELETE_LOG, id),
+    exportArbiRunLog: (id: string) => ipcRenderer.invoke(ARBI_EXPORT_LOG, id),
+    importArbiLog: () => ipcRenderer.invoke(ARBI_IMPORT_LOG),
+    saveArbiRunImage: (id: string, png: Uint8Array) =>
+      ipcRenderer.invoke(ARBI_SAVE_IMAGE, id, png),
+    showArbiRunLogInFolder: (id: string) => ipcRenderer.invoke(ARBI_SHOW_LOG_IN_FOLDER, id),
+    onArbiRunSaved: ipcDataBridge<unknown>(ipcRenderer, ARBI_RUN_SAVED),
   });
 
   contextBridge.exposeInMainWorld("tradeApi", {

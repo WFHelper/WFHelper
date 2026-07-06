@@ -40,9 +40,11 @@ import * as tradeNotificationIpc from "./ipc/tradeNotificationIpc";
 import { assertMainRendererSender, handleAuthorized } from "./ipc/ipcSecurity";
 import {
   HELPER_GET_STATUS, HELPER_RUN_NOW, HELPER_DOWNLOAD, HELPER_DOWNLOAD_PROGRESS,
-  INVENTORY_UPDATED, TRADE_RECORDED,
+  INVENTORY_UPDATED, TRADE_RECORDED, ARBI_RUN_SAVED,
 } from "./config/shared/ipcChannels";
 import * as statsTracker from "./services/statsTracker";
+import * as arbiRunTracker from "./services/arbiRunTracker";
+import * as arbiIpc from "./ipc/arbiIpc";
 import * as tradeTracker from "./services/tradeTracker";
 import * as tradeWfmMatcher from "./services/tradeWfmMatcher";
 import * as apiHelperRunner from "./services/apiHelperRunner";
@@ -177,6 +179,7 @@ app.whenReady().then(async () => {
   const statsLoadStart = Date.now();
   statsTracker.loadHistory();
   tradeTracker.loadTradeLog();
+  arbiRunTracker.initArbiTracker();
   inventoryIpc.addInventoryListener((data: Record<string, unknown>) => {
     statsTracker.onInventoryData(data);
   });
@@ -193,6 +196,7 @@ app.whenReady().then(async () => {
   statsIpc.register();
   rivensIpc.register();
   tradeNotificationIpc.register();
+  arbiIpc.register();
 
   const attachInventoryAfterHelperRun = (ok: boolean) => {
     if (!ok || ctx.currentInventoryPath) return;
@@ -377,6 +381,10 @@ app.whenReady().then(async () => {
     onRivenDioramaSetup: () => overlayIpc.onRivenDioramaSetup(),
     onRivenChoiceConfirmed: () => overlayIpc.onRivenChoiceConfirmed(),
     onRivenChatView: () => overlayIpc.onRivenChatView(),
+    onArbiRunSaved: (run) => {
+      const win = ctx.mainWindow;
+      if (win && !win.isDestroyed()) win.webContents.send(ARBI_RUN_SAVED, run);
+    },
   });
   if (eeLogPath) log.info("[EELog] Monitoring:", eeLogPath);
   else log.info("[EELog] EE.log not found - relic overlay trigger disabled");
