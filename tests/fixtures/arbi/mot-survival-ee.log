@@ -1,0 +1,29 @@
+0.091 Sys [Diag]: Current time: Mon Jul  6 17:46:29 2026 [UTC: Mon Jul  6 15:46:29 2026]
+2.005 Sys [Info]: Warframe startup chatter
+410.170 Script [Info]: MapRedux.lua: Confirm sector SolNode409_EliteAlert
+410.170 Net [Info]: Set squad mission: {"name":"SolNode409_EliteAlert"}
+410.170 Script [Info]: ThemedSquadOverlay.lua: Pending mission: SolNode409_EliteAlert
+415.070 Script [Info]: ThemedSquadOverlay.lua: Mission name: Mot (Void) - Arbitration
+415.071 Script [Info]: ThemedSquadOverlay.lua: Lobby::Host_StartMatch: launching level for SolNode409_EliteAlert (/Lotus/Levels/Proc/Orokin/OrokinTowerSurvivalRaid)
+418.867 Sys [Info]: SyncAutoPopulatedConsumables for mission MT_SURVIVAL with location SolNode409
+420.402 Game [Info]: OnStateStarted, mission type=MT_SURVIVAL
+432.123 Script [Info]: EndOfMatch.lua: Initialize
+432.123 Script [Info]: EndOfMatch.lua: DBG: HudVis 1
+432.123 Script [Info]: EndOfMatch.lua: Mission Succeeded
+432.123 Script [Info]: EndOfMatch.lua: EndOfMatch.lua: GiveMissionRewards. success=true
+434.607 AI [Info]: OnAgentCreated /Npc/CorpusEliteShieldDroneAgent9 Live 9 Spawned 2 Ticking 8 Paused 1 IgnoredTicking 6 MonitoredTicking 2 AllyLive 7 AllyActive 6 NeutralActive 0
+446.133 AI [Info]: OnAgentCreated /Npc/CorpusEliteShieldDroneAgent24 Live 14 Spawned 16 Ticking 13 Paused 1 IgnoredTicking 6 MonitoredTicking 7 AllyLive 7 AllyActive 6 NeutralActive 0
+469.378 AI [Info]: OnAgentCreated /Npc/CorpusEliteShieldDroneAgent51 Live 17 Spawned 42 Ticking 16 Paused 1 IgnoredTicking 6 MonitoredTicking 10 AllyLive 7 AllyActive 6 NeutralActive 0
+479.473 AI [Info]: OnAgentCreated /Npc/CorpusEliteShieldDroneAgent61 Live 18 Spawned 51 Ticking 16 Paused 1 IgnoredTicking 6 MonitoredTicking 10 AllyLive 7 AllyActive 6 NeutralActive 0
+487.040 AI [Info]: OnAgentCreated /Npc/CorpusEliteShieldDroneAgent68 Live 18 Spawned 57 Ticking 16 Paused 1 IgnoredTicking 6 MonitoredTicking 10 AllyLive 7 AllyActive 6 NeutralActive 0
+493.624 AI [Info]: OnAgentCreated /Npc/CorpusEliteShieldDroneAgent77 Live 17 Spawned 65 Ticking 12 Paused 1 IgnoredTicking 6 MonitoredTicking 6 AllyLive 7 AllyActive 6 NeutralActive 0
+577.762 Script [Info]: EndOfMatch.lua: Initialize
+577.763 Script [Info]: EndOfMatch.lua: EndOfMatch.lua: GiveMissionRewards. success=true
+735.449 Script [Info]: SurvivalMission.lua: Survival: Host - first reward
+735.449 Sys [Info]: Created /Lotus/Interface/SurvivalReward.swf
+735.449 Script [Info]: SurvivalMission.lua: Survival: Gave reward tier 1 at 300.25689697265625
+735.449 Script [Info]: SurvivalReward.lua: RewardUtilities: Gave reward tier 0
+735.957 AI [Info]: OnAgentCreated /Npc/CorpusEliteShieldDroneAgent251 Live 17 Spawned 228 Ticking 16 Paused 1 IgnoredTicking 6 MonitoredTicking 10 AllyLive 7 AllyActive 6 NeutralActive 0
+747.893 Script [Info]: EndOfMatch.lua: Initialize
+747.907 Sys [Info]: EOM missionLocationUnlocked=1
+747.907 Sys [Info]: MISSION_SCORE SolNode409 0x00000139

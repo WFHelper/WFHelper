@@ -254,8 +254,11 @@ const REAL = {
     "233.756 Script [Info]: Dialog.lua: Dialog::CreateOkCancel(description=/Lotus/Language/Menu/AbortMissionConfirm, title= leftItem=/Menu/Confirm_Item_Yes, rightItem=/Menu/Confirm_Item_No)",
   abortConfirmed: "234.503 Script [Info]: TopMenu.lua: Abort: host/no session",
   eomCommit: "234.503 Sys [Info]: EOM missionLocationUnlocked=1",
-  endOfMatch: "241.105 Script [Info]: EndOfMatch.lua: Initialize",
   captureName: "255.746 Script [Info]: ThemedSquadOverlay.lua: Mission name: Isos (Eris)",
+  // From a real Mot survival arbi: EndOfMatch.lua initializes IN-mission, 11s in.
+  inMissionEndOfMatch: "432.123 Script [Info]: EndOfMatch.lua: Initialize",
+  inMissionSucceeded: "432.123 Script [Info]: EndOfMatch.lua: Mission Succeeded",
+  survivalReward: "735.449 Sys [Info]: Created /Lotus/Interface/SurvivalReward.swf",
 };
 
 describe("arbi run end + type detection (real EE.log lines)", () => {
@@ -303,10 +306,22 @@ describe("arbi run end + type detection (real EE.log lines)", () => {
     expect(parser.feedLine(REAL.eomCommit)).toEqual({ type: "run-end", reason: "mission-end" });
   });
 
-  it("ends the run on the EndOfMatch results screen as a late backup", () => {
+  it("does not end the run on in-mission EndOfMatch screens", () => {
     const parser = createArbiParser();
     parser.feedLine(REAL.missionNameSuffix);
-    expect(parser.feedLine(REAL.endOfMatch)).toEqual({ type: "run-end", reason: "mission-end" });
+    expect(parser.feedLine(REAL.inMissionEndOfMatch)).toBeNull();
+    expect(parser.feedLine(REAL.inMissionSucceeded)).toBeNull();
+    expect(parser.isRunActive()).toBe(true);
+    expect(parser.feedLine(REAL.eomCommit)).toEqual({ type: "run-end", reason: "mission-end" });
+  });
+
+  it("counts survival rotation rewards", () => {
+    const result = runParser([
+      missionLine(100, "Arbitration: Mot (Void)"),
+      REAL.survivalReward,
+      "1035.500 Sys [Info]: Created /Lotus/Interface/SurvivalReward.swf",
+    ]);
+    expect(result?.rotations).toBe(2);
   });
 
   it("captures the engine mission type and node id", () => {

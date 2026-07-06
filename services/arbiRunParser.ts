@@ -21,6 +21,8 @@ const AGENT_NPC_NAME = /\/Npc\/([A-Za-z0-9_]+)/;
 const AGENT_EXCLUDE = /(Replicant|RJCrew|petavatar|VoidClone|Turret|Dropship|CatbrowPetAgent|AllyAgent)/i;
 const DRONE = /OnAgentCreated.*?CorpusEliteShieldDroneAgent/;
 const DEFENSE_REWARD = /Sys \[Info\]: Created \/Lotus\/Interface\/DefenseReward\.swf/;
+// Survival rotations pop their own reward UI every 5 minutes.
+const SURVIVAL_REWARD = /Sys \[Info\]: Created \/Lotus\/Interface\/SurvivalReward\.swf/;
 const MONITORED_TICKING = /AI \[Info\]: .*?MonitoredTicking (\d+)/;
 const WAVE_START_UNPAUSE = /WaveDefend\.lua: Starting wave (\d+)/;
 const DEFENSE_WAVE = /WaveDefend\.lua: Defense wave: (\d+)/;
@@ -41,17 +43,16 @@ const ELITE_SECTOR = /^(SolNode\d+)_EliteAlert$/;
 const SYNC_CONSUMABLES = /SyncAutoPopulatedConsumables for mission (MT_[A-Z_]+) with location (\S+)/;
 const STATE_STARTED = /Game \[Info\]: OnStateStarted, mission type=(MT_[A-Z_]+)/;
 
-// Run-end markers, verified against a real abort + quit-to-desktop EE.log:
+// Run-end markers, verified against real abort / quit-to-desktop / survival logs:
 // - TopMenu Abort only fires on a CONFIRMED abort (the AbortMissionConfirm
 //   dialog alone must not end the run - the player can pick No)
 // - the EOM inventory commit fires whenever the local player's mission ends
 //   (extraction, abort, quit-to-desktop alike)
-// - EndOfMatch.lua is the results screen back in the orbiter (late backup)
-// SS_STARTED->SS_ENDING is deliberately NOT used: unclear whether it fires on
-// the staying client during a host migration, which must not end the run.
+// NOT used: EndOfMatch.lua Initialize (fires repeatedly IN-mission, seen 11s
+// into a survival with "Mission Succeeded"); SS_STARTED->SS_ENDING (unclear
+// whether it fires on the staying client during a host migration).
 const ABORT_CONFIRMED = /TopMenu\.lua: Abort:/;
 const EOM_COMMIT = /Sys \[Info\]: EOM missionLocationUnlocked=/;
-const END_OF_MATCH_SCREEN = /Script \[Info\]: EndOfMatch\.lua: Initialize/;
 
 /** Decorative agents that never tick are excluded, except these. */
 const FORCED_VALID_AGENTS = new Set(["CorpusEliteShieldDroneAgent"]);
@@ -251,7 +252,7 @@ export function createArbiParser(): ArbiParser {
       if (ts > 0) run.runEndSec = ts;
       return { type: "run-end", reason: "aborted" };
     }
-    if (EOM_COMMIT.test(line) || END_OF_MATCH_SCREEN.test(line)) {
+    if (EOM_COMMIT.test(line)) {
       if (ts > 0) run.runEndSec = ts;
       return { type: "run-end", reason: "mission-end" };
     }
@@ -306,7 +307,9 @@ export function createArbiParser(): ArbiParser {
       run.preciseStartSec = ts;
     }
 
-    if (DEFENSE_REWARD.test(line)) {
+    const isSurvivalReward = SURVIVAL_REWARD.test(line);
+    if (isSurvivalReward) run.eventCount++;
+    if (isSurvivalReward || DEFENSE_REWARD.test(line)) {
       if (ts - run.lastRewardSec > REWARD_DEBOUNCE_SEC) {
         run.rotations++;
         run.lastRewardSec = ts;

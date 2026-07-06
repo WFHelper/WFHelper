@@ -146,6 +146,27 @@ describe("arbiLogImporter", () => {
     expect(raw).not.toContain("Isos (Eris)");
   });
 
+  it("imports a real survival run past the in-mission EndOfMatch screens", async () => {
+    const { importer } = await freshImporter();
+    const fixture = path.join(__dirname, "..", "fixtures", "arbi", "mot-survival-ee.log");
+
+    const result = await importer.importEeLog(fixture);
+    expect(result.imported).toHaveLength(1);
+
+    const run = result.imported[0];
+    expect(run.node).toBe("Mot (Void)");
+    expect(run.missionType).toBe("other");
+    expect(run.missionTypeRaw).toBe("MT_SURVIVAL");
+    expect(run.solNode).toBe("SolNode409");
+    // The EndOfMatch.lua screens at 432/577 must not have ended the run.
+    expect(run.endReason).toBe("mission-end");
+    expect(run.rotations).toBe(1);
+    expect(run.drones).toBe(7);
+    // first drone 434.607 -> last drone 735.957
+    expect(run.durationSec).toBeCloseTo(301.35, 2);
+    expect(run.id).toBe("2026-07-06_17-53-23");
+  });
+
   it("falls back to file mtime when the header is missing", async () => {
     const { importer } = await freshImporter();
     const logPath = path.join(tmpDir, "EE.log");
