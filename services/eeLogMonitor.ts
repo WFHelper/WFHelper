@@ -11,6 +11,13 @@ import {
   isRivenSessionActive,
   resetRivenState,
 } from "./rivenLogStateMachine";
+import {
+  processArbiLine,
+  notifyEeLogReset,
+  shutdownArbiTracker,
+  setArbiCallbacks,
+} from "./arbiRunTracker";
+import type { ArbiRunRecord } from "../config/shared/arbiTypes";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import type { TradeType, TradeDirection } from "../config/shared/statsTypes";
 
@@ -182,6 +189,7 @@ function pollReadNewBytes(): void {
           closePollFd();
           lastSize = 0;
           lineRemainder = "";
+          notifyEeLogReset();
         }
       } catch {
         // ignore stat errors; retry next tick
@@ -312,6 +320,9 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   // Delegate to the riven state machine - returns whether SendResult was consumed.
   processRivenPatterns(line, source, isDbwinActive());
 
+  // Arbitration run tracking (internally ignores dbwin-source lines).
+  processArbiLine(line, source);
+
   // InitMapping fires when the game returns to gameplay from any full-screen UI.
   // Guard against riven session (SendResult during riven belongs to the riven flow)
   // and against file-poll duplicates when DBWIN is active.
@@ -441,6 +452,7 @@ interface EeLogHandlers {
   onRivenDioramaSetup?: (() => void) | null;
   onRivenChoiceConfirmed?: (() => void) | null;
   onRivenChatView?: (() => void) | null;
+  onArbiRunSaved?: ((run: ArbiRunRecord) => void) | null;
 }
 
 type NormalizedEeLogHandlers = {
@@ -462,6 +474,7 @@ const NULL_EE_LOG_HANDLERS: NormalizedEeLogHandlers = {
   onRivenDioramaSetup: null,
   onRivenChoiceConfirmed: null,
   onRivenChatView: null,
+  onArbiRunSaved: null,
 };
 
 /** Keep a value only when it is a function, else null. */
@@ -495,6 +508,7 @@ function normalizeHandlers(
     onRivenDioramaSetup: asFunction(handlers.onRivenDioramaSetup),
     onRivenChoiceConfirmed: asFunction(handlers.onRivenChoiceConfirmed),
     onRivenChatView: asFunction(handlers.onRivenChatView),
+    onArbiRunSaved: asFunction(handlers.onArbiRunSaved),
   };
 }
 
@@ -528,6 +542,7 @@ export function startWatching(
     onRivenChoiceConfirmed: normalized.onRivenChoiceConfirmed,
     onRivenChatView: normalized.onRivenChatView,
   });
+  setArbiCallbacks({ onRunSaved: normalized.onArbiRunSaved });
 
   clearPollTimer();
   closePollFd();
@@ -555,6 +570,7 @@ export function startWatching(
     closePollFd();
     lastSize = 0;
     lineRemainder = "";
+    notifyEeLogReset();
   });
 
   pollTimer = setInterval(pollReadNewBytes, POLL_INTERVAL_MS);
@@ -570,6 +586,7 @@ export function startWatching(
 }
 
 export function stopWatching(): void {
+  shutdownArbiTracker();
   stopDbwinWorker();
   clearPendingTimers();
   clearPollTimer();
