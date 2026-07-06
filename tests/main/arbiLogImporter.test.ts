@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import zlib from "node:zlib";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 let tmpDir: string;
@@ -72,7 +73,8 @@ describe("arbiLogImporter", () => {
     expect(first.missionType).toBe("defense");
     expect(first.drones).toBe(2);
     expect(first.source).toBe("imported");
-    expect(first.endReason).toBe("imported");
+    // The first run's end was observed (next mission line); the reason carries over.
+    expect(first.endReason).toBe("new-mission");
     // anchor 12:00:00 at ts 0.5 -> run start ts 100 = 12:01:39.5 local
     const anchored = new Date(2026, 2, 1, 12, 0, 0).getTime() - 500 + 100_000;
     expect(first.startedAt).toBe(anchored);
@@ -81,6 +83,8 @@ describe("arbiLogImporter", () => {
     expect(second.node).toBe("Berehynia Interception (Sedna)");
     expect(second.missionType).toBe("interception");
     expect(second.rotations).toBe(1);
+    // File ended mid-run: no observed end.
+    expect(second.endReason).toBe("imported");
 
     // gz segments written and scoped to their run
     const logsDir = path.join(tmpDir, "arbi-logs");
@@ -112,6 +116,34 @@ describe("arbiLogImporter", () => {
     const result = await importer.importEeLog(logPath);
     expect(result.imported).toHaveLength(0);
     expect(result.skipped).toBe(0);
+  });
+
+  it("imports a real aborted run with type, node id and end reason", async () => {
+    const { importer } = await freshImporter();
+    const fixture = path.join(__dirname, "..", "fixtures", "arbi", "oestrus-abort-ee.log");
+
+    const result = await importer.importEeLog(fixture);
+    expect(result.imported).toHaveLength(1);
+    expect(result.skipped).toBe(0);
+
+    const run = result.imported[0];
+    expect(run.node).toBe("Oestrus (Eris)");
+    expect(run.missionType).toBe("other");
+    expect(run.missionTypeRaw).toBe("MT_PURIFY");
+    expect(run.solNode).toBe("SolNode167");
+    expect(run.endReason).toBe("aborted");
+    expect(run.stats).toBeNull();
+    expect(run.drones).toBe(0);
+    // FlightAgents never advanced MonitoredTicking - the post-pass drops them.
+    expect(run.totalEnemies).toBe(0);
+    // Header anchor 11:40:31 at ts 0.102 -> run start ts 178.428 = 11:43:29 local.
+    expect(run.id).toBe("2026-07-06_11-43-29");
+
+    const gz = fs.readFileSync(path.join(tmpDir, "arbi-logs", `${run.id}.log.gz`));
+    const raw = zlib.gunzipSync(gz).toString("utf-8");
+    expect(raw).toContain("Oestrus (Eris) - Arbitration");
+    expect(raw).toContain("AbortMissionConfirm");
+    expect(raw).not.toContain("Isos (Eris)");
   });
 
   it("falls back to file mtime when the header is missing", async () => {

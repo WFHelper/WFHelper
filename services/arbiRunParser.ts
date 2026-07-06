@@ -30,12 +30,28 @@ const WAVE_COUNTDOWN = /\/Lotus\/Interface\/ProjectionsCountdown\.swf/;
 const TERRITORY = /Script \[Info\]: TerritoryMission\.lua/;
 const TERRITORY_START = /TerritoryMission\.lua: .*(control|captured)/i;
 
-/**
- * Markers that end an arbitration run (mission complete / back to orbiter).
- * Fixture-driven: populate from real EE.logs. Until then runs end via
- * new-mission, log truncation, inactivity timeout, or app quit.
- */
-const ARBI_RUN_END_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([]);
+// Mission select flows through squad-system lines carrying the internal sector
+// name; a _EliteAlert suffix marks an arbitration regardless of UI language.
+// All three fire before the Mission name line (Host loading fires after - skip it).
+const PENDING_SECTOR_PLAIN = /(?:ThemedSquadOverlay\.lua: Pending mission:|MapRedux\.lua: Confirm sector) (\S+)/;
+const PENDING_SECTOR_JSON = /Set squad mission.*?"name":"([^"]+)"/;
+const ELITE_SECTOR = /^(SolNode\d+)_EliteAlert$/;
+
+// Timestamped in-mission lines carrying the engine mission type (and node id).
+const SYNC_CONSUMABLES = /SyncAutoPopulatedConsumables for mission (MT_[A-Z_]+) with location (\S+)/;
+const STATE_STARTED = /Game \[Info\]: OnStateStarted, mission type=(MT_[A-Z_]+)/;
+
+// Run-end markers, verified against a real abort + quit-to-desktop EE.log:
+// - TopMenu Abort only fires on a CONFIRMED abort (the AbortMissionConfirm
+//   dialog alone must not end the run - the player can pick No)
+// - the EOM inventory commit fires whenever the local player's mission ends
+//   (extraction, abort, quit-to-desktop alike)
+// - EndOfMatch.lua is the results screen back in the orbiter (late backup)
+// SS_STARTED->SS_ENDING is deliberately NOT used: unclear whether it fires on
+// the staying client during a host migration, which must not end the run.
+const ABORT_CONFIRMED = /TopMenu\.lua: Abort:/;
+const EOM_COMMIT = /Sys \[Info\]: EOM missionLocationUnlocked=/;
+const END_OF_MATCH_SCREEN = /Script \[Info\]: EndOfMatch\.lua: Initialize/;
 
 /** Decorative agents that never tick are excluded, except these. */
 const FORCED_VALID_AGENTS = new Set(["CorpusEliteShieldDroneAgent"]);
@@ -57,13 +73,17 @@ type ArbiParserEvent =
       missionType: ArbiMissionType;
       gameTimeSec: number;
     }
-  | { type: "run-end"; reason: "mission-end" | "new-mission" };
+  | { type: "run-end"; reason: "mission-end" | "aborted" | "new-mission" };
 
 export interface ArbiParsedRun {
   missionName: string;
   node: string;
   missionType: ArbiMissionType;
+  missionTypeRaw: string | null;
+  solNode: string | null;
   runStartSec: number;
+  /** Timestamp of the end marker that closed the run; null when it ended implicitly. */
+  runEndSec: number | null;
   lastActivitySec: number;
   durationSec: number;
   rotations: number;
@@ -103,8 +123,14 @@ interface RunState {
   missionName: string;
   node: string;
   missionType: ArbiMissionType;
+  /** Engine mission type (MT_*); once seen it outranks all name heuristics. */
+  missionTypeRaw: string | null;
+  solNode: string | null;
   wavesPerRotation: number;
   runStartSec: number;
+  /** Timestamp of the StartRound game-state line (gameplay actually begins). */
+  missionStartSec: number | null;
+  runEndSec: number | null;
   lastActivitySec: number;
   eventCount: number;
   rotations: number;
@@ -126,7 +152,12 @@ function classifyMission(missionName: string): {
   missionType: ArbiMissionType;
   wavesPerRotation: number;
 } {
-  const node = missionName.replace("Arbitration:", "").trim();
+  // Both name shapes exist: legacy "Arbitration: Casta (Ceres)" and the current
+  // "Oestrus (Eris) - Arbitration" suffix form.
+  const node = missionName
+    .replace("Arbitration:", "")
+    .replace(/\s+-\s+Arbitration$/, "")
+    .trim();
   const lower = node.toLowerCase();
   const isMirror = MIRROR_DEFENSE_NODES.some((m) => lower.includes(m));
   let missionType: ArbiMissionType = "other";
@@ -135,21 +166,42 @@ function classifyMission(missionName: string): {
   return { node, missionType, wavesPerRotation: isMirror ? 2 : 3 };
 }
 
+function missionTypeFromRaw(mt: string): ArbiMissionType {
+  if (mt === "MT_DEFENSE") return "defense";
+  if (mt === "MT_TERRITORY") return "interception";
+  return "other";
+}
+
+function applyMissionTypeRaw(run: RunState, mt: string): void {
+  if (run.missionTypeRaw !== null) return;
+  run.missionTypeRaw = mt;
+  run.missionType = missionTypeFromRaw(mt);
+}
+
 function hasFullStats(run: RunState): boolean {
   return run.missionType === "defense" || run.missionType === "interception";
 }
 
 export function createArbiParser(): ArbiParser {
   let run: RunState | null = null;
+  /** Internal sector of the most recent mission select (e.g. "SolNode167_EliteAlert"). */
+  let pendingSector: string | null = null;
 
   function startRun(missionName: string, gameTimeSec: number): ArbiParserEvent {
     const { node, missionType, wavesPerRotation } = classifyMission(missionName);
+    const sector = pendingSector !== null ? ELITE_SECTOR.exec(pendingSector) : null;
+    // Consume the sector so a stale _EliteAlert can't mark a later mission as arbi.
+    pendingSector = null;
     run = {
       missionName,
       node,
       missionType,
+      missionTypeRaw: null,
+      solNode: sector ? sector[1] : null,
       wavesPerRotation,
       runStartSec: gameTimeSec,
+      missionStartSec: null,
+      runEndSec: null,
       lastActivitySec: gameTimeSec,
       eventCount: 0,
       rotations: 0,
@@ -174,23 +226,45 @@ export function createArbiParser(): ArbiParser {
     const tsMatch = line.match(TS);
     const ts = tsMatch ? parseFloat(tsMatch[1]) : 0;
 
+    const sector = line.match(PENDING_SECTOR_PLAIN) ?? line.match(PENDING_SECTOR_JSON);
+    if (sector) pendingSector = sector[1];
+
     const mission = line.match(MISSION_NAME);
     if (mission) {
       const name = mission[1].trim();
-      const isArbi = name.includes("Arbitration");
+      const isArbi =
+        name.includes("Arbitration") ||
+        (pendingSector !== null && ELITE_SECTOR.test(pendingSector));
       if (!run) {
         return isArbi ? startRun(name, ts) : null;
       }
       // Host-migration replay guard: the log can repeat the arbi mission-name
       // line with an older timestamp after a migration - not a new run.
       if (isArbi && ts > 0 && run.lastActivitySec > 0 && ts < run.lastActivitySec) return null;
+      if (ts > 0) run.runEndSec = ts;
       return { type: "run-end", reason: "new-mission" };
     }
 
     if (!run) return null;
 
-    for (const pattern of ARBI_RUN_END_PATTERNS) {
-      if (pattern.test(line)) return { type: "run-end", reason: "mission-end" };
+    if (ABORT_CONFIRMED.test(line)) {
+      if (ts > 0) run.runEndSec = ts;
+      return { type: "run-end", reason: "aborted" };
+    }
+    if (EOM_COMMIT.test(line) || END_OF_MATCH_SCREEN.test(line)) {
+      if (ts > 0) run.runEndSec = ts;
+      return { type: "run-end", reason: "mission-end" };
+    }
+
+    const sync = line.match(SYNC_CONSUMABLES);
+    if (sync) {
+      applyMissionTypeRaw(run, sync[1]);
+      if (run.solNode === null) run.solNode = sync[2];
+    }
+    const stateStarted = line.match(STATE_STARTED);
+    if (stateStarted) {
+      applyMissionTypeRaw(run, stateStarted[1]);
+      if (run.missionStartSec === null && ts > 0) run.missionStartSec = ts;
     }
 
     // Pause bookkeeping (used to exclude between-wave downtime from saturation).
@@ -205,7 +279,7 @@ export function createArbiParser(): ArbiParser {
     }
     if (TERRITORY.test(line)) {
       run.eventCount++;
-      if (run.missionType === "other") {
+      if (run.missionTypeRaw === null && run.missionType === "other") {
         run.missionType = "interception";
         run.wavesPerRotation = 3;
       }
@@ -218,9 +292,9 @@ export function createArbiParser(): ArbiParser {
 
     const defWave = line.match(DEFENSE_WAVE);
     if (defWave) {
-      // Wave lines outrank the mission-name heuristic: this is a defense.
+      // Wave lines outrank the mission-name heuristic (but not the engine MT_).
       run.eventCount++;
-      run.missionType = "defense";
+      if (run.missionTypeRaw === null) run.missionType = "defense";
       if (ts > 0) {
         run.waveStarts.set(parseInt(defWave[1], 10), ts);
         run.lastActivitySec = Math.max(run.lastActivitySec, ts);
@@ -376,8 +450,14 @@ export function createArbiParser(): ArbiParser {
     const validSpawns = countValidEnemies(r.spawnEvents);
     const totalEnemies = validSpawns + drones;
 
-    const startSec = r.preciseStartSec ?? r.droneTimestamps[0] ?? r.runStartSec;
-    const durationSec = Math.max(0, r.lastActivitySec - startSec);
+    const startSec =
+      r.preciseStartSec ?? r.droneTimestamps[0] ?? r.missionStartSec ?? r.runStartSec;
+    let durationSec = Math.max(0, r.lastActivitySec - startSec);
+    // No combat activity was recorded (e.g. early abort) but the end marker
+    // pins the real mission window.
+    if (durationSec === 0 && r.runEndSec !== null) {
+      durationSec = Math.max(0, r.runEndSec - startSec);
+    }
 
     let stats: ArbiRunStats | null = null;
     if (hasFullStats(r)) {
@@ -410,7 +490,10 @@ export function createArbiParser(): ArbiParser {
       missionName: r.missionName,
       node: r.node,
       missionType: r.missionType,
+      missionTypeRaw: r.missionTypeRaw,
+      solNode: r.solNode,
       runStartSec: r.runStartSec,
+      runEndSec: r.runEndSec,
       lastActivitySec: r.lastActivitySec,
       durationSec,
       rotations: r.rotations,
@@ -428,6 +511,7 @@ export function createArbiParser(): ArbiParser {
     finalize,
     reset: () => {
       run = null;
+      pendingSector = null;
     },
   };
 }

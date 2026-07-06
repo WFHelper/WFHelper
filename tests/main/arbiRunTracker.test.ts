@@ -94,6 +94,16 @@ describe("arbiRunTracker", () => {
     expect(tracker.getRuns()).toHaveLength(0);
   });
 
+  it("finalizes as aborted on a confirmed abort line", async () => {
+    const tracker = await freshTracker();
+    const saved = waitForRun(tracker);
+    feedRun(tracker);
+    tracker.processArbiLine("500.000 Script [Info]: TopMenu.lua: Abort: host/no session", "file");
+    const run = await saved;
+    expect(run.endReason).toBe("aborted");
+    expect(run.rotations).toBe(1);
+  });
+
   it("finalizes with log-truncated on EE.log reset", async () => {
     const tracker = await freshTracker();
     const saved = waitForRun(tracker);

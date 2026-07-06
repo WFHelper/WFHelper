@@ -10,6 +10,7 @@ type ArbiRunSource = "live" | "imported";
 
 export type ArbiRunEndReason =
   | "mission-end"
+  | "aborted"
   | "new-mission"
   | "log-truncated"
   | "app-quit"
@@ -56,6 +57,10 @@ export interface ArbiRunRecord {
   missionName: string;
   node: string;
   missionType: ArbiMissionType;
+  /** Raw engine mission type from the log (e.g. "MT_PURIFY"); optional for pre-existing records. */
+  missionTypeRaw?: string | null;
+  /** Star chart node id (e.g. "SolNode167"); optional for pre-existing records. */
+  solNode?: string | null;
   durationSec: number;
   rotations: number;
   drones: number;

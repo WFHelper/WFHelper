@@ -10,7 +10,7 @@ import { withScope } from "./logger";
 import { createArbiParser } from "./arbiRunParser";
 import type { ArbiParsedRun } from "./arbiRunParser";
 import { addImportedRun } from "./arbiRunTracker";
-import type { ArbiImportResult } from "../config/shared/arbiTypes";
+import type { ArbiImportResult, ArbiRunEndReason } from "../config/shared/arbiTypes";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("arbiLogImporter");
@@ -51,14 +51,15 @@ export async function importEeLog(filePath: string): Promise<ArbiImportResult> {
     return mtimeMs - Math.max(0, lastTs - parsed.runStartSec) * 1000;
   }
 
-  function finishRun(): void {
+  // "imported" marks runs whose end was never observed (file ended mid-run).
+  function finishRun(endReason: ArbiRunEndReason = "imported"): void {
     const parsed = parser.finalize();
     if (!parsed) return;
     const raw = segment.join("\n") + "\n";
     segment = [];
     segmentBytes = 0;
     segmentTruncated = false;
-    const record = addImportedRun(parsed, computeStartedAt(parsed), raw);
+    const record = addImportedRun(parsed, computeStartedAt(parsed), raw, endReason);
     if (record) imported.push(record);
     else skipped++;
   }
@@ -99,7 +100,7 @@ export async function importEeLog(filePath: string): Promise<ArbiImportResult> {
         continue;
       }
       if (event?.type === "run-end") {
-        finishRun();
+        finishRun(event.reason);
         // Back-to-back arbitration: the ending line may start the next run.
         const next = parser.feedLine(line);
         if (next?.type === "run-start") {

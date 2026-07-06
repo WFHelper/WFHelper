@@ -240,3 +240,115 @@ describe("arbi run stats", () => {
     expect(parser.finalize()).toBeNull();
   });
 });
+
+// Lines below are verbatim from a real 2026-07-06 EE.log (aborted Oestrus arbi).
+const REAL = {
+  pendingElite: "158.074 Script [Info]: ThemedSquadOverlay.lua: Pending mission: SolNode167_EliteAlert",
+  setSquadCapture: `250.845 Net [Info]: Set squad mission: {"difficulty":1,"name":"SolNode162"}`,
+  missionNameSuffix:
+    "178.428 Script [Info]: ThemedSquadOverlay.lua: Mission name: Oestrus (Eris) - Arbitration",
+  syncConsumables:
+    "181.561 Sys [Info]: SyncAutoPopulatedConsumables for mission MT_PURIFY with location SolNode167",
+  stateStarted: "184.403 Game [Info]: OnStateStarted, mission type=MT_PURIFY",
+  abortDialog:
+    "233.756 Script [Info]: Dialog.lua: Dialog::CreateOkCancel(description=/Lotus/Language/Menu/AbortMissionConfirm, title= leftItem=/Menu/Confirm_Item_Yes, rightItem=/Menu/Confirm_Item_No)",
+  abortConfirmed: "234.503 Script [Info]: TopMenu.lua: Abort: host/no session",
+  eomCommit: "234.503 Sys [Info]: EOM missionLocationUnlocked=1",
+  endOfMatch: "241.105 Script [Info]: EndOfMatch.lua: Initialize",
+  captureName: "255.746 Script [Info]: ThemedSquadOverlay.lua: Mission name: Isos (Eris)",
+};
+
+describe("arbi run end + type detection (real EE.log lines)", () => {
+  it("parses the node from the '<node> - Arbitration' suffix name format", () => {
+    const parser = createArbiParser();
+    const event = parser.feedLine(REAL.missionNameSuffix);
+    expect(event).toEqual({
+      type: "run-start",
+      missionName: "Oestrus (Eris) - Arbitration",
+      node: "Oestrus (Eris)",
+      missionType: "other",
+      gameTimeSec: 178.428,
+    });
+  });
+
+  it("detects an arbi via the _EliteAlert sector when the name lacks the keyword", () => {
+    const parser = createArbiParser();
+    parser.feedLine(REAL.pendingElite);
+    const event = parser.feedLine(missionLine(178.428, "Oestrus (Eris)"));
+    expect(event?.type).toBe("run-start");
+    parser.feedLine(REAL.abortConfirmed);
+    const parsed = parser.finalize();
+    expect(parsed?.solNode).toBe("SolNode167");
+    // The sector was consumed at run start: the next plain mission is not an arbi.
+    expect(parser.feedLine(REAL.captureName)).toBeNull();
+    expect(parser.isRunActive()).toBe(false);
+  });
+
+  it("does not end the run on the abort confirm dialog alone", () => {
+    const parser = createArbiParser();
+    parser.feedLine(REAL.missionNameSuffix);
+    expect(parser.feedLine(REAL.abortDialog)).toBeNull();
+    expect(parser.isRunActive()).toBe(true);
+  });
+
+  it("ends the run as aborted on a confirmed abort", () => {
+    const parser = createArbiParser();
+    parser.feedLine(REAL.missionNameSuffix);
+    expect(parser.feedLine(REAL.abortConfirmed)).toEqual({ type: "run-end", reason: "aborted" });
+  });
+
+  it("ends the run on the EOM inventory commit", () => {
+    const parser = createArbiParser();
+    parser.feedLine(REAL.missionNameSuffix);
+    expect(parser.feedLine(REAL.eomCommit)).toEqual({ type: "run-end", reason: "mission-end" });
+  });
+
+  it("ends the run on the EndOfMatch results screen as a late backup", () => {
+    const parser = createArbiParser();
+    parser.feedLine(REAL.missionNameSuffix);
+    expect(parser.feedLine(REAL.endOfMatch)).toEqual({ type: "run-end", reason: "mission-end" });
+  });
+
+  it("captures the engine mission type and node id", () => {
+    const result = runParser([REAL.missionNameSuffix, REAL.syncConsumables, REAL.stateStarted]);
+    expect(result?.missionTypeRaw).toBe("MT_PURIFY");
+    expect(result?.solNode).toBe("SolNode167");
+    expect(result?.missionType).toBe("other");
+    expect(result?.stats).toBeNull();
+  });
+
+  it("spans duration from StartRound to the end marker when no combat was logged", () => {
+    const parser = createArbiParser();
+    parser.feedLine(REAL.missionNameSuffix);
+    parser.feedLine(REAL.stateStarted);
+    parser.feedLine(REAL.abortConfirmed);
+    const result = parser.finalize();
+    // 184.403 -> 234.503
+    expect(result?.durationSec).toBeCloseTo(50.1, 3);
+    expect(result?.runEndSec).toBe(234.503);
+  });
+
+  it("lets the engine type outrank later wave-line heuristics", () => {
+    const result = runParser([
+      missionLine(100, "Arbitration: Hydron (Sedna)"),
+      REAL.syncConsumables,
+      waveLine(110, 1),
+    ]);
+    expect(result?.missionType).toBe("other");
+  });
+
+  it("maps MT_DEFENSE and MT_TERRITORY to full-stats types", () => {
+    const defense = runParser([
+      missionLine(100, "Arbitration: Olympus (Mars)"),
+      "110.000 Sys [Info]: SyncAutoPopulatedConsumables for mission MT_DEFENSE with location SolNode30",
+    ]);
+    expect(defense?.missionType).toBe("defense");
+    expect(defense?.stats).not.toBeNull();
+
+    const interception = runParser([
+      missionLine(100, "Arbitration: Olympus (Mars)"),
+      "110.000 Game [Info]: OnStateStarted, mission type=MT_TERRITORY",
+    ]);
+    expect(interception?.missionType).toBe("interception");
+  });
+});

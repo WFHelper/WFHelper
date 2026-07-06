@@ -1,0 +1,27 @@
+0.102 Sys [Diag]: Current time: Mon Jul  6 11:40:31 2026 [UTC: Mon Jul  6 09:40:31 2026]
+2.114 Sys [Info]: Warframe startup chatter
+158.073 Script [Info]: MapRedux.lua: Confirm sector SolNode167_EliteAlert
+158.073 Net [Info]: Set squad mission: {"name":"SolNode167_EliteAlert"}
+158.074 Script [Info]: ThemedSquadOverlay.lua: Pending mission: SolNode167_EliteAlert
+158.074 Script [Info]: ThemedSquadOverlay.lua: ShowMissionVote Oestrus (Eris) - Arbitration - Level (60-80) (SolNode167_EliteAlert) -1
+178.428 Script [Info]: ThemedSquadOverlay.lua: Mission name: Oestrus (Eris) - Arbitration
+178.428 Script [Info]: ThemedSquadOverlay.lua: Host loading {"name":"SolNode167_EliteAlert"} with MissionInfo:
+178.429 Script [Info]: ThemedSquadOverlay.lua: Lobby::Host_StartMatch: launching level for SolNode167_EliteAlert (/Lotus/Levels/Proc/Infestation/InfestedCorpusShipPurify)
+181.561 Sys [Info]: SyncAutoPopulatedConsumables for mission MT_PURIFY with location SolNode167
+184.402 Net [Info]: GameRulesImpl - changing state from SS_WAITING_FOR_PLAYERS to SS_STARTED
+184.403 Game [Info]: GameRulesImpl::StartRound()
+184.403 Game [Info]: OnStateStarted, mission type=MT_PURIFY
+197.641 AI [Info]: OnAgentCreated /Npc/FlightAgent1 Live 1 Spawned 0 Ignored Ticking 1 Paused 0 IgnoredTicking 1 MonitoredTicking 0 AllyLive 1 AllyActive 1 NeutralActive 0
+197.685 AI [Info]: OnAgentCreated /Npc/FlightAgent2 Live 2 Spawned 0 Ignored Ticking 2 Paused 0 IgnoredTicking 2 MonitoredTicking 0 AllyLive 2 AllyActive 2 NeutralActive 0
+233.756 Script [Info]: Dialog.lua: Dialog::CreateOkCancel(description=/Lotus/Language/Menu/AbortMissionConfirm, title= leftItem=/Menu/Confirm_Item_Yes, rightItem=/Menu/Confirm_Item_No)
+234.379 Script [Info]: Dialog.lua: Dialog::SendResult(4)
+234.503 Script [Info]: TopMenu.lua: Abort: host/no session
+234.503 Sys [Info]: EOM missionLocationUnlocked=1
+234.522 Net [Info]: GameRulesImpl - changing state from SS_STARTED to SS_ENDING
+234.933 Sys [Info]: Clearing gRegion and gGameRules
+241.105 Script [Info]: EndOfMatch.lua: Initialize
+250.845 Script [Info]: MapRedux.lua: Confirm sector SolNode162
+250.845 Net [Info]: Set squad mission: {"difficulty":1,"name":"SolNode162"}
+250.845 Script [Info]: ThemedSquadOverlay.lua: Pending mission: SolNode162
+255.746 Script [Info]: ThemedSquadOverlay.lua: Mission name: Isos (Eris)
+260.111 Game [Info]: OnStateStarted, mission type=MT_CAPTURE

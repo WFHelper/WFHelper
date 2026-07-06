@@ -20,8 +20,8 @@ const log = withScope("arbiRunTracker");
 const INDEX_SCHEMA_VERSION = 1;
 /** Flush the capture buffer to the partial file every N lines (crash-safety vs syscall spam). */
 const FLUSH_EVERY_LINES = 200;
-/** Finalize a run when no combat events arrive for this long (mission over, back
- * in orbiter, or game closed) - the safety net until real end markers exist. */
+/** Finalize a run when no combat events arrive for this long - fallback for
+ * ends the parser markers miss (e.g. crash to desktop, connection loss). */
 const INACTIVITY_TIMEOUT_MS = 10 * 60_000;
 const INACTIVITY_CHECK_MS = 60_000;
 
@@ -122,7 +122,8 @@ function _buildRecord(
   endReason: ArbiRunEndReason,
   logSizeBytes: number,
 ): ArbiRunRecord {
-  const gameElapsedMs = Math.max(0, (parsed.lastActivitySec - parsed.runStartSec) * 1000);
+  const endSec = parsed.runEndSec ?? parsed.lastActivitySec;
+  const gameElapsedMs = Math.max(0, (endSec - parsed.runStartSec) * 1000);
   return {
     id: run.id,
     startedAt: run.startedAt,
@@ -130,6 +131,8 @@ function _buildRecord(
     missionName: parsed.missionName,
     node: parsed.node,
     missionType: parsed.missionType,
+    missionTypeRaw: parsed.missionTypeRaw,
+    solNode: parsed.solNode,
     durationSec: parsed.durationSec,
     rotations: parsed.rotations,
     drones: parsed.drones,
@@ -409,6 +412,7 @@ export function addImportedRun(
   parsed: ArbiParsedRun,
   startedAt: number,
   rawSegment: string,
+  endReason: ArbiRunEndReason = "imported",
 ): ArbiRunRecord | null {
   const id = _formatRunId(new Date(startedAt));
   if (_runs.some((r) => r.id === id) || _reservedIds.has(id)) return null;
@@ -422,7 +426,7 @@ export function addImportedRun(
   } catch (err) {
     log.warn("[Arbi] Failed to write imported run gz:", normalizeErrorMessage(err));
   }
-  const record = _buildRecord({ id, startedAt }, parsed, "imported", size);
+  const record = _buildRecord({ id, startedAt }, parsed, endReason, size);
   record.source = "imported";
   _addRecord(record);
   return record;
