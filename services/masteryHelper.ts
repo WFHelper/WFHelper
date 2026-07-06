@@ -278,7 +278,7 @@ function pickNumber(obj: Record<string, unknown>, paths: string[][]): number | n
   return null;
 }
 
-export interface ProfileMasteryInfo {
+interface ProfileMasteryInfo {
   rank: number | null;
   percentToNext: number | null;
   totalXp: number | null;
