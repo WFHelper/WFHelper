@@ -79,6 +79,11 @@
       icon: NAV_ICON_URLS.rivens,
     },
     {
+      view: "arbi",
+      labelKey: "nav.arbi",
+      icon: NAV_ICON_URLS.arbi,
+    },
+    {
       view: "settings",
       labelKey: "nav.settings",
       icon: NAV_ICON_URLS.settings,

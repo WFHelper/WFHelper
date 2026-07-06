@@ -14,6 +14,7 @@ export const TOGGLEABLE_TABS: ReadonlyArray<{ view: string; labelKey: MessageKey
   { view: "relics", labelKey: "nav.relics" },
   { view: "wiki", labelKey: "nav.wiki" },
   { view: "rivens", labelKey: "nav.rivens" },
+  { view: "arbi", labelKey: "nav.arbi" },
 ];
 
 export const tabVisibility: Record<string, Writable<boolean>> = Object.fromEntries(
