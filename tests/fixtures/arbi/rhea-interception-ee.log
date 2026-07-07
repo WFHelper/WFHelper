@@ -1,0 +1,26 @@
+0.095 Sys [Diag]: Current time: Tue Jul  7 17:05:40 2026 [UTC: Tue Jul  7 15:05:40 2026]
+2.005 Sys [Info]: Warframe startup chatter
+94.588 Script [Info]: MapRedux.lua: Confirm sector SolNode18_EliteAlert
+94.588 Net [Info]: Set squad mission: {"name":"SolNode18_EliteAlert"}
+94.589 Script [Info]: ThemedSquadOverlay.lua: Pending mission: SolNode18_EliteAlert
+99.488 Script [Info]: ThemedSquadOverlay.lua: Mission name: Rhea (Saturn) - Arbitration
+99.489 Script [Info]: ThemedSquadOverlay.lua: Lobby::Host_StartMatch: launching level for SolNode18_EliteAlert (/Lotus/Levels/Proc/Grineer/GrineerAsteroidInterception)
+102.433 Sys [Info]: SyncAutoPopulatedConsumables for mission MT_TERRITORY with location SolNode18
+103.240 Game [Info]: OnStateStarted, mission type=MT_TERRITORY
+104.750 AI [Info]: OnAgentCreated /Npc/CorpusEliteShieldDroneAgent7 Live 7 Spawned 6 Ticking 6 Paused 1 IgnoredTicking 0 MonitoredTicking 6 AllyLive 1 AllyActive 0 NeutralActive 0
+107.426 Script [Info]: EndOfMatch.lua: Initialize
+107.427 Script [Info]: EndOfMatch.lua: Mission Succeeded
+124.058 Script [Info]: EndOfMatch.lua: Initialize
+124.058 Script [Info]: EndOfMatch.lua: Mission Succeeded
+133.194 Script [Info]: TerritoryMission.lua: Alpha has is now under Enemy control
+133.201 AI [Info]: OnAgentCreated /Npc/CorpusEliteShieldDroneAgent17 Live 11 Spawned 9 Ticking 10 Paused 1 IgnoredTicking 6 MonitoredTicking 4 AllyLive 7 AllyActive 6 NeutralActive 0
+145.204 AI [Info]: OnAgentCreated /Npc/CorpusEliteShieldDroneAgent25 Live 13 Spawned 16 Ticking 12 Paused 1 IgnoredTicking 6 MonitoredTicking 6 AllyLive 7 AllyActive 6 NeutralActive 0
+158.402 Script [Info]: TerritoryMission.lua: Delta has is now under Enemy control
+163.207 AI [Info]: OnAgentCreated /Npc/CorpusEliteShieldDroneAgent31 Live 11 Spawned 21 Ticking 10 Paused 1 IgnoredTicking 6 MonitoredTicking 4 AllyLive 7 AllyActive 6 NeutralActive 0
+331.804 Sys [Info]: Resloader 0x000001F89DF86F50 (/Lotus/Interface/Icons/StoreIcons/Resources/CraftingComponents/Elitium.png) starting
+331.811 Sys [Info]: Created /Lotus/Interface/SurvivalReward.swf
+337.236 AI [Info]: OnAgentCreated /Npc/CorpusEliteShieldDroneAgent125 Live 12 Spawned 103 Ticking 11 Paused 1 IgnoredTicking 6 MonitoredTicking 5 AllyLive 7 AllyActive 6 NeutralActive 0
+356.940 Sys [Info]: Created /Lotus/Interface/DefenseReward.swf
+359.928 Script [Info]: EndOfMatch.lua: Initialize
+359.929 Script [Info]: EndOfMatch.lua: Mission Succeeded
+359.945 Sys [Info]: EOM missionLocationUnlocked=1

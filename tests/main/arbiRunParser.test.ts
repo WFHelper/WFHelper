@@ -318,10 +318,29 @@ describe("arbi run end + type detection (real EE.log lines)", () => {
   it("counts survival rotation rewards", () => {
     const result = runParser([
       missionLine(100, "Arbitration: Mot (Void)"),
+      "110.000 Sys [Info]: SyncAutoPopulatedConsumables for mission MT_SURVIVAL with location SolNode409",
       REAL.survivalReward,
       "1035.500 Sys [Info]: Created /Lotus/Interface/SurvivalReward.swf",
     ]);
     expect(result?.rotations).toBe(2);
+  });
+
+  it("ignores the survival reward UI outside survivals", () => {
+    // Real interception sequence: SurvivalReward.swf popped 25s before the true
+    // DefenseReward and must not eat the rotation via the 30s debounce.
+    const result = runParser([
+      missionLine(99.488, "Rhea (Saturn) - Arbitration"),
+      "103.240 Game [Info]: OnStateStarted, mission type=MT_TERRITORY",
+      droneLine(104.75),
+      "133.194 Script [Info]: TerritoryMission.lua: Alpha has is now under Enemy control",
+      "331.811 Sys [Info]: Created /Lotus/Interface/SurvivalReward.swf",
+      droneLine(337.236),
+      "356.940 Sys [Info]: Created /Lotus/Interface/DefenseReward.swf",
+    ]);
+    expect(result?.rotations).toBe(1);
+    expect(result?.stats?.rewardTimestamps).toEqual([356.94]);
+    // duration runs to the real reward, not the last drone
+    expect(result?.durationSec).toBeCloseTo(356.94 - 133.194, 3);
   });
 
   it("captures the engine mission type and node id", () => {

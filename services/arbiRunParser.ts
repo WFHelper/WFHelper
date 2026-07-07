@@ -307,7 +307,10 @@ export function createArbiParser(): ArbiParser {
       run.preciseStartSec = ts;
     }
 
-    const isSurvivalReward = SURVIVAL_REWARD.test(line);
+    // The survival reward UI also gets created in other modes (seen 25s before
+    // an interception's DefenseReward) - only trust it in actual survivals.
+    const isSurvivalReward =
+      run.missionTypeRaw === "MT_SURVIVAL" && SURVIVAL_REWARD.test(line);
     if (isSurvivalReward) run.eventCount++;
     if (isSurvivalReward || DEFENSE_REWARD.test(line)) {
       if (ts - run.lastRewardSec > REWARD_DEBOUNCE_SEC) {

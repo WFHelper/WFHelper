@@ -167,6 +167,28 @@ describe("arbiLogImporter", () => {
     expect(run.id).toBe("2026-07-06_17-53-23");
   });
 
+  it("imports a real interception run ignoring the stray survival reward UI", async () => {
+    const { importer } = await freshImporter();
+    const fixture = path.join(__dirname, "..", "fixtures", "arbi", "rhea-interception-ee.log");
+
+    const result = await importer.importEeLog(fixture);
+    expect(result.imported).toHaveLength(1);
+
+    const run = result.imported[0];
+    expect(run.node).toBe("Rhea (Saturn)");
+    expect(run.missionType).toBe("interception");
+    expect(run.missionTypeRaw).toBe("MT_TERRITORY");
+    expect(run.solNode).toBe("SolNode18");
+    expect(run.endReason).toBe("mission-end");
+    expect(run.rotations).toBe(1);
+    expect(run.drones).toBe(5);
+    // The rotation anchors on the DefenseReward, not the stray SurvivalReward.
+    expect(run.stats?.rewardTimestamps).toEqual([356.94]);
+    expect(run.stats?.preciseStartSec).toBe(133.194);
+    // first territory control 133.194 -> reward 356.940 (matches the reference site)
+    expect(run.durationSec).toBeCloseTo(223.746, 3);
+  });
+
   it("falls back to file mtime when the header is missing", async () => {
     const { importer } = await freshImporter();
     const logPath = path.join(tmpDir, "EE.log");
