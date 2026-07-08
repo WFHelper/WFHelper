@@ -859,3 +859,50 @@ describe("findWeaponInText", () => {
     expect(findWeaponInText("Gotva Visi-critata\n+198.2% Multishot")).toBe("Gotva Prime");
   });
 });
+
+// Real roll-right OCR outputs from 2026-07-07 main.log: the stat crop clips the
+// card's right edge, truncating stat names mid-word.
+describe("parseRivenStats truncated roll crops", () => {
+  it("completes right-truncated names on the new-roll card (Boar Critadra)", () => {
+    const stats = parseRivenStats(
+      "Boar Critadra\n+150.6% Fire Rate (x)\nBows).\n+152.3% Critical Cha\nA -34.6% Reload Spe\nMB 10",
+    );
+    expect(stats).toHaveLength(3);
+    expect(stats[0]).toMatchObject({ name: "Fire Rate", positive: true, value: 150.6 });
+    expect(stats[1]).toMatchObject({ name: "Critical Chance", positive: true, value: 152.3 });
+    expect(stats[2]).toMatchObject({ name: "Reload Speed", positive: false, value: 34.6 });
+  });
+
+  it("completes truncated names and leading icon junk on the current card", () => {
+    const stats = parseRivenStats(
+      "Boar Vexi-satiao\nx1.57 Damage to Infe\n+164.5% Multishc\n+129.2% 4 Electric\nAo-102.5% Status Dura\nMB 105",
+    );
+    expect(stats).toHaveLength(4);
+    expect(stats[0]).toMatchObject({ name: "Damage to Infested", value: 1.57, multiplier: true });
+    expect(stats[1]).toMatchObject({ name: "Multishot", positive: true, value: 164.5 });
+    expect(stats[2]).toMatchObject({ name: "Electricity", positive: true, value: 129.2 });
+    expect(stats[3]).toMatchObject({ name: "Status Duration", positive: false, value: 102.5 });
+  });
+
+  it("recovers the middle stat when the name column is clipped (Crita-arma)", () => {
+    const stats = parseRivenStats(
+      "Boar Crita-arma\n+52.3% Magazin\nCapacity\n+91.9%  Electrici\n+103.1% Critical Cha",
+    );
+    expect(stats.map((s) => s.name)).toEqual(["Magazine", "Electricity", "Critical Chance"]);
+    expect(stats[2]).toMatchObject({ positive: true, value: 103.1 });
+  });
+
+  it("fuzzy-matches the merged magazine capacity line to the full stat name", () => {
+    const stats = parseRivenStats("+52.3% Magazin Capacity");
+    expect(stats[0]).toMatchObject({ name: "Magazine Capacity", positive: true, value: 52.3 });
+  });
+
+  it("does not upgrade a complete stat name followed by line junk", () => {
+    const stats = parseRivenStats("+55.1% Critical Chance +120.4% Melee Damage");
+    expect(stats.map((s) => s.name)).toEqual(["Critical Chance", "Melee Damage"]);
+  });
+
+  it("detects the weapon from the roll card title text", () => {
+    expect(findWeaponInText("Boar Critadra\n+150.6% Fire Rate (x)\nBows).")).toBe("Boar");
+  });
+});

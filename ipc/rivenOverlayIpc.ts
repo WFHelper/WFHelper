@@ -327,6 +327,26 @@ function clearRivenScanTimers(): void {
   }
 }
 
+/**
+ * Detect the weapon from card OCR text when it is not known yet (the cycle
+ * dialog no longer carries the weapon name reliably) and unblock everything
+ * gated on it: weapon label, best attributes, WFM similar listings, grading.
+ */
+function maybeDetectWeaponFromText(ocrText: string): void {
+  if (!ocrText || (_rivenWeaponName && _rivenWeaponName !== "Riven")) return;
+  const detected = rivenDataSvc.findWeaponInText(ocrText);
+  if (!detected) return;
+  log.info(`[RivenScan] weapon detected from OCR: "${detected}"`);
+  _rivenWeaponName = detected;
+  forEachRivenWindow((win) => {
+    if (!win.isDestroyed()) win.webContents.send(RIVEN_WEAPON_UPDATE, detected);
+  });
+  sendWeaponEnrichment();
+  // Grading for the already-displayed initial stats was skipped while the
+  // weapon was unknown - deliver it now.
+  if (_rivenInitialStats.length > 0) sendGradedInitialStats();
+}
+
 function triggerInitialScan(): void {
   if (_rivenInitialScanTimer) clearTimeout(_rivenInitialScanTimer);
   _rivenInitialScanTimer = setTimeout(async () => {
@@ -336,18 +356,7 @@ function triggerInitialScan(): void {
       _rivenInitialStats = stats;
 
       // Try to extract weapon name from OCR text if not already known
-      const weaponSourceText = titleText || rawText;
-      if (weaponSourceText && (!_rivenWeaponName || _rivenWeaponName === "Riven")) {
-        const detected = rivenDataSvc.findWeaponInText(weaponSourceText);
-        if (detected) {
-          log.info(`[RivenScan] weapon detected from OCR: "${detected}"`);
-          _rivenWeaponName = detected;
-          forEachRivenWindow((win) => {
-            if (!win.isDestroyed()) win.webContents.send(RIVEN_WEAPON_UPDATE, detected);
-          });
-          sendWeaponEnrichment();
-        }
-      }
+      maybeDetectWeaponFromText(titleText || rawText);
 
       // Always notify the overlay so it can stop the scanning spinner.
       // When stats is empty, the overlay shows the "waiting" placeholder;
@@ -381,6 +390,9 @@ function triggerRollScan(delayMs = ROLL_SCAN_DELAY_MS): void {
     try {
       const panels = await rivenScan.scanNewRoll();
       if (mySerial !== _rollScanSerial) return; // superseded while awaiting OCR
+      // The roll card's title line carries the weapon name - use it when the
+      // cycle dialog gave us none (it logs a language key these days).
+      maybeDetectWeaponFromText(panels.rawText ?? "");
       // If the OCR produced per-panel results, use them directly.  Otherwise
       // fall back to the initial stats we already have for the left panel.
       const leftStats = panels.left.length > 0 ? panels.left : _rivenInitialStats;

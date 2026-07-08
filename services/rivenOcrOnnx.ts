@@ -574,7 +574,12 @@ function mergeSplitLines(lines: string[]): string[] {
     let statPart = lineNorm.replace(/^[+\-x]?[\d.,]+%?\s*/, "").trim();
     statPart = statPart.replace(/[^a-z0-9 ]/g, "").trim();
 
-    if (i + 1 < lines.length && SPLIT_STAT_HEADS.has(statPart)) {
+    // Tolerate a right-truncated head ("magazin" for "magazine") - the stat
+    // crop clips the card edge, so the head fragment may be missing chars.
+    const headMatches =
+      SPLIT_STAT_HEADS.has(statPart) ||
+      (statPart.length >= 4 && [...SPLIT_STAT_HEADS].some((head) => head.startsWith(statPart)));
+    if (i + 1 < lines.length && headMatches) {
       const nextNorm = normForMerge(lines[i + 1]);
       const nextClean = nextNorm.replace(/[^a-z0-9 ]/g, "").trim();
       if (nextClean in SPLIT_STAT_TAILS) {

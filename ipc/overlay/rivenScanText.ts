@@ -206,6 +206,9 @@ function preprocessOcrText(raw: string): string {
   // Strip isolated uppercase letter (element-icon artifact) between sign and digits.
   // e.g. "+ A0,58 Damage to Grineer" -> "+0,58 Damage to Grineer"
   text = text.replace(/([+\-\u2013]\s*)[A-Z]\s*(\d)/g, "$1$2");
+  // Strip 1-2 letters of element-icon junk BEFORE the sign at line start:
+  // "Ao-102.5% Status Dura" / "A -34.6% Reload Spe" -> "-102.5% ..." / "-34.6% ...".
+  text = text.replace(/^[A-Za-z]{1,2}\s*(?=[+\-\u2013]\s*\d)/gm, "");
   text = text.replace(
     /[0-9'"`]\s*(?=(?:Slash|Cold|Heat|Electricity|Toxin|Impact|Puncture|Radiation|Viral|Corrosive|Blast|Magnetic|Gas)\b)/gi,
     "",
@@ -300,6 +303,29 @@ export function parseRivenStats(text: string): RivenStat[] {
 function lineContainsKnownStat(line: string): boolean {
   const lineLower = line.toLowerCase();
   return KNOWN_RIVEN_STATS.some((stat) => lineLower.includes(stat.toLowerCase()));
+}
+
+/**
+ * Complete a right-truncated stat name: the stat crop clips the card's right
+ * edge, so OCR yields prefixes like "Critical Cha" or "Status Dura".  Returns
+ * the known stat the fragment is a prefix of - only when the candidates are
+ * unambiguous (they all extend the shortest one, e.g. "Critical Cha" ->
+ * "Critical Chance", never picking between "Damage to Corpus/Grineer/...").
+ */
+function completeTruncatedStatName(fragment: string): string | null {
+  const frag = fragment
+    .toLowerCase()
+    .replace(/[^a-z]+$/, "")
+    .trim();
+  if (frag.length < 5) return null;
+  const candidates = KNOWN_RIVEN_STATS.filter((stat) => {
+    const statLower = stat.toLowerCase();
+    return statLower.length > frag.length && statLower.startsWith(frag);
+  }).sort((a, b) => a.length - b.length);
+  if (candidates.length === 0) return null;
+  const shortest = candidates[0].toLowerCase();
+  const isChain = candidates.every((stat) => stat.toLowerCase().startsWith(shortest));
+  return isChain ? candidates[0] : null;
 }
 
 function collapseOrphanValueLines(lines: string[]): string[] {
@@ -403,7 +429,14 @@ function parseStatsFromLines(text: string): RivenStat[] {
       if (/^[+\-\u2013x\xd7]/i.test(line)) {
         // Strip sign+value prefix to isolate the stat name portion
         const namePart = line.replace(/^[+\-\u2013x\xd7]?[\d.,\s%]*/, "").trim();
-        if (namePart.length >= 3) {
+        // Right-truncation first: "+152.3% Critical Cha" is beyond the fuzzy
+        // distance budget but is a clean prefix of "Critical Chance".
+        const completed = completeTruncatedStatName(namePart);
+        if (completed) {
+          const idx = lineLower.indexOf(namePart.toLowerCase().slice(0, 4));
+          if (idx >= 0) hits.push({ stat: completed, idx });
+        }
+        if (hits.length === 0 && namePart.length >= 3) {
           let bestStat = "";
           let bestDist = Infinity;
           let bestIdx = -1;
@@ -433,6 +466,25 @@ function parseStatsFromLines(text: string): RivenStat[] {
       if (hit.idx >= lastEnd) {
         filtered.push(hit);
         lastEnd = hit.idx + hit.stat.length;
+      }
+    }
+
+    // Upgrade short-form matches whose line tail is a truncated longer stat:
+    // "x1.57 Damage to Infe" matches "Damage" but completes to "Damage to Infested".
+    // Only when the cleaned tail EXTENDS the match - a complete name followed
+    // by junk ("Critical Chance +99...") must not jump to a longer stat.
+    for (let index = 0; index < filtered.length; index++) {
+      const hit = filtered[index];
+      const tailEnd = index + 1 < filtered.length ? filtered[index + 1].idx : line.length;
+      const cleanTail = line
+        .slice(hit.idx, tailEnd)
+        .toLowerCase()
+        .replace(/[^a-z]+$/, "")
+        .trim();
+      if (cleanTail.length <= hit.stat.length) continue;
+      const completed = completeTruncatedStatName(cleanTail);
+      if (completed && completed.toLowerCase().startsWith(hit.stat.toLowerCase())) {
+        filtered[index] = { stat: completed, idx: hit.idx };
       }
     }
 

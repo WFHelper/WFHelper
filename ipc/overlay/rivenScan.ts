@@ -32,6 +32,9 @@ const DXGI_FRESH_TIMEOUT_MS = 100;
 export interface RollPanelResult {
   left: RivenStat[];
   right: RivenStat[];
+  /** Raw OCR text of the scanned card (title line included) for weapon detection.
+   *  Only set by the scanner; absent on the overlay IPC payload. */
+  rawText?: string;
 }
 
 interface InitialScanResult {
@@ -283,10 +286,10 @@ export async function scanNewRoll(): Promise<RollPanelResult> {
   const generation = ++_scanGeneration;
   try {
     const result = await runRivenScanAttempt(RIVEN_SCAN_PROFILES.roll, generation);
-    return { left: [], right: result.stats };
+    return { left: [], right: result.stats, rawText: result.text };
   } catch (err) {
     log.warn("[RivenScan] roll scan OCR failed:", String(err));
-    return { left: [], right: [] };
+    return { left: [], right: [], rawText: "" };
   }
 }
 
