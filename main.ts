@@ -45,6 +45,7 @@ import {
 import * as statsTracker from "./services/statsTracker";
 import * as arbiRunTracker from "./services/arbiRunTracker";
 import * as arbiIpc from "./ipc/arbiIpc";
+import * as arbiScheduleIpc from "./ipc/arbiScheduleIpc";
 import * as tradeTracker from "./services/tradeTracker";
 import * as tradeWfmMatcher from "./services/tradeWfmMatcher";
 import * as apiHelperRunner from "./services/apiHelperRunner";
@@ -197,6 +198,7 @@ app.whenReady().then(async () => {
   rivensIpc.register();
   tradeNotificationIpc.register();
   arbiIpc.register();
+  arbiScheduleIpc.register();
 
   const attachInventoryAfterHelperRun = (ok: boolean) => {
     if (!ok || ctx.currentInventoryPath) return;
@@ -385,6 +387,7 @@ app.whenReady().then(async () => {
     onArbiRunSaved: (run) => {
       const win = ctx.mainWindow;
       if (win && !win.isDestroyed()) win.webContents.send(ARBI_RUN_SAVED, run);
+      overlayIpc.maybeShowArbiSummary(run);
     },
   });
   if (eeLogPath) log.info("[EELog] Monitoring:", eeLogPath);
@@ -431,6 +434,7 @@ app.on("window-all-closed", () => {
   apiHelperRunner.stopPolling();
   eeLogMonitor.stopWatching();
   overlayIpc.unregisterOverlayHotkey();
+  arbiScheduleIpc.shutdown();
   if (process.platform !== "darwin") app.quit();
 });
 

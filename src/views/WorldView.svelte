@@ -25,6 +25,9 @@
   import type { Invasion, SteelPathHonors } from "../types/world.js";
   import FissureAlerts from "../components/settings/FissureAlerts.svelte";
   import CollapsibleSection from "../components/CollapsibleSection.svelte";
+  import HeaderTabs from "../components/HeaderTabs.svelte";
+  import ArbiSchedule from "../components/world/ArbiSchedule.svelte";
+  import { tr } from "../lib/i18n.js";
   import InvasionItem from "../components/world/InvasionItem.svelte";
   import BaroInventoryCard from "../components/world/BaroInventoryCard.svelte";
   import CycleRow from "../components/world/CycleRow.svelte";
@@ -40,6 +43,22 @@
   function toggleSection(key: string) {
     collapsed = toggleCollapsedSection(collapsed, key);
   }
+
+  // Sub-tab (world overview vs arbitration schedule) - persisted to localStorage
+  let worldTab: "world" | "arbis" =
+    localStorage.getItem("world-tab") === "arbis" ? "arbis" : "world";
+  function setWorldTab(key: string) {
+    worldTab = key === "arbis" ? "arbis" : "world";
+    try {
+      localStorage.setItem("world-tab", worldTab);
+    } catch {
+      // tab pref is best-effort
+    }
+  }
+  $: worldTabOptions = [
+    { key: "world", label: $tr("world.tab.world") },
+    { key: "arbis", label: $tr("world.tab.arbitrations") },
+  ];
 
   const nowClock = clockStore(1000);
   const coarseClock = clockStore(COARSE_CLOCK_MS);
@@ -144,15 +163,20 @@
   <div class="view-header">
     <div class="flex items-center gap-3">
       <h2>World</h2>
-      {#if baroActive}
-        <span class="rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-warning">Baro leaves in {times.baro}{#if baroLocation} - {baroLocation}{/if}</span>
-      {:else if baroAct}
-        <span class="rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-warning">Baro arrives in {times.baro}{#if baroLocation} - {baroLocation}{/if}</span>
+      <HeaderTabs options={worldTabOptions} activeKey={worldTab} onSelect={setWorldTab} />
+      {#if worldTab === "world"}
+        {#if baroActive}
+          <span class="rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-warning">Baro leaves in {times.baro}{#if baroLocation} - {baroLocation}{/if}</span>
+        {:else if baroAct}
+          <span class="rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-warning">Baro arrives in {times.baro}{#if baroLocation} - {baroLocation}{/if}</span>
+        {/if}
       {/if}
     </div>
   </div>
 
-  {#if !wd && $worldLoading}
+  {#if worldTab === "arbis"}
+    <ArbiSchedule />
+  {:else if !wd && $worldLoading}
     <div class="empty-state"><p>Loading world data...</p></div>
   {:else if !wd}
     <div class="empty-state"><p>World data unavailable</p></div>

@@ -58,3 +58,4 @@ __pycache__/
 # Temporary benchmark output files in repo root
 _*.txt
 yolo_*.txt
+test-results/

@@ -39,5 +39,14 @@ const appDataRoot = app.getPath("appData");
 const userDataPath = path.join(appDataRoot, APP_USER_DATA_DIR_NAME);
 
 app.setName(APP_PRODUCT_NAME);
-copyLegacyUserData(appDataRoot, userDataPath);
-app.setPath("userData", userDataPath);
+
+// Test hook: E2E runs sandbox all disk state away from the real profile.
+// (Electron resolves appData via the Win32 API, so an APPDATA env override
+// alone does not move userData.)
+const userDataOverride = process.env.WFHELPER_USER_DATA;
+if (userDataOverride) {
+  app.setPath("userData", userDataOverride);
+} else {
+  copyLegacyUserData(appDataRoot, userDataPath);
+  app.setPath("userData", userDataPath);
+}
