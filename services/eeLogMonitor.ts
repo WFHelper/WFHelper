@@ -452,6 +452,7 @@ interface EeLogHandlers {
   onRivenDioramaSetup?: (() => void) | null;
   onRivenChoiceConfirmed?: (() => void) | null;
   onRivenChatView?: (() => void) | null;
+  onRivenWeaponPath?: ((weaponPath: string) => void) | null;
   onArbiRunSaved?: ((run: ArbiRunRecord) => void) | null;
 }
 
@@ -474,6 +475,7 @@ const NULL_EE_LOG_HANDLERS: NormalizedEeLogHandlers = {
   onRivenDioramaSetup: null,
   onRivenChoiceConfirmed: null,
   onRivenChatView: null,
+  onRivenWeaponPath: null,
   onArbiRunSaved: null,
 };
 
@@ -508,6 +510,7 @@ function normalizeHandlers(
     onRivenDioramaSetup: asFunction(handlers.onRivenDioramaSetup),
     onRivenChoiceConfirmed: asFunction(handlers.onRivenChoiceConfirmed),
     onRivenChatView: asFunction(handlers.onRivenChatView),
+    onRivenWeaponPath: asFunction(handlers.onRivenWeaponPath),
     onArbiRunSaved: asFunction(handlers.onArbiRunSaved),
   };
 }
@@ -541,6 +544,7 @@ export function startWatching(
     onRivenDioramaSetup: normalized.onRivenDioramaSetup,
     onRivenChoiceConfirmed: normalized.onRivenChoiceConfirmed,
     onRivenChatView: normalized.onRivenChatView,
+    onRivenWeaponPath: normalized.onRivenWeaponPath,
   });
   setArbiCallbacks({ onRunSaved: normalized.onArbiRunSaved });
 

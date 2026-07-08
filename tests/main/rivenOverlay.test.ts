@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { RIVEN_PATTERNS } from "../../services/eeLogMonitor";
 import { parseRivenStats } from "../../ipc/overlay/rivenScanText";
-import { findWeaponInText } from "../../services/rivenData";
+import { findWeaponInText, getWeaponNameByUniqueName } from "../../services/rivenData";
 
 describe("RIVEN_PATTERNS", () => {
   describe("sessionOpen", () => {
@@ -904,5 +904,40 @@ describe("parseRivenStats truncated roll crops", () => {
 
   it("detects the weapon from the roll card title text", () => {
     expect(findWeaponInText("Boar Critadra\n+150.6% Fire Rate (x)\nBows).")).toBe("Boar");
+  });
+});
+
+// Real lines from a 2026-07-08 EE.log: the roll screen's diorama streams in the
+// riven's weapon model between session open and diorama setup - the resource
+// path is an exact, localization-proof weapon id.
+describe("dioramaWeaponLoad", () => {
+  it("captures the weapon path from all three resource-load line forms", () => {
+    const lines = [
+      "48.043 Sys [Info]: ResourceLoader 0x00000245D4699890 (/Lotus/Weapons/Grineer/KuvaLich/LongGuns/Sobek/KuvaSobek) Found 1,002 items to load (0ms) [Heap: 1,023,994,576/1,025,310,720 Footprint: 4,005,261,312 Handles: 1,362]",
+      "48.080 Sys [Info]: Resloader 0x00000245D4699890 (/Lotus/Weapons/Grineer/KuvaLich/LongGuns/Sobek/KuvaSobek) starting",
+      "48.096 Sys [Info]: Resource load completed 0x00000245D4699890 (/Lotus/Weapons/Grineer/KuvaLich/LongGuns/Sobek/KuvaSobek) in one pass and 0.1s (I/O ~= 8.3%, inherited 951 of 1,002)",
+    ];
+    for (const line of lines) {
+      const m = line.match(RIVEN_PATTERNS.dioramaWeaponLoad);
+      expect(m?.[1]).toBe("/Lotus/Weapons/Grineer/KuvaLich/LongGuns/Sobek/KuvaSobek");
+    }
+  });
+
+  it("ignores non-weapon resource loads", () => {
+    const line =
+      "48.041 Sys [Info]: ResourceLoader 0x00000245D46997F0 (/Lotus/Interface/DioramaViewer.swf) Found 3 items to load (0ms)";
+    expect(line.match(RIVEN_PATTERNS.dioramaWeaponLoad)).toBeNull();
+  });
+});
+
+describe("getWeaponNameByUniqueName", () => {
+  it("resolves the diorama weapon path to the owned variant", () => {
+    expect(
+      getWeaponNameByUniqueName("/Lotus/Weapons/Grineer/KuvaLich/LongGuns/Sobek/KuvaSobek"),
+    ).toBe("Kuva Sobek");
+  });
+
+  it("returns null for unknown paths", () => {
+    expect(getWeaponNameByUniqueName("/Lotus/Weapons/Tenno/DoesNotExist")).toBeNull();
   });
 });

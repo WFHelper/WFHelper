@@ -332,11 +332,8 @@ function clearRivenScanTimers(): void {
  * dialog no longer carries the weapon name reliably) and unblock everything
  * gated on it: weapon label, best attributes, WFM similar listings, grading.
  */
-function maybeDetectWeaponFromText(ocrText: string): void {
-  if (!ocrText || (_rivenWeaponName && _rivenWeaponName !== "Riven")) return;
-  const detected = rivenDataSvc.findWeaponInText(ocrText);
-  if (!detected) return;
-  log.info(`[RivenScan] weapon detected from OCR: "${detected}"`);
+function applyDetectedWeapon(detected: string, source: string): void {
+  log.info(`[RivenScan] weapon detected from ${source}: "${detected}"`);
   _rivenWeaponName = detected;
   forEachRivenWindow((win) => {
     if (!win.isDestroyed()) win.webContents.send(RIVEN_WEAPON_UPDATE, detected);
@@ -345,6 +342,35 @@ function maybeDetectWeaponFromText(ocrText: string): void {
   // Grading for the already-displayed initial stats was skipped while the
   // weapon was unknown - deliver it now.
   if (_rivenInitialStats.length > 0) sendGradedInitialStats();
+}
+
+function maybeDetectWeaponFromText(ocrText: string): void {
+  if (!ocrText || (_rivenWeaponName && _rivenWeaponName !== "Riven")) return;
+  const detected = rivenDataSvc.findWeaponInText(ocrText);
+  if (!detected) return;
+  applyDetectedWeapon(detected, "OCR");
+}
+
+/**
+ * The roll screen's diorama loads the riven's weapon model right after the
+ * screen opens - the resource path is an exact, localization-proof weapon id
+ * (e.g. /Lotus/Weapons/Grineer/KuvaLich/LongGuns/Sobek/KuvaSobek).
+ */
+export function onRivenWeaponPath(weaponPath: string): void {
+  const name = rivenDataSvc.getWeaponNameByUniqueName(weaponPath);
+  if (!name) {
+    log.info(`[OverlayRoute] diorama weapon path has no indexed weapon: ${weaponPath}`);
+    return;
+  }
+  if (_rivenWeaponName && _rivenWeaponName !== "Riven") {
+    if (_rivenWeaponName !== name) {
+      log.warn(
+        `[OverlayRoute] diorama weapon "${name}" differs from detected "${_rivenWeaponName}" - keeping the first`,
+      );
+    }
+    return;
+  }
+  applyDetectedWeapon(name, "diorama load");
 }
 
 function triggerInitialScan(): void {

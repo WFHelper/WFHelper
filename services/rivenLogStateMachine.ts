@@ -17,6 +17,10 @@ export const RIVEN_PATTERNS = {
   genericDialogNonInteractive: /leftItem=nil/,
   sendResult: /Dialog\.lua:\s*Dialog::SendResult\((\d+)\)/,
   dioramaSetup: /OmegaRerollSelection\.lua.*Diorama setup/i,
+  /** The roll-screen diorama loads the riven's weapon model right after the
+   *  screen opens - the resource path names the exact weapon variant. */
+  dioramaWeaponLoad:
+    /(?:ResourceLoader|Resloader|Resource load completed) 0x[0-9A-Fa-f]+ \((\/Lotus\/Weapons\/[^)]+)\)/,
   /** Extra close signal emitted by the recycled effects line. */
   recycledEffects: /ytes of recycled effects/,
 } as const;
@@ -30,6 +34,7 @@ interface RivenCallbacks {
   onRivenRollConfirmed: (() => void) | null;
   onRivenDioramaSetup: (() => void) | null;
   onRivenChoiceConfirmed: (() => void) | null;
+  onRivenWeaponPath: ((weaponPath: string) => void) | null;
 }
 
 let _callbacks: RivenCallbacks = {
@@ -40,6 +45,7 @@ let _callbacks: RivenCallbacks = {
   onRivenRollConfirmed: null,
   onRivenDioramaSetup: null,
   onRivenChoiceConfirmed: null,
+  onRivenWeaponPath: null,
 };
 
 export function setRivenCallbacks(cbs: Partial<RivenCallbacks>): void {
@@ -82,6 +88,9 @@ const RIVEN_SESSION_OPEN_COOLDOWN_MS = 15_000;
 let _lastRivenDioramaAt = 0;
 const RIVEN_DIORAMA_DEDUP_MS = 2_000;
 
+/** True once this session's diorama weapon load was reported (once per session). */
+let _rivenWeaponPathSent = false;
+
 /** True once the diorama-setup line fires.
  * Close patterns (ClearAgents / recycled effects) are gated on this so that
  * lines emitted during the loading transition TO the riven screen are ignored. */
@@ -105,6 +114,7 @@ function resetRivenIdleTimer(): void {
     _rivenSessionActive = false;
     _rivenSessionStartedAt = 0;
     _rivenDioramaReady = false;
+    _rivenWeaponPathSent = false;
     log.info("[EELog] Riven session idle timeout - resetting");
   }, RIVEN_SESSION_IDLE_TIMEOUT_MS);
 }
@@ -126,6 +136,7 @@ function forceEndRivenSessionIfExpired(): boolean {
   _rivenDioramaReady = false;
   _rivenPendingDialog = null;
   _rivenNextDialog = "cycle";
+  _rivenWeaponPathSent = false;
   if (_rivenSessionIdleTimer) {
     clearTimeout(_rivenSessionIdleTimer);
     _rivenSessionIdleTimer = null;
@@ -162,12 +173,26 @@ export function processRivenPatterns(
       _rivenChatViewActive = false;
       _rivenNextDialog = "cycle";
       _rivenPendingDialog = null;
+      _rivenWeaponPathSent = false;
       resetRivenIdleTimer();
       log.info("[EELog] Riven rolling screen opened -> dispatching session open");
       _callbacks.onRivenSessionOpen?.();
     } else if (now - _lastSuppressedOpenLogAt >= RIVEN_SESSION_OPEN_COOLDOWN_MS) {
       _lastSuppressedOpenLogAt = now;
       log.info("[EELog] Riven session open suppressed (cooldown)");
+    }
+  }
+
+  // Diorama weapon load: between session open and diorama setup the screen
+  // streams in the riven's weapon model - the resource path IS the weapon
+  // (exact variant, localization-proof). Window is tight (~0.7s) so relay
+  // bystander weapon loads cannot slip in later; once per session.
+  if (_rivenSessionActive && !_rivenDioramaReady && !_rivenWeaponPathSent) {
+    const weaponMatch = line.match(RIVEN_PATTERNS.dioramaWeaponLoad);
+    if (weaponMatch) {
+      _rivenWeaponPathSent = true;
+      log.info(`[EELog] Riven diorama weapon load: ${weaponMatch[1]}`);
+      _callbacks.onRivenWeaponPath?.(weaponMatch[1]);
     }
   }
 
@@ -198,6 +223,7 @@ export function processRivenPatterns(
     _rivenDioramaReady = false;
     _rivenPendingDialog = null;
     _rivenNextDialog = "cycle";
+    _rivenWeaponPathSent = false;
     if (_rivenSessionIdleTimer) {
       clearTimeout(_rivenSessionIdleTimer);
       _rivenSessionIdleTimer = null;
@@ -352,6 +378,7 @@ export function resetRivenState(): void {
   _rivenSessionActive = false;
   _rivenSessionStartedAt = 0;
   _rivenDioramaReady = false;
+  _rivenWeaponPathSent = false;
   _rivenChatViewActive = false;
   _lastRivenSendResultAt = 0;
   _lastRivenGenericDialogAt = 0;
@@ -372,5 +399,6 @@ export function resetRivenState(): void {
     onRivenRollConfirmed: null,
     onRivenDioramaSetup: null,
     onRivenChoiceConfirmed: null,
+    onRivenWeaponPath: null,
   };
 }

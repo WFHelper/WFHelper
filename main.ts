@@ -381,6 +381,7 @@ app.whenReady().then(async () => {
     onRivenDioramaSetup: () => overlayIpc.onRivenDioramaSetup(),
     onRivenChoiceConfirmed: () => overlayIpc.onRivenChoiceConfirmed(),
     onRivenChatView: () => overlayIpc.onRivenChatView(),
+    onRivenWeaponPath: (weaponPath: string) => overlayIpc.onRivenWeaponPath(weaponPath),
     onArbiRunSaved: (run) => {
       const win = ctx.mainWindow;
       if (win && !win.isDestroyed()) win.webContents.send(ARBI_RUN_SAVED, run);

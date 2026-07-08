@@ -388,4 +388,5 @@ export {
   onRivenRollConfirmed,
   onRivenDioramaSetup,
   onRivenChoiceConfirmed,
+  onRivenWeaponPath,
 } from "./rivenOverlayIpc";
