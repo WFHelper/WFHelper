@@ -82,16 +82,31 @@
           <td class="whitespace-nowrap px-3 py-2 text-right">
             {#if run.logFile}
               <button
-                class="cursor-pointer rounded border border-transparent bg-transparent px-1.5 py-0.5 text-xs text-text-muted transition-colors duration-100 hover:border-border hover:text-warning"
+                class="cursor-pointer rounded border border-transparent bg-transparent px-1.5 py-0.5 text-warning/60 transition-colors duration-100 hover:border-warning/40 hover:bg-warning/10 hover:text-warning"
                 title={$t("arbi.deleteLog")}
                 on:click={(e) => onDeleteLog(e, run.id)}
-              >🗎✕</button>
+              >
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <path d="M14 2v6h6"/>
+                  <path d="m9.5 12.5 5 5"/>
+                  <path d="m14.5 12.5-5 5"/>
+                </svg>
+              </button>
             {/if}
             <button
-              class="cursor-pointer rounded border border-transparent bg-transparent px-1.5 py-0.5 text-xs text-text-muted transition-colors duration-100 hover:border-border hover:text-danger"
+              class="cursor-pointer rounded border border-transparent bg-transparent px-1.5 py-0.5 text-danger/60 transition-colors duration-100 hover:border-danger/40 hover:bg-danger/10 hover:text-danger"
               title={$t("arbi.deleteRun")}
               on:click={(e) => onDeleteRun(e, run.id)}
-            >✕</button>
+            >
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 6h18"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                <path d="M10 11v6"/>
+                <path d="M14 11v6"/>
+              </svg>
+            </button>
           </td>
         </tr>
       {/each}
