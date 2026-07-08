@@ -362,6 +362,21 @@ describe("arbi run end + type detection (real EE.log lines)", () => {
     expect(result?.runEndSec).toBe(234.503);
   });
 
+  it("ignores a sub-second load-drone window and uses the end marker for duration", () => {
+    // Level load can create a few drone agents within milliseconds; that must
+    // not count as the combat window of an aborted run.
+    const parser = createArbiParser();
+    parser.feedLine(REAL.missionNameSuffix);
+    parser.feedLine(REAL.stateStarted);
+    parser.feedLine(droneLine(200.001));
+    parser.feedLine(droneLine(200.002));
+    parser.feedLine(droneLine(200.003));
+    parser.feedLine(REAL.abortConfirmed);
+    const result = parser.finalize();
+    // first drone 200.001 -> abort 234.503
+    expect(result?.durationSec).toBeCloseTo(34.502, 3);
+  });
+
   it("lets the engine type outrank later wave-line heuristics", () => {
     const result = runParser([
       missionLine(100, "Arbitration: Hydron (Sedna)"),

@@ -15,8 +15,8 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("arbiLogImporter");
 
-/** EE.log header, e.g. "0.234 Sys [Diag]: Current time: Fri Jul 04 12:34:56 2026 [UTC: ...]". */
-const CURRENT_TIME = /Sys \[Diag\]: Current time: (.+?)(?: \[UTC:|$)/;
+/** EE.log header, e.g. "0.234 Sys [Diag]: Current time: Fri Jul 04 12:34:56 2026 [UTC: Fri Jul 04 10:34:56 2026]". */
+const CURRENT_TIME = /Sys \[Diag\]: Current time: (.+?)(?: \[UTC: (.+?)\])?\s*$/;
 const LINE_TS = /^[^\d]*(\d+\.\d+)/;
 
 /** Hard cap on buffered segment size per run (raw text) to bound memory. */
@@ -83,7 +83,10 @@ export async function importEeLog(filePath: string): Promise<ArbiImportResult> {
       if (!anchor) {
         const timeMatch = line.match(CURRENT_TIME);
         if (timeMatch) {
-          const wall = new Date(timeMatch[1].trim()).getTime();
+          // Prefer the UTC stamp: the first one is the log author's local time,
+          // which is wrong for logs shared from another timezone.
+          const utc = timeMatch[2] ? new Date(`${timeMatch[2].trim()} GMT`).getTime() : NaN;
+          const wall = Number.isFinite(utc) ? utc : new Date(timeMatch[1].trim()).getTime();
           const tsMatch = line.match(LINE_TS);
           const ts = tsMatch ? parseFloat(tsMatch[1]) : 0;
           if (Number.isFinite(wall)) anchor = { gameTimeZeroMs: wall - ts * 1000 };

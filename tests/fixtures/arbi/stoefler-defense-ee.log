@@ -1,0 +1,47 @@
+0.124 Sys [Diag]: Process Command-line: -windowMode:2 -shaderCache:1 -graphicsDriver:dx11 -gpuPreference:2 -cluster:public -language:en -clienttype:Steam
+0.127 Sys [Diag]: Current time: Tue Jul  7 15:40:49 2026 [UTC: Tue Jul  7 21:40:49 2026]
+2.005 Sys [Info]: Warframe startup chatter
+16590.100 Script [Info]: ThemedSquadOverlay.lua: Pending mission: SolNode305_EliteAlert
+16596.750 Script [Info]: ThemedSquadOverlay.lua: Mission name: Stöfler (Lua) - Arbitration
+16599.300 Sys [Info]: SyncAutoPopulatedConsumables for mission MT_DEFENSE with location SolNode305
+16602.801 AI [Info]: OnAgentCreated /Npc/KubrowPetAgent3 Live 3 Spawned 0 Ignored Ticking 0 Paused 0 IgnoredTicking 0 MonitoredTicking 0 AllyLive 0 AllyActive 0 NeutralActive 0
+16602.818 Game [Info]: OnStateStarted, mission type=MT_DEFENSE
+16603.889 Script [Info]: WaveDefend.lua: WaveDefend - SetupDefense
+16603.893 Script [Info]: WaveDefend.lua: Starting WaveDefense
+16759.770 Script [Info]: EndOfMatch.lua: Initialize
+16759.771 Script [Info]: EndOfMatch.lua: Mission Succeeded
+16773.916 Script [Info]: EndOfMatch.lua: Initialize
+16783.891 Script [Info]: WaveDefend.lua: Defense: Starting defense waves
+16783.893 Script [Info]: WaveDefend.lua: _SleepBetweenWaves(3)
+16786.896 Script [Info]: WaveDefend.lua: Defense wave: 1
+16786.896 Script [Info]: WaveDefend.lua: Starting wave 1, spawning a total of 44 tier-0 enemies (26 simultaneous, 0% chance of eximus)
+16790.100 AI [Info]: OnAgentCreated /Npc/ShieldLancer10 Live 5 Spawned 4 Ticking 5 Paused 0 IgnoredTicking 0 MonitoredTicking 5 AllyLive 4 AllyActive 4 NeutralActive 0
+16791.200 AI [Info]: OnAgentCreated /Npc/ShotgunLancer12 Live 6 Spawned 5 Ticking 6 Paused 0 IgnoredTicking 0 MonitoredTicking 6 AllyLive 4 AllyActive 4 NeutralActive 0
+16792.300 AI [Info]: OnAgentCreated /Npc/ShieldLancer11 Live 7 Spawned 6 Ticking 7 Paused 0 IgnoredTicking 0 MonitoredTicking 7 AllyLive 4 AllyActive 4 NeutralActive 0
+16793.400 AI [Info]: OnAgentCreated /Npc/ShotgunLancer13 Live 8 Spawned 7 Ticking 8 Paused 0 IgnoredTicking 0 MonitoredTicking 8 AllyLive 4 AllyActive 4 NeutralActive 0
+16803.047 Script [Info]: WaveDefend.lua: _SleepBetweenWaves(3)
+16806.094 Script [Info]: WaveDefend.lua: Defense wave: 2
+16806.094 Script [Info]: WaveDefend.lua: Starting wave 2, spawning a total of 52 tier-0 enemies (29 simultaneous, 2% chance of eximus)
+16808.117 AI [Info]: OnAgentCreated /Npc/CorpusEliteShieldDroneAgent67 Live 15 Spawned 53 Ticking 14 Paused 0 IgnoredTicking 5 MonitoredTicking 9 AllyLive 6 AllyActive 5 NeutralActive 0
+16808.627 AI [Info]: OnAgentCreated /Npc/CorpusEliteShieldDroneAgent70 Live 14 Spawned 55 Ticking 14 Paused 0 IgnoredTicking 6 MonitoredTicking 8 AllyLive 6 AllyActive 5 NeutralActive 0
+16813.750 AI [Info]: OnAgentCreated /Npc/CorpusEliteShieldDroneAgent79 Live 10 Spawned 62 Ticking 9 Paused 0 IgnoredTicking 6 MonitoredTicking 3 AllyLive 7 AllyActive 6 NeutralActive 0
+16828.967 Script [Info]: WaveDefend.lua: _SleepBetweenWaves(3)
+16831.973 Script [Info]: WaveDefend.lua: Defense wave: 3
+16831.973 Script [Info]: WaveDefend.lua: Starting wave 3, spawning a total of 54 tier-1 enemies (29 simultaneous, 2% chance of eximus)
+16855.930 Script [Info]: DefenseReward.lua: ScopeDebug: Hide from DefenseReward
+16855.932 Sys [Error]: SetCallbacks on unknown clip: 'Rewards.Element.Btn', movie: '/Lotus/Interface/DefenseReward.swf'
+16855.932 Sys [Info]: Created /Lotus/Interface/ProjectionsCountdown.swf
+16855.934 Sys [Info]: Created /Lotus/Interface/DefenseReward.swf
+16857.756 Script [Info]: WaveDefend.lua: _SleepBetweenWaves(3)
+16860.762 Script [Info]: WaveDefend.lua: Defense wave: 4
+16860.762 Script [Info]: WaveDefend.lua: Starting wave 4, spawning a total of 56 tier-1 enemies (29 simultaneous, 3% chance of eximus)
+!16879.863 Script [Info]: WaveDefend.lua: _SleepBetweenWaves(3)
+16882.865 Script [Info]: WaveDefend.lua: Defense wave: 5
+16882.865 Script [Info]: WaveDefend.lua: Starting wave 5, spawning a total of 59 tier-1 enemies (29 simultaneous, 3% chance of eximus)
+16907.227 Script [Info]: WaveDefend.lua: _SleepBetweenWaves(3)
+16910.236 Script [Info]: WaveDefend.lua: Defense wave: 6
+16910.236 Script [Info]: WaveDefend.lua: Starting wave 6, spawning a total of 61 tier-2 enemies (29 simultaneous, 4% chance of eximus)
+16936.807 Sys [Info]: Created /Lotus/Interface/ProjectionsCountdown.swf
+16936.816 Sys [Info]: Created /Lotus/Interface/DefenseReward.swf
+19736.500 Script [Info]: EndOfMatch.lua: Initialize
+19736.723 Sys [Info]: EOM missionLocationUnlocked=1

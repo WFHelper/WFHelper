@@ -459,9 +459,9 @@ export function createArbiParser(): ArbiParser {
     const startSec =
       r.preciseStartSec ?? r.droneTimestamps[0] ?? r.missionStartSec ?? r.runStartSec;
     let durationSec = Math.max(0, r.lastActivitySec - startSec);
-    // No combat activity was recorded (e.g. early abort) but the end marker
-    // pins the real mission window.
-    if (durationSec === 0 && r.runEndSec !== null) {
+    // No real combat window (early abort; a few load-time drone spawns can
+    // still span a few ms) - the end marker pins the actual mission window.
+    if (durationSec < 1 && r.runEndSec !== null) {
       durationSec = Math.max(0, r.runEndSec - startSec);
     }
 

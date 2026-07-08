@@ -19,8 +19,18 @@ const droneLine = (ts: number) =>
 const rewardLine = (ts: number) =>
   `${ts.toFixed(3)} Sys [Info]: Created /Lotus/Interface/DefenseReward.swf`;
 
-// Anchor: game time 0 = 2026-03-01 12:00:00 local (header line at ts 0.5).
+// Anchor: game time 0 = 2026-03-01 11:00:00 UTC (header line at ts 0.5).
 const HEADER = "0.500 Sys [Diag]: Current time: Sun Mar 01 12:00:00 2026 [UTC: Sun Mar 01 11:00:00 2026]";
+
+// Mirror of the tracker's id format: startedAt rendered in this machine's local time.
+const fmtId = (ms: number) => {
+  const d = new Date(ms);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` +
+    `_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`
+  );
+};
 
 function multiRunLog(): string {
   return [
@@ -75,10 +85,10 @@ describe("arbiLogImporter", () => {
     expect(first.source).toBe("imported");
     // The first run's end was observed (next mission line); the reason carries over.
     expect(first.endReason).toBe("new-mission");
-    // anchor 12:00:00 at ts 0.5 -> run start ts 100 = 12:01:39.5 local
-    const anchored = new Date(2026, 2, 1, 12, 0, 0).getTime() - 500 + 100_000;
+    // anchor on the UTC stamp: 11:00:00Z at ts 0.5 -> run start ts 100 = 11:01:39.5Z
+    const anchored = Date.UTC(2026, 2, 1, 11, 0, 0) - 500 + 100_000;
     expect(first.startedAt).toBe(anchored);
-    expect(first.id).toBe("2026-03-01_12-01-39");
+    expect(first.id).toBe(fmtId(anchored));
 
     expect(second.node).toBe("Berehynia Interception (Sedna)");
     expect(second.missionType).toBe("interception");
@@ -136,8 +146,10 @@ describe("arbiLogImporter", () => {
     expect(run.drones).toBe(0);
     // FlightAgents never advanced MonitoredTicking - the post-pass drops them.
     expect(run.totalEnemies).toBe(0);
-    // Header anchor 11:40:31 at ts 0.102 -> run start ts 178.428 = 11:43:29 local.
-    expect(run.id).toBe("2026-07-06_11-43-29");
+    // Header anchor [UTC: 09:40:31] at ts 0.102 -> run start ts 178.428.
+    const startedAt = Date.UTC(2026, 6, 6, 9, 40, 31) - 102 + 178_428;
+    expect(run.startedAt).toBe(startedAt);
+    expect(run.id).toBe(fmtId(startedAt));
 
     const gz = fs.readFileSync(path.join(tmpDir, "arbi-logs", `${run.id}.log.gz`));
     const raw = zlib.gunzipSync(gz).toString("utf-8");
@@ -164,7 +176,8 @@ describe("arbiLogImporter", () => {
     expect(run.drones).toBe(7);
     // first drone 434.607 -> last drone 735.957
     expect(run.durationSec).toBeCloseTo(301.35, 2);
-    expect(run.id).toBe("2026-07-06_17-53-23");
+    const startedAt = Date.UTC(2026, 6, 6, 15, 46, 29) - 91 + 415_070;
+    expect(run.id).toBe(fmtId(startedAt));
   });
 
   it("imports a real interception run ignoring the stray survival reward UI", async () => {
@@ -187,6 +200,49 @@ describe("arbiLogImporter", () => {
     expect(run.stats?.preciseStartSec).toBe(133.194);
     // first territory control 133.194 -> reward 356.940 (matches the reference site)
     expect(run.durationSec).toBeCloseTo(223.746, 3);
+  });
+
+  it("imports a real defense run with wave map and foreign-timezone anchor", async () => {
+    const { importer } = await freshImporter();
+    const fixture = path.join(__dirname, "..", "fixtures", "arbi", "stoefler-defense-ee.log");
+
+    const result = await importer.importEeLog(fixture);
+    expect(result.imported).toHaveLength(1);
+
+    const run = result.imported[0];
+    expect(run.node).toBe("Stöfler (Lua)");
+    expect(run.missionType).toBe("defense");
+    expect(run.missionTypeRaw).toBe("MT_DEFENSE");
+    expect(run.solNode).toBe("SolNode305");
+    expect(run.endReason).toBe("mission-end");
+    expect(run.rotations).toBe(2);
+    expect(run.drones).toBe(3);
+    // 2x ShieldLancer + 2x ShotgunLancer + 3 drones; the kubrow also counts -
+    // a single spawn can never be proven non-ticking (reference-site parity).
+    expect(run.totalEnemies).toBe(8);
+
+    const s = run.stats;
+    expect(s).not.toBeNull();
+    expect(s?.wavesPerRotation).toBe(3);
+    expect(s?.rewardTimestamps).toEqual([16855.934, 16936.816]);
+    // "Defense wave: 1" is the precise start.
+    expect(s?.preciseStartSec).toBe(16786.896);
+    expect(run.durationSec).toBeCloseTo(16936.816 - 16786.896, 3);
+
+    // Wave durations: sleep-marker windows, every 3rd wave via countdown-5.
+    const waves = s?.waves ?? [];
+    expect(waves.map((w) => w.index)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(waves[0].durationSec).toBeCloseTo(16.151, 3);
+    expect(waves[1].durationSec).toBeCloseTo(22.873, 3);
+    expect(waves[2].durationSec).toBeCloseTo(16855.932 - 5 - 16831.973, 3);
+    // Wave 4 ends on a "!"-prefixed sleep line - the timestamp must still parse.
+    expect(waves[3].durationSec).toBeCloseTo(19.101, 3);
+    expect(waves[5].durationSec).toBeCloseTo(16936.807 - 5 - 16910.236, 3);
+
+    // The header is from another machine (UTC-6): anchor must use the UTC stamp.
+    const startedAt = Date.UTC(2026, 6, 7, 21, 40, 49) - 127 + 16_596_750;
+    expect(run.startedAt).toBe(startedAt);
+    expect(run.id).toBe(fmtId(startedAt));
   });
 
   it("falls back to file mtime when the header is missing", async () => {
