@@ -62,6 +62,7 @@ export interface OverlaySettings {
   relicRecommendationOverlayEnabled: boolean;
   tradeNotificationOverlayEnabled: boolean;
   rivenOverlayEnabled: boolean;
+  arbiSummaryOverlayEnabled: boolean;
   overlayScale: number;
   overlayWindowBounds: Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>>;
 }
@@ -411,6 +412,22 @@ export interface IpcInvokeMap {
     args: [id: string];
     return: { ok: boolean };
   };
+  getArbiSchedule: {
+    args: [];
+    return: ArbiSchedulePayload;
+  };
+  setArbiScheduleOccurrence: {
+    args: [key: string, enabled: boolean];
+    return: ArbiScheduleAlerts | null;
+  };
+  setArbiScheduleFavorite: {
+    args: [nodeId: string, enabled: boolean];
+    return: ArbiScheduleAlerts | null;
+  };
+  setArbiScheduleLead: {
+    args: [minutes: number];
+    return: ArbiScheduleAlerts | null;
+  };
 }
 
 export interface RivenStatOption {
@@ -468,6 +485,12 @@ import type {
   ArbiRunsPayload,
 } from "../../config/shared/arbiTypes.js";
 export type { ArbiRunRecord, ArbiRunStats };
+import type {
+  ArbiScheduleAlerts,
+  ArbiScheduleEntry,
+  ArbiSchedulePayload,
+} from "../../config/shared/arbiScheduleTypes.js";
+export type { ArbiScheduleAlerts, ArbiScheduleEntry };
 
 type WfmTradeMatchEvent = TradeMatchPayload;
 
@@ -484,6 +507,7 @@ export interface IpcEventMap {
   "trade-recorded": TradeRecordedEvent;
   "world-state-fetch-error": string;
   "arbi-run-saved": ArbiRunRecord;
+  "arbi-open-run": string;
 }
 
 export interface IpcSendMap {

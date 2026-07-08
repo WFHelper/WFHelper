@@ -12,6 +12,7 @@
     arbiRuns,
     arbiRunsLoaded,
     loadArbiRuns,
+    pendingArbiRunId,
     upsertArbiRun,
   } from "../stores/arbiRuns.js";
   import { formatBytes } from "../lib/arbi/arbiChartData.js";
@@ -24,6 +25,12 @@
   $: selectedRun = selectedRunId
     ? ($arbiRuns.find((r) => r.id === selectedRunId) ?? null)
     : null;
+
+  // Deep-link from the post-run overlay; also fires when the view is already open.
+  $: if ($pendingArbiRunId) {
+    selectedRunId = $pendingArbiRunId;
+    pendingArbiRunId.set(null);
+  }
 
   onMount(() => {
     unsubRunSaved = on("arbi-run-saved", (run) => {

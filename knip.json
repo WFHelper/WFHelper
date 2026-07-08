@@ -6,6 +6,7 @@
     "preload-overlay.ts",
     "preload-riven.ts",
     "preload-trade-notification.ts",
+    "preload-arbi.ts",
     "src/App.svelte",
     "src/modals/**/*.svelte",
     "src/views/**/*.svelte",

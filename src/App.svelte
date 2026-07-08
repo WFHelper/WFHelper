@@ -24,6 +24,7 @@
   import OrderModal from "./modals/OrderModal.svelte";
 
   import { currentView, statusText } from "./stores/app.js";
+  import { pendingArbiRunId } from "./stores/arbiRuns.js";
   import { parsedItems } from "./stores/data.js";
   import { activeItem, activeComponent, activeRelic } from "./stores/modals.js";
   import { applyUpdateState } from "./stores/updates.js";
@@ -103,6 +104,12 @@
       });
     });
 
+    // Post-run overlay "Detailed Stats" button: open the arbi tab on that run.
+    const unsubscribeArbiOpenRun = on("arbi-open-run", (runId) => {
+      pendingArbiRunId.set(runId);
+      currentView.set("arbi");
+    });
+
     const startup = initStartup();
 
     // Match the exact-"1" check used in stores/app.ts:10 so any future
@@ -121,6 +128,7 @@
       unsubscribeInventoryUpdated();
       unsubscribeUpdateStatus();
       unsubscribeWfmNotification();
+      unsubscribeArbiOpenRun();
 
       window.removeEventListener("keydown", onKeyDown);
     };

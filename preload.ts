@@ -78,6 +78,11 @@ import {
   ARBI_SAVE_IMAGE,
   ARBI_SHOW_LOG_IN_FOLDER,
   ARBI_RUN_SAVED,
+  ARBI_OPEN_RUN,
+  ARBI_SCHED_GET,
+  ARBI_SCHED_SET_OCCURRENCE,
+  ARBI_SCHED_SET_FAVORITE,
+  ARBI_SCHED_SET_LEAD,
 } from "./config/shared/ipcChannels";
 
 try {
@@ -168,6 +173,14 @@ try {
       ipcRenderer.invoke(ARBI_SAVE_IMAGE, id, png),
     showArbiRunLogInFolder: (id: string) => ipcRenderer.invoke(ARBI_SHOW_LOG_IN_FOLDER, id),
     onArbiRunSaved: ipcDataBridge<unknown>(ipcRenderer, ARBI_RUN_SAVED),
+    onArbiOpenRun: ipcDataBridge<unknown>(ipcRenderer, ARBI_OPEN_RUN),
+
+    getArbiSchedule: () => ipcRenderer.invoke(ARBI_SCHED_GET),
+    setArbiScheduleOccurrence: (key: string, enabled: boolean) =>
+      ipcRenderer.invoke(ARBI_SCHED_SET_OCCURRENCE, key, enabled),
+    setArbiScheduleFavorite: (nodeId: string, enabled: boolean) =>
+      ipcRenderer.invoke(ARBI_SCHED_SET_FAVORITE, nodeId, enabled),
+    setArbiScheduleLead: (minutes: number) => ipcRenderer.invoke(ARBI_SCHED_SET_LEAD, minutes),
   });
 
   contextBridge.exposeInMainWorld("tradeApi", {

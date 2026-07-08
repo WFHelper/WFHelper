@@ -16,6 +16,7 @@ const RIVEN_OVERLAY_RENDERER_SUFFIX = normalizePathForCompare("renderer/riven-ov
 const TRADE_NOTIFICATION_RENDERER_SUFFIX = normalizePathForCompare(
   "renderer/trade-notification.html",
 );
+const ARBI_SUMMARY_RENDERER_SUFFIX = normalizePathForCompare("renderer/arbi-overlay.html");
 
 type IpcEventLike = {
   sender?: {
@@ -127,10 +128,24 @@ function assertOverlayRendererSender(event: IpcEventLike, _channel: string): voi
     { win: ctx.plannerOverlayWindow, suffix: OVERLAY_RENDERER_SUFFIX },
     { win: ctx.rivenOverlayLeftWindow, suffix: RIVEN_OVERLAY_RENDERER_SUFFIX },
     { win: ctx.rivenOverlayRightWindow, suffix: RIVEN_OVERLAY_RENDERER_SUFFIX },
+    { win: ctx.arbiSummaryWindow, suffix: ARBI_SUMMARY_RENDERER_SUFFIX },
   ];
   assertAnyCandidateWindowSender(event, candidates, {
     fallbackMessage: "No matching overlay window for sender",
   });
+}
+
+function assertArbiSummarySender(event: IpcEventLike, _channel: string): void {
+  assertWindowSender(
+    event,
+    ctx.arbiSummaryWindow
+      ? {
+          isDestroyed: () => ctx.arbiSummaryWindow?.isDestroyed() ?? true,
+          webContents: { id: ctx.arbiSummaryWindow.webContents.id },
+        }
+      : null,
+    ARBI_SUMMARY_RENDERER_SUFFIX,
+  );
 }
 
 function assertTradeNotificationSender(event: IpcEventLike, _channel: string): void {
@@ -226,6 +241,7 @@ export {
   assertOverlayRendererSender,
   assertRivenOverlayRendererSender,
   assertTradeNotificationSender,
+  assertArbiSummarySender,
   assertAuthorizedSender,
   isAuthorizedSender,
   handleAuthorized,

@@ -71,6 +71,8 @@ const eventApiMap: Record<
     window.api.onWorldStateFetchError(cb as (m: IpcEventMap["world-state-fetch-error"]) => void),
   "arbi-run-saved": (cb) =>
     window.api.onArbiRunSaved(cb as (run: IpcEventMap["arbi-run-saved"]) => void),
+  "arbi-open-run": (cb) =>
+    window.api.onArbiOpenRun(cb as (runId: IpcEventMap["arbi-open-run"]) => void),
 };
 
 export function on<K extends EventChannel>(

@@ -14,7 +14,7 @@ interface FissureAlert {
   planet: string;
 }
 
-export type OverlayWindowKey = "reward" | "planner" | "rivenLeft" | "rivenRight";
+export type OverlayWindowKey = "reward" | "planner" | "rivenLeft" | "rivenRight" | "arbiSummary";
 
 export interface OverlaySavedWindowBounds {
   x: number;
@@ -42,6 +42,7 @@ export interface OverlaySettings {
   relicRecommendationOverlayEnabled: boolean;
   tradeNotificationOverlayEnabled: boolean;
   rivenOverlayEnabled: boolean;
+  arbiSummaryOverlayEnabled: boolean;
   overlayScale: number;
   overlayWindowBounds: Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>>;
 }
@@ -72,6 +73,7 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   relicRecommendationOverlayEnabled: true,
   tradeNotificationOverlayEnabled: true,
   rivenOverlayEnabled: true,
+  arbiSummaryOverlayEnabled: true,
   overlayScale: 1,
   overlayWindowBounds: Object.freeze({}),
 });
@@ -80,7 +82,8 @@ type OverlayToggleKey =
   | "relicRewardsOverlayEnabled"
   | "relicRecommendationOverlayEnabled"
   | "tradeNotificationOverlayEnabled"
-  | "rivenOverlayEnabled";
+  | "rivenOverlayEnabled"
+  | "arbiSummaryOverlayEnabled";
 
 type OverlayToggleSettings = Partial<Pick<OverlaySettings, OverlayToggleKey>> | null | undefined;
 
@@ -97,3 +100,5 @@ export const isTradeNotificationOverlayEnabled = (s: OverlayToggleSettings) =>
   isOverlayToggleEnabled(s, "tradeNotificationOverlayEnabled");
 export const isRivenOverlayEnabled = (s: OverlayToggleSettings) =>
   isOverlayToggleEnabled(s, "rivenOverlayEnabled");
+export const isArbiSummaryOverlayEnabled = (s: OverlayToggleSettings) =>
+  isOverlayToggleEnabled(s, "arbiSummaryOverlayEnabled");

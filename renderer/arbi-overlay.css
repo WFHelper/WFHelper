@@ -1,0 +1,176 @@
+:root {
+  --bg: var(--bg-deep, #060a12);
+  --surface: var(--bg-surface, #111827);
+  --raised: var(--bg-raised, #162340);
+  --border: var(--border-strong, rgba(79, 158, 255, 0.25));
+  --accent: var(--accent, #4f9eff);
+  --accent-bright: var(--accent-bright, #7db8ff);
+  --text: var(--text-primary, #e8edf5);
+  --muted: var(--text-secondary, #a0aec0);
+  --text-dim: var(--text-muted, #5a6a82);
+  --warn: var(--warning, #f5a623);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background: var(--bg);
+  font-family: var(--font-body, "Barlow", "Segoe UI", system-ui, sans-serif);
+  font-size: var(--font-body-size, 0.92rem);
+  color: var(--text);
+  height: 100%;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+#panel {
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.72);
+}
+
+#header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem 0.5rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  background: var(--surface);
+}
+
+#panel-label {
+  font-family: var(--font-display, "Rajdhani", sans-serif);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--warn);
+}
+
+#run-node {
+  font-family: var(--font-display, "Rajdhani", sans-serif);
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+#header-right {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  text-align: right;
+}
+
+#run-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+  padding-top: 0.15rem;
+  white-space: nowrap;
+}
+
+#btn-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.15rem;
+}
+
+#btn-close:hover {
+  color: var(--text);
+}
+
+#kpi-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: color-mix(in oklab, var(--border) 40%, transparent);
+  min-height: 0;
+}
+
+.kpi {
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.45rem 0.5rem;
+}
+
+.kpi-value {
+  font-family: var(--font-display, "Rajdhani", sans-serif);
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--accent-bright);
+  white-space: nowrap;
+}
+
+.kpi-value .kpi-sub {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.kpi-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+#footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  background: var(--surface);
+}
+
+#drag-hint {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+#btn-details {
+  font-family: var(--font-display, "Rajdhani", sans-serif);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bg);
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+}
+
+#btn-details:hover {
+  background: var(--accent-bright);
+}
+
+html.is-overlay-dragging,
+html.is-overlay-dragging * {
+  cursor: grabbing !important;
+}

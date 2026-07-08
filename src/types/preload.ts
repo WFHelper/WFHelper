@@ -119,6 +119,19 @@ export interface PreloadAPI {
     id: IpcInvokeMap["showArbiRunLogInFolder"]["args"][0],
   ) => Promise<IpcInvokeMap["showArbiRunLogInFolder"]["return"]>;
   onArbiRunSaved: (callback: (run: IpcEventMap["arbi-run-saved"]) => void) => () => void;
+  onArbiOpenRun: (callback: (runId: IpcEventMap["arbi-open-run"]) => void) => () => void;
+  getArbiSchedule: () => Promise<IpcInvokeMap["getArbiSchedule"]["return"]>;
+  setArbiScheduleOccurrence: (
+    key: IpcInvokeMap["setArbiScheduleOccurrence"]["args"][0],
+    enabled: IpcInvokeMap["setArbiScheduleOccurrence"]["args"][1],
+  ) => Promise<IpcInvokeMap["setArbiScheduleOccurrence"]["return"]>;
+  setArbiScheduleFavorite: (
+    nodeId: IpcInvokeMap["setArbiScheduleFavorite"]["args"][0],
+    enabled: IpcInvokeMap["setArbiScheduleFavorite"]["args"][1],
+  ) => Promise<IpcInvokeMap["setArbiScheduleFavorite"]["return"]>;
+  setArbiScheduleLead: (
+    minutes: IpcInvokeMap["setArbiScheduleLead"]["args"][0],
+  ) => Promise<IpcInvokeMap["setArbiScheduleLead"]["return"]>;
 }
 
 export interface TradePreloadAPI {

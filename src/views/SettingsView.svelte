@@ -40,6 +40,7 @@
   let relicRewardsOverlayEnabled = OVERLAY_DEFAULTS.relicRewardsOverlayEnabled;
   let relicRecommendationOverlayEnabled = OVERLAY_DEFAULTS.relicRecommendationOverlayEnabled;
   let rivenOverlayEnabled = OVERLAY_DEFAULTS.rivenOverlayEnabled;
+  let arbiSummaryOverlayEnabled = OVERLAY_DEFAULTS.arbiSummaryOverlayEnabled;
   let overlayScale = OVERLAY_DEFAULTS.overlayScale;
   let hotkeyEnabled = OVERLAY_DEFAULTS.hotkeyEnabled;
   let hotkey = OVERLAY_DEFAULTS.hotkey;
@@ -64,6 +65,8 @@
     relicRecommendationOverlayEnabled =
       s.relicRecommendationOverlayEnabled ?? OVERLAY_DEFAULTS.relicRecommendationOverlayEnabled;
     rivenOverlayEnabled = s.rivenOverlayEnabled ?? OVERLAY_DEFAULTS.rivenOverlayEnabled;
+    arbiSummaryOverlayEnabled =
+      s.arbiSummaryOverlayEnabled ?? OVERLAY_DEFAULTS.arbiSummaryOverlayEnabled;
     overlayScale = s.overlayScale ?? OVERLAY_DEFAULTS.overlayScale;
     hotkeyEnabled = !!s.hotkeyEnabled;
     hotkey = s.hotkey || OVERLAY_DEFAULTS.hotkey;
@@ -96,6 +99,7 @@
       relicRewardsOverlayEnabled,
       relicRecommendationOverlayEnabled,
       rivenOverlayEnabled,
+      arbiSummaryOverlayEnabled,
       overlayScale: Number(overlayScale),
       hotkeyEnabled,
       hotkey,
@@ -312,6 +316,16 @@
           <label class="settings-control-row">
             <span>Riven overlay</span>
             <input type="checkbox" bind:checked={rivenOverlayEnabled} on:change={autoSave} class="accent-accent" />
+          </label>
+
+          <label class="settings-control-row">
+            <span>Arbitration post-run summary</span>
+            <input
+              type="checkbox"
+              bind:checked={arbiSummaryOverlayEnabled}
+              on:change={autoSave}
+              class="accent-accent"
+            />
           </label>
         </div>
       </article>

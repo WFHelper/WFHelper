@@ -189,6 +189,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       relicRecommendationOverlayEnabled: booleanSetting("relicRecommendationOverlayEnabled"),
       tradeNotificationOverlayEnabled,
       rivenOverlayEnabled: booleanSetting("rivenOverlayEnabled"),
+      arbiSummaryOverlayEnabled: booleanSetting("arbiSummaryOverlayEnabled"),
       overlayScale: normalizeOverlayScale(candidate.overlayScale, defaults.overlayScale),
       overlayWindowBounds: normalizeSavedBounds(candidate.overlayWindowBounds),
     };

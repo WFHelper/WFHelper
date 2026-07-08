@@ -11,7 +11,9 @@ import { withScope } from "../services/logger";
 import * as warframeStatus from "../services/warframeStatus";
 import * as rivenOverlayIpc from "./rivenOverlayIpc";
 import * as rewardOverlayIpc from "./rewardOverlayIpc";
+import * as arbiOverlayIpc from "./arbiOverlayIpc";
 import {
+  isArbiSummaryOverlayEnabled,
   isRelicRecommendationOverlayEnabled,
   isRelicRewardsOverlayEnabled,
   isRivenOverlayEnabled,
@@ -250,6 +252,7 @@ const settingsController = createOverlaySettingsController({
 
 rewardOverlayIpc.configureOverlaySettingsPersistence(settingsController.saveOverlaySettings);
 rivenOverlayIpc.configureOverlaySettingsPersistence(settingsController.saveOverlaySettings);
+arbiOverlayIpc.configureOverlaySettingsPersistence(settingsController.saveOverlaySettings);
 
 function onRelicSelectionTrigger(source: string): void {
   rewardOverlayIpc.onRelicSelectionTrigger(
@@ -286,6 +289,12 @@ function applyOverlayAvailabilitySettings(): void {
   if (!isRivenOverlayEnabled(ctx.overlaySettings)) {
     rivenOverlayIpc.onRivenSessionClose();
   }
+
+  if (!isArbiSummaryOverlayEnabled(ctx.overlaySettings)) {
+    if (ctx.arbiSummaryWindow && !ctx.arbiSummaryWindow.isDestroyed()) {
+      ctx.arbiSummaryWindow.hide();
+    }
+  }
 }
 
 function isRivenOverlayWindow(win: BrowserWindow | null): boolean {
@@ -304,8 +313,13 @@ function moveInteractiveOverlayWindow(sender: WebContents, rawDelta: unknown): v
   const win = BrowserWindow.fromWebContents(sender);
   if (!win || win.isDestroyed()) return;
 
-  const isRiven = isRivenOverlayWindow(win);
-  if (isRiven ? !rivenOverlayIpc.isRivenInteractiveMode() : !ctx.overlayInteractiveMode) return;
+  // Arbi summary is always draggable (it has no passive click-through mode).
+  const dragBlocked = isRivenOverlayWindow(win)
+    ? !rivenOverlayIpc.isRivenInteractiveMode()
+    : arbiOverlayIpc.isArbiSummaryWindow(win)
+      ? false
+      : !ctx.overlayInteractiveMode;
+  if (dragBlocked) return;
 
   const delta = asRecord(rawDelta) ?? {};
   const dx = Math.round(Number(delta.dx));
@@ -322,6 +336,7 @@ function register(): void {
   // Delegate domain-specific IPC to sub-modules
   rivenOverlayIpc.register();
   rewardOverlayIpc.register(pushOverlayInteractionMode, pushOverlayThemeVars);
+  arbiOverlayIpc.register();
 
   // Settings & theme IPC (shared across all overlays)
   handleAuthorized(OVERLAY_GET_SETTINGS, assertMainRendererSender, async () => {
@@ -390,3 +405,4 @@ export {
   onRivenChoiceConfirmed,
   onRivenWeaponPath,
 } from "./rivenOverlayIpc";
+export { maybeShowArbiSummary } from "./arbiOverlayIpc";

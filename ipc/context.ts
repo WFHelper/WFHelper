@@ -14,6 +14,7 @@ interface MainProcessContext {
   rivenOverlayLeftWindow: BrowserWindow | null;
   rivenOverlayRightWindow: BrowserWindow | null;
   tradeNotificationWindow: BrowserWindow | null;
+  arbiSummaryWindow: BrowserWindow | null;
   currentInventoryPath: string | null;
   currentInventoryData: InventoryData;
   watcher: FSWatcher | null;
@@ -33,6 +34,7 @@ type PresenceKey =
   | "rivenOverlayLeftWindow"
   | "rivenOverlayRightWindow"
   | "tradeNotificationWindow"
+  | "arbiSummaryWindow"
   | "currentInventoryPath"
   | "watcher";
 type QuotedKey = "overlayHotkeyRegistered" | "overlayInteractionHotkeyRegistered";
@@ -45,6 +47,7 @@ const presenceKeys: ReadonlySet<ContextKey> = new Set<PresenceKey>([
   "rivenOverlayLeftWindow",
   "rivenOverlayRightWindow",
   "tradeNotificationWindow",
+  "arbiSummaryWindow",
   "currentInventoryPath",
   "watcher",
 ]);
@@ -60,6 +63,7 @@ const state: MainProcessContext = {
   rivenOverlayLeftWindow: null,
   rivenOverlayRightWindow: null,
   tradeNotificationWindow: null,
+  arbiSummaryWindow: null,
   currentInventoryPath: null,
   currentInventoryData: null,
   watcher: null,

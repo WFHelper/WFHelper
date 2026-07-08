@@ -119,3 +119,14 @@ export const ARBI_IMPORT_LOG = "arbi:import-log";
 export const ARBI_SAVE_IMAGE = "arbi:save-image";
 export const ARBI_SHOW_LOG_IN_FOLDER = "arbi:show-log-in-folder";
 export const ARBI_RUN_SAVED = "arbi-run-saved";
+export const ARBI_OPEN_RUN = "arbi-open-run";
+
+export const ARBI_SUMMARY_DATA = "arbi-summary-data";
+export const ARBI_SUMMARY_READY = "arbi-summary-ready";
+export const ARBI_SUMMARY_CLOSE = "arbi-summary-close";
+export const ARBI_SUMMARY_OPEN_DETAILS = "arbi-summary-open-details";
+
+export const ARBI_SCHED_GET = "arbi-sched:get";
+export const ARBI_SCHED_SET_OCCURRENCE = "arbi-sched:set-occurrence";
+export const ARBI_SCHED_SET_FAVORITE = "arbi-sched:set-favorite";
+export const ARBI_SCHED_SET_LEAD = "arbi-sched:set-lead";

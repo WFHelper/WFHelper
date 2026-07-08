@@ -6,6 +6,8 @@ import type { ArbiRunRecord } from "../types/ipc.js";
 export const arbiRuns = writable<ArbiRunRecord[]>([]);
 export const arbiDiskUsageBytes = writable(0);
 export const arbiRunsLoaded = writable(false);
+/** Run id the Arbi view should open on next mount (set by the overlay's Details button). */
+export const pendingArbiRunId = writable<string | null>(null);
 
 export async function loadArbiRuns(): Promise<void> {
   const payload = await invoke("getArbiRuns");

@@ -21,6 +21,7 @@ const PRELOADS = [
   "preload-overlay.js",
   "preload-riven.js",
   "preload-trade-notification.js",
+  "preload-arbi.js",
 ];
 
 const WATCH_DEBOUNCE_MS = 100;
