@@ -75,3 +75,47 @@ describe("worldStateParser.parseRaw", () => {
     expect(parser.parseRaw(null)).toBeNull();
   });
 });
+
+describe("worldStateParser.parseBountyCycleBounties", () => {
+  interface SeedBounty {
+    syndicate: string;
+    jobs: Array<{ enemyLevels: [number, number]; tierIndex: number; standingStages: number[] }>;
+  }
+
+  const nodes = (n: number) => Array.from({ length: n }, (_, i) => ({ node: `FakeNode${i}` }));
+  const cycle = (bounties: Record<string, { node: string }[]>) =>
+    parser.parseBountyCycleBounties({ bounties }) as SeedBounty[];
+
+  it("assigns static per-tier enemy levels (oracle jobs carry none)", () => {
+    const [zariman] = cycle({ ZarimanSyndicate: nodes(5) });
+    expect(zariman.jobs.map((j) => j.enemyLevels)).toEqual([
+      [50, 55], [60, 65], [70, 75], [90, 95], [110, 115],
+    ]);
+
+    const [cavia] = cycle({ EntratiLabSyndicate: nodes(5) });
+    expect(cavia.jobs.map((j) => j.enemyLevels)).toEqual([
+      [55, 60], [65, 70], [75, 80], [95, 100], [115, 120],
+    ]);
+
+    const [hex] = cycle({ HexSyndicate: nodes(7) });
+    expect(hex.syndicate).toBe("The Hex");
+    expect(hex.jobs.map((j) => j.enemyLevels)).toEqual([
+      [65, 70], [75, 80], [85, 90], [95, 100], [105, 110], [115, 120], [125, 130],
+    ]);
+  });
+
+  it("carries tier index for reward-pool lookup plus single-stage standing", () => {
+    const [hex] = cycle({ HexSyndicate: nodes(7) });
+    expect(hex.jobs.map((j) => j.tierIndex)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(hex.jobs.map((j) => j.standingStages)).toEqual([
+      [1000], [2000], [3000], [4000], [5000], [6000], [7500],
+    ]);
+  });
+
+  it("skips unknown syndicates and falls back to region levels past the tier table", () => {
+    expect(cycle({ MadeUpSyndicate: nodes(1) })).toHaveLength(0);
+
+    const [zariman] = cycle({ ZarimanSyndicate: nodes(6) });
+    expect(zariman.jobs[5].enemyLevels).toEqual([0, 0]);
+  });
+});

@@ -68,6 +68,8 @@ export interface Invasion {
 interface BountyJob {
   type: string;
   enemyLevels: [number, number];
+  /** Seed bounties only: 0-based tier; reward pools match by index, not level */
+  tierIndex?: number;
   standingStages: number[];
   minMR?: number;
   challengeDesc?: string;

@@ -446,7 +446,7 @@
                 </button>
                 {#if collapsed[`bounty-${group.syndicateKey}-${ji}`]}
                 <div class="mb-1 ml-1 border-l-2 border-accent py-1 pl-5">
-                  {#await getBountyRewards(group.syndicateKey, job.enemyLevels, job.standingStages.length, bountyRotation)}
+                  {#await getBountyRewards(group.syndicateKey, job.enemyLevels, job.standingStages.length, bountyRotation, job.tierIndex)}
                     <span class="text-xs text-text-secondary py-1">Loading rewards...</span>
                   {:then rewards}
                     {#if rewards.length > 0}

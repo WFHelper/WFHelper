@@ -264,6 +264,8 @@ function buildStageRewards(level: RawBountyLevel, stageCount: number, rotation?:
 /**
  * Get bounty rewards for a specific job, identified by syndicateKey, enemy level range, and stage count.
  * When rotation is provided (e.g. "A", "B", "C"), only that rotation's rewards are shown.
+ * Seed-cycle bounties (Zariman/Cavia/Hex) pass tierIndex: their drops files are ordered
+ * tier 1..N and Hex pool labels sit 10 below in-game levels, so level matching misfires.
  * Returns cached promises so Svelte {#await} blocks don't re-trigger on re-render.
  */
 export function getBountyRewards(
@@ -271,8 +273,9 @@ export function getBountyRewards(
   enemyLevels: [number, number],
   stageCount: number,
   rotation?: string,
+  tierIndex?: number,
 ): Promise<BountyStageRewards[]> {
-  const cacheKey = `${syndicateKey}:${enemyLevels[0]}-${enemyLevels[1]}:${stageCount}:${rotation || "all"}`;
+  const cacheKey = `${syndicateKey}:${enemyLevels[0]}-${enemyLevels[1]}:${stageCount}:${rotation || "all"}:${tierIndex ?? "lvl"}`;
   if (!jobCache.has(cacheKey)) {
     const file = resolveDropsFile(syndicateKey);
     if (!file) {
@@ -281,7 +284,8 @@ export function getBountyRewards(
       jobCache.set(
         cacheKey,
         getDropsData(file).then((entries) => {
-          const level = matchBountyLevel(entries, enemyLevels);
+          const level = (tierIndex != null ? entries[tierIndex] : undefined)
+            ?? matchBountyLevel(entries, enemyLevels);
           return level ? buildStageRewards(level, stageCount, rotation) : [];
         }),
       );

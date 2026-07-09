@@ -432,7 +432,7 @@ const RAW_BOUNTY_SYNDICATES: Record<string, string> = {
 
 // These syndicates don't have Jobs in the raw world state - they're procedurally
 // generated from a seed. oracle.browse.wf/bounty-cycle pre-computes the node
-// assignments. Standing tiers are static per syndicate tier index.
+// assignments. Standing and enemy levels are static per tier index.
 interface BountyCycleJob {
   node: string;
   challenge?: string;
@@ -447,14 +447,19 @@ interface BountyCycleResponse {
   bounties?: Record<string, BountyCycleJob[]>;
 }
 
-const BOUNTY_CYCLE_SYNDICATES: Record<string, { displayName: string; standingTiers: number[][] }> = {
+const BOUNTY_CYCLE_SYNDICATES: Record<
+  string,
+  { displayName: string; standingTiers: number[][]; levelTiers: [number, number][] }
+> = {
   ZarimanSyndicate: {
     displayName: "The Holdfasts",
     standingTiers: [[1000, 1500], [2000, 3000], [3000, 4500], [4000, 6000], [5000, 7500]],
+    levelTiers: [[50, 55], [60, 65], [70, 75], [90, 95], [110, 115]],
   },
   EntratiLabSyndicate: {
     displayName: "Cavia",
     standingTiers: [[1000, 1500], [2000, 3000], [3000, 4500], [4000, 6000], [5000, 7500]],
+    levelTiers: [[55, 60], [65, 70], [75, 80], [95, 100], [115, 120]],
   },
   HexSyndicate: {
     displayName: "The Hex",
@@ -462,6 +467,8 @@ const BOUNTY_CYCLE_SYNDICATES: Record<string, { displayName: string; standingTie
       [1000, 1500], [2000, 3000], [3000, 4500], [4000, 6000],
       [5000, 7500], [6000, 9000], [7500, 11250],
     ],
+    // In-game levels; DE's drop-table labels run 10 lower (pools are matched by tier index)
+    levelTiers: [[65, 70], [75, 80], [85, 90], [95, 100], [105, 110], [115, 120], [125, 130]],
   },
 };
 
@@ -635,7 +642,7 @@ function resolveAllyName(allyPath: string | undefined): string | undefined {
   return slug.replace(/AllyAgent$/, "") || undefined;
 }
 
-function parseBountyCycleBounties(data: BountyCycleResponse): unknown[] {
+export function parseBountyCycleBounties(data: BountyCycleResponse): unknown[] {
   const bounties = data.bounties;
   if (!bounties || typeof bounties !== "object") return [];
 
@@ -651,8 +658,8 @@ function parseBountyCycleBounties(data: BountyCycleResponse): unknown[] {
       const missionType = region?.missionType
         ? formatMissionTypeLabel(String(region.missionType), job.node)
         : "Unknown";
-      const minLevel = Number(region?.minEnemyLevel) || 0;
-      const maxLevel = Number(region?.maxEnemyLevel) || 0;
+      const levels: [number, number] = config.levelTiers[index] ??
+        [Number(region?.minEnemyLevel) || 0, Number(region?.maxEnemyLevel) || 0];
       // Oracle bounties are single-stage; standingTiers[index] is [base, bonus], not per-stage
       const standingPair = config.standingTiers[index] || [];
       const stages = standingPair.length > 0 ? [standingPair[0]] : [];
@@ -665,7 +672,8 @@ function parseBountyCycleBounties(data: BountyCycleResponse): unknown[] {
 
       return {
         type: missionType,
-        enemyLevels: [minLevel, maxLevel],
+        enemyLevels: levels,
+        tierIndex: index,
         standingStages: stages,
         minMR: 0,
         ...(challengeInfo?.desc ? { challengeDesc: challengeInfo.desc } : {}),
