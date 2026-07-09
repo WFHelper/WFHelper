@@ -32,6 +32,8 @@ const droneLine = (ts: number) =>
   `${ts.toFixed(3)} Sys [Info]: OnAgentCreated /Npc/CorpusEliteShieldDroneAgent7`;
 const rewardLine = (ts: number) =>
   `${ts.toFixed(3)} Sys [Info]: Created /Lotus/Interface/DefenseReward.swf`;
+const eomLine = (ts: number) =>
+  `${ts.toFixed(3)} Sys [Info]: EOM missionLocationUnlocked=1`;
 
 function waitForRun(tracker: Tracker): Promise<ArbiRunRecord> {
   return new Promise((resolve) => {
@@ -142,6 +144,34 @@ describe("arbiRunTracker", () => {
     expect(run2.drones).toBe(1);
     // Same wall-clock second must not collide on capture paths.
     expect(run2.id).not.toBe(run.id);
+  });
+
+  it("records two runs separated by a mission-end (finish arbi, queue the next)", async () => {
+    const tracker = await freshTracker();
+    const first = waitForRun(tracker);
+    feedRun(tracker);
+    tracker.processArbiLine(eomLine(500), "file");
+    const run1 = await first;
+    expect(run1.node).toBe("Casta Defense (Ceres)");
+    expect(run1.endReason).toBe("mission-end");
+
+    const second = waitForRun(tracker);
+    tracker.processArbiLine(missionLine(900, "Arbitration: Berehynia Interception (Sedna)"), "file");
+    tracker.processArbiLine(droneLine(950), "file");
+    tracker.processArbiLine(rewardLine(1100), "file");
+    tracker.processArbiLine(eomLine(1200), "file");
+    const run2 = await second;
+    expect(run2.node).toBe("Berehynia Interception (Sedna)");
+    expect(run2.endReason).toBe("mission-end");
+    expect(run2.id).not.toBe(run1.id);
+    expect(tracker.getRuns()).toHaveLength(2);
+
+    // Each capture holds only its own run's lines.
+    const gz1 = zlib
+      .gunzipSync(fs.readFileSync(path.join(tmpDir, "arbi-logs", run1.logFile as string)))
+      .toString("utf-8");
+    expect(gz1).toContain("Casta Defense");
+    expect(gz1).not.toContain("Berehynia");
   });
 
   it("finalizes via inactivity when only non-combat lines keep arriving", async () => {
