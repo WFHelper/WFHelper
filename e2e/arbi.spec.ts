@@ -57,7 +57,7 @@ test.describe("Arbitration schedule + post-run overlay", () => {
 
   test("world view exposes the arbitration schedule sub-tab", async () => {
     await page.locator("#sidebar").getByText("World", { exact: true }).click();
-    await page.getByRole("button", { name: "Arbitrations", exact: true }).click();
+    await page.locator("#content").getByRole("button", { name: "Arbitrations", exact: true }).click();
 
     await expect(page.getByPlaceholder("search nodes: Alator Callisto")).toBeVisible();
     // Shows either the fetched schedule ("N entries") or the offline state.

@@ -10,7 +10,7 @@ export const en = {
   "nav.settings": "Settings",
   "nav.rivens": "Rivens",
   "nav.wiki": "Wiki",
-  "nav.arbi": "Arbi Analyze",
+  "nav.arbi": "Arbitrations",
   "nav.test": "Test",
   "nav.overlay": "Overlay",
   "nav.loadJson": "Load JSON",
@@ -21,7 +21,7 @@ export const en = {
   "view.market": "Market",
   "view.relics": "Relics",
   "view.wiki": "Wiki",
-  "view.arbi": "Arbi Analyze",
+  "view.arbi": "Arbitrations",
 
   "arbi.title": "Arbitration Runs",
   "arbi.empty": "No arbitration runs recorded yet. Finish an arbitration with the app running, or import an EE.log.",

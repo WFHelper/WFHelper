@@ -178,10 +178,12 @@ export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, 
   const calendarDays = allCalendarDays(cutoffStr);
   if (calendarDays.length === 0) return { bars: [], hasBaseline: false, bw: 4, absLine: null, absValues: [], hasAbsData: false, realData: [], yTicks: [], niceMax: 0 };
 
-  // Index real entries by date for fast lookup
+  // Index entries by date; newest pre-window entry seeds the carry-in.
   const entryMap = new Map<string, DailyStatEntry>();
+  let carryIn: DailyStatEntry | null = null;
   for (const e of hist) {
     if (e.date >= cutoffStr) entryMap.set(e.date, e);
+    else if (!carryIn || e.date > carryIn.date) carryIn = e;
   }
 
   const realData: boolean[] = [];
@@ -257,7 +259,9 @@ export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, 
 
   if (absField) {
     // Carry forward the last known absolute value so the line extends across gaps
-    let lastKnown: number | undefined;
+    let lastKnown: number | undefined = carryIn
+      ? ((carryIn[absField] as number | undefined) ?? undefined)
+      : undefined;
     for (let i = 0; i < rawAbs.length; i++) {
       if (rawAbs[i] !== undefined) lastKnown = rawAbs[i];
       else if (lastKnown !== undefined) rawAbs[i] = lastKnown;

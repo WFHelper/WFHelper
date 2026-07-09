@@ -168,7 +168,7 @@
 
 <div class="grid grid-cols-[270px_minmax(0,1fr)] gap-5 max-[1000px]:grid-cols-1">
   <!-- NODE SIDEBAR -->
-  <aside class="flex min-w-0 flex-col gap-2">
+  <aside class="sticky top-0 flex min-w-0 flex-col gap-2 self-start h-[calc(100vh-var(--titlebar-height)-var(--statusbar-height)-3rem)] max-[1000px]:static max-[1000px]:h-auto">
     <div class="flex items-center justify-between">
       <span class="text-xs font-bold uppercase tracking-[0.06em] text-text-secondary">{$tr("arbisched.nodes")}</span>
       <span class="text-xs text-text-muted">
@@ -188,7 +188,7 @@
       <span class="text-xs text-warning">{$tr("arbisched.noNodeMatch", { tokens: unmatchedTokens })}</span>
     {/if}
 
-    <div class="flex max-h-[420px] flex-col overflow-y-auto rounded-[var(--radius-md)] border border-border/60">
+    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-[var(--radius-md)] border border-border/60 max-[1000px]:max-h-[420px] max-[1000px]:flex-none">
       {#each sidebarNodes as node (node.id)}
         {@const active = selected.has(node.id)}
         {@const starred = favoriteSet.has(node.id)}
