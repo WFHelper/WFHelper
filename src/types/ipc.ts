@@ -118,10 +118,8 @@ interface InventoryStatus {
   path: string | null;
   found: boolean;
   /**
-   * Most recent failure to read or parse the inventory file. Set when
-   * readInventory() catches; cleared on a successful read. Lets the UI
-   * distinguish "no inventory file discovered" (lastError null) from
-   * "inventory file exists but is unreadable/corrupt".
+   * Most recent inventory read/parse failure; cleared on success. Distinguishes
+   * "no file discovered" (null) from "file unreadable/corrupt".
    */
   lastError?: InventoryReadError | null;
 }

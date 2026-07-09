@@ -1,6 +1,5 @@
 <script lang="ts">
-  // Cycle row used in the Planet Cycles section. Each row shows a planet icon,
-  // current state badge, time remaining, and an optional notification toggle.
+  // Planet-cycle row: icon, state badge, time remaining, optional alert toggle.
   type CycleAlertKey = "earth" | "cetus" | "vallis" | "cambion" | "duviri";
 
   export let name: string;

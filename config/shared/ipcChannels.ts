@@ -1,9 +1,4 @@
-/**
- * Single source of truth for all IPC channel names. Import these constants
- * from preload files and IPC handler modules so the channel string lives in
- * exactly one place. Each export is typed `as const` so TypeScript narrows
- * it to its exact string-literal type.
- */
+/** All IPC channel names live here; `as const` keeps literal types. */
 
 export const INVENTORY_GET = "get-inventory";
 export const INVENTORY_OPEN_FILE = "open-inventory-file";

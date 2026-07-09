@@ -19,10 +19,7 @@ import {
 const STORAGE_KEY = "wf_theme_settings";
 const CURRENT_VERSION = 1;
 
-/**
- * Validate and fill missing fields in a partial theme settings object.
- * Returns a complete ThemeSettings with all required fields.
- */
+/** Fill missing fields in a partial theme -> complete ThemeSettings. */
 function migrateAndNormalize(raw: Record<string, unknown>): ThemeSettings {
   const version = typeof raw.version === "number" ? raw.version : 0;
 

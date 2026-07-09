@@ -6,10 +6,7 @@ interface PriceState {
   slug: string | null;
 }
 
-/**
- * Fetch WFM price for an item/component name.
- * Returns { text, slug } for display and link.
- */
+/** WFM price for an item/component - { text, slug }. */
 export async function loadItemPrice(
   name: string,
   wfmItems: Record<string, { url_name: string }>,

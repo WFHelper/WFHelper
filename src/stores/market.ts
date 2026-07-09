@@ -40,11 +40,9 @@ export const marketViewState = writable<MarketViewState>({ ...DEFAULT_MARKET_VIE
 export const marketSelected = writable<Set<string>>(new Set());
 
 /**
- * Mutate `marketSelected` through a callback and have the replacement
- * `new Set(...)` handled for you. Svelte stores only notify subscribers
- * when the reference changes; mutating the Set in place (e.g. `s.add(x);
- * return s;`) silently breaks reactivity. Routing every mutation through
- * this helper makes that mistake impossible.
+ * Mutate `marketSelected` via callback with the `new Set(...)` replacement
+ * handled here - in-place Set mutation keeps the reference, so subscribers
+ * never fire.
  */
 export function mutateMarketSelected(mutator: (s: Set<string>) => void): void {
   marketSelected.update((s) => {

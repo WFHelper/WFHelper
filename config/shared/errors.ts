@@ -1,21 +1,8 @@
-/**
- * Shared error-message normalizer used by main-process, IPC handlers,
- * renderer, and (optionally) the worker.
- *
- * Centralizes the pattern of safely extracting a human-readable message
- * from an unknown caught value.
- */
+/** Shared error-message normalizer (main, IPC, renderer, worker). */
 
 /**
- * Extract a human-readable error message from an unknown caught value.
- *
- * - If `err` is an object with a string `.message`, returns that (trimmed).
- * - If `err` is a non-empty string, returns it (trimmed).
- * - Otherwise returns `fallback`.
- *
- * This is intentionally more permissive than `err instanceof Error` so it
- * works with duck-typed error objects from other contexts (e.g. Electron IPC,
- * Cloudflare Workers).
+ * Message from `.message` or a string value, else `fallback`. Looser than
+ * `instanceof Error` on purpose - IPC/worker errors are duck-typed.
  */
 export function normalizeErrorMessage(err: unknown, fallback: string = "Unknown error"): string {
   if (

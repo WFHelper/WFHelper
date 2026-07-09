@@ -3,10 +3,7 @@ import { THEME_COLOR_CSS_MAP, THEME_EFFECT_CSS_MAP } from "../../types/theme.js"
 import { BASE_FONT_SIZE_PX } from "../../config/themeDefaults.js";
 import { autoAdjustTextColor, WCAG_AA_NORMAL } from "./contrastUtils.js";
 
-/**
- * Apply a ThemeSettings object to the document by setting CSS custom properties.
- * This function is called every time the theme store changes.
- */
+/** Apply ThemeSettings to the document as CSS custom properties. */
 export function applyTheme(settings: ThemeSettings): void {
   if (typeof document === "undefined") return;
 
@@ -144,9 +141,7 @@ function resolveSurfaceTokens(effects: ThemeEffects): {
   };
 }
 
-/**
- * Resolve colours, applying contrast-safe mode adjustments if enabled.
- */
+/** Resolve colours with contrast-safe adjustments when enabled. */
 function resolveColors(settings: ThemeSettings): ThemeColors {
   const colors = { ...settings.colors };
 
@@ -160,10 +155,7 @@ function resolveColors(settings: ThemeSettings): ThemeColors {
   return colors;
 }
 
-/**
- * Derive an accent-glow rgba() value from a hex colour.
- * Falls back to the default accent-glow if parsing fails.
- */
+/** Accent-glow rgba() from a hex colour; default glow on parse failure. */
 function hexToAccentGlow(hex: string): string {
   const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
   if (!match) return "rgba(212, 168, 67, 0.15)";

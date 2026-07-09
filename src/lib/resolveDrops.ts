@@ -5,10 +5,7 @@ interface DropsSource {
   uniqueName?: string;
 }
 
-/**
- * Resolve drop sources for an item/component, falling back to itemDb when
- * the item's own drops array is empty.
- */
+/** Drop sources for an item/component; itemDb fallback when its own drops are empty. */
 export function resolveDrops(
   item: DropsSource | null | undefined,
   itemDb: Record<string, { drops?: DropInfo[] }>,

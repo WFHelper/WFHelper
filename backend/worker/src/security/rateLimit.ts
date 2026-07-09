@@ -5,18 +5,10 @@ import { clientIp } from '../utils';
 
 type PublicRateLimitRoute = 'healthz' | 'bootstrap' | 'prices' | 'meta' | 'order-summary' | 'orders' | 'snapshot';
 
-// These KV counters are best-effort, not atomic: parallel requests can race
-// between get() and put(). Cloudflare edge rate limiting is the primary bot
-// control; these route buckets are a secondary in-Worker guardrail.
-//
-// The counters intentionally live in PRICE_CACHE with an `rl:` prefix. Keep the
-// shared namespace unless operational noise or blast-radius pressure justifies a
-// dedicated binding.
-//
-// 2000 req/10 min per IP per route comfortably covers a legitimate desktop user
-// with a large inventory on a cold cache (~1000 requests observed), while
-// refusing the 20k+ storms a scraper or runaway loop would produce. Real bot
-// traffic is caught at the edge before it reaches these counters.
+// Best-effort KV counters (get/put races are fine) - edge rate limiting is the primary
+// bot control, these buckets are a secondary in-Worker guardrail. Counters share
+// PRICE_CACHE under `rl:`. 2000 req/10min per IP per route: a desktop user on a cold
+// cache needs ~1000, scraper storms hit 20k+.
 const PUBLIC_ROUTE_LIMITS: Record<PublicRateLimitRoute, { maxRequests: number; windowSec: number }> = {
 	healthz: { maxRequests: 5, windowSec: 60 },
 	bootstrap: { maxRequests: 60, windowSec: 600 },

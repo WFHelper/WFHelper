@@ -1,23 +1,9 @@
-/**
- * Shared numeric utilities used by main-process, renderer, and worker.
- * Every function is side-effect-free and safe to call with arbitrary input.
- */
+/** Shared numeric utilities (main, renderer, worker). */
 
 /** Highest mod/arcane rank the app supports for cache keys and API queries. */
 const MAX_SUPPORTED_RANK = 20;
 
-/**
- * Coerce an unknown value to a finite number or `null`.
- *
- * Handles:
- * - Already-a-number: returned if finite.
- * - Non-empty trimmed string: parsed via `Number()`, returned if finite.
- * - BSON-style boxed objects (`$numberInt`, `$numberLong`, ...): recursively
- *   unwrapped.
- *
- * Returns `null` for anything else (`NaN`, `Infinity`, empty strings,
- * `null`, `undefined`, booleans, arrays, ...).
- */
+/** Unknown -> finite number or null. Unwraps BSON-style boxed numbers. */
 export function toFiniteNumber(value: unknown): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (typeof value === "string" && value.trim()) {
@@ -71,12 +57,8 @@ export function toFiniteOr(value: unknown, fallback: number = 0): number {
 }
 
 /**
- * Clamp a value between `min` and `max` (inclusive).
- *
- * - 3-arg form: `value` must already be a finite number; returns the clamped
- *   number. Passing a non-finite `value` is a programmer error and throws.
- * - 4-arg form: `value` is coerced via `Number()`; if the result is not
- *   finite, `fallback` is returned instead of clamping.
+ * Clamp to [min, max]. 3-arg form throws on a non-finite value; 4-arg form
+ * coerces and returns `fallback` when not finite.
  */
 export function clampNumber(value: number, min: number, max: number): number;
 export function clampNumber(value: unknown, min: number, max: number, fallback: number): number;
@@ -91,13 +73,7 @@ export function clampNumber(value: unknown, min: number, max: number, fallback?:
   return Math.max(min, Math.min(max, n));
 }
 
-/**
- * Parse an unknown value into a non-negative integer rank, optionally
- * clamped to an upper bound.
- *
- * Returns `null` for values that are not finite non-negative numbers,
- * empty strings, or `null`/`undefined`.
- */
+/** Unknown -> non-negative integer rank (optionally clamped), else null. */
 export function normalizeRank(value: unknown, maxRank?: number): number | null {
   if (value == null) return null;
   if (typeof value === "string" && value.trim().length === 0) return null;
@@ -108,21 +84,12 @@ export function normalizeRank(value: unknown, maxRank?: number): number | null {
   return floored;
 }
 
-/**
- * Convenience: {@link normalizeRank} clamped to {@link MAX_SUPPORTED_RANK}.
- *
- * Use this when the rank represents a filter/cache-key for WFM price
- * lookups rather than an inventory-level rank.
- */
+/** {@link normalizeRank} clamped to {@link MAX_SUPPORTED_RANK} - for WFM filter/cache keys. */
 export function normalizeRankFilter(value: unknown): number | null {
   return normalizeRank(value, MAX_SUPPORTED_RANK);
 }
 
-/**
- * Coerce a value to a finite positive (> 0) integer, or `null`.
- *
- * Useful for parsing `maxRank` values where 0 is not meaningful.
- */
+/** Finite positive integer or null. */
 export function toFinitePositiveInt(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value) && value > 0) {
     return Math.floor(value);

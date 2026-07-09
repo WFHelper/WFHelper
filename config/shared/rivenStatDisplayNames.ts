@@ -1,11 +1,7 @@
 /**
- * Shared mapping from internal upgrade-tag IDs (e.g. "WeaponCritDamageMod") to
- * canonical display names ("Critical Damage"). Mirrors the canonical names in
- * services/rivenData.ts STAT_NAME_TO_TAG, but kept in `config/shared/` so the
- * renderer can use it without pulling in main-process modules.
- *
- * Note: AS uses the same tag as FR (`WeaponFireRateMod`); when grading melee
- * weapons we want to show "Attack Speed". Pass `melee=true` to flip the label.
+ * Upgrade-tag ID -> display name ("WeaponCritDamageMod" -> "Critical Damage").
+ * Kept in config/shared so the renderer avoids main-process imports.
+ * AS shares FR's tag (WeaponFireRateMod); pass melee=true to label it Attack Speed.
  */
 
 const STAT_TAG_TO_DISPLAY_NAME: Record<string, string> = {

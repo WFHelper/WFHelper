@@ -133,9 +133,8 @@ export async function scanRewardSlotsFallback(
         const cropPng: Buffer = crop.toPNG();
         const timeout = Math.max(500, Math.min(options.ocrTimeoutMs, remainingBudgetMs));
 
-        // Names wrap to two lines in 3/4-player layouts, so OCR each line band
-        // separately and join; also try the whole crop for single-line names.
-        // Bands overlap a little so the wrap point doesn't cut a glyph.
+        // Names wrap to two lines in 3/4-player layouts: OCR each band plus the whole
+        // crop, bands overlap so the wrap point doesn't cut a glyph.
         const topText = await ocrRewardRegion(cropPng, 0, 0.58, options, timeout);
         const bottomText = await ocrRewardRegion(cropPng, 0.42, 0.58, options, timeout);
         const wholeText = await ocrRewardRegion(cropPng, 0, 1, options, timeout);

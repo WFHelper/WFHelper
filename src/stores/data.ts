@@ -43,12 +43,8 @@ export const parsedItems = derived(
 );
 
 /**
- * Foundry building / recipe list.
- *
- * Memoised across subscriptions: parsing the full itemDb is expensive (~1 s
- * on large accounts), so we cache the last result keyed on the identity of
- * the two inputs. Switching tabs (subscribing / unsubscribing) no longer
- * re-parses; only a real change to inventory or itemDb triggers work.
+ * Foundry building / recipe list. Memoised on input identity - parsing the
+ * full itemDb costs ~1 s on large accounts; only real input changes re-parse.
  */
 let _foundryCache: FoundryData = { building: [], recipes: [] };
 let _foundryInvRef: RawInventoryData | null = null;

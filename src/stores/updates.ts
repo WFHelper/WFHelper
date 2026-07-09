@@ -11,10 +11,7 @@ export const appUpdateState = writable<AppUpdateState>(DEFAULT_APP_UPDATE_STATE)
 
 let lastNotifiedUpdateStatus = "";
 
-/**
- * Apply an incoming update state and optionally show a toast notification.
- * Keeps track of the last notified status to avoid duplicate toasts.
- */
+/** Apply update state, toast when the status actually changed. */
 export function applyUpdateState(state: AppUpdateState, showToast: boolean): void {
   appUpdateState.set(state);
   if (!showToast || state.status === lastNotifiedUpdateStatus) return;

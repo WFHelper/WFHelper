@@ -57,10 +57,7 @@ function relativeLuminance(rgb: Rgb): number {
   return 0.2126 * srgbToLinear(rgb.r) + 0.7152 * srgbToLinear(rgb.g) + 0.0722 * srgbToLinear(rgb.b);
 }
 
-/**
- * Compute WCAG contrast ratio between two colours.
- * Returns a value >= 1 (higher = more contrast).
- */
+/** WCAG contrast ratio (>= 1). */
 export function contrastRatio(color1: string, color2: string): number {
   const rgb1 = parseColor(color1);
   const rgb2 = parseColor(color2);
@@ -77,11 +74,7 @@ export function contrastRatio(color1: string, color2: string): number {
 /** WCAG AA minimum for normal text (>= 4.5:1). */
 export const WCAG_AA_NORMAL = 4.5;
 
-/**
- * Auto-adjust a foreground colour to meet a minimum contrast ratio against
- * the given background. Lightens or darkens the text colour.
- * Returns the adjusted hex colour string.
- */
+/** Lighten/darken a foreground hex until it meets the contrast ratio. */
 export function autoAdjustTextColor(
   fgHex: string,
   bgHex: string,

@@ -1,13 +1,7 @@
 <!--
-  Segmented-control: a horizontal group of buttons where one is "active",
-  styled as a single rounded bar with internal dividers.
-
-  Replaces the repeated `inline-flex overflow-hidden rounded-[var(--radius-md)]
-  border ...` blocks in StyleSection (corner / surface / relic card / market
-  density toggles).
-
-  Generic over T (the option value type). Pass `options` and `value`; the
-  component calls `onChange` when a button is clicked.
+  Segmented-control: horizontal button group with one active option, styled as
+  a single rounded bar with dividers. Generic over T; pass `options`/`value`,
+  `onChange` fires on click.
 -->
 <script lang="ts" generics="T extends string | number">
   export let value: T;

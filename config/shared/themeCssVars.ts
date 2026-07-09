@@ -1,16 +1,7 @@
 /**
- * Single source of truth for CSS custom properties that are forwarded
- * from the renderer to overlay windows for themeing.
- *
- * Used by:
- *  - src/main.ts (renderer): builds the payload from these vars and sends it
- *    via IPC channel `overlay-theme-updated`.
- *  - ipc/overlayIpc.ts (main): sanitizes the IPC payload against this list
- *    before forwarding to overlay BrowserWindows.
- *
- * To add a new themed CSS variable that should reach overlays, add its
- * `--name` here and (if applicable) a key/value to THEME_COLOR_CSS_MAP or
- * THEME_EFFECT_CSS_MAP in src/types/theme.ts so the renderer actually sets it.
+ * CSS vars forwarded renderer -> overlay windows for theming. src/main.ts builds
+ * the payload, ipc/overlayIpc.ts sanitizes against this list. New themed vars go
+ * here plus THEME_*_CSS_MAP in src/types/theme.ts.
  */
 
 /** Color tokens (mirror of THEME_COLOR_CSS_MAP values + derived --accent-glow). */
