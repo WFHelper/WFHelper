@@ -3,7 +3,7 @@
 
   import { relicDb, relicOwnedCounts } from "../stores/relics.js";
   import { activeItem, activeComponent, activeRelic } from "../stores/modals.js";
-  import { RELIC_ICON_PATHS } from "../lib/relic.js";
+  import { fissureTierClass, RELIC_ICON_PATHS } from "../lib/relic.js";
   import { buildWikiUrl } from "../lib/wikiUrl.js";
   import type { DropInfo } from "../types/inventory.js";
   import type { RelicGroup } from "../types/relics.js";
@@ -89,6 +89,18 @@
     return counts.intact + counts.exceptional + counts.flawless + counts.radiant > 0;
   }
 
+  function relicFallbackIcon(rg: RelicGroup): string {
+    return RELIC_ICON_PATHS[fissureTierClass(rg.tier)] || RELIC_ICON_PATHS.default;
+  }
+
+  // rg.imageUrl can 404 (mirror gap / dead upstream); swap to the bundled tier icon
+  function onRelicImgError(event: Event, rg: RelicGroup): void {
+    const img = event.currentTarget as HTMLImageElement | null;
+    if (!img) return;
+    const fallback = relicFallbackIcon(rg);
+    if (!img.src.endsWith(fallback)) img.src = fallback;
+  }
+
   const RARITY_COLOUR: Record<string, string> = {
     Common: "var(--rarity-common)",
     Uncommon: "var(--rarity-uncommon)",
@@ -142,12 +154,12 @@
             {@const owned = isOwned(rg.key)}
             <div class="my-2 rounded-lg border border-border-strong bg-bg-raised px-3 py-2.5 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
               <div class="flex items-center gap-2 pb-2 mb-2 border-b border-border">
-                {#if rg.imageUrl}
-                  <img src={rg.imageUrl} alt={rg.name} class="w-8 h-8 object-contain shrink-0" />
-                {:else}
-                  {@const iconPath = RELIC_ICON_PATHS[rg.tier.toLowerCase()] ?? RELIC_ICON_PATHS.default}
-                  <img src={iconPath} alt={rg.tier} class="w-8 h-8 object-contain shrink-0" />
-                {/if}
+                <img
+                  src={rg.imageUrl || relicFallbackIcon(rg)}
+                  alt={rg.name}
+                  class="w-8 h-8 object-contain shrink-0"
+                  on:error={(e) => onRelicImgError(e, rg)}
+                />
                 <div class="flex-1 min-w-0 flex flex-col gap-0.5">
                   <span class="font-display text-sm font-semibold text-text-primary truncate">{rg.name}</span>
                   <span class="font-display text-xs font-bold tracking-wider px-1.5 py-0.5 rounded w-fit {owned ? 'bg-success/15 text-success' : 'bg-danger/20 text-danger'}">
