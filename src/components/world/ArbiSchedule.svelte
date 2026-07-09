@@ -214,7 +214,7 @@
             title={$tr("arbisched.starTitle")}
             on:click|stopPropagation={() => toggleStar(node.id)}
           >
-            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill={starred ? "currentColor" : "none"} stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={starred ? 2.5 : 2} stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/></svg>
           </button>
         </div>
       {:else}
@@ -317,7 +317,9 @@
               <span class="truncate font-semibold text-text-primary">
                 {entry.node}
                 {#if favoriteSet.has(entry.nodeId)}
-                  <span class="ml-1 text-warning" title={$tr("arbisched.starTitle")}>★</span>
+                  <span class="ml-1 inline-flex align-[-2px] text-warning" title={$tr("arbisched.starTitle")}>
+                    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/></svg>
+                  </span>
                 {/if}
               </span>
               <span class="truncate text-text-secondary">{entry.mission}</span>

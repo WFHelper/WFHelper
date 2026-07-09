@@ -15,7 +15,7 @@ export const NAV_ICON_URLS = {
   settings: new URL("../../assets/icons/Settings.png", import.meta.url).href,
   stats: new URL("../../assets/icons/Stats.png", import.meta.url).href,
   wiki: new URL("../../assets/icons/Wiki.svg", import.meta.url).href,
-  arbi: new URL("../../assets/icons/ArbiAnalyze.svg", import.meta.url).href,
+  arbi: new URL("../../assets/icons/ArbiAnalyze.png", import.meta.url).href,
 } as const;
 
 export const POLARITY_ICON_URLS = {

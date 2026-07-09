@@ -160,16 +160,18 @@
 </script>
 
 <section class="view active">
-  <div class="view-header">
-    <div class="flex items-center gap-3">
-      <h2>World</h2>
+  <div class="mb-4">
+    <h2 class="m-0 mb-2 font-display text-3xl font-semibold tracking-[0.03em] text-text-primary">World</h2>
+    <div class="flex items-end border-b border-white/[0.09]">
       <HeaderTabs options={worldTabOptions} activeKey={worldTab} onSelect={setWorldTab} />
-      {#if worldTab === "world"}
-        {#if baroActive}
-          <span class="rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-warning">Baro leaves in {times.baro}{#if baroLocation} - {baroLocation}{/if}</span>
-        {:else if baroAct}
-          <span class="rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-warning">Baro arrives in {times.baro}{#if baroLocation} - {baroLocation}{/if}</span>
-        {/if}
+      {#if worldTab === "world" && (baroActive || baroAct)}
+        <div class="ml-auto flex items-center pb-2 shrink-0">
+          {#if baroActive}
+            <span class="rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-warning">Baro leaves in {times.baro}{#if baroLocation} - {baroLocation}{/if}</span>
+          {:else}
+            <span class="rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-warning">Baro arrives in {times.baro}{#if baroLocation} - {baroLocation}{/if}</span>
+          {/if}
+        </div>
       {/if}
     </div>
   </div>
