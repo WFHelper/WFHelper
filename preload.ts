@@ -11,6 +11,7 @@ import {
   INVENTORY_GET_STATUS,
   INVENTORY_UPDATED,
   DB_GET_ITEM_DATABASE,
+  ITEM_DB_UPDATED,
   DB_GET_WORLD_STATE,
   DB_GET_RELIC_DATABASE,
   DROP_SEARCH,
@@ -117,6 +118,7 @@ try {
     getAppRuntimeInfo: () => ipcRenderer.invoke(APP_RUNTIME_INFO),
 
     onInventoryUpdated: ipcDataBridge<unknown>(ipcRenderer, INVENTORY_UPDATED),
+    onItemDbUpdated: ipcDataBridge<unknown>(ipcRenderer, ITEM_DB_UPDATED),
     onAppUpdateStatus: ipcDataBridge<unknown>(ipcRenderer, APP_UPDATE_STATUS),
     onWfmNotification: ipcDataBridge<unknown>(ipcRenderer, WFM_NOTIFICATION),
     onTradeRecorded: ipcDataBridge<unknown>(ipcRenderer, TRADE_RECORDED),

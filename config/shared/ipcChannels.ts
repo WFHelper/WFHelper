@@ -7,6 +7,7 @@ export const INVENTORY_GET_STATUS = "get-inventory-status";
 export const INVENTORY_UPDATED = "inventory-updated";
 
 export const DB_GET_ITEM_DATABASE = "get-item-database";
+export const ITEM_DB_UPDATED = "item-db-updated";
 export const DB_GET_WORLD_STATE = "get-world-state";
 export const WORLD_STATE_FETCH_ERROR = "world-state-fetch-error";
 export const DB_GET_RELIC_DATABASE = "get-relic-database";

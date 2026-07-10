@@ -40,7 +40,7 @@ import * as tradeNotificationIpc from "./ipc/tradeNotificationIpc";
 import { assertMainRendererSender, handleAuthorized } from "./ipc/ipcSecurity";
 import {
   HELPER_GET_STATUS, HELPER_RUN_NOW, HELPER_DOWNLOAD, HELPER_DOWNLOAD_PROGRESS,
-  INVENTORY_UPDATED, TRADE_RECORDED, ARBI_RUN_SAVED,
+  INVENTORY_UPDATED, ITEM_DB_UPDATED, TRADE_RECORDED, ARBI_RUN_SAVED,
 } from "./config/shared/ipcChannels";
 import * as statsTracker from "./services/statsTracker";
 import * as arbiRunTracker from "./services/arbiRunTracker";
@@ -247,6 +247,7 @@ app.whenReady().then(async () => {
     .then(({ changed }) => {
       if (changed) {
         itemDb.buildDatabase();
+        if (ctx.mainWindow) ctx.mainWindow.webContents.send(ITEM_DB_UPDATED);
         log.info("[ItemDB] Rebuilt with refreshed DE public export");
       }
     })

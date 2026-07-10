@@ -499,6 +499,7 @@ interface TradeRecordedEvent {
 
 export interface IpcEventMap {
   "inventory-updated": RawInventoryData;
+  "item-db-updated": undefined;
   "app-update-status": AppUpdateState;
   "wfm:notification": WfmNotification;
   "helper-download-progress": HelperDownloadProgress;

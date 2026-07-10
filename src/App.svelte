@@ -25,7 +25,8 @@
 
   import { currentView, statusText } from "./stores/app.js";
   import { pendingArbiRunId } from "./stores/arbiRuns.js";
-  import { parsedItems } from "./stores/data.js";
+  import { itemDb, parsedItems } from "./stores/data.js";
+  import { masteryData } from "./stores/mastery.js";
   import { activeItem, activeComponent, activeRelic } from "./stores/modals.js";
   import { applyUpdateState } from "./stores/updates.js";
   import { addToast } from "./stores/toasts.js";
@@ -110,6 +111,15 @@
       currentView.set("arbi");
     });
 
+    // DE overlay refresh can add items/icons after startup; re-pull the affected stores.
+    const unsubscribeItemDbUpdated = on("item-db-updated", async () => {
+      const db = await invoke("getItemDatabase");
+      itemDb.set(db || {});
+      invoke("getMasteryProgress")
+        .then((md) => masteryData.set(md))
+        .catch((err) => console.warn("[Mastery] getMasteryProgress failed:", err));
+    });
+
     const startup = initStartup();
 
     // Match the exact-"1" check used in stores/app.ts:10 so any future
@@ -129,6 +139,7 @@
       unsubscribeUpdateStatus();
       unsubscribeWfmNotification();
       unsubscribeArbiOpenRun();
+      unsubscribeItemDbUpdated();
 
       window.removeEventListener("keydown", onKeyDown);
     };

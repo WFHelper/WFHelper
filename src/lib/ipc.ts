@@ -59,6 +59,8 @@ const eventApiMap: Record<
 > = {
   "inventory-updated": (cb) =>
     window.api.onInventoryUpdated(cb as (data: IpcEventMap["inventory-updated"]) => void),
+  "item-db-updated": (cb) =>
+    window.api.onItemDbUpdated(cb as (data: IpcEventMap["item-db-updated"]) => void),
   "app-update-status": (cb) =>
     window.api.onAppUpdateStatus(cb as (state: IpcEventMap["app-update-status"]) => void),
   "wfm:notification": (cb) =>

@@ -43,6 +43,7 @@ export interface PreloadAPI {
   installDownloadedUpdate: () => Promise<IpcInvokeMap["installDownloadedUpdate"]["return"]>;
   getAppRuntimeInfo: () => Promise<IpcInvokeMap["getAppRuntimeInfo"]["return"]>;
   onInventoryUpdated: (callback: (data: IpcEventMap["inventory-updated"]) => void) => () => void;
+  onItemDbUpdated: (callback: (data: IpcEventMap["item-db-updated"]) => void) => () => void;
   onAppUpdateStatus: (callback: (state: IpcEventMap["app-update-status"]) => void) => () => void;
   onWfmNotification: (
     callback: (notification: IpcEventMap["wfm:notification"]) => void,
