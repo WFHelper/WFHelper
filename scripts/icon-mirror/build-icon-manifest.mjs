@@ -44,6 +44,21 @@ function toMirrorPath(rawUrl) {
   return `icons/${hash}${toExt(rawUrl)}`;
 }
 
+const exportImages = JSON.parse(
+  fs.readFileSync(
+    path.join(repoRoot, "node_modules", "warframe-public-export-plus", "ExportImages.json"),
+    "utf-8",
+  ),
+);
+
+// browse.wf lags DE's CDN on freshly added textures; give the downloader DE's copy to fall back to
+function toFallbackUrl(sourceUrl) {
+  const parsed = new URL(sourceUrl);
+  if (parsed.hostname !== "browse.wf") return null;
+  const contentHash = exportImages[parsed.pathname]?.contentHash;
+  return contentHash ? `https://content.warframe.com/PublicExport${parsed.pathname}!${contentHash}` : null;
+}
+
 function addUrl(urls, value) {
   if (typeof value !== "string") return;
   const trimmed = value.trim();
@@ -137,10 +152,12 @@ collectRelicDatabaseUrls(urls);
 
 const entries = [...urls].sort().map((sourceUrl) => {
   const parsed = new URL(sourceUrl);
+  const fallbackUrl = toFallbackUrl(sourceUrl);
   return {
     sourceUrl,
     sourceHost: parsed.hostname,
     mirrorPath: toMirrorPath(sourceUrl),
+    ...(fallbackUrl ? { fallbackUrl } : {}),
   };
 });
 

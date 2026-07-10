@@ -48,6 +48,7 @@
     "icons:manifest": "pnpm run build:main && node scripts/icon-mirror/build-icon-manifest.mjs",
     "icons:download": "pnpm run icons:manifest && node scripts/icon-mirror/download-icon-mirror.mjs",
     "icons:deploy": "npm --prefix backend/worker exec -- wrangler pages deploy .icon-mirror/public --project-name wfhelper-icons --branch pre-production --commit-dirty=true",
+    "icons:sync": "pnpm run icons:download && pnpm run icons:deploy",
     "rebuild": "electron-rebuild -f",
     "prepare": "husky"
   },
