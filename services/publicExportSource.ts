@@ -22,6 +22,9 @@ const MANIFEST_BASE = "https://content.warframe.com/PublicExport/Manifest/";
 const OVERLAY_KEYS = ["ExportWarframes", "ExportWeapons", "ExportSentinels"] as const;
 type OverlayKey = (typeof OVERLAY_KEYS)[number];
 
+// DE's item exports omit icon paths; this manifest maps uniqueName -> texture.
+const IMAGE_MANIFEST = "ExportManifest.json";
+
 // Strip control chars DE leaves in its JSON, keeping the legal \t \n \r.
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = /[\x00-\x08\x0b\x0c\x0e-\x1f]/g;
@@ -31,6 +34,7 @@ interface DeItem {
   name?: string;
   productCategory?: string;
   masteryReq?: number;
+  icon?: string;
   [key: string]: unknown;
 }
 
@@ -39,6 +43,8 @@ type KeyedExport = Record<string, DeItem>;
 interface PublicExportOverlay {
   /** Per-export item maps keyed by uniqueName, ready to merge into itemDatabase. */
   exports: Partial<Record<OverlayKey, KeyedExport>>;
+  /** uniqueName -> "path!contentHash" from DE's image manifest (icon mirror fallbacks). */
+  images: Record<string, string> | null;
 }
 
 interface CachePayload {
@@ -46,6 +52,8 @@ interface CachePayload {
   /** Hashed manifest filename per export - lets us skip unchanged downloads. */
   index: Partial<Record<OverlayKey, string>>;
   exports: Partial<Record<OverlayKey, KeyedExport>>;
+  imagesIndex?: string;
+  images?: Record<string, string>;
 }
 
 let overlay: PublicExportOverlay | null = null;
@@ -98,11 +106,47 @@ async function fetchManifest(hashedName: string, exportKey: OverlayKey): Promise
   return keyed;
 }
 
+async function fetchImageManifest(hashedName: string): Promise<Record<string, string>> {
+  const res = await fetch(MANIFEST_BASE + hashedName, { redirect: "follow" });
+  if (!res.ok) throw new Error(`${IMAGE_MANIFEST} HTTP ${res.status}`);
+  const parsed = JSON.parse((await res.text()).replace(CONTROL_CHARS, " ")) as {
+    Manifest?: { uniqueName?: string; textureLocation?: string }[];
+  };
+  const map: Record<string, string> = {};
+  for (const entry of parsed.Manifest || []) {
+    if (entry?.uniqueName && typeof entry.textureLocation === "string") {
+      map[entry.uniqueName] = entry.textureLocation;
+    }
+  }
+  return map;
+}
+
+/** DE's item exports carry no icon field - fill it from the image manifest. */
+function enrichIconsFromImages(
+  exportMaps: Partial<Record<OverlayKey, KeyedExport>>,
+  images: Record<string, string> | undefined,
+): void {
+  if (!images) return;
+  for (const key of OVERLAY_KEYS) {
+    for (const item of Object.values(exportMaps[key] || {})) {
+      if (item.icon || !item.uniqueName) continue;
+      const texture = images[item.uniqueName];
+      if (texture) item.icon = texture.split("!")[0];
+    }
+  }
+}
+
 function readCache(): CachePayload | null {
   try {
     const parsed = JSON.parse(fs.readFileSync(cachePath(), "utf8")) as Partial<CachePayload>;
     if (!parsed.updatedAt || !parsed.exports || typeof parsed.exports !== "object") return null;
-    return { updatedAt: parsed.updatedAt, index: parsed.index || {}, exports: parsed.exports };
+    return {
+      updatedAt: parsed.updatedAt,
+      index: parsed.index || {},
+      exports: parsed.exports,
+      imagesIndex: typeof parsed.imagesIndex === "string" ? parsed.imagesIndex : undefined,
+      images: parsed.images && typeof parsed.images === "object" ? parsed.images : undefined,
+    };
   } catch {
     return null;
   }
@@ -121,7 +165,7 @@ export function loadOverlayFromDisk(): PublicExportOverlay | null {
   if (overlay) return overlay;
   const cached = readCache();
   if (!cached) return null;
-  overlay = { exports: cached.exports };
+  overlay = { exports: cached.exports, images: cached.images || null };
   return overlay;
 }
 
@@ -157,8 +201,24 @@ export async function refreshOverlayFromDE(): Promise<{ changed: boolean }> {
         changed = true;
       }
 
-      overlay = { exports: nextExports };
-      writeCache({ updatedAt: new Date().toISOString(), index: nextIndex, exports: nextExports });
+      const imagesHashed = index.get(IMAGE_MANIFEST);
+      let nextImages = previous?.images;
+      let nextImagesIndex = previous?.imagesIndex;
+      if (imagesHashed && (imagesHashed !== previous?.imagesIndex || !nextImages)) {
+        nextImages = await fetchImageManifest(imagesHashed);
+        nextImagesIndex = imagesHashed;
+        changed = true;
+      }
+      enrichIconsFromImages(nextExports, nextImages);
+
+      overlay = { exports: nextExports, images: nextImages || null };
+      writeCache({
+        updatedAt: new Date().toISOString(),
+        index: nextIndex,
+        exports: nextExports,
+        imagesIndex: nextImagesIndex,
+        images: nextImages,
+      });
 
       const counts = OVERLAY_KEYS.map(
         (k) => `${k.replace("Export", "")}=${Object.keys(nextExports[k] || {}).length}`,
@@ -167,7 +227,7 @@ export async function refreshOverlayFromDE(): Promise<{ changed: boolean }> {
       return { changed };
     } catch (err) {
       if (previous) {
-        overlay = { exports: previous.exports };
+        overlay = { exports: previous.exports, images: previous.images || null };
         log.warn("DE public export fetch failed - using cached overlay", err);
       } else {
         log.warn("DE public export fetch failed - no cache, using bundled package", err);

@@ -51,11 +51,19 @@ const exportImages = JSON.parse(
   ),
 );
 
+// texture path -> contentHash, seeded from the bundled package and topped up with
+// DE's live image manifest once the overlay loads (bundled data lags new patches)
+const fallbackHashByPath = new Map(
+  Object.entries(exportImages)
+    .filter(([, value]) => value?.contentHash)
+    .map(([texturePath, value]) => [texturePath, value.contentHash]),
+);
+
 // browse.wf lags DE's CDN on freshly added textures; give the downloader DE's copy to fall back to
 function toFallbackUrl(sourceUrl) {
   const parsed = new URL(sourceUrl);
   if (parsed.hostname !== "browse.wf") return null;
-  const contentHash = exportImages[parsed.pathname]?.contentHash;
+  const contentHash = fallbackHashByPath.get(parsed.pathname);
   return contentHash ? `https://content.warframe.com/PublicExport${parsed.pathname}!${contentHash}` : null;
 }
 
@@ -64,6 +72,29 @@ function addUrl(urls, value) {
   const trimmed = value.trim();
   if (!/^https?:\/\//i.test(trimmed)) return;
   urls.add(trimmed);
+}
+
+// Items newer than the bundled packages only exist in DE's live overlay; without
+// this the mirror misses their icons entirely (in-app they 404 on the mirror).
+async function loadOverlayFromDE() {
+  const publicExport = requireCompiled("services/publicExportSource.js");
+  await publicExport.refreshOverlayFromDE();
+  const overlay = publicExport.getOverlay();
+  if (!overlay) {
+    console.warn("[icon-mirror] DE overlay unavailable - manifest limited to bundled packages");
+    return;
+  }
+  for (const textureLocation of Object.values(overlay.images || {})) {
+    const [texturePath, contentHash] = textureLocation.split("!");
+    if (texturePath && contentHash) fallbackHashByPath.set(texturePath, contentHash);
+  }
+  const total = Object.values(overlay.exports).reduce(
+    (count, items) => count + Object.keys(items || {}).length,
+    0,
+  );
+  console.log(
+    `[icon-mirror] DE overlay loaded (${total} items, ${Object.keys(overlay.images || {}).length} image mappings)`,
+  );
 }
 
 function collectItemDatabaseUrls(urls) {
@@ -147,6 +178,7 @@ function writeIndex(manifest) {
 fs.mkdirSync(publicRoot, { recursive: true });
 
 const urls = new Set();
+await loadOverlayFromDE();
 collectItemDatabaseUrls(urls);
 collectRelicDatabaseUrls(urls);
 
