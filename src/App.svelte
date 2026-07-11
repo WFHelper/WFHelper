@@ -7,6 +7,7 @@
   import StatusBar from "./components/StatusBar.svelte";
   import ErrorBoundary from "./components/ErrorBoundary.svelte";
   import ToastHost from "./components/ToastHost.svelte";
+  import TourOverlay from "./components/TourOverlay.svelte";
 
   import { normalizeErrorMessage } from "../config/shared/errors.js";
 
@@ -26,6 +27,7 @@
   import { currentView, statusText } from "./stores/app.js";
   import { pendingArbiRunId } from "./stores/arbiRuns.js";
   import { itemDb, parsedItems } from "./stores/data.js";
+  import { tourActive } from "./stores/tour.js";
   import { masteryData } from "./stores/mastery.js";
   import { activeItem, activeComponent, activeRelic } from "./stores/modals.js";
   import { applyUpdateState } from "./stores/updates.js";
@@ -305,6 +307,9 @@
   <OrderModal />
 </ErrorBoundary>
 
+{#if $tourActive}
+  <TourOverlay />
+{/if}
 <ToastHost />
 
 

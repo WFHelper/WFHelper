@@ -12,6 +12,7 @@
   import { tr } from "../lib/i18n.js";
   import { hideFounderMasteryItems } from "../stores/preferences.js";
   import { TOGGLEABLE_TABS, tabVisibility } from "../stores/sidebarTabs.js";
+  import { startTour } from "../stores/tour.js";
   import type { OverlaySettings } from "../types/ipc.js";
 
   type OverlaySettingsFormInput = Partial<OverlaySettings> & {
@@ -284,6 +285,7 @@
       <div class="settings-wide-actions">
         <div class="flex flex-wrap items-center gap-2.5">
           <button class="btn-secondary btn-sm" on:click={resetDefaults}>{$tr("settings.resetDefaults")}</button>
+          <button class="btn-secondary btn-sm" on:click={() => startTour()}>Show feature tour</button>
           <span class="text-xs text-text-muted">Changes apply automatically.</span>
         </div>
 

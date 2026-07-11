@@ -8,6 +8,7 @@
   import { invoke, on, send } from "../lib/ipc.js";
   import { APP_LOGO_URL, SETUP_OVERLAY_BG_URLS } from "../lib/assetUrls.js";
   import { writeStorage } from "../lib/persistence.js";
+  import { shouldAutoStartTour, startTour } from "../stores/tour.js";
   import {
     hasInventoryShape,
     unwrapInventoryPayload as unwrapSharedInventoryPayload,
@@ -245,6 +246,7 @@
   function completeSetup(nextView: "inventory" = "inventory"): void {
     writeStorage("setup-completed", "1");
     currentView.set(nextView);
+    if (shouldAutoStartTour()) startTour();
   }
 
   function continueFromConfigure(): void {

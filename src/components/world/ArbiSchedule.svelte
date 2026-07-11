@@ -168,7 +168,7 @@
 
 <div class="grid grid-cols-[270px_minmax(0,1fr)] gap-5 max-[1000px]:grid-cols-1">
   <!-- NODE SIDEBAR -->
-  <aside class="sticky top-0 flex min-w-0 flex-col gap-2 self-start h-[calc(100vh-var(--titlebar-height)-var(--statusbar-height)-3rem)] max-[1000px]:static max-[1000px]:h-auto">
+  <aside data-tour="arbi-filters" class="sticky top-0 flex min-w-0 flex-col gap-2 self-start h-[calc(100vh-var(--titlebar-height)-var(--statusbar-height)-3rem)] max-[1000px]:static max-[1000px]:h-auto">
     <div class="flex items-center justify-between">
       <span class="text-xs font-bold uppercase tracking-[0.06em] text-text-secondary">{$tr("arbisched.nodes")}</span>
       <span class="text-xs text-text-muted">
@@ -330,6 +330,7 @@
               <span class="text-right">
                 {#if countdown !== "NOW"}
                   <button
+                    data-tour="arbi-bell"
                     class="cursor-pointer rounded border border-transparent bg-transparent p-1 transition-colors duration-100 {belled ? 'text-accent' : 'text-text-muted/50 hover:border-border hover:text-text-secondary'}"
                     title={$tr("arbisched.bellTitle")}
                     on:click={() => toggleBell(entry)}
