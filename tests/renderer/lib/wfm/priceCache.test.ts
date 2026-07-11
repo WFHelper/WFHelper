@@ -21,12 +21,13 @@ describe("priceCache", () => {
     vi.useRealTimers();
   });
 
-  it("keeps snapshot prices fresh for overnight startup", () => {
+  it("keeps snapshot prices within the worker refresh window", () => {
+    // Worker entries can be ~42h old (21h staleness + ranked prewarm walk).
     const imported = importCache({
       ash_prime_set: {
         status: "ok",
         median: 55,
-        timestamp: Date.now() - 23 * 60 * 60 * 1000,
+        timestamp: Date.now() - 42 * 60 * 60 * 1000,
       },
     });
 
@@ -42,7 +43,7 @@ describe("priceCache", () => {
       ash_prime_set: {
         status: "ok",
         median: 55,
-        timestamp: Date.now() - 25 * 60 * 60 * 1000,
+        timestamp: Date.now() - 49 * 60 * 60 * 1000,
       },
     });
 
