@@ -117,9 +117,19 @@ export async function hydrateItemMetrics(
   const iconReady = !needsIcon || lookupHasIcon || existing?.hasMeta === true;
   const rankPairCovered = hasRankPairCoverage(existing, item, needs);
 
+  // hasPrice flags set by a no-network pass are stamps, not answers: when this
+  // pass may hit the network, only an actual value counts as resolved (real
+  // "no listings" answers are kept out by the retry cooldown above).
+  const hasPriceValue =
+    finiteMetricNumber(existing?.platinum) != null ||
+    finiteMetricNumber(existing?.platinumR0) != null ||
+    finiteMetricNumber(existing?.platinumRmax) != null;
+  const priceResolved =
+    hasResolvedPrice(existing) && (needs.network !== true || hasPriceValue);
+
   if (
     existing &&
-    (!needs.price || (!rankMismatch && hasResolvedPrice(existing) && rankPairCovered)) &&
+    (!needs.price || (!rankMismatch && priceResolved && rankPairCovered)) &&
     (!needs.ducats || existing.hasDucats) &&
     iconReady &&
     !retryMissingDucats &&
