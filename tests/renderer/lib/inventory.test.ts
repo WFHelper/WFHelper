@@ -793,7 +793,7 @@ describe("inventory parsing", () => {
     expect(
       items.find((item) => item.internalName === "/Lotus/Powersuits/Volt/VoltPrime")
         ?.inventoryGroup,
-    ).toBe("misc");
+    ).toBe("equipment");
     expect(
       items.find(
         (item) => item.internalName === "/Lotus/Types/Recipes/Weapons/LatronPrimeBlueprint",

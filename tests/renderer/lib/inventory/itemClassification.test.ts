@@ -353,9 +353,9 @@ describe("inferCategory", () => {
 });
 
 describe("deriveGroup", () => {
-  it("classifies equipment collection keys as misc", () => {
+  it("classifies equipment collection keys as equipment", () => {
     expect(deriveGroup("Suits", "/Lotus/Types/Warframe/Excalibur", {}, resolved("Excalibur"))).toBe(
-      "misc",
+      "equipment",
     );
   });
 

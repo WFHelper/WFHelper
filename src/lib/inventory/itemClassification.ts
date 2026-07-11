@@ -365,7 +365,7 @@ export function deriveGroup(
 
   if (isFocusUpgrade(internalName, dbEntry, resolved)) return "misc";
 
-  if (EQUIPMENT_COLLECTION_KEYS.has(sourceKey)) return "misc";
+  if (EQUIPMENT_COLLECTION_KEYS.has(sourceKey)) return "equipment";
 
   if (sourceKey === "LevelKeys") {
     return isRelicLikeItem(internalName, dbEntry, resolved) ? "relics" : "misc";

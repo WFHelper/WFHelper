@@ -86,7 +86,14 @@ export interface RawInventoryData {
   [key: string]: unknown;
 }
 
-export type InventoryGroup = "all_parts" | "relics" | "mods" | "arcanes" | "full_sets" | "misc";
+export type InventoryGroup =
+  | "all_parts"
+  | "relics"
+  | "mods"
+  | "arcanes"
+  | "full_sets"
+  | "equipment"
+  | "misc";
 
 export interface ParsedItem {
   name: string;

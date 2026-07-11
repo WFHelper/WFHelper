@@ -81,6 +81,7 @@ export const INVENTORY_FILTERS: Array<{ key: InventoryFilterTab; label: string }
   { key: "mods", label: "Mods" },
   { key: "arcanes", label: "Arcanes" },
   { key: "full_sets", label: "Full Sets" },
+  { key: "equipment", label: "Equipment" },
   { key: "resources", label: "Resources" },
   { key: "misc", label: "Misc" },
 ];
@@ -168,6 +169,11 @@ function itemGroupFallback(item: ParsedItem): InventoryFilterTab {
   if (label.includes("relic")) return "relics";
   if (label.includes("mod")) return "mods";
   if (label.includes("arcane")) return "arcanes";
+  if (
+    /^(warframe|primary|secondary|melee|companion|archwing|amp|necramech)$/.test(label)
+  ) {
+    return "equipment";
+  }
   return "misc";
 }
 

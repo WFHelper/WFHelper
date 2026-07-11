@@ -137,11 +137,12 @@ export function preferGroup(
 ): InventoryGroup {
   const GROUP_PRIORITY: Record<InventoryGroup, number> = {
     misc: 1,
-    all_parts: 2,
-    arcanes: 3,
-    mods: 4,
-    relics: 5,
-    full_sets: 6,
+    equipment: 2,
+    all_parts: 3,
+    arcanes: 4,
+    mods: 5,
+    relics: 6,
+    full_sets: 7,
   };
   if (!current) return next;
   return GROUP_PRIORITY[next] > GROUP_PRIORITY[current] ? next : current;
