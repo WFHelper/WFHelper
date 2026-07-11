@@ -19,3 +19,8 @@ export function endTour(): void {
 export function shouldAutoStartTour(): boolean {
   return readStorage(TOUR_DONE_KEY) !== "1";
 }
+
+/** Dev setup preview: let the wizard end in the auto tour again, like a real first run. */
+export function resetTourAutoStart(): void {
+  writeStorage(TOUR_DONE_KEY, "0");
+}

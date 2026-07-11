@@ -7,6 +7,7 @@
   import { NAV_ICON_URLS } from "../lib/assetUrls.js";
   import { persistedBoolean } from "../lib/persistence.js";
   import { hiddenTabs } from "../stores/sidebarTabs.js";
+  import { resetTourAutoStart } from "../stores/tour.js";
   import type { MessageKey } from "../lib/i18n.js";
 
   const collapsed = persistedBoolean("sidebar.collapsed", false);
@@ -137,7 +138,7 @@
 
   {#if showDevTools}
     <div class="mt-2 flex flex-col gap-0.5">
-      <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-base font-medium tracking-wide text-text-muted transition-colors duration-150 hover:bg-bg-hover hover:text-text-secondary" title="Preview setup wizard" on:click={() => currentView.set("setup")}>
+      <button class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-3.5 py-2.5 font-display text-base font-medium tracking-wide text-text-muted transition-colors duration-150 hover:bg-bg-hover hover:text-text-secondary" title="Preview setup wizard" on:click={() => { resetTourAutoStart(); currentView.set("setup"); }}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-6 w-6 shrink-0">
           <rect x="4" y="5" width="16" height="14" rx="2" />
           <path d="M8 9h8M8 13h5M16 13h1" />
