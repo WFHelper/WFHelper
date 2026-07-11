@@ -193,7 +193,7 @@
           </p>
         </div>
 
-        <div class="mt-2.5 grid gap-2">
+        <div class="mt-2.5 grid gap-1">
           <label class="settings-control-row">
             <span>Windows notification sound</span>
             <input type="checkbox" bind:checked={notificationSoundEnabled} on:change={autoSave} class="accent-accent" />
@@ -235,7 +235,7 @@
           </p>
         </div>
 
-        <div class="mt-2.5 grid gap-2">
+        <div class="mt-2.5 grid gap-1">
           <label class="settings-control-row">
             <span>Track arbitration runs (log capture + stats)</span>
             <input type="checkbox" bind:checked={arbiTrackingEnabled} on:change={autoSave} class="accent-accent" />
@@ -251,7 +251,7 @@
           </p>
         </div>
 
-        <div class="mt-2.5 grid gap-2">
+        <div class="mt-2.5 grid gap-1">
           <label class="settings-control-row">
             <span>Hide Founder items</span>
             <input type="checkbox" bind:checked={$hideFounderMasteryItems} class="accent-accent" />
@@ -267,7 +267,7 @@
           </p>
         </div>
 
-        <div class="mt-2.5 grid gap-2">
+        <div class="mt-2.5 grid gap-1">
           {#each TOGGLEABLE_TABS as tab (tab.view)}
             <label class="settings-control-row">
               <span>{$tr(tab.labelKey)}</span>
@@ -308,7 +308,7 @@
           </p>
         </div>
 
-        <div class="mt-2.5 grid gap-2">
+        <div class="mt-2.5 grid gap-1">
           <label class="settings-control-row">
             <span>Relic rewards overlay</span>
             <input type="checkbox" bind:checked={relicRewardsOverlayEnabled} on:change={autoSave} class="accent-accent" />
@@ -357,7 +357,7 @@
           <p class="mt-1 text-xs leading-tight text-text-muted">{$tr("settings.overlayRequirements")}</p>
         </div>
 
-        <div class="mt-2.5 grid gap-2">
+        <div class="mt-2.5 grid gap-1">
           <label class="settings-control-row">
             <span>{$tr("settings.autoTrigger")}</span>
             <input type="checkbox" bind:checked={autoTrigger} on:change={autoSave} class="accent-accent" />
@@ -439,16 +439,20 @@
     align-items: start;
   }
 
+  /* Flat rows - the card is the only box, rows just get a hover tint. */
   .settings-control-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.7rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    background: var(--bg-raised);
-    padding: 0.55rem 0.7rem;
+    border-radius: var(--radius-md);
+    padding: 0.34rem 0.45rem;
+    margin: 0 -0.45rem;
     cursor: pointer;
+  }
+
+  .settings-control-row:hover {
+    background: var(--bg-hover);
   }
 
   .settings-control-row span {
