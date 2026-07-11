@@ -84,10 +84,8 @@
     const unsubscribeInventoryUpdated = on("inventory-updated", async (data) => {
       if (data && !(data as { error?: unknown }).error) {
         await onInventoryLoaded(data);
-        // Auto-navigate to inventory only on initial load from setup.
-        if ($currentView === "setup") {
-          currentView.set("inventory");
-        }
+        // During setup the SetupView routes itself (inventory -> overlay placement);
+        // navigating here would tear the wizard down mid-flow.
         statusText.set(`Live update - ${$parsedItems.length} items loaded`);
       }
     });

@@ -73,6 +73,7 @@ export const OVERLAY_GET_SETTINGS = "overlay:get-settings";
 export const OVERLAY_SET_SETTINGS = "overlay:set-settings";
 export const OVERLAY_GET_THEME_VARS = "overlay:get-theme-vars";
 export const OVERLAY_GET_DRAG_HINT = "overlay:get-drag-hint";
+export const OVERLAY_PLACEMENT_DEMO = "overlay:placement-demo";
 export const OVERLAY_GET_PRICE = "overlay:get-price";
 export const OVERLAY_PUSH_RELIC_FILTERS = "overlay:push-relic-filters";
 export const OVERLAY_THEME_UPDATED = "overlay-theme-updated";

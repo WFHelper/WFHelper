@@ -72,3 +72,11 @@ export const BOUNTY_FALLBACK_ICON_URLS = {
   endo: new URL("../../assets/Bounties/Endo.png", import.meta.url).href,
   mod: new URL("../../assets/Bounties/IconMods.png", import.meta.url).href,
 } as const;
+
+/** Backdrops for the setup overlay-placement step; real screenshots can replace these files. */
+export const SETUP_OVERLAY_BG_URLS: Record<string, string> = {
+  reward: new URL("../../assets/setup/overlay-demo-reward.jpg", import.meta.url).href,
+  planner: new URL("../../assets/setup/overlay-demo-planner.jpg", import.meta.url).href,
+  riven: new URL("../../assets/setup/overlay-demo-riven.jpg", import.meta.url).href,
+  arbiSummary: new URL("../../assets/setup/overlay-demo-arbi.jpg", import.meta.url).href,
+};

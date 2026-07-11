@@ -271,6 +271,10 @@ export interface IpcInvokeMap {
     args: [];
     return: MasteryData | null;
   };
+  setOverlayPlacementDemo: {
+    args: [target: "reward" | "planner" | "riven" | "arbiSummary" | null];
+    return: { ok: boolean };
+  };
   searchDrops: {
     args: [query: string, mode: DropSearchMode];
     return: DropSearchResult;

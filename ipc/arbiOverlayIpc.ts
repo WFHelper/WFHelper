@@ -99,6 +99,33 @@ export function maybeShowArbiSummary(run: ArbiRunRecord): void {
   arbiSummaryWindowsController.scheduleOverlayAutoHide(AUTO_HIDE_MS);
 }
 
+// Setup placement step: canned summary so the window can be positioned; the
+// real payload builder is bypassed (its live-run guards don't apply here).
+const PLACEMENT_DEMO_PAYLOAD = {
+  id: "placement-demo",
+  node: "Casta (Ceres)",
+  missionType: "defense",
+  missionTypeRaw: null,
+  durationSec: 1860,
+  rotations: 4,
+  drones: 46,
+  totalEnemies: 1730,
+  expectedVitusMean: 11.2,
+  expectedVitusStd: 2.6,
+  pctTimeAt15Plus: 63.4,
+};
+
+export function showArbiSummaryPlacementDemo(): void {
+  arbiSummaryWindowsController.createOverlayWindow();
+  arbiSummaryWindowsController.clearOverlayAutoHideTimer();
+  makeClickable();
+  arbiSummaryWindowsController.sendOverlayEvent(ARBI_SUMMARY_DATA, PLACEMENT_DEMO_PAYLOAD);
+}
+
+export function hideArbiSummaryPlacementDemo(): void {
+  hideArbiSummary();
+}
+
 export function configureOverlaySettingsPersistence(persist: () => void): void {
   persistOverlaySettings = persist;
 }

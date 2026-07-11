@@ -5,8 +5,8 @@
   import { PRESET_KEYS, THEME_PRESETS } from "../config/themePresets.js";
   import { currentView, statusText } from "../stores/app.js";
   import { themeSettings } from "../stores/theme.js";
-  import { invoke, on } from "../lib/ipc.js";
-  import { APP_LOGO_URL } from "../lib/assetUrls.js";
+  import { invoke, on, send } from "../lib/ipc.js";
+  import { APP_LOGO_URL, SETUP_OVERLAY_BG_URLS } from "../lib/assetUrls.js";
   import { writeStorage } from "../lib/persistence.js";
   import {
     hasInventoryShape,
@@ -18,7 +18,7 @@
   import SegmentedControl from "../components/SegmentedControl.svelte";
   import BuiltInThemeDropdown from "../components/settings/BuiltInThemeDropdown.svelte";
 
-  type Step = "configure" | "inventory" | "downloading" | "done" | "error";
+  type Step = "configure" | "inventory" | "downloading" | "done" | "overlays" | "error";
   type InventorySource = "helper" | "json" | "aleca";
   type HelperInventoryStatus = "checking" | "found" | "not_found" | "error";
 
@@ -80,6 +80,10 @@
     destroyed = true;
     removeInventoryListener?.();
     removeProgressListener?.();
+    if (placementActive) {
+      placementActive = false;
+      void setPlacementDemo(null);
+    }
   });
 
   async function refreshRunnerStatus(): Promise<void> {
@@ -127,8 +131,8 @@
     }
 
     await onInventoryLoaded(unwrapped as RawInventoryData);
-    if (!destroyed) {
-      completeSetup("inventory");
+    if (!destroyed && step !== "overlays") {
+      finish();
     }
   }
 
@@ -247,8 +251,76 @@
     step = "inventory";
   }
 
-  const finish = (): void => completeSetup("inventory");
-  const skip = finish;
+  // Overlay placement: each sub-step shows the real overlay window with demo
+  // content over a game screenshot, so the user right-drags it into place.
+  const overlayPlacementSteps = [
+    {
+      key: "reward",
+      title: "Relic reward overlay",
+      text: "Pops up when your squad opens relics and prices every reward. Drag it with the right mouse button to where you want it - the spot is saved.",
+    },
+    {
+      key: "planner",
+      title: "Relic planner overlay",
+      text: "Ranks your owned relics on the relic selection screen. Right-drag to place it.",
+    },
+    {
+      key: "riven",
+      title: "Riven scanner overlay",
+      text: "Compares old and new roll while you reroll rivens. Right-drag both panels to place them.",
+    },
+    {
+      key: "arbiSummary",
+      title: "Arbitration summary",
+      text: "Shows your run stats when an arbitration ends. Right-drag to place it.",
+    },
+  ] as const;
+
+  let overlayStepIndex = 0;
+  let placementActive = false;
+
+  async function setPlacementDemo(
+    target: "reward" | "planner" | "riven" | "arbiSummary" | null,
+  ): Promise<void> {
+    try {
+      await invoke("setOverlayPlacementDemo", target);
+    } catch {
+      // placement demo is best-effort; setup must never get stuck on it
+    }
+  }
+
+  function enterOverlaysStep(): void {
+    step = "overlays";
+    overlayStepIndex = 0;
+    placementActive = true;
+    send("window-maximize");
+    void setPlacementDemo(overlayPlacementSteps[0].key);
+  }
+
+  function overlayNext(): void {
+    if (overlayStepIndex < overlayPlacementSteps.length - 1) {
+      overlayStepIndex += 1;
+      void setPlacementDemo(overlayPlacementSteps[overlayStepIndex].key);
+    } else {
+      finishOverlaysStep();
+    }
+  }
+
+  function overlayBack(): void {
+    if (overlayStepIndex === 0) return;
+    overlayStepIndex -= 1;
+    void setPlacementDemo(overlayPlacementSteps[overlayStepIndex].key);
+  }
+
+  function finishOverlaysStep(): void {
+    placementActive = false;
+    void setPlacementDemo(null);
+    send("window-maximize");
+    completeSetup("inventory");
+  }
+
+  const finish = (): void => enterOverlaysStep();
+  const skip = (): void => completeSetup("inventory");
 
   function retry(): void {
     step = "configure";
@@ -266,26 +338,34 @@
     ].join(" ");
   }
 
-  function stepTextClass(target: "configure" | "inventory" | "done"): string {
-    const active = step === target || (target === "inventory" && step === "downloading");
+  type StepTarget = "configure" | "inventory" | "overlays" | "done";
+
+  function stepFlags(target: StepTarget): { active: boolean; complete: boolean } {
+    const active =
+      step === target || (target === "inventory" && (step === "downloading" || step === "done"));
     const complete =
-      (target === "configure" && step !== "configure") || (target === "inventory" && step === "done");
+      (target === "configure" && step !== "configure") ||
+      (target === "inventory" && step === "overlays");
+    return { active, complete };
+  }
+
+  function stepTextClass(target: StepTarget): string {
+    const { active, complete } = stepFlags(target);
     if (step === "error" && target === "inventory") return "text-danger";
     if (active) return "text-accent font-semibold";
     if (complete) return "text-success";
     return "text-text-muted";
   }
 
-  function stepDotClass(target: "configure" | "inventory" | "done"): string {
-    const active = step === target || (target === "inventory" && step === "downloading");
-    const complete =
-      (target === "configure" && step !== "configure") || (target === "inventory" && step === "done");
+  function stepDotClass(target: StepTarget): string {
+    const { active, complete } = stepFlags(target);
     if (step === "error" && target === "inventory") return "bg-danger";
     if (active) return "bg-accent shadow-[0_0_6px_var(--accent)]";
     if (complete) return "bg-success";
     return "bg-text-muted";
   }
 
+  $: placementStep = overlayPlacementSteps[overlayStepIndex];
   $: effects = $themeSettings.effects;
   $: activePresetKey = PRESET_KEYS.includes($themeSettings.activePreset)
     ? $themeSettings.activePreset
@@ -298,7 +378,36 @@
 </script>
 
 <section class="view active">
-  <div class="mx-auto my-8 flex min-h-[430px] max-w-[760px] overflow-hidden rounded-xl border border-border bg-bg-surface">
+  {#if step === "overlays"}
+    <div class="fixed inset-0 z-40 bg-bg-deep">
+      <img
+        src={SETUP_OVERLAY_BG_URLS[placementStep.key] || SETUP_OVERLAY_BG_URLS.reward}
+        alt=""
+        class="absolute inset-0 h-full w-full object-cover opacity-60"
+      />
+      <div class="absolute inset-0 bg-black/30"></div>
+
+      <div class="absolute left-1/2 top-8 w-[460px] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl border border-border bg-bg-surface/95 p-4 shadow-2xl [backdrop-filter:blur(6px)]">
+        <div class="mb-1 flex items-center justify-between gap-3">
+          <h2 class="m-0 font-display text-base font-bold tracking-[0.02em]">{placementStep.title}</h2>
+          <span class="shrink-0 text-xs text-text-muted">{overlayStepIndex + 1} / {overlayPlacementSteps.length}</span>
+        </div>
+        <p class="m-0 text-sm leading-snug text-text-secondary">{placementStep.text}</p>
+        <div class="mt-3 flex items-center justify-between">
+          <button class="btn-secondary btn-sm" on:click={finishOverlaysStep}>Skip</button>
+          <div class="flex gap-2">
+            {#if overlayStepIndex > 0}
+              <button class="btn-secondary btn-sm" on:click={overlayBack}>Back</button>
+            {/if}
+            <button class="btn-primary btn-sm" on:click={overlayNext}>
+              {overlayStepIndex === overlayPlacementSteps.length - 1 ? "Finish" : "Next"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  {:else}
+  <div class="mx-auto my-8 flex min-h-[520px] max-w-[900px] overflow-hidden rounded-xl border border-border bg-bg-surface">
     <div class="setup-left flex w-[190px] shrink-0 flex-col items-center border-r border-border bg-gradient-to-b from-bg-deep to-bg-raised px-4 pb-6 pt-7">
       <div class="setup-logo">
         <img src={APP_LOGO_URL} alt="App Logo" class="h-14 w-14 object-contain" />
@@ -309,6 +418,9 @@
         </div>
         <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('inventory')}">
           <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('inventory')}"></span> Inventory Source
+        </div>
+        <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('overlays')}">
+          <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('overlays')}"></span> Overlays
         </div>
         <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('done')}">
           <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('done')}"></span> Finish
@@ -438,7 +550,7 @@
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
-          <p class="!mt-4 !text-xs !text-text-muted">Click <strong>Finish</strong> to continue.</p>
+          <p class="!mt-4 !text-xs !text-text-muted">Click <strong>Next</strong> to position your in-game overlays.</p>
         {:else if step === "error"}
           <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">Setup Needs Attention</h2>
           <p class="mb-2.5 text-sm font-semibold leading-[1.55] text-danger">{errorMessage}</p>
@@ -466,7 +578,7 @@
         {:else if step === "downloading"}
           <span></span>
         {:else if step === "done"}
-          <button class="btn-primary btn-sm" on:click={finish}>Finish</button>
+          <button class="btn-primary btn-sm" on:click={finish}>Next</button>
         {:else if step === "error"}
           <button class="btn-secondary btn-sm" on:click={skip}>Skip</button>
           <button class="btn-primary btn-sm" on:click={retry}>Retry</button>
@@ -474,4 +586,5 @@
       </div>
     </div>
   </div>
+  {/if}
 </section>

@@ -30,6 +30,7 @@ import {
   OVERLAY_THEME_UPDATED,
   OVERLAY_DRAG_MOVE,
   OVERLAY_READY,
+  OVERLAY_PLACEMENT_DEMO,
 } from "../config/shared/ipcChannels";
 import {
   OVERLAY_FORWARDED_COLOR_VARS,
@@ -387,6 +388,31 @@ function register(): void {
     if (Object.keys(sanitized).length > 0) {
       pushOverlayThemeVars();
     }
+  });
+
+  // Setup placement step: show one overlay with demo content (null hides all).
+  const placementTargets = new Set(["reward", "planner", "riven", "arbiSummary"]);
+  handleAuthorized(OVERLAY_PLACEMENT_DEMO, assertMainRendererSender, async (_event, rawTarget: unknown) => {
+    const target =
+      typeof rawTarget === "string" && placementTargets.has(rawTarget) ? rawTarget : null;
+
+    rewardOverlayIpc.hideRewardPlannerPlacementDemo();
+    rivenOverlayIpc.hideRivenPlacementDemo();
+    arbiOverlayIpc.hideArbiSummaryPlacementDemo();
+
+    if (target === "reward") {
+      rewardOverlayIpc.showRewardPlacementDemo(pushOverlayInteractionMode, pushOverlayThemeVars);
+    } else if (target === "planner") {
+      rewardOverlayIpc.showPlannerPlacementDemo(pushOverlayInteractionMode, pushOverlayThemeVars);
+    } else if (target === "riven") {
+      rivenOverlayIpc.showRivenPlacementDemo();
+    } else if (target === "arbiSummary") {
+      arbiOverlayIpc.showArbiSummaryPlacementDemo();
+    }
+
+    setOverlayInteractionMode(target === "reward" || target === "planner", "placement-demo");
+    log.info(`[OverlayPlacementDemo] target=${target ?? "none"}`);
+    return { ok: true };
   });
 }
 

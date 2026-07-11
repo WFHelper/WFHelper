@@ -29,6 +29,7 @@ import {
 } from "../config/runtime/overlaySettings";
 import {
   OVERLAY_CLOSE, OVERLAY_GET_RELIC_ITEMS, OVERLAY_GET_PRICE, OVERLAY_GET_DRAG_HINT,
+  RELIC_REWARD_TRIGGER, RELIC_REWARD_ITEMS, RELIC_PLANNER_TRIGGER, RELIC_RECOMMENDATIONS,
   TOGGLE_OVERLAY, SIMULATE_RELIC_TRIGGER, OVERLAY_PUSH_RELIC_FILTERS,
 } from "../config/shared/ipcChannels";
 
@@ -196,6 +197,58 @@ export function onRelicSelectionTrigger(
   pushOverlayInteractionMode();
   pushOverlayThemeVars();
   void relicSelectionController.onRelicSelectionTrigger(source);
+}
+
+// Setup placement step: canned content so the user can position the windows
+// without a game running. No scan, no auto-hide.
+const PLACEMENT_DEMO_ITEMS = [
+  { name: "Wisp Prime Systems Blueprint", rarity: "rare", ducats: 100, urlName: "wisp_prime_systems", setUrlName: "wisp_prime_set" },
+  { name: "Braton Prime Barrel", rarity: "uncommon", ducats: 45, urlName: "braton_prime_barrel", setUrlName: "braton_prime_set" },
+  { name: "Paris Prime Grip", rarity: "common", ducats: 15, urlName: "paris_prime_grip", setUrlName: "paris_prime_set" },
+  { name: "Forma Blueprint", rarity: "common", ducats: 0 },
+];
+
+const PLACEMENT_DEMO_PLANNER = {
+  era: "meso",
+  detection: { confidence: 0.97, elapsedMs: 412 },
+  totalOwnedCount: 46,
+  rows: [
+    { label: "Meso Z10 [Radiant] x3", platEv: 18.4, ducatEv: 41.2 },
+    { label: "Meso W9 [Flawless] x2", platEv: 12.1, ducatEv: 35.6 },
+    { label: "Meso B11 [Intact] x5", platEv: 7.8, ducatEv: 28.9 },
+  ],
+};
+
+export function showRewardPlacementDemo(
+  pushOverlayInteractionMode: () => void,
+  pushOverlayThemeVars: () => void,
+): void {
+  rewardWindowsController.createOverlayWindow();
+  rewardWindowsController.clearOverlayAutoHideTimer();
+  rewardWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
+  pushOverlayInteractionMode();
+  pushOverlayThemeVars();
+  rewardWindowsController.sendOverlayEvent(RELIC_REWARD_TRIGGER);
+  rewardWindowsController.sendOverlayEvent(RELIC_REWARD_ITEMS, PLACEMENT_DEMO_ITEMS);
+}
+
+export function showPlannerPlacementDemo(
+  pushOverlayInteractionMode: () => void,
+  pushOverlayThemeVars: () => void,
+): void {
+  plannerWindowsController.createOverlayWindow();
+  plannerWindowsController.clearOverlayAutoHideTimer();
+  plannerWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
+  pushOverlayInteractionMode();
+  pushOverlayThemeVars();
+  plannerWindowsController.sendOverlayEvent(RELIC_PLANNER_TRIGGER, {});
+  plannerWindowsController.sendOverlayEvent(RELIC_RECOMMENDATIONS, PLACEMENT_DEMO_PLANNER);
+}
+
+export function hideRewardPlannerPlacementDemo(): void {
+  for (const win of [ctx.overlayWindow, ctx.plannerOverlayWindow]) {
+    if (win && !win.isDestroyed() && win.isVisible()) win.hide();
+  }
 }
 
 export function onRelicSelectionClose(pushOverlayInteractionMode: () => void): void {
