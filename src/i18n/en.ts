@@ -26,6 +26,8 @@ export const en = {
   "arbi.title": "Arbitration Runs",
   "arbi.empty": "No arbitration runs recorded yet. Finish an arbitration with the app running, or import an EE.log.",
   "arbi.import": "Import EE.log…",
+  "arbi.trackingDisabled":
+    "Run tracking is turned off in Settings - new arbitrations are not being recorded.",
   "arbi.importResult": "Imported {imported}, skipped {skipped} (already known)",
   "arbi.diskUsage": "Raw logs on disk: {size}",
   "arbi.runCount": "{count} runs",

@@ -50,6 +50,7 @@ const _reservedIds = new Set<string>();
 let _callbacks: ArbiCallbacks = { onRunSaved: null };
 let _inactivityTimer: ReturnType<typeof setInterval> | null = null;
 let _initialized = false;
+let _trackingEnabled = true;
 
 function _indexPath(): string {
   return path.join(app.getPath("userData"), "arbi-runs.json");
@@ -254,7 +255,7 @@ function _startCapture(gameTimeSec: number, firstLine: string): void {
 
 export function processArbiLine(line: string, source: "dbwin" | "file"): void {
   // File-poll lines are complete, ordered and deduped; dbwin duplicates them.
-  if (source !== "file" || !_initialized) return;
+  if (!_trackingEnabled || source !== "file" || !_initialized) return;
   if (!_parser) _parser = createArbiParser();
 
   const event = _parser.feedLine(line);
@@ -281,6 +282,30 @@ export function processArbiLine(line: string, source: "dbwin" | "file"): void {
     }
     if (_active.pendingLines.length >= FLUSH_EVERY_LINES) _flushPending(_active);
   }
+}
+
+/** Drop the in-progress capture without saving a record (opt-out mid-run). */
+function _discardActiveRun(): void {
+  if (!_active) return;
+  const run = _active;
+  _active = null;
+  _stopInactivityTimer();
+  _parser = null;
+  _reservedIds.delete(run.id);
+  try {
+    fs.unlinkSync(run.partialPath);
+  } catch {
+    // nothing flushed yet -> no file
+  }
+  log.info(`[Arbi] Run capture discarded: ${run.id}`);
+}
+
+/** Full opt-out: ignore EE.log lines and drop any in-progress capture. */
+export function setArbiTrackingEnabled(enabled: boolean): void {
+  if (_trackingEnabled === enabled) return;
+  _trackingEnabled = enabled;
+  log.info(`[Arbi] Run tracking ${enabled ? "enabled" : "disabled"}`);
+  if (!enabled) _discardActiveRun();
 }
 
 /** EE.log was truncated or unlinked (game restart) - finalize with what we have. */
@@ -449,4 +474,5 @@ export function __resetArbiTrackerForTest(): void {
   _reservedIds.clear();
   _callbacks = { onRunSaved: null };
   _initialized = false;
+  _trackingEnabled = true;
 }

@@ -12,6 +12,7 @@ import * as warframeStatus from "../services/warframeStatus";
 import * as rivenOverlayIpc from "./rivenOverlayIpc";
 import * as rewardOverlayIpc from "./rewardOverlayIpc";
 import * as arbiOverlayIpc from "./arbiOverlayIpc";
+import * as arbiRunTracker from "../services/arbiRunTracker";
 import {
   isArbiSummaryOverlayEnabled,
   isRelicRecommendationOverlayEnabled,
@@ -367,6 +368,7 @@ function register(): void {
       const settings = settingsController.setOverlaySettings(nextSettings);
       settingsController.registerOverlayHotkey();
       applyOverlayAvailabilitySettings();
+      arbiRunTracker.setArbiTrackingEnabled(settings.arbiTrackingEnabled !== false);
       rewardOverlayIpc.rewardWindowsController.positionOverlayWindow(
         rewardOverlayIpc.rewardWindowsController.getAnchorMeta(),
       );

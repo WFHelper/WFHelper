@@ -43,6 +43,7 @@ export interface OverlaySettings {
   tradeNotificationOverlayEnabled: boolean;
   rivenOverlayEnabled: boolean;
   arbiSummaryOverlayEnabled: boolean;
+  arbiTrackingEnabled: boolean;
   overlayScale: number;
   overlayWindowBounds: Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>>;
 }
@@ -74,6 +75,7 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   tradeNotificationOverlayEnabled: true,
   rivenOverlayEnabled: true,
   arbiSummaryOverlayEnabled: true,
+  arbiTrackingEnabled: true,
   overlayScale: 1,
   overlayWindowBounds: Object.freeze({}),
 });

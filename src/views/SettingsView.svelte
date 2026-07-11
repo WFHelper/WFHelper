@@ -41,6 +41,7 @@
   let relicRecommendationOverlayEnabled = OVERLAY_DEFAULTS.relicRecommendationOverlayEnabled;
   let rivenOverlayEnabled = OVERLAY_DEFAULTS.rivenOverlayEnabled;
   let arbiSummaryOverlayEnabled = OVERLAY_DEFAULTS.arbiSummaryOverlayEnabled;
+  let arbiTrackingEnabled = OVERLAY_DEFAULTS.arbiTrackingEnabled;
   let overlayScale = OVERLAY_DEFAULTS.overlayScale;
   let hotkeyEnabled = OVERLAY_DEFAULTS.hotkeyEnabled;
   let hotkey = OVERLAY_DEFAULTS.hotkey;
@@ -67,6 +68,7 @@
     rivenOverlayEnabled = s.rivenOverlayEnabled ?? OVERLAY_DEFAULTS.rivenOverlayEnabled;
     arbiSummaryOverlayEnabled =
       s.arbiSummaryOverlayEnabled ?? OVERLAY_DEFAULTS.arbiSummaryOverlayEnabled;
+    arbiTrackingEnabled = s.arbiTrackingEnabled ?? OVERLAY_DEFAULTS.arbiTrackingEnabled;
     overlayScale = s.overlayScale ?? OVERLAY_DEFAULTS.overlayScale;
     hotkeyEnabled = !!s.hotkeyEnabled;
     hotkey = s.hotkey || OVERLAY_DEFAULTS.hotkey;
@@ -100,6 +102,7 @@
       relicRecommendationOverlayEnabled,
       rivenOverlayEnabled,
       arbiSummaryOverlayEnabled,
+      arbiTrackingEnabled,
       overlayScale: Number(overlayScale),
       hotkeyEnabled,
       hotkey,
@@ -219,6 +222,22 @@
           <label class="settings-control-row">
             <span>Unlist WFMarket orders when sold/bought</span>
             <input type="checkbox" bind:checked={autoCloseWfmOrders} on:change={autoSave} class="accent-accent" />
+          </label>
+        </div>
+      </article>
+
+      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+        <div>
+          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Arbitrations</h3>
+          <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
+            Automatic run analysis. Captured logs and stats never leave this PC.
+          </p>
+        </div>
+
+        <div class="mt-2.5 grid gap-2">
+          <label class="settings-control-row">
+            <span>Track arbitration runs (log capture + stats)</span>
+            <input type="checkbox" bind:checked={arbiTrackingEnabled} on:change={autoSave} class="accent-accent" />
           </label>
         </div>
       </article>

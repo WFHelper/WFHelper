@@ -89,6 +89,39 @@ describe("arbiRunTracker", () => {
     expect(tracker.getDiskUsageBytes()).toBe(run.logSizeBytes);
   });
 
+  it("ignores lines while tracking is disabled, resumes when re-enabled", async () => {
+    const tracker = await freshTracker();
+    tracker.setArbiTrackingEnabled(false);
+    feedRun(tracker);
+    tracker.processArbiLine(missionLine(900, "Cetus (Earth)"), "file");
+    expect(tracker.getRuns()).toHaveLength(0);
+    expect(fs.existsSync(path.join(tmpDir, "arbi-logs"))).toBe(false);
+
+    tracker.setArbiTrackingEnabled(true);
+    const saved = waitForRun(tracker);
+    feedRun(tracker);
+    tracker.processArbiLine(missionLine(900, "Cetus (Earth)"), "file");
+    const run = await saved;
+    expect(run.node).toBe("Casta Defense (Ceres)");
+  });
+
+  it("discards the in-progress capture when tracking is disabled mid-run", async () => {
+    const tracker = await freshTracker();
+    const onRunSaved = vi.fn();
+    tracker.setArbiCallbacks({ onRunSaved });
+    feedRun(tracker);
+    // push past the flush threshold so the partial file exists on disk
+    for (let i = 0; i < 200; i++) tracker.processArbiLine(droneLine(410 + i), "file");
+    const logsDir = path.join(tmpDir, "arbi-logs");
+    expect(fs.readdirSync(logsDir).some((f) => f.endsWith(".partial.log"))).toBe(true);
+
+    tracker.setArbiTrackingEnabled(false);
+
+    expect(tracker.getRuns()).toHaveLength(0);
+    expect(fs.readdirSync(logsDir)).toHaveLength(0);
+    expect(onRunSaved).not.toHaveBeenCalled();
+  });
+
   it("ignores dbwin-source lines entirely", async () => {
     const tracker = await freshTracker();
     tracker.processArbiLine(missionLine(100, "Arbitration: Casta Defense (Ceres)"), "dbwin");

@@ -63,6 +63,7 @@ export interface OverlaySettings {
   tradeNotificationOverlayEnabled: boolean;
   rivenOverlayEnabled: boolean;
   arbiSummaryOverlayEnabled: boolean;
+  arbiTrackingEnabled: boolean;
   overlayScale: number;
   overlayWindowBounds: Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>>;
 }

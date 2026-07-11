@@ -181,6 +181,7 @@ app.whenReady().then(async () => {
   statsTracker.loadHistory();
   tradeTracker.loadTradeLog();
   arbiRunTracker.initArbiTracker();
+  arbiRunTracker.setArbiTrackingEnabled(ctx.overlaySettings.arbiTrackingEnabled !== false);
   inventoryIpc.addInventoryListener((data: Record<string, unknown>) => {
     statsTracker.onInventoryData(data);
   });

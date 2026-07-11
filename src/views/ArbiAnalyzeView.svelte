@@ -15,6 +15,11 @@
     pendingArbiRunId,
     upsertArbiRun,
   } from "../stores/arbiRuns.js";
+  import {
+    applyOverlaySettingsResponse,
+    overlaySettings,
+    overlaySettingsLoaded,
+  } from "../stores/overlaySettings.js";
   import { formatBytes } from "../lib/arbi/arbiChartData.js";
 
   let selectedRunId: string | null = null;
@@ -37,6 +42,11 @@
       upsertArbiRun(run);
     });
     if (!$arbiRunsLoaded) void loadArbiRuns();
+    if (!$overlaySettingsLoaded) {
+      invoke("getOverlaySettings")
+        .then((loaded) => loaded && applyOverlaySettingsResponse(loaded))
+        .catch(() => {});
+    }
   });
 
   onDestroy(() => {
@@ -82,6 +92,12 @@
           <ThemedButton onClick={importLog} disabled={importBusy}>{$tr("arbi.import")}</ThemedButton>
         </div>
       </header>
+
+      {#if $overlaySettingsLoaded && $overlaySettings.arbiTrackingEnabled === false}
+        <ThemedPanel className="border-amber-500/40 p-3">
+          <p class="m-0 text-sm text-text-secondary">{$tr("arbi.trackingDisabled")}</p>
+        </ThemedPanel>
+      {/if}
 
       {#if $arbiRuns.length === 0}
         <ThemedPanel className="p-8">

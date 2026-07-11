@@ -190,6 +190,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       tradeNotificationOverlayEnabled,
       rivenOverlayEnabled: booleanSetting("rivenOverlayEnabled"),
       arbiSummaryOverlayEnabled: booleanSetting("arbiSummaryOverlayEnabled"),
+      arbiTrackingEnabled: booleanSetting("arbiTrackingEnabled"),
       overlayScale: normalizeOverlayScale(candidate.overlayScale, defaults.overlayScale),
       overlayWindowBounds: normalizeSavedBounds(candidate.overlayWindowBounds),
     };
