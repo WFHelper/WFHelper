@@ -28,7 +28,7 @@ import {
   isRelicRewardsOverlayEnabled,
 } from "../config/runtime/overlaySettings";
 import {
-  OVERLAY_CLOSE, OVERLAY_GET_RELIC_ITEMS, OVERLAY_GET_PRICE,
+  OVERLAY_CLOSE, OVERLAY_GET_RELIC_ITEMS, OVERLAY_GET_PRICE, OVERLAY_GET_DRAG_HINT,
   TOGGLE_OVERLAY, SIMULATE_RELIC_TRIGGER, OVERLAY_PUSH_RELIC_FILTERS,
 } from "../config/shared/ipcChannels";
 
@@ -270,6 +270,15 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
     }
     return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
   });
+
+  // Overlay move hint: which hotkey unlocks interaction, and whether the user
+  // has ever repositioned an overlay (saved bounds = they know the mechanic).
+  handleAuthorized(OVERLAY_GET_DRAG_HINT, assertOverlayRendererSender, async () => ({
+    hotkey: ctx.overlaySettings.interactionHotkeyEnabled
+      ? String(ctx.overlaySettings.interactionHotkey || "")
+      : null,
+    dismissed: Object.keys(ctx.overlaySettings.overlayWindowBounds || {}).length > 0,
+  }));
 
   handleAuthorized(OVERLAY_GET_PRICE, assertOverlayRendererSender, async (_event, slug: unknown) => {
     return wfmStatsPrice.fetchPriceBySlug(slug);

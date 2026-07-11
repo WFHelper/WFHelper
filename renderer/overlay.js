@@ -306,6 +306,40 @@ function showPlannerHint(show) {
   hint.classList.toggle("is-hidden", !show);
 }
 
+let dragHintInfo = { hotkey: null, dismissed: true };
+
+function prettyHotkey(hotkey) {
+  return String(hotkey || "")
+    .replace(/CommandOrControl|Control/g, "Ctrl")
+    .replace(/Command/g, "Cmd")
+    .replace(/\+/g, " + ");
+}
+
+/* Header chip teaching the move mechanic; gone once the user has ever moved an overlay. */
+function updateDragHint() {
+  const hint = document.getElementById("drag-hint");
+  if (!hint) return;
+  const hotkeyLabel = prettyHotkey(dragHintInfo.hotkey);
+
+  let text = "";
+  if (!dragHintInfo.dismissed) {
+    text = overlayInteractiveMode
+      ? "right-drag to move (position saves)"
+      : hotkeyLabel
+        ? `${hotkeyLabel}, then right-drag to move`
+        : "";
+  }
+
+  hint.textContent = text;
+  hint.classList.toggle("is-hidden", !text);
+}
+
+function markOverlayMoved() {
+  if (dragHintInfo.dismissed) return;
+  dragHintInfo.dismissed = true;
+  updateDragHint();
+}
+
 function showPlannerModeScanning() {
   setHeader("◆ Relic Planner", "Reading relic selection...");
   setScanningText("Detecting relic era and ranking owned relics...");
@@ -487,7 +521,10 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-close").addEventListener("click", () => window.overlay.close());
   window.installOverlayRightButtonDrag({
     isInteractive: () => overlayInteractiveMode,
-    moveBy: (dx, dy) => window.overlay.moveBy(dx, dy),
+    moveBy: (dx, dy) => {
+      window.overlay.moveBy(dx, dy);
+      markOverlayMoved();
+    },
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
@@ -512,6 +549,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   window.overlay.onRecommendations((payload) => {
     renderPlannerRows(payload);
+    showPlannerHint(!overlayInteractiveMode);
   });
   window.overlay.onThemeVars((vars) => {
     applyThemeVars(vars);
@@ -521,6 +559,19 @@ document.addEventListener("DOMContentLoaded", () => {
     showPlannerHint(
       !overlayInteractiveMode && !plannerGridElement().classList.contains("is-hidden"),
     );
+    updateDragHint();
   });
+  window.overlay
+    .getDragHint()
+    .then((info) => {
+      dragHintInfo = {
+        hotkey: info && typeof info.hotkey === "string" ? info.hotkey : null,
+        dismissed: !info || info.dismissed !== false,
+      };
+      updateDragHint();
+    })
+    .catch(() => {
+      // hint is optional; stay hidden on failure
+    });
   window.overlay.ready();
 });

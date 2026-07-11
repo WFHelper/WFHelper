@@ -154,6 +154,22 @@ body {
   flex-shrink: 0;
 }
 
+#drag-hint {
+  font-size: 9.5px;
+  color: var(--muted);
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(6, 10, 18, 0.72);
+  margin-right: 4px;
+  white-space: nowrap;
+  -webkit-app-region: no-drag;
+}
+
+#drag-hint.is-hidden {
+  display: none;
+}
+
 #planner-hint.is-hidden {
   display: none;
 }
