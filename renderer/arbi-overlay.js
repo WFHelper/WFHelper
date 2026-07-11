@@ -73,7 +73,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (event.key === "Escape") window.arbiSummary.close();
   });
 
-  window.installOverlayRightButtonDrag({
+  window.installOverlayDrag({
     isInteractive: () => true,
     moveBy: (dx, dy) => window.arbiSummary.moveBy(dx, dy),
   });

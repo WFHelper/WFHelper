@@ -324,9 +324,9 @@ function updateDragHint() {
   let text = "";
   if (!dragHintInfo.dismissed) {
     text = overlayInteractiveMode
-      ? "right-drag to move (position saves)"
+      ? "drag to move (position saves)"
       : hotkeyLabel
-        ? `${hotkeyLabel}, then right-drag to move`
+        ? `${hotkeyLabel}, then drag to move`
         : "";
   }
 
@@ -519,7 +519,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
   document.getElementById("btn-close").addEventListener("click", () => window.overlay.close());
-  window.installOverlayRightButtonDrag({
+  window.installOverlayDrag({
     isInteractive: () => overlayInteractiveMode,
     moveBy: (dx, dy) => {
       window.overlay.moveBy(dx, dy);

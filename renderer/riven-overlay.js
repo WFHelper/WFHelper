@@ -624,7 +624,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Close button + keyboard
   el("btn-close").addEventListener("click", () => window.rivenOverlay.close());
-  window.installOverlayRightButtonDrag({
+  window.installOverlayDrag({
     isInteractive: () => _overlayInteractiveMode,
     moveBy: (dx, dy) => window.rivenOverlay.moveBy(dx, dy),
   });
