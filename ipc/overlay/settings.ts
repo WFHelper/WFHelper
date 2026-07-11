@@ -132,7 +132,13 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
   ): Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>> {
     const input = asRecord(value);
     if (!input) return {};
-    const keys: OverlayWindowKey[] = ["reward", "planner", "rivenLeft", "rivenRight"];
+    const keys: OverlayWindowKey[] = [
+      "reward",
+      "planner",
+      "rivenLeft",
+      "rivenRight",
+      "arbiSummary",
+    ];
     const out: Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>> = {};
     for (const key of keys) {
       const record = asRecord(input[key]);
@@ -193,6 +199,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       arbiTrackingEnabled: booleanSetting("arbiTrackingEnabled"),
       overlayScale: normalizeOverlayScale(candidate.overlayScale, defaults.overlayScale),
       overlayWindowBounds: normalizeSavedBounds(candidate.overlayWindowBounds),
+      overlayDragHintDismissed: booleanSetting("overlayDragHintDismissed"),
     };
   }
 

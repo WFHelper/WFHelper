@@ -33,9 +33,10 @@ export interface PreloadAPI {
   ) => Promise<IpcInvokeMap["wfmLookupItemBySlug"]["return"]>;
   wfmGetMe: () => Promise<IpcInvokeMap["wfmGetMe"]["return"]>;
   getMasteryProgress: () => Promise<IpcInvokeMap["getMasteryProgress"]["return"]>;
-  setOverlayPlacementDemo: (
-    ...args: IpcInvokeMap["setOverlayPlacementDemo"]["args"]
-  ) => Promise<IpcInvokeMap["setOverlayPlacementDemo"]["return"]>;
+  getOverlayPlacementLayout: () => Promise<IpcInvokeMap["getOverlayPlacementLayout"]["return"]>;
+  saveOverlayPlacement: (
+    ...args: IpcInvokeMap["saveOverlayPlacement"]["args"]
+  ) => Promise<IpcInvokeMap["saveOverlayPlacement"]["return"]>;
   searchDrops: (
     query: IpcInvokeMap["searchDrops"]["args"][0],
     mode: IpcInvokeMap["searchDrops"]["args"][1],

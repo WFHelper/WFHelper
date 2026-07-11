@@ -46,6 +46,8 @@ export interface OverlaySettings {
   arbiTrackingEnabled: boolean;
   overlayScale: number;
   overlayWindowBounds: Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>>;
+  /** True once the user has right-dragged a live overlay; retires the move hint chip. */
+  overlayDragHintDismissed: boolean;
 }
 
 export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
@@ -78,6 +80,7 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   arbiTrackingEnabled: true,
   overlayScale: 1,
   overlayWindowBounds: Object.freeze({}),
+  overlayDragHintDismissed: false,
 });
 
 type OverlayToggleKey =

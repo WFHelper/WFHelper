@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { createOverlayWindowsController } from "../../ipc/overlay/windows";
+import {
+  createOverlayWindowBoundsChangeHandler,
+  createOverlayWindowsController,
+} from "../../ipc/overlay/windows";
 import type { OverlaySettings } from "../../config/runtime/overlaySettings";
 
 function createController(overlaySettings: Record<string, unknown> = {}) {
@@ -78,5 +81,28 @@ describe("createOverlayWindowsController", () => {
 
     expect(bounds.x).toBe(250);
     expect(bounds.y).toBe(160);
+  });
+});
+
+describe("createOverlayWindowBoundsChangeHandler", () => {
+  it("saves bounds and retires the drag hint on live moves, except for the arbi summary", () => {
+    const ctx = {
+      overlaySettings: { overlayWindowBounds: {} } as unknown as OverlaySettings,
+    };
+    const save = vi.fn();
+    const handler = createOverlayWindowBoundsChangeHandler({ ctx, save });
+
+    handler("arbiSummary", { x: 30, y: 40 });
+    expect(ctx.overlaySettings.overlayWindowBounds.arbiSummary).toEqual({ x: 30, y: 40 });
+    expect(ctx.overlaySettings.overlayDragHintDismissed).toBeUndefined();
+
+    handler("reward", { x: 10, y: 20, displayId: "1" });
+    expect(ctx.overlaySettings.overlayWindowBounds.reward).toEqual({
+      x: 10,
+      y: 20,
+      displayId: "1",
+    });
+    expect(ctx.overlaySettings.overlayDragHintDismissed).toBe(true);
+    expect(save).toHaveBeenCalledTimes(2);
   });
 });

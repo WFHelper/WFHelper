@@ -5,7 +5,7 @@
   import { PRESET_KEYS, THEME_PRESETS } from "../config/themePresets.js";
   import { currentView, statusText } from "../stores/app.js";
   import { themeSettings } from "../stores/theme.js";
-  import { invoke, on, send } from "../lib/ipc.js";
+  import { invoke, on } from "../lib/ipc.js";
   import { APP_LOGO_URL, SETUP_OVERLAY_BG_URLS } from "../lib/assetUrls.js";
   import { writeStorage } from "../lib/persistence.js";
   import { shouldAutoStartTour, startTour } from "../stores/tour.js";
@@ -81,10 +81,6 @@
     destroyed = true;
     removeInventoryListener?.();
     removeProgressListener?.();
-    if (placementActive) {
-      placementActive = false;
-      void setPlacementDemo(null);
-    }
   });
 
   async function refreshRunnerStatus(): Promise<void> {
@@ -253,75 +249,145 @@
     step = "inventory";
   }
 
-  // Overlay placement: each sub-step shows the real overlay window with demo
-  // content over a game screenshot, so the user right-drags it into place.
-  const overlayPlacementSteps = [
+  // Overlay placement: draggable dummy panels over a game screenshot. The
+  // preview box maps 1:1 onto the primary display's work area, so dropping a
+  // dummy saves where the real overlay window will appear.
+  type PlacementKey = "reward" | "planner" | "rivenLeft" | "rivenRight" | "arbiSummary";
+  type PlacementRect = { x: number; y: number; width: number; height: number };
+
+  const overlayPlacementSteps: Array<{
+    key: "reward" | "planner" | "riven" | "arbiSummary";
+    dummies: PlacementKey[];
+    title: string;
+    text: string;
+  }> = [
     {
       key: "reward",
+      dummies: ["reward"],
       title: "Relic reward overlay",
-      text: "Pops up when your squad opens relics and prices every reward. Drag it with the right mouse button to where you want it - the spot is saved.",
+      text: "Pops up when your squad opens relics and prices every reward. Drag the panel to where it should sit over your game.",
     },
     {
       key: "planner",
+      dummies: ["planner"],
       title: "Relic planner overlay",
-      text: "Ranks your owned relics on the relic selection screen. Right-drag to place it.",
+      text: "Ranks your owned relics on the relic selection screen. Drag it into place.",
     },
     {
       key: "riven",
+      dummies: ["rivenLeft", "rivenRight"],
       title: "Riven scanner overlay",
-      text: "Compares old and new roll while you reroll rivens. Right-drag both panels to place them.",
+      text: "Compares old and new roll while you reroll rivens. Drag both panels into place.",
     },
     {
       key: "arbiSummary",
+      dummies: ["arbiSummary"],
       title: "Arbitration summary",
-      text: "Shows your run stats when an arbitration ends. Right-drag to place it.",
+      text: "Shows your run stats when an arbitration ends. Drag it into place.",
     },
-  ] as const;
+  ];
+
+  const dummyLabels: Record<PlacementKey, string> = {
+    reward: "RELIC REWARDS",
+    planner: "RELIC PLANNER",
+    rivenLeft: "RIVEN - CURRENT",
+    rivenRight: "RIVEN - NEW ROLL",
+    arbiSummary: "ARBITRATION SUMMARY",
+  };
 
   let overlayStepIndex = 0;
-  let placementActive = false;
+  let placementArea = { width: 1920, height: 1080 };
+  let placementPos: Record<PlacementKey, PlacementRect> | null = null;
+  let previewW = 0;
+  let dragging: {
+    key: PlacementKey;
+    pointerId: number;
+    offsetX: number;
+    offsetY: number;
+  } | null = null;
 
-  async function setPlacementDemo(
-    target: "reward" | "planner" | "riven" | "arbiSummary" | null,
-  ): Promise<void> {
-    try {
-      await invoke("setOverlayPlacementDemo", target);
-    } catch {
-      // placement demo is best-effort; setup must never get stuck on it
-    }
+  function clampToArea(rect: PlacementRect): PlacementRect {
+    return {
+      ...rect,
+      x: Math.min(Math.max(0, rect.x), Math.max(0, placementArea.width - rect.width)),
+      y: Math.min(Math.max(0, rect.y), Math.max(0, placementArea.height - rect.height)),
+    };
   }
 
-  function enterOverlaysStep(): void {
+  async function enterOverlaysStep(): Promise<void> {
     step = "overlays";
     overlayStepIndex = 0;
-    placementActive = true;
-    send("window-maximize");
-    void setPlacementDemo(overlayPlacementSteps[0].key);
+    try {
+      const layout = await invoke("getOverlayPlacementLayout");
+      placementArea = layout.area;
+      placementPos = {
+        reward: clampToArea(layout.overlays.reward),
+        planner: clampToArea(layout.overlays.planner),
+        rivenLeft: clampToArea(layout.overlays.rivenLeft),
+        rivenRight: clampToArea(layout.overlays.rivenRight),
+        arbiSummary: clampToArea(layout.overlays.arbiSummary),
+      };
+    } catch {
+      // No dummies then - the wizard must never get stuck on this step.
+      placementPos = null;
+    }
   }
 
   function overlayNext(): void {
     if (overlayStepIndex < overlayPlacementSteps.length - 1) {
       overlayStepIndex += 1;
-      void setPlacementDemo(overlayPlacementSteps[overlayStepIndex].key);
     } else {
       finishOverlaysStep();
     }
   }
 
   function overlayBack(): void {
-    if (overlayStepIndex === 0) return;
-    overlayStepIndex -= 1;
-    void setPlacementDemo(overlayPlacementSteps[overlayStepIndex].key);
+    if (overlayStepIndex > 0) overlayStepIndex -= 1;
   }
 
   function finishOverlaysStep(): void {
-    placementActive = false;
-    void setPlacementDemo(null);
-    send("window-maximize");
     completeSetup("inventory");
   }
 
-  const finish = (): void => enterOverlaysStep();
+  function onDummyPointerDown(key: PlacementKey, event: PointerEvent): void {
+    if (event.button !== 0 || !placementPos || previewScale <= 0) return;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    const p = placementPos[key];
+    dragging = {
+      key,
+      pointerId: event.pointerId,
+      offsetX: event.clientX - p.x * previewScale,
+      offsetY: event.clientY - p.y * previewScale,
+    };
+  }
+
+  function onDummyPointerMove(event: PointerEvent): void {
+    if (!dragging || event.pointerId !== dragging.pointerId) return;
+    if (!placementPos || previewScale <= 0) return;
+    const p = placementPos[dragging.key];
+    placementPos = {
+      ...placementPos,
+      [dragging.key]: clampToArea({
+        ...p,
+        x: (event.clientX - dragging.offsetX) / previewScale,
+        y: (event.clientY - dragging.offsetY) / previewScale,
+      }),
+    };
+  }
+
+  function onDummyPointerUp(event: PointerEvent): void {
+    if (!dragging || event.pointerId !== dragging.pointerId) return;
+    const key = dragging.key;
+    dragging = null;
+    if (!placementPos) return;
+    const p = placementPos[key];
+    invoke("saveOverlayPlacement", key, {
+      xFrac: p.x / placementArea.width,
+      yFrac: p.y / placementArea.height,
+    }).catch(() => {});
+  }
+
+  const finish = (): void => void enterOverlaysStep();
   const skip = (): void => completeSetup("inventory");
 
   function retry(): void {
@@ -368,6 +434,7 @@
   }
 
   $: placementStep = overlayPlacementSteps[overlayStepIndex];
+  $: previewScale = previewW > 0 && placementArea.width > 0 ? previewW / placementArea.width : 0;
   $: effects = $themeSettings.effects;
   $: activePresetKey = PRESET_KEYS.includes($themeSettings.activePreset)
     ? $themeSettings.activePreset
@@ -381,20 +448,92 @@
 
 <section class="view active">
   {#if step === "overlays"}
-    <div class="fixed inset-0 z-40 bg-bg-deep">
-      <img
-        src={SETUP_OVERLAY_BG_URLS[placementStep.key] || SETUP_OVERLAY_BG_URLS.reward}
-        alt=""
-        class="absolute inset-0 h-full w-full object-cover opacity-60"
-      />
-      <div class="absolute inset-0 bg-black/30"></div>
+    <div class="fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-bg-deep px-6 py-5">
+      <div
+        class="relative min-h-0 overflow-hidden rounded-xl border border-border-strong bg-black shadow-2xl"
+        style="aspect-ratio: {placementArea.width} / {placementArea.height}; width: min(100%, calc((100vh - 230px) * {(placementArea.width / Math.max(1, placementArea.height)).toFixed(4)}));"
+        bind:clientWidth={previewW}
+      >
+        <img
+          src={SETUP_OVERLAY_BG_URLS[placementStep.key] || SETUP_OVERLAY_BG_URLS.reward}
+          alt=""
+          draggable="false"
+          class="absolute inset-0 h-full w-full select-none object-cover opacity-80"
+        />
+        <div class="absolute inset-0 bg-black/20"></div>
+        {#if placementPos && previewScale > 0}
+          {#each placementStep.dummies as key (placementStep.key + "-" + key)}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+              data-placement-dummy={key}
+              class="absolute flex cursor-move touch-none select-none flex-col overflow-hidden rounded border bg-bg-deep/85 shadow-lg {dragging?.key === key
+                ? 'border-accent ring-1 ring-accent'
+                : 'border-border-strong hover:border-accent'}"
+              style="left: {placementPos[key].x * previewScale}px; top: {placementPos[key].y * previewScale}px; width: {placementPos[key].width * previewScale}px; height: {placementPos[key].height * previewScale}px;"
+              on:pointerdown={(e) => onDummyPointerDown(key, e)}
+              on:pointermove={onDummyPointerMove}
+              on:pointerup={onDummyPointerUp}
+              on:pointercancel={() => (dragging = null)}
+            >
+              <div class="flex items-center justify-between gap-2 border-b border-border bg-bg-surface/90 px-2 py-1">
+                <span class="truncate font-display text-[10px] font-bold tracking-widest text-accent">{dummyLabels[key]}</span>
+                <span class="shrink-0 text-[9px] uppercase tracking-wider text-text-muted">drag me</span>
+              </div>
+              <div class="min-h-0 flex-1 p-1.5 opacity-80">
+                {#if key === "reward"}
+                  <div class="flex h-full gap-1.5">
+                    {#each Array(4) as _}
+                      <div class="flex flex-1 flex-col gap-1 rounded-sm border border-border/60 bg-bg-raised/70 p-1">
+                        <div class="mx-auto h-2/5 w-3/5 rounded-sm bg-bg-hover"></div>
+                        <div class="h-1.5 w-full rounded-sm bg-bg-hover"></div>
+                        <div class="h-1.5 w-2/3 rounded-sm bg-bg-hover"></div>
+                      </div>
+                    {/each}
+                  </div>
+                {:else if key === "planner"}
+                  <div class="flex h-full flex-col gap-1.5">
+                    {#each Array(3) as _}
+                      <div class="flex items-center gap-1.5 rounded-sm border border-border/60 bg-bg-raised/70 px-1.5 py-2">
+                        <div class="h-1.5 flex-1 rounded-sm bg-bg-hover"></div>
+                        <div class="h-1.5 w-8 shrink-0 rounded-sm bg-bg-hover"></div>
+                      </div>
+                    {/each}
+                  </div>
+                {:else if key === "arbiSummary"}
+                  <div class="grid h-full grid-cols-2 gap-1.5">
+                    {#each Array(4) as _}
+                      <div class="flex flex-col justify-center gap-1 rounded-sm border border-border/60 bg-bg-raised/70 px-1.5">
+                        <div class="h-1.5 w-1/2 rounded-sm bg-bg-hover"></div>
+                        <div class="h-2 w-2/3 rounded-sm bg-bg-hover"></div>
+                      </div>
+                    {/each}
+                  </div>
+                {:else}
+                  <div class="flex h-full flex-col gap-1.5">
+                    <div class="h-1/4 shrink-0 rounded-sm border border-border/60 bg-bg-raised/70"></div>
+                    {#each Array(5) as _}
+                      <div class="flex items-center gap-1.5 px-0.5">
+                        <div class="h-1.5 flex-1 rounded-sm bg-bg-hover"></div>
+                        <div class="h-1.5 w-6 shrink-0 rounded-sm bg-bg-hover"></div>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            </div>
+          {/each}
+        {/if}
+      </div>
 
-      <div class="absolute left-1/2 top-8 w-[460px] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl border border-border bg-bg-surface/95 p-4 shadow-2xl [backdrop-filter:blur(6px)]">
+      <div class="w-[560px] max-w-full shrink-0 rounded-xl border border-border bg-bg-surface p-4 shadow-2xl">
         <div class="mb-1 flex items-center justify-between gap-3">
           <h2 class="m-0 font-display text-base font-bold tracking-[0.02em]">{placementStep.title}</h2>
           <span class="shrink-0 text-xs text-text-muted">{overlayStepIndex + 1} / {overlayPlacementSteps.length}</span>
         </div>
         <p class="m-0 text-sm leading-snug text-text-secondary">{placementStep.text}</p>
+        <p class="m-0 mt-1.5 text-xs leading-snug text-text-muted">
+          Saved instantly. In game you can move overlays any time: unlock with the hotkey shown on them, then drag with the right mouse button.
+        </p>
         <div class="mt-3 flex items-center justify-between">
           <button class="btn-secondary btn-sm" on:click={finishOverlaysStep}>Skip</button>
           <div class="flex gap-2">

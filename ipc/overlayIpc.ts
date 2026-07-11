@@ -20,7 +20,9 @@ import {
   isRivenOverlayEnabled,
   isTradeNotificationOverlayEnabled,
   OVERLAY_SETTINGS_DEFAULTS,
+  type OverlayWindowKey,
 } from "../config/runtime/overlaySettings";
+import { clampNumber } from "../config/shared/numeric";
 import {
   OVERLAY_INTERACTION_MODE,
   OVERLAY_THEME_VARS,
@@ -30,7 +32,8 @@ import {
   OVERLAY_THEME_UPDATED,
   OVERLAY_DRAG_MOVE,
   OVERLAY_READY,
-  OVERLAY_PLACEMENT_DEMO,
+  OVERLAY_PLACEMENT_LAYOUT,
+  OVERLAY_SAVE_PLACEMENT,
 } from "../config/shared/ipcChannels";
 import {
   OVERLAY_FORWARDED_COLOR_VARS,
@@ -41,7 +44,7 @@ import {
 
 const log = withScope("overlayIpc");
 
-import { BrowserWindow, globalShortcut, app, type WebContents } from "electron";
+import { BrowserWindow, globalShortcut, app, screen, type WebContents } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -390,30 +393,69 @@ function register(): void {
     }
   });
 
-  // Setup placement step: show one overlay with demo content (null hides all).
-  const placementTargets = new Set(["reward", "planner", "riven", "arbiSummary"]);
-  handleAuthorized(OVERLAY_PLACEMENT_DEMO, assertMainRendererSender, async (_event, rawTarget: unknown) => {
-    const target =
-      typeof rawTarget === "string" && placementTargets.has(rawTarget) ? rawTarget : null;
-
-    rewardOverlayIpc.hideRewardPlannerPlacementDemo();
-    rivenOverlayIpc.hideRivenPlacementDemo();
-    arbiOverlayIpc.hideArbiSummaryPlacementDemo();
-
-    if (target === "reward") {
-      rewardOverlayIpc.showRewardPlacementDemo(pushOverlayInteractionMode, pushOverlayThemeVars);
-    } else if (target === "planner") {
-      rewardOverlayIpc.showPlannerPlacementDemo(pushOverlayInteractionMode, pushOverlayThemeVars);
-    } else if (target === "riven") {
-      rivenOverlayIpc.showRivenPlacementDemo();
-    } else if (target === "arbiSummary") {
-      arbiOverlayIpc.showArbiSummaryPlacementDemo();
-    }
-
-    setOverlayInteractionMode(target === "reward" || target === "planner", "placement-demo");
-    log.info(`[OverlayPlacementDemo] target=${target ?? "none"}`);
-    return { ok: true };
+  // Setup placement step: the dummy panels in the wizard mirror where each
+  // overlay window would really appear, mapped against the primary display's
+  // work area.
+  handleAuthorized(OVERLAY_PLACEMENT_LAYOUT, assertMainRendererSender, async () => {
+    const area = screen.getPrimaryDisplay().workArea;
+    const rel = (rect: { x: number; y: number; width: number; height: number }) => ({
+      x: rect.x - area.x,
+      y: rect.y - area.y,
+      width: rect.width,
+      height: rect.height,
+    });
+    const riven = rivenOverlayIpc.getRivenPlacementRects();
+    return {
+      area: { width: area.width, height: area.height },
+      overlays: {
+        reward: rel(rewardOverlayIpc.rewardWindowsController.getOverlayBoundsForActiveDisplay()),
+        planner: rel(rewardOverlayIpc.plannerWindowsController.getOverlayBoundsForActiveDisplay()),
+        rivenLeft: rel(riven.left),
+        rivenRight: rel(riven.right),
+        arbiSummary: rel(arbiOverlayIpc.getArbiSummaryPlacementRect()),
+      },
+    };
   });
+
+  const placementKeys = new Set<OverlayWindowKey>([
+    "reward",
+    "planner",
+    "rivenLeft",
+    "rivenRight",
+    "arbiSummary",
+  ]);
+  handleAuthorized(
+    OVERLAY_SAVE_PLACEMENT,
+    assertMainRendererSender,
+    async (_event, rawKey: unknown, rawPos: unknown) => {
+      const key = placementKeys.has(rawKey as OverlayWindowKey)
+        ? (rawKey as OverlayWindowKey)
+        : null;
+      const pos = asRecord(rawPos);
+      if (!key || !pos) return { ok: false };
+      const xFrac = clampNumber(pos.xFrac, 0, 1, NaN);
+      const yFrac = clampNumber(pos.yFrac, 0, 1, NaN);
+      if (!Number.isFinite(xFrac) || !Number.isFinite(yFrac)) return { ok: false };
+
+      const display = screen.getPrimaryDisplay();
+      const area = display.workArea;
+      const bounds = {
+        x: Math.round(area.x + xFrac * area.width),
+        y: Math.round(area.y + yFrac * area.height),
+        displayId: String(display.id),
+      };
+      ctx.overlaySettings = {
+        ...ctx.overlaySettings,
+        overlayWindowBounds: {
+          ...(ctx.overlaySettings.overlayWindowBounds || {}),
+          [key]: bounds,
+        },
+      };
+      settingsController.saveOverlaySettings();
+      log.info(`[OverlayPlacement] saved ${key} -> ${bounds.x},${bounds.y}`);
+      return { ok: true };
+    },
+  );
 }
 
 export const loadOverlaySettings = settingsController.loadOverlaySettings;

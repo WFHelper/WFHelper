@@ -17,7 +17,8 @@ import {
   DROP_SEARCH,
   DB_GET_WFM_ITEMS,
   DB_GET_MASTERY,
-  OVERLAY_PLACEMENT_DEMO,
+  OVERLAY_PLACEMENT_LAYOUT,
+  OVERLAY_SAVE_PLACEMENT,
   WFM_SIGNIN,
   WFM_SIGNOUT,
   WFM_SESSION,
@@ -110,8 +111,9 @@ try {
     wfmGetMe: () => ipcRenderer.invoke(WFM_GET_ME),
 
     getMasteryProgress: () => ipcRenderer.invoke(DB_GET_MASTERY),
-    setOverlayPlacementDemo: (target: string | null) =>
-      ipcRenderer.invoke(OVERLAY_PLACEMENT_DEMO, target),
+    getOverlayPlacementLayout: () => ipcRenderer.invoke(OVERLAY_PLACEMENT_LAYOUT),
+    saveOverlayPlacement: (key: string, pos: { xFrac: number; yFrac: number }) =>
+      ipcRenderer.invoke(OVERLAY_SAVE_PLACEMENT, key, pos),
     searchDrops: (query: string, mode: string) =>
       ipcRenderer.invoke(DROP_SEARCH, { query, mode }),
     checkForAppUpdates: () => ipcRenderer.invoke(APP_UPDATE_CHECK),

@@ -140,27 +140,12 @@ export function isRivenInteractiveMode(): boolean {
   return _rivenInteractive;
 }
 
-/** Setup placement step: bare panels (no scan session), interactive for right-drag. */
-export function showRivenPlacementDemo(): void {
-  createRivenOverlayWindows({ show: true });
-  positionRivenOverlayWindows();
-  _rivenInteractive = true;
-  rivenLeftWindowsController.setOverlayInteractiveMode(true);
-  rivenRightWindowsController.setOverlayInteractiveMode(true);
-  forEachRivenWindow((win) => {
-    win.webContents.send(OVERLAY_INTERACTION_MODE, { interactive: true });
-  });
-}
-
-export function hideRivenPlacementDemo(): void {
-  if (_rivenInteractive) {
-    _rivenInteractive = false;
-    rivenLeftWindowsController.setOverlayInteractiveMode(false);
-    rivenRightWindowsController.setOverlayInteractiveMode(false);
-  }
-  forEachRivenWindow((win) => {
-    if (win.isVisible()) win.hide();
-  });
+/** Setup placement step: where both panels would appear right now (saved or default). */
+export function getRivenPlacementRects() {
+  return {
+    left: rivenLeftWindowsController.getOverlayBoundsForActiveDisplay(),
+    right: rivenRightWindowsController.getOverlayBoundsForActiveDisplay(),
+  };
 }
 
 function createRivenWindow(side: "left" | "right", options: { show?: boolean }): void {

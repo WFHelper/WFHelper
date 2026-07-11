@@ -103,6 +103,7 @@ describe("overlay settings controller", () => {
       overlayScale: 2,
       overlayWindowBounds: {
         reward: { x: 120, y: 240, displayId: "7" },
+        arbiSummary: { x: 15, y: 25 },
         nope: { x: 1, y: 2 },
         planner: { x: "bad", y: 10 },
       },
@@ -111,7 +112,18 @@ describe("overlay settings controller", () => {
     expect(normalized.overlayScale).toBe(1.5);
     expect(normalized.overlayWindowBounds).toEqual({
       reward: { x: 120, y: 240, displayId: "7" },
+      arbiSummary: { x: 15, y: 25 },
     });
+  });
+
+  it("defaults the drag hint to visible and round-trips a dismissal", () => {
+    const { controller } = buildController();
+
+    expect(controller.normalizeOverlaySettings({}).overlayDragHintDismissed).toBe(false);
+    expect(
+      controller.normalizeOverlaySettings({ overlayDragHintDismissed: true })
+        .overlayDragHintDismissed,
+    ).toBe(true);
   });
 
   it("migrates the legacy trade notification setting to the overlay toggle", () => {

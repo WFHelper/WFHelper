@@ -74,6 +74,9 @@ type OverlayWindowsControllerOptions = {
     key: OverlayWindowKey,
     bounds: OverlaySavedWindowBounds,
   ) => void;
+  /** Persist user moves even when the interactive-mode getter reports false
+   * (arbi summary: always draggable but never factory-interactive). */
+  persistBoundsWhenPassive?: boolean;
 };
 
 export function createOverlayWindowBoundsChangeHandler(
@@ -82,6 +85,10 @@ export function createOverlayWindowBoundsChangeHandler(
   return (key, bounds) => {
     options.ctx.overlaySettings = {
       ...options.ctx.overlaySettings,
+      // A live drag proves the user knows the move mechanic - retire the hint
+      // chip. The arbi summary is draggable without the unlock hotkey, so it
+      // doesn't count as having learned it.
+      ...(key === "arbiSummary" ? {} : { overlayDragHintDismissed: true }),
       overlayWindowBounds: {
         ...(options.ctx.overlaySettings.overlayWindowBounds || {}),
         [key]: bounds,
@@ -120,6 +127,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     backgroundColor = "#060a12",
     windowStateKey,
     onWindowBoundsChanged,
+    persistBoundsWhenPassive = false,
   } = options;
 
   let lastOverlayAnchorMeta: OverlayAnchorMeta | null = null;
@@ -303,7 +311,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
   function saveCurrentWindowBounds(overlayWindow: import("electron").BrowserWindow): void {
     if (!windowStateKey || !onWindowBoundsChanged) return;
     if (suppressMoveSave || overlayWindow.isDestroyed()) return;
-    if (!readInteractiveMode()) return;
+    if (!readInteractiveMode() && !persistBoundsWhenPassive) return;
     const bounds = overlayWindow.getBounds();
     let displayId: string | null = null;
     try {

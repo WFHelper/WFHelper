@@ -35,7 +35,7 @@ export interface FissureAlert {
   planet: string; // planet name or "any"
 }
 
-type OverlayWindowKey = "reward" | "planner" | "rivenLeft" | "rivenRight";
+type OverlayWindowKey = "reward" | "planner" | "rivenLeft" | "rivenRight" | "arbiSummary";
 
 interface OverlaySavedWindowBounds {
   x: number;
@@ -66,6 +66,7 @@ export interface OverlaySettings {
   arbiTrackingEnabled: boolean;
   overlayScale: number;
   overlayWindowBounds: Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>>;
+  overlayDragHintDismissed: boolean;
 }
 
 type AppUpdateStatus =
@@ -271,8 +272,15 @@ export interface IpcInvokeMap {
     args: [];
     return: MasteryData | null;
   };
-  setOverlayPlacementDemo: {
-    args: [target: "reward" | "planner" | "riven" | "arbiSummary" | null];
+  getOverlayPlacementLayout: {
+    args: [];
+    return: {
+      area: { width: number; height: number };
+      overlays: Record<OverlayWindowKey, { x: number; y: number; width: number; height: number }>;
+    };
+  };
+  saveOverlayPlacement: {
+    args: [key: OverlayWindowKey, pos: { xFrac: number; yFrac: number }];
     return: { ok: boolean };
   };
   searchDrops: {
