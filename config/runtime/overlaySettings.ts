@@ -45,8 +45,10 @@ export interface OverlaySettings {
   arbiSummaryOverlayEnabled: boolean;
   arbiTrackingEnabled: boolean;
   overlayScale: number;
+  /** Per-window scale override; windows without an entry use overlayScale. */
+  overlayWindowScales: Partial<Record<OverlayWindowKey, number>>;
   overlayWindowBounds: Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>>;
-  /** True once the user has right-dragged a live overlay; retires the move hint chip. */
+  /** True once the user has dragged a live overlay; retires the move hint chip. */
   overlayDragHintDismissed: boolean;
 }
 
@@ -79,6 +81,7 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   arbiSummaryOverlayEnabled: true,
   arbiTrackingEnabled: true,
   overlayScale: 1,
+  overlayWindowScales: Object.freeze({}),
   overlayWindowBounds: Object.freeze({}),
   overlayDragHintDismissed: false,
 });

@@ -127,6 +127,24 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     return Number(clampNumber(value, 0.75, 1.5, Number(fallback ?? 1)).toFixed(2));
   }
 
+  function normalizeWindowScales(value: unknown): Partial<Record<OverlayWindowKey, number>> {
+    const input = asRecord(value);
+    if (!input) return {};
+    const keys: OverlayWindowKey[] = [
+      "reward",
+      "planner",
+      "rivenLeft",
+      "rivenRight",
+      "arbiSummary",
+    ];
+    const out: Partial<Record<OverlayWindowKey, number>> = {};
+    for (const key of keys) {
+      const scale = clampNumber(input[key], 0.75, 1.5, NaN);
+      if (Number.isFinite(scale)) out[key] = Number(scale.toFixed(2));
+    }
+    return out;
+  }
+
   function normalizeSavedBounds(
     value: unknown,
   ): Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>> {
@@ -198,6 +216,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       arbiSummaryOverlayEnabled: booleanSetting("arbiSummaryOverlayEnabled"),
       arbiTrackingEnabled: booleanSetting("arbiTrackingEnabled"),
       overlayScale: normalizeOverlayScale(candidate.overlayScale, defaults.overlayScale),
+      overlayWindowScales: normalizeWindowScales(candidate.overlayWindowScales),
       overlayWindowBounds: normalizeSavedBounds(candidate.overlayWindowBounds),
       overlayDragHintDismissed: booleanSetting("overlayDragHintDismissed"),
     };

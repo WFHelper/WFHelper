@@ -65,6 +65,7 @@ export interface OverlaySettings {
   arbiSummaryOverlayEnabled: boolean;
   arbiTrackingEnabled: boolean;
   overlayScale: number;
+  overlayWindowScales: Partial<Record<OverlayWindowKey, number>>;
   overlayWindowBounds: Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>>;
   overlayDragHintDismissed: boolean;
 }
@@ -276,11 +277,18 @@ export interface IpcInvokeMap {
     args: [];
     return: {
       area: { width: number; height: number };
-      overlays: Record<OverlayWindowKey, { x: number; y: number; width: number; height: number }>;
+      overlays: Record<
+        OverlayWindowKey,
+        { x: number; y: number; width: number; height: number; scale: number }
+      >;
     };
   };
   saveOverlayPlacement: {
     args: [key: OverlayWindowKey, pos: { xFrac: number; yFrac: number }];
+    return: { ok: boolean };
+  };
+  saveOverlayScale: {
+    args: [key: OverlayWindowKey, scale: number];
     return: { ok: boolean };
   };
   searchDrops: {

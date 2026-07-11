@@ -19,6 +19,7 @@ import {
   DB_GET_MASTERY,
   OVERLAY_PLACEMENT_LAYOUT,
   OVERLAY_SAVE_PLACEMENT,
+  OVERLAY_SAVE_SCALE,
   WFM_SIGNIN,
   WFM_SIGNOUT,
   WFM_SESSION,
@@ -114,6 +115,8 @@ try {
     getOverlayPlacementLayout: () => ipcRenderer.invoke(OVERLAY_PLACEMENT_LAYOUT),
     saveOverlayPlacement: (key: string, pos: { xFrac: number; yFrac: number }) =>
       ipcRenderer.invoke(OVERLAY_SAVE_PLACEMENT, key, pos),
+    saveOverlayScale: (key: string, scale: number) =>
+      ipcRenderer.invoke(OVERLAY_SAVE_SCALE, key, scale),
     searchDrops: (query: string, mode: string) =>
       ipcRenderer.invoke(DROP_SEARCH, { query, mode }),
     checkForAppUpdates: () => ipcRenderer.invoke(APP_UPDATE_CHECK),

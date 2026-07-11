@@ -107,6 +107,10 @@ export function getArbiSummaryPlacementRect() {
   return arbiSummaryWindowsController.getOverlayBoundsForActiveDisplay();
 }
 
+export function positionArbiSummaryWindow(): void {
+  arbiSummaryWindowsController.positionOverlayWindow(arbiSummaryWindowsController.getAnchorMeta());
+}
+
 export function configureOverlaySettingsPersistence(persist: () => void): void {
   persistOverlaySettings = persist;
 }

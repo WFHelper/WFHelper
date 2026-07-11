@@ -34,6 +34,7 @@ import {
   OVERLAY_READY,
   OVERLAY_PLACEMENT_LAYOUT,
   OVERLAY_SAVE_PLACEMENT,
+  OVERLAY_SAVE_SCALE,
 } from "../config/shared/ipcChannels";
 import {
   OVERLAY_FORWARDED_COLOR_VARS,
@@ -330,7 +331,8 @@ function moveInteractiveOverlayWindow(sender: WebContents, rawDelta: unknown): v
   const dx = Math.round(Number(delta.dx));
   const dy = Math.round(Number(delta.dy));
   if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
-  if (Math.abs(dx) > 200 || Math.abs(dy) > 200) return;
+  // Deltas arrive batched per animation frame, so a fast flick can be large.
+  if (Math.abs(dx) > 1000 || Math.abs(dy) > 1000) return;
   if (dx === 0 && dy === 0) return;
 
   const bounds = win.getBounds();
@@ -369,7 +371,15 @@ function register(): void {
     OVERLAY_SET_SETTINGS,
     assertMainRendererSender,
     async (_event, nextSettings: unknown) => {
-      const settings = settingsController.setOverlaySettings(nextSettings);
+      // Moving the global size slider resets per-overlay overrides - otherwise
+      // it would visibly do nothing once every window has its own scale.
+      const incoming = asRecord(nextSettings);
+      const nextScale = incoming ? clampNumber(incoming.overlayScale, 0.75, 1.5, NaN) : NaN;
+      const scaleChanged =
+        Number.isFinite(nextScale) && nextScale !== ctx.overlaySettings.overlayScale;
+      const settings = settingsController.setOverlaySettings(
+        scaleChanged ? { ...(incoming ?? {}), overlayWindowScales: {} } : nextSettings,
+      );
       settingsController.registerOverlayHotkey();
       applyOverlayAvailabilitySettings();
       arbiRunTracker.setArbiTrackingEnabled(settings.arbiTrackingEnabled !== false);
@@ -405,14 +415,30 @@ function register(): void {
       height: rect.height,
     });
     const riven = rivenOverlayIpc.getRivenPlacementRects();
+    const userScale = (key: OverlayWindowKey) =>
+      clampNumber(
+        (ctx.overlaySettings.overlayWindowScales || {})[key] ?? ctx.overlaySettings.overlayScale,
+        0.75,
+        1.5,
+        1,
+      );
     return {
       area: { width: area.width, height: area.height },
       overlays: {
-        reward: rel(rewardOverlayIpc.rewardWindowsController.getOverlayBoundsForActiveDisplay()),
-        planner: rel(rewardOverlayIpc.plannerWindowsController.getOverlayBoundsForActiveDisplay()),
-        rivenLeft: rel(riven.left),
-        rivenRight: rel(riven.right),
-        arbiSummary: rel(arbiOverlayIpc.getArbiSummaryPlacementRect()),
+        reward: {
+          ...rel(rewardOverlayIpc.rewardWindowsController.getOverlayBoundsForActiveDisplay()),
+          scale: userScale("reward"),
+        },
+        planner: {
+          ...rel(rewardOverlayIpc.plannerWindowsController.getOverlayBoundsForActiveDisplay()),
+          scale: userScale("planner"),
+        },
+        rivenLeft: { ...rel(riven.left), scale: userScale("rivenLeft") },
+        rivenRight: { ...rel(riven.right), scale: userScale("rivenRight") },
+        arbiSummary: {
+          ...rel(arbiOverlayIpc.getArbiSummaryPlacementRect()),
+          scale: userScale("arbiSummary"),
+        },
       },
     };
   });
@@ -456,6 +482,44 @@ function register(): void {
       return { ok: true };
     },
   );
+
+  handleAuthorized(
+    OVERLAY_SAVE_SCALE,
+    assertMainRendererSender,
+    async (_event, rawKey: unknown, rawScale: unknown) => {
+      const key = placementKeys.has(rawKey as OverlayWindowKey)
+        ? (rawKey as OverlayWindowKey)
+        : null;
+      const scale = clampNumber(rawScale, 0.75, 1.5, NaN);
+      if (!key || !Number.isFinite(scale)) return { ok: false };
+
+      ctx.overlaySettings = {
+        ...ctx.overlaySettings,
+        overlayWindowScales: {
+          ...(ctx.overlaySettings.overlayWindowScales || {}),
+          [key]: Number(scale.toFixed(2)),
+        },
+      };
+      settingsController.saveOverlaySettings();
+
+      // Live windows re-zoom on their next positioning pass; do it now.
+      if (key === "reward") {
+        rewardOverlayIpc.rewardWindowsController.positionOverlayWindow(
+          rewardOverlayIpc.rewardWindowsController.getAnchorMeta(),
+        );
+      } else if (key === "planner") {
+        rewardOverlayIpc.plannerWindowsController.positionOverlayWindow(
+          rewardOverlayIpc.plannerWindowsController.getAnchorMeta(),
+        );
+      } else if (key === "rivenLeft" || key === "rivenRight") {
+        rivenOverlayIpc.positionRivenOverlayWindows();
+      } else {
+        arbiOverlayIpc.positionArbiSummaryWindow();
+      }
+      log.info(`[OverlayPlacement] scale ${key} -> ${scale.toFixed(2)}`);
+      return { ok: true };
+    },
+  );
 }
 
 export const loadOverlaySettings = settingsController.loadOverlaySettings;
@@ -463,6 +527,7 @@ export const registerOverlayHotkey = settingsController.registerOverlayHotkey;
 export const unregisterOverlayHotkey = settingsController.unregisterOverlayHotkey;
 
 export { register, onRelicRewardTrigger, notifyRewardUiReady, onRelicSelectionTrigger, onRelicSelectionClose };
+export { warmPlannerOverlayWindow } from "./rewardOverlayIpc";
 
 // Re-export riven callbacks for main.ts wiring
 export {

@@ -37,6 +37,9 @@ export interface PreloadAPI {
   saveOverlayPlacement: (
     ...args: IpcInvokeMap["saveOverlayPlacement"]["args"]
   ) => Promise<IpcInvokeMap["saveOverlayPlacement"]["return"]>;
+  saveOverlayScale: (
+    ...args: IpcInvokeMap["saveOverlayScale"]["args"]
+  ) => Promise<IpcInvokeMap["saveOverlayScale"]["return"]>;
   searchDrops: (
     query: IpcInvokeMap["searchDrops"]["args"][0],
     mode: IpcInvokeMap["searchDrops"]["args"][1],

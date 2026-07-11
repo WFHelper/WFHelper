@@ -75,6 +75,7 @@ export const OVERLAY_GET_THEME_VARS = "overlay:get-theme-vars";
 export const OVERLAY_GET_DRAG_HINT = "overlay:get-drag-hint";
 export const OVERLAY_PLACEMENT_LAYOUT = "overlay:placement-layout";
 export const OVERLAY_SAVE_PLACEMENT = "overlay:save-placement";
+export const OVERLAY_SAVE_SCALE = "overlay:save-scale";
 export const OVERLAY_GET_PRICE = "overlay:get-price";
 export const OVERLAY_PUSH_RELIC_FILTERS = "overlay:push-relic-filters";
 export const OVERLAY_THEME_UPDATED = "overlay-theme-updated";

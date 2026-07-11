@@ -241,7 +241,15 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     else if (h <= 900) base = 0.9;
     else if (h <= 1200) base = 1.0;
     else if (h <= 1600) base = 1.15;
-    const userScale = clampNumber(ctx.overlaySettings?.overlayScale, 0.75, 1.5, 1);
+    const perWindow = windowStateKey
+      ? (ctx.overlaySettings?.overlayWindowScales || {})[windowStateKey]
+      : undefined;
+    const userScale = clampNumber(
+      perWindow ?? ctx.overlaySettings?.overlayScale,
+      0.75,
+      1.5,
+      1,
+    );
     return Number((base * userScale).toFixed(3));
   }
 
@@ -388,7 +396,16 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     if (destroyIfRendererCrashed(existingWindow)) {
       existingWindow = null;
     }
-    if (shouldShow && existingWindow && !existingWindow.isDestroyed() && !existingWindow.isVisible()) {
+    // Transparent windows can re-show as a black box after hide() on Windows,
+    // so those are rebuilt. Opaque windows re-show instantly - rebuilding them
+    // costs a full renderer load (the overlay appears seconds late).
+    if (
+      transparent &&
+      shouldShow &&
+      existingWindow &&
+      !existingWindow.isDestroyed() &&
+      !existingWindow.isVisible()
+    ) {
       existingWindow.destroy();
       existingWindow = null;
       rendererReady = false;

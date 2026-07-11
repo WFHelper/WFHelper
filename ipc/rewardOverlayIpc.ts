@@ -154,6 +154,14 @@ export function configureOverlaySettingsPersistence(persist: () => void): void {
   persistOverlaySettings = persist;
 }
 
+/** Startup pre-warm: create the planner window hidden so the first relic-screen
+ * trigger shows it instantly instead of paying a full renderer load. */
+export function warmPlannerOverlayWindow(): void {
+  if (!isRelicRecommendationOverlayEnabled(ctx.overlaySettings)) return;
+  if (ctx.plannerOverlayWindow && !ctx.plannerOverlayWindow.isDestroyed()) return;
+  plannerWindowsController.createOverlayWindow({ show: false });
+}
+
 
 
 export function onRelicRewardTrigger(

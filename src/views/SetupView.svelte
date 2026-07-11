@@ -298,6 +298,13 @@
   let overlayStepIndex = 0;
   let placementArea = { width: 1920, height: 1080 };
   let placementPos: Record<PlacementKey, PlacementRect> | null = null;
+  let placementScales: Record<PlacementKey, number> = {
+    reward: 1,
+    planner: 1,
+    rivenLeft: 1,
+    rivenRight: 1,
+    arbiSummary: 1,
+  };
   let previewW = 0;
   let dragging: {
     key: PlacementKey;
@@ -326,6 +333,13 @@
         rivenLeft: clampToArea(layout.overlays.rivenLeft),
         rivenRight: clampToArea(layout.overlays.rivenRight),
         arbiSummary: clampToArea(layout.overlays.arbiSummary),
+      };
+      placementScales = {
+        reward: layout.overlays.reward.scale,
+        planner: layout.overlays.planner.scale,
+        rivenLeft: layout.overlays.rivenLeft.scale,
+        rivenRight: layout.overlays.rivenRight.scale,
+        arbiSummary: layout.overlays.arbiSummary.scale,
       };
     } catch {
       // No dummies then - the wizard must never get stuck on this step.
@@ -387,6 +401,30 @@
     }).catch(() => {});
   }
 
+  // Live slider preview scales the dummy footprint exactly like the real
+  // window's zoom factor would; commit persists on release.
+  function applyScalePreview(value: number): void {
+    if (!placementPos) return;
+    const next = { ...placementPos };
+    for (const key of placementStep.dummies) {
+      const prev = placementScales[key] || 1;
+      const rect = next[key];
+      next[key] = clampToArea({
+        ...rect,
+        width: (rect.width / prev) * value,
+        height: (rect.height / prev) * value,
+      });
+      placementScales = { ...placementScales, [key]: value };
+    }
+    placementPos = next;
+  }
+
+  function commitScale(): void {
+    for (const key of placementStep.dummies) {
+      invoke("saveOverlayScale", key, placementScales[key]).catch(() => {});
+    }
+  }
+
   const finish = (): void => void enterOverlaysStep();
   const skip = (): void => completeSetup("inventory");
 
@@ -435,6 +473,7 @@
 
   $: placementStep = overlayPlacementSteps[overlayStepIndex];
   $: previewScale = previewW > 0 && placementArea.width > 0 ? previewW / placementArea.width : 0;
+  $: stepScale = placementScales[placementStep.dummies[0]] ?? 1;
   $: effects = $themeSettings.effects;
   $: activePresetKey = PRESET_KEYS.includes($themeSettings.activePreset)
     ? $themeSettings.activePreset
@@ -532,8 +571,24 @@
         </div>
         <p class="m-0 text-sm leading-snug text-text-secondary">{placementStep.text}</p>
         <p class="m-0 mt-1.5 text-xs leading-snug text-text-muted">
-          Saved instantly. In game you can move overlays any time: unlock with the hotkey shown on them, then drag with the right mouse button.
+          Saved instantly. In game you can move overlays any time: unlock with the hotkey shown on them, then drag with either mouse button.
         </p>
+        <div class="mt-2.5 flex items-center gap-3">
+          <span class="shrink-0 text-xs text-text-muted">Size</span>
+          <input
+            type="range"
+            min="0.75"
+            max="1.5"
+            step="0.05"
+            value={stepScale}
+            disabled={!placementPos}
+            on:input={(e) => applyScalePreview(Number(e.currentTarget.value))}
+            on:change={commitScale}
+            class="h-1.5 flex-1 cursor-pointer"
+            style="accent-color: var(--accent);"
+          />
+          <span class="w-10 shrink-0 text-right text-xs text-text-muted">{Math.round(stepScale * 100)}%</span>
+        </div>
         <div class="mt-3 flex items-center justify-between">
           <button class="btn-secondary btn-sm" on:click={finishOverlaysStep}>Skip</button>
           <div class="flex gap-2">

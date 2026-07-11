@@ -295,6 +295,16 @@ app.whenReady().then(async () => {
   overlayIpc.registerOverlayHotkey();
   profileStage("overlay-hotkey:register", hotkeyStart);
 
+  // Pre-warm the planner overlay off the startup path so the first relic
+  // screen shows it instantly (opaque windows are reused across hides).
+  setTimeout(() => {
+    try {
+      overlayIpc.warmPlannerOverlayWindow();
+    } catch (err) {
+      log.warn("[Overlay] planner pre-warm failed:", err);
+    }
+  }, 4000).unref();
+
   const inventoryDetectStart = Date.now();
   apiHelperRunner.init();
   const found = inventoryIpc.findInventoryFile();
