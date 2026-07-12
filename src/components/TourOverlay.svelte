@@ -23,19 +23,19 @@
   const steps: TourStep[] = [
     {
       view: "inventory",
-      text: "Your inventory with live market prices. Click any item for details, price history and drop sources.",
+      text: "Your inventory with live market prices. Click an item to see its buy and sell orders.",
     },
     {
       view: "foundry",
-      text: "The foundry shows what you can build right now from the parts you own.",
+      text: "The foundry shows what you can build right now, what's in progress and what's ready to claim.",
     },
     {
       view: "mastery",
-      text: "Your real MR progress - and every item you still need to master.",
+      text: "Your MR progress and everything you still need to master.",
     },
     {
       view: "world",
-      text: "Cycles, fissures and bounties, always live. Bell icons set Windows alerts.",
+      text: "Cycles, fissures and bounties, updated live.",
       prepare: () => {
         localStorage.setItem("world-tab", "world");
         clickContentButton("World");
@@ -44,7 +44,7 @@
     {
       view: "world",
       target: '[data-tour="arbi-filters"]',
-      text: "The upcoming arbitration schedule. Pick nodes on the left to filter what you see.",
+      text: "The upcoming arbitration schedule. Pick nodes on the left to narrow it down.",
       prepare: () => {
         localStorage.setItem("world-tab", "arbis");
         clickContentButton("Arbitrations");
@@ -54,7 +54,7 @@
       view: "world",
       target: '[data-tour="arbi-bell"]',
       circle: true,
-      text: "The bell marks arbitrations you care about - Windows notifies you shortly before they start.",
+      text: "Bell an arbitration and Windows notifies you shortly before it starts.",
       prepare: () => {
         localStorage.setItem("world-tab", "arbis");
         clickContentButton("Arbitrations");
@@ -62,27 +62,27 @@
     },
     {
       view: "relics",
-      text: "Every relic you own, its contents and what it's worth.",
+      text: "Every relic you own, what's inside and what it's worth.",
     },
     {
       view: "market",
-      text: "Your warframe.market orders. Detected trades can unlist sold items automatically.",
+      text: "Your warframe.market orders. Detected trades can unlist sold items for you.",
     },
     {
       view: "rivens",
-      text: "Rivens scanned in-game land here, with market comparisons for similar rolls.",
+      text: "Rivens you scan in-game land here, with similar market rolls for comparison.",
     },
     {
       view: "arbi",
-      text: "Finished arbitration runs are recorded automatically - open one for the full dashboard, or import an EE.log.",
+      text: "Arbitration runs are recorded automatically. Open one for the full breakdown, or import an EE.log.",
     },
     {
       view: "wiki",
-      text: "Search the complete drop tables - type anything to see where it drops.",
+      text: "Search the drop tables. Type an item to see where it drops.",
     },
     {
       view: "settings",
-      text: "Hide tabs you don't use, tune overlays and notifications. You can rerun this tour from here anytime.",
+      text: "Hide tabs you don't use, tune overlays and notifications. You can rerun this tour from here.",
     },
   ];
 
@@ -150,15 +150,29 @@
     if (event.key === "ArrowLeft") backStep();
   }
 
-  // Caption sits under the cutout unless that would leave the viewport.
+  // Caption goes below the cutout, then above, then beside it; if the cutout
+  // fills the screen it sits bottom-center so headers and filters stay visible.
   const CARD_W = 380;
-  const CARD_H_GUESS = 150;
-  $: cardX = rect ? Math.min(Math.max(rect.x, 12), winW - CARD_W - 12) : winW / 2 - CARD_W / 2;
-  $: cardY = rect
-    ? rect.y + rect.h + CARD_H_GUESS + 12 < winH
-      ? rect.y + rect.h + 12
-      : Math.max(rect.y - CARD_H_GUESS - 12, 12)
-    : winH / 2 - CARD_H_GUESS / 2;
+  const GAP = 12;
+  let cardH = 150;
+
+  function placeCard(
+    r: typeof rect,
+    w: number,
+    h: number,
+    ch: number,
+  ): { x: number; y: number } {
+    if (!r) return { x: w / 2 - CARD_W / 2, y: h / 2 - ch / 2 };
+    const clampX = (x: number): number => Math.min(Math.max(x, GAP), w - CARD_W - GAP);
+    const clampY = (y: number): number => Math.min(Math.max(y, GAP), h - ch - GAP);
+    if (r.y + r.h + GAP + ch + GAP <= h) return { x: clampX(r.x), y: r.y + r.h + GAP };
+    if (r.y - ch - GAP >= GAP) return { x: clampX(r.x), y: r.y - ch - GAP };
+    if (r.x + r.w + GAP + CARD_W + GAP <= w) return { x: r.x + r.w + GAP, y: clampY(r.y) };
+    if (r.x - CARD_W - GAP >= GAP) return { x: r.x - CARD_W - GAP, y: clampY(r.y) };
+    return { x: w / 2 - CARD_W / 2, y: h - ch - GAP * 2 };
+  }
+
+  $: ({ x: cardX, y: cardY } = placeCard(rect, winW, winH, cardH));
 
   onMount(() => {
     void activate(0);
@@ -210,6 +224,7 @@
   </svg>
 
   <div
+    bind:clientHeight={cardH}
     class="absolute flex flex-col gap-2 rounded-xl border border-border bg-bg-surface p-4 shadow-2xl"
     style="left: {cardX}px; top: {cardY}px; width: {CARD_W}px;"
   >
