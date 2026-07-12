@@ -84,6 +84,7 @@
     selectedInternalName = event.detail.internalName;
     orderBookPanelOpen = true;
 
+    if (!wfmItemsLoaded) return;
     const selectedBaseItem = tabBaseItems.find((entry) => entry.internalName === event.detail.internalName);
     if (selectedBaseItem && shouldHydrateMetrics(selectedBaseItem)) {
       trackRankedHotset(selectedBaseItem);
@@ -102,6 +103,8 @@
   }
 
   function handleItemVisible(event: CustomEvent<InventoryViewItem>): void {
+    // before the catalog loads, cards carry guessed slugs - don't fetch with those
+    if (!wfmItemsLoaded) return;
     const visibleBaseItem = tabBaseItems.find((entry) => entry.internalName === event.detail.internalName);
     if (!visibleBaseItem || !shouldHydrateMetrics(visibleBaseItem)) return;
     trackRankedHotset(visibleBaseItem);
@@ -131,7 +134,7 @@
 
   function maybeScheduleRankedHotsetRefresh(items: InventoryBaseItem[]): void {
     if (!$startupPriceCacheReady) return;
-    if (!$wfmItems || Object.keys($wfmItems).length === 0) return;
+    if (!wfmItemsLoaded) return;
 
     const signature = buildHotsetRefreshSignature(items);
     if (signature === hotsetRefreshSignature || signature === hotsetRefreshCompletedSignature) {
@@ -245,7 +248,8 @@
   $: filteredTotalCount = filter === "resources" ? filteredResources.length : filtered.length;
   $: showDucats = filter === "all_parts" || filter === "full_sets";
   $: metricNeeds = metricNeedsFromFilters($inventoryFilters, filter);
-  $: if ($startupPriceCacheReady && Object.keys($wfmItems).length > 0) {
+  $: wfmItemsLoaded = Object.keys($wfmItems).length > 0;
+  $: if ($startupPriceCacheReady && wfmItemsLoaded) {
     prefetchVisibleMetrics(filtered, metricNeeds);
     maybeScheduleRankedHotsetRefresh(allRankedBaseItems);
   }

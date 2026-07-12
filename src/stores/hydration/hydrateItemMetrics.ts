@@ -85,7 +85,8 @@ function sanitizeExistingMetrics(
     hasOrdersRmax: existing?.hasOrdersRmax === true,
     priceRank: existingPriceRank,
     ducats: finiteMetricNumber(existing?.ducats),
-    slug: existing?.slug || item.marketSlug,
+    // marketSlug can correct a slug cached while the WFM catalog was still loading
+    slug: item.marketSlug || existing?.slug || null,
     thumb: existing?.thumb || null,
     icon: existing?.icon || null,
     hasPrice: existing?.hasPrice || false,

@@ -61,9 +61,12 @@ function makeItem(): InventoryBaseItem {
   };
 }
 
-function makeContext(onPatch: (metric: ItemMetrics) => void): HydrationContext {
+function makeContext(
+  onPatch: (metric: ItemMetrics) => void,
+  getMetric: () => ItemMetrics | undefined = () => undefined,
+): HydrationContext {
   return {
-    getMetric: () => undefined,
+    getMetric,
     hasPriceRetryCooldown: () => false,
     setPriceRetryCooldown: vi.fn(),
     clearPriceRetryCooldown: vi.fn(),
@@ -150,5 +153,45 @@ describe("hydrateItemMetrics", () => {
       hasPriceR0: true,
       hasPriceRmax: true,
     });
+  });
+
+  it("replaces a stale metric slug with the item's current marketSlug", async () => {
+    vi.clearAllMocks();
+    const { hydrateItemMetrics } = await import("../../../../src/stores/hydration/hydrateItemMetrics.js");
+    // First pass ran before the WFM catalog loaded and cached a slugified guess.
+    const staleMetric: ItemMetrics = {
+      platinum: null,
+      ducats: null,
+      slug: "ambassador_stock_blueprint",
+      thumb: null,
+      icon: null,
+      hasPrice: false,
+      hasDucats: false,
+      hasMeta: false,
+    };
+    const item = {
+      ...makeItem(),
+      name: "Ambassador Stock Blueprint",
+      internalName: "/Lotus/Types/Recipes/Weapons/WeaponParts/AmbassadorStockBlueprint",
+      inventoryGroup: "all_parts" as const,
+      marketSlug: "ambassador_stock",
+      rank: 0,
+      maxRank: 0,
+    };
+    const needs: MetricNeeds = { price: true, ducats: true, orders: false, network: true };
+
+    fetchPriceBySlugMock.mockResolvedValue({ status: "ok", slug: "ambassador_stock", median: 2, timestamp: Date.now() });
+    fetchWfmItemMetaBySlugMock.mockResolvedValue(null);
+
+    await hydrateItemMetrics(
+      makeContext(() => {}, () => staleMetric),
+      item,
+      {},
+      needs,
+    );
+
+    expect(fetchPriceBySlugMock).toHaveBeenCalledWith("ambassador_stock", expect.anything());
+    expect(fetchPriceBySlugMock).not.toHaveBeenCalledWith("ambassador_stock_blueprint", expect.anything());
+    expect(fetchWfmItemMetaBySlugMock).toHaveBeenCalledWith("ambassador_stock", expect.anything());
   });
 });
