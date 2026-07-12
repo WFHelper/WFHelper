@@ -470,11 +470,13 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       overlayWindowFile,
       fileSearch ? { search: fileSearch } : undefined,
     );
-    keepOverlayAboveGame(createdWindow);
-    createdWindow.moveTop();
-    setOverlayInteractiveMode(readInteractiveMode());
     positionOverlayWindow(lastOverlayAnchorMeta);
+    // keepOverlayAboveGame/moveTop reveal a hidden window on Windows, so the
+    // pre-warm path (show:false) must not touch z-order - the show branch here
+    // and the existing-window branch above both reapply it.
     if (shouldShow) {
+      keepOverlayAboveGame(createdWindow);
+      createdWindow.moveTop();
       createdWindow.showInactive();
       keepOverlayAboveGame(createdWindow);
       setOverlayInteractiveMode(readInteractiveMode());
