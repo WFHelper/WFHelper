@@ -22,9 +22,9 @@ function definePreset(
 }
 
 export const THEME_PRESETS: Record<string, ThemePreset> = {
-  default: definePreset("VS Code Dark+"),
+  default: definePreset("Orokin Gold"),
 
-  midnight: definePreset("GitHub Dark", {
+  midnight: definePreset("Midnight Blue", {
     bgDeep: "#020816",
     bgBase: "#050d1a",
     bgSurface: "#0b1628",
@@ -73,7 +73,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
   ),
 
   lotus: definePreset(
-    "Tokyo Night",
+    "Lotus Purple",
     {
       bgDeep: "#080614",
       bgBase: "#0e0a1e",
@@ -94,7 +94,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
   ),
 
   light: definePreset(
-    "VS Code Light+",
+    "Orokin Light",
     {
       bgDeep: "#f0f0f0",
       bgBase: "#f8f8f8",
@@ -125,7 +125,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
   ),
 
   corpusGlass: definePreset(
-    "Acrylic Dark",
+    "Corpus Glass",
     {
       bgDeep: "#041016",
       bgBase: "#071922",
@@ -156,7 +156,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
   ),
 
   zarimanMist: definePreset(
-    "Rose Pine",
+    "Zariman Mist",
     {
       bgDeep: "#050806",
       bgBase: "#08110d",
@@ -187,7 +187,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
   ),
 
   grineerForge: definePreset(
-    "Gruvbox Dark",
+    "Grineer Forge",
     {
       bgDeep: "#0d0906",
       bgBase: "#15100b",
@@ -218,7 +218,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
   ),
 
   tennoMinimal: definePreset(
-    "Minimal Dark",
+    "Tenno Minimal",
     {
       bgDeep: "#020304",
       bgBase: "#060708",
