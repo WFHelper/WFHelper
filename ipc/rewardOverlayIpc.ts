@@ -154,8 +154,7 @@ export function configureOverlaySettingsPersistence(persist: () => void): void {
   persistOverlaySettings = persist;
 }
 
-/** Startup pre-warm: create the planner window hidden so the first relic-screen
- * trigger shows it instantly instead of paying a full renderer load. */
+/** Create the planner window hidden so the first relic trigger shows it instantly. */
 export function warmPlannerOverlayWindow(): void {
   if (!isRelicRecommendationOverlayEnabled(ctx.overlaySettings)) return;
   if (ctx.plannerOverlayWindow && !ctx.plannerOverlayWindow.isDestroyed()) return;
@@ -279,9 +278,7 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
     return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
   });
 
-  // Overlay move hint: which hotkey unlocks interaction, and whether the user
-  // has ever live-dragged an overlay (setup placement doesn't count - it never
-  // teaches the in-game unlock mechanic).
+  // move-hint state: unlock hotkey + whether a live overlay was ever dragged (setup doesn't count)
   handleAuthorized(OVERLAY_GET_DRAG_HINT, assertOverlayRendererSender, async () => ({
     hotkey: ctx.overlaySettings.interactionHotkeyEnabled
       ? String(ctx.overlaySettings.interactionHotkey || "")

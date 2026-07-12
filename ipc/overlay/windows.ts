@@ -74,8 +74,7 @@ type OverlayWindowsControllerOptions = {
     key: OverlayWindowKey,
     bounds: OverlaySavedWindowBounds,
   ) => void;
-  /** Persist user moves even when the interactive-mode getter reports false
-   * (arbi summary: always draggable but never factory-interactive). */
+  /** Persist moves even in passive mode (arbi summary drags without the unlock hotkey). */
   persistBoundsWhenPassive?: boolean;
 };
 
@@ -85,9 +84,7 @@ export function createOverlayWindowBoundsChangeHandler(
   return (key, bounds) => {
     options.ctx.overlaySettings = {
       ...options.ctx.overlaySettings,
-      // A live drag proves the user knows the move mechanic - retire the hint
-      // chip. The arbi summary is draggable without the unlock hotkey, so it
-      // doesn't count as having learned it.
+      // live drag = mechanic learned, retire the hint; arbi drags don't count (no hotkey needed there)
       ...(key === "arbiSummary" ? {} : { overlayDragHintDismissed: true }),
       overlayWindowBounds: {
         ...(options.ctx.overlaySettings.overlayWindowBounds || {}),
@@ -396,9 +393,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     if (destroyIfRendererCrashed(existingWindow)) {
       existingWindow = null;
     }
-    // Transparent windows can re-show as a black box after hide() on Windows,
-    // so those are rebuilt. Opaque windows re-show instantly - rebuilding them
-    // costs a full renderer load (the overlay appears seconds late).
+    // transparent windows re-show as a black box on Windows, so rebuild those; opaque ones are reused
     if (
       transparent &&
       shouldShow &&
@@ -471,9 +466,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       fileSearch ? { search: fileSearch } : undefined,
     );
     positionOverlayWindow(lastOverlayAnchorMeta);
-    // keepOverlayAboveGame/moveTop reveal a hidden window on Windows, so the
-    // pre-warm path (show:false) must not touch z-order - the show branch here
-    // and the existing-window branch above both reapply it.
+    // z-order calls un-hide a hidden window on Windows - only touch it when showing
     if (shouldShow) {
       keepOverlayAboveGame(createdWindow);
       createdWindow.moveTop();

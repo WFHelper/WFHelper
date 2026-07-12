@@ -401,8 +401,7 @@
     }).catch(() => {});
   }
 
-  // Live slider preview scales the dummy footprint exactly like the real
-  // window's zoom factor would; commit persists on release.
+  // slider preview scales the dummy like the real window zoom; persisted on release
   function applyScalePreview(value: number): void {
     if (!placementPos) return;
     const next = { ...placementPos };

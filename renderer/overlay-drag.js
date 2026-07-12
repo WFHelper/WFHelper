@@ -12,8 +12,7 @@
       return !!options.isInteractive();
     }
 
-    // One window move per frame - unbatched per-mousemove moves queue up
-    // faster than the OS applies them and the window rubber-bands.
+    // one move per frame; per-mousemove moves outpace the OS and rubber-band
     function flushMove() {
       flushScheduled = false;
       if (pendingDx === 0 && pendingDy === 0) return;

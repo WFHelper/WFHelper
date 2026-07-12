@@ -51,8 +51,7 @@ const exportImages = JSON.parse(
   ),
 );
 
-// texture path -> contentHash, seeded from the bundled package and topped up with
-// DE's live image manifest once the overlay loads (bundled data lags new patches)
+// texture path -> contentHash; bundled package seed + DE live-manifest top-up (bundled lags patches)
 const fallbackHashByPath = new Map(
   Object.entries(exportImages)
     .filter(([, value]) => value?.contentHash)
@@ -74,8 +73,7 @@ function addUrl(urls, value) {
   urls.add(trimmed);
 }
 
-// Items newer than the bundled packages only exist in DE's live overlay; without
-// this the mirror misses their icons entirely (in-app they 404 on the mirror).
+// items newer than the bundled packages only have icons in DE's live overlay
 async function loadOverlayFromDE() {
   const publicExport = requireCompiled("services/publicExportSource.js");
   await publicExport.refreshOverlayFromDE();

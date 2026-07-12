@@ -295,8 +295,7 @@ app.whenReady().then(async () => {
   overlayIpc.registerOverlayHotkey();
   profileStage("overlay-hotkey:register", hotkeyStart);
 
-  // Pre-warm the planner overlay off the startup path so the first relic
-  // screen shows it instantly (opaque windows are reused across hides).
+  // warm after startup so it doesn't compete with first paint
   setTimeout(() => {
     try {
       overlayIpc.warmPlannerOverlayWindow();

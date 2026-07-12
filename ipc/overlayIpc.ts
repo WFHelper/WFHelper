@@ -403,9 +403,7 @@ function register(): void {
     }
   });
 
-  // Setup placement step: the dummy panels in the wizard mirror where each
-  // overlay window would really appear, mapped against the primary display's
-  // work area.
+  // wizard dummies mirror real overlay positions on the primary display's work area
   handleAuthorized(OVERLAY_PLACEMENT_LAYOUT, assertMainRendererSender, async () => {
     const area = screen.getPrimaryDisplay().workArea;
     const rel = (rect: { x: number; y: number; width: number; height: number }) => ({

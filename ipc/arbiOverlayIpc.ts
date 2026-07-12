@@ -50,8 +50,7 @@ const arbiSummaryWindowsController = createOverlayWindowsController({
   // non-interactive and re-enable mouse events manually: clickable, never focused.
   getOverlayInteractiveMode: () => false,
   setOverlayInteractiveModeState: () => {},
-  // Right-drag works without the unlock hotkey here, so user moves must be
-  // saved despite the permanent passive mode.
+  // right-drag works without the unlock hotkey here, so save moves despite passive mode
   persistBoundsWhenPassive: true,
   log,
   hardenBrowserWindowNavigation,

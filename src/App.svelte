@@ -86,8 +86,7 @@
     const unsubscribeInventoryUpdated = on("inventory-updated", async (data) => {
       if (data && !(data as { error?: unknown }).error) {
         await onInventoryLoaded(data);
-        // During setup the SetupView routes itself (inventory -> overlay placement);
-        // navigating here would tear the wizard down mid-flow.
+        // SetupView routes itself during the wizard; navigating here would tear it down
         statusText.set(`Live update - ${$parsedItems.length} items loaded`);
       }
     });

@@ -18,8 +18,7 @@ const ERA_DETECTION_TIMEOUT_MS = 1500;
 /** Suppress overlay reopen for this long after an explicit close to prevent flicker. */
 const REOPEN_SUPPRESS_AFTER_CLOSE_MS = 3_000;
 
-/** Safety net if the close event never arrives - the real close comes from the
- * EE.log InitMapping detection, so this must outlast a leisurely relic browse. */
+/** Safety net if the InitMapping close never arrives; must outlast a long relic browse. */
 const OVERLAY_AUTO_HIDE_SUCCESS_MS = 120_000;
 /** Auto-hide after a detection failure - keep visible briefly so the user sees the state. */
 const OVERLAY_AUTO_HIDE_FAILURE_MS = 4_500;

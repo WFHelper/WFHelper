@@ -118,9 +118,8 @@ export async function hydrateItemMetrics(
   const iconReady = !needsIcon || lookupHasIcon || existing?.hasMeta === true;
   const rankPairCovered = hasRankPairCoverage(existing, item, needs);
 
-  // hasPrice flags set by a no-network pass are stamps, not answers: when this
-  // pass may hit the network, only an actual value counts as resolved (real
-  // "no listings" answers are kept out by the retry cooldown above).
+  // no-network passes stamp hasPrice without a value - let a network pass redo
+  // those (real no-listing answers sit behind the retry cooldown)
   const hasPriceValue =
     finiteMetricNumber(existing?.platinum) != null ||
     finiteMetricNumber(existing?.platinumR0) != null ||

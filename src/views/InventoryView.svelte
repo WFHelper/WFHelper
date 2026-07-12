@@ -66,8 +66,7 @@
       METRIC_VISIBLE_PREFETCH_LIMIT + METRIC_BACKGROUND_PREFETCH_LIMIT,
     );
 
-    // Visible slice may fetch: the startup snapshot doesn't cover every slug
-    // (e.g. newer prime blueprint recipes), so cache-only would leave holes.
+    // the startup snapshot doesn't cover every slug, so the visible slice may fetch
     hydration.enqueue(visible, $wfmItems, { ...needs, network: true });
     hydration.enqueue(background, $wfmItems, { ...needs, ducats: false, orders: false });
   }
