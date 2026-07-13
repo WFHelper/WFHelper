@@ -235,7 +235,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
   ),
 
   tennoMinimal: definePreset(
-    "Tenno Minimal",
+    "Void Black",
     {
       bgDeep: "#020304",
       bgBase: "#060708",
@@ -266,7 +266,7 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
   ),
 
   glassyDark: definePreset(
-    "Glassy Dark",
+    "Slate Glass",
     {
       bgDeep: "#05070b",
       bgBase: "#0a0d13",
