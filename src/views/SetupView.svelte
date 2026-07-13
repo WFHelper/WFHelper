@@ -33,6 +33,7 @@
   let destroyed = false;
   let removeProgressListener: (() => void) | null = null;
   let removeInventoryListener: (() => void) | null = null;
+  let pendingInventoryData: unknown = null;
 
   const surfaceOptions: Array<{ value: ThemeSurfaceStyle; label: string }> = [
     { value: "full", label: "Full" },
@@ -60,6 +61,11 @@
 
     removeInventoryListener = on("inventory-updated", async (data) => {
       if (destroyed || loadingApi) return;
+      if (step === "configure") {
+        // App.svelte already ingested it; don't yank the user off the theme step
+        pendingInventoryData = data;
+        return;
+      }
       try {
         await acceptInventoryData(data, "Live inventory update failed");
       } catch {
@@ -246,8 +252,16 @@
     if (shouldAutoStartTour()) startTour();
   }
 
-  function continueFromConfigure(): void {
+  async function continueFromConfigure(): Promise<void> {
     step = "inventory";
+    if (pendingInventoryData === null) return;
+    const data = pendingInventoryData;
+    pendingInventoryData = null;
+    try {
+      await acceptInventoryData(data, "Live inventory update failed");
+    } catch {
+      // bad payload - stay on the source step and let the user pick manually
+    }
   }
 
   // Overlay placement: draggable dummy panels over a game screenshot. The
