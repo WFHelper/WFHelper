@@ -44,8 +44,8 @@
     { value: "soft", label: "Soft" },
     { value: "round", label: "Round" },
   ];
-  // most-distinct presets only; the full list lives in Settings > Appearance
-  const SETUP_THEME_KEYS = ["default", "midnight", "lotus", "corpusGlass", "light", "highContrast"];
+  // balanced starter picks (2 neutral, 1 light, 1 showpiece); full list in Settings > Appearance
+  const SETUP_THEME_KEYS = ["default", "midnight", "graphite", "tennoMinimal", "light", "corpusGlass"];
 
   onMount(async () => {
     removeProgressListener = on("helper-download-progress", (p) => {

@@ -41,6 +41,23 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
     borderStrong: "rgba(91, 155, 213, 0.28)",
   }),
 
+  graphite: definePreset("Graphite", {
+    bgDeep: "#0b0c0d",
+    bgBase: "#131416",
+    bgSurface: "#1b1d20",
+    bgRaised: "#232629",
+    bgHover: "#2c2f33",
+    accent: "#aab4bf",
+    accentDim: "#828b95",
+    accentBright: "#d3dbe3",
+    textPrimary: "#e8eaec",
+    textSecondary: "#9aa0a6",
+    textMuted: "#6b7075",
+    info: "#8ab4f8",
+    border: "rgba(255, 255, 255, 0.09)",
+    borderStrong: "rgba(255, 255, 255, 0.22)",
+  }),
+
   highContrast: definePreset(
     "High Contrast Dark",
     {
