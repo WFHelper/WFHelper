@@ -17,7 +17,6 @@
   import type { RawInventoryData } from "../types/inventory.js";
   import type { HelperDownloadProgress, HelperStatus } from "../types/ipc.js";
   import SegmentedControl from "../components/SegmentedControl.svelte";
-  import BuiltInThemeDropdown from "../components/settings/BuiltInThemeDropdown.svelte";
 
   type Step = "configure" | "inventory" | "downloading" | "done" | "overlays" | "error";
   type InventorySource = "helper" | "json" | "aleca";
@@ -45,6 +44,8 @@
     { value: "soft", label: "Soft" },
     { value: "round", label: "Round" },
   ];
+  // most-distinct presets only; the full list lives in Settings > Appearance
+  const SETUP_THEME_KEYS = ["default", "midnight", "lotus", "corpusGlass", "light", "highContrast"];
 
   onMount(async () => {
     removeProgressListener = on("helper-download-progress", (p) => {
@@ -480,7 +481,6 @@
   $: activePresetKey = PRESET_KEYS.includes($themeSettings.activePreset)
     ? $themeSettings.activePreset
     : "default";
-  $: activePreset = THEME_PRESETS[activePresetKey] ?? THEME_PRESETS.default;
   $: progressPercent = progress?.percent ?? 0;
   $: bytesLabel = progress?.bytesTotal
     ? `${(progress.bytesReceived / 1024 / 1024).toFixed(1)} / ${(progress.bytesTotal / 1024 / 1024).toFixed(1)} MB`
@@ -635,17 +635,33 @@
             <div class="rounded-lg border border-border bg-bg-raised px-3 py-3">
               <div class="mb-2 flex items-start justify-between gap-3">
                 <div>
-                  <h3 class="m-0 font-display text-sm font-semibold text-text-primary">Default theme</h3>
-                  <p class="mt-0.5 text-xs leading-snug text-text-muted">Choose one of the built-in themes.</p>
+                  <h3 class="m-0 font-display text-sm font-semibold text-text-primary">Pick a look</h3>
+                  <p class="mt-0.5 text-xs leading-snug text-text-muted">Applies instantly - just a starting point.</p>
                 </div>
               </div>
-              <BuiltInThemeDropdown
-                activePreset={activePresetKey}
-                label="Built-in themes"
-                fallbackLabel={activePreset.label}
-                className="w-full"
-                onSelect={(presetKey) => themeSettings.applyPreset(presetKey)}
-              />
+              <div class="grid grid-cols-3 gap-2">
+                {#each SETUP_THEME_KEYS as key (key)}
+                  {@const preset = THEME_PRESETS[key]}
+                  <button
+                    type="button"
+                    class="rounded-lg border p-2.5 text-left transition-colors duration-150 {activePresetKey === key
+                      ? 'border-accent ring-1 ring-accent'
+                      : 'border-border hover:border-border-strong'}"
+                    style="background: {preset.colors.bgSurface};"
+                    aria-pressed={activePresetKey === key}
+                    on:click={() => themeSettings.applyPreset(key)}
+                  >
+                    <span class="flex gap-1">
+                      <span class="h-3 w-3 rounded-[3px] border border-white/10" style="background: {preset.colors.bgBase};"></span>
+                      <span class="h-3 w-3 rounded-[3px] border border-white/10" style="background: {preset.colors.bgRaised};"></span>
+                      <span class="h-3 w-3 rounded-[3px] border border-white/10" style="background: {preset.colors.textPrimary};"></span>
+                      <span class="h-3 w-3 rounded-[3px] border border-white/10" style="background: {preset.colors.accent};"></span>
+                    </span>
+                    <span class="mt-1.5 block truncate text-xs font-semibold" style="color: {preset.colors.textPrimary};">{preset.label}</span>
+                  </button>
+                {/each}
+              </div>
+              <p class="m-0 mt-2 text-xs text-text-muted">All themes and full customization: Settings &gt; Appearance.</p>
             </div>
 
             <div class="rounded-lg border border-border bg-bg-raised px-3 py-3">
