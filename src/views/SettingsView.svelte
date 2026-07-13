@@ -143,6 +143,12 @@
     send("simulate-relic-trigger");
   }
 
+  const appVersion = import.meta.env.VITE_APP_VERSION || "?";
+
+  function openLink(url: string): void {
+    send("open-external", url);
+  }
+
   // Local mirror of the per-tab visibility stores so each checkbox can bind to a
   // plain bool; the change handler pushes back to the persisted store.
   const tabChecked: Record<string, boolean> = Object.fromEntries(
@@ -279,6 +285,41 @@
               />
             </label>
           {/each}
+        </div>
+      </article>
+
+      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+        <div>
+          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">About</h3>
+          <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
+            WFHelper v{appVersion} - unofficial Warframe companion.
+          </p>
+        </div>
+
+        <div class="mt-2.5 grid gap-1.5 text-[var(--font-small-size,0.82rem)] leading-relaxed text-text-secondary">
+          <p class="m-0">
+            Prices and orders from
+            <button class="settings-link" on:click={() => openLink("https://warframe.market")}>warframe.market</button>.
+            Game data and images from Digital Extremes' Public Export and the
+            <button class="settings-link" on:click={() => openLink("https://github.com/WFCD")}>WFCD</button>
+            community projects, icons via
+            <button class="settings-link" on:click={() => openLink("https://browse.wf")}>browse.wf</button>.
+          </p>
+          <p class="m-0">
+            Arbitration stats modeled on
+            <button class="settings-link" on:click={() => openLink("https://svesk.github.io/arbi/")}>svesk's arbi analyzer</button>.
+            Inventory snapshots via
+            <button class="settings-link" on:click={() => openLink("https://github.com/Sainan/warframe-api-helper")}>warframe-api-helper</button>;
+            AlecaFrame cache import supported.
+          </p>
+          <p class="m-0 text-text-muted">
+            Unofficial fan project, not affiliated with or endorsed by Digital Extremes. Warframe and
+            related assets are property of Digital Extremes Ltd.
+          </p>
+          <p class="m-0">
+            <button class="settings-link" on:click={() => openLink("https://github.com/WFHelper/WFHelper")}>GitHub - WFHelper/WFHelper</button>
+            <span class="text-text-muted">- MIT license</span>
+          </p>
         </div>
       </article>
 
@@ -505,6 +546,20 @@
     color: var(--text-primary);
     font-size: 0.82rem;
     font-variant-numeric: tabular-nums;
+  }
+
+  .settings-link {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--accent);
+    cursor: pointer;
+    font-size: inherit;
+    font-family: inherit;
+  }
+
+  .settings-link:hover {
+    text-decoration: underline;
   }
 
   .settings-wide-actions {
