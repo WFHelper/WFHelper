@@ -225,7 +225,7 @@
 
   <div
     bind:clientHeight={cardH}
-    class="absolute flex flex-col gap-2 rounded-xl border border-border bg-bg-surface p-4 shadow-2xl"
+    class="absolute flex flex-col gap-2 rounded-xl border border-border bg-bg-surface p-4"
     style="left: {cardX}px; top: {cardY}px; width: {CARD_W}px;"
   >
     <div class="flex items-center justify-between gap-3">

@@ -433,8 +433,9 @@
     progress = null;
   }
 
-  function sourceButtonClass(source: InventorySource): string {
-    const selected = inventorySource === source;
+  // reactive state comes in as parameters so the template re-evaluates these
+  function sourceButtonClass(source: InventorySource, current: InventorySource): string {
+    const selected = current === source;
     return [
       "w-full cursor-pointer rounded-lg border px-3 py-3 text-left transition-colors duration-150",
       selected
@@ -445,26 +446,28 @@
 
   type StepTarget = "configure" | "inventory" | "overlays" | "done";
 
-  function stepFlags(target: StepTarget): { active: boolean; complete: boolean } {
+  function stepFlags(target: StepTarget, current: Step): { active: boolean; complete: boolean } {
     const active =
-      step === target || (target === "inventory" && (step === "downloading" || step === "done"));
+      current === target ||
+      (target === "inventory" && (current === "downloading" || current === "error")) ||
+      (target === "done" && current === "overlays");
     const complete =
-      (target === "configure" && step !== "configure") ||
-      (target === "inventory" && step === "overlays");
+      (target === "configure" && current !== "configure") ||
+      (target === "inventory" && (current === "done" || current === "overlays"));
     return { active, complete };
   }
 
-  function stepTextClass(target: StepTarget): string {
-    const { active, complete } = stepFlags(target);
-    if (step === "error" && target === "inventory") return "text-danger";
+  function stepTextClass(target: StepTarget, current: Step): string {
+    const { active, complete } = stepFlags(target, current);
+    if (current === "error" && target === "inventory") return "text-danger";
     if (active) return "text-accent font-semibold";
     if (complete) return "text-success";
     return "text-text-muted";
   }
 
-  function stepDotClass(target: StepTarget): string {
-    const { active, complete } = stepFlags(target);
-    if (step === "error" && target === "inventory") return "bg-danger";
+  function stepDotClass(target: StepTarget, current: Step): string {
+    const { active, complete } = stepFlags(target, current);
+    if (current === "error" && target === "inventory") return "bg-danger";
     if (active) return "bg-accent shadow-[0_0_6px_var(--accent)]";
     if (complete) return "bg-success";
     return "bg-text-muted";
@@ -488,7 +491,7 @@
   {#if step === "overlays"}
     <div class="fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-bg-deep px-6 py-5">
       <div
-        class="relative min-h-0 overflow-hidden rounded-xl border border-border-strong bg-black shadow-2xl"
+        class="relative min-h-0 overflow-hidden rounded-xl border border-border-strong bg-black"
         style="aspect-ratio: {placementArea.width} / {placementArea.height}; width: min(100%, calc((100vh - 230px) * {(placementArea.width / Math.max(1, placementArea.height)).toFixed(4)}));"
         bind:clientWidth={previewW}
       >
@@ -504,7 +507,7 @@
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div
               data-placement-dummy={key}
-              class="absolute flex cursor-move touch-none select-none flex-col overflow-hidden rounded border bg-bg-deep/85 shadow-lg {dragging?.key === key
+              class="absolute flex cursor-move touch-none select-none flex-col overflow-hidden rounded border bg-bg-deep/85 {dragging?.key === key
                 ? 'border-accent ring-1 ring-accent'
                 : 'border-border-strong hover:border-accent'}"
               style="left: {placementPos[key].x * previewScale}px; top: {placementPos[key].y * previewScale}px; width: {placementPos[key].width * previewScale}px; height: {placementPos[key].height * previewScale}px;"
@@ -563,7 +566,7 @@
         {/if}
       </div>
 
-      <div class="w-[560px] max-w-full shrink-0 rounded-xl border border-border bg-bg-surface p-4 shadow-2xl">
+      <div class="w-[560px] max-w-full shrink-0 rounded-xl border border-border bg-bg-surface p-4">
         <div class="mb-1 flex items-center justify-between gap-3">
           <h2 class="m-0 font-display text-base font-bold tracking-[0.02em]">{placementStep.title}</h2>
           <span class="shrink-0 text-xs text-text-muted">{overlayStepIndex + 1} / {overlayPlacementSteps.length}</span>
@@ -608,17 +611,17 @@
         <img src={APP_LOGO_URL} alt="App Logo" class="h-14 w-14 object-contain" />
       </div>
       <div class="mt-8 flex w-full flex-col gap-4">
-        <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('configure')}">
-          <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('configure')}"></span> Configure
+        <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('configure', step)}">
+          <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('configure', step)}"></span> Configure
         </div>
-        <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('inventory')}">
-          <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('inventory')}"></span> Inventory Source
+        <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('inventory', step)}">
+          <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('inventory', step)}"></span> Inventory Source
         </div>
-        <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('overlays')}">
-          <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('overlays')}"></span> Overlays
+        <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('overlays', step)}">
+          <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('overlays', step)}"></span> Overlays
         </div>
-        <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('done')}">
-          <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('done')}"></span> Finish
+        <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('done', step)}">
+          <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('done', step)}"></span> Finish
         </div>
       </div>
     </div>
@@ -694,7 +697,7 @@
           {/if}
 
           <div class="grid gap-2">
-            <button type="button" class={sourceButtonClass("helper")} aria-pressed={inventorySource === "helper"} on:click={() => (inventorySource = "helper")}>
+            <button type="button" class={sourceButtonClass("helper", inventorySource)} aria-pressed={inventorySource === "helper"} on:click={() => (inventorySource = "helper")}>
               <div class="flex items-center justify-between gap-3">
                 <span class="font-display text-sm font-semibold">warframe-api-helper</span>
                 <span class="rounded bg-success/15 px-2 py-0.5 font-display text-xs font-bold tracking-widest text-success">RECOMMENDED</span>
@@ -713,12 +716,12 @@
               </div>
             </button>
 
-            <button type="button" class={sourceButtonClass("json")} aria-pressed={inventorySource === "json"} on:click={() => (inventorySource = "json")}>
+            <button type="button" class={sourceButtonClass("json", inventorySource)} aria-pressed={inventorySource === "json"} on:click={() => (inventorySource = "json")}>
               <span class="font-display text-sm font-semibold">Import inventory JSON</span>
               <div class="mt-1 text-xs leading-snug">Open an existing inventory.json created by warframe-api-helper.</div>
             </button>
 
-            <button type="button" class={sourceButtonClass("aleca")} aria-pressed={inventorySource === "aleca"} on:click={() => (inventorySource = "aleca")}>
+            <button type="button" class={sourceButtonClass("aleca", inventorySource)} aria-pressed={inventorySource === "aleca"} on:click={() => (inventorySource = "aleca")}>
               <span class="font-display text-sm font-semibold">Import AlecaFrame cache</span>
               <div class="mt-1 text-xs leading-snug">Decrypt lastData.dat from %LOCALAPPDATA%\AlecaFrame and load its embedded inventory payload.</div>
             </button>
