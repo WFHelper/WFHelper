@@ -182,15 +182,12 @@ function collectInventoryCandidates(directories: string[]): string[] {
 }
 
 function findInventoryFile(): string | null {
-  const helperCandidate = newestExistingInventoryPath(
-    collectInventoryCandidates(HELPER_INVENTORY_DIRECTORIES),
-  );
-  if (helperCandidate) return helperCandidate;
-
-  const trustedCandidate = _trustedInventoryPath
-    ? newestExistingInventoryPath([_trustedInventoryPath])
-    : null;
-  if (trustedCandidate) return trustedCandidate;
+  // newest wins between helper output and the last import - a stale helper
+  // snapshot must not shadow a fresher manually imported file
+  const primaryCandidates = collectInventoryCandidates(HELPER_INVENTORY_DIRECTORIES);
+  if (_trustedInventoryPath) primaryCandidates.push(_trustedInventoryPath);
+  const primaryCandidate = newestExistingInventoryPath(primaryCandidates);
+  if (primaryCandidate) return primaryCandidate;
 
   const userCandidate = newestExistingInventoryPath(
     collectInventoryCandidates(USER_INVENTORY_DIRECTORIES),
@@ -200,7 +197,8 @@ function findInventoryFile(): string | null {
     return userCandidate;
   }
 
-  const allowDevFallback = process.env.NODE_ENV !== "production";
+  // NODE_ENV is unset in packaged builds; isPackaged is the reliable signal
+  const allowDevFallback = !app.isPackaged;
   if (!allowDevFallback) return null;
 
   const devCandidate = newestExistingInventoryPath(
