@@ -190,7 +190,7 @@
   </div>
 
   {#if settingsTab === "general"}
-    <div class="settings-tab-grid py-3">
+    <div class="settings-tab-grid settings-masonry py-3">
       <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
         <div>
           <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Notifications</h3>
@@ -289,38 +289,49 @@
       </article>
 
       <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
-        <div>
-          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">About</h3>
-          <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
-            WFHelper v{appVersion} - unofficial Warframe companion.
-          </p>
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">About</h3>
+            <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">Unofficial Warframe companion.</p>
+          </div>
+          <span class="shrink-0 rounded bg-bg-raised px-2 py-0.5 font-display text-xs font-semibold text-text-secondary">v{appVersion}</span>
         </div>
 
-        <div class="mt-2.5 grid gap-1.5 text-[var(--font-small-size,0.82rem)] leading-relaxed text-text-secondary">
-          <p class="m-0">
-            Prices and orders from
-            <button class="settings-link" on:click={() => openLink("https://warframe.market")}>warframe.market</button>.
-            Game data and images from Digital Extremes' Public Export and the
-            <button class="settings-link" on:click={() => openLink("https://github.com/WFCD")}>WFCD</button>
-            community projects, icons via
-            <button class="settings-link" on:click={() => openLink("https://browse.wf")}>browse.wf</button>.
-          </p>
-          <p class="m-0">
-            Arbitration stats modeled on
-            <button class="settings-link" on:click={() => openLink("https://svesk.github.io/arbi/")}>svesk's arbi analyzer</button>.
-            Inventory snapshots via
-            <button class="settings-link" on:click={() => openLink("https://github.com/Sainan/warframe-api-helper")}>warframe-api-helper</button>;
-            AlecaFrame cache import supported.
-          </p>
-          <p class="m-0 text-text-muted">
-            Unofficial fan project, not affiliated with or endorsed by Digital Extremes. Warframe and
-            related assets are property of Digital Extremes Ltd.
-          </p>
-          <p class="m-0">
-            <button class="settings-link" on:click={() => openLink("https://github.com/WFHelper/WFHelper")}>GitHub - WFHelper/WFHelper</button>
-            <span class="text-text-muted">- MIT license</span>
-          </p>
+        <div class="mt-2.5 grid gap-1">
+          <div class="settings-credit-row">
+            <span>Prices &amp; orders</span>
+            <button class="settings-link" on:click={() => openLink("https://warframe.market")}>warframe.market</button>
+          </div>
+          <div class="settings-credit-row">
+            <span>Game data &amp; images</span>
+            <span class="settings-credit-value">DE Public Export</span>
+          </div>
+          <div class="settings-credit-row">
+            <span>Item &amp; drop data</span>
+            <button class="settings-link" on:click={() => openLink("https://github.com/WFCD")}>WFCD projects</button>
+          </div>
+          <div class="settings-credit-row">
+            <span>Item icons</span>
+            <button class="settings-link" on:click={() => openLink("https://browse.wf")}>browse.wf</button>
+          </div>
+          <div class="settings-credit-row">
+            <span>Arbitration stats model</span>
+            <button class="settings-link" on:click={() => openLink("https://svesk.github.io/arbi/")}>svesk's arbi analyzer</button>
+          </div>
+          <div class="settings-credit-row">
+            <span>Inventory snapshots</span>
+            <button class="settings-link" on:click={() => openLink("https://github.com/Sainan/warframe-api-helper")}>warframe-api-helper</button>
+          </div>
+          <div class="settings-credit-row">
+            <span>Source code (MIT)</span>
+            <button class="settings-link" on:click={() => openLink("https://github.com/WFHelper/WFHelper")}>GitHub</button>
+          </div>
         </div>
+
+        <p class="m-0 mt-2.5 text-xs leading-snug text-text-muted">
+          Unofficial fan project, not affiliated with or endorsed by Digital Extremes. Warframe and
+          related assets are property of Digital Extremes Ltd.
+        </p>
       </article>
 
       <div class="settings-wide-actions">
@@ -340,7 +351,7 @@
       <AppearanceCard />
     </div>
   {:else if settingsTab === "overlay"}
-    <div class="settings-tab-grid py-3">
+    <div class="settings-tab-grid settings-masonry py-3">
       <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
         <div>
           <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Overlay availability</h3>
@@ -548,18 +559,60 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Multicol packs cards tight; grid rows would leave dead space under short cards. */
+  .settings-masonry {
+    display: block;
+    columns: 3 320px;
+    column-gap: 0.85rem;
+  }
+
+  .settings-masonry > :global(article) {
+    break-inside: avoid;
+    margin-bottom: 0.85rem;
+  }
+
+  .settings-masonry > :global(.settings-wide-actions) {
+    column-span: all;
+    break-inside: avoid;
+  }
+
   .settings-link {
     background: none;
     border: 0;
     padding: 0;
     color: var(--accent);
     cursor: pointer;
-    font-size: inherit;
+    font-size: 0.875rem;
     font-family: inherit;
   }
 
   .settings-link:hover {
     text-decoration: underline;
+  }
+
+  .settings-credit-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+    border-radius: var(--radius-md);
+    padding: 0.34rem 0.45rem;
+    margin: 0 -0.45rem;
+  }
+
+  .settings-credit-row:hover {
+    background: var(--bg-hover);
+  }
+
+  .settings-credit-row > span:first-child {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .settings-credit-value {
+    color: var(--text-primary);
+    font-size: 0.875rem;
   }
 
   .settings-wide-actions {
