@@ -1,6 +1,7 @@
 import type { NativeImage } from "electron";
+import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { detectConsoleOpen } from "../../services/rewardScannerImage";
+import { binarizeRewardRegion, detectConsoleOpen } from "../../services/rewardScannerImage";
 import { resetFrameDedup } from "../../services/rewardScanner";
 
 function makeFakeNativeImage(
@@ -98,5 +99,51 @@ describe("resetFrameDedup", () => {
       resetFrameDedup();
       resetFrameDedup();
     }).not.toThrow();
+  });
+});
+
+async function makeStripPng(bg: number, fg: number): Promise<Buffer> {
+  // 120x24 strip with four 10x12 "glyph" blocks - no fonts or OCR needed
+  const width = 120;
+  const height = 24;
+  const raw = Buffer.alloc(width * height * 4);
+  const blocks = [10, 40, 70, 100];
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const inBlock = y >= 6 && y < 18 && blocks.some((bx) => x >= bx && x < bx + 10);
+      const v = inBlock ? fg : bg;
+      const i = (y * width + x) * 4;
+      raw[i] = v;
+      raw[i + 1] = v;
+      raw[i + 2] = v;
+      raw[i + 3] = 255;
+    }
+  }
+  return sharp(raw, { raw: { width, height, channels: 4 } }).png().toBuffer();
+}
+
+async function binarizedSamples(png: Buffer): Promise<{ glyphs: number[]; background: number[] }> {
+  const out = await binarizeRewardRegion(png, 0, 1);
+  expect(out).not.toBeNull();
+  const { data, info } = await sharp(out!).raw().toBuffer({ resolveWithObject: true });
+  // binarize upscales 3x; sample block centers to dodge resampling ringing
+  const px = (x: number, y: number): number => data[(y * info.width + x) * info.channels];
+  return {
+    glyphs: [15, 45, 75, 105].map((x) => px(x * 3, 12 * 3)),
+    background: [30, 60, 90].map((x) => px(x * 3, 12 * 3)),
+  };
+}
+
+describe("binarizeRewardRegion", () => {
+  it("renders bright text on a dark strip as dark-on-white", async () => {
+    const { glyphs, background } = await binarizedSamples(await makeStripPng(20, 240));
+    for (const value of glyphs) expect(value).toBe(0);
+    for (const value of background) expect(value).toBe(255);
+  });
+
+  it("renders bright text on a BRIGHT strip as dark-on-white (names over bright art)", async () => {
+    const { glyphs, background } = await binarizedSamples(await makeStripPng(170, 240));
+    for (const value of glyphs) expect(value).toBe(0);
+    for (const value of background) expect(value).toBe(255);
   });
 });

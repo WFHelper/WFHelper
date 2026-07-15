@@ -607,14 +607,28 @@ export async function binarizeRewardRegion(
     if (srcW < 8 || srcH < 8) return null;
     const top = Math.max(0, Math.min(srcH - 1, Math.round(srcH * topFrac)));
     const height = Math.max(1, Math.min(srcH - top, Math.round(srcH * heightFrac)));
-    const region = sharp(pngBuffer)
+    // Materialize normalised gray once and threshold it manually. Chaining
+    // sharp's threshold() after normalise() ran the threshold on pre-normalise
+    // values (fixed libvips op order), which turned names over bright art into
+    // solid black. removeAlpha keeps alpha bytes out of the Otsu histogram.
+    const { data, info } = await sharp(pngBuffer)
       .extract({ left: 0, top, width: srcW, height })
       .resize({ width: srcW * 3, kernel: "lanczos3" })
       .grayscale()
-      .normalise();
-    const { data } = await region.clone().raw().toBuffer({ resolveWithObject: true });
+      .removeAlpha()
+      .normalise()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
     const threshold = otsuThreshold(data);
-    return await region.threshold(threshold).negate().png().toBuffer();
+    const mono = Buffer.alloc(data.length);
+    for (let i = 0; i < data.length; i++) {
+      mono[i] = data[i] >= threshold ? 0 : 255; // bright text -> dark on white
+    }
+    return await sharp(mono, {
+      raw: { width: info.width, height: info.height, channels: 1 },
+    })
+      .png()
+      .toBuffer();
   } catch (err) {
     log.warn("[RewardScanner] binarizeRewardRegion failed:", normalizeErrorMessage(err));
     return null;
