@@ -146,25 +146,37 @@ export async function scanRewardSlotsFallback(
         if (wholeClean) candidateTexts.add(wholeClean);
 
         const rankedCandidates: SlotCandidate[] = [];
+        let bestRejected: SlotCandidate | null = null;
         for (const candidateText of candidateTexts) {
-          const ranked = rankRewardCandidatesDetailed(candidateText, options.sortedItems, 4)
-            .filter(
-              (
-                candidate,
-              ): candidate is typeof candidate & { item: NonNullable<typeof candidate.item> } =>
-                !!candidate.item,
-            )
-            .map((candidate) => ({
-              item: candidate.item!,
+          for (const candidate of rankRewardCandidatesDetailed(
+            candidateText,
+            options.sortedItems,
+            4,
+          )) {
+            if (!candidate.item) continue;
+            const slotCandidate: SlotCandidate = {
+              item: candidate.item,
               confidence: candidate.confidence,
               score: candidate.score,
               mode: candidate.mode,
-            }))
-            .filter(isUsableSlotCandidate);
-          rankedCandidates.push(...ranked);
+            };
+            if (isUsableSlotCandidate(slotCandidate)) {
+              rankedCandidates.push(slotCandidate);
+            } else if (!bestRejected || slotCandidate.score > bestRejected.score) {
+              bestRejected = slotCandidate;
+            }
+          }
         }
 
-        if (rankedCandidates.length === 0) return null;
+        if (rankedCandidates.length === 0) {
+          if (bestRejected) {
+            log.info(
+              `[RewardScanner] Slot ${i + 1} best candidate below gate: ` +
+                `"${bestRejected.item.name}" (${bestRejected.mode} ${bestRejected.confidence.toFixed(3)})`,
+            );
+          }
+          return null;
+        }
         rankedCandidates.sort((a, b) => b.score - a.score || b.confidence - a.confidence);
         return {
           index: i,
@@ -189,7 +201,10 @@ export async function scanRewardSlotsFallback(
 
     if (!collected.length) continue;
 
-    const items = collected.map((entry) => entry.candidate.item).slice(0, slotLimit);
+    // slotIndex keeps the on-screen position so the overlay can leave gaps
+    const items = collected
+      .map((entry) => ({ ...entry.candidate.item, slotIndex: entry.index }))
+      .slice(0, slotLimit);
     const exactCount = collected.reduce(
       (sum, entry) => sum + (entry.candidate.mode === "exact" ? 1 : 0),
       0,

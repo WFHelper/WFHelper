@@ -77,6 +77,55 @@ interface QueuedRequest {
 // or (previously) vanish silently.
 const MALFORMED_WARN_INTERVAL_MS = 30_000;
 
+// The ps1 exits before READY with a startup payload when WinRT OCR cannot init
+// (typically no OCR language pack installed). Latch that so scans fail fast with
+// the cause instead of respawning PowerShell workers for every crop.
+const ENGINE_UNAVAILABLE_RETRY_MS = 10 * 60_000;
+
+let _engineUnavailableReason: string | null = null;
+let _engineUnavailableAt = 0;
+let _nativeOcrOkAt = 0;
+
+function noteEngineUnavailable(reason: string): void {
+  _engineUnavailableReason = reason;
+  _engineUnavailableAt = Date.now();
+  log.warn(`[OcrServer] Engine unavailable, pausing server spawns: ${reason}`);
+}
+
+function latchedEngineError(): Error | null {
+  if (!_engineUnavailableReason) return null;
+  if (Date.now() - _engineUnavailableAt >= ENGINE_UNAVAILABLE_RETRY_MS) {
+    // OCR language packs can get installed while we run - allow a fresh probe
+    _engineUnavailableReason = null;
+    return null;
+  }
+  return new Error(`Windows OCR unavailable: ${_engineUnavailableReason}`);
+}
+
+/** False only after the helper explicitly reported an unusable WinRT OCR engine. */
+export function getWindowsOcrHealth(): { available: boolean; reason: string | null } {
+  if (_engineUnavailableReason && _nativeOcrOkAt <= _engineUnavailableAt) {
+    return { available: false, reason: _engineUnavailableReason };
+  }
+  return { available: true, reason: null };
+}
+
+function parseStartupErrorLine(stdoutBuf: string): string | null {
+  for (const line of stdoutBuf.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("{")) continue;
+    try {
+      const parsed = JSON.parse(trimmed) as OcrHelperResponse;
+      if (parsed?.id === "startup" && parsed.ok === false && parsed.error) {
+        return String(parsed.error);
+      }
+    } catch {
+      // partial or non-JSON output
+    }
+  }
+  return null;
+}
+
 class OcrServerWorker {
   private _proc: ChildProcessWithoutNullStreams | null = null;
   private _ready = false;
@@ -127,6 +176,8 @@ class OcrServerWorker {
 
   private async _ensureReady(): Promise<void> {
     if (this._ready && this._proc && !this._proc.killed) return;
+    const latched = latchedEngineError();
+    if (latched) throw latched;
     if (this._starting && this._startPromise) return this._startPromise;
     this._startPromise = this._spawn().then(
       () => {
@@ -150,6 +201,7 @@ class OcrServerWorker {
       const proc = spawn(OCR_HELPER_COMMAND.command, OCR_HELPER_COMMAND.args, {
         stdio: ["pipe", "pipe", "pipe"],
       });
+      let stderrTail = "";
 
       let startupTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
         startupTimer = null;
@@ -190,7 +242,9 @@ class OcrServerWorker {
 
       proc.stderr.on("data", (chunk: string) => {
         const msg = String(chunk).trim();
-        if (msg) log.warn("[OcrServer] stderr:", msg);
+        if (!msg) return;
+        stderrTail = `${stderrTail} ${msg}`.trim().slice(-400);
+        log.warn("[OcrServer] stderr:", msg);
       });
 
       proc.on("close", (code) => {
@@ -201,7 +255,15 @@ class OcrServerWorker {
         this._starting = false;
 
         if (!wasReady) {
-          reject(new Error(`OCR server exited before ready (code=${code ?? "null"})`));
+          // ps1 reports engine-init failures as a startup JSON line on stdout
+          const startupError = parseStartupErrorLine(this._stdoutBuf);
+          if (startupError) noteEngineUnavailable(startupError);
+          const detail = startupError || stderrTail;
+          reject(
+            new Error(
+              `OCR server exited before ready (code=${code ?? "null"})${detail ? `: ${detail}` : ""}`,
+            ),
+          );
           return;
         }
 
@@ -424,11 +486,13 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number | undefined, labe
 export async function nativeOcrBuffer(imageBuffer: Buffer, timeoutMs?: number): Promise<string> {
   if (!_nativeRecognize) throw new Error("Native OCR not available");
   const result = await withTimeout(_nativeRecognize(imageBuffer), timeoutMs, "nativeOcrBuffer");
+  _nativeOcrOkAt = Date.now();
   return result.text || "";
 }
 
 export async function nativeOcrFile(imagePath: string, timeoutMs?: number): Promise<string> {
   if (!_nativeRecognize) throw new Error("Native OCR not available");
   const result = await withTimeout(_nativeRecognize(imagePath), timeoutMs, "nativeOcrFile");
+  _nativeOcrOkAt = Date.now();
   return result.text || "";
 }

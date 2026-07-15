@@ -5,6 +5,7 @@ import {
 } from "../../config/shared/numeric";
 import { normalizeErrorMessage } from "../../config/shared/errors";
 import { RELIC_RECOMMENDATIONS, RELIC_PLANNER_TRIGGER } from "../../config/shared/ipcChannels";
+import { getWindowsOcrHealth } from "../../services/ocrServer";
 import { normalizeWfmSlugKey } from "../../config/shared/wfm";
 import { RELIC_MISSION_TIER_CACHE_TTL_MS } from "../../config/runtime/cacheConfig";
 
@@ -558,6 +559,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         era: null,
         rows,
         totalOwnedCount,
+        ocrUnavailable: !getWindowsOcrHealth().available,
         detection: {
           confidence: 0,
           textPreview: "",
@@ -676,6 +678,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         era: effectiveEra,
         rows,
         totalOwnedCount,
+        ocrUnavailable: !getWindowsOcrHealth().available,
         detection: {
           confidence: eraConfidence,
           textPreview: "",
@@ -700,6 +703,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         source,
         era: null,
         rows: [],
+        ocrUnavailable: !getWindowsOcrHealth().available,
       });
       windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_FAILURE_MS);
     } finally {
@@ -775,6 +779,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         source,
         era: null,
         rows: [],
+        ocrUnavailable: !getWindowsOcrHealth().available,
       });
       windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_FAILURE_MS);
     }

@@ -1,5 +1,11 @@
 import { execFile } from "child_process";
-import { ocrServer, nativeOcrAvailable, nativeOcrBuffer, nativeOcrFile } from "./ocrServer";
+import {
+  ocrServer,
+  nativeOcrAvailable,
+  nativeOcrBuffer,
+  nativeOcrFile,
+  getWindowsOcrHealth,
+} from "./ocrServer";
 import type { StructuredOcrResult } from "./ocrServer";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
@@ -80,6 +86,8 @@ export function createRewardOcrRunner(options: OcrRunnerOptions): OcrRunner {
     try {
       return await ocrServer.runOCR(imagePath, timeoutMs);
     } catch (serverErr) {
+      // engine-level failure: a one-shot process would hit the same wall
+      if (!getWindowsOcrHealth().available) throw serverErr;
       log?.warn?.(
         "[RewardScanner] OCR server unavailable, falling back to one-shot PowerShell:",
         normalizeErrorMessage(serverErr),

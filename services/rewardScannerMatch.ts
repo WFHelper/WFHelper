@@ -239,6 +239,38 @@ function normalizeRewardText(text: string): string {
     .trim();
 }
 
+// A wrapped card name often OCRs as just its first line ("Yareli Prime Chassis"
+// for "Yareli Prime Chassis Blueprint"). Such a clean prefix ranks substring at
+// the 0.88 floor and dies at the slot gate (0.92); when it identifies exactly
+// one item, lift it over the gate. Ambiguous prefixes ("Braton Prime") stay put.
+const UNIQUE_PREFIX_CONFIDENCE = 0.93;
+
+function boostUniquePrefixCandidate(
+  ranked: SingleItemMatchResult[],
+  text: string,
+  textWordCount: number,
+): void {
+  if (textWordCount < 2) return;
+  if (ranked.some((entry) => entry.mode === "exact")) return;
+
+  // Every name that starts with the text also contains it, so all prefix
+  // competitors are already present as substring entries.
+  const prefixEntries = ranked.filter(
+    (entry) =>
+      entry.mode === "substring" &&
+      entry.item &&
+      normalizeRewardText(entry.item.name).startsWith(`${text} `),
+  );
+  if (prefixEntries.length !== 1) return;
+
+  const entry = prefixEntries[0];
+  if (!entry.item || entry.confidence >= UNIQUE_PREFIX_CONFIDENCE) return;
+  entry.confidence = UNIQUE_PREFIX_CONFIDENCE;
+  entry.item.confidence = UNIQUE_PREFIX_CONFIDENCE;
+  const normalizedName = normalizeRewardText(entry.item.name);
+  entry.score = 400 + UNIQUE_PREFIX_CONFIDENCE * 92 + Math.min(8, normalizedName.length / 4);
+}
+
 export function rankRewardCandidatesDetailed(
   ocrText: string,
   sortedItems: SortedItem[],
@@ -319,6 +351,8 @@ export function rankRewardCandidatesDetailed(
       mode: "fuzzy",
     });
   }
+
+  boostUniquePrefixCandidate(ranked, text, textWords.length);
 
   ranked.sort(
     (a, b) =>

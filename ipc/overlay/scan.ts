@@ -5,6 +5,7 @@ import { normalizeErrorMessage } from "../../config/shared/errors";
 import { RELIC_REWARD_ITEMS, RELIC_REWARD_TRIGGER } from "../../config/shared/ipcChannels";
 import { normalizeWfmSlug } from "../../config/shared/wfm";
 import * as itemDatabase from "../../services/itemDatabase";
+import { getWindowsOcrHealth } from "../../services/ocrServer";
 import { sleep } from "../../services/rewardScannerUtils";
 
 const SCAN_RETRY_WINDOW_MS = 5_000;
@@ -25,6 +26,8 @@ const EELOG_UI_READY_FRESH_MS = 3_000;
 const REWARD_VOTE_WINDOW_MS = 14_500;
 const OVERLAY_AUTO_HIDE_SUCCESS_MS = 8_500;
 const OVERLAY_AUTO_HIDE_FAILURE_MS = 3_500;
+// long enough to read the "Windows OCR missing" instructions
+const OVERLAY_AUTO_HIDE_OCR_UNAVAILABLE_MS = 12_000;
 const OVERLAY_AUTO_HIDE_DETECTING_MAX_MS = 20_000;
 
 type RewardScanResult = {
@@ -377,6 +380,20 @@ export function createOverlayScanController(options: OverlayScanControllerOption
           `[Trigger] reward scan resolved in ${result.elapsedMs}ms after ${result.attempts} attempt(s); ` +
             `${items.length} item(s)`,
         );
+      }
+
+      const ocrHealth = items.length === 0 ? getWindowsOcrHealth() : null;
+      if (ocrHealth && !ocrHealth.available) {
+        log.warn(
+          `[Trigger] Windows OCR unavailable: ${ocrHealth.reason} - install a Windows OCR ` +
+            `language pack (Windows Settings > Time & Language > Language), then restart WFHelper`,
+        );
+        windows.sendOverlayEvent(RELIC_REWARD_ITEMS, {
+          items: [],
+          failureReason: "ocr-unavailable",
+        });
+        windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_OCR_UNAVAILABLE_MS);
+        return;
       }
 
       windows.sendOverlayEvent(RELIC_REWARD_ITEMS, items);

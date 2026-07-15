@@ -1,4 +1,8 @@
 const SLOTS = 4;
+const OCR_UNAVAILABLE_MESSAGE =
+  "Windows OCR is not installed on this PC, so screen scanning cannot work. " +
+  "In Windows Settings > Time & Language > Language, install your language's " +
+  "features (or add English), then restart WFHelper.";
 const slotState = Array.from({ length: SLOTS }, () => ({
   item: null,
   price: null,
@@ -387,9 +391,11 @@ function renderPlannerRows(payload) {
   document.getElementById("slots-grid").classList.add("is-hidden");
   plannerGridElement().classList.remove("is-hidden");
   const errorBanner = document.getElementById("error-banner");
-  const emptyMessage = era
-    ? "No owned relic recommendations found for the detected era."
-    : `Could not detect relic era yet (OCR ${Math.round(Math.max(0, detectionElapsedMs))}ms, confidence ${confidence.toFixed(2)}).`;
+  const emptyMessage = payload?.ocrUnavailable
+    ? OCR_UNAVAILABLE_MESSAGE
+    : era
+      ? "No owned relic recommendations found for the detected era."
+      : `Could not detect relic era yet (OCR ${Math.round(Math.max(0, detectionElapsedMs))}ms, confidence ${confidence.toFixed(2)}).`;
   errorBanner.classList.toggle("visible", rows.length === 0);
   errorBanner.classList.toggle("info", rows.length === 0 && !era);
   errorBanner.textContent = rows.length === 0 ? emptyMessage : "";
@@ -449,13 +455,30 @@ function renderPlannerRows(payload) {
   }
 }
 
-async function applyRewardItems(items) {
-  const detectedItems = Array.isArray(items) ? items.filter(Boolean).slice(0, SLOTS) : [];
+async function applyRewardItems(payload) {
+  const rawItems = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.items)
+      ? payload.items
+      : [];
+  const failureReason = !Array.isArray(payload) && payload ? payload.failureReason || null : null;
+  const detectedItems = rawItems.filter(Boolean).slice(0, SLOTS);
 
   if (detectedItems.length === 0) {
-    showDetectionError();
+    showDetectionError(failureReason === "ocr-unavailable" ? OCR_UNAVAILABLE_MESSAGE : undefined);
     return;
   }
+
+  // Slot scans stamp each item with its on-screen slot; honor that so a missed
+  // middle card leaves a gap instead of shifting later items into wrong slots.
+  const hasSlotIndexes =
+    detectedItems.every(
+      (item) => Number.isInteger(item?.slotIndex) && item.slotIndex >= 0 && item.slotIndex < SLOTS,
+    ) && new Set(detectedItems.map((item) => item.slotIndex)).size === detectedItems.length;
+  const placements = detectedItems.map((item, order) => ({
+    item,
+    slot: hasSlotIndexes ? item.slotIndex : order,
+  }));
 
   hideScanning();
   document.getElementById("slots-grid").classList.remove("is-hidden");
@@ -465,21 +488,25 @@ async function applyRewardItems(items) {
   showBestFooter(true);
 
   for (let i = 0; i < SLOTS; i += 1) {
-    const item = detectedItems[i] || null;
-    slotState[i].item = item;
+    slotState[i].item = null;
     slotState[i].price = null;
     slotState[i].setPrice = null;
+  }
+  for (const { item, slot } of placements) {
+    slotState[slot].item = item;
+  }
+  for (let i = 0; i < SLOTS; i += 1) {
     renderSlot(i);
   }
 
   updateBestPick();
 
   await Promise.all(
-    detectedItems.map(async (item, index) => {
+    placements.map(async ({ item, slot }) => {
       if (!item?.urlName) {
-        slotState[index].price = 0;
-        slotState[index].setPrice = item?.setUrlName ? await fetchPrice(item.setUrlName) : 0;
-        renderSlot(index);
+        slotState[slot].price = 0;
+        slotState[slot].setPrice = item?.setUrlName ? await fetchPrice(item.setUrlName) : 0;
+        renderSlot(slot);
         updateBestPick();
         return;
       }
@@ -488,9 +515,9 @@ async function applyRewardItems(items) {
         fetchPrice(item.urlName),
         fetchPrice(item.setUrlName),
       ]);
-      slotState[index].price = price ?? 0;
-      slotState[index].setPrice = setPrice ?? 0;
-      renderSlot(index);
+      slotState[slot].price = price ?? 0;
+      slotState[slot].setPrice = setPrice ?? 0;
+      renderSlot(slot);
       updateBestPick();
     }),
   );

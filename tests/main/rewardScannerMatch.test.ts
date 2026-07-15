@@ -60,6 +60,44 @@ describe("matchSingleRewardTextDetailed", () => {
     }
   });
 
+  it("lifts a first-line-only read that uniquely prefixes one item over the slot gate", () => {
+    // "Yareli Prime Chassis Blueprint" wraps to two lines on the reward card;
+    // OCR of the first line alone must still resolve it.
+    const pool = [
+      { name: "Yareli Prime Chassis Blueprint" },
+      { name: "Yareli Prime Blueprint" },
+      { name: "Yareli Prime Systems Blueprint" },
+      { name: "Yareli Prime Neuroptics Blueprint" },
+      ...ITEMS,
+    ];
+    const ranked = rankRewardCandidatesDetailed("Yareli Prime Chassis", pool, 4);
+    expect(ranked[0].item?.name).toBe("Yareli Prime Chassis Blueprint");
+    expect(ranked[0].mode).toBe("substring");
+    expect(ranked[0].confidence).toBeGreaterThanOrEqual(0.92);
+  });
+
+  it("keeps ambiguous prefixes below the slot gate", () => {
+    const pool = [
+      { name: "Braton Prime Stock" },
+      { name: "Braton Prime Blueprint" },
+      { name: "Braton Prime Receiver" },
+      { name: "Braton Prime Barrel" },
+    ];
+    const ranked = rankRewardCandidatesDetailed("Braton Prime", pool, 4);
+    for (const candidate of ranked) {
+      if (candidate.mode === "substring") {
+        expect(candidate.confidence).toBeLessThan(0.92);
+      }
+    }
+  });
+
+  it("does not boost single-word fragments", () => {
+    const ranked = rankRewardCandidatesDetailed("Yareli", [{ name: "Yareli Prime Blueprint" }], 3);
+    for (const candidate of ranked) {
+      expect(candidate.confidence).toBeLessThan(0.92);
+    }
+  });
+
   it("corrects common OCR misreads via expanded token aliases", () => {
     // "prlme" -> "prime", "bluedrint" -> "blueprint"
     const r1 = matchSingleRewardTextDetailed("Rhino Prlme BlueDrint", ITEMS);
