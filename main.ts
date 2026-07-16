@@ -188,7 +188,7 @@ app.whenReady().then(async () => {
   tradeTracker.loadTradeLog();
   arbiRunTracker.initArbiTracker();
   arbiRunTracker.setArbiTrackingEnabled(ctx.overlaySettings.arbiTrackingEnabled !== false);
-  setOcrDebugDumpsEnabled(ctx.overlaySettings.ocrDebugImagesEnabled === true);
+  setOcrDebugDumpsEnabled(ctx.overlaySettings.ocrDebugImagesEnabled !== false);
   inventoryIpc.addInventoryListener((data: Record<string, unknown>) => {
     statsTracker.onInventoryData(data);
   });

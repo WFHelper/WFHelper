@@ -12,8 +12,7 @@ const log = withScope("rewardScanDebug");
 
 const MAX_BUNDLES = 25;
 
-// Off by default - debug images stay off disk unless the user opts in.
-let _dumpsEnabled = false;
+let _dumpsEnabled = true;
 
 export function setOcrDebugDumpsEnabled(enabled: boolean): void {
   _dumpsEnabled = enabled;

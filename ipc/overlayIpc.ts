@@ -384,7 +384,7 @@ function register(): void {
       settingsController.registerOverlayHotkey();
       applyOverlayAvailabilitySettings();
       arbiRunTracker.setArbiTrackingEnabled(settings.arbiTrackingEnabled !== false);
-      setOcrDebugDumpsEnabled(settings.ocrDebugImagesEnabled === true);
+      setOcrDebugDumpsEnabled(settings.ocrDebugImagesEnabled !== false);
       rewardOverlayIpc.rewardWindowsController.positionOverlayWindow(
         rewardOverlayIpc.rewardWindowsController.getAnchorMeta(),
       );

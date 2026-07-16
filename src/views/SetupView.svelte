@@ -646,7 +646,7 @@
           <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">Welcome to WFHelper</h2>
 
           <div class="grid gap-3">
-            <div class="rounded-lg border border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] px-3 py-3 [backdrop-filter:var(--ui-backdrop-blur)]">
+            <div class="rounded-lg border border-[var(--ui-panel-border)] bg-[var(--ui-control-bg)] px-3 py-3 [backdrop-filter:var(--ui-backdrop-blur)]">
               <div class="mb-2 flex items-start justify-between gap-3">
                 <div>
                   <h3 class="m-0 font-display text-sm font-semibold text-text-primary">Pick a look</h3>
@@ -678,7 +678,7 @@
               <p class="m-0 mt-2 text-xs text-text-muted">All themes and full customization: Settings &gt; Appearance.</p>
             </div>
 
-            <div class="rounded-lg border border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] px-3 py-3 [backdrop-filter:var(--ui-backdrop-blur)]">
+            <div class="rounded-lg border border-[var(--ui-panel-border)] bg-[var(--ui-control-bg)] px-3 py-3 [backdrop-filter:var(--ui-backdrop-blur)]">
               <div class="mb-2 flex items-start justify-between gap-3">
                 <div>
                   <h3 class="m-0 font-display text-sm font-semibold text-text-primary">UI style</h3>
@@ -692,7 +692,7 @@
               />
             </div>
 
-            <div class="rounded-lg border border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] px-3 py-3 [backdrop-filter:var(--ui-backdrop-blur)]">
+            <div class="rounded-lg border border-[var(--ui-panel-border)] bg-[var(--ui-control-bg)] px-3 py-3 [backdrop-filter:var(--ui-backdrop-blur)]">
               <div class="mb-2 flex items-start justify-between gap-3">
                 <div>
                   <h3 class="m-0 font-display text-sm font-semibold text-text-primary">Border style</h3>
