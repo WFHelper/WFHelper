@@ -58,6 +58,9 @@ interface RewardSlotLayoutSummary {
 }
 
 export function hasConfidentSlotLayout(layout: RewardSlotLayoutSummary): boolean {
+  // Single-card layouts (solo relic crack) need a stronger activity signal -
+  // one bright center region is easy to fake on non-reward frames.
+  if (layout.count === 1) return layout.confidence >= 0.55;
   return layout.count >= 2 && layout.confidence >= SCANNER_TUNING.slot.minLayoutConfidence;
 }
 

@@ -94,7 +94,19 @@ const SCREENS = [
   {
     file: "real-full-1p-windowed.png",
     fixture: true,
-    info: "1-choice windowed: no fixed 1-slot layout, different vertical anchor - dynamic/text-fallback only",
+    info: "raw window capture incl. titlebar - the live app crops captures to the game client rect (koffi); sim-client-* screens below gate that post-crop frame",
+    expect: { 0: "Lavos Prime Blueprint" },
+  },
+  // Client-cropped sims of the windowed fixtures - the frame the live app
+  // scans after the game-window crop. Gate the 1-choice layout.
+  {
+    file: "sim-client-1p-fang.png",
+    readers: ["onnx", "both"],
+    expect: { 0: "Fang Prime Blueprint" },
+  },
+  {
+    file: "sim-client-1p-lavos.png",
+    readers: ["onnx", "both"],
     expect: { 0: "Lavos Prime Blueprint" },
   },
   {
@@ -123,12 +135,29 @@ const SCREENS = [
 
 const FIXTURE_SCREEN_DIR = path.join(__dirname, "fixtures", "screens");
 
+async function buildClientCroppedSims(outDir) {
+  const sharp = require("sharp");
+  const sims = [
+    { src: "real-full-1p-windowed-fang.png", out: "sim-client-1p-fang.png" },
+    { src: "real-full-1p-windowed.png", out: "sim-client-1p-lavos.png" },
+  ];
+  for (const sim of sims) {
+    const srcPath = path.join(FIXTURE_SCREEN_DIR, sim.src);
+    const meta = await sharp(srcPath).metadata();
+    await sharp(srcPath)
+      .extract({ left: 0, top: 23, width: meta.width, height: meta.height - 23 })
+      .png()
+      .toFile(path.join(outDir, sim.out));
+  }
+}
+
 (async () => {
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "wfh-scan-e2e-"));
   const screenDir = path.join(workDir, "screens");
   fs.mkdirSync(screenDir);
 
   await buildRealScreens(screenDir);
+  await buildClientCroppedSims(screenDir);
   let syntheticOk = true;
   try {
     execFileSync(

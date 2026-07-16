@@ -323,6 +323,10 @@ export interface IpcInvokeMap {
     args: [];
     return: AppRuntimeInfo;
   };
+  openScanDebugFolder: {
+    args: [];
+    return: { ok: boolean };
+  };
   loadRankedHotset: {
     args: [];
     return: Record<string, unknown> | null;

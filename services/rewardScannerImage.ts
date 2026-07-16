@@ -251,10 +251,13 @@ interface RewardSlotLayout {
 const SLOT_LAYOUT_REGION = Object.freeze({ x: 0.03, y: 0.37, width: 0.94, height: 0.34 });
 
 // Cards are 0.122W wide on a 0.127W pitch centered at x=0.5 for every choice
-// count (measured on real 1080p screens).
+// count (measured on real 1080p screens). Ratios assume the frame is game
+// content - windowed captures are pre-cropped to the client rect in
+// rewardScannerCapture.
 const FIXED_REWARD_LAYOUTS: Readonly<
   Record<number, Array<{ x: number; y: number; width: number; height: number }>>
 > = Object.freeze({
+  1: [{ x: 0.439, y: 0.225, width: 0.122, height: 0.225 }],
   2: [
     { x: 0.3755, y: 0.225, width: 0.122, height: 0.225 },
     { x: 0.5025, y: 0.225, width: 0.122, height: 0.225 },

@@ -8,6 +8,7 @@ import {
   type SortedItem,
 } from "./rewardScannerMatch";
 import { hasConfidentSlotLayout } from "./rewardScannerSupport";
+import { dumpRewardScanDebug, type ScanDebugSlot } from "./rewardScanDebug";
 import { withScope } from "./logger";
 
 const log = withScope("rewardScanner");
@@ -27,6 +28,35 @@ interface SlotCandidate {
   confidence: number;
   score: number;
   mode: string;
+}
+
+interface SlotDebugInfo {
+  index: number;
+  stripPng: Buffer;
+  windowsText: string;
+  onnxText: string;
+  diverged: boolean;
+}
+
+function toScanDebugSlots(
+  slotResults: Array<{ index: number; candidates: SlotCandidate[]; debug: SlotDebugInfo } | null>,
+): ScanDebugSlot[] {
+  const out: ScanDebugSlot[] = [];
+  for (const entry of slotResults) {
+    if (!entry?.debug) continue;
+    const matched = entry.candidates[0] || null;
+    out.push({
+      index: entry.debug.index,
+      stripPng: entry.debug.stripPng,
+      windowsText: entry.debug.windowsText,
+      onnxText: entry.debug.onnxText,
+      diverged: entry.debug.diverged,
+      matchedName: matched ? matched.item.name : null,
+      confidence: matched ? matched.confidence : null,
+      mode: matched ? matched.mode : null,
+    });
+  }
+  return out;
 }
 
 interface SlotScanResult {
@@ -119,6 +149,8 @@ export async function scanRewardSlotsFallback(
   if (layouts.length === 0) return null;
 
   let bestResult: SlotScanResult | null = null;
+  let bestDebugSlots: ScanDebugSlot[] = [];
+  let fallbackDebugSlots: ScanDebugSlot[] = [];
 
   for (const layout of layouts) {
     const slotLimit = Math.min(layout.count, MAX_REWARD_SLOTS);
@@ -163,7 +195,9 @@ export async function scanRewardSlotsFallback(
         if (joined) candidateTexts.add(joined);
         if (wholeClean) candidateTexts.add(wholeClean);
         if (onnxClean) candidateTexts.add(onnxClean);
-        if (onnxClean && (joined || wholeClean) && onnxClean !== joined && onnxClean !== wholeClean) {
+        const diverged =
+          !!onnxClean && !!(joined || wholeClean) && onnxClean !== joined && onnxClean !== wholeClean;
+        if (diverged) {
           log.info(
             `[RewardScanner] Slot ${i + 1} reads diverge: windows="${wholeClean || joined}" onnx="${onnxClean}"`,
           );
@@ -192,6 +226,14 @@ export async function scanRewardSlotsFallback(
           }
         }
 
+        const debug: SlotDebugInfo = {
+          index: i,
+          stripPng: cropPng,
+          windowsText: wholeClean || joined,
+          onnxText: onnxClean,
+          diverged,
+        };
+
         if (rankedCandidates.length === 0) {
           if (bestRejected) {
             log.info(
@@ -199,12 +241,13 @@ export async function scanRewardSlotsFallback(
                 `"${bestRejected.item.name}" (${bestRejected.mode} ${bestRejected.confidence.toFixed(3)})`,
             );
           }
-          return null;
+          return { index: i, candidates: [] as SlotCandidate[], debug };
         }
         rankedCandidates.sort((a, b) => b.score - a.score || b.confidence - a.confidence);
         return {
           index: i,
           candidates: rankedCandidates,
+          debug,
         };
       }),
     );
@@ -223,7 +266,12 @@ export async function scanRewardSlotsFallback(
         } => !!entry.candidate,
       );
 
-    if (!collected.length) continue;
+    if (!collected.length) {
+      // layouts arrive confidence-sorted, so the first zero-hit layout is the
+      // most plausible view of a scan that matched nothing
+      if (fallbackDebugSlots.length === 0) fallbackDebugSlots = toScanDebugSlots(slotResults);
+      continue;
+    }
 
     // slotIndex keeps the on-screen position so the overlay can leave gaps
     const items = collected
@@ -270,16 +318,41 @@ export async function scanRewardSlotsFallback(
         `items=${items.map((item) => item.name).join(" | ")}`,
     );
 
+    // A layout that matched several cards is structurally right even when a
+    // lone pristine exact match out-averages it - the 1-slot layout may only
+    // win when no multi-slot layout found 2+ items.
+    const bestIsMulti = !!bestResult && bestResult.matchedSlots >= 2;
+    const resultIsMulti = result.matchedSlots >= 2;
     if (
       !bestResult ||
-      result.score > bestResult.score ||
-      (Math.abs(result.score - bestResult.score) < 12 &&
-        result.items.length === bestResult.items.length &&
-        result.emptySlots < bestResult.emptySlots) ||
-      (result.score === bestResult.score && result.items.length > bestResult.items.length)
+      (resultIsMulti && !bestIsMulti) ||
+      (resultIsMulti === bestIsMulti &&
+        (result.score > bestResult.score ||
+          (Math.abs(result.score - bestResult.score) < 12 &&
+            result.items.length === bestResult.items.length &&
+            result.emptySlots < bestResult.emptySlots) ||
+          (result.score === bestResult.score && result.items.length > bestResult.items.length)))
     ) {
       bestResult = result;
+      bestDebugSlots = toScanDebugSlots(slotResults);
     }
+  }
+
+  if (bestResult) {
+    const anyDiverge = bestDebugSlots.some((slot) => slot.diverged);
+    if (bestResult.emptySlots > 0 || anyDiverge) {
+      dumpRewardScanDebug(bestResult.emptySlots > 0 ? "empty-slots" : "reader-diverge", bestDebugSlots, {
+        reader: options.reader || "both",
+        layoutCount: bestResult.slotCount,
+        matchedSlots: bestResult.matchedSlots,
+        items: bestResult.items.map((item) => item.name),
+      });
+    }
+  } else if (fallbackDebugSlots.length > 0) {
+    dumpRewardScanDebug("no-layout-hits", fallbackDebugSlots, {
+      reader: options.reader || "both",
+      layoutCount: layouts[0]?.count ?? 0,
+    });
   }
 
   return bestResult;

@@ -40,6 +40,7 @@ import {
   APP_UPDATE_INSTALL,
   APP_UPDATE_STATUS,
   APP_RUNTIME_INFO,
+  SCAN_DEBUG_OPEN_FOLDER,
   WINDOW_MINIMIZE,
   WINDOW_MAXIMIZE,
   WINDOW_CLOSE,
@@ -124,6 +125,7 @@ try {
     downloadAppUpdate: () => ipcRenderer.invoke(APP_UPDATE_DOWNLOAD),
     installDownloadedUpdate: () => ipcRenderer.invoke(APP_UPDATE_INSTALL),
     getAppRuntimeInfo: () => ipcRenderer.invoke(APP_RUNTIME_INFO),
+    openScanDebugFolder: () => ipcRenderer.invoke(SCAN_DEBUG_OPEN_FOLDER),
 
     onInventoryUpdated: ipcDataBridge<unknown>(ipcRenderer, INVENTORY_UPDATED),
     onItemDbUpdated: ipcDataBridge<unknown>(ipcRenderer, ITEM_DB_UPDATED),

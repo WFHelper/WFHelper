@@ -24,6 +24,15 @@
   let statusError = false;
   let statusTimer: ReturnType<typeof setTimeout> | null = null;
 
+  async function openScanDebugFolder(): Promise<void> {
+    try {
+      const result = await invoke("openScanDebugFolder");
+      if (!result?.ok) flashStatus("Could not open the scan-debug folder.", true);
+    } catch {
+      flashStatus("Could not open the scan-debug folder.", true);
+    }
+  }
+
   function flashStatus(msg: string, isError: boolean): void {
     statusMsg = msg;
     statusError = isError;
@@ -338,6 +347,7 @@
         <div class="flex flex-wrap items-center gap-2.5">
           <button class="btn-secondary btn-sm" on:click={resetDefaults}>{$tr("settings.resetDefaults")}</button>
           <button class="btn-secondary btn-sm" on:click={() => startTour()}>Show feature tour</button>
+          <button class="btn-secondary btn-sm" on:click={openScanDebugFolder}>{$tr("settings.openScanDebug")}</button>
           <span class="text-xs text-text-muted">Changes apply automatically.</span>
         </div>
 

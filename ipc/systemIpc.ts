@@ -19,9 +19,12 @@ import {
   DB_GET_ITEM_DATABASE, DB_GET_WFM_ITEMS, DB_GET_MASTERY,
   DB_GET_RELIC_DATABASE, DROP_SEARCH,
   APP_UPDATE_CHECK, APP_UPDATE_STATE, APP_UPDATE_DOWNLOAD, APP_UPDATE_INSTALL, APP_RUNTIME_INFO,
+  SCAN_DEBUG_OPEN_FOLDER,
   WINDOW_MINIMIZE, WINDOW_MAXIMIZE, WINDOW_CLOSE,
   LOG_WARN, OPEN_EXTERNAL,
 } from "../config/shared/ipcChannels";
+import fs from "node:fs";
+import { getScanDebugDir } from "../services/rewardScanDebug";
 
 const log = withScope("systemIpc");
 
@@ -79,6 +82,19 @@ function register(): void {
   handleAuthorized(APP_UPDATE_INSTALL, assertMainRendererSender, () =>
     autoUpdater.installDownloadedUpdate(),
   );
+  handleAuthorized(SCAN_DEBUG_OPEN_FOLDER, assertMainRendererSender, async () => {
+    try {
+      const dir = getScanDebugDir();
+      await fs.promises.mkdir(dir, { recursive: true });
+      const openErr = await shell.openPath(dir);
+      if (openErr) log.warn(`[SystemIPC] openPath(scan-debug) failed: ${openErr}`);
+      return { ok: !openErr };
+    } catch (err) {
+      log.warn("[SystemIPC] open scan-debug folder failed:", normalizeErrorMessage(err));
+      return { ok: false };
+    }
+  });
+
   handleAuthorized(APP_RUNTIME_INFO, assertMainRendererSender, () => ({
     isPackaged: app.isPackaged,
   }));

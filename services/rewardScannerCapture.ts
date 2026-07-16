@@ -4,7 +4,7 @@
  */
 
 import { withScope } from "./logger";
-import { captureGdi } from "./dxgiCapture";
+import { captureGdi, getGameWindowClientRect } from "./dxgiCapture";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("rewardScanner");
@@ -39,11 +39,34 @@ export async function captureScreenFast(
     if (gdiResult) {
       const { nativeImage: electronNativeImage } =
         require("electron") as typeof import("electron");
-      const img = electronNativeImage.createFromBitmap(gdiResult.buffer, {
+      let img = electronNativeImage.createFromBitmap(gdiResult.buffer, {
         width: gdiResult.width,
         height: gdiResult.height,
       });
       if (img && !img.isEmpty()) {
+        // Windowed game: crop the monitor capture to the game's client rect so
+        // layout ratios anchor to game content, not desktop + window chrome.
+        // Borderless/fullscreen client rect equals the monitor -> no crop.
+        try {
+          const gameRect = getGameWindowClientRect();
+          if (gameRect) {
+            const ox = gameRect.x - gdiResult.originX;
+            const oy = gameRect.y - gdiResult.originY;
+            const x = Math.max(0, ox);
+            const y = Math.max(0, oy);
+            const width = Math.min(gdiResult.width, ox + gameRect.width) - x;
+            const height = Math.min(gdiResult.height, oy + gameRect.height) - y;
+            const isSubRegion = width < gdiResult.width - 2 || height < gdiResult.height - 2;
+            if (isSubRegion && width >= 320 && height >= 240) {
+              img = img.crop({ x, y, width, height });
+              log.info(
+                `[RewardScanner] Cropped capture to Warframe client rect ${width}x${height} at (${x},${y})`,
+              );
+            }
+          }
+        } catch (err) {
+          log.warn("[RewardScanner] game window crop skipped:", normalizeErrorMessage(err));
+        }
         return {
           image: img,
           sourceType: "screen",

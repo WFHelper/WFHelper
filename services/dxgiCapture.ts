@@ -25,6 +25,9 @@ interface GdiCaptureResult {
   height: number;
   /** Electron display.id for the captured output, or "" if unknown */
   displayId: string;
+  /** Virtual-screen coords of the captured area's top-left (for mapping window rects). */
+  originX: number;
+  originY: number;
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- native FFI bindings, return types unknown at compile time */
@@ -33,6 +36,10 @@ let _gdiFns: {
   ReleaseDC: (...args: any[]) => any;
   GetSystemMetrics: (...args: any[]) => any;
   GetMonitorInfoW: (...args: any[]) => any;
+  FindWindowW: (...args: any[]) => any;
+  IsIconic: (...args: any[]) => any;
+  GetClientRect: (...args: any[]) => any;
+  ClientToScreen: (...args: any[]) => any;
   CreateCompatibleDC: (...args: any[]) => any;
   CreateCompatibleBitmap: (...args: any[]) => any;
   SelectObject: (...args: any[]) => any;
@@ -56,6 +63,10 @@ function ensureGdi(): boolean {
       ReleaseDC: u32.func("__stdcall", "ReleaseDC", "int32", ["void*", "void*"]),
       GetSystemMetrics: u32.func("__stdcall", "GetSystemMetrics", "int32", ["int32"]),
       GetMonitorInfoW: u32.func("__stdcall", "GetMonitorInfoW", "int32", ["void*", "void*"]),
+      FindWindowW: u32.func("__stdcall", "FindWindowW", "void*", ["str16", "str16"]),
+      IsIconic: u32.func("__stdcall", "IsIconic", "int32", ["void*"]),
+      GetClientRect: u32.func("__stdcall", "GetClientRect", "int32", ["void*", "void*"]),
+      ClientToScreen: u32.func("__stdcall", "ClientToScreen", "int32", ["void*", "void*"]),
       CreateCompatibleDC: g32.func("__stdcall", "CreateCompatibleDC", "void*", ["void*"]),
       CreateCompatibleBitmap: g32.func("__stdcall", "CreateCompatibleBitmap", "void*", [
         "void*", "int32", "int32",
@@ -87,6 +98,41 @@ function ensureGdi(): boolean {
  *
  * Returns BGRA pixel data or `null` on failure.
  */
+export interface GameWindowRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Client rect of the running Warframe window in virtual-screen coords, or
+ * null when the game is not running, minimized, or too small to be a game
+ * viewport. In borderless/exclusive fullscreen this equals the monitor, so
+ * cropping to it is a no-op; in windowed mode it excludes titlebar/borders.
+ */
+export function getGameWindowClientRect(): GameWindowRect | null {
+  if (process.platform !== "win32") return null;
+  if (!ensureGdi()) return null;
+  const g = _gdiFns!;
+  try {
+    const hwnd = g.FindWindowW(null, "Warframe");
+    if (!hwnd) return null;
+    if (g.IsIconic(hwnd)) return null;
+    const rc = Buffer.alloc(16); // RECT
+    if (!g.GetClientRect(hwnd, rc)) return null;
+    const width = rc.readInt32LE(8);
+    const height = rc.readInt32LE(12);
+    if (width < 320 || height < 240) return null;
+    const pt = Buffer.alloc(8); // POINT {0,0} -> screen coords of client origin
+    if (!g.ClientToScreen(hwnd, pt)) return null;
+    return { x: pt.readInt32LE(0), y: pt.readInt32LE(4), width, height };
+  } catch (err) {
+    log.warn("[gdiCapture] game window rect lookup failed:", String(err));
+    return null;
+  }
+}
+
 export function captureGdi(displayId?: string | null): GdiCaptureResult | null {
   if (process.platform !== "win32") return null;
   if (!ensureGdi()) return null;
@@ -160,7 +206,14 @@ export function captureGdi(displayId?: string | null): GdiCaptureResult | null {
     const lines = g.GetDIBits(hdcScreen, hBitmap, 0, ch, pixels, bmi, 0);
     if (lines <= 0) return null;
 
-    return { buffer: pixels, width: cw, height: ch, displayId: resolvedDisplayId };
+    return {
+      buffer: pixels,
+      width: cw,
+      height: ch,
+      displayId: resolvedDisplayId,
+      originX: cx,
+      originY: cy,
+    };
   } finally {
     if (hOld && hdcMem) g.SelectObject(hdcMem, hOld);
     if (hBitmap) g.DeleteObject(hBitmap);

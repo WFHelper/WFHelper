@@ -171,6 +171,7 @@ export const en = {
   "settings.interactionHotkeyPlaceholder": "Control+Tab",
   "settings.save": "Save",
   "settings.resetDefaults": "Reset Defaults",
+  "settings.openScanDebug": "Open scan-debug folder",
   "settings.testTrigger": "Test Trigger",
   "settings.saved": "Saved.",
   "settings.loadFailed": "Failed to load settings.",
