@@ -10,6 +10,7 @@
   import { activeItem } from "../stores/modals.js";
   import { formatBuildTime, formatTimeRemaining, formatNumber } from "../lib/format.js";
   import { compareSharedFilterSort, matchesSharedFilters } from "../lib/filters.js";
+  import { collectRecipeMaterialNames } from "../lib/craftingTree.js";
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
   import { CREDITS_ICON_URL } from "../lib/assetUrls.js";
   import { clockStore } from "../lib/timers.js";
@@ -225,9 +226,17 @@
 
   $: decorated = allEntries.map((e) => ({ e, status: statusOf(e, nowMs) }));
 
+  // Search matches materials anywhere in the crafting tree: "rubedo" finds every
+  // entry whose recipe - or a sub-part's recipe - consumes rubedo.
+  function materialKeywords(productUniqueName: string | null | undefined): string[] {
+    if (!productUniqueName) return [];
+    return collectRecipeMaterialNames(productUniqueName, $itemDb);
+  }
+
   function filterableFoundryEntry(row: { e: FoundryEntry; status: ItemStatus }): {
     name: string;
     category: string;
+    keywords: string[];
     count: number | null;
     time: number | null;
     isPrime: boolean;
@@ -238,6 +247,7 @@
     return {
       name: row.e.name,
       category: row.e.category,
+      keywords: materialKeywords(row.e.productUniqueName),
       count: row.e.source === "blueprint" ? row.e.count : null,
       time:
         row.e.source === "building" && row.e.endDate

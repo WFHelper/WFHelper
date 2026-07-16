@@ -9,6 +9,8 @@ export interface CraftingTreeNode {
   owned: number;
   missing: number;
   isCraftable: boolean;
+  /** True for blueprint-item child nodes (the "Hide blueprints" toggle filters these). */
+  isBlueprintItem?: boolean;
   recipe: RecipeData | null;
   usedFor: Array<{
     uniqueName: string;
@@ -59,6 +61,48 @@ function isLeafResource(uniqueName: string): boolean {
   return LEAF_RESOURCE_PREFIXES.some((p) => uniqueName.startsWith(p));
 }
 
+const materialNameCache = new WeakMap<Record<string, ItemDbEntry>, Map<string, string[]>>();
+
+/** All ingredient names in an item's crafting tree (direct + nested part recipes). */
+export function collectRecipeMaterialNames(
+  uniqueName: string,
+  itemDb: Record<string, ItemDbEntry>,
+): string[] {
+  let cache = materialNameCache.get(itemDb);
+  if (!cache) {
+    cache = new Map();
+    materialNameCache.set(itemDb, cache);
+  }
+  const hit = cache.get(uniqueName);
+  if (hit) return hit;
+
+  const out = new Set<string>();
+  walkMaterialNames(uniqueName, itemDb, 0, new Set(), out);
+  const list = [...out];
+  cache.set(uniqueName, list);
+  return list;
+}
+
+function walkMaterialNames(
+  uniqueName: string,
+  itemDb: Record<string, ItemDbEntry>,
+  depth: number,
+  visited: Set<string>,
+  out: Set<string>,
+): void {
+  if (depth > 4 || visited.has(uniqueName)) return;
+  visited.add(uniqueName);
+  const recipe = itemDb[uniqueName]?.recipe;
+  if (!recipe) return;
+  for (const ing of recipe.ingredients) {
+    const name = itemDb[ing.uniqueName]?.name;
+    if (name) out.add(name);
+    if (!isLeafResource(ing.uniqueName)) {
+      walkMaterialNames(ing.uniqueName, itemDb, depth + 1, visited, out);
+    }
+  }
+}
+
 function buildNode(
   uniqueName: string,
   count: number,
@@ -85,14 +129,17 @@ function buildNode(
       const bpUn = effectiveRecipe.blueprintUniqueName;
       const bpItem = itemDb[bpUn];
       const bpOwned = ownership.get(bpUn) || 0;
+      // Reusable (infinite-use) blueprints cover any build count with one copy.
+      const bpNeeded = effectiveRecipe.reusableBlueprint ? 1 : count;
       children.push({
         uniqueName: bpUn,
         name: bpItem?.name || `${name} Blueprint`,
         imageUrl: bpItem?.imageUrl || null,
-        count,
+        count: bpNeeded,
         owned: bpOwned,
-        missing: Math.max(0, count - bpOwned),
+        missing: Math.max(0, bpNeeded - bpOwned),
         isCraftable: false,
+        isBlueprintItem: true,
         recipe: null,
         usedFor: [],
         children: [],

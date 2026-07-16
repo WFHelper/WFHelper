@@ -46,6 +46,41 @@ describe("crafting tree", () => {
     expect(boltoChildren?.[0].count).toBe(2);
   });
 
+  it("needs one blueprint total when the recipe blueprint is reusable", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/items/AkTwin": item("AkTwin", {
+        blueprintUniqueName: "/blueprints/AkTwin",
+        buildPrice: 0,
+        buildTime: 0,
+        num: 1,
+        ingredients: [{ uniqueName: "/items/Solo", count: 2 }],
+      }),
+      "/items/Solo": item("Solo", {
+        blueprintUniqueName: "/blueprints/Solo",
+        buildPrice: 0,
+        buildTime: 0,
+        num: 1,
+        reusableBlueprint: true,
+        ingredients: [{ uniqueName: "/resources/OrokinCell", count: 1 }],
+      }),
+      "/resources/OrokinCell": item("Orokin Cell"),
+      "/blueprints/AkTwin": item("AkTwin Blueprint"),
+      "/blueprints/Solo": item("Solo Blueprint"),
+    };
+
+    const tree = buildCraftingTree("/items/AkTwin", db, new Map([["/blueprints/Solo", 1]]));
+    const solo = tree?.children.find((child) => child.uniqueName === "/items/Solo");
+    const soloBp = solo?.children.find((child) => child.uniqueName === "/blueprints/Solo");
+
+    expect(solo?.count).toBe(2);
+    expect(soloBp?.count).toBe(1);
+    expect(soloBp?.missing).toBe(0);
+    expect(soloBp?.isBlueprintItem).toBe(true);
+
+    const akBp = tree?.children.find((child) => child.uniqueName === "/blueprints/AkTwin");
+    expect(akBp?.count).toBe(1);
+  });
+
   it("stops recursive recipe cycles at the repeated ingredient", () => {
     const db: Record<string, ItemDbEntry> = {
       "/items/A": item("A", {

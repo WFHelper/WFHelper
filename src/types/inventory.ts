@@ -12,6 +12,7 @@ export interface RecipeData {
   buildTime: number;
   num: number;
   blueprintUniqueName?: string;
+  reusableBlueprint?: boolean;
   ingredients: RecipeIngredient[];
 }
 

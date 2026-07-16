@@ -632,6 +632,7 @@ interface PepRecipeItem {
   buildPrice?: number;
   buildTime?: number;
   num?: number;
+  consumeOnUse?: boolean;
   ingredients?: { ItemType: string; ItemCount: number }[];
 }
 
@@ -650,6 +651,8 @@ function buildRecipeIndex(): void {
         buildTime: item.buildTime || 0,
         num: item.num || 1,
         blueprintUniqueName: recipeKey,
+        // consumeOnUse=false = infinite-use blueprint: one copy covers any build count
+        ...(item.consumeOnUse === false ? { reusableBlueprint: true } : {}),
         ingredients: item.ingredients.map((i) => ({
           uniqueName: i.ItemType,
           count: i.ItemCount || 1,
