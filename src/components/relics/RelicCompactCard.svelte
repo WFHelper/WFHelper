@@ -42,13 +42,14 @@
   $: tierClass = fissureTierClass(group.tier);
   $: iconSrc = group.imageUrl || RELIC_ICON_PATHS[tierClass] || RELIC_ICON_PATHS.default;
 
-  function selectedQualityHeader(): string {
-    if (qualityMode === "owned") {
-      return selectedOwned ? `Selected EV: ${RELIC_QUALITY_LABEL[selectedOwned]}` : "Selected EV: Owned";
-    }
-
-    return `Selected EV: ${RELIC_QUALITY_LABEL[qualityMode]}`;
-  }
+  // Reactive statement, not a function call: the template must re-render when
+  // qualityMode/selectedOwned change (a bare {fn()} never updates).
+  $: qualityHeader =
+    qualityMode === "owned"
+      ? selectedOwned
+        ? `Selected EV: ${RELIC_QUALITY_LABEL[selectedOwned]}`
+        : "Selected EV: Owned"
+      : `Selected EV: ${RELIC_QUALITY_LABEL[qualityMode]}`;
 
   function fallbackIconForTier(): string {
     return RELIC_ICON_PATHS[tierClass] || RELIC_ICON_PATHS.default;
@@ -101,18 +102,16 @@
 
     <span class="min-w-0 flex flex-col items-end gap-0.5">
       <span
-        class="relic-compact-block-label text-right font-display text-xs tracking-[0.06em] uppercase text-text-secondary"
-        >{selectedQualityHeader()}</span
+        class="relic-compact-block-label text-right font-display text-[0.65rem] tracking-[0.06em] uppercase text-text-secondary"
+        >{qualityHeader}</span
       >
       <MarketMetricStrip
         platinum={selected.plat != null ? selected.plat.toFixed(1) : null}
         ducats={selected.ducat != null ? selected.ducat.toFixed(1) : null}
         ratio={selected.ratio != null ? selected.ratio.toFixed(1) : null}
         state={selected.cls}
-        size="compact"
         wrap={false}
         justify="end"
-        className="min-h-0"
       />
     </span>
   </button>
@@ -129,7 +128,7 @@
     {/each}
   </span>
 
-  <span class="relic-quality-inline-counts ml-0 inline-grid grid-cols-4 w-full min-w-0 justify-stretch gap-0.5">
+  <span data-tour="relic-tiers" class="relic-quality-inline-counts ml-0 inline-grid grid-cols-4 w-full min-w-0 justify-stretch gap-0.5">
     {#each RELIC_QUALITY_COLUMNS as quality}
       {@const count = ownedCount(group, quality)}
       <button
@@ -194,12 +193,14 @@
     transform: scale(1.06);
   }
 
+  /* Unvaulted is warning-orange, not success-green: owned reward icons already
+     use --success and the two read as the same state side by side. */
   .relic-status-tag {
     width: fit-content;
-    border: 1px solid color-mix(in oklab, var(--success) 35%, transparent);
+    border: 1px solid color-mix(in oklab, var(--warning) 40%, transparent);
     border-radius: var(--radius-sm);
-    background: color-mix(in oklab, var(--success) 12%, transparent);
-    color: color-mix(in oklab, var(--success) 78%, white);
+    background: color-mix(in oklab, var(--warning) 12%, transparent);
+    color: color-mix(in oklab, var(--warning) 82%, white);
     padding: 0.08rem 0.32rem;
     font-family: var(--font-display);
     font-size: 0.62rem;
