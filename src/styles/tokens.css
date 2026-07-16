@@ -25,6 +25,7 @@
   --radius-lg: 0.62rem;
   --radius-xl: 0.78rem;
   --ui-panel-bg: var(--bg-surface);
+  --ui-modal-bg: var(--bg-surface);
   --ui-panel-border: var(--border);
   --ui-panel-shadow: none;
   --ui-control-bg: var(--bg-raised);

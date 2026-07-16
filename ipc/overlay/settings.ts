@@ -215,6 +215,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       rivenOverlayEnabled: booleanSetting("rivenOverlayEnabled"),
       arbiSummaryOverlayEnabled: booleanSetting("arbiSummaryOverlayEnabled"),
       arbiTrackingEnabled: booleanSetting("arbiTrackingEnabled"),
+      ocrDebugImagesEnabled: booleanSetting("ocrDebugImagesEnabled"),
       overlayScale: normalizeOverlayScale(candidate.overlayScale, defaults.overlayScale),
       overlayWindowScales: normalizeWindowScales(candidate.overlayWindowScales),
       overlayWindowBounds: normalizeSavedBounds(candidate.overlayWindowBounds),

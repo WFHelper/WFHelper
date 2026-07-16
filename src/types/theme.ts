@@ -110,6 +110,7 @@ export const THEME_EFFECT_CSS_MAP = {
   panelBg: "--ui-panel-bg",
   panelBorder: "--ui-panel-border",
   panelShadow: "--ui-panel-shadow",
+  modalBg: "--ui-modal-bg",
   controlBg: "--ui-control-bg",
   controlBorder: "--ui-control-border",
   backdropBlur: "--ui-backdrop-blur",

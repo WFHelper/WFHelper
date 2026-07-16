@@ -12,6 +12,17 @@ const log = withScope("rewardScanDebug");
 
 const MAX_BUNDLES = 25;
 
+// Off by default - debug images stay off disk unless the user opts in.
+let _dumpsEnabled = false;
+
+export function setOcrDebugDumpsEnabled(enabled: boolean): void {
+  _dumpsEnabled = enabled;
+}
+
+export function areOcrDebugDumpsEnabled(): boolean {
+  return _dumpsEnabled;
+}
+
 export interface ScanDebugSlot {
   index: number;
   stripPng: Buffer | null;
@@ -76,6 +87,7 @@ export function dumpRewardScanDebug(
   slots: ScanDebugSlot[],
   meta: Record<string, unknown>,
 ): void {
+  if (!_dumpsEnabled) return;
   void (async () => {
     try {
       const root = getScanDebugDir();

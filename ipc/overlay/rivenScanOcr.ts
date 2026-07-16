@@ -1,6 +1,7 @@
 import type { NativeImage } from "electron";
 
 import { withScope } from "../../services/logger";
+import { areOcrDebugDumpsEnabled } from "../../services/rewardScanDebug";
 import { sleep } from "../../services/rewardScannerUtils";
 import {
   hasLowConfidenceLine,
@@ -65,6 +66,7 @@ function logScanTiming(label: string, t: RivenScanTiming): void {
 const DEBUG_DUMP_KEEP = 10;
 
 function dumpFailedScanCrops(label: string, cardCrop: NativeImage, statCrop: NativeImage): void {
+  if (!areOcrDebugDumpsEnabled()) return;
   try {
     const { app } = require("electron") as typeof import("electron");
     const fs = require("node:fs") as typeof import("node:fs");

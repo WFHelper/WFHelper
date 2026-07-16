@@ -6,6 +6,7 @@ import path from "node:path";
 import {
   dumpRewardScanDebug,
   pruneScanDebugBundles,
+  setOcrDebugDumpsEnabled,
   setScanDebugDirForTest,
 } from "../../services/rewardScanDebug";
 
@@ -14,10 +15,12 @@ let dir: string;
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "wfh-scan-debug-"));
   setScanDebugDirForTest(dir);
+  setOcrDebugDumpsEnabled(true);
 });
 
 afterEach(() => {
   setScanDebugDirForTest(null);
+  setOcrDebugDumpsEnabled(false);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -51,6 +54,13 @@ describe("pruneScanDebugBundles", () => {
 });
 
 describe("dumpRewardScanDebug", () => {
+  it("is a no-op while dumps are disabled", async () => {
+    setOcrDebugDumpsEnabled(false);
+    dumpRewardScanDebug("empty-slots", [], { reader: "both" });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(fs.readdirSync(dir)).toEqual([]);
+  });
+
   it("writes strips plus meta, omitting buffers from the json", async () => {
     dumpRewardScanDebug(
       "empty-slots",

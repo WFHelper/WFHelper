@@ -11,6 +11,8 @@
     target?: string;
     /** Round cutout for small square targets like icon buttons. */
     circle?: boolean;
+    /** Clicks and typing pass through the spotlight so the feature can be tried live. */
+    interactive?: boolean;
     /** Runs after navigation, e.g. to switch a sub-tab. */
     prepare?: () => void;
   }
@@ -45,6 +47,7 @@
       view: "world",
       target: '[data-tour="arbi-filters"]',
       text: "The upcoming arbitration schedule. Pick nodes on the left to narrow it down.",
+      interactive: true,
       prepare: () => {
         localStorage.setItem("world-tab", "arbis");
         clickContentButton("Arbitrations");
@@ -68,6 +71,7 @@
       view: "relics",
       target: '[data-tour="relic-tiers"]',
       text: "How many of each tier you own. In the Owned quality mode, click Int/Ex/Fl/Rad to pick which tier the value above prices.",
+      interactive: true,
     },
     {
       view: "market",
@@ -75,7 +79,7 @@
     },
     {
       view: "rivens",
-      text: "Rivens you scan in-game land here, every stat graded against its possible range.",
+      text: "All your owned Rivens. Click one for a detailed stat view.",
     },
     {
       view: "arbi",
@@ -84,6 +88,7 @@
     {
       view: "wiki",
       text: "Search the drop tables. Type an item to see where it drops.",
+      interactive: true,
     },
     {
       view: "settings",
@@ -150,7 +155,18 @@
   }
 
   function onKeydown(event: KeyboardEvent): void {
-    if (event.key === "Escape") endTour();
+    if (event.key === "Escape") {
+      endTour();
+      return;
+    }
+    // typing into a spotlighted input must not advance the tour
+    const target = event.target as HTMLElement | null;
+    if (
+      target &&
+      (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
+    ) {
+      return;
+    }
     if (event.key === "ArrowRight" || event.key === "Enter") nextStep();
     if (event.key === "ArrowLeft") backStep();
   }
@@ -193,8 +209,8 @@
   });
 </script>
 
-<div class="fixed inset-0 z-[300]">
-  <svg class="absolute inset-0 h-full w-full" width={winW} height={winH}>
+<div class="pointer-events-none fixed inset-0 z-[300]">
+  <svg class="pointer-events-none absolute inset-0 h-full w-full" width={winW} height={winH}>
     <defs>
       <mask id="tour-mask">
         <rect x="0" y="0" width="100%" height="100%" fill="white" />
@@ -228,9 +244,19 @@
     {/if}
   </svg>
 
+  {#if step.interactive && rect}
+    <!-- block everything except the spotlight so only the featured UI is live -->
+    <div class="pointer-events-auto absolute inset-x-0 top-0" style="height: {Math.max(0, rect.y)}px;"></div>
+    <div class="pointer-events-auto absolute inset-x-0 bottom-0" style="top: {rect.y + rect.h}px;"></div>
+    <div class="pointer-events-auto absolute left-0" style="top: {rect.y}px; height: {rect.h}px; width: {Math.max(0, rect.x)}px;"></div>
+    <div class="pointer-events-auto absolute right-0" style="top: {rect.y}px; height: {rect.h}px; left: {rect.x + rect.w}px;"></div>
+  {:else}
+    <div class="pointer-events-auto absolute inset-0"></div>
+  {/if}
+
   <div
     bind:clientHeight={cardH}
-    class="absolute flex flex-col gap-2 rounded-xl border border-border bg-bg-surface p-4"
+    class="pointer-events-auto absolute flex flex-col gap-2 rounded-xl border border-border bg-bg-surface p-4"
     style="left: {cardX}px; top: {cardY}px; width: {CARD_W}px;"
   >
     <div class="flex items-center justify-between gap-3">
@@ -238,6 +264,9 @@
       <span class="text-xs text-text-muted">{index + 1} / {steps.length}</span>
     </div>
     <p class="m-0 text-sm leading-snug text-text-primary">{step.text}</p>
+    {#if step.interactive}
+      <p class="m-0 text-xs font-semibold text-accent">The highlighted area is live - try it.</p>
+    {/if}
     <div class="mt-1 flex items-center justify-between">
       <button class="btn-secondary btn-sm" on:click={endTour}>Skip tour</button>
       <div class="flex gap-2">

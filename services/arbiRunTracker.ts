@@ -103,6 +103,12 @@ function _loadIndex(): void {
     );
   } catch (err) {
     log.warn("[Arbi] Failed to load run index:", normalizeErrorMessage(err));
+    try {
+      // keep the unreadable file so the next save cannot clobber the only copy
+      fs.renameSync(_indexPath(), `${_indexPath()}.corrupt-${Date.now()}`);
+    } catch {
+      // rename is best effort
+    }
     _runs = [];
   }
 }
@@ -366,6 +372,7 @@ export function initArbiTracker(): void {
   _loadIndex();
   _salvageStalePartials();
   _initialized = true;
+  log.info(`[Arbi] Tracker ready: ${_runs.length} run(s) loaded from index`);
 }
 
 export function getRuns(): ArbiRunRecord[] {

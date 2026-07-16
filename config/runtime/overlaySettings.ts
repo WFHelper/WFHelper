@@ -44,6 +44,8 @@ export interface OverlaySettings {
   rivenOverlayEnabled: boolean;
   arbiSummaryOverlayEnabled: boolean;
   arbiTrackingEnabled: boolean;
+  /** Save failed-scan OCR images (riven crops, reward scan-debug bundles) to disk. */
+  ocrDebugImagesEnabled: boolean;
   overlayScale: number;
   /** Per-window scale override; windows without an entry use overlayScale. */
   overlayWindowScales: Partial<Record<OverlayWindowKey, number>>;
@@ -80,6 +82,7 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   rivenOverlayEnabled: true,
   arbiSummaryOverlayEnabled: true,
   arbiTrackingEnabled: true,
+  ocrDebugImagesEnabled: false,
   overlayScale: 1,
   overlayWindowScales: Object.freeze({}),
   overlayWindowBounds: Object.freeze({}),

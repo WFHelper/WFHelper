@@ -13,6 +13,7 @@ import * as rivenOverlayIpc from "./rivenOverlayIpc";
 import * as rewardOverlayIpc from "./rewardOverlayIpc";
 import * as arbiOverlayIpc from "./arbiOverlayIpc";
 import * as arbiRunTracker from "../services/arbiRunTracker";
+import { setOcrDebugDumpsEnabled } from "../services/rewardScanDebug";
 import {
   isArbiSummaryOverlayEnabled,
   isRelicRecommendationOverlayEnabled,
@@ -383,6 +384,7 @@ function register(): void {
       settingsController.registerOverlayHotkey();
       applyOverlayAvailabilitySettings();
       arbiRunTracker.setArbiTrackingEnabled(settings.arbiTrackingEnabled !== false);
+      setOcrDebugDumpsEnabled(settings.ocrDebugImagesEnabled === true);
       rewardOverlayIpc.rewardWindowsController.positionOverlayWindow(
         rewardOverlayIpc.rewardWindowsController.getAnchorMeta(),
       );

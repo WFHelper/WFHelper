@@ -596,7 +596,7 @@
     overflow-y: auto;
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
-    background: var(--bg-surface);
+    background: var(--ui-modal-bg);
     box-shadow: var(--ui-panel-shadow);
     backdrop-filter: var(--ui-backdrop-blur);
     animation: detail-slide-in 0.15s ease-out;

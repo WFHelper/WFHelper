@@ -73,6 +73,7 @@
   let rivenOverlayEnabled = OVERLAY_DEFAULTS.rivenOverlayEnabled;
   let arbiSummaryOverlayEnabled = OVERLAY_DEFAULTS.arbiSummaryOverlayEnabled;
   let arbiTrackingEnabled = OVERLAY_DEFAULTS.arbiTrackingEnabled;
+  let ocrDebugImagesEnabled = OVERLAY_DEFAULTS.ocrDebugImagesEnabled;
   let overlayScale = OVERLAY_DEFAULTS.overlayScale;
   let hotkeyEnabled = OVERLAY_DEFAULTS.hotkeyEnabled;
   let hotkey = OVERLAY_DEFAULTS.hotkey;
@@ -100,6 +101,7 @@
     arbiSummaryOverlayEnabled =
       s.arbiSummaryOverlayEnabled ?? OVERLAY_DEFAULTS.arbiSummaryOverlayEnabled;
     arbiTrackingEnabled = s.arbiTrackingEnabled ?? OVERLAY_DEFAULTS.arbiTrackingEnabled;
+    ocrDebugImagesEnabled = s.ocrDebugImagesEnabled ?? OVERLAY_DEFAULTS.ocrDebugImagesEnabled;
     overlayScale = s.overlayScale ?? OVERLAY_DEFAULTS.overlayScale;
     windowScales = { ...(s.overlayWindowScales || {}) };
     hotkeyEnabled = !!s.hotkeyEnabled;
@@ -135,6 +137,7 @@
       rivenOverlayEnabled,
       arbiSummaryOverlayEnabled,
       arbiTrackingEnabled,
+      ocrDebugImagesEnabled,
       hotkeyEnabled,
       hotkey,
       interactionHotkeyEnabled,
@@ -430,6 +433,22 @@
               on:change={autoSave}
               class="accent-accent"
             />
+          </label>
+        </div>
+      </article>
+
+      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+        <div>
+          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Scan diagnostics</h3>
+          <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
+            Failed scans can save their crops to the scan-debug folder for bug reports. Images never leave this PC.
+          </p>
+        </div>
+
+        <div class="mt-2.5 grid gap-1">
+          <label class="settings-control-row">
+            <span>Save OCR debug images on failed scans</span>
+            <input type="checkbox" bind:checked={ocrDebugImagesEnabled} on:change={autoSave} class="accent-accent" />
           </label>
         </div>
       </article>

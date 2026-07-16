@@ -64,6 +64,7 @@ export interface OverlaySettings {
   rivenOverlayEnabled: boolean;
   arbiSummaryOverlayEnabled: boolean;
   arbiTrackingEnabled: boolean;
+  ocrDebugImagesEnabled: boolean;
   overlayScale: number;
   overlayWindowScales: Partial<Record<OverlayWindowKey, number>>;
   overlayWindowBounds: Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>>;

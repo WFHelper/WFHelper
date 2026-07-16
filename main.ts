@@ -44,6 +44,7 @@ import {
 } from "./config/shared/ipcChannels";
 import * as statsTracker from "./services/statsTracker";
 import * as arbiRunTracker from "./services/arbiRunTracker";
+import { setOcrDebugDumpsEnabled } from "./services/rewardScanDebug";
 import * as arbiIpc from "./ipc/arbiIpc";
 import * as arbiScheduleIpc from "./ipc/arbiScheduleIpc";
 import * as tradeTracker from "./services/tradeTracker";
@@ -173,6 +174,11 @@ app.whenReady().then(async () => {
     log.info(`[StartupProfile][main] ${label}: ${Date.now() - startedAt}ms`);
   };
 
+  log.info(
+    `[Startup] userData: ${app.getPath("userData")}` +
+      (process.env.WFHELPER_USER_DATA ? " (WFHELPER_USER_DATA override)" : ""),
+  );
+
   const settingsStart = Date.now();
   overlayIpc.loadOverlaySettings();
   profileStage("overlay-settings:load", settingsStart);
@@ -182,6 +188,7 @@ app.whenReady().then(async () => {
   tradeTracker.loadTradeLog();
   arbiRunTracker.initArbiTracker();
   arbiRunTracker.setArbiTrackingEnabled(ctx.overlaySettings.arbiTrackingEnabled !== false);
+  setOcrDebugDumpsEnabled(ctx.overlaySettings.ocrDebugImagesEnabled === true);
   inventoryIpc.addInventoryListener((data: Record<string, unknown>) => {
     statsTracker.onInventoryData(data);
   });

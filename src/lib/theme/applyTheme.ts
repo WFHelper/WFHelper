@@ -59,6 +59,7 @@ function applyEffectTokens(root: HTMLElement, effects: ThemeEffects): void {
   root.style.setProperty(THEME_EFFECT_CSS_MAP.controlBg, surface.controlBg);
   root.style.setProperty(THEME_EFFECT_CSS_MAP.controlBorder, surface.controlBorder);
   root.style.setProperty(THEME_EFFECT_CSS_MAP.backdropBlur, surface.backdropBlur);
+  root.style.setProperty(THEME_EFFECT_CSS_MAP.modalBg, surface.modalBg);
 }
 
 function resolveRadii(
@@ -97,6 +98,7 @@ function resolveSurfaceTokens(effects: ThemeEffects): {
   controlBg: string;
   controlBorder: string;
   backdropBlur: string;
+  modalBg: string;
 } {
   if (effects.surfaceStyle === "minimal") {
     return {
@@ -106,6 +108,7 @@ function resolveSurfaceTokens(effects: ThemeEffects): {
       controlBg: "var(--bg-surface)",
       controlBorder: "var(--border)",
       backdropBlur: "none",
+      modalBg: "var(--bg-surface)",
     };
   }
 
@@ -117,6 +120,7 @@ function resolveSurfaceTokens(effects: ThemeEffects): {
       controlBg: "transparent",
       controlBorder: "var(--border)",
       backdropBlur: "none",
+      modalBg: "var(--bg-surface)",
     };
   }
 
@@ -128,6 +132,8 @@ function resolveSurfaceTokens(effects: ThemeEffects): {
       controlBg: "color-mix(in srgb, var(--bg-raised) 72%, transparent)",
       controlBorder: "color-mix(in srgb, var(--border) 90%, transparent)",
       backdropBlur: "blur(10px)",
+      // modals float over dimmed content, so keep them mostly opaque for readability
+      modalBg: "color-mix(in srgb, var(--bg-surface) 82%, transparent)",
     };
   }
 
@@ -138,6 +144,7 @@ function resolveSurfaceTokens(effects: ThemeEffects): {
     controlBg: "var(--bg-raised)",
     controlBorder: "var(--border)",
     backdropBlur: "none",
+    modalBg: "var(--bg-surface)",
   };
 }
 
