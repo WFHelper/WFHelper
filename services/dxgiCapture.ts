@@ -98,7 +98,7 @@ function ensureGdi(): boolean {
  *
  * Returns BGRA pixel data or `null` on failure.
  */
-export interface GameWindowRect {
+interface GameWindowRect {
   x: number;
   y: number;
   width: number;

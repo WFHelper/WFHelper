@@ -6,18 +6,18 @@ import path from "node:path";
 import {
   dumpRewardScanDebug,
   pruneScanDebugBundles,
-  setScanDebugDirForTests,
+  setScanDebugDirForTest,
 } from "../../services/rewardScanDebug";
 
 let dir: string;
 
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "wfh-scan-debug-"));
-  setScanDebugDirForTests(dir);
+  setScanDebugDirForTest(dir);
 });
 
 afterEach(() => {
-  setScanDebugDirForTests(null);
+  setScanDebugDirForTest(null);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 

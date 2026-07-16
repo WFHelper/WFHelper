@@ -26,7 +26,7 @@ export interface ScanDebugSlot {
 let _dirOverride: string | null = null;
 
 /** Test hook - point the dump root somewhere writable without electron. */
-export function setScanDebugDirForTests(dir: string | null): void {
+export function setScanDebugDirForTest(dir: string | null): void {
   _dirOverride = dir;
 }
 

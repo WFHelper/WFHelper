@@ -339,7 +339,7 @@ async function extractAndUpscaleCrops(
 }
 
 /** Per-line OCR result with confidence score. */
-export interface OcrLineResult {
+interface OcrLineResult {
   text: string;
   confidence: number;
 }

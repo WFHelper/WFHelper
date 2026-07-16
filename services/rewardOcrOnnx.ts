@@ -107,12 +107,12 @@ export function cleanOnnxRowText(text: string): string {
     .trim();
 }
 
-export interface RewardStripRow {
+interface RewardStripRow {
   text: string;
   confidence: number;
 }
 
-export interface RewardStripRead {
+interface RewardStripRead {
   text: string;
   rows: RewardStripRow[];
 }
