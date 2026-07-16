@@ -619,7 +619,7 @@
       </div>
     </div>
   {:else}
-  <div class="mx-auto my-8 flex min-h-[520px] max-w-[900px] overflow-hidden rounded-xl border border-border bg-bg-surface">
+  <div class="mx-auto my-8 flex min-h-[620px] w-full max-w-[1080px] overflow-hidden rounded-xl border border-border bg-bg-surface">
     <div class="setup-left flex w-[190px] shrink-0 flex-col items-center border-r border-border bg-gradient-to-b from-bg-deep to-bg-raised px-4 pb-6 pt-7">
       <div class="setup-logo">
         <img src={APP_LOGO_URL} alt="App Logo" class="h-14 w-14 object-contain" />

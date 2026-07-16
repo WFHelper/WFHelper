@@ -24,6 +24,10 @@
     align-items: center;
     justify-content: center;
   }
+  /* Flex centering shrinks the view to fit; full width lets the wizard's max-w apply. */
+  #content.setup-active > .view {
+    width: 100%;
+  }
   .view {
     display: block;
     animation: fade-in 0.18s ease;

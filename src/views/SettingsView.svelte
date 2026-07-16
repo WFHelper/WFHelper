@@ -40,6 +40,27 @@
     if (!isError) statusTimer = setTimeout(() => (statusMsg = ""), 2000);
   }
 
+  type OverlayWindowKey = "reward" | "planner" | "rivenLeft" | "rivenRight" | "arbiSummary";
+  const OVERLAY_SCALE_ROWS: Array<{ key: OverlayWindowKey; label: string }> = [
+    { key: "reward", label: "Relic rewards size" },
+    { key: "planner", label: "Relic recommendation size" },
+    { key: "rivenLeft", label: "Riven overlay (left) size" },
+    { key: "rivenRight", label: "Riven overlay (right) size" },
+    { key: "arbiSummary", label: "Arbitration summary size" },
+  ];
+  let windowScales: Partial<Record<OverlayWindowKey, number>> = {};
+
+  // Same channel the setup wizard uses: persists overlayWindowScales + live-applies.
+  async function saveWindowScale(key: OverlayWindowKey, value: number): Promise<void> {
+    windowScales = { ...windowScales, [key]: value };
+    try {
+      const result = await invoke("saveOverlayScale", key, value);
+      if (!result?.ok) flashStatus($tr("settings.saveFailed"), true);
+    } catch {
+      flashStatus($tr("settings.saveFailed"), true);
+    }
+  }
+
   let autoTrigger = OVERLAY_DEFAULTS.autoTriggerEnabled;
   let notificationSoundEnabled = OVERLAY_DEFAULTS.notificationSoundEnabled;
   let wfmNotificationsEnabled = OVERLAY_DEFAULTS.wfmNotificationsEnabled;
@@ -80,6 +101,7 @@
       s.arbiSummaryOverlayEnabled ?? OVERLAY_DEFAULTS.arbiSummaryOverlayEnabled;
     arbiTrackingEnabled = s.arbiTrackingEnabled ?? OVERLAY_DEFAULTS.arbiTrackingEnabled;
     overlayScale = s.overlayScale ?? OVERLAY_DEFAULTS.overlayScale;
+    windowScales = { ...(s.overlayWindowScales || {}) };
     hotkeyEnabled = !!s.hotkeyEnabled;
     hotkey = s.hotkey || OVERLAY_DEFAULTS.hotkey;
     interactionHotkeyEnabled = !!s.interactionHotkeyEnabled;
@@ -113,7 +135,6 @@
       rivenOverlayEnabled,
       arbiSummaryOverlayEnabled,
       arbiTrackingEnabled,
-      overlayScale: Number(overlayScale),
       hotkeyEnabled,
       hotkey,
       interactionHotkeyEnabled,
@@ -425,21 +446,23 @@
             <input type="checkbox" bind:checked={autoTrigger} on:change={autoSave} class="accent-accent" />
           </label>
 
-          <label class="settings-control-row settings-control-row-input">
-            <span>Overlay size</span>
-            <div class="settings-range-control">
-              <input
-                type="range"
-                min="0.75"
-                max="1.5"
-                step="0.05"
-                bind:value={overlayScale}
-                on:change={autoSave}
-                class="settings-range"
-              />
-              <span class="settings-range-value">{Math.round(Number(overlayScale) * 100)}%</span>
-            </div>
-          </label>
+          {#each OVERLAY_SCALE_ROWS as row (row.key)}
+            <label class="settings-control-row settings-control-row-input">
+              <span>{row.label}</span>
+              <div class="settings-range-control">
+                <input
+                  type="range"
+                  min="0.75"
+                  max="1.5"
+                  step="0.05"
+                  value={windowScales[row.key] ?? overlayScale}
+                  on:change={(e) => saveWindowScale(row.key, Number(e.currentTarget.value))}
+                  class="settings-range"
+                />
+                <span class="settings-range-value">{Math.round((windowScales[row.key] ?? overlayScale) * 100)}%</span>
+              </div>
+            </label>
+          {/each}
 
           <label class="settings-control-row">
             <span>{$tr("settings.hotkeyFallback")}</span>

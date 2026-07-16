@@ -65,12 +65,17 @@
       text: "Every relic you own, what's inside and what it's worth.",
     },
     {
+      view: "relics",
+      target: '[data-tour="relic-tiers"]',
+      text: "How many of each tier you own. In the Owned quality mode, click Int/Ex/Fl/Rad to pick which tier the value above prices.",
+    },
+    {
       view: "market",
       text: "Your warframe.market orders. Detected trades can unlist sold items for you.",
     },
     {
       view: "rivens",
-      text: "Rivens you scan in-game land here, with similar market rolls for comparison.",
+      text: "Rivens you scan in-game land here, every stat graded against its possible range.",
     },
     {
       view: "arbi",
