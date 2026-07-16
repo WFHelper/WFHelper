@@ -56,9 +56,11 @@ const SCREENS = [
       3: "Wukong Prime Chassis Blueprint",
     },
   },
+  // Windows band-OCR drops interior words on merged-wrap strips (can
+  // exact-match a shorter real item), so these pin onnx + both.
   {
     file: "real-3p.png",
-    info: GEOMETRY_NOTE,
+    readers: ["onnx", "both"],
     expect: {
       0: "Forma Blueprint",
       1: "Caliban Prime Neuroptics Blueprint",
@@ -67,10 +69,59 @@ const SCREENS = [
   },
   {
     file: "real-2p.png",
-    info: GEOMETRY_NOTE,
+    readers: ["onnx", "both"],
     expect: { 0: "Braton Prime Stock", 1: "Trumna Prime Blueprint" },
   },
+  // Real full screenshots - local-only (player names, never committed),
+  // skipped when absent. Windows OCR alone loses bright-art and 25px strips.
+  {
+    file: "real-full-2p.png",
+    fixture: true,
+    readers: ["onnx", "both"],
+    expect: { 0: "Khora Prime Systems Blueprint", 1: "Fang Prime Handle" },
+  },
+  {
+    file: "real-full-4p-1080x607.png",
+    fixture: true,
+    readers: ["onnx", "both"],
+    expect: {
+      0: "Okina Prime Handle",
+      1: "Velox Prime Barrel",
+      2: "Caliban Prime Blueprint",
+      3: "Grendel Prime Blueprint",
+    },
+  },
+  {
+    file: "real-full-1p-windowed.png",
+    fixture: true,
+    info: "1-choice windowed: no fixed 1-slot layout, different vertical anchor - dynamic/text-fallback only",
+    expect: { 0: "Lavos Prime Blueprint" },
+  },
+  {
+    file: "real-full-4p-oldui90.png",
+    fixture: true,
+    info: "older squad-row reward UI at ~90% pitch + lower title band - needs visual strip detection (phase 2)",
+    expect: {
+      0: "Rhino Prime Systems Blueprint",
+      1: "Paris Prime Blueprint",
+      2: "Lex Prime Barrel",
+      3: "Braton Prime Blueprint",
+    },
+  },
+  {
+    file: "real-full-4p-16x10.png",
+    fixture: true,
+    info: "16:10-ish crop of unknown source resolution - ratios do not apply cleanly",
+    expect: {
+      0: "Forma Blueprint",
+      1: "Forma Blueprint",
+      2: "Forma Blueprint",
+      3: "Forma Blueprint",
+    },
+  },
 ];
+
+const FIXTURE_SCREEN_DIR = path.join(__dirname, "fixtures", "screens");
 
 (async () => {
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "wfh-scan-e2e-"));
@@ -141,9 +192,13 @@ const SCREENS = [
     for (const screen of SCREENS) {
       if (screen.synthetic && !syntheticOk) continue;
       // gating screens must pass through every reader in isolation and combined
-      const readers = screen.info ? ["both"] : ["windows", "onnx", "both"];
+      // unless the screen pins its readers (windows band-OCR known-weak cases)
+      const readers = screen.readers || (screen.info ? ["both"] : ["windows", "onnx", "both"]);
+      const screenPath = screen.fixture
+        ? path.join(FIXTURE_SCREEN_DIR, screen.file)
+        : path.join(screenDir, screen.file);
       for (const reader of readers) {
-        const result = await scanImage(path.join(screenDir, screen.file), scannerPath, reader);
+        const result = await scanImage(screenPath, scannerPath, reader);
         const bySlot = new Map((result?.items || []).map((it) => [it.slotIndex, it.name]));
         console.log(
           `[${screen.file}][${reader}] strategy=${result?.meta?.strategy ?? "none"} items=` +

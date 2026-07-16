@@ -8,10 +8,11 @@ const CROP_DIR = path.join(__dirname, "fixtures", "slot-crops");
 
 const W = 1920;
 const H = 1080;
-// mirrors FIXED_REWARD_LAYOUTS in services/rewardScannerImage.ts
+// Card scaffolds follow FIXED_REWARD_LAYOUTS; title crops composite at their
+// filename coordinates (the true screen positions of the captured pixels).
 const LAYOUTS = {
-  2: [{ x: 710, w: 326 }, { x: 1037, w: 326 }],
-  3: [{ x: 557, w: 288 }, { x: 845, w: 288 }, { x: 1133, w: 288 }],
+  2: [{ x: 721, w: 234 }, { x: 965, w: 234 }],
+  3: [{ x: 599, w: 234 }, { x: 843, w: 234 }, { x: 1087, w: 234 }],
   4: [{ x: 470, w: 234 }, { x: 714, w: 234 }, { x: 958, w: 234 }, { x: 1202, w: 234 }],
 };
 const SLOT_Y = 243;

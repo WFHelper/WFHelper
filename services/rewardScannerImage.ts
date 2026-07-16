@@ -250,17 +250,19 @@ interface RewardSlotLayout {
 
 const SLOT_LAYOUT_REGION = Object.freeze({ x: 0.03, y: 0.37, width: 0.94, height: 0.34 });
 
+// Cards are 0.122W wide on a 0.127W pitch centered at x=0.5 for every choice
+// count (measured on real 1080p screens).
 const FIXED_REWARD_LAYOUTS: Readonly<
   Record<number, Array<{ x: number; y: number; width: number; height: number }>>
 > = Object.freeze({
   2: [
-    { x: 0.37, y: 0.225, width: 0.17, height: 0.225 },
-    { x: 0.54, y: 0.225, width: 0.17, height: 0.225 },
+    { x: 0.3755, y: 0.225, width: 0.122, height: 0.225 },
+    { x: 0.5025, y: 0.225, width: 0.122, height: 0.225 },
   ],
   3: [
-    { x: 0.29, y: 0.225, width: 0.15, height: 0.225 },
-    { x: 0.44, y: 0.225, width: 0.15, height: 0.225 },
-    { x: 0.59, y: 0.225, width: 0.15, height: 0.225 },
+    { x: 0.312, y: 0.225, width: 0.122, height: 0.225 },
+    { x: 0.439, y: 0.225, width: 0.122, height: 0.225 },
+    { x: 0.566, y: 0.225, width: 0.122, height: 0.225 },
   ],
   4: [
     { x: 0.245, y: 0.225, width: 0.122, height: 0.225 },
