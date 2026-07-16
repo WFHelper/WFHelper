@@ -98,6 +98,53 @@ describe("matchSingleRewardTextDetailed", () => {
     }
   });
 
+  it("lifts a full name wrapped in noise over the gate (quantity prefix, neighbor bleed)", () => {
+    // real crops: "2 X Forma Blueprint" and "Braton Prime Stock Trumna"
+    const r1 = rankRewardCandidatesDetailed("2x Forma Blueprint", ITEMS, 4);
+    expect(r1[0].item?.name).toBe("Forma Blueprint");
+    expect(r1[0].confidence).toBeGreaterThanOrEqual(0.92);
+
+    const r2 = rankRewardCandidatesDetailed("Braton Prime Stock Trumna", ITEMS, 4);
+    expect(r2[0].item?.name).toBe("Braton Prime Stock");
+    expect(r2[0].confidence).toBeGreaterThanOrEqual(0.92);
+  });
+
+  it("does not boost when the text contains two full item names", () => {
+    const ranked = rankRewardCandidatesDetailed("Forma Blueprint Braton Prime Stock", ITEMS, 4);
+    for (const candidate of ranked) {
+      expect(candidate.confidence).toBeLessThan(0.92);
+    }
+  });
+
+  it("lifts a read that lost an interior word when it is an unambiguous subsequence", () => {
+    // real crop: glare ate "Prime" -> "Wukon Chassis" + "ålueprint" joins to this
+    const pool = [
+      { name: "Wukong Prime Chassis Blueprint" },
+      { name: "Wukong Prime Blueprint" },
+      ...ITEMS,
+    ];
+    const ranked = rankRewardCandidatesDetailed("Wukong Chassis Blueprint", pool, 4);
+    expect(ranked[0].item?.name).toBe("Wukong Prime Chassis Blueprint");
+    expect(ranked[0].confidence).toBeGreaterThanOrEqual(0.92);
+
+    // literal pipeline read of the same crop: aliases don't know "lueorint"
+    const corrupted = rankRewardCandidatesDetailed("Wukon Chassis ålueorint", pool, 4);
+    expect(corrupted[0].item?.name).toBe("Wukong Prime Chassis Blueprint");
+    expect(corrupted[0].confidence).toBeGreaterThanOrEqual(0.92);
+  });
+
+  it("keeps ambiguous subsequences below the gate", () => {
+    // dropped frame name: could be any "* Prime Chassis Blueprint"
+    const pool = [
+      { name: "Wukong Prime Chassis Blueprint" },
+      { name: "Yareli Prime Chassis Blueprint" },
+    ];
+    const ranked = rankRewardCandidatesDetailed("Prime Chassis Blueprint", pool, 4);
+    for (const candidate of ranked) {
+      expect(candidate.confidence).toBeLessThan(0.92);
+    }
+  });
+
   it("corrects common OCR misreads via expanded token aliases", () => {
     // "prlme" -> "prime", "bluedrint" -> "blueprint"
     const r1 = matchSingleRewardTextDetailed("Rhino Prlme BlueDrint", ITEMS);

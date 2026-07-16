@@ -239,36 +239,74 @@ function normalizeRewardText(text: string): string {
     .trim();
 }
 
-// A wrapped card name often OCRs as just its first line ("Yareli Prime Chassis"
-// for "Yareli Prime Chassis Blueprint"). Such a clean prefix ranks substring at
-// the 0.88 floor and dies at the slot gate (0.92); when it identifies exactly
-// one item, lift it over the gate. Ambiguous prefixes ("Braton Prime") stay put.
-const UNIQUE_PREFIX_CONFIDENCE = 0.93;
+// Partial reads (wrapped first line, quantity prefix noise, glare-eaten word)
+// rank below the slot gate. When a read structurally identifies exactly ONE
+// item - name prefix, contained full name, or ordered word-subsequence with
+// decent coverage - lift it over the gate; ambiguity leaves the gate in force.
+const UNIQUE_STRUCTURAL_CONFIDENCE = 0.93;
 
-function boostUniquePrefixCandidate(
+// Word-level tolerance mirrors the fuzzy pass: OCR corruptions the alias table
+// doesn't know ("lueorint" for "Blueprint") must not break structural matching.
+function wordsEquivalent(textWord: string, nameWord: string): boolean {
+  if (textWord === nameWord) return true;
+  return similarityScore(textWord, nameWord) >= (nameWord.length >= 7 ? 0.7 : 0.78);
+}
+
+function isOrderedWordSubsequence(textWords: string[], nameWords: string[]): boolean {
+  let nameIndex = 0;
+  for (const word of textWords) {
+    while (nameIndex < nameWords.length && !wordsEquivalent(word, nameWords[nameIndex])) {
+      nameIndex += 1;
+    }
+    if (nameIndex >= nameWords.length) return false;
+    nameIndex += 1;
+  }
+  return true;
+}
+
+function boostUniqueStructuralCandidate(
   ranked: SingleItemMatchResult[],
   text: string,
-  textWordCount: number,
+  textWords: string[],
 ): void {
-  if (textWordCount < 2) return;
+  if (textWords.length < 2) return;
   if (ranked.some((entry) => entry.mode === "exact")) return;
 
-  // Every name that starts with the text also contains it, so all prefix
-  // competitors are already present as substring entries.
-  const prefixEntries = ranked.filter(
-    (entry) =>
-      entry.mode === "substring" &&
-      entry.item &&
-      normalizeRewardText(entry.item.name).startsWith(`${text} `),
-  );
-  if (prefixEntries.length !== 1) return;
+  // Competitors are always present in `ranked`: containment implies a substring
+  // entry, and subsequence coverage >= 0.6 clears the fuzzy word-ratio floor.
+  // Keyed by name so duplicate pool entries don't fake ambiguity.
+  const prefixHits = new Map<string, SingleItemMatchResult>();
+  const containsHits = new Map<string, SingleItemMatchResult>();
+  const subsequenceHits = new Map<string, SingleItemMatchResult>();
+  for (const entry of ranked) {
+    if (!entry.item) continue;
+    const normalizedName = normalizeRewardText(entry.item.name);
+    if (entry.mode === "substring" && normalizedName.startsWith(`${text} `)) {
+      prefixHits.set(normalizedName, entry);
+    } else if (entry.mode === "substring" && containsRewardPhrase(text, normalizedName)) {
+      containsHits.set(normalizedName, entry);
+    } else {
+      const nameWords = normalizedName.split(" ").filter((word) => word.length > 1);
+      if (
+        nameWords.length > textWords.length &&
+        textWords.length / nameWords.length >= 0.6 &&
+        isOrderedWordSubsequence(textWords, nameWords)
+      ) {
+        subsequenceHits.set(normalizedName, entry);
+      }
+    }
+  }
 
-  const entry = prefixEntries[0];
-  if (!entry.item || entry.confidence >= UNIQUE_PREFIX_CONFIDENCE) return;
-  entry.confidence = UNIQUE_PREFIX_CONFIDENCE;
-  entry.item.confidence = UNIQUE_PREFIX_CONFIDENCE;
+  // Strongest available signal decides; an ambiguous tier blocks the boost.
+  const tier = [prefixHits, containsHits, subsequenceHits].find((hits) => hits.size > 0);
+  if (!tier || tier.size !== 1) return;
+
+  const entry = tier.values().next().value as SingleItemMatchResult;
+  if (!entry.item || entry.confidence >= UNIQUE_STRUCTURAL_CONFIDENCE) return;
+  entry.confidence = UNIQUE_STRUCTURAL_CONFIDENCE;
+  entry.item.confidence = UNIQUE_STRUCTURAL_CONFIDENCE;
   const normalizedName = normalizeRewardText(entry.item.name);
-  entry.score = 400 + UNIQUE_PREFIX_CONFIDENCE * 92 + Math.min(8, normalizedName.length / 4);
+  entry.score = 400 + UNIQUE_STRUCTURAL_CONFIDENCE * 92 + Math.min(8, normalizedName.length / 4);
 }
 
 export function rankRewardCandidatesDetailed(
@@ -352,7 +390,7 @@ export function rankRewardCandidatesDetailed(
     });
   }
 
-  boostUniquePrefixCandidate(ranked, text, textWords.length);
+  boostUniqueStructuralCandidate(ranked, text, textWords);
 
   ranked.sort(
     (a, b) =>
