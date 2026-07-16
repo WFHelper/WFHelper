@@ -273,7 +273,7 @@ async function yoloDetectStatLines(
 const MAX_STAT_CROP_HEIGHT = 80;
 const MIN_OCR_WIDTH = 1200;
 
-interface RgbCrop {
+export interface RgbCrop {
   data: Buffer;
   width: number;
   height: number;
@@ -339,9 +339,22 @@ async function extractAndUpscaleCrops(
 }
 
 /** Per-line OCR result with confidence score. */
-interface OcrLineResult {
+export interface OcrLineResult {
   text: string;
   confidence: number;
+}
+
+/** True when the PaddleOCR recognizer model + dict are on disk (YOLO not required). */
+export function paddleRecognizerAvailable(): boolean {
+  return (
+    existsSync(resolveRuntimeResourcePath(...CH_REC_MODEL_PARTS)) &&
+    existsSync(resolveRuntimeResourcePath(...CH_DICT_PARTS))
+  );
+}
+
+/** Run the shared PaddleOCR recognizer on raw RGB crops (used by the reward scanner too). */
+export function recognizePaddleCrops(crops: RgbCrop[]): Promise<OcrLineResult[]> {
+  return recognizeCropsBatch(crops);
 }
 
 /**

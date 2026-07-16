@@ -106,21 +106,27 @@ const SCREENS = [
   const app = await _electron.launch({ args: ["--no-sandbox", ROOT], env });
   const failures = [];
 
-  async function scanImage(imgPath, scannerPath) {
+  async function scanImage(imgPath, scannerPath, reader) {
     // retries cover the relic item list still loading at boot
     for (let attempt = 0; attempt < 15; attempt++) {
       const result = await app.evaluate(async ({ nativeImage }, p) => {
         const scanner = process.mainModule.require(p.scannerPath);
         const image = nativeImage.createFromPath(p.imgPath);
         if (image.isEmpty()) return { error: "image failed to load" };
-        return scanner.scanRewardsDetailed({
-          image,
-          sourceType: "file",
-          sourceName: "scan-e2e",
-          sourceId: null,
-          sourceDisplayId: null,
-        });
-      }, { imgPath, scannerPath });
+        // same frame is scanned once per reader - the dedup cache would
+        // otherwise return the first reader's result for the rest
+        scanner.resetFrameDedup();
+        return scanner.scanRewardsDetailed(
+          {
+            image,
+            sourceType: "file",
+            sourceName: "scan-e2e",
+            sourceId: null,
+            sourceDisplayId: null,
+          },
+          { reader: p.reader },
+        );
+      }, { imgPath, scannerPath, reader });
       if (result && !result.error && Array.isArray(result.items)) return result;
       if (result?.error) throw new Error(result.error);
       await new Promise((r) => setTimeout(r, 2000));
@@ -134,19 +140,25 @@ const SCREENS = [
 
     for (const screen of SCREENS) {
       if (screen.synthetic && !syntheticOk) continue;
-      const result = await scanImage(path.join(screenDir, screen.file), scannerPath);
-      const bySlot = new Map((result?.items || []).map((it) => [it.slotIndex, it.name]));
-      console.log(
-        `[${screen.file}] strategy=${result?.meta?.strategy ?? "none"} items=` +
-          JSON.stringify((result?.items || []).map((it) => ({ name: it.name, slot: it.slotIndex }))),
-      );
+      // gating screens must pass through every reader in isolation and combined
+      const readers = screen.info ? ["both"] : ["windows", "onnx", "both"];
+      for (const reader of readers) {
+        const result = await scanImage(path.join(screenDir, screen.file), scannerPath, reader);
+        const bySlot = new Map((result?.items || []).map((it) => [it.slotIndex, it.name]));
+        console.log(
+          `[${screen.file}][${reader}] strategy=${result?.meta?.strategy ?? "none"} items=` +
+            JSON.stringify((result?.items || []).map((it) => ({ name: it.name, slot: it.slotIndex }))),
+        );
 
-      for (const [slot, expected] of Object.entries(screen.expect)) {
-        const actual = bySlot.get(Number(slot)) || null;
-        const ok = actual === expected;
-        const tag = screen.info ? "INFO" : ok ? "PASS" : "FAIL";
-        console.log(`${tag}: ${screen.file} slot ${Number(slot) + 1} ${expected} -> ${actual ?? "(none)"}`);
-        if (!ok && !screen.info) failures.push(`${screen.file} slot ${Number(slot) + 1}`);
+        for (const [slot, expected] of Object.entries(screen.expect)) {
+          const actual = bySlot.get(Number(slot)) || null;
+          const ok = actual === expected;
+          const tag = screen.info ? "INFO" : ok ? "PASS" : "FAIL";
+          console.log(
+            `${tag}: ${screen.file} [${reader}] slot ${Number(slot) + 1} ${expected} -> ${actual ?? "(none)"}`,
+          );
+          if (!ok && !screen.info) failures.push(`${screen.file}[${reader}] slot ${Number(slot) + 1}`);
+        }
       }
       if (screen.info) console.log(`NOTE: ${screen.file} not gating - ${screen.info}`);
     }

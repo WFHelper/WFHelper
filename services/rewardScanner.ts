@@ -18,6 +18,7 @@ import {
   type RewardScanSettings,
 } from "./rewardScannerPipeline";
 import type { SortedItem } from "./rewardScannerMatch";
+import type { RewardReader } from "./rewardScannerSlotScan";
 
 export { captureSourceMeta } from "./rewardScannerCapture";
 export { resetFrameDedup };
@@ -53,7 +54,10 @@ export function detectRelicSelectionEra(
   return detectRelicSelectionEraWithOcr(options, { runOCR, runOCRBuffer }, REWARD_SCAN_SETTINGS);
 }
 
-export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null): Promise<{
+export async function scanRewardsDetailed(
+  preCapture?: PreCaptureResult | null,
+  scanOptions?: { reader?: RewardReader },
+): Promise<{
   items: SortedItem[];
   meta: Record<string, unknown>;
 } | null> {
@@ -67,5 +71,6 @@ export async function scanRewardsDetailed(preCapture?: PreCaptureResult | null):
     sortedItems,
     settings: REWARD_SCAN_SETTINGS,
     runOCRStructuredBuffer,
+    reader: scanOptions?.reader,
   });
 }

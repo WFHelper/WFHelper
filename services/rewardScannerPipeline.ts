@@ -7,7 +7,11 @@ import { withScope } from "./logger";
 import { captureScreenFast, type CaptureResult } from "./rewardScannerCapture";
 import { buildOcrVariants, cropRewardBand, detectConsoleOpen } from "./rewardScannerImage";
 import { matchItemsDetailed, MAX_REWARD_SLOTS, type SortedItem } from "./rewardScannerMatch";
-import { scanRewardSlotsFallback, type StructuredOcrBufferRunner } from "./rewardScannerSlotScan";
+import {
+  scanRewardSlotsFallback,
+  type RewardReader,
+  type StructuredOcrBufferRunner,
+} from "./rewardScannerSlotScan";
 import { CROP_PRESETS, SCANNER_TUNING } from "./rewardScannerSupport";
 import { round4 } from "./rewardScannerUtils";
 
@@ -45,6 +49,7 @@ interface RewardScanPipelineOptions {
   sortedItems: SortedItem[];
   settings: RewardScanSettings;
   runOCRStructuredBuffer: StructuredOcrBufferRunner;
+  reader?: RewardReader;
 }
 
 type Screenshot = CaptureResult | PreCaptureResult;
@@ -236,6 +241,7 @@ export async function runRewardScanPipeline({
   sortedItems,
   settings,
   runOCRStructuredBuffer,
+  reader,
 }: RewardScanPipelineOptions): Promise<{
   items: SortedItem[];
   meta: Record<string, unknown>;
@@ -280,7 +286,7 @@ export async function runRewardScanPipeline({
     MAX_REWARD_SLOTS,
     totalBudgetMs,
     scanStartedAt,
-    { sortedItems, ocrTimeoutMs: settings.ocrTimeoutMs, runOCRStructuredBuffer },
+    { sortedItems, ocrTimeoutMs: settings.ocrTimeoutMs, runOCRStructuredBuffer, reader },
   );
 
   let items: SortedItem[] = slotResult?.items ? slotResult.items.slice(0, MAX_REWARD_SLOTS) : [];
@@ -297,14 +303,19 @@ export async function runRewardScanPipeline({
         items.map((item) => item.name).join(" | "),
     );
   } else {
-    const fallback = await scanRewardFallbackText(screenshot, {
-      sortedItems,
-      threshold: settings.matchThreshold,
-      ocrTimeoutMs: settings.ocrTimeoutMs,
-      budgetMs: totalBudgetMs,
-      startedAt: scanStartedAt,
-      runOCRStructuredBuffer,
-    });
+    // The text fallback is a Windows-OCR band read; skip it when the caller
+    // pinned the onnx reader (harness isolation).
+    const fallback =
+      reader === "onnx"
+        ? { items: [] as SortedItem[], score: 0, exactCount: 0 }
+        : await scanRewardFallbackText(screenshot, {
+            sortedItems,
+            threshold: settings.matchThreshold,
+            ocrTimeoutMs: settings.ocrTimeoutMs,
+            budgetMs: totalBudgetMs,
+            startedAt: scanStartedAt,
+            runOCRStructuredBuffer,
+          });
     if (fallback.items.length > 0) {
       items = fallback.items;
       strategy = "text-fallback";

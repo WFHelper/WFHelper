@@ -1,6 +1,7 @@
 import type { NativeImage } from "electron";
 
 import { binarizeRewardRegion, cropRect, detectRewardSlotLayoutCandidates } from "./rewardScannerImage";
+import { recognizeRewardStripOnnx, rewardOcrOnnxAvailable } from "./rewardOcrOnnx";
 import {
   MAX_REWARD_SLOTS,
   rankRewardCandidatesDetailed,
@@ -44,6 +45,9 @@ export type StructuredOcrBufferRunner = (
   buffer: Buffer,
   timeoutMs: number,
 ) => Promise<StructuredOcrResult>;
+
+/** Which OCR reader(s) feed slot candidates; "both" is production behavior. */
+export type RewardReader = "windows" | "onnx" | "both";
 
 function isUsableSlotCandidate(candidate: SlotCandidate): boolean {
   if (!candidate?.item?.name) return false;
@@ -106,6 +110,7 @@ export async function scanRewardSlotsFallback(
     sortedItems: SortedItem[];
     ocrTimeoutMs: number;
     runOCRStructuredBuffer: StructuredOcrBufferRunner;
+    reader?: RewardReader;
   },
 ): Promise<SlotScanResult | null> {
   const layouts = detectRewardSlotLayoutCandidates(screenshot?.image)
@@ -132,18 +137,37 @@ export async function scanRewardSlotsFallback(
 
         const cropPng: Buffer = crop.toPNG();
         const timeout = Math.max(500, Math.min(options.ocrTimeoutMs, remainingBudgetMs));
+        const reader = options.reader || "both";
 
         // Names wrap to two lines in 3/4-player layouts: OCR each band plus the whole
         // crop, bands overlap so the wrap point doesn't cut a glyph.
-        const topText = await ocrRewardRegion(cropPng, 0, 0.58, options, timeout);
-        const bottomText = await ocrRewardRegion(cropPng, 0.42, 0.58, options, timeout);
-        const wholeText = await ocrRewardRegion(cropPng, 0, 1, options, timeout);
+        let joined = "";
+        let wholeClean = "";
+        if (reader !== "onnx") {
+          const topText = await ocrRewardRegion(cropPng, 0, 0.58, options, timeout);
+          const bottomText = await ocrRewardRegion(cropPng, 0.42, 0.58, options, timeout);
+          const wholeText = await ocrRewardRegion(cropPng, 0, 1, options, timeout);
+          joined = joinRewardLines(topText, bottomText);
+          wholeClean = cleanRewardOcrText(wholeText);
+        }
+
+        // Second independent read of the same strip; both readers feed one
+        // candidate pool and the match ranking arbitrates.
+        let onnxClean = "";
+        if (reader !== "windows" && rewardOcrOnnxAvailable()) {
+          const onnxRead = await recognizeRewardStripOnnx(cropPng);
+          onnxClean = cleanRewardOcrText(onnxRead?.text || "");
+        }
 
         const candidateTexts = new Set<string>();
-        const joined = joinRewardLines(topText, bottomText);
         if (joined) candidateTexts.add(joined);
-        const wholeClean = cleanRewardOcrText(wholeText);
         if (wholeClean) candidateTexts.add(wholeClean);
+        if (onnxClean) candidateTexts.add(onnxClean);
+        if (onnxClean && (joined || wholeClean) && onnxClean !== joined && onnxClean !== wholeClean) {
+          log.info(
+            `[RewardScanner] Slot ${i + 1} reads diverge: windows="${wholeClean || joined}" onnx="${onnxClean}"`,
+          );
+        }
 
         const rankedCandidates: SlotCandidate[] = [];
         let bestRejected: SlotCandidate | null = null;

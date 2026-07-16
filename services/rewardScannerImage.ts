@@ -564,7 +564,7 @@ export function detectConsoleOpen(nativeImage: NativeImage): boolean {
 }
 
 // Otsu threshold: adapts to the crop's brightness instead of a fixed cutoff.
-function otsuThreshold(gray: Buffer | Uint8Array): number {
+export function otsuThreshold(gray: Buffer | Uint8Array): number {
   const hist = new Array<number>(256).fill(0);
   for (let i = 0; i < gray.length; i++) hist[gray[i]] += 1;
   const total = gray.length;
