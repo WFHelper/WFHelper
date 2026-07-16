@@ -68,8 +68,13 @@
   // entry (mods, arcanes, raw blueprints) stay non-clickable.
   $: nameIndex = buildItemNameIndex($itemDb);
 
+  // Bundled rows like "2x Orokin Cell" carry a quantity prefix the db lacks.
+  function stripQuantityPrefix(name: string): string {
+    return name.replace(/^\d+\s*x\s+/i, "");
+  }
+
   function openItem(name: string): void {
-    const uniqueName = nameIndex.get(name);
+    const uniqueName = nameIndex.get(name) ?? nameIndex.get(stripQuantityPrefix(name));
     if (!uniqueName) return;
     const entry = $itemDb[uniqueName];
     if (!entry) return;
@@ -138,7 +143,7 @@
             {#each rows as row (row.item + "|" + row.place + "|" + row.rarity + "|" + row.chance)}
               <tr class="border-t border-border/60 hover:bg-bg-hover">
                 <td class="px-3 py-1.5">
-                  {#if nameIndex.has(row.item)}
+                  {#if nameIndex.has(row.item) || nameIndex.has(stripQuantityPrefix(row.item))}
                     <button
                       type="button"
                       class="cursor-pointer border-0 bg-transparent p-0 text-left text-text-primary hover:text-accent hover:underline"

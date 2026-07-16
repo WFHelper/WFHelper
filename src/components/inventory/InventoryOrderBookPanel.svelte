@@ -3,6 +3,9 @@
 
   import ItemImage from "../ItemImage.svelte";
   import InventoryOrderBookSide from "./InventoryOrderBookSide.svelte";
+  import { activeItem } from "../../stores/modals.js";
+  import { itemDb, componentOwnership } from "../../stores/data.js";
+  import { buildParsedItemFromDb } from "../../lib/parsedItemFromDb.js";
   import { invoke, send } from "../../lib/ipc.js";
   import { isIpcError as isLookupError } from "../../lib/ipcGuards.js";
   import { useInterval } from "../../lib/timers.js";
@@ -80,6 +83,15 @@
       return true;
     };
   })();
+
+  $: panelDbEntry = item ? ($itemDb || {})[item.internalName] : null;
+  $: parentUniqueName = panelDbEntry?.isBuildComponent ? panelDbEntry.componentOf || null : null;
+  $: parentEntry = parentUniqueName ? ($itemDb || {})[parentUniqueName] || null : null;
+
+  function openParentItem(): void {
+    if (!parentUniqueName || !parentEntry) return;
+    activeItem.set(buildParsedItemFromDb(parentUniqueName, parentEntry, $componentOwnership));
+  }
 
   $: isRankedListingItem = isRankedGroup(item?.inventoryGroup);
   $: itemRankValue = normalizeRankFilter(item?.rank);
@@ -377,7 +389,19 @@
         <ItemImage src={item.displayImageUrl} alt={item.name} cls="max-h-full max-w-full" />
       </div>
       <div class="inventory-orderbook-item-meta">
-        <div class="font-display text-sm font-semibold text-text-primary overflow-hidden text-ellipsis whitespace-nowrap">{item.name}</div>
+        <div class="flex min-w-0 items-center gap-2">
+          <div class="font-display text-sm font-semibold text-text-primary overflow-hidden text-ellipsis whitespace-nowrap">{item.name}</div>
+          {#if parentEntry?.name}
+            <button
+              type="button"
+              class="shrink-0 cursor-pointer rounded border border-border-subtle bg-transparent px-1.5 py-0.5 text-xs text-text-secondary transition-colors duration-150 hover:border-accent hover:text-accent"
+              title="Open {parentEntry.name}"
+              on:click={openParentItem}
+            >
+              Part of: {parentEntry.name}
+            </button>
+          {/if}
+        </div>
         <div class="flex items-center justify-between gap-2 text-xs text-text-secondary">
           <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
             x{item.amount} · {item.categoryLabel}{#if requestRank != null} · Viewing R{requestRank}{/if}

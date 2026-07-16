@@ -33,6 +33,8 @@
 
   $: itemKey = item?.uniqueName || item?.internalName || "";
   $: dbEntry = itemKey ? ($itemDb || {})[itemKey] : null;
+  $: parentUniqueName = dbEntry?.isBuildComponent ? dbEntry.componentOf || null : null;
+  $: parentEntry = parentUniqueName ? ($itemDb || {})[parentUniqueName] || null : null;
   $: hasCraftingTree = !!dbEntry?.recipe;
   $: craftingTree = hasCraftingTree && showCraftingTree
     ? buildCraftingTree(itemKey, $itemDb || {}, $componentOwnership)
@@ -88,6 +90,13 @@
     if (selectedComp) closeCompPanel();
     else if (showCraftingTree) showCraftingTree = false;
     else close();
+  }
+
+  function openParentItem() {
+    if (!item || !parentUniqueName || !parentEntry) return;
+    navigationStack = [...navigationStack, { item, showCraftingTree }];
+    internalNavigation = true;
+    activeItem.set(buildParsedItemFromDb(parentUniqueName, parentEntry, $componentOwnership));
   }
 
   function openCraftingTreeItem(uniqueName: string) {
@@ -174,6 +183,16 @@
                 {#if item.status === 'missing'}<span class="detail-tag missing">MISSING</span>{/if}
                 {#if item.categoryLabel || item.category}
                   <span class="detail-meta-inline">{item.categoryLabel || item.category}</span>
+                {/if}
+                {#if parentEntry?.name}
+                  <button
+                    type="button"
+                    class="cursor-pointer rounded border border-border-subtle bg-transparent px-2 py-0.5 font-display text-xs text-text-secondary transition-colors duration-150 hover:border-accent hover:bg-surface-hover hover:text-accent"
+                    title="Open {parentEntry.name}"
+                    on:click={openParentItem}
+                  >
+                    Part of: {parentEntry.name}
+                  </button>
                 {/if}
               </div>
               {#if item.description}
