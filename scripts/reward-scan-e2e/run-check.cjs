@@ -92,6 +92,18 @@ const SCREENS = [
     },
   },
   {
+    // fps-counter noise top+bottom + wrapped title; windows-solo reads 2/4
+    file: "real-full-4p-fps.png",
+    fixture: true,
+    readers: ["onnx", "both"],
+    expect: {
+      0: "Xaku Prime Chassis Blueprint",
+      1: "Bronco Prime Receiver",
+      2: "Paris Prime Lower Limb",
+      3: "Vadarya Prime Barrel",
+    },
+  },
+  {
     file: "real-full-1p-windowed.png",
     fixture: true,
     info: "raw window capture incl. titlebar - the live app crops captures to the game client rect (koffi); sim-client-* screens below gate that post-crop frame",

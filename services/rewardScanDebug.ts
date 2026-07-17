@@ -78,8 +78,8 @@ function stampNow(): string {
 }
 
 /**
- * Fire-and-forget dump. Strips only - never the full frame (it can contain
- * squad member names).
+ * Strips only (full frames can contain squad names). Writes stay sync on
+ * copied buffers - async fs on nativeImage-derived buffers races rapid scans.
  */
 export function dumpRewardScanDebug(
   reason: string,
@@ -87,30 +87,24 @@ export function dumpRewardScanDebug(
   meta: Record<string, unknown>,
 ): void {
   if (!_dumpsEnabled) return;
-  void (async () => {
-    try {
-      const root = getScanDebugDir();
-      const dir = path.join(root, stampNow());
-      await fs.promises.mkdir(dir, { recursive: true });
-      for (const slot of slots) {
-        if (slot.stripPng) {
-          await fs.promises.writeFile(path.join(dir, `slot${slot.index + 1}.png`), slot.stripPng);
-        }
+  try {
+    const root = getScanDebugDir();
+    const dir = path.join(root, stampNow());
+    fs.mkdirSync(dir, { recursive: true });
+    for (const slot of slots) {
+      if (slot.stripPng) {
+        fs.writeFileSync(path.join(dir, `slot${slot.index + 1}.png`), Buffer.from(slot.stripPng));
       }
-      const metaOut = {
-        reason,
-        ...meta,
-        slots: slots.map(({ stripPng, ...rest }) => ({ ...rest, hasStrip: !!stripPng })),
-      };
-      await fs.promises.writeFile(
-        path.join(dir, "meta.json"),
-        JSON.stringify(metaOut, null, 2),
-        "utf8",
-      );
-      pruneScanDebugBundles(root, MAX_BUNDLES);
-      log.info(`[ScanDebug] saved ${reason} bundle: ${dir}`);
-    } catch (err) {
-      log.warn("[ScanDebug] dump failed:", normalizeErrorMessage(err));
     }
-  })();
+    const metaOut = {
+      reason,
+      ...meta,
+      slots: slots.map(({ stripPng, ...rest }) => ({ ...rest, hasStrip: !!stripPng })),
+    };
+    fs.writeFileSync(path.join(dir, "meta.json"), JSON.stringify(metaOut, null, 2), "utf8");
+    pruneScanDebugBundles(root, MAX_BUNDLES);
+    log.info(`[ScanDebug] saved ${reason} bundle: ${dir}`);
+  } catch (err) {
+    log.warn("[ScanDebug] dump failed:", normalizeErrorMessage(err));
+  }
 }
