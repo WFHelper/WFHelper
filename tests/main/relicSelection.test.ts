@@ -134,7 +134,12 @@ describe("relic selection planner", () => {
     });
 
     const sentEvents: Array<{ channel: string; payload: unknown }> = [];
-    const ocrSpy = vi.fn(async () => ({ era: "Lith", confidence: 1 }));
+    const ocrSpy = vi.fn(
+      async (): Promise<{ era: string | null; confidence: number; candidateId?: string }> => ({
+        era: "Lith",
+        confidence: 1,
+      }),
+    );
     const group = (name: string, tier: string, slug: string) => ({
       key: name,
       name,
@@ -198,7 +203,7 @@ describe("relic selection planner", () => {
     return { controller, ocrSpy, lastRecommendation };
   }
 
-  it("omnia mission tag recommends every era and never consults OCR", async () => {
+  it("omnia mission tag recommends every era; tile-style OCR cannot override it", async () => {
     const { controller, ocrSpy, lastRecommendation } = makeTwoEraController();
 
     controller.setActiveMissionTag("VoidT6");
@@ -211,7 +216,26 @@ describe("relic selection planner", () => {
       "1x Lith Test Intact",
       "1x Neo Test Intact",
     ]);
-    expect(ocrSpy).not.toHaveBeenCalled();
+    // tag set -> only the cheap label recheck runs; its lith answer carries no
+    // filter-label candidate, so the tag stands
+    expect(ocrSpy).toHaveBeenCalledWith(expect.objectContaining({ labelOnly: true }));
+  });
+
+  it("stale mission tag yields to a confident filter-label read", async () => {
+    const { controller, ocrSpy, lastRecommendation } = makeTwoEraController();
+    ocrSpy.mockResolvedValue({ era: "omnia", confidence: 1, candidateId: "filter-label" });
+
+    controller.setActiveMissionTag("VoidT1"); // lith tag lingering from the last mission
+    await controller.onRelicSelectionTrigger("manual");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const payload = lastRecommendation();
+    expect(payload.era).toBe("omnia");
+    expect(payload.rows?.map((row) => row.label).sort()).toEqual([
+      "1x Lith Test Intact",
+      "1x Neo Test Intact",
+    ]);
+    expect(ocrSpy).toHaveBeenCalledWith(expect.objectContaining({ labelOnly: true }));
   });
 
   it("void tag era survives picker close; non-fissure tag falls back to OCR", async () => {
@@ -226,7 +250,10 @@ describe("relic selection planner", () => {
     await controller.onRelicSelectionTrigger("manual");
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(lastRecommendation().rows?.map((row) => row.label)).toEqual(["1x Neo Test Intact"]);
-    expect(ocrSpy).not.toHaveBeenCalled();
+    // while the tag rules, OCR is only consulted as the label-only recheck
+    for (const call of ocrSpy.mock.calls) {
+      expect(call).toEqual([expect.objectContaining({ labelOnly: true })]);
+    }
 
     controller.setActiveMissionTag("EntratiHubKey");
     controller.resetMissionTier();

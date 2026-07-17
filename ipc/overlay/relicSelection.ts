@@ -111,6 +111,7 @@ type OverlayRecommendationControllerOptions = {
     detectRelicSelectionEra?: (options?: {
       timeoutMs?: number;
       preferredDisplayId?: string | null;
+      labelOnly?: boolean;
     }) => Promise<{
       era?: string | null;
       confidence?: number;
@@ -623,7 +624,42 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         log.info(
           `[RelicSelection] mission tier ${logMissionTier ? "from EE.log tag" : "cache hit"}: ${era} (age ${Math.round(cacheAge / 1000)}s)`,
         );
-        if (typeof rewardScanner.captureSourceMeta === "function") {
+        if (logMissionTier && typeof rewardScanner.detectRelicSelectionEra === "function") {
+          // The tag outlives its mission (no orbiter line clears it), so a lith
+          // tag can linger into an omnia equip screen. The filter-tab label is
+          // the truth for the pick on screen: a confident read overrides the
+          // tag, a miss (mid-mission screens have no tabs) keeps it.
+          const labelDetection = await rewardScanner.detectRelicSelectionEra({
+            timeoutMs: ERA_DETECTION_TIMEOUT_MS,
+            preferredDisplayId,
+            labelOnly: true,
+          });
+          if (scanToken !== activeScanToken) return;
+
+          if (labelDetection?.sourceDisplayId) {
+            windows.setAnchorMeta({ sourceDisplayId: labelDetection.sourceDisplayId });
+            preferredDisplayId = String(labelDetection.sourceDisplayId);
+            lastKnownGameDisplayId = preferredDisplayId;
+            windows.positionOverlayWindow(windows.getAnchorMeta());
+          }
+
+          const labelEra = normalizeEra(labelDetection?.era || null);
+          const labelConfidence = toFiniteOr(labelDetection?.confidence, 0);
+          if (
+            labelEra &&
+            labelConfidence >= 0.9 &&
+            labelDetection?.candidateId === "filter-label" &&
+            labelEra !== era
+          ) {
+            log.info(
+              `[RelicSelection] filter label overrides mission tag: tag=${era} label=${labelEra}`,
+            );
+            era = labelEra;
+            eraConfidence = labelConfidence;
+            activeMissionTier = era;
+            activeMissionTierSetAt = Date.now();
+          }
+        } else if (typeof rewardScanner.captureSourceMeta === "function") {
           const captureMetaStartedAt = Date.now();
           try {
             const sourceMeta = await rewardScanner.captureSourceMeta({ preferredDisplayId });

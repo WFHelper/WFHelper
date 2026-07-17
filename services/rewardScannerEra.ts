@@ -275,7 +275,7 @@ async function scanHeaderBands(
 }
 
 export async function detectRelicSelectionEra(
-  options: { timeoutMs?: number; preferredDisplayId?: string | null } = {},
+  options: { timeoutMs?: number; preferredDisplayId?: string | null; labelOnly?: boolean } = {},
   ocr: {
     runOCR: (imagePath: string, timeoutMs: number) => Promise<string>;
     runOCRBuffer: (buffer: Buffer, timeoutMs: number) => Promise<string>;
@@ -313,12 +313,14 @@ export async function detectRelicSelectionEra(
   // confidently read the wrong era there. A confident label hit is final.
   let best = await scanFilterLabel(screenshot, timeoutMs, perAttemptTimeoutMs, startedAt, ocr);
 
-  if (best.confidence < 0.9) {
+  // labelOnly: recheck pass while a mission tag is already known - tile/band
+  // text must not masquerade as a label there, so skip the fallbacks entirely.
+  if (!options.labelOnly && best.confidence < 0.9) {
     const tileBest = await scanTileLabels(screenshot, timeoutMs, perAttemptTimeoutMs, startedAt, ocr);
     if (tileBest.confidence > best.confidence) best = tileBest;
   }
 
-  if (best.confidence < 0.9) {
+  if (!options.labelOnly && best.confidence < 0.9) {
     const headerBest = await scanHeaderBands(
       screenshot,
       timeoutMs,

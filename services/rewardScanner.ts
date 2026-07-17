@@ -49,7 +49,7 @@ export function setRelicItems(items: SortedItem[]): void {
 }
 
 export function detectRelicSelectionEra(
-  options: { timeoutMs?: number; preferredDisplayId?: string | null } = {},
+  options: { timeoutMs?: number; preferredDisplayId?: string | null; labelOnly?: boolean } = {},
 ): ReturnType<typeof detectRelicSelectionEraWithOcr> {
   return detectRelicSelectionEraWithOcr(options, { runOCR, runOCRBuffer }, REWARD_SCAN_SETTINGS);
 }
