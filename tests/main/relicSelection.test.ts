@@ -120,4 +120,119 @@ describe("relic selection planner", () => {
     expect(recommendation.rows?.[0]?.platEv).toBe(15);
     expect(recommendation.rows?.[0]?.ducatEv).toBe(100);
   });
+
+  function makeTwoEraController() {
+    const cacheFilePath = makeTempSnapshot({
+      version: 1,
+      generatedAt: Date.now(),
+      prices: {
+        lith_prize_blueprint: { status: "ok", median: 5, timestamp: Date.now() },
+        akarius_prime_blueprint: { status: "ok", median: 15, timestamp: Date.now() },
+      },
+      meta: {},
+      orderSummaries: {},
+    });
+
+    const sentEvents: Array<{ channel: string; payload: unknown }> = [];
+    const ocrSpy = vi.fn(async () => ({ era: "Lith", confidence: 1 }));
+    const group = (name: string, tier: string, slug: string) => ({
+      key: name,
+      name,
+      tier,
+      qualities: {
+        intact: {
+          rewards: [{ chance: 100, urlName: slug, ducats: null, rarity: "Rare" }],
+        },
+      },
+    });
+    const controller = createRelicSelectionController({
+      log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      ctx: {
+        overlaySettings: { autoTriggerEnabled: true } as OverlaySettings,
+        currentInventoryData: {
+          LevelKeys: [
+            { ItemType: "/Lotus/Types/Game/Projections/LithTestIntact", ItemCount: 1 },
+            { ItemType: "/Lotus/Types/Game/Projections/NeoTestIntact", ItemCount: 1 },
+          ],
+        },
+      },
+      windows: {
+        createOverlayWindow: vi.fn(),
+        clearOverlayAutoHideTimer: vi.fn(),
+        scheduleOverlayAutoHide: vi.fn(),
+        sendOverlayEvent: (channel, payload) => sentEvents.push({ channel, payload }),
+        positionOverlayWindow: vi.fn(),
+        getAnchorMeta: () => null,
+        setAnchorMeta: vi.fn(),
+      },
+      relicService: {
+        getRelicDatabase: () => ({
+          groups: {
+            "Lith Test": group("Lith Test", "Lith", "lith_prize_blueprint"),
+            "Neo Test": group("Neo Test", "Neo", "akarius_prime_blueprint"),
+          },
+          byUniqueName: {
+            "/Lotus/Types/Game/Projections/LithTestIntact": {
+              groupKey: "Lith Test",
+              quality: "intact",
+            },
+            "/Lotus/Types/Game/Projections/NeoTestIntact": {
+              groupKey: "Neo Test",
+              quality: "intact",
+            },
+          },
+        }),
+      },
+      rewardScanner: { detectRelicSelectionEra: ocrSpy },
+      wfmStatsPrice: { getCachedPriceBySlug: vi.fn() },
+      fs,
+      cacheFilePath,
+    });
+
+    const lastRecommendation = () =>
+      sentEvents.filter((event) => event.channel === RELIC_RECOMMENDATIONS).at(-1)?.payload as {
+        era?: string | null;
+        rows?: Array<{ label: string }>;
+      };
+
+    return { controller, ocrSpy, lastRecommendation };
+  }
+
+  it("omnia mission tag recommends every era and never consults OCR", async () => {
+    const { controller, ocrSpy, lastRecommendation } = makeTwoEraController();
+
+    controller.setActiveMissionTag("VoidT6");
+    await controller.onRelicSelectionTrigger("manual");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const payload = lastRecommendation();
+    expect(payload.era).toBe("omnia");
+    expect(payload.rows?.map((row) => row.label).sort()).toEqual([
+      "1x Lith Test Intact",
+      "1x Neo Test Intact",
+    ]);
+    expect(ocrSpy).not.toHaveBeenCalled();
+  });
+
+  it("void tag era survives picker close; non-fissure tag falls back to OCR", async () => {
+    const { controller, ocrSpy, lastRecommendation } = makeTwoEraController();
+
+    controller.setActiveMissionTag("VoidT3");
+    await controller.onRelicSelectionTrigger("manual");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(lastRecommendation().rows?.map((row) => row.label)).toEqual(["1x Neo Test Intact"]);
+
+    controller.resetMissionTier();
+    await controller.onRelicSelectionTrigger("manual");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(lastRecommendation().rows?.map((row) => row.label)).toEqual(["1x Neo Test Intact"]);
+    expect(ocrSpy).not.toHaveBeenCalled();
+
+    controller.setActiveMissionTag("EntratiHubKey");
+    controller.resetMissionTier();
+    await controller.onRelicSelectionTrigger("manual");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(ocrSpy).toHaveBeenCalled();
+    expect(lastRecommendation().rows?.map((row) => row.label)).toEqual(["1x Lith Test Intact"]);
+  });
 });

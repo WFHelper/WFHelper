@@ -114,8 +114,21 @@ let relicPickerCloseCallback: (() => void) | null = null;
 let tradePartnerCallback: ((username: string) => void) | null = null;
 let tradeConfirmedCallback: ((trade: ParsedLogTrade) => void) | null = null;
 let messageCallback: ((playerName: string) => void) | null = null;
+let activeMissionTagCallback: ((tag: string) => void) | null = null;
 
 export { RIVEN_PATTERNS, forceEndRivenSession };
+
+// Mission-info dumps print the fissure tier when a mission loads:
+//   activeMissionTag=VoidT6           (key=value block)
+//   "activeMissionTag" : "VoidT6",    (JSON block)
+// VoidT1-5 map to relic eras; VoidT6 is an omnia fissure (any era).
+const ACTIVE_MISSION_TAG_PATTERN = /(?:^|["\s])activeMissionTag["\s]*[=:]\s*"?([A-Za-z0-9_]+)/;
+
+export function parseActiveMissionTag(line: string): string | null {
+  if (!line.includes("activeMissionTag")) return null;
+  const match = ACTIVE_MISSION_TAG_PATTERN.exec(line);
+  return match ? match[1] : null;
+}
 
 
 interface ParsedLogTradeItem {
@@ -289,6 +302,14 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
     }
   }
 
+  if (activeMissionTagCallback) {
+    const missionTag = parseActiveMissionTag(line);
+    if (missionTag) {
+      log.info("[EELog] activeMissionTag:", missionTag);
+      activeMissionTagCallback(missionTag);
+    }
+  }
+
   // Start buffering on the dialog description line.
   // Stop buffering when a new log-framework prefix appears ([Info]/[Error]/[Warning]).
   // Single-line dialogs (ending with leftItem=/Menu/Confirm_Item_Ok) are handled immediately.
@@ -445,6 +466,7 @@ interface EeLogHandlers {
   onTradingPartner?: ((username: string) => void) | null;
   onTradeConfirmed?: ((trade: ParsedLogTrade) => void) | null;
   onInGameMessage?: ((playerName: string) => void) | null;
+  onActiveMissionTag?: ((tag: string) => void) | null;
   onRivenSessionOpen?: (() => void) | null;
   onRivenSessionClose?: (() => void) | null;
   onRivenRollPending?: ((weapon: string, kuvaPerRoll: number) => void) | null;
@@ -468,6 +490,7 @@ const NULL_EE_LOG_HANDLERS: NormalizedEeLogHandlers = {
   onTradingPartner: null,
   onTradeConfirmed: null,
   onInGameMessage: null,
+  onActiveMissionTag: null,
   onRivenSessionOpen: null,
   onRivenSessionClose: null,
   onRivenRollPending: null,
@@ -503,6 +526,7 @@ function normalizeHandlers(
     onTradingPartner: asFunction(handlers.onTradingPartner),
     onTradeConfirmed: asFunction(handlers.onTradeConfirmed),
     onInGameMessage: asFunction(handlers.onInGameMessage),
+    onActiveMissionTag: asFunction(handlers.onActiveMissionTag),
     onRivenSessionOpen: asFunction(handlers.onRivenSessionOpen),
     onRivenSessionClose: asFunction(handlers.onRivenSessionClose),
     onRivenRollPending: asFunction(handlers.onRivenRollPending),
@@ -536,6 +560,7 @@ export function startWatching(
   tradePartnerCallback = normalized.onTradingPartner;
   tradeConfirmedCallback = normalized.onTradeConfirmed;
   messageCallback = normalized.onInGameMessage;
+  activeMissionTagCallback = normalized.onActiveMissionTag;
   setRivenCallbacks({
     onRivenSessionOpen: normalized.onRivenSessionOpen,
     onRivenSessionClose: normalized.onRivenSessionClose,

@@ -352,6 +352,7 @@ app.whenReady().then(async () => {
     onRewardUiReady: () => overlayIpc.notifyRewardUiReady(),
     onRelicSelectionOpen: () => overlayIpc.onRelicSelectionTrigger("eelog"),
     onRelicSelectionClose: () => overlayIpc.onRelicSelectionClose(),
+    onActiveMissionTag: (tag) => overlayIpc.setActiveMissionTag(tag),
     onInGameMessage: (playerName) => void messageNotificationIpc.notifyInGameMessage(playerName),
     onTradeConfirmed: (trade) => {
       const event = tradeTracker.recordTradeFromLog(trade);

@@ -274,6 +274,10 @@ function onRelicSelectionClose(): void {
   rewardOverlayIpc.onRelicSelectionClose(pushOverlayInteractionMode);
 }
 
+function setActiveMissionTag(tag: string): void {
+  rewardOverlayIpc.setActiveMissionTag(tag);
+}
+
 function applyOverlayAvailabilitySettings(): void {
   if (!isRelicRewardsOverlayEnabled(ctx.overlaySettings)) {
     rewardOverlayIpc.rewardWindowsController.clearOverlayAutoHideTimer();
@@ -526,7 +530,7 @@ export const loadOverlaySettings = settingsController.loadOverlaySettings;
 export const registerOverlayHotkey = settingsController.registerOverlayHotkey;
 export const unregisterOverlayHotkey = settingsController.unregisterOverlayHotkey;
 
-export { register, onRelicRewardTrigger, notifyRewardUiReady, onRelicSelectionTrigger, onRelicSelectionClose };
+export { register, onRelicRewardTrigger, notifyRewardUiReady, onRelicSelectionTrigger, onRelicSelectionClose, setActiveMissionTag };
 export { warmPlannerOverlayWindow } from "./rewardOverlayIpc";
 
 // Re-export riven callbacks for main.ts wiring

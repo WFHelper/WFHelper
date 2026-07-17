@@ -205,6 +205,10 @@ export function onRelicSelectionTrigger(
   void relicSelectionController.onRelicSelectionTrigger(source);
 }
 
+export function setActiveMissionTag(tag: string): void {
+  relicSelectionController.setActiveMissionTag?.(tag);
+}
+
 export function onRelicSelectionClose(pushOverlayInteractionMode: () => void): void {
   relicSelectionController.resetMissionTier?.();
   const win = ctx.plannerOverlayWindow;

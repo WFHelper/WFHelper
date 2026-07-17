@@ -147,8 +147,19 @@ function normalizeEra(value: unknown): string | null {
   if (low.includes("meso")) return "meso";
   if (low.includes("neo")) return "neo";
   if (low.includes("axi")) return "axi";
+  if (low.includes("omnia")) return "omnia";
   return null;
 }
+
+// EE.log activeMissionTag values -> relic era; VoidT6 (omnia) accepts any era.
+const VOID_TAG_ERAS: Readonly<Record<string, string>> = Object.freeze({
+  VOIDT1: "lith",
+  VOIDT2: "meso",
+  VOIDT3: "neo",
+  VOIDT4: "axi",
+  VOIDT5: "requiem",
+  VOIDT6: "omnia",
+});
 
 function qualityCountsRow(): OwnedCountRow {
   return {
@@ -442,6 +453,10 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
   // on hit; expires only after leaving the mission for longer than the TTL.
   let activeMissionTier: string | null = null;
   let activeMissionTierSetAt = 0;
+  // Fissure tier from the EE.log mission tag - authoritative over OCR (omnia
+  // screens OCR as "lith" from the visible tiles) and TTL-free (long endless
+  // runs outlive the OCR cache). Cleared when a non-fissure mission loads.
+  let logMissionTier: string | null = null;
   let cache: {
     key: string;
     rows: RecommendationRow[];
@@ -507,9 +522,11 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
 
     let totalOwnedCount = 0;
     const rows: RecommendationRow[] = [];
+    // omnia fissures accept every era - no filter
+    const eraFilter = era === "omnia" ? null : era;
     for (const group of groups) {
       const groupEra = normalizeEra(group.tier);
-      if (era && groupEra !== era) continue;
+      if (eraFilter && groupEra !== eraFilter) continue;
 
       const ownedRow = owned[group.key];
       if (!ownedRow) continue;
@@ -556,7 +573,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
 
       windows.sendOverlayEvent(RELIC_RECOMMENDATIONS, {
         source,
-        era: null,
+        era,
         rows,
         totalOwnedCount,
         ocrUnavailable: !getWindowsOcrHealth().available,
@@ -596,13 +613,14 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       // a second capture would waste ~600 ms.
       const cacheAge = Date.now() - activeMissionTierSetAt;
       let era: string | null =
-        activeMissionTier && cacheAge < RELIC_MISSION_TIER_CACHE_TTL_MS ? activeMissionTier : null;
+        logMissionTier ||
+        (activeMissionTier && cacheAge < RELIC_MISSION_TIER_CACHE_TTL_MS ? activeMissionTier : null);
       let eraConfidence = era ? 1.0 : 0;
 
       if (era) {
         activeMissionTierSetAt = Date.now(); // refresh TTL
         log.info(
-          `[RelicSelection] activeMissionTier cache hit: ${era} (age ${Math.round(cacheAge / 1000)}s)`,
+          `[RelicSelection] mission tier ${logMissionTier ? "from EE.log tag" : "cache hit"}: ${era} (age ${Math.round(cacheAge / 1000)}s)`,
         );
         if (typeof rewardScanner.captureSourceMeta === "function") {
           const captureMetaStartedAt = Date.now();
@@ -761,9 +779,10 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       // Without one, buildRecommendations(null) returns all eras which causes a visible
       // flash of every relic before OCR completes.
       const cachedEra =
-        activeMissionTier && Date.now() - activeMissionTierSetAt < RELIC_MISSION_TIER_CACHE_TTL_MS
+        logMissionTier ||
+        (activeMissionTier && Date.now() - activeMissionTierSetAt < RELIC_MISSION_TIER_CACHE_TTL_MS
           ? activeMissionTier
-          : null;
+          : null);
       if (cachedEra) {
         sendFallbackRows(scanToken, source, cachedEra);
       }
@@ -806,8 +825,23 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     if (activeMissionTier) {
       log.info(`[RelicSelection] activeMissionTier cleared (menu closed)`);
     }
+    // logMissionTier survives picker closes on purpose: the tag only fires on
+    // mission load, and the era holds for the whole mission.
     activeMissionTier = null;
     activeMissionTierSetAt = 0;
+  }
+
+  function setActiveMissionTag(tag: string): void {
+    const era = VOID_TAG_ERAS[String(tag || "").trim().toUpperCase()] ?? null;
+    if (era) {
+      if (logMissionTier !== era) {
+        log.info(`[RelicSelection] mission tier from EE.log tag ${tag}: ${era}`);
+      }
+      logMissionTier = era;
+    } else if (logMissionTier) {
+      log.info(`[RelicSelection] mission tier cleared (non-fissure tag ${tag})`);
+      logMissionTier = null;
+    }
   }
 
   return {
@@ -815,5 +849,6 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     suppressReopenForClose,
     setDesktopFilters,
     resetMissionTier,
+    setActiveMissionTag,
   };
 }
