@@ -155,6 +155,10 @@ async function buildClientCroppedSims(outDir) {
   ];
   for (const sim of sims) {
     const srcPath = path.join(FIXTURE_SCREEN_DIR, sim.src);
+    if (!fs.existsSync(srcPath)) {
+      console.log(`NOTE: local-only fixture ${sim.src} absent, skipping ${sim.out}`);
+      continue;
+    }
     const meta = await sharp(srcPath).metadata();
     await sharp(srcPath)
       .extract({ left: 0, top: 23, width: meta.width, height: meta.height - 23 })
@@ -238,6 +242,10 @@ async function buildClientCroppedSims(outDir) {
       const screenPath = screen.fixture
         ? path.join(FIXTURE_SCREEN_DIR, screen.file)
         : path.join(screenDir, screen.file);
+      if (!fs.existsSync(screenPath)) {
+        console.log(`SKIP: ${screen.file} - local-only fixture absent`);
+        continue;
+      }
       for (const reader of readers) {
         const result = await scanImage(screenPath, scannerPath, reader);
         const bySlot = new Map((result?.items || []).map((it) => [it.slotIndex, it.name]));

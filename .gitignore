@@ -43,6 +43,9 @@ riven-ocr-debug/
 OCR-debug/
 temp_*.png
 
+# Real gameplay screenshots (contain player names) - local-only, never committed
+scripts/reward-scan-e2e/fixtures/screens/
+
 # OCR training stuff (runtime models live in assets/riven-ocr/)
 scripts/train-paddleocr/
 *.pt
