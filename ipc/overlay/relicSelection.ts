@@ -84,6 +84,7 @@ type OverlayRecommendationControllerOptions = {
     overlaySettings: import("../../config/runtime/overlaySettings").OverlaySettings;
     currentInventoryData: Record<string, unknown> | null;
     overlayDismissedUntilMs?: number;
+    activeFissureTier?: string | null;
   };
   windows: {
     createOverlayWindow: () => void;
@@ -842,6 +843,8 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       log.info(`[RelicSelection] mission tier cleared (non-fissure tag ${tag})`);
       logMissionTier = null;
     }
+    // shared so the reward overlay can shorten its omnia auto-hide
+    ctx.activeFissureTier = logMissionTier;
   }
 
   return {

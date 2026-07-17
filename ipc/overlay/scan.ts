@@ -24,6 +24,9 @@ const EELOG_UI_READY_FRESH_MS = 3_000;
 // Hide just before it ends, anchored to the trigger timestamp (AlecaFrame
 // uses the same mechanism with the same 14.5s window).
 const REWARD_VOTE_WINDOW_MS = 14_500;
+// Omnia missions crack relics back-to-back mid-gameplay; a 14.5s card sits in
+// the way. Hide sooner - the next crack redraws it anyway.
+const OMNIA_REWARD_VOTE_WINDOW_MS = 7_000;
 const OVERLAY_AUTO_HIDE_SUCCESS_MS = 8_500;
 const OVERLAY_AUTO_HIDE_FAILURE_MS = 3_500;
 // long enough to read the "Windows OCR missing" instructions
@@ -79,6 +82,7 @@ type OverlayScanControllerOptions = {
     overlaySettings: Record<string, unknown>;
     overlayWindow: import("electron").BrowserWindow | null;
     currentInventoryData?: InventoryData;
+    activeFissureTier?: string | null;
   };
   windows: {
     setAnchorMeta: (meta: Record<string, unknown> | null) => void;
@@ -265,7 +269,9 @@ export function createOverlayScanController(options: OverlayScanControllerOption
 
   function rewardSuccessAutoHideDelay(source: string): number {
     if (source !== "eelog" || !eelogTriggerAt) return OVERLAY_AUTO_HIDE_SUCCESS_MS;
-    return Math.max(2_500, eelogTriggerAt + REWARD_VOTE_WINDOW_MS - Date.now());
+    const voteWindowMs =
+      ctx.activeFissureTier === "omnia" ? OMNIA_REWARD_VOTE_WINDOW_MS : REWARD_VOTE_WINDOW_MS;
+    return Math.max(2_500, eelogTriggerAt + voteWindowMs - Date.now());
   }
 
   async function runRewardScanWithRetries(triggerSource: string): Promise<RewardScanResult> {

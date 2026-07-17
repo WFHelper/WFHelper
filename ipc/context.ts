@@ -24,6 +24,8 @@ interface MainProcessContext {
   overlayInteractionHotkeyRegistered: string | null;
   overlayInteractiveMode: boolean;
   overlayDismissedUntilMs: number;
+  /** Relic era of the running fissure from EE.log ("omnia" = any era); null off-fissure. */
+  activeFissureTier: string | null;
 }
 
 type ContextKey = keyof MainProcessContext;
@@ -73,6 +75,7 @@ const state: MainProcessContext = {
   overlayInteractionHotkeyRegistered: null,
   overlayInteractiveMode: false,
   overlayDismissedUntilMs: 0,
+  activeFissureTier: null,
 };
 
 function normalizeValue(key: ContextKey, value: unknown): unknown {

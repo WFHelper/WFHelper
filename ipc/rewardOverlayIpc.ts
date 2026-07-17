@@ -71,6 +71,8 @@ export const rewardWindowsController = createOverlayWindowsController({
   log,
   hardenBrowserWindowNavigation,
   overlayWindowFile: OVERLAY_WINDOW_FILE,
+  // fits a card whose set-part chips (30px icons) wrap to two rows + best bar
+  windowHeight: 236,
   windowStateKey: "reward",
   onWindowBoundsChanged: rememberOverlayWindowBounds,
 });

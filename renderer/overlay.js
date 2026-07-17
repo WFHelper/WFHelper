@@ -239,12 +239,12 @@ function renderSlot(index) {
     );
   }
 
-  appendSetParts(metaEl, item.setParts);
-
   if (item.setUrlName) {
     const setText = setPrice == null ? "Set ..." : setPrice > 0 ? `Set ${setPrice}p` : "Set N/A";
     appendMetaChip(metaEl, setText, "set-price");
   }
+
+  appendSetParts(metaEl, item.setParts);
 }
 
 function updateBestPick() {

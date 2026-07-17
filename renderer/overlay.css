@@ -417,47 +417,47 @@ body {
 .slot-set-parts {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px;
+  gap: 4px;
   width: 100%;
 }
 
 .slot-set-part {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  max-width: 58px;
+  gap: 4px;
+  max-width: 108px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  padding: 1px 3px;
+  border-radius: 5px;
+  padding: 3px 6px;
   background: rgba(255, 255, 255, 0.045);
   color: var(--muted);
-  font-size: 8px;
+  font-size: 13px;
   line-height: 1.2;
   font-weight: 700;
 }
 
 .slot-set-part img {
-  width: 16px;
-  height: 16px;
+  width: 30px;
+  height: 30px;
   object-fit: contain;
   flex-shrink: 0;
 }
 
 .slot-set-part-fallback {
-  width: 16px;
-  height: 16px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-secondary);
-  font-size: 8px;
+  font-size: 12px;
   flex-shrink: 0;
 }
 
 .slot-set-part-count {
-  min-width: 15px;
+  min-width: 26px;
 }
 
 .slot-set-part.owned {
