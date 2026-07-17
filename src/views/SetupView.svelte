@@ -3,7 +3,7 @@
 
   import { onInventoryLoaded } from "../lib/actions.js";
   import { PRESET_KEYS, THEME_PRESETS } from "../config/themePresets.js";
-  import { currentView, statusText } from "../stores/app.js";
+  import { currentView, SETUP_COMPLETED_KEY, statusText } from "../stores/app.js";
   import { themeSettings } from "../stores/theme.js";
   import { invoke, on } from "../lib/ipc.js";
   import { APP_LOGO_URL, SETUP_OVERLAY_BG_URLS } from "../lib/assetUrls.js";
@@ -247,6 +247,8 @@
   }
 
   function completeSetup(nextView: "inventory" = "inventory"): void {
+    writeStorage(SETUP_COMPLETED_KEY, "1");
+    // legacy key: a downgrade to a pre-v2 build must not re-run setup either
     writeStorage("setup-completed", "1");
     currentView.set(nextView);
     if (shouldAutoStartTour()) startTour();

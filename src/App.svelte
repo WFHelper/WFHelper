@@ -24,7 +24,7 @@
   import RelicDetailModal from "./modals/RelicDetailModal.svelte";
   import OrderModal from "./modals/OrderModal.svelte";
 
-  import { currentView, statusText } from "./stores/app.js";
+  import { currentView, SETUP_COMPLETED_KEY, statusText } from "./stores/app.js";
   import { pendingArbiRunId } from "./stores/arbiRuns.js";
   import { itemDb, parsedItems } from "./stores/data.js";
   import { tourActive } from "./stores/tour.js";
@@ -121,9 +121,9 @@
 
     const startup = initStartup();
 
-    // Match the exact-"1" check used in stores/app.ts:10 so any future
+    // Match the exact-"1" check used in stores/app.ts so any future
     // non-"1" leftover value is treated consistently.
-    if (localStorage.getItem("setup-completed") !== "1") {
+    if (localStorage.getItem(SETUP_COMPLETED_KEY) !== "1") {
       currentView.set("setup");
     } else {
       void reopenSetupWhenInventoryIsUnavailable();
