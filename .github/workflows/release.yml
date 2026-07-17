@@ -102,6 +102,13 @@ jobs:
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # baked into the renderer bundle; without these a CI installer
+          # bypasses the worker backend and ships without crash reporting
+          VITE_WFM_BACKEND_URL: ${{ secrets.VITE_WFM_BACKEND_URL }}
+          VITE_WFM_BACKEND_DIRECT_FALLBACK: ${{ secrets.VITE_WFM_BACKEND_DIRECT_FALLBACK }}
+          VITE_WFM_BACKEND_BOOTSTRAP_ENABLED: ${{ secrets.VITE_WFM_BACKEND_BOOTSTRAP_ENABLED }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
 
       - name: Upload release assets
         shell: pwsh
