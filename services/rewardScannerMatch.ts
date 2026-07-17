@@ -456,6 +456,37 @@ export function detectRelicEraFromText(text: string): { era: string | null; conf
   return best;
 }
 
+// Filter-tab label above the relic grid. Fold I->L after normalizeForOcr so
+// "ALL" misreads (AII, A11, ALI) still hit without lev-1 false positives (AXL).
+export function detectRelicEraFromFilterLabelText(text: string): {
+  era: string | null;
+  confidence: number;
+} {
+  const normalized = String(text || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) {
+    return { era: null, confidence: 0 };
+  }
+
+  let best: { era: string | null; confidence: number } = { era: null, confidence: 0 };
+  for (const rawWord of normalized.split(" ")) {
+    const word = normalizeForOcr(rawWord);
+    if (word === "ALL" || word === "OMNIA") {
+      return { era: "omnia", confidence: 1 };
+    }
+    if (word.length === 3 && word.replace(/I/g, "L") === "ALL" && best.confidence < 0.95) {
+      best = { era: "omnia", confidence: 0.95 };
+    }
+  }
+
+  const eraHit = detectRelicEraFromText(normalized);
+  return eraHit.confidence > best.confidence ? eraHit : best;
+}
+
 export function detectRelicEraFromTileLabelText(text: string): {
   era: string | null;
   confidence: number;

@@ -30,6 +30,17 @@ export const RELIC_ERA_BANDS: ReadonlyArray<RewardBand> = Object.freeze([
   { top: 0.2, height: 0.14 },
 ]);
 
+// Selected era-filter tab label top-left of the relic equip screen: "ALL" on
+// omnia picks (and the unfiltered console), the era name otherwise. Tile labels
+// can't tell omnia apart - the grid opens Lith-first on every era.
+export const RELIC_ERA_FILTER_LABEL_RECTS: ReadonlyArray<{
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}> = Object.freeze([{ id: "filter-label", x: 0.02, y: 0.085, width: 0.19, height: 0.058 }]);
+
 export const RELIC_ROW_TILE_LABEL_RECTS: ReadonlyArray<{
   id: string;
   x: number;

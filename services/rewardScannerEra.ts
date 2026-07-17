@@ -6,8 +6,17 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 import { withScope } from "./logger";
 import { captureScreenFast, type CaptureResult } from "./rewardScannerCapture";
 import { buildOcrVariants, cropBand, cropRect } from "./rewardScannerImage";
-import { detectRelicEraFromText, detectRelicEraFromTileLabelText } from "./rewardScannerMatch";
-import { RELIC_ERA_BANDS, RELIC_ROW_TILE_LABEL_RECTS, SCANNER_TUNING } from "./rewardScannerSupport";
+import {
+  detectRelicEraFromFilterLabelText,
+  detectRelicEraFromText,
+  detectRelicEraFromTileLabelText,
+} from "./rewardScannerMatch";
+import {
+  RELIC_ERA_BANDS,
+  RELIC_ERA_FILTER_LABEL_RECTS,
+  RELIC_ROW_TILE_LABEL_RECTS,
+  SCANNER_TUNING,
+} from "./rewardScannerSupport";
 import { round4 } from "./rewardScannerUtils";
 import { clampNumber } from "../config/shared/numeric";
 
@@ -89,6 +98,64 @@ function textPreview(ocrText: string): string {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, SCANNER_TUNING.ocr.textPreviewMaxChars);
+}
+
+async function scanFilterLabel(
+  screenshot: CaptureResult,
+  timeoutMs: number,
+  perAttemptTimeoutMs: number,
+  startedAt: number,
+  ocr: {
+    runOCR: (imagePath: string, timeoutMs: number) => Promise<string>;
+    runOCRBuffer: (buffer: Buffer, timeoutMs: number) => Promise<string>;
+  },
+): Promise<RelicEraCandidate> {
+  let best = emptyCandidate();
+
+  for (const rect of RELIC_ERA_FILTER_LABEL_RECTS) {
+    let cropped: NativeImage;
+    try {
+      cropped = cropRect(screenshot.image, rect);
+    } catch {
+      continue;
+    }
+
+    const variants = buildOcrVariants(cropped);
+    for (const variant of variants) {
+      if (Date.now() - startedAt >= timeoutMs) break;
+
+      let ocrText: string;
+      try {
+        ocrText = await runVariantOcr(
+          variant.image,
+          perAttemptTimeoutMs,
+          `era-${rect.id}-${variant.id}`,
+          ocr,
+        );
+      } catch {
+        continue;
+      }
+
+      const hit = detectRelicEraFromFilterLabelText(ocrText);
+      if (hit.confidence > best.confidence) {
+        best = {
+          era: hit.era,
+          confidence: hit.confidence,
+          textPreview: textPreview(ocrText),
+          candidateId: rect.id,
+          bandTopRatio: round4(rect.y, null),
+          bandHeightRatio: round4(rect.height, null),
+          ocrVariant: variant.id,
+        };
+      }
+
+      if (best.confidence >= 0.99) break;
+    }
+
+    if (best.confidence >= 0.99) break;
+  }
+
+  return best;
 }
 
 async function scanTileLabels(
@@ -241,7 +308,15 @@ export async function detectRelicSelectionEra(
   }
 
   const perAttemptTimeoutMs = Math.max(900, Math.min(scanSettings.ocrTimeoutMs, timeoutMs));
-  let best = await scanTileLabels(screenshot, timeoutMs, perAttemptTimeoutMs, startedAt, ocr);
+
+  // Filter-tab label first: omnia pick screens open Lith-first, so tile labels
+  // confidently read the wrong era there. A confident label hit is final.
+  let best = await scanFilterLabel(screenshot, timeoutMs, perAttemptTimeoutMs, startedAt, ocr);
+
+  if (best.confidence < 0.9) {
+    const tileBest = await scanTileLabels(screenshot, timeoutMs, perAttemptTimeoutMs, startedAt, ocr);
+    if (tileBest.confidence > best.confidence) best = tileBest;
+  }
 
   if (best.confidence < 0.9) {
     const headerBest = await scanHeaderBands(

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  detectRelicEraFromFilterLabelText,
   matchSingleRewardTextDetailed,
   rankRewardCandidatesDetailed,
 } from "../../services/rewardScannerMatch";
@@ -165,5 +166,32 @@ describe("matchSingleRewardTextDetailed", () => {
     // "chassls" -> "chassis"
     const r5 = matchSingleRewardTextDetailed("Wukong Prime Chassls Blueprint", ITEMS);
     expect(r5.item?.name).toBe("Wukong Prime Chassis Blueprint");
+  });
+});
+
+describe("detectRelicEraFromFilterLabelText", () => {
+  it("maps the ALL tab to omnia", () => {
+    expect(detectRelicEraFromFilterLabelText("ALL")).toEqual({ era: "omnia", confidence: 1 });
+    expect(detectRelicEraFromFilterLabelText("all")).toEqual({ era: "omnia", confidence: 1 });
+  });
+
+  it("tolerates common OCR misreads of ALL", () => {
+    for (const text of ["AII", "A11", "ALI", "AIL", "A1L"]) {
+      const hit = detectRelicEraFromFilterLabelText(text);
+      expect(hit.era, text).toBe("omnia");
+      expect(hit.confidence, text).toBeGreaterThanOrEqual(0.95);
+    }
+  });
+
+  it("reads era names and prefers exact eras over ALL misreads", () => {
+    expect(detectRelicEraFromFilterLabelText("LITH")).toEqual({ era: "lith", confidence: 1 });
+    expect(detectRelicEraFromFilterLabelText("REQUIEM").era).toBe("requiem");
+    // AXI misread as AXL folds to ALL-distance 1 but must stay axi via fuzzy era match
+    expect(detectRelicEraFromFilterLabelText("AXL").era).not.toBe("omnia");
+  });
+
+  it("returns nothing on unrelated screen text", () => {
+    expect(detectRelicEraFromFilterLabelText("").era).toBeNull();
+    expect(detectRelicEraFromFilterLabelText("VOID RELICS REFINEMENT").era).toBeNull();
   });
 });
