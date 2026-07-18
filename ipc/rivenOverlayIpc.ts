@@ -1,16 +1,18 @@
+import path from "node:path";
+import { BrowserWindow, app, screen, shell } from "electron";
 import ctx from "./context";
 import { assertRivenOverlayRendererSender, onAuthorized } from "./ipcSecurity";
 import {
   createOverlayWindowBoundsChangeHandler,
   createOverlayWindowsController,
 } from "./overlay/windows";
+import { registerZOrderSubscriber } from "./overlay/zOrder";
 import * as rivenSession from "./overlay/rivenSession";
 import * as rivenScan from "./overlay/rivenScan";
 import * as rivenGrading from "../services/rivenGrading";
 import * as rivenDataSvc from "../services/rivenData";
 import * as rivenBestAttributes from "../services/rivenBestAttributes";
 import * as wfmRivenSearch from "../services/wfmRivenSearch";
-import * as warframeStatus from "../services/warframeStatus";
 import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 import { isRivenOverlayEnabled as isRivenOverlaySettingEnabled } from "../config/runtime/overlaySettings";
@@ -30,9 +32,6 @@ import {
 } from "../config/shared/ipcChannels";
 
 const log = withScope("rivenOverlayIpc");
-
-import { BrowserWindow, app, screen, shell } from "electron";
-import path from "node:path";
 
 const APP_ROOT = app.getAppPath();
 const RIVEN_WINDOW_FILE = path.join(APP_ROOT, "renderer", "riven-overlay.html");
@@ -123,6 +122,9 @@ function syncRivenWindowZOrder(warframeFocused: boolean): void {
       win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
       win.setAlwaysOnTop(true, "screen-saver");
       win.moveTop();
+    } else if (win.isAlwaysOnTop()) {
+      win.setAlwaysOnTop(false);
+      win.setVisibleOnAllWorkspaces(false);
     }
   });
 }
@@ -191,17 +193,9 @@ function createRivenOverlayWindows(options: { show?: boolean } = {}): void {
   createRivenWindow("right", options);
 }
 
-const rivenZOrderInterval = setInterval(async () => {
-  try {
-    const status = await warframeStatus.getStatus();
-    syncRivenWindowZOrder(status.isFocused);
-  } catch {
-    // ignore
-  }
-}, 2000);
-
-app.on("before-quit", () => {
-  clearInterval(rivenZOrderInterval);
+registerZOrderSubscriber({
+  isActive: () => getRivenWindows().some((win) => Boolean(win?.isVisible())),
+  sync: syncRivenWindowZOrder,
 });
 
 // Tracks whether the current session has produced at least one roll result.

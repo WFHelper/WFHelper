@@ -18,9 +18,11 @@ const EXE_NAME = "warframe-api-helper.exe";
 const DEFAULT_POLL_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 // Hard kill the helper if it hasn't exited after this long. Normal runs are <5s.
 const HELPER_SPAWN_TIMEOUT_MS = 60 * 1000;
+const NETWORK_TIMEOUT_MS = 30_000;
+const MAX_RELEASE_METADATA_BYTES = 1024 * 1024;
+const MAX_HELPER_DOWNLOAD_BYTES = 128 * 1024 * 1024;
 const HELPER_RELEASE_TAG = "1.1.1";
-const GITHUB_RELEASES_URL =
-  `https://api.github.com/repos/Sainan/warframe-api-helper/releases/tags/${HELPER_RELEASE_TAG}`;
+const GITHUB_RELEASES_URL = `https://api.github.com/repos/Sainan/warframe-api-helper/releases/tags/${HELPER_RELEASE_TAG}`;
 
 // Accepted warframe-api-helper.exe SHA-256s; anything else is refused. Bump on a new audited release.
 const PINNED_HELPER_SHA256: ReadonlySet<string> = new Set([
@@ -319,10 +321,7 @@ export function startPolling(
       try {
         onRunComplete(ok);
       } catch (err) {
-        log.warn(
-          "onRunComplete handler threw:",
-          err instanceof Error ? err.message : String(err),
-        );
+        log.warn("onRunComplete handler threw:", err instanceof Error ? err.message : String(err));
       }
     });
   };
@@ -380,20 +379,30 @@ function httpsGetBuffer(
 }> {
   return new Promise((resolve, reject) => {
     assertHttps(url);
-    https
-      .get(url, { headers }, (res) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (chunk: Buffer) => chunks.push(chunk));
-        res.on("end", () =>
-          resolve({
-            statusCode: res.statusCode ?? 0,
-            headers: res.headers as Record<string, string | string[] | undefined>,
-            body: Buffer.concat(chunks),
-          }),
-        );
-        res.on("error", reject);
-      })
-      .on("error", reject);
+    const request = https.get(url, { headers }, (res) => {
+      const chunks: Buffer[] = [];
+      let received = 0;
+      res.on("data", (chunk: Buffer) => {
+        received += chunk.length;
+        if (received > MAX_RELEASE_METADATA_BYTES) {
+          res.destroy(new Error("Release metadata exceeded 1 MiB"));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      res.on("end", () =>
+        resolve({
+          statusCode: res.statusCode ?? 0,
+          headers: res.headers as Record<string, string | string[] | undefined>,
+          body: Buffer.concat(chunks),
+        }),
+      );
+      res.on("error", reject);
+    });
+    request.setTimeout(NETWORK_TIMEOUT_MS, () => {
+      request.destroy(new Error("Release metadata request timed out"));
+    });
+    request.on("error", reject);
   });
 }
 
@@ -407,63 +416,88 @@ function httpsDownloadToFile(
   onProgress: (received: number, total: number) => void,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const resolveOnce = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    const rejectOnce = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
+
     const doRequest = (reqUrl: string, redirectsLeft: number) => {
       let absUrl: string;
       try {
         assertHttps(reqUrl);
         absUrl = reqUrl;
       } catch (err) {
-        reject(err);
+        rejectOnce(err);
         return;
       }
-      https
-        .get(absUrl, { headers: { "User-Agent": "WFHelper" } }, (res) => {
-          // Follow redirect - but only to https:// targets. Resolve relative
-          // locations against the current URL before re-validating.
-          if (
-            (res.statusCode === 301 || res.statusCode === 302) &&
-            res.headers.location &&
-            redirectsLeft > 0
-          ) {
-            res.resume(); // drain
-            let next: string;
-            try {
-              next = new URL(res.headers.location, absUrl).toString();
-              assertHttps(next);
-            } catch (err) {
-              reject(err instanceof Error ? err : new Error(String(err)));
-              return;
-            }
-            doRequest(next, redirectsLeft - 1);
+      const request = https.get(absUrl, { headers: { "User-Agent": "WFHelper" } }, (res) => {
+        // Follow redirect - but only to https:// targets. Resolve relative
+        // locations against the current URL before re-validating.
+        if (
+          (res.statusCode === 301 || res.statusCode === 302) &&
+          res.headers.location &&
+          redirectsLeft > 0
+        ) {
+          res.resume(); // drain
+          let next: string;
+          try {
+            next = new URL(res.headers.location, absUrl).toString();
+            assertHttps(next);
+          } catch (err) {
+            rejectOnce(err instanceof Error ? err : new Error(String(err)));
             return;
           }
-          if (res.statusCode !== 200) {
-            res.resume();
-            reject(new Error(`Download failed: HTTP ${res.statusCode}`));
-            return;
-          }
-          const total = parseInt(String(res.headers["content-length"] || "0"), 10);
-          let received = 0;
-          const fileStream = fs.createWriteStream(destPath);
-          res.on("data", (chunk: Buffer) => {
-            received += chunk.length;
-            onProgress(received, total);
-          });
-          res.pipe(fileStream);
-          fileStream.on("finish", () => {
-            fileStream.close();
-            resolve();
-          });
-          fileStream.on("error", (err: Error) => {
-            fs.unlink(destPath, () => {}); // clean up partial
-            reject(err);
-          });
-          res.on("error", (err: Error) => {
+          doRequest(next, redirectsLeft - 1);
+          return;
+        }
+        if (res.statusCode !== 200) {
+          res.resume();
+          rejectOnce(new Error(`Download failed: HTTP ${res.statusCode}`));
+          return;
+        }
+        const total = parseInt(String(res.headers["content-length"] || "0"), 10);
+        if (total > MAX_HELPER_DOWNLOAD_BYTES) {
+          res.resume();
+          rejectOnce(new Error("Helper download exceeded 128 MiB"));
+          return;
+        }
+        let received = 0;
+        const fileStream = fs.createWriteStream(destPath);
+        res.on("data", (chunk: Buffer) => {
+          received += chunk.length;
+          if (received > MAX_HELPER_DOWNLOAD_BYTES) {
+            res.destroy(new Error("Helper download exceeded 128 MiB"));
+            fileStream.destroy();
             fs.unlink(destPath, () => {});
-            reject(err);
-          });
-        })
-        .on("error", reject);
+            return;
+          }
+          onProgress(received, total);
+        });
+        res.pipe(fileStream);
+        fileStream.on("finish", () => {
+          fileStream.close();
+          resolveOnce();
+        });
+        fileStream.on("error", (err: Error) => {
+          fs.unlink(destPath, () => {}); // clean up partial
+          rejectOnce(err);
+        });
+        res.on("error", (err: Error) => {
+          fs.unlink(destPath, () => {});
+          rejectOnce(err);
+        });
+      });
+      request.setTimeout(NETWORK_TIMEOUT_MS, () => {
+        request.destroy(new Error("Helper download timed out"));
+      });
+      request.on("error", rejectOnce);
     };
     doRequest(url, 3);
   });

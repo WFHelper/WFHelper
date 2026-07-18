@@ -24,6 +24,7 @@ const FLUSH_EVERY_LINES = 200;
  * ends the parser markers miss (e.g. crash to desktop, connection loss). */
 const INACTIVITY_TIMEOUT_MS = 10 * 60_000;
 const INACTIVITY_CHECK_MS = 60_000;
+const RUN_ID_RE = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:-\d+)?$/;
 
 interface ActiveRun {
   id: string;
@@ -64,6 +65,13 @@ function _gzPath(id: string): string {
   return path.join(_logsDir(), `${id}.log.gz`);
 }
 
+function _storedLogPath(run: Pick<ArbiRunRecord, "id" | "logFile">): string | null {
+  if (!RUN_ID_RE.test(run.id) || run.logFile !== `${run.id}.log.gz`) return null;
+  const logsDir = path.resolve(_logsDir());
+  const candidate = path.resolve(logsDir, run.logFile);
+  return path.dirname(candidate) === logsDir ? candidate : null;
+}
+
 function _formatRunId(date: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return (
@@ -97,10 +105,19 @@ function _loadIndex(): void {
     if (!raw || typeof raw !== "object") return;
     const runs = (raw as { runs?: unknown }).runs;
     if (!Array.isArray(runs)) return;
-    _runs = runs.filter(
-      (r): r is ArbiRunRecord =>
-        !!r && typeof r === "object" && typeof (r as { id?: unknown }).id === "string",
-    );
+    _runs = runs
+      .filter(
+        (r): r is ArbiRunRecord =>
+          !!r &&
+          typeof r === "object" &&
+          typeof (r as { id?: unknown }).id === "string" &&
+          RUN_ID_RE.test((r as { id: string }).id),
+      )
+      .map((run) =>
+        run.logFile == null || _storedLogPath(run)
+          ? run
+          : { ...run, logFile: null, logSizeBytes: 0 },
+      );
   } catch (err) {
     log.warn("[Arbi] Failed to load run index:", normalizeErrorMessage(err));
     try {
@@ -181,7 +198,11 @@ function _startInactivityTimer(): void {
   if (typeof _inactivityTimer.unref === "function") _inactivityTimer.unref();
 }
 
-function _gzipPartialAsync(partialPath: string, gzTarget: string, done: (size: number) => void): void {
+function _gzipPartialAsync(
+  partialPath: string,
+  gzTarget: string,
+  done: (size: number) => void,
+): void {
   pipeline(
     fs.createReadStream(partialPath),
     zlib.createGzip(),
@@ -407,9 +428,10 @@ export function setRunVitus(id: string, vitus: number | null): ArbiRunRecord | n
 export function deleteRunLog(id: string): ArbiRunRecord | null {
   const run = _runs.find((r) => r.id === id);
   if (!run) return null;
-  if (run.logFile) {
+  const logPath = _storedLogPath(run);
+  if (logPath) {
     try {
-      fs.unlinkSync(path.join(_logsDir(), run.logFile));
+      fs.unlinkSync(logPath);
     } catch (err) {
       log.warn("[Arbi] Failed to delete run log:", normalizeErrorMessage(err));
     }
@@ -424,9 +446,10 @@ export function deleteRun(id: string): boolean {
   const idx = _runs.findIndex((r) => r.id === id);
   if (idx < 0) return false;
   const run = _runs[idx];
-  if (run.logFile) {
+  const logPath = _storedLogPath(run);
+  if (logPath) {
     try {
-      fs.unlinkSync(path.join(_logsDir(), run.logFile));
+      fs.unlinkSync(logPath);
     } catch {
       // already gone
     }
@@ -467,9 +490,9 @@ export function addImportedRun(
 /** Absolute path of a run's gz capture, or null when unavailable. */
 export function getRunLogPath(id: string): string | null {
   const run = _runs.find((r) => r.id === id);
-  if (!run || !run.logFile) return null;
-  const p = path.join(_logsDir(), run.logFile);
-  return fs.existsSync(p) ? p : null;
+  if (!run) return null;
+  const logPath = _storedLogPath(run);
+  return logPath && fs.existsSync(logPath) ? logPath : null;
 }
 
 /** Test hook: reset module state. */

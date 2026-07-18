@@ -53,6 +53,7 @@ const BASE_URL_V2 = "https://api.warframe.market/v2";
 const MIN_DELAY_MS = 350;
 const REQUEST_TIMEOUT_MS = 20000;
 const MAX_QUEUE_DEPTH = 64;
+const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 
 // Shared by both _coreRequest and requestRaw. The auth (Authorization/Cookie)
 // and CSRF (Origin/Referer) headers are NOT here because the two callers have
@@ -135,12 +136,7 @@ async function _ensureCsrfToken(): Promise<string | null> {
     };
     if (_cookieJwt) headers["Cookie"] = `JWT=${_cookieJwt}`;
 
-    const resp = await _nodeRequest(
-      "GET",
-      "https://warframe.market/",
-      headers,
-      null,
-    );
+    const resp = await _nodeRequest("GET", "https://warframe.market/", headers, null);
     const html = await resp.text();
     const sc = resp.headers.get("set-cookie") || "";
     const jwtMatch = sc.match(/\bJWT=([^;,\s]+)/i);
@@ -215,7 +211,17 @@ function _nodeRequest(
 
     const req = https.request(options, (res) => {
       const chunks: Buffer[] = [];
-      res.on("data", (c: Buffer) => chunks.push(c));
+      let receivedBytes = 0;
+      res.on("data", (chunk: Buffer) => {
+        receivedBytes += chunk.length;
+        if (receivedBytes > MAX_RESPONSE_BYTES) {
+          const error = new WfmApiError("WFM response exceeded 8 MiB", "WFM_RESPONSE_TOO_LARGE");
+          settleErr(error);
+          res.destroy(error);
+          return;
+        }
+        chunks.push(chunk);
+      });
       res.on("error", settleErr);
       res.on("aborted", () => settleErr(new Error("WFM response aborted")));
       res.on("end", () => {

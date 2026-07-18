@@ -13,14 +13,16 @@ export interface ScopedLogger {
 
 const level: string = process.env.LOG_LEVEL || "info";
 const resetLogOnStart: boolean = String(process.env.LOG_RESET_ON_START ?? "0") !== "0";
+const isTest = process.env.VITEST === "true" || process.env.NODE_ENV === "test";
+const loggerState = globalThis as typeof globalThis & {
+  __wfhelperLoggerInitialized?: boolean;
+};
 
 function resetLogFileOnAppStart(): void {
   if (!resetLogOnStart) return;
 
   try {
     const file = electronLog.transports.file.getFile();
-    // Prefer the transport's own clear(); fall back to manual truncate if it
-    // is unavailable or fails. Either way, never break startup on failure.
     if (file?.clear()) return;
 
     const filePath = file?.path;
@@ -33,11 +35,16 @@ function resetLogFileOnAppStart(): void {
   }
 }
 
-electronLog.transports.file.level = level as typeof electronLog.transports.file.level;
+electronLog.transports.file.level = isTest
+  ? false
+  : (level as typeof electronLog.transports.file.level);
 electronLog.transports.console.level = level as typeof electronLog.transports.console.level;
 electronLog.transports.file.maxSize = 5 * 1024 * 1024;
-electronLog.initialize();
-resetLogFileOnAppStart();
+if (!isTest && !loggerState.__wfhelperLoggerInitialized) {
+  electronLog.initialize();
+  loggerState.__wfhelperLoggerInitialized = true;
+  resetLogFileOnAppStart();
+}
 
 const timers = new Map<string, number>();
 

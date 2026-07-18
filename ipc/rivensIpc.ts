@@ -23,6 +23,14 @@ const POLARITY_TO_WFM: Record<string, string> = {
   AP_TACTIC: "naramon",
   AP_DEFENSE: "vazarin",
 };
+const MAX_AUCTION_STATS = 8;
+const MAX_DESCRIPTION_LENGTH = 1000;
+
+function auctionDescription(value: unknown): string | null {
+  if (value == null) return "";
+  if (typeof value !== "string" || value.length > MAX_DESCRIPTION_LENGTH) return null;
+  return value.trim();
+}
 
 interface CreateAuctionStat {
   tag: string;
@@ -34,7 +42,7 @@ interface CreateAuctionStat {
 function isCreateAuctionStat(value: unknown): value is CreateAuctionStat {
   if (!isObject(value)) return false;
   return (
-    trimmedString(value.tag) != null &&
+    trimmedString(value.tag, 100) != null &&
     toFiniteNumber(value.value) != null &&
     typeof value.positive === "boolean" &&
     (value.multiplier == null || typeof value.multiplier === "boolean")
@@ -68,8 +76,8 @@ function register(): void {
       const slug = rivenData.getRivenFamilySlug(weapon);
       if (!slug) return [];
 
-      const posArr = stringArray(positiveWfmNames);
-      const negArr = stringArray(negativeWfmNames);
+      const posArr = stringArray(positiveWfmNames, MAX_AUCTION_STATS, 100);
+      const negArr = stringArray(negativeWfmNames, MAX_AUCTION_STATS, 100);
 
       return wfmRivenSearch.searchSimilarRivens(slug, {
         limit: 2000,
@@ -112,11 +120,13 @@ function register(): void {
       } = payload;
       const weapon = trimmedString(weaponName, 120);
       if (!weapon) return { ok: false, error: "Invalid weapon name" };
-      if (!Array.isArray(stats) || stats.length === 0)
+      if (!Array.isArray(stats) || stats.length === 0 || stats.length > MAX_AUCTION_STATS)
         return { ok: false, error: "No stats provided" };
       if (!stats.every(isCreateAuctionStat)) return { ok: false, error: "Invalid stats payload" };
       const price = boundedInt(startingPrice, 1, 10_000_000);
       if (price == null) return { ok: false, error: "Invalid price" };
+      const descriptionValue = auctionDescription(description);
+      if (descriptionValue == null) return { ok: false, error: "Invalid description" };
 
       const slug = rivenData.getRivenFamilySlug(weapon);
       if (!slug) return { ok: false, error: "Unknown weapon" };
@@ -167,7 +177,7 @@ function register(): void {
         buyoutPrice: boundedInt(buyoutPrice, 1, 10_000_000),
         startingPrice: price,
         isPrivate: isPrivate === true,
-        description: typeof description === "string" ? description : "",
+        description: descriptionValue,
       });
     },
   );
@@ -190,6 +200,8 @@ function register(): void {
       if (buyoutPrice != null && buyout == null) {
         return { ok: false, error: "Invalid buyout price" };
       }
+      const descriptionValue = auctionDescription(description);
+      if (descriptionValue == null) return { ok: false, error: "Invalid description" };
 
       const confirmed = await confirmTradeMutation(event, {
         title: "Confirm Riven auction update",
@@ -203,7 +215,7 @@ function register(): void {
         buyoutPrice: buyout,
         startingPrice: price,
         isPrivate: isPrivate === true,
-        description: typeof description === "string" ? description : "",
+        description: descriptionValue,
       });
     },
   );

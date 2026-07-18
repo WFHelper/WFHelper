@@ -40,8 +40,14 @@ import * as rivensIpc from "./ipc/rivensIpc";
 import * as tradeNotificationIpc from "./ipc/tradeNotificationIpc";
 import { assertMainRendererSender, handleAuthorized } from "./ipc/ipcSecurity";
 import {
-  HELPER_GET_STATUS, HELPER_RUN_NOW, HELPER_DOWNLOAD, HELPER_DOWNLOAD_PROGRESS,
-  INVENTORY_UPDATED, ITEM_DB_UPDATED, TRADE_RECORDED, ARBI_RUN_SAVED,
+  HELPER_GET_STATUS,
+  HELPER_RUN_NOW,
+  HELPER_DOWNLOAD,
+  HELPER_DOWNLOAD_PROGRESS,
+  INVENTORY_UPDATED,
+  ITEM_DB_UPDATED,
+  TRADE_RECORDED,
+  ARBI_RUN_SAVED,
 } from "./config/shared/ipcChannels";
 import * as statsTracker from "./services/statsTracker";
 import * as arbiRunTracker from "./services/arbiRunTracker";
@@ -115,7 +121,10 @@ function createWindow(): void {
   // Block page reload shortcuts (Ctrl+R, Ctrl+Shift+R, F5) to prevent breaking app state.
   ctx.mainWindow.webContents.on(
     "before-input-event",
-    (event: { preventDefault: () => void }, input: { type?: string; key?: string; control?: boolean; meta?: boolean; shift?: boolean }) => {
+    (
+      event: { preventDefault: () => void },
+      input: { type?: string; key?: string; control?: boolean; meta?: boolean; shift?: boolean },
+    ) => {
       if (input.type !== "keyDown") return;
       const ctrl = input.control || input.meta;
       if ((ctrl && input.key === "r") || (ctrl && input.key === "R") || input.key === "F5") {
@@ -223,9 +232,7 @@ app.whenReady().then(async () => {
   };
 
   // Helper runner IPC
-  handleAuthorized(HELPER_GET_STATUS, assertMainRendererSender, () =>
-    apiHelperRunner.getStatus(),
-  );
+  handleAuthorized(HELPER_GET_STATUS, assertMainRendererSender, () => apiHelperRunner.getStatus());
   handleAuthorized(HELPER_RUN_NOW, assertMainRendererSender, async () => {
     const ok = await apiHelperRunner.runOnce();
     attachInventoryAfterHelperRun(ok);
@@ -455,12 +462,16 @@ app.whenReady().then(async () => {
 });
 
 app.on("window-all-closed", () => {
+  if (process.platform === "darwin") return;
+  app.quit();
+});
+
+app.on("before-quit", () => {
   if (ctx.watcher) ctx.watcher.close();
   apiHelperRunner.stopPolling();
   eeLogMonitor.stopWatching();
   overlayIpc.unregisterOverlayHotkey();
   arbiScheduleIpc.shutdown();
-  if (process.platform !== "darwin") app.quit();
 });
 
 app.on("will-quit", () => {

@@ -2,11 +2,7 @@ import WebSocket from "ws";
 
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { withScope } from "./logger";
-import {
-  createWfmWebSocket,
-  parseWfmWsMessage,
-  sendWfmWsMessage,
-} from "./wfmWebSocketCommon";
+import { createWfmWebSocket, parseWfmWsMessage, sendWfmWsMessage } from "./wfmWebSocketCommon";
 
 const log = withScope("wfmWebSocketListener");
 
@@ -99,6 +95,7 @@ function _connect(token: string): void {
 
     if (route.endsWith(":error")) {
       log.warn("[WFMListener] Server error:", route, JSON.stringify(msg.payload));
+      if (route.includes("auth/signIn")) stopListening();
       return;
     }
 
@@ -130,7 +127,10 @@ function _connect(token: string): void {
   });
 }
 
-export function startListening(token: string, onEvent: (type: string, payload: unknown) => void): void {
+export function startListening(
+  token: string,
+  onEvent: (type: string, payload: unknown) => void,
+): void {
   stopListening();
   _active = true;
   _token = token;

@@ -78,38 +78,43 @@ function createDiskCacheIpc(config: DiskCacheIpcConfig): { register: () => void 
       }
     });
 
-    handleAuthorized(`${channelPrefix}:save`, assertMainRendererSender, async (_event, data: unknown) => {
-      try {
-        if (!data || typeof data !== "object" || Array.isArray(data)) {
-          return { ok: false };
-        }
-        if (config.validateData && !config.validateData(data as Record<string, unknown>)) {
-          log.warn(`Refusing ${noun} save: invalid shape`);
-          return { ok: false };
-        }
+    handleAuthorized(
+      `${channelPrefix}:save`,
+      assertMainRendererSender,
+      async (_event, data: unknown) => {
+        try {
+          if (!data || typeof data !== "object" || Array.isArray(data)) {
+            return { ok: false };
+          }
+          if (config.validateData && !config.validateData(data as Record<string, unknown>)) {
+            log.warn(`Refusing ${noun} save: invalid shape`);
+            return { ok: false };
+          }
 
-        const keyCount = Object.keys(data as Record<string, unknown>).length;
-        if (keyCount > maxKeyCount) {
-          log.warn(`Refusing ${noun} save: ${keyCount} keys exceeds limit ${maxKeyCount}`);
+          const keyCount = Object.keys(data as Record<string, unknown>).length;
+          if (keyCount > maxKeyCount) {
+            log.warn(`Refusing ${noun} save: ${keyCount} keys exceeds limit ${maxKeyCount}`);
+            return { ok: false };
+          }
+
+          const serialized = JSON.stringify(data);
+          const payloadBytes = Buffer.byteLength(serialized, "utf-8");
+          if (payloadBytes > maxPayloadBytes) {
+            log.warn(
+              `Refusing ${noun} save: ${payloadBytes} bytes exceeds limit ${maxPayloadBytes}`,
+            );
+            return { ok: false };
+          }
+
+          const filePath = getCachePath();
+          fs.writeFileSync(filePath, serialized, "utf-8");
+          return { ok: true };
+        } catch (err) {
+          log.error(`Failed to save ${noun}:`, normalizeErrorMessage(err));
           return { ok: false };
         }
-
-        const serialized = JSON.stringify(data);
-        if (serialized.length > maxPayloadBytes) {
-          log.warn(
-            `Refusing ${noun} save: ${serialized.length} bytes exceeds limit ${maxPayloadBytes}`,
-          );
-          return { ok: false };
-        }
-
-        const filePath = getCachePath();
-        fs.writeFileSync(filePath, serialized, "utf-8");
-        return { ok: true };
-      } catch (err) {
-        log.error(`Failed to save ${noun}:`, normalizeErrorMessage(err));
-        return { ok: false };
-      }
-    });
+      },
+    );
   }
 
   return { register };

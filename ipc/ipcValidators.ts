@@ -23,10 +23,10 @@ export function boundedInt(value: unknown, min: number, max: number): number | n
   return Math.round(parsed);
 }
 
-export function stringArray(value: unknown, maxLength = 100): string[] {
+export function stringArray(value: unknown, maxItems = 100, maxStringLength = 200): string[] {
   if (!Array.isArray(value)) return [];
   return value
-    .map((entry) => trimmedString(entry))
+    .map((entry) => trimmedString(entry, maxStringLength))
     .filter((entry): entry is string => Boolean(entry))
-    .slice(0, maxLength);
+    .slice(0, maxItems);
 }

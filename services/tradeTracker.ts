@@ -23,11 +23,80 @@ import type { TradeType, TradeDirection, TradeItem, TradeEvent } from "../config
 const log = withScope("tradeTracker");
 
 const MAX_EVENTS = 2000;
+const MAX_IMPORT_EVENTS = 10_000;
+const MAX_ITEMS_PER_TRADE = 12;
 const MIN_COOLDOWN_MS = 10_000; // 10 s - suppresses duplicate events
 
 let _lastEventTime = 0;
 let _tradeLog: TradeEvent[] = [];
 
+function boundedString(value: unknown, maxLength: number): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed && trimmed.length <= maxLength ? trimmed : null;
+}
+
+function sanitizeTradeItem(value: unknown): TradeItem | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const item = value as Record<string, unknown>;
+  const displayName = boundedString(item.displayName, 160);
+  const internalName =
+    typeof item.internalName === "string" && item.internalName.length <= 240
+      ? item.internalName
+      : null;
+  const count = Number(item.count);
+  const direction =
+    item.direction === "given" || item.direction === "received" ? item.direction : null;
+  if (
+    !displayName ||
+    internalName == null ||
+    !Number.isInteger(count) ||
+    count < 1 ||
+    count > 9999 ||
+    !direction
+  ) {
+    return null;
+  }
+
+  const wfmSlug = boundedString(item.wfmSlug, 160);
+  const wfmThumb = boundedString(item.wfmThumb, 2048);
+  return {
+    internalName,
+    displayName,
+    count,
+    direction,
+    ...(wfmSlug ? { wfmSlug } : {}),
+    ...(wfmThumb ? { wfmThumb } : {}),
+  };
+}
+
+function sanitizeTradeEvent(value: unknown): TradeEvent | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const event = value as Record<string, unknown>;
+  const id = boundedString(event.id, 180);
+  const date = boundedString(event.date, 64);
+  const type =
+    event.type === "sale" || event.type === "purchase" || event.type === "trade"
+      ? event.type
+      : null;
+  const platChange = Number(event.platChange);
+  if (!id || !date || !Number.isFinite(Date.parse(date)) || !type) return null;
+  if (!Number.isInteger(platChange) || platChange < 0 || platChange > 10_000_000) return null;
+  if (!Array.isArray(event.items) || event.items.length > MAX_ITEMS_PER_TRADE) return null;
+
+  const items = event.items.map(sanitizeTradeItem);
+  if (items.some((item) => item == null)) return null;
+  const partner = boundedString(event.partner, 120);
+  return {
+    id,
+    date,
+    type,
+    platChange,
+    items: items as TradeItem[],
+    ...(partner ? { partner } : {}),
+    ...(event.wfmClosed === true ? { wfmClosed: true } : {}),
+  };
+}
 
 function _logPath(): string {
   return path.join(app.getPath("userData"), "trade-log.json");
@@ -41,7 +110,6 @@ function _saveLog(): void {
   }
 }
 
-
 /**
  * Load persisted trade log from disk. Call once on startup.
  */
@@ -50,7 +118,11 @@ export function loadTradeLog(): void {
     const raw = fs.readFileSync(_logPath(), "utf-8");
     const parsed: unknown = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      _tradeLog = parsed as TradeEvent[];
+      _tradeLog = parsed
+        .slice(0, MAX_IMPORT_EVENTS)
+        .map(sanitizeTradeEvent)
+        .filter((event): event is TradeEvent => event != null)
+        .slice(0, MAX_EVENTS);
       log.info(`[TradeTracker] Loaded ${_tradeLog.length} trade events`);
     }
   } catch (err) {
@@ -77,8 +149,9 @@ export function recordTradeFromLog(parsed: {
   const id = `${new Date().toISOString()}-${Math.random().toString(36).slice(2, 6)}`;
 
   const items: TradeItem[] = parsed.items.map((i) => {
-    const catalogItem = wfmCatalog.lookupByName(i.displayName)
-      || wfmCatalog.lookupByName(i.displayName.replace(/ Blueprint$/i, ""));
+    const catalogItem =
+      wfmCatalog.lookupByName(i.displayName) ||
+      wfmCatalog.lookupByName(i.displayName.replace(/ Blueprint$/i, ""));
     return {
       internalName: "",
       displayName: i.displayName,
@@ -126,10 +199,12 @@ export function markTradeWfmClosed(tradeId: string): void {
  * Import trade events from an external trade export.
  * Deduplicates by id. Returns the number of newly added events.
  */
-export function importTradeLog(events: TradeEvent[]): number {
+export function importTradeLog(events: unknown[]): number {
   const existingIds = new Set(_tradeLog.map((t) => t.id));
   let added = 0;
-  for (const e of events) {
+  for (const raw of events.slice(0, MAX_IMPORT_EVENTS)) {
+    const e = sanitizeTradeEvent(raw);
+    if (!e) continue;
     if (!e.id || existingIds.has(e.id)) continue;
     _tradeLog.push(e);
     existingIds.add(e.id);
@@ -150,4 +225,9 @@ export function importTradeLog(events: TradeEvent[]): number {
  */
 export function getTradeLog(): TradeEvent[] {
   return _tradeLog;
+}
+
+export function __resetTradeTrackerForTest(): void {
+  _lastEventTime = 0;
+  _tradeLog = [];
 }

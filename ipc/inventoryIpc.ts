@@ -150,7 +150,6 @@ function newestExistingInventoryPath(paths: string[]): string | null {
   return bestPath;
 }
 
-
 function rememberInventoryPath(filePath: string): void {
   if (_trustedInventoryPath === filePath) return;
   _trustedInventoryPath = filePath;
@@ -331,13 +330,12 @@ function watchInventoryFile(filePath: string): void {
       return;
     }
 
-    _lastReloadAt = now;
-    _lastInventoryHash = hash;
-    _persistState();
-    log.info("Inventory file changed, reloading...");
-
     try {
       const data = parseInventoryRaw(raw);
+      _lastReloadAt = now;
+      _lastInventoryHash = hash;
+      _persistState();
+      log.info("Inventory file changed, reloading...");
       ctx.currentInventoryData = data as Record<string, unknown> | null;
       _lastReadError = null;
       rememberInventoryPath(filePath);

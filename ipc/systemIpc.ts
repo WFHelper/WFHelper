@@ -1,9 +1,5 @@
 import ctx from "./context";
-import {
-  assertMainRendererSender,
-  handleAuthorized,
-  onAuthorized,
-} from "./ipcSecurity";
+import { assertMainRendererSender, handleAuthorized, onAuthorized } from "./ipcSecurity";
 import { unwrapInventoryPayload } from "../config/shared/inventoryPayload";
 import { withScope } from "../services/logger";
 import * as itemDb from "../services/itemDatabase";
@@ -16,15 +12,26 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 import { isAllowedExternalHost } from "../config/runtime/security";
 import { app, shell } from "electron";
 import {
-  DB_GET_ITEM_DATABASE, DB_GET_WFM_ITEMS, DB_GET_MASTERY,
-  DB_GET_RELIC_DATABASE, DROP_SEARCH,
-  APP_UPDATE_CHECK, APP_UPDATE_STATE, APP_UPDATE_DOWNLOAD, APP_UPDATE_INSTALL, APP_RUNTIME_INFO,
+  DB_GET_ITEM_DATABASE,
+  DB_GET_WFM_ITEMS,
+  DB_GET_MASTERY,
+  DB_GET_RELIC_DATABASE,
+  DROP_SEARCH,
+  APP_UPDATE_CHECK,
+  APP_UPDATE_STATE,
+  APP_UPDATE_DOWNLOAD,
+  APP_UPDATE_INSTALL,
+  APP_RUNTIME_INFO,
   SCAN_DEBUG_OPEN_FOLDER,
-  WINDOW_MINIMIZE, WINDOW_MAXIMIZE, WINDOW_CLOSE,
-  LOG_WARN, OPEN_EXTERNAL,
+  WINDOW_MINIMIZE,
+  WINDOW_MAXIMIZE,
+  WINDOW_CLOSE,
+  LOG_WARN,
+  OPEN_EXTERNAL,
 } from "../config/shared/ipcChannels";
 import fs from "node:fs";
 import { getScanDebugDir } from "../services/rewardScanDebug";
+import { isObject, trimmedString } from "./ipcValidators";
 
 const log = withScope("systemIpc");
 
@@ -57,25 +64,23 @@ function register(): void {
     return masteryHelper.computeMasteryProgress(data as Record<string, unknown>);
   });
 
-  handleAuthorized(
-    DROP_SEARCH,
-    assertMainRendererSender,
-    async (_event, payload: { query: string; mode: "item" | "place" }) => {
-      try {
-        await dropData.ensureLoaded();
-      } catch (error) {
-        log.warn("[Drops] ensureLoaded failed:", normalizeErrorMessage(error));
-      }
-      return dropData.searchDrops(payload.query, payload.mode);
-    },
-  );
+  handleAuthorized(DROP_SEARCH, assertMainRendererSender, async (_event, payload: unknown) => {
+    if (!isObject(payload)) return [];
+    const query = trimmedString(payload.query, 200);
+    const mode = payload.mode === "item" || payload.mode === "place" ? payload.mode : null;
+    if (!query || !mode) return [];
+    try {
+      await dropData.ensureLoaded();
+    } catch (error) {
+      log.warn("[Drops] ensureLoaded failed:", normalizeErrorMessage(error));
+    }
+    return dropData.searchDrops(query, mode);
+  });
 
   handleAuthorized(APP_UPDATE_CHECK, assertMainRendererSender, () =>
     autoUpdater.checkForUpdates("manual"),
   );
-  handleAuthorized(APP_UPDATE_STATE, assertMainRendererSender, () =>
-    autoUpdater.getUpdateState(),
-  );
+  handleAuthorized(APP_UPDATE_STATE, assertMainRendererSender, () => autoUpdater.getUpdateState());
   handleAuthorized(APP_UPDATE_DOWNLOAD, assertMainRendererSender, () =>
     autoUpdater.downloadUpdate(),
   );

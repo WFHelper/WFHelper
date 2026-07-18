@@ -261,7 +261,8 @@ function playNotificationSound(): void {
         "-NoProfile",
         "-NonInteractive",
         "-Command",
-        `(New-Object Media.SoundPlayer '${NOTIFICATION_SOUND_FILE}').PlaySync()`,
+        "& { param([string]$soundPath) (New-Object Media.SoundPlayer $soundPath).PlaySync() }",
+        NOTIFICATION_SOUND_FILE,
       ],
       { windowsHide: true, timeout: 8000 },
       (err) => {

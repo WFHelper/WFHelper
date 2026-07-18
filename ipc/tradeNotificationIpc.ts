@@ -9,16 +9,13 @@ import ctx from "./context";
 import { assertTradeNotificationSender, onAuthorized } from "./ipcSecurity";
 import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
-import {
-  TRADE_NOTIFICATION_SHOW, TRADE_NOTIFICATION_DISMISS,
-} from "../config/shared/ipcChannels";
+import { TRADE_NOTIFICATION_SHOW, TRADE_NOTIFICATION_DISMISS } from "../config/shared/ipcChannels";
 import type { TradeMatchPayload } from "../config/shared/tradeMatch";
 
 const log = withScope("tradeNotificationIpc");
 
 import path from "node:path";
 import { app, BrowserWindow, screen } from "electron";
-
 
 const WIN_W = 370;
 const WIN_H = 80;
@@ -43,9 +40,24 @@ export interface TradeNotificationShowPayload {
   };
 }
 
-
 let _hideTimer: ReturnType<typeof setTimeout> | null = null;
+let _rendererReady = false;
+let _pendingPayload: TradeNotificationShowPayload | null = null;
 
+function _displayNotification(
+  win: InstanceType<typeof BrowserWindow>,
+  payload: TradeNotificationShowPayload,
+): void {
+  win.webContents.send(TRADE_NOTIFICATION_SHOW, payload);
+  win.showInactive();
+  win.moveTop();
+
+  if (_hideTimer) clearTimeout(_hideTimer);
+  _hideTimer = setTimeout(() => {
+    if (!win.isDestroyed()) win.hide();
+    _hideTimer = null;
+  }, AUTO_HIDE_MS);
+}
 
 function _getOrCreateWindow(): InstanceType<typeof BrowserWindow> {
   const existing = ctx.tradeNotificationWindow;
@@ -87,13 +99,26 @@ function _getOrCreateWindow(): InstanceType<typeof BrowserWindow> {
     log,
   });
 
-  void win.loadFile(NOTIFICATION_FILE);
+  _rendererReady = false;
+  void win.loadFile(NOTIFICATION_FILE).catch((error: unknown) => {
+    log.warn("[TradeNotification] Failed to load renderer:", error);
+  });
+  win.webContents.once("did-finish-load", () => {
+    _rendererReady = true;
+    if (_pendingPayload) {
+      const payload = _pendingPayload;
+      _pendingPayload = null;
+      _displayNotification(win, payload);
+    }
+  });
   win.setAlwaysOnTop(true, "screen-saver");
   win.setIgnoreMouseEvents(true, { forward: true });
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
   win.on("closed", () => {
     ctx.tradeNotificationWindow = null;
+    _rendererReady = false;
+    _pendingPayload = null;
     if (_hideTimer) {
       clearTimeout(_hideTimer);
       _hideTimer = null;
@@ -104,7 +129,6 @@ function _getOrCreateWindow(): InstanceType<typeof BrowserWindow> {
   return win;
 }
 
-
 /**
  * Show a trade-finished notification for a matched WFM order.
  */
@@ -114,17 +138,8 @@ export function showTradeNotification(match: TradeNotificationShowPayload["match
     match,
     timing: { visibleMs: RENDERER_VISIBLE_MS, fadeMs: RENDERER_FADE_MS },
   };
-  win.webContents.send(TRADE_NOTIFICATION_SHOW, payload);
-  win.showInactive();
-  win.moveTop();
-
-  // Auto-hide after delay - always slightly later than the renderer's
-  // visibleMs + fadeMs so the animation completes before visibility is revoked.
-  if (_hideTimer) clearTimeout(_hideTimer);
-  _hideTimer = setTimeout(() => {
-    if (!win.isDestroyed()) win.hide();
-    _hideTimer = null;
-  }, AUTO_HIDE_MS);
+  if (_rendererReady) _displayNotification(win, payload);
+  else _pendingPayload = payload;
 
   log.info(
     `[TradeNotification] Showing: ${match.type} ${match.itemName} ${match.platinum}p with ${match.partner}`,

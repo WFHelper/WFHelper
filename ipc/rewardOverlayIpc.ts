@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+import { BrowserWindow, screen, app } from "electron";
 import ctx from "./context";
 import {
   assertMainRendererSender,
@@ -7,6 +10,7 @@ import {
 } from "./ipcSecurity";
 import { createOverlayScanController } from "./overlay/scan";
 import { createRelicSelectionController } from "./overlay/relicSelection";
+import { registerZOrderSubscriber } from "./overlay/zOrder";
 import {
   createOverlayWindowBoundsChangeHandler,
   createOverlayWindowsController,
@@ -28,8 +32,13 @@ import {
   isRelicRewardsOverlayEnabled,
 } from "../config/runtime/overlaySettings";
 import {
-  OVERLAY_CLOSE, OVERLAY_GET_RELIC_ITEMS, OVERLAY_GET_PRICE, OVERLAY_GET_DRAG_HINT,
-  TOGGLE_OVERLAY, SIMULATE_RELIC_TRIGGER, OVERLAY_PUSH_RELIC_FILTERS,
+  OVERLAY_CLOSE,
+  OVERLAY_GET_RELIC_ITEMS,
+  OVERLAY_GET_PRICE,
+  OVERLAY_GET_DRAG_HINT,
+  TOGGLE_OVERLAY,
+  SIMULATE_RELIC_TRIGGER,
+  OVERLAY_PUSH_RELIC_FILTERS,
 } from "../config/shared/ipcChannels";
 
 const log = withScope("rewardOverlayIpc");
@@ -53,15 +62,10 @@ const wfmStatsPrice = {
   getCachedPriceBySlug,
 };
 
-import { BrowserWindow, screen, app } from "electron";
-import path from "node:path";
-import fs from "node:fs";
-
 const APP_ROOT = app.getAppPath();
 const OVERLAY_WINDOW_FILE = path.join(APP_ROOT, "renderer", "overlay.html");
 // Prices and ducat meta live in the snapshot cache; price-cache.json is not written.
 const PRICE_CACHE_FILE = path.join(app.getPath("userData"), "snapshot-cache.json");
-
 
 export const rewardWindowsController = createOverlayWindowsController({
   app,
@@ -114,22 +118,18 @@ function syncOverlayWindowZOrder(
     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     win.setAlwaysOnTop(true, "screen-saver");
     win.moveTop();
+  } else if (win.isAlwaysOnTop()) {
+    win.setAlwaysOnTop(false);
+    win.setVisibleOnAllWorkspaces(false);
   }
 }
 
-// Keep overlay windows attached to Warframe's z-order instead of floating above other apps.
-const overlayZOrderInterval = setInterval(async () => {
-  try {
-    const status = await warframeStatus.getStatus();
-    syncOverlayWindowZOrder(ctx.overlayWindow, status.isFocused);
-    syncOverlayWindowZOrder(ctx.plannerOverlayWindow, status.isFocused);
-  } catch {
-    // ignore
-  }
-}, 2000);
-
-app.on("before-quit", () => {
-  clearInterval(overlayZOrderInterval);
+registerZOrderSubscriber({
+  isActive: () => Boolean(ctx.overlayWindow?.isVisible() || ctx.plannerOverlayWindow?.isVisible()),
+  sync: (warframeFocused) => {
+    syncOverlayWindowZOrder(ctx.overlayWindow, warframeFocused);
+    syncOverlayWindowZOrder(ctx.plannerOverlayWindow, warframeFocused);
+  },
 });
 
 let scanController = createOverlayScanController({
@@ -162,8 +162,6 @@ export function warmPlannerOverlayWindow(): void {
   if (ctx.plannerOverlayWindow && !ctx.plannerOverlayWindow.isDestroyed()) return;
   plannerWindowsController.createOverlayWindow({ show: false });
 }
-
-
 
 export function onRelicRewardTrigger(
   source: string,
@@ -222,8 +220,10 @@ export function onRelicSelectionClose(pushOverlayInteractionMode: () => void): v
   log.info("[OverlayClose] planner closed via Dialog::SendResult");
 }
 
-
-export function register(pushOverlayInteractionMode: () => void, pushOverlayThemeVars: () => void): void {
+export function register(
+  pushOverlayInteractionMode: () => void,
+  pushOverlayThemeVars: () => void,
+): void {
   onAuthorized(OVERLAY_CLOSE, assertOverlayRendererSender, (event) => {
     rewardWindowsController.clearOverlayAutoHideTimer();
     plannerWindowsController.clearOverlayAutoHideTimer();
@@ -292,9 +292,13 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
     dismissed: ctx.overlaySettings.overlayDragHintDismissed === true,
   }));
 
-  handleAuthorized(OVERLAY_GET_PRICE, assertOverlayRendererSender, async (_event, slug: unknown) => {
-    return wfmStatsPrice.fetchPriceBySlug(slug);
-  });
+  handleAuthorized(
+    OVERLAY_GET_PRICE,
+    assertOverlayRendererSender,
+    async (_event, slug: unknown) => {
+      return wfmStatsPrice.fetchPriceBySlug(slug);
+    },
+  );
 
   onAuthorized(TOGGLE_OVERLAY, assertMainRendererSender, () => {
     if (!isRelicRewardsOverlayEnabled(ctx.overlaySettings)) return;
@@ -324,12 +328,16 @@ export function register(pushOverlayInteractionMode: () => void, pushOverlayThem
     );
   });
 
-  onAuthorized(OVERLAY_PUSH_RELIC_FILTERS, assertMainRendererSender, (_event, rawFilters: unknown) => {
-    if (!rawFilters || typeof rawFilters !== "object") return;
-    const filters = rawFilters as Record<string, unknown>;
-    relicSelectionController.setDesktopFilters({
-      squadSize: typeof filters.squadSize === "number" ? filters.squadSize : undefined,
-      tierFilter: typeof filters.tierFilter === "string" ? filters.tierFilter : null,
-    });
-  });
+  onAuthorized(
+    OVERLAY_PUSH_RELIC_FILTERS,
+    assertMainRendererSender,
+    (_event, rawFilters: unknown) => {
+      if (!rawFilters || typeof rawFilters !== "object") return;
+      const filters = rawFilters as Record<string, unknown>;
+      relicSelectionController.setDesktopFilters({
+        squadSize: typeof filters.squadSize === "number" ? filters.squadSize : undefined,
+        tierFilter: typeof filters.tierFilter === "string" ? filters.tierFilter : null,
+      });
+    },
+  );
 }

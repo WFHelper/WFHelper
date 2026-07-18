@@ -32,8 +32,7 @@ const droneLine = (ts: number) =>
   `${ts.toFixed(3)} Sys [Info]: OnAgentCreated /Npc/CorpusEliteShieldDroneAgent7`;
 const rewardLine = (ts: number) =>
   `${ts.toFixed(3)} Sys [Info]: Created /Lotus/Interface/DefenseReward.swf`;
-const eomLine = (ts: number) =>
-  `${ts.toFixed(3)} Sys [Info]: EOM missionLocationUnlocked=1`;
+const eomLine = (ts: number) => `${ts.toFixed(3)} Sys [Info]: EOM missionLocationUnlocked=1`;
 
 function waitForRun(tracker: Tracker): Promise<ArbiRunRecord> {
   return new Promise((resolve) => {
@@ -60,6 +59,29 @@ afterEach(async () => {
 });
 
 describe("arbiRunTracker", () => {
+  it("discards persisted log paths outside the run log directory", async () => {
+    const externalPath = path.join(tmpDir, "outside.log.gz");
+    fs.writeFileSync(externalPath, "keep");
+    fs.writeFileSync(
+      path.join(tmpDir, "arbi-runs.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        runs: [
+          {
+            id: "2026-07-18_12-00-00",
+            logFile: "../outside.log.gz",
+            logSizeBytes: 4,
+          },
+        ],
+      }),
+    );
+
+    const tracker = await freshTracker();
+    expect(tracker.getRuns()[0]).toMatchObject({ logFile: null, logSizeBytes: 0 });
+    expect(tracker.deleteRun("2026-07-18_12-00-00")).toBe(true);
+    expect(fs.readFileSync(externalPath, "utf-8")).toBe("keep");
+  });
+
   it("records a run and writes gz + index on new-mission finalize", async () => {
     const tracker = await freshTracker();
     const saved = waitForRun(tracker);
@@ -164,7 +186,10 @@ describe("arbiRunTracker", () => {
     const tracker = await freshTracker();
     const first = waitForRun(tracker);
     feedRun(tracker);
-    tracker.processArbiLine(missionLine(900, "Arbitration: Berehynia Interception (Sedna)"), "file");
+    tracker.processArbiLine(
+      missionLine(900, "Arbitration: Berehynia Interception (Sedna)"),
+      "file",
+    );
     const run = await first;
     expect(run.node).toBe("Casta Defense (Ceres)");
 
@@ -189,7 +214,10 @@ describe("arbiRunTracker", () => {
     expect(run1.endReason).toBe("mission-end");
 
     const second = waitForRun(tracker);
-    tracker.processArbiLine(missionLine(900, "Arbitration: Berehynia Interception (Sedna)"), "file");
+    tracker.processArbiLine(
+      missionLine(900, "Arbitration: Berehynia Interception (Sedna)"),
+      "file",
+    );
     tracker.processArbiLine(droneLine(950), "file");
     tracker.processArbiLine(rewardLine(1100), "file");
     tracker.processArbiLine(eomLine(1200), "file");
