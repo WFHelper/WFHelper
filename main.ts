@@ -310,7 +310,7 @@ app.whenReady().then(async () => {
   overlayIpc.registerOverlayHotkey();
   profileStage("overlay-hotkey:register", hotkeyStart);
 
-  // warm after startup so it doesn't compete with first paint
+  // Keep prewarming off the first-paint path.
   setTimeout(() => {
     try {
       overlayIpc.warmPlannerOverlayWindow();
@@ -319,7 +319,7 @@ app.whenReady().then(async () => {
     }
   }, 4000).unref();
 
-  // paddle session load costs ~1.4s - pay it here, not inside the first scan
+  // Load Paddle before the first reward scan needs it.
   setTimeout(() => {
     void rewardOcrOnnx.warmupRewardStripOnnx();
   }, 6000).unref();
@@ -332,8 +332,7 @@ app.whenReady().then(async () => {
     inventoryIpc.watchInventoryFile(found);
     log.info("Auto-detected inventory at:", found);
 
-    // Auto-load inventory and send to renderer once the page is ready.
-    // Guard against a race where did-finish-load fires before this point
+    // The renderer may finish loading before inventory discovery completes.
     // (local file loads can complete in <100 ms).
     const data = inventoryIpc.readInventory(found);
     if (data && ctx.mainWindow) {
@@ -428,27 +427,7 @@ app.whenReady().then(async () => {
 
   const rewardItemsStart = Date.now();
   try {
-    const db = relicService.getRelicDatabase();
-    const seen = new Map();
-    for (const group of Object.values(db.groups)) {
-      for (const qualData of Object.values(group.qualities)) {
-        for (const reward of qualData.rewards || []) {
-          if (reward.name && !seen.has(reward.name)) {
-            const resolved = itemDb.lookupItemByNameOrSlug(reward.name, reward.urlName);
-            const dbEntry =
-              resolved?.item || (reward.uniqueName ? itemDb.lookupItem(reward.uniqueName) : null);
-            seen.set(reward.name, {
-              name: reward.name,
-              uniqueName: resolved?.uniqueName || reward.uniqueName || null,
-              urlName: reward.urlName || null,
-              rarity: reward.rarity || "Common",
-              ducats: reward.ducats ?? dbEntry?.ducats ?? null,
-            });
-          }
-        }
-      }
-    }
-    rewardScanner.setRelicItems([...seen.values()]);
+    rewardScanner.setRelicItems(relicService.getRelicRewardItems());
   } catch (err) {
     log.error("[RewardScanner] Failed to load relic items:", (err as Error).message);
   }

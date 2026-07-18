@@ -146,4 +146,23 @@ describe("world state desktop notifications", () => {
       },
     ]);
   });
+
+  it("shares an in-flight refresh between callers", async () => {
+    let resolveFetch!: (value: Record<string, unknown>) => void;
+    const pendingFetch = new Promise<Record<string, unknown>>((resolve) => {
+      resolveFetch = resolve;
+    });
+    const fetch = vi.spyOn(worldStateParser, "fetchAndParse").mockReturnValue(pendingFetch);
+    const handler = registerWorldStateHandler();
+
+    const first = handler(makeAuthorizedEvent());
+    const second = handler(makeAuthorizedEvent());
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    resolveFetch({ fissures: [] });
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      { fissures: [] },
+      { fissures: [] },
+    ]);
+  });
 });

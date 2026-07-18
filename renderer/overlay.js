@@ -518,23 +518,12 @@ async function applyRewardItems(payload) {
   );
 }
 
-function applyThemeVars(rawVars) {
-  if (!rawVars || typeof rawVars !== "object") return;
-  const vars = rawVars;
-  const root = document.documentElement;
-  for (const [key, value] of Object.entries(vars)) {
-    if (!key.startsWith("--")) continue;
-    if (typeof value !== "string" || !value.trim()) continue;
-    root.style.setProperty(key, value.trim());
-  }
-}
-
 document.addEventListener("DOMContentLoaded", () => {
-  window.overlayTheme.loadThemeFromStorageFallback(applyThemeVars);
+  window.overlayTheme.loadThemeFromStorageFallback();
   void window.overlay
     .getThemeVars()
     .then((vars) => {
-      applyThemeVars(vars);
+      window.overlayTheme.applyThemeVars(vars);
     })
     .catch(() => {
       // best effort, storage fallback already applied
@@ -574,7 +563,7 @@ document.addEventListener("DOMContentLoaded", () => {
     showPlannerHint(!overlayInteractiveMode);
   });
   window.overlay.onThemeVars((vars) => {
-    applyThemeVars(vars);
+    window.overlayTheme.applyThemeVars(vars);
   });
   window.overlay.onInteractionMode((payload) => {
     setOverlayInteractiveMode(Boolean(payload?.interactive));

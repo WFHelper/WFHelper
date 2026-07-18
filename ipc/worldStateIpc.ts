@@ -23,6 +23,7 @@ const WORLD_STATE_TTL_MS = 90_000;
 
 let _worldStateCache: unknown = null;
 let _worldStateCacheTime = 0;
+let _worldStateFetch: Promise<unknown> | null = null;
 let _registered = false;
 let _startupSeedTimer: ReturnType<typeof setTimeout> | null = null;
 let _preCycleInterval: ReturnType<typeof setInterval> | null = null;
@@ -604,6 +605,23 @@ function checkPreCycleNotifications(state: unknown): void {
   }
 }
 
+function refreshWorldState(): Promise<unknown> {
+  if (_worldStateFetch) return _worldStateFetch;
+
+  const request = worldStateParser.fetchAndParse().then((fresh) => {
+    _worldStateCache = fresh;
+    _worldStateCacheTime = Date.now();
+    maybeNotifyWorldEvents(fresh);
+    checkPreCycleNotifications(fresh);
+    log.info("[WorldState] Fetched and parsed DE world state");
+    return fresh;
+  });
+  _worldStateFetch = request.finally(() => {
+    _worldStateFetch = null;
+  });
+  return _worldStateFetch;
+}
+
 function clearRegisteredTimers(): void {
   if (_startupSeedTimer) {
     clearTimeout(_startupSeedTimer);
@@ -624,6 +642,7 @@ function resetForTest(): void {
   _registered = false;
   _worldStateCache = null;
   _worldStateCacheTime = 0;
+  _worldStateFetch = null;
   _worldNotificationSnapshot = null;
   _cyclePreNotified.clear();
   notificationCtor = electronModule.Notification;
@@ -667,12 +686,7 @@ function register(
     }
 
     try {
-      _worldStateCache = await worldStateParser.fetchAndParse();
-      _worldStateCacheTime = Date.now();
-      maybeNotifyWorldEvents(_worldStateCache);
-      checkPreCycleNotifications(_worldStateCache);
-      log.info("[WorldState] Fetched and parsed DE world state");
-      return _worldStateCache;
+      return await refreshWorldState();
     } catch (err) {
       const msg = normalizeErrorMessage(err);
       log.error("[WorldState] fetch failed:", msg);
@@ -694,10 +708,7 @@ function register(
   _startupSeedTimer = setTimeout(async () => {
     _startupSeedTimer = null;
     try {
-      _worldStateCache = await worldStateParser.fetchAndParse();
-      _worldStateCacheTime = Date.now();
-      _worldNotificationSnapshot = buildNotificationSnapshot(_worldStateCache);
-      checkPreCycleNotifications(_worldStateCache);
+      await refreshWorldState();
       log.info("[WorldState] startup seed complete");
     } catch (err) {
       log.warn("[WorldState] startup seed failed:", normalizeErrorMessage(err));
@@ -714,13 +725,9 @@ function register(
   // current and transition notifications fire correctly.
   _refreshInterval = setInterval(async () => {
     try {
-      const fresh = await worldStateParser.fetchAndParse();
-      _worldStateCache = fresh;
-      _worldStateCacheTime = Date.now();
-      maybeNotifyWorldEvents(fresh);
-      checkPreCycleNotifications(fresh);
-    } catch {
-      /* logged at fetch layer */
+      await refreshWorldState();
+    } catch (err) {
+      log.warn("[WorldState] background refresh failed:", normalizeErrorMessage(err));
     }
   }, 60_000);
 }

@@ -2,7 +2,7 @@ import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { normalizeDucats } from "../config/shared/numeric";
 import { normalizeWfmSlug } from "../config/shared/wfm";
-import { toIconMirrorUrl } from "./itemDatabase";
+import { lookupItem, lookupItemByNameOrSlug, toIconMirrorUrl } from "./itemDatabase";
 
 const log = withScope("relicService");
 
@@ -52,7 +52,37 @@ interface RelicDatabase {
   byUniqueName: Record<string, { groupKey: string; quality: RelicQualityKey }>;
 }
 
+interface RelicRewardItem {
+  [key: string]: unknown;
+  name: string;
+  uniqueName: string | null;
+  urlName: string | null;
+  rarity: string;
+  ducats: number | null;
+}
+
 let _db: RelicDatabase | null = null;
+
+export function getRelicRewardItems(): RelicRewardItem[] {
+  const seen = new Map<string, RelicRewardItem>();
+  for (const group of Object.values(getRelicDatabase().groups)) {
+    for (const quality of Object.values(group.qualities)) {
+      for (const reward of quality.rewards) {
+        if (!reward.name || seen.has(reward.name)) continue;
+        const resolved = lookupItemByNameOrSlug(reward.name, reward.urlName);
+        const dbEntry = resolved?.item || (reward.uniqueName ? lookupItem(reward.uniqueName) : null);
+        seen.set(reward.name, {
+          name: reward.name,
+          uniqueName: resolved?.uniqueName || reward.uniqueName || null,
+          urlName: reward.urlName || null,
+          rarity: reward.rarity || "Common",
+          ducats: reward.ducats ?? dbEntry?.ducats ?? null,
+        });
+      }
+    }
+  }
+  return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
 
 function buildWfcdImageUrl(imageName: string | null | undefined): string | null {
   const trimmed = typeof imageName === "string" ? imageName.trim() : "";

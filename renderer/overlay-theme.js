@@ -49,7 +49,17 @@
     }
   }
 
-  function loadThemeFromStorageFallback(applyThemeVars) {
+  function applyThemeVars(rawVars) {
+    if (!rawVars || typeof rawVars !== "object") return;
+    const root = document.documentElement;
+    for (const [key, value] of Object.entries(rawVars)) {
+      if (!key.startsWith("--")) continue;
+      if (typeof value !== "string" || !value.trim()) continue;
+      root.style.setProperty(key, value.trim());
+    }
+  }
+
+  function loadThemeFromStorageFallback() {
     try {
       const raw = localStorage.getItem("wf_theme_settings");
       if (!raw) return;
@@ -83,6 +93,7 @@
   }
 
   window.overlayTheme = {
+    applyThemeVars,
     loadThemeFromStorageFallback,
   };
 })();

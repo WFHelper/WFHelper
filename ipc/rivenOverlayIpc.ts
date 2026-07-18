@@ -300,9 +300,7 @@ function sendWeaponEnrichment(): void {
     }
   });
 
-  // Fetch ALL auctions for this weapon (no stat filtering) so the overlay
-  // renderer's computeSimilarity() can rank them client-side - same approach
-  // as RivenDetailModal.
+  // WFM cannot apply the overlay's local similarity ranking.
   const slug = rivenDataSvc.getRivenFamilySlug(_rivenWeaponName);
   wfmRivenSearch
     .searchSimilarRivens(slug, { limit: 30 })

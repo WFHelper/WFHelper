@@ -19,7 +19,6 @@ import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 
 import * as relicService from "../services/relicService";
-import * as itemDatabase from "../services/itemDatabase";
 import {
   captureSourceMeta,
   detectRelicSelectionEra,
@@ -249,39 +248,7 @@ export function register(
   });
 
   handleAuthorized(OVERLAY_GET_RELIC_ITEMS, assertOverlayRendererSender, async () => {
-    const db = relicService.getRelicDatabase();
-    const seen = new Map<
-      string,
-      {
-        name: string;
-        uniqueName: string | null;
-        urlName: string | null;
-        rarity: string;
-        ducats: number | null;
-      }
-    >();
-    for (const group of Object.values(db.groups)) {
-      if (!group.qualities) continue;
-      for (const qualData of Object.values(group.qualities)) {
-        if (!qualData?.rewards) continue;
-        for (const reward of qualData.rewards) {
-          if (reward.name && !seen.has(reward.name)) {
-            const resolved = itemDatabase.lookupItemByNameOrSlug(reward.name, reward.urlName);
-            const dbEntry =
-              resolved?.item ||
-              (reward.uniqueName ? itemDatabase.lookupItem(reward.uniqueName) : null);
-            seen.set(reward.name, {
-              name: reward.name,
-              uniqueName: resolved?.uniqueName || reward.uniqueName || null,
-              urlName: reward.urlName || null,
-              rarity: reward.rarity || "Common",
-              ducats: reward.ducats ?? dbEntry?.ducats ?? null,
-            });
-          }
-        }
-      }
-    }
-    return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+    return relicService.getRelicRewardItems();
   });
 
   // move-hint state: unlock hotkey + whether a live overlay was ever dragged (setup doesn't count)

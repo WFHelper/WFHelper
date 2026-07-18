@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
-  import { SvelteSet } from "svelte/reactivity";
   import type { DecodedRiven, RivenBestAttributes, WfmRivenListing } from "../types/ipc.js";
   import { itemDb } from "../stores/data.js";
   import { PLATINUM_ICON_URL } from "../lib/assetUrls.js";
@@ -8,6 +7,7 @@
   import { gradeColor, attrGradeColor, dispoStars } from "../lib/rivenGradeColors.js";
   import DetailModalBase from "./DetailModalBase.svelte";
   import type { WfmContract } from "../types/market.js";
+  import { computeRivenStatSimilarity } from "../../renderer/riven-similarity.js";
 
   interface Props {
     riven: DecodedRiven;
@@ -53,37 +53,13 @@
     listingPrice = contract.platinum;
   });
 
-  function computeSimilarity(
-    myStatNames: string[],
-    listingStats: { name: string; value: number; positive: boolean }[],
-  ): { pct: number; matchedNames: Set<string> } {
-    if (!myStatNames.length || !listingStats.length) {
-      return { pct: 0, matchedNames: new SvelteSet<string>() };
-    }
-    const matchedNames = new SvelteSet<string>();
-    const listingNamesLc = listingStats.map((s) => s.name.toLowerCase());
-    for (const myName of myStatNames) {
-      for (const ln of listingNamesLc) {
-        if (ln === myName || ln.includes(myName) || myName.includes(ln)) {
-          matchedNames.add(ln);
-          break;
-        }
-      }
-    }
-    // Jaccard similarity: intersection / union - penalises extra stats on either side
-    const union = myStatNames.length + listingNamesLc.length - matchedNames.size;
-    const pct = union > 0 ? Math.round((matchedNames.size / union) * 100) : 0;
-    return { pct, matchedNames };
-  }
-
   onMount(() => {
-    // Fetch ALL auctions for this weapon - no stat filtering, similarity is client-side
     invoke("searchRivenAuctions", riven.weaponName, [], [])
       .then((listings) => {
         if (disposed) return;
         const myStatNames = riven.stats.map((s) => s.name.toLowerCase());
         const enriched = listings.map((listing) => {
-          const { pct, matchedNames } = computeSimilarity(myStatNames, listing.stats);
+          const { pct, matchedNames } = computeRivenStatSimilarity(myStatNames, listing.stats);
           return { listing, pct, matchedNames };
         });
         enriched.sort((a, b) => {
@@ -92,7 +68,6 @@
           const pb = b.listing.buyoutPrice ?? b.listing.startingPrice ?? b.listing.platinum;
           return pa - pb;
         });
-        // Show all matching results with at least 25% similarity (capped via UI)
         similarListings = enriched.filter((e) => e.pct >= 25);
       })
       .catch(() => {

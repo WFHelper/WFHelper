@@ -172,7 +172,7 @@
     searching = true;
     hasSearched = true;
     try {
-      // Fetch ALL auctions for this weapon - filtering + similarity is client-side
+      // WFM cannot apply the local similarity ranking.
       const results = await invoke("searchRivenAuctions", weapon, [], []);
       if (token !== searchRequest || selectedWeapon !== weapon) return;
       rawResults = results;

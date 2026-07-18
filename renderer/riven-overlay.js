@@ -1,4 +1,4 @@
-// Passed via URL search param: riven-overlay.html?side=left or ?side=right
+import { computeRivenStatSimilarity } from "./riven-similarity.js";
 
 const _side = new URLSearchParams(window.location.search).get("side") || "left";
 const _isLeft = _side === "left";
@@ -24,16 +24,6 @@ function setOverlayInteractiveMode(interactive) {
   if (hint) hint.classList.toggle("is-hidden", _overlayInteractiveMode);
   if (!_overlayInteractiveMode) {
     document.documentElement.classList.remove("is-overlay-dragging");
-  }
-}
-
-function applyThemeVars(rawVars) {
-  if (!rawVars || typeof rawVars !== "object") return;
-  const root = document.documentElement;
-  for (const [key, value] of Object.entries(rawVars)) {
-    if (!key.startsWith("--")) continue;
-    if (typeof value !== "string" || !value.trim()) continue;
-    root.style.setProperty(key, value.trim());
   }
 }
 
@@ -239,8 +229,6 @@ function onGradingRoll(payload) {
   applyGradingToStats(side);
 }
 
-// ── Best attributes display ──────────────────────────────────────────────────
-
 let _bestAttributesData = null;
 
 function renderBestAttributes(attrs) {
@@ -338,38 +326,6 @@ function refreshBestAttributeHighlights() {
   }
 }
 
-// ── Similar listings display ─────────────────────────────────────────────────
-
-/** Compute a similarity score between this riven's stats and a listing's stats. */
-function computeSimilarity(myStatNames, listingStats) {
-  if (!myStatNames.length || !Array.isArray(listingStats) || !listingStats.length) {
-    return { pct: 0, matchedNames: new Set() };
-  }
-  var matchedNames = new Set();
-  // Normalise listing stat names for matching
-  var listingNamesLc = [];
-  for (var i = 0; i < listingStats.length; i++) {
-    listingNamesLc.push((listingStats[i].name || "").toLowerCase());
-  }
-  // Count how many of MY riven's stats appear in the listing
-  for (var j = 0; j < myStatNames.length; j++) {
-    for (var k = 0; k < listingNamesLc.length; k++) {
-      if (
-        listingNamesLc[k] === myStatNames[j] ||
-        listingNamesLc[k].indexOf(myStatNames[j]) !== -1 ||
-        myStatNames[j].indexOf(listingNamesLc[k]) !== -1
-      ) {
-        matchedNames.add(listingNamesLc[k]);
-        break;
-      }
-    }
-  }
-  // Jaccard similarity: intersection / union - penalises extra stats on either side
-  var union = myStatNames.length + listingNamesLc.length - matchedNames.size;
-  var pct = union > 0 ? Math.round((matchedNames.size / union) * 100) : 0;
-  return { pct: pct, matchedNames: matchedNames };
-}
-
 function renderSimilarListings(listings) {
   _pendingListings = listings;
 
@@ -387,11 +343,10 @@ function renderSimilarListings(listings) {
     return;
   }
 
-  // Compute similarity for each listing and sort by it (highest first)
   var myStats = _currentStatNamesLc.slice();
   var enriched = [];
   for (var i = 0; i < listings.length; i++) {
-    var sim = computeSimilarity(myStats, listings[i].stats);
+    var sim = computeRivenStatSimilarity(myStats, listings[i].stats);
     enriched.push({ item: listings[i], pct: sim.pct, matchedNames: sim.matchedNames });
   }
   enriched.sort(function (a, b) {
@@ -418,7 +373,6 @@ function renderSimilarListings(listings) {
       );
     }
 
-    // Similarity percentage badge
     var simEl = document.createElement("div");
     simEl.className = "listing-similarity";
     if (pct >= 75) simEl.classList.add("sim-high");
@@ -427,7 +381,6 @@ function renderSimilarListings(listings) {
     simEl.textContent = pct + "% match";
     card.appendChild(simEl);
 
-    // Top row: price + rerolls
     var topRow = document.createElement("div");
     topRow.className = "listing-card-top";
 
@@ -599,10 +552,7 @@ function onSessionEnd() {
   el("similar-listings").classList.add("is-hidden");
 }
 
-// ── Bootstrap ────────────────────────────────────────────────────────────────
-
 document.addEventListener("DOMContentLoaded", () => {
-  // Configure panel appearance based on side
   const panel = el("panel");
   const labelEl = el("panel-label");
 
@@ -613,16 +563,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (labelEl) labelEl.textContent = "NEW ROLL";
   }
 
-  // Theme: local storage fallback first, then IPC
-  window.overlayTheme.loadThemeFromStorageFallback(applyThemeVars);
+  window.overlayTheme.loadThemeFromStorageFallback();
   void window.rivenOverlay
     .getThemeVars()
-    .then((vars) => applyThemeVars(vars))
+    .then((vars) => window.overlayTheme.applyThemeVars(vars))
     .catch(() => {
       // best effort, storage fallback already applied
     });
 
-  // Close button + keyboard
   el("btn-close").addEventListener("click", () => window.rivenOverlay.close());
   window.installOverlayDrag({
     isInteractive: () => _overlayInteractiveMode,
@@ -634,14 +582,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Start in passive mode (close button hidden, hint shown)
   setOverlayInteractiveMode(false);
-
-  // Show initial waiting state
   renderStats([]);
-
-  // Register IPC listeners
-  window.rivenOverlay.onThemeVars((vars) => applyThemeVars(vars));
+  window.rivenOverlay.onThemeVars((vars) => window.overlayTheme.applyThemeVars(vars));
   window.rivenOverlay.onSessionStart((weapon) => onSessionStart(weapon));
   window.rivenOverlay.onInitialStats((stats) => onInitialStats(stats));
   window.rivenOverlay.onScanning(() => onScanning());
@@ -655,7 +598,6 @@ document.addEventListener("DOMContentLoaded", () => {
     setOverlayInteractiveMode(Boolean(payload?.interactive));
   });
 
-  // Grading + enrichment listeners
   window.rivenOverlay.onGradingInitial((grading) => onGradingInitial(grading));
   window.rivenOverlay.onGradingRoll((payload) => onGradingRoll(payload));
   window.rivenOverlay.onBestAttributes((attrs) => renderBestAttributes(attrs));

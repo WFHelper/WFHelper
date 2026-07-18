@@ -4,16 +4,6 @@ function el(id) {
   return document.getElementById(id);
 }
 
-function applyThemeVars(rawVars) {
-  if (!rawVars || typeof rawVars !== "object") return;
-  const root = document.documentElement;
-  for (const [key, value] of Object.entries(rawVars)) {
-    if (!key.startsWith("--")) continue;
-    if (typeof value !== "string" || !value.trim()) continue;
-    root.style.setProperty(key, value.trim());
-  }
-}
-
 function formatDuration(totalSeconds) {
   const duration = Math.max(0, Math.floor(Number(totalSeconds) || 0));
   const hours = Math.floor(duration / 3600);
@@ -57,10 +47,10 @@ function renderSummary(data) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  window.overlayTheme.loadThemeFromStorageFallback(applyThemeVars);
+  window.overlayTheme.loadThemeFromStorageFallback();
   void window.arbiSummary
     .getThemeVars()
-    .then(applyThemeVars)
+    .then(window.overlayTheme.applyThemeVars)
     .catch(() => {
       // best effort, storage fallback already applied
     });
@@ -79,6 +69,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   window.arbiSummary.onData(renderSummary);
-  window.arbiSummary.onThemeVars(applyThemeVars);
+  window.arbiSummary.onThemeVars(window.overlayTheme.applyThemeVars);
   window.arbiSummary.ready();
 });
