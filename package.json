@@ -22,7 +22,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "dist:win:publish": "pnpm run verify:onnx-models && pnpm run build && electron-builder --win nsis --publish always",
-    "lint:renderer": "eslint src tests --ext .ts,.svelte",
+    "lint:renderer": "eslint src tests e2e playwright.config.ts --ext .ts,.svelte",
     "lint:main": "eslint main.ts preload.ts preload-overlay.ts preload-riven.ts preload-trade-notification.ts preload-arbi.ts config ipc services --ext .js,.ts",
     "lint:worker": "eslint backend/worker/src backend/worker/test --ext .ts",
     "audit:prod": "pnpm audit --prod",

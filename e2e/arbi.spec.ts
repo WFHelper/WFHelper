@@ -45,7 +45,7 @@ test.describe("Arbitration schedule + post-run overlay", () => {
     page = await app.firstWindow();
 
     // Fresh sandbox starts on the setup view; flag it done and reload.
-    await page.evaluate(() => localStorage.setItem("setup-completed", "1"));
+    await page.evaluate(() => localStorage.setItem("setup-completed-v2", "1"));
     await page.reload();
     await expect(page.locator("#sidebar")).toBeVisible({ timeout: 20_000 });
   });
