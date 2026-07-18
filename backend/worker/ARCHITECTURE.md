@@ -1,260 +1,142 @@
-# Worker Architecture
+# Worker architecture
 
-How `backend/worker` works and why it's built the way it is. `README.md` covers the
-user-facing side (endpoints, env vars, setup, deploy).
+`backend/worker` is the shared Warframe Market cache used by the desktop app. This document
+covers runtime ownership and invariants. See `README.md` for setup and operator commands.
 
-Cloudflare limits and KV behavior change over time, so double-check the docs before
-touching runtime/cron/binding behavior:
+## Runtime layout
 
-- https://developers.cloudflare.com/workers/
-- https://developers.cloudflare.com/workers/platform/limits/
+- `src/index.ts` handles CORS rejection, route dispatch, 404 responses, request logging, and cron.
+- `src/routes/public.ts` owns health, bootstrap, snapshot, price, meta, and order routes.
+- `src/routes/admin.ts` owns authenticated prewarm, catalog, hotset, and status routes.
+- `src/services/readThrough.ts` owns cache-first reads, stale refresh, negative markers, and
+  in-flight deduplication.
+- `src/services/prewarm.ts` owns catalog walks, upstream refreshes, snapshot patches, and the
+  `SnapshotCoordinator` Durable Object.
+- `src/security/rateLimit.ts` selects Cloudflare Rate Limiting bindings.
+- `src/security/dailyBudget.ts` owns the sampled request budget and `DailyBudgetCounter` Durable
+  Object.
+- `src/security/bootstrap.ts` issues and verifies optional short-lived public API tokens.
 
-## Current architecture
+Keep `src/index.ts` thin. Route and service behavior belongs in the modules above.
 
-- `src/index.ts`
-  - Thin router only.
-  - Handles top-level CORS reject, OPTIONS, route dispatch, 404, and cron trigger.
-- `src/routes/public.ts`
-  - `GET /healthz`
-  - `GET /v1/bootstrap`
-  - `GET /v1/snapshot` - serves the pre-built bulk snapshot blob (prices + meta + orderSummaries) from
-    KV key `snapshot:full:v1`. Returns 503 `snapshot_not_ready` if the cron has not yet fired.
-    `Cache-Control: public, max-age=7200` so Cloudflare edge absorbs nearly all real traffic.
-    Rate limited at **10 req / 600 s per IP** (snapshot bucket).
-    **ETag / conditional GET**: the response includes an `ETag` header derived from the snapshot's
-    `generatedAt` timestamp. Clients send `If-None-Match` on repeat fetches; if the snapshot has
-    not changed the worker returns **304 Not Modified** with an empty body, so repeat app opens
-    cost zero bandwidth. This is the same pattern AlecaFrame uses for its bulk data endpoints.
-    **Does NOT require bootstrap token** - the snapshot is fetched at client startup before the
-    bootstrap token flow has completed; requiring a token creates a chicken-and-egg failure. The
-    data it contains is already publicly available via per-slug routes.
-  - `GET /v1/prices/:slug`
-  - `GET /v1/meta/:slug`
-  - `GET /v1/order-summary/:slug`
-  - `GET /v1/orders/:slug`
-  - Uses automatic read-through cache hydration plus public-route protection.
-- `src/routes/admin.ts`
-  - `POST /admin/prewarm`
-  - `GET /admin/prewarm/status`
-  - `POST /admin/order-summary-hotset`
-  - `GET /admin/order-summary-hotset`
-  - `GET /admin/order-summary-catalog`
-  - `POST /admin/prewarm/order-summaries`
-  - `GET /admin/prewarm/order-summaries/status`
-  - `GET /admin/snapshot/status`
-  - Requires bearer auth and applies admin rate limiting.
-  - `POST /admin/snapshot/build` is gone for a reason: a bulk KV-read rebuild from the cron
-    hits the 1000-subrequest limit and overwrites the complete snapshot with a truncated
-    249-item result. The snapshot is only maintained via incremental `patchSnapshot()` calls
-    inside `prewarmBatch` and `prewarmOrderSummaryCatalog`.
-- `src/services/prewarm.ts`
-  - Catalog fetch/cache and cron/manual batch prewarm.
-  - Writes `price:*` and `meta:*` records.
-  - Builds ranked summary catalog entries from WFM item metadata.
-  - Supports both global ranked catalog prewarm and optional ranked hotset prewarm.
-  - Skips untradable items with `skip:untradable:*` markers.
-  - `patchSnapshot(env, patches)` - merges price/meta/orderSummary patches into the persisted
-    `snapshot:full:v1` blob (1 KV read + 1 KV write). Called at the end of every `prewarmBatch`
-    and `prewarmOrderSummaryCatalog` tick. After one full cursor pass over the entire catalog
-    (~1-2 h) the snapshot is 100% populated with no per-invocation subrequest cap.
-    Key translation on write: `price:{slug}:r{n}` -> `{slug}:rank-v3:r{n}` so the client
-    `importCache()` can consume the snapshot directly.
-  - `buildFullSnapshot` and `batchedKvGet` were deleted for the same reason.
-- `src/services/readThrough.ts`
-  - Cache-first public-route behavior.
-  - Handles stale refresh, negative markers, and in-flight dedupe.
-- `src/security/cors.ts`
-  - CORS allowlist checks and JSON response helper.
-- `src/security/rateLimit.ts`
-  - Admin route IP bucket limiter via KV.
-  - Public route IP bucket limiter via KV.
-- `src/security/bootstrap.ts`
-  - Optional short-lived bootstrap token issue/verify flow for public APIs.
-- `test/index.spec.ts`
-  - Main Worker coverage file; update it when behavior changes.
+## Public request flow
 
-## Security model
+Public requests pass through these controls:
 
-Public protection is layered:
+1. CORS allowlist validation for requests with an `Origin` header.
+2. A route-specific Cloudflare Rate Limiting binding keyed by the connecting IP.
+3. The daily request budget.
+4. Bootstrap token validation where required.
+5. Slug and rank validation before any upstream request.
+6. KV read-through, stale refresh, and negative-cache handling.
 
-1. Cloudflare custom domain with edge rate limiting.
-2. Worker-side public IP rate limiting (KV bucket per route).
-3. CORS origin allowlist - `ALLOW_ORIGIN` is the comma-separated browser-origin allowlist;
-   Electron/curl requests without an `Origin` header always pass through transparently.
-4. Public-minimal `/healthz`; detailed health requires admin auth.
-5. Early slug/rank validation against the ranked summary catalog.
-6. `/v1/orders/:slug` disabled by default.
-7. Optional bootstrap token enforcement for public APIs.
+Electron and command-line clients normally omit `Origin` and are allowed. Browser origins must
+match `ALLOW_ORIGIN`. `clientIp()` trusts only `cf-connecting-ip`.
 
-Keep `workers_dev = false` when relying on custom-domain edge rate limiting.
+Rate Limiting binding defaults in `wrangler.jsonc` are per IP:
 
-### Security implementation notes
+- health: 5 per minute
+- bootstrap and full orders: 60 per minute
+- prices, meta, and order summaries: 200 per minute
+- snapshot: 2 per minute
+- admin: 60 per minute
 
-- `clientIp()` lives in `src/utils.ts` (one copy, don't duplicate it into `rateLimit.ts` /
-  `bootstrap.ts`). It reads `cf-connecting-ip` only - `x-forwarded-for` is spoofable and
-  dead code anyway when `workers_dev=false`.
-- **Admin auth** uses an XOR-based constant-time comparison (`timingSafeEqual` in
-  `src/security/adminAuth.ts`) to prevent timing side-channel attacks on the bearer token.
-- **`cache-control`** on JSON responses defaults to `no-store`. Only successful public data
-  responses that are intentionally cacheable (`/v1/prices`, `/v1/meta`,
-  `/v1/order-summary`, and enabled `/v1/orders`) should opt into `public, max-age=60`.
-  Bootstrap, healthz, auth errors, 404, 410, 429, and 5xx responses should stay `no-store`
-  unless a route has an explicit negative-cache policy.
+Public limiter failures fail open to preserve app reads. Admin limiter failures fail closed with
+`503 rate_limit_unavailable`. Zone-level WAF rules remain the first line of defense.
 
-### Bootstrap token deployment sequence
+## Snapshot
 
-The bootstrap system must be enabled in the correct order to avoid blocking existing clients:
+`GET /v1/snapshot` serves KV key `snapshot:full:v1`. The snapshot contains the desktop price,
+meta, and ranked order-summary caches.
 
-1. **Set the secret**: `wrangler secret put BOOTSTRAP_TOKEN_SECRET`
-2. **Deploy the desktop app** with `VITE_WFM_BACKEND_BOOTSTRAP_ENABLED=1` so clients begin
-   fetching and sending tokens.
-3. **Require tokens on the server**: set `PUBLIC_BOOTSTRAP_REQUIRED=1` in `wrangler.jsonc` and
-   redeploy the worker.
+- The route is public because startup requests it before bootstrap completes.
+- `Cache-Control: public, max-age=7200` allows the Cache API to reuse the serialized body at a PoP.
+- Cache hits still execute the Worker and its request guards. They avoid the KV read, validation,
+  serialization, and response-body reconstruction.
+- The ETag is a SHA-256 digest of the exact client response body plus the desktop cache version.
+- Matching `If-None-Match` requests return 304 for both Cache API hits and KV reads.
+- Invalid or missing snapshots return 503 and are never cached as valid data.
 
-If step 3 is applied before step 2, all public route requests from older app versions will
-receive `401` and fall through to the direct-WFM fallback, degrading performance but not
-breaking the app. Reverse the order when disabling: set `PUBLIC_BOOTSTRAP_REQUIRED=0` first,
-then remove `BOOTSTRAP_TOKEN_SECRET`.
+Prewarm batches call `patchSnapshot()` after their writes. `SnapshotCoordinator` serializes the
+read-modify-write operation so concurrent cron and admin batches cannot overwrite each other. A
+full catalog walk gradually fills the snapshot without a bulk KV rebuild or a 1000-subrequest
+spike.
 
-### Bootstrap guard rule
+Do not restore the deleted admin snapshot-build route. It previously rebuilt from a truncated KV
+scan and could replace a complete snapshot with partial data.
 
-`requireBootstrapIfNeeded` in `src/routes/public.ts` must fail closed when
-`PUBLIC_BOOTSTRAP_REQUIRED=1` but `BOOTSTRAP_TOKEN_SECRET` is absent. Required mode without a
-secret is a server misconfiguration, not a deployment grace path. Keep tests explicit by setting
-both `PUBLIC_BOOTSTRAP_REQUIRED=1` and a test secret when bootstrap-protected public routes should
-be reachable.
+Snapshot key translation must stay compatible with the desktop importers. Ranked worker keys such
+as `price:{slug}:r{n}` become `{slug}:rank-v3:r{n}` in the snapshot.
 
-## Testing pattern
+## Read-through and prewarm
 
-- `test/index.spec.ts` mixes two useful styles:
-  - direct `worker.fetch(...)` calls for unit-style route/service assertions
-  - `SELF.fetch(...)` for integration-style coverage through the Worker test harness
-- New tests go into `test/index.spec.ts` rather than one-off files, at least until it gets
-  big enough to be worth splitting.
+Confirmed misses use `miss:price:*`, `miss:meta:*`, `miss:orders:*`, and
+`miss:orders-summary:*`. Transient upstream errors must not create negative markers.
+`skip:untradable:*` prevents repeated metadata requests for excluded items.
 
-## Automatic backend behavior
+Cron runs every 15 minutes. Current production defaults are:
 
-The end-to-end automatic flow (cache-first -> live read-through -> write-back -> background
-stale refresh -> cron prewarm -> incremental `patchSnapshot()`) is described in the
-**Fully automatic mode** section of `README.md`. Things that must stay true:
-
-- Confirmed misses set negative markers: `miss:price:*`, `miss:meta:*`, `miss:orders:*`,
-  `miss:orders-summary:*`.
-- Transient upstream failures must **not** set negative markers.
-- The untradable marker `skip:untradable:*` prevents repeated meta fetches.
-- Manual admin prewarm is optional maintenance, never required for app correctness.
-
-## Data model notes
-
-- `/v1/order-summary/:slug` returns the cached summary payload used by ranked inventory cards.
-- `/v1/orders/:slug` is disabled by default and should stay deprecated unless explicitly re-enabled.
-- `/v1/bootstrap` issues a short-lived optional bootstrap token when `BOOTSTRAP_TOKEN_SECRET` is configured.
-- Preserve desktop response shapes:
-  - success: `{ ok, data }`
-  - failure: `{ ok: false, error }`
-- `GET /healthz` is public-minimal by default; detailed automation/prewarm data only returns for authorized admin requests.
-
-## Env vars
-
-The full env-var catalog with descriptions lives in the **Key vars** section of
-`README.md`; only the constraints between them are noted here.
-
-`SNAPSHOT_REFRESH_INTERVAL_SEC` no longer exists - the snapshot is never periodically rebuilt
-from KV, it's maintained incrementally via `patchSnapshot()` after every prewarm batch.
-
-`ORDERS_SUMMARY_CACHE_TTL_SEC` must stay significantly larger than
-`ORDERS_SUMMARY_STALE_REFRESH_SEC`, which should stay aligned with the desktop order-summary
-freshness window.
-
-Current default cache values in `wrangler.jsonc` are:
-
-- `PREWARM_BATCH_SIZE=100`
-- `ORDER_SUMMARY_PREWARM_BATCH_SIZE=18`
+- `PREWARM_BATCH_SIZE=125`
+- `ORDER_SUMMARY_PREWARM_BATCH_SIZE=36`
+- 24-hour price/meta TTL
+- 48-hour order-summary TTL
+- 21-hour stale-refresh threshold for both cache families
 - `limits.cpu_ms=1000`
-- `CATALOG_SLUG_GUARD_ENABLED=1`
-- `DAILY_BUDGET_ENABLED=1`, `DAILY_BUDGET_MAX_REQUESTS=300000`,
-  `DAILY_BUDGET_SAMPLE_RATE=100`, `DAILY_BUDGET_SYNC_INTERVAL_SEC=60`
-- 24h KV TTL with a 21h stale-refresh threshold for prices
-- 48h KV TTL with a 21h stale-refresh threshold for ranked card summaries
-- public rate limiting enabled
-- public `/v1/orders/*` disabled by default
-- bootstrap token support available but not required by default
 
-Keep these in sync if you change either side.
+Cron is a rolling backstop. Fresh entries are copied into the snapshot without another upstream
+request, while stale entries are refreshed before being patched.
 
-### Public rate limit sizing
+## Daily budget
 
-Limits for `prices`, `meta`, and `order-summary` routes are **2,000 requests per 600 s**
-per IP. Generous on purpose:
+`DAILY_BUDGET_ENABLED=1` enables a sampled daily request cap. The current cap is 300,000 requests
+with a sample rate of 100. Samples are recorded atomically in the `DailyBudgetCounter` Durable
+Object named for the UTC day. Once the cap trips, public requests return
+`503 daily_budget_exceeded` until the next UTC day and scheduled prewarm skips work.
 
-- These are secondary defence behind Cloudflare edge rate limiting; real bot traffic is caught
-  at the edge before reaching these counters.
-- KV counter increments are non-atomic, so parallel bursts can temporarily exceed the declared
-  limit by the degree of concurrency before the counter catches up.
-- Rate-limit keys share the `PRICE_CACHE` KV namespace under an `rl:` prefix; a separate
-  binding wasn't worth the deployment/config churn.
+Cloudflare billing alerts are still required. Repository code cannot create account-level billing
+notifications.
 
-If tightening is ever needed, do it via Cloudflare zone-level rate limiting rules at the edge
-instead of lowering these.
+## Bootstrap deployment
 
-The **`snapshot`** bucket uses a much tighter limit: **10 requests per 600 s per IP**.
-The ~850 KB payload is expensive per-request; the Cloudflare edge `max-age=7200` cache absorbs
-nearly all real app traffic, so this worker-side limit only fires on edge cache misses or scrapers.
+Required bootstrap mode must have `BOOTSTRAP_TOKEN_SECRET`; otherwise protected public routes fail
+closed. Enable it in this order:
 
-When adding or changing bindings in `wrangler.jsonc`, run:
+1. Run `npx wrangler secret put BOOTSTRAP_TOKEN_SECRET` from `backend/worker`.
+2. Release the desktop app with `VITE_WFM_BACKEND_BOOTSTRAP_ENABLED=1`.
+3. Set `PUBLIC_BOOTSTRAP_REQUIRED=1` and deploy the Worker.
 
-```bash
-npx wrangler types
-```
+Reverse that order when disabling. Older desktop versions fall back to direct Warframe Market
+requests if the Worker returns 401.
 
-## Commands
+## Response and cache invariants
+
+- Preserve desktop envelopes: `{ ok, data }` and `{ ok: false, error }`.
+- Successful public data may use explicit public cache headers. Auth errors, 404, 410, 429, and
+  5xx responses stay `no-store` unless a route has a deliberate negative-cache policy.
+- KV TTLs must remain meaningfully longer than stale thresholds.
+- `/v1/orders/:slug` stays disabled by default. The desktop normally consumes summaries.
+- `GET /healthz` is public-minimal. Detailed status requires admin authorization.
+- `workers_dev=false` is required when relying on the custom domain and zone rules.
+
+## Verification
 
 From `backend/worker`:
 
 ```bash
-npm run dev
+npm run typecheck
 npm run test -- --run
-npm run test -- --run test/index.spec.ts
-npm run test -- --run test/index.spec.ts -t "returns health status (unit style)"
+npm run test:smoke
+npm run dev
 npm run deploy
-npm run cf-typegen
 ```
 
-From repo root:
+From the repository root:
 
 ```bash
-npm run backend:test
-npm run backend:test -- test/index.spec.ts
-npm run backend:test -- test/index.spec.ts -t "returns health status (unit style)"
-npm run backend:deploy
-npm run backend:typegen
-npm run backend:prewarm:order-summaries -- -ApiKey "<ADMIN_API_KEY>" -RefreshCatalog
-npm run backend:prewarm:order-summaries:hotset -- -ApiKey "<ADMIN_API_KEY>"
+pnpm run backend:typecheck
+pnpm run backend:test
+pnpm run lint:worker
 ```
 
-## Conventions
-
-- Worker TS is strict; explicit types at request, env, and payload boundaries.
-- `src/index.ts` stays a thin router; behavior lives in routes/services.
-- Helpers in `config/shared/*.ts` are cross-runtime (desktop + worker), so no runtime-specific
-  imports in there.
-
-## Easy to break, hard to notice
-
-- Slug validation, CORS, admin bearer auth, and rate limiting are all load-bearing.
-- The desktop app expects `{ ok, data }` / `{ ok: false, error }` response shapes.
-- Summary routes must stay summaries; the full orderbook route is disabled for a reason.
-- The ranked exclusions for `veiled` rivens and non-tradable `Blood For ...` mods are
-  hard-coded on purpose.
-- Transient upstream failures return `unavailable` only when no cached entry (even stale) exists.
-- Behavior changes need matching tests in `test/index.spec.ts`.
-
-## Cache invariants
-
-- KV TTLs must stay meaningfully higher than stale-refresh thresholds.
-- If KV TTL approaches the stale threshold, stale-if-error collapses and transient upstream failures
-  can become user-visible 503s.
-- Negative markers should only represent confirmed no-data conditions, never transient failures.
-- Order summary freshness should stay aligned with desktop cache expectations unless both sides are
-  changed intentionally.
-
+Unit and integration behavior belongs in `test/index.spec.ts`. The scheduled GitHub workflow runs
+`test/smoke.spec.ts` against the deployed custom domain every six hours.

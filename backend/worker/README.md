@@ -1,207 +1,140 @@
-# Backend (Cloudflare Worker)
+# Backend Worker
 
-This Worker is the shared cache layer for Warframe Market price and meta data used by the desktop app.
+Cloudflare Worker cache for the Warframe Market data used by WFHelper. Runtime details and
+invariants are in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Endpoints
 
+Public:
+
 - `GET /healthz`
+- `GET /v1/bootstrap`
+- `GET /v1/snapshot`
 - `GET /v1/prices/:slug`
 - `GET /v1/meta/:slug`
 - `GET /v1/order-summary/:slug`
-- `GET /v1/orders/:slug`
-- `POST /admin/prewarm` (Bearer auth)
-- `GET /admin/prewarm/status` (Bearer auth)
-- `POST /admin/order-summary-hotset` (Bearer auth)
-- `GET /admin/order-summary-hotset` (Bearer auth)
-- `GET /admin/order-summary-catalog` (Bearer auth)
-- `POST /admin/prewarm/order-summaries` (Bearer auth)
-- `GET /admin/prewarm/order-summaries/status` (Bearer auth)
+- `GET /v1/orders/:slug`, disabled by default
 
-## Fully automatic mode (no manual prewarm required)
+Admin routes require `Authorization: Bearer <ADMIN_API_KEY>`:
 
-The backend runs in fully automatic mode. Manual prewarm still exists as an optional maintenance endpoint, but it is not required for normal operation.
+- `POST /admin/prewarm`
+- `GET /admin/prewarm/status`
+- `POST /admin/order-summary-hotset`
+- `GET /admin/order-summary-hotset`
+- `GET /admin/order-summary-catalog`
+- `POST /admin/prewarm/order-summaries`
+- `GET /admin/prewarm/order-summaries/status`
+- `GET /admin/snapshot/status`
 
-### 7-step automatic flow
+## Automatic flow
 
-1. Client requests `GET /v1/prices/:slug` or `GET /v1/meta/:slug`.
-2. Worker checks KV cache first (`price:*` / `meta:*`).
-3. On cache hit, Worker returns immediately.
-4. If cached payload is stale, Worker serves cached data and queues background refresh (`waitUntil`).
-5. On cache miss, Worker read-through fetches from Warframe Market and writes to KV.
-6. Miss and untradable markers are cached to avoid repeated upstream hits.
-7. Cron prewarm continuously advances through the catalog, but cron skips entries whose cache
-  timestamps are still inside the stale-refresh window.
-8. Ranked-card summary prewarm can walk either the full ranked catalog or an optional hotset.
+1. The desktop loads the bulk snapshot at startup.
+2. Per-item requests check KV first.
+3. Fresh cache entries return immediately.
+4. Stale entries return while a refresh runs through `waitUntil`.
+5. Cache misses fetch Warframe Market and write back to KV.
+6. Confirmed misses and untradable items receive short-lived markers.
+7. Cron walks the catalog and refreshes entries outside the 21-hour freshness window.
+8. Each batch patches the bulk snapshot through a Durable Object coordinator.
 
-Cron is intentionally a rolling backstop, not a full refresh every tick. Production defaults run
-every 15 minutes with daily-pass batches (`PREWARM_BATCH_SIZE=100`,
-`ORDER_SUMMARY_PREWARM_BATCH_SIZE=18`) and a 21h stale-refresh window so the full catalog is
-spread across the day instead of rewriting thousands of KV keys repeatedly.
+Cron runs every 15 minutes. Production batches currently process 125 catalog items and 36 ranked
+summary entries per tick. Manual prewarm remains an operator tool, not a correctness requirement.
 
-The Worker also has two cost guardrails:
+## Configuration
 
-- `limits.cpu_ms=1000` caps runaway CPU per invocation. This is intentionally lower than the
-  default 30 seconds but high enough for snapshot JSON handling and cron batches.
-- `DAILY_BUDGET_ENABLED=1` counts sampled fetch requests in KV and returns
-  `503 daily_budget_exceeded` until midnight UTC after `DAILY_BUDGET_MAX_REQUESTS` is reached.
-  The default cap is `300000` requests/day with `DAILY_BUDGET_SAMPLE_RATE=100`, keeping counter
-  writes small while providing a practical fail-closed budget breaker. Scheduled prewarm checks the
-  same cap and skips cron work after the breaker trips.
+KV bindings:
 
-Cloudflare billing alerts still need to be configured in the dashboard; this repository cannot
-create account-level billing notifications. Configure alert thresholds appropriate to your own
-budget (e.g. a base-plan alert, a low-overage alert, and a hard attention threshold).
+- `PRICE_CACHE`
+- `ITEM_META`
 
-## Security model
+Durable Object bindings:
 
-- CORS allowlist via `ALLOW_ORIGIN`.
-- Admin routes require `Authorization: Bearer <ADMIN_API_KEY>`.
-- Admin routes are rate limited per IP.
-- Slug validation on public routes (`^[a-z0-9_]+$`).
-- Generic error payloads, no secret logging.
+- `DAILY_BUDGET`
+- `SNAPSHOT_COORDINATOR`
 
-The full layered model and implementation notes are in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+Rate Limiting bindings:
 
-## Worker layout
+- `PUBLIC_HEALTH_RATE_LIMITER`
+- `PUBLIC_LOW_RATE_LIMITER`
+- `PUBLIC_API_RATE_LIMITER`
+- `PUBLIC_SNAPSHOT_RATE_LIMITER`
+- `ADMIN_RATE_LIMITER`
 
-- `src/index.ts` thin router (`fetch` + `scheduled`)
-- `src/routes/public.ts` health + public cache routes
-- `src/routes/admin.ts` manual prewarm + status
-- `src/services/prewarm.ts` catalog + batch prewarm logic
-- `src/services/readThrough.ts` automatic cache hydration and stale refresh
-- `src/security/cors.ts` CORS + JSON response helper
-- `src/security/rateLimit.ts` admin rate limiter
+Important variables:
 
-## Key vars
+- `CACHE_TTL_SEC`
+- `ORDERS_SUMMARY_CACHE_TTL_SEC`
+- `ORDERS_SUMMARY_STALE_REFRESH_SEC`
+- `NO_DATA_TTL_SEC`
+- `STALE_REFRESH_SEC`
+- `ALLOW_ORIGIN`
+- `CATALOG_SLUG_GUARD_ENABLED`
+- `DAILY_BUDGET_ENABLED`
+- `DAILY_BUDGET_MAX_REQUESTS`
+- `DAILY_BUDGET_SAMPLE_RATE`
+- `PREWARM_BATCH_SIZE`
+- `ORDER_SUMMARY_PREWARM_BATCH_SIZE`
+- `CATALOG_REFRESH_HOURS`
+- `ADMIN_PREWARM_MAX_BATCH`
+- `PUBLIC_RATE_LIMIT_ENABLED`
+- `PUBLIC_BOOTSTRAP_REQUIRED`
+- `BOOTSTRAP_TOKEN_TTL_SEC`
 
-- `CACHE_TTL_SEC` TTL for `price:*` and `meta:*` records.
-- `ORDERS_SUMMARY_CACHE_TTL_SEC` TTL for `orders-summary:*` card summary records.
-- `ORDERS_SUMMARY_STALE_REFRESH_SEC` stale threshold for `orders-summary:*` background refresh.
-- `NO_DATA_TTL_SEC` TTL for negative cache markers.
-- `STALE_REFRESH_SEC` age threshold for background stale refresh.
-- `ALLOW_ORIGIN` comma-separated browser-origin allowlist. Do not include `null`; Electron/curl
-  requests should omit the `Origin` header, which is already allowed separately.
-- `ADMIN_RATE_LIMIT_WINDOW_SEC` admin rate-limit window.
-- `ADMIN_RATE_LIMIT_MAX` admin request cap per IP and window.
-- `CATALOG_SLUG_GUARD_ENABLED` rejects cache misses for slugs absent from the cached WFM catalog
-  before making upstream WFM requests.
-- `DAILY_BUDGET_ENABLED` enables/disables the sampled daily request budget circuit breaker.
-- `DAILY_BUDGET_MAX_REQUESTS` daily sampled request cap before the Worker returns 503.
-- `DAILY_BUDGET_SAMPLE_RATE` sampled counter increment size; higher values mean fewer KV writes.
-- `DAILY_BUDGET_SYNC_INTERVAL_SEC` per-isolate KV sync interval for learning that the cap tripped.
-- `PREWARM_BATCH_SIZE` cron batch size.
-- `ORDER_SUMMARY_PREWARM_BATCH_SIZE` cron batch size for ranked summary prewarm.
-- `CATALOG_REFRESH_HOURS` item catalog refresh interval.
-- `ADMIN_PREWARM_MAX_BATCH` cap for manual prewarm batch size.
-- `PUBLIC_RATE_LIMIT_ENABLED` toggles worker-side public-route IP rate limiting.
-- `ADMIN_API_KEY` (secret) bearer token required by all `/admin/*` routes.
-- `BOOTSTRAP_TOKEN_SECRET` (secret) signing key for optional short-lived public bootstrap tokens.
-- `BOOTSTRAP_TOKEN_TTL_SEC` lifetime of issued bootstrap tokens.
-- `PUBLIC_BOOTSTRAP_REQUIRED` when `1`, public routes require a valid bootstrap token.
+Secrets:
 
-Current default values live in `wrangler.jsonc`.
+- `ADMIN_API_KEY`
+- `BOOTSTRAP_TOKEN_SECRET`
 
-## Required setup
+Production values and binding identifiers live in `wrangler.jsonc`.
 
-1. Configure KV bindings in `wrangler.jsonc` (`PRICE_CACHE`, `ITEM_META`).
-2. Set admin secret:
+## Setup
+
+From this directory:
 
 ```bash
+npm ci
 npx wrangler secret put ADMIN_API_KEY
+npx wrangler secret put BOOTSTRAP_TOKEN_SECRET
+npm run cf-typegen
+npm run typecheck
+npm run test -- --run
 ```
 
-3. Generate worker runtime types:
+The separate Worker package intentionally uses npm. Repository-root desktop commands use pnpm.
 
-```bash
-npx wrangler types
-```
-
-## Local run
+## Run and deploy
 
 ```bash
 npm run dev
-```
-
-## Deploy
-
-```bash
 npm run deploy
 ```
 
-The deploy script passes `--env=""` so Wrangler targets the top-level production config explicitly
-even though a named `dev` environment exists for local development.
+`npm run deploy` targets the top-level production configuration. Local development uses the named
+`dev` environment and its localhost CORS origin.
 
-Recommended Cloudflare dashboard rules, which run before Worker billing:
+Recommended dashboard controls:
 
-- WAF rate limit: `http.host eq "<your-worker-domain>"`, 60 requests per 60 seconds per IP,
-  block for 10 minutes.
-- WAF rate limit: `http.host eq "<your-worker-domain>" and starts_with(http.request.uri.path, "/admin")`,
-  5 requests per 60 seconds per IP, block for 10 minutes.
-- WAF custom rule for stable management IPs:
-  `http.host eq "<your-worker-domain>" and starts_with(http.request.uri.path, "/admin") and not ip.src in {YOUR_IP}` -> block.
+- A custom-domain WAF rate limit before Worker execution.
+- A stricter `/admin` rate limit and, where practical, an admin source-IP allowlist.
+- Billing alerts appropriate to the account budget.
 
-## Manual prewarm (optional)
+## Manual prewarm
 
-```bash
-curl -X POST \
-  -H "Authorization: Bearer <ADMIN_API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{"batchSize":20,"refreshCatalog":false,"resetCursor":false}' \
-  https://<your-worker>.workers.dev/admin/prewarm
-```
-
-## Prewarm status (optional)
-
-```bash
-curl -H "Authorization: Bearer <ADMIN_API_KEY>" \
-  https://<your-worker>.workers.dev/admin/prewarm/status
-```
-
-## Ranked summary catalog (recommended)
-
-The worker can build a ranked-summary catalog from the WFM item catalog and prewarm rank `0` plus
-`maxRank` for every ranked entry.
-
-Run the helper from repo root:
+From the repository root:
 
 ```powershell
-npm run backend:prewarm:order-summaries -- -ApiKey "<ADMIN_API_KEY>" -RefreshCatalog
+pnpm run backend:prewarm:order-summaries -- -ApiKey "<ADMIN_API_KEY>" -RefreshCatalog
+pnpm run backend:prewarm:order-summaries:hotset -- -ApiKey "<ADMIN_API_KEY>"
 ```
 
-Inspect the generated ranked summary catalog:
+The hotset helper reads `ranked-hotset.json`, uploads it, resets the summary cursor, and loops until
+the selected entries are warm.
+
+## Live smoke test
 
 ```bash
-curl -H "Authorization: Bearer <ADMIN_API_KEY>" \
-  "https://<your-worker>.workers.dev/admin/order-summary-catalog?refresh=1"
+WORKER_URL=https://api.wfhelper.com npm run test:smoke
 ```
 
-## Ranked summary hotset (optional override)
-
-Seed a hotset of ranked items that should stay warm for inventory cards:
-
-```bash
-curl -X POST \
-  -H "Authorization: Bearer <ADMIN_API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{"replace":true,"entries":[{"slug":"primed_flow","maxRank":10,"lastSeenAt":1735776000000}]}' \
-  https://<your-worker>.workers.dev/admin/order-summary-hotset
-```
-
-Then trigger a manual hotset prewarm:
-
-```bash
-curl -X POST \
-  -H "Authorization: Bearer <ADMIN_API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{"batchSize":12}' \
-  https://<your-worker>.workers.dev/admin/prewarm/order-summaries
-```
-
-Or use the PowerShell helper from repo root:
-
-```powershell
-npm run backend:prewarm:order-summaries:hotset -- -ApiKey "<ADMIN_API_KEY>"
-```
-
-It auto-detects `ranked-hotset.json` from common Electron user-data locations, uploads it to the
-worker hotset, resets the summary prewarm cursor, and loops until the hotset is fully warmed.
+GitHub Actions runs the same test against production every six hours. Keep it out of pull-request
+CI because it depends on live upstream and deployment state.
