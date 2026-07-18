@@ -40,7 +40,7 @@ const ALLOWLIST = new Set([
 ]);
 
 // Where exports are *defined* (main production tree).
-const DEF_DIRS = ["services", "ipc", "config", "src"];
+const DEF_DIRS = ["services", "ipc", "config", "src", "backend/worker/src"];
 const DEF_ROOT_FILES = [
   "main.ts",
   "preload.ts",

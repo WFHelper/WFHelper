@@ -70,7 +70,7 @@ let snapshotEtag: string | null = null;
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<{ status: number; body: T; headers: Headers }> {
 	const res = await fetch(`${BASE_URL}${path}`, init);
 	const text = await res.text();
-	let body: unknown = null;
+	let body: unknown;
 	try {
 		body = text ? JSON.parse(text) : null;
 	} catch {
@@ -97,6 +97,15 @@ describe(`worker smoke @ ${BASE_URL}`, () => {
 	});
 
 	describe('snapshot shape', () => {
+		it('supports conditional requests', async () => {
+			expect(snapshotEtag).toBeTruthy();
+			const response = await fetch(`${BASE_URL}/v1/snapshot`, {
+				headers: { 'if-none-match': snapshotEtag as string },
+			});
+			expect(response.status).toBe(304);
+			expect(await response.text()).toBe('');
+		});
+
 		it('has expected top-level keys', () => {
 			expect(snapshot.version).toBe(1);
 			expect(typeof snapshot.generatedAt).toBe('number');
@@ -154,14 +163,6 @@ describe(`worker smoke @ ${BASE_URL}`, () => {
 			expect(p99, `p99 age = ${(p99 / HOUR).toFixed(1)}h`).toBeLessThan(P99_AGE_BAR_MS);
 		});
 	});
-
-	// Note on ETag 304 testing: intentionally omitted. The worker's /v1/snapshot
-	// checks if-none-match only on edge-cache *miss* (public.ts:200). On typical
-	// warm-PoP requests, the `caches.default.match()` at public.ts:179 short-
-	// circuits and returns the cached 200 response without consulting the ETag.
-	// A smoke test asserting 304 would fail 99% of the time and tell you nothing
-	// about operational health. Worker-side fix (if desired): handle if-none-match
-	// before the edge-cache lookup, or set Vary: If-None-Match on the cached entry.
 
 	describe('per-slug read path (via bootstrap)', () => {
 		let bootstrapToken: string | null = null;

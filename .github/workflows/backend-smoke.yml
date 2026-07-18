@@ -1,0 +1,30 @@
+name: Backend smoke
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/worker/package-lock.json
+
+      - name: Install Worker dependencies
+        run: npm ci --prefix backend/worker
+
+      - name: Test deployed Worker
+        run: npm --prefix backend/worker run test:smoke
+        env:
+          WORKER_URL: https://api.wfhelper.com

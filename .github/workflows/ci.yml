@@ -35,6 +35,9 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
+      - name: Typecheck Worker
+        run: pnpm run backend:typecheck
+
       - name: Svelte check
         run: pnpm run check
 
@@ -44,10 +47,8 @@ jobs:
       - name: Dead code audit
         run: pnpm run audit:deadcode
 
-      # informational only - transitive vulns usually can't be fixed here anyway
       - name: Dependency vulnerability audit
         run: pnpm audit --prod --audit-level high
-        continue-on-error: true
 
       - name: Test
         run: pnpm run test
@@ -87,3 +88,29 @@ jobs:
           DEBUG: pw:browser*
           ELECTRON_ENABLE_LOGGING: "1"
           ELECTRON_ENABLE_STACK_DUMPING: "1"
+
+  validate-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify Windows main process
+        run: |
+          pnpm run verify:onnx-models
+          pnpm run typecheck:main
+          pnpm run test:main
+          pnpm run build

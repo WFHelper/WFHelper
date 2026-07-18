@@ -53,6 +53,15 @@ jobs:
             Write-Warning "CSC_LINK/CSC_KEY_PASSWORD are not configured; building an unsigned Windows installer."
           }
 
+      - name: Validate release runtime configuration
+        env:
+          VITE_WFM_BACKEND_URL: ${{ secrets.VITE_WFM_BACKEND_URL }}
+          VITE_WFM_BACKEND_DIRECT_FALLBACK: ${{ secrets.VITE_WFM_BACKEND_DIRECT_FALLBACK }}
+          VITE_WFM_BACKEND_BOOTSTRAP_ENABLED: ${{ secrets.VITE_WFM_BACKEND_BOOTSTRAP_ENABLED }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+        run: pnpm run validate:release-env
+
       - name: Ensure release exists
         shell: pwsh
         env:
