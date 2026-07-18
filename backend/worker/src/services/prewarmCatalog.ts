@@ -9,6 +9,10 @@ import { bestOrderPrice } from '../../../../config/shared/wfmOrders';
 
 const ORDER_SUMMARY_HOTSET_MAX_ENTRIES = 96;
 
+// Serve-stale window: catalog entries outlive the refresh threshold by days so
+// a WFM outage degrades to a stale catalog instead of an empty prewarm.
+const CATALOG_RETENTION_SEC = 7 * 24 * 60 * 60;
+
 export function cacheTtlSec(env: Env): number {
 	return getWorkerConfig(env).cacheTtlSec;
 }
@@ -156,7 +160,7 @@ export async function fetchCatalogSlugs(env: Env, forceRefresh: boolean): Promis
 						entries: rankedCatalog,
 					}),
 					{
-						expirationTtl: refreshHours * 2 * 60 * 60,
+						expirationTtl: CATALOG_RETENTION_SEC,
 					},
 				);
 			}
@@ -164,16 +168,15 @@ export async function fetchCatalogSlugs(env: Env, forceRefresh: boolean): Promis
 		}
 	}
 
-	const response = await fetch('https://api.warframe.market/v2/items', {
-		headers: WFM_HEADERS,
-	});
-	if (!response.ok) {
-		const fallback = await getJsonFromKv(env.ITEM_META, CATALOG_CACHE_KEY);
-		return sanitizeSlugList(fallback?.slugs);
+	let list: Array<Record<string, unknown>> = [];
+	try {
+		const response = await fetch('https://api.warframe.market/v2/items', {
+			headers: WFM_HEADERS,
+		});
+		if (response.ok) list = normalizeCatalogList(await response.json());
+	} catch {
+		// Network failure - the stale-copy fallback below handles it.
 	}
-
-	const jsonPayload = await response.json();
-	const list = normalizeCatalogList(jsonPayload);
 
 	const slugs = Array.from(
 		new Set(
@@ -187,6 +190,13 @@ export async function fetchCatalogSlugs(env: Env, forceRefresh: boolean): Promis
 	);
 	const rankedSummaryCatalog = buildRankedSummaryCatalog(list);
 
+	if (slugs.length === 0) {
+		// Refresh failed or came back empty: serve the last good catalog stale
+		// and never overwrite it with an empty one.
+		const fallback = await getJsonFromKv(env.ITEM_META, CATALOG_CACHE_KEY);
+		return sanitizeSlugList(fallback?.slugs);
+	}
+
 	await env.ITEM_META.put(
 		CATALOG_CACHE_KEY,
 		JSON.stringify({
@@ -195,7 +205,7 @@ export async function fetchCatalogSlugs(env: Env, forceRefresh: boolean): Promis
 			rankedSummaryCatalog,
 		}),
 		{
-			expirationTtl: refreshHours * 2 * 60 * 60,
+			expirationTtl: CATALOG_RETENTION_SEC,
 		},
 	);
 
@@ -206,7 +216,7 @@ export async function fetchCatalogSlugs(env: Env, forceRefresh: boolean): Promis
 			entries: rankedSummaryCatalog,
 		}),
 		{
-			expirationTtl: refreshHours * 2 * 60 * 60,
+			expirationTtl: CATALOG_RETENTION_SEC,
 		},
 	);
 

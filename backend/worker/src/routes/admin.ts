@@ -1,4 +1,5 @@
 import {
+	CATALOG_CACHE_KEY,
 	ORDER_SUMMARY_CATALOG_KEY,
 	ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY,
 	ORDER_SUMMARY_HOTSET_KEY,
@@ -127,6 +128,23 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 			source === 'hotset'
 				? await getJsonFromKv(env.PRICE_CACHE, ORDER_SUMMARY_PREWARM_LAST_RUN_KEY)
 				: await getJsonFromKv(env.ITEM_META, ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY);
+		return jsonResponse({ ok: true, result }, req, env, 200);
+	}
+
+	if (req.method === 'GET' && url.pathname === '/admin/catalog/status') {
+		const guardResponse = await guardAdmin(req, env);
+		if (guardResponse) return guardResponse;
+
+		const cached = await getJsonFromKv(env.ITEM_META, CATALOG_CACHE_KEY);
+		const updatedAt = Number(cached?.updatedAt || 0) || null;
+		const ageMs = updatedAt ? Date.now() - updatedAt : null;
+		const refreshMs = getWorkerConfig(env).catalogRefreshHours * 60 * 60 * 1000;
+		const result = {
+			updatedAt,
+			ageHours: ageMs == null ? null : Math.round((ageMs / 3_600_000) * 10) / 10,
+			stale: ageMs == null ? true : ageMs > refreshMs,
+			slugCount: Array.isArray(cached?.slugs) ? cached.slugs.length : 0,
+		};
 		return jsonResponse({ ok: true, result }, req, env, 200);
 	}
 

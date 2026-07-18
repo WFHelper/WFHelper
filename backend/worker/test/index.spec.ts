@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import worker from '../src/index';
 import type { Env } from '../src/types';
 import { buildOrderSummaryPayload, prewarmBatch, prewarmOrderSummaryCatalog } from '../src/services/prewarm';
+import { fetchCatalogSlugs } from '../src/services/prewarmCatalog';
 import { WFM_SNAPSHOT_CLIENT_CACHE_VERSION } from '../../../config/shared/wfmSnapshotValidation';
 
 const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
@@ -1702,5 +1703,48 @@ describe('backend worker', () => {
 		const missBase = await env.PRICE_CACHE.get(`miss:price:v2:${slug}`);
 		const missRank0 = await env.PRICE_CACHE.get(`miss:price:v2:${slug}:r0`);
 		expect(missBase || missRank0).toBe('1');
+	});
+
+	it('serves the stale catalog and never clobbers it when the WFM refresh fails', async () => {
+		const staleUpdatedAt = Date.now() - 48 * 60 * 60 * 1000;
+		const seeded = { updatedAt: staleUpdatedAt, slugs: ['primed_flow'], rankedSummaryCatalog: [] };
+		await env.ITEM_META.put('catalog:slugs:v1', JSON.stringify(seeded));
+
+		const failures: Array<() => Promise<Response>> = [
+			async () => {
+				throw new Error('network down');
+			},
+			async () => new Response('upstream sad', { status: 503 }),
+			async () => new Response(JSON.stringify({ data: { items: [] } }), { status: 200 }),
+		];
+		for (const failure of failures) {
+			globalThis.fetch = vi.fn(failure) as unknown as typeof fetch;
+			const slugs = await fetchCatalogSlugs(env, false);
+			expect(slugs).toEqual(['primed_flow']);
+			const stored = JSON.parse(String(await env.ITEM_META.get('catalog:slugs:v1'))) as { updatedAt?: number };
+			expect(stored.updatedAt).toBe(staleUpdatedAt);
+		}
+	});
+
+	it('reports catalog age through the admin diagnostics route', async () => {
+		const updatedAt = Date.now() - 30 * 60 * 60 * 1000;
+		await env.ITEM_META.put('catalog:slugs:v1', JSON.stringify({ updatedAt, slugs: ['primed_flow', 'primed_continuity'] }));
+
+		const ctx = createExecutionContext();
+		const res = await worker.fetch(
+			new IncomingRequest('http://example.com/admin/catalog/status', {
+				headers: { 'cf-connecting-ip': '10.0.0.60', authorization: 'Bearer test-key' },
+			}),
+			{ ...env, ADMIN_API_KEY: 'test-key', ADMIN_RATE_LIMITER: rateLimiter(10) } as unknown as Env,
+			ctx,
+		);
+		await waitOnExecutionContext(ctx);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { result: { updatedAt: number; ageHours: number; stale: boolean; slugCount: number } };
+		expect(body.result.updatedAt).toBe(updatedAt);
+		expect(body.result.ageHours).toBeGreaterThan(29);
+		expect(body.result.stale).toBe(true);
+		expect(body.result.slugCount).toBe(2);
 	});
 });
