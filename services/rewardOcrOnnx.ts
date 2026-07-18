@@ -28,6 +28,17 @@ export function rewardOcrOnnxAvailable(): boolean {
   return paddleRecognizerAvailable();
 }
 
+/** Load the shared paddle session off the scan path - the first crack of a
+ * session otherwise pays the ~1.4s model load inside the scan. */
+export async function warmupRewardStripOnnx(): Promise<void> {
+  if (!paddleRecognizerAvailable()) return;
+  try {
+    await recognizePaddleCrops([{ data: Buffer.alloc(160 * 48 * 3, 255), width: 160, height: 48 }]);
+  } catch (err) {
+    log.warn("[RewardOcrOnnx] warmup failed:", normalizeErrorMessage(err));
+  }
+}
+
 interface RowSegment {
   y1: number;
   y2: number;

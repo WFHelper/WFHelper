@@ -21,6 +21,7 @@ import * as wfmSession from "./services/wfmSession";
 import * as relicService from "./services/relicService";
 import * as eeLogMonitor from "./services/eeLogMonitor";
 import * as rewardScanner from "./services/rewardScanner";
+import * as rewardOcrOnnx from "./services/rewardOcrOnnx";
 import * as crashReporter from "./services/crashReporter";
 import * as autoUpdater from "./services/autoUpdater";
 import * as rivenBestAttributes from "./services/rivenBestAttributes";
@@ -310,6 +311,11 @@ app.whenReady().then(async () => {
       log.warn("[Overlay] planner pre-warm failed:", err);
     }
   }, 4000).unref();
+
+  // paddle session load costs ~1.4s - pay it here, not inside the first scan
+  setTimeout(() => {
+    void rewardOcrOnnx.warmupRewardStripOnnx();
+  }, 6000).unref();
 
   const inventoryDetectStart = Date.now();
   apiHelperRunner.init();

@@ -172,24 +172,24 @@ export async function scanRewardSlotsFallback(
         const reader = options.reader || "both";
 
         // Names wrap to two lines in 3/4-player layouts: OCR each band plus the whole
-        // crop, bands overlap so the wrap point doesn't cut a glyph.
-        let joined = "";
-        let wholeClean = "";
-        if (reader !== "onnx") {
-          const topText = await ocrRewardRegion(cropPng, 0, 0.58, options, timeout);
-          const bottomText = await ocrRewardRegion(cropPng, 0.42, 0.58, options, timeout);
-          const wholeText = await ocrRewardRegion(cropPng, 0, 1, options, timeout);
-          joined = joinRewardLines(topText, bottomText);
-          wholeClean = cleanRewardOcrText(wholeText);
-        }
-
-        // Second independent read of the same strip; both readers feed one
-        // candidate pool and the match ranking arbitrates.
-        let onnxClean = "";
-        if (reader !== "windows" && rewardOcrOnnxAvailable()) {
-          const onnxRead = await recognizeRewardStripOnnx(cropPng);
-          onnxClean = cleanRewardOcrText(onnxRead?.text || "");
-        }
+        // crop, bands overlap so the wrap point doesn't cut a glyph. All four
+        // reads (3 regions + the independent ONNX strip read) are concurrent -
+        // both readers feed one candidate pool and the match ranking arbitrates.
+        const [regionTexts, onnxRead] = await Promise.all([
+          reader !== "onnx"
+            ? Promise.all([
+                ocrRewardRegion(cropPng, 0, 0.58, options, timeout),
+                ocrRewardRegion(cropPng, 0.42, 0.58, options, timeout),
+                ocrRewardRegion(cropPng, 0, 1, options, timeout),
+              ])
+            : Promise.resolve(["", "", ""]),
+          reader !== "windows" && rewardOcrOnnxAvailable()
+            ? recognizeRewardStripOnnx(cropPng)
+            : Promise.resolve(null),
+        ]);
+        const joined = joinRewardLines(regionTexts[0], regionTexts[1]);
+        const wholeClean = cleanRewardOcrText(regionTexts[2]);
+        const onnxClean = cleanRewardOcrText(onnxRead?.text || "");
 
         const candidateTexts = new Set<string>();
         if (joined) candidateTexts.add(joined);
@@ -335,6 +335,20 @@ export async function scanRewardSlotsFallback(
     ) {
       bestResult = result;
       bestDebugSlots = toScanDebugSlots(slotResults);
+    }
+
+    // Every slot hit exactly - narrower croppings of the same screen cannot
+    // beat this, so skip their re-OCR passes (~650ms on a clean 4-slot read).
+    if (
+      result.matchedSlots >= 2 &&
+      result.matchedSlots === slotLimit &&
+      result.exactCount === result.matchedSlots &&
+      result.emptySlots === 0
+    ) {
+      log.info(
+        `[RewardScanner] Slot layout ${layout.count} is a clean sweep - skipping smaller layouts`,
+      );
+      break;
     }
   }
 
