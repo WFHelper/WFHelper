@@ -18,6 +18,7 @@ const MAX_SIGNIN_FAILURES = 3;
 let _active = false;
 let _token: string | null = null;
 let _onEvent: ((type: string, payload: unknown) => void) | null = null;
+let _onAuthGiveUp: (() => void) | null = null;
 let _reconnectAttempt = 0;
 let _signInFailures = 0;
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -104,7 +105,9 @@ function _connect(token: string): void {
         _signInFailures++;
         if (_signInFailures >= MAX_SIGNIN_FAILURES) {
           log.warn("[WFMListener] Sign-in rejected repeatedly - stopping until the next manual login");
+          const notifyGiveUp = _onAuthGiveUp;
           stopListening();
+          notifyGiveUp?.();
         } else {
           reconnect();
         }
@@ -144,11 +147,13 @@ function _connect(token: string): void {
 export function startListening(
   token: string,
   onEvent: (type: string, payload: unknown) => void,
+  onAuthGiveUp?: () => void,
 ): void {
   stopListening();
   _active = true;
   _token = token;
   _onEvent = onEvent;
+  _onAuthGiveUp = onAuthGiveUp ?? null;
   _reconnectAttempt = 0;
   _signInFailures = 0;
   log.info("[WFMListener] Starting");
@@ -159,6 +164,7 @@ export function stopListening(): void {
   _active = false;
   _token = null;
   _onEvent = null;
+  _onAuthGiveUp = null;
   _clearTimers();
   _destroySocket();
   _reconnectAttempt = 0;

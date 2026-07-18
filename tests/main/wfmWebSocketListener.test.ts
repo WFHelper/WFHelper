@@ -78,19 +78,22 @@ describe("wfmWebSocketListener sign-in errors", () => {
     expect(onEvent).toHaveBeenCalledWith("event/orders/new", { id: 1 });
   });
 
-  it("stops for good after three consecutive sign-in rejections", async () => {
+  it("stops for good and fires the give-up callback after three sign-in rejections", async () => {
     const listener = await freshListener();
-    listener.startListening("token", vi.fn());
+    const onAuthGiveUp = vi.fn();
+    listener.startListening("token", vi.fn(), onAuthGiveUp);
 
     failSignIn(sockets[0]);
     await advanceToNextSocket();
     failSignIn(sockets[1]);
     await advanceToNextSocket();
     expect(sockets).toHaveLength(3);
+    expect(onAuthGiveUp).not.toHaveBeenCalled();
 
     failSignIn(sockets[2]);
     await vi.advanceTimersByTimeAsync(120_000);
     expect(sockets).toHaveLength(3);
+    expect(onAuthGiveUp).toHaveBeenCalledTimes(1);
   });
 
   it("a successful sign-in resets the failure count", async () => {

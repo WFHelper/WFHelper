@@ -80,6 +80,15 @@ function _handleWfmEvent(route: string, payload: unknown): void {
     win.webContents.send(WFM_NOTIFICATION, { type: "whisper", from, content });
   }
 }
+
+/** WS listener gave up (token rejected repeatedly) - tell the renderer so the
+ * UI can drop to logged-out instead of a fake logged-in state. */
+function _handleWfmAuthGiveUp(): void {
+  const win = ctx.mainWindow;
+  if (!win || win.isDestroyed()) return;
+  log.warn("[WFMIpc] WS listener gave up on auth - notifying renderer");
+  win.webContents.send(WFM_NOTIFICATION, { type: "listener-auth-failed" });
+}
 const WFM_SLUG_RE = /^[a-z0-9_]+$/;
 
 function register(): void {
@@ -95,7 +104,7 @@ function register(): void {
       // Start persistent WS listener after successful sign-in
       const token = wfmSession.getToken();
       if (token) {
-        startListening(token, _handleWfmEvent);
+        startListening(token, _handleWfmEvent, _handleWfmAuthGiveUp);
       }
       return result;
     } catch (err) {
@@ -285,7 +294,7 @@ function startListenerIfLoggedIn(): void {
   const token = wfmSession.getToken();
   if (token) {
     log.info("[WFMIpc] Resuming WS listener after session restore");
-    startListening(token, _handleWfmEvent);
+    startListening(token, _handleWfmEvent, _handleWfmAuthGiveUp);
   }
 }
 

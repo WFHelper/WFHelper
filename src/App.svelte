@@ -29,6 +29,7 @@
   import { itemDb, parsedItems } from "./stores/data.js";
   import { tourActive } from "./stores/tour.js";
   import { masteryData } from "./stores/mastery.js";
+  import { marketSession } from "./stores/market.js";
   import { activeItem, activeComponent, activeRelic } from "./stores/modals.js";
   import { applyUpdateState } from "./stores/updates.js";
   import { addToast } from "./stores/toasts.js";
@@ -96,6 +97,16 @@
     });
 
     const unsubscribeWfmNotification = on("wfm:notification", (notification) => {
+      if (notification.type === "listener-auth-failed") {
+        marketSession.update((s) => ({ ...s, loggedIn: false }));
+        addToast({
+          level: "warning",
+          title: "Warframe Market session expired",
+          message: "Sign in again on the Market tab to restore trade notifications.",
+          durationMs: 12000,
+        });
+        return;
+      }
       addToast({
         level: "info",
         title: `WFM DM from ${notification.from}`,
