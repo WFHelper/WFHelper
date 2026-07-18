@@ -46,7 +46,7 @@ interface FetchPriceOptions {
   cacheOnly?: boolean;
 }
 
-export interface PriceDebugCounters {
+interface PriceDebugCounters {
   requests: number;
   cacheHitOk: number;
   cacheHitNoData: number;
@@ -60,14 +60,6 @@ export interface PriceDebugCounters {
   backendHitNoData: number;
   backendError: number;
   queueDropped: number;
-}
-
-export interface PriceQueueStats {
-  high: number;
-  normal: number;
-  low: number;
-  running: boolean;
-  delayMs: number;
 }
 
 const priceDebugCounters: PriceDebugCounters = {
@@ -143,7 +135,7 @@ function cacheNoData(cacheKey: string, sourceSlug: string): void {
   emitPriceCacheUpdate(sourceSlug, "no_data");
 }
 
-export function getPriceDebugCounters(): PriceDebugCounters {
+export function getPriceDebugCountersForTest(): PriceDebugCounters {
   return { ...priceDebugCounters };
 }
 
@@ -151,17 +143,6 @@ export function onPriceCacheUpdate(listener: PriceCacheUpdateListener): () => vo
   priceCacheUpdateListeners.add(listener);
   return () => {
     priceCacheUpdateListeners.delete(listener);
-  };
-}
-
-export function getPriceQueueStats(): PriceQueueStats {
-  const lengths = priceQueue.lengths();
-  return {
-    high: lengths.high,
-    normal: lengths.normal,
-    low: lengths.low,
-    running: priceQueue.isRunning(),
-    delayMs: priceDelay.getDelayMs(),
   };
 }
 

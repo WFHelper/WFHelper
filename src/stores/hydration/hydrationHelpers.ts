@@ -4,7 +4,7 @@ import {
   isRankedGroup,
   resolveRankedMaxRank as resolveRankedMaxRankForGroup,
 } from "../../../config/shared/numeric.js";
-export { cheapestOrderPrice, isActiveOrderStatus } from "../../../config/shared/wfmOrders.js";
+export { isActiveOrderStatus } from "../../../config/shared/wfmOrders.js";
 
 export function resolvePriceRank(item: InventoryBaseItem): number | null {
   if (!isRankedGroup(item.inventoryGroup)) return null;

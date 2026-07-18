@@ -24,7 +24,7 @@ const inFlightByKey = createSingleFlightMap<
   BackendFetchResult<BackendOrderSummaryPayload>
 >();
 
-export interface OrderSummaryDebugCounters {
+interface OrderSummaryDebugCounters {
   requests: number;
   backendHitOk: number;
   backendHitNoData: number;
@@ -49,10 +49,6 @@ const breaker = createCircuitBreaker({
   cooldownMs: CIRCUIT_BREAKER_COOLDOWN_MS,
   onOpen: () => bumpCounter("breakerOpen"),
 });
-
-export function getOrderSummaryDebugCounters(): OrderSummaryDebugCounters {
-  return { ...debugCounters };
-}
 
 function getOrderSummaryCircuitState(): { open: boolean; retryAfterMs: number } {
   return breaker.state();

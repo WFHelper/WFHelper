@@ -319,7 +319,9 @@ describe("WFM backend fallback integration", () => {
   it("drops renderer price fetches when the queue is full", async () => {
     vi.resetModules();
 
-    const { __test__, getPriceDebugCounters } = await import("../../../../src/lib/wfm/wfmPrice.js");
+    const { __test__, getPriceDebugCountersForTest } = await import(
+      "../../../../src/lib/wfm/wfmPrice.js"
+    );
     for (let i = 0; i < 65; i += 1) {
       void __test__.enqueueForTest(() => new Promise(() => {}), "normal").catch(() => {});
     }
@@ -327,7 +329,7 @@ describe("WFM backend fallback integration", () => {
     await expect(__test__.enqueueForTest(() => Promise.resolve("ok"), "normal")).rejects.toThrow(
       __test__.priceQueueFullError,
     );
-    expect(getPriceDebugCounters().queueDropped).toBe(1);
+    expect(getPriceDebugCountersForTest().queueDropped).toBe(1);
   });
 
   it("uses backend order summary route for ranked card summaries", async () => {

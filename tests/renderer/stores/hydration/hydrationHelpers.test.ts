@@ -7,7 +7,6 @@ import {
   hasResolvedPrice,
   hasRankPairCoverage,
   isActiveOrderStatus,
-  cheapestOrderPrice,
 } from "../../../../src/stores/hydration/hydrationHelpers.js";
 import type { InventoryBaseItem, ItemMetrics } from "../../../../src/lib/inventoryMarket.js";
 
@@ -212,34 +211,5 @@ describe("isActiveOrderStatus", () => {
 
   it("returns false for null", () => {
     expect(isActiveOrderStatus(null)).toBe(false);
-  });
-});
-
-describe("cheapestOrderPrice", () => {
-  it("returns the cheapest price from all entries", () => {
-    const entries = [
-      { platinum: 20, status: "ingame" },
-      { platinum: 10, status: "offline" },
-      { platinum: 15, status: "online" },
-    ];
-    expect(cheapestOrderPrice(entries, false)).toBe(10);
-  });
-
-  it("filters by active status when activeOnly is true", () => {
-    const entries = [
-      { platinum: 20, status: "ingame" },
-      { platinum: 5, status: "offline" },
-      { platinum: 15, status: "online" },
-    ];
-    expect(cheapestOrderPrice(entries, true)).toBe(15);
-  });
-
-  it("returns null for empty list", () => {
-    expect(cheapestOrderPrice([], false)).toBeNull();
-  });
-
-  it("returns null when no entries match activeOnly filter", () => {
-    const entries = [{ platinum: 10, status: "offline" }];
-    expect(cheapestOrderPrice(entries, true)).toBeNull();
   });
 });

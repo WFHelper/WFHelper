@@ -41,12 +41,6 @@ export function isActiveOrderStatus(status: string | null): boolean {
   return status === "ingame" || status === "online";
 }
 
-export function cheapestOrderPrice(entries: WfmOrderPriceEntry[], activeOnly: boolean): number | null {
-  const list = activeOnly ? entries.filter((entry) => isActiveOrderStatus(entry.status)) : entries;
-  if (list.length === 0) return null;
-  return Math.min(...list.map((entry) => entry.platinum));
-}
-
 export function bestOrderPrice(
   entries: WfmOrderPriceEntry[],
   orderType: WfmOrderType,

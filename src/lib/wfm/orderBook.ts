@@ -25,7 +25,7 @@ type ItemOrderBookResult =
 const ORDERBOOK_TTL_MS = 45_000;
 const ORDERBOOK_NO_DATA_TTL_MS = 3 * 60 * 1000;
 
-export interface OrderBookDebugCounters {
+interface OrderBookDebugCounters {
   requests: number;
   cacheHitOk: number;
   cacheHitNoData: number;
@@ -133,10 +133,6 @@ async function fetchDirectOrderBook(
 
   bumpCounter(v1Attempt.transient ? "resultError" : "resultNoData");
   return v1Attempt.transient ? { status: "error", slug } : { status: "not_found", slug };
-}
-
-export function getOrderBookDebugCounters(): OrderBookDebugCounters {
-  return { ...orderBookDebugCounters };
 }
 
 export function resetOrderBookDebugCounters(): void {

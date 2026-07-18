@@ -15,51 +15,12 @@ vi.mock("../../../src/stores/hydration/hydrateItemMetrics.js", async (importOrig
 });
 
 vi.mock("../../../src/lib/wfm/wfmPrice.js", () => ({
-  getPriceDebugCounters: () => ({
-    requests: 0,
-    cacheHitOk: 0,
-    cacheHitNoData: 0,
-    inFlightDeduped: 0,
-    httpCalls: 0,
-    resultOk: 0,
-    resultNoData: 0,
-    resultTransient: 0,
-    rateLimited: 0,
-    backendHitOk: 0,
-    backendHitNoData: 0,
-    backendError: 0,
-    queueDropped: 0,
-  }),
-  getPriceQueueStats: () => ({
-    high: 0,
-    normal: 0,
-    low: 0,
-    running: false,
-    delayMs: 0,
-  }),
 }));
 
 vi.mock("../../../src/lib/wfm/orderBook.js", () => ({
-  getOrderBookDebugCounters: () => ({
-    requests: 0,
-    cacheHitOk: 0,
-    cacheHitNoData: 0,
-    httpCalls: 0,
-    v1FallbackCalls: 0,
-    resultOk: 0,
-    resultNoData: 0,
-    resultError: 0,
-  }),
 }));
 
 vi.mock("../../../src/lib/wfm/orderSummaryRemote.js", () => ({
-  getOrderSummaryDebugCounters: () => ({
-    requests: 0,
-    backendHitOk: 0,
-    backendHitNoData: 0,
-    backendError: 0,
-    breakerOpen: 0,
-  }),
 }));
 
 function makeItem(index: number): InventoryBaseItem {

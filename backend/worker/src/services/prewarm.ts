@@ -495,11 +495,8 @@ export async function prewarmOrderSummaryCatalog(
 			const priceKey = workerPriceCacheKey(entry.slug, rank);
 			let shouldRefreshOrderSummary = true;
 			let shouldRefreshPrice = true;
-			let cachedOrderSummary: Record<string, unknown> | null = null;
-			let cachedPrice: Record<string, unknown> | null = null;
-
 			if (cronRefresh) {
-				[cachedOrderSummary, cachedPrice] = await Promise.all([
+				const [cachedOrderSummary, cachedPrice] = await Promise.all([
 					getJsonFromKv(env.PRICE_CACHE, orderSummaryKey),
 					getJsonFromKv(env.PRICE_CACHE, priceKey),
 				]);
@@ -837,7 +834,7 @@ export class SnapshotCoordinator {
 	}
 }
 
-export async function patchSnapshot(
+async function patchSnapshot(
 	env: Env,
 	patches: SnapshotPatch,
 ): Promise<void> {

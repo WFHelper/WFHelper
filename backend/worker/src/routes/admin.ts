@@ -140,7 +140,7 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 			const value = raw ? (JSON.parse(raw) as { generatedAt?: unknown }) : null;
 			generatedAt = typeof value?.generatedAt === 'number' && Number.isFinite(value.generatedAt) ? value.generatedAt : null;
 		} catch {
-			generatedAt = null;
+			// Malformed snapshots have no usable generation time.
 		}
 		return jsonResponse({ ok: true, result: { generatedAt } }, req, env, 200);
 	}

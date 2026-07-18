@@ -126,8 +126,7 @@ export default {
 				status: 200,
 				latencyMs: Math.round(performance.now() - start),
 			});
-			// patchSnapshot() at the end of each prewarm tick maintains the snapshot; one full
-			// cursor pass (~1-2h) covers the catalog. buildFullSnapshot() is an admin cold-boot seed only.
+			// One full cursor pass gradually refreshes the complete snapshot.
 		} catch (err) {
 			logEvent({
 				type: 'error',
