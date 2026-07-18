@@ -78,7 +78,12 @@ export function parseWhisperUsername(line: string): string | null {
 }
 
 /** Debounce before firing the reward-screen overlay after a log pattern match. */
-const TRIGGER_DELAY_MS = 450;
+const TRIGGER_DELAY_MS = 250;
+// Warframe flushes EE.log lazily - the file poll re-delivers lines DBWIN
+// already handled up to ~15s later (observed 15.4s), far past the trigger
+// cooldown. While DBWIN is live, file reward lines only rescue rewards DBWIN
+// missed entirely (no recent dispatch), instead of re-scanning at vote end.
+const REWARD_FILE_ECHO_WINDOW_MS = 30_000;
 /** Debounce for relic-picker - gives the in-game UI time to finish rendering. */
 const RELIC_TRIGGER_DELAY_MS = 300;
 /** Cooldown between consecutive reward scans to avoid duplicate log-line triggers. */
@@ -285,7 +290,15 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   if (!line) return;
 
   if (REWARD_TRIGGER_PATTERNS.some((pattern) => pattern.test(line))) {
-    scheduleTrigger("reward");
+    const isFlushEcho =
+      source === "file" &&
+      isDbwinActive() &&
+      Date.now() - lastRewardAt < REWARD_FILE_ECHO_WINDOW_MS;
+    if (isFlushEcho) {
+      log.info("[EELog] Reward file echo ignored - DBWIN already handled this crack");
+    } else {
+      scheduleTrigger("reward");
+    }
   }
 
   if (rewardUiReadyCallback && REWARD_UI_READY_PATTERN.test(line)) {

@@ -50,11 +50,11 @@ describe("overlay scan timing (eelog trigger)", () => {
     const start = Date.now();
 
     const done = controller.dispatchRewardScan("eelog");
-    await vi.advanceTimersByTimeAsync(1_200);
+    await vi.advanceTimersByTimeAsync(600);
     await done;
 
     expect(scanTimes).toHaveLength(1);
-    expect(scanTimes[0] - start).toBe(1_200);
+    expect(scanTimes[0] - start).toBe(600);
   });
 
   it("scans after the settle delay when the signal preceded the trigger", async () => {

@@ -12,8 +12,10 @@ const SCAN_RETRY_WINDOW_MS = 5_000;
 const SCAN_RETRY_INTERVAL_MS = 450;
 const SCAN_MAX_ATTEMPTS = 10;
 const MAX_REWARD_ITEMS = 4;
-// Max wait for the reward-UI render signal before scanning anyway.
-const EELOG_REWARD_SCAN_DELAY_MS = 1_200;
+// Max wait for the reward-UI render signal before scanning anyway. The signal
+// is unreliable (DBWIN can miss the icon burst), so this is a fallback delay,
+// not the expected path - keep it short.
+const EELOG_REWARD_SCAN_DELAY_MS = 600;
 // Settle after the render signal so the card fade-in finishes.
 const EELOG_UI_READY_SETTLE_MS = 500;
 // Render signals this recent count for the current trigger (the line usually
