@@ -87,11 +87,16 @@ const REWARD_TRIGGER_COOLDOWN_MS = 2500;
 const RELIC_PICKER_COOLDOWN_MS = 3000;
 /** Grace period after close before another close can fire - debounces rapid log flushes. */
 const RELIC_PICKER_CLOSE_COOLDOWN_MS = 500;
-// Minimum gap between the last open trigger and a close trigger being honoured.
-// Prevents InitMapping from closing the overlay when it fires as part of
-// the navigation flow that leads TO the relic selection screen.
-// Use a longer unified guard so the open navigation flow cannot immediately close the overlay.
-const RELIC_PICKER_CLOSE_MIN_GAP_MS = 3500;
+// Minimum gap between the last picker PATTERN line and a close being honoured.
+// The inbound InitMapping (navigating TO the relic screen) lands around
+// LoadingCompleteEnd, so measuring from the last pattern line keeps this guard
+// tight; the old 3.5s-from-dispatch ate fast user closes and stranded the
+// overlay until the safety net.
+const RELIC_PICKER_CLOSE_MIN_GAP_MS = 1500;
+// The mid-mission relic picker pauses the game and renders reward-preview
+// cards, emitting "Pause countdown done" + ProjectionRewardChoice lines - a
+// reward scan there reads the relic's possible-drops panel as a real reward.
+const REWARD_AFTER_PICKER_SUPPRESS_MS = 3000;
 // File polling is a backup path when DBWIN is inactive.
 const POLL_INTERVAL_MS = 500;
 const MAX_READ_BYTES = 256 * 1024;
@@ -155,6 +160,7 @@ let pendingRewardTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingRelicPickerTimer: ReturnType<typeof setTimeout> | null = null;
 let lastRewardAt = 0;
 let lastRelicPickerAt = 0;
+let lastRelicPickerPatternAt = 0;
 let lastRelicPickerCloseAt = 0;
 let relicPickerSessionOpen = false;
 
@@ -238,12 +244,22 @@ function scheduleTrigger(type: "reward" | "relic_picker"): void {
   const lastAt = isReward ? lastRewardAt : lastRelicPickerAt;
   const cooldown = isReward ? REWARD_TRIGGER_COOLDOWN_MS : RELIC_PICKER_COOLDOWN_MS;
 
+  // Stamped on every pattern line (even inside the cooldown) - the reward
+  // suppression and the close guard both key on the freshest picker activity.
+  if (!isReward) lastRelicPickerPatternAt = now;
+
   if (now - lastAt < cooldown) return;
 
   if (isReward) {
     if (pendingRewardTimer) return;
     pendingRewardTimer = setTimeout(() => {
       pendingRewardTimer = null;
+      if (Date.now() - lastRelicPickerPatternAt < REWARD_AFTER_PICKER_SUPPRESS_MS) {
+        // deliberately leaves lastRewardAt untouched so a real reward right
+        // after the window isn't cooldown-blocked
+        log.info("[EELog] Reward trigger suppressed - relic picker screen active");
+        return;
+      }
       lastRewardAt = Date.now();
       if (rewardCallback) {
         log.info("[EELog] Reward trigger detected -> dispatching reward scan");
@@ -351,10 +367,10 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
     const now = Date.now();
     if (relicPickerSessionOpen && now - lastRelicPickerCloseAt >= RELIC_PICKER_CLOSE_COOLDOWN_MS) {
       lastRelicPickerCloseAt = now;
-      if (now - lastRelicPickerAt < RELIC_PICKER_CLOSE_MIN_GAP_MS) {
-        // Too close to the last open trigger - this InitMapping is from navigating
-        // TO the relic screen, not FROM it. Skip to avoid closing the overlay
-        // immediately after it opens.
+      if (now - Math.max(lastRelicPickerAt, lastRelicPickerPatternAt) < RELIC_PICKER_CLOSE_MIN_GAP_MS) {
+        // Too close to the last picker activity - this InitMapping is from
+        // navigating TO the relic screen, not FROM it. Skip to avoid closing
+        // the overlay immediately after it opens.
         log.info("[EELog] Relic picker close skipped - too close to last open trigger");
       } else if (relicPickerCloseCallback) {
         relicPickerSessionOpen = false;

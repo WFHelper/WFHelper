@@ -622,7 +622,9 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       if (era) {
         activeMissionTierSetAt = Date.now(); // refresh TTL
         log.info(
-          `[RelicSelection] mission tier ${logMissionTier ? "from EE.log tag" : "cache hit"}: ${era} (age ${Math.round(cacheAge / 1000)}s)`,
+          logMissionTier
+            ? `[RelicSelection] mission tier from EE.log tag: ${era}`
+            : `[RelicSelection] mission tier cache hit: ${era} (age ${Math.round(cacheAge / 1000)}s)`,
         );
         if (logMissionTier && typeof rewardScanner.detectRelicSelectionEra === "function") {
           // The tag outlives its mission (no orbiter line clears it), so a lith
