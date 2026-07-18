@@ -10,11 +10,16 @@ const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_CAP_MS = 60_000;
 const RECONNECT_JITTER_MS = 500;
 const PING_INTERVAL_MS = 30_000;
+// A rejected sign-in is usually a transient WFM-side error, not a dead token -
+// retry through the backoff loop, but a token rejected this many times in a row
+// is genuinely invalid and retrying would just spam WFM.
+const MAX_SIGNIN_FAILURES = 3;
 
 let _active = false;
 let _token: string | null = null;
 let _onEvent: ((type: string, payload: unknown) => void) | null = null;
 let _reconnectAttempt = 0;
+let _signInFailures = 0;
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let _socket: WebSocket | null = null;
 let _pingTimer: ReturnType<typeof setInterval> | null = null;
@@ -95,12 +100,21 @@ function _connect(token: string): void {
 
     if (route.endsWith(":error")) {
       log.warn("[WFMListener] Server error:", route, JSON.stringify(msg.payload));
-      if (route.includes("auth/signIn")) stopListening();
+      if (route.includes("auth/signIn")) {
+        _signInFailures++;
+        if (_signInFailures >= MAX_SIGNIN_FAILURES) {
+          log.warn("[WFMListener] Sign-in rejected repeatedly - stopping until the next manual login");
+          stopListening();
+        } else {
+          reconnect();
+        }
+      }
       return;
     }
 
     if (route.includes("auth/signIn:ok")) {
       _reconnectAttempt = 0;
+      _signInFailures = 0;
       log.info("[WFMListener] Authenticated, listening for events");
       return;
     }
@@ -136,6 +150,7 @@ export function startListening(
   _token = token;
   _onEvent = onEvent;
   _reconnectAttempt = 0;
+  _signInFailures = 0;
   log.info("[WFMListener] Starting");
   _connect(token);
 }

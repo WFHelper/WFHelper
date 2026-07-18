@@ -20,6 +20,8 @@ const DEFAULT_POLL_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 const HELPER_SPAWN_TIMEOUT_MS = 60 * 1000;
 const NETWORK_TIMEOUT_MS = 30_000;
 const MAX_RELEASE_METADATA_BYTES = 1024 * 1024;
+// Real inventories are already ~0.9 MiB and only grow; keep this well above them.
+const MAX_INVENTORY_RESPONSE_BYTES = 16 * 1024 * 1024;
 const MAX_HELPER_DOWNLOAD_BYTES = 128 * 1024 * 1024;
 const HELPER_RELEASE_TAG = "1.1.1";
 const GITHUB_RELEASES_URL = `https://api.github.com/repos/Sainan/warframe-api-helper/releases/tags/${HELPER_RELEASE_TAG}`;
@@ -266,7 +268,7 @@ async function fetchInventoryWithAuthz(authz: string, destPath: string): Promise
   for (const host of hosts) {
     const url = `https://${host}/api/inventory.php${authz}`;
     try {
-      const res = await httpsGetBuffer(url, headers);
+      const res = await httpsGetBuffer(url, headers, MAX_INVENTORY_RESPONSE_BYTES);
       if (res.statusCode === 200 && res.body.length > 0) {
         fs.writeFileSync(destPath, res.body);
         log.info(`Inventory fetched from ${host} (${res.body.length} bytes)`);
@@ -372,6 +374,7 @@ function assertHttps(url: string): void {
 function httpsGetBuffer(
   url: string,
   headers: Record<string, string>,
+  maxBytes: number,
 ): Promise<{
   statusCode: number;
   headers: Record<string, string | string[] | undefined>;
@@ -384,8 +387,8 @@ function httpsGetBuffer(
       let received = 0;
       res.on("data", (chunk: Buffer) => {
         received += chunk.length;
-        if (received > MAX_RELEASE_METADATA_BYTES) {
-          res.destroy(new Error("Release metadata exceeded 1 MiB"));
+        if (received > maxBytes) {
+          res.destroy(new Error(`Response exceeded ${maxBytes} byte limit`));
           return;
         }
         chunks.push(chunk);
@@ -400,7 +403,7 @@ function httpsGetBuffer(
       res.on("error", reject);
     });
     request.setTimeout(NETWORK_TIMEOUT_MS, () => {
-      request.destroy(new Error("Release metadata request timed out"));
+      request.destroy(new Error("Request timed out"));
     });
     request.on("error", reject);
   });
@@ -525,10 +528,11 @@ export async function downloadHelper(
   try {
     onProgress({ stage: "resolving", percent: 0, bytesReceived: 0, bytesTotal: 0 });
 
-    const releaseRes = await httpsGetBuffer(GITHUB_RELEASES_URL, {
-      "User-Agent": "WFHelper",
-      Accept: "application/vnd.github+json",
-    });
+    const releaseRes = await httpsGetBuffer(
+      GITHUB_RELEASES_URL,
+      { "User-Agent": "WFHelper", Accept: "application/vnd.github+json" },
+      MAX_RELEASE_METADATA_BYTES,
+    );
 
     if (releaseRes.statusCode !== 200) {
       throw new Error(`GitHub API returned ${releaseRes.statusCode}`);

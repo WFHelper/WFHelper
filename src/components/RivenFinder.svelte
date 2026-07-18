@@ -156,6 +156,9 @@
     bestAttrs = null;
     rawResults = [];
     hasSearched = false;
+    // The bumped searchRequest makes an in-flight search skip its own
+    // cleanup, so reset the flag here or the search button stays disabled.
+    searching = false;
     try {
       const attrs = await invoke("getRivenBestAttributes", name);
       if (token !== attributeRequest || selectedWeapon !== name) return;
