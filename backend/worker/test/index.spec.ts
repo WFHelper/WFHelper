@@ -2,7 +2,7 @@ import { SELF, createExecutionContext, env, waitOnExecutionContext } from 'cloud
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import worker from '../src/index';
 import type { Env } from '../src/types';
-import { prewarmBatch, prewarmOrderSummaryCatalog } from '../src/services/prewarm';
+import { buildOrderSummaryPayload, prewarmBatch, prewarmOrderSummaryCatalog } from '../src/services/prewarm';
 import { WFM_SNAPSHOT_CLIENT_CACHE_VERSION } from '../../../config/shared/wfmSnapshotValidation';
 
 const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
@@ -12,6 +12,7 @@ beforeEach(() => {
 	(env as unknown as Record<string, string>).PUBLIC_BOOTSTRAP_REQUIRED = '0';
 	(env as unknown as Record<string, string>).DAILY_BUDGET_ENABLED = '0';
 	(env as unknown as Record<string, string>).CATALOG_SLUG_GUARD_ENABLED = '0';
+	(env as unknown as Record<string, string>).PUBLIC_RATE_LIMIT_ENABLED = '0';
 });
 
 afterEach(() => {
@@ -36,7 +37,31 @@ async function clearSnapshotEdgeCache(): Promise<void> {
 	]);
 }
 
+function rateLimiter(maxRequests: number): RateLimit {
+	let count = 0;
+	return {
+		limit: vi.fn(async () => ({ success: ++count <= maxRequests })),
+	} as unknown as RateLimit;
+}
+
 describe('backend worker', () => {
+	it('uses the lowest sell and highest buy prices', () => {
+		const payload = buildOrderSummaryPayload('primed_flow', 10, {
+			slug: 'primed_flow',
+			timestamp: 123,
+			sell: [
+				{ userName: 'SellerA', status: 'online', platinum: 90, quantity: 1, rank: 10 },
+				{ userName: 'SellerB', status: 'ingame', platinum: 80, quantity: 1, rank: 10 },
+			],
+			buy: [
+				{ userName: 'BuyerA', status: 'online', platinum: 50, quantity: 1, rank: 10 },
+				{ userName: 'BuyerB', status: 'ingame', platinum: 65, quantity: 1, rank: 10 },
+			],
+		});
+
+		expect(payload).toMatchObject({ wts: 80, wtb: 65 });
+	});
+
 	it('returns health status (unit style)', async () => {
 		const request = new IncomingRequest('http://example.com/healthz');
 		const ctx = createExecutionContext();
@@ -220,18 +245,15 @@ describe('backend worker', () => {
 		const testEnv = {
 			...env,
 			ADMIN_API_KEY: 'test-key',
-			ADMIN_RATE_LIMIT_MAX: '2',
-			ADMIN_RATE_LIMIT_WINDOW_SEC: '120',
+			ADMIN_RATE_LIMITER: rateLimiter(2),
 		};
 
 		const makeRequest = () =>
-			new IncomingRequest('http://example.com/admin/prewarm', {
-				method: 'POST',
+			new IncomingRequest('http://example.com/admin/snapshot/status', {
 				headers: {
 					'cf-connecting-ip': '10.0.0.44',
 					authorization: 'Bearer test-key',
 				},
-				body: JSON.stringify({ batchSize: 1 }),
 			});
 
 		const ctxA = createExecutionContext();
@@ -244,10 +266,8 @@ describe('backend worker', () => {
 		await waitOnExecutionContext(ctxB);
 		await waitOnExecutionContext(ctxC);
 
-		// The first two authed calls succeed (202), then the shared admin bucket
-		// rejects the third request.
-		expect(first.status).toBe(202);
-		expect(second.status).toBe(202);
+		expect(first.status).toBe(200);
+		expect(second.status).toBe(200);
 		expect(third.status).toBe(429);
 		expect(await third.json()).toEqual({ ok: false, error: 'rate_limited' });
 	});
@@ -256,8 +276,7 @@ describe('backend worker', () => {
 		const testEnv = {
 			...env,
 			ADMIN_API_KEY: 'test-key',
-			ADMIN_RATE_LIMIT_MAX: '2',
-			ADMIN_RATE_LIMIT_WINDOW_SEC: '120',
+			ADMIN_RATE_LIMITER: rateLimiter(2),
 		};
 
 		const makeRequest = () =>
@@ -270,8 +289,6 @@ describe('backend worker', () => {
 				body: JSON.stringify({ batchSize: 1 }),
 			});
 
-		// The shared admin bucket is consumed before auth, so repeated failed
-		// bearer attempts are rate-limited instead of getting unlimited 401s.
 		for (let i = 0; i < 2; i += 1) {
 			const ctx = createExecutionContext();
 			const res = await worker.fetch(makeRequest(), testEnv as unknown as Env, ctx);
@@ -287,6 +304,11 @@ describe('backend worker', () => {
 	});
 
 	it('rate limits repeated public health requests from same IP', async () => {
+		const testEnv = {
+			...env,
+			PUBLIC_RATE_LIMIT_ENABLED: '1',
+			PUBLIC_HEALTH_RATE_LIMITER: rateLimiter(5),
+		};
 		const makeRequest = () =>
 			new IncomingRequest('http://example.com/healthz', {
 				headers: {
@@ -297,7 +319,7 @@ describe('backend worker', () => {
 		const responses: Response[] = [];
 		for (let i = 0; i < 6; i += 1) {
 			const ctx = createExecutionContext();
-			responses.push(await worker.fetch(makeRequest(), env, ctx));
+			responses.push(await worker.fetch(makeRequest(), testEnv as unknown as Env, ctx));
 			await waitOnExecutionContext(ctx);
 		}
 
@@ -312,7 +334,6 @@ describe('backend worker', () => {
 			DAILY_BUDGET_ENABLED: '1',
 			DAILY_BUDGET_MAX_REQUESTS: '2',
 			DAILY_BUDGET_SAMPLE_RATE: '1',
-			DAILY_BUDGET_SYNC_INTERVAL_SEC: '5',
 		};
 		const makeRequest = () =>
 			new IncomingRequest('http://example.com/healthz', {
@@ -335,15 +356,17 @@ describe('backend worker', () => {
 	});
 
 	it('skips scheduled prewarm when the daily budget is already exceeded', async () => {
-		const today = new Date().toISOString().slice(0, 10);
 		const testEnv = {
 			...env,
 			DAILY_BUDGET_ENABLED: '1',
 			DAILY_BUDGET_MAX_REQUESTS: '2',
 			DAILY_BUDGET_SAMPLE_RATE: '1',
-			DAILY_BUDGET_SYNC_INTERVAL_SEC: '5',
 		};
-		await testEnv.PRICE_CACHE.put(`budget:requests:v1:${today}`, '2');
+		for (let i = 0; i < 2; i += 1) {
+			const ctx = createExecutionContext();
+			await worker.fetch(new IncomingRequest(`http://example.com/healthz?seed=${i}`), testEnv as unknown as Env, ctx);
+			await waitOnExecutionContext(ctx);
+		}
 		const fetchMock = vi.fn(async () => new Response('{}')) as unknown as typeof fetch;
 		globalThis.fetch = fetchMock;
 
@@ -1457,7 +1480,6 @@ describe('backend worker', () => {
 	it('rewraps edge-cached snapshot responses with per-request CORS', async () => {
 		const snapshot = { version: 1, generatedAt: Date.now(), prices: {}, meta: {}, orderSummaries: {} };
 		await env.PRICE_CACHE.put('snapshot:full:v1', JSON.stringify(snapshot));
-		await env.PRICE_CACHE.put('snapshot:etag:v1', '"snapshot-cors-test"');
 		await clearSnapshotEdgeCache();
 
 		try {
@@ -1472,6 +1494,8 @@ describe('backend worker', () => {
 			await waitOnExecutionContext(primeCtx);
 			expect(primeResponse.status).toBe(200);
 			expect(primeResponse.headers.get('access-control-allow-origin')).toBeNull();
+			const etag = primeResponse.headers.get('etag');
+			expect(etag).toContain(`-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"`);
 
 			const browserCtx = createExecutionContext();
 			const browserResponse = await worker.fetch(
@@ -1488,10 +1512,9 @@ describe('backend worker', () => {
 
 			expect(browserResponse.status).toBe(200);
 			expect(browserResponse.headers.get('access-control-allow-origin')).toBe('https://wfhelper.com');
-			expect(browserResponse.headers.get('etag')).toBe(`"snapshot-cors-test-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"`);
+			expect(browserResponse.headers.get('etag')).toBe(etag);
 		} finally {
 			await env.PRICE_CACHE.delete('snapshot:full:v1');
-			await env.PRICE_CACHE.delete('snapshot:etag:v1');
 			await clearSnapshotEdgeCache();
 		}
 	});
@@ -1536,7 +1559,6 @@ describe('backend worker', () => {
 			orderSummaries: {},
 		};
 		await env.PRICE_CACHE.put('snapshot:full:v1', JSON.stringify(snapshot));
-		await env.PRICE_CACHE.put('snapshot:etag:v1', '"inactive-snapshot-test"');
 		await clearSnapshotEdgeCache();
 
 		try {
@@ -1545,7 +1567,7 @@ describe('backend worker', () => {
 			await waitOnExecutionContext(ctx);
 
 			expect(response.status).toBe(200);
-			expect(response.headers.get('etag')).toBe(`"inactive-snapshot-test-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"`);
+			expect(response.headers.get('etag')).toContain(`-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"`);
 			const body = (await response.json()) as typeof snapshot;
 			expect(body.prices.inactive_scene).toEqual({
 				status: 'no_data',
@@ -1556,7 +1578,7 @@ describe('backend worker', () => {
 			const oldEtagCtx = createExecutionContext();
 			const oldEtagResponse = await worker.fetch(
 				new IncomingRequest('https://example.com/v1/snapshot', {
-					headers: { 'if-none-match': '"inactive-snapshot-test"' },
+					headers: { 'if-none-match': '"obsolete-etag"' },
 				}),
 				env,
 				oldEtagCtx,
@@ -1565,7 +1587,6 @@ describe('backend worker', () => {
 			expect(oldEtagResponse.status).toBe(200);
 		} finally {
 			await env.PRICE_CACHE.delete('snapshot:full:v1');
-			await env.PRICE_CACHE.delete('snapshot:etag:v1');
 			await clearSnapshotEdgeCache();
 		}
 	});
@@ -1573,7 +1594,6 @@ describe('backend worker', () => {
 	it('honors If-None-Match when the snapshot is already edge-cached', async () => {
 		const snapshot = { version: 1, generatedAt: Date.now(), prices: {}, meta: {}, orderSummaries: {} };
 		await env.PRICE_CACHE.put('snapshot:full:v1', JSON.stringify(snapshot));
-		await env.PRICE_CACHE.put('snapshot:etag:v1', '"snapshot-test-etag"');
 		await clearSnapshotEdgeCache();
 
 		try {
@@ -1581,12 +1601,13 @@ describe('backend worker', () => {
 			const primeResponse = await worker.fetch(new IncomingRequest('https://example.com/v1/snapshot'), env, primeCtx);
 			await waitOnExecutionContext(primeCtx);
 			expect(primeResponse.status).toBe(200);
-			expect(primeResponse.headers.get('etag')).toBe(`"snapshot-test-etag-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"`);
+			const etag = primeResponse.headers.get('etag');
+			expect(etag).toContain(`-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"`);
 
 			const matchingCtx = createExecutionContext();
 			const matchingResponse = await worker.fetch(
 				new IncomingRequest('https://example.com/v1/snapshot', {
-					headers: { 'if-none-match': `"snapshot-test-etag-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"` },
+					headers: { 'if-none-match': etag ?? '' },
 				}),
 				env,
 				matchingCtx,
@@ -1604,14 +1625,13 @@ describe('backend worker', () => {
 			await waitOnExecutionContext(nonMatchingCtx);
 
 			expect(matchingResponse.status).toBe(304);
-			expect(matchingResponse.headers.get('etag')).toBe(`"snapshot-test-etag-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"`);
+			expect(matchingResponse.headers.get('etag')).toBe(etag);
 			expect(matchingResponse.headers.get('cache-control')).toBe('public, max-age=7200');
 			expect(await matchingResponse.text()).toBe('');
 			expect(nonMatchingResponse.status).toBe(200);
 			expect(await nonMatchingResponse.json()).toMatchObject({ version: 1 });
 		} finally {
 			await env.PRICE_CACHE.delete('snapshot:full:v1');
-			await env.PRICE_CACHE.delete('snapshot:etag:v1');
 			await clearSnapshotEdgeCache();
 		}
 	});
@@ -1624,7 +1644,11 @@ describe('backend worker', () => {
 		// through the Worker and hits the rate limiter.
 		await clearSnapshotEdgeCache();
 
-		const testEnv = { ...env, PUBLIC_RATE_LIMIT_ENABLED: '1' };
+		const testEnv = {
+			...env,
+			PUBLIC_RATE_LIMIT_ENABLED: '1',
+			PUBLIC_SNAPSHOT_RATE_LIMITER: rateLimiter(2),
+		};
 		const makeRequest = () =>
 			new IncomingRequest('https://example.com/v1/snapshot', {
 				headers: { 'cf-connecting-ip': '10.0.0.99' },
@@ -1632,16 +1656,15 @@ describe('backend worker', () => {
 
 		const responses: Response[] = [];
 		try {
-			for (let i = 0; i < 11; i++) {
-				// Clear edge cache before each request so every iteration hits the Worker.
+			for (let i = 0; i < 3; i++) {
 				await clearSnapshotEdgeCache();
 				const ctx = createExecutionContext();
 				responses.push(await worker.fetch(makeRequest(), testEnv as unknown as Env, ctx));
 				await waitOnExecutionContext(ctx);
 			}
-			expect(responses[9].status).toBe(200);
-			expect(responses[10].status).toBe(429);
-			expect(await responses[10].json()).toEqual({ ok: false, error: 'rate_limited' });
+			expect(responses[1].status).toBe(200);
+			expect(responses[2].status).toBe(429);
+			expect(await responses[2].json()).toEqual({ ok: false, error: 'rate_limited' });
 		} finally {
 			await env.PRICE_CACHE.delete('snapshot:full:v1');
 			await clearSnapshotEdgeCache();

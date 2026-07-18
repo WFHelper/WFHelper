@@ -14,5 +14,3 @@ export const MISS_PRICE_PREFIX = 'miss:price:v2:';
 export const MISS_META_PREFIX = 'miss:meta:';
 export const MISS_ORDER_SUMMARY_PREFIX = 'miss:orders-summary:v1:';
 export const SNAPSHOT_KEY = 'snapshot:full:v1';
-export const SNAPSHOT_LAST_GEN_KEY = 'snapshot:last-gen:v1';
-export const SNAPSHOT_ETAG_KEY = 'snapshot:etag:v1';

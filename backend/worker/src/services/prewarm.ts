@@ -8,9 +8,7 @@ import {
 	PREWARM_CURSOR_KEY,
 	PREWARM_LAST_RUN_KEY,
 	SKIP_UNTRADABLE_PREFIX,
-	SNAPSHOT_ETAG_KEY,
 	SNAPSHOT_KEY,
-	SNAPSHOT_LAST_GEN_KEY,
 } from '../constants';
 import type { Env, MetaPayload, OrdersPayload, OrderSummaryHotsetEntry, OrderSummaryPrewarmResult, PrewarmResult } from '../types';
 import { getWorkerConfig } from '../config';
@@ -384,9 +382,9 @@ export async function prewarmOrderSummaryHotset(
 	},
 ): Promise<OrderSummaryPrewarmResult> {
 	const config = getWorkerConfig(env);
-	const adminMaxBatch = config.adminPrewarmMaxBatch;
+	const maxBatch = options.reason === 'manual' ? config.adminPrewarmMaxBatch : 1000;
 	const defaultBatch = config.orderSummaryPrewarmBatchSize;
-	const batchSize = clamp(options.batchSize ?? defaultBatch, 1, adminMaxBatch);
+	const batchSize = clamp(options.batchSize ?? defaultBatch, 1, maxBatch);
 	const providedEntries = sanitizeOrderSummaryHotsetEntries(options.entries);
 	const hotset = providedEntries.length > 0 ? providedEntries : await getOrderSummaryHotset(env);
 
@@ -461,9 +459,9 @@ export async function prewarmOrderSummaryCatalog(
 ): Promise<OrderSummaryPrewarmResult> {
 	const config = getWorkerConfig(env);
 	const cronRefresh = options.reason === 'cron';
-	const adminMaxBatch = config.adminPrewarmMaxBatch;
+	const maxBatch = options.reason === 'manual' ? config.adminPrewarmMaxBatch : 1000;
 	const defaultBatch = config.orderSummaryPrewarmBatchSize;
-	const batchSize = clamp(options.batchSize ?? defaultBatch, 1, adminMaxBatch);
+	const batchSize = clamp(options.batchSize ?? defaultBatch, 1, maxBatch);
 	const entries = await fetchRankedSummaryCatalog(env, Boolean(options.refreshCatalog));
 
 	const result = createOrderSummaryPrewarmResult({
@@ -624,8 +622,8 @@ export async function prewarmBatch(
 ): Promise<PrewarmResult> {
 	const config = getWorkerConfig(env);
 	const cronRefresh = options.reason === 'cron';
-	const adminMaxBatch = config.adminPrewarmMaxBatch;
-	const batchSize = clamp(options.batchSize, 1, adminMaxBatch);
+	const maxBatch = options.reason === 'manual' ? config.adminPrewarmMaxBatch : 1000;
+	const batchSize = clamp(options.batchSize, 1, maxBatch);
 	const slugs = await fetchCatalogSlugs(env, Boolean(options.refreshCatalog));
 
 	const now = Date.now();
@@ -707,19 +705,16 @@ export async function prewarmBatch(
 				const metaResult = await fetchMetaPayload(slug);
 				if (!metaResult.data) {
 					result.failures += 1;
-					continue;
-				}
-
-				if (!metaResult.data.tradable) {
+				} else if (!metaResult.data.tradable) {
 					await markUntradable(env, slug);
 					result.skippedUntradable += 1;
 					result.processed += 1;
 					continue;
+				} else {
+					await putMetaPayload(env, metaResult.data);
+					result.metaUpdated += 1;
+					snapshotMeta[slug] = metaResult.data;
 				}
-
-				await putMetaPayload(env, metaResult.data);
-				result.metaUpdated += 1;
-				snapshotMeta[slug] = metaResult.data;
 			}
 
 			if (shouldRefreshPrice) {
@@ -760,37 +755,97 @@ export async function prewarmBatch(
  * Costs 1 KV read + 1 KV write regardless of how many entries are merged, so it is safe
  * to call at the end of every prewarm batch without approaching the subrequest limit.
  */
-async function patchSnapshot(
-	env: Env,
-	patches: {
-		prices?: Record<string, unknown>;
-		meta?: Record<string, unknown>;
-		orderSummaries?: Record<string, unknown>;
-	},
-): Promise<void> {
-	const ttlSec = orderSummaryCacheTtlSec(env);
-	const raw = await env.PRICE_CACHE.get(SNAPSHOT_KEY);
-	let snapshot: {
-		version: number;
-		generatedAt: number;
-		prices: Record<string, unknown>;
-		meta: Record<string, unknown>;
-		orderSummaries: Record<string, unknown>;
-	};
-	try {
-		snapshot = raw ? JSON.parse(raw) : { version: 1, generatedAt: 0, prices: {}, meta: {}, orderSummaries: {} };
-	} catch {
-		snapshot = { version: 1, generatedAt: 0, prices: {}, meta: {}, orderSummaries: {} };
-	}
+interface SnapshotBlob {
+	version: number;
+	generatedAt: number;
+	prices: Record<string, unknown>;
+	meta: Record<string, unknown>;
+	orderSummaries: Record<string, unknown>;
+}
 
+type SnapshotPatch = Partial<Pick<SnapshotBlob, 'prices' | 'meta' | 'orderSummaries'>>;
+
+function emptySnapshot(): SnapshotBlob {
+	return { version: 1, generatedAt: 0, prices: {}, meta: {}, orderSummaries: {} };
+}
+
+function parseSnapshot(raw: string | null): SnapshotBlob {
+	if (!raw) return emptySnapshot();
+	try {
+		const value = JSON.parse(raw) as unknown;
+		if (!isRecord(value) || value.version !== 1) return emptySnapshot();
+		if (!isRecord(value.prices) || !isRecord(value.meta) || !isRecord(value.orderSummaries)) return emptySnapshot();
+		return {
+			version: 1,
+			generatedAt: typeof value.generatedAt === 'number' && Number.isFinite(value.generatedAt) ? value.generatedAt : 0,
+			prices: value.prices,
+			meta: value.meta,
+			orderSummaries: value.orderSummaries,
+		};
+	} catch {
+		return emptySnapshot();
+	}
+}
+
+function isSnapshotPatch(value: unknown): value is SnapshotPatch {
+	if (!isRecord(value)) return false;
+	const allowedKeys = new Set(['prices', 'meta', 'orderSummaries']);
+	if (Object.keys(value).some((key) => !allowedKeys.has(key))) return false;
+	for (const section of Object.values(value)) {
+		if (!isRecord(section)) return false;
+		for (const [key, entry] of Object.entries(section)) {
+			if (!key || key.length > 256 || !isRecord(entry)) return false;
+		}
+	}
+	return true;
+}
+
+async function applySnapshotPatch(env: Env, patches: SnapshotPatch): Promise<void> {
+	const snapshot = parseSnapshot(await env.PRICE_CACHE.get(SNAPSHOT_KEY));
 	if (patches.prices) Object.assign(snapshot.prices, patches.prices);
 	if (patches.meta) Object.assign(snapshot.meta, patches.meta);
 	if (patches.orderSummaries) Object.assign(snapshot.orderSummaries, patches.orderSummaries);
 	snapshot.generatedAt = Date.now();
-	snapshot = sanitizeSnapshotForClient(snapshot);
-	const etag = `"${snapshot.generatedAt}"`;
+	const sanitized = sanitizeSnapshotForClient(snapshot);
+	await env.PRICE_CACHE.put(SNAPSHOT_KEY, JSON.stringify(sanitized), {
+		expirationTtl: orderSummaryCacheTtlSec(env),
+	});
+}
 
-	await env.PRICE_CACHE.put(SNAPSHOT_KEY, JSON.stringify(snapshot), { expirationTtl: ttlSec });
-	await env.PRICE_CACHE.put(SNAPSHOT_LAST_GEN_KEY, String(snapshot.generatedAt));
-	await env.PRICE_CACHE.put(SNAPSHOT_ETAG_KEY, etag);
+export class SnapshotCoordinator {
+	private operation = Promise.resolve();
+
+	constructor(
+		_state: DurableObjectState,
+		private readonly env: Env,
+	) {}
+
+	async fetch(request: Request): Promise<Response> {
+		if (request.method !== 'POST') return new Response(null, { status: 405 });
+		let patches: unknown;
+		try {
+			patches = await request.json();
+		} catch {
+			return Response.json({ error: 'invalid_patch' }, { status: 400 });
+		}
+		if (!isSnapshotPatch(patches)) return Response.json({ error: 'invalid_patch' }, { status: 400 });
+
+		const operation = this.operation.then(() => applySnapshotPatch(this.env, patches));
+		this.operation = operation.catch(() => undefined);
+		await operation;
+		return new Response(null, { status: 204 });
+	}
+}
+
+export async function patchSnapshot(
+	env: Env,
+	patches: SnapshotPatch,
+): Promise<void> {
+	if (!isSnapshotPatch(patches)) throw new TypeError('Invalid snapshot patch');
+	const response = await env.SNAPSHOT_COORDINATOR.getByName('full-v1').fetch('https://snapshot.internal/patch', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify(patches),
+	});
+	if (!response.ok) throw new Error(`Snapshot patch failed (${response.status})`);
 }

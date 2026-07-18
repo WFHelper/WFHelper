@@ -5,58 +5,31 @@ import { clientIp } from '../utils';
 
 type PublicRateLimitRoute = 'healthz' | 'bootstrap' | 'prices' | 'meta' | 'order-summary' | 'orders' | 'snapshot';
 
-// Best-effort KV counters (get/put races are fine) - edge rate limiting is the primary
-// bot control, these buckets are a secondary in-Worker guardrail. Counters share
-// PRICE_CACHE under `rl:`. 2000 req/10min per IP per route: a desktop user on a cold
-// cache needs ~1000, scraper storms hit 20k+.
-const PUBLIC_ROUTE_LIMITS: Record<PublicRateLimitRoute, { maxRequests: number; windowSec: number }> = {
-	healthz: { maxRequests: 5, windowSec: 60 },
-	bootstrap: { maxRequests: 60, windowSec: 600 },
-	prices: { maxRequests: 2000, windowSec: 600 },
-	meta: { maxRequests: 2000, windowSec: 600 },
-	'order-summary': { maxRequests: 2000, windowSec: 600 },
-	orders: { maxRequests: 60, windowSec: 600 },
-	// Snapshot is a large payload (~850 KB). Edge cache absorbs nearly all real
-	// traffic (cache-control: public, max-age=7200); this limit only fires on
-	// cache misses or scrapers. One per ~10 min per IP is ample for legitimate use.
-	snapshot: { maxRequests: 10, windowSec: 600 },
-};
+function publicLimiter(env: Env, route: PublicRateLimitRoute): RateLimit {
+	if (route === 'healthz') return env.PUBLIC_HEALTH_RATE_LIMITER;
+	if (route === 'snapshot') return env.PUBLIC_SNAPSHOT_RATE_LIMITER;
+	if (route === 'bootstrap' || route === 'orders') return env.PUBLIC_LOW_RATE_LIMITER;
+	return env.PUBLIC_API_RATE_LIMITER;
+}
 
 export async function checkPublicRateLimit(req: Request, env: Env, route: PublicRateLimitRoute): Promise<Response | null> {
 	if (!getWorkerConfig(env).publicRateLimitEnabled) return null;
 
-	const config = PUBLIC_ROUTE_LIMITS[route];
-	const windowSec = config.windowSec;
-	const bucket = Math.floor(Date.now() / 1000 / windowSec);
-	const key = `rl:public:${route}:${clientIp(req)}:${bucket}`;
-
-	const currentCount = Number((await env.PRICE_CACHE.get(key)) || '0');
-	if (Number.isFinite(currentCount) && currentCount >= config.maxRequests) {
-		return jsonResponse({ ok: false, error: 'rate_limited' }, req, env, 429, { 'retry-after': String(windowSec) });
+	try {
+		const result = await publicLimiter(env, route).limit({ key: `${route}:${clientIp(req)}` });
+		return result.success
+			? null
+			: jsonResponse({ ok: false, error: 'rate_limited' }, req, env, 429, { 'retry-after': '60' });
+	} catch {
+		return null;
 	}
-
-	await env.PRICE_CACHE.put(key, String((Number.isFinite(currentCount) ? currentCount : 0) + 1), {
-		expirationTtl: windowSec + 5,
-	});
-
-	return null;
 }
 
 export async function checkAdminRateLimit(req: Request, env: Env): Promise<Response | null> {
-	const config = getWorkerConfig(env);
-	const windowSec = config.adminRateLimitWindowSec;
-	const maxRequests = config.adminRateLimitMax;
-	const bucket = Math.floor(Date.now() / 1000 / windowSec);
-	const key = `rl:admin:${clientIp(req)}:${bucket}`;
-
-	const currentCount = Number((await env.PRICE_CACHE.get(key)) || '0');
-	if (Number.isFinite(currentCount) && currentCount >= maxRequests) {
-		return jsonResponse({ ok: false, error: 'rate_limited' }, req, env, 429);
+	try {
+		const result = await env.ADMIN_RATE_LIMITER.limit({ key: clientIp(req) });
+		return result.success ? null : jsonResponse({ ok: false, error: 'rate_limited' }, req, env, 429, { 'retry-after': '60' });
+	} catch {
+		return jsonResponse({ ok: false, error: 'rate_limit_unavailable' }, req, env, 503);
 	}
-
-	await env.PRICE_CACHE.put(key, String((Number.isFinite(currentCount) ? currentCount : 0) + 1), {
-		expirationTtl: windowSec + 5,
-	});
-
-	return null;
 }

@@ -17,9 +17,6 @@ interface WorkerConfig {
 	catalogSlugGuardEnabled: boolean;
 	dailyBudgetMaxRequests: number;
 	dailyBudgetSampleRate: number;
-	dailyBudgetSyncIntervalSec: number;
-	adminRateLimitWindowSec: number;
-	adminRateLimitMax: number;
 }
 
 export function getWorkerConfig(env: Env): WorkerConfig {
@@ -39,8 +36,5 @@ export function getWorkerConfig(env: Env): WorkerConfig {
 		catalogSlugGuardEnabled: (env.CATALOG_SLUG_GUARD_ENABLED || '1').trim() !== '0',
 		dailyBudgetMaxRequests: clamp(parsePositiveInt(env.DAILY_BUDGET_MAX_REQUESTS, 300000), 1, 10000000),
 		dailyBudgetSampleRate: clamp(parsePositiveInt(env.DAILY_BUDGET_SAMPLE_RATE, 100), 1, 1000),
-		dailyBudgetSyncIntervalSec: clamp(parsePositiveInt(env.DAILY_BUDGET_SYNC_INTERVAL_SEC, 180), 5, 3600),
-		adminRateLimitWindowSec: clamp(parsePositiveInt(env.ADMIN_RATE_LIMIT_WINDOW_SEC, 60), 10, 3600),
-		adminRateLimitMax: clamp(parsePositiveInt(env.ADMIN_RATE_LIMIT_MAX, 60), 1, 500),
 	};
 }

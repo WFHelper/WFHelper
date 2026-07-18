@@ -37,6 +37,25 @@
 			"preview_id": "b332ce4ec0b043d89e07b526244e31d8",
 		},
 	],
+	"durable_objects": {
+		"bindings": [
+			{ "name": "DAILY_BUDGET", "class_name": "DailyBudgetCounter" },
+			{ "name": "SNAPSHOT_COORDINATOR", "class_name": "SnapshotCoordinator" },
+		],
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": ["DailyBudgetCounter", "SnapshotCoordinator"],
+		},
+	],
+	"ratelimits": [
+		{ "name": "PUBLIC_HEALTH_RATE_LIMITER", "namespace_id": "31001", "simple": { "limit": 5, "period": 60 } },
+		{ "name": "PUBLIC_LOW_RATE_LIMITER", "namespace_id": "31002", "simple": { "limit": 60, "period": 60 } },
+		{ "name": "PUBLIC_API_RATE_LIMITER", "namespace_id": "31003", "simple": { "limit": 200, "period": 60 } },
+		{ "name": "PUBLIC_SNAPSHOT_RATE_LIMITER", "namespace_id": "31004", "simple": { "limit": 2, "period": 60 } },
+		{ "name": "ADMIN_RATE_LIMITER", "namespace_id": "31005", "simple": { "limit": 60, "period": 60 } },
+	],
 
 	"vars": {
 		"CACHE_TTL_SEC": "86400",
@@ -48,13 +67,10 @@
 		// allowed regardless of this value - it only blocks cross-site browser
 		// fetches.  Keep the current domain here; do NOT use "*" in production.
 		"ALLOW_ORIGIN": "https://wfhelper.com",
-		"ADMIN_RATE_LIMIT_WINDOW_SEC": "60",
-		"ADMIN_RATE_LIMIT_MAX": "60",
 		"CATALOG_SLUG_GUARD_ENABLED": "1",
 		"DAILY_BUDGET_ENABLED": "1",
 		"DAILY_BUDGET_MAX_REQUESTS": "300000",
 		"DAILY_BUDGET_SAMPLE_RATE": "100",
-		"DAILY_BUDGET_SYNC_INTERVAL_SEC": "180",
 		"PUBLIC_RATE_LIMIT_ENABLED": "1",
 		// DEPLOYMENT ORDER: set to "1" only AFTER:
 		//   1. Running: wrangler secret put BOOTSTRAP_TOKEN_SECRET
@@ -91,19 +107,29 @@
 					"preview_id": "b332ce4ec0b043d89e07b526244e31d8",
 				},
 			],
+			"durable_objects": {
+				"bindings": [
+					{ "name": "DAILY_BUDGET", "class_name": "DailyBudgetCounter" },
+					{ "name": "SNAPSHOT_COORDINATOR", "class_name": "SnapshotCoordinator" },
+				],
+			},
+			"ratelimits": [
+				{ "name": "PUBLIC_HEALTH_RATE_LIMITER", "namespace_id": "31001", "simple": { "limit": 5, "period": 60 } },
+				{ "name": "PUBLIC_LOW_RATE_LIMITER", "namespace_id": "31002", "simple": { "limit": 60, "period": 60 } },
+				{ "name": "PUBLIC_API_RATE_LIMITER", "namespace_id": "31003", "simple": { "limit": 200, "period": 60 } },
+				{ "name": "PUBLIC_SNAPSHOT_RATE_LIMITER", "namespace_id": "31004", "simple": { "limit": 2, "period": 60 } },
+				{ "name": "ADMIN_RATE_LIMITER", "namespace_id": "31005", "simple": { "limit": 60, "period": 60 } },
+			],
 			"vars": {
 				"CACHE_TTL_SEC": "86400",
 				"ORDERS_SUMMARY_CACHE_TTL_SEC": "172800",
 				"ORDERS_SUMMARY_STALE_REFRESH_SEC": "75600",
 				"ORDER_SUMMARY_PREWARM_BATCH_SIZE": "36",
 				"ALLOW_ORIGIN": "http://localhost:5173",
-				"ADMIN_RATE_LIMIT_WINDOW_SEC": "60",
-				"ADMIN_RATE_LIMIT_MAX": "60",
 				"CATALOG_SLUG_GUARD_ENABLED": "1",
 				"DAILY_BUDGET_ENABLED": "1",
 				"DAILY_BUDGET_MAX_REQUESTS": "300000",
 				"DAILY_BUDGET_SAMPLE_RATE": "100",
-				"DAILY_BUDGET_SYNC_INTERVAL_SEC": "180",
 				"PUBLIC_RATE_LIMIT_ENABLED": "1",
 				"PUBLIC_BOOTSTRAP_REQUIRED": "0",
 				"PREWARM_BATCH_SIZE": "125",

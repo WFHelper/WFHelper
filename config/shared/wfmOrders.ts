@@ -47,6 +47,17 @@ export function cheapestOrderPrice(entries: WfmOrderPriceEntry[], activeOnly: bo
   return Math.min(...list.map((entry) => entry.platinum));
 }
 
+export function bestOrderPrice(
+  entries: WfmOrderPriceEntry[],
+  orderType: WfmOrderType,
+  activeOnly: boolean,
+): number | null {
+  const list = activeOnly ? entries.filter((entry) => isActiveOrderStatus(entry.status)) : entries;
+  if (list.length === 0) return null;
+  const prices = list.map((entry) => entry.platinum);
+  return orderType === "sell" ? Math.min(...prices) : Math.max(...prices);
+}
+
 function parseOrderRank(order: Record<string, unknown>): number | null {
   const rankRaw =
     typeof order.rank === "number"

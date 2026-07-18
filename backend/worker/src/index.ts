@@ -7,6 +7,9 @@ import { logEvent, takeResponseLogFields } from './services/logging';
 import { prewarmBatch, prewarmOrderSummaryCatalog } from './services/prewarm';
 import type { Env } from './types';
 
+export { DailyBudgetCounter } from './security/dailyBudget';
+export { SnapshotCoordinator } from './services/prewarm';
+
 type RouteMetadata = {
 	type: 'request' | 'admin';
 	route: string;

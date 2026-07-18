@@ -4,7 +4,7 @@ import {
 	ORDER_SUMMARY_HOTSET_KEY,
 	ORDER_SUMMARY_PREWARM_LAST_RUN_KEY,
 	PREWARM_LAST_RUN_KEY,
-	SNAPSHOT_LAST_GEN_KEY,
+	SNAPSHOT_KEY,
 } from '../constants';
 import {
 	fetchRankedSummaryCatalog,
@@ -134,8 +134,14 @@ export async function handleAdminRoutes(req: Request, url: URL, env: Env): Promi
 		const guardResponse = await guardAdmin(req, env);
 		if (guardResponse) return guardResponse;
 
-		const lastGenRaw = await env.PRICE_CACHE.get(SNAPSHOT_LAST_GEN_KEY);
-		const generatedAt = lastGenRaw ? parseInt(lastGenRaw, 10) : null;
+		const raw = await env.PRICE_CACHE.get(SNAPSHOT_KEY);
+		let generatedAt: number | null = null;
+		try {
+			const value = raw ? (JSON.parse(raw) as { generatedAt?: unknown }) : null;
+			generatedAt = typeof value?.generatedAt === 'number' && Number.isFinite(value.generatedAt) ? value.generatedAt : null;
+		} catch {
+			generatedAt = null;
+		}
 		return jsonResponse({ ok: true, result: { generatedAt } }, req, env, 200);
 	}
 

@@ -1,4 +1,4 @@
-import { ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY, PREWARM_LAST_RUN_KEY, SNAPSHOT_ETAG_KEY, SNAPSHOT_KEY } from '../constants';
+import { ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY, PREWARM_LAST_RUN_KEY, SNAPSHOT_KEY } from '../constants';
 import { emptyResponse, jsonResponse, rawJsonResponse } from '../security/cors';
 import { isAdminAuthorized } from '../security/adminAuth';
 import { BOOTSTRAP_HEADER, bootstrapEnabled, bootstrapRequired, issueBootstrapToken, verifyBootstrapToken } from '../security/bootstrap';
@@ -152,10 +152,10 @@ function snapshotNotModifiedResponse(etag: string, cacheControl: string, req: Re
 	return emptyResponse(req, env, 304, { etag: etag, 'cache-control': cacheControl });
 }
 
-function snapshotClientEtag(storedEtag: string | null): string | null {
-	if (!storedEtag) return null;
-	if (storedEtag.endsWith('"')) return `${storedEtag.slice(0, -1)}-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"`;
-	return `"${storedEtag}-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"`;
+async function snapshotClientEtag(body: string): Promise<string> {
+	const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body));
+	const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+	return `"${hash}-${WFM_SNAPSHOT_CLIENT_CACHE_VERSION}"`;
 }
 
 function requestHasMatchingEtag(req: Request, etag: string | null): etag is string {
@@ -264,19 +264,10 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 			if (cachedEtag) cachedHeaders.etag = cachedEtag;
 			return annotateResponse(rawJsonResponse(await cachedResponse.text(), req, env, 200, cachedHeaders), { cacheHit: true });
 		}
-		const [raw, storedEtag] = await Promise.all([env.PRICE_CACHE.get(SNAPSHOT_KEY), env.PRICE_CACHE.get(SNAPSHOT_ETAG_KEY)]);
+		const raw = await env.PRICE_CACHE.get(SNAPSHOT_KEY);
 		if (!raw) {
 			return jsonResponse({ ok: false, error: 'snapshot_not_ready' }, req, env, 503);
 		}
-		const etag = snapshotClientEtag(storedEtag);
-
-		// Return 304 if the client already has this snapshot version.
-		if (requestHasMatchingEtag(req, etag)) {
-			return annotateResponse(snapshotNotModifiedResponse(etag, SNAPSHOT_CACHE_CONTROL, req, env), { cacheHit: true });
-		}
-
-		const responseHeaders: Record<string, string> = { 'cache-control': SNAPSHOT_CACHE_CONTROL };
-		if (etag) responseHeaders['etag'] = etag;
 
 		let body: string;
 		try {
@@ -288,6 +279,15 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		} catch {
 			return jsonResponse({ ok: false, error: 'snapshot_invalid' }, req, env, 503);
 		}
+		const etag = await snapshotClientEtag(body);
+		if (requestHasMatchingEtag(req, etag)) {
+			return annotateResponse(snapshotNotModifiedResponse(etag, SNAPSHOT_CACHE_CONTROL, req, env), { cacheHit: true });
+		}
+
+		const responseHeaders: Record<string, string> = {
+			'cache-control': SNAPSHOT_CACHE_CONTROL,
+			etag,
+		};
 
 		const response = rawJsonResponse(body, req, env, 200, responseHeaders);
 

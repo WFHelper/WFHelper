@@ -5,7 +5,7 @@ import { getJsonFromKv } from '../utils';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
 import { WFM_HEADERS } from '../../../../config/shared/wfm';
 import { isExcludedRankedMarketItem } from '../../../../config/shared/wfmExclusions';
-import { cheapestOrderPrice } from '../../../../config/shared/wfmOrders';
+import { bestOrderPrice } from '../../../../config/shared/wfmOrders';
 
 const ORDER_SUMMARY_HOTSET_MAX_ENTRIES = 96;
 
@@ -124,10 +124,10 @@ export function sanitizeOrderSummaryHotsetEntries(value: unknown): OrderSummaryH
 }
 
 export function buildOrderSummaryPayload(slug: string, rank: number | null, payload: OrdersPayload): Record<string, unknown> {
-	const sellActive = cheapestOrderPrice(payload.sell, true);
-	const buyActive = cheapestOrderPrice(payload.buy, true);
-	const sellAny = cheapestOrderPrice(payload.sell, false);
-	const buyAny = cheapestOrderPrice(payload.buy, false);
+	const sellActive = bestOrderPrice(payload.sell, 'sell', true);
+	const buyActive = bestOrderPrice(payload.buy, 'buy', true);
+	const sellAny = bestOrderPrice(payload.sell, 'sell', false);
+	const buyAny = bestOrderPrice(payload.buy, 'buy', false);
 
 	return {
 		slug,
@@ -156,7 +156,7 @@ export async function fetchCatalogSlugs(env: Env, forceRefresh: boolean): Promis
 						entries: rankedCatalog,
 					}),
 					{
-						expirationTtl: refreshHours * 60 * 60,
+						expirationTtl: refreshHours * 2 * 60 * 60,
 					},
 				);
 			}
@@ -195,7 +195,7 @@ export async function fetchCatalogSlugs(env: Env, forceRefresh: boolean): Promis
 			rankedSummaryCatalog,
 		}),
 		{
-			expirationTtl: refreshHours * 60 * 60,
+			expirationTtl: refreshHours * 2 * 60 * 60,
 		},
 	);
 
@@ -206,7 +206,7 @@ export async function fetchCatalogSlugs(env: Env, forceRefresh: boolean): Promis
 			entries: rankedSummaryCatalog,
 		}),
 		{
-			expirationTtl: refreshHours * 60 * 60,
+			expirationTtl: refreshHours * 2 * 60 * 60,
 		},
 	);
 

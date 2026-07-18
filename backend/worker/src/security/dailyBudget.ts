@@ -2,15 +2,16 @@ import { getWorkerConfig } from '../config';
 import type { Env } from '../types';
 import { jsonResponse } from './cors';
 
-interface BudgetState {
-	day: string;
-	blockUntil: number;
-	nextSyncAt: number;
+interface BudgetCounterRequest {
+	increment: number;
+	maxRequests: number;
+	expiresAt: number;
 }
 
-const DAILY_BUDGET_PREFIX = 'budget:requests:v1:';
-
-let budgetState: BudgetState | null = null;
+interface BudgetCounterResult {
+	count: number;
+	exceeded: boolean;
+}
 
 function utcDay(now = new Date()): string {
 	return now.toISOString().slice(0, 10);
@@ -21,19 +22,6 @@ function nextUtcMidnight(nowMs = Date.now()): number {
 	return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
 }
 
-function secondsUntilNextUtcMidnight(nowMs = Date.now()): number {
-	return Math.max(60, Math.ceil((nextUtcMidnight(nowMs) - nowMs) / 1000) + 60);
-}
-
-function budgetKey(day: string): string {
-	return `${DAILY_BUDGET_PREFIX}${day}`;
-}
-
-function parseBudgetCount(value: string | null): number {
-	const parsed = Number(value || '0');
-	return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
-}
-
 function shouldSample(sampleRate: number): boolean {
 	if (sampleRate <= 1) return true;
 	const bytes = new Uint32Array(1);
@@ -41,31 +29,69 @@ function shouldSample(sampleRate: number): boolean {
 	return bytes[0] % sampleRate === 0;
 }
 
-function currentState(day: string): BudgetState {
-	if (!budgetState || budgetState.day !== day) {
-		budgetState = {
-			day,
-			blockUntil: 0,
-			nextSyncAt: 0,
-		};
+function budgetStub(env: Env, now: number): DurableObjectStub {
+	return env.DAILY_BUDGET.getByName(utcDay(new Date(now)));
+}
+
+async function readBudget(
+	env: Env,
+	now: number,
+	increment: number,
+	maxRequests: number,
+): Promise<BudgetCounterResult> {
+	const response = await budgetStub(env, now).fetch('https://daily-budget.internal/check', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ increment, maxRequests, expiresAt: nextUtcMidnight(now) } satisfies BudgetCounterRequest),
+	});
+	if (!response.ok) throw new Error('daily budget counter unavailable');
+	return response.json<BudgetCounterResult>();
+}
+
+export class DailyBudgetCounter {
+	constructor(private readonly state: DurableObjectState) {}
+
+	async fetch(request: Request): Promise<Response> {
+		if (request.method !== 'POST') return new Response(null, { status: 405 });
+
+		let body: BudgetCounterRequest;
+		try {
+			body = await request.json<BudgetCounterRequest>();
+		} catch {
+			return Response.json({ error: 'invalid_request' }, { status: 400 });
+		}
+
+		const increment = Number.isInteger(body.increment) && body.increment >= 0 ? body.increment : -1;
+		const maxRequests = Number.isInteger(body.maxRequests) && body.maxRequests > 0 ? body.maxRequests : -1;
+		const expiresAt = Number.isFinite(body.expiresAt) ? body.expiresAt : 0;
+		if (increment < 0 || maxRequests < 1 || expiresAt <= Date.now()) {
+			return Response.json({ error: 'invalid_request' }, { status: 400 });
+		}
+
+
+		const count = await this.state.storage.transaction(async (transaction) => {
+			const storedExpiresAt = (await transaction.get<number>('expiresAt')) ?? 0;
+			let nextCount = storedExpiresAt > Date.now() ? ((await transaction.get<number>('count')) ?? 0) : 0;
+			if (increment > 0 && nextCount < maxRequests) {
+				nextCount += increment;
+				await transaction.put({ count: nextCount, expiresAt });
+			}
+			return nextCount;
+		});
+		if (increment > 0) await this.state.storage.setAlarm(expiresAt);
+
+		return Response.json({ count, exceeded: count >= maxRequests } satisfies BudgetCounterResult);
 	}
-	return budgetState;
+
+	async alarm(): Promise<void> {
+		await this.state.storage.deleteAll();
+	}
 }
 
 export async function isDailyBudgetExceeded(env: Env, now = Date.now()): Promise<boolean> {
 	const config = getWorkerConfig(env);
 	if (!config.dailyBudgetEnabled) return false;
-
-	const day = utcDay(new Date(now));
-	const state = currentState(day);
-	if (state.blockUntil > now) return true;
-
-	const storedCount = parseBudgetCount(await env.PRICE_CACHE.get(budgetKey(day)));
-	if (storedCount < config.dailyBudgetMaxRequests) return false;
-
-	state.blockUntil = nextUtcMidnight(now);
-	state.nextSyncAt = now + config.dailyBudgetSyncIntervalSec * 1000;
-	return true;
+	return (await readBudget(env, now, 0, config.dailyBudgetMaxRequests)).exceeded;
 }
 
 function budgetExceededResponse(req: Request, env: Env, blockUntil: number): Response {
@@ -79,36 +105,9 @@ export async function checkDailyBudget(req: Request, env: Env): Promise<Response
 	if (!config.dailyBudgetEnabled) return null;
 
 	const now = Date.now();
-	const day = utcDay(new Date(now));
-	const state = currentState(day);
-	if (state.blockUntil > now) {
-		return budgetExceededResponse(req, env, state.blockUntil);
-	}
+	const increment = shouldSample(config.dailyBudgetSampleRate) ? config.dailyBudgetSampleRate : 0;
+	if (increment === 0) return null;
 
-	const sampled = shouldSample(config.dailyBudgetSampleRate);
-	const shouldSync = now >= state.nextSyncAt;
-	if (!sampled && !shouldSync) return null;
-
-	const key = budgetKey(day);
-	const storedCount = parseBudgetCount(await env.PRICE_CACHE.get(key));
-	state.nextSyncAt = now + config.dailyBudgetSyncIntervalSec * 1000;
-
-	if (storedCount >= config.dailyBudgetMaxRequests) {
-		state.blockUntil = nextUtcMidnight(now);
-		return budgetExceededResponse(req, env, state.blockUntil);
-	}
-
-	if (!sampled) return null;
-
-	const nextCount = storedCount + config.dailyBudgetSampleRate;
-	await env.PRICE_CACHE.put(key, String(nextCount), {
-		expirationTtl: secondsUntilNextUtcMidnight(now),
-	});
-
-	if (nextCount >= config.dailyBudgetMaxRequests) {
-		state.blockUntil = nextUtcMidnight(now);
-		return budgetExceededResponse(req, env, state.blockUntil);
-	}
-
-	return null;
+	const result = await readBudget(env, now, increment, config.dailyBudgetMaxRequests);
+	return result.exceeded ? budgetExceededResponse(req, env, nextUtcMidnight(now)) : null;
 }
