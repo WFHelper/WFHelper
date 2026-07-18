@@ -20,8 +20,6 @@ function requireHttpsUrl(name) {
 }
 
 requireHttpsUrl("VITE_WFM_BACKEND_URL");
-requireHttpsUrl("VITE_SENTRY_DSN");
-requireHttpsUrl("SENTRY_DSN");
 
 const fallback = required("VITE_WFM_BACKEND_DIRECT_FALLBACK");
 if (fallback && !new Set(["always", "high", "never"]).has(fallback)) {

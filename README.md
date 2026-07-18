@@ -56,12 +56,11 @@ three sources:
 
 Inventory snapshots, captured arbitration logs and stats stay on your PC. The
 app talks to its own caching backend for warframe.market prices and icons, the
-public game-data sources listed below, and GitHub for updates. Release builds
-send unhandled errors and basic runtime context to Sentry when crash reporting
-is configured; inventory contents, trade history and captured logs are not
-attached. Backend requests produce route, status, timing and item-slug
-observability records in Cloudflare/Grafana. Overlay windows also request the
-Rajdhani and Barlow fonts from Google Fonts. Update checks are manual.
+public game-data sources listed below, and GitHub for updates. No crash
+reporting or telemetry is built into the app. Backend requests produce route,
+status, timing and item-slug observability records in Cloudflare/Grafana.
+Overlay windows also request the Rajdhani and Barlow fonts from Google Fonts.
+Update checks are manual.
 
 ## Building from source
 

@@ -22,7 +22,6 @@ import * as relicService from "./services/relicService";
 import * as eeLogMonitor from "./services/eeLogMonitor";
 import * as rewardScanner from "./services/rewardScanner";
 import * as rewardOcrOnnx from "./services/rewardOcrOnnx";
-import * as crashReporter from "./services/crashReporter";
 import * as autoUpdater from "./services/autoUpdater";
 import * as rivenBestAttributes from "./services/rivenBestAttributes";
 
@@ -79,17 +78,13 @@ if (process.platform === "win32") {
   app.setAppUserModelId(WIN_APP_USER_MODEL_ID);
 }
 
-crashReporter.initCrashReporting();
-
 process.on("uncaughtException", (err: Error) => {
   log.error("[Main] uncaughtException:", err);
-  crashReporter.captureMainException(err, { source: "uncaughtException" });
 });
 
 process.on("unhandledRejection", (reason: unknown) => {
   const error = reason instanceof Error ? reason : new Error(String(reason));
   log.error("[Main] unhandledRejection:", error);
-  crashReporter.captureMainException(error, { source: "unhandledRejection" });
 });
 
 function createWindow(): void {

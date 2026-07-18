@@ -67,7 +67,6 @@
     "@electron/rebuild": "^4.0.3",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.58.2",
-    "@sentry/vite-plugin": "^5.1.1",
     "@sveltejs/vite-plugin-svelte": "^4.0.4",
     "@tailwindcss/vite": "^4.2.2",
     "@tsconfig/svelte": "^5.0.8",
@@ -97,8 +96,6 @@
   },
   "dependencies": {
     "@napi-rs/system-ocr": "^1.0.2",
-    "@sentry/browser": "^10.40.0",
-    "@sentry/electron": "^7.13.0",
     "@wfcd/items": "^1.1274.61",
     "chokidar": "^4.0.0",
     "electron-log": "^5.4.3",

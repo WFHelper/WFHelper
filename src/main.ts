@@ -1,6 +1,5 @@
 import "./app.css";
 import App from "./App.svelte";
-import { initRendererCrashReporting } from "./lib/crashReporting.js";
 import { send } from "./lib/ipc.js";
 import { themeSettings } from "./stores/theme.js";
 import type { ThemeColors } from "./types/theme.js";
@@ -22,8 +21,6 @@ const root = document.getElementById("root");
 if (!root) {
   throw new Error("Missing #root mount node");
 }
-
-initRendererCrashReporting();
 
 const DEFAULT_ACCENT_GLOW = "rgba(212, 168, 67, 0.15)";
 

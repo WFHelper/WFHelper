@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import { svelte, vitePreprocess } from "@sveltejs/vite-plugin-svelte";
-import { sentryVitePlugin } from "@sentry/vite-plugin";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -29,11 +28,6 @@ function resolveManualChunk(id) {
   return undefined;
 }
 
-const sentryUploadEnabled =
-  Boolean(process.env.SENTRY_AUTH_TOKEN) &&
-  Boolean(process.env.SENTRY_ORG) &&
-  Boolean(process.env.SENTRY_PROJECT);
-
 const plugins = [
   tailwindcss(),
   svelte({
@@ -45,18 +39,6 @@ const plugins = [
     },
   }),
 ];
-
-if (sentryUploadEnabled) {
-  plugins.push(
-    sentryVitePlugin({
-      authToken: process.env.SENTRY_AUTH_TOKEN,
-      org: process.env.SENTRY_ORG,
-      project: process.env.SENTRY_PROJECT,
-      release: process.env.SENTRY_RELEASE || process.env.npm_package_version,
-      telemetry: false,
-    }),
-  );
-}
 
 export default defineConfig({
   // Vite project root. index.html lives here.
@@ -79,7 +61,7 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, "renderer/dist"),
     emptyOutDir: true,
-    sourcemap: sentryUploadEnabled ? "hidden" : false,
+    sourcemap: false,
     chunkSizeWarningLimit: CHUNK_SIZE_WARNING_LIMIT_KB,
     rollupOptions: {
       output: {

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { addToast } from "../stores/toasts.js";
-  import { captureRendererException } from "../lib/crashReporting.js";
   import { normalizeErrorMessage } from "../../config/shared/errors.js";
 
   const DUPLICATE_SUPPRESSION_MS = 2000;
@@ -15,7 +14,6 @@
     const message = normalizeErrorMessage(reason, "Unknown renderer error");
     hasError = true;
     errorMessage = message;
-    captureRendererException(reason, { source: "ErrorBoundary" });
 
     const now = Date.now();
     const isDuplicate =

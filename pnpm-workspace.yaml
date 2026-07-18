@@ -14,7 +14,6 @@ overrides:
 
 # only these packages may run postinstall/build scripts
 allowBuilds:
-  '@sentry/cli': true
   electron: true
   electron-winstaller: true
   esbuild: true
