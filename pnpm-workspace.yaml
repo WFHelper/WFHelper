@@ -8,6 +8,10 @@ nodeLinker: hoisted
 # cheap protection against freshly-compromised package versions
 minimumReleaseAge: 2880
 
+overrides:
+  adm-zip: ^0.6.0
+  esbuild: ^0.25.11
+
 # only these packages may run postinstall/build scripts
 allowBuilds:
   '@sentry/cli': true

@@ -95,9 +95,6 @@
     "vitest": "^4.0.18",
     "wait-on": "^9.0.4"
   },
-  "overrides": {
-    "esbuild": "^0.25.11"
-  },
   "dependencies": {
     "@napi-rs/system-ocr": "^1.0.2",
     "@sentry/browser": "^10.40.0",
