@@ -10,17 +10,27 @@
   export let fullContentClass = "grid min-w-0 gap-1";
   export let fullImageClass = "h-9 w-9 rounded-[var(--radius-md)] object-contain";
   export let compactBodyClass = "flex items-center gap-2.5 px-2.5 py-2";
-  export let onOpen: (() => void) | null = null;
+  export let onOpen: () => void;
 
   function handleOpen(): void {
-    onOpen?.();
+    onOpen();
+  }
+
+  function handleKeydown(event: KeyboardEvent): void {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    handleOpen();
   }
 </script>
 
 {#if compact}
-  <!-- svelte-ignore a11y-click-events-have-key-events -->
-  <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="order-row flex flex-col overflow-hidden p-0 text-left" on:click={handleOpen}>
+  <div
+    class="order-row flex flex-col overflow-hidden p-0 text-left"
+    role="button"
+    tabindex="0"
+    on:click={handleOpen}
+    on:keydown={handleKeydown}
+  >
     <div class="flex items-center gap-2 border-b border-border bg-bg-raised px-2.5 py-1.5">
       <slot name="headerStart" />
       {#if badgeLabel}
@@ -51,9 +61,13 @@
     </div>
   </div>
 {:else}
-  <!-- svelte-ignore a11y-click-events-have-key-events -->
-  <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="order-row {fullClass} text-left" on:click={handleOpen}>
+  <div
+    class="order-row {fullClass} text-left"
+    role="button"
+    tabindex="0"
+    on:click={handleOpen}
+    on:keydown={handleKeydown}
+  >
     <slot name="fullStart" />
     <div class={fullMainClass}>
       {#if thumb}

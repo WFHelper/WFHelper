@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
   import type { DecodedRiven, RivenBestAttributes, WfmRivenListing } from "../types/ipc.js";
   import { itemDb } from "../stores/data.js";
@@ -33,6 +33,7 @@
   let isLoggedIn = $state(false);
   let bestAttrs = $state<RivenBestAttributes | null>(null);
   let showAllListings = $state(false);
+  let disposed = false;
   const DEFAULT_LISTING_COUNT = 20;
   const isContractListing = $derived(contract != null);
 
@@ -79,6 +80,7 @@
     // Fetch ALL auctions for this weapon - no stat filtering, similarity is client-side
     invoke("searchRivenAuctions", riven.weaponName, [], [])
       .then((listings) => {
+        if (disposed) return;
         const myStatNames = riven.stats.map((s) => s.name.toLowerCase());
         const enriched = listings.map((listing) => {
           const { pct, matchedNames } = computeSimilarity(myStatNames, listing.stats);
@@ -93,21 +95,30 @@
         // Show all matching results with at least 25% similarity (capped via UI)
         similarListings = enriched.filter((e) => e.pct >= 25);
       })
+      .catch(() => {
+        if (!disposed) similarListings = [];
+      })
       .finally(() => {
-        loadingListings = false;
+        if (!disposed) loadingListings = false;
       });
 
-    invoke("wfmGetSession").then((s) => {
-      isLoggedIn = s.loggedIn;
-    }).catch(() => {});
+    invoke("wfmGetSession")
+      .then((s) => {
+        if (!disposed) isLoggedIn = s.loggedIn;
+      })
+      .catch(() => {});
 
     invoke("getRivenBestAttributes", riven.weaponName)
       .then((attrs) => {
-        bestAttrs = attrs;
+        if (!disposed) bestAttrs = attrs;
       })
       .catch(() => {
-        bestAttrs = null;
+        if (!disposed) bestAttrs = null;
       });
+  });
+
+  onDestroy(() => {
+    disposed = true;
   });
 
   async function handleListOnWfm() {
@@ -370,4 +381,3 @@
     </div>
   </div>
 </DetailModalBase>
-

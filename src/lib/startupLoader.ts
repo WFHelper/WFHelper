@@ -22,6 +22,7 @@ interface StartupHandle {
 
 /** Startup load: item DB + WFM items, update state, delayed relic price warmup. */
 export function initStartup(): StartupHandle {
+  let disposed = false;
   let warmupTimer: ReturnType<typeof setTimeout> | null = null;
   let flushInterval: ReturnType<typeof setInterval> | null = null;
   const startupStartedAt = Date.now();
@@ -36,6 +37,7 @@ export function initStartup(): StartupHandle {
     try {
       const stageStart = Date.now();
       const rankedHotset = await invoke("loadRankedHotset");
+      if (disposed) return;
       if (rankedHotset) {
         const count = importRankedHotset(rankedHotset);
         log.info(`[Startup] Restored ${count} ranked hotset entries from disk cache`);
@@ -49,16 +51,18 @@ export function initStartup(): StartupHandle {
     try {
       const stageStart = Date.now();
       await tryLoadSnapshot();
+      if (disposed) return;
       log.info(`[StartupProfile] snapshot:load: ${Date.now() - stageStart}ms`);
     } catch {
       // tryLoadSnapshot never throws, this is just a safety net
     } finally {
-      startupPriceCacheReady.set(true);
+      if (!disposed) startupPriceCacheReady.set(true);
     }
 
     try {
       const stageStart = Date.now();
       const db = await invoke("getItemDatabase");
+      if (disposed) return;
       itemDb.set(db || {});
       profileStage("item-db:load", stageStart);
     } catch (e) {
@@ -68,6 +72,7 @@ export function initStartup(): StartupHandle {
     try {
       const stageStart = Date.now();
       const items = await invoke("getWfmItems");
+      if (disposed) return;
       wfmItems.set(items || {});
       profileStage("wfm-items:load", stageStart);
     } catch (e) {
@@ -77,13 +82,16 @@ export function initStartup(): StartupHandle {
     try {
       const stageStart = Date.now();
       const state = await invoke("getAppUpdateState");
+      if (disposed) return;
       applyUpdateState(state, false);
       profileStage("app-update-state:load", stageStart);
     } catch {
       // optional feature, non-blocking
     }
 
+    if (disposed) return;
     warmupTimer = setTimeout(() => {
+      if (disposed) return;
       void startPrimePriceWarmup();
     }, STARTUP_RELIC_WARMUP_DELAY_MS);
 
@@ -94,15 +102,17 @@ export function initStartup(): StartupHandle {
     profileStage("total-renderer-startup-sequence", startupStartedAt);
   })();
 
-  // Also flush on page unload (app close / refresh)
+  const handleBeforeUnload = (): void => {
+    void flushPriceCacheToDisk();
+  };
+
   if (typeof window !== "undefined") {
-    window.addEventListener("beforeunload", () => {
-      void flushPriceCacheToDisk();
-    });
+    window.addEventListener("beforeunload", handleBeforeUnload);
   }
 
   return {
     dispose() {
+      disposed = true;
       if (warmupTimer) {
         clearTimeout(warmupTimer);
         warmupTimer = null;
@@ -110,6 +120,9 @@ export function initStartup(): StartupHandle {
       if (flushInterval) {
         clearInterval(flushInterval);
         flushInterval = null;
+      }
+      if (typeof window !== "undefined") {
+        window.removeEventListener("beforeunload", handleBeforeUnload);
       }
       void flushPriceCacheToDisk();
     },

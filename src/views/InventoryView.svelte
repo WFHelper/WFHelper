@@ -203,7 +203,7 @@
     ...buildBaseInventoryItems($parsedItems, "mods", $wfmItems, orderedNames, orderedSlugs, $relicDb),
     ...buildBaseInventoryItems($parsedItems, "arcanes", $wfmItems, orderedNames, orderedSlugs, $relicDb),
   ];
-  $: tabItems = buildInventoryViewItems(tabBaseItems, $hydrationMetrics, filter);
+  $: tabItems = buildInventoryViewItems(tabBaseItems, $hydrationMetrics);
   $: relicSearchKeywordIndex = buildRelicSearchKeywordIndex($relicDb);
   $: searchableTabItems =
     filter !== "relics"

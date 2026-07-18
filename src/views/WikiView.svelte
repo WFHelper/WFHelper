@@ -54,6 +54,14 @@
 
   function onInput(): void {
     if (debounceTimer) clearTimeout(debounceTimer);
+    requestToken += 1;
+    loading = false;
+    if (!query.trim()) {
+      rows = [];
+      total = 0;
+      searched = false;
+      return;
+    }
     debounceTimer = setTimeout(runSearch, 250);
   }
 

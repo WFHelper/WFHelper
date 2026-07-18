@@ -23,6 +23,8 @@
   let searching = $state(false);
   let hasSearched = $state(false);
   let showWeaponDropdown = $state(false);
+  let attributeRequest = 0;
+  let searchRequest = 0;
 
   let requireNegative = $state(false);
   let priceMin = $state("");
@@ -146,27 +148,40 @@
   });
 
   async function selectWeapon(name: string) {
+    const token = ++attributeRequest;
+    searchRequest += 1;
     selectedWeapon = name;
     weaponSearch = name;
     showWeaponDropdown = false;
     bestAttrs = null;
-    const attrs = await invoke("getRivenBestAttributes", name);
-    if (selectedWeapon !== name) return;
-    bestAttrs = attrs;
+    rawResults = [];
+    hasSearched = false;
+    try {
+      const attrs = await invoke("getRivenBestAttributes", name);
+      if (token !== attributeRequest || selectedWeapon !== name) return;
+      bestAttrs = attrs;
+    } catch {
+      if (token === attributeRequest) bestAttrs = null;
+    }
   }
 
   async function doSearch() {
     if (!selectedWeapon) return;
+    const weapon = selectedWeapon;
+    const token = ++searchRequest;
     searching = true;
     hasSearched = true;
     try {
       // Fetch ALL auctions for this weapon - filtering + similarity is client-side
-      rawResults = await invoke("searchRivenAuctions", selectedWeapon, [], []);
+      const results = await invoke("searchRivenAuctions", weapon, [], []);
+      if (token !== searchRequest || selectedWeapon !== weapon) return;
+      rawResults = results;
     } catch (err) {
+      if (token !== searchRequest) return;
       rawResults = [];
       console.warn("[RivenFinder] WFM auction search failed:", err);
     } finally {
-      searching = false;
+      if (token === searchRequest) searching = false;
     }
   }
 
@@ -180,6 +195,15 @@
   }
 
   function handleWeaponInput() {
+    if (weaponSearch !== selectedWeapon) {
+      selectedWeapon = "";
+      bestAttrs = null;
+      rawResults = [];
+      hasSearched = false;
+      searching = false;
+      attributeRequest += 1;
+      searchRequest += 1;
+    }
     showWeaponDropdown = true;
   }
 </script>
@@ -322,4 +346,3 @@
     {/each}
   </div>
 {/if}
-

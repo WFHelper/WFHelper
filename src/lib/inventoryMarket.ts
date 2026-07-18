@@ -43,7 +43,6 @@ export interface InventoryViewItem extends InventoryBaseItem {
   ducatonator: number | null;
   displayImageUrl: string | null;
   equippedSummary: string | null;
-  debugLabel: string;
 }
 
 export interface ItemMetrics {
@@ -169,9 +168,7 @@ function itemGroupFallback(item: ParsedItem): InventoryFilterTab {
   if (label.includes("relic")) return "relics";
   if (label.includes("mod")) return "mods";
   if (label.includes("arcane")) return "arcanes";
-  if (
-    /^(warframe|primary|secondary|melee|companion|archwing|amp|necramech)$/.test(label)
-  ) {
+  if (/^(warframe|primary|secondary|melee|companion|archwing|amp|necramech)$/.test(label)) {
     return "equipment";
   }
   return "misc";
@@ -397,7 +394,6 @@ export function buildBaseInventoryItems(
 export function buildInventoryViewItems(
   baseItems: InventoryBaseItem[],
   metricsByKey: Record<string, ItemMetrics>,
-  activeTab: InventoryFilterTab,
 ): InventoryViewItem[] {
   return baseItems.map<InventoryViewItem>((item) => {
     const metric = metricsByKey[item.internalName] || null;
@@ -474,7 +470,6 @@ export function buildInventoryViewItems(
       ducatonator,
       displayImageUrl,
       equippedSummary,
-      debugLabel: item.debugReason || `show:inventory:${activeTab}:${item.inventoryGroup}`,
     };
   });
 }

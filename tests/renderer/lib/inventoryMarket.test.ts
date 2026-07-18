@@ -11,7 +11,10 @@ import {
 } from "../../../src/lib/inventoryMarket.js";
 import type { RelicDatabase } from "../../../src/types/relics.js";
 import { setCachedPrice } from "../../../src/lib/wfm/priceCache.js";
-import { clearOrderSummaryCache, setCachedOrderSummary } from "../../../src/lib/wfm/orderSummaryCache.js";
+import {
+  clearOrderSummaryCache,
+  setCachedOrderSummary,
+} from "../../../src/lib/wfm/orderSummaryCache.js";
 import { importMetaFromSnapshot } from "../../../src/lib/wfm/wfmItemMeta.js";
 
 function makeBaseItem(overrides: Partial<InventoryBaseItem> = {}): InventoryBaseItem {
@@ -60,7 +63,7 @@ describe("inventoryMarket view mapping", () => {
       },
     };
 
-    const [mapped] = buildInventoryViewItems([item], metrics, "mods");
+    const [mapped] = buildInventoryViewItems([item], metrics);
     expect(mapped.displayImageUrl).toBe(
       "https://warframe.market/static/assets/sample_market_thumb.png",
     );
@@ -81,7 +84,7 @@ describe("inventoryMarket view mapping", () => {
       },
     };
 
-    const [mapped] = buildInventoryViewItems([item], metrics, "mods");
+    const [mapped] = buildInventoryViewItems([item], metrics);
     expect(mapped.displayImageUrl).toBe(
       "https://warframe.market/static/assets/sample_meta_icon.png",
     );
@@ -102,7 +105,7 @@ describe("inventoryMarket view mapping", () => {
       },
     };
 
-    const [mapped] = buildInventoryViewItems([item], metrics, "mods");
+    const [mapped] = buildInventoryViewItems([item], metrics);
     expect(mapped.displayImageUrl).toBe("https://cdn.warframestat.us/img/sample_local.jpg");
   });
 
@@ -113,7 +116,7 @@ describe("inventoryMarket view mapping", () => {
     setCachedOrderSummary("sample_item", 0, { wts: 9, wtb: 4 });
     setCachedOrderSummary("sample_item", 10, { wts: 33, wtb: 21 });
 
-    const [mapped] = buildInventoryViewItems([item], {}, "mods");
+    const [mapped] = buildInventoryViewItems([item], {});
     expect(mapped.wtsR0).toBe(9);
     expect(mapped.wtbR0).toBe(4);
     expect(mapped.wtsRmax).toBe(33);
@@ -313,7 +316,7 @@ describe("inventoryMarket view mapping", () => {
       },
     };
 
-    const [mapped] = buildInventoryViewItems([item], metrics, "all_parts");
+    const [mapped] = buildInventoryViewItems([item], metrics);
     expect(mapped.platinum).toBeNull();
     expect(mapped.ducats).toBeNull();
     expect(mapped.ducatonator).toBeNull();
@@ -350,7 +353,7 @@ describe("inventoryMarket view mapping", () => {
     });
     setCachedPrice("accelerated_blast:rank-v3:r3", 6);
 
-    const [mapped] = buildInventoryViewItems([item], {}, "mods");
+    const [mapped] = buildInventoryViewItems([item], {});
     expect(mapped.platinum).toBe(6);
   });
 
@@ -364,7 +367,7 @@ describe("inventoryMarket view mapping", () => {
     setCachedPrice("serration:rank-v3:r0", 8);
     setCachedPrice("serration:rank-v3:r10", 82);
 
-    const [mapped] = buildInventoryViewItems([item], {}, "mods");
+    const [mapped] = buildInventoryViewItems([item], {});
     expect(mapped.platinumR0).toBe(8);
     expect(mapped.platinumRmax).toBe(82);
     expect(mapped.platinum).toBe(8);
@@ -395,7 +398,7 @@ describe("inventoryMarket view mapping", () => {
       },
     };
 
-    const [mapped] = buildInventoryViewItems([item], metrics, "mods");
+    const [mapped] = buildInventoryViewItems([item], metrics);
     expect(mapped.platinumR0).toBe(7);
     expect(mapped.platinumRmax).toBe(76);
     expect(mapped.platinum).toBe(7);
@@ -408,7 +411,6 @@ describe("inventoryMarket view mapping", () => {
         makeBaseItem({ internalName: "/Lotus/Upgrades/Mods/Test/B", amount: 1 }),
       ],
       {},
-      "mods",
     );
     expect(viewItems).toHaveLength(2);
   });

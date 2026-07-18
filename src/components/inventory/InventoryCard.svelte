@@ -69,9 +69,15 @@
   });
 </script>
 
-<!-- svelte-ignore a11y-click-events-have-key-events -->
-<!-- svelte-ignore a11y-no-static-element-interactions -->
-<div class="item-card relative {mastered ? 'border-success/25' : ''} {item.isPrime ? 'border-accent/30' : ''}" on:click={selectCard} bind:this={cardEl}>
+<div
+  class="item-card relative {mastered ? 'border-success/25' : ''} {item.isPrime ? 'border-accent/30' : ''}"
+  role="button"
+  tabindex="0"
+  aria-label="Open details for {item.name}"
+  on:click={selectCard}
+  on:keydown={(event) => (event.key === "Enter" || event.key === " ") && selectCard()}
+  bind:this={cardEl}
+>
   <div class="item-img-wrap">
     <ItemImage src={item.displayImageUrl} alt={item.name} />
     {#if item.vaulted}<span class="vault-badge">V</span>{/if}

@@ -123,8 +123,11 @@
     applyToForm($overlaySettings);
   });
 
-  async function save() {
-    const payload = {
+  let saveRevision = 0;
+  let saveQueue: Promise<void> = Promise.resolve();
+
+  function currentOverlayPayload() {
+    return {
       autoTriggerEnabled: autoTrigger,
       notificationSoundEnabled,
       wfmNotificationsEnabled,
@@ -144,16 +147,36 @@
       interactionHotkey,
     };
 
-    try {
-      const saved = await invoke("setOverlaySettings", payload);
-      if (saved) {
-        applyOverlaySettingsResponse(saved);
-        applyToForm($overlaySettings);
+  }
+
+  function queueSave(
+    payload: ReturnType<typeof currentOverlayPayload>,
+    successMessage: string,
+    failureMessage: string,
+  ): Promise<void> {
+    const revision = ++saveRevision;
+    saveQueue = saveQueue.then(async () => {
+      try {
+        const saved = await invoke("setOverlaySettings", payload);
+        if (revision !== saveRevision) return;
+        if (saved) {
+          applyOverlaySettingsResponse(saved);
+          applyToForm($overlaySettings);
+        }
+        flashStatus(successMessage, false);
+      } catch {
+        if (revision === saveRevision) flashStatus(failureMessage, true);
       }
-      flashStatus($tr("settings.saved"), false);
-    } catch {
-      flashStatus($tr("settings.saveFailed"), true);
-    }
+    });
+    return saveQueue;
+  }
+
+  function save(): Promise<void> {
+    return queueSave(
+      currentOverlayPayload(),
+      $tr("settings.saved"),
+      $tr("settings.saveFailed"),
+    );
   }
 
   // Every control saves on change; there is no separate save step.
@@ -161,15 +184,13 @@
     void save();
   }
 
-  async function resetDefaults() {
+  function resetDefaults() {
     applyToForm(OVERLAY_DEFAULTS);
-    try {
-      const saved = await invoke("setOverlaySettings", { ...OVERLAY_DEFAULTS });
-      if (saved) applyOverlaySettingsResponse(saved);
-      flashStatus($tr("settings.defaultsRestored"), false);
-    } catch {
-      flashStatus($tr("settings.defaultsRestoreFormFailed"), true);
-    }
+    void queueSave(
+      currentOverlayPayload(),
+      $tr("settings.defaultsRestored"),
+      $tr("settings.defaultsRestoreFormFailed"),
+    );
   }
 
   function testTrigger() {
@@ -676,5 +697,4 @@
     flex-wrap: wrap;
   }
 </style>
-
 

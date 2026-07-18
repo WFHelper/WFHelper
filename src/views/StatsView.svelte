@@ -256,18 +256,20 @@
 
   let tooltip: { text: string; x: number; y: number } | null = null;
 
-  /** Tooltip for individual dot hover (compact charts) */
-  function onDotEnter(e: MouseEvent, key: ChartKey, barIdx: number, absVal: number): void {
-    const cd = chartDataMap[key];
-    const bar = cd.bars[barIdx];
-    if (!bar) return;
+  function dotLabel(key: ChartKey, bar: ChartResult["bars"][number], absVal: number): string {
     let text = shortDate(bar.date);
     if (!Number.isNaN(absVal)) text += `  ${formatters[key](absVal)}`;
     if (bar.value !== 0) {
       const sign = bar.value >= 0 ? "+" : "−";
       text += `  (${sign}${formatters[key](Math.abs(bar.value))})`;
     }
-    tooltip = { text, x: e.clientX, y: e.clientY };
+    return text;
+  }
+
+  function onDotEnter(e: MouseEvent, key: ChartKey, barIdx: number, absVal: number): void {
+    const bar = chartDataMap[key].bars[barIdx];
+    if (!bar) return;
+    tooltip = { text: dotLabel(key, bar, absVal), x: e.clientX, y: e.clientY };
   }
 
 
@@ -310,19 +312,18 @@
   {@const step = labelStep(chartDays)}
   {@const exYTicks = expandedChartData.yTicks}
   {@const exIcon = ICON_MAP[expandedKey]}
-  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-  <div class="fixed inset-0 z-[400] flex items-center justify-center bg-black/65" on:click={() => { expandedKey = null; tooltip = null; }}>
-    <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-    <div class="flex h-[72vh] w-[86vw] flex-col overflow-hidden rounded-[var(--radius-xl)] border border-border-strong bg-bg-surface p-4 pb-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)]" on:click|stopPropagation>
+  <div class="fixed inset-0 z-[400] flex items-center justify-center">
+    <button type="button" class="absolute inset-0 border-0 bg-black/65" aria-label="Close expanded chart" on:click={() => { expandedKey = null; tooltip = null; }}></button>
+    <div class="relative z-10 flex h-[72vh] w-[86vw] flex-col overflow-hidden rounded-[var(--radius-xl)] border border-border-strong bg-bg-surface p-4 pb-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)]" role="dialog" aria-modal="true" aria-labelledby="expanded-chart-title">
       <div class="mb-3 flex shrink-0 items-center justify-between">
-        <span class="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-text-muted">
+        <span id="expanded-chart-title" class="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-text-muted">
           {#if exIcon}<img src={exIcon} alt="" class="w-[18px] h-[18px] object-contain align-middle opacity-85" />{/if}
           {$tr(expandedChartTitle(expandedKey))}
         </span>
         <div class="flex items-center gap-2">
           <ThemedButton active={showValue} onClick={() => { showValue = !showValue; }}>Value</ThemedButton>
           <ThemedButton active={showChange} onClick={() => { showChange = !showChange; }}>Change</ThemedButton>
-          <button class="border-none bg-transparent text-text-muted cursor-pointer text-base leading-none px-1.5 py-0.5 rounded-[var(--radius-md)] transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-raised" on:click={() => { expandedKey = null; tooltip = null; }}>✕</button>
+          <button type="button" aria-label="Close expanded chart" class="border-none bg-transparent text-text-muted cursor-pointer text-base leading-none px-1.5 py-0.5 rounded-[var(--radius-md)] transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-raised" on:click={() => { expandedKey = null; tooltip = null; }}>✕</button>
         </div>
       </div>
       <div class="flex-1 min-h-0 flex flex-col">
@@ -385,10 +386,12 @@
                   {@const bar = exBars[pt.idx]}
                   {@const absVal = expandedChartData.absValues[pt.idx] ?? NaN}
                   {#if bar && expandedChartData.realData[pt.idx] && bar.value !== 0}
-                    <!-- svelte-ignore a11y-no-static-element-interactions -->
-                    <span
-                      class="absolute w-[15px] h-[15px] rounded-full bg-bg-surface border-[3px] border-white/80 -translate-x-1/2 -translate-y-1/2 pointer-events-auto transition-[transform,box-shadow,border-color,background] duration-[0.12s] cursor-pointer hover:scale-[1.35] hover:border-white hover:bg-white/15 hover:shadow-[0_0_6px_rgba(255,255,255,0.35)]"
+                    <button
+                      type="button"
+                      class="absolute w-[15px] h-[15px] p-0 rounded-full bg-bg-surface border-[3px] border-white/80 -translate-x-1/2 -translate-y-1/2 pointer-events-auto transition-[transform,box-shadow,border-color,background] duration-[0.12s] cursor-pointer hover:scale-[1.35] hover:border-white hover:bg-white/15 hover:shadow-[0_0_6px_rgba(255,255,255,0.35)]"
                       style="left:{pt.x / SVG_W * 100}%; top:{pt.y / BAR_H_EXPAND * 100}%"
+                      aria-label={dotLabel(expandedKey, bar, absVal)}
+                      title={dotLabel(expandedKey, bar, absVal)}
                       on:mouseenter={(e) => {
                         let text = shortDate(bar.date);
                         if (!Number.isNaN(absVal)) text += `  ${formatters[expandedKey!](absVal)}`;
@@ -397,7 +400,7 @@
                         tooltip = { text, x: e.clientX, y: e.clientY };
                       }}
                       on:mouseleave={() => { tooltip = null; }}
-                    ></span>
+                    ></button>
                   {/if}
                 {/each}
               </div>
@@ -419,8 +422,7 @@
   </div>
 {/if}
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<section class="view active" on:mouseleave={() => { tooltip = null; }}>
+<section class="view active">
   <div class="view-header">
     <h2>{$tr("stats.title")}</h2>
     <div class="flex items-center gap-2 ml-auto">
@@ -556,13 +558,15 @@
                           {@const bar = cd.bars[pt.idx]}
                           {@const absVal = cd.absValues[pt.idx] ?? NaN}
                           {#if bar && cd.realData[pt.idx] && bar.value !== 0}
-                            <!-- svelte-ignore a11y-no-static-element-interactions -->
-                            <span
-                              class="absolute w-3 h-3 rounded-full bg-bg-surface border-2 border-white/80 -translate-x-1/2 -translate-y-1/2 pointer-events-auto transition-[transform,box-shadow,border-color,background] duration-[0.12s] cursor-pointer hover:scale-[1.35] hover:border-white hover:bg-white/15 hover:shadow-[0_0_6px_rgba(255,255,255,0.35)]"
+                            <button
+                              type="button"
+                              class="absolute w-3 h-3 p-0 rounded-full bg-bg-surface border-2 border-white/80 -translate-x-1/2 -translate-y-1/2 pointer-events-auto transition-[transform,box-shadow,border-color,background] duration-[0.12s] cursor-pointer hover:scale-[1.35] hover:border-white hover:bg-white/15 hover:shadow-[0_0_6px_rgba(255,255,255,0.35)]"
                               style="left:{pt.x / SVG_W * 100}%; top:{pt.y / BAR_H * 100}%"
+                              aria-label={dotLabel(key, bar, absVal)}
+                              title={dotLabel(key, bar, absVal)}
                               on:mouseenter={(e) => onDotEnter(e, key, pt.idx, absVal)}
                               on:mouseleave={() => { tooltip = null; }}
-                            ></span>
+                            ></button>
                           {/if}
                         {/each}
                       </div>

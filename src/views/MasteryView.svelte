@@ -249,11 +249,15 @@
         <div class="empty-state col-span-full"><p>No items match your filters</p></div>
       {:else}
         {#each filtered as item, itemIndex (`${item.uniqueName || item.internalName || item.name}-${itemIndex}`)}
-          <!-- svelte-ignore a11y-click-events-have-key-events -->
-          <!-- svelte-ignore a11y-no-static-element-interactions -->
           <div
             class="item-card group {item.status === 'missing' ? 'opacity-60' : item.status === 'mastered' ? 'border-success/25' : item.status === 'progress' ? 'border-warning/25' : ''}"
+            role="button"
+            tabindex="0"
+            aria-label="Open details for {item.name}"
             on:click={() => activeItem.set(item)}
+            on:keydown={(event) => {
+              if (event.key === "Enter" || event.key === " ") activeItem.set(item);
+            }}
           >
             <div class="item-img-wrap">
               <ItemImage src={item.imageUrl} alt={item.name} />
@@ -288,13 +292,13 @@
                 <div class="mt-1.5 flex flex-wrap gap-1">
                   {#each (item.components || []).slice(0, 8) as comp, compIndex (`${comp.uniqueName || comp.name || 'component'}-${compIndex}`)}
                     {@const isOwned = comp.owned || ((comp.ownedCount ?? 0) >= (comp.itemCount || 1))}
-                    <!-- svelte-ignore a11y-click-events-have-key-events -->
-                    <!-- svelte-ignore a11y-no-static-element-interactions -->
-                    <span
+                    <button
+                      type="button"
                       class="comp-dot h-1.5 w-1.5 rounded-full border border-transparent {isOwned ? 'owned' : 'missing'}"
                       title="{comp.name || '?'}: {isOwned ? 'owned' : 'missing'}"
+                      aria-label="Open {comp.name || 'component'} details"
                       on:click|stopPropagation={() => activeComponent.set({ comp, parentName: item.name })}
-                    ></span>
+                    ></button>
                   {/each}
                 </div>
               {/if}

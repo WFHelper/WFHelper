@@ -8,18 +8,11 @@
 
 import { writable } from "svelte/store";
 
-import { getPriceDebugCounters, getPriceQueueStats } from "../lib/wfm/wfmPrice.js";
-import { getOrderBookDebugCounters } from "../lib/wfm/orderBook.js";
-import { getOrderSummaryDebugCounters } from "../lib/wfm/orderSummaryRemote.js";
 import { normalizeWfmSlug } from "../../config/shared/wfm.js";
 import type { InventoryBaseItem, ItemMetrics, MetricNeeds } from "../lib/inventoryMarket.js";
 import type { WfmItemsLookup } from "../types/ipc.js";
 
-import type {
-  HydrationTask,
-  InventoryHydrationDebugState,
-  InventoryHydrationController,
-} from "./hydration/hydrationTypes.js";
+import type { HydrationTask, InventoryHydrationController } from "./hydration/hydrationTypes.js";
 import {
   HYDRATION_BATCH_SIZE,
   HYDRATION_TICK_MS,
@@ -50,15 +43,6 @@ import { rendererPriceCacheKey } from "../../config/shared/wfmCacheKeys.js";
 
 export function createInventoryHydrationController(): InventoryHydrationController {
   const metricsByKeyStore = writable<Record<string, ItemMetrics>>({});
-  const debugStateStore = writable<InventoryHydrationDebugState>({
-    priceQueueStats: getPriceQueueStats(),
-    priceDebugCounters: { ...getPriceDebugCounters() },
-    orderSummaryDebugCounters: { ...getOrderSummaryDebugCounters() },
-    orderBookDebugCounters: { ...getOrderBookDebugCounters() },
-    queued: 0,
-    pending: 0,
-  });
-
   let metricsByKey: Record<string, ItemMetrics> = {};
   const pendingMetricPatches = new Map<string, ItemMetrics>();
   let metricFlushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -134,17 +118,6 @@ export function createInventoryHydrationController(): InventoryHydrationControll
     },
   };
 
-  function pushDebugState(): void {
-    debugStateStore.set({
-      priceQueueStats: getPriceQueueStats(),
-      priceDebugCounters: { ...getPriceDebugCounters() },
-      orderSummaryDebugCounters: { ...getOrderSummaryDebugCounters() },
-      orderBookDebugCounters: { ...getOrderBookDebugCounters() },
-      queued: queuedMetricKeys.size,
-      pending: pendingMetricKeys.size,
-    });
-  }
-
   async function runHydrationPump(): Promise<void> {
     if (hydrationRunning) return;
     hydrationRunning = true;
@@ -165,12 +138,10 @@ export function createInventoryHydrationController(): InventoryHydrationControll
           await Promise.all(pendingTasks);
         }
 
-        pushDebugState();
         await new Promise((resolve) => setTimeout(resolve, HYDRATION_TICK_MS));
       }
     } finally {
       hydrationRunning = false;
-      pushDebugState();
       if (isMounted && hydrationQueue.length > 0) {
         void runHydrationPump();
       }
@@ -280,12 +251,11 @@ export function createInventoryHydrationController(): InventoryHydrationControll
       }
 
       queuedMetricKeys.add(key);
-      hydrationQueue = [...hydrationQueue, { key, item, lookup, needs }];
+      hydrationQueue.push({ key, item, lookup, needs });
       appended = true;
     }
 
     if (appended) {
-      pushDebugState();
       void runHydrationPump();
     }
   }
@@ -294,14 +264,9 @@ export function createInventoryHydrationController(): InventoryHydrationControll
     metricsByKey: {
       subscribe: metricsByKeyStore.subscribe,
     },
-    debugState: {
-      subscribe: debugStateStore.subscribe,
-    },
     enqueue: queueTasks,
-    refreshDebugStats: pushDebugState,
     pause() {
       isMounted = false;
-      pushDebugState();
     },
     resume() {
       if (!isMounted) {

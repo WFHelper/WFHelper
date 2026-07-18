@@ -435,7 +435,6 @@
   $: marketOrderViewItems = buildInventoryViewItems(
     marketOrderBaseItems,
     $hydrationMetrics,
-    "misc",
   ).map((item, index) => ({
     ...item,
     sourceOrderId: marketOrderBaseItems[index]?.sourceOrderId ?? "",

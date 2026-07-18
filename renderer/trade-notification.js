@@ -16,6 +16,7 @@
   const partnerName = document.getElementById("partner-name");
 
   let dismissTimer = null;
+  let fadeTimer = null;
 
   function showNotification(payload) {
     if (!payload) return;
@@ -58,9 +59,12 @@
 
     // Reset auto-dismiss timer
     if (dismissTimer) clearTimeout(dismissTimer);
+    if (fadeTimer) clearTimeout(fadeTimer);
     dismissTimer = setTimeout(function () {
+      dismissTimer = null;
       notification.classList.add("fade-out");
-      setTimeout(function () {
+      fadeTimer = setTimeout(function () {
+        fadeTimer = null;
         notification.classList.add("hidden");
         // Notify main process we're done; preload always exposes this.
         window.tradeNotificationApi.dismiss();

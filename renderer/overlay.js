@@ -9,6 +9,7 @@ const slotState = Array.from({ length: SLOTS }, () => ({
   setPrice: null,
 }));
 let overlayInteractiveMode = false;
+let rewardGeneration = 0;
 const PLATINUM_ICON = "../assets/Platinum.png";
 const DUCAT_ICON = "../assets/OrokinDucats.png";
 
@@ -160,13 +161,6 @@ function plannerGridElement() {
   return document.getElementById("planner-grid");
 }
 
-function setHeader(title, sub) {
-  const titleEl = document.getElementById("header-title");
-  const subEl = document.getElementById("header-sub");
-  if (titleEl) titleEl.textContent = title;
-  if (subEl) subEl.textContent = sub;
-}
-
 function setScanningText(text) {
   const el = document.getElementById("scanning-text");
   if (el) el.textContent = text;
@@ -292,7 +286,7 @@ function resetPlannerRows() {
 }
 
 function showRewardModeScanning() {
-  setHeader("◆ Relic Reward", "Detecting...");
+  rewardGeneration += 1;
   setScanningText("Reading reward screen...");
   showScanning();
   showBestFooter(true);
@@ -345,7 +339,7 @@ function markOverlayMoved() {
 }
 
 function showPlannerModeScanning() {
-  setHeader("◆ Relic Planner", "Reading relic selection...");
+  rewardGeneration += 1;
   setScanningText("Detecting relic era and ranking owned relics...");
   showScanning();
   showBestFooter(false);
@@ -362,7 +356,6 @@ function showDetectionError(message) {
     message ||
     "OCR failed to detect reward items from the current screen. Use Warframe Borderless Windowed mode and set in-game UI scale to 99%.";
   resetSlots();
-  setHeader("◆ Relic Reward", "Detection failed");
   document.getElementById("best-value").textContent = "OCR failed";
   showBestFooter(true);
 }
@@ -402,7 +395,6 @@ function renderPlannerRows(payload) {
 
   const countLabel = totalOwnedCount > 0 ? `${totalOwnedCount}` : "";
   const eraLabel = era ? `${era.charAt(0).toUpperCase()}${era.slice(1)} era` : "";
-  setHeader(countLabel || "", eraLabel ? `${eraLabel} recommendations` : "Recommended relics");
   showBestFooter(false);
   showPlannerHint(!overlayInteractiveMode);
 
@@ -456,6 +448,7 @@ function renderPlannerRows(payload) {
 }
 
 async function applyRewardItems(payload) {
+  const generation = ++rewardGeneration;
   const rawItems = Array.isArray(payload)
     ? payload
     : Array.isArray(payload?.items)
@@ -484,7 +477,6 @@ async function applyRewardItems(payload) {
   document.getElementById("slots-grid").classList.remove("is-hidden");
   plannerGridElement().classList.add("is-hidden");
   document.getElementById("error-banner").classList.remove("visible");
-  setHeader("◆ Relic Reward", `${detectedItems.length} item(s) found`);
   showBestFooter(true);
 
   for (let i = 0; i < SLOTS; i += 1) {
@@ -505,7 +497,9 @@ async function applyRewardItems(payload) {
     placements.map(async ({ item, slot }) => {
       if (!item?.urlName) {
         slotState[slot].price = 0;
-        slotState[slot].setPrice = item?.setUrlName ? await fetchPrice(item.setUrlName) : 0;
+        const setPrice = item?.setUrlName ? await fetchPrice(item.setUrlName) : 0;
+        if (generation !== rewardGeneration) return;
+        slotState[slot].setPrice = setPrice;
         renderSlot(slot);
         updateBestPick();
         return;
@@ -515,6 +509,7 @@ async function applyRewardItems(payload) {
         fetchPrice(item.urlName),
         fetchPrice(item.setUrlName),
       ]);
+      if (generation !== rewardGeneration) return;
       slotState[slot].price = price ?? 0;
       slotState[slot].setPrice = setPrice ?? 0;
       renderSlot(slot);

@@ -26,6 +26,8 @@
   let itemDropdown: WfmSearchItem[] = [];
   let itemSelected: WfmSearchItem | null = null;
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
+  let searchRequest = 0;
+  let modalPanel: HTMLDivElement | null = null;
   let orderType: OrderType = "sell";
   let platinum = "";
   let quantity = 1;
@@ -42,6 +44,7 @@
 
   $: if (state) {
     resetForm();
+    setTimeout(() => modalPanel?.focus());
   }
 
   function resetForm(): void {
@@ -83,15 +86,23 @@
 
   function onSearchInput(): void {
     if (searchTimer) clearTimeout(searchTimer);
+    const token = ++searchRequest;
     itemDropdown = [];
     if (itemSearchQuery.length < ITEM_SEARCH_MIN_CHARS) return;
     searchTimer = setTimeout(async () => {
-      const results = await invoke("wfmSearchItems", itemSearchQuery, ITEM_SEARCH_LIMIT);
-      if (results && !("error" in results)) itemDropdown = results;
+      const query = itemSearchQuery;
+      try {
+        const results = await invoke("wfmSearchItems", query, ITEM_SEARCH_LIMIT);
+        if (token !== searchRequest || query !== itemSearchQuery) return;
+        if (results && !("error" in results)) itemDropdown = results;
+      } catch {
+        if (token === searchRequest) itemDropdown = [];
+      }
     }, ITEM_SEARCH_DEBOUNCE_MS);
   }
 
   onDestroy(() => {
+    searchRequest += 1;
     if (searchTimer) {
       clearTimeout(searchTimer);
       searchTimer = null;
@@ -180,19 +191,30 @@
   function close(): void {
     orderModalState.set(null);
   }
+
+  function handleKeydown(event: KeyboardEvent): void {
+    if (state && event.key === "Escape") close();
+  }
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
 {#if state}
-  <!-- svelte-ignore a11y-click-events-have-key-events -->
-  <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="detail-overlay" on:click|self={close}>
-    <div class="detail-backdrop" on:click={close}></div>
-    <div class="detail-panel order-modal-panel">
-      <button class="detail-close" on:click={close}>&times;</button>
+  <div class="detail-overlay">
+    <button type="button" class="detail-backdrop" aria-label="Close order dialog" on:click={close}></button>
+    <div
+      class="detail-panel order-modal-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="order-modal-title"
+      tabindex="-1"
+      bind:this={modalPanel}
+    >
+      <button type="button" class="detail-close" aria-label="Close order dialog" on:click={close}>&times;</button>
 
       <div class="detail-header order-modal-header">
         <div class="detail-title-area">
-          <h2>{isEdit ? 'Edit Order' : 'New Order'}</h2>
+          <h2 id="order-modal-title">{isEdit ? 'Edit Order' : 'New Order'}</h2>
         </div>
       </div>
 
@@ -209,7 +231,7 @@
                     <img src={itemSelected.thumb} alt="" width="28" height="28" loading="lazy" class="rounded-md object-contain" />
                   {/if}
                   <span>{itemSelected.item_name}</span>
-                  <button type="button" class="ml-auto border-0 bg-transparent text-base leading-none text-text-muted hover:text-text-primary" on:click={clearItem}>&times;</button>
+                  <button type="button" aria-label="Clear selected item" class="ml-auto border-0 bg-transparent text-base leading-none text-text-muted hover:text-text-primary" on:click={clearItem}>&times;</button>
                 </div>
               {:else}
                 <div class="relative">
@@ -217,16 +239,14 @@
                   {#if itemDropdown.length > 0}
                     <div class="absolute top-[calc(100%+4px)] left-0 right-0 z-20 max-h-[220px] overflow-y-auto rounded-lg border border-border-strong bg-bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
                       {#each itemDropdown as item}
-                        <!-- svelte-ignore a11y-click-events-have-key-events -->
-                        <!-- svelte-ignore a11y-no-static-element-interactions -->
-                        <div class="flex cursor-pointer items-center gap-2 px-2.5 py-2 text-sm text-text-primary hover:bg-bg-hover" on:click={() => selectItem(item)}>
+                        <button type="button" class="flex w-full cursor-pointer items-center gap-2 border-0 bg-transparent px-2.5 py-2 text-left text-sm text-text-primary hover:bg-bg-hover" on:click={() => selectItem(item)}>
                           {#if item.thumb}
                             <img src={item.thumb} alt="" width="24" height="24" loading="lazy" class="shrink-0 rounded-sm object-contain" />
                           {:else}
                             <span class="h-6 w-6 shrink-0 rounded-sm bg-white/5"></span>
                           {/if}
                           <span>{item.item_name}</span>
-                        </div>
+                        </button>
                       {/each}
                     </div>
                   {/if}
