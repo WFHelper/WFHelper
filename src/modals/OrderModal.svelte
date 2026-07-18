@@ -3,6 +3,7 @@
   import { orderModalState, marketOrders } from "../stores/market.js";
   import { invoke, tradeInvoke } from "../lib/ipc.js";
   import { isIpcError } from "../lib/ipcGuards.js";
+  import ModalShell from "../components/ModalShell.svelte";
   import ThemedButton from "../components/ThemedButton.svelte";
   import ThemedInput from "../components/ThemedInput.svelte";
   import SegmentedControl from "../components/SegmentedControl.svelte";
@@ -27,7 +28,6 @@
   let itemSelected: WfmSearchItem | null = null;
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
   let searchRequest = 0;
-  let modalPanel: HTMLDivElement | null = null;
   let orderType: OrderType = "sell";
   let platinum = "";
   let quantity = 1;
@@ -44,7 +44,6 @@
 
   $: if (state) {
     resetForm();
-    setTimeout(() => modalPanel?.focus());
   }
 
   function resetForm(): void {
@@ -191,30 +190,16 @@
   function close(): void {
     orderModalState.set(null);
   }
-
-  function handleKeydown(event: KeyboardEvent): void {
-    if (state && event.key === "Escape") close();
-  }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
-
 {#if state}
-  <div class="detail-overlay">
-    <button type="button" class="detail-backdrop" aria-label="Close order dialog" on:click={close}></button>
-    <div
-      class="detail-panel order-modal-panel"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="order-modal-title"
-      tabindex="-1"
-      bind:this={modalPanel}
-    >
+  <ModalShell ariaLabel={isEdit ? "Edit Order" : "New Order"} onClose={close}>
+    <div class="detail-panel order-modal-panel">
       <button type="button" class="detail-close" aria-label="Close order dialog" on:click={close}>&times;</button>
 
       <div class="detail-header order-modal-header">
         <div class="detail-title-area">
-          <h2 id="order-modal-title">{isEdit ? 'Edit Order' : 'New Order'}</h2>
+          <h2>{isEdit ? 'Edit Order' : 'New Order'}</h2>
         </div>
       </div>
 
@@ -303,6 +288,6 @@
         </form>
       </div>
     </div>
-  </div>
+  </ModalShell>
 {/if}
 

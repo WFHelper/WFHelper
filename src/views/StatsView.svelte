@@ -4,6 +4,7 @@
   import { tr } from "../lib/i18n.js";
   import type { DailyStatEntry, SessionStats, TradeEvent } from "../types/ipc.js";
   import type { MessageKey } from "../lib/i18n.js";
+  import ModalShell from "../components/ModalShell.svelte";
   import ThemedButton from "../components/ThemedButton.svelte";
   import ThemedPanel from "../components/ThemedPanel.svelte";
   import ThemedSelect from "../components/ThemedSelect.svelte";
@@ -296,7 +297,7 @@
 <!-- Global tooltip (position: fixed, follows mouse) -->
 {#if tooltip}
   <div
-    class="fixed pointer-events-none rounded-[var(--radius-sm)] border border-border-strong bg-bg-raised px-[10px] py-1 text-xs text-text-primary whitespace-nowrap z-[500] shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
+    class="fixed pointer-events-none rounded-[var(--radius-sm)] border border-border-strong bg-bg-raised px-[10px] py-1 text-xs text-text-primary whitespace-nowrap z-[1100] shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
     style="left:{tooltip.x + 14}px; top:{tooltip.y - 38}px"
     aria-hidden="true"
   >
@@ -312,11 +313,10 @@
   {@const step = labelStep(chartDays)}
   {@const exYTicks = expandedChartData.yTicks}
   {@const exIcon = ICON_MAP[expandedKey]}
-  <div class="fixed inset-0 z-[400] flex items-center justify-center">
-    <button type="button" class="absolute inset-0 border-0 bg-black/65" aria-label="Close expanded chart" on:click={() => { expandedKey = null; tooltip = null; }}></button>
-    <div class="relative z-10 flex h-[72vh] w-[86vw] flex-col overflow-hidden rounded-[var(--radius-xl)] border border-border-strong bg-bg-surface p-4 pb-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)]" role="dialog" aria-modal="true" aria-labelledby="expanded-chart-title">
+  <ModalShell ariaLabel={$tr(expandedChartTitle(expandedKey))} onClose={() => { expandedKey = null; tooltip = null; }}>
+    <div class="relative z-10 flex h-[72vh] w-[86vw] flex-col overflow-hidden rounded-[var(--radius-xl)] border border-border-strong bg-bg-surface p-4 pb-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
       <div class="mb-3 flex shrink-0 items-center justify-between">
-        <span id="expanded-chart-title" class="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-text-muted">
+        <span class="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-text-muted">
           {#if exIcon}<img src={exIcon} alt="" class="w-[18px] h-[18px] object-contain align-middle opacity-85" />{/if}
           {$tr(expandedChartTitle(expandedKey))}
         </span>
@@ -419,7 +419,7 @@
         {/if}
       </div>
     </div>
-  </div>
+  </ModalShell>
 {/if}
 
 <section class="view active">
