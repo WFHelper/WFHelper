@@ -16,7 +16,7 @@
 </script>
 
 <div
-  class="pointer-events-none fixed right-4 top-[calc(var(--titlebar-height)+0.65rem)] z-[1200] flex w-16 max-w-[90vw] flex-col gap-2"
+  class="pointer-events-none fixed right-4 top-[calc(var(--titlebar-height)+0.65rem)] z-[1200] flex w-80 max-w-[90vw] flex-col gap-2"
 >
   {#each $toasts as toast (toast.id)}
     <article
