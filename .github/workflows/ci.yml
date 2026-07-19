@@ -44,6 +44,9 @@ jobs:
       - name: Lint
         run: pnpm run lint
 
+      - name: Format check
+        run: pnpm run format:check
+
       - name: Dead code audit
         run: pnpm run audit:deadcode
 
@@ -114,3 +117,6 @@ jobs:
           pnpm run typecheck:main
           pnpm run test:main
           pnpm run build
+
+      - name: E2E smoke tests (Windows)
+        run: pnpm exec playwright test --config playwright.config.ts
