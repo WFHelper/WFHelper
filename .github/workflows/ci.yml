@@ -62,35 +62,9 @@ jobs:
       - name: Build
         run: pnpm run build
 
-  e2e:
-    needs: validate
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build
-        run: pnpm run build
-
-      - name: E2E smoke tests
-        run: xvfb-run --auto-servernum pnpm exec playwright test --config playwright.config.ts
-        env:
-          DEBUG: pw:browser*
-          ELECTRON_ENABLE_LOGGING: "1"
-          ELECTRON_ENABLE_STACK_DUMPING: "1"
+  # No Linux E2E job: the app relies on Windows-only native modules (DXGI screen
+  # capture), so the full Electron app can't boot on Linux. E2E runs on Windows
+  # below; Linux still covers typecheck/lint/unit/build in `validate`.
 
   validate-windows:
     runs-on: windows-latest

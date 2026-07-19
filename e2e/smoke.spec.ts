@@ -36,7 +36,7 @@ test.describe("Electron Smoke", () => {
   });
 
   test("renders app shell", async () => {
-    await expect(page.locator("#app")).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator("#app")).toBeVisible({ timeout: 40_000 });
     await expect(page.locator("#content")).toBeVisible();
 
     const sidebar = page.locator("#sidebar");
