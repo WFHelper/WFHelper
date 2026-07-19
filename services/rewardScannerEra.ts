@@ -22,6 +22,9 @@ import { clampNumber } from "../config/shared/numeric";
 
 const log = withScope("rewardScanner");
 
+// Each region encodes synchronously on the UI thread - yield or the cursor stalls.
+const yieldToEventLoop = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+
 interface RelicEraDetectionResult {
   era: string | null;
   confidence: number;
@@ -113,6 +116,7 @@ async function scanFilterLabel(
   let best = emptyCandidate();
 
   for (const rect of RELIC_ERA_FILTER_LABEL_RECTS) {
+    await yieldToEventLoop();
     let cropped: NativeImage;
     try {
       cropped = cropRect(screenshot.image, rect);
@@ -171,6 +175,7 @@ async function scanTileLabels(
   let best = emptyCandidate();
 
   for (const rect of RELIC_ROW_TILE_LABEL_RECTS) {
+    await yieldToEventLoop();
     let cropped: NativeImage;
     try {
       cropped = cropRect(screenshot.image, rect);
@@ -229,6 +234,7 @@ async function scanHeaderBands(
   let best = emptyCandidate();
 
   for (const band of RELIC_ERA_BANDS) {
+    await yieldToEventLoop();
     let cropped: NativeImage;
     try {
       cropped = cropBand(screenshot.image, band);
