@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { parseFoundry, parseInventory, parseResources } from "../../../src/lib/inventory.js";
 import { buildFullSetItems } from "../../../src/lib/inventory/fullSets.js";
-import type { ItemDbEntry, RawInventoryData, RawInventoryEntry } from "../../../src/types/inventory.js";
+import type {
+  ItemDbEntry,
+  RawInventoryData,
+  RawInventoryEntry,
+} from "../../../src/types/inventory.js";
 
 describe("inventory parsing", () => {
   it("parses inventory categories and hides exalted/special entries", () => {
@@ -210,9 +214,24 @@ describe("inventory parsing", () => {
         category: "Warframes",
         isPrime: true,
         components: [
-          { uniqueName: "/Lotus/Types/Recipes/WarframeRecipes/MagPrimeBlueprint", itemCount: 1, tradable: true, name: "Blueprint" },
-          { uniqueName: "/Lotus/Types/Recipes/WarframeRecipes/MagPrimeChassisComponent", itemCount: 1, tradable: true, name: "Chassis" },
-          { uniqueName: "/Lotus/Types/Recipes/WarframeRecipes/MagPrimeSystemsComponent", itemCount: 1, tradable: true, name: "Systems" },
+          {
+            uniqueName: "/Lotus/Types/Recipes/WarframeRecipes/MagPrimeBlueprint",
+            itemCount: 1,
+            tradable: true,
+            name: "Blueprint",
+          },
+          {
+            uniqueName: "/Lotus/Types/Recipes/WarframeRecipes/MagPrimeChassisComponent",
+            itemCount: 1,
+            tradable: true,
+            name: "Chassis",
+          },
+          {
+            uniqueName: "/Lotus/Types/Recipes/WarframeRecipes/MagPrimeSystemsComponent",
+            itemCount: 1,
+            tradable: true,
+            name: "Systems",
+          },
         ],
       },
     };
@@ -226,11 +245,12 @@ describe("inventory parsing", () => {
     expect(mag?.completeSets).toBe(1);
   });
 
-  // Regression: special non-prime weapons (Ghoulsaw, Orvius) get every component
-  // flagged tradable:false by @wfcd, and their parts are owned as ...Blueprint.
-  // Real parts under /WeaponParts/ must still count; the non-tradeable main
-  // blueprint and build resources must not.
-  it("counts non-prime weapon sets from WeaponParts ownership, ignoring resources", () => {
+  // Regression: special non-prime weapons (Ghoulsaw, Ambassador, Orvius) get every
+  // component flagged tradable:false by @wfcd. The warframe.market set is the main
+  // blueprint PLUS the parts under /WeaponParts/ (verified: ambassador_set and
+  // ghoulsaw_set both list the blueprint as a set part). Build resources must not
+  // count, and the set is not "full" without the main blueprint.
+  it("requires the main blueprint and WeaponParts for a non-prime weapon set", () => {
     const root = "/Lotus/Weapons/Tenno/Melee/Glaives/TeshinGlaive/TnTeshinGlaiveWep";
     const itemDb: Record<string, ItemDbEntry> = {
       [root]: {
@@ -238,22 +258,52 @@ describe("inventory parsing", () => {
         category: "Melee",
         type: "Melee",
         components: [
-          { uniqueName: "/Lotus/Types/Recipes/Weapons/WeaponParts/TeshinGlaiveBlade", itemCount: 2, tradable: false, name: "Blade" },
-          { uniqueName: "/Lotus/Types/Recipes/Weapons/WeaponParts/TeshinGlaiveDisc", itemCount: 1, tradable: false, name: "Disc" },
-          { uniqueName: "/Lotus/Types/Recipes/Weapons/TeshinGlaiveBlueprint", itemCount: 1, tradable: false, name: "Blueprint" },
-          { uniqueName: "/Lotus/Types/Items/MiscItems/OrokinCell", itemCount: 10, tradable: false, name: "Orokin Cell" },
+          {
+            uniqueName: "/Lotus/Types/Recipes/Weapons/WeaponParts/TeshinGlaiveBlade",
+            itemCount: 2,
+            tradable: false,
+            name: "Blade",
+          },
+          {
+            uniqueName: "/Lotus/Types/Recipes/Weapons/WeaponParts/TeshinGlaiveDisc",
+            itemCount: 1,
+            tradable: false,
+            name: "Disc",
+          },
+          {
+            uniqueName: "/Lotus/Types/Recipes/Weapons/TeshinGlaiveBlueprint",
+            itemCount: 1,
+            tradable: false,
+            name: "Blueprint",
+          },
+          {
+            uniqueName: "/Lotus/Types/Items/MiscItems/OrokinCell",
+            itemCount: 10,
+            tradable: false,
+            name: "Orokin Cell",
+          },
         ],
       },
     };
-    // Owns spare parts (no main blueprint), exactly the WFM-sellable set.
-    const owned = new Map<string, number>([
+
+    // Spare parts but no main blueprint -> not a complete (sellable) set.
+    const partsOnly = new Map<string, number>([
       ["/Lotus/Types/Recipes/Weapons/WeaponParts/TeshinGlaiveBlade", 2],
       ["/Lotus/Types/Recipes/Weapons/WeaponParts/TeshinGlaiveDisc", 13],
     ]);
+    expect(
+      buildFullSetItems(itemDb, partsOnly).find((s) => s.name === "Orvius Set"),
+    ).toBeUndefined();
 
-    const orvius = buildFullSetItems(itemDb, owned).find((s) => s.name === "Orvius Set");
+    // Parts + main blueprint -> one full set; the Orokin Cell resource is ignored.
+    const withBlueprint = new Map<string, number>([
+      ["/Lotus/Types/Recipes/Weapons/WeaponParts/TeshinGlaiveBlade", 2],
+      ["/Lotus/Types/Recipes/Weapons/WeaponParts/TeshinGlaiveDisc", 13],
+      ["/Lotus/Types/Recipes/Weapons/TeshinGlaiveBlueprint", 1],
+    ]);
+    const orvius = buildFullSetItems(itemDb, withBlueprint).find((s) => s.name === "Orvius Set");
     expect(orvius?.completeSets).toBe(1);
-    expect(orvius?.components).toHaveLength(2);
+    expect(orvius?.components).toHaveLength(3);
   });
 
   it("parses nested object collections and leveled rank signals", () => {

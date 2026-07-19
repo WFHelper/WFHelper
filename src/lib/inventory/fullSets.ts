@@ -8,13 +8,15 @@ import {
   isRelicLikeItem,
 } from "./itemClassification.js";
 
-// Special non-prime weapons (Ghoulsaw, Orvius, ...) get every component flagged
-// tradable:false by @wfcd, even the parts that the set is actually sold as. Their
-// real parts always live under .../Recipes/Weapons/WeaponParts/, so treat those as
-// set parts regardless of the flag. This deliberately leaves out a non-tradeable
-// standalone main blueprint (not part of the WFM set) and build resources.
-function isWeaponPart(uniqueName: string): boolean {
-  return /\/Recipes\/Weapons\/WeaponParts?\//i.test(uniqueName);
+// Special non-prime weapons (Ghoulsaw, Ambassador, ...) get every component flagged
+// tradable:false by @wfcd, even the pieces the set is actually sold as. The
+// warframe.market set for these weapons is the main build blueprint PLUS the parts
+// under .../Recipes/Weapons/WeaponParts/ — verified against WFM, where ambassador_set
+// and ghoulsaw_set both list the blueprint as a set part. Count both regardless of
+// the flag. Build resources (Orokin Cell, ...) live outside /Recipes/Weapons/ and
+// stay out.
+function isWeaponSetComponent(uniqueName: string): boolean {
+  return /\/Recipes\/Weapons\/(WeaponParts?\/|.*Blueprint$)/i.test(uniqueName);
 }
 
 // A set component can be owned under a different name than the set lists it:
@@ -98,7 +100,7 @@ export function buildFullSetItems(
     const setComponents = components.filter(
       (component) =>
         component.uniqueName &&
-        (component.tradable !== false || isWeaponPart(component.uniqueName)),
+        (component.tradable !== false || isWeaponSetComponent(component.uniqueName)),
     );
     if (setComponents.length === 0) continue;
 
