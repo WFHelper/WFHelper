@@ -1,7 +1,11 @@
 import type { NativeImage } from "electron";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { binarizeRewardRegion, detectConsoleOpen } from "../../services/rewardScannerImage";
+import {
+  binarizeRewardRegion,
+  detectConsoleOpen,
+  detectRewardSlotLayoutCandidates,
+} from "../../services/rewardScannerImage";
 import { resetFrameDedup } from "../../services/rewardScanner";
 
 function makeFakeNativeImage(
@@ -133,6 +137,42 @@ async function binarizedSamples(png: Buffer): Promise<{ glyphs: number[]; backgr
     background: [30, 60, 90].map((x) => px(x * 3, 12 * 3)),
   };
 }
+
+describe("detectRewardSlotLayoutCandidates aspect handling", () => {
+  // Bright band across the reward-card row so every fixed layout sees activity.
+  function frameWithRewardRow(width: number, height: number) {
+    return makeFakeNativeImage(width, height, (x, y) => {
+      const inRow = y >= height * 0.2 && y <= height * 0.47;
+      const inCards = x >= width * 0.2 && x <= width * 0.8;
+      return inRow && inCards ? [230, 230, 230, 255] : [8, 8, 8, 255];
+    });
+  }
+
+  function fourSlotLayout(width: number, height: number) {
+    const layout = detectRewardSlotLayoutCandidates(frameWithRewardRow(width, height)).find(
+      (candidate) => candidate.count === 4,
+    );
+    expect(layout).toBeDefined();
+    return layout!;
+  }
+
+  it("leaves the measured 16:9 ratios untouched on a 16:9 frame", () => {
+    const { slots } = fourSlotLayout(1920, 1080);
+    expect(slots[0].x).toBeCloseTo(0.245, 3);
+    expect(slots[0].width).toBeCloseTo(0.122, 3);
+    expect(slots[3].x).toBeCloseTo(0.626, 3);
+  });
+
+  it("narrows and re-centres the cards on a 21:9 frame", () => {
+    const scale = (1440 * (16 / 9)) / 3440;
+    const { slots } = fourSlotLayout(3440, 1440);
+    expect(slots[0].x).toBeCloseTo(0.5 + (0.245 - 0.5) * scale, 3);
+    expect(slots[0].width).toBeCloseTo(0.122 * scale, 3);
+    // Outer card must not spill into its neighbour - that killed slots 1 and 4.
+    const last = slots[3];
+    expect(last.x + last.width).toBeCloseTo(0.5 + (0.626 + 0.122 - 0.5) * scale, 3);
+  });
+});
 
 describe("binarizeRewardRegion", () => {
   it("renders bright text on a dark strip as dark-on-white", async () => {

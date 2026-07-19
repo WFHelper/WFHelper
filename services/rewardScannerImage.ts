@@ -275,6 +275,30 @@ const FIXED_REWARD_LAYOUTS: Readonly<
   ],
 });
 
+// Ratios were measured on 16:9. The panel scales with frame HEIGHT and is centred,
+// so on wider screens they crop too wide - rescale x about the centre.
+const REFERENCE_ASPECT = 16 / 9;
+
+function horizontalScaleFor(nativeImage: NativeImage): number {
+  if (!nativeImage || typeof nativeImage.getSize !== "function") return 1;
+  const { width, height } = nativeImage.getSize();
+  if (!(width > 0) || !(height > 0)) return 1;
+  const referenceWidth = height * REFERENCE_ASPECT;
+  return referenceWidth < width ? referenceWidth / width : 1;
+}
+
+function aspectCorrectLayout(
+  layout: ReadonlyArray<{ x: number; y: number; width: number; height: number }>,
+  scaleX: number,
+): Array<{ x: number; y: number; width: number; height: number }> {
+  if (scaleX >= 1) return layout.map((slot) => ({ ...slot }));
+  return layout.map((slot) => ({
+    ...slot,
+    x: 0.5 + (slot.x - 0.5) * scaleX,
+    width: slot.width * scaleX,
+  }));
+}
+
 function smoothColumns(values: number[]): number[] {
   if (values.length <= 2) return values.slice();
   return values.map((value, index) => {
@@ -374,9 +398,12 @@ function detectFixedRewardSlotLayouts(nativeImage: NativeImage): RewardSlotLayou
     }));
   }
 
+  const scaleX = horizontalScaleFor(nativeImage);
   for (const [countKey, layout] of Object.entries(FIXED_REWARD_LAYOUTS)) {
     const count = Number(countKey);
-    const activities = layout.map((slot) => computeSlotActivity(nativeImage, slot));
+    // Sample the same rects the crops use, or a wide frame scores the gaps.
+    const scaled = aspectCorrectLayout(layout, scaleX);
+    const activities = scaled.map((slot) => computeSlotActivity(nativeImage, slot));
     const activeCount = activities.filter((score) => score >= 0.22).length;
     const avgScore =
       activities.reduce((sum, score) => sum + score, 0) / Math.max(1, activities.length);
@@ -386,7 +413,7 @@ function detectFixedRewardSlotLayouts(nativeImage: NativeImage): RewardSlotLayou
         clamp01(avgScore / 0.7) * 0.42
       ).toFixed(3),
     );
-    const slots: RewardSlotRect[] = buildFixedSlots(layout);
+    const slots: RewardSlotRect[] = buildFixedSlots(scaled);
 
     if (activeCount >= Math.min(2, count) || avgScore >= 0.28) {
       candidates.push({ count, confidence, slots });
