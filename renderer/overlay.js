@@ -377,7 +377,6 @@ function renderPlannerRows(payload) {
   const era = String(payload?.era || "").trim();
   const confidence = Number(payload?.detection?.confidence || 0);
   const detectionElapsedMs = Number(payload?.detection?.elapsedMs || 0);
-  const totalOwnedCount = Number(payload?.totalOwnedCount || 0);
   const rows = Array.isArray(payload?.rows) ? payload.rows.filter(Boolean) : [];
 
   hideScanning();
@@ -393,8 +392,6 @@ function renderPlannerRows(payload) {
   errorBanner.classList.toggle("info", rows.length === 0 && !era);
   errorBanner.textContent = rows.length === 0 ? emptyMessage : "";
 
-  const countLabel = totalOwnedCount > 0 ? `${totalOwnedCount}` : "";
-  const eraLabel = era ? `${era.charAt(0).toUpperCase()}${era.slice(1)} era` : "";
   showBestFooter(false);
   showPlannerHint(!overlayInteractiveMode);
 

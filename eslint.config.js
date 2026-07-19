@@ -153,6 +153,35 @@ module.exports = [
       ],
     },
   },
+  {
+    // Unbundled overlay scripts, outside the Vite/tsc build.
+    files: ["renderer/*.js"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "script",
+      globals: {
+        ...globals.browser,
+      },
+    },
+    rules: {
+      "no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+      "no-empty": ["error", { allowEmptyCatch: true }],
+    },
+  },
+  {
+    // The riven overlay is loaded with <script type="module">.
+    files: ["renderer/riven-overlay.js", "renderer/riven-similarity.js"],
+    languageOptions: {
+      sourceType: "module",
+    },
+  },
   ...sveltePlugin.configs["flat/recommended"],
   {
     files: ["src/**/*.svelte"],
@@ -197,6 +226,7 @@ module.exports = [
       "services/**/*.js",
       "services/**/*.ts",
       "scripts/**/*.js",
+      "renderer/*.js",
     ],
     rules: {
       "svelte/no-inner-declarations": "off",
