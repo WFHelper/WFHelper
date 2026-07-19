@@ -3,6 +3,7 @@ import { clampNumber } from "../shared/numeric";
 /** Bounds for the user's UI scale override, matching the overlay scale range. */
 export const UI_SCALE_MIN = 0.75;
 export const UI_SCALE_MAX = 1.5;
+export const UI_SCALE_STEP = 0.05;
 
 // workArea heights are device-independent px, so this composes with Windows DPI scaling.
 export function baseZoomForDisplayHeight(height: unknown): number {

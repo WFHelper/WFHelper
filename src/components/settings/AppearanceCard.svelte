@@ -5,6 +5,7 @@
   import ColorSection from "./ColorSection.svelte";
   import StyleSection from "./StyleSection.svelte";
   import FontSizeSection from "./FontSizeSection.svelte";
+  import AppScaleSection from "./AppScaleSection.svelte";
   import ThemedControlCard from "../ThemedControlCard.svelte";
 
   $: contrastSafe = $themeSettings.contrastSafeMode;
@@ -28,6 +29,7 @@
     <PresetSelector />
     <StyleSection />
     <ColorSection />
+    <AppScaleSection />
     <FontSizeSection />
 
     <!-- Contrast-Safe Mode -->

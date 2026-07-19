@@ -6,6 +6,8 @@
   import { currentView, SETUP_COMPLETED_KEY, statusText } from "../stores/app.js";
   import { themeSettings } from "../stores/theme.js";
   import { invoke, on } from "../lib/ipc.js";
+  import { loadUiScale, saveUiScale } from "../lib/uiScaleSetting.js";
+  import { UI_SCALE_MAX, UI_SCALE_MIN, UI_SCALE_STEP } from "../../config/runtime/uiScale.js";
   import { APP_LOGO_URL, SETUP_OVERLAY_BG_URLS } from "../lib/assetUrls.js";
   import { writeStorage } from "../lib/persistence.js";
   import { shouldAutoStartTour, startTour } from "../stores/tour.js";
@@ -34,6 +36,7 @@
   let removeProgressListener: (() => void) | null = null;
   let removeInventoryListener: (() => void) | null = null;
   let pendingInventoryData: unknown = null;
+  let uiScale = 1;
 
   const surfaceOptions: Array<{ value: ThemeSurfaceStyle; label: string }> = [
     { value: "full", label: "Full" },
@@ -56,6 +59,11 @@
   ];
 
   onMount(async () => {
+    // Not awaited - the inventory checks below shouldn't wait on a slider.
+    loadUiScale()
+      .then((value) => (uiScale = value))
+      .catch(() => {});
+
     removeProgressListener = on("helper-download-progress", (p) => {
       progress = p;
       if (p.stage === "done") {
@@ -451,6 +459,11 @@
     }
   }
 
+  // On release, not on input: each save re-zooms the window under the cursor.
+  function commitUiScale(): void {
+    void saveUiScale(uiScale).catch(() => {});
+  }
+
   const finish = (): void => void enterOverlaysStep();
   const skip = (): void => completeSetup("inventory");
 
@@ -733,6 +746,38 @@
             </h2>
 
             <div class="grid gap-3">
+              <div
+                class="rounded-lg border border-[var(--ui-panel-border)] bg-[var(--ui-control-bg)] px-3 py-3 [backdrop-filter:var(--ui-backdrop-blur)]"
+              >
+                <div class="mb-2 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 class="m-0 font-display text-sm font-semibold text-text-primary">
+                      App size
+                    </h3>
+                    <p class="mt-0.5 text-xs leading-snug text-text-muted">
+                      Already fitted to your display - drag if this looks too small or too big.
+                      Changeable later in Settings &gt; Appearance.
+                    </p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min={UI_SCALE_MIN}
+                    max={UI_SCALE_MAX}
+                    step={UI_SCALE_STEP}
+                    bind:value={uiScale}
+                    on:change={commitUiScale}
+                    class="h-1.5 flex-1 cursor-pointer"
+                    style="accent-color: var(--accent);"
+                    aria-label="App size"
+                  />
+                  <span class="w-10 shrink-0 text-right text-xs text-text-muted"
+                    >{Math.round(uiScale * 100)}%</span
+                  >
+                </div>
+              </div>
+
               <div
                 class="rounded-lg border border-[var(--ui-panel-border)] bg-[var(--ui-control-bg)] px-3 py-3 [backdrop-filter:var(--ui-backdrop-blur)]"
               >

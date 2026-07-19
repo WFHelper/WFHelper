@@ -214,6 +214,10 @@ export const en = {
   "appearance.colorsSemantic": "Semantic",
   "appearance.colorsGrades": "Riven Grades",
   "appearance.colorsBorders": "Borders",
+  "appearance.appScale": "App Size",
+  "appearance.appScaleRow": "Interface scale",
+  "appearance.appScaleHint":
+    "Zooms the whole app. Already fitted to your display - nudge to taste.",
   "appearance.fontSizes": "Font Sizes",
   "appearance.globalScale": "Global Scale",
   "appearance.headingSize": "Heading Size",
