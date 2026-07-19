@@ -1,0 +1,24 @@
+# gitleaks configuration for WFHelper.
+# Extends the built-in ruleset and allowlists a handful of known non-secrets so
+# CI stays green. See .github/workflows/secret-scan.yml for how it is run.
+title = "WFHelper gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known non-secret values committed on purpose"
+
+# Cloudflare KV namespace + preview IDs from backend/worker/wrangler.jsonc are
+# public resource identifiers - inert without account credentials, not secrets.
+regexes = [
+  '''93e17278beee46b48e7666da5146f8e2''',
+  '''f50302722fd345bfb1c2109e89b6ca9d''',
+  '''e4990d24455b4b648a8c24d908b63813''',
+  '''b332ce4ec0b043d89e07b526244e31d8''',
+]
+
+# Intentionally-empty env template that ships in the repo.
+paths = [
+  '''\.env\.example$''',
+]
