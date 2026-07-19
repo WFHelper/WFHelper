@@ -115,9 +115,12 @@ importers:
       prettier:
         specifier: ^3.8.1
         version: 3.8.1
+      prettier-plugin-svelte:
+        specifier: ^4.1.1
+        version: 4.1.1(prettier@3.8.1)(svelte@5.55.7(@typescript-eslint/types@8.56.1))
       prettier-plugin-tailwindcss:
         specifier: ^0.7.2
-        version: 0.7.2(prettier@3.8.1)
+        version: 0.7.2(prettier-plugin-svelte@4.1.1(prettier@3.8.1)(svelte@5.55.7(@typescript-eslint/types@8.56.1)))(prettier@3.8.1)
       svelte:
         specifier: ^5.55.7
         version: 5.55.7(@typescript-eslint/types@8.56.1)
@@ -2652,6 +2655,13 @@ packages:
   prelude-ls@1.2.1:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
     engines: {node: '>= 0.8.0'}
+
+  prettier-plugin-svelte@4.1.1:
+    resolution: {integrity: sha512-wXvbXMjSvb4C9ENWTHXyd+ihakKCsJ6rJhLP6/8HFNj4GkZr48jqL9PoKsl2sk7SyCZRTnJ7O2TTowUpOxP/KA==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      prettier: ^3.0.0
+      svelte: ^5.0.0
 
   prettier-plugin-tailwindcss@0.7.2:
     resolution: {integrity: sha512-LkphyK3Fw+q2HdMOoiEHWf93fNtYJwfamoKPl7UwtjFQdei/iIBoX11G6j706FzN3ymX9mPVi97qIY8328vdnA==}
@@ -5779,9 +5789,16 @@ snapshots:
 
   prelude-ls@1.2.1: {}
 
-  prettier-plugin-tailwindcss@0.7.2(prettier@3.8.1):
+  prettier-plugin-svelte@4.1.1(prettier@3.8.1)(svelte@5.55.7(@typescript-eslint/types@8.56.1)):
     dependencies:
       prettier: 3.8.1
+      svelte: 5.55.7(@typescript-eslint/types@8.56.1)
+
+  prettier-plugin-tailwindcss@0.7.2(prettier-plugin-svelte@4.1.1(prettier@3.8.1)(svelte@5.55.7(@typescript-eslint/types@8.56.1)))(prettier@3.8.1):
+    dependencies:
+      prettier: 3.8.1
+    optionalDependencies:
+      prettier-plugin-svelte: 4.1.1(prettier@3.8.1)(svelte@5.55.7(@typescript-eslint/types@8.56.1))
 
   prettier@3.8.1: {}
 
