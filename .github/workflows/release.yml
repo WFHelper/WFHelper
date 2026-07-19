@@ -136,3 +136,56 @@ jobs:
           }
 
           gh release upload "$env:GITHUB_REF_NAME" $paths --clobber --repo "$env:GITHUB_REPOSITORY"
+
+  notify-discord:
+    needs: release-windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Announce the release on Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "DISCORD_WEBHOOK_URL secret not set - skipping Discord announcement."
+            exit 0
+          fi
+          # Pull the release the release-windows job just created/uploaded. The
+          # changelog posted is whatever is in the release body at this moment, so
+          # write custom notes before the tag if you want them (auto-generated
+          # commit notes post otherwise).
+          title=$(gh release view "$TAG" --repo "$REPO" --json name --jq '.name // ""')
+          [ -z "$title" ] && title="$TAG"
+          url=$(gh release view "$TAG" --repo "$REPO" --json url --jq '.url')
+          body=$(gh release view "$TAG" --repo "$REPO" --json body --jq '.body // ""')
+          # jq builds the payload: it JSON-escapes the notes, truncates by
+          # codepoint (never mid-emoji) with a "full changelog" link when long, and
+          # allowed_mentions:{parse:[]} guarantees the post pings no one even if the
+          # notes contain @mentions.
+          payload=$(jq -n \
+            --arg title "$title" \
+            --arg url "$url" \
+            --arg body "$body" \
+            '
+            ($body
+              | if length == 0 then "A new version of WFHelper is available - see the release for details."
+                elif length > 1500 then .[0:1500] + "…\n\n**[Full changelog →](" + $url + ")**"
+                else . end) as $desc
+            | {
+                username: "WFHelper Releases",
+                content: ("**WFHelper " + $title + " is out** 🎉"),
+                allowed_mentions: { parse: [] },
+                embeds: [ {
+                  title: ("WFHelper " + $title),
+                  url: $url,
+                  description: $desc,
+                  color: 13936707,
+                  footer: { text: "Download at wfhelper.com" }
+                } ]
+              }')
+          curl -sS -f -X POST -H "Content-Type: application/json" \
+            -d "$payload" "$DISCORD_WEBHOOK_URL"
