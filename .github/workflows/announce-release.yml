@@ -1,0 +1,53 @@
+name: Announce release
+
+# NOTE: `release` events only run workflow files from the default branch - this
+# file must be on `main` to fire.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  notify-discord:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Announce the release on Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TITLE: ${{ github.event.release.name }}
+          TAG: ${{ github.event.release.tag_name }}
+          URL: ${{ github.event.release.html_url }}
+          BODY: ${{ github.event.release.body }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "DISCORD_WEBHOOK_URL secret not set - skipping Discord announcement."
+            exit 0
+          fi
+          title="$TITLE"
+          [ -z "$title" ] && title="$TAG"
+          # jq escapes + truncates by codepoint; allowed_mentions keeps notes from pinging.
+          payload=$(jq -n \
+            --arg title "$title" \
+            --arg url "$URL" \
+            --arg body "$BODY" \
+            '
+            ($body
+              | if length == 0 then "A new version of WFHelper is available - see the release for details."
+                elif length > 1500 then .[0:1500] + "…\n\n**[Full changelog →](" + $url + ")**"
+                else . end) as $desc
+            | {
+                username: "WFHelper Releases",
+                content: ("**WFHelper " + $title + " is out** 🎉"),
+                allowed_mentions: { parse: [] },
+                embeds: [ {
+                  title: ("WFHelper " + $title),
+                  url: $url,
+                  description: $desc,
+                  color: 13936707,
+                  footer: { text: "Download at wfhelper.com" }
+                } ]
+              }')
+          curl -sS -f -X POST -H "Content-Type: application/json" \
+            -d "$payload" "$DISCORD_WEBHOOK_URL"
