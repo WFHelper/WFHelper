@@ -1,6 +1,6 @@
 {
   "name": "wfhelper",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A Warframe companion app - inventory viewer, foundry tracker, and more.",
   "main": ".electron-build/main.js",
   "engines": {
