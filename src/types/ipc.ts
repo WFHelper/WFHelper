@@ -65,6 +65,8 @@ export interface OverlaySettings {
   arbiSummaryOverlayEnabled: boolean;
   arbiTrackingEnabled: boolean;
   ocrDebugImagesEnabled: boolean;
+  /** Main-window zoom multiplier applied on top of the display-derived base. */
+  uiScale: number;
   overlayScale: number;
   overlayWindowScales: Partial<Record<OverlayWindowKey, number>>;
   overlayWindowBounds: Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>>;

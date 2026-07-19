@@ -46,6 +46,8 @@ export interface OverlaySettings {
   arbiTrackingEnabled: boolean;
   /** Save failed-scan OCR images (riven crops, reward scan-debug bundles); on unless opted out. */
   ocrDebugImagesEnabled: boolean;
+  /** Main-window zoom multiplier applied on top of the display-derived base. */
+  uiScale: number;
   overlayScale: number;
   /** Per-window scale override; windows without an entry use overlayScale. */
   overlayWindowScales: Partial<Record<OverlayWindowKey, number>>;
@@ -83,6 +85,7 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   arbiSummaryOverlayEnabled: true,
   arbiTrackingEnabled: true,
   ocrDebugImagesEnabled: true,
+  uiScale: 1,
   overlayScale: 1,
   overlayWindowScales: Object.freeze({}),
   overlayWindowBounds: Object.freeze({}),

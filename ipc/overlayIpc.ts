@@ -15,6 +15,7 @@ import * as rewardOverlayIpc from "./rewardOverlayIpc";
 import * as arbiOverlayIpc from "./arbiOverlayIpc";
 import * as arbiRunTracker from "../services/arbiRunTracker";
 import { setOcrDebugDumpsEnabled } from "../services/rewardScanDebug";
+import { applyMainWindowZoom } from "./mainWindowZoom";
 import {
   isArbiSummaryOverlayEnabled,
   isRelicRecommendationOverlayEnabled,
@@ -391,6 +392,7 @@ function register(): void {
       applyOverlayAvailabilitySettings();
       arbiRunTracker.setArbiTrackingEnabled(settings.arbiTrackingEnabled !== false);
       setOcrDebugDumpsEnabled(settings.ocrDebugImagesEnabled !== false);
+      applyMainWindowZoom();
       rewardOverlayIpc.rewardWindowsController.positionOverlayWindow(
         rewardOverlayIpc.rewardWindowsController.getAnchorMeta(),
       );

@@ -218,6 +218,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       arbiSummaryOverlayEnabled: booleanSetting("arbiSummaryOverlayEnabled"),
       arbiTrackingEnabled: booleanSetting("arbiTrackingEnabled"),
       ocrDebugImagesEnabled: booleanSetting("ocrDebugImagesEnabled"),
+      uiScale: normalizeOverlayScale(candidate.uiScale, defaults.uiScale),
       overlayScale: normalizeOverlayScale(candidate.overlayScale, defaults.overlayScale),
       overlayWindowScales: normalizeWindowScales(candidate.overlayWindowScales),
       overlayWindowBounds: normalizeSavedBounds(candidate.overlayWindowBounds),

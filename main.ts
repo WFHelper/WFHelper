@@ -37,6 +37,7 @@ import * as rankedHotsetIpc from "./ipc/rankedHotsetIpc";
 import * as statsIpc from "./ipc/statsIpc";
 import * as rivensIpc from "./ipc/rivensIpc";
 import * as tradeNotificationIpc from "./ipc/tradeNotificationIpc";
+import { applyMainWindowZoom } from "./ipc/mainWindowZoom";
 import { assertMainRendererSender, handleAuthorized } from "./ipc/ipcSecurity";
 import {
   HELPER_GET_STATUS,
@@ -112,6 +113,10 @@ function createWindow(): void {
   });
 
   ctx.mainWindow.loadFile(MAIN_WINDOW_ENTRY_FILE);
+
+  // Zoom resets on navigation, so re-apply on load; on move, to re-fit per display.
+  ctx.mainWindow.webContents.on("did-finish-load", applyMainWindowZoom);
+  ctx.mainWindow.on("moved", applyMainWindowZoom);
 
   // Block page reload shortcuts (Ctrl+R, Ctrl+Shift+R, F5) to prevent breaking app state.
   ctx.mainWindow.webContents.on(

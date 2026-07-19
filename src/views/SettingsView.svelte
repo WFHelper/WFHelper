@@ -75,6 +75,7 @@
   let arbiTrackingEnabled = OVERLAY_DEFAULTS.arbiTrackingEnabled;
   let ocrDebugImagesEnabled = OVERLAY_DEFAULTS.ocrDebugImagesEnabled;
   let overlayScale = OVERLAY_DEFAULTS.overlayScale;
+  let uiScale = OVERLAY_DEFAULTS.uiScale;
   let hotkeyEnabled = OVERLAY_DEFAULTS.hotkeyEnabled;
   let hotkey = OVERLAY_DEFAULTS.hotkey;
   let interactionHotkeyEnabled = OVERLAY_DEFAULTS.interactionHotkeyEnabled;
@@ -103,6 +104,7 @@
     arbiTrackingEnabled = s.arbiTrackingEnabled ?? OVERLAY_DEFAULTS.arbiTrackingEnabled;
     ocrDebugImagesEnabled = s.ocrDebugImagesEnabled ?? OVERLAY_DEFAULTS.ocrDebugImagesEnabled;
     overlayScale = s.overlayScale ?? OVERLAY_DEFAULTS.overlayScale;
+    uiScale = s.uiScale ?? OVERLAY_DEFAULTS.uiScale;
     windowScales = { ...(s.overlayWindowScales || {}) };
     hotkeyEnabled = !!s.hotkeyEnabled;
     hotkey = s.hotkey || OVERLAY_DEFAULTS.hotkey;
@@ -141,6 +143,7 @@
       arbiSummaryOverlayEnabled,
       arbiTrackingEnabled,
       ocrDebugImagesEnabled,
+      uiScale,
       hotkeyEnabled,
       hotkey,
       interactionHotkeyEnabled,
@@ -603,6 +606,22 @@
               on:change={autoSave}
               class="accent-accent"
             />
+          </label>
+
+          <label class="settings-control-row settings-control-row-input">
+            <span>App size (auto-fits your display)</span>
+            <div class="settings-range-control">
+              <input
+                type="range"
+                min="0.75"
+                max="1.5"
+                step="0.05"
+                bind:value={uiScale}
+                on:change={autoSave}
+                class="settings-range"
+              />
+              <span class="settings-range-value">{Math.round(uiScale * 100)}%</span>
+            </div>
           </label>
 
           {#each OVERLAY_SCALE_ROWS as row (row.key)}
