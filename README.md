@@ -4,6 +4,16 @@ Unofficial Warframe companion app for Windows. Reads your inventory, prices it
 with live warframe.market data, scans relic rewards on screen and tracks your
 arbitration runs straight from EE.log.
 
+## Screenshots
+
+![Inventory with live warframe.market prices](.github/screenshots/inventory.png)
+
+| Arbitration run analysis | World state and schedule |
+| :--: | :--: |
+| ![Arbitration runs](.github/screenshots/arbitrations.png) | ![World state](.github/screenshots/world.png) |
+
+<sub>Shown in the midnight-blue theme — 10 are built in, or build your own.</sub>
+
 ## Features
 
 In the app:
