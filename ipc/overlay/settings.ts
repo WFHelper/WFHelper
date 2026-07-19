@@ -25,11 +25,12 @@ type OverlayCtx = {
   overlayInteractiveMode: boolean;
 };
 
-type OverlayFs = Pick<typeof import("node:fs"), "existsSync" | "readFileSync" | "writeFileSync">;
+type OverlayFs = Pick<typeof import("node:fs"), "existsSync" | "readFileSync">;
 
 type OverlaySettingsControllerOptions = {
   log: Logger;
   fs: OverlayFs;
+  writeFileAtomic: (filePath: string, data: string) => void;
   globalShortcut: typeof import("electron").globalShortcut;
   ctx: OverlayCtx;
   settingsFile: string;
@@ -80,6 +81,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
   const {
     log,
     fs,
+    writeFileAtomic,
     globalShortcut,
     ctx,
     settingsFile,
@@ -247,7 +249,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
 
   function saveOverlaySettings(): boolean {
     try {
-      fs.writeFileSync(settingsFile, JSON.stringify(ctx.overlaySettings, null, 2), "utf8");
+      writeFileAtomic(settingsFile, JSON.stringify(ctx.overlaySettings, null, 2));
       return true;
     } catch (err) {
       log.error("[OverlaySettings] Failed to save settings:", normalizeErrorMessage(err));

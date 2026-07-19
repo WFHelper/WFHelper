@@ -21,8 +21,8 @@ function buildController() {
     fs: {
       existsSync: vi.fn(() => false),
       readFileSync: vi.fn(() => "{}"),
-      writeFileSync: vi.fn(),
     },
+    writeFileAtomic: vi.fn(),
     globalShortcut: {
       register: vi.fn((accelerator: string, handler: () => void) => {
         registerCallbacks.set(accelerator, handler);
@@ -146,7 +146,7 @@ describe("overlay settings controller", () => {
 
     expect(next.hotkey).toBe("Alt+P");
     expect(next.worldNotificationsEnabled).toBe(false);
-    expect(deps.fs.writeFileSync).toHaveBeenCalledTimes(1);
+    expect(deps.writeFileAtomic).toHaveBeenCalledTimes(1);
   });
 
   it("registers hotkeys and dispatches trigger callbacks", () => {

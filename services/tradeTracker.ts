@@ -16,6 +16,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { app } from "electron";
 import { withScope } from "./logger";
+import { writeFileAtomicSync } from "./atomicFile";
 import * as statsTracker from "./statsTracker";
 import * as wfmCatalog from "./wfmCatalog";
 import type { TradeType, TradeDirection, TradeItem, TradeEvent } from "../config/shared/statsTypes";
@@ -104,7 +105,7 @@ function _logPath(): string {
 
 function _saveLog(): void {
   try {
-    fs.writeFileSync(_logPath(), JSON.stringify(_tradeLog, null, 2), "utf-8");
+    writeFileAtomicSync(_logPath(), JSON.stringify(_tradeLog, null, 2));
   } catch (err: unknown) {
     log.warn("[TradeTracker] Failed to save trade log:", String(err));
   }

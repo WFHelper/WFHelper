@@ -14,6 +14,7 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 import { app } from "electron";
 import path from "node:path";
 import fs from "node:fs";
+import { writeFileAtomicSync } from "../services/atomicFile";
 
 interface DiskCacheIpcConfig {
   /** Logger scope name, e.g. `"priceCacheIpc"`. */
@@ -107,7 +108,7 @@ function createDiskCacheIpc(config: DiskCacheIpcConfig): { register: () => void 
           }
 
           const filePath = getCachePath();
-          fs.writeFileSync(filePath, serialized, "utf-8");
+          writeFileAtomicSync(filePath, serialized);
           return { ok: true };
         } catch (err) {
           log.error(`Failed to save ${noun}:`, normalizeErrorMessage(err));

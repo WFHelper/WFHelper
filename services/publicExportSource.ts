@@ -10,6 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { withScope } from "./logger";
+import { writeFileAtomicSync } from "./atomicFile";
 
 const log = withScope("publicExport");
 
@@ -154,7 +155,7 @@ function readCache(): CachePayload | null {
 
 function writeCache(payload: CachePayload): void {
   try {
-    fs.writeFileSync(cachePath(), JSON.stringify(payload), "utf8");
+    writeFileAtomicSync(cachePath(), JSON.stringify(payload));
   } catch (err) {
     log.warn("Failed to write public-export cache", err);
   }

@@ -14,6 +14,7 @@ import { readAlecaFrameInventoryFile } from "../services/alecaFrameInventory";
 import { dialog, app } from "electron";
 import path from "node:path";
 import fs from "node:fs";
+import { writeFileAtomicSync } from "../services/atomicFile";
 import chokidar from "chokidar";
 import crypto from "node:crypto";
 
@@ -77,14 +78,13 @@ function _loadPersistedState(): void {
 
 function _persistState(): void {
   try {
-    fs.writeFileSync(
+    writeFileAtomicSync(
       _inventoryStatePath,
       JSON.stringify({
         hash: _lastInventoryHash,
         reloadAt: _lastReloadAt,
         inventoryPath: _trustedInventoryPath,
       }),
-      JSON_ENCODING,
     );
   } catch (err) {
     log.debug("[Inventory] failed to persist reload state:", normalizeErrorMessage(err));

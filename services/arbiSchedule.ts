@@ -10,6 +10,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { app } from "electron";
 import { withScope } from "./logger";
+import { writeFileAtomicSync } from "./atomicFile";
 import { fetchWithTimeout } from "./worldStateFetch";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import type {
@@ -280,7 +281,7 @@ function _loadCache(): void {
 
 function _saveCache(rawText: string): void {
   try {
-    fs.writeFileSync(_cachePath(), JSON.stringify({ fetchedAt: _fetchedAt, raw: rawText }));
+    writeFileAtomicSync(_cachePath(), JSON.stringify({ fetchedAt: _fetchedAt, raw: rawText }));
   } catch (err) {
     log.warn("failed to save schedule cache:", normalizeErrorMessage(err));
   }
@@ -316,7 +317,7 @@ function _loadStore(): void {
 
 function _saveStore(): void {
   try {
-    fs.writeFileSync(_storePath(), JSON.stringify(_store, null, 2));
+    writeFileAtomicSync(_storePath(), JSON.stringify(_store, null, 2));
   } catch (err) {
     log.warn("failed to save alert store:", normalizeErrorMessage(err));
   }

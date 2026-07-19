@@ -2,6 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { app } from "electron";
 import { withScope } from "./logger";
+import { writeFileAtomicSync } from "./atomicFile";
 
 const log = withScope("statsTracker");
 
@@ -71,7 +72,7 @@ function _saveHistory(): void {
       schemaVersion: HISTORY_SCHEMA_VERSION,
       entries: _history,
     };
-    fs.writeFileSync(_historyPath(), JSON.stringify(payload, null, 2), "utf-8");
+    writeFileAtomicSync(_historyPath(), JSON.stringify(payload, null, 2));
   } catch (err: unknown) {
     log.warn("[StatsTracker] Failed to save history:", String(err));
   }

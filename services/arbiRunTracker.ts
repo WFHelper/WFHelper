@@ -10,6 +10,7 @@ import zlib from "node:zlib";
 import { pipeline } from "node:stream";
 import { app } from "electron";
 import { withScope } from "./logger";
+import { writeFileAtomicSync } from "./atomicFile";
 import { createArbiParser } from "./arbiRunParser";
 import type { ArbiParsedRun, ArbiParser } from "./arbiRunParser";
 import type { ArbiRunEndReason, ArbiRunRecord } from "../config/shared/arbiTypes";
@@ -92,7 +93,7 @@ function _uniqueRunId(date: Date): string {
 function _saveIndex(): void {
   try {
     const payload = { schemaVersion: INDEX_SCHEMA_VERSION, runs: _runs };
-    fs.writeFileSync(_indexPath(), JSON.stringify(payload), "utf-8");
+    writeFileAtomicSync(_indexPath(), JSON.stringify(payload));
   } catch (err) {
     log.warn("[Arbi] Failed to save run index:", normalizeErrorMessage(err));
   }

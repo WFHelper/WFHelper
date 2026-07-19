@@ -6,6 +6,7 @@ import {
   onAuthorized,
 } from "./ipcSecurity";
 import { createOverlaySettingsController } from "./overlay/settings";
+import { writeFileAtomicSync } from "../services/atomicFile";
 import { asRecord } from "./ipcValidators";
 import { withScope } from "../services/logger";
 import * as warframeStatus from "../services/warframeStatus";
@@ -249,6 +250,7 @@ const OVERLAY_SETTINGS_FILE = path.join(app.getPath("userData"), "overlay-settin
 const settingsController = createOverlaySettingsController({
   log,
   fs,
+  writeFileAtomic: writeFileAtomicSync,
   globalShortcut,
   ctx,
   settingsFile: OVERLAY_SETTINGS_FILE,

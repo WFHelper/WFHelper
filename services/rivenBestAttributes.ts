@@ -10,6 +10,7 @@ import {
 } from "../config/shared/rivenGoodRolls";
 import { statTagToDisplayName } from "../config/shared/rivenStatDisplayNames";
 import { withScope } from "./logger";
+import { writeFileAtomicSync } from "./atomicFile";
 
 const log = withScope("rivenBestAttributes");
 
@@ -60,7 +61,7 @@ function readCache(): CachePayload | null {
 
 function writeCache(data: GoodRollMap): void {
   try {
-    fs.writeFileSync(cachePath(), JSON.stringify({ updatedAt: new Date().toISOString(), data }), "utf8");
+    writeFileAtomicSync(cachePath(), JSON.stringify({ updatedAt: new Date().toISOString(), data }));
   } catch (err) {
     log.warn("Failed to write riven good-rolls cache", err);
   }
