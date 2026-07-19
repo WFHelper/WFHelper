@@ -1,3 +1,11 @@
-# Hooks and shell scripts must stay LF - CRLF checkouts break knip's script parsing
-.husky/* text eol=lf
-*.sh text eol=lf
+# Normalize all text to LF on checkout, regardless of core.autocrlf.
+# CRLF trips prettier's endOfLine check and breaks knip's script parsing.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.webp binary
+*.dds binary
+*.ico binary
+*.wav binary
+*.onnx binary
