@@ -17,7 +17,12 @@ function missionLabel(data) {
   if (data.missionType === "defense") return "Defense";
   if (data.missionType === "interception") return "Interception";
   const raw = typeof data.missionTypeRaw === "string" ? data.missionTypeRaw : "";
-  return raw ? raw.replace(/^MT_/, "").toLowerCase().replace(/(^|_)\w/g, (c) => c.replace("_", " ").toUpperCase()) : "Arbitration";
+  return raw
+    ? raw
+        .replace(/^MT_/, "")
+        .toLowerCase()
+        .replace(/(^|_)\w/g, (c) => c.replace("_", " ").toUpperCase())
+    : "Arbitration";
 }
 
 function renderSummary(data) {
@@ -25,7 +30,8 @@ function renderSummary(data) {
   _runId = typeof data.id === "string" ? data.id : null;
 
   el("run-node").textContent = data.node || "Unknown node";
-  el("run-meta").textContent = `${missionLabel(data)} · ${formatDuration(data.durationSec)} · ${Number(data.rotations) || 0} rotations`;
+  el("run-meta").textContent =
+    `${missionLabel(data)} · ${formatDuration(data.durationSec)} · ${Number(data.rotations) || 0} rotations`;
 
   const mean = Number(data.expectedVitusMean);
   const std = Number(data.expectedVitusStd);

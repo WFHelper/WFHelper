@@ -10,12 +10,18 @@
   export let disabled = false;
 </script>
 
-<div class="inline-flex overflow-hidden rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-bg-surface text-xs">
+<div
+  class="inline-flex overflow-hidden rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-bg-surface text-xs"
+>
   {#each options as option, index (option.value)}
     <button
       type="button"
       {disabled}
-      class="px-2 py-1 transition-colors disabled:cursor-not-allowed disabled:opacity-50 {index > 0 ? 'border-l border-border' : ''} {value === option.value ? 'bg-accent text-bg-base font-semibold' : 'text-text-secondary hover:text-text-primary'}"
+      class="px-2 py-1 transition-colors disabled:cursor-not-allowed disabled:opacity-50 {index > 0
+        ? 'border-l border-border'
+        : ''} {value === option.value
+        ? 'bg-accent text-bg-base font-semibold'
+        : 'text-text-secondary hover:text-text-primary'}"
       on:click={() => onChange(option.value)}
     >
       {option.label}

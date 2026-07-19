@@ -20,26 +20,24 @@
     order.orderType === "buy" ? "bg-sky-500/20 text-sky-300" : "bg-amber-500/20 text-amber-300";
   $: liveLabel = order.visible ? "live" : "hidden";
   $: ownedCount = item?.amount ?? 0;
-  $: isRankedListing = item ? isRankedGroup(item.inventoryGroup) && item.maxRank > 0 : order.modRank != null;
+  $: isRankedListing = item
+    ? isRankedGroup(item.inventoryGroup) && item.maxRank > 0
+    : order.modRank != null;
   $: rankCap = item?.maxRank && item.maxRank > 0 ? Math.floor(item.maxRank) : 0;
   $: listedRank = order.modRank != null ? Math.max(0, Math.floor(order.modRank)) : null;
   $: summaryRank =
-    isRankedListing && listedRank != null
-      ? listedRank === rankCap
-        ? rankCap
-        : 0
-      : null;
+    isRankedListing && listedRank != null ? (listedRank === rankCap ? rankCap : 0) : null;
   $: summaryWts =
     summaryRank === rankCap && summaryRank !== 0
-      ? item?.wtsRmax ?? null
+      ? (item?.wtsRmax ?? null)
       : summaryRank === 0
-        ? item?.wtsR0 ?? null
+        ? (item?.wtsR0 ?? null)
         : null;
   $: summaryWtb =
     summaryRank === rankCap && summaryRank !== 0
-      ? item?.wtbRmax ?? null
+      ? (item?.wtbRmax ?? null)
       : summaryRank === 0
-        ? item?.wtbR0 ?? null
+        ? (item?.wtbR0 ?? null)
         : null;
   $: medianLabel = item?.platinum != null ? `~${item.platinum}p` : "-";
   $: wtsLabel = summaryWts != null ? `${summaryWts}p` : "-";
@@ -103,12 +101,20 @@
     </svelte:fragment>
     <svelte:fragment slot="compactActions">
       <div class="flex shrink-0 items-center gap-2">
-        <span class="flex items-center gap-1 font-display text-lg font-bold leading-none text-accent" title="Platinum">
+        <span
+          class="flex items-center gap-1 font-display text-lg font-bold leading-none text-accent"
+          title="Platinum"
+        >
           <img src={PLATINUM_ICON_URL} alt="" width="16" height="16" class="shrink-0" />
           {order.platinum}
         </span>
         <button class="btn-sm btn-secondary h-8" title="Edit" on:click={stopAndEdit}>Edit</button>
-        <button class="btn-sm btn-danger h-8 w-8 px-0 text-base font-black" title="Delete" aria-label="Delete" on:click={stopAndDelete}>X</button>
+        <button
+          class="btn-sm btn-danger h-8 w-8 px-0 text-base font-black"
+          title="Delete"
+          aria-label="Delete"
+          on:click={stopAndDelete}>X</button
+        >
       </div>
     </svelte:fragment>
   </MarketRowBase>
@@ -147,12 +153,19 @@
         {:else}
           <span class="order-vis border-warning/35 bg-warning/15 text-warning">Hidden</span>
         {/if}
-        <span class="flex min-w-16 items-center justify-end gap-1 font-display text-lg font-bold text-accent">
+        <span
+          class="flex min-w-16 items-center justify-end gap-1 font-display text-lg font-bold text-accent"
+        >
           <img src={PLATINUM_ICON_URL} alt="" width="14" height="14" class="shrink-0" />
           {order.platinum}
         </span>
         <button class="btn-sm btn-secondary h-8" on:click={stopAndEdit}>Edit</button>
-        <button class="btn-sm btn-danger h-8 w-8 px-0 text-base font-black" title="Delete" aria-label="Delete" on:click={stopAndDelete}>X</button>
+        <button
+          class="btn-sm btn-danger h-8 w-8 px-0 text-base font-black"
+          title="Delete"
+          aria-label="Delete"
+          on:click={stopAndDelete}>X</button
+        >
       </div>
     </svelte:fragment>
   </MarketRowBase>

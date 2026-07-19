@@ -107,7 +107,9 @@
       <input
         type="search"
         class="min-w-[240px] flex-1 rounded-lg border border-border bg-bg-soft px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-accent"
-        placeholder={mode === "item" ? "Search an item (e.g. Vitus Essence)" : "Search a location (e.g. Arbitrations)"}
+        placeholder={mode === "item"
+          ? "Search an item (e.g. Vitus Essence)"
+          : "Search a location (e.g. Arbitrations)"}
         bind:value={query}
         on:input={onInput}
         autocomplete="off"
@@ -116,25 +118,37 @@
       <div class="flex shrink-0 overflow-hidden rounded-lg border border-border">
         <button
           type="button"
-          class="px-3 py-2 text-sm font-display {mode === 'item' ? 'bg-accent-glow text-accent' : 'bg-bg-soft text-text-secondary hover:text-text-primary'}"
-          on:click={() => setMode("item")}
-        >By item</button>
+          class="px-3 py-2 text-sm font-display {mode === 'item'
+            ? 'bg-accent-glow text-accent'
+            : 'bg-bg-soft text-text-secondary hover:text-text-primary'}"
+          on:click={() => setMode("item")}>By item</button
+        >
         <button
           type="button"
-          class="border-l border-border px-3 py-2 text-sm font-display {mode === 'place' ? 'bg-accent-glow text-accent' : 'bg-bg-soft text-text-secondary hover:text-text-primary'}"
-          on:click={() => setMode("place")}
-        >By location</button>
+          class="border-l border-border px-3 py-2 text-sm font-display {mode === 'place'
+            ? 'bg-accent-glow text-accent'
+            : 'bg-bg-soft text-text-secondary hover:text-text-primary'}"
+          on:click={() => setMode("place")}>By location</button
+        >
       </div>
     </div>
 
     {#if loading && rows.length === 0}
-      <div class="rounded-lg border border-dashed border-border bg-bg-soft px-3 py-6 text-center text-sm text-text-secondary">Searching...</div>
+      <div
+        class="rounded-lg border border-dashed border-border bg-bg-soft px-3 py-6 text-center text-sm text-text-secondary"
+      >
+        Searching...
+      </div>
     {:else if !searched}
-      <div class="rounded-lg border border-dashed border-border bg-bg-soft px-3 py-6 text-center text-sm text-text-secondary">
+      <div
+        class="rounded-lg border border-dashed border-border bg-bg-soft px-3 py-6 text-center text-sm text-text-secondary"
+      >
         Type to search drop tables.
       </div>
     {:else if rows.length === 0}
-      <div class="rounded-lg border border-dashed border-border bg-bg-soft px-3 py-6 text-center text-sm text-text-secondary">
+      <div
+        class="rounded-lg border border-dashed border-border bg-bg-soft px-3 py-6 text-center text-sm text-text-secondary"
+      >
         No drops found for "{query.trim()}".
       </div>
     {:else}
@@ -155,15 +169,19 @@
                     <button
                       type="button"
                       class="cursor-pointer border-0 bg-transparent p-0 text-left text-text-primary hover:text-accent hover:underline"
-                      on:click={() => openItem(row.item)}
-                    >{row.item}</button>
+                      on:click={() => openItem(row.item)}>{row.item}</button
+                    >
                   {:else}
                     <span class="text-text-primary">{row.item}</span>
                   {/if}
                 </td>
                 <td class="px-3 py-1.5 text-text-secondary">{row.place}</td>
                 <td class="px-3 py-1.5 text-right whitespace-nowrap">
-                  <span class="font-semibold" style="color:{RARITY_COLOUR[row.rarity] ?? 'var(--text-muted)'}">{row.rarity}</span>
+                  <span
+                    class="font-semibold"
+                    style="color:{RARITY_COLOUR[row.rarity] ?? 'var(--text-muted)'}"
+                    >{row.rarity}</span
+                  >
                   <span class="ml-1.5 text-accent">{formatChance(row.chance)}</span>
                 </td>
               </tr>

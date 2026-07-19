@@ -42,7 +42,11 @@
   $: xLabelStride = series.length > 12 ? Math.ceil(series.length / 12) : 1;
 
   function showTooltip(e: MouseEvent, p: { val: number; rotation: number }): void {
-    tooltip = { text: `${$tr("arbi.rotations.round", { n: String(p.rotation) })}: ${p.val.toFixed(1)} DPM`, x: e.clientX, y: e.clientY };
+    tooltip = {
+      text: `${$tr("arbi.rotations.round", { n: String(p.rotation) })}: ${p.val.toFixed(1)} DPM`,
+      x: e.clientX,
+      y: e.clientY,
+    };
   }
 </script>
 
@@ -57,7 +61,9 @@
 {/if}
 
 <ThemedPanel className="flex flex-col p-5">
-  <h3 class="m-0 text-sm font-semibold uppercase tracking-wide text-text-secondary">{$tr("arbi.dpm.title")}</h3>
+  <h3 class="m-0 text-sm font-semibold uppercase tracking-wide text-text-secondary">
+    {$tr("arbi.dpm.title")}
+  </h3>
   <p class="mb-3 mt-1 text-xs text-text-muted">{$tr("arbi.dpm.desc")}</p>
 
   {#if series.length > 1}
@@ -66,11 +72,34 @@
         {#each yTicks as tick}
           {@const y = GRAPH_H - ((tick - minVal) / range) * GRAPH_H}
           <line x1="0" y1={y} x2={GRAPH_W} y2={y} stroke="rgba(255,255,255,0.1)" stroke-width="1" />
-          <text x="-6" y={y} dy="3" text-anchor="end" fill="var(--text-muted, #888)">{tick}</text>
+          <text x="-6" {y} dy="3" text-anchor="end" fill="var(--text-muted, #888)">{tick}</text>
         {/each}
-        <path d={pathD} fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" />
-        <line x1="0" y1={avgY} x2={GRAPH_W} y2={avgY} stroke="currentColor" stroke-width="1" stroke-dasharray="4" opacity="0.8" class="text-text-primary" />
-        <text x={GRAPH_W} y={avgY - 6} text-anchor="end" fill="currentColor" class="text-text-primary" font-size="11">AVG: {avg.toFixed(1)}</text>
+        <path
+          d={pathD}
+          fill="none"
+          stroke="var(--accent)"
+          stroke-width="2"
+          stroke-linejoin="round"
+        />
+        <line
+          x1="0"
+          y1={avgY}
+          x2={GRAPH_W}
+          y2={avgY}
+          stroke="currentColor"
+          stroke-width="1"
+          stroke-dasharray="4"
+          opacity="0.8"
+          class="text-text-primary"
+        />
+        <text
+          x={GRAPH_W}
+          y={avgY - 6}
+          text-anchor="end"
+          fill="currentColor"
+          class="text-text-primary"
+          font-size="11">AVG: {avg.toFixed(1)}</text
+        >
         {#each points as p, i (p.rotation)}
           <circle cx={p.x} cy={p.y} r="2.5" fill="var(--accent)" />
           <!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -88,8 +117,8 @@
               x={p.x}
               y={GRAPH_H + 15}
               text-anchor={i === 0 ? "start" : i === points.length - 1 ? "end" : "middle"}
-              fill="var(--text-muted, #888)"
-            >{p.rotation}</text>
+              fill="var(--text-muted, #888)">{p.rotation}</text
+            >
           {/if}
         {/each}
       </g>

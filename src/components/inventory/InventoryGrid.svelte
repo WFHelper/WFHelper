@@ -32,12 +32,7 @@
     </div>
   {:else}
     {#each items as item (item.internalName)}
-      <InventoryCard
-        {item}
-        {showDucats}
-        on:select={handleSelect}
-        on:visible={handleVisible}
-      />
+      <InventoryCard {item} {showDucats} on:select={handleSelect} on:visible={handleVisible} />
     {/each}
   {/if}
 </div>

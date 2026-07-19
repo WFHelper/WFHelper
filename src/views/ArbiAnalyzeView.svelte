@@ -27,9 +27,7 @@
   let importStatus = "";
   let unsubRunSaved: (() => void) | null = null;
 
-  $: selectedRun = selectedRunId
-    ? ($arbiRuns.find((r) => r.id === selectedRunId) ?? null)
-    : null;
+  $: selectedRun = selectedRunId ? ($arbiRuns.find((r) => r.id === selectedRunId) ?? null) : null;
 
   // Deep-link from the post-run overlay; also fires when the view is already open.
   $: if ($pendingArbiRunId) {
@@ -89,7 +87,8 @@
           {#if importStatus}
             <span class="text-xs text-text-muted">{importStatus}</span>
           {/if}
-          <ThemedButton onClick={importLog} disabled={importBusy}>{$tr("arbi.import")}</ThemedButton>
+          <ThemedButton onClick={importLog} disabled={importBusy}>{$tr("arbi.import")}</ThemedButton
+          >
         </div>
       </header>
 

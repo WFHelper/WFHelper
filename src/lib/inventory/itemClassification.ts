@@ -1,4 +1,7 @@
-import { fallbackNameFromUniqueName, sanitizeDisplayName } from "../../../config/shared/displayName.js";
+import {
+  fallbackNameFromUniqueName,
+  sanitizeDisplayName,
+} from "../../../config/shared/displayName.js";
 import type { InventoryGroup, ItemDbEntry, RawInventoryData } from "../../types/inventory.js";
 
 export interface ResolvedItem extends ItemDbEntry {

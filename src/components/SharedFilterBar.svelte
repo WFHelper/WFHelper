@@ -102,11 +102,7 @@
 <div class="shared-filter-bar" class:shared-filter-bar-inline={singleLine}>
   <div class="view-controls shared-filter-controls">
     {#if showBasic}
-      <SearchBox
-        class="shared-filter-search"
-        value={state.search}
-        onValueChange={setSearch}
-      />
+      <SearchBox class="shared-filter-search" value={state.search} onValueChange={setSearch} />
 
       {#if basicVariant === "full"}
         <div class="filter-tabs" title="Prime filter">
@@ -114,8 +110,8 @@
             <button
               class="filter-tab"
               class:active={state.primeMode === mode}
-              on:click={() => setPrimeMode(mode)}
-            >{label}</button>
+              on:click={() => setPrimeMode(mode)}>{label}</button
+            >
           {/each}
         </div>
 
@@ -124,8 +120,8 @@
             <button
               class="filter-tab"
               class:active={state.masteredMode === mode}
-              on:click={() => setMasteredMode(mode)}
-            >{label}</button>
+              on:click={() => setMasteredMode(mode)}>{label}</button
+            >
           {/each}
         </div>
       {/if}
@@ -135,20 +131,18 @@
           class="shared-sort-direction"
           on:click={toggleSortDirection}
           title="Sort direction"
-          aria-label={state.sortDirection === "asc" ? "Sort direction ascending" : "Sort direction descending"}
+          aria-label={state.sortDirection === "asc"
+            ? "Sort direction ascending"
+            : "Sort direction descending"}
         >
           <SortArrow asc={state.sortDirection === "asc"} />
         </button>
 
         <label class="shared-filter-sort">
           <span>Sort</span>
-          <select
-            class="shared-filter-select"
-            value={state.sortBy}
-            on:change={onSortByChange}
-          >
+          <select class="shared-filter-select" value={state.sortBy} on:change={onSortByChange}>
             {#each activeSortOptions as [value, label]}
-              <option value={value}>{label}</option>
+              <option {value}>{label}</option>
             {/each}
           </select>
         </label>
@@ -163,8 +157,8 @@
             <button
               class="filter-tab"
               class:active={state.orderPlaced === mode}
-              on:click={() => setYesNoFilter("orderPlaced", mode)}
-            >{label}</button>
+              on:click={() => setYesNoFilter("orderPlaced", mode)}>{label}</button
+            >
           {/each}
         </div>
       </div>
@@ -176,8 +170,8 @@
             <button
               class="filter-tab"
               class:active={state.vaulted === mode}
-              on:click={() => setYesNoFilter("vaulted", mode)}
-            >{label}</button>
+              on:click={() => setYesNoFilter("vaulted", mode)}>{label}</button
+            >
           {/each}
         </div>
       </div>
@@ -188,13 +182,13 @@
           <button
             class="filter-tab"
             class:active={state.partType === "normal"}
-            on:click={() => setPartTypeFilter("normal")}
-          >Normal</button>
+            on:click={() => setPartTypeFilter("normal")}>Normal</button
+          >
           <button
             class="filter-tab"
             class:active={state.partType === "prime"}
-            on:click={() => setPartTypeFilter("prime")}
-          >Prime</button>
+            on:click={() => setPartTypeFilter("prime")}>Prime</button
+          >
         </div>
       </div>
 
@@ -205,8 +199,8 @@
             <button
               class="filter-tab"
               class:active={state.favorite === mode}
-              on:click={() => setYesNoFilter("favorite", mode)}
-            >{label}</button>
+              on:click={() => setYesNoFilter("favorite", mode)}>{label}</button
+            >
           {/each}
         </div>
       </div>
@@ -219,7 +213,8 @@
               class="filter-tab"
               class:active={state.minimumPlatinum === value}
               on:click={() => updateSharedFilters(scope, { minimumPlatinum: value })}
-            >{label}</button>
+              >{label}</button
+            >
           {/each}
         </div>
       </div>
@@ -231,8 +226,8 @@
             <button
               class="filter-tab"
               class:active={state.setComplete === mode}
-              on:click={() => setYesNoFilter("setComplete", mode)}
-            >{label}</button>
+              on:click={() => setYesNoFilter("setComplete", mode)}>{label}</button
+            >
           {/each}
         </div>
       </div>
@@ -244,8 +239,8 @@
             <button
               class="filter-tab"
               class:active={state.equipped === mode}
-              on:click={() => setYesNoFilter("equipped", mode)}
-            >{label}</button>
+              on:click={() => setYesNoFilter("equipped", mode)}>{label}</button
+            >
           {/each}
         </div>
       </div>
@@ -257,8 +252,8 @@
             <button
               class="filter-tab"
               class:active={state.leveledUp === mode}
-              on:click={() => setYesNoFilter("leveledUp", mode)}
-            >{label}</button>
+              on:click={() => setYesNoFilter("leveledUp", mode)}>{label}</button
+            >
           {/each}
         </div>
       </div>

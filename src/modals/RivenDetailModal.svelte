@@ -142,7 +142,8 @@
       listingSuccess = contract ? "Contract updated." : "Listed on WFMarket!";
       oncontractupdated?.();
     } else {
-      listingError = result.error || (contract ? "Failed to update auction" : "Failed to create auction");
+      listingError =
+        result.error || (contract ? "Failed to update auction" : "Failed to create auction");
     }
   }
 
@@ -150,7 +151,7 @@
     if (e.key === "Escape") onclose();
   }
 
-  const myStatNamesLc = $derived(new Set(riven.stats.map(s => s.name.toLowerCase())));
+  const myStatNamesLc = $derived(new Set(riven.stats.map((s) => s.name.toLowerCase())));
   const weaponDbEntry = $derived($itemDb[riven.weaponUniqueName]);
 </script>
 
@@ -165,21 +166,38 @@
     <button class="detail-close" aria-label="Close" onclick={onclose}>&times;</button>
   </div>
   <div class="px-7 pt-2 pb-7">
-
     <div class="mb-5">
       <div class="flex items-center gap-3">
-        <h2 class="font-display text-4xl font-bold text-white m-0">{riven.rivenName || riven.weaponName}</h2>
+        <h2 class="font-display text-4xl font-bold text-white m-0">
+          {riven.rivenName || riven.weaponName}
+        </h2>
         {#if !isContractListing}
-          <span class="font-display text-4xl font-extrabold shrink-0" style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span>
+          <span
+            class="font-display text-4xl font-extrabold shrink-0"
+            style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span
+          >
         {/if}
       </div>
       <div class="flex gap-3.5 flex-wrap mt-2 font-display text-sm text-text-muted">
-        <span class="uppercase tracking-[0.04em] text-accent-dim">{isContractListing ? (contract?.isDirectSell ? "Direct sale" : "Auction") : riven.rivenType}</span>
+        <span class="uppercase tracking-[0.04em] text-accent-dim"
+          >{isContractListing
+            ? contract?.isDirectSell
+              ? "Direct sale"
+              : "Auction"
+            : riven.rivenType}</span
+        >
         {#if typeof weaponDbEntry?.vaulted === "boolean"}
-          <span class="detail-tag" class:vaulted={weaponDbEntry.vaulted} class:mastered={!weaponDbEntry.vaulted}>{weaponDbEntry.vaulted ? "VAULTED" : "UNVAULTED"}</span>
+          <span
+            class="detail-tag"
+            class:vaulted={weaponDbEntry.vaulted}
+            class:mastered={!weaponDbEntry.vaulted}
+            >{weaponDbEntry.vaulted ? "VAULTED" : "UNVAULTED"}</span
+          >
         {/if}
         {#if !isContractListing}
-          <span class="tracking-[-0.3px]" title="Disposition: {riven.disposition.toFixed(3)}">{dispoStars(riven.disposition)} {riven.disposition.toFixed(2)}</span>
+          <span class="tracking-[-0.3px]" title="Disposition: {riven.disposition.toFixed(3)}"
+            >{dispoStars(riven.disposition)} {riven.disposition.toFixed(2)}</span
+          >
         {/if}
         <span>{riven.rerolls} rolls</span>
         <span>Rank {riven.currentRank}/{riven.maxRank}</span>
@@ -191,42 +209,85 @@
 
     <div>
       {#if !isContractListing}
-      <div class="grid grid-cols-2 gap-4 mb-5">
-        <div class="flex flex-col items-center p-4 bg-bg-surface border border-border rounded-lg gap-1">
-          <span class="font-display text-xs uppercase tracking-[0.08em] text-text-muted">Roll Quality</span>
-          <span class="font-display text-3xl font-extrabold" style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span>
-          <span class="text-xs text-text-secondary">{Math.round(riven.statPerfectness * 100)}% perfect</span>
+        <div class="grid grid-cols-2 gap-4 mb-5">
+          <div
+            class="flex flex-col items-center p-4 bg-bg-surface border border-border rounded-lg gap-1"
+          >
+            <span class="font-display text-xs uppercase tracking-[0.08em] text-text-muted"
+              >Roll Quality</span
+            >
+            <span
+              class="font-display text-3xl font-extrabold"
+              style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span
+            >
+            <span class="text-xs text-text-secondary"
+              >{Math.round(riven.statPerfectness * 100)}% perfect</span
+            >
+          </div>
+          <div
+            class="flex flex-col items-center p-4 bg-bg-surface border border-border rounded-lg gap-1"
+          >
+            <span class="font-display text-xs uppercase tracking-[0.08em] text-text-muted"
+              >Attributes</span
+            >
+            <span
+              class="font-display text-3xl font-extrabold"
+              style="color: {attrGradeColor(riven.attributeGrade)}">{riven.attributeGrade}</span
+            >
+            <span class="text-xs text-text-secondary">
+              {riven.stats.filter((s) => s.positive).length} buff{riven.stats.filter(
+                (s) => s.positive,
+              ).length !== 1
+                ? "s"
+                : ""}
+              {#if riven.stats.some((s) => !s.positive)}, 1 curse{/if}
+            </span>
+          </div>
         </div>
-        <div class="flex flex-col items-center p-4 bg-bg-surface border border-border rounded-lg gap-1">
-          <span class="font-display text-xs uppercase tracking-[0.08em] text-text-muted">Attributes</span>
-          <span class="font-display text-3xl font-extrabold" style="color: {attrGradeColor(riven.attributeGrade)}">{riven.attributeGrade}</span>
-          <span class="text-xs text-text-secondary">
-            {riven.stats.filter((s) => s.positive).length} buff{riven.stats.filter((s) => s.positive).length !== 1 ? "s" : ""}
-            {#if riven.stats.some((s) => !s.positive)}, 1 curse{/if}
-          </span>
-        </div>
-      </div>
       {/if}
 
       <div>
-        <h3 class="font-display text-xs uppercase tracking-[0.08em] text-text-muted m-0 mb-2.5">Attributes</h3>
+        <h3 class="font-display text-xs uppercase tracking-[0.08em] text-text-muted m-0 mb-2.5">
+          Attributes
+        </h3>
         <div class="flex flex-col gap-2">
           {#each riven.stats as stat}
-            <div class="flex items-center gap-2.5 py-2 px-3 rounded-lg {stat.positive ? 'bg-success/5' : 'bg-danger/5'}">
+            <div
+              class="flex items-center gap-2.5 py-2 px-3 rounded-lg {stat.positive
+                ? 'bg-success/5'
+                : 'bg-danger/5'}"
+            >
               <div class="flex items-center gap-2 min-w-0 flex-1">
-                <span class="font-display font-semibold text-lg shrink-0 tabular-nums {stat.positive ? 'text-success' : 'text-danger'}">
-                  {stat.multiplier ? `x${stat.displayValue}` : `${stat.displayValue >= 0 ? "+" : ""}${stat.displayValue}%`}
+                <span
+                  class="font-display font-semibold text-lg shrink-0 tabular-nums {stat.positive
+                    ? 'text-success'
+                    : 'text-danger'}"
+                >
+                  {stat.multiplier
+                    ? `x${stat.displayValue}`
+                    : `${stat.displayValue >= 0 ? "+" : ""}${stat.displayValue}%`}
                 </span>
-                <span class="text-base text-text-primary overflow-hidden text-ellipsis whitespace-nowrap">{stat.name}</span>
+                <span
+                  class="text-base text-text-primary overflow-hidden text-ellipsis whitespace-nowrap"
+                  >{stat.name}</span
+                >
               </div>
               {#if !isContractListing}
                 <div class="w-[100px] h-[6px] bg-bg-raised rounded-[3px] shrink-0 overflow-hidden">
                   <div
-                    class="h-full rounded-sm transition-[width] duration-300 {stat.positive ? 'bg-success' : 'bg-danger'}"
-                    style="width: {Math.min((stat.positive ? stat.rollFloat : 1 - stat.rollFloat) * 100, 100)}%"
+                    class="h-full rounded-sm transition-[width] duration-300 {stat.positive
+                      ? 'bg-success'
+                      : 'bg-danger'}"
+                    style="width: {Math.min(
+                      (stat.positive ? stat.rollFloat : 1 - stat.rollFloat) * 100,
+                      100,
+                    )}%"
                   ></div>
                 </div>
-                <span class="font-display font-bold text-base min-w-6 text-center shrink-0" style="color: {gradeColor(stat.grade)}">{stat.grade}</span>
+                <span
+                  class="font-display font-bold text-base min-w-6 text-center shrink-0"
+                  style="color: {gradeColor(stat.grade)}">{stat.grade}</span
+                >
               {/if}
             </div>
           {/each}
@@ -234,41 +295,69 @@
       </div>
 
       {#if bestAttrs}
-      <div class="mt-5">
-        <h3 class="font-display text-xs uppercase tracking-[0.08em] text-text-muted m-0 mb-2.5">Best Attributes for {riven.weaponName}</h3>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="flex flex-col gap-1">
-            <span class="font-display text-xs uppercase tracking-[0.06em] font-bold mb-1 text-[#4ade80]">Desired Positives</span>
-            {#each bestAttrs.positives as attr}
-              {@const matched = myStatNamesLc.has(attr.toLowerCase())}
-              <span class="font-display text-xs py-0.5 px-1.5 rounded {matched ? 'text-[#4ade80] bg-success/10 font-semibold' : 'text-text-muted'}">{attr}</span>
-            {/each}
-          </div>
-          <div class="flex flex-col gap-1">
-            <span class="font-display text-xs uppercase tracking-[0.06em] font-bold mb-1 text-[#ef4444]">Desired Negatives</span>
-            {#each bestAttrs.negatives as attr}
-              {@const matched = riven.stats.some(s => !s.positive && s.name.toLowerCase() === attr.toLowerCase())}
-              <span class="font-display text-xs py-0.5 px-1.5 rounded {matched ? 'text-[#4ade80] bg-success/10 font-semibold' : 'text-text-muted'}">{attr}</span>
-            {/each}
+        <div class="mt-5">
+          <h3 class="font-display text-xs uppercase tracking-[0.08em] text-text-muted m-0 mb-2.5">
+            Best Attributes for {riven.weaponName}
+          </h3>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1">
+              <span
+                class="font-display text-xs uppercase tracking-[0.06em] font-bold mb-1 text-[#4ade80]"
+                >Desired Positives</span
+              >
+              {#each bestAttrs.positives as attr}
+                {@const matched = myStatNamesLc.has(attr.toLowerCase())}
+                <span
+                  class="font-display text-xs py-0.5 px-1.5 rounded {matched
+                    ? 'text-[#4ade80] bg-success/10 font-semibold'
+                    : 'text-text-muted'}">{attr}</span
+                >
+              {/each}
+            </div>
+            <div class="flex flex-col gap-1">
+              <span
+                class="font-display text-xs uppercase tracking-[0.06em] font-bold mb-1 text-[#ef4444]"
+                >Desired Negatives</span
+              >
+              {#each bestAttrs.negatives as attr}
+                {@const matched = riven.stats.some(
+                  (s) => !s.positive && s.name.toLowerCase() === attr.toLowerCase(),
+                )}
+                <span
+                  class="font-display text-xs py-0.5 px-1.5 rounded {matched
+                    ? 'text-[#4ade80] bg-success/10 font-semibold'
+                    : 'text-text-muted'}">{attr}</span
+                >
+              {/each}
+            </div>
           </div>
         </div>
-      </div>
       {/if}
 
       <div class="mt-6">
-        <h3 class="font-display text-xs uppercase tracking-[0.08em] text-text-muted m-0 mb-2.5">Similar on WFM</h3>
+        <h3 class="font-display text-xs uppercase tracking-[0.08em] text-text-muted m-0 mb-2.5">
+          Similar on WFM
+        </h3>
         {#if loadingListings}
           <div class="text-sm text-text-muted text-center py-4">Searching auctions...</div>
         {:else if similarListings.length === 0}
           <div class="text-sm text-text-muted text-center py-4">No similar rivens found</div>
         {:else}
-          {@const visibleListings = showAllListings ? similarListings : similarListings.slice(0, DEFAULT_LISTING_COUNT)}
+          {@const visibleListings = showAllListings
+            ? similarListings
+            : similarListings.slice(0, DEFAULT_LISTING_COUNT)}
           {@const hiddenCount = similarListings.length - visibleListings.length}
           <div class="grid grid-cols-2 gap-2.5">
             {#each visibleListings as { listing, pct, matchedNames }}
               <div class="similar-card">
                 <div class="flex items-center gap-2 font-display text-xs">
-                  <span class="py-0.5 px-1.5 rounded font-bold text-xs {pct >= 75 ? 'bg-success/15 text-success' : pct >= 40 ? 'bg-warning/15 text-warning' : 'bg-danger/10 text-danger'}">{pct}%</span>
+                  <span
+                    class="py-0.5 px-1.5 rounded font-bold text-xs {pct >= 75
+                      ? 'bg-success/15 text-success'
+                      : pct >= 40
+                        ? 'bg-warning/15 text-warning'
+                        : 'bg-danger/10 text-danger'}">{pct}%</span
+                  >
                   <span class="font-bold text-accent-bright"
                     >{listing.buyoutPrice ?? listing.startingPrice ?? listing.platinum}p</span
                   >
@@ -277,14 +366,24 @@
                 <div class="flex flex-col gap-0.5">
                   {#each listing.stats as s}
                     {@const isMatch = matchedNames.has(s.name.toLowerCase())}
-                    <div class="font-display text-xs whitespace-nowrap overflow-hidden text-ellipsis {s.positive ? 'text-success' : 'text-danger'} {!isMatch ? 'opacity-40 line-through' : ''}">
+                    <div
+                      class="font-display text-xs whitespace-nowrap overflow-hidden text-ellipsis {s.positive
+                        ? 'text-success'
+                        : 'text-danger'} {!isMatch ? 'opacity-40 line-through' : ''}"
+                    >
                       {s.positive ? "+" : "−"}{Math.round(s.value)}% {s.name}
                     </div>
                   {/each}
                 </div>
                 <div class="flex items-center justify-between mt-0.5">
                   <span class="text-xs text-text-muted">{listing.seller}</span>
-                  <button class="font-display text-xs font-bold py-0.5 px-1.5 rounded border border-border bg-bg-raised text-accent-bright cursor-pointer uppercase tracking-[0.03em] transition-all duration-150 hover:bg-accent-bright hover:text-bg-base hover:border-accent-bright" title="Open on warframe.market" onclick={() => send("open-external", `https://warframe.market/auction/${listing.id}`)}>WFM ↗</button>
+                  <button
+                    class="font-display text-xs font-bold py-0.5 px-1.5 rounded border border-border bg-bg-raised text-accent-bright cursor-pointer uppercase tracking-[0.03em] transition-all duration-150 hover:bg-accent-bright hover:text-bg-base hover:border-accent-bright"
+                    title="Open on warframe.market"
+                    onclick={() =>
+                      send("open-external", `https://warframe.market/auction/${listing.id}`)}
+                    >WFM ↗</button
+                  >
                 </div>
               </div>
             {/each}
@@ -307,41 +406,103 @@
       </div>
 
       <div class="mt-6 border-t border-border pt-4">
-        <h3 class="font-display text-xs uppercase tracking-[0.08em] text-text-muted m-0 mb-2.5">{isContractListing ? "WFMarket contract:" : "List on WFMarket:"}</h3>
+        <h3 class="font-display text-xs uppercase tracking-[0.08em] text-text-muted m-0 mb-2.5">
+          {isContractListing ? "WFMarket contract:" : "List on WFMarket:"}
+        </h3>
         {#if !isLoggedIn}
-          <div class="text-sm text-text-muted text-center py-3">Log in to WFMarket to list this riven.</div>
+          <div class="text-sm text-text-muted text-center py-3">
+            Log in to WFMarket to list this riven.
+          </div>
         {:else}
           <div class="flex flex-col gap-3">
             <div class="flex items-end gap-5 flex-wrap">
               <div class="flex flex-col gap-1">
-                <span class="font-display text-xs uppercase tracking-[0.06em] text-text-muted">Type:</span>
+                <span class="font-display text-xs uppercase tracking-[0.06em] text-text-muted"
+                  >Type:</span
+                >
                 <div class="flex gap-1.5">
-                  <button class="font-display text-xs font-semibold py-1 px-2.5 rounded-md border cursor-pointer transition-all duration-150 {listingType === 'direct' ? 'bg-accent-bright text-bg-base border-accent-bright' : 'border-border bg-bg-raised text-text-secondary hover:bg-bg-hover hover:text-text-primary'}" onclick={() => listingType = "direct"}>Direct sale</button>
-                  <button class="font-display text-xs font-semibold py-1 px-2.5 rounded-md border cursor-pointer transition-all duration-150 {listingType === 'auction' ? 'bg-accent-bright text-bg-base border-accent-bright' : 'border-border bg-bg-raised text-text-secondary hover:bg-bg-hover hover:text-text-primary'}" onclick={() => listingType = "auction"}>Auction</button>
+                  <button
+                    class="font-display text-xs font-semibold py-1 px-2.5 rounded-md border cursor-pointer transition-all duration-150 {listingType ===
+                    'direct'
+                      ? 'bg-accent-bright text-bg-base border-accent-bright'
+                      : 'border-border bg-bg-raised text-text-secondary hover:bg-bg-hover hover:text-text-primary'}"
+                    onclick={() => (listingType = "direct")}>Direct sale</button
+                  >
+                  <button
+                    class="font-display text-xs font-semibold py-1 px-2.5 rounded-md border cursor-pointer transition-all duration-150 {listingType ===
+                    'auction'
+                      ? 'bg-accent-bright text-bg-base border-accent-bright'
+                      : 'border-border bg-bg-raised text-text-secondary hover:bg-bg-hover hover:text-text-primary'}"
+                    onclick={() => (listingType = "auction")}>Auction</button
+                  >
                 </div>
               </div>
               <div class="flex flex-col gap-1">
-                <span class="font-display text-xs uppercase tracking-[0.06em] text-text-muted">Visibility:</span>
+                <span class="font-display text-xs uppercase tracking-[0.06em] text-text-muted"
+                  >Visibility:</span
+                >
                 <div class="flex gap-1.5">
-                  <button class="font-display text-xs font-semibold py-1 px-2.5 rounded-md border cursor-pointer transition-all duration-150 {listingVisibility === 'public' ? 'bg-accent-bright text-bg-base border-accent-bright' : 'border-border bg-bg-raised text-text-secondary hover:bg-bg-hover hover:text-text-primary'}" onclick={() => listingVisibility = "public"}>Public</button>
-                  <button class="font-display text-xs font-semibold py-1 px-2.5 rounded-md border cursor-pointer transition-all duration-150 {listingVisibility === 'private' ? 'bg-accent-bright text-bg-base border-accent-bright' : 'border-border bg-bg-raised text-text-secondary hover:bg-bg-hover hover:text-text-primary'}" onclick={() => listingVisibility = "private"}>Private</button>
+                  <button
+                    class="font-display text-xs font-semibold py-1 px-2.5 rounded-md border cursor-pointer transition-all duration-150 {listingVisibility ===
+                    'public'
+                      ? 'bg-accent-bright text-bg-base border-accent-bright'
+                      : 'border-border bg-bg-raised text-text-secondary hover:bg-bg-hover hover:text-text-primary'}"
+                    onclick={() => (listingVisibility = "public")}>Public</button
+                  >
+                  <button
+                    class="font-display text-xs font-semibold py-1 px-2.5 rounded-md border cursor-pointer transition-all duration-150 {listingVisibility ===
+                    'private'
+                      ? 'bg-accent-bright text-bg-base border-accent-bright'
+                      : 'border-border bg-bg-raised text-text-secondary hover:bg-bg-hover hover:text-text-primary'}"
+                    onclick={() => (listingVisibility = "private")}>Private</button
+                  >
                 </div>
               </div>
               <div class="flex flex-col gap-1 flex-1 min-w-[140px]">
-                <span class="font-display text-xs uppercase tracking-[0.06em] text-text-muted">Description (Optional):</span>
-                <input type="text" class="w-full text-sm py-1 px-2 rounded-md border border-border bg-bg-raised text-text-primary outline-none transition-[border-color] duration-150 focus:border-accent-bright" bind:value={listingDescription} placeholder="" />
+                <span class="font-display text-xs uppercase tracking-[0.06em] text-text-muted"
+                  >Description (Optional):</span
+                >
+                <input
+                  type="text"
+                  class="w-full text-sm py-1 px-2 rounded-md border border-border bg-bg-raised text-text-primary outline-none transition-[border-color] duration-150 focus:border-accent-bright"
+                  bind:value={listingDescription}
+                  placeholder=""
+                />
               </div>
             </div>
             <div class="flex items-end gap-5 flex-wrap justify-between">
               <div class="flex flex-col gap-1">
-                <span class="font-display text-xs uppercase tracking-[0.06em] text-text-muted">Selling price:</span>
+                <span class="font-display text-xs uppercase tracking-[0.06em] text-text-muted"
+                  >Selling price:</span
+                >
                 <div class="flex items-center gap-1">
-                  <img class="align-middle shrink-0" src={PLATINUM_ICON_URL} alt="Platinum" width="16" height="16" />
-                  <input type="number" class="w-20 text-sm py-1 px-2 rounded-md border border-border bg-bg-raised text-text-primary outline-none transition-[border-color] duration-150 focus:border-accent-bright" bind:value={listingPrice} min="1" />
+                  <img
+                    class="align-middle shrink-0"
+                    src={PLATINUM_ICON_URL}
+                    alt="Platinum"
+                    width="16"
+                    height="16"
+                  />
+                  <input
+                    type="number"
+                    class="w-20 text-sm py-1 px-2 rounded-md border border-border bg-bg-raised text-text-primary outline-none transition-[border-color] duration-150 focus:border-accent-bright"
+                    bind:value={listingPrice}
+                    min="1"
+                  />
                 </div>
               </div>
-              <button class="font-display text-xs font-bold py-2 px-5 rounded-md border-0 bg-accent-bright text-bg-base cursor-pointer transition-all duration-150 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed hover:enabled:brightness-[1.15]" onclick={handleListOnWfm} disabled={listingBusy}>
-                {listingBusy ? (isContractListing ? "Saving..." : "Listing...") : isContractListing ? "Edit contract" : "List on WFMarket"}
+              <button
+                class="font-display text-xs font-bold py-2 px-5 rounded-md border-0 bg-accent-bright text-bg-base cursor-pointer transition-all duration-150 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed hover:enabled:brightness-[1.15]"
+                onclick={handleListOnWfm}
+                disabled={listingBusy}
+              >
+                {listingBusy
+                  ? isContractListing
+                    ? "Saving..."
+                    : "Listing..."
+                  : isContractListing
+                    ? "Edit contract"
+                    : "List on WFMarket"}
               </button>
             </div>
             {#if listingError}

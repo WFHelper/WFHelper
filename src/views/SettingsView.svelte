@@ -146,7 +146,6 @@
       interactionHotkeyEnabled,
       interactionHotkey,
     };
-
   }
 
   function queueSave(
@@ -172,11 +171,7 @@
   }
 
   function save(): Promise<void> {
-    return queueSave(
-      currentOverlayPayload(),
-      $tr("settings.saved"),
-      $tr("settings.saveFailed"),
-    );
+    return queueSave(currentOverlayPayload(), $tr("settings.saved"), $tr("settings.saveFailed"));
   }
 
   // Every control saves on change; there is no separate save step.
@@ -245,9 +240,15 @@
 
   {#if settingsTab === "general"}
     <div class="settings-tab-grid settings-masonry py-3">
-      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+      <article
+        class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]"
+      >
         <div>
-          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Notifications</h3>
+          <h3
+            class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary"
+          >
+            Notifications
+          </h3>
           <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
             Desktop and market notification behavior.
           </p>
@@ -256,17 +257,32 @@
         <div class="mt-2.5 grid gap-1">
           <label class="settings-control-row">
             <span>Windows notification sound</span>
-            <input type="checkbox" bind:checked={notificationSoundEnabled} on:change={autoSave} class="accent-accent" />
+            <input
+              type="checkbox"
+              bind:checked={notificationSoundEnabled}
+              on:change={autoSave}
+              class="accent-accent"
+            />
           </label>
 
           <label class="settings-control-row">
             <span>WFM DM notifications</span>
-            <input type="checkbox" bind:checked={wfmNotificationsEnabled} on:change={autoSave} class="accent-accent" />
+            <input
+              type="checkbox"
+              bind:checked={wfmNotificationsEnabled}
+              on:change={autoSave}
+              class="accent-accent"
+            />
           </label>
 
           <label class="settings-control-row">
             <span>In-game message notifications</span>
-            <input type="checkbox" bind:checked={messageNotificationsEnabled} on:change={autoSave} class="accent-accent" />
+            <input
+              type="checkbox"
+              bind:checked={messageNotificationsEnabled}
+              on:change={autoSave}
+              class="accent-accent"
+            />
           </label>
 
           <label class="settings-control-row" class:opacity-50={!messageNotificationsEnabled}>
@@ -282,14 +298,25 @@
 
           <label class="settings-control-row">
             <span>Unlist WFMarket orders when sold/bought</span>
-            <input type="checkbox" bind:checked={autoCloseWfmOrders} on:change={autoSave} class="accent-accent" />
+            <input
+              type="checkbox"
+              bind:checked={autoCloseWfmOrders}
+              on:change={autoSave}
+              class="accent-accent"
+            />
           </label>
         </div>
       </article>
 
-      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+      <article
+        class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]"
+      >
         <div>
-          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Arbitrations</h3>
+          <h3
+            class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary"
+          >
+            Arbitrations
+          </h3>
           <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
             Automatic run analysis. Captured logs and stats never leave this PC.
           </p>
@@ -298,14 +325,25 @@
         <div class="mt-2.5 grid gap-1">
           <label class="settings-control-row">
             <span>Track arbitration runs (log capture + stats)</span>
-            <input type="checkbox" bind:checked={arbiTrackingEnabled} on:change={autoSave} class="accent-accent" />
+            <input
+              type="checkbox"
+              bind:checked={arbiTrackingEnabled}
+              on:change={autoSave}
+              class="accent-accent"
+            />
           </label>
         </div>
       </article>
 
-      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+      <article
+        class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]"
+      >
         <div>
-          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Mastery</h3>
+          <h3
+            class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary"
+          >
+            Mastery
+          </h3>
           <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
             Control which items appear in the mastery helper.
           </p>
@@ -319,9 +357,15 @@
         </div>
       </article>
 
-      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+      <article
+        class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]"
+      >
         <div>
-          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Sidebar tabs</h3>
+          <h3
+            class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary"
+          >
+            Sidebar tabs
+          </h3>
           <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
             Hide tabs you don't use. Inventory and Settings always stay.
           </p>
@@ -342,19 +386,32 @@
         </div>
       </article>
 
-      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+      <article
+        class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]"
+      >
         <div class="flex items-start justify-between gap-3">
           <div>
-            <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">About</h3>
-            <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">Unofficial Warframe companion.</p>
+            <h3
+              class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary"
+            >
+              About
+            </h3>
+            <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
+              Unofficial Warframe companion.
+            </p>
           </div>
-          <span class="shrink-0 rounded bg-bg-raised px-2 py-0.5 font-display text-xs font-semibold text-text-secondary">v{appVersion}</span>
+          <span
+            class="shrink-0 rounded bg-bg-raised px-2 py-0.5 font-display text-xs font-semibold text-text-secondary"
+            >v{appVersion}</span
+          >
         </div>
 
         <div class="mt-2.5 grid gap-1">
           <div class="settings-credit-row">
             <span>Prices &amp; orders</span>
-            <button class="settings-link" on:click={() => openLink("https://warframe.market")}>warframe.market</button>
+            <button class="settings-link" on:click={() => openLink("https://warframe.market")}
+              >warframe.market</button
+            >
           </div>
           <div class="settings-credit-row">
             <span>Game data &amp; images</span>
@@ -362,23 +419,36 @@
           </div>
           <div class="settings-credit-row">
             <span>Item &amp; drop data</span>
-            <button class="settings-link" on:click={() => openLink("https://github.com/WFCD")}>WFCD projects</button>
+            <button class="settings-link" on:click={() => openLink("https://github.com/WFCD")}
+              >WFCD projects</button
+            >
           </div>
           <div class="settings-credit-row">
             <span>Item icons</span>
-            <button class="settings-link" on:click={() => openLink("https://browse.wf")}>browse.wf</button>
+            <button class="settings-link" on:click={() => openLink("https://browse.wf")}
+              >browse.wf</button
+            >
           </div>
           <div class="settings-credit-row">
             <span>Arbitration stats model</span>
-            <button class="settings-link" on:click={() => openLink("https://svesk.github.io/arbi/")}>svesk's arbi analyzer</button>
+            <button class="settings-link" on:click={() => openLink("https://svesk.github.io/arbi/")}
+              >svesk's arbi analyzer</button
+            >
           </div>
           <div class="settings-credit-row">
             <span>Inventory snapshots</span>
-            <button class="settings-link" on:click={() => openLink("https://github.com/Sainan/warframe-api-helper")}>warframe-api-helper</button>
+            <button
+              class="settings-link"
+              on:click={() => openLink("https://github.com/Sainan/warframe-api-helper")}
+              >warframe-api-helper</button
+            >
           </div>
           <div class="settings-credit-row">
             <span>Source code (MIT)</span>
-            <button class="settings-link" on:click={() => openLink("https://github.com/WFHelper/WFHelper")}>GitHub</button>
+            <button
+              class="settings-link"
+              on:click={() => openLink("https://github.com/WFHelper/WFHelper")}>GitHub</button
+            >
           </div>
         </div>
 
@@ -390,14 +460,22 @@
 
       <div class="settings-wide-actions">
         <div class="flex flex-wrap items-center gap-2.5">
-          <button class="btn-secondary btn-sm" on:click={resetDefaults}>{$tr("settings.resetDefaults")}</button>
-          <button class="btn-secondary btn-sm" on:click={() => startTour()}>Show feature tour</button>
-          <button class="btn-secondary btn-sm" on:click={openScanDebugFolder}>{$tr("settings.openScanDebug")}</button>
+          <button class="btn-secondary btn-sm" on:click={resetDefaults}
+            >{$tr("settings.resetDefaults")}</button
+          >
+          <button class="btn-secondary btn-sm" on:click={() => startTour()}
+            >Show feature tour</button
+          >
+          <button class="btn-secondary btn-sm" on:click={openScanDebugFolder}
+            >{$tr("settings.openScanDebug")}</button
+          >
           <span class="text-xs text-text-muted">Changes apply automatically.</span>
         </div>
 
         {#if statusMsg}
-          <p class="m-0 min-h-4 text-sm text-text-secondary" class:text-danger={statusError}>{statusMsg}</p>
+          <p class="m-0 min-h-4 text-sm text-text-secondary" class:text-danger={statusError}>
+            {statusMsg}
+          </p>
         {/if}
       </div>
     </div>
@@ -407,9 +485,15 @@
     </div>
   {:else if settingsTab === "overlay"}
     <div class="settings-tab-grid settings-masonry py-3">
-      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+      <article
+        class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]"
+      >
         <div>
-          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Overlay availability</h3>
+          <h3
+            class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary"
+          >
+            Overlay availability
+          </h3>
           <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
             Enable or disable each in-game overlay window.
           </p>
@@ -418,7 +502,12 @@
         <div class="mt-2.5 grid gap-1">
           <label class="settings-control-row">
             <span>Relic rewards overlay</span>
-            <input type="checkbox" bind:checked={relicRewardsOverlayEnabled} on:change={autoSave} class="accent-accent" />
+            <input
+              type="checkbox"
+              bind:checked={relicRewardsOverlayEnabled}
+              on:change={autoSave}
+              class="accent-accent"
+            />
           </label>
 
           <label class="settings-control-row">
@@ -443,7 +532,12 @@
 
           <label class="settings-control-row">
             <span>Riven overlay</span>
-            <input type="checkbox" bind:checked={rivenOverlayEnabled} on:change={autoSave} class="accent-accent" />
+            <input
+              type="checkbox"
+              bind:checked={rivenOverlayEnabled}
+              on:change={autoSave}
+              class="accent-accent"
+            />
           </label>
 
           <label class="settings-control-row">
@@ -458,32 +552,57 @@
         </div>
       </article>
 
-      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+      <article
+        class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]"
+      >
         <div>
-          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">Scan diagnostics</h3>
+          <h3
+            class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary"
+          >
+            Scan diagnostics
+          </h3>
           <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
-            Failed scans can save their crops to the scan-debug folder for bug reports. Images never leave this PC.
+            Failed scans can save their crops to the scan-debug folder for bug reports. Images never
+            leave this PC.
           </p>
         </div>
 
         <div class="mt-2.5 grid gap-1">
           <label class="settings-control-row">
             <span>Save OCR debug images on failed scans</span>
-            <input type="checkbox" bind:checked={ocrDebugImagesEnabled} on:change={autoSave} class="accent-accent" />
+            <input
+              type="checkbox"
+              bind:checked={ocrDebugImagesEnabled}
+              on:change={autoSave}
+              class="accent-accent"
+            />
           </label>
         </div>
       </article>
 
-      <article class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+      <article
+        class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]"
+      >
         <div>
-          <h3 class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary">{$tr("settings.overlayTitle")}</h3>
-          <p class="mt-1 text-xs leading-tight text-text-muted">{$tr("settings.overlayRequirements")}</p>
+          <h3
+            class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary"
+          >
+            {$tr("settings.overlayTitle")}
+          </h3>
+          <p class="mt-1 text-xs leading-tight text-text-muted">
+            {$tr("settings.overlayRequirements")}
+          </p>
         </div>
 
         <div class="mt-2.5 grid gap-1">
           <label class="settings-control-row">
             <span>{$tr("settings.autoTrigger")}</span>
-            <input type="checkbox" bind:checked={autoTrigger} on:change={autoSave} class="accent-accent" />
+            <input
+              type="checkbox"
+              bind:checked={autoTrigger}
+              on:change={autoSave}
+              class="accent-accent"
+            />
           </label>
 
           {#each OVERLAY_SCALE_ROWS as row (row.key)}
@@ -499,14 +618,21 @@
                   on:change={(e) => saveWindowScale(row.key, Number(e.currentTarget.value))}
                   class="settings-range"
                 />
-                <span class="settings-range-value">{Math.round((windowScales[row.key] ?? overlayScale) * 100)}%</span>
+                <span class="settings-range-value"
+                  >{Math.round((windowScales[row.key] ?? overlayScale) * 100)}%</span
+                >
               </div>
             </label>
           {/each}
 
           <label class="settings-control-row">
             <span>{$tr("settings.hotkeyFallback")}</span>
-            <input type="checkbox" bind:checked={hotkeyEnabled} on:change={autoSave} class="accent-accent" />
+            <input
+              type="checkbox"
+              bind:checked={hotkeyEnabled}
+              on:change={autoSave}
+              class="accent-accent"
+            />
           </label>
 
           <label class="settings-control-row settings-control-row-input">
@@ -523,7 +649,12 @@
 
           <label class="settings-control-row">
             <span>{$tr("settings.interactionHotkeyEnabled")}</span>
-            <input type="checkbox" bind:checked={interactionHotkeyEnabled} on:change={autoSave} class="accent-accent" />
+            <input
+              type="checkbox"
+              bind:checked={interactionHotkeyEnabled}
+              on:change={autoSave}
+              class="accent-accent"
+            />
           </label>
 
           <label class="settings-control-row settings-control-row-input">
@@ -542,13 +673,19 @@
 
       <div class="settings-wide-actions">
         <div class="flex flex-wrap items-center gap-2.5">
-          <button class="btn-secondary btn-sm" on:click={resetDefaults}>{$tr("settings.resetDefaults")}</button>
-          <button class="btn-secondary btn-sm" on:click={testTrigger}>{$tr("settings.testTrigger")}</button>
+          <button class="btn-secondary btn-sm" on:click={resetDefaults}
+            >{$tr("settings.resetDefaults")}</button
+          >
+          <button class="btn-secondary btn-sm" on:click={testTrigger}
+            >{$tr("settings.testTrigger")}</button
+          >
           <span class="text-xs text-text-muted">Changes apply automatically.</span>
         </div>
 
         {#if statusMsg}
-          <p class="m-0 min-h-4 text-sm text-text-secondary" class:text-danger={statusError}>{statusMsg}</p>
+          <p class="m-0 min-h-4 text-sm text-text-secondary" class:text-danger={statusError}>
+            {statusMsg}
+          </p>
         {/if}
       </div>
     </div>
@@ -697,4 +834,3 @@
     flex-wrap: wrap;
   }
 </style>
-

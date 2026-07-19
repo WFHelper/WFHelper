@@ -217,11 +217,23 @@
     <div class="flex flex-col gap-1.5">
       <span class="font-display text-xs uppercase tracking-[0.06em] text-text-muted">Weapon</span>
       <div class="relative">
-        <ThemedInput type="text" placeholder="Type weapon name..." bind:value={weaponSearch} onFocus={handleWeaponFocus} onInput={handleWeaponInput} className="w-full" />
+        <ThemedInput
+          type="text"
+          placeholder="Type weapon name..."
+          bind:value={weaponSearch}
+          onFocus={handleWeaponFocus}
+          onInput={handleWeaponInput}
+          className="w-full"
+        />
         {#if showWeaponDropdown && weaponSearch !== selectedWeapon && filteredWeapons.length > 0}
-          <div class="absolute top-full left-0 right-0 max-h-[220px] overflow-y-auto bg-bg-raised border border-border-strong rounded-b-[0.375rem] z-50">
+          <div
+            class="absolute top-full left-0 right-0 max-h-[220px] overflow-y-auto bg-bg-raised border border-border-strong rounded-b-[0.375rem] z-50"
+          >
             {#each filteredWeapons as name}
-              <button class="block w-full py-1.5 px-2.5 border-0 bg-transparent text-text-primary font-body text-sm text-left cursor-pointer hover:bg-bg-hover hover:text-accent" onclick={() => selectWeapon(name)}>{name}</button>
+              <button
+                class="block w-full py-1.5 px-2.5 border-0 bg-transparent text-text-primary font-body text-sm text-left cursor-pointer hover:bg-bg-hover hover:text-accent"
+                onclick={() => selectWeapon(name)}>{name}</button
+              >
             {/each}
           </div>
         {/if}
@@ -230,19 +242,29 @@
 
     {#if bestAttrs}
       <div class="flex flex-col gap-1.5">
-        <span class="font-display text-xs uppercase tracking-[0.06em] text-text-muted">Best Positives</span>
+        <span class="font-display text-xs uppercase tracking-[0.06em] text-text-muted"
+          >Best Positives</span
+        >
         <div class="flex flex-wrap gap-1">
           {#each bestAttrs.positives as attr}
-            <span class="py-1 px-2 rounded font-display text-xs font-semibold bg-[rgba(33,124,33,0.35)] text-[#8ee4a8] border border-[rgba(33,124,33,0.5)]">{attr}</span>
+            <span
+              class="py-1 px-2 rounded font-display text-xs font-semibold bg-[rgba(33,124,33,0.35)] text-[#8ee4a8] border border-[rgba(33,124,33,0.5)]"
+              >{attr}</span
+            >
           {/each}
         </div>
       </div>
 
       <div class="flex flex-col gap-1.5">
-        <span class="font-display text-xs uppercase tracking-[0.06em] text-text-muted">Best Negatives</span>
+        <span class="font-display text-xs uppercase tracking-[0.06em] text-text-muted"
+          >Best Negatives</span
+        >
         <div class="flex flex-wrap gap-1">
           {#each bestAttrs.negatives as attr}
-            <span class="py-1 px-2 rounded font-display text-xs font-semibold bg-[rgba(125,60,60,0.35)] text-[#ff9a9a] border border-[rgba(125,60,60,0.5)]">{attr}</span>
+            <span
+              class="py-1 px-2 rounded font-display text-xs font-semibold bg-[rgba(125,60,60,0.35)] text-[#ff9a9a] border border-[rgba(125,60,60,0.5)]"
+              >{attr}</span
+            >
           {/each}
         </div>
       </div>
@@ -252,19 +274,35 @@
   <!-- Right panel: Attribute filters + search -->
   <div class="flex flex-col gap-3">
     <div class="flex flex-col gap-1.5">
-      <span class="font-display text-xs uppercase tracking-[0.06em] text-text-muted">Attributes</span>
+      <span class="font-display text-xs uppercase tracking-[0.06em] text-text-muted"
+        >Attributes</span
+      >
       <div class="flex flex-col gap-1.5">
         {#each attrSlots as slot}
-          <div class="flex items-center gap-1.5 py-1.5 px-2 rounded-md {slot.positive ? 'bg-[rgba(33,124,33,0.18)] border border-[rgba(33,124,33,0.3)]' : 'bg-[rgba(125,60,60,0.18)] border border-[rgba(125,60,60,0.3)]'}">
-            <span class="font-display text-sm font-bold w-4 text-center shrink-0 {slot.positive ? 'text-[#8ee4a8]' : 'text-[#ff7a7a]'}">{slot.positive ? "+" : "−"}</span>
+          <div
+            class="flex items-center gap-1.5 py-1.5 px-2 rounded-md {slot.positive
+              ? 'bg-[rgba(33,124,33,0.18)] border border-[rgba(33,124,33,0.3)]'
+              : 'bg-[rgba(125,60,60,0.18)] border border-[rgba(125,60,60,0.3)]'}"
+          >
+            <span
+              class="font-display text-sm font-bold w-4 text-center shrink-0 {slot.positive
+                ? 'text-[#8ee4a8]'
+                : 'text-[#ff7a7a]'}">{slot.positive ? "+" : "−"}</span
+            >
             <ThemedSelect bind:value={slot.selectedStat} className="flex-1 min-w-0">
               <option value="">{slot.positive ? "Any positive" : "Any negative"}</option>
               {#each statOptions as opt}
                 <option value={opt.wfmUrlName}>{opt.displayName}</option>
               {/each}
             </ThemedSelect>
-            <label class="flex items-center gap-1 font-display text-xs text-text-muted cursor-pointer shrink-0 select-none">
-              <input type="checkbox" class="w-[14px] h-[14px] accent-accent cursor-pointer" bind:checked={slot.required} />
+            <label
+              class="flex items-center gap-1 font-display text-xs text-text-muted cursor-pointer shrink-0 select-none"
+            >
+              <input
+                type="checkbox"
+                class="w-[14px] h-[14px] accent-accent cursor-pointer"
+                bind:checked={slot.required}
+              />
               <span>Req</span>
             </label>
           </div>
@@ -277,37 +315,91 @@
       <div class="flex flex-col gap-1.5">
         <div class="flex items-center gap-1.5">
           <span class="font-display text-xs text-text-secondary min-w-14 shrink-0">Price</span>
-          <ThemedInput type="number" className="w-20 py-1 text-xs" placeholder="Min" bind:value={priceMin} min="0" />
+          <ThemedInput
+            type="number"
+            className="w-20 py-1 text-xs"
+            placeholder="Min"
+            bind:value={priceMin}
+            min="0"
+          />
           <span class="text-text-muted text-xs">-</span>
-          <ThemedInput type="number" className="w-20 py-1 text-xs" placeholder="Max" bind:value={priceMax} min="0" />
+          <ThemedInput
+            type="number"
+            className="w-20 py-1 text-xs"
+            placeholder="Max"
+            bind:value={priceMax}
+            min="0"
+          />
         </div>
         <div class="flex items-center gap-1.5">
           <span class="font-display text-xs text-text-secondary min-w-14 shrink-0">Rerolls</span>
-          <ThemedInput type="number" className="w-20 py-1 text-xs" placeholder="Min" bind:value={rerollsMin} min="0" />
+          <ThemedInput
+            type="number"
+            className="w-20 py-1 text-xs"
+            placeholder="Min"
+            bind:value={rerollsMin}
+            min="0"
+          />
           <span class="text-text-muted text-xs">-</span>
-          <ThemedInput type="number" className="w-20 py-1 text-xs" placeholder="Max" bind:value={rerollsMax} min="0" />
+          <ThemedInput
+            type="number"
+            className="w-20 py-1 text-xs"
+            placeholder="Max"
+            bind:value={rerollsMax}
+            min="0"
+          />
         </div>
         <div class="flex items-center gap-1.5">
           <span class="font-display text-xs text-text-secondary min-w-14 shrink-0">Similarity</span>
-          <ThemedInput type="number" className="w-20 py-1 text-xs" placeholder="Min %" bind:value={minSimilarity} min="0" max="100" />
+          <ThemedInput
+            type="number"
+            className="w-20 py-1 text-xs"
+            placeholder="Min %"
+            bind:value={minSimilarity}
+            min="0"
+            max="100"
+          />
           <span class="text-text-muted text-xs">%</span>
         </div>
-        <label class="flex items-center gap-1.5 font-display text-xs text-text-secondary cursor-pointer select-none mt-0.5">
-          <input type="checkbox" class="w-[14px] h-[14px] accent-accent cursor-pointer" bind:checked={requireNegative} />
+        <label
+          class="flex items-center gap-1.5 font-display text-xs text-text-secondary cursor-pointer select-none mt-0.5"
+        >
+          <input
+            type="checkbox"
+            class="w-[14px] h-[14px] accent-accent cursor-pointer"
+            bind:checked={requireNegative}
+          />
           <span>Require negative stat</span>
         </label>
-        <label class="flex items-center gap-1.5 font-display text-xs text-text-secondary cursor-pointer select-none mt-0.5">
-          <input type="checkbox" class="w-[14px] h-[14px] accent-accent cursor-pointer" bind:checked={onlineIngameOnly} />
+        <label
+          class="flex items-center gap-1.5 font-display text-xs text-text-secondary cursor-pointer select-none mt-0.5"
+        >
+          <input
+            type="checkbox"
+            class="w-[14px] h-[14px] accent-accent cursor-pointer"
+            bind:checked={onlineIngameOnly}
+          />
           <span>Online/In-game only</span>
         </label>
-        <label class="flex items-center gap-1.5 font-display text-xs text-text-secondary cursor-pointer select-none mt-0.5">
-          <input type="checkbox" class="w-[14px] h-[14px] accent-accent cursor-pointer" bind:checked={hideOnePlat} />
+        <label
+          class="flex items-center gap-1.5 font-display text-xs text-text-secondary cursor-pointer select-none mt-0.5"
+        >
+          <input
+            type="checkbox"
+            class="w-[14px] h-[14px] accent-accent cursor-pointer"
+            bind:checked={hideOnePlat}
+          />
           <span>Hide 1p listings</span>
         </label>
       </div>
     </div>
 
-    <ThemedButton active={true} disabled={!selectedWeapon || searching} className="self-start px-6 py-2 text-sm" onClick={doSearch}>{searching ? "Searching..." : "Search WFM"}</ThemedButton>
+    <ThemedButton
+      active={true}
+      disabled={!selectedWeapon || searching}
+      className="self-start px-6 py-2 text-sm"
+      onClick={doSearch}>{searching ? "Searching..." : "Search WFM"}</ThemedButton
+    >
   </div>
 </div>
 
@@ -315,33 +407,53 @@
 {#if searching}
   <div class="text-center py-8 text-sm text-text-muted">Searching warframe.market auctions...</div>
 {:else if hasSearched && filteredResults.length === 0}
-  <div class="text-center py-8 text-sm text-text-muted">No auctions found{rawResults.length > 0 ? " matching filters" : ""}</div>
+  <div class="text-center py-8 text-sm text-text-muted">
+    No auctions found{rawResults.length > 0 ? " matching filters" : ""}
+  </div>
 {:else if filteredResults.length > 0}
   <div class="flex items-baseline gap-3 mb-2">
     <span class="font-display text-sm font-semibold text-text-secondary">Similar rivens:</span>
     <span class="text-xs text-text-muted">{filteredResults.length} results</span>
   </div>
-  <div class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 max-h-[600px] overflow-y-auto">
+  <div
+    class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 max-h-[600px] overflow-y-auto"
+  >
     {#each filteredResults as { listing, similarity }}
-      <ThemedPanel className="flex flex-col gap-1 px-2.5 py-2 transition-[border-color] duration-150 hover:border-border-strong">
+      <ThemedPanel
+        className="flex flex-col gap-1 px-2.5 py-2 transition-[border-color] duration-150 hover:border-border-strong"
+      >
         <div class="flex items-center gap-1.5 font-display text-xs">
           <span class="font-bold text-text-muted text-xs min-w-9">{similarity}%</span>
-          <span class="font-bold text-accent-bright">{listing.buyoutPrice ?? listing.startingPrice ?? listing.platinum}p</span>
-          <span class="ml-auto text-text-muted text-xs overflow-hidden text-ellipsis whitespace-nowrap max-w-16">{listing.seller}</span>
+          <span class="font-bold text-accent-bright"
+            >{listing.buyoutPrice ?? listing.startingPrice ?? listing.platinum}p</span
+          >
+          <span
+            class="ml-auto text-text-muted text-xs overflow-hidden text-ellipsis whitespace-nowrap max-w-16"
+            >{listing.seller}</span
+          >
         </div>
         {#if listing.sellerStatus}
-          <span class="font-display text-xs uppercase tracking-[0.04em] text-text-muted">{listing.sellerStatus === "ingame" ? "In game" : listing.sellerStatus}</span>
+          <span class="font-display text-xs uppercase tracking-[0.04em] text-text-muted"
+            >{listing.sellerStatus === "ingame" ? "In game" : listing.sellerStatus}</span
+          >
         {/if}
         <div class="flex flex-col gap-0">
           {#each listing.stats as s}
-            <span class="font-display text-xs whitespace-nowrap overflow-hidden text-ellipsis {s.positive ? 'text-[#4ade80]' : 'text-[#ef4444]'}">
+            <span
+              class="font-display text-xs whitespace-nowrap overflow-hidden text-ellipsis {s.positive
+                ? 'text-[#4ade80]'
+                : 'text-[#ef4444]'}"
+            >
               {s.positive ? "+" : "−"}{s.name}
             </span>
           {/each}
         </div>
         <div class="flex items-center justify-between gap-1.5 mt-auto">
           <span class="font-display text-xs text-text-muted">{listing.rerolls} rolls</span>
-          <button class="py-1 px-1.5 border border-border rounded bg-bg-raised text-accent-bright font-display text-xs font-bold cursor-pointer transition-all duration-150 text-center uppercase tracking-[0.03em] whitespace-nowrap hover:bg-accent-bright hover:text-bg-base hover:border-accent-bright" onclick={() => openAuction(listing.id)}>
+          <button
+            class="py-1 px-1.5 border border-border rounded bg-bg-raised text-accent-bright font-display text-xs font-bold cursor-pointer transition-all duration-150 text-center uppercase tracking-[0.03em] whitespace-nowrap hover:bg-accent-bright hover:text-bg-base hover:border-accent-bright"
+            onclick={() => openAuction(listing.id)}
+          >
             Open on WFM ↗
           </button>
         </div>

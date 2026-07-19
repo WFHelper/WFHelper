@@ -13,15 +13,25 @@
   import { send } from "../lib/ipc.js";
   import type { MasteryCategoryStats } from "../types/inventory.js";
 
-  const CAT_ORDER = ['Warframes', 'Primary', 'Secondary', 'Melee', 'Companions', 'Archwing', 'Amps', 'Necramech', 'Misc'];
+  const CAT_ORDER = [
+    "Warframes",
+    "Primary",
+    "Secondary",
+    "Melee",
+    "Companions",
+    "Archwing",
+    "Amps",
+    "Necramech",
+    "Misc",
+  ];
   const MASTERY_SORT_OPTIONS = [
     ["name", "Name"],
     ["owned", "Owned"],
   ] satisfies Array<["name" | "owned", string]>;
   const FOUNDER_ITEM_NAMES = new Set(["Excalibur Prime", "Lato Prime", "Skana Prime"]);
 
-  let catFilter    = 'all';
-  let statusFilter = 'all';
+  let catFilter = "all";
+  let statusFilter = "all";
   const masteryFilters = sharedFilters("mastery");
   const STATUS_TABS = [
     { key: "all", label: "All" },
@@ -32,8 +42,8 @@
 
   function orderedCategories(byCategory: Record<string, MasteryCategoryStats>): string[] {
     const keys = Object.keys(byCategory);
-    const ordered = CAT_ORDER.filter(c => keys.includes(c));
-    const extras  = keys.filter(c => !CAT_ORDER.includes(c)).sort((a, b) => a.localeCompare(b));
+    const ordered = CAT_ORDER.filter((c) => keys.includes(c));
+    const extras = keys.filter((c) => !CAT_ORDER.includes(c)).sort((a, b) => a.localeCompare(b));
     return [...ordered, ...extras];
   }
 
@@ -126,13 +136,14 @@
   ) {
     if (!data) return [];
     let items = data.items;
-    if (cat !== 'all') items = items.filter(i => i.category === cat);
-    if (status !== 'all') items = items.filter(i => i.status === status);
-    const hydrated = items.map(item => {
-      const mastered = item.status === 'mastered';
-      const missing  = item.status === 'missing';
-      const nextPct  = missing ? 0 : Math.max(0, Math.min(100,
-        Math.floor((item.rank / Math.max(item.maxRank, 1)) * 100)));
+    if (cat !== "all") items = items.filter((i) => i.category === cat);
+    if (status !== "all") items = items.filter((i) => i.status === status);
+    const hydrated = items.map((item) => {
+      const mastered = item.status === "mastered";
+      const missing = item.status === "missing";
+      const nextPct = missing
+        ? 0
+        : Math.max(0, Math.min(100, Math.floor((item.rank / Math.max(item.maxRank, 1)) * 100)));
       const wfm = wfmLookup[item.name.toLowerCase()] || null;
       return {
         ...item,
@@ -190,17 +201,43 @@
       <div class="flex flex-wrap items-center gap-3.5">
         <div class="shrink-0">
           <svg class="h-[120px] w-[120px]" viewBox="0 0 120 120">
-            <circle cx="60" cy="60" r={RING_R} fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
             <circle
-              cx="60" cy="60" r={RING_R}
-              fill="none" stroke="var(--accent-blue)" stroke-width="8"
+              cx="60"
+              cy="60"
+              r={RING_R}
+              fill="none"
+              stroke="rgba(255,255,255,0.06)"
+              stroke-width="8"
+            />
+            <circle
+              cx="60"
+              cy="60"
+              r={RING_R}
+              fill="none"
+              stroke="var(--accent-blue)"
+              stroke-width="8"
               stroke-dasharray={RING_C}
               stroke-dashoffset={RING_C * (1 - stats.mastered / Math.max(stats.total, 1))}
               stroke-linecap="round"
               transform="rotate(-90 60 60)"
             />
-            <text x="60" y="55" text-anchor="middle" fill="var(--text-primary)" font-size="22" font-weight="700" font-family="Rajdhani">{masteredPct}%</text>
-            <text x="60" y="72" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-family="Barlow">MASTERED</text>
+            <text
+              x="60"
+              y="55"
+              text-anchor="middle"
+              fill="var(--text-primary)"
+              font-size="22"
+              font-weight="700"
+              font-family="Rajdhani">{masteredPct}%</text
+            >
+            <text
+              x="60"
+              y="72"
+              text-anchor="middle"
+              fill="var(--text-muted)"
+              font-size="10"
+              font-family="Barlow">MASTERED</text
+            >
           </svg>
         </div>
         <SummaryStrip items={masterySummaryItems} variant="mastery" />
@@ -213,7 +250,12 @@
           {@const progressWidth = boundedPercent(cs.inProgress, cs.total)}
           <div class="grid items-center gap-2 grid-cols-[minmax(72px,110px)_1fr_auto]">
             <span class="text-xs text-text-secondary">{cat}</span>
-            <svg class="block h-1.5 w-full overflow-hidden rounded-full bg-white/[0.07]" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
+            <svg
+              class="block h-1.5 w-full overflow-hidden rounded-full bg-white/[0.07]"
+              viewBox="0 0 100 1"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
               <rect class="fill-success" x="0" y="0" width={masteredWidth} height="1"></rect>
               <rect
                 class="fill-warning opacity-60"
@@ -223,7 +265,10 @@
                 height="1"
               ></rect>
             </svg>
-            <span class="whitespace-nowrap text-xs text-text-secondary">{cs.mastered}/{cs.total} <small class="text-text-muted">({formatPercent(cs.mastered, cs.total)}%)</small></span>
+            <span class="whitespace-nowrap text-xs text-text-secondary"
+              >{cs.mastered}/{cs.total}
+              <small class="text-text-muted">({formatPercent(cs.mastered, cs.total)}%)</small></span
+            >
           </div>
         {/each}
       </ThemedPanel>
@@ -232,7 +277,11 @@
     <!-- Filters -->
     <div class="grid gap-2 mb-3">
       <div class="flex items-end border-b border-white/[0.09]">
-        <HeaderTabs options={categoryTabs} activeKey={catFilter} onSelect={(key) => (catFilter = key)} />
+        <HeaderTabs
+          options={categoryTabs}
+          activeKey={catFilter}
+          onSelect={(key) => (catFilter = key)}
+        />
       </div>
       <div class="flex items-end border-b border-white/[0.09]">
         <HeaderTabs
@@ -250,7 +299,13 @@
       {:else}
         {#each filtered as item, itemIndex (`${item.uniqueName || item.internalName || item.name}-${itemIndex}`)}
           <div
-            class="item-card group {item.status === 'missing' ? 'opacity-60' : item.status === 'mastered' ? 'border-success/25' : item.status === 'progress' ? 'border-warning/25' : ''}"
+            class="item-card group {item.status === 'missing'
+              ? 'opacity-60'
+              : item.status === 'mastered'
+                ? 'border-success/25'
+                : item.status === 'progress'
+                  ? 'border-warning/25'
+                  : ''}"
             role="button"
             tabindex="0"
             aria-label="Open details for {item.name}"
@@ -262,15 +317,32 @@
             <div class="item-img-wrap">
               <ItemImage src={item.imageUrl} alt={item.name} />
               {#if item.vaulted}<span class="vault-badge">V</span>{/if}
-              <span class="absolute right-1.5 bottom-1.5 w-1.5 h-1.5 rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.38)] {item.status === 'mastered' ? 'bg-success' : item.status === 'progress' ? 'bg-warning' : 'bg-danger opacity-70'}"></span>
+              <span
+                class="absolute right-1.5 bottom-1.5 w-1.5 h-1.5 rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.38)] {item.status ===
+                'mastered'
+                  ? 'bg-success'
+                  : item.status === 'progress'
+                    ? 'bg-warning'
+                    : 'bg-danger opacity-70'}"
+              ></span>
             </div>
             <div class="item-body">
               <span class="item-name">{item.name}</span>
-              <span class="item-type">{item.category}{item.masteryReq ? ` · MR ${item.masteryReq}` : ''}</span>
+              <span class="item-type"
+                >{item.category}{item.masteryReq ? ` · MR ${item.masteryReq}` : ""}</span
+              >
               {#if !item.missing}
-                {@const rankWidth = item.maxRank > 0 ? Math.max(0, Math.min(100, (item.rank / item.maxRank) * 100)) : 0}
+                {@const rankWidth =
+                  item.maxRank > 0
+                    ? Math.max(0, Math.min(100, (item.rank / item.maxRank) * 100))
+                    : 0}
                 <div class="item-rank-bar">
-                  <svg class="rank-bar-svg" viewBox="0 0 100 4" preserveAspectRatio="none" aria-hidden="true">
+                  <svg
+                    class="rank-bar-svg"
+                    viewBox="0 0 100 4"
+                    preserveAspectRatio="none"
+                    aria-hidden="true"
+                  >
                     <rect
                       class="rank-fill-svg"
                       class:max={item.mastered}
@@ -290,14 +362,17 @@
               {/if}
               {#if (item.components || []).length > 0}
                 <div class="mt-1.5 flex flex-wrap gap-1">
-                  {#each (item.components || []).slice(0, 8) as comp, compIndex (`${comp.uniqueName || comp.name || 'component'}-${compIndex}`)}
-                    {@const isOwned = comp.owned || ((comp.ownedCount ?? 0) >= (comp.itemCount || 1))}
+                  {#each (item.components || []).slice(0, 8) as comp, compIndex (`${comp.uniqueName || comp.name || "component"}-${compIndex}`)}
+                    {@const isOwned = comp.owned || (comp.ownedCount ?? 0) >= (comp.itemCount || 1)}
                     <button
                       type="button"
-                      class="comp-dot h-1.5 w-1.5 rounded-full border border-transparent {isOwned ? 'owned' : 'missing'}"
+                      class="comp-dot h-1.5 w-1.5 rounded-full border border-transparent {isOwned
+                        ? 'owned'
+                        : 'missing'}"
                       title="{comp.name || '?'}: {isOwned ? 'owned' : 'missing'}"
                       aria-label="Open {comp.name || 'component'} details"
-                      on:click|stopPropagation={() => activeComponent.set({ comp, parentName: item.name })}
+                      on:click|stopPropagation={() =>
+                        activeComponent.set({ comp, parentName: item.name })}
                     ></button>
                   {/each}
                 </div>
@@ -308,12 +383,19 @@
                   class="wfm-link absolute top-1.5 right-1.5 inline-flex h-6 w-6 items-center justify-center rounded border border-border bg-black/25 text-text-muted opacity-0 transition-[opacity,color,border-color] duration-100 group-hover:opacity-100 hover:text-accent hover:border-accent-dim"
                   title="View on warframe.market"
                   aria-label="View {item.name} on warframe.market"
-                  on:click|stopPropagation={() => send('open-external', `https://warframe.market/items/${item.wfm.url_name}`)}
+                  on:click|stopPropagation={() =>
+                    send("open-external", `https://warframe.market/items/${item.wfm.url_name}`)}
                 >
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5">
-                    <path d="M6 3H3v10h10v-3"/>
-                    <path d="M9 2h5v5"/>
-                    <path d="M14 2L7 9"/>
+                  <svg
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    class="h-3.5 w-3.5"
+                  >
+                    <path d="M6 3H3v10h10v-3" />
+                    <path d="M9 2h5v5" />
+                    <path d="M14 2L7 9" />
                   </svg>
                 </button>
               {/if}

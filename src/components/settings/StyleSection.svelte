@@ -53,7 +53,8 @@
 
     <ThemedControlCard>
       <div class="flex items-center justify-between gap-3">
-        <span class="text-text-secondary text-xs font-medium">{$tr("appearance.surfaceStyle")}</span>
+        <span class="text-text-secondary text-xs font-medium">{$tr("appearance.surfaceStyle")}</span
+        >
         <SegmentedControl
           value={effects.surfaceStyle}
           options={surfaceSegOptions}
@@ -65,13 +66,16 @@
     <ThemedControlCard as="label">
       <span class="text-text-secondary text-xs font-medium">
         {$tr("appearance.glass")}
-        <span class="block text-xs text-text-muted font-normal mt-0.5">{$tr("appearance.glassHint")}</span>
+        <span class="block text-xs text-text-muted font-normal mt-0.5"
+          >{$tr("appearance.glassHint")}</span
+        >
       </span>
       <input
         class="accent-accent"
         type="checkbox"
         checked={effects.glass}
-        on:change={(e) => themeSettings.setEffects({ glass: (e.target as HTMLInputElement).checked })}
+        on:change={(e) =>
+          themeSettings.setEffects({ glass: (e.target as HTMLInputElement).checked })}
       />
     </ThemedControlCard>
 

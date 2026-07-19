@@ -33,4 +33,3 @@ export const relicEvRevision = writable<number>(0);
 export function setRelicFilter(patch: Partial<RelicViewState>): void {
   relicViewState.update((state) => ({ ...state, ...patch }));
 }
-

@@ -73,7 +73,8 @@ function classifyForFoundry(
     category.startsWith("arch") ||
     parentCategory.startsWith("arch") ||
     /\/(archwing|spacesuits|spaceguns|spacemelee)\//.test(joinedPath)
-  ) return "Archwing";
+  )
+    return "Archwing";
 
   // Warframe.
   if (
@@ -86,7 +87,8 @@ function classifyForFoundry(
     parentCategory === "warframe" ||
     parentCategory === "warframes" ||
     /\/(warframerecipes|powersuits)\//.test(joinedPath)
-  ) return "Warframe";
+  )
+    return "Warframe";
 
   // Companion.
   if (
@@ -99,18 +101,36 @@ function classifyForFoundry(
     category === "pets" ||
     parentCategory === "companion" ||
     /\/(sentinels|kubrowpets|catbrowpets)\//.test(joinedPath)
-  ) return "Companion";
+  )
+    return "Companion";
 
   // Weapon slot split uses productCategory since PEP's raw category is "Weapon".
-  if (productCategory === "longguns" || parentProductCategory === "longguns" ||
-      category === "primary" || parentCategory === "primary") return "Primary";
-  if (productCategory === "pistols" || parentProductCategory === "pistols" ||
-      category === "secondary" || parentCategory === "secondary") return "Secondary";
-  if (productCategory === "melee" || parentProductCategory === "melee" ||
-      category === "melee" || parentCategory === "melee") return "Melee";
+  if (
+    productCategory === "longguns" ||
+    parentProductCategory === "longguns" ||
+    category === "primary" ||
+    parentCategory === "primary"
+  )
+    return "Primary";
+  if (
+    productCategory === "pistols" ||
+    parentProductCategory === "pistols" ||
+    category === "secondary" ||
+    parentCategory === "secondary"
+  )
+    return "Secondary";
+  if (
+    productCategory === "melee" ||
+    parentProductCategory === "melee" ||
+    category === "melee" ||
+    parentCategory === "melee"
+  )
+    return "Melee";
 
-  if (category === "gear" || parentCategory === "gear" || /\/gear\//.test(joinedPath)) return "Gear";
-  if (category === "cosmetic" || category === "appearance" || /\/customs\//.test(joinedPath)) return "Appearance";
+  if (category === "gear" || parentCategory === "gear" || /\/gear\//.test(joinedPath))
+    return "Gear";
+  if (category === "cosmetic" || category === "appearance" || /\/customs\//.test(joinedPath))
+    return "Appearance";
 
   return "Misc";
 }
@@ -175,10 +195,7 @@ export function parseFoundry(
     productUn: string | null,
     blueprintUn: string,
   ): { ingredients: RecipeIngredient[]; buildPrice: number; buildTime: number } {
-    const src =
-      (productUn && itemDb[productUn]?.recipe) ||
-      itemDb[blueprintUn]?.recipe ||
-      null;
+    const src = (productUn && itemDb[productUn]?.recipe) || itemDb[blueprintUn]?.recipe || null;
     if (!src) return { ingredients: [], buildPrice: 0, buildTime: 0 };
     return {
       ingredients: src.ingredients ?? [],

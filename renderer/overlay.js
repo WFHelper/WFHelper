@@ -127,10 +127,7 @@ function appendSetParts(container, parts) {
     const required = Number(part.requiredCount);
     const owned = Number(part.ownedCount);
     const ok =
-      Number.isFinite(required) &&
-      required > 0 &&
-      Number.isFinite(owned) &&
-      owned >= required;
+      Number.isFinite(required) && required > 0 && Number.isFinite(owned) && owned >= required;
     const chip = document.createElement("span");
     chip.className = `slot-set-part ${ok ? "owned" : "missing"}`;
     chip.title = `${part.name || "Part"}: ${formatCount(part.ownedCount)}/${formatCount(part.requiredCount)}`;
@@ -143,7 +140,9 @@ function appendSetParts(container, parts) {
     } else {
       const fallback = document.createElement("span");
       fallback.className = "slot-set-part-fallback";
-      fallback.textContent = String(part.name || "?").charAt(0).toUpperCase();
+      fallback.textContent = String(part.name || "?")
+        .charAt(0)
+        .toUpperCase();
       chip.appendChild(fallback);
     }
 

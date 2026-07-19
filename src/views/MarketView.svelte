@@ -1,10 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  import {
-    parsedItems,
-    wfmItems,
-  } from "../stores/data.js";
+  import { parsedItems, wfmItems } from "../stores/data.js";
   import {
     marketContracts,
     marketOrders,
@@ -27,9 +24,7 @@
   import ThemedInput from "../components/ThemedInput.svelte";
   import { sharedFilters } from "../stores/filters.js";
   import { applySharedFiltersAndSort } from "../lib/filters.js";
-  import {
-    buildInventoryViewItems,
-  } from "../lib/inventoryMarket.js";
+  import { buildInventoryViewItems } from "../lib/inventoryMarket.js";
   import { buildMarketOrderInventoryItem } from "../lib/marketOrderInventory.js";
   import { invoke, send, tradeInvoke } from "../lib/ipc.js";
   import { startupPriceCacheReady } from "../lib/startupLoader.js";
@@ -71,9 +66,7 @@
     return tab === "sell" || tab === "buy";
   }
 
-  function normalizeOrderForFilter(
-    order: WfmOrder,
-  ): WfmOrder & {
+  function normalizeOrderForFilter(order: WfmOrder): WfmOrder & {
     name: string;
     amount: number;
     internalName: string;
@@ -106,7 +99,7 @@
       displayValue: Math.abs(safeValue),
       rollFloat: 0.5,
       grade: "",
-      positive: attribute.positive ?? (safeValue >= 0),
+      positive: attribute.positive ?? safeValue >= 0,
       multiplier: false,
     };
   }
@@ -132,9 +125,7 @@
     };
   }
 
-  function normalizeContractForFilter(
-    contract: WfmContract,
-  ): WfmContract & {
+  function normalizeContractForFilter(contract: WfmContract): WfmContract & {
     name: string;
     amount: number;
     internalName: string;
@@ -195,7 +186,9 @@
         const me = await invoke("wfmGetMe");
         // v2 /me reports "in_game"; our buttons use "ingame". Anything else
         // (e.g. offline) leaves the status unset so no button highlights.
-        const status = String(me?.status ?? "").toLowerCase().replace("_", "");
+        const status = String(me?.status ?? "")
+          .toLowerCase()
+          .replace("_", "");
         if (status === "online" || status === "ingame" || status === "invisible") {
           setMarketViewState({ status: status as WfmStatus });
         }
@@ -206,8 +199,7 @@
 
     if ($marketViewState.typeTab === "rivens") {
       const hasContracts = $marketContracts.contracts.length > 0;
-      const contractsStale =
-        Date.now() - $marketViewState.contractsLastFetch > CONTRACTS_STALE_MS;
+      const contractsStale = Date.now() - $marketViewState.contractsLastFetch > CONTRACTS_STALE_MS;
       if (!hasContracts || contractsStale) {
         await fetchContracts();
       }
@@ -291,7 +283,9 @@
         ? [...$marketContracts.contracts, ...result.contracts]
         : [...result.contracts];
 
-      const deduped = Array.from(new Map(merged.map((contract) => [contract.id, contract])).values());
+      const deduped = Array.from(
+        new Map(merged.map((contract) => [contract.id, contract])).values(),
+      );
 
       marketContracts.set({
         ...result,
@@ -325,8 +319,7 @@
 
     if (type === "rivens") {
       const hasContracts = $marketContracts.contracts.length > 0;
-      const contractsStale =
-        Date.now() - $marketViewState.contractsLastFetch > CONTRACTS_STALE_MS;
+      const contractsStale = Date.now() - $marketViewState.contractsLastFetch > CONTRACTS_STALE_MS;
       if (!hasContracts || contractsStale) {
         void fetchContracts();
       }
@@ -419,7 +412,7 @@
 
   $: isRivensTab = $marketViewState.typeTab === "rivens";
   $: activeOrders = isOrdersTab($marketViewState.typeTab)
-    ? ($marketOrders[$marketViewState.typeTab] || [])
+    ? $marketOrders[$marketViewState.typeTab] || []
     : [];
   $: filteredOrderRows = applySharedFiltersAndSort(
     activeOrders.map(normalizeOrderForFilter),
@@ -432,15 +425,14 @@
   $: marketOrderBaseItems = filteredOrderRows.map((order) =>
     buildMarketOrderInventoryItem(order, $parsedItems, $wfmItems),
   );
-  $: marketOrderViewItems = buildInventoryViewItems(
-    marketOrderBaseItems,
-    $hydrationMetrics,
-  ).map((item, index) => ({
-    ...item,
-    sourceOrderId: marketOrderBaseItems[index]?.sourceOrderId ?? "",
-  }));
+  $: marketOrderViewItems = buildInventoryViewItems(marketOrderBaseItems, $hydrationMetrics).map(
+    (item, index) => ({
+      ...item,
+      sourceOrderId: marketOrderBaseItems[index]?.sourceOrderId ?? "",
+    }),
+  );
   $: selectedOrderItem = selectedOrderItemKey
-    ? marketOrderViewItems.find((item) => item.internalName === selectedOrderItemKey) ?? null
+    ? (marketOrderViewItems.find((item) => item.internalName === selectedOrderItemKey) ?? null)
     : null;
   $: if (
     !isRivensTab &&
@@ -448,11 +440,12 @@
     Object.keys($wfmItems).length > 0 &&
     marketOrderBaseItems.length > 0
   ) {
-    hydration.enqueue(
-      marketOrderBaseItems.slice(0, MARKET_METRIC_PREFETCH_LIMIT),
-      $wfmItems,
-      { price: true, ducats: false, orders: true, network: true },
-    );
+    hydration.enqueue(marketOrderBaseItems.slice(0, MARKET_METRIC_PREFETCH_LIMIT), $wfmItems, {
+      price: true,
+      ducats: false,
+      orders: true,
+      network: true,
+    });
   }
 </script>
 
@@ -461,7 +454,13 @@
     <div class="flex flex-col items-center gap-3 py-3">
       <div class="w-[min(560px,100%)] rounded-xl border border-border bg-bg-surface p-4">
         <div class="mb-2.5 text-accent">
-          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" class="h-10 w-10">
+          <svg
+            viewBox="0 0 48 48"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            class="h-10 w-10"
+          >
             <circle cx="24" cy="14" r="8" />
             <path d="M8 40c0-8.837 7.163-16 16-16s16 7.163 16 16" />
           </svg>
@@ -473,8 +472,10 @@
           <button
             type="button"
             class="link-btn"
-            on:click={() => send("open-external", "https://warframe.market/profile/settings#password")}
-          >WFM account settings</button> first.
+            on:click={() =>
+              send("open-external", "https://warframe.market/profile/settings#password")}
+            >WFM account settings</button
+          > first.
         </p>
         <form autocomplete="on" on:submit={login}>
           <div class="grid gap-1 mb-2">
@@ -490,7 +491,9 @@
             />
           </div>
           <div class="grid gap-1 mb-2">
-            <label for="market-password" class="text-sm font-medium text-text-secondary">Password</label>
+            <label for="market-password" class="text-sm font-medium text-text-secondary"
+              >Password</label
+            >
             <ThemedInput
               id="market-password"
               type="password"
@@ -516,18 +519,24 @@
         <h2>{isRivensTab ? "My Rivens" : "My Orders"}</h2>
         <div class="view-controls gap-2">
           {#if $marketSession.userName}
-            <span class="rounded-full border border-border bg-white/5 px-2 py-1 font-display text-xs font-bold text-text-primary">@{$marketSession.userName}</span>
+            <span
+              class="rounded-full border border-border bg-white/5 px-2 py-1 font-display text-xs font-bold text-text-primary"
+              >@{$marketSession.userName}</span
+            >
           {/if}
 
           <div class="flex flex-wrap gap-1.5">
             {#each STATUS_OPTIONS as [statusKey, label]}
               <button
                 class="rounded-md border border-border bg-bg-surface px-2 py-1 font-display text-xs font-semibold text-text-secondary transition-all duration-[0.14s] hover:border-text-secondary hover:text-text-primary"
-                class:statusOnlineActive={statusKey === "online" && $marketViewState.status === statusKey}
-                class:statusIngameActive={statusKey === "ingame" && $marketViewState.status === statusKey}
-                class:statusInvisibleActive={statusKey === "invisible" && $marketViewState.status === statusKey}
-                on:click={() => setStatus(statusKey)}
-              >{label}</button>
+                class:statusOnlineActive={statusKey === "online" &&
+                  $marketViewState.status === statusKey}
+                class:statusIngameActive={statusKey === "ingame" &&
+                  $marketViewState.status === statusKey}
+                class:statusInvisibleActive={statusKey === "invisible" &&
+                  $marketViewState.status === statusKey}
+                on:click={() => setStatus(statusKey)}>{label}</button
+              >
             {/each}
           </div>
 
@@ -541,7 +550,14 @@
           {/if}
 
           <button class="btn-secondary btn-sm" title="Refresh" on:click={refreshCurrentTab}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              width="14"
+              height="14"
+            >
               <path d="M23 4v6h-6" />
               <path d="M1 20v-6h6" />
               <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
@@ -568,12 +584,20 @@
       />
 
       {#if !isRivensTab && $marketSelected.size > 0}
-        <div class="flex flex-wrap items-center gap-1.5 mb-2.5 rounded-lg border border-border bg-bg-surface px-2.5 py-2">
+        <div
+          class="flex flex-wrap items-center gap-1.5 mb-2.5 rounded-lg border border-border bg-bg-surface px-2.5 py-2"
+        >
           <span class="mr-1.5 text-xs text-text-secondary">{$marketSelected.size} selected</span>
-          <button class="btn-sm btn-secondary" on:click={() => bulkSetVisible(true)}>Set Visible</button>
-          <button class="btn-sm btn-secondary" on:click={() => bulkSetVisible(false)}>Set Hidden</button>
+          <button class="btn-sm btn-secondary" on:click={() => bulkSetVisible(true)}
+            >Set Visible</button
+          >
+          <button class="btn-sm btn-secondary" on:click={() => bulkSetVisible(false)}
+            >Set Hidden</button
+          >
           <button class="btn-sm btn-danger" on:click={bulkDelete}>Delete Selected</button>
-          <button class="btn-sm btn-secondary" on:click={() => marketSelected.set(new Set())}>Clear</button>
+          <button class="btn-sm btn-secondary" on:click={() => marketSelected.set(new Set())}
+            >Clear</button
+          >
         </div>
       {/if}
 
@@ -582,53 +606,84 @@
           ? 'min-[1101px]:grid-cols-[minmax(0,1fr)_360px]'
           : ''}"
       >
-        <div class="grid gap-2.5 {$marketDensity === 'compact' ? 'grid-cols-[repeat(auto-fill,minmax(336px,1fr))] [&_.order-row]:[zoom:1.2]' : ''}">
-        {#if isRivensTab}
-          {#if contractsLoading}
-            <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">Loading riven contracts...</div>
-          {:else if contractsError}
-            <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-danger">{contractsError}</div>
-          {:else if filteredContractRows.length === 0}
-            <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">No riven contracts found.</div>
+        <div
+          class="grid gap-2.5 {$marketDensity === 'compact'
+            ? 'grid-cols-[repeat(auto-fill,minmax(336px,1fr))] [&_.order-row]:[zoom:1.2]'
+            : ''}"
+        >
+          {#if isRivensTab}
+            {#if contractsLoading}
+              <div
+                class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted"
+              >
+                Loading riven contracts...
+              </div>
+            {:else if contractsError}
+              <div
+                class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-danger"
+              >
+                {contractsError}
+              </div>
+            {:else if filteredContractRows.length === 0}
+              <div
+                class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted"
+              >
+                No riven contracts found.
+              </div>
+            {:else}
+              {#each filteredContractRows as contract}
+                <MarketContractRow
+                  {contract}
+                  compact={$marketDensity === "compact"}
+                  onOpen={openContractListing}
+                  onEdit={editContractListing}
+                />
+              {/each}
+
+              {#if $marketContracts.hasMore}
+                <button
+                  class="btn-secondary btn-sm justify-self-center mt-1"
+                  on:click={loadMoreContracts}
+                  disabled={contractsLoading}
+                >
+                  {contractsLoading ? "Loading..." : "Load More"}
+                </button>
+              {/if}
+            {/if}
+          {:else if ordersLoading}
+            <div
+              class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted"
+            >
+              Loading orders...
+            </div>
+          {:else if ordersError}
+            <div
+              class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-danger"
+            >
+              {ordersError}
+            </div>
+          {:else if filteredOrderRows.length === 0}
+            <div
+              class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted"
+            >
+              No {$marketViewState.typeTab} orders. Click <strong>+ New Order</strong> to create one.
+            </div>
           {:else}
-            {#each filteredContractRows as contract}
-              <MarketContractRow
-                {contract}
+            {#each filteredOrderRows as order}
+              {@const orderItem =
+                marketOrderViewItems.find((entry) => entry.sourceOrderId === order.id) ?? null}
+              <MarketOrderRow
+                {order}
+                item={orderItem}
                 compact={$marketDensity === "compact"}
-                onOpen={openContractListing}
-                onEdit={editContractListing}
+                selected={$marketSelected.has(order.id)}
+                onSelectChange={onOrderSelectChange}
+                onOpen={selectOrder}
+                onEdit={editOrder}
+                onDelete={deleteOrder}
               />
             {/each}
-
-            {#if $marketContracts.hasMore}
-              <button class="btn-secondary btn-sm justify-self-center mt-1" on:click={loadMoreContracts} disabled={contractsLoading}>
-                {contractsLoading ? "Loading..." : "Load More"}
-              </button>
-            {/if}
           {/if}
-        {:else if ordersLoading}
-          <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">Loading orders...</div>
-        {:else if ordersError}
-          <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-danger">{ordersError}</div>
-        {:else if filteredOrderRows.length === 0}
-          <div class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted">
-            No {$marketViewState.typeTab} orders. Click <strong>+ New Order</strong> to create one.
-          </div>
-        {:else}
-          {#each filteredOrderRows as order}
-            {@const orderItem = marketOrderViewItems.find((entry) => entry.sourceOrderId === order.id) ?? null}
-            <MarketOrderRow
-              {order}
-              item={orderItem}
-              compact={$marketDensity === "compact"}
-              selected={$marketSelected.has(order.id)}
-              onSelectChange={onOrderSelectChange}
-              onOpen={selectOrder}
-              onEdit={editOrder}
-              onDelete={deleteOrder}
-            />
-          {/each}
-        {/if}
         </div>
         {#if !isRivensTab && orderBookPanelOpen}
           <InventoryOrderBookPanel item={selectedOrderItem} onClose={closeOrderBookPanel} />
@@ -664,4 +719,3 @@
     color: var(--text-primary);
   }
 </style>
-

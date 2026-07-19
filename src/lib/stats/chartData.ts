@@ -1,8 +1,12 @@
 /** Pure chart-data computation - no Svelte, i18n, or IPC. */
 import type { DailyStatEntry } from "../../types/ipc.js";
 
-
-export type SessionStatKey = "platDelta" | "creditsDelta" | "endoDelta" | "ducatsDelta" | "ayaDelta";
+export type SessionStatKey =
+  | "platDelta"
+  | "creditsDelta"
+  | "endoDelta"
+  | "ducatsDelta"
+  | "ayaDelta";
 export type ChartKey = SessionStatKey | "relicsOpened" | "dailyTrades";
 
 interface BarData {
@@ -35,7 +39,6 @@ export interface ChartResult {
   niceMax: number;
 }
 
-
 export const BAR_H = 64;
 export const BAR_H_EXPAND = 300;
 const BAR_GAP = 2;
@@ -52,13 +55,14 @@ const ABS_FIELD_MAP: Partial<Record<ChartKey, keyof DailyStatEntry>> = {
   ayaDelta: "absAya",
 };
 
-
 export function formatDelta(n: number, fmt: (abs: number) => string): string {
   const sign = n >= 0 ? "+" : "−";
   return `${sign}${fmt(Math.abs(n))}`;
 }
 
-function fmtPlat(abs: number): string { return abs.toLocaleString(); }
+function fmtPlat(abs: number): string {
+  return abs.toLocaleString();
+}
 
 function fmtCredits(abs: number): string {
   if (abs >= 1_000_000) return `${(abs / 1_000_000).toFixed(2)}M`;
@@ -71,16 +75,18 @@ function fmtEndo(abs: number): string {
   return abs.toLocaleString();
 }
 
-function fmtCount(abs: number): string { return abs.toLocaleString(); }
+function fmtCount(abs: number): string {
+  return abs.toLocaleString();
+}
 
 export const formatters: Record<ChartKey, (abs: number) => string> = {
-  platDelta:    fmtPlat,
-  ducatsDelta:  fmtPlat,
-  ayaDelta:     fmtCount,
+  platDelta: fmtPlat,
+  ducatsDelta: fmtPlat,
+  ayaDelta: fmtCount,
   creditsDelta: fmtCredits,
-  endoDelta:    fmtEndo,
+  endoDelta: fmtEndo,
   relicsOpened: fmtCount,
-  dailyTrades:  fmtCount,
+  dailyTrades: fmtCount,
 };
 
 export function formatAbsolute(n: number | null): string {
@@ -104,7 +110,6 @@ function fmtTickSI(value: number): string {
   return String(value);
 }
 
-
 /** Round up to a "nice" number for axis scaling (1, 2, 5 multiples of powers of 10). */
 function niceRoundUp(val: number): number {
   if (val <= 0) return 1;
@@ -118,7 +123,10 @@ function niceRoundUp(val: number): number {
 }
 
 /** Compute nice Y-axis ticks from 0 to a nice ceiling above maxVal. */
-function computeNiceTicks(maxVal: number, targetCount: number = 5): { ticks: YTick[]; niceMax: number } {
+function computeNiceTicks(
+  maxVal: number,
+  targetCount: number = 5,
+): { ticks: YTick[]; niceMax: number } {
   if (maxVal <= 0) {
     return { ticks: [{ label: "0", value: 0, yFrac: 1 }], niceMax: 1 };
   }
@@ -136,17 +144,23 @@ function computeNiceTicks(maxVal: number, targetCount: number = 5): { ticks: YTi
   return { ticks, niceMax };
 }
 
-
 /** Typed accessor for chart-keyed numeric fields on DailyStatEntry. */
 function pickNumericField(entry: DailyStatEntry, key: ChartKey): number {
   switch (key) {
-    case "platDelta": return entry.platDelta;
-    case "creditsDelta": return entry.creditsDelta;
-    case "endoDelta": return entry.endoDelta;
-    case "ducatsDelta": return entry.ducatsDelta;
-    case "ayaDelta": return entry.ayaDelta;
-    case "relicsOpened": return entry.relicsOpened;
-    case "dailyTrades": return entry.dailyTrades;
+    case "platDelta":
+      return entry.platDelta;
+    case "creditsDelta":
+      return entry.creditsDelta;
+    case "endoDelta":
+      return entry.endoDelta;
+    case "ducatsDelta":
+      return entry.ducatsDelta;
+    case "ayaDelta":
+      return entry.ayaDelta;
+    case "relicsOpened":
+      return entry.relicsOpened;
+    case "dailyTrades":
+      return entry.dailyTrades;
   }
 }
 
@@ -171,12 +185,28 @@ function allCalendarDays(startIso: string): string[] {
   return result;
 }
 
-export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, barH: number = BAR_H): ChartResult {
+export function barsForKey(
+  key: ChartKey,
+  hist: DailyStatEntry[],
+  days: number,
+  barH: number = BAR_H,
+): ChartResult {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
   const cutoffStr = localDateStr(cutoff);
   const calendarDays = allCalendarDays(cutoffStr);
-  if (calendarDays.length === 0) return { bars: [], hasBaseline: false, bw: 4, absLine: null, absValues: [], hasAbsData: false, realData: [], yTicks: [], niceMax: 0 };
+  if (calendarDays.length === 0)
+    return {
+      bars: [],
+      hasBaseline: false,
+      bw: 4,
+      absLine: null,
+      absValues: [],
+      hasAbsData: false,
+      realData: [],
+      yTicks: [],
+      niceMax: 0,
+    };
 
   // Index entries by date; newest pre-window entry seeds the carry-in.
   const entryMap = new Map<string, DailyStatEntry>();
@@ -195,7 +225,9 @@ export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, 
     const entry = entryMap.get(day);
     realData.push(!!entry);
     values.push(entry ? (pickNumericField(entry, key) ?? 0) : 0);
-    rawAbs.push(absField && entry ? ((entry[absField] as number | undefined) ?? undefined) : undefined);
+    rawAbs.push(
+      absField && entry ? ((entry[absField] as number | undefined) ?? undefined) : undefined,
+    );
   }
 
   // Derive deltas from consecutive abs values when the recorded delta is 0
@@ -302,7 +334,6 @@ export function barsForKey(key: ChartKey, hist: DailyStatEntry[], days: number, 
 
   return { bars, hasBaseline, bw, absLine, absValues, hasAbsData, realData, yTicks, niceMax };
 }
-
 
 export function labelStep(days: number): number {
   if (days <= 7) return 1;

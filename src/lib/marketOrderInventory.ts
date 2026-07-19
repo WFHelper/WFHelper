@@ -1,8 +1,6 @@
 import { isRankedGroup, toFinitePositiveInt } from "../../config/shared/numeric.js";
 import { normalizeMarketName, toMarketSlug } from "./marketNaming.js";
-import {
-  type InventoryBaseItem,
-} from "./inventoryMarket.js";
+import { type InventoryBaseItem } from "./inventoryMarket.js";
 import type { InventoryGroup, ParsedItem } from "../types/inventory.js";
 import type { WfmItemsLookup } from "../types/ipc.js";
 import type { WfmOrder } from "../types/market.js";
@@ -28,10 +26,7 @@ function lookupMaxRank(order: WfmOrder, wfmItems: WfmItemsLookup): number | null
   return null;
 }
 
-function inventoryGroupForOrder(
-  order: WfmOrder,
-  parsedItem: ParsedItem | null,
-): InventoryGroup {
+function inventoryGroupForOrder(order: WfmOrder, parsedItem: ParsedItem | null): InventoryGroup {
   if (parsedItem?.inventoryGroup) return parsedItem.inventoryGroup;
   if (parsedItem?.categoryLabel?.toLowerCase().includes("arcane")) return "arcanes";
   if (parsedItem?.categoryLabel?.toLowerCase().includes("mod")) return "mods";

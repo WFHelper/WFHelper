@@ -128,7 +128,10 @@
     {/each}
   </span>
 
-  <span data-tour="relic-tiers" class="relic-quality-inline-counts ml-0 inline-grid grid-cols-4 w-full min-w-0 justify-stretch gap-0.5">
+  <span
+    data-tour="relic-tiers"
+    class="relic-quality-inline-counts ml-0 inline-grid grid-cols-4 w-full min-w-0 justify-stretch gap-0.5"
+  >
     {#each RELIC_QUALITY_COLUMNS as quality}
       {@const count = ownedCount(group, quality)}
       <button
@@ -146,8 +149,8 @@
         <span class="leading-none normal-case opacity-95">{RELIC_QUALITY_SHORT[quality]}:</span>
         <span
           class="relic-quality-inline-value text-xs leading-none tracking-[0.02em] text-[color-mix(in_oklab,var(--info)_76%,white)]"
-          class:emptyCount={count === 0}
-        >{count}</span>
+          class:emptyCount={count === 0}>{count}</span
+        >
       </button>
     {/each}
   </span>
@@ -163,20 +166,39 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
     background:
-      radial-gradient(circle at 14% 30%, color-mix(in oklab, var(--accent) 20%, transparent) 0%, transparent 52%),
-      linear-gradient(180deg, color-mix(in oklab, var(--bg-surface) 88%, black) 0%, color-mix(in oklab, var(--bg-base) 94%, black) 100%);
+      radial-gradient(
+        circle at 14% 30%,
+        color-mix(in oklab, var(--accent) 20%, transparent) 0%,
+        transparent 52%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--bg-surface) 88%, black) 0%,
+        color-mix(in oklab, var(--bg-base) 94%, black) 100%
+      );
     padding: 0.6rem;
     cursor: default;
     text-align: left;
     color: var(--text-primary);
     font: inherit;
-    transition: border-color 0.14s ease, background 0.14s ease, transform 0.14s ease;
+    transition:
+      border-color 0.14s ease,
+      background 0.14s ease,
+      transform 0.14s ease;
   }
   .relic-compact-card:hover {
     border-color: var(--border-strong);
     background:
-      radial-gradient(circle at 14% 30%, color-mix(in oklab, var(--accent) 30%, transparent) 0%, transparent 56%),
-      linear-gradient(180deg, color-mix(in oklab, var(--bg-raised) 86%, black) 0%, color-mix(in oklab, var(--bg-base) 92%, black) 100%);
+      radial-gradient(
+        circle at 14% 30%,
+        color-mix(in oklab, var(--accent) 30%, transparent) 0%,
+        transparent 56%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--bg-raised) 86%, black) 0%,
+        color-mix(in oklab, var(--bg-base) 92%, black) 100%
+      );
     transform: translateY(-1px);
   }
   .relic-compact-card.plain {

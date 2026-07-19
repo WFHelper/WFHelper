@@ -24,7 +24,8 @@ export const en = {
   "view.arbi": "Arbitrations",
 
   "arbi.title": "Arbitration Runs",
-  "arbi.empty": "No arbitration runs recorded yet. Finish an arbitration with the app running, or import an EE.log.",
+  "arbi.empty":
+    "No arbitration runs recorded yet. Finish an arbitration with the app running, or import an EE.log.",
   "arbi.import": "Import EE.log…",
   "arbi.trackingDisabled":
     "Run tracking is turned off in Settings - new arbitrations are not being recorded.",
@@ -65,7 +66,8 @@ export const en = {
   "arbi.kpi.avgInterval": "Avg Drone Interval",
   "arbi.kpi.duration": "Duration",
   "arbi.kpi.vitusPerMin": "Vitus / min",
-  "arbi.noStats": "Only Defense and Interception arbitrations get a full dashboard. The raw log of this run is still saved.",
+  "arbi.noStats":
+    "Only Defense and Interception arbitrations get a full dashboard. The raw log of this run is still saved.",
   "arbi.vitus.title": "Expected Vitus Probability",
   "arbi.vitus.desc": "Assuming 100% pickup rate, all buffs, and retriever mod active.",
   "arbi.vitus.actual": "Actual Vitus:",
@@ -88,7 +90,8 @@ export const en = {
   "arbi.waveMap.title": "Wave Clear Map",
   "arbi.waveMap.desc": "Fight duration per wave. Green = fast, red = slow.",
   "arbi.dpm.title": "Drones Per Minute",
-  "arbi.dpm.desc": "DPM per rotation, with the run average. (Pre-buffing time counts toward round 1.)",
+  "arbi.dpm.desc":
+    "DPM per rotation, with the run average. (Pre-buffing time counts toward round 1.)",
   "arbi.rotations.title": "Drones Per Rotation",
   "arbi.rotations.desc": "Colors show relative performance: red (lowest) to green (highest).",
   "arbi.rotations.round": "Round {n}",
@@ -111,12 +114,12 @@ export const en = {
   "arbisched.presetLoad": "Load",
   "arbisched.presetDelete": "Delete",
   "arbisched.presetNameMissing": "Preset name cannot be empty.",
-  "arbisched.presetOverwrite": "Preset \"{name}\" already exists. Overwrite it?",
-  "arbisched.presetSaved": "Saved \"{name}\" ({count} nodes).",
-  "arbisched.presetLoaded": "Loaded \"{name}\".",
-  "arbisched.presetDeleted": "Deleted \"{name}\".",
+  "arbisched.presetOverwrite": 'Preset "{name}" already exists. Overwrite it?',
+  "arbisched.presetSaved": 'Saved "{name}" ({count} nodes).',
+  "arbisched.presetLoaded": 'Loaded "{name}".',
+  "arbisched.presetDeleted": 'Deleted "{name}".',
   "arbisched.presetSelectFirst": "Select a preset first.",
-  "arbisched.presetDeleteConfirm": "Delete preset \"{name}\"?",
+  "arbisched.presetDeleteConfirm": 'Delete preset "{name}"?',
   "arbisched.days": "{n} days",
   "arbisched.entries": "{count} entries",
   "arbisched.updated": "Updated {ago} ago",

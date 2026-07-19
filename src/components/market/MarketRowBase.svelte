@@ -38,7 +38,10 @@
           {badgeLabel}
         </span>
       {/if}
-      <span class="min-w-0 flex-1 truncate font-display text-sm font-bold text-text-primary" title={title}>
+      <span
+        class="min-w-0 flex-1 truncate font-display text-sm font-bold text-text-primary"
+        {title}
+      >
         {title}
         <slot name="titleMeta" />
       </span>
@@ -52,7 +55,12 @@
 
     <div class={compactBodyClass}>
       {#if thumb}
-        <img src={thumb} alt={title} class="h-11 w-11 shrink-0 rounded-[var(--radius-md)] bg-black/30 object-contain" loading="lazy" />
+        <img
+          src={thumb}
+          alt={title}
+          class="h-11 w-11 shrink-0 rounded-[var(--radius-md)] bg-black/30 object-contain"
+          loading="lazy"
+        />
       {:else}
         <div class="h-11 w-11 shrink-0 rounded-[var(--radius-md)] bg-white/5"></div>
       {/if}

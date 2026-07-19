@@ -30,16 +30,16 @@
       class:world-state-joy={stateClass === "joy"}
       class:world-state-envy={stateClass === "envy"}
       class:world-state-sorrow={stateClass === "sorrow"}
-      class:world-state-fear={stateClass === "fear"}
-    >{stateLabel}</span>
+      class:world-state-fear={stateClass === "fear"}>{stateLabel}</span
+    >
   </div>
 
   <span class="flex shrink-0 items-center gap-1">
     <span class="whitespace-nowrap text-xs text-text-secondary">{nextLabel} in</span>
     <span
       class="font-display text-sm tracking-[0.02em] whitespace-nowrap text-text-primary"
-      class:world-timer-urgent={urgent}
-    >{time}</span>
+      class:world-timer-urgent={urgent}>{time}</span
+    >
 
     {#if alertKey && onToggleAlert}
       <button
@@ -56,11 +56,23 @@
       >
         {#if alertOn}
           <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true">
-            <path d="M8 1a5 5 0 0 0-5 5v2.586l-.707.707A1 1 0 0 0 3 11h10a1 1 0 0 0 .707-1.707L13 8.586V6a5 5 0 0 0-5-5zM6.5 14a1.5 1.5 0 0 0 3 0H6.5z" />
+            <path
+              d="M8 1a5 5 0 0 0-5 5v2.586l-.707.707A1 1 0 0 0 3 11h10a1 1 0 0 0 .707-1.707L13 8.586V6a5 5 0 0 0-5-5zM6.5 14a1.5 1.5 0 0 0 3 0H6.5z"
+            />
           </svg>
         {:else}
-          <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
-            <path d="M8 1.5a4.5 4.5 0 0 0-4.5 4.5v2.586l-.707.707A1 1 0 0 0 3.5 11h9a1 1 0 0 0 .707-1.707L12.5 8.586V6a4.5 4.5 0 0 0-4.5-4.5z" />
+          <svg
+            viewBox="0 0 16 16"
+            width="12"
+            height="12"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            aria-hidden="true"
+          >
+            <path
+              d="M8 1.5a4.5 4.5 0 0 0-4.5 4.5v2.586l-.707.707A1 1 0 0 0 3.5 11h9a1 1 0 0 0 .707-1.707L12.5 8.586V6a4.5 4.5 0 0 0-4.5-4.5z"
+            />
             <path d="M6.5 13.5a1.5 1.5 0 0 0 3 0" />
           </svg>
         {/if}

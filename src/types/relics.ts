@@ -45,4 +45,3 @@ export interface OwnedQualityCounts {
 }
 
 export type OwnedCounts = Record<string, OwnedQualityCounts>;
-

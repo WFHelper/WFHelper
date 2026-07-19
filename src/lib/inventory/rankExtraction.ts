@@ -2,7 +2,6 @@ import type { InventoryGroup, ItemDbEntry, RawInventoryEntry } from "../../types
 import { MAX_ITEM_RANK, XP_PER_RANK } from "../../../config/game/constants.js";
 import { toFiniteNumber } from "../../../config/shared/numeric.js";
 
-
 const RANK_KEYS = new Set([
   "rank",
   "rnk",
@@ -50,7 +49,6 @@ const FINGERPRINT_RANK_KEYS = new Set([
   "itemlevel",
   "arcanerank",
 ]);
-
 
 export function pickNumeric(entry: RawInventoryEntry, keys: string[]): number | null {
   for (const key of keys) {
@@ -124,7 +122,6 @@ export function hasAnyRankSignal(value: unknown): boolean {
   return false;
 }
 
-
 export function parseFingerprintPayload(raw: unknown): unknown {
   let current = raw;
 
@@ -172,7 +169,6 @@ export function extractFingerprintRank(entry: RawInventoryEntry): number | null 
   if (rank == null || rank < 0) return null;
   return Math.floor(rank);
 }
-
 
 export function normalizeRank(
   entry: RawInventoryEntry,

@@ -9,7 +9,11 @@ export function computeRivenStatSimilarity(myStatNames, listingStats) {
   }
 
   const listingNames = listingStats
-    .map((stat) => String(stat.name || "").trim().toLowerCase())
+    .map((stat) =>
+      String(stat.name || "")
+        .trim()
+        .toLowerCase(),
+    )
     .filter(Boolean);
   const matchedNames = new Set();
   for (const myName of myStatNames) {

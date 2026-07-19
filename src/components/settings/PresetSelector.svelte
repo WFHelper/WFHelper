@@ -38,7 +38,7 @@
   <h4 class="appearance-section-label">{$tr("appearance.presets")}</h4>
   <div class="grid gap-2">
     <BuiltInThemeDropdown
-      activePreset={activePreset}
+      {activePreset}
       label={$tr("appearance.builtinThemes")}
       fallbackLabel={activeCustomTheme?.label ?? $tr("appearance.customPreset")}
       onSelect={selectPreset}
@@ -87,4 +87,3 @@
     {/if}
   </div>
 </div>
-

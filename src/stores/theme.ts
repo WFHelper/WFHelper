@@ -203,7 +203,6 @@ function createThemeStore() {
     resetFontSizes(): void {
       update((s) => applyMutableThemeEdits(s, { fontSizes: { ...DEFAULT_FONT_SIZES } }));
     },
-
   };
 }
 

@@ -23,15 +23,30 @@
     "Assassination",
   ] as const;
   const STEEL_PATH_OPTIONS = [
-    { value: "any",    label: "Any mode" },
+    { value: "any", label: "Any mode" },
     { value: "normal", label: "Normal" },
-    { value: "steel",  label: "Steel Path" },
+    { value: "steel", label: "Steel Path" },
   ] as const;
   const PLANETS = [
     "any",
-    "Ceres", "Earth", "Eris", "Europa", "Jupiter", "Kuva Fortress",
-    "Lua", "Mars", "Mercury", "Neptune", "Phobos", "Pluto",
-    "Saturn", "Sedna", "Uranus", "Venus", "Void", "Zariman",
+    "Ceres",
+    "Earth",
+    "Eris",
+    "Europa",
+    "Jupiter",
+    "Kuva Fortress",
+    "Lua",
+    "Mars",
+    "Mercury",
+    "Neptune",
+    "Phobos",
+    "Pluto",
+    "Saturn",
+    "Sedna",
+    "Uranus",
+    "Venus",
+    "Void",
+    "Zariman",
     "Deimos",
   ] as const;
 
@@ -82,7 +97,9 @@
 
 <div class="mt-0 pt-0 border-t-0">
   <h4 class="m-0 mb-1 text-sm font-bold text-text-primary">Fissure Alerts</h4>
-  <p class="text-xs text-text-secondary m-0 mb-2.5">Get a desktop notification when a matching fissure appears.</p>
+  <p class="text-xs text-text-secondary m-0 mb-2.5">
+    Get a desktop notification when a matching fissure appears.
+  </p>
 
   {#if alerts.length === 0}
     <p class="text-xs text-text-secondary italic m-0 mb-2">No alert rules configured.</p>
@@ -90,16 +107,28 @@
     <ul class="list-none m-0 mb-2 p-0 flex flex-col gap-1">
       {#each alerts as alert (alert.id)}
         <li class="flex items-center gap-1.5 flex-wrap">
-          <span class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-white/5 text-text-secondary">{tierLabel(alert.tier)}</span>
-          <span class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-white/5 text-text-secondary">{missionLabel(alert.missionType)}</span>
-          <span class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-white/5 text-text-secondary">{spLabel(alert.steelPath)}</span>
-          <span class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-white/5 text-text-secondary">{planetLabel(alert.planet)}</span>
+          <span
+            class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-white/5 text-text-secondary"
+            >{tierLabel(alert.tier)}</span
+          >
+          <span
+            class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-white/5 text-text-secondary"
+            >{missionLabel(alert.missionType)}</span
+          >
+          <span
+            class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-white/5 text-text-secondary"
+            >{spLabel(alert.steelPath)}</span
+          >
+          <span
+            class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-white/5 text-text-secondary"
+            >{planetLabel(alert.planet)}</span
+          >
           <button
             class="ml-auto inline-flex items-center justify-center w-5 h-5 rounded-[var(--radius-md)] border border-border bg-transparent text-text-secondary cursor-pointer text-sm p-0 transition-[color,border-color,background] duration-150 hover:text-danger hover:border-danger/40 hover:bg-danger/10 disabled:opacity-40 disabled:cursor-not-allowed"
             title="Remove alert"
             disabled={saving}
-            on:click={() => removeAlert(alert.id)}
-          >×</button>
+            on:click={() => removeAlert(alert.id)}>×</button
+          >
         </li>
       {/each}
     </ul>
@@ -126,7 +155,9 @@
         <option value={p}>{p === "any" ? "Any planet" : p}</option>
       {/each}
     </ThemedSelect>
-    <ThemedButton size="compact" className="!text-text-primary" disabled={saving} onClick={addAlert}>Add</ThemedButton>
+    <ThemedButton size="compact" className="!text-text-primary" disabled={saving} onClick={addAlert}
+      >Add</ThemedButton
+    >
   </div>
 
   {#if error}

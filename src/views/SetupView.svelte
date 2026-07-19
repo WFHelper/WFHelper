@@ -46,7 +46,14 @@
     { value: "round", label: "Round" },
   ];
   // balanced starter picks (2 neutral, 1 light, 1 showpiece); full list in Settings > Appearance
-  const SETUP_THEME_KEYS = ["default", "midnight", "graphite", "tennoMinimal", "light", "corpusGlass"];
+  const SETUP_THEME_KEYS = [
+    "default",
+    "midnight",
+    "graphite",
+    "tennoMinimal",
+    "light",
+    "corpusGlass",
+  ];
 
   onMount(async () => {
     removeProgressListener = on("helper-download-progress", (p) => {
@@ -176,7 +183,10 @@
     loadingApi = true;
     try {
       const data = await invoke("openAlecaFrameInventoryFile");
-      await acceptInventoryData(data, "Choose AlecaFrame lastData.dat from %LOCALAPPDATA%\\AlecaFrame.");
+      await acceptInventoryData(
+        data,
+        "Choose AlecaFrame lastData.dat from %LOCALAPPDATA%\\AlecaFrame.",
+      );
     } catch (error) {
       errorMessage = `AlecaFrame import failed: ${(error as Error).message}`;
       step = "error";
@@ -505,10 +515,14 @@
 
 <section class="view active">
   {#if step === "overlays"}
-    <div class="fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-bg-deep px-6 py-5">
+    <div
+      class="fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-bg-deep px-6 py-5"
+    >
       <div
         class="relative min-h-0 overflow-hidden rounded-xl border border-border-strong bg-black"
-        style="aspect-ratio: {placementArea.width} / {placementArea.height}; width: min(100%, calc((100vh - 230px) * {(placementArea.width / Math.max(1, placementArea.height)).toFixed(4)}));"
+        style="aspect-ratio: {placementArea.width} / {placementArea.height}; width: min(100%, calc((100vh - 230px) * {(
+          placementArea.width / Math.max(1, placementArea.height)
+        ).toFixed(4)}));"
         bind:clientWidth={previewW}
       >
         <img
@@ -523,24 +537,36 @@
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div
               data-placement-dummy={key}
-              class="absolute flex cursor-move touch-none select-none flex-col overflow-hidden rounded border bg-bg-deep/85 {dragging?.key === key
+              class="absolute flex cursor-move touch-none select-none flex-col overflow-hidden rounded border bg-bg-deep/85 {dragging?.key ===
+              key
                 ? 'border-accent ring-1 ring-accent'
                 : 'border-border-strong hover:border-accent'}"
-              style="left: {placementPos[key].x * previewScale}px; top: {placementPos[key].y * previewScale}px; width: {placementPos[key].width * previewScale}px; height: {placementPos[key].height * previewScale}px;"
+              style="left: {placementPos[key].x * previewScale}px; top: {placementPos[key].y *
+                previewScale}px; width: {placementPos[key].width *
+                previewScale}px; height: {placementPos[key].height * previewScale}px;"
               on:pointerdown={(e) => onDummyPointerDown(key, e)}
               on:pointermove={onDummyPointerMove}
               on:pointerup={onDummyPointerUp}
               on:pointercancel={() => (dragging = null)}
             >
-              <div class="flex items-center justify-between gap-2 border-b border-border bg-bg-surface/90 px-2 py-1">
-                <span class="truncate font-display text-[10px] font-bold tracking-widest text-accent">{dummyLabels[key]}</span>
-                <span class="shrink-0 text-[9px] uppercase tracking-wider text-text-muted">drag me</span>
+              <div
+                class="flex items-center justify-between gap-2 border-b border-border bg-bg-surface/90 px-2 py-1"
+              >
+                <span
+                  class="truncate font-display text-[10px] font-bold tracking-widest text-accent"
+                  >{dummyLabels[key]}</span
+                >
+                <span class="shrink-0 text-[9px] uppercase tracking-wider text-text-muted"
+                  >drag me</span
+                >
               </div>
               <div class="min-h-0 flex-1 p-1.5 opacity-80">
                 {#if key === "reward"}
                   <div class="flex h-full gap-1.5">
                     {#each Array(4) as _}
-                      <div class="flex flex-1 flex-col gap-1 rounded-sm border border-border/60 bg-bg-raised/70 p-1">
+                      <div
+                        class="flex flex-1 flex-col gap-1 rounded-sm border border-border/60 bg-bg-raised/70 p-1"
+                      >
                         <div class="mx-auto h-2/5 w-3/5 rounded-sm bg-bg-hover"></div>
                         <div class="h-1.5 w-full rounded-sm bg-bg-hover"></div>
                         <div class="h-1.5 w-2/3 rounded-sm bg-bg-hover"></div>
@@ -550,7 +576,9 @@
                 {:else if key === "planner"}
                   <div class="flex h-full flex-col gap-1.5">
                     {#each Array(3) as _}
-                      <div class="flex items-center gap-1.5 rounded-sm border border-border/60 bg-bg-raised/70 px-1.5 py-2">
+                      <div
+                        class="flex items-center gap-1.5 rounded-sm border border-border/60 bg-bg-raised/70 px-1.5 py-2"
+                      >
                         <div class="h-1.5 flex-1 rounded-sm bg-bg-hover"></div>
                         <div class="h-1.5 w-8 shrink-0 rounded-sm bg-bg-hover"></div>
                       </div>
@@ -559,7 +587,9 @@
                 {:else if key === "arbiSummary"}
                   <div class="grid h-full grid-cols-2 gap-1.5">
                     {#each Array(4) as _}
-                      <div class="flex flex-col justify-center gap-1 rounded-sm border border-border/60 bg-bg-raised/70 px-1.5">
+                      <div
+                        class="flex flex-col justify-center gap-1 rounded-sm border border-border/60 bg-bg-raised/70 px-1.5"
+                      >
                         <div class="h-1.5 w-1/2 rounded-sm bg-bg-hover"></div>
                         <div class="h-2 w-2/3 rounded-sm bg-bg-hover"></div>
                       </div>
@@ -567,7 +597,9 @@
                   </div>
                 {:else}
                   <div class="flex h-full flex-col gap-1.5">
-                    <div class="h-1/4 shrink-0 rounded-sm border border-border/60 bg-bg-raised/70"></div>
+                    <div
+                      class="h-1/4 shrink-0 rounded-sm border border-border/60 bg-bg-raised/70"
+                    ></div>
                     {#each Array(5) as _}
                       <div class="flex items-center gap-1.5 px-0.5">
                         <div class="h-1.5 flex-1 rounded-sm bg-bg-hover"></div>
@@ -584,12 +616,17 @@
 
       <div class="w-[560px] max-w-full shrink-0 rounded-xl border border-border bg-bg-surface p-4">
         <div class="mb-1 flex items-center justify-between gap-3">
-          <h2 class="m-0 font-display text-base font-bold tracking-[0.02em]">{placementStep.title}</h2>
-          <span class="shrink-0 text-xs text-text-muted">{overlayStepIndex + 1} / {overlayPlacementSteps.length}</span>
+          <h2 class="m-0 font-display text-base font-bold tracking-[0.02em]">
+            {placementStep.title}
+          </h2>
+          <span class="shrink-0 text-xs text-text-muted"
+            >{overlayStepIndex + 1} / {overlayPlacementSteps.length}</span
+          >
         </div>
         <p class="m-0 text-sm leading-snug text-text-secondary">{placementStep.text}</p>
         <p class="m-0 mt-1.5 text-xs leading-snug text-text-muted">
-          Saved instantly. In game you can move overlays any time: unlock with the hotkey shown on them, then drag with either mouse button.
+          Saved instantly. In game you can move overlays any time: unlock with the hotkey shown on
+          them, then drag with either mouse button.
         </p>
         <div class="mt-2.5 flex items-center gap-3">
           <span class="shrink-0 text-xs text-text-muted">Size</span>
@@ -605,7 +642,9 @@
             class="h-1.5 flex-1 cursor-pointer"
             style="accent-color: var(--accent);"
           />
-          <span class="w-10 shrink-0 text-right text-xs text-text-muted">{Math.round(stepScale * 100)}%</span>
+          <span class="w-10 shrink-0 text-right text-xs text-text-muted"
+            >{Math.round(stepScale * 100)}%</span
+          >
         </div>
         <div class="mt-3 flex items-center justify-between">
           <button class="btn-secondary btn-sm" on:click={finishOverlaysStep}>Skip</button>
@@ -621,200 +660,354 @@
       </div>
     </div>
   {:else}
-  <div class="mx-auto my-8 flex min-h-[620px] w-full max-w-[1080px] overflow-hidden rounded-xl border border-border bg-bg-surface">
-    <div class="setup-left flex w-[190px] shrink-0 flex-col items-center border-r border-border bg-gradient-to-b from-bg-deep to-bg-raised px-4 pb-6 pt-7">
-      <div class="setup-logo">
-        <img src={APP_LOGO_URL} alt="App Logo" class="h-14 w-14 object-contain" />
+    <div
+      class="mx-auto my-8 flex min-h-[620px] w-full max-w-[1080px] overflow-hidden rounded-xl border border-border bg-bg-surface"
+    >
+      <div
+        class="setup-left flex w-[190px] shrink-0 flex-col items-center border-r border-border bg-gradient-to-b from-bg-deep to-bg-raised px-4 pb-6 pt-7"
+      >
+        <div class="setup-logo">
+          <img src={APP_LOGO_URL} alt="App Logo" class="h-14 w-14 object-contain" />
+        </div>
+        <div class="mt-8 flex w-full flex-col gap-4">
+          <div
+            class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass(
+              'configure',
+              step,
+            )}"
+          >
+            <span
+              class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass(
+                'configure',
+                step,
+              )}"
+            ></span> Configure
+          </div>
+          <div
+            class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass(
+              'inventory',
+              step,
+            )}"
+          >
+            <span
+              class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass(
+                'inventory',
+                step,
+              )}"
+            ></span> Inventory Source
+          </div>
+          <div
+            class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass(
+              'overlays',
+              step,
+            )}"
+          >
+            <span
+              class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass(
+                'overlays',
+                step,
+              )}"
+            ></span> Overlays
+          </div>
+          <div
+            class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass(
+              'done',
+              step,
+            )}"
+          >
+            <span
+              class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass(
+                'done',
+                step,
+              )}"
+            ></span> Finish
+          </div>
+        </div>
       </div>
-      <div class="mt-8 flex w-full flex-col gap-4">
-        <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('configure', step)}">
-          <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('configure', step)}"></span> Configure
-        </div>
-        <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('inventory', step)}">
-          <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('inventory', step)}"></span> Inventory Source
-        </div>
-        <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('overlays', step)}">
-          <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('overlays', step)}"></span> Overlays
-        </div>
-        <div class="flex items-center gap-2 text-xs transition-colors duration-200 {stepTextClass('done', step)}">
-          <span class="h-2 w-2 shrink-0 rounded-full transition-[background] duration-200 {stepDotClass('done', step)}"></span> Finish
-        </div>
-      </div>
-    </div>
 
-    <div class="flex flex-1 flex-col px-6 pb-5 pt-7">
-      <div class="setup-content flex-1">
-        {#if step === "configure"}
-          <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">Welcome to WFHelper</h2>
+      <div class="flex flex-1 flex-col px-6 pb-5 pt-7">
+        <div class="setup-content flex-1">
+          {#if step === "configure"}
+            <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">
+              Welcome to WFHelper
+            </h2>
 
-          <div class="grid gap-3">
-            <div class="rounded-lg border border-[var(--ui-panel-border)] bg-[var(--ui-control-bg)] px-3 py-3 [backdrop-filter:var(--ui-backdrop-blur)]">
-              <div class="mb-2 flex items-start justify-between gap-3">
-                <div>
-                  <h3 class="m-0 font-display text-sm font-semibold text-text-primary">Pick a look</h3>
-                  <p class="mt-0.5 text-xs leading-snug text-text-muted">Applies instantly - just a starting point.</p>
+            <div class="grid gap-3">
+              <div
+                class="rounded-lg border border-[var(--ui-panel-border)] bg-[var(--ui-control-bg)] px-3 py-3 [backdrop-filter:var(--ui-backdrop-blur)]"
+              >
+                <div class="mb-2 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 class="m-0 font-display text-sm font-semibold text-text-primary">
+                      Pick a look
+                    </h3>
+                    <p class="mt-0.5 text-xs leading-snug text-text-muted">
+                      Applies instantly - just a starting point.
+                    </p>
+                  </div>
                 </div>
+                <div class="grid grid-cols-3 gap-2">
+                  {#each SETUP_THEME_KEYS as key (key)}
+                    {@const preset = THEME_PRESETS[key]}
+                    <button
+                      type="button"
+                      class="rounded-lg border p-2.5 text-left transition-colors duration-150 {activePresetKey ===
+                      key
+                        ? 'border-accent ring-1 ring-accent'
+                        : 'border-border hover:border-border-strong'}"
+                      style="background: {preset.colors.bgSurface};"
+                      aria-pressed={activePresetKey === key}
+                      on:click={() => themeSettings.applyPreset(key)}
+                    >
+                      <span class="flex gap-1">
+                        <span
+                          class="h-3 w-3 rounded-[3px] border border-white/10"
+                          style="background: {preset.colors.bgBase};"
+                        ></span>
+                        <span
+                          class="h-3 w-3 rounded-[3px] border border-white/10"
+                          style="background: {preset.colors.bgRaised};"
+                        ></span>
+                        <span
+                          class="h-3 w-3 rounded-[3px] border border-white/10"
+                          style="background: {preset.colors.textPrimary};"
+                        ></span>
+                        <span
+                          class="h-3 w-3 rounded-[3px] border border-white/10"
+                          style="background: {preset.colors.accent};"
+                        ></span>
+                      </span>
+                      <span
+                        class="mt-1.5 block truncate text-xs font-semibold"
+                        style="color: {preset.colors.textPrimary};">{preset.label}</span
+                      >
+                    </button>
+                  {/each}
+                </div>
+                <p class="m-0 mt-2 text-xs text-text-muted">
+                  All themes and full customization: Settings &gt; Appearance.
+                </p>
               </div>
-              <div class="grid grid-cols-3 gap-2">
-                {#each SETUP_THEME_KEYS as key (key)}
-                  {@const preset = THEME_PRESETS[key]}
+
+              <div
+                class="rounded-lg border border-[var(--ui-panel-border)] bg-[var(--ui-control-bg)] px-3 py-3 [backdrop-filter:var(--ui-backdrop-blur)]"
+              >
+                <div class="mb-2 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 class="m-0 font-display text-sm font-semibold text-text-primary">
+                      UI style
+                    </h3>
+                    <p class="mt-0.5 text-xs leading-snug text-text-muted">
+                      Uses the same setting as Appearance.
+                    </p>
+                  </div>
+                </div>
+                <SegmentedControl
+                  value={effects.surfaceStyle}
+                  options={surfaceOptions}
+                  onChange={(surfaceStyle) => themeSettings.setEffects({ surfaceStyle })}
+                />
+              </div>
+
+              <div
+                class="rounded-lg border border-[var(--ui-panel-border)] bg-[var(--ui-control-bg)] px-3 py-3 [backdrop-filter:var(--ui-backdrop-blur)]"
+              >
+                <div class="mb-2 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 class="m-0 font-display text-sm font-semibold text-text-primary">
+                      Border style
+                    </h3>
+                    <p class="mt-0.5 text-xs leading-snug text-text-muted">
+                      Choose how sharp or rounded app controls should feel.
+                    </p>
+                  </div>
+                </div>
+                <SegmentedControl
+                  value={effects.cornerStyle}
+                  options={cornerOptions}
+                  onChange={(cornerStyle) => themeSettings.setEffects({ cornerStyle })}
+                />
+              </div>
+            </div>
+          {:else if step === "inventory"}
+            <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">
+              Choose Inventory Source
+            </h2>
+            <p class="mb-2.5 text-sm leading-[1.55] text-text-secondary">
+              Load your account inventory from the helper, an existing JSON export, or AlecaFrame's
+              encrypted cache.
+            </p>
+
+            {#if helperStatus === "not_found" && runnerStatus?.exeFound}
+              <div class="mb-3 rounded-lg border border-warning bg-warning/10 px-3 py-3">
+                <span
+                  class="mb-1 inline-block rounded bg-warning px-2 py-0.5 font-display text-xs font-bold tracking-widest text-black"
+                  >WAITING FOR DATA</span
+                >
+                <h3 class="font-display text-sm font-semibold text-text-primary">
+                  Go in-game to generate inventory data
+                </h3>
+                <p class="mt-0.5 text-xs leading-snug text-text-secondary">
+                  The helper is installed. Log into Warframe, then run the helper to create
+                  inventory.json.
+                </p>
+                <div class="mt-2 flex gap-2">
                   <button
-                    type="button"
-                    class="rounded-lg border p-2.5 text-left transition-colors duration-150 {activePresetKey === key
-                      ? 'border-accent ring-1 ring-accent'
-                      : 'border-border hover:border-border-strong'}"
-                    style="background: {preset.colors.bgSurface};"
-                    aria-pressed={activePresetKey === key}
-                    on:click={() => themeSettings.applyPreset(key)}
+                    class="btn-primary btn-sm"
+                    disabled={loadingApi}
+                    on:click={triggerHelperRun}>Run helper now</button
                   >
-                    <span class="flex gap-1">
-                      <span class="h-3 w-3 rounded-[3px] border border-white/10" style="background: {preset.colors.bgBase};"></span>
-                      <span class="h-3 w-3 rounded-[3px] border border-white/10" style="background: {preset.colors.bgRaised};"></span>
-                      <span class="h-3 w-3 rounded-[3px] border border-white/10" style="background: {preset.colors.textPrimary};"></span>
-                      <span class="h-3 w-3 rounded-[3px] border border-white/10" style="background: {preset.colors.accent};"></span>
-                    </span>
-                    <span class="mt-1.5 block truncate text-xs font-semibold" style="color: {preset.colors.textPrimary};">{preset.label}</span>
-                  </button>
-                {/each}
-              </div>
-              <p class="m-0 mt-2 text-xs text-text-muted">All themes and full customization: Settings &gt; Appearance.</p>
-            </div>
-
-            <div class="rounded-lg border border-[var(--ui-panel-border)] bg-[var(--ui-control-bg)] px-3 py-3 [backdrop-filter:var(--ui-backdrop-blur)]">
-              <div class="mb-2 flex items-start justify-between gap-3">
-                <div>
-                  <h3 class="m-0 font-display text-sm font-semibold text-text-primary">UI style</h3>
-                  <p class="mt-0.5 text-xs leading-snug text-text-muted">Uses the same setting as Appearance.</p>
+                  <button
+                    class="btn-secondary btn-sm"
+                    disabled={loadingApi}
+                    on:click={() => loadApiHelper(true)}>Browse for JSON</button
+                  >
                 </div>
               </div>
-              <SegmentedControl
-                value={effects.surfaceStyle}
-                options={surfaceOptions}
-                onChange={(surfaceStyle) => themeSettings.setEffects({ surfaceStyle })}
-              />
-            </div>
-
-            <div class="rounded-lg border border-[var(--ui-panel-border)] bg-[var(--ui-control-bg)] px-3 py-3 [backdrop-filter:var(--ui-backdrop-blur)]">
-              <div class="mb-2 flex items-start justify-between gap-3">
-                <div>
-                  <h3 class="m-0 font-display text-sm font-semibold text-text-primary">Border style</h3>
-                  <p class="mt-0.5 text-xs leading-snug text-text-muted">Choose how sharp or rounded app controls should feel.</p>
-                </div>
-              </div>
-              <SegmentedControl
-                value={effects.cornerStyle}
-                options={cornerOptions}
-                onChange={(cornerStyle) => themeSettings.setEffects({ cornerStyle })}
-              />
-            </div>
-          </div>
-        {:else if step === "inventory"}
-          <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">
-            Choose Inventory Source
-          </h2>
-          <p class="mb-2.5 text-sm leading-[1.55] text-text-secondary">
-            Load your account inventory from the helper, an existing JSON export, or AlecaFrame's encrypted cache.
-          </p>
-
-          {#if helperStatus === "not_found" && runnerStatus?.exeFound}
-            <div class="mb-3 rounded-lg border border-warning bg-warning/10 px-3 py-3">
-              <span class="mb-1 inline-block rounded bg-warning px-2 py-0.5 font-display text-xs font-bold tracking-widest text-black">WAITING FOR DATA</span>
-              <h3 class="font-display text-sm font-semibold text-text-primary">Go in-game to generate inventory data</h3>
-              <p class="mt-0.5 text-xs leading-snug text-text-secondary">The helper is installed. Log into Warframe, then run the helper to create inventory.json.</p>
-              <div class="mt-2 flex gap-2">
-                <button class="btn-primary btn-sm" disabled={loadingApi} on:click={triggerHelperRun}>Run helper now</button>
-                <button class="btn-secondary btn-sm" disabled={loadingApi} on:click={() => loadApiHelper(true)}>Browse for JSON</button>
-              </div>
-            </div>
-          {/if}
-
-          <div class="grid gap-2">
-            <button type="button" class={sourceButtonClass("helper", inventorySource)} aria-pressed={inventorySource === "helper"} on:click={() => (inventorySource = "helper")}>
-              <div class="flex items-center justify-between gap-3">
-                <span class="font-display text-sm font-semibold">warframe-api-helper</span>
-                <span class="rounded bg-success/15 px-2 py-0.5 font-display text-xs font-bold tracking-widest text-success">RECOMMENDED</span>
-              </div>
-              <div class="mt-1 text-xs leading-snug">Use the pinned helper executable and load its inventory.json snapshot.</div>
-              <div class="mt-2 text-xs text-text-muted">
-                {#if helperStatus === "checking"}
-                  Checking for inventory.json...
-                {:else if helperStatus === "found"}
-                  Found: {helperPath}
-                {:else if runnerStatus?.exeFound}
-                  Helper is installed and ready to run.
-                {:else}
-                  Helper is not installed yet.
-                {/if}
-              </div>
-            </button>
-
-            <button type="button" class={sourceButtonClass("json", inventorySource)} aria-pressed={inventorySource === "json"} on:click={() => (inventorySource = "json")}>
-              <span class="font-display text-sm font-semibold">Import inventory JSON</span>
-              <div class="mt-1 text-xs leading-snug">Open an existing inventory.json created by warframe-api-helper.</div>
-            </button>
-
-            <button type="button" class={sourceButtonClass("aleca", inventorySource)} aria-pressed={inventorySource === "aleca"} on:click={() => (inventorySource = "aleca")}>
-              <span class="font-display text-sm font-semibold">Import AlecaFrame cache</span>
-              <div class="mt-1 text-xs leading-snug">Decrypt lastData.dat from %LOCALAPPDATA%\AlecaFrame and load its embedded inventory payload.</div>
-            </button>
-          </div>
-        {:else if step === "downloading"}
-          <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">Downloading...</h2>
-          <p class="mb-2.5 text-sm leading-[1.55] text-text-secondary">Fetching warframe-api-helper from GitHub Releases.</p>
-          <div class="my-4">
-            <div class="h-2 overflow-hidden rounded border border-border bg-bg-raised">
-              <div class="h-full rounded bg-accent transition-[width] duration-300 ease-in-out" style="width: {progressPercent}%"></div>
-            </div>
-            <div class="mt-1.5 flex justify-between text-xs text-text-muted">
-              <span>{progressPercent}%</span>
-              <span>{bytesLabel}</span>
-            </div>
-          </div>
-          <p class="!mt-4 !text-xs !text-text-muted">Please wait - this should only take a moment.</p>
-        {:else if step === "done"}
-          <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">Setup Complete</h2>
-          <p class="mb-2.5 text-sm leading-[1.55] text-text-secondary">warframe-api-helper is ready to use.</p>
-          <p class="mb-2.5 text-sm leading-[1.55] text-text-secondary">Run Warframe, then the helper can refresh inventory data in the background every 10 minutes.</p>
-          <div class="my-4 flex justify-center text-success">
-            <svg class="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          </div>
-          <p class="!mt-4 !text-xs !text-text-muted">Click <strong>Next</strong> to position your in-game overlays.</p>
-        {:else if step === "error"}
-          <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">Setup Needs Attention</h2>
-          <p class="mb-2.5 text-sm font-semibold leading-[1.55] text-danger">{errorMessage}</p>
-          <p class="mb-2.5 text-sm leading-[1.55] text-text-secondary">You can retry this setup path or skip and configure inventory loading later.</p>
-        {/if}
-      </div>
-
-      <div class="mt-2 flex justify-end gap-2 border-t border-border pt-4">
-        {#if step === "configure"}
-          <button class="btn-secondary btn-sm" on:click={skip}>Skip</button>
-          <button class="btn-primary btn-sm" on:click={continueFromConfigure}>Next</button>
-        {:else if step === "inventory"}
-          <button class="btn-secondary btn-sm" on:click={skip}>Skip</button>
-          <button class="btn-primary btn-sm" disabled={loadingApi} on:click={useSelectedInventorySource}>
-            {#if loadingApi}
-              Loading...
-            {:else if inventorySource === "helper"}
-              {runnerStatus?.exeFound ? "Load Helper Data" : "Install Helper"}
-            {:else if inventorySource === "json"}
-              Import JSON
-            {:else if inventorySource === "aleca"}
-              Import AlecaFrame
             {/if}
-          </button>
-        {:else if step === "downloading"}
-          <span></span>
-        {:else if step === "done"}
-          <button class="btn-primary btn-sm" on:click={finish}>Next</button>
-        {:else if step === "error"}
-          <button class="btn-secondary btn-sm" on:click={skip}>Skip</button>
-          <button class="btn-primary btn-sm" on:click={retry}>Retry</button>
-        {/if}
+
+            <div class="grid gap-2">
+              <button
+                type="button"
+                class={sourceButtonClass("helper", inventorySource)}
+                aria-pressed={inventorySource === "helper"}
+                on:click={() => (inventorySource = "helper")}
+              >
+                <div class="flex items-center justify-between gap-3">
+                  <span class="font-display text-sm font-semibold">warframe-api-helper</span>
+                  <span
+                    class="rounded bg-success/15 px-2 py-0.5 font-display text-xs font-bold tracking-widest text-success"
+                    >RECOMMENDED</span
+                  >
+                </div>
+                <div class="mt-1 text-xs leading-snug">
+                  Use the pinned helper executable and load its inventory.json snapshot.
+                </div>
+                <div class="mt-2 text-xs text-text-muted">
+                  {#if helperStatus === "checking"}
+                    Checking for inventory.json...
+                  {:else if helperStatus === "found"}
+                    Found: {helperPath}
+                  {:else if runnerStatus?.exeFound}
+                    Helper is installed and ready to run.
+                  {:else}
+                    Helper is not installed yet.
+                  {/if}
+                </div>
+              </button>
+
+              <button
+                type="button"
+                class={sourceButtonClass("json", inventorySource)}
+                aria-pressed={inventorySource === "json"}
+                on:click={() => (inventorySource = "json")}
+              >
+                <span class="font-display text-sm font-semibold">Import inventory JSON</span>
+                <div class="mt-1 text-xs leading-snug">
+                  Open an existing inventory.json created by warframe-api-helper.
+                </div>
+              </button>
+
+              <button
+                type="button"
+                class={sourceButtonClass("aleca", inventorySource)}
+                aria-pressed={inventorySource === "aleca"}
+                on:click={() => (inventorySource = "aleca")}
+              >
+                <span class="font-display text-sm font-semibold">Import AlecaFrame cache</span>
+                <div class="mt-1 text-xs leading-snug">
+                  Decrypt lastData.dat from %LOCALAPPDATA%\AlecaFrame and load its embedded
+                  inventory payload.
+                </div>
+              </button>
+            </div>
+          {:else if step === "downloading"}
+            <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">Downloading...</h2>
+            <p class="mb-2.5 text-sm leading-[1.55] text-text-secondary">
+              Fetching warframe-api-helper from GitHub Releases.
+            </p>
+            <div class="my-4">
+              <div class="h-2 overflow-hidden rounded border border-border bg-bg-raised">
+                <div
+                  class="h-full rounded bg-accent transition-[width] duration-300 ease-in-out"
+                  style="width: {progressPercent}%"
+                ></div>
+              </div>
+              <div class="mt-1.5 flex justify-between text-xs text-text-muted">
+                <span>{progressPercent}%</span>
+                <span>{bytesLabel}</span>
+              </div>
+            </div>
+            <p class="!mt-4 !text-xs !text-text-muted">
+              Please wait - this should only take a moment.
+            </p>
+          {:else if step === "done"}
+            <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">Setup Complete</h2>
+            <p class="mb-2.5 text-sm leading-[1.55] text-text-secondary">
+              warframe-api-helper is ready to use.
+            </p>
+            <p class="mb-2.5 text-sm leading-[1.55] text-text-secondary">
+              Run Warframe, then the helper can refresh inventory data in the background every 10
+              minutes.
+            </p>
+            <div class="my-4 flex justify-center text-success">
+              <svg
+                class="h-10 w-10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <p class="!mt-4 !text-xs !text-text-muted">
+              Click <strong>Next</strong> to position your in-game overlays.
+            </p>
+          {:else if step === "error"}
+            <h2 class="mb-3 font-display text-lg font-bold tracking-[0.02em]">
+              Setup Needs Attention
+            </h2>
+            <p class="mb-2.5 text-sm font-semibold leading-[1.55] text-danger">{errorMessage}</p>
+            <p class="mb-2.5 text-sm leading-[1.55] text-text-secondary">
+              You can retry this setup path or skip and configure inventory loading later.
+            </p>
+          {/if}
+        </div>
+
+        <div class="mt-2 flex justify-end gap-2 border-t border-border pt-4">
+          {#if step === "configure"}
+            <button class="btn-secondary btn-sm" on:click={skip}>Skip</button>
+            <button class="btn-primary btn-sm" on:click={continueFromConfigure}>Next</button>
+          {:else if step === "inventory"}
+            <button class="btn-secondary btn-sm" on:click={skip}>Skip</button>
+            <button
+              class="btn-primary btn-sm"
+              disabled={loadingApi}
+              on:click={useSelectedInventorySource}
+            >
+              {#if loadingApi}
+                Loading...
+              {:else if inventorySource === "helper"}
+                {runnerStatus?.exeFound ? "Load Helper Data" : "Install Helper"}
+              {:else if inventorySource === "json"}
+                Import JSON
+              {:else if inventorySource === "aleca"}
+                Import AlecaFrame
+              {/if}
+            </button>
+          {:else if step === "downloading"}
+            <span></span>
+          {:else if step === "done"}
+            <button class="btn-primary btn-sm" on:click={finish}>Next</button>
+          {:else if step === "error"}
+            <button class="btn-secondary btn-sm" on:click={skip}>Skip</button>
+            <button class="btn-primary btn-sm" on:click={retry}>Retry</button>
+          {/if}
+        </div>
       </div>
     </div>
-  </div>
   {/if}
 </section>

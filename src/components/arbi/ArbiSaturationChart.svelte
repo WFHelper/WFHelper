@@ -18,21 +18,29 @@
 </script>
 
 <ThemedPanel className="flex flex-col p-5">
-  <h3 class="m-0 text-sm font-semibold uppercase tracking-wide text-text-secondary">{$tr("arbi.saturation.title")}</h3>
+  <h3 class="m-0 text-sm font-semibold uppercase tracking-wide text-text-secondary">
+    {$tr("arbi.saturation.title")}
+  </h3>
   <p class="mb-3 mt-1 text-xs text-text-muted">{$tr("arbi.saturation.desc")}</p>
 
   {#if hasData}
     <div class="flex flex-col gap-1.5">
       {#each buckets as bucket, i (bucket.label)}
         <div class="flex items-center gap-2">
-          <span class="w-12 shrink-0 text-right font-mono text-xs text-text-secondary">{bucket.label}</span>
+          <span class="w-12 shrink-0 text-right font-mono text-xs text-text-secondary"
+            >{bucket.label}</span
+          >
           <div class="h-3.5 flex-1 overflow-hidden rounded-sm bg-bg-raised">
             <div
               class="h-full rounded-sm"
-              style="width:{Math.min(100, bucket.pct)}%; background-color: hsl({saturationHue(i)}, 100%, 50%)"
+              style="width:{Math.min(100, bucket.pct)}%; background-color: hsl({saturationHue(
+                i,
+              )}, 100%, 50%)"
             ></div>
           </div>
-          <span class="w-12 shrink-0 text-right font-mono text-xs font-semibold text-text-primary">{bucket.pct.toFixed(1)}%</span>
+          <span class="w-12 shrink-0 text-right font-mono text-xs font-semibold text-text-primary"
+            >{bucket.pct.toFixed(1)}%</span
+          >
         </div>
       {/each}
     </div>
@@ -41,7 +49,10 @@
       <div class="text-xs text-text-secondary">
         {$tr("arbi.saturation.threshold", { count: String(THRESHOLD) })}
       </div>
-      <div class="mt-0.5 text-2xl font-bold" style="color: hsl({thresholdHue(abovePct)}, 100%, 50%)">
+      <div
+        class="mt-0.5 text-2xl font-bold"
+        style="color: hsl({thresholdHue(abovePct)}, 100%, 50%)"
+      >
         {abovePct.toFixed(1)}%
       </div>
     </div>

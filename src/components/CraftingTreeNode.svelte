@@ -18,25 +18,41 @@
   <!-- Node card + label -->
   <div class="flex flex-col items-center px-1">
     <div
-      class="node-card group/node relative flex h-16 w-16 items-center justify-center rounded-lg border-2 {gotEnough ? 'border-success/50 bg-success/10' : 'border-white/15 bg-white/5'}"
+      class="node-card group/node relative flex h-16 w-16 items-center justify-center rounded-lg border-2 {gotEnough
+        ? 'border-success/50 bg-success/10'
+        : 'border-white/15 bg-white/5'}"
     >
       {#if qtyLabel}
-        <span class="node-qty absolute -left-1 -top-1.5 z-[2] rounded bg-bg-raised px-[3px] text-xs font-bold leading-snug text-text-primary border border-border font-display">
+        <span
+          class="node-qty absolute -left-1 -top-1.5 z-[2] rounded bg-bg-raised px-[3px] text-xs font-bold leading-snug text-text-primary border border-border font-display"
+        >
           {qtyLabel}
         </span>
       {/if}
       {#if gotEnough}
-        <span class="node-check absolute -bottom-0.5 -right-0.5 z-[2] flex h-[15px] w-[15px] items-center justify-center rounded-full bg-success text-bg-deep">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" class="h-2.5 w-2.5">
+        <span
+          class="node-check absolute -bottom-0.5 -right-0.5 z-[2] flex h-[15px] w-[15px] items-center justify-center rounded-full bg-success text-bg-deep"
+        >
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            class="h-2.5 w-2.5"
+          >
             <path d="M3 8.5l3.5 3.5 6.5-7" />
           </svg>
         </span>
       {/if}
       <ItemImage src={node.imageUrl} alt={node.name} cls="h-12 w-12 object-contain" />
       {#if node.recipe}
-        <div class="node-tooltip pointer-events-none absolute -bottom-9 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-black/90 px-1.5 py-0.5 text-xs text-text-primary opacity-0 transition-opacity duration-100 group-hover/node:opacity-100">
+        <div
+          class="node-tooltip pointer-events-none absolute -bottom-9 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-black/90 px-1.5 py-0.5 text-xs text-text-primary opacity-0 transition-opacity duration-100 group-hover/node:opacity-100"
+        >
           {#if node.recipe.buildPrice > 0}{node.recipe.buildPrice.toLocaleString()} cr{/if}
-          {#if node.recipe.buildPrice > 0 && node.recipe.buildTime > 0} · {/if}
+          {#if node.recipe.buildPrice > 0 && node.recipe.buildTime > 0}
+            ·
+          {/if}
           {#if node.recipe.buildTime > 0}{formatBuildTime(node.recipe.buildTime)}{/if}
         </div>
       {/if}
@@ -75,4 +91,3 @@
     </div>
   {/if}
 </div>
-

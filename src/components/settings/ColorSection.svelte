@@ -99,7 +99,10 @@
 
   {#each groups as group}
     <div class="mb-2.5">
-      <span class="block mb-1 font-display text-xs font-semibold tracking-[0.04em] text-text-muted uppercase">{$tr(group.labelKey)}</span>
+      <span
+        class="block mb-1 font-display text-xs font-semibold tracking-[0.04em] text-text-muted uppercase"
+        >{$tr(group.labelKey)}</span
+      >
       <div class="flex flex-wrap gap-2">
         {#each group.keys as item}
           <label class="flex flex-col items-center gap-1 cursor-pointer">
@@ -109,7 +112,9 @@
               value={toHexInput(colors[item.key])}
               on:input={(e) => onColorChange(item.key, e)}
             />
-            <span class="text-xs text-text-secondary font-display tracking-[0.02em]">{$tr(item.labelKey)}</span>
+            <span class="text-xs text-text-secondary font-display tracking-[0.02em]"
+              >{$tr(item.labelKey)}</span
+            >
             {#if item.isText && $themeSettings.contrastSafeMode}
               <ContrastBadge fg={colors[item.key]} bg={colors.bgBase} />
             {/if}
@@ -119,4 +124,3 @@
     </div>
   {/each}
 </div>
-

@@ -24,8 +24,7 @@
       ? Math.max(0, Math.min(100, (item.rank / item.maxRank) * 100))
       : 0;
 
-  $: showRankOrderSummary =
-    isRankedGroup(item.inventoryGroup) && item.maxRank > 1;
+  $: showRankOrderSummary = isRankedGroup(item.inventoryGroup) && item.maxRank > 1;
   $: rankCapLabel = Number.isFinite(item.maxRank) ? Math.max(0, Math.floor(item.maxRank)) : 0;
 
   $: wtsRank0Label = item.wtsR0 != null ? `${item.wtsR0}p` : "-";
@@ -70,7 +69,9 @@
 </script>
 
 <div
-  class="item-card relative {mastered ? 'border-success/25' : ''} {item.isPrime ? 'border-accent/30' : ''}"
+  class="item-card relative {mastered ? 'border-success/25' : ''} {item.isPrime
+    ? 'border-accent/30'
+    : ''}"
   role="button"
   tabindex="0"
   aria-label="Open details for {item.name}"
@@ -81,7 +82,10 @@
   <div class="item-img-wrap">
     <ItemImage src={item.displayImageUrl} alt={item.name} />
     {#if item.vaulted}<span class="vault-badge">V</span>{/if}
-    <span class="absolute right-2 bottom-1.5 font-display text-base font-bold text-success drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">x{item.amount}</span>
+    <span
+      class="absolute right-2 bottom-1.5 font-display text-base font-bold text-success drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+      >x{item.amount}</span
+    >
   </div>
   <div class="item-body">
     <span class="item-name">{item.name}</span>
@@ -102,20 +106,36 @@
 
     {#if showRankOrderSummary}
       <div class="grid grid-cols-2 gap-1">
-        <span class="inventory-rank-order-box grid gap-0.5 min-h-8 content-center border border-accent-bright/50 bg-accent/20 rounded-md py-1 px-1.5">
-          <span class="inventory-rank-order-label text-xs uppercase tracking-[0.04em] font-display">WTS R{rankCapLabel}</span>
+        <span
+          class="inventory-rank-order-box grid gap-0.5 min-h-8 content-center border border-accent-bright/50 bg-accent/20 rounded-md py-1 px-1.5"
+        >
+          <span class="inventory-rank-order-label text-xs uppercase tracking-[0.04em] font-display"
+            >WTS R{rankCapLabel}</span
+          >
           <strong>{wtsRankMaxLabel}</strong>
         </span>
-        <span class="inventory-rank-order-box grid gap-0.5 min-h-8 content-center border border-accent-bright/50 bg-accent/20 rounded-md py-1 px-1.5">
-          <span class="inventory-rank-order-label text-xs uppercase tracking-[0.04em] font-display">WTB R{rankCapLabel}</span>
+        <span
+          class="inventory-rank-order-box grid gap-0.5 min-h-8 content-center border border-accent-bright/50 bg-accent/20 rounded-md py-1 px-1.5"
+        >
+          <span class="inventory-rank-order-label text-xs uppercase tracking-[0.04em] font-display"
+            >WTB R{rankCapLabel}</span
+          >
           <strong>{wtbRankMaxLabel}</strong>
         </span>
-        <span class="inventory-rank-order-box grid gap-0.5 min-h-8 content-center border border-accent-bright/50 bg-accent/20 rounded-md py-1 px-1.5">
-          <span class="inventory-rank-order-label text-xs uppercase tracking-[0.04em] font-display">WTS R0</span>
+        <span
+          class="inventory-rank-order-box grid gap-0.5 min-h-8 content-center border border-accent-bright/50 bg-accent/20 rounded-md py-1 px-1.5"
+        >
+          <span class="inventory-rank-order-label text-xs uppercase tracking-[0.04em] font-display"
+            >WTS R0</span
+          >
           <strong>{wtsRank0Label}</strong>
         </span>
-        <span class="inventory-rank-order-box grid gap-0.5 min-h-8 content-center border border-accent-bright/50 bg-accent/20 rounded-md py-1 px-1.5">
-          <span class="inventory-rank-order-label text-xs uppercase tracking-[0.04em] font-display">WTB R0</span>
+        <span
+          class="inventory-rank-order-box grid gap-0.5 min-h-8 content-center border border-accent-bright/50 bg-accent/20 rounded-md py-1 px-1.5"
+        >
+          <span class="inventory-rank-order-label text-xs uppercase tracking-[0.04em] font-display"
+            >WTB R0</span
+          >
           <strong>{wtbRank0Label}</strong>
         </span>
       </div>
@@ -141,7 +161,9 @@
     {/if}
 
     {#if item.equippedSummary}
-      <span class="text-xs text-success whitespace-nowrap overflow-hidden text-ellipsis">{item.equippedSummary}</span>
+      <span class="text-xs text-success whitespace-nowrap overflow-hidden text-ellipsis"
+        >{item.equippedSummary}</span
+      >
     {/if}
   </div>
 </div>

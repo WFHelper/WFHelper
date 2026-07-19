@@ -13,4 +13,3 @@ export function schedulePriceCacheRevision(): void {
     priceCacheRevision.update((value) => value + 1);
   }, PRICE_REVISION_DEBOUNCE_MS);
 }
-

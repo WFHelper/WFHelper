@@ -39,9 +39,14 @@
   $: rootJustifyClass = justify === "end" ? "justify-end" : "justify-start";
 </script>
 
-<div class="flex {rootWrapClass} {rootJustifyClass} items-center {rootGapClass} {rootHeightClass} {className}">
+<div
+  class="flex {rootWrapClass} {rootJustifyClass} items-center {rootGapClass} {rootHeightClass} {className}"
+>
   <span
-    class="inline-flex items-center gap-1 font-display font-bold tracking-[0.02em] {textSizeClass} {toneClass(platinum, 'plat')}"
+    class="inline-flex items-center gap-1 font-display font-bold tracking-[0.02em] {textSizeClass} {toneClass(
+      platinum,
+      'plat',
+    )}"
     title="Platinum"
   >
     <img src={PLAT_ICON} alt="" class="{iconSizeClass} object-contain shrink-0" />
@@ -50,7 +55,10 @@
 
   {#if showDucats}
     <span
-      class="inline-flex items-center gap-1 font-display font-bold tracking-[0.02em] {textSizeClass} {toneClass(ducats, 'ducat')}"
+      class="inline-flex items-center gap-1 font-display font-bold tracking-[0.02em] {textSizeClass} {toneClass(
+        ducats,
+        'ducat',
+      )}"
       title="Ducats"
     >
       <img src={DUCAT_ICON} alt="" class="{iconSizeClass} object-contain shrink-0" />
@@ -58,7 +66,10 @@
     </span>
 
     <span
-      class="inline-flex items-center gap-0.5 font-display font-bold tracking-[0.02em] {textSizeClass} {toneClass(ratio, 'ducat')}"
+      class="inline-flex items-center gap-0.5 font-display font-bold tracking-[0.02em] {textSizeClass} {toneClass(
+        ratio,
+        'ducat',
+      )}"
       title="Ducats per platinum"
     >
       <img src={DUCAT_ICON} alt="" class="{iconSizeClass} object-contain shrink-0" />

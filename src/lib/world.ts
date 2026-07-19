@@ -111,10 +111,19 @@ function getInventoryRows(inventoryData: RawInventoryData): Array<{ ItemType?: s
 export function buildBaroOwnedSet(inventoryData: RawInventoryData | null): Set<string> {
   if (!inventoryData) return new Set();
   const BARO_INV_KEYS: Array<keyof RawInventoryData> = [
-    "Suits", "LongGuns", "Pistols", "Melee",
-    "Sentinels", "SentinelWeapons", "SpaceSuits", "SpaceGuns", "SpaceMelee",
-    "OperatorAmps", "MechSuits",
-    "RawUpgrades", "Upgrades",
+    "Suits",
+    "LongGuns",
+    "Pistols",
+    "Melee",
+    "Sentinels",
+    "SentinelWeapons",
+    "SpaceSuits",
+    "SpaceGuns",
+    "SpaceMelee",
+    "OperatorAmps",
+    "MechSuits",
+    "RawUpgrades",
+    "Upgrades",
     "LevelKeys",
     "MiscItems",
     "FlavourItems",
@@ -284,9 +293,7 @@ export function resolveCircuitChoices(
     if (!match) return { name, imageUrl: "", owned: false, uniqueName: "" };
 
     const isFrame = WARFRAME_CATS.has(match.category);
-    const owned = isFrame
-      ? ownedSuits.has(match.uniqueName)
-      : ownedWeapons.has(match.uniqueName);
+    const owned = isFrame ? ownedSuits.has(match.uniqueName) : ownedWeapons.has(match.uniqueName);
 
     return { name, imageUrl: match.imageUrl, owned, uniqueName: match.uniqueName };
   });

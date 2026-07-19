@@ -84,7 +84,9 @@
     orderBookPanelOpen = true;
 
     if (!wfmItemsLoaded) return;
-    const selectedBaseItem = tabBaseItems.find((entry) => entry.internalName === event.detail.internalName);
+    const selectedBaseItem = tabBaseItems.find(
+      (entry) => entry.internalName === event.detail.internalName,
+    );
     if (selectedBaseItem && shouldHydrateMetrics(selectedBaseItem)) {
       trackRankedHotset(selectedBaseItem);
       hydration.enqueue([selectedBaseItem], $wfmItems, {
@@ -104,7 +106,9 @@
   function handleItemVisible(event: CustomEvent<InventoryViewItem>): void {
     // before the catalog loads, cards carry guessed slugs - don't fetch with those
     if (!wfmItemsLoaded) return;
-    const visibleBaseItem = tabBaseItems.find((entry) => entry.internalName === event.detail.internalName);
+    const visibleBaseItem = tabBaseItems.find(
+      (entry) => entry.internalName === event.detail.internalName,
+    );
     if (!visibleBaseItem || !shouldHydrateMetrics(visibleBaseItem)) return;
     trackRankedHotset(visibleBaseItem);
 
@@ -200,8 +204,22 @@
     $relicDb,
   );
   $: allRankedBaseItems = [
-    ...buildBaseInventoryItems($parsedItems, "mods", $wfmItems, orderedNames, orderedSlugs, $relicDb),
-    ...buildBaseInventoryItems($parsedItems, "arcanes", $wfmItems, orderedNames, orderedSlugs, $relicDb),
+    ...buildBaseInventoryItems(
+      $parsedItems,
+      "mods",
+      $wfmItems,
+      orderedNames,
+      orderedSlugs,
+      $relicDb,
+    ),
+    ...buildBaseInventoryItems(
+      $parsedItems,
+      "arcanes",
+      $wfmItems,
+      orderedNames,
+      orderedSlugs,
+      $relicDb,
+    ),
   ];
   $: tabItems = buildInventoryViewItems(tabBaseItems, $hydrationMetrics);
   $: relicSearchKeywordIndex = buildRelicSearchKeywordIndex($relicDb);
@@ -221,25 +239,24 @@
     ? tabItems.find((entry) => entry.internalName === selectedInternalName) || null
     : null;
   $: filtered = applySharedFiltersAndSort(searchableTabItems, $inventoryFilters);
-  $: resourceList = ($inventoryData && Object.keys($itemDb).length > 0)
-    ? parseResources($inventoryData, $itemDb)
-    : [];
+  $: resourceList =
+    $inventoryData && Object.keys($itemDb).length > 0
+      ? parseResources($inventoryData, $itemDb)
+      : [];
   function filterAndSortResources(
     list: typeof resourceList,
     filters: typeof $inventoryFilters,
   ): typeof resourceList {
     const search = filters.search.trim().toLowerCase();
     const searched = search
-      ? list.filter(r =>
-          r.name.toLowerCase().includes(search) ||
-          r.internalName.toLowerCase().includes(search)
+      ? list.filter(
+          (r) =>
+            r.name.toLowerCase().includes(search) || r.internalName.toLowerCase().includes(search),
         )
       : list;
     const dir = filters.sortDirection === "asc" ? 1 : -1;
     return [...searched].sort((a, b) =>
-      filters.sortBy === "amount"
-        ? (a.count - b.count) * dir
-        : a.name.localeCompare(b.name) * dir
+      filters.sortBy === "amount" ? (a.count - b.count) * dir : a.name.localeCompare(b.name) * dir,
     );
   }
 
@@ -268,12 +285,18 @@
     <ResourcesView resources={filteredResources} />
   {:else}
     {#if showFilterPanel}
-      <div class="inventory-filter-popover mb-3.5 max-h-[67vh] overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-2.5 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]">
+      <div
+        class="inventory-filter-popover mb-3.5 max-h-[67vh] overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-2.5 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]"
+      >
         <SharedFilterBar scope="inventory" showBasic={false} showAdvanced={true} />
       </div>
     {/if}
 
-    <div class="grid grid-cols-1 items-start gap-3 {orderBookPanelOpen ? 'min-[1101px]:grid-cols-[minmax(0,1fr)_360px]' : ''}">
+    <div
+      class="grid grid-cols-1 items-start gap-3 {orderBookPanelOpen
+        ? 'min-[1101px]:grid-cols-[minmax(0,1fr)_360px]'
+        : ''}"
+    >
       <div class="min-w-0">
         <InventoryGrid
           items={filtered}

@@ -17,7 +17,9 @@
 </script>
 
 <ThemedPanel className="flex flex-col p-5">
-  <h3 class="m-0 text-sm font-semibold uppercase tracking-wide text-text-secondary">{$tr("arbi.rotations.title")}</h3>
+  <h3 class="m-0 text-sm font-semibold uppercase tracking-wide text-text-secondary">
+    {$tr("arbi.rotations.title")}
+  </h3>
   <p class="mb-3 mt-1 text-xs text-text-muted">{$tr("arbi.rotations.desc")}</p>
 
   {#if counts.length === 0}
@@ -26,7 +28,9 @@
     <ul class="m-0 flex list-none flex-col p-0">
       {#each counts as count, i (i)}
         <li class="flex items-center justify-between border-b border-border/40 px-1 py-1.5 text-sm">
-          <span class="text-text-secondary">{$tr("arbi.rotations.round", { n: String(i + 1) })}</span>
+          <span class="text-text-secondary"
+            >{$tr("arbi.rotations.round", { n: String(i + 1) })}</span
+          >
           <span class="font-bold" style="color:{color(count)}">{count}</span>
         </li>
       {/each}

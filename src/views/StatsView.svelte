@@ -31,7 +31,6 @@
     labelStep,
   } from "../lib/stats/chartData.js";
 
-
   let session: SessionStats | null = null;
   let history: DailyStatEntry[] = [];
   let trades: TradeEvent[] = [];
@@ -98,7 +97,6 @@
     unsubInventory?.();
     unsubTrade?.();
   });
-
 
   async function handleImportFile(e: Event): Promise<void> {
     const input = e.target as HTMLInputElement;
@@ -182,7 +180,6 @@
     URL.revokeObjectURL(url);
   }
 
-
   interface SessionSection {
     key: SessionStatKey;
     labelKey: MessageKey;
@@ -190,32 +187,32 @@
   }
 
   const SESSION_SECTIONS: SessionSection[] = [
-    { key: "platDelta",    labelKey: "stats.platinum", currentKey: "currentPlat" },
-    { key: "ducatsDelta",  labelKey: "stats.ducats",   currentKey: "currentDucats" },
-    { key: "ayaDelta",     labelKey: "stats.aya",      currentKey: "currentAya" },
-    { key: "creditsDelta", labelKey: "stats.credits",  currentKey: "currentCredits" },
-    { key: "endoDelta",    labelKey: "stats.endo",     currentKey: "currentEndo" },
+    { key: "platDelta", labelKey: "stats.platinum", currentKey: "currentPlat" },
+    { key: "ducatsDelta", labelKey: "stats.ducats", currentKey: "currentDucats" },
+    { key: "ayaDelta", labelKey: "stats.aya", currentKey: "currentAya" },
+    { key: "creditsDelta", labelKey: "stats.credits", currentKey: "currentCredits" },
+    { key: "endoDelta", labelKey: "stats.endo", currentKey: "currentEndo" },
   ];
 
   const CHART_SECTIONS: Array<{ key: ChartKey; labelKey: MessageKey }> = [
-    { key: "platDelta",    labelKey: "stats.platinum" },
-    { key: "ducatsDelta",  labelKey: "stats.ducats" },
-    { key: "ayaDelta",     labelKey: "stats.aya" },
+    { key: "platDelta", labelKey: "stats.platinum" },
+    { key: "ducatsDelta", labelKey: "stats.ducats" },
+    { key: "ayaDelta", labelKey: "stats.aya" },
     { key: "creditsDelta", labelKey: "stats.credits" },
-    { key: "endoDelta",    labelKey: "stats.endo" },
+    { key: "endoDelta", labelKey: "stats.endo" },
     { key: "relicsOpened", labelKey: "stats.relicsOpened" },
-    { key: "dailyTrades",  labelKey: "stats.dailyTrades" },
+    { key: "dailyTrades", labelKey: "stats.dailyTrades" },
   ];
 
   /** Icon map for each chart/session key */
   const ICON_MAP: Record<ChartKey, string> = {
-    platDelta:    STAT_ICON_URLS.platDelta,
-    ducatsDelta:  STAT_ICON_URLS.ducatsDelta,
-    ayaDelta:     STAT_ICON_URLS.ayaDelta,
+    platDelta: STAT_ICON_URLS.platDelta,
+    ducatsDelta: STAT_ICON_URLS.ducatsDelta,
+    ayaDelta: STAT_ICON_URLS.ayaDelta,
     creditsDelta: STAT_ICON_URLS.creditsDelta,
-    endoDelta:    STAT_ICON_URLS.endoDelta,
+    endoDelta: STAT_ICON_URLS.endoDelta,
     relicsOpened: STAT_ICON_URLS.relicsOpened,
-    dailyTrades:  STAT_ICON_URLS.dailyTrades,
+    dailyTrades: STAT_ICON_URLS.dailyTrades,
   };
 
   let chartDays = 30;
@@ -245,15 +242,16 @@
     ? barsForKey(expandedKey, history, chartDays, BAR_H_EXPAND)
     : null;
   $: sessionSummaryItems = session?.hasData
-    ? SESSION_SECTIONS.map(({ key, labelKey, currentKey }): SummaryStripItem => ({
-        key,
-        label: $tr(labelKey),
-        value: formatAbsolute(session?.[currentKey] ?? 0),
-        icon: ICON_MAP[key],
-        subtext: `${formatDelta(session?.[key] ?? 0, formatters[key])} today`,
-      }))
+    ? SESSION_SECTIONS.map(
+        ({ key, labelKey, currentKey }): SummaryStripItem => ({
+          key,
+          label: $tr(labelKey),
+          value: formatAbsolute(session?.[currentKey] ?? 0),
+          icon: ICON_MAP[key],
+          subtext: `${formatDelta(session?.[key] ?? 0, formatters[key])} today`,
+        }),
+      )
     : [];
-
 
   let tooltip: { text: string; x: number; y: number } | null = null;
 
@@ -273,7 +271,6 @@
     tooltip = { text: dotLabel(key, bar, absVal), x: e.clientX, y: e.clientY };
   }
 
-
   let showChange = true;
   let showValue = true;
 
@@ -291,7 +288,6 @@
     expandedKey = CHART_SECTIONS[next].key;
     tooltip = null;
   }
-
 </script>
 
 <!-- Global tooltip (position: fixed, follows mouse) -->
@@ -313,27 +309,70 @@
   {@const step = labelStep(chartDays)}
   {@const exYTicks = expandedChartData.yTicks}
   {@const exIcon = ICON_MAP[expandedKey]}
-  <ModalShell ariaLabel={$tr(expandedChartTitle(expandedKey))} onClose={() => { expandedKey = null; tooltip = null; }}>
-    <div class="relative z-10 flex h-[72vh] w-[86vw] flex-col overflow-hidden rounded-[var(--radius-xl)] border border-border-strong bg-bg-surface p-4 pb-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+  <ModalShell
+    ariaLabel={$tr(expandedChartTitle(expandedKey))}
+    onClose={() => {
+      expandedKey = null;
+      tooltip = null;
+    }}
+  >
+    <div
+      class="relative z-10 flex h-[72vh] w-[86vw] flex-col overflow-hidden rounded-[var(--radius-xl)] border border-border-strong bg-bg-surface p-4 pb-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+    >
       <div class="mb-3 flex shrink-0 items-center justify-between">
-        <span class="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-text-muted">
-          {#if exIcon}<img src={exIcon} alt="" class="w-[18px] h-[18px] object-contain align-middle opacity-85" />{/if}
+        <span
+          class="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-text-muted"
+        >
+          {#if exIcon}<img
+              src={exIcon}
+              alt=""
+              class="w-[18px] h-[18px] object-contain align-middle opacity-85"
+            />{/if}
           {$tr(expandedChartTitle(expandedKey))}
         </span>
         <div class="flex items-center gap-2">
-          <ThemedButton active={showValue} onClick={() => { showValue = !showValue; }}>Value</ThemedButton>
-          <ThemedButton active={showChange} onClick={() => { showChange = !showChange; }}>Change</ThemedButton>
-          <button type="button" aria-label="Close expanded chart" class="border-none bg-transparent text-text-muted cursor-pointer text-base leading-none px-1.5 py-0.5 rounded-[var(--radius-md)] transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-raised" on:click={() => { expandedKey = null; tooltip = null; }}>✕</button>
+          <ThemedButton
+            active={showValue}
+            onClick={() => {
+              showValue = !showValue;
+            }}>Value</ThemedButton
+          >
+          <ThemedButton
+            active={showChange}
+            onClick={() => {
+              showChange = !showChange;
+            }}>Change</ThemedButton
+          >
+          <button
+            type="button"
+            aria-label="Close expanded chart"
+            class="border-none bg-transparent text-text-muted cursor-pointer text-base leading-none px-1.5 py-0.5 rounded-[var(--radius-md)] transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-raised"
+            on:click={() => {
+              expandedKey = null;
+              tooltip = null;
+            }}>✕</button
+          >
         </div>
       </div>
       <div class="flex-1 min-h-0 flex flex-col">
-        <button class="absolute top-1/2 -translate-y-1/2 z-10 bg-bg-raised border border-border rounded-[var(--radius-md)] text-text-muted text-2xl py-1 px-[10px] cursor-pointer transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-surface left-2" on:click={() => navigateExpanded(-1)} title="Previous">‹</button>
-        <button class="absolute top-1/2 -translate-y-1/2 z-10 bg-bg-raised border border-border rounded-[var(--radius-md)] text-text-muted text-2xl py-1 px-[10px] cursor-pointer transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-surface right-2" on:click={() => navigateExpanded(1)} title="Next">›</button>
+        <button
+          class="absolute top-1/2 -translate-y-1/2 z-10 bg-bg-raised border border-border rounded-[var(--radius-md)] text-text-muted text-2xl py-1 px-[10px] cursor-pointer transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-surface left-2"
+          on:click={() => navigateExpanded(-1)}
+          title="Previous">‹</button
+        >
+        <button
+          class="absolute top-1/2 -translate-y-1/2 z-10 bg-bg-raised border border-border rounded-[var(--radius-md)] text-text-muted text-2xl py-1 px-[10px] cursor-pointer transition-[color,background] duration-150 hover:text-text-primary hover:bg-bg-surface right-2"
+          on:click={() => navigateExpanded(1)}
+          title="Next">›</button
+        >
         <div class="flex-1 min-h-0 flex relative">
           {#if exYTicks.length > 0}
             <div class="relative w-[60px] shrink-0">
               {#each exYTicks as tick}
-                <span class="absolute right-[6px] text-xs text-text-muted -translate-y-1/2 whitespace-nowrap" style="top:{tick.yFrac * 100}%">{tick.label}</span>
+                <span
+                  class="absolute right-[6px] text-xs text-text-muted -translate-y-1/2 whitespace-nowrap"
+                  style="top:{tick.yFrac * 100}%">{tick.label}</span
+                >
               {/each}
             </div>
           {/if}
@@ -345,23 +384,42 @@
               aria-hidden="true"
             >
               {#each exYTicks as tick}
-                <line x1="0" y1={tick.yFrac * BAR_H_EXPAND} x2={SVG_W} y2={tick.yFrac * BAR_H_EXPAND} stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+                <line
+                  x1="0"
+                  y1={tick.yFrac * BAR_H_EXPAND}
+                  x2={SVG_W}
+                  y2={tick.yFrac * BAR_H_EXPAND}
+                  stroke="rgba(255,255,255,0.12)"
+                  stroke-width="1"
+                />
               {/each}
               {#each exBars as bar, i}
                 {#if i > 0 && i % labelStep(chartDays) === 0}
-                  <line x1={bar.x} y1="0" x2={bar.x} y2={BAR_H_EXPAND} stroke="rgba(255,255,255,0.06)" stroke-width="1" />
+                  <line
+                    x1={bar.x}
+                    y1="0"
+                    x2={bar.x}
+                    y2={BAR_H_EXPAND}
+                    stroke="rgba(255,255,255,0.06)"
+                    stroke-width="1"
+                  />
                 {/if}
               {/each}
               <line
-                x1="0" y1={exBaseline ? BAR_H_EXPAND / 2 : BAR_H_EXPAND}
-                x2={SVG_W} y2={exBaseline ? BAR_H_EXPAND / 2 : BAR_H_EXPAND}
-                stroke="var(--border)" stroke-width="0.5"
+                x1="0"
+                y1={exBaseline ? BAR_H_EXPAND / 2 : BAR_H_EXPAND}
+                x2={SVG_W}
+                y2={exBaseline ? BAR_H_EXPAND / 2 : BAR_H_EXPAND}
+                stroke="var(--border)"
+                stroke-width="0.5"
               />
               {#if showChange}
                 {#each exBars as bar}
                   <rect
-                    x={bar.x} y={bar.y}
-                    width={exBw} height={bar.h}
+                    x={bar.x}
+                    y={bar.y}
+                    width={exBw}
+                    height={bar.h}
                     class={bar.positive ? "fill-success opacity-75" : "fill-danger opacity-75"}
                     rx="1"
                   />
@@ -369,7 +427,7 @@
               {/if}
               {#if showValue && expandedChartData?.absLine}
                 <polyline
-                  points={expandedChartData.absLine.map((p) => `${p.x},${p.y}`).join(' ')}
+                  points={expandedChartData.absLine.map((p) => `${p.x},${p.y}`).join(" ")}
                   fill="none"
                   stroke="rgba(255,255,255,0.85)"
                   stroke-width="2.5"
@@ -389,17 +447,19 @@
                     <button
                       type="button"
                       class="absolute w-[15px] h-[15px] p-0 rounded-full bg-bg-surface border-[3px] border-white/80 -translate-x-1/2 -translate-y-1/2 pointer-events-auto transition-[transform,box-shadow,border-color,background] duration-[0.12s] cursor-pointer hover:scale-[1.35] hover:border-white hover:bg-white/15 hover:shadow-[0_0_6px_rgba(255,255,255,0.35)]"
-                      style="left:{pt.x / SVG_W * 100}%; top:{pt.y / BAR_H_EXPAND * 100}%"
+                      style="left:{(pt.x / SVG_W) * 100}%; top:{(pt.y / BAR_H_EXPAND) * 100}%"
                       aria-label={dotLabel(expandedKey, bar, absVal)}
                       title={dotLabel(expandedKey, bar, absVal)}
                       on:mouseenter={(e) => {
                         let text = shortDate(bar.date);
                         if (!Number.isNaN(absVal)) text += `  ${formatters[expandedKey!](absVal)}`;
-                        const sign = bar.value >= 0 ? '+' : '−';
+                        const sign = bar.value >= 0 ? "+" : "−";
                         text += `  (${sign}${formatters[expandedKey!](Math.abs(bar.value))})`;
                         tooltip = { text, x: e.clientX, y: e.clientY };
                       }}
-                      on:mouseleave={() => { tooltip = null; }}
+                      on:mouseleave={() => {
+                        tooltip = null;
+                      }}
                     ></button>
                   {/if}
                 {/each}
@@ -409,9 +469,15 @@
         </div>
         <!-- Per-day date labels below the expanded chart -->
         {#if exBars.length > 0}
-          <div class="flex shrink-0 h-[22px] mt-1" style={exYTicks.length > 0 ? 'margin-left:60px' : ''}>
+          <div
+            class="flex shrink-0 h-[22px] mt-1"
+            style={exYTicks.length > 0 ? "margin-left:60px" : ""}
+          >
             {#each exBars as bar, i}
-              <span class="text-center text-xs text-text-muted whitespace-nowrap overflow-visible" style="width:{100 / exBars.length}%">
+              <span
+                class="text-center text-xs text-text-muted whitespace-nowrap overflow-visible"
+                style="width:{100 / exBars.length}%"
+              >
                 {i % step === 0 ? shortDate(bar.date) : ""}
               </span>
             {/each}
@@ -428,14 +494,18 @@
     <div class="flex items-center gap-2 ml-auto">
       <ThemedButton
         active={showValue}
-        onClick={() => { showValue = !showValue; }}
-        title="Toggle absolute value line on charts"
-      >Value</ThemedButton>
+        onClick={() => {
+          showValue = !showValue;
+        }}
+        title="Toggle absolute value line on charts">Value</ThemedButton
+      >
       <ThemedButton
         active={showChange}
-        onClick={() => { showChange = !showChange; }}
-        title="Toggle daily change bars on charts"
-      >Change</ThemedButton>
+        onClick={() => {
+          showChange = !showChange;
+        }}
+        title="Toggle daily change bars on charts">Change</ThemedButton
+      >
       <label class="flex items-center gap-1.5 whitespace-nowrap text-xs text-text-muted">
         {$tr("stats.timeframe")}:
         <ThemedSelect bind:value={chartDays}>
@@ -444,7 +514,10 @@
           {/each}
         </ThemedSelect>
       </label>
-      <ThemedButton onClick={handleSaveStats} title="Save current stats, history, and trade log as JSON">
+      <ThemedButton
+        onClick={handleSaveStats}
+        title="Save current stats, history, and trade log as JSON"
+      >
         Save Stats JSON
       </ThemedButton>
       <ThemedButton as="label" title="Import AlecaFrame stats JSON export">
@@ -456,13 +529,10 @@
 
   {#if loading}
     <div class="empty-state"><p>Loading...</p></div>
-
   {:else}
     <div class="flex flex-1 min-h-0 overflow-hidden">
-
       <!-- LEFT: session stats + charts -->
       <div class="flex flex-1 min-w-0 flex-col gap-4 overflow-y-auto overflow-x-hidden p-4">
-
         {#if importStatus}
           <p class="mb-3 text-xs {importError ? 'text-danger' : 'text-success'}">{importStatus}</p>
         {/if}
@@ -483,116 +553,161 @@
               {@const cd = chartDataMap[key]}
               {@const icon = ICON_MAP[key]}
               {@const empty = chartIsEmpty(cd)}
-              <ThemedPanel className="relative flex h-[240px] min-w-0 flex-col overflow-hidden px-[13px] py-[6px] pb-2 group/chart">
+              <ThemedPanel
+                className="relative flex h-[240px] min-w-0 flex-col overflow-hidden px-[13px] py-[6px] pb-2 group/chart"
+              >
                 <div class="flex items-center justify-between mb-1">
                   <span class="flex items-center gap-1.5 text-sm text-text-secondary">
-                    {#if icon}<img src={icon} alt="" class="w-5 h-5 object-contain align-middle opacity-85" />{/if}
+                    {#if icon}<img
+                        src={icon}
+                        alt=""
+                        class="w-5 h-5 object-contain align-middle opacity-85"
+                      />{/if}
                     {$tr(labelKey)}
                   </span>
                   <button
                     class="bg-transparent border-0 text-text-muted cursor-pointer text-lg py-1 px-2 leading-none opacity-50 transition-[opacity,color] duration-150 rounded-[var(--radius-md)] hover:!opacity-100 hover:text-accent hover:bg-bg-raised group-hover/chart:opacity-70"
                     title="Expand chart"
-                    on:click={() => { expandedKey = key; tooltip = null; }}
-                    aria-label="Expand {$tr(labelKey)} chart"
-                  >⛶</button>
+                    on:click={() => {
+                      expandedKey = key;
+                      tooltip = null;
+                    }}
+                    aria-label="Expand {$tr(labelKey)} chart">⛶</button
+                  >
                 </div>
                 {#if empty}
-                  <div class="flex-1 min-h-0 flex items-center justify-center text-sm text-text-muted">
+                  <div
+                    class="flex-1 min-h-0 flex items-center justify-center text-sm text-text-muted"
+                  >
                     No data in this timeframe
                   </div>
                 {:else}
-                <div class="flex-1 min-h-0 flex">
-                  {#if cd.yTicks.length > 0}
-                    <div class="relative w-[55px] shrink-0">
-                      {#each cd.yTicks as tick}
-                        <span class="absolute right-1 text-xs text-text-muted -translate-y-1/2 whitespace-nowrap" style="top:{tick.yFrac * 100}%">{tick.label}</span>
-                      {/each}
-                    </div>
-                  {/if}
-                  <div class="flex-1 min-h-0 min-w-0 relative">
-                    <svg
-                      class="w-full h-full cursor-default"
-                      viewBox="0 0 {SVG_W} {BAR_H}"
-                      preserveAspectRatio="none"
-                      aria-hidden="true"
-                    >
-                      {#each cd.yTicks as tick}
-                        <line x1="0" y1={tick.yFrac * BAR_H} x2={SVG_W} y2={tick.yFrac * BAR_H} stroke="rgba(255,255,255,0.12)" stroke-width="1" />
-                      {/each}
-                      {#each cd.bars as bar, i}
-                        {#if i > 0 && i % labelStep(chartDays) === 0}
-                          <line x1={bar.x} y1="0" x2={bar.x} y2={BAR_H} stroke="rgba(255,255,255,0.06)" stroke-width="1" />
-                        {/if}
-                      {/each}
-                      <line
-                        x1="0" y1={cd.hasBaseline ? BAR_H / 2 : BAR_H}
-                        x2={SVG_W} y2={cd.hasBaseline ? BAR_H / 2 : BAR_H}
-                        stroke="var(--border)" stroke-width="0.5"
-                      />
-                      {#if showChange}
-                        {#each cd.bars as bar}
-                          <rect
-                            x={bar.x} y={bar.y}
-                            width={cd.bw} height={bar.h}
-                            class={bar.positive ? "fill-success opacity-75" : "fill-danger opacity-75"}
-                            rx="1"
-                          />
-                        {/each}
-                      {/if}
-                      {#if showValue && cd.absLine}
-                        <polyline
-                          points={cd.absLine.map((p) => `${p.x},${p.y}`).join(' ')}
-                          fill="none"
-                          stroke="rgba(255,255,255,0.7)"
-                          stroke-width="1.5"
-                          stroke-linejoin="round"
-                          stroke-linecap="round"
-                          vector-effect="non-scaling-stroke"
-                        />
-                      {/if}
-                    </svg>
-                    <!-- HTML dot overlay: only on days with activity, tooltip on hover -->
-                    {#if showValue && cd.absLine}
-                      <div class="absolute inset-0 pointer-events-none">
-                        {#each cd.absLine as pt}
-                          {@const bar = cd.bars[pt.idx]}
-                          {@const absVal = cd.absValues[pt.idx] ?? NaN}
-                          {#if bar && cd.realData[pt.idx] && bar.value !== 0}
-                            <button
-                              type="button"
-                              class="absolute w-3 h-3 p-0 rounded-full bg-bg-surface border-2 border-white/80 -translate-x-1/2 -translate-y-1/2 pointer-events-auto transition-[transform,box-shadow,border-color,background] duration-[0.12s] cursor-pointer hover:scale-[1.35] hover:border-white hover:bg-white/15 hover:shadow-[0_0_6px_rgba(255,255,255,0.35)]"
-                              style="left:{pt.x / SVG_W * 100}%; top:{pt.y / BAR_H * 100}%"
-                              aria-label={dotLabel(key, bar, absVal)}
-                              title={dotLabel(key, bar, absVal)}
-                              on:mouseenter={(e) => onDotEnter(e, key, pt.idx, absVal)}
-                              on:mouseleave={() => { tooltip = null; }}
-                            ></button>
-                          {/if}
+                  <div class="flex-1 min-h-0 flex">
+                    {#if cd.yTicks.length > 0}
+                      <div class="relative w-[55px] shrink-0">
+                        {#each cd.yTicks as tick}
+                          <span
+                            class="absolute right-1 text-xs text-text-muted -translate-y-1/2 whitespace-nowrap"
+                            style="top:{tick.yFrac * 100}%">{tick.label}</span
+                          >
                         {/each}
                       </div>
                     {/if}
-                  </div><!-- /chart-svg-wrap -->
-                </div><!-- /chart-body-row -->
-                {#if cd.bars.length > 0}
-                  {@const dateStep = labelStep(chartDays)}
-                  <div class="flex text-xs text-text-muted mt-0.5 overflow-visible shrink-0 h-[18px]" style={cd.yTicks.length > 0 ? 'margin-left:55px' : ''}>
-                    {#each cd.bars as bar, i}
-                      <span class="text-center overflow-visible whitespace-nowrap shrink-0 text-xs" style="width:{100 / cd.bars.length}%">
-                        {i % dateStep === 0 ? shortDate(bar.date) : ''}
-                      </span>
-                    {/each}
+                    <div class="flex-1 min-h-0 min-w-0 relative">
+                      <svg
+                        class="w-full h-full cursor-default"
+                        viewBox="0 0 {SVG_W} {BAR_H}"
+                        preserveAspectRatio="none"
+                        aria-hidden="true"
+                      >
+                        {#each cd.yTicks as tick}
+                          <line
+                            x1="0"
+                            y1={tick.yFrac * BAR_H}
+                            x2={SVG_W}
+                            y2={tick.yFrac * BAR_H}
+                            stroke="rgba(255,255,255,0.12)"
+                            stroke-width="1"
+                          />
+                        {/each}
+                        {#each cd.bars as bar, i}
+                          {#if i > 0 && i % labelStep(chartDays) === 0}
+                            <line
+                              x1={bar.x}
+                              y1="0"
+                              x2={bar.x}
+                              y2={BAR_H}
+                              stroke="rgba(255,255,255,0.06)"
+                              stroke-width="1"
+                            />
+                          {/if}
+                        {/each}
+                        <line
+                          x1="0"
+                          y1={cd.hasBaseline ? BAR_H / 2 : BAR_H}
+                          x2={SVG_W}
+                          y2={cd.hasBaseline ? BAR_H / 2 : BAR_H}
+                          stroke="var(--border)"
+                          stroke-width="0.5"
+                        />
+                        {#if showChange}
+                          {#each cd.bars as bar}
+                            <rect
+                              x={bar.x}
+                              y={bar.y}
+                              width={cd.bw}
+                              height={bar.h}
+                              class={bar.positive
+                                ? "fill-success opacity-75"
+                                : "fill-danger opacity-75"}
+                              rx="1"
+                            />
+                          {/each}
+                        {/if}
+                        {#if showValue && cd.absLine}
+                          <polyline
+                            points={cd.absLine.map((p) => `${p.x},${p.y}`).join(" ")}
+                            fill="none"
+                            stroke="rgba(255,255,255,0.7)"
+                            stroke-width="1.5"
+                            stroke-linejoin="round"
+                            stroke-linecap="round"
+                            vector-effect="non-scaling-stroke"
+                          />
+                        {/if}
+                      </svg>
+                      <!-- HTML dot overlay: only on days with activity, tooltip on hover -->
+                      {#if showValue && cd.absLine}
+                        <div class="absolute inset-0 pointer-events-none">
+                          {#each cd.absLine as pt}
+                            {@const bar = cd.bars[pt.idx]}
+                            {@const absVal = cd.absValues[pt.idx] ?? NaN}
+                            {#if bar && cd.realData[pt.idx] && bar.value !== 0}
+                              <button
+                                type="button"
+                                class="absolute w-3 h-3 p-0 rounded-full bg-bg-surface border-2 border-white/80 -translate-x-1/2 -translate-y-1/2 pointer-events-auto transition-[transform,box-shadow,border-color,background] duration-[0.12s] cursor-pointer hover:scale-[1.35] hover:border-white hover:bg-white/15 hover:shadow-[0_0_6px_rgba(255,255,255,0.35)]"
+                                style="left:{(pt.x / SVG_W) * 100}%; top:{(pt.y / BAR_H) * 100}%"
+                                aria-label={dotLabel(key, bar, absVal)}
+                                title={dotLabel(key, bar, absVal)}
+                                on:mouseenter={(e) => onDotEnter(e, key, pt.idx, absVal)}
+                                on:mouseleave={() => {
+                                  tooltip = null;
+                                }}
+                              ></button>
+                            {/if}
+                          {/each}
+                        </div>
+                      {/if}
+                    </div>
+                    <!-- /chart-svg-wrap -->
                   </div>
-                {/if}
+                  <!-- /chart-body-row -->
+                  {#if cd.bars.length > 0}
+                    {@const dateStep = labelStep(chartDays)}
+                    <div
+                      class="flex text-xs text-text-muted mt-0.5 overflow-visible shrink-0 h-[18px]"
+                      style={cd.yTicks.length > 0 ? "margin-left:55px" : ""}
+                    >
+                      {#each cd.bars as bar, i}
+                        <span
+                          class="text-center overflow-visible whitespace-nowrap shrink-0 text-xs"
+                          style="width:{100 / cd.bars.length}%"
+                        >
+                          {i % dateStep === 0 ? shortDate(bar.date) : ""}
+                        </span>
+                      {/each}
+                    </div>
+                  {/if}
                 {/if}
               </ThemedPanel>
             {/each}
           </div>
         {/if}
-
-      </div><!-- /stats-left -->
+      </div>
+      <!-- /stats-left -->
 
       <StatsTradePanel {trades} />
-
-    </div><!-- /stats-layout -->
+    </div>
+    <!-- /stats-layout -->
   {/if}
 </section>

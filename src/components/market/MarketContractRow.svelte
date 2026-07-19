@@ -27,7 +27,9 @@
 
   $: statsPreview = contractStatsPreview(contract);
   $: badge = contractBadge(contract);
-  $: badgeClass = contract.isDirectSell ? "bg-amber-500/20 text-amber-300" : "bg-sky-500/20 text-sky-300";
+  $: badgeClass = contract.isDirectSell
+    ? "bg-amber-500/20 text-amber-300"
+    : "bg-sky-500/20 text-sky-300";
   $: masteryLabel = contract.masteryLevel != null ? `MR${contract.masteryLevel}` : "MR-";
   $: thumb = contract.itemThumb || RIVEN_TEMPLATE_URL;
   $: rankBadges = [
@@ -64,7 +66,8 @@
         {#if statsPreview.length > 0}
           <div class="grid gap-0.5">
             {#each statsPreview as stat}
-              <span class="truncate text-xs leading-tight text-text-muted" title={stat}>{stat}</span>
+              <span class="truncate text-xs leading-tight text-text-muted" title={stat}>{stat}</span
+              >
             {/each}
           </div>
         {/if}
@@ -72,8 +75,14 @@
     </svelte:fragment>
     <svelte:fragment slot="compactActions">
       <div class="grid shrink-0 gap-1">
-        <button class="btn-sm btn-secondary px-2 py-1 text-xs" on:click|stopPropagation={() => onEdit(contract)}>Edit</button>
-        <button class="btn-sm btn-secondary px-2 py-1 text-xs" on:click|stopPropagation={() => onOpen(contract)}>Open</button>
+        <button
+          class="btn-sm btn-secondary px-2 py-1 text-xs"
+          on:click|stopPropagation={() => onEdit(contract)}>Edit</button
+        >
+        <button
+          class="btn-sm btn-secondary px-2 py-1 text-xs"
+          on:click|stopPropagation={() => onOpen(contract)}>Open</button
+        >
       </div>
     </svelte:fragment>
   </MarketRowBase>
@@ -103,13 +112,23 @@
           size={16}
           className="object-contain [filter:drop-shadow(0_0_5px_rgba(146,104,255,0.65))]"
         />
-        <span class="order-vis" class:order-vis-on={contract.isDirectSell} class:order-vis-off={!contract.isDirectSell}>
+        <span
+          class="order-vis"
+          class:order-vis-on={contract.isDirectSell}
+          class:order-vis-off={!contract.isDirectSell}
+        >
           {badge}
         </span>
       </div>
       <div class="grid shrink-0 gap-1">
-        <button class="btn-sm btn-secondary px-2 py-1 text-xs" on:click|stopPropagation={() => onEdit(contract)}>Edit</button>
-        <button class="btn-sm btn-secondary px-2 py-1 text-xs" on:click|stopPropagation={() => onOpen(contract)}>Open</button>
+        <button
+          class="btn-sm btn-secondary px-2 py-1 text-xs"
+          on:click|stopPropagation={() => onEdit(contract)}>Edit</button
+        >
+        <button
+          class="btn-sm btn-secondary px-2 py-1 text-xs"
+          on:click|stopPropagation={() => onOpen(contract)}>Open</button
+        >
       </div>
     </svelte:fragment>
   </MarketRowBase>

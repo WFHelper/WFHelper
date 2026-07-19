@@ -110,7 +110,8 @@
     if (sortMode === "name") return direction * a.name.localeCompare(b.name);
     if (sortMode === "tier") return direction * compareRelicTierThenName(a, b);
 
-    const metricKey = sortMode === "ducatonator" ? "ratio" : sortMode === "ducat" ? "ducat" : "plat";
+    const metricKey =
+      sortMode === "ducatonator" ? "ratio" : sortMode === "ducat" ? "ducat" : "plat";
     return compareNullableRelicMetric(
       a,
       b,
@@ -194,7 +195,9 @@
   }
 
   function setRelicVaultedMode(event: Event): void {
-    setRelicFilter({ vaultedMode: (event.currentTarget as HTMLSelectElement).value as RelicVaultedMode });
+    setRelicFilter({
+      vaultedMode: (event.currentTarget as HTMLSelectElement).value as RelicVaultedMode,
+    });
   }
 
   function openRelic(group: RelicGroup): void {
@@ -290,9 +293,7 @@
     }
 
     if (viewState.search) {
-      relicGroups = relicGroups.filter((group) =>
-        relicGroupMatchesSearch(group, viewState.search),
-      );
+      relicGroups = relicGroups.filter((group) => relicGroupMatchesSearch(group, viewState.search));
     }
 
     return [...relicGroups].sort((a, b) =>
@@ -337,7 +338,11 @@
 
   $: visibleRelicEntryCount = groups.reduce(
     (sum, group) =>
-      sum + RELIC_QUALITY_COLUMNS.reduce((inner, quality) => inner + (ownedCount(group, quality) > 0 ? 1 : 0), 0),
+      sum +
+      RELIC_QUALITY_COLUMNS.reduce(
+        (inner, quality) => inner + (ownedCount(group, quality) > 0 ? 1 : 0),
+        0,
+      ),
     0,
   );
 
@@ -512,7 +517,8 @@
         typeof entry.gameRef === "string" && entry.gameRef.trim().length > 0
           ? entry.gameRef.trim()
           : "";
-      const icon = typeof entry.icon === "string" && entry.icon.trim().length > 0 ? entry.icon : null;
+      const icon =
+        typeof entry.icon === "string" && entry.icon.trim().length > 0 ? entry.icon : null;
       const thumb =
         typeof entry.thumb === "string" && entry.thumb.trim().length > 0 ? entry.thumb : null;
       const src = icon || thumb;
@@ -535,7 +541,9 @@
 
 <section class="view active">
   <div class="mb-4">
-    <h2 class="m-0 mb-2 font-display text-3xl font-semibold tracking-[0.03em] text-text-primary">Relic Planner ({groups.length} groups / {visibleRelicEntryCount} entries)</h2>
+    <h2 class="m-0 mb-2 font-display text-3xl font-semibold tracking-[0.03em] text-text-primary">
+      Relic Planner ({groups.length} groups / {visibleRelicEntryCount} entries)
+    </h2>
     <div class="flex items-end border-b border-white/[0.09]">
       <HeaderTabs
         options={TIER_TABS}
@@ -620,7 +628,14 @@
           title="Push current tier & squad filters to the in-game relic overlay"
           on:click={pushFiltersToOverlay}
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            width="14"
+            height="14"
+          >
             <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
             <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
           </svg>
@@ -637,9 +652,14 @@
   {:else if groups.length === 0}
     <div class="empty-state"><p>No relics found</p></div>
   {:else}
-    <div class="grid gap-[var(--relic-grid-gap)] grid-cols-[repeat(var(--relic-grid-columns),minmax(0,1fr))]">
+    <div
+      class="grid gap-[var(--relic-grid-gap)] grid-cols-[repeat(var(--relic-grid-columns),minmax(0,1fr))]"
+    >
       {#each groups as group (group.key)}
-        {@const selectedOwned = selectedOwnedQuality(group, ownedModeSelectedQualityByGroup[group.key])}
+        {@const selectedOwned = selectedOwnedQuality(
+          group,
+          ownedModeSelectedQualityByGroup[group.key],
+        )}
         {@const selected = selectedEvDataForMode(group, $relicViewState.qualityMode, selectedOwned)}
         {@const rewardIcons = previewRewards(group)}
         <RelicCompactCard

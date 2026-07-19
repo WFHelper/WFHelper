@@ -1,11 +1,6 @@
 ﻿<script lang="ts">
   import { SvelteMap } from "svelte/reactivity";
-  import {
-    itemDb,
-    componentOwnership,
-    foundryData,
-    parsedItems,
-  } from "../stores/data.js";
+  import { itemDb, componentOwnership, foundryData, parsedItems } from "../stores/data.js";
   import { masteryData } from "../stores/mastery.js";
   import { activeItem } from "../stores/modals.js";
   import { formatBuildTime, formatTimeRemaining, formatNumber } from "../lib/format.js";
@@ -30,11 +25,7 @@
   /** Unified status for sorting + badges. Order here defines default sort. */
   type ItemStatus = "claimable" | "in-progress" | "ready-to-build" | "not-ready";
   /** One combined filter (merged status + category). */
-  type FilterKey =
-    | "all"
-    | "status:in-progress"
-    | "status:ready"
-    | `cat:${string}`;
+  type FilterKey = "all" | "status:in-progress" | "status:ready" | `cat:${string}`;
 
   /** Unified foundry entry: building (PendingRecipes) or blueprint (Recipes). */
   interface FoundryEntry {
@@ -274,7 +265,7 @@
 
   /** Default ordering across statuses: claimable -> in-progress -> ready -> not-ready. */
   const STATUS_RANK: Record<ItemStatus, number> = {
-    "claimable": 0,
+    claimable: 0,
     "in-progress": 1,
     "ready-to-build": 2,
     "not-ready": 3,
@@ -322,10 +313,14 @@
 
   function statusLabel(s: ItemStatus): string {
     switch (s) {
-      case "claimable": return "READY";
-      case "in-progress": return "BUILDING";
-      case "ready-to-build": return "READY TO BUILD";
-      case "not-ready": return "MISSING PARTS";
+      case "claimable":
+        return "READY";
+      case "in-progress":
+        return "BUILDING";
+      case "ready-to-build":
+        return "READY TO BUILD";
+      case "not-ready":
+        return "MISSING PARTS";
     }
   }
 </script>
@@ -362,15 +357,21 @@
         {@const ownedCount = ownedCountFor(item)}
         {@const masteryState = masteryStateFor(item)}
         {@const statusBorder =
-          status === "claimable" ? "border-accent/70" :
-          status === "in-progress" ? "border-[rgba(80,160,255,0.35)]" :
-          status === "ready-to-build" ? "border-success/35" :
-          "border-border"}
+          status === "claimable"
+            ? "border-accent/70"
+            : status === "in-progress"
+              ? "border-[rgba(80,160,255,0.35)]"
+              : status === "ready-to-build"
+                ? "border-success/35"
+                : "border-border"}
         {@const statusText =
-          status === "claimable" ? "text-accent" :
-          status === "in-progress" ? "text-[#6ca8ff]" :
-          status === "ready-to-build" ? "text-success" :
-          "text-text-muted"}
+          status === "claimable"
+            ? "text-accent"
+            : status === "in-progress"
+              ? "text-[#6ca8ff]"
+              : status === "ready-to-build"
+                ? "text-success"
+                : "text-text-muted"}
         <button
           type="button"
           class="resource-card flex flex-col gap-2 px-3 py-2.5 text-left cursor-pointer hover:bg-white/5 transition-colors disabled:cursor-default {statusBorder}"
@@ -380,11 +381,17 @@
           <!-- Header: item icon + name (+ ×count) + status line -->
           <div class="flex items-center gap-3 min-w-0">
             <div class="h-14 w-14 shrink-0 flex items-center justify-center">
-              <ItemImage src={item.imageUrl} alt={item.name} cls="max-h-14 max-w-14 object-contain" />
+              <ItemImage
+                src={item.imageUrl}
+                alt={item.name}
+                cls="max-h-14 max-w-14 object-contain"
+              />
             </div>
             <div class="flex-1 min-w-0 flex flex-col gap-1">
               <span class="font-display font-semibold text-sm text-text-primary truncate">
-                {item.name}{#if item.source === "blueprint"}<span class="ml-2 text-accent font-bold">×{item.count}</span>{/if}
+                {item.name}{#if item.source === "blueprint"}<span class="ml-2 text-accent font-bold"
+                    >×{item.count}</span
+                  >{/if}
               </span>
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="font-display text-xs font-bold tracking-wider {statusText}">
@@ -395,8 +402,16 @@
                   {/if}
                 </span>
                 {#if item.source === "blueprint" && item.isIngredient}
-                  <span class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] border-border bg-white/[0.04] text-text-muted">
-                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" class="h-3.5 w-3.5 shrink-0">
+                  <span
+                    class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] border-border bg-white/[0.04] text-text-muted"
+                  >
+                    <svg
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.35"
+                      class="h-3.5 w-3.5 shrink-0"
+                    >
                       <path d="M3 4.5h4.5v4.5H3z" />
                       <path d="M8.5 2h4.5v4.5H8.5z" />
                       <path d="M8.5 9h4.5v4.5H8.5z" />
@@ -416,9 +431,22 @@
               {#each item.ingredients as ing, ingIdx (`${ing.uniqueName}:${ingIdx}`)}
                 {@const owned = ownedMap.get(ing.uniqueName) ?? 0}
                 {@const ok = owned >= ing.count}
-                <div class="flex items-center gap-2 min-w-0 {fewIng ? 'text-lg' : 'text-base'}" title={ingredientName(ing.uniqueName)}>
-                  <div class="shrink-0 flex items-center justify-center {fewIng ? 'h-14 w-14' : 'h-10 w-10'}">
-                    <ItemImage src={ingredientImage(ing.uniqueName)} alt={ingredientName(ing.uniqueName)} cls={fewIng ? 'max-h-14 max-w-14 object-contain' : 'max-h-10 max-w-10 object-contain'} />
+                <div
+                  class="flex items-center gap-2 min-w-0 {fewIng ? 'text-lg' : 'text-base'}"
+                  title={ingredientName(ing.uniqueName)}
+                >
+                  <div
+                    class="shrink-0 flex items-center justify-center {fewIng
+                      ? 'h-14 w-14'
+                      : 'h-10 w-10'}"
+                  >
+                    <ItemImage
+                      src={ingredientImage(ing.uniqueName)}
+                      alt={ingredientName(ing.uniqueName)}
+                      cls={fewIng
+                        ? "max-h-14 max-w-14 object-contain"
+                        : "max-h-10 max-w-10 object-contain"}
+                    />
                   </div>
                   <span class="truncate {ok ? 'text-text-secondary' : 'text-text-muted'}">
                     {formatNumber(owned)}/{formatNumber(ing.count)}
@@ -430,7 +458,9 @@
                     stroke-width="3.5"
                     stroke-linecap="round"
                     stroke-linejoin="round"
-                    class="shrink-0 {fewIng ? 'h-5 w-5' : 'h-4 w-4'} {ok ? 'text-success' : 'text-danger'}"
+                    class="shrink-0 {fewIng ? 'h-5 w-5' : 'h-4 w-4'} {ok
+                      ? 'text-success'
+                      : 'text-danger'}"
                     aria-hidden="true"
                   >
                     {#if ok}
@@ -444,10 +474,14 @@
             </div>
           {/if}
 
-          <div class="mt-auto flex items-center justify-between gap-3 pt-2 border-t border-border text-sm text-text-secondary">
+          <div
+            class="mt-auto flex items-center justify-between gap-3 pt-2 border-t border-border text-sm text-text-secondary"
+          >
             <div class="flex items-center gap-3">
               {#if item.buildPrice > 0}
-                <span class="flex items-center gap-1.5 font-display font-semibold tracking-wide text-accent">
+                <span
+                  class="flex items-center gap-1.5 font-display font-semibold tracking-wide text-accent"
+                >
                   <img src={CREDITS_ICON_URL} alt="Credits" class="h-5 w-5 object-contain" />
                   {formatNumber(item.buildPrice)}
                 </span>
@@ -463,12 +497,19 @@
             </div>
             <div class="flex items-center justify-end gap-1.5 flex-wrap">
               <span
-                class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] {ownedCount > 0
+                class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] {ownedCount >
+                0
                   ? 'border-success/30 bg-emerald-500/10 text-success'
                   : 'border-border bg-white/[0.04] text-text-muted'}"
                 title={`Owned copies: ${ownedCount}`}
               >
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" class="h-3.5 w-3.5 shrink-0">
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                  class="h-3.5 w-3.5 shrink-0"
+                >
                   <path d="M2 5.5 8 2l6 3.5v5L8 14l-6-3.5z" />
                   <path d="M2 5.5 8 9l6-3.5" />
                   <path d="M8 9v5" />
@@ -476,14 +517,21 @@
                 <span>{ownedCount} Owned</span>
               </span>
               <span
-                class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] {masteryState === 'mastered'
+                class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] {masteryState ===
+                'mastered'
                   ? 'border-success/30 bg-emerald-500/10 text-success'
                   : masteryState === 'progress'
                     ? 'border-warning/30 bg-warning/10 text-warning'
                     : 'border-border bg-white/[0.04] text-text-muted'}"
                 title={masteryLabelFor(masteryState)}
               >
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" class="h-3.5 w-3.5 shrink-0">
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.35"
+                  class="h-3.5 w-3.5 shrink-0"
+                >
                   <circle cx="8" cy="6.5" r="3.75" />
                   <path d="m6.35 6.55 1.15 1.15 2.25-2.3" />
                   <path d="M6.1 10.4 5 14l3-1.55L11 14l-1.1-3.6" />

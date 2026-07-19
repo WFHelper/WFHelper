@@ -73,7 +73,9 @@
   }
 </script>
 
-<footer class="flex h-[var(--statusbar-height)] select-none items-center justify-between border-t border-border bg-bg-deep px-3.5 text-[12px] text-text-muted">
+<footer
+  class="flex h-[var(--statusbar-height)] select-none items-center justify-between border-t border-border bg-bg-deep px-3.5 text-[12px] text-text-muted"
+>
   <span class="flex items-center gap-2">
     <span>{$statusText}</span>
   </span>
@@ -85,5 +87,7 @@
   >
     {updateButtonText}
   </button>
-  <span class="text-[10px] opacity-50" title="App version">v{import.meta.env.VITE_APP_VERSION || '?'}</span>
+  <span class="text-[10px] opacity-50" title="App version"
+    >v{import.meta.env.VITE_APP_VERSION || "?"}</span
+  >
 </footer>

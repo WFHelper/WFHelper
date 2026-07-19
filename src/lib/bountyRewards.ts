@@ -36,7 +36,10 @@ interface BountyStageRewards {
  *  3. Mod items (via itemDb category === "Mod")
  *  4. CDN image from itemDb
  */
-function resolveRewardIconPath(itemName: string, nameToEntry?: Map<string, NameLookupEntry>): string | undefined {
+function resolveRewardIconPath(
+  itemName: string,
+  nameToEntry?: Map<string, NameLookupEntry>,
+): string | undefined {
   if (!itemName) return undefined;
 
   // Strip leading count prefix: "100X Kuva" -> "Kuva", "2X Orokin Cell" -> "Orokin Cell"
@@ -93,11 +96,16 @@ const fileCache = new Map<string, Promise<RawBountyLevel[]>>();
 const jobCache = new Map<string, Promise<BountyStageRewards[]>>();
 
 // Cached name->entry map built from itemDb (includes category + imageUrl)
-interface NameLookupEntry { imageUrl?: string; category?: string; }
+interface NameLookupEntry {
+  imageUrl?: string;
+  category?: string;
+}
 let _nameToEntryMap: Map<string, NameLookupEntry> | undefined;
 let _lastItemDbRef: Record<string, ItemDbEntry> | undefined;
 
-function getNameToEntryMap(itemDb?: Record<string, ItemDbEntry>): Map<string, NameLookupEntry> | undefined {
+function getNameToEntryMap(
+  itemDb?: Record<string, ItemDbEntry>,
+): Map<string, NameLookupEntry> | undefined {
   if (!itemDb) return undefined;
   if (itemDb === _lastItemDbRef && _nameToEntryMap) return _nameToEntryMap;
   const m = new Map<string, NameLookupEntry>();
@@ -105,7 +113,8 @@ function getNameToEntryMap(itemDb?: Record<string, ItemDbEntry>): Map<string, Na
     if (entry.name) {
       const key = entry.name.toLowerCase();
       const existing = m.get(key);
-      const imageUrl = entry.imageUrl && typeof entry.imageUrl === "string" ? entry.imageUrl : undefined;
+      const imageUrl =
+        entry.imageUrl && typeof entry.imageUrl === "string" ? entry.imageUrl : undefined;
       const category = entry.category ?? undefined;
       if (existing) {
         // Keep the best imageUrl - don't overwrite a good URL with nothing
@@ -167,25 +176,26 @@ function classifyRawStage(stage: string): DropTable {
 /** Build the stage->drop-table mapping based on actual bounty stage count. */
 function stageSequence(stageCount: number): { label: string; table: DropTable }[] {
   if (stageCount <= 1) return [{ label: "Bounty", table: "FINAL" }];
-  if (stageCount === 2) return [
-    { label: "Stage 1", table: "FIRST" },
-    { label: "Stage 2", table: "FINAL" },
-  ];
-  if (stageCount === 3) return [
-    { label: "Stage 1", table: "FIRST" },
-    { label: "Stage 2", table: "MID" },
-    { label: "Stage 3", table: "FINAL" },
-  ];
-  if (stageCount === 4) return [
-    { label: "Stage 1", table: "FIRST" },
-    { label: "Stage 2", table: "MID" },
-    { label: "Stage 3", table: "MID" },
-    { label: "Stage 4", table: "FINAL" },
-  ];
+  if (stageCount === 2)
+    return [
+      { label: "Stage 1", table: "FIRST" },
+      { label: "Stage 2", table: "FINAL" },
+    ];
+  if (stageCount === 3)
+    return [
+      { label: "Stage 1", table: "FIRST" },
+      { label: "Stage 2", table: "MID" },
+      { label: "Stage 3", table: "FINAL" },
+    ];
+  if (stageCount === 4)
+    return [
+      { label: "Stage 1", table: "FIRST" },
+      { label: "Stage 2", table: "MID" },
+      { label: "Stage 3", table: "MID" },
+      { label: "Stage 4", table: "FINAL" },
+    ];
   // 5+ stages: first, middle stages, prefinal, final
-  const seq: { label: string; table: DropTable }[] = [
-    { label: "Stage 1", table: "FIRST" },
-  ];
+  const seq: { label: string; table: DropTable }[] = [{ label: "Stage 1", table: "FIRST" }];
   for (let i = 2; i < stageCount - 1; i++) {
     seq.push({ label: `Stage ${i}`, table: "MID" });
   }
@@ -210,14 +220,19 @@ function matchBountyLevel(
   return matches.find((e) => !isEvent(e.bountyLevel)) || matches[0];
 }
 
-function buildStageRewards(level: RawBountyLevel, stageCount: number, rotation?: string): BountyStageRewards[] {
+function buildStageRewards(
+  level: RawBountyLevel,
+  stageCount: number,
+  rotation?: string,
+): BountyStageRewards[] {
   // Group rewards by drop table type (FIRST/MID/PREFINAL/FINAL)
   const tableMap = new Map<DropTable, Map<string, BountyRewardItem>>();
 
   // If a rotation is specified and has rewards, use only that rotation; otherwise merge all
-  const rotKeys = rotation && Array.isArray(level.rewards[rotation]) && level.rewards[rotation].length > 0
-    ? [rotation]
-    : Object.keys(level.rewards);
+  const rotKeys =
+    rotation && Array.isArray(level.rewards[rotation]) && level.rewards[rotation].length > 0
+      ? [rotation]
+      : Object.keys(level.rewards);
 
   for (const key of rotKeys) {
     const rotRewards = level.rewards[key];
@@ -284,8 +299,9 @@ export function getBountyRewards(
       jobCache.set(
         cacheKey,
         getDropsData(file).then((entries) => {
-          const level = (tierIndex != null ? entries[tierIndex] : undefined)
-            ?? matchBountyLevel(entries, enemyLevels);
+          const level =
+            (tierIndex != null ? entries[tierIndex] : undefined) ??
+            matchBountyLevel(entries, enemyLevels);
           return level ? buildStageRewards(level, stageCount, rotation) : [];
         }),
       );
@@ -314,7 +330,10 @@ export function resolveRewardUniqueName(
   itemDb?: Record<string, ItemDbEntry>,
 ): string | undefined {
   if (!itemName || !itemDb) return undefined;
-  const stripped = itemName.replace(/^\d+x\s+/i, "").trim().toLowerCase();
+  const stripped = itemName
+    .replace(/^\d+x\s+/i, "")
+    .trim()
+    .toLowerCase();
   for (const [uniqueName, entry] of Object.entries(itemDb)) {
     if (entry.name?.toLowerCase() === stripped) return uniqueName;
   }

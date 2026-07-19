@@ -35,11 +35,17 @@
     <span>{title}</span>
   </header>
   {#if rows.length === 0}
-    <div class="rounded-lg border border-dashed border-border bg-bg-soft px-2 py-2 text-xs text-text-secondary">{emptyLabel}</div>
+    <div
+      class="rounded-lg border border-dashed border-border bg-bg-soft px-2 py-2 text-xs text-text-secondary"
+    >
+      {emptyLabel}
+    </div>
   {:else}
     <div class="grid">
       {#each rows as entry, index (rowKey(entry, index))}
-        <div class="grid gap-1.5 border-t border-t-[color-mix(in_oklab,var(--border)_72%,transparent)] px-2 py-1.5 first:border-t-0">
+        <div
+          class="grid gap-1.5 border-t border-t-[color-mix(in_oklab,var(--border)_72%,transparent)] px-2 py-1.5 first:border-t-0"
+        >
           <div class="inventory-orderbook-row-head">
             <div class="inventory-orderbook-user-block grid min-w-0 gap-0.5">
               <span
@@ -61,12 +67,18 @@
               class:inventory-orderbook-status-online={entry.status === "online"}
               class:inventory-orderbook-status-offline={entry.status === "offline"}
               class:inventory-orderbook-status-invisible={entry.status === "invisible"}
-              class:inventory-orderbook-status-unknown={!entry.status || !["ingame", "online", "offline", "invisible"].includes(entry.status)}
+              class:inventory-orderbook-status-unknown={!entry.status ||
+                !["ingame", "online", "offline", "invisible"].includes(entry.status)}
             >
               {statusLabel(entry.status)}
             </span>
-            <span class="inventory-orderbook-qty font-display text-xs text-text-secondary">x{entry.quantity}</span>
-            <span class="inventory-orderbook-plat text-right font-display text-xs font-bold text-accent-bright">{entry.platinum}p</span>
+            <span class="inventory-orderbook-qty font-display text-xs text-text-secondary"
+              >x{entry.quantity}</span
+            >
+            <span
+              class="inventory-orderbook-plat text-right font-display text-xs font-bold text-accent-bright"
+              >{entry.platinum}p</span
+            >
           </div>
           <div class="flex gap-1.5">
             <button

@@ -43,27 +43,27 @@
       class="shrink-0 text-sm font-bold uppercase tracking-[0.05em] opacity-90"
       class:world-faction-grineer={attackerCls === "grineer"}
       class:world-faction-corpus={attackerCls === "corpus"}
-      class:world-faction-infested={attackerCls === "infested"}
-    >{inv.attacker.faction}</span>
+      class:world-faction-infested={attackerCls === "infested"}>{inv.attacker.faction}</span
+    >
 
     <span
       class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap
-             text-right text-accent"
-    >{rewardLabel(inv.attacker)}</span>
+             text-right text-accent">{rewardLabel(inv.attacker)}</span
+    >
 
     <span class="shrink-0 text-base font-bold uppercase text-text-muted opacity-45">VS</span>
 
     <span
       class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap
-             text-left text-accent"
-    >{rewardLabel(inv.defender)}</span>
+             text-left text-accent">{rewardLabel(inv.defender)}</span
+    >
 
     <span
       class="shrink-0 text-sm font-bold uppercase tracking-[0.05em] opacity-90"
       class:world-faction-grineer={defenderCls === "grineer"}
       class:world-faction-corpus={defenderCls === "corpus"}
-      class:world-faction-infested={defenderCls === "infested"}
-    >{inv.defender.faction}</span>
+      class:world-faction-infested={defenderCls === "infested"}>{inv.defender.faction}</span
+    >
   </div>
 
   <div class="flex h-[3px] overflow-hidden rounded-sm">
@@ -87,13 +87,14 @@
     <span
       class:world-faction-grineer={attackerCls === "grineer"}
       class:world-faction-corpus={attackerCls === "corpus"}
-      class:world-faction-infested={attackerCls === "infested"}
-    >{inv.completion.toFixed(1)}%</span>
+      class:world-faction-infested={attackerCls === "infested"}>{inv.completion.toFixed(1)}%</span
+    >
     <span class="opacity-40">-</span>
     <span
       class:world-faction-grineer={defenderCls === "grineer"}
       class:world-faction-corpus={defenderCls === "corpus"}
       class:world-faction-infested={defenderCls === "infested"}
-    >{(100 - inv.completion).toFixed(1)}%</span>
+      >{(100 - inv.completion).toFixed(1)}%</span
+    >
   </span>
 </div>

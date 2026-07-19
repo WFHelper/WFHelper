@@ -66,7 +66,9 @@
   });
 </script>
 
-<header class="z-50 flex h-[var(--titlebar-height)] select-none items-center justify-between border-b border-border bg-bg-deep app-region-drag">
+<header
+  class="z-50 flex h-[var(--titlebar-height)] select-none items-center justify-between border-b border-border bg-bg-deep app-region-drag"
+>
   <div class="flex min-w-0 items-center gap-2 pl-3.5">
     <img src={logoUrl || APP_LOGO_URL} alt="Logo" class="h-4 w-4 object-contain" />
     <span class="shrink-0 font-display text-xs font-semibold tracking-wide text-text-secondary">
@@ -74,10 +76,17 @@
     </span>
     <span
       class="inline-flex min-w-0 items-center gap-1 rounded border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] text-text-muted"
-      title={helperStatus?.exeFound ? "warframe-api-helper active" : "warframe-api-helper not found"}
+      title={helperStatus?.exeFound
+        ? "warframe-api-helper active"
+        : "warframe-api-helper not found"}
     >
-      <span class="inline-block h-1.5 w-1.5 rounded-full {helperDotPulse ? 'animate-pulse' : ''}" style="background:{helperDotColor}"></span>
-      <span class="overflow-hidden text-ellipsis whitespace-nowrap max-w-48">{helperStatusText}</span>
+      <span
+        class="inline-block h-1.5 w-1.5 rounded-full {helperDotPulse ? 'animate-pulse' : ''}"
+        style="background:{helperDotColor}"
+      ></span>
+      <span class="overflow-hidden text-ellipsis whitespace-nowrap max-w-48"
+        >{helperStatusText}</span
+      >
     </span>
   </div>
   <div class="app-region-no-drag flex">
@@ -86,14 +95,26 @@
       title="Minimize"
       on:click={() => send("window-minimize")}
     >
-      <svg class="h-3 w-3" viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.2"/></svg>
+      <svg class="h-3 w-3" viewBox="0 0 12 12"
+        ><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.2" /></svg
+      >
     </button>
     <button
       class="flex h-[var(--titlebar-height)] w-[var(--size-titlebar-control)] cursor-pointer items-center justify-center border-0 bg-transparent text-text-secondary transition-[color,background-color] duration-150 hover:bg-bg-hover hover:text-text-primary"
       title="Maximize"
       on:click={() => send("window-maximize")}
     >
-      <svg class="h-3 w-3" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      <svg class="h-3 w-3" viewBox="0 0 12 12"
+        ><rect
+          x="2"
+          y="2"
+          width="8"
+          height="8"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.2"
+        /></svg
+      >
     </button>
     <button
       class="flex h-[var(--titlebar-height)] w-[var(--size-titlebar-control)] cursor-pointer items-center justify-center border-0 bg-transparent text-text-secondary transition-[color,background-color] duration-150 hover:bg-danger hover:text-white"
@@ -101,10 +122,9 @@
       on:click={() => send("window-close")}
     >
       <svg class="h-3 w-3" viewBox="0 0 12 12">
-        <line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.2"/>
-        <line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.2"/>
+        <line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.2" />
+        <line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.2" />
       </svg>
     </button>
   </div>
 </header>
-

@@ -17,7 +17,7 @@ function assertApi(): void {
   if (!window.api) {
     throw new Error(
       "window.api is undefined - preload bridge failed to initialize. " +
-      "Check the DevTools console for '[Preload] FATAL' errors.",
+        "Check the DevTools console for '[Preload] FATAL' errors.",
     );
   }
 }

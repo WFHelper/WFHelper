@@ -35,7 +35,9 @@
 
     {#if variant === "mastery"}
       <div class="flex items-center gap-4 px-6">
-        <span class="font-display text-5xl font-bold leading-none {toneClass(item.tone)}">{item.value}</span>
+        <span class="font-display text-5xl font-bold leading-none {toneClass(item.tone)}"
+          >{item.value}</span
+        >
         <span class="text-2xl font-semibold text-text-secondary">{item.label}</span>
       </div>
     {:else}
@@ -46,10 +48,16 @@
         <div class="flex flex-col gap-1 min-w-0 flex-1">
           <div class="flex items-baseline gap-2 flex-wrap">
             <!-- nowrap so labels can't collide with values in image captures -->
-            <span class="whitespace-nowrap text-base font-semibold uppercase tracking-wide text-text-primary">
+            <span
+              class="whitespace-nowrap text-base font-semibold uppercase tracking-wide text-text-primary"
+            >
               {item.label}
             </span>
-            <span class="whitespace-nowrap text-2xl font-bold leading-none tracking-tight {toneClass(item.tone)}">
+            <span
+              class="whitespace-nowrap text-2xl font-bold leading-none tracking-tight {toneClass(
+                item.tone,
+              )}"
+            >
               {item.value}
             </span>
           </div>

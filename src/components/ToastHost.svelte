@@ -15,9 +15,15 @@
   };
 </script>
 
-<div class="pointer-events-none fixed right-4 top-[calc(var(--titlebar-height)+0.65rem)] z-[1200] flex w-16 max-w-[90vw] flex-col gap-2">
+<div
+  class="pointer-events-none fixed right-4 top-[calc(var(--titlebar-height)+0.65rem)] z-[1200] flex w-16 max-w-[90vw] flex-col gap-2"
+>
   {#each $toasts as toast (toast.id)}
-    <article class="pointer-events-auto rounded-lg border p-3 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] backdrop-blur-sm {LEVEL_CLASSES[toast.level] || ''}">
+    <article
+      class="pointer-events-auto rounded-lg border p-3 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] backdrop-blur-sm {LEVEL_CLASSES[
+        toast.level
+      ] || ''}"
+    >
       <header class="mb-1 flex items-start justify-between gap-3">
         <strong class="font-display text-sm tracking-wide {TITLE_CLASSES[toast.level] || ''}">
           {toast.title || toast.level}

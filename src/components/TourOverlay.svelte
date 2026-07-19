@@ -177,12 +177,7 @@
   const GAP = 12;
   let cardH = 150;
 
-  function placeCard(
-    r: typeof rect,
-    w: number,
-    h: number,
-    ch: number,
-  ): { x: number; y: number } {
+  function placeCard(r: typeof rect, w: number, h: number, ch: number): { x: number; y: number } {
     if (!r) return { x: w / 2 - CARD_W / 2, y: h / 2 - ch / 2 };
     const clampX = (x: number): number => Math.min(Math.max(x, GAP), w - CARD_W - GAP);
     const clampY = (y: number): number => Math.min(Math.max(y, GAP), h - ch - GAP);
@@ -227,7 +222,14 @@
         {/if}
       </mask>
     </defs>
-    <rect x="0" y="0" width="100%" height="100%" fill="rgba(0, 0, 0, 0.62)" mask="url(#tour-mask)" />
+    <rect
+      x="0"
+      y="0"
+      width="100%"
+      height="100%"
+      fill="rgba(0, 0, 0, 0.62)"
+      mask="url(#tour-mask)"
+    />
     {#if rect}
       <rect
         x={rect.x}
@@ -246,10 +248,22 @@
 
   {#if step.interactive && rect}
     <!-- block everything except the spotlight so only the featured UI is live -->
-    <div class="pointer-events-auto absolute inset-x-0 top-0" style="height: {Math.max(0, rect.y)}px;"></div>
-    <div class="pointer-events-auto absolute inset-x-0 bottom-0" style="top: {rect.y + rect.h}px;"></div>
-    <div class="pointer-events-auto absolute left-0" style="top: {rect.y}px; height: {rect.h}px; width: {Math.max(0, rect.x)}px;"></div>
-    <div class="pointer-events-auto absolute right-0" style="top: {rect.y}px; height: {rect.h}px; left: {rect.x + rect.w}px;"></div>
+    <div
+      class="pointer-events-auto absolute inset-x-0 top-0"
+      style="height: {Math.max(0, rect.y)}px;"
+    ></div>
+    <div
+      class="pointer-events-auto absolute inset-x-0 bottom-0"
+      style="top: {rect.y + rect.h}px;"
+    ></div>
+    <div
+      class="pointer-events-auto absolute left-0"
+      style="top: {rect.y}px; height: {rect.h}px; width: {Math.max(0, rect.x)}px;"
+    ></div>
+    <div
+      class="pointer-events-auto absolute right-0"
+      style="top: {rect.y}px; height: {rect.h}px; left: {rect.x + rect.w}px;"
+    ></div>
   {:else}
     <div class="pointer-events-auto absolute inset-0"></div>
   {/if}

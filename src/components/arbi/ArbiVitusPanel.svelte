@@ -23,7 +23,9 @@
   }
 
   $: stats = run.stats;
-  $: rows = stats ? scenarioTable({ mean: stats.expectedVitusMean, std: stats.expectedVitusStd }) : [];
+  $: rows = stats
+    ? scenarioTable({ mean: stats.expectedVitusMean, std: stats.expectedVitusStd })
+    : [];
 
   $: actualVitus = ((): number | null => {
     const v = parseInt(vitusInput, 10);
@@ -35,18 +37,34 @@
     const percentile = normCdf(actualVitus, stats.expectedVitusMean, stats.expectedVitusStd);
     let color: string;
     let key: string;
-    if (percentile >= 0.99) { color = "#ffd700"; key = "arbi.vitus.scenario.godRoll"; }
-    else if (percentile >= 0.9) { color = "#00e676"; key = "arbi.vitus.scenario.highRoll"; }
-    else if (percentile >= 0.75) { color = "#b2ff59"; key = "arbi.vitus.scenario.aboveAvg"; }
-    else if (percentile > 0.25) { color = "#ccc"; key = "arbi.vitus.scenario.average"; }
-    else if (percentile > 0.1) { color = "#ffcc80"; key = "arbi.vitus.scenario.belowAvg"; }
-    else if (percentile > 0.01) { color = "#ff9100"; key = "arbi.vitus.scenario.unlucky"; }
-    else { color = "#ff5252"; key = "arbi.vitus.scenario.worstCase"; }
+    if (percentile >= 0.99) {
+      color = "#ffd700";
+      key = "arbi.vitus.scenario.godRoll";
+    } else if (percentile >= 0.9) {
+      color = "#00e676";
+      key = "arbi.vitus.scenario.highRoll";
+    } else if (percentile >= 0.75) {
+      color = "#b2ff59";
+      key = "arbi.vitus.scenario.aboveAvg";
+    } else if (percentile > 0.25) {
+      color = "#ccc";
+      key = "arbi.vitus.scenario.average";
+    } else if (percentile > 0.1) {
+      color = "#ffcc80";
+      key = "arbi.vitus.scenario.belowAvg";
+    } else if (percentile > 0.01) {
+      color = "#ff9100";
+      key = "arbi.vitus.scenario.unlucky";
+    } else {
+      color = "#ff5252";
+      key = "arbi.vitus.scenario.worstCase";
+    }
     const level = $t(key as MessageKey);
     const pctVal = percentile * 100;
-    const text = percentile > 0.5
-      ? $t("arbi.vitus.top", { level, pct: (100 - pctVal).toFixed(1) })
-      : $t("arbi.vitus.bottom", { level, pct: pctVal.toFixed(1) });
+    const text =
+      percentile > 0.5
+        ? $t("arbi.vitus.top", { level, pct: (100 - pctVal).toFixed(1) })
+        : $t("arbi.vitus.bottom", { level, pct: pctVal.toFixed(1) });
     return { text, color };
   })();
 
@@ -64,11 +82,17 @@
 </script>
 
 <ThemedPanel className="flex flex-col p-5">
-  <h3 class="m-0 text-sm font-semibold uppercase tracking-wide text-text-secondary">{$t("arbi.vitus.title")}</h3>
+  <h3 class="m-0 text-sm font-semibold uppercase tracking-wide text-text-secondary">
+    {$t("arbi.vitus.title")}
+  </h3>
   <p class="mb-3 mt-1 text-xs text-text-muted">{$t("arbi.vitus.desc")}</p>
 
-  <div class="mb-3 flex items-center gap-3 rounded-[var(--radius-md)] border border-border bg-bg-raised px-3 py-2">
-    <label class="text-sm text-text-secondary" for="arbi-actual-vitus">{$t("arbi.vitus.actual")}</label>
+  <div
+    class="mb-3 flex items-center gap-3 rounded-[var(--radius-md)] border border-border bg-bg-raised px-3 py-2"
+  >
+    <label class="text-sm text-text-secondary" for="arbi-actual-vitus"
+      >{$t("arbi.vitus.actual")}</label
+    >
     <ThemedInput
       id="arbi-actual-vitus"
       type="number"

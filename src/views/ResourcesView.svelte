@@ -15,8 +15,14 @@
     {:else}
       {#each resources as r}
         <div class="resource-card flex items-center gap-2.5 px-2.5 py-2">
-          <div class="resource-img-wrap h-[var(--resource-image-wrap)] w-[var(--resource-image-wrap)] shrink-0">
-            <ItemImage src={r.imageUrl} alt={r.name} cls="h-[var(--resource-image-max)] w-[var(--resource-image-max)] object-contain" />
+          <div
+            class="resource-img-wrap h-[var(--resource-image-wrap)] w-[var(--resource-image-wrap)] shrink-0"
+          >
+            <ItemImage
+              src={r.imageUrl}
+              alt={r.name}
+              cls="h-[var(--resource-image-max)] w-[var(--resource-image-max)] object-contain"
+            />
           </div>
           <div class="resource-info">
             <span class="resource-name">{r.name}</span>

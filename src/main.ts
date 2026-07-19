@@ -57,9 +57,7 @@ themeSettings.subscribe((settings) => {
     vars["--accent-glow"] = accentGlow(vars["--accent"]);
   }
 
-  const rootStyle = window.document?.documentElement
-    ? window.document.documentElement.style
-    : null;
+  const rootStyle = window.document?.documentElement ? window.document.documentElement.style : null;
 
   const copyRootVar = (name: string): void => {
     if (!rootStyle) return;

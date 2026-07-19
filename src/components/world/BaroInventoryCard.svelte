@@ -54,11 +54,14 @@
   on:click={() => hasDb && onOpen(entry.uniqueName || "")}
   {title}
 >
-  <div
-    class="relative flex items-center justify-center overflow-hidden {shapeCls} {borderCls}"
-  >
+  <div class="relative flex items-center justify-center overflow-hidden {shapeCls} {borderCls}">
     {#if imgUrl}
-      <img class="h-full w-full object-contain" src={imgUrl} alt={entry.item || ""} loading="lazy" />
+      <img
+        class="h-full w-full object-contain"
+        src={imgUrl}
+        alt={entry.item || ""}
+        loading="lazy"
+      />
     {:else}
       <span class="text-3xl font-bold text-text-secondary opacity-40">
         {(entry.item || "?")[0]}
@@ -68,20 +71,21 @@
     {#if entry.ducats}
       <span
         class="absolute top-[3px] left-[3px] rounded bg-black/80 px-[6px] py-[2px]
-               text-lg font-bold leading-[1.2] text-accent pointer-events-none"
-      >{entry.ducats}</span>
+               text-lg font-bold leading-[1.2] text-accent pointer-events-none">{entry.ducats}</span
+      >
     {/if}
 
     {#if owned}
       <span
         class="absolute bottom-[3px] right-[3px] flex h-6 w-6 items-center justify-center rounded-full
                bg-[rgba(34,139,34,0.85)] text-base font-bold leading-none text-white pointer-events-none"
-      >✓</span>
+        >✓</span
+      >
     {/if}
   </div>
 
   <span
     class="overflow-hidden text-ellipsis whitespace-nowrap text-center text-xs
-           text-text-secondary {labelMaxW}"
-  >{entry.item || "Unknown"}</span>
+           text-text-secondary {labelMaxW}">{entry.item || "Unknown"}</span
+  >
 </button>

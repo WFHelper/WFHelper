@@ -45,6 +45,6 @@
   </div>
   <span
     class="overflow-hidden text-ellipsis whitespace-nowrap text-center text-text-secondary
-           {labelSize} {labelMaxW}"
-  >{name}</span>
+           {labelSize} {labelMaxW}">{name}</span
+  >
 </button>

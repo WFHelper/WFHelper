@@ -32,7 +32,11 @@ export function createPriceLoader(assign: (state: PriceState) => void): {
 
       let result = await loadItemPrice(name, lookup, isTradable);
       if (!result.slug && options.fallbackName) {
-        result = await loadItemPrice(options.fallbackName, lookup, options.fallbackTradable ?? isTradable);
+        result = await loadItemPrice(
+          options.fallbackName,
+          lookup,
+          options.fallbackTradable ?? isTradable,
+        );
       }
       if (currentToken !== token) return;
       assign({ text: result.text, slug: result.slug });

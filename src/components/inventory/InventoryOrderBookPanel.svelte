@@ -123,12 +123,16 @@
     }
   }
 
-  $: requestRank = isRankedListingItem ? normalizeRankFilter(selectedRank) ?? 0 : null;
+  $: requestRank = isRankedListingItem ? (normalizeRankFilter(selectedRank) ?? 0) : null;
 
   $: filteredSellBase = filterStatus(orderBook?.sell ?? [], onlineIngameOnly);
   $: filteredBuyBase = filterStatus(orderBook?.buy ?? [], onlineIngameOnly);
-  $: bestSell = filteredSellBase.length > 0 ? Math.min(...filteredSellBase.map((entry) => entry.platinum)) : null;
-  $: bestBuy = filteredBuyBase.length > 0 ? Math.max(...filteredBuyBase.map((entry) => entry.platinum)) : null;
+  $: bestSell =
+    filteredSellBase.length > 0
+      ? Math.min(...filteredSellBase.map((entry) => entry.platinum))
+      : null;
+  $: bestBuy =
+    filteredBuyBase.length > 0 ? Math.max(...filteredBuyBase.map((entry) => entry.platinum)) : null;
   $: spread = bestSell != null && bestBuy != null ? bestSell - bestBuy : null;
   $: sellRows = sortEntries(filteredSellBase, "sell", sellSort).slice(0, DISPLAY_ROWS_PER_SIDE);
   $: buyRows = sortEntries(filteredBuyBase, "buy", buySort).slice(0, DISPLAY_ROWS_PER_SIDE);
@@ -251,7 +255,11 @@
     return a.userName.localeCompare(b.userName);
   }
 
-  function sortEntries(entries: OrderBookEntry[], side: OrderSide, mode: SideSort): OrderBookEntry[] {
+  function sortEntries(
+    entries: OrderBookEntry[],
+    side: OrderSide,
+    mode: SideSort,
+  ): OrderBookEntry[] {
     const rows = [...entries];
     rows.sort((a, b) => {
       if (mode === "best") {
@@ -364,7 +372,9 @@
   }
 </script>
 
-<aside class="sticky top-2.5 flex flex-col gap-2.5 rounded-lg border border-border bg-bg-surface p-2.5 max-[1100px]:static">
+<aside
+  class="sticky top-2.5 flex flex-col gap-2.5 rounded-lg border border-border bg-bg-surface p-2.5 max-[1100px]:static"
+>
   <div class="flex justify-between items-center gap-1.5">
     <h3 class="m-0 font-display text-base text-text-primary">Market Listings</h3>
     <div class="flex gap-1.5">
@@ -373,7 +383,12 @@
         <button class="btn-secondary btn-sm" on:click={openOnWarframeMarket}>Open WFM</button>
       {/if}
       {#if onClose}
-        <button class="btn-secondary btn-sm !px-2" aria-label="Close market listings" title="Close" on:click={onClose}>&times;</button>
+        <button
+          class="btn-secondary btn-sm !px-2"
+          aria-label="Close market listings"
+          title="Close"
+          on:click={onClose}>&times;</button
+        >
       {/if}
     </div>
   </div>
@@ -382,15 +397,25 @@
   {/if}
 
   {#if !item}
-    <div class="rounded-lg border border-dashed border-border bg-bg-soft px-2 py-2 text-xs text-text-secondary">Select an item to view WTS/WTB listings.</div>
+    <div
+      class="rounded-lg border border-dashed border-border bg-bg-soft px-2 py-2 text-xs text-text-secondary"
+    >
+      Select an item to view WTS/WTB listings.
+    </div>
   {:else}
     <div class="grid grid-cols-[52px_minmax(0,1fr)] gap-2 items-center">
-      <div class="h-[52px] w-[52px] flex items-center justify-center rounded-lg border border-border bg-bg-raised overflow-hidden">
+      <div
+        class="h-[52px] w-[52px] flex items-center justify-center rounded-lg border border-border bg-bg-raised overflow-hidden"
+      >
         <ItemImage src={item.displayImageUrl} alt={item.name} cls="max-h-full max-w-full" />
       </div>
       <div class="inventory-orderbook-item-meta">
         <div class="flex min-w-0 items-center gap-2">
-          <div class="font-display text-sm font-semibold text-text-primary overflow-hidden text-ellipsis whitespace-nowrap">{item.name}</div>
+          <div
+            class="font-display text-sm font-semibold text-text-primary overflow-hidden text-ellipsis whitespace-nowrap"
+          >
+            {item.name}
+          </div>
           {#if parentEntry?.name}
             <button
               type="button"
@@ -404,40 +429,67 @@
         </div>
         <div class="flex items-center justify-between gap-2 text-xs text-text-secondary">
           <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-            x{item.amount} · {item.categoryLabel}{#if requestRank != null} · Viewing R{requestRank}{/if}
+            x{item.amount} · {item.categoryLabel}{#if requestRank != null}
+              · Viewing R{requestRank}{/if}
           </span>
           {#if orderBook && !loading && !errorMessage && !noData}
-            <span class="shrink-0 text-text-muted">{formatUpdatedLabel(orderBook.timestamp ?? null, nowTimestamp)}</span>
+            <span class="shrink-0 text-text-muted"
+              >{formatUpdatedLabel(orderBook.timestamp ?? null, nowTimestamp)}</span
+            >
           {/if}
         </div>
       </div>
     </div>
 
     {#if !currentSlug}
-      <div class="rounded-lg border border-dashed border-border bg-bg-soft px-2 py-2 text-xs text-text-secondary">No market slug available for this item.</div>
+      <div
+        class="rounded-lg border border-dashed border-border bg-bg-soft px-2 py-2 text-xs text-text-secondary"
+      >
+        No market slug available for this item.
+      </div>
     {:else if loading}
-      <div class="rounded-lg border border-dashed border-border bg-bg-soft px-2 py-2 text-xs text-text-secondary">Loading listings...</div>
+      <div
+        class="rounded-lg border border-dashed border-border bg-bg-soft px-2 py-2 text-xs text-text-secondary"
+      >
+        Loading listings...
+      </div>
     {:else if errorMessage}
-      <div class="rounded-lg border border-dashed border-danger/40 bg-bg-soft px-2 py-2 text-xs text-danger">{errorMessage}</div>
+      <div
+        class="rounded-lg border border-dashed border-danger/40 bg-bg-soft px-2 py-2 text-xs text-danger"
+      >
+        {errorMessage}
+      </div>
     {:else if noData || !orderBook}
-      <div class="rounded-lg border border-dashed border-border bg-bg-soft px-2 py-2 text-xs text-text-secondary">No active listings found.</div>
+      <div
+        class="rounded-lg border border-dashed border-border bg-bg-soft px-2 py-2 text-xs text-text-secondary"
+      >
+        No active listings found.
+      </div>
     {:else}
       <div class="grid grid-cols-3 gap-1.5 max-[800px]:grid-cols-2">
         <div class="grid gap-0.5 rounded-lg border border-border bg-bg-soft px-2 py-1.5">
           <span class="text-xs uppercase tracking-[0.05em] text-text-muted">Best WTS</span>
-          <strong class="font-display text-xs text-success">{bestSell != null ? `${bestSell}p` : "-"}</strong>
+          <strong class="font-display text-xs text-success"
+            >{bestSell != null ? `${bestSell}p` : "-"}</strong
+          >
         </div>
         <div class="grid gap-0.5 rounded-lg border border-border bg-bg-soft px-2 py-1.5">
           <span class="text-xs uppercase tracking-[0.05em] text-text-muted">Best WTB</span>
-          <strong class="font-display text-xs text-danger">{bestBuy != null ? `${bestBuy}p` : "-"}</strong>
+          <strong class="font-display text-xs text-danger"
+            >{bestBuy != null ? `${bestBuy}p` : "-"}</strong
+          >
         </div>
         <div class="grid gap-0.5 rounded-lg border border-border bg-bg-soft px-2 py-1.5">
           <span class="text-xs uppercase tracking-[0.05em] text-text-muted">Spread</span>
-          <strong class="font-display text-xs text-text-primary">{spread != null ? `${spread}p` : "-"}</strong>
+          <strong class="font-display text-xs text-text-primary"
+            >{spread != null ? `${spread}p` : "-"}</strong
+          >
         </div>
       </div>
 
-      <div class="grid gap-1.5 rounded-lg border border-border bg-[color-mix(in_oklab,var(--bg-surface)_84%,var(--bg-raised))] p-2">
+      <div
+        class="grid gap-1.5 rounded-lg border border-border bg-[color-mix(in_oklab,var(--bg-surface)_84%,var(--bg-raised))] p-2"
+      >
         <label class="inline-flex items-center gap-1.5 text-xs text-text-secondary select-none">
           <input type="checkbox" class="accent-accent" bind:checked={onlineIngameOnly} />
           <span>Online/In-game only</span>
@@ -475,8 +527,12 @@
       </div>
 
       <div class="grid grid-cols-2 gap-1.5 max-[800px]:grid-cols-1">
-        <button class="btn-success btn-sm" on:click={() => void openPostOrder("sell")}>Post WTS</button>
-        <button class="btn-danger btn-sm" on:click={() => void openPostOrder("buy")}>Post WTB</button>
+        <button class="btn-success btn-sm" on:click={() => void openPostOrder("sell")}
+          >Post WTS</button
+        >
+        <button class="btn-danger btn-sm" on:click={() => void openPostOrder("buy")}
+          >Post WTB</button
+        >
       </div>
 
       <div class="grid grid-cols-2 gap-2 max-[800px]:grid-cols-1">
@@ -501,18 +557,25 @@
 
 <style>
   .inventory-orderbook-feedback {
-    font-size: 0.76rem; color: var(--accent-bright);
+    font-size: 0.76rem;
+    color: var(--accent-bright);
     border: 1px solid color-mix(in oklab, var(--accent) 42%, transparent);
     border-radius: var(--radius-md);
     background: color-mix(in oklab, var(--accent) 14%, var(--bg-surface));
     padding: 0.44rem 0.55rem;
   }
   .inventory-orderbook-select {
-    width: 100%; border: 1px solid var(--border); border-radius: var(--radius-md);
-    background: var(--bg-raised); color: var(--text-primary); padding: 0.26rem 0.34rem; font-size: 0.72rem;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-raised);
+    color: var(--text-primary);
+    padding: 0.26rem 0.34rem;
+    font-size: 0.72rem;
   }
   .inventory-orderbook-select:focus {
-    outline: none; border-color: var(--accent);
+    outline: none;
+    border-color: var(--accent);
     box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 30%, transparent);
   }
 </style>

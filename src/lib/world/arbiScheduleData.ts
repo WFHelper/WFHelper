@@ -159,7 +159,9 @@ export function formatUpdatedAgo(fetchedAt: number | null, nowMs: number): strin
   return `${Math.floor(agoMs / 1_000)}s`;
 }
 
-export function factionBadgeKey(faction: string): "grineer" | "corpus" | "infested" | "corrupted" | "other" {
+export function factionBadgeKey(
+  faction: string,
+): "grineer" | "corpus" | "infested" | "corrupted" | "other" {
   const low = faction.toLowerCase();
   if (low.includes("grineer")) return "grineer";
   if (low.includes("corpus")) return "corpus";

@@ -44,8 +44,17 @@
   $: kpiItems = ((): SummaryStripItem[] => {
     const items: SummaryStripItem[] = [
       { key: "drones", label: $tr("arbi.kpi.drones"), value: run.drones.toLocaleString() },
-      { key: "enemies", label: $tr("arbi.kpi.totalEnemies"), value: run.totalEnemies.toLocaleString() },
-      { key: "duration", label: $tr("arbi.kpi.duration"), value: formatDuration(run.durationSec), subtext: `${run.rotations} rot.` },
+      {
+        key: "enemies",
+        label: $tr("arbi.kpi.totalEnemies"),
+        value: run.totalEnemies.toLocaleString(),
+      },
+      {
+        key: "duration",
+        label: $tr("arbi.kpi.duration"),
+        value: formatDuration(run.durationSec),
+        subtext: `${run.rotations} rot.`,
+      },
     ];
     if (stats) {
       items.splice(2, 0, {
@@ -56,7 +65,8 @@
       items.push({
         key: "interval",
         label: $tr("arbi.kpi.avgInterval"),
-        value: stats.avgDroneIntervalSec !== null ? `${stats.avgDroneIntervalSec.toFixed(2)}s` : "–",
+        value:
+          stats.avgDroneIntervalSec !== null ? `${stats.avgDroneIntervalSec.toFixed(2)}s` : "–",
       });
       items.push({
         key: "vpm",

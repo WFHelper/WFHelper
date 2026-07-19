@@ -17,8 +17,7 @@
 
     const now = Date.now();
     const isDuplicate =
-      message === lastNotifiedMessage &&
-      now - lastNotificationAt < DUPLICATE_SUPPRESSION_MS;
+      message === lastNotifiedMessage && now - lastNotificationAt < DUPLICATE_SUPPRESSION_MS;
     if (!isDuplicate) {
       lastNotifiedMessage = message;
       lastNotificationAt = now;
@@ -82,4 +81,3 @@
 {:else}
   <slot />
 {/if}
-

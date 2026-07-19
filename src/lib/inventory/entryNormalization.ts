@@ -1,7 +1,6 @@
 import type { InventoryGroup, RawInventoryEntry } from "../../types/inventory.js";
 import { pickNumeric, deepFindNumericByKeys } from "./rankExtraction.js";
 
-
 const EQUIP_CONTEXT_KEYS = new Set([
   "equippedon",
   "installedon",
@@ -11,7 +10,6 @@ const EQUIP_CONTEXT_KEYS = new Set([
   "warframename",
   "companionname",
 ]);
-
 
 export function pickBoolean(entry: RawInventoryEntry, keys: string[]): boolean | undefined {
   for (const key of keys) {
@@ -34,7 +32,6 @@ export function parseAmount(entry: RawInventoryEntry): number {
     1;
   return raw > 0 ? Math.floor(raw) : 1;
 }
-
 
 function isDisplayableEquipContext(value: string): boolean {
   const trimmed = value.trim();
@@ -100,7 +97,6 @@ export function extractEquipContexts(entry: RawInventoryEntry): string[] {
   return [...contexts].slice(0, 4);
 }
 
-
 export function normalizeCollectionEntries(
   value: unknown,
   maxDepth = 4,
@@ -129,7 +125,6 @@ export function normalizeCollectionEntries(
   }
   return flattened;
 }
-
 
 export function preferGroup(
   current: InventoryGroup | undefined,

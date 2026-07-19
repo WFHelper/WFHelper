@@ -12,28 +12,29 @@
   let previouslyFocused: HTMLElement | null = null;
 
   const FOCUSABLE_SELECTOR = [
-    'a[href]',
-    'button:not([disabled])',
-    'input:not([disabled])',
-    'select:not([disabled])',
-    'textarea:not([disabled])',
+    "a[href]",
+    "button:not([disabled])",
+    "input:not([disabled])",
+    "select:not([disabled])",
+    "textarea:not([disabled])",
     '[tabindex]:not([tabindex="-1"])',
-  ].join(',');
+  ].join(",");
 
   function getFocusable(): HTMLElement[] {
     if (!overlayEl) return [];
-    return Array.from(overlayEl.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
-      .filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
+    return Array.from(overlayEl.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+      (el) => !el.hasAttribute("disabled") && el.offsetParent !== null,
+    );
   }
 
   function onKeydown(e: KeyboardEvent): void {
-    if (e.key === 'Escape') {
+    if (e.key === "Escape") {
       e.stopPropagation();
       onClose();
       return;
     }
     // Focus trap: cycle Tab within the dialog.
-    if (e.key === 'Tab') {
+    if (e.key === "Tab") {
       const focusables = getFocusable();
       if (focusables.length === 0) {
         // Nothing focusable - keep focus on the overlay itself.
@@ -68,7 +69,11 @@
   });
 
   onDestroy(() => {
-    try { previouslyFocused?.focus(); } catch { /* element may be gone */ }
+    try {
+      previouslyFocused?.focus();
+    } catch {
+      /* element may be gone */
+    }
   });
 </script>
 
@@ -81,6 +86,7 @@
   bind:this={overlayEl}
   on:keydown={onKeydown}
 >
-  <button type="button" class="detail-backdrop" aria-label="Close dialog" on:click={onClose}></button>
+  <button type="button" class="detail-backdrop" aria-label="Close dialog" on:click={onClose}
+  ></button>
   <slot />
 </div>

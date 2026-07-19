@@ -29,10 +29,10 @@
   });
 
   $: compDrops = resolveDrops(comp, $itemDb);
-  $: compImageUrl = comp?.uniqueName ? ($itemDb[comp.uniqueName]?.imageUrl || null) : null;
+  $: compImageUrl = comp?.uniqueName ? $itemDb[comp.uniqueName]?.imageUrl || null : null;
   $: compDbEntry = comp?.uniqueName ? $itemDb[comp.uniqueName] : null;
   $: compLocation = resolveComponentLocation(compDbEntry);
-  $: compWikiUrl = comp?.uniqueName ? ($itemDb[comp.uniqueName]?.wikiaUrl || null) : null;
+  $: compWikiUrl = comp?.uniqueName ? $itemDb[comp.uniqueName]?.wikiaUrl || null : null;
 
   // Reload price whenever the component (identity) changes.
   $: if (comp) {
@@ -41,7 +41,12 @@
 
   async function loadPrice(c: ComponentInfo, parent: string): Promise<void> {
     const lookup = $wfmItems || {};
-    const plan = resolveComponentPriceLookup(c, parent, c.uniqueName ? $itemDb[c.uniqueName] : null, lookup);
+    const plan = resolveComponentPriceLookup(
+      c,
+      parent,
+      c.uniqueName ? $itemDb[c.uniqueName] : null,
+      lookup,
+    );
     await priceLoader.load(plan.name, lookup, plan.isTradable, {
       ...(plan.fallbackName ? { fallbackName: plan.fallbackName } : {}),
       ...(plan.fallbackTradable != null ? { fallbackTradable: plan.fallbackTradable } : {}),
@@ -68,7 +73,7 @@
       </div>
     {/if}
     <div class="detail-title-area">
-      <h2>{comp.name || 'Unknown Component'}</h2>
+      <h2>{comp.name || "Unknown Component"}</h2>
       <div class="comp-meta-stack">
         {#if parentName}<div class="detail-meta">{parentName}</div>{/if}
         {#if comp.tradable}<div class="detail-meta">Tradable</div>{/if}

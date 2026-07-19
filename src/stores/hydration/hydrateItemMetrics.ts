@@ -124,8 +124,7 @@ export async function hydrateItemMetrics(
     finiteMetricNumber(existing?.platinum) != null ||
     finiteMetricNumber(existing?.platinumR0) != null ||
     finiteMetricNumber(existing?.platinumRmax) != null;
-  const priceResolved =
-    hasResolvedPrice(existing) && (needs.network !== true || hasPriceValue);
+  const priceResolved = hasResolvedPrice(existing) && (needs.network !== true || hasPriceValue);
 
   if (
     existing &&

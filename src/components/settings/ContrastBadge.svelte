@@ -16,9 +16,10 @@
     title="{$tr('appearance.lowContrast')} ({label})"
   >
     <svg class="h-2.5 w-2.5" viewBox="0 0 16 16" fill="currentColor">
-      <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 10.5a1 1 0 110-2 1 1 0 010 2zM8.75 4.75v4h-1.5v-4h1.5z"/>
+      <path
+        d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 10.5a1 1 0 110-2 1 1 0 010 2zM8.75 4.75v4h-1.5v-4h1.5z"
+      />
     </svg>
     {label}
   </span>
 {/if}
-
