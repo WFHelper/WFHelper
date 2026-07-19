@@ -1,8 +1,6 @@
-﻿import { contextBridge, ipcRenderer } from "electron";
-import type {
-  CreateRivenAuctionPayload,
-  UpdateRivenAuctionPayload,
-} from "./config/shared/rivenTypes";
+import { contextBridge, ipcRenderer } from "electron";
+import type { IpcEventMap, IpcInvokeMap } from "./src/types/ipc";
+import type { PreloadAPI, TradePreloadAPI } from "./src/types/preload";
 import { ipcDataBridge } from "./ipc/preloadListeners";
 import {
   INVENTORY_GET,
@@ -90,49 +88,69 @@ import {
   ARBI_SCHED_SET_LEAD,
 } from "./config/shared/ipcChannels";
 
+// invoke() is typed any; this wrapper pins each call's args+return to its IpcInvokeMap entry so drift fails typecheck.
+const inv =
+  <K extends keyof IpcInvokeMap>(channel: string) =>
+  (...args: IpcInvokeMap[K]["args"]): Promise<IpcInvokeMap[K]["return"]> =>
+    ipcRenderer.invoke(channel, ...args);
+
+// Methods whose wire payload wraps the args in an object.
+type Ret<K extends keyof IpcInvokeMap> = Promise<IpcInvokeMap[K]["return"]>;
+
 try {
   contextBridge.exposeInMainWorld("api", {
-    getInventory: () => ipcRenderer.invoke(INVENTORY_GET),
-    openInventoryFile: () => ipcRenderer.invoke(INVENTORY_OPEN_FILE),
-    openAlecaFrameInventoryFile: () => ipcRenderer.invoke(INVENTORY_OPEN_ALECA_FRAME_FILE),
-    getInventoryStatus: () => ipcRenderer.invoke(INVENTORY_GET_STATUS),
+    getInventory: inv<"getInventory">(INVENTORY_GET),
+    openInventoryFile: inv<"openInventoryFile">(INVENTORY_OPEN_FILE),
+    openAlecaFrameInventoryFile: inv<"openAlecaFrameInventoryFile">(INVENTORY_OPEN_ALECA_FRAME_FILE),
+    getInventoryStatus: inv<"getInventoryStatus">(INVENTORY_GET_STATUS),
 
-    getItemDatabase: () => ipcRenderer.invoke(DB_GET_ITEM_DATABASE),
-    getWorldState: () => ipcRenderer.invoke(DB_GET_WORLD_STATE),
-    getRelicDatabase: () => ipcRenderer.invoke(DB_GET_RELIC_DATABASE),
-    getWfmItems: () => ipcRenderer.invoke(DB_GET_WFM_ITEMS),
+    getItemDatabase: inv<"getItemDatabase">(DB_GET_ITEM_DATABASE),
+    getWorldState: inv<"getWorldState">(DB_GET_WORLD_STATE),
+    getRelicDatabase: inv<"getRelicDatabase">(DB_GET_RELIC_DATABASE),
+    getWfmItems: inv<"getWfmItems">(DB_GET_WFM_ITEMS),
 
-    wfmSignIn: (creds: unknown) => ipcRenderer.invoke(WFM_SIGNIN, creds),
-    wfmSignOut: () => ipcRenderer.invoke(WFM_SIGNOUT),
-    wfmGetSession: () => ipcRenderer.invoke(WFM_SESSION),
-    wfmGetOrders: () => ipcRenderer.invoke(WFM_GET_ORDERS),
-    wfmGetContracts: (query?: unknown) => ipcRenderer.invoke(WFM_GET_CONTRACTS, query),
-    wfmSearchItems: (query: string, limit?: number) =>
+    wfmSignIn: inv<"wfmSignIn">(WFM_SIGNIN),
+    wfmSignOut: inv<"wfmSignOut">(WFM_SIGNOUT),
+    wfmGetSession: inv<"wfmGetSession">(WFM_SESSION),
+    wfmGetOrders: inv<"wfmGetOrders">(WFM_GET_ORDERS),
+    wfmGetContracts: inv<"wfmGetContracts">(WFM_GET_CONTRACTS),
+    wfmSearchItems: (query, limit): Ret<"wfmSearchItems"> =>
       ipcRenderer.invoke(WFM_SEARCH_ITEMS, { query, limit }),
-    wfmLookupItemBySlug: (slug: string) => ipcRenderer.invoke(WFM_LOOKUP_ITEM, { slug }),
-    wfmGetMe: () => ipcRenderer.invoke(WFM_GET_ME),
+    wfmLookupItemBySlug: (slug): Ret<"wfmLookupItemBySlug"> =>
+      ipcRenderer.invoke(WFM_LOOKUP_ITEM, { slug }),
+    wfmGetMe: inv<"wfmGetMe">(WFM_GET_ME),
 
-    getMasteryProgress: () => ipcRenderer.invoke(DB_GET_MASTERY),
-    getOverlayPlacementLayout: () => ipcRenderer.invoke(OVERLAY_PLACEMENT_LAYOUT),
-    saveOverlayPlacement: (key: string, pos: { xFrac: number; yFrac: number }) =>
-      ipcRenderer.invoke(OVERLAY_SAVE_PLACEMENT, key, pos),
-    saveOverlayScale: (key: string, scale: number) =>
-      ipcRenderer.invoke(OVERLAY_SAVE_SCALE, key, scale),
-    searchDrops: (query: string, mode: string) =>
+    getMasteryProgress: inv<"getMasteryProgress">(DB_GET_MASTERY),
+    getOverlayPlacementLayout: inv<"getOverlayPlacementLayout">(OVERLAY_PLACEMENT_LAYOUT),
+    saveOverlayPlacement: inv<"saveOverlayPlacement">(OVERLAY_SAVE_PLACEMENT),
+    saveOverlayScale: inv<"saveOverlayScale">(OVERLAY_SAVE_SCALE),
+    searchDrops: (query, mode): Ret<"searchDrops"> =>
       ipcRenderer.invoke(DROP_SEARCH, { query, mode }),
-    checkForAppUpdates: () => ipcRenderer.invoke(APP_UPDATE_CHECK),
-    getAppUpdateState: () => ipcRenderer.invoke(APP_UPDATE_STATE),
-    downloadAppUpdate: () => ipcRenderer.invoke(APP_UPDATE_DOWNLOAD),
-    installDownloadedUpdate: () => ipcRenderer.invoke(APP_UPDATE_INSTALL),
-    getAppRuntimeInfo: () => ipcRenderer.invoke(APP_RUNTIME_INFO),
-    openScanDebugFolder: () => ipcRenderer.invoke(SCAN_DEBUG_OPEN_FOLDER),
+    checkForAppUpdates: inv<"checkForAppUpdates">(APP_UPDATE_CHECK),
+    getAppUpdateState: inv<"getAppUpdateState">(APP_UPDATE_STATE),
+    downloadAppUpdate: inv<"downloadAppUpdate">(APP_UPDATE_DOWNLOAD),
+    installDownloadedUpdate: inv<"installDownloadedUpdate">(APP_UPDATE_INSTALL),
+    getAppRuntimeInfo: inv<"getAppRuntimeInfo">(APP_RUNTIME_INFO),
+    openScanDebugFolder: inv<"openScanDebugFolder">(SCAN_DEBUG_OPEN_FOLDER),
 
-    onInventoryUpdated: ipcDataBridge<unknown>(ipcRenderer, INVENTORY_UPDATED),
-    onItemDbUpdated: ipcDataBridge<unknown>(ipcRenderer, ITEM_DB_UPDATED),
-    onAppUpdateStatus: ipcDataBridge<unknown>(ipcRenderer, APP_UPDATE_STATUS),
-    onWfmNotification: ipcDataBridge<unknown>(ipcRenderer, WFM_NOTIFICATION),
-    onTradeRecorded: ipcDataBridge<unknown>(ipcRenderer, TRADE_RECORDED),
-    onWorldStateFetchError: ipcDataBridge<unknown>(ipcRenderer, WORLD_STATE_FETCH_ERROR),
+    onInventoryUpdated: ipcDataBridge<IpcEventMap["inventory-updated"]>(
+      ipcRenderer,
+      INVENTORY_UPDATED,
+    ),
+    onItemDbUpdated: ipcDataBridge<IpcEventMap["item-db-updated"]>(ipcRenderer, ITEM_DB_UPDATED),
+    onAppUpdateStatus: ipcDataBridge<IpcEventMap["app-update-status"]>(
+      ipcRenderer,
+      APP_UPDATE_STATUS,
+    ),
+    onWfmNotification: ipcDataBridge<IpcEventMap["wfm:notification"]>(
+      ipcRenderer,
+      WFM_NOTIFICATION,
+    ),
+    onTradeRecorded: ipcDataBridge<IpcEventMap["trade-recorded"]>(ipcRenderer, TRADE_RECORDED),
+    onWorldStateFetchError: ipcDataBridge<IpcEventMap["world-state-fetch-error"]>(
+      ipcRenderer,
+      WORLD_STATE_FETCH_ERROR,
+    ),
 
     minimizeWindow: () => ipcRenderer.send(WINDOW_MINIMIZE),
     maximizeWindow: () => ipcRenderer.send(WINDOW_MAXIMIZE),
@@ -140,74 +158,67 @@ try {
 
     toggleOverlay: () => ipcRenderer.send(TOGGLE_OVERLAY),
     simulateRelicTrigger: () => ipcRenderer.send(SIMULATE_RELIC_TRIGGER),
-    updateOverlayTheme: (themeVars: unknown) => ipcRenderer.send(OVERLAY_THEME_UPDATED, themeVars),
-    pushRelicFilters: (filters: unknown) => ipcRenderer.send(OVERLAY_PUSH_RELIC_FILTERS, filters),
-    getOverlaySettings: () => ipcRenderer.invoke(OVERLAY_GET_SETTINGS),
-    setOverlaySettings: (settings: unknown) => ipcRenderer.invoke(OVERLAY_SET_SETTINGS, settings),
+    updateOverlayTheme: (themeVars) => ipcRenderer.send(OVERLAY_THEME_UPDATED, themeVars),
+    pushRelicFilters: (filters) => ipcRenderer.send(OVERLAY_PUSH_RELIC_FILTERS, filters),
+    getOverlaySettings: inv<"getOverlaySettings">(OVERLAY_GET_SETTINGS),
+    setOverlaySettings: inv<"setOverlaySettings">(OVERLAY_SET_SETTINGS),
 
-    openExternal: (url: string) => ipcRenderer.send(OPEN_EXTERNAL, url),
-    logWarn: (message: string, ...args: unknown[]) => ipcRenderer.send(LOG_WARN, message, ...args),
+    openExternal: (url) => ipcRenderer.send(OPEN_EXTERNAL, url),
+    logWarn: (message, ...args) => ipcRenderer.send(LOG_WARN, message, ...args),
 
-    loadRankedHotset: () => ipcRenderer.invoke(RANKED_HOTSET_LOAD),
-    saveRankedHotset: (data: unknown) => ipcRenderer.invoke(RANKED_HOTSET_SAVE, data),
-    loadSnapshotCache: () => ipcRenderer.invoke(SNAPSHOT_CACHE_LOAD),
-    saveSnapshotCache: (data: unknown) => ipcRenderer.invoke(SNAPSHOT_CACHE_SAVE, data),
+    loadRankedHotset: inv<"loadRankedHotset">(RANKED_HOTSET_LOAD),
+    saveRankedHotset: inv<"saveRankedHotset">(RANKED_HOTSET_SAVE),
+    loadSnapshotCache: inv<"loadSnapshotCache">(SNAPSHOT_CACHE_LOAD),
+    saveSnapshotCache: inv<"saveSnapshotCache">(SNAPSHOT_CACHE_SAVE),
 
-    getStatsHistory: () => ipcRenderer.invoke(STATS_GET_HISTORY),
-    getStatsCurrentSession: () => ipcRenderer.invoke(STATS_GET_CURRENT),
-    importStatsHistory: (raw: unknown[]) => ipcRenderer.invoke(STATS_IMPORT, raw),
-    getTradeLog: () => ipcRenderer.invoke(STATS_GET_TRADES),
-    importTradeLog: (events: unknown[]) => ipcRenderer.invoke(STATS_IMPORT_TRADES, events),
+    getStatsHistory: inv<"getStatsHistory">(STATS_GET_HISTORY),
+    getStatsCurrentSession: inv<"getStatsCurrentSession">(STATS_GET_CURRENT),
+    importStatsHistory: inv<"importStatsHistory">(STATS_IMPORT),
+    getTradeLog: inv<"getTradeLog">(STATS_GET_TRADES),
+    importTradeLog: inv<"importTradeLog">(STATS_IMPORT_TRADES),
 
-    getHelperStatus: () => ipcRenderer.invoke(HELPER_GET_STATUS),
-    runHelperNow: () => ipcRenderer.invoke(HELPER_RUN_NOW),
-    downloadHelper: () => ipcRenderer.invoke(HELPER_DOWNLOAD),
-    getRivens: () => ipcRenderer.invoke(RIVENS_GET),
-    getRivenWeaponNames: () => ipcRenderer.invoke(RIVENS_GET_WEAPON_NAMES),
-    getRivenStatOptions: () => ipcRenderer.invoke(RIVENS_GET_STAT_OPTIONS),
-    searchRivenAuctions: (
-      weaponName: string,
-      positiveWfmNames: string[],
-      negativeWfmNames: string[],
-    ) => ipcRenderer.invoke(RIVENS_SEARCH_AUCTIONS, weaponName, positiveWfmNames, negativeWfmNames),
-    getRivenBestAttributes: (weaponName: string) =>
-      ipcRenderer.invoke(RIVENS_GET_BEST_ATTRIBUTES, weaponName),
-    onHelperDownloadProgress: ipcDataBridge<unknown>(ipcRenderer, HELPER_DOWNLOAD_PROGRESS),
+    getHelperStatus: inv<"getHelperStatus">(HELPER_GET_STATUS),
+    runHelperNow: inv<"runHelperNow">(HELPER_RUN_NOW),
+    downloadHelper: inv<"downloadHelper">(HELPER_DOWNLOAD),
+    getRivens: inv<"getRivens">(RIVENS_GET),
+    getRivenWeaponNames: inv<"getRivenWeaponNames">(RIVENS_GET_WEAPON_NAMES),
+    getRivenStatOptions: inv<"getRivenStatOptions">(RIVENS_GET_STAT_OPTIONS),
+    searchRivenAuctions: inv<"searchRivenAuctions">(RIVENS_SEARCH_AUCTIONS),
+    getRivenBestAttributes: inv<"getRivenBestAttributes">(RIVENS_GET_BEST_ATTRIBUTES),
+    onHelperDownloadProgress: ipcDataBridge<IpcEventMap["helper-download-progress"]>(
+      ipcRenderer,
+      HELPER_DOWNLOAD_PROGRESS,
+    ),
 
-    getArbiRuns: () => ipcRenderer.invoke(ARBI_GET_RUNS),
-    setArbiRunVitus: (id: string, vitus: number | null) =>
-      ipcRenderer.invoke(ARBI_SET_VITUS, id, vitus),
-    deleteArbiRun: (id: string) => ipcRenderer.invoke(ARBI_DELETE_RUN, id),
-    deleteArbiRunLog: (id: string) => ipcRenderer.invoke(ARBI_DELETE_LOG, id),
-    exportArbiRunLog: (id: string) => ipcRenderer.invoke(ARBI_EXPORT_LOG, id),
-    importArbiLog: () => ipcRenderer.invoke(ARBI_IMPORT_LOG),
-    saveArbiRunImage: (id: string, png: Uint8Array) =>
-      ipcRenderer.invoke(ARBI_SAVE_IMAGE, id, png),
-    showArbiRunLogInFolder: (id: string) => ipcRenderer.invoke(ARBI_SHOW_LOG_IN_FOLDER, id),
-    onArbiRunSaved: ipcDataBridge<unknown>(ipcRenderer, ARBI_RUN_SAVED),
-    onArbiOpenRun: ipcDataBridge<unknown>(ipcRenderer, ARBI_OPEN_RUN),
+    getArbiRuns: inv<"getArbiRuns">(ARBI_GET_RUNS),
+    setArbiRunVitus: inv<"setArbiRunVitus">(ARBI_SET_VITUS),
+    deleteArbiRun: inv<"deleteArbiRun">(ARBI_DELETE_RUN),
+    deleteArbiRunLog: inv<"deleteArbiRunLog">(ARBI_DELETE_LOG),
+    exportArbiRunLog: inv<"exportArbiRunLog">(ARBI_EXPORT_LOG),
+    importArbiLog: inv<"importArbiLog">(ARBI_IMPORT_LOG),
+    saveArbiRunImage: inv<"saveArbiRunImage">(ARBI_SAVE_IMAGE),
+    showArbiRunLogInFolder: inv<"showArbiRunLogInFolder">(ARBI_SHOW_LOG_IN_FOLDER),
+    onArbiRunSaved: ipcDataBridge<IpcEventMap["arbi-run-saved"]>(ipcRenderer, ARBI_RUN_SAVED),
+    onArbiOpenRun: ipcDataBridge<IpcEventMap["arbi-open-run"]>(ipcRenderer, ARBI_OPEN_RUN),
 
-    getArbiSchedule: () => ipcRenderer.invoke(ARBI_SCHED_GET),
-    setArbiScheduleOccurrence: (key: string, enabled: boolean) =>
-      ipcRenderer.invoke(ARBI_SCHED_SET_OCCURRENCE, key, enabled),
-    setArbiScheduleFavorite: (nodeId: string, enabled: boolean) =>
-      ipcRenderer.invoke(ARBI_SCHED_SET_FAVORITE, nodeId, enabled),
-    setArbiScheduleLead: (minutes: number) => ipcRenderer.invoke(ARBI_SCHED_SET_LEAD, minutes),
-  });
+    getArbiSchedule: inv<"getArbiSchedule">(ARBI_SCHED_GET),
+    setArbiScheduleOccurrence: inv<"setArbiScheduleOccurrence">(ARBI_SCHED_SET_OCCURRENCE),
+    setArbiScheduleFavorite: inv<"setArbiScheduleFavorite">(ARBI_SCHED_SET_FAVORITE),
+    setArbiScheduleLead: inv<"setArbiScheduleLead">(ARBI_SCHED_SET_LEAD),
+  } satisfies PreloadAPI);
 
   contextBridge.exposeInMainWorld("tradeApi", {
-    wfmCreateOrder: (params: unknown) => ipcRenderer.invoke(WFM_CREATE_ORDER, params),
-    wfmUpdateOrder: (orderId: string, updates: unknown) =>
+    wfmCreateOrder: inv<"wfmCreateOrder">(WFM_CREATE_ORDER),
+    wfmUpdateOrder: (orderId, updates): Ret<"wfmUpdateOrder"> =>
       ipcRenderer.invoke(WFM_UPDATE_ORDER, { orderId, updates }),
-    wfmDeleteOrder: (orderId: string) => ipcRenderer.invoke(WFM_DELETE_ORDER, { orderId }),
-    wfmSetVisible: (orderIds: string[], visible: boolean) =>
+    wfmDeleteOrder: (orderId): Ret<"wfmDeleteOrder"> =>
+      ipcRenderer.invoke(WFM_DELETE_ORDER, { orderId }),
+    wfmSetVisible: (orderIds, visible): Ret<"wfmSetVisible"> =>
       ipcRenderer.invoke(WFM_SET_VISIBLE, { orderIds, visible }),
-    wfmSetStatus: (status: string) => ipcRenderer.invoke(WFM_SET_STATUS, { status }),
-    createRivenAuction: (payload: CreateRivenAuctionPayload) =>
-      ipcRenderer.invoke(RIVENS_CREATE_AUCTION, payload),
-    updateRivenAuction: (payload: UpdateRivenAuctionPayload) =>
-      ipcRenderer.invoke(RIVENS_UPDATE_AUCTION, payload),
-  });
+    wfmSetStatus: (status): Ret<"wfmSetStatus"> => ipcRenderer.invoke(WFM_SET_STATUS, { status }),
+    createRivenAuction: inv<"createRivenAuction">(RIVENS_CREATE_AUCTION),
+    updateRivenAuction: inv<"updateRivenAuction">(RIVENS_UPDATE_AUCTION),
+  } satisfies TradePreloadAPI);
 } catch (err) {
   console.error("[Preload] FATAL: contextBridge.exposeInMainWorld failed:", err);
 }
