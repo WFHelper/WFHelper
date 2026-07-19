@@ -14,11 +14,17 @@ const log = withScope("autoUpdater");
 
 const UPDATE_STATUS_CHANNEL = APP_UPDATE_STATUS;
 const UPDATE_FEED_PROBE_TIMEOUT_MS = 5_000;
+// Auto-check cadence. These timers only READ the public feed so the UI can
+// flag a new version; downloads and installs always require a user click.
+const STARTUP_UPDATE_CHECK_DELAY_MS = 8_000;
+const PERIODIC_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1_000;
 
 let mainWindow: import("electron").BrowserWindow | null = null;
 let initialized = false;
 let checkPromise: Promise<{ ok: boolean; source: string; state: UpdateState }> | null = null;
 let disabledReason: string | null = null;
+let startupCheckTimer: ReturnType<typeof setTimeout> | null = null;
+let periodicCheckTimer: ReturnType<typeof setInterval> | null = null;
 
 interface UpdateState {
   status: string;
@@ -27,6 +33,7 @@ interface UpdateState {
   version?: string | null;
   releaseName?: string | null;
   releaseDate?: string | null;
+  releaseNotes?: string | null;
   percent?: number;
   bytesPerSecond?: number;
   transferred?: number;
@@ -65,11 +72,30 @@ function setUpdateState(status: string, patch: Partial<UpdateState> = {}): void 
   emitUpdateState();
 }
 
+function normalizeReleaseNotes(notes: UpdateInfo["releaseNotes"]): string | null {
+  if (!notes) return null;
+  if (typeof notes === "string") {
+    const trimmed = notes.trim();
+    return trimmed.length ? trimmed : null;
+  }
+  // Array<{ version, note }> when fullChangelog is enabled.
+  const combined = notes
+    .map((entry) => {
+      const body = (entry?.note ?? "").trim();
+      if (!body) return "";
+      return entry?.version ? `## ${entry.version}\n\n${body}` : body;
+    })
+    .filter(Boolean)
+    .join("\n\n");
+  return combined.length ? combined : null;
+}
+
 function toInfoPatch(info: UpdateInfo): Partial<UpdateState> {
   return {
     version: info?.version || null,
     releaseName: info?.releaseName || null,
     releaseDate: info?.releaseDate || null,
+    releaseNotes: normalizeReleaseNotes(info?.releaseNotes),
   };
 }
 
@@ -176,9 +202,9 @@ export function initialize(windowRef: import("electron").BrowserWindow): void {
     return;
   }
 
-  // Manual-only updates: never download/install without explicit user action -
-  // limits exposure to a compromised release feed. checkForUpdates() and
-  // installDownloadedUpdate() are user-driven, no timer.
+  // Auto-check only: the timers below READ the public release feed so the UI can
+  // flag a new version, but downloads and installs always wait for an explicit
+  // user click. Exposure to a compromised feed stays limited to metadata reads.
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.allowPrerelease = false;
@@ -229,8 +255,26 @@ export function initialize(windowRef: import("electron").BrowserWindow): void {
     setUpdateState("error", { message });
   });
 
-  // No startup auto-check: the renderer triggers checkForUpdates() on user
-  // action so nothing contacts the update feed without intent.
+  scheduleAutoChecks();
+}
+
+// Read-only auto-checks so the UI can surface updates without a manual click.
+// Never triggers a download or install - those stay user-driven.
+function scheduleAutoChecks(): void {
+  if (startupCheckTimer || periodicCheckTimer) return;
+
+  startupCheckTimer = setTimeout(() => {
+    startupCheckTimer = null;
+    void checkForUpdates("startup");
+  }, STARTUP_UPDATE_CHECK_DELAY_MS);
+  startupCheckTimer.unref?.();
+
+  periodicCheckTimer = setInterval(() => {
+    // Don't interrupt an in-flight download or a ready-to-install update.
+    if (updateState.status === "downloading" || updateState.status === "downloaded") return;
+    void checkForUpdates("periodic");
+  }, PERIODIC_UPDATE_CHECK_INTERVAL_MS);
+  periodicCheckTimer.unref?.();
 }
 
 export async function checkForUpdates(

@@ -21,7 +21,8 @@ export function applyUpdateState(state: AppUpdateState, showToast: boolean): voi
     addToast({
       level: "info",
       title: "Update Available",
-      message: state.message || "A new update is available and downloading in the background.",
+      message:
+        state.message || "A new version is available. Click the update button to see what's new.",
     });
     return;
   }
@@ -30,7 +31,7 @@ export function applyUpdateState(state: AppUpdateState, showToast: boolean): voi
     addToast({
       level: "success",
       title: "Update Ready",
-      message: state.message || "Update downloaded. Use 'Install update' in the status bar.",
+      message: state.message || "Update downloaded. Click 'Restart to update' in the status bar.",
       sticky: true,
     });
     return;

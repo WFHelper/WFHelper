@@ -88,6 +88,7 @@ export interface AppUpdateState {
   version?: string | null;
   releaseName?: string | null;
   releaseDate?: string | null;
+  releaseNotes?: string | null;
   percent?: number;
   bytesPerSecond?: number;
   transferred?: number;
