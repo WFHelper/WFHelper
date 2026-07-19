@@ -41,11 +41,12 @@
         <span class="text-2xl font-semibold text-text-secondary">{item.label}</span>
       </div>
     {:else}
-      <div class="flex flex-1 items-center gap-3 px-5 min-w-16">
+      <!-- min-w-fit so nowrap cells never paint into their neighbor -->
+      <div class="flex min-w-fit flex-1 items-center gap-3 px-5">
         {#if item.icon}
-          <img src={item.icon} alt="" class="w-9 h-9 object-contain opacity-90 shrink-0" />
+          <img src={item.icon} alt="" class="h-9 w-9 shrink-0 object-contain opacity-90" />
         {/if}
-        <div class="flex flex-col gap-1 min-w-0 flex-1">
+        <div class="flex flex-1 flex-col gap-1">
           <div class="flex items-baseline gap-2 flex-wrap">
             <!-- nowrap so labels can't collide with values in image captures -->
             <span
