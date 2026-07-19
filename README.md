@@ -1,5 +1,7 @@
 # WFHelper
 
+[![Installer downloads](https://img.shields.io/github/downloads/WFHelper/WFHelper/v1.0.0/WFHelper-1.0.0-Setup.exe?label=installer%20downloads&color=success)](https://github.com/WFHelper/WFHelper/releases/latest)
+
 Unofficial Warframe companion app for Windows. Reads your inventory, prices it
 with live warframe.market data, scans relic rewards on screen and tracks your
 arbitration runs straight from EE.log.
