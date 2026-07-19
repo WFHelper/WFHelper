@@ -16,6 +16,9 @@ const BASE_CONNECT_SRC_ALLOWLIST: readonly string[] = Object.freeze([
   "https://content.warframe.com",
   "https://api.warframestat.us",
   "https://drops.warframestat.us",
+  // html-to-image fetch()es these to embed fonts into run captures.
+  "https://fonts.googleapis.com",
+  "https://fonts.gstatic.com",
 ]);
 
 export function toAllowedConnectOrigin(value: unknown): string | null {

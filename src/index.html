@@ -8,9 +8,11 @@
          restrictive (connect-src 'self' https:) and becomes the sole policy
          if the runtime header ever fails to apply, so we omit it. -->
     <title>WFHelper</title>
+    <!-- crossorigin so html-to-image can embed these fonts into captures -->
     <link
       href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow:wght@300;400;500;600&display=swap"
       rel="stylesheet"
+      crossorigin="anonymous"
     />
   </head>
   <body>

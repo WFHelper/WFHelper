@@ -70,6 +70,8 @@
 
   async function captureImage(): Promise<Blob | null> {
     if (!captureEl) return null;
+    // Await fonts so the snapshot doesn't reflow to fallback metrics.
+    await document.fonts.ready;
     const bg = getComputedStyle(document.body).backgroundColor || "#101418";
     return toBlob(captureEl, { backgroundColor: bg, pixelRatio: 2 });
   }
