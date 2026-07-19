@@ -12,7 +12,10 @@ export interface ScopedLogger {
 }
 
 const level: string = process.env.LOG_LEVEL || "info";
-const resetLogOnStart: boolean = String(process.env.LOG_RESET_ON_START ?? "0") !== "0";
+// Opt-in only: "1" or "true"; any other value (incl. "false") is off.
+const resetLogOnStart: boolean = ["1", "true"].includes(
+  String(process.env.LOG_RESET_ON_START ?? "").toLowerCase(),
+);
 const isTest = process.env.VITEST === "true" || process.env.NODE_ENV === "test";
 const loggerState = globalThis as typeof globalThis & {
   __wfhelperLoggerInitialized?: boolean;
