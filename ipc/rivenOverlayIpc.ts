@@ -363,11 +363,20 @@ export function onRivenWeaponPath(weaponPath: string): void {
     return;
   }
   if (_rivenWeaponName && _rivenWeaponName !== "Riven") {
-    if (_rivenWeaponName !== name) {
-      log.warn(
-        `[OverlayRoute] diorama weapon "${name}" differs from detected "${_rivenWeaponName}" - keeping the first`,
-      );
+    if (_rivenWeaponName === name) return;
+    // OCR reads the family name off the card ("Boar"), but the game renders
+    // the values at the LINKED variant's disposition ("Boar Prime"). The
+    // exact diorama path wins within the same family so grading fits.
+    if (
+      rivenDataSvc.getRivenFamilySlug(name) ===
+      rivenDataSvc.getRivenFamilySlug(_rivenWeaponName)
+    ) {
+      applyDetectedWeapon(name, "diorama load (refines OCR)");
+      return;
     }
+    log.warn(
+      `[OverlayRoute] diorama weapon "${name}" differs from detected "${_rivenWeaponName}" - keeping the first`,
+    );
     return;
   }
   applyDetectedWeapon(name, "diorama load");

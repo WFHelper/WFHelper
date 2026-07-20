@@ -90,6 +90,8 @@ const RIVEN_DIORAMA_DEDUP_MS = 2_000;
 
 /** True once this session's diorama weapon load was reported (once per session). */
 let _rivenWeaponPathSent = false;
+/** Accept the diorama weapon-load line this long after session open. */
+const RIVEN_WEAPON_PATH_WINDOW_MS = 15_000;
 
 /** True once the diorama-setup line fires.
  * Close patterns (ClearAgents / recycled effects) are gated on this so that
@@ -183,11 +185,18 @@ export function processRivenPatterns(
     }
   }
 
-  // Diorama weapon load: between session open and diorama setup the screen
-  // streams in the riven's weapon model - the resource path IS the weapon
-  // (exact variant, localization-proof). Window is tight (~0.7s) so relay
-  // bystander weapon loads cannot slip in later; once per session.
-  if (_rivenSessionActive && !_rivenDioramaReady && !_rivenWeaponPathSent) {
+  // Diorama weapon load: right after session open the screen streams in the
+  // riven's weapon model - the resource path IS the weapon (exact variant,
+  // localization-proof). Cannot be gated on !_rivenDioramaReady: DBWIN latches
+  // diorama-ready in real time while the Resloader line only arrives via the
+  // lagging file poll, which closed that gate every single session. A short
+  // wall-clock window keeps relay bystander weapon loads out instead.
+  if (
+    _rivenSessionActive &&
+    !_rivenWeaponPathSent &&
+    _rivenSessionStartedAt > 0 &&
+    Date.now() - _rivenSessionStartedAt < RIVEN_WEAPON_PATH_WINDOW_MS
+  ) {
     const weaponMatch = line.match(RIVEN_PATTERNS.dioramaWeaponLoad);
     if (weaponMatch) {
       _rivenWeaponPathSent = true;

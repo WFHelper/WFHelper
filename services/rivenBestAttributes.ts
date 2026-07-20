@@ -80,7 +80,8 @@ function lookupName(weaponName: string): string | null {
   const lc = weaponName.toLowerCase().trim();
   if (goodRolls[lc]) return lc;
   const stripped = lc
-    .replace(/\s+(prime|prisma|wraith|vandal)\b/gi, " ")
+    .replace(/\s+(prime|wraith|vandal)\b/gi, " ")
+    .replace(/^(kuva|tenet|prisma)\s+/i, "")
     .replace(/^mk1[-\s]+/i, "")
     .replace(/\s+/g, " ")
     .trim();
