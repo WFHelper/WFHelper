@@ -22,8 +22,8 @@ jobs:
           BODY: ${{ github.event.release.body }}
         run: |
           if [ -z "$DISCORD_WEBHOOK_URL" ]; then
-            echo "DISCORD_WEBHOOK_URL secret not set - skipping Discord announcement."
-            exit 0
+            echo "::error::DISCORD_WEBHOOK_URL secret is missing/empty - Discord announcement NOT sent."
+            exit 1
           fi
           title="$TITLE"
           [ -z "$title" ] && title="$TAG"
