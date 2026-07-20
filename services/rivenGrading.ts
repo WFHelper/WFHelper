@@ -111,6 +111,21 @@ export function unparseBuff(
   tag?: string,
   lvl: number = DEFAULT_LVL,
 ): number {
+  return clamp01(
+    unparseBuffRaw(displayedValue, baseValue, disposition, numBuffs, numCurses, tag, lvl),
+  );
+}
+
+/** Same as unparseBuff but unclamped - out-of-range floats reveal a dispo misfit. */
+function unparseBuffRaw(
+  displayedValue: number,
+  baseValue: number,
+  disposition: number,
+  numBuffs: number,
+  numCurses: number,
+  tag?: string,
+  lvl: number = DEFAULT_LVL,
+): number {
   const buffsAtten = NUM_BUFFS_ATTEN[Math.min(numBuffs, NUM_BUFFS_ATTEN.length - 1)];
   const curseAtten = Math.pow(1.25, numCurses);
   const attenuation = SPECIFIC_FIT_ATTEN * disposition * BASE_DRAIN;
@@ -135,8 +150,7 @@ export function unparseBuff(
   value /= Math.abs(baseValue);
 
   // value is now lerp(0.9, 1.1, rollFloat) -> invert
-  const rollFloat = (value - 0.9) / 0.2;
-  return clamp01(rollFloat);
+  return (value - 0.9) / 0.2;
 }
 
 /**
@@ -154,6 +168,21 @@ export function unparseBuff(
  * displayed value already, we skip the /-1 step.
  */
 export function unparseCurse(
+  displayedValue: number,
+  baseValue: number,
+  disposition: number,
+  numBuffs: number,
+  numCurses: number,
+  tag?: string,
+  lvl: number = DEFAULT_LVL,
+): number {
+  return clamp01(
+    unparseCurseRaw(displayedValue, baseValue, disposition, numBuffs, numCurses, tag, lvl),
+  );
+}
+
+/** Same as unparseCurse but unclamped - out-of-range floats reveal a dispo misfit. */
+function unparseCurseRaw(
   displayedValue: number,
   baseValue: number,
   disposition: number,
@@ -189,8 +218,7 @@ export function unparseCurse(
   // and then by -1 is equivalent to dividing by |baseValue|. Our OCR input is
   // already the absolute displayed value, so we just use |baseValue| directly.
 
-  const rollFloat = (value - 0.9) / 0.2;
-  return clamp01(rollFloat);
+  return (value - 0.9) / 0.2;
 }
 
 
@@ -312,8 +340,8 @@ export function gradeRiven(
 ): RivenGradeResult | null {
   if (!stats || stats.length === 0) return null;
 
-  const disposition = rivenData.getWeaponDisposition(weaponName);
-  if (disposition == null) {
+  const baseDisposition = rivenData.getWeaponDisposition(weaponName);
+  if (baseDisposition == null) {
     log.warn(`[RivenGrade] Weapon not found: "${weaponName}"`);
     return null;
   }
@@ -329,15 +357,73 @@ export function gradeRiven(
   const numCurses = stats.filter((s) => !s.positive).length;
   const assumedLevel = DEFAULT_LVL;
 
+  // Resolve tag/entry and the numeric display value once per stat.
+  const prepared = stats.map((stat) => {
+    const tag = rivenData.statNameToTag(stat.name);
+    const entry = tag ? rivenData.findUpgradeEntry(rivenTypeKey, tag) : null;
+    let displayedValue: number | null = null;
+    if (stat.value != null && Number.isFinite(stat.value)) {
+      // x-multiplier format: x1.59 -> (value - 1) * 100 for positive,
+      // (1 - value) * 100 for negative
+      displayedValue = stat.multiplier
+        ? stat.positive
+          ? (stat.value - 1) * 100
+          : (1 - stat.value) * 100
+        : stat.value;
+    }
+    return { stat, tag, entry, displayedValue };
+  });
+
+  type Prepared = (typeof prepared)[number];
+  const rawFloatAt = (p: Prepared, disp: number): number =>
+    p.stat.positive
+      ? unparseBuffRaw(p.displayedValue!, p.entry!.baseValue, disp, numBuffs, numCurses, p.tag!, assumedLevel)
+      : unparseCurseRaw(p.displayedValue!, p.entry!.baseValue, disp, numBuffs, numCurses, p.tag!, assumedLevel);
+
+  // The roll screen renders values with the dispo of the variant the riven is
+  // linked to but only names the family ("Boar" card, Boar Prime values). If
+  // the named weapon's dispo pushes any value outside its possible range,
+  // re-fit against the family's other variants and grade with the best match.
+  let disposition = baseDisposition;
+  const gradeable = prepared.filter((p) => p.tag && p.entry && p.displayedValue != null);
+  if (gradeable.length > 0) {
+    const violationAt = (disp: number): number =>
+      gradeable.reduce((sum, p) => {
+        const f = rawFloatAt(p, disp);
+        return sum + Math.max(0, f - 1) + Math.max(0, -f);
+      }, 0);
+    const currentViolation = violationAt(disposition);
+    // 0.02 tolerance: display values round to 0.1%, which can nudge a
+    // legitimate min/max roll fractionally out of range.
+    if (currentViolation > 0.02) {
+      let best = { name: weaponName, disposition, violation: currentViolation };
+      for (const variant of rivenData.getFamilyVariants(weaponName)) {
+        const violation = violationAt(variant.disposition);
+        const closer =
+          Math.abs(variant.disposition - baseDisposition) <
+          Math.abs(best.disposition - baseDisposition);
+        if (violation < best.violation - 1e-9 || (violation < best.violation + 1e-9 && closer)) {
+          best = { name: variant.name, disposition: variant.disposition, violation };
+        }
+      }
+      if (best.disposition !== disposition) {
+        log.info(
+          `[RivenGrade] "${weaponName}" dispo misfits the rolled values - grading as "${best.name}"`,
+        );
+        disposition = best.disposition;
+      }
+    }
+  }
+
   const gradedStats: GradedStat[] = [];
   let scoreSum = 0;
   let scoredCount = 0;
 
-  for (const stat of stats) {
-    // Map OCR name to upgrade tag
-    const tag = rivenData.statNameToTag(stat.name);
-    if (!tag) {
-      log.debug(`[RivenGrade] Unknown stat: "${stat.name}" - assigning B grade`);
+  for (const p of prepared) {
+    const { stat, tag, entry } = p;
+    if (!tag || !entry) {
+      if (!tag) log.debug(`[RivenGrade] Unknown stat: "${stat.name}" - assigning B grade`);
+      else log.debug(`[RivenGrade] Tag "${tag}" not in riven type ${rivenTypeKey.split("/").pop()}`);
       gradedStats.push({
         ...stat,
         grade: "B",
@@ -348,54 +434,8 @@ export function gradeRiven(
       continue;
     }
 
-    // Find the upgrade entry for this tag in the riven type
-    const entry = rivenData.findUpgradeEntry(rivenTypeKey, tag);
-    if (!entry) {
-      log.debug(`[RivenGrade] Tag "${tag}" not in riven type ${rivenTypeKey.split("/").pop()}`);
-      gradedStats.push({
-        ...stat,
-        grade: "B",
-        rollFloat: 0.5,
-      });
-      scoreSum += 0;
-      scoredCount++;
-      continue;
-    }
-
-    // If we have a numeric value, calculate the grade
-    if (stat.value != null && Number.isFinite(stat.value)) {
-      let rollFloat: number;
-      let displayedValue = stat.value;
-
-      // Handle x-multiplier format: x1.59 -> convert to percentage-like
-      // x-multiplier means the actual stat is (value - 1) * 100 for positive,
-      // or (1 - value) * 100 for negative
-      if (stat.multiplier) {
-        displayedValue = stat.positive ? (stat.value - 1) * 100 : (1 - stat.value) * 100;
-      }
-
-      if (stat.positive) {
-        rollFloat = unparseBuff(
-          displayedValue,
-          entry.baseValue,
-          disposition,
-          numBuffs,
-          numCurses,
-          tag,
-          assumedLevel,
-        );
-      } else {
-        rollFloat = unparseCurse(
-          displayedValue,
-          entry.baseValue,
-          disposition,
-          numBuffs,
-          numCurses,
-          tag,
-          assumedLevel,
-        );
-      }
-
+    if (p.displayedValue != null) {
+      const rollFloat = clamp01(rawFloatAt(p, disposition));
       const grade = floatToGrade(rollFloat, !stat.positive);
       const score = lerp(-10, 10, !stat.positive ? 1 - rollFloat : rollFloat);
 

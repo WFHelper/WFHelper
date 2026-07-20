@@ -270,6 +270,22 @@ describe("rivenData", () => {
       expect(key).toContain("MeleeWeaponRandomModRare");
     });
 
+    it("lists family variants with dispositions", () => {
+      const variants = rivenData.getFamilyVariants("Boar");
+      const names = variants.map((v) => v.name);
+      expect(names).toContain("Boar");
+      expect(names).toContain("Boar Prime");
+      for (const v of variants) expect(v.disposition).toBeGreaterThan(0);
+    });
+
+    it("resolves shotguns via holsterCategory (export dropped the SHOTGUN tag)", () => {
+      // Current export: no shotgun carries the SHOTGUN compat tag any more and
+      // Boar/Sobek/Kohm variants have no tags at all - all fell back to rifle.
+      expect(rivenData.resolveRivenType("Boar")).toContain("ShotgunRandomModRare");
+      expect(rivenData.resolveRivenType("Tigris Prime")).toContain("ShotgunRandomModRare");
+      expect(rivenData.resolveRivenType("Kuva Sobek")).toContain("ShotgunRandomModRare");
+    });
+
     it("returns null for unknown weapon", () => {
       expect(rivenData.resolveRivenType("Nonexistent")).toBeNull();
     });
@@ -369,6 +385,26 @@ describe("gradeRiven", () => {
     ]);
     expect(result).not.toBeNull();
     expect(result!.stats[0].grade).toBe("?");
+  });
+
+  it("grades shotgun stats against shotgun bases (Boar Critacan regression)", () => {
+    // Real riven, AlecaFrame grades B / S / A-. Two stacked bugs produced
+    // S/F/S: rifle bases (no SHOTGUN tag in export) and base-Boar dispo for
+    // values the game rendered at Boar Prime dispo (variant re-fit covers it).
+    const result = gradeRiven("Boar", [
+      { name: "Multishot", positive: true, value: 199.3 },
+      { name: "Critical Chance", positive: true, value: 163.6 },
+      { name: "Slash", positive: false, value: 75.9 },
+    ]);
+    expect(result).not.toBeNull();
+    for (const stat of result!.stats) {
+      expect(stat.rollFloat).toBeGreaterThan(0);
+      expect(stat.rollFloat).toBeLessThan(1);
+    }
+    const [multi, cc, slash] = result!.stats;
+    expect(multi.grade).toBe("B");
+    expect(["S", "A+"]).toContain(cc.grade);
+    expect(slash.grade).toBe("A-");
   });
 
   it("handles x-multiplier format", () => {

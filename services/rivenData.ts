@@ -33,6 +33,7 @@ interface WeaponInfo {
   uniqueName: string;
   omegaAttenuation: number;
   productCategory: string;
+  holsterCategory: string;
   compatibilityTags: string[];
 }
 
@@ -241,6 +242,7 @@ function ensureBuilt(): void {
         uniqueName,
         omegaAttenuation: w.omegaAttenuation,
         productCategory: w.productCategory || "",
+        holsterCategory: w.holsterCategory || "",
         compatibilityTags: Array.isArray(w.compatibilityTags) ? w.compatibilityTags : [],
       });
       _weaponDisplayNames.set(name.toLowerCase(), name);
@@ -339,8 +341,13 @@ export function resolveRivenType(weaponName: string): string | null {
 
   const cat = info.productCategory;
 
-  // Check for shotgun (LongGuns with SHOTGUN compat tag)
-  if (cat === "LongGuns" && info.compatibilityTags.includes("SHOTGUN")) {
+  // Check for shotgun. Current export data marks shotguns via holsterCategory
+  // only (compatibilityTags carry trigger tags now, and six shotguns have no
+  // tags at all); keep the old tag check for older data.
+  if (
+    cat === "LongGuns" &&
+    (info.holsterCategory === "SHOTGUN" || info.compatibilityTags.includes("SHOTGUN"))
+  ) {
     return SHOTGUN_RIVEN_KEY;
   }
 
@@ -612,6 +619,25 @@ export function getRivenFamilySlug(weaponName: string): string {
     .trim()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_|_$/g, "");
+}
+
+/**
+ * All variants sharing a weapon's riven family (e.g. Boar -> Boar, Boar Prime),
+ * with their dispositions. Includes the weapon itself.
+ */
+export function getFamilyVariants(
+  weaponName: string,
+): Array<{ name: string; disposition: number }> {
+  ensureBuilt();
+  const slug = getRivenFamilySlug(weaponName);
+  if (!slug) return [];
+  const out: Array<{ name: string; disposition: number }> = [];
+  for (const name of _weaponDisplayNames.values()) {
+    if (getRivenFamilySlug(name) !== slug) continue;
+    const info = _weaponByNameLc.get(name.toLowerCase());
+    if (info) out.push({ name, disposition: info.omegaAttenuation });
+  }
+  return out;
 }
 
 /**
