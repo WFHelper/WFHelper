@@ -1,13 +1,24 @@
 import type { ItemDbLookup } from "../types/ipc.js";
 
-/** Base-frame identity: "Nyx Prime Neuroptics Blueprint" and "Nyx" share a family. */
-function familyName(name: string): string {
+/** "Nyx Prime Neuroptics Blueprint" -> "nyx prime" (part suffixes dropped). */
+function baseFrameName(name: string): string {
   return name
     .toLowerCase()
     .replace(/\s+blueprint$/, "")
     .replace(/\s+(chassis|systems|neuroptics)$/, "")
-    .replace(/\s+(prime|umbra)$/, "")
     .trim();
+}
+
+/** Base-frame identity: "Nyx Prime Neuroptics Blueprint" and "Nyx" share a family. */
+function familyName(name: string): string {
+  return baseFrameName(name)
+    .replace(/\s+(prime|umbra|dex)$/, "")
+    .trim();
+}
+
+/** Only base frames can be fed to the Helminth; Prime/Umbra/Dex variants never can. */
+export function isSubsumableFrame(name: string): boolean {
+  return !/\s(prime|umbra|dex)$/.test(baseFrameName(name));
 }
 
 /** Families the player has fed to the Helminth (InfestedFoundry.ConsumedSuits). */

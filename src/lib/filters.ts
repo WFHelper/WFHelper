@@ -157,7 +157,9 @@ export function matchesSharedFilters(item: FilterableItem, filters: SharedFilter
   }
   if (!matchesYesNo(filters.equipped, item.equipped)) return false;
   if (!matchesYesNo(filters.leveledUp, item.leveledUp)) return false;
-  if (!matchesYesNo(filters.subsumed, item.subsumed)) return false;
+  // Strict tri-state: items without a subsumed flag (primes, non-frames) drop
+  // out whenever the filter is active - they can never be subsumed.
+  if (filters.subsumed !== "all" && item.subsumed !== (filters.subsumed === "yes")) return false;
 
   if (
     filters.minimumPlatinum > 0 &&

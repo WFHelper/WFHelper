@@ -7,7 +7,7 @@
     inventoryData,
     parsedItems,
   } from "../stores/data.js";
-  import { buildSubsumedFamilySet, isFrameSubsumed } from "../lib/helminth.js";
+  import { buildSubsumedFamilySet, isFrameSubsumed, isSubsumableFrame } from "../lib/helminth.js";
   import { computePinnedTotals } from "../lib/pinnedSummary.js";
   import {
     clearPinnedRecipes,
@@ -267,7 +267,9 @@
       status: masteryStateFor(row.e),
       vaulted: db?.vaulted === true,
       subsumed:
-        row.e.category === "Warframe" ? isFrameSubsumed(row.e.name, subsumedFamilies) : undefined,
+        row.e.category === "Warframe" && isSubsumableFrame(row.e.name)
+          ? isFrameSubsumed(row.e.name, subsumedFamilies)
+          : undefined,
     };
   }
 

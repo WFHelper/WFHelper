@@ -46,6 +46,23 @@ describe("shared filters", () => {
     expect(matchesSharedFilters(item, { ...filters, masteredMode: "not_mastered" })).toBe(false);
   });
 
+  it("drops items without a subsumed flag when the subsumed filter is active", () => {
+    const base = { name: "Nyx", subsumed: false };
+    const done = { name: "Rhino", subsumed: true };
+    const prime = { name: "Nyx Prime", subsumed: undefined };
+
+    const yes: SharedFiltersState = { ...defaultFilters(), subsumed: "yes" };
+    const no: SharedFiltersState = { ...defaultFilters(), subsumed: "no" };
+
+    expect(matchesSharedFilters(done, yes)).toBe(true);
+    expect(matchesSharedFilters(base, yes)).toBe(false);
+    expect(matchesSharedFilters(prime, yes)).toBe(false);
+    expect(matchesSharedFilters(base, no)).toBe(true);
+    expect(matchesSharedFilters(done, no)).toBe(false);
+    expect(matchesSharedFilters(prime, no)).toBe(false);
+    expect(matchesSharedFilters(prime, defaultFilters())).toBe(true);
+  });
+
   it("sorts by name with direction", () => {
     const items = [{ name: "B" }, { name: "A" }, { name: "C" }];
 

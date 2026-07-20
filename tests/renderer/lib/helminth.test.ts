@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSubsumedFamilySet, isFrameSubsumed } from "../../../src/lib/helminth.js";
+import {
+  buildSubsumedFamilySet,
+  isFrameSubsumed,
+  isSubsumableFrame,
+} from "../../../src/lib/helminth.js";
 import type { ItemDbLookup } from "../../../src/types/ipc.js";
 
 const NYX = "/Lotus/Powersuits/Jade/Jade";
@@ -22,6 +26,14 @@ describe("helminth subsume families", () => {
     expect(isFrameSubsumed("Nyx Prime Neuroptics Blueprint", set)).toBe(true);
     expect(isFrameSubsumed("Nyx Systems Blueprint", set)).toBe(true);
     expect(isFrameSubsumed("Rhino Chassis Blueprint", set)).toBe(false);
+  });
+
+  it("marks only base frames as subsumable", () => {
+    expect(isSubsumableFrame("Nyx")).toBe(true);
+    expect(isSubsumableFrame("Nyx Systems Blueprint")).toBe(true);
+    expect(isSubsumableFrame("Nyx Prime")).toBe(false);
+    expect(isSubsumableFrame("Nyx Prime Neuroptics Blueprint")).toBe(false);
+    expect(isSubsumableFrame("Excalibur Umbra Blueprint")).toBe(false);
   });
 
   it("handles missing InfestedFoundry", () => {
