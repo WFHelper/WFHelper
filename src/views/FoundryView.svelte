@@ -369,7 +369,6 @@
       basicVariant="full"
       sortOptions={foundrySortOptions}
       showSubsumed
-      showSavedSearches
     />
   </div>
 

@@ -3,6 +3,7 @@
 
   import { invoke } from "../lib/ipc.js";
   import { itemDb, componentOwnership } from "../stores/data.js";
+  import { addSavedSearch, removeSavedSearch, savedSearches } from "../stores/savedSearches.js";
   import { activeItem } from "../stores/modals.js";
   import { buildItemNameIndex } from "../lib/componentResolution.js";
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
@@ -17,6 +18,14 @@
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let requestToken = 0;
+
+  const saved = savedSearches("wiki");
+  $: currentSearchSaved = $saved.some((s) => s.toLowerCase() === query.trim().toLowerCase());
+
+  function applySavedSearch(text: string): void {
+    query = text;
+    void runSearch();
+  }
 
   const RARITY_COLOUR: Record<string, string> = {
     Common: "var(--rarity-common)",
@@ -115,6 +124,15 @@
         autocomplete="off"
         spellcheck="false"
       />
+      <button
+        type="button"
+        class="shrink-0 rounded-lg border border-border px-3 py-2 text-sm disabled:cursor-default disabled:opacity-40 {currentSearchSaved
+          ? 'bg-accent-glow text-accent'
+          : 'bg-bg-soft text-text-secondary hover:text-text-primary'}"
+        disabled={!query.trim()}
+        title={currentSearchSaved ? "Search already saved" : "Save this search"}
+        on:click={() => addSavedSearch("wiki", query)}>★</button
+      >
       <div class="flex shrink-0 overflow-hidden rounded-lg border border-border">
         <button
           type="button"
@@ -132,6 +150,33 @@
         >
       </div>
     </div>
+
+    {#if $saved.length > 0}
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span class="text-xs uppercase tracking-[0.05em] text-text-muted">Saved</span>
+        {#each $saved as s (s)}
+          <span
+            class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-sm {query.trim() ===
+            s
+              ? 'border-accent/50 bg-accent-glow text-accent'
+              : 'border-border bg-bg-soft text-text-secondary'}"
+          >
+            <button
+              type="button"
+              class="cursor-pointer border-0 bg-transparent p-0 text-inherit hover:text-text-primary"
+              title="Search this"
+              on:click={() => applySavedSearch(s)}>{s}</button
+            >
+            <button
+              type="button"
+              class="cursor-pointer border-0 bg-transparent p-0 text-inherit opacity-60 hover:opacity-100"
+              title="Remove saved search"
+              on:click={() => removeSavedSearch("wiki", s)}>×</button
+            >
+          </span>
+        {/each}
+      </div>
+    {/if}
 
     {#if loading && rows.length === 0}
       <div

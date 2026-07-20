@@ -1,10 +1,9 @@
 import type { Writable } from "svelte/store";
 import { persistedStringList } from "../lib/persistence.js";
-import type { FilterScope } from "../types/filters.js";
 
-const stores = new Map<FilterScope, Writable<string[]>>();
+const stores = new Map<string, Writable<string[]>>();
 
-export function savedSearches(scope: FilterScope): Writable<string[]> {
+export function savedSearches(scope: string): Writable<string[]> {
   let store = stores.get(scope);
   if (!store) {
     store = persistedStringList(`savedSearches.${scope}`);
@@ -13,7 +12,7 @@ export function savedSearches(scope: FilterScope): Writable<string[]> {
   return store;
 }
 
-export function addSavedSearch(scope: FilterScope, text: string): void {
+export function addSavedSearch(scope: string, text: string): void {
   const query = text.trim();
   if (!query) return;
   savedSearches(scope).update((list) =>
@@ -21,6 +20,6 @@ export function addSavedSearch(scope: FilterScope, text: string): void {
   );
 }
 
-export function removeSavedSearch(scope: FilterScope, text: string): void {
+export function removeSavedSearch(scope: string, text: string): void {
   savedSearches(scope).update((list) => list.filter((s) => s !== text));
 }
