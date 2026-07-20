@@ -286,6 +286,10 @@ export async function scanNewRoll(): Promise<RollPanelResult> {
   const generation = ++_scanGeneration;
   try {
     const result = await runRivenScanAttempt(RIVEN_SCAN_PROFILES.roll, generation);
+    log.info(
+      `[RivenScan] roll scan: ${result.stats.length} stats found`,
+      formatStatsForLog(result.stats),
+    );
     return { left: [], right: result.stats, rawText: result.text };
   } catch (err) {
     log.warn("[RivenScan] roll scan OCR failed:", String(err));

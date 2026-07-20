@@ -199,6 +199,10 @@ function preprocessOcrText(raw: string): string {
   }
 
   text = text.replace(/\(x\d+\s*(?:for\s*)?Heavy\s*Attack[a-z]*\)/gi, "");
+  // Fire-rate qualifier "(x2 for Bows)": OCR wraps it across lines and clips
+  // letters ("(x2 fol" + "Bows)"), so match loosely and allow the unclosed head.
+  text = text.replace(/\(\s*x\d+\s*fo[a-z]*\s*Bows?\s*\)?/gi, "");
+  text = text.replace(/\(\s*x\d+\s*fo[a-z]*\s*$/gim, "");
   text = text.replace(/\(\s*(\d+[.,]\d+)/g, "x$1");
   text = text.replace(/[*()[\]{}|\\<>^~°©®™•→←↑↓↗↘►◄▸▾▲▼■□●○]+\s*/g, " ");
   text = text.replace(/\bx\d+\s*(?:for\s*)?Heavy\s*Attack[a-z]*\b/gi, "");
@@ -512,6 +516,11 @@ function parseStatsFromLines(text: string): RivenStat[] {
       let effectivePositive = positive;
       const displayPositive = positive;
       const multiplier = extracted?.multiplier ?? false;
+
+      // x-multiplier values exist only on faction damage ("x1.3 Damage to
+      // Grineer"); an x-value on any other stat is OCR junk, e.g. "x2 fol"
+      // left over from a clipped "(x2 for Bows)" qualifier.
+      if (multiplier && !/^Damage\b/.test(stat)) continue;
 
       if (seen.has(key)) {
         // When the duplicate occurrence carries more precision than the first,

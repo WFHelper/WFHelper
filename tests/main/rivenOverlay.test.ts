@@ -840,6 +840,50 @@ describe("parseRivenStats", () => {
     // First occurrence (value=2) is kept; second does not satisfy floor(62.2)=2
     expect(matches[0].value).toBe(2);
   });
+
+  it("strips the '(x2 for Bows)' qualifier instead of parsing a phantom stat", () => {
+    // Exact OCR lines from a real Boar Satidra scan: the qualifier wraps and
+    // clips to "(x2 fol" + "Bows)", which used to fuzzy-match "fol" -> Cold.
+    const text = [
+      "Boar Satidra",
+      "+211,9% Multishot",
+      "+155,1% Fire Rate (x2 fol",
+      "Bows)",
+      "+65% Weapon Recoil",
+      "MIOATO",
+    ].join("\n");
+    const result = parseRivenStats(text);
+    expect(result.map((s) => s.name)).toEqual(["Multishot", "Fire Rate", "Weapon Recoil"]);
+    expect(result.map((s) => s.value)).toEqual([211.9, 155.1, 65]);
+    // "+65% Weapon Recoil" on screen is the curse direction (inverted polarity)
+    expect(result[2].positive).toBe(false);
+    expect(result[2].displayPositive).toBe(true);
+  });
+
+  it("strips an intact '(x2 for Bows)' qualifier split across lines", () => {
+    const result = parseRivenStats("+155,1% Fire Rate (x2 for\nBows)");
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ name: "Fire Rate", value: 155.1, positive: true });
+  });
+
+  it("rejects x-multiplier values on non-damage stats", () => {
+    // Only faction damage rolls as an x-multiplier; a bare "x2 fol" fragment
+    // must not fuzzy-complete into an element stat.
+    const result = parseRivenStats("+100% Critical Chance\nx2 fol");
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("Critical Chance");
+  });
+
+  it("keeps a flat Range roll alongside percent stats (Dark Dagger case)", () => {
+    const text = "+2,5 Range\n+84,9% Heavy Attack Efficiency\n-48,1% Status Chance";
+    const result = parseRivenStats(text);
+    expect(result.map((s) => s.name)).toEqual([
+      "Range",
+      "Heavy Attack Efficiency",
+      "Status Chance",
+    ]);
+    expect(result.map((s) => s.value)).toEqual([2.5, 84.9, 48.1]);
+  });
 });
 
 describe("findWeaponInText", () => {
