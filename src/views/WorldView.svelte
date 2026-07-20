@@ -417,6 +417,69 @@
             </CollapsibleSection>
           </div>
         {/if}
+
+        <!-- DARVO'S DEAL -->
+        {#if darvoDeals.length > 0}
+          <div class="world-section">
+            <CollapsibleSection
+              title="Darvo's Deal"
+              collapsed={collapsed.darvo}
+              onToggle={() => toggleSection("darvo")}
+            >
+              {#each darvoDeals as deal (deal.uniqueName)}
+                {@const dealDb = $itemDb[deal.uniqueName || ""]}
+                {@const dealImg =
+                  dealDb?.imageUrl ||
+                  (typeof deal.imageOverride === "string" ? deal.imageOverride : null)}
+                <div class="flex items-center gap-3 px-1 py-1.5">
+                  <button
+                    type="button"
+                    class="flex h-[64px] w-[64px] shrink-0 items-center justify-center overflow-hidden
+                           rounded-[var(--radius-lg)] border-2 border-border bg-black/30 p-0
+                           transition-transform duration-100 disabled:cursor-default
+                           {dealDb ? 'cursor-pointer hover:scale-105' : ''}"
+                    disabled={!dealDb}
+                    on:click={() => dealDb && openItemDetail(deal.uniqueName || "")}
+                    title={deal.item || "Unknown"}
+                  >
+                    {#if dealImg}
+                      <img
+                        class="h-full w-full object-contain"
+                        src={dealImg}
+                        alt={deal.item || ""}
+                        loading="lazy"
+                      />
+                    {:else}
+                      <span class="text-2xl font-bold text-text-secondary opacity-40"
+                        >{(deal.item || "?")[0]}</span
+                      >
+                    {/if}
+                  </button>
+                  <div class="flex min-w-0 flex-col gap-0.5">
+                    <span class="truncate text-sm font-semibold text-text-primary"
+                      >{deal.item || "Unknown"}</span
+                    >
+                    <span class="text-xs text-text-secondary">
+                      <strong class="text-accent">{deal.salePrice}p</strong>
+                      <span class="mx-1 line-through opacity-60">{deal.originalPrice}p</span>
+                      <span
+                        class="rounded border border-success/30 bg-success/10 px-1 py-px font-semibold text-success"
+                        >-{deal.discount}%</span
+                      >
+                    </span>
+                    <span class="text-xs text-text-muted">
+                      {deal.sold}/{deal.total} sold
+                      {#if deal.expiry}- ends in {timeTo(
+                          parseIsoDate(deal.expiry),
+                          nowCoarseMs,
+                        )}{/if}
+                    </span>
+                  </div>
+                </div>
+              {/each}
+            </CollapsibleSection>
+          </div>
+        {/if}
       </div>
 
       <!-- RIGHT COLUMN -->
@@ -526,66 +589,6 @@
         {/if}
       </div>
     </div>
-
-    <!-- DARVO'S DEAL -->
-    {#if darvoDeals.length > 0}
-      <div class="world-section mt-2">
-        <CollapsibleSection
-          title="Darvo's Deal"
-          collapsed={collapsed.darvo}
-          onToggle={() => toggleSection("darvo")}
-        >
-          {#each darvoDeals as deal (deal.uniqueName)}
-            {@const dealDb = $itemDb[deal.uniqueName || ""]}
-            {@const dealImg =
-              dealDb?.imageUrl ||
-              (typeof deal.imageOverride === "string" ? deal.imageOverride : null)}
-            <div class="flex items-center gap-3 px-1 py-1.5">
-              <button
-                type="button"
-                class="flex h-[64px] w-[64px] shrink-0 items-center justify-center overflow-hidden
-                       rounded-[var(--radius-lg)] border-2 border-border bg-black/30 p-0
-                       transition-transform duration-100 disabled:cursor-default
-                       {dealDb ? 'cursor-pointer hover:scale-105' : ''}"
-                disabled={!dealDb}
-                on:click={() => dealDb && openItemDetail(deal.uniqueName || "")}
-                title={deal.item || "Unknown"}
-              >
-                {#if dealImg}
-                  <img
-                    class="h-full w-full object-contain"
-                    src={dealImg}
-                    alt={deal.item || ""}
-                    loading="lazy"
-                  />
-                {:else}
-                  <span class="text-2xl font-bold text-text-secondary opacity-40"
-                    >{(deal.item || "?")[0]}</span
-                  >
-                {/if}
-              </button>
-              <div class="flex min-w-0 flex-col gap-0.5">
-                <span class="truncate text-sm font-semibold text-text-primary"
-                  >{deal.item || "Unknown"}</span
-                >
-                <span class="text-xs text-text-secondary">
-                  <strong class="text-accent">{deal.salePrice}p</strong>
-                  <span class="mx-1 line-through opacity-60">{deal.originalPrice}p</span>
-                  <span
-                    class="rounded border border-success/30 bg-success/10 px-1 py-px font-semibold text-success"
-                    >-{deal.discount}%</span
-                  >
-                </span>
-                <span class="text-xs text-text-muted">
-                  {deal.sold}/{deal.total} sold
-                  {#if deal.expiry}- ends in {timeTo(parseIsoDate(deal.expiry), nowCoarseMs)}{/if}
-                </span>
-              </div>
-            </div>
-          {/each}
-        </CollapsibleSection>
-      </div>
-    {/if}
 
     <!-- BARO KI'TEER (active - full-width with icon grid) -->
     {#if baroActive && baro?.inventory && baro.inventory.length > 0}
