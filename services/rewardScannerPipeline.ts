@@ -17,6 +17,9 @@ import { round4 } from "./rewardScannerUtils";
 
 const log = withScope("rewardScanner");
 
+// Each crop/encode runs synchronously on the UI thread - yield or the cursor stalls.
+const yieldToEventLoop = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+
 // capture -> guards (console open, frame dedup) -> slot scan -> text fallback.
 
 interface TriggerStats {
@@ -196,6 +199,7 @@ async function scanRewardFallbackText(
     runOCRStructuredBuffer: StructuredOcrBufferRunner;
   },
 ): Promise<{ items: SortedItem[]; score: number; exactCount: number }> {
+  await yieldToEventLoop();
   let crop: NativeImage;
   try {
     crop = cropRewardBand(screenshot.image, FALLBACK_BAND);
@@ -209,6 +213,7 @@ async function scanRewardFallbackText(
     const remaining = options.budgetMs - (Date.now() - options.startedAt);
     if (remaining <= 0) break;
     try {
+      await yieldToEventLoop();
       const png: Buffer = variant.image.toPNG();
       const structured = await options.runOCRStructuredBuffer(
         png,

@@ -17,6 +17,9 @@ import { withScope } from "./logger";
 
 const log = withScope("rewardScanner");
 
+// Each crop/encode runs synchronously on the UI thread - yield or the cursor stalls.
+const yieldToEventLoop = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+
 interface OcrLine {
   text?: string;
   box?: { top?: number; height?: number };
@@ -246,6 +249,7 @@ export async function scanRewardSlotsFallback(
     reader?: RewardReader;
   },
 ): Promise<SlotScanResult | null> {
+  await yieldToEventLoop();
   const layouts = detectRewardSlotLayoutCandidates(screenshot?.image)
     .filter((layout) => hasConfidentSlotLayout(layout))
     .slice(0, 6);
@@ -261,6 +265,8 @@ export async function scanRewardSlotsFallback(
     const slotLimit = Math.min(layout.count, MAX_REWARD_SLOTS);
     const slotResults = await Promise.all(
       layout.slots.slice(0, slotLimit).map(async (slot, i) => {
+        // Stagger the slots' sync crop+encode work across macrotasks.
+        await yieldToEventLoop();
         const elapsed = Date.now() - startedAt;
         const remainingBudgetMs = totalBudgetMs - elapsed;
         if (remainingBudgetMs <= 0) return null;
