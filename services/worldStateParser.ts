@@ -193,6 +193,7 @@ export function emptyWorldState(): Record<string, unknown> {
     cambionCycle: null,
     invasions: [],
     bounties: [],
+    dailyDeals: [],
   };
 }
 
@@ -1024,6 +1025,23 @@ export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> | n
       };
     });
 
+  const dailyDeals = (raw.DailyDeals || [])
+    .filter((d) => Number(d.Expiry?.["$date"]?.["$numberLong"] || 0) > nowMs)
+    .map((d) => {
+      const un = (d.StoreItem || "").replace(/^\/Lotus\/StoreItems/, "/Lotus");
+      return {
+        uniqueName: un,
+        item: resolveItemName(un),
+        imageOverride: resolveBaroIcon(un),
+        discount: d.Discount ?? 0,
+        originalPrice: d.OriginalPrice ?? 0,
+        salePrice: d.SalePrice ?? 0,
+        total: d.AmountTotal ?? 0,
+        sold: d.AmountSold ?? 0,
+        expiry: deDate(d.Expiry),
+      };
+    });
+
   return {
     fissures: allFissures,
     voidTrader,
@@ -1037,5 +1055,6 @@ export function parseRaw(raw: WorldStateRaw | null): Record<string, unknown> | n
     cambionCycle: null,
     invasions: rawInvasions,
     bounties: rawBounties,
+    dailyDeals,
   };
 }

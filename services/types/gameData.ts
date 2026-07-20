@@ -162,6 +162,17 @@ interface VoidStormRaw {
   Expiry: WorldStateDate;
 }
 
+interface DailyDealRaw {
+  StoreItem: string;
+  Activation?: WorldStateDate;
+  Expiry: WorldStateDate;
+  Discount?: number;
+  OriginalPrice?: number;
+  SalePrice?: number;
+  AmountTotal?: number;
+  AmountSold?: number;
+}
+
 export interface WorldStateRaw {
   ActiveMissions?: ActiveMissionRaw[];
   VoidStorms?: VoidStormRaw[];
@@ -172,6 +183,7 @@ export interface WorldStateRaw {
   EndlessXpChoices?: EndlessXpChoice[];
   SyndicateMissions?: SyndicateMissionRaw[];
   Invasions?: InvasionRaw[];
+  DailyDeals?: DailyDealRaw[];
 }
 
 interface DescentRaw {

@@ -102,9 +102,22 @@ export interface SteelPathHonors {
   evergreens: SteelPathReward[];
 }
 
+export interface DailyDeal {
+  uniqueName?: string;
+  item?: string;
+  imageOverride?: string | null;
+  discount?: number;
+  originalPrice?: number;
+  salePrice?: number;
+  total?: number;
+  sold?: number;
+  expiry?: string | null;
+}
+
 export interface WorldState {
   vaultTrader?: VaultTrader | null;
   voidTrader?: VaultTrader | null;
+  dailyDeals?: DailyDeal[];
   earthCycle?: CycleData;
   cetusCycle?: CycleData;
   vallisCycle?: CycleData;

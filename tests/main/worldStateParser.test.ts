@@ -71,6 +71,32 @@ describe("worldStateParser.parseRaw", () => {
     expect(storm?.missionType).toBe("Survival");
   });
 
+  it("parses daily deals and drops expired ones", () => {
+    const now = Date.now();
+    const parsed = parser.parseRaw({
+      DailyDeals: [
+        {
+          StoreItem: "/Lotus/StoreItems/Types/Items/TestItem",
+          Expiry: dateLong(now + 3600_000),
+          Discount: 50,
+          OriginalPrice: 150,
+          SalePrice: 75,
+          AmountTotal: 300,
+          AmountSold: 97,
+        },
+        { StoreItem: "/Lotus/StoreItems/Types/Items/OldItem", Expiry: dateLong(now - 1000) },
+      ],
+    }) as Record<string, unknown>;
+
+    const deals = parsed.dailyDeals as Array<Record<string, unknown>>;
+    expect(deals).toHaveLength(1);
+    expect(deals[0].uniqueName).toBe("/Lotus/Types/Items/TestItem");
+    expect(deals[0].salePrice).toBe(75);
+    expect(deals[0].discount).toBe(50);
+    expect(deals[0].sold).toBe(97);
+    expect(deals[0].expiry).toBeTruthy();
+  });
+
   it("returns null for empty input", () => {
     expect(parser.parseRaw(null)).toBeNull();
   });
