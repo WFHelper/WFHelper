@@ -294,11 +294,18 @@
     "not-ready": 3,
   };
 
+  function isPinnedRow(row: { e: FoundryEntry }, pinned: ReadonlySet<string>): boolean {
+    return row.e.source === "blueprint" && !!row.e.uniqueName && pinned.has(row.e.uniqueName);
+  }
+
   function sortFoundryRows(
     rows: typeof filtered,
     sharedFilters: typeof $foundryFilters,
+    pinned: ReadonlySet<string>,
   ): typeof filtered {
     return [...rows].sort((a, b) => {
+      const pinDiff = Number(isPinnedRow(b, pinned)) - Number(isPinnedRow(a, pinned));
+      if (pinDiff !== 0) return pinDiff;
       const rankDiff = STATUS_RANK[a.status] - STATUS_RANK[b.status];
       if (rankDiff !== 0) return rankDiff;
       return compareSharedFilterSort(
@@ -309,7 +316,7 @@
     });
   }
 
-  $: sorted = sortFoundryRows(filtered, $foundryFilters);
+  $: sorted = sortFoundryRows(filtered, $foundryFilters, pinnedSet);
 
   /** Build a ParsedItem from an itemDb uniqueName and open the ItemDetailModal. */
   function openItem(uniqueName: string | null): void {
@@ -462,7 +469,9 @@
         <div class="relative">
           <button
             type="button"
-            class="resource-card flex h-full w-full flex-col gap-2 px-3 py-2.5 text-left cursor-pointer hover:bg-white/5 transition-colors disabled:cursor-default {statusBorder}"
+            class="resource-card flex h-full w-full flex-col gap-2 px-3 py-2.5 text-left cursor-pointer hover:bg-white/5 transition-colors disabled:cursor-default {statusBorder} {isPinned
+              ? 'ring-1 ring-accent/45 bg-accent/[0.04]'
+              : ''}"
             on:click={() => openItem(item.productUniqueName)}
             disabled={!item.productUniqueName}
           >
