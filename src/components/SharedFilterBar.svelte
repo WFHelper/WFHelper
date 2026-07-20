@@ -1,5 +1,6 @@
 <script lang="ts">
   import { resetSharedFilters, sharedFilters, updateSharedFilters } from "../stores/filters.js";
+  import { addSavedSearch, removeSavedSearch, savedSearches } from "../stores/savedSearches.js";
   import SortArrow from "./SortArrow.svelte";
   import SearchBox from "./SearchBox.svelte";
   import type {
@@ -19,6 +20,7 @@
   export let basicVariant: "full" | "quick" = "full";
   export let sortOptions: Array<[SharedSortKey, string]> | null = null;
   export let showSubsumed = false;
+  export let showSavedSearches = false;
 
   const PRIME_OPTIONS: Array<[PrimeFilterMode, string]> = [
     ["all", "All"],
@@ -55,6 +57,11 @@
 
   $: scopeStore = sharedFilters(scope);
   $: state = $scopeStore;
+  $: savedStore = savedSearches(scope);
+  $: saved = showSavedSearches ? $savedStore : [];
+  $: currentSearchSaved = saved.some(
+    (s) => s.toLowerCase() === state.search.trim().toLowerCase(),
+  );
   $: isInventoryScope = scope === "inventory";
   $: activeSortOptions = sortOptions ?? DEFAULT_SORT_OPTIONS;
   $: if (state && !activeSortOptions.some(([value]) => value === state.sortBy)) {
@@ -104,6 +111,16 @@
   <div class="view-controls shared-filter-controls">
     {#if showBasic}
       <SearchBox class="shared-filter-search" value={state.search} onValueChange={setSearch} />
+
+      {#if showSavedSearches}
+        <button
+          class="filter-tab"
+          class:active={currentSearchSaved}
+          disabled={!state.search.trim()}
+          title={currentSearchSaved ? "Search already saved" : "Save this search"}
+          on:click={() => addSavedSearch(scope, state.search)}>★</button
+        >
+      {/if}
 
       {#if basicVariant === "full"}
         <div class="filter-tabs" title="Prime filter">
@@ -281,4 +298,24 @@
       </button>
     {/if}
   </div>
+
+  {#if showSavedSearches && saved.length > 0}
+    <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+      <span class="shared-chip-label">Saved</span>
+      {#each saved as query (query)}
+        <span class="filter-tab inline-flex items-center gap-1" class:active={state.search === query}>
+          <button
+            class="cursor-pointer border-0 bg-transparent p-0 text-inherit"
+            title="Apply saved search"
+            on:click={() => setSearch(query)}>{query}</button
+          >
+          <button
+            class="cursor-pointer border-0 bg-transparent p-0 text-inherit opacity-60 hover:opacity-100"
+            title="Remove saved search"
+            on:click={() => removeSavedSearch(scope, query)}>×</button
+          >
+        </span>
+      {/each}
+    </div>
+  {/if}
 </div>
