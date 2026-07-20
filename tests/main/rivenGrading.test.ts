@@ -329,6 +329,39 @@ describe("rivenData", () => {
       expect(rivenData.findUpgradeEntry(rivenType, "NonexistentTag")).toBeNull();
     });
   });
+
+  describe("generateRivenSuffix", () => {
+    // Game rule (RivenParser.js): buffs sort by fingerprint Value DESCENDING;
+    // first buff -> TitleCase prefix, middle -> "-" + prefix, last -> suffix.
+    // Ground truth: the user's Boar rivens named "Satidra" and "Critacan" in game.
+    it("orders buffs by roll value descending (Boar Satidra)", () => {
+      const shotgunType = rivenData.resolveRivenType("Boar")!;
+      const name = rivenData.generateRivenSuffix(shotgunType, [
+        { tag: "WeaponFireRateMod", value: 500_000_000 },
+        { tag: "WeaponFireIterationsMod", value: 900_000_000 },
+      ]);
+      expect(name).toBe("Satidra");
+    });
+
+    it("flips the name when the value order flips (Boar Critacan)", () => {
+      const shotgunType = rivenData.resolveRivenType("Boar")!;
+      const name = rivenData.generateRivenSuffix(shotgunType, [
+        { tag: "WeaponFireIterationsMod", value: 500_000_000 },
+        { tag: "WeaponCritChanceMod", value: 900_000_000 },
+      ]);
+      expect(name).toBe("Critacan");
+    });
+
+    it("hyphenates only the middle buff on 3-buff rolls", () => {
+      const shotgunType = rivenData.resolveRivenType("Boar")!;
+      const name = rivenData.generateRivenSuffix(shotgunType, [
+        { tag: "WeaponFireIterationsMod", value: 900_000_000 },
+        { tag: "WeaponCritChanceMod", value: 600_000_000 },
+        { tag: "WeaponFireRateMod", value: 300_000_000 },
+      ]);
+      expect(name).toBe("Sati-critadra");
+    });
+  });
 });
 
 describe("gradeRiven", () => {

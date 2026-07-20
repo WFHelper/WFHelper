@@ -361,10 +361,11 @@ function decodeSingleRiven(
     weaponName,
   );
 
-  // Generate riven suffix name from buff/curse stat tags
-  const buffTags = buffs.map((b) => b.Tag);
-  const curseTags = curses.map((c) => c.Tag);
-  const rivenSuffix = rivenData.generateRivenSuffix(rivenTypeKey, buffTags, curseTags);
+  // Generate the riven suffix name (game rule: buffs by roll Value, descending)
+  const rivenSuffix = rivenData.generateRivenSuffix(
+    rivenTypeKey,
+    buffs.map((b) => ({ tag: b.Tag, value: b.Value })),
+  );
   const rivenName = rivenSuffix ? `${weaponName} ${rivenSuffix}` : weaponName;
 
   const statPerfectness = scoredCount > 0 ? rollFloatSum / scoredCount : 0;

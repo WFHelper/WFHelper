@@ -419,27 +419,24 @@ export function findUpgradeEntry(rivenTypeKey: string, tag: string): UpgradeEntr
 }
 
 /**
- * Generate the riven suffix name from buff stat tags.
+ * Generate the riven suffix name from buffs with their fingerprint Values.
  *
- * Warframe riven name algorithm (from wiki / game data):
+ * Mirrors RivenParser.js (calamity-inc/warframe-riven-info, the same source
+ * as the fingerprint float decode):
  *  - Curses do NOT affect the name.
- *  - All buffs except the last contribute their **prefix** syllable.
- *  - The last buff contributes its **suffix** syllable.
- *  - For a single buff, both its prefix and suffix are used.
- *  - Format: TitleCase(first) + "-" + remaining syllables concatenated.
- *  - Stats with empty prefix/suffix (e.g. WeaponMeleeComboPointsOnHitMod) are skipped.
+ *  - Buffs sort by fingerprint Value DESCENDING (tie: lower baseValue first).
+ *  - First buff: TitleCase(prefix). Middle buff (3-buff rolls): "-" + prefix.
+ *    Last buff: suffix, no separator.
  *
- * Examples: "Vexi-decican" (electricity + status duration + multishot),
- *           "Crita-tis" (crit chance + crit damage),
- *           "Sati-can" (multishot only -> prefix + suffix)
+ * Examples: "Satidra" (multishot > fire rate), "Critacan" (crit chance >
+ * multishot), "Visi-satican" (3 buffs).
  */
 export function generateRivenSuffix(
   rivenTypeKey: string,
-  buffTags: string[],
-  _curseTags: string[],
+  buffs: Array<{ tag: string; value: number }>,
 ): string {
   const entries = getRivenTypeEntries(rivenTypeKey);
-  if (entries.length === 0 || buffTags.length === 0) return "";
+  if (entries.length === 0 || buffs.length === 0) return "";
 
   const findEntry = (tag: string) => {
     let e = entries.find((x) => x.tag === tag);
@@ -453,52 +450,34 @@ export function generateRivenSuffix(
     return e;
   };
 
-  // Sort buff tags by their canonical position in the upgradeEntries array
-  // (the game uses this order, not the fingerprint's arbitrary order).
-  const tagIndex = new Map(entries.map((e, i) => [e.tag, i]));
-  const sorted = [...buffTags].sort((a, b) => {
-    const ia =
-      tagIndex.get(a) ??
-      tagIndex.get(a.replace("WeaponFaction", "WeaponMeleeFaction")) ??
-      (a === "WeaponDamageAmountMod" ? (tagIndex.get("WeaponMeleeDamageMod") ?? 999) : 999);
-    const ib =
-      tagIndex.get(b) ??
-      tagIndex.get(b.replace("WeaponFaction", "WeaponMeleeFaction")) ??
-      (b === "WeaponDamageAmountMod" ? (tagIndex.get("WeaponMeleeDamageMod") ?? 999) : 999);
-    return ia - ib;
+  const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+
+  const sorted = [...buffs].sort((a, b) => {
+    if (a.value === b.value) {
+      return (findEntry(a.tag)?.baseValue ?? 0) - (findEntry(b.tag)?.baseValue ?? 0);
+    }
+    return b.value - a.value;
   });
 
-  // Collect syllables: all-except-last -> prefix, last -> suffix
-  // Special: single buff uses both prefix + suffix
-  const syllables: string[] = [];
-
-  for (let i = 0; i < sorted.length; i++) {
-    const entry = findEntry(sorted[i]);
-    if (!entry) continue;
-
-    if (sorted.length === 1) {
-      // Single buff: prefix + suffix
-      if (entry.prefix) syllables.push(entry.prefix);
-      if (entry.suffix) syllables.push(entry.suffix);
-    } else if (i < sorted.length - 1) {
-      // All except last: contribute prefix
-      if (entry.prefix) syllables.push(entry.prefix);
-    } else {
-      // Last buff: contribute suffix
-      if (entry.suffix) syllables.push(entry.suffix);
-    }
+  if (sorted.length === 1) {
+    const entry = findEntry(sorted[0].tag);
+    if (!entry?.prefix) return "";
+    return titleCase(entry.prefix) + (entry.suffix || "").toLowerCase();
   }
 
-  if (syllables.length === 0) return "";
-
-  // Format: TitleCase(first) + "-" + rest concatenated lowercase
-  const first = syllables[0].charAt(0).toUpperCase() + syllables[0].slice(1).toLowerCase();
-  if (syllables.length === 1) return first;
-  const rest = syllables
-    .slice(1)
-    .map((s) => s.toLowerCase())
-    .join("");
-  return `${first}-${rest}`;
+  let name = "";
+  for (let i = 0; i < sorted.length; i++) {
+    const entry = findEntry(sorted[i].tag);
+    if (!entry) continue;
+    if (i === sorted.length - 1) {
+      name += (entry.suffix || "").toLowerCase();
+    } else if (name === "") {
+      if (entry.prefix) name += titleCase(entry.prefix);
+    } else {
+      if (entry.prefix) name += "-" + entry.prefix.toLowerCase();
+    }
+  }
+  return name;
 }
 
 /**

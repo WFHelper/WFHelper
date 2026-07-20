@@ -48,7 +48,8 @@
   } {
     return {
       name: riven.weaponName,
-      keywords: riven.stats.map((stat) => stat.name),
+      // rivenName makes the generated suffix searchable ("satidra", "croni").
+      keywords: [riven.rivenName, ...riven.stats.map((stat) => stat.name)],
       disposition: riven.disposition,
       rerolls: riven.rerolls,
       grade: riven.overallGrade,
