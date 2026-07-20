@@ -1,6 +1,10 @@
 import type { NativeImage } from "electron";
 
-import { binarizeRewardRegion, cropRect, detectRewardSlotLayoutCandidates } from "./rewardScannerImage";
+import {
+  binarizeRewardRegion,
+  cropRect,
+  detectRewardSlotLayoutCandidates,
+} from "./rewardScannerImage";
 import { recognizeRewardStripOnnx, rewardOcrOnnxAvailable } from "./rewardOcrOnnx";
 import {
   MAX_REWARD_SLOTS,
@@ -71,6 +75,103 @@ interface SlotScanResult {
   emptySlots: number;
 }
 
+interface SlotRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface CollectedSlot {
+  index: number;
+  candidate: SlotCandidate;
+}
+
+interface LayoutRun {
+  rects: SlotRect[];
+  collected: CollectedSlot[];
+  slotLimit: number;
+  layoutCount: number;
+  layoutConfidence: number;
+}
+
+function buildLayoutResult(
+  run: LayoutRun,
+  collected: CollectedSlot[],
+  expectedCount: number,
+  strategy: string,
+): SlotScanResult {
+  // slotIndex keeps the on-screen position so the overlay can leave gaps
+  const items = collected.map((entry) => ({ ...entry.candidate.item, slotIndex: entry.index }));
+  const exactCount = collected.reduce(
+    (sum, entry) => sum + (entry.candidate.mode === "exact" ? 1 : 0),
+    0,
+  );
+  const avgConfidence =
+    collected.reduce((sum, entry) => sum + Number(entry.candidate.confidence || 0), 0) /
+    Math.max(1, collected.length);
+  const avgCandidateScore =
+    collected.reduce((sum, entry) => sum + Number(entry.candidate.score || 0), 0) /
+    Math.max(1, collected.length);
+  const emptySlots = run.slotLimit - collected.length;
+  const expectedFillBonus =
+    expectedCount > 0 ? Math.min(collected.length, expectedCount) / expectedCount : 0;
+  const score =
+    avgCandidateScore +
+    collected.length * 44 +
+    exactCount * 35 +
+    avgConfidence * 20 +
+    run.layoutConfidence * 12 +
+    expectedFillBonus * 18 -
+    emptySlots * 30;
+  return {
+    items,
+    score,
+    exactCount,
+    slotCount: run.layoutCount,
+    strategy,
+    slotConfidence: run.layoutConfidence,
+    avgConfidence,
+    matchedSlots: collected.length,
+    emptySlots,
+  };
+}
+
+function xOverlapFraction(a: SlotRect, b: SlotRect): number {
+  const overlap = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  return overlap <= 0 ? 0 : overlap / Math.min(a.width, b.width);
+}
+
+/** Fill the winner's empty slots with hits other layouts found at the same x-position. */
+function collectDonorSlots(best: LayoutRun, runs: LayoutRun[]): CollectedSlot[] {
+  const filled = new Set(best.collected.map((entry) => entry.index));
+  const donorsBySlot = new Map<number, SlotCandidate>();
+  for (const run of runs) {
+    if (run === best) continue;
+    for (const entry of run.collected) {
+      const rect = run.rects[entry.index];
+      if (!rect) continue;
+      // Assign each donor to the one winner slot it overlaps most, so a single
+      // physical card can't fill two slots.
+      let baseIndex = -1;
+      let baseOverlap = 0;
+      for (let i = 0; i < best.slotLimit; i++) {
+        const overlap = best.rects[i] ? xOverlapFraction(rect, best.rects[i]) : 0;
+        if (overlap > baseOverlap) {
+          baseOverlap = overlap;
+          baseIndex = i;
+        }
+      }
+      if (baseIndex < 0 || baseOverlap < 0.5 || filled.has(baseIndex)) continue;
+      const existing = donorsBySlot.get(baseIndex);
+      if (!existing || entry.candidate.score > existing.score) {
+        donorsBySlot.set(baseIndex, entry.candidate);
+      }
+    }
+  }
+  return [...donorsBySlot.entries()].map(([index, candidate]) => ({ index, candidate }));
+}
+
 export type StructuredOcrBufferRunner = (
   buffer: Buffer,
   timeoutMs: number,
@@ -102,7 +203,9 @@ async function ocrRewardRegion(
     const buf = await binarizeRewardRegion(cropPng, topFrac, heightFrac);
     if (!buf) return "";
     const structured = await options.runOCRStructuredBuffer(buf, timeoutMs);
-    return String(structured?.text || "").replace(/\s+/g, " ").trim();
+    return String(structured?.text || "")
+      .replace(/\s+/g, " ")
+      .trim();
   } catch {
     return "";
   }
@@ -149,8 +252,10 @@ export async function scanRewardSlotsFallback(
   if (layouts.length === 0) return null;
 
   let bestResult: SlotScanResult | null = null;
+  let bestRun: LayoutRun | null = null;
   let bestDebugSlots: ScanDebugSlot[] = [];
   let fallbackDebugSlots: ScanDebugSlot[] = [];
+  const runs: LayoutRun[] = [];
 
   for (const layout of layouts) {
     const slotLimit = Math.min(layout.count, MAX_REWARD_SLOTS);
@@ -171,10 +276,8 @@ export async function scanRewardSlotsFallback(
         const timeout = Math.max(500, Math.min(options.ocrTimeoutMs, remainingBudgetMs));
         const reader = options.reader || "both";
 
-        // Names wrap to two lines in 3/4-player layouts: OCR each band plus the whole
-        // crop, bands overlap so the wrap point doesn't cut a glyph. All four
-        // reads (3 regions + the independent ONNX strip read) are concurrent -
-        // both readers feed one candidate pool and the match ranking arbitrates.
+        // Names wrap to two lines in 3/4-player layouts: OCR overlapping bands plus
+        // the whole crop; both readers feed one pool, the ranking arbitrates.
         const [regionTexts, onnxRead] = await Promise.all([
           reader !== "onnx"
             ? Promise.all([
@@ -196,7 +299,10 @@ export async function scanRewardSlotsFallback(
         if (wholeClean) candidateTexts.add(wholeClean);
         if (onnxClean) candidateTexts.add(onnxClean);
         const diverged =
-          !!onnxClean && !!(joined || wholeClean) && onnxClean !== joined && onnxClean !== wholeClean;
+          !!onnxClean &&
+          !!(joined || wholeClean) &&
+          onnxClean !== joined &&
+          onnxClean !== wholeClean;
         if (diverged) {
           log.info(
             `[RewardScanner] Slot ${i + 1} reads diverge: windows="${wholeClean || joined}" onnx="${onnxClean}"`,
@@ -257,70 +363,32 @@ export async function scanRewardSlotsFallback(
         index,
         candidate: entry?.candidates?.[0] || null,
       }))
-      .filter(
-        (
-          entry,
-        ): entry is {
-          index: number;
-          candidate: SlotCandidate;
-        } => !!entry.candidate,
-      );
+      .filter((entry): entry is CollectedSlot => !!entry.candidate);
 
     if (!collected.length) {
-      // layouts arrive confidence-sorted, so the first zero-hit layout is the
-      // most plausible view of a scan that matched nothing
+      // layouts are confidence-sorted - the first zero-hit one best shows a no-match scan
       if (fallbackDebugSlots.length === 0) fallbackDebugSlots = toScanDebugSlots(slotResults);
       continue;
     }
 
-    // slotIndex keeps the on-screen position so the overlay can leave gaps
-    const items = collected
-      .map((entry) => ({ ...entry.candidate.item, slotIndex: entry.index }))
-      .slice(0, slotLimit);
-    const exactCount = collected.reduce(
-      (sum, entry) => sum + (entry.candidate.mode === "exact" ? 1 : 0),
-      0,
-    );
-    const avgConfidence =
-      collected.reduce((sum, entry) => sum + Number(entry.candidate.confidence || 0), 0) /
-      Math.max(1, collected.length);
-    const avgCandidateScore =
-      collected.reduce((sum, entry) => sum + Number(entry.candidate.score || 0), 0) /
-      Math.max(1, collected.length);
-    const emptySlots = slotLimit - collected.length;
-    const expectedFillBonus =
-      expectedCount > 0 ? Math.min(collected.length, expectedCount) / expectedCount : 0;
-    const score =
-      avgCandidateScore +
-      collected.length * 44 +
-      exactCount * 35 +
-      avgConfidence * 20 +
-      layout.confidence * 12 +
-      expectedFillBonus * 18 -
-      emptySlots * 30;
-
-    const result: SlotScanResult = {
-      items,
-      score,
-      exactCount,
-      slotCount: layout.count,
-      strategy: "slot-primary",
-      slotConfidence: layout.confidence,
-      avgConfidence,
-      matchedSlots: collected.length,
-      emptySlots,
+    const run: LayoutRun = {
+      rects: layout.slots.slice(0, slotLimit).map((slot) => slot.titleRect),
+      collected,
+      slotLimit,
+      layoutCount: layout.count,
+      layoutConfidence: layout.confidence,
     };
+    runs.push(run);
+    const result = buildLayoutResult(run, collected, expectedCount, "slot-primary");
 
     log.info(
       `[RewardScanner] Slot layout candidate ${layout.count}: ` +
-        `hits=${collected.length}/${slotLimit} exact=${exactCount} ` +
-        `avg=${avgConfidence.toFixed(3)} score=${score.toFixed(2)} ` +
-        `items=${items.map((item) => item.name).join(" | ")}`,
+        `hits=${result.matchedSlots}/${slotLimit} exact=${result.exactCount} ` +
+        `avg=${result.avgConfidence.toFixed(3)} score=${result.score.toFixed(2)} ` +
+        `items=${result.items.map((item) => item.name).join(" | ")}`,
     );
 
-    // A layout that matched several cards is structurally right even when a
-    // lone pristine exact match out-averages it - the 1-slot layout may only
-    // win when no multi-slot layout found 2+ items.
+    // Multi-card layouts outrank a lone pristine exact match - structure beats averages.
     const bestIsMulti = !!bestResult && bestResult.matchedSlots >= 2;
     const resultIsMulti = result.matchedSlots >= 2;
     if (
@@ -334,11 +402,11 @@ export async function scanRewardSlotsFallback(
           (result.score === bestResult.score && result.items.length > bestResult.items.length)))
     ) {
       bestResult = result;
+      bestRun = run;
       bestDebugSlots = toScanDebugSlots(slotResults);
     }
 
-    // Every slot hit exactly - narrower croppings of the same screen cannot
-    // beat this, so skip their re-OCR passes (~650ms on a clean 4-slot read).
+    // All slots exact - smaller layouts can't beat this, skip their OCR (~650ms).
     if (
       result.matchedSlots >= 2 &&
       result.matchedSlots === slotLimit &&
@@ -352,15 +420,33 @@ export async function scanRewardSlotsFallback(
     }
   }
 
+  // A losing layout may have matched exactly the cards the winner missed
+  // (seen on 21:9). Fill the winner's empty slots from those hits.
+  if (bestResult && bestRun && bestResult.emptySlots > 0 && runs.length > 1) {
+    const donors = collectDonorSlots(bestRun, runs);
+    if (donors.length > 0) {
+      const merged = [...bestRun.collected, ...donors].sort((a, b) => a.index - b.index);
+      bestResult = buildLayoutResult(bestRun, merged, expectedCount, "slot-merged");
+      log.info(
+        `[RewardScanner] Slot merge: +${donors.length} from losing layouts: ` +
+          donors.map((entry) => `${entry.index + 1}:${entry.candidate.item.name}`).join(" | "),
+      );
+    }
+  }
+
   if (bestResult) {
     const anyDiverge = bestDebugSlots.some((slot) => slot.diverged);
     if (bestResult.emptySlots > 0 || anyDiverge) {
-      dumpRewardScanDebug(bestResult.emptySlots > 0 ? "empty-slots" : "reader-diverge", bestDebugSlots, {
-        reader: options.reader || "both",
-        layoutCount: bestResult.slotCount,
-        matchedSlots: bestResult.matchedSlots,
-        items: bestResult.items.map((item) => item.name),
-      });
+      dumpRewardScanDebug(
+        bestResult.emptySlots > 0 ? "empty-slots" : "reader-diverge",
+        bestDebugSlots,
+        {
+          reader: options.reader || "both",
+          layoutCount: bestResult.slotCount,
+          matchedSlots: bestResult.matchedSlots,
+          items: bestResult.items.map((item) => item.name),
+        },
+      );
     }
   } else if (fallbackDebugSlots.length > 0) {
     dumpRewardScanDebug("no-layout-hits", fallbackDebugSlots, {
