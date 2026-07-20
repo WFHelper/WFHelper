@@ -322,14 +322,16 @@ export function createOverlayScanController(options: OverlayScanControllerOption
     };
   }
 
-  async function dispatchRewardScan(source: string): Promise<void> {
+  async function dispatchRewardScan(source: string, stalenessMs = 0): Promise<void> {
     if (rewardScanInFlight) {
       log.info(`[Trigger] scan already running, ignored duplicate trigger (${source})`);
       return;
     }
 
     rewardScanInFlight = true;
-    if (source === "eelog") eelogTriggerAt = Date.now();
+    // Backdate by the log flush lag so the auto-hide tracks when the reward
+    // screen actually appeared, not when the line finally reached us.
+    if (source === "eelog") eelogTriggerAt = Date.now() - stalenessMs;
 
     try {
       if (source === "eelog" && warframeStatus?.getStatus) {
@@ -417,7 +419,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
     }
   }
 
-  function onRelicRewardTrigger(source = "manual"): void {
+  function onRelicRewardTrigger(source = "manual", stalenessMs = 0): void {
     if (source === "eelog" && !ctx.overlaySettings.autoTriggerEnabled) return;
 
     windows.clearOverlayAutoHideTimer();
@@ -431,7 +433,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
       windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_DETECTING_MAX_MS);
     }
 
-    void dispatchRewardScan(source);
+    void dispatchRewardScan(source, stalenessMs);
   }
 
   return {

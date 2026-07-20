@@ -360,7 +360,7 @@ app.whenReady().then(async () => {
 
   const eeLogStart = Date.now();
   const eeLogPath = eeLogMonitor.startWatching({
-    onRewardTrigger: () => overlayIpc.onRelicRewardTrigger("eelog"),
+    onRewardTrigger: (stalenessMs) => overlayIpc.onRelicRewardTrigger("eelog", stalenessMs),
     onRewardUiReady: () => overlayIpc.notifyRewardUiReady(),
     onRelicSelectionOpen: () => overlayIpc.onRelicSelectionTrigger("eelog"),
     onRelicSelectionClose: () => overlayIpc.onRelicSelectionClose(),

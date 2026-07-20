@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import chokidar from "chokidar";
 import { withScope } from "./logger";
+import { EeUptimeTracker } from "./eeUptime";
 import { startDbwinWorker, stopDbwinWorker, isDbwinActive } from "./dbwinMonitor";
 import {
   RIVEN_PATTERNS,
@@ -107,6 +108,9 @@ const POLL_INTERVAL_MS = 500;
 const MAX_READ_BYTES = 256 * 1024;
 const MAX_READ_LOOPS_PER_TICK = 8;
 const TRUNCATION_CHECK_INTERVAL_MS = 2000;
+// The engine buffers file writes; at mission end a reward line can hit the
+// file 10-15s late. Past the vote window the reward screen is gone - drop.
+const REWARD_STALE_SUPPRESS_MS = 20_000;
 
 let watcher: ReturnType<typeof chokidar.watch> | null = null;
 let lastSize = 0;
@@ -116,8 +120,9 @@ let pollFd: number | null = null;
 let pollReading = false;
 let lastTruncationCheckAt = 0;
 const pollBuffer = Buffer.alloc(MAX_READ_BYTES);
+const uptimeTracker = new EeUptimeTracker();
 
-let rewardCallback: (() => void) | null = null;
+let rewardCallback: ((stalenessMs: number) => void) | null = null;
 let rewardUiReadyCallback: (() => void) | null = null;
 let relicPickerCallback: (() => void) | null = null;
 let relicPickerCloseCallback: (() => void) | null = null;
@@ -213,6 +218,7 @@ function pollReadNewBytes(): void {
           closePollFd();
           lastSize = 0;
           lineRemainder = "";
+          uptimeTracker.reset();
           notifyEeLogReset();
         }
       } catch {
@@ -243,7 +249,11 @@ function pollReadNewBytes(): void {
   }
 }
 
-function scheduleTrigger(type: "reward" | "relic_picker"): void {
+function scheduleTrigger(
+  type: "reward" | "relic_picker",
+  source: "dbwin" | "file",
+  stalenessMs = 0,
+): void {
   const isReward = type === "reward";
   const now = Date.now();
   const lastAt = isReward ? lastRewardAt : lastRelicPickerAt;
@@ -255,6 +265,8 @@ function scheduleTrigger(type: "reward" | "relic_picker"): void {
 
   if (now - lastAt < cooldown) return;
 
+  const staleNote = stalenessMs > 1000 ? `, ~${(stalenessMs / 1000).toFixed(1)}s stale` : "";
+
   if (isReward) {
     if (pendingRewardTimer) return;
     pendingRewardTimer = setTimeout(() => {
@@ -265,10 +277,23 @@ function scheduleTrigger(type: "reward" | "relic_picker"): void {
         log.info("[EELog] Reward trigger suppressed - relic picker screen active");
         return;
       }
+      if (stalenessMs > REWARD_STALE_SUPPRESS_MS) {
+        log.warn(
+          `[EELog] Reward trigger dropped - line is ~${(stalenessMs / 1000).toFixed(1)}s old (engine flush lag), reward screen is gone`,
+        );
+        return;
+      }
       lastRewardAt = Date.now();
       if (rewardCallback) {
-        log.info("[EELog] Reward trigger detected -> dispatching reward scan");
-        rewardCallback();
+        log.info(
+          `[EELog] Reward trigger detected (via ${source}${staleNote}) -> dispatching reward scan`,
+        );
+        if (source === "file" && isDbwinActive() && stalenessMs > 3000) {
+          log.warn(
+            "[EELog] DBWIN is active but missed this line - another debug listener may be competing (DebugView/Overwolf)",
+          );
+        }
+        rewardCallback(stalenessMs);
       }
     }, TRIGGER_DELAY_MS);
     return;
@@ -280,7 +305,9 @@ function scheduleTrigger(type: "reward" | "relic_picker"): void {
     lastRelicPickerAt = Date.now();
     relicPickerSessionOpen = true;
     if (relicPickerCallback) {
-      log.info("[EELog] Relic picker trigger detected -> dispatching recommendation overlay");
+      log.info(
+        `[EELog] Relic picker trigger detected (via ${source}${staleNote}) -> dispatching recommendation overlay`,
+      );
       relicPickerCallback();
     }
   }, RELIC_TRIGGER_DELAY_MS);
@@ -288,6 +315,10 @@ function scheduleTrigger(type: "reward" | "relic_picker"): void {
 
 function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   if (!line) return;
+
+  // DBWIN lines are real-time; file lines can trail the event by the engine's
+  // lazy flush (10s+ at quiet moments) - measure it from the uptime prefix.
+  const stalenessMs = source === "file" ? uptimeTracker.observe(line, Date.now()) : 0;
 
   if (REWARD_TRIGGER_PATTERNS.some((pattern) => pattern.test(line))) {
     const isFlushEcho =
@@ -297,7 +328,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
     if (isFlushEcho) {
       log.info("[EELog] Reward file echo ignored - DBWIN already handled this crack");
     } else {
-      scheduleTrigger("reward");
+      scheduleTrigger("reward", source, stalenessMs);
     }
   }
 
@@ -311,7 +342,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   const skipRelicFromFilePoll = isDbwinActive() && source === "file";
 
   if (!skipRelicFromFilePoll && RELIC_PICKER_PATTERNS.some((pattern) => pattern.test(line))) {
-    scheduleTrigger("relic_picker");
+    scheduleTrigger("relic_picker", source, stalenessMs);
   }
 
   const tradeMatch = TRADE_PARTNER_PATTERN.exec(line);
@@ -488,7 +519,7 @@ function consumeChunk(chunk: string): void {
 }
 
 interface EeLogHandlers {
-  onRewardTrigger?: (() => void) | null;
+  onRewardTrigger?: ((stalenessMs: number) => void) | null;
   onRewardUiReady?: (() => void) | null;
   onRelicSelectionOpen?: (() => void) | null;
   onRelicSelectionClose?: (() => void) | null;

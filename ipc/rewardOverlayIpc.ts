@@ -164,6 +164,7 @@ export function warmPlannerOverlayWindow(): void {
 
 export function onRelicRewardTrigger(
   source: string,
+  stalenessMs: number,
   pushOverlayInteractionMode: () => void,
   pushOverlayThemeVars: () => void,
   bringOverlayToWarframeDisplayIfAvailable: () => Promise<void>,
@@ -178,7 +179,7 @@ export function onRelicRewardTrigger(
   rewardWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
   pushOverlayInteractionMode();
   pushOverlayThemeVars();
-  scanController.onRelicRewardTrigger(source);
+  scanController.onRelicRewardTrigger(source, stalenessMs);
 }
 
 export function notifyRewardUiReady(): void {
@@ -289,6 +290,7 @@ export function register(
   onAuthorized(SIMULATE_RELIC_TRIGGER, assertMainRendererSender, () => {
     onRelicRewardTrigger(
       "simulate",
+      0,
       pushOverlayInteractionMode,
       pushOverlayThemeVars,
       async () => {},

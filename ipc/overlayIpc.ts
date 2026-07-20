@@ -233,9 +233,10 @@ function pushOverlayThemeVars(): void {
   rivenOverlayIpc.forEachRivenWindow((win) => win.webContents.send(OVERLAY_THEME_VARS, vars));
 }
 
-function onRelicRewardTrigger(source = "manual"): void {
+function onRelicRewardTrigger(source = "manual", stalenessMs = 0): void {
   rewardOverlayIpc.onRelicRewardTrigger(
     source,
+    stalenessMs,
     pushOverlayInteractionMode,
     pushOverlayThemeVars,
     bringOverlayToWarframeDisplayIfAvailable,
