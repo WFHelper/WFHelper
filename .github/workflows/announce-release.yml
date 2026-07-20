@@ -5,6 +5,7 @@ name: Announce release
 on:
   release:
     types: [published]
+  workflow_dispatch: # dry run: verifies the webhook secret is set, posts nothing
 
 permissions:
   contents: read
@@ -24,6 +25,10 @@ jobs:
           if [ -z "$DISCORD_WEBHOOK_URL" ]; then
             echo "::error::DISCORD_WEBHOOK_URL secret is missing/empty - Discord announcement NOT sent."
             exit 1
+          fi
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Webhook secret is set (non-empty). Dry run - nothing posted."
+            exit 0
           fi
           title="$TITLE"
           [ -z "$title" ] && title="$TAG"
