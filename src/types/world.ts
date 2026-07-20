@@ -102,7 +102,7 @@ export interface SteelPathHonors {
   evergreens: SteelPathReward[];
 }
 
-export interface DailyDeal {
+interface DailyDeal {
   uniqueName?: string;
   item?: string;
   imageOverride?: string | null;

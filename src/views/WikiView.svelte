@@ -19,8 +19,9 @@
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let requestToken = 0;
 
-  const saved = savedSearches("wiki");
-  $: currentSearchSaved = $saved.some((s) => s.toLowerCase() === query.trim().toLowerCase());
+  // Per-mode lists: an item search saved under "By item" reruns as an item search.
+  $: savedStore = savedSearches(`wiki:${mode}`);
+  $: currentSearchSaved = $savedStore.some((s) => s.toLowerCase() === query.trim().toLowerCase());
 
   function applySavedSearch(text: string): void {
     query = text;
@@ -131,7 +132,7 @@
           : 'bg-bg-soft text-text-secondary hover:text-text-primary'}"
         disabled={!query.trim()}
         title={currentSearchSaved ? "Search already saved" : "Save this search"}
-        on:click={() => addSavedSearch("wiki", query)}>★</button
+        on:click={() => addSavedSearch(`wiki:${mode}`, query)}>★</button
       >
       <div class="flex shrink-0 overflow-hidden rounded-lg border border-border">
         <button
@@ -151,10 +152,10 @@
       </div>
     </div>
 
-    {#if $saved.length > 0}
+    {#if $savedStore.length > 0}
       <div class="flex flex-wrap items-center gap-1.5">
         <span class="text-xs uppercase tracking-[0.05em] text-text-muted">Saved</span>
-        {#each $saved as s (s)}
+        {#each $savedStore as s (s)}
           <span
             class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-sm {query.trim() ===
             s
@@ -171,7 +172,7 @@
               type="button"
               class="cursor-pointer border-0 bg-transparent p-0 text-inherit opacity-60 hover:opacity-100"
               title="Remove saved search"
-              on:click={() => removeSavedSearch("wiki", s)}>×</button
+              on:click={() => removeSavedSearch(`wiki:${mode}`, s)}>×</button
             >
           </span>
         {/each}

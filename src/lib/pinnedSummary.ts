@@ -1,12 +1,12 @@
 import type { RecipeIngredient } from "../types/inventory.js";
 
-export interface PinnedResourceTotal {
+interface PinnedResourceTotal {
   uniqueName: string;
   needed: number;
   owned: number;
 }
 
-export interface PinnedTotals {
+interface PinnedTotals {
   count: number;
   credits: number;
   resources: PinnedResourceTotal[];

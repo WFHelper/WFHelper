@@ -47,7 +47,7 @@ export function persistedStringList(key: string, max = 20): Writable<string[]> {
   try {
     const parsed = JSON.parse(readStorage(key) || "[]");
     if (Array.isArray(parsed)) {
-      initial = parsed.filter((v): v is string => typeof v === "string").slice(0, max);
+      initial = parsed.filter((v): v is string => typeof v === "string").slice(-max);
     }
   } catch {
     /* corrupted - start empty */
@@ -58,13 +58,15 @@ export function persistedStringList(key: string, max = 20): Writable<string[]> {
   return {
     subscribe: store.subscribe,
     set(value: string[]): void {
-      const next = value.slice(0, max);
+      // Keep the newest entries: additions append, so trimming the front
+      // drops the oldest instead of silently ignoring new ones at the cap.
+      const next = value.slice(-max);
       save(next);
       store.set(next);
     },
     update(fn: (value: string[]) => string[]): void {
       store.update((current) => {
-        const next = fn(current).slice(0, max);
+        const next = fn(current).slice(-max);
         save(next);
         return next;
       });
