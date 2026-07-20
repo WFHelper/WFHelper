@@ -24,6 +24,7 @@ interface FilterableItem {
   favorite?: boolean;
   equipped?: boolean;
   leveledUp?: boolean;
+  subsumed?: boolean | undefined;
   count?: number | null;
   time?: number | null;
   disposition?: number | null;
@@ -156,6 +157,7 @@ export function matchesSharedFilters(item: FilterableItem, filters: SharedFilter
   }
   if (!matchesYesNo(filters.equipped, item.equipped)) return false;
   if (!matchesYesNo(filters.leveledUp, item.leveledUp)) return false;
+  if (!matchesYesNo(filters.subsumed, item.subsumed)) return false;
 
   if (
     filters.minimumPlatinum > 0 &&

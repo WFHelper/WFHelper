@@ -16,6 +16,7 @@ function createDefaultSharedFiltersState(): SharedFiltersState {
     setComplete: "all",
     equipped: "all",
     leveledUp: "all",
+    subsumed: "all",
   };
 }
 

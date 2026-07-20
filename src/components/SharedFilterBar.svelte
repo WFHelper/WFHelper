@@ -18,6 +18,7 @@
   export let showAdvanced = true;
   export let basicVariant: "full" | "quick" = "full";
   export let sortOptions: Array<[SharedSortKey, string]> | null = null;
+  export let showSubsumed = false;
 
   const PRIME_OPTIONS: Array<[PrimeFilterMode, string]> = [
     ["all", "All"],
@@ -86,7 +87,7 @@
   }
 
   function setYesNoFilter(
-    key: "orderPlaced" | "vaulted" | "favorite" | "setComplete" | "equipped" | "leveledUp",
+    key: "orderPlaced" | "vaulted" | "favorite" | "setComplete" | "equipped" | "leveledUp" | "subsumed",
     value: Exclude<YesNoFilterMode, "all">,
   ): void {
     const next = state[key] === value ? "all" : value;
@@ -124,6 +125,21 @@
             >
           {/each}
         </div>
+
+        {#if showSubsumed}
+          <div class="filter-tabs" title="Helminth ability subsumed">
+            <button
+              class="filter-tab"
+              class:active={state.subsumed === "yes"}
+              on:click={() => setYesNoFilter("subsumed", "yes")}>Subsumed</button
+            >
+            <button
+              class="filter-tab"
+              class:active={state.subsumed === "no"}
+              on:click={() => setYesNoFilter("subsumed", "no")}>Not Subsumed</button
+            >
+          </div>
+        {/if}
       {/if}
 
       <div class="shared-sort-controls">

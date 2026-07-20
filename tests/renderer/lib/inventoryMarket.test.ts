@@ -141,6 +141,7 @@ describe("inventoryMarket view mapping", () => {
         setComplete: "all",
         equipped: "all",
         leveledUp: "all",
+        subsumed: "all",
       },
       "all_parts",
     );

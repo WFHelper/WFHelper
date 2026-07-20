@@ -35,4 +35,5 @@ export interface SharedFiltersState {
   setComplete: YesNoFilterMode;
   equipped: YesNoFilterMode;
   leveledUp: YesNoFilterMode;
+  subsumed: YesNoFilterMode;
 }

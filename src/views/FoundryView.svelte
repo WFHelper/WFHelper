@@ -1,6 +1,7 @@
 ﻿<script lang="ts">
   import { SvelteMap } from "svelte/reactivity";
-  import { itemDb, componentOwnership, foundryData, parsedItems } from "../stores/data.js";
+  import { itemDb, componentOwnership, foundryData, inventoryData, parsedItems } from "../stores/data.js";
+  import { buildSubsumedFamilySet, isFrameSubsumed } from "../lib/helminth.js";
   import { masteryData } from "../stores/mastery.js";
   import { activeItem } from "../stores/modals.js";
   import { formatBuildTime, formatTimeRemaining, formatNumber } from "../lib/format.js";
@@ -224,6 +225,8 @@
     return collectRecipeMaterialNames(productUniqueName, $itemDb);
   }
 
+  $: subsumedFamilies = buildSubsumedFamilySet($inventoryData, $itemDb);
+
   function filterableFoundryEntry(row: { e: FoundryEntry; status: ItemStatus }): {
     name: string;
     category: string;
@@ -233,6 +236,7 @@
     isPrime: boolean;
     status: MasteryStatus | "unknown";
     vaulted: boolean;
+    subsumed: boolean | undefined;
   } {
     const db = row.e.productUniqueName ? $itemDb[row.e.productUniqueName] : null;
     return {
@@ -247,6 +251,10 @@
       isPrime: db?.isPrime === true || /\bprime\b/i.test(row.e.name),
       status: masteryStateFor(row.e),
       vaulted: db?.vaulted === true,
+      subsumed:
+        row.e.category === "Warframe"
+          ? isFrameSubsumed(row.e.name, subsumedFamilies)
+          : undefined,
     };
   }
 
@@ -338,6 +346,7 @@
       showAdvanced={false}
       basicVariant="full"
       sortOptions={foundrySortOptions}
+      showSubsumed
     />
   </div>
 
