@@ -1,7 +1,19 @@
 ﻿<script lang="ts">
   import { SvelteMap } from "svelte/reactivity";
-  import { itemDb, componentOwnership, foundryData, inventoryData, parsedItems } from "../stores/data.js";
+  import {
+    itemDb,
+    componentOwnership,
+    foundryData,
+    inventoryData,
+    parsedItems,
+  } from "../stores/data.js";
   import { buildSubsumedFamilySet, isFrameSubsumed } from "../lib/helminth.js";
+  import { computePinnedTotals } from "../lib/pinnedSummary.js";
+  import {
+    clearPinnedRecipes,
+    pinnedRecipes,
+    togglePinnedRecipe,
+  } from "../stores/pinnedRecipes.js";
   import { masteryData } from "../stores/mastery.js";
   import { activeItem } from "../stores/modals.js";
   import { formatBuildTime, formatTimeRemaining, formatNumber } from "../lib/format.js";
@@ -227,6 +239,9 @@
 
   $: subsumedFamilies = buildSubsumedFamilySet($inventoryData, $itemDb);
 
+  $: pinnedSet = new Set($pinnedRecipes);
+  $: pinnedTotals = computePinnedTotals(allEntries, pinnedSet, (un) => ownedMap.get(un) ?? 0);
+
   function filterableFoundryEntry(row: { e: FoundryEntry; status: ItemStatus }): {
     name: string;
     category: string;
@@ -252,9 +267,7 @@
       status: masteryStateFor(row.e),
       vaulted: db?.vaulted === true,
       subsumed:
-        row.e.category === "Warframe"
-          ? isFrameSubsumed(row.e.name, subsumedFamilies)
-          : undefined,
+        row.e.category === "Warframe" ? isFrameSubsumed(row.e.name, subsumedFamilies) : undefined,
     };
   }
 
@@ -356,6 +369,66 @@
     <HeaderTabs options={foundryFilterTabs} activeKey={$activeFilter} onSelect={setActiveFilter} />
   </div>
 
+  <!-- Pinned blueprints: combined resource needs across everything pinned -->
+  {#if pinnedTotals.count > 0}
+    <div class="resource-card mb-3 border-accent/35 px-3 py-2.5">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="font-display text-sm font-semibold text-text-primary">
+          Pinned blueprints <span class="text-accent">({pinnedTotals.count})</span>
+        </span>
+        <div class="flex items-center gap-3">
+          {#if pinnedTotals.credits > 0}
+            <span class="flex items-center gap-1 text-xs text-text-secondary">
+              <img src={CREDITS_ICON_URL} alt="Credits" class="h-4 w-4" />
+              {formatNumber(pinnedTotals.credits)}
+            </span>
+          {/if}
+          <button class="filter-tab" title="Unpin all" on:click={clearPinnedRecipes}>Clear</button>
+        </div>
+      </div>
+      <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
+        {#each pinnedTotals.resources as res (res.uniqueName)}
+          {@const ok = res.owned >= res.needed}
+          <div class="flex items-center gap-1.5 text-sm" title={ingredientName(res.uniqueName)}>
+            <div class="flex h-7 w-7 shrink-0 items-center justify-center">
+              <ItemImage
+                src={ingredientImage(res.uniqueName)}
+                alt={ingredientName(res.uniqueName)}
+                cls="max-h-7 max-w-7 object-contain"
+              />
+            </div>
+            <span class={ok ? "text-text-secondary" : "text-danger"}>
+              {formatNumber(res.owned)}/{formatNumber(res.needed)}
+            </span>
+          </div>
+        {/each}
+      </div>
+      {#if pinnedTotals.missing.length > 0}
+        <div
+          class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-white/[0.09] pt-2"
+        >
+          <span class="text-xs font-semibold uppercase tracking-[0.08em] text-danger">Missing</span>
+          {#each pinnedTotals.missing as res (res.uniqueName)}
+            <span
+              class="flex items-center gap-1 text-xs text-text-secondary"
+              title={ingredientName(res.uniqueName)}
+            >
+              <span class="flex h-5 w-5 shrink-0 items-center justify-center">
+                <ItemImage
+                  src={ingredientImage(res.uniqueName)}
+                  alt={ingredientName(res.uniqueName)}
+                  cls="max-h-5 max-w-5 object-contain"
+                />
+              </span>
+              {formatNumber(res.needed - res.owned)}
+              {ingredientName(res.uniqueName)}
+            </span>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  {/if}
+
   <!-- Unified grid -->
   <div class="grid grid-cols-[repeat(auto-fill,minmax(380px,1fr))] gap-3">
     {#if sorted.length === 0}
@@ -382,175 +455,202 @@
               : status === "ready-to-build"
                 ? "text-success"
                 : "text-text-muted"}
-        <button
-          type="button"
-          class="resource-card flex flex-col gap-2 px-3 py-2.5 text-left cursor-pointer hover:bg-white/5 transition-colors disabled:cursor-default {statusBorder}"
-          on:click={() => openItem(item.productUniqueName)}
-          disabled={!item.productUniqueName}
-        >
-          <!-- Header: item icon + name (+ ×count) + status line -->
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="h-14 w-14 shrink-0 flex items-center justify-center">
-              <ItemImage
-                src={item.imageUrl}
-                alt={item.name}
-                cls="max-h-14 max-w-14 object-contain"
-              />
-            </div>
-            <div class="flex-1 min-w-0 flex flex-col gap-1">
-              <span class="font-display font-semibold text-sm text-text-primary truncate">
-                {item.name}{#if item.source === "blueprint"}<span class="ml-2 text-accent font-bold"
-                    >×{item.count}</span
-                  >{/if}
-              </span>
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="font-display text-xs font-bold tracking-wider {statusText}">
-                  {#if status === "in-progress" && item.endDate}
-                    {formatTimeRemaining(item.endDate)}
-                  {:else}
-                    {statusLabel(status)}
-                  {/if}
+        {@const pinnable = item.source === "blueprint" && !!item.uniqueName}
+        {@const isPinned = pinnable && pinnedSet.has(item.uniqueName || "")}
+        <div class="relative">
+          <button
+            type="button"
+            class="resource-card flex h-full w-full flex-col gap-2 px-3 py-2.5 text-left cursor-pointer hover:bg-white/5 transition-colors disabled:cursor-default {statusBorder}"
+            on:click={() => openItem(item.productUniqueName)}
+            disabled={!item.productUniqueName}
+          >
+            <!-- Header: item icon + name (+ ×count) + status line; pr clears the pin button -->
+            <div class="flex items-center gap-3 min-w-0 pr-8">
+              <div class="h-14 w-14 shrink-0 flex items-center justify-center">
+                <ItemImage
+                  src={item.imageUrl}
+                  alt={item.name}
+                  cls="max-h-14 max-w-14 object-contain"
+                />
+              </div>
+              <div class="flex-1 min-w-0 flex flex-col gap-1">
+                <span class="font-display font-semibold text-sm text-text-primary truncate">
+                  {item.name}{#if item.source === "blueprint"}<span
+                      class="ml-2 text-accent font-bold">×{item.count}</span
+                    >{/if}
                 </span>
-                {#if item.source === "blueprint" && item.isIngredient}
-                  <span
-                    class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] border-border bg-white/[0.04] text-text-muted"
-                  >
-                    <svg
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.35"
-                      class="h-3.5 w-3.5 shrink-0"
-                    >
-                      <path d="M3 4.5h4.5v4.5H3z" />
-                      <path d="M8.5 2h4.5v4.5H8.5z" />
-                      <path d="M8.5 9h4.5v4.5H8.5z" />
-                      <path d="M7.5 6.75h1M10.75 6.5v2.5" />
-                    </svg>
-                    <span>Used in crafting</span>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-display text-xs font-bold tracking-wider {statusText}">
+                    {#if status === "in-progress" && item.endDate}
+                      {formatTimeRemaining(item.endDate)}
+                    {:else}
+                      {statusLabel(status)}
+                    {/if}
                   </span>
-                {/if}
+                  {#if item.source === "blueprint" && item.isIngredient}
+                    <span
+                      class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] border-border bg-white/[0.04] text-text-muted"
+                    >
+                      <svg
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.35"
+                        class="h-3.5 w-3.5 shrink-0"
+                      >
+                        <path d="M3 4.5h4.5v4.5H3z" />
+                        <path d="M8.5 2h4.5v4.5H8.5z" />
+                        <path d="M8.5 9h4.5v4.5H8.5z" />
+                        <path d="M7.5 6.75h1M10.75 6.5v2.5" />
+                      </svg>
+                      <span>Used in crafting</span>
+                    </span>
+                  {/if}
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Ingredient grid - slots stay the same (2 cols); icon/text inside scale up when few ingredients. -->
-          {#if item.ingredients.length > 0}
-            {@const fewIng = item.ingredients.length <= 2}
-            <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 pl-1">
-              {#each item.ingredients as ing, ingIdx (`${ing.uniqueName}:${ingIdx}`)}
-                {@const owned = ownedMap.get(ing.uniqueName) ?? 0}
-                {@const ok = owned >= ing.count}
-                <div
-                  class="flex items-center gap-2 min-w-0 {fewIng ? 'text-lg' : 'text-base'}"
-                  title={ingredientName(ing.uniqueName)}
-                >
+            <!-- Ingredient grid - slots stay the same (2 cols); icon/text inside scale up when few ingredients. -->
+            {#if item.ingredients.length > 0}
+              {@const fewIng = item.ingredients.length <= 2}
+              <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 pl-1">
+                {#each item.ingredients as ing, ingIdx (`${ing.uniqueName}:${ingIdx}`)}
+                  {@const owned = ownedMap.get(ing.uniqueName) ?? 0}
+                  {@const ok = owned >= ing.count}
                   <div
-                    class="shrink-0 flex items-center justify-center {fewIng
-                      ? 'h-14 w-14'
-                      : 'h-10 w-10'}"
+                    class="flex items-center gap-2 min-w-0 {fewIng ? 'text-lg' : 'text-base'}"
+                    title={ingredientName(ing.uniqueName)}
                   >
-                    <ItemImage
-                      src={ingredientImage(ing.uniqueName)}
-                      alt={ingredientName(ing.uniqueName)}
-                      cls={fewIng
-                        ? "max-h-14 max-w-14 object-contain"
-                        : "max-h-10 max-w-10 object-contain"}
-                    />
+                    <div
+                      class="shrink-0 flex items-center justify-center {fewIng
+                        ? 'h-14 w-14'
+                        : 'h-10 w-10'}"
+                    >
+                      <ItemImage
+                        src={ingredientImage(ing.uniqueName)}
+                        alt={ingredientName(ing.uniqueName)}
+                        cls={fewIng
+                          ? "max-h-14 max-w-14 object-contain"
+                          : "max-h-10 max-w-10 object-contain"}
+                      />
+                    </div>
+                    <span class="truncate {ok ? 'text-text-secondary' : 'text-text-muted'}">
+                      {formatNumber(owned)}/{formatNumber(ing.count)}
+                    </span>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="3.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="shrink-0 {fewIng ? 'h-5 w-5' : 'h-4 w-4'} {ok
+                        ? 'text-success'
+                        : 'text-danger'}"
+                      aria-hidden="true"
+                    >
+                      {#if ok}
+                        <path d="M5 12.5l4.5 4.5L19 7.5" />
+                      {:else}
+                        <path d="M6 6l12 12M18 6L6 18" />
+                      {/if}
+                    </svg>
                   </div>
-                  <span class="truncate {ok ? 'text-text-secondary' : 'text-text-muted'}">
-                    {formatNumber(owned)}/{formatNumber(ing.count)}
+                {/each}
+              </div>
+            {/if}
+
+            <div
+              class="mt-auto flex items-center justify-between gap-3 pt-2 border-t border-border text-sm text-text-secondary"
+            >
+              <div class="flex items-center gap-3">
+                {#if item.buildPrice > 0}
+                  <span
+                    class="flex items-center gap-1.5 font-display font-semibold tracking-wide text-accent"
+                  >
+                    <img src={CREDITS_ICON_URL} alt="Credits" class="h-5 w-5 object-contain" />
+                    {formatNumber(item.buildPrice)}
                   </span>
+                {/if}
+                {#if item.source === "blueprint" && item.buildTime > 0}
+                  <span class="font-display font-semibold tracking-wide text-text-secondary">
+                    ⏱ {formatBuildTime(item.buildTime)}
+                  </span>
+                {/if}
+                {#if item.source === "blueprint" && item.ingredients.length === 0}
+                  <span class="text-text-muted italic">No recipe data</span>
+                {/if}
+              </div>
+              <div class="flex items-center justify-end gap-1.5 flex-wrap">
+                <span
+                  class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] {ownedCount >
+                  0
+                    ? 'border-success/30 bg-emerald-500/10 text-success'
+                    : 'border-border bg-white/[0.04] text-text-muted'}"
+                  title={`Owned copies: ${ownedCount}`}
+                >
                   <svg
-                    viewBox="0 0 24 24"
+                    viewBox="0 0 16 16"
                     fill="none"
                     stroke="currentColor"
-                    stroke-width="3.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="shrink-0 {fewIng ? 'h-5 w-5' : 'h-4 w-4'} {ok
-                      ? 'text-success'
-                      : 'text-danger'}"
-                    aria-hidden="true"
+                    stroke-width="1.4"
+                    class="h-3.5 w-3.5 shrink-0"
                   >
-                    {#if ok}
-                      <path d="M5 12.5l4.5 4.5L19 7.5" />
-                    {:else}
-                      <path d="M6 6l12 12M18 6L6 18" />
-                    {/if}
+                    <path d="M2 5.5 8 2l6 3.5v5L8 14l-6-3.5z" />
+                    <path d="M2 5.5 8 9l6-3.5" />
+                    <path d="M8 9v5" />
                   </svg>
-                </div>
-              {/each}
-            </div>
-          {/if}
-
-          <div
-            class="mt-auto flex items-center justify-between gap-3 pt-2 border-t border-border text-sm text-text-secondary"
-          >
-            <div class="flex items-center gap-3">
-              {#if item.buildPrice > 0}
+                  <span>{ownedCount} Owned</span>
+                </span>
                 <span
-                  class="flex items-center gap-1.5 font-display font-semibold tracking-wide text-accent"
+                  class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] {masteryState ===
+                  'mastered'
+                    ? 'border-success/30 bg-emerald-500/10 text-success'
+                    : masteryState === 'progress'
+                      ? 'border-warning/30 bg-warning/10 text-warning'
+                      : 'border-border bg-white/[0.04] text-text-muted'}"
+                  title={masteryLabelFor(masteryState)}
                 >
-                  <img src={CREDITS_ICON_URL} alt="Credits" class="h-5 w-5 object-contain" />
-                  {formatNumber(item.buildPrice)}
+                  <svg
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.35"
+                    class="h-3.5 w-3.5 shrink-0"
+                  >
+                    <circle cx="8" cy="6.5" r="3.75" />
+                    <path d="m6.35 6.55 1.15 1.15 2.25-2.3" />
+                    <path d="M6.1 10.4 5 14l3-1.55L11 14l-1.1-3.6" />
+                  </svg>
+                  <span>{masteryLabelFor(masteryState)}</span>
                 </span>
-              {/if}
-              {#if item.source === "blueprint" && item.buildTime > 0}
-                <span class="font-display font-semibold tracking-wide text-text-secondary">
-                  ⏱ {formatBuildTime(item.buildTime)}
-                </span>
-              {/if}
-              {#if item.source === "blueprint" && item.ingredients.length === 0}
-                <span class="text-text-muted italic">No recipe data</span>
-              {/if}
+              </div>
             </div>
-            <div class="flex items-center justify-end gap-1.5 flex-wrap">
-              <span
-                class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] {ownedCount >
-                0
-                  ? 'border-success/30 bg-emerald-500/10 text-success'
-                  : 'border-border bg-white/[0.04] text-text-muted'}"
-                title={`Owned copies: ${ownedCount}`}
+          </button>
+          {#if pinnable}
+            <button
+              type="button"
+              class="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full border
+                   transition-colors {isPinned
+                ? 'border-accent/50 bg-accent/15 text-accent'
+                : 'border-border bg-black/40 text-text-muted hover:text-text-secondary'}"
+              title={isPinned ? "Unpin blueprint" : "Pin blueprint (adds to combined resources)"}
+              on:click|stopPropagation={() => togglePinnedRecipe(item.uniqueName || "")}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill={isPinned ? "currentColor" : "none"}
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linejoin="round"
+                class="h-4 w-4"
+                aria-hidden="true"
               >
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.4"
-                  class="h-3.5 w-3.5 shrink-0"
-                >
-                  <path d="M2 5.5 8 2l6 3.5v5L8 14l-6-3.5z" />
-                  <path d="M2 5.5 8 9l6-3.5" />
-                  <path d="M8 9v5" />
-                </svg>
-                <span>{ownedCount} Owned</span>
-              </span>
-              <span
-                class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] {masteryState ===
-                'mastered'
-                  ? 'border-success/30 bg-emerald-500/10 text-success'
-                  : masteryState === 'progress'
-                    ? 'border-warning/30 bg-warning/10 text-warning'
-                    : 'border-border bg-white/[0.04] text-text-muted'}"
-                title={masteryLabelFor(masteryState)}
-              >
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.35"
-                  class="h-3.5 w-3.5 shrink-0"
-                >
-                  <circle cx="8" cy="6.5" r="3.75" />
-                  <path d="m6.35 6.55 1.15 1.15 2.25-2.3" />
-                  <path d="M6.1 10.4 5 14l3-1.55L11 14l-1.1-3.6" />
-                </svg>
-                <span>{masteryLabelFor(masteryState)}</span>
-              </span>
-            </div>
-          </div>
-        </button>
+                <path d="M9 3.5h6l-1 6.5 3.5 3v1.5H13v5l-1 2-1-2v-5H6.5V13L10 10z" />
+              </svg>
+            </button>
+          {/if}
+        </div>
       {/each}
     {/if}
   </div>

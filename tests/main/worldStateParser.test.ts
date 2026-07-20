@@ -115,18 +115,32 @@ describe("worldStateParser.parseBountyCycleBounties", () => {
   it("assigns static per-tier enemy levels (oracle jobs carry none)", () => {
     const [zariman] = cycle({ ZarimanSyndicate: nodes(5) });
     expect(zariman.jobs.map((j) => j.enemyLevels)).toEqual([
-      [50, 55], [60, 65], [70, 75], [90, 95], [110, 115],
+      [50, 55],
+      [60, 65],
+      [70, 75],
+      [90, 95],
+      [110, 115],
     ]);
 
     const [cavia] = cycle({ EntratiLabSyndicate: nodes(5) });
     expect(cavia.jobs.map((j) => j.enemyLevels)).toEqual([
-      [55, 60], [65, 70], [75, 80], [95, 100], [115, 120],
+      [55, 60],
+      [65, 70],
+      [75, 80],
+      [95, 100],
+      [115, 120],
     ]);
 
     const [hex] = cycle({ HexSyndicate: nodes(7) });
     expect(hex.syndicate).toBe("The Hex");
     expect(hex.jobs.map((j) => j.enemyLevels)).toEqual([
-      [65, 70], [75, 80], [85, 90], [95, 100], [105, 110], [115, 120], [125, 130],
+      [65, 70],
+      [75, 80],
+      [85, 90],
+      [95, 100],
+      [105, 110],
+      [115, 120],
+      [125, 130],
     ]);
   });
 
@@ -134,7 +148,13 @@ describe("worldStateParser.parseBountyCycleBounties", () => {
     const [hex] = cycle({ HexSyndicate: nodes(7) });
     expect(hex.jobs.map((j) => j.tierIndex)).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(hex.jobs.map((j) => j.standingStages)).toEqual([
-      [1000], [2000], [3000], [4000], [5000], [6000], [7500],
+      [1000],
+      [2000],
+      [3000],
+      [4000],
+      [5000],
+      [6000],
+      [7500],
     ]);
   });
 

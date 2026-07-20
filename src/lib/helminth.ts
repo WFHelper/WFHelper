@@ -11,10 +11,7 @@ function familyName(name: string): string {
 }
 
 /** Families the player has fed to the Helminth (InfestedFoundry.ConsumedSuits). */
-export function buildSubsumedFamilySet(
-  inventoryData: unknown,
-  itemDb: ItemDbLookup,
-): Set<string> {
+export function buildSubsumedFamilySet(inventoryData: unknown, itemDb: ItemDbLookup): Set<string> {
   const set = new Set<string>();
   const consumed = (
     inventoryData as {

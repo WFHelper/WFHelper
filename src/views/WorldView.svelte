@@ -538,7 +538,8 @@
           {#each darvoDeals as deal (deal.uniqueName)}
             {@const dealDb = $itemDb[deal.uniqueName || ""]}
             {@const dealImg =
-              dealDb?.imageUrl || (typeof deal.imageOverride === "string" ? deal.imageOverride : null)}
+              dealDb?.imageUrl ||
+              (typeof deal.imageOverride === "string" ? deal.imageOverride : null)}
             <div class="flex items-center gap-3 px-1 py-1.5">
               <button
                 type="button"
@@ -551,17 +552,27 @@
                 title={deal.item || "Unknown"}
               >
                 {#if dealImg}
-                  <img class="h-full w-full object-contain" src={dealImg} alt={deal.item || ""} loading="lazy" />
+                  <img
+                    class="h-full w-full object-contain"
+                    src={dealImg}
+                    alt={deal.item || ""}
+                    loading="lazy"
+                  />
                 {:else}
-                  <span class="text-2xl font-bold text-text-secondary opacity-40">{(deal.item || "?")[0]}</span>
+                  <span class="text-2xl font-bold text-text-secondary opacity-40"
+                    >{(deal.item || "?")[0]}</span
+                  >
                 {/if}
               </button>
               <div class="flex min-w-0 flex-col gap-0.5">
-                <span class="truncate text-sm font-semibold text-text-primary">{deal.item || "Unknown"}</span>
+                <span class="truncate text-sm font-semibold text-text-primary"
+                  >{deal.item || "Unknown"}</span
+                >
                 <span class="text-xs text-text-secondary">
                   <strong class="text-accent">{deal.salePrice}p</strong>
                   <span class="mx-1 line-through opacity-60">{deal.originalPrice}p</span>
-                  <span class="rounded border border-success/30 bg-success/10 px-1 py-px font-semibold text-success"
+                  <span
+                    class="rounded border border-success/30 bg-success/10 px-1 py-px font-semibold text-success"
                     >-{deal.discount}%</span
                   >
                 </span>
