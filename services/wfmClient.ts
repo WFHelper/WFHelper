@@ -12,11 +12,11 @@ const log = withScope("wfmClient");
  * - Auth token injected automatically when a session is active
  * - Centralised error normalisation; 401 throws with err.code = 'WFM_UNAUTHORIZED'
  *
- * WFM CSRF protection uses a double-submit pattern:
- *   - The anonymous JWT from warframe.market/ is sent in both Cookie: and
- *     Authorization: headers on the sign-in POST.
- *   - Mutating requests also send the page <meta name="csrf-token"> value as
- *     X-CSRFToken.
+ * WFM CSRF protection uses a double-submit pattern: X-CSRFToken must carry the
+ * csrf_token claim of the SAME JWT sent as the Cookie, so the claim is decoded
+ * straight from that token. The page <meta name="csrf-token"> is only a
+ * fallback - the 2026 site redesign turned it into a "##"-prefixed hydration
+ * placeholder that no longer matches the claim.
  */
 
 interface WfmRequestOptions {
@@ -141,20 +141,19 @@ async function _ensureCsrfToken(): Promise<string | null> {
     const sc = resp.headers.get("set-cookie") || "";
     const jwtMatch = sc.match(/\bJWT=([^;,\s]+)/i);
     const metaCsrf = _extractCsrfMeta(html);
-    if (jwtMatch) {
-      _cookieJwt = jwtMatch[1];
-      const payload = _decodeJwtPayload(_cookieJwt);
-      if (typeof metaCsrf === "string" && metaCsrf) {
-        _csrfToken = metaCsrf;
-        log.info("[WFMClient] CSRF token acquired from page meta");
-      } else if (typeof payload?.csrf_token === "string") {
-        _csrfToken = payload.csrf_token;
-        log.info("[WFMClient] CSRF token acquired from JWT payload fallback");
-      } else {
-        log.warn("[WFMClient] Page and JWT payload have no csrf token");
-      }
+    if (jwtMatch) _cookieJwt = jwtMatch[1];
+    const payload = _cookieJwt ? _decodeJwtPayload(_cookieJwt) : null;
+    if (typeof payload?.csrf_token === "string" && payload.csrf_token) {
+      _csrfToken = payload.csrf_token;
+      log.info("[WFMClient] CSRF token acquired from JWT payload");
+    } else if (metaCsrf && !metaCsrf.startsWith("##")) {
+      _csrfToken = metaCsrf;
+      log.info("[WFMClient] CSRF token acquired from page meta");
     } else {
-      log.warn("[WFMClient] No JWT cookie in set-cookie:", sc.slice(0, 300));
+      log.warn(
+        `[WFMClient] No usable csrf token (jwt cookie: ${jwtMatch ? "yes" : "no"}, ` +
+          `meta: ${metaCsrf ? metaCsrf.slice(0, 12) + "..." : "none"})`,
+      );
     }
   } catch (e) {
     log.warn("[WFMClient] CSRF prefetch failed:", normalizeErrorMessage(e));
@@ -165,9 +164,11 @@ async function _ensureCsrfToken(): Promise<string | null> {
 export function updateCsrfFromToken(token: string): void {
   _cookieJwt = token;
   const payload = _decodeJwtPayload(token);
-  if (!_csrfToken && typeof payload?.csrf_token === "string") {
+  // Always overwrite: a cached token from a previous (anonymous) JWT no longer
+  // matches the cookie we will send from now on.
+  if (typeof payload?.csrf_token === "string" && payload.csrf_token) {
     _csrfToken = payload.csrf_token;
-    log.info("[WFMClient] CSRF token updated from authenticated JWT fallback");
+    log.info("[WFMClient] CSRF token updated from JWT payload");
   }
 }
 
@@ -342,8 +343,16 @@ async function applyMutationHeaders(
   jwtForCookie: string | null,
   jwtForAuthorization: string | null | undefined = undefined,
 ): Promise<void> {
-  const csrfToken = await _ensureCsrfToken();
-  const cookieJwt = jwtForCookie ?? _cookieJwt;
+  let cookieJwt = jwtForCookie ?? _cookieJwt;
+  if (!cookieJwt) {
+    await _ensureCsrfToken(); // the page prefetch also captures the anonymous JWT
+    cookieJwt = _cookieJwt;
+  }
+  // Double-submit: the header must carry the csrf_token claim of the SAME JWT
+  // we present as the cookie - a token cached from another JWT mismatches.
+  const claim = cookieJwt ? _decodeJwtPayload(cookieJwt)?.csrf_token : undefined;
+  const csrfToken =
+    typeof claim === "string" && claim ? claim : await _ensureCsrfToken();
   const authorizationJwt = jwtForAuthorization === undefined ? cookieJwt : jwtForAuthorization;
   if (csrfToken && !headers["X-CSRFToken"]) headers["X-CSRFToken"] = csrfToken;
   if (cookieJwt && !headers["Cookie"]) headers["Cookie"] = `JWT=${cookieJwt}`;
