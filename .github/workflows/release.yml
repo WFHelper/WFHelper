@@ -138,3 +138,74 @@ jobs:
           }
 
           gh release upload "$env:GITHUB_REF_NAME" $paths --clobber --repo "$env:GITHUB_REPOSITORY"
+
+  # Linux AppImage into the same draft release (latest-linux.yml enables
+  # electron-updater on linux). Runs after release-windows so the draft
+  # already exists - no create race.
+  release-linux:
+    needs: [ci, release-windows]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate release runtime configuration
+        env:
+          VITE_WFM_BACKEND_URL: ${{ secrets.VITE_WFM_BACKEND_URL }}
+          VITE_WFM_BACKEND_DIRECT_FALLBACK: ${{ secrets.VITE_WFM_BACKEND_DIRECT_FALLBACK }}
+          VITE_WFM_BACKEND_BOOTSTRAP_ENABLED: ${{ secrets.VITE_WFM_BACKEND_BOOTSTRAP_ENABLED }}
+        run: pnpm run validate:release-env
+
+      - name: Remove existing release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PRODUCT_NAME=$(node -p "require('./package.json').build.productName")
+          VERSION=$(node -p "require('./package.json').version")
+          for asset in "latest-linux.yml" "$PRODUCT_NAME-$VERSION.AppImage"; do
+            if gh release delete-asset "$GITHUB_REF_NAME" "$asset" --yes --repo "$GITHUB_REPOSITORY"; then
+              echo "Deleted existing release asset: $asset"
+            else
+              echo "Release asset not present: $asset"
+            fi
+          done
+
+      - name: Build Linux AppImage
+        run: |
+          pnpm run verify:onnx-models
+          pnpm run build
+          pnpm exec electron-builder --linux AppImage --publish never
+        env:
+          # baked into the renderer bundle; without these a CI installer
+          # bypasses the worker backend
+          VITE_WFM_BACKEND_URL: ${{ secrets.VITE_WFM_BACKEND_URL }}
+          VITE_WFM_BACKEND_DIRECT_FALLBACK: ${{ secrets.VITE_WFM_BACKEND_DIRECT_FALLBACK }}
+          VITE_WFM_BACKEND_BOOTSTRAP_ENABLED: ${{ secrets.VITE_WFM_BACKEND_BOOTSTRAP_ENABLED }}
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PRODUCT_NAME=$(node -p "require('./package.json').build.productName")
+          VERSION=$(node -p "require('./package.json').version")
+          PATHS=("release/latest-linux.yml" "release/$PRODUCT_NAME-$VERSION.AppImage")
+          for path in "${PATHS[@]}"; do
+            if [ ! -f "$path" ]; then
+              echo "Missing release asset: $path" >&2
+              exit 1
+            fi
+          done
+          gh release upload "$GITHUB_REF_NAME" "${PATHS[@]}" --clobber --repo "$GITHUB_REPOSITORY"

@@ -102,9 +102,6 @@ function toInfoPatch(info: UpdateInfo): Partial<UpdateState> {
 function shouldEnableAutoUpdater(): boolean {
   if (process.env.WF_DISABLE_AUTO_UPDATE === "1") return false;
   if (!app.isPackaged) return false;
-  // No linux release artifacts yet (latest-linux.yml 404s every boot).
-  // Drop this gate when the linux release job ships.
-  if (process.platform === "linux") return false;
   const ymlPath = path.join(process.resourcesPath, "app-update.yml");
   return fs.existsSync(ymlPath);
 }
