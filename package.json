@@ -111,6 +111,9 @@
     "warframe-public-export-plus": "^0.6.2",
     "ws": "^8.21.0"
   },
+  "optionalDependencies": {
+    "@img/sharp-libvips-linux-x64": "1.2.4"
+  },
   "build": {
     "appId": "com.wfhelper.app",
     "productName": "WFHelper",
@@ -141,6 +144,9 @@
       "!node_modules/**/svelte-check/**"
     ],
     "asar": true,
+    "asarUnpack": [
+      "node_modules/@img/**/*"
+    ],
     "extraResources": [
       {
         "from": "resources/riven-ocr",
