@@ -1,5 +1,5 @@
 /**
- * Runs warframe-api-helper.exe in the background (no CMD window) on a timer.
+ * Runs the warframe-api-helper binary in the background (no CMD window) on a timer.
  * After each run, the existing chokidar file-watcher on inventory.json picks up changes.
  */
 
@@ -8,13 +8,17 @@ import path from "node:path";
 import fs from "node:fs";
 import https from "node:https";
 import crypto from "node:crypto";
+import zlib from "node:zlib";
 import { spawn } from "node:child_process";
 import { app } from "electron";
 import type { DownloadStage } from "../config/shared/statsTypes";
 
 const log = withScope("apiHelperRunner");
 
-const EXE_NAME = "warframe-api-helper.exe";
+const IS_WINDOWS = process.platform === "win32";
+// Upstream ships warframe-api-helper.exe for Windows and a Linux.zip holding a
+// single `warframe-api-helper` ELF binary (works against the Proton game).
+const EXE_NAME = IS_WINDOWS ? "warframe-api-helper.exe" : "warframe-api-helper";
 const DEFAULT_POLL_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 // Hard kill the helper if it hasn't exited after this long. Normal runs are <5s.
 const HELPER_SPAWN_TIMEOUT_MS = 60 * 1000;
@@ -26,15 +30,49 @@ const MAX_HELPER_DOWNLOAD_BYTES = 128 * 1024 * 1024;
 const HELPER_RELEASE_TAG = "1.1.1";
 const GITHUB_RELEASES_URL = `https://api.github.com/repos/Sainan/warframe-api-helper/releases/tags/${HELPER_RELEASE_TAG}`;
 
-// Accepted warframe-api-helper.exe SHA-256s; anything else is refused. Bump on a new audited release.
+// Accepted helper binary SHA-256s; anything else is refused. Bump on a new audited release.
 const PINNED_HELPER_SHA256: ReadonlySet<string> = new Set([
   // 1.1.1 (tag on 'senpai' branch) - verified 2026-04-18
   "3f883abb1226c9da6d6cb9c2d6675d3daa6b321a192583c646ef8c45cbd5b8f6",
+  // 1.1.1 Linux.zip inner `warframe-api-helper` ELF - user-approved pin 2026-07-21
+  "971b9c00cb95a8cabfc0c3f2ce9d6422f6380c3d83dc380fb9a9df18535b1a5a",
 ]);
 
 function sha256OfFile(filePath: string): string {
   const buf = fs.readFileSync(filePath);
   return crypto.createHash("sha256").update(buf).digest("hex");
+}
+
+/**
+ * Extract the single file from a zip archive (the upstream Linux.zip holds
+ * exactly one ELF binary). Dependency-free: parses the end-of-central-directory
+ * record and inflates with node:zlib. Throws on anything unexpected.
+ */
+export function extractSingleZipEntry(zip: Buffer): Buffer {
+  let eocd = -1;
+  const scanFloor = Math.max(0, zip.length - 22 - 65_535);
+  for (let i = zip.length - 22; i >= scanFloor; i--) {
+    if (zip.readUInt32LE(i) === 0x06054b50) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd < 0) throw new Error("zip: end-of-central-directory not found");
+  const entryCount = zip.readUInt16LE(eocd + 10);
+  if (entryCount !== 1) throw new Error(`zip: expected exactly 1 entry, got ${entryCount}`);
+  const cdOffset = zip.readUInt32LE(eocd + 16);
+  if (zip.readUInt32LE(cdOffset) !== 0x02014b50) throw new Error("zip: bad central directory");
+  const method = zip.readUInt16LE(cdOffset + 10);
+  const compressedSize = zip.readUInt32LE(cdOffset + 20);
+  const localOffset = zip.readUInt32LE(cdOffset + 42);
+  if (zip.readUInt32LE(localOffset) !== 0x04034b50) throw new Error("zip: bad local header");
+  const nameLen = zip.readUInt16LE(localOffset + 26);
+  const extraLen = zip.readUInt16LE(localOffset + 28);
+  const dataStart = localOffset + 30 + nameLen + extraLen;
+  const data = zip.subarray(dataStart, dataStart + compressedSize);
+  if (method === 0) return Buffer.from(data);
+  if (method === 8) return zlib.inflateRawSync(data);
+  throw new Error(`zip: unsupported compression method ${method}`);
 }
 
 function isPinnedHash(hash: string): boolean {
@@ -151,7 +189,7 @@ export function runOnce(): Promise<boolean> {
       _exePath = findExePath();
     }
     if (!_exePath) {
-      log.warn("warframe-api-helper.exe not found - skipping run");
+      log.warn(`${EXE_NAME} not found - skipping run`);
       _lastRunOk = false;
       resolve(false);
       return;
@@ -307,7 +345,7 @@ export function startPolling(
 
   _exePath = findExePath();
   if (!_exePath) {
-    log.warn("warframe-api-helper.exe not found - polling disabled");
+    log.warn(`${EXE_NAME} not found - polling disabled`);
     return;
   }
 
@@ -518,8 +556,8 @@ interface GitHubRelease {
 }
 
 /**
- * Download the pinned warframe-api-helper.exe from GitHub Releases.
- * Saves to `userData/api-helper/warframe-api-helper.exe`.
+ * Download the pinned helper binary from GitHub Releases (.exe on Windows,
+ * Linux.zip's inner ELF elsewhere). Saves to `userData/api-helper/`.
  * Calls `onProgress` with download progress updates.
  */
 export async function downloadHelper(
@@ -540,9 +578,13 @@ export async function downloadHelper(
 
     const release: GitHubRelease = JSON.parse(releaseRes.body.toString("utf-8"));
 
-    const exeAsset = release.assets.find((a) => a.name.toLowerCase().endsWith(".exe"));
+    const exeAsset = IS_WINDOWS
+      ? release.assets.find((a) => a.name.toLowerCase().endsWith(".exe"))
+      : release.assets.find(
+          (a) => a.name.toLowerCase().startsWith("linux") && a.name.toLowerCase().endsWith(".zip"),
+        );
     if (!exeAsset) {
-      throw new Error("No .exe asset found in latest release");
+      throw new Error(`No ${IS_WINDOWS ? ".exe" : "Linux .zip"} asset found in release`);
     }
 
     log.info(`Downloading ${exeAsset.name} (${release.tag_name}, ${exeAsset.size} bytes)...`);
@@ -570,13 +612,23 @@ export async function downloadHelper(
       });
     });
 
-    // verify PE header + SHA-256 against the pin set before swapping in
-    const downloadedBytes = fs.readFileSync(tempPath);
-    if (downloadedBytes.length < 2 || downloadedBytes[0] !== 0x4d || downloadedBytes[1] !== 0x5a) {
+    // verify binary format + SHA-256 against the pin set before swapping in.
+    // The pin is always on the executable itself (on linux: the ELF inside the
+    // zip), matching what findExePath()/runOnce() hash on disk.
+    let binaryBytes: Buffer = fs.readFileSync(tempPath);
+    if (!IS_WINDOWS) binaryBytes = extractSingleZipEntry(binaryBytes);
+    const magicOk = IS_WINDOWS
+      ? binaryBytes.length >= 2 && binaryBytes[0] === 0x4d && binaryBytes[1] === 0x5a
+      : binaryBytes.length >= 4 && binaryBytes.readUInt32BE(0) === 0x7f454c46;
+    if (!magicOk) {
       fs.unlinkSync(tempPath);
-      throw new Error("Downloaded file is not a valid PE executable (missing MZ header)");
+      throw new Error(
+        IS_WINDOWS
+          ? "Downloaded file is not a valid PE executable (missing MZ header)"
+          : "Downloaded file is not a valid ELF executable",
+      );
     }
-    const sha256 = crypto.createHash("sha256").update(downloadedBytes).digest("hex");
+    const sha256 = crypto.createHash("sha256").update(binaryBytes).digest("hex");
     if (!isPinnedHash(sha256)) {
       fs.unlinkSync(tempPath);
       throw new Error(
@@ -585,7 +637,12 @@ export async function downloadHelper(
     }
     log.info(`Helper SHA-256 pin verified: ${sha256}`);
 
-    // atomic swap into place
+    // atomic swap into place (on linux the temp file holds zip bytes; replace
+    // them with the extracted binary and make it executable first)
+    if (!IS_WINDOWS) {
+      fs.writeFileSync(tempPath, Buffer.from(binaryBytes));
+      fs.chmodSync(tempPath, 0o755);
+    }
     try {
       fs.unlinkSync(destPath);
     } catch {
