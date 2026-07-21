@@ -127,6 +127,8 @@
       "package.json",
       "node_modules/**/*",
       "!node_modules/**/{test,tests,__tests__,example,examples,docs,doc}/**",
+      "!node_modules/onnxruntime-node/bin/**/libonnxruntime_providers_cuda.so",
+      "!node_modules/onnxruntime-node/bin/**/libonnxruntime_providers_tensorrt.so",
       "!node_modules/**/*.map",
       "!renderer/dist/**/*.map",
       "!renderer/dist/**/*.js.map",
