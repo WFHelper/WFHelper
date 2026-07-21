@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { RIVEN_PATTERNS } from "../../services/eeLogMonitor";
+import {
+  processRivenPatterns,
+  resetRivenState,
+  setRivenCallbacks,
+} from "../../services/rivenLogStateMachine";
 import { parseRivenStats } from "../../ipc/overlay/rivenScanText";
 import { findWeaponInText, getWeaponNameByUniqueName } from "../../services/rivenData";
 
@@ -983,5 +988,28 @@ describe("getWeaponNameByUniqueName", () => {
 
   it("returns null for unknown paths", () => {
     expect(getWeaponNameByUniqueName("/Lotus/Weapons/Tenno/DoesNotExist")).toBeNull();
+  });
+});
+
+describe("riven session idle timeout", () => {
+  afterEach(() => {
+    resetRivenState();
+    vi.useRealTimers();
+  });
+
+  it("dispatches session close when the idle timer fires (stuck-overlay backstop)", () => {
+    vi.useFakeTimers();
+    resetRivenState();
+    let closes = 0;
+    setRivenCallbacks({ onRivenSessionClose: () => closes++ });
+
+    const openLine =
+      "Sys [Info]: Created /Lotus/Interface/OmegaRerollSelection.swf @ 0x12345678 of class OmegaRerollSelectionScreen";
+    processRivenPatterns(openLine, "dbwin", true);
+    expect(closes).toBe(0);
+
+    // No close marker ever arrives - the 120s idle backstop must close the overlay.
+    vi.advanceTimersByTime(120_000);
+    expect(closes).toBe(1);
   });
 });

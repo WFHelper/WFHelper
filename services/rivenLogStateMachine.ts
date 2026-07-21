@@ -117,7 +117,9 @@ function resetRivenIdleTimer(): void {
     _rivenSessionStartedAt = 0;
     _rivenDioramaReady = false;
     _rivenWeaponPathSent = false;
-    log.info("[EELog] Riven session idle timeout - resetting");
+    // Backstop for a missed close marker - close the overlay too, not just state.
+    log.info("[EELog] Riven session idle timeout -> dispatching overlay close");
+    _callbacks.onRivenSessionClose?.();
   }, RIVEN_SESSION_IDLE_TIMEOUT_MS);
 }
 
