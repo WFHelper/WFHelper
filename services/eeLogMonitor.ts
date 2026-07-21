@@ -78,6 +78,22 @@ export function parseWhisperUsername(line: string): string | null {
   return name.slice(1).trim() || null;
 }
 
+// The game re-emits the AddTab line in bursts - dedupe per sender (sliding
+// window like the notifier) so a burst can't flood the log.
+const WHISPER_DEDUP_MS = 10_000;
+const _lastWhisperSeen = new Map<string, number>();
+
+function isWhisperEcho(playerName: string, now: number): boolean {
+  const previous = _lastWhisperSeen.get(playerName);
+  _lastWhisperSeen.set(playerName, now);
+  if (_lastWhisperSeen.size > 64) {
+    for (const [name, ts] of _lastWhisperSeen) {
+      if (now - ts >= WHISPER_DEDUP_MS) _lastWhisperSeen.delete(name);
+    }
+  }
+  return previous !== undefined && now - previous < WHISPER_DEDUP_MS;
+}
+
 /** Debounce before firing the reward-screen overlay after a log pattern match. */
 const TRIGGER_DELAY_MS = 250;
 // Warframe flushes EE.log lazily - the file poll re-delivers lines DBWIN
@@ -356,7 +372,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
 
   if (messageCallback) {
     const whisperUser = parseWhisperUsername(line);
-    if (whisperUser) {
+    if (whisperUser && !isWhisperEcho(whisperUser, Date.now())) {
       log.info("[EELog] In-game conversation from:", whisperUser);
       messageCallback(whisperUser);
     }
