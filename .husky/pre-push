@@ -4,5 +4,6 @@ set -e
 pnpm typecheck
 pnpm run check
 pnpm lint
+pnpm audit --prod --audit-level high
 pnpm run audit:deadcode
 pnpm test
