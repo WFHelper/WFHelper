@@ -1,9 +1,9 @@
 import fs from "node:fs";
-import path from "node:path";
 import chokidar from "chokidar";
 import { withScope } from "./logger";
 import { EeUptimeTracker } from "./eeUptime";
 import { startDbwinWorker, stopDbwinWorker, isDbwinActive } from "./dbwinMonitor";
+import { resolveEeLogPath } from "./eeLogPath";
 import {
   RIVEN_PATTERNS,
   processRivenPatterns,
@@ -24,9 +24,8 @@ import type { TradeType, TradeDirection } from "../config/shared/statsTypes";
 
 const log = withScope("eeLogMonitor");
 
-const EE_LOG_PATH: string | null = process.env.LOCALAPPDATA
-  ? path.join(process.env.LOCALAPPDATA, "Warframe", "EE.log")
-  : null;
+/** Resolved by startWatching() via eeLogPath discovery; null until then. */
+let EE_LOG_PATH: string | null = null;
 
 const REWARD_TRIGGER_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
   /\bPause countdown done\b/i,
@@ -618,8 +617,9 @@ function normalizeHandlers(
 export function startWatching(
   handlers: (() => void) | EeLogHandlers | null | undefined,
 ): string | null {
+  EE_LOG_PATH = resolveEeLogPath();
   if (!EE_LOG_PATH) {
-    log.warn("[EELog] LOCALAPPDATA not set; EE.log monitoring unavailable");
+    log.warn("[EELog] EE.log location not found; monitoring unavailable");
     return null;
   }
   if (!fs.existsSync(EE_LOG_PATH)) {
@@ -684,7 +684,11 @@ export function startWatching(
   }
   pollReadNewBytes();
 
-  startDbwinWorker((line) => handleLine(line, "dbwin"));
+  // DBWIN (OutputDebugString) instant triggers are a Win32 mechanism; other
+  // platforms rely on the file poll alone.
+  if (process.platform === "win32") {
+    startDbwinWorker((line) => handleLine(line, "dbwin"));
+  }
 
   log.info("[EELog] Watching:", EE_LOG_PATH);
   return EE_LOG_PATH;
