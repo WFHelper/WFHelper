@@ -71,6 +71,7 @@ export async function scanRewardsDetailed(
     sortedItems,
     settings: REWARD_SCAN_SETTINGS,
     runOCRStructuredBuffer,
-    reader: scanOptions?.reader,
+    // Windows OCR does not exist off-Windows; pin the cross-platform onnx reader.
+    reader: process.platform === "win32" ? scanOptions?.reader : "onnx",
   });
 }

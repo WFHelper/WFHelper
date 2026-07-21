@@ -25,7 +25,45 @@ export interface CaptureResult {
 }
 
 /**
- * Fast screen-only capture via GDI BitBlt (~15-50 ms).
+ * Non-Windows capture via Electron desktopCapturer. Slower than GDI but
+ * portable (X11 direct; Wayland goes through the desktop portal, which may
+ * prompt the user once per session).
+ */
+async function captureDesktopCapturer(
+  preferredDisplayId?: string | null,
+): Promise<CaptureResult | null> {
+  try {
+    const { desktopCapturer, screen } = require("electron") as typeof import("electron");
+    const displays = screen.getAllDisplays();
+    const wanted = preferredDisplayId?.trim() || null;
+    const target =
+      (wanted && displays.find((d) => String(d.id) === wanted)) || screen.getPrimaryDisplay();
+    const scale = target.scaleFactor || 1;
+    const sources = await desktopCapturer.getSources({
+      types: ["screen"],
+      thumbnailSize: {
+        width: Math.round(target.size.width * scale),
+        height: Math.round(target.size.height * scale),
+      },
+    });
+    const source = sources.find((s) => s.display_id === String(target.id)) || sources[0];
+    if (!source || source.thumbnail.isEmpty()) return null;
+    return {
+      image: source.thumbnail,
+      sourceType: "screen",
+      sourceName: source.name || "desktopCapturer",
+      sourceId: source.id,
+      sourceDisplayId: source.display_id || String(target.id),
+    };
+  } catch (err) {
+    log.warn("[RewardScanner] desktopCapturer capture failed:", normalizeErrorMessage(err));
+    return null;
+  }
+}
+
+/**
+ * Fast screen-only capture: GDI BitBlt on Windows (~15-50 ms), Electron
+ * desktopCapturer elsewhere.
  *
  * The `_dxgiTimeoutMs` parameter is accepted for API compatibility but
  * ignored - GDI always returns current screen content.
@@ -34,6 +72,9 @@ export async function captureScreenFast(
   preferredDisplayId?: string | null,
   _dxgiTimeoutMs = 0,
 ): Promise<CaptureResult | null> {
+  if (process.platform !== "win32") {
+    return captureDesktopCapturer(preferredDisplayId);
+  }
   try {
     const gdiResult = captureGdi(preferredDisplayId || null);
     if (gdiResult) {

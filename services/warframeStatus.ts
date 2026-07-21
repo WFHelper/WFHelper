@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 
 import { withScope } from "./logger";
@@ -218,7 +219,46 @@ function getDisplayIdForBounds(bounds: WindowBounds | null): string | null {
   }
 }
 
+/**
+ * Linux: Warframe runs under Proton/Wine, so Warframe.x64.exe shows up as a
+ * regular /proc entry (comm truncates to 15 chars but still contains
+ * "warframe").
+ */
+function isWarframeProcessRunningLinux(): boolean {
+  try {
+    for (const entry of fs.readdirSync("/proc")) {
+      if (!/^\d+$/.test(entry)) continue;
+      try {
+        if (isWarframeProcessName(fs.readFileSync(`/proc/${entry}/comm`, "utf8"))) return true;
+      } catch {
+        // process exited mid-scan
+      }
+    }
+  } catch (err) {
+    log.warn("[WarframeStatus] /proc scan failed:", normalizeErrorMessage(err));
+  }
+  return false;
+}
+
+function collectStatusLinux(): WarframeStatus {
+  const processRunning = isWarframeProcessRunningLinux();
+  // There is no portable foreground-window query (X11 vs Wayland). Reward
+  // triggers come from the game's own log, so a running game is treated as
+  // focused - otherwise every eelog-triggered scan would be skipped.
+  return {
+    isOpen: processRunning,
+    isFocused: processRunning,
+    processRunning,
+    focusedProcessName: null,
+    focusedWindowBounds: null,
+    focusedDisplayId: null,
+    checkedAt: Date.now(),
+  };
+}
+
 async function collectStatus(): Promise<WarframeStatus> {
+  if (process.platform === "linux") return collectStatusLinux();
+
   const [processRunning, foregroundWindow] = await Promise.all([
     isWarframeProcessRunning(),
     getForegroundWindowInfo(),
