@@ -166,6 +166,14 @@
         "nsis"
       ]
     },
+    "linux": {
+      "icon": "assets/logo.png",
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility",
+      "artifactName": "${productName}-${version}.${ext}"
+    },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
