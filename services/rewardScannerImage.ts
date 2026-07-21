@@ -77,9 +77,14 @@ export function detectGameContentRect(nativeImage: NativeImage): GameContentRect
     right = x;
   }
 
-  const contentW = Math.max(24, right - left);
-  const contentH = Math.max(24, bottom - top);
-  return { x: left, y: top, width: contentW, height: contentH };
+  // Real bars come in equal pairs (the game centres its output). An unequal
+  // pair is a dark scene edge - shrink both sides to the smaller bar.
+  const pillar = Math.min(left, width - right);
+  const letter = Math.min(top, height - bottom);
+
+  const contentW = Math.max(24, width - 2 * pillar);
+  const contentH = Math.max(24, height - 2 * letter);
+  return { x: pillar, y: letter, width: contentW, height: contentH };
 }
 
 const OCR_ENHANCE: Readonly<{

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   binarizeRewardRegion,
   detectConsoleOpen,
+  detectGameContentRect,
   detectRewardSlotLayoutCandidates,
 } from "../../services/rewardScannerImage";
 import { resetFrameDedup } from "../../services/rewardScanner";
@@ -92,6 +93,37 @@ describe("detectConsoleOpen", () => {
   it("returns false for tiny images", () => {
     const img = makeFakeNativeImage(50, 50, () => [230, 230, 230, 255]);
     expect(detectConsoleOpen(img)).toBe(false);
+  });
+});
+
+describe("detectGameContentRect", () => {
+  const BRIGHT: [number, number, number, number] = [160, 160, 160, 255];
+  const BLACK: [number, number, number, number] = [4, 4, 4, 255];
+
+  it("returns the full frame when nothing is black", () => {
+    const img = makeFakeNativeImage(480, 270, () => BRIGHT);
+    expect(detectGameContentRect(img)).toEqual({ x: 0, y: 0, width: 480, height: 270 });
+  });
+
+  it("keeps a symmetric pillarbox (16:9 content on a wider frame)", () => {
+    const img = makeFakeNativeImage(480, 270, (x) => (x < 60 || x >= 420 ? BLACK : BRIGHT));
+    expect(detectGameContentRect(img)).toEqual({ x: 60, y: 0, width: 360, height: 270 });
+  });
+
+  it("keeps a symmetric letterbox (top/bottom bars)", () => {
+    const img = makeFakeNativeImage(480, 270, (_x, y) => (y < 30 || y >= 240 ? BLACK : BRIGHT));
+    expect(detectGameContentRect(img)).toEqual({ x: 0, y: 30, width: 480, height: 210 });
+  });
+
+  it("rejects a one-sided dark scene edge (riven roll screen regression)", () => {
+    // Saturated left scan + thin right edge = dark scene, not a pillarbox.
+    const img = makeFakeNativeImage(480, 270, (x) => (x < 120 || x >= 476 ? BLACK : BRIGHT));
+    expect(detectGameContentRect(img)).toEqual({ x: 4, y: 0, width: 472, height: 270 });
+  });
+
+  it("rejects a one-sided dark scene band at the top", () => {
+    const img = makeFakeNativeImage(480, 270, (_x, y) => (y < 60 ? BLACK : BRIGHT));
+    expect(detectGameContentRect(img)).toEqual({ x: 0, y: 0, width: 480, height: 270 });
   });
 });
 
