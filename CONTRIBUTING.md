@@ -40,6 +40,11 @@ please don't bypass it with `--no-verify`. For worker changes also run
   `ipc/ipcSecurity.ts`.
 - For Worker changes, read `backend/worker/ARCHITECTURE.md` before editing
   `backend/worker`.
+- koffi/Win32: never `koffi.view()` in code that can run under Electron - the
+  memory cage makes it a fatal napi error (instant silent crash); decode a copy
+  instead. Win32 `BOOL` params/returns are `int32`, never `"bool"` (1-byte bool
+  leaves garbage in BOOL's upper bytes). Verify koffi changes under Electron
+  (`pnpm run test:dbwin`); plain node does not reproduce cage crashes.
 
 ## Scope notes
 

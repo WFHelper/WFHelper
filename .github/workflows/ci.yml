@@ -92,5 +92,12 @@ jobs:
           pnpm run test:main
           pnpm run build
 
+      # Runs the real compiled dbwinWorker under a real Electron host against a
+      # decoy Warframe.x64.exe. Guards the two v1.1.3 regressions (koffi.view
+      # napi fatal under Electron's memory cage; BOOL-as-"bool" re-delivery
+      # flood) that plain-node vitest can never catch. No GPU/game needed.
+      - name: DBWIN worker regression (Electron host)
+        run: pnpm run test:dbwin
+
       - name: E2E smoke tests (Windows)
         run: pnpm exec playwright test --config playwright.config.ts

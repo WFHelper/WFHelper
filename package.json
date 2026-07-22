@@ -40,6 +40,7 @@
     "typecheck:main": "tsc -p tsconfig.main.json --noEmit",
     "typecheck:tests": "tsc -p tsconfig.tests.json",
     "test:main": "vitest run tests/main",
+    "test:dbwin": "node scripts/dbwin-regression/run.mjs",
     "test:e2e": "pnpm run build && playwright test --config playwright.config.ts",
     "backend:dev": "npm --prefix backend/worker run dev",
     "backend:deploy": "npm --prefix backend/worker run deploy --",
