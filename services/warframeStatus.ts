@@ -69,16 +69,18 @@ function ensureWin32(): boolean {
         "void *",
         "void *",
       ]),
-      GetWindowRect: user32.func("__stdcall", "GetWindowRect", "bool", ["void *", "void *"]),
-      OpenProcess: kernel32.func("OpenProcess", "void *", ["uint32", "bool", "uint32"]),
-      CloseHandle: kernel32.func("CloseHandle", "bool", ["void *"]),
-      QueryFullProcessImageNameW: kernel32.func("QueryFullProcessImageNameW", "bool", [
+      // Win32 BOOL is a 4-byte int; koffi "bool" is 1 byte and leaves garbage
+      // in the upper bytes of BOOL params - always use int32.
+      GetWindowRect: user32.func("__stdcall", "GetWindowRect", "int32", ["void *", "void *"]),
+      OpenProcess: kernel32.func("OpenProcess", "void *", ["uint32", "int32", "uint32"]),
+      CloseHandle: kernel32.func("CloseHandle", "int32", ["void *"]),
+      QueryFullProcessImageNameW: kernel32.func("QueryFullProcessImageNameW", "int32", [
         "void *",
         "uint32",
         "void *",
         "void *",
       ]),
-      EnumProcesses: psapi.func("EnumProcesses", "bool", ["void *", "uint32", "void *"]),
+      EnumProcesses: psapi.func("EnumProcesses", "int32", ["void *", "uint32", "void *"]),
     };
     return true;
   } catch (err) {
@@ -106,7 +108,7 @@ function getProcessName(pid: number): string | null {
 
   const win32 = _win32!;
 
-  const handle = win32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+  const handle = win32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
   if (!handle) {
     rememberProcessName(pid, null, now);
     return null;

@@ -37,12 +37,14 @@ const MapViewOfFile = kernel32.func("MapViewOfFile", "void *", [
   "size_t", // dwNumberOfBytesToMap - 0 = map the whole thing
 ]);
 
-const UnmapViewOfFile = kernel32.func("UnmapViewOfFile", "bool", ["void *"]);
+// Win32 BOOL is a 4-byte int. koffi's "bool" is 1 byte and leaves garbage in
+// the upper bytes, so BOOL params read as TRUE regardless - always use int32.
+const UnmapViewOfFile = kernel32.func("UnmapViewOfFile", "int32", ["void *"]);
 
 const CreateEventW = kernel32.func("CreateEventW", "void *", [
   "void *", // lpEventAttributes - NULL
-  "bool",   // bManualReset
-  "bool",   // bInitialState
+  "int32",  // bManualReset  (BOOL)
+  "int32",  // bInitialState (BOOL)
   "str16",  // lpName
 ]);
 
@@ -51,21 +53,21 @@ const WaitForSingleObject = kernel32.func("WaitForSingleObject", "uint32", [
   "uint32", // dwMilliseconds
 ]);
 
-const SetEvent = kernel32.func("SetEvent", "bool", ["void *"]);
-const CloseHandle = kernel32.func("CloseHandle", "bool", ["void *"]);
+const SetEvent = kernel32.func("SetEvent", "int32", ["void *"]);
+const CloseHandle = kernel32.func("CloseHandle", "int32", ["void *"]);
 const GetLastError = kernel32.func("GetLastError", "uint32", []);
 
 // OpenProcess - used by isWarframePid() to query process image names
 const OpenProcess = kernel32.func("OpenProcess", "void *", [
   "uint32", // dwDesiredAccess - PROCESS_QUERY_LIMITED_INFORMATION
-  "bool",   // bInheritHandle  - FALSE
+  "int32",  // bInheritHandle (BOOL) - 0
   "uint32", // dwProcessId
 ]);
 
 // QueryFullProcessImageNameW - retrieves the full exe path for an open handle.
 // lpExeName: caller-allocated WCHAR buffer.  lpdwSize: in=capacity, out=char count.
 const QueryFullProcessImageNameW = kernel32.func(
-  "QueryFullProcessImageNameW", "bool", [
+  "QueryFullProcessImageNameW", "int32", [
   "void *", // hProcess
   "uint32", // dwFlags - 0 = Win32 path format
   "void *", // lpExeName  (PWSTR output buffer, raw pointer)
@@ -74,7 +76,7 @@ const QueryFullProcessImageNameW = kernel32.func(
 
 // EnumProcesses - fills a DWORD array with the PID of every running process.
 // lpcbNeeded is set on return to the number of bytes written.
-const EnumProcesses = psapi.func("EnumProcesses", "bool", [
+const EnumProcesses = psapi.func("EnumProcesses", "int32", [
   "void *", // lpidProcess - output: DWORD array of PIDs
   "uint32", // cb          - size of array in bytes
   "void *", // lpcbNeeded  - output: bytes written
@@ -105,6 +107,10 @@ let _relicPickerSuppressUntil = 0;
 // AddTab fires in bursts while chat renders - one forward per window is enough.
 const CHAT_TAB_DBWIN_SUPPRESS_MS = 2000;
 let _chatTabSuppressUntil = 0;
+
+// Decoded as a typed-array COPY into V8 memory. koffi.view() is a fatal napi
+// error under Electron's memory cage (no external ArrayBuffers) - never use it.
+const uint8ArrayType = koffi.array("uint8", DBWIN_BUFFER_SIZE, "Typed");
 
 // Only forward lines that can possibly match a pattern in eeLogMonitor.
 // Everything else is discarded here in the Worker - no IPC overhead.
@@ -154,7 +160,7 @@ function isWarframePid(pid: number): boolean {
   const cached = _pidIsWarframe.get(pid);
   if (cached !== undefined) return cached;
 
-  const hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+  const hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
   if (!hProc) {
     // Process may have exited; treat as not Warframe and don't cache -
     // if the PID reappears it may be Warframe next time.
@@ -164,7 +170,7 @@ function isWarframePid(pid: number): boolean {
   // Reset size to buffer capacity before the call (it is an in/out parameter)
   _exeNameSizeBuf.writeUInt32LE(MAX_PATH, 0);
 
-  const ok = QueryFullProcessImageNameW(hProc, 0, _exeNameBuf, _exeNameSizeBuf) as boolean;
+  const ok = (QueryFullProcessImageNameW(hProc, 0, _exeNameBuf, _exeNameSizeBuf) as number) !== 0;
   CloseHandle(hProc);
 
   if (!ok) {
@@ -189,7 +195,7 @@ const _pidsUsedBuf  = Buffer.alloc(4); // DWORD: bytes returned by EnumProcesses
 
 function isWarframeRunning(): boolean {
   _pidsUsedBuf.fill(0);
-  const ok = EnumProcesses(_pidsBuf, _pidsBuf.length, _pidsUsedBuf) as boolean;
+  const ok = (EnumProcesses(_pidsBuf, _pidsBuf.length, _pidsUsedBuf) as number) !== 0;
   if (!ok) return false;
 
   const byteCount = _pidsUsedBuf.readUInt32LE(0);
@@ -237,10 +243,10 @@ function runDbwinLoop(): void {
     return;
   }
 
-  // DBWIN_BUFFER_READY: auto-reset (false), initially signaled (true) - "ready to receive"
-  const hReady = CreateEventW(null, false, true, "DBWIN_BUFFER_READY");
-  // DBWIN_DATA_READY:  auto-reset (false), initially unsignaled (false)
-  const hData  = CreateEventW(null, false, false, "DBWIN_DATA_READY");
+  // DBWIN_BUFFER_READY: auto-reset (0), initially signaled (1) - "ready to receive"
+  const hReady = CreateEventW(null, 0, 1, "DBWIN_BUFFER_READY");
+  // DBWIN_DATA_READY:  auto-reset (0), initially unsignaled (0)
+  const hData  = CreateEventW(null, 0, 0, "DBWIN_DATA_READY");
 
   if (!hReady || !hData) {
     parentPort?.postMessage({
@@ -255,11 +261,6 @@ function runDbwinLoop(): void {
   }
 
   parentPort?.postMessage({ type: "ready", alreadyExists });
-
-  // Zero-copy view over the mapped buffer; message bytes are copied out of it
-  // before the ACK, everything else runs after.
-  const mapped = Buffer.from(koffi.view(pBuf, DBWIN_BUFFER_SIZE));
-  const copyBuf = Buffer.alloc(DBWIN_BUFFER_SIZE);
 
   let warframeRecheckAt = Date.now() + WARFRAME_RECHECK_MS;
 
@@ -278,7 +279,7 @@ function runDbwinLoop(): void {
       }
 
       if (waitResult === WAIT_OBJECT_0) {
-        const pid = mapped.readUInt32LE(0);
+        const pid = koffi.decode(pBuf, "uint32") as number;
 
         if (!isWarframePid(pid)) {
           // Not Warframe - release buffer immediately and skip message body.
@@ -288,16 +289,17 @@ function runDbwinLoop(): void {
         }
 
         // OutputDebugString() in the game thread blocks until BUFFER_READY -
-        // keep pre-ACK work to this null scan + memcpy, no allocations.
-        let end = mapped.indexOf(0, 4);
-        if (end < 0) end = DBWIN_BUFFER_SIZE;
-        mapped.copy(copyBuf, 0, 4, end);
+        // keep pre-ACK work to this single memcpy decode, then release.
+        const bytes = koffi.decode(pBuf, uint8ArrayType) as Uint8Array;
         SetEvent(hReady);
 
+        const buf = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        let end = buf.indexOf(0, 4);
+        if (end < 0) end = DBWIN_BUFFER_SIZE;
         if (end <= 4) continue;
         // utf8 to match the file poll - latin1 split multi-byte glyphs into
         // mojibake, so the same line produced different strings per source.
-        const msg = copyBuf.toString("utf8", 0, end - 4);
+        const msg = buf.toString("utf8", 4, end);
 
         // Pre-filter: only forward lines that match one of our trigger substrings.
         // The main thread's handleLine() still does the authoritative regex check.
