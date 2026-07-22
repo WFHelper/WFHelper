@@ -21,6 +21,7 @@ import {
 import type { ArbiRunRecord } from "../config/shared/arbiTypes";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import type { TradeType, TradeDirection } from "../config/shared/statsTypes";
+import { stripPlatformGlyphs, isLogFrameworkLine, stripDialogArgTail } from "./tradeLogSanitize";
 
 const log = withScope("eeLogMonitor");
 
@@ -181,6 +182,8 @@ const TRADE_SUCCESS = "The trade was successful!";
 /** Max time to wait for the confirmation dialog to resolve before discarding buffered lines. */
 const TRADE_DIALOG_TIMEOUT_MS = 60_000;
 let _tradeDialogStartAt = 0;
+/** Set once the dialog's log entry ends - later log lines must not leak into the buffer. */
+let _tradeDialogSealed = false;
 
 let pendingRewardTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingRelicPickerTimer: ReturnType<typeof setTimeout> | null = null;
@@ -392,15 +395,17 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   if (line.includes(TRADE_DIALOG_START)) {
     _tradeDialogBuffer = [line];
     _tradeDialogStartAt = Date.now();
+    _tradeDialogSealed = false;
     // Single-line dialogs (..., leftItem=/Menu/Confirm_Item_Ok) are already complete
     // at this point - the buffered line stands; we just wait for the success line.
   } else if (_tradeDialogBuffer !== null) {
-    // Stop buffering when a log framework line appears.
-    if (/\[(Info|Error|Warning)\]/.test(line)) {
-      // Buffer is complete - don't add this line, just stop buffering and wait for success
-    } else if (Date.now() - _tradeDialogStartAt > TRADE_DIALOG_TIMEOUT_MS) {
+    if (Date.now() - _tradeDialogStartAt > TRADE_DIALOG_TIMEOUT_MS) {
       _tradeDialogBuffer = null;
-    } else {
+    } else if (/\[(Info|Error|Warning)\]/.test(line)) {
+      // Next log framework line marks the end of the dialog's multi-line entry.
+      // Seal so intervening log entries can't leak in as trade items.
+      _tradeDialogSealed = true;
+    } else if (!_tradeDialogSealed) {
       _tradeDialogBuffer.push(line);
     }
   }
@@ -408,6 +413,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   if (line.includes(TRADE_SUCCESS) && _tradeDialogBuffer !== null) {
     const parsed = _parseTradeDialog(_tradeDialogBuffer);
     _tradeDialogBuffer = null;
+    _tradeDialogSealed = false;
     if (parsed && tradeConfirmedCallback) {
       log.info(`[EELog] Trade confirmed: ${parsed.type} ${parsed.platChange}p with ${parsed.partner}, ${parsed.items.length} item(s)`);
       tradeConfirmedCallback(parsed);
@@ -457,7 +463,8 @@ export function _parseTradeDialog(lines: string[]): ParsedLogTrade | null {
   // Split on the "and will receive from <partner> the following:" divider
   const receiveMatch = desc.match(/and will receive from\s+(.+?)\s+the following:/i);
   if (!receiveMatch) return null;
-  const partner = receiveMatch[1].trim();
+  // The game may append a platform glyph to the username (same as whispers).
+  const partner = stripPlatformGlyphs(receiveMatch[1]);
 
   const dividerIdx = desc.indexOf(receiveMatch[0]);
   const offeringBlock = desc.slice("You are offering:".length, dividerIdx);
@@ -470,13 +477,12 @@ export function _parseTradeDialog(lines: string[]): ParsedLogTrade | null {
       const line = raw.trim();
       if (!line) continue;
       // Stop if we hit the closing part of Dialog args
-      if (line.startsWith("leftItem=") || line.startsWith("rightItem=")) break;
+      if (/^(leftItem|rightItem|title)=/.test(line)) break;
       // Skip EE.log framework lines that may have leaked into the buffer
-      if (/\[(Info|Error|Warning)\]/.test(line)) continue;
-      // Skip lines that look like log timestamps or system messages
-      if (/^\d+\.\d+\s/.test(line)) continue;
-      // Remove trailing comma from last item "..., leftItem=..."
-      const cleaned = line.replace(/,\s*leftItem=.*$/i, "").replace(/\r/g, "").trim();
+      if (isLogFrameworkLine(line)) continue;
+      // Drop Dialog arg tails glued to the last item ("..., title= leftItem=...")
+      // and platform glyphs embedded in names (glyph-only lines become empty).
+      const cleaned = stripPlatformGlyphs(stripDialogArgTail(line).replace(/\r/g, ""));
       if (!cleaned) continue;
 
       const platMatch = cleaned.match(/^Platinum(?:\s+x\s+(\d+))?$/i);

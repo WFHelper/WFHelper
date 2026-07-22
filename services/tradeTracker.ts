@@ -19,6 +19,7 @@ import { withScope } from "./logger";
 import { writeFileAtomicSync } from "./atomicFile";
 import * as statsTracker from "./statsTracker";
 import * as wfmCatalog from "./wfmCatalog";
+import { stripPlatformGlyphs, isLogFrameworkLine, stripDialogArgTail } from "./tradeLogSanitize";
 import type { TradeType, TradeDirection, TradeItem, TradeEvent } from "../config/shared/statsTypes";
 
 const log = withScope("tradeTracker");
@@ -40,7 +41,11 @@ function boundedString(value: unknown, maxLength: number): string | null {
 function sanitizeTradeItem(value: unknown): TradeItem | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const item = value as Record<string, unknown>;
-  const displayName = boundedString(item.displayName, 160);
+  // Repair names corrupted by pre-fix parser versions: platform glyphs,
+  // Dialog arg tails, and raw EE.log lines recorded as items.
+  const rawName = boundedString(item.displayName, 160);
+  const displayName = rawName ? stripPlatformGlyphs(stripDialogArgTail(rawName)) || null : null;
+  if (displayName && isLogFrameworkLine(displayName)) return null;
   const internalName =
     typeof item.internalName === "string" && item.internalName.length <= 240
       ? item.internalName
@@ -85,15 +90,23 @@ function sanitizeTradeEvent(value: unknown): TradeEvent | null {
   if (!Number.isInteger(platChange) || platChange < 0 || platChange > 10_000_000) return null;
   if (!Array.isArray(event.items) || event.items.length > MAX_ITEMS_PER_TRADE) return null;
 
-  const items = event.items.map(sanitizeTradeItem);
-  if (items.some((item) => item == null)) return null;
-  const partner = boundedString(event.partner, 120);
+  // Drop corrupt items (glyph-only names, raw log lines) but keep the event;
+  // an event whose items were ALL corrupt is itself garbage - drop it.
+  const items = event.items
+    .map(sanitizeTradeItem)
+    .filter((item): item is TradeItem => item != null);
+  if (event.items.length > 0 && items.length === 0) return null;
+  if (items.length < event.items.length) {
+    log.info(`[TradeTracker] Dropped ${event.items.length - items.length} corrupt item(s) from trade ${id}`);
+  }
+  const rawPartner = boundedString(event.partner, 120);
+  const partner = rawPartner ? stripPlatformGlyphs(rawPartner) || null : null;
   return {
     id,
     date,
     type,
     platChange,
-    items: items as TradeItem[],
+    items,
     ...(partner ? { partner } : {}),
     ...(event.wfmClosed === true ? { wfmClosed: true } : {}),
   };
@@ -148,14 +161,16 @@ export function recordTradeFromLog(parsed: {
   if (now - _lastEventTime < MIN_COOLDOWN_MS) return null;
 
   const id = `${new Date().toISOString()}-${Math.random().toString(36).slice(2, 6)}`;
+  const partner = stripPlatformGlyphs(parsed.partner);
 
   const items: TradeItem[] = parsed.items.map((i) => {
+    const displayName = stripPlatformGlyphs(i.displayName);
     const catalogItem =
-      wfmCatalog.lookupByName(i.displayName) ||
-      wfmCatalog.lookupByName(i.displayName.replace(/ Blueprint$/i, ""));
+      wfmCatalog.lookupByName(displayName) ||
+      wfmCatalog.lookupByName(displayName.replace(/ Blueprint$/i, ""));
     return {
       internalName: "",
-      displayName: i.displayName,
+      displayName,
       count: i.count,
       direction: i.direction,
       ...(catalogItem?.url_name ? { wfmSlug: catalogItem.url_name } : {}),
@@ -169,7 +184,7 @@ export function recordTradeFromLog(parsed: {
     type: parsed.type,
     platChange: parsed.platChange,
     items,
-    ...(parsed.partner ? { partner: parsed.partner } : {}),
+    ...(partner ? { partner } : {}),
   };
 
   _tradeLog.unshift(event);
