@@ -39,6 +39,7 @@ import {
   APP_UPDATE_STATUS,
   APP_RUNTIME_INFO,
   SCAN_DEBUG_OPEN_FOLDER,
+  LOGS_OPEN_FOLDER,
   WINDOW_MINIMIZE,
   WINDOW_MAXIMIZE,
   WINDOW_CLOSE,
@@ -132,6 +133,7 @@ try {
     installDownloadedUpdate: inv<"installDownloadedUpdate">(APP_UPDATE_INSTALL),
     getAppRuntimeInfo: inv<"getAppRuntimeInfo">(APP_RUNTIME_INFO),
     openScanDebugFolder: inv<"openScanDebugFolder">(SCAN_DEBUG_OPEN_FOLDER),
+    openLogFolder: inv<"openLogFolder">(LOGS_OPEN_FOLDER),
 
     onInventoryUpdated: ipcDataBridge<IpcEventMap["inventory-updated"]>(
       ipcRenderer,

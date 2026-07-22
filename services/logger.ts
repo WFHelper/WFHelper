@@ -51,6 +51,15 @@ if (!isTest && !loggerState.__wfhelperLoggerInitialized) {
 
 const timers = new Map<string, number>();
 
+export function getLogDirectory(): string | null {
+  try {
+    const filePath = electronLog.transports.file.getFile()?.path;
+    return filePath ? path.dirname(filePath) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function withScope(scopeName: string): ScopedLogger {
   const scoped = electronLog.scope(scopeName);
 

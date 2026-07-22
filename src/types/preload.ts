@@ -50,6 +50,7 @@ export interface PreloadAPI {
   installDownloadedUpdate: () => Promise<IpcInvokeMap["installDownloadedUpdate"]["return"]>;
   getAppRuntimeInfo: () => Promise<IpcInvokeMap["getAppRuntimeInfo"]["return"]>;
   openScanDebugFolder: () => Promise<IpcInvokeMap["openScanDebugFolder"]["return"]>;
+  openLogFolder: () => Promise<IpcInvokeMap["openLogFolder"]["return"]>;
   onInventoryUpdated: (callback: (data: IpcEventMap["inventory-updated"]) => void) => () => void;
   onItemDbUpdated: (callback: (data: IpcEventMap["item-db-updated"]) => void) => () => void;
   onAppUpdateStatus: (callback: (state: IpcEventMap["app-update-status"]) => void) => () => void;

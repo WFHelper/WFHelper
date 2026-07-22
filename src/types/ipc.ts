@@ -331,6 +331,10 @@ export interface IpcInvokeMap {
     args: [];
     return: { ok: boolean };
   };
+  openLogFolder: {
+    args: [];
+    return: { ok: boolean };
+  };
   loadRankedHotset: {
     args: [];
     return: Record<string, unknown> | null;

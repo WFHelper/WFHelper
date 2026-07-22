@@ -13,6 +13,7 @@
   import { hideFounderMasteryItems } from "../stores/preferences.js";
   import { TOGGLEABLE_TABS, tabVisibility } from "../stores/sidebarTabs.js";
   import { startTour } from "../stores/tour.js";
+  import { currentView } from "../stores/app.js";
   import type { OverlaySettings } from "../types/ipc.js";
 
   type OverlaySettingsFormInput = Partial<OverlaySettings> & {
@@ -30,6 +31,15 @@
       if (!result?.ok) flashStatus("Could not open the scan-debug folder.", true);
     } catch {
       flashStatus("Could not open the scan-debug folder.", true);
+    }
+  }
+
+  async function openLogFolder(): Promise<void> {
+    try {
+      const result = await invoke("openLogFolder");
+      if (!result?.ok) flashStatus("Could not open the log folder.", true);
+    } catch {
+      flashStatus("Could not open the log folder.", true);
     }
   }
 
@@ -450,6 +460,18 @@
               on:click={() => openLink("https://github.com/WFHelper/WFHelper")}>GitHub</button
             >
           </div>
+          <div class="settings-credit-row">
+            <span>Website</span>
+            <button class="settings-link" on:click={() => openLink("https://wfhelper.com")}
+              >wfhelper.com</button
+            >
+          </div>
+          <div class="settings-credit-row">
+            <span>Community</span>
+            <button class="settings-link" on:click={() => openLink("https://discord.gg/7Gm3UvUSww")}
+              >Discord</button
+            >
+          </div>
         </div>
 
         <p class="m-0 mt-2.5 text-xs leading-snug text-text-muted">
@@ -468,6 +490,10 @@
           >
           <button class="btn-secondary btn-sm" on:click={openScanDebugFolder}
             >{$tr("settings.openScanDebug")}</button
+          >
+          <button class="btn-secondary btn-sm" on:click={openLogFolder}>Open log folder</button>
+          <button class="btn-secondary btn-sm" on:click={() => currentView.set("setup")}
+            >Redo setup</button
           >
           <span class="text-xs text-text-muted">Changes apply automatically.</span>
         </div>

@@ -1,7 +1,7 @@
 import ctx from "./context";
 import { assertMainRendererSender, handleAuthorized, onAuthorized } from "./ipcSecurity";
 import { unwrapInventoryPayload } from "../config/shared/inventoryPayload";
-import { withScope } from "../services/logger";
+import { getLogDirectory, withScope } from "../services/logger";
 import * as itemDb from "../services/itemDatabase";
 import * as wfmCatalog from "../services/wfmCatalog";
 import * as masteryHelper from "../services/masteryHelper";
@@ -23,6 +23,7 @@ import {
   APP_UPDATE_INSTALL,
   APP_RUNTIME_INFO,
   SCAN_DEBUG_OPEN_FOLDER,
+  LOGS_OPEN_FOLDER,
   WINDOW_MINIMIZE,
   WINDOW_MAXIMIZE,
   WINDOW_CLOSE,
@@ -96,6 +97,19 @@ function register(): void {
       return { ok: !openErr };
     } catch (err) {
       log.warn("[SystemIPC] open scan-debug folder failed:", normalizeErrorMessage(err));
+      return { ok: false };
+    }
+  });
+
+  handleAuthorized(LOGS_OPEN_FOLDER, assertMainRendererSender, async () => {
+    try {
+      const dir = getLogDirectory();
+      if (!dir) return { ok: false };
+      const openErr = await shell.openPath(dir);
+      if (openErr) log.warn(`[SystemIPC] openPath(logs) failed: ${openErr}`);
+      return { ok: !openErr };
+    } catch (err) {
+      log.warn("[SystemIPC] open log folder failed:", normalizeErrorMessage(err));
       return { ok: false };
     }
   });
