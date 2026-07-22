@@ -372,7 +372,9 @@
     {:else if visibleEntries.length === 0}
       <div class="empty-state"><p>{$tr("arbisched.empty")}</p></div>
     {:else}
-      <div class="flex flex-col">
+      <!-- Fixed columns total ~430px; scroll the table itself, never the page. -->
+      <div class="overflow-x-auto">
+        <div class="flex min-w-[560px] flex-col">
         <div
           class="grid grid-cols-[90px_minmax(0,1.3fr)_minmax(0,1fr)_110px_130px_36px] gap-x-3 border-b border-border px-2 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-text-muted"
         >
@@ -460,6 +462,7 @@
             </div>
           {/each}
         {/each}
+        </div>
       </div>
     {/if}
   </div>

@@ -1,3 +1,15 @@
+@media (max-width: 1600px) {
+  :root {
+    --relic-grid-columns: 4;
+  }
+}
+
+@media (max-width: 1400px) {
+  :root {
+    --relic-grid-columns: 3;
+  }
+}
+
 @media (max-width: 1100px) {
   :root {
     --relic-grid-columns: 2;

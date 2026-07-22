@@ -544,13 +544,13 @@
     <h2 class="m-0 mb-2 font-display text-3xl font-semibold tracking-[0.03em] text-text-primary">
       Relic Planner ({groups.length} groups / {visibleRelicEntryCount} entries)
     </h2>
-    <div class="flex items-end border-b border-white/[0.09]">
+    <div class="flex flex-wrap items-end border-b border-white/[0.09]">
       <HeaderTabs
         options={TIER_TABS}
         activeKey={$relicViewState.tierFilter}
         onSelect={(tierFilter) => setRelicFilter({ tierFilter })}
       />
-      <div class="ml-auto flex items-center gap-2 pb-2 shrink-0 flex-nowrap">
+      <div class="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2 pb-2">
         <SearchBox
           value={$relicViewState.search}
           onValueChange={(search) => setRelicFilter({ search })}

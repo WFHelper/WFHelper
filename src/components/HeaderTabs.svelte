@@ -4,7 +4,7 @@
   export let onSelect: (key: string) => void;
 </script>
 
-<div class="flex">
+<div class="flex flex-wrap">
   {#each options as option (option.key)}
     <button
       class="flex items-center whitespace-nowrap border-0 border-b-[3px] border-b-transparent bg-transparent px-4 py-2 -mb-px font-display text-base text-[#8a8c95] transition-[border-color,color] duration-150 hover:text-[#b0b2ba] data-[active]:border-b-white data-[active]:text-white"

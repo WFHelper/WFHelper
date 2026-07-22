@@ -113,7 +113,7 @@
 
 <nav
   id="sidebar"
-  class="sidebar-shell flex shrink-0 flex-col justify-between border-r border-border bg-bg-base px-2.5 py-3.5"
+  class="sidebar-shell flex min-h-0 shrink-0 flex-col justify-between gap-2 overflow-y-auto overflow-x-hidden border-r border-border bg-bg-base px-2.5 py-3.5"
   class:sidebar-collapsed={$collapsed}
   style:width={$collapsed ? "3.75rem" : "var(--sidebar-width)"}
 >

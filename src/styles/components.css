@@ -12,7 +12,11 @@
   }
   #content {
     flex: 1;
+    /* min-width 0 lets the column shrink as a flex child; wide content must
+       bring its own overflow-x container — the page never scrolls sideways. */
+    min-width: 0;
     overflow-y: auto;
+    overflow-x: hidden;
     background: var(--bg-base);
     padding: 1.5rem 1.75rem;
   }
