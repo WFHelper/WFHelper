@@ -17,26 +17,7 @@ export function applyUpdateState(state: AppUpdateState, showToast: boolean): voi
   if (!showToast || state.status === lastNotifiedUpdateStatus) return;
   lastNotifiedUpdateStatus = state.status;
 
-  if (state.status === "available") {
-    addToast({
-      level: "info",
-      title: "Update Available",
-      message:
-        state.message || "A new version is available. Click the update button to see what's new.",
-    });
-    return;
-  }
-
-  if (state.status === "downloaded") {
-    addToast({
-      level: "success",
-      title: "Update Ready",
-      message: state.message || "Update downloaded. Click 'Restart to update' in the status bar.",
-      sticky: true,
-    });
-    return;
-  }
-
+  // available/downloaded need no toast - the status-bar pill shows both states.
   if (state.status === "error") {
     addToast({
       level: "error",
