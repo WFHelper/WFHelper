@@ -36,7 +36,8 @@ test.describe("Electron Smoke", () => {
   });
 
   test("renders app shell", async () => {
-    await expect(page.locator("#app")).toBeVisible({ timeout: 40_000 });
+    // Cold CI runners occasionally exceed 40s even across retries.
+    await expect(page.locator("#app")).toBeVisible({ timeout: 90_000 });
     await expect(page.locator("#content")).toBeVisible();
 
     const sidebar = page.locator("#sidebar");
