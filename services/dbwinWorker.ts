@@ -102,9 +102,9 @@ const WARFRAME_RECHECK_MS = 5000;
 // only one delivery per trigger cycle reaches the main thread.
 const RELIC_PICKER_DBWIN_SUPPRESS_MS = 7500;
 let _relicPickerSuppressUntil = 0;
-
-// Pre-allocated koffi array type - avoid recreating it every tick
-const uint8ArrayType = koffi.array("uint8", DBWIN_BUFFER_SIZE);
+// AddTab fires in bursts while chat renders - one forward per window is enough.
+const CHAT_TAB_DBWIN_SUPPRESS_MS = 2000;
+let _chatTabSuppressUntil = 0;
 
 // Only forward lines that can possibly match a pattern in eeLogMonitor.
 // Everything else is discarded here in the Worker - no IPC overhead.
@@ -256,6 +256,11 @@ function runDbwinLoop(): void {
 
   parentPort?.postMessage({ type: "ready", alreadyExists });
 
+  // Zero-copy view over the mapped buffer; message bytes are copied out of it
+  // before the ACK, everything else runs after.
+  const mapped = Buffer.from(koffi.view(pBuf, DBWIN_BUFFER_SIZE));
+  const copyBuf = Buffer.alloc(DBWIN_BUFFER_SIZE);
+
   let warframeRecheckAt = Date.now() + WARFRAME_RECHECK_MS;
 
   try {
@@ -273,7 +278,7 @@ function runDbwinLoop(): void {
       }
 
       if (waitResult === WAIT_OBJECT_0) {
-        const pid = koffi.decode(pBuf, "uint32") as number;
+        const pid = mapped.readUInt32LE(0);
 
         if (!isWarframePid(pid)) {
           // Not Warframe - release buffer immediately and skip message body.
@@ -282,37 +287,35 @@ function runDbwinLoop(): void {
           continue;
         }
 
-        const bytes = koffi.decode(pBuf, uint8ArrayType) as number[];
-
-        // Re-signal BUFFER_READY right after the copy: OutputDebugString() in the game
-        // thread waits on it (~10 ms timeout). The rest of the JS work runs after the
-        // buffer is back with Warframe.
+        // OutputDebugString() in the game thread blocks until BUFFER_READY -
+        // keep pre-ACK work to this null scan + memcpy, no allocations.
+        let end = mapped.indexOf(0, 4);
+        if (end < 0) end = DBWIN_BUFFER_SIZE;
+        mapped.copy(copyBuf, 0, 4, end);
         SetEvent(hReady);
 
-        const buf = Buffer.from(bytes);
-
-        // Find null terminator for the message string (starts at offset 4)
-        let end = 4;
-        while (end < buf.length && buf[end] !== 0) end++;
-        const msg = buf.slice(4, end).toString("latin1");
+        if (end <= 4) continue;
+        const msg = copyBuf.toString("latin1", 0, end - 4);
 
         // Pre-filter: only forward lines that match one of our trigger substrings.
         // The main thread's handleLine() still does the authoritative regex check.
-        if (msg) {
-          const msgLower = msg.toLowerCase();
-          if (FILTER_SUBSTRINGS_LOWER.some((s) => msgLower.includes(s))) {
-            // Relic picker lines fire at screen-refresh rate while the fissure screen
-            // is open.  Suppress within the cooldown window to stop flooding the main
-            // thread event loop (which would starve async OCR and cause UI lag).
-            const isRelicLine =
-              msgLower.includes("loadingcompleteend") ||
-              msgLower.includes("populateinventorygrid");
-            if (isRelicLine) {
-              if (now < _relicPickerSuppressUntil) continue;
-              _relicPickerSuppressUntil = now + RELIC_PICKER_DBWIN_SUPPRESS_MS;
-            }
-            parentPort?.postMessage({ type: "line", pid, msg });
+        const msgLower = msg.toLowerCase();
+        if (FILTER_SUBSTRINGS_LOWER.some((s) => msgLower.includes(s))) {
+          // Relic picker lines fire at screen-refresh rate while the fissure screen
+          // is open.  Suppress within the cooldown window to stop flooding the main
+          // thread event loop (which would starve async OCR and cause UI lag).
+          const isRelicLine =
+            msgLower.includes("loadingcompleteend") ||
+            msgLower.includes("populateinventorygrid");
+          if (isRelicLine) {
+            if (now < _relicPickerSuppressUntil) continue;
+            _relicPickerSuppressUntil = now + RELIC_PICKER_DBWIN_SUPPRESS_MS;
           }
+          if (msgLower.includes("chatredux::addtab")) {
+            if (now < _chatTabSuppressUntil) continue;
+            _chatTabSuppressUntil = now + CHAT_TAB_DBWIN_SUPPRESS_MS;
+          }
+          parentPort?.postMessage({ type: "line", pid, msg });
         }
       }
       // On WAIT_TIMEOUT (258) just loop and re-check stopFlag / Warframe presence
