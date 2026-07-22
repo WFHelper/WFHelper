@@ -38,8 +38,8 @@ please don't bypass it with `--no-verify`. For worker changes also run
 - IPC contract changes touch `src/types/ipc.ts`, `preload.ts`, `src/lib/ipc.ts`,
   and the handler together; every handler uses the sender guards in
   `ipc/ipcSecurity.ts`.
-- `AGENTS.md` is the fuller architecture and convention reference — read it before
-  larger changes, and `backend/worker/AGENTS.md` before touching the worker.
+- For Worker changes, read `backend/worker/ARCHITECTURE.md` before editing
+  `backend/worker`.
 
 ## Scope notes
 
