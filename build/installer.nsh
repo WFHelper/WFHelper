@@ -50,6 +50,11 @@ Function HelperOptionsLeave
 FunctionEnd
 
 !macro customInstall
+  ; Silent auto-update skips the options page - keep the user's original choice.
+  ${If} ${Silent}
+  ${AndIf} ${FileExists} "$APPDATA\WFHelper\setup-preferences.json"
+    Goto helperPrefsDone
+  ${EndIf}
   CreateDirectory "$APPDATA\WFHelper"
   FileOpen $0 "$APPDATA\WFHelper\setup-preferences.json" w
   ${If} $HelperAutoInstall == "1"
@@ -58,5 +63,6 @@ FunctionEnd
     FileWrite $0 '{"autoInstallHelper":false}'
   ${EndIf}
   FileClose $0
+  helperPrefsDone:
 !macroend
 !endif

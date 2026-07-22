@@ -348,7 +348,9 @@ export function installDownloadedUpdate(): { ok: boolean; message?: string } {
   });
 
   setTimeout(() => {
-    autoUpdater.quitAndInstall(false, true);
+    // isSilent=true: run the NSIS installer with /S so updates don't re-open
+    // the full install wizard. installer.nsh keeps the helper pref intact.
+    autoUpdater.quitAndInstall(true, true);
   }, 250);
 
   return { ok: true };
