@@ -17,6 +17,29 @@ type NotesBlock =
   | { kind: "paragraph"; segments: InlineSegment[] }
   | { kind: "list"; items: InlineSegment[][] };
 
+// Release bodies are markdown, but hand-written HTML slips in - convert the
+// common tags to markdown instead of rendering them as literal text.
+const HTMLISH_RE = /<\/?(p|h[1-6]|ul|ol|li|br|code|strong|b|em|a)\b/i;
+
+function htmlToMarkdown(raw: string): string {
+  if (!HTMLISH_RE.test(raw)) return raw;
+  return raw
+    .replace(/<a\s[^>]*href="(https?:\/\/[^"]+)"[^>]*>(.*?)<\/a>/gi, "[$2]($1)")
+    .replace(/<h([1-6])[^>]*>/gi, (_m, level: string) => `\n${"#".repeat(Number(level))} `)
+    .replace(/<\/h[1-6]>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "\n- ")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<\/?(ul|ol)[^>]*>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<(strong|b)>(.*?)<\/(strong|b)>/gi, "**$2**")
+    .replace(/<\/?[a-z][^>]*>/gi, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
 const HEADING_RE = /^(#{1,6})\s+(.*)$/;
 const LIST_RE = /^[-*]\s+(.*)$/;
 // bold **x** | [label](http-url) | bare http-url
@@ -58,7 +81,7 @@ function parseInline(text: string): InlineSegment[] {
 
 export function parseReleaseNotes(raw: string): NotesBlock[] {
   const blocks: NotesBlock[] = [];
-  const lines = raw.replace(/\r\n?/g, "\n").split("\n");
+  const lines = htmlToMarkdown(raw).replace(/\r\n?/g, "\n").split("\n");
 
   let paragraph: string[] = [];
   let listItems: InlineSegment[][] = [];

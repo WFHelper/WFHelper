@@ -48,6 +48,28 @@ describe("parseReleaseNotes", () => {
     expect(segments.every((s) => s.kind !== "link")).toBe(true);
   });
 
+  it("converts an html release body to blocks instead of showing raw tags", () => {
+    const blocks = parseReleaseNotes(
+      '<p>To update: click the pill.</p> <h3>Fixes</h3> <ul> <li>Riven scan: fixed <code>crop</code></li> <li>See <a href="https://example.com/x">notes</a></li> </ul>',
+    );
+
+    expect(blocks[0]).toMatchObject({ kind: "paragraph" });
+    expect(blocks[1]).toMatchObject({ kind: "heading", level: 3 });
+    const list = blocks[2];
+    expect(list.kind).toBe("list");
+    if (list.kind === "list") {
+      expect(list.items[0][0].text).toBe("Riven scan: fixed crop");
+      expect(list.items[1].find((s) => s.kind === "link")?.href).toBe("https://example.com/x");
+    }
+    const allText = JSON.stringify(blocks);
+    expect(allText).not.toContain("<");
+  });
+
+  it("leaves markdown bodies containing angle brackets untouched", () => {
+    const blocks = parseReleaseNotes("Values below <threshold> are dropped");
+    expect(blocks[0].kind === "paragraph" && blocks[0].segments[0].text).toContain("<threshold>");
+  });
+
   it("strips trailing sentence punctuation from bare URLs", () => {
     const blocks = parseReleaseNotes("Visit https://a.com/x. Thanks");
     const segments = blocks[0].kind === "paragraph" ? blocks[0].segments : [];
