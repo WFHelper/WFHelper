@@ -295,7 +295,9 @@ function runDbwinLoop(): void {
         SetEvent(hReady);
 
         if (end <= 4) continue;
-        const msg = copyBuf.toString("latin1", 0, end - 4);
+        // utf8 to match the file poll - latin1 split multi-byte glyphs into
+        // mojibake, so the same line produced different strings per source.
+        const msg = copyBuf.toString("utf8", 0, end - 4);
 
         // Pre-filter: only forward lines that match one of our trigger substrings.
         // The main thread's handleLine() still does the authoritative regex check.
