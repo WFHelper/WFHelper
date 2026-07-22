@@ -21,6 +21,8 @@ jobs:
           TAG: ${{ github.event.release.tag_name }}
           URL: ${{ github.event.release.html_url }}
           BODY: ${{ github.event.release.body }}
+          # Repo variable (not a secret): Discord role id to ping. Empty = no ping.
+          ROLE_ID: ${{ vars.DISCORD_RELEASE_ROLE_ID }}
         run: |
           if [ -z "$DISCORD_WEBHOOK_URL" ]; then
             echo "::error::DISCORD_WEBHOOK_URL secret is missing/empty - Discord announcement NOT sent."
@@ -28,6 +30,11 @@ jobs:
           fi
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "Webhook secret is set (non-empty). Dry run - nothing posted."
+            if [ -n "$ROLE_ID" ]; then
+              echo "Release role ping configured (id ends ...${ROLE_ID: -4})."
+            else
+              echo "No release role ping configured (DISCORD_RELEASE_ROLE_ID unset)."
+            fi
             exit 0
           fi
           title="$TITLE"
@@ -37,6 +44,7 @@ jobs:
             --arg title "$title" \
             --arg url "$URL" \
             --arg body "$BODY" \
+            --arg role "$ROLE_ID" \
             '
             ($body
               | if length == 0 then "A new version of WFHelper is available - see the release for details."
@@ -44,8 +52,9 @@ jobs:
                 else . end) as $desc
             | {
                 username: "WFHelper Releases",
-                content: ("**WFHelper " + $title + " is out** 🎉"),
-                allowed_mentions: { parse: [] },
+                content: ("**WFHelper " + $title + " is out** 🎉"
+                  + (if $role == "" then "" else " <@&" + $role + ">" end)),
+                allowed_mentions: (if $role == "" then { parse: [] } else { roles: [$role] } end),
                 embeds: [ {
                   title: ("WFHelper " + $title),
                   url: $url,
