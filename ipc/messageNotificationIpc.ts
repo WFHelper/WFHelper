@@ -14,10 +14,10 @@ const log = withScope("messageNotification");
 
 /**
  * Warframe re-emits ChatRedux::AddTab ~30x/s while chat renders, on both DBWIN
- * and the file poll. Debounce per sender: refresh the timestamp on every hit,
- * re-notify only after the sender went quiet for the full window.
+ * and the file poll (which trails by up to ~26s). Debounce per sender: refresh
+ * the timestamp on every hit, re-notify only after a full quiet window.
  */
-const NOTIFY_DEBOUNCE_MS = 10_000;
+const NOTIFY_DEBOUNCE_MS = 30_000;
 const lastSeen = new Map<string, number>();
 
 function isDuplicate(playerName: string, now: number): boolean {

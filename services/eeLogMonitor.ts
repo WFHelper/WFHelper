@@ -72,14 +72,15 @@ export function parseWhisperUsername(line: string): string | null {
   if (end < 0) return null;
   name = name.slice(0, end);
   if (!name.startsWith("F")) return null; // only private/whisper tabs
-  // Warframe may append a non-ASCII platform glyph; drop it like AlecaFrame does.
-  if (name.length > 1 && name.charCodeAt(name.length - 1) > 127) name = name.slice(0, -1);
+  // Warframe appends a platform glyph (U+E000). DBWIN delivers it latin1 as
+  // 3 chars, the file poll utf8 as 1 - strip all so both sources agree.
+  name = name.replace(/[\u0080-\uffff]+$/, "");
   return name.slice(1).trim() || null;
 }
 
-// The game re-emits the AddTab line in bursts - dedupe per sender (sliding
-// window like the notifier) so a burst can't flood the log.
-const WHISPER_DEDUP_MS = 10_000;
+// The game re-emits the AddTab line in bursts, and the file poll re-delivers
+// dbwin-handled lines up to ~26s later (lazy flush) - dedupe per sender.
+const WHISPER_DEDUP_MS = 30_000;
 const _lastWhisperSeen = new Map<string, number>();
 
 function isWhisperEcho(playerName: string, now: number): boolean {
