@@ -68,7 +68,7 @@
 <div class="relic-compact-card" class:plain>
   <button
     type="button"
-    class="relic-compact-head grid grid-cols-[auto_minmax(0,1fr)_auto] min-w-0 items-center gap-1.5 w-full border-0 p-0 m-0 bg-transparent text-inherit text-left cursor-pointer"
+    class="relic-compact-head flex min-w-0 flex-wrap items-center gap-1.5 w-full border-0 p-0 m-0 bg-transparent text-inherit text-left cursor-pointer"
     on:click={() => openRelic(group)}
   >
     <span class="inline-flex items-center justify-center w-10 shrink-0">
@@ -90,7 +90,7 @@
       </span>
     </span>
 
-    <span class="flex min-w-0 flex-col gap-1">
+    <span class="flex min-w-0 flex-1 basis-24 flex-col gap-1">
       <span
         class="relic-row-name overflow-hidden text-ellipsis whitespace-nowrap font-display text-xl font-semibold tracking-[0.01em]"
         >{group.name}</span
@@ -100,7 +100,7 @@
       </span>
     </span>
 
-    <span class="min-w-0 flex flex-col items-end gap-0.5">
+    <span class="ml-auto flex min-w-0 flex-col items-end gap-0.5">
       <span
         class="relic-compact-block-label text-right font-display text-[0.65rem] tracking-[0.06em] uppercase text-text-secondary"
         >{qualityHeader}</span

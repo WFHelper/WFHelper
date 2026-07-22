@@ -491,7 +491,7 @@
 <section class="view active">
   <div class="view-header">
     <h2>{$tr("stats.title")}</h2>
-    <div class="flex items-center gap-2 ml-auto">
+    <div class="ml-auto flex flex-wrap items-center gap-2">
       <ThemedButton
         active={showValue}
         onClick={() => {
@@ -532,7 +532,7 @@
   {:else}
     <div class="flex flex-1 min-h-0 overflow-hidden">
       <!-- LEFT: session stats + charts -->
-      <div class="flex flex-1 min-w-0 flex-col gap-4 overflow-y-auto overflow-x-hidden p-4">
+      <div class="@container flex flex-1 min-w-0 flex-col gap-4 overflow-y-auto overflow-x-hidden p-4">
         {#if importStatus}
           <p class="mb-3 text-xs {importError ? 'text-danger' : 'text-success'}">{importStatus}</p>
         {/if}
@@ -548,7 +548,8 @@
         {#if history.length === 0}
           <p class="m-0 text-sm text-text-muted">{$tr("stats.noDays")}</p>
         {:else}
-          <div class="grid grid-cols-2 gap-3">
+          <!-- Container query: charts need ~300px each; stack when the column is narrow. -->
+          <div class="grid grid-cols-1 gap-3 @2xl:grid-cols-2">
             {#each CHART_SECTIONS as { key, labelKey }}
               {@const cd = chartDataMap[key]}
               {@const icon = ICON_MAP[key]}

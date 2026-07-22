@@ -38,7 +38,7 @@
 </script>
 
 <div
-  class="w-[300px] shrink-0 border-l border-[color:var(--ui-panel-border)] flex flex-col min-h-0 overflow-hidden"
+  class="w-[300px] max-[1100px]:w-[240px] shrink-0 border-l border-[color:var(--ui-panel-border)] flex flex-col min-h-0 overflow-hidden"
 >
   <div class="px-3 pt-2 shrink-0">
     <span class="block text-xs font-semibold uppercase tracking-[0.06em] text-text-muted mb-1.5"

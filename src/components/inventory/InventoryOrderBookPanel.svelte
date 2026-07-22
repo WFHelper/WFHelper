@@ -373,7 +373,7 @@
 </script>
 
 <aside
-  class="sticky top-2.5 flex flex-col gap-2.5 rounded-lg border border-border bg-bg-surface p-2.5 max-[1100px]:static"
+  class="sticky top-2.5 flex flex-col gap-2.5 rounded-lg border border-border bg-bg-surface p-2.5 max-[1100px]:fixed max-[1100px]:right-2.5 max-[1100px]:top-[calc(var(--titlebar-height)+0.625rem)] max-[1100px]:bottom-[calc(var(--statusbar-height)+0.625rem)] max-[1100px]:z-40 max-[1100px]:w-[min(360px,calc(100vw-5rem))] max-[1100px]:overflow-y-auto max-[1100px]:shadow-[0_8px_32px_rgba(0,0,0,0.55)]"
 >
   <div class="flex justify-between items-center gap-1.5">
     <h3 class="m-0 font-display text-base text-text-primary">Market Listings</h3>
