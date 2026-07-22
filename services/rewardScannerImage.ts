@@ -637,7 +637,7 @@ export async function binarizeRewardRegion(
   heightFrac: number,
 ): Promise<Buffer | null> {
   try {
-    const sharp: typeof import("sharp") = require("sharp");
+    const sharp: (typeof import("sharp"))["default"] = require("sharp");
     const meta = await sharp(pngBuffer).metadata();
     const srcW = meta.width ?? 0;
     const srcH = meta.height ?? 0;

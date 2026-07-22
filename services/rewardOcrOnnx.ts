@@ -133,7 +133,7 @@ export async function recognizeRewardStripOnnx(stripPng: Buffer): Promise<Reward
   try {
     if (!paddleRecognizerAvailable()) return null;
 
-    const sharp: typeof import("sharp") = require("sharp");
+    const sharp: (typeof import("sharp"))["default"] = require("sharp");
     const meta = await sharp(stripPng).metadata();
     const srcW = meta.width ?? 0;
     const srcH = meta.height ?? 0;

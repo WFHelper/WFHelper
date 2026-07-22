@@ -108,7 +108,7 @@ export async function recognizeRivenCardStats(
     return { text: "", titleText: "", footerText: "", stats: [] };
   }
 
-  const sharp = require("sharp") as typeof import("sharp");
+  const sharp = require("sharp") as (typeof import("sharp"))["default"];
   let bestResult: RivenOcrResult | null = null;
   let bestStats: RivenStat[] = [];
   let bestText = "";

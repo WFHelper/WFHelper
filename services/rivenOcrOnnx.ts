@@ -158,7 +158,7 @@ async function yoloDetectStatLines(
 
   const ort: typeof import("onnxruntime-node") = require("onnxruntime-node");
 
-  const sharp: typeof import("sharp") = require("sharp");
+  const sharp: (typeof import("sharp"))["default"] = require("sharp");
 
   const imgsz = _yoloInputSize; // 640
 
@@ -293,7 +293,7 @@ async function extractAndUpscaleCrops(
 ): Promise<RgbCrop[]> {
   if (boxes.length === 0) return [];
 
-  const sharp: typeof import("sharp") = require("sharp");
+  const sharp: (typeof import("sharp"))["default"] = require("sharp");
 
   const rawCrops: RgbCrop[] = [];
   for (const box of boxes) {
@@ -410,7 +410,7 @@ async function recognizeCropsBatch(crops: RgbCrop[]): Promise<OcrLineResult[]> {
 
   const ort: typeof import("onnxruntime-node") = require("onnxruntime-node");
 
-  const sharp: typeof import("sharp") = require("sharp");
+  const sharp: (typeof import("sharp"))["default"] = require("sharp");
 
   const imgH = 48;
 
