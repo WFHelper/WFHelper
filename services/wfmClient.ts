@@ -127,33 +127,53 @@ function _extractCsrfMeta(html: string): string | null {
   return contentFirst?.[1] ?? null;
 }
 
+// We ARE a Chromium runtime - identify as one when the plain UA gets scored.
+function _browserUa(): string {
+  const os = process.platform === "win32" ? "Windows NT 10.0; Win64; x64" : "X11; Linux x86_64";
+  return `Mozilla/5.0 (${os}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome ?? "136.0.0.0"} Safari/537.36`;
+}
+
+async function _csrfAttempt(userAgent: string): Promise<boolean> {
+  const headers: Record<string, string> = {
+    Accept: "text/html,application/xhtml+xml",
+    "User-Agent": userAgent,
+  };
+  if (_cookieJwt) headers["Cookie"] = `JWT=${_cookieJwt}`;
+
+  const resp = await _nodeRequest("GET", "https://warframe.market/", headers, null);
+  const html = await resp.text();
+  const sc = resp.headers.get("set-cookie") || "";
+  const jwtMatch = sc.match(/\bJWT=([^;,\s]+)/i);
+  const metaCsrf = _extractCsrfMeta(html);
+  if (jwtMatch) _cookieJwt = jwtMatch[1];
+  const payload = _cookieJwt ? _decodeJwtPayload(_cookieJwt) : null;
+  if (typeof payload?.csrf_token === "string" && payload.csrf_token) {
+    _csrfToken = payload.csrf_token;
+    log.info("[WFMClient] CSRF token acquired from JWT payload");
+  } else if (metaCsrf && !metaCsrf.startsWith("##")) {
+    _csrfToken = metaCsrf;
+    log.info("[WFMClient] CSRF token acquired from page meta");
+  } else {
+    // No cookie AND no meta = we did not get the real WFM page (usually a
+    // Cloudflare challenge or a local proxy) - fingerprint it for reports.
+    const title = (html.match(/<title>([^<]{0,60})/i)?.[1] || "").trim();
+    log.warn(
+      `[WFMClient] No usable csrf token (jwt cookie: ${jwtMatch ? "yes" : "no"}, ` +
+        `meta: ${metaCsrf ? metaCsrf.slice(0, 12) + "..." : "none"}, ` +
+        `status=${resp.status}, bytes=${html.length}, title="${title}")`,
+    );
+  }
+  return _csrfToken !== null;
+}
+
 async function _ensureCsrfToken(): Promise<string | null> {
   if (_csrfToken) return _csrfToken;
   try {
-    const headers: Record<string, string> = {
-      Accept: "text/html,application/xhtml+xml",
-      "User-Agent": "Mozilla/5.0 WFHelper/1.0",
-    };
-    if (_cookieJwt) headers["Cookie"] = `JWT=${_cookieJwt}`;
-
-    const resp = await _nodeRequest("GET", "https://warframe.market/", headers, null);
-    const html = await resp.text();
-    const sc = resp.headers.get("set-cookie") || "";
-    const jwtMatch = sc.match(/\bJWT=([^;,\s]+)/i);
-    const metaCsrf = _extractCsrfMeta(html);
-    if (jwtMatch) _cookieJwt = jwtMatch[1];
-    const payload = _cookieJwt ? _decodeJwtPayload(_cookieJwt) : null;
-    if (typeof payload?.csrf_token === "string" && payload.csrf_token) {
-      _csrfToken = payload.csrf_token;
-      log.info("[WFMClient] CSRF token acquired from JWT payload");
-    } else if (metaCsrf && !metaCsrf.startsWith("##")) {
-      _csrfToken = metaCsrf;
-      log.info("[WFMClient] CSRF token acquired from page meta");
-    } else {
-      log.warn(
-        `[WFMClient] No usable csrf token (jwt cookie: ${jwtMatch ? "yes" : "no"}, ` +
-          `meta: ${metaCsrf ? metaCsrf.slice(0, 12) + "..." : "none"})`,
-      );
+    if (await _csrfAttempt("Mozilla/5.0 WFHelper/1.0")) return _csrfToken;
+    // Field reports 2026-07: some connections get a tokenless page for the
+    // plain UA while a real browser passes - retry once as our Chromium UA.
+    if (await _csrfAttempt(_browserUa())) {
+      log.info("[WFMClient] CSRF token acquired on browser-UA retry");
     }
   } catch (e) {
     log.warn("[WFMClient] CSRF prefetch failed:", normalizeErrorMessage(e));
