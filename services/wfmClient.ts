@@ -140,7 +140,7 @@ async function _csrfAttempt(userAgent: string): Promise<boolean> {
   };
   if (_cookieJwt) headers["Cookie"] = `JWT=${_cookieJwt}`;
 
-  const resp = await _nodeRequest("GET", "https://warframe.market/", headers, null);
+  const resp = await _request("GET", "https://warframe.market/", headers, null);
   const html = await resp.text();
   const sc = resp.headers.get("set-cookie") || "";
   const jwtMatch = sc.match(/\bJWT=([^;,\s]+)/i);
@@ -197,6 +197,134 @@ export function clearCsrfToken(): void {
   _cookieJwt = null;
 }
 
+function _makeResponse(
+  status: number,
+  rawHeaders: Record<string, string | string[] | undefined>,
+  text: string,
+): WfmResponseLike {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: {
+      get: (name: string) => {
+        const v = rawHeaders[name.toLowerCase()];
+        return Array.isArray(v) ? v.join(", ") : (v ?? null);
+      },
+    },
+    json: () => {
+      try {
+        return Promise.resolve(JSON.parse(text));
+      } catch (err) {
+        // Upstream returned non-JSON (HTML error page, empty proxy body, etc) -
+        // surface a typed error callers can pattern-match, not a raw SyntaxError.
+        return Promise.reject(
+          new WfmApiError(
+            `WFM returned non-JSON response (status ${status}): ${(err as Error).message} - preview: ${text.slice(0, 200)}`,
+            "WFM_INVALID_JSON",
+            status,
+          ),
+        );
+      }
+    },
+    text: () => Promise.resolve(text),
+  };
+}
+
+// Prefer Electron's Chromium net stack: it carries a real browser TLS
+// fingerprint, which WFM's bot filtering 403s node TLS for on flagged IPs.
+let _transportLogged = false;
+
+function _chromiumNet(): typeof import("electron").net | null {
+  try {
+    const electron = require("electron") as typeof import("electron");
+    if (electron?.net && electron.app?.isReady()) return electron.net;
+  } catch {
+    // plain node (tests, scripts) - no electron runtime
+  }
+  return null;
+}
+
+function _request(
+  method: string,
+  url: string,
+  headers: Record<string, string>,
+  body: string | null,
+): Promise<WfmResponseLike> {
+  const net = _chromiumNet();
+  if (!_transportLogged) {
+    _transportLogged = true;
+    log.info(`[WFMClient] transport: ${net ? "chromium" : "node"}`);
+  }
+  return net
+    ? _chromiumRequest(net, method, url, headers, body)
+    : _nodeRequest(method, url, headers, body);
+}
+
+function _chromiumRequest(
+  net: typeof import("electron").net,
+  method: string,
+  url: string,
+  headers: Record<string, string>,
+  body: string | null,
+): Promise<WfmResponseLike> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    function settleOk(value: WfmResponseLike) {
+      if (settled) return;
+      settled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      resolve(value);
+    }
+
+    function settleErr(err: Error) {
+      if (settled) return;
+      settled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      reject(err);
+    }
+
+    const req = net.request({ method, url, redirect: "manual" });
+    for (const [name, value] of Object.entries(headers)) req.setHeader(name, value);
+
+    // Node's https never follows redirects - synthesize the 3xx for parity.
+    req.on("redirect", (statusCode, _redirMethod, _redirectUrl, responseHeaders) => {
+      settleOk(_makeResponse(statusCode, responseHeaders, ""));
+      req.abort();
+    });
+
+    req.on("response", (res) => {
+      const chunks: Buffer[] = [];
+      let receivedBytes = 0;
+      res.on("data", (chunk: Buffer) => {
+        receivedBytes += chunk.length;
+        if (receivedBytes > MAX_RESPONSE_BYTES) {
+          settleErr(new WfmApiError("WFM response exceeded 8 MiB", "WFM_RESPONSE_TOO_LARGE"));
+          req.abort();
+          return;
+        }
+        chunks.push(chunk);
+      });
+      res.on("error", (err: Error) => settleErr(err));
+      res.on("end", () => {
+        settleOk(
+          _makeResponse(res.statusCode ?? 0, res.headers, Buffer.concat(chunks).toString("utf-8")),
+        );
+      });
+    });
+
+    req.on("error", settleErr);
+    timeoutId = setTimeout(() => {
+      settleErr(new WfmApiError(`WFM request timeout after ${REQUEST_TIMEOUT_MS}ms`, "WFM_TIMEOUT"));
+      req.abort();
+    }, REQUEST_TIMEOUT_MS);
+
+    if (body) req.write(Buffer.from(body, "utf-8"));
+    req.end();
+  });
+}
+
 function _nodeRequest(
   method: string,
   url: string,
@@ -246,36 +374,9 @@ function _nodeRequest(
       res.on("error", settleErr);
       res.on("aborted", () => settleErr(new Error("WFM response aborted")));
       res.on("end", () => {
-        const text = Buffer.concat(chunks).toString("utf-8");
-        settleOk({
-          ok: (res.statusCode ?? 0) >= 200 && (res.statusCode ?? 0) < 300,
-          status: res.statusCode ?? 0,
-          headers: {
-            get: (name: string) => {
-              const v = res.headers[name.toLowerCase()];
-              return Array.isArray(v) ? v.join(", ") : (v ?? null);
-            },
-          },
-          json: () => {
-            try {
-              return Promise.resolve(JSON.parse(text));
-            } catch (err) {
-              // Upstream returned non-JSON (HTML error page, empty body from a
-              // proxy, etc). Convert to a typed WfmApiError so callers get a
-              // rejected promise they can pattern-match, instead of a raw
-              // SyntaxError surfacing unpredictably higher up the stack.
-              const preview = text.slice(0, 200);
-              return Promise.reject(
-                new WfmApiError(
-                  `WFM returned non-JSON response (status ${res.statusCode ?? 0}): ${(err as Error).message} - preview: ${preview}`,
-                  "WFM_INVALID_JSON",
-                  res.statusCode ?? 0,
-                ),
-              );
-            }
-          },
-          text: () => Promise.resolve(text),
-        });
+        settleOk(
+          _makeResponse(res.statusCode ?? 0, res.headers, Buffer.concat(chunks).toString("utf-8")),
+        );
       });
     });
 
@@ -410,7 +511,7 @@ function _coreRequest(
 
     let res: WfmResponseLike;
     try {
-      res = await _nodeRequest(method, url, headers, body);
+      res = await _request(method, url, headers, body);
     } catch (networkErr) {
       throw new WfmApiError(
         `${label} network error: ${normalizeErrorMessage(networkErr)}`,
@@ -488,7 +589,7 @@ export function requestRaw(
 
     let res: WfmResponseLike;
     try {
-      res = await _nodeRequest(method, url, headers, body);
+      res = await _request(method, url, headers, body);
     } catch (networkErr) {
       throw new WfmApiError(
         `WFM network error: ${normalizeErrorMessage(networkErr)}`,
