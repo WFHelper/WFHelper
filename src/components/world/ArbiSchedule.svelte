@@ -375,93 +375,93 @@
       <!-- Fixed columns total ~430px; scroll the table itself, never the page. -->
       <div class="overflow-x-auto">
         <div class="flex min-w-[560px] flex-col">
-        <div
-          class="grid grid-cols-[90px_minmax(0,1.3fr)_minmax(0,1fr)_110px_130px_36px] gap-x-3 border-b border-border px-2 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-text-muted"
-        >
-          <span>{$tr("arbisched.col.time")}</span>
-          <span>{$tr("arbisched.col.node")}</span>
-          <span>{$tr("arbisched.col.mission")}</span>
-          <span>{$tr("arbisched.col.faction")}</span>
-          <span class="text-right">{$tr("arbisched.col.startsIn")}</span>
-          <span></span>
-        </div>
-        {#each dayGroups as group (group.dayKey)}
           <div
-            class="border-b border-border/60 bg-white/[0.03] px-2 py-1 text-xs font-bold uppercase tracking-[0.06em] text-text-secondary"
+            class="grid grid-cols-[90px_minmax(0,1.3fr)_minmax(0,1fr)_110px_130px_36px] gap-x-3 border-b border-border px-2 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-text-muted"
           >
-            {group.dayLabel}
+            <span>{$tr("arbisched.col.time")}</span>
+            <span>{$tr("arbisched.col.node")}</span>
+            <span>{$tr("arbisched.col.mission")}</span>
+            <span>{$tr("arbisched.col.faction")}</span>
+            <span class="text-right">{$tr("arbisched.col.startsIn")}</span>
+            <span></span>
           </div>
-          {#each group.entries as entry (`${entry.epochMs}:${entry.nodeId}`)}
-            {@const countdown = formatScheduleCountdown(entry.epochMs, nowMs)}
-            {@const belled = occurrenceSet.has(`${entry.epochMs}:${entry.nodeId}`)}
+          {#each dayGroups as group (group.dayKey)}
             <div
-              class="grid grid-cols-[90px_minmax(0,1.3fr)_minmax(0,1fr)_110px_130px_36px] items-center gap-x-3 border-b border-border/40 px-2 py-1.5 text-sm hover:bg-white/[0.03]"
+              class="border-b border-border/60 bg-white/[0.03] px-2 py-1 text-xs font-bold uppercase tracking-[0.06em] text-text-secondary"
             >
-              <span class="font-display tracking-[0.02em] whitespace-nowrap text-text-secondary"
-                >{formatEntryTime(entry.epochMs)}</span
-              >
-              <span class="truncate font-semibold text-text-primary">
-                {entry.node}
-                {#if favoriteSet.has(entry.nodeId)}
-                  <span
-                    class="ml-1 inline-flex align-[-2px] text-warning"
-                    title={$tr("arbisched.starTitle")}
-                  >
-                    <svg
-                      class="h-3 w-3"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      ><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2 2" /><path
-                        d="M5 3 2 6"
-                      /><path d="m22 6-3-3" /></svg
-                    >
-                  </span>
-                {/if}
-              </span>
-              <span class="truncate text-text-secondary">{entry.mission}</span>
-              <span>
-                <span class="arbisched-badge arbisched-badge-{factionBadgeKey(entry.faction)}"
-                  >{entry.faction}</span
-                >
-              </span>
-              <span
-                class="text-right font-display text-sm tracking-[0.02em] whitespace-nowrap {countdown ===
-                'NOW'
-                  ? 'text-success font-bold'
-                  : 'text-text-primary'}">{countdown}</span
-              >
-              <span class="text-right">
-                {#if countdown !== "NOW"}
-                  <button
-                    data-tour="arbi-bell"
-                    class="cursor-pointer rounded border border-transparent bg-transparent p-1 transition-colors duration-100 {belled
-                      ? 'text-accent'
-                      : 'text-text-muted/50 hover:border-border hover:text-text-secondary'}"
-                    title={$tr("arbisched.bellTitle")}
-                    on:click={() => toggleBell(entry)}
-                  >
-                    <svg
-                      class="h-3.5 w-3.5"
-                      viewBox="0 0 24 24"
-                      fill={belled ? "currentColor" : "none"}
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      ><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path
-                        d="M10.3 21a1.94 1.94 0 0 0 3.4 0"
-                      /></svg
-                    >
-                  </button>
-                {/if}
-              </span>
+              {group.dayLabel}
             </div>
+            {#each group.entries as entry (`${entry.epochMs}:${entry.nodeId}`)}
+              {@const countdown = formatScheduleCountdown(entry.epochMs, nowMs)}
+              {@const belled = occurrenceSet.has(`${entry.epochMs}:${entry.nodeId}`)}
+              <div
+                class="grid grid-cols-[90px_minmax(0,1.3fr)_minmax(0,1fr)_110px_130px_36px] items-center gap-x-3 border-b border-border/40 px-2 py-1.5 text-sm hover:bg-white/[0.03]"
+              >
+                <span class="font-display tracking-[0.02em] whitespace-nowrap text-text-secondary"
+                  >{formatEntryTime(entry.epochMs)}</span
+                >
+                <span class="truncate font-semibold text-text-primary">
+                  {entry.node}
+                  {#if favoriteSet.has(entry.nodeId)}
+                    <span
+                      class="ml-1 inline-flex align-[-2px] text-warning"
+                      title={$tr("arbisched.starTitle")}
+                    >
+                      <svg
+                        class="h-3 w-3"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        ><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2 2" /><path
+                          d="M5 3 2 6"
+                        /><path d="m22 6-3-3" /></svg
+                      >
+                    </span>
+                  {/if}
+                </span>
+                <span class="truncate text-text-secondary">{entry.mission}</span>
+                <span>
+                  <span class="arbisched-badge arbisched-badge-{factionBadgeKey(entry.faction)}"
+                    >{entry.faction}</span
+                  >
+                </span>
+                <span
+                  class="text-right font-display text-sm tracking-[0.02em] whitespace-nowrap {countdown ===
+                  'NOW'
+                    ? 'text-success font-bold'
+                    : 'text-text-primary'}">{countdown}</span
+                >
+                <span class="text-right">
+                  {#if countdown !== "NOW"}
+                    <button
+                      data-tour="arbi-bell"
+                      class="cursor-pointer rounded border border-transparent bg-transparent p-1 transition-colors duration-100 {belled
+                        ? 'text-accent'
+                        : 'text-text-muted/50 hover:border-border hover:text-text-secondary'}"
+                      title={$tr("arbisched.bellTitle")}
+                      on:click={() => toggleBell(entry)}
+                    >
+                      <svg
+                        class="h-3.5 w-3.5"
+                        viewBox="0 0 24 24"
+                        fill={belled ? "currentColor" : "none"}
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        ><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path
+                          d="M10.3 21a1.94 1.94 0 0 0 3.4 0"
+                        /></svg
+                      >
+                    </button>
+                  {/if}
+                </span>
+              </div>
+            {/each}
           {/each}
-        {/each}
         </div>
       </div>
     {/if}

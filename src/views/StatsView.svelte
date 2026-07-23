@@ -532,7 +532,9 @@
   {:else}
     <div class="flex flex-1 min-h-0 overflow-hidden">
       <!-- LEFT: session stats + charts -->
-      <div class="@container flex flex-1 min-w-0 flex-col gap-4 overflow-y-auto overflow-x-hidden p-4">
+      <div
+        class="@container flex flex-1 min-w-0 flex-col gap-4 overflow-y-auto overflow-x-hidden p-4"
+      >
         {#if importStatus}
           <p class="mb-3 text-xs {importError ? 'text-danger' : 'text-success'}">{importStatus}</p>
         {/if}
