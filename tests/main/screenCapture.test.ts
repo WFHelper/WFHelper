@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   createFromBitmap: vi.fn(),
   captureGdi: vi.fn(),
   getGameWindowClientRect: vi.fn(),
+  captureLinuxStreamFrame: vi.fn(),
 }));
 
 vi.mock("electron", () => ({
@@ -19,6 +20,11 @@ vi.mock("electron", () => ({
 vi.mock("../../services/dxgiCapture", () => ({
   captureGdi: mocks.captureGdi,
   getGameWindowClientRect: mocks.getGameWindowClientRect,
+}));
+
+vi.mock("../../services/linuxStreamCapture", () => ({
+  captureLinuxStreamFrame: mocks.captureLinuxStreamFrame,
+  disposeLinuxStreamCapture: vi.fn(),
 }));
 
 import { captureScreenFast } from "../../services/screenCapture";
@@ -85,9 +91,42 @@ function primeDesktopCapturer(
   ]);
 }
 
-describe("captureScreenFast off-win32 (desktopCapturer)", () => {
-  it("returns the screen source and never touches GDI", async () => {
+describe("captureScreenFast on linux (persistent stream)", () => {
+  it("serves frames from the stream and never calls desktopCapturer per capture", async () => {
     setPlatform("linux");
+    mocks.captureLinuxStreamFrame.mockResolvedValue(makeFakeNativeImage(480, 270, () => BRIGHT));
+    const result = await captureScreenFast(null);
+    expect(result).not.toBeNull();
+    expect(result!.sourceType).toBe("screen");
+    expect(result!.sourceId).toBe("linux-stream");
+    expect(result!.image.getSize()).toEqual({ width: 480, height: 270 });
+    expect(mocks.getSources).not.toHaveBeenCalled();
+    expect(mocks.captureGdi).not.toHaveBeenCalled();
+  });
+
+  it("trims letterbox bars from stream frames", async () => {
+    setPlatform("linux");
+    // 60px pillarbox on both sides of a 480x270 frame
+    mocks.captureLinuxStreamFrame.mockResolvedValue(
+      makeFakeNativeImage(480, 270, (x) => (x < 60 || x >= 420 ? BLACK : BRIGHT)),
+    );
+    const result = await captureScreenFast(null);
+    expect(result!.image.getSize()).toEqual({ width: 360, height: 270 });
+  });
+
+  it("returns null without re-prompting when the stream is unavailable", async () => {
+    setPlatform("linux");
+    mocks.captureLinuxStreamFrame.mockResolvedValue(null);
+    const result = await captureScreenFast(null);
+    expect(result).toBeNull();
+    // Falling back to desktopCapturer would re-open the Wayland portal dialog.
+    expect(mocks.getSources).not.toHaveBeenCalled();
+  });
+});
+
+describe("captureScreenFast off-win32/off-linux (desktopCapturer)", () => {
+  it("returns the screen source and never touches GDI", async () => {
+    setPlatform("darwin");
     primeDesktopCapturer(makeFakeNativeImage(480, 270, () => BRIGHT));
     const result = await captureScreenFast(null);
     expect(result).not.toBeNull();
@@ -98,7 +137,7 @@ describe("captureScreenFast off-win32 (desktopCapturer)", () => {
   });
 
   it("trims letterbox bars so ratios anchor to game content", async () => {
-    setPlatform("linux");
+    setPlatform("darwin");
     // 60px pillarbox on both sides of a 480x270 frame
     primeDesktopCapturer(
       makeFakeNativeImage(480, 270, (x) => (x < 60 || x >= 420 ? BLACK : BRIGHT)),
@@ -108,14 +147,24 @@ describe("captureScreenFast off-win32 (desktopCapturer)", () => {
   });
 
   it("targets the preferred display when it exists", async () => {
-    setPlatform("linux");
+    setPlatform("darwin");
     const d1 = { id: 1, size: { width: 480, height: 270 }, scaleFactor: 1 };
     const d2 = { id: 2, size: { width: 960, height: 540 }, scaleFactor: 1 };
     mocks.getAllDisplays.mockReturnValue([d1, d2]);
     mocks.getPrimaryDisplay.mockReturnValue(d1);
     mocks.getSources.mockResolvedValue([
-      { id: "screen:1:0", name: "S1", display_id: "1", thumbnail: makeFakeNativeImage(480, 270, () => BRIGHT) },
-      { id: "screen:2:0", name: "S2", display_id: "2", thumbnail: makeFakeNativeImage(960, 540, () => BRIGHT) },
+      {
+        id: "screen:1:0",
+        name: "S1",
+        display_id: "1",
+        thumbnail: makeFakeNativeImage(480, 270, () => BRIGHT),
+      },
+      {
+        id: "screen:2:0",
+        name: "S2",
+        display_id: "2",
+        thumbnail: makeFakeNativeImage(960, 540, () => BRIGHT),
+      },
     ]);
     const result = await captureScreenFast("2");
     expect(result!.sourceDisplayId).toBe("2");
@@ -130,7 +179,12 @@ describe("captureScreenFast on win32 (GDI)", () => {
     setPlatform("win32");
     const buffer = Buffer.alloc(480 * 270 * 4, 160);
     mocks.captureGdi.mockReturnValue({
-      buffer, width: 480, height: 270, displayId: "3", originX: 0, originY: 0,
+      buffer,
+      width: 480,
+      height: 270,
+      displayId: "3",
+      originX: 0,
+      originY: 0,
     });
     mocks.getGameWindowClientRect.mockReturnValue(null);
     mocks.createFromBitmap.mockReturnValue(makeFakeNativeImage(480, 270, () => BRIGHT));
@@ -144,7 +198,12 @@ describe("captureScreenFast on win32 (GDI)", () => {
     setPlatform("win32");
     const buffer = Buffer.alloc(480 * 270 * 4, 160);
     mocks.captureGdi.mockReturnValue({
-      buffer, width: 480, height: 270, displayId: "0", originX: 0, originY: 0,
+      buffer,
+      width: 480,
+      height: 270,
+      displayId: "0",
+      originX: 0,
+      originY: 0,
     });
     mocks.getGameWindowClientRect.mockReturnValue({ x: 40, y: 10, width: 400, height: 250 });
     mocks.createFromBitmap.mockReturnValue(makeFakeNativeImage(480, 270, () => BRIGHT));

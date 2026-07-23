@@ -57,6 +57,7 @@ import * as arbiScheduleIpc from "./ipc/arbiScheduleIpc";
 import * as tradeTracker from "./services/tradeTracker";
 import * as tradeWfmMatcher from "./services/tradeWfmMatcher";
 import * as apiHelperRunner from "./services/apiHelperRunner";
+import { disposeLinuxStreamCapture } from "./services/linuxStreamCapture";
 import { isTradeNotificationOverlayEnabled } from "./config/runtime/overlaySettings";
 import { WIN_APP_USER_MODEL_ID } from "./config/shared/appMeta";
 
@@ -174,6 +175,7 @@ function createWindow(): void {
       ctx.rivenOverlayLeftWindow.destroy();
     if (ctx.rivenOverlayRightWindow && !ctx.rivenOverlayRightWindow.isDestroyed())
       ctx.rivenOverlayRightWindow.destroy();
+    disposeLinuxStreamCapture();
     app.quit();
   });
 }
@@ -451,6 +453,7 @@ app.on("before-quit", () => {
   eeLogMonitor.stopWatching();
   overlayIpc.unregisterOverlayHotkey();
   arbiScheduleIpc.shutdown();
+  disposeLinuxStreamCapture();
 });
 
 app.on("will-quit", () => {

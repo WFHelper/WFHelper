@@ -7,6 +7,7 @@
 import type { NativeImage } from "electron";
 import { withScope } from "./logger";
 import { captureGdi, getGameWindowClientRect } from "./dxgiCapture";
+import { captureLinuxStreamFrame } from "./linuxStreamCapture";
 import { detectGameContentRect } from "./rewardScannerImage";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
@@ -117,6 +118,26 @@ async function captureDesktopCapturer(
   }
 }
 
+// Linux: one persistent getDisplayMedia stream (single portal prompt per
+// session). Returns null rather than falling back to desktopCapturer, which
+// would re-open the Wayland picker.
+async function captureLinuxStream(): Promise<CaptureResult | null> {
+  try {
+    const frame = await captureLinuxStreamFrame();
+    if (!frame) return null;
+    return {
+      image: trimToGameContent(frame),
+      sourceType: "screen",
+      sourceName: "getDisplayMedia stream",
+      sourceId: "linux-stream",
+      sourceDisplayId: "",
+    };
+  } catch (err) {
+    log.warn("[ScreenCapture] linux stream capture failed:", normalizeErrorMessage(err));
+    return null;
+  }
+}
+
 // Sole platform dispatch point. On win32 a GDI failure returns null rather
 // than falling back to desktopCapturer, which can serve stale MPO content.
 // _captureTimeoutMs kept for API compatibility; both backends return current content.
@@ -124,6 +145,9 @@ export async function captureScreenFast(
   preferredDisplayId?: string | null,
   _captureTimeoutMs = 0,
 ): Promise<CaptureResult | null> {
+  if (process.platform === "linux") {
+    return captureLinuxStream();
+  }
   if (process.platform !== "win32") {
     return captureDesktopCapturer(preferredDisplayId);
   }

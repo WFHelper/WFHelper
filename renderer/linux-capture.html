@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'none'; img-src 'none'; connect-src 'none'; base-uri 'none'; object-src 'none'; form-action 'none';"
+    />
+    <title>WFHelper Screen Capture</title>
+  </head>
+  <body>
+    <!--
+      Hidden window that holds ONE persistent getDisplayMedia stream so the
+      Wayland screen-share portal prompts once per app session instead of on
+      every scan. Main process pulls frames via executeJavaScript.
+    -->
+    <video id="v" autoplay muted playsinline></video>
+    <script src="linux-capture.js"></script>
+  </body>
+</html>
