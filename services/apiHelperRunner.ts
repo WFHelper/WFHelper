@@ -12,6 +12,7 @@ import zlib from "node:zlib";
 import { spawn } from "node:child_process";
 import { app } from "electron";
 import type { DownloadStage } from "../config/shared/statsTypes";
+import { readGameAuthz } from "./gameMemoryAuthz";
 
 const log = withScope("apiHelperRunner");
 
@@ -156,9 +157,16 @@ function findExePath(): string | null {
   return null;
 }
 
+// Where inventory.json lives: next to the exe on Windows, in the helper dir on
+// Linux (native reader, no exe).
+function getInventoryDir(): string | null {
+  if (_exePath) return path.dirname(_exePath);
+  return IS_WINDOWS ? null : getHelperDir();
+}
+
 function getInventoryMtime(): number | null {
-  if (!_exePath) return null;
-  const dir = path.dirname(_exePath);
+  const dir = getInventoryDir();
+  if (!dir) return null;
   const inventoryPath = path.join(dir, "inventory.json");
   try {
     const stats = fs.statSync(inventoryPath);
@@ -170,7 +178,8 @@ function getInventoryMtime(): number | null {
 
 export function getStatus(): HelperStatus {
   return {
-    exeFound: _exePath !== null,
+    // Linux reads game memory directly, so the "helper" is always available.
+    exeFound: IS_WINDOWS ? _exePath !== null : true,
     running: _running,
     lastRunAt: _lastRunAt,
     lastRunOk: _lastRunOk,
@@ -183,7 +192,56 @@ export function getStatus(): HelperStatus {
  * Run the helper exe once and resolve when it exits.
  * Uses `windowsHide: true` so no CMD window appears.
  */
+// Linux: skip the external ELF entirely - read the auth query from game memory
+// and reuse the same inventory fetch as Windows.
+async function runOnceLinux(): Promise<boolean> {
+  _running = true;
+  log.info("Reading inventory auth from game memory...");
+  const settle = (ok: boolean): boolean => {
+    _running = false;
+    _lastRunOk = ok;
+    _lastRunAt = Date.now();
+    return ok;
+  };
+
+  const result = await readGameAuthz().catch((err) => {
+    log.error("Game memory read failed:", err instanceof Error ? err.message : String(err));
+    return null;
+  });
+
+  if (!result?.authz) {
+    if (result?.reason === "process-not-found") {
+      log.warn("Warframe is not running - start the game and log in first.");
+    } else if (result?.reason.startsWith("mem-open-")) {
+      log.error(
+        `Cannot read game memory (${result.reason}). Set kernel.yama.ptrace_scope=0, ` +
+          "or grant cap_sys_ptrace (see the Linux notes in the release).",
+      );
+    } else {
+      log.warn("Auth params not in game memory - are you logged in and in your Orbiter?");
+    }
+    return settle(false);
+  }
+
+  log.info(`Auth acquired from game memory (${result.reason})`);
+  const dir = getHelperDir();
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch {
+    // dir already exists or cannot be created - fetch will surface any write error
+  }
+  try {
+    await fetchInventoryWithAuthz(result.authz, path.join(dir, "inventory.json"));
+    return settle(true);
+  } catch (err) {
+    log.error("Inventory fetch failed:", err instanceof Error ? err.message : String(err));
+    return settle(false);
+  }
+}
+
 export function runOnce(): Promise<boolean> {
+  if (_running) return Promise.resolve(false);
+  if (!IS_WINDOWS) return runOnceLinux();
   return new Promise((resolve) => {
     if (!_exePath) {
       _exePath = findExePath();
@@ -352,10 +410,14 @@ export function startPolling(
 ): void {
   if (_pollTimer || _startupTimer) return; // already started
 
-  _exePath = findExePath();
-  if (!_exePath) {
-    log.warn(`${EXE_NAME} not found - polling disabled`);
-    return;
+  if (IS_WINDOWS) {
+    _exePath = findExePath();
+    if (!_exePath) {
+      log.warn(`${EXE_NAME} not found - polling disabled`);
+      return;
+    }
+  } else {
+    log.info("Linux: inventory read directly from game memory (no external helper).");
   }
 
   log.info(`Starting helper polling every ${(intervalMs / 60_000).toFixed(0)} min`);
