@@ -6,7 +6,7 @@
  */
 
 import { withScope } from "../../services/logger";
-import { captureScreenFast, type CaptureResult } from "../../services/rewardScannerCapture";
+import { captureScreenFast, type CaptureResult } from "../../services/screenCapture";
 import { detectGameContentRect } from "../../services/rewardScannerImage";
 import { sleep } from "../../services/rewardScannerUtils";
 import {

@@ -4,7 +4,7 @@ import type { NativeImage } from "electron";
 import { REWARD_FRAME_DEDUP_TTL_MS } from "../config/runtime/cacheConfig";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { withScope } from "./logger";
-import { captureScreenFast, type CaptureResult } from "./rewardScannerCapture";
+import { captureScreenFast, type CaptureResult } from "./screenCapture";
 import { buildOcrVariants, cropRewardBand, detectConsoleOpen } from "./rewardScannerImage";
 import { matchItemsDetailed, MAX_REWARD_SLOTS, type SortedItem } from "./rewardScannerMatch";
 import {

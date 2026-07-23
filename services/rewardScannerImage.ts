@@ -257,8 +257,8 @@ const SLOT_LAYOUT_REGION = Object.freeze({ x: 0.03, y: 0.37, width: 0.94, height
 
 // Cards are 0.122W wide on a 0.127W pitch centered at x=0.5 for every choice
 // count (measured on real 1080p screens). Ratios assume the frame is game
-// content - windowed captures are pre-cropped to the client rect in
-// rewardScannerCapture.
+// content - windowed captures are pre-cropped to the client rect (win32) or
+// letterbox-trimmed (elsewhere) in screenCapture.
 const FIXED_REWARD_LAYOUTS: Readonly<
   Record<number, Array<{ x: number; y: number; width: number; height: number }>>
 > = Object.freeze({

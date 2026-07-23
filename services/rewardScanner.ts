@@ -20,7 +20,7 @@ import {
 import type { SortedItem } from "./rewardScannerMatch";
 import type { RewardReader } from "./rewardScannerSlotScan";
 
-export { captureSourceMeta } from "./rewardScannerCapture";
+export { captureSourceMeta } from "./screenCapture";
 export { resetFrameDedup };
 
 const log = withScope("rewardScanner");

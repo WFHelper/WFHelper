@@ -1,4 +1,4 @@
-import { captureScreenFast, type CaptureResult } from "../../services/rewardScannerCapture";
+import { captureScreenFast, type CaptureResult } from "../../services/screenCapture";
 import type { NativeImage } from "electron";
 import { cropRectContent, detectGameContentRect } from "../../services/rewardScannerImage";
 import { clamp01, computeMeanAndStd, sleep } from "../../services/rewardScannerUtils";

@@ -4,7 +4,7 @@ import type { NativeImage } from "electron";
 
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { withScope } from "./logger";
-import { captureScreenFast, type CaptureResult } from "./rewardScannerCapture";
+import { captureScreenFast, type CaptureResult } from "./screenCapture";
 import { buildOcrVariants, cropBand, cropRect } from "./rewardScannerImage";
 import {
   detectRelicEraFromFilterLabelText,
