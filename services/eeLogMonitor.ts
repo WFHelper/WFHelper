@@ -3,6 +3,11 @@ import chokidar from "chokidar";
 import { withScope } from "./logger";
 import { EeUptimeTracker } from "./eeUptime";
 import { startDbwinWorker, stopDbwinWorker, isDbwinActive } from "./dbwinMonitor";
+import {
+  startProtonDebugstrMonitor,
+  stopProtonDebugstrMonitor,
+  isProtonDebugstrActive,
+} from "./protonDebugstrMonitor";
 import { resolveEeLogPath } from "./eeLogPath";
 import {
   RIVEN_PATTERNS,
@@ -24,6 +29,12 @@ import type { TradeType, TradeDirection } from "../config/shared/statsTypes";
 import { stripPlatformGlyphs, isLogFrameworkLine, stripDialogArgTail } from "./tradeLogSanitize";
 
 const log = withScope("eeLogMonitor");
+
+// Both real-time sources share the "dbwin" line tag, so file-poll echo dedup
+// behaves identically whether lines arrive via DBWIN or the Proton log tail.
+function realtimeSourceActive(): boolean {
+  return isDbwinActive() || isProtonDebugstrActive();
+}
 
 /** Resolved by startWatching() via eeLogPath discovery; null until then. */
 let EE_LOG_PATH: string | null = null;
@@ -342,7 +353,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   if (REWARD_TRIGGER_PATTERNS.some((pattern) => pattern.test(line))) {
     const isFlushEcho =
       source === "file" &&
-      isDbwinActive() &&
+      realtimeSourceActive() &&
       Date.now() - lastRewardAt < REWARD_FILE_ECHO_WINDOW_MS;
     if (isFlushEcho) {
       log.info("[EELog] Reward file echo ignored - DBWIN already handled this crack");
@@ -358,7 +369,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   // When DBWIN is active, skip relic picker pattern processing from file-poll lines.
   // DBWIN delivers lines instantly; the file poll re-delivers the same lines later,
   // causing phantom re-opens after cooldown expiry.
-  const skipRelicFromFilePoll = isDbwinActive() && source === "file";
+  const skipRelicFromFilePoll = realtimeSourceActive() && source === "file";
 
   if (!skipRelicFromFilePoll && RELIC_PICKER_PATTERNS.some((pattern) => pattern.test(line))) {
     scheduleTrigger("relic_picker", source, stalenessMs);
@@ -421,7 +432,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   }
 
   // Delegate to the riven state machine - returns whether SendResult was consumed.
-  processRivenPatterns(line, source, isDbwinActive());
+  processRivenPatterns(line, source, realtimeSourceActive());
 
   // Arbitration run tracking (internally ignores dbwin-source lines).
   processArbiLine(line, source);
@@ -691,10 +702,13 @@ export function startWatching(
   }
   pollReadNewBytes();
 
-  // DBWIN (OutputDebugString) instant triggers are a Win32 mechanism; other
-  // platforms rely on the file poll alone.
+  // DBWIN (OutputDebugString) instant triggers are a Win32 mechanism; Linux
+  // hears the same stream via Proton's log when the user opts in through
+  // launch options. Other platforms rely on the file poll alone.
   if (process.platform === "win32") {
     startDbwinWorker((line) => handleLine(line, "dbwin"));
+  } else if (process.platform === "linux") {
+    startProtonDebugstrMonitor((line) => handleLine(line, "dbwin"));
   }
 
   log.info("[EELog] Watching:", EE_LOG_PATH);
@@ -704,6 +718,7 @@ export function startWatching(
 export function stopWatching(): void {
   shutdownArbiTracker();
   stopDbwinWorker();
+  stopProtonDebugstrMonitor();
   clearPendingTimers();
   clearPollTimer();
   closePollFd();

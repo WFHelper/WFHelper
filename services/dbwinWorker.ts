@@ -15,6 +15,7 @@
 
 import { workerData, parentPort } from "worker_threads";
 import koffi from "koffi";
+import { DebugLineGate } from "./debugLineFilter";
 
 // Win32 API declarations
 const kernel32 = koffi.load("kernel32.dll");
@@ -99,40 +100,14 @@ const MAX_PATH = 260;
 const WARFRAME_POLL_MS = 2000;
 // Phase 1: re-confirm Warframe is still running this often (milliseconds)
 const WARFRAME_RECHECK_MS = 5000;
-// Relic picker lines (LoadingCompleteEnd / PopulateInventoryGrid) can repeat
-// while the fissure screen is open. Match the eeLogMonitor cooldown so one
-// delivery per trigger cycle reaches the main thread.
-const RELIC_PICKER_DBWIN_SUPPRESS_MS = 7500;
-let _relicPickerSuppressUntil = 0;
-// One AddTab forward per window is enough; also guards re-delivery regressions.
-const CHAT_TAB_DBWIN_SUPPRESS_MS = 2000;
-let _chatTabSuppressUntil = 0;
-
 // Decoded as a typed-array COPY into V8 memory. koffi.view() is a fatal napi
 // error under Electron's memory cage (no external ArrayBuffers) - never use it.
 const uint8ArrayType = koffi.array("uint8", DBWIN_BUFFER_SIZE, "Typed");
 
 // Only forward lines that can possibly match a pattern in eeLogMonitor.
 // Everything else is discarded here in the Worker - no IPC overhead.
-// Lowercase to allow a single case-insensitive check without regex cost.
-const FILTER_SUBSTRINGS_LOWER = [
-  "loadingcompleteend",        // relic selection screen ready (primary trigger)
-  "populateinventorygrid",     // relic selection screen ready (fallback trigger)
-  "initmapping",               // relic picker close (returns to gameplay)
-  "dialog::sendresult",        // relic/riven dialog closing
-  "pause countdown done",      // mission reward trigger
-  "got rewards",               // mission reward trigger
-  "omegarerollselection.swf",  // riven rolling screen opened
-  "diorama setup",             // riven diorama ready (OmegaRerollSelection.lua)
-  "npcmanager::clearagents",   // riven session close
-  "recycled effects",          // riven session close (alt signal)
-  "dialog::createokcancel",    // riven cycle confirm / choice confirm
-  "themeddetailedpurchasedialog", // chat riven HudVis + PopulateInfo detection
-  "tradingpost.lua",           // trade partner detection
-  "you are offering",          // trade dialog buffering start
-  "the trade was successful",  // trade dialog success
-  "chatredux::addtab",         // incoming whisper opens a private chat tab
-] as const;
+// Filter list + repeat suppression shared with the Linux Proton tail.
+const lineGate = new DebugLineGate();
 
 // isWarframePid - check (and cache) whether a PID belongs to Warframe.x64.exe
 // Caches pid -> boolean so that QueryFullProcessImageNameW is called once per
@@ -301,23 +276,9 @@ function runDbwinLoop(): void {
         // mojibake, so the same line produced different strings per source.
         const msg = buf.toString("utf8", 4, end);
 
-        // Pre-filter: only forward lines that match one of our trigger substrings.
-        // The main thread's handleLine() still does the authoritative regex check.
-        const msgLower = msg.toLowerCase();
-        if (FILTER_SUBSTRINGS_LOWER.some((s) => msgLower.includes(s))) {
-          // Suppress relic-line repeats within the cooldown window - repeats
-          // would flood the main thread and starve async OCR.
-          const isRelicLine =
-            msgLower.includes("loadingcompleteend") ||
-            msgLower.includes("populateinventorygrid");
-          if (isRelicLine) {
-            if (now < _relicPickerSuppressUntil) continue;
-            _relicPickerSuppressUntil = now + RELIC_PICKER_DBWIN_SUPPRESS_MS;
-          }
-          if (msgLower.includes("chatredux::addtab")) {
-            if (now < _chatTabSuppressUntil) continue;
-            _chatTabSuppressUntil = now + CHAT_TAB_DBWIN_SUPPRESS_MS;
-          }
+        // Pre-filter + repeat suppression - unfiltered repeats would flood
+        // the main thread and starve async OCR.
+        if (lineGate.wants(msg, now)) {
           parentPort?.postMessage({ type: "line", pid, msg });
         }
       }
