@@ -577,7 +577,10 @@ type InventoryMasteryEntry = Record<string, unknown> & {
 };
 
 interface OwnedMasteryRecord {
+  /** Current rank (post-forma this resets to 0) - drives the level bar. */
   rank: number;
+  /** Highest rank ever reached - mastery credit is banked at this rank. */
+  masteryRank: number;
   maxRank: number;
   owned: boolean;
   mastered: boolean;
@@ -600,6 +603,7 @@ function readOwnedMasteryRecord(
   const masteredFlag = extractMasteredFlag(entry);
   const record: OwnedMasteryRecord = {
     rank,
+    masteryRank: rank,
     maxRank,
     owned,
     mastered: masteredFlag === true || rank >= maxRank,
@@ -648,23 +652,26 @@ function betterMasteryRecord(
   if (!candidate) return current;
   if (!current) return candidate;
 
+  // Bank the highest rank either record saw; display fields pick a winner below.
+  const masteryRank = Math.max(current.masteryRank, candidate.masteryRank);
+
   if (candidate.mastered !== current.mastered) {
-    return candidate.mastered ? candidate : current;
+    return { ...(candidate.mastered ? candidate : current), masteryRank };
   }
 
   if (candidate.rank !== current.rank) {
-    return candidate.rank > current.rank ? candidate : current;
+    return { ...(candidate.rank > current.rank ? candidate : current), masteryRank };
   }
 
   if (candidate.maxRank !== current.maxRank) {
-    return candidate.maxRank > current.maxRank ? candidate : current;
+    return { ...(candidate.maxRank > current.maxRank ? candidate : current), masteryRank };
   }
 
   if (candidate.owned !== current.owned) {
-    return candidate.owned ? candidate : current;
+    return { ...(candidate.owned ? candidate : current), masteryRank };
   }
 
-  return current;
+  return { ...current, masteryRank };
 }
 
 export function getAllMasterableItems(): MasterableItem[] {
@@ -790,13 +797,17 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
       if (!entry.ItemType) continue;
       const existing = ownedMap.get(entry.ItemType);
       const dbItem = itemDb.lookupItem(entry.ItemType);
+      // Plexus (railjack harness) grants suit-rate mastery but has no db entry.
+      const isSuit =
+        dbItem?.category === "Warframe" ||
+        dbItem?.category === "Companion" ||
+        /\/CrewShip\/(?:RailJack\/Default)?Harness$/i.test(entry.ItemType) ||
+        /RailjackHarness$/i.test(entry.ItemType);
       const record = readOwnedMasteryRecord(
         entry,
         existing?.maxRank ?? MAX_ITEM_RANK,
         false,
-        dbItem?.category === "Warframe" || dbItem?.category === "Companion"
-          ? SUIT_AFFINITY_PER_RANK_SQUARED
-          : WEAPON_AFFINITY_PER_RANK_SQUARED,
+        isSuit ? SUIT_AFFINITY_PER_RANK_SQUARED : WEAPON_AFFINITY_PER_RANK_SQUARED,
       );
       if (!record) continue;
 
@@ -805,6 +816,8 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
           ...existing,
           maxRank: Math.max(existing.maxRank, record.maxRank),
           mastered: existing.mastered || record.mastered,
+          // Forma resets owned rank to 0; keep credit at the highest rank.
+          masteryRank: Math.max(existing.masteryRank, record.masteryRank),
         });
         continue;
       }
@@ -841,7 +854,9 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
       maxRank = owned.maxRank;
       currentlyOwned = owned.owned !== false;
       status = owned.mastered || rank >= maxRank ? "mastered" : "progress";
-      masteryXp = Math.min(rank, maxRank) * owned.masteryPerRank;
+      // Credit the highest historical rank; a mastered flag banks the full max.
+      const creditRank = owned.mastered ? maxRank : owned.masteryRank;
+      masteryXp = Math.min(creditRank, maxRank) * owned.masteryPerRank;
     }
 
     // Annotate components with ownership

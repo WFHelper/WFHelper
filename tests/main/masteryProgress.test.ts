@@ -31,6 +31,22 @@ describe("mastery progress", () => {
     expect(item?.rank).toBe(0);
     expect(item?.status).toBe("mastered");
     expect(progress.stats.inProgress).toBe(0);
+    // Mastery credit stays banked at the historical rank, not the reset one.
+    expect(item?.masteryXp).toBe(3_000);
+  });
+
+  it("credits partially releveled forma gear at its highest historical rank", () => {
+    const acceltraPrime = "/Lotus/Weapons/Tenno/LongGuns/PrimeAcceltra/PrimeAcceltraWeapon";
+    const progress = masteryHelper.computeMasteryProgress({
+      LongGuns: [{ ItemType: acceltraPrime, XP: weaponXpForRank(10) }],
+      XPInfo: [{ ItemType: acceltraPrime, XP: weaponXpForRank(22) }],
+    });
+
+    const item = progress.items.find((entry) => entry.uniqueName === acceltraPrime);
+
+    expect(item?.rank).toBe(10); // level bar shows the current rank
+    expect(item?.status).toBe("progress");
+    expect(item?.masteryXp).toBe(2_200); // credit uses the historical rank 22
   });
 
   it("merges bayonet primary and melee mastery evidence after a Forma reset", () => {
@@ -99,8 +115,9 @@ describe("mastery progress", () => {
       ],
       XPInfo: [
         {
+          // Plexus accrues suit-rate affinity (200 mastery per rank).
           ItemType: "/Lotus/Types/Game/CrewShip/RailJack/DefaultHarness",
-          XP: weaponXpForRank(30),
+          XP: suitXpForRank(30),
         },
       ],
     });
