@@ -280,6 +280,15 @@ export function runOnce(): Promise<boolean> {
       const m = outputBuf.match(/\?accountId=[a-f0-9]+&nonce=\d+/i);
       if (!m) {
         log.error("Helper output did not contain auth params");
+        if (!IS_WINDOWS) {
+          // The helper reads the game's memory; on a non-child process that
+          // needs ptrace, which most distros restrict via yama ptrace_scope.
+          log.error(
+            "Linux: ensure Warframe is running and logged in, and that the helper " +
+              "can read game memory - either set kernel.yama.ptrace_scope=0 or grant " +
+              "the helper cap_sys_ptrace (see the Linux notes in the release).",
+          );
+        }
         finish(false);
         return;
       }
