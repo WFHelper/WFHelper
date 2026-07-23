@@ -133,7 +133,9 @@ function _browserUa(): string {
   return `Mozilla/5.0 (${os}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome ?? "136.0.0.0"} Safari/537.36`;
 }
 
-async function _csrfAttempt(userAgent: string): Promise<boolean> {
+type CsrfAttemptResult = "ok" | "challenge" | "no-token";
+
+async function _csrfAttempt(userAgent: string): Promise<CsrfAttemptResult> {
   const headers: Record<string, string> = {
     Accept: "text/html,application/xhtml+xml",
     "User-Agent": userAgent,
@@ -150,30 +152,119 @@ async function _csrfAttempt(userAgent: string): Promise<boolean> {
   if (typeof payload?.csrf_token === "string" && payload.csrf_token) {
     _csrfToken = payload.csrf_token;
     log.info("[WFMClient] CSRF token acquired from JWT payload");
-  } else if (metaCsrf && !metaCsrf.startsWith("##")) {
+    return "ok";
+  }
+  if (metaCsrf && !metaCsrf.startsWith("##")) {
     _csrfToken = metaCsrf;
     log.info("[WFMClient] CSRF token acquired from page meta");
-  } else {
-    // No cookie AND no meta = we did not get the real WFM page (usually a
-    // Cloudflare challenge or a local proxy) - fingerprint it for reports.
-    const title = (html.match(/<title>([^<]{0,60})/i)?.[1] || "").trim();
-    log.warn(
-      `[WFMClient] No usable csrf token (jwt cookie: ${jwtMatch ? "yes" : "no"}, ` +
-        `meta: ${metaCsrf ? metaCsrf.slice(0, 12) + "..." : "none"}, ` +
-        `status=${resp.status}, bytes=${html.length}, title="${title}")`,
-    );
+    return "ok";
   }
-  return _csrfToken !== null;
+  // No cookie AND no meta = we did not get the real WFM page (usually a
+  // Cloudflare challenge or a local proxy) - fingerprint it for reports.
+  const title = (html.match(/<title>([^<]{0,60})/i)?.[1] || "").trim();
+  log.warn(
+    `[WFMClient] No usable csrf token (jwt cookie: ${jwtMatch ? "yes" : "no"}, ` +
+      `meta: ${metaCsrf ? metaCsrf.slice(0, 12) + "..." : "none"}, ` +
+      `status=${resp.status}, bytes=${html.length}, title="${title}")`,
+  );
+  const isChallenge =
+    resp.headers.get("cf-mitigated") === "challenge" ||
+    (resp.status === 403 && /just a moment|cf-chl|challenge-platform/i.test(html));
+  return isChallenge ? "challenge" : "no-token";
+}
+
+// Cloudflare clearance earned by a real window solving the JS challenge.
+// The clearance is bound to the UA it was earned with - send the same one.
+let _clearanceCookie: string | null = null;
+let _clearanceUa: string | null = null;
+let _challengeSolve: Promise<boolean> | null = null;
+
+function _solveChallengeInWindow(): Promise<boolean> {
+  if (_challengeSolve) return _challengeSolve;
+  _challengeSolve = (async () => {
+    try {
+      const { BrowserWindow, session } = require("electron") as typeof import("electron");
+      const part = session.fromPartition("persist:wfm-clearance");
+      const ua = _browserUa();
+      part.setUserAgent(ua);
+      const win = new BrowserWindow({
+        width: 480,
+        height: 640,
+        show: false,
+        title: "warframe.market security check",
+        autoHideMenuBar: true,
+        webPreferences: {
+          partition: "persist:wfm-clearance",
+          sandbox: true,
+          contextIsolation: true,
+          nodeIntegration: false,
+        },
+      });
+      win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+      win.webContents.on("will-navigate", (e, target) => {
+        if (!/^https:\/\/([a-z0-9-]+\.)?warframe\.market\//i.test(target)) e.preventDefault();
+      });
+      try {
+        void win.loadURL("https://warframe.market/");
+        const startedAt = Date.now();
+        let shown = false;
+        while (Date.now() - startedAt < 120_000) {
+          await new Promise((r) => setTimeout(r, 500));
+          if (win.isDestroyed()) return false; // user closed the window
+          const cookies = await part.cookies.get({ domain: ".warframe.market" });
+          const jwt = cookies.find((c) => c.name === "JWT")?.value;
+          if (jwt) {
+            const cf = cookies.filter((c) => /^(cf_clearance|__cf)/i.test(c.name));
+            _clearanceCookie = cf.length ? cf.map((c) => `${c.name}=${c.value}`).join("; ") : null;
+            _clearanceUa = ua;
+            _cookieJwt = jwt;
+            log.info(
+              `[WFMClient] challenge window passed after ${Date.now() - startedAt}ms ` +
+                `(${cf.length ? "clearance stored" : "no clearance cookie"}, shown: ${shown})`,
+            );
+            return true;
+          }
+          // Managed challenges self-solve in a few seconds; interactive ones
+          // (turnstile checkbox) need the user - surface the window.
+          if (!shown && Date.now() - startedAt > 8_000) {
+            shown = true;
+            win.show();
+            log.info("[WFMClient] challenge needs interaction - showing window");
+          }
+        }
+        log.warn("[WFMClient] challenge window timed out");
+        return false;
+      } finally {
+        if (!win.isDestroyed()) win.destroy();
+      }
+    } catch (e) {
+      log.warn("[WFMClient] challenge window failed:", normalizeErrorMessage(e));
+      return false;
+    } finally {
+      _challengeSolve = null;
+    }
+  })();
+  return _challengeSolve;
 }
 
 async function _ensureCsrfToken(): Promise<string | null> {
   if (_csrfToken) return _csrfToken;
   try {
-    if (await _csrfAttempt("Mozilla/5.0 WFHelper/1.0")) return _csrfToken;
-    // Field reports 2026-07: some connections get a tokenless page for the
-    // plain UA while a real browser passes - retry once as our Chromium UA.
-    if (await _csrfAttempt(_browserUa())) {
-      log.info("[WFMClient] CSRF token acquired on browser-UA retry");
+    // Browser UA first: it matches the chromium transport's TLS fingerprint,
+    // and a mismatched pair is itself a bot signal.
+    const first = await _csrfAttempt(_browserUa());
+    if (first === "ok") return _csrfToken;
+    if (first === "no-token" && (await _csrfAttempt("Mozilla/5.0 WFHelper/1.0")) === "ok") {
+      return _csrfToken;
+    }
+    // Challenged (or persistently tokenless): only a real page can run the
+    // challenge JS - solve it in a window and reuse the earned cookies.
+    if (await _solveChallengeInWindow()) {
+      const payload = _cookieJwt ? _decodeJwtPayload(_cookieJwt) : null;
+      if (typeof payload?.csrf_token === "string" && payload.csrf_token) {
+        _csrfToken = payload.csrf_token;
+        log.info("[WFMClient] CSRF token acquired via challenge window");
+      }
     }
   } catch (e) {
     log.warn("[WFMClient] CSRF prefetch failed:", normalizeErrorMessage(e));
@@ -254,6 +345,14 @@ function _request(
   if (!_transportLogged) {
     _transportLogged = true;
     log.info(`[WFMClient] transport: ${net ? "chromium" : "node"}`);
+  }
+  // Ride the earned clearance: the cookie only passes with the UA it was
+  // earned under, so both travel together on every request.
+  if (_clearanceUa) headers["User-Agent"] = _clearanceUa;
+  if (_clearanceCookie) {
+    headers["Cookie"] = headers["Cookie"]
+      ? `${headers["Cookie"]}; ${_clearanceCookie}`
+      : _clearanceCookie;
   }
   return net
     ? _chromiumRequest(net, method, url, headers, body)
