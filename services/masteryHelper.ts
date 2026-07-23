@@ -389,15 +389,41 @@ function extractProfileMastery(
   if (rank != null && totalXp != null) {
     const currentThreshold = masteryRankToXp(rank);
     const nextThreshold = masteryRankToXp(rank + 1);
-    const xpIntoRank = Math.max(0, totalXp - currentThreshold);
     const xpForNext = nextThreshold - currentThreshold;
+
+    // XP banked for the next test, game rank not yet advanced.
+    if (totalXp >= nextThreshold) {
+      return {
+        rank,
+        percentToNext: 100,
+        totalXp,
+        xpIntoRank: xpForNext,
+        xpForNext,
+        testReady: true,
+      };
+    }
+
+    // Reconstruction undercounts big accounts; below the rank floor, trust the
+    // game rank and drop the bar rather than show a fake "0 / N".
+    if (totalXp < currentThreshold) {
+      return {
+        rank,
+        percentToNext: null,
+        totalXp,
+        xpIntoRank: null,
+        xpForNext: null,
+        testReady: false,
+      };
+    }
+
+    const xpIntoRank = totalXp - currentThreshold;
     return {
       rank,
       percentToNext: Math.min(100, Number(((xpIntoRank / xpForNext) * 100).toFixed(1))),
       totalXp,
       xpIntoRank,
       xpForNext,
-      testReady: totalXp >= nextThreshold,
+      testReady: false,
     };
   }
 

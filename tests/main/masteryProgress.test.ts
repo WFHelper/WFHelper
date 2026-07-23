@@ -146,6 +146,22 @@ describe("mastery progress", () => {
     expect(pm?.testReady).toBe(false);
   });
 
+  it("drops the xp bar when the reconstructed total undercounts the game rank", () => {
+    // One frame sits far below the MR36 floor: keep the rank, drop the bar.
+    const excalibur = "/Lotus/Powersuits/Excalibur/Excalibur";
+    const progress = masteryHelper.computeMasteryProgress({
+      PlayerLevel: 36,
+      XPInfo: [{ ItemType: excalibur, XP: suitXpForRank(30) }],
+    });
+
+    const pm = progress.stats.profileMastery;
+    expect(pm?.rank).toBe(36);
+    expect(pm?.xpIntoRank).toBeNull();
+    expect(pm?.xpForNext).toBeNull();
+    expect(pm?.percentToNext).toBeNull();
+    expect(pm?.testReady).toBe(false);
+  });
+
   it("flags the next mastery test as ready once XP passes the threshold", () => {
     const excalibur = "/Lotus/Powersuits/Excalibur/Excalibur";
     const progress = masteryHelper.computeMasteryProgress({
