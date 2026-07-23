@@ -185,8 +185,9 @@ function _solveChallengeInWindow(): Promise<boolean> {
     try {
       const { BrowserWindow, session } = require("electron") as typeof import("electron");
       const part = session.fromPartition("persist:wfm-clearance");
-      const ua = _browserUa();
-      part.setUserAgent(ua);
+      // Do NOT spoof the UA here: a Chrome UA string with Electron's real JS
+      // client hints is a mismatch Turnstile detects, and the checkbox then
+      // loops forever. Native Chromium is internally consistent and passes.
       const win = new BrowserWindow({
         width: 480,
         height: 640,
@@ -208,25 +209,33 @@ function _solveChallengeInWindow(): Promise<boolean> {
         void win.loadURL("https://warframe.market/");
         const startedAt = Date.now();
         let shown = false;
+        let lastCookieLog = 0;
         while (Date.now() - startedAt < 120_000) {
           await new Promise((r) => setTimeout(r, 500));
           if (win.isDestroyed()) return false; // user closed the window
           const cookies = await part.cookies.get({ domain: ".warframe.market" });
           const jwt = cookies.find((c) => c.name === "JWT")?.value;
+          const now = Date.now();
+          if (!jwt && now - lastCookieLog > 4_000) {
+            lastCookieLog = now;
+            log.info(`[WFMClient] challenge pending, cookies: [${cookies.map((c) => c.name).join(", ")}]`);
+          }
           if (jwt) {
             const cf = cookies.filter((c) => /^(cf_clearance|__cf)/i.test(c.name));
             _clearanceCookie = cf.length ? cf.map((c) => `${c.name}=${c.value}`).join("; ") : null;
-            _clearanceUa = ua;
+            // Bind to the UA that actually earned clearance - cf_clearance is
+            // rejected if replayed under a different UA.
+            _clearanceUa = win.webContents.getUserAgent();
             _cookieJwt = jwt;
             log.info(
-              `[WFMClient] challenge window passed after ${Date.now() - startedAt}ms ` +
+              `[WFMClient] challenge window passed after ${now - startedAt}ms ` +
                 `(${cf.length ? "clearance stored" : "no clearance cookie"}, shown: ${shown})`,
             );
             return true;
           }
           // Managed challenges self-solve in a few seconds; interactive ones
           // (turnstile checkbox) need the user - surface the window.
-          if (!shown && Date.now() - startedAt > 8_000) {
+          if (!shown && now - startedAt > 8_000) {
             shown = true;
             win.show();
             log.info("[WFMClient] challenge needs interaction - showing window");
