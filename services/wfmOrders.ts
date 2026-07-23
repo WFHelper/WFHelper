@@ -4,11 +4,15 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 import { requestV2 } from "./wfmClient";
 import { getInGameName } from "./wfmSession";
 import * as wfmCatalog from "./wfmCatalog";
-import type { WfmRawOrder, WfmRawOrderItem, WfmOrderMutationData, WfmCloseOrderResult } from "./wfmTypes";
+import type {
+  WfmRawOrder,
+  WfmRawOrderItem,
+  WfmOrderMutationData,
+  WfmCloseOrderResult,
+} from "./wfmTypes";
 import { unwrapWfmResponse } from "./wfmTypes";
 
 import { formatWfmAssetUrl } from "../config/shared/wfm";
-
 
 export interface NormalisedOrder {
   id: string;
@@ -22,7 +26,6 @@ export interface NormalisedOrder {
   itemUrlName: string | null;
   itemThumb: string | null;
 }
-
 
 function normalise(raw: WfmRawOrder, forcedType?: string): NormalisedOrder {
   // v2: item details come from catalog enrichment (raw._catalogItem), not embedded object
@@ -81,7 +84,10 @@ function _extractOrders(data: unknown): { sell: NormalisedOrder[]; buy: Normalis
     sell = arr.filter((o) => getType(o) === "sell").map((o) => normalise(o));
     buy = arr.filter((o) => getType(o) === "buy").map((o) => normalise(o));
   } else {
-    log.info("[WFMOrders] Unknown response shape. Top-level keys:", Object.keys((data as object) || {}));
+    log.info(
+      "[WFMOrders] Unknown response shape. Top-level keys:",
+      Object.keys((data as object) || {}),
+    );
     if (payload && typeof payload === "object") {
       log.info("[WFMOrders] Payload keys:", Object.keys(payload as object));
     }
@@ -118,6 +124,10 @@ export async function getMyOrders(): Promise<{ sell: NormalisedOrder[]; buy: Nor
   return { sell, buy };
 }
 
+// api 0.25 rejects perTrade; 0.24 required it. Remember which shape the server
+// accepts and retry once on the opposite 400.
+let _sendPerTrade = false;
+
 export async function createOrder({
   itemId,
   orderType,
@@ -139,20 +149,39 @@ export async function createOrder({
     throw new Error("createOrder: itemId, orderType, platinum, and quantity are required.");
   }
   const qty = Number(quantity);
-  const body: Record<string, unknown> = {
-    // v2 field names (camelCase, not snake_case like v1)
-    itemId,
-    type: orderType,
-    platinum: Number(platinum),
-    quantity: qty,
-    // v2 rejects orders without perTrade (max units per in-game trade).
-    perTrade: Math.min(Math.max(1, Math.floor(Number(perTrade) || 1)), Math.max(1, qty)),
-    visible: !!visible,
+  const buildBody = (sendPerTrade: boolean): Record<string, unknown> => {
+    const body: Record<string, unknown> = {
+      // v2 field names (camelCase, not snake_case like v1)
+      itemId,
+      type: orderType,
+      platinum: Number(platinum),
+      quantity: qty,
+      visible: !!visible,
+    };
+    if (sendPerTrade) {
+      // perTrade = max units per in-game trade, clamped to [1, quantity].
+      body.perTrade = Math.min(Math.max(1, Math.floor(Number(perTrade) || 1)), Math.max(1, qty));
+    }
+    if (modRank != null) body.rank = Number(modRank); // v2: 'rank' not 'mod_rank'
+    return body;
   };
-  if (modRank != null) body.rank = Number(modRank); // v2: 'rank' not 'mod_rank'
 
   // v2: POST /order
-  const data = await requestV2("POST", "/order", { json: body });
+  let data: unknown;
+  try {
+    data = await requestV2("POST", "/order", { json: buildBody(_sendPerTrade) });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const wantsFlip = _sendPerTrade ? /notAllowed/i : /required/i;
+    if (!/perTrade/i.test(message) || !wantsFlip.test(message)) throw err;
+    _sendPerTrade = !_sendPerTrade;
+    log.info(
+      `[WFMOrders] server ${_sendPerTrade ? "requires" : "rejects"} perTrade - retrying ${
+        _sendPerTrade ? "with" : "without"
+      } it`,
+    );
+    data = await requestV2("POST", "/order", { json: buildBody(_sendPerTrade) });
+  }
   const unwrapped = unwrapWfmResponse<WfmOrderMutationData>(data);
   const raw = (unwrapped?.order || unwrapped || data) as WfmRawOrder;
   return normalise(raw);
@@ -189,10 +218,7 @@ export async function deleteOrder(orderId: string): Promise<{ deleted: boolean; 
   return { deleted: true, id: orderId };
 }
 
-export async function closeOrder(
-  orderId: string,
-  quantity: number,
-): Promise<WfmCloseOrderResult> {
+export async function closeOrder(orderId: string, quantity: number): Promise<WfmCloseOrderResult> {
   if (!orderId) throw new Error("closeOrder: orderId is required.");
   if (!Number.isInteger(quantity) || quantity < 1) {
     throw new Error("closeOrder: quantity must be a positive integer.");
