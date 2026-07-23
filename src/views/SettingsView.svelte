@@ -8,7 +8,7 @@
     applyOverlaySettingsResponse,
   } from "../stores/overlaySettings.js";
   import AppearanceCard from "../components/settings/AppearanceCard.svelte";
-  import { invoke, send } from "../lib/ipc.js";
+  import { invoke, send, getPlatform } from "../lib/ipc.js";
   import { tr } from "../lib/i18n.js";
   import { hideFounderMasteryItems } from "../stores/preferences.js";
   import { TOGGLEABLE_TABS, tabVisibility } from "../stores/sidebarTabs.js";
@@ -24,6 +24,23 @@
   let statusMsg = "";
   let statusError = false;
   let statusTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const isLinux = getPlatform() === "linux";
+  // Proton real-time overlay triggers: feeds game log lines live vs EE.log poll.
+  const PROTON_LAUNCH_OPTION = "WINEDEBUG=+debugstr PROTON_LOG=1 %command%";
+  let launchOptionCopied = false;
+  let launchOptionCopyTimer: ReturnType<typeof setTimeout> | null = null;
+
+  async function copyLaunchOption(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(PROTON_LAUNCH_OPTION);
+      launchOptionCopied = true;
+      if (launchOptionCopyTimer) clearTimeout(launchOptionCopyTimer);
+      launchOptionCopyTimer = setTimeout(() => (launchOptionCopied = false), 2000);
+    } catch {
+      // clipboard blocked - the text is selectable in the field as a fallback
+    }
+  }
 
   async function openScanDebugFolder(): Promise<void> {
     try {
@@ -395,6 +412,38 @@
           {/each}
         </div>
       </article>
+
+      {#if isLinux}
+        <article
+          class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]"
+        >
+          <div>
+            <h3
+              class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary"
+            >
+              Linux: instant overlays
+            </h3>
+            <p class="text-[var(--font-small-size,0.82rem)] text-text-secondary">
+              Under Proton the overlay trigger relies on a delayed log. For instant triggers, add
+              this to Warframe's Steam launch options (Steam &gt; right-click Warframe &gt;
+              Properties &gt; Launch Options), then restart the game.
+            </p>
+          </div>
+
+          <div class="mt-2.5 flex items-center gap-2">
+            <input
+              type="text"
+              readonly
+              value={PROTON_LAUNCH_OPTION}
+              class="min-w-0 flex-1 rounded-[var(--radius-md)] border border-[var(--ui-panel-border)] bg-[var(--ui-input-bg,transparent)] px-2 py-1.5 font-mono text-[var(--font-small-size,0.82rem)] text-text-primary"
+              on:focus={(e) => e.currentTarget.select()}
+            />
+            <button class="btn-secondary btn-sm shrink-0" on:click={copyLaunchOption}>
+              {launchOptionCopied ? "Copied" : "Copy"}
+            </button>
+          </div>
+        </article>
+      {/if}
 
       <article
         class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]"

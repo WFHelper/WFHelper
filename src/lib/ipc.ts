@@ -31,6 +31,11 @@ function assertTradeApi(): void {
   }
 }
 
+/** Host OS as reported by the main process (static, exposed on the preload bridge). */
+export function getPlatform(): string {
+  return window.api?.platform ?? "";
+}
+
 export function invoke<K extends ReadOnlyInvokeKey>(
   channel: K,
   ...args: IpcInvokeMap[K]["args"]

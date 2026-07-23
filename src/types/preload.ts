@@ -7,6 +7,7 @@ import type {
 import type { WfmStatus } from "./market.js";
 
 export interface PreloadAPI {
+  platform: string;
   getInventory: () => Promise<IpcInvokeMap["getInventory"]["return"]>;
   openInventoryFile: () => Promise<IpcInvokeMap["openInventoryFile"]["return"]>;
   openAlecaFrameInventoryFile: () => Promise<IpcInvokeMap["openAlecaFrameInventoryFile"]["return"]>;

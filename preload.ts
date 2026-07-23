@@ -100,9 +100,13 @@ type Ret<K extends keyof IpcInvokeMap> = Promise<IpcInvokeMap[K]["return"]>;
 
 try {
   contextBridge.exposeInMainWorld("api", {
+    platform: process.platform,
+
     getInventory: inv<"getInventory">(INVENTORY_GET),
     openInventoryFile: inv<"openInventoryFile">(INVENTORY_OPEN_FILE),
-    openAlecaFrameInventoryFile: inv<"openAlecaFrameInventoryFile">(INVENTORY_OPEN_ALECA_FRAME_FILE),
+    openAlecaFrameInventoryFile: inv<"openAlecaFrameInventoryFile">(
+      INVENTORY_OPEN_ALECA_FRAME_FILE,
+    ),
     getInventoryStatus: inv<"getInventoryStatus">(INVENTORY_GET_STATUS),
 
     getItemDatabase: inv<"getItemDatabase">(DB_GET_ITEM_DATABASE),
