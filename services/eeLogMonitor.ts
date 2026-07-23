@@ -79,8 +79,8 @@ export function parseWhisperUsername(line: string): string | null {
   return name.slice(1).trim() || null;
 }
 
-// The game re-emits the AddTab line in bursts, and the file poll re-delivers
-// dbwin-handled lines up to ~26s later (lazy flush) - dedupe per sender.
+// The file poll re-delivers dbwin-handled lines up to ~26s later (lazy flush)
+// - dedupe per sender; a line dbwin missed is first-seen here and still fires.
 const WHISPER_DEDUP_MS = 30_000;
 const _lastWhisperSeen = new Map<string, number>();
 
