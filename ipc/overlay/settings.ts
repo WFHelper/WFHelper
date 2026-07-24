@@ -1,6 +1,7 @@
 import { normalizeErrorMessage } from "../../config/shared/errors";
 import { clampNumber } from "../../config/shared/numeric";
 import { asRecord } from "../ipcValidators";
+import { LEGACY_INTERACTION_HOTKEY } from "../../config/runtime/overlaySettings";
 import type {
   OverlaySavedWindowBounds,
   OverlaySettings,
@@ -191,8 +192,12 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       hotkeyEnabled: booleanSetting("hotkeyEnabled"),
       hotkey: normalizeHotkey(candidate.hotkey ?? defaults.hotkey, String(defaults.hotkey)),
       interactionHotkeyEnabled: booleanSetting("interactionHotkeyEnabled"),
+      // Migrate the retired Control+Tab default (global grab that stole the
+      // browser tab-switch key) onto the current default.
       interactionHotkey: normalizeHotkey(
-        candidate.interactionHotkey ?? defaults.interactionHotkey,
+        candidate.interactionHotkey === LEGACY_INTERACTION_HOTKEY
+          ? defaults.interactionHotkey
+          : (candidate.interactionHotkey ?? defaults.interactionHotkey),
         String(defaults.interactionHotkey),
       ),
       worldNotificationsEnabled: booleanSetting("worldNotificationsEnabled"),

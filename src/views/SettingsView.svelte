@@ -206,6 +206,43 @@
     void save();
   }
 
+  // Turn a keydown into an Electron accelerator so users can *press* a combo to
+  // set a hotkey instead of typing the string. Returns undefined for presses we
+  // let through (Escape to abort, bare Tab to keep field navigation, a lone
+  // modifier while waiting for the full combo).
+  function captureAccelerator(e: KeyboardEvent): string | undefined {
+    const key = e.key;
+    if (key === "Escape") return undefined;
+    if (["Control", "Shift", "Alt", "Meta", "OS"].includes(key)) return undefined;
+    if (key === "Tab" && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) return undefined;
+    const parts: string[] = [];
+    if (e.ctrlKey) parts.push("Control");
+    if (e.altKey) parts.push("Alt");
+    if (e.shiftKey) parts.push("Shift");
+    if (e.metaKey) parts.push("Super");
+    let main = key;
+    if (main === " ") main = "Space";
+    else if (main.startsWith("Arrow")) main = main.slice(5);
+    else if (main.length === 1) main = main.toUpperCase();
+    parts.push(main);
+    e.preventDefault();
+    return parts.join("+");
+  }
+
+  function recordTriggerHotkey(e: KeyboardEvent): void {
+    const accel = captureAccelerator(e);
+    if (accel === undefined) return;
+    hotkey = accel;
+    autoSave();
+  }
+
+  function recordInteractionHotkey(e: KeyboardEvent): void {
+    const accel = captureAccelerator(e);
+    if (accel === undefined) return;
+    interactionHotkey = accel;
+    autoSave();
+  }
+
   function resetDefaults() {
     applyToForm(OVERLAY_DEFAULTS);
     void queueSave(
@@ -717,6 +754,7 @@
               bind:value={hotkey}
               disabled={!hotkeyEnabled}
               placeholder={$tr("settings.hotkeyPlaceholder")}
+              on:keydown={recordTriggerHotkey}
               on:change={autoSave}
               class="settings-input"
             />
@@ -739,6 +777,7 @@
               bind:value={interactionHotkey}
               disabled={!interactionHotkeyEnabled}
               placeholder={$tr("settings.interactionHotkeyPlaceholder")}
+              on:keydown={recordInteractionHotkey}
               on:change={autoSave}
               class="settings-input"
             />

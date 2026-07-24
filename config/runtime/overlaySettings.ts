@@ -61,7 +61,7 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   hotkeyEnabled: true,
   hotkey: "F8",
   interactionHotkeyEnabled: true,
-  interactionHotkey: "Control+Tab",
+  interactionHotkey: "F7",
   worldNotificationsEnabled: true,
   cycleAlerts: Object.freeze({
     earth: false,
@@ -91,6 +91,11 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   overlayWindowBounds: Object.freeze({}),
   overlayDragHintDismissed: false,
 });
+
+// Retired interaction-hotkey default. Control+Tab is a system-global grab that
+// steals the browser/app tab-switch shortcut, so migrate anyone still on the
+// old default to the new one on load. See normalizeOverlaySettings.
+export const LEGACY_INTERACTION_HOTKEY = "Control+Tab";
 
 type OverlayToggleKey =
   | "relicRewardsOverlayEnabled"

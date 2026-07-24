@@ -59,6 +59,27 @@ describe("overlay settings controller", () => {
     expect(normalized.hotkey).toBe("Control+K");
   });
 
+  it("migrates the retired Control+Tab interaction default off the global grab", () => {
+    const { controller } = buildController();
+
+    const normalized = controller.normalizeOverlaySettings({
+      interactionHotkey: "Control+Tab",
+    });
+
+    expect(normalized.interactionHotkey).toBe(OVERLAY_SETTINGS_DEFAULTS.interactionHotkey);
+    expect(normalized.interactionHotkey).not.toBe("Control+Tab");
+  });
+
+  it("keeps a deliberately-set interaction hotkey that is not the retired default", () => {
+    const { controller } = buildController();
+
+    const normalized = controller.normalizeOverlaySettings({
+      interactionHotkey: "Control+Shift+Tab",
+    });
+
+    expect(normalized.interactionHotkey).toBe("Control+Shift+Tab");
+  });
+
   it("normalizes the full overlay settings schema", () => {
     const { controller } = buildController();
 
