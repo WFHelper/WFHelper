@@ -32,8 +32,7 @@ type OverlaySettingsControllerOptions = {
   log: Logger;
   fs: OverlayFs;
   writeFileAtomic: (filePath: string, data: string) => void;
-  // Minimal shape so a WH_KEYBOARD_LL adapter (keyHookShortcut) can stand in for
-  // Electron's globalShortcut on win32 without the controller knowing.
+  // Minimal shape so keyHookShortcut can stand in for Electron's globalShortcut.
   globalShortcut: {
     register: (accelerator: string, callback: () => void) => boolean;
     unregister: (accelerator: string) => void;
@@ -351,9 +350,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     }
   }
 
-  // Global shortcuts are only held while Warframe is running (gate driven by
-  // main via setHotkeysActive). With the game closed we grab nothing, so the
-  // hotkeys never collide with other apps while the user is off playing.
+  // Hotkeys are only held while Warframe runs; main drives this via setHotkeysActive.
   let hotkeysActive = false;
 
   function registerOverlayHotkey(): boolean {

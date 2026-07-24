@@ -1,20 +1,8 @@
 /**
- * Worker thread that installs a low-level keyboard hook (WH_KEYBOARD_LL) so we
- * can trigger overlay hotkeys WITHOUT a system-wide RegisterHotKey grab.
- *
- * Unlike globalShortcut (RegisterHotKey = exclusive), an LL hook is a passive
- * tap on the keystream: we see every key and decide per-key whether to pass it
- * through (CallNextHookEx) or swallow it (return 1). We only swallow a watched
- * combo while Warframe is the FOREGROUND window - so the browser (and every
- * other app) keeps its keys, exactly how Overwolf/Steam/Discord overlays work.
- *
- * WH_KEYBOARD_LL requires the installing thread to pump Windows messages, hence
- * this dedicated worker running a PeekMessage/MsgWaitForMultipleObjectsEx loop
- * (mirrors dbwinWorker's native message loop). The OS invokes the hook callback
- * synchronously on this thread while it waits, and blocks the keystroke until we
- * return - so the callback must stay fast (well under LowLevelHooksTimeout).
- *
- * Shutdown: parent sets stopBuffer[0]=1; the loop notices within WAIT_TICK_MS.
+ * WH_KEYBOARD_LL hook in a worker: a passive keystream tap, not a RegisterHotKey
+ * grab - swallows a watched combo only while Warframe is foreground. LL hooks
+ * need the installing thread to pump messages (hence the PeekMessage loop), and
+ * the callback blocks the keystroke, so it must stay under LowLevelHooksTimeout.
  */
 
 import { workerData, parentPort } from "worker_threads";
@@ -32,8 +20,7 @@ interface WatchEntry {
 const kernel32 = koffi.load("kernel32.dll");
 const user32 = koffi.load("user32.dll");
 
-// Win32 BOOL is a 4-byte int; koffi "bool" is 1 byte and leaves garbage in the
-// upper bytes, so any BOOL is declared int32 (same gotcha as dbwinWorker).
+// Win32 BOOL is 4 bytes; koffi "bool" is 1 and leaks garbage - always int32.
 const GetModuleHandleW = kernel32.func("GetModuleHandleW", "void *", ["void *"]);
 const OpenProcess = kernel32.func("OpenProcess", "void *", ["uint32", "int32", "uint32"]);
 const CloseHandle = kernel32.func("CloseHandle", "int32", ["void *"]);
@@ -101,14 +88,13 @@ const MAX_PATH = 260;
 const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 const KEY_DOWN_BIT = 0x8000;
 
-// Modifier virtual-key codes.
 const VK_SHIFT = 0x10;
 const VK_CONTROL = 0x11;
 const VK_MENU = 0x12; // Alt
 const VK_LWIN = 0x5b;
 const VK_RWIN = 0x5c;
 
-// ---- foreground = Warframe? (cached per-PID, refreshed periodically) ----
+// ---- foreground = Warframe? (per-PID cache) ----
 const _exeNameBuf = Buffer.alloc(MAX_PATH * 2);
 const _exeNameSizeBuf = Buffer.alloc(4);
 const _pidBuf = Buffer.alloc(4);
@@ -234,10 +220,9 @@ function run(): void {
   let pidCacheResetAt = Date.now() + PID_CACHE_RESET_MS;
   try {
     while (Atomics.load(stopFlag, 0) === 0) {
-      // Drain the queue (drives hook delivery); the hook itself also fires while
-      // we block in MsgWaitForMultipleObjectsEx below.
+      // Drain the queue; an LL hook has no WM_ to dispatch, it just needs a pump.
       while ((PeekMessageW(_msgBuf, null, 0, 0, PM_REMOVE) as number) !== 0) {
-        /* LL hook has no WM_ to dispatch; just keep the queue empty */
+        /* discard */
       }
       MsgWaitForMultipleObjectsEx(0, null, WAIT_TICK_MS, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
 

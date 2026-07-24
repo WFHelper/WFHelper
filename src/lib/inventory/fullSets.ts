@@ -165,8 +165,7 @@ export function buildFullSetItems(
         keywords: ["set", "full set", resolved.name.toLowerCase()],
       });
     } else if (ownedPartTypes > 0) {
-      // In-progress set: at least one part owned, at least one still missing.
-      // (completeSets < 1 with every part owned is impossible, so missingParts >= 1.)
+      // In-progress: at least one part owned, at least one still missing.
       setItems.push({
         ...common,
         category: "incomplete_sets",

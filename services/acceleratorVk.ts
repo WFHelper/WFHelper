@@ -1,6 +1,5 @@
-// Parse an Electron accelerator string ("F8", "Control+Shift+R", "F7") into the
-// Win32 virtual-key + modifier shape the low-level keyboard hook matches on.
-// Pure + testable; the hook worker only ever sees the numeric result.
+// Electron accelerator ("F8", "Control+Shift+R") -> the Win32 virtual-key +
+// modifier shape the low-level keyboard hook matches on.
 
 export interface ParsedAccelerator {
   ctrl: boolean;
@@ -10,7 +9,7 @@ export interface ParsedAccelerator {
   vk: number;
 }
 
-// Named non-character keys our accelerator recorder / normalizer can emit.
+// Named non-character keys the accelerator recorder can emit.
 const NAMED_VK: Record<string, number> = {
   space: 0x20,
   tab: 0x09,

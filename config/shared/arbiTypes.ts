@@ -72,7 +72,7 @@ export interface ArbiRunRecord {
   endReason: ArbiRunEndReason;
   source: ArbiRunSource;
   stats: ArbiRunStats | null;
-  /** User-defined labels for grouping/filtering runs (e.g. "boar run"); optional for pre-existing records. */
+  /** User labels for grouping/filtering (e.g. "boar run"); absent on old records. */
   tags?: string[];
 }
 
@@ -80,12 +80,7 @@ export interface ArbiRunRecord {
 const ARBI_MAX_TAGS = 12;
 const ARBI_MAX_TAG_LEN = 32;
 
-/**
- * Clean an untrusted tag list: coerce to strings, trim, drop empties, collapse
- * inner whitespace, cap each tag's length, dedupe case-insensitively (first
- * spelling wins), and cap the count. Shared by the IPC guard and the tracker so
- * persisted tags are always normalized regardless of entry point.
- */
+/** Total over unknown input; shared by the IPC guard and the tracker. */
 export function normalizeArbiTags(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   const out: string[] = [];

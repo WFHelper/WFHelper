@@ -137,8 +137,7 @@ export function preferGroup(
     arcanes: 4,
     mods: 5,
     relics: 6,
-    // incomplete_sets is synthetic (only buildFullSetItems emits it), never
-    // assigned to a raw entry here; it just needs a slot to satisfy the record.
+    // Synthetic (buildFullSetItems only); here just to satisfy the record type.
     incomplete_sets: 7,
     full_sets: 8,
   };

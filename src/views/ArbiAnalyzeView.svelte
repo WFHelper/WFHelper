@@ -36,8 +36,7 @@
   $: allTags = Array.from(new Set($arbiRuns.flatMap((r) => r.tags ?? []))).sort((a, b) =>
     a.localeCompare(b),
   );
-  // A tag chosen in the dropdown can disappear if its last run is deleted/retagged;
-  // fall back to "all tags" so the list never silently shows nothing.
+  // The selected tag can vanish (last run deleted/retagged) - don't strand the list.
   $: if (filterTag && !allTags.includes(filterTag)) filterTag = "";
   $: filteredRuns = $arbiRuns.filter((run) => {
     if (filterType !== "all" && run.missionType !== filterType) return false;

@@ -1,12 +1,7 @@
 /**
- * globalShortcut-compatible facade backed by the WH_KEYBOARD_LL worker
- * (keyHookWorker). Drop-in for the overlay settings controller's `globalShortcut`
- * dependency on win32: same register/unregister shape, but instead of a
- * system-wide RegisterHotKey it only swallows a combo while Warframe is focused.
- *
- * If the native hook can't be installed (worker throws, or SetWindowsHookEx
- * fails) we fall back to the real Electron globalShortcut so hotkeys still work
- * - degraded to the old system-wide grab, but never dead.
+ * globalShortcut-shaped facade over the WH_KEYBOARD_LL worker: same
+ * register/unregister contract, but swallows only while Warframe is focused.
+ * Falls back to the real globalShortcut if the hook can't be installed.
  */
 
 import path from "node:path";
@@ -63,8 +58,7 @@ export function createKeyHookShortcut(options: {
     worker?.postMessage({ type: "setWatch", watch: watchPayload() });
   }
 
-  // Give up on the native hook: move every current binding onto Electron's
-  // globalShortcut and route future calls there too.
+  // Give up on the hook: move existing bindings and route future calls to it.
   function switchToFallback(reason: string): void {
     if (fallback) return; // already fell back
     log.warn("[KeyHook] falling back to globalShortcut:", reason);

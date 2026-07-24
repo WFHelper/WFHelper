@@ -128,10 +128,7 @@
 
   $: masterySummaryItems = buildMasterySummary(displayMasteryData);
 
-  // Foundry cross-reference: which mastery items (and their parts) are currently
-  // in the foundry, so the mastery grid answers "is this crafting / claimable /
-  // subsumed" without a trip to the Foundry tab. Keyed by productUniqueName with
-  // a name fallback; part matching reuses the same productUniqueName set.
+  // Keyed by productUniqueName, name as fallback; parts match the same set.
   type FoundryStatus = "in-progress" | "claimable";
   function buildFoundryIndex(foundry: typeof $foundryData): {
     byUnique: SvelteMap<string, FoundryStatus>;
@@ -484,8 +481,7 @@
     background: color-mix(in oklab, var(--danger) 65%, transparent);
     border-color: color-mix(in oklab, var(--danger) 60%, transparent);
   }
-  /* A part whose blueprint is in the foundry: amber ring so it reads apart from
-     both owned (green) and missing (red). */
+  /* Amber so a building part reads apart from owned (green) and missing (red). */
   .comp-dot.building {
     background: color-mix(in oklab, var(--warning) 70%, transparent);
     border-color: color-mix(in oklab, var(--warning) 65%, transparent);

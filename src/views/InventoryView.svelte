@@ -73,9 +73,7 @@
 
   function handleFilterSelect(event: CustomEvent<InventoryFilterTab>): void {
     filter = event.detail;
-    // The incomplete-sets tab exists to prioritise farming, so default it to
-    // "fewest parts to complete first". Only nudge when arriving on the tab with
-    // an unrelated sort - never fight a user who deliberately re-sorts here.
+    // Default to fewest-parts-first on arrival; don't fight a deliberate re-sort.
     if (filter === "incomplete_sets" && $inventoryFilters.sortBy !== "missing_parts") {
       updateSharedFilters("inventory", { sortBy: "missing_parts", sortDirection: "asc" });
     }
