@@ -17,6 +17,7 @@ import {
   RIVEN_BEST_ATTRIBUTES,
   RIVEN_SIMILAR_LISTINGS,
   OVERLAY_GET_THEME_VARS,
+  OVERLAY_GET_DRAG_HINT,
   OVERLAY_DRAG_MOVE,
 } from "./config/shared/ipcChannels";
 
@@ -29,6 +30,7 @@ contextBridge.exposeInMainWorld("rivenOverlay", {
   close: () => ipcRenderer.send(RIVEN_OVERLAY_CLOSE),
   openAuction: (auctionId: string) => ipcRenderer.send(RIVEN_OPEN_AUCTION, auctionId),
   moveBy: (dx: number, dy: number) => ipcRenderer.send(OVERLAY_DRAG_MOVE, { dx, dy }),
+  getDragHint: () => ipcRenderer.invoke(OVERLAY_GET_DRAG_HINT),
   onSessionStart: (cb: (weapon: string, kuvaPerRoll: number) => void) =>
     onRivenIpc(RIVEN_SESSION_START, (_event: unknown, weapon: unknown, kuvaPerRoll: unknown) =>
       cb(weapon as string, kuvaPerRoll as number),

@@ -15,13 +15,26 @@ function el(id) {
   return document.getElementById(id);
 }
 
+let _interactionHotkey = null;
+
+/* Label follows the live interaction hotkey; stays hidden while unbound. */
+function renderInteractionHint() {
+  const hint = el("interaction-hint");
+  if (!hint) return;
+  const label = String(_interactionHotkey || "")
+    .replace(/CommandOrControl|Control/g, "Ctrl")
+    .replace(/Command/g, "Cmd")
+    .replace(/\+/g, " + ");
+  hint.textContent = label ? `Press ${label} to interact` : "";
+  hint.classList.toggle("is-hidden", _overlayInteractiveMode || !label);
+}
+
 function setOverlayInteractiveMode(interactive) {
   _overlayInteractiveMode = !!interactive;
   document.documentElement.classList.toggle("is-overlay-interactive", _overlayInteractiveMode);
   const closeButton = el("btn-close");
   if (closeButton) closeButton.classList.toggle("is-hidden", !_overlayInteractiveMode);
-  const hint = el("interaction-hint");
-  if (hint) hint.classList.toggle("is-hidden", _overlayInteractiveMode);
+  renderInteractionHint();
   if (!_overlayInteractiveMode) {
     document.documentElement.classList.remove("is-overlay-dragging");
   }
@@ -601,6 +614,14 @@ document.addEventListener("DOMContentLoaded", () => {
   window.rivenOverlay.onInteractionMode((payload) => {
     setOverlayInteractiveMode(Boolean(payload?.interactive));
   });
+  Promise.resolve(window.rivenOverlay.getDragHint?.())
+    .then((info) => {
+      _interactionHotkey = info && typeof info.hotkey === "string" ? info.hotkey : null;
+      renderInteractionHint();
+    })
+    .catch(() => {
+      // hint is optional; stay hidden on failure
+    });
 
   window.rivenOverlay.onGradingInitial((grading) => onGradingInitial(grading));
   window.rivenOverlay.onGradingRoll((payload) => onGradingRoll(payload));

@@ -297,10 +297,11 @@ function plannerHintElement() {
   return document.getElementById("planner-hint");
 }
 
+let plannerHintWanted = false;
+
 function showPlannerHint(show) {
-  const hint = plannerHintElement();
-  if (!hint) return;
-  hint.classList.toggle("is-hidden", !show);
+  plannerHintWanted = show;
+  renderPlannerHint();
 }
 
 let dragHintInfo = { hotkey: null, dismissed: true };
@@ -310,6 +311,15 @@ function prettyHotkey(hotkey) {
     .replace(/CommandOrControl|Control/g, "Ctrl")
     .replace(/Command/g, "Cmd")
     .replace(/\+/g, " + ");
+}
+
+/* Label follows the live interaction hotkey; stays hidden while unbound. */
+function renderPlannerHint() {
+  const hint = plannerHintElement();
+  if (!hint) return;
+  const label = prettyHotkey(dragHintInfo.hotkey);
+  hint.textContent = label ? `Press ${label} to interact with the overlay` : "";
+  hint.classList.toggle("is-hidden", !plannerHintWanted || !label);
 }
 
 /* Header chip teaching the move mechanic; gone once the user has ever moved an overlay. */
@@ -576,6 +586,7 @@ document.addEventListener("DOMContentLoaded", () => {
         dismissed: !info || info.dismissed !== false,
       };
       updateDragHint();
+      renderPlannerHint();
     })
     .catch(() => {
       // hint is optional; stay hidden on failure
