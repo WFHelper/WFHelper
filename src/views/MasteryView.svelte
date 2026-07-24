@@ -4,6 +4,7 @@
   import { masteryData } from "../stores/mastery.js";
   import { wfmItems, foundryData, inventoryData, itemDb } from "../stores/data.js";
   import { buildSubsumedFamilySet, isFrameSubsumed, isSubsumableFrame } from "../lib/helminth.js";
+  import { componentUniqueNameAliases } from "../../config/shared/componentNames.js";
   import { activeItem, activeComponent } from "../stores/modals.js";
   import { hideFounderMasteryItems } from "../stores/preferences.js";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
@@ -187,7 +188,10 @@
         isFrameSubsumed(item.name, subsumed);
       const components = (item.components || []).map((comp) => ({
         ...comp,
-        building: comp.uniqueName ? foundry.byUnique.has(comp.uniqueName) : false,
+        // Sets name a part ...Component while the foundry builds ...Blueprint.
+        building: comp.uniqueName
+          ? componentUniqueNameAliases(comp.uniqueName).some((un) => foundry.byUnique.has(un))
+          : false,
       }));
       return {
         ...item,
