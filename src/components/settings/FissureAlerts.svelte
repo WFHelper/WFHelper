@@ -11,6 +11,7 @@
     "Survival",
     "Defense",
     "Interception",
+    "Void Cascade",
     "Mobile Defense",
     "Capture",
     "Exterminate",
