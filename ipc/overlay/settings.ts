@@ -32,7 +32,12 @@ type OverlaySettingsControllerOptions = {
   log: Logger;
   fs: OverlayFs;
   writeFileAtomic: (filePath: string, data: string) => void;
-  globalShortcut: typeof import("electron").globalShortcut;
+  // Minimal shape so a WH_KEYBOARD_LL adapter (keyHookShortcut) can stand in for
+  // Electron's globalShortcut on win32 without the controller knowing.
+  globalShortcut: {
+    register: (accelerator: string, callback: () => void) => boolean;
+    unregister: (accelerator: string) => void;
+  };
   ctx: OverlayCtx;
   settingsFile: string;
   defaults: OverlaySettingsDict;

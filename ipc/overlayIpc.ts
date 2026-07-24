@@ -6,6 +6,7 @@ import {
   onAuthorized,
 } from "./ipcSecurity";
 import { createOverlaySettingsController } from "./overlay/settings";
+import { createKeyHookShortcut } from "../services/keyHookShortcut";
 import { writeFileAtomicSync } from "../services/atomicFile";
 import { asRecord } from "./ipcValidators";
 import { withScope } from "../services/logger";
@@ -249,11 +250,16 @@ function notifyRewardUiReady(): void {
 
 const OVERLAY_SETTINGS_FILE = path.join(app.getPath("userData"), "overlay-settings.json");
 
+// win32: swallow hotkeys via a low-level keyboard hook only while Warframe is
+// focused (never a system-wide grab). Elsewhere: Electron's globalShortcut.
+const hotkeyBackend =
+  process.platform === "win32" ? createKeyHookShortcut({ log }) : globalShortcut;
+
 const settingsController = createOverlaySettingsController({
   log,
   fs,
   writeFileAtomic: writeFileAtomicSync,
-  globalShortcut,
+  globalShortcut: hotkeyBackend,
   ctx,
   settingsFile: OVERLAY_SETTINGS_FILE,
   defaults: OVERLAY_SETTINGS_DEFAULTS,
@@ -534,6 +540,10 @@ function register(): void {
 export const loadOverlaySettings = settingsController.loadOverlaySettings;
 export const unregisterOverlayHotkey = settingsController.unregisterOverlayHotkey;
 export const setOverlayHotkeysActive = settingsController.setHotkeysActive;
+
+export function disposeOverlayHotkeys(): void {
+  if ("dispose" in hotkeyBackend) hotkeyBackend.dispose();
+}
 
 export { register, onRelicRewardTrigger, notifyRewardUiReady, onRelicSelectionTrigger, onRelicSelectionClose, setActiveMissionTag };
 export { warmPlannerOverlayWindow } from "./rewardOverlayIpc";

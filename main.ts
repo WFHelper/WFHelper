@@ -482,6 +482,7 @@ app.on("before-quit", () => {
   eeLogMonitor.stopWatching();
   stopOverlayHotkeyGate();
   overlayIpc.unregisterOverlayHotkey();
+  overlayIpc.disposeOverlayHotkeys();
   arbiScheduleIpc.shutdown();
   disposeLinuxStreamCapture();
 });
