@@ -132,7 +132,8 @@
           class="flex flex-wrap items-end gap-3 rounded-[var(--radius-md)] border border-border/60 bg-bg-raised/40 px-3 py-2 text-xs"
         >
           <label class="flex flex-col gap-1">
-            <span class="uppercase tracking-wide text-text-muted">{$tr("arbi.filter.minVitus")}</span
+            <span class="uppercase tracking-wide text-text-muted"
+              >{$tr("arbi.filter.minVitus")}</span
             >
             <input
               class="w-24 rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-accent"
