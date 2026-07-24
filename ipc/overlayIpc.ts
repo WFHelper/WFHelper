@@ -250,10 +250,14 @@ function notifyRewardUiReady(): void {
 
 const OVERLAY_SETTINGS_FILE = path.join(app.getPath("userData"), "overlay-settings.json");
 
-// win32: swallow hotkeys via a low-level keyboard hook only while Warframe is
-// focused (never a system-wide grab). Elsewhere: Electron's globalShortcut.
+// win32: low-level keyboard hook, swallowing only while Warframe is focused.
+// Elsewhere: globalShortcut. WFHELPER_DISABLE_KEYBOARD_HOOK=1 (e2e) captures nothing.
 const hotkeyBackend =
-  process.platform === "win32" ? createKeyHookShortcut({ log }) : globalShortcut;
+  process.env.WFHELPER_DISABLE_KEYBOARD_HOOK === "1"
+    ? { register: () => false, unregister: () => {}, dispose: () => {} }
+    : process.platform === "win32"
+      ? createKeyHookShortcut({ log })
+      : globalShortcut;
 
 const settingsController = createOverlaySettingsController({
   log,
