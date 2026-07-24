@@ -24,6 +24,7 @@ import * as rewardScanner from "./services/rewardScanner";
 import * as rewardOcrOnnx from "./services/rewardOcrOnnx";
 import * as autoUpdater from "./services/autoUpdater";
 import * as rivenBestAttributes from "./services/rivenBestAttributes";
+import * as warframeStatus from "./services/warframeStatus";
 
 import ctx from "./ipc/context";
 import * as inventoryIpc from "./ipc/inventoryIpc";
@@ -309,7 +310,7 @@ app.whenReady().then(async () => {
   profileStage("auto-updater:init", updaterStart);
 
   const hotkeyStart = Date.now();
-  overlayIpc.registerOverlayHotkey();
+  startOverlayHotkeyGate();
   profileStage("overlay-hotkey:register", hotkeyStart);
 
   // Keep prewarming off the first-paint path.
@@ -447,10 +448,39 @@ app.on("window-all-closed", () => {
   app.quit();
 });
 
+// Arm the overlay global shortcuts only while Warframe is running. Polling the
+// cheap cached status (native EnumProcesses on win32, /proc on linux) lets us
+// release every global shortcut the moment the game closes, so WFHelper never
+// holds a hotkey while the user is in a browser or other app.
+let _hotkeyGateTimer: ReturnType<typeof setInterval> | null = null;
+let _hotkeyGameActive = false;
+
+async function syncOverlayHotkeyGate(): Promise<void> {
+  try {
+    const { isOpen } = await warframeStatus.getStatus();
+    if (isOpen === _hotkeyGameActive) return;
+    _hotkeyGameActive = isOpen;
+    overlayIpc.setOverlayHotkeysActive(isOpen);
+  } catch {
+    // best effort; keep the gate in its current state
+  }
+}
+
+function startOverlayHotkeyGate(): void {
+  void syncOverlayHotkeyGate();
+  _hotkeyGateTimer = setInterval(() => void syncOverlayHotkeyGate(), 3000);
+}
+
+function stopOverlayHotkeyGate(): void {
+  if (_hotkeyGateTimer) clearInterval(_hotkeyGateTimer);
+  _hotkeyGateTimer = null;
+}
+
 app.on("before-quit", () => {
   if (ctx.watcher) ctx.watcher.close();
   apiHelperRunner.stopPolling();
   eeLogMonitor.stopWatching();
+  stopOverlayHotkeyGate();
   overlayIpc.unregisterOverlayHotkey();
   arbiScheduleIpc.shutdown();
   disposeLinuxStreamCapture();

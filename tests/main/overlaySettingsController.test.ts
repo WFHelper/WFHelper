@@ -172,7 +172,7 @@ describe("overlay settings controller", () => {
 
   it("registers hotkeys and dispatches trigger callbacks", () => {
     const { controller, deps, registerCallbacks } = buildController();
-    controller.registerOverlayHotkey();
+    controller.setHotkeysActive(true);
 
     expect(deps.globalShortcut.register).toHaveBeenCalledWith(
       "Control+Alt+R",
@@ -181,5 +181,21 @@ describe("overlay settings controller", () => {
 
     registerCallbacks.get("Control+Alt+R")?.();
     expect(deps.onRelicRewardTrigger).toHaveBeenCalledWith("hotkey");
+  });
+
+  it("holds no global shortcut until the game gate opens, releases when it closes", () => {
+    const { controller, deps } = buildController();
+
+    // Gate closed (game not running): registration is a no-op.
+    controller.registerOverlayHotkey();
+    expect(deps.globalShortcut.register).not.toHaveBeenCalled();
+
+    // Game opens -> shortcuts grabbed.
+    controller.setHotkeysActive(true);
+    expect(deps.globalShortcut.register).toHaveBeenCalled();
+
+    // Game closes -> shortcuts released.
+    controller.setHotkeysActive(false);
+    expect(deps.globalShortcut.unregister).toHaveBeenCalledWith("Control+Alt+R");
   });
 });

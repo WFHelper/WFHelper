@@ -532,8 +532,8 @@ function register(): void {
 }
 
 export const loadOverlaySettings = settingsController.loadOverlaySettings;
-export const registerOverlayHotkey = settingsController.registerOverlayHotkey;
 export const unregisterOverlayHotkey = settingsController.unregisterOverlayHotkey;
+export const setOverlayHotkeysActive = settingsController.setHotkeysActive;
 
 export { register, onRelicRewardTrigger, notifyRewardUiReady, onRelicSelectionTrigger, onRelicSelectionClose, setActiveMissionTag };
 export { warmPlannerOverlayWindow } from "./rewardOverlayIpc";

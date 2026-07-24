@@ -346,10 +346,26 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     }
   }
 
+  // Global shortcuts are only held while Warframe is running (gate driven by
+  // main via setHotkeysActive). With the game closed we grab nothing, so the
+  // hotkeys never collide with other apps while the user is off playing.
+  let hotkeysActive = false;
+
   function registerOverlayHotkey(): boolean {
+    if (!hotkeysActive) {
+      unregisterOverlayHotkey();
+      return false;
+    }
     const triggerOk = registerOverlayTriggerHotkey();
     const interactionOk = registerOverlayInteractionHotkey();
     return triggerOk || interactionOk;
+  }
+
+  function setHotkeysActive(active: boolean): void {
+    if (hotkeysActive === active) return;
+    hotkeysActive = active;
+    if (active) registerOverlayHotkey();
+    else unregisterOverlayHotkey();
   }
 
   function setOverlaySettings(nextSettings: unknown): OverlaySettings {
@@ -368,6 +384,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     saveOverlaySettings,
     unregisterOverlayHotkey,
     registerOverlayHotkey,
+    setHotkeysActive,
     setOverlaySettings,
   };
 }
