@@ -27,7 +27,33 @@
   let importStatus = "";
   let unsubRunSaved: (() => void) | null = null;
 
+  let filterMinVitus: number | null = null;
+  let filterTag = "";
+  let filterType: "all" | "defense" | "interception" | "other" = "all";
+
   $: selectedRun = selectedRunId ? ($arbiRuns.find((r) => r.id === selectedRunId) ?? null) : null;
+
+  $: allTags = Array.from(new Set($arbiRuns.flatMap((r) => r.tags ?? []))).sort((a, b) =>
+    a.localeCompare(b),
+  );
+  // A tag chosen in the dropdown can disappear if its last run is deleted/retagged;
+  // fall back to "all tags" so the list never silently shows nothing.
+  $: if (filterTag && !allTags.includes(filterTag)) filterTag = "";
+  $: filteredRuns = $arbiRuns.filter((run) => {
+    if (filterType !== "all" && run.missionType !== filterType) return false;
+    if (filterMinVitus != null && (run.vitusActual == null || run.vitusActual < filterMinVitus)) {
+      return false;
+    }
+    if (filterTag && !(run.tags ?? []).includes(filterTag)) return false;
+    return true;
+  });
+  $: filtersActive = filterType !== "all" || filterMinVitus != null || filterTag !== "";
+
+  function clearFilters(): void {
+    filterMinVitus = null;
+    filterTag = "";
+    filterType = "all";
+  }
 
   // Deep-link from the post-run overlay; also fires when the view is already open.
   $: if ($pendingArbiRunId) {
@@ -103,8 +129,64 @@
           <p class="m-0 text-center text-sm text-text-muted">{$tr("arbi.empty")}</p>
         </ThemedPanel>
       {:else}
+        <div
+          class="flex flex-wrap items-end gap-3 rounded-[var(--radius-md)] border border-border/60 bg-bg-raised/40 px-3 py-2 text-xs"
+        >
+          <label class="flex flex-col gap-1">
+            <span class="uppercase tracking-wide text-text-muted">{$tr("arbi.filter.minVitus")}</span
+            >
+            <input
+              class="w-24 rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-accent"
+              type="number"
+              min="0"
+              placeholder="0"
+              bind:value={filterMinVitus}
+            />
+          </label>
+          <label class="flex flex-col gap-1">
+            <span class="uppercase tracking-wide text-text-muted">{$tr("arbi.filter.type")}</span>
+            <select
+              class="rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-accent"
+              bind:value={filterType}
+            >
+              <option value="all">{$tr("arbi.filter.allTypes")}</option>
+              <option value="defense">{$tr("arbi.type.defense")}</option>
+              <option value="interception">{$tr("arbi.type.interception")}</option>
+              <option value="other">{$tr("arbi.type.other")}</option>
+            </select>
+          </label>
+          {#if allTags.length > 0}
+            <label class="flex flex-col gap-1">
+              <span class="uppercase tracking-wide text-text-muted">{$tr("arbi.filter.tag")}</span>
+              <select
+                class="rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-accent"
+                bind:value={filterTag}
+              >
+                <option value="">{$tr("arbi.filter.allTags")}</option>
+                {#each allTags as tag (tag)}
+                  <option value={tag}>{tag}</option>
+                {/each}
+              </select>
+            </label>
+          {/if}
+          <div class="ml-auto flex items-center gap-2">
+            <span class="text-text-muted"
+              >{$tr("arbi.filter.showing", {
+                shown: String(filteredRuns.length),
+                total: String($arbiRuns.length),
+              })}</span
+            >
+            {#if filtersActive}
+              <button
+                type="button"
+                class="cursor-pointer rounded border border-border px-2 py-1 text-text-secondary transition-colors hover:border-accent hover:text-accent"
+                on:click={clearFilters}>{$tr("arbi.filter.clear")}</button
+              >
+            {/if}
+          </div>
+        </div>
         <ThemedPanel className="p-2">
-          <ArbiRunList runs={$arbiRuns} onSelect={(id) => (selectedRunId = id)} />
+          <ArbiRunList runs={filteredRuns} onSelect={(id) => (selectedRunId = id)} />
         </ThemedPanel>
       {/if}
     {/if}

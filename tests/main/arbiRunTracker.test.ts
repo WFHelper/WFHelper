@@ -310,4 +310,27 @@ describe("arbiRunTracker", () => {
     expect(tracker.getRuns()).toHaveLength(0);
     expect(tracker.deleteRun(run.id)).toBe(false);
   });
+
+  it("sets, normalizes, and clears run tags; persists across reload", async () => {
+    const tracker = await freshTracker();
+    const saved = waitForRun(tracker);
+    feedRun(tracker);
+    tracker.processArbiLine(missionLine(900, "Cetus (Earth)"), "file");
+    const run = await saved;
+
+    // Dupes (case-insensitive) and blanks are dropped; order preserved.
+    const tagged = tracker.setRunTags(run.id, ["Boar Run", "boar run", "  ", "steel path"]);
+    expect(tagged?.tags).toEqual(["Boar Run", "steel path"]);
+    expect(tracker.setRunTags("nope", ["x"])).toBeNull();
+
+    // Reload from the on-disk index to prove persistence.
+    const reloaded = await freshTracker();
+    expect(reloaded.getRuns()[0]?.tags).toEqual(["Boar Run", "steel path"]);
+
+    // Empty list removes the field entirely.
+    const cleared = reloaded.setRunTags(run.id, []);
+    expect(cleared?.tags).toBeUndefined();
+    const reloadedAgain = await freshTracker();
+    expect(reloadedAgain.getRuns()[0]?.tags).toBeUndefined();
+  });
 });

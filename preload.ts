@@ -75,6 +75,7 @@ import {
   WORLD_STATE_FETCH_ERROR,
   ARBI_GET_RUNS,
   ARBI_SET_VITUS,
+  ARBI_SET_TAGS,
   ARBI_DELETE_RUN,
   ARBI_DELETE_LOG,
   ARBI_EXPORT_LOG,
@@ -198,6 +199,7 @@ try {
 
     getArbiRuns: inv<"getArbiRuns">(ARBI_GET_RUNS),
     setArbiRunVitus: inv<"setArbiRunVitus">(ARBI_SET_VITUS),
+    setArbiRunTags: inv<"setArbiRunTags">(ARBI_SET_TAGS),
     deleteArbiRun: inv<"deleteArbiRun">(ARBI_DELETE_RUN),
     deleteArbiRunLog: inv<"deleteArbiRunLog">(ARBI_DELETE_LOG),
     exportArbiRunLog: inv<"exportArbiRunLog">(ARBI_EXPORT_LOG),

@@ -13,7 +13,7 @@
   import ArbiDpmChart from "./ArbiDpmChart.svelte";
   import ArbiRotationList from "./ArbiRotationList.svelte";
   import type { ArbiRunRecord } from "../../types/ipc.js";
-  import { deleteArbiRun } from "../../stores/arbiRuns.js";
+  import { deleteArbiRun, updateArbiTags } from "../../stores/arbiRuns.js";
   import { formatDuration, formatRunDate, missionKindLabel } from "../../lib/arbi/arbiChartData.js";
   import type { MessageKey } from "../../lib/i18n.js";
 
@@ -131,6 +131,31 @@
     await deleteArbiRun(run.id);
     onBack();
   }
+
+  let tagDraft = "";
+  $: tags = run.tags ?? [];
+
+  async function addTag(): Promise<void> {
+    const value = tagDraft.trim();
+    if (!value) return;
+    tagDraft = "";
+    // normalizeArbiTags (main side) dedupes case-insensitively and caps the list.
+    await updateArbiTags(run.id, [...tags, value]);
+  }
+
+  async function removeTag(tag: string): Promise<void> {
+    await updateArbiTags(
+      run.id,
+      tags.filter((t) => t !== tag),
+    );
+  }
+
+  function onTagKeydown(e: KeyboardEvent): void {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void addTag();
+    }
+  }
 </script>
 
 <div class="flex flex-col gap-4">
@@ -158,6 +183,35 @@
         {$tr("arbi.deleteRun")}
       </ThemedButton>
     </div>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2">
+    <span class="text-xs font-semibold uppercase tracking-wide text-text-muted"
+      >{$tr("arbi.tags.label")}</span
+    >
+    {#each tags as tag (tag)}
+      <span
+        class="inline-flex items-center gap-1 rounded border border-info/40 bg-info/10 px-2 py-0.5 text-xs font-semibold text-info"
+      >
+        {tag}
+        <button
+          type="button"
+          class="cursor-pointer leading-none text-info/70 hover:text-info"
+          title={$tr("arbi.tags.remove")}
+          aria-label={$tr("arbi.tags.remove")}
+          on:click={() => removeTag(tag)}>×</button
+        >
+      </span>
+    {/each}
+    <input
+      class="w-40 rounded border border-border bg-bg-raised px-2 py-0.5 text-xs text-text-primary outline-none focus:border-info"
+      type="text"
+      maxlength="32"
+      placeholder={$tr("arbi.tags.add")}
+      bind:value={tagDraft}
+      on:keydown={onTagKeydown}
+      on:blur={addTag}
+    />
   </div>
 
   <div bind:this={captureEl} class="flex flex-col gap-4">

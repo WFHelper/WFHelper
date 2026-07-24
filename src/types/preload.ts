@@ -112,6 +112,10 @@ export interface PreloadAPI {
     id: IpcInvokeMap["setArbiRunVitus"]["args"][0],
     vitus: IpcInvokeMap["setArbiRunVitus"]["args"][1],
   ) => Promise<IpcInvokeMap["setArbiRunVitus"]["return"]>;
+  setArbiRunTags: (
+    id: IpcInvokeMap["setArbiRunTags"]["args"][0],
+    tags: IpcInvokeMap["setArbiRunTags"]["args"][1],
+  ) => Promise<IpcInvokeMap["setArbiRunTags"]["return"]>;
   deleteArbiRun: (
     id: IpcInvokeMap["deleteArbiRun"]["args"][0],
   ) => Promise<IpcInvokeMap["deleteArbiRun"]["return"]>;

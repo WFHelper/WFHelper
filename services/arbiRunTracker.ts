@@ -14,6 +14,7 @@ import { writeFileAtomicSync } from "./atomicFile";
 import { createArbiParser } from "./arbiRunParser";
 import type { ArbiParsedRun, ArbiParser } from "./arbiRunParser";
 import type { ArbiRunEndReason, ArbiRunRecord } from "../config/shared/arbiTypes";
+import { normalizeArbiTags } from "../config/shared/arbiTypes";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("arbiRunTracker");
@@ -422,6 +423,16 @@ export function setRunVitus(id: string, vitus: number | null): ArbiRunRecord | n
   const run = _runs.find((r) => r.id === id);
   if (!run) return null;
   run.vitusActual = vitus;
+  _saveIndex();
+  return run;
+}
+
+export function setRunTags(id: string, tags: string[]): ArbiRunRecord | null {
+  const run = _runs.find((r) => r.id === id);
+  if (!run) return null;
+  const clean = normalizeArbiTags(tags);
+  if (clean.length > 0) run.tags = clean;
+  else delete run.tags;
   _saveIndex();
   return run;
 }

@@ -33,6 +33,10 @@ export async function updateArbiVitus(id: string, vitus: number | null): Promise
   patchRun(await invoke("setArbiRunVitus", id, vitus));
 }
 
+export async function updateArbiTags(id: string, tags: string[]): Promise<void> {
+  patchRun(await invoke("setArbiRunTags", id, tags));
+}
+
 export async function deleteArbiRun(id: string): Promise<void> {
   const result = await invoke("deleteArbiRun", id);
   if (result.ok) arbiRuns.update((runs) => runs.filter((r) => r.id !== id));

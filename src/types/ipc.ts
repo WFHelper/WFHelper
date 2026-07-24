@@ -419,6 +419,10 @@ export interface IpcInvokeMap {
     args: [id: string, vitus: number | null];
     return: ArbiRunRecord | null;
   };
+  setArbiRunTags: {
+    args: [id: string, tags: string[]];
+    return: ArbiRunRecord | null;
+  };
   deleteArbiRun: {
     args: [id: string];
     return: { ok: boolean };

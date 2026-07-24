@@ -7,9 +7,11 @@ import ctx from "./context";
 import * as arbiRunTracker from "../services/arbiRunTracker";
 import { importEeLog } from "../services/arbiLogImporter";
 import type { ArbiImportResult, ArbiRunsPayload } from "../config/shared/arbiTypes";
+import { normalizeArbiTags } from "../config/shared/arbiTypes";
 import {
   ARBI_GET_RUNS,
   ARBI_SET_VITUS,
+  ARBI_SET_TAGS,
   ARBI_DELETE_RUN,
   ARBI_DELETE_LOG,
   ARBI_EXPORT_LOG,
@@ -54,6 +56,13 @@ function register(): void {
       return null;
     }
     return arbiRunTracker.setRunVitus(runId, value);
+  });
+
+  handleAuthorized(ARBI_SET_TAGS, assertMainRendererSender, (_event, id: unknown, tags: unknown) => {
+    const runId = asRunId(id);
+    if (!runId) return null;
+    // normalizeArbiTags is total over unknown input: non-arrays -> [], junk entries dropped.
+    return arbiRunTracker.setRunTags(runId, normalizeArbiTags(tags));
   });
 
   handleAuthorized(ARBI_DELETE_RUN, assertMainRendererSender, (_event, id: unknown) => {

@@ -69,6 +69,16 @@
                 >{$t("arbi.source.imported")}</span
               >
             {/if}
+            {#if run.tags && run.tags.length > 0}
+              <span class="mt-1 flex flex-wrap gap-1">
+                {#each run.tags as tag (tag)}
+                  <span
+                    class="rounded border border-info/40 bg-info/10 px-1.5 py-0.5 text-[10px] font-semibold text-info"
+                    >{tag}</span
+                  >
+                {/each}
+              </span>
+            {/if}
           </td>
           <td class="px-3 py-2">
             <span
