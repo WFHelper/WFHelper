@@ -22,6 +22,12 @@ describe("sanitizeDisplayName", () => {
   it("does not touch a mid-string angle bracket", () => {
     expect(sanitizeDisplayName("Foo <bar> Baz")).toBe("Foo <bar> Baz");
   });
+
+  it("keeps a bare marker rather than returning a blank name", () => {
+    expect(sanitizeDisplayName("<CREDITS>")).toBe("<CREDITS>");
+    expect(sanitizeDisplayName("<ARCHWING>")).toBe("<ARCHWING>");
+    expect(sanitizeDisplayName("  <ENDO>  ")).toBe("<ENDO>");
+  });
 });
 
 describe("fallbackNameFromUniqueName", () => {

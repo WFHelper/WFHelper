@@ -4,9 +4,9 @@
 const LEADING_BRACKET_TOKEN = /^<[^>]{1,24}>\s*/;
 
 export function sanitizeDisplayName(name: string | null | undefined): string {
-  return String(name || "")
-    .replace(LEADING_BRACKET_TOKEN, "")
-    .trim();
+  const raw = String(name || "").trim();
+  // If the marker is the entire name, keep it rather than render blank.
+  return raw.replace(LEADING_BRACKET_TOKEN, "").trim() || raw;
 }
 
 /**
