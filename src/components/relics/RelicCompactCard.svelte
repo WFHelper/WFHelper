@@ -215,14 +215,15 @@
     transform: scale(1.06);
   }
 
-  /* Unvaulted is warning-orange, not success-green: owned reward icons already
-     use --success and the two read as the same state side by side. */
+  /* Unvaulted is info-blue, not success-green (owned reward icons already use
+     --success and the two read as the same state side by side) and not
+     warning-orange (reads as a caution the badge isn't). */
   .relic-status-tag {
     width: fit-content;
-    border: 1px solid color-mix(in oklab, var(--warning) 40%, transparent);
+    border: 1px solid color-mix(in oklab, var(--info) 44%, transparent);
     border-radius: var(--radius-sm);
-    background: color-mix(in oklab, var(--warning) 12%, transparent);
-    color: color-mix(in oklab, var(--warning) 82%, white);
+    background: color-mix(in oklab, var(--info) 14%, transparent);
+    color: color-mix(in oklab, var(--info) 84%, white);
     padding: 0.08rem 0.32rem;
     font-family: var(--font-display);
     font-size: 0.62rem;
