@@ -30,6 +30,8 @@ export interface ComponentInfo {
   itemCount?: number;
   ownedCount?: number;
   owned?: boolean;
+  /** Set in the mastery view when this part's blueprint is currently in the foundry. */
+  building?: boolean;
   drops?: DropInfo[];
   [key: string]: unknown;
 }

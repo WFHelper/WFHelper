@@ -1,6 +1,9 @@
 <script lang="ts">
+  import { SvelteMap } from "svelte/reactivity";
+
   import { masteryData } from "../stores/mastery.js";
-  import { wfmItems } from "../stores/data.js";
+  import { wfmItems, foundryData, inventoryData, itemDb } from "../stores/data.js";
+  import { buildSubsumedFamilySet, isFrameSubsumed, isSubsumableFrame } from "../lib/helminth.js";
   import { activeItem, activeComponent } from "../stores/modals.js";
   import { hideFounderMasteryItems } from "../stores/preferences.js";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
@@ -124,6 +127,34 @@
 
   $: masterySummaryItems = buildMasterySummary(displayMasteryData);
 
+  // Foundry cross-reference: which mastery items (and their parts) are currently
+  // in the foundry, so the mastery grid answers "is this crafting / claimable /
+  // subsumed" without a trip to the Foundry tab. Keyed by productUniqueName with
+  // a name fallback; part matching reuses the same productUniqueName set.
+  type FoundryStatus = "in-progress" | "claimable";
+  function buildFoundryIndex(foundry: typeof $foundryData): {
+    byUnique: SvelteMap<string, FoundryStatus>;
+    byName: SvelteMap<string, FoundryStatus>;
+  } {
+    const byUnique = new SvelteMap<string, FoundryStatus>();
+    const byName = new SvelteMap<string, FoundryStatus>();
+    const now = Date.now();
+    for (const b of foundry.building) {
+      const status: FoundryStatus =
+        b.endDate && b.endDate.getTime() <= now ? "claimable" : "in-progress";
+      // Claimable outranks in-progress if the same product somehow appears twice.
+      if (b.productUniqueName && byUnique.get(b.productUniqueName) !== "claimable") {
+        byUnique.set(b.productUniqueName, status);
+      }
+      const nameKey = b.name.trim().toLowerCase();
+      if (nameKey && byName.get(nameKey) !== "claimable") byName.set(nameKey, status);
+    }
+    return { byUnique, byName };
+  }
+
+  $: foundryIndex = buildFoundryIndex($foundryData);
+  $: subsumedFamilies = buildSubsumedFamilySet($inventoryData, $itemDb);
+
   // Pre-compute per-item derived values here so {#each} never reads
   // $wfmItems directly - a wfmItems store update won't trigger a full
   // template re-render; Svelte will patch only changed items via the key.
@@ -133,6 +164,8 @@
     sharedFilters: typeof $masteryFilters,
     cat: string,
     status: string,
+    foundry: ReturnType<typeof buildFoundryIndex>,
+    subsumed: Set<string>,
   ) {
     if (!data) return [];
     let items = data.items;
@@ -145,12 +178,26 @@
         ? 0
         : Math.max(0, Math.min(100, Math.floor((item.rank / Math.max(item.maxRank, 1)) * 100)));
       const wfm = wfmLookup[item.name.toLowerCase()] || null;
+      const foundryStatus =
+        (item.uniqueName ? foundry.byUnique.get(item.uniqueName) : undefined) ??
+        foundry.byName.get(item.name.trim().toLowerCase());
+      const isSubsumed =
+        item.category === "Warframes" &&
+        isSubsumableFrame(item.name) &&
+        isFrameSubsumed(item.name, subsumed);
+      const components = (item.components || []).map((comp) => ({
+        ...comp,
+        building: comp.uniqueName ? foundry.byUnique.has(comp.uniqueName) : false,
+      }));
       return {
         ...item,
+        components,
         mastered,
         missing,
         nextPct,
         wfm,
+        foundryStatus,
+        subsumed: isSubsumed,
         partType: item.isPrime ? ("prime" as const) : ("normal" as const),
         leveledUp: item.rank > 0,
         amount: item.status !== "missing" || item.currentlyOwned ? 1 : 0,
@@ -167,6 +214,8 @@
     $masteryFilters,
     catFilter,
     statusFilter,
+    foundryIndex,
+    subsumedFamilies,
   );
 
   function formatPercent(n: number, total: number): string {
@@ -331,6 +380,16 @@
               <span class="item-type"
                 >{item.category}{item.masteryReq ? ` · MR ${item.masteryReq}` : ""}</span
               >
+              {#if item.foundryStatus || item.subsumed}
+                <div class="mt-1 flex flex-wrap gap-1">
+                  {#if item.foundryStatus === "in-progress"}
+                    <span class="mastery-badge building">Crafting</span>
+                  {:else if item.foundryStatus === "claimable"}
+                    <span class="mastery-badge ready">Ready</span>
+                  {/if}
+                  {#if item.subsumed}<span class="mastery-badge subsumed">Subsumed</span>{/if}
+                </div>
+              {/if}
               {#if !item.missing}
                 {@const rankWidth =
                   item.maxRank > 0
@@ -364,12 +423,13 @@
                 <div class="mt-1.5 flex flex-wrap gap-1">
                   {#each (item.components || []).slice(0, 8) as comp, compIndex (`${comp.uniqueName || comp.name || "component"}-${compIndex}`)}
                     {@const isOwned = comp.owned || (comp.ownedCount ?? 0) >= (comp.itemCount || 1)}
+                    {@const compState = comp.building ? "building" : isOwned ? "owned" : "missing"}
                     <button
                       type="button"
-                      class="comp-dot h-1.5 w-1.5 rounded-full border border-transparent {isOwned
-                        ? 'owned'
-                        : 'missing'}"
-                      title="{comp.name || '?'}: {isOwned ? 'owned' : 'missing'}"
+                      class="comp-dot h-1.5 w-1.5 rounded-full border border-transparent {compState}"
+                      title="{comp.name || '?'}: {compState === 'building'
+                        ? 'crafting'
+                        : compState}"
                       aria-label="Open {comp.name || 'component'} details"
                       on:click|stopPropagation={() =>
                         activeComponent.set({ comp, parentName: item.name })}
@@ -419,5 +479,40 @@
   .comp-dot.missing {
     background: color-mix(in oklab, var(--danger) 65%, transparent);
     border-color: color-mix(in oklab, var(--danger) 60%, transparent);
+  }
+  /* A part whose blueprint is in the foundry: amber ring so it reads apart from
+     both owned (green) and missing (red). */
+  .comp-dot.building {
+    background: color-mix(in oklab, var(--warning) 70%, transparent);
+    border-color: color-mix(in oklab, var(--warning) 65%, transparent);
+  }
+
+  .mastery-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    padding: 0.02rem 0.3rem;
+    font-family: var(--font-display);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    line-height: 1.3;
+  }
+  .mastery-badge.building {
+    color: color-mix(in oklab, var(--warning) 86%, white);
+    border-color: color-mix(in oklab, var(--warning) 40%, transparent);
+    background: color-mix(in oklab, var(--warning) 14%, transparent);
+  }
+  .mastery-badge.ready {
+    color: color-mix(in oklab, var(--success) 86%, white);
+    border-color: color-mix(in oklab, var(--success) 40%, transparent);
+    background: color-mix(in oklab, var(--success) 14%, transparent);
+  }
+  .mastery-badge.subsumed {
+    color: color-mix(in oklab, var(--info) 86%, white);
+    border-color: color-mix(in oklab, var(--info) 42%, transparent);
+    background: color-mix(in oklab, var(--info) 14%, transparent);
   }
 </style>
