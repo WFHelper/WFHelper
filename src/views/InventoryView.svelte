@@ -32,7 +32,7 @@
     recordRankedHotsetEntry,
   } from "../lib/wfm/rankedHotset.js";
   import { getInventoryHydrationController } from "../stores/inventoryHydration.js";
-  import { sharedFilters } from "../stores/filters.js";
+  import { sharedFilters, updateSharedFilters } from "../stores/filters.js";
   import { isRankedGroup } from "../../config/shared/numeric.js";
 
   const METRIC_VISIBLE_PREFETCH_LIMIT = 42;
@@ -73,6 +73,12 @@
 
   function handleFilterSelect(event: CustomEvent<InventoryFilterTab>): void {
     filter = event.detail;
+    // The incomplete-sets tab exists to prioritise farming, so default it to
+    // "fewest parts to complete first". Only nudge when arriving on the tab with
+    // an unrelated sort - never fight a user who deliberately re-sorts here.
+    if (filter === "incomplete_sets" && $inventoryFilters.sortBy !== "missing_parts") {
+      updateSharedFilters("inventory", { sortBy: "missing_parts", sortDirection: "asc" });
+    }
   }
 
   function handleToggleFilterPanel(): void {

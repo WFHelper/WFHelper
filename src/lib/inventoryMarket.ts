@@ -80,6 +80,7 @@ export const INVENTORY_FILTERS: Array<{ key: InventoryFilterTab; label: string }
   { key: "mods", label: "Mods" },
   { key: "arcanes", label: "Arcanes" },
   { key: "full_sets", label: "Full Sets" },
+  { key: "incomplete_sets", label: "Incomplete" },
   { key: "equipment", label: "Equipment" },
   { key: "resources", label: "Resources" },
   { key: "misc", label: "Misc" },

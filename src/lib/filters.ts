@@ -16,6 +16,7 @@ interface FilterableItem {
   amount?: number | null;
   ducatonator?: number | null;
   completeSets?: number | boolean | null;
+  missingParts?: number | null;
   orderPlaced?: boolean;
   vaulted?: boolean;
   owned?: boolean;
@@ -122,6 +123,9 @@ function toMetric(item: FilterableItem, sortBy: SharedFiltersState["sortBy"]): n
     if (typeof item.completeSets === "number") return item.completeSets;
     if (typeof item.completeSets === "boolean") return item.completeSets ? 1 : 0;
     return null;
+  }
+  if (sortBy === "missing_parts") {
+    return typeof item.missingParts === "number" ? item.missingParts : null;
   }
   return null;
 }

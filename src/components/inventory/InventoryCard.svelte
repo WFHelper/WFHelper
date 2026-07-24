@@ -82,10 +82,17 @@
   <div class="item-img-wrap">
     <ItemImage src={item.displayImageUrl} alt={item.name} />
     {#if item.vaulted}<span class="vault-badge">V</span>{/if}
-    <span
-      class="absolute right-2 bottom-1.5 font-display text-base font-bold text-success drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
-      >x{item.amount}</span
-    >
+    {#if item.inventoryGroup === "incomplete_sets"}
+      <span
+        class="absolute right-2 bottom-1.5 font-display text-base font-bold text-info drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+        >{item.ownedPartTypes ?? 0}/{item.totalPartTypes ?? 0}</span
+      >
+    {:else}
+      <span
+        class="absolute right-2 bottom-1.5 font-display text-base font-bold text-success drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+        >x{item.amount}</span
+      >
+    {/if}
   </div>
   <div class="item-body">
     <span class="item-name">{item.name}</span>
@@ -93,6 +100,10 @@
       {item.categoryLabel}
       {#if item.inventoryGroup === "full_sets"}
         {` · Complete ${typeof item.completeSets === "number" ? item.completeSets : 0}`}
+      {:else if item.inventoryGroup === "incomplete_sets"}
+        {` · Needs ${typeof item.missingParts === "number" ? item.missingParts : 0} ${
+          item.missingParts === 1 ? "part" : "parts"
+        }`}
       {/if}
     </span>
 

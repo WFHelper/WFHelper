@@ -286,14 +286,20 @@ describe("inventory parsing", () => {
       },
     };
 
-    // Spare parts but no main blueprint -> not a complete (sellable) set.
+    // Spare parts but no main blueprint -> not a complete (sellable) set; it
+    // surfaces as an incomplete set (missing the blueprint) instead of vanishing.
     const partsOnly = new Map<string, number>([
       ["/Lotus/Types/Recipes/Weapons/WeaponParts/TeshinGlaiveBlade", 2],
       ["/Lotus/Types/Recipes/Weapons/WeaponParts/TeshinGlaiveDisc", 13],
     ]);
-    expect(
-      buildFullSetItems(itemDb, partsOnly).find((s) => s.name === "Orvius Set"),
-    ).toBeUndefined();
+    const orviusPartsOnly = buildFullSetItems(itemDb, partsOnly).find(
+      (s) => s.name === "Orvius Set",
+    );
+    expect(orviusPartsOnly?.inventoryGroup).toBe("incomplete_sets");
+    expect(orviusPartsOnly?.completeSets).toBe(0);
+    expect(orviusPartsOnly?.missingParts).toBe(1);
+    expect(orviusPartsOnly?.ownedPartTypes).toBe(2);
+    expect(orviusPartsOnly?.totalPartTypes).toBe(3);
 
     // Parts + main blueprint -> one full set; the Orokin Cell resource is ignored.
     const withBlueprint = new Map<string, number>([

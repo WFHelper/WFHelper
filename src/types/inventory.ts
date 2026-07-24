@@ -93,6 +93,7 @@ export type InventoryGroup =
   | "mods"
   | "arcanes"
   | "full_sets"
+  | "incomplete_sets"
   | "equipment"
   | "misc";
 
@@ -122,6 +123,10 @@ export interface ParsedItem {
   amount?: number | null;
   ducatonator?: number | null;
   completeSets?: number | boolean | null;
+  /** Incomplete-set progress: distinct part types still to farm, and owned/total. */
+  missingParts?: number | null;
+  ownedPartTypes?: number | null;
+  totalPartTypes?: number | null;
   orderPlaced?: boolean;
   partType?: PartType;
   inventoryGroup?: InventoryGroup;

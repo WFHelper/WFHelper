@@ -137,7 +137,10 @@ export function preferGroup(
     arcanes: 4,
     mods: 5,
     relics: 6,
-    full_sets: 7,
+    // incomplete_sets is synthetic (only buildFullSetItems emits it), never
+    // assigned to a raw entry here; it just needs a slot to satisfy the record.
+    incomplete_sets: 7,
+    full_sets: 8,
   };
   if (!current) return next;
   return GROUP_PRIORITY[next] > GROUP_PRIORITY[current] ? next : current;

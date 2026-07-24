@@ -39,6 +39,7 @@
     ["amount", "Amount"],
     ["ducatonator", "Ducatonator"],
     ["complete_sets", "Complete (Sets)"],
+    ["missing_parts", "Parts to Complete"],
   ];
 
   const YES_NO_OPTIONS: Array<[Exclude<YesNoFilterMode, "all">, string]> = [

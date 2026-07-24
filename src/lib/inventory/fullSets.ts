@@ -1,5 +1,5 @@
 import { componentUniqueNameAliases } from "../../../config/shared/componentNames.js";
-import type { ItemDbEntry, ParsedItem } from "../../types/inventory.js";
+import type { ItemDbEntry, ParsedItem, PartType } from "../../types/inventory.js";
 import {
   type ResolvedItem,
   resolveItem,
@@ -127,18 +127,17 @@ export function buildFullSetItems(
     });
 
     if (!Number.isFinite(completeSets)) completeSets = 0;
-    // Only surface sets the user can actually sell - at least one full set's
-    // worth of spare components. Partial progress lives in the parts tab.
-    if (completeSets < 1) continue;
+
+    const totalPartTypes = hydratedComponents.length;
+    const ownedPartTypes = hydratedComponents.filter((component) => component.owned).length;
+    const missingParts = totalPartTypes - ownedPartTypes;
 
     const setName = resolved.name.endsWith(" Set") ? resolved.name : `${resolved.name} Set`;
     const isPrime = resolved.isPrime === true || /\bPrime\b/.test(resolved.name);
 
-    setItems.push({
+    const common = {
       name: setName,
       internalName: `${uniqueName}#set`,
-      category: "full_sets",
-      categoryLabel: "Full Set",
       rank: 0,
       maxRank: 1,
       imageUrl: resolved.imageUrl ?? null,
@@ -150,13 +149,38 @@ export function buildFullSetItems(
       components: hydratedComponents,
       drops: Array.isArray(dbEntry.drops) ? dbEntry.drops : [],
       wikiaUrl: typeof dbEntry.wikiaUrl === "string" ? dbEntry.wikiaUrl : null,
-      amount: completeSets,
-      completeSets,
-      partType: isPrime ? "prime" : "normal",
-      inventoryGroup: "full_sets",
+      partType: (isPrime ? "prime" : "normal") as PartType,
       leveledUp: false,
-      keywords: ["set", "full set", resolved.name.toLowerCase()],
-    });
+    };
+
+    if (completeSets >= 1) {
+      // A full set's worth of spare components - the user can sell it.
+      setItems.push({
+        ...common,
+        category: "full_sets",
+        categoryLabel: "Full Set",
+        amount: completeSets,
+        completeSets,
+        inventoryGroup: "full_sets",
+        keywords: ["set", "full set", resolved.name.toLowerCase()],
+      });
+    } else if (ownedPartTypes > 0) {
+      // In-progress set: at least one part owned, at least one still missing.
+      // (completeSets < 1 with every part owned is impossible, so missingParts >= 1.)
+      setItems.push({
+        ...common,
+        category: "incomplete_sets",
+        categoryLabel: "Incomplete Set",
+        amount: 0,
+        completeSets: 0,
+        missingParts,
+        ownedPartTypes,
+        totalPartTypes,
+        inventoryGroup: "incomplete_sets",
+        keywords: ["set", "incomplete set", "missing", resolved.name.toLowerCase()],
+      });
+    }
+    // completeSets < 1 with zero owned parts = not started; left out of the tab.
   }
 
   return setItems;

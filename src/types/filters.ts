@@ -17,7 +17,8 @@ export type SharedSortKey =
   | "rerolls"
   | "grade"
   | "ducatonator"
-  | "complete_sets";
+  | "complete_sets"
+  | "missing_parts";
 
 export type SortDirection = "asc" | "desc";
 
