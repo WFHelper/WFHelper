@@ -102,7 +102,7 @@
     "@wfcd/items": "^1.1275.19",
     "chokidar": "^4.0.0",
     "electron-log": "^5.4.3",
-    "electron-updater": "^6.8.3",
+    "electron-updater": "^6.8.9",
     "html-to-image": "^1.11.13",
     "koffi": "^2.15.1",
     "lzma": "^2.3.2",
