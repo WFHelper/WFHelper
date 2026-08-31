@@ -1388,5 +1388,18 @@
   "inventory.value.allTradablesHint": "统计每一个可交易条目，包括模组和赋能，并乘以其堆叠数量。",
   "inventory.value.minPlatHint": "跳过 warframe.market 中位价低于此价格的物品。尚无价格的物品仍会计入。",
   "inventory.value.minPlatOff": "关闭",
-  "inventory.value.minPlatOption": "每件物品至少 {value} 白金"
+  "inventory.value.minPlatOption": "每件物品至少 {value} 白金",
+  "archon.title": "执刑官碎片",
+  "archon.color.crimson": "绯红",
+  "archon.color.amber": "琥珀",
+  "archon.color.azure": "蔚蓝",
+  "archon.color.emerald": "翡翠",
+  "archon.color.topaz": "黄玉",
+  "archon.color.violet": "紫罗兰",
+  "archon.tauforged": "Tau锻造",
+  "archon.installedCount": "{count} 已安装",
+  "archon.unsocketedCount": "{count} 在库存中",
+  "archon.unknownInstalled": "{count} 颜色未知",
+  "archon.shardCount": "{count} 个执刑官碎片",
+  "archon.copyLabel": "第 {index} 件"
 }

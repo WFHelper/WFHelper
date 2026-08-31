@@ -80,9 +80,24 @@ export interface RawInventoryEntry {
   [key: string]: unknown;
 }
 
+/** One Archon Shard socket on a Warframe. DE clears both fields in place when a
+ *  shard is pulled and pads skipped sockets with `{}`, so an empty socket is an
+ *  empty object rather than a gap. */
+export interface RawArchonCrystalUpgrade {
+  /** `/Lotus/Upgrades/Invigorations/ArchonCrystalUpgrades/...`; `Mythic` suffix = tauforged. */
+  UpgradeType?: string;
+  /** `ACC_RED`/`ACC_YELLOW`/`ACC_BLUE`/`ACC_GREEN`/`ACC_ORANGE`/`ACC_PURPLE`, `_MYTHIC` = tauforged. */
+  Color?: string;
+}
+
+export interface RawSuitEntry extends RawInventoryEntry {
+  /** Socket array addressed by index; DE sends only up to the highest used socket. */
+  ArchonCrystalUpgrades?: RawArchonCrystalUpgrade[];
+}
+
 export interface RawInventoryData {
   InventoryJson?: RawInventoryData | string;
-  Suits?: RawInventoryEntry[];
+  Suits?: RawSuitEntry[];
   LongGuns?: RawInventoryEntry[];
   Pistols?: RawInventoryEntry[];
   Melee?: RawInventoryEntry[];

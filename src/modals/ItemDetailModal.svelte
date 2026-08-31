@@ -1,7 +1,7 @@
 <script lang="ts">
   import { itemLabel } from "../lib/itemLabel.js";
   import { activeItem } from "../stores/modals.js";
-  import { itemDb, wfmItems, componentOwnership } from "../stores/data.js";
+  import { itemDb, wfmItems, componentOwnership, inventoryData } from "../stores/data.js";
   import { createPriceLoader } from "../lib/priceState.js";
   import { resolveItemPriceLookup } from "../lib/componentResolution.js";
   import { buildCraftingTree } from "../lib/craftingTree.js";
@@ -13,6 +13,13 @@
   import DetailModalBase from "./DetailModalBase.svelte";
   import ComponentPanel from "../components/ComponentPanel.svelte";
   import CraftingTree from "../components/CraftingTree.svelte";
+  import ArchonShardPips from "../components/archon/ArchonShardPips.svelte";
+  import {
+    archonShardColorKey,
+    archonShardDisplaySlots,
+    archonShardUpgradeLabel,
+    parseArchonShards,
+  } from "../lib/inventory/archonShards.js";
   import { tr, type MessageKey } from "../lib/i18n.js";
   import type { ComponentInfo, ParsedItem } from "../types/inventory.js";
 
@@ -48,6 +55,9 @@
       ? dbEntry.buildsProduct
       : null;
   $: hasCraftingTree = !!treeRootKey;
+  // Only Warframes carry sockets, so an empty result also means "not a frame".
+  $: archonShards = parseArchonShards($inventoryData);
+  $: shardCopies = itemKey ? (archonShards.bySuitType.get(itemKey) ?? []) : [];
   $: craftingTree =
     treeRootKey && showCraftingTree
       ? buildCraftingTree(treeRootKey, $itemDb || {}, $componentOwnership)
@@ -263,6 +273,47 @@
                 </button>
               {/each}
             </div>
+          </div>
+        {/if}
+
+        {#if shardCopies.length > 0}
+          <div class="detail-section" data-archon-slots>
+            <h3>{$tr("archon.title")}</h3>
+            {#each shardCopies as copy, copyIndex (copy.instanceId ?? copyIndex)}
+              {#if shardCopies.length > 1}
+                <div class="mt-1.5 text-xs font-semibold text-text-muted">
+                  {$tr("archon.copyLabel", { index: copyIndex + 1 })}
+                </div>
+              {/if}
+              <ul class="m-0 list-none p-0 text-sm text-text-secondary">
+                {#each archonShardDisplaySlots(copy.slots) as slot (slot.index)}
+                  <li
+                    class="flex items-center gap-2 border-b border-dashed border-white/[0.08] py-1.5 last:border-b-0"
+                  >
+                    <ArchonShardPips slots={[slot]} showEmpty size="md" />
+                    <span class="w-24 shrink-0 text-xs">
+                      {#if slot.color}
+                        {$tr(archonShardColorKey(slot.color))}
+                      {:else if slot.filled}
+                        {$tr("common.unknown")}
+                      {:else}
+                        <span class="text-text-muted">{$tr("common.none")}</span>
+                      {/if}
+                    </span>
+                    {#if slot.tauforged}
+                      <span
+                        class="rounded-[var(--radius-sm)] border border-accent/40 px-1 font-display text-[0.6rem] font-bold tracking-wide text-accent uppercase"
+                      >
+                        {$tr("archon.tauforged")}
+                      </span>
+                    {/if}
+                    <span class="text-xs text-text-muted">
+                      {archonShardUpgradeLabel(slot.upgradeType)}
+                    </span>
+                  </li>
+                {/each}
+              </ul>
+            {/each}
           </div>
         {/if}
 

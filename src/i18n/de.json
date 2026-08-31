@@ -1389,5 +1389,18 @@
   "inventory.value.allTradablesHint": "Zählt jede handelbare Zeile inklusive Mods und Arkana, multipliziert mit der Stapelgröße.",
   "inventory.value.minPlatHint": "Überspringt Gegenstände, deren warframe.market-Median unter diesem Preis liegt. Gegenstände ohne Preis werden weiterhin gezählt.",
   "inventory.value.minPlatOff": "Aus",
-  "inventory.value.minPlatOption": "Mindestens {value} Platinum pro Gegenstand"
+  "inventory.value.minPlatOption": "Mindestens {value} Platinum pro Gegenstand",
+  "archon.title": "Archonten-Scherben",
+  "archon.color.crimson": "Karmesin",
+  "archon.color.amber": "Bernstein",
+  "archon.color.azure": "Azur",
+  "archon.color.emerald": "Smaragd",
+  "archon.color.topaz": "Topas",
+  "archon.color.violet": "Violett",
+  "archon.tauforged": "Tau-geschmiedet",
+  "archon.installedCount": "{count} eingesetzt",
+  "archon.unsocketedCount": "{count} im Inventar",
+  "archon.unknownInstalled": "{count} mit unbekannter Farbe",
+  "archon.shardCount": "{count} Archonten-Scherben",
+  "archon.copyLabel": "Kopie {index}"
 }

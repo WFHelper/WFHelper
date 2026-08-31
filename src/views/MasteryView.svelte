@@ -28,6 +28,10 @@
   import ItemImage from "../components/ItemImage.svelte";
   import MasteryRoadmap from "../components/mastery/MasteryRoadmap.svelte";
   import CodexPanel from "../components/mastery/CodexPanel.svelte";
+  import ArchonShardPips from "../components/archon/ArchonShardPips.svelte";
+  import ArchonShardSummary from "../components/archon/ArchonShardSummary.svelte";
+  import { parseArchonShards, summarizeArchonShards } from "../lib/inventory/archonShards.js";
+  import { fallbackNameFromUniqueName } from "../../config/shared/displayName.js";
   import { send } from "../lib/ipc.js";
   import type {
     ComponentInfo,
@@ -84,6 +88,7 @@
   let statusFilter = restoreStatusTab();
   let viewTab = restoreViewTab();
   const breakdownExpanded = persistedBoolean("mastery-breakdown-expanded", false);
+  const archonExpanded = persistedBoolean("mastery-archon-expanded", false);
   const masteryFilters = sharedFilters("mastery");
 
   function restoreStatusTab(): string {
@@ -304,6 +309,23 @@
 
   $: foundryIndex = buildFoundryIndex($foundryData);
   $: subsumedFamilies = buildSubsumedFamilySet($inventoryData, $itemDb);
+
+  // Derived only, every render: shards are never cached, so a stale inventory
+  // simply shows fewer of them.
+  $: archonShards = parseArchonShards($inventoryData);
+  $: archonSummary = summarizeArchonShards(archonShards);
+
+  function frameLabel(itemType: string, db: typeof $itemDb): string {
+    const entry = db[itemType];
+    return itemLabel(entry) || fallbackNameFromUniqueName(itemType);
+  }
+
+  function openFrameByUniqueName(itemType: string): void {
+    const match = hydratedMasteryItems.find(
+      (item) => (item.uniqueName || item.internalName) === itemType,
+    );
+    if (match) activeItem.set(match);
+  }
 
   // Precompute values outside the keyed loop so WFM updates patch only changed
   // items instead of rerendering the full template.
@@ -611,6 +633,20 @@
             </div>
           {/if}
         </CollapsibleSection>
+
+        {#if archonSummary.stock.length > 0}
+          <CollapsibleSection
+            title={$tr("archon.title")}
+            collapsed={!$archonExpanded}
+            onToggle={() => archonExpanded.update((value) => !value)}
+          >
+            <ArchonShardSummary
+              summary={archonSummary}
+              frameLabel={(itemType) => frameLabel(itemType, $itemDb)}
+              onOpenFrame={openFrameByUniqueName}
+            />
+          </CollapsibleSection>
+        {/if}
       {/if}
     </div>
 
@@ -683,6 +719,8 @@
             <div class="empty-state col-span-full"><p>{$tr("mastery.noItemsMatch")}</p></div>
           {:else}
             {#each filtered as item, itemIndex (`${item.uniqueName || item.internalName || item.name}-${itemIndex}`)}
+              {@const shardCopies =
+                archonShards.bySuitType.get(item.uniqueName || item.internalName || "") ?? []}
               <div
                 class="item-card group {item.status === 'missing'
                   ? 'opacity-60'
@@ -702,6 +740,16 @@
                 <div class="item-img-wrap">
                   <ItemImage src={item.imageUrl} alt={itemLabel(item)} auditKey={item.name} />
                   {#if item.vaulted}<span class="vault-badge">V</span>{/if}
+                  {#if shardCopies.length > 0}
+                    <span class="absolute left-1.5 bottom-1.5 flex flex-col items-start gap-0.5">
+                      {#each shardCopies as copy, copyIndex (copy.instanceId ?? copyIndex)}
+                        <ArchonShardPips
+                          slots={copy.slots}
+                          title={$tr("archon.shardCount", { count: copy.filled })}
+                        />
+                      {/each}
+                    </span>
+                  {/if}
                   <span
                     class="absolute right-1.5 bottom-1.5 w-1.5 h-1.5 rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.38)] {item.status ===
                     'mastered'

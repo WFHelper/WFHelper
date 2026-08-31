@@ -2,9 +2,11 @@
   import { itemLabel } from "../../lib/itemLabel.js";
   import { createEventDispatcher, onDestroy, onMount } from "svelte";
 
+  import ArchonShardPips from "../archon/ArchonShardPips.svelte";
   import ItemImage from "../ItemImage.svelte";
   import MarketMetricStrip from "../MarketMetricStrip.svelte";
   import { NAV_ICON_URLS } from "../../lib/assetUrls.js";
+  import { archonShardsBySuit } from "../../stores/archonShards.js";
   import { tr } from "../../lib/i18n.js";
   import type { InventoryViewItem } from "../../lib/inventoryMarket.js";
   import { isRankedGroup } from "../../../config/shared/numeric.js";
@@ -21,6 +23,9 @@
   let cardEl: HTMLDivElement | null = null;
   let visibilityObserver: IntersectionObserver | null = null;
   let visibilityReported = false;
+
+  // Only Warframes carry sockets, so an empty result also means "not a frame".
+  $: shardCopies = $archonShardsBySuit.get(item.uniqueName || item.internalName || "") ?? [];
 
   $: mastered = item.rank >= item.maxRank && item.maxRank > 1;
   $: canShowRank = item.maxRank > 1 && isRankedGroup(item.inventoryGroup);
@@ -103,6 +108,17 @@
       auditKey={item.name}
     />
     {#if item.vaulted}<span class="vault-badge">V</span>{/if}
+    {#if shardCopies.length > 0}
+      <!-- Absolute so a shardless card keeps exactly the same height. -->
+      <span class="absolute bottom-1.5 left-1.5 flex flex-col items-start gap-0.5">
+        {#each shardCopies as copy, copyIndex (copy.instanceId ?? copyIndex)}
+          <ArchonShardPips
+            slots={copy.slots}
+            title={$tr("archon.shardCount", { count: copy.filled })}
+          />
+        {/each}
+      </span>
+    {/if}
     {#if item.orderPlaced}
       <span
         class="absolute top-1.5 left-1.5 inline-flex items-center justify-center rounded-full border border-border bg-black/50 p-1"

@@ -1406,5 +1406,18 @@
   "inventory.value.allTradablesHint": "Counts every tradable row, mods and arcanes included, multiplied by its stack size.",
   "inventory.value.minPlatHint": "Skips items whose warframe.market median is below this price. Items with no price yet are still counted.",
   "inventory.value.minPlatOff": "Off",
-  "inventory.value.minPlatOption": "At least {value} platinum per item"
+  "inventory.value.minPlatOption": "At least {value} platinum per item",
+  "archon.title": "Archon Shards",
+  "archon.color.crimson": "Crimson",
+  "archon.color.amber": "Amber",
+  "archon.color.azure": "Azure",
+  "archon.color.emerald": "Emerald",
+  "archon.color.topaz": "Topaz",
+  "archon.color.violet": "Violet",
+  "archon.tauforged": "Tauforged",
+  "archon.installedCount": "{count} installed",
+  "archon.unsocketedCount": "{count} in inventory",
+  "archon.unknownInstalled": "{count} of unknown colour",
+  "archon.shardCount": "{count} Archon Shards",
+  "archon.copyLabel": "Copy {index}"
 }
