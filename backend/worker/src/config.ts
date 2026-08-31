@@ -41,6 +41,8 @@ interface WorkerConfig {
 	historyArchiveEnabled: boolean;
 	historyRetentionDays: number;
 	rivenArchiveBatchSize: number;
+	priceSeedEnabled: boolean;
+	priceSeedBatchSize: number;
 	discordGuildId: string;
 	discordRoleTierMap: Record<string, SupporterTier>;
 }
@@ -65,6 +67,8 @@ export function getWorkerConfig(env: Env): WorkerConfig {
 		historyArchiveEnabled: (env.HISTORY_ARCHIVE_ENABLED || '1').trim() !== '0',
 		historyRetentionDays: clamp(parsePositiveInt(env.HISTORY_RETENTION_DAYS, 730), 1, 3650),
 		rivenArchiveBatchSize: clamp(parsePositiveInt(env.RIVEN_ARCHIVE_BATCH_SIZE, 12), 1, 60),
+		priceSeedEnabled: (env.PRICE_SEED_ENABLED || '1').trim() !== '0',
+		priceSeedBatchSize: clamp(parsePositiveInt(env.PRICE_SEED_BATCH_SIZE, 20), 1, 40),
 		discordGuildId: (env.DISCORD_GUILD_ID || '').trim(),
 		discordRoleTierMap: parseRoleTierMap(env.DISCORD_ROLE_TIER_MAP),
 	};

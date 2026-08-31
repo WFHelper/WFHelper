@@ -20,6 +20,9 @@ export const ARCHIVE_BARO_PREFIX = 'archive:baro:';
 export const ARCHIVE_INDEX_PREFIX = 'archive:index:';
 export const RIVEN_ARCHIVE_WEAPONS_KEY = 'archive:riven-weapons:v1';
 export const RIVEN_ARCHIVE_SWEEP_KEY = 'archive:riven-sweep:v1';
+// One-time 90-day price seed; `complete: true` in the state key latches it off forever.
+export const PRICE_SEED_STATE_KEY = 'archive:price-seed:v1';
+export const PRICE_SEED_SLUGS_KEY = 'archive:price-seed:slugs:v1';
 export const SUPPORTERS_KEY = 'supporters:discord:v1';
 export const SUPPORTER_EXCLUSIONS_KEY = 'supporters:exclusions:v1';
 // Retired Patreon pipeline keys (profile names, OAuth tokens); every

@@ -6,6 +6,7 @@ import { getWorkerConfig } from './config';
 import { runDailyArchives, sweepRivenArchive } from './services/history';
 import { logEvent, takeResponseLogFields } from './services/logging';
 import { prewarmBatch, prewarmOrderSummaryCatalog } from './services/prewarm';
+import { seedPriceHistory } from './services/priceHistorySeed';
 import { syncSupporters } from './services/supporters';
 import type { Env } from './types';
 
@@ -140,6 +141,7 @@ export default {
 				refreshCatalog: false,
 			});
 			await sweepRivenArchive(env);
+			await seedPriceHistory(env);
 			logEvent({
 				type: 'cron',
 				route,

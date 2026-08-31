@@ -165,7 +165,8 @@ leaves the last good median. Prices and their negative markers live in `PRICE_CA
 catalogs live in `ITEM_META`. Successful price, meta, and order-summary responses carry
 `public, max-age=60`, so a PoP can serve a hydrated value for up to a minute after KV changes.
 
-Prewarm cron runs every 15 minutes and also advances the riven history sweep; the separate daily
+Prewarm cron runs every 15 minutes and also advances the riven history sweep and the one-time
+price-history seed; the separate daily
 `0 4 * * *` trigger runs the supporter sync plus the price and Baro archives. Current production
 defaults are:
 
@@ -181,9 +182,10 @@ request, while stale entries are refreshed before being patched.
 
 ## History archives
 
-Three archive families accrue from the day they are deployed. None of them can be backfilled:
-the worker holds no history before its first write, Warframe Market serves no dated medians or
-past auctions, and DE publishes no past Baro manifests. A gap in an archive stays a gap.
+Three archive families accrue from the day they are deployed. Only prices can be backfilled, and
+only once: the Warframe Market statistics endpoint serves 90 days of daily closed-trade medians
+per item, while it serves no past auctions and DE publishes no past Baro manifests. Outside that
+one seed a gap in an archive stays a gap.
 
 Keys live in `ITEM_META`:
 
@@ -216,6 +218,35 @@ request. A full pass takes about five hours, so one sweep completes per day. The
 from `/v1/riven/items` and is cached in `archive:riven-weapons:v1` for 24 hours; an empty or failed
 refresh keeps the stored list.
 
+The price seed is a one-time sweep rather than a cadence. `archive:price-seed:v1` holds
+`{startedDate, cursor, complete, failures}`, and `complete: true` latches it off permanently: a
+finished seed costs one KV read on the 15-minute tick and makes no request, redeploys included. It
+walks the same slug catalog the prewarm sweep walks, pinned on the first tick into
+`archive:price-seed:slugs:v1` so a mid-sweep catalog refresh cannot shift the cursor, and processes
+`PRICE_SEED_BATCH_SIZE` slugs (20) per tick with one serialized `GET /v1/items/{slug}/statistics`
+each. About 4,000 slugs take roughly 200 ticks, so a full seed runs about two days.
+
+Day rows come from `statistics_closed["90days"]`. Rank semantics mirror the live bare price: a slug
+in the ranked order-summary catalog takes the `mod_rank` 0 entries, any other slug takes the entries
+carrying no rank, and the last entry of a date wins. The median is rounded the way the live median
+is, so a seeded day and a live day are one series. Rivens and Baro have no statistics endpoint and
+are never seeded.
+
+Each batch buffers its rows in memory and then read-modify-writes only the days it touched, up to
+90 day keys and therefore around 180 KV operations on top of the batch's requests. An existing row
+is never replaced: a day the live archive wrote keeps its own medians, `generatedAt` and `source`
+and only gains the keys it lacks, while a day the seed creates carries
+`source: "wfm-statistics-seed"`. Days on or after `startedDate` are never touched because the live
+daily archive owns them. A seeded day expires on the retention window measured from its own date,
+and every touched day joins `archive:index:prices:v1` once through the shared index helper, which
+sorts the dated families so seeded days stay ahead of the live ones that pruning drops first.
+
+A failed or malformed statistics response counts the slug as failed and the sweep moves on: no
+retry, no negative marker, and the running failure total lives in the state key. An unavailable slug
+catalog or ranked catalog leaves the cursor where it is and retries on the next tick, because
+without the ranked catalog a mixed-rank median would be archived permanently. `PRICE_SEED_ENABLED=0`
+stops the seed before it starts, as does `HISTORY_ARCHIVE_ENABLED=0`.
+
 Baro comes from the DE world state (`VoidTraders`; `PrimeVaultTraders` is Varzia and is never read
 here). Only a live visit carrying a manifest is recorded, because an announced manifest can still
 change before activation. A visit runs for about 48 hours, so a daily check catches every one, and
@@ -224,8 +255,8 @@ the write is skipped when the visit key already exists.
 Failure policy matches the caches. An empty or failed upstream answer never replaces or deletes an
 existing archive, no negative markers are written, and each entry point catches its own errors so a
 failing archive cannot break prewarm or the supporter sync. `HISTORY_ARCHIVE_ENABLED=0` stops all
-three families. Every write logs its byte size on route `archive:prices`, `archive:rivens`, or
-`archive:baro`, and a value past 4MB is refused rather than stored.
+three families. Every write logs its byte size on route `archive:prices`, `archive:rivens`,
+`archive:baro`, or `archive:price-seed`, and a value past 4MB is refused rather than stored.
 
 ## Daily budget
 

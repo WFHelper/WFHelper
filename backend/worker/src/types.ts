@@ -30,6 +30,9 @@ export interface Env {
 	HISTORY_ARCHIVE_ENABLED?: string;
 	HISTORY_RETENTION_DAYS?: string;
 	RIVEN_ARCHIVE_BATCH_SIZE?: string;
+	/** "0" stops the one-time 90-day price-history seed before it starts. */
+	PRICE_SEED_ENABLED?: string;
+	PRICE_SEED_BATCH_SIZE?: string;
 	BOOTSTRAP_TOKEN_SECRET?: string;
 	BOOTSTRAP_TOKEN_TTL_SEC?: string;
 	PUBLIC_BOOTSTRAP_REQUIRED?: string;

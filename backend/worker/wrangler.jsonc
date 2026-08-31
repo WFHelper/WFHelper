@@ -87,6 +87,10 @@
 		"HISTORY_ARCHIVE_ENABLED": "1",
 		"HISTORY_RETENTION_DAYS": "730",
 		"RIVEN_ARCHIVE_BATCH_SIZE": "12",
+		// One-time 90-day price seed. It latches itself off for good once the sweep
+		// finishes; "0" stops it before it starts.
+		"PRICE_SEED_ENABLED": "1",
+		"PRICE_SEED_BATCH_SIZE": "20",
 		// Discord-sourced supporter credits. Empty means disabled; the map is
 		// {"<discord role id>":"basic"|"big"|"biggest"}. DISCORD_BOT_TOKEN is a secret.
 		"DISCORD_GUILD_ID": "1486065926192500746",
@@ -94,7 +98,8 @@
 	},
 
 	"triggers": {
-		// The 15-minute tick prewarms and advances the riven archive sweep. The daily tick
+		// The 15-minute tick prewarms and advances the riven archive sweep plus the
+		// one-time price-history seed. The daily tick
 		// runs the Discord supporter sync plus the price and Baro archives, all of which
 		// only need a once-a-day pass and must not burn subrequests every 15 min.
 		"crons": ["*/15 * * * *", "0 4 * * *"],
@@ -152,6 +157,8 @@
 				"HISTORY_ARCHIVE_ENABLED": "1",
 				"HISTORY_RETENTION_DAYS": "730",
 				"RIVEN_ARCHIVE_BATCH_SIZE": "12",
+				"PRICE_SEED_ENABLED": "1",
+				"PRICE_SEED_BATCH_SIZE": "20",
 				"DISCORD_GUILD_ID": "1486065926192500746",
 				"DISCORD_ROLE_TIER_MAP": "{\"1541598934718349332\":\"basic\",\"1541843190779224124\":\"biggest\"}",
 			},

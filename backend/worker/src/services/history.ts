@@ -17,7 +17,7 @@ import { WFM_HEADERS } from '../../../../config/shared/wfm';
 const DAY_SEC = 24 * 60 * 60;
 // KV allows 25MB per value. A daily archive an order of magnitude past this is a
 // bug, so the write is refused instead of silently storing garbage.
-const MAX_ARCHIVE_BYTES = 4 * 1024 * 1024;
+export const MAX_ARCHIVE_BYTES = 4 * 1024 * 1024;
 const MAX_INDEX_ENTRIES = 4096;
 // Pruning drops one entry a day in steady state and the TTL reclaims the rest.
 const MAX_INDEX_DELETES_PER_RUN = 8;
@@ -93,7 +93,7 @@ function parseJsonRecord(raw: string | null): Record<string, unknown> | null {
 	}
 }
 
-function byteLength(value: string): number {
+export function byteLength(value: string): number {
 	return new TextEncoder().encode(value).length;
 }
 
@@ -134,10 +134,17 @@ async function readArchiveIndex(env: Env, family: ArchiveFamily): Promise<string
 	return entries;
 }
 
-/** Appends one archive id and prunes the oldest ids past the bound. */
-async function recordArchiveEntry(env: Env, family: ArchiveFamily, id: string, maxEntries: number): Promise<void> {
+export async function recordArchiveEntries(env: Env, family: ArchiveFamily, ids: string[], maxEntries: number): Promise<void> {
 	const entries = await readArchiveIndex(env, family);
-	if (!entries.includes(id)) entries.push(id);
+	const known = new Set(entries);
+	for (const id of ids) {
+		if (!id || known.has(id)) continue;
+		known.add(id);
+		entries.push(id);
+	}
+	// Date ids sort chronologically as strings, and pruning drops from the front. The
+	// price seed appends days older than the live ones, so the sort keeps that true.
+	if (family !== 'baro') entries.sort();
 	const overflow = Math.max(0, entries.length - maxEntries);
 	const pruned = overflow > 0 ? entries.splice(0, overflow) : [];
 
@@ -150,6 +157,10 @@ async function recordArchiveEntry(env: Env, family: ArchiveFamily, id: string, m
 			// Best effort: the archive TTL removes anything a failed delete leaves behind.
 		}
 	}
+}
+
+async function recordArchiveEntry(env: Env, family: ArchiveFamily, id: string, maxEntries: number): Promise<void> {
+	await recordArchiveEntries(env, family, [id], maxEntries);
 }
 
 function priceRowsFromSnapshot(snapshot: Record<string, unknown> | null): PriceRow[] {
