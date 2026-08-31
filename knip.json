@@ -11,6 +11,7 @@
     "src/App.svelte",
     "src/modals/**/*.svelte",
     "src/views/**/*.svelte",
+    "src/components/workbench/*.svelte",
     "renderer/**/*.js",
     "backend/worker/src/index.ts",
     "backend/worker/test/**/*.ts",

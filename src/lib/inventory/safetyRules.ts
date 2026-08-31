@@ -39,7 +39,7 @@ export const SAFETY_REASON_KEYS: readonly SafetyReasonKey[] = [
   "inventory.safety.reason.setKeep",
 ];
 
-interface SafetyReservation {
+export interface SafetyReservation {
   rule: SafetyRuleId;
   /** Copies this rule alone insists on keeping. Floors compose by max, so this
    *  can exceed `reserved` when the account is short of what the rule wants. */
@@ -50,7 +50,7 @@ interface SafetyReservation {
   params?: Readonly<Record<string, string | number>>;
 }
 
-interface SafetyVerdict {
+export interface SafetyVerdict {
   total: number;
   /** Copies actually held back: the highest floor, clamped to `total`. */
   reserved: number;
@@ -152,7 +152,7 @@ interface SafetyContextInput {
   pinnedRequirements?: ReadonlyMap<string, number>;
 }
 
-interface SafetyContext {
+export interface SafetyContext {
   readonly itemDb: Record<string, ItemDbEntry>;
   readonly spareDefault: number;
   readonly spares: ReadonlyMap<string, number>;

@@ -1,0 +1,325 @@
+import {
+  safeToList,
+  safetyKeyFor,
+  type SafetyContext,
+  type SafetyReservation,
+  type SafetyVerdict,
+} from "../inventory/safetyRules.js";
+import { getLookupByName } from "../inventoryMarket.js";
+import { normalizeMarketName } from "../marketNaming.js";
+import {
+  suggestPrice,
+  type DampingRule,
+  type PriceSuggestion,
+  type PricingListing,
+  type StrategyConfig,
+} from "./pricingStrategies.js";
+import { isRankedGroup } from "../../../config/shared/numeric.js";
+import {
+  WORKBENCH_MAX_ROWS_PER_RUN,
+  type WorkbenchPlan,
+  type WorkbenchPlanRow,
+  type WorkbenchSafetySnapshot,
+} from "../../../config/shared/tradeWorkbenchTypes.js";
+import { isWfmExcludedSlug } from "../../../config/shared/wfmExclusions.js";
+import { isActiveOrderStatus } from "../../../config/shared/wfmOrders.js";
+import type { ParsedItem } from "../../types/inventory.js";
+import type { WfmItemsLookup } from "../../types/ipc.js";
+import type { WfmOrder } from "../../types/market.js";
+
+type WorkbenchQueueWarning =
+  | "no-listing-data"
+  | "low-liquidity"
+  | "no-price"
+  | "override-needed"
+  | "fully-protected";
+
+interface WorkbenchMarketInfo {
+  lowestSell: number | null;
+  highestBuy: number | null;
+  /** Sellers currently ingame/online; the liquidity signal shown per row. */
+  activeSellers: number;
+  spread: number | null;
+}
+
+export interface WorkbenchQueueRow {
+  rowId: string;
+  item: ParsedItem;
+  itemName: string;
+  slug: string;
+  rank: number | null;
+  verdict: SafetyVerdict;
+  /** Units to list; starts at the safe count and never exceeds the total. */
+  quantity: number;
+  /** Set by an explicit per-row confirmation; required beyond the safe count. */
+  overrideAcknowledged: boolean;
+  overrideAcknowledgedAt: number | null;
+  selected: boolean;
+  existingOrder: { id: string; platinum: number; quantity: number } | null;
+  market: WorkbenchMarketInfo | null;
+  /** Raw sell book kept on the row so strategies can be re-applied locally. */
+  sellBook: readonly PricingListing[] | null;
+  suggestion: PriceSuggestion | null;
+  manualPrice: number | null;
+}
+
+const RELIC_SUBTYPE_RE = /\b(intact|exceptional|flawless|radiant)\b/i;
+
+/** Mirrors inventoryMarket's private gameRef resolution for the lookup record. */
+function lookupByGameRef(gameRef: string, lookup: WfmItemsLookup): WfmItemsLookup[string] | null {
+  if (!gameRef) return null;
+  const key = normalizeMarketName(gameRef);
+  const entry = lookup[key] || null;
+  if (!entry) return null;
+  const mappedRef =
+    typeof entry.gameRef === "string" && entry.gameRef.trim().length > 0
+      ? normalizeMarketName(entry.gameRef)
+      : null;
+  if (mappedRef && mappedRef !== key) return null;
+  return entry;
+}
+
+/** Catalog-confirmed slugs only: a guessed slug cannot resolve to an item id at
+ *  execution time, so it never enters the queue in the first place. */
+export function resolveQueueSlug(item: ParsedItem, lookup: WfmItemsLookup): string | null {
+  const byRef = lookupByGameRef(item.internalName, lookup);
+  if (byRef?.url_name) return byRef.url_name;
+  const byName = getLookupByName(item.name, lookup);
+  if (byName?.url_name) return byName.url_name;
+  return null;
+}
+
+function rowRank(item: ParsedItem): number | null {
+  if (!isRankedGroup(item.inventoryGroup)) return null;
+  return Number.isFinite(item.rank) ? Math.max(0, Math.floor(item.rank)) : 0;
+}
+
+export function relicSubtypeFor(item: ParsedItem): string | null {
+  if (item.inventoryGroup !== "relics") return null;
+  const match = RELIC_SUBTYPE_RE.exec(item.name);
+  return match ? match[1].toLowerCase() : "intact";
+}
+
+/** Inventory rows to workbench queue rows. Pure: market data attaches later. */
+export function buildQueueRows(
+  items: readonly ParsedItem[],
+  context: SafetyContext,
+  lookup: WfmItemsLookup,
+): WorkbenchQueueRow[] {
+  const rows: WorkbenchQueueRow[] = [];
+  for (const item of items) {
+    if (item.inventoryGroup === "incomplete_sets") continue;
+    const slug = resolveQueueSlug(item, lookup);
+    if (!slug || isWfmExcludedSlug(slug)) continue;
+    const verdict = safeToList(item, context);
+    if (verdict.total <= 0) continue;
+    rows.push({
+      rowId: `r${rows.length}`,
+      item,
+      itemName: item.name,
+      slug,
+      rank: rowRank(item),
+      verdict,
+      quantity: verdict.safe,
+      overrideAcknowledged: false,
+      overrideAcknowledgedAt: null,
+      selected: false,
+      existingOrder: null,
+      market: null,
+      sellBook: null,
+      suggestion: null,
+      manualPrice: null,
+    });
+  }
+  return rows;
+}
+
+function matchExistingOrder(row: WorkbenchQueueRow, orders: readonly WfmOrder[]): WfmOrder | null {
+  return (
+    orders.find(
+      (order) =>
+        order.orderType === "sell" &&
+        order.itemUrlName === row.slug &&
+        (row.rank == null || order.modRank === row.rank),
+    ) ?? null
+  );
+}
+
+export function attachMarketData(
+  row: WorkbenchQueueRow,
+  sellBook: readonly PricingListing[] | null,
+  buyBook: readonly PricingListing[] | null,
+  myOrders: readonly WfmOrder[],
+): WorkbenchQueueRow {
+  const existing = matchExistingOrder(row, myOrders);
+  let market: WorkbenchMarketInfo | null = null;
+  if (sellBook) {
+    const activeSell = sellBook.filter((entry) => isActiveOrderStatus(entry.status));
+    const lowestSell =
+      activeSell.length > 0 ? Math.min(...activeSell.map((e) => e.platinum)) : null;
+    const activeBuy = (buyBook ?? []).filter((entry) => isActiveOrderStatus(entry.status));
+    const highestBuy = activeBuy.length > 0 ? Math.max(...activeBuy.map((e) => e.platinum)) : null;
+    market = {
+      lowestSell,
+      highestBuy,
+      activeSellers: activeSell.length,
+      spread: lowestSell != null && highestBuy != null ? lowestSell - highestBuy : null,
+    };
+  }
+  return {
+    ...row,
+    sellBook,
+    market,
+    existingOrder: existing
+      ? { id: existing.id, platinum: existing.platinum, quantity: existing.quantity }
+      : null,
+  };
+}
+
+export function applyStrategy(
+  row: WorkbenchQueueRow,
+  config: StrategyConfig,
+  ownUserName: string | null,
+  damping?: DampingRule,
+): WorkbenchQueueRow {
+  if (!row.sellBook) return { ...row, suggestion: null };
+  const suggestion = suggestPrice(
+    config,
+    {
+      sellListings: row.sellBook,
+      currentPrice: row.existingOrder?.platinum ?? null,
+      ownUserName,
+    },
+    damping,
+  );
+  return { ...row, suggestion };
+}
+
+/** Clamped to the account total; crossing the safe count clears any previous
+ *  acknowledgement so protection has to be re-confirmed for the new amount. */
+export function setRowQuantity(row: WorkbenchQueueRow, quantity: number): WorkbenchQueueRow {
+  const next = Math.max(0, Math.min(row.verdict.total, Math.floor(quantity)));
+  const keepAck = row.overrideAcknowledged && next <= row.quantity;
+  return {
+    ...row,
+    quantity: next,
+    overrideAcknowledged: next > row.verdict.safe ? keepAck : false,
+    overrideAcknowledgedAt: next > row.verdict.safe && keepAck ? row.overrideAcknowledgedAt : null,
+  };
+}
+
+export function acknowledgeRowOverride(row: WorkbenchQueueRow, at: number): WorkbenchQueueRow {
+  if (row.quantity <= row.verdict.safe) return row;
+  return { ...row, overrideAcknowledged: true, overrideAcknowledgedAt: at };
+}
+
+export function rowNeedsOverride(row: WorkbenchQueueRow): boolean {
+  return row.quantity > row.verdict.safe;
+}
+
+export function effectivePrice(row: WorkbenchQueueRow): number | null {
+  if (row.manualPrice != null) return row.manualPrice;
+  if (row.suggestion?.price != null) return row.suggestion.price;
+  return row.existingOrder?.platinum ?? null;
+}
+
+export function rowWarnings(row: WorkbenchQueueRow): WorkbenchQueueWarning[] {
+  const warnings: WorkbenchQueueWarning[] = [];
+  if (row.verdict.safe === 0 && !row.overrideAcknowledged) warnings.push("fully-protected");
+  if (!row.sellBook) warnings.push("no-listing-data");
+  else if ((row.market?.activeSellers ?? 0) < 3) warnings.push("low-liquidity");
+  if (effectivePrice(row) == null) warnings.push("no-price");
+  if (rowNeedsOverride(row) && !row.overrideAcknowledged) warnings.push("override-needed");
+  return warnings;
+}
+
+export function bindingReasonKeys(verdict: SafetyVerdict): string[] {
+  return verdict.reservations
+    .filter((reservation: SafetyReservation) => reservation.binding)
+    .map((reservation) => reservation.reasonKey);
+}
+
+/** Rows that are actually executable as-is. */
+function executableRows(rows: readonly WorkbenchQueueRow[]): WorkbenchQueueRow[] {
+  return rows.filter(
+    (row) =>
+      row.selected &&
+      row.quantity > 0 &&
+      effectivePrice(row) != null &&
+      (!rowNeedsOverride(row) || row.overrideAcknowledged),
+  );
+}
+
+interface WorkbenchPlanBuild {
+  plan: WorkbenchPlan;
+  /** True when the selection exceeds the per-run cap; nothing was truncated. */
+  overCap: boolean;
+}
+
+export function buildPlanFromRows(
+  rows: readonly WorkbenchQueueRow[],
+  now: number,
+): WorkbenchPlanBuild {
+  const eligible = executableRows(rows);
+  const planRows: WorkbenchPlanRow[] = eligible.map((row) => {
+    const price = effectivePrice(row) as number;
+    const planRow: WorkbenchPlanRow = {
+      rowId: row.rowId,
+      mode: row.existingOrder ? "update" : "create",
+      slug: row.slug,
+      itemName: row.itemName,
+      quantity: row.quantity,
+      platinum: price,
+    };
+    if (row.rank != null) planRow.rank = row.rank;
+    const subtype = relicSubtypeFor(row.item);
+    if (subtype) planRow.subtype = subtype;
+    if (row.existingOrder) planRow.orderId = row.existingOrder.id;
+    if (rowNeedsOverride(row) && row.overrideAcknowledged) {
+      planRow.override = {
+        acknowledgedAt: row.overrideAcknowledgedAt ?? now,
+        reasonKeys: bindingReasonKeys(row.verdict),
+      };
+    }
+    return planRow;
+  });
+  return {
+    plan: { planId: `plan-${now}`, createdAt: now, rows: planRows },
+    overCap: planRows.length > WORKBENCH_MAX_ROWS_PER_RUN,
+  };
+}
+
+/** Fresh snapshot at confirm time: verdicts are recomputed from the live
+ *  safety context, never copied from what the queue was built with. */
+export function captureSafetySnapshot(
+  rows: readonly WorkbenchQueueRow[],
+  context: SafetyContext,
+  now: number,
+): WorkbenchSafetySnapshot {
+  const snapshot: WorkbenchSafetySnapshot = { capturedAt: now, rows: {} };
+  for (const row of rows) {
+    const verdict = safeToList(row.item, context);
+    snapshot.rows[row.rowId] = { safe: verdict.safe, total: verdict.total };
+  }
+  return snapshot;
+}
+
+/** Stable key for per-item safety settings (locks, spares). */
+export function rowSafetyKey(row: WorkbenchQueueRow): string {
+  return safetyKeyFor(row.item);
+}
+
+interface WorkbenchTotals {
+  rows: number;
+  units: number;
+  platinum: number;
+}
+
+export function planTotals(rows: readonly WorkbenchQueueRow[]): WorkbenchTotals {
+  const eligible = executableRows(rows);
+  return {
+    rows: eligible.length,
+    units: eligible.reduce((sum, row) => sum + row.quantity, 0),
+    platinum: eligible.reduce((sum, row) => sum + row.quantity * (effectivePrice(row) ?? 0), 0),
+  };
+}
