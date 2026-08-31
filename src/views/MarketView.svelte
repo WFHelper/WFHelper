@@ -16,6 +16,7 @@
   import HeaderTabs from "../components/HeaderTabs.svelte";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
   import MarketBrowseView from "../components/market/MarketBrowseView.svelte";
+  import MarketAlertsView from "../components/market/alerts/MarketAlertsView.svelte";
   import MarketContractRow from "../components/market/MarketContractRow.svelte";
   import MarketOrderRow from "../components/market/MarketOrderRow.svelte";
   import { attributeKeyword, contractInventoryMatch } from "../lib/marketContract.js";
@@ -84,6 +85,7 @@
     { key: "buy", label: $tr("market.tab.buy") },
     { key: "rivens", label: $tr("common.rivens") },
     { key: "browse", label: $tr("market.tab.browse") },
+    { key: "alerts", label: $tr("common.alerts") },
   ];
 
   // The default sort set reads ducats/set fields order rows never carry; offer
@@ -767,6 +769,19 @@
       />
     </div>
     <MarketBrowseView />
+  {:else if $marketViewState.typeTab === "alerts"}
+    <!-- Alerts work logged out too - auction and order searches are public. -->
+    <div class="view-header">
+      <h2>{$tr("marketAlerts.title")}</h2>
+    </div>
+    <div class="mb-2.5 flex items-end border-b border-white/10">
+      <HeaderTabs
+        options={orderTypeTabs}
+        activeKey={$marketViewState.typeTab}
+        onSelect={handleTypeTabSelect}
+      />
+    </div>
+    <MarketAlertsView />
   {:else if !$marketSession.loggedIn}
     <div class="mb-2.5 flex items-end border-b border-white/10">
       <HeaderTabs

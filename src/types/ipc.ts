@@ -17,6 +17,16 @@ import type {
   WfmUserProfile,
 } from "./market.js";
 import type { DropSearchMode, DropSearchResult } from "./drops.js";
+import type {
+  WorkbenchExecuteResult,
+  WorkbenchOverrideAck,
+  WorkbenchPlan,
+  WorkbenchPlanValidation,
+  WorkbenchResolveReviewPayload,
+  WorkbenchReviewReport,
+  WorkbenchSafetySnapshot,
+  WorkbenchState,
+} from "../../config/shared/tradeWorkbenchTypes.js";
 import type { RelicDatabase } from "./relics.js";
 import type { WorldState } from "./world.js";
 import type { HelperStatus } from "../../config/shared/apiHelperTypes.js";
@@ -32,6 +42,15 @@ import type {
   WebhookChannel,
   WebhookTestResult,
 } from "../../config/shared/notifications.js";
+import type {
+  MarketAlertEngineStatus,
+  MarketAlertHit,
+  MarketAlertImportOutcome,
+  MarketAlertListResult,
+  MarketAlertSavePayload,
+  MarketAlertSaveResult,
+  MarketAlertTestFireResult,
+} from "../../config/shared/marketAlertTypes.js";
 import type { OverlaySettings, OverlayWindowKey } from "../../config/runtime/overlaySettings.js";
 
 export type { HelperStatus } from "../../config/shared/apiHelperTypes.js";
@@ -360,6 +379,46 @@ export interface IpcInvokeMap {
     args: [channel: WebhookChannel];
     return: WebhookTestResult;
   };
+  marketAlertsList: {
+    args: [];
+    return: MarketAlertListResult;
+  };
+  marketAlertsSave: {
+    args: [payload: MarketAlertSavePayload];
+    return: MarketAlertSaveResult;
+  };
+  marketAlertsDelete: {
+    args: [id: string];
+    return: { ok: boolean };
+  };
+  marketAlertsSetEnabled: {
+    args: [id: string, enabled: boolean];
+    return: { ok: boolean };
+  };
+  marketAlertsGetHits: {
+    args: [];
+    return: MarketAlertHit[];
+  };
+  marketAlertsClearHits: {
+    args: [];
+    return: { ok: boolean };
+  };
+  marketAlertsStatus: {
+    args: [];
+    return: MarketAlertEngineStatus;
+  };
+  marketAlertsTestFire: {
+    args: [id: string];
+    return: MarketAlertTestFireResult;
+  };
+  marketAlertsExport: {
+    args: [];
+    return: string;
+  };
+  marketAlertsImport: {
+    args: [text: string];
+    return: MarketAlertImportOutcome;
+  };
   loadRankedHotset: {
     args: [];
     return: Record<string, unknown> | null;
@@ -480,6 +539,34 @@ export interface IpcInvokeMap {
     args: [id: string];
     return: { ok: boolean };
   };
+  workbenchGetState: {
+    args: [];
+    return: WorkbenchState;
+  };
+  workbenchPreviewPlan: {
+    args: [plan: WorkbenchPlan, safety: WorkbenchSafetySnapshot];
+    return: WorkbenchPlanValidation | WfmMutationError;
+  };
+  workbenchExecutePlan: {
+    args: [plan: WorkbenchPlan, safety: WorkbenchSafetySnapshot];
+    return: WorkbenchExecuteResult;
+  };
+  workbenchCancelRun: {
+    args: [];
+    return: WorkbenchState;
+  };
+  workbenchAcknowledgeOverride: {
+    args: [ack: WorkbenchOverrideAck];
+    return: WorkbenchState | WfmMutationError;
+  };
+  workbenchReconcile: {
+    args: [];
+    return: WorkbenchReviewReport | WfmMutationError;
+  };
+  workbenchResolveReview: {
+    args: [payload: WorkbenchResolveReviewPayload];
+    return: WorkbenchState | WfmMutationError;
+  };
   getArbiSchedule: {
     args: [];
     return: ArbiSchedulePayload;
@@ -587,6 +674,7 @@ export interface IpcEventMap {
   "warframe-ui-scale-updated": number | null;
   "notification-history-added": NotificationEntry;
   "notification-sound-play": undefined;
+  "workbench-state": WorkbenchState;
 }
 
 export interface IpcSendMap {

@@ -91,6 +91,27 @@ export interface PreloadAPI {
   testNotificationWebhook: (
     channel: IpcInvokeMap["testNotificationWebhook"]["args"][0],
   ) => Promise<IpcInvokeMap["testNotificationWebhook"]["return"]>;
+  marketAlertsList: () => Promise<IpcInvokeMap["marketAlertsList"]["return"]>;
+  marketAlertsSave: (
+    payload: IpcInvokeMap["marketAlertsSave"]["args"][0],
+  ) => Promise<IpcInvokeMap["marketAlertsSave"]["return"]>;
+  marketAlertsDelete: (
+    id: IpcInvokeMap["marketAlertsDelete"]["args"][0],
+  ) => Promise<IpcInvokeMap["marketAlertsDelete"]["return"]>;
+  marketAlertsSetEnabled: (
+    id: IpcInvokeMap["marketAlertsSetEnabled"]["args"][0],
+    enabled: IpcInvokeMap["marketAlertsSetEnabled"]["args"][1],
+  ) => Promise<IpcInvokeMap["marketAlertsSetEnabled"]["return"]>;
+  marketAlertsGetHits: () => Promise<IpcInvokeMap["marketAlertsGetHits"]["return"]>;
+  marketAlertsClearHits: () => Promise<IpcInvokeMap["marketAlertsClearHits"]["return"]>;
+  marketAlertsStatus: () => Promise<IpcInvokeMap["marketAlertsStatus"]["return"]>;
+  marketAlertsTestFire: (
+    id: IpcInvokeMap["marketAlertsTestFire"]["args"][0],
+  ) => Promise<IpcInvokeMap["marketAlertsTestFire"]["return"]>;
+  marketAlertsExport: () => Promise<IpcInvokeMap["marketAlertsExport"]["return"]>;
+  marketAlertsImport: (
+    text: IpcInvokeMap["marketAlertsImport"]["args"][0],
+  ) => Promise<IpcInvokeMap["marketAlertsImport"]["return"]>;
   onInventoryUpdated: (callback: (data: IpcEventMap["inventory-updated"]) => void) => () => void;
   onInventoryStatusUpdated: (
     callback: (status: IpcEventMap["inventory-status-updated"]) => void,
@@ -188,6 +209,20 @@ export interface PreloadAPI {
     callback: (scale: IpcEventMap["warframe-ui-scale-updated"]) => void,
   ) => () => void;
   onArbiOpenRun: (callback: (runId: IpcEventMap["arbi-open-run"]) => void) => () => void;
+  workbenchGetState: () => Promise<IpcInvokeMap["workbenchGetState"]["return"]>;
+  workbenchPreviewPlan: (
+    plan: IpcInvokeMap["workbenchPreviewPlan"]["args"][0],
+    safety: IpcInvokeMap["workbenchPreviewPlan"]["args"][1],
+  ) => Promise<IpcInvokeMap["workbenchPreviewPlan"]["return"]>;
+  workbenchCancelRun: () => Promise<IpcInvokeMap["workbenchCancelRun"]["return"]>;
+  workbenchAcknowledgeOverride: (
+    ack: IpcInvokeMap["workbenchAcknowledgeOverride"]["args"][0],
+  ) => Promise<IpcInvokeMap["workbenchAcknowledgeOverride"]["return"]>;
+  workbenchReconcile: () => Promise<IpcInvokeMap["workbenchReconcile"]["return"]>;
+  workbenchResolveReview: (
+    payload: IpcInvokeMap["workbenchResolveReview"]["args"][0],
+  ) => Promise<IpcInvokeMap["workbenchResolveReview"]["return"]>;
+  onWorkbenchState: (callback: (state: IpcEventMap["workbench-state"]) => void) => () => void;
   getArbiSchedule: () => Promise<IpcInvokeMap["getArbiSchedule"]["return"]>;
   setArbiScheduleOccurrence: (
     key: IpcInvokeMap["setArbiScheduleOccurrence"]["args"][0],
@@ -227,4 +262,8 @@ export interface TradePreloadAPI {
   deleteRivenAuction: (payload: {
     auctionId: string;
   }) => Promise<IpcInvokeMap["deleteRivenAuction"]["return"]>;
+  workbenchExecutePlan: (
+    plan: IpcInvokeMap["workbenchExecutePlan"]["args"][0],
+    safety: IpcInvokeMap["workbenchExecutePlan"]["args"][1],
+  ) => Promise<IpcInvokeMap["workbenchExecutePlan"]["return"]>;
 }

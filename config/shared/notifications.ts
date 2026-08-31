@@ -38,6 +38,7 @@ export const ROUTABLE_NOTIFICATION_SOURCES = [
   "arbiSchedule",
   "whisper",
   "tradeToast",
+  "marketAlerts",
 ] as const;
 
 export const WEBHOOK_CHANNELS = ["discord", "generic"] as const;

@@ -10,7 +10,8 @@ type TradeInvokeKey =
   | "wfmSetStatus"
   | "createRivenAuction"
   | "updateRivenAuction"
-  | "deleteRivenAuction";
+  | "deleteRivenAuction"
+  | "workbenchExecutePlan";
 type ReadOnlyInvokeKey = Exclude<InvokeKey, TradeInvokeKey>;
 type EventChannel = keyof IpcEventMap;
 type SendChannel = keyof IpcSendMap;
@@ -108,6 +109,8 @@ const eventApiMap: Record<
     window.api.onNotificationSoundPlay(
       cb as (payload: IpcEventMap["notification-sound-play"]) => void,
     ),
+  "workbench-state": (cb) =>
+    window.api.onWorkbenchState(cb as (state: IpcEventMap["workbench-state"]) => void),
 };
 
 export function on<K extends EventChannel>(

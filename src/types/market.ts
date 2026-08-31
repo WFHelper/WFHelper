@@ -7,7 +7,7 @@ export type {
   WfmContractsResult,
 } from "../../config/shared/wfmContracts.js";
 export type OrderType = "sell" | "buy";
-export type MarketTab = "sell" | "buy" | "rivens" | "browse";
+export type MarketTab = "sell" | "buy" | "rivens" | "browse" | "alerts";
 
 export interface WfmSession {
   loggedIn: boolean;

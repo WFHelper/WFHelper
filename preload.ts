@@ -113,6 +113,28 @@ import {
   ARBI_SCHED_SET_FAVORITE,
   ARBI_SCHED_SET_LEAD,
 } from "./config/shared/ipcChannels";
+import {
+  MARKET_ALERTS_CLEAR_HITS,
+  MARKET_ALERTS_DELETE,
+  MARKET_ALERTS_EXPORT,
+  MARKET_ALERTS_HITS,
+  MARKET_ALERTS_IMPORT,
+  MARKET_ALERTS_LIST,
+  MARKET_ALERTS_SAVE,
+  MARKET_ALERTS_SET_ENABLED,
+  MARKET_ALERTS_STATUS,
+  MARKET_ALERTS_TEST_FIRE,
+} from "./config/shared/marketAlertTypes";
+import {
+  WORKBENCH_ACK_OVERRIDE,
+  WORKBENCH_CANCEL_RUN,
+  WORKBENCH_EXECUTE_PLAN,
+  WORKBENCH_GET_STATE,
+  WORKBENCH_PREVIEW_PLAN,
+  WORKBENCH_RECONCILE,
+  WORKBENCH_RESOLVE_REVIEW,
+  WORKBENCH_STATE_EVENT,
+} from "./config/shared/tradeWorkbenchTypes";
 
 // invoke() is typed any; this wrapper pins each call's args+return to its IpcInvokeMap entry so drift fails typecheck.
 const inv =
@@ -231,6 +253,17 @@ try {
     ),
     testNotificationWebhook: inv<"testNotificationWebhook">(NOTIFICATION_CHANNELS_TEST),
 
+    marketAlertsList: inv<"marketAlertsList">(MARKET_ALERTS_LIST),
+    marketAlertsSave: inv<"marketAlertsSave">(MARKET_ALERTS_SAVE),
+    marketAlertsDelete: inv<"marketAlertsDelete">(MARKET_ALERTS_DELETE),
+    marketAlertsSetEnabled: inv<"marketAlertsSetEnabled">(MARKET_ALERTS_SET_ENABLED),
+    marketAlertsGetHits: inv<"marketAlertsGetHits">(MARKET_ALERTS_HITS),
+    marketAlertsClearHits: inv<"marketAlertsClearHits">(MARKET_ALERTS_CLEAR_HITS),
+    marketAlertsStatus: inv<"marketAlertsStatus">(MARKET_ALERTS_STATUS),
+    marketAlertsTestFire: inv<"marketAlertsTestFire">(MARKET_ALERTS_TEST_FIRE),
+    marketAlertsExport: inv<"marketAlertsExport">(MARKET_ALERTS_EXPORT),
+    marketAlertsImport: inv<"marketAlertsImport">(MARKET_ALERTS_IMPORT),
+
     loadRankedHotset: inv<"loadRankedHotset">(RANKED_HOTSET_LOAD),
     saveRankedHotset: inv<"saveRankedHotset">(RANKED_HOTSET_SAVE),
     loadSnapshotCache: inv<"loadSnapshotCache">(SNAPSHOT_CACHE_LOAD),
@@ -272,6 +305,17 @@ try {
     ),
     onArbiOpenRun: ipcDataBridge<IpcEventMap["arbi-open-run"]>(ipcRenderer, ARBI_OPEN_RUN),
 
+    workbenchGetState: inv<"workbenchGetState">(WORKBENCH_GET_STATE),
+    workbenchPreviewPlan: inv<"workbenchPreviewPlan">(WORKBENCH_PREVIEW_PLAN),
+    workbenchCancelRun: inv<"workbenchCancelRun">(WORKBENCH_CANCEL_RUN),
+    workbenchAcknowledgeOverride: inv<"workbenchAcknowledgeOverride">(WORKBENCH_ACK_OVERRIDE),
+    workbenchReconcile: inv<"workbenchReconcile">(WORKBENCH_RECONCILE),
+    workbenchResolveReview: inv<"workbenchResolveReview">(WORKBENCH_RESOLVE_REVIEW),
+    onWorkbenchState: ipcDataBridge<IpcEventMap["workbench-state"]>(
+      ipcRenderer,
+      WORKBENCH_STATE_EVENT,
+    ),
+
     getArbiSchedule: inv<"getArbiSchedule">(ARBI_SCHED_GET),
     setArbiScheduleOccurrence: inv<"setArbiScheduleOccurrence">(ARBI_SCHED_SET_OCCURRENCE),
     setArbiScheduleFavorite: inv<"setArbiScheduleFavorite">(ARBI_SCHED_SET_FAVORITE),
@@ -290,6 +334,7 @@ try {
     createRivenAuction: inv<"createRivenAuction">(RIVENS_CREATE_AUCTION),
     updateRivenAuction: inv<"updateRivenAuction">(RIVENS_UPDATE_AUCTION),
     deleteRivenAuction: inv<"deleteRivenAuction">(RIVENS_DELETE_AUCTION),
+    workbenchExecutePlan: inv<"workbenchExecutePlan">(WORKBENCH_EXECUTE_PLAN),
   } satisfies TradePreloadAPI);
 } catch (err) {
   console.error("[Preload] FATAL: contextBridge.exposeInMainWorld failed:", err);

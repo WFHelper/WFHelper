@@ -252,6 +252,7 @@
     arbiSchedule: "settings.channelSourceArbi",
     whisper: "settings.channelSourceWhisper",
     tradeToast: "settings.channelSourceTrade",
+    marketAlerts: "settings.channelSourceMarketAlerts",
   };
 
   // Shared list, so a source that gains a producer shows up here on its own.

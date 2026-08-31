@@ -87,7 +87,9 @@ import * as rivensIpc from "./ipc/rivensIpc";
 import * as tradeNotificationIpc from "./ipc/tradeNotificationIpc";
 import * as notificationLogIpc from "./ipc/notificationLogIpc";
 import * as notificationChannelsIpc from "./ipc/notificationChannelsIpc";
+import * as marketAlertsIpc from "./ipc/marketAlertsIpc";
 import * as tradeWorkflow from "./ipc/tradeWorkflow";
+import * as tradeWorkbenchIpc from "./ipc/tradeWorkbenchIpc";
 import { applyMainWindowZoom } from "./ipc/mainWindowZoom";
 import { assertMainRendererSender, handleAuthorized } from "./ipc/ipcSecurity";
 import {
@@ -407,6 +409,8 @@ function registerIpcHandlers(profileStage: ProfileStage): void {
   arbiScheduleIpc.register();
   notificationLogIpc.register();
   notificationChannelsIpc.register();
+  marketAlertsIpc.register();
+  tradeWorkbenchIpc.register();
 
   const attachInventoryAfterHelperRun = (ok: boolean) => {
     if (!ok || ctx.currentInventoryPath) return;

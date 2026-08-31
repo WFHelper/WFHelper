@@ -58,7 +58,7 @@
     nightwave: "dailies.groupNightwave",
     weekly: "dailies.groupWeekly",
     vendors: "dailies.groupVendors",
-    alerts: "dailies.groupAlerts",
+    alerts: "common.alerts",
   };
   /** Under an hour reads as warning, under ten minutes as danger. */
   const URGENT_MS = 60 * 60_000;
