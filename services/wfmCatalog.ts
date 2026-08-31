@@ -10,9 +10,6 @@ const log = withScope("wfmCatalog");
 /** Lazily cache the WFM v2 item catalog for main-process lookups. */
 
 const ITEMS_PATH = "/items";
-// Second try matters: after a chromium-transport timeout wfmClient latches the
-// node transport, so an immediate retry usually succeeds.
-const ITEMS_LOAD_ATTEMPTS = 2;
 const LOAD_FAILURE_COOLDOWN_MS = 15_000;
 const BACKEND_CATALOG_TIMEOUT_MS = 10_000;
 const NAME_SET_SUFFIX = " set";
@@ -117,18 +114,23 @@ async function _load(): Promise<void> {
         log.warn("[WFMCatalog] backend catalog fetch failed:", normalizeErrorMessage(e));
       }
 
-      if (!rawItems.length) source = "wfm";
-      for (let attempt = 1; attempt <= ITEMS_LOAD_ATTEMPTS; attempt++) {
-        if (rawItems.length) break;
+      if (!rawItems.length) {
+        source = "wfm";
         try {
-          // Route through the shared wfmClient queue so the catalog load
-          // shares the 350 ms rate-limit budget with every other WFM call.
-          const json = await wfmClient.requestV2("GET", ITEMS_PATH);
-          const data = unwrapWfmResponse(json);
-          if (!data) continue;
+          // Route through wfmClient so the load spends the same global request
+          // budget as every other WFM call; the scheduler replays transport and
+          // HTTP failures (4 sends per request at worst) and background priority
+          // keeps this sweep behind anything a user is waiting on.
+          let data: unknown = null;
+          // A 200 whose body does not unwrap is no failure to the scheduler, so
+          // one more send covers that case here.
+          for (let attempt = 1; attempt <= 2 && data == null; attempt++) {
+            const json = await wfmClient.requestV2("GET", ITEMS_PATH, { priority: "background" });
+            data = unwrapWfmResponse(json);
+          }
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- deeply nested untyped WFM catalog
-          const d = data as Record<string, any>;
+          const d = (data ?? {}) as Record<string, any>;
           if (Array.isArray(d.items)) {
             rawItems = d.items;
           } else if (d.items && typeof d.items === "object") {
@@ -139,10 +141,7 @@ async function _load(): Promise<void> {
             rawItems = data;
           }
         } catch (e) {
-          log.warn(
-            `[WFMCatalog] fetch ${ITEMS_PATH} failed (attempt ${attempt}/${ITEMS_LOAD_ATTEMPTS}):`,
-            normalizeErrorMessage(e),
-          );
+          log.warn(`[WFMCatalog] fetch ${ITEMS_PATH} failed:`, normalizeErrorMessage(e));
         }
       }
 

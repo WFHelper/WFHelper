@@ -35,6 +35,7 @@ vi.mock("node:https", () => {
 });
 
 import { request, __test__ } from "../../services/wfmClient";
+import { __schedulerTest__ } from "../../services/wfmScheduler";
 
 function fakeChromiumNet(errorMessage: string) {
   const requestFn = vi.fn(() => {
@@ -55,10 +56,15 @@ describe("chromium transport fallback", () => {
     state.scripted.length = 0;
     state.requests.length = 0;
     __test__.setClearanceForTest(null, null);
+    // Transport selection only - scheduler retries are covered separately and
+    // would otherwise multiply the send counts asserted below.
+    __schedulerTest__.reset();
+    __schedulerTest__.configure({ MAX_RETRIES: 0 });
   });
 
   afterEach(() => {
     __test__.setChromiumNetForTest(undefined);
+    __schedulerTest__.reset();
   });
 
   it("retries via node https on a net::ERR_* failure and latches node", async () => {

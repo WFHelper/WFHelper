@@ -95,6 +95,8 @@ describe("wfmCatalog item lookups", () => {
 
     await expect(wfmCatalog.ensureLoaded()).resolves.toBe(1);
     expect(request).toHaveBeenCalledTimes(1);
+    // The largest sweep never takes a slot from something a user is waiting on.
+    expect(request).toHaveBeenCalledWith("GET", "/items", { priority: "background" });
   });
 
   it("loads and exposes name/url/renderer mapping", async () => {
@@ -149,11 +151,12 @@ describe("wfmCatalog item lookups", () => {
 
     await expect(wfmCatalog.ensureLoaded()).rejects.toThrow("no items");
     expect(wfmCatalog.isLoaded()).toBe(false);
-    expect(request).toHaveBeenCalledTimes(2);
+    // One send per load: replaying a transport failure is the scheduler's job.
+    expect(request).toHaveBeenCalledTimes(1);
 
     // Within the failure cooldown: rejects fast without another network call.
     await expect(wfmCatalog.ensureLoaded()).rejects.toThrow();
-    expect(request).toHaveBeenCalledTimes(2);
+    expect(request).toHaveBeenCalledTimes(1);
 
     vi.advanceTimersByTime(16_000);
     request.mockResolvedValue({

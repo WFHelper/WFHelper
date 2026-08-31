@@ -1,27 +1,27 @@
 import https from "node:https";
 import { withScope } from "./logger";
+import {
+  rateLimitError,
+  scheduleWfmRequest,
+  WfmApiError,
+  type WfmAttemptOutcome,
+  type WfmRequestPriority,
+} from "./wfmScheduler";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("wfmClient");
 
-// Serialize WFM requests; prefer header auth and retain cookie plus CSRF fallback.
+// Prefer header auth and retain the cookie plus CSRF fallback. Pacing,
+// concurrency and backoff all live in wfmScheduler.
+
+export { WfmApiError };
 
 interface WfmRequestOptions {
   json?: unknown;
   headers?: Record<string, string>;
   /** requestRaw only: send header-style auth and skip the CSRF machinery. */
   headerAuth?: boolean;
-}
-
-export class WfmApiError extends Error {
-  code?: string;
-  status?: number;
-  constructor(message: string, code?: string, status?: number) {
-    super(message);
-    this.name = "WfmApiError";
-    this.code = code;
-    this.status = status;
-  }
+  priority?: WfmRequestPriority;
 }
 
 interface WfmResponseLike {
@@ -39,10 +39,10 @@ interface WfmRawResponse {
 
 const BASE_URL = "https://api.warframe.market/v1";
 const BASE_URL_V2 = "https://api.warframe.market/v2";
-const MIN_DELAY_MS = 350;
 const REQUEST_TIMEOUT_MS = 20000;
-const MAX_QUEUE_DEPTH = 64;
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
+/** Applied when a 429 carries no Retry-After of its own. */
+const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 30_000;
 
 // Keep auth and CSRF at call sites because core and raw requests use different tokens.
 const WFM_BASE_HEADERS: Readonly<Record<string, string>> = {
@@ -52,36 +52,22 @@ const WFM_BASE_HEADERS: Readonly<Record<string, string>> = {
   Language: "en",
 };
 
-let _queue: Promise<void> = Promise.resolve();
-let _lastRequestAt = 0;
-let _queueDepth = 0;
+/** Only GET/HEAD may be replayed: a 5xx or a dropped socket on a mutation can
+ *  still have been applied server-side, so a retry could double-create. */
+function _isReplayable(method: string): boolean {
+  return method === "GET" || method === "HEAD";
+}
 
-/** Space requests and reject excessive backlog during WFM outages. */
-function enqueue<T>(fn: () => Promise<T>): Promise<T> {
-  if (_queueDepth >= MAX_QUEUE_DEPTH) {
-    return Promise.reject(
-      new WfmApiError(
-        `WFM request queue full (${_queueDepth}/${MAX_QUEUE_DEPTH}) - backend likely unavailable.`,
-        "WFM_QUEUE_FULL",
-      ),
-    );
-  }
-  _queueDepth++;
-  const result = _queue.then(async () => {
-    const now = Date.now();
-    const elapsed = now - _lastRequestAt;
-    if (elapsed < MIN_DELAY_MS) {
-      await new Promise((r) => setTimeout(r, MIN_DELAY_MS - elapsed));
-    }
-    _lastRequestAt = Date.now();
-    return fn();
-  });
-  const decrement = () => {
-    _queueDepth--;
+/** Everything that reached the transport but failed there. Timeouts and
+ *  oversize bodies arrive here too, already wrapped as WFM_NETWORK_ERROR. */
+function _transportFailure<T>(err: unknown, retryable: boolean): WfmAttemptOutcome<T> {
+  const isTransport = err instanceof WfmApiError && err.code === "WFM_NETWORK_ERROR";
+  return {
+    kind: "failure",
+    error: err as Error,
+    retryable: retryable && isTransport,
+    transient: isTransport,
   };
-  result.then(decrement, decrement);
-  _queue = result.catch(() => {}) as Promise<void>;
-  return result;
 }
 
 let _csrfToken: string | null = null;
@@ -267,8 +253,20 @@ async function _reSolveClearance(label: string): Promise<boolean> {
   return true;
 }
 
-async function _ensureCsrfToken(): Promise<string | null> {
-  if (_csrfToken) return _csrfToken;
+let _csrfFetch: Promise<string | null> | null = null;
+
+// Single-flight: concurrent mutations would otherwise each run the page
+// prefetch (and each open its own challenge window).
+function _ensureCsrfToken(): Promise<string | null> {
+  if (_csrfToken) return Promise.resolve(_csrfToken);
+  if (_csrfFetch) return _csrfFetch;
+  _csrfFetch = _fetchCsrfToken().finally(() => {
+    _csrfFetch = null;
+  });
+  return _csrfFetch;
+}
+
+async function _fetchCsrfToken(): Promise<string | null> {
   try {
     // Browser UA first: it matches the chromium transport's TLS fingerprint,
     // and a mismatched pair is itself a bot signal.
@@ -564,6 +562,7 @@ interface CoreRequestOptions {
   headers?: Record<string, string>;
   baseHeaders?: Record<string, string>;
   label?: string;
+  priority?: WfmRequestPriority;
 }
 
 function flattenErrorMessages(value: unknown, depth = 0): string[] {
@@ -602,32 +601,52 @@ export function extractWfmErrorDetail(body: unknown, objectErrorFallback?: strin
   return null;
 }
 
-function throwRateLimitError(label: string, res: WfmResponseLike): never {
-  const retryAfterSec = parseInt(res.headers.get("retry-after") || "30", 10);
-  const cooldownMs = Math.max(retryAfterSec * 1000, 30_000);
-  _lastRequestAt = Date.now() + cooldownMs - MIN_DELAY_MS;
+/** A 429 is always replayable - the request was rejected, never applied - so
+ *  even a mutation may retry once the stated wait is short enough. Credential
+ *  posts opt out: resending a password is never worth a retry. */
+function rateLimitFailure<T>(
+  label: string,
+  res: WfmResponseLike,
+  retryable = true,
+): WfmAttemptOutcome<T> {
+  const retryAfterSec = parseInt(res.headers.get("retry-after") || "", 10);
+  const cooldownMs = Number.isFinite(retryAfterSec)
+    ? Math.max(retryAfterSec * 1000, 1_000)
+    : DEFAULT_RATE_LIMIT_COOLDOWN_MS;
   log.warn(`[${label}] Rate limited (429). Cooling down for ${Math.ceil(cooldownMs / 1000)}s.`);
-  throw new WfmApiError(
-    `Warframe.market rate limit hit. Please wait ${Math.ceil(cooldownMs / 1_000)}s before trying again.`,
-    "WFM_RATE_LIMITED",
-    429,
-  );
+  return {
+    kind: "failure",
+    status: 429,
+    retryAfterMs: cooldownMs,
+    retryable,
+    transient: true,
+    error: rateLimitError(cooldownMs),
+  };
+}
+
+/** The prefetch fetches a page of its own and can open a challenge window that
+ *  waits on the user, so it gives the request slot back while it runs. A token
+ *  already in hand needs neither. */
+function _csrfTokenOutsideSlot(ctx: WfmAttemptContext | undefined): Promise<string | null> {
+  if (_csrfToken || !ctx) return _ensureCsrfToken();
+  return ctx.runUnadmitted(_ensureCsrfToken);
 }
 
 async function applyMutationHeaders(
   headers: Record<string, string>,
   jwtForCookie: string | null,
   jwtForAuthorization: string | null | undefined = undefined,
+  ctx?: WfmAttemptContext,
 ): Promise<void> {
   let cookieJwt = jwtForCookie ?? _cookieJwt;
   if (!cookieJwt) {
-    await _ensureCsrfToken(); // the page prefetch also captures the anonymous JWT
+    await _csrfTokenOutsideSlot(ctx); // the page prefetch also captures the anonymous JWT
     cookieJwt = _cookieJwt;
   }
   // Double-submit: the header must carry the csrf_token claim of the SAME JWT
   // we present as the cookie - a token cached from another JWT mismatches.
   const claim = cookieJwt ? _decodeJwtPayload(cookieJwt)?.csrf_token : undefined;
-  const csrfToken = typeof claim === "string" && claim ? claim : await _ensureCsrfToken();
+  const csrfToken = typeof claim === "string" && claim ? claim : await _csrfTokenOutsideSlot(ctx);
   const authorizationJwt = jwtForAuthorization === undefined ? cookieJwt : jwtForAuthorization;
   if (csrfToken && !headers["X-CSRFToken"]) headers["X-CSRFToken"] = csrfToken;
   if (cookieJwt && !headers["Cookie"]) headers["Cookie"] = `JWT=${cookieJwt}`;
@@ -640,90 +659,129 @@ function _coreRequest(
   baseUrl: string,
   method: string,
   path: string,
-  { json, headers: extraHeaders, baseHeaders = {}, label = "WFMClient" }: CoreRequestOptions = {},
+  {
+    json,
+    headers: extraHeaders,
+    baseHeaders = {},
+    label = "WFMClient",
+    priority,
+  }: CoreRequestOptions = {},
 ): Promise<unknown> {
-  return enqueue(async () => {
-    const url = baseUrl + path;
-    const body = json !== undefined ? JSON.stringify(json) : null;
-    const authScheme = baseUrl === BASE_URL_V2 ? "Bearer" : "JWT";
+  const url = baseUrl + path;
+  const body = json !== undefined ? JSON.stringify(json) : null;
+  const authScheme = baseUrl === BASE_URL_V2 ? "Bearer" : "JWT";
+  const replayable = _isReplayable(method);
 
-    // Rebuild auth headers after clearance recovery.
-    const attempt = async (useHeaderAuth: boolean): Promise<WfmResponseLike> => {
-      const token = _getToken();
-      const headers: Record<string, string> = {
-        ...WFM_BASE_HEADERS,
-        ...baseHeaders,
-        ...extraHeaders,
+  return scheduleWfmRequest<unknown>(
+    async (_attemptNumber, ctx): Promise<WfmAttemptOutcome<unknown>> => {
+      // Rebuild auth headers after clearance recovery.
+      const attempt = async (useHeaderAuth: boolean): Promise<WfmResponseLike> => {
+        const token = _getToken();
+        const headers: Record<string, string> = {
+          ...WFM_BASE_HEADERS,
+          ...baseHeaders,
+          ...extraHeaders,
+        };
+
+        if (token && useHeaderAuth) {
+          headers["Authorization"] = `${authScheme} ${token}`;
+          headers["auth_type"] = "header";
+        } else if (token) {
+          headers["Authorization"] = `JWT ${token}`;
+          headers["Cookie"] = `JWT=${token}`;
+        }
+
+        if (method !== "GET" && !(token && useHeaderAuth)) {
+          await applyMutationHeaders(headers, token || _cookieJwt, null, ctx);
+        }
+
+        try {
+          return await _request(method, url, headers, body);
+        } catch (networkErr) {
+          throw new WfmApiError(
+            `${label} network error: ${normalizeErrorMessage(networkErr)}`,
+            "WFM_NETWORK_ERROR",
+          );
+        }
       };
 
-      if (token && useHeaderAuth) {
-        headers["Authorization"] = `${authScheme} ${token}`;
-        headers["auth_type"] = "header";
-      } else if (token) {
-        headers["Authorization"] = `JWT ${token}`;
-        headers["Cookie"] = `JWT=${token}`;
-      }
+      const headerAuth = (): boolean => !_headerAuthBroken && !!_getToken();
 
-      if (method !== "GET" && !(token && useHeaderAuth)) {
-        await applyMutationHeaders(headers, token || _cookieJwt, null);
-      }
-
+      let res: WfmResponseLike;
       try {
-        return await _request(method, url, headers, body);
-      } catch (networkErr) {
-        throw new WfmApiError(
-          `${label} network error: ${normalizeErrorMessage(networkErr)}`,
-          "WFM_NETWORK_ERROR",
-        );
-      }
-    };
-
-    const headerAuth = (): boolean => !_headerAuthBroken && !!_getToken();
-
-    let res = await attempt(headerAuth());
-    if (headerAuth() && (res.status === 401 || res.status === 403)) {
-      const fallback = await attempt(false);
-      if (fallback.ok) {
-        _headerAuthBroken = true;
-        log.warn(`[${label}] header auth rejected (${res.status}) but cookie+csrf works - latched`);
-      }
-      res = fallback;
-    }
-    if (!res.ok && (await _shouldReSolveClearance(res))) {
-      if (await _reSolveClearance(label)) res = await attempt(headerAuth());
-    }
-    if (res.ok) _noteRotatedToken(res);
-
-    if (res.status === 401) {
-      throw new WfmApiError("Warframe.market session expired or invalid.", "WFM_UNAUTHORIZED", 401);
-    }
-
-    if (res.status === 429) throwRateLimitError(label, res);
-
-    if (!res.ok) {
-      let detail = `HTTP ${res.status}`;
-      // A redirect carries no body, so its target is the only thing that says why.
-      const location = res.status >= 300 && res.status < 400 ? res.headers.get("location") : null;
-      if (location) detail = `HTTP ${res.status} -> ${location}`;
-      try {
-        const text = await res.text();
-        log.info(`[${label}] ${method} ${path} -> ${res.status} body:`, text.slice(0, 500));
-        try {
-          const parsed = JSON.parse(text) as unknown;
-          detail = extractWfmErrorDetail(parsed) ?? detail;
-        } catch {
-          // ignore - detail already has a fallback value
+        res = await attempt(headerAuth());
+        if (headerAuth() && (res.status === 401 || res.status === 403)) {
+          const fallback = await attempt(false);
+          if (fallback.ok) {
+            _headerAuthBroken = true;
+            log.warn(
+              `[${label}] header auth rejected (${res.status}) but cookie+csrf works - latched`,
+            );
+          }
+          res = fallback;
         }
-      } catch (parseErr) {
-        log.warn(`[${label}] Failed to read error response body:`, normalizeErrorMessage(parseErr));
+        if (!res.ok && (await _shouldReSolveClearance(res))) {
+          // The challenge window can sit open for as long as the user takes.
+          if (await ctx.runUnadmitted(() => _reSolveClearance(label))) {
+            res = await attempt(headerAuth());
+          }
+        }
+      } catch (err) {
+        return _transportFailure(err, replayable);
       }
-      const err = new WfmApiError(`${label} API error: ${detail}`, "WFM_API_ERROR", res.status);
-      throw err;
-    }
+      if (res.ok) _noteRotatedToken(res);
 
-    if (res.status === 204) return null;
-    return res.json();
-  });
+      if (res.status === 401) {
+        return {
+          kind: "failure",
+          status: 401,
+          retryable: false,
+          transient: false,
+          error: new WfmApiError(
+            "Warframe.market session expired or invalid.",
+            "WFM_UNAUTHORIZED",
+            401,
+          ),
+        };
+      }
+
+      if (res.status === 429) return rateLimitFailure(label, res);
+
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        // A redirect carries no body, so its target is the only thing that says why.
+        const location = res.status >= 300 && res.status < 400 ? res.headers.get("location") : null;
+        if (location) detail = `HTTP ${res.status} -> ${location}`;
+        try {
+          const text = await res.text();
+          log.info(`[${label}] ${method} ${path} -> ${res.status} body:`, text.slice(0, 500));
+          try {
+            const parsed = JSON.parse(text) as unknown;
+            detail = extractWfmErrorDetail(parsed) ?? detail;
+          } catch {
+            // ignore - detail already has a fallback value
+          }
+        } catch (parseErr) {
+          log.warn(
+            `[${label}] Failed to read error response body:`,
+            normalizeErrorMessage(parseErr),
+          );
+        }
+        const serverFault = res.status >= 500;
+        return {
+          kind: "failure",
+          status: res.status,
+          retryable: serverFault && replayable,
+          transient: serverFault,
+          error: new WfmApiError(`${label} API error: ${detail}`, "WFM_API_ERROR", res.status),
+        };
+      }
+
+      if (res.status === 204) return { kind: "ok", value: null };
+      return { kind: "ok", value: await res.json() };
+    },
+    { label, priority },
+  );
 }
 
 export function request(
@@ -738,18 +796,31 @@ export function request(
  *  redirect is never re-sent with the original method or body, so a caller that
  *  has to POST must resolve the target first. Probed with HEAD; only a target on
  *  the API's own v1 root is trusted. */
-export function requestRedirectTarget(path: string): Promise<string | null> {
-  return enqueue(async () => {
-    const url = BASE_URL + path;
-    try {
-      const res = await _request("HEAD", url, { ...WFM_BASE_HEADERS }, null);
-      if (res.status < 300 || res.status >= 400) return null;
+export function requestRedirectTarget(
+  path: string,
+  priority?: WfmRequestPriority,
+): Promise<string | null> {
+  const url = BASE_URL + path;
+  return scheduleWfmRequest<string | null>(
+    async (): Promise<WfmAttemptOutcome<string | null>> => {
+      let res: WfmResponseLike;
+      try {
+        res = await _request("HEAD", url, { ...WFM_BASE_HEADERS }, null);
+      } catch (err) {
+        return {
+          kind: "failure",
+          error: err as Error,
+          retryable: true,
+          transient: true,
+        };
+      }
+      if (res.status < 300 || res.status >= 400) return { kind: "ok", value: null };
       const location = res.headers.get("location");
-      if (!location) return null;
+      if (!location) return { kind: "ok", value: null };
       // Location is as often a bare path as a full URL. Resolving against the
       // probed URL is what gives "//host/x" its real origin, so the root check
       // has to run on the resolved target and never on the raw header.
-      let target: URL | null = null;
+      let target: URL | null;
       try {
         target = new URL(location, url);
       } catch {
@@ -757,13 +828,16 @@ export function requestRedirectTarget(path: string): Promise<string | null> {
       }
       if (!target || !target.href.startsWith(`${BASE_URL}/`)) {
         log.warn(`[WFMClient] redirect target off the v1 root for ${path}: ${location}`);
-        return null;
+        return { kind: "ok", value: null };
       }
-      return target.href;
-    } catch (err) {
-      log.warn(`[WFMClient] redirect probe failed for ${path}:`, normalizeErrorMessage(err));
-      return null;
-    }
+      return { kind: "ok", value: target.href };
+    },
+    { label: "WFMClient", priority },
+  ).catch((err: unknown) => {
+    // A full queue is caller-visible backpressure, not a failed probe.
+    if (err instanceof WfmApiError && err.code === "WFM_QUEUE_FULL") throw err;
+    log.warn(`[WFMClient] redirect probe failed for ${path}:`, normalizeErrorMessage(err));
+    return null;
   });
 }
 
@@ -782,63 +856,81 @@ export function requestV2(
 export function requestRaw(
   method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
   path: string,
-  { json, headers: extraHeaders, headerAuth = false }: WfmRequestOptions = {},
+  { json, headers: extraHeaders, headerAuth = false, priority }: WfmRequestOptions = {},
 ): Promise<WfmRawResponse> {
-  return enqueue(async () => {
-    const url = BASE_URL + path;
-    const body = json !== undefined ? JSON.stringify(json) : null;
+  const url = BASE_URL + path;
+  const body = json !== undefined ? JSON.stringify(json) : null;
+  const replayable = _isReplayable(method);
 
-    const attempt = async (): Promise<WfmResponseLike> => {
-      const headers: Record<string, string> = {
-        ...WFM_BASE_HEADERS,
-        ...extraHeaders,
+  return scheduleWfmRequest<WfmRawResponse>(
+    async (_attemptNumber, ctx): Promise<WfmAttemptOutcome<WfmRawResponse>> => {
+      const attempt = async (): Promise<WfmResponseLike> => {
+        const headers: Record<string, string> = {
+          ...WFM_BASE_HEADERS,
+          ...extraHeaders,
+        };
+
+        if (headerAuth) {
+          // Anonymous header-mode call (sign-in): the bare scheme opts out of
+          // the cookie session, so no CSRF page fetch is needed.
+          headers["Authorization"] = "JWT";
+          headers["auth_type"] = "header";
+        } else if (method !== "GET") {
+          await applyMutationHeaders(headers, null, undefined, ctx);
+        }
+
+        try {
+          return await _request(method, url, headers, body);
+        } catch (networkErr) {
+          throw new WfmApiError(
+            `WFM network error: ${normalizeErrorMessage(networkErr)}`,
+            "WFM_NETWORK_ERROR",
+          );
+        }
       };
 
-      if (headerAuth) {
-        // Anonymous header-mode call (sign-in): the bare scheme opts out of
-        // the cookie session, so no CSRF page fetch is needed.
-        headers["Authorization"] = "JWT";
-        headers["auth_type"] = "header";
-      } else if (method !== "GET") {
-        await applyMutationHeaders(headers, null);
-      }
-
+      let res: WfmResponseLike;
       try {
-        return await _request(method, url, headers, body);
-      } catch (networkErr) {
-        throw new WfmApiError(
-          `WFM network error: ${normalizeErrorMessage(networkErr)}`,
-          "WFM_NETWORK_ERROR",
-        );
+        res = await attempt();
+        if (!res.ok && (await _shouldReSolveClearance(res))) {
+          if (await ctx.runUnadmitted(() => _reSolveClearance("WFMClient"))) res = await attempt();
+        }
+      } catch (err) {
+        return _transportFailure(err, replayable);
       }
-    };
 
-    let res = await attempt();
-    if (!res.ok && (await _shouldReSolveClearance(res))) {
-      if (await _reSolveClearance("WFMClient")) res = await attempt();
-    }
+      // Sign-in carries the user's password; the scheduler must never resend
+      // it on its own, and wfmSession fast-fails a surfaced 429 by design.
+      if (res.status === 429) return rateLimitFailure("WFMClient", res, false);
 
-    if (res.status === 429) throwRateLimitError("WFMClient", res);
-
-    if (!res.ok) {
-      let detail = `HTTP ${res.status}`;
-      try {
-        const rawBody = await res.json();
-        detail = extractWfmErrorDetail(rawBody, "Invalid credentials.") ?? detail;
-      } catch {
-        /* ignore parse error */
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try {
+          const rawBody = await res.json();
+          detail = extractWfmErrorDetail(rawBody, "Invalid credentials.") ?? detail;
+        } catch {
+          /* ignore parse error */
+        }
+        log.error(`[WFMClient] sign-in failed: status=${res.status}, detail=${detail}`);
+        const serverFault = res.status >= 500;
+        return {
+          kind: "failure",
+          status: res.status,
+          retryable: serverFault && replayable,
+          transient: serverFault,
+          error: new WfmApiError(
+            `WFM sign-in error: ${detail}`,
+            res.status === 401 ? "WFM_UNAUTHORIZED" : "WFM_API_ERROR",
+            res.status,
+          ),
+        };
       }
-      log.error(`[WFMClient] sign-in failed: status=${res.status}, detail=${detail}`);
-      throw new WfmApiError(
-        `WFM sign-in error: ${detail}`,
-        res.status === 401 ? "WFM_UNAUTHORIZED" : "WFM_API_ERROR",
-        res.status,
-      );
-    }
 
-    const resBody = await res.json();
-    return { res, body: resBody };
-  });
+      const resBody = await res.json();
+      return { kind: "ok", value: { res, body: resBody } };
+    },
+    { label: "WFMClient", priority },
+  );
 }
 
 export const __test__ = {
