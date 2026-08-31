@@ -3,6 +3,7 @@ import { sendDesktopNotificationRaw } from "./worldStateIpc";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import * as warframeStatus from "../services/warframeStatus";
 import { withScope } from "../services/logger";
+import { dispatch } from "../services/notificationChannels";
 
 const log = withScope("messageNotification");
 
@@ -24,8 +25,6 @@ function isDuplicate(playerName: string, now: number): boolean {
 
 export async function notifyInGameMessage(playerName: string): Promise<void> {
   try {
-    if (ctx.overlaySettings.messageNotificationsEnabled === false) return;
-
     if (isDuplicate(playerName, Date.now())) return;
 
     // EE.log cannot distinguish sent and received whisper tabs. Treat tabs opened
@@ -38,7 +37,12 @@ export async function notifyInGameMessage(playerName: string): Promise<void> {
       }
     }
 
-    sendDesktopNotificationRaw("New in-game conversation", `from ${playerName}`, "message");
+    const title = "New in-game conversation";
+    const body = `from ${playerName}`;
+    dispatch({ source: "whisper", title, body }, () => {
+      if (ctx.overlaySettings.messageNotificationsEnabled === false) return;
+      sendDesktopNotificationRaw(title, body, "message");
+    });
   } catch (err) {
     log.warn("[Message] notify failed:", normalizeErrorMessage(err));
   }

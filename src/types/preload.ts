@@ -76,6 +76,21 @@ export interface PreloadAPI {
   onNotificationSoundPlay: (
     callback: (payload: IpcEventMap["notification-sound-play"]) => void,
   ) => () => void;
+  getNotificationChannels: () => Promise<IpcInvokeMap["getNotificationChannels"]["return"]>;
+  setNotificationWebhook: (
+    channel: IpcInvokeMap["setNotificationWebhook"]["args"][0],
+    url: IpcInvokeMap["setNotificationWebhook"]["args"][1],
+  ) => Promise<IpcInvokeMap["setNotificationWebhook"]["return"]>;
+  clearNotificationWebhook: (
+    channel: IpcInvokeMap["clearNotificationWebhook"]["args"][0],
+  ) => Promise<IpcInvokeMap["clearNotificationWebhook"]["return"]>;
+  setNotificationSourceChannels: (
+    source: IpcInvokeMap["setNotificationSourceChannels"]["args"][0],
+    toggles: IpcInvokeMap["setNotificationSourceChannels"]["args"][1],
+  ) => Promise<IpcInvokeMap["setNotificationSourceChannels"]["return"]>;
+  testNotificationWebhook: (
+    channel: IpcInvokeMap["testNotificationWebhook"]["args"][0],
+  ) => Promise<IpcInvokeMap["testNotificationWebhook"]["return"]>;
   onInventoryUpdated: (callback: (data: IpcEventMap["inventory-updated"]) => void) => () => void;
   onInventoryStatusUpdated: (
     callback: (status: IpcEventMap["inventory-status-updated"]) => void,

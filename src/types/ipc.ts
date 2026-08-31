@@ -23,7 +23,15 @@ import type { HelperStatus } from "../../config/shared/apiHelperTypes.js";
 import type { CodexScansResult } from "../../config/shared/codexTypes.js";
 import type { InventorySource } from "../../config/shared/inventorySource.js";
 import type { DisplayPreference, LinuxDisplayInfo } from "../../config/shared/linuxDisplay.js";
-import type { NotificationEntry } from "../../config/shared/notifications.js";
+import type {
+  NotificationChannelState,
+  NotificationEntry,
+  NotificationSource,
+  SetWebhookResult,
+  SourceChannelToggles,
+  WebhookChannel,
+  WebhookTestResult,
+} from "../../config/shared/notifications.js";
 import type { OverlaySettings, OverlayWindowKey } from "../../config/runtime/overlaySettings.js";
 
 export type { HelperStatus } from "../../config/shared/apiHelperTypes.js";
@@ -331,6 +339,26 @@ export interface IpcInvokeMap {
   sendTestNotification: {
     args: [];
     return: boolean;
+  };
+  getNotificationChannels: {
+    args: [];
+    return: NotificationChannelState;
+  };
+  setNotificationWebhook: {
+    args: [channel: WebhookChannel, url: string];
+    return: SetWebhookResult;
+  };
+  clearNotificationWebhook: {
+    args: [channel: WebhookChannel];
+    return: NotificationChannelState;
+  };
+  setNotificationSourceChannels: {
+    args: [source: NotificationSource, toggles: SourceChannelToggles];
+    return: NotificationChannelState;
+  };
+  testNotificationWebhook: {
+    args: [channel: WebhookChannel];
+    return: WebhookTestResult;
   };
   loadRankedHotset: {
     args: [];

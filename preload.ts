@@ -68,6 +68,11 @@ import {
   NOTIFICATION_TEST,
   NOTIFICATION_HISTORY_ADDED,
   NOTIFICATION_SOUND_PLAY,
+  NOTIFICATION_CHANNELS_GET,
+  NOTIFICATION_CHANNELS_SET_WEBHOOK,
+  NOTIFICATION_CHANNELS_CLEAR_WEBHOOK,
+  NOTIFICATION_CHANNELS_SET_SOURCE,
+  NOTIFICATION_CHANNELS_TEST,
   RANKED_HOTSET_LOAD,
   RANKED_HOTSET_SAVE,
   SNAPSHOT_CACHE_LOAD,
@@ -217,6 +222,14 @@ try {
       ipcRenderer,
       NOTIFICATION_SOUND_PLAY,
     ),
+
+    getNotificationChannels: inv<"getNotificationChannels">(NOTIFICATION_CHANNELS_GET),
+    setNotificationWebhook: inv<"setNotificationWebhook">(NOTIFICATION_CHANNELS_SET_WEBHOOK),
+    clearNotificationWebhook: inv<"clearNotificationWebhook">(NOTIFICATION_CHANNELS_CLEAR_WEBHOOK),
+    setNotificationSourceChannels: inv<"setNotificationSourceChannels">(
+      NOTIFICATION_CHANNELS_SET_SOURCE,
+    ),
+    testNotificationWebhook: inv<"testNotificationWebhook">(NOTIFICATION_CHANNELS_TEST),
 
     loadRankedHotset: inv<"loadRankedHotset">(RANKED_HOTSET_LOAD),
     saveRankedHotset: inv<"saveRankedHotset">(RANKED_HOTSET_SAVE),

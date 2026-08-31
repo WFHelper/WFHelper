@@ -28,6 +28,8 @@ const h = vi.hoisted(() => ({
   sendPlusRep: vi.fn(),
   recordNotification: vi.fn(),
   sendDesktopNotification: vi.fn(),
+  dispatched: [] as unknown[],
+  nativeRouted: true,
 }));
 
 vi.mock("electron", () => {
@@ -148,6 +150,15 @@ vi.mock("../../ipc/worldStateIpc", () => ({
   sendDesktopNotificationRaw: h.sendDesktopNotification,
 }));
 
+// The channel layer has its own suite; here it only decides whether the native
+// route runs, which is what the history branches hang off.
+vi.mock("../../services/notificationChannels", () => ({
+  dispatch: (payload: unknown, deliverNative?: () => void) => {
+    h.dispatched.push(payload);
+    if (h.nativeRouted) deliverNative?.();
+  },
+}));
+
 function sale(partner: string): TradeMatchPayload {
   return {
     kind: "order",
@@ -171,6 +182,8 @@ async function setup(overrides: Record<string, unknown> = {}) {
   h.sendPlusRep.mockReset();
   h.recordNotification.mockReset();
   h.sendDesktopNotification.mockReset();
+  h.dispatched.length = 0;
+  h.nativeRouted = true;
   h.registerHotkey.mockImplementation((accelerator: string, handler: () => void) => {
     h.hotkeys.set(accelerator, handler);
     return true;
@@ -326,6 +339,35 @@ describe("trade notification history", () => {
       "trade",
     );
     expect(h.recordNotification).not.toHaveBeenCalled();
+  });
+
+  // The toast window showed regardless, so muting the native channel must not
+  // cost the history entry.
+  it("still records once when the channel layer mutes the native route", async () => {
+    const { notifications } = await setup({ tradeDesktopNotificationsEnabled: true });
+    h.nativeRouted = false;
+
+    notifications.showTradeNotification(sale("Buyer"), "closed");
+    h.windows[0].finishLoad();
+
+    expect(h.sendDesktopNotification).not.toHaveBeenCalled();
+    expect(h.recordNotification).toHaveBeenCalledTimes(1);
+    expect(h.recordNotification).toHaveBeenCalledWith(
+      "trade",
+      "Listing Closed",
+      "Ash Prime Chassis 45p with Buyer",
+    );
+  });
+
+  it("routes the toast through the channel layer", async () => {
+    const { notifications } = await setup();
+
+    notifications.showTradeNotification(sale("Buyer"), "closed");
+    h.windows[0].finishLoad();
+
+    expect(h.dispatched).toEqual([
+      { source: "tradeToast", title: "Listing Closed", body: "Ash Prime Chassis 45p with Buyer" },
+    ]);
   });
 
   it("does not record a toast that was invalidated before the renderer was ready", async () => {

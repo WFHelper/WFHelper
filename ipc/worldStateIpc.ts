@@ -4,6 +4,7 @@ import { asRecord } from "./ipcValidators";
 import { recordNotification } from "./notificationLogIpc";
 import type { NotificationKind } from "../config/shared/notifications";
 import { withScope } from "../services/logger";
+import { dispatch } from "../services/notificationChannels";
 import * as worldStateParser from "../services/worldStateParser";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { durationMsFromSeconds } from "../config/shared/numeric";
@@ -393,9 +394,13 @@ function sendWindowsToast(title: string, body: string): void {
 // Keep references to active notifications to prevent GC before display.
 const _activeNotifications = new Set<{ close: () => void }>();
 
+// The legacy switch mutes the OS toast only, same as the trade toast; the
+// webhook route is dispatch's call, per source.
 function sendDesktopNotification(title: string, body: string): void {
-  if (ctx.overlaySettings.worldNotificationsEnabled === false) return;
-  sendDesktopNotificationRaw(title, body, "world");
+  dispatch({ source: "worldState", title, body }, () => {
+    if (ctx.overlaySettings.worldNotificationsEnabled === false) return;
+    sendDesktopNotificationRaw(title, body, "world");
+  });
 }
 
 /** Sends a toast. History is recorded before the platform gate, so a caller

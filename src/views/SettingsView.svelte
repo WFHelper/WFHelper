@@ -47,6 +47,15 @@
   import { startTour } from "../stores/tour.js";
   import { currentView } from "../stores/app.js";
   import type { InventorySource, OverlaySettings, OverlayWindowKey } from "../types/ipc.js";
+  import { ROUTABLE_NOTIFICATION_SOURCES } from "../../config/shared/notifications.js";
+  import type {
+    NotificationChannelState,
+    NotificationSource,
+    SourceChannelToggles,
+    WebhookChannel,
+    WebhookTestError,
+    WebhookUrlError,
+  } from "../../config/shared/notifications.js";
 
   type OverlaySettingsFormInput = Partial<OverlaySettings> & {
     showTradeNotification?: boolean;
@@ -233,6 +242,115 @@
     }
   }
 
+  const WEBHOOK_ROWS: { channel: WebhookChannel; labelKey: MessageKey }[] = [
+    { channel: "discord", labelKey: "settings.webhookDiscord" },
+    { channel: "generic", labelKey: "settings.webhookGeneric" },
+  ];
+
+  const SOURCE_LABEL_KEYS: Record<(typeof ROUTABLE_NOTIFICATION_SOURCES)[number], MessageKey> = {
+    worldState: "settings.channelSourceWorld",
+    arbiSchedule: "settings.channelSourceArbi",
+    whisper: "settings.channelSourceWhisper",
+    tradeToast: "settings.channelSourceTrade",
+  };
+
+  // Shared list, so a source that gains a producer shows up here on its own.
+  const SOURCE_ROWS = ROUTABLE_NOTIFICATION_SOURCES.map((source) => ({
+    source: source as NotificationSource,
+    labelKey: SOURCE_LABEL_KEYS[source],
+  }));
+
+  const WEBHOOK_ERROR_KEYS: Record<WebhookUrlError, MessageKey> = {
+    empty: "settings.webhookErrorEmpty",
+    "invalid-url": "settings.webhookErrorInvalid",
+    "not-https": "settings.webhookErrorNotHttps",
+    "blocked-host": "settings.webhookErrorBlockedHost",
+    "dns-failed": "settings.webhookErrorDns",
+  };
+
+  const WEBHOOK_TEST_ERROR_KEYS: Record<WebhookTestError, MessageKey> = {
+    "not-configured": "settings.webhookErrorEmpty",
+    "blocked-url": "settings.webhookErrorBlockedHost",
+    failed: "settings.webhookTestFailed",
+  };
+
+  let channelState: NotificationChannelState | null = null;
+  let webhookDrafts: Record<WebhookChannel, string> = { discord: "", generic: "" };
+  let webhookBusy: Record<WebhookChannel, boolean> = { discord: false, generic: false };
+
+  // Only main knows the saved URLs, so the drafts stay empty and the row shows
+  // the masked form instead of ever holding a secret in renderer state.
+  async function refreshChannels(): Promise<void> {
+    try {
+      channelState = await invoke("getNotificationChannels");
+    } catch {
+      channelState = null;
+    }
+  }
+
+  function channelToggles(source: NotificationSource): SourceChannelToggles {
+    return channelState?.sources[source] ?? { native: true, webhook: false };
+  }
+
+  async function saveWebhook(channel: WebhookChannel): Promise<void> {
+    webhookBusy = { ...webhookBusy, [channel]: true };
+    try {
+      const result = await invoke("setNotificationWebhook", channel, webhookDrafts[channel]);
+      if (result.ok) {
+        channelState = result.state;
+        webhookDrafts = { ...webhookDrafts, [channel]: "" };
+        flashStatus($tr("settings.webhookSaved"), false);
+      } else {
+        flashStatus($tr(WEBHOOK_ERROR_KEYS[result.error]), true);
+      }
+    } catch {
+      flashStatus($tr("settings.saveFailed"), true);
+    } finally {
+      webhookBusy = { ...webhookBusy, [channel]: false };
+    }
+  }
+
+  async function clearWebhook(channel: WebhookChannel): Promise<void> {
+    webhookBusy = { ...webhookBusy, [channel]: true };
+    try {
+      channelState = await invoke("clearNotificationWebhook", channel);
+      webhookDrafts = { ...webhookDrafts, [channel]: "" };
+      flashStatus($tr("settings.webhookCleared"), false);
+    } catch {
+      flashStatus($tr("settings.saveFailed"), true);
+    } finally {
+      webhookBusy = { ...webhookBusy, [channel]: false };
+    }
+  }
+
+  async function testWebhook(channel: WebhookChannel): Promise<void> {
+    webhookBusy = { ...webhookBusy, [channel]: true };
+    try {
+      const result = await invoke("testNotificationWebhook", channel);
+      if (result.ok) flashStatus($tr("settings.webhookTestSent"), false);
+      else flashStatus($tr(WEBHOOK_TEST_ERROR_KEYS[result.error]), true);
+    } catch {
+      flashStatus($tr("settings.webhookTestFailed"), true);
+    } finally {
+      webhookBusy = { ...webhookBusy, [channel]: false };
+    }
+  }
+
+  async function saveSourceChannel(
+    source: NotificationSource,
+    key: keyof SourceChannelToggles,
+    value: boolean,
+  ): Promise<void> {
+    const next: SourceChannelToggles = { ...channelToggles(source), [key]: value };
+    try {
+      channelState = await invoke("setNotificationSourceChannels", source, next);
+      flashStatus($tr("settings.saved"), false);
+    } catch {
+      flashStatus($tr("settings.saveFailed"), true);
+      await refreshChannels();
+    }
+  }
+
   onMount(async () => {
     if (!$overlaySettingsLoaded) {
       try {
@@ -249,6 +367,7 @@
     // back from an in-game scale change shows the new value.
     window.addEventListener("focus", refreshDetectedUiScale);
     await refreshInventorySource();
+    await refreshChannels();
   });
 
   onDestroy(() => window.removeEventListener("focus", refreshDetectedUiScale));
@@ -539,6 +658,86 @@
                   class="settings-input"
                 />
               </SettingsRow>
+            </div>
+          </SettingsSection>
+
+          <SettingsSection
+            title={$tr("settings.notificationChannelsTitle")}
+            description={$tr("settings.notificationChannelsDesc")}
+          >
+            <div class="mt-2.5 grid gap-1">
+              {#each WEBHOOK_ROWS as row (row.channel)}
+                {@const status = channelState?.webhooks[row.channel]}
+                <SettingsRow
+                  label={$tr(row.labelKey)}
+                  hint={status?.configured ? status.masked : undefined}
+                  dataSetting={`webhook-${row.channel}`}
+                  as="div"
+                  inputRow
+                  wrapControl
+                >
+                  <span class="flex flex-wrap items-center justify-end gap-2">
+                    <input
+                      type="url"
+                      class="settings-input"
+                      placeholder={$tr("settings.webhookUrlPlaceholder")}
+                      disabled={webhookBusy[row.channel]}
+                      bind:value={webhookDrafts[row.channel]}
+                    />
+                    <button
+                      class="btn-secondary btn-sm"
+                      disabled={webhookBusy[row.channel] || !webhookDrafts[row.channel]}
+                      on:click={() => saveWebhook(row.channel)}>{$tr("common.save")}</button
+                    >
+                    <button
+                      class="btn-secondary btn-sm"
+                      disabled={webhookBusy[row.channel] || !status?.configured}
+                      on:click={() => testWebhook(row.channel)}
+                      >{$tr("settings.webhookTest")}</button
+                    >
+                    <button
+                      class="btn-secondary btn-sm"
+                      disabled={webhookBusy[row.channel] || !status?.configured}
+                      on:click={() => clearWebhook(row.channel)}
+                      >{$tr("settings.webhookClear")}</button
+                    >
+                  </span>
+                </SettingsRow>
+              {/each}
+
+              <p class="m-0 mt-2 text-xs text-text-muted">{$tr("settings.channelRoutingDesc")}</p>
+
+              {#each SOURCE_ROWS as row (row.source)}
+                {@const toggles = channelToggles(row.source)}
+                <SettingsRow
+                  label={$tr(row.labelKey)}
+                  dataSetting={`notify-source-${row.source}`}
+                  as="div"
+                >
+                  <span class="flex items-center gap-3">
+                    <label class="flex cursor-pointer items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        class="accent-accent"
+                        checked={toggles.native}
+                        on:change={(event) =>
+                          saveSourceChannel(row.source, "native", event.currentTarget.checked)}
+                      />
+                      {$tr("settings.channelNative")}
+                    </label>
+                    <label class="flex cursor-pointer items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        class="accent-accent"
+                        checked={toggles.webhook}
+                        on:change={(event) =>
+                          saveSourceChannel(row.source, "webhook", event.currentTarget.checked)}
+                      />
+                      {$tr("settings.channelWebhook")}
+                    </label>
+                  </span>
+                </SettingsRow>
+              {/each}
             </div>
           </SettingsSection>
 

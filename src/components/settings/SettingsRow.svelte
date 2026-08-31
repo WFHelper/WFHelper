@@ -11,6 +11,9 @@
     // for a row whose control is a group of buttons.
     as?: "label" | "div";
     inputRow?: boolean;
+    // For a control that is itself a wrapping group: let it shrink so it wraps
+    // inside the card instead of overflowing into the neighbouring column.
+    wrapControl?: boolean;
     dimmed?: boolean;
     children: Snippet;
   }
@@ -22,6 +25,7 @@
     dataSetting,
     as = "label",
     inputRow = false,
+    wrapControl = false,
     dimmed = false,
     children,
   }: Props = $props();
@@ -41,6 +45,7 @@
   <label
     class="settings-control-row"
     class:settings-control-row-input={inputRow}
+    class:settings-control-row-wrap={wrapControl}
     class:opacity-50={dimmed}
     data-setting={dataSetting}
   >
@@ -50,6 +55,7 @@
   <div
     class="settings-control-row"
     class:settings-control-row-input={inputRow}
+    class:settings-control-row-wrap={wrapControl}
     class:opacity-50={dimmed}
     data-setting={dataSetting}
   >
@@ -100,5 +106,11 @@
 
   .settings-control-row-input {
     cursor: default;
+  }
+
+  /* Caps the group at the card so its own flex-wrap engages, while keeping the
+     no-squeeze rule (flex-shrink stays 0) the layout E2E measures. */
+  .settings-control-row-wrap > :global(:last-child) {
+    max-width: 100%;
   }
 </style>

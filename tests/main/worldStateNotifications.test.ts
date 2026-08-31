@@ -6,6 +6,22 @@ vi.mock("node:child_process", () => ({
   spawn: vi.fn(() => ({ unref: vi.fn() })),
 }));
 
+// Stands in for the channel layer's routing table; the real one has its own suite.
+const channels = vi.hoisted(() => ({
+  routes: { native: true, webhook: false },
+  webhookSends: [] as Array<{ source: string; title: string; body: string }>,
+}));
+
+vi.mock("../../services/notificationChannels", () => ({
+  dispatch: (
+    payload: { source: string; title: string; body: string },
+    deliverNative?: () => void,
+  ) => {
+    if (channels.routes.native) deliverNative?.();
+    if (channels.routes.webhook) channels.webhookSends.push(payload);
+  },
+}));
+
 const logged: string[] = [];
 vi.mock("../../services/logger", () => ({
   withScope: () => ({
@@ -76,6 +92,8 @@ function setPlatform(platform: string): void {
 describe("world state desktop notifications", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    channels.routes = { native: true, webhook: false };
+    channels.webhookSends.length = 0;
     ctx.mainWindow = {
       isDestroyed: () => false,
       webContents: { id: 101 },
@@ -171,6 +189,54 @@ describe("world state desktop notifications", () => {
         body: "Night has begun.",
       },
     ]);
+  });
+
+  async function fireEarthCycleChange(
+    overrides: Partial<OverlaySettings> = {},
+  ): Promise<Array<{ title: string; body: string }>> {
+    ctx.overlaySettings = {
+      ...OVERLAY_SETTINGS_DEFAULTS,
+      cycleAlerts: { earth: true, cetus: false, vallis: false, cambion: false, duviri: false },
+      cycleAlertMinutesBefore: 0,
+      ...overrides,
+    } as OverlaySettings;
+    const sent: Array<{ title: string; body: string }> = [];
+    worldStateIpc.__test__.setDesktopNotificationSender((title, body) => {
+      sent.push({ title, body });
+    });
+    vi.spyOn(worldStateParser, "fetchAndParse")
+      .mockResolvedValueOnce({
+        fissures: [],
+        earthCycle: { isDay: true, expiry: "2026-04-29T12:00:00.000Z" },
+      })
+      .mockResolvedValueOnce({
+        fissures: [],
+        earthCycle: { isDay: false, expiry: "2026-04-29T16:00:00.000Z" },
+      });
+
+    const handler = registerWorldStateHandler();
+    await handler(makeAuthorizedEvent());
+    worldStateIpc.__test__.expireCache();
+    await handler(makeAuthorizedEvent());
+    return sent;
+  }
+
+  it("still reaches the webhook when the legacy notification switch is off", async () => {
+    channels.routes = { native: true, webhook: true };
+    const sent = await fireEarthCycleChange({ worldNotificationsEnabled: false });
+
+    expect(sent).toEqual([]);
+    expect(channels.webhookSends).toEqual([
+      { source: "worldState", title: "Earth Cycle", body: "Night has begun." },
+    ]);
+  });
+
+  it("sends only the toast when the webhook route is off", async () => {
+    channels.routes = { native: true, webhook: false };
+    const sent = await fireEarthCycleChange({ worldNotificationsEnabled: true });
+
+    expect(sent).toEqual([{ title: "Earth Cycle", body: "Night has begun." }]);
+    expect(channels.webhookSends).toEqual([]);
   });
 
   it("shares an in-flight refresh between callers", async () => {

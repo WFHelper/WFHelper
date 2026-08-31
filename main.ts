@@ -86,6 +86,7 @@ import * as statsIpc from "./ipc/statsIpc";
 import * as rivensIpc from "./ipc/rivensIpc";
 import * as tradeNotificationIpc from "./ipc/tradeNotificationIpc";
 import * as notificationLogIpc from "./ipc/notificationLogIpc";
+import * as notificationChannelsIpc from "./ipc/notificationChannelsIpc";
 import * as tradeWorkflow from "./ipc/tradeWorkflow";
 import { applyMainWindowZoom } from "./ipc/mainWindowZoom";
 import { assertMainRendererSender, handleAuthorized } from "./ipc/ipcSecurity";
@@ -405,6 +406,7 @@ function registerIpcHandlers(profileStage: ProfileStage): void {
   arbiIpc.register();
   arbiScheduleIpc.register();
   notificationLogIpc.register();
+  notificationChannelsIpc.register();
 
   const attachInventoryAfterHelperRun = (ok: boolean) => {
     if (!ok || ctx.currentInventoryPath) return;

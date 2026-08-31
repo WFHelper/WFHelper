@@ -4,6 +4,7 @@ import { assertTradeNotificationSender, onAuthorized } from "./ipcSecurity";
 import { recordNotification } from "./notificationLogIpc";
 import { sendDesktopNotificationRaw } from "./worldStateIpc";
 import { withScope } from "../services/logger";
+import { dispatch } from "../services/notificationChannels";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 import * as wfmReviews from "../services/wfmReviews";
 import {
@@ -203,15 +204,19 @@ function _scheduleHide(win: InstanceType<typeof BrowserWindow>, delayMs: number)
 }
 
 // The toast is a custom window, so it logs its own history entry. The desktop
-// notification path logs for itself, hence the either/or.
+// notification path logs for itself, hence the either/or. Muting the native
+// channel hides the OS toast only: the trade window showed either way, so the
+// history entry is not the channel layer's to withhold.
 function _recordTradeHistory(pending: PendingTradeNotification): void {
   const title = tradeNotificationTitle(pending.status);
   const body = tradeNotificationBody(pending.match);
-  if (ctx.overlaySettings.tradeDesktopNotificationsEnabled) {
+  let recorded = false;
+  dispatch({ source: "tradeToast", title, body }, () => {
+    if (!ctx.overlaySettings.tradeDesktopNotificationsEnabled) return;
     sendDesktopNotificationRaw(title, body, "trade");
-    return;
-  }
-  recordNotification("trade", title, body);
+    recorded = true;
+  });
+  if (!recorded) recordNotification("trade", title, body);
 }
 
 function _displayNotification(
