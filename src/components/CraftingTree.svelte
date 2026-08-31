@@ -3,9 +3,11 @@
   import { onDestroy, tick } from "svelte";
 
   import type { CraftingTreeNode } from "../lib/craftingTree.js";
-  import { computeCraftingSummary } from "../lib/craftingTree.js";
+  import { applyCraftingTreeFilters, computeCraftingSummary } from "../lib/craftingTree.js";
+  import { buildItemNameIndex } from "../lib/componentResolution.js";
   import { formatBuildTime, formatNumber } from "../lib/format.js";
   import { CREDITS_ICON_URL } from "../lib/assetUrls.js";
+  import { itemDb } from "../stores/data.js";
   import CraftingTreeNodeCard from "./CraftingTreeNode.svelte";
   import ItemImage from "./ItemImage.svelte";
   import { tr } from "../lib/i18n.js";
@@ -28,8 +30,10 @@
 
   $: summary = computeCraftingSummary(tree);
 
-  $: visibleTree = applyTreeFilters(tree, hideCompleted, hideBlueprints);
+  $: treeFilters = { hideCompleted, hideBlueprints };
+  $: visibleTree = applyCraftingTreeFilters(tree, treeFilters);
   $: usedFor = tree.usedFor || [];
+  $: itemNameIndex = buildItemNameIndex($itemDb);
 
   // Wide trees (necramechs) start unreadably cropped at 100%; fit whenever the
   // tree footprint changes.
@@ -42,37 +46,6 @@
     summary.totalCredits >= 1000
       ? formatNumber(summary.totalCredits)
       : String(summary.totalCredits);
-
-  function applyTreeFilters(
-    root: CraftingTreeNode,
-    dropCompleted: boolean,
-    dropBlueprints: boolean,
-  ): CraftingTreeNode | null {
-    let result: CraftingTreeNode | null = dropBlueprints ? stripBlueprints(root) : root;
-    if (dropCompleted && result) result = filterCompleted(result, result);
-    return result;
-  }
-
-  function stripBlueprints(node: CraftingTreeNode): CraftingTreeNode {
-    return {
-      ...node,
-      children: node.children.filter((c) => !c.isBlueprintItem).map(stripBlueprints),
-    };
-  }
-
-  function filterCompleted(
-    node: CraftingTreeNode,
-    root: CraftingTreeNode,
-  ): CraftingTreeNode | null {
-    if (node.owned >= node.count && node.children.length === 0) return null;
-    const children = node.children
-      .map((c) => filterCompleted(c, root))
-      .filter((c): c is CraftingTreeNode => c !== null);
-    // Keep root even if owned (always show the top item)
-    if (node === root) return { ...node, children };
-    if (node.owned >= node.count && children.length === 0) return null;
-    return { ...node, children };
-  }
 
   function fitToView(): void {
     if (!canvasEl || !zoomEl) return;
@@ -91,6 +64,11 @@
   async function refitAfterRender(_tree: CraftingTreeNode): Promise<void> {
     await tick();
     fitToView();
+  }
+
+  // Expanding a node grows the footprint the same way a filter toggle does.
+  function refitCurrentTree(): void {
+    if (visibleTree) void refitAfterRender(visibleTree);
   }
 
   function applyZoom() {
@@ -263,7 +241,13 @@
           </div>
         {/if}
         {#if visibleTree}
-          <CraftingTreeNodeCard node={visibleTree} />
+          <CraftingTreeNodeCard
+            node={visibleTree}
+            nameIndex={itemNameIndex}
+            filters={treeFilters}
+            {onOpenItem}
+            onLayoutChange={refitCurrentTree}
+          />
         {/if}
       </div>
     </div>

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildItemNameIndex,
   resolveComponentByName,
+  resolveComponentByUniqueName,
   resolveComponentLocation,
   resolveComponentPriceLookup,
   resolveComponentWikiFallback,
@@ -54,6 +55,29 @@ describe("componentResolution", () => {
     expect(resolved?.comp.uniqueName).toBe(componentUniqueName);
     expect(resolved?.comp.ownedCount).toBe(2);
     expect(resolved?.comp.owned).toBe(true);
+  });
+
+  it("keeps a duplicated display name on the entry the uniqueName names", () => {
+    const itemDb = makeItemDb();
+    const otherParent = "/Lotus/Types/Recipes/WarframeRecipes/MesaPrime";
+    const otherComponent = "/Lotus/Types/Items/MiscItems/MesaPrimeChassisComponent";
+    itemDb[otherParent] = {
+      name: "Mesa Prime",
+      components: [{ name: "Chassis", uniqueName: otherComponent, itemCount: 1 }],
+    };
+    // Same display name as the Trinity blueprint, so the name index keeps one.
+    itemDb["/Lotus/Types/Items/MiscItems/MesaPrimeChassisBlueprint"] = {
+      name: "Trinity Prime Chassis",
+      isBuildComponent: true,
+      componentOf: otherParent,
+    };
+
+    expect(resolveComponentByName("Trinity Prime Chassis", itemDb, new Map())?.parentName).toBe(
+      "Mesa Prime",
+    );
+    expect(resolveComponentByUniqueName(blueprintUniqueName, itemDb, new Map())?.parentName).toBe(
+      "Trinity Prime",
+    );
   });
 
   it("builds full component market names and falls back to Blueprint listings when needed", () => {

@@ -500,6 +500,8 @@
   "crafting.noResourcesMissing": "没有缺少的资源",
   "crafting.resourcesNeeded": "所需资源：",
   "crafting.usedFor": "用于制造：",
+  "crafting.expandRecipe": "显示配方",
+  "crafting.collapseRecipe": "隐藏配方",
   "detail.back": "← 返回",
   "detail.backToDetails": "← 详情",
   "detail.componentDetails": "部件详情",

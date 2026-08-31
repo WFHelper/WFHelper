@@ -508,6 +508,8 @@
   "crafting.noResourcesMissing": "No resources missing",
   "crafting.resourcesNeeded": "Resources needed:",
   "crafting.usedFor": "Used for crafting:",
+  "crafting.expandRecipe": "Show recipe",
+  "crafting.collapseRecipe": "Hide recipe",
   "detail.back": "← Back",
   "detail.backToDetails": "← Details",
   "detail.componentDetails": "Component details",

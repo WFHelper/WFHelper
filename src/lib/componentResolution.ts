@@ -47,7 +47,7 @@ function fallbackComponent(
   );
 }
 
-function resolveComponentByUniqueName(
+export function resolveComponentByUniqueName(
   uniqueName: string,
   itemDb: Record<string, ItemDbEntry>,
   ownership: Map<string, number>,
