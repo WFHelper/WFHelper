@@ -6,6 +6,7 @@
   import { tr } from "../../lib/i18n.js";
   import type { MessageKey } from "../../lib/i18n.js";
   import type { InventoryFilterTab } from "../../lib/inventoryMarket.js";
+  import { INVENTORY_VIEW_MODES, type InventoryViewMode } from "../../stores/inventoryViewMode.js";
   import type { SharedSortKey } from "../../types/filters.js";
 
   export let totalCount = 0;
@@ -15,6 +16,9 @@
   export let sortOptions: Array<[SharedSortKey, string]> | null = null;
   export let advancedCount = 0;
   export let filtersEnabled = true;
+  export let viewMode: InventoryViewMode = "cards";
+  export let viewModeEnabled = true;
+  export let onSelectViewMode: (mode: InventoryViewMode) => void = () => {};
 
   const dispatch = createEventDispatcher<{
     filter: InventoryFilterTab;
@@ -71,7 +75,9 @@
     <div class="max-w-full shrink-0 grow">
       <HeaderTabs options={tabOptions} activeKey={activeFilter} onSelect={handleTabSelect} />
     </div>
-    <div class="ml-auto flex shrink-0 flex-nowrap items-center gap-2 pb-2">
+    <!-- max-w-full + wrap: the view toggle widened this block past what a 900px
+         window fits, and an unwrappable block stretches the whole header. -->
+    <div class="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2 pb-2">
       <SharedFilterBar
         scope="inventory"
         singleLine={true}
@@ -80,6 +86,24 @@
         basicVariant="quick"
         {sortOptions}
       />
+      {#if viewModeEnabled}
+        <!-- Shares the market density labels: the dictionary rejects a second key
+             holding the same words, and "Cards"/"Rows" already say it. -->
+        <div class="filter-tabs" data-inventory-view-mode>
+          {#each INVENTORY_VIEW_MODES as mode (mode)}
+            <button
+              type="button"
+              class="filter-tab min-h-8 py-0 text-xs"
+              class:active={viewMode === mode}
+              aria-pressed={viewMode === mode}
+              data-inventory-view-mode-option={mode}
+              on:click={() => onSelectViewMode(mode)}
+            >
+              {mode === "cards" ? $tr("appearance.densityCards") : $tr("appearance.densityRows")}
+            </button>
+          {/each}
+        </div>
+      {/if}
       {#if filtersEnabled}
         <button
           class="filter-tab inline-flex min-h-8 items-center gap-1.5 pt-0 pb-0 [&_svg]:h-3.5 [&_svg]:w-3.5"

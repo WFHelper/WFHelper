@@ -10,6 +10,7 @@
   import { relicDb } from "../stores/relics.js";
   import InventoryHeader from "../components/inventory/InventoryHeader.svelte";
   import InventoryGrid from "../components/inventory/InventoryGrid.svelte";
+  import InventoryList from "../components/inventory/InventoryList.svelte";
   import InventoryValueStrip from "../components/inventory/InventoryValueStrip.svelte";
   import InventoryOrderBookPanel from "../components/inventory/InventoryOrderBookPanel.svelte";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
@@ -55,10 +56,11 @@
   import { ARCANE_STAND_IN_ART } from "../data/arcaneStandInArt.js";
   import { devMode, degradedIcons } from "../stores/devMode.js";
   import { sharedFilters, updateSharedFilters } from "../stores/filters.js";
+  import { inventoryViewMode, type InventoryViewMode } from "../stores/inventoryViewMode.js";
   import { inventoryValueAllTradables, inventoryValueMinPlatinum } from "../stores/preferences.js";
   import { activeItem, activeRelic } from "../stores/modals.js";
   import { isRankedGroup } from "../../config/shared/numeric.js";
-  import type { SharedSortKey, SharedFiltersState } from "../types/filters.js";
+  import type { SharedSortKey, SharedFiltersState, SortDirection } from "../types/filters.js";
 
   const METRIC_VISIBLE_PREFETCH_LIMIT = 42;
   const METRIC_BACKGROUND_PREFETCH_LIMIT = 210;
@@ -197,6 +199,15 @@
     showFilterPanel = !showFilterPanel;
   }
 
+  function setViewMode(mode: InventoryViewMode): void {
+    inventoryViewMode.set(mode);
+  }
+
+  /** Column headers write the shared sort store, same as the sort dropdown. */
+  function applyListSort(patch: { sortBy: SharedSortKey; sortDirection: SortDirection }): void {
+    updateSharedFilters("inventory", patch);
+  }
+
   function setValueScope(allTradables: boolean): void {
     inventoryValueAllTradables.set(allTradables);
   }
@@ -205,14 +216,12 @@
     inventoryValueMinPlatinum.set(minPlatinum);
   }
 
-  function handleItemSelect(event: CustomEvent<InventoryViewItem>): void {
-    selectedInternalName = event.detail.internalName;
+  function handleItemSelect(item: InventoryViewItem): void {
+    selectedInternalName = item.internalName;
     orderBookPanelOpen = true;
 
     if (!wfmItemsLoaded) return;
-    const selectedBaseItem = tabBaseItems.find(
-      (entry) => entry.internalName === event.detail.internalName,
-    );
+    const selectedBaseItem = tabBaseItems.find((entry) => entry.internalName === item.internalName);
     if (selectedBaseItem && shouldHydrateMetrics(selectedBaseItem)) {
       trackRankedHotset(selectedBaseItem);
       hydration.enqueue([selectedBaseItem], $wfmItems, {
@@ -226,19 +235,19 @@
 
   $: detailKeys = buildDetailKeys($parsedItems);
 
-  function handleItemExpand(event: CustomEvent<InventoryViewItem>): void {
+  function handleItemExpand(item: InventoryViewItem): void {
     // Relic cards open the reward breakdown, matching the Relics tab.
-    const relicGroup = relicGroupForUniqueName($relicDb, event.detail.internalName);
+    const relicGroup = relicGroupForUniqueName($relicDb, item.internalName);
     if (relicGroup) {
       activeRelic.set(relicGroup);
       return;
     }
-    const cardKey = event.detail.internalName;
+    const cardKey = item.internalName;
     const parsed =
       $parsedItems.find((entry) => entry.inventoryKey === cardKey) ??
       $parsedItems.find((entry) => entry.internalName === cardKey);
     // Base items predate hydration - carry the slug so the modal prices by it.
-    if (parsed) activeItem.set({ ...parsed, marketSlug: event.detail.marketSlug });
+    if (parsed) activeItem.set({ ...parsed, marketSlug: item.marketSlug });
   }
 
   function closeOrderBookPanel(): void {
@@ -246,12 +255,10 @@
     orderBookPanelOpen = false;
   }
 
-  function handleItemVisible(event: CustomEvent<InventoryViewItem>): void {
+  function handleItemVisible(item: InventoryViewItem): void {
     // before the catalog loads, cards carry guessed slugs - don't fetch with those
     if (!wfmItemsLoaded) return;
-    const visibleBaseItem = tabBaseItems.find(
-      (entry) => entry.internalName === event.detail.internalName,
-    );
+    const visibleBaseItem = tabBaseItems.find((entry) => entry.internalName === item.internalName);
     if (!visibleBaseItem || !shouldHydrateMetrics(visibleBaseItem)) return;
     trackRankedHotset(visibleBaseItem);
 
@@ -549,6 +556,10 @@
     return active;
   }
   $: activeAdvancedCount = countActiveAdvancedFilters($inventoryFilters);
+  $: tabSortOptions = SORT_OPTIONS_BY_TAB[filter] ?? PRICED_SORT_OPTIONS;
+  // A column header only sorts by a key this tab can compute; anything else
+  // would silently fall back to a name sort, exactly like the sort dropdown.
+  $: tabSortKeys = new Set<string>(tabSortOptions.map(([key]) => key));
   $: showDucats = filter === "all_parts" || filter === "full_sets" || filter === "everything";
   $: metricNeeds = metricNeedsFromFilters($inventoryFilters, filter);
   $: wfmItemsLoaded = Object.keys($wfmItems).length > 0;
@@ -564,9 +575,12 @@
     filters={FILTERS}
     activeFilter={filter}
     {showFilterPanel}
-    sortOptions={SORT_OPTIONS_BY_TAB[filter] ?? PRICED_SORT_OPTIONS}
+    sortOptions={tabSortOptions}
     advancedCount={activeAdvancedCount}
     filtersEnabled={filter !== "resources"}
+    viewMode={$inventoryViewMode}
+    viewModeEnabled={filter !== "resources"}
+    onSelectViewMode={setViewMode}
     on:filter={handleFilterSelect}
     on:toggle={handleToggleFilterPanel}
   >
@@ -641,16 +655,35 @@
             {$tr("inventory.missingIconsDev")}
           </label>
         {/if}
-        <InventoryGrid
-          items={gridItems}
-          totalCount={visibleItems.length}
-          {showDucats}
-          {detailKeys}
-          on:select={handleItemSelect}
-          on:visible={handleItemVisible}
-          on:expand={handleItemExpand}
-          on:more={() => (gridLimit += GRID_PAGE_SIZE)}
-        />
+        <!-- Both renderers take the same paged view-model, so search, filters,
+             hydration and the totals strip do not know which one is mounted. -->
+        {#if $inventoryViewMode === "list"}
+          <InventoryList
+            items={gridItems}
+            totalCount={visibleItems.length}
+            {showDucats}
+            {detailKeys}
+            sortBy={$inventoryFilters.sortBy}
+            sortDirection={$inventoryFilters.sortDirection}
+            sortableKeys={tabSortKeys}
+            onSort={applyListSort}
+            onSelect={handleItemSelect}
+            onVisible={handleItemVisible}
+            onExpand={handleItemExpand}
+            onMore={() => (gridLimit += GRID_PAGE_SIZE)}
+          />
+        {:else}
+          <InventoryGrid
+            items={gridItems}
+            totalCount={visibleItems.length}
+            {showDucats}
+            {detailKeys}
+            on:select={(event) => handleItemSelect(event.detail)}
+            on:visible={(event) => handleItemVisible(event.detail)}
+            on:expand={(event) => handleItemExpand(event.detail)}
+            on:more={() => (gridLimit += GRID_PAGE_SIZE)}
+          />
+        {/if}
 
         {#if showEverythingResources && filteredResources.length > 0}
           <!-- Resources have their own row shape, so Everything appends the real list. -->
