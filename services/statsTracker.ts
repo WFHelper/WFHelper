@@ -6,25 +6,25 @@ import {
   collectRelicInventoryCounts,
   totalRelicInventoryCount,
 } from "../config/shared/relicCounts";
+import {
+  readStatResourceDay,
+  writeLegacyStatFields,
+  STAT_RESOURCES,
+  STAT_RESOURCES_VERSION,
+} from "../config/shared/statsTypes";
 
 const log = withScope("statsTracker");
 
-import type { DailyStatEntry, SessionStats } from "../config/shared/statsTypes";
+import type { DailyStatEntry, SessionStats, StatResourceDay } from "../config/shared/statsTypes";
 
-// Session baselines (set on first inventory update)
-let _baselinePlat: number | null = null;
-let _baselineCredits: number | null = null;
-let _baselineEndo: number | null = null;
-let _baselineDucats: number | null = null;
-let _baselineAya: number | null = null;
-let _baselineVitus: number | null = null;
-
-let _currentPlat: number | null = null;
-let _currentCredits: number | null = null;
-let _currentEndo: number | null = null;
-let _currentDucats: number | null = null;
-let _currentAya: number | null = null;
-let _currentVitus: number | null = null;
+// Per-resource session state, keyed by catalog id. A missing key means "no
+// reading yet", which is what the old per-currency `null` baselines meant.
+const _baselines = new Map<string, number>();
+const _currents = new Map<string, number>();
+// Resumed daily deltas, so a restart cannot overwrite them with fresh baselines.
+const _resumed = new Map<string, number>();
+// Reused across updates so a poll never allocates a lookup per MiscItems scan.
+const _miscScratch = new Map<string, number>();
 
 // Relic tracking: accumulate decreases in total LevelKeys count throughout the day
 let _lastRelicTotal: number | null = null;
@@ -32,14 +32,6 @@ let _todayRelicsOpened = 0;
 let _todayDateForRelics = ""; // tracks which day the relics counter belongs to
 let _todayDailyTrades = 0;
 let _todayDateForTrades = "";
-
-// Resume saved daily deltas so a restart cannot overwrite them with fresh baselines.
-let _resumedPlatDelta = 0;
-let _resumedCreditsDelta = 0;
-let _resumedEndoDelta = 0;
-let _resumedDucatsDelta = 0;
-let _resumedAyaDelta = 0;
-let _resumedVitusDelta = 0;
 
 let _history: DailyStatEntry[] = [];
 const HISTORY_MAX_DAYS = 90;
@@ -60,12 +52,36 @@ function _todayStr(): string {
   return `${y}-${m}-${day}`;
 }
 
-function _findMiscItemCount(data: Record<string, unknown>, itemType: string): number | null {
+/** Reads every tracked resource out of one inventory payload into `_currents`. */
+function _readResourceAmounts(data: Record<string, unknown>): void {
+  _currents.clear();
+  _miscScratch.clear();
   const misc = Array.isArray(data.MiscItems)
     ? (data.MiscItems as Array<Record<string, unknown>>)
     : [];
-  const entry = misc.find((e) => e.ItemType === itemType);
-  return entry && typeof entry.ItemCount === "number" ? entry.ItemCount : null;
+  // First entry wins, matching the single-pass `find` this replaced.
+  for (const entry of misc) {
+    const type = entry?.ItemType;
+    const count = entry?.ItemCount;
+    if (typeof type === "string" && typeof count === "number" && !_miscScratch.has(type)) {
+      _miscScratch.set(type, count);
+    }
+  }
+  for (const resource of STAT_RESOURCES) {
+    const value =
+      resource.source.kind === "field"
+        ? _num(data[resource.source.field])
+        : (_miscScratch.get(resource.source.uniqueName) ?? null);
+    if (value !== null) _currents.set(resource.id, value);
+  }
+}
+
+function _deltaFor(id: string): number {
+  const resumed = _resumed.get(id) ?? 0;
+  const current = _currents.get(id);
+  const baseline = _baselines.get(id);
+  if (current === undefined || baseline === undefined) return resumed;
+  return resumed + (current - baseline);
 }
 
 function _saveHistory(): void {
@@ -85,45 +101,31 @@ function _saveHistory(): void {
 function _upsertToday(): void {
   const today = _todayStr();
 
-  const platDelta =
-    _resumedPlatDelta +
-    (_currentPlat !== null && _baselinePlat !== null ? _currentPlat - _baselinePlat : 0);
-  const creditsDelta =
-    _resumedCreditsDelta +
-    (_currentCredits !== null && _baselineCredits !== null
-      ? _currentCredits - _baselineCredits
-      : 0);
-  const endoDelta =
-    _resumedEndoDelta +
-    (_currentEndo !== null && _baselineEndo !== null ? _currentEndo - _baselineEndo : 0);
-  const ducatsDelta =
-    _resumedDucatsDelta +
-    (_currentDucats !== null && _baselineDucats !== null ? _currentDucats - _baselineDucats : 0);
-  const ayaDelta =
-    _resumedAyaDelta +
-    (_currentAya !== null && _baselineAya !== null ? _currentAya - _baselineAya : 0);
-  const vitusDelta =
-    _resumedVitusDelta +
-    (_currentVitus !== null && _baselineVitus !== null ? _currentVitus - _baselineVitus : 0);
+  const resources: Record<string, StatResourceDay> = {};
+  for (const resource of STAT_RESOURCES) {
+    const delta = _deltaFor(resource.id);
+    const current = _currents.get(resource.id);
+    if (current === undefined && delta === 0) continue;
+    resources[resource.id] = current === undefined ? { delta } : { delta, abs: current };
+  }
 
   const entry: DailyStatEntry = {
     date: today,
-    platDelta,
-    creditsDelta,
-    endoDelta,
-    ducatsDelta,
-    ayaDelta,
-    vitusDelta,
+    platDelta: 0,
+    creditsDelta: 0,
+    endoDelta: 0,
+    ducatsDelta: 0,
+    ayaDelta: 0,
+    vitusDelta: 0,
     relicsOpened: _todayRelicsOpened,
     daysPlayed: 1,
     dailyTrades: _todayDailyTrades,
+    resourcesVersion: STAT_RESOURCES_VERSION,
+    resources,
   };
-  if (_currentPlat !== null) entry.absPlat = _currentPlat;
-  if (_currentCredits !== null) entry.absCredits = _currentCredits;
-  if (_currentEndo !== null) entry.absEndo = _currentEndo;
-  if (_currentDucats !== null) entry.absDucats = _currentDucats;
-  if (_currentAya !== null) entry.absAya = _currentAya;
-  if (_currentVitus !== null) entry.absVitus = _currentVitus;
+  for (const id of Object.keys(resources)) {
+    writeLegacyStatFields(entry, id, resources[id]);
+  }
 
   const idx = _history.findIndex((e) => e.date === today);
   if (idx >= 0) {
@@ -180,26 +182,23 @@ export function loadHistory(): void {
         // Preserve old date keys because aggregates lack timestamps for re-attribution.
         _saveHistory();
       }
-      // Restore today's relic accumulator so app restarts don't reset the daily count to 0
+      // Restore today's counters and deltas so app restarts don't reset them.
+      // Claiming the day markers matters even at zero: the first inventory
+      // update treats an unclaimed day as a rollover and would wipe the
+      // deltas resumed just below.
       const today = _todayStr();
       const todayEntry = _history.find((e) => e.date === today);
-      if (todayEntry && todayEntry.relicsOpened > 0) {
+      if (todayEntry) {
         _todayRelicsOpened = todayEntry.relicsOpened;
         _todayDateForRelics = today;
-      }
-      if (todayEntry && todayEntry.dailyTrades > 0) {
         _todayDailyTrades = todayEntry.dailyTrades;
         _todayDateForTrades = today;
-      }
-      // Resume accumulated deltas from today's saved entry so app restarts
-      // don't overwrite the daily total with a fresh session baseline of 0.
-      if (todayEntry) {
-        _resumedPlatDelta = todayEntry.platDelta;
-        _resumedCreditsDelta = todayEntry.creditsDelta;
-        _resumedEndoDelta = todayEntry.endoDelta;
-        _resumedDucatsDelta = todayEntry.ducatsDelta;
-        _resumedAyaDelta = todayEntry.ayaDelta;
-        _resumedVitusDelta = todayEntry.vitusDelta;
+        // Entries written before the resource map resume from their flat fields.
+        _resumed.clear();
+        for (const resource of STAT_RESOURCES) {
+          const day = readStatResourceDay(todayEntry, resource.id);
+          if (day && day.delta !== 0) _resumed.set(resource.id, day.delta);
+        }
       }
       log.info(`[StatsTracker] Loaded ${_history.length} history entries`);
     }
@@ -212,16 +211,6 @@ export function loadHistory(): void {
 }
 
 export function onInventoryData(data: Record<string, unknown>): void {
-  const plat = _num(data.PremiumCredits);
-  const credits = _num(data.RegularCredits);
-  const endo = _num(data.FusionPoints);
-  // Ducats are stored as a MiscItem entry, not a top-level field
-  const ducats = _findMiscItemCount(data, "/Lotus/Types/Items/MiscItems/PrimeBucks");
-  // Aya is the SchismKey MiscItem; top-level PrimeTokens is Regal Aya.
-  const aya = _findMiscItemCount(data, "/Lotus/Types/Items/MiscItems/SchismKey");
-  // Vitus Essence's internal name is Elitium
-  const vitus = _findMiscItemCount(data, "/Lotus/Types/Items/MiscItems/Elitium");
-
   const today = _todayStr();
 
   // Reset accumulator when the day rolls over
@@ -230,18 +219,8 @@ export function onInventoryData(data: Record<string, unknown>): void {
     _todayDateForRelics = today;
     _lastRelicTotal = null; // avoid a spurious spike across midnight
     // Reset resumed deltas and baselines for the new day
-    _resumedPlatDelta = 0;
-    _resumedCreditsDelta = 0;
-    _resumedEndoDelta = 0;
-    _resumedDucatsDelta = 0;
-    _resumedAyaDelta = 0;
-    _resumedVitusDelta = 0;
-    _baselinePlat = null;
-    _baselineCredits = null;
-    _baselineEndo = null;
-    _baselineDucats = null;
-    _baselineAya = null;
-    _baselineVitus = null;
+    _resumed.clear();
+    _baselines.clear();
   }
   if (_todayDateForTrades !== today) {
     _todayDailyTrades = 0;
@@ -254,19 +233,12 @@ export function onInventoryData(data: Record<string, unknown>): void {
   }
   _lastRelicTotal = relicTotal;
 
-  if (_baselinePlat === null && plat !== null) _baselinePlat = plat;
-  if (_baselineCredits === null && credits !== null) _baselineCredits = credits;
-  if (_baselineEndo === null && endo !== null) _baselineEndo = endo;
-  if (_baselineDucats === null && ducats !== null) _baselineDucats = ducats;
-  if (_baselineAya === null && aya !== null) _baselineAya = aya;
-  if (_baselineVitus === null && vitus !== null) _baselineVitus = vitus;
-
-  _currentPlat = plat;
-  _currentCredits = credits;
-  _currentEndo = endo;
-  _currentDucats = ducats;
-  _currentAya = aya;
-  _currentVitus = vitus;
+  _readResourceAmounts(data);
+  // A baseline survives a payload that omits its resource, so a partial read
+  // cannot re-baseline the day mid-session.
+  for (const [id, value] of _currents) {
+    if (!_baselines.has(id)) _baselines.set(id, value);
+  }
 
   _upsertToday();
 }
@@ -311,40 +283,27 @@ export function importHistory(raw: DailyStatEntry[]): number {
 }
 
 export function getCurrentSession(): SessionStats {
-  const hasData =
-    _currentPlat !== null ||
-    _currentCredits !== null ||
-    _currentEndo !== null ||
-    _currentDucats !== null ||
-    _currentAya !== null ||
-    _currentVitus !== null;
+  const resources: Record<string, { delta: number; current: number | null }> = {};
+  for (const resource of STAT_RESOURCES) {
+    resources[resource.id] = {
+      delta: _deltaFor(resource.id),
+      current: _currents.get(resource.id) ?? null,
+    };
+  }
   return {
-    platDelta:
-      _resumedPlatDelta +
-      (_currentPlat !== null && _baselinePlat !== null ? _currentPlat - _baselinePlat : 0),
-    creditsDelta:
-      _resumedCreditsDelta +
-      (_currentCredits !== null && _baselineCredits !== null
-        ? _currentCredits - _baselineCredits
-        : 0),
-    endoDelta:
-      _resumedEndoDelta +
-      (_currentEndo !== null && _baselineEndo !== null ? _currentEndo - _baselineEndo : 0),
-    ducatsDelta:
-      _resumedDucatsDelta +
-      (_currentDucats !== null && _baselineDucats !== null ? _currentDucats - _baselineDucats : 0),
-    ayaDelta:
-      _resumedAyaDelta +
-      (_currentAya !== null && _baselineAya !== null ? _currentAya - _baselineAya : 0),
-    vitusDelta:
-      _resumedVitusDelta +
-      (_currentVitus !== null && _baselineVitus !== null ? _currentVitus - _baselineVitus : 0),
-    currentPlat: _currentPlat,
-    currentCredits: _currentCredits,
-    currentEndo: _currentEndo,
-    currentDucats: _currentDucats,
-    currentAya: _currentAya,
-    currentVitus: _currentVitus,
-    hasData,
+    platDelta: resources.plat.delta,
+    creditsDelta: resources.credits.delta,
+    endoDelta: resources.endo.delta,
+    ducatsDelta: resources.ducats.delta,
+    ayaDelta: resources.aya.delta,
+    vitusDelta: resources.vitus.delta,
+    currentPlat: resources.plat.current,
+    currentCredits: resources.credits.current,
+    currentEndo: resources.endo.current,
+    currentDucats: resources.ducats.current,
+    currentAya: resources.aya.current,
+    currentVitus: resources.vitus.current,
+    resources,
+    hasData: _currents.size > 0,
   };
 }

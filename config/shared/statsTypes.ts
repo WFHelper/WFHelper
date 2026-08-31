@@ -26,6 +26,12 @@ export interface TradeEvent {
   wfmClosed?: boolean; // true when a WFM order was auto-closed for this trade
 }
 
+/** One resource's numbers for a single day. */
+export interface StatResourceDay {
+  delta: number;
+  abs?: number;
+}
+
 export interface DailyStatEntry {
   date: string; // "YYYY-MM-DD"
   platDelta: number; // net plat change this session/day
@@ -43,6 +49,10 @@ export interface DailyStatEntry {
   absDucats?: number; // absolute ducats balance at end of day
   absAya?: number; // absolute aya balance at end of day
   absVitus?: number; // absolute vitus essence balance at end of day
+  resourcesVersion?: number; // schema of `resources`; absent on pre-map entries
+  // Every tracked resource, keyed by catalog id. The six fields above stay
+  // written so a downgraded build still reads its own history.
+  resources?: Record<string, StatResourceDay>;
 }
 
 export interface SessionStats {
@@ -58,5 +68,120 @@ export interface SessionStats {
   currentDucats: number | null;
   currentAya: number | null;
   currentVitus: number | null;
+  resources: Record<string, { delta: number; current: number | null }>;
   hasData: boolean;
+}
+
+/** Schema marker for `DailyStatEntry.resources`. */
+export const STAT_RESOURCES_VERSION = 1;
+
+/** Where a resource's amount lives in the raw DE inventory payload. */
+type StatResourceSource =
+  | { readonly kind: "field"; readonly field: string }
+  | { readonly kind: "misc"; readonly uniqueName: string };
+
+interface StatResourceDef {
+  readonly id: string;
+  readonly source: StatResourceSource;
+  /** "compact" renders large balances as k/M. */
+  readonly format: "plain" | "compact";
+}
+
+const MISC = "/Lotus/Types/Items/MiscItems/";
+
+function topLevel(
+  id: string,
+  field: string,
+  format: StatResourceDef["format"] = "plain",
+): StatResourceDef {
+  return { id, source: { kind: "field", field }, format };
+}
+
+function miscItem(
+  id: string,
+  uniqueName: string,
+  format: StatResourceDef["format"] = "plain",
+): StatResourceDef {
+  return { id, source: { kind: "misc", uniqueName }, format };
+}
+
+// Recording covers this whole list unconditionally; only display is a user choice.
+// uniqueNames verified against @wfcd/items. Traps that must not be "fixed":
+// PrimeBucks is Ducats, top-level PrimeTokens is Regal Aya, Aya is SchismKey,
+// Vitus Essence is Elitium. Labels live in src/stores/statsDisplay.ts.
+export const STAT_RESOURCES: readonly StatResourceDef[] = [
+  topLevel("plat", "PremiumCredits"),
+  miscItem("ducats", `${MISC}PrimeBucks`),
+  miscItem("aya", `${MISC}SchismKey`),
+  topLevel("credits", "RegularCredits", "compact"),
+  topLevel("endo", "FusionPoints", "compact"),
+  miscItem("vitus", `${MISC}Elitium`),
+  miscItem("kuva", `${MISC}Kuva`, "compact"),
+  topLevel("regalAya", "PrimeTokens"),
+  miscItem("voidTraces", `${MISC}VoidTearDrop`),
+  miscItem("steelEssence", `${MISC}SteelEssence`),
+  miscItem("rivenSliver", `${MISC}RivenFragment`),
+  miscItem("vosfor", `${MISC}DistillPoints`, "compact"),
+  miscItem("nitain", `${MISC}Alertium`),
+  miscItem("forma", `${MISC}Forma`),
+  miscItem("argonCrystal", `${MISC}ArgonCrystal`),
+  miscItem("orokinCell", `${MISC}OrokinCell`),
+  miscItem("tellurium", `${MISC}Tellurium`),
+  miscItem("somaticFibers", `${MISC}MemoryCryptoFragment`),
+  miscItem("hexenon", `${MISC}ConcentratedGas`),
+  miscItem("narmerIsoplast", `${MISC}NarmerBountyResource`),
+  // These two are resources but live outside the MiscItems namespace.
+  miscItem("cetusWisp", "/Lotus/Types/Gameplay/Eidolon/Resources/CetusWispItem"),
+  miscItem("pathosClamp", "/Lotus/Types/Gameplay/Duviri/Resource/DuviriDragonDropItem"),
+];
+
+/** Charts shown before the user picks: the six pre-map resources plus Kuva. */
+export const DEFAULT_STAT_RESOURCE_IDS: readonly string[] = [
+  "plat",
+  "ducats",
+  "aya",
+  "credits",
+  "endo",
+  "vitus",
+  "kuva",
+];
+
+// The six resources that predate the map and therefore own a flat field pair.
+const LEGACY_STAT_FIELDS = {
+  plat: { delta: "platDelta", abs: "absPlat" },
+  credits: { delta: "creditsDelta", abs: "absCredits" },
+  endo: { delta: "endoDelta", abs: "absEndo" },
+  ducats: { delta: "ducatsDelta", abs: "absDucats" },
+  aya: { delta: "ayaDelta", abs: "absAya" },
+  vitus: { delta: "vitusDelta", abs: "absVitus" },
+} as const;
+
+/**
+ * A resource's day values, reading the map first and falling back to the flat
+ * fields so history written before the map still charts.
+ */
+export function readStatResourceDay(entry: DailyStatEntry, id: string): StatResourceDay | null {
+  const mapped = entry.resources?.[id];
+  if (mapped && typeof mapped.delta === "number") {
+    if (typeof mapped.abs === "number") return { delta: mapped.delta, abs: mapped.abs };
+    return { delta: mapped.delta };
+  }
+  const legacy = LEGACY_STAT_FIELDS[id as keyof typeof LEGACY_STAT_FIELDS];
+  if (!legacy) return null;
+  const rawDelta = entry[legacy.delta];
+  const rawAbs = entry[legacy.abs];
+  const delta = typeof rawDelta === "number" ? rawDelta : 0;
+  return typeof rawAbs === "number" ? { delta, abs: rawAbs } : { delta };
+}
+
+/** Mirrors a resource onto the flat fields a downgraded build reads. */
+export function writeLegacyStatFields(
+  entry: DailyStatEntry,
+  id: string,
+  day: StatResourceDay,
+): void {
+  const legacy = LEGACY_STAT_FIELDS[id as keyof typeof LEGACY_STAT_FIELDS];
+  if (!legacy) return;
+  entry[legacy.delta] = day.delta;
+  if (day.abs !== undefined) entry[legacy.abs] = day.abs;
 }

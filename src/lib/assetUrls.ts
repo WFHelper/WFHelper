@@ -1,3 +1,6 @@
+import { STAT_RESOURCES } from "../../config/shared/statsTypes.js";
+import type { ItemDbEntry } from "../types/inventory.js";
+
 export const PLATINUM_ICON_URL = new URL("../../assets/Platinum.png", import.meta.url).href;
 export const RIVEN_TEMPLATE_URL = new URL("../../assets/RivenTemplate.png", import.meta.url).href;
 export const FORMA_ICON_URL = new URL("../../assets/Forma.webp", import.meta.url).href;
@@ -44,6 +47,31 @@ export const STAT_ICON_URLS = {
   relicsOpened: new URL("../../assets/world-icons/relic-lith.png", import.meta.url).href,
   dailyTrades: new URL("../../assets/icons/misc/trade.png", import.meta.url).href,
 } as const;
+
+/** Chart keys with bundled art. The keys are chart ids, which differ from the
+ *  STAT_ICON_URLS field names. */
+const BUNDLED_STAT_ICONS: Record<string, string> = {
+  plat: STAT_ICON_URLS.platDelta,
+  ducats: STAT_ICON_URLS.ducatsDelta,
+  aya: STAT_ICON_URLS.ayaDelta,
+  credits: STAT_ICON_URLS.creditsDelta,
+  endo: STAT_ICON_URLS.endoDelta,
+  vitus: STAT_ICON_URLS.vitusDelta,
+  relicsOpened: STAT_ICON_URLS.relicsOpened,
+  dailyTrades: STAT_ICON_URLS.dailyTrades,
+};
+
+// Icon per Stats chart key. Bundled art wins; other resources take the item
+// database's mirrored icon via uniqueName. Unresolved keys stay iconless.
+export function buildStatIconMap(itemDb: Record<string, ItemDbEntry>): Record<string, string> {
+  const map: Record<string, string> = { ...BUNDLED_STAT_ICONS };
+  for (const resource of STAT_RESOURCES) {
+    if (map[resource.id] || resource.source.kind !== "misc") continue;
+    const url = itemDb[resource.source.uniqueName]?.imageUrl;
+    if (url) map[resource.id] = url;
+  }
+  return map;
+}
 
 export const ELEMENT_ICON_URLS = {
   cold: new URL("../../assets/elements/Cold.png", import.meta.url).href,

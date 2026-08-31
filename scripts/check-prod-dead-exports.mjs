@@ -24,6 +24,19 @@ const ALLOWLIST = new Set([
   "clearPriceCache",
   // Alias name inside `__test__` bag (the underlying constant is consumed in prod).
   "priceQueueFullError",
+  // Safety-rules consumer API: the Trade Workbench imports these when it lands.
+  "SAFETY_REASON_KEYS",
+  "setSpareDefault",
+  "setItemSpare",
+  "toggleSafetyLock",
+  "toggleSetKeep",
+  "buildSafetyContext",
+  "inventorySafety",
+  "resetInventorySafety",
+  // Scheduler health is the alert engine's status feed; it lands next.
+  "getWfmSchedulerHealth",
+  // Test seam bag, parallel to wfmClient's `__test__`.
+  "__schedulerTest__",
 ]);
 
 // Where exports are *defined* (main production tree).

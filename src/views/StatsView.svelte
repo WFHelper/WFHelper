@@ -3,15 +3,19 @@
   import { invoke, on } from "../lib/ipc.js";
   import { locale, tr } from "../lib/i18n.js";
   import type { DailyStatEntry, SessionStats, TradeEvent } from "../types/ipc.js";
-  import type { MessageKey } from "../lib/i18n.js";
+  import type { MessageKey, Translator } from "../lib/i18n.js";
   import ModalShell from "../components/ModalShell.svelte";
   import ThemedButton from "../components/ThemedButton.svelte";
   import ThemedPanel from "../components/ThemedPanel.svelte";
   import ThemedSelect from "../components/ThemedSelect.svelte";
   import SummaryStrip, { type SummaryStripItem } from "../components/SummaryStrip.svelte";
   import StatsTradePanel from "../components/stats/StatsTradePanel.svelte";
-  import { STAT_ICON_URLS } from "../lib/assetUrls.js";
+  import StatResourcePicker from "../components/stats/StatResourcePicker.svelte";
+  import { buildStatIconMap } from "../lib/assetUrls.js";
+  import { itemDb } from "../stores/data.js";
   import { assertStatsImportFileSize } from "../../config/shared/statsImport.js";
+  import { readStatResourceDay, STAT_RESOURCES } from "../../config/shared/statsTypes.js";
+  import { chartResources, statResourceLabelKey } from "../stores/statsDisplay.js";
   import {
     normalizeAlecaFrameStats,
     parseAlecaFrameTrades,
@@ -189,65 +193,158 @@
     URL.revokeObjectURL(url);
   }
 
-  interface SessionSection {
-    key: SessionStatKey;
+  interface ChartSection {
+    /** A resource id, or one of the two non-resource chart keys. */
+    key: string;
     labelKey: MessageKey;
-    currentKey:
-      | "currentPlat"
-      | "currentCredits"
-      | "currentEndo"
-      | "currentDucats"
-      | "currentAya"
-      | "currentVitus";
   }
 
-  const SESSION_SECTIONS: SessionSection[] = [
-    { key: "platDelta", labelKey: "common.platinum", currentKey: "currentPlat" },
-    { key: "ducatsDelta", labelKey: "common.ducats", currentKey: "currentDucats" },
-    { key: "ayaDelta", labelKey: "stats.aya", currentKey: "currentAya" },
-    { key: "creditsDelta", labelKey: "common.credits", currentKey: "currentCredits" },
-    { key: "endoDelta", labelKey: "stats.endo", currentKey: "currentEndo" },
-    { key: "vitusDelta", labelKey: "stats.vitus", currentKey: "currentVitus" },
-  ];
+  // Session totals for the six pre-map resources keep reading their own fields;
+  // anything else comes from the session resource map.
+  const LEGACY_SESSION_FIELDS: Record<
+    string,
+    {
+      delta: SessionStatKey;
+      current:
+        | "currentPlat"
+        | "currentCredits"
+        | "currentEndo"
+        | "currentDucats"
+        | "currentAya"
+        | "currentVitus";
+    }
+  > = {
+    plat: { delta: "platDelta", current: "currentPlat" },
+    ducats: { delta: "ducatsDelta", current: "currentDucats" },
+    aya: { delta: "ayaDelta", current: "currentAya" },
+    credits: { delta: "creditsDelta", current: "currentCredits" },
+    endo: { delta: "endoDelta", current: "currentEndo" },
+    vitus: { delta: "vitusDelta", current: "currentVitus" },
+  };
 
-  const CHART_SECTIONS: Array<{ key: ChartKey; labelKey: MessageKey }> = [
-    { key: "platDelta", labelKey: "common.platinum" },
-    { key: "ducatsDelta", labelKey: "common.ducats" },
-    { key: "ayaDelta", labelKey: "stats.aya" },
-    { key: "creditsDelta", labelKey: "common.credits" },
-    { key: "endoDelta", labelKey: "stats.endo" },
-    { key: "vitusDelta", labelKey: "stats.vitus" },
+  const NON_RESOURCE_SECTIONS: ChartSection[] = [
     { key: "relicsOpened", labelKey: "stats.relicsOpened" },
     { key: "dailyTrades", labelKey: "stats.dailyTrades" },
   ];
 
-  /** Icon map for each chart/session key */
-  const ICON_MAP: Record<ChartKey, string> = {
-    platDelta: STAT_ICON_URLS.platDelta,
-    ducatsDelta: STAT_ICON_URLS.ducatsDelta,
-    ayaDelta: STAT_ICON_URLS.ayaDelta,
-    creditsDelta: STAT_ICON_URLS.creditsDelta,
-    endoDelta: STAT_ICON_URLS.endoDelta,
-    vitusDelta: STAT_ICON_URLS.vitusDelta,
-    relicsOpened: STAT_ICON_URLS.relicsOpened,
-    dailyTrades: STAT_ICON_URLS.dailyTrades,
+  const RESOURCE_IDS = new Set(STAT_RESOURCES.map((r) => r.id));
+
+  // Item-database art fills in behind the bundled icons, so it repaints when the
+  // catalog arrives after the tab is already open.
+  $: iconMap = buildStatIconMap($itemDb);
+
+  type ValueFormatter = (abs: number, locale: string) => string;
+
+  // The six pre-map charts keep their exact formatter; new resources pick the
+  // plain or the k/M one from the catalog.
+  const FORMATTER_BY_KEY: Record<string, ValueFormatter> = {
+    plat: formatters.platDelta,
+    ducats: formatters.ducatsDelta,
+    aya: formatters.ayaDelta,
+    credits: formatters.creditsDelta,
+    endo: formatters.endoDelta,
+    vitus: formatters.vitusDelta,
+    relicsOpened: formatters.relicsOpened,
+    dailyTrades: formatters.dailyTrades,
   };
+  for (const resource of STAT_RESOURCES) {
+    if (FORMATTER_BY_KEY[resource.id]) continue;
+    FORMATTER_BY_KEY[resource.id] =
+      resource.format === "compact" ? formatters.creditsDelta : formatters.ayaDelta;
+  }
+
+  function formatterFor(key: string): ValueFormatter {
+    return FORMATTER_BY_KEY[key] ?? formatters.relicsOpened;
+  }
 
   let chartDays = 30;
+  let showResourcePicker = false;
+
+  /** Projects a resource onto the plat slot so barsForKey can chart any id.
+   *  The plat chart reads date, platDelta and absPlat only, so the row is built
+   *  from those: copying every entry and deleting absPlat cost one rebuilt
+   *  object per day per charted resource. */
+  function projectResource(hist: DailyStatEntry[], id: string): DailyStatEntry[] {
+    return hist.map((entry) => {
+      const day = readStatResourceDay(entry, id);
+      return {
+        date: entry.date,
+        platDelta: day?.delta ?? 0,
+        creditsDelta: 0,
+        endoDelta: 0,
+        ducatsDelta: 0,
+        ayaDelta: 0,
+        vitusDelta: 0,
+        relicsOpened: 0,
+        daysPlayed: entry.daysPlayed,
+        dailyTrades: 0,
+        ...(day?.abs === undefined ? {} : { absPlat: day.abs }),
+      };
+    });
+  }
+
+  function chartDataFor(
+    key: string,
+    hist: DailyStatEntry[],
+    daysArg: number,
+    barH: number,
+    localeCode: string,
+  ): ChartResult {
+    if (RESOURCE_IDS.has(key)) {
+      return barsForKey("platDelta", projectResource(hist, key), daysArg, barH, localeCode);
+    }
+    return barsForKey(key as ChartKey, hist, daysArg, barH, localeCode);
+  }
 
   function computeChartDataMap(
+    sections: ChartSection[],
     historyArg: typeof history,
     daysArg: number,
     localeCode: string,
-  ): Record<ChartKey, ChartResult> {
-    const m: Partial<Record<ChartKey, ChartResult>> = {};
-    for (const { key } of CHART_SECTIONS) {
-      m[key] = barsForKey(key, historyArg, daysArg, BAR_H, localeCode);
+  ): Record<string, ChartResult> {
+    const m: Record<string, ChartResult> = {};
+    for (const { key } of sections) {
+      m[key] = chartDataFor(key, historyArg, daysArg, BAR_H, localeCode);
     }
-    return m as Record<ChartKey, ChartResult>;
+    return m;
   }
 
-  $: chartDataMap = computeChartDataMap(history, chartDays, $locale);
+  function sessionDelta(s: SessionStats, id: string): number {
+    const legacy = LEGACY_SESSION_FIELDS[id];
+    if (legacy) return s[legacy.delta];
+    const entry = s.resources[id];
+    return entry ? entry.delta : 0;
+  }
+
+  function sessionCurrent(s: SessionStats, id: string): number | null {
+    const legacy = LEGACY_SESSION_FIELDS[id];
+    if (legacy) return s[legacy.current];
+    const entry = s.resources[id];
+    return entry ? entry.current : null;
+  }
+
+  function buildSessionItems(
+    s: SessionStats | null,
+    sections: ChartSection[],
+    t: Translator,
+    localeCode: string,
+    icons: Record<string, string>,
+  ): SummaryStripItem[] {
+    if (!s?.hasData) return [];
+    return sections.map(({ key, labelKey }) => ({
+      key,
+      label: t(labelKey),
+      value: formatAbsolute(sessionCurrent(s, key) ?? 0, localeCode),
+      icon: icons[key] ?? null,
+      subtext: `${formatDelta(sessionDelta(s, key), formatterFor(key), localeCode)} ${t("stats.today")}`,
+    }));
+  }
+
+  $: displayedResources = STAT_RESOURCES.filter((r) => $chartResources.includes(r.id)).map(
+    (r): ChartSection => ({ key: r.id, labelKey: statResourceLabelKey(r.id) }),
+  );
+  $: chartSections = [...displayedResources, ...NON_RESOURCE_SECTIONS];
+  $: chartDataMap = computeChartDataMap(chartSections, history, chartDays, $locale);
 
   function chartIsEmpty(cd: ChartResult): boolean {
     return (
@@ -258,34 +355,29 @@
 
   // Expanded modal chart data - recomputes when expandedKey or chartDays changes
   $: expandedChartData = expandedKey
-    ? barsForKey(expandedKey, history, chartDays, BAR_H_EXPAND, $locale)
+    ? chartDataFor(expandedKey, history, chartDays, BAR_H_EXPAND, $locale)
     : null;
-  $: sessionSummaryItems = session?.hasData
-    ? SESSION_SECTIONS.map(
-        ({ key, labelKey, currentKey }): SummaryStripItem => ({
-          key,
-          label: $tr(labelKey),
-          value: formatAbsolute(session?.[currentKey] ?? 0, $locale),
-          icon: ICON_MAP[key],
-          subtext: `${formatDelta(session?.[key] ?? 0, formatters[key], $locale)} ${$tr("stats.today")}`,
-        }),
-      )
-    : [];
+  $: sessionSummaryItems = buildSessionItems(session, displayedResources, $tr, $locale, iconMap);
+  // Deselecting the expanded resource leaves the modal without a chart to page to.
+  $: if (expandedKey !== null && !chartSections.some((s) => s.key === expandedKey)) {
+    expandedKey = null;
+  }
 
   let tooltip: { text: string; x: number; y: number } | null = null;
 
-  function dotLabel(key: ChartKey, bar: ChartResult["bars"][number], absVal: number): string {
+  function dotLabel(key: string, bar: ChartResult["bars"][number], absVal: number): string {
+    const fmt = formatterFor(key);
     let text = shortDate(bar.date, $locale);
-    if (!Number.isNaN(absVal)) text += ` | ${formatters[key](absVal, $locale)}`;
+    if (!Number.isNaN(absVal)) text += ` | ${fmt(absVal, $locale)}`;
     if (bar.value !== 0) {
       const sign = bar.value >= 0 ? "+" : "−";
-      text += `  (${sign}${formatters[key](Math.abs(bar.value), $locale)})`;
+      text += `  (${sign}${fmt(Math.abs(bar.value), $locale)})`;
     }
     return text;
   }
 
-  function onDotEnter(e: MouseEvent, key: ChartKey, barIdx: number, absVal: number): void {
-    const bar = chartDataMap[key].bars[barIdx];
+  function onDotEnter(e: MouseEvent, key: string, barIdx: number, absVal: number): void {
+    const bar = chartDataMap[key]?.bars[barIdx];
     if (!bar) return;
     tooltip = { text: dotLabel(key, bar, absVal), x: e.clientX, y: e.clientY };
   }
@@ -293,18 +385,18 @@
   let showChange = true;
   let showValue = true;
 
-  let expandedKey: ChartKey | null = null;
+  let expandedKey: string | null = null;
 
-  function expandedChartTitle(key: ChartKey): MessageKey {
-    return (CHART_SECTIONS.find((s) => s.key === key)?.labelKey ?? "common.stats") as MessageKey;
+  function expandedChartTitle(key: string): MessageKey {
+    return chartSections.find((s) => s.key === key)?.labelKey ?? "common.stats";
   }
 
   function navigateExpanded(dir: -1 | 1): void {
     if (!expandedKey) return;
-    const idx = CHART_SECTIONS.findIndex((s) => s.key === expandedKey);
+    const idx = chartSections.findIndex((s) => s.key === expandedKey);
     if (idx < 0) return;
-    const next = (idx + dir + CHART_SECTIONS.length) % CHART_SECTIONS.length;
-    expandedKey = CHART_SECTIONS[next].key;
+    const next = (idx + dir + chartSections.length) % chartSections.length;
+    expandedKey = chartSections[next].key;
     tooltip = null;
   }
 </script>
@@ -320,6 +412,14 @@
   </div>
 {/if}
 
+{#if showResourcePicker}
+  <StatResourcePicker
+    onClose={() => {
+      showResourcePicker = false;
+    }}
+  />
+{/if}
+
 <!-- Expand modal -->
 {#if expandedKey !== null && expandedChartData}
   {@const exBars = expandedChartData.bars}
@@ -327,7 +427,7 @@
   {@const exBw = expandedChartData.bw}
   {@const step = labelStep(chartDays)}
   {@const exYTicks = expandedChartData.yTicks}
-  {@const exIcon = ICON_MAP[expandedKey]}
+  {@const exIcon = iconMap[expandedKey]}
   <ModalShell
     ariaLabel={$tr(expandedChartTitle(expandedKey))}
     onClose={() => {
@@ -470,11 +570,11 @@
                       aria-label={dotLabel(expandedKey, bar, absVal)}
                       title={dotLabel(expandedKey, bar, absVal)}
                       on:mouseenter={(e) => {
+                        const fmt = formatterFor(expandedKey!);
                         let text = shortDate(bar.date, $locale);
-                        if (!Number.isNaN(absVal))
-                          text += `  ${formatters[expandedKey!](absVal, $locale)}`;
+                        if (!Number.isNaN(absVal)) text += `  ${fmt(absVal, $locale)}`;
                         const sign = bar.value >= 0 ? "+" : "−";
-                        text += `  (${sign}${formatters[expandedKey!](Math.abs(bar.value), $locale)})`;
+                        text += `  (${sign}${fmt(Math.abs(bar.value), $locale)})`;
                         tooltip = { text, x: e.clientX, y: e.clientY };
                       }}
                       on:mouseleave={() => {
@@ -526,6 +626,12 @@
         }}
         title={$tr("stats.toggleChangeTitle")}>{$tr("stats.changeLabel")}</ThemedButton
       >
+      <ThemedButton
+        onClick={() => {
+          showResourcePicker = true;
+        }}
+        title={$tr("stats.chartResourcesHint")}>{$tr("stats.chartResources")}</ThemedButton
+      >
       <label class="flex items-center gap-1.5 whitespace-nowrap text-xs text-text-muted">
         {$tr("stats.timeframe")}:
         <ThemedSelect bind:value={chartDays}>
@@ -569,9 +675,9 @@
         {:else}
           <!-- Container query: charts need ~300px each; stack when the column is narrow. -->
           <div class="grid grid-cols-1 gap-3 @2xl:grid-cols-2">
-            {#each CHART_SECTIONS as { key, labelKey }}
+            {#each chartSections as { key, labelKey } (key)}
               {@const cd = chartDataMap[key]}
-              {@const icon = ICON_MAP[key]}
+              {@const icon = iconMap[key]}
               {@const empty = chartIsEmpty(cd)}
               <ThemedPanel
                 className="relative flex h-[240px] min-w-0 flex-col overflow-hidden px-[13px] py-[6px] pb-2 group/chart"
