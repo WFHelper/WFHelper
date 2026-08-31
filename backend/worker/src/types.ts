@@ -26,6 +26,10 @@ export interface Env {
 	NO_DATA_TTL_SEC?: string;
 	STALE_REFRESH_SEC?: string;
 	PUBLIC_RATE_LIMIT_ENABLED?: string;
+	/** "0" turns off every history archive; anything else leaves them on. */
+	HISTORY_ARCHIVE_ENABLED?: string;
+	HISTORY_RETENTION_DAYS?: string;
+	RIVEN_ARCHIVE_BATCH_SIZE?: string;
 	BOOTSTRAP_TOKEN_SECRET?: string;
 	BOOTSTRAP_TOKEN_TTL_SEC?: string;
 	PUBLIC_BOOTSTRAP_REQUIRED?: string;

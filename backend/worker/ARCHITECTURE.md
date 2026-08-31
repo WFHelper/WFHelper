@@ -165,8 +165,9 @@ leaves the last good median. Prices and their negative markers live in `PRICE_CA
 catalogs live in `ITEM_META`. Successful price, meta, and order-summary responses carry
 `public, max-age=60`, so a PoP can serve a hydrated value for up to a minute after KV changes.
 
-Prewarm cron runs every 15 minutes; the separate daily `0 4 * * *` trigger runs only the
-supporter sync. Current production defaults are:
+Prewarm cron runs every 15 minutes and also advances the riven history sweep; the separate daily
+`0 4 * * *` trigger runs the supporter sync plus the price and Baro archives. Current production
+defaults are:
 
 - `PREWARM_BATCH_SIZE=125`
 - `ORDER_SUMMARY_PREWARM_BATCH_SIZE=36`
@@ -177,6 +178,54 @@ supporter sync. Current production defaults are:
 
 Cron is a rolling backstop. Fresh entries are copied into the snapshot without another upstream
 request, while stale entries are refreshed before being patched.
+
+## History archives
+
+Three archive families accrue from the day they are deployed. None of them can be backfilled:
+the worker holds no history before its first write, Warframe Market serves no dated medians or
+past auctions, and DE publishes no past Baro manifests. A gap in an archive stays a gap.
+
+Keys live in `ITEM_META`:
+
+- `archive:prices:{YYYY-MM-DD}` holds the daily medians copied from `snapshot:full:v1` on the
+  `0 4 * * *` tick. Rows are `[key, median]`; the top-traded sweep merges `[key, median, volume]`
+  into past days later. Snapshot keys are kept verbatim, so ranked entries stay
+  `{slug}:rank-v3:r{n}`. This family makes no upstream request; it copies data the worker already
+  holds. The first write of a UTC day wins, so a retried cron never rewrites the day.
+- `archive:rivens:{YYYY-MM-DD}` holds weapon-level riven auction aggregates as
+  `[weapon, min, median, sample]`. Auctions carry no sales volume, so the sample count is the only
+  depth figure. A price is the auction's `buyout_price`, else its `starting_price`. A weapon
+  missing from a day either had no priced auction or failed its request that day.
+- `archive:baro:{visitId}` holds one visit as node, activation, expiry, and manifest rows
+  `[item uniqueName, ducats, credits]`. `visitId` is the world-state `_id.$oid`, or
+  `d{activationMs}` when DE omits it. Item names stay in raw `/Lotus/StoreItems/...` form.
+
+`archive:index:{family}:v1` lists that family's ids, oldest first. Retention is the
+`HISTORY_RETENTION_DAYS` window (730 days) applied twice: every archive value is written with a
+matching `expirationTtl`, and each new write trims the index to the bound and deletes the ids it
+drops, at most eight per run because the TTL reclaims the rest. The Baro index is bounded in
+visits rather than days, since Baro appears roughly every two weeks.
+
+The riven sweep runs on the 15-minute prewarm tick, not the daily one. About 250 weapons do not
+fit in one invocation, so `archive:riven-sweep:v1` carries `{date, cursor, complete}` and each
+tick processes `RIVEN_ARCHIVE_BATCH_SIZE` weapons (12) with one serialized request each, the same
+pacing as the prewarm sweep and roughly 12 subrequests on top of prewarm's ~400. The day's key is
+rewritten after every batch with `complete: false` and finalized with `complete: true` on the tick
+that reaches the end of the list; the remaining ticks of that UTC day idle without any upstream
+request. A full pass takes about five hours, so one sweep completes per day. The weapon list comes
+from `/v1/riven/items` and is cached in `archive:riven-weapons:v1` for 24 hours; an empty or failed
+refresh keeps the stored list.
+
+Baro comes from the DE world state (`VoidTraders`; `PrimeVaultTraders` is Varzia and is never read
+here). Only a live visit carrying a manifest is recorded, because an announced manifest can still
+change before activation. A visit runs for about 48 hours, so a daily check catches every one, and
+the write is skipped when the visit key already exists.
+
+Failure policy matches the caches. An empty or failed upstream answer never replaces or deletes an
+existing archive, no negative markers are written, and each entry point catches its own errors so a
+failing archive cannot break prewarm or the supporter sync. `HISTORY_ARCHIVE_ENABLED=0` stops all
+three families. Every write logs its byte size on route `archive:prices`, `archive:rivens`, or
+`archive:baro`, and a value past 4MB is refused rather than stored.
 
 ## Daily budget
 

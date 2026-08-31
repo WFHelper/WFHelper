@@ -82,6 +82,11 @@
 		"ADMIN_PREWARM_MAX_BATCH": "100",
 		"NO_DATA_TTL_SEC": "900",
 		"STALE_REFRESH_SEC": "75600",
+		// History archives accrue from deploy day and cannot be backfilled. Set
+		// HISTORY_ARCHIVE_ENABLED to "0" to stop every archive family at once.
+		"HISTORY_ARCHIVE_ENABLED": "1",
+		"HISTORY_RETENTION_DAYS": "730",
+		"RIVEN_ARCHIVE_BATCH_SIZE": "12",
 		// Discord-sourced supporter credits. Empty means disabled; the map is
 		// {"<discord role id>":"basic"|"big"|"biggest"}. DISCORD_BOT_TOKEN is a secret.
 		"DISCORD_GUILD_ID": "1486065926192500746",
@@ -89,8 +94,9 @@
 	},
 
 	"triggers": {
-		// The 15-minute tick prewarms. The daily tick runs the Discord supporter sync, which
-		// only needs a once-a-day walk and must not burn subrequests every 15 min.
+		// The 15-minute tick prewarms and advances the riven archive sweep. The daily tick
+		// runs the Discord supporter sync plus the price and Baro archives, all of which
+		// only need a once-a-day pass and must not burn subrequests every 15 min.
 		"crons": ["*/15 * * * *", "0 4 * * *"],
 	},
 
@@ -143,6 +149,9 @@
 				"ADMIN_PREWARM_MAX_BATCH": "100",
 				"NO_DATA_TTL_SEC": "900",
 				"STALE_REFRESH_SEC": "75600",
+				"HISTORY_ARCHIVE_ENABLED": "1",
+				"HISTORY_RETENTION_DAYS": "730",
+				"RIVEN_ARCHIVE_BATCH_SIZE": "12",
 				"DISCORD_GUILD_ID": "1486065926192500746",
 				"DISCORD_ROLE_TIER_MAP": "{\"1541598934718349332\":\"basic\",\"1541843190779224124\":\"biggest\"}",
 			},

@@ -38,6 +38,9 @@ interface WorkerConfig {
 	catalogSlugGuardEnabled: boolean;
 	dailyBudgetMaxRequests: number;
 	dailyBudgetSampleRate: number;
+	historyArchiveEnabled: boolean;
+	historyRetentionDays: number;
+	rivenArchiveBatchSize: number;
 	discordGuildId: string;
 	discordRoleTierMap: Record<string, SupporterTier>;
 }
@@ -59,6 +62,9 @@ export function getWorkerConfig(env: Env): WorkerConfig {
 		catalogSlugGuardEnabled: (env.CATALOG_SLUG_GUARD_ENABLED || '1').trim() !== '0',
 		dailyBudgetMaxRequests: clamp(parsePositiveInt(env.DAILY_BUDGET_MAX_REQUESTS, 300000), 1, 10000000),
 		dailyBudgetSampleRate: clamp(parsePositiveInt(env.DAILY_BUDGET_SAMPLE_RATE, 100), 1, 1000),
+		historyArchiveEnabled: (env.HISTORY_ARCHIVE_ENABLED || '1').trim() !== '0',
+		historyRetentionDays: clamp(parsePositiveInt(env.HISTORY_RETENTION_DAYS, 730), 1, 3650),
+		rivenArchiveBatchSize: clamp(parsePositiveInt(env.RIVEN_ARCHIVE_BATCH_SIZE, 12), 1, 60),
 		discordGuildId: (env.DISCORD_GUILD_ID || '').trim(),
 		discordRoleTierMap: parseRoleTierMap(env.DISCORD_ROLE_TIER_MAP),
 	};

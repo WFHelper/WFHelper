@@ -2483,8 +2483,13 @@ describe('discord supporters', () => {
 	});
 
 	it('runs the supporter sync on the daily cron only', async () => {
-		const fetchMock = vi.fn(async () => {
-			throw new Error('unconfigured supporter sync must not call upstream');
+		// The daily tick also archives Baro from the DE world state; nothing else may go upstream.
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input instanceof Request ? input.url : input);
+			if (url.startsWith('https://api.warframe.com/cdn/worldState.php')) {
+				return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
+			}
+			throw new Error(`unexpected daily cron request: ${url}`);
 		});
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
 		const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -2494,7 +2499,7 @@ describe('discord supporters', () => {
 		await waitOnExecutionContext(ctx);
 
 		expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'cron', route: 'supporters:sync', status: 204 }));
-		expect(fetchMock).not.toHaveBeenCalled();
+		expect(fetchMock.mock.calls.every(([input]) => String(input).startsWith('https://api.warframe.com/cdn/worldState.php'))).toBe(true);
 	});
 });
 

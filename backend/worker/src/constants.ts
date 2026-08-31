@@ -13,6 +13,13 @@ export const MISS_PRICE_PREFIX = 'miss:price:v2:';
 export const MISS_META_PREFIX = 'miss:meta:';
 export const MISS_ORDER_SUMMARY_PREFIX = 'miss:orders-summary:v1:';
 export const SNAPSHOT_KEY = 'snapshot:full:v1';
+// History archives accrue from deploy day and are never backfilled.
+export const ARCHIVE_PRICES_PREFIX = 'archive:prices:';
+export const ARCHIVE_RIVENS_PREFIX = 'archive:rivens:';
+export const ARCHIVE_BARO_PREFIX = 'archive:baro:';
+export const ARCHIVE_INDEX_PREFIX = 'archive:index:';
+export const RIVEN_ARCHIVE_WEAPONS_KEY = 'archive:riven-weapons:v1';
+export const RIVEN_ARCHIVE_SWEEP_KEY = 'archive:riven-sweep:v1';
 export const SUPPORTERS_KEY = 'supporters:discord:v1';
 export const SUPPORTER_EXCLUSIONS_KEY = 'supporters:exclusions:v1';
 // Retired Patreon pipeline keys (profile names, OAuth tokens); every

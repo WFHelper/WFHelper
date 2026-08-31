@@ -3,6 +3,7 @@ import { handlePublicRoutes } from './routes/public';
 import { jsonResponse, originIsAllowed } from './security/cors';
 import { checkDailyBudget, isDailyBudgetExceeded } from './security/dailyBudget';
 import { getWorkerConfig } from './config';
+import { runDailyArchives, sweepRivenArchive } from './services/history';
 import { logEvent, takeResponseLogFields } from './services/logging';
 import { prewarmBatch, prewarmOrderSummaryCatalog } from './services/prewarm';
 import { syncSupporters } from './services/supporters';
@@ -116,6 +117,7 @@ export default {
 
 			if (controller.cron === SUPPORTERS_SYNC_CRON) {
 				await syncSupporters(env, 'cron');
+				await runDailyArchives(env);
 				logEvent({
 					type: 'cron',
 					route,
@@ -137,6 +139,7 @@ export default {
 				batchSize: config.orderSummaryPrewarmBatchSize,
 				refreshCatalog: false,
 			});
+			await sweepRivenArchive(env);
 			logEvent({
 				type: 'cron',
 				route,

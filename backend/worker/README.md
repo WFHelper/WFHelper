@@ -41,8 +41,12 @@ Admin routes require `Authorization: Bearer <ADMIN_API_KEY>`:
 8. Each batch patches the bulk snapshot through a Durable Object coordinator.
 
 Prewarm cron runs every 15 minutes. Production batches currently process 125 catalog items and 36
-ranked summary entries per tick. A separate daily trigger runs the Patreon supporter sync. Manual
-prewarm remains an operator tool, not a correctness requirement.
+ranked summary entries per tick, then advance one batch of the riven history sweep. A separate daily
+trigger runs the Discord supporter sync and writes the daily price and Baro archives. Manual prewarm
+remains an operator tool, not a correctness requirement.
+
+History archives accrue from deploy day and cannot be backfilled. See
+[`ARCHITECTURE.md`](ARCHITECTURE.md) for their keys, cadence, and retention.
 
 ## Configuration
 
@@ -81,6 +85,9 @@ Important variables:
 - `CATALOG_REFRESH_HOURS`
 - `ADMIN_PREWARM_MAX_BATCH`
 - `PUBLIC_RATE_LIMIT_ENABLED`
+- `HISTORY_ARCHIVE_ENABLED`
+- `HISTORY_RETENTION_DAYS`
+- `RIVEN_ARCHIVE_BATCH_SIZE`
 - `PUBLIC_BOOTSTRAP_REQUIRED`
 - `BOOTSTRAP_TOKEN_TTL_SEC`
 - `PATREON_CAMPAIGN_ID`

@@ -7,6 +7,7 @@ type WorkerLogEntry = {
 	slug?: string;
 	cacheHit?: boolean;
 	count?: number;
+	bytes?: number;
 	error?: string;
 };
 
@@ -37,6 +38,7 @@ export function logEvent(entry: WorkerLogEntry): void {
 	if (entry.slug !== undefined) cleanEntry.slug = entry.slug;
 	if (entry.cacheHit !== undefined) cleanEntry.cacheHit = entry.cacheHit;
 	if (entry.count !== undefined) cleanEntry.count = entry.count;
+	if (entry.bytes !== undefined) cleanEntry.bytes = entry.bytes;
 	if (entry.error !== undefined) cleanEntry.error = entry.error;
 
 	console.log(cleanEntry);
