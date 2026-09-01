@@ -4,11 +4,6 @@ import { withScope } from "../services/logger";
 import * as tradeWorkbench from "../services/tradeWorkbench";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import {
-  parseWorkbenchOverrideAck,
-  parseWorkbenchPlan,
-  parseWorkbenchResolveReview,
-  parseWorkbenchSafetySnapshot,
-  validateWorkbenchPlan,
   WORKBENCH_ACK_OVERRIDE,
   WORKBENCH_CANCEL_RUN,
   WORKBENCH_EXECUTE_PLAN,
@@ -17,6 +12,13 @@ import {
   WORKBENCH_RECONCILE,
   WORKBENCH_RESOLVE_REVIEW,
   WORKBENCH_STATE_EVENT,
+} from "../config/shared/ipcChannels";
+import {
+  parseWorkbenchOverrideAck,
+  parseWorkbenchPlan,
+  parseWorkbenchResolveReview,
+  parseWorkbenchSafetySnapshot,
+  validateWorkbenchPlan,
   type WorkbenchState,
 } from "../config/shared/tradeWorkbenchTypes";
 

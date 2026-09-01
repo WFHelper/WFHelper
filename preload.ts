@@ -112,6 +112,14 @@ import {
   ARBI_SCHED_SET_OCCURRENCE,
   ARBI_SCHED_SET_FAVORITE,
   ARBI_SCHED_SET_LEAD,
+  WORKBENCH_ACK_OVERRIDE,
+  WORKBENCH_CANCEL_RUN,
+  WORKBENCH_EXECUTE_PLAN,
+  WORKBENCH_GET_STATE,
+  WORKBENCH_PREVIEW_PLAN,
+  WORKBENCH_RECONCILE,
+  WORKBENCH_RESOLVE_REVIEW,
+  WORKBENCH_STATE_EVENT,
 } from "./config/shared/ipcChannels";
 import {
   MARKET_ALERTS_CLEAR_HITS,
@@ -125,16 +133,6 @@ import {
   MARKET_ALERTS_STATUS,
   MARKET_ALERTS_TEST_FIRE,
 } from "./config/shared/marketAlertTypes";
-import {
-  WORKBENCH_ACK_OVERRIDE,
-  WORKBENCH_CANCEL_RUN,
-  WORKBENCH_EXECUTE_PLAN,
-  WORKBENCH_GET_STATE,
-  WORKBENCH_PREVIEW_PLAN,
-  WORKBENCH_RECONCILE,
-  WORKBENCH_RESOLVE_REVIEW,
-  WORKBENCH_STATE_EVENT,
-} from "./config/shared/tradeWorkbenchTypes";
 
 // invoke() is typed any; this wrapper pins each call's args+return to its IpcInvokeMap entry so drift fails typecheck.
 const inv =

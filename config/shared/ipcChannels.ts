@@ -166,3 +166,12 @@ export const ARBI_SCHED_GET = "arbi-sched:get";
 export const ARBI_SCHED_SET_OCCURRENCE = "arbi-sched:set-occurrence";
 export const ARBI_SCHED_SET_FAVORITE = "arbi-sched:set-favorite";
 export const ARBI_SCHED_SET_LEAD = "arbi-sched:set-lead";
+
+export const WORKBENCH_GET_STATE = "workbench:get-state";
+export const WORKBENCH_PREVIEW_PLAN = "workbench:preview-plan";
+export const WORKBENCH_EXECUTE_PLAN = "workbench:execute-plan";
+export const WORKBENCH_CANCEL_RUN = "workbench:cancel-run";
+export const WORKBENCH_ACK_OVERRIDE = "workbench:ack-override";
+export const WORKBENCH_RECONCILE = "workbench:reconcile";
+export const WORKBENCH_RESOLVE_REVIEW = "workbench:resolve-review";
+export const WORKBENCH_STATE_EVENT = "workbench-state";

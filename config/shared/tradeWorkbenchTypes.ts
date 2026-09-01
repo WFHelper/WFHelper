@@ -1,17 +1,6 @@
 // Cross-runtime Trade Workbench contract: the renderer builds and previews a
 // selling plan, the main process journals every mutation and executes it.
 
-// Channel constants live here rather than ipcChannels.ts so the workbench lands
-// in one reviewable unit; fold them into ipcChannels.ts when convenient.
-export const WORKBENCH_GET_STATE = "workbench:get-state";
-export const WORKBENCH_PREVIEW_PLAN = "workbench:preview-plan";
-export const WORKBENCH_EXECUTE_PLAN = "workbench:execute-plan";
-export const WORKBENCH_CANCEL_RUN = "workbench:cancel-run";
-export const WORKBENCH_ACK_OVERRIDE = "workbench:ack-override";
-export const WORKBENCH_RECONCILE = "workbench:reconcile";
-export const WORKBENCH_RESOLVE_REVIEW = "workbench:resolve-review";
-export const WORKBENCH_STATE_EVENT = "workbench-state";
-
 /** Hard per-run cap; a bigger queue executes as several confirmed runs. */
 export const WORKBENCH_MAX_ROWS_PER_RUN = 20;
 /** Parse bound for hostile payloads, above the run cap on purpose so the
