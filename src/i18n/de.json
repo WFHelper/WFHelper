@@ -964,6 +964,8 @@
   "mastery.viewRoadmap": "MR-Roadmap",
   "mastery.xpBadgeTitle": "Restliche Meisterschaft für dieses Item",
   "orderModal.buy": "Kaufen",
+  "orderModal.variant": "Variante",
+  "orderModal.subtypeRequired": "Dieser Gegenstand wird pro Variante bepreist. Bitte eine auswählen und erneut absenden.",
   "orderModal.clearItem": "Ausgewähltes Item entfernen",
   "orderModal.closeDialog": "Order-Dialog schließen",
   "orderModal.createOrder": "Order erstellen",

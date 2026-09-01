@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { requestV2, WfmApiError } from "../../services/wfmClient";
+import * as wfmCatalog from "../../services/wfmCatalog";
 import * as wfmOrders from "../../services/wfmOrders";
+import { subtypeChoicesOf } from "../../config/shared/wfmOrders";
 import * as wfmSession from "../../services/wfmSession";
 
 vi.mock("../../services/wfmClient", async (importOriginal) => {
@@ -13,8 +15,13 @@ vi.mock("../../services/wfmSession", () => ({
   getInGameName: vi.fn(),
 }));
 
+vi.mock("../../services/wfmCatalog", () => ({
+  lookupById: vi.fn(),
+}));
+
 const requestV2Mock = vi.mocked(requestV2);
 const getInGameNameMock = vi.mocked(wfmSession.getInGameName);
+const lookupByIdMock = vi.mocked(wfmCatalog.lookupById);
 
 const ORDER_RESPONSE = {
   data: { order: { id: "o1", type: "sell", platinum: 85, quantity: 1, visible: true } },
@@ -155,6 +162,135 @@ describe("createOrder perTrade adaptivity", () => {
     const finalBody = requestV2Mock.mock.calls[2][2]?.json as Record<string, unknown>;
     expect(finalBody.perTrade).toBe(1);
     expect(finalBody.rank).toBe(0);
+  });
+});
+
+// Atragraph variants gave plain mods a subtypes list; v2 then requires one.
+describe("createOrder subtype adaptivity", () => {
+  const catalogEntry = {
+    id: "i1",
+    url_name: "vitality",
+    item_name: "Vitality",
+    thumb: null,
+    icon: null,
+    maxRank: 10,
+    gameRef: null,
+  };
+
+  function subtypeError(): WfmApiError {
+    return new WfmApiError(
+      "WFMClient v2 API error: subtype: app.field.required",
+      "WFM_API_ERROR",
+      400,
+    );
+  }
+
+  beforeEach(() => {
+    requestV2Mock.mockReset();
+    lookupByIdMock.mockReset();
+    wfmOrders.__resetWfmOrdersForTest();
+  });
+
+  it("fetches the item's subtypes and retries with regular", async () => {
+    lookupByIdMock.mockResolvedValueOnce(catalogEntry);
+    requestV2Mock.mockImplementation(async (method, _path, opts) => {
+      if (method === "GET") return { data: { subtypes: ["regular", "atragraph"] } };
+      const body = (opts?.json ?? {}) as Record<string, unknown>;
+      if (!("subtype" in body)) throw subtypeError();
+      return ORDER_RESPONSE;
+    });
+
+    await wfmOrders.createOrder({ itemId: "i1", orderType: "sell", platinum: 5, quantity: 1 });
+
+    const calls = requestV2Mock.mock.calls;
+    const gets = calls.filter((call) => call[0] === "GET");
+    expect(gets).toHaveLength(1);
+    expect(gets[0][1]).toBe("/item/vitality");
+    const finalBody = calls[calls.length - 1][2]?.json as Record<string, unknown>;
+    expect(finalBody.subtype).toBe("regular");
+  });
+
+  it("refuses to guess a variant when regular is absent and creates nothing", async () => {
+    lookupByIdMock.mockResolvedValueOnce(catalogEntry);
+    requestV2Mock.mockImplementation(async (method, _path, opts) => {
+      if (method === "GET") return { data: { subtypes: ["intact", "radiant"] } };
+      const body = (opts?.json ?? {}) as Record<string, unknown>;
+      if (!("subtype" in body)) throw subtypeError();
+      return ORDER_RESPONSE;
+    });
+
+    const attempt = wfmOrders.createOrder({
+      itemId: "i1",
+      orderType: "sell",
+      platinum: 5,
+      quantity: 1,
+    });
+    await expect(attempt).rejects.toMatchObject({
+      code: "subtype_required",
+      subtypes: ["intact", "radiant"],
+    });
+
+    const posts = requestV2Mock.mock.calls.filter((call) => call[0] === "POST");
+    expect(posts).toHaveLength(1);
+    expect(posts[0][2]?.json).not.toHaveProperty("subtype");
+  });
+
+  it("exposes the choices structurally, so a late-required caller can read them", async () => {
+    lookupByIdMock.mockResolvedValueOnce(catalogEntry);
+    requestV2Mock.mockImplementation(async (method) => {
+      if (method === "GET") return { data: { subtypes: ["intact", "radiant"] } };
+      throw subtypeError();
+    });
+
+    const err = await wfmOrders
+      .createOrder({ itemId: "i1", orderType: "sell", platinum: 5, quantity: 1 })
+      .catch((e: unknown) => e);
+    expect(subtypeChoicesOf(err)).toEqual(["intact", "radiant"]);
+    expect(subtypeChoicesOf(new Error("nope"))).toBeNull();
+  });
+
+  it("keeps a caller-supplied subtype instead of asking the API", async () => {
+    requestV2Mock.mockResolvedValueOnce(ORDER_RESPONSE);
+
+    await wfmOrders.createOrder({
+      itemId: "i1",
+      orderType: "sell",
+      platinum: 5,
+      quantity: 1,
+      subtype: "radiant",
+    });
+
+    const body = requestV2Mock.mock.calls[0][2]?.json as Record<string, unknown>;
+    expect(body.subtype).toBe("radiant");
+    expect(lookupByIdMock).not.toHaveBeenCalled();
+  });
+
+  it("does not subtype-retry when a subtype was already sent", async () => {
+    requestV2Mock.mockRejectedValueOnce(subtypeError());
+
+    await expect(
+      wfmOrders.createOrder({
+        itemId: "i1",
+        orderType: "sell",
+        platinum: 5,
+        quantity: 1,
+        subtype: "radiant",
+      }),
+    ).rejects.toThrow(/subtype/);
+    expect(requestV2Mock).toHaveBeenCalledTimes(1);
+    expect(lookupByIdMock).not.toHaveBeenCalled();
+  });
+
+  it("rethrows when the item reports no subtypes", async () => {
+    lookupByIdMock.mockResolvedValueOnce(catalogEntry);
+    requestV2Mock.mockImplementation(async (method) => {
+      if (method === "GET") return { data: { subtypes: [] } };
+      throw subtypeError();
+    });
+
+    await expect(
+      wfmOrders.createOrder({ itemId: "i1", orderType: "sell", platinum: 5, quantity: 1 }),
+    ).rejects.toThrow(/subtype/);
   });
 });
 

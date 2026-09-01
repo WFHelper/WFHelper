@@ -1,7 +1,8 @@
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { SUBTYPE_REQUIRED_CODE } from "../config/shared/wfmOrders";
 
-import { requestV2 } from "./wfmClient";
+import { requestV2, WfmApiError } from "./wfmClient";
 import { getInGameName } from "./wfmSession";
 import * as wfmCatalog from "./wfmCatalog";
 import type {
@@ -141,6 +142,40 @@ export async function getMyOrders(): Promise<{ sell: NormalisedOrder[]; buy: Nor
 // accepts and retry once on the opposite 400.
 let _sendPerTrade = false;
 
+/** The item is sold per subtype and the caller chose none. Carries the API's
+ *  list so the caller can ask; picking one here would list the item under a
+ *  variant the user never selected. */
+class WfmSubtypeRequiredError extends WfmApiError {
+  readonly subtypes: readonly string[];
+  constructor(subtypes: readonly string[]) {
+    super(
+      `warframe.market needs a subtype for this item: ${subtypes.join(", ")}`,
+      SUBTYPE_REQUIRED_CODE,
+      400,
+    );
+    this.name = "WfmSubtypeRequiredError";
+    this.subtypes = subtypes;
+  }
+}
+
+// Atragraph mod variants gave plain mods a subtypes list, and v2 rejects a
+// bare create on any subtyped item ("subtype: app.field.required"). The local
+// catalog carries no subtypes, so ask the API which ones the item has.
+async function resolveSubtypeChoices(itemId: string): Promise<string[]> {
+  try {
+    const entry = await wfmCatalog.lookupById(itemId);
+    if (!entry || !entry.url_name) return [];
+    const data = await requestV2("GET", `/item/${encodeURIComponent(entry.url_name)}`);
+    const unwrapped = unwrapWfmResponse<{ subtypes?: unknown }>(data);
+    return Array.isArray(unwrapped?.subtypes)
+      ? unwrapped.subtypes.filter((s): s is string => typeof s === "string")
+      : [];
+  } catch (err) {
+    log.warn("[WFMOrders] subtype lookup failed:", normalizeErrorMessage(err));
+    return [];
+  }
+}
+
 export function __resetWfmOrdersForTest(): void {
   _sendPerTrade = false;
 }
@@ -189,6 +224,7 @@ export async function createOrder({
   // Each compatibility retry applies once.
   let sendPerTrade = _sendPerTrade;
   let perTradeFlipped = false;
+  let subtypeResolved = false;
   let data: unknown;
   for (;;) {
     try {
@@ -213,6 +249,22 @@ export async function createOrder({
         modRank = 0;
         log.info("[WFMOrders] server requires rank - retrying with rank 0");
         continue;
+      }
+      if (
+        subtype == null &&
+        !subtypeResolved &&
+        /subtype/i.test(message) &&
+        /required/i.test(message)
+      ) {
+        subtypeResolved = true;
+        const choices = await resolveSubtypeChoices(itemId);
+        // "regular" is the plain item, so it is the only safe automatic pick.
+        if (choices.includes("regular")) {
+          subtype = "regular";
+          log.info('[WFMOrders] server requires subtype - retrying with "regular"');
+          continue;
+        }
+        if (choices.length > 0) throw new WfmSubtypeRequiredError(choices);
       }
       throw err;
     }

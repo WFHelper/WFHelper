@@ -328,6 +328,37 @@ describe("execution engine", () => {
     expect(run?.rows.map((row) => row.status)).toEqual(["failed", "blocked"]);
   });
 
+  it("fails a row that needs a subtype, names the choices and moves on", async () => {
+    const workbench = await loadWorkbench();
+    let creates = 0;
+    const { api } = fakeApi({
+      createOrder: async (params) => {
+        creates++;
+        if (params.itemId !== "id-slug_a") return { id: "order-b" };
+        const err = new Error("warframe.market requires a subtype for this item") as Error & {
+          code: string;
+          subtypes: string[];
+        };
+        err.code = "subtype_required";
+        err.subtypes = ["intact", "radiant"];
+        throw err;
+      },
+    });
+    workbench.configureTradeWorkbench({ api, interRowDelayMs: 0 });
+
+    const plan = makePlan([planRow("a"), planRow("b")]);
+    workbench.executeWorkbenchPlan(plan, snapshotFor(plan));
+    await waitForRunFinish(workbench);
+
+    const run = workbench.getWorkbenchState().run;
+    expect(run?.stopReason).toBe("completed");
+    expect(run?.rows.map((row) => row.status)).toEqual(["failed", "done"]);
+    expect(run?.rows[0].error).toContain("intact, radiant");
+    // One attempt for the failed row, one for the next: no retry.
+    expect(creates).toBe(2);
+    expect(readJournal().entries[0].outcome?.error).toContain("intact, radiant");
+  });
+
   it("refuses the whole plan when any row exceeds its fresh safety cap", async () => {
     const workbench = await loadWorkbench();
     const { api, calls } = fakeApi();

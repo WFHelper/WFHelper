@@ -163,3 +163,16 @@ export function normalizeWfmOrderBookSide(
 
   return entries.slice(0, limit);
 }
+
+/** Create refused to guess a variant; the API's list rides on the error. */
+export const SUBTYPE_REQUIRED_CODE = "subtype_required";
+
+/** Structural, not instanceof: the error crosses a late-require boundary in
+ *  main and an IPC hop to the renderer, so only the shape can be trusted. */
+export function subtypeChoicesOf(err: unknown): readonly string[] | null {
+  if (!err || typeof err !== "object") return null;
+  const candidate = err as { code?: unknown; subtypes?: unknown };
+  if (candidate.code !== SUBTYPE_REQUIRED_CODE || !Array.isArray(candidate.subtypes)) return null;
+  const choices = candidate.subtypes.filter((s): s is string => typeof s === "string");
+  return choices.length > 0 ? choices : null;
+}

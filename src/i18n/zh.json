@@ -697,6 +697,8 @@
   "nav.testNotification": "通知",
   "nav.testNotificationTitle": "发送测试通知",
   "orderModal.buy": "求购",
+  "orderModal.variant": "变体",
+  "orderModal.subtypeRequired": "此物品按变体定价。请选择一个并重新提交。",
   "orderModal.clearItem": "清除已选物品",
   "orderModal.closeDialog": "关闭订单对话框",
   "orderModal.createOrder": "创建订单",

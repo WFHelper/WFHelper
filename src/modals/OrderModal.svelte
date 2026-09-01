@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { orderModalState } from "../stores/market.js";
-  import { WFM_ORDER_SUBTYPES } from "../../config/shared/wfmOrders.js";
+  import { subtypeChoicesOf, WFM_ORDER_SUBTYPES } from "../../config/shared/wfmOrders.js";
   import { invoke, tradeInvoke } from "../lib/ipc.js";
   import { isIpcError } from "../lib/ipcGuards.js";
   import { refreshMarketOrders } from "../lib/marketOrdersSync.js";
@@ -19,7 +19,7 @@
   } from "../types/market.js";
 
   // WFM prices relics per refinement via an order subtype.
-  const RELIC_SUBTYPES = WFM_ORDER_SUBTYPES;
+  const RELIC_SUBTYPES: readonly string[] = WFM_ORDER_SUBTYPES;
 
   function isRelicName(name: unknown): boolean {
     return typeof name === "string" && /\brelic$/i.test(name.trim());
@@ -28,6 +28,11 @@
   const ITEM_SEARCH_MIN_CHARS = 2;
   const ITEM_SEARCH_LIMIT = 15;
   const ITEM_SEARCH_DEBOUNCE_MS = 250;
+
+  // Only the module constant is the relic refinement list; anything else was
+  // handed over by the API for a variant-priced item.
+  $: subtypeLabel =
+    subtypeOptions === RELIC_SUBTYPES ? $tr("orderModal.refinement") : $tr("orderModal.variant");
 
   $: orderTypeOptions = [
     { value: "sell" as OrderType, label: $tr("orderModal.sell") },
@@ -47,6 +52,7 @@
   let showRankField = false;
   let subtype = "intact";
   let showSubtypeField = false;
+  let subtypeOptions: readonly string[] = RELIC_SUBTYPES;
   let submitting = false;
   let errorMsg = "";
   let platinumEl: HTMLInputElement | null = null;
@@ -80,6 +86,7 @@
     itemDropdown = [];
     itemSelected = null;
     submitting = false;
+    subtypeOptions = RELIC_SUBTYPES;
     if (isEdit && order) {
       orderType = (order.orderType as OrderType) || "sell";
       platinum = String(order.platinum ?? "");
@@ -153,6 +160,7 @@
     showRankField = typeof item.maxRank === "number" && item.maxRank > 0;
     modRank = 0;
     showSubtypeField = isRelicName(item.item_name);
+    subtypeOptions = RELIC_SUBTYPES;
     subtype = "intact";
   }
 
@@ -160,6 +168,7 @@
     itemSelected = null;
     showRankField = false;
     showSubtypeField = false;
+    subtypeOptions = RELIC_SUBTYPES;
   }
 
   async function submit(e: SubmitEvent): Promise<void> {
@@ -221,6 +230,14 @@
       }
 
       if (isIpcError(result)) {
+        const choices = subtypeChoicesOf(result);
+        if (choices) {
+          subtypeOptions = choices;
+          subtype = choices[0];
+          showSubtypeField = true;
+          errorMsg = $tr("orderModal.subtypeRequired");
+          return;
+        }
         errorMsg = result.error;
         return;
       }
@@ -438,7 +455,7 @@
           {#if showSubtypeField}
             <div class="grid gap-1 mb-2">
               <label for="order-subtype" class="text-sm font-medium text-text-secondary"
-                >{$tr("orderModal.refinement")}</label
+                >{subtypeLabel}</label
               >
               <select
                 id="order-subtype"
@@ -446,7 +463,7 @@
                 bind:value={subtype}
                 data-order-subtype
               >
-                {#each RELIC_SUBTYPES as option (option)}
+                {#each subtypeOptions as option (option)}
                   <option value={option}>{option.charAt(0).toUpperCase() + option.slice(1)}</option>
                 {/each}
               </select>

@@ -710,6 +710,8 @@
   "nav.testNotification": "Notify",
   "nav.testNotificationTitle": "Send a test notification",
   "orderModal.buy": "Buy",
+  "orderModal.variant": "Variant",
+  "orderModal.subtypeRequired": "This item is priced per variant. Pick one and submit again.",
   "orderModal.clearItem": "Clear selected item",
   "orderModal.closeDialog": "Close order dialog",
   "orderModal.createOrder": "Create Order",

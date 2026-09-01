@@ -3,6 +3,7 @@ import { isObject } from "./ipcValidators";
 import { toNonEmptyString } from "../config/shared/stringValidation";
 import type { WfmStatus } from "../config/shared/wfm";
 import { isWfmSlug } from "../config/shared/wfm";
+import { SUBTYPE_REQUIRED_CODE, subtypeChoicesOf } from "../config/shared/wfmOrders";
 import {
   errorCode,
   parseContractsPayload,
@@ -173,7 +174,21 @@ function register(): void {
     }
     return withWfmError(
       "create-order",
-      () => wfmOrders.createOrder(params),
+      async () => {
+        try {
+          return await wfmOrders.createOrder(params);
+        } catch (err) {
+          const subtypes = subtypeChoicesOf(err);
+          if (!subtypes) throw err;
+          // The renderer has to offer the choice, so this one refusal travels
+          // as data instead of a flat error string.
+          return {
+            error: normalizeErrorMessage(err, "Failed to create order."),
+            code: SUBTYPE_REQUIRED_CODE,
+            subtypes: [...subtypes],
+          };
+        }
+      },
       "Failed to create order.",
     );
   });

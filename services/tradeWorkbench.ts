@@ -5,6 +5,7 @@ import { writeFileAtomicSync } from "./atomicFile";
 import { withScope } from "./logger";
 import { userDataPath } from "./userDataPath";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { subtypeChoicesOf } from "../config/shared/wfmOrders";
 import {
   isOrderLimitErrorMessage,
   parseWorkbenchOverrideAck,
@@ -410,7 +411,12 @@ async function runPlan(plan: WorkbenchPlan): Promise<void> {
         progress.orderId = created.id;
       }
     } catch (err) {
-      const message = normalizeErrorMessage(err);
+      // A subtype the user never chose is not something a bulk run may guess,
+      // so the row is reported with the choices and left for the order dialog.
+      const choices = subtypeChoicesOf(err);
+      const message = choices
+        ? `Pick a subtype for "${row.itemName}" on warframe.market: ${choices.join(", ")}`
+        : normalizeErrorMessage(err);
       journalOutcome(intentId, "failed", { error: message });
       progress.status = "failed";
       progress.error = message;
