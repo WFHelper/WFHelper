@@ -93,6 +93,9 @@
 
   $: foundry = $foundryData;
 
+  // Keys land with this feature's i18n commit; cast until en.json carries them.
+  const k = (key: string): MessageKey => key as MessageKey;
+
   const STATUS_FILTERS: Array<{ key: FilterKey; labelKey: MessageKey }> = [
     { key: "all", labelKey: "common.all" },
     { key: "status:in-progress", labelKey: "common.inProgress" },
@@ -487,8 +490,10 @@
   <!-- Unified grid -->
   <div class="grid grid-cols-[repeat(auto-fill,minmax(380px,1fr))] gap-3">
     {#if sorted.length === 0}
-      <div class="empty-state col-span-full">
-        <p>{$tr("foundry.noItemsMatch")}</p>
+      <!-- Nothing to filter is not a filter miss: only blame the filters when
+           the unfiltered list actually had rows. -->
+      <div class="empty-state col-span-full" data-foundry-empty>
+        <p>{$tr(k(decorated.length === 0 ? "foundry.noItems" : "foundry.noItemsMatch"))}</p>
       </div>
     {:else}
       {#each sorted as { e: item, status }, i (cardKey(item, i))}

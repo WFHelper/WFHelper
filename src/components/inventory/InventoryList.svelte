@@ -247,7 +247,7 @@
               <td class="px-2 py-1">
                 <input
                   type="checkbox"
-                  class="h-4 w-4 accent-[color:var(--accent)]"
+                  class="themed-checkbox"
                   checked={selected}
                   disabled={!isSelectable(item)}
                   data-inventory-select-item={item.internalName}
@@ -291,7 +291,10 @@
               </button>
               <span class="flex flex-wrap items-center gap-1.5 text-[11px] text-text-muted">
                 <span>{item.categoryLabel}</span>
-                {#if item.vaulted}<span class="text-warning">V</span>{/if}
+                {#if item.vaulted}<span
+                    class="vault-badge vault-badge--inline"
+                    title={$t("common.vaulted")}>V</span
+                  >{/if}
                 {#each shardCopies as copy, copyIndex (copy.instanceId ?? copyIndex)}
                   <ArchonShardPips
                     slots={copy.slots}

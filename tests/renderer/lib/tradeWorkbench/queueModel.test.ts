@@ -10,6 +10,7 @@ import {
   buildQueueRows,
   buildSelectedQueueRows,
   captureSafetySnapshot,
+  mergeQueueRows,
   effectivePrice,
   eligibleSelectionKeys,
   planTotals,
@@ -369,5 +370,93 @@ describe("inventory selection join", () => {
       new Set(),
     );
     expect(rows).toEqual([]);
+  });
+});
+
+describe("workbench queue merge across a reopen", () => {
+  const LOOKUP = lookupFor(
+    { name: "Lex Prime Barrel", slug: "lex_prime_barrel" },
+    { name: "Boltor Prime Receiver", slug: "boltor_prime_receiver" },
+  );
+
+  function selectedRows(names: string[], selection: string[]): WorkbenchQueueRow[] {
+    const items = names.map((name) => makeItem(name, { inventoryKey: name }));
+    return buildSelectedQueueRows(items, EMPTY_CTX, LOOKUP, new Set(selection));
+  }
+
+  it("restores the fetched book, suggestion and manual price for an unchanged selection", () => {
+    const before = selectedRows(["Lex Prime Barrel"], ["Lex Prime Barrel"]);
+    let priced = attachMarketData(before[0], sellBook(30, 34, 40), null, []);
+    priced = applyStrategy(priced, { id: "cheapest-minus-one" }, null);
+    priced = { ...priced, manualPrice: 27 };
+    priced = setRowQuantity(priced, 3);
+
+    const rebuilt = selectedRows(["Lex Prime Barrel"], ["Lex Prime Barrel"]);
+    const merged = mergeQueueRows([priced], rebuilt);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].sellBook).toEqual(priced.sellBook);
+    expect(merged[0].market?.lowestSell).toBe(30);
+    expect(merged[0].suggestion?.price).toBe(29);
+    expect(merged[0].manualPrice).toBe(27);
+    expect(merged[0].quantity).toBe(3);
+  });
+
+  it("rebuilds only the changed rows and drops the deselected ones", () => {
+    const before = selectedRows(
+      ["Lex Prime Barrel", "Boltor Prime Receiver"],
+      ["Lex Prime Barrel", "Boltor Prime Receiver"],
+    );
+    const cached = before.map((row) => attachMarketData(row, sellBook(20, 25), null, []));
+
+    const rebuilt = selectedRows(
+      ["Lex Prime Barrel", "Boltor Prime Receiver"],
+      ["Boltor Prime Receiver"],
+    );
+    const merged = mergeQueueRows(cached, rebuilt);
+    expect(merged.map((row) => row.slug)).toEqual(["boltor_prime_receiver"]);
+    expect(merged[0].sellBook).not.toBeNull();
+  });
+
+  it("keeps a fresh row untouched when nothing was cached for it", () => {
+    const rebuilt = selectedRows(["Lex Prime Barrel"], ["Lex Prime Barrel"]);
+    const merged = mergeQueueRows([], rebuilt);
+    expect(merged[0].sellBook).toBeNull();
+    expect(merged[0].suggestion).toBeNull();
+  });
+
+  it("re-reads the existing order instead of carrying the cached one", () => {
+    const before = selectedRows(["Lex Prime Barrel"], ["Lex Prime Barrel"]);
+    const cached = attachMarketData(before[0], sellBook(30), null, [makeOrder({ platinum: 31 })]);
+    expect(cached.existingOrder?.platinum).toBe(31);
+
+    const rebuilt = selectedRows(["Lex Prime Barrel"], ["Lex Prime Barrel"]).map((row) =>
+      attachMarketData(row, null, null, []),
+    );
+    expect(mergeQueueRows([cached], rebuilt)[0].existingOrder).toBeNull();
+  });
+
+  it("drops an acknowledgement the fresh verdict no longer covers", () => {
+    const items = [makeItem("Boltor", { inventoryGroup: "equipment", amount: 2 })];
+    const built = buildQueueRows(items, EMPTY_CTX, lookupFor({ name: "Boltor", slug: "boltor" }));
+    const acknowledged = acknowledgeRowOverride(setRowQuantity(built[0], 2), 123);
+    expect(acknowledged.overrideAcknowledged).toBe(true);
+
+    // Same amount survives a rebuild; the acknowledgement still covers it.
+    const same = mergeQueueRows(
+      [acknowledged],
+      buildQueueRows(items, EMPTY_CTX, lookupFor({ name: "Boltor", slug: "boltor" })),
+    );
+    expect(same[0].quantity).toBe(2);
+    expect(same[0].overrideAcknowledged).toBe(true);
+
+    // A shrunken account cannot keep the consent given for two copies.
+    const fewer = buildQueueRows(
+      [makeItem("Boltor", { inventoryGroup: "equipment", amount: 1 })],
+      EMPTY_CTX,
+      lookupFor({ name: "Boltor", slug: "boltor" }),
+    );
+    const narrowed = mergeQueueRows([acknowledged], fewer);
+    expect(narrowed[0].quantity).toBe(1);
+    expect(narrowed[0].overrideAcknowledged).toBe(false);
   });
 });

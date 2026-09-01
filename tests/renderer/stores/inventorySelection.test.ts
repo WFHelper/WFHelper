@@ -24,7 +24,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("selection mode", () => {
-  it("drops the picks when the mode is left", async () => {
+  it("keeps the picks when the mode is left and restores them on re-entry", async () => {
     const mod = await loadModule();
     mod.setSelectionMode(true);
     mod.toggleSelected("a");
@@ -32,6 +32,19 @@ describe("selection mode", () => {
 
     mod.toggleSelectionMode();
     expect(get(mod.inventorySelectionMode)).toBe(false);
+    expect([...get(mod.inventorySelection)]).toEqual(["a"]);
+
+    mod.toggleSelectionMode();
+    expect(get(mod.inventorySelectionMode)).toBe(true);
+    expect([...get(mod.inventorySelection)]).toEqual(["a"]);
+  });
+
+  it("clears only on an explicit clear", async () => {
+    const mod = await loadModule();
+    mod.setSelectionMode(true);
+    mod.toggleSelected("a");
+    mod.setSelectionMode(false);
+    mod.clearSelection();
     expect(get(mod.inventorySelection).size).toBe(0);
   });
 });

@@ -24,7 +24,9 @@
   let statOptions = $state<RivenStatOption[]>([]);
   let editorOpen = $state(false);
   let editingRule = $state<MarketAlertRule | null>(null);
+  // Distinct flags: one shared panel flag made Import reopen the last export.
   let importOpen = $state(false);
+  let exportOpen = $state(false);
   let importText = $state("");
   let exportText = $state("");
   let testFiring = $state<string | null>(null);
@@ -142,7 +144,14 @@
 
   async function exportRules(): Promise<void> {
     exportText = await invoke("marketAlertsExport");
-    importOpen = true;
+    importOpen = false;
+    exportOpen = true;
+  }
+
+  function toggleImport(): void {
+    exportOpen = false;
+    exportText = "";
+    importOpen = !importOpen;
   }
 
   async function copyExport(): Promise<void> {
@@ -194,8 +203,7 @@
     <button class="btn-secondary btn-sm" onclick={() => void exportRules()}
       >{$tr("marketAlerts.export")}</button
     >
-    <button class="btn-secondary btn-sm" onclick={() => (importOpen = !importOpen)}
-      >{$tr("marketAlerts.import")}</button
+    <button class="btn-secondary btn-sm" onclick={toggleImport}>{$tr("marketAlerts.import")}</button
     >
 
     {#if status}
@@ -229,41 +237,43 @@
     {/if}
   </div>
 
+  {#if exportOpen}
+    <div class="rounded-xl border border-border bg-bg-surface p-3" data-alert-export-panel>
+      <textarea
+        class="h-32 w-full rounded border border-border bg-transparent p-2 font-mono text-xs"
+        readonly
+        value={exportText}></textarea>
+      <div class="mt-2 flex gap-2">
+        <button class="btn-secondary btn-sm" onclick={() => void copyExport()}
+          >{$tr("marketAlerts.copyExport")}</button
+        >
+        <button
+          class="btn-secondary btn-sm"
+          onclick={() => {
+            exportText = "";
+            exportOpen = false;
+          }}>{$tr("common.close")}</button
+        >
+      </div>
+    </div>
+  {/if}
+
   {#if importOpen}
-    <div class="rounded-xl border border-border bg-bg-surface p-3">
-      {#if exportText}
-        <textarea
-          class="h-32 w-full rounded border border-border bg-transparent p-2 font-mono text-xs"
-          readonly
-          value={exportText}></textarea>
-        <div class="mt-2 flex gap-2">
-          <button class="btn-secondary btn-sm" onclick={() => void copyExport()}
-            >{$tr("marketAlerts.copyExport")}</button
-          >
-          <button
-            class="btn-secondary btn-sm"
-            onclick={() => {
-              exportText = "";
-              importOpen = false;
-            }}>{$tr("common.close")}</button
-          >
-        </div>
-      {:else}
-        <textarea
-          class="h-32 w-full rounded border border-border bg-transparent p-2 font-mono text-xs"
-          placeholder={$tr("marketAlerts.importPlaceholder")}
-          bind:value={importText}></textarea>
-        <div class="mt-2 flex gap-2">
-          <button
-            class="btn-primary btn-sm"
-            disabled={!importText.trim()}
-            onclick={() => void importRules()}>{$tr("marketAlerts.import")}</button
-          >
-          <button class="btn-secondary btn-sm" onclick={() => (importOpen = false)}
-            >{$tr("common.cancel")}</button
-          >
-        </div>
-      {/if}
+    <div class="rounded-xl border border-border bg-bg-surface p-3" data-alert-import-panel>
+      <textarea
+        class="h-32 w-full rounded border border-border bg-transparent p-2 font-mono text-xs"
+        placeholder={$tr("marketAlerts.importPlaceholder")}
+        bind:value={importText}></textarea>
+      <div class="mt-2 flex gap-2">
+        <button
+          class="btn-primary btn-sm"
+          disabled={!importText.trim()}
+          onclick={() => void importRules()}>{$tr("marketAlerts.import")}</button
+        >
+        <button class="btn-secondary btn-sm" onclick={() => (importOpen = false)}
+          >{$tr("common.cancel")}</button
+        >
+      </div>
     </div>
   {/if}
 

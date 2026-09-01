@@ -37,12 +37,17 @@
     buildPlanFromRows,
     buildSelectedQueueRows,
     captureSafetySnapshot,
+    mergeQueueRows,
     planTotals,
     rowNeedsOverride,
     rowSafetyKey,
     setRowQuantity,
     type WorkbenchQueueRow as QueueRow,
   } from "../../lib/tradeWorkbench/queueModel.js";
+  import {
+    readCachedQueueRows,
+    writeCachedQueueRows,
+  } from "../../lib/tradeWorkbench/queueCache.js";
   import { setWorkbenchState, workbenchState } from "../../lib/tradeWorkbench/workbenchState.js";
   import {
     WORKBENCH_MAX_ROWS_PER_RUN,
@@ -82,7 +87,13 @@
   let reviewBusy = $state(false);
   let preview = $state<WorkbenchPlanValidation | null>(null);
   let lastError = $state<string | null>(null);
+  let loggedIn = $state(true);
   let showLegend = $state(false);
+
+  // Captured at init: the persist effect below flushes on mount, so it would
+  // overwrite the cache with the empty starting rows before the async open reads it.
+  const restoredRows = readCachedQueueRows();
+  let queueBuilt = $state(false);
 
   let strategyId = $state<WorkbenchStrategyId>("cheapest-minus-one");
   let percentOffset = $state(-5);
@@ -120,6 +131,13 @@
     void openQueue();
   });
 
+  // Survives a close/reopen for as long as the app runs, so reopening an
+  // unchanged selection keeps its loaded order books and applied prices. Held
+  // back until the queue exists, or a failed open would discard the cache.
+  $effect(() => {
+    if (queueBuilt) writeCachedQueueRows(rows);
+  });
+
   function strategyConfig(): StrategyConfig {
     switch (strategyId) {
       case "percent-offset":
@@ -143,18 +161,32 @@
 
   async function openQueue(): Promise<void> {
     lastError = null;
-    const ordersResult = await invoke("wfmGetOrders");
-    if ("error" in ordersResult) {
-      myOrders = [];
-      lastError = ordersResult.error;
-    } else {
-      myOrders = ordersResult.sell;
-    }
     const session = await invoke("wfmGetSession");
+    loggedIn = session.loggedIn;
     ownUserName = session.loggedIn ? session.userName : null;
-    rows = buildSelectedQueueRows($parsedItems, safetyCtx, $wfmItems, $inventorySelection).map(
-      (row) => attachMarketData(row, null, null, myOrders),
-    );
+    if (session.loggedIn) {
+      const ordersResult = await invoke("wfmGetOrders");
+      if ("error" in ordersResult) {
+        myOrders = [];
+        lastError = ordersResult.error;
+      } else {
+        myOrders = ordersResult.sell;
+      }
+    } else {
+      // Logged out is a standing state, not an error: the persistent hint
+      // below owns it and the execute button stays disabled.
+      myOrders = [];
+    }
+    // The existing order is always re-read from the fresh account orders, so a
+    // carried row still reports what is listed right now.
+    const built = buildSelectedQueueRows(
+      $parsedItems,
+      safetyCtx,
+      $wfmItems,
+      $inventorySelection,
+    ).map((row) => attachMarketData(row, null, null, myOrders));
+    rows = mergeQueueRows(restoredRows, built);
+    queueBuilt = true;
   }
 
   /** Recompute verdicts against the live safety settings, keeping edits. */
@@ -408,13 +440,32 @@
 
     <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
       {#if showLegend}
-        <ul
-          class="grid gap-1 rounded-[var(--radius-md)] border border-border bg-black/20 p-3 text-xs text-text-secondary"
+        <!-- Own scroll box: the legend is a reference list, so it must not push
+             the queue it explains out of the modal body. -->
+        <section
+          class="shrink-0 rounded-[var(--radius-md)] border border-border bg-black/20 p-3"
+          data-workbench-legend
         >
-          {#each SAFETY_REASON_KEYS as reasonKey (reasonKey)}
-            <li>{t(k(reasonKey), { count: 1 })}</li>
-          {/each}
-        </ul>
+          <h3
+            class="m-0 mb-1.5 font-display text-xs font-bold uppercase tracking-[0.06em] text-text-secondary"
+          >
+            {t(k("workbench.safety.legend"))}
+          </h3>
+          <ul class="m-0 grid max-h-40 gap-1 overflow-y-auto pr-1 text-xs text-text-secondary">
+            {#each SAFETY_REASON_KEYS as reasonKey (reasonKey)}
+              <li>{t(k(reasonKey), { count: 1 })}</li>
+            {/each}
+          </ul>
+        </section>
+      {/if}
+
+      {#if !loggedIn}
+        <div
+          class="rounded-[var(--radius-md)] border border-warning/40 bg-warning/10 p-2.5 text-sm text-warning"
+          data-workbench-signin-hint
+        >
+          {t(k("workbench.signInHint"))}
+        </div>
       {/if}
 
       {#if lastError}
@@ -658,7 +709,8 @@
         <button
           type="button"
           class="btn-primary px-6 py-2.5 text-base"
-          disabled={running || reviewRequired || totals.rows === 0}
+          disabled={!loggedIn || running || reviewRequired || totals.rows === 0}
+          title={!loggedIn ? t(k("workbench.signInHint")) : undefined}
           data-workbench-execute
           onclick={() => void executePlan()}
         >

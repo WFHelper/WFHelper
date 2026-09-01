@@ -130,6 +130,7 @@
             <RivenPolarityIcon polarity={chip.polarity} size={12} />
           {/if}
           {#if chip.labelKey}<span class="opacity-70">{$tr(chip.labelKey)}</span>{/if}
+          {#if chip.textKey}<span>{$tr(chip.textKey)}</span>{/if}
           {#if chip.text}<span>{chip.text}</span>{/if}
         </span>
       {/each}

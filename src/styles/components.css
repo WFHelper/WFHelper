@@ -417,6 +417,55 @@
     font-size: 0.75rem;
   }
 
+  /* Themed checkbox. accent-color alone only paints the CHECKED box, leaving the
+     unchecked one the browser default white - the brightest thing on a dark
+     grid. appearance:none hands the whole control to the theme tokens. */
+  .themed-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1rem;
+    height: 1rem;
+    flex: none;
+    margin: 0;
+    border: 1px solid var(--ui-control-border);
+    border-radius: var(--radius-sm);
+    background: var(--ui-control-bg);
+    cursor: pointer;
+    display: inline-grid;
+    place-content: center;
+    transition:
+      background 0.12s,
+      border-color 0.12s;
+  }
+  .themed-checkbox::after {
+    content: "";
+    width: 0.55rem;
+    height: 0.3rem;
+    border: 2px solid var(--bg-deep);
+    border-top: none;
+    border-right: none;
+    transform: translateY(-15%) rotate(-45deg);
+    opacity: 0;
+  }
+  .themed-checkbox:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .themed-checkbox:checked::after {
+    opacity: 1;
+  }
+  .themed-checkbox:hover:not(:disabled) {
+    border-color: var(--accent-dim);
+  }
+  .themed-checkbox:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .themed-checkbox:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
   /* empty state */
   .empty-state {
     min-height: 15rem;
@@ -632,6 +681,14 @@
     background: rgba(248, 113, 113, 0.18);
     color: var(--danger);
     border: 1px solid rgba(248, 113, 113, 0.35);
+  }
+  /* Same badge at row scale: a list row has no positioned art to pin it to. */
+  .vault-badge--inline {
+    position: static;
+    display: inline-block;
+    padding: 0 0.3rem;
+    font-size: 0.6rem;
+    line-height: 1.35;
   }
 
   .listing-warning {

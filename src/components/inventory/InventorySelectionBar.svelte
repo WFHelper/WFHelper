@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { confirmWithDialog } from "../../lib/ipc.js";
   import { tr } from "../../lib/i18n.js";
   import type { MessageKey } from "../../lib/i18n.js";
+  import { addToast } from "../../stores/toasts.js";
   import type { SavedSelection } from "../../stores/inventorySelection.js";
 
   interface Props {
@@ -42,18 +44,24 @@
     "focus:border-accent-dim";
 
   function save(): void {
-    onSave(draftName);
+    const name = draftName.trim();
+    if (!name) return;
+    onSave(name);
     draftName = "";
+    addToast({ level: "success", message: t(k("inventory.selectionSaved"), { name }) });
   }
 
   function load(): void {
     if (pickedName) onLoad(pickedName);
   }
 
-  function remove(): void {
-    if (!pickedName) return;
-    onDelete(pickedName);
-    pickedName = "";
+  /** Deleting a saved set is not undoable, so it asks first. */
+  async function remove(): Promise<void> {
+    const name = pickedName;
+    if (!name) return;
+    if (!(await confirmWithDialog(t(k("inventory.deleteSelectionConfirm"), { name }), t))) return;
+    onDelete(name);
+    if (pickedName === name) pickedName = "";
   }
 </script>
 
@@ -129,7 +137,7 @@
       class="btn-secondary btn-sm"
       disabled={!pickedName}
       data-inventory-selection-delete
-      onclick={remove}
+      onclick={() => void remove()}
     >
       {t("common.delete")}
     </button>

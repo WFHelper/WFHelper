@@ -130,6 +130,8 @@ interface AlertChip {
   titleKey: MessageKey;
   labelKey?: MessageKey;
   text?: string;
+  /** Translated chip value, for chips whose value is a word rather than a number. */
+  textKey?: MessageKey;
   icon?: "platinum" | "endo";
   polarity?: string;
 }
@@ -153,7 +155,9 @@ export function criteriaChips(rule: MarketAlertRule): AlertChip[] {
       chips.push({
         id: "similarity",
         titleKey: "marketAlerts.similarity",
-        text: `${riven.minSimilarityPct}%`,
+        // Key lands with this feature's i18n commit; cast until en.json has it.
+        labelKey: "marketAlerts.matchShort" as MessageKey,
+        text: `>=${riven.minSimilarityPct}%`,
       });
     }
     const mastery = rangeText(riven.minMasteryRank, riven.maxMasteryRank);
@@ -187,13 +191,21 @@ export function criteriaChips(rule: MarketAlertRule): AlertChip[] {
       });
     }
     if (riven.polarity) {
-      chips.push({ id: "polarity", titleKey: "marketAlerts.polarity", polarity: riven.polarity });
+      chips.push({
+        id: "polarity",
+        titleKey: "marketAlerts.polarity",
+        labelKey: "marketAlerts.polarity",
+        polarity: riven.polarity,
+      });
     }
     if (riven.hasNegative !== undefined) {
+      // "Required" alone says nothing about what is required, so the chip names
+      // the criterion and carries the answer as its value.
       chips.push({
         id: "curse",
         titleKey: "marketAlerts.curse",
-        labelKey: riven.hasNegative ? "marketAlerts.curseRequired" : "marketAlerts.curseForbidden",
+        labelKey: "marketAlerts.curse",
+        textKey: riven.hasNegative ? "marketAlerts.curseRequired" : "marketAlerts.curseForbidden",
       });
     }
   }

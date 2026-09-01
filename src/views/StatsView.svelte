@@ -800,6 +800,21 @@
                                   tooltip = null;
                                 }}
                               ></button>
+                              {#if cd.absLine.length === 1 && !Number.isNaN(absVal)}
+                                <!-- A lone dot in an empty grid reads as noise;
+                                     with no neighbour to compare it to, print it.
+                                     Flips side past the midpoint so it stays in. -->
+                                {@const flip = pt.x / SVG_W > 0.5}
+                                <span
+                                  class="absolute -translate-y-1/2 whitespace-nowrap text-xs text-text-secondary {flip
+                                    ? '-translate-x-full -ml-2'
+                                    : 'ml-2'}"
+                                  style="left:{(pt.x / SVG_W) * 100}%; top:{(pt.y / BAR_H) * 100}%"
+                                  data-stats-single-point
+                                >
+                                  {formatterFor(key)(absVal, $locale)}
+                                </span>
+                              {/if}
                             {/if}
                           {/each}
                         </div>

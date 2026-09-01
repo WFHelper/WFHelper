@@ -56,7 +56,7 @@
             on:click={() => (tradeFilter = f)}
           >
             {f === "all"
-              ? "∞"
+              ? $tr("common.all")
               : f === "sale"
                 ? $tr("stats.filterSale")
                 : f === "purchase"

@@ -54,11 +54,10 @@ export const savedSelections: Readable<readonly SavedSelection[]> = {
 /** Bulk Sell modal visibility; the modal itself is hosted by App.svelte. */
 export const bulkSellOpen: Writable<boolean> = writable(false);
 
+/** Leaving the mode keeps the picks: re-entering restores them, and only Clear
+ *  or applying a saved selection replaces what is selected. */
 export function setSelectionMode(active: boolean): void {
   modeStore.set(active);
-  // Leaving the mode drops the picks: a stale selection would otherwise reopen
-  // with items the current filters no longer show.
-  if (!active) selectedStore.set(new Set());
 }
 
 export function toggleSelectionMode(): void {

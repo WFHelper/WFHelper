@@ -1,9 +1,11 @@
 <script lang="ts">
   import {
+    archonShardColorKey,
     archonShardIconUrl,
     type ArchonShardColor,
     type ArchonShardSlot,
   } from "../../lib/inventory/archonShards.js";
+  import { tr, type Translator } from "../../lib/i18n.js";
   import { itemDb } from "../../stores/data.js";
 
   interface Props {
@@ -30,10 +32,21 @@
   // A 404 on the icon mirror would otherwise leave an invisible pip.
   let brokenIcons = $state<string[]>([]);
 
+  // Translator passed in rather than read inside: keeps the dependency textual.
+  function pipTitle(slot: ArchonShardSlot, t: Translator): string | undefined {
+    if (!slot.filled) return undefined;
+    const colorLabel = slot.color ? t(archonShardColorKey(slot.color)) : t("common.unknown");
+    return slot.tauforged ? `${colorLabel} - ${t("archon.tauforged")}` : colorLabel;
+  }
+
   const pips = $derived(
     (showEmpty ? slots : slots.filter((slot) => slot.filled)).map((slot) => {
       const icon = archonShardIconUrl($itemDb, slot.color, slot.tauforged);
-      return { slot, icon: icon && !brokenIcons.includes(icon) ? icon : null };
+      return {
+        slot,
+        icon: icon && !brokenIcons.includes(icon) ? icon : null,
+        title: pipTitle(slot, $tr),
+      };
     }),
   );
 
@@ -54,6 +67,7 @@
           alt=""
           loading="lazy"
           draggable="false"
+          title={pip.title}
           style={pip.slot.color ? `--shard:${SHARD_HEX[pip.slot.color]}` : undefined}
           data-archon-pip={pip.slot.color}
           data-archon-tau={pip.slot.tauforged ? "true" : null}
@@ -65,6 +79,7 @@
           class:tau={pip.slot.tauforged}
           class:empty={!pip.slot.filled}
           class:unknown={pip.slot.filled && !pip.slot.color}
+          title={pip.title}
           style={pip.slot.color ? `--shard:${SHARD_HEX[pip.slot.color]}` : undefined}
           data-archon-pip={pip.slot.color ?? (pip.slot.filled ? "unknown" : "empty")}
           data-archon-tau={pip.slot.tauforged ? "true" : null}
@@ -92,10 +107,15 @@
     filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.85));
   }
 
-  /* Tauforged art only differs by a glow, so reinforce it at pip size. */
+  /* Tauforged art only differs by a soft halo, which washes out at 9px and makes
+     the crystal read as smaller. A bigger box plus a hard colour ring inverts
+     that back: at pip size tau must read as MORE, not less. */
   .shard-icon.tau {
-    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.85))
-      drop-shadow(0 0 2px color-mix(in oklab, var(--shard, white) 85%, transparent));
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--shard, white) 65%, white);
+    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9));
   }
 
   .shard-pip {
@@ -108,15 +128,16 @@
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
   }
 
-  /* Tauforged is a brighter diamond, so shape carries it when colour cannot. */
+  /* Tauforged is a brighter diamond whose diagonal overruns the plain circle, so
+     shape and size carry it when colour cannot. */
   .shard-pip.tau {
-    width: 8px;
-    height: 8px;
+    width: 9px;
+    height: 9px;
     border-radius: 1px;
     transform: rotate(45deg);
     background: var(--shard, var(--text-secondary));
     border-color: color-mix(in oklab, var(--shard, white) 45%, white);
-    box-shadow: 0 0 4px color-mix(in oklab, var(--shard, white) 65%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--shard, white) 65%, white);
   }
 
   .shard-pip.empty {
@@ -126,9 +147,12 @@
     box-shadow: none;
   }
 
+  /* Opaque on purpose: a filled socket DE sent no colour for still has to draw,
+     or the pip count disagrees with the tooltip. */
   .shard-pip.unknown {
-    background: color-mix(in oklab, var(--text-muted) 55%, transparent);
-    border-color: var(--border);
+    background: var(--text-muted);
+    border-color: color-mix(in oklab, var(--text-muted) 60%, white);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
   }
 
   .shard-pips.md .shard-icon {
@@ -137,6 +161,8 @@
   }
 
   .shard-pips.md .shard-icon.tau {
+    width: 19px;
+    height: 19px;
     filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.85))
       drop-shadow(0 0 3px color-mix(in oklab, var(--shard, white) 85%, transparent));
   }
@@ -147,7 +173,7 @@
   }
 
   .shard-pips.md .shard-pip.tau {
-    width: 13px;
-    height: 13px;
+    width: 15px;
+    height: 15px;
   }
 </style>

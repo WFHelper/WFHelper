@@ -1,3 +1,10 @@
+<script lang="ts" context="module">
+  // Focus can land on body mid-dialog (a clicked button disables itself), and
+  // the overlay's own keydown never fires then. A window listener catches that
+  // Escape; the stack keeps it to the topmost open shell.
+  const escapeStack: Array<() => void> = [];
+</script>
+
 <script lang="ts">
   import { onMount, onDestroy, tick } from "svelte";
   import { tr } from "../lib/i18n.js";
@@ -62,7 +69,18 @@
     }
   }
 
+  function closeSelf(): void {
+    onClose();
+  }
+
+  function onWindowKeydown(e: KeyboardEvent): void {
+    if (e.key !== "Escape") return;
+    if (escapeStack[escapeStack.length - 1] !== closeSelf) return;
+    closeSelf();
+  }
+
   onMount(async () => {
+    escapeStack.push(closeSelf);
     previouslyFocused = document.activeElement as HTMLElement | null;
     await tick();
     // Content renders next tick; the overlay is the last-resort focus target.
@@ -77,6 +95,8 @@
   });
 
   onDestroy(() => {
+    const at = escapeStack.indexOf(closeSelf);
+    if (at !== -1) escapeStack.splice(at, 1);
     try {
       previouslyFocused?.focus();
     } catch {
@@ -84,6 +104,8 @@
     }
   });
 </script>
+
+<svelte:window on:keydown={onWindowKeydown} />
 
 <div
   class="detail-overlay {overlayClass}"

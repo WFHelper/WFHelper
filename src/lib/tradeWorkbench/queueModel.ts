@@ -175,6 +175,58 @@ export function buildSelectedQueueRows(
   return buildQueueRows(picked, context, lookup).map((row) => ({ ...row, selected: true }));
 }
 
+/** Stable across rebuilds, unlike `rowId`, which is the build-order index. One
+ *  selection key can expand to several rank rows, so the rank is part of it. */
+function queueRowIdentity(row: WorkbenchQueueRow): string {
+  return `${selectionKeyFor(row.item)}::${row.slug}::${row.rank ?? ""}`;
+}
+
+/** Carries a prior row's fetched market data and price edits onto its freshly
+ *  built counterpart. The safety verdict is always the fresh one. */
+function carryQueueRow(prior: WorkbenchQueueRow, fresh: WorkbenchQueueRow): WorkbenchQueueRow {
+  const merged = setRowQuantity(
+    {
+      ...fresh,
+      selected: prior.selected,
+      market: prior.market,
+      sellBook: prior.sellBook,
+      suggestion: prior.suggestion,
+      manualPrice: prior.manualPrice,
+      overrideAcknowledged: false,
+      overrideAcknowledgedAt: null,
+    },
+    prior.quantity,
+  );
+  // An acknowledgement survives only an identical verdict and amount: anything
+  // the safety engine re-evaluated has to be consented to again.
+  if (!prior.overrideAcknowledged) return merged;
+  const same =
+    merged.quantity === prior.quantity &&
+    merged.verdict.safe === prior.verdict.safe &&
+    merged.verdict.total === prior.verdict.total;
+  if (!same) return merged;
+  return {
+    ...merged,
+    overrideAcknowledged: true,
+    overrideAcknowledgedAt: prior.overrideAcknowledgedAt,
+  };
+}
+
+/** Rebuilds the queue for the current selection without discarding what the user
+ *  already loaded: rows whose identity survived keep their order book, applied
+ *  price and quantity, and rows the selection dropped fall away. */
+export function mergeQueueRows(
+  previous: readonly WorkbenchQueueRow[],
+  next: readonly WorkbenchQueueRow[],
+): WorkbenchQueueRow[] {
+  if (previous.length === 0) return [...next];
+  const byIdentity = new Map(previous.map((row) => [queueRowIdentity(row), row]));
+  return next.map((row) => {
+    const prior = byIdentity.get(queueRowIdentity(row));
+    return prior ? carryQueueRow(prior, row) : row;
+  });
+}
+
 function matchExistingOrder(row: WorkbenchQueueRow, orders: readonly WfmOrder[]): WfmOrder | null {
   return (
     orders.find(

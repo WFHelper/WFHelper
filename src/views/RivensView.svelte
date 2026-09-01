@@ -18,12 +18,17 @@
   import SegmentedControl from "../components/SegmentedControl.svelte";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
   import RivenPolarityIcon from "../components/RivenPolarityIcon.svelte";
+  import { inventoryData } from "../stores/data.js";
   import { sharedFilters } from "../stores/filters.js";
   import { marketContracts } from "../stores/market.js";
   import { addToast } from "../stores/toasts.js";
   import { readStorage, writeStorage } from "../lib/persistence.js";
   import { tr } from "../lib/i18n.js";
+  import type { MessageKey } from "../lib/i18n.js";
   import { RIVEN_TYPE_KEYS } from "../lib/rivenLabels.js";
+
+  // Keys land with this feature's i18n commit; cast until en.json carries them.
+  const k = (key: string): MessageKey => key as MessageKey;
 
   type RivenSortKey = "name" | "disposition" | "rerolls" | "grade";
   type RivenViewTab = "unveiled" | "veiled" | "finder";
@@ -293,7 +298,15 @@
     {#if loading}
       {@render emptyState($tr("rivens.loading"))}
     {:else if filteredRivens.length === 0}
-      {@render emptyState(rivens.length === 0 ? $tr("rivens.noData") : $tr("rivens.noResults"))}
+      <!-- Rivens are decoded from the loaded inventory, so an empty list with an
+           inventory present means the account owns none, not that nothing loaded. -->
+      {@render emptyState(
+        rivens.length > 0
+          ? $tr("rivens.noResults")
+          : $inventoryData
+            ? $tr(k("rivens.noUnveiled"))
+            : $tr("rivens.noData"),
+      )}
     {:else}
       <div class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5 justify-items-center">
         {#each filteredRivens as riven (riven.itemId)}

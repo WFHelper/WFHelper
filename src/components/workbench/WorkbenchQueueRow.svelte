@@ -76,7 +76,7 @@
 >
   <input
     type="checkbox"
-    class="h-4 w-4 accent-[color:var(--accent)]"
+    class="themed-checkbox"
     checked={row.selected}
     data-workbench-select
     onchange={() => onToggleSelect(row)}
@@ -181,11 +181,13 @@
     >
       {t(k(isLocked ? "workbench.safety.locked" : "workbench.safety.lock"))}
     </button>
+    <!-- No placeholder: "spare"/"Reserve" clip inside the field, so the label
+         lives in the tooltip and the accessible name instead. -->
     <input
       class="{FIELD_CLASS} w-16"
       type="number"
       min="0"
-      placeholder={t(k("workbench.safety.sparePlaceholder"))}
+      aria-label={t(k("workbench.safety.sparePlaceholder"))}
       title={t(k("workbench.safety.spareHint"))}
       value={spareOverride ?? ""}
       onchange={(event) => onSpare(row, numberInput(event))}
