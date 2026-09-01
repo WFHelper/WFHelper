@@ -104,9 +104,11 @@
         <span class="mr-auto text-xs text-text-muted">{$tr("analysis.importNothing")}</span>
       {/if}
       <ThemedButton onClick={onClose}>{$tr("common.cancel")}</ThemedButton>
-      <ThemedButton active disabled={applying || nothingToImport} onClick={onApply}>
-        {applying ? $tr("common.saving") : $tr("analysis.importApply", { count: applicable })}
-      </ThemedButton>
+      <span data-analysis-import-apply>
+        <ThemedButton active disabled={applying || nothingToImport} onClick={onApply}>
+          {applying ? $tr("common.saving") : $tr("analysis.importApply", { count: applicable })}
+        </ThemedButton>
+      </span>
     </div>
   </div>
 </ModalShell>

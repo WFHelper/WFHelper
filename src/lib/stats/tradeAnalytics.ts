@@ -1,6 +1,7 @@
 /** Pure trade-ledger analytics - no Svelte, i18n, or IPC.
  *  Cost basis is ESTIMATED: items with no recorded purchase stay unpriced
  *  rather than being booked as zero-cost profit. */
+import { fallbackNameFromUniqueName } from "../../../config/shared/displayName.js";
 import { normalizeWfmSlug } from "../../../config/shared/wfm.js";
 import { gameRefKey } from "../marketNaming.js";
 import { readStorage, writeStorage } from "../persistence.js";
@@ -50,6 +51,8 @@ export interface PlatFlow {
 export interface ItemRollup {
   key: string;
   name: string;
+  /** Muted qualifier, currently the generated riven roll name. */
+  secondary: string | null;
   units: number;
   events: number;
   /** Platinum allocated to this item across its events. */
@@ -58,10 +61,62 @@ export interface ItemRollup {
   avgUnitPlat: number | null;
 }
 
-export interface CategoryRollup {
-  category: string;
+export type TradeItemKind =
+  | "riven"
+  | "set"
+  | "prime"
+  | "mod"
+  | "arcane"
+  | "relic"
+  | "resource"
+  | "other";
+
+export const TRADE_ITEM_KINDS: readonly TradeItemKind[] = [
+  "riven",
+  "set",
+  "prime",
+  "mod",
+  "arcane",
+  "relic",
+  "resource",
+  "other",
+] as const;
+
+export interface TypeRollup {
+  /** A `TradeItemKind` id, or the raw string a user override put here. */
+  kind: string;
+  /** Platinum in from sales. */
+  revenue: number;
+  /** Platinum out on purchases. */
+  expenses: number;
+  profit: number;
+  /** profit / revenue, or null when nothing was sold. */
+  marginPct: number | null;
   soldUnits: number;
   boughtUnits: number;
+}
+
+export interface PartnerRollup {
+  /** Empty when the ledger row carries no partner. */
+  partner: string;
+  sales: number;
+  salesPlat: number;
+  purchases: number;
+  purchasesPlat: number;
+  total: number;
+}
+
+export interface MonthFlow {
+  /** Local "YYYY-MM". */
+  month: string;
+  platIn: number;
+  platOut: number;
+  net: number;
+}
+
+export interface DayFlow {
+  /** Local "YYYY-MM-DD". */
+  day: string;
   platIn: number;
   platOut: number;
   net: number;
@@ -114,6 +169,7 @@ export interface CostBasisResult {
 interface WorthTodayRow {
   key: string;
   name: string;
+  secondary: string | null;
   units: number;
   median: number | null;
   worth: number | null;
@@ -167,10 +223,105 @@ export function itemKey(item: TradeItem): string {
   return (item?.displayName ?? "").trim().toLowerCase();
 }
 
+interface TradeItemLabel {
+  /** What to render as the item name. */
+  primary: string;
+  /** Muted qualifier under or beside the name; null when there is none. */
+  secondary: string | null;
+}
+
+// DE builds a riven roll name out of these syllables (ExportUpgrades
+// prefixTag/suffixTag): Prefix, then a lowercase prefix per extra stat, then the
+// final suffix, so only a three-stat roll carries a hyphen ("Visi-toxican").
+const RIVEN_PREFIX =
+  "acri|ampi|argi|arma|conci|crita|croni|deci|exi|feva|forti|geli|hera|hexa|igni|insi|laci|lexi|" +
+  "locti|magna|manti|para|pleci|pura|sati|sci|tempi|toxi|vexi|visi|zeti";
+const RIVEN_SUFFIX =
+  "ada|ata|bin|cak|can|con|cron|cta|des|dex|do|dra|lis|mag|nak|nem|nent|nok|nus|pha|sus|tak|tin|" +
+  "tio|tis|ton|tor|tox|tron|um|us";
+const RIVEN_ROLL = new RegExp(
+  `^(?:${RIVEN_PREFIX})(?:-(?:${RIVEN_PREFIX}))*(?:${RIVEN_SUFFIX})$`,
+  "i",
+);
+const PAREN_TAIL = /\s*\(([^()]*)\)\s*$/;
+const RIVEN_RANK = /riven\s+rank/i;
+const RANK_TAG = /\(\s*rank\s*\d+\s*\)$/i;
+const VEILED_RIVEN = /\briven\s+mod$/i;
+
+const SET_NAME = /\bset$/i;
+const PRIME_NAME = /(?:^|\s)prime(?:\s|$)/i;
+const RELIC_NAME = /(?:\brelic$)|(?:^(?:lith|meso|neo|axi|requiem)\s)/i;
+const ARCANE_NAME = /^arcane\s/i;
+
+/** Weapon plus roll name for an unveiled riven, or null for anything else. */
+function parseRivenName(name: string): { weapon: string; roll: string } | null {
+  const tail = PAREN_TAIL.exec(name);
+  const base = tail && name.slice(0, tail.index).trim() ? name.slice(0, tail.index).trim() : name;
+  // A veiled riven trades under its own listing name, so it keeps it.
+  if (VEILED_RIVEN.test(base)) return null;
+  const cut = base.lastIndexOf(" ");
+  if (cut <= 0) return null;
+  const roll = base.slice(cut + 1);
+  // The dialog's own rank tag settles it even when OCR mangled the roll name.
+  if (!RIVEN_ROLL.test(roll) && !(tail && RIVEN_RANK.test(tail[1]))) return null;
+  return { weapon: base.slice(0, cut).trim(), roll };
+}
+
+/**
+ * How an item should read in the UI. Live rows come from the in-game trade
+ * dialog and imports carry raw ids, so neither can be rendered as it arrived.
+ */
+export function tradeItemLabel(item: TradeItem): TradeItemLabel {
+  const raw = (item?.displayName ?? "").trim() || (item?.internalName ?? "").trim();
+  // "/AF_Special/Imprint/Bibou" and friends: an id, not a name.
+  const name = raw.startsWith("/") ? fallbackNameFromUniqueName(raw) : raw;
+  const riven = parseRivenName(name);
+  // "Riven" is the game's own word for the item, so it stays English here.
+  if (riven) return { primary: `${riven.weapon} Riven`, secondary: riven.roll };
+  return { primary: name, secondary: null };
+}
+
 function itemName(item: TradeItem): string {
-  const display = (item?.displayName ?? "").trim();
-  if (display) return display;
-  return (item?.internalName ?? "").trim();
+  return tradeItemLabel(item).primary;
+}
+
+/** Item-database category to a kind, or null when the category says nothing. */
+function kindFromDbCategory(category: string): TradeItemKind | null {
+  const key = category.trim().toLowerCase();
+  if (key === "mod" || key === "mods") return "mod";
+  if (key === "arcane" || key === "arcanes") return "arcane";
+  if (key === "relic" || key === "relics") return "relic";
+  if (key === "resource" || key === "resources") return "resource";
+  if (key === "misc" || key === "fish" || key === "gear" || key === "key") return "resource";
+  if (key === "fusion") return "resource";
+  // Warframes, weapons, companions and the rest are whole items, not a kind of
+  // goods, so they fall through to "other" rather than inventing a bucket.
+  return null;
+}
+
+/**
+ * Which bucket an item belongs to. The name rules run first because the trade
+ * dialog names are the only thing every row is guaranteed to carry.
+ */
+export function tradeItemKind(
+  item: TradeItem,
+  resolveDbCategory?: (item: TradeItem) => string,
+): TradeItemKind {
+  const raw = (item?.displayName ?? "").trim() || (item?.internalName ?? "").trim();
+  const name = raw.startsWith("/") ? fallbackNameFromUniqueName(raw) : raw;
+  if (parseRivenName(name) || VEILED_RIVEN.test(name.replace(PAREN_TAIL, ""))) return "riven";
+  if (SET_NAME.test(name)) return "set";
+  if (PRIME_NAME.test(name)) return "prime";
+  if (RELIC_NAME.test(name)) return "relic";
+  if (ARCANE_NAME.test(name)) return "arcane";
+  const category = resolveDbCategory ? resolveDbCategory(item) : "";
+  const fromDb = category ? kindFromDbCategory(category) : null;
+  if (fromDb) return fromDb;
+  // Last resort: only a mod or an arcane trades with a rank, and most arcanes
+  // (Magus, Pax, Exodia) are not named "Arcane ...", so the database decides
+  // first and this catches what it does not know.
+  if (RANK_TAG.test(name)) return "mod";
+  return "other";
 }
 
 /** Local "YYYY-MM-DD" for an ISO datetime; the ledger filters on local days. */
@@ -282,6 +433,7 @@ export function computeFlow(events: TradeEvent[]): PlatFlow {
 interface Accum {
   key: string;
   name: string;
+  secondary: string | null;
   units: number;
   events: number;
   platinum: number;
@@ -303,7 +455,15 @@ function accumulate(
     if (!existing.name) existing.name = itemName(item);
     return;
   }
-  map.set(key, { key, name: itemName(item), units, events: 1, platinum });
+  const label = tradeItemLabel(item);
+  map.set(key, {
+    key,
+    name: label.primary,
+    secondary: label.secondary,
+    units,
+    events: 1,
+    platinum,
+  });
 }
 
 function rollupToList(map: Map<string, Accum>, limit: number): ItemRollup[] {
@@ -311,6 +471,7 @@ function rollupToList(map: Map<string, Accum>, limit: number): ItemRollup[] {
     .map((a) => ({
       key: a.key,
       name: a.name,
+      secondary: a.secondary,
       units: a.units,
       events: a.events,
       platinum: a.platinum,
@@ -352,6 +513,7 @@ type CategoryResolver = (item: TradeItem) => string;
 export interface ItemCategoryEntry {
   key: string;
   name: string;
+  secondary: string | null;
   resolved: string;
   overridden: boolean;
 }
@@ -367,9 +529,11 @@ export function distinctItemCategories(
     for (const item of event?.items ?? []) {
       const key = itemKey(item);
       if (!key || map.has(key)) continue;
+      const label = tradeItemLabel(item);
       map.set(key, {
         key,
-        name: itemName(item),
+        name: label.primary,
+        secondary: label.secondary,
         resolved: resolve(item),
         overridden: overrides[key] !== undefined,
       });
@@ -387,13 +551,10 @@ export function categoryNames(entries: ItemCategoryEntry[]): string[] {
   return [...seen].sort((a, b) => a.localeCompare(b));
 }
 
-/** Category resolver over the item database. Trade rows come from EE.log and
+/** Raw item-database category for a trade row. Trade rows come from EE.log and
  *  exports, so most carry no uniqueName: the market slug and the display name
  *  are the joins that resolve. Indices build on first miss only. */
-export function makeItemCategoryResolver(
-  db: ItemDbLookup,
-  wfmLookup: WfmItemsLookup,
-): CategoryResolver {
+function makeDbCategoryResolver(db: ItemDbLookup, wfmLookup: WfmItemsLookup): CategoryResolver {
   let byGameRef: Map<string, string> | null = null;
   let refBySlug: Map<string, string> | null = null;
 
@@ -437,9 +598,24 @@ export function makeItemCategoryResolver(
     if (name) {
       const viaName = categoryOf(wfmLookup[name]?.gameRef);
       if (viaName) return viaName;
+      // Live rows carry the dialog's rank tag, which no catalog name has.
+      const bare = name.replace(PAREN_TAIL, "").trim();
+      if (bare && bare !== name) {
+        const viaBare = categoryOf(wfmLookup[bare]?.gameRef);
+        if (viaBare) return viaBare;
+      }
     }
-    return UNCATEGORIZED;
+    return "";
   };
+}
+
+/** The default "By type" bucket for an item: name rules, then the item database. */
+export function makeItemKindResolver(
+  db: ItemDbLookup,
+  wfmLookup: WfmItemsLookup,
+): CategoryResolver {
+  const category = makeDbCategoryResolver(db, wfmLookup);
+  return (item: TradeItem): string => tradeItemKind(item, category);
 }
 
 /** Wraps a resolver so a user override always wins over the item database. */
@@ -455,23 +631,25 @@ export function withCategoryOverrides(
   };
 }
 
-export function categoryRollup(
-  events: TradeEvent[],
-  resolveCategory: CategoryResolver,
-): CategoryRollup[] {
-  const map = new Map<string, CategoryRollup>();
-  const bump = (category: string): CategoryRollup => {
-    const existing = map.get(category);
+/**
+ * Revenue, expenses and margin per kind. A multi-item trade splits its platinum
+ * across the priced units, so the per-kind platinum is an allocation.
+ */
+export function typeRollup(events: TradeEvent[], resolveKind: CategoryResolver): TypeRollup[] {
+  const map = new Map<string, TypeRollup>();
+  const bump = (kind: string): TypeRollup => {
+    const existing = map.get(kind);
     if (existing) return existing;
-    const created: CategoryRollup = {
-      category,
+    const created: TypeRollup = {
+      kind,
+      revenue: 0,
+      expenses: 0,
+      profit: 0,
+      marginPct: null,
       soldUnits: 0,
       boughtUnits: 0,
-      platIn: 0,
-      platOut: 0,
-      net: 0,
     };
-    map.set(category, created);
+    map.set(kind, created);
     return created;
   };
 
@@ -484,21 +662,186 @@ export function categoryRollup(
     const unitPlat = safePlat(event) / totalUnits;
     for (const item of items) {
       const units = safeCount(item);
-      const row = bump(resolveCategory(item) || UNCATEGORIZED);
+      const row = bump(resolveKind(item) || UNCATEGORIZED);
       if (event.type === "sale") {
         row.soldUnits += units;
-        row.platIn += unitPlat * units;
+        row.revenue += unitPlat * units;
       } else {
         row.boughtUnits += units;
-        row.platOut += unitPlat * units;
+        row.expenses += unitPlat * units;
       }
     }
   }
 
-  for (const row of map.values()) row.net = row.platIn - row.platOut;
+  for (const row of map.values()) {
+    row.profit = row.revenue - row.expenses;
+    row.marginPct = row.revenue > 0 ? (row.profit / row.revenue) * 100 : null;
+  }
   return [...map.values()].sort(
-    (a, b) => b.platIn + b.platOut - (a.platIn + a.platOut) || a.category.localeCompare(b.category),
+    (a, b) => b.profit - a.profit || b.revenue - a.revenue || a.kind.localeCompare(b.kind),
   );
+}
+
+/** Who the platinum moved with. Partner names never leave the PC. */
+export function partnerRollup(events: TradeEvent[], limit = 10): PartnerRollup[] {
+  const map = new Map<string, PartnerRollup>();
+  for (const event of events) {
+    const type = event?.type;
+    if (type !== "sale" && type !== "purchase") continue;
+    const partner = (event?.partner ?? "").trim();
+    let row = map.get(partner);
+    if (!row) {
+      row = { partner, sales: 0, salesPlat: 0, purchases: 0, purchasesPlat: 0, total: 0 };
+      map.set(partner, row);
+    }
+    const plat = safePlat(event);
+    if (type === "sale") {
+      row.sales += 1;
+      row.salesPlat += plat;
+    } else {
+      row.purchases += 1;
+      row.purchasesPlat += plat;
+    }
+  }
+  for (const row of map.values()) row.total = row.salesPlat + row.purchasesPlat;
+  return [...map.values()]
+    .sort(
+      (a, b) =>
+        b.total - a.total ||
+        b.sales + b.purchases - (a.sales + a.purchases) ||
+        a.partner.localeCompare(b.partner),
+    )
+    .slice(0, limit);
+}
+
+const DATE_KEY = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/;
+
+interface DateKeyParts {
+  year: number;
+  /** 1-12. */
+  month: number;
+  /** 1-31, and 1 for a month key. */
+  day: number;
+}
+
+/** "YYYY-MM" or "YYYY-MM-DD" as numbers, null for anything else. Slicing a
+ *  short key yields "", and Number("") is 0, so a bare "2026" would otherwise
+ *  read as month zero and produce a month or a label the key never carried. */
+export function parseDateKey(key: string): DateKeyParts | null {
+  const match = DATE_KEY.exec(key);
+  if (!match) return null;
+  const month = Number(match[2]);
+  const day = match[3] ? Number(match[3]) : 1;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return { year: Number(match[1]), month, day };
+}
+
+function nextMonth(month: string): string {
+  const parts = parseDateKey(month);
+  if (!parts) return month;
+  return parts.month >= 12
+    ? `${parts.year + 1}-01`
+    : `${parts.year}-${String(parts.month + 1).padStart(2, "0")}`;
+}
+
+/** Day keys bounding the chart; an open end stops at the current local month. */
+interface MonthSpan {
+  from?: string;
+  to?: string;
+}
+
+function currentMonthKey(now: Date): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Platinum per calendar month over the selected span, or the span the events
+ * cover when none is given. Empty months are filled so the axis stays real,
+ * and only the newest `maxMonths` survive so a long archive cannot overflow.
+ */
+export function monthlyFlow(
+  events: TradeEvent[],
+  maxMonths = 24,
+  span: MonthSpan = {},
+  now: Date = new Date(),
+): MonthFlow[] {
+  const totals = new Map<string, MonthFlow>();
+  for (const event of events) {
+    const day = toDayKey(event?.date ?? "");
+    if (!day) continue;
+    const month = day.slice(0, 7);
+    let row = totals.get(month);
+    if (!row) {
+      row = { month, platIn: 0, platOut: 0, net: 0 };
+      totals.set(month, row);
+    }
+    const plat = safePlat(event);
+    if (event?.type === "sale") row.platIn += plat;
+    else if (event?.type === "purchase") row.platOut += plat;
+  }
+  const months = [...totals.keys()].sort();
+  // Without a span the axis is the events' own range (nothing to extend to).
+  const bounded = !!(span.from || span.to);
+  const fromMonth = span.from ? span.from.slice(0, 7) : null;
+  const thisMonth = currentMonthKey(now);
+  const toMonth = !bounded
+    ? null
+    : span.to && span.to.slice(0, 7) < thisMonth
+      ? span.to.slice(0, 7)
+      : thisMonth;
+  const first = [months[0], fromMonth].filter((m): m is string => !!m).sort()[0];
+  if (!first) return [];
+  const last = [months[months.length - 1], toMonth]
+    .filter((m): m is string => !!m)
+    .sort()
+    .pop();
+  if (!last) return [];
+  const out: MonthFlow[] = [];
+  let cursor = first;
+  // Bounded so a corrupt date can never spin the fill loop forever.
+  for (let guard = 0; guard < 600 && cursor <= last; guard += 1) {
+    const row = totals.get(cursor) ?? { month: cursor, platIn: 0, platOut: 0, net: 0 };
+    row.net = row.platIn - row.platOut;
+    out.push(row);
+    const next = nextMonth(cursor);
+    if (next === cursor) break;
+    cursor = next;
+  }
+  return out.slice(-maxMonths);
+}
+
+/** The last `days` local calendar days ending today, gaps included. */
+export function recentDailyFlow(
+  events: TradeEvent[],
+  days = 10,
+  now: Date = new Date(),
+): DayFlow[] {
+  const span = Math.max(1, Math.floor(days));
+  const rows = new Map<string, DayFlow>();
+  const order: string[] = [];
+  for (let back = span - 1; back >= 0; back -= 1) {
+    const day = shiftDays(now, back);
+    order.push(day);
+    rows.set(day, { day, platIn: 0, platOut: 0, net: 0 });
+  }
+  for (const event of events) {
+    const row = rows.get(toDayKey(event?.date ?? ""));
+    if (!row) continue;
+    const plat = safePlat(event);
+    if (event?.type === "sale") row.platIn += plat;
+    else if (event?.type === "purchase") row.platOut += plat;
+  }
+  return order.map((day) => {
+    const row = rows.get(day) as DayFlow;
+    row.net = row.platIn - row.platOut;
+    return row;
+  });
+}
+
+/** Today's own flow, on the same local calendar day the ledger filters on. */
+export function todayFlow(events: TradeEvent[], now: Date = new Date()): PlatFlow {
+  const today = toDayKey(now.toISOString());
+  return computeFlow(filterEvents(events, { from: today, to: today }));
 }
 
 /** Percent change against an absolute denominator; null when there is none. */
@@ -713,11 +1056,13 @@ export function worthToday(
         existing.row.realized += unitPlat * units;
         continue;
       }
+      const label = tradeItemLabel(item);
       map.set(key, {
         item,
         row: {
           key,
-          name: itemName(item),
+          name: label.primary,
+          secondary: label.secondary,
           units,
           median: null,
           worth: null,

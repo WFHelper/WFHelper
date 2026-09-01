@@ -69,7 +69,12 @@
             class="grid grid-cols-[1fr_auto_auto] items-baseline gap-2 text-xs"
             data-analysis-worth-row={row.key}
           >
-            <span class="truncate text-text-secondary" title={row.name}>{row.name}</span>
+            <span class="flex min-w-0 items-baseline gap-1.5">
+              <span class="truncate text-text-secondary" title={row.name}>{row.name}</span>
+              {#if row.secondary}
+                <span class="truncate text-[0.65rem] text-text-muted">{row.secondary}</span>
+              {/if}
+            </span>
             <span class="tabular-nums text-text-muted">
               {$tr("analysis.unitsShort", { count: row.units })}
             </span>

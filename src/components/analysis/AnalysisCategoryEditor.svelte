@@ -8,13 +8,15 @@
   interface Props {
     items: ItemCategoryEntry[];
     knownCategories: string[];
+    /** Turns a resolved bucket id into the label the panels show. */
+    labelFor: (resolved: string) => string;
     onSet: (key: string, category: string) => void;
     onClear: (key: string) => void;
     onResetAll: () => void;
     onClose: () => void;
   }
 
-  let { items, knownCategories, onSet, onClear, onResetAll, onClose }: Props = $props();
+  let { items, knownCategories, labelFor, onSet, onClear, onResetAll, onClose }: Props = $props();
 
   let search = $state("");
 
@@ -69,10 +71,15 @@
             class="grid grid-cols-[1fr_12rem_auto] items-center gap-2 rounded-[var(--radius-md)] px-1 py-1 hover:bg-bg-raised"
             data-analysis-category-row={item.key}
           >
-            <span class="truncate text-sm text-text-primary" title={item.name}>{item.name}</span>
+            <span class="flex min-w-0 items-baseline gap-1.5">
+              <span class="truncate text-sm text-text-primary" title={item.name}>{item.name}</span>
+              {#if item.secondary}
+                <span class="truncate text-[0.65rem] text-text-muted">{item.secondary}</span>
+              {/if}
+            </span>
             <input
               list="analysis-category-options"
-              value={item.resolved === UNCATEGORIZED ? "" : item.resolved}
+              value={item.resolved === UNCATEGORIZED ? "" : labelFor(item.resolved)}
               placeholder={$tr("analysis.uncategorized")}
               class="w-full rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)]
                      bg-[var(--ui-control-bg)] px-2 py-1 text-xs text-text-primary outline-none

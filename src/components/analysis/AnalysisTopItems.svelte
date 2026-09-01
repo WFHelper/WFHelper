@@ -32,7 +32,12 @@
         {#each rows as row (row.key)}
           <li class="flex min-w-0 flex-col gap-1" data-analysis-top-item={row.key}>
             <div class="flex min-w-0 items-baseline justify-between gap-2">
-              <span class="truncate text-sm text-text-primary" title={row.name}>{row.name}</span>
+              <span class="flex min-w-0 items-baseline gap-1.5">
+                <span class="truncate text-sm text-text-primary" title={row.name}>{row.name}</span>
+                {#if row.secondary}
+                  <span class="truncate text-[0.65rem] text-text-muted">{row.secondary}</span>
+                {/if}
+              </span>
               <span class="shrink-0 font-semibold tabular-nums text-text-primary">
                 {formatPlat(row.platinum, $locale)}
               </span>

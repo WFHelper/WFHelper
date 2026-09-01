@@ -112,14 +112,14 @@
     </label>
 
     <div class="grid grid-cols-2 gap-3">
-      <label class="flex flex-col gap-1 text-xs text-text-secondary">
+      <label class="flex flex-col gap-1 text-xs text-text-secondary" data-analysis-field="credits">
         {$tr("common.credits")}
         <ThemedInput type="number" min="0" bind:value={creditsValue} />
         {#if creditsInvalid}
           <span class="text-danger">{$tr("analysis.invalidNumber")}</span>
         {/if}
       </label>
-      <label class="flex flex-col gap-1 text-xs text-text-secondary">
+      <label class="flex flex-col gap-1 text-xs text-text-secondary" data-analysis-field="tax">
         {$tr("analysis.tradeTax")}
         <ThemedInput type="number" min="0" bind:value={taxValue} />
         {#if taxInvalid}
@@ -134,9 +134,11 @@
 
     <div class="flex justify-end gap-2">
       <ThemedButton onClick={onClose}>{$tr("common.cancel")}</ThemedButton>
-      <ThemedButton active disabled={blocked} onClick={submit}>
-        {saving ? $tr("common.saving") : $tr("common.save")}
-      </ThemedButton>
+      <span data-analysis-row-editor-save>
+        <ThemedButton active disabled={blocked} onClick={submit}>
+          {saving ? $tr("common.saving") : $tr("common.save")}
+        </ThemedButton>
+      </span>
     </div>
   </div>
 </ModalShell>

@@ -6,7 +6,7 @@
   import ThemedSelect from "../ThemedSelect.svelte";
   import { locale, tr as t } from "../../lib/i18n.js";
   import type { MessageKey } from "../../lib/i18n.js";
-  import { formatPlat } from "../../lib/stats/tradeAnalytics.js";
+  import { formatPlat, tradeItemLabel } from "../../lib/stats/tradeAnalytics.js";
   import type { LedgerPage } from "../../../config/shared/tradeLedgerTypes.js";
   import type { TradeEvent, TradeItem, TradeType } from "../../types/ipc.js";
 
@@ -69,7 +69,10 @@
     if (!Array.isArray(items) || items.length === 0) return "-";
     return items
       .map((i) => {
-        const name = (i.displayName || i.internalName || "").trim() || "?";
+        const label = tradeItemLabel(i);
+        const name = label.secondary
+          ? `${label.primary} (${label.secondary})`
+          : label.primary || "?";
         return i.count > 1 ? `${i.count}x ${name}` : name;
       })
       .join(", ");

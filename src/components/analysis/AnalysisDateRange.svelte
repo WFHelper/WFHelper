@@ -68,7 +68,11 @@
   onDestroy(cancelCommit);
 </script>
 
-<div class="flex flex-wrap items-center gap-2" data-analysis-range>
+<div
+  class="flex flex-wrap items-center gap-2"
+  data-analysis-range
+  data-analysis-range-current={preset}
+>
   <span class="text-xs uppercase tracking-wide text-text-muted">{$tr("analysis.range.label")}</span>
 
   {#each RANGE_PRESETS as option (option)}
@@ -79,7 +83,7 @@
     </span>
   {/each}
 
-  <label class="flex items-center gap-1.5 text-xs text-text-muted">
+  <label class="flex items-center gap-1.5 text-xs text-text-muted" data-analysis-range-from>
     {$tr("analysis.range.from")}
     <ThemedInput
       type="date"
@@ -88,7 +92,7 @@
       onInput={scheduleCommit}
     />
   </label>
-  <label class="flex items-center gap-1.5 text-xs text-text-muted">
+  <label class="flex items-center gap-1.5 text-xs text-text-muted" data-analysis-range-to>
     {$tr("analysis.range.to")}
     <ThemedInput
       type="date"

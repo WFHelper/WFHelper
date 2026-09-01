@@ -1,4 +1,5 @@
 import type { TradeEvent, TradeItem, TradeType } from "../../types/ipc.js";
+import { fallbackNameFromUniqueName } from "../../../config/shared/displayName.js";
 import {
   assertStatsImportRowCount,
   isDailyStatEntry,
@@ -80,6 +81,15 @@ export function normalizeAlecaFrameStats(parsed: unknown): DailyStatEntry[] {
   return normalized;
 }
 
+/** AlecaFrame writes raw ids for anything it has no name for ("/AF_Special/
+ *  Imprint/Bibou"), so the ledger stores a readable name instead of the path. */
+function alecaDisplayName(internalName: string, rawDisplay: string): string {
+  const display = rawDisplay.trim();
+  if (display && !display.startsWith("/")) return display;
+  const source = internalName || display;
+  return source ? fallbackNameFromUniqueName(source) : "";
+}
+
 export function parseAlecaFrameTrades(parsed: unknown): TradeEvent[] {
   if (!parsed || typeof parsed !== "object") return [];
   const p = parsed as Record<string, unknown>;
@@ -121,8 +131,10 @@ export function parseAlecaFrameTrades(parsed: unknown): TradeEvent[] {
         if (name === "/AF_Special/Platinum") continue;
         items.push({
           internalName: name,
-          displayName:
-            typeof raw.displayName === "string" ? raw.displayName : (name.split("/").pop() ?? name),
+          displayName: alecaDisplayName(
+            name,
+            typeof raw.displayName === "string" ? raw.displayName : "",
+          ),
           count: num(raw.cnt) ?? 1,
           direction,
         });

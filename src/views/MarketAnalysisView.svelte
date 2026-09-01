@@ -7,15 +7,19 @@
   import ThemedButton from "../components/ThemedButton.svelte";
   import ThemedPanel from "../components/ThemedPanel.svelte";
   import AnalysisCategoryEditor from "../components/analysis/AnalysisCategoryEditor.svelte";
-  import AnalysisCategoryPanel from "../components/analysis/AnalysisCategoryPanel.svelte";
   import AnalysisDateRange from "../components/analysis/AnalysisDateRange.svelte";
   import AnalysisImportDialog from "../components/analysis/AnalysisImportDialog.svelte";
   import AnalysisLedgerTable from "../components/analysis/AnalysisLedgerTable.svelte";
+  import AnalysisMonthlyChart from "../components/analysis/AnalysisMonthlyChart.svelte";
+  import AnalysisPartners from "../components/analysis/AnalysisPartners.svelte";
+  import AnalysisRecentDays from "../components/analysis/AnalysisRecentDays.svelte";
   import AnalysisRowEditor from "../components/analysis/AnalysisRowEditor.svelte";
   import AnalysisSummary from "../components/analysis/AnalysisSummary.svelte";
   import AnalysisTopItems from "../components/analysis/AnalysisTopItems.svelte";
+  import AnalysisTypePanel from "../components/analysis/AnalysisTypePanel.svelte";
   import AnalysisWorthToday from "../components/analysis/AnalysisWorthToday.svelte";
   import AnalysisYearCompare from "../components/analysis/AnalysisYearCompare.svelte";
+  import { KIND_KEYS } from "../components/analysis/analysisMessages.js";
   import { itemDb, wfmItems } from "../stores/data.js";
   import { priceCacheRevision } from "../stores/pricing.js";
   import { getCachedMedian } from "../stores/hydration/hydrationCacheHelpers.js";
@@ -32,20 +36,26 @@
   import {
     bestSeller,
     categoryNames,
-    categoryRollup,
     computeFlow,
     distinctItemCategories,
     fifoCostBasis,
     loadCategoryOverrides,
-    makeItemCategoryResolver,
+    makeItemKindResolver,
+    monthlyFlow,
+    partnerRollup,
+    recentDailyFlow,
     resolveRangePreset,
     saveCategoryOverrides,
+    todayFlow,
     topItems,
+    TRADE_ITEM_KINDS,
+    typeRollup,
     withCategoryOverrides,
     worthToday,
     yearComparison,
     type DateRange,
     type RangePreset,
+    type TradeItemKind,
   } from "../lib/stats/tradeAnalytics.js";
 
   const TABLE_PAGE_SIZE = 50;
@@ -345,8 +355,16 @@
     }
   }
 
+  function isKindId(value: string): value is TradeItemKind {
+    return (TRADE_ITEM_KINDS as readonly string[]).includes(value);
+  }
+
+  // Typing a kind's own label back into the editor must land on the kind, not
+  // create a second bucket that only looks the same.
   function setOverride(key: string, category: string): void {
-    overrides = { ...overrides, [key]: category };
+    const typed = category.trim().toLowerCase();
+    const asKind = TRADE_ITEM_KINDS.find((kind) => kindLabel(kind).toLowerCase() === typed);
+    overrides = { ...overrides, [key]: asKind ?? category };
     saveCategoryOverrides(overrides);
   }
 
@@ -379,11 +397,17 @@
 
   // $derived.by so the item database and the override map are read in the factory
   // body: a dependency touched only inside the returned closure never invalidates.
-  const resolveCategory = $derived.by(() => {
+  const resolveKind = $derived.by(() => {
     const db = $itemDb;
     const lookup = $wfmItems;
     const map = overrides;
-    return withCategoryOverrides(makeItemCategoryResolver(db, lookup), map);
+    return withCategoryOverrides(makeItemKindResolver(db, lookup), map);
+  });
+
+  const kindLabel = $derived.by(() => {
+    const translate = $tr;
+    return (resolved: string): string =>
+      isKindId(resolved) ? translate(KIND_KEYS[resolved]) : resolved;
   });
 
   const resolveMedian = $derived.by(() => {
@@ -403,12 +427,26 @@
   const soldRows = $derived(topItems(allEvents, "sold"));
   const boughtRows = $derived(topItems(allEvents, "bought"));
   const best = $derived(bestSeller(allEvents));
-  const categories = $derived(categoryRollup(allEvents, resolveCategory));
+  const types = $derived(typeRollup(allEvents, resolveKind));
+  const partners = $derived(partnerRollup(allEvents));
+  const monthSpan = $derived({
+    ...(range.from ? { from: range.from } : {}),
+    ...(range.to ? { to: range.to } : {}),
+  });
+  const months = $derived(monthlyFlow(allEvents, 24, monthSpan));
+  // "Today" and the last ten days must not follow the range picker, so they read
+  // the year-comparison load: it starts last January, ignores the range, and
+  // pages newest first, so its ceiling can never cut the recent days away.
+  const recentDays = $derived(recentDailyFlow(comparisonEvents, 10));
+  const today = $derived(todayFlow(comparisonEvents));
   const comparison = $derived(yearComparison(comparisonEvents));
   const worth = $derived(worthToday(allEvents, resolveMedian));
 
-  const distinctItems = $derived(distinctItemCategories(allEvents, resolveCategory, overrides));
-  const knownCategories = $derived(categoryNames(distinctItems));
+  const distinctItems = $derived(distinctItemCategories(allEvents, resolveKind, overrides));
+  const knownCategories = $derived([
+    ...TRADE_ITEM_KINDS.map((kind) => kindLabel(kind)),
+    ...categoryNames(distinctItems).filter((name) => !isKindId(name)),
+  ]);
 
   const hasAnyData = $derived(allEvents.length > 0 || (tablePage?.total ?? 0) > 0);
   const filtersActive = $derived(search.trim() !== "" || typeFilter !== "all");
@@ -418,9 +456,11 @@
   <div class="view-header">
     <h2>{$tr("analysis.title")}</h2>
     <div class="ml-auto flex flex-wrap items-center gap-2" data-analysis-actions>
-      <ThemedButton disabled={!ledgerReady || importBusy} onClick={startImport}>
-        {$tr("analysis.import")}
-      </ThemedButton>
+      <span data-analysis-import>
+        <ThemedButton disabled={!ledgerReady || importBusy} onClick={startImport}>
+          {$tr("analysis.import")}
+        </ThemedButton>
+      </span>
       <label
         class="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-text-muted"
       >
@@ -486,19 +526,30 @@
 
         <AnalysisSummary {flow} {basis} {best} />
 
-        <div class="grid grid-cols-1 gap-3 @2xl:grid-cols-2">
+        <div class="grid grid-cols-1 gap-3 @5xl:grid-cols-2">
+          <AnalysisMonthlyChart rows={months} />
+          <AnalysisRecentDays days={recentDays} {today} />
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 @5xl:grid-cols-2">
           <AnalysisTopItems titleKey="analysis.topSold" rows={soldRows} side="sold" />
           <AnalysisTopItems titleKey="analysis.topBought" rows={boughtRows} side="bought" />
-          <AnalysisCategoryPanel
-            rows={categories}
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 @5xl:grid-cols-2">
+          <AnalysisTypePanel
+            rows={types}
             onEdit={() => {
               showCategoryEditor = true;
             }}
           />
-          <AnalysisYearCompare {comparison} />
+          <AnalysisPartners rows={partners} />
         </div>
 
-        <AnalysisWorthToday {worth} />
+        <div class="grid grid-cols-1 gap-3 @5xl:grid-cols-2">
+          <AnalysisWorthToday {worth} />
+          <AnalysisYearCompare {comparison} />
+        </div>
       {/if}
 
       <div class="flex min-h-[20rem] flex-col">
@@ -527,6 +578,7 @@
   <AnalysisCategoryEditor
     items={distinctItems}
     {knownCategories}
+    labelFor={kindLabel}
     onSet={setOverride}
     onClear={clearOverride}
     onResetAll={resetOverrides}

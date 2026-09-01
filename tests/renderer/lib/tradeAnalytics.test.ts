@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   bestSeller,
   categoryNames,
-  categoryRollup,
   computeFlow,
   distinctItemCategories,
   fifoCostBasis,
@@ -12,11 +11,12 @@ import {
   formatPlat,
   itemKey,
   loadCategoryOverrides,
-  makeItemCategoryResolver,
+  makeItemKindResolver,
   resolveRangePreset,
   saveCategoryOverrides,
   toDayKey,
   topItems,
+  typeRollup,
   UNCATEGORIZED,
   withCategoryOverrides,
   worthToday,
@@ -147,48 +147,68 @@ describe("topItems / bestSeller", () => {
   });
 });
 
-describe("categoryRollup", () => {
-  const resolve = (i: TradeItem): string => (i.displayName.startsWith("Prime") ? "Warframe" : "");
+describe("typeRollup", () => {
+  const resolve = (i: TradeItem): string => (i.displayName.startsWith("Prime") ? "prime" : "");
 
-  it("buckets by resolver and folds unknowns into one row", () => {
+  it("books revenue, expenses and margin per kind", () => {
     const events = [
       ev(at("2026-01-01"), "sale", 200, [item("Prime Set", "given")]),
       ev(at("2026-01-02"), "purchase", 60, [item("Mystery Mod", "received")]),
     ];
-    const rows = categoryRollup(events, resolve);
-    expect(rows.find((r) => r.category === "Warframe")).toMatchObject({
-      platIn: 200,
-      platOut: 0,
-      net: 200,
+    const rows = typeRollup(events, resolve);
+    expect(rows.find((r) => r.kind === "prime")).toMatchObject({
+      revenue: 200,
+      expenses: 0,
+      profit: 200,
+      marginPct: 100,
       soldUnits: 1,
     });
-    expect(rows.find((r) => r.category === UNCATEGORIZED)).toMatchObject({
-      platOut: 60,
-      net: -60,
+    expect(rows.find((r) => r.kind === UNCATEGORIZED)).toMatchObject({
+      revenue: 0,
+      expenses: 60,
+      profit: -60,
+      marginPct: null,
       boughtUnits: 1,
     });
+  });
+
+  it("sorts by profit and nets a purchase off the same kind", () => {
+    const events = [
+      ev(at("2026-01-01"), "purchase", 40, [item("Prime Blade", "received")]),
+      ev(at("2026-01-02"), "sale", 100, [item("Prime Blade", "given")]),
+      ev(at("2026-01-03"), "sale", 10, [item("Junk", "given")]),
+    ];
+    const rows = typeRollup(events, resolve);
+    expect(rows.map((r) => r.kind)).toEqual(["prime", UNCATEGORIZED]);
+    expect(rows[0]).toMatchObject({ revenue: 100, expenses: 40, profit: 60, marginPct: 60 });
   });
 
   it("lets a user override beat the item database", () => {
     const overridden = withCategoryOverrides(resolve, {
       [itemKey(item("Mystery Mod", "received"))]: "Mods",
     });
-    const rows = categoryRollup(
+    const rows = typeRollup(
       [ev(at("2026-01-02"), "purchase", 60, [item("Mystery Mod", "received")])],
       overridden,
     );
-    expect(rows.map((r) => r.category)).toEqual(["Mods"]);
+    expect(rows.map((r) => r.kind)).toEqual(["Mods"]);
   });
 });
 
-describe("makeItemCategoryResolver", () => {
+describe("makeItemKindResolver", () => {
   const db = {
-    "/Lotus/Powersuits/Ash/AshPrime": { name: "Ash Prime", category: "Warframes" },
-    "/Lotus/Weapons/Tenno/Nikana": { name: "Nikana Prime", category: "Melee" },
+    "/Lotus/Upgrades/Mods/Serration": { name: "Serration", category: "Mods" },
+    "/Lotus/Types/Items/MiscItems/Tellurium": { name: "Tellurium", category: "Resource" },
+    "/Lotus/Weapons/Tenno/Nikana": { name: "Nikana", category: "Melee" },
+    "/Lotus/Types/Items/Fish/MortusLungfish": { name: "Mortus Lungfish", category: "Fish" },
   };
   const wfm = {
-    "ash prime": { url_name: "ash_prime", gameRef: "/lotus/powersuits/ash/ashprime" },
-    "nikana prime": { url_name: "nikana_prime", gameRef: "/Lotus/Weapons/Tenno/Nikana" },
+    serration: { url_name: "serration", gameRef: "/lotus/upgrades/mods/serration" },
+    tellurium: { url_name: "tellurium", gameRef: "/Lotus/Types/Items/MiscItems/Tellurium" },
+    "mortus lungfish": {
+      url_name: "mortus_lungfish",
+      gameRef: "/Lotus/Types/Items/Fish/MortusLungfish",
+    },
     orphan: { url_name: "orphan", gameRef: null },
   };
 
@@ -204,36 +224,64 @@ describe("makeItemCategoryResolver", () => {
   }
 
   it("resolves a live row through its market slug", () => {
-    const resolve = makeItemCategoryResolver(db, wfm);
-    expect(resolve(live("Ash Prime", "ash_prime"))).toBe("Warframes");
+    expect(makeItemKindResolver(db, wfm)(live("Serration", "serration"))).toBe("mod");
   });
 
   it("falls back to the display name when the row carries no slug", () => {
-    const resolve = makeItemCategoryResolver(db, wfm);
-    expect(resolve(live("Nikana Prime"))).toBe("Melee");
+    expect(makeItemKindResolver(db, wfm)(live("Tellurium"))).toBe("resource");
   });
 
   it("folds a gameRef whose casing differs from the item database key", () => {
-    const resolve = makeItemCategoryResolver(db, wfm);
-    // The catalog spells Ash Prime's gameRef all-lowercase.
-    expect(resolve(live("Ash Prime", "ash_prime"))).toBe("Warframes");
-    expect(resolve({ ...live("Ash Prime"), internalName: "/lotus/powersuits/ash/ashprime" })).toBe(
-      "Warframes",
+    const resolve = makeItemKindResolver(db, wfm);
+    // The catalog spells Serration's gameRef all-lowercase.
+    expect(resolve(live("Serration", "serration"))).toBe("mod");
+    expect(resolve({ ...live("Serration"), internalName: "/lotus/upgrades/mods/serration" })).toBe(
+      "mod",
     );
   });
 
   it("prefers a uniqueName the row already carries", () => {
-    const resolve = makeItemCategoryResolver(db, wfm);
+    const resolve = makeItemKindResolver(db, wfm);
     expect(
-      resolve({ ...live("Anything", "ash_prime"), internalName: "/Lotus/Weapons/Tenno/Nikana" }),
-    ).toBe("Melee");
+      resolve({ ...live("Anything", "serration"), internalName: "/Lotus/Weapons/Tenno/Nikana" }),
+    ).toBe("other");
   });
 
-  it("reports uncategorized instead of guessing", () => {
-    const resolve = makeItemCategoryResolver(db, wfm);
-    expect(resolve(live("Unknown Thing", "orphan"))).toBe(UNCATEGORIZED);
-    expect(resolve(live("Unknown Thing"))).toBe(UNCATEGORIZED);
-    expect(makeItemCategoryResolver({}, {})(live("Ash Prime", "ash_prime"))).toBe(UNCATEGORIZED);
+  it("looks a live row up without the tag the trade dialog appends", () => {
+    expect(makeItemKindResolver(db, wfm)(live("Mortus Lungfish (A)"))).toBe("resource");
+  });
+
+  it("buckets a rank-tagged arcane by the item database, not by the rank tag", () => {
+    // Most arcanes are not named "Arcane ...", so the name rules never see them
+    // and the dialog's rank tag used to file every one of them as a mod.
+    const arcaneDb = {
+      ...db,
+      "/Lotus/Types/Game/Projections/ArcaneMagusLockdown": {
+        name: "Magus Lockdown",
+        category: "Arcanes",
+      },
+    };
+    const arcaneWfm = {
+      ...wfm,
+      "magus lockdown": {
+        url_name: "magus_lockdown",
+        gameRef: "/Lotus/Types/Game/Projections/ArcaneMagusLockdown",
+      },
+    };
+    expect(makeItemKindResolver(arcaneDb, arcaneWfm)(live("Magus Lockdown (Rank 5)"))).toBe(
+      "arcane",
+    );
+  });
+
+  it("keeps the rank tag as the fallback for an item the database has never seen", () => {
+    expect(makeItemKindResolver({}, {})(live("Mystery Mod (Rank 3)"))).toBe("mod");
+  });
+
+  it("reports other instead of guessing", () => {
+    const resolve = makeItemKindResolver(db, wfm);
+    expect(resolve(live("Unknown Thing", "orphan"))).toBe("other");
+    expect(resolve(live("Unknown Thing"))).toBe("other");
+    expect(makeItemKindResolver({}, {})(live("Serration", "serration"))).toBe("other");
   });
 });
 
