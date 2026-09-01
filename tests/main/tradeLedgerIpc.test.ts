@@ -143,6 +143,43 @@ describe("ledger IPC boundary", () => {
     expect(tracker.getTradeLog().find((e) => e.id === "a")?.platChange).toBe(77);
   });
 
+  it("unsets credits and tax when the patch carries null", async () => {
+    const { tracker } = await setup();
+    expect(await invoke("ledger:update-event", "a", { credits: 1200, tradeTax: 500 })).toEqual({
+      ok: true,
+    });
+    let row = tracker.getTradeLog().find((e) => e.id === "a");
+    expect(row?.credits).toBe(1200);
+    expect(row?.tradeTax).toBe(500);
+
+    expect(await invoke("ledger:update-event", "a", { credits: null, tradeTax: null })).toEqual({
+      ok: true,
+    });
+    row = tracker.getTradeLog().find((e) => e.id === "a");
+    expect(row?.credits).toBeUndefined();
+    expect(row?.tradeTax).toBeUndefined();
+  });
+
+  it("takes the id and the patch as the two positional args the preload sends", async () => {
+    const { tracker } = await setup();
+    const preload = fs.readFileSync(path.join(__dirname, "..", "..", "preload.ts"), "utf-8");
+    // The bridge must not wrap the args in one object: the handler reads them
+    // positionally, and a wrapped payload only ever answered "Invalid row id.".
+    expect(preload).toContain('ledgerUpdateEvent: inv<"ledgerUpdateEvent">(LEDGER_UPDATE_EVENT)');
+    expect(preload).not.toMatch(/LEDGER_UPDATE_EVENT,\s*\{/);
+
+    expect(await invoke("ledger:update-event", "a", { platChange: 5 })).toEqual({ ok: true });
+    expect(tracker.getTradeLog().find((e) => e.id === "a")?.platChange).toBe(5);
+  });
+
+  it("strips platform glyphs from an edited partner name", async () => {
+    const { tracker } = await setup();
+    expect(await invoke("ledger:update-event", "a", { partner: "\uE000 Kestrel " })).toEqual({
+      ok: true,
+    });
+    expect(tracker.getTradeLog().find((e) => e.id === "a")?.partner).toBe("Kestrel");
+  });
+
   it("rejects an unknown import batch", async () => {
     await setup();
     expect(await invoke("ledger:import-apply", 7)).toEqual({

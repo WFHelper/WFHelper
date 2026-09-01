@@ -25,8 +25,9 @@ export interface LedgerEventPatch {
   platChange?: number;
   partner?: string;
   type?: TradeType;
-  credits?: number;
-  tradeTax?: number;
+  /** null clears the stored value; absent leaves it alone. */
+  credits?: number | null;
+  tradeTax?: number | null;
 }
 
 export interface LedgerImportRowPreview {

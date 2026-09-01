@@ -269,11 +269,13 @@ function readField(record: SourceRecord, field: string | undefined): unknown {
 const DOTTED_DATE = /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/;
 const SLASHED_DATE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/;
 
-function utcIso(y: number, m: number, d: number, h = 0, min = 0, s = 0): string | null {
-  const time = Date.UTC(y, m - 1, d, h, min, s);
+/** An export prints wall-clock dates, so a bare date or time is read as local:
+ *  a UTC reading would land the row on the wrong calendar day west of Greenwich. */
+function localIso(y: number, m: number, d: number, h = 0, min = 0, s = 0): string | null {
+  const parsed = new Date(y, m - 1, d, h, min, s);
+  const time = parsed.getTime();
   if (!Number.isFinite(time)) return null;
-  const parsed = new Date(time);
-  if (parsed.getUTCFullYear() !== y || parsed.getUTCMonth() !== m - 1) return null;
+  if (parsed.getFullYear() !== y || parsed.getMonth() !== m - 1) return null;
   return parsed.toISOString();
 }
 
@@ -291,7 +293,7 @@ export function parseGdprDate(value: unknown): string | null {
   const dotted = DOTTED_DATE.exec(text);
   if (dotted) {
     const [, d, m, y, h, min, s] = dotted;
-    return utcIso(
+    return localIso(
       Number(y),
       Number(m),
       Number(d),
@@ -307,13 +309,13 @@ export function parseGdprDate(value: unknown): string | null {
     const dayFirst = Number(first) > 12;
     const month = dayFirst ? Number(second) : Number(first);
     const day = dayFirst ? Number(first) : Number(second);
-    return utcIso(Number(y), month, day, Number(h || 0), Number(min || 0), Number(s || 0));
+    return localIso(Number(y), month, day, Number(h || 0), Number(min || 0), Number(s || 0));
   }
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return `${text}T00:00:00.000Z`;
-  const normalized = /^\d{4}-\d{2}-\d{2}[ T]/.test(text)
-    ? text.replace(" ", "T") + (/(Z|[+-]\d{2}:?\d{2})$/.test(text) ? "" : "Z")
-    : text;
+  const isoDay = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (isoDay) return localIso(Number(isoDay[1]), Number(isoDay[2]), Number(isoDay[3]));
+  // A datetime with no offset is local per the language spec, so leave it bare.
+  const normalized = /^\d{4}-\d{2}-\d{2}[ T]/.test(text) ? text.replace(" ", "T") : text;
   const parsed = Date.parse(normalized);
   return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
 }
@@ -381,7 +383,8 @@ function itemFromName(
   return {
     resolved: catalogItem != null,
     item: {
-      internalName: "",
+      // gameRef is DE's uniqueName; the renderer joins the item database on it.
+      internalName: catalogItem?.gameRef ?? "",
       displayName: counted.name,
       count: counted.count,
       direction,
@@ -530,6 +533,71 @@ function parseRow(record: SourceRecord, fields: FieldMap, occurrence: number): P
   };
 }
 
+/** Case- and glyph-insensitive text, so a console partner or a re-cased item
+ *  name still joins against the row the live tracker wrote. */
+function normalizeLoose(value: unknown): string {
+  return stripPlatformGlyphs(toText(value)).toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/** Item multiset of one trade. Live and imported rows describe direction from
+ *  opposite ends of the deal, so only name and count belong in the key. */
+function itemSetKey(items: readonly TradeItem[]): string {
+  return items
+    .map((item) => `${normalizeLoose(item.displayName)}:${item.count}`)
+    .sort()
+    .join("|");
+}
+
+function liveMatchKey(event: TradeEvent): string {
+  return `${event.type}|${Math.round(event.platChange)}|${itemSetKey(event.items ?? [])}`;
+}
+
+/** An export covering an already-tracked period ships the same trade twice, and
+ *  its rows carry no id the tracker ever saw. One day of slack absorbs a
+ *  date-only export row against the live row's exact timestamp. */
+const LIVE_MATCH_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+interface LiveCandidate {
+  at: number;
+  partner: string;
+  used: boolean;
+}
+
+function indexLiveEvents(existing: readonly TradeEvent[]): Map<string, LiveCandidate[]> {
+  const index = new Map<string, LiveCandidate[]>();
+  for (const event of existing) {
+    if ((event.source ?? "live") !== "live") continue;
+    const at = Date.parse(event.date);
+    if (!Number.isFinite(at)) continue;
+    const candidate: LiveCandidate = { at, partner: normalizeLoose(event.partner), used: false };
+    const key = liveMatchKey(event);
+    const bucket = index.get(key);
+    if (bucket) bucket.push(candidate);
+    else index.set(key, [candidate]);
+  }
+  return index;
+}
+
+/** One live row absorbs at most one imported row, so two genuine same-day
+ *  trades both survive. Partner is compared when both sides carry one; a GDPR
+ *  export may not name the counterparty at all. */
+function takeLiveMatch(index: Map<string, LiveCandidate[]>, event: TradeEvent): boolean {
+  const bucket = index.get(liveMatchKey(event));
+  if (!bucket) return false;
+  const at = Date.parse(event.date);
+  if (!Number.isFinite(at)) return false;
+  const partner = normalizeLoose(event.partner);
+  const hit = bucket.find(
+    (candidate) =>
+      !candidate.used &&
+      Math.abs(candidate.at - at) <= LIVE_MATCH_WINDOW_MS &&
+      (!partner || !candidate.partner || partner === candidate.partner),
+  );
+  if (!hit) return false;
+  hit.used = true;
+  return true;
+}
+
 interface GdprParseResult {
   events: TradeEvent[];
   rows: LedgerImportRowPreview[];
@@ -540,7 +608,7 @@ interface GdprParseResult {
 export function parseGdprTradeExport(
   text: string,
   fileName: string,
-  knownSourceRecordIds: ReadonlySet<string>,
+  existing: readonly TradeEvent[],
 ): GdprParseResult {
   let records: SourceRecord[];
   const looksJson = /\.json$/i.test(fileName) || /^\s*[[{]/.test(text);
@@ -565,6 +633,12 @@ export function parseGdprTradeExport(
   }
   const fields = mapFields([...keys]);
 
+  const knownSourceRecordIds = new Set<string>();
+  for (const event of existing) {
+    if (event.sourceRecordId) knownSourceRecordIds.add(event.sourceRecordId);
+  }
+  const liveIndex = indexLiveEvents(existing);
+
   const occurrences = new Map<string, number>();
   const seenInBatch = new Set<string>();
   for (const record of records) {
@@ -579,7 +653,11 @@ export function parseGdprTradeExport(
       continue;
     }
     const recordId = parsed.event.sourceRecordId ?? "";
-    if (knownSourceRecordIds.has(recordId) || seenInBatch.has(recordId)) {
+    if (
+      knownSourceRecordIds.has(recordId) ||
+      seenInBatch.has(recordId) ||
+      takeLiveMatch(liveIndex, parsed.event)
+    ) {
       counts.duplicates++;
       rows.push({ kind: "duplicate", date: parsed.preview.date, summary: parsed.preview.summary });
       continue;
@@ -632,12 +710,7 @@ export function previewGdprImportFile(
   }
 
   const fileName = path.basename(filePath);
-  const known = new Set<string>();
-  for (const event of existing) {
-    if (event.sourceRecordId) known.add(event.sourceRecordId);
-  }
-
-  const result = parseGdprTradeExport(text, fileName, known);
+  const result = parseGdprTradeExport(text, fileName, existing);
   if (result.rows.length === 0) return { error: "No trade rows were found in this file." };
 
   const batchId = randomUUID();

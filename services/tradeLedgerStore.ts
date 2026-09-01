@@ -67,10 +67,15 @@ export function eventYear(date: string): number | null {
   return year;
 }
 
+/** Local calendar day of an instant. `from`/`to` are the days the user picked in
+ *  their own timezone, so the ISO prefix would shift the window by a day west of
+ *  Greenwich. Main and renderer share the machine clock, so both agree. */
 function dayKey(date: string): string {
-  if (/^\d{4}-\d{2}-\d{2}/.test(date)) return date.slice(0, 10);
   const parsed = new Date(date);
-  return Number.isFinite(parsed.getTime()) ? parsed.toISOString().slice(0, 10) : "";
+  if (!Number.isFinite(parsed.getTime())) return "";
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${parsed.getFullYear()}-${month}-${day}`;
 }
 
 // Archives only ever receive rows the tracker already sanitized, so this is a
@@ -403,8 +408,14 @@ export function applyLedgerPatch(event: TradeEvent, patch: LedgerEventPatch): Tr
   const next: TradeEvent = { ...event };
   if (patch.type !== undefined) next.type = patch.type;
   if (patch.platChange !== undefined) next.platChange = patch.platChange;
-  if (patch.credits !== undefined) next.credits = patch.credits;
-  if (patch.tradeTax !== undefined) next.tradeTax = patch.tradeTax;
+  if (patch.credits !== undefined) {
+    if (patch.credits === null) delete next.credits;
+    else next.credits = patch.credits;
+  }
+  if (patch.tradeTax !== undefined) {
+    if (patch.tradeTax === null) delete next.tradeTax;
+    else next.tradeTax = patch.tradeTax;
+  }
   if (patch.partner !== undefined) {
     if (patch.partner) next.partner = patch.partner;
     else delete next.partner;

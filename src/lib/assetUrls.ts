@@ -20,6 +20,7 @@ export const NAV_ICON_URLS = {
   relics: new URL("../../assets/icons/IconRelic256.png", import.meta.url).href,
   rivens: new URL("../../assets/icons/Rivens.png", import.meta.url).href,
   market: new URL("../../assets/icons/Market.png", import.meta.url).href,
+  analytics: new URL("../../assets/icons/misc/trade.png", import.meta.url).href,
   settings: new URL("../../assets/icons/Settings.png", import.meta.url).href,
   stats: new URL("../../assets/icons/Stats.png", import.meta.url).href,
   wiki: new URL("../../assets/icons/Wiki.svg", import.meta.url).href,

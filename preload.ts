@@ -322,8 +322,7 @@ try {
     ledgerQuery: inv<"ledgerQuery">(LEDGER_QUERY),
     ledgerImportPreview: inv<"ledgerImportPreview">(LEDGER_IMPORT_PREVIEW),
     ledgerImportApply: inv<"ledgerImportApply">(LEDGER_IMPORT_APPLY),
-    ledgerUpdateEvent: (id, patch): Ret<"ledgerUpdateEvent"> =>
-      ipcRenderer.invoke(LEDGER_UPDATE_EVENT, { id, patch }),
+    ledgerUpdateEvent: inv<"ledgerUpdateEvent">(LEDGER_UPDATE_EVENT),
     ledgerExport: inv<"ledgerExport">(LEDGER_EXPORT),
 
     getArbiSchedule: inv<"getArbiSchedule">(ARBI_SCHED_GET),

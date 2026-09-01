@@ -258,6 +258,80 @@ describe("live log cap", () => {
   });
 });
 
+describe("live log cap boundary", () => {
+  function rows(count: number): TradeEvent[] {
+    return Array.from({ length: count }, (_unused, index) =>
+      event(`row-${index}`, `${YEAR}-01-01T00:00:00.000Z`),
+    );
+  }
+
+  it("leaves exactly 2000 rows live and writes no archive", async () => {
+    const { tracker } = await modules();
+    writeLiveLog(rows(2000));
+
+    tracker.loadTradeLog();
+
+    expect(tracker.getTradeLog()).toHaveLength(2000);
+    expect(fs.existsSync(path.join(tmpDir, "trade-ledger", `${YEAR}.json.gz`))).toBe(false);
+  });
+
+  it("spills the 2001st row so an older release can never truncate it away", async () => {
+    const { tracker, store } = await modules();
+    writeLiveLog(rows(2001));
+
+    tracker.loadTradeLog();
+
+    expect(tracker.getTradeLog()).toHaveLength(2000);
+    expect(readArchiveFile(YEAR)).toHaveLength(1);
+    expect(store.queryLedger({}, tracker.getTradeLog()).total).toBe(2001);
+  });
+});
+
+describe("local calendar day filtering", () => {
+  const NEGATIVE_OFFSET_TZ = "America/New_York";
+  let previousTz: string | undefined;
+
+  beforeEach(() => {
+    previousTz = process.env.TZ;
+    process.env.TZ = NEGATIVE_OFFSET_TZ;
+  });
+
+  afterEach(() => {
+    if (previousTz === undefined) delete process.env.TZ;
+    else process.env.TZ = previousTz;
+  });
+
+  it("puts a New Year row on the local day and spans both archive years", async () => {
+    const { tracker, store } = await modules();
+    writeLiveLog([
+      // 02:00 UTC on Jan 1 is still Dec 31 of the previous year in New York.
+      event("nye", `${YEAR}-01-01T02:00:00.000Z`),
+      event("old", `${YEAR - 1}-06-06T10:00:00.000Z`),
+    ]);
+    tracker.loadTradeLog();
+    const live = tracker.getTradeLog();
+
+    // "old" rotated into the previous year's archive, "nye" is still live.
+    expect(live.map((e) => e.id)).toEqual(["nye"]);
+    expect(readArchiveFile(YEAR - 1).map((e) => e.id)).toEqual(["old"]);
+
+    const lastYear = store.queryLedger(
+      { from: `${YEAR - 1}-01-01`, to: `${YEAR - 1}-12-31` },
+      live,
+    );
+    expect(lastYear.events.map((e) => e.id)).toEqual(["nye", "old"]);
+
+    const thisYear = store.queryLedger({ from: `${YEAR}-01-01` }, live);
+    expect(thisYear.events.map((e) => e.id)).toEqual([]);
+
+    const newYearsEve = store.queryLedger(
+      { from: `${YEAR - 1}-12-31`, to: `${YEAR - 1}-12-31` },
+      live,
+    );
+    expect(newYearsEve.events.map((e) => e.id)).toEqual(["nye"]);
+  });
+});
+
 describe("queryLedger", () => {
   async function seeded(): Promise<{ tracker: Tracker; store: Store }> {
     const mods = await modules();

@@ -56,6 +56,14 @@ function writeCsv(name: string, body: string): string {
   return file;
 }
 
+/** GDPR wall-clock dates land on the local calendar day, not the UTC one. */
+function localDay(iso: string): string {
+  const at = new Date(iso);
+  const month = String(at.getMonth() + 1).padStart(2, "0");
+  const day = String(at.getDate()).padStart(2, "0");
+  return `${at.getFullYear()}-${month}-${day}`;
+}
+
 function archived(year: number): TradeEvent[] {
   const file = path.join(tmpDir, "trade-ledger", `${year}.json.gz`);
   return JSON.parse(zlib.gunzipSync(fs.readFileSync(file)).toString("utf-8"));
@@ -78,13 +86,14 @@ describe("parseGdprDate", () => {
     const { importer } = await modules();
     const parse = importer.parseGdprDate;
 
-    expect(parse("2025-03-04")).toBe("2025-03-04T00:00:00.000Z");
-    expect(parse("2025-03-04 18:30:00")).toBe("2025-03-04T18:30:00.000Z");
+    // A wall-clock date carries no offset, so it is read as the local day.
+    expect(parse("2025-03-04")).toBe(new Date(2025, 2, 4).toISOString());
+    expect(parse("2025-03-04 18:30:00")).toBe(new Date(2025, 2, 4, 18, 30, 0).toISOString());
     expect(parse("2025-03-04T18:30:00Z")).toBe("2025-03-04T18:30:00.000Z");
     // Dotted is day-first; slashed defaults to US order unless day > 12.
-    expect(parse("04.03.2025")).toBe("2025-03-04T00:00:00.000Z");
-    expect(parse("03/04/2025")).toBe("2025-03-04T00:00:00.000Z");
-    expect(parse("25/03/2025")).toBe("2025-03-25T00:00:00.000Z");
+    expect(parse("04.03.2025")).toBe(new Date(2025, 2, 4).toISOString());
+    expect(parse("03/04/2025")).toBe(new Date(2025, 2, 4).toISOString());
+    expect(parse("25/03/2025")).toBe(new Date(2025, 2, 25).toISOString());
     expect(parse(1_700_000_000)).toBe(new Date(1_700_000_000_000).toISOString());
     expect(parse("1700000000")).toBe(new Date(1_700_000_000_000).toISOString());
     expect(parse("who knows")).toBeNull();
@@ -96,11 +105,11 @@ describe("parseGdprDate", () => {
 describe("parseGdprTradeExport", () => {
   it("maps headers by meaning and resolves catalog names", async () => {
     const { importer } = await modules();
-    const result = importer.parseGdprTradeExport(CSV, "trades.csv", new Set());
+    const result = importer.parseGdprTradeExport(CSV, "trades.csv", []);
 
     expect(result.counts).toEqual({ parsed: 2, duplicates: 0, unresolved: 1, rejected: 0 });
     const [first] = result.events;
-    expect(first.date.slice(0, 10)).toBe(`${LAST_YEAR}-03-04`);
+    expect(localDay(first.date)).toBe(`${LAST_YEAR}-03-04`);
     expect(first.type).toBe("sale");
     expect(first.platChange).toBe(45);
     expect(first.partner).toBe("Kestrel");
@@ -114,7 +123,7 @@ describe("parseGdprTradeExport", () => {
 
   it("keeps two identical same-day trades from different source rows distinct", async () => {
     const { importer } = await modules();
-    const result = importer.parseGdprTradeExport(CSV, "trades.csv", new Set());
+    const result = importer.parseGdprTradeExport(CSV, "trades.csv", []);
     const ids = result.events.map((event) => event.id);
     expect(new Set(ids).size).toBe(3);
     expect(result.counts.duplicates).toBe(0);
@@ -122,10 +131,9 @@ describe("parseGdprTradeExport", () => {
 
   it("marks rows already in the ledger as duplicates", async () => {
     const { importer } = await modules();
-    const first = importer.parseGdprTradeExport(CSV, "trades.csv", new Set());
-    const known = new Set(first.events.map((event) => event.sourceRecordId ?? ""));
+    const first = importer.parseGdprTradeExport(CSV, "trades.csv", []);
 
-    const second = importer.parseGdprTradeExport(CSV, "trades.csv", known);
+    const second = importer.parseGdprTradeExport(CSV, "trades.csv", first.events);
     expect(second.events).toHaveLength(0);
     expect(second.counts.duplicates).toBe(3);
   });
@@ -139,7 +147,7 @@ describe("parseGdprTradeExport", () => {
       `${LAST_YEAR}-03-05,Sale,,,Ghost`,
     ].join("\n");
 
-    const result = importer.parseGdprTradeExport(body, "trades.csv", new Set());
+    const result = importer.parseGdprTradeExport(body, "trades.csv", []);
     expect(result.counts.parsed).toBe(1);
     expect(result.counts.rejected).toBe(2);
     const reasons = result.rows.filter((row) => row.kind === "rejected").map((row) => row.reason);
@@ -164,7 +172,7 @@ describe("parseGdprTradeExport", () => {
       ],
     });
 
-    const result = importer.parseGdprTradeExport(body, "export.json", new Set());
+    const result = importer.parseGdprTradeExport(body, "export.json", []);
     expect(result.events).toHaveLength(1);
     const [event] = result.events;
     expect(event.type).toBe("purchase");
@@ -192,9 +200,103 @@ describe("parseGdprTradeExport", () => {
       `${LAST_YEAR}-03-05,Ash Prime Chassis,-30,Vor`,
     ].join("\n");
 
-    const result = importer.parseGdprTradeExport(body, "trades.csv", new Set());
+    const result = importer.parseGdprTradeExport(body, "trades.csv", []);
     expect(result.events.map((event) => event.type)).toEqual(["sale", "purchase"]);
     expect(result.events.map((event) => event.platChange)).toEqual([45, 30]);
+  });
+});
+
+describe("live-tracked duplicates", () => {
+  function live(day: string, extra: Partial<TradeEvent> = {}): TradeEvent {
+    return {
+      id: `live-${day}-${extra.platChange ?? 45}`,
+      date: new Date(`${day}T19:14:03.000Z`).toISOString(),
+      type: "sale",
+      platChange: 45,
+      items: [{ internalName: "", displayName: "Ash Prime Chassis", count: 1, direction: "given" }],
+      partner: "Kestrel",
+      source: "live",
+      ...extra,
+    };
+  }
+
+  it("classifies a GDPR row that repeats a live-tracked trade as a duplicate", async () => {
+    const { importer } = await modules();
+    const csv = [
+      "Date,Type,Item,Platinum,Partner",
+      `${LAST_YEAR}-03-04,Sale,Ash Prime Chassis,45,Kestrel`,
+    ].join("\n");
+
+    const result = importer.parseGdprTradeExport(csv, "trades.csv", [live(`${LAST_YEAR}-03-04`)]);
+    expect(result.counts.duplicates).toBe(1);
+    expect(result.counts.parsed).toBe(0);
+    expect(result.events).toHaveLength(0);
+    expect(result.rows[0].kind).toBe("duplicate");
+  });
+
+  it("matches without a partner column and ignores a case or glyph difference", async () => {
+    const { importer } = await modules();
+    const csv = ["Date,Type,Item,Platinum", `${LAST_YEAR}-03-04,Sale,ash prime chassis,45`].join(
+      "\n",
+    );
+
+    const result = importer.parseGdprTradeExport(csv, "trades.csv", [
+      live(`${LAST_YEAR}-03-04`, { partner: "KESTREL" }),
+    ]);
+    expect(result.counts.duplicates).toBe(1);
+  });
+
+  it("keeps a second same-day trade that only one live row can absorb", async () => {
+    const { importer } = await modules();
+    const csv = [
+      "Date,Type,Item,Platinum,Partner",
+      `${LAST_YEAR}-03-04,Sale,Ash Prime Chassis,45,Kestrel`,
+      `${LAST_YEAR}-03-04,Sale,Ash Prime Chassis,45,Kestrel`,
+    ].join("\n");
+
+    const result = importer.parseGdprTradeExport(csv, "trades.csv", [live(`${LAST_YEAR}-03-04`)]);
+    expect(result.counts).toMatchObject({ parsed: 1, duplicates: 1 });
+    expect(result.events).toHaveLength(1);
+  });
+
+  it("keeps distinct same-day trades apart on platinum, type and partner", async () => {
+    const { importer } = await modules();
+    const csv = [
+      "Date,Type,Item,Platinum,Partner",
+      `${LAST_YEAR}-03-04,Sale,Ash Prime Chassis,60,Kestrel`,
+      `${LAST_YEAR}-03-04,Purchase,Ash Prime Chassis,45,Kestrel`,
+      `${LAST_YEAR}-03-04,Sale,Ash Prime Chassis,45,Vor`,
+    ].join("\n");
+
+    const result = importer.parseGdprTradeExport(csv, "trades.csv", [live(`${LAST_YEAR}-03-04`)]);
+    expect(result.counts.duplicates).toBe(0);
+    expect(result.events).toHaveLength(3);
+  });
+
+  it("never folds one imported row into another by the heuristic", async () => {
+    const { importer } = await modules();
+    const csv = [
+      "Date,Type,Item,Platinum,Partner",
+      `${LAST_YEAR}-03-04,Sale,Ash Prime Chassis,45,Kestrel`,
+      `${LAST_YEAR}-03-04,Sale,Ash Prime Chassis,45,Kestrel`,
+    ].join("\n");
+
+    const gdpr = importer.parseGdprTradeExport(csv, "trades.csv", []);
+    expect(gdpr.events).toHaveLength(2);
+    // The same rows as prior gdpr-sourced ledger entries still only dedup by id.
+    const again = importer.parseGdprTradeExport(csv, "trades.csv", gdpr.events);
+    expect(again.counts.duplicates).toBe(2);
+  });
+
+  it("does not match a live row more than a day away", async () => {
+    const { importer } = await modules();
+    const csv = [
+      "Date,Type,Item,Platinum,Partner",
+      `${LAST_YEAR}-03-04,Sale,Ash Prime Chassis,45,Kestrel`,
+    ].join("\n");
+
+    const result = importer.parseGdprTradeExport(csv, "trades.csv", [live(`${LAST_YEAR}-03-08`)]);
+    expect(result.counts.duplicates).toBe(0);
   });
 });
 

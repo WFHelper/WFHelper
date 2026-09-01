@@ -7,7 +7,10 @@ import type { ToggleableView, ViewName } from "../types/views.js";
 export type SidebarViewName = Exclude<ViewName, "setup">;
 
 /** Views loaded on first visit. Everything else is in the initial bundle. */
-export type LazyViewName = Extract<ViewName, "world" | "market" | "relics" | "wiki" | "arbi">;
+export type LazyViewName = Extract<
+  ViewName,
+  "world" | "market" | "analytics" | "relics" | "wiki" | "arbi"
+>;
 
 type LazyViewComponent = Component<Record<string, never>>;
 
@@ -17,6 +20,7 @@ export const LAZY_VIEW_LOADERS: Record<
 > = {
   world: () => import("../views/WorldView.svelte"),
   market: () => import("../views/MarketView.svelte"),
+  analytics: () => import("../views/MarketAnalysisView.svelte"),
   relics: () => import("../views/RelicsView.svelte"),
   wiki: () => import("../views/WikiView.svelte"),
   arbi: () => import("../views/ArbiAnalyzeView.svelte"),
@@ -34,6 +38,7 @@ export const VIEW_LABEL_KEYS: Record<ViewName, MessageKey> = {
   stats: "common.stats",
   world: "common.world",
   market: "common.market",
+  analytics: "common.analytics",
   relics: "common.relics",
   wiki: "common.wiki",
   rivens: "common.rivens",
@@ -51,6 +56,7 @@ const SIDEBAR_VIEW_HIDEABLE: Record<SidebarViewName, boolean> = {
   stats: true,
   world: true,
   market: true,
+  analytics: true,
   relics: true,
   wiki: true,
   rivens: true,

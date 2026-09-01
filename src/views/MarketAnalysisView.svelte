@@ -1,0 +1,561 @@
+<script lang="ts">
+  import { onDestroy, onMount } from "svelte";
+  import { invoke } from "../lib/ipc.js";
+  import { locale, tr } from "../lib/i18n.js";
+  import type { MessageKey } from "../lib/i18n.js";
+  import { log } from "../lib/log.js";
+  import ThemedButton from "../components/ThemedButton.svelte";
+  import ThemedPanel from "../components/ThemedPanel.svelte";
+  import AnalysisCategoryEditor from "../components/analysis/AnalysisCategoryEditor.svelte";
+  import AnalysisCategoryPanel from "../components/analysis/AnalysisCategoryPanel.svelte";
+  import AnalysisDateRange from "../components/analysis/AnalysisDateRange.svelte";
+  import AnalysisImportDialog from "../components/analysis/AnalysisImportDialog.svelte";
+  import AnalysisLedgerTable from "../components/analysis/AnalysisLedgerTable.svelte";
+  import AnalysisRowEditor from "../components/analysis/AnalysisRowEditor.svelte";
+  import AnalysisSummary from "../components/analysis/AnalysisSummary.svelte";
+  import AnalysisTopItems from "../components/analysis/AnalysisTopItems.svelte";
+  import AnalysisWorthToday from "../components/analysis/AnalysisWorthToday.svelte";
+  import AnalysisYearCompare from "../components/analysis/AnalysisYearCompare.svelte";
+  import { itemDb, wfmItems } from "../stores/data.js";
+  import { priceCacheRevision } from "../stores/pricing.js";
+  import { getCachedMedian } from "../stores/hydration/hydrationCacheHelpers.js";
+  import { normalizeWfmSlug } from "../../config/shared/wfm.js";
+  import { rendererPriceCacheKey } from "../../config/shared/wfmCacheKeys.js";
+  import {
+    LEDGER_QUERY_MAX_LIMIT,
+    type LedgerEventPatch,
+    type LedgerImportPreview,
+    type LedgerPage,
+    type LedgerQuery,
+  } from "../../config/shared/tradeLedgerTypes.js";
+  import type { TradeEvent, TradeItem, TradeType } from "../types/ipc.js";
+  import {
+    bestSeller,
+    categoryNames,
+    categoryRollup,
+    computeFlow,
+    distinctItemCategories,
+    fifoCostBasis,
+    loadCategoryOverrides,
+    makeItemCategoryResolver,
+    resolveRangePreset,
+    saveCategoryOverrides,
+    topItems,
+    withCategoryOverrides,
+    worthToday,
+    yearComparison,
+    type DateRange,
+    type RangePreset,
+  } from "../lib/stats/tradeAnalytics.js";
+
+  const TABLE_PAGE_SIZE = 50;
+  // Analytics read the whole range through the paged query; the cap keeps a huge
+  // archive from stalling the view, and the scope line says when it bit.
+  const ANALYTICS_MAX_ROWS = 6000;
+  const SEARCH_DEBOUNCE_MS = 250;
+
+  interface StatusLine {
+    key: MessageKey;
+    params?: Record<string, string | number>;
+    tone: "ok" | "error";
+  }
+
+  let rangePreset = $state<RangePreset>("ytd");
+  let range = $state<DateRange>(resolveRangePreset("ytd"));
+
+  let allEvents = $state<TradeEvent[]>([]);
+  let comparisonEvents = $state<TradeEvent[]>([]);
+  let analyticsTotal = $state(0);
+  let analyticsCapped = $state(false);
+  let analyticsLoading = $state(true);
+  let loadFailed = $state(false);
+
+  let tablePage = $state<LedgerPage | null>(null);
+  let tableLoading = $state(true);
+  let tableOffset = $state(0);
+  let search = $state("");
+  let typeFilter = $state<TradeType | "all">("all");
+
+  let overrides = $state<Record<string, string>>({});
+  let showCategoryEditor = $state(false);
+
+  let editing = $state<TradeEvent | null>(null);
+  let editSaving = $state(false);
+  // Keys and raw main-process text are kept apart; both resolve at render so a
+  // stored message never freezes in the language that wrote it.
+  let editErrorKey = $state<MessageKey | null>(null);
+  let editErrorText = $state<string | null>(null);
+
+  let importPreview = $state<LedgerImportPreview | null>(null);
+  let importBusy = $state(false);
+  let importErrorKey = $state<MessageKey | null>(null);
+  let importErrorText = $state<string | null>(null);
+
+  let includePartners = $state(false);
+  let status = $state<StatusLine | null>(null);
+
+  let destroyed = false;
+  let analyticsToken = 0;
+  let comparisonToken = 0;
+  let tableToken = 0;
+  let searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const ledgerReady = typeof window.api?.ledgerQuery === "function";
+
+  function baseQuery(): LedgerQuery {
+    const query: LedgerQuery = {};
+    if (range.from) query.from = range.from;
+    if (range.to) query.to = range.to;
+    return query;
+  }
+
+  async function loadAnalytics(): Promise<void> {
+    if (!ledgerReady) return;
+    const token = ++analyticsToken;
+    analyticsLoading = true;
+    loadFailed = false;
+    const collected: TradeEvent[] = [];
+    let offset = 0;
+    let total = 0;
+    let more = true;
+    try {
+      while (more) {
+        const page = await invoke("ledgerQuery", {
+          ...baseQuery(),
+          offset,
+          limit: LEDGER_QUERY_MAX_LIMIT,
+        });
+        if (destroyed || token !== analyticsToken) return;
+        total = page.total;
+        collected.push(...page.events);
+        offset += page.events.length;
+        more = page.events.length > 0 && offset < total && collected.length < ANALYTICS_MAX_ROWS;
+      }
+      allEvents = collected;
+      analyticsTotal = total;
+      analyticsCapped = total > collected.length;
+    } catch (e) {
+      if (destroyed || token !== analyticsToken) return;
+      log.warn("[Analysis] ledgerQuery failed:", e);
+      allEvents = [];
+      analyticsTotal = 0;
+      analyticsCapped = false;
+      loadFailed = true;
+    } finally {
+      if (!destroyed && token === analyticsToken) analyticsLoading = false;
+    }
+  }
+
+  // Year over year owns its query: the preset window and the analytics cap would
+  // otherwise report last year as empty or truncated. The same row ceiling keeps
+  // a huge archive from paging forever.
+  async function loadYearCompare(): Promise<void> {
+    if (!ledgerReady) return;
+    const token = ++comparisonToken;
+    const from = `${new Date().getFullYear() - 1}-01-01`;
+    const collected: TradeEvent[] = [];
+    let offset = 0;
+    let more = true;
+    try {
+      while (more) {
+        const page = await invoke("ledgerQuery", {
+          from,
+          offset,
+          limit: LEDGER_QUERY_MAX_LIMIT,
+        });
+        if (destroyed || token !== comparisonToken) return;
+        collected.push(...page.events);
+        offset += page.events.length;
+        more =
+          page.events.length > 0 && offset < page.total && collected.length < ANALYTICS_MAX_ROWS;
+      }
+      comparisonEvents = collected;
+    } catch (e) {
+      if (destroyed || token !== comparisonToken) return;
+      log.warn("[Analysis] year comparison query failed:", e);
+      comparisonEvents = [];
+    }
+  }
+
+  async function loadTable(): Promise<void> {
+    if (!ledgerReady) return;
+    const token = ++tableToken;
+    tableLoading = true;
+    const query: LedgerQuery = {
+      ...baseQuery(),
+      offset: tableOffset,
+      limit: TABLE_PAGE_SIZE,
+    };
+    if (typeFilter !== "all") query.type = typeFilter;
+    if (search.trim()) query.text = search.trim();
+    try {
+      const page = await invoke("ledgerQuery", query);
+      if (destroyed || token !== tableToken) return;
+      tablePage = page;
+    } catch (e) {
+      if (destroyed || token !== tableToken) return;
+      log.warn("[Analysis] ledger table query failed:", e);
+      tablePage = null;
+      loadFailed = true;
+    } finally {
+      if (!destroyed && token === tableToken) tableLoading = false;
+    }
+  }
+
+  /** Only a write changes the year totals; a range switch leaves them alone. */
+  function reloadAll(includeComparison = false): void {
+    void loadAnalytics();
+    void loadTable();
+    if (includeComparison) void loadYearCompare();
+  }
+
+  function onRangeChange(preset: RangePreset, next: DateRange): void {
+    rangePreset = preset;
+    range = next;
+    tableOffset = 0;
+    reloadAll();
+  }
+
+  function onSearch(value: string): void {
+    search = value;
+    tableOffset = 0;
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => void loadTable(), SEARCH_DEBOUNCE_MS);
+  }
+
+  function onTypeFilter(value: TradeType | "all"): void {
+    typeFilter = value;
+    tableOffset = 0;
+    void loadTable();
+  }
+
+  function onOffset(value: number): void {
+    tableOffset = Math.max(0, value);
+    void loadTable();
+  }
+
+  async function saveEdit(patch: LedgerEventPatch): Promise<void> {
+    const target = editing;
+    if (!target) return;
+    if (Object.keys(patch).length === 0) {
+      editing = null;
+      return;
+    }
+    editSaving = true;
+    editErrorKey = null;
+    editErrorText = null;
+    try {
+      const result = await invoke("ledgerUpdateEvent", target.id, patch);
+      if (destroyed) return;
+      if (!result.ok) {
+        if (result.error) editErrorText = result.error;
+        else editErrorKey = "analysis.saveFailed";
+        return;
+      }
+      editing = null;
+      reloadAll(true);
+    } catch (e) {
+      if (destroyed) return;
+      log.warn("[Analysis] ledgerUpdateEvent failed:", e);
+      editErrorKey = "analysis.saveFailed";
+    } finally {
+      if (!destroyed) editSaving = false;
+    }
+  }
+
+  async function startImport(): Promise<void> {
+    if (!ledgerReady) return;
+    importBusy = true;
+    importErrorKey = null;
+    importErrorText = null;
+    status = null;
+    try {
+      const result = await invoke("ledgerImportPreview");
+      if (destroyed) return;
+      if ("error" in result) {
+        status = {
+          key: "marketAlerts.importFailed",
+          params: { error: result.error },
+          tone: "error",
+        };
+        return;
+      }
+      importPreview = result;
+    } catch (e) {
+      if (destroyed) return;
+      log.warn("[Analysis] ledgerImportPreview failed:", e);
+      status = { key: "analysis.importUnavailable", tone: "error" };
+    } finally {
+      if (!destroyed) importBusy = false;
+    }
+  }
+
+  async function applyImport(): Promise<void> {
+    const preview = importPreview;
+    if (!preview) return;
+    importBusy = true;
+    importErrorKey = null;
+    importErrorText = null;
+    try {
+      const result = await invoke("ledgerImportApply", preview.batchId);
+      if (destroyed) return;
+      if (result.error) {
+        importErrorText = result.error;
+        return;
+      }
+      importPreview = null;
+      // The preview already dropped its duplicates, so the apply result reports 0
+      // unless the ledger gained a matching row since. Both were skipped.
+      const skipped = preview.counts.duplicates + result.skippedDuplicates;
+      status = {
+        key: "analysis.importApplied",
+        params: { applied: result.applied, skipped },
+        tone: "ok",
+      };
+      reloadAll(true);
+    } catch (e) {
+      if (destroyed) return;
+      log.warn("[Analysis] ledgerImportApply failed:", e);
+      importErrorKey = "analysis.importUnavailable";
+    } finally {
+      if (!destroyed) importBusy = false;
+    }
+  }
+
+  async function exportLedger(format: "csv" | "json"): Promise<void> {
+    if (!ledgerReady) return;
+    status = null;
+    try {
+      const result = await invoke("ledgerExport", {
+        format,
+        includePartners,
+        ...baseQuery(),
+      });
+      if (destroyed) return;
+      if (result.error) {
+        status = { key: "analysis.exportFailed", params: { message: result.error }, tone: "error" };
+        return;
+      }
+      status = result.saved
+        ? { key: "analysis.exportSaved", params: { path: result.path ?? "" }, tone: "ok" }
+        : { key: "analysis.exportCancelled", tone: "ok" };
+    } catch (e) {
+      log.warn("[Analysis] ledgerExport failed:", e);
+      if (!destroyed) status = { key: "analysis.exportUnavailable", tone: "error" };
+    }
+  }
+
+  function setOverride(key: string, category: string): void {
+    overrides = { ...overrides, [key]: category };
+    saveCategoryOverrides(overrides);
+  }
+
+  function clearOverride(key: string): void {
+    const next = { ...overrides };
+    delete next[key];
+    overrides = next;
+    saveCategoryOverrides(overrides);
+  }
+
+  function resetOverrides(): void {
+    overrides = {};
+    saveCategoryOverrides(overrides);
+  }
+
+  onMount(() => {
+    overrides = loadCategoryOverrides();
+    if (!ledgerReady) {
+      analyticsLoading = false;
+      tableLoading = false;
+      return;
+    }
+    reloadAll(true);
+  });
+
+  onDestroy(() => {
+    destroyed = true;
+    if (searchTimer) clearTimeout(searchTimer);
+  });
+
+  // $derived.by so the item database and the override map are read in the factory
+  // body: a dependency touched only inside the returned closure never invalidates.
+  const resolveCategory = $derived.by(() => {
+    const db = $itemDb;
+    const lookup = $wfmItems;
+    const map = overrides;
+    return withCategoryOverrides(makeItemCategoryResolver(db, lookup), map);
+  });
+
+  const resolveMedian = $derived.by(() => {
+    const lookup = $wfmItems;
+    // Re-derive when the snapshot lands; the price cache itself is not a store.
+    void $priceCacheRevision;
+    return (item: TradeItem): number | null => {
+      const name = (item.displayName ?? "").trim().toLowerCase();
+      const slug = normalizeWfmSlug(item.wfmSlug) ?? normalizeWfmSlug(lookup[name]?.url_name);
+      if (!slug) return null;
+      return getCachedMedian(rendererPriceCacheKey(slug, null));
+    };
+  });
+
+  const flow = $derived(computeFlow(allEvents));
+  const basis = $derived(fifoCostBasis(allEvents));
+  const soldRows = $derived(topItems(allEvents, "sold"));
+  const boughtRows = $derived(topItems(allEvents, "bought"));
+  const best = $derived(bestSeller(allEvents));
+  const categories = $derived(categoryRollup(allEvents, resolveCategory));
+  const comparison = $derived(yearComparison(comparisonEvents));
+  const worth = $derived(worthToday(allEvents, resolveMedian));
+
+  const distinctItems = $derived(distinctItemCategories(allEvents, resolveCategory, overrides));
+  const knownCategories = $derived(categoryNames(distinctItems));
+
+  const hasAnyData = $derived(allEvents.length > 0 || (tablePage?.total ?? 0) > 0);
+  const filtersActive = $derived(search.trim() !== "" || typeFilter !== "all");
+</script>
+
+<section class="view active" data-analysis-view>
+  <div class="view-header">
+    <h2>{$tr("analysis.title")}</h2>
+    <div class="ml-auto flex flex-wrap items-center gap-2" data-analysis-actions>
+      <ThemedButton disabled={!ledgerReady || importBusy} onClick={startImport}>
+        {$tr("analysis.import")}
+      </ThemedButton>
+      <label
+        class="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-text-muted"
+      >
+        <input
+          type="checkbox"
+          class="accent-[color:var(--accent)]"
+          bind:checked={includePartners}
+          data-analysis-include-partners
+        />
+        {$tr("analysis.includePartners")}
+      </label>
+      <ThemedButton disabled={!ledgerReady} onClick={() => void exportLedger("csv")}>
+        {$tr("analysis.exportCsv")}
+      </ThemedButton>
+      <ThemedButton disabled={!ledgerReady} onClick={() => void exportLedger("json")}>
+        {$tr("analysis.exportJson")}
+      </ThemedButton>
+    </div>
+  </div>
+
+  {#if !ledgerReady}
+    <div class="empty-state" data-analysis-unavailable>
+      <p>{$tr("analysis.unavailable")}</p>
+    </div>
+  {:else}
+    <div class="@container flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-1">
+      <AnalysisDateRange preset={rangePreset} {range} onChange={onRangeChange} />
+
+      {#if status}
+        <p
+          class="m-0 text-xs {status.tone === 'error' ? 'text-danger' : 'text-success'}"
+          data-analysis-status
+        >
+          {$tr(status.key, status.params)}
+        </p>
+      {/if}
+
+      {#if loadFailed}
+        <ThemedPanel className="flex items-center justify-between gap-3 p-3">
+          <span class="text-sm text-danger" data-analysis-load-error>
+            {$tr("analysis.loadFailed")}
+          </span>
+          <ThemedButton onClick={() => reloadAll(true)}>{$tr("common.retry")}</ThemedButton>
+        </ThemedPanel>
+      {/if}
+
+      {#if analyticsLoading}
+        <div class="empty-state"><p>{$tr("common.loading")}</p></div>
+      {:else if !hasAnyData && !filtersActive}
+        <div class="empty-state" data-analysis-empty>
+          <p class="text-sm font-semibold text-text-secondary">{$tr("analysis.emptyTitle")}</p>
+          <p class="max-w-[40rem] text-xs leading-relaxed">{$tr("analysis.emptyHint")}</p>
+        </div>
+      {:else}
+        {#if analyticsCapped}
+          <p class="m-0 text-xs text-warning" data-analysis-scope>
+            {$tr("analysis.analyticsScope", {
+              loaded: allEvents.length.toLocaleString($locale),
+              total: analyticsTotal.toLocaleString($locale),
+            })}
+          </p>
+        {/if}
+
+        <AnalysisSummary {flow} {basis} {best} />
+
+        <div class="grid grid-cols-1 gap-3 @2xl:grid-cols-2">
+          <AnalysisTopItems titleKey="analysis.topSold" rows={soldRows} side="sold" />
+          <AnalysisTopItems titleKey="analysis.topBought" rows={boughtRows} side="bought" />
+          <AnalysisCategoryPanel
+            rows={categories}
+            onEdit={() => {
+              showCategoryEditor = true;
+            }}
+          />
+          <AnalysisYearCompare {comparison} />
+        </div>
+
+        <AnalysisWorthToday {worth} />
+      {/if}
+
+      <div class="flex min-h-[20rem] flex-col">
+        <AnalysisLedgerTable
+          page={tablePage}
+          loading={tableLoading}
+          {search}
+          {typeFilter}
+          offset={tableOffset}
+          limit={TABLE_PAGE_SIZE}
+          {onSearch}
+          {onTypeFilter}
+          {onOffset}
+          onEdit={(event) => {
+            editing = event;
+            editErrorKey = null;
+            editErrorText = null;
+          }}
+        />
+      </div>
+    </div>
+  {/if}
+</section>
+
+{#if showCategoryEditor}
+  <AnalysisCategoryEditor
+    items={distinctItems}
+    {knownCategories}
+    onSet={setOverride}
+    onClear={clearOverride}
+    onResetAll={resetOverrides}
+    onClose={() => {
+      showCategoryEditor = false;
+    }}
+  />
+{/if}
+
+{#if editing}
+  <AnalysisRowEditor
+    event={editing}
+    saving={editSaving}
+    error={editErrorKey ? $tr(editErrorKey) : editErrorText}
+    onSave={(patch) => void saveEdit(patch)}
+    onClose={() => {
+      editing = null;
+    }}
+  />
+{/if}
+
+{#if importPreview}
+  <AnalysisImportDialog
+    preview={importPreview}
+    applying={importBusy}
+    error={importErrorKey ? $tr(importErrorKey) : importErrorText}
+    onApply={() => void applyImport()}
+    onClose={() => {
+      importPreview = null;
+    }}
+  />
+{/if}

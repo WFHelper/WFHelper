@@ -8,6 +8,7 @@ export type ViewName =
   | "stats"
   | "world"
   | "market"
+  | "analytics"
   | "relics"
   | "wiki"
   | "rivens"

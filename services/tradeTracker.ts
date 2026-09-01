@@ -28,8 +28,6 @@ import { MAX_TRADE_IMPORT_ROWS } from "../config/shared/statsImport";
 const log = withScope("tradeTracker");
 
 const MAX_EVENTS = 2000;
-/** How far the live log may run past the cap before rows spill into archives. */
-const LIVE_SPILL_SLACK = 200;
 const MAX_ITEMS_PER_TRADE = 12;
 // Stamped dialogs dedupe exactly; unstamped input uses the delivery window.
 const DUPLICATE_WINDOW_MS = 30_000;
@@ -166,10 +164,11 @@ function _saveLog(): void {
 }
 
 /** Trim the live log by archiving the overflow instead of dropping it. Rows whose
- *  archive write failed stay live, so the cap can never destroy a trade. The slack
- *  keeps a heavy trading session off one archive rewrite per trade. */
+ *  archive write failed stay live, so the cap can never destroy a trade. No slack
+ *  above MAX_EVENTS: an older release slices the file to 2000 on load, so any row
+ *  parked past the cap would be truncated unarchived after a rollback. */
 function enforceLiveCap(): void {
-  if (_tradeLog.length <= MAX_EVENTS + LIVE_SPILL_SLACK) return;
+  if (_tradeLog.length <= MAX_EVENTS) return;
   const overflow = _tradeLog.slice(MAX_EVENTS);
   const failed = new Set(mergeIntoArchives(overflow).map((event) => event.id));
   _tradeLog = _tradeLog.slice(0, MAX_EVENTS).concat(overflow.filter((e) => failed.has(e.id)));
@@ -221,8 +220,10 @@ export function recordTradeFromLog(parsed: {
   const items: TradeItem[] = parsed.items.map((i) => {
     const displayName = stripPlatformGlyphs(i.displayName);
     const catalogItem = lookupTradedCatalogItem(displayName);
+    // gameRef is DE's uniqueName, which is what the renderer joins the item
+    // database on. The signature below still keys off the display name.
     return {
-      internalName: "",
+      internalName: catalogItem?.gameRef ?? "",
       displayName,
       count: i.count,
       direction: i.direction,

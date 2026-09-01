@@ -7,6 +7,7 @@ import ctx from "./context";
 import * as tradeTracker from "../services/tradeTracker";
 import { previewGdprImportFile, takeStagedImport } from "../services/gdprImport";
 import { patchArchivedEvent, queryLedger, selectLedgerEvents } from "../services/tradeLedgerStore";
+import { stripPlatformGlyphs } from "../services/tradeLogSanitize";
 import { withScope } from "../services/logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import {
@@ -96,12 +97,15 @@ function parsePatch(raw: unknown): LedgerEventPatch | null {
     if (platChange == null) return null;
     patch.platChange = platChange;
   }
-  if (record.credits !== undefined) {
+  // null is the editor clearing a field; anything else must be a bounded integer.
+  if (record.credits === null) patch.credits = null;
+  else if (record.credits !== undefined) {
     const credits = asBoundedInt(record.credits, 0, MAX_CURRENCY);
     if (credits == null) return null;
     patch.credits = credits;
   }
-  if (record.tradeTax !== undefined) {
+  if (record.tradeTax === null) patch.tradeTax = null;
+  else if (record.tradeTax !== undefined) {
     const tradeTax = asBoundedInt(record.tradeTax, 0, MAX_CURRENCY);
     if (tradeTax == null) return null;
     patch.tradeTax = tradeTax;
@@ -113,7 +117,9 @@ function parsePatch(raw: unknown): LedgerEventPatch | null {
   }
   if (record.partner !== undefined) {
     if (typeof record.partner !== "string" || record.partner.length > 120) return null;
-    patch.partner = record.partner.trim();
+    // An edited partner takes the same glyph strip as a captured one, or a
+    // pasted console name would join against nothing.
+    patch.partner = stripPlatformGlyphs(record.partner.trim());
   }
   return Object.keys(patch).length > 0 ? patch : null;
 }
