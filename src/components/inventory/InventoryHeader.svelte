@@ -19,6 +19,12 @@
   export let viewMode: InventoryViewMode = "cards";
   export let viewModeEnabled = true;
   export let onSelectViewMode: (mode: InventoryViewMode) => void = () => {};
+  export let selectionMode = false;
+  export let selectionEnabled = true;
+  export let onToggleSelectionMode: () => void = () => {};
+
+  // Keys land with this feature's i18n commit; cast until en.json carries them.
+  const k = (key: string): MessageKey => key as MessageKey;
 
   const dispatch = createEventDispatcher<{
     filter: InventoryFilterTab;
@@ -103,6 +109,18 @@
             </button>
           {/each}
         </div>
+      {/if}
+      {#if selectionEnabled}
+        <button
+          class="filter-tab min-h-8 py-0 text-xs"
+          class:active={selectionMode}
+          aria-pressed={selectionMode}
+          data-inventory-select-toggle
+          title={$tr(k("inventory.selectModeHint"))}
+          on:click={onToggleSelectionMode}
+        >
+          {$tr(k("inventory.selectMode"))}
+        </button>
       {/if}
       {#if filtersEnabled}
         <button

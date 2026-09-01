@@ -57,6 +57,11 @@
       .join("\n"),
   );
 
+  const FIELD_CLASS =
+    "rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] " +
+    "bg-[var(--ui-control-bg)] px-2 py-1 text-right text-sm text-text-primary outline-none " +
+    "focus:border-accent-dim";
+
   function numberInput(event: Event): number | null {
     const value = (event.currentTarget as HTMLInputElement).value.trim();
     if (!value) return null;
@@ -66,10 +71,12 @@
 </script>
 
 <div
-  class="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto] items-center gap-2 border-b border-white/10 py-1 text-sm"
+  class="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto] items-center gap-3 rounded-[var(--radius-md)] border border-border/60 bg-black/15 px-3 py-2 text-sm"
+  data-workbench-row={row.rowId}
 >
   <input
     type="checkbox"
+    class="h-4 w-4 accent-[color:var(--accent)]"
     checked={row.selected}
     data-workbench-select
     onchange={() => onToggleSelect(row)}
@@ -86,7 +93,7 @@
       </span>
     {/if}
     {#if warnings.length > 0}
-      <div class="text-xs text-amber-400">
+      <div class="text-xs text-warning">
         {warnings.map((warning) => t(k(`workbench.warning.${warning}`))).join(" · ")}
       </div>
     {/if}
@@ -96,7 +103,7 @@
     <span>{row.verdict.safe}</span><span class="opacity-60">/{row.verdict.total}</span>
     {#if row.verdict.reserved > 0}
       <span
-        class="ml-1 rounded bg-amber-500/20 px-1 text-xs text-amber-300"
+        class="ml-1 rounded bg-warning/20 px-1.5 py-0.5 text-xs text-warning"
         title={reservationTitle}
       >
         {t(k("workbench.row.reserved"), { count: row.verdict.reserved })}
@@ -104,9 +111,9 @@
     {/if}
   </div>
 
-  <div class="flex items-center gap-1">
+  <div class="flex items-center gap-2">
     <input
-      class="w-14 rounded bg-black/20 px-1 text-right"
+      class="{FIELD_CLASS} w-16"
       type="number"
       min="0"
       max={row.verdict.total}
@@ -115,7 +122,7 @@
       onchange={(event) => onQuantity(row, numberInput(event) ?? 0)}
     />
     {#if needsOverride}
-      <label class="flex items-center gap-1 text-xs text-red-400" title={reservationTitle}>
+      <label class="flex items-center gap-1 text-xs text-danger" title={reservationTitle}>
         <input
           type="checkbox"
           checked={row.overrideAcknowledged}
@@ -145,14 +152,14 @@
       <span class="text-xs opacity-70" title={JSON.stringify(row.suggestion.inputs)}>
         {row.suggestion.price}p ({Math.round(row.suggestion.confidence * 100)}%)
         {#if row.suggestion.damping}
-          <span class="text-amber-400"
+          <span class="text-warning"
             >{t(k(`workbench.damping.${row.suggestion.damping.reason}`))}</span
           >
         {/if}
       </span>
     {/if}
     <input
-      class="w-16 rounded bg-black/20 px-1 text-right"
+      class="{FIELD_CLASS} w-20"
       type="number"
       min="1"
       placeholder={row.suggestion?.price != null ? String(row.suggestion.price) : ""}
@@ -166,14 +173,16 @@
   <div class="flex items-center gap-1 text-xs">
     <button
       type="button"
-      class="rounded px-1 {isLocked ? 'bg-red-500/30' : 'bg-white/10'}"
+      class="rounded-[var(--radius-sm)] border border-border px-2 py-1 {isLocked
+        ? 'bg-danger/25 text-danger'
+        : 'bg-white/5'}"
       title={t(k("workbench.safety.lockHint"))}
       onclick={() => onToggleLock(row)}
     >
       {t(k(isLocked ? "workbench.safety.locked" : "workbench.safety.lock"))}
     </button>
     <input
-      class="w-12 rounded bg-black/20 px-1 text-right"
+      class="{FIELD_CLASS} w-16"
       type="number"
       min="0"
       placeholder={t(k("workbench.safety.sparePlaceholder"))}
@@ -184,7 +193,9 @@
     {#if canSetKeep}
       <button
         type="button"
-        class="rounded px-1 {isSetKept ? 'bg-amber-500/30' : 'bg-white/10'}"
+        class="rounded-[var(--radius-sm)] border border-border px-2 py-1 {isSetKept
+          ? 'bg-warning/25 text-warning'
+          : 'bg-white/5'}"
         title={t(k("workbench.safety.setKeepHint"))}
         onclick={() => onToggleSetKeep(row)}
       >

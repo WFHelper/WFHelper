@@ -11,11 +11,16 @@
   export let detailKeys: Set<string> | null = null;
   /** Unsliced result count; null means `items` is already the complete list. */
   export let totalCount: number | null = null;
+  export let selectionMode = false;
+  /** Selected/eligible keys are Sets so a thousand-card page stays O(1) per card. */
+  export let selectedKeys: ReadonlySet<string> | null = null;
+  export let eligibleKeys: ReadonlySet<string> | null = null;
 
   const dispatch = createEventDispatcher<{
     select: InventoryViewItem;
     visible: InventoryViewItem;
     expand: InventoryViewItem;
+    toggle: { item: InventoryViewItem; shiftKey: boolean };
     more: void;
   }>();
 
@@ -43,6 +48,10 @@
   function handleVisible(event: CustomEvent<InventoryViewItem>): void {
     dispatch("visible", event.detail);
   }
+
+  function handleToggle(event: CustomEvent<{ item: InventoryViewItem; shiftKey: boolean }>): void {
+    dispatch("toggle", event.detail);
+  }
 </script>
 
 <div class="item-grid">
@@ -59,10 +68,14 @@
       <InventoryCard
         {item}
         {showDucats}
+        {selectionMode}
+        selected={selectedKeys?.has(item.internalName) ?? false}
+        selectable={eligibleKeys?.has(item.internalName) ?? false}
         canExpand={!detailKeys || detailKeys.has(item.internalName)}
         on:select={handleSelect}
         on:visible={handleVisible}
         on:expand={handleExpand}
+        on:toggle={handleToggle}
       />
     {/each}
     {#if totalCount != null && items.length < totalCount}

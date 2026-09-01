@@ -23,12 +23,14 @@
   import ComponentDetailModal from "./modals/ComponentDetailModal.svelte";
   import RelicDetailModal from "./modals/RelicDetailModal.svelte";
   import OrderModal from "./modals/OrderModal.svelte";
+  import BulkSellModal from "./components/workbench/BulkSellModal.svelte";
 
   import { currentView, SETUP_COMPLETED_KEY, statusText } from "./stores/app.js";
   import { parsedItems } from "./stores/data.js";
   import { tourActive } from "./stores/tour.js";
   import { autoFocusSearch } from "./stores/preferences.js";
   import { activeItem, activeComponent, activeRelic } from "./stores/modals.js";
+  import { bulkSellOpen } from "./stores/inventorySelection.js";
   import { setInventoryStatus } from "./lib/actions.js";
   import { initStartup } from "./lib/startupLoader.js";
   import { initRendererEvents } from "./lib/rendererEvents.js";
@@ -256,6 +258,9 @@
   <ComponentDetailModal />
   <RelicDetailModal />
   <OrderModal />
+  {#if $bulkSellOpen}
+    <BulkSellModal onClose={() => bulkSellOpen.set(false)} />
+  {/if}
 </ErrorBoundary>
 
 {#if $tourActive}

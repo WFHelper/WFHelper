@@ -8,14 +8,17 @@ import {
   bindingReasonKeys,
   buildPlanFromRows,
   buildQueueRows,
+  buildSelectedQueueRows,
   captureSafetySnapshot,
   effectivePrice,
+  eligibleSelectionKeys,
   planTotals,
   relicSubtypeFor,
   resolveQueueSlug,
   rowNeedsOverride,
   rowSafetyKey,
   rowWarnings,
+  selectionKeyFor,
   setRowQuantity,
   type WorkbenchQueueRow,
 } from "../../../../src/lib/tradeWorkbench/queueModel.js";
@@ -291,5 +294,80 @@ describe("workbench queue selection", () => {
     );
     expect(relicSubtypeFor(makeItem("Lith A1", { inventoryGroup: "relics" }))).toBe("intact");
     expect(relicSubtypeFor(makeItem("Lex Prime Barrel"))).toBeNull();
+  });
+});
+
+describe("inventory selection join", () => {
+  it("keys a row by its inventoryKey, falling back to the internal name", () => {
+    expect(selectionKeyFor(makeItem("Serration", { inventoryKey: "serration#r5" }))).toBe(
+      "serration#r5",
+    );
+    expect(selectionKeyFor(makeItem("Lex Prime Barrel"))).toBe("/Lotus/Test/LexPrimeBarrel");
+    expect(selectionKeyFor(makeItem("Blank", { inventoryKey: "  " }))).toBe("/Lotus/Test/Blank");
+  });
+
+  it("reports only queue-eligible rows as selectable", () => {
+    const sellable = makeItem("Lex Prime Barrel", { inventoryKey: "lex#0" });
+    const unknown = makeItem("Unknown Thing");
+    const empty = makeItem("Sold Out", { amount: 0 });
+    const keys = eligibleSelectionKeys(
+      [sellable, unknown, empty],
+      EMPTY_CTX,
+      lookupFor(
+        { name: "Lex Prime Barrel", slug: "lex_prime_barrel" },
+        { name: "Sold Out", slug: "sold_out" },
+      ),
+    );
+    expect([...keys]).toEqual(["lex#0"]);
+  });
+
+  it("skips an inventory row whose name is not a string instead of throwing", () => {
+    // Seen live (9bdc324f): one leaked non-string name crashed every market
+    // join. This runs from the reactive statement that owns selection mode, so
+    // one bad row would take the whole queue with it.
+    const broken = makeItem("Broken", { name: 117 as unknown as string, inventoryKey: "broken#0" });
+    const sellable = makeItem("Lex Prime Barrel", { inventoryKey: "lex#0" });
+    const lookup = lookupFor({ name: "Lex Prime Barrel", slug: "lex_prime_barrel" });
+
+    expect([...eligibleSelectionKeys([broken, sellable], EMPTY_CTX, lookup)]).toEqual(["lex#0"]);
+    expect(resolveQueueSlug(broken, lookup)).toBeNull();
+  });
+
+  it("builds the queue from the ticked keys only and pre-ticks every row", () => {
+    const items = [
+      makeItem("Lex Prime Barrel", { inventoryKey: "lex#0" }),
+      makeItem("Boltor Prime Receiver", { inventoryKey: "boltor#0" }),
+    ];
+    const lookup = lookupFor(
+      { name: "Lex Prime Barrel", slug: "lex_prime_barrel" },
+      { name: "Boltor Prime Receiver", slug: "boltor_prime_receiver" },
+    );
+    const rows = buildSelectedQueueRows(items, EMPTY_CTX, lookup, new Set(["boltor#0"]));
+    expect(rows.map((row) => row.slug)).toEqual(["boltor_prime_receiver"]);
+    expect(rows[0].selected).toBe(true);
+  });
+
+  it("keeps every rank row of one selected item", () => {
+    const items = [
+      makeItem("Serration", { inventoryGroup: "mods", rank: 0, inventoryKey: "serration" }),
+      makeItem("Serration", { inventoryGroup: "mods", rank: 10, inventoryKey: "serration" }),
+    ];
+    const rows = buildSelectedQueueRows(
+      items,
+      EMPTY_CTX,
+      lookupFor({ name: "Serration", slug: "serration" }),
+      new Set(["serration"]),
+    );
+    expect(rows.map((row) => row.rank)).toEqual([0, 10]);
+  });
+
+  it("ignores an empty selection", () => {
+    const rows = buildSelectedQueueRows(
+      [makeItem("Lex Prime Barrel")],
+      EMPTY_CTX,
+      lookupFor({ name: "Lex Prime Barrel", slug: "lex_prime_barrel" }),
+      new Set(),
+    );
+    expect(rows).toEqual([]);
   });
 });

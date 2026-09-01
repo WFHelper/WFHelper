@@ -79,12 +79,19 @@ function lookupByGameRef(gameRef: string, lookup: WfmItemsLookup): WfmItemsLooku
   return entry;
 }
 
+/** The parser types name as string but odd inventory rows have leaked other
+ *  primitives (see 9bdc324f). Selection mode builds the whole queue from a
+ *  reactive statement, so one bad row must not throw the rest away. */
+function queueItemName(item: ParsedItem): string {
+  return typeof item.name === "string" ? item.name : String(item.name ?? "");
+}
+
 /** Catalog-confirmed slugs only: a guessed slug cannot resolve to an item id at
  *  execution time, so it never enters the queue in the first place. */
 export function resolveQueueSlug(item: ParsedItem, lookup: WfmItemsLookup): string | null {
   const byRef = lookupByGameRef(item.internalName, lookup);
   if (byRef?.url_name) return byRef.url_name;
-  const byName = getLookupByName(item.name, lookup);
+  const byName = getLookupByName(queueItemName(item), lookup);
   if (byName?.url_name) return byName.url_name;
   return null;
 }
@@ -116,7 +123,7 @@ export function buildQueueRows(
     rows.push({
       rowId: `r${rows.length}`,
       item,
-      itemName: item.name,
+      itemName: queueItemName(item),
       slug,
       rank: rowRank(item),
       verdict,
@@ -132,6 +139,40 @@ export function buildQueueRows(
     });
   }
   return rows;
+}
+
+/** Mirrors the id `buildBaseInventoryItems` puts on an inventory row, so a card
+ *  the user ticked joins the queue rows built from the same ParsedItem. */
+export function selectionKeyFor(item: ParsedItem): string {
+  const key = item.inventoryKey;
+  return typeof key === "string" && key.trim().length > 0 ? key : item.internalName;
+}
+
+/** Inventory keys the queue would accept, for the grid's per-row eligibility
+ *  check. Built from `buildQueueRows` so there is one definition of sellable. */
+export function eligibleSelectionKeys(
+  items: readonly ParsedItem[],
+  context: SafetyContext,
+  lookup: WfmItemsLookup,
+): Set<string> {
+  const keys = new Set<string>();
+  for (const row of buildQueueRows(items, context, lookup)) {
+    keys.add(selectionKeyFor(row.item));
+  }
+  return keys;
+}
+
+/** Queue rows for the ticked inventory rows only. Every rank row of a selected
+ *  item comes through, since they all share its selection key, and each starts
+ *  ticked because the user already opted it in from the grid. */
+export function buildSelectedQueueRows(
+  items: readonly ParsedItem[],
+  context: SafetyContext,
+  lookup: WfmItemsLookup,
+  selection: ReadonlySet<string>,
+): WorkbenchQueueRow[] {
+  const picked = items.filter((item) => selection.has(selectionKeyFor(item)));
+  return buildQueueRows(picked, context, lookup).map((row) => ({ ...row, selected: true }));
 }
 
 function matchExistingOrder(row: WorkbenchQueueRow, orders: readonly WfmOrder[]): WfmOrder | null {

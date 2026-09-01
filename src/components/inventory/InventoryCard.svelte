@@ -14,11 +14,16 @@
   export let item: InventoryViewItem;
   export let showDucats = true;
   export let canExpand = true;
+  export let selectionMode = false;
+  export let selected = false;
+  /** False for rows the bulk-sell queue would reject; the box stays disabled. */
+  export let selectable = true;
 
   const dispatch = createEventDispatcher<{
     select: InventoryViewItem;
     visible: InventoryViewItem;
     expand: InventoryViewItem;
+    toggle: { item: InventoryViewItem; shiftKey: boolean };
   }>();
   let cardEl: HTMLDivElement | null = null;
   let visibilityObserver: IntersectionObserver | null = null;
@@ -42,7 +47,11 @@
   $: wtsRankMaxLabel = item.wtsRmax != null ? `${item.wtsRmax}p` : "-";
   $: wtbRankMaxLabel = item.wtbRmax != null ? `${item.wtbRmax}p` : "-";
 
-  function selectCard(): void {
+  function selectCard(event: MouseEvent | KeyboardEvent): void {
+    if (selectionMode) {
+      if (selectable) dispatch("toggle", { item, shiftKey: event.shiftKey });
+      return;
+    }
     dispatch("select", item);
   }
 
@@ -81,15 +90,39 @@
 <div
   class="item-card group relative {mastered ? 'border-success/25' : ''} {item.isPrime
     ? 'border-accent/30'
+    : ''} {selectionMode && !selectable ? 'opacity-45' : ''} {selected
+    ? 'outline outline-2 outline-offset-[-2px] outline-[color:var(--accent)]'
     : ''}"
   role="button"
   tabindex="0"
-  aria-label={$tr("common.openDetailsFor", { name: itemLabel(item) })}
+  aria-label={!selectionMode
+    ? $tr("common.openDetailsFor", { name: itemLabel(item) })
+    : selectable
+      ? $tr("inventory.selectItem", { name: itemLabel(item) })
+      : $tr("inventory.notSellableItem", { name: itemLabel(item) })}
+  aria-pressed={selectionMode ? selected : undefined}
+  aria-disabled={selectionMode && !selectable ? true : undefined}
   on:click={selectCard}
-  on:keydown={(event) => (event.key === "Enter" || event.key === " ") && selectCard()}
+  on:keydown={(event) => (event.key === "Enter" || event.key === " ") && selectCard(event)}
   bind:this={cardEl}
 >
-  {#if canExpand}
+  {#if selectionMode}
+    <!-- Sits where the Details button would be, which selection mode hides. The
+         card is the labelled control, so the box is state paint, not a second one. -->
+    <input
+      type="checkbox"
+      class="absolute top-1.5 right-1.5 z-10 h-4 w-4 accent-[color:var(--accent)]"
+      checked={selected}
+      disabled={!selectable}
+      data-inventory-select-item={item.internalName}
+      title={selectable ? undefined : $tr("inventory.notSellable")}
+      aria-hidden="true"
+      tabindex="-1"
+      on:click|stopPropagation={(event) => {
+        if (selectable) dispatch("toggle", { item, shiftKey: event.shiftKey });
+      }}
+    />
+  {:else if canExpand}
     <button
       type="button"
       class="expand-link absolute top-1.5 right-1.5 z-10 inline-flex items-center rounded border border-border bg-black/45 px-1.5 py-0.5 font-display text-xs font-semibold text-text-secondary opacity-0 transition-[opacity,color,border-color] duration-100 group-hover:opacity-100 hover:text-accent hover:border-accent-dim"

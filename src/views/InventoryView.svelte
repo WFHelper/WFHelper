@@ -2,6 +2,7 @@
   import { onDestroy, onMount } from "svelte";
 
   import { tr } from "../lib/i18n.js";
+  import type { MessageKey } from "../lib/i18n.js";
   import { parsedItems, wfmItems, inventoryData, itemDb } from "../stores/data.js";
   import { masteryData } from "../stores/mastery.js";
   import { marketOrders } from "../stores/market.js";
@@ -12,6 +13,7 @@
   import InventoryGrid from "../components/inventory/InventoryGrid.svelte";
   import InventoryList from "../components/inventory/InventoryList.svelte";
   import InventoryValueStrip from "../components/inventory/InventoryValueStrip.svelte";
+  import InventorySelectionBar from "../components/inventory/InventorySelectionBar.svelte";
   import InventoryOrderBookPanel from "../components/inventory/InventoryOrderBookPanel.svelte";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
   import ResourcesView from "./ResourcesView.svelte";
@@ -59,6 +61,23 @@
   import { inventoryViewMode, type InventoryViewMode } from "../stores/inventoryViewMode.js";
   import { inventoryValueAllTradables, inventoryValueMinPlatinum } from "../stores/preferences.js";
   import { activeItem, activeRelic } from "../stores/modals.js";
+  import { inventorySafety } from "../stores/inventorySafety.js";
+  import {
+    bulkSellOpen,
+    clearSelection,
+    deleteSavedSelection,
+    inventorySelection,
+    inventorySelectionMode,
+    loadSavedSelection,
+    savedSelections,
+    saveSelection,
+    selectKeys,
+    toggleSelected,
+    toggleSelectionMode,
+  } from "../stores/inventorySelection.js";
+  import { buildSafetyContext } from "../lib/inventory/safetyRules.js";
+  import { eligibleSelectionKeys } from "../lib/tradeWorkbench/queueModel.js";
+  import { workbenchState } from "../lib/tradeWorkbench/workbenchState.js";
   import { isRankedGroup } from "../../config/shared/numeric.js";
   import type { SharedSortKey, SharedFiltersState, SortDirection } from "../types/filters.js";
 
@@ -66,6 +85,13 @@
   const METRIC_BACKGROUND_PREFETCH_LIMIT = 210;
   const HOTSET_REFRESH_DELAY_MS = 4_000;
   const HOTSET_REFRESH_LIMIT = 12;
+
+  // One shared empty result for the selection lookups; nothing mutates it and
+  // every card only reads `has`, so it never needs to be reactive.
+  const NO_SELECTION_KEYS: ReadonlySet<string> = new Set();
+
+  // Keys land with this feature's i18n commit; cast until en.json carries them.
+  const k = (key: string): MessageKey => key as MessageKey;
 
   const FILTER_TAB_KEY = "wf_inventory_tab";
   // Both chip rows store the HIDDEN keys, so a source or category a later
@@ -137,6 +163,8 @@
   // Full Sets lists sellable spares; this folds in the sets still missing parts.
   let showIncompleteSets = false;
   let selectedInternalName: string | null = null;
+  /** Last ticked row; shift-click extends the selection from here. */
+  let selectionAnchor: string | null = null;
   let orderBookPanelOpen = false;
   const FILTERS = INVENTORY_FILTERS;
   const inventoryFilters = sharedFilters("inventory");
@@ -253,6 +281,45 @@
   function closeOrderBookPanel(): void {
     selectedInternalName = null;
     orderBookPanelOpen = false;
+  }
+
+  /** Shift extends from the last click through the displayed order, which is
+   *  `gridItems` - the same array both renderers were handed. */
+  function handleItemToggle(item: InventoryViewItem, shiftKey: boolean): void {
+    const key = item.internalName;
+    if (!eligibleSelectionSet.has(key)) return;
+    const anchor = selectionAnchor;
+    if (shiftKey && anchor && anchor !== key) {
+      const from = gridItems.findIndex((entry) => entry.internalName === anchor);
+      const to = gridItems.findIndex((entry) => entry.internalName === key);
+      if (from >= 0 && to >= 0) {
+        const [start, end] = from < to ? [from, to] : [to, from];
+        selectKeys(
+          gridItems
+            .slice(start, end + 1)
+            .map((entry) => entry.internalName)
+            .filter((entry) => eligibleSelectionSet.has(entry)),
+          "add",
+        );
+        selectionAnchor = key;
+        return;
+      }
+    }
+    toggleSelected(key);
+    selectionAnchor = key;
+  }
+
+  function handleToggleSelectionMode(): void {
+    selectionAnchor = null;
+    toggleSelectionMode();
+  }
+
+  function handleSelectAll(): void {
+    selectKeys(selectableVisibleKeys, "replace");
+  }
+
+  function openBulkSellModal(): void {
+    bulkSellOpen.set(true);
   }
 
   function handleItemVisible(item: InventoryViewItem): void {
@@ -514,6 +581,20 @@
   // Listing the tab and filter state textually keeps this reactive to both.
   $: resetGridLimit(filter, $inventoryFilters);
   $: gridItems = gridLimit < visibleItems.length ? visibleItems.slice(0, gridLimit) : visibleItems;
+  // Eligibility walks every parsed item, so it only runs while picking.
+  $: selectionSafetyContext = $inventorySelectionMode
+    ? buildSafetyContext({ itemDb: $itemDb, settings: $inventorySafety })
+    : null;
+  $: eligibleSelectionSet = selectionSafetyContext
+    ? eligibleSelectionKeys($parsedItems, selectionSafetyContext, $wfmItems)
+    : NO_SELECTION_KEYS;
+  $: selectableVisibleKeys = $inventorySelectionMode
+    ? visibleItems.map((item) => item.internalName).filter((key) => eligibleSelectionSet.has(key))
+    : [];
+  $: bulkSellNeedsAttention =
+    $workbenchState?.reviewRequired === true ||
+    $workbenchState?.phase === "running" ||
+    $workbenchState?.phase === "cancelling";
   $: resourceList =
     $inventoryData && Object.keys($itemDb).length > 0
       ? parseResources($inventoryData, $itemDb)
@@ -581,6 +662,9 @@
     viewMode={$inventoryViewMode}
     viewModeEnabled={filter !== "resources"}
     onSelectViewMode={setViewMode}
+    selectionMode={$inventorySelectionMode}
+    selectionEnabled={filter !== "resources"}
+    onToggleSelectionMode={handleToggleSelectionMode}
     on:filter={handleFilterSelect}
     on:toggle={handleToggleFilterPanel}
   >
@@ -594,6 +678,19 @@
         onSelectMinPlatinum={setValueMinPlatinum}
       />
     {/if}
+    {#if $inventorySelectionMode && filter !== "resources"}
+      <InventorySelectionBar
+        count={$inventorySelection.size}
+        eligibleCount={selectableVisibleKeys.length}
+        saved={$savedSelections}
+        onSelectAll={handleSelectAll}
+        onClear={clearSelection}
+        onSave={saveSelection}
+        onLoad={loadSavedSelection}
+        onDelete={deleteSavedSelection}
+        onBulkSell={openBulkSellModal}
+      />
+    {/if}
     {#if showFilterPanel && filter !== "resources"}
       <div
         class="inventory-filter-popover mb-3.5 max-h-[67vh] overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-2.5 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]"
@@ -602,6 +699,29 @@
       </div>
     {/if}
   </InventoryHeader>
+
+  {#if bulkSellNeedsAttention}
+    <!-- The queue used to live in a Market sub-tab; this keeps the journal
+         review reachable now that Bulk Sell is only a modal. -->
+    <div
+      class="mb-3 flex flex-wrap items-center gap-3 rounded-[var(--radius-lg)] border border-warning/50 bg-warning/10 px-3 py-2 text-sm"
+      data-bulk-sell-banner
+    >
+      <span class="text-text-primary">
+        {$workbenchState?.reviewRequired
+          ? $tr(k("inventory.bulkSellReviewRequired"))
+          : $tr(k("inventory.bulkSellRunActive"))}
+      </span>
+      <button
+        type="button"
+        class="btn-secondary btn-sm ml-auto"
+        data-bulk-sell-banner-open
+        on:click={openBulkSellModal}
+      >
+        {$tr(k("inventory.openBulkSell"))}
+      </button>
+    </div>
+  {/if}
 
   {#if filter === "resources"}
     <ResourcesView resources={filteredResources} />
@@ -671,6 +791,10 @@
             onVisible={handleItemVisible}
             onExpand={handleItemExpand}
             onMore={() => (gridLimit += GRID_PAGE_SIZE)}
+            selectionMode={$inventorySelectionMode}
+            selectedKeys={$inventorySelection}
+            eligibleKeys={eligibleSelectionSet}
+            onToggleSelect={handleItemToggle}
           />
         {:else}
           <InventoryGrid
@@ -678,9 +802,13 @@
             totalCount={visibleItems.length}
             {showDucats}
             {detailKeys}
+            selectionMode={$inventorySelectionMode}
+            selectedKeys={$inventorySelection}
+            eligibleKeys={eligibleSelectionSet}
             on:select={(event) => handleItemSelect(event.detail)}
             on:visible={(event) => handleItemVisible(event.detail)}
             on:expand={(event) => handleItemExpand(event.detail)}
+            on:toggle={(event) => handleItemToggle(event.detail.item, event.detail.shiftKey)}
             on:more={() => (gridLimit += GRID_PAGE_SIZE)}
           />
         {/if}

@@ -7,6 +7,7 @@
   import { archonShardsBySuit } from "../../stores/archonShards.js";
   // Aliased: a store named `tr` makes Svelte treat <tr> table rows as a component.
   import { locale, tr as t } from "../../lib/i18n.js";
+  import type { MessageKey } from "../../lib/i18n.js";
   import { itemLabel } from "../../lib/itemLabel.js";
   import { INVENTORY_LIST_COLUMNS, nextInventorySort } from "./inventoryListColumns.js";
   import type { InventoryViewItem } from "../../lib/inventoryMarket.js";
@@ -29,6 +30,11 @@
     onExpand: (item: InventoryViewItem) => void;
     onVisible: (item: InventoryViewItem) => void;
     onMore: () => void;
+    selectionMode?: boolean;
+    /** Selected/eligible keys are Sets so a paged table stays O(1) per row. */
+    selectedKeys?: ReadonlySet<string> | null;
+    eligibleKeys?: ReadonlySet<string> | null;
+    onToggleSelect?: (item: InventoryViewItem, shiftKey: boolean) => void;
   }
 
   let {
@@ -44,7 +50,14 @@
     onExpand,
     onVisible,
     onMore,
+    selectionMode = false,
+    selectedKeys = null,
+    eligibleKeys = null,
+    onToggleSelect = () => {},
   }: Props = $props();
+
+  // Keys land with this feature's i18n commit; cast until en.json carries them.
+  const k = (key: string): MessageKey => key as MessageKey;
 
   const columns = $derived(
     INVENTORY_LIST_COLUMNS.filter((column) => showDucats || column.key !== "ducats"),
@@ -118,11 +131,19 @@
     onSort(nextInventorySort({ sortBy, sortDirection }, sortKey));
   }
 
-  function openRow(item: InventoryViewItem): void {
+  function openRow(item: InventoryViewItem, event?: MouseEvent | KeyboardEvent): void {
+    if (selectionMode) {
+      if (isSelectable(item)) onToggleSelect(item, event?.shiftKey === true);
+      return;
+    }
     // A card puts the modal behind its Details button and the order book behind
     // the card body; a row is one target, so the modal wins where it exists.
     if (!detailKeys || detailKeys.has(item.internalName)) onExpand(item);
     else onSelect(item);
+  }
+
+  function isSelectable(item: InventoryViewItem): boolean {
+    return eligibleKeys?.has(item.internalName) ?? false;
   }
 
   function ownedLabel(item: InventoryViewItem, code: string): string {
@@ -158,6 +179,11 @@
     <table class="w-full border-collapse text-sm">
       <thead>
         <tr class="text-left text-xs tracking-wide text-text-muted uppercase">
+          {#if selectionMode}
+            <th class="w-8 border-b border-border bg-bg-base px-2 py-2">
+              <span class="sr-only">{$t(k("inventory.selectMode"))}</span>
+            </th>
+          {/if}
           {#each columns as column (column.key)}
             {@const sortKey = headerSortKey(column)}
             {@const active = sortKey !== null && sortBy === sortKey}
@@ -208,12 +234,32 @@
           <!-- Only Warframes carry sockets, so an empty result also means "not a frame". -->
           {@const shardCopies =
             $archonShardsBySuit.get(item.uniqueName || item.internalName || "") ?? []}
+          {@const selected = selectedKeys?.has(item.internalName) ?? false}
           <tr
-            class="cursor-pointer border-b border-border/50 transition-colors duration-100 hover:bg-bg-raised"
+            class="cursor-pointer border-b border-border/50 transition-colors duration-100 hover:bg-bg-raised {selected
+              ? 'bg-accent/15'
+              : ''} {selectionMode && !isSelectable(item) ? 'opacity-45' : ''}"
             data-list-row={item.internalName}
             use:trackRow={item}
-            onclick={() => openRow(item)}
+            onclick={(event) => openRow(item, event)}
           >
+            {#if selectionMode}
+              <td class="px-2 py-1">
+                <input
+                  type="checkbox"
+                  class="h-4 w-4 accent-[color:var(--accent)]"
+                  checked={selected}
+                  disabled={!isSelectable(item)}
+                  data-inventory-select-item={item.internalName}
+                  title={isSelectable(item) ? undefined : $t(k("inventory.notSellable"))}
+                  aria-label={$t(k("inventory.selectItem"), { name: itemLabel(item) })}
+                  onclick={(event) => {
+                    event.stopPropagation();
+                    if (isSelectable(item)) onToggleSelect(item, event.shiftKey);
+                  }}
+                />
+              </td>
+            {/if}
             <td class="px-2 py-1">
               <span
                 class="flex h-8 w-8 items-center justify-center overflow-hidden rounded border border-border/60 bg-black/25"
@@ -238,7 +284,7 @@
                 aria-label={$t("common.openDetailsFor", { name: itemLabel(item) })}
                 onclick={(event) => {
                   event.stopPropagation();
-                  openRow(item);
+                  openRow(item, event);
                 }}
               >
                 {itemLabel(item)}
@@ -296,7 +342,8 @@
                 aria-label={item.orderPlaced ? $t("inventory.listedOnWfm") : $t("browse.tabOrders")}
                 onclick={(event) => {
                   event.stopPropagation();
-                  onSelect(item);
+                  if (selectionMode) openRow(item, event);
+                  else onSelect(item);
                 }}
               >
                 {#if item.orderPlaced}
