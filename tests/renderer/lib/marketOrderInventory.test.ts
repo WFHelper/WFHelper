@@ -99,6 +99,12 @@ describe("ownedCountForMarketOrder", () => {
     ];
     expect(ownedCountForMarketOrder(order({}), inventory)).toBe(1);
   });
+
+  it("survives an inventory row whose name is not a string", () => {
+    // Seen live: one leaked non-string name crashed every market join.
+    const inventory = [parsedItem({ name: 117 as unknown as string }), parsedItem({})];
+    expect(ownedCountForMarketOrder(order({}), inventory)).toBe(3);
+  });
 });
 
 describe("market order Owned sort", () => {

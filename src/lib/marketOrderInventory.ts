@@ -70,7 +70,7 @@ function relicQualityForItem(item: ParsedItem): string {
     const metal = /(Bronze|Silver|Gold|Platinum)$/.exec(item.internalName)?.[1];
     if (metal) return RELIC_QUALITY_BY_METAL[metal];
   }
-  const match = RELIC_REFINEMENT_RE.exec(item.name.trim());
+  const match = RELIC_REFINEMENT_RE.exec(String(item.name ?? "").trim());
   return match ? match[2].toLowerCase() : "intact";
 }
 
@@ -84,10 +84,13 @@ const indexParsedItems = createLazyIdentityCache((parsedItems: ParsedItem[]) => 
     else bucket.set(key, [item]);
   };
   for (const item of parsedItems) {
-    add(index.byName, normalizeMarketName(item.name), item);
-    add(index.bySlug, toMarketSlug(item.name), item);
+    // The parser types name as string but odd inventory rows have leaked other
+    // primitives; one bad row must not take down every market-inventory join.
+    const name = typeof item.name === "string" ? item.name : String(item.name ?? "");
+    add(index.byName, normalizeMarketName(name), item);
+    add(index.bySlug, toMarketSlug(name), item);
     add(index.byGameRef, gameRefKey(item.internalName), item);
-    const relicBase = relicBaseName(item.name);
+    const relicBase = relicBaseName(name);
     if (relicBase) {
       add(index.byName, normalizeMarketName(relicBase), item);
       add(index.bySlug, toMarketSlug(relicBase), item);
