@@ -120,6 +120,11 @@ import {
   WORKBENCH_RECONCILE,
   WORKBENCH_RESOLVE_REVIEW,
   WORKBENCH_STATE_EVENT,
+  LEDGER_QUERY,
+  LEDGER_IMPORT_PREVIEW,
+  LEDGER_IMPORT_APPLY,
+  LEDGER_UPDATE_EVENT,
+  LEDGER_EXPORT,
 } from "./config/shared/ipcChannels";
 import {
   MARKET_ALERTS_CLEAR_HITS,
@@ -313,6 +318,13 @@ try {
       ipcRenderer,
       WORKBENCH_STATE_EVENT,
     ),
+
+    ledgerQuery: inv<"ledgerQuery">(LEDGER_QUERY),
+    ledgerImportPreview: inv<"ledgerImportPreview">(LEDGER_IMPORT_PREVIEW),
+    ledgerImportApply: inv<"ledgerImportApply">(LEDGER_IMPORT_APPLY),
+    ledgerUpdateEvent: (id, patch): Ret<"ledgerUpdateEvent"> =>
+      ipcRenderer.invoke(LEDGER_UPDATE_EVENT, { id, patch }),
+    ledgerExport: inv<"ledgerExport">(LEDGER_EXPORT),
 
     getArbiSchedule: inv<"getArbiSchedule">(ARBI_SCHED_GET),
     setArbiScheduleOccurrence: inv<"setArbiScheduleOccurrence">(ARBI_SCHED_SET_OCCURRENCE),

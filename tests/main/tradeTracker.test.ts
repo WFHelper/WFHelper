@@ -18,6 +18,10 @@ vi.mock("../../services/wfmCatalog", () => ({ lookupByName: vi.fn(() => null) })
 
 type Tracker = typeof import("../../services/tradeTracker");
 
+// Rows from a finished year rotate into the ledger archives on load, so these
+// fixtures have to stay inside the current year to exercise the live log.
+const YEAR = new Date().getUTCFullYear();
+
 async function tracker(): Promise<Tracker> {
   const module = await import("../../services/tradeTracker");
   module.__resetTradeTrackerForTest();
@@ -43,7 +47,7 @@ describe("tradeTracker", () => {
         { id: "bad", date: "nope", type: "sale", platChange: 10, items: [] },
         {
           id: "valid",
-          date: "2026-07-18T10:00:00.000Z",
+          date: `${YEAR}-07-18T10:00:00.000Z`,
           type: "sale",
           platChange: 10,
           items: [{ internalName: "", displayName: "Forma", count: 1, direction: "given" }],
@@ -60,6 +64,22 @@ describe("tradeTracker", () => {
     const module = await tracker();
     expect(module.importTradeLog([null, {}, { id: "partial" }])).toBe(0);
     expect(module.getTradeLog()).toEqual([]);
+  });
+
+  it("takes the good rows of a mixed import through the one sanitize pass", async () => {
+    const module = await tracker();
+    const good = {
+      id: "import-1",
+      date: `${YEAR}-07-18T10:00:00.000Z`,
+      type: "sale",
+      platChange: 12,
+      partner: "Kestrel",
+      items: [{ internalName: "", displayName: "Forma", count: 1, direction: "given" }],
+    };
+    const rows = [null, good, { ...good, id: "negative", platChange: -5 }];
+    expect(module.importTradeLog(rows)).toBe(1);
+    expect(module.getTradeLog().map((e) => e.id)).toEqual(["import-1"]);
+    expect(module.getTradeLog()[0].partner).toBe("Kestrel");
   });
 
   it("suppresses the file-poll re-delivery but records an identical later trade", async () => {
@@ -148,7 +168,7 @@ describe("tradeTracker", () => {
       JSON.stringify([
         {
           id: "glyphs",
-          date: "2026-07-20T10:00:00.000Z",
+          date: `${YEAR}-07-20T10:00:00.000Z`,
           type: "sale",
           platChange: 45,
           partner: "Kestrel\uE000",
@@ -160,7 +180,7 @@ describe("tradeTracker", () => {
         },
         {
           id: "raw-log-lines",
-          date: "2026-07-20T11:00:00.000Z",
+          date: `${YEAR}-07-20T11:00:00.000Z`,
           type: "trade",
           platChange: 0,
           items: [item("11828.904 Script [Info]: Dialog.lua: Dialog::")],

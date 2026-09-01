@@ -7,12 +7,29 @@ import { writeFileAtomicSync } from "./atomicFile";
 import * as statsTracker from "./statsTracker";
 import { lookupTradedCatalogItem } from "./tradeItemName";
 import { stripPlatformGlyphs, isLogFrameworkLine, stripDialogArgTail } from "./tradeLogSanitize";
-import type { TradeType, TradeDirection, TradeItem, TradeEvent } from "../config/shared/statsTypes";
+import {
+  applyLedgerPatch,
+  eventYear,
+  mergeIntoArchives,
+  rotateOlderYears,
+  selectLedgerEvents,
+} from "./tradeLedgerStore";
+import type {
+  TradeType,
+  TradeDirection,
+  TradeItem,
+  TradeEvent,
+  TradeEventSource,
+} from "../config/shared/statsTypes";
+import type { LedgerEventPatch } from "../config/shared/tradeLedgerTypes";
+import { TRADE_EVENT_SCHEMA_VERSION } from "../config/shared/tradeLedgerTypes";
 import { MAX_TRADE_IMPORT_ROWS } from "../config/shared/statsImport";
 
 const log = withScope("tradeTracker");
 
 const MAX_EVENTS = 2000;
+/** How far the live log may run past the cap before rows spill into archives. */
+const LIVE_SPILL_SLACK = 200;
 const MAX_ITEMS_PER_TRADE = 12;
 // Stamped dialogs dedupe exactly; unstamped input uses the delivery window.
 const DUPLICATE_WINDOW_MS = 30_000;
@@ -68,6 +85,18 @@ function sanitizeTradeItem(value: unknown): TradeItem | null {
   };
 }
 
+function asTradeEventSource(value: unknown): TradeEventSource | null {
+  return value === "live" || value === "gdpr" || value === "aleca" || value === "manual"
+    ? value
+    : null;
+}
+
+function boundedCurrency(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  if (value < 0 || value > 10_000_000_000) return null;
+  return Math.round(value);
+}
+
 function sanitizeTradeEvent(value: unknown): TradeEvent | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const event = value as Record<string, unknown>;
@@ -99,6 +128,12 @@ function sanitizeTradeEvent(value: unknown): TradeEvent | null {
   }
   const rawPartner = boundedString(event.partner, 120);
   const partner = rawPartner ? stripPlatformGlyphs(rawPartner) || null : null;
+  const source = asTradeEventSource(event.source);
+  const sourceRecordId = boundedString(event.sourceRecordId, 180);
+  const importBatchId = boundedString(event.importBatchId, 180);
+  const editedAt = boundedString(event.editedAt, 64);
+  const credits = boundedCurrency(event.credits);
+  const tradeTax = boundedCurrency(event.tradeTax);
   return {
     id,
     date,
@@ -107,6 +142,14 @@ function sanitizeTradeEvent(value: unknown): TradeEvent | null {
     items,
     ...(partner ? { partner } : {}),
     ...(event.wfmClosed === true ? { wfmClosed: true } : {}),
+    // Legacy rows are stamped in place; their ids never change.
+    schemaVersion: TRADE_EVENT_SCHEMA_VERSION,
+    source: source ?? "live",
+    ...(sourceRecordId ? { sourceRecordId } : {}),
+    ...(importBatchId ? { importBatchId } : {}),
+    ...(credits != null ? { credits } : {}),
+    ...(tradeTax != null ? { tradeTax } : {}),
+    ...(editedAt ? { editedAt } : {}),
   };
 }
 
@@ -122,7 +165,17 @@ function _saveLog(): void {
   }
 }
 
-/** Load the persisted trade log once at startup. */
+/** Trim the live log by archiving the overflow instead of dropping it. Rows whose
+ *  archive write failed stay live, so the cap can never destroy a trade. The slack
+ *  keeps a heavy trading session off one archive rewrite per trade. */
+function enforceLiveCap(): void {
+  if (_tradeLog.length <= MAX_EVENTS + LIVE_SPILL_SLACK) return;
+  const overflow = _tradeLog.slice(MAX_EVENTS);
+  const failed = new Set(mergeIntoArchives(overflow).map((event) => event.id));
+  _tradeLog = _tradeLog.slice(0, MAX_EVENTS).concat(overflow.filter((e) => failed.has(e.id)));
+}
+
+/** Load the persisted trade log once at startup, then rotate finished years. */
 export function loadTradeLog(): void {
   try {
     const raw = fs.readFileSync(_logPath(), "utf-8");
@@ -131,8 +184,7 @@ export function loadTradeLog(): void {
       _tradeLog = parsed
         .slice(0, MAX_TRADE_IMPORT_ROWS)
         .map(sanitizeTradeEvent)
-        .filter((event): event is TradeEvent => event != null)
-        .slice(0, MAX_EVENTS);
+        .filter((event): event is TradeEvent => event != null);
       log.info(`[TradeTracker] Loaded ${_tradeLog.length} trade events`);
     }
   } catch (err) {
@@ -140,6 +192,18 @@ export function loadTradeLog(): void {
     if ((err as NodeJS.ErrnoException)?.code !== "ENOENT") {
       log.warn(`[TradeTracker] Failed to load trade log:`, err);
     }
+  }
+
+  // Startup path: a ledger problem must never stop the app from loading trades.
+  try {
+    const rotation = rotateOlderYears(_tradeLog, new Date().getUTCFullYear(), _logPath());
+    const before = _tradeLog.length;
+    _tradeLog = rotation.retained;
+    enforceLiveCap();
+    // Only rewrite when rotation moved rows; archives are already fsynced.
+    if (rotation.rotated > 0 || _tradeLog.length !== before) _saveLog();
+  } catch (err) {
+    log.warn("[TradeTracker] Ledger rotation failed, keeping the live log intact:", err);
   }
 }
 
@@ -196,10 +260,12 @@ export function recordTradeFromLog(parsed: {
     platChange: parsed.platChange,
     items,
     ...(partner ? { partner } : {}),
+    schemaVersion: TRADE_EVENT_SCHEMA_VERSION,
+    source: "live",
   };
 
   _tradeLog.unshift(event);
-  if (_tradeLog.length > MAX_EVENTS) _tradeLog = _tradeLog.slice(0, MAX_EVENTS);
+  enforceLiveCap();
   _saveLog();
   statsTracker.incrementTodayTrades();
 
@@ -221,29 +287,85 @@ export function markTradeWfmClosed(tradeId: string): void {
 
 /** Import external trades by id and return the number added. */
 export function importTradeLog(events: unknown[]): number {
-  const existingIds = new Set(_tradeLog.map((t) => t.id));
-  let added = 0;
-  for (const raw of events.slice(0, MAX_TRADE_IMPORT_ROWS)) {
-    const e = sanitizeTradeEvent(raw);
-    if (!e) continue;
-    if (!e.id || existingIds.has(e.id)) continue;
-    _tradeLog.push(e);
-    existingIds.add(e.id);
-    added++;
-  }
-  if (added > 0) {
-    // Sort newest first by date
-    _tradeLog.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
-    if (_tradeLog.length > MAX_EVENTS) _tradeLog = _tradeLog.slice(0, MAX_EVENTS);
-    _saveLog();
-    log.info(`[TradeTracker] Imported ${added} trade events`);
-  }
-  return added;
+  // addLedgerEvents caps, sanitizes and dedups over the archives too, so a
+  // second import of the same export cannot resurrect rotated-out rows.
+  return addLedgerEvents(events).applied;
 }
 
-/** Return persisted trades newest first. */
+/** The live log, newest first: this year plus any row whose archive write failed. */
 export function getTradeLog(): TradeEvent[] {
   return _tradeLog;
+}
+
+/** Live rows plus every readable archive, newest first. */
+export function getLedgerEvents(): TradeEvent[] {
+  return selectLedgerEvents({}, _tradeLog).events;
+}
+
+/** The stats view's trade list: full history, bounded to the old live-log size. */
+export function getRecentTradeLog(): TradeEvent[] {
+  return selectLedgerEvents({}, _tradeLog).events.slice(0, MAX_EVENTS);
+}
+
+/** Patch a live row. Archived rows are patched through the ledger store. */
+export function patchLiveTradeEvent(id: string, patch: LedgerEventPatch): boolean {
+  const index = _tradeLog.findIndex((event) => event.id === id);
+  if (index < 0) return false;
+  _tradeLog[index] = applyLedgerPatch(_tradeLog[index], patch);
+  _saveLog();
+  return true;
+}
+
+export interface LedgerAppendResult {
+  applied: number;
+  skippedDuplicates: number;
+}
+
+/**
+ * Write imported rows: this year live, older years into their archives. Rows
+ * arrive unsanitized, so this is the one gate and dedup every import passes.
+ */
+export function addLedgerEvents(events: readonly unknown[]): LedgerAppendResult {
+  const knownIds = new Set<string>();
+  const knownRecords = new Set<string>();
+  for (const event of selectLedgerEvents({}, _tradeLog).events) {
+    knownIds.add(event.id);
+    if (event.sourceRecordId) knownRecords.add(event.sourceRecordId);
+  }
+
+  const currentYear = new Date().getUTCFullYear();
+  const fresh: TradeEvent[] = [];
+  const toArchive: TradeEvent[] = [];
+  let skippedDuplicates = 0;
+  for (const raw of events.slice(0, MAX_TRADE_IMPORT_ROWS)) {
+    const event = sanitizeTradeEvent(raw);
+    if (!event) continue;
+    if (
+      knownIds.has(event.id) ||
+      (event.sourceRecordId && knownRecords.has(event.sourceRecordId))
+    ) {
+      skippedDuplicates++;
+      continue;
+    }
+    knownIds.add(event.id);
+    if (event.sourceRecordId) knownRecords.add(event.sourceRecordId);
+    const year = eventYear(event.date);
+    if (year != null && year < currentYear) toArchive.push(event);
+    else fresh.push(event);
+  }
+
+  const failed = new Set(mergeIntoArchives(toArchive).map((event) => event.id));
+  const live = fresh.concat(toArchive.filter((event) => failed.has(event.id)));
+  if (live.length > 0) {
+    _tradeLog.push(...live);
+    _tradeLog.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
+    enforceLiveCap();
+    _saveLog();
+  }
+
+  const applied = fresh.length + toArchive.length;
+  if (applied > 0) log.info(`[TradeTracker] Applied ${applied} imported ledger row(s)`);
+  return { applied, skippedDuplicates };
 }
 
 export function __resetTradeTrackerForTest(): void {

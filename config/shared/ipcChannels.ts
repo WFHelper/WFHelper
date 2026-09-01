@@ -175,3 +175,9 @@ export const WORKBENCH_ACK_OVERRIDE = "workbench:ack-override";
 export const WORKBENCH_RECONCILE = "workbench:reconcile";
 export const WORKBENCH_RESOLVE_REVIEW = "workbench:resolve-review";
 export const WORKBENCH_STATE_EVENT = "workbench-state";
+
+export const LEDGER_QUERY = "ledger:query";
+export const LEDGER_IMPORT_PREVIEW = "ledger:import-preview";
+export const LEDGER_IMPORT_APPLY = "ledger:import-apply";
+export const LEDGER_UPDATE_EVENT = "ledger:update-event";
+export const LEDGER_EXPORT = "ledger:export";

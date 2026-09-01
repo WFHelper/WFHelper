@@ -90,6 +90,7 @@ import * as notificationChannelsIpc from "./ipc/notificationChannelsIpc";
 import * as marketAlertsIpc from "./ipc/marketAlertsIpc";
 import * as tradeWorkflow from "./ipc/tradeWorkflow";
 import * as tradeWorkbenchIpc from "./ipc/tradeWorkbenchIpc";
+import * as tradeLedgerIpc from "./ipc/tradeLedgerIpc";
 import { applyMainWindowZoom } from "./ipc/mainWindowZoom";
 import { assertMainRendererSender, handleAuthorized } from "./ipc/ipcSecurity";
 import {
@@ -411,6 +412,7 @@ function registerIpcHandlers(profileStage: ProfileStage): void {
   notificationChannelsIpc.register();
   marketAlertsIpc.register();
   tradeWorkbenchIpc.register();
+  tradeLedgerIpc.register();
 
   const attachInventoryAfterHelperRun = (ok: boolean) => {
     if (!ok || ctx.currentInventoryPath) return;

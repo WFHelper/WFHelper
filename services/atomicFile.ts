@@ -22,12 +22,13 @@ function renameWithRetry(from: string, to: string): void {
 }
 
 /** Write to a tmp file, fsync, then rename so a crash can't truncate the target. */
-export function writeFileAtomicSync(filePath: string, data: string): void {
+export function writeFileAtomicSync(filePath: string, data: string | Uint8Array): void {
   const tmpPath = `${filePath}.${process.pid}.tmp`;
   let fd: number | null = null;
   try {
     fd = fs.openSync(tmpPath, "w");
-    fs.writeFileSync(fd, data, "utf-8");
+    if (typeof data === "string") fs.writeFileSync(fd, data, "utf-8");
+    else fs.writeFileSync(fd, data);
     fs.fsyncSync(fd);
     fs.closeSync(fd);
     fd = null;

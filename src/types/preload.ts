@@ -235,6 +235,21 @@ export interface PreloadAPI {
   setArbiScheduleLead: (
     minutes: IpcInvokeMap["setArbiScheduleLead"]["args"][0],
   ) => Promise<IpcInvokeMap["setArbiScheduleLead"]["return"]>;
+
+  ledgerQuery: (
+    query: IpcInvokeMap["ledgerQuery"]["args"][0],
+  ) => Promise<IpcInvokeMap["ledgerQuery"]["return"]>;
+  ledgerImportPreview: () => Promise<IpcInvokeMap["ledgerImportPreview"]["return"]>;
+  ledgerImportApply: (
+    batchId: IpcInvokeMap["ledgerImportApply"]["args"][0],
+  ) => Promise<IpcInvokeMap["ledgerImportApply"]["return"]>;
+  ledgerUpdateEvent: (
+    id: IpcInvokeMap["ledgerUpdateEvent"]["args"][0],
+    patch: IpcInvokeMap["ledgerUpdateEvent"]["args"][1],
+  ) => Promise<IpcInvokeMap["ledgerUpdateEvent"]["return"]>;
+  ledgerExport: (
+    options: IpcInvokeMap["ledgerExport"]["args"][0],
+  ) => Promise<IpcInvokeMap["ledgerExport"]["return"]>;
 }
 
 export interface TradePreloadAPI {

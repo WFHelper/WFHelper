@@ -27,6 +27,14 @@ import type {
   WorkbenchSafetySnapshot,
   WorkbenchState,
 } from "../../config/shared/tradeWorkbenchTypes.js";
+import type {
+  LedgerEventPatch,
+  LedgerExportOptions,
+  LedgerImportPreview,
+  LedgerImportResult,
+  LedgerPage,
+  LedgerQuery,
+} from "../../config/shared/tradeLedgerTypes.js";
 import type { RelicDatabase } from "./relics.js";
 import type { WorldState } from "./world.js";
 import type { HelperStatus } from "../../config/shared/apiHelperTypes.js";
@@ -418,6 +426,26 @@ export interface IpcInvokeMap {
   marketAlertsImport: {
     args: [text: string];
     return: MarketAlertImportOutcome;
+  };
+  ledgerQuery: {
+    args: [query: LedgerQuery];
+    return: LedgerPage;
+  };
+  ledgerImportPreview: {
+    args: [];
+    return: LedgerImportPreview | { error: string };
+  };
+  ledgerImportApply: {
+    args: [batchId: string];
+    return: LedgerImportResult;
+  };
+  ledgerUpdateEvent: {
+    args: [id: string, patch: LedgerEventPatch];
+    return: { ok: boolean; error?: string };
+  };
+  ledgerExport: {
+    args: [options: LedgerExportOptions];
+    return: { saved: boolean; path?: string; error?: string };
   };
   loadRankedHotset: {
     args: [];

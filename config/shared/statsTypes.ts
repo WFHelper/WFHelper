@@ -16,6 +16,9 @@ export interface TradeItem {
   wfmThumb?: string;
 }
 
+/** Where a ledger row came from; absent on legacy rows and means "live". */
+export type TradeEventSource = "live" | "gdpr" | "aleca" | "manual";
+
 export interface TradeEvent {
   id: string;
   date: string; // ISO datetime
@@ -24,6 +27,14 @@ export interface TradeEvent {
   items: TradeItem[];
   partner?: string; // trading partner username (best-effort from EE.log)
   wfmClosed?: boolean; // true when a WFM order was auto-closed for this trade
+  schemaVersion?: number; // absent = v1 legacy row
+  source?: TradeEventSource;
+  /** Deterministic id of the source record so re-imports stay idempotent. */
+  sourceRecordId?: string;
+  importBatchId?: string;
+  credits?: number; // credits moved in the trade, when known
+  tradeTax?: number;
+  editedAt?: string; // ISO, set when the user fixes a row by hand
 }
 
 /** One resource's numbers for a single day. */

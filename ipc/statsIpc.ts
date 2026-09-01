@@ -23,7 +23,10 @@ function register(): void {
     return { ok: true, count };
   });
 
-  handleAuthorized(STATS_GET_TRADES, assertMainRendererSender, () => tradeTracker.getTradeLog());
+  // Reads live + archives: finished years leave the live log but stay visible here.
+  handleAuthorized(STATS_GET_TRADES, assertMainRendererSender, () =>
+    tradeTracker.getRecentTradeLog(),
+  );
 
   handleAuthorized(STATS_IMPORT_TRADES, assertMainRendererSender, (_event, raw: unknown) => {
     if (!Array.isArray(raw)) return { ok: false, count: 0 };
