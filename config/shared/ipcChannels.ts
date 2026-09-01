@@ -181,3 +181,6 @@ export const LEDGER_IMPORT_PREVIEW = "ledger:import-preview";
 export const LEDGER_IMPORT_APPLY = "ledger:import-apply";
 export const LEDGER_UPDATE_EVENT = "ledger:update-event";
 export const LEDGER_EXPORT = "ledger:export";
+
+export const POPOUT_OPEN = "popout:open";
+export const POPOUT_SET_PINNED = "popout:set-pinned";

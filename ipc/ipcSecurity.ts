@@ -109,7 +109,26 @@ function assertAnyCandidateWindowSender(
   throw new Error(options.fallbackMessage || "No matching BrowserWindow for sender");
 }
 
+// Popout windows load the same renderer bundle through the same preload, so
+// they share the main window's trust level. Only ids of windows popoutIpc
+// created itself get in, and the file-suffix check still has to pass.
+const popoutWebContentsIds = new Set<number>();
+
+function registerPopoutWebContents(webContentsId: number): void {
+  popoutWebContentsIds.add(webContentsId);
+}
+
+function unregisterPopoutWebContents(webContentsId: number): void {
+  popoutWebContentsIds.delete(webContentsId);
+}
+
 function assertMainRendererSender(event: IpcEventLike, _channel: string): void {
+  const senderId = event?.sender?.id;
+  if (typeof senderId === "number" && popoutWebContentsIds.has(senderId)) {
+    if (senderHasAllowedFileSuffix(event, MAIN_RENDERER_SUFFIX)) return;
+    throw new Error(`Unexpected sender URL: ${getSenderUrl(event) || "<empty>"}`);
+  }
+
   assertWindowSender(
     event,
     ctx.mainWindow
@@ -242,6 +261,8 @@ function onAuthorized<Args extends unknown[]>(
 
 export {
   assertMainRendererSender,
+  registerPopoutWebContents,
+  unregisterPopoutWebContents,
   assertOverlayRendererSender,
   assertLocalizedOverlaySender,
   assertRivenOverlayRendererSender,

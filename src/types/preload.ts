@@ -250,6 +250,12 @@ export interface PreloadAPI {
   ledgerExport: (
     options: IpcInvokeMap["ledgerExport"]["args"][0],
   ) => Promise<IpcInvokeMap["ledgerExport"]["return"]>;
+  popoutOpen: (
+    view: IpcInvokeMap["popoutOpen"]["args"][0],
+  ) => Promise<IpcInvokeMap["popoutOpen"]["return"]>;
+  popoutSetPinned: (
+    pinned: IpcInvokeMap["popoutSetPinned"]["args"][0],
+  ) => Promise<IpcInvokeMap["popoutSetPinned"]["return"]>;
 }
 
 export interface TradePreloadAPI {

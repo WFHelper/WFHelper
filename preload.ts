@@ -125,6 +125,8 @@ import {
   LEDGER_IMPORT_APPLY,
   LEDGER_UPDATE_EVENT,
   LEDGER_EXPORT,
+  POPOUT_OPEN,
+  POPOUT_SET_PINNED,
 } from "./config/shared/ipcChannels";
 import {
   MARKET_ALERTS_CLEAR_HITS,
@@ -324,6 +326,8 @@ try {
     ledgerImportApply: inv<"ledgerImportApply">(LEDGER_IMPORT_APPLY),
     ledgerUpdateEvent: inv<"ledgerUpdateEvent">(LEDGER_UPDATE_EVENT),
     ledgerExport: inv<"ledgerExport">(LEDGER_EXPORT),
+    popoutOpen: inv<"popoutOpen">(POPOUT_OPEN),
+    popoutSetPinned: inv<"popoutSetPinned">(POPOUT_SET_PINNED),
 
     getArbiSchedule: inv<"getArbiSchedule">(ARBI_SCHED_GET),
     setArbiScheduleOccurrence: inv<"setArbiScheduleOccurrence">(ARBI_SCHED_SET_OCCURRENCE),

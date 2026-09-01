@@ -23,8 +23,14 @@ interface StartupHandle {
   dispose: () => void;
 }
 
+interface StartupOptions {
+  /** False in a pop-out window: its smaller hotset must not overwrite the main window's. */
+  ownsSharedCaches?: boolean;
+}
+
 /** Startup load: item DB + WFM items, update state, delayed relic price warmup. */
-export function initStartup(): StartupHandle {
+export function initStartup(options: StartupOptions = {}): StartupHandle {
+  const ownsSharedCaches = options.ownsSharedCaches !== false;
   let disposed = false;
   let warmupTimer: ReturnType<typeof setTimeout> | null = null;
   let flushInterval: ReturnType<typeof setInterval> | null = null;
@@ -166,9 +172,11 @@ export function initStartup(): StartupHandle {
       void startPrimePriceWarmup();
     }, STARTUP_RELIC_WARMUP_DELAY_MS);
 
-    flushInterval = setInterval(() => {
-      void flushPriceCacheToDisk();
-    }, PRICE_CACHE_FLUSH_INTERVAL_MS);
+    if (ownsSharedCaches) {
+      flushInterval = setInterval(() => {
+        void flushPriceCacheToDisk();
+      }, PRICE_CACHE_FLUSH_INTERVAL_MS);
+    }
 
     profileStage("total-renderer-startup-sequence", startupStartedAt);
   })();
@@ -177,7 +185,7 @@ export function initStartup(): StartupHandle {
     void flushPriceCacheToDisk();
   };
 
-  if (typeof window !== "undefined") {
+  if (ownsSharedCaches && typeof window !== "undefined") {
     window.addEventListener("beforeunload", handleBeforeUnload);
   }
 
@@ -199,7 +207,7 @@ export function initStartup(): StartupHandle {
       if (typeof window !== "undefined") {
         window.removeEventListener("beforeunload", handleBeforeUnload);
       }
-      void flushPriceCacheToDisk();
+      if (ownsSharedCaches) void flushPriceCacheToDisk();
     },
   };
 }

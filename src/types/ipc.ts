@@ -35,6 +35,7 @@ import type {
   LedgerPage,
   LedgerQuery,
 } from "../../config/shared/tradeLedgerTypes.js";
+import type { PopoutView } from "../../config/shared/popoutTypes.js";
 import type { RelicDatabase } from "./relics.js";
 import type { WorldState } from "./world.js";
 import type { HelperStatus } from "../../config/shared/apiHelperTypes.js";
@@ -446,6 +447,14 @@ export interface IpcInvokeMap {
   ledgerExport: {
     args: [options: LedgerExportOptions];
     return: { saved: boolean; path?: string; error?: string };
+  };
+  popoutOpen: {
+    args: [view: PopoutView];
+    return: { ok: boolean };
+  };
+  popoutSetPinned: {
+    args: [pinned: boolean];
+    return: { ok: boolean };
   };
   loadRankedHotset: {
     args: [];

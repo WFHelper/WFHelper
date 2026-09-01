@@ -2,6 +2,7 @@ import ctx from "./context";
 import { assertAuthorizedSender, assertMainRendererSender } from "./ipcSecurity";
 import { asRecord } from "./ipcValidators";
 import { recordNotification } from "./notificationLogIpc";
+import { sendToPopouts } from "./popoutIpc";
 import type { NotificationKind } from "../config/shared/notifications";
 import { withScope } from "../services/logger";
 import { dispatch } from "../services/notificationChannels";
@@ -761,6 +762,7 @@ function register(
       const msg = normalizeErrorMessage(err);
       log.error("[WorldState] fetch failed:", msg);
       ctx.mainWindow?.webContents.send(WORLD_STATE_FETCH_ERROR, msg);
+      sendToPopouts(WORLD_STATE_FETCH_ERROR, msg);
       if (!_worldStateCache) {
         _worldStateCache = worldStateParser.emptyWorldState();
       }

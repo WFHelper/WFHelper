@@ -91,6 +91,7 @@ import * as marketAlertsIpc from "./ipc/marketAlertsIpc";
 import * as tradeWorkflow from "./ipc/tradeWorkflow";
 import * as tradeWorkbenchIpc from "./ipc/tradeWorkbenchIpc";
 import * as tradeLedgerIpc from "./ipc/tradeLedgerIpc";
+import * as popoutIpc from "./ipc/popoutIpc";
 import { applyMainWindowZoom } from "./ipc/mainWindowZoom";
 import { assertMainRendererSender, handleAuthorized } from "./ipc/ipcSecurity";
 import {
@@ -413,6 +414,7 @@ function registerIpcHandlers(profileStage: ProfileStage): void {
   marketAlertsIpc.register();
   tradeWorkbenchIpc.register();
   tradeLedgerIpc.register();
+  popoutIpc.register();
 
   const attachInventoryAfterHelperRun = (ok: boolean) => {
     if (!ok || ctx.currentInventoryPath) return;
@@ -560,6 +562,7 @@ function initGameMonitoring(profileStage: ProfileStage): void {
     onArbiRunSaved: (run) => {
       const win = ctx.mainWindow;
       if (win && !win.isDestroyed()) win.webContents.send(ARBI_RUN_SAVED, run);
+      popoutIpc.sendToPopouts(ARBI_RUN_SAVED, run);
       arbiOverlayIpc.maybeShowArbiSummary(run);
     },
   });

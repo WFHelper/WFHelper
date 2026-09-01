@@ -24,6 +24,7 @@ import { dialog, app } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import { writeFileAtomicSync } from "../services/atomicFile";
+import { sendToPopouts } from "./popoutIpc";
 import chokidar from "chokidar";
 import crypto from "node:crypto";
 
@@ -393,6 +394,7 @@ function watchInventoryFile(filePath: string, source: InventorySource = "helper"
       const data = readAlecaFrameInventory(filePath);
       if (!data || _lastInventoryHash === previousHash) return;
       if (ctx.mainWindow) ctx.mainWindow.webContents.send(INVENTORY_UPDATED, data);
+      sendToPopouts(INVENTORY_UPDATED, data);
       return;
     }
     const snapshot = readInventorySnapshot(filePath);
@@ -418,6 +420,7 @@ function watchInventoryFile(filePath: string, source: InventorySource = "helper"
       if (data && ctx.mainWindow) {
         ctx.mainWindow.webContents.send(INVENTORY_UPDATED, data);
       }
+      if (data) sendToPopouts(INVENTORY_UPDATED, data);
     } catch (err) {
       const message = normalizeErrorMessage(err);
       const kind = inventoryErrorKind(err);
@@ -533,6 +536,7 @@ function reattachHelperInventory(): void {
   if (data && window && !window.isDestroyed()) {
     window.webContents.send(INVENTORY_UPDATED, data);
   }
+  if (data) sendToPopouts(INVENTORY_UPDATED, data);
 }
 
 /** Records the user's explicit pick and re-applies the auto-sync gate.

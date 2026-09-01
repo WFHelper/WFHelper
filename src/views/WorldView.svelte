@@ -32,6 +32,9 @@
   } from "../lib/world.js";
   import type { ItemDbEntry, RawInventoryData } from "../types/inventory.js";
   import { overlaySettings } from "../stores/overlaySettings.js";
+  import { isPopoutWindow } from "../stores/popout.js";
+  import { invoke } from "../lib/ipc.js";
+  import { log } from "../lib/log.js";
   import { activeItem, activeRelic } from "../stores/modals.js";
   import { relicDb } from "../stores/relics.js";
   import { relicGroupForUniqueName } from "../lib/relic.js";
@@ -59,6 +62,14 @@
   let collapsed: Record<string, boolean> = loadCollapsedSections();
   function toggleSection(key: string) {
     collapsed = toggleCollapsedSection(collapsed, key);
+  }
+
+  async function openInWindow(): Promise<void> {
+    try {
+      await invoke("popoutOpen", "world");
+    } catch (err) {
+      log.warn("[Popout] open world failed:", err);
+    }
   }
 
   // Sub-tab (world overview, arbitration schedule, dailies) - persisted to localStorage
@@ -256,9 +267,37 @@
 
 <section class="view active">
   <div class="mb-4">
-    <h2 class="m-0 mb-2 font-display text-3xl font-semibold tracking-[0.03em] text-text-primary">
-      {$tr("common.world")}
-    </h2>
+    <div class="mb-2 flex items-center justify-between gap-3">
+      <h2 class="m-0 font-display text-3xl font-semibold tracking-[0.03em] text-text-primary">
+        {$tr("common.world")}
+      </h2>
+      {#if !isPopoutWindow}
+        <button
+          type="button"
+          data-popout-open
+          aria-label={$tr("common.openInWindow")}
+          title={$tr("common.openInWindow")}
+          class="flex shrink-0 cursor-pointer items-center justify-center rounded border border-border bg-bg-raised/60 p-1.5 text-text-secondary transition-[border-color,color] duration-150 hover:border-border-strong hover:text-text-primary"
+          on:click={openInWindow}
+        >
+          <svg
+            viewBox="0 0 16 16"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M9.5 2.5h4v4" />
+            <path d="M13.5 2.5 8 8" />
+            <path d="M12.5 9.5V13H3V3.5h3.5" />
+          </svg>
+        </button>
+      {/if}
+    </div>
     <div class="flex items-end border-b border-white/[0.09]">
       <HeaderTabs options={worldTabOptions} activeKey={worldTab} onSelect={setWorldTab} />
       {#if worldTab === "world" && (baroActive || baroAct)}

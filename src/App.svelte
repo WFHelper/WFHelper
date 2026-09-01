@@ -27,6 +27,7 @@
 
   import { currentView, SETUP_COMPLETED_KEY, statusText } from "./stores/app.js";
   import { parsedItems } from "./stores/data.js";
+  import { popoutPinnedAtOpen, popoutView } from "./stores/popout.js";
   import { tourActive } from "./stores/tour.js";
   import { autoFocusSearch } from "./stores/preferences.js";
   import { activeItem, activeComponent, activeRelic } from "./stores/modals.js";
@@ -35,7 +36,9 @@
   import { initStartup } from "./lib/startupLoader.js";
   import { initRendererEvents } from "./lib/rendererEvents.js";
   import { invoke } from "./lib/ipc.js";
+  import { log } from "./lib/log.js";
   import { tr } from "./lib/i18n.js";
+  import type { PopoutView } from "../config/shared/popoutTypes.js";
   import type { ViewName } from "./types/views.js";
   import {
     isLazyView,
@@ -45,6 +48,11 @@
   } from "./lib/viewRegistry.js";
 
   type LazyViewComponent = Component<Record<string, never>>;
+
+  const POPOUT_ROUTES: Record<PopoutView, LazyViewName> = { world: "world", arbitrations: "arbi" };
+  const popoutRoute: LazyViewName | null = popoutView ? POPOUT_ROUTES[popoutView] : null;
+
+  let popoutPinned = popoutPinnedAtOpen;
 
   const loadedLazyViews: Partial<Record<LazyViewName, LazyViewComponent>> = {};
 
@@ -64,11 +72,16 @@
 
     const disposeEvents = initRendererEvents();
 
-    const startup = initStartup();
+    // Only the main window owns the shared disk caches; a popout flushing its
+    // own smaller export would shrink them.
+    const startup = initStartup({ ownsSharedCaches: !popoutRoute });
 
-    // Match the exact-"1" check used in stores/app.ts so any future
-    // non-"1" leftover value is treated consistently.
-    if (localStorage.getItem(SETUP_COMPLETED_KEY) !== "1") {
+    if (popoutRoute) {
+      // Reuses the normal lazy-view loader; the shell below renders its result.
+      currentView.set(popoutRoute);
+    } else if (localStorage.getItem(SETUP_COMPLETED_KEY) !== "1") {
+      // Match the exact-"1" check used in stores/app.ts so any future
+      // non-"1" leftover value is treated consistently.
       currentView.set("setup");
     } else {
       void reopenSetupWhenInventoryIsUnavailable();
@@ -173,6 +186,16 @@
     target.select();
   }
 
+  async function togglePopoutPin(): Promise<void> {
+    const next = !popoutPinned;
+    try {
+      const result = await invoke("popoutSetPinned", next);
+      if (result?.ok) popoutPinned = next;
+    } catch (err) {
+      log.warn("[Popout] setPinned failed:", err);
+    }
+  }
+
   function onKeyDown(e: KeyboardEvent): void {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "f") {
       const target = findSearchTarget();
@@ -198,72 +221,132 @@
   }
 </script>
 
-<ErrorBoundary>
-  <Titlebar />
+<!-- Electron mirrors the page title into the frame, so each popout is nameable. -->
+<svelte:head>
+  {#if popoutRoute}
+    <title>{$tr(VIEW_LABEL_KEYS[popoutRoute])}</title>
+  {/if}
+</svelte:head>
 
-  <div id="app">
-    {#if $currentView !== "setup"}
-      <Sidebar />
-    {/if}
-
-    <main
-      id="content"
-      class:stats-active={$currentView === "stats"}
-      class:setup-active={$currentView === "setup"}
-    >
-      {#if $currentView === "setup"}
-        <SetupView />
-      {:else if $currentView === "inventory"}
-        <InventoryView />
-      {:else if $currentView === "foundry"}
-        <FoundryView />
-      {:else if $currentView === "mastery"}
-        <MasteryView />
-      {:else if $currentView === "stats"}
-        <StatsView />
-      {:else if $currentView === "rivens"}
-        <RivensView />
-      {:else if $currentView === "settings"}
-        <SettingsView />
-      {:else if activeLazyView}
-        {#if lazyViewLoading || activeLazyView !== lastRequestedLazyView}
-          <section class="view active">
-            <div class="empty-state">
-              <p>{$tr("app.loadingView", { view: $tr(VIEW_LABEL_KEYS[activeLazyView]) })}</p>
-            </div>
-          </section>
-        {:else if lazyViewError}
+{#if popoutRoute}
+  <ErrorBoundary>
+    <div class="flex h-screen">
+      <main id="content">
+        {#if lazyViewComponent}
+          <svelte:component this={lazyViewComponent} />
+        {:else}
           <section class="view active">
             <div class="empty-state gap-3">
-              <p>{$tr("app.failedLoadView", { view: $tr(VIEW_LABEL_KEYS[activeLazyView]) })}</p>
-              <p class="text-sm text-text-muted">{lazyViewError}</p>
-              <button
-                class="cursor-pointer rounded border border-border bg-bg-soft px-3 py-1 text-sm text-text-secondary transition-[border-color,color] duration-150 hover:border-border-strong hover:text-text-primary"
-                on:click={retryLazyViewLoad}>{$tr("common.retry")}</button
-              >
+              <p>
+                {lazyViewError
+                  ? $tr("app.failedLoadView", { view: $tr(VIEW_LABEL_KEYS[popoutRoute]) })
+                  : $tr("app.loadingView", { view: $tr(VIEW_LABEL_KEYS[popoutRoute]) })}
+              </p>
+              {#if lazyViewError}
+                <p class="text-sm text-text-muted">{lazyViewError}</p>
+              {/if}
             </div>
           </section>
-        {:else if lazyViewComponent}
-          <svelte:component this={lazyViewComponent} />
         {/if}
+      </main>
+    </div>
+
+    <button
+      type="button"
+      data-popout-pin
+      aria-pressed={popoutPinned}
+      aria-label={$tr(popoutPinned ? "common.unpinOnTop" : "common.pinOnTop")}
+      title={$tr(popoutPinned ? "common.unpinOnTop" : "common.pinOnTop")}
+      class="fixed right-3 top-2 z-[1300] flex cursor-pointer items-center justify-center rounded border p-1.5 transition-[border-color,color,background-color] duration-150 {popoutPinned
+        ? 'border-accent/60 bg-accent/15 text-accent'
+        : 'border-border bg-bg-raised/90 text-text-secondary hover:border-border-strong hover:text-text-primary'}"
+      on:click={togglePopoutPin}
+    >
+      <svg
+        viewBox="0 0 16 16"
+        width="14"
+        height="14"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M6 1.5h4l-.6 3.3 2.1 2.1v1.2H4.5V6.9l2.1-2.1z" />
+        <path d="M8 8.1V14" />
+      </svg>
+    </button>
+  </ErrorBoundary>
+{:else}
+  <ErrorBoundary>
+    <Titlebar />
+
+    <div id="app">
+      {#if $currentView !== "setup"}
+        <Sidebar />
       {/if}
-    </main>
-  </div>
 
-  {#if $currentView !== "setup"}
-    <StatusBar />
+      <main
+        id="content"
+        class:stats-active={$currentView === "stats"}
+        class:setup-active={$currentView === "setup"}
+      >
+        {#if $currentView === "setup"}
+          <SetupView />
+        {:else if $currentView === "inventory"}
+          <InventoryView />
+        {:else if $currentView === "foundry"}
+          <FoundryView />
+        {:else if $currentView === "mastery"}
+          <MasteryView />
+        {:else if $currentView === "stats"}
+          <StatsView />
+        {:else if $currentView === "rivens"}
+          <RivensView />
+        {:else if $currentView === "settings"}
+          <SettingsView />
+        {:else if activeLazyView}
+          {#if lazyViewLoading || activeLazyView !== lastRequestedLazyView}
+            <section class="view active">
+              <div class="empty-state">
+                <p>{$tr("app.loadingView", { view: $tr(VIEW_LABEL_KEYS[activeLazyView]) })}</p>
+              </div>
+            </section>
+          {:else if lazyViewError}
+            <section class="view active">
+              <div class="empty-state gap-3">
+                <p>{$tr("app.failedLoadView", { view: $tr(VIEW_LABEL_KEYS[activeLazyView]) })}</p>
+                <p class="text-sm text-text-muted">{lazyViewError}</p>
+                <button
+                  class="cursor-pointer rounded border border-border bg-bg-soft px-3 py-1 text-sm text-text-secondary transition-[border-color,color] duration-150 hover:border-border-strong hover:text-text-primary"
+                  on:click={retryLazyViewLoad}>{$tr("common.retry")}</button
+                >
+              </div>
+            </section>
+          {:else if lazyViewComponent}
+            <svelte:component this={lazyViewComponent} />
+          {/if}
+        {/if}
+      </main>
+    </div>
+
+    {#if $currentView !== "setup"}
+      <StatusBar />
+    {/if}
+
+    <ItemDetailModal />
+    <ComponentDetailModal />
+    <RelicDetailModal />
+    <OrderModal />
+    {#if $bulkSellOpen}
+      <BulkSellModal onClose={() => bulkSellOpen.set(false)} />
+    {/if}
+  </ErrorBoundary>
+
+  {#if $tourActive}
+    <TourOverlay />
   {/if}
-
-  <ItemDetailModal />
-  <ComponentDetailModal />
-  <RelicDetailModal />
-  <OrderModal />
-  {#if $bulkSellOpen}
-    <BulkSellModal onClose={() => bulkSellOpen.set(false)} />
-  {/if}
-</ErrorBoundary>
-
-{#if $tourActive}
-  <TourOverlay />
 {/if}
+
 <ToastHost />
