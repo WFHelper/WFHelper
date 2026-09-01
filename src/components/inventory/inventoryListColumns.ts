@@ -25,6 +25,21 @@ export const INVENTORY_LIST_COLUMNS = [
 ] as const satisfies readonly InventoryListColumn[];
 
 /**
+ * The Owned cell shows a parts fraction for incomplete sets, so "amount" fits only
+ * a list with none; all-incomplete sorts by completeness, a mixed list by nothing.
+ */
+export function ownedSortKeyFor(groups: Iterable<string | null | undefined>): SharedSortKey | null {
+  let rows = 0;
+  let incomplete = 0;
+  for (const group of groups) {
+    rows += 1;
+    if (group === "incomplete_sets") incomplete += 1;
+  }
+  if (incomplete === 0) return "amount";
+  return incomplete === rows ? "missing_parts" : null;
+}
+
+/**
  * Re-clicking the active column flips it; a new column starts at the direction
  * the shared sort bar would pick, so both entry points agree on "best first".
  */

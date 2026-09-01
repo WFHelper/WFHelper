@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   INVENTORY_LIST_COLUMNS,
   nextInventorySort,
+  ownedSortKeyFor,
 } from "../../../src/components/inventory/inventoryListColumns.js";
 import { applySharedFiltersAndSort, defaultSortDirection } from "../../../src/lib/filters.js";
 import type { InventoryViewItem } from "../../../src/lib/inventoryMarket.js";
@@ -107,6 +108,38 @@ describe("INVENTORY_LIST_COLUMNS", () => {
     const icon = INVENTORY_LIST_COLUMNS[0];
     expect(icon.labelKey).toBeNull();
     expect(icon.sortKey).toBeNull();
+  });
+});
+
+describe("ownedSortKeyFor", () => {
+  // The Owned cell shows a parts fraction on incomplete sets, so the header must
+  // not offer the plain quantity sort there.
+  it("keeps the quantity sort when no row is an incomplete set", () => {
+    expect(ownedSortKeyFor(["all_parts", "full_sets", "mods"])).toBe("amount");
+    expect(ownedSortKeyFor([])).toBe("amount");
+  });
+
+  it("sorts an all-incomplete list by set completeness", () => {
+    expect(ownedSortKeyFor(["incomplete_sets", "incomplete_sets"])).toBe("missing_parts");
+  });
+
+  it("drops the sort affordance when the list mixes both", () => {
+    expect(ownedSortKeyFor(["full_sets", "incomplete_sets"])).toBeNull();
+  });
+
+  it("only offers keys the full-sets tab can actually compute", () => {
+    const fullSetsKeys = new Set([
+      "name",
+      "platinum",
+      "ducats",
+      "amount",
+      "ducatonator",
+      "complete_sets",
+      "missing_parts",
+    ]);
+    const key = ownedSortKeyFor(["incomplete_sets"]);
+    expect(key).not.toBeNull();
+    expect(fullSetsKeys.has(key as string)).toBe(true);
   });
 });
 

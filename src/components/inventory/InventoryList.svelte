@@ -9,7 +9,12 @@
   import { locale, tr as t } from "../../lib/i18n.js";
   import type { MessageKey } from "../../lib/i18n.js";
   import { itemLabel } from "../../lib/itemLabel.js";
-  import { INVENTORY_LIST_COLUMNS, nextInventorySort } from "./inventoryListColumns.js";
+  import {
+    INVENTORY_LIST_COLUMNS,
+    nextInventorySort,
+    ownedSortKeyFor,
+  } from "./inventoryListColumns.js";
+  import { wfmItems } from "../../stores/data.js";
   import type { InventoryViewItem } from "../../lib/inventoryMarket.js";
   import type { SharedSortKey, SortDirection } from "../../types/filters.js";
   import { isRankedGroup } from "../../../config/shared/numeric.js";
@@ -92,6 +97,17 @@
     rowItems.clear();
   });
 
+  // A row offered before the WFM catalog loaded is refused by the view, so its
+  // price cells stay blank until a remount. Offer every tracked row once more
+  // when the catalog arrives; the latch keeps later catalog writes from re-firing.
+  let catalogSeen = false;
+  $effect(() => {
+    if (catalogSeen || Object.keys($wfmItems).length === 0) return;
+    catalogSeen = true;
+    reportedVisible.clear();
+    for (const node of rowItems.keys()) visibilityObserver?.observe(node);
+  });
+
   function trackRow(
     node: HTMLElement,
     item: InventoryViewItem,
@@ -123,9 +139,16 @@
     return { destroy: () => io.disconnect() };
   }
 
-  function headerSortKey(column: (typeof INVENTORY_LIST_COLUMNS)[number]): SharedSortKey | null {
-    return column.sortKey && sortableKeys.has(column.sortKey) ? column.sortKey : null;
-  }
+  const ownedSortKey = $derived(ownedSortKeyFor(items.map((item) => item.inventoryGroup)));
+
+  // Resolved here rather than in a template helper, so the header follows the
+  // rendered rows: a call from markup would not track these dependencies.
+  const columnSortKeys = $derived(
+    columns.map((column): SharedSortKey | null => {
+      const sortKey = column.key === "owned" ? ownedSortKey : column.sortKey;
+      return sortKey && sortableKeys.has(sortKey) ? sortKey : null;
+    }),
+  );
 
   function sortByColumn(sortKey: SharedSortKey): void {
     onSort(nextInventorySort({ sortBy, sortDirection }, sortKey));
@@ -184,8 +207,8 @@
               <span class="sr-only">{$t(k("inventory.selectMode"))}</span>
             </th>
           {/if}
-          {#each columns as column (column.key)}
-            {@const sortKey = headerSortKey(column)}
+          {#each columns as column, columnIndex (column.key)}
+            {@const sortKey = columnSortKeys[columnIndex] ?? null}
             {@const active = sortKey !== null && sortBy === sortKey}
             <th
               class="border-b border-border bg-bg-base px-2 py-2 font-semibold {column.numeric
