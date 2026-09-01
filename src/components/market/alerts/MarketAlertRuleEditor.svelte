@@ -2,7 +2,10 @@
   import { invoke } from "../../../lib/ipc.js";
   import { tr, type MessageKey } from "../../../lib/i18n.js";
   import { parsedItems, wfmItems } from "../../../stores/data.js";
+  import { savedSelections } from "../../../stores/inventorySelection.js";
   import { ownedCountForAlertItem } from "../../../lib/marketAlerts/ownedCount.js";
+  import { getAlertSellLink, setAlertSellLink } from "./alertBulkSell.js";
+  import { statLabel } from "./alertResolve.js";
   import ThemedInput from "../../ThemedInput.svelte";
   import { titleFromSlug } from "../../../../config/shared/wfm.js";
   import {
@@ -117,7 +120,20 @@
   let ownedBelow = $state(item?.ownedBelow !== undefined ? String(item.ownedBelow) : "");
   let ownedAbove = $state(item?.ownedAbove !== undefined ? String(item.ownedAbove) : "");
 
+  // Device-local: which saved selection "Open Bulk Sell" applies for this rule.
+  let sellLink = $state(initialRule?.id ? getAlertSellLink(initialRule.id) : "");
+  // A link whose selection was deleted stays listed, so saving keeps it instead
+  // of silently dropping it behind the user's back.
+  const sellLinkOptions = $derived(
+    sellLink && !$savedSelections.some((entry) => entry.name === sellLink)
+      ? [sellLink, ...$savedSelections.map((entry) => entry.name)]
+      : $savedSelections.map((entry) => entry.name),
+  );
+
   let weaponNames = $state<string[]>([]);
+
+  const sectionTitle =
+    "m-0 font-display text-[0.7rem] font-bold uppercase tracking-[0.09em] text-text-muted";
 
   $effect(() => {
     void invoke("getRivenWeaponNames").then((names) => {
@@ -144,10 +160,6 @@
     itemLabel = entry.item_name;
     itemResults = [];
     itemQuery = "";
-  }
-
-  function statLabel(urlName: string): string {
-    return statOptions.find((o) => o.wfmUrlName === urlName)?.displayName ?? urlName;
   }
 
   function toggleStatus(status: MarketAlertSellerStatus): void {
@@ -278,6 +290,8 @@
         error = $tr("marketAlerts.saveFailed", { error: result.error });
         return;
       }
+      // Only now is the id known for a rule main just created.
+      if (kind === "item") setAlertSellLink(result.rule.id, sellLink);
       onClose(true);
     } finally {
       saving = false;
@@ -286,12 +300,12 @@
 </script>
 
 {#snippet statPicker(labelKey: MessageKey, list: string[], set: (next: string[]) => void)}
-  <div class="mt-3 text-sm">
+  <div class="text-sm">
     <span class="text-text-secondary">{$tr(labelKey)}</span>
     <div class="mt-1 flex flex-wrap items-center gap-1.5">
       {#each list as stat (stat)}
         <span class="flex items-center gap-1 rounded-full border border-border px-2 py-0.5">
-          {statLabel(stat)}
+          {statLabel(stat, statOptions)}
           <button
             class="link-btn"
             aria-label={$tr("common.delete")}
@@ -350,286 +364,315 @@
     {/if}
   </div>
 
-  <div class="grid gap-3 md:grid-cols-2">
-    <label class="flex flex-col gap-1 text-sm">
-      <span class="text-text-secondary">{$tr("marketAlerts.ruleName")}</span>
-      <ThemedInput bind:value={name} placeholder={$tr("marketAlerts.ruleName")} />
-    </label>
-    <label class="flex flex-col gap-1 text-sm">
-      <span class="text-text-secondary">{$tr("marketAlerts.cooldownMinutes")}</span>
-      <ThemedInput
-        type="number"
-        min={MARKET_ALERT_MIN_COOLDOWN_MINUTES}
-        max={MARKET_ALERT_MAX_COOLDOWN_MINUTES}
-        bind:value={cooldownMinutes}
-      />
-    </label>
-  </div>
-
-  {#if kind === "riven"}
-    <div class="mt-3 grid gap-3 md:grid-cols-2">
+  <section class="flex flex-col gap-3" data-alert-section="watch">
+    <h4 class={sectionTitle}>{$tr("marketAlerts.section.watch")}</h4>
+    <div class="grid gap-3 md:grid-cols-2">
       <label class="flex flex-col gap-1 text-sm">
-        <span class="text-text-secondary">{$tr("rivens.finder.weapon")}</span>
-        <input
-          class="rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-[var(--ui-control-bg)] px-2.5 py-2 text-sm text-text-primary outline-none"
-          list="market-alert-weapon-names"
-          maxlength={MARKET_ALERT_MAX_NAME_CHARS * 2}
-          bind:value={weaponInput}
-          oninput={() => (weaponDirty = true)}
-        />
-        <datalist id="market-alert-weapon-names">
-          {#each weaponNames as weaponName (weaponName)}
-            <option value={weaponName}></option>
-          {/each}
-        </datalist>
+        <span class="text-text-secondary">{$tr("marketAlerts.ruleName")}</span>
+        <ThemedInput bind:value={name} placeholder={$tr("marketAlerts.ruleName")} />
       </label>
-      <label class="flex flex-col gap-1 text-sm">
-        <span class="text-text-secondary">{$tr("marketAlerts.curse")}</span>
-        <select class="shared-filter-select" bind:value={curseMode}>
-          <option value="any">{$tr("filters.any")}</option>
-          <option value="required">{$tr("marketAlerts.curseRequired")}</option>
-          <option value="forbidden">{$tr("marketAlerts.curseForbidden")}</option>
-        </select>
-      </label>
-    </div>
-
-    {@render statPicker("marketAlerts.requiredPositive", requirePositive, (next) => {
-      requirePositive = next;
-    })}
-    {@render statPicker("marketAlerts.requiredNegative", requireNegative, (next) => {
-      requireNegative = next;
-    })}
-    {@render statPicker("marketAlerts.excludedStats", excludeAttributes, (next) => {
-      excludeAttributes = next;
-    })}
-
-    <div class="mt-3 text-sm">
-      <span class="text-text-secondary">{$tr("marketAlerts.statBounds")}</span>
-      {#each statBounds as bound, index (index)}
-        <div class="mt-1 flex items-center gap-2">
-          <select class="shared-filter-select" bind:value={bound.attribute}>
-            {#each statOptions as option (option.wfmUrlName)}
-              <option value={option.wfmUrlName}>{option.displayName}</option>
+      {#if kind === "riven"}
+        <label class="flex flex-col gap-1 text-sm">
+          <span class="text-text-secondary">{$tr("rivens.finder.weapon")}</span>
+          <input
+            class="rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] bg-[var(--ui-control-bg)] px-2.5 py-2 text-sm text-text-primary outline-none"
+            list="market-alert-weapon-names"
+            maxlength={MARKET_ALERT_MAX_NAME_CHARS * 2}
+            bind:value={weaponInput}
+            oninput={() => (weaponDirty = true)}
+          />
+          <datalist id="market-alert-weapon-names">
+            {#each weaponNames as weaponName (weaponName)}
+              <option value={weaponName}></option>
+            {/each}
+          </datalist>
+        </label>
+      {:else}
+        <div class="flex flex-col gap-1 text-sm">
+          <span class="text-text-secondary">{$tr("common.item")}</span>
+          {#if itemSlug}
+            <div class="flex items-center gap-2">
+              <span class="rounded-full border border-border px-2 py-0.5">{itemLabel}</span>
+              <button
+                class="link-btn"
+                onclick={() => {
+                  itemSlug = "";
+                  itemLabel = "";
+                }}>{$tr("common.delete")}</button
+              >
+            </div>
+          {:else}
+            <ThemedInput
+              bind:value={itemQuery}
+              placeholder={$tr("common.searchPlaceholder")}
+              onInput={() => void searchItems()}
+            />
+            {#if itemResults.length > 0}
+              <div class="flex flex-col rounded border border-border bg-bg-surface">
+                {#each itemResults as result (result.id)}
+                  <button class="link-btn px-2 py-1 text-left" onclick={() => pickItem(result)}>
+                    {result.item_name}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          {/if}
+        </div>
+        <label class="flex flex-col gap-1 text-sm">
+          <span class="text-text-secondary">{$tr("common.orderType")}</span>
+          <select class="shared-filter-select" bind:value={side}>
+            {#each MARKET_ORDER_SIDES as orderSide (orderSide)}
+              <option value={orderSide}>
+                {orderSide === "sell" ? $tr("market.tab.sell") : $tr("market.tab.buy")}
+              </option>
             {/each}
           </select>
-          <ThemedInput bind:value={bound.min} placeholder={$tr("common.min")} className="w-24" />
-          <ThemedInput bind:value={bound.max} placeholder={$tr("common.max")} className="w-24" />
-          <button
-            class="link-btn"
-            onclick={() => (statBounds = statBounds.filter((_row, i) => i !== index))}
-            >{$tr("common.delete")}</button
-          >
-        </div>
-      {/each}
-      {#if statBounds.length < MARKET_ALERT_MAX_STAT_BOUNDS && statOptions.length > 0}
-        <button
-          class="link-btn mt-1"
-          onclick={() =>
-            (statBounds = [
-              ...statBounds,
-              { attribute: statOptions[0].wfmUrlName, min: "", max: "" },
-            ])}>{$tr("marketAlerts.addBound")}</button
-        >
+        </label>
       {/if}
     </div>
+  </section>
 
-    <div class="mt-3 grid gap-3 md:grid-cols-3">
-      <label class="flex flex-col gap-1 text-sm">
-        <span class="text-text-secondary">{$tr("marketAlerts.similarity")}</span>
-        <ThemedInput type="number" min="0" max="100" bind:value={similarityPct} />
-      </label>
-      <label class="flex flex-col gap-1 text-sm">
-        <span class="text-text-secondary">{$tr("marketAlerts.polarity")}</span>
-        <select class="shared-filter-select" bind:value={polarity}>
-          <option value="">{$tr("filters.any")}</option>
-          {#each RIVEN_POLARITIES as pol (pol)}
-            <option value={pol}>{pol}</option>
-          {/each}
-        </select>
-      </label>
-      <label class="flex flex-col gap-1 text-sm">
-        <span class="text-text-secondary">{$tr("marketAlerts.minEndoPerPlat")}</span>
-        <ThemedInput type="number" min="0" bind:value={minEndoPerPlat} />
-      </label>
-    </div>
+  <section
+    class="mt-4 flex flex-col gap-3 border-t border-border-subtle pt-3.5"
+    data-alert-section="filters"
+  >
+    <h4 class={sectionTitle}>{$tr("common.filters")}</h4>
 
-    <div class="mt-3 grid gap-3 md:grid-cols-4">
-      {@render rangePair(
-        "marketAlerts.masteryRank",
-        {
-          get v() {
-            return minMastery;
-          },
-          set v(next: string) {
-            minMastery = next;
-          },
-        },
-        {
-          get v() {
-            return maxMastery;
-          },
-          set v(next: string) {
-            maxMastery = next;
-          },
-        },
-      )}
-      {@render rangePair(
-        "common.rank",
-        {
-          get v() {
-            return minModRank;
-          },
-          set v(next: string) {
-            minModRank = next;
-          },
-        },
-        {
-          get v() {
-            return maxModRank;
-          },
-          set v(next: string) {
-            maxModRank = next;
-          },
-        },
-      )}
-      {@render rangePair(
-        "common.platinum",
-        {
-          get v() {
-            return minPlat;
-          },
-          set v(next: string) {
-            minPlat = next;
-          },
-        },
-        {
-          get v() {
-            return maxPlat;
-          },
-          set v(next: string) {
-            maxPlat = next;
-          },
-        },
-      )}
-      {@render rangePair(
-        "common.rerolls",
-        {
-          get v() {
-            return minRerolls;
-          },
-          set v(next: string) {
-            minRerolls = next;
-          },
-        },
-        {
-          get v() {
-            return maxRerolls;
-          },
-          set v(next: string) {
-            maxRerolls = next;
-          },
-        },
-      )}
-    </div>
-  {:else}
-    <div class="mt-3 grid gap-3 md:grid-cols-2">
-      <div class="flex flex-col gap-1 text-sm">
-        <span class="text-text-secondary">{$tr("common.item")}</span>
-        {#if itemSlug}
-          <div class="flex items-center gap-2">
-            <span class="rounded-full border border-border px-2 py-0.5">{itemLabel}</span>
+    {#if kind === "riven"}
+      <div class="grid gap-3 md:grid-cols-2">
+        <label class="flex flex-col gap-1 text-sm">
+          <span class="text-text-secondary">{$tr("marketAlerts.curse")}</span>
+          <select class="shared-filter-select" bind:value={curseMode}>
+            <option value="any">{$tr("filters.any")}</option>
+            <option value="required">{$tr("marketAlerts.curseRequired")}</option>
+            <option value="forbidden">{$tr("marketAlerts.curseForbidden")}</option>
+          </select>
+        </label>
+      </div>
+
+      {@render statPicker("marketAlerts.requiredPositive", requirePositive, (next) => {
+        requirePositive = next;
+      })}
+      {@render statPicker("marketAlerts.requiredNegative", requireNegative, (next) => {
+        requireNegative = next;
+      })}
+      {@render statPicker("marketAlerts.excludedStats", excludeAttributes, (next) => {
+        excludeAttributes = next;
+      })}
+
+      <div class="text-sm">
+        <span class="text-text-secondary">{$tr("marketAlerts.statBounds")}</span>
+        {#each statBounds as bound, index (index)}
+          <div class="mt-1 flex items-center gap-2">
+            <select class="shared-filter-select" bind:value={bound.attribute}>
+              {#each statOptions as option (option.wfmUrlName)}
+                <option value={option.wfmUrlName}>{option.displayName}</option>
+              {/each}
+            </select>
+            <ThemedInput bind:value={bound.min} placeholder={$tr("common.min")} className="w-24" />
+            <ThemedInput bind:value={bound.max} placeholder={$tr("common.max")} className="w-24" />
             <button
               class="link-btn"
-              onclick={() => {
-                itemSlug = "";
-                itemLabel = "";
-              }}>{$tr("common.delete")}</button
+              onclick={() => (statBounds = statBounds.filter((_row, i) => i !== index))}
+              >{$tr("common.delete")}</button
             >
           </div>
-        {:else}
-          <ThemedInput
-            bind:value={itemQuery}
-            placeholder={$tr("common.searchPlaceholder")}
-            onInput={() => void searchItems()}
-          />
-          {#if itemResults.length > 0}
-            <div class="flex flex-col rounded border border-border bg-bg-surface">
-              {#each itemResults as result (result.id)}
-                <button class="link-btn px-2 py-1 text-left" onclick={() => pickItem(result)}>
-                  {result.item_name}
-                </button>
-              {/each}
-            </div>
-          {/if}
+        {/each}
+        {#if statBounds.length < MARKET_ALERT_MAX_STAT_BOUNDS && statOptions.length > 0}
+          <button
+            class="link-btn mt-1"
+            onclick={() =>
+              (statBounds = [
+                ...statBounds,
+                { attribute: statOptions[0].wfmUrlName, min: "", max: "" },
+              ])}>{$tr("marketAlerts.addBound")}</button
+          >
         {/if}
       </div>
-      <label class="flex flex-col gap-1 text-sm">
-        <span class="text-text-secondary">{$tr("common.orderType")}</span>
-        <select class="shared-filter-select" bind:value={side}>
-          {#each MARKET_ORDER_SIDES as orderSide (orderSide)}
-            <option value={orderSide}>
-              {orderSide === "sell" ? $tr("market.tab.sell") : $tr("market.tab.buy")}
-            </option>
-          {/each}
-        </select>
-      </label>
-    </div>
 
-    <div class="mt-3 grid gap-3 md:grid-cols-3">
-      <label class="flex flex-col gap-1 text-sm">
-        <span class="text-text-secondary">{$tr("common.min")} {$tr("common.platinum")}</span>
-        <ThemedInput type="number" min="0" bind:value={minPlat} />
-      </label>
-      <label class="flex flex-col gap-1 text-sm">
-        <span class="text-text-secondary">{$tr("common.max")} {$tr("common.platinum")}</span>
-        <ThemedInput type="number" min="0" bind:value={maxPlat} />
-      </label>
-      <label class="flex flex-col gap-1 text-sm">
-        <span class="text-text-secondary">{$tr("marketAlerts.minQuantity")}</span>
-        <ThemedInput type="number" min="1" bind:value={minQuantity} />
-      </label>
-    </div>
-
-    <div class="mt-3 grid gap-3 md:grid-cols-3">
-      <div class="flex flex-col gap-1 text-sm">
-        <span class="text-text-secondary">{$tr("marketAlerts.sellerStatus")}</span>
-        <div class="flex gap-3">
-          {#each MARKET_ALERT_SELLER_STATUSES as status (status)}
-            <label class="flex items-center gap-1">
-              <input
-                type="checkbox"
-                checked={statuses.includes(status)}
-                onchange={() => toggleStatus(status)}
-              />
-              {status === "ingame" ? $tr("common.inGame") : $tr("common.online")}
-            </label>
-          {/each}
-        </div>
+      <div class="grid gap-3 md:grid-cols-3">
+        <label class="flex flex-col gap-1 text-sm">
+          <span class="text-text-secondary">{$tr("marketAlerts.similarity")}</span>
+          <ThemedInput type="number" min="0" max="100" bind:value={similarityPct} />
+        </label>
+        <label class="flex flex-col gap-1 text-sm">
+          <span class="text-text-secondary">{$tr("marketAlerts.polarity")}</span>
+          <select class="shared-filter-select" bind:value={polarity}>
+            <option value="">{$tr("filters.any")}</option>
+            {#each RIVEN_POLARITIES as pol (pol)}
+              <option value={pol}>{pol}</option>
+            {/each}
+          </select>
+        </label>
+        <label class="flex flex-col gap-1 text-sm">
+          <span class="text-text-secondary">{$tr("marketAlerts.minEndoPerPlat")}</span>
+          <ThemedInput type="number" min="0" bind:value={minEndoPerPlat} />
+        </label>
       </div>
-      <label class="flex flex-col gap-1 text-sm">
-        <span class="text-text-secondary">{$tr("marketAlerts.ownedBelow")}</span>
-        <ThemedInput type="number" min="0" bind:value={ownedBelow} />
-      </label>
-      <label class="flex flex-col gap-1 text-sm">
-        <span class="text-text-secondary">{$tr("marketAlerts.ownedAbove")}</span>
-        <ThemedInput type="number" min="0" bind:value={ownedAbove} />
-      </label>
-    </div>
-  {/if}
 
-  <div class="mt-3 flex items-center gap-4 text-sm">
-    <label class="flex items-center gap-1.5">
-      <input type="checkbox" bind:checked={enabled} />
-      {$tr("marketAlerts.enabled")}
-    </label>
-    <label class="flex items-center gap-1.5">
-      <input type="checkbox" bind:checked={native} />
-      {$tr("marketAlerts.desktopNotification")}
-    </label>
-  </div>
+      <div class="grid gap-3 md:grid-cols-4">
+        {@render rangePair(
+          "marketAlerts.masteryRank",
+          {
+            get v() {
+              return minMastery;
+            },
+            set v(next: string) {
+              minMastery = next;
+            },
+          },
+          {
+            get v() {
+              return maxMastery;
+            },
+            set v(next: string) {
+              maxMastery = next;
+            },
+          },
+        )}
+        {@render rangePair(
+          "common.rank",
+          {
+            get v() {
+              return minModRank;
+            },
+            set v(next: string) {
+              minModRank = next;
+            },
+          },
+          {
+            get v() {
+              return maxModRank;
+            },
+            set v(next: string) {
+              maxModRank = next;
+            },
+          },
+        )}
+        {@render rangePair(
+          "common.platinum",
+          {
+            get v() {
+              return minPlat;
+            },
+            set v(next: string) {
+              minPlat = next;
+            },
+          },
+          {
+            get v() {
+              return maxPlat;
+            },
+            set v(next: string) {
+              maxPlat = next;
+            },
+          },
+        )}
+        {@render rangePair(
+          "common.rerolls",
+          {
+            get v() {
+              return minRerolls;
+            },
+            set v(next: string) {
+              minRerolls = next;
+            },
+          },
+          {
+            get v() {
+              return maxRerolls;
+            },
+            set v(next: string) {
+              maxRerolls = next;
+            },
+          },
+        )}
+      </div>
+    {:else}
+      <div class="grid gap-3 md:grid-cols-3">
+        <label class="flex flex-col gap-1 text-sm">
+          <span class="text-text-secondary">{$tr("common.min")} {$tr("common.platinum")}</span>
+          <ThemedInput type="number" min="0" bind:value={minPlat} />
+        </label>
+        <label class="flex flex-col gap-1 text-sm">
+          <span class="text-text-secondary">{$tr("common.max")} {$tr("common.platinum")}</span>
+          <ThemedInput type="number" min="0" bind:value={maxPlat} />
+        </label>
+        <label class="flex flex-col gap-1 text-sm">
+          <span class="text-text-secondary">{$tr("marketAlerts.minQuantity")}</span>
+          <ThemedInput type="number" min="1" bind:value={minQuantity} />
+        </label>
+      </div>
+
+      <div class="grid gap-3 md:grid-cols-3">
+        <div class="flex flex-col gap-1 text-sm">
+          <span class="text-text-secondary">{$tr("marketAlerts.sellerStatus")}</span>
+          <div class="flex gap-3">
+            {#each MARKET_ALERT_SELLER_STATUSES as status (status)}
+              <label class="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={statuses.includes(status)}
+                  onchange={() => toggleStatus(status)}
+                />
+                {status === "ingame" ? $tr("common.inGame") : $tr("common.online")}
+              </label>
+            {/each}
+          </div>
+        </div>
+        <label class="flex flex-col gap-1 text-sm">
+          <span class="text-text-secondary">{$tr("marketAlerts.ownedBelow")}</span>
+          <ThemedInput type="number" min="0" bind:value={ownedBelow} />
+        </label>
+        <label class="flex flex-col gap-1 text-sm">
+          <span class="text-text-secondary">{$tr("marketAlerts.ownedAbove")}</span>
+          <ThemedInput type="number" min="0" bind:value={ownedAbove} />
+        </label>
+      </div>
+    {/if}
+  </section>
+
+  <section
+    class="mt-4 flex flex-col gap-3 border-t border-border-subtle pt-3.5"
+    data-alert-section="delivery"
+  >
+    <h4 class={sectionTitle}>{$tr("marketAlerts.section.delivery")}</h4>
+    <div class="grid gap-3 md:grid-cols-2">
+      <label class="flex flex-col gap-1 text-sm">
+        <span class="text-text-secondary">{$tr("marketAlerts.cooldownMinutes")}</span>
+        <ThemedInput
+          type="number"
+          min={MARKET_ALERT_MIN_COOLDOWN_MINUTES}
+          max={MARKET_ALERT_MAX_COOLDOWN_MINUTES}
+          bind:value={cooldownMinutes}
+        />
+      </label>
+      <div class="flex items-end gap-4 text-sm">
+        <label class="flex items-center gap-1.5">
+          <input type="checkbox" bind:checked={enabled} />
+          {$tr("marketAlerts.enabled")}
+        </label>
+        <label class="flex items-center gap-1.5">
+          <input type="checkbox" bind:checked={native} />
+          {$tr("marketAlerts.desktopNotification")}
+        </label>
+      </div>
+      {#if kind === "item"}
+        <label class="flex flex-col gap-1 text-sm">
+          <span class="text-text-secondary">{$tr("marketAlerts.sellSelection")}</span>
+          <select class="shared-filter-select" data-alert-sell-link bind:value={sellLink}>
+            <option value="">{$tr("marketAlerts.sellSelectionItem")}</option>
+            {#each sellLinkOptions as selectionName (selectionName)}
+              <option value={selectionName}>{selectionName}</option>
+            {/each}
+          </select>
+        </label>
+      {/if}
+    </div>
+  </section>
 
   {#if error}
-    <p class="mt-2 text-sm text-red-400">{error}</p>
+    <p class="mt-3 text-sm text-danger">{error}</p>
   {/if}
 
   <div class="mt-4 flex justify-end gap-2">

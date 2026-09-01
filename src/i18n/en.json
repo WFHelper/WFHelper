@@ -1607,5 +1607,11 @@
   "marketAlerts.copyExport": "Copy to clipboard",
   "marketAlerts.importPlaceholder": "Paste an exported rules JSON here",
   "marketAlerts.importSuccess": "Imported {count} rule(s), disabled until you enable them",
-  "marketAlerts.importFailed": "Import failed: {error}"
+  "marketAlerts.importFailed": "Import failed: {error}",
+  "marketAlerts.section.watch": "What to watch",
+  "marketAlerts.section.delivery": "Delivery",
+  "marketAlerts.cooldownShort": "Cooldown {minutes}m",
+  "marketAlerts.lastHitAt": "Last hit {time}",
+  "marketAlerts.sellSelection": "Bulk sell selection",
+  "marketAlerts.sellSelectionItem": "Just this item"
 }

@@ -1590,5 +1590,11 @@
   "marketAlerts.copyExport": "In Zwischenablage kopieren",
   "marketAlerts.importPlaceholder": "Exportiertes Regel-JSON hier einfügen",
   "marketAlerts.importSuccess": "{count} Regel(n) importiert, bis zur Aktivierung deaktiviert",
-  "marketAlerts.importFailed": "Import fehlgeschlagen: {error}"
+  "marketAlerts.importFailed": "Import fehlgeschlagen: {error}",
+  "marketAlerts.section.watch": "Was überwacht wird",
+  "marketAlerts.section.delivery": "Zustellung",
+  "marketAlerts.cooldownShort": "Abklingzeit {minutes} Min.",
+  "marketAlerts.lastHitAt": "Letzter Treffer {time}",
+  "marketAlerts.sellSelection": "Auswahl für Massenverkauf",
+  "marketAlerts.sellSelectionItem": "Nur dieses Item"
 }
