@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSafetyContext } from "../../../../src/lib/inventory/safetyRules.js";
+import { buildSafetyContext, safeToList } from "../../../../src/lib/inventory/safetyRules.js";
 import {
   acknowledgeRowOverride,
   applyStrategy,
+  attachExistingOrders,
   attachMarketData,
   bindingReasonKeys,
   buildPlanFromRows,
   buildQueueRows,
   buildSelectedQueueRows,
+  buildSelectionSafetyContext,
   captureSafetySnapshot,
   mergeQueueRows,
   effectivePrice,
@@ -21,10 +23,11 @@ import {
   rowWarnings,
   selectionKeyFor,
   setRowQuantity,
+  unpricedSelectedRows,
   type WorkbenchQueueRow,
 } from "../../../../src/lib/tradeWorkbench/queueModel.js";
 import type { PricingListing } from "../../../../src/lib/tradeWorkbench/pricingStrategies.js";
-import type { ParsedItem } from "../../../../src/types/inventory.js";
+import type { ItemDbEntry, ParsedItem } from "../../../../src/types/inventory.js";
 import type { WfmItemsLookup } from "../../../../src/types/ipc.js";
 import type { WfmOrder } from "../../../../src/types/market.js";
 
@@ -136,6 +139,16 @@ describe("workbench queue selection", () => {
 
     // Quantity never exceeds what the account holds.
     expect(setRowQuantity(row, 99).quantity).toBe(2);
+
+    // What the modal does when the safety settings change under a built queue:
+    // re-running the row's own quantity against a smaller verdict clamps it, so
+    // the caller needs no clamp of its own.
+    const sold = setRowQuantity(
+      { ...row, verdict: { ...row.verdict, total: 1, safe: 1, reserved: 0 } },
+      row.quantity,
+    );
+    expect(sold.quantity).toBe(1);
+    expect(sold.overrideAcknowledged).toBe(false);
   });
 
   it("raising the quantity past a prior acknowledgement re-requires consent", () => {
@@ -458,5 +471,200 @@ describe("workbench queue merge across a reopen", () => {
     const narrowed = mergeQueueRows([acknowledged], fewer);
     expect(narrowed[0].quantity).toBe(1);
     expect(narrowed[0].overrideAcknowledged).toBe(false);
+  });
+});
+
+describe("pricing gate and own-order join", () => {
+  function priced(strategy: Parameters<typeof applyStrategy>[1]): WorkbenchQueueRow {
+    const rows = buildQueueRows(
+      [makeItem("Lex Prime Barrel")],
+      EMPTY_CTX,
+      lookupFor({ name: "Lex Prime Barrel", slug: "lex_prime_barrel" }),
+    );
+    const withBook = attachMarketData(rows[0], sellBook(40, 45, 50), null, []);
+    return { ...applyStrategy(withBook, strategy, null), selected: true };
+  }
+
+  it("manual leaves every row unpriced instead of asking 1p for it", () => {
+    const row = priced({ id: "manual" });
+    expect(row.suggestion?.price).toBeNull();
+    expect(effectivePrice(row)).toBeNull();
+    expect(rowWarnings(row)).toContain("no-price");
+    expect(unpricedSelectedRows([row])).toHaveLength(1);
+    expect(buildPlanFromRows([row], 1000).plan.rows).toHaveLength(0);
+  });
+
+  it("target-margin with no cost entered leaves the row unpriced", () => {
+    const row = priced({ id: "target-margin", costPlat: 0, marginPercent: 20 });
+    expect(row.suggestion?.price).toBeNull();
+    expect(unpricedSelectedRows([row])).toHaveLength(1);
+    expect(planTotals([row]).rows).toBe(0);
+  });
+
+  it("a typed manual price clears the gate", () => {
+    const row = { ...priced({ id: "manual" }), manualPrice: 44 };
+    expect(unpricedSelectedRows([row])).toHaveLength(0);
+    expect(buildPlanFromRows([row], 1000).plan.rows[0].platinum).toBe(44);
+  });
+
+  it("ignores unselected and zero-quantity rows in the price gate", () => {
+    const row = priced({ id: "manual" });
+    expect(unpricedSelectedRows([{ ...row, selected: false }])).toHaveLength(0);
+    expect(unpricedSelectedRows([setRowQuantity(row, 0)])).toHaveLength(0);
+  });
+
+  it("re-joins rows to a retried own-order fetch without losing market data", () => {
+    const row = priced({ id: "match-cheapest" });
+    expect(row.existingOrder).toBeNull();
+
+    const [rejoined] = attachExistingOrders([row], [makeOrder()]);
+    expect(rejoined.existingOrder).toEqual({ id: "order-1", platinum: 30, quantity: 2 });
+    expect(rejoined.sellBook).toBe(row.sellBook);
+    expect(rejoined.market).toBe(row.market);
+    expect(buildPlanFromRows([rejoined], 1000).plan.rows[0].mode).toBe("update");
+  });
+
+  it("records the pre-run own-order ids on the plan", () => {
+    const row = priced({ id: "match-cheapest" });
+    const { plan } = buildPlanFromRows([row], 1000, [makeOrder({ id: "pre-1" })]);
+    expect(plan.knownOrderIds).toEqual(["pre-1"]);
+    expect(buildPlanFromRows([row], 1000).plan.knownOrderIds).toBeUndefined();
+  });
+});
+
+describe("relic subtype identity", () => {
+  const RELIC_DB: Record<string, ItemDbEntry> = {};
+
+  function relicRow(uniqueName: string): WorkbenchQueueRow {
+    const item = makeItem("Axi A1 Relic", {
+      internalName: uniqueName,
+      inventoryGroup: "relics",
+      amount: 3,
+    });
+    const rows = buildQueueRows(
+      [item],
+      buildSelectionSafetyContext({
+        itemDb: RELIC_DB,
+        settings: { spareDefault: 0, spares: {}, locks: [], setKeep: [] },
+        mastery: null,
+        pins: [],
+      }),
+      lookupFor({ name: "Axi A1 Relic", slug: "axi_a1_relic" }),
+    );
+    return rows[0];
+  }
+
+  it("reads the refinement off the uniqueName, not the refinement-free name", () => {
+    expect(relicRow("/Lotus/Relics/AxiA1Radiant").subtype).toBe("radiant");
+    expect(relicRow("/Lotus/Relics/AxiA1Intact").subtype).toBe("intact");
+  });
+
+  it("decodes DE colour suffixes through the relic database resolver", () => {
+    const item = makeItem("Axi A1 Relic", {
+      internalName: "/Lotus/Types/Game/Projections/T4VoidProjectionA1EPlatinum",
+      inventoryGroup: "relics",
+      amount: 1,
+    });
+    const resolve = (uniqueName: string): string | null =>
+      uniqueName.endsWith("EPlatinum") ? "radiant" : null;
+    const [row] = buildQueueRows(
+      [item],
+      EMPTY_CTX,
+      lookupFor({ name: "Axi A1 Relic", slug: "axi_a1_relic" }),
+      resolve,
+    );
+    expect(row.subtype).toBe("radiant");
+    expect(relicSubtypeFor(item)).toBe("intact");
+    const { plan } = buildPlanFromRows([{ ...row, selected: true, manualPrice: 5 }], 1, []);
+    expect(plan.rows[0]?.subtype).toBe("radiant");
+  });
+
+  it("never repoints two refinements of one relic at the same sell order", () => {
+    const orders = [
+      makeOrder({
+        id: "intact-order",
+        itemName: "Axi A1 Relic",
+        itemUrlName: "axi_a1_relic",
+        subtype: "intact",
+      }),
+      makeOrder({
+        id: "radiant-order",
+        itemName: "Axi A1 Relic",
+        itemUrlName: "axi_a1_relic",
+        subtype: "radiant",
+      }),
+    ];
+    const intact = attachMarketData(relicRow("/Lotus/Relics/AxiA1Intact"), null, null, orders);
+    const radiant = attachMarketData(relicRow("/Lotus/Relics/AxiA1Radiant"), null, null, orders);
+    expect(intact.existingOrder?.id).toBe("intact-order");
+    expect(radiant.existingOrder?.id).toBe("radiant-order");
+  });
+
+  it("keeps a rank-matched non-relic row on the untyped order", () => {
+    const rows = buildQueueRows(
+      [makeItem("Serration", { inventoryGroup: "mods", rank: 0, amount: 2 })],
+      EMPTY_CTX,
+      lookupFor({ name: "Serration", slug: "serration" }),
+    );
+    const row = attachMarketData(rows[0], null, null, [
+      makeOrder({ id: "mod-order", itemUrlName: "serration", modRank: 0, subtype: null }),
+    ]);
+    expect(row.existingOrder?.id).toBe("mod-order");
+  });
+});
+
+describe("selection safety context inputs", () => {
+  const FRAME = "/Lotus/Powersuits/Volt/VoltPrime";
+  const CHASSIS = "/Lotus/Types/Recipes/WarframeRecipes/VoltPrimeChassisComponent";
+  const DB: Record<string, ItemDbEntry> = {
+    [FRAME]: {
+      name: "Volt Prime",
+      masterable: true,
+      components: [{ name: "Chassis", uniqueName: CHASSIS, itemCount: 2 }],
+    },
+    [CHASSIS]: { name: "Chassis", isBuildComponent: true, componentOf: FRAME },
+  };
+  const SETTINGS = { spareDefault: 0, spares: {}, locks: [], setKeep: [] };
+
+  it("supplies mastery and pins, so no rule is left degraded", () => {
+    const context = buildSelectionSafetyContext({
+      itemDb: DB,
+      settings: SETTINGS,
+      mastery: { items: [], stats: {} as never },
+      pins: [],
+    });
+    expect(context.degradedRules).toEqual([]);
+  });
+
+  it("reserves the parts a pinned mastery goal still needs", () => {
+    const context = buildSelectionSafetyContext({
+      itemDb: DB,
+      settings: SETTINGS,
+      mastery: { items: [], stats: {} as never },
+      pins: [FRAME],
+    });
+    const verdict = safeToList({ internalName: CHASSIS, uniqueName: CHASSIS, amount: 3 }, context);
+    expect(verdict).toMatchObject({ total: 3, reserved: 2, safe: 1 });
+  });
+
+  it("drops the unmastered-recipe reservation once the goal is mastered", () => {
+    const unmastered = buildSelectionSafetyContext({
+      itemDb: DB,
+      settings: SETTINGS,
+      mastery: { items: [], stats: {} as never },
+      pins: [],
+    });
+    expect(safeToList({ internalName: CHASSIS, amount: 3 }, unmastered).reserved).toBe(2);
+
+    const mastered = buildSelectionSafetyContext({
+      itemDb: DB,
+      settings: SETTINGS,
+      mastery: {
+        items: [makeItem("Volt Prime", { internalName: FRAME, status: "mastered" })],
+        stats: {} as never,
+      },
+      pins: [],
+    });
+    expect(safeToList({ internalName: CHASSIS, amount: 3 }, mastered).reserved).toBe(0);
   });
 });

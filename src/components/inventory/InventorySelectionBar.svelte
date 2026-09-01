@@ -7,6 +7,8 @@
 
   interface Props {
     count: number;
+    /** How many of the selected rows the current tab and filters show. */
+    onTabCount: number;
     /** Selectable rows the current filters show; drives the "Select all" label. */
     eligibleCount: number;
     saved: readonly SavedSelection[];
@@ -20,6 +22,7 @@
 
   const {
     count,
+    onTabCount,
     eligibleCount,
     saved,
     onSelectAll,
@@ -72,6 +75,13 @@
   <span class="font-display text-sm font-semibold text-text-primary" data-inventory-select-count>
     {t("common.selected", { count })}
   </span>
+  {#if count > onTabCount}
+    <!-- The selection is global; without this a full bar over a tab that shows
+         none of the picked rows reads as if the picks were lost. -->
+    <span class="text-xs text-text-muted" data-inventory-select-on-tab>
+      {t("market.selectedHidden", { count: count - onTabCount })}
+    </span>
+  {/if}
 
   <button
     type="button"
@@ -80,7 +90,7 @@
     data-inventory-select-all
     onclick={onSelectAll}
   >
-    {t("common.selectAll")}
+    {t(k("inventory.selectAllFiltered"), { count: eligibleCount })}
   </button>
   <button
     type="button"

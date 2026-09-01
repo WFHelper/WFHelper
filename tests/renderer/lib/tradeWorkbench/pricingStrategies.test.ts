@@ -108,10 +108,27 @@ describe("workbench pricing strategies", () => {
     expect(competitive.confidence).toBe(0.6);
   });
 
-  it("manual passes through with full confidence", () => {
-    const result = suggestPrice({ id: "manual", price: 42 }, ctx([]));
-    expect(result.price).toBe(42);
-    expect(result.confidence).toBe(1);
+  it("manual suggests no price at all, so a row stays unpriced", () => {
+    const result = suggestPrice({ id: "manual" }, ctx([listing(40), listing(50)]));
+    expect(result.price).toBeNull();
+    expect(result.confidence).toBe(0);
+  });
+
+  it("target-margin with no cost yields no price instead of a 1p ask", () => {
+    const result = suggestPrice(
+      { id: "target-margin", costPlat: 0, marginPercent: 20 },
+      ctx([listing(40)]),
+    );
+    expect(result.price).toBeNull();
+    expect(result.confidence).toBe(0);
+  });
+
+  it("target-margin at a cost that rounds below 1p yields no price", () => {
+    const result = suggestPrice(
+      { id: "target-margin", costPlat: 0, marginPercent: -100 },
+      ctx([listing(40)]),
+    );
+    expect(result.price).toBeNull();
   });
 
   it("returns null price with zero confidence on an empty book", () => {
@@ -188,13 +205,9 @@ describe("downward damping guard", () => {
     expect(maxAllowedDrop(5, RULE)).toBe(1); // never below a 1p step
   });
 
-  it("damps only the price, never a manual choice", () => {
-    const result = suggestPrice(
-      { id: "manual", price: 10 },
-      ctx([listing(45)], { currentPrice: 50 }),
-      RULE,
-    );
-    expect(result.price).toBe(10);
+  it("never damps a manual row: there is no suggestion to damp", () => {
+    const result = suggestPrice({ id: "manual" }, ctx([listing(45)], { currentPrice: 50 }), RULE);
+    expect(result.price).toBeNull();
     expect(result.damping).toBeUndefined();
   });
 

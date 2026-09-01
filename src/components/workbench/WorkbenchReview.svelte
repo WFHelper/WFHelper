@@ -38,13 +38,22 @@
     return picks[intentId] ?? fallback;
   }
 
+  // "unknown" never settles an intent, so a row left on it stays open for the
+  // next reconcile instead of being silently written off.
+  const settlingCount = $derived(
+    (report?.rows ?? []).filter((row) => pickFor(row.intentId, row.classification) !== "unknown")
+      .length,
+  );
+
   function confirmAll(): void {
     if (!report) return;
     onResolve(
-      report.rows.map((row) => ({
-        intentId: row.intentId,
-        classification: pickFor(row.intentId, row.classification),
-      })),
+      report.rows
+        .map((row) => ({
+          intentId: row.intentId,
+          classification: pickFor(row.intentId, row.classification),
+        }))
+        .filter((resolution) => resolution.classification !== "unknown"),
     );
   }
 </script>
@@ -108,19 +117,23 @@
             }}
           >
             {#each CLASSIFICATIONS as classification (classification)}
-              <option value={classification}
-                >{t(k(`workbench.review.class.${classification}`))}</option
-              >
+              <option value={classification}>
+                {classification === "unknown"
+                  ? t(k("workbench.review.leaveOpen"))
+                  : t(k(`workbench.review.class.${classification}`))}
+              </option>
             {/each}
           </select>
         </div>
       {/each}
     </div>
     {#if report.rows.length > 0}
+      <!-- A failed fetch classified nothing, so resolving would settle rows on
+           no evidence at all. -->
       <button
         type="button"
         class="mt-2 rounded bg-amber-500/30 px-2 py-0.5"
-        disabled={busy}
+        disabled={busy || report.fetchError != null || settlingCount === 0}
         data-workbench-resolve
         onclick={confirmAll}
       >

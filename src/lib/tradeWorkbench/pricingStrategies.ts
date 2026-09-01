@@ -57,7 +57,7 @@ export type StrategyConfig =
   | { id: "percent-offset"; percent: number }
   | { id: "bounded-cheapest-average"; count: number; thresholdPercent: number }
   | { id: "target-margin"; costPlat: number; marginPercent: number }
-  | { id: "manual"; price: number };
+  | { id: "manual" };
 
 interface PriceSuggestionInputs {
   listingsConsidered: number;
@@ -90,8 +90,13 @@ function competition(ctx: PricingContext): PricingListing[] {
     .sort((a, b) => a.platinum - b.platinum);
 }
 
-function clampPrice(value: number): number {
-  return Math.max(1, Math.round(value));
+/** Null rather than a 1p floor: an input that cannot produce a real ask (a zero
+ *  cost, an empty book) must leave the row unpriced instead of silently
+ *  listing it for one platinum. */
+function clampPrice(value: number): number | null {
+  if (!Number.isFinite(value)) return null;
+  const rounded = Math.round(value);
+  return rounded >= 1 ? rounded : null;
 }
 
 function round2(value: number): number {
@@ -159,10 +164,12 @@ export function suggestPrice(
   const cheapest = book.length > 0 ? book[0].platinum : null;
 
   if (config.id === "manual") {
+    // Manual prices only ever come from the per-row field, so the strategy
+    // itself suggests nothing and the row stays unpriced until the user types.
     return {
       strategyId: "manual",
-      price: clampPrice(config.price),
-      confidence: 1,
+      price: null,
+      confidence: 0,
       inputs: { listingsConsidered: book.length, cheapest },
     };
   }
@@ -171,11 +178,11 @@ export function suggestPrice(
     const price = clampPrice(Math.ceil(config.costPlat * (1 + config.marginPercent / 100)));
     // Cost-based, so no market damping; confidence drops when the ask sits
     // above the cheapest competitor and is unlikely to move.
-    const overpriced = cheapest != null && price > cheapest;
+    const overpriced = price != null && cheapest != null && price > cheapest;
     return {
       strategyId: "target-margin",
       price,
-      confidence: overpriced ? 0.3 : 0.6,
+      confidence: price == null ? 0 : overpriced ? 0.3 : 0.6,
       inputs: { listingsConsidered: book.length, cheapest, costPlat: config.costPlat },
     };
   }
@@ -202,7 +209,9 @@ export function suggestPrice(
     case "cheapest-minus-one":
       suggestion = {
         strategyId: config.id,
-        price: clampPrice(cheapest - 1),
+        // A 1p book cannot be undercut, and matching it is still a real ask, so
+        // this floor is deliberate rather than a rescued invalid price.
+        price: clampPrice(Math.max(1, cheapest - 1)),
         confidence: marketConfidence(book.length),
         inputs: { listingsConsidered: book.length, cheapest },
       };
@@ -231,5 +240,7 @@ export function suggestPrice(
     }
   }
 
+  // Nothing to damp, and a suggestion with no price carries no confidence.
+  if (suggestion.price == null) return { ...suggestion, confidence: 0 };
   return applyDamping(suggestion, ctx, book, rule);
 }

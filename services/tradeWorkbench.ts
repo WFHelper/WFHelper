@@ -63,7 +63,19 @@ interface WorkbenchJournalFile {
   version: 1;
   entries: WorkbenchJournalEntry[];
   overrides: WorkbenchOverrideAck[];
+  /** planId -> own sell-order ids that already existed when the run started. */
+  preexistingOrderIds?: Record<string, string[]>;
 }
+
+/** The own-order fields review classifies against. */
+type OwnSellOrder = {
+  id: string;
+  platinum: number;
+  quantity: number;
+  modRank: number | null;
+  itemUrlName: string | null;
+  subtype?: string | null;
+};
 
 /** The order surface the engine drives; production wires services/wfmOrders +
  *  services/wfmCatalog, tests inject fakes so nothing touches the network. */
@@ -81,14 +93,7 @@ export interface WorkbenchOrderApi {
     orderId: string,
     updates: { platinum?: number; quantity?: number; visible?: boolean },
   ): Promise<{ id: string }>;
-  getMyOrders(): Promise<{
-    sell: Array<{
-      id: string;
-      platinum: number;
-      modRank: number | null;
-      itemUrlName: string | null;
-    }>;
-  }>;
+  getMyOrders(): Promise<{ sell: OwnSellOrder[] }>;
   lookupItemIdBySlug(slug: string): Promise<string | null>;
 }
 
@@ -195,6 +200,15 @@ function loadJournal(): void {
           .filter((ack): ack is WorkbenchOverrideAck => ack != null)
       : [];
     _journal = { version: 1, entries, overrides };
+    const known = record.preexistingOrderIds;
+    if (known && typeof known === "object" && !Array.isArray(known)) {
+      const parsed: Record<string, string[]> = {};
+      for (const [planId, ids] of Object.entries(known as Record<string, unknown>)) {
+        if (planId === "__proto__" || !Array.isArray(ids)) continue;
+        parsed[planId] = ids.filter((id): id is string => typeof id === "string");
+      }
+      _journal.preexistingOrderIds = parsed;
+    }
   } catch (err) {
     // A journal that cannot be trusted forces review; it is never overwritten
     // here so the user (or a bug report) can still inspect the raw file.
@@ -216,6 +230,13 @@ function pruneJournal(journal: WorkbenchJournalFile): void {
   journal.entries = [...settled, ...unsettled].sort((a, b) => a.createdAt - b.createdAt);
   if (journal.overrides.length > MAX_OVERRIDE_RECORDS) {
     journal.overrides.splice(0, journal.overrides.length - MAX_OVERRIDE_RECORDS);
+  }
+  if (journal.preexistingOrderIds) {
+    // The snapshot only matters while its plan still has entries to classify.
+    const livePlans = new Set(journal.entries.map((entry) => entry.planId));
+    for (const planId of Object.keys(journal.preexistingOrderIds)) {
+      if (!livePlans.has(planId)) delete journal.preexistingOrderIds[planId];
+    }
   }
 }
 
@@ -470,6 +491,13 @@ export function executeWorkbenchPlan(
     return { started: false, error: "Plan failed safety validation.", validation, state };
   }
 
+  if (_journal && plan.knownOrderIds && plan.knownOrderIds.length > 0) {
+    _journal.preexistingOrderIds = {
+      ...(_journal.preexistingOrderIds ?? {}),
+      [plan.planId]: [...plan.knownOrderIds],
+    };
+  }
+
   _run = {
     planId: plan.planId,
     startedAt: Date.now(),
@@ -514,28 +542,44 @@ export function acknowledgeWorkbenchOverride(ack: WorkbenchOverrideAck): Workben
   return getWorkbenchState();
 }
 
+/** WFM leaves the default subtype unset; both spellings mean the same thing. */
+function normalizeSubtype(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().toLowerCase();
+  return !trimmed || trimmed === "regular" ? null : trimmed;
+}
+
+function preexistingOrderIds(planId: string): ReadonlySet<string> {
+  const known = _journal?.preexistingOrderIds;
+  // Own property only: a planId like "toString" would resolve to a function.
+  if (!known || !Object.prototype.hasOwnProperty.call(known, planId)) return new Set();
+  return new Set(known[planId] ?? []);
+}
+
 function classifyEntry(
   entry: WorkbenchJournalEntry,
-  sellOrders: Array<{
-    id: string;
-    platinum: number;
-    modRank: number | null;
-    itemUrlName: string | null;
-  }>,
+  sellOrders: OwnSellOrder[],
 ): { classification: WorkbenchReviewClassification; matchedOrderId?: string } {
   if (entry.mode === "update") {
     const order = sellOrders.find((candidate) => candidate.id === entry.request.orderId);
     if (!order) return { classification: "unknown" };
-    if (order.platinum === entry.request.platinum) {
-      return { classification: "confirmed", matchedOrderId: order.id };
-    }
-    return { classification: "failed" };
+    if (order.platinum !== entry.request.platinum) return { classification: "failed" };
+    // A short quantity can mean the update never applied or that units sold
+    // after it did, so the price alone never proves the whole update landed.
+    if (order.quantity !== entry.request.quantity) return { classification: "unknown" };
+    return { classification: "confirmed", matchedOrderId: order.id };
   }
+  const known = preexistingOrderIds(entry.planId);
   const match = sellOrders.find(
     (candidate) =>
+      // An order that was already there before the run proves nothing about a
+      // create; matching one would confirm an intent that never left.
+      !known.has(candidate.id) &&
       candidate.itemUrlName === entry.request.slug &&
       candidate.platinum === entry.request.platinum &&
-      (entry.request.rank == null || candidate.modRank === entry.request.rank),
+      candidate.quantity === entry.request.quantity &&
+      (entry.request.rank == null || candidate.modRank === entry.request.rank) &&
+      normalizeSubtype(candidate.subtype) === normalizeSubtype(entry.request.subtype),
   );
   if (match) return { classification: "confirmed", matchedOrderId: match.id };
   // Absence proves nothing: the create may have failed, or landed and sold out.
@@ -549,12 +593,7 @@ export async function reconcileWorkbench(): Promise<WorkbenchReviewReport> {
   const rows: WorkbenchReviewRow[] = [];
   const unsettled = unsettledEntries();
 
-  let sellOrders: Array<{
-    id: string;
-    platinum: number;
-    modRank: number | null;
-    itemUrlName: string | null;
-  }> = [];
+  let sellOrders: OwnSellOrder[] = [];
   let fetchError: string | undefined;
   if (unsettled.length > 0) {
     try {
@@ -609,6 +648,9 @@ export function resolveWorkbenchReview(payload: WorkbenchResolveReviewPayload): 
 
   let changed = false;
   for (const resolution of payload.resolutions) {
+    // "unknown" is the absence of a verdict, so it leaves the intent open; only
+    // an explicit confirmed/failed from the user settles a row.
+    if (resolution.classification === "unknown") continue;
     const entry = _journal.entries.find(
       (candidate) => candidate.intentId === resolution.intentId && !isSettled(candidate),
     );

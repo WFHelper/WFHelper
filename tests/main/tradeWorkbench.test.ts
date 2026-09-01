@@ -11,6 +11,7 @@ import {
   validateWorkbenchPlan,
   type WorkbenchPlan,
   type WorkbenchPlanRow,
+  type WorkbenchReviewReport,
   type WorkbenchSafetySnapshot,
 } from "../../config/shared/tradeWorkbenchTypes";
 import type { WorkbenchOrderApi } from "../../services/tradeWorkbench";
@@ -171,6 +172,36 @@ describe("plan validation and parsing", () => {
     });
     expect(snapshot?.rows.a).toEqual({ safe: 0, total: 2 });
     expect(Object.keys(snapshot?.rows ?? {})).toEqual(["a"]);
+  });
+
+  it("never lets a rowId named after an Object.prototype member skip the cap", () => {
+    // "toString" resolved through the prototype chain, so both quantity
+    // comparisons read undefined and the row passed uncapped.
+    const plan = makePlan([planRow("toString", { quantity: 5 })]);
+    expect(validateWorkbenchPlan(plan, { capturedAt: 1, rows: {} }).rows[0]).toEqual({
+      rowId: "toString",
+      ok: false,
+      reason: "missing-safety",
+    });
+    expect(validateWorkbenchPlan(plan, snapshotFor(plan, 1, 1)).rows[0].reason).toBe("over-total");
+
+    expect(
+      parseWorkbenchPlan({
+        planId: "p",
+        createdAt: 1,
+        rows: [
+          { rowId: "toString", mode: "create", slug: "s", itemName: "n", quantity: 1, platinum: 2 },
+        ],
+      }),
+    ).toBeNull();
+    // planId keys the journal's preexisting-order map the same way.
+    expect(
+      parseWorkbenchPlan({
+        planId: "constructor",
+        createdAt: 1,
+        rows: [{ rowId: "a", mode: "create", slug: "s", itemName: "n", quantity: 1, platinum: 2 }],
+      }),
+    ).toBeNull();
   });
 
   it("recognizes order-limit phrasings and nothing else", () => {
@@ -474,8 +505,8 @@ describe("journal recovery and review", () => {
     const { api } = fakeApi({
       getMyOrders: async () => ({
         sell: [
-          { id: "ord-1", platinum: 10, modRank: null, itemUrlName: "boltor" },
-          { id: "ord-2", platinum: 20, modRank: null, itemUrlName: "lex" },
+          { id: "ord-1", platinum: 10, quantity: 1, modRank: null, itemUrlName: "boltor" },
+          { id: "ord-2", platinum: 20, quantity: 1, modRank: null, itemUrlName: "lex" },
         ],
       }),
     });
@@ -585,5 +616,146 @@ describe("journal recovery and review", () => {
     const journal = readJournal();
     expect(journal.overrides).toHaveLength(2);
     expect(journal.overrides).toEqual([validAck, { ...validAck, rowId: "b", acknowledgedAt: 6 }]);
+  });
+});
+
+describe("review classification evidence", () => {
+  function writeJournal(
+    entries: Array<Record<string, unknown>>,
+    preexistingOrderIds?: Record<string, string[]>,
+  ): void {
+    fs.writeFileSync(
+      journalFilePath(),
+      JSON.stringify({
+        version: 1,
+        entries,
+        overrides: [],
+        ...(preexistingOrderIds ? { preexistingOrderIds } : {}),
+      }),
+    );
+  }
+
+  function createEntry(request: Record<string, unknown>): Record<string, unknown> {
+    return { intentId: "i-1", planId: "p", rowId: "a", mode: "create", request, createdAt: 1 };
+  }
+
+  async function classify(
+    entries: Array<Record<string, unknown>>,
+    sell: Array<Record<string, unknown>>,
+    preexistingOrderIds?: Record<string, string[]>,
+  ): Promise<WorkbenchReviewReport> {
+    writeJournal(entries, preexistingOrderIds);
+    const workbench = await loadWorkbench();
+    const { api } = fakeApi({
+      getMyOrders: async () =>
+        ({ sell }) as unknown as Awaited<ReturnType<WorkbenchOrderApi["getMyOrders"]>>,
+    });
+    workbench.configureTradeWorkbench({ api });
+    workbench.initTradeWorkbench();
+    return workbench.reconcileWorkbench();
+  }
+
+  it("an order that existed before the run never confirms a create", async () => {
+    const report = await classify(
+      [createEntry({ slug: "boltor", itemName: "Boltor", platinum: 10, quantity: 1 })],
+      [{ id: "ord-1", platinum: 10, quantity: 1, modRank: null, itemUrlName: "boltor" }],
+      { p: ["ord-1"] },
+    );
+    expect(report.rows[0].classification).toBe("unknown");
+  });
+
+  it("a new order with the same shape still confirms the create", async () => {
+    const report = await classify(
+      [createEntry({ slug: "boltor", itemName: "Boltor", platinum: 10, quantity: 1 })],
+      [
+        { id: "ord-1", platinum: 10, quantity: 1, modRank: null, itemUrlName: "boltor" },
+        { id: "ord-9", platinum: 10, quantity: 1, modRank: null, itemUrlName: "boltor" },
+      ],
+      { p: ["ord-1"] },
+    );
+    expect(report.rows[0].classification).toBe("confirmed");
+    expect(report.rows[0].matchedOrderId).toBe("ord-9");
+  });
+
+  it("a create is not confirmed by an order of another quantity or subtype", async () => {
+    const wrongQuantity = await classify(
+      [createEntry({ slug: "boltor", itemName: "Boltor", platinum: 10, quantity: 3 })],
+      [{ id: "ord-1", platinum: 10, quantity: 1, modRank: null, itemUrlName: "boltor" }],
+    );
+    expect(wrongQuantity.rows[0].classification).toBe("unknown");
+
+    const wrongSubtype = await classify(
+      [
+        createEntry({
+          slug: "axi_a1_relic",
+          itemName: "Axi A1 Relic",
+          platinum: 10,
+          quantity: 1,
+          subtype: "radiant",
+        }),
+      ],
+      [
+        {
+          id: "ord-1",
+          platinum: 10,
+          quantity: 1,
+          modRank: null,
+          itemUrlName: "axi_a1_relic",
+          subtype: "intact",
+        },
+      ],
+    );
+    expect(wrongSubtype.rows[0].classification).toBe("unknown");
+  });
+
+  it("an update whose quantity change was lost is not reported as confirmed", async () => {
+    const report = await classify(
+      [
+        {
+          intentId: "i-1",
+          planId: "p",
+          rowId: "a",
+          mode: "update",
+          request: { slug: "lex", itemName: "Lex", platinum: 25, quantity: 4, orderId: "ord-2" },
+          createdAt: 1,
+        },
+      ],
+      [{ id: "ord-2", platinum: 25, quantity: 1, modRank: null, itemUrlName: "lex" }],
+    );
+    expect(report.rows[0].classification).toBe("unknown");
+  });
+
+  it("records the pre-run order snapshot when a plan executes", async () => {
+    const workbench = await loadWorkbench();
+    const { api } = fakeApi();
+    workbench.configureTradeWorkbench({ api, interRowDelayMs: 0 });
+    const plan: WorkbenchPlan = { ...makePlan([planRow("a")]), knownOrderIds: ["ord-1"] };
+    expect(workbench.executeWorkbenchPlan(plan, snapshotFor(plan)).started).toBe(true);
+    await waitForRunFinish(workbench);
+
+    const journal = JSON.parse(fs.readFileSync(journalFilePath(), "utf-8")) as {
+      preexistingOrderIds?: Record<string, string[]>;
+    };
+    expect(journal.preexistingOrderIds).toEqual({ "plan-1": ["ord-1"] });
+  });
+
+  it("leaves an intent open when the user resolves it as unknown", async () => {
+    writeJournal([createEntry({ slug: "boltor", itemName: "Boltor", platinum: 10, quantity: 1 })]);
+    const workbench = await loadWorkbench();
+    workbench.configureTradeWorkbench({ api: fakeApi().api });
+    workbench.initTradeWorkbench();
+
+    const left = workbench.resolveWorkbenchReview({
+      resolutions: [{ intentId: "i-1", classification: "unknown" }],
+    });
+    expect(left.reviewRequired).toBe(true);
+    expect(left.unsettledCount).toBe(1);
+    expect(readJournal().entries[0].resolved).toBeUndefined();
+
+    const settled = workbench.resolveWorkbenchReview({
+      resolutions: [{ intentId: "i-1", classification: "failed" }],
+    });
+    expect(settled.reviewRequired).toBe(false);
+    expect(readJournal().entries[0].resolved?.classification).toBe("failed");
   });
 });

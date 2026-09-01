@@ -14,11 +14,10 @@
     toggleSetKeep,
   } from "../../stores/inventorySafety.js";
   import { inventorySelection } from "../../stores/inventorySelection.js";
-  import {
-    buildSafetyContext,
-    safeToList,
-    SAFETY_REASON_KEYS,
-  } from "../../lib/inventory/safetyRules.js";
+  import { masteryData } from "../../stores/mastery.js";
+  import { masteryPins } from "../../stores/masteryPins.js";
+  import { relicDb } from "../../stores/relics.js";
+  import { safeToList, SAFETY_REASON_KEYS } from "../../lib/inventory/safetyRules.js";
   import { setRootOf } from "../../lib/inventory/fullSets.js";
   import { confirmWithDialog, invoke, tradeInvoke } from "../../lib/ipc.js";
   import { tr, type MessageKey } from "../../lib/i18n.js";
@@ -32,16 +31,19 @@
   import {
     acknowledgeRowOverride,
     applyStrategy,
+    attachExistingOrders,
     attachMarketData,
     bindingReasonKeys,
     buildPlanFromRows,
     buildSelectedQueueRows,
+    buildSelectionSafetyContext,
     captureSafetySnapshot,
     mergeQueueRows,
     planTotals,
     rowNeedsOverride,
     rowSafetyKey,
     setRowQuantity,
+    unpricedSelectedRows,
     type WorkbenchQueueRow as QueueRow,
   } from "../../lib/tradeWorkbench/queueModel.js";
   import {
@@ -76,11 +78,22 @@
   const LABEL_CLASS =
     "flex flex-col gap-1 font-display text-xs uppercase tracking-[0.04em] text-text-muted";
 
-  const safetyCtx = $derived(buildSafetyContext({ itemDb: $itemDb, settings: $inventorySafety }));
+  const safetyCtx = $derived(
+    buildSelectionSafetyContext({
+      itemDb: $itemDb,
+      settings: $inventorySafety,
+      mastery: $masteryData,
+      pins: $masteryPins,
+    }),
+  );
 
   let rows = $state<QueueRow[]>([]);
   let filter = $state("");
   let myOrders = $state<WfmOrder[]>([]);
+  /** False until a fetch of our own orders succeeded; every row would otherwise
+   *  be planned as a create and duplicate whatever is already listed. */
+  let ordersReady = $state(false);
+  let ordersBusy = $state(false);
   let ownUserName = $state<string | null>(null);
   let marketBusy = $state(false);
   let reviewReport = $state<WorkbenchReviewReport | null>(null);
@@ -121,6 +134,7 @@
   );
 
   const totals = $derived(planTotals(rows));
+  const unpricedCount = $derived(unpricedSelectedRows(rows).length);
   const mainState = $derived($workbenchState);
   const running = $derived(mainState?.phase === "running" || mainState?.phase === "cancelling");
   const reviewRequired = $derived(mainState?.reviewRequired === true);
@@ -151,12 +165,38 @@
       case "target-margin":
         return { id: "target-margin", costPlat: marginCost, marginPercent };
       case "manual":
-        return { id: "manual", price: 1 };
+        return { id: "manual" };
       case "match-cheapest":
         return { id: "match-cheapest" };
       default:
         return { id: "cheapest-minus-one" };
     }
+  }
+
+  async function loadOwnOrders(): Promise<boolean> {
+    ordersBusy = true;
+    try {
+      const ordersResult = await invoke("wfmGetOrders");
+      if ("error" in ordersResult) {
+        myOrders = [];
+        ordersReady = false;
+        lastError = ordersResult.error;
+        return false;
+      }
+      myOrders = ordersResult.sell;
+      ordersReady = true;
+      return true;
+    } finally {
+      ordersBusy = false;
+    }
+  }
+
+  /** Re-reads the account orders after a failed fetch and re-joins the queue to
+   *  them, so carried rows stop claiming they are unlisted. */
+  async function retryOwnOrders(): Promise<void> {
+    lastError = null;
+    if (!(await loadOwnOrders())) return;
+    rows = attachExistingOrders(rows, myOrders);
   }
 
   async function openQueue(): Promise<void> {
@@ -165,17 +205,12 @@
     loggedIn = session.loggedIn;
     ownUserName = session.loggedIn ? session.userName : null;
     if (session.loggedIn) {
-      const ordersResult = await invoke("wfmGetOrders");
-      if ("error" in ordersResult) {
-        myOrders = [];
-        lastError = ordersResult.error;
-      } else {
-        myOrders = ordersResult.sell;
-      }
+      await loadOwnOrders();
     } else {
       // Logged out is a standing state, not an error: the persistent hint
       // below owns it and the execute button stays disabled.
       myOrders = [];
+      ordersReady = false;
     }
     // The existing order is always re-read from the fresh account orders, so a
     // carried row still reports what is listed right now.
@@ -184,6 +219,7 @@
       safetyCtx,
       $wfmItems,
       $inventorySelection,
+      (uniqueName) => $relicDb?.byUniqueName[uniqueName]?.quality ?? null,
     ).map((row) => attachMarketData(row, null, null, myOrders));
     rows = mergeQueueRows(restoredRows, built);
     queueBuilt = true;
@@ -194,7 +230,8 @@
     rows = rows.map((row) => {
       const verdict = safeToList(row.item, safetyCtx);
       const next = { ...row, verdict };
-      return setRowQuantity(next, Math.min(next.quantity, verdict.total));
+      // setRowQuantity clamps to the new verdict's total on its own.
+      return setRowQuantity(next, next.quantity);
     });
   }
 
@@ -272,7 +309,7 @@
     preview = null;
     const token = ++previewToken;
     const now = Date.now();
-    const { plan, overCap } = buildPlanFromRows(rows, now);
+    const { plan, overCap } = buildPlanFromRows(rows, now, myOrders);
     if (overCap) {
       lastError = t(k("workbench.error.overCap"), { cap: WORKBENCH_MAX_ROWS_PER_RUN });
       return;
@@ -293,18 +330,35 @@
   async function executePlan(): Promise<void> {
     lastError = null;
     const now = Date.now();
-    const { plan, overCap } = buildPlanFromRows(rows, now);
+    const { plan, overCap } = buildPlanFromRows(rows, now, myOrders);
     if (plan.rows.length === 0 || overCap) {
       lastError = overCap
         ? t(k("workbench.error.overCap"), { cap: WORKBENCH_MAX_ROWS_PER_RUN })
         : t(k("workbench.error.emptyPlan"));
       return;
     }
+    const prices = plan.rows.map((row) => row.platinum);
     const confirmed = await confirmWithDialog(
-      t(k("workbench.execute.confirm"), {
-        rows: plan.rows.length,
-        units: plan.rows.reduce((sum, row) => sum + row.quantity, 0),
-      }),
+      [
+        t(k("workbench.execute.confirm"), {
+          rows: plan.rows.length,
+          units: plan.rows.reduce((sum, row) => sum + row.quantity, 0),
+        }),
+        // Prices are what a mispriced plan is spotted by, so they belong in the
+        // last dialog before anything is listed.
+        t(k("workbench.execute.confirmPricing"), {
+          platinum: plan.rows.reduce((sum, row) => sum + row.quantity * row.platinum, 0),
+          min: Math.min(...prices),
+          max: Math.max(...prices),
+        }),
+        ...plan.rows.map((row) =>
+          t(k("workbench.execute.confirmRow"), {
+            item: row.itemName,
+            units: row.quantity,
+            price: row.platinum,
+          }),
+        ),
+      ].join("\n"),
       t,
     );
     if (!confirmed) return;
@@ -465,6 +519,33 @@
           data-workbench-signin-hint
         >
           {t(k("workbench.signInHint"))}
+        </div>
+      {/if}
+
+      {#if loggedIn && !ordersReady}
+        <div
+          class="flex flex-wrap items-center gap-3 rounded-[var(--radius-md)] border border-danger/40 bg-danger/10 p-2.5 text-sm text-danger"
+          data-workbench-orders-error
+        >
+          <span>{t(k("workbench.ordersFetchFailed"))}</span>
+          <button
+            type="button"
+            class="btn-secondary btn-sm"
+            disabled={ordersBusy}
+            data-workbench-orders-retry
+            onclick={() => void retryOwnOrders()}
+          >
+            {t("common.retry")}
+          </button>
+        </div>
+      {/if}
+
+      {#if safetyCtx.degradedRules.length > 0}
+        <div
+          class="rounded-[var(--radius-md)] border border-warning/40 bg-warning/10 p-2.5 text-sm text-warning"
+          data-workbench-degraded
+        >
+          {t(k("workbench.safety.degradedRules"), { rules: safetyCtx.degradedRules.join(", ") })}
         </div>
       {/if}
 
@@ -692,6 +773,11 @@
           {t(k("workbench.error.overCap"), { cap: WORKBENCH_MAX_ROWS_PER_RUN })}
         </span>
       {/if}
+      {#if unpricedCount > 0}
+        <span class="text-sm text-danger" data-workbench-unpriced>
+          {t(k("workbench.error.unpricedRows"), { count: unpricedCount })}
+        </span>
+      {/if}
       <div class="ml-auto flex items-center gap-2">
         <button
           type="button"
@@ -709,7 +795,12 @@
         <button
           type="button"
           class="btn-primary px-6 py-2.5 text-base"
-          disabled={!loggedIn || running || reviewRequired || totals.rows === 0}
+          disabled={!loggedIn ||
+            !ordersReady ||
+            running ||
+            reviewRequired ||
+            unpricedCount > 0 ||
+            totals.rows === 0}
           title={!loggedIn ? t(k("workbench.signInHint")) : undefined}
           data-workbench-execute
           onclick={() => void executePlan()}

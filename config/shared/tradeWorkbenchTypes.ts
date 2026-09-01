@@ -12,6 +12,8 @@ const MAX_SLUG_LENGTH = 120;
 const MAX_PLATINUM = 100_000;
 const MAX_QUANTITY = 999;
 const MAX_REASON_KEYS = 16;
+/** Well above a normal account's live sell orders; the rest is dropped. */
+const MAX_KNOWN_ORDER_IDS = 400;
 
 export type WorkbenchRowMode = "create" | "update";
 
@@ -42,6 +44,9 @@ export interface WorkbenchPlan {
   planId: string;
   createdAt: number;
   rows: WorkbenchPlanRow[];
+  /** Own sell-order ids that already existed when the plan was built. Review
+   *  needs them so a pre-run order can never be read as a create that landed. */
+  knownOrderIds?: string[];
 }
 
 interface WorkbenchSafetyRowSnapshot {
@@ -176,6 +181,12 @@ function boundedString(value: unknown, maxLength: number): string | null {
   return trimmed;
 }
 
+/** A rowId named after an Object.prototype member would resolve through the
+ *  prototype chain when the safety snapshot is read by id, so it is refused. */
+function isPrototypeMemberName(name: string): boolean {
+  return name === "prototype" || name in Object.prototype;
+}
+
 function boundedInt(value: unknown, min: number, max: number): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   const rounded = Math.round(value);
@@ -206,6 +217,7 @@ function parsePlanRow(raw: unknown): WorkbenchPlanRow | null {
   const platinum = boundedInt(raw.platinum, 1, MAX_PLATINUM);
   const mode = raw.mode === "create" || raw.mode === "update" ? raw.mode : null;
   if (!rowId || !slug || !itemName || quantity == null || platinum == null || !mode) return null;
+  if (isPrototypeMemberName(rowId)) return null;
 
   const row: WorkbenchPlanRow = { rowId, mode, slug, itemName, quantity, platinum };
 
@@ -231,6 +243,8 @@ export function parseWorkbenchPlan(raw: unknown): WorkbenchPlan | null {
   const planId = boundedString(raw.planId, MAX_ID_LENGTH);
   const createdAt = boundedInt(raw.createdAt, 0, Number.MAX_SAFE_INTEGER);
   if (!planId || createdAt == null || !Array.isArray(raw.rows)) return null;
+  // The journal indexes preexisting order ids by planId, same hazard as rowId.
+  if (isPrototypeMemberName(planId)) return null;
   if (raw.rows.length > MAX_PARSED_ROWS) return null;
   const rows: WorkbenchPlanRow[] = [];
   for (const entry of raw.rows) {
@@ -238,7 +252,16 @@ export function parseWorkbenchPlan(raw: unknown): WorkbenchPlan | null {
     if (!row) return null;
     rows.push(row);
   }
-  return { planId, createdAt, rows };
+  const plan: WorkbenchPlan = { planId, createdAt, rows };
+  if (Array.isArray(raw.knownOrderIds)) {
+    const ids: string[] = [];
+    for (const entry of raw.knownOrderIds.slice(0, MAX_KNOWN_ORDER_IDS)) {
+      const id = boundedString(entry, MAX_ID_LENGTH);
+      if (id) ids.push(id);
+    }
+    if (ids.length > 0) plan.knownOrderIds = ids;
+  }
+  return plan;
 }
 
 export function parseWorkbenchSafetySnapshot(raw: unknown): WorkbenchSafetySnapshot | null {
@@ -333,7 +356,11 @@ export function validateWorkbenchPlan(
   let ok = true;
   for (const row of plan.rows) {
     const verdict: WorkbenchRowValidation = { rowId: row.rowId, ok: true };
-    const snapshot = safety.rows[row.rowId];
+    // Own property only: an inherited member would leave both quantity
+    // comparisons below reading undefined, and the row would pass uncapped.
+    const snapshot = Object.prototype.hasOwnProperty.call(safety.rows, row.rowId)
+      ? safety.rows[row.rowId]
+      : undefined;
     if (!Number.isInteger(row.quantity) || row.quantity < 1) {
       verdict.ok = false;
       verdict.reason = "bad-quantity";

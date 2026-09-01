@@ -75,8 +75,11 @@
     toggleSelected,
     toggleSelectionMode,
   } from "../stores/inventorySelection.js";
-  import { buildSafetyContext } from "../lib/inventory/safetyRules.js";
-  import { eligibleSelectionKeys } from "../lib/tradeWorkbench/queueModel.js";
+  import { masteryPins } from "../stores/masteryPins.js";
+  import {
+    buildSelectionSafetyContext,
+    eligibleSelectionKeys,
+  } from "../lib/tradeWorkbench/queueModel.js";
   import { workbenchState } from "../lib/tradeWorkbench/workbenchState.js";
   import { isRankedGroup } from "../../config/shared/numeric.js";
   import type { SharedSortKey, SharedFiltersState, SortDirection } from "../types/filters.js";
@@ -583,7 +586,12 @@
   $: gridItems = gridLimit < visibleItems.length ? visibleItems.slice(0, gridLimit) : visibleItems;
   // Eligibility walks every parsed item, so it only runs while picking.
   $: selectionSafetyContext = $inventorySelectionMode
-    ? buildSafetyContext({ itemDb: $itemDb, settings: $inventorySafety })
+    ? buildSelectionSafetyContext({
+        itemDb: $itemDb,
+        settings: $inventorySafety,
+        mastery: $masteryData,
+        pins: $masteryPins,
+      })
     : null;
   $: eligibleSelectionSet = selectionSafetyContext
     ? eligibleSelectionKeys($parsedItems, selectionSafetyContext, $wfmItems)
@@ -591,6 +599,11 @@
   $: selectableVisibleKeys = $inventorySelectionMode
     ? visibleItems.map((item) => item.internalName).filter((key) => eligibleSelectionSet.has(key))
     : [];
+  // The selection survives tab and filter changes, so the bar reports how much
+  // of it the current tab actually shows rather than implying it is all here.
+  $: selectedOnTabCount = $inventorySelectionMode
+    ? visibleItems.filter((item) => $inventorySelection.has(item.internalName)).length
+    : 0;
   $: bulkSellNeedsAttention =
     $workbenchState?.reviewRequired === true ||
     $workbenchState?.phase === "running" ||
@@ -681,6 +694,7 @@
     {#if $inventorySelectionMode && filter !== "resources"}
       <InventorySelectionBar
         count={$inventorySelection.size}
+        onTabCount={selectedOnTabCount}
         eligibleCount={selectableVisibleKeys.length}
         saved={$savedSelections}
         onSelectAll={handleSelectAll}

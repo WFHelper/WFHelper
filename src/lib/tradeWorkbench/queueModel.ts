@@ -1,6 +1,8 @@
 import {
+  buildSafetyContext,
   safeToList,
   safetyKeyFor,
+  type InventorySafetySettings,
   type SafetyContext,
   type SafetyReservation,
   type SafetyVerdict,
@@ -23,7 +25,7 @@ import {
 } from "../../../config/shared/tradeWorkbenchTypes.js";
 import { isWfmExcludedSlug } from "../../../config/shared/wfmExclusions.js";
 import { isActiveOrderStatus } from "../../../config/shared/wfmOrders.js";
-import type { ParsedItem } from "../../types/inventory.js";
+import type { ItemDbEntry, MasteryData, ParsedItem } from "../../types/inventory.js";
 import type { WfmItemsLookup } from "../../types/ipc.js";
 import type { WfmOrder } from "../../types/market.js";
 
@@ -48,6 +50,8 @@ export interface WorkbenchQueueRow {
   itemName: string;
   slug: string;
   rank: number | null;
+  /** WFM subtype (relic refinement); null for items without one. */
+  subtype: string | null;
   verdict: SafetyVerdict;
   /** Units to list; starts at the safe count and never exceeds the total. */
   quantity: number;
@@ -64,6 +68,8 @@ export interface WorkbenchQueueRow {
 }
 
 const RELIC_SUBTYPE_RE = /\b(intact|exceptional|flawless|radiant)\b/i;
+/** Relic uniqueNames spell the refinement as a suffix with no separator. */
+const RELIC_SUBTYPE_SUFFIX_RE = /(intact|exceptional|flawless|radiant)$/i;
 
 /** Mirrors inventoryMarket's private gameRef resolution for the lookup record. */
 function lookupByGameRef(gameRef: string, lookup: WfmItemsLookup): WfmItemsLookup[string] | null {
@@ -96,15 +102,70 @@ export function resolveQueueSlug(item: ParsedItem, lookup: WfmItemsLookup): stri
   return null;
 }
 
+interface SelectionSafetyInput {
+  itemDb: Record<string, ItemDbEntry>;
+  settings: InventorySafetySettings;
+  mastery: MasteryData | null;
+  /** Mastery goal uniqueNames the user pinned in the planner. */
+  pins: readonly string[];
+}
+
+/** The one safety context both the inventory grid's eligibility pass and the
+ *  bulk sell queue run on. Feeding it mastery and pins is what keeps the
+ *  pinnedGoal and unmasteredRecipe rules out of `degradedRules`, where they
+ *  would silently never fire. */
+export function buildSelectionSafetyContext(input: SelectionSafetyInput): SafetyContext {
+  const masteredUniqueNames = new Set<string>();
+  for (const item of input.mastery?.items ?? []) {
+    if (item.status !== "mastered") continue;
+    const uniqueName = item.uniqueName || item.internalName;
+    if (uniqueName) masteredUniqueNames.add(uniqueName);
+  }
+
+  const pinnedRequirements = new Map<string, number>();
+  for (const pin of input.pins) {
+    for (const part of input.itemDb[pin]?.components ?? []) {
+      const uniqueName = typeof part.uniqueName === "string" ? part.uniqueName : "";
+      if (!uniqueName) continue;
+      const count = typeof part.itemCount === "number" ? Math.floor(part.itemCount) : 1;
+      const need = count > 0 ? count : 1;
+      pinnedRequirements.set(uniqueName, (pinnedRequirements.get(uniqueName) ?? 0) + need);
+    }
+  }
+
+  return buildSafetyContext({
+    itemDb: input.itemDb,
+    settings: input.settings,
+    masteredUniqueNames,
+    pinnedRequirements,
+  });
+}
+
 function rowRank(item: ParsedItem): number | null {
   if (!isRankedGroup(item.inventoryGroup)) return null;
   return Number.isFinite(item.rank) ? Math.max(0, Math.floor(item.rank)) : 0;
 }
 
-export function relicSubtypeFor(item: ParsedItem): string | null {
+/** Refinement of a relic projection uniqueName; the relic database is the
+ *  only source that decodes DE's colour suffixes (EBronze, EPlatinum). */
+type RelicQualityResolver = (uniqueName: string) => string | null;
+
+export function relicSubtypeFor(item: ParsedItem, resolve?: RelicQualityResolver): string | null {
   if (item.inventoryGroup !== "relics") return null;
-  const match = RELIC_SUBTYPE_RE.exec(item.name);
+  const resolved = resolve?.(item.internalName);
+  if (resolved) return resolved;
+  // The item-DB name is refinement-free ("Axi A1 Relic"), so the uniqueName is
+  // the only refinement the row carries; DE colour suffixes still read Intact.
+  const match =
+    RELIC_SUBTYPE_RE.exec(item.name) ?? RELIC_SUBTYPE_SUFFIX_RE.exec(item.internalName ?? "");
   return match ? match[1].toLowerCase() : "intact";
+}
+
+/** WFM leaves the default subtype unset; both spellings mean the same thing. */
+function normalizeSubtype(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().toLowerCase();
+  return !trimmed || trimmed === "regular" ? null : trimmed;
 }
 
 /** Inventory rows to workbench queue rows. Pure: market data attaches later. */
@@ -112,6 +173,7 @@ export function buildQueueRows(
   items: readonly ParsedItem[],
   context: SafetyContext,
   lookup: WfmItemsLookup,
+  relicQuality?: RelicQualityResolver,
 ): WorkbenchQueueRow[] {
   const rows: WorkbenchQueueRow[] = [];
   for (const item of items) {
@@ -126,6 +188,7 @@ export function buildQueueRows(
       itemName: queueItemName(item),
       slug,
       rank: rowRank(item),
+      subtype: relicSubtypeFor(item, relicQuality),
       verdict,
       quantity: verdict.safe,
       overrideAcknowledged: false,
@@ -170,15 +233,19 @@ export function buildSelectedQueueRows(
   context: SafetyContext,
   lookup: WfmItemsLookup,
   selection: ReadonlySet<string>,
+  relicQuality?: RelicQualityResolver,
 ): WorkbenchQueueRow[] {
   const picked = items.filter((item) => selection.has(selectionKeyFor(item)));
-  return buildQueueRows(picked, context, lookup).map((row) => ({ ...row, selected: true }));
+  return buildQueueRows(picked, context, lookup, relicQuality).map((row) => ({
+    ...row,
+    selected: true,
+  }));
 }
 
 /** Stable across rebuilds, unlike `rowId`, which is the build-order index. One
  *  selection key can expand to several rank rows, so the rank is part of it. */
 function queueRowIdentity(row: WorkbenchQueueRow): string {
-  return `${selectionKeyFor(row.item)}::${row.slug}::${row.rank ?? ""}`;
+  return `${selectionKeyFor(row.item)}::${row.slug}::${row.rank ?? ""}::${row.subtype ?? ""}`;
 }
 
 /** Carries a prior row's fetched market data and price edits onto its freshly
@@ -227,15 +294,38 @@ export function mergeQueueRows(
   });
 }
 
+/** Relic refinements share one slug and carry no rank, so without the subtype
+ *  every refinement of a relic would reprice the same order. */
 function matchExistingOrder(row: WorkbenchQueueRow, orders: readonly WfmOrder[]): WfmOrder | null {
+  const subtype = normalizeSubtype(row.subtype);
   return (
     orders.find(
       (order) =>
         order.orderType === "sell" &&
         order.itemUrlName === row.slug &&
-        (row.rank == null || order.modRank === row.rank),
+        (row.rank == null || order.modRank === row.rank) &&
+        (subtype == null || normalizeSubtype(order.subtype) === subtype),
     ) ?? null
   );
+}
+
+function existingOrderOf(
+  row: WorkbenchQueueRow,
+  myOrders: readonly WfmOrder[],
+): WorkbenchQueueRow["existingOrder"] {
+  const existing = matchExistingOrder(row, myOrders);
+  return existing
+    ? { id: existing.id, platinum: existing.platinum, quantity: existing.quantity }
+    : null;
+}
+
+/** Re-joins rows to a freshly fetched own-order list, leaving the market data
+ *  they already loaded alone; the retry after a failed orders fetch uses it. */
+export function attachExistingOrders(
+  rows: readonly WorkbenchQueueRow[],
+  myOrders: readonly WfmOrder[],
+): WorkbenchQueueRow[] {
+  return rows.map((row) => ({ ...row, existingOrder: existingOrderOf(row, myOrders) }));
 }
 
 export function attachMarketData(
@@ -244,7 +334,6 @@ export function attachMarketData(
   buyBook: readonly PricingListing[] | null,
   myOrders: readonly WfmOrder[],
 ): WorkbenchQueueRow {
-  const existing = matchExistingOrder(row, myOrders);
   let market: WorkbenchMarketInfo | null = null;
   if (sellBook) {
     const activeSell = sellBook.filter((entry) => isActiveOrderStatus(entry.status));
@@ -259,14 +348,7 @@ export function attachMarketData(
       spread: lowestSell != null && highestBuy != null ? lowestSell - highestBuy : null,
     };
   }
-  return {
-    ...row,
-    sellBook,
-    market,
-    existingOrder: existing
-      ? { id: existing.id, platinum: existing.platinum, quantity: existing.quantity }
-      : null,
-  };
+  return { ...row, sellBook, market, existingOrder: existingOrderOf(row, myOrders) };
 }
 
 export function applyStrategy(
@@ -332,6 +414,12 @@ export function bindingReasonKeys(verdict: SafetyVerdict): string[] {
     .map((reservation) => reservation.reasonKey);
 }
 
+/** Selected rows the user still has to price. Execute stays blocked while any
+ *  exists, so a strategy that priced nothing cannot go out as a partial run. */
+export function unpricedSelectedRows(rows: readonly WorkbenchQueueRow[]): WorkbenchQueueRow[] {
+  return rows.filter((row) => row.selected && row.quantity > 0 && effectivePrice(row) == null);
+}
+
 /** Rows that are actually executable as-is. */
 function executableRows(rows: readonly WorkbenchQueueRow[]): WorkbenchQueueRow[] {
   return rows.filter(
@@ -352,6 +440,7 @@ interface WorkbenchPlanBuild {
 export function buildPlanFromRows(
   rows: readonly WorkbenchQueueRow[],
   now: number,
+  myOrders: readonly WfmOrder[] = [],
 ): WorkbenchPlanBuild {
   const eligible = executableRows(rows);
   const planRows: WorkbenchPlanRow[] = eligible.map((row) => {
@@ -365,8 +454,7 @@ export function buildPlanFromRows(
       platinum: price,
     };
     if (row.rank != null) planRow.rank = row.rank;
-    const subtype = relicSubtypeFor(row.item);
-    if (subtype) planRow.subtype = subtype;
+    if (row.subtype) planRow.subtype = row.subtype;
     if (row.existingOrder) planRow.orderId = row.existingOrder.id;
     if (rowNeedsOverride(row) && row.overrideAcknowledged) {
       planRow.override = {
@@ -376,10 +464,12 @@ export function buildPlanFromRows(
     }
     return planRow;
   });
-  return {
-    plan: { planId: `plan-${now}`, createdAt: now, rows: planRows },
-    overCap: planRows.length > WORKBENCH_MAX_ROWS_PER_RUN,
-  };
+  const plan: WorkbenchPlan = { planId: `plan-${now}`, createdAt: now, rows: planRows };
+  // Recorded before anything is sent, so review can tell a created order from
+  // one that was already on the account.
+  const knownOrderIds = myOrders.map((order) => order.id).filter((id) => Boolean(id));
+  if (knownOrderIds.length > 0) plan.knownOrderIds = knownOrderIds;
+  return { plan, overCap: planRows.length > WORKBENCH_MAX_ROWS_PER_RUN };
 }
 
 /** Fresh snapshot at confirm time: verdicts are recomputed from the live
