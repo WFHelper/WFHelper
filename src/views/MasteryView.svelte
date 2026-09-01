@@ -3,11 +3,32 @@
   import { SvelteMap } from "svelte/reactivity";
 
   import { masteryData } from "../stores/mastery.js";
-  import { wfmItems, foundryData, inventoryData, itemDb, parsedItems } from "../stores/data.js";
+  import {
+    wfmItems,
+    foundryData,
+    inventoryData,
+    itemDb,
+    parsedItems,
+    componentOwnership,
+  } from "../stores/data.js";
   import { buildSubsumedFamilySet, isFrameSubsumed, isSubsumableFrame } from "../lib/helminth.js";
   import { componentUniqueNameAliases } from "../../config/shared/componentNames.js";
   import { masteryProjectionSubtext } from "../lib/masteryProjection.js";
   import { buildMasteryRoadmap, estimateMasteryPurchaseCost } from "../lib/masteryRoadmap.js";
+  import {
+    buildMasteryPlan,
+    type MasteryPlan,
+    type PlannerPin,
+    type PlannerSort,
+  } from "../lib/masteryPlanner.js";
+  import {
+    masteryPinKeepMastered,
+    masteryPins,
+    restoreMasteryPins,
+    toggleMasteryPin,
+    unpinMasteryItems,
+  } from "../stores/masteryPins.js";
+  import { addToast } from "../stores/toasts.js";
   import { getLookupByName } from "../lib/inventoryMarket.js";
   import { setRootOf } from "../lib/inventory/fullSets.js";
   import { parseOwnedRelics } from "../lib/relic.js";
@@ -20,13 +41,19 @@
   import SummaryStrip, { type SummaryStripItem } from "../components/SummaryStrip.svelte";
   import ThemedPanel from "../components/ThemedPanel.svelte";
   import CollapsibleSection from "../components/CollapsibleSection.svelte";
-  import { persistedBoolean, readStorage, writeStorage } from "../lib/persistence.js";
+  import {
+    persistedBoolean,
+    persistedString,
+    readStorage,
+    writeStorage,
+  } from "../lib/persistence.js";
   import { applySharedFiltersAndSort } from "../lib/filters.js";
   import { getCachedPriceState } from "../lib/wfm/priceCache.js";
   import { sharedFilters } from "../stores/filters.js";
   import { relicDb } from "../stores/relics.js";
   import ItemImage from "../components/ItemImage.svelte";
   import MasteryRoadmap from "../components/mastery/MasteryRoadmap.svelte";
+  import MasteryPlanner from "../components/mastery/MasteryPlanner.svelte";
   import CodexPanel from "../components/mastery/CodexPanel.svelte";
   import ArchonShardPips from "../components/archon/ArchonShardPips.svelte";
   import ArchonShardSummary from "../components/archon/ArchonShardSummary.svelte";
@@ -76,8 +103,15 @@
   const VIEW_TAB_DEFS: Array<{ key: string; labelKey: MessageKey }> = [
     { key: "collection", labelKey: "mastery.viewCollection" },
     { key: "roadmap", labelKey: "mastery.viewRoadmap" },
+    { key: "planned", labelKey: "mastery.viewPlanned" },
     { key: "codex", labelKey: "mastery.viewCodex" },
   ];
+  const PLANNER_SORT_KEYS = ["mastery_xp", "completeness", "name"] as const;
+  const plannerSort = persistedString<PlannerSort>(
+    "wf_mastery_planner_sort",
+    PLANNER_SORT_KEYS,
+    "mastery_xp",
+  );
   const STATUS_TAB_KEYS = STATUS_TAB_DEFS.map((tab) => tab.key);
   const VIEW_TAB_KEYS = VIEW_TAB_DEFS.map((tab) => tab.key);
   $: STATUS_TABS = STATUS_TAB_DEFS.map(({ key, labelKey }) => ({ key, label: $tr(labelKey) }));
@@ -410,6 +444,112 @@
   $: masteryOwnedRelics = parseOwnedRelics($inventoryData, $relicDb);
   $: masteryRoadmap = buildMasteryRoadmap(hydratedMasteryItems, $relicDb, masteryOwnedRelics);
 
+  function buildPlannerPins(
+    pinList: string[],
+    items: NonNullable<typeof $masteryData>["items"],
+    db: typeof $itemDb,
+  ): PlannerPin[] {
+    const byUniqueName = new SvelteMap<string, (typeof items)[number]>();
+    for (const item of items) {
+      const key = item.uniqueName || item.internalName;
+      if (key && !byUniqueName.has(key)) byUniqueName.set(key, item);
+    }
+    return pinList.map((uniqueName) => {
+      const match = byUniqueName.get(uniqueName);
+      const entry = db[uniqueName];
+      const displayName = match?.displayName || entry?.displayName;
+      return {
+        uniqueName,
+        name: match?.name || entry?.name || fallbackNameFromUniqueName(uniqueName),
+        ...(displayName ? { displayName } : {}),
+        imageUrl: match?.imageUrl ?? entry?.imageUrl ?? null,
+        masteryXpRemaining: match?.masteryXpRemaining ?? 0,
+      };
+    });
+  }
+
+  // One walk per pin over the whole item DB, so the plan is gated on the open
+  // tab and reads the mastery rows, not the hydrated ones a WFM tick rewrites.
+  const EMPTY_MASTERY_PLAN: MasteryPlan = {
+    items: [],
+    totals: [],
+    totalCredits: 0,
+    craftableCount: 0,
+  };
+  $: masteryPlan =
+    viewTab === "planned" && $masteryPins.length > 0
+      ? buildMasteryPlan(
+          buildPlannerPins($masteryPins, displayMasteryData?.items ?? [], $itemDb),
+          $itemDb,
+          $componentOwnership,
+        )
+      : EMPTY_MASTERY_PLAN;
+  $: pinnedSet = new Set($masteryPins);
+
+  /** Mastered items by uniqueName, valued with the label the undo notice needs. */
+  $: masteredMasteryLabels = (() => {
+    const mastered = new SvelteMap<string, string>();
+    for (const item of displayMasteryData?.items ?? []) {
+      if (item.status !== "mastered") continue;
+      const key = item.uniqueName || item.internalName;
+      if (key) mastered.set(key, itemLabel(item));
+    }
+    return mastered;
+  })();
+
+  // Pins the account has since mastered leave on their own. One notice per drop
+  // event, so mastering a second item cannot swallow the first undo.
+  let autoUnpinNotices: Array<{
+    id: number;
+    dropped: string[];
+    key: MessageKey;
+    params: Record<string, string | number>;
+  }> = [];
+  let autoUnpinSeq = 0;
+
+  function autoUnpinMastered(
+    pinList: string[],
+    mastered: SvelteMap<string, string>,
+    keepMastered: string[],
+    t: Translator,
+  ): void {
+    if (pinList.length === 0 || mastered.size === 0) return;
+    const keep = new Set(keepMastered);
+    const drop = pinList.filter((uniqueName) => mastered.has(uniqueName) && !keep.has(uniqueName));
+    if (drop.length === 0) return;
+
+    const single = drop.length === 1;
+    const key: MessageKey = single
+      ? "mastery.planner.autoUnpinnedOne"
+      : "mastery.planner.autoUnpinnedMany";
+    const params: Record<string, string | number> = single
+      ? { name: mastered.get(drop[0]) ?? "" }
+      : { count: drop.length };
+    unpinMasteryItems(drop);
+    autoUnpinNotices = [
+      ...autoUnpinNotices,
+      { id: (autoUnpinSeq += 1), dropped: [...drop], key, params },
+    ];
+    addToast({ level: "success", title: t("mastery.viewPlanned"), message: t(key, params) });
+  }
+
+  $: autoUnpinMastered($masteryPins, masteredMasteryLabels, $masteryPinKeepMastered, $tr);
+
+  function dismissAutoUnpin(id: number): void {
+    autoUnpinNotices = autoUnpinNotices.filter((notice) => notice.id !== id);
+  }
+
+  function undoAutoUnpin(id: number): void {
+    const notice = autoUnpinNotices.find((entry) => entry.id === id);
+    if (!notice) return;
+    restoreMasteryPins(notice.dropped);
+    dismissAutoUnpin(id);
+  }
+
+  function pinKeyOf(item: { uniqueName?: string; internalName?: string }): string {
+    return item.uniqueName || item.internalName || "";
+  }
+
   function formatPercent(n: number, total: number): string {
     return total > 0 ? ((n / total) * 100).toFixed(1) : "0.0";
   }
@@ -481,6 +621,26 @@
   <div class="view-header">
     <h2>{$tr("mastery.title")}</h2>
   </div>
+
+  {#each autoUnpinNotices as notice (notice.id)}
+    <div
+      class="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-md)] border border-success/30 bg-success/10 px-3 py-2"
+      data-mastery-auto-unpin
+    >
+      <span class="text-sm text-text-secondary">{$tr(notice.key, notice.params)}</span>
+      <div class="flex items-center gap-2">
+        <button type="button" class="btn-secondary" on:click={() => undoAutoUnpin(notice.id)}
+          >{$tr("mastery.planner.undo")}</button
+        >
+        <button
+          type="button"
+          class="btn-secondary"
+          aria-label={$tr("common.dismissNotification")}
+          on:click={() => dismissAutoUnpin(notice.id)}>{$tr("common.dismiss")}</button
+        >
+      </div>
+    </div>
+  {/each}
 
   <div class="mb-3 flex items-end border-b border-white/[0.09]" data-tour="mastery-view-tabs">
     <HeaderTabs options={VIEW_TABS} activeKey={viewTab} onSelect={selectViewTab} />
@@ -657,6 +817,17 @@
         currentRank={stats.profileMastery?.rank ?? null}
         onOpen={(item) => activeItem.set(item)}
       />
+    {:else if viewTab === "planned"}
+      <div data-mastery-planned-tab>
+        <MasteryPlanner
+          plan={masteryPlan}
+          sort={$plannerSort}
+          onSort={(value) => plannerSort.set(value)}
+          onUnpin={(uniqueName) => toggleMasteryPin(uniqueName)}
+          onOpenItem={openFrameByUniqueName}
+          onOpenComponent={(comp, parentName) => activeComponent.set({ comp, parentName })}
+        />
+      </div>
     {:else}
       <div class="view-sticky-filters grid gap-2 mb-3">
         <SharedFilterBar
@@ -721,6 +892,8 @@
             {#each filtered as item, itemIndex (`${item.uniqueName || item.internalName || item.name}-${itemIndex}`)}
               {@const shardCopies =
                 archonShards.bySuitType.get(item.uniqueName || item.internalName || "") ?? []}
+              {@const pinKey = pinKeyOf(item)}
+              {@const pinned = pinnedSet.has(pinKey)}
               <div
                 class="item-card group {item.status === 'missing'
                   ? 'opacity-60'
@@ -740,6 +913,34 @@
                 <div class="item-img-wrap">
                   <ItemImage src={item.imageUrl} alt={itemLabel(item)} auditKey={item.name} />
                   {#if item.vaulted}<span class="vault-badge">V</span>{/if}
+                  {#if pinKey}
+                    <button
+                      type="button"
+                      class="absolute left-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded border bg-black/35 transition-[opacity,color,border-color] duration-100 {pinned
+                        ? 'border-accent-dim text-accent opacity-100'
+                        : 'border-border text-text-muted opacity-0 group-hover:opacity-100'}"
+                      title={pinned ? $tr("mastery.planner.unpin") : $tr("mastery.planner.pin")}
+                      aria-label={pinned
+                        ? $tr("mastery.planner.unpin")
+                        : $tr("mastery.planner.pin")}
+                      aria-pressed={pinned}
+                      data-mastery-pin={pinKey}
+                      on:click|stopPropagation={() =>
+                        toggleMasteryPin(pinKey, masteredMasteryLabels.has(pinKey))}
+                    >
+                      <svg
+                        viewBox="0 0 16 16"
+                        fill={pinned ? "currentColor" : "none"}
+                        stroke="currentColor"
+                        stroke-width="1.4"
+                        class="h-3.5 w-3.5"
+                      >
+                        <path
+                          d="M9.5 1.5l5 5-2 .5-3 3 .5 2.5-5-5-2.5 4 4-2.5-5-5 2.5.5 3-3 .5-2z"
+                        />
+                      </svg>
+                    </button>
+                  {/if}
                   {#if shardCopies.length > 0}
                     <span class="absolute left-1.5 bottom-1.5 flex flex-col items-start gap-0.5">
                       {#each shardCopies as copy, copyIndex (copy.instanceId ?? copyIndex)}
