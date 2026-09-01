@@ -2,8 +2,9 @@ import {
   componentUniqueNameAliases,
   ownedComponentCount,
 } from "../../config/shared/componentNames.js";
+import { resolveComponentByName } from "./componentResolution.js";
 import { buildCraftingTree, type CraftingTreeNode } from "./craftingTree.js";
-import type { ItemDbEntry } from "../types/inventory.js";
+import type { ComponentInfo, ItemDbEntry } from "../types/inventory.js";
 
 export interface PlannerPin {
   uniqueName: string;
@@ -125,7 +126,9 @@ function collectNode(
     if (depth === 0) return;
     // A farmed part of the pinned item is already a component chip on the row.
     if (depth === 1 && isPartLike(node)) return;
-    addResource(state, node, remaining);
+    // planPin measures the row against the shared pool, so it needs the gross
+    // count; `remaining` already had the owned copies taken out of the budget.
+    addResource(state, node, needed);
     return;
   }
 
@@ -172,7 +175,10 @@ function planPin(
     };
   }
 
-  const components: PlannerComponent[] = tree.children.map((child) => ({
+  // Every top-level child counts toward readiness, but only parts get a chip:
+  // a raw material the root recipe asks for already has its own material row.
+  const topLevel = tree.children;
+  const components: PlannerComponent[] = topLevel.filter(isPartLike).map((child) => ({
     uniqueName: child.uniqueName,
     name: child.name,
     ...(child.displayName ? { displayName: child.displayName } : {}),
@@ -205,8 +211,8 @@ function planPin(
     (a, b) => b.missing - a.missing || b.needed - a.needed || a.name.localeCompare(b.name),
   );
 
-  const satisfied = components.filter((component) => component.missing === 0).length;
-  const completeness = components.length > 0 ? satisfied / components.length : 1;
+  const satisfied = topLevel.filter((child) => child.missing === 0).length;
+  const completeness = topLevel.length > 0 ? satisfied / topLevel.length : 1;
 
   return {
     ...base,
@@ -215,7 +221,7 @@ function planPin(
     resources,
     credits: state.credits,
     completeness,
-    craftableNow: satisfied === components.length,
+    craftableNow: satisfied === topLevel.length,
   };
 }
 
@@ -262,6 +268,41 @@ export function buildMasteryPlan(
   return { items, totals: totalRows, totalCredits, craftableCount };
 }
 
+interface PlannerRow {
+  uniqueName: string;
+  name: string;
+  displayName?: string;
+  needed: number;
+  owned: number;
+  missing: number;
+}
+
+// Planner rows carry the item database's parent-prefixed name ("Braton Prime
+// Receiver"), while the detail modal prices a part as `${parentName} ${name}`.
+// Resolving the row back to its parent's short part name keeps that join from
+// doubling the parent, and leaves a raw material with no parent at all.
+export function plannerModalTarget(
+  row: PlannerRow,
+  itemDb: Record<string, ItemDbEntry>,
+  nameIndex?: Map<string, string>,
+): { comp: ComponentInfo; parentName: string } {
+  const resolved = resolveComponentByName(row.name, itemDb, new Map(), nameIndex);
+  const base: ComponentInfo = resolved?.comp ?? {
+    name: row.name,
+    ...(row.displayName ? { displayName: row.displayName } : {}),
+    uniqueName: row.uniqueName,
+  };
+  return {
+    comp: { ...base, itemCount: row.needed, ownedCount: row.owned, owned: row.missing === 0 },
+    parentName: resolved?.parentName ?? "",
+  };
+}
+
+/** The planner is a to-do list, so covered rows stay hidden until asked for. */
+export function missingOnly<T extends { missing: number }>(rows: readonly T[]): T[] {
+  return rows.filter((row) => row.missing > 0);
+}
+
 /** Craftable-now floats to the top of every sort mode. */
 export function sortPlannedItems(
   items: readonly PlannedItem[],
@@ -277,4 +318,18 @@ export function sortPlannedItems(
   return [...items].sort(
     (a, b) => group(a) - group(b) || within(a, b) || label(a).localeCompare(label(b)),
   );
+}
+
+/** Same order as the flat sort, split so each half can carry its own heading. */
+export function groupPlannedItems(
+  items: readonly PlannedItem[],
+  sort: PlannerSort,
+  label: (item: PlannedItem) => string,
+): { craftable: PlannedItem[]; remaining: PlannedItem[] } {
+  const sorted = sortPlannedItems(items, sort, label);
+  const ready = (item: PlannedItem): boolean => item.craftableNow && item.hasRecipe;
+  return {
+    craftable: sorted.filter((item) => ready(item)),
+    remaining: sorted.filter((item) => !ready(item)),
+  };
 }

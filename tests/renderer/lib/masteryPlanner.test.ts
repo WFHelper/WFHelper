@@ -2,13 +2,18 @@ import { describe, expect, it } from "vitest";
 
 import { aggregateComponentOwnership } from "../../../config/shared/componentOwnership.js";
 import { withoutFoundryPending } from "../../../config/shared/foundryPending.js";
+import { resolveComponentPriceLookup } from "../../../src/lib/componentResolution.js";
 import {
   buildMasteryPlan,
+  groupPlannedItems,
+  missingOnly,
+  plannerModalTarget,
   sortPlannedItems,
   type PlannedItem,
   type PlannerPin,
 } from "../../../src/lib/masteryPlanner.js";
 import type { ItemDbEntry } from "../../../src/types/inventory.js";
+import type { WfmItemsLookup } from "../../../src/types/ipc.js";
 
 const FERRITE = "/Lotus/Types/Items/MiscItems/Ferrite";
 const PLASTIDS = "/Lotus/Types/Items/MiscItems/Plastids";
@@ -375,6 +380,67 @@ describe("mastery planner recipe walking", () => {
     expect(totalFor(plan, widgetBp).needed).toBe(1);
   });
 
+  it("keeps a root-level raw material out of the part chips", () => {
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Weapons/Alpha": entry("Alpha", {
+        buildPrice: 0,
+        buildTime: 0,
+        num: 1,
+        ingredients: [{ uniqueName: FERRITE, count: 3000 }],
+      }),
+      [FERRITE]: entry("Ferrite"),
+    };
+
+    const short = buildMasteryPlan([pin("/Lotus/Weapons/Alpha", "Alpha")], db, new Map());
+    const stocked = buildMasteryPlan(
+      [pin("/Lotus/Weapons/Alpha", "Alpha")],
+      db,
+      new Map([[FERRITE, 4000]]),
+    );
+
+    // Ferrite belongs under materials only; a chip for it repeats the row below.
+    expect(short.items[0].components).toEqual([]);
+    expect(short.items[0].resources.map((row) => row.uniqueName)).toEqual([FERRITE]);
+    // Dropping the chip must not turn an unaffordable build into a ready one.
+    expect(short.items[0].completeness).toBe(0);
+    expect(short.items[0].craftableNow).toBe(false);
+    expect(stocked.items[0].completeness).toBe(1);
+    expect(stocked.items[0].craftableNow).toBe(true);
+  });
+
+  it("subtracts an owned sub-blueprint from the need exactly once", () => {
+    const widget = "/Lotus/Types/Recipes/Components/Gizmo";
+    const widgetBp = "/Lotus/Types/Recipes/Components/GizmoConstructionBlueprint";
+    const db: Record<string, ItemDbEntry> = {
+      "/Lotus/Weapons/Alpha": entry("Alpha", {
+        buildPrice: 0,
+        buildTime: 0,
+        num: 1,
+        ingredients: [{ uniqueName: widget, count: 3 }],
+      }),
+      [widget]: entry("Gizmo", {
+        blueprintUniqueName: widgetBp,
+        buildPrice: 0,
+        buildTime: 0,
+        num: 1,
+        ingredients: [{ uniqueName: FERRITE, count: 10 }],
+      }),
+      [widgetBp]: entry("Gizmo Blueprint"),
+      [FERRITE]: entry("Ferrite"),
+    };
+
+    const plan = buildMasteryPlan(
+      [pin("/Lotus/Weapons/Alpha", "Alpha")],
+      db,
+      new Map([[widgetBp, 1]]),
+    );
+
+    // Three runs need three blueprints; the one owned copy covers one of them.
+    const row = plan.items[0].resources.find((entryRow) => entryRow.uniqueName === widgetBp);
+    expect(row).toMatchObject({ needed: 3, owned: 1, missing: 2 });
+    expect(totalFor(plan, widgetBp)).toEqual({ needed: 3, owned: 1, missing: 2 });
+  });
+
   it("needs one consumed blueprint per run of the part", () => {
     const widget = "/Lotus/Types/Recipes/Components/Gizmo";
     const widgetBp = "/Lotus/Types/Recipes/Components/GizmoConstructionBlueprint";
@@ -400,6 +466,68 @@ describe("mastery planner recipe walking", () => {
 
     expect(totalFor(plan, widgetBp).needed).toBe(3);
     expect(totalFor(plan, FERRITE).needed).toBe(30);
+  });
+});
+
+describe("mastery planner detail targets", () => {
+  const parent = "/Lotus/Weapons/BratonPrime";
+  const receiver = "/Lotus/Types/Recipes/Weapons/BratonPrimeReceiver";
+  const targetDb: Record<string, ItemDbEntry> = {
+    [parent]: {
+      name: "Braton Prime",
+      components: [{ name: "Receiver", uniqueName: receiver, tradable: true, itemCount: 1 }],
+    },
+    [receiver]: {
+      name: "Braton Prime Receiver",
+      isBuildComponent: true,
+      componentOf: parent,
+      tradable: true,
+    },
+    [FERRITE]: { name: "Ferrite" },
+  };
+  const lookup: WfmItemsLookup = {
+    "braton prime receiver": { url_name: "braton_prime_receiver" },
+  };
+
+  it("hands a part row the short component name and its parent", () => {
+    const target = plannerModalTarget(
+      { uniqueName: receiver, name: "Braton Prime Receiver", needed: 2, owned: 1, missing: 1 },
+      targetDb,
+    );
+
+    expect(target.comp.name).toBe("Receiver");
+    expect(target.parentName).toBe("Braton Prime");
+    expect(target.comp).toMatchObject({ uniqueName: receiver, itemCount: 2, ownedCount: 1 });
+    expect(target.comp.owned).toBe(false);
+    // The modal joins parent and component, so the planner must not pre-join them.
+    expect(
+      resolveComponentPriceLookup(target.comp, target.parentName, targetDb[receiver], lookup).name,
+    ).toBe("Braton Prime Receiver");
+  });
+
+  it("hands a raw material no parent so its price key stays the resource name", () => {
+    const target = plannerModalTarget(
+      { uniqueName: FERRITE, name: "Ferrite", needed: 3000, owned: 900, missing: 2100 },
+      targetDb,
+    );
+
+    expect(target.comp.name).toBe("Ferrite");
+    expect(target.parentName).toBe("");
+    expect(target.comp).toMatchObject({ uniqueName: FERRITE, itemCount: 3000, ownedCount: 900 });
+    expect(resolveComponentPriceLookup(target.comp, "", targetDb[FERRITE], lookup).name).toBe(
+      "Ferrite",
+    );
+  });
+
+  it("falls back to the row itself when the item database has no entry", () => {
+    const target = plannerModalTarget(
+      { uniqueName: "/Lotus/Weapons/Ghost", name: "Ghost", needed: 1, owned: 1, missing: 0 },
+      targetDb,
+    );
+
+    expect(target).toMatchObject({ parentName: "" });
+    expect(target.comp).toMatchObject({ uniqueName: "/Lotus/Weapons/Ghost", name: "Ghost" });
+    expect(target.comp.owned).toBe(true);
   });
 });
 
@@ -459,5 +587,34 @@ describe("mastery planner sorting", () => {
       "Beta",
       "Gamma",
     ]);
+  });
+
+  it("splits the sorted list into a craftable and a remaining group", () => {
+    const items = [
+      plannedItem({ name: "Zeta", masteryXpRemaining: 6000 }),
+      plannedItem({ name: "Alpha", masteryXpRemaining: 100, craftableNow: true }),
+      plannedItem({ name: "Beta", masteryXpRemaining: 900, craftableNow: true }),
+      // A pin with no recipe reads as craftable in the data, so the group guard
+      // has to check both flags.
+      plannedItem({ name: "Gamma", craftableNow: true, hasRecipe: false }),
+    ];
+
+    const groups = groupPlannedItems(items, "mastery_xp", label);
+
+    expect(groups.craftable.map((item) => item.name)).toEqual(["Beta", "Alpha"]);
+    expect(groups.remaining.map((item) => item.name)).toEqual(["Zeta", "Gamma"]);
+  });
+});
+
+describe("mastery planner missing filter", () => {
+  it("keeps only the rows that still need something, in the order given", () => {
+    const rows = [
+      { uniqueName: "a", missing: 5 },
+      { uniqueName: "b", missing: 0 },
+      { uniqueName: "c", missing: 2 },
+    ];
+
+    expect(missingOnly(rows).map((row) => row.uniqueName)).toEqual(["a", "c"]);
+    expect(missingOnly([{ uniqueName: "b", missing: 0 }])).toEqual([]);
   });
 });
