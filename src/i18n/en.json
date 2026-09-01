@@ -1085,7 +1085,7 @@
   "settings.notificationSoundUsesSystem": "Use the Windows notification sound",
   "settings.notificationSoundUsesSystemHint": "Plays the system sound, so the System Sounds volume applies instead of WFHelper's.",
   "settings.notificationChannelsTitle": "Notification channels",
-  "settings.notificationChannelsDesc": "Send notifications to a Discord or custom webhook as well as the desktop.",
+  "settings.notificationChannelsDesc": "Send notifications to a Discord or custom webhook as well as the desktop. Trade and whisper notifications include the other player's in-game name.",
   "settings.webhookDiscord": "Discord webhook",
   "settings.webhookGeneric": "Custom webhook",
   "settings.webhookUrlPlaceholder": "https://...",

@@ -1072,7 +1072,7 @@
   "settings.notificationSoundUsesSystem": "使用 Windows 通知提示音",
   "settings.notificationSoundUsesSystemHint": "播放系统提示音，因此适用系统声音音量而非 WFHelper 的音量。",
   "settings.notificationChannelsTitle": "通知渠道",
-  "settings.notificationChannelsDesc": "除桌面通知外，也发送到 Discord 或自定义 Webhook。",
+  "settings.notificationChannelsDesc": "除桌面通知外，也发送到 Discord 或自定义 Webhook。交易和私聊通知会包含对方玩家的游戏内名称。",
   "settings.webhookDiscord": "Discord Webhook",
   "settings.webhookGeneric": "自定义 Webhook",
   "settings.webhookUrlPlaceholder": "https://...",

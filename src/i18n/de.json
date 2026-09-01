@@ -624,7 +624,7 @@
   "settings.inventorySourceShortManual": "JSON",
   "settings.languageTitle": "Sprache",
   "settings.notificationChannelsTitle": "Benachrichtigungskanäle",
-  "settings.notificationChannelsDesc": "Sende Benachrichtigungen zusätzlich zum Desktop an einen Discord- oder eigenen Webhook.",
+  "settings.notificationChannelsDesc": "Sende Benachrichtigungen zusätzlich zum Desktop an einen Discord- oder eigenen Webhook. Handels- und Flüsterbenachrichtigungen enthalten den Ingame-Namen des anderen Spielers.",
   "settings.webhookDiscord": "Discord-Webhook",
   "settings.webhookGeneric": "Eigener Webhook",
   "settings.webhookUrlPlaceholder": "https://...",

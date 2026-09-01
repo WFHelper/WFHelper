@@ -13,10 +13,21 @@ const h = vi.hoisted(() => ({
   lookup: vi.fn(),
   warns: [] as string[],
   infos: [] as string[],
+  encryptionAvailable: true,
 }));
 
+// Reversible stand-in for the OS keychain: the test only needs "not plaintext".
 vi.mock("electron", () => ({
   app: { getPath: () => tempDir },
+  safeStorage: {
+    isEncryptionAvailable: () => h.encryptionAvailable,
+    encryptString: (text: string) => Buffer.from(`sealed:${text}`, "utf8"),
+    decryptString: (raw: Buffer) => {
+      const text = Buffer.from(raw).toString("utf8");
+      if (!text.startsWith("sealed:")) throw new Error("bad ciphertext");
+      return text.slice("sealed:".length);
+    },
+  },
 }));
 
 vi.mock("node:dns", () => ({
@@ -75,6 +86,7 @@ beforeEach(() => {
   fs.rmSync(configFile, { force: true });
   h.warns.length = 0;
   h.infos.length = 0;
+  h.encryptionAvailable = true;
   h.lookup.mockReset();
   h.lookup.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
   fetchMock.mockReset();
@@ -365,7 +377,20 @@ describe("dispatch routing", () => {
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(JSON.parse(String(fetchMock.mock.calls[0][1].body))).toEqual({
       content: "**Baro**\narrived",
+      allowed_mentions: { parse: [] },
     });
+  });
+
+  // Item and player names go out verbatim, so the post must not be able to ping.
+  it("suppresses every Discord mention the notification text could carry", async () => {
+    const channels = await importChannels();
+    enableWebhookForWorld();
+
+    channels.dispatch({ source: "worldState", title: "@everyone", body: "<@1234> ping" });
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const sent = JSON.parse(String(fetchMock.mock.calls[0][1].body)) as Record<string, unknown>;
+    expect(sent.allowed_mentions).toEqual({ parse: [] });
   });
 
   it("posts the documented generic payload", async () => {
@@ -512,6 +537,60 @@ describe("configuration storage", () => {
       error: "not-configured",
     });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("webhook secrets at rest", () => {
+  it("never leaves the URL in the config file", async () => {
+    const channels = await importChannels();
+
+    await channels.setWebhookUrl("discord", DISCORD_URL);
+
+    const onDisk = fs.readFileSync(configFile, "utf8");
+    expect(onDisk).not.toContain(DISCORD_URL);
+    expect(onDisk).not.toContain("webhooks/1234");
+    expect(onDisk).toContain("enc:v1:");
+    expect((await importChannels()).getChannelState().webhooks.discord).toEqual({
+      configured: true,
+      masked: "https://discord.com/...efgh",
+    });
+  });
+
+  it("reads a legacy plaintext file and re-encrypts it on the next write", async () => {
+    seedConfig({ webhooks: { discord: DISCORD_URL } });
+    const channels = await importChannels();
+    expect(channels.getChannelState().webhooks.discord.configured).toBe(true);
+
+    channels.setSourceChannels("whisper", { native: false, webhook: true });
+
+    expect(fs.readFileSync(configFile, "utf8")).not.toContain("webhooks/1234");
+    const reloaded = (await importChannels()).getChannelState();
+    expect(reloaded.webhooks.discord.configured).toBe(true);
+    expect(reloaded.sources.whisper).toEqual({ native: false, webhook: true });
+  });
+
+  it("drops the URL rather than writing it plainly when safeStorage is missing", async () => {
+    h.encryptionAvailable = false;
+    const channels = await importChannels();
+
+    await expect(channels.setWebhookUrl("discord", DISCORD_URL)).resolves.toMatchObject({
+      ok: true,
+    });
+
+    const onDisk = fs.readFileSync(configFile, "utf8");
+    expect(onDisk).not.toContain("webhooks/1234");
+    expect(h.warns.some((line) => line.includes("not persisted to disk"))).toBe(true);
+    // The live process keeps routing; only the reload loses the destination.
+    expect(channels.getChannelState().webhooks.discord.configured).toBe(true);
+    expect((await importChannels()).getChannelState().webhooks.discord.configured).toBe(false);
+  });
+
+  it("ignores an encrypted entry it cannot decrypt", async () => {
+    const channels = await importChannels();
+    await channels.setWebhookUrl("discord", DISCORD_URL);
+
+    h.encryptionAvailable = false;
+    expect((await importChannels()).getChannelState().webhooks.discord.configured).toBe(false);
   });
 });
 

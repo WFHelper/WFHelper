@@ -1,6 +1,8 @@
 import dns from "node:dns";
 import net from "node:net";
 
+import { safeStorage } from "electron";
+
 import { createJsonCache } from "./jsonCache";
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
@@ -68,6 +70,59 @@ function isHttpsUrl(raw: string): boolean {
   }
 }
 
+// Marks a ciphertext value; anything else in the map is a plaintext URL left by
+// a build from before the webhook secrets were encrypted at rest.
+const ENCRYPTED_PREFIX = "enc:v1:";
+
+function encryptionAvailable(): boolean {
+  try {
+    return safeStorage.isEncryptionAvailable();
+  } catch {
+    return false;
+  }
+}
+
+function decryptWebhookUrl(value: string): string | null {
+  if (!value.startsWith(ENCRYPTED_PREFIX)) return isHttpsUrl(value) ? value : null;
+  if (!encryptionAvailable()) {
+    log.warn("[Channels] safeStorage unavailable - stored webhook URLs cannot be read");
+    return null;
+  }
+  try {
+    const raw = Buffer.from(value.slice(ENCRYPTED_PREFIX.length), "base64");
+    const url = safeStorage.decryptString(raw);
+    return isHttpsUrl(url) ? url : null;
+  } catch (err) {
+    log.warn(`[Channels] failed to decrypt a stored webhook: ${normalizeErrorMessage(err)}`);
+    return null;
+  }
+}
+
+/** Same policy as the WFM session file: without safeStorage the secret is
+ *  dropped rather than written in the clear, so only the toggles persist. */
+function encryptWebhooks(
+  webhooks: Partial<Record<WebhookChannel, string>>,
+): Partial<Record<WebhookChannel, string>> {
+  const out: Partial<Record<WebhookChannel, string>> = {};
+  const available = encryptionAvailable();
+  for (const channel of WEBHOOK_CHANNELS) {
+    const url = webhooks[channel];
+    if (!url) continue;
+    if (!available) {
+      log.warn(`[Channels] safeStorage unavailable - ${channel} webhook not persisted to disk`);
+      continue;
+    }
+    try {
+      out[channel] = `${ENCRYPTED_PREFIX}${safeStorage.encryptString(url).toString("base64")}`;
+    } catch (err) {
+      log.warn(
+        `[Channels] failed to encrypt the ${channel} webhook: ${normalizeErrorMessage(err)}`,
+      );
+    }
+  }
+  return out;
+}
+
 // Shape only: the destination is re-validated before every send, because this
 // file is user-writable and a hand-edited host must not reach fetch().
 function reviveConfig(parsed: unknown): StoredChannelConfig | null {
@@ -80,7 +135,9 @@ function reviveConfig(parsed: unknown): StoredChannelConfig | null {
     const stored = webhooks as Record<string, unknown>;
     for (const channel of WEBHOOK_CHANNELS) {
       const value = stored[channel];
-      if (typeof value === "string" && isHttpsUrl(value)) config.webhooks[channel] = value;
+      if (typeof value !== "string") continue;
+      const url = decryptWebhookUrl(value);
+      if (url) config.webhooks[channel] = url;
     }
   }
 
@@ -114,8 +171,10 @@ function load(): StoredChannelConfig {
   return config;
 }
 
+// Every write re-encrypts the whole map, so a legacy plaintext file is upgraded
+// by the next settings change.
 function persist(): void {
-  if (config) cache.write(config);
+  if (config) cache.write({ webhooks: encryptWebhooks(config.webhooks), sources: config.sources });
 }
 
 export function maskWebhookUrl(raw: string): string {
@@ -317,7 +376,11 @@ function buildBody(channel: WebhookChannel, payload: NotificationDispatch, at: s
     const title = payload.title.trim();
     const body = payload.body.trim();
     const content = body ? `**${title}**\n${body}` : `**${title}**`;
-    return JSON.stringify({ content: content.slice(0, DISCORD_CONTENT_LIMIT) });
+    // Item and player names reach Discord verbatim, so nothing in them may ping.
+    return JSON.stringify({
+      content: content.slice(0, DISCORD_CONTENT_LIMIT),
+      allowed_mentions: { parse: [] },
+    });
   }
   const generic: Record<string, unknown> = {
     source: payload.source,
