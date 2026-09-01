@@ -20,6 +20,8 @@ import type { DailyStatEntry, SessionStats, StatResourceDay } from "../config/sh
 // Per-resource session state, keyed by catalog id. A missing key means "no
 // reading yet", which is what the old per-currency `null` baselines meant.
 const _baselines = new Map<string, number>();
+// Last known amount per resource. A payload that cannot report a resource
+// leaves the previous reading in place instead of erasing the day's numbers.
 const _currents = new Map<string, number>();
 // Resumed daily deltas, so a restart cannot overwrite them with fresh baselines.
 const _resumed = new Map<string, number>();
@@ -54,11 +56,9 @@ function _todayStr(): string {
 
 /** Reads every tracked resource out of one inventory payload into `_currents`. */
 function _readResourceAmounts(data: Record<string, unknown>): void {
-  _currents.clear();
   _miscScratch.clear();
-  const misc = Array.isArray(data.MiscItems)
-    ? (data.MiscItems as Array<Record<string, unknown>>)
-    : [];
+  const hasMisc = Array.isArray(data.MiscItems);
+  const misc = hasMisc ? (data.MiscItems as Array<Record<string, unknown>>) : [];
   // First entry wins, matching the single-pass `find` this replaced.
   for (const entry of misc) {
     const type = entry?.ItemType;
@@ -68,10 +68,15 @@ function _readResourceAmounts(data: Record<string, unknown>): void {
     }
   }
   for (const resource of STAT_RESOURCES) {
+    // DE drops a MiscItems row once the count hits zero, so an absent row in a
+    // payload that HAS the array reads as 0. Without the array nothing was
+    // reported and the last known amount stands.
     const value =
       resource.source.kind === "field"
         ? _num(data[resource.source.field])
-        : (_miscScratch.get(resource.source.uniqueName) ?? null);
+        : hasMisc
+          ? (_miscScratch.get(resource.source.uniqueName) ?? 0)
+          : null;
     if (value !== null) _currents.set(resource.id, value);
   }
 }

@@ -8,7 +8,10 @@ import {
   STATS_GET_TRADES,
   STATS_IMPORT_TRADES,
 } from "../config/shared/ipcChannels";
-import { isValidStatsImportPayload } from "../config/shared/statsImport";
+import {
+  isValidStatsImportPayload,
+  sanitizeStatsImportEntries,
+} from "../config/shared/statsImport";
 
 function register(): void {
   handleAuthorized(STATS_GET_HISTORY, assertMainRendererSender, () => statsTracker.getHistory());
@@ -19,7 +22,7 @@ function register(): void {
 
   handleAuthorized(STATS_IMPORT, assertMainRendererSender, (_event, raw: unknown) => {
     if (!isValidStatsImportPayload(raw)) return { ok: false, count: 0 };
-    const count = statsTracker.importHistory(raw);
+    const count = statsTracker.importHistory(sanitizeStatsImportEntries(raw));
     return { ok: true, count };
   });
 

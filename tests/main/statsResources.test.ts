@@ -25,15 +25,18 @@ vi.mock("electron", () => ({
 
 const KUVA = "/Lotus/Types/Items/MiscItems/Kuva";
 const DUCATS = "/Lotus/Types/Items/MiscItems/PrimeBucks";
+const FORMA = "/Lotus/Types/Items/MiscItems/Forma";
 
 function inventory(opts: {
   plat?: number;
   ducats?: number;
   kuva?: number;
+  forma?: number;
 }): Record<string, unknown> {
   const misc: Array<{ ItemType: string; ItemCount: number }> = [];
   if (opts.ducats !== undefined) misc.push({ ItemType: DUCATS, ItemCount: opts.ducats });
   if (opts.kuva !== undefined) misc.push({ ItemType: KUVA, ItemCount: opts.kuva });
+  if (opts.forma !== undefined) misc.push({ ItemType: FORMA, ItemCount: opts.forma });
   return {
     PremiumCredits: opts.plat ?? 100,
     RegularCredits: 1_000_000,
@@ -169,15 +172,53 @@ describe("statsTracker resource recording", () => {
     expect(session.currentPlat).toBe(130);
   });
 
-  it("omits resources the payload never reported", async () => {
+  it("reads a resource missing from a reported MiscItems array as zero", async () => {
     const tracker = await import("../../services/statsTracker");
 
     tracker.onInventoryData(inventory({ plat: 100 }));
 
     const entry = tracker.getHistory().at(-1);
     expect(entry?.resources?.plat).toEqual({ delta: 0, abs: 100 });
-    expect(entry?.resources?.kuva).toBeUndefined();
-    expect(entry?.resources?.pathosClamp).toBeUndefined();
+    // DE drops the row once the count hits zero, so an absent row is a zero.
+    expect(entry?.resources?.kuva).toEqual({ delta: 0, abs: 0 });
+    // A top-level field the payload never carried stays unreported.
+    expect(entry?.resources?.regalAya).toBeUndefined();
+  });
+
+  it("keeps the delta and abs when a resource is spent to zero", async () => {
+    const tracker = await import("../../services/statsTracker");
+
+    tracker.onInventoryData(inventory({ plat: 100, forma: 3 }));
+    tracker.onInventoryData(inventory({ plat: 100, forma: 1 }));
+    expect(tracker.getHistory().at(-1)?.resources?.forma).toEqual({ delta: -2, abs: 1 });
+
+    tracker.onInventoryData(inventory({ plat: 100 }));
+    expect(tracker.getHistory().at(-1)?.resources?.forma).toEqual({ delta: -3, abs: 0 });
+  });
+
+  it("resumes the day's delta after a restart that finds the resource at zero", async () => {
+    const first = await import("../../services/statsTracker");
+    first.onInventoryData(inventory({ plat: 100, forma: 3 }));
+    first.onInventoryData(inventory({ plat: 100 }));
+    expect(first.getHistory().at(-1)?.resources?.forma).toEqual({ delta: -3, abs: 0 });
+
+    vi.resetModules();
+    const restarted = await import("../../services/statsTracker");
+    restarted.loadHistory();
+    restarted.onInventoryData(inventory({ plat: 100 }));
+
+    expect(restarted.getHistory().at(-1)?.resources?.forma).toEqual({ delta: -3, abs: 0 });
+  });
+
+  it("treats a payload with no MiscItems array as unknown, not as zero", async () => {
+    const tracker = await import("../../services/statsTracker");
+
+    tracker.onInventoryData(inventory({ plat: 100, forma: 3 }));
+    tracker.onInventoryData(inventory({ plat: 100, forma: 1 }));
+    tracker.onInventoryData({ PremiumCredits: 100 });
+
+    // Nothing was reported for Forma, so the last known reading stands.
+    expect(tracker.getHistory().at(-1)?.resources?.forma).toEqual({ delta: -2, abs: 1 });
   });
 
   it("resumes per-resource deltas from a map entry after a restart", async () => {

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertStatsImportFileSize,
   isValidStatsImportPayload,
+  sanitizeStatsImportEntries,
   MAX_STATS_IMPORT_FILE_BYTES,
   MAX_STATS_IMPORT_ROWS,
   MAX_TRADE_IMPORT_ROWS,
@@ -46,6 +47,37 @@ describe("stats import limits", () => {
     expect(isValidStatsImportPayload([{ ...VALID_ROW, date: "2026-02-30" }])).toBe(false);
     expect(isValidStatsImportPayload([{ ...VALID_ROW, platDelta: Number.NaN }])).toBe(false);
     expect(isValidStatsImportPayload([{ ...VALID_ROW, relicsOpened: -1 }])).toBe(false);
+  });
+
+  it("validates the resource map a hand-edited file can carry", () => {
+    const withMap = (resources: unknown): unknown => [{ ...VALID_ROW, resources }];
+
+    expect(isValidStatsImportPayload(withMap({ kuva: { delta: 500, abs: 1200 } }))).toBe(true);
+    expect(isValidStatsImportPayload(withMap({ kuva: { delta: 500 } }))).toBe(true);
+    // JSON parses 1e400 as Infinity, which used to become a NaN chart height.
+    expect(isValidStatsImportPayload(withMap({ kuva: { delta: JSON.parse("1e400") } }))).toBe(
+      false,
+    );
+    expect(isValidStatsImportPayload(withMap({ kuva: { delta: 1, abs: Number.NaN } }))).toBe(false);
+    expect(isValidStatsImportPayload(withMap({ kuva: 5 }))).toBe(false);
+    expect(isValidStatsImportPayload(withMap([{ delta: 1 }]))).toBe(false);
+    expect(isValidStatsImportPayload([{ ...VALID_ROW, resourcesVersion: 1.5 }])).toBe(false);
+    expect(isValidStatsImportPayload([{ ...VALID_ROW, resourcesVersion: 1 }])).toBe(true);
+  });
+
+  it("keeps only catalog resource ids when importing", () => {
+    const [row] = sanitizeStatsImportEntries([
+      {
+        ...VALID_ROW,
+        resources: {
+          kuva: { delta: 5, abs: 10 },
+          vitus: { delta: -1 },
+          madeUp: { delta: 9, abs: 9 },
+        },
+      },
+    ]);
+
+    expect(row.resources).toEqual({ kuva: { delta: 5, abs: 10 }, vitus: { delta: -1 } });
   });
 
   it("imports the app's own stats export back", () => {

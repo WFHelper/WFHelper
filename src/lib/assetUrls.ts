@@ -62,14 +62,34 @@ const BUNDLED_STAT_ICONS: Record<string, string> = {
   dailyTrades: STAT_ICON_URLS.dailyTrades,
 };
 
+// A top-level currency field carries no uniqueName, so the ones the mirror does
+// ship art for are matched on the item database's own name instead.
+const FIELD_STAT_ICON_NAMES: Record<string, string> = { regalAya: "Regal Aya" };
+
 // Icon per Stats chart key. Bundled art wins; other resources take the item
-// database's mirrored icon via uniqueName. Unresolved keys stay iconless.
+// database's mirrored icon via uniqueName, or via name for field currencies.
+// A key the database cannot resolve stays iconless.
 export function buildStatIconMap(itemDb: Record<string, ItemDbEntry>): Record<string, string> {
   const map: Record<string, string> = { ...BUNDLED_STAT_ICONS };
+  const wantedNames = new Map<string, string>();
   for (const resource of STAT_RESOURCES) {
-    if (map[resource.id] || resource.source.kind !== "misc") continue;
-    const url = itemDb[resource.source.uniqueName]?.imageUrl;
-    if (url) map[resource.id] = url;
+    if (map[resource.id]) continue;
+    if (resource.source.kind === "misc") {
+      const url = itemDb[resource.source.uniqueName]?.imageUrl;
+      if (url) map[resource.id] = url;
+      continue;
+    }
+    const name = FIELD_STAT_ICON_NAMES[resource.id];
+    if (name) wantedNames.set(name.toLowerCase(), resource.id);
+  }
+  // Only walk the database when a field currency is still missing its icon.
+  for (const dbEntry of wantedNames.size > 0 ? Object.values(itemDb) : []) {
+    const key = (dbEntry.name || "").toLowerCase();
+    const id = wantedNames.get(key);
+    if (!id || !dbEntry.imageUrl) continue;
+    map[id] = dbEntry.imageUrl;
+    wantedNames.delete(key);
+    if (wantedNames.size === 0) break;
   }
   return map;
 }
