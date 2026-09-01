@@ -166,9 +166,11 @@ catalogs live in `ITEM_META`. Successful price, meta, and order-summary response
 `public, max-age=60`, so a PoP can serve a hydrated value for up to a minute after KV changes.
 
 Prewarm cron runs every 15 minutes and also advances the riven history sweep and the one-time
-price-history seed; the separate daily
-`0 4 * * *` trigger runs the supporter sync plus the price and Baro archives. Current production
-defaults are:
+price-history seed; the separate daily `0 4 * * *` trigger runs the price archive, the supporter
+sync and the Baro archive, in that order. Each cron stage is wrapped in its own try/catch and
+logs under `cron:{stage}`, so one failing stage costs only itself. The price archive makes no
+upstream request and its day cannot be reconstructed later, so it runs ahead of the daily budget
+gate; every other stage is skipped once the budget has tripped. Current production defaults are:
 
 - `PREWARM_BATCH_SIZE=125`
 - `ORDER_SUMMARY_PREWARM_BATCH_SIZE=36`
@@ -216,11 +218,15 @@ rewritten after every batch with `complete: false` and finalized with `complete:
 that reaches the end of the list; the remaining ticks of that UTC day idle without any upstream
 request. A full pass takes about five hours, so one sweep completes per day. The weapon list comes
 from `/v1/riven/items` and is cached in `archive:riven-weapons:v1` for 24 hours; an empty or failed
-refresh keeps the stored list.
+refresh keeps the stored list. The sweep state carries the list its cursor indexes, pinned on the
+first tick of the day: the 24-hour refresh can otherwise land mid-sweep and a shifted or shortened
+list would move weapons past the cursor unvisited. A same-day state with no pinned list restarts
+the day from index 0 rather than trusting a cursor into an unknown list.
 
 The price seed is a one-time sweep rather than a cadence. `archive:price-seed:v1` holds
-`{startedDate, cursor, complete, failures}`, and `complete: true` latches it off permanently: a
-finished seed costs one KV read on the 15-minute tick and makes no request, redeploys included. It
+`{startedDate, cursor, complete, failures, retryPass, retrySlugs, failedSlugs}`, and
+`complete: true` latches it off permanently: a finished seed costs one KV read on the 15-minute
+tick and makes no request, redeploys included. It
 walks the same slug catalog the prewarm sweep walks, pinned on the first tick into
 `archive:price-seed:slugs:v1` so a mid-sweep catalog refresh cannot shift the cursor, and processes
 `PRICE_SEED_BATCH_SIZE` slugs (20) per tick with one serialized `GET /v1/items/{slug}/statistics`
@@ -241,15 +247,24 @@ daily archive owns them. A seeded day expires on the retention window measured f
 and every touched day joins `archive:index:prices:v1` once through the shared index helper, which
 sorts the dated families so seeded days stay ahead of the live ones that pruning drops first.
 
-A failed or malformed statistics response counts the slug as failed and the sweep moves on: no
-retry, no negative marker, and the running failure total lives in the state key. An unavailable slug
-catalog or ranked catalog leaves the cursor where it is and retries on the next tick, because
+A failed or malformed statistics response counts the slug as failed and the sweep moves on, but the
+slug is queued in `failedSlugs` rather than dropped. When the cursor reaches the end of a pass, a
+non-empty failure list starts another pass over exactly those slugs (`retryPass` up to 3,
+`retrySlugs` pinned the same way the catalog is) instead of latching. The latch closes only when a
+pass ends with no failures or the retry budget is spent, and an exhausted budget logs the remaining
+count as `seed_retries_exhausted`. Without that, a WFM outage during the roughly two-day sweep would
+lose those slugs' 90 days for good, since the statistics endpoint serves no older window. No
+negative marker is written either way, and the running failure total lives in the state key. An
+unavailable slug catalog or ranked catalog leaves the cursor where it is and retries on the next
+tick, because
 without the ranked catalog a mixed-rank median would be archived permanently. `PRICE_SEED_ENABLED=0`
 stops the seed before it starts, as does `HISTORY_ARCHIVE_ENABLED=0`.
 
 Baro comes from the DE world state (`VoidTraders`; `PrimeVaultTraders` is Varzia and is never read
-here). Only a live visit carrying a manifest is recorded, because an announced manifest can still
-change before activation. A visit runs for about 48 hours, so a daily check catches every one, and
+here). The response body is read through a byte cap rather than trusted by `content-length`, which
+a chunked response omits entirely; a body past 32MB is abandoned mid-stream and treated as
+unavailable. Only a live visit carrying a manifest is recorded, because an announced manifest can
+still change before activation. A visit runs for about 48 hours, so a daily check catches every one, and
 the write is skipped when the visit key already exists.
 
 Failure policy matches the caches. An empty or failed upstream answer never replaces or deletes an

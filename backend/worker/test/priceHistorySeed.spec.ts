@@ -300,9 +300,61 @@ describe('price history seed sweep', () => {
 
 		const result = await seedPriceHistory(testEnv(), { now: NOW });
 
-		expect(result).toMatchObject({ status: 'complete', processed: 3, failures: 2, rows: 1 });
-		expect(await readArchive(STATE_KEY)).toMatchObject({ complete: true, failures: 2 });
+		// The pass ends, but the latch waits: the two misses are owed a retry.
+		expect(result).toMatchObject({ status: 'progress', processed: 3, failures: 2, pending: 2, rows: 1 });
+		expect(await readArchive(STATE_KEY)).toMatchObject({
+			complete: false,
+			failures: 2,
+			cursor: 0,
+			retryPass: 1,
+			retrySlugs: ['alpha', 'beta'],
+		});
 		expect((await readArchive(`archive:prices:${dateFor(1)}`))?.rows).toEqual([['gamma', 30]]);
+	});
+
+	it('retries a failed slug on the next pass and latches only after it lands', async () => {
+		await seedCatalog(['alpha', 'beta']);
+		await seedRankedCatalog([]);
+		let alphaCalls = 0;
+		globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input instanceof Request ? input.url : input);
+			if (url.includes('/items/alpha/statistics')) {
+				alphaCalls += 1;
+				return alphaCalls === 1 ? new Response('boom', { status: 503 }) : jsonOk(statsPayload([{ daysAgo: 1, median: 110 }]));
+			}
+			if (url.includes('/items/beta/statistics')) return jsonOk(statsPayload([{ daysAgo: 1, median: 20 }]));
+			throw new Error(`Unexpected url: ${url}`);
+		}) as unknown as typeof fetch;
+
+		const first = await seedPriceHistory(testEnv(), { now: NOW });
+		expect(first).toMatchObject({ status: 'progress', retryPass: 0, failures: 1, pending: 1 });
+
+		const second = await seedPriceHistory(testEnv(), { now: NOW + 900_000 });
+		expect(second).toMatchObject({ status: 'complete', retryPass: 1, slugs: 1, processed: 1, pending: 0, rows: 1 });
+		expect(await readArchive(STATE_KEY)).toMatchObject({ complete: true });
+		expect(await env.ITEM_META.get(SLUGS_KEY)).toBeNull();
+		expect((await readArchive(`archive:prices:${dateFor(1)}`))?.rows).toEqual([
+			['beta', 20],
+			['alpha', 110],
+		]);
+	});
+
+	it('latches once the retry budget runs out and logs what stayed missing', async () => {
+		await seedCatalog(['alpha']);
+		await seedRankedCatalog([]);
+		mockStatistics({ alpha: new Response('boom', { status: 503 }) });
+		const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+		for (let pass = 0; pass < 3; pass += 1) {
+			expect(await seedPriceHistory(testEnv(), { now: NOW + pass * 900_000 })).toMatchObject({ status: 'progress', retryPass: pass });
+		}
+		const last = await seedPriceHistory(testEnv(), { now: NOW + 3 * 900_000 });
+
+		expect(last).toMatchObject({ status: 'complete', retryPass: 3, pending: 1 });
+		expect(await readArchive(STATE_KEY)).toMatchObject({ complete: true, failures: 4 });
+		expect(logSpy).toHaveBeenCalledWith(
+			expect.objectContaining({ route: 'archive:price-seed', error: 'seed_retries_exhausted', count: 1 }),
+		);
 	});
 
 	it('keeps the pinned slug list when the catalog changes mid-sweep', async () => {

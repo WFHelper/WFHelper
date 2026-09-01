@@ -18,6 +18,9 @@ const MAX_SEED_BATCH = 40;
 const MAX_SEED_SLUGS = 20000;
 const MAX_STATS_ENTRIES = 4000;
 const MAX_PRICE_ROWS = 50000;
+// A WFM outage during the ~50h sweep would otherwise lose those slugs' 90 days
+// for good, so the failures get bounded retry passes before the latch closes.
+const MAX_SEED_RETRY_PASSES = 3;
 
 type PriceRow = [string, number] | [string, number, number];
 
@@ -31,6 +34,11 @@ interface PriceSeedState {
 	cursor: number;
 	complete: boolean;
 	failures: number;
+	/** 0 walks the pinned catalog; every later pass walks only `retrySlugs`. */
+	retryPass: number;
+	retrySlugs: string[];
+	/** Slugs that failed during the pass now running, retried by the next one. */
+	failedSlugs: string[];
 }
 
 interface PriceSeedResult {
@@ -41,6 +49,9 @@ interface PriceSeedResult {
 	cursorAfter: number;
 	processed: number;
 	failures: number;
+	retryPass: number;
+	/** Slugs still owed a retry when this tick ended. */
+	pending: number;
 	dates: number;
 	rows: number;
 	bytes: number;
@@ -88,11 +99,15 @@ function parseSeedState(value: Record<string, unknown> | null): PriceSeedState |
 	if (!value || !isDateId(value.startedDate)) return null;
 	const cursor = toFiniteNumber(value.cursor);
 	const failures = toFiniteNumber(value.failures);
+	const retryPass = toFiniteNumber(value.retryPass);
 	return {
 		startedDate: value.startedDate,
 		cursor: cursor != null && cursor > 0 ? Math.floor(cursor) : 0,
 		complete: value.complete === true,
 		failures: failures != null && failures > 0 ? Math.floor(failures) : 0,
+		retryPass: retryPass != null && retryPass > 0 ? Math.floor(retryPass) : 0,
+		retrySlugs: sanitizeSlugs(value.retrySlugs),
+		failedSlugs: sanitizeSlugs(value.failedSlugs),
 	};
 }
 
@@ -262,6 +277,8 @@ export async function seedPriceHistory(env: Env, options: { now?: number; batchS
 		cursorAfter: 0,
 		processed: 0,
 		failures: 0,
+		retryPass: 0,
+		pending: 0,
 		dates: 0,
 		rows: 0,
 		bytes: 0,
@@ -293,30 +310,36 @@ export async function seedPriceHistory(env: Env, options: { now?: number; batchS
 		const startedDate = state?.startedDate ?? utcDate(now);
 		const dateWindow = seedWindow(startedDate);
 		const batchSize = clamp(options.batchSize ?? config.priceSeedBatchSize, 1, MAX_SEED_BATCH);
-		const cursorBefore = Math.min(state?.cursor ?? 0, slugs.length);
-		const cursorAfter = Math.min(cursorBefore + batchSize, slugs.length);
-		const complete = cursorAfter >= slugs.length;
+		const retryPass = state?.retryPass ?? 0;
+		// Pass 0 walks the pinned catalog; every later pass walks only what failed.
+		const list = retryPass === 0 ? slugs : (state?.retrySlugs ?? []);
+		const cursorBefore = Math.min(state?.cursor ?? 0, list.length);
+		const cursorAfter = Math.min(cursorBefore + batchSize, list.length);
+		const endOfPass = cursorAfter >= list.length;
 
 		const result: PriceSeedResult = {
 			...base,
-			status: complete ? 'complete' : 'progress',
+			status: 'progress',
 			startedDate,
-			slugs: slugs.length,
+			slugs: list.length,
 			cursorBefore,
 			cursorAfter,
+			retryPass,
 		};
 
 		// Serialized like the prewarm sweep: one upstream request at a time, never a burst.
 		const buffered = new Map<string, PriceRow[]>();
 		let failures = state?.failures ?? 0;
+		const failedSlugs = [...(state?.failedSlugs ?? [])];
 		for (let index = cursorBefore; index < cursorAfter; index += 1) {
-			const slug = slugs[index];
+			const slug = list[index];
 			const rows = await fetchSeedRows(slug, barePriceFetchRank(slug, rankedSlugs), dateWindow);
 			result.processed += 1;
 			if (!rows) {
-				// No retry and no negative marker; a missed slug simply stays out of history.
+				// Queued for a retry pass instead of dropped; no negative marker either way.
 				result.failures += 1;
 				failures += 1;
+				if (failedSlugs.length < MAX_SEED_SLUGS && !failedSlugs.includes(slug)) failedSlugs.push(slug);
 				continue;
 			}
 			for (const [date, row] of rows) {
@@ -332,9 +355,32 @@ export async function seedPriceHistory(env: Env, options: { now?: number; batchS
 		result.bytes = flushed.bytes;
 		if (flushed.dates.length > 0) await recordArchiveEntries(env, 'prices', flushed.dates, config.historyRetentionDays);
 
-		await env.ITEM_META.put(PRICE_SEED_STATE_KEY, JSON.stringify({ startedDate, cursor: cursorAfter, complete, failures, updatedAt: now }));
+		// The latch waits for the retry budget: a slug lost to an outage would otherwise
+		// never be asked for again, and WFM serves no window older than 90 days.
+		const retrying = endOfPass && failedSlugs.length > 0 && retryPass < MAX_SEED_RETRY_PASSES;
+		const complete = endOfPass && !retrying;
+		result.status = complete ? 'complete' : 'progress';
+		result.pending = failedSlugs.length;
+		const nextRetrySlugs = retrying ? failedSlugs : complete || retryPass === 0 ? [] : list;
+
+		await env.ITEM_META.put(
+			PRICE_SEED_STATE_KEY,
+			JSON.stringify({
+				startedDate,
+				cursor: retrying ? 0 : cursorAfter,
+				complete,
+				failures,
+				retryPass: retrying ? retryPass + 1 : retryPass,
+				retrySlugs: nextRetrySlugs,
+				failedSlugs: complete || retrying ? [] : failedSlugs,
+				updatedAt: now,
+			}),
+		);
 		if (complete) await env.ITEM_META.delete(PRICE_SEED_SLUGS_KEY);
 
+		if (complete && failedSlugs.length > 0) {
+			logEvent({ type: 'cron', route: 'archive:price-seed', status: 206, count: failedSlugs.length, error: 'seed_retries_exhausted' });
+		}
 		logEvent({ type: 'cron', route: 'archive:price-seed', status: 200, count: result.rows, bytes: result.bytes });
 		return result;
 	} catch (err) {

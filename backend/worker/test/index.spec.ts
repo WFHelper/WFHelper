@@ -2535,3 +2535,114 @@ describe('relic subtype fallback', () => {
 		expect(await response.json()).toMatchObject({ ok: true, data: { subtype: 'intact', wts: 7 } });
 	});
 });
+
+describe('daily cron staging', () => {
+	const DAILY_CRON = { cron: '0 4 * * *', scheduledTime: Date.now(), noRetry: () => undefined } as ScheduledController;
+
+	function today(): string {
+		return new Date().toISOString().slice(0, 10);
+	}
+
+	async function seedSnapshotPrices(): Promise<void> {
+		await env.PRICE_CACHE.put(
+			'snapshot:full:v1',
+			JSON.stringify({
+				version: 1,
+				generatedAt: Date.now(),
+				prices: { ash_prime_set: { status: 'ok', median: 120 } },
+				meta: {},
+				orderSummaries: {},
+			}),
+		);
+	}
+
+	function worldStateOnly(): ReturnType<typeof vi.fn> {
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input instanceof Request ? input.url : input);
+			if (url.startsWith('https://api.warframe.com/cdn/worldState.php')) return new Response('{}', { status: 200 });
+			throw new Error(`unexpected daily cron request: ${url}`);
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+		return fetchMock;
+	}
+
+	// The prices archive copies medians the worker already holds, so a tripped
+	// budget must not cost the day its only chance to record them.
+	it('archives the day prices before the budget gate and without any upstream call', async () => {
+		const budgetEnv = {
+			...env,
+			DAILY_BUDGET_ENABLED: '1',
+			DAILY_BUDGET_MAX_REQUESTS: '2',
+			DAILY_BUDGET_SAMPLE_RATE: '1',
+		} as unknown as Env;
+		await seedSnapshotPrices();
+		for (let i = 0; i < 2; i += 1) {
+			const warm = createExecutionContext();
+			await worker.fetch(new IncomingRequest(`http://example.com/healthz?stage=${i}`), budgetEnv, warm);
+			await waitOnExecutionContext(warm);
+		}
+		const fetchMock = vi.fn(async () => new Response('{}')) as unknown as typeof fetch;
+		globalThis.fetch = fetchMock;
+
+		const ctx = createExecutionContext();
+		await worker.scheduled(DAILY_CRON, budgetEnv, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(await env.ITEM_META.get(`archive:prices:${today()}`)).not.toBeNull();
+	});
+
+	it('keeps the later daily stages running when the supporter sync throws', async () => {
+		await seedSnapshotPrices();
+		const meta = env.ITEM_META;
+		const failingMeta = new Proxy(meta, {
+			get(target, prop) {
+				if (prop === 'get') {
+					return async (key: string, options?: unknown) => {
+						if (key === 'supporters:exclusions:v1') throw new Error('kv_unavailable');
+						return (target.get as (k: string, o?: unknown) => Promise<unknown>)(key, options);
+					};
+				}
+				const value = Reflect.get(target, prop, target) as unknown;
+				return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(target) : value;
+			},
+		});
+		const stagedEnv = {
+			...env,
+			ITEM_META: failingMeta,
+			DISCORD_GUILD_ID: 'guild-1',
+			DISCORD_BOT_TOKEN: 'bot-token',
+			DISCORD_ROLE_TIER_MAP: '{"r_basic":"basic"}',
+		} as unknown as Env;
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input instanceof Request ? input.url : input);
+			if (url.startsWith('https://discord.com/')) return new Response('[]', { status: 200 });
+			if (url.startsWith('https://api.warframe.com/cdn/worldState.php')) return new Response('{}', { status: 200 });
+			throw new Error(`unexpected daily cron request: ${url}`);
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+		const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+		const ctx = createExecutionContext();
+		await expect(worker.scheduled(DAILY_CRON, stagedEnv, ctx)).resolves.toBeUndefined();
+		await waitOnExecutionContext(ctx);
+
+		expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'error', route: 'cron:supporters' }));
+		expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'cron', route: '0 4 * * *', status: 200 }));
+		// The archive before the failure was written and the one after it still ran.
+		expect(await env.ITEM_META.get(`archive:prices:${today()}`)).not.toBeNull();
+		expect(fetchMock.mock.calls.some(([input]) => String(input).startsWith('https://api.warframe.com/cdn/worldState.php'))).toBe(true);
+	});
+
+	it('runs the daily stages in order on a healthy tick', async () => {
+		await seedSnapshotPrices();
+		const fetchMock = worldStateOnly();
+
+		const ctx = createExecutionContext();
+		await worker.scheduled(DAILY_CRON, env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(await env.ITEM_META.get(`archive:prices:${today()}`)).not.toBeNull();
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+});

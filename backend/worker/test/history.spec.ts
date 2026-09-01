@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../src/types';
-import { archiveBaroVisit, archiveDailyPrices, runDailyArchives, sweepRivenArchive } from '../src/services/history';
+import { archiveBaroVisit, archiveDailyPrices, sweepRivenArchive } from '../src/services/history';
 
 const SNAPSHOT_KEY = 'snapshot:full:v1';
 const RIVEN_ITEMS_URL = 'https://api.warframe.market/v1/riven/items';
@@ -267,6 +267,36 @@ describe('riven archive sweep', () => {
 		expect(JSON.parse(String(await env.ITEM_META.get(WEAPONS_KEY))).weapons).toEqual(['acceltra']);
 	});
 
+	it('pins the weapon list for the sweep day so a shorter refresh cannot end it early', async () => {
+		mockRivenUpstream(['acceltra', 'bramma', 'cedo'], () => [5, 15]);
+		const sweepEnv = testEnv({ RIVEN_ARCHIVE_BATCH_SIZE: '1' });
+
+		await sweepRivenArchive(sweepEnv, { now: NOW });
+		expect(JSON.parse(String(await env.ITEM_META.get(SWEEP_KEY))).weapons).toEqual(['acceltra', 'bramma', 'cedo']);
+
+		// A refresh landing mid-sweep used to move the cursor into a different list.
+		await env.ITEM_META.put(WEAPONS_KEY, JSON.stringify({ updatedAt: NOW + 900_000, weapons: ['acceltra'] }));
+		const second = await sweepRivenArchive(sweepEnv, { now: NOW + 900_000 });
+		const third = await sweepRivenArchive(sweepEnv, { now: NOW + 1_800_000 });
+
+		expect(second).toMatchObject({ status: 'progress', weapons: 3, cursorBefore: 1, cursorAfter: 2 });
+		expect(third).toMatchObject({ status: 'complete', cursorBefore: 2, cursorAfter: 3 });
+		expect((await readArchive(`archive:rivens:${DATE}`))?.rows).toEqual([
+			['acceltra', 5, 10, 2],
+			['bramma', 5, 10, 2],
+			['cedo', 5, 10, 2],
+		]);
+	});
+
+	it('restarts the day when the stored cursor indexes an unpinned list', async () => {
+		await env.ITEM_META.put(SWEEP_KEY, JSON.stringify({ date: DATE, cursor: 2, complete: false, updatedAt: NOW }));
+		mockRivenUpstream(['acceltra', 'bramma'], () => [8]);
+
+		const result = await sweepRivenArchive(testEnv(), { now: NOW });
+
+		expect(result).toMatchObject({ status: 'complete', cursorBefore: 0, cursorAfter: 2, updated: 2 });
+	});
+
 	it('writes nothing when no weapon list is available', async () => {
 		globalThis.fetch = vi.fn(async () => new Response('nope', { status: 500 })) as unknown as typeof fetch;
 
@@ -355,21 +385,31 @@ describe('Baro visit archive', () => {
 		expect(await env.ITEM_META.get('archive:baro:old_visit_0')).toBeNull();
 	});
 
+	it('refuses a chunked world state body past the size cap', async () => {
+		// No content-length on a chunked response, so only the bytes read can bound it.
+		let pulls = 0;
+		const stream = new ReadableStream<Uint8Array>({
+			pull(controller) {
+				pulls += 1;
+				if (pulls > 64) {
+					controller.close();
+					return;
+				}
+				controller.enqueue(new Uint8Array(1024 * 1024).fill(65));
+			},
+		});
+		globalThis.fetch = vi.fn(async () => new Response(stream, { status: 200 })) as unknown as typeof fetch;
+
+		const result = await archiveBaroVisit(testEnv(), { now: NOW });
+
+		expect(result.status).toBe('unavailable');
+		// 32MB cap over 1MB chunks: the reader must abandon the body, not drain 64 of them.
+		expect(pulls).toBeLessThan(40);
+	});
+
 	it('survives a world state payload with no trader block', async () => {
 		globalThis.fetch = vi.fn(async () => jsonOk({ WorldSeed: 'x' })) as unknown as typeof fetch;
 
 		expect(await archiveBaroVisit(testEnv(), { now: NOW })).toMatchObject({ status: 'inactive', visitId: null });
-	});
-});
-
-describe('daily archive runner', () => {
-	it('runs the price and Baro archives together', async () => {
-		await seedSnapshot({ ash_prime_set: { status: 'ok', median: 120, timestamp: NOW } });
-		globalThis.fetch = vi.fn(async () => jsonOk(baroPayload())) as unknown as typeof fetch;
-
-		const result = await runDailyArchives(testEnv(), { now: NOW });
-
-		expect(result.prices.status).toBe('written');
-		expect(result.baro.status).toBe('written');
 	});
 });

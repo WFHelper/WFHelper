@@ -349,6 +349,8 @@ interface RivenSweepState {
 	date: string;
 	cursor: number;
 	complete: boolean;
+	/** The list this day's cursor indexes; empty means it was never pinned. */
+	weapons: string[];
 }
 
 function parseSweepState(value: Record<string, unknown> | null): RivenSweepState | null {
@@ -360,6 +362,7 @@ function parseSweepState(value: Record<string, unknown> | null): RivenSweepState
 		date,
 		cursor: cursor != null && cursor > 0 ? Math.floor(cursor) : 0,
 		complete: value.complete === true,
+		weapons: sanitizeWeaponSlugs(Array.isArray(value.weapons) ? (value.weapons as unknown[]) : []),
 	};
 }
 
@@ -407,14 +410,18 @@ export async function sweepRivenArchive(env: Env, options: { now?: number; batch
 		const sameDay = state != null && state.date === date;
 		if (sameDay && state.complete) return { ...base, status: 'idle' };
 
-		const weapons = await loadRivenWeapons(env, now);
+		// The list is pinned for the sweep day: loadRivenWeapons refreshes after 24h and
+		// a list that shifts mid-sweep would move weapons past the cursor unvisited.
+		const pinned = sameDay && state.weapons.length > 0;
+		const weapons = pinned ? state.weapons : await loadRivenWeapons(env, now);
 		if (weapons.length === 0) {
 			logEvent({ type: 'cron', route: 'archive:rivens', status: 204, error: 'weapon_list_unavailable' });
 			return { ...base, status: 'no_weapons' };
 		}
 
 		const batchSize = clamp(options.batchSize ?? config.rivenArchiveBatchSize, 1, 60);
-		const cursorBefore = sameDay ? Math.min(state.cursor, weapons.length) : 0;
+		// An unpinned same-day state predates the pin, so its cursor indexes an unknown list.
+		const cursorBefore = pinned ? Math.min(state.cursor, weapons.length) : 0;
 		const cursorAfter = Math.min(cursorBefore + batchSize, weapons.length);
 		const complete = cursorAfter >= weapons.length;
 
@@ -446,7 +453,10 @@ export async function sweepRivenArchive(env: Env, options: { now?: number; batch
 			}
 		}
 
-		await env.ITEM_META.put(RIVEN_ARCHIVE_SWEEP_KEY, JSON.stringify({ date, cursor: cursorAfter, complete, updatedAt: now }));
+		await env.ITEM_META.put(
+			RIVEN_ARCHIVE_SWEEP_KEY,
+			JSON.stringify({ date, cursor: cursorAfter, complete, weapons: complete ? [] : weapons, updatedAt: now }),
+		);
 
 		if (rows.size === 0) {
 			// Nothing answered yet, so there is no day key to write and none to overwrite.
@@ -556,6 +566,39 @@ function activeBaroVisit(payload: unknown, now: number): BaroVisit | null {
 	return null;
 }
 
+/** null once the body passes the cap: content-length is absent on a chunked response,
+ *  so the only real bound is the number of bytes actually read. */
+async function readCappedText(response: Response, maxBytes: number): Promise<string | null> {
+	const stream = response.body;
+	if (!stream || typeof stream.getReader !== 'function') return null;
+	const reader = stream.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	try {
+		for (;;) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			if (!value) continue;
+			total += value.byteLength;
+			if (total > maxBytes) {
+				await reader.cancel();
+				return null;
+			}
+			chunks.push(value);
+		}
+	} catch {
+		return null;
+	}
+
+	const merged = new Uint8Array(total);
+	let offset = 0;
+	for (const chunk of chunks) {
+		merged.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return new TextDecoder().decode(merged);
+}
+
 async function fetchWorldState(): Promise<unknown | null> {
 	let response: Response;
 	try {
@@ -566,8 +609,10 @@ async function fetchWorldState(): Promise<unknown | null> {
 	if (!response.ok) return null;
 	if ((numeric(response.headers.get('content-length')) ?? 0) > MAX_WORLD_STATE_BYTES) return null;
 
+	const text = await readCappedText(response, MAX_WORLD_STATE_BYTES);
+	if (text == null) return null;
 	try {
-		return await response.json();
+		return JSON.parse(text) as unknown;
 	} catch {
 		return null;
 	}
@@ -629,14 +674,4 @@ export async function archiveBaroVisit(env: Env, options: { now?: number } = {})
 		});
 		return { ...base, status: 'error' };
 	}
-}
-
-/** Daily cron half of the archives; the riven sweep runs on the 15-minute tick. */
-export async function runDailyArchives(
-	env: Env,
-	options: { now?: number } = {},
-): Promise<{ prices: PriceArchiveResult; baro: BaroArchiveResult }> {
-	const prices = await archiveDailyPrices(env, options);
-	const baro = await archiveBaroVisit(env, options);
-	return { prices, baro };
 }

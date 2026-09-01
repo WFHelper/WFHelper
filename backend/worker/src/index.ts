@@ -3,7 +3,7 @@ import { handlePublicRoutes } from './routes/public';
 import { jsonResponse, originIsAllowed } from './security/cors';
 import { checkDailyBudget, isDailyBudgetExceeded } from './security/dailyBudget';
 import { getWorkerConfig } from './config';
-import { runDailyArchives, sweepRivenArchive } from './services/history';
+import { archiveBaroVisit, archiveDailyPrices, sweepRivenArchive } from './services/history';
 import { logEvent, takeResponseLogFields } from './services/logging';
 import { prewarmBatch, prewarmOrderSummaryCatalog } from './services/prewarm';
 import { seedPriceHistory } from './services/priceHistorySeed';
@@ -47,6 +47,23 @@ function routeMetadata(req: Request): RouteMetadata {
 
 	if (pathname.startsWith('/admin/')) return { type: 'admin', route: pathname };
 	return { type: 'request', route: 'not_found' };
+}
+
+// Each cron stage is isolated: one throwing upstream call must not cost the
+// remaining stages their tick.
+async function runCronStage(route: string, stage: () => Promise<unknown>): Promise<void> {
+	const start = performance.now();
+	try {
+		await stage();
+	} catch (err) {
+		logEvent({
+			type: 'error',
+			route,
+			status: 500,
+			latencyMs: Math.round(performance.now() - start),
+			error: err instanceof Error ? err.message : 'unknown_error',
+		});
+	}
 }
 
 async function handleFetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -105,7 +122,12 @@ export default {
 	async scheduled(controller: ScheduledController, env: Env, _ctx: ExecutionContext): Promise<void> {
 		const start = performance.now();
 		const route = controller.cron || 'scheduled';
+		const daily = controller.cron === SUPPORTERS_SYNC_CRON;
 		try {
+			// Copies medians the worker already holds and makes no upstream request, so
+			// it runs ahead of the budget gate and of every stage that can throw.
+			if (daily) await runCronStage('cron:prices', () => archiveDailyPrices(env));
+
 			if (await isDailyBudgetExceeded(env)) {
 				logEvent({
 					type: 'cron',
@@ -116,9 +138,9 @@ export default {
 				return;
 			}
 
-			if (controller.cron === SUPPORTERS_SYNC_CRON) {
-				await syncSupporters(env, 'cron');
-				await runDailyArchives(env);
+			if (daily) {
+				await runCronStage('cron:supporters', () => syncSupporters(env, 'cron'));
+				await runCronStage('cron:baro', () => archiveBaroVisit(env));
 				logEvent({
 					type: 'cron',
 					route,
@@ -129,19 +151,23 @@ export default {
 			}
 
 			const config = getWorkerConfig(env);
-			await prewarmBatch(env, {
-				reason: 'cron',
-				batchSize: config.prewarmBatchSize,
-				refreshCatalog: false,
-				resetCursor: false,
-			});
-			await prewarmOrderSummaryCatalog(env, {
-				reason: 'cron',
-				batchSize: config.orderSummaryPrewarmBatchSize,
-				refreshCatalog: false,
-			});
-			await sweepRivenArchive(env);
-			await seedPriceHistory(env);
+			await runCronStage('cron:prewarm', () =>
+				prewarmBatch(env, {
+					reason: 'cron',
+					batchSize: config.prewarmBatchSize,
+					refreshCatalog: false,
+					resetCursor: false,
+				}),
+			);
+			await runCronStage('cron:order-summary', () =>
+				prewarmOrderSummaryCatalog(env, {
+					reason: 'cron',
+					batchSize: config.orderSummaryPrewarmBatchSize,
+					refreshCatalog: false,
+				}),
+			);
+			await runCronStage('cron:rivens', () => sweepRivenArchive(env));
+			await runCronStage('cron:price-seed', () => seedPriceHistory(env));
 			logEvent({
 				type: 'cron',
 				route,
