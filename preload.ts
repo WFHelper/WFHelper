@@ -129,6 +129,7 @@ import {
   POPOUT_SET_PINNED,
 } from "./config/shared/ipcChannels";
 import {
+  MARKET_ALERTS_CHANGED,
   MARKET_ALERTS_CLEAR_HITS,
   MARKET_ALERTS_DELETE,
   MARKET_ALERTS_EXPORT,
@@ -244,6 +245,10 @@ try {
     onNotificationHistoryAdded: ipcDataBridge<IpcEventMap["notification-history-added"]>(
       ipcRenderer,
       NOTIFICATION_HISTORY_ADDED,
+    ),
+    onMarketAlertsChanged: ipcDataBridge<IpcEventMap["market-alerts:changed"]>(
+      ipcRenderer,
+      MARKET_ALERTS_CHANGED,
     ),
     onNotificationSoundPlay: ipcDataBridge<IpcEventMap["notification-sound-play"]>(
       ipcRenderer,

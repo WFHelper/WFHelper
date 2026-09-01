@@ -3,9 +3,11 @@
  *  background priority; hits dedup across restarts via a persisted seen file. */
 
 import { randomUUID } from "node:crypto";
+import fs from "node:fs";
 
 import { createJsonCache } from "./jsonCache";
 import { withScope } from "./logger";
+import { userDataPath } from "./userDataPath";
 import * as wfmClient from "./wfmClient";
 import { getWfmSchedulerHealth } from "./wfmScheduler";
 import { dispatch } from "./notificationChannels";
@@ -49,12 +51,21 @@ const FAILURE_CEILING_MS = 60 * 60_000;
 /** Seen entries older than this are pruned; a relisted auction may re-fire. */
 const SEEN_TTL_MS = 7 * 24 * 60 * 60_000;
 const SEEN_MAX_PER_RULE = 500;
+const RULES_FILE = "market-alert-rules.json";
+/** Riven attribute values scale linearly with mod rank; WFM serves them at the
+ *  listing's rank, so a bound has to be compared at rank 8. */
+const RIVEN_MAX_MOD_RANK = 8;
 
 interface MarketAlertEngineDeps {
   /** The caller's native toast path; history recording lives inside it. */
   deliverNative: (title: string, body: string) => void;
   /** Signed-in WFM name, for excluding the user's own listings. */
   getOwnName: () => string | null;
+  /** Owned count for a WFM item slug from the inventory main holds right now;
+   *  null when there is none, which falls back to the save-time snapshot. */
+  getLiveOwnedCount: (itemUrlName: string) => Promise<number | null>;
+  /** Tells the renderer a hit landed or the engine status moved. */
+  onChanged: () => void;
 }
 
 interface PersistedState {
@@ -160,7 +171,7 @@ function reviveHits(parsed: unknown): PersistedHits | null {
   return { schema: MARKET_ALERT_SCHEMA_VERSION, hits };
 }
 
-const stateCache = createJsonCache<PersistedState>("market-alert-rules.json", reviveState);
+const stateCache = createJsonCache<PersistedState>(RULES_FILE, reviveState);
 const seenCache = createJsonCache<PersistedSeen>("market-alert-seen.json", reviveSeen);
 const hitsCache = createJsonCache<PersistedHits>("market-alert-hits.json", reviveHits);
 
@@ -174,20 +185,46 @@ let _ticking = false;
 let _lastTickAt: string | null = null;
 let _lastError: string | null = null;
 let _requestTimes: number[] = [];
+let _rulesRecoveredAt: string | null = null;
 
 /** Per-rule runtime pacing; never persisted, so a restart re-evaluates soon. */
 const _cooldownUntil = new Map<string, number>();
 const _nextEvalAt = new Map<string, number>();
 const _failureCount = new Map<string, number>();
 
+/** A rules file the reviver rejected is kept, not overwritten: the next save
+ *  would destroy it, and it is the only copy of the user's rules. */
+function quarantineUnreadableRules(): void {
+  const file = userDataPath(RULES_FILE);
+  let raw: string;
+  try {
+    raw = fs.readFileSync(file, "utf8");
+  } catch {
+    return;
+  }
+  if (!raw.trim()) return;
+  const backup = `${file}.corrupt-${Date.now()}`;
+  try {
+    fs.copyFileSync(file, backup);
+    _rulesRecoveredAt = new Date().toISOString();
+    log.warn(`Unreadable ${RULES_FILE} copied to ${backup}; starting from an empty rule set`);
+  } catch (err) {
+    log.warn(`Could not quarantine ${RULES_FILE}: ${normalizeErrorMessage(err)}`);
+  }
+}
+
 function state(): PersistedState {
   if (!_state) {
-    _state = stateCache.read() ?? {
-      schema: MARKET_ALERT_SCHEMA_VERSION,
-      rules: [],
-      bindings: {},
-      ownedCounts: {},
-    };
+    _state = stateCache.read();
+    if (!_state) {
+      quarantineUnreadableRules();
+      _state = {
+        schema: MARKET_ALERT_SCHEMA_VERSION,
+        rules: [],
+        bindings: {},
+        ownedCounts: {},
+      };
+    }
   }
   return _state;
 }
@@ -237,6 +274,8 @@ interface AuctionView {
   modRank: number;
   rerolls: number;
   polarity: string;
+  /** No buyout price: `platinum` is the opening bid, not an asking price. */
+  bidOnly: boolean;
   attributes: Array<{ urlName: string; value: number; positive: boolean }>;
 }
 
@@ -270,14 +309,16 @@ function parseAuctionViews(raw: unknown): AuctionView[] {
         });
       }
     }
+    const hasBuyout = typeof entry.buyout_price === "number" && Number.isFinite(entry.buyout_price);
     out.push({
       id: entry.id,
       seller: typeof owner.ingame_name === "string" ? owner.ingame_name : "",
-      platinum: num(entry.buyout_price, num(entry.starting_price)),
+      platinum: hasBuyout ? num(entry.buyout_price) : num(entry.starting_price),
       masteryLevel: num(item.mastery_level),
       modRank: num(item.mod_rank),
       rerolls: num(item.re_rolls),
       polarity: typeof item.polarity === "string" ? item.polarity.toLowerCase() : "",
+      bidOnly: !hasBuyout,
       attributes,
     });
   }
@@ -286,18 +327,19 @@ function parseAuctionViews(raw: unknown): AuctionView[] {
 
 function buildRivenSearchPath(match: RivenAlertMatch): string {
   let path = `/auctions/search?type=riven&weapon_url_name=${encodeURIComponent(match.weaponUrlName)}`;
-  // WFM understands these natively, so the coarse cut happens server-side;
-  // every gate is still re-applied locally in matchRivenAuction.
-  for (const stat of match.requirePositive) path += `&positive_stats=${encodeURIComponent(stat)}`;
+  // Measured on rubico 2026-09-01: repeated positive_stats keys honour only the
+  // first (500 rows, all critical_chance, 199 also critical_damage) and
+  // similarity is ignored at 50, 100 and absent alike; a comma list is a real
+  // AND (282 rows, all both), so only an all-required rule can push one.
+  if (match.requirePositive.length > 0 && (match.minSimilarityPct ?? 100) >= 100) {
+    path += `&positive_stats=${encodeURIComponent(match.requirePositive.join(","))}`;
+  }
   for (const stat of match.requireNegative) path += `&negative_stats=${encodeURIComponent(stat)}`;
   if (match.polarity) path += `&polarity=${match.polarity}`;
   if (match.minMasteryRank !== undefined) path += `&mastery_rank_min=${match.minMasteryRank}`;
   if (match.maxMasteryRank !== undefined) path += `&mastery_rank_max=${match.maxMasteryRank}`;
   if (match.minRerolls !== undefined) path += `&re_rolls_min=${match.minRerolls}`;
   if (match.maxRerolls !== undefined) path += `&re_rolls_max=${match.maxRerolls}`;
-  if (match.minSimilarityPct !== undefined && match.requirePositive.length > 0) {
-    path += `&similarity=${match.minSimilarityPct}`;
-  }
   return path + "&sort_by=price_asc";
 }
 
@@ -307,9 +349,18 @@ function inBounds(value: number, min?: number, max?: number): boolean {
   return true;
 }
 
+/** The attribute value a listing would show at mod rank 8. WFM serves the value
+ *  at the listing's own rank and riven stats scale with (rank + 1). */
+function valueAtMaxRank(value: number, modRank: number): number {
+  const rank = Math.min(RIVEN_MAX_MOD_RANK, Math.max(0, Math.trunc(modRank)));
+  const scaled = (value * (RIVEN_MAX_MOD_RANK + 1)) / (rank + 1);
+  return Math.round(scaled * 10) / 10;
+}
+
 /** Every gate, locally, on exact url_name equality. Substring matching is the
  *  documented failure mode: critical_chance must never claim the slide slug. */
 function matchRivenAuction(match: RivenAlertMatch, auction: AuctionView): boolean {
+  if (auction.bidOnly && match.includeBidOnly !== true) return false;
   const positives = new Set(auction.attributes.filter((a) => a.positive).map((a) => a.urlName));
   const negatives = new Set(auction.attributes.filter((a) => !a.positive).map((a) => a.urlName));
 
@@ -327,10 +378,11 @@ function matchRivenAuction(match: RivenAlertMatch, auction: AuctionView): boolea
   if (match.hasNegative === true && negatives.size === 0) return false;
   if (match.hasNegative === false && negatives.size > 0) return false;
 
+  // A roll that does not carry the bounded stat cannot satisfy the bound.
   for (const bound of match.statBounds) {
     const attr = auction.attributes.find((a) => a.urlName === bound.attribute);
-    if (!attr) continue;
-    if (!inBounds(attr.value, bound.min, bound.max)) return false;
+    if (!attr) return false;
+    if (!inBounds(valueAtMaxRank(attr.value, auction.modRank), bound.min, bound.max)) return false;
   }
 
   if (!inBounds(auction.masteryLevel, match.minMasteryRank, match.maxMasteryRank)) return false;
@@ -366,8 +418,10 @@ function rivenHit(rule: MarketAlertRule, auction: AuctionView): MarketAlertHit {
     at: new Date().toISOString(),
     kind: "riven",
     title: `Riven: ${rule.name}`,
+    // English on purpose, like every stored hit string.
     detail:
-      `${auction.platinum}p - MR${auction.masteryLevel} r${auction.modRank} ` +
+      `${auction.platinum}p${auction.bidOnly ? " starting bid" : ""} - ` +
+      `MR${auction.masteryLevel} r${auction.modRank} ` +
       `${auction.rerolls} rerolls - ${endo} endo` +
       (ratio !== null ? ` (${ratio.toFixed(1)}/plat)` : ""),
     url: `https://warframe.market/auction/${auction.id}`,
@@ -489,6 +543,19 @@ function markSeen(ruleId: string, keys: string[]): void {
   persistSeen();
 }
 
+/** Live count from the inventory main already holds. A throw or a slug the
+ *  catalog cannot resolve reads as "no live count", not as zero owned. */
+async function liveOwnedCount(itemUrlName: string): Promise<number | null> {
+  const read = _deps?.getLiveOwnedCount;
+  if (!read) return null;
+  try {
+    return await read(itemUrlName);
+  } catch (err) {
+    log.debug(`Live owned count for ${itemUrlName} failed: ${normalizeErrorMessage(err)}`);
+    return null;
+  }
+}
+
 interface EvalOutcome {
   hits: MarketAlertHit[];
   /** Dedup keys, aligned with hits, so the caller can mark exactly what fired. */
@@ -514,7 +581,8 @@ async function evaluateRule(rule: MarketAlertRule, skipDedup: boolean): Promise<
   if (rule.kind === "item" && rule.item) {
     const match = rule.item;
     const raw = await wfmGet(`/items/${encodeURIComponent(match.itemUrlName)}/orders`);
-    const owned = state().ownedCounts[match.itemUrlName] ?? null;
+    const owned =
+      (await liveOwnedCount(match.itemUrlName)) ?? state().ownedCounts[match.itemUrlName] ?? null;
     const orders = parseOrderViews(raw).filter(
       (o) => !isOwnListing(o.owner) && matchItemOrder(match, o, owned),
     );
@@ -550,27 +618,63 @@ function notify(rule: MarketAlertRule, newHits: MarketAlertHit[]): void {
   );
 }
 
+function emitChanged(): void {
+  try {
+    _deps?.onChanged();
+  } catch (err) {
+    log.debug(`Alert change push failed: ${normalizeErrorMessage(err)}`);
+  }
+}
+
+/** Identity, not id: an edit replaces the rule object, so a result that started
+ *  before the edit is as stale as one for a rule that was deleted. */
+function isCurrentRule(rule: MarketAlertRule): boolean {
+  return state().rules.includes(rule);
+}
+
+function setLastError(error: string | null): void {
+  if (_lastError === error) return;
+  _lastError = error;
+  emitChanged();
+}
+
 async function runRule(rule: MarketAlertRule): Promise<void> {
-  const now = Date.now();
   try {
     const outcome = await evaluateRule(rule, false);
+    // The rule may have been deleted or edited while the request was in flight;
+    // its result must not resurrect seen buckets, hits or pacing state.
+    if (!isCurrentRule(rule)) return;
+    const now = Date.now();
     _failureCount.delete(rule.id);
     _nextEvalAt.set(rule.id, now + RULE_EVAL_INTERVAL_MS);
-    _lastError = null;
+    setLastError(null);
     if (outcome.hits.length === 0) return;
     markSeen(rule.id, outcome.keys);
     recordHits(outcome.hits);
     notify(rule, outcome.hits);
     _cooldownUntil.set(rule.id, now + rule.cooldownMinutes * 60_000);
+    emitChanged();
     log.info(`Rule "${rule.name}" fired with ${outcome.hits.length} new hit(s)`);
   } catch (err) {
+    const message = normalizeErrorMessage(err);
+    if (!isCurrentRule(rule)) {
+      setLastError(message);
+      return;
+    }
     const failures = (_failureCount.get(rule.id) ?? 0) + 1;
     _failureCount.set(rule.id, failures);
     const backoff = Math.min(FAILURE_BASE_MS * 2 ** (failures - 1), FAILURE_CEILING_MS);
-    _nextEvalAt.set(rule.id, now + backoff);
-    _lastError = normalizeErrorMessage(err);
-    log.warn(`Rule "${rule.name}" evaluation failed (backoff ${backoff / 1000}s): ${_lastError}`);
+    _nextEvalAt.set(rule.id, Date.now() + backoff);
+    setLastError(message);
+    log.warn(`Rule "${rule.name}" evaluation failed (backoff ${backoff / 1000}s): ${message}`);
   }
+}
+
+function isDue(rule: MarketAlertRule, now: number): boolean {
+  if (!rule.enabled) return false;
+  if (rule.kind === "baro") return false;
+  if ((_cooldownUntil.get(rule.id) ?? 0) > now) return false;
+  return (_nextEvalAt.get(rule.id) ?? 0) <= now;
 }
 
 async function tick(): Promise<void> {
@@ -582,14 +686,15 @@ async function tick(): Promise<void> {
     // background alerts must never compete with a recovering scheduler.
     if (getWfmSchedulerHealth().state !== "ok") return;
     const now = Date.now();
-    let issued = 0;
-    for (const rule of state().rules) {
-      if (issued >= MAX_REQUESTS_PER_TICK) break;
-      if (!rule.enabled) continue;
-      if (rule.kind === "baro") continue;
-      if ((_cooldownUntil.get(rule.id) ?? 0) > now) continue;
-      if ((_nextEvalAt.get(rule.id) ?? 0) > now) continue;
-      issued += 1;
+    // Longest-waiting first, over a snapshot: array order plus the per-tick cap
+    // starved every rule past the twelfth, and the live array is spliced by a
+    // delete that can land mid-tick.
+    const due = state()
+      .rules.filter((rule) => isDue(rule, now))
+      .sort((a, b) => (_nextEvalAt.get(a.id) ?? 0) - (_nextEvalAt.get(b.id) ?? 0))
+      .slice(0, MAX_REQUESTS_PER_TICK);
+    for (const rule of due) {
+      if (!isCurrentRule(rule)) continue;
       await runRule(rule);
     }
   } finally {
@@ -656,8 +761,13 @@ export function deleteMarketAlertRule(id: string): boolean {
   const current = state();
   const index = current.rules.findIndex((r) => r.id === id);
   if (index < 0) return false;
-  current.rules.splice(index, 1);
+  const [removed] = current.rules.splice(index, 1);
   delete current.bindings[id];
+  // The owned-count snapshot only exists for the rules that gate on it.
+  const slug = removed.item?.itemUrlName;
+  if (slug && !current.rules.some((r) => r.item?.itemUrlName === slug)) {
+    delete current.ownedCounts[slug];
+  }
   persistState();
   const store = seen();
   if (store.seen[id]) {
@@ -704,6 +814,7 @@ export function getMarketAlertEngineStatus(): MarketAlertEngineStatus {
     requestsLastHour: _requestTimes.length,
     scheduler,
     lastError: _lastError,
+    rulesRecoveredAt: _rulesRecoveredAt,
   };
 }
 
@@ -766,6 +877,7 @@ export function resetMarketAlertsForTest(): void {
   _lastTickAt = null;
   _lastError = null;
   _requestTimes = [];
+  _rulesRecoveredAt = null;
   _cooldownUntil.clear();
   _nextEvalAt.clear();
   _failureCount.clear();

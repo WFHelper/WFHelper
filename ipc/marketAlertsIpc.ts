@@ -1,12 +1,16 @@
+import ctx from "./context";
 import { assertMainRendererSender, handleAuthorized } from "./ipcSecurity";
 import { sendDesktopNotificationRaw } from "./worldStateIpc";
+import { addInventoryListener } from "./inventoryIpc";
 import { isObject } from "./ipcValidators";
 import * as marketAlerts from "../services/marketAlerts";
 import * as rivenData from "../services/rivenData";
+import * as wfmCatalog from "../services/wfmCatalog";
 import * as wfmSession from "../services/wfmSession";
 import { toNonEmptyString } from "../config/shared/stringValidation";
 import {
   MARKET_ALERT_IMPORT_MAX_BYTES,
+  MARKET_ALERTS_CHANGED,
   MARKET_ALERTS_CLEAR_HITS,
   MARKET_ALERTS_DELETE,
   MARKET_ALERTS_EXPORT,
@@ -50,10 +54,48 @@ function saveFromPayload(payload: unknown): MarketAlertSaveResult {
   return marketAlerts.saveMarketAlertRule(rule, payload.binding, ownedCount);
 }
 
+/** Owned counts keyed by game uniqueName, rebuilt on every inventory read. The
+ *  engine's save-time snapshot is only the fallback for what this cannot join. */
+let _ownedByType: Map<string, number> | null = null;
+
+function indexOwnedCounts(data: Record<string, unknown>): void {
+  const owned = new Map<string, number>();
+  for (const slice of Object.values(data)) {
+    if (!Array.isArray(slice)) continue;
+    for (const entry of slice) {
+      if (!entry || typeof entry !== "object") continue;
+      const { ItemType, ItemCount } = entry as { ItemType?: unknown; ItemCount?: unknown };
+      if (typeof ItemType !== "string" || !ItemType) continue;
+      const count = typeof ItemCount === "number" && Number.isFinite(ItemCount) ? ItemCount : 1;
+      owned.set(ItemType, (owned.get(ItemType) ?? 0) + count);
+    }
+  }
+  _ownedByType = owned;
+}
+
+/** null means "no live answer", which keeps the saved snapshot in play: a set
+ *  slug has no gameRef, so only the renderer can count one. */
+async function liveOwnedCount(itemUrlName: string): Promise<number | null> {
+  const owned = _ownedByType;
+  if (!owned) return null;
+  const item = await wfmCatalog.lookupBySlug(itemUrlName);
+  const gameRef = item?.gameRef;
+  return gameRef ? (owned.get(gameRef) ?? 0) : null;
+}
+
+function pushAlertsChanged(): void {
+  const window = ctx.mainWindow;
+  if (!window || window.isDestroyed()) return;
+  window.webContents.send(MARKET_ALERTS_CHANGED);
+}
+
 function register(): void {
+  addInventoryListener(indexOwnedCounts);
   marketAlerts.initMarketAlerts({
     deliverNative: (title, body) => sendDesktopNotificationRaw(title, body, "app"),
     getOwnName: () => wfmSession.getInGameName(),
+    getLiveOwnedCount: liveOwnedCount,
+    onChanged: pushAlertsChanged,
   });
 
   handleAuthorized(MARKET_ALERTS_LIST, assertMainRendererSender, () =>

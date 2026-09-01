@@ -105,6 +105,8 @@ const eventApiMap: Record<
     window.api.onNotificationHistoryAdded(
       cb as (entry: IpcEventMap["notification-history-added"]) => void,
     ),
+  "market-alerts:changed": (cb) =>
+    window.api.onMarketAlertsChanged(cb as (data: IpcEventMap["market-alerts:changed"]) => void),
   "notification-sound-play": (cb) =>
     window.api.onNotificationSoundPlay(
       cb as (payload: IpcEventMap["notification-sound-play"]) => void,

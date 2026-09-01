@@ -711,6 +711,7 @@ export interface IpcEventMap {
   "warframe-ui-scale-updated": number | null;
   "notification-history-added": NotificationEntry;
   "notification-sound-play": undefined;
+  "market-alerts:changed": undefined;
   "workbench-state": WorkbenchState;
 }
 

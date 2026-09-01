@@ -31,6 +31,8 @@ export const MARKET_ALERTS_STATUS = "market-alerts:status";
 export const MARKET_ALERTS_TEST_FIRE = "market-alerts:test-fire";
 export const MARKET_ALERTS_EXPORT = "market-alerts:export";
 export const MARKET_ALERTS_IMPORT = "market-alerts:import";
+/** Main -> renderer push: a hit was recorded or the engine status moved. */
+export const MARKET_ALERTS_CHANGED = "market-alerts:changed";
 
 const MARKET_ALERT_KINDS = ["riven", "item", "baro"] as const;
 type MarketAlertKind = (typeof MARKET_ALERT_KINDS)[number];
@@ -76,6 +78,10 @@ export interface RivenAlertMatch {
   hasNegative?: boolean;
   /** Share of requirePositive the roll must carry, 0-100; absent means all. */
   minSimilarityPct?: number;
+  /** Auctions with no buyout price. Off by default so a rule never quotes an
+   *  opening bid as if it were the asking price. */
+  includeBidOnly?: boolean;
+  /** Compared against the attribute value normalised to mod rank 8. */
   statBounds: RivenStatBound[];
   minMasteryRank?: number;
   maxMasteryRank?: number;
@@ -172,6 +178,9 @@ export interface MarketAlertEngineStatus {
   scheduler: MarketAlertSchedulerHealth;
   /** Last evaluation failure, already normalized; null once a tick succeeds. */
   lastError: string | null;
+  /** Set when an unreadable rules file was quarantined and the engine started
+   *  from an empty rule set, so the view can say the rules did not vanish. */
+  rulesRecoveredAt: string | null;
 }
 
 export interface MarketAlertListResult {
@@ -316,6 +325,7 @@ const RIVEN_MATCH_KEYS = [
   "excludeAttributes",
   "hasNegative",
   "minSimilarityPct",
+  "includeBidOnly",
   "statBounds",
   "minMasteryRank",
   "maxMasteryRank",
@@ -386,6 +396,12 @@ function parseRivenMatch(value: unknown): MarketAlertParseResult<RivenAlertMatch
   if (value.hasNegative !== undefined) {
     if (typeof value.hasNegative !== "boolean") return fail("riven hasNegative must be a boolean");
     match.hasNegative = value.hasNegative;
+  }
+  if (value.includeBidOnly !== undefined) {
+    if (typeof value.includeBidOnly !== "boolean") {
+      return fail("riven includeBidOnly must be a boolean");
+    }
+    match.includeBidOnly = value.includeBidOnly;
   }
   if (value.polarity !== undefined) {
     if (!RIVEN_POLARITIES.includes(value.polarity as RivenPolarity)) {

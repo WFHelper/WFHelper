@@ -84,6 +84,7 @@
   let similarityPct = $state(
     riven?.minSimilarityPct !== undefined ? String(riven.minSimilarityPct) : "",
   );
+  let includeBidOnly = $state(riven?.includeBidOnly === true);
   let minMastery = $state(riven?.minMasteryRank !== undefined ? String(riven.minMasteryRank) : "");
   let maxMastery = $state(riven?.maxMasteryRank !== undefined ? String(riven.maxMasteryRank) : "");
   let polarity = $state<string>(riven?.polarity ?? "");
@@ -203,6 +204,7 @@
     };
     if (curseMode === "required") match.hasNegative = true;
     if (curseMode === "forbidden") match.hasNegative = false;
+    if (includeBidOnly) match.includeBidOnly = true;
     const optional: Array<[keyof RivenAlertMatch, number | undefined]> = [
       ["minSimilarityPct", numOrUndef(similarityPct)],
       ["minMasteryRank", numOrUndef(minMastery)],
@@ -462,6 +464,7 @@
 
       <div class="text-sm">
         <span class="text-text-secondary">{$tr("marketAlerts.statBounds")}</span>
+        <span class="ml-2 text-xs text-text-muted">{$tr("marketAlerts.statBoundsMaxRank")}</span>
         {#each statBounds as bound, index (index)}
           <div class="mt-1 flex items-center gap-2">
             <select class="shared-filter-select" bind:value={bound.attribute}>
@@ -509,6 +512,10 @@
           <ThemedInput type="number" min="0" bind:value={minEndoPerPlat} />
         </label>
       </div>
+      <label class="flex items-center gap-1.5 text-sm">
+        <input type="checkbox" bind:checked={includeBidOnly} />
+        {$tr("marketAlerts.includeBidOnly")}
+      </label>
 
       <div class="grid gap-3 md:grid-cols-4">
         {@render rangePair(

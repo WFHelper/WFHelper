@@ -31,6 +31,8 @@
   let exportText = $state("");
   let testFiring = $state<string | null>(null);
 
+  const LIVE_REFRESH_MS = 20_000;
+
   async function refresh(): Promise<void> {
     const [list, hitList, engineStatus] = await Promise.all([
       invoke("marketAlertsList"),
@@ -43,19 +45,30 @@
     status = engineStatus;
   }
 
+  async function refreshLive(): Promise<void> {
+    const [hitList, engineStatus] = await Promise.all([
+      invoke("marketAlertsGetHits"),
+      invoke("marketAlertsStatus"),
+    ]);
+    hits = hitList;
+    status = engineStatus;
+  }
+
   $effect(() => {
     void refresh();
     void invoke("getRivenStatOptions").then((options) => {
       statOptions = options;
     });
-    // A fired alert lands in the shared notification history; use that push to
-    // keep the hit list current while the tab is open.
-    const off = on("notification-history-added", () => {
-      void invoke("marketAlertsGetHits").then((hitList) => {
-        hits = hitList;
-      });
+    // The engine pushes every recorded hit and status move; the interval only
+    // covers the last-check timestamp.
+    const off = on("market-alerts:changed", () => {
+      void refreshLive();
     });
-    return off;
+    const timer = setInterval(() => void refreshLive(), LIVE_REFRESH_MS);
+    return () => {
+      off();
+      clearInterval(timer);
+    };
   });
 
   // One pass per store push; the resolvers cache their indexes by store identity.
@@ -232,6 +245,9 @@
         {/if}
         {#if status.lastError}
           <span class="text-yellow-400">{status.lastError}</span>
+        {/if}
+        {#if status.rulesRecoveredAt}
+          <span class="text-yellow-400">{$tr("marketAlerts.rulesRecovered")}</span>
         {/if}
       </div>
     {/if}

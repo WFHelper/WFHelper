@@ -53,12 +53,16 @@ import {
 } from "../../services/marketAlerts";
 
 const deliverMock = vi.fn();
+const changedMock = vi.fn();
 let ownName: string | null = null;
+let liveOwned: Record<string, number> = {};
 
 function initEngine(): void {
   initMarketAlerts({
     deliverNative: deliverMock,
     getOwnName: () => ownName,
+    getLiveOwnedCount: (slug) => Promise.resolve(liveOwned[slug] ?? null),
+    onChanged: changedMock,
   });
 }
 
@@ -175,7 +179,9 @@ beforeEach(() => {
   mocks.healthMock.mockReturnValue({ state: "ok", recentFailures: 0 });
   mocks.dispatchMock.mockClear();
   deliverMock.mockClear();
+  changedMock.mockClear();
   ownName = null;
+  liveOwned = {};
   resetMarketAlertsForTest();
 });
 
@@ -247,7 +253,6 @@ describe("riven rule evaluation", () => {
           maxMasteryRank: 15,
           minRerolls: 1,
           maxRerolls: 50,
-          minSimilarityPct: 50,
         },
       }),
     );
@@ -255,15 +260,33 @@ describe("riven rule evaluation", () => {
     await runMarketAlertTickForTest();
     const requestPath = mocks.requestMock.mock.calls[0][1];
     expect(requestPath).toContain("weapon_url_name=rubico");
-    expect(requestPath).toContain("positive_stats=critical_chance");
+    // Comma list, which WFM parses as AND; repeated keys honour only the first.
+    expect(requestPath).toContain("positive_stats=critical_chance%2Ccritical_damage");
     expect(requestPath).toContain("negative_stats=zoom");
     expect(requestPath).toContain("polarity=madurai");
     expect(requestPath).toContain("mastery_rank_min=9");
     expect(requestPath).toContain("mastery_rank_max=15");
     expect(requestPath).toContain("re_rolls_min=1");
-    expect(requestPath).toContain("similarity=50");
+    // WFM ignores `similarity` outright, so it is never sent.
+    expect(requestPath).not.toContain("similarity=");
     // Background priority keeps the sweep behind anything a user is waiting on.
     expect(mocks.requestMock.mock.calls[0][2]).toEqual({ priority: "background" });
+  });
+
+  it("stops pushing positive_stats once similarity allows a partial match", async () => {
+    mocks.requestMock.mockResolvedValue(auctionPayload([]));
+    saveOk(
+      rivenRuleRaw({
+        riven: {
+          requirePositive: ["critical_chance", "critical_damage"],
+          minSimilarityPct: 50,
+        },
+      }),
+    );
+    initEngine();
+    await runMarketAlertTickForTest();
+    // A server-side AND would hide exactly the partial rolls the rule wants.
+    expect(mocks.requestMock.mock.calls[0][1]).not.toContain("positive_stats");
   });
 
   it("applies similarity as the share of required stats present", async () => {
@@ -332,6 +355,62 @@ describe("riven rule evaluation", () => {
     const hits = getMarketAlertHits();
     expect(hits).toHaveLength(1);
     expect(hits[0].url).toContain("good");
+  });
+
+  it("compares stat bounds at max rank, not at the listing's rank", async () => {
+    mocks.requestMock.mockResolvedValue(
+      auctionPayload([
+        // 24.4% crit on an unranked riven is 219.6% at rank 8.
+        {
+          id: "unranked",
+          modRank: 0,
+          attributes: [{ url_name: "critical_chance", value: 24.4, positive: true }],
+        },
+        // 10% at rank 8 stays 10% and misses the bound.
+        {
+          id: "weak",
+          modRank: 8,
+          attributes: [{ url_name: "critical_chance", value: 10, positive: true }],
+        },
+      ]),
+    );
+    saveOk(rivenRuleRaw({ riven: { statBounds: [{ attribute: "critical_chance", min: 100 }] } }));
+    initEngine();
+    await runMarketAlertTickForTest();
+    const hits = getMarketAlertHits();
+    expect(hits).toHaveLength(1);
+    expect(hits[0].url).toContain("unranked");
+  });
+
+  it("treats a missing bounded stat as a non-match", async () => {
+    mocks.requestMock.mockResolvedValue(
+      auctionPayload([
+        {
+          id: "no-cd",
+          attributes: [{ url_name: "critical_chance", value: 150, positive: true }],
+        },
+      ]),
+    );
+    saveOk(rivenRuleRaw({ riven: { statBounds: [{ attribute: "critical_damage", min: 50 }] } }));
+    initEngine();
+    await runMarketAlertTickForTest();
+    expect(mocks.dispatchMock).not.toHaveBeenCalled();
+  });
+
+  it("skips bid-only auctions unless the rule opts in, and says so when it does", async () => {
+    mocks.requestMock.mockResolvedValue(
+      auctionPayload([{ id: "bid", buyout: null, starting: 50 }]),
+    );
+    saveOk(rivenRuleRaw());
+    initEngine();
+    await runMarketAlertTickForTest();
+    expect(mocks.dispatchMock).not.toHaveBeenCalled();
+
+    saveOk(rivenRuleRaw({ id: "rule-bid", riven: { includeBidOnly: true } }));
+    await runMarketAlertTickForTest();
+    const hits = getMarketAlertHits();
+    expect(hits).toHaveLength(1);
+    expect(hits[0].detail).toContain("50p starting bid");
   });
 
   it("excludes the signed-in user's own auctions case-insensitively", async () => {
@@ -496,6 +575,38 @@ describe("item rule evaluation", () => {
     await runMarketAlertTickForTest();
     expect(mocks.dispatchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("prefers the live owned count over the save-time snapshot", async () => {
+    vi.useFakeTimers();
+    mocks.requestMock.mockResolvedValue(ordersPayload([{ id: "o1", platinum: 30 }]));
+    // Saved while five were owned, which blocks an "owned below 2" rule.
+    saveOk(itemRuleRaw({ item: { ownedBelow: 2 } }), 5);
+    liveOwned = { nekros_prime_set: 5 };
+    initEngine();
+    await runMarketAlertTickForTest();
+    expect(mocks.dispatchMock).not.toHaveBeenCalled();
+
+    // The stock is traded away; the rule fires without being re-saved.
+    liveOwned = { nekros_prime_set: 1 };
+    await vi.advanceTimersByTimeAsync(4 * 60_000);
+    await runMarketAlertTickForTest();
+    expect(mocks.dispatchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops the owned-count snapshot when the last rule using it is deleted", () => {
+    saveOk(itemRuleRaw({ item: { ownedBelow: 2 } }), 3);
+    const stateFile = path.join(tmpDir, "market-alert-rules.json");
+    const before = JSON.parse(fs.readFileSync(stateFile, "utf8")) as {
+      ownedCounts: Record<string, number>;
+    };
+    expect(before.ownedCounts.nekros_prime_set).toBe(3);
+
+    expect(deleteMarketAlertRule("rule-item")).toBe(true);
+    const after = JSON.parse(fs.readFileSync(stateFile, "utf8")) as {
+      ownedCounts: Record<string, number>;
+    };
+    expect(after.ownedCounts.nekros_prime_set).toBeUndefined();
+  });
 });
 
 describe("engine plumbing", () => {
@@ -516,6 +627,87 @@ describe("engine plumbing", () => {
     initEngine();
     await runMarketAlertTickForTest();
     expect(mocks.requestMock).toHaveBeenCalledTimes(4);
+  });
+
+  it("gives every rule a slot when there are more rules than per-tick requests", async () => {
+    vi.useFakeTimers();
+    mocks.requestMock.mockResolvedValue(auctionPayload([]));
+    for (let i = 0; i < 14; i++) {
+      saveOk(
+        rivenRuleRaw({
+          id: `rule-${i}`,
+          name: `Rule ${i}`,
+          riven: { weaponUrlName: `weapon_${i}` },
+        }),
+      );
+    }
+    initEngine();
+    // setSystemTime, not advanceTimersByTime: letting the engine's own interval
+    // fire would hand out extra slots and hide the starvation entirely.
+    // Four ticks at four requests each is enough only if the oldest waiter goes
+    // first; array order never reaches the last two rules.
+    const start = Date.now();
+    for (let t = 0; t < 4; t++) {
+      vi.setSystemTime(start + t * 60_000);
+      await runMarketAlertTickForTest();
+    }
+    const queried = new Set(
+      mocks.requestMock.mock.calls.map(
+        (call) => /weapon_url_name=([a-z0-9_]+)/.exec(String(call[1]))?.[1] ?? "",
+      ),
+    );
+    expect(queried.size).toBe(14);
+  });
+
+  it("drops a result whose rule was deleted mid-evaluation", async () => {
+    let release: (value: unknown) => void = () => {};
+    mocks.requestMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    saveOk(rivenRuleRaw());
+    initEngine();
+
+    const ticking = runMarketAlertTickForTest();
+    expect(deleteMarketAlertRule("rule-riven")).toBe(true);
+    release(auctionPayload([{ id: "late" }]));
+    await ticking;
+
+    expect(mocks.dispatchMock).not.toHaveBeenCalled();
+    expect(getMarketAlertHits()).toHaveLength(0);
+    const seenFile = path.join(tmpDir, "market-alert-seen.json");
+    const bucket = fs.existsSync(seenFile)
+      ? (JSON.parse(fs.readFileSync(seenFile, "utf8")) as { seen: Record<string, unknown> }).seen
+      : {};
+    expect(bucket["rule-riven"]).toBeUndefined();
+  });
+
+  it("pushes a change to the renderer when a hit is recorded", async () => {
+    mocks.requestMock.mockResolvedValue(auctionPayload([{ id: "pushed" }]));
+    saveOk(rivenRuleRaw());
+    initEngine();
+    await runMarketAlertTickForTest();
+    expect(changedMock).toHaveBeenCalled();
+  });
+
+  it("quarantines an unreadable rules file instead of overwriting it", () => {
+    const stateFile = path.join(tmpDir, "market-alert-rules.json");
+    const original = JSON.stringify({ schema: 99, rules: [{ name: "precious" }] });
+    fs.writeFileSync(stateFile, original, "utf8");
+
+    expect(listMarketAlertRules().rules).toHaveLength(0);
+    const status = getMarketAlertEngineStatus();
+    expect(status.rulesRecoveredAt).toEqual(expect.any(String));
+
+    const backup = fs.readdirSync(tmpDir).find((name) => name.includes(".corrupt-"));
+    expect(backup).toBeDefined();
+    expect(fs.readFileSync(path.join(tmpDir, backup ?? ""), "utf8")).toBe(original);
+
+    // The empty fallback is still writable; the copy is what preserves the file.
+    saveOk(rivenRuleRaw());
+    expect(listMarketAlertRules().rules).toHaveLength(1);
   });
 
   it("skips disabled and baro rules", async () => {

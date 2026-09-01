@@ -73,6 +73,9 @@ export interface PreloadAPI {
   onNotificationHistoryAdded: (
     callback: (entry: IpcEventMap["notification-history-added"]) => void,
   ) => () => void;
+  onMarketAlertsChanged: (
+    callback: (data: IpcEventMap["market-alerts:changed"]) => void,
+  ) => () => void;
   onNotificationSoundPlay: (
     callback: (payload: IpcEventMap["notification-sound-play"]) => void,
   ) => () => void;
