@@ -376,7 +376,7 @@ function parseWeaponSlugs(payload: unknown): string[] {
 async function fetchRivenWeaponList(): Promise<string[]> {
 	let response: Response;
 	try {
-		response = await fetch('https://api.warframe.market/v1/riven/items', { headers: WFM_HEADERS });
+		response = await fetch('https://api.warframe.market/v2/riven/weapons', { headers: WFM_HEADERS });
 	} catch {
 		return [];
 	}

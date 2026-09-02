@@ -4,7 +4,7 @@ import type { Env } from '../src/types';
 import { archiveBaroVisit, archiveDailyPrices, sweepRivenArchive } from '../src/services/history';
 
 const SNAPSHOT_KEY = 'snapshot:full:v1';
-const RIVEN_ITEMS_URL = 'https://api.warframe.market/v1/riven/items';
+const RIVEN_ITEMS_URL = 'https://api.warframe.market/v2/riven/weapons';
 const SWEEP_KEY = 'archive:riven-sweep:v1';
 const WEAPONS_KEY = 'archive:riven-weapons:v1';
 const NOW = Date.parse('2026-08-31T04:00:00.000Z');
@@ -54,7 +54,7 @@ function mockRivenUpstream(weapons: string[], prices: (weapon: string) => number
 	const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 		const url = String(input instanceof Request ? input.url : input);
 		if (url === RIVEN_ITEMS_URL) {
-			return jsonOk({ payload: { items: weapons.map((slug) => ({ url_name: slug, item_name: slug })) } });
+			return jsonOk({ data: weapons.map((slug) => ({ slug, i18n: { en: { name: slug } } })) });
 		}
 		const match = /weapon_url_name=([^&]+)/.exec(url);
 		if (url.startsWith('https://api.warframe.market/v1/auctions/search') && match) {
