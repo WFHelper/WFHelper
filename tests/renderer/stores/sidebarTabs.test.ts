@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { get } from "svelte/store";
 
-import { SIDEBAR_VIEW_ORDER } from "../../../src/lib/viewRegistry.js";
+import { SIDEBAR_VIEW_ORDER, type SidebarViewName } from "../../../src/lib/viewRegistry.js";
 
 let store = new Map<string, string>();
 
@@ -225,6 +225,91 @@ describe("nudgeSidebarWidth", () => {
     sidebarWidth.set(SIDEBAR_EXPAND_MIN);
     nudgeSidebarWidth(-16);
     expect(get(sidebarWidth)).toBe(SIDEBAR_RAIL_WIDTH);
+  });
+});
+
+describe("sidebarLabels", () => {
+  it("starts empty with no stored labels", async () => {
+    const { sidebarLabels } = await loadModule();
+    expect(get(sidebarLabels)).toEqual({});
+  });
+
+  it("trims a label and drops the surrounding whitespace", async () => {
+    const { setSidebarLabel, sidebarLabels } = await loadModule();
+    setSidebarLabel("foundry", "   Forge   ");
+    expect(get(sidebarLabels).foundry).toBe("Forge");
+  });
+
+  it("caps a label at the maximum length", async () => {
+    const { setSidebarLabel, sidebarLabels, SIDEBAR_LABEL_MAX } = await loadModule();
+    setSidebarLabel("foundry", "F".repeat(SIDEBAR_LABEL_MAX + 20));
+    expect(get(sidebarLabels).foundry).toBe("F".repeat(SIDEBAR_LABEL_MAX));
+  });
+
+  it("strips control characters instead of storing them", async () => {
+    const { setSidebarLabel, sidebarLabels } = await loadModule();
+    setSidebarLabel("foundry", "For g\ne\try");
+    expect(get(sidebarLabels).foundry).toBe("Forgery");
+  });
+
+  it("deletes the entry when the label is emptied", async () => {
+    const { setSidebarLabel, sidebarLabels } = await loadModule();
+    setSidebarLabel("foundry", "Forge");
+    setSidebarLabel("foundry", "   ");
+    expect(get(sidebarLabels)).toEqual({});
+    expect(JSON.parse(store.get("wf_sidebar_labels_v1") ?? "null")).toEqual({});
+  });
+
+  it("ignores a view outside the sidebar registry", async () => {
+    const { setSidebarLabel, sidebarLabels } = await loadModule();
+    setSidebarLabel("nope" as SidebarViewName, "Ghost");
+    expect(get(sidebarLabels)).toEqual({});
+  });
+
+  it("drops unknown views and non-string values from storage", async () => {
+    const { sidebarLabels } = await loadModule({
+      wf_sidebar_labels_v1: JSON.stringify({ foundry: "Forge", nope: "Ghost", market: 7 }),
+    });
+    expect(get(sidebarLabels)).toEqual({ foundry: "Forge" });
+  });
+
+  it("normalizes a hand-edited storage entry the same way a UI write is", async () => {
+    const { sidebarLabels, SIDEBAR_LABEL_MAX } = await loadModule({
+      wf_sidebar_labels_v1: JSON.stringify({ market: `  ${"M".repeat(40)}  `, relics: "  " }),
+    });
+    expect(get(sidebarLabels)).toEqual({ market: "M".repeat(SIDEBAR_LABEL_MAX) });
+  });
+
+  it("falls back to no labels on corrupt storage", async () => {
+    const { sidebarLabels } = await loadModule({ wf_sidebar_labels_v1: "{not json" });
+    expect(get(sidebarLabels)).toEqual({});
+  });
+
+  it("ignores a stored value that is not an object", async () => {
+    const array = await loadModule({ wf_sidebar_labels_v1: '["Forge"]' });
+    expect(get(array.sidebarLabels)).toEqual({});
+
+    const scalar = await loadModule({ wf_sidebar_labels_v1: '"Forge"' });
+    expect(get(scalar.sidebarLabels)).toEqual({});
+  });
+
+  it("persists a rename and survives a reload", async () => {
+    const { setSidebarLabel } = await loadModule();
+    setSidebarLabel("foundry", "Forge");
+    expect(JSON.parse(store.get("wf_sidebar_labels_v1") ?? "null")).toEqual({ foundry: "Forge" });
+
+    vi.resetModules();
+    const reloaded = await import("../../../src/stores/sidebarTabs.js");
+    expect(get(reloaded.sidebarLabels)).toEqual({ foundry: "Forge" });
+  });
+
+  it("resets every label back to the translated default", async () => {
+    const { resetSidebarLabels, setSidebarLabel, sidebarLabels } = await loadModule();
+    setSidebarLabel("foundry", "Forge");
+    setSidebarLabel("market", "Bazaar");
+    resetSidebarLabels();
+    expect(get(sidebarLabels)).toEqual({});
+    expect(JSON.parse(store.get("wf_sidebar_labels_v1") ?? "null")).toEqual({});
   });
 });
 

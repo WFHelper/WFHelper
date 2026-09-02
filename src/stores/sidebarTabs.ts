@@ -76,6 +76,81 @@ export function resetSidebarOrder(): void {
   sidebarOrder.set([...SIDEBAR_VIEW_ORDER]);
 }
 
+const LABELS_KEY = "wf_sidebar_labels_v1";
+
+/** Matches the maxlength on the rename input, so a hand-edited entry is cut too. */
+export const SIDEBAR_LABEL_MAX = 24;
+
+type SidebarLabels = Partial<Record<SidebarViewName, string>>;
+
+const KNOWN_SIDEBAR_VIEWS = new Set<string>(SIDEBAR_VIEW_ORDER);
+
+/** Empty means "no custom label", so the caller falls back to the translation. */
+function normalizeSidebarLabel(raw: string): string {
+  return raw
+    .replace(/\p{Cc}/gu, "")
+    .trim()
+    .slice(0, SIDEBAR_LABEL_MAX)
+    .trim();
+}
+
+// One validation point for both a hand-edited localStorage entry and a UI write:
+// unknown views, non-strings and blank labels are dropped rather than stored.
+function sanitizeSidebarLabels(input: unknown): SidebarLabels {
+  if (input == null || typeof input !== "object" || Array.isArray(input)) return {};
+  const out: SidebarLabels = {};
+  for (const [view, value] of Object.entries(input as Record<string, unknown>)) {
+    if (!KNOWN_SIDEBAR_VIEWS.has(view) || typeof value !== "string") continue;
+    const label = normalizeSidebarLabel(value);
+    if (label) out[view as SidebarViewName] = label;
+  }
+  return out;
+}
+
+function loadSidebarLabels(): SidebarLabels {
+  try {
+    return sanitizeSidebarLabels(JSON.parse(readStorage(LABELS_KEY) ?? "null"));
+  } catch {
+    return {};
+  }
+}
+
+function createSidebarLabelStore(): Writable<SidebarLabels> {
+  const store = writable<SidebarLabels>(loadSidebarLabels());
+  const commit = (value: SidebarLabels): SidebarLabels => {
+    const next = sanitizeSidebarLabels(value);
+    writeStorage(LABELS_KEY, JSON.stringify(next));
+    return next;
+  };
+
+  return {
+    subscribe: store.subscribe,
+    set(value: SidebarLabels): void {
+      store.set(commit(value));
+    },
+    update(fn: (value: SidebarLabels) => SidebarLabels): void {
+      store.update((current) => commit(fn(current)));
+    },
+  };
+}
+
+/** Per-view sidebar label overrides; an absent entry renders the translated default. */
+export const sidebarLabels = createSidebarLabelStore();
+
+export function setSidebarLabel(view: SidebarViewName, raw: string): void {
+  sidebarLabels.update((current) => {
+    const next = { ...current };
+    const label = normalizeSidebarLabel(raw);
+    if (label) next[view] = label;
+    else delete next[view];
+    return next;
+  });
+}
+
+export function resetSidebarLabels(): void {
+  sidebarLabels.set({});
+}
+
 /** Icon-rail width in px; matches the 3.75rem collapsed rail in responsive.css. */
 export const SIDEBAR_RAIL_WIDTH = 60;
 /** Matches the --sidebar-width token default in tokens.css. */

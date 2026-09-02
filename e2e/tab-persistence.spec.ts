@@ -210,16 +210,25 @@ test.describe("Sidebar order and width persistence", () => {
     await expect(page.locator("#sidebar")).toBeVisible({ timeout: 90_000 });
   }
 
+  // The row list moved to the Customization settings tab, which Settings never
+  // opens on, so every case has to switch to it first.
+  async function openSidebarTabs(): Promise<void> {
+    await openView(page, "settings");
+    await page.locator('#content .view.active [data-tour-tab="customization"]').click();
+    await expect(page.locator("[data-tab-order-list]")).toBeVisible();
+  }
+
   test.beforeEach(async () => {
     await page.evaluate(() => {
       localStorage.removeItem("wf_sidebar_order");
       localStorage.removeItem("wf_sidebar_width");
+      localStorage.removeItem("wf_sidebar_labels_v1");
     });
     await reload();
   });
 
   test("Reordering in Settings moves the sidebar row and survives a reload", async () => {
-    await openView(page, "settings");
+    await openSidebarTabs();
     const before = await readOrder();
     const from = before.indexOf("foundry");
     expect(from).toBeGreaterThanOrEqual(0);
@@ -241,7 +250,7 @@ test.describe("Sidebar order and width persistence", () => {
   });
 
   test("Reset restores the default sidebar order", async () => {
-    await openView(page, "settings");
+    await openSidebarTabs();
     const original = await readOrder();
 
     const handle = page.locator('[data-tab-order-handle="market"]');
@@ -254,7 +263,7 @@ test.describe("Sidebar order and width persistence", () => {
   });
 
   test("Hiding a tab from the reorder list still removes it from the sidebar", async () => {
-    await openView(page, "settings");
+    await openSidebarTabs();
     await page.locator('[data-tab-order-row="relics"] input[type="checkbox"]').uncheck();
     await expect.poll(readOrder).not.toContain("relics");
 
@@ -263,13 +272,32 @@ test.describe("Sidebar order and width persistence", () => {
   });
 
   test("Inventory and Settings cannot be hidden", async () => {
-    await openView(page, "settings");
+    await openSidebarTabs();
     await expect(
       page.locator('[data-tab-order-row="inventory"] input[type="checkbox"]'),
     ).toBeDisabled();
     await expect(
       page.locator('[data-tab-order-row="settings"] input[type="checkbox"]'),
     ).toBeDisabled();
+  });
+
+  test("Renaming a sidebar tab survives a reload and resets back to the default", async () => {
+    const row = page.locator('#sidebar [data-view="foundry"]');
+    // Captured rather than hard-coded: the default label is translated.
+    const defaultLabel = (await row.innerText()).trim();
+
+    await openSidebarTabs();
+    const field = page.locator('[data-tab-rename="foundry"]');
+    await field.fill("Forge");
+    await field.blur();
+    await expect(row).toHaveText("Forge");
+
+    await reload();
+    await expect(page.locator('#sidebar [data-view="foundry"]')).toHaveText("Forge");
+
+    await openSidebarTabs();
+    await page.locator("[data-tab-rename-reset]").click();
+    await expect(page.locator('#sidebar [data-view="foundry"]')).toHaveText(defaultLabel);
   });
 
   test("Dragging the grip resizes the sidebar and the width survives a reload", async () => {

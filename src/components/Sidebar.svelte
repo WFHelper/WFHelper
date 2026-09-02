@@ -10,6 +10,7 @@
     nudgeSidebarWidth,
     resetSidebarWidth,
     sidebarCollapsed,
+    sidebarLabels,
     sidebarOrder,
     sidebarWidth,
     snapSidebarWidth,
@@ -167,7 +168,7 @@
         on:click={() => currentView.set(item.view)}
       >
         <img src={item.icon} alt="" class="h-6 w-6 shrink-0 object-contain brightness-[0.85]" />
-        <span>{$tr(item.labelKey)}</span>
+        <span>{$sidebarLabels[item.view] ?? $tr(item.labelKey)}</span>
       </button>
     {/each}
   </div>

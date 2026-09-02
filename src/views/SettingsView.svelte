@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
-  import { get } from "svelte/store";
   import {
     overlaySettings,
     overlaySettingsLoaded,
@@ -10,6 +9,7 @@
   } from "../stores/overlaySettings.js";
   import AppearanceCard from "../components/settings/AppearanceCard.svelte";
   import CustomCssSection from "../components/settings/CustomCssSection.svelte";
+  import SidebarTabsSection from "../components/settings/SidebarTabsSection.svelte";
   import WorkspaceSection from "../components/settings/WorkspaceSection.svelte";
   import SettingsSection from "../components/settings/SettingsSection.svelte";
   import SettingsRow from "../components/settings/SettingsRow.svelte";
@@ -44,18 +44,6 @@
     hideFoundryClaims,
     hideFounderMasteryItems,
   } from "../stores/preferences.js";
-  import {
-    moveSidebarView,
-    resetSidebarOrder,
-    sidebarOrder,
-    tabVisibility,
-  } from "../stores/sidebarTabs.js";
-  import {
-    SIDEBAR_VIEW_ORDER,
-    VIEW_LABEL_KEYS,
-    isToggleableView,
-    type SidebarViewName,
-  } from "../lib/viewRegistry.js";
   import { startTour } from "../stores/tour.js";
   import { currentView } from "../stores/app.js";
   import type { InventorySource, OverlaySettings, OverlayWindowKey } from "../types/ipc.js";
@@ -73,7 +61,7 @@
     showTradeNotification?: boolean;
   };
 
-  let settingsTab: "general" | "appearance" | "overlay" = "general";
+  let settingsTab: "general" | "appearance" | "customization" | "overlay" = "general";
   // The store owns the language: the select only mirrors it, so an external
   // setLocale is not written back over.
   let languageChoice: LocaleCode;
@@ -468,59 +456,6 @@
   function testTrigger() {
     send("simulate-relic-trigger");
   }
-
-  // Local mirror of the per-tab visibility stores so each checkbox can bind to a
-  // plain bool; the change handler pushes back to the persisted store. Pinned
-  // rows are present and true so one keyed input serves the whole ordered list.
-  const tabChecked = Object.fromEntries(
-    SIDEBAR_VIEW_ORDER.map((view) => [
-      view,
-      isToggleableView(view) ? get(tabVisibility[view]) : true,
-    ]),
-  ) as Record<SidebarViewName, boolean>;
-
-  function setTabVisible(view: SidebarViewName): void {
-    if (isToggleableView(view)) tabVisibility[view].set(tabChecked[view]);
-  }
-
-  let orderDragIndex: number | null = null;
-
-  function startOrderDrag(index: number, e: PointerEvent): void {
-    // Only the primary button drags; a right- or middle-click would otherwise
-    // capture the pointer and never see a matching pointerup.
-    if (e.button !== 0) return;
-    orderDragIndex = index;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    e.preventDefault();
-  }
-
-  // Hit-tests the row under the pointer instead of measuring offsets: the list
-  // reorders live, so cached rects would be stale after the first swap.
-  function onOrderDrag(e: PointerEvent): void {
-    if (orderDragIndex === null) return;
-    const row = document
-      .elementFromPoint(e.clientX, e.clientY)
-      ?.closest("[data-tab-order-row]") as HTMLElement | null;
-    if (!row) return;
-    const target = Number(row.dataset["tabOrderIndex"]);
-    if (!Number.isInteger(target) || target === orderDragIndex) return;
-    moveSidebarView(orderDragIndex, target);
-    orderDragIndex = target;
-  }
-
-  function endOrderDrag(e: PointerEvent): void {
-    if (orderDragIndex === null) return;
-    orderDragIndex = null;
-    const handle = e.currentTarget as HTMLElement;
-    if (handle.hasPointerCapture?.(e.pointerId)) handle.releasePointerCapture(e.pointerId);
-  }
-
-  function onOrderKey(index: number, e: KeyboardEvent): void {
-    if (e.key === "ArrowUp") moveSidebarView(index, index - 1);
-    else if (e.key === "ArrowDown") moveSidebarView(index, index + 1);
-    else return;
-    e.preventDefault();
-  }
 </script>
 
 <section class="view active settings-shell w-full">
@@ -545,6 +480,14 @@
         on:click={() => (settingsTab = "appearance")}
       >
         <span>{$tr("common.appearance")}</span>
+      </button>
+      <button
+        class="tab-item"
+        class:active={settingsTab === "customization"}
+        data-tour-tab="customization"
+        on:click={() => (settingsTab = "customization")}
+      >
+        <span>{$tr("settings.tabCustomization")}</span>
       </button>
       <button
         class="tab-item"
@@ -890,55 +833,6 @@
             </SettingsSection>
           {/if}
 
-          <SettingsSection
-            title={$tr("settings.sidebarTabsTitle")}
-            description={$tr("settings.sidebarTabsDesc")}
-          >
-            <div class="mt-2.5 grid gap-1" data-tab-order-list>
-              {#each $sidebarOrder as view, index (view)}
-                <div class="tab-order-row" data-tab-order-row={view} data-tab-order-index={index}>
-                  <button
-                    type="button"
-                    class="tab-order-handle"
-                    data-tab-order-handle={view}
-                    aria-label={$tr("settings.tabOrderHandle", { tab: $tr(VIEW_LABEL_KEYS[view]) })}
-                    title={$tr("settings.tabOrderHandleHint")}
-                    on:pointerdown={(e) => startOrderDrag(index, e)}
-                    on:pointermove={onOrderDrag}
-                    on:pointerup={endOrderDrag}
-                    on:pointercancel={endOrderDrag}
-                    on:lostpointercapture={endOrderDrag}
-                    on:keydown={(e) => onOrderKey(index, e)}
-                  >
-                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                      <path
-                        d="M6 3.5h.01M10 3.5h.01M6 8h.01M10 8h.01M6 12.5h.01M10 12.5h.01"
-                        stroke="currentColor"
-                        stroke-width="2.4"
-                        stroke-linecap="round"
-                      />
-                    </svg>
-                  </button>
-                  <span class="tab-order-label">{$tr(VIEW_LABEL_KEYS[view])}</span>
-                  <input
-                    type="checkbox"
-                    bind:checked={tabChecked[view]}
-                    on:change={() => setTabVisible(view)}
-                    disabled={!isToggleableView(view)}
-                    title={isToggleableView(view) ? undefined : $tr("settings.tabAlwaysVisible")}
-                    aria-label={$tr("settings.tabVisible", { tab: $tr(VIEW_LABEL_KEYS[view]) })}
-                    class="accent-accent"
-                  />
-                </div>
-              {/each}
-            </div>
-            <button
-              class="btn-secondary btn-sm mt-2.5"
-              data-tab-order-reset
-              on:click={resetSidebarOrder}>{$tr("settings.tabOrderReset")}</button
-            >
-          </SettingsSection>
-
           {#if isLinux}
             <SettingsSection>
               <ProtonLaunchOption />
@@ -986,6 +880,10 @@
     {:else if settingsTab === "appearance"}
       <div class="settings-tab-grid settings-masonry py-3">
         <AppearanceCard />
+      </div>
+    {:else if settingsTab === "customization"}
+      <div class="settings-tab-grid settings-masonry py-3">
+        <SidebarTabsSection />
         <WorkspaceSection />
         <CustomCssSection />
       </div>
@@ -1290,57 +1188,5 @@
     justify-content: space-between;
     gap: 0.75rem;
     flex-wrap: wrap;
-  }
-
-  /* Mirrors .settings-control-row, plus a leading handle column. */
-  .tab-order-row {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    border-radius: var(--radius-md);
-    padding: 0.24rem 0.45rem;
-    margin: 0 -0.45rem;
-  }
-  .tab-order-row:hover {
-    background: var(--bg-hover);
-  }
-
-  .tab-order-label {
-    flex: 1 1 auto;
-    min-width: 0;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    font-weight: 500;
-  }
-
-  .tab-order-handle {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
-    padding: 0;
-    border: 0;
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--text-muted);
-    cursor: grab;
-    /* A live pointer reorder must not be interrupted by the browser's own
-       touch scrolling or text selection. */
-    touch-action: none;
-    user-select: none;
-  }
-  .tab-order-handle:hover,
-  .tab-order-handle:focus-visible {
-    color: var(--accent);
-  }
-  .tab-order-handle:active {
-    cursor: grabbing;
-  }
-  .tab-order-handle svg {
-    width: 1rem;
-    height: 1rem;
-    fill: none;
   }
 </style>

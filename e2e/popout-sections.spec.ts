@@ -67,7 +67,7 @@ test.describe("Section popouts and workspaces", () => {
     await expect(popout.locator("[data-layout-section]")).toHaveCount(1);
 
     await openView(page, "settings");
-    await page.locator('[data-tour-tab="appearance"]').click();
+    await page.locator('[data-tour-tab="customization"]').click();
     await page.locator("[data-workspace-name]").fill("Charts window");
     await page.locator("[data-workspace-save]").click();
     await expect
@@ -83,7 +83,7 @@ test.describe("Section popouts and workspaces", () => {
     await page.reload();
     await expect(page.locator("#sidebar")).toBeVisible({ timeout: 90_000 });
     await openView(page, "settings");
-    await page.locator('[data-tour-tab="appearance"]').click();
+    await page.locator('[data-tour-tab="customization"]').click();
 
     const row = page.locator("[data-workspace-row]").first();
     await expect(row).toBeVisible();
