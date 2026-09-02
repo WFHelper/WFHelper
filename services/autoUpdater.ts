@@ -6,6 +6,7 @@ import { app } from "electron";
 import { autoUpdater } from "electron-updater";
 import type { UpdateInfo, ProgressInfo, UpdateDownloadedEvent } from "electron-updater";
 
+import { markQuitting } from "./appLifecycle";
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { APP_UPDATE_STATUS } from "../config/shared/ipcChannels";
@@ -384,6 +385,9 @@ export function installDownloadedUpdate(): { ok: boolean; message?: string } {
   setTimeout(() => {
     // isSilent=true: run the NSIS installer with /S so updates don't re-open
     // the full install wizard. installer.nsh keeps the helper pref intact.
+    // Marked first, or tray mode would hide the window instead of closing it
+    // and the installer would wait forever for a locked app to exit.
+    markQuitting();
     autoUpdater.quitAndInstall(true, true);
   }, 250);
 

@@ -7,6 +7,7 @@ import {
   onAuthorized,
 } from "./ipcSecurity";
 import { overlayMessages, setOverlayLocale } from "./overlayI18n";
+import { createTray, destroyTray, isTrayActive } from "./trayIpc";
 import { disposeAppHotkeys, overlayHotkeyBackend } from "./hotkeyRegistry";
 import { createOverlaySettingsController } from "./overlay/settings";
 import { moveOverlayWindowBy } from "./overlay/windows";
@@ -402,6 +403,8 @@ function register(): void {
       settingsController.registerOverlayHotkey();
       applyOverlayAvailabilitySettings(previousSettings);
       arbiRunTracker.setArbiTrackingEnabled(settings.arbiTrackingEnabled !== false);
+      if (settings.keepRunningOnClose === true) createTray();
+      else destroyTray();
       setOcrDebugDumpsEnabled(settings.ocrDebugImagesEnabled !== false);
       inventorySync.apply("settings");
       wfmPresence.setOptions({
@@ -434,6 +437,8 @@ function register(): void {
     if (!locale) return;
     log.info(`[OverlayI18n] locale=${locale}`);
     pushOverlayMessages();
+    // The tray menu is built once and outlives the window, so it needs relabelling.
+    if (isTrayActive()) createTray();
   });
 
   // wizard dummies mirror real overlay positions on the primary display's work area

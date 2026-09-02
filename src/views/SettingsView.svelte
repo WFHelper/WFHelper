@@ -192,6 +192,7 @@
     "autoInventorySyncEnabled",
     "ocrDebugImagesEnabled",
     "blockThirdPartyInjection",
+    "keepRunningOnClose",
     "warframeUiScale",
     "warframeUiScaleAuto",
     "hotkeyEnabled",
@@ -806,6 +807,22 @@
                 <input
                   type="checkbox"
                   bind:checked={$hideFounderMasteryItems}
+                  class="accent-accent"
+                />
+              </SettingsRow>
+            </div>
+          </SettingsSection>
+
+          <SettingsSection
+            title={$tr("settings.backgroundTitle")}
+            description={$tr("settings.backgroundDesc")}
+          >
+            <div class="mt-2.5 grid gap-1">
+              <SettingsRow label={$tr("settings.keepRunningOnClose")} dataSetting="keep-running">
+                <input
+                  type="checkbox"
+                  bind:checked={form.keepRunningOnClose}
+                  on:change={autoSave}
                   class="accent-accent"
                 />
               </SettingsRow>

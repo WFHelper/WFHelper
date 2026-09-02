@@ -109,6 +109,14 @@ export function setOverlayLocale(code: unknown): string | null {
   return next;
 }
 
+/** A string main renders itself (the tray menu), not an overlay key. These are
+ *  outside OVERLAY_MESSAGE_KEYS because no overlay window asks for them, and the
+ *  fallback keeps the menu readable if a catalogue ever loses the key. */
+export function mainMessage(key: MessageKey, fallback: string): string {
+  const dictionary = DICTIONARIES[activeLocale] ?? DICTIONARIES[DEFAULT_LOCALE];
+  return dictionary[key] ?? DICTIONARIES[DEFAULT_LOCALE][key] ?? fallback;
+}
+
 interface OverlayMessageBundle {
   locale: string;
   messages: Record<string, string>;

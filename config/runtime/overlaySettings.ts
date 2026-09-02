@@ -68,6 +68,9 @@ export interface OverlaySettings {
   /** Refuse the legacy Windows injection vectors audio and overlay suites use.
    *  Takes effect on the next start; also blocks legacy IMEs. */
   blockThirdPartyInjection: boolean;
+  /** Closing the window hides it to the system tray instead of quitting, so
+   *  alerts, notifications and EE.log watching keep running. */
+  keepRunningOnClose: boolean;
   /** Warframe's in-game interface scale, used to align reward OCR crops. */
   warframeUiScale: number;
   /** Prefer the EE.cfg-detected scale; off makes the manual slider authoritative. */
@@ -131,6 +134,9 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   autoInventorySyncEnabled: true,
   ocrDebugImagesEnabled: true,
   blockThirdPartyInjection: true,
+  // Off by default: closing the window has always quit, and an app that stays
+  // alive in the tray unannounced reads as one that failed to exit.
+  keepRunningOnClose: false,
   warframeUiScale: REFERENCE_WARFRAME_UI_SCALE,
   warframeUiScaleAuto: true,
   uiScale: 1,

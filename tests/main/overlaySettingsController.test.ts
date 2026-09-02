@@ -220,6 +220,21 @@ describe("overlay settings controller", () => {
     ).toBe(true);
   });
 
+  it("keeps tray mode and the injection guard at their opposite defaults", () => {
+    const { controller } = buildController();
+
+    // An existing install must keep quitting on close until it opts in.
+    expect(controller.normalizeOverlaySettings({}).keepRunningOnClose).toBe(false);
+    expect(
+      controller.normalizeOverlaySettings({ keepRunningOnClose: true }).keepRunningOnClose,
+    ).toBe(true);
+    expect(controller.normalizeOverlaySettings({}).blockThirdPartyInjection).toBe(true);
+    expect(
+      controller.normalizeOverlaySettings({ blockThirdPartyInjection: false })
+        .blockThirdPartyInjection,
+    ).toBe(false);
+  });
+
   it("migrates the legacy trade notification setting to the overlay toggle", () => {
     const { controller } = buildController();
 

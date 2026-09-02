@@ -98,6 +98,8 @@ import * as tradeWorkflow from "./ipc/tradeWorkflow";
 import * as tradeWorkbenchIpc from "./ipc/tradeWorkbenchIpc";
 import * as tradeLedgerIpc from "./ipc/tradeLedgerIpc";
 import * as popoutIpc from "./ipc/popoutIpc";
+import * as trayIpc from "./ipc/trayIpc";
+import { isQuitting, markQuitting, shouldHideOnClose } from "./services/appLifecycle";
 import { applyMainWindowZoom } from "./ipc/mainWindowZoom";
 import { assertMainRendererSender, handleAuthorized } from "./ipc/ipcSecurity";
 import {
@@ -173,16 +175,38 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
-    const window = ctx.mainWindow;
-    if (!window || window.isDestroyed()) return;
-    if (window.isMinimized()) window.restore();
-    window.show();
-    window.focus();
-  });
+  // A second launch means "bring the app up", so a destroyed window is recreated.
+  app.on("second-instance", () => revealMainWindow());
 }
 
 const MAIN_WINDOW_MIN_SIZE = { width: 900, height: 600 };
+
+// Shared by the tray's Show item, a second launch and macOS activate: after a
+// hide-on-close the window is only hidden, but it can also have been destroyed
+// since.
+function revealMainWindow(): void {
+  const window = ctx.mainWindow;
+  if (!window || window.isDestroyed()) {
+    createWindow();
+    // The updater keeps the window it was handed at startup; without this the
+    // recreated one never receives an update state.
+    if (ctx.mainWindow) autoUpdater.initialize(ctx.mainWindow);
+    return;
+  }
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+}
+
+// Hiding keeps the main process alive, so its watchers and notifications carry
+// on. The hidden renderer is background-throttled, so its timers do not.
+function keepRunningInTray(): boolean {
+  return shouldHideOnClose({
+    keepRunning: ctx.overlaySettings.keepRunningOnClose === true,
+    quitting: isQuitting(),
+    trayAvailable: trayIpc.isTrayActive(),
+  });
+}
 
 function createWindow(): void {
   const savedState = loadMainWindowState(MAIN_WINDOW_MIN_SIZE);
@@ -257,10 +281,13 @@ function createWindow(): void {
   };
   mainWindow.on("move", queueStateSave);
   mainWindow.on("resize", queueStateSave);
-  mainWindow.on("close", () => {
+  mainWindow.on("close", (event) => {
     if (stateSaveTimer) clearTimeout(stateSaveTimer);
     stateSaveTimer = null;
     saveMainWindowState(mainWindow);
+    if (!keepRunningInTray()) return;
+    event.preventDefault();
+    mainWindow.hide();
   });
 
   // Block page reload shortcuts (Ctrl+R, Ctrl+Shift+R, F5) to prevent breaking app state.
@@ -392,6 +419,8 @@ function initTrackersAndSettings(profileStage: ProfileStage): void {
   tradeTracker.loadTradeLog();
   arbiRunTracker.initArbiTracker();
   arbiRunTracker.setArbiTrackingEnabled(ctx.overlaySettings.arbiTrackingEnabled !== false);
+  trayIpc.configureTray(revealMainWindow);
+  if (ctx.overlaySettings.keepRunningOnClose === true) trayIpc.createTray();
   setOcrDebugDumpsEnabled(ctx.overlaySettings.ocrDebugImagesEnabled !== false);
   wfmPresence.setOptions({
     autoIngameEnabled: ctx.overlaySettings.wfmAutoIngameEnabled === true,
@@ -611,8 +640,10 @@ void app.whenReady().then(async () => {
       log.error("[Display] XWayland re-exec did not happen - relaunching on native Wayland");
       linuxDisplay.rememberXWaylandFailure();
       // app.exit() skips will-quit, so the session marker has to be closed here
-      // or the relaunched instance reports this restart as a crash.
+      // or the relaunched instance reports this restart as a crash. The tray is
+      // already up when keepRunningOnClose is set and would outlive the relaunch.
       endSessionCleanly();
+      trayIpc.destroyTray();
       app.relaunch();
       app.exit(0);
     } else if (JOINED_XWAYLAND) {
@@ -689,11 +720,12 @@ void app.whenReady().then(async () => {
   profileStage("total-main-startup-sequence", startupStartedAt);
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    revealMainWindow();
   });
 });
 
 app.on("window-all-closed", () => {
+  if (keepRunningInTray()) return;
   app.quit();
 });
 
@@ -725,6 +757,9 @@ function stopOverlayHotkeyGate(): void {
 
 let _dbwinQuitDone = false;
 app.on("before-quit", (event) => {
+  // Ahead of every teardown step: the close handler below must not read this
+  // quit as a request to hide the window.
+  markQuitting();
   inventoryIpc.stopInventoryWatcher();
   apiHelperRunner.stopPolling();
   eeLogMonitor.stopWatching();
@@ -746,6 +781,7 @@ app.on("before-quit", (event) => {
 
 app.on("will-quit", () => {
   endSessionCleanly();
+  trayIpc.destroyTray();
   try {
     globalShortcut.unregisterAll();
   } catch {

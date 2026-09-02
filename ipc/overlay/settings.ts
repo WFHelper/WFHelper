@@ -263,6 +263,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       autoInventorySyncEnabled: booleanSetting("autoInventorySyncEnabled"),
       ocrDebugImagesEnabled: booleanSetting("ocrDebugImagesEnabled"),
       blockThirdPartyInjection: booleanSetting("blockThirdPartyInjection"),
+      keepRunningOnClose: booleanSetting("keepRunningOnClose"),
       warframeUiScale: normalizeWarframeUiScale(
         candidate.warframeUiScale,
         defaults.warframeUiScale,
