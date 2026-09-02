@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MaterialRing from "./MaterialRing.svelte";
   import ItemImage from "../ItemImage.svelte";
   import SegmentedControl from "../SegmentedControl.svelte";
   import ThemedPanel from "../ThemedPanel.svelte";
@@ -37,6 +38,15 @@
   const groups = $derived(groupPlannedItems(plan.items, sort, itemLabel));
   const shortTotals = $derived(missingOnly(plan.totals));
   const visibleTotals = $derived(showCovered ? plan.totals : shortTotals);
+  // Short rows lead, biggest gap first; covered rows fall to the back in name
+  // order, so revealing them never reshuffles what was already on screen.
+  const sortedTotals = $derived(
+    [...visibleTotals].sort((a, b) => {
+      if (a.missing > 0 !== b.missing > 0) return a.missing > 0 ? -1 : 1;
+      if (a.missing > 0) return missingShare(b) - missingShare(a);
+      return itemLabel(a).localeCompare(itemLabel(b));
+    }),
+  );
   const plannedXp = $derived(plan.items.reduce((sum, item) => sum + item.masteryXpRemaining, 0));
   const sortOptions = $derived([
     { value: "mastery_xp" as const, label: $tr("mastery.sort.masteryXp") },
@@ -44,9 +54,8 @@
     { value: "name" as const, label: $tr("common.name") },
   ]);
 
-  function barWidth(owned: number, needed: number): number {
-    if (needed <= 0) return 100;
-    return Math.max(0, Math.min(100, (owned / needed) * 100));
+  function missingShare(row: { missing: number; needed: number }): number {
+    return row.needed > 0 ? row.missing / row.needed : 0;
   }
 
   function toggleMaterials(uniqueName: string): void {
@@ -337,33 +346,32 @@
       {#if visibleTotals.length === 0}
         <p class="text-xs text-text-muted">{$tr("mastery.planner.noMaterialsNeeded")}</p>
       {:else}
-        {#each visibleTotals as row (row.uniqueName)}
-          <div class="grid min-w-0 grid-cols-[minmax(110px,180px)_1fr_auto] items-center gap-2">
-            <span class="min-w-0 truncate text-xs text-text-secondary" title={itemLabel(row)}
-              >{itemLabel(row)}</span
+        <div class="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(150px,1fr))]">
+          {#each sortedTotals as row (row.uniqueName)}
+            {@const label = itemLabel(row)}
+            {@const counts = `${row.owned.toLocaleString($locale)} / ${row.needed.toLocaleString($locale)}`}
+            <div
+              class="flex items-center gap-2.5 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-card)] px-2.5 py-2"
+              data-planner-material={row.uniqueName}
             >
-            <svg
-              class="block h-1.5 w-full overflow-hidden rounded-full bg-surface-hover"
-              viewBox="0 0 100 1"
-              preserveAspectRatio="none"
-              aria-hidden="true"
-            >
-              <rect
-                class={row.missing > 0 ? "fill-warning" : "fill-success"}
-                x="0"
-                y="0"
-                width={barWidth(row.owned, row.needed)}
-                height="1"
-              ></rect>
-            </svg>
-            <span
-              class="whitespace-nowrap text-xs tabular-nums {row.missing > 0
-                ? 'text-warning'
-                : 'text-text-secondary'}"
-              >{row.owned.toLocaleString($locale)}/{row.needed.toLocaleString($locale)}</span
-            >
-          </div>
-        {/each}
+              <MaterialRing owned={row.owned} needed={row.needed} missing={row.missing} {label} />
+              <span class="grid min-w-0 gap-0.5">
+                <span class="truncate text-xs text-text-secondary" title={label}>{label}</span>
+                <span
+                  class="truncate text-[0.7rem] tabular-nums {row.missing > 0
+                    ? 'text-warning'
+                    : 'text-text-muted'}"
+                  title={counts}>{counts}</span
+                >
+                {#if row.missing > 0}
+                  <span class="truncate text-[0.7rem] tabular-nums text-text-muted"
+                    >{$tr("common.missing")} {row.missing.toLocaleString($locale)}</span
+                  >
+                {/if}
+              </span>
+            </div>
+          {/each}
+        </div>
       {/if}
     </div>
 
