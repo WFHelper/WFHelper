@@ -6,8 +6,8 @@ covers runtime ownership and invariants. See `README.md` for setup and operator 
 ## Runtime layout
 
 - `src/index.ts` handles CORS rejection, route dispatch, 404 responses, request logging, and cron.
-- `src/routes/public.ts` owns health, bootstrap, snapshot, item-catalog, price, meta, and order
-  routes.
+- `src/routes/public.ts` owns health, bootstrap, snapshot, item-catalog, top-traded, price, meta,
+  and order routes.
 - `src/routes/admin.ts` owns authenticated prewarm, catalog, hotset, and status routes.
 - `src/services/readThrough.ts` owns cache-first reads, stale refresh, negative markers, and
   in-flight deduplication.
@@ -41,7 +41,7 @@ Rate Limiting binding defaults in `wrangler.jsonc` are per IP:
 
 - health: 5 per minute
 - bootstrap and full orders: 60 per minute
-- prices, meta, and order summaries: 200 per minute
+- prices, meta, order summaries, supporters, and top traded: 200 per minute
 - snapshot and item catalog: 2 per minute
 - admin: 60 per minute
 
@@ -165,8 +165,8 @@ leaves the last good median. Prices and their negative markers live in `PRICE_CA
 catalogs live in `ITEM_META`. Successful price, meta, and order-summary responses carry
 `public, max-age=60`, so a PoP can serve a hydrated value for up to a minute after KV changes.
 
-Prewarm cron runs every 15 minutes and also advances the riven history sweep and the one-time
-price-history seed; the separate daily `0 4 * * *` trigger runs the price archive, the supporter
+Prewarm cron runs every 15 minutes and also advances the riven history sweep, the one-time
+price-history seed and the top-traded volume sweep; the separate daily `0 4 * * *` trigger runs the price archive, the supporter
 sync and the Baro archive, in that order. Each cron stage is wrapped in its own try/catch and
 logs under `cron:{stage}`, so one failing stage costs only itself. The price archive makes no
 upstream request and its day cannot be reconstructed later, so it runs ahead of the daily budget
@@ -213,7 +213,7 @@ visits rather than days, since Baro appears roughly every two weeks.
 The riven sweep runs on the 15-minute prewarm tick, not the daily one. About 250 weapons do not
 fit in one invocation, so `archive:riven-sweep:v1` carries `{date, cursor, complete}` and each
 tick processes `RIVEN_ARCHIVE_BATCH_SIZE` weapons (12) with one serialized request each, the same
-pacing as the prewarm sweep and roughly 12 subrequests on top of prewarm's ~400. The day's key is
+pacing as the prewarm sweep and 13 requests on top of prewarm's 251. The day's key is
 rewritten after every batch with `complete: false` and finalized with `complete: true` on the tick
 that reaches the end of the list; the remaining ticks of that UTC day idle without any upstream
 request. A full pass takes about five hours, so one sweep completes per day. The weapon list comes
@@ -272,6 +272,72 @@ existing archive, no negative markers are written, and each entry point catches 
 failing archive cannot break prewarm or the supporter sync. `HISTORY_ARCHIVE_ENABLED=0` stops all
 three families. Every write logs its byte size on route `archive:prices`, `archive:rivens`,
 `archive:baro`, or `archive:price-seed`, and a value past 4MB is refused rather than stored.
+
+## Top traded (rolling volume sweep)
+
+`GET /v1/top-traded` serves KV key `top-traded:v1` as
+`{ ok: true, generatedAt, windowDays: 7, items: [{ slug, name, volume, median, value, thumb? }], byValue }`.
+`items` is the top 100 slugs by seven-day volume; `byValue` is that same list ordered by
+`volume * median`, so the client toggles views by joining slugs back onto `items` instead of
+carrying a second copy. The route is public, needs no bootstrap token, uses the price/meta
+rate-limit class, and is edge-cached for one hour with a body ETag. Before the first aggregate
+lands the route answers `404 {"ok":false,"error":"top_traded_not_ready"}` and is never cached, so
+the first published doc shows up immediately. `readTopTradedDoc()` revalidates the stored doc at
+the boundary; a malformed one reads as absent rather than being served.
+
+The archive holds no volume on its own. The daily price archive copies the snapshot, which
+carries medians only, and the one-time seed writes volume only for the 90 days before it started.
+`services/topTraded.ts` fills the gap: on the 15-minute tick it walks the same slug catalog the
+prewarm sweep and the price seed walk, requesting `GET /v1/items/{slug}/statistics` for
+`TOP_TRADED_BATCH_SIZE` slugs (150) with one serialized request each. It requests the last eight
+calendar days of `statistics_closed["90days"]`, drops the current UTC day (its volume is still
+growing and a merged volume is never replaced, so a partial value would freeze), and merges the
+seven complete days as `(date, median, volume)` into `archive:prices:{date}` through
+`mergeVolumes()` in `history.ts`. Rank semantics mirror the seed and the live bare price: a slug in the ranked
+order-summary catalog takes the `mod_rank` 0 rows, any other slug takes the rankless rows, so the
+merged volume belongs to the same sales as the stored median. An unavailable slug or ranked
+catalog leaves the cursor where it is and retries on the next tick.
+
+`mergeVolumes()` never replaces a median or a volume another writer stored. An existing row that
+lacks a volume gains one, a slug the day does not hold is appended, and a day whose key does not
+exist is created only when the date is already past: the daily archive owns the first write of the
+current UTC day and would skip it if this created the key. Days created here join
+`archive:index:prices:v1`, and every write carries the retention TTL measured from the day's own
+date.
+
+Sweep state is `top-traded:sweep:v1` (`{cursor, slugsHash, lastCompletedAt, failures}`). The
+cursor wraps continuously rather than latching, so a slug whose request failed is simply asked
+again on the next pass; the failure count resets at each wrap and a pass that ended with failures
+logs status 206 with `pass_failures` and the remaining count on route `top-traded:sweep`. `slugsHash` identifies the list the cursor
+indexes without storing a second copy of it, and a catalog that gained or lost slugs mid-pass
+restarts the pass instead of skipping past the shift. `TOP_TRADED_ENABLED=0` stops the sweep and
+the aggregate, as does `HISTORY_ARCHIVE_ENABLED=0`.
+
+The aggregate rebuilds at the end of every pass and at most hourly otherwise. It reads the last
+seven complete UTC days (never the current one), sums volume per bare slug and keeps the newest
+day's median. Only bare-slug rows count: the snapshot copy's `{slug}:rank-v3:r{n}` keys never
+carry a volume. Names and thumbnails come from the client catalog the worker already serves for
+`/v1/wfm-items`; the thumbnail stays the raw catalog path and the desktop app resolves it through
+its icon mirror. The doc is capped at 100 items and refused past 512KB, and it is written with a
+30-day TTL so a dead sweep eventually 404s instead of serving months-old figures.
+
+Budget per 15-minute tick: KV operations count as subrequests too, so the upstream requests are the
+smaller half. Prewarm spends up to 8 subrequests per slug (3 reads, 2 requests, 2 writes) and the
+order-summary pass 6 per rank entry, so a tick where all of them are due reaches roughly 1,700
+against Cloudflare's ~1000 subrequest cap; an ordinary tick stays far below it because most entries
+are not stale yet. This sweep's own share is about 180: one request per slug, one read and one write
+per touched day for at most eight days, the state key and the rebuild's nine reads. A full pass
+takes `ceil(slugs / 150)` ticks: about
+27 ticks (roughly 7 hours) at the ~4,000-slug catalog the price seed measures, and about 12 hours
+if the catalog grows past 7,000. Lower `TOP_TRADED_BATCH_SIZE` to slow the pass and the request
+rate together.
+
+Hydration gap: volume only ever exists for days a pass reached while they were inside its
+eight-day window, plus whatever the one-time seed wrote for the 90 days before it ran. Days
+between the seed's start and this sweep's first pass keep medians without volume for good, and
+those days simply contribute nothing once they fall out of the seven-day window. `/v1/top-traded`
+therefore 404s for the first pass after deploy and reports a short window until seven swept days
+have accumulated.
 
 ## Daily budget
 

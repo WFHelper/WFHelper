@@ -1,9 +1,87 @@
+<script module lang="ts">
+  import { registerSections } from "../lib/layout/registry.js";
+
+  const ANALYTICS_SECTIONS = [
+    "analytics.summary",
+    "analytics.topTraded",
+    "analytics.timeCharts",
+    "analytics.topItems",
+    "analytics.byType",
+    "analytics.worthToday",
+    "analytics.partners",
+    "analytics.yearCompare",
+    "analytics.ledger",
+  ];
+
+  // The four single-span entries are ordered by column, not by reading order:
+  // the wide grid fills the left column first, so this list keeps today's
+  // type/partners and worth/year pairings side by side.
+  registerSections("analytics", [
+    {
+      id: "analytics.summary",
+      view: "analytics",
+      labelKey: "layout.section.analyticsSummary",
+      defaultSpan: "full",
+    },
+    {
+      id: "analytics.topTraded",
+      view: "analytics",
+      labelKey: "analysis.topTraded.title",
+      defaultSpan: "full",
+      canPopout: true,
+    },
+    {
+      id: "analytics.timeCharts",
+      view: "analytics",
+      labelKey: "layout.section.analyticsTimeCharts",
+      defaultSpan: "full",
+      canPopout: true,
+    },
+    {
+      id: "analytics.topItems",
+      view: "analytics",
+      labelKey: "layout.section.analyticsTopItems",
+      defaultSpan: "full",
+      canPopout: true,
+    },
+    { id: "analytics.byType", view: "analytics", labelKey: "analysis.byType", defaultSpan: 1 },
+    {
+      id: "analytics.worthToday",
+      view: "analytics",
+      labelKey: "analysis.worthToday",
+      defaultSpan: 1,
+    },
+    {
+      id: "analytics.partners",
+      view: "analytics",
+      labelKey: "analysis.topPartners",
+      defaultSpan: 1,
+    },
+    {
+      id: "analytics.yearCompare",
+      view: "analytics",
+      labelKey: "analysis.yearCompare",
+      defaultSpan: 1,
+    },
+    {
+      id: "analytics.ledger",
+      view: "analytics",
+      labelKey: "analysis.ledger",
+      defaultSpan: "full",
+      minSpan: "full",
+      canHide: false,
+    },
+  ]);
+</script>
+
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import { invoke } from "../lib/ipc.js";
   import { locale, tr } from "../lib/i18n.js";
   import type { MessageKey } from "../lib/i18n.js";
   import { log } from "../lib/log.js";
+  import EditLayoutBar from "../components/layout/EditLayoutBar.svelte";
+  import LayoutGrid from "../components/layout/LayoutGrid.svelte";
   import ThemedButton from "../components/ThemedButton.svelte";
   import ThemedPanel from "../components/ThemedPanel.svelte";
   import AnalysisCategoryEditor from "../components/analysis/AnalysisCategoryEditor.svelte";
@@ -16,6 +94,7 @@
   import AnalysisRowEditor from "../components/analysis/AnalysisRowEditor.svelte";
   import AnalysisSummary from "../components/analysis/AnalysisSummary.svelte";
   import AnalysisTopItems from "../components/analysis/AnalysisTopItems.svelte";
+  import AnalysisTopTraded from "../components/analysis/AnalysisTopTraded.svelte";
   import AnalysisTypePanel from "../components/analysis/AnalysisTypePanel.svelte";
   import AnalysisWorthToday from "../components/analysis/AnalysisWorthToday.svelte";
   import AnalysisYearCompare from "../components/analysis/AnalysisYearCompare.svelte";
@@ -514,62 +593,78 @@
           <p class="text-sm font-semibold text-text-secondary">{$tr("analysis.emptyTitle")}</p>
           <p class="max-w-[40rem] text-xs leading-relaxed">{$tr("analysis.emptyHint")}</p>
         </div>
-      {:else}
-        {#if analyticsCapped}
-          <p class="m-0 text-xs text-warning" data-analysis-scope>
-            {$tr("analysis.analyticsScope", {
-              loaded: allEvents.length.toLocaleString($locale),
-              total: analyticsTotal.toLocaleString($locale),
-            })}
-          </p>
-        {/if}
-
-        <AnalysisSummary {flow} {basis} {best} />
-
-        <div class="grid grid-cols-1 gap-3 @5xl:grid-cols-2">
-          <AnalysisMonthlyChart rows={months} />
-          <AnalysisRecentDays days={recentDays} {today} />
-        </div>
-
-        <div class="grid grid-cols-1 gap-3 @5xl:grid-cols-2">
-          <AnalysisTopItems titleKey="analysis.topSold" rows={soldRows} side="sold" />
-          <AnalysisTopItems titleKey="analysis.topBought" rows={boughtRows} side="bought" />
-        </div>
-
-        <div class="grid grid-cols-1 gap-3 @5xl:grid-cols-2">
-          <AnalysisTypePanel
-            rows={types}
-            onEdit={() => {
-              showCategoryEditor = true;
-            }}
-          />
-          <AnalysisPartners rows={partners} />
-        </div>
-
-        <div class="grid grid-cols-1 gap-3 @5xl:grid-cols-2">
-          <AnalysisWorthToday {worth} />
-          <AnalysisYearCompare {comparison} />
-        </div>
+      {:else if analyticsCapped}
+        <p class="m-0 text-xs text-warning" data-analysis-scope>
+          {$tr("analysis.analyticsScope", {
+            loaded: allEvents.length.toLocaleString($locale),
+            total: analyticsTotal.toLocaleString($locale),
+          })}
+        </p>
       {/if}
 
-      <div class="flex min-h-[20rem] flex-col">
-        <AnalysisLedgerTable
-          page={tablePage}
-          loading={tableLoading}
-          {search}
-          {typeFilter}
-          offset={tableOffset}
-          limit={TABLE_PAGE_SIZE}
-          {onSearch}
-          {onTypeFilter}
-          {onOffset}
-          onEdit={(event) => {
-            editing = event;
-            editErrorKey = null;
-            editErrorText = null;
-          }}
-        />
-      </div>
+      <!-- Row gaps come from each section's own margin so a column of stacked
+           sections is spaced the same as a stack of full-width rows. -->
+      <LayoutGrid view="analytics" available={availableSections} gapClass="gap-x-3" let:sectionId>
+        {#if sectionId === "analytics.summary"}
+          <div class="mb-3">
+            <AnalysisSummary {flow} {basis} {best} />
+          </div>
+        {:else if sectionId === "analytics.topTraded"}
+          <div class="mb-3" data-analysis-section="analytics.topTraded">
+            <AnalysisTopTraded />
+          </div>
+        {:else if sectionId === "analytics.timeCharts"}
+          <div class="mb-3 grid grid-cols-1 gap-3 @5xl:grid-cols-2">
+            <AnalysisMonthlyChart rows={months} />
+            <AnalysisRecentDays days={recentDays} {today} />
+          </div>
+        {:else if sectionId === "analytics.topItems"}
+          <div class="mb-3 grid grid-cols-1 gap-3 @5xl:grid-cols-2">
+            <AnalysisTopItems titleKey="analysis.topSold" rows={soldRows} side="sold" />
+            <AnalysisTopItems titleKey="analysis.topBought" rows={boughtRows} side="bought" />
+          </div>
+        {:else if sectionId === "analytics.byType"}
+          <div class="mb-3">
+            <AnalysisTypePanel
+              rows={types}
+              onEdit={() => {
+                showCategoryEditor = true;
+              }}
+            />
+          </div>
+        {:else if sectionId === "analytics.worthToday"}
+          <div class="mb-3">
+            <AnalysisWorthToday {worth} />
+          </div>
+        {:else if sectionId === "analytics.partners"}
+          <div class="mb-3">
+            <AnalysisPartners rows={partners} />
+          </div>
+        {:else if sectionId === "analytics.yearCompare"}
+          <div class="mb-3">
+            <AnalysisYearCompare {comparison} />
+          </div>
+        {:else if sectionId === "analytics.ledger"}
+          <div class="mb-3 flex min-h-[20rem] flex-col">
+            <AnalysisLedgerTable
+              page={tablePage}
+              loading={tableLoading}
+              {search}
+              {typeFilter}
+              offset={tableOffset}
+              limit={TABLE_PAGE_SIZE}
+              {onSearch}
+              {onTypeFilter}
+              {onOffset}
+              onEdit={(event) => {
+                editing = event;
+                editErrorKey = null;
+                editErrorText = null;
+              }}
+            />
+          </div>
+        {/if}
+      </LayoutGrid>
     </div>
   {/if}
 </section>

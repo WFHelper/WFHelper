@@ -13,6 +13,7 @@ import {
 } from '../services/readThrough';
 import { isRelicSlug, normalizeOrderSubtype } from '../services/orderSubtype';
 import { readPublishedSupporters } from '../services/supporters';
+import { readTopTradedDoc } from '../services/topTraded';
 import { recordActiveUser } from '../services/activeUsers';
 import { readRankedSummaryCatalogFromKv, sanitizeSnapshotForClient } from '../services/prewarm';
 import { fetchCatalogSlugs, readClientCatalogFromKv } from '../services/prewarmCatalog';
@@ -37,6 +38,7 @@ const routeStats = {
 	orderSummaryRequests: 0,
 	wfmItemsRequests: 0,
 	supportersRequests: 0,
+	topTradedRequests: 0,
 };
 
 const PUBLIC_JSON_CACHE_HEADERS = { 'cache-control': 'public, max-age=60' };
@@ -46,6 +48,8 @@ const WFM_ITEMS_CACHE_CONTROL = 'public, max-age=21600';
 const WFM_ITEMS_CACHE_VERSION = 2;
 const SUPPORTERS_CACHE_CONTROL = 'public, max-age=3600';
 const SUPPORTERS_CACHE_VERSION = 1;
+const TOP_TRADED_CACHE_CONTROL = 'public, max-age=3600';
+const TOP_TRADED_CACHE_VERSION = 1;
 const RANKED_CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
 
 let rankedCatalogCache: { expiresAt: number; bySlug: Map<string, number> } | null = null;
@@ -404,6 +408,58 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		// An empty list is never edge-cached, so the first sync after setup shows up
 		// immediately instead of an hour later.
 		if (ctx && published.supporters.length > 0) {
+			ctx.waitUntil(edgeCache.put(cacheKey, new Response(body, { status: 200, headers: responseHeaders })));
+		}
+
+		return annotateResponse(response, { cacheHit: false });
+	}
+
+	if (req.method === 'GET' && url.pathname === '/v1/top-traded') {
+		// Public and bootstrap-free like the item catalog: one aggregate the cron owns,
+		// rebuilt at most hourly, so the edge serves nearly every request.
+		const guardResponse = await guardPublicRequest(req, env, 'top-traded');
+		if (guardResponse) return guardResponse;
+
+		routeStats.topTradedRequests += 1;
+		const cacheKey = new Request(`${url.origin}/v1/top-traded?v=${TOP_TRADED_CACHE_VERSION}`, { method: 'GET' });
+		const edgeCache = caches.default;
+		const cachedResponse = await edgeCache.match(cacheKey);
+		if (cachedResponse) {
+			const cachedEtag = cachedResponse.headers.get('etag');
+			if (requestHasMatchingEtag(req, cachedEtag)) {
+				return annotateResponse(notModifiedResponse(cachedEtag, TOP_TRADED_CACHE_CONTROL, req, env), { cacheHit: true });
+			}
+			const cachedHeaders: Record<string, string> = { 'cache-control': TOP_TRADED_CACHE_CONTROL };
+			if (cachedEtag) cachedHeaders.etag = cachedEtag;
+			return annotateResponse(streamJsonResponse(cachedResponse.body, req, env, 200, cachedHeaders), { cacheHit: true });
+		}
+
+		const doc = await readTopTradedDoc(env);
+		if (!doc) {
+			// No pass has published yet; never cached, so the first build shows up at once.
+			return annotateResponse(jsonResponse({ ok: false, error: 'top_traded_not_ready' }, req, env, 404), { cacheHit: false });
+		}
+
+		const body = JSON.stringify({
+			ok: true,
+			generatedAt: doc.generatedAt,
+			windowDays: doc.windowDays,
+			items: doc.items,
+			byValue: doc.byValue,
+		});
+		const etag = await clientBodyEtag(body, TOP_TRADED_CACHE_VERSION);
+		if (requestHasMatchingEtag(req, etag)) {
+			return annotateResponse(notModifiedResponse(etag, TOP_TRADED_CACHE_CONTROL, req, env), { cacheHit: true });
+		}
+
+		const responseHeaders: Record<string, string> = {
+			'cache-control': TOP_TRADED_CACHE_CONTROL,
+			etag,
+		};
+
+		const response = rawJsonResponse(body, req, env, 200, responseHeaders);
+
+		if (ctx) {
 			ctx.waitUntil(edgeCache.put(cacheKey, new Response(body, { status: 200, headers: responseHeaders })));
 		}
 

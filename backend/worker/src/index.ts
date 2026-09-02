@@ -8,6 +8,7 @@ import { logEvent, takeResponseLogFields } from './services/logging';
 import { prewarmBatch, prewarmOrderSummaryCatalog } from './services/prewarm';
 import { seedPriceHistory } from './services/priceHistorySeed';
 import { syncSupporters } from './services/supporters';
+import { sweepTopTraded } from './services/topTraded';
 import type { Env } from './types';
 
 // Must match the daily trigger in wrangler.jsonc; every other cron tick prewarms.
@@ -32,6 +33,7 @@ function routeMetadata(req: Request): RouteMetadata {
 	if (pathname === '/v1/snapshot') return { type: 'request', route: '/v1/snapshot' };
 	if (pathname === '/v1/wfm-items') return { type: 'request', route: '/v1/wfm-items' };
 	if (pathname === '/v1/supporters') return { type: 'request', route: '/v1/supporters' };
+	if (pathname === '/v1/top-traded') return { type: 'request', route: '/v1/top-traded' };
 
 	const publicSlugRoutes = [
 		['/v1/prices/', '/v1/prices/:slug'],
@@ -168,6 +170,7 @@ export default {
 			);
 			await runCronStage('cron:rivens', () => sweepRivenArchive(env));
 			await runCronStage('cron:price-seed', () => seedPriceHistory(env));
+			await runCronStage('cron:top-traded', () => sweepTopTraded(env));
 			logEvent({
 				type: 'cron',
 				route,

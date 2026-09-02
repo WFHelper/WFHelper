@@ -233,6 +233,115 @@ export async function archiveDailyPrices(env: Env, options: { now?: number } = {
 	}
 }
 
+export interface VolumeSample {
+	median: number;
+	volume: number;
+}
+
+interface MergeVolumesResult {
+	dates: string[];
+	created: string[];
+	/** Existing rows that gained the volume they lacked. */
+	filled: number;
+	/** Rows the day did not hold at all. */
+	added: number;
+}
+
+function storedPriceRows(value: Record<string, unknown> | null): PriceRow[] {
+	const rows: PriceRow[] = [];
+	if (!Array.isArray(value?.rows)) return rows;
+
+	for (const row of value.rows) {
+		if (!Array.isArray(row) || row.length < 2) continue;
+		const key = typeof row[0] === 'string' ? row[0] : '';
+		const median = numeric(row[1]);
+		if (!key || median == null) continue;
+		const volume = row.length > 2 ? numeric(row[2]) : null;
+		rows.push(volume == null ? [key, median] : [key, median, volume]);
+		if (rows.length >= MAX_PRICE_ROWS) break;
+	}
+	return rows;
+}
+
+// A backfilled day expires on the retention window measured from its own date, so
+// touching an old day cannot extend it past the bound the live archive keeps.
+function dayRetentionTtlSec(date: string, now: number, retentionDays: number): number {
+	const ageSec = Math.max(0, Math.floor((now - Date.parse(`${date}T00:00:00.000Z`)) / 1000));
+	return Math.max(DAY_SEC, retentionDays * DAY_SEC - ageSec);
+}
+
+/** Adds sales volume to dated price rows without replacing a stored median or
+ *  volume; the current UTC day is never created because the daily archive owns
+ *  a day's first write and would skip it. */
+export async function mergeVolumes(
+	env: Env,
+	byDate: Map<string, Map<string, VolumeSample>>,
+	options: { now?: number } = {},
+): Promise<MergeVolumesResult> {
+	const now = options.now ?? Date.now();
+	const config = getWorkerConfig(env);
+	const result: MergeVolumesResult = { dates: [], created: [], filled: 0, added: 0 };
+	if (!config.historyArchiveEnabled) return result;
+
+	const today = utcDate(now);
+	for (const date of [...byDate.keys()].sort()) {
+		const samples = byDate.get(date);
+		if (!samples || samples.size === 0) continue;
+
+		const key = `${ARCHIVE_PRICES_PREFIX}${date}`;
+		const existingRaw = await env.ITEM_META.get(key);
+		if (!existingRaw && date >= today) continue;
+
+		const existing = parseJsonRecord(existingRaw);
+		const rows = storedPriceRows(existing);
+		const rowIndex = new Map<string, number>();
+		rows.forEach((row, index) => {
+			if (!rowIndex.has(row[0])) rowIndex.set(row[0], index);
+		});
+
+		let filled = 0;
+		let added = 0;
+		for (const [slug, sample] of samples) {
+			const at = rowIndex.get(slug);
+			if (at == null) {
+				if (rows.length >= MAX_PRICE_ROWS) continue;
+				rowIndex.set(slug, rows.length);
+				rows.push([slug, sample.median, sample.volume]);
+				added += 1;
+				continue;
+			}
+			const row = rows[at];
+			if (row.length > 2) continue;
+			rows[at] = [row[0], row[1], sample.volume];
+			filled += 1;
+		}
+		if (filled === 0 && added === 0) continue;
+
+		const body = JSON.stringify({
+			v: 1,
+			date,
+			generatedAt: numeric(existing?.generatedAt) ?? now,
+			source: typeof existing?.source === 'string' ? existing.source : 'wfm-statistics-volume',
+			columns: ['key', 'median', 'volume'],
+			rows,
+		});
+		const bytes = byteLength(body);
+		if (bytes > MAX_ARCHIVE_BYTES) {
+			logEvent({ type: 'error', route: 'archive:prices', status: 500, bytes, error: 'archive_too_large' });
+			continue;
+		}
+
+		await env.ITEM_META.put(key, body, { expirationTtl: dayRetentionTtlSec(date, now, config.historyRetentionDays) });
+		result.dates.push(date);
+		result.filled += filled;
+		result.added += added;
+		if (!existingRaw) result.created.push(date);
+	}
+
+	if (result.created.length > 0) await recordArchiveEntries(env, 'prices', result.created, config.historyRetentionDays);
+	return result;
+}
+
 function weaponListRows(payload: unknown): unknown[] {
 	if (Array.isArray(payload)) return payload;
 	if (!isRecord(payload)) return [];

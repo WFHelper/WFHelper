@@ -43,6 +43,8 @@ interface WorkerConfig {
 	rivenArchiveBatchSize: number;
 	priceSeedEnabled: boolean;
 	priceSeedBatchSize: number;
+	topTradedEnabled: boolean;
+	topTradedBatchSize: number;
 	discordGuildId: string;
 	discordRoleTierMap: Record<string, SupporterTier>;
 }
@@ -69,6 +71,12 @@ export function getWorkerConfig(env: Env): WorkerConfig {
 		rivenArchiveBatchSize: clamp(parsePositiveInt(env.RIVEN_ARCHIVE_BATCH_SIZE, 12), 1, 60),
 		priceSeedEnabled: (env.PRICE_SEED_ENABLED || '1').trim() !== '0',
 		priceSeedBatchSize: clamp(parsePositiveInt(env.PRICE_SEED_BATCH_SIZE, 20), 1, 40),
+		topTradedEnabled: (env.TOP_TRADED_ENABLED || '1').trim() !== '0',
+		// One statistics request per slug plus ~30 KV ops for the merge and the rebuild, so
+		// this stage costs ~180. KV operations count as subrequests too, and prewarm (125
+		// slugs, up to 8 ops each) plus order summaries (72 rank entries, 6 each) dominate
+		// the tick: one where all of them are due passes Cloudflare's ~1000 cap on its own.
+		topTradedBatchSize: clamp(parsePositiveInt(env.TOP_TRADED_BATCH_SIZE, 150), 1, 300),
 		discordGuildId: (env.DISCORD_GUILD_ID || '').trim(),
 		discordRoleTierMap: parseRoleTierMap(env.DISCORD_ROLE_TIER_MAP),
 	};
