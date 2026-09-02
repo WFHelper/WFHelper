@@ -1,6 +1,6 @@
 <script lang="ts">
   import { addToast } from "../stores/toasts.js";
-  import { log } from "../lib/log.js";
+  import { isResizeObserverLoopError, log } from "../lib/log.js";
   import { tr } from "../lib/i18n.js";
   import { restartInSafeMode } from "../lib/customCss/safeMode.js";
   import { normalizeErrorMessage } from "../../config/shared/errors.js";
@@ -18,7 +18,10 @@
 
   function onWindowError(event: Event): void {
     const err = event as ErrorEvent;
-    reportAsync(err.error ?? err.message);
+    const reason = err.error ?? err.message;
+    // A sticky toast for a benign observer frame skip is noise on every view.
+    if (isResizeObserverLoopError(reason)) return;
+    reportAsync(reason);
   }
 
   function onUnhandledRejection(event: Event): void {
