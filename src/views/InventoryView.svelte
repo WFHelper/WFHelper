@@ -102,7 +102,7 @@
   import { ARCANE_STAND_IN_ART } from "../data/arcaneStandInArt.js";
   import { devMode, degradedIcons } from "../stores/devMode.js";
   import { sharedFilters, updateSharedFilters } from "../stores/filters.js";
-  import { inventoryViewMode, type InventoryViewMode } from "../stores/inventoryViewMode.js";
+  import { inventoryViewMode } from "../stores/inventoryViewMode.js";
   import { inventoryValueAllTradables, inventoryValueMinPlatinum } from "../stores/preferences.js";
   import { activeItem, activeRelic } from "../stores/modals.js";
   import { inventorySafety } from "../stores/inventorySafety.js";
@@ -269,10 +269,6 @@
 
   function handleToggleFilterPanel(): void {
     showFilterPanel = !showFilterPanel;
-  }
-
-  function setViewMode(mode: InventoryViewMode): void {
-    inventoryViewMode.set(mode);
   }
 
   /** Column headers write the shared sort store, same as the sort dropdown. */
@@ -720,18 +716,13 @@
     sortOptions={tabSortOptions}
     advancedCount={activeAdvancedCount}
     filtersEnabled={filter !== "resources"}
-    viewMode={$inventoryViewMode}
-    viewModeEnabled={filter !== "resources"}
-    onSelectViewMode={setViewMode}
     selectionMode={$inventorySelectionMode}
     selectionEnabled={filter !== "resources"}
     onToggleSelectionMode={handleToggleSelectionMode}
     on:filter={handleFilterSelect}
     on:toggle={handleToggleFilterPanel}
   >
-    <div class="mb-2 flex justify-end">
-      <EditLayoutBar view="inventory" />
-    </div>
+    <EditLayoutBar view="inventory" slot="actions" />
     <LayoutGrid
       view="inventory"
       only={INVENTORY_HEADER_SECTIONS}

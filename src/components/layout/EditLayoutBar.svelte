@@ -41,11 +41,30 @@
 <div class="relative flex flex-wrap items-center justify-end gap-1" data-layout-bar={view}>
   <button
     type="button"
-    class="btn-secondary btn-sm"
+    class="btn-secondary btn-sm gap-1.5"
     data-layout-edit-toggle={view}
     aria-pressed={editing}
     onclick={toggleEdit}
   >
+    {#if !editing}
+      <!-- Idle, this bar shares a header row with the title, so the glyph does
+           the work a whole dedicated row used to. -->
+      <svg
+        class="shrink-0"
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        aria-hidden="true"
+      >
+        <rect x="3" y="3" width="7.5" height="7.5" rx="1.5" />
+        <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5" />
+        <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5" />
+        <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" />
+      </svg>
+    {/if}
     {editing ? $tr(k("layout.doneEditing")) : $tr(k("layout.editLayout"))}
   </button>
 

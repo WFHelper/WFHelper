@@ -226,6 +226,8 @@
   "appearance.confirmDeleteTheme": "删除“{name}”？",
   "appearance.densityCards": "卡片",
   "appearance.densityRows": "行",
+  "appearance.inventoryViewMode": "物品栏布局",
+  "appearance.inventoryViewModeHint": "物品栏网格显示物品的方式。",
   "appearance.glassBlurStrength": "毛玻璃模糊强度",
   "appearance.marketListDensity": "市场列表密度",
   "appearance.marketListDensityHint": "Warframe.market 订单和裂罅合约的显示方式。",

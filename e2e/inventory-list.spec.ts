@@ -54,6 +54,21 @@ test.describe("Inventory list view", () => {
     return page.locator(`[data-inventory-view-mode-option="${mode}"]`);
   }
 
+  // The Cards/Rows switch lives in Settings > Appearance, so every mode change is
+  // a round trip. The settings tab resets to General on each mount.
+  async function openAppearanceSettings(): Promise<void> {
+    await openView(page, "settings");
+    await page.locator('[data-tour-tab="appearance"]').click();
+    await expect(page.locator("[data-inventory-view-mode]")).toBeVisible({ timeout: 15_000 });
+  }
+
+  async function setMode(mode: "cards" | "list"): Promise<void> {
+    await openAppearanceSettings();
+    await modeButton(mode).click();
+    await expect(modeButton(mode)).toHaveAttribute("aria-pressed", "true");
+    await openView(page, "inventory");
+  }
+
   function searchBox() {
     return page.locator(".view-sticky-filters .shared-filter-search input");
   }
@@ -64,18 +79,17 @@ test.describe("Inventory list view", () => {
   }
 
   test.beforeEach(async () => {
+    await setMode("cards");
     await setSearch("");
-    await modeButton("cards").click();
     await expect(page.locator(".item-card").first()).toBeVisible({ timeout: 15_000 });
   });
 
-  test("the toggle swaps the card grid for a table and back", async () => {
-    await modeButton("list").click();
+  test("the setting swaps the card grid for a table and back", async () => {
+    await setMode("list");
     await expect(page.locator("[data-inventory-list]")).toBeVisible();
     await expect(page.locator(".item-card")).toHaveCount(0);
-    await expect(modeButton("list")).toHaveAttribute("aria-pressed", "true");
 
-    await modeButton("cards").click();
+    await setMode("cards");
     await expect(page.locator("[data-inventory-list]")).toHaveCount(0);
     await expect(page.locator(".item-card").first()).toBeVisible();
   });
@@ -86,32 +100,33 @@ test.describe("Inventory list view", () => {
     expect(cardCount).toBeGreaterThan(0);
     expect(cardCount).toBeLessThan(PARTS.length);
 
-    await modeButton("list").click();
+    await setMode("list");
     await expect(page.locator("[data-list-row]").first()).toBeVisible();
     expect(await page.locator("[data-list-row]").count()).toBe(cardCount);
 
     // Widening the filter has to move both renderers by the same amount.
     await setSearch("prime");
     const listCount = await page.locator("[data-list-row]").count();
-    await modeButton("cards").click();
+    await setMode("cards");
     await expect(page.locator(".item-card").first()).toBeVisible();
     expect(await page.locator(".item-card").count()).toBe(listCount);
   });
 
   test("the chosen mode survives a reload", async () => {
-    await modeButton("list").click();
+    await setMode("list");
     await expect(page.locator("[data-inventory-list]")).toBeVisible();
 
     await page.reload();
     await expect(page.locator("#sidebar")).toBeVisible({ timeout: 90_000 });
     await openView(page, "inventory");
-
     await expect(page.locator("[data-inventory-list]")).toBeVisible({ timeout: 30_000 });
+
+    await openAppearanceSettings();
     await expect(modeButton("list")).toHaveAttribute("aria-pressed", "true");
   });
 
   test("a column header writes the shared sort store", async () => {
-    await modeButton("list").click();
+    await setMode("list");
     await expect(page.locator("[data-inventory-list]")).toBeVisible();
 
     const sortSelect = page.locator(".view-sticky-filters .sort-control-select");
@@ -135,7 +150,7 @@ test.describe("Inventory list view", () => {
 
   test("a row click opens the item detail modal", async () => {
     await setSearch("braton prime barrel");
-    await modeButton("list").click();
+    await setMode("list");
     const row = page.locator("[data-list-row]").first();
     await expect(row).toBeVisible();
 

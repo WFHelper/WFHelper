@@ -6,7 +6,6 @@
   import { tr } from "../../lib/i18n.js";
   import type { MessageKey } from "../../lib/i18n.js";
   import type { InventoryFilterTab } from "../../lib/inventoryMarket.js";
-  import { INVENTORY_VIEW_MODES, type InventoryViewMode } from "../../stores/inventoryViewMode.js";
   import type { SharedSortKey } from "../../types/filters.js";
 
   export let totalCount = 0;
@@ -16,9 +15,6 @@
   export let sortOptions: Array<[SharedSortKey, string]> | null = null;
   export let advancedCount = 0;
   export let filtersEnabled = true;
-  export let viewMode: InventoryViewMode = "cards";
-  export let viewModeEnabled = true;
-  export let onSelectViewMode: (mode: InventoryViewMode) => void = () => {};
   export let selectionMode = false;
   export let selectionEnabled = true;
   export let onToggleSelectionMode: () => void = () => {};
@@ -67,11 +63,16 @@
 </script>
 
 <!-- Keep the sticky row outside the scrolling heading. -->
-<h2
-  class="m-0 mb-2 font-display text-4xl leading-none font-semibold tracking-[0.03em] text-text-primary"
->
-  {$tr("inventory.title", { count: totalCount })}
-</h2>
+<!-- The layout-edit button rides the title row; on its own row it was one small
+     button flush under the controls with a band of dead space beside it. -->
+<div class="mb-2 flex flex-wrap items-end justify-between gap-3">
+  <h2
+    class="m-0 font-display text-4xl leading-none font-semibold tracking-[0.03em] text-text-primary"
+  >
+    {$tr("inventory.title", { count: totalCount })}
+  </h2>
+  <div class="ml-auto"><slot name="actions" /></div>
+</div>
 <div class="view-sticky-filters mb-4" bind:this={stickyEl}>
   <!-- The tab row will not shrink below its own labels, so the controls take the
        next row whole once they no longer fit beside it. A px breakpoint measured
@@ -84,8 +85,8 @@
     <div class="max-w-full shrink-0 grow">
       <HeaderTabs options={tabOptions} activeKey={activeFilter} onSelect={handleTabSelect} />
     </div>
-    <!-- max-w-full + wrap: the view toggle widened this block past what a 900px
-         window fits, and an unwrappable block stretches the whole header. -->
+    <!-- max-w-full + wrap: this block once widened past what a 900px window fits,
+         and an unwrappable block stretches the whole header. -->
     <div class="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2 pb-2">
       <SharedFilterBar
         scope="inventory"
@@ -95,24 +96,6 @@
         basicVariant="quick"
         {sortOptions}
       />
-      {#if viewModeEnabled}
-        <!-- Shares the market density labels: the dictionary rejects a second key
-             holding the same words, and "Cards"/"Rows" already say it. -->
-        <div class="filter-tabs" data-inventory-view-mode>
-          {#each INVENTORY_VIEW_MODES as mode (mode)}
-            <button
-              type="button"
-              class="filter-tab min-h-8 py-0 text-xs"
-              class:active={viewMode === mode}
-              aria-pressed={viewMode === mode}
-              data-inventory-view-mode-option={mode}
-              on:click={() => onSelectViewMode(mode)}
-            >
-              {mode === "cards" ? $tr("appearance.densityCards") : $tr("appearance.densityRows")}
-            </button>
-          {/each}
-        </div>
-      {/if}
       {#if selectionEnabled}
         <button
           class="filter-tab min-h-8 py-0 text-xs"

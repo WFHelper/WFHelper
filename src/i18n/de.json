@@ -468,6 +468,8 @@
   "appearance.confirmDeleteTheme": "\"{name}\" löschen?",
   "appearance.densityCards": "Karten",
   "appearance.densityRows": "Zeilen",
+  "appearance.inventoryViewMode": "Inventaransicht",
+  "appearance.inventoryViewModeHint": "Wie das Inventar seine Gegenstände anzeigt.",
   "appearance.glassBlurStrength": "Stärke der Glas-Unschärfe",
   "appearance.marketListDensity": "Marktlisten-Dichte",
   "appearance.marketListDensityHint": "Wie Warframe.market-Orders und Riven-Kontrakte angezeigt werden.",

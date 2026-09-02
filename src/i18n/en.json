@@ -232,6 +232,8 @@
   "appearance.confirmDeleteTheme": "Delete \"{name}\"?",
   "appearance.densityCards": "Cards",
   "appearance.densityRows": "Rows",
+  "appearance.inventoryViewMode": "Inventory layout",
+  "appearance.inventoryViewModeHint": "How the inventory grid shows items.",
   "appearance.glassBlurStrength": "Glass blur strength",
   "appearance.marketListDensity": "Market list density",
   "appearance.marketListDensityHint": "How Warframe.market orders and riven contracts are displayed.",

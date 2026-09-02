@@ -1,6 +1,7 @@
 <script lang="ts">
   import { themeSettings } from "../../stores/theme.js";
   import { tr } from "../../lib/i18n.js";
+  import { INVENTORY_VIEW_MODES, inventoryViewMode } from "../../stores/inventoryViewMode.js";
   import PresetSelector from "./PresetSelector.svelte";
   import ColorSection from "./ColorSection.svelte";
   import ViewAccentSection from "./ViewAccentSection.svelte";
@@ -42,6 +43,35 @@
 <article class="appearance-card {panelClass}">
   <AppScaleSection />
   <FontSizeSection />
+
+  <div class="appearance-section">
+    <ThemedControlCard>
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        <span class="min-w-0 text-text-secondary text-xs font-medium">
+          {$tr("appearance.inventoryViewMode")}
+          <span class="block text-xs text-text-muted font-normal mt-0.5">
+            {$tr("appearance.inventoryViewModeHint")}
+          </span>
+        </span>
+        <!-- Shares the market density labels: the dictionary rejects a second key
+             holding the same words, and "Cards"/"Rows" already say it. -->
+        <div class="filter-tabs shrink-0" data-inventory-view-mode>
+          {#each INVENTORY_VIEW_MODES as mode (mode)}
+            <button
+              type="button"
+              class="filter-tab min-h-8 py-0 text-xs"
+              class:active={$inventoryViewMode === mode}
+              aria-pressed={$inventoryViewMode === mode}
+              data-inventory-view-mode-option={mode}
+              on:click={() => inventoryViewMode.set(mode)}
+            >
+              {mode === "cards" ? $tr("appearance.densityCards") : $tr("appearance.densityRows")}
+            </button>
+          {/each}
+        </div>
+      </div>
+    </ThemedControlCard>
+  </div>
 
   <div class="appearance-section">
     <ThemedControlCard as="label">
