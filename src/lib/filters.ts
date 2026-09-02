@@ -1,4 +1,11 @@
-import type { FoundryState, SharedFiltersState, SortDirection } from "../types/filters.js";
+import type { MessageKey } from "./i18n.js";
+import type {
+  FilterControlId,
+  FilterScope,
+  FoundryState,
+  SharedFiltersState,
+  SortDirection,
+} from "../types/filters.js";
 import type { MasteryStatus, PartType } from "../types/inventory.js";
 
 // Value-like sorts read best-first; name/tier/time and "parts to complete"
@@ -275,4 +282,116 @@ export function applySharedFiltersAndSort<T extends FilterableItem>(
   return items
     .filter((item) => matchesSharedFilters(item, filters))
     .sort((a, b) => compareSharedFilterSort(a, b, filters));
+}
+
+/** Every control the shared filter bar can render, in shipped bar order. This is
+    the default order a stored one is merged over. */
+export const FILTER_CONTROL_IDS: readonly FilterControlId[] = [
+  "search",
+  "prime",
+  "mastery",
+  "foundryState",
+  "vaulted",
+  "subsumed",
+  "sort",
+  "orderPlaced",
+  "mastered",
+  "spares",
+  "vaultedChips",
+  "partType",
+  "favorite",
+  "minPlatinum",
+  "minAmount",
+  "equipped",
+  "leveledUp",
+];
+
+// The bar keeps its two rows: basic controls always render before advanced ones,
+// so a stored order only reorders within a group.
+const BASIC_FILTER_CONTROLS: readonly FilterControlId[] = [
+  "search",
+  "prime",
+  "mastery",
+  "foundryState",
+  "vaulted",
+  "subsumed",
+  "sort",
+];
+
+export function isBasicFilterControl(id: FilterControlId): boolean {
+  return BASIC_FILTER_CONTROLS.includes(id);
+}
+
+// `vaulted` is the basic select, `vaultedChips` the advanced tri-state. Both write
+// filters.vaulted, and no scope offers both, so the two ids never collide.
+export const FILTER_CONTROL_FIELDS: Record<FilterControlId, readonly (keyof SharedFiltersState)[]> =
+  {
+    search: ["search"],
+    prime: ["primeMode"],
+    mastery: ["masteredMode"],
+    foundryState: ["foundryState"],
+    vaulted: ["vaulted"],
+    subsumed: ["subsumed"],
+    sort: ["sortBy", "sortDirection"],
+    orderPlaced: ["orderPlaced"],
+    mastered: ["mastered"],
+    spares: ["spares"],
+    vaultedChips: ["vaulted"],
+    partType: ["partType"],
+    favorite: ["favorite"],
+    minPlatinum: ["minimumPlatinum"],
+    minAmount: ["minimumAmount"],
+    equipped: ["equipped"],
+    leveledUp: ["leveledUp"],
+  };
+
+export const FILTER_CONTROL_LABEL_KEYS: Record<FilterControlId, MessageKey> = {
+  search: "filters.searchLabel",
+  prime: "common.prime",
+  mastery: "common.mastery",
+  foundryState: "filters.claimLabel",
+  vaulted: "common.vaulted",
+  subsumed: "common.subsumed",
+  sort: "common.sort",
+  orderPlaced: "filters.orderPlaced",
+  mastered: "common.mastered",
+  spares: "filters.spares",
+  vaultedChips: "common.vaulted",
+  partType: "filters.partTypeTitle",
+  favorite: "filters.favoriteTitle",
+  minPlatinum: "filters.minPlatinumTitle",
+  minAmount: "filters.amount",
+  equipped: "common.equippedModsOnly",
+  leveledUp: "filters.leveledUpLabel",
+};
+
+/** What each scope's views actually let the bar render, mirroring the props they
+    pass. Customization never widens this: an id absent here cannot be unhidden. */
+export const FILTER_CONTROL_SUPPORT: Record<FilterScope, readonly FilterControlId[]> = {
+  // Two bars, one scope: the header renders search/sort, the panel the advanced row.
+  inventory: [
+    "search",
+    "sort",
+    "orderPlaced",
+    "mastered",
+    "spares",
+    "vaultedChips",
+    "partType",
+    "favorite",
+    "minPlatinum",
+    "minAmount",
+    "equipped",
+    "leveledUp",
+  ],
+  mastery: ["search", "prime", "mastery", "foundryState", "vaulted", "subsumed", "sort"],
+  market: ["search", "sort"],
+  foundry: ["search", "prime", "mastery", "foundryState", "vaulted", "subsumed", "sort"],
+  rivens: ["search", "sort"],
+};
+
+export const FILTER_SCOPES = Object.keys(FILTER_CONTROL_SUPPORT) as readonly FilterScope[];
+
+export function defaultFilterControlOrder(scope: FilterScope): FilterControlId[] {
+  const supported = FILTER_CONTROL_SUPPORT[scope];
+  return FILTER_CONTROL_IDS.filter((id) => supported.includes(id));
 }

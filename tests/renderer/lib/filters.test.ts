@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  FILTER_CONTROL_FIELDS,
+  FILTER_CONTROL_IDS,
+  FILTER_CONTROL_LABEL_KEYS,
+  FILTER_CONTROL_SUPPORT,
+  FILTER_SCOPES,
   applySharedFiltersAndSort,
   defaultSortDirection,
+  isBasicFilterControl,
   matchesSearch,
   matchesSharedFilters,
 } from "../../../src/lib/filters.js";
@@ -343,6 +349,40 @@ describe("mastery filters", () => {
     });
 
     expect(filtered.map((row) => row.name)).toEqual(["All Parts Owned"]);
+  });
+});
+
+describe("filter control registry", () => {
+  it("maps every control to fields the filter state actually has", () => {
+    const state = defaultFilters();
+    for (const id of FILTER_CONTROL_IDS) {
+      const fields = FILTER_CONTROL_FIELDS[id];
+      expect(fields.length).toBeGreaterThan(0);
+      for (const field of fields) expect(state).toHaveProperty(field);
+    }
+  });
+
+  it("splits the bar into the basic row and the inventory-only advanced row", () => {
+    expect(FILTER_CONTROL_IDS.filter(isBasicFilterControl)).toEqual([
+      "search",
+      "prime",
+      "mastery",
+      "foundryState",
+      "vaulted",
+      "subsumed",
+      "sort",
+    ]);
+    expect(isBasicFilterControl("spares")).toBe(false);
+    expect(isBasicFilterControl("vaultedChips")).toBe(false);
+  });
+
+  it("supports only controls it knows how to reset, in every scope", () => {
+    for (const scope of FILTER_SCOPES) {
+      for (const id of FILTER_CONTROL_SUPPORT[scope]) {
+        expect(FILTER_CONTROL_IDS).toContain(id);
+        expect(FILTER_CONTROL_LABEL_KEYS[id]).toBeTruthy();
+      }
+    }
   });
 });
 

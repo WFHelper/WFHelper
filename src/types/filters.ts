@@ -32,6 +32,33 @@ export type SharedSortKey =
 
 export type SortDirection = "asc" | "desc";
 
+/** Stable id per control of the shared filter bar. Persisted, so renaming one
+    drops the stored placement of that control instead of migrating it. */
+export type FilterControlId =
+  | "search"
+  | "prime"
+  | "mastery"
+  | "foundryState"
+  | "vaulted"
+  | "subsumed"
+  | "sort"
+  | "orderPlaced"
+  | "mastered"
+  | "spares"
+  | "vaultedChips"
+  | "partType"
+  | "favorite"
+  | "minPlatinum"
+  | "minAmount"
+  | "equipped"
+  | "leveledUp";
+
+/** Per-scope bar customization. Ids only: labels and values stay derived. */
+export interface FilterLayout {
+  order: FilterControlId[];
+  hidden: FilterControlId[];
+}
+
 export interface SharedFiltersState {
   search: string;
   primeMode: PrimeFilterMode;

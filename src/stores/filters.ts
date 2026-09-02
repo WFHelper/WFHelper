@@ -55,6 +55,19 @@ export function updateSharedFilters(scope: FilterScope, patch: Partial<SharedFil
   }));
 }
 
+/** Put single fields back to the scope default. Hiding a filter bar control calls
+    this so a control the user can no longer see cannot keep filtering the list. */
+export function resetSharedFilterFields(
+  scope: FilterScope,
+  fields: readonly (keyof SharedFiltersState)[],
+): void {
+  if (fields.length === 0) return;
+  const defaults = createDefaultFiltersByScope()[scope];
+  const patch: Partial<SharedFiltersState> = {};
+  for (const field of fields) Object.assign(patch, { [field]: defaults[field] });
+  updateSharedFilters(scope, patch);
+}
+
 export function resetSharedFilters(scope: FilterScope): void {
   sharedFiltersByScope.update((current) => ({
     ...current,
