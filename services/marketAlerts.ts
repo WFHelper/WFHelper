@@ -13,6 +13,13 @@ import { getWfmSchedulerHealth } from "./wfmScheduler";
 import { dispatch } from "./notificationChannels";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import {
+  extractWfmOrderList,
+  parseOrderPlatform,
+  parseOrderStatus,
+  parseOrderType,
+  parseOrderUserName,
+} from "../config/shared/wfmOrders";
+import {
   DEFAULT_MARKET_ALERT_BINDING,
   MARKET_ALERT_HISTORY_MAX,
   MARKET_ALERT_MAX_RULES,
@@ -263,6 +270,13 @@ async function wfmGet(path: string): Promise<unknown> {
   return wfmClient.request("GET", path, { priority: "background" });
 }
 
+// Item order books only exist on v2 now: v1 /items/{slug}/orders answers 403
+// "Deprecated", which made every item rule back off forever.
+async function wfmGetV2(path: string): Promise<unknown> {
+  noteRequest();
+  return wfmClient.requestV2("GET", path, { priority: "background" });
+}
+
 // Raw auction fields the engine reads. Parsed here instead of widening the
 // shared WfmRawAuction type: an unexpected shape must degrade to a skipped
 // auction, never to a thrown tick.
@@ -441,23 +455,28 @@ interface OrderView {
   quantity: number;
 }
 
+// Reads both envelopes: v2 `{ data: [...] }` with `type` / `user.ingameName`
+// is what the engine fetches; the v1 field names stay accepted for fixtures
+// and for the day the endpoint is swapped again.
 function parseOrderViews(raw: unknown): OrderView[] {
-  const payload = unwrapPayload(raw);
-  const orders = payload?.orders;
-  if (!Array.isArray(orders)) return [];
+  const orders = extractWfmOrderList(raw);
+  if (!orders) return [];
   const out: OrderView[] = [];
   for (const entry of orders) {
     if (!isRecord(entry) || typeof entry.id !== "string") continue;
     if (entry.visible === false) continue;
-    // v1 serves cross-platform rows when asked; only trust explicit pc or absent.
-    if (typeof entry.platform === "string" && entry.platform !== "pc") continue;
-    const side = entry.order_type;
-    if (side !== "sell" && side !== "buy") continue;
     const user = isRecord(entry.user) ? entry.user : {};
+    // v2 requests carry Crossplay: true, so the answer holds console and mobile
+    // sellers; only one with crossplay on can trade with a PC account. A row
+    // that names no platform is kept: silencing every unlabelled order is worse.
+    const platform = parseOrderPlatform(entry);
+    if (platform !== null && platform !== "pc" && user.crossplay !== true) continue;
+    const side = parseOrderType(entry);
+    if (!side) continue;
     out.push({
       id: entry.id,
-      owner: typeof user.ingame_name === "string" ? user.ingame_name : "",
-      status: typeof user.status === "string" ? user.status.toLowerCase() : "",
+      owner: parseOrderUserName(entry),
+      status: parseOrderStatus(entry) ?? "",
       side,
       platinum: num(entry.platinum),
       quantity: num(entry.quantity, 1),
@@ -580,7 +599,7 @@ async function evaluateRule(rule: MarketAlertRule, skipDedup: boolean): Promise<
   }
   if (rule.kind === "item" && rule.item) {
     const match = rule.item;
-    const raw = await wfmGet(`/items/${encodeURIComponent(match.itemUrlName)}/orders`);
+    const raw = await wfmGetV2(`/orders/item/${encodeURIComponent(match.itemUrlName)}`);
     const owned =
       (await liveOwnedCount(match.itemUrlName)) ?? state().ownedCounts[match.itemUrlName] ?? null;
     const orders = parseOrderViews(raw).filter(

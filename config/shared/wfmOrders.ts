@@ -30,7 +30,8 @@ interface WfmOrderPriceEntry {
 
 const MAX_ORDER_BOOK_ENTRIES_PER_SIDE = 500;
 
-function parseOrderType(order: Record<string, unknown>): WfmOrderType | null {
+/** Lowercased order side; v1 spells it `order_type`, v2 `type`. */
+export function parseOrderType(order: Record<string, unknown>): WfmOrderType | null {
   const typeV1 = typeof order.order_type === "string" ? order.order_type.toLowerCase() : "";
   if (typeV1 === "sell" || typeV1 === "buy") return typeV1;
   const typeV2 = typeof order.type === "string" ? order.type.toLowerCase() : "";
@@ -38,7 +39,9 @@ function parseOrderType(order: Record<string, unknown>): WfmOrderType | null {
   return null;
 }
 
-function parseOrderUserName(order: Record<string, unknown>): string {
+/** Seller name exactly as WFM spells it: it is shown to the user, so only the
+ *  surrounding whitespace goes. Empty when the row names nobody. */
+export function parseOrderUserName(order: Record<string, unknown>): string {
   const user = order.user as Record<string, unknown> | undefined;
   if (!user) return "";
   const nameV1 = typeof user.ingame_name === "string" ? user.ingame_name.trim() : "";
@@ -47,7 +50,18 @@ function parseOrderUserName(order: Record<string, unknown>): string {
   return nameV2;
 }
 
-function parseOrderStatus(order: Record<string, unknown>): string | null {
+/** Lowercased seller platform: v2 keeps it under `user`, v1 at the top level.
+ *  Null means the row does not say, which callers must not read as "not pc". */
+export function parseOrderPlatform(order: Record<string, unknown>): string | null {
+  const user = order.user as Record<string, unknown> | undefined;
+  const fromUser = typeof user?.platform === "string" ? user.platform.trim().toLowerCase() : "";
+  if (fromUser) return fromUser;
+  const topLevel = typeof order.platform === "string" ? order.platform.trim().toLowerCase() : "";
+  return topLevel || null;
+}
+
+/** Lowercased seller presence; null when the row does not carry one. */
+export function parseOrderStatus(order: Record<string, unknown>): string | null {
   const user = order.user as Record<string, unknown> | undefined;
   return typeof user?.status === "string" ? user.status.toLowerCase() : null;
 }

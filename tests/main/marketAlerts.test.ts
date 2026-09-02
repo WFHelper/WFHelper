@@ -7,6 +7,7 @@ let tmpDir: string;
 
 const mocks = vi.hoisted(() => ({
   requestMock: vi.fn<(method: string, path: string, opts?: unknown) => Promise<unknown>>(),
+  requestV2Mock: vi.fn<(method: string, path: string, opts?: unknown) => Promise<unknown>>(),
   healthMock: vi.fn<() => { state: "ok" | "backoff" | "degraded"; recentFailures: number }>(),
   dispatchMock: vi.fn(
     (_payload: { source: string; title: string; body: string }, deliverNative?: () => void) => {
@@ -26,6 +27,7 @@ vi.mock("electron", () => ({
 
 vi.mock("../../services/wfmClient", () => ({
   request: mocks.requestMock,
+  requestV2: mocks.requestV2Mock,
 }));
 
 vi.mock("../../services/wfmScheduler", () => ({
@@ -114,22 +116,31 @@ interface OrderSpec {
   platinum?: number;
   quantity?: number;
   visible?: boolean;
+  /** v2 carries the seller platform under `user`. */
   platform?: string;
+  /** The old v1 top-level field, kept to cover the fallback. */
+  legacyPlatform?: string;
+  /** A console seller with crossplay on can trade with a PC account. */
+  crossplay?: boolean;
 }
 
+// The v2 envelope the engine fetches; a platform only appears when a spec sets it.
 function ordersPayload(specs: OrderSpec[]): unknown {
   return {
-    payload: {
-      orders: specs.map((spec, index) => ({
-        id: spec.id ?? `order-${index}`,
-        order_type: spec.type ?? "sell",
-        platinum: spec.platinum ?? 40,
-        quantity: spec.quantity ?? 1,
-        visible: spec.visible ?? true,
-        platform: spec.platform ?? "pc",
-        user: { ingame_name: spec.owner ?? "OtherUser", status: spec.status ?? "ingame" },
-      })),
-    },
+    data: specs.map((spec, index) => ({
+      id: spec.id ?? `order-${index}`,
+      type: spec.type ?? "sell",
+      platinum: spec.platinum ?? 40,
+      quantity: spec.quantity ?? 1,
+      visible: spec.visible ?? true,
+      ...(spec.legacyPlatform ? { platform: spec.legacyPlatform } : {}),
+      user: {
+        ingameName: spec.owner ?? "OtherUser",
+        status: spec.status ?? "ingame",
+        ...(spec.platform ? { platform: spec.platform } : {}),
+        ...(spec.crossplay ? { crossplay: true } : {}),
+      },
+    })),
   };
 }
 
@@ -175,6 +186,7 @@ function saveOk(raw: Record<string, unknown>, ownedCount: number | null = null):
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "market-alerts-"));
   mocks.requestMock.mockReset();
+  mocks.requestV2Mock.mockReset();
   mocks.healthMock.mockReset();
   mocks.healthMock.mockReturnValue({ state: "ok", recentFailures: 0 });
   mocks.dispatchMock.mockClear();
@@ -526,7 +538,7 @@ describe("cooldown and dedup", () => {
 
 describe("item rule evaluation", () => {
   it("fires on an order inside the price bounds with the right side and status", async () => {
-    mocks.requestMock.mockResolvedValue(
+    mocks.requestV2Mock.mockResolvedValue(
       ordersPayload([
         { id: "cheap", platinum: 30 },
         { id: "expensive", platinum: 80 },
@@ -542,12 +554,45 @@ describe("item rule evaluation", () => {
     const hits = getMarketAlertHits();
     expect(hits).toHaveLength(1);
     expect(hits[0].detail).toContain("30p");
-    expect(mocks.requestMock.mock.calls[0][1]).toBe("/items/nekros_prime_set/orders");
+    expect(mocks.requestV2Mock.mock.calls[0][1]).toBe("/orders/item/nekros_prime_set");
+    expect(mocks.requestMock).not.toHaveBeenCalled();
+  });
+
+  it("skips other-platform sellers and keeps pc and unlabelled ones", async () => {
+    mocks.requestV2Mock.mockResolvedValue(
+      ordersPayload([
+        { id: "console", owner: "ConsoleSeller", platinum: 20, platform: "ps4" },
+        { id: "legacy-console", owner: "LegacySeller", platinum: 21, legacyPlatform: "xbox" },
+        { id: "pc", owner: "PcSeller", platinum: 22, platform: "PC" },
+        { id: "unlabelled", owner: "QuietSeller", platinum: 23 },
+        { id: "cross", owner: "CrossSeller", platinum: 24, platform: "xbox", crossplay: true },
+      ]),
+    );
+    saveOk(itemRuleRaw());
+    initEngine();
+    await runMarketAlertTickForTest();
+    const sellers = getMarketAlertHits().map((hit) => hit.seller);
+    expect(sellers.sort()).toEqual(["CrossSeller", "PcSeller", "QuietSeller"]);
+  });
+
+  it("reads a mixed-case side and status through the shared order parsers", async () => {
+    mocks.requestV2Mock.mockResolvedValue(
+      ordersPayload([
+        { id: "shouty", owner: "LoudSeller", platinum: 30, type: "Sell", status: "InGame" },
+      ]),
+    );
+    saveOk(itemRuleRaw());
+    initEngine();
+    await runMarketAlertTickForTest();
+    const hits = getMarketAlertHits();
+    expect(hits).toHaveLength(1);
+    // The seller name is shown, so it keeps the case WFM sent.
+    expect(hits[0].seller).toBe("LoudSeller");
   });
 
   it("excludes the user's own orders", async () => {
     ownName = "TraderMe";
-    mocks.requestMock.mockResolvedValue(
+    mocks.requestV2Mock.mockResolvedValue(
       ordersPayload([{ id: "mine", owner: "traderme", platinum: 10 }]),
     );
     saveOk(itemRuleRaw());
@@ -557,7 +602,7 @@ describe("item rule evaluation", () => {
   });
 
   it("applies owned-count gates from the renderer-supplied count", async () => {
-    mocks.requestMock.mockResolvedValue(ordersPayload([{ id: "o1", platinum: 30 }]));
+    mocks.requestV2Mock.mockResolvedValue(ordersPayload([{ id: "o1", platinum: 30 }]));
     saveOk(itemRuleRaw({ item: { ownedBelow: 2 } }), 3);
     initEngine();
     await runMarketAlertTickForTest();
@@ -569,7 +614,7 @@ describe("item rule evaluation", () => {
   });
 
   it("fails open when no owned count was ever pushed", async () => {
-    mocks.requestMock.mockResolvedValue(ordersPayload([{ id: "o1", platinum: 30 }]));
+    mocks.requestV2Mock.mockResolvedValue(ordersPayload([{ id: "o1", platinum: 30 }]));
     saveOk(itemRuleRaw({ item: { ownedBelow: 2 } }), null);
     initEngine();
     await runMarketAlertTickForTest();
@@ -578,7 +623,7 @@ describe("item rule evaluation", () => {
 
   it("prefers the live owned count over the save-time snapshot", async () => {
     vi.useFakeTimers();
-    mocks.requestMock.mockResolvedValue(ordersPayload([{ id: "o1", platinum: 30 }]));
+    mocks.requestV2Mock.mockResolvedValue(ordersPayload([{ id: "o1", platinum: 30 }]));
     // Saved while five were owned, which blocks an "owned below 2" rule.
     saveOk(itemRuleRaw({ item: { ownedBelow: 2 } }), 5);
     liveOwned = { nekros_prime_set: 5 };
