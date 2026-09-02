@@ -1,12 +1,14 @@
 import type {
+  ThemeBaseColors,
   ThemeBranding,
   ThemeColors,
   ThemeEffects,
   ThemeFontSizes,
   ThemeSettings,
 } from "../types/theme.js";
+import { deriveThemeColors } from "../lib/theme/derive.js";
 
-export const DEFAULT_COLORS: Readonly<ThemeColors> = Object.freeze({
+export const DEFAULT_BASE_COLORS: Readonly<ThemeBaseColors> = Object.freeze({
   bgDeep: "#060a12",
   bgBase: "#0a0e17",
   bgSurface: "#111827",
@@ -31,6 +33,11 @@ export const DEFAULT_COLORS: Readonly<ThemeColors> = Object.freeze({
   gradeD: "#f97316",
   gradeF: "#ef4444",
   gradeDefault: "#8b93a5",
+});
+
+export const DEFAULT_COLORS: Readonly<ThemeColors> = Object.freeze({
+  ...DEFAULT_BASE_COLORS,
+  ...deriveThemeColors(DEFAULT_BASE_COLORS),
 });
 
 export const DEFAULT_FONT_SIZES: Readonly<ThemeFontSizes> = Object.freeze({
@@ -62,6 +69,7 @@ export const DEFAULT_THEME: Readonly<ThemeSettings> = Object.freeze({
   customThemes: [],
   branding: { ...DEFAULT_BRANDING },
   contrastSafeMode: false,
+  viewAccents: {},
 });
 
 /** Limits for font size global scale */

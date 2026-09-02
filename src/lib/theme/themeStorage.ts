@@ -1,22 +1,26 @@
 import type {
   CustomThemePreset,
+  ThemeBaseColors,
   ThemeCornerStyle,
   ThemeColors,
+  ThemeDerivedColors,
   ThemeEffects,
   ThemeFontSizes,
   RelicCardStyle,
   ThemeSettings,
   ThemeSurfaceStyle,
 } from "../../types/theme.js";
+import type { ViewName } from "../../types/views.js";
 import {
+  DEFAULT_BASE_COLORS,
   DEFAULT_BRANDING,
-  DEFAULT_COLORS,
   DEFAULT_EFFECTS,
   DEFAULT_FONT_SIZES,
   DEFAULT_THEME,
   GLASS_BLUR_MAX_PX,
   GLASS_BLUR_MIN_PX,
 } from "../../config/themeDefaults.js";
+import { deriveThemeColors } from "./derive.js";
 
 const STORAGE_KEY = "wf_theme_settings";
 const CURRENT_VERSION = 1;
@@ -68,6 +72,7 @@ function migrateAndNormalize(raw: Record<string, unknown>): ThemeSettings {
         typeof rawBranding.appName === "string" ? rawBranding.appName : DEFAULT_BRANDING.appName,
     },
     contrastSafeMode: typeof raw.contrastSafeMode === "boolean" ? raw.contrastSafeMode : false,
+    viewAccents: normalizeViewAccents(raw.viewAccents),
   };
 }
 
@@ -98,32 +103,70 @@ function asOptionalNumber(value: unknown, min: number, max: number): number | un
 }
 
 function normalizeColors(rawColors: Record<string, unknown>): ThemeColors {
-  return {
-    bgDeep: asColorString(rawColors.bgDeep, DEFAULT_COLORS.bgDeep),
-    bgBase: asColorString(rawColors.bgBase, DEFAULT_COLORS.bgBase),
-    bgSurface: asColorString(rawColors.bgSurface, DEFAULT_COLORS.bgSurface),
-    bgRaised: asColorString(rawColors.bgRaised, DEFAULT_COLORS.bgRaised),
-    bgHover: asColorString(rawColors.bgHover, DEFAULT_COLORS.bgHover),
-    accent: asColorString(rawColors.accent, DEFAULT_COLORS.accent),
-    accentDim: asColorString(rawColors.accentDim, DEFAULT_COLORS.accentDim),
-    accentBright: asColorString(rawColors.accentBright, DEFAULT_COLORS.accentBright),
-    textPrimary: asColorString(rawColors.textPrimary, DEFAULT_COLORS.textPrimary),
-    textSecondary: asColorString(rawColors.textSecondary, DEFAULT_COLORS.textSecondary),
-    textMuted: asColorString(rawColors.textMuted, DEFAULT_COLORS.textMuted),
-    success: asColorString(rawColors.success, DEFAULT_COLORS.success),
-    warning: asColorString(rawColors.warning, DEFAULT_COLORS.warning),
-    danger: asColorString(rawColors.danger, DEFAULT_COLORS.danger),
-    info: asColorString(rawColors.info, DEFAULT_COLORS.info),
-    border: asColorString(rawColors.border, DEFAULT_COLORS.border),
-    borderStrong: asColorString(rawColors.borderStrong, DEFAULT_COLORS.borderStrong),
-    gradeS: asColorString(rawColors.gradeS, DEFAULT_COLORS.gradeS),
-    gradeA: asColorString(rawColors.gradeA, DEFAULT_COLORS.gradeA),
-    gradeB: asColorString(rawColors.gradeB, DEFAULT_COLORS.gradeB),
-    gradeC: asColorString(rawColors.gradeC, DEFAULT_COLORS.gradeC),
-    gradeD: asColorString(rawColors.gradeD, DEFAULT_COLORS.gradeD),
-    gradeF: asColorString(rawColors.gradeF, DEFAULT_COLORS.gradeF),
-    gradeDefault: asColorString(rawColors.gradeDefault, DEFAULT_COLORS.gradeDefault),
+  const base: ThemeBaseColors = {
+    bgDeep: asColorString(rawColors.bgDeep, DEFAULT_BASE_COLORS.bgDeep),
+    bgBase: asColorString(rawColors.bgBase, DEFAULT_BASE_COLORS.bgBase),
+    bgSurface: asColorString(rawColors.bgSurface, DEFAULT_BASE_COLORS.bgSurface),
+    bgRaised: asColorString(rawColors.bgRaised, DEFAULT_BASE_COLORS.bgRaised),
+    bgHover: asColorString(rawColors.bgHover, DEFAULT_BASE_COLORS.bgHover),
+    accent: asColorString(rawColors.accent, DEFAULT_BASE_COLORS.accent),
+    accentDim: asColorString(rawColors.accentDim, DEFAULT_BASE_COLORS.accentDim),
+    accentBright: asColorString(rawColors.accentBright, DEFAULT_BASE_COLORS.accentBright),
+    textPrimary: asColorString(rawColors.textPrimary, DEFAULT_BASE_COLORS.textPrimary),
+    textSecondary: asColorString(rawColors.textSecondary, DEFAULT_BASE_COLORS.textSecondary),
+    textMuted: asColorString(rawColors.textMuted, DEFAULT_BASE_COLORS.textMuted),
+    success: asColorString(rawColors.success, DEFAULT_BASE_COLORS.success),
+    warning: asColorString(rawColors.warning, DEFAULT_BASE_COLORS.warning),
+    danger: asColorString(rawColors.danger, DEFAULT_BASE_COLORS.danger),
+    info: asColorString(rawColors.info, DEFAULT_BASE_COLORS.info),
+    border: asColorString(rawColors.border, DEFAULT_BASE_COLORS.border),
+    borderStrong: asColorString(rawColors.borderStrong, DEFAULT_BASE_COLORS.borderStrong),
+    gradeS: asColorString(rawColors.gradeS, DEFAULT_BASE_COLORS.gradeS),
+    gradeA: asColorString(rawColors.gradeA, DEFAULT_BASE_COLORS.gradeA),
+    gradeB: asColorString(rawColors.gradeB, DEFAULT_BASE_COLORS.gradeB),
+    gradeC: asColorString(rawColors.gradeC, DEFAULT_BASE_COLORS.gradeC),
+    gradeD: asColorString(rawColors.gradeD, DEFAULT_BASE_COLORS.gradeD),
+    gradeF: asColorString(rawColors.gradeF, DEFAULT_BASE_COLORS.gradeF),
+    gradeDefault: asColorString(rawColors.gradeDefault, DEFAULT_BASE_COLORS.gradeDefault),
   };
+
+  // Settings saved before the semantic tokens existed fall back to the values
+  // derived from their own base palette, not from the shipped default palette.
+  const derived = deriveThemeColors(base);
+  const semantic = {} as ThemeDerivedColors;
+  for (const key of Object.keys(derived) as Array<keyof ThemeDerivedColors>) {
+    semantic[key] = asColorString(rawColors[key], derived[key]);
+  }
+
+  return { ...base, ...semantic };
+}
+
+const VIEW_ACCENT_KEYS: ReadonlySet<string> = new Set<ViewName>([
+  "setup",
+  "inventory",
+  "foundry",
+  "mastery",
+  "stats",
+  "world",
+  "market",
+  "analytics",
+  "relics",
+  "wiki",
+  "rivens",
+  "arbi",
+  "settings",
+]);
+
+function normalizeViewAccents(value: unknown): Partial<Record<ViewName, string>> {
+  if (!value || typeof value !== "object") return {};
+  const raw = value as Record<string, unknown>;
+  const accents: Partial<Record<ViewName, string>> = {};
+  for (const [key, entry] of Object.entries(raw)) {
+    if (!VIEW_ACCENT_KEYS.has(key) || typeof entry !== "string") continue;
+    const color = asColorString(entry, "");
+    if (color) accents[key as ViewName] = color;
+  }
+  return accents;
 }
 
 function asCornerStyle(value: unknown, fallback: ThemeCornerStyle): ThemeCornerStyle {
@@ -216,6 +259,7 @@ export function cloneDefaultTheme(): ThemeSettings {
     effects: { ...DEFAULT_THEME.effects },
     customThemes: DEFAULT_THEME.customThemes.map(cloneCustomTheme),
     branding: { ...DEFAULT_THEME.branding },
+    viewAccents: { ...DEFAULT_THEME.viewAccents },
   };
 }
 

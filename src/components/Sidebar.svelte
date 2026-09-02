@@ -161,7 +161,7 @@
         data-view={item.view}
         class="nav-btn relative flex w-full cursor-pointer items-center gap-3 rounded-md border-0 px-3.5 py-2.5 font-display text-base font-medium tracking-wide transition-colors duration-150 {$currentView ===
         item.view
-          ? "bg-accent-glow text-accent before:content-[''] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:rounded-r before:bg-accent max-[800px]:before:hidden"
+          ? "bg-[var(--view-accent-glow)] text-[var(--view-accent)] before:content-[''] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:rounded-r before:bg-[var(--view-accent)] max-[800px]:before:hidden"
           : 'bg-transparent text-text-secondary hover:bg-bg-hover hover:text-text-primary'}"
         aria-current={$currentView === item.view ? "page" : undefined}
         on:click={() => currentView.set(item.view)}

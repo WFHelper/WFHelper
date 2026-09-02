@@ -1,5 +1,6 @@
 import { writable } from "svelte/store";
 import type { ThemeColors, ThemeEffects, ThemeFontSizes, ThemeSettings } from "../types/theme.js";
+import type { ViewName } from "../types/views.js";
 import { DEFAULT_FONT_SIZES } from "../config/themeDefaults.js";
 import { THEME_PRESETS } from "../config/themePresets.js";
 import {
@@ -177,6 +178,21 @@ function createThemeStore() {
       });
     },
 
+    /** Set a per-view accent override (hex). */
+    setViewAccent(view: ViewName, value: string): void {
+      update((s) => ({ ...s, viewAccents: { ...s.viewAccents, [view]: value } }));
+    },
+
+    /** Drop a per-view accent override so the view follows the theme accent. */
+    clearViewAccent(view: ViewName): void {
+      update((s) => {
+        if (!(view in s.viewAccents)) return s;
+        const viewAccents = { ...s.viewAccents };
+        delete viewAccents[view];
+        return { ...s, viewAccents };
+      });
+    },
+
     /** Toggle contrast-safe mode. */
     setContrastSafeMode(enabled: boolean): void {
       update((s) => ({
@@ -203,7 +219,19 @@ function createThemeStore() {
     resetFontSizes(): void {
       update((s) => applyMutableThemeEdits(s, { fontSizes: { ...DEFAULT_FONT_SIZES } }));
     },
+
+    /** Reset one colour to the active preset's value (or the default preset's). */
+    resetColor(key: keyof ThemeColors): void {
+      update((s) => {
+        const preset = THEME_PRESETS[s.activePreset] ?? THEME_PRESETS.default;
+        return applyMutableThemeEdits(s, { colors: { ...s.colors, [key]: preset.colors[key] } });
+      });
+    },
   };
 }
 
 export const themeSettings = createThemeStore();
+
+/** True while the element inspector is picking. Owned here so Settings and the
+    App-level inspector overlay share one switch. */
+export const themeInspectorActive = writable(false);

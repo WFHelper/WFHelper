@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ThemeColors } from "../../types/theme.js";
-  import { themeSettings } from "../../stores/theme.js";
+  import { themeInspectorActive, themeSettings } from "../../stores/theme.js";
   import { tr } from "../../lib/i18n.js";
   import ContrastBadge from "./ContrastBadge.svelte";
   import type { MessageKey } from "../../lib/i18n.js";
@@ -92,10 +92,22 @@
 <div class="appearance-section">
   <div class="appearance-section-head">
     <h4 class="appearance-section-label">{$tr("appearance.colors")}</h4>
-    <button class="btn-secondary btn-sm" on:click={() => themeSettings.resetColors()}>
-      {$tr("common.reset")}
-    </button>
+    <div class="flex gap-1.5">
+      <button
+        class="btn-secondary btn-sm"
+        data-theme-pick-element
+        aria-pressed={$themeInspectorActive}
+        on:click={() => themeInspectorActive.set(!$themeInspectorActive)}
+      >
+        {$themeInspectorActive ? $tr("appearance.inspectorExit") : $tr("appearance.inspectorPick")}
+      </button>
+      <button class="btn-secondary btn-sm" on:click={() => themeSettings.resetColors()}>
+        {$tr("common.reset")}
+      </button>
+    </div>
   </div>
+
+  <p class="mb-2 mt-0 text-xs text-text-muted">{$tr("appearance.inspectorHint")}</p>
 
   {#each groups as group}
     <div class="mb-2.5">

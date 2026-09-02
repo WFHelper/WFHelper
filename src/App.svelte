@@ -3,11 +3,14 @@
   import type { Component } from "svelte";
 
   import Titlebar from "./components/Titlebar.svelte";
+  import CustomCssHost from "./components/CustomCssHost.svelte";
   import Sidebar from "./components/Sidebar.svelte";
   import StatusBar from "./components/StatusBar.svelte";
   import ErrorBoundary from "./components/ErrorBoundary.svelte";
   import ToastHost from "./components/ToastHost.svelte";
   import TourOverlay from "./components/TourOverlay.svelte";
+  import ThemeInspector from "./components/ThemeInspector.svelte";
+  import PopoutSectionHost from "./components/PopoutSectionHost.svelte";
 
   import { normalizeErrorMessage } from "../config/shared/errors.js";
 
@@ -27,12 +30,20 @@
 
   import { currentView, SETUP_COMPLETED_KEY, statusText } from "./stores/app.js";
   import { parsedItems } from "./stores/data.js";
-  import { popoutPinnedAtOpen, popoutView } from "./stores/popout.js";
+  import {
+    isPopoutWindow,
+    popoutPinnedAtOpen,
+    popoutSectionId,
+    popoutView,
+  } from "./stores/popout.js";
+  import { restoreWorkspaceOnLaunch } from "./stores/workspaces.js";
   import { tourActive } from "./stores/tour.js";
   import { autoFocusSearch } from "./stores/preferences.js";
   import { activeItem, activeComponent, activeRelic } from "./stores/modals.js";
   import { bulkSellOpen } from "./stores/inventorySelection.js";
   import { setInventoryStatus } from "./lib/actions.js";
+  import { themeSettings } from "./stores/theme.js";
+  import { viewAccentStyle, viewAccentVars } from "./lib/theme/derive.js";
   import { initStartup } from "./lib/startupLoader.js";
   import { initRendererEvents } from "./lib/rendererEvents.js";
   import { invoke } from "./lib/ipc.js";
@@ -64,6 +75,12 @@
   let lazyRequestToken = 0;
 
   $: setInventoryStatus($parsedItems.length);
+
+  // Per-view accents ride inline style attributes, not a generated <style> block:
+  // the window CSP allows style-src-attr 'unsafe-inline' but not inline stylesheets.
+  $: activeViewAccent = $themeSettings.viewAccents[$currentView];
+  $: viewScopeStyle = viewAccentStyle(activeViewAccent);
+  $: shellAccentStyle = viewAccentVars(activeViewAccent);
 
   onMount(() => {
     const unsubscribeViewChange = currentView.subscribe((view) => {
@@ -228,28 +245,32 @@
   {/if}
 </svelte:head>
 
-{#if popoutRoute}
+{#if isPopoutWindow}
   <ErrorBoundary>
-    <div class="flex h-screen">
-      <main id="content">
-        {#if lazyViewComponent}
-          <svelte:component this={lazyViewComponent} />
-        {:else}
-          <section class="view active">
-            <div class="empty-state gap-3">
-              <p>
-                {lazyViewError
-                  ? $tr("app.failedLoadView", { view: $tr(VIEW_LABEL_KEYS[popoutRoute]) })
-                  : $tr("app.loadingView", { view: $tr(VIEW_LABEL_KEYS[popoutRoute]) })}
-              </p>
-              {#if lazyViewError}
-                <p class="text-sm text-text-muted">{lazyViewError}</p>
-              {/if}
-            </div>
-          </section>
-        {/if}
-      </main>
-    </div>
+    {#if popoutSectionId}
+      <PopoutSectionHost sectionId={popoutSectionId} />
+    {:else if popoutRoute}
+      <div class="flex h-screen">
+        <main id="content" data-view={popoutRoute} style={viewScopeStyle}>
+          {#if lazyViewComponent}
+            <svelte:component this={lazyViewComponent} />
+          {:else}
+            <section class="view active">
+              <div class="empty-state gap-3">
+                <p>
+                  {lazyViewError
+                    ? $tr("app.failedLoadView", { view: $tr(VIEW_LABEL_KEYS[popoutRoute]) })
+                    : $tr("app.loadingView", { view: $tr(VIEW_LABEL_KEYS[popoutRoute]) })}
+                </p>
+                {#if lazyViewError}
+                  <p class="text-sm text-text-muted">{lazyViewError}</p>
+                {/if}
+              </div>
+            </section>
+          {/if}
+        </main>
+      </div>
+    {/if}
 
     <button
       type="button"
@@ -280,15 +301,18 @@
   </ErrorBoundary>
 {:else}
   <ErrorBoundary>
+    <CustomCssHost />
     <Titlebar />
 
-    <div id="app">
+    <div id="app" style={shellAccentStyle}>
       {#if $currentView !== "setup"}
         <Sidebar />
       {/if}
 
       <main
         id="content"
+        data-view={$currentView}
+        style={viewScopeStyle}
         class:stats-active={$currentView === "stats"}
         class:setup-active={$currentView === "setup"}
       >
@@ -347,6 +371,10 @@
   {#if $tourActive}
     <TourOverlay />
   {/if}
+
+  <!-- Main window only: the inspector claims Ctrl+Shift+click app-wide, and a
+       pop-out has no Settings toggle to turn it back off. -->
+  <ThemeInspector />
 {/if}
 
 <ToastHost />

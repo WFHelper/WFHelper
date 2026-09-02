@@ -19,7 +19,57 @@
   --border: rgba(212, 168, 67, 0.1);
   --border-strong: rgba(212, 168, 67, 0.25);
   --border-subtle: rgba(255, 255, 255, 0.12);
+
+  /* Semantic surface roles. applyTheme() overwrites all of these at runtime;
+     the literals here are the default preset so first paint is not unstyled. */
+  --surface-panel: #111827;
+  --surface-panel-border: rgba(212, 168, 67, 0.1);
+  --surface-card: #1a2234;
   --surface-hover: rgba(255, 255, 255, 0.05);
+  --surface-selected: rgba(212, 168, 67, 0.15);
+  --surface-input: #1a2234;
+  --surface-tooltip: #060a12;
+
+  /* Semantic text roles. */
+  --text-heading: #e8e4dc;
+  --text-body: #e8e4dc;
+  --text-link: #d4a843;
+  --text-on-accent: #12151a;
+  --text-positive: #4ade80;
+  --text-negative: #f87171;
+
+  /* State ramps. */
+  --success-dim: #329757;
+  --success-bg: rgba(74, 222, 128, 0.12);
+  --warning-dim: #ab8218;
+  --warning-bg: rgba(251, 191, 36, 0.12);
+  --danger-dim: #a94d4d;
+  --danger-bg: rgba(248, 113, 113, 0.12);
+  --info-dim: #4170aa;
+  --info-bg: rgba(96, 165, 250, 0.12);
+
+  /* Categorical chart palette. */
+  --chart-1: #d4a843;
+  --chart-2: #60a5fa;
+  --chart-3: #4ade80;
+  --chart-4: #fbbf24;
+  --chart-5: #f87171;
+  --chart-6: #ac8bb6;
+  --chart-axis: #8d9ab3;
+  --relic-lith: #9ca3af;
+  --relic-meso: #f59e0b;
+  --relic-neo: #60a5fa;
+  --relic-axi: #ef4444;
+  --relic-requiem: #a855f7;
+  --riven-pip: #5ec8ff;
+  --riven-reroll: #f06dff;
+
+  /* Active view accent; falls back to the theme accent when the view has none. */
+  --view-accent: var(--accent);
+  --view-accent-dim: var(--accent-dim);
+  --view-accent-bright: var(--accent-bright);
+  --view-accent-glow: var(--accent-glow);
+
   --radius-sm: 0.28rem;
   --radius-md: 0.42rem;
   --radius-lg: 0.62rem;

@@ -1,5 +1,6 @@
-import type { ThemeColors, ThemeEffects, ThemeFontSizes } from "../types/theme.js";
-import { DEFAULT_COLORS, DEFAULT_EFFECTS, DEFAULT_FONT_SIZES } from "./themeDefaults.js";
+import type { ThemeBaseColors, ThemeColors, ThemeEffects, ThemeFontSizes } from "../types/theme.js";
+import { DEFAULT_BASE_COLORS, DEFAULT_EFFECTS, DEFAULT_FONT_SIZES } from "./themeDefaults.js";
+import { deriveThemeColors } from "../lib/theme/derive.js";
 
 interface ThemePreset {
   label: string;
@@ -13,9 +14,12 @@ function definePreset(
   colors: Partial<ThemeColors> = {},
   effects: Partial<ThemeEffects> = {},
 ): ThemePreset {
+  // Semantic tokens follow the preset's own base palette, so a preset only ever
+  // lists the 24 hand-picked colours; an explicit override still wins.
+  const base: ThemeBaseColors = { ...DEFAULT_BASE_COLORS, ...colors };
   return {
     label,
-    colors: { ...DEFAULT_COLORS, ...colors },
+    colors: { ...base, ...deriveThemeColors(base), ...colors },
     fontSizes: { ...DEFAULT_FONT_SIZES },
     effects: { ...DEFAULT_EFFECTS, ...effects },
   };

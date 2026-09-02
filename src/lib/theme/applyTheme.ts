@@ -157,6 +157,9 @@ function resolveColors(settings: ThemeSettings): ThemeColors {
     colors.textPrimary = autoAdjustTextColor(colors.textPrimary, bg, WCAG_AA_NORMAL);
     colors.textSecondary = autoAdjustTextColor(colors.textSecondary, bg, WCAG_AA_NORMAL);
     colors.textMuted = autoAdjustTextColor(colors.textMuted, bg, 3.0);
+    // Heading and body default to textPrimary, so they need the same lift.
+    colors.textHeading = autoAdjustTextColor(colors.textHeading, bg, WCAG_AA_NORMAL);
+    colors.textBody = autoAdjustTextColor(colors.textBody, bg, WCAG_AA_NORMAL);
   }
 
   return colors;

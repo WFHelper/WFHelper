@@ -29,6 +29,23 @@
   --color-grade-d: var(--grade-d);
   --color-grade-f: var(--grade-f);
   --color-grade-default: var(--grade-default);
+  --color-text-heading: var(--text-heading);
+  --color-text-body: var(--text-body);
+  --color-text-on-accent: var(--text-on-accent);
+  --color-success-dim: var(--success-dim);
+  --color-success-bg: var(--success-bg);
+  --color-warning-dim: var(--warning-dim);
+  --color-warning-bg: var(--warning-bg);
+  --color-danger-dim: var(--danger-dim);
+  --color-danger-bg: var(--danger-bg);
+  --color-info-dim: var(--info-dim);
+  --color-info-bg: var(--info-bg);
+  --color-surface-card: var(--surface-card);
+  --color-surface-selected: var(--surface-selected);
+  --color-surface-input: var(--surface-input);
+  --color-surface-tooltip: var(--surface-tooltip);
+  --color-riven-pip: var(--riven-pip);
+  --color-riven-reroll: var(--riven-reroll);
   --font-display: "Rajdhani", sans-serif;
   --font-body: "Barlow", sans-serif;
 

@@ -3,6 +3,7 @@
   import { tr } from "../../lib/i18n.js";
   import PresetSelector from "./PresetSelector.svelte";
   import ColorSection from "./ColorSection.svelte";
+  import ViewAccentSection from "./ViewAccentSection.svelte";
   import StyleSection from "./StyleSection.svelte";
   import FontSizeSection from "./FontSizeSection.svelte";
   import AppScaleSection from "./AppScaleSection.svelte";
@@ -35,6 +36,7 @@
 
 <article class="appearance-card {panelClass}">
   <ColorSection />
+  <ViewAccentSection />
 </article>
 
 <article class="appearance-card {panelClass}">
