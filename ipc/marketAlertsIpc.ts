@@ -3,9 +3,11 @@ import { assertMainRendererSender, handleAuthorized } from "./ipcSecurity";
 import { sendDesktopNotificationRaw } from "./worldStateIpc";
 import { addInventoryListener } from "./inventoryIpc";
 import { isObject } from "./ipcValidators";
+import { withScope } from "../services/logger";
 import * as marketAlerts from "../services/marketAlerts";
 import * as rivenData from "../services/rivenData";
 import * as wfmCatalog from "../services/wfmCatalog";
+import { isRivenWeaponSlug } from "../services/wfmRivenItems";
 import * as wfmSession from "../services/wfmSession";
 import { toNonEmptyString } from "../config/shared/stringValidation";
 import {
@@ -27,6 +29,8 @@ import type {
   MarketAlertSaveResult,
 } from "../config/shared/marketAlertTypes";
 
+const log = withScope("marketAlertsIpc");
+
 /** Resolves the editor's weapon display name into the stored WFM family slug.
  *  Joining by the catalog here keeps display names out of every rule. */
 function resolveWeaponSlug(weaponName: string): string | null {
@@ -35,7 +39,7 @@ function resolveWeaponSlug(weaponName: string): string | null {
   return slug || null;
 }
 
-function saveFromPayload(payload: unknown): MarketAlertSaveResult {
+async function saveFromPayload(payload: unknown): Promise<MarketAlertSaveResult> {
   if (!isObject(payload) || !isObject(payload.rule)) {
     return { ok: false, error: "invalid payload" };
   }
@@ -44,6 +48,11 @@ function saveFromPayload(payload: unknown): MarketAlertSaveResult {
   if (weaponName && rule.kind === "riven") {
     const slug = resolveWeaponSlug(weaponName);
     if (!slug) return { ok: false, error: "unknown weapon" };
+    // A disposition is not a market: WFM answers item_not_exist to every auction
+    // search for a weapon it lists no rivens for, and the rule backs off forever.
+    const known = await isRivenWeaponSlug(slug);
+    if (known === false) return { ok: false, error: "no riven market" };
+    if (known === null) log.warn(`Riven item list unavailable; saving "${slug}" unchecked`);
     const riven = isObject(rule.riven) ? rule.riven : {};
     rule = { ...rule, riven: { ...riven, weaponUrlName: slug } };
   }
@@ -157,6 +166,8 @@ function register(): void {
       if (typeof text !== "string" || text.length > MARKET_ALERT_IMPORT_MAX_BYTES) {
         return { ok: false, error: "import is too large" };
       }
+      // No riven-market check here on purpose: an import carries slugs that are
+      // already resolved, and gating it would make importing need the network.
       return marketAlerts.importMarketAlertRules(text);
     },
   );
