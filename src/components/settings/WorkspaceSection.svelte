@@ -97,62 +97,76 @@
     <ul class="mt-3 space-y-1.5">
       {#each $workspaces.workspaces as workspace (workspace.id)}
         <li
-          class="flex flex-wrap items-center gap-2 rounded-[var(--radius-md)] border border-border px-2 py-1.5"
+          class="flex flex-col gap-1.5 rounded-[var(--radius-md)] border border-border px-2 py-1.5"
           data-workspace-row={workspace.id}
         >
           {#if renamingId === workspace.id}
-            <input
-              class="min-w-0 flex-1 rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] px-2 py-0.5 text-sm text-text-primary"
-              type="text"
-              maxlength="60"
-              data-workspace-rename-input={workspace.id}
-              aria-label={$tr(k("workspaces.rename"))}
-              bind:value={renameDraft}
-            />
-            <button class="btn-secondary btn-sm" data-workspace-rename-save onclick={commitRename}>
-              {$tr("common.save")}
-            </button>
-            <button
-              class="btn-secondary btn-sm"
-              data-workspace-rename-cancel
-              onclick={() => (renamingId = null)}
-            >
-              {$tr("common.cancel")}
-            </button>
-          {:else}
-            <span class="min-w-0 flex-1 truncate text-sm text-text-primary">{workspace.name}</span>
-            <label class="flex items-center gap-1 text-xs text-text-secondary">
+            <div class="flex items-center gap-2">
               <input
-                class="accent-accent"
-                type="radio"
-                name="workspace-restore"
-                data-workspace-restore={workspace.id}
-                checked={$workspaces.restoreOnLaunch === workspace.id}
-                onchange={() => setRestoreOnLaunch(workspace.id)}
+                class="min-w-0 flex-1 rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] px-2 py-0.5 text-sm text-text-primary"
+                type="text"
+                maxlength="60"
+                data-workspace-rename-input={workspace.id}
+                aria-label={$tr(k("workspaces.rename"))}
+                bind:value={renameDraft}
               />
-              {$tr(k("workspaces.restoreOnLaunch"))}
-            </label>
-            <button
-              class="btn-secondary btn-sm"
-              data-workspace-apply={workspace.id}
-              onclick={() => applyWorkspace(workspace.id)}
-            >
-              {$tr(k("workspaces.apply"))}
-            </button>
-            <button
-              class="btn-secondary btn-sm"
-              data-workspace-rename={workspace.id}
-              onclick={() => startRename(workspace.id, workspace.name)}
-            >
-              {$tr(k("workspaces.rename"))}
-            </button>
-            <button
-              class="btn-secondary btn-sm"
-              data-workspace-delete={workspace.id}
-              onclick={() => remove(workspace.id, workspace.name)}
-            >
-              {$tr("common.delete")}
-            </button>
+              <button
+                class="btn-secondary btn-sm"
+                data-workspace-rename-save
+                onclick={commitRename}
+              >
+                {$tr("common.save")}
+              </button>
+              <button
+                class="btn-secondary btn-sm"
+                data-workspace-rename-cancel
+                onclick={() => (renamingId = null)}
+              >
+                {$tr("common.cancel")}
+              </button>
+            </div>
+          {:else}
+            <!-- Name and actions on separate lines: the settings card is too narrow
+                 for a name, the launch radio and three buttons in one row. -->
+            <div class="flex min-w-0 items-center gap-2">
+              <span class="min-w-0 flex-1 truncate text-sm text-text-primary" title={workspace.name}
+                >{workspace.name}</span
+              >
+              <label class="flex items-center gap-1 text-xs text-text-secondary">
+                <input
+                  class="accent-accent"
+                  type="radio"
+                  name="workspace-restore"
+                  data-workspace-restore={workspace.id}
+                  checked={$workspaces.restoreOnLaunch === workspace.id}
+                  onchange={() => setRestoreOnLaunch(workspace.id)}
+                />
+                {$tr(k("workspaces.restoreOnLaunch"))}
+              </label>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                class="btn-secondary btn-sm"
+                data-workspace-apply={workspace.id}
+                onclick={() => applyWorkspace(workspace.id)}
+              >
+                {$tr(k("workspaces.apply"))}
+              </button>
+              <button
+                class="btn-secondary btn-sm"
+                data-workspace-rename={workspace.id}
+                onclick={() => startRename(workspace.id, workspace.name)}
+              >
+                {$tr(k("workspaces.rename"))}
+              </button>
+              <button
+                class="btn-secondary btn-sm"
+                data-workspace-delete={workspace.id}
+                onclick={() => remove(workspace.id, workspace.name)}
+              >
+                {$tr("common.delete")}
+              </button>
+            </div>
           {/if}
         </li>
       {/each}
