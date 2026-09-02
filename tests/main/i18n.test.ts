@@ -142,6 +142,32 @@ describe("i18n dictionaries", () => {
 
     expect(unused).toEqual([]);
   });
+
+  // The reverse of the reference check: a component written against a
+  // `k("...")` cast compiles with a key the dictionary never got, and the app
+  // then shows the raw key. Only call sites and *Key props are read, so ids
+  // shaped like keys (layout sections, storage keys) stay out of it.
+  it("defines every key the app resolves", () => {
+    const namespaces = new Set(Object.keys(en).map((key) => key.split(".")[0]));
+    const keyLiteral = /"([a-z]\w*(?:\.\w+)+)"/g;
+    const callSite = /(?:\$?\btr|\bk|\bt|\bmessageKey)\(\s*"([a-z]\w*(?:\.\w+)+)"/g;
+    const propLiteral = /\b[a-z]\w*Key\s*[:=]\s*"([a-z]\w*(?:\.\w+)+)"/g;
+    const propExpression = /\b[a-z]\w*Key=\{([^}]*)\}/g;
+    const missing = new Set<string>();
+    const consider = (literal: string): void => {
+      if (namespaces.has(literal.split(".")[0]) && !(literal in en)) missing.add(literal);
+    };
+    for (const file of REFERENCE_ROOTS.flatMap((root) => sourceFiles(root))) {
+      const source = fs.readFileSync(file, "utf8");
+      for (const match of source.matchAll(callSite)) consider(match[1]);
+      for (const match of source.matchAll(propLiteral)) consider(match[1]);
+      for (const match of source.matchAll(propExpression)) {
+        for (const inner of match[1].matchAll(keyLiteral)) consider(inner[1]);
+      }
+    }
+
+    expect([...missing].sort()).toEqual([]);
+  });
 });
 
 // Any key-shaped literal, not only `t("...")`: overlay.js routes some keys
