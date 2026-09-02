@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { titleCase } from "../config/shared/textNormalize";
 import { DEFAULT_GAME_LOCALE, getGameLocale } from "./gameLocale";
 import { withScope } from "./logger";
 
@@ -115,10 +116,6 @@ export function localizedDictValue(value: unknown): string | null {
     if (localized) return localized;
   }
   return loadRegionTranslation().dict[value] || null;
-}
-
-export function titleCase(value: string): string {
-  return value.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase());
 }
 
 /** "Pacific (Earth)", or the raw id when DE has no entry for the node. */

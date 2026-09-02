@@ -20,8 +20,8 @@ import {
   localizedDictValue,
   nodeLabel,
   resolveDict,
-  titleCase,
 } from "./regionNames";
+import { titleCase } from "../config/shared/textNormalize";
 import { fetchJsonWithTimeout, fetchWithTimeout } from "./worldStateFetch";
 import { computeSteelPathHonors } from "./worldStateSteelPath";
 

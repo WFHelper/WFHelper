@@ -2,6 +2,7 @@
 // tab-visibility map all key off this, so a typo fails to compile.
 export type ViewName =
   | "setup"
+  | "dashboard"
   | "inventory"
   | "foundry"
   | "mastery"

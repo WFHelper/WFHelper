@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  LAZY_VIEW_LOADERS,
   SIDEBAR_VIEW_ORDER,
   TOGGLEABLE_VIEWS,
+  VIEW_LABEL_KEYS,
+  isLazyView,
   isToggleableView,
   mergeOrderOverDefaults,
   mergeSidebarOrder,
 } from "../../../src/lib/viewRegistry.js";
 
 describe("sidebar registry", () => {
-  it("keeps inventory first and settings last by default", () => {
-    expect(SIDEBAR_VIEW_ORDER[0]).toBe("inventory");
+  it("leads with the dashboard, keeps inventory second and settings last", () => {
+    expect(SIDEBAR_VIEW_ORDER[0]).toBe("dashboard");
+    expect(SIDEBAR_VIEW_ORDER[1]).toBe("inventory");
     expect(SIDEBAR_VIEW_ORDER[SIDEBAR_VIEW_ORDER.length - 1]).toBe("settings");
   });
 
@@ -20,6 +24,17 @@ describe("sidebar registry", () => {
     expect(TOGGLEABLE_VIEWS).not.toContain("inventory");
     expect(TOGGLEABLE_VIEWS).not.toContain("settings");
     expect(TOGGLEABLE_VIEWS).toContain("market");
+  });
+
+  it("lets the user hide the dashboard, which is not the landing view", () => {
+    expect(isToggleableView("dashboard")).toBe(true);
+    expect(TOGGLEABLE_VIEWS).toContain("dashboard");
+  });
+
+  it("loads the dashboard lazily and labels it", () => {
+    expect(isLazyView("dashboard")).toBe(true);
+    expect(typeof LAZY_VIEW_LOADERS.dashboard).toBe("function");
+    expect(VIEW_LABEL_KEYS.dashboard).toBe("nav.dashboard");
   });
 
   it("lists the toggleable views in default order", () => {

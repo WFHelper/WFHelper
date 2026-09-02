@@ -9,7 +9,7 @@ export type SidebarViewName = Exclude<ViewName, "setup">;
 /** Views loaded on first visit. Everything else is in the initial bundle. */
 export type LazyViewName = Extract<
   ViewName,
-  "world" | "market" | "analytics" | "relics" | "wiki" | "arbi"
+  "dashboard" | "world" | "market" | "analytics" | "relics" | "wiki" | "arbi"
 >;
 
 type LazyViewComponent = Component<Record<string, never>>;
@@ -18,6 +18,7 @@ export const LAZY_VIEW_LOADERS: Record<
   LazyViewName,
   () => Promise<{ default: LazyViewComponent }>
 > = {
+  dashboard: () => import("../views/DashboardView.svelte"),
   world: () => import("../views/WorldView.svelte"),
   market: () => import("../views/MarketView.svelte"),
   analytics: () => import("../views/MarketAnalysisView.svelte"),
@@ -32,6 +33,7 @@ export function isLazyView(view: ViewName): view is LazyViewName {
 
 export const VIEW_LABEL_KEYS: Record<ViewName, MessageKey> = {
   setup: "nav.setup",
+  dashboard: "nav.dashboard",
   inventory: "common.inventory",
   foundry: "common.foundry",
   mastery: "common.mastery",
@@ -50,6 +52,7 @@ export const VIEW_LABEL_KEYS: Record<ViewName, MessageKey> = {
 // keeps string-key insertion order) and the value says whether the user may hide the
 // row. Being a Record over the union, a new ViewName fails to compile until listed.
 const SIDEBAR_VIEW_HIDEABLE: Record<SidebarViewName, boolean> = {
+  dashboard: true,
   inventory: false,
   foundry: true,
   mastery: true,
@@ -72,7 +75,8 @@ export function isToggleableView(view: SidebarViewName): view is ToggleableView 
 }
 
 /** Hideable views in default order; inventory and settings are deliberately absent:
-    one is the landing view, the other is how you get the rest back. */
+    one is the landing view, the other is how you get the rest back. The dashboard
+    leads the rows but is not the landing view; opening on it stays a user choice. */
 export const TOGGLEABLE_VIEWS: readonly ToggleableView[] =
   SIDEBAR_VIEW_ORDER.filter(isToggleableView);
 

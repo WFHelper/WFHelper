@@ -57,7 +57,7 @@ describe("sidebarOrder", () => {
     const { moveSidebarView, sidebarOrder } = await loadModule();
     moveSidebarView(0, 2);
     const moved = get(sidebarOrder);
-    expect(moved[2]).toBe("inventory");
+    expect(moved[2]).toBe(SIDEBAR_VIEW_ORDER[0]);
     expect(JSON.parse(store.get("wf_sidebar_order") ?? "[]")).toEqual(moved);
 
     vi.resetModules();
@@ -69,7 +69,7 @@ describe("sidebarOrder", () => {
     const { moveSidebarView, sidebarOrder } = await loadModule();
     moveSidebarView(0, 99);
     const order = get(sidebarOrder);
-    expect(order[order.length - 1]).toBe("inventory");
+    expect(order[order.length - 1]).toBe(SIDEBAR_VIEW_ORDER[0]);
     expect(order).toHaveLength(SIDEBAR_VIEW_ORDER.length);
 
     moveSidebarView(99, 0);

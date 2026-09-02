@@ -109,6 +109,7 @@
     toggleCollapsedSection,
     toggleCycleAlert,
   } from "../lib/world/useWorldView.js";
+  import { titleCase } from "../../config/shared/textNormalize.js";
   import { activeWindow, parseIsoDate, timeTo } from "../lib/format.js";
   import {
     CIRCUIT_HARD_ROTATION,
@@ -338,10 +339,6 @@
 
   // Baro ownership set - covers mods, weapons, relics, cosmetics
   $: baroOwnedSet = buildBaroOwnedSet($inventoryData);
-
-  function titleCase(s: string): string {
-    return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-  }
 
   function daysUntilLabel(iso: string | undefined, now: number, t: Translator): string {
     const ms = iso ? Date.parse(iso) - now : Number.NaN;

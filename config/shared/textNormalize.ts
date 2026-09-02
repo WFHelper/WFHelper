@@ -1,3 +1,9 @@
+/** Capitalises each word of a lowercased base, hyphenated parts included, for the
+ *  lowercase keys and upper-case game strings the world data mixes. */
+export function titleCase(value: string): string {
+  return value.toLowerCase().replace(/(^|[\s-])\S/g, (c) => c.toUpperCase());
+}
+
 export function normalizeForSearch(value: unknown): string {
   return String(value || "")
     .toLowerCase()
