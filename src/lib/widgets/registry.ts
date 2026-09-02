@@ -1,6 +1,6 @@
 import type { MessageKey } from "../i18n.js";
 import type { SectionDescriptor, SectionSpan } from "../layout/types.js";
-import type { ViewName } from "../../types/views.js";
+import type { SidebarViewName } from "../viewRegistry.js";
 import type { WidgetDescriptor } from "./types.js";
 
 /** Layout section ids are `<view>.<name>`, so a widget maps onto `dashboard.<name>`. */
@@ -85,8 +85,9 @@ export const DASHBOARD_WIDGETS: readonly WidgetDescriptor[] = [
 ];
 
 /** Tab each widget's "open" link goes to. Kept beside the registry rather than on
-    the descriptor so the widget contract stays free of routing. */
-export const WIDGET_HOME_VIEWS: Readonly<Record<string, ViewName>> = {
+    the descriptor so the widget contract stays free of routing. A home view always
+    owns a sidebar row, so it also has a nav icon and may carry a view accent. */
+export const WIDGET_HOME_VIEWS: Readonly<Record<string, SidebarViewName>> = {
   "widget.cycles": "world",
   "widget.fissures": "world",
   "widget.foundryReady": "foundry",

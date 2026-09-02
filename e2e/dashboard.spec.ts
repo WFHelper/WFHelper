@@ -85,6 +85,21 @@ test.describe("Dashboard", () => {
     await expect(page.locator("#content")).toHaveAttribute("data-view", "world");
   });
 
+  test("every widget header leads with its home tab's icon", async () => {
+    for (const id of WIDGET_IDS) {
+      await expect(page.locator(`[data-widget="${id}"] header img`)).toHaveCount(1);
+    }
+  });
+
+  test("an empty widget says where its data comes from", async () => {
+    const empties = page.locator("[data-widget-empty]");
+    // A cold sandbox has no inventory, no pins and no runs, so several are empty.
+    await expect.poll(() => empties.count()).toBeGreaterThan(0);
+    for (let index = 0; index < (await empties.count()); index += 1) {
+      await expect(empties.nth(index).locator("[data-widget-open-empty]")).toHaveCount(1);
+    }
+  });
+
   test("hiding a widget in edit mode survives a renderer reload", async () => {
     const toggle = page.locator('[data-layout-edit-toggle="dashboard"]');
     await toggle.click();

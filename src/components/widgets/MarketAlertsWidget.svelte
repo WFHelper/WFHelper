@@ -67,7 +67,7 @@
   emptyKey="marketAlerts.noHits"
 >
   {#snippet subtitle()}
-    <p class="m-0 text-[11px] text-text-muted" data-widget-status>
+    <p class="m-0 text-[0.68rem] uppercase tracking-[0.06em] text-text-muted" data-widget-status>
       {$tr(healthKey)}
       {#if status}
         &middot; {$tr("marketAlerts.enabledCount", {
@@ -77,13 +77,13 @@
       {/if}
     </p>
   {/snippet}
-  <ul class="m-0 flex list-none flex-col gap-1 p-0 text-xs">
+  <ul class="m-0 max-h-[340px] flex-1 list-none overflow-y-auto p-0">
     {#each shown as hit (hit.id)}
-      <li class="flex items-baseline gap-2">
-        <span class="shrink-0 text-text-muted">{hitTime(hit.at)}</span>
+      <li class="flex items-baseline gap-2 py-1 text-sm">
+        <span class="shrink-0 tabular-nums text-text-muted">{hitTime(hit.at)}</span>
         <span class="min-w-0 flex-1 truncate text-text-secondary">{hit.ruleName}</span>
         {#if hit.platinum != null}
-          <span class="shrink-0 font-display text-text-primary">{hit.platinum}</span>
+          <span class="shrink-0 font-display tabular-nums text-text-primary">{hit.platinum}</span>
         {/if}
       </li>
     {/each}

@@ -48,23 +48,23 @@
 
 <WidgetFrame widgetId="widget.goals" empty={pins.length === 0} emptyKey="mastery.planner.empty">
   {#snippet subtitle()}
-    <p class="m-0 text-[11px] text-text-muted" data-widget-status>
+    <p class="m-0 text-[0.68rem] uppercase tracking-[0.06em] text-text-muted" data-widget-status>
       {$tr("mastery.planner.pinnedCount", { count: String(pins.length) })} &middot;
       {$tr("mastery.planner.craftableCount", { count: String(plan.craftableCount) })}
     </p>
   {/snippet}
-  <ul class="m-0 flex list-none flex-col gap-1 p-0 text-xs">
+  <ul class="m-0 max-h-[340px] flex-1 list-none overflow-y-auto p-0">
     {#each rows as item (item.uniqueName)}
-      <li class="flex items-baseline gap-2">
+      <li class="flex items-baseline gap-2 py-1 text-sm">
         <span class="min-w-0 flex-1 truncate text-text-secondary"
           >{item.displayName || item.name}</span
         >
         {#if item.craftableNow}
-          <span class="shrink-0 text-[11px] uppercase tracking-wide text-text-muted"
+          <span class="shrink-0 text-[0.68rem] uppercase tracking-[0.06em] text-text-muted"
             >{$tr("mastery.planner.craftableNow")}</span
           >
         {/if}
-        <span class="shrink-0 font-display text-text-primary"
+        <span class="shrink-0 font-display tabular-nums text-text-primary"
           >{item.masteryXpRemaining.toLocaleString()}</span
         >
       </li>

@@ -2,7 +2,7 @@
   import { titleCase } from "../../../config/shared/textNormalize.js";
   import { tr } from "../../lib/i18n.js";
   import { buildCycleRows, buildWorldTimes } from "../../lib/world/useWorldView.js";
-  import { worldData } from "../../stores/world.js";
+  import { worldData, worldLoading } from "../../stores/world.js";
   import CycleRow from "../world/CycleRow.svelte";
   import WidgetFrame from "./WidgetFrame.svelte";
 
@@ -55,10 +55,11 @@
 
 <WidgetFrame
   widgetId="widget.cycles"
+  loading={$worldLoading && !wd}
   empty={rows.length === 0}
   emptyKey={wd ? "world.cycleDataUnavailable" : "world.unavailable"}
 >
-  <div class="flex flex-col">
+  <div class="flex max-h-[340px] flex-1 flex-col overflow-y-auto">
     {#each rows as row (row.key)}
       <CycleRow
         name={titleCase(row.key)}

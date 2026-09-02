@@ -86,6 +86,31 @@ async function fetchWorldData(force: boolean = false): Promise<void> {
   }
 }
 
+// Refcounted because the World tab and the dashboard's world widgets both need
+// live data. Only one of the two views is mounted at a time today, but a mount
+// that overlaps an unmount must not leave two intervals running.
+let worldPollRefs = 0;
+let stopWorldPoll: (() => void) | null = null;
+
+/** Fetches now and keeps world data polling while any caller holds its stop fn. */
+export function mountWorldPolling(): () => void {
+  worldPollRefs += 1;
+  if (worldPollRefs === 1) {
+    void fetchWorldData();
+    stopWorldPoll = useInterval(() => void fetchWorldData(), WORLD_POLL_MS);
+  }
+
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    worldPollRefs -= 1;
+    if (worldPollRefs > 0) return;
+    stopWorldPoll?.();
+    stopWorldPoll = null;
+  };
+}
+
 export function mountWorldView(): () => void {
   void fetchWorldData(true);
 
@@ -108,7 +133,7 @@ export function mountWorldView(): () => void {
       .catch((error: unknown) => console.error("[World] getOverlaySettings failed:", error));
   }
 
-  const stopPolling = useInterval(() => void fetchWorldData(), WORLD_POLL_MS);
+  const stopPolling = mountWorldPolling();
 
   return () => {
     stopPolling();

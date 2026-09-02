@@ -2,7 +2,7 @@
   import { activeWindow } from "../../lib/format.js";
   import { tr } from "../../lib/i18n.js";
   import { buildWorldTimes } from "../../lib/world/useWorldView.js";
-  import { worldData } from "../../stores/world.js";
+  import { worldData, worldLoading } from "../../stores/world.js";
   import WidgetFrame from "./WidgetFrame.svelte";
 
   interface Props {
@@ -37,29 +37,34 @@
 
 <WidgetFrame
   widgetId="widget.baro"
+  loading={$worldLoading && !wd}
   empty={!baro?.activation && !baro?.expiry}
   emptyKey={wd ? "world.noData" : "world.unavailable"}
 >
+  {#snippet subtitle()}
+    {#if baro?.location}
+      <p class="m-0 text-[0.68rem] uppercase tracking-[0.06em] text-text-muted" data-widget-status>
+        {baro.location}
+      </p>
+    {/if}
+  {/snippet}
   <p class="m-0 text-sm text-text-primary">
     {baroActive
       ? $tr("world.baroLeavesIn", { baro: times.baro })
       : $tr("world.baroArrivesIn", { baro: times.baro })}
   </p>
-  {#if baro?.location}
-    <p class="m-0 text-xs text-text-secondary">{baro.location}</p>
-  {/if}
   {#if shown.length > 0}
-    <ul class="m-0 flex list-none flex-col gap-1 p-0 text-xs">
+    <ul class="m-0 max-h-[340px] flex-1 list-none overflow-y-auto p-0">
       {#each shown as entry (entry.uniqueName ?? entry.item)}
-        <li class="flex items-baseline gap-2">
+        <li class="flex items-baseline gap-2 py-1 text-sm">
           <span class="min-w-0 flex-1 truncate text-text-secondary">{entry.item}</span>
           {#if entry.ducats}
-            <span class="shrink-0 text-text-muted"
+            <span class="shrink-0 tabular-nums text-text-muted"
               >{$tr("world.baro.ducatsShort", { count: String(entry.ducats) })}</span
             >
           {/if}
           {#if entry.credits}
-            <span class="shrink-0 text-text-muted"
+            <span class="shrink-0 tabular-nums text-text-muted"
               >{$tr("world.baro.creditsShort", { amount: String(entry.credits) })}</span
             >
           {/if}
@@ -67,7 +72,7 @@
       {/each}
     </ul>
     {#if manifest.length > shown.length}
-      <p class="m-0 text-right text-[11px] text-text-muted" data-widget-more>
+      <p class="m-0 text-right text-[0.68rem] text-text-muted" data-widget-more>
         {$tr("mastery.planner.moreMaterials", { count: String(manifest.length - shown.length) })}
       </p>
     {/if}

@@ -1,7 +1,9 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
 
+  import { NAV_ICON_URLS } from "../../lib/assetUrls.js";
   import { tr, type MessageKey } from "../../lib/i18n.js";
+  import { viewAccentStyle } from "../../lib/theme/derive.js";
   import { VIEW_LABEL_KEYS } from "../../lib/viewRegistry.js";
   import {
     WIDGET_HOME_VIEWS,
@@ -12,6 +14,7 @@
   import { currentView } from "../../stores/app.js";
   import { dashboardLayout, setWidgetSetting, widgetSettings } from "../../stores/dashboard.js";
   import { editMode } from "../../stores/layout.js";
+  import { themeSettings } from "../../stores/theme.js";
 
   interface Props {
     widgetId: string;
@@ -20,6 +23,9 @@
     emptyKey?: MessageKey;
     /** Set when the widget's own data source failed; wins over the empty state. */
     errorKey?: MessageKey | null;
+    /** Source is still fetching its first payload. A skeleton stands in for the
+        empty text so a cold start never reads as "there is no data". */
+    loading?: boolean;
     /** Rendered under the header even while empty, for state the body would hide. */
     subtitle?: Snippet;
     children: Snippet;
@@ -30,6 +36,7 @@
     empty = false,
     emptyKey,
     errorKey = null,
+    loading = false,
     subtitle,
     children,
   }: Props = $props();
@@ -38,12 +45,18 @@
   // component compiling while the dictionary catches up.
   const k = (key: string): MessageKey => key as MessageKey;
 
+  const SKELETON_BARS = [0, 1, 2];
+
   const descriptor = $derived(widgetById(widgetId));
   const labelKey = $derived(descriptor?.labelKey ?? k("common.unknown"));
   const homeView = $derived(WIDGET_HOME_VIEWS[widgetId] ?? "inventory");
+  const homeLabel = $derived($tr(VIEW_LABEL_KEYS[homeView]));
   const settingNames = $derived(Object.keys(descriptor?.settings ?? {}));
   const settings = $derived(widgetSettings($dashboardLayout, widgetId));
   const editing = $derived($editMode === "dashboard");
+  // Everything inside the panel inherits the home view's accent, so the header
+  // icon, the top rule and the open link all read as that tab's colour.
+  const accentStyle = $derived(viewAccentStyle($themeSettings.viewAccents[homeView]));
 
   let showSettings = $state(false);
 
@@ -54,11 +67,20 @@
 </script>
 
 <section
-  class="flex min-w-0 flex-col gap-2 rounded-[var(--radius-lg)] border border-[color:var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-3"
+  class="relative flex min-h-[160px] min-w-0 flex-col gap-2 overflow-hidden rounded-[var(--radius-lg)] border border-[color:var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-3"
+  style={accentStyle}
   data-widget={widgetId}
 >
+  <!-- Drawn as an element rather than border-t-2 so it cannot lose to the
+       panel's own border-width shorthand depending on utility order. -->
+  <span class="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-accent/70" aria-hidden="true"
+  ></span>
+
   <header class="flex items-center gap-2">
-    <h3 class="m-0 truncate text-sm font-semibold text-text-primary">{$tr(labelKey)}</h3>
+    <img src={NAV_ICON_URLS[homeView]} alt="" class="h-4 w-4 object-contain brightness-[0.85]" />
+    <h3 class="m-0 truncate font-display text-sm font-semibold tracking-wide text-text-primary">
+      {$tr(labelKey)}
+    </h3>
     <div class="ml-auto flex items-center gap-1">
       {#if editing && settingNames.length > 0}
         <button
@@ -85,8 +107,8 @@
         type="button"
         class="cursor-pointer rounded border border-border px-1.5 py-0.5 text-xs text-text-secondary transition-colors hover:border-accent hover:text-accent"
         data-widget-open={widgetId}
-        title={$tr(k("dashboard.openTab"), { label: $tr(VIEW_LABEL_KEYS[homeView]) })}
-        aria-label={$tr(k("dashboard.openTab"), { label: $tr(VIEW_LABEL_KEYS[homeView]) })}
+        title={$tr(k("dashboard.openTab"), { label: homeLabel })}
+        aria-label={$tr(k("dashboard.openTab"), { label: homeLabel })}
         onclick={() => currentView.set(homeView)}
       >
         <svg
@@ -154,14 +176,34 @@
     </div>
   {/if}
 
+  {#snippet placeholder(text: string, attribute: "error" | "empty")}
+    <div
+      class="flex flex-1 flex-col items-center justify-center gap-2 py-3 text-center text-xs text-text-muted"
+      data-widget-error={attribute === "error" ? widgetId : undefined}
+      data-widget-empty={attribute === "empty" ? widgetId : undefined}
+    >
+      <p class="m-0">{text}</p>
+      <button
+        type="button"
+        class="cursor-pointer border-0 bg-transparent p-0 text-xs text-accent underline-offset-2 hover:underline"
+        data-widget-open-empty={widgetId}
+        onclick={() => currentView.set(homeView)}
+      >
+        {$tr(k("dashboard.openTab"), { label: homeLabel })}
+      </button>
+    </div>
+  {/snippet}
+
   {#if errorKey}
-    <p class="m-0 py-3 text-center text-xs text-text-muted" data-widget-error={widgetId}>
-      {$tr(errorKey)}
-    </p>
+    {@render placeholder($tr(errorKey), "error")}
+  {:else if loading}
+    <div class="flex flex-col gap-2 py-2" data-widget-loading={widgetId}>
+      {#each SKELETON_BARS as bar (bar)}
+        <div class="h-3 animate-pulse rounded-[var(--radius-sm)] bg-text-muted/20"></div>
+      {/each}
+    </div>
   {:else if empty}
-    <p class="m-0 py-3 text-center text-xs text-text-muted" data-widget-empty={widgetId}>
-      {$tr(emptyKey ?? k("world.noData"))}
-    </p>
+    {@render placeholder($tr(emptyKey ?? k("world.noData")), "empty")}
   {:else}
     {@render children()}
   {/if}

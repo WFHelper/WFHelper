@@ -52,24 +52,30 @@
   emptyKey="app.noInventoryLoaded"
 >
   {#snippet subtitle()}
-    <p class="m-0 text-[11px] text-text-muted" data-widget-status>
+    <p class="m-0 text-[0.68rem] uppercase tracking-[0.06em] text-text-muted" data-widget-status>
       {allTradables ? $tr("inventory.value.allTradables") : $tr("inventory.value.scopePrime")}
     </p>
   {/snippet}
   <dl class="m-0 grid grid-cols-2 gap-2">
     <div class="min-w-0">
-      <dt class="text-[11px] uppercase tracking-wide text-text-muted">{$tr("common.platinum")}</dt>
-      <dd class="m-0 font-display text-lg text-text-primary">
+      <dt class="text-[0.68rem] uppercase tracking-[0.06em] text-text-muted">
+        {$tr("common.platinum")}
+      </dt>
+      <dd class="m-0 font-display text-lg tabular-nums text-text-primary">
         {totals.platinum.toLocaleString()}
       </dd>
     </div>
     <div class="min-w-0">
-      <dt class="text-[11px] uppercase tracking-wide text-text-muted">{$tr("common.ducats")}</dt>
-      <dd class="m-0 font-display text-lg text-text-primary">{totals.ducats.toLocaleString()}</dd>
+      <dt class="text-[0.68rem] uppercase tracking-[0.06em] text-text-muted">
+        {$tr("common.ducats")}
+      </dt>
+      <dd class="m-0 font-display text-lg tabular-nums text-text-primary">
+        {totals.ducats.toLocaleString()}
+      </dd>
     </div>
   </dl>
   {#if totals.unpriced > 0}
-    <p class="m-0 text-[11px] text-text-muted">
+    <p class="m-0 text-[0.68rem] text-text-muted">
       {$tr("inventory.value.unpriced", { count: String(totals.unpriced) })}
     </p>
   {/if}

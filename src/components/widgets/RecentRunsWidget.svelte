@@ -36,32 +36,36 @@
   emptyKey={$arbiRunsLoaded ? "arbi.empty" : "common.loading"}
 >
   {#snippet subtitle()}
-    <p class="m-0 text-[11px] text-text-muted" data-widget-status>
+    <p class="m-0 text-[0.68rem] uppercase tracking-[0.06em] text-text-muted" data-widget-status>
       {$tr("arbi.runCount", { count: String($arbiRuns.length) })}
     </p>
   {/snippet}
   <!-- Rows are a grid rather than a table: `<tr>` collides with the `tr` store
        this file imports, which Svelte warns about on every occurrence. -->
-  <div class="text-xs">
+  <div class="flex max-h-[340px] flex-1 flex-col overflow-y-auto">
     <div
-      class="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-3 text-[11px] uppercase tracking-wide text-text-muted"
+      class="grid grid-cols-[auto_1fr_auto_auto_auto] items-baseline gap-x-3 py-1 text-[0.68rem] uppercase tracking-[0.06em] text-text-muted"
     >
       <span>{$tr("arbi.col.date")}</span>
       <span>{$tr("common.node")}</span>
       <span>{$tr("common.duration")}</span>
-      <span>{$tr("arbi.col.rotations")}</span>
-      <span>{$tr("arbi.col.vitus")}</span>
+      <span class="text-right">{$tr("arbi.col.rotations")}</span>
+      <span class="text-right">{$tr("arbi.col.vitus")}</span>
     </div>
     {#each rows as run (run.id)}
       <div
-        class="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-3 border-t border-dashed border-border-subtle py-1 text-text-secondary"
+        class="grid grid-cols-[auto_1fr_auto_auto_auto] items-baseline gap-x-3 py-1 text-sm text-text-secondary"
         data-widget-run={run.id}
       >
-        <span class="whitespace-nowrap">{runDate(run.startedAt)}</span>
+        <span class="shrink-0 whitespace-nowrap tabular-nums">{runDate(run.startedAt)}</span>
         <span class="min-w-0 truncate">{run.node || run.missionName}</span>
-        <span class="whitespace-nowrap">{formatDuration(run.durationSec)}</span>
-        <span class="text-right">{run.rotations}</span>
-        <span class="text-right text-text-primary">{run.vitusActual ?? "-"}</span>
+        <span class="shrink-0 whitespace-nowrap tabular-nums">
+          {formatDuration(run.durationSec)}
+        </span>
+        <span class="shrink-0 text-right tabular-nums">{run.rotations}</span>
+        <span class="shrink-0 text-right tabular-nums text-text-primary"
+          >{run.vitusActual ?? "-"}</span
+        >
       </div>
     {/each}
   </div>

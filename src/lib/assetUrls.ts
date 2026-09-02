@@ -13,7 +13,7 @@ export const NOTIFICATION_SOUND_URL = new URL("../../assets/notification.wav", i
   .href;
 
 export const NAV_ICON_URLS = {
-  dashboard: new URL("../../assets/icons/misc/LotusEmblem.png", import.meta.url).href,
+  dashboard: new URL("../../assets/icons/Dashboard.svg", import.meta.url).href,
   inventory: new URL("../../assets/icons/IconWarframe_256.png", import.meta.url).href,
   foundry: new URL("../../assets/icons/Foundry.png", import.meta.url).href,
   mastery: new URL("../../assets/icons/Mastery_bw2.png", import.meta.url).href,

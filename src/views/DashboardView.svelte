@@ -8,6 +8,8 @@
 </script>
 
 <script lang="ts">
+  import { onMount } from "svelte";
+
   import EditLayoutBar from "../components/layout/EditLayoutBar.svelte";
   import LayoutGrid from "../components/layout/LayoutGrid.svelte";
   import BaroWidget from "../components/widgets/BaroWidget.svelte";
@@ -21,7 +23,7 @@
   import TradeSummaryWidget from "../components/widgets/TradeSummaryWidget.svelte";
   import { tr, type MessageKey } from "../lib/i18n.js";
   import { clockStore } from "../lib/timers.js";
-  import { COARSE_CLOCK_MS } from "../lib/world/useWorldView.js";
+  import { COARSE_CLOCK_MS, mountWorldPolling } from "../lib/world/useWorldView.js";
 
   // nav.dashboard lands in en.json with this change; the cast keeps the view
   // compiling while the dictionary catches up.
@@ -31,6 +33,10 @@
   // timer of its own and nine panels share two intervals.
   const nowClock = clockStore(1000);
   const coarseClock = clockStore(COARSE_CLOCK_MS);
+
+  // The world widgets used to read "unavailable" until the World tab was opened
+  // once, because only that tab fetched world state. The helper is refcounted.
+  onMount(() => mountWorldPolling());
 </script>
 
 <section class="view active">

@@ -62,36 +62,38 @@
   emptyKey={ledgerReady ? "analysis.emptyTitle" : "analysis.unavailable"}
 >
   {#snippet subtitle()}
-    <p class="m-0 text-[11px] text-text-muted" data-widget-status>
+    <p class="m-0 text-[0.68rem] uppercase tracking-[0.06em] text-text-muted" data-widget-status>
       {$tr(k("dashboard.thisMonth"))}
     </p>
   {/snippet}
   {#if flow}
     <dl class="m-0 grid grid-cols-3 gap-2">
       <div class="min-w-0">
-        <dt class="truncate text-[11px] uppercase tracking-wide text-text-muted">
+        <dt class="truncate text-[0.68rem] uppercase tracking-[0.06em] text-text-muted">
           {$tr("analysis.platIn")}
         </dt>
-        <dd class="m-0 font-display text-lg text-text-primary">
+        <dd class="m-0 font-display text-lg tabular-nums text-text-primary">
           {flow.platIn.toLocaleString()}
         </dd>
       </div>
       <div class="min-w-0">
-        <dt class="truncate text-[11px] uppercase tracking-wide text-text-muted">
+        <dt class="truncate text-[0.68rem] uppercase tracking-[0.06em] text-text-muted">
           {$tr("analysis.platOut")}
         </dt>
-        <dd class="m-0 font-display text-lg text-text-primary">
+        <dd class="m-0 font-display text-lg tabular-nums text-text-primary">
           {flow.platOut.toLocaleString()}
         </dd>
       </div>
       <div class="min-w-0">
-        <dt class="truncate text-[11px] uppercase tracking-wide text-text-muted">
+        <dt class="truncate text-[0.68rem] uppercase tracking-[0.06em] text-text-muted">
           {$tr("analysis.netPlat")}
         </dt>
-        <dd class="m-0 font-display text-lg text-text-primary">{flow.net.toLocaleString()}</dd>
+        <dd class="m-0 font-display text-lg tabular-nums text-text-primary">
+          {flow.net.toLocaleString()}
+        </dd>
       </div>
     </dl>
-    <p class="m-0 text-[11px] text-text-muted">
+    <p class="m-0 text-[0.68rem] text-text-muted">
       {$tr("analysis.salesCount", { count: String(flow.sales) })} &middot;
       {$tr("analysis.purchasesCount", { count: String(flow.purchases) })}
     </p>

@@ -51,11 +51,11 @@
 </script>
 
 <WidgetFrame widgetId="widget.foundryReady" empty={rows.length === 0} emptyKey="foundry.noItems">
-  <ul class="m-0 flex list-none flex-col gap-1 p-0 text-xs">
+  <ul class="m-0 max-h-[340px] flex-1 list-none overflow-y-auto p-0">
     {#each shown as row (row.key)}
-      <li class="flex items-baseline gap-2">
+      <li class="flex items-baseline gap-2 py-1 text-sm">
         <span class="min-w-0 flex-1 truncate text-text-secondary">{row.name}</span>
-        <span class="shrink-0 text-[11px] uppercase tracking-wide text-text-muted">
+        <span class="shrink-0 text-[0.68rem] uppercase tracking-[0.06em] text-text-muted">
           {row.claimable
             ? $tr("mastery.roadmap.accessClaimable")
             : $tr("foundry.status.readyToBuild")}
@@ -64,7 +64,7 @@
     {/each}
   </ul>
   {#if rows.length > shown.length}
-    <p class="m-0 text-right text-[11px] text-text-muted" data-widget-more>
+    <p class="m-0 text-right text-[0.68rem] text-text-muted" data-widget-more>
       {$tr("mastery.planner.moreMaterials", { count: String(rows.length - shown.length) })}
     </p>
   {/if}

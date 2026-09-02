@@ -2,7 +2,7 @@
   import { tr, type MessageKey } from "../../lib/i18n.js";
   import { buildFissureRows } from "../../lib/world/useWorldView.js";
   import { dashboardLayout, settingNumber, widgetSettings } from "../../stores/dashboard.js";
-  import { worldData, worldFissureMode } from "../../stores/world.js";
+  import { worldData, worldFissureMode, worldLoading } from "../../stores/world.js";
   import WidgetFrame from "./WidgetFrame.svelte";
 
   interface Props {
@@ -30,15 +30,20 @@
 
 <WidgetFrame
   widgetId="widget.fissures"
+  loading={$worldLoading && !wd}
   empty={shown.length === 0}
   emptyKey={wd ? "world.noFissuresAny" : "world.unavailable"}
 >
-  <p class="m-0 text-[11px] uppercase tracking-wide text-text-muted">{$tr(modeKey)}</p>
-  <ul class="m-0 flex list-none flex-col gap-1 p-0 text-xs">
+  {#snippet subtitle()}
+    <p class="m-0 text-[0.68rem] uppercase tracking-[0.06em] text-text-muted" data-widget-status>
+      {$tr(modeKey)}
+    </p>
+  {/snippet}
+  <ul class="m-0 max-h-[340px] flex-1 list-none overflow-y-auto p-0">
     {#each shown as fissure (`${fissure.node}|${fissure.tier}|${fissure.expiry}`)}
-      <li class="flex items-baseline gap-2">
+      <li class="flex items-baseline gap-2 py-1 text-sm">
         <span
-          class="w-12 shrink-0 rounded-[var(--radius-sm)] text-center font-bold"
+          class="w-12 shrink-0 rounded-[var(--radius-sm)] text-center text-xs font-bold"
           class:world-badge-lith={fissure.tierCls === "lith"}
           class:world-badge-meso={fissure.tierCls === "meso"}
           class:world-badge-neo={fissure.tierCls === "neo"}
@@ -48,15 +53,13 @@
         <span class="min-w-0 flex-1 truncate text-text-secondary">
           {fissure.missionType} &middot; {fissure.node}
         </span>
-        <span class="shrink-0 font-display tracking-[0.02em] text-text-primary"
-          >{fissure.timeStr}</span
-        >
+        <span class="shrink-0 font-display tabular-nums text-text-primary">{fissure.timeStr}</span>
       </li>
     {/each}
   </ul>
   {#if rows.length > shown.length}
     <!-- "+N more" is generic; the key it lives under is the planner's only by history. -->
-    <p class="m-0 text-right text-[11px] text-text-muted" data-widget-more>
+    <p class="m-0 text-right text-[0.68rem] text-text-muted" data-widget-more>
       {$tr("mastery.planner.moreMaterials", { count: String(rows.length - shown.length) })}
     </p>
   {/if}
