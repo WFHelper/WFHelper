@@ -113,6 +113,8 @@ const eventApiMap: Record<
     ),
   "workbench-state": (cb) =>
     window.api.onWorkbenchState(cb as (state: IpcEventMap["workbench-state"]) => void),
+  "popout-state-changed": (cb) =>
+    window.api.onPopoutStateChanged(cb as (w: IpcEventMap["popout-state-changed"]) => void),
 };
 
 export function on<K extends EventChannel>(

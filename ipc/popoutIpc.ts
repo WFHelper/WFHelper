@@ -2,14 +2,31 @@ import path from "node:path";
 
 import { BrowserWindow, app, screen } from "electron";
 
+import ctx from "./context";
 import {
   assertMainRendererSender,
   handleAuthorized,
   registerPopoutWebContents,
   unregisterPopoutWebContents,
 } from "./ipcSecurity";
-import { POPOUT_OPEN, POPOUT_SET_PINNED } from "../config/shared/ipcChannels";
-import { isPopoutView, type PopoutView } from "../config/shared/popoutTypes";
+import {
+  POPOUT_CLOSE,
+  POPOUT_CLOSE_ALL,
+  POPOUT_LIST,
+  POPOUT_OPEN,
+  POPOUT_SET_PINNED,
+  POPOUT_STATE_CHANGED,
+} from "../config/shared/ipcChannels";
+import {
+  parsePopoutBounds,
+  parsePopoutTarget,
+  parsePopoutTargetKey,
+  popoutTargetKey,
+  type PopoutOpenOptions,
+  type PopoutTarget,
+  type PopoutView,
+  type PopoutWindowInfo,
+} from "../config/shared/popoutTypes";
 import { createJsonCache } from "../services/jsonCache";
 import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
@@ -24,15 +41,26 @@ interface PopoutWindowState {
   pinned: boolean;
 }
 
-type PopoutStateFile = Partial<Record<PopoutView, PopoutWindowState>>;
+type PopoutStateFile = Record<string, PopoutWindowState>;
 
-const MIN_SIZE = { width: 720, height: 520 };
-const DEFAULT_SIZE: Record<PopoutView, { width: number; height: number }> = {
+const VIEW_MIN_SIZE = { width: 720, height: 520 };
+// A single section is usually a card, so it may shrink far below a whole view.
+const SECTION_MIN_SIZE = { width: 360, height: 280 };
+const VIEW_DEFAULT_SIZE: Record<PopoutView, { width: number; height: number }> = {
   world: { width: 1120, height: 840 },
   arbitrations: { width: 1180, height: 840 },
 };
+const SECTION_DEFAULT_SIZE = { width: 640, height: 560 };
 const BOUNDS_SAVE_DEBOUNCE_MS = 1000;
 const SHOW_DEADLINE_MS = 10_000;
+
+function minSizeFor(target: PopoutTarget): { width: number; height: number } {
+  return target.kind === "view" ? VIEW_MIN_SIZE : SECTION_MIN_SIZE;
+}
+
+function defaultSizeFor(target: PopoutTarget): { width: number; height: number } {
+  return target.kind === "view" ? VIEW_DEFAULT_SIZE[target.view] : SECTION_DEFAULT_SIZE;
+}
 
 function readSize(value: unknown, fallback: number, min: number): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
@@ -43,16 +71,19 @@ function reviveState(parsed: unknown): PopoutStateFile | null {
   if (!parsed || typeof parsed !== "object") return null;
   const state: PopoutStateFile = {};
   for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
-    if (!isPopoutView(key) || !value || typeof value !== "object") continue;
+    const target = parsePopoutTargetKey(key);
+    if (!target || !value || typeof value !== "object") continue;
     const entry = value as Record<string, unknown>;
+    const min = minSizeFor(target);
+    const size = defaultSizeFor(target);
     const next: PopoutWindowState = {
-      width: readSize(entry.width, DEFAULT_SIZE[key].width, MIN_SIZE.width),
-      height: readSize(entry.height, DEFAULT_SIZE[key].height, MIN_SIZE.height),
+      width: readSize(entry.width, size.width, min.width),
+      height: readSize(entry.height, size.height, min.height),
       pinned: entry.pinned === true,
     };
     if (typeof entry.x === "number" && Number.isFinite(entry.x)) next.x = Math.round(entry.x);
     if (typeof entry.y === "number" && Number.isFinite(entry.y)) next.y = Math.round(entry.y);
-    state[key] = next;
+    state[popoutTargetKey(target)] = next;
   }
   return state;
 }
@@ -65,35 +96,39 @@ function readState(): PopoutStateFile {
   return cachedState;
 }
 
-function patchState(view: PopoutView, patch: Partial<PopoutWindowState>): void {
+function patchState(target: PopoutTarget, patch: Partial<PopoutWindowState>): void {
   const state = readState();
-  const previous = state[view];
+  const key = popoutTargetKey(target);
+  const previous = state[key];
+  const size = defaultSizeFor(target);
   const next: PopoutWindowState = {
-    width: patch.width ?? previous?.width ?? DEFAULT_SIZE[view].width,
-    height: patch.height ?? previous?.height ?? DEFAULT_SIZE[view].height,
+    width: patch.width ?? previous?.width ?? size.width,
+    height: patch.height ?? previous?.height ?? size.height,
     pinned: patch.pinned ?? previous?.pinned ?? false,
   };
   const x = patch.x ?? previous?.x;
   const y = patch.y ?? previous?.y;
   if (typeof x === "number") next.x = Math.round(x);
   if (typeof y === "number") next.y = Math.round(y);
-  state[view] = next;
+  state[key] = next;
   stateCache.write(state);
 }
 
 // A saved position can name a monitor that is gone or now smaller, so the
 // window is pulled back inside the work area of the display it matches.
 function restoreBounds(
-  view: PopoutView,
+  target: PopoutTarget,
   saved: PopoutWindowState | undefined,
 ): { x?: number; y?: number; width: number; height: number } {
-  const width = saved?.width ?? DEFAULT_SIZE[view].width;
-  const height = saved?.height ?? DEFAULT_SIZE[view].height;
+  const size = defaultSizeFor(target);
+  const min = minSizeFor(target);
+  const width = saved?.width ?? size.width;
+  const height = saved?.height ?? size.height;
   if (typeof saved?.x !== "number" || typeof saved?.y !== "number") return { width, height };
 
   const area = screen.getDisplayMatching({ x: saved.x, y: saved.y, width, height }).workArea;
-  const clampedWidth = Math.max(MIN_SIZE.width, Math.min(width, area.width));
-  const clampedHeight = Math.max(MIN_SIZE.height, Math.min(height, area.height));
+  const clampedWidth = Math.max(min.width, Math.min(width, area.width));
+  const clampedHeight = Math.max(min.height, Math.min(height, area.height));
   return {
     x: Math.round(
       Math.min(Math.max(saved.x, area.x), Math.max(area.x, area.x + area.width - clampedWidth)),
@@ -106,42 +141,85 @@ function restoreBounds(
   };
 }
 
-const popoutWindows = new Map<PopoutView, BrowserWindow>();
+const popoutWindows = new Map<string, BrowserWindow>();
 
 function rendererEntryFile(): string {
   return path.join(app.getAppPath(), "renderer", "dist", "index.html");
 }
 
-function viewForWindow(target: BrowserWindow | null): PopoutView | null {
+function targetKeyForWindow(target: BrowserWindow | null): string | null {
   if (!target) return null;
-  for (const [view, win] of popoutWindows) {
-    if (win === target) return view;
+  for (const [key, win] of popoutWindows) {
+    if (win === target) return key;
   }
   return null;
 }
 
-function saveBounds(view: PopoutView, win: BrowserWindow): void {
+function saveBounds(target: PopoutTarget, win: BrowserWindow): void {
   if (win.isDestroyed() || win.isMinimized()) return;
   const { x, y, width, height } = win.getNormalBounds();
-  patchState(view, { x, y, width, height });
+  patchState(target, { x, y, width, height });
 }
 
-function openPopout(view: PopoutView): void {
-  const existing = popoutWindows.get(view);
+/** Open targets with the pinned flag and live bounds; the state file is the
+    pin authority so a window stub in tests never has to model always-on-top. */
+function listOpenPopouts(): PopoutWindowInfo[] {
+  const state = readState();
+  const list: PopoutWindowInfo[] = [];
+  for (const [key, win] of popoutWindows) {
+    if (win.isDestroyed()) continue;
+    const target = parsePopoutTargetKey(key);
+    if (!target) continue;
+    const { x, y, width, height } = win.getNormalBounds();
+    list.push({
+      target,
+      pinned: state[key]?.pinned === true,
+      bounds: { x, y, width, height },
+    });
+  }
+  return list;
+}
+
+function notifyStateChanged(): void {
+  const win = ctx.mainWindow;
+  if (!win || win.isDestroyed()) return;
+  win.webContents.send(POPOUT_STATE_CHANGED, listOpenPopouts());
+}
+
+function openPopout(target: PopoutTarget, options?: PopoutOpenOptions): void {
+  const key = popoutTargetKey(target);
+  const existing = popoutWindows.get(key);
   if (existing && !existing.isDestroyed()) {
+    // A workspace applies to windows that are already up, so requested geometry
+    // moves them instead of being dropped; same clamping as a fresh open.
+    if (options?.bounds) {
+      patchState(target, options.bounds);
+      existing.setBounds(restoreBounds(target, readState()[key]));
+    }
+    if (typeof options?.pinned === "boolean") {
+      existing.setAlwaysOnTop(options.pinned);
+      patchState(target, { pinned: options.pinned });
+    }
     if (existing.isMinimized()) existing.restore();
     existing.show();
     existing.focus();
+    notifyStateChanged();
     return;
   }
 
-  const saved = readState()[view];
+  // A workspace restores the geometry it captured, so the requested bounds
+  // become the remembered ones before the window reads them back.
+  if (options?.bounds) patchState(target, options.bounds);
+  if (typeof options?.pinned === "boolean") patchState(target, { pinned: options.pinned });
+
+  const saved = readState()[key];
   const pinned = saved?.pinned === true;
+  const min = minSizeFor(target);
   const entryFile = rendererEntryFile();
   const win = new BrowserWindow({
-    ...restoreBounds(view, saved),
-    minWidth: MIN_SIZE.width,
-    minHeight: MIN_SIZE.height,
+    ...restoreBounds(target, saved),
+    minWidth: min.width,
+    minHeight: min.height,
     show: false,
     backgroundColor: "#060a12",
     icon: path.join(app.getAppPath(), "assets", "logo.ico"),
@@ -156,11 +234,11 @@ function openPopout(view: PopoutView): void {
   });
 
   const webContentsId = win.webContents.id;
-  popoutWindows.set(view, win);
+  popoutWindows.set(key, win);
   registerPopoutWebContents(webContentsId);
 
   hardenBrowserWindowNavigation(win, {
-    label: `popout:${view}`,
+    label: `popout:${key}`,
     allowedFilePaths: [entryFile],
     log,
   });
@@ -171,6 +249,7 @@ function openPopout(view: PopoutView): void {
   const show = (): void => {
     if (shown || win.isDestroyed()) return;
     shown = true;
+    clearTimeout(showTimer);
     win.show();
   };
   const showTimer = setTimeout(show, SHOW_DEADLINE_MS);
@@ -182,7 +261,7 @@ function openPopout(view: PopoutView): void {
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       saveTimer = null;
-      saveBounds(view, win);
+      saveBounds(target, win);
     }, BOUNDS_SAVE_DEBOUNCE_MS);
   };
   win.on("move", queueBoundsSave);
@@ -190,20 +269,29 @@ function openPopout(view: PopoutView): void {
   win.on("close", () => {
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = null;
-    saveBounds(view, win);
+    saveBounds(target, win);
   });
   win.on("closed", () => {
     clearTimeout(showTimer);
     unregisterPopoutWebContents(webContentsId);
-    if (popoutWindows.get(view) === win) popoutWindows.delete(view);
+    if (popoutWindows.get(key) === win) popoutWindows.delete(key);
+    notifyStateChanged();
   });
 
   // The renderer reads both from its own URL: one bundle, one slim shell.
-  const search = pinned ? `popout=${view}&pinned=1` : `popout=${view}`;
+  const search = pinned ? `popout=${key}&pinned=1` : `popout=${key}`;
   void win.loadFile(entryFile, { search }).catch((err: unknown) => {
-    log.error(`Failed to load the ${view} popout renderer:`, err);
+    log.error(`Failed to load the ${key} popout renderer:`, err);
     show();
   });
+  notifyStateChanged();
+}
+
+function closePopout(target: PopoutTarget): boolean {
+  const win = popoutWindows.get(popoutTargetKey(target));
+  if (!win || win.isDestroyed()) return false;
+  win.close();
+  return true;
 }
 
 type PopoutSenderEvent = { sender?: { id?: number } };
@@ -219,22 +307,48 @@ function assertPopoutSender(event: PopoutSenderEvent, _channel: string): void {
 }
 
 export function register(): void {
-  handleAuthorized(POPOUT_OPEN, assertMainRendererSender, (_event, view: unknown) => {
-    if (!isPopoutView(view)) {
-      log.warn(`Ignored popout open for unknown view: ${String(view)}`);
+  handleAuthorized(POPOUT_OPEN, assertMainRendererSender, (_event, ...args: unknown[]) => {
+    const target = parsePopoutTarget(args[0]);
+    if (!target) {
+      log.warn(`Ignored popout open for unknown target: ${JSON.stringify(args[0] ?? null)}`);
       return { ok: false };
     }
-    openPopout(view);
+    const raw = (args[1] ?? null) as { pinned?: unknown; bounds?: unknown } | null;
+    const options: PopoutOpenOptions = {};
+    if (typeof raw?.pinned === "boolean") options.pinned = raw.pinned;
+    const bounds = parsePopoutBounds(raw?.bounds);
+    if (bounds) options.bounds = bounds;
+    openPopout(target, options);
     return { ok: true };
+  });
+
+  handleAuthorized(POPOUT_LIST, assertMainRendererSender, () => listOpenPopouts());
+
+  handleAuthorized(POPOUT_CLOSE, assertMainRendererSender, (_event, ...args: unknown[]) => {
+    const target = parsePopoutTarget(args[0]);
+    if (!target) return { ok: false };
+    return { ok: closePopout(target) };
+  });
+
+  handleAuthorized(POPOUT_CLOSE_ALL, assertMainRendererSender, () => {
+    let closed = 0;
+    for (const win of [...popoutWindows.values()]) {
+      if (win.isDestroyed()) continue;
+      win.close();
+      closed += 1;
+    }
+    return { ok: true, closed };
   });
 
   handleAuthorized(POPOUT_SET_PINNED, assertPopoutSender, (event, pinned: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender);
-    const view = viewForWindow(win);
-    if (!win || !view) return { ok: false };
+    const key = targetKeyForWindow(win);
+    const target = key ? parsePopoutTargetKey(key) : null;
+    if (!win || !target) return { ok: false };
     const next = pinned === true;
     win.setAlwaysOnTop(next);
-    patchState(view, { pinned: next });
+    patchState(target, { pinned: next });
+    notifyStateChanged();
     return { ok: true };
   });
 }
@@ -251,6 +365,7 @@ export const __test__ = {
   restoreBounds,
   patchState,
   readState,
+  listOpenPopouts,
   resetForTest(): void {
     cachedState = null;
     popoutWindows.clear();

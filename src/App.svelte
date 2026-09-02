@@ -91,17 +91,20 @@
 
     // Only the main window owns the shared disk caches; a popout flushing its
     // own smaller export would shrink them.
-    const startup = initStartup({ ownsSharedCaches: !popoutRoute });
+    const startup = initStartup({ ownsSharedCaches: !isPopoutWindow });
 
     if (popoutRoute) {
       // Reuses the normal lazy-view loader; the shell below renders its result.
       currentView.set(popoutRoute);
+    } else if (popoutSectionId) {
+      // PopoutSectionHost mounts the owning view itself, so the router stays out.
     } else if (localStorage.getItem(SETUP_COMPLETED_KEY) !== "1") {
       // Match the exact-"1" check used in stores/app.ts so any future
       // non-"1" leftover value is treated consistently.
       currentView.set("setup");
     } else {
       void reopenSetupWhenInventoryIsUnavailable();
+      void restoreWorkspaceOnLaunch();
     }
 
     window.addEventListener("keydown", onKeyDown);

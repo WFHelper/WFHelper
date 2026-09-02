@@ -254,11 +254,20 @@ export interface PreloadAPI {
     options: IpcInvokeMap["ledgerExport"]["args"][0],
   ) => Promise<IpcInvokeMap["ledgerExport"]["return"]>;
   popoutOpen: (
-    view: IpcInvokeMap["popoutOpen"]["args"][0],
+    target: IpcInvokeMap["popoutOpen"]["args"][0],
+    options?: IpcInvokeMap["popoutOpen"]["args"][1],
   ) => Promise<IpcInvokeMap["popoutOpen"]["return"]>;
   popoutSetPinned: (
     pinned: IpcInvokeMap["popoutSetPinned"]["args"][0],
   ) => Promise<IpcInvokeMap["popoutSetPinned"]["return"]>;
+  popoutList: () => Promise<IpcInvokeMap["popoutList"]["return"]>;
+  popoutClose: (
+    target: IpcInvokeMap["popoutClose"]["args"][0],
+  ) => Promise<IpcInvokeMap["popoutClose"]["return"]>;
+  popoutCloseAll: () => Promise<IpcInvokeMap["popoutCloseAll"]["return"]>;
+  onPopoutStateChanged: (
+    callback: (windows: IpcEventMap["popout-state-changed"]) => void,
+  ) => () => void;
 }
 
 export interface TradePreloadAPI {

@@ -184,3 +184,7 @@ export const LEDGER_EXPORT = "ledger:export";
 
 export const POPOUT_OPEN = "popout:open";
 export const POPOUT_SET_PINNED = "popout:set-pinned";
+export const POPOUT_LIST = "popout:list";
+export const POPOUT_CLOSE = "popout:close";
+export const POPOUT_CLOSE_ALL = "popout:close-all";
+export const POPOUT_STATE_CHANGED = "popout-state-changed";

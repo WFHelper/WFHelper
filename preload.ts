@@ -127,6 +127,10 @@ import {
   LEDGER_EXPORT,
   POPOUT_OPEN,
   POPOUT_SET_PINNED,
+  POPOUT_LIST,
+  POPOUT_CLOSE,
+  POPOUT_CLOSE_ALL,
+  POPOUT_STATE_CHANGED,
 } from "./config/shared/ipcChannels";
 import {
   MARKET_ALERTS_CHANGED,
@@ -333,6 +337,13 @@ try {
     ledgerExport: inv<"ledgerExport">(LEDGER_EXPORT),
     popoutOpen: inv<"popoutOpen">(POPOUT_OPEN),
     popoutSetPinned: inv<"popoutSetPinned">(POPOUT_SET_PINNED),
+    popoutList: inv<"popoutList">(POPOUT_LIST),
+    popoutClose: inv<"popoutClose">(POPOUT_CLOSE),
+    popoutCloseAll: inv<"popoutCloseAll">(POPOUT_CLOSE_ALL),
+    onPopoutStateChanged: ipcDataBridge<IpcEventMap["popout-state-changed"]>(
+      ipcRenderer,
+      POPOUT_STATE_CHANGED,
+    ),
 
     getArbiSchedule: inv<"getArbiSchedule">(ARBI_SCHED_GET),
     setArbiScheduleOccurrence: inv<"setArbiScheduleOccurrence">(ARBI_SCHED_SET_OCCURRENCE),

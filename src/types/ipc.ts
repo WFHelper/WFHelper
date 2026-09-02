@@ -35,7 +35,12 @@ import type {
   LedgerPage,
   LedgerQuery,
 } from "../../config/shared/tradeLedgerTypes.js";
-import type { PopoutView } from "../../config/shared/popoutTypes.js";
+import type {
+  PopoutOpenOptions,
+  PopoutTarget,
+  PopoutView,
+  PopoutWindowInfo,
+} from "../../config/shared/popoutTypes.js";
 import type { RelicDatabase } from "./relics.js";
 import type { WorldState } from "./world.js";
 import type { HelperStatus } from "../../config/shared/apiHelperTypes.js";
@@ -449,12 +454,25 @@ export interface IpcInvokeMap {
     return: { saved: boolean; path?: string; error?: string };
   };
   popoutOpen: {
-    args: [view: PopoutView];
+    // The bare view is still accepted so an old caller keeps working.
+    args: [target: PopoutTarget | PopoutView, options?: PopoutOpenOptions];
     return: { ok: boolean };
   };
   popoutSetPinned: {
     args: [pinned: boolean];
     return: { ok: boolean };
+  };
+  popoutList: {
+    args: [];
+    return: PopoutWindowInfo[];
+  };
+  popoutClose: {
+    args: [target: PopoutTarget];
+    return: { ok: boolean };
+  };
+  popoutCloseAll: {
+    args: [];
+    return: { ok: boolean; closed: number };
   };
   loadRankedHotset: {
     args: [];
@@ -713,6 +731,7 @@ export interface IpcEventMap {
   "notification-sound-play": undefined;
   "market-alerts:changed": undefined;
   "workbench-state": WorkbenchState;
+  "popout-state-changed": PopoutWindowInfo[];
 }
 
 export interface IpcSendMap {
