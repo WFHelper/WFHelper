@@ -1,3 +1,58 @@
+<script context="module" lang="ts">
+  import { registerSections } from "../lib/layout/registry.js";
+
+  // Each sub-tab owns its own section list, so the edit bar and the grid are
+  // scoped to whatever the active tab actually renders.
+  const MARKET_ORDER_SECTIONS = ["market.reviewBanner", "market.orders"];
+  const MARKET_RIVEN_SECTIONS = ["market.reviewBanner", "market.rivens"];
+  const MARKET_BROWSE_SECTIONS = ["market.browse"];
+  const MARKET_ALERT_SECTIONS = ["market.alerts"];
+
+  registerSections("market", [
+    {
+      id: "market.reviewBanner",
+      view: "market",
+      labelKey: "workbench.review.title",
+      defaultSpan: "full",
+      minSpan: "full",
+      canHide: false,
+    },
+    {
+      id: "market.orders",
+      view: "market",
+      labelKey: "market.myOrders",
+      defaultSpan: "full",
+      minSpan: "full",
+      canHide: false,
+    },
+    {
+      id: "market.rivens",
+      view: "market",
+      labelKey: "market.myRivens",
+      defaultSpan: "full",
+      minSpan: "full",
+      canHide: false,
+    },
+    {
+      id: "market.browse",
+      view: "market",
+      labelKey: "market.browseTitle",
+      defaultSpan: "full",
+      minSpan: "full",
+      canHide: false,
+    },
+    {
+      id: "market.alerts",
+      view: "market",
+      labelKey: "marketAlerts.title",
+      defaultSpan: "full",
+      minSpan: "full",
+      canHide: false,
+      canPopout: true,
+    },
+  ]);
+</script>
+
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
 
@@ -14,6 +69,8 @@
     setMarketViewState,
   } from "../stores/market.js";
   import HeaderTabs from "../components/HeaderTabs.svelte";
+  import EditLayoutBar from "../components/layout/EditLayoutBar.svelte";
+  import LayoutGrid from "../components/layout/LayoutGrid.svelte";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
   import MarketBrowseView from "../components/market/MarketBrowseView.svelte";
   import MarketAlertsView from "../components/market/alerts/MarketAlertsView.svelte";
@@ -752,38 +809,50 @@
     <!-- Browse works logged out - the order book is public, only posting needs auth. -->
     <div class="view-header">
       <h2>{$tr("market.browseTitle")}</h2>
-      {#if $marketSession.loggedIn && $marketSession.userName}
-        <div class="view-controls gap-2">
+      <div class="view-controls gap-2">
+        {#if $marketSession.loggedIn && $marketSession.userName}
           <span
-            class="rounded-full border border-border bg-white/5 px-2 py-1 font-display text-xs font-bold text-text-primary"
+            class="rounded-full border border-border bg-surface-hover px-2 py-1 font-display text-xs font-bold text-text-primary"
             >@{$marketSession.userName}</span
           >
-        </div>
-      {/if}
+        {/if}
+        <EditLayoutBar view="market" only={MARKET_BROWSE_SECTIONS} />
+      </div>
     </div>
-    <div class="mb-2.5 flex items-end border-b border-white/10">
+    <div class="mb-2.5 flex items-end border-b border-border-subtle">
       <HeaderTabs
         options={orderTypeTabs}
         activeKey={$marketViewState.typeTab}
         onSelect={handleTypeTabSelect}
       />
     </div>
-    <MarketBrowseView />
+    <LayoutGrid view="market" only={MARKET_BROWSE_SECTIONS} gapClass="gap-0" let:sectionId>
+      {#if sectionId === "market.browse"}
+        <MarketBrowseView />
+      {/if}
+    </LayoutGrid>
   {:else if $marketViewState.typeTab === "alerts"}
     <!-- Alerts work logged out too - auction and order searches are public. -->
     <div class="view-header">
       <h2>{$tr("marketAlerts.title")}</h2>
+      <div class="view-controls gap-2">
+        <EditLayoutBar view="market" only={MARKET_ALERT_SECTIONS} />
+      </div>
     </div>
-    <div class="mb-2.5 flex items-end border-b border-white/10">
+    <div class="mb-2.5 flex items-end border-b border-border-subtle">
       <HeaderTabs
         options={orderTypeTabs}
         activeKey={$marketViewState.typeTab}
         onSelect={handleTypeTabSelect}
       />
     </div>
-    <MarketAlertsView />
+    <LayoutGrid view="market" only={MARKET_ALERT_SECTIONS} gapClass="gap-0" let:sectionId>
+      {#if sectionId === "market.alerts"}
+        <MarketAlertsView />
+      {/if}
+    </LayoutGrid>
   {:else if !$marketSession.loggedIn}
-    <div class="mb-2.5 flex items-end border-b border-white/10">
+    <div class="mb-2.5 flex items-end border-b border-border-subtle">
       <HeaderTabs
         options={orderTypeTabs}
         activeKey={$marketViewState.typeTab}
@@ -897,6 +966,7 @@
             </svg>
           </button>
           <button class="btn-secondary btn-sm" on:click={logout}>{$tr("market.signOut")}</button>
+          <EditLayoutBar view="market" only={marketSectionScope} />
         </div>
       </div>
 
@@ -961,144 +1031,175 @@
         />
       </div>
 
-      <SharedFilterBar
-        scope="market"
-        singleLine={true}
-        showBasic={true}
-        showAdvanced={false}
-        basicVariant="quick"
-        sortOptions={isRivensTab ? rivenContractSortOptions : marketSortOptions}
-      />
-
-      {#if !isRivensTab && (filteredOrderRows.length > 0 || $marketSelected.size > 0)}
-        <!-- The inline filter bar drops its bottom margin for the flex rows the other
-             views put it in; here it is a block, so this row supplies the gap. -->
-        <div class="mt-2.5 mb-2.5 flex flex-wrap items-center gap-1.5">
-          <span class="mr-1.5 text-xs text-text-secondary">
-            {$tr("common.selected", { count: $marketSelected.size })}{#if hiddenSelectedCount > 0}
-              {$tr("market.selectedHidden", { count: hiddenSelectedCount })}{/if}
-          </span>
-          <button class="btn-sm btn-secondary" on:click={selectAllVisible}
-            >{$tr("common.selectAll")}</button
-          >
-          {#if $marketSelected.size > 0}
-            <button class="btn-sm btn-secondary" on:click={() => bulkSetVisible(true)}
-              >{$tr("market.setVisible")}</button
-            >
-            <button class="btn-sm btn-secondary" on:click={() => bulkSetVisible(false)}
-              >{$tr("market.setHidden")}</button
-            >
-            <button class="btn-sm btn-danger" on:click={bulkDelete}
-              >{$tr("common.deleteSelected")}</button
-            >
-            <button class="btn-sm btn-secondary" on:click={() => marketSelected.set(new Set())}
-              >{$tr("market.unselectAll")}</button
-            >
-          {/if}
-        </div>
-      {/if}
-
-      <div
-        class="mt-4 grid items-start gap-3 {!isRivensTab && orderBookPanelOpen
-          ? 'min-[1101px]:grid-cols-[minmax(0,1fr)_360px]'
-          : ''}"
+      <LayoutGrid
+        view="market"
+        only={marketSectionScope}
+        available={availableMarketSections}
+        gapClass="gap-0"
+        let:sectionId
       >
-        <div
-          class="grid gap-2.5 {$marketDensity === 'compact'
-            ? 'grid-cols-[repeat(auto-fill,minmax(336px,1fr))] [&_.order-row]:[zoom:1.2]'
-            : ''}"
-        >
-          {#if isRivensTab}
-            {#if contractsLoading}
-              <div
-                class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted"
-              >
-                {$tr("market.loadingContracts")}
-              </div>
-            {:else if contractsError}
-              <div
-                class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-danger"
-              >
-                {contractsError}
-              </div>
-            {:else if filteredContractRows.length === 0}
-              <div
-                class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted"
-              >
-                {$tr("market.noContracts")}
-              </div>
-            {:else}
-              {#each filteredContractRows as contract}
-                <MarketContractRow
-                  {contract}
-                  compact={$marketDensity === "compact"}
-                  inventoryMatch={contractMatchById.get(contract.id) ?? null}
-                  busy={contractBusyIds.includes(contract.id)}
-                  onOpen={openContractListing}
-                  onEdit={editContractListing}
-                  onRemove={removeContract}
-                  onToggleVisible={toggleContractVisible}
-                />
-              {/each}
+        {#if sectionId === "market.reviewBanner"}
+          <div
+            class="mb-3 flex flex-wrap items-center gap-3 rounded-[var(--radius-lg)] border border-warning/50 bg-warning/10 px-3 py-2 text-sm"
+            data-market-bulk-sell-banner
+          >
+            <span class="text-text-primary">
+              {$workbenchState?.reviewRequired
+                ? $tr("inventory.bulkSellReviewRequired")
+                : $tr("inventory.bulkSellRunActive")}
+            </span>
+            <button
+              type="button"
+              class="btn-secondary btn-sm ml-auto"
+              data-market-bulk-sell-banner-open
+              on:click={() => bulkSellOpen.set(true)}
+            >
+              {$tr("inventory.openBulkSell")}
+            </button>
+          </div>
+        {:else if sectionId === "market.orders" || sectionId === "market.rivens"}
+          <SharedFilterBar
+            scope="market"
+            singleLine={true}
+            showBasic={true}
+            showAdvanced={false}
+            basicVariant="quick"
+            sortOptions={isRivensTab ? rivenContractSortOptions : marketSortOptions}
+          />
 
-              {#if $marketContracts.hasMore}
-                <button
-                  class="btn-secondary btn-sm justify-self-center mt-1"
-                  on:click={loadMoreContracts}
-                  disabled={contractsLoading}
+          {#if !isRivensTab && (filteredOrderRows.length > 0 || $marketSelected.size > 0)}
+            <!-- The inline filter bar drops its bottom margin for the flex rows the other
+                 views put it in; here it is a block, so this row supplies the gap. -->
+            <div class="mt-2.5 mb-2.5 flex flex-wrap items-center gap-1.5">
+              <span class="mr-1.5 text-xs text-text-secondary">
+                {$tr("common.selected", {
+                  count: $marketSelected.size,
+                })}{#if hiddenSelectedCount > 0}
+                  {$tr("market.selectedHidden", { count: hiddenSelectedCount })}{/if}
+              </span>
+              <button class="btn-sm btn-secondary" on:click={selectAllVisible}
+                >{$tr("common.selectAll")}</button
+              >
+              {#if $marketSelected.size > 0}
+                <button class="btn-sm btn-secondary" on:click={() => bulkSetVisible(true)}
+                  >{$tr("market.setVisible")}</button
                 >
-                  {contractsLoading ? $tr("common.loading") : $tr("market.loadMore")}
-                </button>
+                <button class="btn-sm btn-secondary" on:click={() => bulkSetVisible(false)}
+                  >{$tr("market.setHidden")}</button
+                >
+                <button class="btn-sm btn-danger" on:click={bulkDelete}
+                  >{$tr("common.deleteSelected")}</button
+                >
+                <button class="btn-sm btn-secondary" on:click={() => marketSelected.set(new Set())}
+                  >{$tr("market.unselectAll")}</button
+                >
               {/if}
-            {/if}
-          {:else if ordersLoading}
-            <div
-              class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted"
-            >
-              {$tr("market.loadingOrders")}
             </div>
-          {:else if ordersError}
-            <div
-              class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-danger"
-            >
-              {ordersError}
-            </div>
-          {:else if filteredOrderRows.length === 0}
-            <div
-              class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted"
-            >
-              {$tr("market.noOrdersPrefix", {
-                tab: $tr(
-                  $marketViewState.typeTab === "buy"
-                    ? "market.orderTypeLower.buy"
-                    : "market.orderTypeLower.sell",
-                ),
-              })}
-              <strong>{$tr("market.newOrder")}</strong>
-              {$tr("market.noOrdersSuffix")}
-            </div>
-          {:else}
-            {#each filteredOrderRows as order}
-              {@const orderItem = marketOrderItemsByOrderId.get(order.id) ?? null}
-              <MarketOrderRow
-                {order}
-                item={orderItem}
-                compact={$marketDensity === "compact"}
-                selected={$marketSelected.has(order.id)}
-                onSelectChange={onOrderSelectChange}
-                onOpen={selectOrder}
-                onEdit={editOrder}
-                onDelete={deleteOrder}
-                onInlineSave={inlineUpdateOrder}
-                inventoryMatch={orderMatchById.get(order.id) ?? null}
-              />
-            {/each}
           {/if}
-        </div>
-        {#if !isRivensTab && orderBookPanelOpen}
-          <InventoryOrderBookPanel item={selectedOrderItem} onClose={closeOrderBookPanel} />
+
+          <div
+            class="mt-4 grid items-start gap-3 {!isRivensTab && orderBookPanelOpen
+              ? 'min-[1101px]:grid-cols-[minmax(0,1fr)_360px]'
+              : ''}"
+          >
+            <div
+              class="grid gap-2.5 {$marketDensity === 'compact'
+                ? 'grid-cols-[repeat(auto-fill,minmax(336px,1fr))] [&_.order-row]:[zoom:1.2]'
+                : ''}"
+            >
+              {#if isRivensTab}
+                {#if contractsLoading}
+                  <div
+                    class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted"
+                  >
+                    {$tr("market.loadingContracts")}
+                  </div>
+                {:else if contractsError}
+                  <div
+                    class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-danger"
+                  >
+                    {contractsError}
+                  </div>
+                {:else if filteredContractRows.length === 0}
+                  <div
+                    class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted"
+                  >
+                    {$tr("market.noContracts")}
+                  </div>
+                {:else}
+                  {#each filteredContractRows as contract}
+                    <MarketContractRow
+                      {contract}
+                      compact={$marketDensity === "compact"}
+                      inventoryMatch={contractMatchById.get(contract.id) ?? null}
+                      busy={contractBusyIds.includes(contract.id)}
+                      onOpen={openContractListing}
+                      onEdit={editContractListing}
+                      onRemove={removeContract}
+                      onToggleVisible={toggleContractVisible}
+                    />
+                  {/each}
+
+                  {#if $marketContracts.hasMore}
+                    <button
+                      class="btn-secondary btn-sm justify-self-center mt-1"
+                      on:click={loadMoreContracts}
+                      disabled={contractsLoading}
+                    >
+                      {contractsLoading ? $tr("common.loading") : $tr("market.loadMore")}
+                    </button>
+                  {/if}
+                {/if}
+              {:else if ordersLoading}
+                <div
+                  class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted"
+                >
+                  {$tr("market.loadingOrders")}
+                </div>
+              {:else if ordersError}
+                <div
+                  class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-danger"
+                >
+                  {ordersError}
+                </div>
+              {:else if filteredOrderRows.length === 0}
+                <div
+                  class="rounded-lg border border-border bg-bg-surface px-2.5 py-2.5 text-sm text-text-muted"
+                >
+                  {$tr("market.noOrdersPrefix", {
+                    tab: $tr(
+                      $marketViewState.typeTab === "buy"
+                        ? "market.orderTypeLower.buy"
+                        : "market.orderTypeLower.sell",
+                    ),
+                  })}
+                  <strong>{$tr("market.newOrder")}</strong>
+                  {$tr("market.noOrdersSuffix")}
+                </div>
+              {:else}
+                {#each filteredOrderRows as order}
+                  {@const orderItem = marketOrderItemsByOrderId.get(order.id) ?? null}
+                  <MarketOrderRow
+                    {order}
+                    item={orderItem}
+                    compact={$marketDensity === "compact"}
+                    selected={$marketSelected.has(order.id)}
+                    onSelectChange={onOrderSelectChange}
+                    onOpen={selectOrder}
+                    onEdit={editOrder}
+                    onDelete={deleteOrder}
+                    onInlineSave={inlineUpdateOrder}
+                    inventoryMatch={orderMatchById.get(order.id) ?? null}
+                  />
+                {/each}
+              {/if}
+            </div>
+            {#if !isRivensTab && orderBookPanelOpen}
+              <InventoryOrderBookPanel item={selectedOrderItem} onClose={closeOrderBookPanel} />
+            {/if}
+          </div>
         {/if}
-      </div>
+      </LayoutGrid>
     </div>
   {/if}
 </section>

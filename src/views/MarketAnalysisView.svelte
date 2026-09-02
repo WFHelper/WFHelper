@@ -557,6 +557,7 @@
       <ThemedButton disabled={!ledgerReady} onClick={() => void exportLedger("json")}>
         {$tr("analysis.exportJson")}
       </ThemedButton>
+      <EditLayoutBar view="analytics" />
     </div>
   </div>
 

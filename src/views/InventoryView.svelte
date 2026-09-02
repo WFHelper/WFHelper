@@ -1,8 +1,52 @@
+<script context="module" lang="ts">
+  import { registerSections } from "../lib/layout/registry.js";
+
+  /** The stack above the item grid; the grid itself is its own group. */
+  const INVENTORY_HEADER_SECTIONS = [
+    "inventory.valueStrip",
+    "inventory.selectionBar",
+    "inventory.filters",
+  ];
+  const INVENTORY_GRID_SECTIONS = ["inventory.grid"];
+
+  registerSections("inventory", [
+    {
+      id: "inventory.valueStrip",
+      view: "inventory",
+      labelKey: "inventory.value.title",
+      defaultSpan: "full",
+      canCollapse: true,
+    },
+    {
+      id: "inventory.selectionBar",
+      view: "inventory",
+      labelKey: "layout.section.inventorySelection",
+      defaultSpan: "full",
+    },
+    {
+      id: "inventory.filters",
+      view: "inventory",
+      labelKey: "common.filters",
+      defaultSpan: "full",
+      canCollapse: true,
+    },
+    {
+      id: "inventory.grid",
+      view: "inventory",
+      labelKey: "common.inventory",
+      defaultSpan: "full",
+      minSpan: "full",
+      canHide: false,
+    },
+  ]);
+</script>
+
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
 
   import { tr } from "../lib/i18n.js";
-  import type { MessageKey } from "../lib/i18n.js";
+  import EditLayoutBar from "../components/layout/EditLayoutBar.svelte";
+  import LayoutGrid from "../components/layout/LayoutGrid.svelte";
   import { parsedItems, wfmItems, inventoryData, itemDb } from "../stores/data.js";
   import { masteryData } from "../stores/mastery.js";
   import { marketOrders } from "../stores/market.js";
@@ -92,9 +136,6 @@
   // One shared empty result for the selection lookups; nothing mutates it and
   // every card only reads `has`, so it never needs to be reactive.
   const NO_SELECTION_KEYS: ReadonlySet<string> = new Set();
-
-  // Keys land with this feature's i18n commit; cast until en.json carries them.
-  const k = (key: string): MessageKey => key as MessageKey;
 
   const FILTER_TAB_KEY = "wf_inventory_tab";
   // Both chip rows store the HIDDEN keys, so a source or category a later
@@ -681,37 +722,46 @@
     on:filter={handleFilterSelect}
     on:toggle={handleToggleFilterPanel}
   >
-    {#if filter !== "resources"}
-      <InventoryValueStrip
-        inView={inViewValueTotals}
-        inventory={inventoryValueTotals}
-        allTradables={$inventoryValueAllTradables}
-        onSelectScope={setValueScope}
-        minPlatinum={$inventoryValueMinPlatinum}
-        onSelectMinPlatinum={setValueMinPlatinum}
-      />
-    {/if}
-    {#if $inventorySelectionMode && filter !== "resources"}
-      <InventorySelectionBar
-        count={$inventorySelection.size}
-        onTabCount={selectedOnTabCount}
-        eligibleCount={selectableVisibleKeys.length}
-        saved={$savedSelections}
-        onSelectAll={handleSelectAll}
-        onClear={clearSelection}
-        onSave={saveSelection}
-        onLoad={loadSavedSelection}
-        onDelete={deleteSavedSelection}
-        onBulkSell={openBulkSellModal}
-      />
-    {/if}
-    {#if showFilterPanel && filter !== "resources"}
-      <div
-        class="inventory-filter-popover mb-3.5 max-h-[67vh] overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-2.5 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]"
-      >
-        <SharedFilterBar scope="inventory" showBasic={false} showAdvanced={true} />
-      </div>
-    {/if}
+    <div class="mb-2 flex justify-end">
+      <EditLayoutBar view="inventory" />
+    </div>
+    <LayoutGrid
+      view="inventory"
+      only={INVENTORY_HEADER_SECTIONS}
+      available={availableHeaderSections}
+      gapClass="gap-0"
+      let:sectionId
+    >
+      {#if sectionId === "inventory.valueStrip"}
+        <InventoryValueStrip
+          inView={inViewValueTotals}
+          inventory={inventoryValueTotals}
+          allTradables={$inventoryValueAllTradables}
+          onSelectScope={setValueScope}
+          minPlatinum={$inventoryValueMinPlatinum}
+          onSelectMinPlatinum={setValueMinPlatinum}
+        />
+      {:else if sectionId === "inventory.selectionBar"}
+        <InventorySelectionBar
+          count={$inventorySelection.size}
+          onTabCount={selectedOnTabCount}
+          eligibleCount={selectableVisibleKeys.length}
+          saved={$savedSelections}
+          onSelectAll={handleSelectAll}
+          onClear={clearSelection}
+          onSave={saveSelection}
+          onLoad={loadSavedSelection}
+          onDelete={deleteSavedSelection}
+          onBulkSell={openBulkSellModal}
+        />
+      {:else if sectionId === "inventory.filters"}
+        <div
+          class="inventory-filter-popover mb-3.5 max-h-[67vh] overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-2.5 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]"
+        >
+          <SharedFilterBar scope="inventory" showBasic={false} showAdvanced={true} />
+        </div>
+      {/if}
+    </LayoutGrid>
   </InventoryHeader>
 
   {#if bulkSellNeedsAttention}
@@ -723,8 +773,8 @@
     >
       <span class="text-text-primary">
         {$workbenchState?.reviewRequired
-          ? $tr(k("inventory.bulkSellReviewRequired"))
-          : $tr(k("inventory.bulkSellRunActive"))}
+          ? $tr("inventory.bulkSellReviewRequired")
+          : $tr("inventory.bulkSellRunActive")}
       </span>
       <button
         type="button"
@@ -732,115 +782,121 @@
         data-bulk-sell-banner-open
         on:click={openBulkSellModal}
       >
-        {$tr(k("inventory.openBulkSell"))}
+        {$tr("inventory.openBulkSell")}
       </button>
     </div>
   {/if}
 
-  {#if filter === "resources"}
-    <ResourcesView resources={filteredResources} />
-  {:else}
-    <div
-      class="grid grid-cols-1 items-start gap-3 {orderBookPanelOpen
-        ? 'min-[1101px]:grid-cols-[minmax(0,1fr)_360px]'
-        : ''}"
-    >
-      <div class="min-w-0" data-tour="inventory-grid">
-        {#if filter === "everything"}
-          <ChipToggleRow
-            rowName="everything-sources"
-            label={$tr("inventory.everythingInclude")}
-            options={everythingSourceOptions}
-            enabled={enabledEverythingSources}
-            onToggle={toggleEverythingSource}
-          />
-        {/if}
-        {#if filter === "full_sets"}
-          <ChipToggleRow
-            rowName="full-set-categories"
-            label={$tr("common.category")}
-            options={fullSetCategoryOptions}
-            enabled={enabledSetCategories}
-            onToggle={toggleSetCategory}
-          />
-        {/if}
-        {#if filter === "full_sets"}
-          <label
-            class="mb-2 flex w-fit cursor-pointer items-center gap-2 text-xs text-text-secondary"
-          >
-            <input
-              type="checkbox"
-              class="accent-[color:var(--accent)]"
-              checked={showIncompleteSets}
-              on:change={toggleIncompleteSets}
-            />
-            {$tr("inventory.showIncompleteSets")}
-          </label>
-        {/if}
-        {#if $devMode}
-          <label
-            class="mb-2 flex w-fit cursor-pointer items-center gap-2 text-xs text-text-secondary"
-          >
-            <input
-              type="checkbox"
-              class="accent-[color:var(--accent)]"
-              bind:checked={missingIconsOnly}
-            />
-            {$tr("inventory.missingIconsDev")}
-          </label>
-        {/if}
-        <!-- Both renderers take the same paged view-model, so search, filters,
+  <LayoutGrid view="inventory" only={INVENTORY_GRID_SECTIONS} gapClass="gap-0" let:sectionId>
+    {#if sectionId === "inventory.grid"}
+      {#if filter === "resources"}
+        <ResourcesView resources={filteredResources} />
+      {:else}
+        <div
+          class="grid grid-cols-1 items-start gap-3 {orderBookPanelOpen
+            ? 'min-[1101px]:grid-cols-[minmax(0,1fr)_360px]'
+            : ''}"
+        >
+          <div class="min-w-0" data-tour="inventory-grid">
+            {#if filter === "everything"}
+              <ChipToggleRow
+                rowName="everything-sources"
+                label={$tr("inventory.everythingInclude")}
+                options={everythingSourceOptions}
+                enabled={enabledEverythingSources}
+                onToggle={toggleEverythingSource}
+              />
+            {/if}
+            {#if filter === "full_sets"}
+              <ChipToggleRow
+                rowName="full-set-categories"
+                label={$tr("common.category")}
+                options={fullSetCategoryOptions}
+                enabled={enabledSetCategories}
+                onToggle={toggleSetCategory}
+              />
+            {/if}
+            {#if filter === "full_sets"}
+              <label
+                class="mb-2 flex w-fit cursor-pointer items-center gap-2 text-xs text-text-secondary"
+              >
+                <input
+                  type="checkbox"
+                  class="accent-[color:var(--accent)]"
+                  checked={showIncompleteSets}
+                  on:change={toggleIncompleteSets}
+                />
+                {$tr("inventory.showIncompleteSets")}
+              </label>
+            {/if}
+            {#if $devMode}
+              <label
+                class="mb-2 flex w-fit cursor-pointer items-center gap-2 text-xs text-text-secondary"
+              >
+                <input
+                  type="checkbox"
+                  class="accent-[color:var(--accent)]"
+                  bind:checked={missingIconsOnly}
+                />
+                {$tr("inventory.missingIconsDev")}
+              </label>
+            {/if}
+            <!-- Both renderers take the same paged view-model, so search, filters,
              hydration and the totals strip do not know which one is mounted. -->
-        {#if $inventoryViewMode === "list"}
-          <InventoryList
-            items={gridItems}
-            totalCount={visibleItems.length}
-            {showDucats}
-            {detailKeys}
-            sortBy={$inventoryFilters.sortBy}
-            sortDirection={$inventoryFilters.sortDirection}
-            sortableKeys={tabSortKeys}
-            onSort={applyListSort}
-            onSelect={handleItemSelect}
-            onVisible={handleItemVisible}
-            onExpand={handleItemExpand}
-            onMore={() => (gridLimit += GRID_PAGE_SIZE)}
-            selectionMode={$inventorySelectionMode}
-            selectedKeys={$inventorySelection}
-            eligibleKeys={eligibleSelectionSet}
-            onToggleSelect={handleItemToggle}
-          />
-        {:else}
-          <InventoryGrid
-            items={gridItems}
-            totalCount={visibleItems.length}
-            {showDucats}
-            {detailKeys}
-            selectionMode={$inventorySelectionMode}
-            selectedKeys={$inventorySelection}
-            eligibleKeys={eligibleSelectionSet}
-            on:select={(event) => handleItemSelect(event.detail)}
-            on:visible={(event) => handleItemVisible(event.detail)}
-            on:expand={(event) => handleItemExpand(event.detail)}
-            on:toggle={(event) => handleItemToggle(event.detail.item, event.detail.shiftKey)}
-            on:more={() => (gridLimit += GRID_PAGE_SIZE)}
-          />
-        {/if}
+            {#if $inventoryViewMode === "list"}
+              <InventoryList
+                items={gridItems}
+                totalCount={visibleItems.length}
+                {showDucats}
+                {detailKeys}
+                sortBy={$inventoryFilters.sortBy}
+                sortDirection={$inventoryFilters.sortDirection}
+                sortableKeys={tabSortKeys}
+                onSort={applyListSort}
+                onSelect={handleItemSelect}
+                onVisible={handleItemVisible}
+                onExpand={handleItemExpand}
+                onMore={() => (gridLimit += GRID_PAGE_SIZE)}
+                selectionMode={$inventorySelectionMode}
+                selectedKeys={$inventorySelection}
+                eligibleKeys={eligibleSelectionSet}
+                onToggleSelect={handleItemToggle}
+              />
+            {:else}
+              <InventoryGrid
+                items={gridItems}
+                totalCount={visibleItems.length}
+                {showDucats}
+                {detailKeys}
+                selectionMode={$inventorySelectionMode}
+                selectedKeys={$inventorySelection}
+                eligibleKeys={eligibleSelectionSet}
+                on:select={(event) => handleItemSelect(event.detail)}
+                on:visible={(event) => handleItemVisible(event.detail)}
+                on:expand={(event) => handleItemExpand(event.detail)}
+                on:toggle={(event) => handleItemToggle(event.detail.item, event.detail.shiftKey)}
+                on:more={() => (gridLimit += GRID_PAGE_SIZE)}
+              />
+            {/if}
 
-        {#if showEverythingResources && filteredResources.length > 0}
-          <!-- Resources have their own row shape, so Everything appends the real list. -->
-          <h3 class="mb-2 mt-4 font-display text-sm uppercase tracking-[0.05em] text-text-muted">
-            {$tr("nav.resources")}
-          </h3>
-          <ResourcesView resources={filteredResources} />
-        {/if}
-      </div>
+            {#if showEverythingResources && filteredResources.length > 0}
+              <!-- Resources have their own row shape, so Everything appends the real list. -->
+              <h3
+                class="mb-2 mt-4 font-display text-sm uppercase tracking-[0.05em] text-text-muted"
+              >
+                {$tr("nav.resources")}
+              </h3>
+              <ResourcesView resources={filteredResources} />
+            {/if}
+          </div>
 
-      {#if orderBookPanelOpen}
-        <InventoryOrderBookPanel item={selectedItem} onClose={closeOrderBookPanel} />
+          {#if orderBookPanelOpen}
+            <InventoryOrderBookPanel item={selectedItem} onClose={closeOrderBookPanel} />
+          {/if}
+        </div>
       {/if}
-    </div>
-  {/if}
+    {/if}
+  </LayoutGrid>
 </section>
 
 <style>

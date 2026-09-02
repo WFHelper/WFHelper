@@ -1,6 +1,97 @@
+<script context="module" lang="ts">
+  import { registerSections } from "../lib/layout/registry.js";
+
+  const WORLD_MAIN_SECTIONS = [
+    "world.cycles",
+    "world.timers",
+    "world.resurgence",
+    "world.circuit",
+    "world.steelPath",
+    "world.fissures",
+    "world.fissureAlerts",
+    "world.invasions",
+    "world.darvo",
+    "world.baro",
+    "world.bounties",
+  ];
+  const WORLD_ARBI_SECTIONS = ["world.arbiSchedule"];
+  const WORLD_DAILIES_SECTIONS = ["world.dailies"];
+
+  // Order is the default column split: the first half fills the wide left column,
+  // which is why Darvo sits after Invasions rather than where its markup lives.
+  registerSections("world", [
+    {
+      id: "world.cycles",
+      view: "world",
+      labelKey: "world.planetCycles",
+      defaultSpan: 1,
+      canPopout: true,
+    },
+    { id: "world.timers", view: "world", labelKey: "world.resetTimers", defaultSpan: 1 },
+    { id: "world.resurgence", view: "world", labelKey: "world.primeResurgence", defaultSpan: 1 },
+    { id: "world.circuit", view: "world", labelKey: "world.theCircuit", defaultSpan: 1 },
+    {
+      id: "world.steelPath",
+      view: "world",
+      labelKey: "world.steelPathHonorsReset",
+      defaultSpan: 1,
+    },
+    {
+      id: "world.fissures",
+      view: "world",
+      labelKey: "world.voidFissures",
+      defaultSpan: 1,
+      canPopout: true,
+    },
+    {
+      id: "world.fissureAlerts",
+      view: "world",
+      labelKey: "common.alerts",
+      defaultSpan: 1,
+      canPopout: true,
+    },
+    {
+      id: "world.invasions",
+      view: "world",
+      labelKey: "world.invasions",
+      defaultSpan: 1,
+      canPopout: true,
+    },
+    { id: "world.darvo", view: "world", labelKey: "world.darvosDeal", defaultSpan: 1 },
+    {
+      id: "world.baro",
+      view: "world",
+      labelKey: "world.baroKiteer",
+      defaultSpan: "full",
+      canPopout: true,
+    },
+    { id: "world.bounties", view: "world", labelKey: "world.bounties", defaultSpan: "full" },
+    {
+      id: "world.arbiSchedule",
+      view: "world",
+      labelKey: "common.arbitrations",
+      defaultSpan: "full",
+      minSpan: "full",
+      canHide: false,
+      canPopout: true,
+    },
+    {
+      id: "world.dailies",
+      view: "world",
+      labelKey: "dailies.tab",
+      defaultSpan: "full",
+      minSpan: "full",
+      canHide: false,
+      canPopout: true,
+    },
+  ]);
+</script>
+
 <script lang="ts">
   import { itemLabel } from "../lib/itemLabel.js";
   import { onMount } from "svelte";
+  import EditLayoutBar from "../components/layout/EditLayoutBar.svelte";
+  import LayoutGrid from "../components/layout/LayoutGrid.svelte";
   import { worldData, worldLoading, worldFissureMode } from "../stores/world.js";
   import { inventoryData, itemDb, componentOwnership, wfmItems } from "../stores/data.js";
   import {
@@ -297,8 +388,9 @@
           </svg>
         </button>
       {/if}
+      <EditLayoutBar view="world" only={worldSectionScope} />
     </div>
-    <div class="flex items-end border-b border-white/[0.09]">
+    <div class="flex items-end border-b border-border-subtle">
       <HeaderTabs options={worldTabOptions} activeKey={worldTab} onSelect={setWorldTab} />
       {#if worldTab === "world" && (baroActive || baroAct)}
         <div class="ml-auto flex items-center pb-2 shrink-0">
@@ -321,17 +413,32 @@
   </div>
 
   {#if worldTab === "arbis"}
-    <ArbiSchedule />
+    <LayoutGrid view="world" only={WORLD_ARBI_SECTIONS} gapClass="gap-0" let:sectionId>
+      {#if sectionId === "world.arbiSchedule"}
+        <ArbiSchedule />
+      {/if}
+    </LayoutGrid>
   {:else if worldTab === "dailies"}
-    <DailiesTracker />
+    <LayoutGrid view="world" only={WORLD_DAILIES_SECTIONS} gapClass="gap-0" let:sectionId>
+      {#if sectionId === "world.dailies"}
+        <DailiesTracker />
+      {/if}
+    </LayoutGrid>
   {:else if !wd && $worldLoading}
     <div class="empty-state"><p>{$tr("world.loading")}</p></div>
   {:else if !wd}
     <div class="empty-state"><p>{$tr("world.unavailable")}</p></div>
   {:else}
-    <div class="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-x-6 max-[1100px]:grid-cols-1">
-      <!-- LEFT COLUMN -->
-      <div class="flex flex-col">
+    <LayoutGrid
+      view="world"
+      only={WORLD_MAIN_SECTIONS}
+      available={availableWorldSections}
+      wideTemplate="minmax(0, 1.2fr) minmax(0, 1fr)"
+      gapClass="gap-x-6"
+      className="world-layout"
+      let:sectionId
+    >
+      {#if sectionId === "world.cycles"}
         <!-- PLANET CYCLES -->
         <div class="world-section">
           <CollapsibleSection
@@ -384,7 +491,7 @@
             {/if}
           </CollapsibleSection>
         </div>
-
+      {:else if sectionId === "world.timers"}
         <!-- RESET TIMERS -->
         <div class="world-section">
           <CollapsibleSection
@@ -419,7 +526,7 @@
             </div>
           </CollapsibleSection>
         </div>
-
+      {:else if sectionId === "world.resurgence"}
         <!-- PRIME RESURGENCE -->
         <div class="world-section">
           <CollapsibleSection
@@ -452,7 +559,7 @@
             {/if}
           </CollapsibleSection>
         </div>
-
+      {:else if sectionId === "world.circuit"}
         <!-- THE CIRCUIT -->
         <div class="world-section">
           <CollapsibleSection
@@ -530,7 +637,7 @@
             {/each}
           </CollapsibleSection>
         </div>
-
+      {:else if sectionId === "world.steelPath"}
         <!-- STEEL PATH HONORS -->
         {#if steelPathHonors}
           <div class="world-section">
@@ -571,7 +678,7 @@
             </CollapsibleSection>
           </div>
         {/if}
-
+      {:else if sectionId === "world.darvo"}
         <!-- DARVO'S DEAL -->
         {#if darvoDeals.length > 0}
           <div class="world-section">
@@ -637,10 +744,7 @@
             </CollapsibleSection>
           </div>
         {/if}
-      </div>
-
-      <!-- RIGHT COLUMN -->
-      <div class="flex flex-col">
+      {:else if sectionId === "world.fissures"}
         <!-- VOID FISSURES -->
         <div class="world-section border-t-0">
           <CollapsibleSection
@@ -706,12 +810,12 @@
             </div>
           </CollapsibleSection>
         </div>
-
+      {:else if sectionId === "world.fissureAlerts"}
         <!-- FISSURE ALERTS -->
         <div class="pb-3">
           <FissureAlerts />
         </div>
-
+      {:else if sectionId === "world.invasions"}
         <!-- INVASIONS -->
         {#if invasions.length > 0}
           <div class="world-section">
@@ -728,14 +832,14 @@
             </CollapsibleSection>
           </div>
         {/if}
-
-        <!-- BARO KI'TEER (inactive - under invasions) -->
+      {:else if sectionId === "world.baro"}
+        <!-- BARO KI'TEER (inactive) -->
         {#if !baroActive && baroAct}
           <div class="world-section">
             <div class="flex items-center gap-2 py-1.5">
               <span class="text-sm font-semibold text-text-primary">{$tr("world.baroKiteer")}</span>
               <span
-                class="text-xs font-bold py-0.5 px-1.5 rounded uppercase tracking-[0.06em] bg-white/[0.06] text-text-secondary opacity-70"
+                class="text-xs font-bold py-0.5 px-1.5 rounded uppercase tracking-[0.06em] bg-surface-hover text-text-secondary opacity-70"
                 >{$tr("world.inactive")}</span
               >
               <span class="text-sm font-display text-text-secondary ml-auto"
@@ -745,178 +849,179 @@
             </div>
           </div>
         {/if}
-      </div>
-    </div>
-
-    <!-- BARO KI'TEER (active - full-width with icon grid) -->
-    {#if baroActive && baro?.inventory && baro.inventory.length > 0}
-      <div class="world-section mt-2">
-        <CollapsibleSection
-          title={$tr("world.baroKiteer")}
-          collapsed={collapsed.baro}
-          onToggle={() => toggleSection("baro")}
-        >
-          <div class="flex items-center justify-between py-1.5 text-sm text-text-secondary">
-            <span>{baroLocation}</span>
-            <span class="text-text-secondary text-xs"
-              >{$tr("world.leavesIn")} <strong>{times.baro}</strong></span
+        <!-- BARO KI'TEER (active - icon grid) -->
+        {#if baroActive && baro?.inventory && baro.inventory.length > 0}
+          <div class="world-section mt-2">
+            <CollapsibleSection
+              title={$tr("world.baroKiteer")}
+              collapsed={collapsed.baro}
+              onToggle={() => toggleSection("baro")}
             >
+              <div class="flex items-center justify-between py-1.5 text-sm text-text-secondary">
+                <span>{baroLocation}</span>
+                <span class="text-text-secondary text-xs"
+                  >{$tr("world.leavesIn")} <strong>{times.baro}</strong></span
+                >
+              </div>
+              <div class="flex flex-wrap gap-2.5 px-1 py-1">
+                {#each baro.inventory as inv}
+                  <BaroInventoryCard
+                    entry={inv}
+                    itemDb={$itemDb}
+                    wfmItems={$wfmItems}
+                    owned={baroOwnedSet.has(inv.uniqueName || "")}
+                    onOpen={openItemDetail}
+                  />
+                {/each}
+              </div>
+            </CollapsibleSection>
           </div>
-          <div class="flex flex-wrap gap-2.5 px-1 py-1">
-            {#each baro.inventory as inv}
-              <BaroInventoryCard
-                entry={inv}
-                itemDb={$itemDb}
-                wfmItems={$wfmItems}
-                owned={baroOwnedSet.has(inv.uniqueName || "")}
-                onOpen={openItemDetail}
-              />
-            {/each}
-          </div>
-        </CollapsibleSection>
-      </div>
-    {/if}
-
-    <!-- BOUNTIES (full-width below grid) -->
-    {#if bounties.length > 0}
-      <div class="world-section mt-2">
-        <CollapsibleSection
-          title={$tr("world.bounties")}
-          collapsed={collapsed.bounties}
-          onToggle={() => toggleSection("bounties")}
-        >
-          <div class="grid grid-cols-1 gap-x-5 gap-y-1 lg:grid-cols-2">
-            {#each bountyColumns as column}
-              <div class="flex min-w-0 flex-col">
-                {#each column as group}
-                  <div class="border-b border-border py-1">
-                    <button
-                      class="flex w-full items-center gap-1 border-0 bg-transparent py-1 text-left text-inherit cursor-pointer"
-                      on:click={() => toggleSection(`bounty-${group.syndicateKey}`)}
-                      aria-expanded={!collapsed[`bounty-${group.syndicateKey}`]}
-                    >
-                      <WorldToggleIcon collapsed={collapsed[`bounty-${group.syndicateKey}`]} />
-                      <span class="text-lg font-semibold text-text-primary">{group.syndicate}</span>
-                      {#if bountyTimers[group.syndicateKey]?.timeStr}
-                        <span
-                          class="font-display text-sm tracking-[0.02em] whitespace-nowrap text-text-primary"
-                          class:world-timer-urgent={bountyTimers[group.syndicateKey]?.urgent}
-                          >{bountyTimers[group.syndicateKey].timeStr}</span
+        {/if}
+      {:else if sectionId === "world.bounties"}
+        <!-- BOUNTIES -->
+        {#if bounties.length > 0}
+          <div class="world-section mt-2">
+            <CollapsibleSection
+              title={$tr("world.bounties")}
+              collapsed={collapsed.bounties}
+              onToggle={() => toggleSection("bounties")}
+            >
+              <div class="grid grid-cols-1 gap-x-5 gap-y-1 lg:grid-cols-2">
+                {#each bountyColumns as column}
+                  <div class="flex min-w-0 flex-col">
+                    {#each column as group}
+                      <div class="border-b border-border py-1">
+                        <button
+                          class="flex w-full items-center gap-1 border-0 bg-transparent py-1 text-left text-inherit cursor-pointer"
+                          on:click={() => toggleSection(`bounty-${group.syndicateKey}`)}
+                          aria-expanded={!collapsed[`bounty-${group.syndicateKey}`]}
                         >
-                      {/if}
-                      <span class="ml-auto text-xs text-text-secondary"
-                        >{$tr("world.bountiesCount", { count: group.jobs.length })}</span
-                      >
-                    </button>
-                    {#if !collapsed[`bounty-${group.syndicateKey}`]}
-                      <div class="flex flex-col pl-4">
-                        {#each group.jobs as job, ji}
-                          <button
-                            class="flex w-full items-center gap-2 border-0 bg-transparent px-0 py-1 text-left text-sm text-inherit cursor-pointer hover:bg-white/[0.03]"
-                            on:click={() => toggleSection(`bounty-${group.syndicateKey}-${ji}`)}
+                          <WorldToggleIcon collapsed={collapsed[`bounty-${group.syndicateKey}`]} />
+                          <span class="text-lg font-semibold text-text-primary"
+                            >{group.syndicate}</span
                           >
+                          {#if bountyTimers[group.syndicateKey]?.timeStr}
                             <span
-                              class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-text-primary"
+                              class="font-display text-sm tracking-[0.02em] whitespace-nowrap text-text-primary"
+                              class:world-timer-urgent={bountyTimers[group.syndicateKey]?.urgent}
+                              >{bountyTimers[group.syndicateKey].timeStr}</span
                             >
-                              {titleCase(job.type)}
-                              {#if job.challengeDesc}
-                                <span class="text-text-secondary text-[0.92em]">
-                                  - {job.challengeDesc}</span
-                                >
-                              {/if}
-                            </span>
-                            <span
-                              class="shrink-0 font-display whitespace-nowrap text-accent text-base"
-                              >{job.enemyLevels[0]}-{job.enemyLevels[1]}</span
-                            >
-                            <WorldToggleIcon
-                              collapsed={!collapsed[`bounty-${group.syndicateKey}-${ji}`]}
-                            />
-                          </button>
-                          {#if collapsed[`bounty-${group.syndicateKey}-${ji}`]}
-                            <div class="mb-1 ml-1 border-l-2 border-accent py-1 pl-5">
-                              {#await getBountyRewards(group.syndicateKey, job.enemyLevels, job.standingStages.length, bountyRotation, job.tierIndex)}
-                                <span class="text-xs text-text-secondary py-1"
-                                  >{$tr("world.loadingRewards")}</span
-                                >
-                              {:then rewards}
-                                {#if rewards.length > 0}
-                                  <div class="mt-1.5">
-                                    {#each rewards as sr}
-                                      <div class="mb-1">
-                                        <span
-                                          class="text-base font-semibold text-text-secondary block mb-0.5"
-                                          >{sr.label}</span
-                                        >
-                                        <div class="flex flex-col gap-0.5">
-                                          {#each sr.items as item}
-                                            {@const rewardUniqueName = resolveRewardUniqueName(
-                                              item.itemName,
-                                              $itemDb,
-                                            )}
-                                            {@const rewardIcon = resolveRewardIcon(
-                                              item.itemName,
-                                              $itemDb,
-                                            )}
-                                            <button
-                                              type="button"
-                                              class="flex w-full items-center justify-between gap-1 border-0 bg-transparent px-1 -mx-1 py-0 text-left text-sm appearance-none disabled:text-text-primary disabled:opacity-100 disabled:cursor-default {rewardUniqueName
-                                                ? 'cursor-pointer rounded transition-[background] duration-150 hover:bg-white/[0.06]'
-                                                : ''} {item.rarity === 'Rare' ||
-                                              item.rarity === 'Legendary'
-                                                ? 'text-accent'
-                                                : 'text-text-primary'}"
-                                              disabled={!rewardUniqueName}
-                                              on:click={() =>
-                                                rewardUniqueName &&
-                                                openItemDetail(rewardUniqueName, [
-                                                  {
-                                                    location: `${group.syndicate} ${$tr("world.bountyLabel")} (${job.enemyLevels[0]}\u2013${job.enemyLevels[1]}) \u2014 ${sr.label}`,
-                                                    rarity: item.rarity,
-                                                    chance: item.chance / 100,
-                                                  },
-                                                ])}
-                                            >
-                                              {#if rewardIcon}
-                                                <img
-                                                  class="h-4 w-4 shrink-0 object-contain"
-                                                  src={rewardIcon}
-                                                  alt=""
-                                                />
-                                              {/if}
-                                              <span
-                                                class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
-                                                >{item.itemName}</span
-                                              >
-                                              <span
-                                                class="ml-2 w-14 shrink-0 whitespace-nowrap text-right text-xs font-semibold tabular-nums"
-                                                >{item.chance.toFixed(2)}%</span
-                                              >
-                                            </button>
-                                          {/each}
-                                        </div>
-                                      </div>
-                                    {/each}
-                                  </div>
-                                {/if}
-                              {:catch err}
-                                <div class="text-xs text-text-muted opacity-50">
-                                  {(err as Error)?.message ?? $tr("world.rewardUnavailable")}
-                                </div>
-                              {/await}
-                            </div>
                           {/if}
-                        {/each}
+                          <span class="ml-auto text-xs text-text-secondary"
+                            >{$tr("world.bountiesCount", { count: group.jobs.length })}</span
+                          >
+                        </button>
+                        {#if !collapsed[`bounty-${group.syndicateKey}`]}
+                          <div class="flex flex-col pl-4">
+                            {#each group.jobs as job, ji}
+                              <button
+                                class="flex w-full items-center gap-2 border-0 bg-transparent px-0 py-1 text-left text-sm text-inherit cursor-pointer hover:bg-surface-hover"
+                                on:click={() => toggleSection(`bounty-${group.syndicateKey}-${ji}`)}
+                              >
+                                <span
+                                  class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-text-primary"
+                                >
+                                  {titleCase(job.type)}
+                                  {#if job.challengeDesc}
+                                    <span class="text-text-secondary text-[0.92em]">
+                                      - {job.challengeDesc}</span
+                                    >
+                                  {/if}
+                                </span>
+                                <span
+                                  class="shrink-0 font-display whitespace-nowrap text-accent text-base"
+                                  >{job.enemyLevels[0]}-{job.enemyLevels[1]}</span
+                                >
+                                <WorldToggleIcon
+                                  collapsed={!collapsed[`bounty-${group.syndicateKey}-${ji}`]}
+                                />
+                              </button>
+                              {#if collapsed[`bounty-${group.syndicateKey}-${ji}`]}
+                                <div class="mb-1 ml-1 border-l-2 border-accent py-1 pl-5">
+                                  {#await getBountyRewards(group.syndicateKey, job.enemyLevels, job.standingStages.length, bountyRotation, job.tierIndex)}
+                                    <span class="text-xs text-text-secondary py-1"
+                                      >{$tr("world.loadingRewards")}</span
+                                    >
+                                  {:then rewards}
+                                    {#if rewards.length > 0}
+                                      <div class="mt-1.5">
+                                        {#each rewards as sr}
+                                          <div class="mb-1">
+                                            <span
+                                              class="text-base font-semibold text-text-secondary block mb-0.5"
+                                              >{sr.label}</span
+                                            >
+                                            <div class="flex flex-col gap-0.5">
+                                              {#each sr.items as item}
+                                                {@const rewardUniqueName = resolveRewardUniqueName(
+                                                  item.itemName,
+                                                  $itemDb,
+                                                )}
+                                                {@const rewardIcon = resolveRewardIcon(
+                                                  item.itemName,
+                                                  $itemDb,
+                                                )}
+                                                <button
+                                                  type="button"
+                                                  class="flex w-full items-center justify-between gap-1 border-0 bg-transparent px-1 -mx-1 py-0 text-left text-sm appearance-none disabled:text-text-primary disabled:opacity-100 disabled:cursor-default {rewardUniqueName
+                                                    ? 'cursor-pointer rounded transition-[background] duration-150 hover:bg-surface-hover'
+                                                    : ''} {item.rarity === 'Rare' ||
+                                                  item.rarity === 'Legendary'
+                                                    ? 'text-accent'
+                                                    : 'text-text-primary'}"
+                                                  disabled={!rewardUniqueName}
+                                                  on:click={() =>
+                                                    rewardUniqueName &&
+                                                    openItemDetail(rewardUniqueName, [
+                                                      {
+                                                        location: `${group.syndicate} ${$tr("world.bountyLabel")} (${job.enemyLevels[0]}\u2013${job.enemyLevels[1]}) \u2014 ${sr.label}`,
+                                                        rarity: item.rarity,
+                                                        chance: item.chance / 100,
+                                                      },
+                                                    ])}
+                                                >
+                                                  {#if rewardIcon}
+                                                    <img
+                                                      class="h-4 w-4 shrink-0 object-contain"
+                                                      src={rewardIcon}
+                                                      alt=""
+                                                    />
+                                                  {/if}
+                                                  <span
+                                                    class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
+                                                    >{item.itemName}</span
+                                                  >
+                                                  <span
+                                                    class="ml-2 w-14 shrink-0 whitespace-nowrap text-right text-xs font-semibold tabular-nums"
+                                                    >{item.chance.toFixed(2)}%</span
+                                                  >
+                                                </button>
+                                              {/each}
+                                            </div>
+                                          </div>
+                                        {/each}
+                                      </div>
+                                    {/if}
+                                  {:catch err}
+                                    <div class="text-xs text-text-muted opacity-50">
+                                      {(err as Error)?.message ?? $tr("world.rewardUnavailable")}
+                                    </div>
+                                  {/await}
+                                </div>
+                              {/if}
+                            {/each}
+                          </div>
+                        {/if}
                       </div>
-                    {/if}
+                    {/each}
                   </div>
                 {/each}
               </div>
-            {/each}
+            </CollapsibleSection>
           </div>
-        </CollapsibleSection>
-      </div>
-    {/if}
+        {/if}
+      {/if}
+    </LayoutGrid>
   {/if}
 </section>
 
@@ -925,7 +1030,10 @@
     padding: 0.85rem 0;
     border-top: 1px solid var(--border);
   }
-  .world-section:first-child {
+  /* Each section is its own grid cell now, so "first" comes from the layout
+     plan rather than from DOM position. Fully global because the marked element
+     belongs to LayoutSection; .world-layout keeps it to this view. */
+  :global(.world-layout [data-layout-first-in-column="true"] > .world-section) {
     border-top: none;
   }
 

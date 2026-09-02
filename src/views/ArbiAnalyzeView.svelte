@@ -1,7 +1,31 @@
+<script context="module" lang="ts">
+  import { registerSections } from "../lib/layout/registry.js";
+
+  registerSections("arbi", [
+    {
+      id: "arbi.filters",
+      view: "arbi",
+      labelKey: "common.filters",
+      defaultSpan: "full",
+      canCollapse: true,
+    },
+    {
+      id: "arbi.runs",
+      view: "arbi",
+      labelKey: "arbi.title",
+      defaultSpan: "full",
+      minSpan: "full",
+      canHide: false,
+    },
+  ]);
+</script>
+
 <script lang="ts">
   import { onMount } from "svelte";
 
   import { confirmWithDialog, invoke } from "../lib/ipc.js";
+  import EditLayoutBar from "../components/layout/EditLayoutBar.svelte";
+  import LayoutGrid from "../components/layout/LayoutGrid.svelte";
   import { log } from "../lib/log.js";
   import { tr } from "../lib/i18n.js";
   import ThemedButton from "../components/ThemedButton.svelte";
@@ -244,11 +268,12 @@
           >
           <ThemedButton onClick={importLog} disabled={importBusy}>{$tr("arbi.import")}</ThemedButton
           >
+          <EditLayoutBar view="arbi" />
         </div>
       </header>
 
       {#if $overlaySettingsLoaded && $overlaySettings.arbiTrackingEnabled === false}
-        <ThemedPanel className="border-amber-500/40 p-3">
+        <ThemedPanel className="border-warning-dim p-3">
           <p class="m-0 text-sm text-text-secondary">{$tr("arbi.trackingDisabled")}</p>
         </ThemedPanel>
       {/if}
@@ -261,142 +286,151 @@
           </p>
         </ThemedPanel>
       {:else}
-        <div
-          class="flex flex-wrap items-end gap-3 rounded-[var(--radius-md)] border border-border/60 bg-bg-raised/40 px-3 py-2 text-xs"
-        >
-          <label class="flex flex-col gap-1">
-            <span class="uppercase tracking-wide text-text-muted"
-              >{$tr("arbi.filter.minVitus")}</span
+        <LayoutGrid view="arbi" gapClass="gap-4" let:sectionId>
+          {#if sectionId === "arbi.filters"}
+            <div
+              class="flex flex-wrap items-end gap-3 rounded-[var(--radius-md)] border border-border/60 bg-bg-raised/40 px-3 py-2 text-xs"
             >
-            <input
-              class="w-24 rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-accent"
-              type="number"
-              min="0"
-              placeholder="0"
-              bind:value={filterMinVitus}
-            />
-          </label>
-          <label class="flex flex-col gap-1">
-            <span class="uppercase tracking-wide text-text-muted">{$tr("common.type")}</span>
-            <select
-              class="rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-accent"
-              bind:value={filterType}
-            >
-              <option value="all">{$tr("arbi.filter.allTypes")}</option>
-              <option value="defense">{$tr("arbi.type.defense")}</option>
-              <option value="interception">{$tr("arbi.type.interception")}</option>
-              <option value="disruption">{$tr("arbi.type.disruption")}</option>
-              <option value="other">{$tr("arbi.type.other")}</option>
-            </select>
-          </label>
-          <label class="flex flex-col gap-1">
-            <span class="uppercase tracking-wide text-text-muted"
-              >{$tr("arbi.filter.minRotations")}</span
-            >
-            <input
-              class="w-20 rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-accent"
-              type="number"
-              min="0"
-              placeholder="0"
-              bind:value={filterMinRotations}
-            />
-          </label>
-          <label class="flex flex-col gap-1">
-            <span class="uppercase tracking-wide text-text-muted"
-              >{$tr("arbi.filter.minDuration")}</span
-            >
-            <input
-              class="w-20 rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-accent"
-              type="number"
-              min="0"
-              placeholder="0"
-              bind:value={filterMinDurationMin}
-            />
-          </label>
-          <label class="flex flex-col gap-1">
-            <span class="uppercase tracking-wide text-text-muted">{$tr("common.source")}</span>
-            <select
-              class="rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-accent"
-              bind:value={filterSource}
-            >
-              <option value="all">{$tr("arbi.filter.allSources")}</option>
-              <option value="live">{$tr("common.live")}</option>
-              <option value="imported">{$tr("common.imported")}</option>
-            </select>
-          </label>
-          {#if allTags.length > 0}
-            <label class="flex flex-col gap-1">
-              <span class="uppercase tracking-wide text-text-muted">{$tr("arbi.filter.tag")}</span>
-              <select
-                class="rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-accent"
-                bind:value={filterTag}
-              >
-                <option value="">{$tr("arbi.filter.allTags")}</option>
-                {#each allTags as tag (tag)}
-                  <option value={tag}>{tag}</option>
-                {/each}
-              </select>
-            </label>
+              <label class="flex flex-col gap-1">
+                <span class="uppercase tracking-wide text-text-muted"
+                  >{$tr("arbi.filter.minVitus")}</span
+                >
+                <input
+                  class="w-24 rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-accent"
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  bind:value={filterMinVitus}
+                />
+              </label>
+              <label class="flex flex-col gap-1">
+                <span class="uppercase tracking-wide text-text-muted">{$tr("common.type")}</span>
+                <select
+                  class="rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-accent"
+                  bind:value={filterType}
+                >
+                  <option value="all">{$tr("arbi.filter.allTypes")}</option>
+                  <option value="defense">{$tr("arbi.type.defense")}</option>
+                  <option value="interception">{$tr("arbi.type.interception")}</option>
+                  <option value="disruption">{$tr("arbi.type.disruption")}</option>
+                  <option value="other">{$tr("arbi.type.other")}</option>
+                </select>
+              </label>
+              <label class="flex flex-col gap-1">
+                <span class="uppercase tracking-wide text-text-muted"
+                  >{$tr("arbi.filter.minRotations")}</span
+                >
+                <input
+                  class="w-20 rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-accent"
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  bind:value={filterMinRotations}
+                />
+              </label>
+              <label class="flex flex-col gap-1">
+                <span class="uppercase tracking-wide text-text-muted"
+                  >{$tr("arbi.filter.minDuration")}</span
+                >
+                <input
+                  class="w-20 rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-accent"
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  bind:value={filterMinDurationMin}
+                />
+              </label>
+              <label class="flex flex-col gap-1">
+                <span class="uppercase tracking-wide text-text-muted">{$tr("common.source")}</span>
+                <select
+                  class="rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-accent"
+                  bind:value={filterSource}
+                >
+                  <option value="all">{$tr("arbi.filter.allSources")}</option>
+                  <option value="live">{$tr("common.live")}</option>
+                  <option value="imported">{$tr("common.imported")}</option>
+                </select>
+              </label>
+              {#if allTags.length > 0}
+                <label class="flex flex-col gap-1">
+                  <span class="uppercase tracking-wide text-text-muted"
+                    >{$tr("arbi.filter.tag")}</span
+                  >
+                  <select
+                    class="rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-accent"
+                    bind:value={filterTag}
+                  >
+                    <option value="">{$tr("arbi.filter.allTags")}</option>
+                    {#each allTags as tag (tag)}
+                      <option value={tag}>{tag}</option>
+                    {/each}
+                  </select>
+                </label>
+              {/if}
+              <div class="ml-auto flex items-center gap-2">
+                <span class="text-text-muted"
+                  >{$tr("arbi.filter.showing", {
+                    shown: String(filteredRuns.length),
+                    total: String($arbiRuns.length),
+                  })}</span
+                >
+                {#if filtersActive}
+                  <button
+                    type="button"
+                    class="cursor-pointer rounded border border-border px-2 py-1 text-text-secondary transition-colors hover:border-accent hover:text-accent"
+                    on:click={clearFilters}>{$tr("arbi.filter.clear")}</button
+                  >
+                {/if}
+              </div>
+            </div>
+          {:else if sectionId === "arbi.runs"}
+            <div class="flex flex-col gap-4">
+              {#if selectedIds.size > 0}
+                <div
+                  class="flex flex-wrap items-center gap-2 rounded-[var(--radius-md)] border border-accent/40 bg-accent/5 px-3 py-2 text-xs"
+                >
+                  <span class="font-semibold text-text-primary"
+                    >{$tr("common.selected", { count: String(selectedIds.size) })}</span
+                  >
+                  <input
+                    class="w-36 rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-info"
+                    type="text"
+                    maxlength="32"
+                    placeholder={$tr("arbi.tags.add")}
+                    bind:value={massTagDraft}
+                    on:keydown={(e) => e.key === "Enter" && massAddTag()}
+                  />
+                  <button
+                    type="button"
+                    class="cursor-pointer rounded border border-info/40 px-2 py-1 text-info transition-colors hover:bg-info/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={massBusy || !massTagDraft.trim()}
+                    on:click={massAddTag}>{$tr("arbi.massTag")}</button
+                  >
+                  <button
+                    type="button"
+                    class="cursor-pointer rounded border border-danger/40 px-2 py-1 text-danger transition-colors hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={massBusy}
+                    on:click={massDelete}>{$tr("common.deleteSelected")}</button
+                  >
+                  <button
+                    type="button"
+                    class="ml-auto cursor-pointer rounded border border-border px-2 py-1 text-text-secondary transition-colors hover:border-accent hover:text-accent"
+                    on:click={() => (selectedIds = new Set())}>{$tr("arbi.filter.clear")}</button
+                  >
+                </div>
+              {/if}
+              <ThemedPanel className="p-2">
+                <ArbiRunList
+                  runs={filteredRuns}
+                  onSelect={(id) => (selectedRunId = id)}
+                  selected={selectedIds}
+                  onToggleSelect={toggleSelect}
+                  onToggleSelectAll={toggleSelectAll}
+                />
+              </ThemedPanel>
+            </div>
           {/if}
-          <div class="ml-auto flex items-center gap-2">
-            <span class="text-text-muted"
-              >{$tr("arbi.filter.showing", {
-                shown: String(filteredRuns.length),
-                total: String($arbiRuns.length),
-              })}</span
-            >
-            {#if filtersActive}
-              <button
-                type="button"
-                class="cursor-pointer rounded border border-border px-2 py-1 text-text-secondary transition-colors hover:border-accent hover:text-accent"
-                on:click={clearFilters}>{$tr("arbi.filter.clear")}</button
-              >
-            {/if}
-          </div>
-        </div>
-        {#if selectedIds.size > 0}
-          <div
-            class="flex flex-wrap items-center gap-2 rounded-[var(--radius-md)] border border-accent/40 bg-accent/5 px-3 py-2 text-xs"
-          >
-            <span class="font-semibold text-text-primary"
-              >{$tr("common.selected", { count: String(selectedIds.size) })}</span
-            >
-            <input
-              class="w-36 rounded border border-border bg-bg-raised px-2 py-1 text-text-primary outline-none focus:border-info"
-              type="text"
-              maxlength="32"
-              placeholder={$tr("arbi.tags.add")}
-              bind:value={massTagDraft}
-              on:keydown={(e) => e.key === "Enter" && massAddTag()}
-            />
-            <button
-              type="button"
-              class="cursor-pointer rounded border border-info/40 px-2 py-1 text-info transition-colors hover:bg-info/10 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={massBusy || !massTagDraft.trim()}
-              on:click={massAddTag}>{$tr("arbi.massTag")}</button
-            >
-            <button
-              type="button"
-              class="cursor-pointer rounded border border-danger/40 px-2 py-1 text-danger transition-colors hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={massBusy}
-              on:click={massDelete}>{$tr("common.deleteSelected")}</button
-            >
-            <button
-              type="button"
-              class="ml-auto cursor-pointer rounded border border-border px-2 py-1 text-text-secondary transition-colors hover:border-accent hover:text-accent"
-              on:click={() => (selectedIds = new Set())}>{$tr("arbi.filter.clear")}</button
-            >
-          </div>
-        {/if}
-        <ThemedPanel className="p-2">
-          <ArbiRunList
-            runs={filteredRuns}
-            onSelect={(id) => (selectedRunId = id)}
-            selected={selectedIds}
-            onToggleSelect={toggleSelect}
-            onToggleSelectAll={toggleSelectAll}
-          />
-        </ThemedPanel>
+        </LayoutGrid>
       {/if}
     {/if}
   </div>
