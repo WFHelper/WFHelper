@@ -182,7 +182,7 @@
 
     {#if showCraftingTree && craftingTree}
       <!-- Crafting tree mode: compact header + full tree -->
-      <div class="flex items-center gap-3 px-4 py-2 border-b border-white/[0.06]">
+      <div class="flex items-center gap-3 px-4 py-2 border-b border-border-subtle">
         <div class="shrink-0 h-10 w-10">
           <ItemImage
             src={item.imageUrl}
@@ -261,9 +261,9 @@
                       : "text-danger"}
                 <button
                   type="button"
-                  class="-mx-1 flex w-full cursor-pointer appearance-none items-center justify-between gap-2 border-0 border-b border-dashed border-white/[0.08] bg-transparent px-1 py-1.5 text-left font-inherit text-inherit last:border-b-0 hover:rounded-[var(--radius-sm)] hover:bg-white/[0.06] hover:text-text-primary {selectedComp ===
+                  class="-mx-1 flex w-full cursor-pointer appearance-none items-center justify-between gap-2 border-0 border-b border-dashed border-border-subtle bg-transparent px-1 py-1.5 text-left font-inherit text-inherit last:border-b-0 hover:rounded-[var(--radius-sm)] hover:bg-surface-hover hover:text-text-primary {selectedComp ===
                   comp
-                    ? 'rounded-[var(--radius-sm)] bg-white/10'
+                    ? 'rounded-[var(--radius-sm)] bg-surface-selected'
                     : ''}"
                   aria-pressed={selectedComp === comp}
                   on:click={() => selectComponent(comp)}
@@ -288,7 +288,7 @@
               <ul class="m-0 list-none p-0 text-sm text-text-secondary">
                 {#each archonShardDisplaySlots(copy.slots) as slot (slot.index)}
                   <li
-                    class="flex items-center gap-2 border-b border-dashed border-white/[0.08] py-1.5 last:border-b-0"
+                    class="flex items-center gap-2 border-b border-dashed border-border-subtle py-1.5 last:border-b-0"
                   >
                     <ArchonShardPips slots={[slot]} showEmpty size="md" />
                     <span class="w-24 shrink-0 text-xs">
@@ -322,7 +322,7 @@
             <h3>{$tr("detail.components")}</h3>
             <ul class="m-0 list-none p-0 text-sm text-text-secondary">
               {#each item.modularParts || [] as part}
-                <li class="border-b border-dashed border-white/[0.08] py-1.5 last:border-b-0">
+                <li class="border-b border-dashed border-border-subtle py-1.5 last:border-b-0">
                   {part}
                 </li>
               {/each}

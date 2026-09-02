@@ -105,7 +105,7 @@
       title={cardTitle}
       class="node-card group/node relative flex h-16 w-16 items-center justify-center rounded-lg border-2 p-0 text-inherit transition-colors duration-150 enabled:cursor-pointer enabled:hover:border-accent-dim enabled:hover:bg-surface-hover disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent {gotEnough
         ? 'border-success/50 bg-success/10'
-        : 'border-white/15 bg-white/5'}"
+        : 'border-border-subtle bg-surface-hover'}"
       on:pointerdown|stopPropagation
       on:click={onCardClick}
     >
@@ -165,7 +165,7 @@
       {/if}
       {#if node.recipe}
         <div
-          class="node-tooltip pointer-events-none absolute -bottom-9 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-black/90 px-1.5 py-0.5 text-xs text-text-primary opacity-0 transition-opacity duration-100 group-hover/node:opacity-100"
+          class="node-tooltip pointer-events-none absolute -bottom-9 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-surface-tooltip px-1.5 py-0.5 text-xs text-text-primary opacity-0 transition-opacity duration-100 group-hover/node:opacity-100"
         >
           {#if node.recipe.buildPrice > 0}{node.recipe.buildPrice.toLocaleString()} cr{/if}
           {#if node.recipe.buildPrice > 0 && node.recipe.buildTime > 0}
@@ -186,7 +186,7 @@
   <!-- Connector lines + children -->
   {#if shownChildren.length > 0}
     <!-- Vertical line down from parent -->
-    <div class="mx-auto h-4 w-0.5 bg-white/[0.18]"></div>
+    <div class="mx-auto h-4 w-0.5 bg-border-subtle"></div>
 
     <!-- Children row -->
     <div class="flex items-start">
@@ -197,11 +197,11 @@
           <!-- Connector: horizontal segment + vertical drop -->
           <div class="relative flex h-4 w-full">
             <!-- Left half of horizontal connector -->
-            <div class="h-0 flex-1 {!isFirst ? 'border-t-2 border-white/[0.18]' : ''}"></div>
+            <div class="h-0 flex-1 {!isFirst ? 'border-t-2 border-border-subtle' : ''}"></div>
             <!-- Center vertical line -->
-            <div class="h-full w-0.5 shrink-0 bg-white/[0.18]"></div>
+            <div class="h-full w-0.5 shrink-0 bg-border-subtle"></div>
             <!-- Right half of horizontal connector -->
-            <div class="h-0 flex-1 {!isLast ? 'border-t-2 border-white/[0.18]' : ''}"></div>
+            <div class="h-0 flex-1 {!isLast ? 'border-t-2 border-border-subtle' : ''}"></div>
           </div>
           <svelte:self
             node={child}

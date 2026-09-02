@@ -61,7 +61,7 @@
 
   $: orderKind = order.orderType === "buy" ? "WTB" : "WTS";
   $: orderKindClass =
-    order.orderType === "buy" ? "bg-sky-500/20 text-sky-300" : "bg-amber-500/20 text-amber-300";
+    order.orderType === "buy" ? "bg-info-bg text-info" : "bg-warning-bg text-warning";
   $: liveLabel = order.visible ? $tr("market.liveLower") : $tr("market.hiddenLower");
   $: ownedCount = item?.amount ?? 0;
   $: warning = listingWarning(inventoryMatch, order.modRank, $tr);

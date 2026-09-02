@@ -120,19 +120,19 @@
       {#each alerts as alert (alert.id)}
         <li class="flex items-center gap-1.5 flex-wrap">
           <span
-            class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-white/5 text-text-secondary"
+            class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-surface-hover text-text-secondary"
             >{tierLabel($tr, alert.tier)}</span
           >
           <span
-            class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-white/5 text-text-secondary"
+            class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-surface-hover text-text-secondary"
             >{missionLabel($tr, alert.missionType)}</span
           >
           <span
-            class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-white/5 text-text-secondary"
+            class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-surface-hover text-text-secondary"
             >{spLabel($tr, alert.steelPath)}</span
           >
           <span
-            class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-white/5 text-text-secondary"
+            class="inline-flex items-center rounded-full py-0.5 px-2 text-xs font-semibold border border-border bg-surface-hover text-text-secondary"
             >{planetLabel($tr, alert.planet)}</span
           >
           <button

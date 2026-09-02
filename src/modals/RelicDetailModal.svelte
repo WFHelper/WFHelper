@@ -268,7 +268,7 @@
           {#each QUAL_ENTRIES as [quality, label]}
             {#if (owned[quality] || 0) > 0}
               <span
-                class="inline-flex items-center gap-1 rounded-full border border-border bg-white/[0.04] px-2 py-0.5 font-display text-xs font-bold tracking-[0.03em] text-text-secondary"
+                class="inline-flex items-center gap-1 rounded-full border border-border bg-surface-hover px-2 py-0.5 font-display text-xs font-bold tracking-[0.03em] text-text-secondary"
                 >{label}: x{owned[quality]}</span
               >
             {/if}
@@ -323,9 +323,9 @@
           {@const ducatEv = ducatValue != null ? (reward.chance / 100) * ducatValue : null}
           {@const canClick = itemNameIndex.has(reward.name)}
           <button
-            class="grid grid-cols-[30px_minmax(0,1fr)_72px_78px_78px_120px] max-[800px]:grid-cols-[24px_minmax(0,1fr)_56px_60px_60px_94px] max-[800px]:gap-1.5 gap-1.5 items-center px-1.5 py-1.5 border-0 border-b border-white/5 rounded bg-transparent text-inherit text-left w-full last:border-b-0 {canClick
-              ? 'cursor-pointer hover:enabled:bg-white/[0.06]'
-              : ''} {selectedReward === reward ? 'bg-white/10' : ''}"
+            class="grid grid-cols-[30px_minmax(0,1fr)_72px_78px_78px_120px] max-[800px]:grid-cols-[24px_minmax(0,1fr)_56px_60px_60px_94px] max-[800px]:gap-1.5 gap-1.5 items-center px-1.5 py-1.5 border-0 border-b border-border-subtle rounded bg-transparent text-inherit text-left w-full last:border-b-0 {canClick
+              ? 'cursor-pointer hover:enabled:bg-surface-hover'
+              : ''} {selectedReward === reward ? 'bg-surface-selected' : ''}"
             disabled={!canClick}
             on:click={() => selectReward(reward)}
           >

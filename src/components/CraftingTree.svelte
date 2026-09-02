@@ -135,7 +135,7 @@
 
 <div class="flex flex-col h-full min-h-0">
   <!-- Toolbar -->
-  <div class="flex items-center justify-between px-2 py-1.5 border-b border-white/[0.08] shrink-0">
+  <div class="flex items-center justify-between px-2 py-1.5 border-b border-border-subtle shrink-0">
     <div class="flex items-center gap-4">
       <label class="flex items-center gap-2 text-xs text-text-secondary cursor-pointer select-none">
         {$tr("crafting.hideCompleted")}
@@ -143,13 +143,13 @@
           type="button"
           class="relative inline-block w-9 h-[18px] rounded-full transition-colors duration-150 {hideCompleted
             ? 'bg-accent'
-            : 'bg-white/[0.15]'}"
+            : 'bg-bg-hover'}"
           on:click={() => (hideCompleted = !hideCompleted)}
           aria-pressed={hideCompleted}
           aria-label={$tr("crafting.hideCompletedAria")}
         >
           <span
-            class="absolute top-[2px] left-[2px] h-3.5 w-3.5 rounded-full bg-white transition-transform duration-150 {hideCompleted
+            class="absolute top-[2px] left-[2px] h-3.5 w-3.5 rounded-full bg-text-primary transition-transform duration-150 {hideCompleted
               ? 'translate-x-[18px]'
               : ''}"
           ></span>
@@ -161,13 +161,13 @@
           type="button"
           class="relative inline-block w-9 h-[18px] rounded-full transition-colors duration-150 {hideBlueprints
             ? 'bg-accent'
-            : 'bg-white/[0.15]'}"
+            : 'bg-bg-hover'}"
           on:click={() => (hideBlueprints = !hideBlueprints)}
           aria-pressed={hideBlueprints}
           aria-label={$tr("crafting.hideBlueprintsAria")}
         >
           <span
-            class="absolute top-[2px] left-[2px] h-3.5 w-3.5 rounded-full bg-white transition-transform duration-150 {hideBlueprints
+            class="absolute top-[2px] left-[2px] h-3.5 w-3.5 rounded-full bg-text-primary transition-transform duration-150 {hideBlueprints
               ? 'translate-x-[18px]'
               : ''}"
           ></span>
@@ -254,7 +254,7 @@
   </div>
 
   <!-- Summary panel -->
-  <div class="shrink-0 border-t border-white/[0.08] px-3 py-2 text-xs">
+  <div class="shrink-0 border-t border-border-subtle px-3 py-2 text-xs">
     <div class="grid gap-x-6 gap-y-1" style="grid-template-columns: 1fr auto;">
       <div class="max-h-36 overflow-y-auto pr-1">
         <div class="font-display font-semibold text-text-secondary uppercase tracking-wider mb-0.5">

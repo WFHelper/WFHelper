@@ -219,8 +219,8 @@
     align-items: center;
     gap: 0.4rem;
     border-radius: 999px;
-    border: 1px solid rgb(255 255 255 / 0.2);
-    background: rgb(255 255 255 / 0.05);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-hover);
     padding: 0.1rem 0.7rem;
     font-size: 0.72rem;
     letter-spacing: 0.03em;
@@ -232,7 +232,7 @@
       background 0.15s ease;
   }
   .update-pill:hover:not(:disabled) {
-    border-color: rgb(255 255 255 / 0.3);
+    border-color: var(--border-strong);
     color: var(--text-primary);
   }
   .update-pill:disabled {

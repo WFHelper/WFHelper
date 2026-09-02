@@ -344,7 +344,8 @@ test.describe("Sidebar order and width persistence", () => {
 
     const order = await readOrder();
     expect(order).not.toContain("workshop2");
-    expect(order.slice(0, 2)).toEqual(["settings", "market"]);
+    // Dashboard is a new leading default, so it is re-inserted ahead of the stored order.
+    expect(order.slice(0, 3)).toEqual(["dashboard", "settings", "market"]);
     // Every registered view is still reachable, in some order.
     for (const view of ["inventory", "foundry", "mastery", "stats", "world", "relics", "wiki"]) {
       expect(order).toContain(view);

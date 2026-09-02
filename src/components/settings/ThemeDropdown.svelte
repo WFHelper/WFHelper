@@ -121,6 +121,6 @@
     width: 0.86rem;
     height: 0.86rem;
     border-radius: var(--radius-sm);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--border-subtle);
   }
 </style>

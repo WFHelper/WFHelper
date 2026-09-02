@@ -28,7 +28,7 @@
   }
 
   function toneClass(value: MetricValue, tone: "plat" | "ducat"): string {
-    if (!hasValue(value)) return "text-[#94a3b8]";
+    if (!hasValue(value)) return "text-text-muted";
     return tone === "plat" ? "text-accent-bright" : "text-accent";
   }
 

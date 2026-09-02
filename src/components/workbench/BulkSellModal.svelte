@@ -497,7 +497,7 @@
         <!-- Own scroll box: the legend is a reference list, so it must not push
              the queue it explains out of the modal body. -->
         <section
-          class="shrink-0 rounded-[var(--radius-md)] border border-border bg-black/20 p-3"
+          class="shrink-0 rounded-[var(--radius-md)] border border-border bg-surface-card p-3"
           data-workbench-legend
         >
           <h3
@@ -698,7 +698,7 @@
 
       {#if preview}
         <div
-          class="rounded-[var(--radius-md)] border border-border bg-black/20 p-2.5 text-xs"
+          class="rounded-[var(--radius-md)] border border-border bg-surface-card p-2.5 text-xs"
           data-workbench-preview
         >
           <div>
@@ -724,7 +724,7 @@
 
       {#if mainState?.run}
         <div
-          class="rounded-[var(--radius-md)] border border-border bg-black/20 p-2.5 text-xs"
+          class="rounded-[var(--radius-md)] border border-border bg-surface-card p-2.5 text-xs"
           data-workbench-progress
         >
           <div class="mb-1 font-semibold">

@@ -754,11 +754,9 @@ function currentMonthKey(now: Date): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-/**
- * Platinum per calendar month over the selected span, or the span the events
- * cover when none is given. Empty months are filled so the axis stays real,
- * and only the newest `maxMonths` survive so a long archive cannot overflow.
- */
+/** Platinum per calendar month over the selected span (or the events' own span).
+ *  Empty months are filled so the axis stays real; only the newest `maxMonths`
+ *  survive so a long archive cannot overflow the panel. */
 export function monthlyFlow(
   events: TradeEvent[],
   maxMonths = 24,

@@ -613,7 +613,7 @@
                   {#if bar && expandedChartData.realData[pt.idx] && bar.value !== 0}
                     <button
                       type="button"
-                      class="absolute w-[15px] h-[15px] p-0 rounded-full bg-bg-surface border-[3px] border-white/80 -translate-x-1/2 -translate-y-1/2 pointer-events-auto transition-[transform,box-shadow,border-color,background] duration-[0.12s] cursor-pointer hover:scale-[1.35] hover:border-white hover:bg-white/15 hover:shadow-[0_0_6px_rgba(255,255,255,0.35)]"
+                      class="absolute w-[15px] h-[15px] p-0 rounded-full bg-bg-surface border-[3px] border-text-primary/80 -translate-x-1/2 -translate-y-1/2 pointer-events-auto transition-[transform,box-shadow,border-color,background] duration-[0.12s] cursor-pointer hover:scale-[1.35] hover:border-text-heading hover:bg-surface-hover hover:shadow-[0_0_6px_rgba(255,255,255,0.35)]"
                       style="left:{(pt.x / SVG_W) * 100}%; top:{(pt.y / BAR_H_EXPAND) * 100}%"
                       aria-label={dotLabel(expandedKey, bar, absVal)}
                       title={dotLabel(expandedKey, bar, absVal)}

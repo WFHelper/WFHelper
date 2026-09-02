@@ -84,7 +84,7 @@
   >
     <div class="grid min-w-0 grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-3">
       <span
-        class="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[var(--radius-md)] bg-black/20"
+        class="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[var(--radius-md)] bg-surface-card"
       >
         <ItemImage
           src={item.imageUrl}
@@ -117,7 +117,7 @@
       <span class="flex items-center gap-1">
         <button
           type="button"
-          class="inline-flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border)] bg-black/25 text-text-muted hover:border-accent-dim hover:text-accent"
+          class="inline-flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border)] bg-surface-card text-text-muted hover:border-accent-dim hover:text-accent"
           title={$tr("common.openDetailsFor", { name: itemLabel(item) })}
           aria-label={$tr("common.openDetailsFor", { name: itemLabel(item) })}
           onclick={() => onOpenItem(item.uniqueName)}
@@ -135,7 +135,7 @@
         </button>
         <button
           type="button"
-          class="inline-flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border)] bg-black/25 text-text-muted hover:border-accent-dim hover:text-accent"
+          class="inline-flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border)] bg-surface-card text-text-muted hover:border-accent-dim hover:text-accent"
           title={$tr("mastery.planner.unpin")}
           aria-label={$tr("mastery.planner.unpin")}
           data-mastery-pin={item.uniqueName}
@@ -156,7 +156,7 @@
 
     {#if item.hasRecipe}
       <svg
-        class="block h-1 w-full overflow-hidden rounded-full bg-white/[0.07]"
+        class="block h-1 w-full overflow-hidden rounded-full bg-surface-hover"
         viewBox="0 0 100 1"
         preserveAspectRatio="none"
         aria-hidden="true"
@@ -343,7 +343,7 @@
               >{itemLabel(row)}</span
             >
             <svg
-              class="block h-1.5 w-full overflow-hidden rounded-full bg-white/[0.07]"
+              class="block h-1.5 w-full overflow-hidden rounded-full bg-surface-hover"
               viewBox="0 0 100 1"
               preserveAspectRatio="none"
               aria-hidden="true"
@@ -417,7 +417,7 @@
   .planner-chip.neutral {
     color: var(--text-secondary);
     border-color: var(--border);
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--surface-hover);
   }
   .planner-chip.neutral:hover {
     color: var(--accent);

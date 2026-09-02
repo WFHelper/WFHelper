@@ -160,7 +160,7 @@
   </div>
 
   <div class="view-sticky-filters grid gap-2">
-    <div class="flex flex-wrap items-end border-b border-white/[0.09]">
+    <div class="flex flex-wrap items-end border-b border-border-subtle">
       <HeaderTabs options={MODE_TABS} activeKey={mode} onSelect={selectMode} />
       <div class="ml-auto flex flex-wrap items-center justify-end gap-2 pb-2">
         <SearchBox value={search} onValueChange={(value) => (search = value)} />
@@ -198,7 +198,7 @@
           on:click={() => onOpen(item)}
         >
           <span
-            class="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[var(--radius-md)] bg-black/20"
+            class="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[var(--radius-md)] bg-surface-card"
           >
             <ItemImage src={item.imageUrl} alt={itemLabel(item)} auditKey={item.name} />
           </span>

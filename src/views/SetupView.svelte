@@ -392,7 +392,7 @@
             {#if helperStatus === "not_found" && runnerStatus?.exeFound}
               <div class="mb-3 rounded-lg border border-warning bg-warning/10 px-3 py-3">
                 <span
-                  class="mb-1 inline-block rounded bg-warning px-2 py-0.5 font-display text-xs font-bold tracking-widest text-black"
+                  class="mb-1 inline-block rounded bg-warning px-2 py-0.5 font-display text-xs font-bold tracking-widest text-text-on-accent"
                   >{$tr("setup.waiting.badge")}</span
                 >
                 <h3 class="font-display text-sm font-semibold text-text-primary">

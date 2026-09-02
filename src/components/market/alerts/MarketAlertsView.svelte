@@ -227,9 +227,9 @@
         <span class="flex items-center gap-1.5">
           <span
             class="inline-block h-2 w-2 rounded-full"
-            class:bg-green-400={status.running && status.scheduler.state === "ok"}
-            class:bg-yellow-400={status.running && status.scheduler.state !== "ok"}
-            class:bg-red-400={!status.running}
+            class:bg-success={status.running && status.scheduler.state === "ok"}
+            class:bg-warning={status.running && status.scheduler.state !== "ok"}
+            class:bg-danger={!status.running}
           ></span>
           {status.running ? healthLabel(status) : $tr("marketAlerts.engineStopped")}
         </span>
@@ -244,10 +244,10 @@
           <span>{$tr("marketAlerts.lastCheck", { time: formatTime(status.lastTickAt) })}</span>
         {/if}
         {#if status.lastError}
-          <span class="text-yellow-400">{status.lastError}</span>
+          <span class="text-warning">{status.lastError}</span>
         {/if}
         {#if status.rulesRecoveredAt}
-          <span class="text-yellow-400">{$tr("marketAlerts.rulesRecovered")}</span>
+          <span class="text-warning">{$tr("marketAlerts.rulesRecovered")}</span>
         {/if}
       </div>
     {/if}

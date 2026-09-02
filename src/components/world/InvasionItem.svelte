@@ -38,7 +38,7 @@
 
 <div
   class="flex flex-col gap-1 py-1.5
-         border-b border-dashed border-white/[0.06] last:border-b-0"
+         border-b border-dashed border-border-subtle last:border-b-0"
 >
   <div class="flex items-center gap-1.5">
     <span class="text-base font-semibold text-text-primary">{inv.node}</span>

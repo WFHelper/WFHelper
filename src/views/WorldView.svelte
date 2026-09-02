@@ -351,6 +351,31 @@
     reward,
     daysLabel: daysUntilLabel(reward.activation, nowCoarseMs, $tr),
   }));
+
+  // Most world blocks only exist when the world state carries them; an absent
+  // one must not reserve an empty grid slot.
+  $: baroPresent = baroActive
+    ? !!baro?.inventory && baro.inventory.length > 0
+    : Boolean(baroAct) && !baroActive;
+  $: worldSectionScope =
+    worldTab === "arbis"
+      ? WORLD_ARBI_SECTIONS
+      : worldTab === "dailies"
+        ? WORLD_DAILIES_SECTIONS
+        : WORLD_MAIN_SECTIONS;
+  $: availableWorldSections = [
+    "world.cycles",
+    "world.timers",
+    "world.resurgence",
+    "world.circuit",
+    ...(steelPathHonors ? ["world.steelPath"] : []),
+    "world.fissures",
+    "world.fissureAlerts",
+    ...(invasions.length > 0 ? ["world.invasions"] : []),
+    ...(darvoDeals.length > 0 ? ["world.darvo"] : []),
+    ...(baroPresent ? ["world.baro"] : []),
+    ...(bounties.length > 0 ? ["world.bounties"] : []),
+  ];
 </script>
 
 <section class="view active">
@@ -472,7 +497,7 @@
                 <span class="flex items-center gap-1">
                   <input
                     type="number"
-                    class="cycle-lead-input w-10 rounded-[var(--radius-md)] border border-border bg-black/25 px-1 py-0.5 text-center text-xs text-text-primary outline-none"
+                    class="cycle-lead-input w-10 rounded-[var(--radius-md)] border border-border bg-surface-input px-1 py-0.5 text-center text-xs text-text-primary outline-none"
                     min="0"
                     max="120"
                     value={$overlaySettings.cycleAlertMinutesBefore ?? 3}
@@ -693,7 +718,7 @@
                   <button
                     type="button"
                     class="flex h-[64px] w-[64px] shrink-0 items-center justify-center overflow-hidden
-                           rounded-[var(--radius-lg)] border-2 border-border bg-black/30 p-0
+                           rounded-[var(--radius-lg)] border-2 border-border bg-surface-card p-0
                            transition-transform duration-100 disabled:cursor-default
                            {dealDb ? 'cursor-pointer hover:scale-105' : ''}"
                     disabled={!dealDb}
@@ -1039,7 +1064,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 0.32rem 0;
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+    border-bottom: 1px dashed var(--surface-hover);
   }
   .world-row:last-child {
     border-bottom: none;
@@ -1147,7 +1172,7 @@
     align-items: center;
     gap: 0.55rem;
     padding: 0.35rem 0;
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+    border-bottom: 1px dashed var(--surface-hover);
   }
   .fissure-row:last-child {
     border-bottom: none;

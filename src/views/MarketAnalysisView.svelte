@@ -529,6 +529,11 @@
 
   const hasAnyData = $derived(allEvents.length > 0 || (tablePage?.total ?? 0) > 0);
   const filtersActive = $derived(search.trim() !== "" || typeFilter !== "all");
+
+  // The ledger renders while the analytics queries are still running, so the
+  // other sections reserve no grid slot until their data is in.
+  const analyticsReady = $derived(!analyticsLoading && (hasAnyData || filtersActive));
+  const availableSections = $derived(analyticsReady ? ANALYTICS_SECTIONS : ["analytics.ledger"]);
 </script>
 
 <section class="view active" data-analysis-view>

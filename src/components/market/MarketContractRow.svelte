@@ -36,9 +36,7 @@
 
   $: statsPreview = contractStatsPreview(contract);
   $: badge = $tr(contractBadgeKey(contract));
-  $: badgeClass = contract.isDirectSell
-    ? "bg-amber-500/20 text-amber-300"
-    : "bg-sky-500/20 text-sky-300";
+  $: badgeClass = contract.isDirectSell ? "bg-warning-bg text-warning" : "bg-info-bg text-info";
   $: masteryLabel = contract.masteryLevel != null ? `MR${contract.masteryLevel}` : "MR-";
   $: thumb = contract.itemThumb || RIVEN_TEMPLATE_URL;
   $: warning = listingWarning(inventoryMatch, contract.modRank, $tr);

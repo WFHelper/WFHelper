@@ -43,7 +43,7 @@
 
   {#each summary.stock as row (shardKindKey(row.color, row.tauforged))}
     <div
-      class="grid items-start gap-2 grid-cols-[auto_minmax(96px,150px)_auto_1fr] border-b border-dashed border-white/[0.07] pb-1.5 last:border-b-0 last:pb-0"
+      class="grid items-start gap-2 grid-cols-[auto_minmax(96px,150px)_auto_1fr] border-b border-dashed border-border-subtle pb-1.5 last:border-b-0 last:pb-0"
       data-archon-stock={shardKindKey(row.color, row.tauforged)}
     >
       <ArchonShardPips slots={swatch(row)} size="md" />

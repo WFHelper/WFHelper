@@ -71,7 +71,7 @@
 </script>
 
 <div
-  class="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto] items-center gap-3 rounded-[var(--radius-md)] border border-border/60 bg-black/15 px-3 py-2 text-sm"
+  class="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto] items-center gap-3 rounded-[var(--radius-md)] border border-border/60 bg-surface-card px-3 py-2 text-sm"
   data-workbench-row={row.rowId}
 >
   <input
@@ -175,7 +175,7 @@
       type="button"
       class="rounded-[var(--radius-sm)] border border-border px-2 py-1 {isLocked
         ? 'bg-danger/25 text-danger'
-        : 'bg-white/5'}"
+        : 'bg-surface-hover'}"
       title={t(k("workbench.safety.lockHint"))}
       onclick={() => onToggleLock(row)}
     >
@@ -197,7 +197,7 @@
         type="button"
         class="rounded-[var(--radius-sm)] border border-border px-2 py-1 {isSetKept
           ? 'bg-warning/25 text-warning'
-          : 'bg-white/5'}"
+          : 'bg-surface-hover'}"
         title={t(k("workbench.safety.setKeepHint"))}
         onclick={() => onToggleSetKeep(row)}
       >

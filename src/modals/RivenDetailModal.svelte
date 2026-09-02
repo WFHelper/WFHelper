@@ -221,7 +221,7 @@
   <div class="px-7 pt-2 pb-7">
     <div class="mb-5">
       <div class="flex items-center gap-3">
-        <h2 class="font-display text-4xl font-bold text-white m-0">
+        <h2 class="font-display text-4xl font-bold text-text-heading m-0">
           {riven.rivenName || riven.weaponName}
         </h2>
         {#if !isContractListing}
@@ -362,21 +362,21 @@
           <div class="grid grid-cols-2 gap-4">
             <div class="flex flex-col gap-1">
               <span
-                class="font-display text-xs uppercase tracking-[0.06em] font-bold mb-1 text-[#4ade80]"
+                class="font-display text-xs uppercase tracking-[0.06em] font-bold mb-1 text-success"
                 >{$tr("rivens.detail.desiredPositives")}</span
               >
               {#each bestAttrs.positives as attr}
                 {@const matched = myStatNamesLc.has(canonicalRivenStatName(attr))}
                 <span
                   class="font-display text-xs py-0.5 px-1.5 rounded {matched
-                    ? 'text-[#4ade80] bg-success/10 font-semibold'
+                    ? 'text-success bg-success-bg font-semibold'
                     : 'text-text-muted'}">{attr}</span
                 >
               {/each}
             </div>
             <div class="flex flex-col gap-1">
               <span
-                class="font-display text-xs uppercase tracking-[0.06em] font-bold mb-1 text-[#ef4444]"
+                class="font-display text-xs uppercase tracking-[0.06em] font-bold mb-1 text-danger"
                 >{$tr("rivens.detail.desiredNegatives")}</span
               >
               {#each bestAttrs.negatives as attr}
@@ -386,7 +386,7 @@
                 )}
                 <span
                   class="font-display text-xs py-0.5 px-1.5 rounded {matched
-                    ? 'text-[#4ade80] bg-success/10 font-semibold'
+                    ? 'text-success bg-success-bg font-semibold'
                     : 'text-text-muted'}">{attr}</span
                 >
               {/each}

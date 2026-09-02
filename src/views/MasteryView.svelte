@@ -667,7 +667,7 @@
     </div>
   {/each}
 
-  <div class="mb-3 flex items-end border-b border-white/[0.09]" data-tour="mastery-view-tabs">
+  <div class="mb-3 flex items-end border-b border-border-subtle" data-tour="mastery-view-tabs">
     <HeaderTabs options={VIEW_TABS} activeKey={viewTab} onSelect={selectViewTab} />
   </div>
 

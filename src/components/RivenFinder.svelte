@@ -260,7 +260,7 @@
         <div class="flex flex-wrap gap-1">
           {#each bestAttrs.positives as attr}
             <span
-              class="py-1 px-2 rounded font-display text-xs font-semibold bg-[rgba(33,124,33,0.35)] text-[#8ee4a8] border border-[rgba(33,124,33,0.5)]"
+              class="py-1 px-2 rounded font-display text-xs font-semibold bg-success-bg text-success border border-success-dim"
               >{attr}</span
             >
           {/each}
@@ -274,7 +274,7 @@
         <div class="flex flex-wrap gap-1">
           {#each bestAttrs.negatives as attr}
             <span
-              class="py-1 px-2 rounded font-display text-xs font-semibold bg-[rgba(125,60,60,0.35)] text-[#ff9a9a] border border-[rgba(125,60,60,0.5)]"
+              class="py-1 px-2 rounded font-display text-xs font-semibold bg-danger-bg text-danger border border-danger-dim"
               >{attr}</span
             >
           {/each}
@@ -293,13 +293,13 @@
         {#each attrSlots as slot}
           <div
             class="flex items-center gap-1.5 py-1.5 px-2 rounded-md {slot.positive
-              ? 'bg-[rgba(33,124,33,0.18)] border border-[rgba(33,124,33,0.3)]'
-              : 'bg-[rgba(125,60,60,0.18)] border border-[rgba(125,60,60,0.3)]'}"
+              ? 'bg-success-bg border border-success-dim'
+              : 'bg-danger-bg border border-danger-dim'}"
           >
             <span
               class="font-display text-sm font-bold w-4 text-center shrink-0 {slot.positive
-                ? 'text-[#8ee4a8]'
-                : 'text-[#ff7a7a]'}">{slot.positive ? "+" : "−"}</span
+                ? 'text-success'
+                : 'text-danger'}">{slot.positive ? "+" : "−"}</span
             >
             <ThemedSelect bind:value={slot.selectedStat} className="flex-1 min-w-0">
               <option value=""
@@ -472,8 +472,8 @@
           {#each listing.stats as s}
             <span
               class="font-display text-xs whitespace-nowrap overflow-hidden text-ellipsis {s.positive
-                ? 'text-[#4ade80]'
-                : 'text-[#ef4444]'}"
+                ? 'text-success'
+                : 'text-danger'}"
             >
               {s.positive ? "+" : "−"}{s.name}
             </span>

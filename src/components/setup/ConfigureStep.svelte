@@ -125,19 +125,19 @@
         >
           <span class="flex gap-1">
             <span
-              class="h-3 w-3 rounded-[3px] border border-white/10"
+              class="h-3 w-3 rounded-[3px] border border-border-subtle"
               style="background: {preset.colors.bgBase};"
             ></span>
             <span
-              class="h-3 w-3 rounded-[3px] border border-white/10"
+              class="h-3 w-3 rounded-[3px] border border-border-subtle"
               style="background: {preset.colors.bgRaised};"
             ></span>
             <span
-              class="h-3 w-3 rounded-[3px] border border-white/10"
+              class="h-3 w-3 rounded-[3px] border border-border-subtle"
               style="background: {preset.colors.textPrimary};"
             ></span>
             <span
-              class="h-3 w-3 rounded-[3px] border border-white/10"
+              class="h-3 w-3 rounded-[3px] border border-border-subtle"
               style="background: {preset.colors.accent};"
             ></span>
           </span>

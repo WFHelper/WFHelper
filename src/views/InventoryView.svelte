@@ -702,6 +702,13 @@
     prefetchVisibleMetrics(filtered, metricNeeds);
     maybeScheduleRankedHotsetRefresh(allRankedBaseItems);
   }
+
+  // The header stack is conditional; an absent block must not leave an empty slot.
+  $: availableHeaderSections = [
+    ...(filter !== "resources" ? ["inventory.valueStrip"] : []),
+    ...($inventorySelectionMode && filter !== "resources" ? ["inventory.selectionBar"] : []),
+    ...(showFilterPanel && filter !== "resources" ? ["inventory.filters"] : []),
+  ];
 </script>
 
 <section class="view active">

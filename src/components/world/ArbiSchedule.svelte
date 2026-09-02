@@ -344,7 +344,7 @@
 
     <input
       type="text"
-      class="w-full rounded-[var(--radius-md)] border border-border bg-black/25 px-2 py-1.5 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-accent/60"
+      class="w-full rounded-[var(--radius-md)] border border-border bg-surface-input px-2 py-1.5 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-accent/60"
       placeholder={$tr("arbisched.searchPlaceholder")}
       bind:value={searchRaw}
       data-search-focus
@@ -362,7 +362,7 @@
         {@const active = selected.has(node.id)}
         {@const starred = favoriteSet.has(node.id)}
         <div
-          class="flex w-full cursor-pointer items-center gap-2 border-b border-border/40 px-2 py-1.5 text-left last:border-b-0 hover:bg-white/[0.04] {active
+          class="flex w-full cursor-pointer items-center gap-2 border-b border-border/40 px-2 py-1.5 text-left last:border-b-0 hover:bg-surface-hover {active
             ? 'bg-accent/10'
             : ''}"
           role="button"
@@ -433,7 +433,7 @@
         >{$tr("arbisched.presets")}</span
       >
       <select
-        class="w-full rounded-[var(--radius-md)] border border-border bg-black/25 px-2 py-1 text-sm text-text-primary outline-none"
+        class="w-full rounded-[var(--radius-md)] border border-border bg-surface-input px-2 py-1 text-sm text-text-primary outline-none"
         bind:value={presetSelected}
       >
         <option value="">{$tr("arbisched.presetSelect")}</option>
@@ -456,7 +456,7 @@
       <div class="flex gap-1.5">
         <input
           type="text"
-          class="min-w-0 flex-1 rounded-[var(--radius-md)] border border-border bg-black/25 px-2 py-1 text-sm text-text-primary outline-none placeholder:text-text-muted"
+          class="min-w-0 flex-1 rounded-[var(--radius-md)] border border-border bg-surface-input px-2 py-1 text-sm text-text-primary outline-none placeholder:text-text-muted"
           placeholder={$tr("arbisched.presetName")}
           bind:value={presetName}
           on:keydown={(e) => e.key === "Enter" && savePreset()}
@@ -473,7 +473,7 @@
   <div class="flex min-w-0 flex-col gap-2">
     <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
       <select
-        class="rounded-[var(--radius-md)] border border-border bg-black/25 px-2 py-1 text-sm text-text-primary outline-none"
+        class="rounded-[var(--radius-md)] border border-border bg-surface-input px-2 py-1 text-sm text-text-primary outline-none"
         value={String(daysToShow)}
         on:change={onDaysChange}
       >
@@ -517,7 +517,7 @@
         {$tr("arbisched.leadLabel")}
         <input
           type="number"
-          class="arbisched-lead-input w-12 rounded-[var(--radius-md)] border border-border bg-black/25 px-1 py-0.5 text-center text-xs text-text-primary outline-none"
+          class="arbisched-lead-input w-12 rounded-[var(--radius-md)] border border-border bg-surface-input px-1 py-0.5 text-center text-xs text-text-primary outline-none"
           min="1"
           max="120"
           value={alerts.minutesBefore}
@@ -550,7 +550,7 @@
           </div>
           {#each dayGroups as group (group.dayKey)}
             <div
-              class="border-b border-border/60 bg-white/[0.03] px-2 py-1 text-xs font-bold uppercase tracking-[0.06em] text-text-secondary"
+              class="border-b border-border/60 bg-surface-hover px-2 py-1 text-xs font-bold uppercase tracking-[0.06em] text-text-secondary"
             >
               {group.dayLabel}
             </div>
@@ -559,7 +559,7 @@
               {@const key = scheduleEntryKey(entry)}
               {@const belled = occurrenceSet.has(key)}
               <div
-                class="grid grid-cols-[90px_minmax(0,1.3fr)_minmax(0,1fr)_110px_130px_36px_28px] items-center gap-x-3 border-b border-border/40 px-2 py-1.5 text-sm hover:bg-white/[0.03] {copySelection.has(
+                class="grid grid-cols-[90px_minmax(0,1.3fr)_minmax(0,1fr)_110px_130px_36px_28px] items-center gap-x-3 border-b border-border/40 px-2 py-1.5 text-sm hover:bg-surface-hover {copySelection.has(
                   key,
                 )
                   ? 'bg-accent/5'
@@ -663,7 +663,7 @@
     background: var(--world-faction-infested);
   }
   .arbisched-dot-corrupted {
-    background: var(--warning, #f5a623);
+    background: var(--warning);
   }
   .arbisched-dot-other {
     background: var(--text-muted);
@@ -691,12 +691,12 @@
     background: color-mix(in srgb, var(--world-faction-infested) 12%, transparent);
   }
   .arbisched-badge-corrupted {
-    color: var(--warning, #f5a623);
-    background: color-mix(in srgb, var(--warning, #f5a623) 12%, transparent);
+    color: var(--warning);
+    background: color-mix(in srgb, var(--warning) 12%, transparent);
   }
   .arbisched-badge-other {
     color: var(--text-secondary);
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--surface-hover);
   }
 
   .arbisched-lead-input {
@@ -718,12 +718,12 @@
   :global(.wfh-arbicard) {
     min-width: 480px;
     width: max-content;
-    background: #0a0e17;
-    border: 1px solid rgba(212, 168, 67, 0.25);
+    background: var(--bg-base);
+    border: 1px solid var(--border-strong);
     border-radius: 6px;
     padding: 20px 24px;
     font-family: var(--font-body, "Barlow", sans-serif);
-    color: #e8e4dc;
+    color: var(--text-primary);
   }
   :global(.wfh-arbicard-header) {
     font-family: var(--font-display, "Rajdhani", sans-serif);
@@ -731,15 +731,15 @@
     font-weight: 700;
     letter-spacing: 0.15em;
     text-transform: uppercase;
-    color: #d4a843;
+    color: var(--accent);
     margin-bottom: 4px;
   }
   :global(.wfh-arbicard-tz) {
     font-size: 0.72rem;
-    color: #8b93a5;
+    color: var(--text-secondary);
     margin-bottom: 12px;
     padding-bottom: 10px;
-    border-bottom: 1px solid rgba(212, 168, 67, 0.2);
+    border-bottom: 1px solid var(--border-strong);
   }
   :global(.wfh-arbicard-day) {
     margin-top: 10px;
@@ -747,7 +747,7 @@
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #8b93a5;
+    color: var(--text-secondary);
   }
   :global(.wfh-arbicard-row) {
     display: grid;
@@ -755,20 +755,20 @@
     align-items: center;
     gap: 10px;
     padding: 6px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--surface-hover);
     font-size: 0.82rem;
   }
   :global(.wfh-arbicard-time) {
-    color: #f0c95c;
+    color: var(--accent-bright);
     font-family: var(--font-display, "Rajdhani", sans-serif);
     font-weight: 600;
   }
   :global(.wfh-arbicard-node) {
-    color: #fff;
+    color: var(--text-primary);
     font-weight: 700;
   }
   :global(.wfh-arbicard-mission) {
-    color: #c3cad6;
+    color: var(--text-body);
   }
   :global(.wfh-arbicard-faction) {
     font-size: 0.7rem;
@@ -781,19 +781,19 @@
     border: 1px solid;
   }
   :global(.wfh-arbicard-f-grineer) {
-    color: var(--world-faction-grineer, #ef5350);
+    color: var(--world-faction-grineer);
   }
   :global(.wfh-arbicard-f-corpus) {
-    color: var(--world-faction-corpus, #42a5f5);
+    color: var(--world-faction-corpus);
   }
   :global(.wfh-arbicard-f-infested) {
-    color: var(--world-faction-infested, #66bb6a);
+    color: var(--world-faction-infested);
   }
   :global(.wfh-arbicard-f-corrupted) {
-    color: #f5a623;
+    color: var(--warning);
   }
   :global(.wfh-arbicard-f-other) {
-    color: #8b93a5;
+    color: var(--text-secondary);
   }
   :global(.wfh-arbicard-footer) {
     margin-top: 14px;
@@ -803,7 +803,7 @@
   }
   :global(.wfh-arbicard-url) {
     font-size: 0.65rem;
-    color: #5b6478;
+    color: var(--text-secondary);
   }
   :global(.wfh-arbicard-brand) {
     font-family: var(--font-display, "Rajdhani", sans-serif);
@@ -811,6 +811,6 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
     font-size: 0.8rem;
-    color: #5b6478;
+    color: var(--text-secondary);
   }
 </style>

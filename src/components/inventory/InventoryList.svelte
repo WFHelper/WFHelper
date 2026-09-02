@@ -285,7 +285,7 @@
             {/if}
             <td class="px-2 py-1">
               <span
-                class="flex h-8 w-8 items-center justify-center overflow-hidden rounded border border-border/60 bg-black/25"
+                class="flex h-8 w-8 items-center justify-center overflow-hidden rounded border border-border/60 bg-surface-card"
               >
                 <ItemImage
                   src={item.displayImageUrl}

@@ -16,7 +16,7 @@
   export let onToggleAlert: ((key: CycleAlertKey) => void) | null = null;
 </script>
 
-<div class="flex items-center justify-between border-b border-dashed border-white/[0.06] py-1.5">
+<div class="flex items-center justify-between border-b border-dashed border-border-subtle py-1.5">
   <div class="flex min-w-0 items-center gap-1.5">
     <img class="h-[33px] w-[33px] shrink-0 rounded-full object-cover" src={iconSrc} alt="" />
     <span class="whitespace-nowrap text-sm font-semibold text-text-primary">{name}</span>
@@ -50,7 +50,7 @@
         class="inline-flex shrink-0 items-center justify-center w-5 h-5 rounded-[var(--radius-md)]
                border border-border bg-transparent p-0 text-text-muted opacity-35 cursor-pointer
                transition-[opacity,background,color,border-color] duration-150
-               hover:opacity-80 hover:bg-white/[0.06]
+               hover:opacity-80 hover:bg-surface-hover
                data-[active]:opacity-100 data-[active]:text-warning
                data-[active]:border-warning/40 data-[active]:bg-warning/10"
         data-active={alertOn || undefined}

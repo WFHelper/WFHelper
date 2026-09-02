@@ -3,16 +3,16 @@
   import { tr } from "../lib/i18n.js";
 
   const LEVEL_CLASSES: Record<string, string> = {
-    info: "border-blue-300/35 bg-blue-500/15 text-[#dbeafe]",
-    success: "border-emerald-300/35 bg-emerald-500/15 text-[#d1fae5]",
-    warning: "border-yellow-300/35 bg-warning/15 text-[#fef3c7]",
-    error: "border-red-300/40 bg-danger/20 text-[#fee2e2]",
+    info: "border-info-dim bg-info-bg text-info",
+    success: "border-success-dim bg-success-bg text-success",
+    warning: "border-warning-dim bg-warning-bg text-warning",
+    error: "border-danger-dim bg-danger-bg text-danger",
   };
   const TITLE_CLASSES: Record<string, string> = {
-    info: "text-[#bfdbfe]",
-    success: "text-[#a7f3d0]",
-    warning: "text-[#fde68a]",
-    error: "text-[#fecaca]",
+    info: "text-info",
+    success: "text-success",
+    warning: "text-warning",
+    error: "text-danger",
   };
 </script>
 
@@ -30,7 +30,7 @@
           {toast.title || toast.level}
         </strong>
         <button
-          class="cursor-pointer rounded border border-white/15 bg-transparent px-1.5 py-0.5 text-xs text-white/80 transition-[border-color,color] duration-150 hover:border-white/35 hover:text-white"
+          class="cursor-pointer rounded border border-border-subtle bg-transparent px-1.5 py-0.5 text-xs text-text-secondary transition-[border-color,color] duration-150 hover:border-border-strong hover:text-text-primary"
           on:click={() => removeToast(toast.id)}
           aria-label={$tr("common.dismissNotification")}
           title={$tr("common.dismiss")}
@@ -38,7 +38,7 @@
           x
         </button>
       </header>
-      <p class="text-sm leading-[1.375] text-white/90">{toast.message}</p>
+      <p class="text-sm leading-[1.375] text-text-primary">{toast.message}</p>
     </article>
   {/each}
 </div>

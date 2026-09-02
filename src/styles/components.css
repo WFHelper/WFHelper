@@ -114,7 +114,7 @@
   }
   .shared-filter-select:focus {
     border-color: var(--accent-dim);
-    box-shadow: 0 0 0 2px rgba(212, 168, 67, 0.12);
+    box-shadow: 0 0 0 2px var(--accent-glow);
   }
   .shared-sort-controls {
     display: inline-flex;
@@ -137,7 +137,7 @@
   }
   .sort-control:focus-within {
     border-color: var(--accent-dim);
-    box-shadow: 0 0 0 2px rgba(212, 168, 67, 0.12);
+    box-shadow: 0 0 0 2px var(--accent-glow);
   }
   .sort-control .sort-control-select {
     border: 0;
@@ -294,7 +294,7 @@
   .search-box input:focus {
     border-color: var(--accent);
     background: var(--bg-raised);
-    box-shadow: 0 0 0 3px rgba(212, 168, 67, 0.12);
+    box-shadow: 0 0 0 3px var(--accent-glow);
   }
   .search-box input:not(:placeholder-shown) {
     padding-right: 1.9rem;
@@ -381,7 +381,7 @@
   .btn-primary {
     border-color: var(--accent);
     background: var(--accent);
-    color: #000;
+    color: var(--text-on-accent);
   }
   .btn-primary:hover {
     background: var(--accent-bright);
@@ -590,7 +590,7 @@
     width: 100%;
     overflow: hidden;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--surface-hover);
   }
   .rank-bar-svg {
     width: 100%;
@@ -678,9 +678,9 @@
   .vault-badge {
     top: 0.4rem;
     left: 0.4rem;
-    background: rgba(248, 113, 113, 0.18);
+    background: var(--danger-bg);
     color: var(--danger);
-    border: 1px solid rgba(248, 113, 113, 0.35);
+    border: 1px solid var(--danger-dim);
   }
   /* Same badge at row scale: a list row has no positioned art to pin it to. */
   .vault-badge--inline {
@@ -710,7 +710,7 @@
     gap: 0.26rem;
     border-radius: 999px;
     border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--surface-hover);
     padding: 0.14rem 0.5rem;
     font-family: var(--font-display);
     font-size: 0.67rem;
@@ -736,19 +736,19 @@
     object-fit: contain;
   }
   .relic-icon.lith {
-    color: #9ca3af;
+    color: var(--relic-lith);
   }
   .relic-icon.meso {
-    color: #f59e0b;
+    color: var(--relic-meso);
   }
   .relic-icon.neo {
-    color: #60a5fa;
+    color: var(--relic-neo);
   }
   .relic-icon.axi {
-    color: #ef4444;
+    color: var(--relic-axi);
   }
   .relic-icon.requiem {
-    color: #a855f7;
+    color: var(--relic-requiem);
   }
 
   /* cross-component toggle button groups */
@@ -756,7 +756,7 @@
   .tab-bar {
     display: flex;
     gap: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+    border-bottom: 1px solid var(--border-subtle);
     margin-bottom: 1rem;
   }
   .tab-item {
@@ -769,7 +769,7 @@
     background: none;
     font-family: var(--font-display);
     font-size: 1rem;
-    color: #8a8c95;
+    color: var(--text-secondary);
     cursor: pointer;
     transition:
       color 0.15s,
@@ -777,11 +777,11 @@
     white-space: nowrap;
   }
   .tab-item:hover {
-    color: #b0b2ba;
+    color: var(--text-body);
   }
   .tab-item.active {
-    color: #ffffff;
-    border-bottom-color: #ffffff;
+    color: var(--text-heading);
+    border-bottom-color: var(--text-heading);
   }
 
   /* detail / modal framework */
@@ -796,7 +796,7 @@
   .detail-backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: color-mix(in srgb, var(--bg-deep) 60%, transparent);
     border: 0;
     padding: 0;
     cursor: pointer;
@@ -959,20 +959,20 @@
     text-transform: uppercase;
   }
   .detail-tag.prime {
-    background: rgba(212, 168, 67, 0.2);
+    background: var(--accent-glow);
     color: var(--accent);
   }
   .detail-tag.vaulted,
   .detail-tag.missing {
-    background: rgba(248, 113, 113, 0.15);
+    background: var(--danger-bg);
     color: var(--danger);
   }
   .detail-tag.mastered {
-    background: rgba(74, 222, 128, 0.15);
+    background: var(--success-bg);
     color: var(--success);
   }
   .detail-tag.progress {
-    background: rgba(251, 191, 36, 0.15);
+    background: var(--warning-bg);
     color: var(--warning);
   }
   .detail-meta,

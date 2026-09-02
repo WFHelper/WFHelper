@@ -201,7 +201,7 @@
     class="fixed inset-0 z-40 flex flex-col items-center gap-4 overflow-y-auto bg-bg-deep px-6 py-5"
   >
     <div
-      class="relative mt-auto min-h-0 overflow-hidden rounded-xl border border-border-strong bg-black"
+      class="relative mt-auto min-h-0 overflow-hidden rounded-xl border border-border-strong bg-bg-deep"
       style="aspect-ratio: {placementArea.width} / {placementArea.height}; width: min(100%, calc((100vh - 230px) * {(
         placementArea.width / Math.max(1, placementArea.height)
       ).toFixed(4)}));"
@@ -213,7 +213,7 @@
         draggable="false"
         class="absolute inset-0 h-full w-full select-none object-cover opacity-80"
       />
-      <div class="absolute inset-0 bg-black/20"></div>
+      <div class="absolute inset-0 bg-bg-deep/20"></div>
       {#if placementPos && previewScale > 0}
         {#each placementStep.dummies as key (placementStep.key + "-" + key)}
           <!-- svelte-ignore a11y_no_static_element_interactions -->

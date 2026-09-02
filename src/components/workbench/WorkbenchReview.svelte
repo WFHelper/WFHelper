@@ -58,17 +58,17 @@
   }
 </script>
 
-<div class="rounded border border-amber-500/40 bg-amber-500/5 p-3 text-sm" data-workbench-review>
-  <div class="mb-2 font-semibold text-amber-300">{t(k("workbench.review.title"))}</div>
+<div class="rounded border border-warning-dim bg-warning-bg p-3 text-sm" data-workbench-review>
+  <div class="mb-2 font-semibold text-warning">{t(k("workbench.review.title"))}</div>
   <p class="mb-2 opacity-80">{t(k("workbench.review.explanation"))}</p>
 
   {#if wbState.journalError}
-    <div class="mb-2 rounded bg-red-500/10 p-2 text-red-300">
+    <div class="mb-2 rounded bg-danger-bg p-2 text-danger">
       <div>{t(k("workbench.review.journalError"))}</div>
       <div class="text-xs opacity-80">{wbState.journalError}</div>
       <button
         type="button"
-        class="mt-1 rounded bg-red-500/30 px-2 py-0.5"
+        class="mt-1 rounded bg-danger-bg px-2 py-0.5"
         onclick={onResetCorruptJournal}
       >
         {t(k("workbench.review.resetJournal"))}
@@ -79,7 +79,7 @@
   {#if wbState.unsettledCount > 0}
     <button
       type="button"
-      class="rounded bg-white/10 px-2 py-0.5"
+      class="rounded bg-surface-hover px-2 py-0.5"
       disabled={busy}
       onclick={onReconcile}
     >
@@ -89,27 +89,27 @@
 
   {#if report}
     {#if report.fetchError}
-      <div class="mt-2 text-red-300">
+      <div class="mt-2 text-danger">
         {t(k("workbench.review.fetchError"))}: {report.fetchError}
       </div>
     {/if}
     <div class="mt-2 space-y-1">
       {#each report.rows as row (row.intentId)}
-        <div class="flex items-center gap-2 border-b border-white/10 py-1">
+        <div class="flex items-center gap-2 border-b border-border-subtle py-1">
           <span class="min-w-0 flex-1 truncate">
             {row.itemName} · {row.quantity}x @ {row.platinum}p ({row.mode})
           </span>
           <span
             class="rounded px-1 text-xs {row.classification === 'confirmed'
-              ? 'bg-emerald-500/20 text-emerald-300'
+              ? 'bg-success-bg text-success'
               : row.classification === 'failed'
-                ? 'bg-red-500/20 text-red-300'
-                : 'bg-amber-500/20 text-amber-300'}"
+                ? 'bg-danger-bg text-danger'
+                : 'bg-warning-bg text-warning'}"
           >
             {t(k(`workbench.review.class.${row.classification}`))}
           </span>
           <select
-            class="rounded bg-black/20 px-1 text-xs"
+            class="rounded bg-surface-input px-1 text-xs"
             value={pickFor(row.intentId, row.classification)}
             onchange={(event) => {
               picks[row.intentId] = (event.currentTarget as HTMLSelectElement)
@@ -132,7 +132,7 @@
            no evidence at all. -->
       <button
         type="button"
-        class="mt-2 rounded bg-amber-500/30 px-2 py-0.5"
+        class="mt-2 rounded bg-warning-bg px-2 py-0.5"
         disabled={busy || report.fetchError != null || settlingCount === 0}
         data-workbench-resolve
         onclick={confirmAll}

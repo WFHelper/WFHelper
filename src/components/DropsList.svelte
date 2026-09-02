@@ -142,9 +142,9 @@
         {#if rg}
           <button
             type="button"
-            class="flex w-full items-center justify-between gap-2 px-2 -mx-2 py-1.5 rounded-md cursor-pointer text-left text-sm text-text-secondary border-b border-dashed border-white/10 last:border-b-0 hover:bg-white/10 hover:text-text-primary transition-colors {openRelicKey ===
+            class="flex w-full items-center justify-between gap-2 px-2 -mx-2 py-1.5 rounded-md cursor-pointer text-left text-sm text-text-secondary border-b border-dashed border-border-subtle last:border-b-0 hover:bg-surface-hover hover:text-text-primary transition-colors {openRelicKey ===
             rg.key
-              ? 'bg-white/10 text-text-primary'
+              ? 'bg-surface-hover text-text-primary'
               : ''}"
             on:click={(e) => toggleRelic(e, rg.key)}
             on:keydown={(e) => handleKeydown(e, rg.key)}
@@ -201,7 +201,7 @@
                 >
                 <button
                   type="button"
-                  class="flex-1 px-2 py-1 text-xs font-display font-semibold tracking-wider rounded border border-border-strong text-text-secondary hover:bg-white/5 hover:text-text-primary cursor-pointer transition-colors"
+                  class="flex-1 px-2 py-1 text-xs font-display font-semibold tracking-wider rounded border border-border-strong text-text-secondary hover:bg-surface-hover hover:text-text-primary cursor-pointer transition-colors"
                   on:click={(e) => openRelicWiki(rg, e)}>{$tr("common.wiki")}</button
                 >
               </div>
@@ -209,7 +209,7 @@
               <div class="flex max-h-[240px] flex-col overflow-y-auto">
                 {#each rewards as r}
                   <div
-                    class="flex items-center gap-2 py-1 border-b border-dashed border-white/5 last:border-b-0"
+                    class="flex items-center gap-2 py-1 border-b border-dashed border-border-subtle last:border-b-0"
                   >
                     {#if r.imageUrl}
                       <img
@@ -234,7 +234,7 @@
           {/if}
         {:else}
           <div
-            class="flex items-center justify-start gap-2 border-b border-dashed border-white/[0.08] py-1.5 last:border-b-0"
+            class="flex items-center justify-start gap-2 border-b border-dashed border-border-subtle py-1.5 last:border-b-0"
           >
             <span class="text-text-primary">{d.location}</span>
             {#if d.chance}<span class="shrink-0 text-xs text-accent">{d.chance.toFixed(1)}%</span

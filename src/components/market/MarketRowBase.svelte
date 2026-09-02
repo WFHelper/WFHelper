@@ -78,12 +78,12 @@
         <img
           src={displayThumb}
           alt={title}
-          class="h-11 w-11 shrink-0 rounded-[var(--radius-md)] bg-black/30 object-contain"
+          class="h-11 w-11 shrink-0 rounded-[var(--radius-md)] bg-surface-card object-contain"
           loading="lazy"
           on:error={onThumbError}
         />
       {:else}
-        <div class="h-11 w-11 shrink-0 rounded-[var(--radius-md)] bg-white/5"></div>
+        <div class="h-11 w-11 shrink-0 rounded-[var(--radius-md)] bg-surface-hover"></div>
       {/if}
       <slot name="compactBody" />
       <slot name="compactActions" />
@@ -108,7 +108,7 @@
           on:error={onThumbError}
         />
       {:else}
-        <div class="{fullImageClass} bg-white/5"></div>
+        <div class="{fullImageClass} bg-surface-hover"></div>
       {/if}
       <div class={fullContentClass}>
         <span class="flex min-w-0 items-baseline">

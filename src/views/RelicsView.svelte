@@ -579,7 +579,7 @@
   </h2>
   <div class="view-sticky-filters mb-4" data-tour="relic-filters">
     <div
-      class="flex flex-wrap items-end border-b border-white/[0.09] min-[1800px]:flex-nowrap"
+      class="flex flex-wrap items-end border-b border-border-subtle min-[1800px]:flex-nowrap"
       data-relic-filter-row
     >
       <div class="shrink-0" data-relic-tier-tabs>

@@ -567,7 +567,7 @@
           {#each suggestions as suggestion, suggestionIndex (suggestion.slug)}
             <button
               type="button"
-              class="flex w-full items-center gap-2.5 border-0 bg-transparent px-3 py-2 text-left text-sm text-text-primary hover:bg-white/[0.06]"
+              class="flex w-full items-center gap-2.5 border-0 bg-transparent px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover"
               class:is-active={suggestionIndex === activeSuggestion}
               bind:this={suggestionEls[suggestionIndex]}
               role="option"
@@ -577,7 +577,7 @@
               on:mousedown|preventDefault={() => pick(suggestion)}
             >
               <span
-                class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-black/30"
+                class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-surface-card"
               >
                 <ItemImage
                   src={suggestion.thumb}
@@ -655,7 +655,7 @@
       class="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-bg-surface p-4"
     >
       <div
-        class="flex h-[84px] w-[84px] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-accent bg-black/40"
+        class="flex h-[84px] w-[84px] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-accent bg-surface-card"
       >
         <ItemImage
           src={selected.thumb}
@@ -862,7 +862,7 @@
               {#each rows as entry, index (`${entry.userName}:${entry.platinum}:${index}`)}
                 {@const rowKey = `${entry.userName}:${entry.platinum}:${index}`}
                 <tr
-                  class="border-t border-border/60 bg-bg-surface transition-colors duration-100 hover:bg-white/[0.04] [&>td]:px-3 [&>td]:py-2"
+                  class="border-t border-border/60 bg-bg-surface transition-colors duration-100 hover:bg-surface-hover [&>td]:px-3 [&>td]:py-2"
                 >
                   <td class="text-text-secondary">x{entry.quantity}</td>
                   <td>

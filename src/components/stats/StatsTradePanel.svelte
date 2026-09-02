@@ -51,7 +51,7 @@
           <button
             class="flex-1 flex items-center justify-center gap-1 py-1 px-[6px] text-xs border rounded cursor-pointer transition-[background,color,border-color] duration-150 whitespace-nowrap {tradeFilter ===
             f
-              ? 'bg-accent border-accent text-black font-semibold'
+              ? 'bg-accent border-accent text-text-on-accent font-semibold'
               : 'border-border bg-transparent text-text-muted hover:text-text-primary'}"
             on:click={() => (tradeFilter = f)}
           >
@@ -64,8 +64,8 @@
                   : $tr("stats.filterTrade")}
             <span
               class="text-xs rounded-lg px-1 min-w-[16px] text-center {tradeFilter === f
-                ? 'bg-black/25'
-                : 'bg-black/20'}"
+                ? 'bg-surface-selected'
+                : 'bg-surface-card'}"
             >
               {f === "all" ? trades.length : trades.filter((t) => t.type === f).length}
             </span>
@@ -112,7 +112,7 @@
                   ? 'bg-success/15 text-success border-success/30'
                   : trade.type === 'purchase'
                     ? 'bg-info/15 text-info border-info/30'
-                    : 'bg-[rgba(168,162,186,0.15)] text-text-secondary border-[rgba(168,162,186,0.3)]'}"
+                    : 'bg-surface-hover text-text-secondary border-border-subtle'}"
               >
                 {trade.type === "sale"
                   ? $tr("stats.filterSale")

@@ -103,14 +103,14 @@
 
 <style>
   .inventory-orderbook-side-sell {
-    background: rgba(6, 95, 70, 0.2);
-    color: #86efac;
-    border-bottom: 1px solid rgba(52, 211, 153, 0.24);
+    background: var(--success-bg);
+    color: var(--success);
+    border-bottom: 1px solid var(--success-dim);
   }
   .inventory-orderbook-side-buy {
-    background: rgba(185, 28, 28, 0.2);
-    color: #fda4af;
-    border-bottom: 1px solid rgba(251, 113, 133, 0.25);
+    background: var(--danger-bg);
+    color: var(--danger);
+    border-bottom: 1px solid var(--danger-dim);
   }
   .inventory-orderbook-row-head {
     display: grid;
@@ -129,29 +129,29 @@
     white-space: nowrap;
   }
   .inventory-orderbook-status-ingame {
-    border-color: rgba(74, 222, 128, 0.45);
-    background: rgba(34, 197, 94, 0.16);
-    color: #86efac;
+    border-color: var(--success-dim);
+    background: var(--success-bg);
+    color: var(--success);
   }
   .inventory-orderbook-status-online {
-    border-color: rgba(147, 197, 253, 0.45);
-    background: rgba(59, 130, 246, 0.16);
-    color: #bfdbfe;
+    border-color: var(--info-dim);
+    background: var(--info-bg);
+    color: var(--info);
   }
   .inventory-orderbook-status-offline {
-    border-color: rgba(148, 163, 184, 0.4);
-    background: rgba(51, 65, 85, 0.26);
-    color: #cbd5e1;
+    border-color: var(--border-subtle);
+    background: var(--surface-hover);
+    color: var(--text-secondary);
   }
   .inventory-orderbook-status-invisible {
-    border-color: rgba(251, 191, 36, 0.42);
-    background: rgba(161, 98, 7, 0.24);
-    color: #fde68a;
+    border-color: var(--warning-dim);
+    background: var(--warning-bg);
+    color: var(--warning);
   }
   .inventory-orderbook-status-unknown {
-    border-color: rgba(148, 163, 184, 0.45);
-    background: rgba(71, 85, 105, 0.24);
-    color: #cbd5e1;
+    border-color: var(--border-subtle);
+    background: var(--surface-hover);
+    color: var(--text-secondary);
   }
 
   @media (max-width: 800px) {

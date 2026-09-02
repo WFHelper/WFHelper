@@ -39,7 +39,7 @@
   title={$tr("world.viewDetails", { name })}
 >
   <div
-    class="relative flex items-center justify-center overflow-hidden bg-black/30
+    class="relative flex items-center justify-center overflow-hidden bg-surface-card
            {radiusCls} {sizeCls} {borderCls} {glowCls}"
     class:subsumed-glow={subsumed}
   >

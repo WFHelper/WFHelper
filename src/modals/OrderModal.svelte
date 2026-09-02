@@ -340,7 +340,7 @@
                               class="shrink-0 rounded-sm object-contain"
                             />
                           {:else}
-                            <span class="h-6 w-6 shrink-0 rounded-sm bg-white/5"></span>
+                            <span class="h-6 w-6 shrink-0 rounded-sm bg-surface-hover"></span>
                           {/if}
                           <span>{item.item_name}</span>
                         </button>
@@ -483,7 +483,7 @@
                 bind:checked={visible}
               />
               <span
-                class="absolute inset-0 border border-border rounded-full bg-white/[0.08] transition-all duration-150 peer-checked:border-success/40 peer-checked:bg-success/20 before:content-[''] before:absolute before:left-0.5 before:top-0.5 before:w-4 before:h-4 before:rounded-full before:bg-white before:transition-transform before:duration-150 peer-checked:before:translate-x-[18px]"
+                class="absolute inset-0 border border-border rounded-full bg-surface-hover transition-all duration-150 peer-checked:border-success/40 peer-checked:bg-success/20 before:content-[''] before:absolute before:left-0.5 before:top-0.5 before:w-4 before:h-4 before:rounded-full before:bg-text-primary before:transition-transform before:duration-150 peer-checked:before:translate-x-[18px]"
               ></span>
             </label>
           </div>

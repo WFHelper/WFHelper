@@ -64,10 +64,10 @@
   }
 
   function computeHelperDotClass(status: HelperStatus | null, isOld: boolean): string {
-    if (!status) return "bg-[#6b7280]";
-    if (status.running) return "bg-[#facc15]";
-    if (status.inventoryLastModified) return isOld ? "bg-[#f59e0b]" : "bg-[#34d399]";
-    return "bg-[#f87171]";
+    if (!status) return "bg-text-muted";
+    if (status.running) return "bg-warning";
+    if (status.inventoryLastModified) return isOld ? "bg-warning-dim" : "bg-success";
+    return "bg-danger";
   }
 
   $: statusMessage = helperStatusMessage(helperStatus, helperInventoryIsOld, $locale);
@@ -102,7 +102,7 @@
       {appName}
     </span>
     <span
-      class="inline-flex min-w-0 items-center gap-1 rounded border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] text-text-muted"
+      class="inline-flex min-w-0 items-center gap-1 rounded border border-border-subtle bg-surface-hover px-2 py-0.5 text-[10px] text-text-muted"
       title={helperTooltipText}
     >
       <span
@@ -143,7 +143,7 @@
       >
     </button>
     <button
-      class="flex h-[var(--titlebar-height)] w-[var(--size-titlebar-control)] cursor-pointer items-center justify-center border-0 bg-transparent text-text-secondary transition-[color,background-color] duration-150 hover:bg-danger hover:text-white"
+      class="flex h-[var(--titlebar-height)] w-[var(--size-titlebar-control)] cursor-pointer items-center justify-center border-0 bg-transparent text-text-secondary transition-[color,background-color] duration-150 hover:bg-danger hover:text-text-primary"
       title={$tr("common.close")}
       on:click={() => send("window-close")}
     >

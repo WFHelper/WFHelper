@@ -104,7 +104,7 @@
     /* Big downscale, so smooth beats nearest-neighbour. */
     image-rendering: auto;
     /* Alpha-shaped outline: pips sit on card art, not on a flat panel. */
-    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.85));
+    filter: drop-shadow(0 0 1px color-mix(in oklab, var(--bg-deep) 85%, transparent));
   }
 
   /* Tauforged art only differs by a soft halo, which washes out at 9px and makes
@@ -115,7 +115,7 @@
     height: 11px;
     border-radius: 50%;
     box-shadow: 0 0 0 1px color-mix(in oklab, var(--shard, white) 65%, white);
-    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9));
+    filter: drop-shadow(0 0 1px color-mix(in oklab, var(--bg-deep) 90%, transparent));
   }
 
   .shard-pip {
@@ -125,7 +125,7 @@
     border-radius: 50%;
     background: color-mix(in oklab, var(--shard, var(--text-muted)) 72%, transparent);
     border: 1px solid color-mix(in oklab, var(--shard, var(--text-muted)) 55%, transparent);
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--bg-deep) 40%, transparent);
   }
 
   /* Tauforged is a brighter diamond whose diagonal overruns the plain circle, so
@@ -152,7 +152,7 @@
   .shard-pip.unknown {
     background: var(--text-muted);
     border-color: color-mix(in oklab, var(--text-muted) 60%, white);
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--bg-deep) 55%, transparent);
   }
 
   .shard-pips.md .shard-icon {
@@ -163,7 +163,7 @@
   .shard-pips.md .shard-icon.tau {
     width: 19px;
     height: 19px;
-    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.85))
+    filter: drop-shadow(0 0 1px color-mix(in oklab, var(--bg-deep) 85%, transparent))
       drop-shadow(0 0 3px color-mix(in oklab, var(--shard, white) 85%, transparent));
   }
 

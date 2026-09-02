@@ -414,7 +414,7 @@
       showBuildableSets
     />
 
-    <div class="flex flex-wrap items-end gap-y-2 border-b border-white/[0.09]">
+    <div class="flex flex-wrap items-end gap-y-2 border-b border-border-subtle">
       <HeaderTabs
         options={foundryFilterTabs}
         activeKey={$activeFilter}
@@ -461,7 +461,7 @@
       </div>
       {#if pinnedTotals.missing.length > 0}
         <div
-          class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-white/[0.09] pt-2"
+          class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border-subtle pt-2"
         >
           <span class="text-xs font-semibold uppercase tracking-[0.08em] text-danger"
             >{$tr("common.missing")}</span
@@ -503,7 +503,7 @@
           status === "claimable"
             ? "border-accent/70"
             : status === "in-progress"
-              ? "border-[rgba(80,160,255,0.35)]"
+              ? "border-info/35"
               : status === "ready-to-build"
                 ? "border-success/35"
                 : "border-border"}
@@ -511,7 +511,7 @@
           status === "claimable"
             ? "text-accent"
             : status === "in-progress"
-              ? "text-[#6ca8ff]"
+              ? "text-info"
               : status === "ready-to-build"
                 ? "text-success"
                 : "text-text-muted"}
@@ -520,7 +520,7 @@
         <div class="relative">
           <button
             type="button"
-            class="resource-card flex h-full w-full flex-col gap-2 px-3 py-2.5 text-left cursor-pointer hover:bg-white/5 transition-colors disabled:cursor-default {statusBorder} {isPinned
+            class="resource-card flex h-full w-full flex-col gap-2 px-3 py-2.5 text-left cursor-pointer hover:bg-surface-hover transition-colors disabled:cursor-default {statusBorder} {isPinned
               ? 'ring-1 ring-accent/45 bg-accent/[0.04]'
               : ''}"
             on:click={() => openItem(item.productUniqueName)}
@@ -552,7 +552,7 @@
                   </span>
                   {#if item.source === "blueprint" && item.isIngredient}
                     <span
-                      class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] border-border bg-white/[0.04] text-text-muted"
+                      class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] border-border bg-surface-hover text-text-muted"
                     >
                       <svg
                         viewBox="0 0 16 16"
@@ -652,8 +652,8 @@
                 <span
                   class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] {ownedCount >
                   0
-                    ? 'border-success/30 bg-emerald-500/10 text-success'
-                    : 'border-border bg-white/[0.04] text-text-muted'}"
+                    ? 'border-success/30 bg-success-bg text-success'
+                    : 'border-border bg-surface-hover text-text-muted'}"
                   title={$tr("foundry.ownedCopies", { count: ownedCount })}
                 >
                   <svg
@@ -672,10 +672,10 @@
                 <span
                   class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-display font-bold uppercase tracking-[0.08em] {masteryState ===
                   'mastered'
-                    ? 'border-success/30 bg-emerald-500/10 text-success'
+                    ? 'border-success/30 bg-success-bg text-success'
                     : masteryState === 'progress'
                       ? 'border-warning/30 bg-warning/10 text-warning'
-                      : 'border-border bg-white/[0.04] text-text-muted'}"
+                      : 'border-border bg-surface-hover text-text-muted'}"
                   title={$tr(masteryLabelKeyFor(masteryState))}
                 >
                   <svg
@@ -700,7 +700,7 @@
               class="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full border
                    transition-colors {isPinned
                 ? 'border-accent/50 bg-accent/15 text-accent'
-                : 'border-border bg-black/40 text-text-muted hover:text-text-secondary'}"
+                : 'border-border bg-bg-deep/40 text-text-muted hover:text-text-secondary'}"
               title={isPinned ? $tr("foundry.unpinBlueprint") : $tr("foundry.pinBlueprint")}
               on:click|stopPropagation={() => togglePinnedRecipe(item.uniqueName || "")}
             >

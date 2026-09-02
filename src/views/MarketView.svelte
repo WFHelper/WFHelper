@@ -100,6 +100,8 @@
     invalidateRivenContractsRefresh,
   } from "../lib/marketContractsSync.js";
   import { invalidateMarketOrdersRefresh, refreshMarketOrders } from "../lib/marketOrdersSync.js";
+  import { bulkSellOpen } from "../stores/inventorySelection.js";
+  import { workbenchState } from "../lib/tradeWorkbench/workbenchState.js";
   import { addToast } from "../stores/toasts.js";
   import { confirmWithDialog, invoke, on, send, tradeInvoke } from "../lib/ipc.js";
   import { startupPriceCacheReady } from "../lib/startupLoader.js";
@@ -747,6 +749,17 @@
   }
 
   $: isRivensTab = $marketViewState.typeTab === "rivens";
+  $: marketSectionScope = isRivensTab ? MARKET_RIVEN_SECTIONS : MARKET_ORDER_SECTIONS;
+  // Mirrors the Inventory banner: a crashed or unreconciled run must stay visible
+  // wherever the user is about to list something new.
+  $: bulkSellNeedsAttention =
+    $workbenchState?.reviewRequired === true ||
+    $workbenchState?.phase === "running" ||
+    $workbenchState?.phase === "cancelling";
+  $: availableMarketSections = [
+    ...(bulkSellNeedsAttention ? ["market.reviewBanner"] : []),
+    isRivensTab ? "market.rivens" : "market.orders",
+  ];
   // Until a riven list decodes nothing is proven dead, so no markers rather than all.
   $: contractMatchById = new Map(
     ownedRivensLoaded && ownedRivens.length > 0
@@ -933,7 +946,7 @@
         <div class="view-controls gap-2">
           {#if $marketSession.userName}
             <span
-              class="rounded-full border border-border bg-white/5 px-2 py-1 font-display text-xs font-bold text-text-primary"
+              class="rounded-full border border-border bg-surface-hover px-2 py-1 font-display text-xs font-bold text-text-primary"
               >@{$marketSession.userName}</span
             >
           {/if}
@@ -984,7 +997,7 @@
           >
         {/each}
 
-        <span class="mx-1 h-4 w-px bg-white/10"></span>
+        <span class="mx-1 h-4 w-px bg-surface-hover"></span>
 
         <button
           class="presence-chip"
@@ -1023,7 +1036,7 @@
         {/if}
       </div>
 
-      <div class="mb-2.5 flex items-end border-b border-white/10">
+      <div class="mb-2.5 flex items-end border-b border-border-subtle">
         <HeaderTabs
           options={orderTypeTabs}
           activeKey={$marketViewState.typeTab}
@@ -1215,18 +1228,18 @@
 
 <style>
   .statusOnlineActive {
-    border-color: rgba(74, 222, 128, 0.55);
-    background: rgba(74, 222, 128, 0.12);
+    border-color: var(--success-dim);
+    background: var(--success-bg);
     color: var(--success);
   }
   .statusIngameActive {
-    border-color: rgba(96, 165, 250, 0.55);
-    background: rgba(96, 165, 250, 0.12);
+    border-color: var(--info-dim);
+    background: var(--info-bg);
     color: var(--info);
   }
   .statusInvisibleActive {
-    border-color: rgba(226, 232, 240, 0.45);
-    background: rgba(226, 232, 240, 0.08);
+    border-color: var(--border-subtle);
+    background: var(--surface-hover);
     color: var(--text-primary);
   }
   .presence-chip {
@@ -1245,8 +1258,8 @@
     color: var(--text-primary);
   }
   .presenceChipActive {
-    border-color: rgba(96, 165, 250, 0.55);
-    background: rgba(96, 165, 250, 0.12);
+    border-color: var(--info-dim);
+    background: var(--info-bg);
     color: var(--info);
   }
   .presenceHoldIdle {

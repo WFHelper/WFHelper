@@ -125,7 +125,7 @@
   {:else if canExpand}
     <button
       type="button"
-      class="expand-link absolute top-1.5 right-1.5 z-10 inline-flex items-center rounded border border-border bg-black/45 px-1.5 py-0.5 font-display text-xs font-semibold text-text-secondary opacity-0 transition-[opacity,color,border-color] duration-100 group-hover:opacity-100 hover:text-accent hover:border-accent-dim"
+      class="expand-link absolute top-1.5 right-1.5 z-10 inline-flex items-center rounded border border-border bg-bg-deep/45 px-1.5 py-0.5 font-display text-xs font-semibold text-text-secondary opacity-0 transition-[opacity,color,border-color] duration-100 group-hover:opacity-100 hover:text-accent hover:border-accent-dim"
       title={$tr("inventory.openItemDetails")}
       aria-label={$tr("common.openDetailsFor", { name: itemLabel(item) })}
       on:click|stopPropagation={() => dispatch("expand", item)}
@@ -154,7 +154,7 @@
     {/if}
     {#if item.orderPlaced}
       <span
-        class="absolute top-1.5 left-1.5 inline-flex items-center justify-center rounded-full border border-border bg-black/50 p-1"
+        class="absolute top-1.5 left-1.5 inline-flex items-center justify-center rounded-full border border-border bg-bg-deep/50 p-1"
         title={$tr("inventory.listedOnWfm")}
       >
         <img src={NAV_ICON_URLS.market} alt={$tr("inventory.listedOnWfm")} class="h-3 w-3" />

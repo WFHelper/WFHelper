@@ -77,7 +77,10 @@
        next row whole once they no longer fit beside it. A px breakpoint measured
        the window while the zoom factor decided what a tab costs, which on a
        rotated screen wrapped the tabs mid-row into a band of empty header. -->
-  <div class="flex flex-wrap items-end gap-y-2 border-b border-white/10" data-tour="inventory-tabs">
+  <div
+    class="flex flex-wrap items-end gap-y-2 border-b border-border-subtle"
+    data-tour="inventory-tabs"
+  >
     <div class="max-w-full shrink-0 grow">
       <HeaderTabs options={tabOptions} activeKey={activeFilter} onSelect={handleTabSelect} />
     </div>

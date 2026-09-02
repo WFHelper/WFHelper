@@ -245,7 +245,7 @@
     <h2>{$tr("common.rivens")}</h2>
   </div>
 
-  <div class="mb-4 flex items-end border-b border-white/[0.09]" data-tour="riven-view-tabs">
+  <div class="mb-4 flex items-end border-b border-border-subtle" data-tour="riven-view-tabs">
     <HeaderTabs
       options={VIEW_TABS.map((tab) => ({
         ...tab,
@@ -326,7 +326,7 @@
               >
                 {#if listing}
                   <span
-                    class="absolute top-[9%] left-[13%] z-[2] inline-flex items-center justify-center rounded-full border border-accent bg-black/85 p-1.5 shadow-[0_0_6px_rgba(0,0,0,0.9)]"
+                    class="absolute top-[9%] left-[13%] z-[2] inline-flex items-center justify-center rounded-full border border-accent bg-bg-deep/85 p-1.5 shadow-[0_0_6px_rgba(0,0,0,0.9)]"
                     title={$tr("rivens.listedPrice", { plat: listing.platinum })}
                     data-riven-listed
                   >
@@ -345,12 +345,12 @@
 
                 <div class="absolute z-[1] left-[13%] right-[11%] top-[51%] text-center">
                   <span
-                    class="font-display text-xl max-[700px]:text-xl font-bold text-white leading-[1.1] [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,1),0_2px_12px_rgba(0,0,0,0.95),0_0_20px_rgba(80,40,160,0.3)]"
+                    class="font-display text-xl max-[700px]:text-xl font-bold text-text-heading leading-[1.1] [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,1),0_2px_12px_rgba(0,0,0,0.95),0_0_20px_rgba(80,40,160,0.3)]"
                     >{riven.weaponName}</span
                   >
                   {#if suffix}
                     <span
-                      class="font-display text-sm font-semibold text-[rgba(200,180,255,0.9)] leading-[1.1] [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,0.95)]"
+                      class="font-display text-sm font-semibold text-text-primary leading-[1.1] [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,0.95)]"
                     >
                       {suffix}</span
                     >
@@ -365,9 +365,7 @@
                       class="flex items-baseline justify-center gap-[0.25em] w-full text-base max-[700px]:text-sm font-display leading-[1.05] whitespace-nowrap overflow-hidden text-ellipsis [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_6px_rgba(0,0,0,1),0_2px_8px_rgba(0,0,0,0.95)]"
                     >
                       <span
-                        class="font-bold shrink-0 {stat.positive
-                          ? 'text-[#8ee4a8]'
-                          : 'text-[#ff7a7a]'}"
+                        class="font-bold shrink-0 {stat.positive ? 'text-success' : 'text-danger'}"
                       >
                         {stat.multiplier
                           ? `x${stat.displayValue}`
@@ -380,7 +378,8 @@
                           alt=""
                         />
                       {/if}
-                      <span class="overflow-hidden text-ellipsis text-white/90 font-medium min-w-0"
+                      <span
+                        class="overflow-hidden text-ellipsis text-text-primary font-medium min-w-0"
                         >{stat.name}</span
                       >
                     </div>
@@ -393,8 +392,8 @@
                   {#each Array(riven.maxRank) as _, i}
                     <span
                       class="w-2 h-2 rounded-[1px] border {i < riven.currentRank
-                        ? 'bg-[#5ec8ff] border-[#7dd8ff] shadow-[0_0_4px_rgba(94,200,255,0.9),0_0_8px_rgba(94,200,255,0.5),0_0_12px_rgba(94,200,255,0.25)]'
-                        : 'bg-[rgba(40,35,65,0.6)] border-[rgba(80,70,120,0.5)]'}"
+                        ? 'bg-riven-pip border-riven-pip shadow-[0_0_4px_rgba(94,200,255,0.9),0_0_8px_rgba(94,200,255,0.5),0_0_12px_rgba(94,200,255,0.25)]'
+                        : 'bg-surface-card border-border-subtle'}"
                     ></span>
                   {/each}
                 </div>
@@ -402,7 +401,7 @@
                 <div
                   class="absolute z-[1] left-[22%] right-[22%] top-[83.5%] flex items-center justify-between text-xs font-display leading-none [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_6px_rgba(0,0,0,1)]"
                 >
-                  <span class="text-white/80 font-bold"
+                  <span class="text-text-secondary font-bold"
                     >{$tr("rivens.mr", { level: riven.masteryReq })}</span
                   >
                   <RivenPolarityIcon
@@ -410,7 +409,7 @@
                     size={14}
                     className="inline-flex min-w-3.5 -translate-y-0.5 object-contain"
                   />
-                  <span class="text-[#f06dff] font-bold"
+                  <span class="text-riven-reroll font-bold"
                     >{$tr("rivens.rerollCount", { count: riven.rerolls })}</span
                   >
                 </div>
@@ -419,7 +418,7 @@
 
             <div class="absolute right-[7%] top-[90%] z-[3] flex gap-1">
               <button
-                class="inline-flex items-center justify-center rounded border border-border bg-black/60 p-1 text-text-secondary opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+                class="inline-flex items-center justify-center rounded border border-border bg-bg-deep/60 p-1 text-text-secondary opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
                 title={$tr("rivens.copyChatTag")}
                 aria-label={$tr("rivens.copyChatTag")}
                 onclick={() => copyToClipboard(rivenChatTag(riven))}
@@ -429,7 +428,7 @@
               </button>
               {#if listing}
                 <button
-                  class="inline-flex items-center justify-center rounded border border-border bg-black/60 px-1.5 py-1 font-display text-[0.625rem] font-bold leading-none text-text-secondary opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+                  class="inline-flex items-center justify-center rounded border border-border bg-bg-deep/60 px-1.5 py-1 font-display text-[0.625rem] font-bold leading-none text-text-secondary opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
                   title={$tr("rivens.copyWtsLine")}
                   aria-label={$tr("rivens.copyWtsLine")}
                   onclick={() => copyToClipboard(rivenWtsLine(riven, listingPlatinum(listing)))}
@@ -464,7 +463,7 @@
                     <span class="text-xs text-text-secondary">{entry.challengeDesc}</span>
                     {#if entry.challengeProgress != null && entry.challengeRequired != null}
                       <div
-                        class="w-20 h-[6px] bg-white/[0.08] rounded-[3px] overflow-hidden shrink-0"
+                        class="w-20 h-[6px] bg-surface-hover rounded-[3px] overflow-hidden shrink-0"
                       >
                         <div
                           class="h-full bg-accent rounded-[3px] transition-[width] duration-300"
@@ -500,7 +499,7 @@
           <div class="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-3">
             {#each veiledUnseen as group}
               <div
-                class="flex flex-col items-center text-center py-4 px-3 bg-[linear-gradient(135deg,rgba(60,45,90,0.45),rgba(40,30,70,0.5))] border border-[rgba(100,70,160,0.3)] rounded-lg gap-2 transition-[border-color] duration-150 hover:border-[rgba(100,70,160,0.55)]"
+                class="flex flex-col items-center text-center py-4 px-3 bg-surface-card border border-border-subtle rounded-lg gap-2 transition-[border-color] duration-150 hover:border-border-strong"
               >
                 <div class="font-display text-base font-bold text-text-primary">{group.label}</div>
                 <div class="text-xs text-text-muted leading-[1.3]">
@@ -533,7 +532,7 @@
     data-riven-card-menu
   >
     <button
-      class="block w-full px-3 py-1.5 text-left text-xs text-text-secondary hover:bg-white/[0.06] hover:text-text-primary"
+      class="block w-full px-3 py-1.5 text-left text-xs text-text-secondary hover:bg-surface-hover hover:text-text-primary"
       role="menuitem"
       onclick={() => copyToClipboard(rivenChatTag(menuRiven))}
     >
@@ -541,7 +540,7 @@
     </button>
     {#if menuListing}
       <button
-        class="block w-full px-3 py-1.5 text-left text-xs text-text-secondary hover:bg-white/[0.06] hover:text-text-primary"
+        class="block w-full px-3 py-1.5 text-left text-xs text-text-secondary hover:bg-surface-hover hover:text-text-primary"
         role="menuitem"
         onclick={() => copyToClipboard(rivenWtsLine(menuRiven, listingPlatinum(menuListing)))}
       >

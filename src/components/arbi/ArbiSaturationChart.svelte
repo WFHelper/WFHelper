@@ -33,9 +33,12 @@
           <div class="h-3.5 flex-1 overflow-hidden rounded-sm bg-bg-raised">
             <div
               class="h-full rounded-sm"
-              style="width:{Math.min(100, bucket.pct)}%; background-color: hsl({saturationHue(
+              style="width:{Math.min(
+                100,
+                bucket.pct,
+              )}%; background-color: color-mix(in oklab, var(--success) {saturationHue(
                 i,
-              )}, 100%, 50%)"
+              )}%, var(--danger))"
             ></div>
           </div>
           <span class="w-12 shrink-0 text-right font-mono text-xs font-semibold text-text-primary"
@@ -51,7 +54,8 @@
       </div>
       <div
         class="mt-0.5 text-2xl font-bold"
-        style="color: hsl({thresholdHue(abovePct)}, 100%, 50%)"
+        style="color: color-mix(in oklab, var(--success) {thresholdHue(abovePct) /
+          1.2}%, var(--danger))"
       >
         {abovePct.toFixed(1)}%
       </div>

@@ -39,13 +39,13 @@
   // Variant classes - broken out for readability.
   $: shapeCls = isMod
     ? "h-[140px] w-[100px] rounded-[var(--radius-md)] border-0 bg-transparent"
-    : "h-[120px] w-[120px] rounded-[var(--radius-lg)] border-2 bg-black/30";
+    : "h-[120px] w-[120px] rounded-[var(--radius-lg)] border-2 bg-surface-card";
   $: borderCls = isMod
     ? owned
-      ? "shadow-[0_0_8px_2px_rgba(34,139,34,0.5)]"
+      ? "shadow-[0_0_8px_2px_var(--success-bg)]"
       : ""
     : owned
-      ? "border-[rgba(34,139,34,0.7)]"
+      ? "border-success-dim"
       : "border-border";
   $: interactCls = hasDb ? "cursor-pointer hover:scale-105 hover:z-[1]" : "";
   $: labelMaxW = isMod ? "max-w-[100px]" : "max-w-[120px]";
@@ -75,7 +75,7 @@
 
     {#if entry.ducats}
       <span
-        class="absolute top-[3px] left-[3px] rounded bg-black/80 px-[6px] py-[2px]
+        class="absolute top-[3px] left-[3px] rounded bg-bg-deep/80 px-[6px] py-[2px]
                text-lg font-bold leading-[1.2] text-accent pointer-events-none">{entry.ducats}</span
       >
     {/if}
@@ -83,7 +83,7 @@
     {#if owned}
       <span
         class="absolute bottom-[3px] right-[3px] flex h-6 w-6 items-center justify-center rounded-full
-               bg-[rgba(34,139,34,0.85)] text-base font-bold leading-none text-white pointer-events-none"
+               bg-success-dim text-base font-bold leading-none text-text-primary pointer-events-none"
         >✓</span
       >
     {/if}
