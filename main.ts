@@ -56,6 +56,12 @@ const log = withScope("Main");
 
 const MAIN_WINDOW_ENTRY_FILE = path.join(app.getAppPath(), "renderer", "dist", "index.html");
 
+// Safe mode drops every user-authored layer (custom CSS, stored layouts) for one
+// load, so a broken customisation cannot lock the user out of Settings. The env
+// var is the same switch for tests, which cannot add argv to a packaged launch.
+const SAFE_MODE_LAUNCH =
+  process.argv.includes("--safe-mode") || process.env.WFHELPER_SAFE_MODE === "1";
+
 import * as itemDb from "./services/itemDatabase";
 import * as publicExportSource from "./services/publicExportSource";
 import * as dropData from "./services/dropData";
@@ -232,10 +238,12 @@ function createWindow(): void {
   mainWindow.webContents.once("did-finish-load", () => {
     scheduleShow(MAIN_WINDOW_SHOW_GRACE_MS, "did-finish-load");
   });
-  void mainWindow.loadFile(MAIN_WINDOW_ENTRY_FILE).catch((error: unknown) => {
-    log.error("[Main] Failed to load the renderer:", error);
-    showMainWindow("load-error");
-  });
+  void mainWindow
+    .loadFile(MAIN_WINDOW_ENTRY_FILE, SAFE_MODE_LAUNCH ? { query: { safe: "1" } } : {})
+    .catch((error: unknown) => {
+      log.error("[Main] Failed to load the renderer:", error);
+      showMainWindow("load-error");
+    });
 
   // Zoom resets on navigation, so re-apply on load; on move, to re-fit per display.
   ctx.mainWindow.webContents.on("did-finish-load", applyMainWindowZoom);

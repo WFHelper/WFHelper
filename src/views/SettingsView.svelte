@@ -9,6 +9,8 @@
     detectedWarframeUiScale,
   } from "../stores/overlaySettings.js";
   import AppearanceCard from "../components/settings/AppearanceCard.svelte";
+  import CustomCssSection from "../components/settings/CustomCssSection.svelte";
+  import WorkspaceSection from "../components/settings/WorkspaceSection.svelte";
   import SettingsSection from "../components/settings/SettingsSection.svelte";
   import SettingsRow from "../components/settings/SettingsRow.svelte";
   import AboutCard from "../components/settings/AboutCard.svelte";
@@ -984,6 +986,8 @@
     {:else if settingsTab === "appearance"}
       <div class="settings-tab-grid settings-masonry py-3">
         <AppearanceCard />
+        <WorkspaceSection />
+        <CustomCssSection />
       </div>
     {:else if settingsTab === "overlay"}
       <div class="settings-tab-grid settings-masonry py-3">
