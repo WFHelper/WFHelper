@@ -3,6 +3,7 @@ import { handlePublicRoutes } from './routes/public';
 import { jsonResponse, originIsAllowed } from './security/cors';
 import { checkDailyBudget, isDailyBudgetExceeded } from './security/dailyBudget';
 import { getWorkerConfig } from './config';
+import { refreshAdversaryVendors } from './services/adversaryVendors';
 import { archiveBaroVisit, archiveDailyPrices, sweepRivenArchive } from './services/history';
 import { logEvent, takeResponseLogFields } from './services/logging';
 import { prewarmBatch, prewarmOrderSummaryCatalog } from './services/prewarm';
@@ -34,6 +35,7 @@ function routeMetadata(req: Request): RouteMetadata {
 	if (pathname === '/v1/wfm-items') return { type: 'request', route: '/v1/wfm-items' };
 	if (pathname === '/v1/supporters') return { type: 'request', route: '/v1/supporters' };
 	if (pathname === '/v1/top-traded') return { type: 'request', route: '/v1/top-traded' };
+	if (pathname === '/v1/adversary-vendors') return { type: 'request', route: '/v1/adversary-vendors' };
 
 	const publicSlugRoutes = [
 		['/v1/prices/', '/v1/prices/:slug'],
@@ -171,6 +173,7 @@ export default {
 			await runCronStage('cron:rivens', () => sweepRivenArchive(env));
 			await runCronStage('cron:price-seed', () => seedPriceHistory(env));
 			await runCronStage('cron:top-traded', () => sweepTopTraded(env));
+			await runCronStage('cron:adversary-vendors', () => refreshAdversaryVendors(env));
 			logEvent({
 				type: 'cron',
 				route,

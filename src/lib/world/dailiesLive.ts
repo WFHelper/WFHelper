@@ -1,8 +1,14 @@
+import {
+  codaBatchAt,
+  nextVendorRotationMs,
+  VENDOR_ROTATION_ANCHORS,
+  VENDOR_ROTATION_MS,
+} from "../../../config/shared/vendorRotation.js";
 import { activeWindow, WEEK_MS } from "../format.js";
 import type { MessageKey, Translator } from "../i18n.js";
 import type { ArchonHunt, CalendarDay, Sortie, WorldState } from "../../types/world.js";
 import { circuitChoices } from "../world.js";
-import { FOUR_DAY_ANCHORS, FOUR_DAY_MS, fourDayResetIso, type TrackerExpiries } from "./dailies.js";
+import { fourDayResetIso, type TrackerExpiries } from "./dailies.js";
 
 interface TrackerLive {
   /** One-line subtitle under the task label. */
@@ -24,10 +30,6 @@ export const TENET_MELEE_STOCK = [
   "Tenet Livia",
 ];
 
-/** Eleanor alternates two fixed batches; A occupies the second half of the
- *  8-day loop, so both halves ride the countdown anchor in `dailies.ts`. */
-const CODA_LOOP_ANCHOR_MS = FOUR_DAY_ANCHORS.coda;
-const CODA_HALF_MS = FOUR_DAY_MS;
 const CODA_BATCH_A = [
   "Coda Hema",
   "Coda Sporothrix",
@@ -47,12 +49,27 @@ const CODA_BATCH_B = [
   "Coda Pathocyst",
 ];
 
-export function codaBatch(nowMs: number): { batch: "A" | "B"; weapons: string[] } {
-  const offset =
-    (((nowMs - CODA_LOOP_ANCHOR_MS) % (2 * CODA_HALF_MS)) + 2 * CODA_HALF_MS) % (2 * CODA_HALF_MS);
-  return offset >= CODA_HALF_MS
-    ? { batch: "A", weapons: CODA_BATCH_A }
-    : { batch: "B", weapons: CODA_BATCH_B };
+/** Eleanor's two batches on the shared 4-day grid, plus the flip the row counts
+ *  down to. The weapon arrays are constants, so a tick that changes nothing
+ *  hands back the same array identity. */
+export function codaBatch(nowMs: number): {
+  batch: "A" | "B";
+  weapons: string[];
+  /** Epoch ms of the next batch flip, which is also the row's countdown target. */
+  rotatesAt: number;
+} {
+  const batch = codaBatchAt(nowMs);
+  return {
+    batch,
+    weapons: batch === "A" ? CODA_BATCH_A : CODA_BATCH_B,
+    rotatesAt: nextVendorRotationMs(nowMs, VENDOR_ROTATION_ANCHORS.coda, VENDOR_ROTATION_MS),
+  };
+}
+
+/** Ergo Glast's stock never changes, so only the element and bonus reroll; the
+ *  grid is the same 4-day one the wiki countdown uses. */
+export function tenetRotatesAt(nowMs: number): number {
+  return nextVendorRotationMs(nowMs, VENDOR_ROTATION_ANCHORS.tenet, VENDOR_ROTATION_MS);
 }
 
 /** Bird 3's weekly Archon Shard color; wiki formula anchored 2022-09-12T00:00Z. */

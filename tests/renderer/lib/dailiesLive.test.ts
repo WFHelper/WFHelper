@@ -4,6 +4,7 @@ import type { Translator } from "../../../src/lib/i18n.js";
 import {
   bird3ShardColor,
   codaBatch,
+  tenetRotatesAt,
   trackerExpiries,
   trackerLive,
 } from "../../../src/lib/world/dailiesLive.js";
@@ -99,7 +100,7 @@ describe("trackerExpiries", () => {
     expect(tenet.lines).toBeUndefined();
     const coda = trackerLive("codaWeapons", null, t, nowMs);
     expect(coda.expiry).toBe("2026-08-28T00:00:00.000Z");
-    expect(coda.detail).toBe("dailies.codaBatch(batch=A)");
+    expect(coda.detail).toBe("dailies.codaBatch(batch=B)");
     expect(coda.lines).toBeUndefined();
   });
 
@@ -167,11 +168,42 @@ describe("trackerExpiries", () => {
   });
 
   it("alternates the coda batches across the 4-day boundary", () => {
-    // Batch A occupies the second half of the 8-day loop that starts
-    // 2025-03-18Z.
-    expect(codaBatch(Date.parse("2026-08-24T12:00:00Z")).batch).toBe("A");
-    expect(codaBatch(Date.parse("2026-08-23T12:00:00Z")).batch).toBe("B");
-    expect(codaBatch(Date.parse("2026-08-28T12:00:00Z")).batch).toBe("B");
+    // Wiki formula: floor((now - 2025-03-18Z) mod 8d / 4d), index 0 is Batch A.
+    // A player confirmed Batch B in game on 2026-09-03.
+    expect(codaBatch(Date.parse("2026-09-03T06:35:00Z")).batch).toBe("B");
+    expect(codaBatch(Date.parse("2026-09-01T00:00:00Z")).batch).toBe("B");
+    expect(codaBatch(Date.parse("2026-08-31T23:59:00Z")).batch).toBe("A");
+    expect(codaBatch(Date.parse("2026-08-28T00:00:00Z")).batch).toBe("A");
+    expect(codaBatch(Date.parse("2026-08-24T12:00:00Z")).batch).toBe("B");
+    expect(codaBatch(Date.parse("2026-08-23T12:00:00Z")).batch).toBe("A");
+  });
+
+  it("keeps the grid running before the coda anchor", () => {
+    // The shared grid floors a negative offset instead of wrapping it by hand.
+    const beforeAnchor = Date.parse("2025-03-17T12:00:00Z");
+    expect(codaBatch(beforeAnchor).batch).toBe("B");
+    expect(new Date(codaBatch(beforeAnchor).rotatesAt).toISOString()).toBe(
+      "2025-03-18T00:00:00.000Z",
+    );
+  });
+
+  it("reports the next rotation instant for both adversary vendors", () => {
+    const coda = codaBatch(Date.parse("2026-09-03T06:35:00Z"));
+    expect(new Date(coda.rotatesAt).toISOString()).toBe("2026-09-05T00:00:00.000Z");
+    // Same grid the row countdown uses, so the two never disagree.
+    expect(new Date(codaBatch(Date.parse("2026-08-24T12:00:00Z")).rotatesAt).toISOString()).toBe(
+      trackerLive("codaWeapons", null, t, Date.parse("2026-08-24T12:00:00Z")).expiry,
+    );
+    // Tenet rides the wiki's own 2015-12-03Z anchor.
+    expect(new Date(tenetRotatesAt(Date.parse("2026-09-03T06:35:00Z"))).toISOString()).toBe(
+      "2026-09-04T00:00:00.000Z",
+    );
+    expect(new Date(tenetRotatesAt(Date.parse("2026-09-04T00:00:00Z"))).toISOString()).toBe(
+      "2026-09-08T00:00:00.000Z",
+    );
+    expect(new Date(tenetRotatesAt(Date.parse("2026-08-24T12:00:00Z"))).toISOString()).toBe(
+      trackerLive("tenetMelee", null, t, Date.parse("2026-08-24T12:00:00Z")).expiry,
+    );
   });
 
   it("cycles the bird 3 shard color on the 3-week clock", () => {

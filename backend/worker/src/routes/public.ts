@@ -11,6 +11,7 @@ import {
 	getOrHydrateOrderSummaryBySubtype,
 	getOrHydratePrice,
 } from '../services/readThrough';
+import { readAdversaryVendorsDoc } from '../services/adversaryVendors';
 import { isRelicSlug, normalizeOrderSubtype } from '../services/orderSubtype';
 import { readPublishedSupporters } from '../services/supporters';
 import { readTopTradedDoc } from '../services/topTraded';
@@ -22,6 +23,7 @@ import type { Env } from '../types';
 import { getJsonFromKv, getSlug } from '../utils';
 import { normalizeRankFilter } from '../../../../config/shared/numeric';
 import { isWfmExcludedSlug } from '../../../../config/shared/wfmExclusions';
+import { codaBatchAt } from '../../../../config/shared/vendorRotation';
 import { isValidSnapshotBlob, WFM_SNAPSHOT_CLIENT_CACHE_VERSION } from '../../../../config/shared/wfmSnapshotValidation';
 
 const routeStats = {
@@ -39,6 +41,7 @@ const routeStats = {
 	wfmItemsRequests: 0,
 	supportersRequests: 0,
 	topTradedRequests: 0,
+	adversaryVendorsRequests: 0,
 };
 
 const PUBLIC_JSON_CACHE_HEADERS = { 'cache-control': 'public, max-age=60' };
@@ -50,6 +53,8 @@ const SUPPORTERS_CACHE_CONTROL = 'public, max-age=3600';
 const SUPPORTERS_CACHE_VERSION = 1;
 const TOP_TRADED_CACHE_CONTROL = 'public, max-age=3600';
 const TOP_TRADED_CACHE_VERSION = 1;
+const ADVERSARY_VENDORS_CACHE_CONTROL = 'public, max-age=3600';
+const ADVERSARY_VENDORS_CACHE_VERSION = 1;
 const RANKED_CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
 
 let rankedCatalogCache: { expiresAt: number; bySlug: Map<string, number> } | null = null;
@@ -454,6 +459,64 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 
 		const responseHeaders: Record<string, string> = {
 			'cache-control': TOP_TRADED_CACHE_CONTROL,
+			etag,
+		};
+
+		const response = rawJsonResponse(body, req, env, 200, responseHeaders);
+
+		if (ctx) {
+			ctx.waitUntil(edgeCache.put(cacheKey, new Response(body, { status: 200, headers: responseHeaders })));
+		}
+
+		return annotateResponse(response, { cacheHit: false });
+	}
+
+	if (req.method === 'GET' && url.pathname === '/v1/adversary-vendors') {
+		// Public and bootstrap-free: the World tab renders it before it holds a token.
+		const guardResponse = await guardPublicRequest(req, env, 'adversary-vendors');
+		if (guardResponse) return guardResponse;
+
+		routeStats.adversaryVendorsRequests += 1;
+		const batch = codaBatchAt(Date.now());
+		// The batch is part of the key, so a flip is served immediately instead of
+		// waiting out the cached hour.
+		const cacheKey = new Request(`${url.origin}/v1/adversary-vendors?v=${ADVERSARY_VENDORS_CACHE_VERSION}&b=${batch}`, {
+			method: 'GET',
+		});
+		const edgeCache = caches.default;
+		const cachedResponse = await edgeCache.match(cacheKey);
+		if (cachedResponse) {
+			const cachedEtag = cachedResponse.headers.get('etag');
+			if (requestHasMatchingEtag(req, cachedEtag)) {
+				return annotateResponse(notModifiedResponse(cachedEtag, ADVERSARY_VENDORS_CACHE_CONTROL, req, env), { cacheHit: true });
+			}
+			const cachedHeaders: Record<string, string> = { 'cache-control': ADVERSARY_VENDORS_CACHE_CONTROL };
+			if (cachedEtag) cachedHeaders.etag = cachedEtag;
+			return annotateResponse(streamJsonResponse(cachedResponse.body, req, env, 200, cachedHeaders), { cacheHit: true });
+		}
+
+		const doc = await readAdversaryVendorsDoc(env);
+		if (!doc) {
+			// Nothing published yet; never cached, so the first refresh shows up at once.
+			return annotateResponse(jsonResponse({ ok: false, error: 'adversary_vendors_not_ready' }, req, env, 404), { cacheHit: false });
+		}
+
+		const other = batch === 'A' ? 'B' : 'A';
+		const body = JSON.stringify({
+			ok: true,
+			generatedAt: doc.generatedAt,
+			source: doc.source,
+			coda: { batch, items: doc.coda[batch] },
+			codaNext: { batch: other, items: doc.coda[other] },
+			tenet: { items: doc.tenet },
+		});
+		const etag = await clientBodyEtag(body, `${ADVERSARY_VENDORS_CACHE_VERSION}-${batch}`);
+		if (requestHasMatchingEtag(req, etag)) {
+			return annotateResponse(notModifiedResponse(etag, ADVERSARY_VENDORS_CACHE_CONTROL, req, env), { cacheHit: true });
+		}
+
+		const responseHeaders: Record<string, string> = {
+			'cache-control': ADVERSARY_VENDORS_CACHE_CONTROL,
 			etag,
 		};
 

@@ -6,8 +6,8 @@ covers runtime ownership and invariants. See `README.md` for setup and operator 
 ## Runtime layout
 
 - `src/index.ts` handles CORS rejection, route dispatch, 404 responses, request logging, and cron.
-- `src/routes/public.ts` owns health, bootstrap, snapshot, item-catalog, top-traded, price, meta,
-  and order routes.
+- `src/routes/public.ts` owns health, bootstrap, snapshot, item-catalog, top-traded,
+  adversary-vendor, price, meta, and order routes.
 - `src/routes/admin.ts` owns authenticated prewarm, catalog, hotset, and status routes.
 - `src/services/readThrough.ts` owns cache-first reads, stale refresh, negative markers, and
   in-flight deduplication.
@@ -41,7 +41,7 @@ Rate Limiting binding defaults in `wrangler.jsonc` are per IP:
 
 - health: 5 per minute
 - bootstrap and full orders: 60 per minute
-- prices, meta, order summaries, supporters, and top traded: 200 per minute
+- prices, meta, order summaries, supporters, top traded, and adversary vendors: 200 per minute
 - snapshot and item catalog: 2 per minute
 - admin: 60 per minute
 
@@ -338,6 +338,36 @@ between the seed's start and this sweep's first pass keep medians without volume
 those days simply contribute nothing once they fall out of the seven-day window. `/v1/top-traded`
 therefore 404s for the first pass after deploy and reports a short window until seven swept days
 have accumulated.
+
+## Adversary vendors (wiki-sourced)
+
+`GET /v1/adversary-vendors` serves KV key `adversary-vendors:doc:v1` as
+`{ ok: true, generatedAt, source: "wiki", coda: { batch, items }, codaNext: { batch, items }, tenet: { items } }`,
+where an item is `{ name, element, bonus }`. The route is public, needs no bootstrap token, uses the
+price/meta rate-limit class, and is edge-cached for one hour with a body ETag. Before the first
+refresh lands it answers `404 {"ok":false,"error":"adversary_vendors_not_ready"}` and is never
+cached.
+
+Source: the raw wikitext of `Coda_Weapons` and `Tenet_Weapons`. DE publishes no vendor rotation, so
+the elements and bonus percentages are player-reported wiki tables and nothing else. Requests carry
+the user agent `WFHelper-worker/1.0 (+https://wfhelper.com)`; a spoofed browser agent is answered
+with a 403 challenge page instead of the article, so never send one. `services/adversaryVendors.ts`
+parses the weapon/element/bonus tables inside the pages' timer sections, rejects a row without a
+name, an element or a finite 0-100 bonus, and treats the whole fetch as failed when a coda batch
+parses under seven rows or the tenet table under five.
+
+Eleanor's batch is time-derived, not stored: index `floor(((now - 2025-03-18T00:00:00Z) mod 8d) / 4d)`
+of the wiki loop, where 0 is Batch A. The doc holds both batches, the route serves the active one
+and names the other under `codaNext`, and the edge-cache key carries the batch letter so a rotation
+is served immediately rather than after the cached hour. Ergo Glast's five melees are always stocked;
+only their element and bonus reroll, on the wiki's own 4-day grid anchored 2015-12-03T00:00:00Z.
+
+`refreshAdversaryVendors()` runs on the 15-minute prewarm tick as cron stage
+`cron:adversary-vendors` and rebuilds at most hourly, so it costs two upstream requests an hour.
+A failed fetch or an unparsable page leaves the stored doc untouched with its old `generatedAt`,
+logs status 204 with `wiki_unavailable` or `wiki_unparsed` on route `adversary-vendors:refresh`,
+and never writes a partial doc. The doc carries a 30-day TTL. The desktop app validates every row
+again on read and simply shows the weapons without bonuses when the route is absent or unreachable.
 
 ## Daily budget
 

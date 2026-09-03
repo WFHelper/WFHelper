@@ -1545,6 +1545,8 @@
   "dailies.task.baro": "Baro Ki'Teer besuchen",
   "dailies.task.varzia": "Varzia besuchen",
   "dailies.task.darvo": "Darvos Deal kaufen",
+  "dailies.vendorBonusWiki": "Bonus % von Spielern gemeldet (Wiki)",
+  "dailies.vendorRotatesIn": "Rotiert in {time}",
   "inventory.value.inView": "Angezeigt",
   "inventory.value.wholeInventory": "Gesamter Bestand",
   "inventory.value.scopePrime": "Nur Prime-Teile",

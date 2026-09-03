@@ -13,7 +13,8 @@ type PublicRateLimitRoute =
 	| 'snapshot'
 	| 'wfm-items'
 	| 'supporters'
-	| 'top-traded';
+	| 'top-traded'
+	| 'adversary-vendors';
 
 function publicLimiter(env: Env, route: PublicRateLimitRoute): RateLimit {
 	if (route === 'healthz') return env.PUBLIC_HEALTH_RATE_LIMITER;

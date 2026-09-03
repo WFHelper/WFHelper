@@ -1544,6 +1544,8 @@
   "dailies.task.baro": "拜访 Baro Ki'Teer",
   "dailies.task.varzia": "拜访 Varzia",
   "dailies.task.darvo": "购买 Darvo 的特惠",
+  "dailies.vendorBonusWiki": "加成百分比由玩家上报（Wiki）",
+  "dailies.vendorRotatesIn": "{time} 后轮换",
   "inventory.value.inView": "当前视图",
   "inventory.value.wholeInventory": "整个库存",
   "inventory.value.scopePrime": "仅Prime 部件",

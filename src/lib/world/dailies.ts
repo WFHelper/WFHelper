@@ -1,3 +1,9 @@
+import {
+  nextVendorRotationMs,
+  VENDOR_ROTATION_ANCHORS,
+  VENDOR_ROTATION_MS,
+  type VendorRotation,
+} from "../../../config/shared/vendorRotation.js";
 import { nextDailyResetUtc, nextWeeklyResetUtc } from "../format.js";
 import { readStorage, writeStorage } from "../persistence.js";
 
@@ -82,24 +88,17 @@ export interface TrackerExpiries {
   varzia: string | null;
 }
 
-/** Community-maintained epochs for the two 4-day vendor grids (wiki Countdown
- *  templates; Tenet and Coda run offset by one day). The worldstate carries no
- *  rotation data for either, so a re-seeded cycle needs a new anchor here. */
-export const FOUR_DAY_MS = 4 * 24 * 60 * 60_000;
-type FourDayPeriod = "tenet" | "coda";
-export const FOUR_DAY_ANCHORS: Record<FourDayPeriod, number> = {
-  tenet: Date.UTC(2015, 11, 3),
-  coda: Date.UTC(2025, 2, 18),
-};
-
-function isFourDayPeriod(period: string): period is FourDayPeriod {
+function isFourDayPeriod(period: string): period is VendorRotation {
   return period === "tenet" || period === "coda";
 }
 
-function nextFourDayResetUtc(anchorMs: number, now: Date): Date {
-  const elapsed = now.getTime() - anchorMs;
-  const periods = Math.floor(elapsed / FOUR_DAY_MS) + 1;
-  return new Date(anchorMs + periods * FOUR_DAY_MS);
+function nextFourDayResetIso(period: VendorRotation, now: Date): string {
+  const next = nextVendorRotationMs(
+    now.getTime(),
+    VENDOR_ROTATION_ANCHORS[period],
+    VENDOR_ROTATION_MS,
+  );
+  return new Date(next).toISOString();
 }
 
 interface TrackerEntry {
@@ -142,16 +141,13 @@ export function trackerPeriodKey(
 ): string | null {
   if (period === "daily") return `daily:${nextDailyResetUtc(now).toISOString()}`;
   if (period === "weekly") return `weekly:${nextWeeklyResetUtc(now).toISOString()}`;
-  if (isFourDayPeriod(period)) {
-    return `${period}:${nextFourDayResetUtc(FOUR_DAY_ANCHORS[period], now).toISOString()}`;
-  }
+  if (isFourDayPeriod(period)) return `${period}:${nextFourDayResetIso(period, now)}`;
   return expiryPeriodKey(period, expiries[period]);
 }
 
 /** Countdown target for a period the clock alone can compute; null for the rest. */
 export function fourDayResetIso(period: string, now: Date): string | null {
-  if (!isFourDayPeriod(period)) return null;
-  return nextFourDayResetUtc(FOUR_DAY_ANCHORS[period], now).toISOString();
+  return isFourDayPeriod(period) ? nextFourDayResetIso(period, now) : null;
 }
 
 function emptyState(): TrackerState {
