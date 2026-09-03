@@ -1,9 +1,22 @@
 import { writable } from "svelte/store";
-import type { ThemeColors, ThemeEffects, ThemeFontSizes, ThemeSettings } from "../types/theme.js";
+import type {
+  ThemeBaseColors,
+  ThemeColors,
+  ThemeEffects,
+  ThemeFontSizes,
+  ThemeSettings,
+  ViewThemeOverride,
+} from "../types/theme.js";
 import type { ViewName } from "../types/views.js";
-import { DEFAULT_FONT_SIZES } from "../config/themeDefaults.js";
+import {
+  DEFAULT_FONT_SIZES,
+  VIEW_FONT_SIZE_MAX,
+  VIEW_FONT_SIZE_MIN,
+} from "../config/themeDefaults.js";
 import { THEME_PRESETS } from "../config/themePresets.js";
 import {
+  asOverrideColor,
+  asOverrideFontSize,
   loadThemeSettings,
   saveThemeSettings,
   clearThemeSettings,
@@ -65,6 +78,30 @@ function applyMutableThemeEdits(
   };
 }
 
+/** Rewrite one view's override, dropping the entry once nothing is left in it. */
+function withViewOverride(
+  settings: ThemeSettings,
+  view: ViewName,
+  edit: (current: ViewThemeOverride) => ViewThemeOverride,
+): ThemeSettings {
+  const next = edit(settings.viewOverrides[view] ?? {});
+  const colors = next.colors && Object.keys(next.colors).length > 0 ? next.colors : null;
+  const fontSizes =
+    next.fontSizes && Object.keys(next.fontSizes).length > 0 ? next.fontSizes : null;
+
+  const viewOverrides = { ...settings.viewOverrides };
+  if (colors || fontSizes) {
+    const entry: ViewThemeOverride = {};
+    if (colors) entry.colors = colors;
+    if (fontSizes) entry.fontSizes = fontSizes;
+    viewOverrides[view] = entry;
+  } else {
+    delete viewOverrides[view];
+  }
+
+  return { ...settings, viewOverrides };
+}
+
 function createThemeStore() {
   const initial = loadThemeSettings();
   const { subscribe, set, update } = writable<ThemeSettings>(initial);
@@ -81,10 +118,75 @@ function createThemeStore() {
     }, SAVE_DEBOUNCE_MS);
   });
 
+  /** Override one base colour for a single view. The loader's validator decides:
+      anything it drops would apply now and vanish on the next launch. */
+  function setViewColor(view: ViewName, key: keyof ThemeBaseColors, value: string): void {
+    const color = asOverrideColor(value);
+    if (!color) return;
+    update((s) =>
+      withViewOverride(s, view, (current) => ({
+        ...current,
+        colors: { ...current.colors, [key]: color },
+      })),
+    );
+  }
+
+  /** Drop one per-view colour override so the view follows the global theme again. */
+  function clearViewColor(view: ViewName, key: keyof ThemeBaseColors): void {
+    update((s) => {
+      const current = s.viewOverrides[view];
+      if (!current?.colors || !(key in current.colors)) return s;
+      return withViewOverride(s, view, (entry) => {
+        const colors = { ...entry.colors };
+        delete colors[key];
+        return { ...entry, colors };
+      });
+    });
+  }
+
+  /** Override one font size for a single view; null clears it. The global scale is
+      not scopable: rem resolves against the root. */
+  function setViewFontSize(
+    view: ViewName,
+    key: Exclude<keyof ThemeFontSizes, "globalScale">,
+    value: number | null,
+  ): void {
+    // The loader drops out-of-range sizes, so accepting one here would apply it
+    // until the next launch and then lose it.
+    if (
+      value != null &&
+      asOverrideFontSize(value, VIEW_FONT_SIZE_MIN, VIEW_FONT_SIZE_MAX) == null
+    ) {
+      return;
+    }
+    update((s) =>
+      withViewOverride(s, view, (current) => {
+        const fontSizes = { ...current.fontSizes };
+        if (value == null) delete fontSizes[key];
+        else fontSizes[key] = value;
+        return { ...current, fontSizes };
+      }),
+    );
+  }
+
+  /** Drop every override a view holds. */
+  function clearViewOverrides(view: ViewName): void {
+    update((s) => {
+      if (!(view in s.viewOverrides)) return s;
+      const viewOverrides = { ...s.viewOverrides };
+      delete viewOverrides[view];
+      return { ...s, viewOverrides };
+    });
+  }
+
   return {
     subscribe,
     set,
     update,
+    setViewColor,
+    clearViewColor,
+    setViewFontSize,
+    clearViewOverrides,
 
     /** Apply a named preset. */
     applyPreset(presetKey: string): void {
@@ -180,17 +282,12 @@ function createThemeStore() {
 
     /** Set a per-view accent override (hex). */
     setViewAccent(view: ViewName, value: string): void {
-      update((s) => ({ ...s, viewAccents: { ...s.viewAccents, [view]: value } }));
+      setViewColor(view, "accent", value);
     },
 
     /** Drop a per-view accent override so the view follows the theme accent. */
     clearViewAccent(view: ViewName): void {
-      update((s) => {
-        if (!(view in s.viewAccents)) return s;
-        const viewAccents = { ...s.viewAccents };
-        delete viewAccents[view];
-        return { ...s, viewAccents };
-      });
+      clearViewColor(view, "accent");
     },
 
     /** Toggle contrast-safe mode. */

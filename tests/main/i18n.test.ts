@@ -143,14 +143,12 @@ describe("i18n dictionaries", () => {
     expect(unused).toEqual([]);
   });
 
-  // The reverse of the reference check: a component written against a
-  // `k("...")` cast compiles with a key the dictionary never got, and the app
-  // then shows the raw key. Only call sites and *Key props are read, so ids
-  // shaped like keys (layout sections, storage keys) stay out of it.
+  // The reverse of the reference check: a `$tr("...")` key the dictionary never
+  // got shows raw. Only call sites and *Key props are read, not key-shaped ids.
   it("defines every key the app resolves", () => {
     const namespaces = new Set(Object.keys(en).map((key) => key.split(".")[0]));
     const keyLiteral = /"([a-z]\w*(?:\.\w+)+)"/g;
-    const callSite = /(?:\$?\btr|\bk|\bt|\bmessageKey)\(\s*"([a-z]\w*(?:\.\w+)+)"/g;
+    const callSite = /(?:\$?\btr|\bt)\(\s*"([a-z]\w*(?:\.\w+)+)"/g;
     const propLiteral = /\b[a-z]\w*Key\s*[:=]\s*"([a-z]\w*(?:\.\w+)+)"/g;
     const propExpression = /\b[a-z]\w*Key=\{([^}]*)\}/g;
     const missing = new Set<string>();

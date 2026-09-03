@@ -9,6 +9,7 @@ import type {
   RelicCardStyle,
   ThemeSettings,
   ThemeSurfaceStyle,
+  ViewThemeOverride,
 } from "../../types/theme.js";
 import type { ViewName } from "../../types/views.js";
 import {
@@ -19,8 +20,10 @@ import {
   DEFAULT_THEME,
   GLASS_BLUR_MAX_PX,
   GLASS_BLUR_MIN_PX,
+  VIEW_FONT_SIZE_MAX,
+  VIEW_FONT_SIZE_MIN,
 } from "../../config/themeDefaults.js";
-import { deriveThemeColors } from "./derive.js";
+import { deriveThemeColors, parseCssColor } from "./derive.js";
 
 const STORAGE_KEY = "wf_theme_settings";
 const CURRENT_VERSION = 1;
@@ -49,6 +52,8 @@ function migrateAndNormalize(raw: Record<string, unknown>): ThemeSettings {
     unknown
   >;
 
+  const viewAccents = normalizeViewAccents(raw.viewAccents);
+
   return {
     version: CURRENT_VERSION as 1,
     activePreset:
@@ -72,7 +77,9 @@ function migrateAndNormalize(raw: Record<string, unknown>): ThemeSettings {
         typeof rawBranding.appName === "string" ? rawBranding.appName : DEFAULT_BRANDING.appName,
     },
     contrastSafeMode: typeof raw.contrastSafeMode === "boolean" ? raw.contrastSafeMode : false,
-    viewAccents: normalizeViewAccents(raw.viewAccents),
+    // The fold consumes the legacy map, so a cleared accent cannot come back from it.
+    viewAccents: {},
+    viewOverrides: normalizeViewOverrides(raw.viewOverrides, viewAccents),
   };
 }
 
@@ -141,32 +148,104 @@ function normalizeColors(rawColors: Record<string, unknown>): ThemeColors {
   return { ...base, ...semantic };
 }
 
-const VIEW_ACCENT_KEYS: ReadonlySet<string> = new Set<ViewName>([
-  "setup",
-  "inventory",
-  "foundry",
-  "mastery",
-  "stats",
-  "world",
-  "market",
-  "analytics",
-  "relics",
-  "wiki",
-  "rivens",
-  "arbi",
-  "settings",
-]);
+// A Record over the union, so a new ViewName fails to compile until it is listed.
+const KNOWN_VIEWS: Record<ViewName, true> = {
+  setup: true,
+  dashboard: true,
+  inventory: true,
+  foundry: true,
+  mastery: true,
+  stats: true,
+  world: true,
+  market: true,
+  analytics: true,
+  relics: true,
+  wiki: true,
+  rivens: true,
+  arbi: true,
+  settings: true,
+};
+const VIEW_KEYS: ReadonlySet<string> = new Set(Object.keys(KNOWN_VIEWS));
+const BASE_COLOR_KEYS: ReadonlySet<string> = new Set(Object.keys(DEFAULT_BASE_COLORS));
+const OVERRIDE_COLOR_MAX_LEN = 40;
+const OPTIONAL_FONT_KEYS = ["headingSize", "bodySize", "smallSize"] as const;
 
 function normalizeViewAccents(value: unknown): Partial<Record<ViewName, string>> {
   if (!value || typeof value !== "object") return {};
   const raw = value as Record<string, unknown>;
   const accents: Partial<Record<ViewName, string>> = {};
   for (const [key, entry] of Object.entries(raw)) {
-    if (!VIEW_ACCENT_KEYS.has(key) || typeof entry !== "string") continue;
+    if (!VIEW_KEYS.has(key) || typeof entry !== "string") continue;
     const color = asColorString(entry, "");
     if (color) accents[key as ViewName] = color;
   }
   return accents;
+}
+
+/** Per-view colours land in a style attribute, so only what `parseCssColor` reads passes.
+    Exported so the store rejects at set time exactly what the loader would drop. */
+export function asOverrideColor(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > OVERRIDE_COLOR_MAX_LEN) return undefined;
+  return parseCssColor(trimmed) ? trimmed : undefined;
+}
+
+/** Out-of-range sizes are dropped, not clamped: the view then follows the global size.
+    Exported so the store rejects at set time exactly what the loader would drop. */
+export function asOverrideFontSize(value: unknown, min: number, max: number): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  return value >= min && value <= max ? value : undefined;
+}
+
+function normalizeViewOverride(raw: Record<string, unknown>): ViewThemeOverride | null {
+  const rawColors = (raw.colors && typeof raw.colors === "object" ? raw.colors : {}) as Record<
+    string,
+    unknown
+  >;
+  const colors: Partial<ThemeBaseColors> = {};
+  for (const [key, entry] of Object.entries(rawColors)) {
+    if (!BASE_COLOR_KEYS.has(key)) continue;
+    const color = asOverrideColor(entry);
+    if (color) colors[key as keyof ThemeBaseColors] = color;
+  }
+
+  // globalScale is deliberately absent: rem resolves against the root, so only the
+  // per-category sizes can be scoped to a view. An old file carrying one is dropped.
+  const rawFonts = (
+    raw.fontSizes && typeof raw.fontSizes === "object" ? raw.fontSizes : {}
+  ) as Record<string, unknown>;
+  const fontSizes: Partial<ThemeFontSizes> = {};
+  for (const key of OPTIONAL_FONT_KEYS) {
+    const size = asOverrideFontSize(rawFonts[key], VIEW_FONT_SIZE_MIN, VIEW_FONT_SIZE_MAX);
+    if (size != null) fontSizes[key] = size;
+  }
+
+  const override: ViewThemeOverride = {};
+  if (Object.keys(colors).length > 0) override.colors = colors;
+  if (Object.keys(fontSizes).length > 0) override.fontSizes = fontSizes;
+  return override.colors || override.fontSizes ? override : null;
+}
+
+function normalizeViewOverrides(
+  value: unknown,
+  accents: Partial<Record<ViewName, string>>,
+): Partial<Record<ViewName, ViewThemeOverride>> {
+  const raw = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+  const overrides: Partial<Record<ViewName, ViewThemeOverride>> = {};
+  for (const [key, entry] of Object.entries(raw)) {
+    if (!VIEW_KEYS.has(key) || !entry || typeof entry !== "object") continue;
+    const override = normalizeViewOverride(entry as Record<string, unknown>);
+    if (override) overrides[key as ViewName] = override;
+  }
+
+  // Accents saved before per-view overrides existed become that view's accent colour.
+  for (const [key, accent] of Object.entries(accents) as Array<[ViewName, string]>) {
+    const existing = overrides[key];
+    if (existing?.colors?.accent) continue;
+    overrides[key] = { ...existing, colors: { ...existing?.colors, accent } };
+  }
+  return overrides;
 }
 
 function asCornerStyle(value: unknown, fallback: ThemeCornerStyle): ThemeCornerStyle {
@@ -260,6 +339,7 @@ export function cloneDefaultTheme(): ThemeSettings {
     customThemes: DEFAULT_THEME.customThemes.map(cloneCustomTheme),
     branding: { ...DEFAULT_THEME.branding },
     viewAccents: { ...DEFAULT_THEME.viewAccents },
+    viewOverrides: { ...DEFAULT_THEME.viewOverrides },
   };
 }
 

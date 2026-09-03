@@ -28,6 +28,18 @@ describe("parseCssColor", () => {
     expect(parseCssColor("#12")).toBeNull();
     expect(parseCssColor("rgb(1, 2)")).toBeNull();
   });
+
+  it("accepts the other well-formed rgb() spellings", () => {
+    expect(parseCssColor("rgb(100%, 0%, 0%)")).toEqual({ r: 255, g: 0, b: 0, a: 1 });
+    expect(parseCssColor("rgb( 1 , 2 , 3 )")).toEqual({ r: 1, g: 2, b: 3, a: 1 });
+    expect(parseCssColor("rgba(1 2 3 / .5)")).toEqual({ r: 1, g: 2, b: 3, a: 0.5 });
+  });
+
+  it("rejects a body carrying junk past the channels", () => {
+    expect(parseCssColor("rgb(1 2 3;background:red)")).toBeNull();
+    expect(parseCssColor("rgb(1 2 3 / 50% !important)")).toBeNull();
+    expect(parseCssColor("rgb(1 2 3 4 5)")).toBeNull();
+  });
 });
 
 describe("accent ramp", () => {

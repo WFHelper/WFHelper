@@ -4,7 +4,7 @@
   import { INVENTORY_VIEW_MODES, inventoryViewMode } from "../../stores/inventoryViewMode.js";
   import PresetSelector from "./PresetSelector.svelte";
   import ColorSection from "./ColorSection.svelte";
-  import ViewAccentSection from "./ViewAccentSection.svelte";
+  import ViewOverridesSection from "./ViewOverridesSection.svelte";
   import StyleSection from "./StyleSection.svelte";
   import FontSizeSection from "./FontSizeSection.svelte";
   import AppScaleSection from "./AppScaleSection.svelte";
@@ -37,7 +37,7 @@
 
 <article class="appearance-card {panelClass}">
   <ColorSection />
-  <ViewAccentSection />
+  <ViewOverridesSection />
 </article>
 
 <article class="appearance-card {panelClass}">

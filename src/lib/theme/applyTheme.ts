@@ -20,7 +20,7 @@ export function applyTheme(settings: ThemeSettings): void {
 
   // Also set the computed accent glow (used in several places)
   const accent = colors.accent;
-  root.style.setProperty("--accent-glow", hexToAccentGlow(accent));
+  root.style.setProperty("--accent-glow", accentGlowColor(accent));
 
   applyEffectTokens(root, settings.effects);
 
@@ -148,25 +148,27 @@ function resolveSurfaceTokens(effects: ThemeEffects): {
   };
 }
 
-/** Resolve colours with contrast-safe adjustments when enabled. */
-function resolveColors(settings: ThemeSettings): ThemeColors {
-  const colors = { ...settings.colors };
-
-  if (settings.contrastSafeMode) {
-    const bg = colors.bgBase;
-    colors.textPrimary = autoAdjustTextColor(colors.textPrimary, bg, WCAG_AA_NORMAL);
-    colors.textSecondary = autoAdjustTextColor(colors.textSecondary, bg, WCAG_AA_NORMAL);
-    colors.textMuted = autoAdjustTextColor(colors.textMuted, bg, 3.0);
-    // Heading and body default to textPrimary, so they need the same lift.
-    colors.textHeading = autoAdjustTextColor(colors.textHeading, bg, WCAG_AA_NORMAL);
-    colors.textBody = autoAdjustTextColor(colors.textBody, bg, WCAG_AA_NORMAL);
-  }
-
+/** Lift the text tokens until they clear WCAG against their own background. */
+export function contrastSafeColors(source: ThemeColors): ThemeColors {
+  const colors = { ...source };
+  const bg = colors.bgBase;
+  colors.textPrimary = autoAdjustTextColor(colors.textPrimary, bg, WCAG_AA_NORMAL);
+  colors.textSecondary = autoAdjustTextColor(colors.textSecondary, bg, WCAG_AA_NORMAL);
+  colors.textMuted = autoAdjustTextColor(colors.textMuted, bg, 3.0);
+  // Heading and body default to textPrimary, so they need the same lift.
+  colors.textHeading = autoAdjustTextColor(colors.textHeading, bg, WCAG_AA_NORMAL);
+  colors.textBody = autoAdjustTextColor(colors.textBody, bg, WCAG_AA_NORMAL);
   return colors;
 }
 
+/** Resolve colours with contrast-safe adjustments when enabled. */
+function resolveColors(settings: ThemeSettings): ThemeColors {
+  if (settings.contrastSafeMode) return contrastSafeColors(settings.colors);
+  return { ...settings.colors };
+}
+
 /** Accent-glow rgba() from a hex colour; default glow on parse failure. */
-function hexToAccentGlow(hex: string): string {
+export function accentGlowColor(hex: string): string {
   const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
   if (!match) return "rgba(212, 168, 67, 0.15)";
   const r = parseInt(match[1], 16);

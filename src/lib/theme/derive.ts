@@ -13,7 +13,14 @@ interface Rgba {
 // compared by the inspector's value-to-token map, which all need real values.
 
 const HEX_RE = /^#([0-9a-f]{3,8})$/i;
-const RGB_FN_RE = /^rgba?\(([^)]*)\)$/i;
+// A body of "anything but )" let junk like "rgb(1 2 3;background:red)" pass the
+// colour gate and get persisted into a per-view style attribute, so the two CSS
+// spellings are matched exactly: comma-separated channels, or space-separated
+// with an optional slash alpha.
+const RGB_CHANNEL = String.raw`[-+]?(?:\d+(?:\.\d*)?|\.\d+)%?`;
+const RGB_COMMA_BODY = `${RGB_CHANNEL}(?:\\s*,\\s*${RGB_CHANNEL}){2,3}`;
+const RGB_SPACE_BODY = `${RGB_CHANNEL}(?:\\s+${RGB_CHANNEL}){2}(?:\\s*/\\s*${RGB_CHANNEL})?`;
+const RGB_FN_RE = new RegExp(`^rgba?\\(\\s*(${RGB_COMMA_BODY}|${RGB_SPACE_BODY})\\s*\\)$`, "i");
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -135,7 +142,7 @@ function readableTextOn(value: string): string {
 }
 
 /** Accent ramp for a user-picked hex; mirrors how the built-in accents relate. */
-function deriveAccentRamp(accent: string): {
+export function deriveAccentRamp(accent: string): {
   accent: string;
   accentDim: string;
   accentBright: string;

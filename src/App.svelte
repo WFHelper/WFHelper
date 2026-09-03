@@ -43,7 +43,8 @@
   import { bulkSellOpen } from "./stores/inventorySelection.js";
   import { setInventoryStatus } from "./lib/actions.js";
   import { themeSettings } from "./stores/theme.js";
-  import { viewAccentStyle, viewAccentVars } from "./lib/theme/derive.js";
+  import { viewAccentVars } from "./lib/theme/derive.js";
+  import { effectiveViewAccent, viewOverrideStyle } from "./lib/theme/viewOverrides.js";
   import { initStartup } from "./lib/startupLoader.js";
   import { initRendererEvents } from "./lib/rendererEvents.js";
   import { invoke } from "./lib/ipc.js";
@@ -76,11 +77,10 @@
 
   $: setInventoryStatus($parsedItems.length);
 
-  // Per-view accents ride inline style attributes, not a generated <style> block:
+  // Per-view overrides ride inline style attributes, not a generated <style> block:
   // the window CSP allows style-src-attr 'unsafe-inline' but not inline stylesheets.
-  $: activeViewAccent = $themeSettings.viewAccents[$currentView];
-  $: viewScopeStyle = viewAccentStyle(activeViewAccent);
-  $: shellAccentStyle = viewAccentVars(activeViewAccent);
+  $: viewScopeStyle = viewOverrideStyle($themeSettings, $currentView);
+  $: shellAccentStyle = viewAccentVars(effectiveViewAccent($themeSettings, $currentView));
 
   onMount(() => {
     const unsubscribeViewChange = currentView.subscribe((view) => {

@@ -3,69 +3,7 @@
   import { themeInspectorActive, themeSettings } from "../../stores/theme.js";
   import { tr } from "../../lib/i18n.js";
   import ContrastBadge from "./ContrastBadge.svelte";
-  import type { MessageKey } from "../../lib/i18n.js";
-
-  interface ColorGroup {
-    labelKey: MessageKey;
-    keys: Array<{ key: keyof ThemeColors; labelKey: MessageKey; isText?: boolean }>;
-  }
-
-  const groups: ColorGroup[] = [
-    {
-      labelKey: "appearance.colorsBackgrounds",
-      keys: [
-        { key: "bgDeep", labelKey: "appearance.label.bgDeep" },
-        { key: "bgBase", labelKey: "appearance.label.bgBase" },
-        { key: "bgSurface", labelKey: "appearance.label.bgSurface" },
-        { key: "bgRaised", labelKey: "appearance.label.bgRaised" },
-        { key: "bgHover", labelKey: "appearance.label.bgHover" },
-      ],
-    },
-    {
-      labelKey: "appearance.colorsAccent",
-      keys: [
-        { key: "accent", labelKey: "common.primary" },
-        { key: "accentDim", labelKey: "common.muted" },
-        { key: "accentBright", labelKey: "appearance.label.accentBright" },
-      ],
-    },
-    {
-      labelKey: "appearance.colorsText",
-      keys: [
-        { key: "textPrimary", labelKey: "common.primary", isText: true },
-        { key: "textSecondary", labelKey: "appearance.label.textSecondary", isText: true },
-        { key: "textMuted", labelKey: "common.muted", isText: true },
-      ],
-    },
-    {
-      labelKey: "appearance.colorsSemantic",
-      keys: [
-        { key: "success", labelKey: "appearance.label.success" },
-        { key: "warning", labelKey: "appearance.label.warning" },
-        { key: "danger", labelKey: "appearance.label.danger" },
-        { key: "info", labelKey: "appearance.label.info" },
-      ],
-    },
-    {
-      labelKey: "appearance.colorsBorders",
-      keys: [
-        { key: "border", labelKey: "common.border" },
-        { key: "borderStrong", labelKey: "appearance.label.borderStrong" },
-      ],
-    },
-    {
-      labelKey: "appearance.colorsGrades",
-      keys: [
-        { key: "gradeS", labelKey: "appearance.label.gradeS" },
-        { key: "gradeA", labelKey: "appearance.label.gradeA" },
-        { key: "gradeB", labelKey: "appearance.label.gradeB" },
-        { key: "gradeC", labelKey: "appearance.label.gradeC" },
-        { key: "gradeD", labelKey: "appearance.label.gradeD" },
-        { key: "gradeF", labelKey: "appearance.label.gradeF" },
-        { key: "gradeDefault", labelKey: "common.default" },
-      ],
-    },
-  ];
+  import { COLOR_GROUPS } from "./colorGroups.js";
 
   $: colors = $themeSettings.colors;
 
@@ -109,7 +47,7 @@
 
   <p class="mb-2 mt-0 text-xs text-text-muted">{$tr("appearance.inspectorHint")}</p>
 
-  {#each groups as group}
+  {#each COLOR_GROUPS as group}
     <div class="mb-2.5">
       <span
         class="block mb-1 font-display text-xs font-semibold tracking-[0.04em] text-text-muted uppercase"

@@ -4,6 +4,7 @@
   import { NAV_ICON_URLS } from "../../lib/assetUrls.js";
   import { tr, type MessageKey } from "../../lib/i18n.js";
   import { viewAccentStyle } from "../../lib/theme/derive.js";
+  import { effectiveViewAccent } from "../../lib/theme/viewOverrides.js";
   import { VIEW_LABEL_KEYS } from "../../lib/viewRegistry.js";
   import {
     WIDGET_HOME_VIEWS,
@@ -56,7 +57,7 @@
   const editing = $derived($editMode === "dashboard");
   // Everything inside the panel inherits the home view's accent, so the header
   // icon, the top rule and the open link all read as that tab's colour.
-  const accentStyle = $derived(viewAccentStyle($themeSettings.viewAccents[homeView]));
+  const accentStyle = $derived(viewAccentStyle(effectiveViewAccent($themeSettings, homeView)));
 
   let showSettings = $state(false);
 

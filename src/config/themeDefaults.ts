@@ -70,12 +70,17 @@ export const DEFAULT_THEME: Readonly<ThemeSettings> = Object.freeze({
   branding: { ...DEFAULT_BRANDING },
   contrastSafeMode: false,
   viewAccents: {},
+  viewOverrides: {},
 });
 
 /** Limits for font size global scale */
 export const FONT_SCALE_MIN = 0.75;
 export const FONT_SCALE_MAX = 1.5;
 export const FONT_SCALE_STEP = 0.05;
+
+/** Limits for a per-view heading/body/small size override, in rem */
+export const VIEW_FONT_SIZE_MIN = 0.5;
+export const VIEW_FONT_SIZE_MAX = 3;
 
 /** Base font size in px (from app.css html rule) */
 export const BASE_FONT_SIZE_PX = 15;

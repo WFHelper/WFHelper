@@ -78,6 +78,13 @@ export interface ThemeFontSizes {
   smallSize?: number;
 }
 
+/** One tab's own palette and text sizes. Absent keys follow the global theme.
+    `globalScale` is never stored here: rem resolves against the root. */
+export interface ViewThemeOverride {
+  colors?: Partial<ThemeBaseColors>;
+  fontSizes?: Partial<ThemeFontSizes>;
+}
+
 export type ThemeCornerStyle = "sharp" | "soft" | "round";
 export type ThemeSurfaceStyle = "full" | "border" | "minimal";
 export type RelicCardStyle = "ornate" | "plain";
@@ -117,8 +124,11 @@ export interface ThemeSettings {
   branding: ThemeBranding;
   /** Enable contrast-safe mode: auto-adjusts text colors when backgrounds are too similar */
   contrastSafeMode: boolean;
-  /** Per-view accent overrides, keyed by view id. Absent means the theme accent. */
+  /** Legacy per-view accents. Read at load, folded into `viewOverrides` and then
+      left empty, so nothing writes it any more. Kept so old saves still migrate. */
   viewAccents: Partial<Record<ViewName, string>>;
+  /** Per-view colour and font-size overrides, keyed by view id. */
+  viewOverrides: Partial<Record<ViewName, ViewThemeOverride>>;
 }
 
 /** Keys of ThemeColors mapped to CSS custom property names */

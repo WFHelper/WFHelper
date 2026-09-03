@@ -6,6 +6,7 @@
   import { sectionById } from "../lib/layout/registry.js";
   import type { LayoutView } from "../lib/layout/types.js";
   import { viewAccentStyle } from "../lib/theme/derive.js";
+  import { effectiveViewAccent } from "../lib/theme/viewOverrides.js";
   import { LAZY_VIEW_LOADERS } from "../lib/viewRegistry.js";
   import { POPOUT_SOLO_SECTION } from "../stores/popout.js";
   import { themeSettings } from "../stores/theme.js";
@@ -47,7 +48,7 @@
   let chromeHidden = $state(false);
   let hintDue = $state(false);
 
-  const accentStyle = $derived(viewAccentStyle($themeSettings.viewAccents[view]));
+  const accentStyle = $derived(viewAccentStyle(effectiveViewAccent($themeSettings, view)));
 
   onMount(() => {
     const loader = VIEW_LOADERS[view];

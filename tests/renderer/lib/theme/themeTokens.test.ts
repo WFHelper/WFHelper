@@ -95,7 +95,7 @@ describe("settings migration", () => {
     expect(loaded.version).toBe(1);
     expect(loaded.colors.accent).toBe("#123456");
     expect("notAToken" in loaded.colors).toBe(false);
-    expect(loaded.viewAccents).toEqual({ market: "#00ff00" });
+    expect(loaded.viewOverrides.market).toEqual({ colors: { accent: "#00ff00" } });
   });
 
   it("drops view accents that are not views or not colours", () => {
@@ -105,11 +105,124 @@ describe("settings migration", () => {
         viewAccents: { market: "#00ff00", nope: "#ff0000", world: "url(evil)", rivens: 42 },
       }),
     );
-    expect(loadThemeSettings().viewAccents).toEqual({ market: "#00ff00" });
+    expect(loadThemeSettings().viewOverrides).toEqual({
+      market: { colors: { accent: "#00ff00" } },
+    });
   });
 
   it("returns an empty accent map when nothing is stored", () => {
     stubStorage(null);
     expect(loadThemeSettings().viewAccents).toEqual({});
+    expect(loadThemeSettings().viewOverrides).toEqual({});
+  });
+});
+
+describe("view override validation", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("keeps known views, base colour keys and in-range sizes", () => {
+    stubStorage(
+      JSON.stringify({
+        version: 1,
+        viewOverrides: {
+          world: {
+            colors: { bgBase: "#101010", accent: "rgba(1, 2, 3, 0.5)" },
+            fontSizes: { headingSize: 1.4, bodySize: 1, smallSize: 0.8 },
+          },
+        },
+      }),
+    );
+
+    expect(loadThemeSettings().viewOverrides).toEqual({
+      world: {
+        colors: { bgBase: "#101010", accent: "rgba(1, 2, 3, 0.5)" },
+        fontSizes: { headingSize: 1.4, bodySize: 1, smallSize: 0.8 },
+      },
+    });
+  });
+
+  it("drops unknown views, unknown and derived colour keys, and bad colours", () => {
+    stubStorage(
+      JSON.stringify({
+        version: 1,
+        viewOverrides: {
+          nope: { colors: { bgBase: "#101010" } },
+          world: {
+            colors: {
+              bgBase: "#101010",
+              surfacePanel: "#202020",
+              notAToken: "#303030",
+              bgDeep: "url(evil)",
+              bgSurface: "#111111; position: fixed",
+              bgRaised: 42,
+            },
+          },
+          market: { colors: { bgBase: "javascript:alert(1)" } },
+        },
+      }),
+    );
+
+    expect(loadThemeSettings().viewOverrides).toEqual({
+      world: { colors: { bgBase: "#101010" } },
+    });
+  });
+
+  it("drops an rgb() override whose body carries junk past the channels", () => {
+    stubStorage(
+      JSON.stringify({
+        version: 1,
+        viewOverrides: {
+          world: { colors: { bgBase: "rgb(1 2 3;background:red)", accent: "rgb(1 2 3 / 50%)" } },
+        },
+      }),
+    );
+
+    expect(loadThemeSettings().viewOverrides).toEqual({
+      world: { colors: { accent: "rgb(1 2 3 / 50%)" } },
+    });
+  });
+
+  it("drops out-of-range, non-numeric and unscopable font sizes", () => {
+    stubStorage(
+      JSON.stringify({
+        version: 1,
+        viewOverrides: {
+          world: {
+            fontSizes: { globalScale: 1.25, headingSize: 12, bodySize: "1.2", smallSize: 0.9 },
+          },
+          stats: { fontSizes: { globalScale: 1.25 } },
+        },
+      }),
+    );
+
+    // globalScale cannot be scoped to a view, so it never survives the load.
+    expect(loadThemeSettings().viewOverrides).toEqual({
+      world: { fontSizes: { smallSize: 0.9 } },
+    });
+  });
+
+  it("folds a legacy view accent into the override that lacks one", () => {
+    stubStorage(
+      JSON.stringify({
+        version: 1,
+        viewAccents: { market: "#00ff00", world: "#0000ff" },
+        viewOverrides: { world: { colors: { accent: "#ff0000", bgBase: "#101010" } } },
+      }),
+    );
+
+    const loaded = loadThemeSettings();
+    expect(loaded.viewOverrides.market).toEqual({ colors: { accent: "#00ff00" } });
+    expect(loaded.viewOverrides.world).toEqual({
+      colors: { accent: "#ff0000", bgBase: "#101010" },
+    });
+    // The fold consumes the legacy map, so clearing an accent cannot be undone by it.
+    expect(loaded.viewAccents).toEqual({});
+  });
+
+  it("keeps a per-view accent for the dashboard, which the old map dropped", () => {
+    stubStorage(JSON.stringify({ version: 1, viewAccents: { dashboard: "#00ff00" } }));
+    expect(loadThemeSettings().viewOverrides.dashboard).toEqual({
+      colors: { accent: "#00ff00" },
+    });
   });
 });

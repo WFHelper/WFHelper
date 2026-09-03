@@ -13,6 +13,8 @@
     type InspectedProperty,
     type TokenMatch,
   } from "../lib/theme/inspector.js";
+  import { isBaseColorKey } from "../lib/theme/viewOverrides.js";
+  import { VIEW_LABEL_KEYS } from "../lib/viewRegistry.js";
 
   interface Rect {
     top: number;
@@ -39,7 +41,16 @@
   const liveValue = $derived(selected ? $themeSettings.colors[selected.colorKey] : "");
   const hexValue = $derived(liveValue ? toHexInputValue(liveValue) : "#888888");
   const canScopeToView = $derived(
-    selected?.colorKey === "accent" && scopedView !== null && scopedView !== "settings",
+    selected !== null && scopedView !== null && scopedView !== "settings",
+  );
+  // Only the hand-picked colours can be scoped; the rest follow from them.
+  const scopedKey = $derived(
+    selected && isBaseColorKey(selected.colorKey) ? selected.colorKey : null,
+  );
+  const scopedValue = $derived(
+    scopedView && scopedKey
+      ? ($themeSettings.viewOverrides[scopedView]?.colors?.[scopedKey] ?? "")
+      : "",
   );
 
   function readRect(el: Element): Rect {
@@ -136,8 +147,13 @@
   }
 
   function applyToView(value: string): void {
-    if (!scopedView) return;
-    themeSettings.setViewAccent(scopedView, value);
+    if (!scopedView || !scopedKey) return;
+    themeSettings.setViewColor(scopedView, scopedKey, value);
+  }
+
+  function clearFromView(): void {
+    if (!scopedView || !scopedKey) return;
+    themeSettings.clearViewColor(scopedView, scopedKey);
   }
 
   function undo(): void {
@@ -276,10 +292,22 @@
           </div>
 
           {#if canScopeToView && scopedView}
+            {#if scopedValue}
+              <div class="flex items-center gap-2 text-xs text-text-secondary">
+                <span
+                  class="h-4 w-4 shrink-0 rounded-[2px] border border-border-subtle"
+                  style="background: {scopedValue}"
+                ></span>
+                <span class="font-mono">{scopedValue}</span>
+                <span class="ml-auto">{$tr(VIEW_LABEL_KEYS[scopedView])}</span>
+              </div>
+            {/if}
             <div class="flex gap-1.5">
               <button
                 class="btn-secondary btn-sm flex-1"
                 type="button"
+                disabled={!scopedKey}
+                title={scopedKey ? undefined : $tr("appearance.inspectorScopeBaseOnly")}
                 onclick={() => applyToView(hexValue)}
               >
                 {$tr("appearance.inspectorScopeView")}
@@ -287,7 +315,8 @@
               <button
                 class="btn-secondary btn-sm flex-1"
                 type="button"
-                onclick={() => scopedView && themeSettings.clearViewAccent(scopedView)}
+                disabled={!scopedValue}
+                onclick={clearFromView}
               >
                 {$tr("appearance.inspectorScopeGlobal")}
               </button>
