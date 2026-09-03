@@ -25,6 +25,7 @@
   "enemy.tileSets": "地图组",
   "enemy.planets": "星球",
   "enemy.spawns": "出现地点",
+  "enemy.factionPlanets": "{faction} 常见星球",
   "codex.noData": "暂无扫描数据。点击刷新从星际战甲获取。",
   "codex.sortProgress": "进度",
   "arbi.title": "仲裁战局",

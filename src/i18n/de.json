@@ -34,6 +34,7 @@
   "enemy.tileSets": "Tilesets",
   "enemy.planets": "Planeten",
   "enemy.spawns": "Wo er vorkommt",
+  "enemy.factionPlanets": "Typische Planeten der Fraktion {faction}",
   "codex.noData": "Noch keine Scan-Daten. Drücke Aktualisieren, um sie von Warframe zu laden.",
   "codex.sortProgress": "Fortschritt",
   "codex.missingIcons": "Fehlende Icons",

@@ -1,4 +1,8 @@
-import { CODEX_EXTRA_INFO, CODEX_SCAN_REQUIREMENTS } from "../../data/codexScanRequirements.js";
+import {
+  CODEX_EXTRA_INFO,
+  CODEX_FACTION_PLANETS,
+  CODEX_SCAN_REQUIREMENTS,
+} from "../../data/codexScanRequirements.js";
 
 /** A codex entry flattened for display: wiki rows carry spawn context, DE-export
  *  extras carry only a name, icon and faction. */
@@ -97,4 +101,13 @@ export function findEnemyByName(name: string): EnemyInfo | null {
   const key = nameIndex().get(normalizeEnemyName(name));
   if (!key) return null;
   return fromRequirement(key) ?? fromExtra(key);
+}
+
+/** Planets the enemy's faction holds on the star chart, as an inferred stand-in
+ *  for entries the wiki states no spawn context for. Empty when it states any,
+ *  so the exact wiki lists always win. */
+export function factionSpawnPlanets(info: EnemyInfo | null): string[] {
+  if (!info?.faction) return [];
+  if (info.planets.length > 0 || info.tileSets.length > 0 || info.missions.length > 0) return [];
+  return CODEX_FACTION_PLANETS[info.faction] ?? [];
 }

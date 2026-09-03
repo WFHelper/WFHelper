@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 // @ts-expect-error -- plain build script module, no type declarations
+import { buildFactionPlanets } from "../../scripts/codex-scans/factionRegions.mjs";
+// @ts-expect-error -- plain build script module, no type declarations
 import { parseEntries } from "../../scripts/codex-scans/parseEnemyModule.mjs";
 
 interface ParsedEntry {
@@ -101,5 +103,51 @@ describe("parseEnemyModule", () => {
 			InternalName = "/X", Name = "X", Scans = 3, Weapons = { "" }, Missions = { "" },
 		} } }`;
     expect(parse(lua)[0].missions).toBeNull();
+  });
+});
+
+const DICT = {
+  "/Lotus/Language/Locations/Ceres": "Ceres",
+  "/Lotus/Language/Locations/Earth": "Earth",
+  "/Lotus/Language/Locations/Earth_SPACE": "Earth Proxima",
+  "/Lotus/Language/Locations/Void": "Void",
+};
+
+const REGIONS = {
+  SolNode1: { systemName: "/Lotus/Language/Locations/Ceres", nodeType: 0, faction: "FC_GRINEER" },
+  SolNode2: { systemName: "/Lotus/Language/Locations/Earth", nodeType: 0, faction: "FC_GRINEER" },
+  SolNode3: { systemName: "/Lotus/Language/Locations/Ceres", nodeType: 0, faction: "FC_GRINEER" },
+  SolNode4: {
+    systemName: "/Lotus/Language/Locations/Earth_SPACE",
+    nodeType: 0,
+    faction: "FC_GRINEER",
+  },
+  SolNode5: { systemName: "/Lotus/Language/Locations/Void", nodeType: 0, faction: "FC_OROKIN" },
+  // Dark Sector: a real Infested mission, but nodeType 4 would put Infested on
+  // nearly every planet, so it must not reach the hint.
+  ClanNode0: { systemName: "/Lotus/Language/Locations/Earth", nodeType: 4, faction: "FC_INFESTED" },
+  // Junction and relay: no faction at all.
+  Junction0: { systemName: "/Lotus/Language/Locations/Earth", nodeType: 7 },
+  // Tenno and Duviri have no codex partition.
+  SolNode6: { systemName: "/Lotus/Language/Locations/Earth", nodeType: 0, faction: "FC_TENNO" },
+  // A dict path with no translation is unusable as a label.
+  SolNode7: { systemName: "/Lotus/Language/Locations/Unknown", nodeType: 0, faction: "FC_CORPUS" },
+  SolNode8: { nodeType: 0, faction: "FC_CORPUS" },
+};
+
+describe("buildFactionPlanets", () => {
+  const planets = buildFactionPlanets(REGIONS, DICT) as Record<string, string[]>;
+
+  it("maps DE faction codes onto codex partition keys", () => {
+    expect(Object.keys(planets).sort()).toEqual(["grineer", "orokin"]);
+    expect(planets.orokin).toEqual(["Void"]);
+  });
+
+  it("dedupes and sorts, keeping Proxima systems separate", () => {
+    expect(planets.grineer).toEqual(["Ceres", "Earth", "Earth Proxima"]);
+  });
+
+  it("tolerates an empty export", () => {
+    expect(buildFactionPlanets(undefined, DICT)).toEqual({});
   });
 });

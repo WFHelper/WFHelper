@@ -22143,5 +22143,63 @@
       "faction": "objects",
       "scans": 12
     }
+  },
+  "factionPlanets": {
+    "corpus": [
+      "Europa",
+      "Jupiter",
+      "Lua",
+      "Mars",
+      "Neptune",
+      "Neptune Proxima",
+      "Phobos",
+      "Pluto",
+      "Pluto Proxima",
+      "Uranus",
+      "Uranus Proxima",
+      "Veil Proxima",
+      "Venus",
+      "Venus Proxima"
+    ],
+    "grineer": [
+      "Ceres",
+      "Earth",
+      "Earth Proxima",
+      "Kuva Fortress",
+      "Lua",
+      "Mars",
+      "Mercury",
+      "Saturn",
+      "Saturn Proxima",
+      "Sedna",
+      "Uranus",
+      "Veil Proxima",
+      "Zariman"
+    ],
+    "infestation": [
+      "Deimos",
+      "Earth",
+      "Eris",
+      "Europa",
+      "Mercury"
+    ],
+    "orokin": [
+      "Dark Refractory, Deimos",
+      "Duviri",
+      "Lua",
+      "Void"
+    ],
+    "scaldra": [
+      "Höllvania"
+    ],
+    "sentient": [
+      "Jupiter"
+    ],
+    "techrot": [
+      "Höllvania"
+    ],
+    "themurmur": [
+      "Deimos"
+    ]
   }
 }

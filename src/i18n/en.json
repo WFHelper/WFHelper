@@ -25,6 +25,7 @@
   "enemy.tileSets": "Tilesets",
   "enemy.planets": "Planets",
   "enemy.spawns": "Where it spawns",
+  "enemy.factionPlanets": "Typical {faction} planets",
   "codex.noData": "No scan data yet. Press Refresh to fetch it from Warframe.",
   "codex.sortProgress": "Progress",
   "arbi.title": "Arbitration Runs",

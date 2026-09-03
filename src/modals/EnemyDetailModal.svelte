@@ -32,6 +32,7 @@
   let displayName = $state("");
   let imageUrl = $state<string | null>(null);
   let factionLabel = $state<string | null>(null);
+  let factionPlanets = $state<string[]>([]);
   let scanned = $state<number | null>(null);
   let required = $state<number | null>(null);
   let drops = $state<DropRow[]>([]);
@@ -48,6 +49,7 @@
     displayName = "";
     imageUrl = null;
     factionLabel = null;
+    factionPlanets = [];
     scanned = null;
     required = null;
     drops = [];
@@ -99,6 +101,7 @@
         imageUrl = codex.enemyImageUrl(found.image);
         factionLabel =
           codex.CODEX_FACTIONS.find((faction) => faction.key === found.faction)?.label ?? null;
+        factionPlanets = enemies.factionSpawnPlanets(found);
         required = found.scans;
       }
 
@@ -170,6 +173,11 @@
   );
   // Base level is a header tag, so it alone does not fill the spawn section.
   const hasSpawnData = $derived(spawnGroups.length > 0);
+  // The hint is only readable next to the faction name it was inferred from, so
+  // the label doubles as the guard.
+  const factionHint = $derived(
+    factionPlanets.length > 0 && factionLabel ? { faction: factionLabel } : null,
+  );
 </script>
 
 {#if $activeEnemy}
@@ -180,13 +188,13 @@
     </div>
 
     <div class="detail-header" data-enemy-modal={displayName}>
-      <div class="detail-img-wrap">
-        {#if imageUrl}
-          <img src={imageUrl} alt="" loading="lazy" />
-        {:else}
-          <span class="text-3xl font-bold text-text-muted">{displayName.slice(0, 1)}</span>
-        {/if}
-      </div>
+      {#if imageUrl}
+        <!-- Many codex entries reference art the mirror has no copy of; an empty
+             frame is worse than none, so a failed load drops the box. -->
+        <div class="detail-img-wrap">
+          <img src={imageUrl} alt="" loading="lazy" onerror={() => (imageUrl = null)} />
+        </div>
+      {/if}
       <div class="detail-title-area">
         <h2>{displayName}</h2>
         <div class="detail-tags">
@@ -224,6 +232,21 @@
                 <span class="detail-meta min-w-0 flex-1">{values.join(", ")}</span>
               </div>
             {/each}
+          </div>
+        {:else if factionHint}
+          <div class="grid gap-1.5" data-enemy-faction-planets>
+            <span class="text-xs uppercase tracking-[0.05em] text-text-muted"
+              >{$t("enemy.factionPlanets", factionHint)}</span
+            >
+            <div class="flex flex-wrap gap-1.5">
+              <!-- Chips, not a comma join: one DE system name ("Dark Refractory,
+                   Deimos") already contains a comma. -->
+              {#each factionPlanets as planet (planet)}
+                <span class="detail-meta rounded-md border border-border bg-bg-soft px-1.5 py-0.5"
+                  >{planet}</span
+                >
+              {/each}
+            </div>
           </div>
         {:else if loading}
           <p class="detail-muted m-0">{$t("common.loading")}</p>

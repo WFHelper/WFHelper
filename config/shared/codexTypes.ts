@@ -22,6 +22,10 @@ export interface CodexRequirement {
   baseLevel?: number;
 }
 
+/** Codex faction key to the star-chart planets DE tags that faction on. Used as
+ *  a spawn hint for the 201 wiki entries that state no location at all. */
+export type CodexFactionPlanets = Record<string, string[]>;
+
 export type CodexScansResult =
   | { fetchedAt: number; scans: CodexScanEntry[] }
   | { error: "no-account" | "fetch-failed" | "no-data" };

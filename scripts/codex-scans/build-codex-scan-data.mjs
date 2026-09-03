@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { buildFactionPlanets } from "./factionRegions.mjs";
 import { parseEntries } from "./parseEnemyModule.mjs";
 
 const FACTIONS = [
@@ -367,6 +368,15 @@ for (const e of sorted) {
   };
 }
 
+// 201 wiki entries state no spawn context at all; DE's star chart at least says
+// which planets their faction holds.
+const factionPlanets = buildFactionPlanets(readPep("ExportRegions.json"), dictEn);
+for (const key of Object.keys(factionPlanets)) {
+  if (!FACTIONS.includes(key)) throw new Error(`region faction ${key} is not a codex partition`);
+}
+if (Object.keys(factionPlanets).length < 5)
+  throw new Error("too few faction planet lists - refusing to overwrite");
+
 const avatars = {};
 for (const [avatarPath, owner] of [...avatarOwners.entries()]
   .filter(([, owner]) => owner !== null)
@@ -386,7 +396,10 @@ for (const [key, extra] of [...extras.entries()].sort(([a], [b]) => a.localeComp
 }
 
 fs.mkdirSync(path.dirname(OUT_FILE), { recursive: true });
-fs.writeFileSync(OUT_FILE, JSON.stringify({ requirements, avatars, extraInfo }, null, 2) + "\n");
+fs.writeFileSync(
+  OUT_FILE,
+  JSON.stringify({ requirements, avatars, extraInfo, factionPlanets }, null, 2) + "\n",
+);
 
 // Sidecars for the icon mirror: wiki image filenames the table references, and
 // the DE texture source URLs the extras need mirrored.
@@ -407,3 +420,6 @@ console.log(
   `spawn context: ${withField("planets")} planets, ${withField("tileSets")} tilesets, ` +
     `${withField("missions")} missions, ${withField("description")} descriptions`,
 );
+for (const [key, planets] of Object.entries(factionPlanets)) {
+  console.log(`faction planets ${key}: ${planets.join(", ")}`);
+}

@@ -1,7 +1,7 @@
 // Typed shim over the generated table (scripts/codex-scans/build-codex-scan-data.mjs
 // writes the JSON; source wiki.warframe.com Module:Enemies/data/*, CC BY-SA).
 import data from "./codexScanRequirements.json";
-import type { CodexRequirement } from "../../config/shared/codexTypes.js";
+import type { CodexFactionPlanets, CodexRequirement } from "../../config/shared/codexTypes.js";
 
 export const CODEX_SCAN_REQUIREMENTS = data.requirements as Record<string, CodexRequirement>;
 
@@ -15,3 +15,8 @@ export const CODEX_EXTRA_INFO = data.extraInfo as Record<
   string,
   { name?: string; icon?: string; faction: string; scans?: number; eximusScans?: number }
 >;
+
+// Star-chart planets per faction, from DE's ExportRegions. Optional so an older
+// generated table without the key degrades to no spawn hint rather than a crash.
+export const CODEX_FACTION_PLANETS: CodexFactionPlanets =
+  (data as { factionPlanets?: CodexFactionPlanets }).factionPlanets ?? {};
