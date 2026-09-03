@@ -1,9 +1,15 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { invoke, on } from "../lib/ipc.js";
-  import { ELEMENT_ICON_URLS, NAV_ICON_URLS, RIVEN_TEMPLATE_URL } from "../lib/assetUrls.js";
+  import {
+    ELEMENT_ICON_URLS,
+    NAV_ICON_URLS,
+    RIVEN_TEMPLATE_URL,
+    STAT_ICON_URLS,
+  } from "../lib/assetUrls.js";
   import { compareSharedFilterSort, matchesSharedFilters } from "../lib/filters.js";
-  import { gradeColor } from "../lib/rivenGradeColors.js";
+  import { attrGradeColor, gradeColor } from "../lib/rivenGradeColors.js";
+  import { rivenDissolveHint } from "../lib/rivens/dissolve.js";
   import { matchRivenListings, rivenNameSuffix } from "../lib/marketContract.js";
   import {
     ensureRivenContractsLoaded,
@@ -25,12 +31,16 @@
   import { readStorage, writeStorage } from "../lib/persistence.js";
   import { tr } from "../lib/i18n.js";
   import type { MessageKey } from "../lib/i18n.js";
-  import { RIVEN_TYPE_KEYS } from "../lib/rivenLabels.js";
+  import {
+    RIVEN_ATTR_GRADE_KEYS,
+    RIVEN_ATTR_GRADE_ORDER,
+    RIVEN_TYPE_KEYS,
+  } from "../lib/rivenLabels.js";
 
   // Keys land with this feature's i18n commit; cast until en.json carries them.
   const k = (key: string): MessageKey => key as MessageKey;
 
-  type RivenSortKey = "name" | "disposition" | "rerolls" | "grade";
+  type RivenSortKey = "name" | "disposition" | "rerolls" | "grade" | "attr_grade";
   type RivenViewTab = "unveiled" | "veiled" | "finder";
 
   const VIEW_TAB_KEY = "wf_rivens_tab";
@@ -46,6 +56,7 @@
   let loading = $state(true);
   let typeFilter = $state("all");
   let gradeFilter = $state("all");
+  let attrGradeFilter = $state("all");
   let selectedRiven = $state<DecodedRiven | null>(null);
   let viewTab = $state<RivenViewTab>(restoreViewTab());
   let listingsRefreshing = $state(false);
@@ -66,6 +77,14 @@
       label: value === "all" ? $tr("common.all") : value,
     })),
   );
+  // "?" is not offered: an unknown weapon has no attribute verdict to filter on.
+  const ATTR_GRADES = ["all", "Great", "Good", "OK", "Bad"];
+  const ATTR_GRADE_OPTIONS = $derived(
+    ATTR_GRADES.map((value) => ({
+      value,
+      label: value === "all" ? $tr("common.all") : $tr(RIVEN_ATTR_GRADE_KEYS[value]),
+    })),
+  );
   const VIEW_TABS = $derived([
     { key: "unveiled", label: $tr("rivens.tab.unveiled") },
     { key: "veiled", label: $tr("rivens.tab.veiled") },
@@ -76,6 +95,7 @@
     ["disposition", $tr("rivens.sort.disposition")],
     ["rerolls", $tr("common.rerolls")],
     ["grade", $tr("rivens.sort.grade")],
+    ["attr_grade", $tr("rivens.sort.attributeGrade")],
   ]);
   const rivenFilters = sharedFilters("rivens");
   function filterableRiven(riven: DecodedRiven): {
@@ -84,6 +104,7 @@
     disposition: number;
     rerolls: number;
     grade: string;
+    attrGradeRank: number | null;
   } {
     return {
       name: riven.weaponName,
@@ -92,6 +113,7 @@
       disposition: riven.disposition,
       rerolls: riven.rerolls,
       grade: riven.overallGrade,
+      attrGradeRank: RIVEN_ATTR_GRADE_ORDER[riven.attributeGrade] ?? null,
     };
   }
 
@@ -103,6 +125,9 @@
     }
     if (gradeFilter !== "all") {
       list = list.filter((r) => r.overallGrade.toUpperCase().startsWith(gradeFilter));
+    }
+    if (attrGradeFilter !== "all") {
+      list = list.filter((r) => r.attributeGrade === attrGradeFilter);
     }
     list = [...list].sort((a, b) =>
       compareSharedFilterSort(filterableRiven(a), filterableRiven(b), $rivenFilters),
@@ -283,6 +308,14 @@
         onChange={(value) => (gradeFilter = value)}
       />
 
+      <div data-riven-attr-grade-filter title={$tr("rivens.sort.attributeGrade")}>
+        <SegmentedControl
+          value={attrGradeFilter}
+          options={ATTR_GRADE_OPTIONS}
+          onChange={(value) => (attrGradeFilter = value)}
+        />
+      </div>
+
       <button
         class="btn-secondary btn-sm inline-flex items-center gap-1.5"
         onclick={refreshListings}
@@ -312,6 +345,8 @@
         {#each filteredRivens as riven (riven.itemId)}
           {@const listing = listingByRiven.get(riven.itemId)}
           {@const suffix = rivenNameSuffix(riven.rivenName, riven.weaponName)}
+          {@const attrGradeKey = RIVEN_ATTR_GRADE_KEYS[riven.attributeGrade]}
+          {@const dissolveEndo = rivenDissolveHint(riven)}
           <div
             class="relative mx-auto w-[min(100%,18rem)] max-[700px]:w-[min(100%,16rem)] aspect-[316/400] transition-transform duration-[0.18s] ease hover:-translate-y-1 hover:z-[2]"
           >
@@ -342,6 +377,26 @@
                   class="absolute top-[10%] right-[15%] z-[2] font-display font-extrabold text-base leading-none [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,0.9)]"
                   style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span
                 >
+
+                {#if attrGradeKey}
+                  <span
+                    class="absolute top-[15.5%] right-[13%] z-[2] font-display text-[0.6rem] font-bold uppercase tracking-[0.06em] leading-none [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,0.9)]"
+                    style="color: {attrGradeColor(riven.attributeGrade)}"
+                    title={$tr("rivens.sort.attributeGrade")}
+                    data-riven-attr-grade={riven.attributeGrade}>{$tr(attrGradeKey)}</span
+                  >
+                {/if}
+
+                {#if dissolveEndo !== null}
+                  <span
+                    class="absolute top-[19.5%] right-[12%] z-[2] inline-flex items-center gap-1 rounded-full border border-border bg-bg-deep/80 px-1.5 py-0.5 font-display text-[0.6rem] font-bold leading-none text-text-secondary"
+                    title={$tr("rivens.dissolveValue", { endo: dissolveEndo })}
+                    data-riven-dissolve-endo={dissolveEndo}
+                  >
+                    <img src={STAT_ICON_URLS.endoDelta} alt="" class="h-2.5 w-2.5" />
+                    {dissolveEndo}
+                  </span>
+                {/if}
 
                 <div class="absolute z-[1] left-[13%] right-[11%] top-[51%] text-center">
                   <span

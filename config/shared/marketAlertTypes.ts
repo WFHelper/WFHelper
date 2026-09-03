@@ -72,6 +72,9 @@ export interface RivenAlertMatch {
   requirePositive: string[];
   /** Curses that must all be present. */
   requireNegative: string[];
+  /** Curses the roll is allowed to carry. Empty means no restriction; a
+   *  non-empty list rejects any other curse and still accepts a clean roll. */
+  allowedNegatives?: string[];
   /** Attributes that must not appear on either side. */
   excludeAttributes: string[];
   /** true = the roll must carry a curse, false = must not, absent = either. */
@@ -207,47 +210,6 @@ export interface MarketAlertSavePayload {
   ownedCount?: number | null;
 }
 
-// Riven dissolve endo: 100*(MR-8) + floor(22.5 * 2^rank) + 200*rerolls - 7.
-// wiki.warframe.com documents no formula (checked 2026-08-31; Riven_Mods and
-// Endo cover fusion cost only); the source is the Fandom mirror, which the
-// community calculators agree with: https://warframe.fandom.com/wiki/Riven_Mods
-const RIVEN_ENDO_PER_MASTERY_RANK = 100;
-const RIVEN_ENDO_MASTERY_BASE = 8;
-const RIVEN_ENDO_RANK_FACTOR = 22.5;
-const RIVEN_ENDO_PER_REROLL = 200;
-const RIVEN_ENDO_CONSTANT = -7;
-
-/** Endo a riven dissolves for. Inputs are clamped to the ranges the game can
- *  produce so a hostile auction payload cannot drive the result anywhere. */
-export function rivenDissolveEndo(masteryRank: number, modRank: number, rerolls: number): number {
-  const mr = clampInt(masteryRank, 8, 16);
-  const rank = clampInt(modRank, 0, 8);
-  const rolls = clampInt(rerolls, 0, 10_000);
-  const total =
-    RIVEN_ENDO_PER_MASTERY_RANK * (mr - RIVEN_ENDO_MASTERY_BASE) +
-    Math.floor(RIVEN_ENDO_RANK_FACTOR * 2 ** rank) +
-    RIVEN_ENDO_PER_REROLL * rolls +
-    RIVEN_ENDO_CONSTANT;
-  return Math.max(0, total);
-}
-
-/** Endo per platinum asked. Zero-or-less prices have no ratio rather than an
- *  infinite one, so a free listing can never satisfy a minimum. */
-export function rivenEndoPerPlat(
-  masteryRank: number,
-  modRank: number,
-  rerolls: number,
-  platinum: number,
-): number | null {
-  if (!Number.isFinite(platinum) || platinum <= 0) return null;
-  return rivenDissolveEndo(masteryRank, modRank, rerolls) / platinum;
-}
-
-function clampInt(value: unknown, min: number, max: number): number {
-  const n = typeof value === "number" && Number.isFinite(value) ? Math.trunc(value) : min;
-  return Math.min(max, Math.max(min, n));
-}
-
 type MarketAlertParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
 function fail<T>(error: string): MarketAlertParseResult<T> {
@@ -322,6 +284,7 @@ const RIVEN_MATCH_KEYS = [
   "weaponUrlName",
   "requirePositive",
   "requireNegative",
+  "allowedNegatives",
   "excludeAttributes",
   "hasNegative",
   "minSimilarityPct",
@@ -393,6 +356,13 @@ function parseRivenMatch(value: unknown): MarketAlertParseResult<RivenAlertMatch
     statBounds: statBounds.value,
   };
 
+  // Absent stays absent: an export must not gain a field the user never set.
+  if (value.allowedNegatives !== undefined) {
+    const allowedNegatives = readAttributeList(value, "allowedNegatives");
+    if (!allowedNegatives.ok) return fail(`riven ${allowedNegatives.error}`);
+    match.allowedNegatives = allowedNegatives.value;
+  }
+
   if (value.hasNegative !== undefined) {
     if (typeof value.hasNegative !== "boolean") return fail("riven hasNegative must be a boolean");
     match.hasNegative = value.hasNegative;
@@ -454,6 +424,13 @@ function parseRivenMatch(value: unknown): MarketAlertParseResult<RivenAlertMatch
   for (const attribute of match.excludeAttributes) {
     if (match.requirePositive.includes(attribute) || match.requireNegative.includes(attribute)) {
       return fail("riven excludeAttributes contradicts a required attribute");
+    }
+  }
+  if (match.allowedNegatives && match.allowedNegatives.length > 0) {
+    for (const attribute of match.requireNegative) {
+      if (!match.allowedNegatives.includes(attribute)) {
+        return fail("riven requireNegative is outside allowedNegatives");
+      }
     }
   }
   return { ok: true, value: match };

@@ -253,6 +253,37 @@ describe("riven rule evaluation", () => {
     expect(mocks.dispatchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("accepts a curse inside allowedNegatives", async () => {
+    mocks.requestMock.mockResolvedValue(auctionPayload([{ id: "tolerated" }]));
+    saveOk(rivenRuleRaw({ riven: { allowedNegatives: ["zoom", "recoil"] } }));
+    initEngine();
+    await runMarketAlertTickForTest();
+    expect(mocks.dispatchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a curse outside allowedNegatives", async () => {
+    mocks.requestMock.mockResolvedValue(auctionPayload([{ id: "harmful" }]));
+    saveOk(rivenRuleRaw({ riven: { allowedNegatives: ["recoil"] } }));
+    initEngine();
+    await runMarketAlertTickForTest();
+    expect(mocks.dispatchMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts a curse-free roll under allowedNegatives", async () => {
+    mocks.requestMock.mockResolvedValue(
+      auctionPayload([
+        {
+          id: "clean",
+          attributes: [{ url_name: "critical_chance", value: 120, positive: true }],
+        },
+      ]),
+    );
+    saveOk(rivenRuleRaw({ riven: { allowedNegatives: ["recoil"] } }));
+    initEngine();
+    await runMarketAlertTickForTest();
+    expect(mocks.dispatchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("pushes server-side filters into the search query", async () => {
     mocks.requestMock.mockResolvedValue(auctionPayload([]));
     saveOk(

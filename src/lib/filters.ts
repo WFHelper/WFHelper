@@ -19,6 +19,7 @@ const DESCENDING_DEFAULT_SORT_KEYS = new Set<string>([
   "disposition",
   "rerolls",
   "grade",
+  "attr_grade",
   "ducatonator",
   "complete_sets",
   "mastery_xp",
@@ -69,6 +70,8 @@ interface FilterableItem {
   rerolls?: number | null;
   grade?: string | number | null;
   gradeRank?: number | null;
+  /** Second grade axis (riven attribute quality); the caller supplies the rank. */
+  attrGradeRank?: number | null;
   masteryXpRemaining?: number | null;
   /** Undefined when no foundry state applies (already owned and mastered). */
   foundryState?: FoundryState | undefined;
@@ -149,6 +152,9 @@ function toMetric(item: FilterableItem, sortBy: SharedFiltersState["sortBy"]): n
     if (typeof item.grade === "number") return item.grade;
     if (typeof item.grade === "string") return GRADE_ORDER[item.grade.toUpperCase()] ?? null;
     return null;
+  }
+  if (sortBy === "attr_grade") {
+    return typeof item.attrGradeRank === "number" ? item.attrGradeRank : null;
   }
   if (sortBy === "owned") {
     if (typeof item.owned === "boolean") return item.owned ? 1 : 0;

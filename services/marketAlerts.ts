@@ -28,9 +28,8 @@ import {
   parseMarketAlertBinding,
   parseMarketAlertImport,
   parseMarketAlertRule,
-  rivenDissolveEndo,
-  rivenEndoPerPlat,
 } from "../config/shared/marketAlertTypes";
+import { rivenDissolveEndo, rivenEndoPerPlat } from "../config/shared/rivenEndo";
 import type {
   ItemAlertMatch,
   MarketAlertBinding,
@@ -388,6 +387,13 @@ function matchRivenAuction(match: RivenAlertMatch, auction: AuctionView): boolea
   }
   for (const stat of match.excludeAttributes) {
     if (positives.has(stat) || negatives.has(stat)) return false;
+  }
+  // A tolerated-curse list bounds what a curse may be, not whether one exists;
+  // a clean roll passes and hasNegative still decides if one is wanted at all.
+  if (match.allowedNegatives && match.allowedNegatives.length > 0) {
+    for (const stat of negatives) {
+      if (!match.allowedNegatives.includes(stat)) return false;
+    }
   }
   if (match.hasNegative === true && negatives.size === 0) return false;
   if (match.hasNegative === false && negatives.size > 0) return false;

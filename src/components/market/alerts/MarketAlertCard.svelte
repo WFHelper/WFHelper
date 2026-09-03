@@ -43,10 +43,13 @@
   const positiveChip = `${chipBase} border-success/40 bg-success/15 text-success`;
   const negativeChip = `${chipBase} border-danger/40 bg-danger/15 text-danger`;
   const excludedChip = `${chipBase} border-border text-text-muted line-through`;
+  // Tolerated, not required: dashed to read as a bound on the curse, not a demand.
+  const toleratedChip = `${chipBase} border-dashed border-danger/40 text-danger/80`;
 
   const chips = $derived(criteriaChips(rule));
   const positives = $derived(rule.riven?.requirePositive ?? []);
   const negatives = $derived(rule.riven?.requireNegative ?? []);
+  const tolerated = $derived(rule.riven?.allowedNegatives ?? []);
   const excluded = $derived(rule.riven?.excludeAttributes ?? []);
   const bounds = $derived(rule.riven?.statBounds ?? []);
   const kindLabel = $derived(
@@ -137,7 +140,7 @@
     </div>
   {/if}
 
-  {#if positives.length + negatives.length + excluded.length + bounds.length > 0}
+  {#if positives.length + negatives.length + tolerated.length + excluded.length + bounds.length > 0}
     <div class="flex flex-wrap gap-1" data-alert-stats>
       {#each positives as stat (stat)}
         <span class={positiveChip} title={$tr("marketAlerts.requiredPositive")}
@@ -147,6 +150,13 @@
       {#each negatives as stat (stat)}
         <span class={negativeChip} title={$tr("marketAlerts.requiredNegative")}
           >{statLabel(stat, statOptions)}</span
+        >
+      {/each}
+      {#each tolerated as stat (stat)}
+        <span
+          class={toleratedChip}
+          title={$tr("marketAlerts.allowedNegatives")}
+          data-alert-allowed-negative={stat}>{statLabel(stat, statOptions)}</span
         >
       {/each}
       {#each bounds as bound (bound.attribute)}

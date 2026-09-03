@@ -2,7 +2,7 @@
   import { onDestroy, onMount } from "svelte";
   import type { DecodedRiven, RivenBestAttributes, WfmRivenListing } from "../types/ipc.js";
   import { itemDb } from "../stores/data.js";
-  import { PLATINUM_ICON_URL } from "../lib/assetUrls.js";
+  import { PLATINUM_ICON_URL, STAT_ICON_URLS } from "../lib/assetUrls.js";
   import { invoke, send, tradeInvoke } from "../lib/ipc.js";
   import { gradeColor, attrGradeColor, dispoStars } from "../lib/rivenGradeColors.js";
   import DetailModalBase from "./DetailModalBase.svelte";
@@ -13,6 +13,7 @@
   } from "../../renderer/riven-similarity.js";
   import { tr, type MessageKey } from "../lib/i18n.js";
   import { RIVEN_ATTR_GRADE_KEYS, RIVEN_TYPE_KEYS } from "../lib/rivenLabels.js";
+  import { rivenDissolveHint } from "../lib/rivens/dissolve.js";
 
   interface Props {
     riven: DecodedRiven;
@@ -44,6 +45,10 @@
   let listingSuccessKey = $state<MessageKey | null>(null);
   let isLoggedIn = $state(false);
   let bestAttrs = $state<RivenBestAttributes | null>(null);
+  let dictionaryUpdatedAt = $state<string | null>(null);
+  /** Suppresses a "never downloaded" flash before the first answer arrives. */
+  let dictionaryChecked = $state(false);
+  let refreshingDictionary = $state(false);
   let showAllListings = $state(false);
   let disposed = false;
   const DEFAULT_LISTING_COUNT = 20;
@@ -103,12 +108,37 @@
 
     invoke("getRivenBestAttributes", riven.weaponName)
       .then((attrs) => {
-        if (!disposed) bestAttrs = attrs;
+        if (disposed) return;
+        bestAttrs = attrs;
+        dictionaryUpdatedAt = attrs?.updatedAt ?? null;
       })
       .catch(() => {
         if (!disposed) bestAttrs = null;
+      })
+      .finally(() => {
+        if (!disposed) dictionaryChecked = true;
       });
   });
+
+  // A weapon absent from a stale sheet answers null, so the refresh has to be
+  // reachable without a loaded entry.
+  async function refreshDictionary(): Promise<void> {
+    if (refreshingDictionary) return;
+    refreshingDictionary = true;
+    try {
+      const result = await invoke("refreshRivenGoodRolls", riven.weaponName);
+      if (disposed) return;
+      bestAttrs = result.attributes;
+      dictionaryUpdatedAt = result.updatedAt;
+    } catch {
+      // Leaves the previous entry on screen; the timestamp says it is unchanged.
+    } finally {
+      if (!disposed) {
+        refreshingDictionary = false;
+        dictionaryChecked = true;
+      }
+    }
+  }
 
   onDestroy(() => {
     disposed = true;
@@ -206,6 +236,19 @@
     listingErrorRaw || (listingErrorKey ? $tr(listingErrorKey) : ""),
   );
   const listingSuccessText = $derived(listingSuccessKey ? $tr(listingSuccessKey) : "");
+  const dissolveEndo = $derived(rivenDissolveHint(riven));
+  const dictionaryAgeLabel = $derived.by(() => {
+    const translate = $tr;
+    if (!dictionaryChecked) return "";
+    const parsed = dictionaryUpdatedAt ? Date.parse(dictionaryUpdatedAt) : Number.NaN;
+    if (!Number.isFinite(parsed)) return translate("rivens.detail.dictionaryNever");
+    const ageMin = Math.max(0, Math.floor((Date.now() - parsed) / 60000));
+    if (ageMin < 1) return translate("common.updatedJustNow");
+    if (ageMin < 60) return translate("common.updatedMAgo", { min: ageMin });
+    const ageHr = Math.floor(ageMin / 60);
+    if (ageHr < 24) return translate("common.updatedHAgo", { hr: ageHr });
+    return translate("common.updatedDAgo", { days: Math.floor(ageHr / 24) });
+  });
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -302,6 +345,15 @@
                   })}
               {#if riven.stats.some((s) => !s.positive)}, {$tr("rivens.detail.oneCurse")}{/if}
             </span>
+            {#if dissolveEndo !== null}
+              <span
+                class="mt-1 inline-flex items-center gap-1 text-xs text-text-muted"
+                data-riven-dissolve-endo={dissolveEndo}
+              >
+                <img src={STAT_ICON_URLS.endoDelta} alt="" class="h-3 w-3" />
+                {$tr("rivens.dissolveValue", { endo: dissolveEndo })}
+              </span>
+            {/if}
           </div>
         </div>
       {/if}
@@ -354,11 +406,24 @@
         </div>
       </div>
 
-      {#if bestAttrs}
-        <div class="mt-5">
-          <h3 class="font-display text-xs uppercase tracking-[0.08em] text-text-muted m-0 mb-2.5">
+      <div class="mt-5">
+        <div class="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h3 class="font-display text-xs uppercase tracking-[0.08em] text-text-muted m-0">
             {$tr("rivens.detail.bestAttributesFor", { weapon: riven.weaponName })}
           </h3>
+          <span class="text-xs text-text-muted" data-riven-dictionary-age>{dictionaryAgeLabel}</span
+          >
+          <button
+            class="link-btn text-xs"
+            disabled={refreshingDictionary}
+            title={$tr("rivens.detail.refreshDictionary")}
+            data-riven-dictionary-refresh
+            onclick={() => void refreshDictionary()}
+          >
+            {refreshingDictionary ? $tr("common.loading") : $tr("common.refresh")}
+          </button>
+        </div>
+        {#if bestAttrs}
           <div class="grid grid-cols-2 gap-4">
             <div class="flex flex-col gap-1">
               <span
@@ -392,8 +457,10 @@
               {/each}
             </div>
           </div>
-        </div>
-      {/if}
+        {:else}
+          <div class="text-xs text-text-muted">{$tr("rivens.detail.noGoodRollData")}</div>
+        {/if}
+      </div>
 
       <div class="mt-6">
         <h3 class="font-display text-xs uppercase tracking-[0.08em] text-text-muted m-0 mb-2.5">

@@ -10,6 +10,29 @@ export interface GoodRollData {
   acceptedBadAttrs: string[];
 }
 
+/** One sheet attribute resolved into every vocabulary a caller needs. The sheet
+ *  speaks DE upgrade tags; alerts speak WFM url_names and the UI speaks labels. */
+export interface RivenGoodRollAttribute {
+  tag: string;
+  /** null when warframe.market has no auction attribute for this tag. */
+  wfmUrlName: string | null;
+  displayName: string;
+}
+
+export interface RivenGoodRollGroup {
+  mandatory: RivenGoodRollAttribute[];
+  optional: RivenGoodRollAttribute[];
+}
+
+/** A weapon's good-roll entry, resolved for display and for alert prefill. */
+export interface RivenGoodRoll {
+  groups: RivenGoodRollGroup[];
+  /** Curses the sheet tolerates on this weapon. */
+  acceptedNegatives: RivenGoodRollAttribute[];
+  /** ISO time the sheet was last fetched; null when never cached. */
+  updatedAt: string | null;
+}
+
 interface RivenGoodRollEntry extends GoodRollData {
   name: string;
 }

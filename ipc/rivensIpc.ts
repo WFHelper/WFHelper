@@ -14,6 +14,8 @@ import {
   RIVENS_GET_STAT_OPTIONS,
   RIVENS_SEARCH_AUCTIONS,
   RIVENS_GET_BEST_ATTRIBUTES,
+  RIVENS_GET_GOOD_ROLL,
+  RIVENS_REFRESH_GOOD_ROLLS,
   RIVENS_CREATE_AUCTION,
   RIVENS_UPDATE_AUCTION,
   RIVENS_DELETE_AUCTION,
@@ -50,6 +52,15 @@ function isCreateAuctionStat(value: unknown): value is CreateAuctionStat {
     typeof value.positive === "boolean" &&
     (value.multiplier == null || typeof value.multiplier === "boolean")
   );
+}
+
+/** The weapon whose riven family resolves to this WFM slug, or null. */
+function weaponNameForFamilySlug(slug: string): string | null {
+  if (!/^[a-z0-9_]+$/.test(slug)) return null;
+  for (const name of rivenData.getAllRivenWeaponNames()) {
+    if (rivenData.getRivenFamilySlug(name) === slug) return name;
+  }
+  return null;
 }
 
 function register(): void {
@@ -99,6 +110,40 @@ function register(): void {
       await rivenBestAttributes.ensureRivenGoodRollsLoaded();
       const isMelee = rivenData.isMeleeWeapon(weapon);
       return rivenBestAttributes.getBestAttributes(weapon, isMelee);
+    },
+  );
+
+  handleAuthorized(
+    RIVENS_GET_GOOD_ROLL,
+    assertMainRendererSender,
+    async (_event, weaponName: unknown) => {
+      const weapon = toNonEmptyString(weaponName, 120);
+      if (!weapon) return null;
+      await rivenBestAttributes.ensureRivenGoodRollsLoaded();
+      const detail = rivenBestAttributes.getGoodRollDetail(weapon, rivenData.isMeleeWeapon(weapon));
+      if (detail) return detail;
+      // A saved alert rule carries only the WFM family slug, and slugs spell the
+      // ampersand out ("silva_and_aegis"), so the sheet's own name never matches.
+      const bySlug = weaponNameForFamilySlug(weapon);
+      return bySlug
+        ? rivenBestAttributes.getGoodRollDetail(bySlug, rivenData.isMeleeWeapon(bySlug))
+        : null;
+    },
+  );
+
+  // Refetches the community sheet on user request, then answers with the same
+  // shape the initial load did so the caller needs one round trip, not two.
+  handleAuthorized(
+    RIVENS_REFRESH_GOOD_ROLLS,
+    assertMainRendererSender,
+    async (_event, weaponName: unknown) => {
+      await rivenBestAttributes.ensureRivenGoodRollsLoaded(true);
+      const updatedAt = rivenBestAttributes.getRivenGoodRollsUpdatedAt();
+      const weapon = toNonEmptyString(weaponName, 120);
+      const attributes = weapon
+        ? rivenBestAttributes.getBestAttributes(weapon, rivenData.isMeleeWeapon(weapon))
+        : null;
+      return { attributes, updatedAt };
     },
   );
 

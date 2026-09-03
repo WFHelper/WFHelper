@@ -21,3 +21,11 @@ export const RIVEN_ATTR_GRADE_KEYS: Record<string, MessageKey> = {
   OK: "rivens.grade.ok",
   Bad: "rivens.grade.bad",
 };
+
+/** Sort weight for the attribute grade; "?" (no sheet data) has none. */
+export const RIVEN_ATTR_GRADE_ORDER: Record<string, number> = {
+  Great: 4,
+  Good: 3,
+  OK: 2,
+  Bad: 1,
+};

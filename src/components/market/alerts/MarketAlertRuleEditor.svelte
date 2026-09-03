@@ -30,7 +30,11 @@
     RivenPolarity,
     RivenStatBound,
   } from "../../../../config/shared/marketAlertTypes.js";
-  import type { RivenStatOption } from "../../../types/ipc.js";
+  import type {
+    RivenGoodRollAttribute,
+    RivenGoodRollGroup,
+    RivenStatOption,
+  } from "../../../types/ipc.js";
   import type { WfmSearchItem } from "../../../types/market.js";
 
   let {
@@ -70,6 +74,7 @@
   let weaponDirty = $state(false);
   let requirePositive = $state<string[]>([...(riven?.requirePositive ?? [])]);
   let requireNegative = $state<string[]>([...(riven?.requireNegative ?? [])]);
+  let allowedNegatives = $state<string[]>([...(riven?.allowedNegatives ?? [])]);
   let excludeAttributes = $state<string[]>([...(riven?.excludeAttributes ?? [])]);
   let statBounds = $state<Array<{ attribute: string; min: string; max: string }>>(
     (riven?.statBounds ?? []).map((b) => ({
@@ -133,8 +138,20 @@
 
   let weaponNames = $state<string[]>([]);
 
+  // 44bananas god-roll prefill. Keys, never translated strings, so a language
+  // switch while the editor is open still resolves.
+  let godRollGroups = $state<RivenGoodRollGroup[]>([]);
+  let godRollNegatives = $state<RivenGoodRollAttribute[]>([]);
+  let godRollOptional = $state<string[]>([]);
+  let godRollSkipped = $state<string[]>([]);
+  let godRollPicking = $state(false);
+  let godRollBusy = $state(false);
+  let godRollNote = $state<MessageKey | null>(null);
+
   const sectionTitle =
     "m-0 font-display text-[0.7rem] font-bold uppercase tracking-[0.09em] text-text-muted";
+
+  // Keys land with this feature's i18n commit; cast until en.json carries them.
 
   $effect(() => {
     void invoke("getRivenWeaponNames").then((names) => {
@@ -169,6 +186,56 @@
       : [...statuses, status];
   }
 
+  /** WFM url_names in sheet order, deduped and capped; tags WFM has no
+   *  attribute for are dropped and reported separately. */
+  function urlNames(attributes: RivenGoodRollAttribute[]): string[] {
+    const out: string[] = [];
+    for (const attribute of attributes) {
+      if (!attribute.wfmUrlName || out.includes(attribute.wfmUrlName)) continue;
+      if (out.length >= MARKET_ALERT_MAX_ATTRIBUTES) break;
+      out.push(attribute.wfmUrlName);
+    }
+    return out;
+  }
+
+  function applyGodRoll(index: number): void {
+    const group = godRollGroups[index];
+    if (!group) return;
+    requirePositive = urlNames(group.mandatory);
+    allowedNegatives = urlNames(godRollNegatives);
+    // Optional stats stay a suggestion: requiring them rejects most good rolls.
+    godRollOptional = group.optional.map((attribute) => attribute.displayName);
+    godRollSkipped = [...group.mandatory, ...godRollNegatives]
+      .filter((attribute) => !attribute.wfmUrlName)
+      .map((attribute) => attribute.displayName);
+    godRollPicking = false;
+  }
+
+  async function loadGodRoll(): Promise<void> {
+    // Same rule as save(): an untouched rule is identified by its slug, which
+    // main can reverse better than titleFromSlug can spell the display name.
+    const weapon = weaponDirty || !existingWeaponSlug ? weaponInput.trim() : existingWeaponSlug;
+    if (!weapon) {
+      error = $tr("marketAlerts.weaponRequired");
+      return;
+    }
+    godRollBusy = true;
+    godRollNote = null;
+    try {
+      const detail = await invoke("getRivenGoodRoll", weapon);
+      godRollGroups = detail?.groups ?? [];
+      godRollNegatives = detail?.acceptedNegatives ?? [];
+      if (godRollGroups.length === 0) {
+        godRollNote = "marketAlerts.godRollMissing";
+        return;
+      }
+      if (godRollGroups.length === 1) applyGodRoll(0);
+      else godRollPicking = true;
+    } finally {
+      godRollBusy = false;
+    }
+  }
+
   // Numeric inputs hand back numbers through bind:value, empty ones strings.
   function numOrUndef(raw: string | number): number | undefined {
     const text = String(raw).trim();
@@ -193,6 +260,13 @@
       if (max !== undefined) bound.max = max;
       bounds.push(bound);
     }
+    if (
+      allowedNegatives.length > 0 &&
+      requireNegative.some((stat) => !allowedNegatives.includes(stat))
+    ) {
+      error = $tr("marketAlerts.allowedNegativesConflict");
+      return null;
+    }
     const match: RivenAlertMatch = {
       // Replaced by main when a weapon display name travels with the save; left
       // empty the rule fails the slug check instead of alerting on nothing.
@@ -202,6 +276,8 @@
       excludeAttributes,
       statBounds: bounds,
     };
+    // An empty list is "no restriction", which the absent field already means.
+    if (allowedNegatives.length > 0) match.allowedNegatives = allowedNegatives;
     if (curseMode === "required") match.hasNegative = true;
     if (curseMode === "forbidden") match.hasNegative = false;
     if (includeBidOnly) match.includeBidOnly = true;
@@ -452,11 +528,55 @@
         </label>
       </div>
 
+      <div class="flex flex-wrap items-center gap-2">
+        <button
+          class="btn-secondary btn-sm"
+          disabled={godRollBusy}
+          data-riven-godroll-prefill
+          onclick={() => void loadGodRoll()}>{$tr("marketAlerts.useGodRoll")}</button
+        >
+        {#if godRollNote}
+          <span class="text-xs text-text-muted" data-riven-godroll-note>{$tr(godRollNote)}</span>
+        {/if}
+      </div>
+
+      {#if godRollPicking}
+        <div
+          class="flex flex-col gap-1 rounded-[var(--radius-md)] border border-border p-2"
+          data-riven-godroll-groups
+        >
+          <span class="text-xs text-text-secondary">{$tr("marketAlerts.godRollPickGroup")}</span>
+          {#each godRollGroups as group, index (index)}
+            <button
+              class="link-btn text-left text-xs"
+              data-riven-godroll-group={index}
+              onclick={() => applyGodRoll(index)}
+            >
+              {index + 1}. {group.mandatory.map((attribute) => attribute.displayName).join(" + ")}
+            </button>
+          {/each}
+        </div>
+      {/if}
+
+      {#if godRollOptional.length > 0}
+        <span class="text-xs text-text-muted" data-riven-godroll-optional>
+          {$tr("marketAlerts.godRollOptional", { stats: godRollOptional.join(", ") })}
+        </span>
+      {/if}
+      {#if godRollSkipped.length > 0}
+        <span class="text-xs text-warning" data-riven-godroll-skipped>
+          {$tr("marketAlerts.godRollSkipped", { stats: godRollSkipped.join(", ") })}
+        </span>
+      {/if}
+
       {@render statPicker("marketAlerts.requiredPositive", requirePositive, (next) => {
         requirePositive = next;
       })}
       {@render statPicker("marketAlerts.requiredNegative", requireNegative, (next) => {
         requireNegative = next;
+      })}
+      {@render statPicker("marketAlerts.allowedNegatives", allowedNegatives, (next) => {
+        allowedNegatives = next;
       })}
       {@render statPicker("marketAlerts.excludedStats", excludeAttributes, (next) => {
         excludeAttributes = next;

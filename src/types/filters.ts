@@ -24,6 +24,7 @@ export type SharedSortKey =
   | "disposition"
   | "rerolls"
   | "grade"
+  | "attr_grade"
   | "ducatonator"
   | "complete_sets"
   | "missing_parts"

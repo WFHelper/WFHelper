@@ -7,8 +7,6 @@ import {
   parseMarketAlertBinding,
   parseMarketAlertImport,
   parseMarketAlertRule,
-  rivenDissolveEndo,
-  rivenEndoPerPlat,
 } from "../../config/shared/marketAlertTypes";
 import type { MarketAlertRule } from "../../config/shared/marketAlertTypes";
 
@@ -40,31 +38,6 @@ function itemRule(overrides: Record<string, unknown> = {}): Record<string, unkno
     },
   };
 }
-
-describe("rivenDissolveEndo", () => {
-  it("matches the community formula 100*(MR-8) + floor(22.5*2^rank) + 200*rerolls - 7", () => {
-    expect(rivenDissolveEndo(13, 0, 0)).toBe(515);
-    expect(rivenDissolveEndo(8, 0, 0)).toBe(15);
-    expect(rivenDissolveEndo(16, 8, 10)).toBe(800 + 5760 + 2000 - 7);
-    expect(rivenDissolveEndo(14, 3, 2)).toBe(600 + Math.floor(22.5 * 8) + 400 - 7);
-  });
-
-  it("clamps hostile inputs to game ranges", () => {
-    expect(rivenDissolveEndo(99, 0, 0)).toBe(rivenDissolveEndo(16, 0, 0));
-    expect(rivenDissolveEndo(-5, 0, 0)).toBe(rivenDissolveEndo(8, 0, 0));
-    expect(rivenDissolveEndo(8, 99, 0)).toBe(rivenDissolveEndo(8, 8, 0));
-    expect(rivenDissolveEndo(8, Number.NaN, Number.POSITIVE_INFINITY)).toBe(
-      rivenDissolveEndo(8, 0, 0),
-    );
-  });
-
-  it("computes endo per plat and refuses non-positive prices", () => {
-    expect(rivenEndoPerPlat(13, 0, 0, 100)).toBeCloseTo(5.15);
-    expect(rivenEndoPerPlat(13, 0, 0, 0)).toBeNull();
-    expect(rivenEndoPerPlat(13, 0, 0, -3)).toBeNull();
-    expect(rivenEndoPerPlat(13, 0, 0, Number.NaN)).toBeNull();
-  });
-});
 
 describe("parseMarketAlertRule", () => {
   it("accepts a full riven rule and fills defaults", () => {
@@ -143,6 +116,25 @@ describe("parseMarketAlertRule", () => {
     expect(
       parseMarketAlertRule(rivenRule({ riven: { minMasteryRank: 14, maxMasteryRank: 9 } }), "id")
         .ok,
+    ).toBe(false);
+  });
+
+  it("keeps allowedNegatives optional and rejects a required curse outside it", () => {
+    const bare = parseMarketAlertRule(rivenRule(), "id");
+    expect(bare.ok && bare.value.riven?.allowedNegatives).toBeUndefined();
+    const set = parseMarketAlertRule(
+      rivenRule({ riven: { allowedNegatives: ["zoom", "zoom", "recoil"] } }),
+      "id",
+    );
+    expect(set.ok && set.value.riven?.allowedNegatives).toEqual(["zoom", "recoil"]);
+    expect(
+      parseMarketAlertRule(
+        rivenRule({ riven: { allowedNegatives: ["recoil"], requireNegative: ["zoom"] } }),
+        "id",
+      ).ok,
+    ).toBe(false);
+    expect(
+      parseMarketAlertRule(rivenRule({ riven: { allowedNegatives: ["not_a_stat"] } }), "id").ok,
     ).toBe(false);
   });
 
