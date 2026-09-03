@@ -50,7 +50,9 @@ test.describe("Codex artwork fallback", () => {
     const brokenInView = async (): Promise<number> =>
       page.evaluate(
         () =>
-          Array.from(document.querySelectorAll('[data-tour="mastery-codex-list"] > div'))
+          Array.from(
+            document.querySelectorAll('[data-tour="mastery-codex-list"] [data-codex-entry]'),
+          )
             .filter((card) => {
               const box = card.getBoundingClientRect();
               return box.top < window.innerHeight && box.bottom > 0;
@@ -64,9 +66,9 @@ test.describe("Codex artwork fallback", () => {
     await expect.poll(brokenInView, { timeout: 30_000 }).toBe(0);
     const letters = await page.evaluate(
       () =>
-        Array.from(document.querySelectorAll('[data-tour="mastery-codex-list"] > div')).filter(
-          (card) => !card.querySelector("img"),
-        ).length,
+        Array.from(
+          document.querySelectorAll('[data-tour="mastery-codex-list"] [data-codex-entry]'),
+        ).filter((card) => !card.querySelector("img")).length,
     );
     expect(letters).toBeGreaterThan(0);
   });

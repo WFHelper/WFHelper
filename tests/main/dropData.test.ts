@@ -51,6 +51,24 @@ describe("dropData.flatten", () => {
         },
       ],
     },
+    sortieRewards: [{ itemName: "Riven Mod", rarity: "Rare", chance: 3 }],
+    keyRewards: [
+      {
+        keyName: "Archon Amar",
+        rewards: { A: [{ itemName: "Crimson Archon Shard", rarity: "Common", chance: 100 }] },
+      },
+    ],
+    solarisBountyRewards: [
+      {
+        bountyLevel: "Level 5 - 15 Orb Vallis Bounty",
+        rewards: {
+          A: [{ itemName: "Endo", rarity: "Common", chance: 25, stage: "Stage 1" }],
+        },
+      },
+    ],
+    transientRewards: [
+      { objectiveName: "Arbitrations", rewards: [{ itemName: "Vitus Essence", chance: 100 }] },
+    ],
   };
 
   const rows = flattenForTest(data);
@@ -62,7 +80,25 @@ describe("dropData.flatten", () => {
       place: "Apollodorus (Mercury), Rotation C",
       rarity: "Rare",
       chance: 7,
+      kind: "mission",
     });
+  });
+
+  it("tags every row with the table it came from", () => {
+    expect(find("Vitus")?.kind).toBe("mission");
+    expect(find("Vitus Essence")?.kind).toBe("mission"); // transient game modes
+    expect(find("Nikana Prime Blueprint")?.kind).toBe("relic");
+    expect(find("Serration")?.kind).toBe("enemy");
+    expect(find("Vitality")?.kind).toBe("enemy");
+    expect(find("Techrot Motherboard")?.kind).toBe("enemy"); // resourceByAvatar
+    expect(find("Styanax Systems Blueprint")?.kind).toBe("syndicate");
+    expect(find("Riven Mod")?.kind).toBe("sortie");
+    expect(find("Crimson Archon Shard")?.kind).toBe("quest");
+    expect(find("Endo")?.kind).toBe("bounty");
+  });
+
+  it("keeps the bounty level label as the place so live jobs can be matched", () => {
+    expect(find("Endo")?.place).toBe("Level 5 - 15 Orb Vallis Bounty, Rotation A (Stage 1)");
   });
 
   it("keeps only the Intact relic state", () => {
@@ -85,9 +121,21 @@ describe("dropData.flatten", () => {
 
 describe("dropData.searchDrops", () => {
   setRowsForTest([
-    { item: "Vitus Essence", place: "Arbitrations, Rotation C", rarity: "Uncommon", chance: 10 },
-    { item: "Vitus Essence", place: "Arbitration Shield Drone", rarity: "Common", chance: 6 },
-    { item: "Survivalist Vitus", place: "Elsewhere", rarity: "Rare", chance: 1 },
+    {
+      item: "Vitus Essence",
+      place: "Arbitrations, Rotation C",
+      rarity: "Uncommon",
+      chance: 10,
+      kind: "mission",
+    },
+    {
+      item: "Vitus Essence",
+      place: "Arbitration Shield Drone",
+      rarity: "Common",
+      chance: 6,
+      kind: "enemy",
+    },
+    { item: "Survivalist Vitus", place: "Elsewhere", rarity: "Rare", chance: 1, kind: "other" },
   ]);
 
   it("ranks prefix matches above mid-word and returns total", () => {

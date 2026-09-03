@@ -19,6 +19,7 @@
   import type { CodexRow, CodexSortKey } from "../../lib/codexScans.js";
   import { loadCodexScans } from "../../lib/codexScansLazy.js";
   import { devMode } from "../../stores/devMode.js";
+  import { activeEnemy } from "../../stores/modals.js";
   import SearchBox from "../SearchBox.svelte";
 
   type CodexScans = Awaited<ReturnType<typeof loadCodexScans>>;
@@ -204,8 +205,15 @@
     >
       {#each filtered as row (row.type)}
         {@const imageUrl = imageFor(row, brokenTick)}
-        <div class="overflow-hidden rounded border border-border bg-bg-surface" title={row.type}>
-          <div class="relative flex h-28 items-center justify-center bg-bg-raised">
+        <button
+          type="button"
+          class="w-full cursor-pointer overflow-hidden rounded border border-border bg-bg-surface p-0 text-left hover:border-accent"
+          data-codex-entry={row.type}
+          title={row.type}
+          on:click={() => activeEnemy.set({ name: row.name, type: row.type })}
+        >
+          <!-- Spans, not divs: a button's content model is phrasing content. -->
+          <span class="relative flex h-28 items-center justify-center bg-bg-raised">
             {#if imageUrl}
               <img
                 class="h-full w-full object-contain p-1"
@@ -224,8 +232,8 @@
                 aria-hidden="true">✓</span
               >
             {/if}
-          </div>
-          <div class="grid gap-0.5 border-t border-border px-2 py-1.5">
+          </span>
+          <span class="grid gap-0.5 border-t border-border px-2 py-1.5">
             <span
               class="truncate text-xs font-bold uppercase tracking-wide text-text-primary"
               title={row.name}>{row.name}</span
@@ -240,8 +248,8 @@
             >
               {row.scanned}{row.required !== null ? ` / ${row.required}` : ""}
             </span>
-          </div>
-        </div>
+          </span>
+        </button>
       {/each}
     </div>
   {/if}

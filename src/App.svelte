@@ -25,6 +25,7 @@
   import ItemDetailModal from "./modals/ItemDetailModal.svelte";
   import ComponentDetailModal from "./modals/ComponentDetailModal.svelte";
   import RelicDetailModal from "./modals/RelicDetailModal.svelte";
+  import EnemyDetailModal from "./modals/EnemyDetailModal.svelte";
   import OrderModal from "./modals/OrderModal.svelte";
   import BulkSellModal from "./components/workbench/BulkSellModal.svelte";
 
@@ -365,6 +366,7 @@
     <ItemDetailModal />
     <ComponentDetailModal />
     <RelicDetailModal />
+    <EnemyDetailModal />
     <OrderModal />
     {#if $bulkSellOpen}
       <BulkSellModal onClose={() => bulkSellOpen.set(false)} />

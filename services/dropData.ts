@@ -9,6 +9,18 @@ const log = withScope("dropData");
 const INFO_URL = "https://drops.warframestat.us/data/info.json";
 const ALL_URL = "https://drops.warframestat.us/data/all.json";
 
+/** Which upstream table the row came from, so the UI can label its source.
+ *  src/types/drops.ts mirrors this for the renderer. */
+type DropKind =
+  | "enemy"
+  | "mission"
+  | "bounty"
+  | "relic"
+  | "sortie"
+  | "quest"
+  | "syndicate"
+  | "other";
+
 export interface DropRow {
   /** Item that drops (e.g. "Vitus Essence"). */
   item: string;
@@ -16,9 +28,15 @@ export interface DropRow {
   place: string;
   rarity: string;
   chance: number;
+  kind: DropKind;
 }
 
+// Bumped when a row gains a field: an older cache has no kind, and the flatten
+// is the only place that can derive one.
+const CACHE_VERSION = 2;
+
 interface CachePayload {
+  version: number;
   hash: string;
   updatedAt: string;
   rows: DropRow[];
@@ -30,8 +48,14 @@ let refreshPromise: Promise<{ changed: boolean }> | null = null;
 
 const cache = createJsonCache<CachePayload>("drop-data-cache.json", (raw) => {
   const parsed = raw as Partial<CachePayload>;
+  if (parsed.version !== CACHE_VERSION) return null;
   if (!parsed.hash || !Array.isArray(parsed.rows)) return null;
-  return { hash: parsed.hash, updatedAt: parsed.updatedAt || "", rows: parsed.rows };
+  return {
+    version: CACHE_VERSION,
+    hash: parsed.hash,
+    updatedAt: parsed.updatedAt || "",
+    rows: parsed.rows,
+  };
 });
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -58,7 +82,13 @@ function rewardName(r: Reward): string | null {
   return r.itemName || r.item || r.modName || null;
 }
 
-function pushRow(out: DropRow[], item: string | null, place: string, r: Reward): void {
+function pushRow(
+  out: DropRow[],
+  item: string | null,
+  place: string,
+  r: Reward,
+  kind: DropKind,
+): void {
   if (!item || !place) return;
   const raw = typeof r.chance === "number" ? r.chance : Number(r.chance);
   const chance = Number.isFinite(raw) ? raw : 0;
@@ -67,6 +97,7 @@ function pushRow(out: DropRow[], item: string | null, place: string, r: Reward):
     place,
     rarity: correctedDropRarity(place, chance, r.rarity || ""),
     chance,
+    kind,
   });
 }
 
@@ -75,13 +106,14 @@ function pushRewardContainer(
   out: DropRow[],
   basePlace: string,
   rewards: Reward[] | Record<string, Reward[]>,
+  kind: DropKind,
 ): void {
   const emit = (place: string, list: Reward[]): void => {
     for (const r of list) {
       let p = place;
       if (r.rotation) p += `, Rotation ${r.rotation}`;
       if (r.stage) p += ` (${r.stage})`;
-      pushRow(out, rewardName(r), p, r);
+      pushRow(out, rewardName(r), p, r, kind);
     }
   };
   if (Array.isArray(rewards)) {
@@ -126,61 +158,66 @@ function flatten(data: AllData): DropRow[] {
   for (const [planet, nodes] of Object.entries(data.missionRewards || {})) {
     for (const [node, info] of Object.entries(nodes || {})) {
       const place = `${node} (${planet})`;
-      pushRewardContainer(out, place, (info?.rewards as Reward[]) || []);
+      pushRewardContainer(out, place, (info?.rewards as Reward[]) || [], "mission");
     }
   }
   for (const relic of data.relics || []) {
     if (relic.state && relic.state !== "Intact") continue; // dedupe refinements
     const place = `${relic.tier} ${relic.relicName} Relic`;
-    pushRewardContainer(out, place, relic.rewards || []);
+    pushRewardContainer(out, place, relic.rewards || [], "relic");
   }
   for (const t of data.transientRewards || []) {
-    pushRewardContainer(out, t.objectiveName || "Mission", t.rewards || []);
+    pushRewardContainer(out, t.objectiveName || "Mission", t.rewards || [], "mission");
   }
-  for (const r of data.sortieRewards || []) pushRow(out, rewardName(r), "Sortie", r);
+  for (const r of data.sortieRewards || []) pushRow(out, rewardName(r), "Sortie", r, "sortie");
   for (const k of data.keyRewards || []) {
-    pushRewardContainer(out, k.keyName || "Quest", k.rewards || {});
+    pushRewardContainer(out, k.keyName || "Quest", k.rewards || {}, "quest");
   }
   for (const key of BOUNTY_KEYS) {
     const list = data[key] as Array<{ bountyLevel?: string; rewards?: Record<string, Reward[]> }>;
     for (const b of list || [])
-      pushRewardContainer(out, b.bountyLevel || "Bounty", b.rewards || {});
+      pushRewardContainer(out, b.bountyLevel || "Bounty", b.rewards || {}, "bounty");
   }
 
   // item -> enemies
   for (const m of data.modLocations || []) {
-    for (const e of m.enemies || []) pushRow(out, m.modName || null, e.enemyName || "", e);
+    for (const e of m.enemies || []) pushRow(out, m.modName || null, e.enemyName || "", e, "enemy");
   }
   for (const b of data.blueprintLocations || []) {
-    for (const e of b.enemies || []) pushRow(out, b.itemName || null, e.enemyName || "", e);
+    for (const e of b.enemies || [])
+      pushRow(out, b.itemName || null, e.enemyName || "", e, "enemy");
   }
 
   // enemy -> items
   for (const e of data.enemyModTables || []) {
-    for (const m of e.mods || []) pushRow(out, rewardName(m), e.enemyName || "", m);
+    for (const m of e.mods || []) pushRow(out, rewardName(m), e.enemyName || "", m, "enemy");
   }
   for (const e of data.enemyBlueprintTables || []) {
-    for (const it of e.items || []) pushRow(out, rewardName(it), e.enemyName || "", it);
+    for (const it of e.items || []) pushRow(out, rewardName(it), e.enemyName || "", it, "enemy");
   }
+  // "byAvatar" tables are keyed by enemy too; a handful of prop sources ride
+  // along and just resolve to no codex entry in the detail panel.
   for (const key of ["resourceByAvatar", "sigilByAvatar", "additionalItemByAvatar"] as const) {
     for (const s of data[key] || []) {
-      for (const it of s.items || []) pushRow(out, rewardName(it), s.source || "", it);
+      for (const it of s.items || []) pushRow(out, rewardName(it), s.source || "", it, "enemy");
     }
   }
 
   // syndicates: already carry their own place
   for (const list of Object.values(data.syndicates || {})) {
-    for (const r of list || []) pushRow(out, rewardName(r), r.place || "Syndicate", r);
+    for (const r of list || []) pushRow(out, rewardName(r), r.place || "Syndicate", r, "syndicate");
   }
 
-  // Upstream data has duplicate reward entries; collapse identical rows.
-  const seen = new Set<string>();
-  return out.filter((row) => {
+  // Upstream data has duplicate reward entries; collapse identical rows. An
+  // enemy row wins a tie so the name stays clickable when a table lists it twice.
+  const byKey = new Map<string, DropRow>();
+  for (const row of out) {
     const key = `${row.item}|${row.place}|${row.rarity}|${row.chance}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+    const seen = byKey.get(key);
+    if (!seen) byKey.set(key, row);
+    else if (seen.kind !== "enemy" && row.kind === "enemy") byKey.set(key, row);
+  }
+  return [...byKey.values()];
 }
 
 // cache + load
@@ -210,7 +247,12 @@ export async function refreshFromUpstream(): Promise<{ changed: boolean }> {
       const next = flatten(all);
       rows = next;
       loadedHash = hash;
-      cache.write({ hash, updatedAt: new Date().toISOString(), rows: next });
+      cache.write({
+        version: CACHE_VERSION,
+        hash,
+        updatedAt: new Date().toISOString(),
+        rows: next,
+      });
       log.info(`Drop data refreshed: ${next.length} rows (hash ${hash.slice(0, 8)})`);
       return { changed: true };
     } catch (err) {

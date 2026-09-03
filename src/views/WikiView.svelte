@@ -4,12 +4,16 @@
   import { invoke } from "../lib/ipc.js";
   import { itemDb, componentOwnership } from "../stores/data.js";
   import { addSavedSearch, removeSavedSearch, savedSearches } from "../stores/savedSearches.js";
-  import { activeItem } from "../stores/modals.js";
+  import { activeEnemy, activeItem, wikiSearchRequest } from "../stores/modals.js";
+  import { worldData } from "../stores/world.js";
+  import { canonicalSyndicateKey } from "../lib/bountyRewards.js";
   import { buildItemNameIndex } from "../lib/componentResolution.js";
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
-  import { tr as t } from "../lib/i18n.js";
+  import { tr as t, type MessageKey } from "../lib/i18n.js";
   import { stripQuantityPrefix } from "../../config/shared/quantityPrefix.js";
-  import type { DropRow, DropSearchMode } from "../types/drops.js";
+  import WikiButton from "../components/WikiButton.svelte";
+  import type { DropKind, DropRow, DropSearchMode } from "../types/drops.js";
+  import type { SyndicateBounty } from "../types/world.js";
 
   let query = "";
   let mode: DropSearchMode = "item";
@@ -19,6 +23,9 @@
   let searched = false;
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  // The query a search actually ran with. bestWikiName walks the whole itemDb
+  // name index, so the header link follows this instead of every keystroke.
+  let linkQuery = "";
   let requestToken = 0;
   let searchEl: HTMLInputElement | null = null;
 
@@ -37,6 +44,71 @@
     void runSearch();
   }
 
+  // The dictionary rejects duplicate values, so four of these tags borrow the
+  // key that already owns the word rather than adding a wiki-local twin.
+  const KIND_LABEL_KEYS: Record<DropKind, MessageKey | null> = {
+    enemy: "common.enemy",
+    mission: "common.mission",
+    bounty: "world.bountyLabel",
+    relic: "drops.relicSuffix",
+    sortie: "dailies.task.sortie",
+    quest: "common.quest",
+    syndicate: "common.syndicate",
+    // No upstream table produces this today; it stays the unlabelled fallback.
+    other: null,
+  };
+
+  // The drop tables name the location, world state keys the same bounty by
+  // syndicate tag or display name, so both spellings map to the drops file.
+  const BOUNTY_PLACE_KEYS: Array<[RegExp, string]> = [
+    [/\bCetus Bounty\b/i, "cetus"],
+    [/\bOrb Vallis Bounty\b/i, "solaris"],
+    [/\bCambion Drift Bounty\b/i, "deimos"],
+    [/\bZariman Bounty\b/i, "zariman"],
+    [/\bEntrati Lab Bounty\b/i, "entratiLab"],
+    [/\bWF1999 Bounty\b/i, "hex"],
+  ];
+  // Keyed by syndicate tag only; canonicalSyndicateKey folds the display-name
+  // spellings in, so the alias vocabulary lives in one place.
+  const BOUNTY_SYNDICATE_KEYS: Record<string, string> = {
+    CetusSyndicate: "cetus",
+    SolarisSyndicate: "solaris",
+    EntratiSyndicate: "deimos",
+    ZarimanSyndicate: "zariman",
+    EntratiLabSyndicate: "entratiLab",
+    HexSyndicate: "hex",
+  };
+
+  /** "<location>|<min>|<max>" -> the job the world state currently offers there. */
+  function buildLiveBountyIndex(bounties: SyndicateBounty[] | undefined): Map<string, string> {
+    // Rebuilt whole and reassigned, so the map itself never needs to publish.
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity
+    const index = new Map<string, string>();
+    for (const group of bounties || []) {
+      const location =
+        BOUNTY_SYNDICATE_KEYS[canonicalSyndicateKey(group.syndicateKey)] ??
+        BOUNTY_SYNDICATE_KEYS[canonicalSyndicateKey(group.syndicate)];
+      if (!location) continue;
+      for (const job of group.jobs || []) {
+        const [min, max] = job.enemyLevels || [];
+        if (!job.type || min == null || max == null) continue;
+        index.set(`${location}|${min}|${max}`, job.type);
+      }
+    }
+    return index;
+  }
+
+  $: liveBounties = buildLiveBountyIndex($worldData?.bounties);
+
+  function liveBountyName(row: DropRow, index: Map<string, string>): string | null {
+    if (row.kind !== "bounty" || index.size === 0) return null;
+    const levels = /^Level\s+(\d+)\s*-\s*(\d+)\b/.exec(row.place);
+    if (!levels) return null;
+    const location = BOUNTY_PLACE_KEYS.find(([pattern]) => pattern.test(row.place))?.[1];
+    if (!location) return null;
+    return index.get(`${location}|${levels[1]}|${levels[2]}`) ?? null;
+  }
+
   const RARITY_COLOUR: Record<string, string> = {
     Common: "var(--rarity-common)",
     Uncommon: "var(--rarity-uncommon)",
@@ -52,6 +124,7 @@
 
   async function runSearch(): Promise<void> {
     const q = query.trim();
+    linkQuery = q;
     if (!q) {
       rows = [];
       total = 0;
@@ -79,6 +152,7 @@
       rows = [];
       total = 0;
       searched = false;
+      linkQuery = "";
       return;
     }
     debounceTimer = setTimeout(runSearch, 250);
@@ -93,6 +167,36 @@
   // Map display names back to itemDb entries for detail modals. Rows without an
   // entry remain non-clickable.
   $: nameIndex = buildItemNameIndex($itemDb);
+
+  /** Best itemDb name for the raw query, so the header link lands on a real page. */
+  function bestWikiName(raw: string, index: Map<string, string>): string {
+    const query = raw.trim();
+    if (query.length < 2) return query;
+    const lower = query.toLowerCase();
+    let best: string | null = null;
+    for (const name of index.keys()) {
+      const low = name.toLowerCase();
+      if (low === lower) return name;
+      if (low.startsWith(lower) && (best === null || name.length < best.length)) best = name;
+    }
+    return best ?? query;
+  }
+
+  $: wikiLinkName = bestWikiName(linkQuery, nameIndex);
+
+  // The enemy panel hands its own search back here when its drop list is capped.
+  function applyWikiSearchRequest(name: string): void {
+    wikiSearchRequest.set(null);
+    mode = "place";
+    query = name;
+    void runSearch();
+  }
+
+  $: if ($wikiSearchRequest) applyWikiSearchRequest($wikiSearchRequest);
+
+  function openEnemy(name: string): void {
+    activeEnemy.set({ name });
+  }
 
   function openItem(name: string): void {
     // Bundled rows like "2X Orokin Cell" carry a quantity prefix the db lacks.
@@ -152,6 +256,11 @@
         title={currentSearchSaved ? $t("wiki.searchAlreadySaved") : $t("wiki.saveSearch")}
         on:click={() => addSavedSearch(`wiki:${mode}`, query)}>★</button
       >
+      {#if linkQuery}
+        <span class="shrink-0" data-wiki-search-link={wikiLinkName}>
+          <WikiButton wikiUrl={null} fallbackName={wikiLinkName} />
+        </span>
+      {/if}
       <div class="flex shrink-0 overflow-hidden rounded-lg border border-border">
         <button
           type="button"
@@ -227,7 +336,9 @@
             </tr>
           </thead>
           <tbody>
-            {#each rows as row (row.item + "|" + row.place + "|" + row.rarity + "|" + row.chance)}
+            {#each rows as row (row.item + "|" + row.place + "|" + row.kind + "|" + row.rarity + "|" + row.chance)}
+              {@const kindKey = KIND_LABEL_KEYS[row.kind]}
+              {@const liveBounty = liveBountyName(row, liveBounties)}
               <tr class="border-t border-border/60 hover:bg-bg-hover">
                 <td class="px-3 py-1.5">
                   {#if nameIndex.has(row.item) || nameIndex.has(stripQuantityPrefix(row.item))}
@@ -240,7 +351,27 @@
                     <span class="text-text-primary">{row.item}</span>
                   {/if}
                 </td>
-                <td class="px-3 py-1.5 text-text-secondary">{row.place}</td>
+                <td class="px-3 py-1.5 text-text-secondary">
+                  {#if kindKey}
+                    <span
+                      class="mr-1.5 inline-block rounded border border-border px-1 py-px align-middle font-display text-[0.6rem] font-bold uppercase tracking-[0.05em] text-text-muted"
+                      >{$t(kindKey)}</span
+                    >
+                  {/if}
+                  {#if row.kind === "enemy"}
+                    <button
+                      type="button"
+                      class="cursor-pointer border-0 bg-transparent p-0 text-left text-text-secondary hover:text-accent hover:underline"
+                      data-enemy-link={row.place}
+                      on:click={() => openEnemy(row.place)}>{row.place}</button
+                    >
+                  {:else}
+                    <span>{row.place}</span>
+                  {/if}
+                  {#if liveBounty}
+                    <span class="text-accent"> &middot; {liveBounty}</span>
+                  {/if}
+                </td>
                 <td class="px-3 py-1.5 text-right whitespace-nowrap">
                   <span
                     class="font-semibold"

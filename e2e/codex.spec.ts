@@ -61,7 +61,9 @@ test.describe("Mastery codex tab", () => {
     await expect(list).toBeVisible({ timeout: 30_000 });
 
     // Butcher is BladeSawman: the avatar-path scan must land on the wiki row.
-    const butcher = list.locator("div", { has: page.getByText("Butcher", { exact: true }) });
+    const butcher = list.locator("[data-codex-entry]", {
+      has: page.getByText("Butcher", { exact: true }),
+    });
     await expect(butcher.first()).toContainText("20 / 20");
 
     // Unknown types still show, prettified, without a requirement.
@@ -74,7 +76,9 @@ test.describe("Mastery codex tab", () => {
 
     // Profile-only types resolve through the DE export extras; conservation
     // animals get a species name, Wildlife chip and completion state.
-    const condroc = list.locator("div", { has: page.getByText("Common Condroc", { exact: true }) });
+    const condroc = list.locator("[data-codex-entry]", {
+      has: page.getByText("Common Condroc", { exact: true }),
+    });
     await expect(condroc.first()).toContainText("20 / 20");
     const factions = page.locator('[data-tour="mastery-codex-factions"]');
     await expect(factions.getByRole("button", { name: "Wildlife", exact: true })).toBeVisible();

@@ -14,6 +14,24 @@ const hexDrops = {
   ],
 };
 
+describe("canonicalSyndicateKey", () => {
+  it("folds every display name onto its syndicate tag", async () => {
+    const { canonicalSyndicateKey } = await import("../../../src/lib/bountyRewards.js");
+    expect(canonicalSyndicateKey("Ostrons")).toBe("CetusSyndicate");
+    expect(canonicalSyndicateKey("Solaris United")).toBe("SolarisSyndicate");
+    expect(canonicalSyndicateKey("Entrati")).toBe("EntratiSyndicate");
+    expect(canonicalSyndicateKey("The Holdfasts")).toBe("ZarimanSyndicate");
+    expect(canonicalSyndicateKey("Cavia")).toBe("EntratiLabSyndicate");
+    expect(canonicalSyndicateKey("The Hex")).toBe("HexSyndicate");
+  });
+
+  it("passes a tag and an unknown name through unchanged", async () => {
+    const { canonicalSyndicateKey } = await import("../../../src/lib/bountyRewards.js");
+    expect(canonicalSyndicateKey("CetusSyndicate")).toBe("CetusSyndicate");
+    expect(canonicalSyndicateKey("Steel Meridian")).toBe("Steel Meridian");
+  });
+});
+
 describe("getBountyRewards", () => {
   afterEach(() => vi.unstubAllGlobals());
 

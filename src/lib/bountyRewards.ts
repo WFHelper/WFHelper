@@ -74,8 +74,14 @@ const SYNDICATE_ALIASES: Record<string, string> = {
   Cavia: "EntratiLabSyndicate",
 };
 
+/** World-state groups name a syndicate by tag or by display name, and both spell
+ *  the same bounty; callers key their own tables off the tag this returns. */
+export function canonicalSyndicateKey(syndicate: string): string {
+  return SYNDICATE_ALIASES[syndicate] ?? syndicate;
+}
+
 function resolveDropsFile(syndicateKey: string): string | undefined {
-  return SYNDICATE_FILE[syndicateKey] ?? SYNDICATE_FILE[SYNDICATE_ALIASES[syndicateKey]];
+  return SYNDICATE_FILE[canonicalSyndicateKey(syndicateKey)];
 }
 
 const RARITY_ORDER: Record<string, number> = {
