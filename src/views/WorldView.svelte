@@ -384,33 +384,35 @@
       <h2 class="m-0 font-display text-3xl font-semibold tracking-[0.03em] text-text-primary">
         {$tr("common.world")}
       </h2>
-      {#if !isPopoutWindow}
-        <button
-          type="button"
-          data-popout-open
-          aria-label={$tr("common.openInWindow")}
-          title={$tr("common.openInWindow")}
-          class="flex shrink-0 cursor-pointer items-center justify-center rounded border border-border bg-bg-raised/60 p-1.5 text-text-secondary transition-[border-color,color] duration-150 hover:border-border-strong hover:text-text-primary"
-          on:click={openInWindow}
-        >
-          <svg
-            viewBox="0 0 16 16"
-            width="14"
-            height="14"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
+      <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
+        {#if !isPopoutWindow}
+          <button
+            type="button"
+            data-popout-open
+            aria-label={$tr("common.openInWindow")}
+            title={$tr("common.openInWindow")}
+            class="flex shrink-0 cursor-pointer items-center justify-center rounded border border-border bg-bg-raised/60 p-1.5 text-text-secondary transition-[border-color,color] duration-150 hover:border-border-strong hover:text-text-primary"
+            on:click={openInWindow}
           >
-            <path d="M9.5 2.5h4v4" />
-            <path d="M13.5 2.5 8 8" />
-            <path d="M12.5 9.5V13H3V3.5h3.5" />
-          </svg>
-        </button>
-      {/if}
-      <EditLayoutBar view="world" only={worldSectionScope} />
+            <svg
+              viewBox="0 0 16 16"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M9.5 2.5h4v4" />
+              <path d="M13.5 2.5 8 8" />
+              <path d="M12.5 9.5V13H3V3.5h3.5" />
+            </svg>
+          </button>
+        {/if}
+        <EditLayoutBar view="world" only={worldSectionScope} />
+      </div>
     </div>
     <div class="flex items-end border-b border-border-subtle">
       <HeaderTabs options={worldTabOptions} activeKey={worldTab} onSelect={setWorldTab} />
