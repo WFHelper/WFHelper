@@ -1,10 +1,22 @@
-import type { RelicDatabase, RelicGroup, RelicReward } from "../../types/relics.js";
+import type { RelicDatabase, RelicGroup, RelicQuality, RelicReward } from "../../types/relics.js";
 
+const RELIC_QUALITIES: RelicQuality[] = ["intact", "exceptional", "flawless", "radiant"];
+
+interface RelicSearchOptions {
+  /** Localised quality labels so "Strahlend" splits out like "Radiant" does. */
+  qualityLabels?: Partial<Record<RelicQuality, string>>;
+  /** Owned copies per quality for this group; `undefined` means no inventory, so
+   *  quality words are ignored rather than hiding everything. */
+  ownedCounts?: Partial<Record<RelicQuality, number>> | null | undefined;
+}
+
+// Unicode letters, not [a-z]: an ASCII-only class tokenizes a Chinese quality
+// label to nothing, and the refinement filter then keeps every group.
 function normalizeRelicSearchText(value: string): string {
   return value
     .toLowerCase()
     .replace(/['']/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 }
 
@@ -57,12 +69,45 @@ function collectRelicSearchTerms(group: RelicGroup): string[] {
   return [...terms];
 }
 
-export function relicGroupMatchesSearch(group: RelicGroup, query: string): boolean {
-  const normalizedQuery = normalizeRelicSearchText(query);
+/** Pulls refinement words ("radiant", or the localised label) out of a query so
+ *  they act as a filter instead of a text term no relic would ever match. */
+function splitQualityTokens(
+  query: string,
+  labels: Partial<Record<RelicQuality, string>> | undefined,
+): { qualities: RelicQuality[]; rest: string } {
+  let tokens = tokenizeRelicSearchText(query);
+  const qualities: RelicQuality[] = [];
+  for (const quality of RELIC_QUALITIES) {
+    const variants = [quality, labels?.[quality] ?? ""]
+      .map((label) => tokenizeRelicSearchText(label))
+      .filter((variant) => variant.length > 0);
+    for (const variant of variants) {
+      const at = tokens.findIndex((_, i) => variant.every((word, j) => tokens[i + j] === word));
+      if (at < 0) continue;
+      tokens = [...tokens.slice(0, at), ...tokens.slice(at + variant.length)];
+      if (!qualities.includes(quality)) qualities.push(quality);
+    }
+  }
+  return { qualities, rest: tokens.join(" ") };
+}
+
+export function relicGroupMatchesSearch(
+  group: RelicGroup,
+  query: string,
+  options?: RelicSearchOptions,
+): boolean {
+  const split = splitQualityTokens(query, options?.qualityLabels);
+  if (split.qualities.length > 0 && options && options.ownedCounts !== undefined) {
+    const owned = options.ownedCounts;
+    if (!split.qualities.some((quality) => (owned?.[quality] ?? 0) > 0)) return false;
+  }
+  const effectiveQuery = split.qualities.length > 0 ? split.rest : query;
+
+  const normalizedQuery = normalizeRelicSearchText(effectiveQuery);
   if (!normalizedQuery) return true;
 
-  const compactQuery = compactRelicSearchText(query);
-  const queryTokens = tokenizeRelicSearchText(query);
+  const compactQuery = compactRelicSearchText(effectiveQuery);
+  const queryTokens = tokenizeRelicSearchText(effectiveQuery);
   const terms = collectRelicSearchTerms(group);
 
   for (const term of terms) {

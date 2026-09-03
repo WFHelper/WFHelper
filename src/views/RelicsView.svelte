@@ -76,6 +76,14 @@
   $: QUALITY_OPTIONS = QUALITY_OPTION_KEYS.map(
     ([key, i18nKey]) => [key, $tr(i18nKey)] as [RelicQualityModeView, string],
   );
+  // Typed quality words in the search box filter by owned refinement; the
+  // localised labels have to be listed here so the search sees them too.
+  $: QUALITY_LABELS = {
+    intact: $tr("relics.quality.intact"),
+    exceptional: $tr("relics.quality.exceptional"),
+    flawless: $tr("relics.quality.flawless"),
+    radiant: $tr("relics.quality.radiant"),
+  } as Record<RelicQuality, string>;
 
   const SQUAD_OPTION_KEYS: Array<[number, MessageKey]> = [
     [1, "relics.squad.solo"],
@@ -304,6 +312,7 @@
     _ownedInternalNames: typeof ownedRewardInternalNames,
     _ownedNames: typeof ownedRewardNames,
     _rewardRefs: typeof rewardGameRefBySlug,
+    qualityLabels: Record<RelicQuality, string>,
   ): RelicGroup[] {
     if (!db) return [];
 
@@ -326,7 +335,12 @@
     }
 
     if (viewState.search) {
-      relicGroups = relicGroups.filter((group) => relicGroupMatchesSearch(group, viewState.search));
+      relicGroups = relicGroups.filter((group) =>
+        relicGroupMatchesSearch(group, viewState.search, {
+          qualityLabels,
+          ownedCounts: hasInventory ? (ownedCounts[group.key] ?? null) : undefined,
+        }),
+      );
     }
 
     if (viewState.containsUnownedReward) {
@@ -358,6 +372,7 @@
     ownedRewardInternalNames,
     ownedRewardNames,
     rewardGameRefBySlug,
+    QUALITY_LABELS,
   );
 
   $: warmupController.updateContext({

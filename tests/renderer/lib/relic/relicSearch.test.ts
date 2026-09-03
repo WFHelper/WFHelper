@@ -128,3 +128,58 @@ describe("relicGroupHasMatchingReward", () => {
     ).toBe(false);
   });
 });
+
+describe("relicGroupMatchesSearch quality words", () => {
+  const labels = {
+    intact: "Intakt",
+    exceptional: "Aussergewoehnlich",
+    flawless: "Makellos",
+    radiant: "Strahlend",
+  };
+
+  it("keeps groups owned at the typed refinement", () => {
+    expect(relicGroupMatchesSearch(makeGroup(), "radiant", { ownedCounts: { radiant: 2 } })).toBe(
+      true,
+    );
+    expect(relicGroupMatchesSearch(makeGroup(), "Radiant", { ownedCounts: { intact: 3 } })).toBe(
+      false,
+    );
+    expect(relicGroupMatchesSearch(makeGroup(), "radiant", { ownedCounts: null })).toBe(false);
+  });
+
+  it("combines a refinement word with a text term", () => {
+    expect(
+      relicGroupMatchesSearch(makeGroup(), "radiant braton", { ownedCounts: { radiant: 1 } }),
+    ).toBe(true);
+    expect(
+      relicGroupMatchesSearch(makeGroup(), "radiant saryn", { ownedCounts: { radiant: 1 } }),
+    ).toBe(true);
+    expect(
+      relicGroupMatchesSearch(makeGroup(), "radiant nikana", { ownedCounts: { radiant: 1 } }),
+    ).toBe(false);
+  });
+
+  it("understands the localised refinement label", () => {
+    const options = { qualityLabels: labels, ownedCounts: { flawless: 1 } };
+    expect(relicGroupMatchesSearch(makeGroup(), "Makellos", options)).toBe(true);
+    expect(relicGroupMatchesSearch(makeGroup(), "Strahlend", options)).toBe(false);
+  });
+
+  it("understands a Chinese refinement label", () => {
+    const zhLabels = {
+      intact: "完整",
+      exceptional: "优良",
+      flawless: "完美无瑕",
+      radiant: "光辉",
+    };
+    const options = { qualityLabels: zhLabels, ownedCounts: { radiant: 1 } };
+    expect(relicGroupMatchesSearch(makeGroup(), "光辉", options)).toBe(true);
+    expect(relicGroupMatchesSearch(makeGroup(), "完整", options)).toBe(false);
+    expect(relicGroupMatchesSearch(makeGroup(), "完美无瑕", options)).toBe(false);
+  });
+
+  it("ignores refinement words without inventory data", () => {
+    expect(relicGroupMatchesSearch(makeGroup(), "radiant")).toBe(true);
+    expect(relicGroupMatchesSearch(makeGroup(), "radiant nikana")).toBe(false);
+  });
+});
