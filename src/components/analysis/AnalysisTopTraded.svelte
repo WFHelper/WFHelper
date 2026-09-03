@@ -49,6 +49,11 @@
       : [...current.items].sort((a, b) => b.value - a.value);
   });
 
+  // Split in reading order so the left column still runs 1..n/2 top to bottom.
+  const splitAt = $derived(Math.ceil(rows.length / 2));
+  const leftRows = $derived(rows.slice(0, splitAt));
+  const rightRows = $derived(rows.slice(splitAt));
+
   const windowDays = $derived(doc?.windowDays ?? 7);
 
   const updatedLabel = $derived.by(() => {
@@ -103,9 +108,9 @@
         {$tr("analysis.topTraded.empty")}
       </p>
     {:else}
-      <div class="max-h-[26rem] min-w-0 overflow-y-auto">
+      {#snippet rankedColumn(items: TopTradedItem[], offset: number)}
         <div
-          class="grid grid-cols-[1.75rem_2rem_minmax(6rem,1fr)_auto_auto_auto] items-center gap-x-3 gap-y-1"
+          class="grid grid-cols-[1.75rem_2rem_minmax(6rem,1fr)_auto_auto_auto] content-start items-center gap-x-3 gap-y-1"
         >
           <span></span>
           <span></span>
@@ -122,9 +127,11 @@
             {$tr("analysis.topTraded.value")}
           </span>
 
-          {#each rows as row, index (row.slug)}
+          {#each items as row, index (row.slug)}
             {@const label = row.name || titleFromSlug(row.slug)}
-            <span class="text-right text-[0.65rem] tabular-nums text-text-muted">{index + 1}</span>
+            <span class="text-right text-[0.65rem] tabular-nums text-text-muted"
+              >{offset + index + 1}</span
+            >
             <span
               class="flex h-7 w-7 items-center justify-center overflow-hidden rounded border border-border/60 bg-surface-card"
             >
@@ -156,6 +163,17 @@
             </span>
           {/each}
         </div>
+      {/snippet}
+
+      <!-- Two ranked columns once the panel is wide enough, so the numbers stay
+           next to the names instead of drifting across a full-width row. -->
+      <div
+        class="grid max-h-[26rem] min-w-0 grid-cols-1 gap-x-6 overflow-y-auto min-[1500px]:grid-cols-2"
+      >
+        {@render rankedColumn(leftRows, 0)}
+        {#if rightRows.length > 0}
+          {@render rankedColumn(rightRows, splitAt)}
+        {/if}
       </div>
     {/if}
   </div>
