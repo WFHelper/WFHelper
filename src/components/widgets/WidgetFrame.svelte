@@ -71,11 +71,6 @@
   style={accentStyle}
   data-widget={widgetId}
 >
-  <!-- Drawn as an element rather than border-t-2 so it cannot lose to the
-       panel's own border-width shorthand depending on utility order. -->
-  <span class="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-accent/70" aria-hidden="true"
-  ></span>
-
   <header class="flex items-center gap-2">
     <img src={NAV_ICON_URLS[homeView]} alt="" class="h-4 w-4 object-contain brightness-[0.85]" />
     <h3 class="m-0 truncate font-display text-sm font-semibold tracking-wide text-text-primary">

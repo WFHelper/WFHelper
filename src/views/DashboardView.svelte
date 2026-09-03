@@ -46,7 +46,7 @@
       <EditLayoutBar view="dashboard" />
     </header>
 
-    <LayoutGrid view="dashboard" gapClass="gap-4" let:sectionId>
+    <LayoutGrid view="dashboard" gapClass="gap-4" columnGapClass="gap-4" let:sectionId>
       {#if sectionId === "dashboard.cycles"}
         <CyclesWidget nowMs={$nowClock} nowCoarseMs={$coarseClock} />
       {:else if sectionId === "dashboard.fissures"}

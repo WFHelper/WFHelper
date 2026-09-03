@@ -22,6 +22,9 @@
   /** Wide-breakpoint track sizes. World keeps its 1.2fr/1fr split. */
   export let wideTemplate = "minmax(0, 1fr) minmax(0, 1fr)";
   export let gapClass = "gap-x-6";
+  /** Gap between sections stacked inside one column. Empty by default because the
+      older views space their own blocks and would double up. */
+  export let columnGapClass = "";
   export let className = "";
 
   // A section popout mounts the whole owning view, so every other grid in that
@@ -80,7 +83,7 @@
     {:else}
       {#each row.columns as column, columnIndex (columnIndex)}
         {#if column.length > 0}
-          <div class="flex min-w-0 flex-col" style="grid-column:{columnIndex + 1}">
+          <div class="flex min-w-0 flex-col {columnGapClass}" style="grid-column:{columnIndex + 1}">
             {#each column as placement (placement.id)}
               <LayoutSection
                 {view}
