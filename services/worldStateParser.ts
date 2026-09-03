@@ -1,5 +1,6 @@
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { MISSION_TYPE_LABELS } from "../config/shared/missionTypes";
 import type {
   AlertRaw,
   CalendarDayRaw,
@@ -259,34 +260,6 @@ const VOID_TIER: Record<string, string> = {
   VoidT6Hard: "Omnia",
 };
 
-const MISSION_TYPE: Record<string, string> = {
-  MT_ARTIFACT: "Disruption",
-  MT_ASSASSINATION: "Assassination",
-  MT_CAPTURE: "Capture",
-  MT_DEFENSE: "Defense",
-  MT_ENDLESS_CAPTURE: "Endless Capture",
-  MT_EXCAVATE: "Excavation",
-  MT_EXCAVATION: "Excavation",
-  MT_EXTERMINATION: "Extermination",
-  MT_HIVE: "Hive",
-  MT_INTERCEPTION: "Interception",
-  MT_INTEL: "Spy",
-  MT_LANDSCAPE: "Open World",
-  MT_MOBILE_DEFENSE: "Mobile Defense",
-  MT_NEST: "Defection",
-  MT_PURIFY: "Disruption",
-  MT_PURSUIT: "Pursuit",
-  MT_RESCUE: "Rescue",
-  MT_RETRIEVAL: "Hijack",
-  MT_SABOTAGE: "Sabotage",
-  MT_SECTOR: "Dark Sector",
-  MT_SURVIVAL: "Survival",
-  MT_TERRITORY: "Infested Salvage",
-  MT_VOID_ARMAGEDDON: "Void Armageddon",
-  MT_VOID_CASCADE: "Void Cascade",
-  MT_VOID_FLOOD: "Void Flood",
-};
-
 // Sortie modifiers have no dictionary entry of any language, so these stay the
 // English community labels; anything unmapped degrades to its title-cased tail.
 const SORTIE_MODIFIER: Record<string, string> = {
@@ -359,30 +332,30 @@ function formatNodeLabel(nodeId: string): string {
   return systemName ? nodeName + ", " + systemName : nodeName;
 }
 
+/** Fissure, sortie, alert and bounty labels all resolve in this order so their
+ *  casing and wording never diverge: DE's own MT_ table, then the node's mission,
+ *  then the fallback map, then the enum tail. Dict values are ALL CAPS. */
+function resolveMissionTypeLabel(
+  missionType: string,
+  nodeId: string,
+  dictValue: (value: unknown) => string | null,
+): string {
+  const fromExport = dictValue(getMissionTypeLookup()[missionType]?.name);
+  if (fromExport) return titleCase(fromExport);
+  const fromNode = dictValue(REGION_TRANSLATION.regions[nodeId]?.missionName);
+  if (fromNode) return titleCase(fromNode);
+  return MISSION_TYPE_LABELS[missionType] || enumTailLabel(missionType, "MT_");
+}
+
+/** English on purpose: saved fissure-alert rules are matched against these. */
 function formatMissionTypeLabel(missionType: string, nodeId: string): string {
-  if (MISSION_TYPE[missionType]) {
-    return MISSION_TYPE[missionType];
-  }
-  const region = REGION_TRANSLATION.regions[nodeId];
-  const missionName = resolveDictValue(region?.missionName);
-  if (missionName) {
-    return missionName;
-  }
-  if (typeof missionType === "string" && missionType.startsWith("MT_")) {
-    return missionType
-      .replace(/^MT_/, "")
-      .toLowerCase()
-      .replace(/(^|\s|_)\w/g, (c) => c.toUpperCase())
-      .replace(/_/g, " ");
-  }
-  return missionType || "Unknown";
+  return resolveMissionTypeLabel(missionType, nodeId, resolveDictValue);
 }
 
 // Void storms omit MissionType, so resolve the node mission and normalize its dict label.
 function railjackMissionLabel(nodeId: string): string {
   const name = resolveDictValue(REGION_TRANSLATION.regions[nodeId]?.missionName);
-  if (!name) return "Railjack";
-  return name.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+  return name ? titleCase(name) : "Railjack";
 }
 
 /** Strip an enum prefix and title-case the tail: SORTIE_BOSS_VAY_HEK -> "Vay Hek". */
@@ -400,14 +373,10 @@ function bossLabel(boss: string | undefined): string {
   return boss ? enumTailLabel(boss, "SORTIE_BOSS_") : "";
 }
 
-// Sorties, archon hunts and alerts override the mission a node normally runs,
-// so DE's own MT_ table wins over the node entry and the hand map comes last.
+/** Sorties, archon hunts and alerts are display-only, so they follow the player's
+ *  game language instead of the English wording the fissure alerts match on. */
 function missionTypeLabel(missionType: string, nodeId: string): string {
-  const fromExport = localizedDictValue(getMissionTypeLookup()[missionType]?.name);
-  if (fromExport) return titleCase(fromExport);
-  const fromNode = localizedDictValue(REGION_TRANSLATION.regions[nodeId]?.missionName);
-  if (fromNode) return titleCase(fromNode);
-  return MISSION_TYPE[missionType] || enumTailLabel(missionType, "MT_");
+  return resolveMissionTypeLabel(missionType, nodeId, localizedDictValue);
 }
 
 /** Readable tail of a Lotus path: ".../SeasonDailyAimGlide" -> "Season Daily Aim Glide".

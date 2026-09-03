@@ -3,27 +3,13 @@
   import { invoke } from "../../lib/ipc.js";
   import { tr, type MessageKey, type Translator } from "../../lib/i18n.js";
   import type { FissureAlert } from "../../types/ipc.js";
+  import { FISSURE_MISSION_TYPES } from "../../../config/shared/missionTypes.js";
   import ThemedButton from "../ThemedButton.svelte";
   import ThemedSelect from "../ThemedSelect.svelte";
 
   const TIERS = ["any", "Lith", "Meso", "Neo", "Axi", "Requiem", "Omnia"] as const;
-  const MISSION_TYPES = [
-    "any",
-    "Survival",
-    "Defense",
-    "Interception",
-    "Void Cascade",
-    "Mobile Defense",
-    "Capture",
-    "Exterminate",
-    "Spy",
-    "Excavation",
-    "Rescue",
-    "Sabotage",
-    "Disruption",
-    "Defection",
-    "Assassination",
-  ] as const;
+  // Mission names stay English here: they are matched against the parser's labels.
+  const MISSION_TYPES: readonly string[] = ["any", ...FISSURE_MISSION_TYPES];
   const STEEL_PATH_OPTIONS: ReadonlyArray<{
     value: "any" | "normal" | "steel";
     labelKey: MessageKey;

@@ -9,6 +9,7 @@ import { dispatch } from "../services/notificationChannels";
 import * as worldStateParser from "../services/worldStateParser";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { durationMsFromSeconds } from "../config/shared/numeric";
+import { missionTypeMatches } from "../config/shared/missionTypes";
 import {
   DB_GET_WORLD_STATE,
   NOTIFICATION_SOUND_PLAY,
@@ -564,9 +565,7 @@ function maybeNotifyWorldEvents(state: unknown): void {
 
       const matches = fissureAlertRules.some((rule) => {
         const tierOk = rule.tier === "any" || rule.tier.toLowerCase() === tier.toLowerCase();
-        const missionOk =
-          rule.missionType === "any" ||
-          rule.missionType.toLowerCase() === missionType.toLowerCase();
+        const missionOk = missionTypeMatches(rule.missionType, missionType);
         const spOk =
           rule.steelPath === "any" ||
           (rule.steelPath === "steel" && isHard) ||

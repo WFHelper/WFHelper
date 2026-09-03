@@ -1,5 +1,6 @@
 ﻿import { describe, expect, it } from "vitest";
 
+import { MISSION_TYPE_LABELS } from "../../config/shared/missionTypes";
 import * as parser from "../../services/worldStateParser";
 
 // parseRaw returns Record<string, unknown>; shape only what these tests read.
@@ -125,6 +126,66 @@ describe("worldStateParser.parseRaw", () => {
     expect(storm?.tier).toBe("Neo");
     // Resolves the node's railjack mission instead of a hardcoded label.
     expect(storm?.missionType).toBe("Survival");
+  });
+
+  it("labels fissures with DE's mission-type meanings", () => {
+    const now = Date.now();
+    const fissureFor = (missionType: string, node = "UnmappedNode") =>
+      parseRaw({
+        ActiveMissions: [
+          {
+            Modifier: "VoidT1",
+            MissionType: missionType,
+            Node: node,
+            Expiry: dateLong(now + 1000),
+          },
+        ],
+      }).fissures[0];
+
+    expect(fissureFor("MT_TERRITORY").missionType).toBe("Interception");
+    expect(fissureFor("MT_PURIFY").missionType).toBe("Infested Salvage");
+    expect(fissureFor("MT_ARTIFACT").missionType).toBe("Disruption");
+  });
+
+  it("title-cases the all-caps mission names DE ships", () => {
+    const now = Date.now();
+    const parsed = parseRaw({
+      ActiveMissions: [
+        {
+          Modifier: "VoidT2",
+          MissionType: "MT_CORRUPTION",
+          Node: "SolNode230",
+          Expiry: dateLong(now + 1000),
+        },
+        // MT_RAILJACK has no name in DE's mission-type table, so the node's own
+        // ALL CAPS mission name is the fallback that has to be title-cased.
+        {
+          Modifier: "VoidT2",
+          MissionType: "MT_RAILJACK",
+          Node: "CrewBattleNode524",
+          Expiry: dateLong(now + 1000),
+        },
+      ],
+    });
+
+    expect(parsed.fissures.map((f) => f.missionType)).toEqual(["Void Flood", "Volatile"]);
+  });
+
+  it("keeps the fallback mission labels in step with DE's export", () => {
+    const now = Date.now();
+    for (const [missionType, label] of Object.entries(MISSION_TYPE_LABELS)) {
+      const parsed = parseRaw({
+        ActiveMissions: [
+          {
+            Modifier: "VoidT1",
+            MissionType: missionType,
+            Node: "UnmappedNode",
+            Expiry: dateLong(now + 1000),
+          },
+        ],
+      });
+      expect(parsed.fissures[0].missionType).toBe(label);
+    }
   });
 
   it("parses daily deals and drops expired ones", () => {

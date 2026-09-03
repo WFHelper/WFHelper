@@ -152,6 +152,73 @@ describe("world state desktop notifications", () => {
     expect(sent[0]?.body).toContain("Marduk (Void)");
   });
 
+  it("fires for a rule saved with the old Extermination wording", async () => {
+    ctx.overlaySettings = {
+      ...OVERLAY_SETTINGS_DEFAULTS,
+      cycleAlertMinutesBefore: 0,
+      fissureAlerts: [
+        {
+          id: "legacy-exterminate",
+          tier: "any",
+          missionType: "Extermination",
+          steelPath: "any",
+          planet: "any",
+        },
+        {
+          id: "lowercase-spy",
+          tier: "any",
+          missionType: "spy",
+          steelPath: "any",
+          planet: "any",
+        },
+      ],
+    };
+    const sent: Array<{ title: string; body: string }> = [];
+    worldStateIpc.__test__.setDesktopNotificationSender((title, body) => {
+      sent.push({ title, body });
+    });
+    vi.spyOn(worldStateParser, "fetchAndParse")
+      .mockResolvedValueOnce({ fissures: [] })
+      .mockResolvedValueOnce({
+        fissures: [
+          {
+            tier: "Lith",
+            missionType: "Exterminate",
+            node: "Gaia (Earth)",
+            expiry: "2026-04-29T12:00:00.000Z",
+            isHard: false,
+            expired: false,
+          },
+          {
+            tier: "Meso",
+            missionType: "Spy",
+            node: "Ose (Europa)",
+            expiry: "2026-04-29T12:00:00.000Z",
+            isHard: false,
+            expired: false,
+          },
+          {
+            tier: "Neo",
+            missionType: "Interception",
+            node: "Umbriel (Uranus)",
+            expiry: "2026-04-29T12:00:00.000Z",
+            isHard: false,
+            expired: false,
+          },
+        ],
+      });
+
+    const handler = registerWorldStateHandler();
+    await handler(makeAuthorizedEvent());
+    worldStateIpc.__test__.expireCache();
+    await handler(makeAuthorizedEvent());
+
+    expect(sent.map((s) => s.body)).toEqual([
+      expect.stringContaining("Lith Exterminate"),
+      expect.stringContaining("Meso Spy"),
+    ]);
+  });
+
   it("fires a notification when an enabled cycle changes", async () => {
     ctx.overlaySettings = {
       ...OVERLAY_SETTINGS_DEFAULTS,
