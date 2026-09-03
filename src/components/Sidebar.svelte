@@ -292,12 +292,17 @@
 ></div>
 
 <style>
+  /* At rest it must read as nothing at all. A transparent grip shows the shell's
+     --bg-deep, which paints a dark stripe beside the sidebar's gold border, so it
+     carries the same --bg-base as the sidebar and the content on either side. */
   .sidebar-grip {
     flex: 0 0 auto;
     width: 5px;
-    margin-left: -1px;
+    margin-left: 0;
     cursor: col-resize;
-    background: transparent;
+    background: var(--bg-base);
+    border: 0;
+    box-shadow: none;
     transition: background-color 0.12s ease;
   }
   .sidebar-grip:hover,
