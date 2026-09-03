@@ -150,4 +150,45 @@ describeArbi("Arbitration schedule + post-run overlay", () => {
     await overlay.locator("#btn-details").click();
     await expect(page.locator("text=Stöfler (Lua)").first()).toBeVisible({ timeout: 15_000 });
   });
+
+  test("detail view carries the cadence timeline, notes and run navigation", async () => {
+    // The overlay's Details button left the freshly captured run open.
+    await expect(page.locator("#content [data-arbi-timeline]")).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator("#content [data-arbi-confidence]")).toBeVisible();
+
+    const notes = page.locator("#content [data-arbi-notes]");
+    await notes.fill("e2e note");
+    await notes.blur();
+
+    // Newest run is first in the list, so only "next" can move.
+    await expect(page.locator("#content [data-arbi-prev]")).toBeDisabled();
+    await page.locator("#content [data-arbi-next]").click();
+    await expect(page.locator("#content").getByText("Casta Defense (Ceres)").first()).toBeVisible();
+    await expect(page.locator("#content [data-arbi-notes]")).toHaveValue("");
+
+    // Back to the captured run: the note has to have survived the navigation.
+    await page.locator("#content [data-arbi-prev]").click();
+    await expect(page.locator("#content [data-arbi-notes]")).toHaveValue("e2e note");
+  });
+
+  test("compares two selected runs against the filtered average", async () => {
+    await page.locator('#sidebar [data-view="inventory"]').click();
+    await page.locator('#sidebar [data-view="arbi"]').click();
+    await expect(page.locator("#content [data-arbi-runs]")).toBeVisible();
+
+    // The panel renders with any number of runs; the plot needs two usable ones,
+    // which the seeded record plus the replayed run give.
+    await expect(page.locator("#content [data-arbi-trend]")).toBeVisible();
+    await expect(page.locator("#content [data-arbi-trend-plot]")).toBeVisible();
+
+    const rowChecks = page.locator("#content table tbody input[type=checkbox]");
+    await rowChecks.nth(0).check();
+    await rowChecks.nth(1).check();
+    await page.locator("#content [data-arbi-compare]").click();
+
+    const table = page.locator("#content [data-arbi-compare-panel]");
+    await expect(table).toBeVisible();
+    // Metric label, two run columns, then the average column.
+    await expect(table.locator("tbody tr").first().locator("td")).toHaveCount(4);
+  });
 });

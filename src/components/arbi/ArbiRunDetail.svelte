@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { onDestroy, tick } from "svelte";
   import { toBlob } from "html-to-image";
 
   import { tr } from "../../lib/i18n.js";
@@ -13,13 +13,22 @@
   import ArbiWaveMap from "./ArbiWaveMap.svelte";
   import ArbiDpmChart from "./ArbiDpmChart.svelte";
   import ArbiRotationList from "./ArbiRotationList.svelte";
+  import ArbiTimeline from "./ArbiTimeline.svelte";
   import type { ArbiRunRecord } from "../../types/ipc.js";
-  import { deleteArbiRun, updateArbiTags } from "../../stores/arbiRuns.js";
+  import { deleteArbiRun, updateArbiNotes, updateArbiTags } from "../../stores/arbiRuns.js";
   import { formatDuration, formatRunDate, missionKindLabel } from "../../lib/arbi/arbiChartData.js";
+  import { hasCadenceData } from "../../lib/arbi/arbiCadence.js";
+  import { isIncompleteRun } from "../../lib/arbi/arbiCompare.js";
+  import { arbiPersonalBest } from "../../lib/arbi/arbiTrends.js";
   import type { MessageKey } from "../../lib/i18n.js";
 
   export let run: ArbiRunRecord;
   export let onBack: () => void;
+  /** Runs in the list's current filter/sort order; drives previous/next. */
+  export let orderedRuns: ArbiRunRecord[] = [];
+  /** Every known run, for the personal-best pool. */
+  export let allRuns: ArbiRunRecord[] = [];
+  export let onNavigate: (id: string) => void = () => {};
 
   let captureEl: HTMLElement | null = null;
   let copyState: "idle" | "busy" | "done" = "idle";
@@ -28,6 +37,13 @@
   let capturing = false;
 
   $: stats = run.stats;
+
+  $: runIndex = orderedRuns.findIndex((entry) => entry.id === run.id);
+  $: prevRun = runIndex > 0 ? orderedRuns[runIndex - 1] : null;
+  $: nextRun =
+    runIndex >= 0 && runIndex < orderedRuns.length - 1 ? orderedRuns[runIndex + 1] : null;
+
+  $: pbRows = arbiPersonalBest(run, allRuns);
 
   $: typeLabel =
     missionKindLabel(run) ??
@@ -159,6 +175,61 @@
   let tagDraft = "";
   $: tags = run.tags ?? [];
 
+  let notesDraft = run.notes ?? "";
+  let notesRunId = run.id;
+  let notesTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Previous/next swaps the run in place, so the draft has to follow it.
+  $: reseedNotes(run.id, run.notes);
+
+  function reseedNotes(id: string, notes: string | undefined): void {
+    if (id === notesRunId) return;
+    notesRunId = id;
+    notesDraft = notes ?? "";
+    if (notesTimer) {
+      clearTimeout(notesTimer);
+      notesTimer = null;
+    }
+  }
+
+  function saveNotes(): void {
+    void updateArbiNotes(notesRunId, notesDraft).catch((err) =>
+      log.warn("[Arbi] notes save failed", String(err)),
+    );
+  }
+
+  function onNotesInput(): void {
+    if (notesTimer) clearTimeout(notesTimer);
+    notesTimer = setTimeout(() => {
+      notesTimer = null;
+      saveNotes();
+    }, 600);
+  }
+
+  /** Navigating or unmounting inside the debounce window would drop the edit. */
+  function flushNotes(): void {
+    if (!notesTimer) return;
+    clearTimeout(notesTimer);
+    notesTimer = null;
+    saveNotes();
+  }
+
+  onDestroy(flushNotes);
+
+  function navigate(target: ArbiRunRecord | null): void {
+    if (!target) return;
+    flushNotes();
+    onNavigate(target.id);
+  }
+
+  function deltaLabel(pct: number): string {
+    return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
+  }
+
+  function pbMetricKey(metric: string): MessageKey {
+    return `arbi.metric.${metric}` as MessageKey;
+  }
+
   async function addTag(): Promise<void> {
     const value = tagDraft.trim();
     if (!value) return;
@@ -186,6 +257,26 @@
   <div class="flex flex-wrap items-center justify-between gap-2">
     <div class="flex items-center gap-3">
       <ThemedButton onClick={onBack}>{$tr("arbi.back")}</ThemedButton>
+      <div class="flex items-center gap-1">
+        <button
+          type="button"
+          data-arbi-prev
+          class="cursor-pointer rounded border border-border px-2 py-1 text-sm text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={!prevRun}
+          title={$tr("arbi.nav.previous")}
+          aria-label={$tr("arbi.nav.previous")}
+          on:click={() => navigate(prevRun)}>‹</button
+        >
+        <button
+          type="button"
+          data-arbi-next
+          class="cursor-pointer rounded border border-border px-2 py-1 text-sm text-text-secondary transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={!nextRun}
+          title={$tr("arbi.nav.next")}
+          aria-label={$tr("arbi.nav.next")}
+          on:click={() => navigate(nextRun)}>›</button
+        >
+      </div>
       <div class="flex flex-col">
         <span class="text-lg font-bold leading-tight text-text-primary">{run.node}</span>
         <span class="text-xs text-text-muted">
@@ -239,6 +330,57 @@
     />
   </div>
 
+  {#if pbRows.some((row) => row.poolSize > 1)}
+    <div
+      class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[var(--radius-md)] border border-border/60 bg-bg-raised/40 px-3 py-2 text-xs"
+    >
+      <span class="uppercase tracking-wide text-text-muted">{$tr("arbi.pb.title")}</span>
+      {#each pbRows as row (row.metric)}
+        {#if row.poolSize > 1}
+          <span class="flex items-center gap-1.5">
+            <span class="text-text-secondary">{$tr(pbMetricKey(row.metric))}</span>
+            <span class="font-mono font-semibold text-text-primary">{row.value.toFixed(2)}</span>
+            {#if row.isPb}
+              <span
+                class="rounded border border-success/40 bg-success/10 px-1.5 py-0.5 font-semibold text-success"
+                >{$tr("arbi.pb.badge")}</span
+              >
+              {#if row.vsSecondPct !== null}
+                <span class="text-success"
+                  >{$tr("arbi.pb.vsSecond", { delta: deltaLabel(row.vsSecondPct) })}</span
+                >
+              {/if}
+            {:else if row.vsBestPct !== null}
+              <span class="text-warning"
+                >{$tr("arbi.pb.vsBest", { delta: deltaLabel(row.vsBestPct) })}</span
+              >
+            {/if}
+            <span class="text-text-muted"
+              >{$tr("arbi.pb.rank", {
+                rank: String(row.rank),
+                count: String(row.poolSize),
+              })}</span
+            >
+          </span>
+        {/if}
+      {/each}
+    </div>
+  {/if}
+
+  <label class="flex flex-col gap-1">
+    <span class="text-xs font-semibold uppercase tracking-wide text-text-muted"
+      >{$tr("arbi.notes.label")}</span
+    >
+    <textarea
+      data-arbi-notes
+      class="min-h-[4.5rem] w-full resize-y rounded border border-border bg-bg-raised px-2 py-1.5 text-sm text-text-primary outline-none focus:border-info"
+      maxlength="2000"
+      placeholder={$tr("arbi.notes.placeholder")}
+      bind:value={notesDraft}
+      on:input={onNotesInput}
+      on:blur={flushNotes}></textarea>
+  </label>
+
   <div bind:this={captureEl} class="flex flex-col gap-4">
     {#if capturing}
       <div class="flex flex-col gap-0.5 px-1">
@@ -254,6 +396,18 @@
     {/if}
     <SummaryStrip items={kpiItems} variant="grid" />
 
+    <p class="m-0 flex flex-wrap items-center gap-2 px-1 text-xs text-text-muted">
+      <span
+        class="cursor-help rounded border border-border px-1.5 py-0.5 uppercase tracking-wide"
+        data-arbi-confidence
+        title={$tr("arbi.confidence.hint")}>{$tr("arbi.confidence.label")}</span
+      >
+      <span>{$tr("arbi.confidence.summary")}</span>
+      {#if isIncompleteRun(run)}
+        <span class="text-warning">{$tr("arbi.incompleteHint")}</span>
+      {/if}
+    </p>
+
     {#if stats}
       <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <ArbiVitusPanel {run} />
@@ -261,6 +415,9 @@
         <ArbiDpmChart {stats} />
         <ArbiRotationList {stats} />
       </div>
+      {#if hasCadenceData(stats)}
+        <ArbiTimeline {stats} />
+      {/if}
       <ArbiWaveMap {stats} missionType={run.missionType} />
     {:else}
       <ThemedPanel className="p-5">

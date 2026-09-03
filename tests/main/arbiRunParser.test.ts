@@ -493,3 +493,52 @@ describe("joining a mission in progress", () => {
     expect(parser.isRunActive()).toBe(false);
   });
 });
+
+describe("cadence intervals", () => {
+  const sleepLine = (ts: number) =>
+    `${ts.toFixed(3)} Script [Info]: WaveDefend.lua: _SleepBetweenWaves`;
+
+  it("records reward pauses and tick-stream stalls", () => {
+    const parsed = runParser([
+      missionLine(100, "Arbitration: Casta Defense (Ceres)"),
+      waveLine(110, 1),
+      droneLine(120),
+      droneLine(130),
+      sleepLine(140),
+      waveStartLine(160, 2),
+      droneLine(170),
+      tickLine(200, 5),
+      tickLine(210, 6),
+      // 90s without a tick line: a load screen or host stall, not gameplay.
+      tickLine(300, 7),
+      rewardLine(400),
+      waveStartLine(430, 4),
+      droneLine(440),
+      rewardLine(700),
+    ]);
+
+    expect(parsed?.stats?.pauseIntervals).toEqual([
+      { start: 140, end: 160 },
+      { start: 400, end: 430 },
+    ]);
+    expect(parsed?.stats?.idleIntervals).toEqual([{ start: 210, end: 300 }]);
+  });
+
+  it("closes a reward pause the log never unpauses", () => {
+    const parsed = runParser([
+      missionLine(100, "Arbitration: Casta Defense (Ceres)"),
+      waveLine(110, 1),
+      droneLine(120),
+      rewardLine(400),
+      waveStartLine(430, 4),
+      droneLine(440),
+      rewardLine(700),
+      droneLine(750),
+    ]);
+
+    expect(parsed?.stats?.pauseIntervals).toEqual([
+      { start: 400, end: 430 },
+      { start: 700, end: 750 },
+    ]);
+  });
+});

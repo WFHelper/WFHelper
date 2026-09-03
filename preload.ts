@@ -102,6 +102,7 @@ import {
   ARBI_REFRESH_RUNS,
   ARBI_SET_VITUS,
   ARBI_SET_TAGS,
+  ARBI_SET_NOTES,
   ARBI_DELETE_RUN,
   ARBI_DELETE_LOG,
   ARBI_EXPORT_LOG,
@@ -299,9 +300,9 @@ try {
     getRivenStatOptions: inv<"getRivenStatOptions">(RIVENS_GET_STAT_OPTIONS),
     searchRivenAuctions: inv<"searchRivenAuctions">(RIVENS_SEARCH_AUCTIONS),
     getRivenBestAttributes: inv<"getRivenBestAttributes">(RIVENS_GET_BEST_ATTRIBUTES),
-    onHelperDownloadProgress: ipcDataBridge<IpcEventMap["helper-download-progress"]>(
     getRivenGoodRoll: inv<"getRivenGoodRoll">(RIVENS_GET_GOOD_ROLL),
     refreshRivenGoodRolls: inv<"refreshRivenGoodRolls">(RIVENS_REFRESH_GOOD_ROLLS),
+    onHelperDownloadProgress: ipcDataBridge<IpcEventMap["helper-download-progress"]>(
       ipcRenderer,
       HELPER_DOWNLOAD_PROGRESS,
     ),
@@ -310,6 +311,7 @@ try {
     refreshArbiRuns: inv<"refreshArbiRuns">(ARBI_REFRESH_RUNS),
     setArbiRunVitus: inv<"setArbiRunVitus">(ARBI_SET_VITUS),
     setArbiRunTags: inv<"setArbiRunTags">(ARBI_SET_TAGS),
+    setArbiRunNotes: inv<"setArbiRunNotes">(ARBI_SET_NOTES),
     deleteArbiRun: inv<"deleteArbiRun">(ARBI_DELETE_RUN),
     deleteArbiRunLog: inv<"deleteArbiRunLog">(ARBI_DELETE_LOG),
     exportArbiRunLog: inv<"exportArbiRunLog">(ARBI_EXPORT_LOG),

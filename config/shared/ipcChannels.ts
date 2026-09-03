@@ -149,6 +149,7 @@ export const ARBI_GET_RUNS = "arbi:get-runs";
 export const ARBI_REFRESH_RUNS = "arbi:refresh-runs";
 export const ARBI_SET_VITUS = "arbi:set-vitus";
 export const ARBI_SET_TAGS = "arbi:set-tags";
+export const ARBI_SET_NOTES = "arbi:set-notes";
 export const ARBI_DELETE_RUN = "arbi:delete-run";
 export const ARBI_DELETE_LOG = "arbi:delete-log";
 export const ARBI_EXPORT_LOG = "arbi:export-log";

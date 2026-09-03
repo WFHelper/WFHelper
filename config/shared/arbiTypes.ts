@@ -24,6 +24,12 @@ export interface ArbiWaveEntry {
   durationSec: number;
 }
 
+/** Half-open window in game-relative seconds (EE.log float timestamps). */
+export interface ArbiInterval {
+  start: number;
+  end: number;
+}
+
 /** Full computed stats for defense/interception runs; null for other mission types. */
 export interface ArbiRunStats {
   killsPerDrone: number;
@@ -41,6 +47,11 @@ export interface ArbiRunStats {
   saturationBuckets: ArbiSaturationBucket[];
   /** Defense only (wave clear map); null for interception. */
   waves: ArbiWaveEntry[] | null;
+  /** Reward-screen and between-wave downtime. Absent on records written before
+   * cadence tracking, which is what hides the timeline for them. */
+  pauseIntervals?: ArbiInterval[];
+  /** Windows with no AI tick line at all (load screen, host stall, migration). */
+  idleIntervals?: ArbiInterval[];
 }
 
 export interface ArbiRunRecord {
@@ -70,11 +81,16 @@ export interface ArbiRunRecord {
   tags?: string[];
   /** Squad member names in load order; absent on old records. */
   players?: string[];
+  /** Free-text user note; absent when empty. */
+  notes?: string;
+  /** Id of the richer record this one duplicates; absent when the run is unique. */
+  duplicateOf?: string;
 }
 
 /** Max tags per run, and max characters per tag - enforced on every write. */
 const ARBI_MAX_TAGS = 12;
 const ARBI_MAX_TAG_LEN = 32;
+const ARBI_MAX_NOTES_LEN = 2000;
 
 /** Total over unknown input; shared by the IPC guard and the tracker. */
 export function normalizeArbiTags(raw: unknown): string[] {
@@ -92,6 +108,21 @@ export function normalizeArbiTags(raw: unknown): string[] {
     if (out.length >= ARBI_MAX_TAGS) break;
   }
   return out;
+}
+
+/** Total over unknown input; shared by the IPC guard and the tracker. */
+export function normalizeArbiNotes(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  let out = "";
+  for (const ch of raw.replace(/\r\n?/g, "\n")) {
+    // Control characters corrupt the index and the list rendering; tab and
+    // newline stay so a multi-line note keeps its shape.
+    const code = ch.codePointAt(0) ?? 0;
+    if ((code < 32 && code !== 9 && code !== 10) || code === 127) continue;
+    if (out.length + ch.length > ARBI_MAX_NOTES_LEN) break;
+    out += ch;
+  }
+  return out.trim();
 }
 
 export interface ArbiRunsPayload {

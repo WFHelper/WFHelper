@@ -10,6 +10,13 @@
       canCollapse: true,
     },
     {
+      id: "arbi.trends",
+      view: "arbi",
+      labelKey: "arbi.trend.title",
+      defaultSpan: "full",
+      canCollapse: true,
+    },
+    {
       id: "arbi.runs",
       view: "arbi",
       labelKey: "arbi.title",
@@ -32,6 +39,9 @@
   import ThemedPanel from "../components/ThemedPanel.svelte";
   import ArbiRunList from "../components/arbi/ArbiRunList.svelte";
   import ArbiRunDetail from "../components/arbi/ArbiRunDetail.svelte";
+  import ArbiCompare from "../components/arbi/ArbiCompare.svelte";
+  import ArbiTrendChart from "../components/arbi/ArbiTrendChart.svelte";
+  import { ARBI_COMPARE_MAX } from "../lib/arbi/arbiCompare.js";
   import {
     arbiDiskUsageBytes,
     arbiRuns,
@@ -62,10 +72,12 @@
   let filterMinRotations: number | null = null;
   let filterMinDurationMin: number | null = null;
   let filterSource: "all" | "live" | "imported" = "all";
+  let showDuplicates = false;
 
   let selectedIds = new Set<string>();
   let massTagDraft = "";
   let massBusy = false;
+  let comparing = false;
 
   $: selectedRun = selectedRunId ? ($arbiRuns.find((r) => r.id === selectedRunId) ?? null) : null;
 
@@ -76,7 +88,11 @@
   ].sort((a, b) => a.localeCompare(b));
   // The selected tag can vanish (last run deleted/retagged) - don't strand the list.
   $: if (filterTag && !allTags.some((t) => tagKey(t) === tagKey(filterTag))) filterTag = "";
+  $: hiddenDuplicates = showDuplicates
+    ? 0
+    : $arbiRuns.filter((run) => run.duplicateOf !== undefined).length;
   $: filteredRuns = $arbiRuns.filter((run) => {
+    if (!showDuplicates && run.duplicateOf !== undefined) return false;
     if (filterType !== "all" && run.missionType !== filterType) return false;
     if (filterMinVitus != null && (run.vitusActual == null || run.vitusActual < filterMinVitus)) {
       return false;
@@ -93,7 +109,12 @@
     filterTag !== "" ||
     filterMinRotations != null ||
     filterMinDurationMin != null ||
-    filterSource !== "all";
+    filterSource !== "all" ||
+    showDuplicates;
+
+  $: compareRuns = $arbiRuns.filter((run) => selectedIds.has(run.id)).slice(0, ARBI_COMPARE_MAX);
+  $: canCompare = selectedIds.size >= 2 && selectedIds.size <= ARBI_COMPARE_MAX;
+  $: if (!canCompare && comparing) comparing = false;
 
   async function openInWindow(): Promise<void> {
     try {
@@ -110,6 +131,7 @@
     filterMinRotations = null;
     filterMinDurationMin = null;
     filterSource = "all";
+    showDuplicates = false;
   }
 
   // Drop selections that no longer resolve to a run (deleted elsewhere).
@@ -221,7 +243,13 @@
 <section class="view active">
   <div class="mx-auto flex w-full max-w-[1280px] flex-col gap-4 py-4">
     {#if selectedRun}
-      <ArbiRunDetail run={selectedRun} onBack={() => (selectedRunId = null)} />
+      <ArbiRunDetail
+        run={selectedRun}
+        onBack={() => (selectedRunId = null)}
+        orderedRuns={filteredRuns}
+        allRuns={$arbiRuns}
+        onNavigate={(id) => (selectedRunId = id)}
+      />
     {:else}
       <header class="view-header mb-0 items-end" data-arbi-runs>
         <div class="flex flex-col gap-1">
@@ -367,7 +395,23 @@
                   </select>
                 </label>
               {/if}
+              <label class="flex cursor-pointer items-center gap-1.5 self-end pb-1">
+                <input
+                  type="checkbox"
+                  data-arbi-show-duplicates
+                  class="h-3.5 w-3.5 cursor-pointer accent-[var(--accent)]"
+                  bind:checked={showDuplicates}
+                />
+                <span class="text-text-secondary">{$tr("arbi.filter.showDuplicates")}</span>
+              </label>
               <div class="ml-auto flex items-center gap-2">
+                {#if hiddenDuplicates > 0}
+                  <span class="text-text-muted"
+                    >{$tr("arbi.filter.duplicatesHidden", {
+                      count: String(hiddenDuplicates),
+                    })}</span
+                  >
+                {/if}
                 <span class="text-text-muted"
                   >{$tr("arbi.filter.showing", {
                     shown: String(filteredRuns.length),
@@ -383,6 +427,8 @@
                 {/if}
               </div>
             </div>
+          {:else if sectionId === "arbi.trends"}
+            <ArbiTrendChart runs={filteredRuns} />
           {:else if sectionId === "arbi.runs"}
             <div class="flex flex-col gap-4">
               {#if selectedIds.size > 0}
@@ -408,6 +454,14 @@
                   >
                   <button
                     type="button"
+                    data-arbi-compare
+                    class="cursor-pointer rounded border border-accent/40 px-2 py-1 text-accent transition-colors hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={!canCompare}
+                    title={$tr("arbi.compare.max", { max: String(ARBI_COMPARE_MAX) })}
+                    on:click={() => (comparing = !comparing)}>{$tr("arbi.compare.open")}</button
+                  >
+                  <button
+                    type="button"
                     class="cursor-pointer rounded border border-danger/40 px-2 py-1 text-danger transition-colors hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={massBusy}
                     on:click={massDelete}>{$tr("common.deleteSelected")}</button
@@ -418,6 +472,14 @@
                     on:click={() => (selectedIds = new Set())}>{$tr("arbi.filter.clear")}</button
                   >
                 </div>
+              {/if}
+              {#if comparing && compareRuns.length >= 2}
+                <ArbiCompare
+                  runs={compareRuns}
+                  {filteredRuns}
+                  allRuns={$arbiRuns}
+                  onClose={() => (comparing = false)}
+                />
               {/if}
               <ThemedPanel className="p-2">
                 <ArbiRunList

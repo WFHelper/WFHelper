@@ -1,4 +1,5 @@
 import type {
+  ArbiInterval,
   ArbiMissionType,
   ArbiRunStats,
   ArbiSaturationBucket,
@@ -489,6 +490,36 @@ export function createArbiParser(): ArbiParser {
     });
   }
 
+  /** Clamp to the run window, drop empties, merge overlaps. */
+  function normalizeIntervals(
+    list: readonly PauseInterval[],
+    startSec: number,
+    endSec: number,
+  ): ArbiInterval[] {
+    const clamped = list
+      .map((iv) => ({ start: Math.max(iv.start, startSec), end: Math.min(iv.end, endSec) }))
+      .filter((iv) => iv.end > iv.start)
+      .sort((a, b) => a.start - b.start);
+    const out: ArbiInterval[] = [];
+    for (const iv of clamped) {
+      const last = out[out.length - 1];
+      if (last && iv.start <= last.end) last.end = Math.max(last.end, iv.end);
+      else out.push({ start: iv.start, end: iv.end });
+    }
+    return out;
+  }
+
+  /** Tick-stream stalls: the same gap width the saturation pass treats as non-gameplay. */
+  function buildIdleIntervals(r: RunState, startSec: number, endSec: number): ArbiInterval[] {
+    const raw: PauseInterval[] = [];
+    for (let i = 1; i < r.tickSamples.length; i++) {
+      const prev = r.tickSamples[i - 1].t;
+      const next = r.tickSamples[i].t;
+      if (next - prev > SATURATION_MAX_SEGMENT_SEC) raw.push({ start: prev, end: next });
+    }
+    return normalizeIntervals(raw, startSec, endSec);
+  }
+
   function buildWaves(r: RunState): ArbiWaveEntry[] {
     const waves = [...r.waveStarts.keys()].sort((a, b) => a - b);
     const out: ArbiWaveEntry[] = [];
@@ -559,6 +590,11 @@ export function createArbiParser(): ArbiParser {
         avgDroneIntervalSec = sum / (drones - 1);
       }
       const model = computeVitusModel(r.rotations, r.wavesPerRotation, drones);
+      // A run that ends on a reward screen never logs the unpause that closes it.
+      const pauses =
+        r.currentPauseStart !== null
+          ? [...r.pauseIntervals, { start: r.currentPauseStart, end: r.lastActivitySec }]
+          : r.pauseIntervals;
       stats = {
         killsPerDrone: drones > 0 ? totalEnemies / drones : 0,
         avgDroneIntervalSec,
@@ -577,6 +613,8 @@ export function createArbiParser(): ArbiParser {
             : r.missionType === "disruption"
               ? buildRounds(r)
               : null,
+        pauseIntervals: normalizeIntervals(pauses, startSec, r.lastActivitySec),
+        idleIntervals: buildIdleIntervals(r, startSec, r.lastActivitySec),
       };
     }
 

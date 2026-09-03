@@ -585,6 +585,10 @@ export interface IpcInvokeMap {
     args: [id: string, tags: string[]];
     return: ArbiRunRecord | null;
   };
+  setArbiRunNotes: {
+    args: [id: string, notes: string];
+    return: ArbiRunRecord | null;
+  };
   deleteArbiRun: {
     args: [id: string];
     return: { ok: boolean };
@@ -664,10 +668,6 @@ export interface RivenStatOption {
 export interface RivenBestAttributes {
   positives: string[];
   negatives: string[];
-}
-
-interface RivenResult {
-  unveiled: DecodedRiven[];
   /** ISO time the 44bananas sheet was last fetched; null when never cached. */
   updatedAt: string | null;
 }
@@ -677,6 +677,10 @@ interface RivenGoodRollsRefresh {
   attributes: RivenBestAttributes | null;
   /** Set even for an unknown weapon, so the UI can show the fetch time. */
   updatedAt: string | null;
+}
+
+interface RivenResult {
+  unveiled: DecodedRiven[];
   veiled: VeiledRivenEntry[];
   veiledUnseen: VeiledRivenGroup[];
 }

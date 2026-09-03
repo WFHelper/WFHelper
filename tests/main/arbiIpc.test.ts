@@ -39,6 +39,7 @@ const ARBI_CHANNELS = [
   "arbi:refresh-runs",
   "arbi:set-vitus",
   "arbi:set-tags",
+  "arbi:set-notes",
   "arbi:delete-run",
   "arbi:delete-log",
   "arbi:export-log",
@@ -118,6 +119,29 @@ describe("arbi IPC", () => {
     expect(await setVitus(event, "some-id", -5)).toBeNull();
     expect(await setVitus(event, "some-id", Number.NaN)).toBeNull();
     expect(await setVitus(event, "some-id", "1044")).toBeNull();
+  });
+
+  it("validates set-notes arguments and sanitises the text", async () => {
+    const { tracker } = await setup();
+    const event = makeEvent(11, MAIN_URL);
+    const setNotes = handlers.get("arbi:set-notes") as Handler;
+    expect(await setNotes(event, 123, "hi")).toBeNull();
+    expect(await setNotes(event, "x".repeat(65), "hi")).toBeNull();
+    expect(await setNotes(event, "unknown-id", "hi")).toBeNull();
+
+    tracker.processArbiLine(missionLine(100, "Arbitration: Casta Defense (Ceres)"), "file");
+    tracker.processArbiLine(droneLine(150), "file");
+    tracker.processArbiLine(rewardLine(400), "file");
+    tracker.processArbiLine(rewardLine(500), "file");
+    tracker.processArbiLine(missionLine(900, "Cetus (Earth)"), "file");
+    await tracker.awaitPendingArbiSaves();
+    const [run] = tracker.getRuns();
+
+    const saved = (await setNotes(event, run.id, "  line\u0001 one  ")) as { notes?: string };
+    expect(saved.notes).toBe("line one");
+    // Non-string input is coerced to empty, which clears the note.
+    const cleared = (await setNotes(event, run.id, { evil: true })) as { notes?: string };
+    expect(cleared.notes).toBeUndefined();
   });
 
   it("rejects invalid image payloads", async () => {

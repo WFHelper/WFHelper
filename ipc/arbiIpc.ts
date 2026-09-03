@@ -8,12 +8,13 @@ import * as arbiRunTracker from "../services/arbiRunTracker";
 import { importEeLog } from "../services/arbiLogImporter";
 import { forceEeLogPoll } from "../services/eeLogMonitor";
 import type { ArbiImportResult, ArbiRunsPayload } from "../config/shared/arbiTypes";
-import { normalizeArbiTags } from "../config/shared/arbiTypes";
+import { normalizeArbiNotes, normalizeArbiTags } from "../config/shared/arbiTypes";
 import {
   ARBI_GET_RUNS,
   ARBI_REFRESH_RUNS,
   ARBI_SET_VITUS,
   ARBI_SET_TAGS,
+  ARBI_SET_NOTES,
   ARBI_DELETE_RUN,
   ARBI_DELETE_LOG,
   ARBI_EXPORT_LOG,
@@ -110,6 +111,17 @@ function register(): void {
       if (!runId) return null;
       // normalizeArbiTags is total over unknown input: non-arrays -> [], junk entries dropped.
       return arbiRunTracker.setRunTags(runId, normalizeArbiTags(tags));
+    },
+  );
+
+  handleAuthorized(
+    ARBI_SET_NOTES,
+    assertMainRendererSender,
+    (_event, id: unknown, notes: unknown) => {
+      const runId = asRunId(id);
+      if (!runId) return null;
+      // normalizeArbiNotes is total over unknown input: non-strings -> "", capped at 2000 chars.
+      return arbiRunTracker.setRunNotes(runId, normalizeArbiNotes(notes));
     },
   );
 

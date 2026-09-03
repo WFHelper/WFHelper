@@ -82,6 +82,9 @@ export function saturationHue(bucketIndex: number): number {
   return Math.max(0, 100 - bucketIndex * 15);
 }
 
+/** Enemy count the saturation headline stat and the comparison row both report on. */
+export const ARBI_SATURATION_THRESHOLD = 15;
+
 /** Percentage of tracked time spent at or above `threshold` enemies. */
 export function saturationAboveThresholdPct(
   buckets: ArbiRunStats["saturationBuckets"],

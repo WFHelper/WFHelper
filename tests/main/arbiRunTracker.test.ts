@@ -420,6 +420,318 @@ describe("arbiRunTracker", () => {
     expect(reloaded.getRuns()[0]?.players).toEqual(["HostPlayer", "ClientOne"]);
   });
 
+  it("keeps a pre-notes, pre-duplicate record readable and writes notes onto it", async () => {
+    const startedAt = new Date("2026-07-08T00:15:00").getTime();
+    fs.writeFileSync(
+      path.join(tmpDir, "arbi-runs.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        runs: [
+          {
+            id: "2026-07-08_00-15-00",
+            startedAt,
+            endedAt: startedAt + 600_000,
+            missionName: "Arbitration: Casta Defense (Ceres)",
+            node: "Casta Defense (Ceres)",
+            missionType: "defense",
+            durationSec: 600,
+            rotations: 3,
+            drones: 12,
+            totalEnemies: 240,
+            vitusActual: null,
+            logFile: null,
+            logSizeBytes: 0,
+            endReason: "mission-end",
+            source: "live",
+            stats: {
+              killsPerDrone: 20,
+              avgDroneIntervalSec: 30,
+              expectedVitusMean: 10,
+              expectedVitusStd: 3,
+              vitusPerMin: 1,
+              wavesPerRotation: 3,
+              droneTimestamps: [10, 40],
+              rewardTimestamps: [100],
+              preciseStartSec: 0,
+              lastActivitySec: 200,
+              saturationBuckets: [],
+              waves: null,
+            },
+          },
+        ],
+      }),
+    );
+
+    const tracker = await freshTracker();
+    const [run] = tracker.getRuns();
+    expect(run.notes).toBeUndefined();
+    expect(run.duplicateOf).toBeUndefined();
+    // The new stats fields stay absent rather than being invented.
+    expect(run.stats?.pauseIntervals).toBeUndefined();
+    expect(run.stats?.idleIntervals).toBeUndefined();
+
+    expect(tracker.setRunNotes(run.id, "  boar build\u0000 test  ")?.notes).toBe("boar build test");
+    const reloaded = await freshTracker();
+    expect(reloaded.getRuns()[0]?.notes).toBe("boar build test");
+    expect(reloaded.getRuns()[0]?.stats?.droneTimestamps).toEqual([10, 40]);
+  });
+
+  it("caps notes and drops the field when cleared", async () => {
+    const tracker = await freshTracker();
+    feedRun(tracker);
+    const saved = waitForRun(tracker);
+    tracker.processArbiLine(eomLine(900), "file");
+    const run = await saved;
+
+    expect(tracker.setRunNotes(run.id, "x".repeat(2500))?.notes).toHaveLength(2000);
+    expect(tracker.setRunNotes(run.id, "   ")?.notes).toBeUndefined();
+    expect(tracker.setRunNotes("nope", "hi")).toBeNull();
+  });
+
+  it("marks the poorer of a live/imported pair as a duplicate and frees it on delete", async () => {
+    const startedAt = new Date("2026-07-08T00:15:00").getTime();
+    const record = (
+      id: string,
+      overrides: Partial<ArbiRunRecord> & Pick<ArbiRunRecord, "source">,
+    ) => ({
+      id,
+      startedAt,
+      endedAt: startedAt + 600_000,
+      missionName: "Arbitration: Casta Defense (Ceres)",
+      node: "Casta Defense (Ceres)",
+      missionType: "defense",
+      durationSec: 600,
+      rotations: 3,
+      drones: 12,
+      totalEnemies: 240,
+      vitusActual: null,
+      logFile: null,
+      logSizeBytes: 0,
+      endReason: "mission-end",
+      stats: null,
+      ...overrides,
+    });
+
+    fs.writeFileSync(
+      path.join(tmpDir, "arbi-runs.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        runs: [
+          // Same mission: 60s apart, 2s of duration drift. Only the live one has stats.
+          record("2026-07-08_00-15-00", {
+            source: "live",
+            stats: {
+              killsPerDrone: 20,
+              avgDroneIntervalSec: 30,
+              expectedVitusMean: 10,
+              expectedVitusStd: 3,
+              vitusPerMin: 1,
+              wavesPerRotation: 3,
+              droneTimestamps: [],
+              rewardTimestamps: [],
+              preciseStartSec: 0,
+              lastActivitySec: 600,
+              saturationBuckets: [],
+              waves: null,
+            },
+          }),
+          record("2026-07-08_00-16-00", {
+            source: "imported",
+            startedAt: startedAt + 60_000,
+            durationSec: 602,
+          }),
+          // Same node but three hours later: a separate run, not a duplicate.
+          record("2026-07-08_03-15-00", {
+            source: "imported",
+            startedAt: startedAt + 3 * 3600_000,
+          }),
+        ],
+      }),
+    );
+
+    const tracker = await freshTracker();
+    const byId = new Map(tracker.getRuns().map((r) => [r.id, r]));
+    expect(byId.get("2026-07-08_00-15-00")?.duplicateOf).toBeUndefined();
+    expect(byId.get("2026-07-08_00-16-00")?.duplicateOf).toBe("2026-07-08_00-15-00");
+    expect(byId.get("2026-07-08_03-15-00")?.duplicateOf).toBeUndefined();
+
+    const persisted = JSON.parse(fs.readFileSync(path.join(tmpDir, "arbi-runs.json"), "utf-8"));
+    expect(
+      persisted.runs.find((r: ArbiRunRecord) => r.id === "2026-07-08_00-16-00").duplicateOf,
+    ).toBe("2026-07-08_00-15-00");
+
+    expect(tracker.deleteRun("2026-07-08_00-15-00")).toBe(true);
+    expect(
+      tracker.getRuns().find((r) => r.id === "2026-07-08_00-16-00")?.duplicateOf,
+    ).toBeUndefined();
+  });
+
+  it("backfills cadence intervals onto pre-cadence records, taking nothing else", async () => {
+    const logsDir = path.join(tmpDir, "arbi-logs");
+    fs.mkdirSync(logsDir, { recursive: true });
+    const lines = [
+      missionLine(100, "Arbitration: Casta Defense (Ceres)"),
+      "110.000 Script [Info]: WaveDefend.lua: Defense wave: 1",
+      droneLine(120),
+      droneLine(130),
+      "140.000 Script [Info]: WaveDefend.lua: _SleepBetweenWaves",
+      "160.000 Script [Info]: WaveDefend.lua: Starting wave 2 (32 simultaneous)",
+      "200.000 AI [Info]: NpcManager status MonitoredTicking 5",
+      // 90s without a tick line becomes an idle window.
+      "290.000 AI [Info]: NpcManager status MonitoredTicking 6",
+      rewardLine(400),
+      "430.000 Script [Info]: WaveDefend.lua: Starting wave 4 (32 simultaneous)",
+      rewardLine(700),
+      droneLine(750),
+    ].join("\n");
+    fs.writeFileSync(path.join(logsDir, "2026-07-08_00-15-00.log.gz"), zlib.gzipSync(lines));
+
+    const startedAt = new Date("2026-07-08T00:15:00").getTime();
+    const legacyStats = {
+      killsPerDrone: 7,
+      avgDroneIntervalSec: 31.5,
+      expectedVitusMean: 12.5,
+      expectedVitusStd: 3.25,
+      vitusPerMin: 1.25,
+      wavesPerRotation: 3,
+      droneTimestamps: [120, 130, 750],
+      rewardTimestamps: [400, 700],
+      preciseStartSec: 110,
+      lastActivitySec: 750,
+      saturationBuckets: [{ minCount: 0, label: "0-2", seconds: 5, pct: 100 }],
+      waves: null,
+    };
+    const record = (id: string, overrides: Record<string, unknown>) => ({
+      id,
+      startedAt,
+      endedAt: startedAt + 600_000,
+      missionName: "Arbitration: Casta Defense (Ceres)",
+      node: "Casta Defense (Ceres)",
+      missionType: "defense",
+      durationSec: 640,
+      rotations: 2,
+      drones: 3,
+      totalEnemies: 21,
+      vitusActual: null,
+      logFile: null,
+      logSizeBytes: 0,
+      endReason: "mission-end",
+      source: "live",
+      players: [],
+      stats: JSON.parse(JSON.stringify(legacyStats)),
+      ...overrides,
+    });
+
+    fs.writeFileSync(
+      path.join(tmpDir, "arbi-runs.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        runs: [
+          record("2026-07-08_00-15-00", {
+            logFile: "2026-07-08_00-15-00.log.gz",
+            logSizeBytes: 40,
+          }),
+          // Log already deleted: nothing to re-read, so the timeline stays hidden.
+          record("2026-07-08_01-15-00", {}),
+          // Already carries intervals: must be left exactly as stored.
+          record("2026-07-08_02-15-00", {
+            logFile: "2026-07-08_00-15-00.log.gz",
+            logSizeBytes: 40,
+            stats: {
+              ...JSON.parse(JSON.stringify(legacyStats)),
+              pauseIntervals: [{ start: 1, end: 2 }],
+              idleIntervals: [],
+            },
+          }),
+        ],
+      }),
+    );
+
+    const tracker = await freshTracker();
+    await tracker.__arbiBackfillForTest();
+    const byId = new Map(tracker.getRuns().map((r) => [r.id, r]));
+
+    const filled = byId.get("2026-07-08_00-15-00");
+    expect(filled?.stats?.pauseIntervals).toEqual([
+      { start: 140, end: 160 },
+      { start: 400, end: 430 },
+      { start: 700, end: 750 },
+    ]);
+    expect(filled?.stats?.idleIntervals).toEqual([{ start: 200, end: 290 }]);
+    // Every other field keeps the stored value, not a re-parsed one.
+    const { pauseIntervals: _p, idleIntervals: _i, ...rest } = filled?.stats ?? {};
+    expect(rest).toEqual(legacyStats);
+    expect(filled?.drones).toBe(3);
+    expect(filled?.durationSec).toBe(640);
+
+    expect(byId.get("2026-07-08_01-15-00")?.stats?.pauseIntervals).toBeUndefined();
+    expect(byId.get("2026-07-08_01-15-00")?.stats?.idleIntervals).toBeUndefined();
+
+    // A record that already has intervals is skipped, so its values survive.
+    expect(byId.get("2026-07-08_02-15-00")?.stats?.pauseIntervals).toEqual([{ start: 1, end: 2 }]);
+
+    const persisted = JSON.parse(fs.readFileSync(path.join(tmpDir, "arbi-runs.json"), "utf-8"));
+    const stored = persisted.runs.find(
+      (r: ArbiRunRecord) => r.id === "2026-07-08_00-15-00",
+    ) as ArbiRunRecord;
+    expect(stored.stats?.idleIntervals).toEqual([{ start: 200, end: 290 }]);
+
+    // Second launch has nothing left to read: deleting the log changes nothing.
+    fs.rmSync(path.join(logsDir, "2026-07-08_00-15-00.log.gz"));
+    const reloaded = await freshTracker();
+    await reloaded.__arbiBackfillForTest();
+    expect(
+      reloaded.getRuns().find((r) => r.id === "2026-07-08_00-15-00")?.stats?.pauseIntervals,
+    ).toEqual([
+      { start: 140, end: 160 },
+      { start: 400, end: 430 },
+      { start: 700, end: 750 },
+    ]);
+  });
+
+  it("leaves stats-less records out of the cadence backfill", async () => {
+    const logsDir = path.join(tmpDir, "arbi-logs");
+    fs.mkdirSync(logsDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(logsDir, "2026-07-08_00-15-00.log.gz"),
+      zlib.gzipSync(
+        [missionLine(100, "Arbitration: Casta Defense (Ceres)"), droneLine(120)].join("\n"),
+      ),
+    );
+    const startedAt = new Date("2026-07-08T00:15:00").getTime();
+    fs.writeFileSync(
+      path.join(tmpDir, "arbi-runs.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        runs: [
+          {
+            id: "2026-07-08_00-15-00",
+            startedAt,
+            endedAt: startedAt + 600_000,
+            missionName: "Arbitration: Oestrus (Eris)",
+            node: "Oestrus (Eris)",
+            missionType: "other",
+            durationSec: 600,
+            rotations: 3,
+            drones: 5,
+            totalEnemies: 50,
+            vitusActual: null,
+            logFile: "2026-07-08_00-15-00.log.gz",
+            logSizeBytes: 20,
+            endReason: "mission-end",
+            source: "live",
+            players: [],
+            stats: null,
+          },
+        ],
+      }),
+    );
+
+    const tracker = await freshTracker();
+    await tracker.__arbiBackfillForTest();
+    expect(tracker.getRuns()[0]?.stats).toBeNull();
+  });
+
   it("awaitPendingArbiSaves resolves immediately when nothing is in flight", async () => {
     const tracker = await freshTracker();
     await expect(tracker.awaitPendingArbiSaves()).resolves.toBeUndefined();

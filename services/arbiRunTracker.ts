@@ -10,7 +10,7 @@ import { writeFileAtomicSync } from "./atomicFile";
 import { createArbiParser } from "./arbiRunParser";
 import type { ArbiParsedRun, ArbiParser } from "./arbiRunParser";
 import type { ArbiRunEndReason, ArbiRunRecord } from "../config/shared/arbiTypes";
-import { normalizeArbiTags } from "../config/shared/arbiTypes";
+import { normalizeArbiNotes, normalizeArbiTags } from "../config/shared/arbiTypes";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("arbiRunTracker");
@@ -25,6 +25,13 @@ const INACTIVITY_CHECK_MS = 60_000;
 const RUN_ID_RE = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:-\d+)?$/;
 /** Same floor the summary overlay uses - shorter runs aren't worth an entry. */
 const MIN_SAVED_ROTATIONS = 2;
+/** Windows within which a live capture and an imported log describe one mission.
+ * Wall-clock start can drift by the import's header anchor; the duration cannot. */
+const DUPLICATE_START_TOLERANCE_MS = 120_000;
+const DUPLICATE_DURATION_TOLERANCE_SEC = 5;
+/** Stored logs re-read per launch for cadence intervals; the rest wait for the
+ * next start rather than holding a large index's startup. */
+const MAX_CADENCE_BACKFILL = 200;
 
 /** Why a parsed run should not be indexed, or null when it should be. */
 function _skipReason(parsed: ArbiParsedRun): string | null {
@@ -180,8 +187,54 @@ function _buildRecord(
   };
 }
 
+function _sameMission(a: ArbiRunRecord, b: ArbiRunRecord): boolean {
+  return (
+    a.node === b.node &&
+    Math.abs(a.startedAt - b.startedAt) <= DUPLICATE_START_TOLERANCE_MS &&
+    Math.abs(a.durationSec - b.durationSec) <= DUPLICATE_DURATION_TOLERANCE_SEC
+  );
+}
+
+/** Richer record first: full stats beat none, then the longer raw log, then live. */
+function _richerFirst(a: ArbiRunRecord, b: ArbiRunRecord): [ArbiRunRecord, ArbiRunRecord] {
+  const stats = (a.stats !== null ? 1 : 0) - (b.stats !== null ? 1 : 0);
+  if (stats !== 0) return stats > 0 ? [a, b] : [b, a];
+  if (a.logSizeBytes !== b.logSizeBytes) return a.logSizeBytes > b.logSizeBytes ? [a, b] : [b, a];
+  return a.source === "live" ? [a, b] : [b, a];
+}
+
+/** Recompute every duplicateOf link from scratch; returns true when anything moved.
+ * Only cross-source pairs qualify, so two genuine back-to-back runs stay separate. */
+function _markDuplicates(): boolean {
+  const winners = new Map<string, string>();
+  for (let i = 0; i < _runs.length; i++) {
+    for (let j = i + 1; j < _runs.length; j++) {
+      const a = _runs[i];
+      const b = _runs[j];
+      if (a.source === b.source || !_sameMission(a, b)) continue;
+      const [winner, loser] = _richerFirst(a, b);
+      if (!winners.has(loser.id)) winners.set(loser.id, winner.id);
+    }
+  }
+  const resolve = (id: string, depth = 0): string => {
+    const next = winners.get(id);
+    return next === undefined || depth >= 4 ? id : resolve(next, depth + 1);
+  };
+  let changed = false;
+  for (const run of _runs) {
+    const raw = winners.get(run.id);
+    const target = raw === undefined ? undefined : resolve(raw);
+    if (target === run.duplicateOf) continue;
+    if (target === undefined || target === run.id) delete run.duplicateOf;
+    else run.duplicateOf = target;
+    changed = true;
+  }
+  return changed;
+}
+
 function _addRecord(record: ArbiRunRecord): void {
   _runs.unshift(record);
+  _markDuplicates();
   _saveIndex();
   log.info(
     `[Arbi] Run saved: ${record.node} (${record.missionType}), ` +
@@ -454,10 +507,50 @@ async function _backfillPlayers(): Promise<void> {
   log.info(`[Arbi] Squad names backfilled for ${found} of ${pending.length} stored run(s)`);
 }
 
+/** Records saved before cadence tracking re-read their stored log once. Only the
+ * two interval arrays are copied over, so no other stat can drift. Runs whose log
+ * is gone keep no intervals at all, which is what hides their timeline. */
+async function _backfillCadence(): Promise<void> {
+  // A persisted record can be missing either field entirely; _loadIndex only
+  // validates the id, so neither `stats` nor `logFile` is guaranteed present.
+  const pending = _runs.filter(
+    (r) => !!r.stats && r.stats.pauseIntervals === undefined && r.logFile != null,
+  );
+  if (pending.length === 0) return;
+  let filled = 0;
+  // Newest first (the index order), so the runs a user is likely to open land
+  // first; a bigger index finishes over the next few launches.
+  for (const run of pending.slice(0, MAX_CADENCE_BACKFILL)) {
+    const stats = run.stats;
+    const logPath = _storedLogPath(run);
+    if (!stats || !logPath || !fs.existsSync(logPath)) continue;
+    try {
+      const content = (await _gunzip(await fs.promises.readFile(logPath))).toString("utf-8");
+      const parser = createArbiParser();
+      for (const line of content.split(/\r?\n/)) parser.feedLine(line);
+      const reparsed = parser.finalize()?.stats;
+      if (!reparsed?.pauseIntervals) continue;
+      stats.pauseIntervals = reparsed.pauseIntervals;
+      stats.idleIntervals = reparsed.idleIntervals ?? [];
+      filled++;
+    } catch (err) {
+      log.warn(`[Arbi] Cadence backfill failed for ${run.id}:`, normalizeErrorMessage(err));
+    }
+  }
+  if (filled > 0) _saveIndex();
+  log.info(`[Arbi] Cadence intervals backfilled for ${filled} of ${pending.length} stored run(s)`);
+}
+
 export function initArbiTracker(): void {
   _loadIndex();
+  if (_markDuplicates()) _saveIndex();
   _salvageStalePartials();
-  _backfillPromise = _backfillPlayers();
+  // One chain: each gunzip awaits, so startup keeps its event loop either way.
+  // Nothing awaits this at startup, so a throw here must not escape as an
+  // unhandled rejection and take the main process down.
+  _backfillPromise = _backfillPlayers()
+    .then(_backfillCadence)
+    .catch((err) => log.warn("[Arbi] Backfill pass failed:", normalizeErrorMessage(err)));
   _initialized = true;
   log.info(`[Arbi] Tracker ready: ${_runs.length} run(s) loaded from index`);
 }
@@ -508,6 +601,16 @@ export function setRunTags(id: string, tags: string[]): ArbiRunRecord | null {
   return run;
 }
 
+export function setRunNotes(id: string, notes: string): ArbiRunRecord | null {
+  const run = _runs.find((r) => r.id === id);
+  if (!run) return null;
+  const clean = normalizeArbiNotes(notes);
+  if (clean) run.notes = clean;
+  else delete run.notes;
+  _saveIndex();
+  return run;
+}
+
 export function deleteRunLog(id: string): ArbiRunRecord | null {
   const run = _runs.find((r) => r.id === id);
   if (!run) return null;
@@ -538,6 +641,8 @@ export function deleteRun(id: string): boolean {
     }
   }
   _runs.splice(idx, 1);
+  // Deleting the richer record must release the copy that pointed at it.
+  _markDuplicates();
   _saveIndex();
   return true;
 }

@@ -10,6 +10,7 @@
     formatRunDate,
     missionKindLabel,
   } from "../../lib/arbi/arbiChartData.js";
+  import { isIncompleteRun } from "../../lib/arbi/arbiCompare.js";
 
   export let runs: ArbiRunRecord[] = [];
   export let onSelect: (id: string) => void;
@@ -96,6 +97,20 @@
               <span
                 class="ml-1.5 rounded border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-text-muted"
                 >{$t("common.imported")}</span
+              >
+            {/if}
+            {#if isIncompleteRun(run)}
+              <span
+                data-arbi-incomplete
+                class="ml-1.5 rounded border border-warning/40 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-warning"
+                title={$t("arbi.incompleteHint")}>{$t("arbi.incomplete")}</span
+              >
+            {/if}
+            {#if run.duplicateOf}
+              <span
+                data-arbi-duplicate
+                class="ml-1.5 rounded border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-text-muted"
+                title={$t("arbi.duplicateHint")}>{$t("arbi.duplicate")}</span
               >
             {/if}
             {#if run.tags && run.tags.length > 0}
