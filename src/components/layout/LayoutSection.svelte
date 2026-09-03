@@ -111,37 +111,6 @@
     data-layout-collapsed={collapsed ? "true" : "false"}
     data-layout-first-in-column={firstInColumn ? "true" : "false"}
   >
-    {#if canPopout && !editing}
-      <!-- Zero-height rail so the hover control adds no space and does not make
-         the section wrapper a positioning context for its own content. -->
-      <div class="relative z-20 h-0">
-        <button
-          type="button"
-          class="absolute right-0 top-0 flex cursor-pointer items-center justify-center rounded border border-border bg-bg-raised/90 p-1 text-text-secondary opacity-0 transition-[opacity,border-color,color] duration-150 hover:border-border-strong hover:text-text-primary focus-visible:opacity-100 group-hover:opacity-100"
-          data-layout-popout={id}
-          aria-label={$tr("common.openInWindow")}
-          title={$tr("common.openInWindow")}
-          on:click={openInWindow}
-        >
-          <svg
-            viewBox="0 0 16 16"
-            width="12"
-            height="12"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M9.5 2.5h4v4" />
-            <path d="M13.5 2.5 8 8" />
-            <path d="M12.5 9.5V13H3V3.5h3.5" />
-          </svg>
-        </button>
-      </div>
-    {/if}
-
     {#if editing}
       <div
         class="mb-1 flex flex-wrap items-center gap-1 rounded-[var(--radius-md)] border border-accent/40 bg-accent/5 px-1.5 py-1 text-xs"

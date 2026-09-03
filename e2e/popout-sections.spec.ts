@@ -37,9 +37,16 @@ test.describe("Section popouts and workspaces", () => {
     throw new Error("section popout window never appeared");
   }
 
+  // The per-section control lives in the edit chrome only, so editing goes on for
+  // the click and straight back off; the rest of the spec drives the normal view.
   async function openSectionPopout(): Promise<Page> {
     await openView(page, "stats");
+    const toggle = page.locator('[data-layout-edit-toggle="stats"]');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
     await page.locator(`[data-layout-popout="${SECTION_ID}"]`).first().click();
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
     return sectionWindow();
   }
 
