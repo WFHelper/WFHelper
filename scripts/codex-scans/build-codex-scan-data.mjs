@@ -5,6 +5,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { parseEntries } from "./parseEnemyModule.mjs";
+
 const FACTIONS = [
   "grineer",
   "corpus",
@@ -22,30 +24,25 @@ const FACTIONS = [
 
 const OUT_FILE = path.join(process.cwd(), "src", "data", "codexScanRequirements.json");
 
-function parseEntries(lua, faction) {
-  const entries = [];
-  // Each enemy's General block carries InternalName, Name and Scans in one
-  // brace group; field order varies, so pluck fields independently per block.
-  const blocks = lua.split(/General\s*=\s*\{/).slice(1);
-  for (const block of blocks) {
-    const internal = block.match(/InternalName\s*=\s*"([^"]+)"/)?.[1];
-    const name = block.match(/\bName\s*=\s*"([^"]+)"/)?.[1];
-    const scans = block.match(/\bScans\s*=\s*(\d+)/)?.[1];
-    const image = block.match(/\bImage\s*=\s*"([^"]+)"/)?.[1] ?? null;
-    if (!internal || !name || !scans) continue;
-    entries.push({ internal, name, scans: Number(scans), faction, image });
+// The wiki answers a spoofed browser UA with a 403 challenge page, so keep this
+// one; a transient 403 still happens under load and is worth a single retry.
+async function fetchWikiRaw(page) {
+  const url = `https://wiki.warframe.com/w/${page}?action=raw`;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch(url, { headers: { "User-Agent": "WFHelper data build" } });
+    if (res.ok) return res.text();
+    if (attempt === 0 && (res.status === 403 || res.status === 429)) {
+      await new Promise((resolve) => setTimeout(resolve, 30_000));
+      continue;
+    }
+    throw new Error(`${page}: HTTP ${res.status} - refusing to overwrite`);
   }
-  return entries;
+  throw new Error(`${page}: unreachable - refusing to overwrite`);
 }
 
 const all = new Map();
 for (const faction of FACTIONS) {
-  const url = `https://wiki.warframe.com/w/Module:Enemies/data/${faction}?action=raw`;
-  const res = await fetch(url, { headers: { "User-Agent": "WFHelper data build" } });
-  if (!res.ok) {
-    throw new Error(`${faction}: HTTP ${res.status} - refusing to overwrite`);
-  }
-  const entries = parseEntries(await res.text(), faction);
+  const entries = parseEntries(await fetchWikiRaw(`Module:Enemies/data/${faction}`), faction);
   if (entries.length === 0)
     throw new Error(`${faction}: no entries parsed - refusing to overwrite`);
   for (const entry of entries) {
@@ -181,12 +178,7 @@ const normFragmentName = (name) =>
   name.toLowerCase().replace(/[‘’]/g, "'").replace(/[–—]/g, "-").replace(/\s+/g, " ").trim();
 const fragmentImageByName = new Map();
 for (const page of FRAGMENT_PAGES) {
-  const url = `https://wiki.warframe.com/w/${encodeURI(page)}?action=raw`;
-  const res = await fetch(url, { headers: { "User-Agent": "WFHelper data build" } });
-  if (!res.ok) {
-    throw new Error(`${page}: HTTP ${res.status} - refusing to overwrite`);
-  }
-  const text = await res.text();
+  const text = await fetchWikiRaw(encodeURI(page));
   let parsedImages = 0;
   for (const block of text.split(/\{\{Fragments\s*\n/).slice(1)) {
     let name = block.match(/(?:^|\|)\s*fragment\s*=\s*([^\n|]+)/)?.[1]?.trim();
@@ -364,6 +356,14 @@ for (const e of sorted) {
     faction: e.faction,
     ...(e.image ? { image: e.image } : {}),
     ...(e.eximusScans ? { eximusScans: e.eximusScans } : {}),
+    // Spawn context for the enemy detail panel; the wiki omits these per entry.
+    ...(e.planets ? { planets: e.planets } : {}),
+    ...(e.tileSets ? { tileSets: e.tileSets } : {}),
+    ...(e.missions ? { missions: e.missions } : {}),
+    ...(e.type ? { type: e.type } : {}),
+    ...(e.description ? { description: e.description } : {}),
+    ...(e.link && e.link !== e.name ? { link: e.link } : {}),
+    ...(e.baseLevel ? { baseLevel: e.baseLevel } : {}),
   };
 }
 
@@ -397,8 +397,13 @@ const IMAGES_FILE = path.join(process.cwd(), "scripts", "icon-mirror", "enemy-im
 fs.writeFileSync(IMAGES_FILE, JSON.stringify(images, null, 2) + "\n");
 const CODEX_ICONS_FILE = path.join(process.cwd(), "scripts", "icon-mirror", "codex-icon-urls.json");
 fs.writeFileSync(CODEX_ICONS_FILE, JSON.stringify([...codexIconSources].sort(), null, 2) + "\n");
+const withField = (field) => sorted.filter((e) => e[field]).length;
 console.log(
   `wrote ${OUT_FILE} with ${sorted.length} enemies + ${extras.size} extras, ` +
     `${Object.keys(avatars).length} avatar paths, ${images.length} wiki images, ` +
     `${codexIconSources.size} DE icon sources`,
+);
+console.log(
+  `spawn context: ${withField("planets")} planets, ${withField("tileSets")} tilesets, ` +
+    `${withField("missions")} missions, ${withField("description")} descriptions`,
 );

@@ -1,11 +1,9 @@
 // Typed shim over the generated table (scripts/codex-scans/build-codex-scan-data.mjs
 // writes the JSON; source wiki.warframe.com Module:Enemies/data/*, CC BY-SA).
 import data from "./codexScanRequirements.json";
+import type { CodexRequirement } from "../../config/shared/codexTypes.js";
 
-export const CODEX_SCAN_REQUIREMENTS = data.requirements as Record<
-  string,
-  { name: string; scans: number; faction: string; image?: string; eximusScans?: number }
->;
+export const CODEX_SCAN_REQUIREMENTS = data.requirements as Record<string, CodexRequirement>;
 
 // Lowercased avatar paths a profile records scans against, mapped to the entry
 // they credit: ExportEnemies agents[].avatarTypes, agents that are their own
