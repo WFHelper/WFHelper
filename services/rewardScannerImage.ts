@@ -132,6 +132,18 @@ const OCR_ENHANCE: Readonly<{
   whitePoint: 214,
 });
 
+// Both readers were calibrated on 1080p title strips upscaled 3x: ~700px wide,
+// one text line ~60px tall. A 4K strip is already twice that wide, so a fixed 3x
+// quadruples the OCR pixels and pushes the line height past the row splitter's
+// limit. Target the calibrated width instead of a fixed factor.
+const OCR_STRIP_UPSCALE = 3;
+const OCR_STRIP_TARGET_WIDTH = 720;
+
+export function ocrStripTargetWidth(sourceWidth: number): number {
+  if (!(sourceWidth > 0)) return 0;
+  return Math.max(8, Math.round(Math.min(sourceWidth * OCR_STRIP_UPSCALE, OCR_STRIP_TARGET_WIDTH)));
+}
+
 const CONSOLE_BRIGHT_LUM = 140;
 const CONSOLE_MAX_SAT = 0.3;
 const CONSOLE_BRIGHT_RATIO = 0.55;
@@ -509,19 +521,14 @@ function detectFixedRewardSlotLayouts(
   return candidates;
 }
 
-function detectFixedRewardSlotLayout(
-  nativeImage: NativeImage,
-  uiScale = REFERENCE_UI_SCALE,
-): RewardSlotLayout | null {
-  return detectFixedRewardSlotLayouts(nativeImage, uiScale)[0] || null;
-}
-
 export function detectRewardSlotLayoutCandidates(
   nativeImage: NativeImage,
   uiScale = REFERENCE_UI_SCALE,
 ): RewardSlotLayout[] {
   const fixed = detectFixedRewardSlotLayouts(nativeImage, uiScale);
-  const primary = detectRewardSlotLayout(nativeImage, uiScale);
+  // The projection detector returns the fixed winner when there is one, so
+  // asking it for that case would sample every card region a second time.
+  const primary = fixed.length > 0 ? null : detectRewardSlotLayout(nativeImage);
   const byKey = new Map<string, RewardSlotLayout>();
   for (const layout of [...fixed, primary]) {
     if (!layout || layout.count <= 0) continue;
@@ -536,16 +543,12 @@ export function detectRewardSlotLayoutCandidates(
   });
 }
 
-function detectRewardSlotLayout(
-  nativeImage: NativeImage,
-  uiScale = REFERENCE_UI_SCALE,
-): RewardSlotLayout {
+// Only reached when no fixed layout scored, so it goes straight to the
+// column-projection fallback.
+function detectRewardSlotLayout(nativeImage: NativeImage): RewardSlotLayout {
   if (!nativeImage || typeof nativeImage.getSize !== "function") {
     return { count: 0, confidence: 0, slots: [] };
   }
-
-  const fixedLayout = detectFixedRewardSlotLayout(nativeImage, uiScale);
-  if (fixedLayout) return fixedLayout;
 
   const layoutRegion = aspectCorrectRect(SLOT_LAYOUT_REGION, aspectScaleFor(nativeImage));
   let region: NativeImage;
@@ -760,7 +763,7 @@ export async function binarizeRewardRegion(
     // Remove alpha bytes from the Otsu histogram.
     const { data, info } = await sharp(pngBuffer)
       .extract({ left: 0, top, width: srcW, height })
-      .resize({ width: srcW * 3, kernel: "lanczos3" })
+      .resize({ width: ocrStripTargetWidth(srcW), kernel: "lanczos3" })
       .grayscale()
       .removeAlpha()
       .normalise()

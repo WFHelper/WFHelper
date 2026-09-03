@@ -242,6 +242,47 @@ function normalizeRewardText(text: string): string {
     .replace(QUANTITY_PREFIX_SPACING, "$1x");
 }
 
+// High-resolution captures merge glyph pairs and print digit lookalikes:
+// "Blueprint" comes back as "81ueprint", or with the "B" read as an accented
+// letter that word normalization drops, welding "lueprint" onto the word
+// before it. Folding those back and dropping spacing recovers the name.
+const OCR_CONFUSIONS: ReadonlyArray<readonly [RegExp, string]> = Object.freeze([
+  [/8/g, "b"],
+  [/0/g, "o"],
+  [/1/g, "l"],
+  [/5/g, "s"],
+]);
+
+function foldOcrConfusions(value: string): string {
+  let folded = String(value || "").toLowerCase();
+  for (const [pattern, replacement] of OCR_CONFUSIONS) {
+    folded = folded.replace(pattern, replacement);
+  }
+  return folded.replace(/[^a-z0-9]/g, "");
+}
+
+// Every ranked read re-normalizes the whole item pool, so keep the per-name work.
+const MAX_CACHED_NAMES = 8000;
+const normalizedNameCache = new Map<string, string>();
+const foldedNameCache = new Map<string, string>();
+
+function cachedName(cache: Map<string, string>, name: string, build: () => string): string {
+  const hit = cache.get(name);
+  if (hit !== undefined) return hit;
+  if (cache.size >= MAX_CACHED_NAMES) cache.clear();
+  const value = build();
+  cache.set(name, value);
+  return value;
+}
+
+function normalizedItemName(name: string): string {
+  return cachedName(normalizedNameCache, name, () => normalizeRewardText(name));
+}
+
+function foldedItemName(name: string): string {
+  return cachedName(foldedNameCache, name, () => foldOcrConfusions(normalizedItemName(name)));
+}
+
 // "2X Forma Blueprint" and "Forma Blueprint" are both real rewards. A pair that
 // differs only by the leading count follows the read, so a text with no count
 // cannot be handed the counted name. A counted name with no bare sibling in the
@@ -255,7 +296,7 @@ function dropQuantityPrefixMismatches(
   const countedSeen = new Set<string>();
   for (const entry of ranked) {
     if (!entry.item) continue;
-    const name = normalizeRewardText(entry.item.name);
+    const name = normalizedItemName(entry.item.name);
     const bareName = stripQuantityPrefix(name);
     if (!bareName) continue;
     const counted = bareName !== name;
@@ -285,6 +326,12 @@ const MIN_SUBSEQUENCE_WORD_RATIO = 0.6;
 const MIN_MEANINGFUL_READ_WORD_LENGTH = 3;
 // Every containment match is clamped up to this, so its score is not a measurement.
 export const SUBSTRING_SCORE_FLOOR = 0.88;
+// A confusion-folded hit is an equality, but not of the printed spelling.
+const FOLDED_EXACT_CONFIDENCE = 0.99;
+// Sibling part names sit near 0.7 folded, so this gate has room; the length
+// floor keeps short mod names out, where one edit is most of the word.
+const FOLDED_NEAR_MIN_SIMILARITY = 0.94;
+const FOLDED_NEAR_MIN_LENGTH = 12;
 
 // Word-level tolerance mirrors the fuzzy pass: OCR corruptions the alias table
 // doesn't know ("lueorint" for "Blueprint") must not break structural matching.
@@ -320,7 +367,7 @@ function boostUniqueStructuralCandidate(
   const thinSubsequence = new Set<string>();
   for (const entry of ranked) {
     if (!entry.item) continue;
-    const normalizedName = normalizeRewardText(entry.item.name);
+    const normalizedName = normalizedItemName(entry.item.name);
     if (entry.mode === "substring" && normalizedName.startsWith(`${text} `)) {
       prefixHits.set(normalizedName, entry);
     } else if (entry.mode === "substring" && containsRewardPhrase(text, normalizedName)) {
@@ -362,10 +409,12 @@ export function rankRewardCandidatesDetailed(
   }
 
   const textWords = text.split(" ").filter((word) => word.length > 1);
+  const foldedText = foldOcrConfusions(text);
+  const textHasQuantity = hasQuantityPrefix(text);
   const ranked: SingleItemMatchResult[] = [];
 
   for (const item of sortedItems) {
-    const normalizedName = normalizeRewardText(item.name);
+    const normalizedName = normalizedItemName(item.name);
     if (!normalizedName) continue;
 
     // Disjoint score bands: exact > substring > fuzzy, so a fuzzy near-miss on a
@@ -375,6 +424,18 @@ export function rankRewardCandidatesDetailed(
         item: { ...item, confidence: 1 },
         confidence: 1,
         score: 1000,
+        mode: "exact",
+      });
+      continue;
+    }
+
+    const foldedName = foldedItemName(item.name);
+    if (foldedText && foldedText === foldedName) {
+      // Scored just under a literal hit so the untouched spelling still wins.
+      ranked.push({
+        item: { ...item, confidence: FOLDED_EXACT_CONFIDENCE },
+        confidence: FOLDED_EXACT_CONFIDENCE,
+        score: 990,
         mode: "exact",
       });
       continue;
@@ -392,6 +453,28 @@ export function rankRewardCandidatesDetailed(
         mode: "substring",
       });
       continue;
+    }
+
+    // A merged word breaks the per-word fuzzy pass even when the whole read is
+    // one edit off the name, so compare the folded spellings as well. Long names
+    // only, at a gate no sibling part name reaches, and never across a leading
+    // count - "2X" and "5X" names differ by the one character folding blurs.
+    if (
+      !textHasQuantity &&
+      !hasQuantityPrefix(normalizedName) &&
+      foldedText.length >= FOLDED_NEAR_MIN_LENGTH &&
+      foldedName.length >= FOLDED_NEAR_MIN_LENGTH
+    ) {
+      const folded = similarityScore(foldedText, foldedName);
+      if (folded >= FOLDED_NEAR_MIN_SIMILARITY) {
+        ranked.push({
+          item: { ...item, confidence: Number(folded.toFixed(3)) },
+          confidence: folded,
+          score: 400 + folded * 92 + Math.min(8, normalizedName.length / 4),
+          mode: "substring",
+        });
+        continue;
+      }
     }
 
     // The fuzzy band scores per word, so a name much shorter than the read can

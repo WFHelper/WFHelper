@@ -21,16 +21,6 @@ const log = withScope("rewardScanner");
 
 // capture -> guards (console open, frame dedup) -> slot scan -> text fallback.
 
-interface TriggerStats {
-  captureCount: number;
-  captureMs: number;
-  ocrCallCount: number;
-  ocrTotalMs: number;
-  slotDetectMs: number;
-  strategy: string;
-  failureReason: string | null;
-}
-
 export interface PreCaptureResult {
   image: NativeImage;
   sourceType: string | null;
@@ -57,7 +47,6 @@ interface RewardScanPipelineOptions {
 
 type Screenshot = CaptureResult | PreCaptureResult;
 
-let _lastTriggerStats: TriggerStats | null = null;
 let _lastFrameHash: string | null = null;
 let _lastFrameResult: { items: SortedItem[]; meta: Record<string, unknown> } | null = null;
 let _lastFrameHashTs = 0;
@@ -151,18 +140,13 @@ function cacheFrameResult(
 async function captureRewardScreen(
   preCapture: PreCaptureResult | null | undefined,
   uiScale: number,
-): Promise<{
-  screenshot: Screenshot | null;
-  captureCount: number;
-  captureMs: number;
-  failureReason: "capture-error" | "capture-null" | null;
-}> {
+): Promise<{ screenshot: Screenshot | null; captureMs: number }> {
   if (preCapture?.image) {
     log.info(
       "[RewardScanner] Using pre-captured screenshot" +
         ` (${preCapture.sourceType || "file"}:${preCapture.sourceName || preCapture.sourceId || "injected"})`,
     );
-    return { screenshot: preCapture, captureCount: 0, captureMs: 0, failureReason: null };
+    return { screenshot: preCapture, captureMs: 0 };
   }
 
   const captureStart = Date.now();
@@ -171,7 +155,7 @@ async function captureRewardScreen(
     const captureMs = Date.now() - captureStart;
     if (!screenshot) {
       log.warn("[RewardScanner] Could not capture screen");
-      return { screenshot: null, captureCount: 1, captureMs, failureReason: "capture-null" };
+      return { screenshot: null, captureMs };
     }
     // Frame size and UI scale decide every crop ratio, so a bug report without
     // them cannot be reproduced.
@@ -183,15 +167,10 @@ async function captureRewardScreen(
         `frame=${frame ? `${frame.width}x${frame.height}` : "unknown"} ` +
         `uiScale=${uiScale}`,
     );
-    return { screenshot, captureCount: 1, captureMs, failureReason: null };
+    return { screenshot, captureMs };
   } catch (err) {
     log.error("[RewardScanner] captureScreen error:", normalizeErrorMessage(err));
-    return {
-      screenshot: null,
-      captureCount: 1,
-      captureMs: Date.now() - captureStart,
-      failureReason: "capture-error",
-    };
+    return { screenshot: null, captureMs: Date.now() - captureStart };
   }
 }
 
@@ -265,24 +244,13 @@ export async function runRewardScanPipeline({
   const scanStartedAt = Date.now();
   const totalBudgetMs = computeRewardScanBudgetMs(settings);
 
-  const capture = await captureRewardScreen(
+  const { screenshot, captureMs } = await captureRewardScreen(
     preCapture,
     settings.warframeUiScale ?? REFERENCE_WARFRAME_UI_SCALE,
   );
-  const { screenshot, captureCount, captureMs } = capture;
-  if (!screenshot) {
-    _lastTriggerStats = {
-      captureCount,
-      captureMs,
-      ocrCallCount: 0,
-      ocrTotalMs: 0,
-      slotDetectMs: 0,
-      strategy: "failed",
-      failureReason: capture.failureReason,
-    };
-    return null;
-  }
+  if (!screenshot) return null;
 
+  const guardsStartedAt = Date.now();
   // Never a reason to skip - the titles sit well above the console and the matcher
   // rejects stray chat text. Kept so an empty scan can say why instead of blaming OCR.
   const consoleOpen = detectConsoleOpen(screenshot.image);
@@ -302,8 +270,17 @@ export async function runRewardScanPipeline({
     return _lastFrameResult;
   }
 
+  const guardsMs = Date.now() - guardsStartedAt;
+
   // Primary path: per-slot OCR over detected reward layouts.
-  const slotStats: SlotScanStats = { layoutCount: 0 };
+  const slotStats: SlotScanStats = {
+    layoutCount: 0,
+    layoutMs: 0,
+    ocrMs: 0,
+    ocrReads: 0,
+    layoutsTried: 0,
+  };
+  const slotsStartedAt = Date.now();
   const slotResult = await scanRewardSlotsFallback(
     screenshot,
     MAX_REWARD_SLOTS,
@@ -318,6 +295,9 @@ export async function runRewardScanPipeline({
       stats: slotStats,
     },
   );
+
+  const slotsMs = Date.now() - slotsStartedAt;
+  let fallbackMs = 0;
 
   let items: SortedItem[] = slotResult?.items ? slotResult.items.slice(0, MAX_REWARD_SLOTS) : [];
   let strategy = slotResult?.strategy || "slot";
@@ -335,6 +315,7 @@ export async function runRewardScanPipeline({
   } else {
     // The text fallback is a Windows-OCR band read; skip it when the caller
     // pinned the onnx reader (harness isolation).
+    const fallbackStartedAt = Date.now();
     const fallback =
       reader === "onnx"
         ? { items: [] as SortedItem[], score: 0, exactCount: 0 }
@@ -346,6 +327,7 @@ export async function runRewardScanPipeline({
             startedAt: scanStartedAt,
             runOCRStructuredBuffer,
           });
+    fallbackMs = Date.now() - fallbackStartedAt;
     if (fallback.items.length > 0) {
       items = fallback.items;
       strategy = "text-fallback";
@@ -362,15 +344,14 @@ export async function runRewardScanPipeline({
     }
   }
 
-  _lastTriggerStats = {
-    captureCount,
-    captureMs,
-    ocrCallCount: 0,
-    ocrTotalMs: 0,
-    slotDetectMs: 0,
-    strategy,
-    failureReason: items.length === 0 ? (consoleOpen ? "chat-console" : "no-items") : null,
-  };
+  const frameSize = screenshot.image?.getSize?.() || { width: 0, height: 0 };
+  log.info(
+    `[RewardScanner] timing capture=${captureMs}ms guards=${guardsMs}ms ` +
+      `layout=${slotStats.layoutMs}ms(${slotStats.layoutsTried}/${slotStats.layoutCount} tried) ` +
+      `slots=${slotsMs}ms(${slotStats.ocrReads} reads, ocr ${slotStats.ocrMs}ms) ` +
+      `fallback=${fallbackMs}ms total=${Date.now() - scanStartedAt}ms ` +
+      `frame=${frameSize.width}x${frameSize.height}`,
+  );
 
   const result = {
     items,

@@ -119,6 +119,20 @@ const SCREENS = [
       3: "Wukong Prime Chassis Blueprint",
     },
   },
+  // 4K frames hand the readers title strips twice the size they were tuned on.
+  // Upscaled from real-4p, so it pins the size handling, not 4K glyph rendering.
+  // Windows band-OCR loses the wrapped slot-4 title here, as it does on other
+  // merged-wrap screens.
+  {
+    file: "sim-4k-4p.png",
+    readers: ["onnx", "both"],
+    expect: {
+      0: "Epitaph Prime Receiver",
+      1: "Forma Blueprint",
+      2: "Zephyr Prime Neuroptics Blueprint",
+      3: "Wukong Prime Chassis Blueprint",
+    },
+  },
   // Windows band-OCR drops interior words on merged-wrap strips (can
   // exact-match a shorter real item), so these pin onnx + both.
   {
@@ -233,6 +247,18 @@ async function buildClientCroppedSims(outDir) {
   }
 }
 
+// 2x of the reconstructed 1080p screen: no true 4K detail, but the strips reach
+// the readers at the size a 4K capture produces.
+async function buildHiDpiSim(screenDir) {
+  const sharp = require("sharp");
+  const src = path.join(screenDir, "real-4p.png");
+  if (!fs.existsSync(src)) return;
+  await sharp(src)
+    .resize({ width: 3840, height: 2160, kernel: "lanczos3" })
+    .png()
+    .toFile(path.join(screenDir, "sim-4k-4p.png"));
+}
+
 // Pads a real 16:9 screen to barless non-16:9 frames with its own non-black
 // background; the aspect model itself is gated by the real 16:10 fixture.
 async function buildAspectPadSims(screenDir) {
@@ -283,6 +309,7 @@ function parseImageArg(argv) {
     await buildRealScreens(screenDir);
     await buildClientCroppedSims(screenDir);
     await buildAspectPadSims(screenDir);
+    await buildHiDpiSim(screenDir);
   }
   let syntheticOk = !singleImage;
   try {

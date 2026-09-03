@@ -2,13 +2,12 @@
 
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
-import { otsuThreshold } from "./rewardScannerImage";
+import { ocrStripTargetWidth, otsuThreshold } from "./rewardScannerImage";
 import { paddleRecognizerAvailable, recognizePaddleCrops, type RgbCrop } from "./rivenOcrOnnx";
 
 const log = withScope("rewardOcrOnnx");
 
-const UPSCALE = 3;
-// One game text line is ~17-22px at 1080p => ~51-66px after 3x upscale.
+// One game text line is ~17-22px at 1080p => ~51-66px at the calibrated width.
 // Taller segments are merged wrapped lines and get split at the ink valley.
 const MAX_LINE_HEIGHT = 72;
 const MIN_LINE_HEIGHT = 10;
@@ -126,7 +125,7 @@ export async function recognizeRewardStripOnnx(stripPng: Buffer): Promise<Reward
     const srcH = meta.height ?? 0;
     if (srcW < 8 || srcH < 8) return null;
 
-    const targetW = srcW * UPSCALE;
+    const targetW = ocrStripTargetWidth(srcW);
     const { data: gray, info } = await sharp(stripPng)
       .resize({ width: targetW, kernel: "lanczos3" })
       .grayscale()

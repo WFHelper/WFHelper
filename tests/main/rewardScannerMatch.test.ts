@@ -323,6 +323,59 @@ describe("a pool pair that differs only by a leading quantity", () => {
   });
 });
 
+describe("a 4K read that merged a glyph pair", () => {
+  // Strings taken from a 3840x2160 main.log: Windows OCR prints the "Bl"
+  // ligature as "81" or as a non-letter that drops out entirely.
+  const POOL = [
+    { name: "Caliban Prime Blueprint" },
+    { name: "Caliban Prime Chassis Blueprint" },
+    { name: "Caliban Prime Neuroptics Blueprint" },
+    { name: "Ash Prime Chassis Blueprint" },
+    { name: "Xaku Prime Blueprint" },
+    { name: "Sarofang Prime Handle" },
+    ...ITEMS,
+  ];
+
+  it("resolves a digit-for-letter merge as an exact hit", () => {
+    const hit = matchSingleRewardTextDetailed("Caliban Prime81ueprint", POOL);
+    expect(hit.item?.name).toBe("Caliban Prime Blueprint");
+    expect(hit.mode).toBe("exact");
+    expect(hit.confidence).toBeGreaterThanOrEqual(0.98);
+  });
+
+  it("resolves a dropped-glyph merge over the slot gate", () => {
+    const hit = matchSingleRewardTextDetailed("Caliban Primeülueprint", POOL);
+    expect(hit.item?.name).toBe("Caliban Prime Blueprint");
+    expect(hit.confidence).toBeGreaterThanOrEqual(0.92);
+  });
+
+  it("keeps sibling part names out of the merged read", () => {
+    for (const read of ["Caliban Prime81ueprint", "Caliban Primeülueprint"]) {
+      const ranked = rankRewardCandidatesDetailed(read, POOL, 4);
+      for (const candidate of ranked) {
+        if (candidate.item?.name === "Caliban Prime Blueprint") continue;
+        expect(candidate.confidence, `${read} -> ${candidate.item?.name}`).toBeLessThan(0.92);
+      }
+    }
+  });
+
+  it("still gives a clean sibling read its own name", () => {
+    const hit = matchSingleRewardTextDetailed("Caliban Prime Chassis 81ueprint", POOL);
+    expect(hit.item?.name).toBe("Caliban Prime Chassis Blueprint");
+  });
+
+  it("does not fold one counted reward name into another", () => {
+    const counted = [{ name: "2X Forma Blueprint" }, { name: "5X Forma Blueprint" }];
+    const hit = matchSingleRewardTextDetailed("5X Forma Blueprint", counted);
+    expect(hit.item?.name).toBe("5X Forma Blueprint");
+    const ranked = rankRewardCandidatesDetailed("5X Forma Blueprint", counted, 4);
+    for (const candidate of ranked) {
+      if (candidate.item?.name === "5X Forma Blueprint") continue;
+      expect(candidate.confidence).toBeLessThan(0.92);
+    }
+  });
+});
+
 describe("detectRelicEraFromFilterLabelText", () => {
   it("maps the ALL tab to omnia", () => {
     expect(detectRelicEraFromFilterLabelText("ALL")).toEqual({ era: "omnia", confidence: 1 });

@@ -214,9 +214,14 @@ export type StructuredOcrBufferRunner = (
 /** Which OCR reader(s) feed slot candidates; "both" is production behavior. */
 export type RewardReader = "windows" | "onnx" | "both";
 
-/** Out-param: lets the caller tell "not the reward screen" from "OCR missed". */
+/** Out-param: lets the caller tell "not the reward screen" from "OCR missed",
+ *  and carries the stage costs the per-attempt timing line reports. */
 export interface SlotScanStats {
   layoutCount: number;
+  layoutMs: number;
+  ocrMs: number;
+  ocrReads: number;
+  layoutsTried: number;
 }
 
 // Just under the 0.86 fuzzy gate, so a read that nearly cleared it counts as a
@@ -275,6 +280,118 @@ function joinRewardLines(top: string, bottom: string): string {
     .trim();
 }
 
+interface SlotRead {
+  candidates: SlotCandidate[];
+  nearMiss: SlotCandidate | null;
+  stripPng: Buffer;
+  windowsText: string;
+  onnxText: string;
+  diverged: boolean;
+}
+
+async function readSlotTitle(
+  image: NativeImage,
+  titleRect: SlotRect,
+  displayIndex: number,
+  totalBudgetMs: number,
+  startedAt: number,
+  options: {
+    sortedItems: SortedItem[];
+    ocrTimeoutMs: number;
+    runOCRStructuredBuffer: StructuredOcrBufferRunner;
+    reader: RewardReader;
+    stats?: SlotScanStats;
+  },
+): Promise<SlotRead | null> {
+  // Stagger the slots' sync crop+encode work across macrotasks.
+  await yieldToEventLoop();
+  const remainingBudgetMs = totalBudgetMs - (Date.now() - startedAt);
+  if (remainingBudgetMs <= 0) return null;
+
+  let crop: NativeImage;
+  try {
+    crop = cropRect(image, titleRect);
+  } catch {
+    return null;
+  }
+
+  const cropPng: Buffer = crop.toPNG();
+  const timeout = Math.max(500, Math.min(options.ocrTimeoutMs, remainingBudgetMs));
+  const reader = options.reader;
+  const useWindows = reader !== "onnx";
+  const useOnnx = reader !== "windows" && rewardOcrOnnxAvailable();
+
+  const ocrStartedAt = Date.now();
+  // Names wrap to two lines in 3/4-player layouts: OCR overlapping bands plus
+  // the whole crop; both readers feed one pool, the ranking arbitrates.
+  const [regionTexts, onnxRead] = await Promise.all([
+    useWindows
+      ? Promise.all([
+          ocrRewardRegion(cropPng, 0, 0.58, options, timeout),
+          ocrRewardRegion(cropPng, 0.42, 0.58, options, timeout),
+          ocrRewardRegion(cropPng, 0, 1, options, timeout),
+        ])
+      : Promise.resolve(["", "", ""]),
+    useOnnx ? recognizeRewardStripOnnx(cropPng) : Promise.resolve(null),
+  ]);
+  if (options.stats) {
+    options.stats.ocrMs += Date.now() - ocrStartedAt;
+    options.stats.ocrReads += (useWindows ? 3 : 0) + (useOnnx ? 1 : 0);
+  }
+
+  const joined = joinRewardLines(regionTexts[0], regionTexts[1]);
+  const wholeClean = cleanRewardOcrText(regionTexts[2]);
+  const onnxClean = cleanRewardOcrText(onnxRead?.text || "");
+
+  const candidateTexts = new Set<string>();
+  if (joined) candidateTexts.add(joined);
+  if (wholeClean) candidateTexts.add(wholeClean);
+  if (onnxClean) candidateTexts.add(onnxClean);
+  const diverged =
+    !!onnxClean && !!(joined || wholeClean) && onnxClean !== joined && onnxClean !== wholeClean;
+  if (diverged) {
+    log.info(
+      `[RewardScanner] Slot ${displayIndex + 1} reads diverge: windows="${wholeClean || joined}" onnx="${onnxClean}"`,
+    );
+  }
+
+  const rankedCandidates: SlotCandidate[] = [];
+  let bestRejected: SlotCandidate | null = null;
+  for (const candidateText of candidateTexts) {
+    for (const candidate of rankRewardCandidatesDetailed(candidateText, options.sortedItems, 4)) {
+      if (!candidate.item) continue;
+      const slotCandidate: SlotCandidate = {
+        item: candidate.item,
+        confidence: candidate.confidence,
+        score: candidate.score,
+        mode: candidate.mode,
+      };
+      if (isUsableSlotCandidate(slotCandidate)) {
+        rankedCandidates.push(slotCandidate);
+      } else if (!bestRejected || slotCandidate.confidence > bestRejected.confidence) {
+        bestRejected = slotCandidate;
+      }
+    }
+  }
+
+  if (rankedCandidates.length === 0 && bestRejected) {
+    log.info(
+      `[RewardScanner] Slot ${displayIndex + 1} best candidate below gate: ` +
+        `"${bestRejected.item.name}" (${bestRejected.mode} ${bestRejected.confidence.toFixed(3)})`,
+    );
+  }
+  rankedCandidates.sort((a, b) => b.score - a.score || b.confidence - a.confidence);
+
+  return {
+    candidates: rankedCandidates,
+    nearMiss: bestRejected,
+    stripPng: cropPng,
+    windowsText: wholeClean || joined,
+    onnxText: onnxClean,
+    diverged,
+  };
+}
+
 export async function scanRewardSlotsFallback(
   screenshot: {
     image: NativeImage;
@@ -296,11 +413,34 @@ export async function scanRewardSlotsFallback(
   },
 ): Promise<SlotScanResult | null> {
   await yieldToEventLoop();
+  const stats = options.stats;
+  const layoutStartedAt = Date.now();
   const layouts = detectRewardSlotLayoutCandidates(screenshot?.image, options.warframeUiScale)
     .filter((layout) => hasConfidentSlotLayout(layout))
     .slice(0, 6);
-  if (options.stats) options.stats.layoutCount = layouts.length;
+  if (stats) {
+    stats.layoutCount = layouts.length;
+    stats.layoutMs = Date.now() - layoutStartedAt;
+  }
   if (layouts.length === 0) return null;
+
+  // Fixed layouts overlap (the 1- and 3-card layouts share their centre card),
+  // so read each distinct title rect once for the whole scan.
+  const readCache = new Map<string, Promise<SlotRead | null>>();
+  const readSlot = (rect: SlotRect, displayIndex: number): Promise<SlotRead | null> => {
+    const key = [rect.x, rect.y, rect.width, rect.height].map((v) => v.toFixed(4)).join(":");
+    const cached = readCache.get(key);
+    if (cached) return cached;
+    const pending = readSlotTitle(screenshot.image, rect, displayIndex, totalBudgetMs, startedAt, {
+      sortedItems: options.sortedItems,
+      ocrTimeoutMs: options.ocrTimeoutMs,
+      runOCRStructuredBuffer: options.runOCRStructuredBuffer,
+      reader: options.reader || "both",
+      stats,
+    });
+    readCache.set(key, pending);
+    return pending;
+  };
 
   let bestResult: SlotScanResult | null = null;
   let bestRun: LayoutRun | null = null;
@@ -315,105 +455,23 @@ export async function scanRewardSlotsFallback(
   const runs: LayoutRun[] = [];
 
   for (const layout of layouts) {
+    if (stats) stats.layoutsTried += 1;
     const slotLimit = Math.min(layout.count, MAX_REWARD_SLOTS);
     const slotResults = await Promise.all(
       layout.slots.slice(0, slotLimit).map(async (slot, i) => {
-        // Stagger the slots' sync crop+encode work across macrotasks.
-        await yieldToEventLoop();
-        const elapsed = Date.now() - startedAt;
-        const remainingBudgetMs = totalBudgetMs - elapsed;
-        if (remainingBudgetMs <= 0) return null;
-
-        let crop: NativeImage;
-        try {
-          crop = cropRect(screenshot.image, slot.titleRect);
-        } catch {
-          return null;
-        }
-
-        const cropPng: Buffer = crop.toPNG();
-        const timeout = Math.max(500, Math.min(options.ocrTimeoutMs, remainingBudgetMs));
-        const reader = options.reader || "both";
-
-        // Names wrap to two lines in 3/4-player layouts: OCR overlapping bands plus
-        // the whole crop; both readers feed one pool, the ranking arbitrates.
-        const [regionTexts, onnxRead] = await Promise.all([
-          reader !== "onnx"
-            ? Promise.all([
-                ocrRewardRegion(cropPng, 0, 0.58, options, timeout),
-                ocrRewardRegion(cropPng, 0.42, 0.58, options, timeout),
-                ocrRewardRegion(cropPng, 0, 1, options, timeout),
-              ])
-            : Promise.resolve(["", "", ""]),
-          reader !== "windows" && rewardOcrOnnxAvailable()
-            ? recognizeRewardStripOnnx(cropPng)
-            : Promise.resolve(null),
-        ]);
-        const joined = joinRewardLines(regionTexts[0], regionTexts[1]);
-        const wholeClean = cleanRewardOcrText(regionTexts[2]);
-        const onnxClean = cleanRewardOcrText(onnxRead?.text || "");
-
-        const candidateTexts = new Set<string>();
-        if (joined) candidateTexts.add(joined);
-        if (wholeClean) candidateTexts.add(wholeClean);
-        if (onnxClean) candidateTexts.add(onnxClean);
-        const diverged =
-          !!onnxClean &&
-          !!(joined || wholeClean) &&
-          onnxClean !== joined &&
-          onnxClean !== wholeClean;
-        if (diverged) {
-          log.info(
-            `[RewardScanner] Slot ${i + 1} reads diverge: windows="${wholeClean || joined}" onnx="${onnxClean}"`,
-          );
-        }
-
-        const rankedCandidates: SlotCandidate[] = [];
-        let bestRejected: SlotCandidate | null = null;
-        for (const candidateText of candidateTexts) {
-          for (const candidate of rankRewardCandidatesDetailed(
-            candidateText,
-            options.sortedItems,
-            4,
-          )) {
-            if (!candidate.item) continue;
-            const slotCandidate: SlotCandidate = {
-              item: candidate.item,
-              confidence: candidate.confidence,
-              score: candidate.score,
-              mode: candidate.mode,
-            };
-            if (isUsableSlotCandidate(slotCandidate)) {
-              rankedCandidates.push(slotCandidate);
-            } else if (!bestRejected || slotCandidate.confidence > bestRejected.confidence) {
-              bestRejected = slotCandidate;
-            }
-          }
-        }
-
-        const debug: SlotDebugInfo = {
-          index: i,
-          stripPng: cropPng,
-          windowsText: wholeClean || joined,
-          onnxText: onnxClean,
-          diverged,
-        };
-
-        if (rankedCandidates.length === 0) {
-          if (bestRejected) {
-            log.info(
-              `[RewardScanner] Slot ${i + 1} best candidate below gate: ` +
-                `"${bestRejected.item.name}" (${bestRejected.mode} ${bestRejected.confidence.toFixed(3)})`,
-            );
-          }
-          return { index: i, candidates: [] as SlotCandidate[], debug, nearMiss: bestRejected };
-        }
-        rankedCandidates.sort((a, b) => b.score - a.score || b.confidence - a.confidence);
+        const read = await readSlot(slot.titleRect, i);
+        if (!read) return null;
         return {
           index: i,
-          candidates: rankedCandidates,
-          debug,
-          nearMiss: null,
+          candidates: read.candidates,
+          debug: {
+            index: i,
+            stripPng: read.stripPng,
+            windowsText: read.windowsText,
+            onnxText: read.onnxText,
+            diverged: read.diverged,
+          } satisfies SlotDebugInfo,
+          nearMiss: read.candidates.length === 0 ? read.nearMiss : null,
         };
       }),
     );
