@@ -9,7 +9,7 @@ export type SidebarViewName = Exclude<ViewName, "setup">;
 /** Views loaded on first visit. Everything else is in the initial bundle. */
 export type LazyViewName = Extract<
   ViewName,
-  "dashboard" | "world" | "market" | "analytics" | "relics" | "wiki" | "arbi"
+  "dashboard" | "world" | "syndicates" | "market" | "analytics" | "relics" | "wiki" | "arbi"
 >;
 
 type LazyViewComponent = Component<Record<string, never>>;
@@ -20,6 +20,7 @@ export const LAZY_VIEW_LOADERS: Record<
 > = {
   dashboard: () => import("../views/DashboardView.svelte"),
   world: () => import("../views/WorldView.svelte"),
+  syndicates: () => import("../views/SyndicatesView.svelte"),
   market: () => import("../views/MarketView.svelte"),
   analytics: () => import("../views/MarketAnalysisView.svelte"),
   relics: () => import("../views/RelicsView.svelte"),
@@ -39,6 +40,7 @@ export const VIEW_LABEL_KEYS: Record<ViewName, MessageKey> = {
   mastery: "common.mastery",
   stats: "common.stats",
   world: "common.world",
+  syndicates: "common.syndicates",
   market: "common.market",
   analytics: "common.analytics",
   relics: "common.relics",
@@ -58,6 +60,7 @@ const SIDEBAR_VIEW_HIDEABLE: Record<SidebarViewName, boolean> = {
   mastery: true,
   stats: true,
   world: true,
+  syndicates: true,
   market: true,
   analytics: true,
   relics: true,

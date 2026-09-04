@@ -18,6 +18,7 @@ export const NAV_ICON_URLS = {
   foundry: new URL("../../assets/icons/Foundry.png", import.meta.url).href,
   mastery: new URL("../../assets/icons/Mastery_bw2.png", import.meta.url).href,
   world: new URL("../../assets/icons/Navigation.png", import.meta.url).href,
+  syndicates: new URL("../../assets/icons/Syndicates.svg", import.meta.url).href,
   relics: new URL("../../assets/icons/IconRelic256.png", import.meta.url).href,
   rivens: new URL("../../assets/icons/Rivens.png", import.meta.url).href,
   market: new URL("../../assets/icons/Market.png", import.meta.url).href,

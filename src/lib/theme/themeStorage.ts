@@ -157,6 +157,7 @@ const KNOWN_VIEWS: Record<ViewName, true> = {
   mastery: true,
   stats: true,
   world: true,
+  syndicates: true,
   market: true,
   analytics: true,
   relics: true,

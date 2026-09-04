@@ -1,0 +1,2156 @@
+{
+  "generatedAt": "2026-09-04T11:36:52.739Z",
+  "source": "warframe-public-export-plus 0.6.8 ExportSyndicates",
+  "syndicates": [
+    {
+      "tag": "ArbitersSyndicate",
+      "name": "Arbiters of Hexis",
+      "wikiPage": "Arbiters of Hexis",
+      "kind": "normal",
+      "dailyBin": "NORMAL",
+      "dailyField": "DailyAffiliation",
+      "alignments": {
+        "RedVeilSyndicate": -1,
+        "PerrinSyndicate": -0.5,
+        "CephalonSudaSyndicate": 0.5
+      },
+      "initiation": {
+        "credits": 10000,
+        "items": [
+          {
+            "itemType": "/Lotus/Types/Items/MiscItems/AlloyPlate",
+            "count": 500,
+            "name": "Alloy Plate"
+          }
+        ]
+      },
+      "titles": [
+        {
+          "level": -2,
+          "name": "Fraud",
+          "minStanding": -71000,
+          "maxStanding": -27000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/OrokinReactor",
+                "count": 1,
+                "name": "Orokin Reactor"
+              }
+            ]
+          }
+        },
+        {
+          "level": -1,
+          "name": "Deceiver",
+          "minStanding": -27000,
+          "maxStanding": -5000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Forma",
+                "count": 1,
+                "name": "Forma"
+              }
+            ]
+          }
+        },
+        {
+          "level": 1,
+          "name": "Principled",
+          "minStanding": 5000,
+          "maxStanding": 27000,
+          "sacrifice": {
+            "credits": 30000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Gallium",
+                "count": 2,
+                "name": "Gallium"
+              }
+            ]
+          }
+        },
+        {
+          "level": 2,
+          "name": "Authentic",
+          "minStanding": 27000,
+          "maxStanding": 71000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Forma",
+                "count": 1,
+                "name": "Forma"
+              }
+            ]
+          }
+        },
+        {
+          "level": 3,
+          "name": "Lawful",
+          "minStanding": 71000,
+          "maxStanding": 141000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/OrokinReactor",
+                "count": 1,
+                "name": "Orokin Reactor"
+              }
+            ]
+          }
+        },
+        {
+          "level": 4,
+          "name": "Crusader",
+          "minStanding": 141000,
+          "maxStanding": 240000,
+          "sacrifice": {
+            "credits": 250000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/SchismKey",
+                "count": 2,
+                "name": "Aya"
+              }
+            ]
+          }
+        },
+        {
+          "level": 5,
+          "name": "Maxim",
+          "minStanding": 240000,
+          "maxStanding": 372000,
+          "sacrifice": {
+            "credits": 500000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/SchismKey",
+                "count": 3,
+                "name": "Aya"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tag": "CephalonSudaSyndicate",
+      "name": "Cephalon Suda",
+      "wikiPage": "Cephalon Suda",
+      "kind": "normal",
+      "dailyBin": "NORMAL",
+      "dailyField": "DailyAffiliation",
+      "alignments": {
+        "NewLokaSyndicate": -1,
+        "RedVeilSyndicate": -0.5,
+        "ArbitersSyndicate": 0.5
+      },
+      "initiation": {
+        "credits": 10000,
+        "items": [
+          {
+            "itemType": "/Lotus/Types/Items/MiscItems/Circuits",
+            "count": 500,
+            "name": "Circuits"
+          }
+        ]
+      },
+      "titles": [
+        {
+          "level": -2,
+          "name": "Waste",
+          "minStanding": -71000,
+          "maxStanding": -27000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/OrokinCatalyst",
+                "count": 1,
+                "name": "Orokin Catalyst"
+              }
+            ]
+          }
+        },
+        {
+          "level": -1,
+          "name": "Debris",
+          "minStanding": -27000,
+          "maxStanding": -5000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Forma",
+                "count": 1,
+                "name": "Forma"
+              }
+            ]
+          }
+        },
+        {
+          "level": 1,
+          "name": "Competent",
+          "minStanding": 5000,
+          "maxStanding": 27000,
+          "sacrifice": {
+            "credits": 30000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/ControlModule",
+                "count": 2,
+                "name": "Control Module"
+              }
+            ]
+          }
+        },
+        {
+          "level": 2,
+          "name": "Intriguing",
+          "minStanding": 27000,
+          "maxStanding": 71000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Forma",
+                "count": 1,
+                "name": "Forma"
+              }
+            ]
+          }
+        },
+        {
+          "level": 3,
+          "name": "Intelligent",
+          "minStanding": 71000,
+          "maxStanding": 141000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/OrokinCatalyst",
+                "count": 1,
+                "name": "Orokin Catalyst"
+              }
+            ]
+          }
+        },
+        {
+          "level": 4,
+          "name": "Wise",
+          "minStanding": 141000,
+          "maxStanding": 240000,
+          "sacrifice": {
+            "credits": 250000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/SchismKey",
+                "count": 2,
+                "name": "Aya"
+              }
+            ]
+          }
+        },
+        {
+          "level": 5,
+          "name": "Genius",
+          "minStanding": 240000,
+          "maxStanding": 372000,
+          "sacrifice": {
+            "credits": 500000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/SchismKey",
+                "count": 3,
+                "name": "Aya"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tag": "NewLokaSyndicate",
+      "name": "New Loka",
+      "wikiPage": "New Loka",
+      "kind": "normal",
+      "dailyBin": "NORMAL",
+      "dailyField": "DailyAffiliation",
+      "alignments": {
+        "CephalonSudaSyndicate": -1,
+        "SteelMeridianSyndicate": -0.5,
+        "PerrinSyndicate": 0.5
+      },
+      "initiation": {
+        "credits": 10000,
+        "items": [
+          {
+            "itemType": "/Lotus/Types/Items/MiscItems/Ferrite",
+            "count": 1000,
+            "name": "Ferrite"
+          }
+        ]
+      },
+      "titles": [
+        {
+          "level": -2,
+          "name": "Exiled",
+          "minStanding": -71000,
+          "maxStanding": -27000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/OrokinReactor",
+                "count": 1,
+                "name": "Orokin Reactor"
+              }
+            ]
+          }
+        },
+        {
+          "level": -1,
+          "name": "Condemned",
+          "minStanding": -27000,
+          "maxStanding": -5000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Forma",
+                "count": 1,
+                "name": "Forma"
+              }
+            ]
+          }
+        },
+        {
+          "level": 1,
+          "name": "Humane",
+          "minStanding": 5000,
+          "maxStanding": 27000,
+          "sacrifice": {
+            "credits": 30000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/Research/EnergyFragment",
+                "count": 2,
+                "name": "Fieldron Sample"
+              }
+            ]
+          }
+        },
+        {
+          "level": 2,
+          "name": "Bountiful",
+          "minStanding": 27000,
+          "maxStanding": 71000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Forma",
+                "count": 1,
+                "name": "Forma"
+              }
+            ]
+          }
+        },
+        {
+          "level": 3,
+          "name": "Benevolent",
+          "minStanding": 71000,
+          "maxStanding": 141000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/OrokinReactor",
+                "count": 1,
+                "name": "Orokin Reactor"
+              }
+            ]
+          }
+        },
+        {
+          "level": 4,
+          "name": "Pure",
+          "minStanding": 141000,
+          "maxStanding": 240000,
+          "sacrifice": {
+            "credits": 250000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/SchismKey",
+                "count": 2,
+                "name": "Aya"
+              }
+            ]
+          }
+        },
+        {
+          "level": 5,
+          "name": "Flawless",
+          "minStanding": 240000,
+          "maxStanding": 372000,
+          "sacrifice": {
+            "credits": 500000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/SchismKey",
+                "count": 3,
+                "name": "Aya"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tag": "RedVeilSyndicate",
+      "name": "Red Veil",
+      "wikiPage": "Red Veil",
+      "kind": "normal",
+      "dailyBin": "NORMAL",
+      "dailyField": "DailyAffiliation",
+      "alignments": {
+        "ArbitersSyndicate": -1,
+        "CephalonSudaSyndicate": -0.5,
+        "SteelMeridianSyndicate": 0.5
+      },
+      "initiation": {
+        "credits": 10000,
+        "items": [
+          {
+            "itemType": "/Lotus/Types/Items/MiscItems/AlloyPlate",
+            "count": 500,
+            "name": "Alloy Plate"
+          }
+        ]
+      },
+      "titles": [
+        {
+          "level": -2,
+          "name": "Corrupt",
+          "minStanding": -71000,
+          "maxStanding": -27000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/OrokinCatalyst",
+                "count": 1,
+                "name": "Orokin Catalyst"
+              }
+            ]
+          }
+        },
+        {
+          "level": -1,
+          "name": "Suspect",
+          "minStanding": -27000,
+          "maxStanding": -5000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Forma",
+                "count": 1,
+                "name": "Forma"
+              }
+            ]
+          }
+        },
+        {
+          "level": 1,
+          "name": "Respected",
+          "minStanding": 5000,
+          "maxStanding": 27000,
+          "sacrifice": {
+            "credits": 30000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Gallium",
+                "count": 2,
+                "name": "Gallium"
+              }
+            ]
+          }
+        },
+        {
+          "level": 2,
+          "name": "Honored",
+          "minStanding": 27000,
+          "maxStanding": 71000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Forma",
+                "count": 1,
+                "name": "Forma"
+              }
+            ]
+          }
+        },
+        {
+          "level": 3,
+          "name": "Esteemed",
+          "minStanding": 71000,
+          "maxStanding": 141000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/OrokinCatalyst",
+                "count": 1,
+                "name": "Orokin Catalyst"
+              }
+            ]
+          }
+        },
+        {
+          "level": 4,
+          "name": "Revered",
+          "minStanding": 141000,
+          "maxStanding": 240000,
+          "sacrifice": {
+            "credits": 250000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/SchismKey",
+                "count": 2,
+                "name": "Aya"
+              }
+            ]
+          }
+        },
+        {
+          "level": 5,
+          "name": "Exalted",
+          "minStanding": 240000,
+          "maxStanding": 372000,
+          "sacrifice": {
+            "credits": 500000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/SchismKey",
+                "count": 3,
+                "name": "Aya"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tag": "SteelMeridianSyndicate",
+      "name": "Steel Meridian",
+      "wikiPage": "Steel Meridian",
+      "kind": "normal",
+      "dailyBin": "NORMAL",
+      "dailyField": "DailyAffiliation",
+      "alignments": {
+        "PerrinSyndicate": -1,
+        "NewLokaSyndicate": -0.5,
+        "RedVeilSyndicate": 0.5
+      },
+      "initiation": {
+        "credits": 10000,
+        "items": [
+          {
+            "itemType": "/Lotus/Types/Items/MiscItems/Salvage",
+            "count": 1000,
+            "name": "Salvage"
+          }
+        ]
+      },
+      "titles": [
+        {
+          "level": -2,
+          "name": "Enemy",
+          "minStanding": -71000,
+          "maxStanding": -27000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/OrokinCatalyst",
+                "count": 1,
+                "name": "Orokin Catalyst"
+              }
+            ]
+          }
+        },
+        {
+          "level": -1,
+          "name": "Outcast",
+          "minStanding": -27000,
+          "maxStanding": -5000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Forma",
+                "count": 1,
+                "name": "Forma"
+              }
+            ]
+          }
+        },
+        {
+          "level": 1,
+          "name": "Brave",
+          "minStanding": 5000,
+          "maxStanding": 27000,
+          "sacrifice": {
+            "credits": 30000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Morphic",
+                "count": 2,
+                "name": "Morphics"
+              }
+            ]
+          }
+        },
+        {
+          "level": 2,
+          "name": "Valiant",
+          "minStanding": 27000,
+          "maxStanding": 71000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Forma",
+                "count": 1,
+                "name": "Forma"
+              }
+            ]
+          }
+        },
+        {
+          "level": 3,
+          "name": "Defender",
+          "minStanding": 71000,
+          "maxStanding": 141000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/OrokinCatalyst",
+                "count": 1,
+                "name": "Orokin Catalyst"
+              }
+            ]
+          }
+        },
+        {
+          "level": 4,
+          "name": "Protector",
+          "minStanding": 141000,
+          "maxStanding": 240000,
+          "sacrifice": {
+            "credits": 250000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/SchismKey",
+                "count": 2,
+                "name": "Aya"
+              }
+            ]
+          }
+        },
+        {
+          "level": 5,
+          "name": "General",
+          "minStanding": 240000,
+          "maxStanding": 372000,
+          "sacrifice": {
+            "credits": 500000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/SchismKey",
+                "count": 3,
+                "name": "Aya"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tag": "PerrinSyndicate",
+      "name": "The Perrin Sequence",
+      "wikiPage": "The Perrin Sequence",
+      "kind": "normal",
+      "dailyBin": "NORMAL",
+      "dailyField": "DailyAffiliation",
+      "alignments": {
+        "SteelMeridianSyndicate": -1,
+        "ArbitersSyndicate": -0.5,
+        "NewLokaSyndicate": 0.5
+      },
+      "initiation": {
+        "credits": 10000,
+        "items": [
+          {
+            "itemType": "/Lotus/Types/Items/MiscItems/PolymerBundle",
+            "count": 100,
+            "name": "Polymer Bundle"
+          }
+        ]
+      },
+      "titles": [
+        {
+          "level": -2,
+          "name": "Write-Off",
+          "minStanding": -71000,
+          "maxStanding": -27000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/OrokinReactor",
+                "count": 1,
+                "name": "Orokin Reactor"
+              }
+            ]
+          }
+        },
+        {
+          "level": -1,
+          "name": "Liability",
+          "minStanding": -27000,
+          "maxStanding": -5000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Forma",
+                "count": 1,
+                "name": "Forma"
+              }
+            ]
+          }
+        },
+        {
+          "level": 1,
+          "name": "Associate",
+          "minStanding": 5000,
+          "maxStanding": 27000,
+          "sacrifice": {
+            "credits": 30000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/Research/ChemFragment",
+                "count": 2,
+                "name": "Detonite Ampule"
+              }
+            ]
+          }
+        },
+        {
+          "level": 2,
+          "name": "Senior Associate",
+          "minStanding": 27000,
+          "maxStanding": 71000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Forma",
+                "count": 1,
+                "name": "Forma"
+              }
+            ]
+          }
+        },
+        {
+          "level": 3,
+          "name": "Executive",
+          "minStanding": 71000,
+          "maxStanding": 141000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/OrokinReactor",
+                "count": 1,
+                "name": "Orokin Reactor"
+              }
+            ]
+          }
+        },
+        {
+          "level": 4,
+          "name": "Senior Executive",
+          "minStanding": 141000,
+          "maxStanding": 240000,
+          "sacrifice": {
+            "credits": 250000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/SchismKey",
+                "count": 2,
+                "name": "Aya"
+              }
+            ]
+          }
+        },
+        {
+          "level": 5,
+          "name": "Partner",
+          "minStanding": 240000,
+          "maxStanding": 372000,
+          "sacrifice": {
+            "credits": 500000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/SchismKey",
+                "count": 3,
+                "name": "Aya"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tag": "EntratiLabSyndicate",
+      "name": "Cavia",
+      "wikiPage": "Cavia",
+      "kind": "openWorld",
+      "dailyBin": "CAVIA",
+      "dailyField": "DailyAffiliationCavia",
+      "titles": [
+        {
+          "level": 1,
+          "name": "Assistant",
+          "minStanding": 5000,
+          "maxStanding": 27000,
+          "sacrifice": {
+            "credits": 10000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/EntratiLab/Resources/EntratiLabMiscItemA",
+                "count": 300,
+                "name": "Entrati Obols"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Rubedo",
+                "count": 1100,
+                "name": "Rubedo"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/EntratiLab/Resources/EntratiLabDogTagCommon",
+                "count": 3,
+                "name": "Shrill Voca"
+              }
+            ]
+          }
+        },
+        {
+          "level": 2,
+          "name": "Researcher",
+          "minStanding": 27000,
+          "maxStanding": 71000,
+          "sacrifice": {
+            "credits": 25000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/EntratiLab/Resources/EntratiLabMiscItemB",
+                "count": 12,
+                "name": "Necracoil"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/EntratiLab/Resources/EntratiLabDogTagCommon",
+                "count": 5,
+                "name": "Shrill Voca"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/EntratiLab/Resources/MurmurItem",
+                "count": 8,
+                "name": "Stela"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Zariman/Resources/ZarimanMiscItemA",
+                "count": 60,
+                "name": "Voidgel Orb"
+              }
+            ]
+          }
+        },
+        {
+          "level": 3,
+          "name": "Colleague",
+          "minStanding": 71000,
+          "maxStanding": 141000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/EntratiLab/Resources/EntratiLabDogTagUncommon",
+                "count": 2,
+                "name": "Bellow Voca"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/EntratiLab/Resources/EntratiLabMiscItemB",
+                "count": 15,
+                "name": "Necracoil"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/EntratiLab/Resources/EntratiLabDogTagCommon",
+                "count": 8,
+                "name": "Shrill Voca"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/EntratiLab/Resources/MurmurItem",
+                "count": 16,
+                "name": "Stela"
+              }
+            ]
+          }
+        },
+        {
+          "level": 4,
+          "name": "Scholar",
+          "minStanding": 141000,
+          "maxStanding": 240000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/EntratiLab/Resources/EntratiLabDogTagUncommon",
+                "count": 10,
+                "name": "Bellow Voca"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/EntratiLab/Resources/EntratiLabDogTagRare",
+                "count": 1,
+                "name": "Echo Voca"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Zariman/Resources/ZarimanMiscItemB",
+                "count": 5,
+                "name": "Entrati Lanthorn"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/EntratiLab/Resources/EntratiLabMiscItemA",
+                "count": 1500,
+                "name": "Entrati Obols"
+              }
+            ]
+          }
+        },
+        {
+          "level": 5,
+          "name": "Illuminate",
+          "minStanding": 240000,
+          "maxStanding": 372000,
+          "sacrifice": {
+            "credits": 200000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/EntratiLab/Resources/EntratiLabDogTagRare",
+                "count": 10,
+                "name": "Echo Voca"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Zariman/Resources/ZarimanMiscItemB",
+                "count": 10,
+                "name": "Entrati Lanthorn"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/EntratiLab/Resources/EntratiLabMiscItemB",
+                "count": 25,
+                "name": "Necracoil"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/EntratiLab/Resources/MurmurItem",
+                "count": 32,
+                "name": "Stela"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tag": "EntratiSyndicate",
+      "name": "Entrati",
+      "wikiPage": "Entrati",
+      "kind": "openWorld",
+      "dailyBin": "ENTRATI",
+      "dailyField": "DailyAffiliationEntrati",
+      "titles": [
+        {
+          "level": 1,
+          "name": "STRANGER",
+          "minStanding": 5000,
+          "maxStanding": 27000,
+          "sacrifice": {
+            "credits": 0,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/Fish/Deimos/FishParts/DeimosGenericSharedFishPartItem",
+                "count": 6,
+                "name": "Benign Infested Tumor"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Fish/Deimos/FishParts/DeimosGenericInfestedFishPartItem",
+                "count": 6,
+                "name": "Ferment Bladder"
+              }
+            ]
+          }
+        },
+        {
+          "level": 2,
+          "name": "ACQUAINTANCE",
+          "minStanding": 27000,
+          "maxStanding": 71000,
+          "sacrifice": {
+            "credits": 0,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/Deimos/EntratiFragmentCommonC",
+                "count": 1,
+                "name": "DAUGHTER TOKEN"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Deimos/EntratiFragmentUncommonA",
+                "count": 1,
+                "name": "FATHER TOKEN"
+              },
+              {
+                "itemType": "/Lotus/Types/Recipes/Weapons/WeaponParts/InfTransformClawsWeaponBladeBlueprint",
+                "count": 1,
+                "name": "Keratinos Blades Blueprint"
+              }
+            ]
+          }
+        },
+        {
+          "level": 3,
+          "name": "ASSOCIATE",
+          "minStanding": 71000,
+          "maxStanding": 141000,
+          "sacrifice": {
+            "credits": 0,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/Deimos/EntratiFragmentUncommonB",
+                "count": 1,
+                "name": "MOTHER TOKEN"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Deimos/AnimalTagInfestedCritterCommon",
+                "count": 3,
+                "name": "Sly Vulpaphyla Tag"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Deimos/EntratiFragmentCommonB",
+                "count": 1,
+                "name": "SON TOKEN"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Deimos/AnimalTagInfestedPredatorCommon",
+                "count": 3,
+                "name": "Vizier Predasite Tag"
+              }
+            ]
+          }
+        },
+        {
+          "level": 4,
+          "name": "FRIEND",
+          "minStanding": 141000,
+          "maxStanding": 240000,
+          "sacrifice": {
+            "credits": 0,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Recipes/DeimosRecipes/Pets/InfestedPredatorMutagenCBlueprint",
+                "count": 1,
+                "name": "ARIOLI MUTAGEN Blueprint"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Deimos/EntratiFragmentUncommonA",
+                "count": 1,
+                "name": "FATHER TOKEN"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Deimos/EntratiFragmentCommonB",
+                "count": 1,
+                "name": "SON TOKEN"
+              },
+              {
+                "itemType": "/Lotus/Types/Recipes/DeimosRecipes/Pets/InfestedCritterMutagenCBlueprint",
+                "count": 1,
+                "name": "ZARIM MUTAGEN Blueprint"
+              }
+            ]
+          }
+        },
+        {
+          "level": 5,
+          "name": "FAMILY",
+          "minStanding": 240000,
+          "maxStanding": 372000,
+          "sacrifice": {
+            "credits": 0,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/Deimos/EntratiFragmentUncommonA",
+                "count": 1,
+                "name": "FATHER TOKEN"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Deimos/EntratiFragmentUncommonB",
+                "count": 1,
+                "name": "MOTHER TOKEN"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Deimos/SeriglassShard",
+                "count": 1,
+                "name": "Seriglass Shard"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tag": "NecraloidSyndicate",
+      "name": "Necraloid",
+      "wikiPage": "Necraloid",
+      "kind": "openWorld",
+      "dailyBin": "NECRALOID",
+      "dailyField": "DailyAffiliationNecraloid",
+      "titles": [
+        {
+          "level": 1,
+          "name": "CLEARANCE: AGNESIS",
+          "minStanding": 5000,
+          "maxStanding": 27000,
+          "sacrifice": {
+            "credits": 0,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/Deimos/EntratiFragmentUncommonA",
+                "count": 20,
+                "name": "FATHER TOKEN"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/InfestedMicroplanet/Resources/Necraloids/NecraloidStandingCommonItem",
+                "count": 10,
+                "name": "OROKIN ORIENTATION MATRIX"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/VoidTearDrop",
+                "count": 150,
+                "name": "Void Traces"
+              },
+              {
+                "itemType": "/Lotus/Types/Recipes/Weapons/WeaponParts/InfUziWeaponBarrelBlueprint",
+                "count": 1,
+                "name": "Zymos Barrel Blueprint"
+              }
+            ]
+          }
+        },
+        {
+          "level": 2,
+          "name": "CLEARANCE: MODUS",
+          "minStanding": 27000,
+          "maxStanding": 71000,
+          "sacrifice": {
+            "credits": 0,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/Deimos/EntratiFragmentUncommonA",
+                "count": 20,
+                "name": "FATHER TOKEN"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/InfestedMicroplanet/Resources/Necraloids/NecraloidStandingUncommonItem",
+                "count": 15,
+                "name": "OROKIN BALLISTICS MATRIX"
+              },
+              {
+                "itemType": "/Lotus/Types/Recipes/Weapons/WeaponParts/ThanotechPistolBarrelBlueprint",
+                "count": 1,
+                "name": "Sepulcrum Barrel Blueprint"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/VoidTearDrop",
+                "count": 250,
+                "name": "Void Traces"
+              }
+            ]
+          }
+        },
+        {
+          "level": 3,
+          "name": "CLEARANCE: ODIMA",
+          "minStanding": 71000,
+          "maxStanding": 141000,
+          "sacrifice": {
+            "credits": 0,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/Deimos/EntratiFragmentUncommonA",
+                "count": 20,
+                "name": "FATHER TOKEN"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/InfestedMicroplanet/Resources/Necraloids/NecraloidStandingRareItem",
+                "count": 15,
+                "name": "OROKIN ANIMUS MATRIX"
+              },
+              {
+                "itemType": "/Lotus/Types/Recipes/Weapons/WeaponParts/ThanotechRifleBarrelBlueprint",
+                "count": 1,
+                "name": "Trumna Barrel Blueprint"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/VoidTearDrop",
+                "count": 350,
+                "name": "Void Traces"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tag": "CetusSyndicate",
+      "name": "Ostron",
+      "wikiPage": "Ostron",
+      "kind": "openWorld",
+      "dailyBin": "CETUS",
+      "dailyField": "DailyAffiliationCetus",
+      "titles": [
+        {
+          "level": 1,
+          "name": "OFFWORLDER",
+          "minStanding": 5000,
+          "maxStanding": 27000,
+          "sacrifice": {
+            "credits": 10000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/Eidolon/Resources/GrokdrulItem",
+                "count": 25,
+                "name": "Grokdrul"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Eidolon/Resources/IraditeItem",
+                "count": 25,
+                "name": "Iradite"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Eidolon/Resources/NistlebrushItem",
+                "count": 25,
+                "name": "Nistlepod"
+              }
+            ]
+          }
+        },
+        {
+          "level": 2,
+          "name": "VISITOR",
+          "minStanding": 27000,
+          "maxStanding": 71000,
+          "sacrifice": {
+            "credits": 25000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/Fish/Eidolon/FishParts/EidolonFishScalesItem",
+                "count": 60,
+                "name": "Fish Scales"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Gems/Eidolon/CommonOreAItem",
+                "count": 40,
+                "name": "Pyrol"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Gems/Eidolon/CommonGemACutAItem",
+                "count": 10,
+                "name": "Tear Azurite"
+              }
+            ]
+          }
+        },
+        {
+          "level": 3,
+          "name": "TRUSTED",
+          "minStanding": 71000,
+          "maxStanding": 141000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/Eidolon/Resources/CetusWispItem",
+                "count": 1,
+                "name": "Cetus Wisp"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Eidolon/Resources/EidolonFruitItem",
+                "count": 5,
+                "name": "Maprico"
+              }
+            ]
+          }
+        },
+        {
+          "level": 4,
+          "name": "SURAH",
+          "minStanding": 141000,
+          "maxStanding": 240000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/Gems/Eidolon/UncommonOreAAlloyAItem",
+                "count": 40,
+                "name": "Fersteel Alloy"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Eidolon/Resources/EidolonFruitItem",
+                "count": 10,
+                "name": "Maprico"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Fish/Eidolon/FishParts/BothRareFishAPartItem",
+                "count": 5,
+                "name": "Murkray Liver"
+              }
+            ]
+          }
+        },
+        {
+          "level": 5,
+          "name": "KIN",
+          "minStanding": 240000,
+          "maxStanding": 372000,
+          "sacrifice": {
+            "credits": 200000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/Fish/Eidolon/FishParts/NightRareFishBPartItem",
+                "count": 1,
+                "name": "Cuthol Tendrils"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Fish/Eidolon/FishParts/NightRareFishAPartItem",
+                "count": 1,
+                "name": "Norg Brain"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Gems/Eidolon/EidolonGemBItem",
+                "count": 1,
+                "name": "Nyth"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Gems/Eidolon/EidolonGemAItem",
+                "count": 1,
+                "name": "Sentirum"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tag": "SolarisSyndicate",
+      "name": "Solaris United",
+      "wikiPage": "Solaris United",
+      "kind": "openWorld",
+      "dailyBin": "SOLARIS",
+      "dailyField": "DailyAffiliationSolaris",
+      "titles": [
+        {
+          "level": 1,
+          "name": "OUTWORLDER",
+          "minStanding": 5000,
+          "maxStanding": 27000,
+          "sacrifice": {
+            "credits": 10000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/Solaris/DebtTokenA",
+                "count": 2,
+                "name": "TRAINING DEBT-BOND"
+              }
+            ]
+          }
+        },
+        {
+          "level": 2,
+          "name": "RAPSCALLION",
+          "minStanding": 27000,
+          "maxStanding": 71000,
+          "sacrifice": {
+            "credits": 25000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/Solaris/DebtTokenB",
+                "count": 3,
+                "name": "SHELTER DEBT-BOND"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Solaris/DebtTokenA",
+                "count": 2,
+                "name": "TRAINING DEBT-BOND"
+              }
+            ]
+          }
+        },
+        {
+          "level": 3,
+          "name": "DOER",
+          "minStanding": 71000,
+          "maxStanding": 141000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/Solaris/DebtTokenC",
+                "count": 4,
+                "name": "MEDICAL DEBT-BOND"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Solaris/DebtTokenB",
+                "count": 3,
+                "name": "SHELTER DEBT-BOND"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Solaris/DebtTokenA",
+                "count": 2,
+                "name": "TRAINING DEBT-BOND"
+              }
+            ]
+          }
+        },
+        {
+          "level": 4,
+          "name": "COVE",
+          "minStanding": 141000,
+          "maxStanding": 240000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/Solaris/DebtTokenD",
+                "count": 5,
+                "name": "ADVANCES DEBT-BOND"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Solaris/DebtTokenC",
+                "count": 4,
+                "name": "MEDICAL DEBT-BOND"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Solaris/DebtTokenB",
+                "count": 3,
+                "name": "SHELTER DEBT-BOND"
+              }
+            ]
+          }
+        },
+        {
+          "level": 5,
+          "name": "OLD MATE",
+          "minStanding": 240000,
+          "maxStanding": 372000,
+          "sacrifice": {
+            "credits": 200000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/Solaris/DebtTokenD",
+                "count": 5,
+                "name": "ADVANCES DEBT-BOND"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Solaris/DebtTokenE",
+                "count": 5,
+                "name": "FAMILIAL DEBT-BOND"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/Solaris/DebtTokenC",
+                "count": 3,
+                "name": "MEDICAL DEBT-BOND"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tag": "HexSyndicate",
+      "name": "The Hex",
+      "wikiPage": "The Hex",
+      "kind": "openWorld",
+      "dailyBin": "HEX",
+      "dailyField": "DailyAffiliationHex",
+      "titles": [
+        {
+          "level": 1,
+          "name": "Leftovers",
+          "minStanding": 5000,
+          "maxStanding": 27000,
+          "sacrifice": {
+            "credits": 10000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/1999ResourceCommonA",
+                "count": 15,
+                "name": "Efervon Sample"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/1999ResourceCommonB",
+                "count": 15,
+                "name": "Höllvanian Pitchweave Fragment"
+              }
+            ]
+          }
+        },
+        {
+          "level": 2,
+          "name": "Fresh Slice",
+          "minStanding": 27000,
+          "maxStanding": 71000,
+          "sacrifice": {
+            "credits": 25000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/EntratiLab/Resources/EntratiLabMiscItemA",
+                "count": 12,
+                "name": "Entrati Obols"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/1999ResourceUncommonB",
+                "count": 5,
+                "name": "Experimental Arc-Relay"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/1999ResourceCommonB",
+                "count": 25,
+                "name": "Höllvanian Pitchweave Fragment"
+              }
+            ]
+          }
+        },
+        {
+          "level": 3,
+          "name": "2-for-1",
+          "minStanding": 71000,
+          "maxStanding": 141000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/HexDogTagQuincy",
+                "count": 1,
+                "name": "35mm Film"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/HexDogTagLettie",
+                "count": 1,
+                "name": "Cheddar Crowns Cereal"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/HexDogTagArthur",
+                "count": 1,
+                "name": "Chuggin' Along Sixpack"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/HexDogTagEleanor",
+                "count": 1,
+                "name": "Mood Crystal"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/HexDogTagAoi",
+                "count": 1,
+                "name": "On-lyne CD"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/HexDogTagAmir",
+                "count": 1,
+                "name": "The Countessa Comic"
+              }
+            ]
+          }
+        },
+        {
+          "level": 4,
+          "name": "Hot & Fresh",
+          "minStanding": 141000,
+          "maxStanding": 240000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/1999ResourceCommonA",
+                "count": 40,
+                "name": "Efervon Sample"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/EntratiLab/Resources/EntratiLabMiscItemB",
+                "count": 25,
+                "name": "Necracoil"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/1999ResourceUncommonA",
+                "count": 25,
+                "name": "Techrot Chitin"
+              }
+            ]
+          }
+        },
+        {
+          "level": 5,
+          "name": "Pizza Party",
+          "minStanding": 240000,
+          "maxStanding": 372000,
+          "sacrifice": {
+            "credits": 200000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/HexDogTagQuincy",
+                "count": 1,
+                "name": "35mm Film"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/HexDogTagLettie",
+                "count": 1,
+                "name": "Cheddar Crowns Cereal"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/HexDogTagArthur",
+                "count": 1,
+                "name": "Chuggin' Along Sixpack"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/HexDogTagEleanor",
+                "count": 1,
+                "name": "Mood Crystal"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/HexDogTagAoi",
+                "count": 1,
+                "name": "On-lyne CD"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/1999ResourceRareA",
+                "count": 5,
+                "name": "Techrot Motherboard"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/1999Wf/Resources/HexDogTagAmir",
+                "count": 1,
+                "name": "The Countessa Comic"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tag": "ZarimanSyndicate",
+      "name": "The Holdfasts",
+      "wikiPage": "The Holdfasts",
+      "kind": "openWorld",
+      "dailyBin": "ZARIMAN",
+      "dailyField": "DailyAffiliationZariman",
+      "titles": [
+        {
+          "level": 1,
+          "name": "Fallen",
+          "minStanding": 5000,
+          "maxStanding": 27000,
+          "sacrifice": {
+            "credits": 10000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/AlloyPlate",
+                "count": 2000,
+                "name": "Alloy Plate"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Ferrite",
+                "count": 2000,
+                "name": "Ferrite"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Zariman/Resources/ZarimanDogTagCommon",
+                "count": 5,
+                "name": "Voidplume Down"
+              }
+            ]
+          }
+        },
+        {
+          "level": 2,
+          "name": "Watcher",
+          "minStanding": 27000,
+          "maxStanding": 71000,
+          "sacrifice": {
+            "credits": 25000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/AlloyPlate",
+                "count": 5000,
+                "name": "Alloy Plate"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Zariman/Resources/ZarimanMiscItemA",
+                "count": 10,
+                "name": "Voidgel Orb"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Zariman/Resources/ZarimanDogTagUncommon",
+                "count": 10,
+                "name": "Voidplume Vane"
+              }
+            ]
+          }
+        },
+        {
+          "level": 3,
+          "name": "Guardian",
+          "minStanding": 71000,
+          "maxStanding": 141000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/Zariman/Resources/ZarimanMiscItemB",
+                "count": 10,
+                "name": "Entrati Lanthorn"
+              },
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Ferrite",
+                "count": 5000,
+                "name": "Ferrite"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Zariman/Resources/ZarimanDogTagRare",
+                "count": 10,
+                "name": "Voidplume Crest"
+              }
+            ]
+          }
+        },
+        {
+          "level": 4,
+          "name": "Seraph",
+          "minStanding": 141000,
+          "maxStanding": 240000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/Zariman/Resources/VoidWraithItem",
+                "count": 60,
+                "name": "Thrax Plasm"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Zariman/Resources/ZarimanMiscItemA",
+                "count": 40,
+                "name": "Voidgel Orb"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Zariman/Resources/ZarimanDogTagBounty",
+                "count": 15,
+                "name": "Voidplume Quill"
+              }
+            ]
+          }
+        },
+        {
+          "level": 5,
+          "name": "Angel",
+          "minStanding": 240000,
+          "maxStanding": 372000,
+          "sacrifice": {
+            "credits": 200000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/Zariman/Resources/ZarimanMiscItemB",
+                "count": 20,
+                "name": "Entrati Lanthorn"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Zariman/Resources/VoidWraithItem",
+                "count": 90,
+                "name": "Thrax Plasm"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Zariman/Resources/VoidAngelItem",
+                "count": 5,
+                "name": "Voidplume Pinion"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tag": "QuillsSyndicate",
+      "name": "The Quills",
+      "wikiPage": "The Quills",
+      "kind": "openWorld",
+      "dailyBin": "QUILLS",
+      "dailyField": "DailyAffiliationQuills",
+      "titles": [
+        {
+          "level": 1,
+          "name": "MOTE",
+          "minStanding": 5000,
+          "maxStanding": 27000,
+          "sacrifice": {
+            "credits": 30000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/Eidolon/Resources/QuillsDogTag",
+                "count": 10,
+                "name": "Intact Sentient Core"
+              }
+            ]
+          }
+        },
+        {
+          "level": 2,
+          "name": "OBSERVER",
+          "minStanding": 27000,
+          "maxStanding": 71000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/Eidolon/Resources/QuillsDogTag",
+                "count": 20,
+                "name": "Intact Sentient Core"
+              }
+            ]
+          }
+        },
+        {
+          "level": 3,
+          "name": "ADHERENT",
+          "minStanding": 71000,
+          "maxStanding": 141000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/Eidolon/Resources/SentientShards/SentientShardCommonItem",
+                "count": 10,
+                "name": "Eidolon Shard"
+              }
+            ]
+          }
+        },
+        {
+          "level": 4,
+          "name": "INSTRUMENT",
+          "minStanding": 141000,
+          "maxStanding": 240000,
+          "sacrifice": {
+            "credits": 250000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/Eidolon/Resources/SentientShards/SentientShardCommonItem",
+                "count": 20,
+                "name": "Eidolon Shard"
+              }
+            ]
+          }
+        },
+        {
+          "level": 5,
+          "name": "ARCHITECT",
+          "minStanding": 240000,
+          "maxStanding": 372000,
+          "sacrifice": {
+            "credits": 500000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/Eidolon/Resources/SentientShards/SentientShardCommonItem",
+                "count": 30,
+                "name": "Eidolon Shard"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tag": "VentKidsSyndicate",
+      "name": "Ventkids",
+      "wikiPage": "Ventkids",
+      "kind": "openWorld",
+      "dailyBin": "VENTKIDS",
+      "dailyField": "DailyAffiliationVentkids",
+      "titles": [
+        {
+          "level": 1,
+          "name": "GLINTY",
+          "minStanding": 5000,
+          "maxStanding": 27000
+        },
+        {
+          "level": 2,
+          "name": "WHOZIT",
+          "minStanding": 27000,
+          "maxStanding": 71000
+        },
+        {
+          "level": 3,
+          "name": "PROPER FELON",
+          "minStanding": 71000,
+          "maxStanding": 141000
+        },
+        {
+          "level": 4,
+          "name": "PRIMO",
+          "minStanding": 141000,
+          "maxStanding": 240000
+        },
+        {
+          "level": 5,
+          "name": "LOGICAL",
+          "minStanding": 240000,
+          "maxStanding": 372000
+        }
+      ]
+    },
+    {
+      "tag": "VoxSyndicate",
+      "name": "Vox Solaris",
+      "wikiPage": "Vox Solaris (Syndicate)",
+      "kind": "openWorld",
+      "dailyBin": "VOX",
+      "dailyField": "DailyAffiliationVox",
+      "titles": [
+        {
+          "level": 1,
+          "name": "OPERATIVE",
+          "minStanding": 5000,
+          "maxStanding": 27000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/Venus/Resources/ArachnoidHungerItem",
+                "count": 1,
+                "name": "Calda Toroid"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Venus/Resources/ArachnoidWraithItem",
+                "count": 1,
+                "name": "Sola Toroid"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Venus/Resources/ArachnoidMicroidItem",
+                "count": 1,
+                "name": "Vega Toroid"
+              }
+            ]
+          }
+        },
+        {
+          "level": 2,
+          "name": "AGENT",
+          "minStanding": 27000,
+          "maxStanding": 71000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/Venus/Resources/CorpusWidgetAItem",
+                "count": 1,
+                "name": "Gyromag Systems"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Venus/Resources/ArachnoidMicroidItem",
+                "count": 1,
+                "name": "Vega Toroid"
+              }
+            ]
+          }
+        },
+        {
+          "level": 3,
+          "name": "HAND",
+          "minStanding": 71000,
+          "maxStanding": 141000,
+          "sacrifice": {
+            "credits": 250000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/Venus/Resources/CorpusWidgetBItem",
+                "count": 1,
+                "name": "Atmo Systems"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Venus/Resources/ArachnoidHungerItem",
+                "count": 1,
+                "name": "Calda Toroid"
+              }
+            ]
+          }
+        },
+        {
+          "level": 4,
+          "name": "INSTRUMENT",
+          "minStanding": 141000,
+          "maxStanding": 240000,
+          "sacrifice": {
+            "credits": 500000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/Venus/Resources/CorpusWidgetCItem",
+                "count": 1,
+                "name": "Repeller Systems"
+              },
+              {
+                "itemType": "/Lotus/Types/Gameplay/Venus/Resources/ArachnoidWraithItem",
+                "count": 1,
+                "name": "Sola Toroid"
+              }
+            ]
+          }
+        },
+        {
+          "level": 5,
+          "name": "SHADOW",
+          "minStanding": 240000,
+          "maxStanding": 372000,
+          "sacrifice": {
+            "credits": 1000000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Gameplay/Venus/Resources/ArachnoidCamperItem",
+                "count": 1,
+                "name": "Crisma Toroid"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tag": "ConclaveSyndicate",
+      "name": "Conclave",
+      "wikiPage": "Conclave",
+      "kind": "other",
+      "dailyBin": "PVP",
+      "dailyField": "DailyAffiliationPvp",
+      "initiation": {
+        "credits": 10000,
+        "items": [
+          {
+            "itemType": "/Lotus/Types/Items/MiscItems/Plastids",
+            "count": 100,
+            "name": "Plastids"
+          }
+        ]
+      },
+      "titles": [
+        {
+          "level": 1,
+          "name": "Mistral",
+          "minStanding": 5000,
+          "maxStanding": 27000,
+          "sacrifice": {
+            "credits": 30000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Neurode",
+                "count": 2,
+                "name": "Neurodes"
+              }
+            ]
+          }
+        },
+        {
+          "level": 2,
+          "name": "Whirlwind",
+          "minStanding": 27000,
+          "maxStanding": 71000,
+          "sacrifice": {
+            "credits": 50000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/Forma",
+                "count": 1,
+                "name": "Forma"
+              }
+            ]
+          }
+        },
+        {
+          "level": 3,
+          "name": "Tempest",
+          "minStanding": 71000,
+          "maxStanding": 141000,
+          "sacrifice": {
+            "credits": 100000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/OrokinReactor",
+                "count": 1,
+                "name": "Orokin Reactor"
+              }
+            ]
+          }
+        },
+        {
+          "level": 4,
+          "name": "Hurricane",
+          "minStanding": 141000,
+          "maxStanding": 240000,
+          "sacrifice": {
+            "credits": 250000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/OrokinCatalyst",
+                "count": 1,
+                "name": "Orokin Catalyst"
+              }
+            ]
+          }
+        },
+        {
+          "level": 5,
+          "name": "Typhoon",
+          "minStanding": 240000,
+          "maxStanding": 372000,
+          "sacrifice": {
+            "credits": 500000,
+            "items": [
+              {
+                "itemType": "/Lotus/Types/Items/MiscItems/PrimeBucks",
+                "count": 100,
+                "name": "Orokin Ducats"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

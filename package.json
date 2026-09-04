@@ -72,7 +72,8 @@
     "icons:mod-art": "node scripts/icon-mirror/build-wiki-mod-art.mjs",
     "icons:download:mod-art": "node scripts/icon-mirror/download-wiki-mod-art.mjs",
     "i18n:item-names": "node scripts/i18n/build-item-names.mjs",
-    "dojo:build": "node scripts/dojo-research/build-dojo-research.mjs"
+    "dojo:build": "node scripts/dojo-research/build-dojo-research.mjs",
+    "syndicates:build": "node scripts/syndicates/build-syndicate-ranks.mjs"
   },
   "keywords": [
     "warframe",
