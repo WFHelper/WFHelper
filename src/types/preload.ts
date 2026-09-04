@@ -220,6 +220,30 @@ export interface PreloadAPI {
     callback: (scale: IpcEventMap["warframe-ui-scale-updated"]) => void,
   ) => () => void;
   onArbiOpenRun: (callback: (runId: IpcEventMap["arbi-open-run"]) => void) => () => void;
+  getPtRuns: () => Promise<IpcInvokeMap["getPtRuns"]["return"]>;
+  refreshPtRuns: () => Promise<IpcInvokeMap["refreshPtRuns"]["return"]>;
+  setPtRunTags: (
+    id: IpcInvokeMap["setPtRunTags"]["args"][0],
+    tags: IpcInvokeMap["setPtRunTags"]["args"][1],
+  ) => Promise<IpcInvokeMap["setPtRunTags"]["return"]>;
+  setPtRunNotes: (
+    id: IpcInvokeMap["setPtRunNotes"]["args"][0],
+    notes: IpcInvokeMap["setPtRunNotes"]["args"][1],
+  ) => Promise<IpcInvokeMap["setPtRunNotes"]["return"]>;
+  deletePtRun: (
+    id: IpcInvokeMap["deletePtRun"]["args"][0],
+  ) => Promise<IpcInvokeMap["deletePtRun"]["return"]>;
+  deletePtRunLog: (
+    id: IpcInvokeMap["deletePtRunLog"]["args"][0],
+  ) => Promise<IpcInvokeMap["deletePtRunLog"]["return"]>;
+  exportPtRunLog: (
+    id: IpcInvokeMap["exportPtRunLog"]["args"][0],
+  ) => Promise<IpcInvokeMap["exportPtRunLog"]["return"]>;
+  importPtLog: () => Promise<IpcInvokeMap["importPtLog"]["return"]>;
+  showPtRunLogInFolder: (
+    id: IpcInvokeMap["showPtRunLogInFolder"]["args"][0],
+  ) => Promise<IpcInvokeMap["showPtRunLogInFolder"]["return"]>;
+  onPtRunSaved: (callback: (run: IpcEventMap["pt-run-saved"]) => void) => () => void;
   workbenchGetState: () => Promise<IpcInvokeMap["workbenchGetState"]["return"]>;
   workbenchPreviewPlan: (
     plan: IpcInvokeMap["workbenchPreviewPlan"]["args"][0],

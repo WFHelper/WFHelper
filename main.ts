@@ -111,12 +111,15 @@ import {
   INVENTORY_UPDATED,
   ITEM_DB_UPDATED,
   ARBI_RUN_SAVED,
+  PT_RUN_SAVED,
   WARFRAME_UI_SCALE_UPDATED,
 } from "./config/shared/ipcChannels";
 import * as statsTracker from "./services/statsTracker";
 import * as arbiRunTracker from "./services/arbiRunTracker";
+import * as ptRunTracker from "./services/profitTakerTracker";
 import { setOcrDebugDumpsEnabled } from "./services/rewardScanDebug";
 import * as arbiIpc from "./ipc/arbiIpc";
+import * as profitTakerIpc from "./ipc/profitTakerIpc";
 import * as arbiScheduleIpc from "./ipc/arbiScheduleIpc";
 import * as tradeTracker from "./services/tradeTracker";
 import * as apiHelperRunner from "./services/apiHelperRunner";
@@ -420,6 +423,9 @@ function initTrackersAndSettings(profileStage: ProfileStage): void {
   tradeTracker.loadTradeLog();
   arbiRunTracker.initArbiTracker();
   arbiRunTracker.setArbiTrackingEnabled(ctx.overlaySettings.arbiTrackingEnabled !== false);
+  ptRunTracker.initPtTracker();
+  // One user-facing toggle covers both EE.log run trackers.
+  ptRunTracker.setPtTrackingEnabled(ctx.overlaySettings.arbiTrackingEnabled !== false);
   trayIpc.configureTray(revealMainWindow);
   if (ctx.overlaySettings.keepRunningOnClose === true) trayIpc.createTray();
   setOcrDebugDumpsEnabled(ctx.overlaySettings.ocrDebugImagesEnabled !== false);
@@ -449,6 +455,7 @@ function registerIpcHandlers(profileStage: ProfileStage): void {
   rivensIpc.register();
   tradeNotificationIpc.register();
   arbiIpc.register();
+  profitTakerIpc.register();
   arbiScheduleIpc.register();
   notificationLogIpc.register();
   notificationChannelsIpc.register();
@@ -606,6 +613,11 @@ function initGameMonitoring(profileStage: ProfileStage): void {
       if (win && !win.isDestroyed()) win.webContents.send(ARBI_RUN_SAVED, run);
       popoutIpc.sendToPopouts(ARBI_RUN_SAVED, run);
       arbiOverlayIpc.maybeShowArbiSummary(run);
+    },
+    onPtRunSaved: (run) => {
+      const win = ctx.mainWindow;
+      if (win && !win.isDestroyed()) win.webContents.send(PT_RUN_SAVED, run);
+      popoutIpc.sendToPopouts(PT_RUN_SAVED, run);
     },
   });
   if (eeLogPath) log.info("[EELog] Monitoring:", eeLogPath);

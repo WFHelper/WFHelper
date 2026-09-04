@@ -613,6 +613,42 @@ export interface IpcInvokeMap {
     args: [id: string];
     return: { ok: boolean };
   };
+  getPtRuns: {
+    args: [];
+    return: PtRunsPayload;
+  };
+  refreshPtRuns: {
+    args: [];
+    return: PtRunsPayload;
+  };
+  setPtRunTags: {
+    args: [id: string, tags: string[]];
+    return: PtRunRecord | null;
+  };
+  setPtRunNotes: {
+    args: [id: string, notes: string];
+    return: PtRunRecord | null;
+  };
+  deletePtRun: {
+    args: [id: string];
+    return: { ok: boolean };
+  };
+  deletePtRunLog: {
+    args: [id: string];
+    return: PtRunRecord | null;
+  };
+  exportPtRunLog: {
+    args: [id: string];
+    return: { ok: boolean };
+  };
+  importPtLog: {
+    args: [];
+    return: PtImportResult;
+  };
+  showPtRunLogInFolder: {
+    args: [id: string];
+    return: { ok: boolean };
+  };
   workbenchGetState: {
     args: [];
     return: WorkbenchState;
@@ -740,6 +776,14 @@ import type {
 } from "../../config/shared/arbiScheduleTypes.js";
 export type { ArbiScheduleAlerts, ArbiScheduleEntry };
 
+// Single source of truth for Profit-Taker types lives in config/shared/profitTakerTypes.ts.
+import type {
+  PtImportResult,
+  PtRunRecord,
+  PtRunsPayload,
+} from "../../config/shared/profitTakerTypes.js";
+export type { PtRunRecord };
+
 type WfmTradeMatchEvent = TradeMatchPayload;
 
 interface TradeRecordedEvent {
@@ -759,6 +803,7 @@ export interface IpcEventMap {
   "world-state-fetch-error": string;
   "arbi-run-saved": ArbiRunRecord;
   "arbi-open-run": string;
+  "pt-run-saved": PtRunRecord;
   "warframe-ui-scale-updated": number | null;
   "notification-history-added": NotificationEntry;
   "notification-sound-play": undefined;

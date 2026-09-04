@@ -25,7 +25,14 @@ import {
   shutdownArbiTracker,
   setArbiCallbacks,
 } from "./arbiRunTracker";
+import {
+  processProfitTakerLine,
+  notifyPtEeLogReset,
+  shutdownPtTracker,
+  setPtCallbacks,
+} from "./profitTakerTracker";
 import type { ArbiRunRecord } from "../config/shared/arbiTypes";
+import type { PtRunRecord } from "../config/shared/profitTakerTypes";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import type { TradeType, TradeDirection } from "../config/shared/statsTypes";
 import { stripPlatformGlyphs, isLogFrameworkLine, stripDialogArgTail } from "./tradeLogSanitize";
@@ -268,6 +275,7 @@ function pollReadNewBytes(): void {
           lastLoginCompleteAt = 0;
           uptimeTracker.reset();
           notifyEeLogReset();
+          notifyPtEeLogReset();
         }
       } catch {
         // ignore stat errors; retry next tick
@@ -478,8 +486,9 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   // Delegate to the riven state machine - returns whether SendResult was consumed.
   processRivenPatterns(line, source, realtimeSourceActive());
 
-  // Arbitration run tracking (internally ignores dbwin-source lines).
+  // Arbitration and Profit-Taker run tracking (both ignore dbwin-source lines).
   processArbiLine(line, source);
+  processProfitTakerLine(line, source);
 
   // Riven flow and delayed file echoes make InitMapping unsafe as a picker close.
   if (
@@ -613,6 +622,7 @@ interface EeLogHandlers {
   onRivenChatView?: (() => void) | null;
   onRivenWeaponPath?: ((weaponPath: string) => void) | null;
   onArbiRunSaved?: ((run: ArbiRunRecord) => void) | null;
+  onPtRunSaved?: ((run: PtRunRecord) => void) | null;
 }
 
 type NormalizedEeLogHandlers = {
@@ -640,6 +650,7 @@ const NULL_EE_LOG_HANDLERS: NormalizedEeLogHandlers = {
   onRivenChatView: null,
   onRivenWeaponPath: null,
   onArbiRunSaved: null,
+  onPtRunSaved: null,
 };
 
 /** Keep a value only when it is a function, else null. */
@@ -679,6 +690,7 @@ function normalizeHandlers(
     onRivenChatView: asFunction(handlers.onRivenChatView),
     onRivenWeaponPath: asFunction(handlers.onRivenWeaponPath),
     onArbiRunSaved: asFunction(handlers.onArbiRunSaved),
+    onPtRunSaved: asFunction(handlers.onPtRunSaved),
   };
 }
 
@@ -721,6 +733,7 @@ export function startWatching(
     onRivenWeaponPath: normalized.onRivenWeaponPath,
   });
   setArbiCallbacks({ onRunSaved: normalized.onArbiRunSaved });
+  setPtCallbacks({ onRunSaved: normalized.onPtRunSaved });
 
   clearPollTimer();
   closePollFd();
@@ -750,6 +763,7 @@ export function startWatching(
     lineRemainder = "";
     lastLoginCompleteAt = 0;
     notifyEeLogReset();
+    notifyPtEeLogReset();
   });
 
   pollTimer = setInterval(pollReadNewBytes, POLL_INTERVAL_MS);
@@ -771,6 +785,7 @@ export function startWatching(
 
 export function stopWatching(): void {
   shutdownArbiTracker();
+  shutdownPtTracker();
   stopDbwinWorker();
   stopProtonDebugstrMonitor();
   clearPendingTimers();

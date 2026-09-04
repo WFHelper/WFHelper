@@ -165,6 +165,17 @@ export const ARBI_SUMMARY_READY = "arbi-summary-ready";
 export const ARBI_SUMMARY_CLOSE = "arbi-summary-close";
 export const ARBI_SUMMARY_OPEN_DETAILS = "arbi-summary-open-details";
 
+export const PT_GET_RUNS = "pt:get-runs";
+export const PT_REFRESH_RUNS = "pt:refresh-runs";
+export const PT_SET_TAGS = "pt:set-tags";
+export const PT_SET_NOTES = "pt:set-notes";
+export const PT_DELETE_RUN = "pt:delete-run";
+export const PT_DELETE_LOG = "pt:delete-log";
+export const PT_EXPORT_LOG = "pt:export-log";
+export const PT_IMPORT_LOG = "pt:import-log";
+export const PT_SHOW_LOG_IN_FOLDER = "pt:show-log-in-folder";
+export const PT_RUN_SAVED = "pt-run-saved";
+
 export const ARBI_SCHED_GET = "arbi-sched:get";
 export const ARBI_SCHED_SET_OCCURRENCE = "arbi-sched:set-occurrence";
 export const ARBI_SCHED_SET_FAVORITE = "arbi-sched:set-favorite";

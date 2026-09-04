@@ -8,6 +8,7 @@ import { tr } from "./i18n.js";
 import { handleWfmNotification } from "./wfmNotifications.js";
 import { statusText } from "../stores/app.js";
 import { pendingArbiRunId, subscribeArbiRunSaved } from "../stores/arbiRuns.js";
+import { subscribePtRunSaved } from "../stores/ptRuns.js";
 import { currentView } from "../stores/app.js";
 import { inventoryModifiedAt, itemDb, parsedItems } from "../stores/data.js";
 import { masteryData } from "../stores/mastery.js";
@@ -50,6 +51,7 @@ async function refreshInventoryModifiedAt(): Promise<void> {
 export function initRendererEvents(): () => void {
   const unsubscribes = [
     subscribeArbiRunSaved(),
+    subscribePtRunSaved(),
 
     on("inventory-updated", async (data) => {
       if (data && !(data as { error?: unknown }).error) {

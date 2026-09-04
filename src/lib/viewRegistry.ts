@@ -44,7 +44,7 @@ export const VIEW_LABEL_KEYS: Record<ViewName, MessageKey> = {
   relics: "common.relics",
   wiki: "common.wiki",
   rivens: "common.rivens",
-  arbi: "common.arbitrations",
+  arbi: "nav.runAnalysis",
   settings: "common.settings",
 };
 

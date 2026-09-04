@@ -22,6 +22,7 @@ import * as rivenOverlayIpc from "./rivenOverlayIpc";
 import * as rewardOverlayIpc from "./rewardOverlayIpc";
 import * as arbiOverlayIpc from "./arbiOverlayIpc";
 import * as arbiRunTracker from "../services/arbiRunTracker";
+import * as ptRunTracker from "../services/profitTakerTracker";
 import * as wfmPresence from "../services/wfmPresence";
 import * as inventorySync from "../services/inventorySync";
 import { setOcrDebugDumpsEnabled } from "../services/rewardScanDebug";
@@ -403,6 +404,7 @@ function register(): void {
       settingsController.registerOverlayHotkey();
       applyOverlayAvailabilitySettings(previousSettings);
       arbiRunTracker.setArbiTrackingEnabled(settings.arbiTrackingEnabled !== false);
+      ptRunTracker.setPtTrackingEnabled(settings.arbiTrackingEnabled !== false);
       if (settings.keepRunningOnClose === true) createTray();
       else destroyTray();
       setOcrDebugDumpsEnabled(settings.ocrDebugImagesEnabled !== false);

@@ -103,7 +103,7 @@ test.describe("Feature tour", () => {
       "View and manage your warframe.market orders",
       "Browse shows public buy and sell orders",
       "Use these tabs for unveiled Rivens",
-      "Arbitration runs are recorded automatically",
+      "Arbitration and Profit-Taker runs are recorded automatically",
       "Search for an item",
       "Configure the relic",
       "Choose which tabs",
